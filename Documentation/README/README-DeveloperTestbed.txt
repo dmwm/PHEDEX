@@ -16,7 +16,7 @@
 {\listlevel\levelnfc4\levelnfcn4\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid67698713\'02\'07.;}{\levelnumbers\'01;}\chbrdr\brdrnone\brdrcf1 \chshdng0\chcfpat1\chcbpat1 \fi-360\li5760
 \jclisttab\tx5760\lin5760 }{\listlevel\levelnfc2\levelnfcn2\leveljc2\leveljcn2\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid67698715\'02\'08.;}{\levelnumbers\'01;}\chbrdr\brdrnone\brdrcf1 \chshdng0\chcfpat1\chcbpat1 
 \fi-180\li6480\jclisttab\tx6480\lin6480 }{\listname ;}\listid1356925417}}{\*\listoverridetable{\listoverride\listid1356925417\listoverridecount0\ls1}}{\*\rsidtbl \rsid5772644\rsid6378799}{\info{\title Node Testbed deployment and user guide}
-{\author Tim Barrass}{\operator Tim Barrass}{\creatim\yr2004\mo7\dy28\hr12\min36}{\revtim\yr2004\mo7\dy28\hr16\min3}{\version7}{\edmins22}{\nofpages1}{\nofwords787}{\nofchars4489}{\*\company University of Bristol}{\nofcharsws5512}{\vern24577}}
+{\author Tim Barrass}{\operator Tim Barrass}{\creatim\yr2004\mo7\dy28\hr12\min36}{\revtim\yr2004\mo7\dy28\hr17\min9}{\version9}{\edmins26}{\nofpages1}{\nofwords885}{\nofchars5050}{\*\company University of Bristol}{\nofcharsws6201}{\vern24577}}
 \margl359\margr359 \ftnbj\aenddoc\noxlattoyen\expshrtn\noultrlspc\dntblnsbdb\nospaceforul\hyphcaps0\formshade\horzdoc\dgmargin\dghspace180\dgvspace180\dghorigin1701\dgvorigin1984\dghshow0\dgvshow0
 \jexpand\viewkind4\viewscale100\pgbrdrhead\pgbrdrfoot\splytwnine\ftnlytwnine\htmautsp\nolnhtadjtbl\useltbaln\alntblind\lytcalctblwd\lyttblrtgr\lnbrkrule\nobrkwrptbl\rsidroot12669697 \fet0\sectd 
 \linex0\headery708\footery708\colsx708\endnhere\sectdefaultcl\sectrsid6378799\sftnbj {\*\pnseclvl1\pnucrm\pnstart1\pnindent720\pnhang{\pntxta .}}{\*\pnseclvl2\pnucltr\pnstart1\pnindent720\pnhang{\pntxta .}}{\*\pnseclvl3\pndec\pnstart1\pnindent720\pnhang
@@ -175,8 +175,8 @@ y local directories, copying files between them using cp. Files are registered i
 \par 
 \par }{\dbch\f15\insrsid5772644\charrsid6378799 
 \par }{\dbch\f15\insrsid6378799\charrsid6378799 
-\par \hich\af6\dbch\af15\loch\f6 3. Use
-\par \hich\af6\dbch\af15\loch\f6 ------
+\par \hich\af6\dbch\af15\loch\f6 3. }{\dbch\f15\insrsid5772644\charrsid6378799 \hich\af6\dbch\af15\loch\f6 One-time }{\dbch\f15\insrsid6378799\charrsid6378799 \hich\af6\dbch\af15\loch\f6 Use
+\par \hich\af6\dbch\af15\loch\f6 ------}{\dbch\f15\insrsid5772644\charrsid6378799 \hich\af6\dbch\af15\loch\f6 ---------}{\dbch\f15\insrsid6378799\charrsid6378799 
 \par 
 \par 
 \par 
@@ -220,12 +220,24 @@ ibe to a set of datasets by making an entry in the TMDB t_subscriptions table [t
 \par 
 \par \hich\af6\dbch\af15\loch\f6 We can run the allocator once to pick up the new files and allocate them to the sink based on the subscription information in the TMDB.
 \par 
-\par 
-\par 
-\par }{\dbch\f15\insrsid6378799\charrsid6378799 
+\par \tab \hich\af6\dbch\af15\loch\f6 cd /NodeT\hich\af6\dbch\af15\loch\f6 estbed\hich\af6\dbch\af15\loch\f6 /TestbedManagement/scripts
+\par \tab \hich\af6\dbch\af15\loch\f6 ./Allocator.pl \endash \hich\af6\dbch\af15\loch\f6 no-\hich\af6\dbch\af15\loch\f6 updates \endash \hich\af6\dbch\af15\loch\f6 once \endash \hich\af6\dbch\af15\loch\f6 period \hich\af6\dbch\af15\loch\f6 1 \endash 
+\hich\af6\dbch\af15\loch\f6 w \hich\af6\dbch\af15\loch\f6 ../work \\
+\par }\pard \s15\ql \fi720\li720\ri0\widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin720\itap0\pararsid5772644 {\dbch\f15\insrsid5772644\charrsid6378799 \endash \hich\af6\dbch\af15\loch\f6 db \hich\af6\dbch\af15\loch\f6 <your_tmdb_tnsname>
+\par }\pard \s15\ql \li0\ri0\widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin0\itap0\pararsid6378799 {\dbch\f15\insrsid5772644\charrsid6378799 \tab 
+\par \hich\af6\dbch\af15\loch\f6 This runs the allocator agent once without making any updates on the TMDB\loch\af6\dbch\af15\hich\f6 \u8230\'85\hich\af6\dbch\af15\loch\f6  it should display a log indicat\hich\af6\dbch\af15\loch\f6 ing that it found the 
+\hich\af6\dbch\af15\loch\f6 5 \hich\af6\dbch\af15\loch\f6 new files\hich\af6\dbch\af15\loch\f6  created above, and indicating which destinations it would allocate those files. Note that if we hadn\rquote \hich\af6\dbch\af15\loch\f6 
+t made a subscription above, and if we hadn\rquote \hich\af6\dbch\af15\loch\f6 
+t specified no-updates, the allocator would make a blank entry in the subscriptions table to warn a distribution manager that a new dataset had entered distribution and needed toe be allocated to a destination\loch\af6\dbch\af15\hich\f6 \u8230\'85}{
+\dbch\f15\insrsid6378799\charrsid6378799 
 \par 
 \par 
 \par \hich\af6\dbch\af15\loch\f6 3}{\dbch\f15\insrsid5772644\charrsid6378799 \hich\af6\dbch\af15\loch\f6 c}{\dbch\f15\insrsid6378799\charrsid6378799 \hich\af6\dbch\af15\loch\f6 . Using transfer agents\hich\af6\dbch\af15\loch\f6 
  to transfer data to a simple sink node
-\par \hich\af6\dbch\af15\loch\f6 ----------------------------------------------------------------
+\par \hich\af6\dbch\af15\loch\f6 ----------------------------------------------------------------}{\dbch\f15\insrsid5772644\charrsid6378799 
+\par 
+\par 
+\par 
+\par \hich\af6\dbch\af15\loch\f6 4. Steady-state use
+\par \hich\af6\dbch\af15\loch\f6 -------------------}{\dbch\f15\insrsid6378799\charrsid6378799 
 \par }}
