@@ -38,9 +38,10 @@ list_dso_assignments() {
     "http://cmsdoc.cern.ch/cms/production/www/cgi/SQL/DsOwnToAs.php?DatasetName=$dataset&OutputOwner=$owner&scriptstep=1"
 
   # Find the matches
-  $verbose && echo -n "$dataset.$owner "
-  egrep "Assignments.*<TD>" < $tmp |
-    sed 's/.*<TD>//; s/[^0-9]/ /g; s/  */ /'
+  echo \
+   $(egrep "Assignments.*<TD>" < $tmp | sed 's/.*<TD>//; s/[^0-9]/ /g; s/  */ /') \
+   $($verbose && echo "$dataset.$owner")
+ 
 
   # Nuke temp
   rm -f $tmp
