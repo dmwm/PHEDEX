@@ -16,6 +16,7 @@
 # -no-updates			disables database updates
 # -once                 only runs once
 # -period               period over which the agent will loop
+# -infinity             max expected route length
 #
 # You should provide a working dir name on the command line:
 # a pid file will be stored there during running, and to stop the
@@ -34,7 +35,8 @@ $g_db_user;			# Oracle user
 $g_db_passwd;		# Oracle password
 $g_parent_node = 'default_parent';		# parent node name
 $g_once;				# 1 means will only run once
-$g_period;              # time between iterations
+$g_period = 1;              # time between iterations
+$g_infinity = 10;            # maximum expected route length
 
 # ###############################################################
 # Main agent loop
@@ -196,9 +198,17 @@ sub compare_with_existing_routes {
     $query->execute;
     while (@row = $query->fetchrow_array) {
         foreach (@row) { s/ //g; }
-        my $gate_time_hops = "$row[0]:$row[2]:$row[3]";
 	if (exists $gate_time_hops_by_dest{$row[1]} ){ log_entry( "Something wrong in routing: multiple entries for $row[1] under $g_parent_node table!" ); }
-        $gate_time_hops_by_dest{$row[1]} = $gate_time_hops;
+	my $gate_time_hops;
+	# split horizon with poisoned reverse
+	if ($row[0] eq $g_parent_node) {
+	    # ignore completely for split horizon
+	    # set $row[3] to $g_infinity for poisoned reverse
+	    $gate_time_hops = "$row[0]:$row[2]:$g_infinity";
+	} else {
+	    $gate_time_hops = "$row[0]:$row[2]:$row[3]";
+	}
+	$gate_time_hops_by_dest{$row[1]} = $gate_time_hops;
     }
     $query->finish();
     $dbh->disconnect();
@@ -245,7 +255,8 @@ sub parse_command_line {
 		'dbpasswd=s' => \$g_db_passwd,
 		"no-updates" => \$g_no_updates,
 		"once" => \$g_once,
-		"period=s" => \$g_period
+		"period=s" => \$g_period,
+		"infinity=s" => \$g_infinity
 		);
     
     if ($g_once) {
@@ -253,6 +264,9 @@ sub parse_command_line {
     }
     if ($g_period) {
         log_entry( "loop period is $g_period" );
+    }
+    if ($g_infinity) {
+        log_entry( "max expected route length is $g_infinity" );
     }
     if ($g_parent_node) {
 	log_entry( "parent node is $g_parent_node" );
