@@ -2,7 +2,7 @@
 
 BEGIN { use strict; use warnings;
   my $me = $0; $me =~ s|.*/||;
-  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+  my $home = $0; $home =~ s|/[^/]+$||; $home ||= "../Toolkit/Common";
   unshift(@INC, $home); }
 use UtilsTR;
 
