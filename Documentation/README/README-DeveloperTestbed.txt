@@ -146,8 +146,8 @@ NodeManager.pl new-neighbours
 
 
 
-2g. Deploying a simple management node
---------------------------------------
+2g. Deploying a management node
+-------------------------------
 
 Create a simple management node with a allocating and file routing agents. First define the directory 
 structure

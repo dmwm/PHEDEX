@@ -23,6 +23,8 @@ while (scalar @ARGV)
     { shift (@ARGV); $g_user = shift(@ARGV); }
     elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
     { shift (@ARGV); $g_pass = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-management' && scalar @ARGV > 1)
+    { shift (@ARGV); $g_management = 1 }
     else
     { last; }
 }
@@ -44,24 +46,23 @@ print "Checking code out from CVS... ";
 system("cd $g_basepath/$g_nodename; cvs -q co AgentToolkitExamples");
 print "ok\n";
 
+if ($g_management == 0) {
+    print "Deploying agents from CVS... ";
+    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/Routing/Node-Router.pl $g_basepath/$g_nodename/scripts; chmod u+x $g_basepath/$g_nodename/scripts/Node-Router.pl");
+    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/FileDiskExport $g_basepath/$g_nodename/scripts");
+    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/DropTMDBPublisher $g_basepath/$g_nodename/scripts");
+    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/DropCatPublisher $g_basepath/$g_nodename/scripts");
+    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/DropXMLUpdate $g_basepath/$g_nodename/scripts");
+    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/DropFileCheck $g_basepath/$g_nodename/scripts");
+    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/Utils* $g_basepath/$g_nodename/scripts");
+    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/FileDownload* $g_basepath/$g_nodename/scripts");
+    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/Managers/NodeManager.pl .");
+    print "ok\n";
 
-print "Deploying agents from CVS... ";
-chdir("scripts");
-system("cp $g_basepath/$g_nodename/AgentToolkitExamples/Routing/Node-Router.pl $g_basepath/$g_nodename/scripts; chmod u+x $g_basepath/$g_nodename/scripts/Node-Router.pl");
-system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/FileDiskExport $g_basepath/$g_nodename/scripts");
-system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/DropTMDBPublisher $g_basepath/$g_nodename/scripts");
-system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/DropCatPublisher $g_basepath/$g_nodename/scripts");
-system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/DropXMLUpdate $g_basepath/$g_nodename/scripts");
-system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/DropFileCheck $g_basepath/$g_nodename/scripts");
-system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/Utils* $g_basepath/$g_nodename/scripts");
-system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/FileDownload* $g_basepath/$g_nodename/scripts");
-system("cp $g_basepath/$g_nodename/AgentToolkitExamples/Managers/NodeManager.pl .");
-print "ok\n";
-
-print "Creating local mapping, start and stop scripts... ";
+    print "Creating local mapping and start scripts... ";
 # [ FIXME: This is horrible, but relies on local-specific variables... ]
-open(OUT,">$g_basepath/$g_nodename/scripts/FilenameMap");
-print OUT
+    open(OUT,">$g_basepath/$g_nodename/scripts/FilenameMap");
+    print OUT
     '#!/bin/sh'."\n"
     .'dataset= lfn='."\n"
     .'for arg; do'."\n"
@@ -75,23 +76,49 @@ print OUT
     ."mkdir -p $g_basepath/$g_nodename/SE/".'$dataset'."\n"
     ."fullpath=$g_basepath/$g_nodename/SE/".'$dataset/$lfn'."\n"
     .'echo $fullpath'."\n";
-close(OUT);
+    close(OUT);
 
-system("touch $g_basepath/$g_nodename/start.sh");
-open(OUT,">$g_basepath/$g_nodename/start.sh");
-open(IN,"start.sh-template");
-while(<IN>) {
-    s/<base>/$g_basepath/g;
-    s/<node>/$g_nodename/g;
-    s/<db>/$g_db/g;
-    s/<user>/$g_user/g;
-    s/<pass>/$g_pass/g;
-    s/<cat>/$g_cat/g;
-    print OUT "$_";
+    system("touch $g_basepath/$g_nodename/start.sh");
+    open(OUT,">$g_basepath/$g_nodename/start.sh");
+    open(IN,"start.sh-template");
+    while(<IN>) {
+	s/<base>/$g_basepath/g;
+	s/<node>/$g_nodename/g;
+	s/<db>/$g_db/g;
+	s/<user>/$g_user/g;
+	s/<pass>/$g_pass/g;
+	s/<cat>/$g_cat/g;
+	print OUT "$_";
+    }
+    close(IN);
+    close(OUT);
+    print "ok\n";
+} else {
+    print "Deploying agents from CVS... ";
+    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/Configuration/Allocator.pl $g_basepath/$g_nodename/scripts");
+    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/FileRouter $g_basepath/$g_nodename/scripts");
+    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/Utils* $g_basepath/$g_nodename/scripts");
+    print "ok\n";
+
+    print "Creating start script... ";
+    system("touch $g_basepath/$g_nodename/start.sh");
+    open(OUT,">$g_basepath/$g_nodename/start.sh");
+    open(IN,"start.sh-mgmt-template");
+    while(<IN>) {
+        s/<base>/$g_basepath/g;
+        s/<node>/$g_nodename/g;
+        s/<db>/$g_db/g;
+        s/<user>/$g_user/g;
+        s/<pass>/$g_pass/g;
+        s/<cat>/$g_cat/g;
+        print OUT "$_";
+    }
+    close(IN);
+    close(OUT);
+    print "ok\n";
 }
-close(IN);
-close(OUT);
 
+print "Creating stop script... "
 system("touch $g_basepath/$g_nodename/stop.sh");
 open(OUT,">$g_basepath/$g_nodename/stop.sh");
 open(IN,"stop.sh-template");
@@ -107,6 +134,7 @@ while(<IN>) {
 close(IN);
 close(OUT);
 print "ok\n";
+
 
 
 $cmd = "NodeManager.pl add-node "

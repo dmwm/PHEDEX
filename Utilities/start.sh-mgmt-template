@@ -1,0 +1,33 @@
+#!/bin/sh
+
+export PHEDEX_BASE=<base>
+export PHEDEX_STATE=${PHEDEX_BASE}/<node>/work
+export PHEDEX_TMDB=<db>
+export PHEDEX_USER=<user>
+export PHEDEX_PASS=<pass>
+export PHEDEX_LOGS=${PHEDEX_BASE}/<node>/logs
+export PHEDEX_NODE=<node>
+export PHEDEX_CATALOGUE=<cat>
+export PHEDEX_SCRIPTS=${PHEDEX_BASE}/<node>/scripts
+
+export PERL5LIB=${PHEDEX_SCRIPTS}
+
+[ -e $PHEDEX_STATE/allocator         ] || mkdir -p $PHEDEX_STATE/allocator
+[ -e $PHEDEX_STATE/router            ] || mkdir -p $PHEDEX_STATE/router
+
+nohup ${PHEDEX_SCRIPTS}/Allocator.pl \
+    -db ${PHEDEX_TMDB} \
+    -user ${PHEDEX_USER} \
+    -passwd ${PHEDEX_PASS} \
+    -period 7 \
+    -w ${PHEDEX_STATE}/allocator \
+    >> ${PHEDEX_LOGS}/allocator 2>&1 < /dev/null &
+
+nohup ${PHEDEX_SCRIPTS}/FileRouter \
+    -db ${PHEDEX_TMDB} \
+    -user ${PHEDEX_USER} \
+    -passwd ${PHEDEX_PASS} \
+    -node ${PHEDEX_NODE} \
+    -state ${PHEDEX_STATE}/inbox \
+    >> ${PHEDEX_LOGS}/router 2>&1 < /dev/null &
+
