@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+
+##H FIXME: Brief intro
+##H
+##H Usage: TRSyncWeb REQUEST...
+##H
+##H REQUEST is the request directory previously created with TRNew.
+##H Synchronises the web database for the requests.
+
+use UtilsTR;
+use UtilsNet;
+use File::Path;
+use Cwd;
+
+my $now = time();
+
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+	&usage();
+    } elsif ($ARGV[0] eq '--') {
+	shift (@ARGV); last;
+    } elsif ($ARGV[0] =~ '^-') {
+	&usage ("$0: unrecognised option $ARGV[0]\n\n");
+    } else {
+	last;
+    }
+}
+
+foreach my $request (@ARGV)
+{
+    -f "$request/Request/Ticket"
+        or die "$request: not a transfer request\n";
+
+    # Append to the ticket
+    (open (TICKET, ">> $request/Request/Ticket")
+     && print(TICKET "$now CMD TRSYNCWEB @{[scalar getpwuid($<)]}\@@{[&getfullhostname()]}\n")
+     && close (TICKET))
+        or die "$request: cannot update ticket: $!\n";
+}
