@@ -2,8 +2,8 @@
 
 BEGIN { use strict; use warnings;
   my $me = $0; $me =~ s|.*/||;
-  my $home = $0; $home =~ s|/[^/]+$||; $home ||= "../Toolkit/Common";
-  unshift(@INC, $home); }
+  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+  unshift(@INC, "$home/../Toolkit/Common"); }
 use UtilsTR;
 
 print map { "$_->[0].$_->[1]\n" } &listDatasetOwners (&readPatterns (@ARGV));
