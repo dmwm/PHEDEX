@@ -9,12 +9,8 @@
 # The agent implements a version of the Routing Internet Protocol
 # algorithm (RFC 2543), detailed in X.
 #
-# It is configured with its own node name, the node names of its 
-# neighbours.
-#
 # Command line options
 # -name	<parent node>	parent node name
-# -n <neighbour list>	colon-separated list of neighbour names (e.g. INFN_Transfer:CERN_MSS)
 # -db <tns name>		sets the Oracle db to talk to
 # -w <workdir>			sets the workdir for the agent
 # -no-updates			disables database updates
@@ -22,6 +18,12 @@
 # You should provide a working dir name on the command line:
 # a pid file will be stored there during running, and to stop the
 # agent you should touch a file named "stop" within it.
+#
+# The agent determines who its neighbours are from the routing
+# table. It then refreshes its entry in its neighbours routing
+# information to maintain the link. It then compares the routing
+# information of each of its neighbours with its own, and modifies
+# it accordingly ( a hard bit ).
 
 use DBI;
 use Getopt::Long;
@@ -32,7 +34,7 @@ my $g_work_dir = '';	# place pid and stop files here...
 my $g_db = "devdb9";	# tnsname of Oracle db (tmdb)
 my $g_db_user;			# Oracle user
 my $g_db_passwd;		# Oracle password
-my $g_parent_node;		# parent node name
+my $g_parent_node = 'default_parent';		# parent node name
 my $g_once;				# 1 means will only run once
 
 # ###############################################################
@@ -48,6 +50,10 @@ close(PID);
 
 while(!(-e "$g_work_dir/stop")) {
 	if ($g_once) { system("touch $g_work_dir/stop"); }
+	
+	my @neighbours = &get_neighbours();
+	
+	log_entry( ENTRY = "@neighbours" );
 }
 
 
@@ -95,9 +101,38 @@ sub publish_availability {
 # ###############################################################
 # Subroutines
 # ###############################################################
+sub get_neighbours {
+	my %args = (
+		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
+		DB_USER => 'some_user',
+		DB_PASSWD => 'some_password',
+		@_
+	);
+	
+	my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
+						 	'$args{DB_USER}', 
+						 	'$args{DB_PASSWD}', 
+						 	{ RaiseError=>1, AutoCommit =>1 });
+	
+	my @neighbours = ();
+	my $query = "select gateway "
+				."from t_Routing "
+				."where from_node = 'Foo' "
+				."and to_node = gateway";
+	$query->execute;
+	while (@row = $query->fetchrow_array) {
+	    $row[0] =~ s/ //g;
+	    push(@neighbours,@row[0]);
+	}
+	$query->finish();
+	
+	$dbh->disconnect();
+
+	return @neighbours;	
+}
+
 sub parse_command_line () {
 	GetOptions(	"name" => \$g_parent_node,
-				"n" => \$neighbour_list,
 				'w=s' => \$new_work_dir,
 				'db=s' => \$g_db,
 				'dbuser=s' => \$g_db_user,
@@ -110,6 +145,9 @@ sub parse_command_line () {
 	
 	if ($g_once) {
 		$entry = $entry."only running once,";
+	}
+	if ($g_parent_node) {
+		$entry = $entry."parent node is $g_parent_node,";
 	}
 	if (!$new_work_dir) {
 		$g_work_dir = ".";
