@@ -1,4 +1,4 @@
-package UtilsNet; use strict; require Exporter; use vars '@EXPORT';
+package UtilsNet; use strict; use Exporter; use vars '@EXPORT';
 require Socket;
 use Net::hostent;
 @EXPORT = qw(getfullhostname getURL);

@@ -82,10 +82,7 @@ if (scalar @ARGV || !$args{DROPDIR} || !$ENV{STAGE_HOST} || !$ENV{STAGE_POOL}
 
 ######################################################################
 # Routines specific to this agent.
-package DropFunnel;
-use strict;
-use Exporter;
-use POSIX; # qw(strftime sys_wait_h);
+package DropFunnel; use strict; use Exporter;
 use Data::Dumper;
 use File::Path;
 use UtilsCommand;

@@ -1,6 +1,4 @@
-package UtilsAgent;
-use strict;
-require Exporter;
+package UtilsAgent; use strict; use Exporter; use vars '@EXPORT';
 use POSIX;
 use UtilsCommand;
 use UtilsLogging;

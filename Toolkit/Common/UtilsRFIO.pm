@@ -1,4 +1,4 @@
-package UtilsRFIO; use strict; require Exporter; use vars '@EXPORT';
+package UtilsRFIO; use strict; use Exporter; use vars '@EXPORT';
 @EXPORT = qw(rfstat rfmkpath rflist rfsubdirs rffiles rfcp rfrm rfrmall rfcpmany);
 
 # Check if a RFIO file exists.  Returns undef if the file

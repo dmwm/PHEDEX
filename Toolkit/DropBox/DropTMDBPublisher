@@ -59,9 +59,7 @@ if (scalar @ARGV || !$args{DROPDIR}
 
 ######################################################################
 # Routines specific to this agent.
-package DropTMDBPublisher;
-use strict;
-use Exporter;
+package DropTMDBPublisher; use strict; use Exporter;
 use File::Path;
 use UtilsCommand;
 use UtilsLogging;

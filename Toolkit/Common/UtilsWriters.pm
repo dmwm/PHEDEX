@@ -1,4 +1,4 @@
-package UtilsWriters; use strict; require Exporter; use vars '@EXPORT';
+package UtilsWriters; use strict; use Exporter; use vars '@EXPORT';
 @EXPORT = qw(genXMLPreamble genXMLTrailer genXMLCatalogue outputCatalog);
 
 sub genXMLPreamble

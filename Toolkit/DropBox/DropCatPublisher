@@ -51,9 +51,7 @@ if (scalar @ARGV || !$args{DROPDIR} || !$args{CATALOGUE})
 
 ######################################################################
 # Routines specific to this agent.
-package DropCatPublisher;
-use strict;
-use Exporter;
+package DropCatPublisher; use strict; use Exporter;
 use File::Path;
 use UtilsCommand;
 use UtilsLogging;

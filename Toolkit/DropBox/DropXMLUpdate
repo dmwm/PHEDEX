@@ -67,9 +67,7 @@ if (scalar @ARGV || !$args{DROPDIR})
 
 ######################################################################
 # Routines specific to this agent.
-package DropXMLUpdate;
-use strict;
-use Exporter;
+package DropXMLUpdate; use strict; use Exporter;
 use File::Path;
 use UtilsCommand;
 use UtilsLogging;

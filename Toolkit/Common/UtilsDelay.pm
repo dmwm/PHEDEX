@@ -1,4 +1,4 @@
-package UtilsDelay; use strict; require Exporter; use vars '@EXPORT';
+package UtilsDelay; use strict; use Exporter; use vars '@EXPORT';
 @EXPORT = qw(readDelayModel sampleDelayModel delayStatistically);
 
 # Read a delay model

@@ -1,4 +1,4 @@
-package UtilsTiming; use strict; require Exporter; use vars '@EXPORT';
+package UtilsTiming; use strict; use Exporter; use vars '@EXPORT';
 @EXPORT = qw(timeStart elapsedTime formatElapsedTime mytimeofday);
 
 # Timing utilities.  First define higher-resolution timing via

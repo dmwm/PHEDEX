@@ -36,9 +36,7 @@ if (scalar @ARGV || !$args{DROPDIR})
 
 ######################################################################
 # Routines specific to this agent.
-package DropNullAgent;
-use strict;
-use Exporter;
+package DropNullAgent; use strict; use Exporter;
 use File::Path;
 use UtilsCommand;
 use UtilsLogging;

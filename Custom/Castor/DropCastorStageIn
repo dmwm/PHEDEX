@@ -64,9 +64,7 @@ if (scalar @ARGV || !$args{DROPDIR})
 
 ######################################################################
 # Routines specific to this agent.
-package DropCastorStageIn;
-use strict;
-use Exporter;
+package DropCastorStageIn; use strict; use Exporter;
 use File::Path;
 use Data::Dumper;
 use UtilsCommand;
