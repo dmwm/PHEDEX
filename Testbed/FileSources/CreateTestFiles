@@ -29,7 +29,7 @@ while ($count > 0) {
         print "Problem registering pfn\n@output\n";
         exit(1);
     } else {
-        $guid = $output[$#output-1];
+        $guid = $output[$#output];
     }
     print "$guid\n";
     
