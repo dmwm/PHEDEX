@@ -1,3 +1,21 @@
+-- create primary key into index tablespace
+-- create indices for foreign keys, otherwise locks entire table on update
+-- index/hash organised table (iot) for t_routing, t_replica_state?
+-- www.cern.ch/it-db -> Oracle @ CERN -> Sessions -> pdb01/cms -> login
+-- explain plan for ...
+-- @?/rdbms/admin/utilxpls.sql
+-- desc dbms_stats (in oradoc)
+-- analyze
+-- set timing on
+-- oradoc.cern.ch
+-- sqlplus / l / 16 / del / &foo
+-- create trigger for transfer history
+
+
+
+
+
+
 --  as cms_transfermgmt
 
 create table t_nodes
@@ -5,6 +23,13 @@ create table t_nodes
 	 host_string		varchar (50),
 	 catalogue_contact	varchar (1000),
 	 primary key		(node_name));
+
+-- create table t_nodes
+--         (node_name              varchar (20)    not null,
+--         host_string            varchar (50),
+--          catalogue_contact      varchar (1000);
+-- ALTERTTABLE T_NODES ADD CONSTRAINT T_NODE_PK PRIMARY KEY (NODE_NAME) TABLESPACE XXXX;
+
 create table t_routing
 	(from_node		varchar (20)	not null,
 	 to_node		varchar (20)	not null,
