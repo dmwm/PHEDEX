@@ -56,7 +56,7 @@ while(!(-e "$g_work_dir/stop")) {
     
     # TODO: publish availability
 
-    # TODO: Refresh acquanitance with neighbours
+    &refresh_neighbour_links;
     
     if (@new_routes = &get_new_routes) { 
 	log_entry( "Found new routes" ); 
@@ -134,13 +134,11 @@ sub direct_db_transaction {
 # ###############################################################
 # Subroutines
 # ###############################################################
-sub refresh_acquaintance {
-    my $neighbour = shift;
+sub refresh_neighbour_links {
     my $time = time();
     my $update = "update t_Routing "
 	."set timestamp = $time "
-	."where from_node = '$neighbour' "
-	."and to_node = '$g_parent_node' "
+	."where to_node = '$g_parent_node' "
 	."and gateway = '$g_parent_node'";
     direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
 }
