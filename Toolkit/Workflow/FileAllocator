@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/29 10:59:07 $
-# $Id: Allocator.pl,v 1.44 2004/07/29 10:59:07 barrass Exp $
+# $Date: 2004/07/29 11:01:18 $
+# $Id: Allocator.pl,v 1.45 2004/07/29 11:01:18 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -93,9 +93,11 @@ while(!(-e "$g_work_dir/stop")) {
                 } else {
                     my $time = time();
                     log_entry( "$guid source: $source_node_by_guid{$guid} dest: $dest via: $gateway" );
+                    my $goal = "insert into t_destinations "
+                            ."values ('$guid','$dest')";
                     my $advert = "insert into t_file_state "
                             ."values ('$guid','$gateway',1,'$source_node_by_guid{$guid}',$time)";
-                    push( @sql, $advert );
+                    push( @sql, $advert, $goal );
                 }
             }
             
@@ -103,7 +105,9 @@ while(!(-e "$g_work_dir/stop")) {
             push( @sql, $update );
             
         } else {
-            add_new_stream_to_subscriptions( $dataset_by_new_guid{$guid} );
+            log_entry( "New stream for subscriptions- $new_stream" );
+            my $new_stream = "insert into t_subscriptions values ('','$dataset_by_new_guid{$guid}')";
+            push( @sql, $new_stream );
         }
     }
     
@@ -233,22 +237,6 @@ sub do_sql {
         }
         return 1;
     }
-}
-
-sub add_new_stream_to_subscriptions {
-    my $new_stream = shift;
-
-    my $insert = "insert into t_subscriptions values ('','$new_stream')";
-
-    my $dbh = DBI->connect(    "DBI:Oracle:$g_db",
-					    $g_user,
-					    $g_passwd,
-					    { RaiseError=>1, AutoCommit =>1 });
-
-    log_entry( "New stream for subscriptions- $new_stream" );
-    $dbh->do($insert) if (!$g_no_updates);
-
-    $dbh->disconnect;
 }
 
 sub get_source_nodes {
