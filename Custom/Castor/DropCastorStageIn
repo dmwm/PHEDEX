@@ -68,7 +68,7 @@ sub fileProperties
     if (! exists $cache->{$pfn})
     {
 	# Fill cache for the whole directory
-	my $dir = $pfn; $dir =~ s|[^/]+$||;
+	my $dir = $pfn; $dir =~ s|/[^/]+$||;
 	open (NSLS, "nsls -lT $dir |") || return (0, undef, undef, undef);
 	while (<NSLS>)
 	{
