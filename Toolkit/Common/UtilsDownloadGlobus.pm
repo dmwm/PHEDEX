@@ -11,13 +11,13 @@ sub new
 
     # Ensure batch transfers are supported by globus-url-copy if requested.
     # Assume any 3.x or newer version does.
-    if ($args{BATCH_FILES} && $args{BATCH_FILES} > 1)
+    if ($self->{BATCH_FILES} > 1)
     {
 	if (! open (GUC, "globus-url-copy -version 2>&1 |")
 	    || grep (/^globus-url-copy:\s*(\d+)(\.\d*)*\s*$/ && $1 < 3, <GUC>))
 	{
 	    &logmsg ("turning off batch transfers, not supported by globus-url-copy");
-	    $args{BATCH_FILES} = 1;
+	    $self->{BATCH_FILES} = 1;
 	}
 	close (GUC);
     }
