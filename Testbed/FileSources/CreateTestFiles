@@ -35,10 +35,10 @@ EOF
 $trailer = "</POOLFILECATALOG>\n";
 
 for (; $count > 0; --$count) {
-    &mkpath ("$basedir/$setname/$setname.$count");
-    system ("touch $basedir/$setname/$setname.$count/go") or die;
-    open (CAT, "> $basedir/$setname/$setname.$count/XMLCatFragment.$setname.$count.xml") or die;
-    open (CKSUM, "> $basedir/$setname/$setname.$count/Checksum.$setname.$count.txt") or die;
+    my $dir = "$basedir/$setname/$setname.$count";
+    system ("touch $dir/go");
+    open (CAT, "> $dir/XMLCatFragment.$setname.$count.xml") or die;
+    open (CKSUM, "> $dir/Checksum.$setname.$count.txt") or die;
 
     print CAT $preamble;
     for ($i = 1; $i <= 10; ++$i) {
