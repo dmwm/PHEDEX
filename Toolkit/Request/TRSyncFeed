@@ -1,12 +1,21 @@
 #!/usr/bin/perl
 
-##H FIXME: Brief intro
+##H Pump drops from transfer requests to the agents.
 ##H
-##H Usage: TRSyncFeed ENTRY REQUEST...
+##H Usage: TRSyncFeed [-n] [-d] [-x] ENTRY DB TABLE REQUEST...
 ##H
 ##H REQUEST is the request directory previously created with TRNew.
 ##H Those drops ready in each request are moved to the mouth of the
-##H local drop box agent chain ENTRY.
+##H local drop box agent chain ENTRY.  DB is the name of the TMDB
+##H database (e.g. devdb9) and TABLE the name of the guid table
+##H (t_files_for_transfer for V2, filesfortransfer for V1).
+##H
+##H If the "-n" option is given, also checks the drops previously
+##H marked not ready.  If the "-d" option is given, checks also
+##H the previously marked done drops.  The "-x" option prevents
+##H any drop copying, causing the script to just verify the state.
+##H
+##H The drops successfully copied into ENTRY will be moved
 
 use UtilsTR;
 use UtilsNet;
@@ -14,11 +23,20 @@ use File::Path;
 use Cwd;
 
 my $now = time();
+my $doit = 1;
+my $check_not_ready = 0;
+my $check_done = 0;
 
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
 	&usage();
+    } elsif ($ARGV[0] eq '-d') {
+	$check_done = 1; shift (@ARGV);
+    } elsif ($ARGV[0] eq '-n') {
+	$check_not_ready = 1; shift (@ARGV);
+    } elsif ($ARGV[0] eq '-x') {
+	$doit = 0; shift (@ARGV);
     } elsif ($ARGV[0] eq '--') {
 	shift (@ARGV); last;
     } elsif ($ARGV[0] =~ '^-') {
@@ -28,16 +46,28 @@ while (scalar @ARGV)
     }
 }
 
-my $entry = shift;
-defined $entry && -d $entry or &usage();
+&usage() if scalar @ARGV < 3;
+my $mouth = shift (@ARGV);
+my $dbname = shift (@ARGV);
+my $table = shift (@ARGV);
+
 foreach my $request (@ARGV)
 {
     -f "$request/Request/Ticket"
         or die "$request: not a transfer request\n";
 
-    # Append to the ticket
-    (open (TICKET, ">> $request/Request/Ticket")
-     && print(TICKET "$now CMD TRSYNCFEED @{[scalar getpwuid($<)]}\@@{[&getfullhostname()]}\n")
-     && close (TICKET))
-        or die "$request: cannot update ticket: $!\n";
+    -d "$request/Drops"
+        or die "$request: no drops\n";
+
+    &mkpath ([ "$request/Drops/Done", "$request/Drops/NotReady" ]);
+
+    my @pending  = <$request/Drops/Pending/*>;
+    my @notready = $check_not_ready ? <$request/Drops/NotReady/*> : ();
+    my @done     = $check_done ? <$request/Drops/Done/*> : ();
+    my $status   = &checkAssignmentFiles ($mouth, $dbname, $table,
+	    				  @pending, @notready, @done);
+
+    &feedDropsToAgents ($mouth, 'Pending', $status, @pending);
+    &feedDropsToAgents ($mouth, 'NotReady', $status, @notready);
+    &feedDropsToAgents ($mouth, 'Done', $status, @done);
 }
