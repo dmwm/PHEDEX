@@ -34,7 +34,7 @@ my $maxhours = 60;		# Number of hours to retry stagein
 my $maxtapereqs = 4000;		# Max pending tape mounts
 my $maxmytapereqs = 1000;	# Max pending tape mounts by myself
 my $maxstagereqs = 200;		# Max pending stager requests
-my $maxfiles = 200;		# Max number of files in one request
+my $maxfiles = 50;		# Max number of files in one request
 
 $ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
 $ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
@@ -315,19 +315,31 @@ sub processAllFiles
 	# requests for arbitrarily long, and may even get stopped -- which
 	# isn't all that bad, we'll just think we lost the stage-in status
 	# and will retry.  Will be fixed by moving to use of PinDB.
-	my ($tapereqs, $mytapereqs, $stagereqs) = (&tapeMountLoad(), &stagerLoad());
-	do { &maybeStop(); sleep (30); }
-	    while (! defined $tapereqs
-		   || ! defined $mytapereqs
-		   || ! defined $stagereqs
-		   || $tapereqs > $maxtapereqs
-		   || $mytapereqs > $maxmytapereqs
-		   || $stagereqs > $maxstagereqs);
+	# FIXME: notice new drops
+	# FIXME: pass completed drops ahead before sleeping
+	my ($tapereqs, $mytapereqs, $stagereqs);
+	while (1)
+	{
+	    ($tapereqs, $mytapereqs, $stagereqs) = (&tapeMountLoad(), &stagerLoad());
+	    last if (defined $tapereqs
+	             && defined $mytapereqs
+	             && defined $stagereqs
+	             && $tapereqs <= $maxtapereqs
+	             && $mytapereqs <= $maxmytapereqs
+	             && $stagereqs <= $maxstagereqs);
+
+	    &maybeStop();
+	    $tapereqs = 'U' if ! defined $tapereqs;
+	    $mytapereqs = 'U' if ! defined $mytapereqs;
+	    $stagereqs = 'U' if ! defined $stagereqs;
+	    &note ("overloaded, sleeping ($tapereqs/$mytapereqs/$stagereqs)");
+	    sleep (120);
+	}
 
 	# Select the next up to $maxfiles to stage in
 	my $nfiles = ($#requests > $maxfiles ? $maxfiles : $#requests);
-	my @slice = @requests[0 .. $nfiles];
-	delete @requests[0 .. $nfiles];
+	my @slice = @requests[$#requests - $nfiles .. $#requests];
+	delete @requests[$#requests - $nfiles .. $#requests];
 
 	# Issue background stage-in
 	my $rc = &runcmd ("stagein", "--nowait", "--rdonly",
