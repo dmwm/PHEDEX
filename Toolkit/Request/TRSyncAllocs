@@ -14,6 +14,7 @@ BEGIN { use strict; use warnings;
 use UtilsTR;
 use UtilsNet;
 use File::Path;
+use DBI;
 use Cwd;
 
 my $now = time();
@@ -31,14 +32,49 @@ while (scalar @ARGV)
     }
 }
 
+&usage() if scalar @ARGV < 2;
+my $dbname = shift (@ARGV);
+my $table = shift (@ARGV);
+
 foreach my $request (@ARGV)
 {
     -f "$request/Request/Ticket"
         or die "$request: not a transfer request\n";
 
-    # Append to the ticket
-    (open (TICKET, ">> $request/Request/Ticket")
-     && print(TICKET "$now CMD TRSYNCALLOCS @{[scalar getpwuid($<)]}\@@{[&getfullhostname()]}\n")
-     && close (TICKET))
-        or die "$request: cannot update ticket: $!\n";
+    # Find out the dataset names 
+    my @destinations = ();
+    my @patterns = ();
+    open(TICKET, "< $request/Request/Ticket") or die "Cannot read ticket: $!\n";
+    while (<TICKET>)
+    {
+	if (/^\d+ CANCEL LOC$/) {
+	    @destinations = ();
+	} elsif (/^\d+ LOC (.*)$/) {
+	    push(@destinations, split(/\s+/, $1));
+        } elsif (/^\d+ CANCEL DATA$/) {
+	    @patterns = ();
+	} elsif (/^\d+ DATA XPATS\.[a-z] (.*)$/) {
+	    push(@patterns, map { [ split('.', $_) ] } split(/\s+/, $1));
+	}
+    }
+    close (TICKET) or die "Cannot read ticket: $!\n";
+
+    # Process each pair
+    my $dbh = DBI->connect ("DBI:Oracle:pdb01", # $self->{DBITYPE}:$self->{DBNAME}",
+	    		    "cms_transfermgmt", "smalland_round", # $self->{DBUSER}, $self->{DBPASS},
+			    { RaiseError => 1, AutoCommit => 0 });
+    foreach my $dso (@patterns)
+    {
+	my ($ds, $o) = @$dso;
+	foreach my $dest (@destinations)
+	{
+            print "Verifying subscription for $ds $dest\n";
+	    my $exists = $dbh->selectcol_arrayref(qq{
+		select count(*) from t_subscriptions
+		where destination = '$dest' and stream = '$ds'});
+	    print (qq{insert into t_subscriptions values ('$dest', '$ds')})
+		if ! $exists || ! $exists->[0];
+	    $dbh->commit();
+	}
+    }
 }
