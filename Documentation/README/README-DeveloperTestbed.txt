@@ -4,6 +4,11 @@ Node Testbed deployment and user guide
 1. Introduction
 ---------------
 
+The goal of this document is to enable developers to set up a local, self
+contained PhEDEx testbed system in which they can set up nodes, start agents,
+create files and test their own agents in their local environment without
+having to register new components with the global CMS distribution system.
+
 It is possible to set up a testbed network of PhEDEx distribution nodes on a 
 single machine. The nodes manage Storage Elements which are simply local 
 directories, copying files between them using cp. Files are registered in a 
@@ -46,64 +51,61 @@ Assuming mysql is running- create a POOL MySQL database called phedexcat
 
 
 
-2b. Oracle TMDB Installation
-----------------------------
-
-Eek.
-
-
-
-
 2b. Setup environment and download tools
 ----------------------------------------
 
 Begin to create the testbed directory structure. On your chosen testbed machine-
 
-	setenv NODETESTBED /NodeTestbed [ or whatever your chosen location is
-	mkdir $NODETESTBED
-	cd $NODETESTBED
+setenv NODETESTBED /NodeTestbed [ or whatever your chosen location is
+mkdir $NODETESTBED
+cd $NODETESTBED
 
-	setenv CVSROOT \
-:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/TMAgents
+setenv CVSROOT :pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/TMAgents
 	
-	cvs login
-		[ password is 98passwd ]
-	cvs co AgentToolkitExamples
-	cd AgentToolkitExamples/NodeTestbed
-	setenv POOL_CATALOG xmlcatalog_file:$NODETESTBED/TestbedCatalogue.xml
-	setenv PATH ${PATH}:${NODETESTBED}/AgentToolkitExamples/NodeTestbed
-	setenv PATH ${PATH}:${NODETESTBED}/AgentToolkitExamples/Managers
-	setenv PATH /afs/cern.ch/sw/lcg/app/spi/scram:${PATH}
-	cd /afs/cern.ch/sw/lcg/app/releases/POOL/POOL_1_6_5
-	eval `scram runtime -csh`
-	cd -
+cvs login
+#	[ password is 98passwd ]
+cvs co AgentToolkitExamples
+cd AgentToolkitExamples/NodeTestbed
+setenv POOL_CATALOG mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat
+setenv PATH ${PATH}:${NODETESTBED}/AgentToolkitExamples/NodeTestbed
+setenv PATH ${PATH}:${NODETESTBED}/AgentToolkitExamples/Managers
+setenv PATH /afs/cern.ch/sw/lcg/app/spi/scram:${PATH}
+cd /afs/cern.ch/sw/lcg/app/releases/POOL/POOL_1_6_5
+eval `scram runtime -csh`
+cd -
 
-You'll need to set the environment variables whenever you use the testbed…
-
-
+You'll need to set the environment variables whenever you use the testbed.
 
 
-2c. Deploying a simple (not full-functionality) source node
+2c. Oracle TMDB deployment
+--------------------------
+
+The Oracle TMDB schema can be found at $NODETESTBED/AgentDocs/V2OracleSchema.sql. Note that this schema is for the main TMDB at CERN: you will only need to create tables and indices, not grant priveleges to extra users or create synonyms.
+
+Note that you need Perl DBI, and DBD:Oracle installed as well.
+
+
+2d. Deploying a simple (not full-functionality) source node
 -----------------------------------------------------------
 
 Now create a node. First we define the directory structure
 
-	cd $NODETESTBED
-	mkdir TestbedSource1
-	mkdir TestbedSource1/scripts
-	mkdir TestbedSource1/logs
-	mkdir TestbedSource1/work
-	mkdir TestbedSource1/SE
+cd $NODETESTBED
+mkdir TestbedSource1
+mkdir TestbedSource1/scripts
+mkdir TestbedSource1/logs
+mkdir TestbedSource1/work
+mkdir TestbedSource1/SE
 
 Now register the node with the TMDB: in an SQL client
 
-	NodeManager.pl add-node \\
-		-name TBSource1 \\
-		-host $NODETESTBED/TestbedSource1/SE \\
-		-cat xmlcatalog_file:$NODETESTBED/TestbedCatalogue.xml \\
-		-db 'mysql:database=V2TMDB;host=<host>' \\
-		-user phedex \\
-		-password phedex 
+NodeManager.pl add-node \
+-name TBSource1 \
+-cat $POOL_CATALOG \
+-host $NODETESTBED/TestbedSource1/SE \
+-db <contact string> \
+-user <user> \
+-password <password> 
 
 DB contact strings are of the form mysql:database=V2TMDB;host=<host> for mysql, 
 or Oracle:<db tns name>, or Oracle:(complete connection string) for Oracle.
@@ -112,44 +114,67 @@ or Oracle:<db tns name>, or Oracle:(complete connection string) for Oracle.
 other methods by which you could contact databases (e.g. Oracle… ). See the Perl 
 DBI, and DBD::MySQL and DBD::Oracle documentation for further details. ]
 
+Now we need to deploy a routing agent that will maintain our routing tables for 
+this node
+
+cd $NODETESTBED/TestbedSource1/scripts
+cp $NODETESTBED/AgentToolkitExamples/Routing/Node-Router.pl .
+
+and add this agent to the TMDB
+
+NodeManager.pl add-agent \
+-name Source1_Router \
+-db <contact string> \
+-user <user> \
+-password <password>
+
+We then need to start the router running
+
+./Node-Router.pl -node TestbedSource1 
+-db <Oracle tns name only>
+-w $NODETESTBED/TestbedSource1/work 
+-dbuser <user> 
+-dbpasswd <password> 
+>& $NODETESTBED/TestbedSource1/logs/log &
 
 
-2d. Deploying a simple sink node
+
+2e. Deploying a simple sink node
 --------------------------------
 
 Now create a simple sink node with a transfer agent. First define the directory 
 structure
 
-	cd $NODETESTBED
-	mkdir TestbedSink1
-	mkdir TestbedSink1/scripts
-	mkdir TestbedSink1/logs
-	mkdir TestbedSink1/work
-	mkdir TestbedSink1/SE
+cd $NODETESTBED
+mkdir TestbedSink1
+mkdir TestbedSink1/scripts
+mkdir TestbedSink1/logs
+mkdir TestbedSink1/work
+mkdir TestbedSink1/SE
 
 Now register the node with the TMDB: in an SQL client
 
-	NodeManager.pl add-node \\
-		-name TBSink1 \\
-		-host $NODETESTBED/TestbedSink1/SE \\
-		-cat xmlcatalog_file:$NODETESTBED/TestbedCatalogue.xml \\
-		-db  'mysql:database=V2TMDB;host=<host>' \\
-		-user phedex \\
-		-password phedex 
+NodeManager.pl add-node \
+-name TestbedSink1 \
+-host $NODETESTBED/TestbedSink1/SE \
+-cat $POOL_CATALOG \
+-db <contact string> \
+-user <user> \
+-password <user> 
 
 Now create a route between the two
 
-	NodeManager.pl new-neighbours \\
-		-name TBSink1 \\
-		-neighbours TBSource1 \\
-		-db 'mysql:database=V2TMDB;host=<host>' \\
-		-user phedex \\
-		-password phedex
+NodeManager.pl new-neighbours \\
+-name TestbedSink1 \
+-neighbours TestbedSource1 \
+-db <contact string> \
+-user <user> \
+-password <password>
 
 Now deploy the transfer agent
 
-	cd TestbedSink1/scripts
-	cp $NODETESTBED/AgentToolkitExamples/Dropbox/ExampleTransfer* .
+cd TestbedSink1/scripts
+cp $NODETESTBED/AgentToolkitExamples/DropBox/FileDownload* .
 
 This will copy over two scripts: one is a master agent that handles the querying 
 of the TMDB for new guids for transfer- it manages a pool of instances of the 
@@ -157,47 +182,88 @@ other script, each of which handles a given transfer.
 
 Now register the agent with the TMDB
 	
-	NodeManager.pl add-agent \\
-		-name TBSink_Transfer \\
-		-db 'mysql:database=V2TMDB;host=<host>' \\
-		-user phedex \\
-		-password phedex
+NodeManager.pl add-agent \
+-name TestbedSink1_Transfer \
+-db <contact string> \
+-user <user> \\
+-password <password>
 
-[ To do.. add description of deployment of routing agent… ]
+And again we need to deploy a routing agent that will maintain our routing tables for
+this node
+
+cd $NODETESTBED/TestbedSink1/scripts
+cp $NODETESTBED/AgentToolkitExamples/Routing/Node-Router.pl .
+
+and add this agent to the TMDB
+
+NodeManager.pl add-agent \
+-name Sink1_Router \
+-db <contact string> \
+-user <user> \
+-password <password>
+
+We then need to start the router running
+
+./Node-Router.pl -node TestbedSink1
+-db <Oracle tns name only>
+-w $NODETESTBED/TestbedSource1/work
+-dbuser <user>
+-dbpasswd <password>
+>& $NODETESTBED/TestbedSink1/logs/log &
 
 
 
-2e. Deploying a simple management node
+
+
+2f. Deploying a simple management node
 --------------------------------------
 
-Create a simple management node with allocator agent. First define the directory 
+Create a simple management node with a allocating and file routing agents. First define the directory 
 structure
 
-	cd $NODETESTBED
-	mkdir TestbedManagement
-	mkdir TestbedManagement/scripts
-	mkdir TestbedManagement/logs
-	mkdir TestbedManagement/work
+cd $NODETESTBED
+mkdir TestbedManagement
+mkdir TestbedManagement/scripts
+mkdir TestbedManagement/logs
+mkdir TestbedManagement/work
+mkdir TestbedManagement/work/inbox
 
 Note that the management node has no storage space, no SE.
 
 Now register the node with the TMDB: in an SQL client
 
-	NodeManager.pl add-node \\
-		-name TBManagement \\
-		-host . \\
-		-cat . \\
-		-db 'mysql:database=V2TMDB;host=<host>' \\
-		-user phedex \\
-		-password phedex
+NodeManager.pl add-node \
+-name GLOBAL \
+-host nohost \
+-cat nocat \
+-db <contact string> \
+-user <user> \
+-password <user>
 
+Now deploy the management scripts
 
-[ To do… need to allow null entries here… ]
+cd TestbedManagement/scripts
+cp $NODETESTBED/AgentToolkitExamples/Managers/Allocator.pl .
+cp $NODETESTBED/AgentToolkitExamples/DropBox/FileRouter .
+cp $NODETESTBED/AgentToolkitExamples/DropBox/Utils* .
 
-Now deploy the management script
+and start them up
 
-	cd TestbedManagement/scripts
-	cp $NODETESTBED/AgentToolkitExamples/Managers/Allocator.pl .
+./Allocator.pl
+-db <Oracle tns name only>
+-user <user>
+-password <password>
+-w $NODETESTBED/TestbedManagement/work
+>& $NODETESTBED/TestbedManagement/logs/log &
+
+./FileRouter
+-db <Oracle tns name only>
+-dbuser <user>
+-dbpass {password}
+-node GLOBAL
+-state $NODETESTBED/TestbedManagement/work/inbox
+>& $NODETESTBED/TestbedManagement/logs/routerlog &
+
 
 
 
