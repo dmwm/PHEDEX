@@ -9,15 +9,17 @@ my %args = (LVERSION => ($lversion =~ /Scientific/ ? "SLC3" : "RH73"));
 
 &GetOptions("standalone" => \$args{STANDALONE},
 	    "cms"        => \$args{CMS},
+	    "arch=s"     => \$args{LVERSION},
 	    "help"       => \$args{HELP});
 
 $args{ROOT} = shift(@ARGV);
 
 if ($args{HELP} || (!$args{STANDALONE} && !$args{CMS}) || !$args{ROOT}) {
-    print "Usage: $0 [--help] { --cms | --standalone } DESTINATION\n";
+    print "Usage: $0 [--help] [--arch {RH73 | SLC3}] { --cms | --standalone } DESTINATION\n";
     print " --help        This help text\n";
     print " --cms         Use existing CMS software environment, ask scram for environment\n";
     print " --standalone  Make standalone installation from RPMs\n";
+    print " --arch        Force architecture to RH73 (default for non-RH OS) or SLC3\n";
     print "\nThe tools (for standalone installation) and the environment set up script will\n",
           "be installed into DESTINATION.\n";
     exit 1;
