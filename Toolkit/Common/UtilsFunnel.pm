@@ -2,7 +2,12 @@
 # master and slave -- master can optionally do part of the slaves' work
 # if there is no other work to be done.
 package UtilsFunnel; use strict; use warnings; use base 'Exporter';
-our @EXPORT = qw(flushFailed fetchQueuedFiles);
+our @EXPORT = qw(flushFailed fetchQueueFiles);
+use UtilsTiming;
+use UtilsRFIO;
+use UtilsLogging;
+use UtilsCommand;
+use File::Path;
 
 # Utility to log and cleanup from failed flush attempt
 sub flushFailed
@@ -79,7 +84,7 @@ sub fetchQueueFiles
 	next if ! -f "$predir/$lfn" && -f "$filesdir/$lfn";
 
 	return &flushFailed ($stats, $timing, "file size mismatch for $lfn", $predir)
-	    if ((stat("$predir/$lfn"))[7] != $member->{FILE}{FILESIZE});
+	    if (! $self->{DRYRUN} && ((stat("$predir/$lfn"))[7] != $member->{FILE}{FILESIZE}));
 
 	unlink ("$filesdir/$lfn");
 	return &flushFailed ($stats, $timing, "failed to move $lfn into files",

@@ -124,9 +124,7 @@ sub fileProperties
     do { &alert ("unrecognised file $file->{DROP}/$file->{FILE}{LFN}");
 	 $self->markBad ($file->{DROP}); return 0; }
       if ((! $type || $type ne 'EVD')
-	  || (! $category || ($category ne "Events"
-			      && $category ne "DST"
-			      && $category ne "Digis"))
+	  || (! $category || ! grep ($category eq $_, qw(Events DST Digis Assoc MCInfo Hits)))
 	  || (! $dataset || ! $owner || ! $runid || ! $jobid));
 
     # Determine queue characteristics.
