@@ -245,7 +245,6 @@ sub getPendingFiles
         }
     }
 
-    &logmsg("pending: @{[scalar grep (defined $_->[1], @$result)]}/@{[scalar @$result]} pfns found");
     return $result;
 }
 
@@ -294,7 +293,6 @@ sub getStagerFiles
         }
     }
 
-    &logmsg("stager: @{[scalar grep (defined $_->[0], @$result)]}/@{[scalar @$result]} guids found");
     return $result;
 }
 
