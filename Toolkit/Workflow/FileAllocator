@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/30 10:49:29 $
-# $Id: Allocator.pl,v 1.53 2004/07/30 10:49:29 barrass Exp $
+# $Date: 2004/07/30 11:05:20 $
+# $Id: Allocator.pl,v 1.54 2004/07/30 11:05:20 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -70,13 +70,15 @@ while(!(-e "$g_work_dir/stop")) {
     if ($g_once) { log_entry( "Stopping, found stop file." ); system( "touch $g_work_dir/stop" ); }
     my $loop_start = time();
 
+    my $guid = '';
+    my @sql = ();
+    my %new_streams = ();
+    my $allocated_count = 0;
+
     my %dataset_by_new_guid = &get_new_guid_list;
     my @guids = keys %dataset_by_new_guid;
     my %source_node_by_guid = get_source_nodes( \@guids );
     # Do error checks!
-    my $guid = '';
-    my @sql = ();
-    my %new_streams = ();
     
     my %destinations_by_dataset = &get_current_subscriptions;
     # Do error check!
@@ -96,7 +98,8 @@ while(!(-e "$g_work_dir/stop")) {
                         log_entry( "Ag, no route from $source_node_by_guid{$guid} to $dest for $guid" );
                     } else {
                         my $time = time();
-                        log_entry( "$guid source: $source_node_by_guid{$guid} dest: $dest via: $gateway" );
+                        #log_entry( "$guid source: $source_node_by_guid{$guid} dest: $dest via: $gateway" );
+                        $allocated_count++;
                         my $goal = "insert into t_destinations "
                                 ."values ('$guid','$dest')";
                         my $advert = "insert into t_file_state "
@@ -124,7 +127,7 @@ while(!(-e "$g_work_dir/stop")) {
     
     do_sql( \@sql );
 
-    log_entry( "Cycle complete, $#guids guids found" );
+    log_entry( "$allocated_count/$#guids new guids allocated" );
     
     $time = time();
     sleep($g_period - $time + $loop_start);
