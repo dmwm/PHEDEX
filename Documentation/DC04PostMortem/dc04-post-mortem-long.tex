@@ -217,46 +217,152 @@ More detailed descriptions of each chain, and related experience with
 it during DC04, can be found below.
 
 \section{Experience}
-Development was rapid, and mostly straightforward. Several versions of export buffer, T1 transfer and mass storage agents were implemented within several weeks of the first examples being made available. This rapid development was due in part to the extremely limited responsibility of each agent, and the easy breakdown of agent workflow into chunks of functionality like ``publish state in database'', ``check for new guids'' (defined by TMDB interactions).
+Development was rapid, and mostly straightforward. Several versions of
+export buffer, T1 transfer and mass storage agents were implemented
+within several weeks of the first examples being made available. This
+rapid development was due in part to the extremely limited
+responsibility of each agent, and the easy breakdown of agent workflow
+into chunks of functionality like ``publish state in database'',
+``check for new guids'' (defined by TMDB interactions).
 
-Agents were implemented in a variety of languages: at first, a scripting approach was taken, and agents were implemented in Perl and Bash scripts. The agents relied on command line tools- often provided only as examples by developers- to access the Oracle TMDB and POOL File Catalogues, and to make file transfers. Experience during DC04 modified this approach, and agents implemented in lower level languages (C++) appeared. 
+Agents were implemented in a variety of languages: at first, a
+scripting approach was taken, and agents were implemented in Perl and
+Bash scripts. The agents relied on command line tools to access the
+Oracle TMDB and POOL File Catalogues, and to make file
+transfers. Experience during DC04 modified this approach, and agents
+implemented in lower level languages (C++) appeared.
 
-Further, command line tools proved to be too generic to support intensive bulk use, meaning that agent developers moved naturally to using the underlying component APIs to effectively write their own focused distribution tools.
+Command line tools proved to be too generic to support intensive bulk
+use, meaning that agent developers moved naturally to using the
+underlying component APIs to effectively write their own focused
+distribution tools. However, the existence of these command line tools
+enabled the rapid initial prototyping of agents using scripting
+agents.
 
-Each chain of agents was coded and trivially tested within six weeks, and developed and tested over the whole of DC04 (eight weeks). 
+Each chain of agents was coded and trivially tested within six weeks,
+and developed and tested over the whole of DC04 (eight weeks).
 
-It was found that the collaborative approach- sharing information between agents on a blackboard- enabled the developeent of new agents with functionality that was not foreseen. By way of example, a cleaning agent was implemented at the T0 to manage Castor stage space. It required a somewhat more sophisticated strategy than just checking whether files were safe at MSS before migrating them to tape. Instead, using information already in the TMDB, it was able to rank files and thereby efficiently prioritise them for migration.
+It was found that the collaborative approach- sharing information
+between agents on a blackboard- enabled the development of new agents
+with functionality that was not foreseen. By way of example, a
+cleaning agent was implemented at the T0 to manage Castor stage
+space. It required a somewhat more sophisticated strategy than just
+checking whether files were safe at MSS before migrating them to
+tape. Instead, using information already in the TMDB, it was able to
+rank files and thereby efficiently prioritise them for migration.
 
-This sort of evolution was not without difficulty- the original design of the TMDB meant that adding new information schema to the database was somewhat costly. It is however something that can easily be overcome in future versions of the database. (see below).
+This sort of evolution was not without difficulty- the original design
+of the TMDB meant that adding new information schema to the database
+was somewhat costly. It is however something that can easily be
+overcome in future versions of the database (see below).
 
-Coordination and management of people and agents proved highly inefficient, and it became clear that global mechanisms for suspending, restarting and monitoring agents needed to be deployed in future versions. During DC04, almost all system shutdown/restarts required an email sent to each operator, with the action only taken when all replies were received. In a similar vein, the presentation of global sysetm state must be improved: during DC04 a limited amount of all information was available via a simple web page. In the future some interpretive interface must be created to highlight current problems and warnings, and reveal more sophisticated information (file transfer rates, etc) in a more immediately intuitive and useful way.
+Coordination and management of people and agents proved inefficient,
+and it became clear that global mechanisms for suspending, restarting
+and monitoring agents needed to be deployed in future versions. During
+DC04, almost all system shutdown/restarts required an email sent to
+each operator, with the action only taken when all replies were
+received. In a similar vein, the presentation of global system state
+must be improved: during DC04 a limited amount of all information was
+available via a simple web page. In the future some interpretive
+interface must be created to highlight current problems and warnings,
+and reveal more sophisticated information (file transfer rates, etc)
+in a more immediately intuitive and useful way.
 
 \subsection{Overall behaviour}
-One might use the lifetime of files in the system as a useful metric for measuring system performance, defining the lifetime of files as the period between appearance and migration to Castor at CERN. However, the mechanism for migrating to Castor was only implemented late in DC04, and migration was hampered by technical issues with the SRB chain which meant that a large backlog of files that had not been made safe at T1s appeared. Studying the comparison of lifetime with time of appearance, it is clear that files that appeared early remained in distribution for a long time, while files that appeared late had a correspondingly shorter lifetime; the information gained from such a study is negligible.
+A total of 564,273 files were placed in distribution during DC04. At
+the end of DC04 there were 1,969,976 replicas being actively managed;
+a total of 2,942,368 single replica chains were known \footnote{Here a
+replica chain implies a single entry per set of replicas from source
+to destination; e.g. from castor to RAL MSS. The number of replcias
+involved in such a chain might be 4 times larger than this number, so
+the system was aware of somewhere between 2,942,368 and 11,769,472
+replicas in total.}.
 
-It is more meaningful to ask how long it was before files were available for analysis at a T1: figures for this vary from distribution chain to distribution chain, with the LCG chain to CNAF taking between 10 minutes and a day and a half, and the LCG chain to PIC taking only 20 minutes consistently (fig. \ref{fig:PIC-RTA}). More detailed information on real time analysis during DC04 is available ELSEWHERE (TODO: fix this).
+A total of 278,081 files were made safe on tape, with the following
+breakdown: 33\% IN2P3, 32\% PIC, 28\% RAL, 8\% INFN, 0\% FNAL, 0\%
+FZK.
+
+One might use the lifetime of files in the system as a useful metric
+for measuring system performance, defining the lifetime of files as
+the period between appearance and migration to Castor at
+CERN. However, there were two significant barriers to efficient
+migration of files at CERN. First, the mechanism for migrating to
+Castor at CERN was only implemented late in DC04. Second migration was
+hampered by technical issues with the SRB chain which meant that a
+large backlog of files was generated. Studying the comparison of
+lifetime with time of appearance, it is clear that files that appeared
+early remained in distribution for a long time, while files that
+appeared late had a correspondingly shorter lifetime; the information
+gained from such a study is negligible.
+
+It is more meaningful to ask how long it was before files were
+available for analysis at a T1: figures for this vary from
+distribution chain to distribution chain, with the LCG chain to CNAF
+taking between 10 minutes and a day and a half, and the LCG chain to
+PIC taking only 20 minutes consistently (fig. \ref{fig:PIC-RTA}). More
+detailed information on real time analysis during DC04 is available
+elsewhere \cite{rtadoc}.
 
 \begin{figure}[tbp]
 \centering
 \includegraphics[width=10cm]{PIC-RTA.eps}
+\includegraphics[width=10cm, angle=-90]{filesizes.eps}
 \label{fig:PIC-RTA}
-\caption{During the last four days of DC04 PIC were able to implement a real time analysis system based on CNAF's system. Turnaround time for analysis at  PIC was much shorter and more consistent than CNAF at a median of 20 minutes.}
+\caption{Upper:During the last four days of DC04 PIC were able to implement
+a real time analysis system based on CNAF's system. Turnaround time
+for analysis at PIC was much shorter and more consistent than CNAF at
+a median of 20 minutes. Lower: Median filesize during DC04 was ~500 KB.}
 \end{figure} 
 
-Transfer rates varied greatly, and are treated in more detail below. Generally however, transfer rates at the start of DC04 were low- individual transfers reached maybe a MBps, with aggregate rates pushing 10MBps. These low transfer rates were due to the small size of files being pushed through the system. This is an example of poor initial coupling between the data source and the distribution system. Here the coupling is described as poor because it is easy for reconstruction to produce small files, but difficult for distribution to distribute them due to the overheads associated with each file, independent in most cases of size. These overheads include catalogue registration (which takes the same time despite file size); startup times for Java Virtual Machines; and inefficient ramping of TCP/IP window sizes for small file sizes.
+Transfer rates varied greatly, and are treated in more detail
+below. Generally however, transfer rates at the start of DC04 were
+low- individual transfers reached maybe a MBps, with aggregate rates
+pushing 10MBps. These low transfer rates were due to the small size of
+files being pushed through the system. This is an example of poor
+initial coupling between the data source and the distribution
+system. Here the coupling is described as poor because it is easy for
+reconstruction to produce small files, but difficult for distribution
+to distribute them due to the overheads associated with each file,
+independent in most cases of size. These overheads include catalogue
+registration (which takes the same time despite file size); startup
+times for Java Virtual Machines; and inefficient ramping of TCP/IP
+window sizes for small file sizes.
 
-During DC04 this poor coupling was mostly dealt with by working around it. For example, poor transfer speeds were remedied by making as many parallel transfers as possible; file and metadata catalogue accesses were limited as far as possible; and the use of Java command line tools was replaced by the use of C++ APIs.
+During DC04 this poor coupling was mostly dealt with by working around
+it. For example, poor transfer speeds were remedied by making as many
+parallel transfers as possible; file and metadata catalogue accesses
+were limited as far as possible; and the use of Java command line
+tools was replaced by the use of C++ APIs.
 
-At the very end of DC04 this poor coupling was improved to some extent by the implementation of a "merging" step (detailed below) which added files to one of a series of queues which expired and were written after either a certain aggregate size or time limit was reached. File sizes were typically ~500k median at the start of DC04.
+At the very end of DC04 this poor coupling was improved to some extent
+by the implementation of a "merging" step (detailed below) which added
+files to one of a series of queues which expired and were written
+after either a certain aggregate size or time limit was reached. File
+sizes were typically ~500k median at the start of DC04
+(fig. \ref{fig:PIC-RTA}).
 
-(TODO: table of filesizes).
+Agent uptime was not monitored directly, and is difficult to
+estimate. Some agent types would not publish themselves as
+``available'' if they could not complete any file transfers- as
+happened for example several times when the load on Castor was
+high. Typically the agents implemented as Bash scripts suffered this
+problem- the C agents were implemented in a slightly different way.
+Interpretation of information about agent uptime is therefore
+difficult to interpret from DC04 logs, an area for improvement in
+future versions of the distribution system.
 
-Agent uptime was not monitored directly, and is difficult to estimate. Some agent types would not publish themselves as "available" if they could not complete any file transfers- as happened for example several times when the load on Castor was high. Typically the agents implemented as Bash scripts suffered this problem- the C agents were implemented in a slightly different way.  Interpretation of information about agent uptime is therefore difficult to interpret from DC04 logs. This is an area for improvement in future versions of the distribution system.
-
-Due to bugs in the reconstruction code large numbers of files were deemed of limited use for analysis. It was decided that these files should be marked as bad, and effectively removed from distribution. To do this a new state- or rather set of states- indexed 90 and above was introduced. As agents weren't looking for files in those states, the files were never transferred. The system was therefore flexible enough to meet new requirements during development.
+Due to bugs in the reconstruction code large numbers of files were
+deemed of limited use for analysis. It was decided that these files
+should be marked as bad, and removed from distribution. To do this a
+new set of states indexed 90 and above was introduced. As agents
+weren't looking for files in those states the files were never
+transferred. The system therefore proved flexible enough to meet new
+requirements during development.
 
 \subsection{The TMDB}
-In contrast to other databases used, the TMDB proved to be remarkably stable, only experiencing a critical problem when log entries exceeded the initial tablespace allocated.
+In contrast to other databases used, the TMDB proved to be remarkably
+stable, only experiencing a critical problem when log entries exceeded
+the initial tablespace allocated.
 
 Development of the TMDB continued throughout DC04 as new use cases were discovered. The management of changes to the databases provided useful experience for the future. Most changes were easily accomodated thanks to a carefully designed database schema (for example, the addition of new agents was handled gracefully) (fig. \ref{fig:schema}).
 
