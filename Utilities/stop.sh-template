@@ -1,3 +1,0 @@
-#!/bin/sh
-export PHEDEX_STATE=<base>/<node>/work
-ls -d $PHEDEX_STATE/* | xargs -i touch '{}'/stop

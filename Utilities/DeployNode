@@ -2,12 +2,13 @@
 
 # Node deployment script
 # This script creates a node directory structure, deploys the
-# correct agent code from a local CVS directory
+# correct agent code from checked out CVS repository.
 
 BEGIN { use strict; use warnings; }
 my $me = $0; $me =~ s|.*/||;
 my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
 unshift(@INC, $home);
+use File::Path;
 
 while (scalar @ARGV)
 {
@@ -33,141 +34,53 @@ while (scalar @ARGV)
 # Main bulk
 # ######################################
 
-print "Creating directory structure... ";
-mkdir("$g_basepath/$g_nodename");
-mkdir("$g_basepath/$g_nodename/scripts");
-mkdir("$g_basepath/$g_nodename/logs");
-mkdir("$g_basepath/$g_nodename/work");
-mkdir("$g_basepath/$g_nodename/SE");
-print "ok\n";
-
-
-print "Checking code out from CVS... ";
-system("cd $g_basepath/$g_nodename; cvs -q co AgentToolkitExamples");
-print "ok\n";
+print "Creating directory structure...\n";
+&mkpath ([ "$g_basepath/$g_nodename",
+	   "$g_basepath/$g_nodename/node",
+	   "$g_basepath/$g_nodename/state",
+	   "$g_basepath/$g_nodename/logs",
+	   "$g_basepath/$g_nodename/SE" ]);
 
 if ($g_management == 0) {
-    print "Deploying agents from CVS... ";
-    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/Routing/Node-Router.pl $g_basepath/$g_nodename/scripts; chmod u+x $g_basepath/$g_nodename/scripts/Node-Router.pl");
-    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/FileDiskExport $g_basepath/$g_nodename/scripts");
-    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/DropTMDBPublisher $g_basepath/$g_nodename/scripts");
-    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/DropCatPublisher $g_basepath/$g_nodename/scripts");
-    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/DropXMLUpdate $g_basepath/$g_nodename/scripts");
-    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/DropFileCheck $g_basepath/$g_nodename/scripts");
-    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/Utils* $g_basepath/$g_nodename/scripts");
-    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/FileDownload* $g_basepath/$g_nodename/scripts");
-    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/FClistGuidPFN $g_basepath/$g_nodename/scripts");
-    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/Managers/NodeManager.pl .");
-    print "ok\n";
-
-    print "Creating local mapping and start scripts... ";
-# [ FIXME: This is horrible, but relies on local-specific variables... ]
-    open(OUT,">$g_basepath/$g_nodename/scripts/FilenameMap");
-    print OUT
-    '#!/bin/sh'."\n"
-    .'dataset= lfn='."\n"
-    .'for arg; do'."\n"
-    .'case $arg in'."\n"
-    .'dataset=*) dataset=$(echo $arg | sed \'s![^=]*=!!\') ;;'."\n"
-    .'lfn=*) lfn=$(echo $arg | sed \'s![^=]*=!!\') ;;'."\n"
-    .'esac'."\n"
-    .'done'."\n"
-    .'[ -z "$lfn" ] && { echo "no lfn" 1>&2; exit 1; }'."\n"
-    .'# Copy everything into a subdirectories of a local directory.'."\n"
-    ."mkdir -p $g_basepath/$g_nodename/SE/".'$dataset'."\n"
-    ."fullpath=$g_basepath/$g_nodename/SE/".'$dataset/$lfn'."\n"
-    .'echo $fullpath'."\n";
-    close(OUT);
-    system("chmod u+x $g_basepath/$g_nodename/scripts/FilenameMap");
-
-    system("touch $g_basepath/$g_nodename/start.sh");
-    open(OUT,">$g_basepath/$g_nodename/start.sh");
-    open(IN,"start.sh-template");
-    while(<IN>) {
-	s/<base>/$g_basepath/g;
-	s/<node>/$g_nodename/g;
-	s/<db>/$g_db/g;
-	s/<user>/$g_user/g;
-	s/<pass>/$g_pass/g;
-	s/<cat>/$g_cat/g;
-	print OUT "$_";
+    print "Creating node configuration...\n";
+    foreach $file (<$g_basepath/PHEDEX/Testbed/Standalone/Node*>) {
+	$output = $file; $output =~ s|.*/Node||;
+	$output = "$g_basepath/$g_nodename/node/$output";
+	open (INPUT, "< $file") or die "$file: $!\n";
+	open (OUTPUT, "> $output") or die "$output: $!\n";
+	while (<INPUT>) {
+	    s/<base>/$g_basepath/g;
+	    s/<node>/$g_nodename/g;
+	    s/<db>/$g_db/g;
+	    s/<user>/$g_user/g;
+	    s/<pass>/$g_pass/g;
+	    s/<cat>/$g_cat/g;
+	    print OUTPUT;
+	}
+	close (INPUT);
+	close (OUTPUT);
+	chmod 0755, $output if -x $file;
     }
-    close(IN);
-    close(OUT);
-    print "ok\n";
 } else {
-    print "Deploying agents from CVS... ";
-    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/Managers/Allocator.pl $g_basepath/$g_nodename/scripts");
-    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/FileRouter $g_basepath/$g_nodename/scripts");
-    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/Utils* $g_basepath/$g_nodename/scripts");
-    print "ok\n";
-
-    print "Creating start script... ";
-    system("touch $g_basepath/$g_nodename/start.sh");
-    open(OUT,">$g_basepath/$g_nodename/start.sh");
-    open(IN,"start.sh-mgmt-template");
-    while(<IN>) {
-        s/<base>/$g_basepath/g;
-        s/<node>/$g_nodename/g;
-        s/<db>/$g_db/g;
-        s/<user>/$g_user/g;
-        s/<pass>/$g_pass/g;
-        s/<cat>/$g_cat/g;
-        print OUT "$_";
+    print "Creating node configuration...\n";
+    foreach $file (<$g_basepath/PHEDEX/Standalone/Mgr*>) {
+	$output = $file; $output =~ s|.*/Mgr||;
+	$output = "$g_basepath/$g_nodename/node/$output";
+	open (INPUT, "< $file") or die "$file: $!\n";
+	open (OUTPUT, "> $output") or die "$output: $!\n";
+	while (<INPUT>) {
+	    s/<base>/$g_basepath/g;
+	    s/<node>/$g_nodename/g;
+	    s/<db>/$g_db/g;
+	    s/<user>/$g_user/g;
+	    s/<pass>/$g_pass/g;
+	    s/<cat>/$g_cat/g;
+	    print OUTPUT;
+	}
+	close (INPUT);
+	close (OUTPUT);
+	chmod 0755, $output if -x $file;
     }
-    close(IN);
-    close(OUT);
-    print "ok\n";
 }
 
-print "Creating stop script... ";
-system("touch $g_basepath/$g_nodename/stop.sh");
-open(OUT,">$g_basepath/$g_nodename/stop.sh");
-open(IN,"stop.sh-template");
-while(<IN>) {
-    s/<base>/$g_basepath/g;
-    s/<node>/$g_nodename/g;
-    s/<db>/$g_db/g;
-    s/<user>/$g_user/g;
-    s/<pass>/$g_pass/g;
-    s/<cat>/$g_cat/g;
-    print OUT "$_";
-}
-close(IN);
-close(OUT);
-print "ok\n";
-
-
-
-$cmd = "NodeManager.pl add-node "
-        ."-name $g_nodename "
-        ."-cat $g_cat "
-        ."-host $g_basepath/$g_nodename/SE "
-        ."-db Oracle:$g_db "
-        ."-user $g_user "
-        ."-password $g_pass";
-print "$cmd\n";
-($ret,@out) = run_command($cmd);
-if ($ret) {
-    print STDERR "Problem registering node \n";
-    print STDERR "@out\n";
-    exit(1);
-}
-
-system("rm -fr $g_basepath/NodeManager.pl $g_basepath/$g_nodename/AgentToolkitExamples");
-
-print "You'll need to form links with other nodes manually-\n";
-print "see NodeManager.pl new-neighbours\n";
-
-# ######################################
-# Subroutines
-# ######################################
-
-sub run_command {
-    my $cmd = shift;
-    
-    my @output = `$cmd 2>&1`;
-    my $exit_value = $? >> 8;
-    
-    return ($exit_value,@output);
-}
+exit 0;
