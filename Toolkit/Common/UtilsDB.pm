@@ -28,14 +28,16 @@ sub connectToDatabase
 	my $now = time();
 	my $mynode = $self->{MYNODE};
 	my $me = $0; $me =~ s|.*/||;
+	my $agent = $dbh->selectcol_arrayref(qq{
+		select count(*) from t_agents where name = '$me'});
+	my $status = $dbh->selectcol_arrayref(qq{
+		select count(*) from t_lookup where node = '$mynode' and agent = '$me'});
 
 	$dbh->do(qq{insert into t_agents values ('$me')})
-	    if ! scalar @{$dbh->selectall_arrayref(qq{
-		select count(*) from t_agents where name = '$me'})};
+	    if ! $agent || ! $agent->[0];
 
 	$dbh->do(qq{insert into t_lookup values ('$mynode', '$me', 1, $now)})
-	    if ! scalar @{$dbh->selectall_arrayref(qq{
-		select count(*) from t_lookup where node = '$mynode' and agent = '$me'})};
+	    if ! $status || ! $status->[0];
 
 	$dbh->do(qq{
 		update t_lookup
