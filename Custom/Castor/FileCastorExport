@@ -106,92 +106,106 @@ sub idle
     my $dbh = undef;
     eval
     {
-	my $now = time();
 	my $mynode = $self->{MYNODE};
 	$dbh = &connectToDatabase ($self);
 	die "failed to connect" if ! $dbh;
 
         # FIXME: Pick up and process messages to me
 
-	# FIXME: This query does not update staged-in status for files
-	# that are not wanted.  FileCastorStager sets state=0,local_state=0
-	# for all files, then sets local_state (only) to 1.  After that's
-	# happened, we don't upgrade state->1 until someone asks for a file.
-	# Think again how we wnat to cycle through local states.
-
-
-        # Check how much is wanted downstream.  Select the files wanted
-        # downstream still pending for outward transfer here.  We fetch
-        # in one query the current state here, whether we have checksum,
-        # the number of requested copies, and the latest request time.
-	my $stmt = $dbh->prepare (qq{
-	    		select rs.guid,
-			       rs.state,
-			       mod (rs.local_state, 1000),
-			       count(m.value),
-			       count(ts.dest_node),
-			       max(ts.dest_time_stamp)
-			from t_replica_state rs
-			left join t_replica_metadata m
-			  on m.guid = rs.guid and m.attribute = 'checksum'
-			left join t_transfer_state ts
-			  on ts.guid = rs.guid and ts.src_node = rs.node
-			where rs.node = '$mynode'
-		  	  and ts.dest_state = 1
-		  	  and ts.src_state = 0
-		  	group by rs.guid, rs.state, mod (rs.local_state, 1000)});
-	$stmt->execute ();
-	while (my $row = $stmt->fetchrow_arrayref())
-	{
-	    my ($guid, $state, $local, $checksum, $dests, $desttime) = @$row;
-
-	    # Ignore if the most recent request is 15+ minutes old
-	    next if $desttime < $now - 15*60;
-	    $now = time();
-
-	    # If it's still pending local processing, handle it
-	    if ($state == 0)
-	    {
-	        # FIXME: throttle stage-in requests based on how much we
-	        # have in t_transfer_state as committed available for
-	        # transfer and available free space on the pool.
-
-	        # Order: stage in, get checksum, mark available.
-	        if ($local == 0)
-	        {
-		    $dbh->do(qq{update t_replica_state
-			    set local_state = trunc(local_state,-3) + 10,
-			        local_time_stamp = $now
-			    where guid = '$guid' and node = '$mynode'});
-	        }
-	        elsif ($local == 1 && !$checksum)
-	        {
-		    $dbh->do(qq{update t_replica_state
-			    set local_state = trunc(local_state,-3) + 20,
-			        local_time_stamp = $now
-			    where guid = '$guid' and node = '$mynode'});
-	        }
-	        elsif ($local == 1)
-	        {
-		    $dbh->do(qq{update t_replica_state
-			    set state = 1, time_stamp = $now
-			    where guid = '$guid' and node = '$mynode'});
-		    $state = 1;
-	        }
-            }
-
-	    # If it's available for transfer, update transfer status.
-	    if ($state == 1 && $local == 1)
-	    {
-	        $dbh->do(qq{update t_transfer_state
-		    set src_state = 1, src_time_stamp = $now
-		    where guid = '$guid' and src_node = '$mynode'});
-	    }
-
-	    $dbh->commit();
-        }
+	# Execute a series of updates that use variants of the same query.
+	# We go through the state machine at this node: 1) If unavailable
+	# file is recently wanted and not staged in, mark it for stage-in;
+	# 2) If unavailable file is recently wanted and staged in but has
+	# no checksum, get checksum; 3) If unavailable file is staged in
+	# and has checksum, mark it available; 4) Mark all available files
+	# ready for transfer.
+	#
+	# Note that the stager agent demotes files to unavailable and not
+	# staged in *or* unavailable and staged in; we will want to flip
+	# the latter category of files back to available if the checksums
+	# are calculated, even if nobody wants them.  However if there is
+	# no checksum or the file drops off stager, we only want to step
+	# through the state machine when somebody really wants that file.
+	#
+	# "Recently wanted" == time stamp on "wanted" state is less than
+	# fifteen minutes old.  Download agents expecting files will be
+	# refreshing the wanted status more often than that when they are
+	# running and capable of downloading files.
 
 	# FIXME: Purge staged-in files already transferred out.
+	# FIXME: Throttle stage-in requests based on how much we have
+	# already committed to transfer (t_transfer_state.src_state=1)
+	# and how much space (free space and unpinned files) is on the
+	# stager pool.
+
+	my $now = time();
+	my $recent = $now - 15*60;
+
+	# 1) Mark unavailable offline wanted files for stage-in.
+	# [NB: We can't do "update (select ...) set..." as the join with
+	# t_transfer_state does not preserve keys, dest_node is open.]
+	$dbh->do(qq{
+		update t_replica_state
+		set local_state = trunc(local_state,-3) + 10,
+		    local_time_stamp = $now
+		where node = '$mynode' and guid in
+		   (select distinct rs.guid
+		    from t_replica_state rs
+		    left join t_transfer_state ts
+		      on ts.guid = rs.guid and ts.src_node = rs.node
+		    where rs.node = '$mynode'
+		      and rs.state = 0
+	      	      and mod(rs.local_state,1000) = 0
+	      	      and ts.dest_state = 1
+	      	      and ts.dest_time_stamp >= $recent)});
+
+        # 2) Mark unavailable online wanted files that have no checksum
+	# for checksum calculation. [NB: Again no "update (...) set" due
+	# to the joins with t_replica_metadata and t_transfer_state.]
+	$dbh->do(qq{
+		update t_replica_state
+		set local_state = trunc(local_state,-3) + 20,
+		    local_time_stamp = $now
+		where node = '$mynode' and guid in
+		   (select distinct rs.guid
+		    from t_replica_state rs
+		    left join t_replica_metadata m
+		      on m.guid = rs.guid and m.attribute = 'checksum'
+		    left join t_transfer_state ts
+		      on ts.guid = rs.guid and ts.src_node = rs.node
+		    where rs.node = '$mynode'
+		      and mod(rs.local_state,1000) = 1
+	              and m.value is null
+	              and ts.dest_state = 1
+	              and ts.dest_time_stamp >= $recent)});
+
+        # 3) Mark unavailable online files with checksum available,
+	# whether wanted by anyone or not.  [NB: This should be an
+	# "update (...) set" except oracle does not figure out that
+	# the join with t_replica_metadata is key-preserving.]
+	$dbh->do(qq{
+		update t_replica_state
+		set state = 1, time_stamp = $now
+		where node = '$mynode' and guid in
+		   (select rs.guid
+		    from t_replica_state rs
+		    left join t_replica_metadata m
+		      on m.guid = rs.guid and m.attribute = 'checksum'
+		    where rs.node = '$mynode'
+		      and mod(rs.local_time,1000) = 1
+	              and m.value is not null)});
+
+        # 4) Mark available (and online) files ready for transfer.
+	$dbh->do(qq{
+		update (select ts.src_state, ts.src_time_stamp
+		        from t_transfer_state ts
+		        left join t_replica_state rs
+		          on rs.guid = ts.guid and rs.node = ts.src_node
+		        where rs.state = 1
+			  and ts.src_state = 0)
+		set src_state = 1, src_time_stamp = $now});
+
+	$dbh->commit();
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
