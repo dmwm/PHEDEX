@@ -38,6 +38,7 @@ list_dso_assignments() {
     "http://cmsdoc.cern.ch/cms/production/www/cgi/SQL/DsOwnToAs.php?DatasetName=$dataset&OutputOwner=$owner&scriptstep=1"
 
   # Find the matches
+  $verbose && echo -n "$dataset.$owner "
   egrep "Assignments.*<TD>" < $tmp |
     sed 's/.*<TD>//; s/[^0-9]/ /g; s/  */ /'
 
@@ -45,8 +46,10 @@ list_dso_assignments() {
   rm -f $tmp
 }
 
+verbose=false
 while [ $# -gt 0 ]; do
   case $1 in
+    -v ) verbose=true; shift ;;
     -* ) echo "unrecognised option $1"; exit 1;;
     *  ) break ;;
   esac
