@@ -273,6 +273,8 @@ sub checkAssignmentFiles
 	    IS_FULLY_IN_MSS => $nguids == $inmss
 	};
     }
+
+    return $result;
 }
 
 sub feedDropsToAgents
