@@ -69,7 +69,7 @@ sub collectResult
     }
 
     open (PFNS, "< $job->{OUTPUT}") or die "$job->{OUTPUT}: cannot open: $!\n";
-    print grep (/^[-0-9A-F]+\s+.*/, <PFNS>);
+    print grep (/^[-0-9A-Fa-f]+\s+.*/, <PFNS>);
     close (PFNS) or die "$job->{OUTPUT}: cannot read: $!\n";
     unlink $job->{OUTPUT};
 }
