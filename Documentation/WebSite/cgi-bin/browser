@@ -460,7 +460,6 @@ sub stats {
 
     print "<h2>File Size Statistics</h2>\n",
     	  "<p>", &age($now - $overview->[0]), " ago </td>",
-	  " ago</p>",
     	  "<table><tr bgcolor='$altcolor' valign='top'>",
 	  "<th>Files</th>",
 	  "<th>Total Size</th>",
@@ -482,7 +481,6 @@ sub stats {
 
     print "<h2>File Size Breakdown</h2>\n",
     	  "<p>", &age($now - $histo->[0][0]), " ago</p>",
-	  " ago</p>",
     	  "<table><tr bgcolor='$altcolor' valign='top'>",
 	  "<th colspan='2'>Bin</th>",
 	  "<th>Files</th>",
