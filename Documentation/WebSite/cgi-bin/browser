@@ -140,14 +140,14 @@ sub status {
 	    from t_files_for_transfer f
 	    cross join t_nodes n
 	    $dsjoin
-	    left join t_replica_metadata r3
-	      on r3.guid = f.guid and r3.attribute = 'filesize'
-	    left join (select distinct guid from t_destinations) d
-	      on d.guid = f.guid
 	    left join t_replica_state rs
 	      on rs.guid = f.guid and rs.node = n.node_name
 	    left join t_transfer_state ts
 	      on ts.guid = f.guid and ts.to_node = n.node_name
+	    left join t_replica_metadata r3
+	      on r3.guid = f.guid and r3.attribute = 'filesize'
+	    left join (select distinct guid from t_destinations) d
+	      on d.guid = f.guid
       	    where (rs.node = n.node_name) or (ts.to_node = n.node_name)
 	    group by $dsquery n.node_name});
 
