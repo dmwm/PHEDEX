@@ -20,6 +20,7 @@
 # susbscription; ...
 
 use Getopt::Long;
+use DBI;
 
 my $me = $0;
 my $state = '';
@@ -27,6 +28,8 @@ my $source_node = '';
 my $destination_node = '';
 my $dataset = '';
 my $for_node = '';
+my $user = '';
+my $password = '';
 
 # #############################
 # Main loop
@@ -39,6 +42,128 @@ act_on_state();
 # Subroutines
 # #############################
 
+# Eventually we might want to connect to MySQL etc as well,
+# so try to hide it ...
+sub connect_to_db {
+	my $dbh = DBI->connect(	"DBI:Oracle:$dbname",
+							$user,
+							$password,
+							{RaiseError => 1, AutoCommit => 1})
+							
+							or die "Couldn't connect to database $dbname @_";
+	
+	# FIXME: is this ok, or will it leave outstanding
+	# connections? Return ref to handle?
+	return $dbh;
+}
+
+# For SQL queries that result in single field answers
+sub sql_results_into_array {
+	my $sql = shift;
+	my @results = ();
+
+	my $dbh;
+	if ($dbname) {
+		$dbh = connect_to_db();
+	} else {
+		log_entry( "No db specified, just logging sql" );
+	}		
+	
+	foreach $command ( @$sql ) {
+		if ($dbname) {
+			my $query = $dbh->prepare($command);	
+			
+        	$query->execute();
+        	while (@row = $query->fetchrow_array) {	
+   	       		$row[0] =~ s/\s+//g;
+	       		push( @results, $row[0] );
+        	}
+        	$query->finish();
+    	} else {
+    		log_entry( $command );
+    	}    
+	}
+				 
+	$dbh->disconnect() if $dbh;
+
+	return @results;
+}
+
+# For SQL queries that result in two field answers that are to
+# be placed in a hash, of form "result2_by_result1"
+sub sql_results_into_hash {
+	my $sql = shift;
+	my %results = ();
+
+	my $dbh;
+	
+	if ($dbname) {
+		$dbh = connect_to_db();
+	} else {
+		log_entry( "No db specified, just logging sql" );
+	}		
+	
+	foreach $command ( @$sql ) {
+		if ($dbname) {
+		log_entry( $command );
+			my $query = $dbh->prepare($command);	
+			
+    	    $query->execute();
+        	while (@row = $query->fetchrow_array) {	
+   	       		$row[0] =~ s/\s+//g;
+   	       		$row[1] =~ s/\s+//g;
+	       		$results{$row[1]} = "$row[0] ";
+        	}
+        	$query->finish();
+        } else {
+        	log_entry( $command );
+        }
+	}
+				 
+	$dbh->disconnect() if $dbh;
+
+	return \%results;
+}
+
+sub do_sql {
+	my $sql = shift;
+	
+	eval {
+		my $dbh;
+		if ($dbname) { 
+			$dbh = connect_to_db(); 
+		} else {
+			log_entry( "No db specified, just logging sql" );
+		}
+	
+		foreach my $cmd (@$sql)
+	    {
+		if ($dbname) {
+		    	$dbh->do ($cmd);
+	        } else {
+		    	log_entry ($cmd);
+			}
+	    }
+
+		$dbh->disconnect if $dbh;
+	};
+	
+	if ($@)
+    {
+		log_entry( "database operation failed: $@" );
+		if ($dbh)
+		{
+	    	$dbh->rollback;
+	    	$dbh->disconnect;
+		}
+		return 1;
+    }
+
+
+	return 0;
+}
+
+
 sub trivial {	
 	my @sql = ();
 	my $time = time();
@@ -48,69 +173,86 @@ sub trivial {
 	# route calc to get the gateway and makes the advert.
 	if ( $source_node ) {
 	
-	
-		my $selection = "select guid from t_files_for_transfer "
-						."where source_node = '$source_node'";
-		# FIXME: Do guid selection -> @guids
+		
+		my @guids = (); my $gateway = '';
+		push( @sql, "select guid from t_files_for_transfer "
+						."where source_node = '$source_node'" );
+		@guids = sql_results_into_array( \@sql );
+
+		@sql = ();
 		
 		# FIXME: this can be a sub
-		$selection = "select gateway from t_routing "
+		push( @sql, "select gateway from t_routing "
 						."where from_node = '$source_node' " 
-						."and to_node = '$for_node'";
-		# FIXME: Do route determination -> $gateway
+						."and to_node = '$for_node'" );
+		@gateway = sql_results_into_array( \@sql );
 		
 		# FIXME: In dire straits could hack a remote stage command here...
 		# but should wait for proper structure in V3.
 		
+		@sql = ();
+		
 		foreach $guid ( @guids ) {
-			push( @sql, "insert into t_destinations '$guid','$for_node'" );
-			push( @sql, "insert into t_file_state values ('$guid','$gateway',1,'$source_node',$time)" );
-		}		
+			push( @sql, "insert into t_destinations values ('$guid','$for_node')" );
+			push( @sql, "insert into t_file_state values ('$guid','$gateway[0]',1,'$source_node',$time)" );
+		}
+		
+		do_sql( \@sql );		
 		
 		
 	} elsif ( $destination_node ) {
 		
-		my %source_by_guid = ();
-		my $selection = "select guid,source_node from t_destinations,t_files_for_transfer "
+		
+		my $gateway = '';
+		push( @sql, "select t_files_for_transfer.guid,source_node from t_destinations,t_files_for_transfer "
 						."where destination_node = '$destination_node' "
-						."and t_files_for_transfer.guid = t_destinations.guid "
-						."and t_files_for_transfer.guid = '$guid'";
-		# FIXME: Do guid selection -> %source_by_guid
+						."and t_files_for_transfer.guid = t_destinations.guid" );
+		my $source_by_guid = sql_results_into_hash( \@sql );
 		
-		foreach $guid ( keys %source_by_guid ) {
-			#FIXME: this can be a sub
-			$selection = "select gateway from t_routing "
-					."where from_node = '$source_by_guid{$guid}' " 
-					."and to_node = '$for_node'";
-			# FIXME: Do route determination -> $gateway
-		
-			push( @sql, "insert into t_destinations '$guid','$for_node'" );
-			push( @sql, "insert into t_file_state values ('$guid','$gateway',1,'$source_node',$time)" );			
+		foreach $k (keys %$source_by_guid) {
+			print "$k\n";
 		}
 		
-		
-	} elsif ( $dataset ) {
-	
-		my %source_by_guid = ();
-		my $selection = "select guid,source_node "
-						."from t_destinations,t_files_for_transfer,t_replica_metadata "
-						."where t_replica_metadata.guid = '$guid' "
-						."and key = 'POOL_Dataset' "
-						."and value = '$dataset' "
-						."and t_destinations.guid = t_files_for_transfer.guid "
-						."and t_destinations.guid = t_replica_metadata.guid"
-		# FIXME: Do guid selection -> %source_by_guid
+		@sql = ();
 		
 		foreach $guid ( keys %source_by_guid ) {
-			#FIXME: this can be a sub
-			$selection = "select gateway from t_routing "
-					."where from_node = '$source_by_guid{$guid}' " 
-					."and to_node = '$for_node'";
-			# FIXME: Do route determination -> $gateway
+			# FIXME: this can be a sub
+			my @temp = ();
+			push( @temp, "select gateway from t_routing "
+						."where from_node = '$source_node' " 
+						."and to_node = '$for_node'" );
+			my @gateway = sql_results_into_array( \@temp );
 		
 			push( @sql, "insert into t_destinations '$guid','$for_node'" );
-			push( @sql, "insert into t_file_state values ('$guid','$gateway',1,'$source_node',$time)" );			
-		}		
+			push( @sql, "insert into t_file_state values ('$guid','$gateway[0]',1,'$source_node',$time)" );			
+		}
+		
+		foreach (@sql) { print "$_\n"; }
+		
+		
+#	} elsif ( $dataset ) {
+	
+	
+#		my %source_by_guid = (); my $gateway = '';
+#		my $selection = "select guid,source_node "
+#						."from t_destinations,t_files_for_transfer,t_replica_metadata "
+#						."where t_replica_metadata.guid = '$guid' "
+#						."and key = 'POOL_Dataset' "
+#						."and value = '$dataset' "
+#						."and t_destinations.guid = t_files_for_transfer.guid "
+#						."and t_destinations.guid = t_replica_metadata.guid"
+		# FIXME: Do guid selection -> %source_by_guid
+		
+#		foreach $guid ( keys %source_by_guid ) {
+			#FIXME: this can be a sub
+#			$selection = "select gateway from t_routing "
+#					."where from_node = '$source_by_guid{$guid}' " 
+#					."and to_node = '$for_node'";
+			# FIXME: Do route determination -> $gateway
+		
+#			push( @sql, "insert into t_destinations '$guid','$for_node'" );
+#			push( @sql, "insert into t_file_state values ('$guid','$gateway',1,'$source_node',$time)" );			
+#		}		
 	
 	
 	} else {
@@ -144,9 +286,12 @@ sub display_usage {
 sub parse_command_line () {
 	GetOptions(	'name=s' => \$node_name,
 				'source=s' => \$source_node,
-				'destination' => \$destination_node,
-				'dataset' => \$destination_node,
+				'destination=s' => \$destination_node,
+				'dataset=s' => \$dataset,
 				'for=s' => \$for_node,
+				'user=s' => \$user,
+				'password=s' => \$password,
+				'db=s' => \$dbname,
 				);
 				
 	if ( ! $ARGV[0] || $ARGV[1]) {

@@ -7,6 +7,7 @@
 # Request node details; request routing neighbours; request new agent
 # details ...
 
+use DBI;
 use Getopt::Long;
 
 my $me = $0;
@@ -15,6 +16,9 @@ my $node_name = '';
 my $node_host_string = '';
 my $node_cat_uri = '';
 my @node_neighbours = ();
+my $user = '';
+my $password = '';
+my $dbname = '';
 
 # #############################
 # Main loop
@@ -33,6 +37,59 @@ sub log_array_entries {
 	foreach $entry ( @$array ) {
 		log_entry( $entry );
 	}
+}
+
+# Eventually we might want to connect to MySQL etc as well,
+# so try to hide it ...
+sub connect_to_db {
+	my $dbh = DBI->connect(	"DBI:Oracle:$dbname",
+							$user,
+							$password,
+							{RaiseError => 1, AutoCommit => 1})
+							
+							or die "Couldn't connect to database $dbname @_";
+	
+	# FIXME: is this ok, or will it leave outstanding
+	# connections? Return ref to handle?
+	return $dbh;
+}
+
+sub do_sql {
+	my $sql = shift;
+	
+	eval {
+		my $dbh;
+		if ($dbname) { 
+			$dbh = connect_to_db(); 
+		} else {
+			log_entry( "No db specified, just logging sql" );
+		}
+	
+		foreach my $cmd (@$sql)
+	    {
+		if ($dbname) {
+		    	$dbh->do ($cmd);
+	        } else {
+		    	log_entry ($cmd);
+			}
+	    }
+
+		$dbh->disconnect if $dbh;
+	};
+	
+	if ($@)
+    {
+		log_entry( "database operation failed: $@" );
+		if ($dbh)
+		{
+	    	$dbh->rollback;
+	    	$dbh->disconnect;
+		}
+		return 1;
+    }
+
+
+	return 0;
 }
 
 sub create_new_neighbour_route {
@@ -64,9 +121,7 @@ sub new_neighbours {
 		push( @sql, @routes );
 	}
 	
-	log_array_entries( \@sql );
-	# FIXME: do full sql here, with rollback and warnings etc
-	log_entry( "WARNING: not actually doing SQL" );
+	do_sql( \@sql );
 }
 
 sub add_node {
@@ -87,15 +142,13 @@ sub add_node {
 	
 	push( @sql, "insert into t_nodes values ('$node_name','$node_host_string','$node_cat_uri')" );
 	
-	log_array_entries( \@sql );
-	# FIXME: do full sql here, with rollback and warnings etc
-	log_entry( "WARNING: not actually doing SQL" );
+	do_sql( \@sql );
 	
 	new_neighbours();
 }
 
 sub remove_node {
-	my @sql = '';
+	my @sql = ();
 
 	if ( $node_name eq '' ) { display_usage(); }
 	
@@ -124,9 +177,9 @@ sub remove_node {
 	# the old node, then delete them
 	log_entry( "WARNING: currently not removing agents associated with node $node_name." );
 	
-	log_array_entries( \@sql );
-	# FIXME: do full sql here, with rollback and warnings etc
-	log_entry( "WARNING: not actually doing SQL" );
+	push( @sql, "delete from t_nodes where node_name = '$node_name'" );
+	
+	do_sql( \@sql );
 }
 
 sub act_on_state {
@@ -161,6 +214,9 @@ sub parse_command_line () {
 				'host=s' => \$node_host_string,
 				'cat=s' => \$node_cat_uri,
 				'neighbours=s' => \@node_neighbours,
+				'user=s' => \$user,
+				'password=s' => \$password,
+				'db=s' => \$dbname,
 				);
 				
 	@node_neighbours = split(/,/,join(',',@node_neighbours));
