@@ -75,7 +75,7 @@ sub checksum
 sub run
 {
     my ($self) = @_;
-    system ("ps xu -p $$ | tail +2");
+    system ("ps u -p $$ | tail +2");
     for (my $i = 0; $i < 100; ++$i)
     {
         my $dbh = &connectToDatabase ($self);
@@ -87,7 +87,7 @@ sub run
 	    push (@sums, $sum) if defined $sum;
 	}
 	print "$i: fetched @{[scalar @sums]} sums for @{[scalar @guids]} guids\n";
-	system ("ps xu -p $$ | tail +2");
+	system ("ps u -p $$ | tail +2");
 
         $dbh->disconnect();
         undef $dbh;
