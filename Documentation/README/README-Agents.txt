@@ -69,10 +69,7 @@ The expected minimal drop processing chain is something like this:
 0) Drop source: reconstruction, simulation or RefDB tools.
 1) DropXMLUpdate: Expand XML fragment and PFNs to full paths.
 2) DropCastorFileCheck: Check the PFNs mentioned in XML exist.
-3) DropCatPFNPrefix: Update PFNs to form expected by transfer agents
-   (sfn://castorgrid.cern.ch/castor/some/file).
-4) DropCatPublish: Publish catalogue fragment to local/rls catalogue.
-5) DropTMDBPublish: Insert the files into the transfer.
+3) DropTMDBPublish: Insert the files into the transfer.
 
 If you wish to merge files into larger uncompressed zip archives for
 better storage and transport efficiency, use DropFunnel between steps
@@ -98,28 +95,40 @@ directory as scp:user@host:/remote/dir or rfio:/remote/dir.
 We recommend setting up the agents in a common structure as used
 for instance at CERN.  This also means creating a few scripts to
 set up the environment, start and stop the agents.  Please refer
-to README-Operations.txt and V2-CERN-*.sh.  (FIXME: And node
-deployment guide (where?).)
+to README-Operations.txt and Custom/CERN.  You may also wish to
+read README-DeveloperTestbed.txt as another deployment guide.
 
   mkdir -p /some/new/place
   cd /some/new/place
-  export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/TMAgents
+  export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/PHEDEX
   cvs login # password is "98passwd"
-  cvs co -d scripts TMAgents/AgentToolkitExamples
+  cvs co PHEDEX
+
+  # Create log and state directories
+  mkdir -p incoming logs
+  mkdir -p PHEDEX/Custom/YourSite
+
+  # Set up environment script; use V2-CERN-Environ.sh as template
+  vi PHEDEX/Custom/YourSite/Environ.sh
+
+  # Set up agent start script; use V2-CERN-Start.sh as template
+  vi PHEDEX/Custom/YourSite/Start.sh
+
+  # Set up agent stop script; use V2-CERN-Stop.sh as template
+  vi PHEDEX/Custom/YourSite/Stop.sh
 
   # FIXME: Follow node deployment instructions:
-  #  - set up directories: mkdir incoming logs
-  #  - create environment setup script (see V2-CERN-Environ.sh)
   #  - set up oracle and perl dbd (see V2-CERN-Environ.sh)
   #  - set up catalogue contact (see V2-CERN-Environ.sh)
   #     - can use either rls, or local oracle/mysql pool catalogue
+  #  - site glue scripts
 
 ** Starting and stopping the agents
 
-Create scripts for these tasks.  You can use the node deployment
-tools to do so, or do it by hand using the V2-CERN-Start.sh and
-V2-CERN-Stop.sh as your model.  You might want to refer to
-README-Operations.txt for more details.
+In PHEDEX/Custom/YourSite you should create three scripts to manage
+tasks for your agents.  Create "Environ.sh", "Start.sh" and "Stop.sh"
+using scripts from Custom/CERN as a model.  You might want to refer
+to README-Operations.txt for more details.
 
 ** Generating and feeding drops to the agents
 
@@ -128,8 +137,8 @@ Please refer to README-RefDB.txt and using TRSyncFeed.
 ** Examining logs
 
 If you follow the suggested configuration, your agents will produce
-logs to the "logs" directory parallel to "scripts".  You can tail
-them there.  In future will deploy distributed logging (netlogger)
+logs to the "logs" directory parallel to "PHEDEX".  You can tail
+them there.  In future we will deploy distributed logging (netlogger)
 to collect the logs.
 
 ** Agent descriptions
@@ -274,8 +283,7 @@ Many agents take same or similar options:
 
 ** Support
 
-If you have any questions or comments, please contact Lassi A. Tuura
-<lassi.tuura@cern.ch> or Tim Barrass <tim.barrass@physics.org> or the
-developers list at cms-phedex-developers@cern.ch.  You are welcome to
-file bug reports and support requests at our Savannah site at
+If you have any questions or comments, please contact the developers
+at <cms-project-phedex@cern.ch>.  You are welcome to file bug reports
+and support requests at our Savannah site at
   http://savannah.cern.ch/projects/phedex

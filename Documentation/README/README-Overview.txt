@@ -16,47 +16,39 @@ The PHEDEX system consists of several components:
 
 ** Overview documentation
 
-AgentDocs/overview.tex describes the whole system.
+WhitePapers/overview.tex describes the whole system.
 
-AgentDocs/routing.tex describes the file routing.
+WhitePapers/routing.tex describes the file routing.
 
-AgentDocs/schema.tex describes TMDB schema and how transfer agents
+WhitePapers/schema.tex describes TMDB schema and how transfer agents
 should interpret and maintain the information.
 
 ** Management documentation
 
-AgentToolkitExample/Managers/readme (a RTF file) describes the
-management agents.
+README/README-Managers.txt describes the management agents.
 
-AgentToolkitExample/NodeTestbed/readme (a RTF file) describes how to
-set up a V2 testbed system.
+README/README-DeveloperTestbed.txt describes how to set up a testbed.
 
-AgentToolkitExample/DropBox/README-Operations.txt describes current
-operations practises for CMS transfers; currently only for CERN, but
-hopelly more later on.
+README/README-Operations.txt describes current operations practises for
+CMS transfers; currently only for CERN, but hopelly more later on.
 
 ** Detailed documentation
 
-AgentToolkitExample/DropBox/README-RefDB.txt describes transfer
-request management, and more specifically, how to inject data from
-RefDB into transfer.
+README/README-RefDB.txt describes transfer request management, and more
+specifically, how to inject data from RefDB into transfer.
 
-AgentToolkitExample/DropBox/README-Agents.txt describes the drop box
-agents.
+README/README-Agents.txt describes the drop box agents.
 
-AgentToolkitExample/DropBox/README-Funnel.txt is being written and
-will describe how to merge files prior to transfer.
+README/README-Funnel.txt will describe how to merge iles (being written).
 
-AgentToolkitExample/DropBox/README-Schedule.txt is being written and
-will describe how files are scheduled.
+README/README-Schedule.txt will describe file scheduling (being written).
 
-AgentToolkitExamples/RLSTest/README.txt describes a stand-alone
-test-bed setup for RLS performance benchmarking.
+Tesbed/RLSTest/README.txt describes a stand-alone test-bed setup for
+catalogue performance benchmarking.
 
 ** Support
 
-If you have any questions or comments, please contact Lassi A. Tuura
-<lassi.tuura@cern.ch> or Tim Barrass <tim.barrass@physics.org> or the
-developers list at cms-phedex-developers@cern.ch.  You are welcome to
-file bug reports and support requests at our Savannah site at
+If you have any questions or comments, please contact the developers
+at <cms-project-phedex@cern.ch>.  You are welcome to file bug reports
+and support requests at our Savannah site at
   http://savannah.cern.ch/projects/phedex

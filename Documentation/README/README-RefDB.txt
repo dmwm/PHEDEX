@@ -26,9 +26,8 @@ The expected minimal drop processing chain is then something like
 this:
   - DropXMLUpdate: Expand the XML fragment to complete POOL catalogue
     and remap relatives PFNs to full paths using the summary file.
-  - DropCastorStageIn: Stage in the files.
-  - DropCastorChecksum: Generate checksums if they are missing.
-  - DropCastorGridPFN: Update PFNs to sfn://castorgrid.cern.ch format.
+  - DropCastorFileCheck: Ensure all the files actually exist.
+  - DropCastorGridPFN: Update PFNs to sfn://castorgrid.cern.ch.
   - DropCatPublish: Publish the XML to the local/rls catalogue.
   - DropTMDBPublish: Publish the files for transfer.
 
@@ -110,73 +109,74 @@ request is made, LABEL is some semi-meaningful label, and ID is three
 first letters of your AFS user id (LAT, BARrass, WILdish, ...).  In
 any case the ticket tracks who did what and on which computer.
 
-The tools are in /afs/cern.ch/cms/aprom/phedex/Tools/DropBox.  All TR*
-commands should respond to "-h" option to get help.
+The tools are in /afs/cern.ch/cms/aprom/phedex/PHEDEX/Toolkit/Request.
+All TR* commands should respond to "-h" option to get help.
 
 1) You create a new empty request with TRNew:
      cd /afs/cern.ch/cms/aprom/phedex/TransferRequests
-     ../Tools/DropBox/TRNew 2004-08-20-TEST-LAT
+     ../PHEDEX/Toolkit/Request/TRNew 2004-08-20-TEST-LAT
 
-2) Add destination information -- where the data is wanted (we don't
-   currently do anything with this info, but mean to manage TMDB
-   subscriptions from them, so please keep adding it, even if it's
-   "just for the record" for now):
-     ../Tools/DropBox/TRNewLoc 2004-08-20-TEST-LAT FNAL INFN
+2) Add destination information -- where the data is wanted.  This
+   will be the list of TMDB nodes that will be subscribed to this
+   data.
+     ../PHEDEX/Toolkit/Request/TRNewLoc 2004-08-20-TEST-LAT FNAL_MSS
 
 3) Add data:
-    ../Tools/DropBox/TRNewData -p 2004-08-20-TEST-LAT
+    ../PHEDEX/Toolkit/Request/TRNewData -p 2004-08-20-TEST-LAT \
     'bt03_udsg*.bt_*{PU761,Hit75[012],Hit245,DST813_2}*'
 
    TRNewData doesn't print out the result.  You can either:
     A) cat 2004-08-20-TEST-LAT/Request/Ticket
-    B) ../Tools/DropBox/RefDBList <the-same-list-of-patterns-or-@files>
-    C) ../Tools/DropBox/RefDBAssignments -v $(../Tools/DropBox/RefDBList <args>)
+    B) ../PHEDEX/Utilities/RefDBList -p <the-same-list-of-patterns-or-@files>
+    C) ../PHEDEX/Utilities/RefDBAssignments -v $(../PHEDEX/Utilities/RefDBList <args>)
 
    As mentioned, you can run the commands more than once to add more
    destinations / data.  Use -r option to cancel previous choices.
    Use rm -fr request to start over.
 
 4) Once you've added all the data, you can generate drops for them.
-     ../Tools/DropBox/TRSyncDrops 2004-08-20-TEST-LAT
+     ../PHEDEX/Toolkit/Request/TRSyncDrops 2004-08-20-TEST-LAT
 
-5) To feed them into the chain, login as cmsprod on lxgate04, then in
-   TransferRequests do
-      source /afs/cern.ch/project/oracle/script/setoraenv.csh -s 8174
-      ../Tools/DropBox/TRSyncFeed \
-        /data/incoming.cmsprod/T0/TMDB pdb01 filesfortransfer \
-	2004-08-20-TEST-LAT
+5) Update TMDB subscriptions for the requests:
+     ../PHEDEX/Toolkit/Request/TRSyncAllocs \
+        cms t_files_for_transfer 2004-08-20-TEST-LAT
+
+6) Log in as cmsprod@lxgate04.cern.ch to feed the drops into distribution:
+      cd /afs/cern.ch/cms/aprom/phedex/TransferRequests
+      source /data/V2Nodes/PHEDEX/Custom/CERN/V2-CERN-Environ.sh
+      ../PHEDEX/Toolkit/Request/TRSyncFeed \
+        $PHEDEX_STATE cms t_files_for_transfer 2004-08-20-TEST-LAT
 
    NOTE: Use the -x option to see what it would do, but without doing
    anything for real ("dry-run").
 
-6) If there were drops marked "NotReady"  (= files not available in
-   castor), you can keep on running TRSyncFeed exactly the same way.
+7) If there were drops marked "NotReady" (= files not available in
+   Castor), you can keep on running TRSyncFeed exactly the same way.
    If more files have become available, it will feed the ready ones to
    the transfer chain.
 
-7) To see the status of all the files (see mail to Daniele):
-     echo 2004-08-20-TEST-LAT/Drops/*/* |
-       xargs -n100 ../Tools/DropBox/TRFileCheck \
-	  /data/incoming.cmsprod/T0/TMDB pdb01 filesfortransfer
+8) To update the status of all the files in the request browser:
+     ../PHEDEX/Toolkit/Request/TRSyncWeb \
+       $PHEDEX_STATE cms 2004-08-20-TEST-LAT
 
-8) Simple bean counting
-     ls 2004-08-20-TEST-LAT/Drops/Pending | wc -l
-     ls 2004-08-20-TEST-LAT/Drops/Done | wc -l
-     ls 2004-08-20-TEST-LAT/Drops/NotReady | wc -l
+   You can then see the status of the request in the browser at
+      http://cern.ch/cms-project-phedex/cgi-bin/requests
 
 ** Utilities
 
-RefDBList expands "dataset.owner" patterns into full list of pairs.
-RefDBAssignment maps full dataset.owner names into lists of
-assignments.  See examples above.
+RefDBExpand expands "dataset.owner" patterns into full list of pairs.
+It takes the same options as TRNewData (-f, -p, -a).  RefDBAssignment
+maps full dataset.owner names into lists of assignments.  See examples
+above.
 
 You can use TRFileCheck to check any drops anywhere to see their
 current status -- including drops in the state directories of drop box
-agents (see README-Agents.txt).  See examples of its use above.
+agents (see README-Agents.txt).  Use it something like this:
+  echo 2004-08-20-TEST-LAT/Drops/*/* |
+    xargs -n100 TRFileCheck $PHEDEX_STATE cms t_files_for_transfer
 
 ** Downloading tools from CVS
 
-  setenv CVSROOT :pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/TMAgents
+  setenv CVSROOT :pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/PHEDEX
   cvs login # password is "98passwd"
-  cvs co TMAgents/AgentToolkitExamples
-  cd TMAgents/AgentToolkitExamples/DropBox
+  cvs co PHEDEX

@@ -53,10 +53,10 @@ export NODETESTBED=/NodeTestbed [ or whatever your chosen location is
 mkdir $NODETESTBED
 cd $NODETESTBED
 
-export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/TMAgents
+export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/PHEDEX
 cvs login
 #	[ password is 98passwd ]
-cvs co AgentToolkitExamples
+cvs co PHEDEX
 
 setenv POOL_CATALOG mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat
 setenv PATH ${PATH}:${NODETESTBED}/AgentToolkitExamples/NodeTestbed
