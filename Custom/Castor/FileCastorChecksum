@@ -299,7 +299,7 @@ sub completeOne
 
     # Log transfer delay stats
     $now = &mytimeofday ();
-    &logmsg ("xstats: $guid "
+    &logmsg ("xstats: $guid 0 "
 	     . sprintf ('%.2f %.2f',
 	    		$now - $report->{TIME_ASSIGNED},
 	    		$now - $report->{TIME_STARTED}));
