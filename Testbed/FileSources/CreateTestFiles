@@ -1,5 +1,15 @@
 #!/usr/bin/perl
 
+# This tool functions as a fake data source. cd to your fake SE
+# directory then run 
+#
+# CreateTestFiles <number of files> <source node name>
+#
+# It will create N files in the pwd. First each file is registered
+# in the catalogue specified in $POOL_CATALOG. Each file will
+# contain its own guid. The files will also be registered in the
+# TMDB.
+
 $count = $ARGV[0];
 $node = $ARGV[1];
 $pwd = $ENV{PWD};
@@ -7,6 +17,18 @@ $pwd = $ENV{PWD};
 print "$count files, in $pwd, registered at node $node\n";
 
 while ($count > 0) {
+    
+    $guid = '';
+    $file = "TestbedFile".$count;
+    $full_path = $pwd.$file;
+    
+    open( REG, "FCregisterPFN -p $full_path" );
+    while(<REG>) {
+        $guid = $_;
+    }
+    close( REG );
+    
+    print "@_\n$guid\n";
     
     $count--;
 }
