@@ -242,47 +242,47 @@ In contrast PIC experienced no problems with their Castor tape.
 
 PIC and CNAF were also able to distribute data on to T2s (X and Legnaro respectively) for analysis. To manage these further transfers, as well as real-time analysis, they effetively created a new set of distribution chains using a MySQL TMDB for collaboration information.
 
-\subsection{Real-time analysis agents}
-Real-time analysis- analysis of data as it arrived at the T1- was successfully attempted at CNAF, PIC, FNAL and IN2P3, with varying performance. 
+%\subsection{Real-time analysis agents}
+%Real-time analysis- analysis of data as it arrived at the T1- was successfully attempted at CNAF, PIC, FNAL and IN2P3, with varying performance. 
 
-At CNAF, the T1 transfer agent notified a real-time analysis agent when new files were available for analysis. The eal-time analysis agent submitted analysis jobs on the new data using BOSS through LCG-2 RBs at CERN and CNAF, with the jobs being directed to CEs at CNAF or Legnaro. 
+%At CNAF, the T1 transfer agent notified a real-time analysis agent when new files were available for analysis. The eal-time analysis agent submitted analysis jobs on the new data using BOSS through LCG-2 RBs at CERN and CNAF, with the jobs being directed to CEs at CNAF or Legnaro. 
 
-15000 jobs were submitted in this way over the last two weeks of DC04. The minimum period between the files appearing in distribution and being analysed was 10 minutes- but with a large number of ``outliers''. 
+%15000 jobs were submitted in this way over the last two weeks of DC04. The minimum period between the files appearing in distribution and being analysed was 10 minutes- but with a large number of ``outliers''. 
 
-The outlying longer times were attributed to: the fact that datasets were completed over a relatively long length of time at CERN; Castor problems at CNAF reduced replication efficiency; analysis agents were actively developed during this period and were therefore not up all the time; and occasionally zipped metadata arrived late compared to the related dataset, delaying analysis.
+%The outlying longer times were attributed to: the fact that datasets were completed over a relatively long length of time at CERN; Castor problems at CNAF reduced replication efficiency; analysis agents were actively developed during this period and were therefore not up all the time; and occasionally zipped metadata arrived late compared to the related dataset, delaying analysis.
 
-An analysis of the performance of a single job showed that the ORCA execution time was 25 minutes. For comparison, the time to stage files was just short of 3 minutes, and the overhead of submission to the Grid was only 2 minutes. Efficiency of submission to the grid was over 95\% (fig. \ref{fig:CNAF-RTA}).
+%An analysis of the performance of a single job showed that the ORCA execution time was 25 minutes. For comparison, the time to stage files was just short of 3 minutes, and the overhead of submission to the Grid was only 2 minutes. Efficiency of submission to the grid was over 95\% (fig. \ref{fig:CNAF-RTA}).
 
-Significantly, the maximum rate of job submission was 194 jobs per hour- which corresponds to 26 Hz (or events per second), the target rate for DC04.
+%Significantly, the maximum rate of job submission was 194 jobs per hour- which corresponds to 26 Hz (or events per second), the target rate for DC04.
 
-\begin{figure}[tbp]
-\centering
-\includegraphics[width=10cm]{CNAF-RTA.eps}
-\label{fig:CNAF-RTA}
-\caption{During the last two weeks of DC04 CNAF was able to analyse data in real time (or syncronously with the production of data). The minimum period between the appearance of files in distribution was 10 minutes. There is however a significant population of longer periods shown here, which were attributable to a number of issues like ongoing development of the analysis agents. It should be noted that CNAF was "in the front line" with real time analysis, and were the first to develop and deploy the system described here.}
-\end{figure} 
+%\begin{figure}[tbp]
+%\centering
+%\includegraphics[width=10cm]{CNAF-RTA.eps}
+%\label{fig:CNAF-RTA}
+%\caption{During the last two weeks of DC04 CNAF was able to analyse data in %real time (or syncronously with the production of data). The minimum period between the appearance of files in distribution was 10 minutes. There is however a significant population of longer periods shown here, which were attributable to a number of issues like ongoing development of the analysis agents. It should be noted that CNAF was "in the front line" with real time analysis, and were the first to develop and deploy the system described here.}
+%\end{figure} 
 
-Over the last four days of DC04 PIC was able to adapt the INFN real time analysis agents for their local environment, which included a private (dedicated) LCG-2 Resource Broker and Grid Information System. Job submission was not coordinated through BOSS due to lack of time and the necessity of sending large executables through the sandbox. Instead the agents communicated through a local MySQL database, and by making drops of XML catalogues for each other.
+%Over the last four days of DC04 PIC was able to adapt the INFN real time analysis agents for their local environment, which included a private (dedicated) LCG-2 Resource Broker and Grid Information System. Job submission was not coordinated through BOSS due to lack of time and the necessity of sending large executables through the sandbox. Instead the agents communicated through a local MySQL database, and by making drops of XML catalogues for each other.
 
-The period between files appearing in distribution and undergoing analysis was noticeably shorter and more consistent at PIC: the median period was only 20 minutes, with 13 minutes median transfer time (fig. \ref{fig:PIC-RTA}).
+%The period between files appearing in distribution and undergoing analysis was noticeably shorter and more consistent at PIC: the median period was only 20 minutes, with 13 minutes median transfer time (fig. \ref{fig:PIC-RTA}).
 
-\begin{figure}[tbp]
-\centering
-\includegraphics[width=10cm]{PIC-RTA.eps}
-\label{fig:PIC-RTA}
-\caption{During the last four days of DC04 PIC were able to implement a real time analysis system based on CNAF's system. Turnaround time for analysis at PIC was much shorter and more consistent than CNAF at a median of 20 minutes.}
-\end{figure} 
+%\begin{figure}[tbp]
+%\centering
+%\includegraphics[width=10cm]{PIC-RTA.eps}
+%\label{fig:PIC-RTA}
+%\caption{During the last four days of DC04 PIC were able to implement a real% time analysis system based on CNAF's system. Turnaround time for analysis at PIC was much shorter and more consistent than CNAF at a median of 20 minutes.}
+%\end{figure} 
 
-TODO: Specific reasons why PIC turnaround time was shorter and more consistent that CNAF.
+%TODO: Specific reasons why PIC turnaround time was shorter and more consistent that CNAF.
 
-TODO: At Fermilab a mean period of 252 minutes elapsed between availability and analysis ... over the Grid, of what type...? (fig. \ref{fig:FNAL-RTA}).
+%TODO: At Fermilab a mean period of 252 minutes elapsed between availability and analysis ... over the Grid, of what type...? (fig. \ref{fig:FNAL-RTA}).
 
-\begin{figure}[tbp]
-\centering
-\includegraphics[width=10cm]{FNAL-RTA.eps}
-\label{fig:FNAL-RTA}
-\caption{A caption here :)}
-\end{figure} 
+%\begin{figure}[tbp]
+%\centering
+%\includegraphics[width=10cm]{FNAL-RTA.eps}
+%\label{fig:FNAL-RTA}
+%\caption{A caption here :)}
+%\end{figure} 
 
 
 \section{Conclusions and future plans}
