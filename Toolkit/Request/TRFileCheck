@@ -33,9 +33,9 @@ use UtilsTR;
 my $mouth = shift (@ARGV);
 my $db = shift (@ARGV);
 my $table = shift (@ARGV);
+my $result = &checkAssignmentFiles ($mouth, $db, $table, @ARGV);
 foreach my $drop (@ARGV)
 {
-    my $result = &checkAssignmentFiles ($mouth, $db, $table, $drop);
     my $info = $result->{$drop};
     next if ! defined $info; # FIXME: warn/whine?
 
