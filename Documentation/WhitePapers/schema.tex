@@ -1,7 +1,7 @@
 \documentclass{cmspaper}
 \def\RCS$#1: #2 ${\expandafter\def\csname RCS#1\endcsname{#2}}
-\RCS$Revision: 1.5 $
-\RCS$Date: 2004/06/17 13:52:52 $
+\RCS$Revision: 1.6 $
+\RCS$Date: 2004/06/17 19:34:38 $
 
 \usepackage{graphicx}
 
@@ -98,9 +98,6 @@
     Provides a reference against which agent names can be checked.
 
   \item [\texttt{t\_Lookup}]\mbox{}
-
-    Very similar to original \texttt{agentstate}:
-    {\em <Node name : agent name : state : last contact>}
 
     This allows for more sophisticated states than up or down... we
     could just have agent as a unique key here, and lose the agent
