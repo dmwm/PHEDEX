@@ -104,7 +104,7 @@ It is more meaningful to ask how long it was before files were available for ana
 \centering
 \includegraphics[width=10cm]{PIC-RTA.eps}
 \label{fig:PIC-RTA}
-\caption{During the last four days of DC04 PIC were able to implement a real% time analysis system based on CNAF's system. Turnaround time for analysis at  PIC was much shorter and more consistent than CNAF at a median of 20 minutes.}
+\caption{During the last four days of DC04 PIC were able to implement a real time analysis system based on CNAF's system. Turnaround time for analysis at  PIC was much shorter and more consistent than CNAF at a median of 20 minutes.}
 \end{figure} 
 
 Transfer rates varied greatly, and are treated in more detail below. Generally however, transfer rates at the start of DC04 were low- individual transfers reached maybe a MBps, with aggregate rates pushing 10MBps. These low transfer rates were due to the small size of files being pushed through the system- an example of poor initial coupling between the data source and the distribution system. Fortunately this poor coupling was improved to some extent by the implementation of a "merging" step (detailed below) which added files to one of a series of queues which expired and were written after either a certain aggregate size or time limit was reached. File sizes were typically ~500k median at the start of DC04.
@@ -135,15 +135,57 @@ Future versions of the TMDB will require that metadata be stored in a separate t
 
 The discussion of which metadata to add to the database- from LFNs through replica to application metadata- continued throughout DC04. Addition of metadata to the TMDB was vigorously opposed to avoid it being seen as a permanent repository of metadata (in principle all information in the TMDB is transient). It became apparent that the ability to add metadata to replica entries- even changing the schema of metadata, or having a varying schema for each replica- was essential, especially during development.
 
-\subsection{LCG Local Replica Catalogue (LRC)}
-Good point was that it was used as a file and metadata catalogue for three
-different distribution spaces, a use case not explicitly considered.
+\subsection{The DC04 Replica Location System (RLS)}
+A reduced set of components from the LCG-2 RLS was deployed as a global service for lfn:guid:pfn and metadata lookups during DC04: a Local Replica Catalogue (LRC) and Replica Metadata Catalogue (RMC) were deployed at CERN. These catalogues were accessed in a variety of ways- for example, using the LRC C++ API for direct access to the LRC, or through POOL File Catalogue tools (the LRC-RMC combination can be represented as a single POOL File Catalogue).
 
-The LRC at CERN (somewhat ironically) provided a global file catalogue service for the main transfer components of DC04. It was found to be a critical bottleneck early in the challenge, and a significant amount of effort was expended in developing it so that performance was brought close to requirements. Even at the end of DC04 however it was still not ebing used generally- POOL XML catalogues were transferred alongside the data, and analysis either used these directly, or accessed the information via a local MySQL POOL catalogue if uploaded upon reacihng the destniation.
+Note that some sites had separate MySQL POOL catalogues that partially replciated information in the RLS. These catalogues were not fully syncronised, although information was published to them from the RLS.
 
-In general inserting information into the LRC was slow. Looking up file information by GUID met performance requirements, but queries, including queries by GUID, took a long time. Throughout DC04 discussions on performance were held with the catalogue developers, and as a result a new optimized version was released just after DC04.
+The RLS proved to be a critical component during DC04, even if only judged on the number of processes accessing it (table \ref{table:rls}).
 
-TODO: This desperately needs some numbers for comparison! 
+\begin{table}
+\begin{tabular}[tbp]{|l|l|l|}
+\hline User & Use of RLS & Tool
+\\ \hline Publishing Agent & Registration on appearance & FCpublish
+\\ Configuration Agent & Query the RLS metadata & FClistMeta
+\\ Export Buffer Agents & Register new mappings & FCaddReplica
+\\ & & C++ LRC API
+\\ GMCat & Maintain SRB : LRC filespace mappings & LRC java API
+\\ Tier-1 Agents & Register new mappings & FCaddReplica,FCpublish
+\\ & Publish sub-RLS into local MySQL POOL catalogue & C++ LRC-API
+\\ LCG Analysis jobs & Through Resource Broker &
+\\ & Register the private output data & 
+\\ Humans & trying to figure what was going on & FC commands
+\\ \hline
+\end{tabular}
+\label{table:rls}
+\caption{Summary of the many uses of the RLS during DC04. FC* commands are those provided by POOL.}
+\end{table}
+
+The LRC at CERN was found to be a critical bottleneck early in the challenge, and a significant amount of effort was expended in developing it so that performance was brought close to requirements. Even at the end of DC04 however it was still not ebing used generally- POOL XML catalogues were transferred alongside the data, and analysis either used these directly, or accessed the information via a local MySQL POOL catalogue if uploaded upon reacihng the destniation.
+
+In general inserting information into the LRC was slow, and using the RMC was slower. Looking up file information by GUID met performance requirements, but queries, including queries by GUID, took a long time. Throughout DC04 discussions on performance were held with the catalogue developers, and as a result a new optimized version was released just after DC04.
+
+Over one of the earliest busy periods of DC04- when the LRC and RMC began to fail- there were around $10^6$ interactions with LRC Oracle backend, and $3\times10^6$ interactions with the RMC per day. 
+
+In total $~570$k lfns were stored in the RLS during DC04, each with 5-10 pfns and 9 metadata attributes. Inserting information into RLS was fast enough if  the appropriate tools were used. A variety of more appropriate tools were developed during DC04 leading to improvements in performance- for example, registering a new mapping using the LRC C++ API took 0.1-0.2 s per mapping, while using the POOL CLI with GUID took seconds per mapping.
+
+Inserting files with metadata into the RLS was slow in comparison, although approximately usable at around 3 s per file. There were periods, however, where intervention was required on the server and insertion times dramatically reduced (fig. \ref{fig:rls}). Interventions included cleaning of log partitions, switching backend nodes, and optimizing queries.
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=10cm]{rls.eps}
+\label{fig:rls}
+\caption{The time taken to register all files in drops as they appeared at the end of Reconstruction jobs shows some variation, with periods of high data production associated with longer registration times (near the middle of the plot). Typically there were 16 files per drop.}
+\end{figure} 
+
+Querying information from RLS was in general very slow.
+Looking up file information by GUID seems sufficiently fast, but bulk queries by GUID took seconds per file. Queries on metadata were too slow- for instance, querying for all files of a specific "owner" took hours. In contrast, it took two minutes to dump the entire catalogue to file after gaining access to the Oracle backend.
+
+The problem was also not POOL-related: for comparison, a similar dumps from POOL MySQL or XML catalogues were a minimum factor 10 faster than a dump from a POOL RLS catalogue. It is entirely possible that a POOL MySQL catalogue could have met the demands of DC04: however, some transfers were undertaken using LCG tools that required an LCG RLS.
+
+In summary, several workarounds or solutions were provided to speed up the access to RLS during DC04: use of the Java Replica Manager CLI was replaced by use of the C++ API; POOL developed improvements and workarounds; and CERN IT were able to index some meta data attributes in RLS (by default, none of the RLS tables are indexed). There were a number of requirements that were not met at the start of DC04: transactional access; a small voerhead compared to to direct RDBMS catalogues; and fast queries.
+
+Each of these issues needs to be met if the RLS is to be used in the future as the file catalogue of choice. Wheher it remains the ideal solution to storing replica metadata also needs to be examined.
 
 \subsection{Dropbox agents}
 + Performed well, typically 0.01s per drop (O(10) files).
