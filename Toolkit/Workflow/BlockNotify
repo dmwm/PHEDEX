@@ -2,12 +2,13 @@
 
 #-----------------------------------------------------------------------------------------------
 # agent name: site monitoring agent
-# purpose: monitor completeness of dataset/owner collections and trigger site specific scripts
+# purpose: monitor completeness of dataset/owner collections and triggers
+#          site specific actions like publication
 #-----------------------------------------------------------------------------------------------
 
 BEGIN
 {
-  use warnings; use strict; use Getopt::Long;
+    use warnings; use strict; use Getopt::Long; use Data::Dumper;
   our $me = $0; $me =~ s|.*/||;
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);
@@ -17,49 +18,44 @@ BEGIN
 #---------------------------------------------
 #     Argument parsing
 #---------------------------------------------
-
-my %args = (DBITYPE => 'Oracle',
-	    WAITTIME => 60);
+my %args = (DBITYPE => 'Oracle', WAITTIME => 3600, NEXTDIR => []);
 
 &GetOptions ("state=s"		=> \$args{DROPDIR},
+	     "out=s@"           => $args{NEXTDIR},
 	     "node=s"		=> \$args{MYNODE},
 	     "db=s"		=> \$args{DBNAME},
 	     "dbitype=s"	=> \$args{DBITYPE},
 	     "dbuser=s"		=> \$args{DBUSER},
 	     "dbpass=s"		=> \$args{DBPASS},
 	     "dbitype=s"        => \$args{DBITYPE},
-	     "wait=f"		=> \$args{WAITTIME},
-
-	     "sitescript=s"	=> \$args{SITESCRIPT});
+	     "wait=f"		=> \$args{WAITTIME});
 
 if ($args{HELPME} || !$args{DBNAME} || !$args{DBUSER}
     || !$args{DBPASS} || !$args{MYNODE} || !$args{DROPDIR}
-    || !$args{SITESCRIPT})
+    || !@{$args{NEXTDIR}})
 {
     print STDERR "usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-                 "       -state IN-DROP-BOX -node NODE-NAME -sitescript SCRIPT\n",
-                 "       [-wait SECONDS]\n";
+                 "       -state IN-DROP-BOX -node NODE-NAME\n",
+                 "       -out NEXT-DROP [-wait SECONDS]\n";
+
     exit 1;
 }
 
 
-my $agent = new NotificationAgent (%args);
+my $agent = new BlockNotify (%args);
 $SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $SIG{QUIT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $SIG{TERM} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $agent->process();
 
 ################################################
-package NotificationAgent; use strict; use warnings; use base 'UtilsAgent';
+package BlockNotify; use strict; use warnings; use base 'UtilsAgent';
 use File::Path;
 use Data::Dumper;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
-use UtilsCatalogue;
 use UtilsDB;
-use UtilsTR;
-use DBI;
 
 sub new
 {
@@ -71,8 +67,7 @@ sub new
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
 	  	  MYNODE => undef,		# My TMDB node name
-	  	  AGENTID => "Notification",    # Identity for activity logs
-		  SITESCRIPT => undef);	        # site specific actions after groups got transfered
+	  	  AGENTID => "BlockNotify");    # Identity for activity logs
 
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
@@ -81,13 +76,14 @@ sub new
 }
 
 
+# Get list of all entirely transferred blocks.  This is always
+# everything; we keep no record of what has already been notified.
+# The downstream local agent must handle duplicates gracefully.
 sub completeBlocks
 {
     my ($self, $dbh) = @_;
     my $result = {};
 
-    # Get all dataset-owner pairs, which were completely
-    # transfered and not yet handled
     my $complete = &dbexec ($dbh, qq{
 	select b.dataset, b.owner, b.files
 	from t_block_replica br
@@ -106,48 +102,67 @@ sub completeBlocks
 	    OWNER => $owner,
 	    FILES => $files
 	};
+
+	foreach my $other (keys %{$result->{$dataset}})
+	{
+	    next if $other eq $owner;
+	    push (@{$result->{$dataset}{$owner}{OTHER_OWNERS}}, $other);
+	}
     }
     
     return $result;
 }
 
-# Pick up work from the database and start site specific scripts if necessary
+# Pick up ready blocks from database and send info to downstream agents.
 sub idle
 {
     my ($self, @pending) = @_;
     my $dbh = undef;
-    my $completed = undef;
 
     eval
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
-	# get the owners for each dataset of all transfered collections
-        # (info needed for publishing or maybe other reasons)
-	$completed = $self->completeBlocks ($dbh);
+	# Get owner/dataset for all completely transferred blocks,
+	# Also get other information necessary for e.g. publishing
+	# and other local bookkeeping such as consistency checks.
+	# In particular, get the number of files, and pass down
+	# other transferred owners for the same dataset, so the
+	# site can tell whether they have Hits *and* Digis.
+	my $completed = $self->completeBlocks ($dbh);
+        foreach my $dataset (sort keys %$completed)
+        {
+	    foreach my $owner (sort keys %{$completed->{$dataset}})
+	    {
+		# Dump out a drop box packet for each block in our own
+		# outbox, for agent core to copy downstream.
+		my $block = $completed->{$dataset}{$owner};
+		my $blockid = "$block->{OWNER}.$block->{DATASET}";
+		my $drop = "$self->{DROPDIR}/outbox/$blockid";
+		do { &alert ("$blockid already pending, skipping"); next; } if -d $drop;
+		do { &alert ("failed to create drop for $blockid"); &rmtree ($drop); last; }
+    	            if (! &mkpath ($drop)
+        		|| ! &output ("$drop/packet", Dumper ($block))
+        		|| ! &touch ("$drop/go.pending"));
+
+		# OK, kick it go
+		&warn ("failed to mark $blockid ready to go")
+		    if ! &mv ("$drop/go.pending", "$drop/go");
+	    }
+        }
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh } if $@;
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
 
-    # Call external script to do publishing and site specific work (etc.)
-    foreach my $dataset (sort keys %$completed)
+    # Explicitly pump drops we just created, otherwise they will stay
+    # in outbox until next time we wake up (usually an hour later!).
+    foreach my $drop ($self->readOutbox())
     {
-	foreach my $owner (sort keys %{$completed->{$dataset}})
-	{
-	    my @other = grep ($_ ne $owner, keys %{$completed->{$dataset}});
-	    my $ret = &runcmd (@{$self->{SITESCRIPT}}, $dataset, $owner,
-			       $completed->{$dataset}{$owner}{FILES},
-			       @other);
-
-	    &alert ("failed to notify site for $owner/$dataset: @{[&runnerror ($ret)]}")
-		if $ret;
-	}
+        $self->relayDrop ($drop);
     }
-    
+
     # Have a little nap
     $self->nap ($self->{WAITTIME});
 }
-
-

@@ -1,9 +1,9 @@
 #! /usr/bin/env perl
 
 #-----------------------------------------------------------------------------------------------
-# agent name: expansion agent
-# purpose:   recreate file level information if dataset/owner collections
-#            are needed again (e.g. new subscriptions)
+# agent name: collapse agent
+# purpose: monitor completeness of dataset/owner collections
+#          and trigger removal of file level information in TMDB
 #-----------------------------------------------------------------------------------------------
 
 BEGIN
@@ -29,7 +29,8 @@ my %args = (DBITYPE => 'Oracle',
 	     "dbuser=s"		=> \$args{DBUSER},
 	     "dbpass=s"		=> \$args{DBPASS},
 	     "wait=f"		=> \$args{WAITTIME},
-	     "help"		=> \$args{HELPME});
+	     "help"		=> \$args{HELPME},
+	     "holdoff=f"        => \$args{HOLDOFF});
 
 
 if ($args{HELPME} || !$args{DBNAME} || !$args{DBUSER}
@@ -42,18 +43,19 @@ if ($args{HELPME} || !$args{DBNAME} || !$args{DBUSER}
     print "--dbpass:       database user password (required)\n";
     print "--state:        agent state directory (required)\n";
     print "--wait:         seconds to sleep between checks\n";
+    print "--holdoff:      holdoff time for pruning after collection was touched last\n";
     exit 1;
 }
 
 #CJR mapping for Lassi's dropbox toolkit
-my $agent = new ExpansionAgent (%args);
+my $agent = new BlockActivate (%args);
 $SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $SIG{QUIT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $SIG{TERM} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $agent->process();
 
 ################################################
-package ExpansionAgent; use strict; use warnings; use base 'UtilsAgent';
+package BlockActivate; use strict; use warnings; use base 'UtilsAgent';
 use File::Path;
 use Data::Dumper;
 use UtilsCommand;
@@ -73,7 +75,8 @@ sub new
     		  DBNAME => undef,		# Database name
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
-	  	  AGENTID => "Expansion");      # Identity for activity logs
+	  	  AGENTID => "BlockActivate",   # Identity for activity logs
+		  HOLDOFF => 86400);            # hold-off time for pruning (24h default)
 
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
@@ -87,18 +90,22 @@ sub idle
 {
     my ($self, @pending) = @_;
     my $dbh = undef;
-    my @collectionsWanted = ();
+    my @collectionsFinished = ();
 
     eval
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
+
+	# check if a group was transfered completely to all destinations and return group
+	@collectionsFinished = $self->getGroupstoDelete($dbh); # got group to remove
+	if (scalar(@collectionsFinished) != 0) {
+
+	    # make a copy of the old t_replica_state entries ?? (t_transfer_state entries also ??)
 	
-	# look for newly requested collections and make the files available in t_replica_state
-	@collectionsWanted = $self->getGroupsWanted($dbh);
-	if (scalar (@collectionsWanted) !=0) {
-	    # make those collections available in t_replica_state if necessary
-	    foreach my $collection (@collectionsWanted) {
-		$self->makeAvailInTMDB($dbh, $collection);
+
+	    # let's get rid of that stuff collection by collection !!
+	    foreach my $collection (@collectionsFinished) {
+		$self->removeInTMDB($dbh, $collection);
 	    }
 	}
 	
@@ -115,51 +122,49 @@ sub idle
 }
 
 
-sub getGroupsWanted {
-    my ($self, $dbh) = @_; 
+sub getGroupstoDelete {
+    my ($self, $dbh) = @_;
     my @packet = ();
-    
-# any collections wanted, which are not in t_replica_state ? Let's check....    
-# FIXME: really ugly SQL... I am wondering if this could be improved
+
+    my $now = time();
+# let's get all dataset-owner pairs, which got completely transfered
     my $h_packet = &dbexec ($dbh, qq{
-	select ts.dataset, ts.owner, ts.destination
-        from t_subscription ts, t_file tf, t_block tb
-        where tf.inblock=tb.name and 
-        ts.dataset=tb.dataset and 
-        ts.owner=tb.owner and 
-        tf.guid not in (select guid from t_replica_state)});
-    
-    while (my ($owner, $dataset, $node) = $h_packet->fetchrow_array){
-	my $exists = grep(|"$dataset:$owner:$node"|,@packet);
-	push (@packet, "$dataset:$owner:$node") if ! $exists ;
+	select tb.dataset, tb.owner
+        from t_block tb, t_block_replica tbr left join on tb.name=tbr.name
+        group by tb.dataset,tb.owner
+	having sum(tb.files)=sum(tbr.files) and max(tbr.timestamp)<(:now-:holdoff)},
+        ":now"=>$now, ":holdoff"=>$self->{HOLDOFF});
+
+ 
+    while (my ($owner, $dataset) = $h_packet->fetchrow_array){
+	push (@packet, "$dataset:$owner");
     }
 # return those dataset owner pairs
     return @packet;
-    
 }
 
 
-sub makeAvailInTMDB {
+sub removeInTMDB {
     my ($self, $dbh, $collection) = @_;
-    my ($dataset, $owner, $node) = split(':',$collection);
-    
-    my $now = time();
+    my ($dataset, $owner) = split(':',$collection);
+
 # we need the guids for the files belonging to the selected dataset-owner pairs
     my @guids = &getGUIDs($dataset, $owner);
     
-    foreach my $guid (@guids) {
-# let's check, if the guids are already in t_replica state and add them if they are not
-	my $guid_exists = &dbexec($dbh, qq{
-	    select count(*) from t_replica_state
-	    where node=:node and guid=:guid},
-	    ":node"=>$node, ":guid"=>$guid);
-
-	&dbexec($dbh, qq{
-	    insert into t_replica_state (timestamp,guid,node,state,state_timestamp)
-      	    values ("$now","$guid","$node",'0',"$now")}) if !$guid_exists;
-
+     foreach my $guid (@guids) {
+# let's remove all t_transfer and t_replica info for the chosen guids
+	&dbexec ($dbh, qq{
+		delete from t_transfer_state where
+	        guid = :guid},
+	        ":guid"=>$guid);
+	    
+	&dbexec ($dbh, qq{
+		delete from t_replica_state where
+	        guid = :guid},
+	        ":guid"=>$guid);
 	$dbh->commit();
     }
+	
 }
 
 

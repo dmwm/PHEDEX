@@ -18,8 +18,7 @@ BEGIN
 #     Argument parsing
 #---------------------------------------------
 
-my %args = (DBITYPE => 'Oracle',
-	    WAITTIME => 60);
+my %args = (DBITYPE => 'Oracle', WAITTIME => 180);
 
 &GetOptions ("state=s"		=> \$args{DROPDIR},
 	     "db=s"		=> \$args{DBNAME},
@@ -31,8 +30,7 @@ my %args = (DBITYPE => 'Oracle',
 	     "node=s"           => \$args{MYNODE});
 
 
-if (!$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{DROPDIR})
+if (!$args{DBNAME} || !$args{DBUSER} || !$args{DBPASS} || !$args{DROPDIR})
 {
     print STDERR "usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
                  "       -state IN-DROP-BOX [-wait SECONDS]\n";
@@ -55,8 +53,6 @@ use UtilsLogging;
 use UtilsTiming;
 use UtilsCatalogue;
 use UtilsDB;
-use UtilsTR;
-use DBI;
 
 sub new
 {
@@ -81,14 +77,13 @@ sub idle
 {
     my ($self, @pending) = @_;
     my $dbh = undef;
-    my @collectionsFinished = ();
 
     eval
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
-	# Update statistics in t_block_replica.
-	# Get blockname, nodename, amount of files and total size.
+	# Update statistics in t_block_replica with number of files
+	# and total size in bytes using t_replica_state information.
         my $now = &mytimeofday ();
         my $qreplicas = &dbexec($dbh, qq{
 	    select
@@ -102,6 +97,12 @@ sub idle
 
         while (my ($block, $node, $nfiles, $nbytes) = $qreplicas->fetchrow_array())
         {
+	    # FIXME: Ignore t_replica_state with BlockDeactivate.  Add
+	    # a "isactive" flag to a block/block replica so we can
+	    # tell whether to look at t_replica_state for the block or
+	    # not.  BlockActivate/Deactivate must manage this flag.
+	    # Decide what to do in TMDBInject + DropTMDBPublisher.
+
 	    # Check for an existing entry for current name and node,
 	    # add new one if necessary.
 	    my ($exists) = &dbexec($dbh, qq{
@@ -112,7 +113,7 @@ sub idle
     	    	":block" => $block, ":node" => $node)
     	    	->fetchrow();
 	    
-	    # If entry doesn't exist yet in table, create a template entry.
+	    # Create a template entry if none yet exists.
 	    &dbexec($dbh, qq{
     	    	 insert into t_block_replica
     	    	 (timestamp, name, node, files, bytes)
@@ -120,7 +121,7 @@ sub idle
             	     ":now" => $now,
     	    	 ":block" => $block,
     	    	 ":node" => $node)
-    	    if ! $exists;
+		if ! $exists;
 	    
 	    # Now update table values.
 	    &dbexec($dbh, qq{
@@ -135,6 +136,8 @@ sub idle
     	    	":bytes" => $nbytes,
     	    	":block" => $block,
     	    	":node" => $node);
+
+	    &logmsg ("xstats: $node $block $nfiles @{[sprintf '%.2fTB', $nbytes / (1024**4)]}");
         }
 
 	$dbh->commit();
