@@ -1,0 +1,70 @@
+#!/usr/bin/perl
+
+## This T0 null agent that just receives drops and passes them on or
+## destroys them.
+
+BEGIN { use strict; $^W = 1; }
+my ($dropdir, @nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
+my @startTime;
+my $waittime = 7;		# Seconds to sleep between meta set queries
+my $modelfile = undef;		# Delay model data file
+my $model = undef;		# Delay model data
+my %bad = ();			# Drops we've warned are bad
+my %junk = ();			# Drops we've warned are junk in inbox
+
+my $me = $0; $me =~ s|.*/||;
+my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+
+use File::Path;
+eval qx(cat "$home/UtilsCommand.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsTiming.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsLogging.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsDelay.pm"); die $@ if $@;
+
+######################################################################
+# Routines specific to this agent.
+
+# Actually process the drop.
+sub processDrop
+{
+    my ($drop) = @_;
+
+    # Sanity checking
+    return if (! &inspectDrop ($drop));
+    delete $bad{$drop};
+    &timeStart();
+
+    # If we have delay model, apply it
+    &delayStatistically ($model) if $model;
+
+    # Pass on or delete
+    &touch ("$workdir/$drop/done");
+    &relayDrop ($drop);
+    &logmsg("stats: $drop @{[&formatElapsedTime()]} success");
+}
+
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    { shift (@ARGV); $dropdir = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@nextdir, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $waittime = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-model' && scalar @ARGV > 1)
+    { shift (@ARGV); $modelfile = shift(@ARGV); }
+    else
+    { last; }
+}
+	
+if (scalar @ARGV || !$dropdir)
+{
+    print STDERR
+	"usage: $me -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
+	"    [-model MODEL] [-wait SECS-TO-WAIT]\n";
+    exit (1);
+}
+
+$model = &readDelayModel ($modelfile) if $modelfile;
+&process();
