@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/28 16:01:42 $
-# $Id: Allocator.pl,v 1.26 2004/07/28 16:01:42 barrass Exp $
+# $Date: 2004/07/28 16:02:26 $
+# $Id: Allocator.pl,v 1.27 2004/07/28 16:02:26 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -75,13 +75,13 @@ while(!(-e "$g_work_dir/stop")) {
     
     foreach $guid ( keys %dataset_by_new_guid ) {
         
-        if ( exists( $destinations_by_dataset{$dataset_by_guid{$guid}} ) ) {
-            log_entry( "Will allocate to $destinations_by_dataset{$dataset_by_guid{$guid}}" );
+        if ( exists( $destinations_by_dataset{$dataset_by_new_guid{$guid}} ) ) {
+            log_entry( "Will allocate to $destinations_by_dataset{$dataset_by_new_guid{$guid}}" );
             
             # Do allocation here
             
         } else {
-            add_new_stream_to_subscriptions( $dataset_by_guid{$guid} );
+            add_new_stream_to_subscriptions( $dataset_by_new_guid{$guid} );
         }
     }
 
