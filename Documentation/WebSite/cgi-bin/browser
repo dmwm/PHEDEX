@@ -116,10 +116,13 @@ sub main
 
 sub status {
     my $rows = 0;
-    my $breakdown = param('dso');
-    my $dsoquery = $breakdown ? "r1.value, r2.value," : "";
+    my $breakdown = param('ds');
+    my $dsquery = $breakdown ? "r1.value," : "";
+    my $dsjoin = $breakdown
+        ? "left join t_replica_metadata r1 on r1.guid = f.guid and r1.attribute = 'POOL_dataset'"
+	: "";
     my $query = $dbh->prepare(qq{
-	    select $dsoquery
+	    select $dsquery
 		   n.node_name,
 		   count(f.guid),
 		   sum(case when f.guid is not null then r3.value else '0' end),
@@ -136,10 +139,7 @@ sub status {
 		   sum(case when ts.to_state = 0 then r3.value else '0' end)
 	    from t_files_for_transfer f
 	    cross join t_nodes n
-	    left join t_replica_metadata r1
-	      on r1.guid = f.guid and r1.attribute = 'POOL_dataset'
-	    left join t_replica_metadata r2
-	      on r2.guid = f.guid and r2.attribute = 'POOL_owner'
+	    $dsjoin
 	    left join t_replica_metadata r3
 	      on r3.guid = f.guid and r3.attribute = 'filesize'
 	    left join (select distinct guid from t_destinations) d
@@ -149,14 +149,14 @@ sub status {
 	    left join t_transfer_state ts
 	      on ts.guid = f.guid and ts.to_node = n.node_name
       	    where (rs.node = n.node_name) or (ts.to_node = n.node_name)
-	    group by $dsoquery n.node_name});
+	    group by $dsquery n.node_name});
 
     print "<h2>File replicaton status</h2>\n",
-    	  "<input type='checkbox' name='dso'@{[$breakdown && \" checked='checked'\"]}>",
-	  "Break down by dataset/owner",
+    	  "<input type='checkbox' name='ds'@{[$breakdown && \" checked='checked'\"]}>",
+	  "Break down by dataset",
     	  "<table><tr bgcolor='$altcolor'>",
 	  (map { "<th>$_</th>" }
-	   ($breakdown ? ("Dataset", "Owner") : (),
+	   ($breakdown ? ("Dataset") : (),
 	    "Node", "Files", "Assigned",
 	    "On Site", "Staged", "In Transfer", "Wanted", "Pending")),
           "</tr>\n";
@@ -164,13 +164,13 @@ sub status {
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
-	my ($ds, $o,
+	my ($ds,
 	    $n, $files, $filesize, $assigned,
 	    $onsite, $onsitesize,
 	    $staged, $stagedsize,
 	    $transf, $transfsize,
 	    $wanted, $wantedsize,
-	    $pending, $pendingsize) = ($breakdown ? () : (undef, undef), @$row);
+	    $pending, $pendingsize) = ($breakdown ? () : (undef), @$row);
         my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
 	my $asscolor = ($assigned == $files) ? '' : " bgcolor='$warncolor'";
 	my $onscolor = ($onsite == $files) ? '' : " bgcolor='$pendcolor'";
@@ -181,7 +181,7 @@ sub status {
 		       : " bgcolor='$pendcolor'";
 
         print "<tr valign='top'$rowcolor>",
-	      $breakdown ? "<td>$ds</td><td>$o</td>" : "",
+	      $breakdown ? "<td>$ds</td>" : "",
 	      "<td>$n</td>",
 	      "<td>$files&nbsp;@{[!$files ? '' : sprintf '(%.1f&nbsp;GB)', $filesize/(2**30)]}</td>",
 	      "<td$asscolor>$assigned</td>",
