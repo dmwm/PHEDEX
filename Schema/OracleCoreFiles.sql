@@ -53,6 +53,14 @@ create index ix_file_node
   on t_file (node)
   tablespace CMS_TRANSFERMGMT_INDX01;
 
+create index ix_file_guid_filesize
+  on t_file (guid, filesize)
+  tablespace CMS_TRANSFERMGMT_INDX01;
+
+create index ix_file_inblock_guid
+  on t_file (inblock, guid)
+  tablespace CMS_TRANSFERMGMT_INDX01;
+
 
 create index ix_file_attributes_attr
   on t_file_attributes (attribute)

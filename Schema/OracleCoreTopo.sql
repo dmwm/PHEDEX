@@ -77,3 +77,7 @@ alter table t_node_export
 create index ix_routing_gateway
   on t_routing (gateway)
   tablespace CMS_TRANSFERMGMT_INDX01;
+
+create index ix_routing_to_gateway
+  on t_routing (to_node, gateway)
+  tablespace CMS_TRANSFERMGMT_INDX01;
