@@ -36,6 +36,7 @@ sub consumeFiles
 	my $transfer = $master->startFileTransfer ($dbh, shift (@files));
 	last if ! $transfer;
 
+	$size += $transfer->{FILESIZE};
 	$transfer->{BATCHID} = $self->{BATCHID};
 	push(@$batch, $transfer);
     }
