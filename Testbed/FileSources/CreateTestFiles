@@ -53,12 +53,12 @@ $cat .= "</POOLFILECATALOG>";
 # need to write these to head of injection chain for drop
 
 system("mkdir $head/testdrop");
-open (OUT, "$head/testdrop/XMLCatFragment.testdrop.xml");
-print OUT "$cat\n";
-close (OUT);
-open (OUT, "$head/testdrop/Smry.testdrop.txt");
-print OUT "$smry\n";
-close (OUT);
+open(OUT,">$head/testdrop/XMLCatFragment.testdrop.xml");
+print OUT $cat;
+close(OUT);
+open(OUT,">$head/testdrop/Smry.testdrop.txt");
+print OUT $smry;
+close(OUT);
 
 # =========================================================
 # Subroutines
