@@ -1,0 +1,134 @@
+#!/usr/bin/env perl
+
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+my $me = $0; $me =~ s|.*/||;
+my %args = (DBITYPE => "Oracle", NJOBS => 10);
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-catalogue' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{CATALOGUE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-jobs' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{NJOBS} = shift(@ARGV); }
+    else
+    { last; }
+}
+
+if (scalar @ARGV || !$args{DBNAME} || !$args{DBUSER} || !$args{DBPASS}
+    || !$args{DBITYPE} || !$args{MYNODE} || !$args{CATALOGUE})
+{
+    print STDERR "usage: $me -node NODE -catalogue CATALOGUE [-jobs NJOBS]\n",
+    		 "  -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n";
+    exit (1);
+}
+
+
+my $files = {};
+die if ! &fetchGuids(\%args, $files);
+die if ! &fetchPFNs(\%args, $files);
+
+foreach my $file (values %$files) {
+    print "no guid for pfn $file->{PFN}\n" if ! $file->{GUID};
+    print "no pfn for guid $file->{GUID}\n" if ! $file->{PFN};
+}
+
+exit 0;
+
+######################################################################
+# Fetch all guids for a node in the TMDB.
+sub fetchGuids
+{
+    my ($args, $files) = @_;
+    use UtilsDB;
+    local $| = 1;
+
+    $dbh = &connectToDatabase ($args, 0);
+    my $stmt = &dbexec($dbh, qq{
+	select guid from t_replica_state where node = :node},
+	":node" => $args->{MYNODE});
+    my $nguids = 0;
+    print "downloading guids: ";
+    while (my ($guid) = $stmt->fetchrow()) {
+	$files->{$guid} = { GUID => $guid };
+	print "." if ++$nguids % 1000 == 0;
+    }
+    print " done\n";
+    $dbh->disconnect();
+    undef $stmt;
+    undef $dbh;
+    return 1;
+}
+
+# Pick up result from running FClistGuidPFN: parse the output and
+# get the information about PFNs for GUIDs known to the catalogue.
+sub collectPFNs
+{
+    my ($files, $mgr, $job) = @_;
+
+    if ($job->{STATUS})
+    {
+	unlink $job->{OUTPUT_FILE};
+	print "@{$job->{CMD}} failed with exit code $job->{STATUS}, retrying\n";
+	$mgr->addJob (sub { &collectPFNs($files, $mgr, @_) },
+	    { OUTPUT_FILE => $job->{OUTPUT_FILE} },
+	    @{$job->{CMD}});
+        return;
+    }
+
+    open (PFNS, "< $job->{OUTPUT_FILE}")
+	or die "failed to open output $job->{OUTPUT_FILE}: $!";
+    map { /^([-0-9A-Z]+)\s+(.+)$/ and $files->{$1}{PFN} = $2 } <PFNS>;
+    close (PFNS) or die "failed to read output $job->{OUTPUT_FILE}: $!";
+    unlink $job->{OUTPUT_FILE};
+    print ".";
+}
+
+# Map GUIDs to PFNs using catalogue, running a number of queries
+# in parallel.  Adds "PFN" entry to each file in $files.
+sub fetchPFNs
+{
+    my ($args, $files) = @_;
+    use POSIX;
+    use UtilsJobManager;
+    local $| = 1;
+
+    # Create jobs to resolve guids to pfns
+    print "fetching pfns: ";
+    my $mgr = new UtilsJobManager(%$args);
+    my @guids = sort keys %$files;
+    while (@guids)
+    {
+	my @slice = splice (@guids, 0, 100);
+	my $output = "pfns.$slice[0]";
+	$mgr->addJob (sub { &collectPFNs($files, $mgr, @_) },
+	    { OUTPUT_FILE => $output },
+	    "sh", "-c",
+	    "POOL_OUTMSG_LEVEL=100 $home/../../Utilities/FClistGuidPFN"
+	    . " -u '$args{CATALOGUE}' -g @slice > $output");
+    }
+
+    # Now wait all results are collected
+    while (@{$mgr->{JOBS}})
+    {
+	$mgr->pumpJobs();
+	select (undef, undef, undef, .1);
+    }
+
+    print " done\n";
+    return 1;
+}
