@@ -7,8 +7,11 @@ use CGI::Carp qw(fatalsToBrowser);
 use POSIX;
 use DBI;
 
+my %databases = ("prod" => [ "cms", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
+		 "test" => [ "devdb", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
+		 "testbed" => [ "devdb", 'CMS_TRANSFERMGMT_TESTBED', 'phedexedehp' ]);
 my $cgi = new CGI;
-my $db = param("db") || "cms";    # tnsname of the database
+my $db = param("db") || "prod";    # tnsname of the database
 my $dbh;
 
 my $badcolor = '#ff9e9e';
@@ -43,14 +46,17 @@ sub intro
     <table>
     <tr><td colspan=7 align='center'>$stamp</td></tr>
     <tr><td colspan=7 align='center'><select name='db'>"},
-    "<option value='devdb'@{[$db eq 'devdb' && ' selected=selected']}>Test</option>",
-    "<option value='cms'@{[$db eq 'cms' && ' selected=selected']}>Production</option>",
+    "<option value='testbed'@{[$db eq 'testbed' && ' selected=selected']}>Testbed</option>",
+    "<option value='test'@{[$db eq 'test' && ' selected=selected']}>Test</option>",
+    "<option value='prod'@{[$db eq 'prod' && ' selected=selected']}>Production</option>",
     "</select></td></tr></table>\n";
 
     $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
-    $ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/8174";
-    $ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/8174/lib";
-    $dbh = DBI->connect ("DBI:Oracle:$db", 'CMS_TRANSFERMGMT', 'smallAND_round',
+    $ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/10103";
+    $ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/10103/lib";
+    $db = "prod" if ! grep ($db eq $_, keys %databases);
+    my ($dbname, $dbuser, $dbpass) = @{$databases{$db}};
+    $dbh = DBI->connect ("DBI:Oracle:$dbname", $dbuser, $dbpass,
 	    		 { RaiseError=>1, AutoCommit =>1 });
 
     main();

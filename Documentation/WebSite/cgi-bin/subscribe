@@ -21,8 +21,8 @@ my $goodcolor = '#ccffcc';
 my $altcolor = '#e8e8e8';
 
 $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
-$ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/8174";
-$ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/8174/lib";
+$ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/10103";
+$ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/10103/lib";
 $db = "prod" if ! grep ($db eq $_, keys %databases);
 my ($dbname, $dbuser, $dbpass) = @{$databases{$db}};
 $dbh = DBI->connect ("DBI:Oracle:$dbname", $dbuser, $dbpass,
@@ -31,13 +31,12 @@ $dbh = DBI->connect ("DBI:Oracle:$dbname", $dbuser, $dbpass,
 my $owner = $cgi->param('owner');
 my $dataset = $cgi->param('dataset');
 my %nodesel = map { $_ => 1 } $cgi->param('sites');
-my $nodesql = $db ne 'prod' ? q{select name from t_node order by name}
-			    : q{select node_name from t_nodes order by node_name};
+my $nodesql = q{select name from t_node order by name};
 my @nodes = @{$dbh->selectcol_arrayref($nodesql)};
 
 if ($cgi->param ('submit'))
 {
-    if ($db ne 'prod' && $owner && $dataset)
+    if ($owner && $dataset)
     {
 	my $stmt = $dbh->prepare(qq{
 	    select count(*) from t_subscription
@@ -53,43 +52,16 @@ if ($cgi->param ('submit'))
 	    $istmt->execute ($dest, $owner, $dataset) if ! $known;
 	}
     }
-    elsif ($db eq 'prod' && $dataset)
-    {
-	my $stmt = $dbh->prepare(qq{
-	    select count(*) from t_subscriptions
-	    where destination = ? and stream = ?});
-        my $istmt = $dbh->prepare(qq{
-	    insert into t_subscriptions
-	    (destination, stream)
-	    values (?, ?)});
-        foreach my $dest (keys %nodesel)
-	{
-	    $stmt->execute ($dest, $dataset);
-	    my ($known) = $stmt->fetchrow();
-	    $istmt->execute ($dest, $dataset) if ! $known;
-	}
-    }
     %nodesel = ();
 }
 
-if ($db ne 'prod' && $owner && $dataset)
+if ($owner && $dataset)
 {
     my $stmt = $dbh->prepare (qq{
 	select destination
 	from t_subscription
 	where owner = ? and dataset = ?});
     $stmt->execute ($owner, $dataset);
-    while (my ($node) = $stmt->fetchrow()) {
-	$nodesel{$node} = 1;
-    }
-}
-elsif ($db eq 'prod' && $dataset)
-{
-    my $stmt = $dbh->prepare (qq{
-	select destination
-	from t_subscriptions
-	where stream = ?});
-    $stmt->execute ($dataset);
     while (my ($node) = $stmt->fetchrow()) {
 	$nodesel{$node} = 1;
     }
