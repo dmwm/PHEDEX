@@ -2,8 +2,10 @@
 
 #-----------------------------------------------------------------------------------------------
 # agent name: global monitoring agent
-# purpose: monitor completeness of dataset/owner collections
-#          and trigger removal of file level information in TMDB
+# purpose 1: monitor completeness of dataset/owner collections
+#            and trigger removal of file level information in TMDB
+# purpose 2: recreate file level information if dataset/owner collections
+#            are needed again (e.g. new subscriptions)
 #-----------------------------------------------------------------------------------------------
 
 BEGIN
@@ -29,12 +31,12 @@ my %args = (DBITYPE => 'Oracle',
 	     "dbuser=s"		=> \$args{DBUSER},
 	     "dbpass=s"		=> \$args{DBPASS},
 	     "wait=f"		=> \$args{WAITTIME},
-	     "help"		=> \$args{HELPME});
+	     "help"		=> \$args{HELPME},
+	     "holdoff=f"        => \$args{HOLDOFF});
 
 
 if ($args{HELPME} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{MYNODE} || !$args{DROPDIR}
-    || !$args{SITESCRIPT})
+    || !$args{DBPASS} || !$args{MYNODE} || !$args{DROPDIR})
 {
     print "Syntax for Monitoring agent: \n";
     print "--help:         this help text \n";
@@ -44,6 +46,7 @@ if ($args{HELPME} || !$args{DBNAME} || !$args{DBUSER}
     print "--node:         phedex node name (required)\n";
     print "--state:        agent state directory (required)\n";
     print "--wait:         seconds to sleep between checks\n";
+    print "--holdoff:      holdoff time for pruning after collection was touched last\n"
     exit 1;
 }
 
@@ -75,7 +78,8 @@ sub new
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
 	  	  MYNODE => undef,		# My TMDB node name
-	  	  AGENTID => "Monitoring");     # Identity for activity logs
+	  	  AGENTID => "Monitoring",      # Identity for activity logs
+		  HOLDOFF => 86400);            # hold-off time for pruning (24h default)
 
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
@@ -90,21 +94,35 @@ sub idle
     my ($self, @pending) = @_;
     my $dbh = undef;
     my @collectionsFinished = ();
+    my @collectionsWanted = ();
 
     eval
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
 	# check if a group was transfered completely to all destinations and return group
-	@collectionsFinished = $self->getGroups($dbh); # got group to remove
-	return if (scalar(@collectionsFinished) == 0); # return from eval if there is nothing to be done
+	@collectionsFinished = $self->getGroupstoDelete($dbh); # got group to remove
+	if (scalar(@collectionsFinished) != 0) {
 
-	# make a copy of the old t_replica_state entries ?? (t_transfer_state entries also ??)
+	    # make a copy of the old t_replica_state entries ?? (t_transfer_state entries also ??)
 	
 
-	# let's get rid of that stuff !!
-	$self->removeInTMDB($dbh, @collectionsFinished);
-
+	    # let's get rid of that stuff collection by collection !!
+	    foreach my $collection (@collectionsFinished) {
+		$self->removeInTMDB($dbh, $collection);
+	    }
+	}
+	
+	# look for newly requested collections and make the files available in t_replica_state
+	@collectionsWanted = $self->getGroupsWanted($dbh);
+	if (scalar (@collectionsWanted) !=0) {
+	    # make those collections available in t_replica_state if necessary
+	    foreach my $collection (@collectionsWanted) {
+		$self->makeAvailInTMDB($dbh, $collection);
+	    }
+	}
+	
+	# final commit
 	$dbh->commit();
     };
     do { &alert ("database error: $@"); $dbh->rollback if $dbh } if $@;
@@ -119,16 +137,17 @@ sub idle
 }
 
 
-sub getGroups {
-    my ($self, $dbh, $dataset, $owner) = @_;
+sub getGroupstoDelete {
+    my ($self, $dbh) = @_;
     my @packet = ();
 
-# let's get all dataset-owner pairs, which were completely transfered
+    my $now = time();
+# let's get all dataset-owner pairs, which got completely transfered
     my $h_packet = &dbexec ($dbh, qq{
 	select tb.dataset, tb.owner
         from t_block tb, t_block_replica tbr left join on tb.name=tbr.name
         group by tb.dataset,tb.owner
-	having sum(tb.files)=sum(tbr.files)});
+	having sum(tb.files)=sum(tbr.files) and max(tbr.timestamp)<($now-$self->{HOLDOFF})});
 
  
     while (my ($owner, $dataset) = $h_packet->fetchrow_array){
@@ -139,17 +158,33 @@ sub getGroups {
 }
 
 
+sub getGroupsWanted {
+    my ($self, $dbh) = @_; 
+    my @packet = ();
+    
+# any collections wanted, which are not in t_replica_state ? Let's check....    
+    my $h_packet = &dbexec ($dbh, qq{
+	select tb.dataset, tb.owner, tbr.node
+        from t_block tb, t_block_replica tbr
+        where tb.name = tbr.name and tbr.files=0});
+    
+    while (my ($owner, $dataset, $node) = $h_packet->fetchrow_array){
+	push (@packet, "$dataset:$owner:$node");
+    }
+# return those dataset owner pairs
+    return @packet;
+    
+}
+
+
 sub removeInTMDB {
-    my ($self, $dbh, @collections) = @_;
-    my ($dataset, $owner) = split(':',@collections);
+    my ($self, $dbh, $collection) = @_;
+    my ($dataset, $owner) = split(':',$collection);
 
 # we need the guids for the files belonging to the selected dataset-owner pairs
-    my $h_guids = &dbexec ($dbh, qq{
-	select f.guid from t_dsb_fileid f, t_dsb_dataset d
-	where  d.dataset=:dataset and d.owner=:owner and d.id=f.id},
-	":dataset"=>$dataset, ":owner"=>$owner);
+    my @guids = &getGUIDs($dataset, $owner);
     
-    while (my ($guid) = $h_guids->fetchrow() ) {
+     foreach my $guid (@guids) {
 # let's remove all t_transfer and t_replica info for the chosen guids
 	&dbexec ($dbh, qq{
 		delete from t_transfer_state where
@@ -165,3 +200,41 @@ sub removeInTMDB {
 	
 }
 
+sub makeAvailInTMDB {
+    my ($self, $dbh, $collection) = @_;
+    my ($dataset, $owner, $node) = split(':',$collection);
+    
+    my $now = time();
+# we need the guids for the files belonging to the selected dataset-owner pairs
+    my @guids = &getGUIDs($dataset, $owner);
+    
+    foreach my $guid (@guids) {
+# let's check, if the guids are already in t_replica state and add them if they are not
+	my $guid_exists = &dbexec($dbh, qq{
+	    select count(*) from t_replica_state
+	    where node=:node and guid=:guid},
+	    ":node"=>$node, ":guid"=>$guid);
+
+	&dbexec($dbh, qq{
+	    insert into t_replica_state (timestamp,guid,node,state,state_timestamp)
+      	    values ("$now","$guid","$node",'0',"$now")}) if !$guid_exists;
+
+	$dbh->commit();
+    }
+}
+
+
+sub getGUIDS {
+    my ($dataset, $owner) = @_;
+    my @guids = ();
+
+    my $guids_h = &dbexec ($dbh, qq{
+	select f.guid from t_dsb_fileid f, t_dsb_dataset d
+	where  d.dataset=:dataset and d.owner=:owner and d.id=f.id},
+	":dataset"=>$dataset, ":owner"=>$owner);
+    
+    while (my ($guid) = $guids_h->fetchrow() ) {
+	push (@guids, $guid);
+    }
+    return @guids;
+}
