@@ -4,6 +4,7 @@
 \RCS$Date: 2004/05/27 12:46:29 $
 
 \usepackage{graphicx}
+\DeclareGraphicsExtensions{.eps,.pdf,.png,.mps}
 
 \begin{document}
 \begin{titlepage}
@@ -138,39 +139,12 @@ storage. As files appeared at T1s, other agents submitted the files to
 analysis and published the results. In some cases, further agents
 replicated files to T2 sites for analysis (fig. \ref{fig:flow3}).
 
-\begin{figure}[tbp]
-\centering \includegraphics[angle = 90]{T0-flow.eps}
-\label{fig:flow1}
-\caption{Making data available to distribution during DC04.}
-\end{figure}
-
-\begin{figure}[tbp]
-\centering
-\includegraphics[angle = 90]{T0-flow-2.eps} 
-\label{fig:flow2}
-\caption{Insertion of data into distribution chains during DC04.}
-\end{figure}
-
-\begin{figure}[tbp]
-\centering
-\includegraphics[angle = 90]{T1-flow.eps} 
-\label{fig:flow3}
-\caption{Transfer of files to T1 mass storage during DC04}
-\end{figure}
-
 \subsection{DC04 distribution infrastructure}
 During DC04 data was distributed via three ``chains'', corresponding
 to three flavours of distribution middleware. These middleware tools
 were the LHC Computing Grid (LCG) \cite{lcg}, the Storage Resource
 Manager (SRM) \cite{srm} with dCache \cite{dcache} and SRB \cite{srb}
 (fig. \ref{fig:chains}).
-
-\begin{figure}[tbp]
-\centering
-\includegraphics[width=15cm, angle = 90]{chains.eps} 
-\label{fig:chains}
-\caption{Overall view of the distribution chains deployed during DC04.}
-\end{figure}
 
 The LCG chain used LCG Replica Manager Java command line tools
 \cite{rmapi} and Globus globus-url-copy \cite{globus} to make
@@ -303,17 +277,6 @@ PIC taking only 20 minutes consistently (fig. \ref{fig:PIC-RTA}). More
 detailed information on real time analysis during DC04 is available
 elsewhere \cite{rtadoc}.
 
-\begin{figure}[tbp]
-\centering
-\includegraphics[width=10cm]{PIC-RTA.eps}
-\includegraphics[width=10cm, angle=-90]{filesizes.eps}
-\label{fig:PIC-RTA}
-\caption{Upper:During the last four days of DC04 PIC were able to implement
-a real time analysis system based on CNAF's system. Turnaround time
-for analysis at PIC was much shorter and more consistent than CNAF at
-a median of 20 minutes. Lower: Median filesize during DC04 was ~500 KB.}
-\end{figure} 
-
 Transfer rates varied greatly, and are treated in more detail
 below. Generally however, transfer rates at the start of DC04 were
 low- individual transfers reached maybe a MBps, with aggregate rates
@@ -339,7 +302,7 @@ by the implementation of a "merging" step (detailed below) which added
 files to one of a series of queues which expired and were written
 after either a certain aggregate size or time limit was reached. File
 sizes were typically ~500k median at the start of DC04
-(fig. \ref{fig:PIC-RTA}).
+(fig. \ref{fig:filesizes}).
 
 Agent uptime was not monitored directly, and is difficult to
 estimate. Some agent types would not publish themselves as
@@ -370,13 +333,6 @@ useful experience for the future. Most changes were easily accomodated
 thanks to a carefully designed database schema (for example, the
 addition of new agents was handled gracefully)
 (fig. \ref{fig:schema}).
-
-\begin{figure}[tbp]
-\centering
-\includegraphics{v1_tmdb.eps}
-\label{fig:schema}
-\caption{The Transfer Management Database schema deployed during DC04.}
-\end{figure} 
 
 However, some changes- notably the addition of some forms of metadata
 to the list of files for transfer- caused significant slow down in
@@ -418,25 +374,6 @@ The RLS proved to be a critical component during DC04, even if only
 judged on the number of processes accessing it (table
 \ref{table:rls}).
 
-\begin{table}
-\begin{tabular}[tbp]{|l|l|l|}
-\hline User & Use of RLS & Tool
-\\ \hline Publishing Agent & Registration on appearance & FCpublish
-\\ Configuration Agent & Query the RLS metadata & FClistMeta
-\\ Export Buffer Agents & Register new mappings & FCaddReplica
-\\ & & C++ LRC API
-\\ GMCat & Maintain SRB : LRC filespace mappings & LRC java API
-\\ Tier-1 Agents & Register new mappings & FCaddReplica,FCpublish
-\\ & Publish sub-RLS into local MySQL POOL catalogue & C++ LRC-API
-\\ LCG Analysis jobs & Through Resource Broker & Replica Manager
-\\ & Register the private output data & 
-\\ Humans & diagnosing problems & FC commands
-\\ \hline
-\end{tabular}
-\label{table:rls}
-\caption{Summary of the many uses of the RLS during DC04. FC* commands are those provided by POOL.}
-\end{table}
-
 The RLS at CERN was found to be a critical bottleneck early in the
 challenge, and a significant amount of effort was expended in
 developing it so that performance was brought close to
@@ -477,13 +414,6 @@ periods, however, where intervention was required on the server and
 insertion times dramatically reduced
 (fig. \ref{fig:rls}). Interventions included cleaning of log
 partitions, switching backend nodes, and optimizing queries.
-
-\begin{figure}[tbp]
-\centering
-\includegraphics[width=10cm]{rls.eps}
-\label{fig:rls}
-\caption{The time taken to register all files in drops as they appeared at the end of Reconstruction jobs shows some variation, with periods of high data production associated with longer registration times (near the middle of the plot). Typically there were 16 files per drop.}
-\end{figure} 
 
 Querying information from RLS was in general very slow. Looking up
 file information by GUID seemed sufficiently fast, but bulk queries by
@@ -617,13 +547,6 @@ stream, could be used to transfer files, reducing the number of
 authentications required. Transfer rates of over 10 MBps could be
 sustained for long periods (fig. \ref{fig:FNAL-network}).
 
-\begin{figure}[tbp]
-\centering
-\includegraphics[width=10cm]{FNAL-network.eps}
-\label{fig:FNAL-network}
-\caption{The SRM chain was able to sustain transfer rates of more than 10 MBps into FNAL for long periods.}
-\end{figure} 
-
 In contrast to other techniques, the use of SRM eased agent
 development with features like automatic directory creation, file
 migration and staging, and automatic failure recovery. Similar
@@ -702,13 +625,6 @@ the LRC at CERN periodically. As the difficulties with the MCat
 increased GMCat was stopped as the system no longer reponded in a
 useful timescale.
 
-\begin{figure}[tbp]
-\centering
-\includegraphics[width=10cm]{srbtmdb.png}
-\label{fig:RAL-files}
-\caption{States for files assigned to RAL, transfers off the buffer happen as files apear
-but loading the buffer cannot keep up with the rate of new files.}
-\end{figure} 
 
 While transfer speeds from T0-T1 were respectable (fig. \ref{fig:RAL-files})
  the initial entry of the file onto the export buffer was
@@ -780,13 +696,6 @@ and PIC T1s, then replicated to disk-SEs to grant data access for
 T1 agents were all able to match pace with the generation of files at
 the T0 (fig. \ref{fig:PIC-FT}).
 
-\begin{figure}[tbp]
-\centering
-\includegraphics[width=10cm]{PIC-FT.eps}
-\label{fig:PIC-FT}
-\caption{Throughout DC04 the number of files apparently at the T0 and on the SE (classed as NEW or IN\_BUFFER) was negligible for PIC and CNAF (the diagram here is for PIC, but is equally applicable to CNAF), suggesting that the SE and T1 agents were able to keep up with the rate of generation of files at the T0. }
-\end{figure} 
-
 At the start of DC04 both PIC and INFN used Java RM APIs to make
 transfers and catalogue lookups/registrations. This was found to be
 inefficient, and both sought other methods of transfer. Interestingly,
@@ -814,27 +723,6 @@ test at the end of DC04 (fig's. \ref{fig:PIC-stress},
 \ref{fig:CNAF-stress}). Internal monitoring at CNAF revealed a
 bottleneck on site, with an internal link to the SE operating at over
 80\% capacity during the final stress test.
-
-\begin{figure}[tbp]
-\centering
-\includegraphics[width=15cm]{SE-EB-network.eps}
-\label{fig:SE-EB-network}
-\caption{Transfer rates out of the SE EB could be sustained at over 2 MBps toward the end of DC04, and peaked at 16MBps.}
-\end{figure}
-
-\begin{figure}[tbp]
-\centering
-\includegraphics[width=10cm]{PIC-stress.eps}
-\label{fig:PIC-stress}
-\caption{During a large filesize stress test at the end of DC04, files of 600MB and larger were put into distribution. PIC sustained transfer rates of 30 MBps for 6 hours.}
-\end{figure} 
-
-\begin{figure}[tbp]
-\centering
-\includegraphics[width=10cm]{CNAF-stress.eps}
-\label{fig:CNAF-stress}
-\caption{During a large filesize stress test at the end of DC04 (the period from 0 at the right of the plot), files of 600MB and larger were put into distribution. CNAF sustained transfer rates of 40 MBps for 5 hours.}
-\end{figure} 
 
 At CNAF issues with the Castor tape stager were found to be due to the
 high number of entries in its database (a consequence of the small
@@ -983,5 +871,144 @@ deployment and use.
 
 \bibliographystyle{plain}
 \bibliography{dc04-post-mortem}
+
+\clearpage
+\begin{figure}[tbp]
+\centering \includegraphics[angle = 90]{T0-flow.eps}
+\label{fig:flow1}
+\caption{Making data available to distribution during DC04.}
+\end{figure}
+\clearpage
+\begin{figure}[tbp]
+\centering
+\includegraphics[angle = 90]{T0-flow-2.eps}
+\label{fig:flow2}
+\caption{Insertion of data into distribution chains during DC04.}
+\end{figure}
+\clearpage
+\begin{figure}[tbp]
+\centering
+\includegraphics[angle = 90]{T1-flow.eps}
+\label{fig:flow3}
+\caption{Transfer of files to T1 mass storage during DC04}
+\end{figure}
+\clearpage
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=15cm, angle = 90]{chains.eps}
+\label{fig:chains}
+\caption{Overall view of the distribution chains deployed during DC04.}
+\end{figure}
+\clearpage
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=10cm]{PIC-RTA.eps}
+\label{fig:PIC-RTA}
+\caption{During the last four days of DC04 PIC were able to implement
+a real time analysis system based on CNAF's system. Turnaround time
+for analysis at PIC was much shorter and more consistent than CNAF at
+a median of 20 minutes. }
+\end{figure}
+\clearpage
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=10cm, angle=-90]{filesizes.eps}
+\label{fig:filesizes}
+\caption{Median filesize during DC04 was ~500 KB.}
+\end{figure}
+
+\clearpage
+\begin{figure}[tbp]
+\centering
+\includegraphics{v1_tmdb.eps}
+\label{fig:schema}
+\caption{The Transfer Management Database schema deployed during DC04.}
+\end{figure}
+\clearpage
+\begin{table}
+\begin{tabular}[tbp]{|l|l|l|}
+\hline User & Use of RLS & Tool
+\\ \hline Publishing Agent & Registration on appearance & FCpublish
+\\ Configuration Agent & Query the RLS metadata & FClistMeta
+\\ Export Buffer Agents & Register new mappings & FCaddReplica
+\\ & & C++ LRC API
+\\ GMCat & Maintain SRB : LRC filespace mappings & LRC java API
+\\ Tier-1 Agents & Register new mappings & FCaddReplica,FCpublish
+\\ & Publish sub-RLS into local MySQL POOL catalogue & C++ LRC-API
+\\ LCG Analysis jobs & Through Resource Broker & Replica Manager
+\\ & Register the private output data &
+\\ Humans & diagnosing problems & FC commands
+\\ \hline
+\end{tabular}
+\label{table:rls}
+\caption{Summary of the many uses of the RLS during DC04. FC* commands are thos\
+e provided by POOL.}
+\end{table}
+\clearpage
+\begin{figure}[tbp]
+\centering
+\includegraphics[angle=90,width=10cm]{rls.eps}
+\label{fig:rls}
+\caption{The time taken to register all files in drops as they
+appeared at the end of Reconstruction jobs shows some variation,
+with periods of high data production associated with longer
+registration times (near the middle of the plot). Typically there
+were 16 files per drop.}
+\end{figure}
+\clearpage
+\begin{figure}[tbp]
+\centering
+\includegraphics[angle=90,width=10cm]{FNAL-network.eps}
+\label{fig:FNAL-network}
+\caption{The SRM chain was able to sustain transfer rates of more than
+10 MBps into FNAL for long periods.}
+\end{figure}
+\clearpage
+\begin{figure}[tbp]
+\centering
+\includegraphics[angle=90,width=10cm]{srbtmdb.eps}
+\label{fig:RAL-files}
+\caption{States for files assigned to RAL, transfers off the buffer
+happen as files apear but loading the buffer cannot keep up with the
+rate of new files.}
+\end{figure}
+\clearpage
+\begin{figure}[tbp]
+\centering
+\includegraphics[angle=90,width=10cm]{PIC-FT.eps}
+\label{fig:PIC-FT}
+\caption{Throughout DC04 the number of files apparently at the T0 and
+ on the SE (classed as NEW or IN\_BUFFER) was negligible for PIC and
+ CNAF (the diagram here is for PIC, but is equally applicable to
+ CNAF), suggesting that the SE and T1 agents were able to keep up
+ with the rate of generation of files at the T0. }
+\end{figure}
+\clearpage
+\begin{figure}[tbp]
+\centering
+\includegraphics[angle=90,width=10cm]{SE-EB-network.eps}
+\label{fig:SE-EB-network}
+\caption{Transfer rates out of the SE EB could be sustained at over 2
+MBps toward the end of DC04, and peaked at 16MBps.}
+\end{figure}
+\clearpage
+\begin{figure}[tbp]
+\centering
+\includegraphics[angle=90,width=10cm]{PIC-stress.eps}
+\label{fig:PIC-stress}
+\caption{During a large filesize stress test at the end of DC04, files
+ of 600M\ and larger were put into distribution. PIC sustained
+ transfer rates of 30 MBps for 6 hours.}
+\end{figure}
+\clearpage
+\begin{figure}[tbp]
+\centering
+\includegraphics[angle=90,width=4cm]{CNAF-stress.eps}
+\label{fig:CNAF-stress}
+\caption{During a large filesize stress test at the end of DC04 (the
+period fro m 0 at the right of the plot), files of 600MB and larger
+were put into distribution. CNAF sustained transfer rates of 40 MBps
+for 5 hours.}
+\end{figure}
 
 \end{document}
