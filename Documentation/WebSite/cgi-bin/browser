@@ -81,7 +81,7 @@ sub main
     my $active = 60*5;
     my $offline = 60*15;
     my $now = time ();
-    my $query = $dbh->prepare($db eq 'testbed'
+    my $query = $dbh->prepare($db ne 'prod'
 	    	   ? q{select node,agent,timestamp from t_agent_status}
 	    	   : q{select node,agent,last_contact from t_lookup});
     my %agents;
@@ -150,7 +150,7 @@ sub format_size {
 sub transfer {
     my $rows = 0;
     my $now = time();
-    my $stampname = $db eq 'testbed' ? "timestamp" : "update_stamp";
+    my $stampname = $db ne 'prod' ? "timestamp" : "update_stamp";
     my $query = $dbh->prepare(qq{
 	    select
 	      node, $stampname,
@@ -445,7 +445,7 @@ sub age {
 
 sub stats {
     my $now = time();
-    my $stampname = $db eq 'testbed' ? "timestamp" : "update_stamp";
+    my $stampname = $db ne 'prod' ? "timestamp" : "update_stamp";
     my $overview = $dbh->selectrow_arrayref(qq{
 			select
 			  $stampname,
@@ -512,24 +512,27 @@ sub agents {
     my %states = ();
     my %age = ();
     my %live = ();
-    my $stampname = $db eq 'testbed' ? "timestamp" : "update_stamp";
+    my $stampname = $db ne 'prod' ? "timestamp" : "update_stamp";
+    my $tabname = $db ne 'prod' ? "t_info_agent_status" : "t_info_drop_status";
+    my $pathpart = $db ne 'prod' ? "path" : "'(N/A)'";
     foreach my $row (@{$dbh->selectall_arrayref(qq{
 				select
 				  $stampname,
 				  site,
 				  host,
+				  $pathpart,
 				  agent,
 				  worker,
 				  pid,
 				  live,
 				  state,
 				  value
-				from t_info_drop_status})})
+				from $tabname})})
     {
-	my ($stamp, $site, $host, $agent, $worker, $pid, $live, $state, $value) = @$row;
-	$age{$site}{$host} = $stamp;
-	$live{$site}{$host}{$agent}{$worker} = { PID => $pid, LIVE => $live };
-	$info{$site}{$host}{$agent}{$worker}{$state} = $value;
+	my ($stamp, $site, $host, $path, $agent, $worker, $pid, $live, $state, $value) = @$row;
+	$age{$site}{$host}{$path} = $stamp;
+	$live{$site}{$host}{$path}{$agent}{$worker} = { PID => $pid, LIVE => $live };
+	$info{$site}{$host}{$path}{$agent}{$worker}{$state} = $value;
 	$states{$state} = 1 if ! grep ($_ eq $state, @states);
     }
 
@@ -538,6 +541,7 @@ sub agents {
 	  "<th>Age</th>",
 	  "<th>Site</th>",
 	  "<th>Host</th>",
+	  "<th>Path</th>",
 	  "<th>Agent</th>",
 	  "<th>Worker</th>",
 	  "<th>Process</th>",
@@ -548,27 +552,31 @@ sub agents {
     {
 	foreach my $host (sort keys %{$info{$site}})
 	{
-	    foreach my $agent (sort keys %{$info{$site}{$host}})
+	    foreach my $path (sort keys %{$info{$site}{$host}})
 	    {
-		foreach my $worker (sort keys %{$info{$site}{$host}{$agent}})
-		{
-		    my $pid = $live{$site}{$host}{$agent}{$worker}{PID};
-		    my $live = $live{$site}{$host}{$agent}{$worker}{LIVE};
-		    my $pidcolor = $live ? "" : " bgcolor='$warncolor'";
-		    print "<tr>",
-			  "<td>", &age($now - $age{$site}{$host}), "</td>",
-			  "<td>$site</td>",
-			  "<td>$host</td>",
-			  "<td>$agent</td>",
-			  "<td>$worker</td>",
-			  "<td$pidcolor>$pid</td>";
-		    foreach my $state (@states, sort keys %states)
+	        foreach my $agent (sort keys %{$info{$site}{$host}{$path}})
+	        {
+		    foreach my $worker (sort keys %{$info{$site}{$host}{$path}{$agent}})
 		    {
-			my $value = $info{$site}{$host}{$agent}{$worker}{$state};
-			my $color = $value ? " bgcolor='$pendcolor'" : '';
-			print "<td$color>$value</td>";
-		    }
-		    print "</tr>\n";
+		        my $pid = $live{$site}{$host}{$path}{$agent}{$worker}{PID};
+		        my $live = $live{$site}{$host}{$path}{$agent}{$worker}{LIVE};
+		        my $pidcolor = $live ? "" : " bgcolor='$warncolor'";
+		        print "<tr>",
+			      "<td>", &age($now - $age{$site}{$host}{$path}), "</td>",
+			      "<td>$site</td>",
+			      "<td>$host</td>",
+			      "<td>$path</td>",
+			      "<td>$agent</td>",
+			      "<td>$worker</td>",
+			      "<td$pidcolor>$pid</td>";
+		        foreach my $state (@states, sort keys %states)
+		        {
+			    my $value = $info{$site}{$host}{$path}{$agent}{$worker}{$state};
+			    my $color = $value ? " bgcolor='$pendcolor'" : '';
+			    print "<td$color>$value</td>";
+		        }
+		        print "</tr>\n";
+	            }
 	        }
 	    }
 	}
@@ -595,7 +603,7 @@ sub format_timespan {
 sub rates {
     my $now = time();
     my %stats = ();
-    my $stampname = $db eq 'testbed' ? "timestamp" : "update_stamp";
+    my $stampname = $db ne 'prod' ? "timestamp" : "update_stamp";
     my $q = $dbh->prepare(qq{
 			select
 			  $stampname,
