@@ -95,7 +95,7 @@ if ($g_management == 0) {
     print "ok\n";
 } else {
     print "Deploying agents from CVS... ";
-    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/Configuration/Allocator.pl $g_basepath/$g_nodename/scripts");
+    system("cp $g_basepath/$g_nodename/AgentToolkitExamples/Managers/Allocator.pl $g_basepath/$g_nodename/scripts");
     system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/FileRouter $g_basepath/$g_nodename/scripts");
     system("cp $g_basepath/$g_nodename/AgentToolkitExamples/DropBox/Utils* $g_basepath/$g_nodename/scripts");
     print "ok\n";
@@ -118,7 +118,7 @@ if ($g_management == 0) {
     print "ok\n";
 }
 
-print "Creating stop script... "
+print "Creating stop script... ";
 system("touch $g_basepath/$g_nodename/stop.sh");
 open(OUT,">$g_basepath/$g_nodename/stop.sh");
 open(IN,"stop.sh-template");

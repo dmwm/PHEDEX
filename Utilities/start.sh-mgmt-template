@@ -25,8 +25,8 @@ nohup ${PHEDEX_SCRIPTS}/Allocator.pl \
 
 nohup ${PHEDEX_SCRIPTS}/FileRouter \
     -db ${PHEDEX_TMDB} \
-    -user ${PHEDEX_USER} \
-    -passwd ${PHEDEX_PASS} \
+    -dbuser ${PHEDEX_USER} \
+    -dbpasswd ${PHEDEX_PASS} \
     -node ${PHEDEX_NODE} \
     -state ${PHEDEX_STATE}/inbox \
     >> ${PHEDEX_LOGS}/router 2>&1 < /dev/null &
