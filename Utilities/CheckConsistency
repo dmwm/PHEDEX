@@ -1,6 +1,11 @@
 #!/usr/bin/env perl
 
-# tab: Note on domains option: allows you to choose which domains to examine
+# The tool will attempt to cache data from the catalogue and tmdb. If
+# you want to refresh these caches delete the files *-cache in the dir
+# in which you run this tool. If such a file exists the tool will read
+# that rather than querying the relevant db.
+#
+# Note on domains option: allows you to choose which domains to examine
 # construct as comma separated list: p [phedex], c [catalogue], fs [file
 # system], f [files]
 
@@ -35,8 +40,12 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{NJOBS} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-domains' && scalar @ARGV > 1)
     { shift (@ARGV); map { $args{DOMAINS}{$_} = 1 } split(/,/, shift(@ARGV)); }
-    elsif ($ARGV[0] eq '-fstype' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{TYPE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-locallister' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{LOCALLS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-surlroot' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{SURLROOT} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-localroots' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{LOCALROOTS} = shift(@ARGV); }
     else
     { last; }
 }
@@ -44,12 +53,13 @@ while (scalar @ARGV)
 # FIXME: would be good to check for known fstypes: castor or mount
 if (scalar @ARGV || !$args{DBNAME} || !$args{DBUSER} || !$args{DBPASS}
     || !$args{DBITYPE} || !$args{MYNODE} || !$args{HOST_KEY}
-    || (($args{DOMAINS}{fs} || $args{DOMAINS}{f}) && !$args{TYPE} )
+    || !$args{DOMAINS}
     || ($args{DOMAINS}{c} && !$args{CATALOGUE}) )
 {
     print STDERR "usage: $me -node NODE [-catalogue CATALOGUE] -match PATTERN\n",
 		 " [-jobs NJOBS] -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-                 " -domains DOMAINS [-fstype TYPE]\n";
+                 " -domains DOMAINS\n",
+                 "[-localroots ROOTDIRs -locallister SCRIPT -surlroot SURLROOT]\n";
     exit (1);
 }
 
@@ -76,7 +86,12 @@ if ($args{DOMAINS}{fs}) {
     die if ! &queryFileSystem(\%args, $files);
 }
 if ($args{DOMAINS}{f}) {
-    die if ! &queryFiles(\%args, $files);
+    if ( -e "./file-cache" ) {
+	&readFileCache(\%args,$files);
+    } else {
+	die if ! &queryFiles(\%args, $files);
+	&writeFileCache(\%args, $files);
+    }
 }
 
 # Build matrix of counts for all possible states. As guids are found in
@@ -85,15 +100,16 @@ if ($args{DOMAINS}{f}) {
 my @counts = ();
 foreach my $file (values %$files) {
     $counts[$file->{DOMAINS}]++;
+
 }
 
-print "P C L  #\n";
+print "PCL  #\n";
 for (my $idx=0;$idx<8;$idx++) {
     my $s = '';
-    if ( $idx & 4 ) { $s = "x " } else { $s = "  "; }
-    if ( $idx & 2 ) { $s .= "x " } else { $s .= "  "; }
-    if ( $idx & 1 ) { $s .= "x " } else { $s .= "  "; }
-    print "$s $counts[$idx]\n";
+    if ( $idx & 4 ) { $s = "x" } else { $s = " "; }
+    if ( $idx & 2 ) { $s .= "x" } else { $s .= " "; }
+    if ( $idx & 1 ) { $s .= "x" } else { $s .= " "; }
+    print "$s: $counts[$idx]\n";
 }
 
 exit 0;
@@ -102,6 +118,7 @@ exit 0;
 sub readPhedexCache
 {
     my ($args, $files) = @_;
+    print "Reading PhEDEx cache\n";
     open(CACHE, "gunzip -c < ./phedex-cache |");
     while(<CACHE>) {
 	chop;
@@ -115,7 +132,8 @@ sub readPhedexCache
 sub writePhedexCache
 {
     my ($args, $files) = @_;
-    open(CACHE, "| gzip -c > ./phedex-cache") || die "Couldn't open phedex-cache fro write";
+    print "Writing PhEDEx cache\n";
+    open(CACHE, "| gzip -c > ./phedex-cache") || die "Couldn't open phedex-cache for write";
     foreach my $file (values %$files) {
 	print CACHE "$file->{GUID}\n";
     }
@@ -125,6 +143,7 @@ sub writePhedexCache
 sub readCatalogueCache
 {
     my ($args, $files) = @_;
+    print "Reading Catalogue cache\n";
     open(CACHE, "gunzip -c < ./catalogue-cache |");
     while(<CACHE>) {
 	chop;
@@ -139,9 +158,36 @@ sub readCatalogueCache
 sub writeCatalogueCache
 {
     my ($args, $files) = @_;
+    print "Writing Catalogue cache\n";
     open(CACHE, "| gzip -c > ./catalogue-cache");
     foreach my $file (values %$files) {
-	print CACHE "$file->{$guid}{GUID} $file->{$guid}{FCSURL}\n";
+	print CACHE "$file->{GUID} $file->{FCSURL}\n";
+    }
+    die if ! close(CACHE);
+}
+
+sub readFileCache
+{
+    my ($args, $files) = @_;
+    print "Reading File cache\n";
+    open(CACHE, "gunzip -c < ./file-cache |");
+    while(<CACHE>) {
+        chop;
+        my ($guid,$localsurl) = split( / / );
+        $files->{$guid}{GUID} = $guid;
+        $files->{$guid}{DOMAINS} += 1;
+        $files->{$guid}{LOCALSURL} = $localsurl;
+    }
+    die if ! close(CACHE);
+}
+
+sub writeFileCache
+{
+    my ($args, $files) = @_;
+    print "Writing File cache\n";
+    open(CACHE, "| gzip -c > ./file-cache");
+    foreach my $file (values %$files) {
+        print CACHE "$file->{GUID} $file->{LOCALSURL}\n";
     }
     die if ! close(CACHE);
 }
@@ -191,10 +237,11 @@ sub queryFileCatalogue
     {
 	my ($guid, $pfn) = /^([-0-9A-F]+)\s+(.*)/;
 	if ($pfn =~ /$args->{HOST_KEY}/) {
-	    $files->{$guid}{FCPFN} = $pfn;
+	    $files->{$guid}{GUID} = $guid;
+	    $files->{$guid}{FCSURL} = $pfn;
 	    $files->{$guid}{DOMAINS} += 2;
+	    print "." if ++$nguids % 1000 == 0;
 	}
-	print "." if ++$nguids % 1000 == 0;
     }
     close (CAT) or die "PFClistGuidPFN: $!\n";
     print "done\n";
@@ -209,8 +256,49 @@ sub queryFileSystem
     return 1;
 }
 
+# Query local filesystem for directories and names, and build SURLs
+# for each. Map SURLs onto GUIDs where possible using the data in $files
+# from the FC. For non matching SURLs create a placeholder GUID.
 sub queryFiles
 {
-    print "Sorry, direct file checks aren't supported yet\n";
+    my ($args, $files) = @_;
+    my @directories = ();
+    my @surls = ();
+    my $nguids = 0;
+    my $count = 1;
+
+    my @dirs = split( /,/,$args->{LOCALROOTS} );
+    push( @directories, @dirs ); 
+
+    my %SURL_to_GUID = {};
+    foreach $file ( values %$files ) {
+	$SURL_to_GUID{$file->{FCSURL}} = $file->{GUID} if ( $file->{FCSURL} );
+    }
+
+    print "getting directory listings: ";
+
+    while( my $current = pop( @directories ) ) {
+	open( CMD, "$args->{LOCALLS} $current $args->{SURLROOT} 2>&1 |" );
+	while( <CMD> ) {
+	    chop;
+	    if ( /^d:/ ) {
+		my ($tag,$dir) = split( / / );
+		push( @directories, "$current/$dir" );
+	    } else {
+		print "." if ++$nguids % 1000 == 0;
+		my $guid = $SURL_to_GUID{$_};
+		if ( ! $SURL_to_GUID{$_} ) {
+		    # File isn't known from catalogue
+		    $guid = "placeholder".$count++;
+		    $files->{$guid}{GUID} = $guid;
+		} 
+		$files->{$guid}{LOCALSURL} = $_;
+		$files->{$guid}{DOMAINS} += 1;
+	    }
+	}
+	close( CMD );
+    }
+    print "done\n";
+
     return 1;
 }
