@@ -119,7 +119,7 @@ sub idle
     foreach my $collection (@collectionsFinished){
 	chomp $collection;
 	my ($dataset, $owner, $files) = split(':',$collection);
-	my $AssID = &listAssignments($dataset,$owner);
+	my ($AssID) = &listAssignments($dataset,$owner);
 
 	my $cmd = "$self->{SITESCRIPT} $dataset $owner $files $AssID $dataset_members{$dataset}";
 	my $error = system($cmd);
@@ -143,12 +143,12 @@ sub getGroups {
 	select tb.dataset, tb.owner, tb.files
         from t_block tb, t_block_replica tbr
 	where tbr.node=:node and
-        tbr.files=tb.files and
+        tbr.files = tb.files and
         (tbr.timestamp +300) < :now and
         tb.name=tbr.name},
 	":node"=>$self->{MYNODE}, ":now"=>$now);
  
-    while (my ($owner, $dataset, $files) = $h_packet->fetchrow_array){
+    while (my ($dataset, $owner, $files) = $h_packet->fetchrow_array){
 	push (@packet, "$dataset:$owner:$files");
     }
     
@@ -169,7 +169,10 @@ sub getDatasetMembers {
         tb.name=tbr.name},
 	":node"=>$self->{MYNODE});
 
-    while (my ($owner, $dataset) = $h_dataset->fetchrow_array){
+    while (my ($dataset, $owner) = $h_dataset->fetchrow_array){
+	$owner = 'Hit' if grep(m|Hit|,$owner);
+	$owner = 'Digi' if grep(m|PU|,$owner);
+	$owner = 'DST' if grep(m|DST|,$owner);
 	$members{$dataset} = ($members{$dataset}?$members{$dataset}."/$owner":$owner);
     }
     return %members;

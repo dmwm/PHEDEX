@@ -132,7 +132,7 @@ sub update_block_rep {
 		update t_block_replica set
                 timestamp=:now, files=:files, bytes=:bytes where
                 name=:name and node=:node},
-		":now"=>$now, ":files"=>$files, ":bytes"=>$bytes, ":name"=>$name, ":node"=>$name);
+		":now"=>$now, ":files"=>$files, ":bytes"=>$bytes, ":name"=>$name, ":node"=>$node);
 	}
     }
 }
