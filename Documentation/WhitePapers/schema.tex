@@ -1,15 +1,15 @@
 \documentclass{cmspaper}
 \def\RCS$#1: #2 ${\expandafter\def\csname RCS#1\endcsname{#2}}
-\RCS$Revision$
-\RCS$Date$
+\RCS$Revision: 1.2 $
+\RCS$Date: 2004/05/27 12:46:29 $
 
-\usepackage{epsfig}
+\usepackage{graphicx}
 
 \begin{document}
 \begin{titlepage}
   \whitepaper
   \date{Revision \RCSRevision, \RCSDate}
-  \title{CMS Data Handling: Database Schema}
+  \title{CMS Data Handling: TMDB Schema and Database Interactions}
 
   \begin{Authlist}
     Tim~Barrass, Simon~Metson\Instfoot{bristol}{University of Bristol, Bristol, UK}
@@ -18,7 +18,9 @@
 
   \begin{abstract}
     This white paper describes the database schema for the CMS data
-    handling system.
+    handling system. I also defines the expected set of agent-TMDB
+    interactions (effectively outlining the functionality of each
+    agent).
   \end{abstract}
 
   \note{DRAFT version}
@@ -28,12 +30,12 @@
 
 \section{Transfer Management Database}
 
-\begin{figure}[!htb]
-\begin{center}
-  \mbox{\epsfig{file=tmdb-schema.eps,width=0.65\textwidth,clip=}}
+\begin{figure}[tbp]
+\centering
+  \includegraphics[width=15cm]{tmdb-schema.eps}
   \caption{Entities and relations in the TMDB V2.  Basic SQL
-    to create is detailed in the appendix.\label{fig:schema}}
-\end{center}
+    to create is detailed in the appendix.}
+   \label{fig:schema}
 \end{figure}
 
 \begin{description}
@@ -129,6 +131,157 @@
     creating the same set of tables as a distributed system of
     routers).  The routing algorithm is described below.
 \end{description}
+
+
+
+
+
+\section{Requirement of sources of data and agents}
+\subsection{Typical agent-transfer management database communication}
+The following discussion doesn't include interactions with the logging
+database, or processes such as agent state publishing and other system
+maintenance tasks.  Instead, it is intended to give a feel for the flow
+of data through the system.
+
+\subsection{Data sources}
+To make data available for distribution:
+{\small\begin{verbatim}
+  insert into t_Files_for_transfer
+    values (guid, source_node, time, checksum, 0);
+\end{verbatim}}
+
+The data sources will also need to add the first metadata to the system.
+
+\subsection{Configuration agent}
+
+The configuration agent will scan \texttt{t\_Files\_for\_transfer}
+looking for unallocated files (allocated = 0).  Using configuration
+information it will allocate files to specific nodes by making entries
+in \texttt{t\_Destinations} and \texttt{t\_Current\_state}:
+
+First find new files for transfer
+
+{\small\begin{verbatim}
+  select guid, source_node
+  from t_Files_for_transfer
+  where allocated = 0;
+\end{verbatim}}
+
+Determine file allocation.  First it needs to query the POOL meta data
+to determine the file stream, then it needs to look up the stream
+(here it's done dynamically, but it could rebuild an internal table
+every loop...)
+
+{\small\begin{verbatim}
+  select destination from t_File_allocation_config
+  where stream = ``the_stream'';
+\end{verbatim}}
+
+For each destination, make entries in \texttt{t\_Destinations}.
+
+{\small\begin{verbatim}
+  insert into t_Destination
+    values (guid, destination);
+\end{verbatim}}
+
+Now lookup the gateway for each destination from the source node
+
+{\small\begin{verbatim}
+  select * from
+    (select gateway, hops
+     from t_Routing
+     where from = ``source_node''
+       and to = ``destination''
+     order by hops asc)
+  where rownum = 1;
+ \end{verbatim}}
+
+For each gateway, make an entry advertising the file in \texttt{t\_Current\_state}:
+
+{\small\begin{verbatim}
+  insert into t_Current_state
+    values (guid, gateway, ``available'',
+            currenttime, source_node);
+\end{verbatim}}
+
+It also needs to mark the guid as allocated...
+
+\subsection{Transfer agents}
+
+Transfer agents search \texttt{t\_Current\_state} for files advertised
+for them.  They copy those files, work out where to send them next (ie
+function basically as a router) and advertise them accordingly.
+
+This example is for a transfer agent at a node named ``Foo''.
+
+First, search for new files:
+
+{\small\begin{verbatim}
+  select guid, is_at_node
+  from t_Current_state
+  where is_for_node = 'Foo'
+  and state = 'available';
+\end{verbatim}}
+
+which might produce a set of guids {guid1, guid2, guid3 ...} currently at nodes {Bar1, Bar2, Bar3 ...}. The start of transfer of each guid should be marked by posting state- e.g. for guid1 at Bar1 to Foo
+
+{\small\begin{verbatim}
+  insert into t_Current_state
+    values (guid1, 'Foo', 'in transfer',
+            currenttime, 'Bar1');
+\end{verbatim}}
+
+Transfer the file, then mark as complete by posting state
+
+{\small\begin{verbatim}
+  insert into t_Current_state
+    values (guid, 'Foo', `on buffer',
+            currenttime, 'Bar1');
+\end{verbatim}}
+
+The set of desinations for each guid needs to be determined
+
+{\small\begin{verbatim}
+  select destination
+  from t_Destinations
+  where guid = guid1;
+\end{verbatim}}
+
+which might, for guid1, produce the set of destination nodes {Dest1, Dest2, ...}. For each destination the appropriate gateway (or next hop in the chain) needs to be determined, e.g. for guid1 going to Dest1
+
+{\small\begin{verbatim}
+  select * from
+    (select gateway, hops
+     from t_Routing
+     where from = 'Foo'
+       and to = 'Dest1'
+     order by hops asc)
+  where rownum = 1;
+\end{verbatim}}
+
+Which might retutn the gateway Gate1. Finally advertise the newly available file
+
+{\small\begin{verbatim}
+  insert into t_Current_state
+    values (guid, 'Gate1', ``available'',
+            currenttime, 'Foo');
+\end{verbatim}}
+
+[ To some extent I've tried to parcel this up so some element of failure recovery can be undertaken. e.g. if there are entries saying "on buffer" but not "available", then obviously the next hop for guids "in buffer" needs to be determined and them advertised as available appropriately. ]
+
+\subsection{Mass storage agents}
+These are an extension of the transfer agent---when they have made a
+file safe in mass storage they should advertise it as ``safe''.
+
+\subsection{Buffer cleaning agents}
+
+These agents should operate at each node. They should examine the
+state of each file at all sites (long inefficient query?). They need
+to decide whether it is safe to delete the file based on some
+criteria---a suitable criteria might be
+
+``If the file is marked \`{O}safe\'{O} at two or more nodes, then it can be
+deleted from this buffer.''
 
 \section{SQL for the schema}
 
