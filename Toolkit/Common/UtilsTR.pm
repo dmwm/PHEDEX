@@ -356,13 +356,13 @@ sub checkAssignmentFiles
 	my $ninmss = scalar grep($_->{IN_MSS}, @files);
 	my $npending = scalar grep($_->{PENDING}, @files);
 
-	$result->{$drop}{N_FILES}		= $nfiles;
-	$result->{$drop}{N_TRANSFERRED}		= $nindb;
-	$result->{$drop}{N_IN_MSS}		= $ninmss;
-	$result->{$drop}{N_PENDING_TRANSFER}	= $npending;
-	$result->{$drop}{IS_PENDING_TRANSFER}	= $npending != 0;
-	$result->{$drop}{IS_FULLY_TRANSFERRED}	= $nfiles == $nindb;
-	$result->{$drop}{IS_FULLY_IN_MSS}	= $nfiles == $ninmss;
+	$drop->{N_FILES}		= $nfiles;
+	$drop->{N_TRANSFERRED}		= $nindb;
+	$drop->{N_IN_MSS}		= $ninmss;
+	$drop->{N_PENDING_TRANSFER}	= $npending;
+	$drop->{IS_PENDING_TRANSFER}	= $npending != 0;
+	$drop->{IS_FULLY_TRANSFERRED}	= $nfiles == $nindb;
+	$drop->{IS_FULLY_IN_MSS}	= $nfiles == $ninmss;
     }
 
     return $result;
