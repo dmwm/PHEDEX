@@ -1,0 +1,173 @@
+#!/usr/bin/perl
+
+# Manage the addition of a new node to the network. Takes user through
+# interactions required to add a new node, then asks to confirm before
+# commit
+#
+# Request node details; request routing neighbours; request new agent
+# details ...
+
+use Getopt::Long;
+
+my $me = $0;
+my $state = '';
+my $node_name = '';
+my $node_host_string = '';
+my $node_cat_uri = '';
+my @node_neighbours = ();
+
+# #############################
+# Main loop
+# #############################
+
+parse_command_line();
+act_on_state();
+
+# #############################
+# Subroutines
+# #############################
+
+sub log_array_entries {
+	my $array = shift;
+	
+	foreach $entry ( @$array ) {
+		log_entry( $entry );
+	}
+}
+
+sub create_new_neighbour_route {
+	my ($node1,$node2) = @_;
+	my @sql;
+	
+	my $time = time();
+	push( @sql, "insert into t_routing values ('$node1','$node2','$node2',1,0)" );
+	push( @sql, "insert into t_routing values ('$node2','$node1','$node1',1,0)" );	
+	
+	return @sql;
+}
+
+sub new_neighbours {
+	my @sql = ();
+
+	if ( 	$node_name eq '' ||
+			! $node_neighbours[0] ) {
+		display_usage();
+	}
+	
+	log_entry( "Adding new neighbours" );
+	log_entry( "Name: $node_name" );
+	log_entry( "Neighbours: @node_neighbours" );
+
+	# Create routes to neighbours
+	foreach $neighbour ( @node_neighbours ) {
+		my @routes = create_new_neighbour_route( $node_name, $neighbour );
+		push( @sql, @routes );
+	}
+	
+	log_array_entries( \@sql );
+	# FIXME: do full sql here, with rollback and warnings etc
+	log_entry( "WARNING: not actually doing SQL" );
+}
+
+sub add_node {
+	my @sql = ();
+
+	if ( 	$node_name eq '' ||
+			$node_host_string eq '' ||
+			$node_cat_uri eq '' ||
+			! $node_neighbours[0] ) {
+		display_usage();
+	}
+	
+	log_entry( "Adding new node" );
+	log_entry( "Name: $node_name" );
+	log_entry( "Disk/tape host: $node_host_string" );
+	log_entry( "Catalogue URI: $node_cat_uri" );
+	log_entry( "Neighbours: @node_neighbours" );
+	
+	push( @sql, "insert into t_nodes values ('$node_name','$node_host_string','$node_cat_uri')" );
+	
+	log_array_entries( \@sql );
+	# FIXME: do full sql here, with rollback and warnings etc
+	log_entry( "WARNING: not actually doing SQL" );
+	
+	new_neighbours();
+}
+
+sub remove_node {
+	my @sql = '';
+
+	if ( $node_name eq '' ) { display_usage(); }
+	
+	log_entry( "Removing node" );
+	log_entry( "Name: $node_name" );
+	
+	# Removing nodes is somewhat tricky, as we need to fix the routing
+	# afterwards. Best done by removing all references to the node in
+	# the routing table, then warning that you may want to create links
+	# between the old node's neighbours ...	
+	# Note it also requires that there are no refrences to that node,
+	# so if there are still entries in t_file_state relating to it then
+	# they need to be dealt with (FIXME: remove-replicas)?
+	log_entry( "WARNING: currently not removing replica entries at $node_name." );
+	
+	# Remove routes
+	push( @sql, "delete from t_routing where from_node = '$node_name'" );
+	push( @sql, "delete from t_routing where to_node = '$node_name'" );
+	push( @sql, "delete from t_routing where gateway = '$node_name'" );
+	log_entry( "WARNING: removing route entries explicitly using $node_name. You may want to rebuild some routes afterwards (i.e to form links between A and C if original route is A-B-C and you remove B)." );
+	
+	# Remove subscriptions
+	push( @sql, "delete from t_subscriptions where destination = '$node_name'" );
+	
+	# FIXME: Remove agents- first get list of agent names that are only used by
+	# the old node, then delete them
+	log_entry( "WARNING: currently not removing agents associated with node $node_name." );
+	
+	log_array_entries( \@sql );
+	# FIXME: do full sql here, with rollback and warnings etc
+	log_entry( "WARNING: not actually doing SQL" );
+}
+
+sub act_on_state {
+	if ( $state eq "add-node" ) {
+		add_node();
+	} elsif ( $state eq "remove-node" ) {
+		remove_node();
+	} elsif ( $state eq "new-neighbours" ) {
+		new_neighbours();
+	} else {
+		display_usage();
+	}
+}
+
+sub log_entry {
+	my $entry = shift;
+	my $time = time();
+	my $local = localtime( $time );
+	print "$local: $entry\n";
+}
+
+sub display_usage {
+	print "Usage:\n";
+	print "  $me add-node \t\t-name <node_name>\n\t\t\t\t\t-host <host_string>\n\t\t\t\t\t-cat <catalogue_uri>\n\t\t\t\t\t-neighbours <neighbour1>,<neighbour2>,<...\n";
+	print "  $me remove-node \t\t-name <node_name>\n";
+	print "  $me new-neighbours \t-name <node_name> \n\t\t\t\t\t-neighbours <neighbour1>,<neighbour2>,<...\n";
+	exit(1);
+}
+
+sub parse_command_line () {
+	GetOptions(	'name=s' => \$node_name,
+				'host=s' => \$node_host_string,
+				'cat=s' => \$node_cat_uri,
+				'neighbours=s' => \@node_neighbours,
+				);
+				
+	@node_neighbours = split(/,/,join(',',@node_neighbours));
+				
+	if ( ! $ARGV[0] || $ARGV[1]) {
+		display_usage();
+	} else {
+		$state = $ARGV[0];
+	}
+}
