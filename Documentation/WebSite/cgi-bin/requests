@@ -70,7 +70,7 @@ sub main
 	select
 	  d.request_name,
 	  d.drop_category,
-	  count(d.drop_name),
+	  count(distinct d.drop_name),
 	  count(f.guid)
 	from t_request_drop d
 	left join t_request_file f
@@ -110,7 +110,7 @@ sub main
     print "<h2>Request status</h2>\n",
           "<table><tr valign='top' bgcolor='$altcolor' align='right'>",
 	  "<th rowspan='2'>Request</th>",
-	  "<th colspan='@{[scalar (keys %cats) + 1]}'>Drops</th>",
+	  "<th colspan='@{[scalar (keys %cats) + 1]}'>Runs</th>",
 	  "<th colspan='@{[scalar (keys %cats) + 1]}'>Files</th>",
 	  "<th rowspan='2'>Origin</th>",
 	  "<th rowspan='2'>Transferred</th>",
