@@ -92,8 +92,8 @@ sub create_new_neighbour_route {
 	my @sql;
 	
 	my $time = time();
-	push( @sql, "insert into t_routing values ('$node1','$node2','$node2',1,0)" );
-	push( @sql, "insert into t_routing values ('$node2','$node1','$node1',1,0)" );	
+	push( @sql, "insert into t_routing values ('$node1','$node2','$node2',1,1)" );
+	push( @sql, "insert into t_routing values ('$node2','$node1','$node1',1,1)" );	
 	
 	return @sql;
 }
