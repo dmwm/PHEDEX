@@ -14,6 +14,7 @@
 # -db <tns name>		sets the Oracle db to talk to
 # -w <workdir>			sets the workdir for the agent
 # -no-updates			disables database updates
+# -once                 only runs once
 #
 # You should provide a working dir name on the command line:
 # a pid file will be stored there during running, and to stop the
@@ -228,7 +229,7 @@ sub get_new_routes {
 	my ($from, $to, $gate, $time, $hops) = &split_route( $other_route );
 	foreach $my_route (@g_known_routes) {
 	    my ($my_from, $my_to, $my_gate, $my_time, $my_hops) = &split_route( $my_route );
-	    if ($to eq $my_to && $from eq $my_gate && $hops == $my_hops) {
+	    if ($to eq $my_to && $from eq $my_gate) {
 		$new_flag = 0;
 	    }
 	}
