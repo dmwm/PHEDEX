@@ -5,7 +5,8 @@
 
 \begin{document}
 \begin{titlepage}
-  \whitepaper % \internalnote{2004/XXX} % \cmsnote{2005/000} % \conferencereport{2005/000}
+  %\whitepaper 
+  \internalnote{2004/XXX} % \cmsnote{2005/000} % \conferencereport{2005/000}
   \date{Revision \RCSRevision, \RCSDate}
   \title{Software agents in data and workflow management during DC04- post-mortem}
 
@@ -38,8 +39,8 @@
 Within the last year it has become apparent that not all CMS Grid use-cases
 have either been detailed in cross-experiment studies or been
 considered by Grid components. In particular, the use case of
-\em{managed or scheduled data transfer} has not been considered, although
-the more end-user oriented cases- that of \em{optimized data access} have
+{\it managed or scheduled data transfer} has not been considered, although
+the more end-user oriented cases- that of {\it optimized data access} have
 been well examined.
 
 CMS has developed a system that to meet the following requirements of DC04:
@@ -59,26 +60,22 @@ being available at a Tier 1.
 
 \section{The data distribution system}
 \subsection{Software agents}
-Agents blah. Characterised by the passing of messages and ability to act
-autonomously blah.
+"Agent" is an umbrella term used for software processes characterised by the passing of messages and ability to act autonomously. Current agent research is focussed on developing frameworks within which these agents can communicate, move from site to site, and access resources. As such, writing agents typically means buying into such a framework, requiring some expenditure of effort in training and development.
 
-Form a structure based on easily accessed, proven technolgies. Simplify
-message passing by providing an easily accessed context for those messages.
-TMDB also provides useful global management function- as all messages pass
-through a single point then an overview of whole system easily maintained.
+Agent frameworks are typically composed of the same high level components, however: a local environment in which agents can run, a context in which they can pass messages, and some form of global management system. A system of agents can be created without the need to gain experience with a particular framework if these high level components are taken as a basis for system design.
 
-Define behaviour fo agents solely in terms of a very simple ontology and
-sequence of messages to be passed. Effectively transfer agents boil down to
-"handle simple transfer and register file as available".
+For DC04 we needed to access as much effort as possible with a variety of experience. We formed an agent structure based on easily accessed, proven technologies, with which we already had some core competence (Perl, C++, Java, Oracle). Message passing (and therefore overall system complexity) was simplified by strictly limiting the number of messages that needed to be passed, and defining a very simple content schema (or ontology). 
 
-By doing this needs for local functionality can easily be met by
-implementing a new agent, in whatever language is suitable. Strictly defined
-message passing encourages the localisation of complex functionality within
-a single agent.
+The exchange of messages was used to define the behaviour of a small range of agents, which could then be implemented in a way that suited local developer groups. By doing this any need for local functionality were easily met by
+implementing a new agent, in whatever language was suitable. Strictly defined
+message passing encouraged the localisation of complex functionality within
+single agents.
+
+Agent and local environment complexity was reduced by creating a context for these messages within an Oracle database (named the transfer management database or TMDB). A single instance of this database served as a message context for the whole system: all messages were passed via this database, rather than directly between the agents. The TMDB also provided a global management function- as all messages passed through this single point then an overview of whole system was easily maintained.
 
 \subsection{Components and data flow}
 The distribution system drew files from Castor stage disk and streamed
-them to a number of T1s, where they were placed in mass storage. The transfer 
+them to a number of T1s, where they were placed in mass storage. The transfer
 of data through the system was handled by a series of agents of limited 
 responsibility.
 
