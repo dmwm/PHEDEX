@@ -87,6 +87,7 @@ sub checkJobs
 	}
 	elsif ($job->{PID} > 0 && waitpid ($job->{PID}, WNOHANG) > 0)
 	{
+	    # Command finished executing, save exit code and mark finished
 	    $job->{STATUS} = $? / 256;
 	    push (@finished, $job);
 	}
