@@ -93,8 +93,8 @@ sub idle
         while (my $row = $completed->fetchrow_hashref())
 	{
 	    &dbbindexec ($archive, map { (":$_" => $row->{$_}) } keys %$row);
-	    &dbbindexec ($retire, ":guid" => $row->{"guid"},
-		         ":to_node" => $row->{"to_node"});
+	    &dbbindexec ($retire, ":guid" => $row->{GUID},
+		         ":to_node" => $row->{TO_NODE});
 	    ++$rows;
 	}
 
