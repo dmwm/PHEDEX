@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/29 09:38:32 $
-# $Id: Allocator.pl,v 1.34 2004/07/29 09:38:32 barrass Exp $
+# $Date: 2004/07/29 09:39:48 $
+# $Id: Allocator.pl,v 1.35 2004/07/29 09:39:48 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -138,6 +138,7 @@ sub get_new_guid_list {
 		
         $query->execute();while (@row = $query->fetchrow_array) {	
 	       $count++;
+	       $row[1] =~ s/\s+//g;
 	       $guid_list{$row[0]}  = $row[1];
         }
         log_entry(  "Found $count new GUIDs" );
