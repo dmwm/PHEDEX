@@ -702,8 +702,16 @@ the LRC at CERN periodically. As the difficulties with the MCat
 increased GMCat was stopped as the system no longer reponded in a
 useful timescale.
 
-While transfer speeds from T0-T1 were respectable (quote speed see
-graph) the initial entry of the file onto the export buffer was
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=10cm]{srbtmdb.png}
+\label{fig:RAL-files}
+\caption{States for files assigned to RAL, transfers off the buffer happen as files apear
+but loading the buffer cannot keep up with the rate of new files.}
+\end{figure} 
+
+While transfer speeds from T0-T1 were respectable (fig. \ref{fig:RAL-files})
+ the initial entry of the file onto the export buffer was
 particularily troublsome.  Much of these problems were caused by the
 strategy chosen when writing the agent, based on the knowledge we had
 before DC04. Sput is particularily efficient with large files and so
