@@ -484,15 +484,15 @@ sub stats {
 		  	  (($now - $histo->[0][0]) % 3600) / 60),
 	  " ago</p>",
     	  "<table><tr bgcolor='$altcolor' valign='top'>",
-	  "<th>Bin</th>",
+	  "<th colspan='2'>Bin</th>",
 	  "<th>Files</th>",
 	  "<th>Total Size</th>",
 	  "</tr>\n";
     foreach my $row (@$histo)
     {
 	  print "<tr>",
-	        "<td align='right'>@{[&format_size($row->[1] * $row->[2],1)]} ..",
-		" @{[&format_size(($row->[1] + 1) * $row->[2],1)]}</td>",
+	        "<td align='right'>@{[&format_size($row->[1] * $row->[2],1)]} ..</td>",
+		"<td align='right'>@{[&format_size(($row->[1] + 1) * $row->[2],1)]}</td>",
 	        "<td align='right'>@{[&format_num($row->[3])]}</td>",
 	        "<td align='right'>@{[&format_size($row->[4])]}</td>",
 	        "</tr>\n";
