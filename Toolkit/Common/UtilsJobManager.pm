@@ -1,6 +1,7 @@
 package UtilsJobManager; use strict; use warnings; use base 'Exporter';
 use POSIX;
 use UtilsLogging;
+use UtilsCommand;
 
 ######################################################################
 # JOB MANAGEMENT TOOLS
@@ -84,11 +85,12 @@ sub checkJobs
 	    # around use SIGINT.  Next time around use SIGKILL.
 	    kill ($job->{PID}, $job->{FORCE_TERMINATE} ||= 1);
 	    $job->{FORCE_TERMINATE} = 9;
+	    push(@pending, $job);
 	}
 	elsif ($job->{PID} > 0 && waitpid ($job->{PID}, WNOHANG) > 0)
 	{
 	    # Command finished executing, save exit code and mark finished
-	    $job->{STATUS} = $? / 256;
+	    $job->{STATUS} = &runerror ($?);
 	    push (@finished, $job);
 	}
 	else
