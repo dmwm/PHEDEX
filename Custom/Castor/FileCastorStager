@@ -215,16 +215,15 @@ sub getPendingFiles
     while (my $row = $stmt->fetchrow_arrayref())
     {
 	my ($guid, $time) = @$row;
-	my $cache = $self->{PFN_CACHE}{$guid};
-	if (! $cache)
-	{
-	    # Not seen this yet.  Remember it.
-	    $unknown{$guid} = $time;
-	}
-	else
+	if (my $cache = $self->{PFN_CACHE}{$guid})
 	{
 	    # Known in cache.  Just push into result.
 	    push (@$result, [ $guid, $cache->[1], $time ]);
+	}
+	else
+	{
+	    # Not seen this yet.  Remember it.
+	    $unknown{$guid} = $time;
 	}
     }
 
@@ -266,16 +265,15 @@ sub getStagerFiles
     foreach my $pfn (keys %$files)
     {
 	my $status = $files->{$pfn};
-	my $cache = $self->{GUID_CACHE}{$pfn};
-	if (! $cache)
-	{
-	    # Not seen this yet.  Remember it.
-	    $unknown{$pfn} = 1;
-	}
-	else
+	if (my $cache = $self->{GUID_CACHE}{$pfn})
 	{
 	    # Known in cache.  Just push into result.
 	    push (@$result, [ $cache->[1], $pfn, $status ]);
+	}
+	else
+	{
+	    # Not seen this yet.  Remember it.
+	    $unknown{$pfn} = 1;
 	}
     }
 
@@ -285,10 +283,11 @@ sub getStagerFiles
     if (my @items = keys %unknown)
     {
         my $now = time();
-        my $guids = &pfnToGUID ([ @items ], $catalogue, $hostkey);
+        my $prefix = $self->{RM_PATH_PREFIX};
+        my $guids = &pfnToGUID ([ map { $prefix . $_ } @items ], $catalogue, $hostkey);
         foreach my $pfn (@items)
         {
-	    my $guid = $guids->{$pfn};
+	    my $guid = $guids->{$prefix.$pfn};
 	    $self->{PFN_CACHE}{$guid} = [ time(), $pfn ] if defined $guid;
 	    $self->{GUID_CACHE}{$pfn} = [ time(), $guid ];
 	    push (@$result, [ $guid, $pfn, $files->{$pfn} ]);

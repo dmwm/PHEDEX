@@ -21,9 +21,9 @@ sub guidToPFN
 
     # Query limited number of items to keep command line short enough.
     my $timing = []; &timeStart($timing);
-    my %data = ();
-    my $nslice = 100;
     my @items = ref $guid ? @$guid : $guid;
+    my $nslice = 500;
+    my %data = ();
     while (@items)
     {
 	my $n = $#items > $nslice ? $nslice : $#items;
@@ -35,14 +35,14 @@ sub guidToPFN
         while (<CAT>)
         {
 	    chomp;
-	    my ($resguid, $respfn) = /(\S+)/g;
-	    $data{$resguid} = $respfn if $respfn =~ /$hostkey/;
+	    my ($g, $p) = /(\S+)/g;
+	    $data{$g} = $p if $p =~ /$hostkey/;
         }
         close (CAT);
     }
 
-    &logmsg ("GUID->PFN @{[scalar @items]} @{[&formatElapsedTime($timing)]}")
-	if scalar (@items) > 1;
+    &logmsg ("GUID->PFN @{[scalar keys %data]}/@{[scalar @$guid]} @{[&formatElapsedTime($timing)]}")
+	if ref $guid;
     return ref $guid ? { map { $_ => $data{$_} } @$guid } : $data{$guid};
 }
 
@@ -58,8 +58,8 @@ sub guidToLFN
 
     # There's no way to do batches.  Do one at a time.
     my $timing = []; &timeStart($timing);
-    my %data = ();
     my @items = ref $guid ? @$guid : $guid;
+    my %data = ();
     foreach my $g (@items)
     {
         open (CAT, "POOL_OUTMSG_LEVEL=100 FClistLFN -u '$catalogue' -q \"guid='$g'\" |")
@@ -72,8 +72,8 @@ sub guidToLFN
         close (CAT);
     }
 
-    &logmsg ("GUID->LFN @{[scalar @items]} @{[&formatElapsedTime($timing)]}")
-	if scalar (@items) > 1;
+    &logmsg ("GUID->LFN @{[scalar keys %data]}/@{[scalar @$guid]} @{[&formatElapsedTime($timing)]}")
+	if ref $guid;
     return ref $guid ? { map { $_ => $data{$_} } @$guid } : $data{$guid};
 }
 
@@ -89,9 +89,9 @@ sub pfnToGUID
 
     # Query limited number of items to keep command line short enough.
     my $timing = []; &timeStart($timing);
-    my %data = ();
-    my $nslice = 100;
     my @items = ref $pfn ? @$pfn : $pfn;
+    my $nslice = 500;
+    my %data = ();
     while (@items)
     {
 	my $n = $#items > $nslice ? $nslice : $#items;
@@ -103,14 +103,14 @@ sub pfnToGUID
         while (<CAT>)
         {
 	    chomp;
-	    my ($resguid, $respfn) = /(\S+)/g;
-	    $data{$respfn} = $resguid;
+	    my ($g, $p) = /(\S+)/g;
+	    $data{$p} = $g;
         }
         close (CAT);
     }
 
-    &logmsg ("PFN->GUID @{[scalar @items]} @{[&formatElapsedTime($timing)]}")
-	if scalar (@items) > 1;
+    &logmsg ("PFN->GUID @{[scalar keys %data]}/@{[scalar @$pfn]} @{[&formatElapsedTime($timing)]}")
+	if ref $pfn;
     return ref $pfn ? { map { $_ => $data{$_} } @$pfn } : $data{$pfn};
 }
 
