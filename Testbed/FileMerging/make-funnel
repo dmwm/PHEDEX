@@ -1,0 +1,39 @@
+#!/bin/sh
+
+grep expiring ${1-MergeTest/logs/merge} |
+  awk '{printf "%s\t%s\t%s\t%s\n", $6,$9,$12,$14}' |
+  sort |
+  sed 's/.*\.\([A-Z]\)/\1/' |
+  perl -e '
+    while (<STDIN>) {
+      @line = split(/\s+/, $_);
+      $streams{$line[0]} = { AGE => 0, SIZE => 0, N => 0, COUNT => 0 }
+        if ! exists $streams{$line[0]};
+      $streams{$line[0]}{AGE} += $line[1];
+      $streams{$line[0]}{SIZE} += $line[2];
+      $streams{$line[0]}{N} += $line[3];
+      $streams{$line[0]}{COUNT}++;
+    }
+    while (($k, $v) = each %streams) {
+      print sprintf("%s\t%d\t%.2f\t%.2f\t%.2f\n",
+      		    $k, $v->{COUNT},
+		    $v->{AGE}/$v->{COUNT},
+		    $v->{SIZE}/$v->{COUNT},
+		    $v->{N}/$v->{COUNT});
+    }' |
+  sort > funnel-stats-1.txt
+
+grep state: ${1-MergeTest/logs/merge} |
+  awk '{print $6,$5,$7}' |
+  sort -r |
+  perl -e '
+    $n = undef;
+    $start = undef;
+    while (<STDIN>) {
+      @x = split(/\s+/, $_);
+      if ($x[1] eq "start") {
+        $n = $x[0]; $start = $x[2];
+      } elsif ($x[1] eq "end") {
+        print "$n ", ($x[2] - $start), "\n";
+      }
+    }' > funnel-stats-2.txt

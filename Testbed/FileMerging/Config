@@ -1,0 +1,22 @@
+#### General configuration
+### ENVIRON
+# Set directories
+PHEDEX_BASE=/u/dev
+PHEDEX_SCRIPTS=$PHEDEX_BASE/PHEDEX
+PHEDEX_LOGS=$PHEDEX_BASE/MergeTest/logs;
+PHEDEX_STATE=$PHEDEX_BASE/MergeTest/state;
+
+export STAGE_HOST=stagecmsprod;
+export STAGE_POOL=cms_prod2;
+# PERL5LIB
+
+#### Drop box agents
+### AGENT LABEL=merge PROGRAM=Toolkit/DropBox/DropFunnel STATEOPT=in
+ # -queue . 1800 1500 # 1990
+ -dryrun # -remove -store /castor/cern.ch/cms/PCP04/Zips
+ -jobs 5
+ -out ${PHEDEX_STATE}/null
+ -wait 7
+
+### AGENT LABEL=null PROGRAM=Toolkit/DropBox/DropNullAgent STATEOPT=in DEFAULT=off
+ -wait 7
