@@ -49,7 +49,7 @@ sub startJob
 	# Parent, record this child process
 	$job->{PID} = $pid;
 	$job->{STARTED} = time();
-	&logmsg( "P:START [$job->{PID}:] @{$job->{CMD}}" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} == 1 );
+	&logmsg( "P:START [$job->{PID}:] @{$job->{CMD}}" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} );
     }
     else
     {
@@ -69,7 +69,7 @@ sub checkJobs
     my @finished = ();
     my $now = 0;
 
-    if ( $ENV{'PHEDEX_PROCESS_LOG'} == 1 ) 
+    if ( $ENV{'PHEDEX_PROCESS_LOG'} ) 
     {
 	&logmsg( "Current job queue" );
 	foreach my $job (@{$self->{JOBS}})
@@ -94,16 +94,16 @@ sub checkJobs
 	    # around use SIGINT.  Next time around use SIGKILL.
 	    kill ($job->{PID}, $job->{FORCE_TERMINATE} ||= 1);
 	    $job->{FORCE_TERMINATE} = 9;
-	    &logmsg( "P:TIMEOUT [$job->{PID}:] @{$job->{CMD}}" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} == 1 );
+	    &logmsg( "P:TIMEOUT [$job->{PID}:] @{$job->{CMD}}" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} );
 	}
 	elsif ($job->{PID} > 0 && waitpid ($job->{PID}, WNOHANG) > 0)
 	{
 	    # Command finished executing, save exit code and mark finished
 	    if ( WIFSIGNALED($?) ) {
-		&logmsg( "P:SIGNAL [$job->{PID}:$?] @{$job->{CMD}}" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} == 1 );
+		&logmsg( "P:SIGNAL [$job->{PID}:$?] @{$job->{CMD}}" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} );
 	    } elsif ( WIFEXITED($?) )
 	    {
-		&logmsg( "P:EXIT [$job->{PID}:$?] @{$job->{CMD}}" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} == 1 );
+		&logmsg( "P:EXIT [$job->{PID}:$?] @{$job->{CMD}}" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} );
 	    }
 	    $job->{STATUS} = $? / 256;
 	    push (@finished, $job);
