@@ -1,5 +1,6 @@
 package UtilsCatalogue; use strict; use warnings; use base 'Exporter';
 our @EXPORT = qw(guidToPFN guidToLFN pfnToGUID);
+use UtilsTiming;
 use UtilsLogging;
 
 # Map a GUID to a PFN using a catalogue.  Arguments are either
@@ -18,12 +19,14 @@ sub guidToPFN
     # FIXME: remove message suppression when pool has learnt to print
     # diagnostic output somewhere else other than stdout...
 
-    # Query at most 50 at a time to keep command line short enough.
+    # Query limited number of items to keep command line short enough.
+    my $timing = []; &timeStart($timing);
     my %data = ();
+    my $nslice = 100;
     my @items = ref $guid ? @$guid : $guid;
     while (@items)
     {
-	my $n = $#items > 50 ? 50 : $#items;
+	my $n = $#items > $nslice ? $nslice : $#items;
 	my @slice = @items[$#items - $n .. $#items];
 	delete @items[$#items - $n .. $#items];
 
@@ -38,6 +41,8 @@ sub guidToPFN
         close (CAT);
     }
 
+    &logmsg ("GUID->PFN @{[scalar @items]} @{[&formatElapsedTime($timing)]}")
+	if scalar (@items) > 1;
     return ref $guid ? { map { $_ => $data{$_} } @$guid } : $data{$guid};
 }
 
@@ -46,22 +51,29 @@ sub guidToPFN
 # LFNs are not host-specific.
 sub guidToLFN
 {
-	my ($guid, $catalogue) = @_;
+    my ($guid, $catalogue) = @_;
 
     # FIXME: remove message suppression when pool has learnt to print
     # diagnostic output somewhere else other than stdout...
 
     # There's no way to do batches.  Do one at a time.
+    my $timing = []; &timeStart($timing);
     my %data = ();
     my @items = ref $guid ? @$guid : $guid;
     foreach my $g (@items)
     {
         open (CAT, "POOL_OUTMSG_LEVEL=100 FClistLFN -u '$catalogue' -q \"guid='$g'\" |")
 	    or do { &alert ("cannot run FClistPFN: $!"); return undef; };
-    	<CAT>; chomp; $data{$g} = $_;
+    	while (<CAT>)
+	{
+	    chomp;
+	    $data{$g} = $_;
+	}
         close (CAT);
     }
 
+    &logmsg ("GUID->LFN @{[scalar @items]} @{[&formatElapsedTime($timing)]}")
+	if scalar (@items) > 1;
     return ref $guid ? { map { $_ => $data{$_} } @$guid } : $data{$guid};
 }
 
@@ -75,12 +87,14 @@ sub pfnToGUID
     # FIXME: remove message suppression when pool has learnt to print
     # diagnostic output somewhere else other than stdout...
 
-    # Query at most 50 at a time to keep command line short enough.
+    # Query limited number of items to keep command line short enough.
+    my $timing = []; &timeStart($timing);
     my %data = ();
+    my $nslice = 100;
     my @items = ref $pfn ? @$pfn : $pfn;
     while (@items)
     {
-	my $n = $#items > 50 ? 50 : $#items;
+	my $n = $#items > $nslice ? $nslice : $#items;
 	my @slice = @items[$#items - $n .. $#items];
 	delete @items[$#items - $n .. $#items];
 
@@ -95,6 +109,8 @@ sub pfnToGUID
         close (CAT);
     }
 
+    &logmsg ("PFN->GUID @{[scalar @items]} @{[&formatElapsedTime($timing)]}")
+	if scalar (@items) > 1;
     return ref $pfn ? { map { $_ => $data{$_} } @$pfn } : $data{$pfn};
 }
 
