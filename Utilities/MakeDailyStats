@@ -45,7 +45,7 @@ my $timefmt = ($args{TIME} eq 'day' ? 'IYYYMMDD'
 	       : $args{TIME} eq 'week' ? 'IYYYIW'
 	       : $args{TIME} eq 'month' ? 'IYYYMM'
 	       : die "unexpected time unit '$args{TIME}'\n");
-my $timedef = qq{to_char($sqlepoch+ts.to_time_stamp/86400, '$timefmt')};
+my $timedef = qq{to_char($sqlepoch+ts.to_timestamp/86400, '$timefmt')};
 my $sizediv = $args{UNIT};
 
 $dbh = &connectToDatabase (\%args, 0);
@@ -53,19 +53,19 @@ $dbh = &connectToDatabase (\%args, 0);
 my %nodes = ();
 my %stats = ();
 my ($first) = &dbexec ($dbh, qq{
-    select min(to_time_stamp) from t_transfer_state
+    select min(to_timestamp) from t_transfer_state
     where from_node like '%_Transfer'
       and to_node like '%_Transfer'
       and to_state = 3})->fetchrow();
 my $bindata = &dbprep ($dbh, qq{
     select ts.to_node, sum(f.filesize)/$sizediv
     from t_transfer_state ts
-    left join t_files_for_transfer f on f.guid = ts.guid
+    left join t_file f on f.guid = ts.guid
     where ts.from_node like '%_Transfer'
       and ts.to_node like '%_Transfer'
       and ts.to_state = 3
-      and ts.to_time_stamp >= :low
-      and ts.to_time_stamp < :high
+      and ts.to_timestamp >= :low
+      and ts.to_timestamp < :high
     group by ts.to_node});
 
 my @timeseries = &timeSeries ($first, $args{TIME});
