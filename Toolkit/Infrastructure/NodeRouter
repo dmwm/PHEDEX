@@ -57,6 +57,8 @@ while(!(-e "$g_work_dir/stop")) {
     # TODO: publish availability
 
     &refresh_neighbour_links;
+
+    &clear_my_table;
     
     if (@new_routes = &get_new_routes) { 
 	log_entry( "Found new routes" ); 
@@ -163,7 +165,6 @@ sub get_new_routes {
     my $selection = "select from_node,to_node,hops from t_Routing "
 	."where from_node in (select from_node from t_Routing where to_node = '$g_parent_node' and gateway = '$g_parent_node') "
 	."and not to_node = '$g_parent_node' "
-#	."and not gateway = '$g_parent_node' "
 	."minus "
 	."select gateway,to_node,hops-1 from t_Routing "
 	."where from_node = '$g_parent_node'";
@@ -186,7 +187,8 @@ sub clear_my_table {
     my $neighbour = shift;
     my $time = time();
     my $update = "delete from t_Routing "
-	."where from_node = '$g_parent_node'";
+	."where from_node = '$g_parent_node' "
+	."and not to_node = gateway";
     direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
 }
 
@@ -197,8 +199,9 @@ sub minimise_routes {
                             { RaiseError=>1, AutoCommit =>1 });
 
     my $selection = "select gateway,to_node,hops from t_Routing "
-	."where from_node = '$g_parent_node'";
-
+	."where from_node = '$g_parent_node'"
+	."and not to_node = gateway";
+    
     my %hops_by_route = ();
     my @routes = ();
     my $query = $dbh->prepare($selection);
