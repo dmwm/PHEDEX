@@ -75,16 +75,20 @@ sub parseXMLCatalogue
     my ($string) = @_;
     my $result = [];
     my @rows = split("\n", $string);
+    my $line = 0;
     while (defined ($_ = shift (@rows)))
     {
+	++$line;
 	if (m|<File\s(.*?)>|)
 	{
 	    my %attrs = &parseXMLAttrs ($1);
-	    my ($guid, $frag) = ($attrs{ID}, { GUID => $attrs{ID}, TEXT => "$_\n" });
+	    my $guid = $attrs{ID};
+	    my $frag = { GUID => $guid, TEXT => "$_\n", PFN => [], LFN => [] };
 	    while (defined ($_ = shift (@rows)))
 	    {
 		$frag->{TEXT} .= "$_\n";
 		chomp;
+		++$line;
 
 		if (m|<pfn\s(.*?)/>|) {
 		    %attrs = &parseXMLAttrs ($1);
@@ -104,15 +108,13 @@ sub parseXMLCatalogue
 		}
 	    }
 
-	    if (scalar @{$frag->{PFN}} != 1
-		|| scalar @{$frag->{LFN}} != 1
-		|| ! $guid)
+	    if (! $guid)
 	    {
-		die "cannot understand catalog";
+		die "cannot understand catalog (line $line)";
 	    }
 	    elsif (grep ($_->{GUID} eq $guid, @$result))
 	    {
-		die "catalogue has duplicate guid $guid";
+		die "catalogue has duplicate guid $guid (line $line)";
 	    }
 	    else
 	    {

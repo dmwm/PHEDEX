@@ -241,9 +241,9 @@ sub updateCatalogue
 
 	    my $tmpcat = "$master->{DROPDIR}/$file->{GUID}.xml";
 	    my $xmlfrag = &genXMLCatalogue ({ GUID => $file->{GUID},
-					      PFNS => [ { TYPE => $file->{PFNTYPE},
-							  PFN => $file->{TO_PFN} } ],
-					      LFNS => [ $file->{LFN} ],
+					      PFN => [ { TYPE => $file->{PFNTYPE},
+							 PFN => $file->{TO_PFN} } ],
+					      LFN => [ $file->{LFN} ],
 					      META => $file->{ATTRS} });
 
 	    do { &alert ("failed to generate $tmpcat"); next }

@@ -32,13 +32,13 @@ sub genXMLCatalogue
 	$content .= "  <File ID=\"$file->{GUID}\">\n";
 
 	$content .= "    <physical>\n";
-	foreach my $pfn (@{$file->{PFNS}}) {
+	foreach my $pfn (@{$file->{PFN}}) {
 	    $content .= "      <pfn filetype=\"$pfn->{TYPE}\" name=\"$pfn->{PFN}\"/>\n";
 	}
 	$content .= "    </physical>\n";
 
 	$content .= "    <logical>\n";
-	foreach my $lfn (@{$file->{LFNS}}) {
+	foreach my $lfn (@{$file->{LFN}}) {
 	    $content .= "      <lfn name=\"$lfn\"/>\n";
 	}
 	$content .= "    </logical>\n";
