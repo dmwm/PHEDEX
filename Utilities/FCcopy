@@ -46,8 +46,11 @@ elsif ($args{DEST_CATALOGUE} =~ /^XML:/) { $dest = new XMLWrite; }
 else { die "Unrecognised output catalogue $args{DEST_CATALOGUE}\n"; }
 
 my $ntotal = 0;
-$src->init ($args{SRC_CATALOGUE});
+$src->init ($args{SRC_CATALOGUE}, $args{MATCH});
 $dest->init ($args{DEST_CATALOGUE});
+$args{MATCH} =~ s/([^a-zA-Z0-9_%])/\\$1/g;
+$args{MATCH} =~ s/_/./g;
+$args{MATCH} =~ s/%/.*/g;
 while (1)
 {
     # Fetch the next lot of files
@@ -140,12 +143,18 @@ sub new
 
 sub init
 {
-    my ($self, $contact) = @_;
+    my ($self, $contact, $match) = @_;
     die "expecting RLSOracle:Database:User:Pass as contact, got $contact"
         if $contact !~ /^RLSOracle:([^:]+):([^:]+):([^:]+)$/;
     my $args = { DBITYPE => "Oracle", DBNAME => $1, DBUSER => $2, DBPASS => $3 };
     my $dbh = $self->{DBH} = &connectToDatabase ($args, 0) or die "failed to connect to $contact";
-    $self->{GQUERY} = &dbexec($dbh, qq{select guid_id, guid_guid from lcg2_cms_lrc.guid});
+    my $more = !$match ? ""
+        : qq{join lcg2_cms_lrc.pfn on pfn_gid = guid_id
+	     where pfn_pfn like '$match'
+	     group by guid_id, guid_guid};
+    $self->{GQUERY} = &dbexec($dbh, qq{
+	select guid_id, guid_guid from lcg2_cms_lrc.guid
+	$more});
     $self->{PQUERY} = &dbprep($dbh, qq{
 	select pfn."ATTR_pool_filetype", pfn_pfn
 	from lcg2_cms_lrc.pfn
