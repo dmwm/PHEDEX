@@ -36,12 +36,12 @@ my ($src, $dest, $files) = (undef, undef, {});
 
 if ($args{SRC_CATALOGUE} =~ /^RLSOracle:/) { $src = new RLSRead; }
 elsif ($args{SRC_CATALOGUE} =~ /^Oracle:/) { $src = new OracleRead; }
-elsif ($args{SRC_CATALOGUE} =~ /^MySQL:/) { $src = new MySQLRead; }
+elsif ($args{SRC_CATALOGUE} =~ /^mysql:/) { $src = new MySQLRead; }
 else { die "Unrecognised input catalogue $args{SRC_CATALOGUE}\n"; }
 
 if ($args{DEST_CATALOGUE} =~ /^RLSOracle:/) { $dest = new RLSWrite; }
 elsif ($args{DEST_CATALOGUE} =~ /^Oracle:/) { $dest = new OracleWrite; }
-elsif ($args{DEST_CATALOGUE} =~ /^MySQL:/) { $dest = new MySQLWrite; }
+elsif ($args{DEST_CATALOGUE} =~ /^mysql:/) { $dest = new MySQLWrite; }
 elsif ($args{DEST_CATALOGUE} =~ /^XML:/) { $dest = new XMLWrite; }
 else { die "Unrecognised output catalogue $args{DEST_CATALOGUE}\n"; }
 
@@ -212,9 +212,9 @@ sub new
 sub init
 {
     my ($self, $contact) = @_;
-    die "expecting MySQL:Database:User:Pass as contact, got $contact"
-        if $contact !~ /^MySQL:([^:]+):([^:]+):([^:]+)$/;
-    my $args = { DBITYPE => "MySQL", DBNAME => $1, DBUSER => $2, DBPASS => $3 };
+    die "expecting mysql:Database:User:Pass as contact, got $contact"
+        if $contact !~ /^mysql:([^:]+):([^:]+):([^:]+)$/;
+    my $args = { DBITYPE => "mysql", DBNAME => $1, DBUSER => $2, DBPASS => $3 };
     my $dbh = $self->{DBH} = &connectToDatabase ($args, 0) or die "failed to connect to $contact";
     $self->{LQUERY} = &dbprep($dbh, qq{select guid, lfname from t_lfn});
     $self->{PQUERY} = &dbprep($dbh, qq{
@@ -281,9 +281,9 @@ sub new
 sub init
 {
     my ($self, $contact) = @_;
-    die "expecting MySQL:Database:User:Pass as contact, got $contact"
-        if $contact !~ /^MySQL:([^:]+):([^:]+):([^:]+)$/;
-    my $args = { DBITYPE => "MySQL", DBNAME => $1, DBUSER => $2, DBPASS => $3 };
+    die "expecting mysql:Database:User:Pass as contact, got $contact"
+        if $contact !~ /^mysql:([^:]+):([^:]+):([^:]+)$/;
+    my $args = { DBITYPE => "mysql", DBNAME => $1, DBUSER => $2, DBPASS => $3 };
     my $dbh = $self->{DBH} = &connectToDatabase ($args, 0) or die "failed to connect to $contact";
     $self->{LINS} = &dbprep($dbh, qq{insert into t_lfn (guid, lfname) values (:guid, :lfn)});
     $self->{PINS} = &dbprep($dbh, qq{insert into t_pfn (guid, filetype, pfname) values (:guid, :type, :pfn)});
