@@ -203,3 +203,14 @@ Toolkit/Request/TRSyncWeb $PHEDEX_STATE devdb 2004-* 2005-* V2*
    echo "commit;"
  done |
  sqlplus -S cms_transfermgmt/smalland_round@devdb
+
+* Restore privileges, recreate synonyms
+Schema/OraclePrivs.sh cms_transfermgmt/smalland_round@devdb \
+   cms_transfermgmt_reader cms_transfermgmt_writer
+Schema/OracleSyns.sh cms_transfermgmt \
+   cms_transfermgmt/smalland_round@devdb \
+   cms_transfermgmt_reader/slightlyjaundiced@devdb
+Schema/OracleSyns.sh cms_transfermgmt \
+   cms_transfermgmt/smalland_round@devdb \
+   cms_transfermgmt_writer/threebagsfull@devdb
+# FIXME: synonyms for sequences?
