@@ -10,10 +10,12 @@
 ##H outcome from real running jobs.  The drops will be created
 ##H under REQUEST/Drops/Pending.
 
-BEGIN { use strict; use warnings;
-  my $me = $0; $me =~ s|.*/||;
-  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-  unshift(@INC, $home); }
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Common";
+  unshift(@INC, $home);
+}
 use UtilsTR;
 use UtilsNet;
 use UtilsCommand;

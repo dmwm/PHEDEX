@@ -3,10 +3,12 @@
 ## This T0 null agent that just receives drops and passes them on or
 ## destroys them.
 
-BEGIN { use strict; use warnings; }
-$me = $0; $me =~ s|.*/||;
-$home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-unshift(@INC, $home);
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Common";
+  unshift(@INC, $home);
+}
 
 ######################################################################
 my %args;

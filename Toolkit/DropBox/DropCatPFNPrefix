@@ -4,10 +4,12 @@
 ## through so downstream transfer agents can use the PFNs with grid
 ## tools.  It injects a custom prefix to all PFNs.
 
-BEGIN { use strict; use warnings; }
-$me = $0; $me =~ s|.*/||;
-$home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-unshift(@INC, $home);
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Common";
+  unshift(@INC, $home);
+}
 
 ######################################################################
 my %args;
