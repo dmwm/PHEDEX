@@ -151,7 +151,7 @@ sub processDrop
 
     # Find and read the catalogue and the checksum data
     my $dropdir = "$self->{WORKDIR}/$drop";
-    my $packet = eval &input ("$dropdir/packet");
+    my $packet = do { no strict "vars"; eval &input ("$dropdir/packet") };
     if ($@ || ! defined $packet->{PFN})
     {
 	&alert ("badly formed packet in $drop");
