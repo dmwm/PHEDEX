@@ -225,7 +225,7 @@ sub castorExists
 	    chomp;
 	    $known{"$dir/$_"} = 1;
 	}
-	close (NSLS) or die "nsls failed: $!\n";
+	close (NSLS);
     }
 
     # Now match requested files against known files
