@@ -50,14 +50,14 @@ if ($args{HELPME} || !$args{DBNAME} || !$args{DBUSER}
 }
 
 #CJR mapping for Lassi's dropbox toolkit
-my $agent = new MonitorAgent (%args);
+my $agent = new NotificationAgent (%args);
 $SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $SIG{QUIT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $SIG{TERM} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $agent->process();
 
 ################################################
-package MonitorAgent; use strict; use warnings; use base 'UtilsAgent';
+package NotificationAgent; use strict; use warnings; use base 'UtilsAgent';
 use File::Path;
 use Data::Dumper;
 use UtilsCommand;
@@ -78,7 +78,7 @@ sub new
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
 	  	  MYNODE => undef,		# My TMDB node name
-	  	  AGENTID => "Monitoring",      # Identity for activity logs
+	  	  AGENTID => "Notification",      # Identity for activity logs
 		  SITESCRIPT => undef);	        # site specific actions after groups got transfered
 
     my %args = (@_);
@@ -99,9 +99,6 @@ sub idle
     eval
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
-
-	# update statistics in t_block_replica
-	$self->update_block_rep($dbh);
 
 	# get the owners for each dataset of all transfered collections
         # (info needed for publishing or maybe other reasons)
@@ -136,22 +133,6 @@ sub idle
 
 
 
-sub update_block_rep {
-    my ($self, $dbh) = @_;
-    my $now = time();
-    
-    my $h_got_rep = &dbexec($dbh, qq{
-	select count(rs.guids), rs.node, sum(f.filesize), f.inblock from t_replica_state rs, t_file f
-	group by f.inblock, rs.node});
-    while (my ($files, $node, $bytes, $name) = $h_got_rep->fetchrow_array) {
-	&dbexec($dbh, qq{
-	    insert into t_block_replica (timestamp, name, node, files, bytes)
-            values ($now, $name, $files, $bytes)});
-    }
-
-}
-
-
 sub getGroups {
     my ($self, $dbh) = @_;
     my @packet = ();
@@ -170,10 +151,8 @@ sub getGroups {
  
     while (my ($owner, $dataset, $files) = $h_packet->fetchrow_array){
 	push (@packet, "$dataset:$owner:$files");
-# update timestamp in t_block_replica
-	$self->updateTimeStamp($dbh, $dataset, $owner);
     }
-
+    
 # return those dataset owner pairs
     return @packet;
 }
@@ -197,11 +176,3 @@ sub getDatasetMembers {
     return %members;
 }
 
-sub updateTimeStamp {
-    my ($self, $dbh, $dataset, $owner);
-    my $now = time();
-    &dbexec ($dbh, qq{
-	update t_block_replica set timestamp=$now where node=:node and name in
-	(select name from t_block where dataset=:dataset and owner=:owner)},
-	":node"=>$self->{MYNODE}, ":dataset"=>$dataset, "owner"=>$owner);
-}

@@ -1,0 +1,139 @@
+#! /usr/bin/env perl
+
+#-----------------------------------------------------------------------------------------------
+# agent name: site monitoring agent
+# purpose: monitor completeness of dataset/owner collections and trigger site specific scripts
+#-----------------------------------------------------------------------------------------------
+
+BEGIN
+{
+  use warnings; use strict; use Getopt::Long;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+
+#---------------------------------------------
+#     Argument parsing
+#---------------------------------------------
+
+my %args = (DBITYPE => 'Oracle',
+	    WAITTIME => 60);
+
+&GetOptions ("state=s"		=> \$args{DROPDIR},
+	     "node=s"		=> \$args{MYNODE},
+	     "db=s"		=> \$args{DBNAME},
+	     "dbitype=s"	=> \$args{DBITYPE},
+	     "dbuser=s"		=> \$args{DBUSER},
+	     "dbpass=s"		=> \$args{DBPASS},
+	     "wait=f"		=> \$args{WAITTIME},
+	     "help"		=> \$args{HELPME},
+
+
+if ($args{HELPME} || !$args{DBNAME} || !$args{DBUSER}
+    || !$args{DBPASS} || !$args{MYNODE} || !$args{DROPDIR})
+{
+    print "Syntax for Monitoring agent: \n";
+    print "--help:         this help text \n";
+    print "--db:           database to connect to (required)\n";
+    print "--dbuser:       database user name (required)\n";
+    print "--dbpass:       database user password (required)\n";
+    print "--node:         phedex node name (required)\n";
+    print "--state:        agent state directory (required)\n";
+    print "--wait:         seconds to sleep between checks\n";
+    exit 1;
+}
+
+#CJR mapping for Lassi's dropbox toolkit
+my $agent = new MonitorAgent (%args);
+$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
+$SIG{QUIT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
+$SIG{TERM} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
+$agent->process();
+
+################################################
+package MonitorAgent; use strict; use warnings; use base 'UtilsAgent';
+use File::Path;
+use Data::Dumper;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsCatalogue;
+use UtilsDB;
+use UtilsTR;
+use DBI;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBITYPE => undef,		# Database driver binding
+    		  DBNAME => undef,		# Database name
+	  	  DBUSER => undef,		# Database user name
+	  	  DBPASS => undef,		# Database user password
+	  	  MYNODE => undef,		# My TMDB node name
+	  	  AGENTID => "Monitoring");     # Identity for activity logs
+
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+
+# Pick up work from the database and start site specific scripts if necessary
+sub idle
+{
+    my ($self, @pending) = @_;
+    my $dbh = undef;
+    my @collectionsFinished = ();
+
+    eval
+    {
+	$dbh = &connectToDatabase ($self) or die "failed to connect";
+
+	# update statistics in t_block_replica
+	$self->update_block_rep($dbh);
+
+	$dbh->commit();
+    };
+    do { &alert ("database error: $@"); $dbh->rollback if $dbh } if $@;
+
+    # Disconnect from the database
+    $dbh->disconnect();
+    undef $dbh;
+    
+    # Have a little nap
+    $self->nap ($self->{WAITTIME});
+}
+
+
+
+sub update_block_rep {
+    my ($self, $dbh) = @_;
+    my $now = time();
+    
+    my $h_got_rep = &dbexec($dbh, qq{
+	select count(rs.guids), rs.node, sum(f.filesize), f.inblock from t_replica_state rs, t_file f
+	group by f.inblock, rs.node});
+    while (my ($files, $node, $bytes, $name) = $h_got_rep->fetchrow_array) {
+    # we need to check, if there is already an entry for the current name and node
+	my $exists = &dbexec($dbh, qq{
+	    select count(name) from t_block_replica where
+	    name=:name and node=:node},":name"=>$name, ":node"=>$node);
+	if (! $exists) {
+	    &dbexec($dbh, qq{
+		insert into t_block_replica (timestamp, name, node, files, bytes)
+                values ($now, $name, $files, $bytes)});
+	} else {
+	    &dbexec($dbh, qq{
+		update t_block_replica set
+                timestamp=:now, files=:files, bytes=:bytes where
+                name=:name and node=:node},
+		":mow"=>$now, ":files"=>$files, ":bytes"=>$bytes, ":name"=>$name, ":node"=>$name);
+	}
+    }
+}
+
