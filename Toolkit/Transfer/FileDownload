@@ -352,7 +352,7 @@ sub markFilesWanted
 		set to_state = to_state - 1,
 		    to_time_stamp = $now
 		where to_node = '$mynode'
-		  and to_state > 101
+		  and to_state >= 101
 	  	  and to_time_stamp < $old});
 	$dbh->do(qq{
 		update t_transfer_state
