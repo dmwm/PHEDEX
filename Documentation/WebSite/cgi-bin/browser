@@ -279,45 +279,28 @@ sub replicas {
     my %sites = ();
     my $query = $dbh->prepare(qq{
 	    select
-	      m1.value,				-- dataset
-	      m2.value,				-- owner
-	      count(m2.guid),			-- files
-	      count(distinct m3.value),		-- runs
-	      sum(m4.value)			-- total size
-	    from t_files_for_transfer f
-	    left join t_replica_metadata m1
-	      on m1.guid = f.guid and m1.attribute = 'POOL_dataset'
-	    left join t_replica_metadata m2
-	      on m2.guid = f.guid and m2.attribute = 'POOL_owner'
-	    left join t_replica_metadata m3
-	      on m3.guid = f.guid and m3.attribute = 'POOL_jobid'
-	    left join t_replica_metadata m4
-	      on m4.guid = f.guid and m4.attribute = 'filesize'
-	    group by m1.value, m2.value});
-
+	      dataset,
+	      owner,
+	      n_runs,
+	      n_files,
+	      sz_files
+	    from t_info_replication_overview});
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
-	my ($ds, $o, $files, $runs, $total) = @$row;
+	my ($ds, $o, $runs, $files, $total) = @$row;
 	$data{"$ds:$o"} = [ $ds, $o, $files, $total, $runs, {} ];
     }
     $query->finish();
 
     $query = $dbh->prepare (qq{
 	    select
-	      m1.value,				-- dataset
-	      m2.value,				-- owner
-	      rs.node,				-- site
-	      count(rs.guid),			-- replicas at this site
-	      sum(m3.value)			-- total size
-	    from t_replica_state rs
-	    left join t_replica_metadata m1
-	      on m1.guid = rs.guid and m1.attribute = 'POOL_dataset'
-	    left join t_replica_metadata m2
-	      on m2.guid = rs.guid and m2.attribute = 'POOL_owner'
-	    left join t_replica_metadata m3
- 	     on m3.guid = rs.guid and m3.attribute = 'filesize'
-	    group by m1.value, m2.value, rs.node});
+	      dataset,
+	      owner,
+	      node,
+	      n_files,
+	      sz_files
+	    from t_info_replication_details});
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
@@ -376,24 +359,13 @@ sub subs {
     my %sites = ();
     my $query = $dbh->prepare(qq{
 	    select
-	      m.value,				-- dataset
-	      s.destination,			-- destination
-	      count(m2.value),			-- files in dataset
-	      sum(m2.value),			-- total size of dataset
-	      sum(decode(m3.value,null,0,1)),	-- files at destination
-	      sum(nvl(m3.value,0))		-- size at destination
-	    from t_files_for_transfer f
-	    left join t_replica_metadata m
-	      on m.guid = f.guid and m.attribute = 'POOL_dataset'
-	    left join t_subscriptions s
-	      on s.stream = m.value
-	    left join t_replica_state rs
-	      on rs.guid = m.guid and rs.node = s.destination
-	    left join t_replica_metadata m2
-	      on m2.guid = m.guid and m2.attribute = 'filesize'
-	    left join t_replica_metadata m3
-	      on m3.guid = rs.guid and m3.attribute = 'filesize'
-	    group by m.value, s.destination});
+	      dataset,
+	      destination,
+	      n_files,
+	      sz_files,
+	      n_files_at_dest,
+	      sz_files_at_dest
+	    from t_info_subscriptions});
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
