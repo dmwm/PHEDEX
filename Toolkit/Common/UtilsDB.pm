@@ -1,5 +1,5 @@
 package UtilsDB; use strict; use warnings; use base 'Exporter';
-our @EXPORT = qw(connectToDatabase dbexec dbbindexec);
+our @EXPORT = qw(connectToDatabase dbexec dbprep dbbindexec);
 use DBI;
 
 # Create a connection to the transfer database.  Updates the agent's
@@ -57,11 +57,18 @@ sub connectToDatabase
     return $dbh;
 }
 
+# Simple utility to prepare a SQL statement
+sub dbprep
+{
+    my ($dbh, $sql) = @_;
+    return $dbh->prepare ($sql);
+}
+
 # Simple utility to prepare, bind and execute a SQL statement.
 sub dbexec
 {
     my ($dbh, $sql, %params) = @_;
-    my $stmt = $dbh->prepare ($sql);
+    my $stmt = &dbprep ($dbh, $sql);
     return ($stmt, &dbbindexec($stmt, %params));
 }
 
