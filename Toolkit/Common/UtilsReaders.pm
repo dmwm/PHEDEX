@@ -1,5 +1,5 @@
 package UtilsReaders; use strict; use warnings; use base 'Exporter';
-our @EXPORT = qw(readChecksumData readXMLCatalog);
+our @EXPORT = qw(readChecksumData readXMLCatalogue parseXMLCatalogue parseXMLAttrs);
 
 # Read job checksum data: lines of "CHECKSUM SIZE FILE".
 sub readChecksumData
@@ -15,7 +15,7 @@ sub readChecksumData
 	next if /^$/;
 
 	# Process matching lines (<checksum> <size> <filename>)
-	if (/^\d+ \d+ \S+$/)
+	if (/^-?\d+ -?\d+ \S+$/)
 	{
 	    push(@result, [ split(/\s+/, $_) ]);
 	}
@@ -39,30 +39,66 @@ sub readChecksumData
 # reliable and simple way to do it.
 #
 # FIXME: replace by a query call when POOL provides a suitable tool.
-sub readXMLCatalog
+sub readXMLCatalogue
 {
     my ($file) = @_;
     open (IN, "< $file") or die "cannot read catalog file $file: $!";
-    my $result = {};
-    while(<IN>)
-    {
-	chomp;
+    my $contents = join("", <IN>);
+    close (IN) or die "failed to read catalog file $file: $!";
+    return &parseXMLCatalogue ($contents);
+}
 
-	if (m|<File ID="([-0-9A-Fa-f]+)">|)
+# Parse XML attribute sequence
+sub parseXMLAttrs
+{
+    my ($string) = @_;
+    my %attrs = ();
+    $string =~ s/^\s+//;
+    while ($string ne '')
+    {
+	if ($string =~ /^(\w+)='([^']*)'/) {
+	    $attrs{$1} = $2; $string = $';
+	 } elsif ($string =~ /^(\w+)="([^"]*)"/) {
+	    $attrs{$1} = $2; $string = $';
+	 } else {
+	    die "unrecognised xml attributes: <$string>";
+	 }
+         $string =~ s/^\s+//;
+    }
+
+    return %attrs;
+}
+
+# Parse XML catalogue from a string.
+sub parseXMLCatalogue
+{
+    my ($string) = @_;
+    my $result = [];
+    my @rows = split("\n", $string);
+    while (defined ($_ = shift (@rows)))
+    {
+	if (m|<File\s(.*?)>|)
 	{
-	    my ($guid, $frag) = ($1, { GUID => $1, TEXT => "$_\n" });
-	    while (<IN>)
+	    my %attrs = &parseXMLAttrs ($1);
+	    my ($guid, $frag) = ($attrs{ID}, { GUID => $attrs{ID}, TEXT => "$_\n" });
+	    while (defined ($_ = shift (@rows)))
 	    {
-		$frag->{TEXT} .= $_;
+		$frag->{TEXT} .= "$_\n";
 		chomp;
 
-		if (m|<pfn\s.*\sname="(.*)"/>|) {
-		    push (@{$frag->{PFN}}, $1);
-		} elsif (m|<lfn\sname="(.*)"/>|) {
-		    push (@{$frag->{LFN}}, $1);
-		} elsif (m|<metadata\s+att_name="(.*)"\s+att_value="(.*)"/>|) {
-		    $frag->{META}{$1} = $2;
-		    $frag->{GROUP} = $2 if ($1 eq 'jobid');
+		if (m|<pfn\s(.*?)/>|) {
+		    %attrs = &parseXMLAttrs ($1);
+		    push (@{$frag->{PFN}},
+			  { PFN => $attrs{'name'},
+			    TYPE => $attrs{'filetype'} });
+		} elsif (m|<lfn\s(.*?)/>|) {
+		    %attrs = &parseXMLAttrs ($1);
+		    push (@{$frag->{LFN}}, $attrs{'name'});
+		} elsif (m|<metadata\s(.*?)/>|) {
+		    %attrs = &parseXMLAttrs ($1);
+		    $frag->{META}{$attrs{'att_name'}} = $attrs{'att_value'};
+		    $frag->{GROUP} = $attrs{'att_value'}
+		        if ($attrs{'att_name'} eq 'jobid');
 		} elsif (m|</File>|) {
 		    last;
 		}
@@ -72,24 +108,20 @@ sub readXMLCatalog
 		|| scalar @{$frag->{LFN}} != 1
 		|| ! $guid)
 	    {
-		close (IN);
-		die "cannot understand catalog $file";
+		die "cannot understand catalog";
 	    }
-	    elsif (exists $result->{$guid})
+	    elsif (grep ($_->{GUID} eq $guid, @$result))
 	    {
-		close (IN);
-		die "catalog $file with duplicate guid $guid";
+		die "catalogue has duplicate guid $guid";
 	    }
 	    else
 	    {
-		$result->{$guid} = $frag;
+		push (@$result, $frag);
 	    }
 	}
     }
 
-    close (IN);
-
-    die "no guid mappings found in catalog $file" if ! keys %$result;
+    die "no guid mappings found in catalog" if ! @$result;
     return $result;
 }
 
