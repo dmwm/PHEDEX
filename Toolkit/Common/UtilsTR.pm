@@ -8,6 +8,7 @@ use UtilsWriters;
 use UtilsReaders;
 use UtilsCommand;
 use UtilsNet;
+use MIME::Base64;
 
 sub usage
 {
@@ -151,12 +152,21 @@ sub assignmentDrops
 		     . ".$assid-$ainfo->{ProdStepType}-$ainfo->{ProductionCycle}"
 		     . ".$run";
 	do { warn "$dropid: empty xml fragment\n"; next } if ($xmlfrag eq '0');
-	open (XMLEXP, "echo '$xmlfrag'"
-		      . " | perl -MMIME::Base64 -ne 'binmode(STDOUT); print decode_base64(\$_)'"
-		      . " | gzip -dc |")
-	    or die "$dropid: cannot expand xml fragment\n";
-	my $xml = join("", grep(!/^\d+a$/ && !/^\.$/, <XMLEXP>));
-	close (XMLEXP) or die "$dropid: cannot expand xml fragment\n";
+	eval "use Compress::Zlib";
+	my $xml = undef;
+	if ($@)
+	{
+	    open (XMLEXP, "echo '$xmlfrag'"
+		          . " | perl -MMIME::Base64 -ne 'binmode(STDOUT); print decode_base64(\$_)'"
+		          . " | gzip -dc |")
+	        or die "$dropid: cannot expand xml fragment\n";
+	    $xml = join("", grep(!/^\d+a$/ && !/^\.$/, <XMLEXP>));
+	    close (XMLEXP) or die "$dropid: cannot expand xml fragment\n";
+	}
+	else
+	{
+	    $xml = Compress::Zlib::memGunzip (decode_base64 ($xmlfrag));
+	}
 
 	$result->{$dropid} = {
 	    XML => &genXMLPreamble() . $xml . &genXMLTrailer(),
