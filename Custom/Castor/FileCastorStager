@@ -364,7 +364,6 @@ sub idle
 
 	# Update file status.  First mark everything not staged in,
 	# then as staged-in the files currently in stager catalogue.
-	# (FIXME: Who corrects from_state in t_transfer_state?)
 	my $now = time();
 	$dbh->do(qq{update t_replica_state
 		set state = 0,
@@ -372,14 +371,19 @@ sub idle
 		    local_state = trunc(local_state,-3) + 0,
 		    local_time_stamp = $now
 		where node = '$mynode' and mod(local_state,1000) = 1});
+	$dbh->do(qq{update t_transfer_state
+		set from_state = 0, from_time_stamp = $now
+		where from_node = '$mynode' and from_state = 1 and to_state < 2});
+	my $stmt = $dbh->prepare(qq{
+	        update t_replica_state
+		set local_state = trunc(local_state,-3) + 1,
+		    local_time_stamp = ?
+		where guid = ? and node = ?});
 	foreach my $guid (map { $_->{GUID} }
 			  grep (defined $_->{GUID} && $_->{STATUS} eq 'STAGED',
 				values %$files))
 	{
-	    $dbh->do(qq{update t_replica_state
-		set local_state = trunc(local_state,-3) + 1,
-		    local_time_stamp = $now
-		where guid = '$guid' and node = '$mynode'});
+	    $stmt->execute ($now, $guid, $mynode);
 	    # &logmsg ("stats: $guid @{[&formatElapsedTime($timing)]} success");
 	}
 	$dbh->commit();
@@ -433,7 +437,7 @@ sub idle
 	}
 
 	my $trequests = &mytimeofday();
-	&logmsg ("timing: "
+	&logmsg ("timing:"
 		 . " purge=@{[sprintf '%.1f', $tpurge - $tstart]}"
 		 . " status=@{[sprintf '%.1f', $tstatus - $tpurge]}"
 		 . " database=@{[sprintf '%.1f', $tdatabase - $tstatus]}"
