@@ -4,6 +4,7 @@ while [ $# -ge 1 ]; do
   case $1 in
     -u ) args="$args $1 $2"; shift; shift;;
     -g | -p | -x | -m ) args="$args $1"; shift;;
+    * ) break;;
   esac
 done
 shift; shift
