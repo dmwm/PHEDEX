@@ -1,0 +1,43 @@
+#!/usr/bin/perl
+
+# This script removes test files from the system. cd to your fake SE
+# directory then run 
+#
+# DeleteTestFiles
+#
+# It works through each file in the pwd. If it's a test file it
+# opens it and reads the guid. It uses the pfn to remove the entry
+# from the catalogue. It then removes the file. It builds a series
+# of SQL commands that allow it to remove entries from the TMDB.
+
+$pwd = $ENV{PWD};
+@sql = ();
+
+opendir( DIR, "." ) or die "Can't open pwd...";
+while( defined( $file = readdir( DIR ) ) ) {
+    
+    $guid = '';
+    $full_path = $pwd."/".$file;
+    
+    if ( $file =~ /TestbedFile/ ) {
+    
+        print "$file\n";
+    
+        open( FILE, $file ) or die "Can't open $file";
+        while( <FILE> ) {
+            $guid = $_;
+        }
+        close( FILE );
+            
+            
+        ($exit_value, @output) = run_command( "FCdeletePFN -p $full_path" );
+        if ($exit_value == 1) {
+            print "Problem deleting pfn\n@output\n";
+            exit(1);
+        }
+        
+            
+    }
+    
+}
+close( DIR );
