@@ -33,13 +33,33 @@
 \setcounter{page}{2}
 
 \section{Introduction}
-During the first half of 2004 CMS undertook a large scale data challenge (DC04) with the goal of sustained data distribution over an extended period, with data streaming from the T0 as if from the CMS detector running at 25\% of startup luminosity (25 Hz, or events per second).
+During the March and April 2004 CMS undertook a large scale data
+challenge (DC04) with the goal of sustained data distribution over an
+extended period, with data streaming from the T0 as if from the CMS
+detector running at 25\% of startup luminosity (25 Hz, or events per
+second).
 
-In the preparations for DC04 it became apparent that the Grid tools available did not meet the requirements of the experiment. More specifically, Grid projects had developed useful APIs to meet certain needs- e.g. for point-to-point file transfer using gsiftp- however, the tools were coupled together to form a replica management system that did not meet overall experiment requirements for data transfer during DC04: namely, that transfer should be scheduled and directed in a large-scale manner, at dataset granularity, rather than in a point-to-point opportunistic manner at file granularity.
+In the preparations for DC04 it became apparent that the LCG tools
+available did not fully meet the requirements of the experiment. Grid
+projects had developed useful APIs to meet certain needs- e.g. for
+point-to-point file transfer using gsiFTP \cite{rmapi}; to mirror data
+between sites \cite{gdmp}; or to maintain a catalogue of files
+\cite{rls}. However, the tools were coupled together to form a replica
+management system that did not meet overall experiment requirements
+for data transfer during DC04: namely, that transfer should be
+scheduled and directed in a large-scale manner, at dataset
+granularity, rather than in a point-to-point opportunistic manner at
+file granularity.
 
-A significant part of DC04 preparation and running was therefore the design and development of a working directed replica management system for CMS. This paper outlines the experience gained in designing, developing and using the system. It does not examine the apparent mismatch between requirements published and received between the experiment and Grid developers.
+A significant part of DC04 preparation and running was therefore the
+design and development of a working directed replica management system
+for CMS. This paper outlines the experience gained in designing,
+developing and using the system. It does not examine the apparent
+mismatch between requirements published and received between the
+experiment and Grid developers.
 
-CMS developed a system that to meet the following requirements of DC04:
+CMS developed a system that to meet the following requirements of
+DC04 \cite{dc04plan}:
 \begin{list}{}{}
 \item Data streams from the T0 as if from the CMS detector running at 25Hz.
 \item Datasets will be allocated and delivered to certain T1s.
@@ -47,35 +67,79 @@ CMS developed a system that to meet the following requirements of DC04:
 \item The system must be scalable (requiring a minimum of supervision and intervention).
 \end{list}
 
-The system designed was based on a structure of semi-autonomous software agents collaborating by sharing information in a global space. It was was rapidly prototyped and put into production during the months of February and March 2004.
+The system designed was based on a structure of semi-autonomous
+software agents collaborating by sharing information in a global
+space. It was was rapidly prototyped and put into production during
+the months of February and March 2004.
 
-The system proved that it was possible to transfer 25 Hz reconstructed data, and to reach sustained aggregate data rates of 30+ MBps. The system was also used to analyse data in "real time", exhibiting a median lag of only 20 minutes between files being ready for distribution and the analysis results being available at a Tier 1.
+The system proved able to transfer 25 Hz reconstructed data, and to
+reach sustained aggregate data rates of 30+ MBps. The system was also
+used to analyse data in ``real time'' exhibiting a median latency of
+only 20 minutes between files being ready for distribution and the
+analysis results being available at a Tier 1.
 
 \section{The data distribution system}
-The CMS data distribution system for DC04 was a file transfer management structure, drawing on aspects of blackboard and multi-agent system design \cite{FG96,C03,Setal03}. Persistent, stateful agents were deployed at a number of geographically distributed sites, and handled point to point propagation of files through the system. Communication between agents (typically announcing the presence of files at some point in the system) was limited by design; propagation of information through the agent system required the agents to post information at a central ``blackboard''. This blackboard was implemented in Oracle and named the Transfer Management Database, or TMDB. 
+The CMS data distribution system for DC04 was a dataset management
+structure, drawing on aspects of blackboard and multi-agent system
+design \cite{FG96,C03,Setal03}. Persistent, stateful agents were
+deployed at a number of geographically distributed sites, and handled
+point to point propagation of files through the system. Communication
+between agents (typically via messages announcing the presence of
+files at some point in the system) was limited by design; propagation
+of information through the agent system required the agents to post
+information at a central ``blackboard''. This blackboard was
+implemented in Oracle and named the Transfer Management Database, or
+TMDB.
 
-This architecture enabled us to maintain a coherent picture of system state in a central location, making it relatively easy to diagnose and solve problems. It also meant that agent development was characterised by short timescales (the agents could be implemented in a local language of choice), and simplicity. 
+This architecture enabled us to maintain a coherent picture of system
+state in a central location, making it relatively easy to diagnose and
+solve problems. It also meant that agent development was characterised
+by short timescales and simplicity.
 
-Agent development was simple because the exchange of messages was used to define the behaviour of a small range of agents, which could then be implemented in a way that suited local developer groups. By doing this any need for local functionality were easily met by implementing a new agent, in whatever language was suitable. Strictly defined message passing encouraged the localisation of complex functionality within single agents \cite{B03}.
+Agent development was simple because the exchange of messages was used
+to define the behaviour of a small range of agents, which could then
+be implemented in a way that suited local developer groups. By doing
+this any need for local functionality were easily met by implementing
+a new agent, in whatever language was suitable. Strictly defined
+message passing encouraged the localisation of complex functionality
+within single agents \cite{B03}.
 
 \subsection{Components and data flow}
-The complete system comprised a data source (the Reconstruction farm at CERN), a common transfer/state database (TMDB) and a hierarchy of agents that managed anddistributed the data. Other packages- like a web front end to manage the TMDB and monitor the status of the disk buffer from which files are distributed- were also required. 
+The system comprised a data source (the Reconstruction farm at CERN),
+a common transfer/state database (TMDB) and a hierarchy of agents that
+managed and distributed the data. Other components- like a web front
+end to manage the TMDB and monitor the status of the disk buffer from
+which files are distributed- were developed as required.
 
-The distribution system drew files from Castor stage disk and streamed them to a number of T1s, where they were placed in mass storage. The transfer of data through the system was handled by a series of agents of limited  responsibility.
+The distribution system drew files from Castor stage disk and streamed
+them to a number of T1s via export buffers dedicated to a specific
+transfer mechanism. At the T1s the data were placed in mass storage,
+and in some cases data was directed to T2s. The transfer of data
+through the system was handled by a series of agents of limited
+responsibility.
 
-Files were placed in the Castor stage area by Reconstruction jobs. To trigger  distribution an XML catalogue fragment and checksum file were placed in a dropbox for an agent to find. These agents then published file information in the RLS and the TMDB.
+Files were placed in the Castor stage area by Reconstruction jobs. To
+trigger distribution an XML catalogue fragment and checksum file were
+placed in a dropbox- a disk folder- for an agent to find. These agents
+then published file information in the RLS and the TMDB
+(fig. \ref{fig:flow1}).
 
-A Configuration agent at the T0 allocated files to specific T1s, acting as a simple replica manager.
+A Configuration agent at the T0 allocated files to specific T1s,
+acting as a simple replica manager. Export Buffer agents (dedicated to
+a number of T1s, all using the same distribution tool) scanned the
+TMDB for newly allocated files. Generically, they drew these files
+from the Castor stage area and placed them on an Export Buffer
+(fig. \ref{fig:flow2}).
 
-Export Buffer agents (dedicated to a number of T1s, all using the same distribution tool) scanned the TMDB for newly allocated files. Generically, they drew these files from the Castor stage area and placed them on an Export Buffer dedicated to a specific distribution tool.
-
-At each T1 an agent scanned the TMDB looking for files that were newly available on the Export Buffer. It transferred these files to the T1. Further agents ensured that the files were placed in mass storage.
-
-As files appeared at T1s, other agents submitted the files to analysis and published the results. In some cases, further agents replicated files to T2 sites for analysis.
+At each T1 an agent scanned the TMDB looking for files that were newly
+available on the Export Buffer. It transferred these files to the
+T1. Further agents ensured that the files were placed in mass
+storage. As files appeared at T1s, other agents submitted the files to
+analysis and published the results. In some cases, further agents
+replicated files to T2 sites for analysis (fig. \ref{fig:flow3}).
 
 \begin{figure}[tbp]
-\centering
-\includegraphics[angle = 90]{T0-flow.eps} 
+\centering \includegraphics[angle = 90]{T0-flow.eps}
 \label{fig:flow1}
 \caption{Making data available to distribution during DC04.}
 \end{figure}
@@ -95,7 +159,11 @@ As files appeared at T1s, other agents submitted the files to analysis and publi
 \end{figure}
 
 \subsection{DC04 distribution infrastructure}
-During DC04 data was distributed via three "chains", corresponding to three flavours of distribution middleware. These middleware tools were LCG, SRM + dCache and SRB (fig. \ref{fig:chains}).
+During DC04 data was distributed via three ``chains'', corresponding
+to three flavours of distribution middleware. These middleware tools
+were the LHC Computing Grid (LCG) \cite{lcg}, the Storage Resource
+Manager (SRM) \cite{srm} with dCache \cite{dcache} and SRB \cite{srb}
+(fig. \ref{fig:chains}).
 
 \begin{figure}[tbp]
 \centering
@@ -104,15 +172,49 @@ During DC04 data was distributed via three "chains", corresponding to three flav
 \caption{Overall view of the distribution chains deployed during DC04.}
 \end{figure}
 
-The LCG chain variously used the Replica Manager Java command line tools and Globus globus-url-copy to make transfers using gsiFTP, and the Local Replica Catalogue C++ API to query the RLS and make updates. The chain deployed two varieties of LCG Storage Elements (SEs) as file buffers: an LCG "classic", or disk only, SE; and an LCG Castor SE with a stager-managed disk pool with access to tape.
+The LCG chain used LCG Replica Manager Java command line tools
+\cite{rmapi} and Globus globus-url-copy \cite{globus} to make
+transfers using gsiFTP \cite{gsiftp}, and the Local Replica Catalogue
+C++ API \cite{lrcapi} to query the RLS and make updates. The chain
+deployed two varieties of LCG Storage Elements (SEs) as file buffers:
+an LCG "classic", or disk only, SE; and an LCG Castor SE with a
+stager-managed disk pool with access to tape.
 
-All chains used the LCG (LHC Computing Grid) Replica Location Service (RLS) as a repository of filename and metadata information. For future reference, the RLS deployed during DC04 comprised a single Local Replica Catalogue and Replica Metadata Catalogue deployed at CERN. The distribution chains used LCG tools- either LRC tools or POOL File Catalog tools- to query and make entries in the catalogue.
+All chains used the LCG Replica Location Service (RLS: \cite{rls}) as
+a repository of filename and metadata information. For future
+reference, the RLS deployed during DC04 comprised a single Local
+Replica Catalogue and Replica Metadata Catalogue deployed at CERN. The
+distribution chains used LCG tools- either LRC tools or POOL
+\cite{POOL} File Catalog tools- to query and make entries in the
+catalogue. Local POOL file catalogues were also deployed as a means of
+accessing file information for analysis jobs at the T1s and T2s.
 
-SRM is an acronym denoting the Storage Resource Management interface, which provides generic access to any storage resource. Superficially SRM provides a defined two step interaction through which a file can be obtained from any storage medium for which the user has a Storage URL (SURL), which contains the hostname of the medium. The SRM chain deployed disk buffers coupled by dCache, a disk pool and tape storage management software as file buffers, and used gsiFTP to transfer files between them.
+SRM is an acronym denoting the Storage Resource Management interface,
+which provides generic access to any storage resource
+\cite{srm}. Superficially SRM provides a defined two step interaction
+through which a file can be obtained from any storage medium for which
+the user has a Storage URL (SURL), which contains the hostname of the
+medium. During an SRM transaction the client presents an SRM server
+with the SURL, is is returned a Transport URL (TURL) which indicates
+the current (possibly temporary) location of the file and a transport
+protocol that can be used to access it. dCache disk buffers were
+deployed to form the SRM chain infrastructure, and gsiFTP used to make
+transfers; dCache \cite{dcache} is a disk pool and tape storage
+management software as file buffers.
 
-SRB is an acronym for the Storage Resource Broker, another middleware that presents a uniform generic interface to files. SRB differs from the SRM and LCG in that it presents a uniform global interface to the user; that is, a user is typically unaware of where a file is within SRB filespace. The SRB filespace and file metadata is stored within a metadata catalogue named the MCat. During DC04 the SRB chain deployed SRB vaults as file buffers, and used Sput and Sreplicate commands to transfer files. The SRB and LCG file catalogues were syncronised by a standalone application named GMCat.
+SRB is an acronym for the Storage Resource Broker, another middleware
+that presents a uniform generic interface to storage media
+\cite{srb}. SRB differs from the SRM and LCG in that it presents a
+uniform global interface to the user; that is, a user is typically
+unaware of where a file within SRB physically resides. SRB filespace
+and file metadata is stored within a metadata catalogue named the
+MCat. SRB vaults were deployed as file buffers to form the SRB chain,
+and used Sput and Sreplicate commands to transfer files. The SRB and
+LCG file catalogues were syncronised by a standalone application named
+GMCat.
 
-More detailed descriptions of each chain, and experience with it during DC04, can be found below.
+More detailed descriptions of each chain, and related experience with
+it during DC04, can be found below.
 
 \section{Experience}
 Development was rapid, and mostly straightforward. Several versions of export buffer, T1 transfer and mass storage agents were implemented within several weeks of the first examples being made available. This rapid development was due in part to the extremely limited responsibility of each agent, and the easy breakdown of agent workflow into chunks of functionality like ``publish state in database'', ``check for new guids'' (defined by TMDB interactions).
