@@ -115,6 +115,7 @@ sub idle
 	    $q =~ s/!DETAIL!//g; $q =~ s/!START!/$start{$span}/;
 	    foreach $row (@{$dbh->selectall_arrayref($q)}) {
 		($from, $to, $files, $bytes, $time, $bps, $abps, $ibps, $xbps) = @$row;
+		next if ! $files;
 		$dbh->do(qq{insert into t_info_transfer_rate values (
 				$now, $span, 'N', '$from', '$to', $files, $bytes, $time,
 				$bps, $abps, $ibps, $xbps)});
@@ -124,7 +125,8 @@ sub idle
 	    $q =~ s/!DETAIL!/--/g; $q =~ s/!START!/$start{$span}/;
 	    foreach $row (@{$dbh->selectall_arrayref($q)}) {
 		($files, $bytes, $time, $bps, $abps, $ibps, $xbps) = @$row;
-		$dbh->do(qq{insert into t_info_transfer_rate values (
+		next if ! $files;
+	 	$dbh->do(qq{insert into t_info_transfer_rate values (
 				$now, $span, 'T', '', '', $files, $bytes, $time,
 				$bps, $abps, $ibps, $xbps)});
 	    }
