@@ -35,8 +35,9 @@ sub runerror
   my $code	= $rc >> 8;
   my $signal	= $rc & 127;
   my $core	= $rc & 128;
+  my $retval    = ($signal ? "signal $signal" : $code);
 
-  return ($signal ? "signal $signal" : "$code").($core ? " (core dumped)" : "");
+  return ($core ? "$retval (core dumped)" : $retval);
 }
 
 # Create a file
