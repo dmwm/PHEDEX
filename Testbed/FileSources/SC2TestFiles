@@ -50,7 +50,7 @@ for (my $dup = 0; $dup < $dups; ++$dup)
     <metadata att_name="DataType" att_value="SC2_FAKE"/>
     <metadata att_name="FileCategory" att_value="SC2_FAKE"/>
     <metadata att_name="Flags" att_value=""/>
-    <metadata att_name="dataset" att_value="SC2"/>
+    <metadata att_name="dataset" att_value="SC2.@{[$dup % 100]"/>
     <metadata att_name="jobid" att_value="$dup"/>
     <metadata att_name="owner" att_value="SC2"/>
     <metadata att_name="runid" att_value="$i"/>
