@@ -256,14 +256,13 @@ sub completeOne
 	# it's the same we got this time, and then ignore this drop.
 	# If there's isn't one, add it.
 	$op = "check for old checksum";
-	my $old = $dbh->selectrow_arrayref(qq{
+	my $old = $dbh->selectrow_array(qq{
 		select value from t_replica_metadata
 		where guid = '$guid' and attribute = 'checksum'});
-	if (scalar @$old)
+	if (defined $old)
 	{
-	    &alert ("checksum mismatch for $guid at $mynode,"
-		    ." old=$old->[0], new=$checksum")
-	        if $old->[0] ne $checksum;
+	    &alert ("checksum mismatch for $guid at $mynode: $old $checksum");
+	        if $old ne $checksum;
 	    return;
         }
 
@@ -286,6 +285,10 @@ sub completeOne
 	$dbh->commit();
     };
     do { &alert ("failed to $op: $@"); $dbh->rollback() if $dbh; return 0; } if $@;
+
+    # Disconnect from database
+    $dbh->disconnect();
+    undef $dbh;
 
     # Mark drop done so it will be nuked
     &touch ("$self->{WORKDIR}/$drop/done");
