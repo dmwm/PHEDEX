@@ -327,27 +327,112 @@ In contrast PIC experienced no problems with their Castor tape.
 PIC and CNAF were also able to distribute data on to T2s (CIEMAT and Legnaro respectively) for analysis. To manage these further transfers, as well as real-time analysis, they effetively created a new set of distribution chains using a MySQL TMDB for collaboration information.
 
 \section{Conclusions and future plans}
+Conclusions can be drawn in three areas: organisation and coordination, distribution 
+architecture, and distribution infrastructure.
 
+\subsection{Organisation and coordination}
+In general the lead-in time (the time between requirements being known and the start of
+DC04) was considered too short. Despite this many problems were tackled successfully 
+during DC04- however, most should have been tackled before DC04, which was eventually less
+about sustained running than about establishing what needed to be done. For DC05 however
+we noe have a better feel for the operational issues involved in distributing data over
+the WAN. T1 responsible groups should be encouraged to have plans for providing services 
+6 months before DC05. This naturally means that requirements are well understood at this 
+time. A summary of operational issues should be established between CERN and the T1s
+immediately.
 
-Sources of throttling: access to tape/stage, catalogues, tmdb(?), intermediate links (no control over these?), buffer read/write, tape migration...
+Coordination of people invovled in agent development during DC04 was straightforward, 
+because the group was small and composed of actively involved volunteers with relevant 
+expertise in Perl, C++, Java, Oracle and the deployment use of various middleware 
+transfer tools. The system description was deliberately reduced to minimal interactions
+between components with well-defined responsibilities, which actively encouraged rapid
+``hacking'' and equally rapid throwing away of code components. This approach suited the 
+small group of experts.
 
-Gap in middleware: developers have implemented APIs. They have also developed command line tools which are good as examples but suffer from impaired performance when used in a large scale system. From our point of view the amount of "grid itegration" work to is alrger than expected: many expected the middleware developers to develop tools rather than APIs.
+Day to day running of DC04 was somewhat inefficient. Global management of agents, and 
+notification of local supervisors were achieved via email. This needs to be dramatically
+improved in future versions of the system. In addition, most high-output periods were
+scheduled for weekends which was not ideal, although many people involved devoted weekend
+time to keeping the system running. This weekendf running was a natural by-product of the 
+fact that development (on all aspects of the system) tended to happen during the working
+week. Ideally DC05 will be more a test of deployment and tuning than ongoing 
+development.
 
-A general remark about "more warning and planning so that operational issues could be anticipated".
+\subsection{Distribution architecture}
+The agent system was created to fill a perceived gap in the existing EDG and LCG Grid 
+middleware, which had no mechanism for large-scale (bulk) scheduling of transfers over 
+known routes and at dataset granularity. Middleware developers have implemented required
+components and APIs, and command line tools to access those components. Typically these
+were good as examples but suffered from limited performance when used in a large scale 
+system. From our point of view the amount of ``grid integration'' work requried was larger
+than expected.
 
-Data sources and distribution need to be coupled properly- for example, reconstruction produced many small files, whereas distribution requires large files to function efficiently. Impedance mismatches?
+A particular example of this was the RLS: a file catalogue is an essential logical 
+component of the distribution system. The RLS supplied has no support for bulk operations,
+or transactional access, and had not been tested under the load generated during DC04.
+The performance of the Java command line interface did not scale as required (but were
+arguably never meant to). It should be noted that the API proved straightforward to use,
+and (in part) use of the API enabled us to meet our requirements.
 
-Most "big pushes" planned over the weekend! Not the best of ideas? Could it be done any other way?
+It is possible that each experiment will have data scheduling requirements unique enough
+that it is more efficient to define a structure into which replica and resource management
+and transfer middleware can be plugged at will. The system we have produced for DC04 is
+such a generic structure, and is therefore useful input to the ARD/EGEE effort.
 
-Management of agents in a global sense, and notification of local supervisors needs to be dramatically improved in future versions of the system, as email does not provide an efficient and reliable mechanism for coordinating agent shutdown and restart, and other global system actions.
+Development of the distribution scheme is likely to be coupled to very short tiemscales
+as it needs to produce working systems immediately for production use. This is a benefit
+as new requirements and functionality can be quickly identified and integrated. In the
+short term the development approach taken during DC04 is useful. Some long term vision
+of how the system fits into some overall CMS computing architecture is essential,
+however. This is particularly important for a clean interaction between distribution and
+grid-based analysis, which may also move files. Decisions such as whether distribution
+seeds a ``global'' grid, or whether it seeds multiple ``national'' grids with files and 
+handles the transfer between them have some impact on the design of the system, and on 
+file and site policy regarding file priority and lifetime. 
 
-IT was shown that it is possible to analyse data as it arrives, with only a 20 minute period elapsing between the file being made available for distribution and it being used in analysis. This turnaround time gives us confidence that future versions will be able to handle this sort of analysis consistently and for sustained periods. The variability in eprformance between deifferent deployments of the real-time analysis agents and structure however shows that there is some exploraty work to be done to determine the best practice for deployment and use.
+\subsection{Distribution infrastructure}
+During DC04 we have identified a number of sources of throttling in the system,and these
+should be investigated independently and in detail. These throttles include access to and
+management of tape/storage (at CERN and at T1s); catalogue queries and updates, and 
+suitability of certain catalogues for global use; use of a single TMDB; and physical 
+network links internal to CMS sites (the system was not ``clear'' enough to identify more
+general internet bottlenecks).
 
-The distribution system/ agents require easy access to metadata, both dedicated distribution metadata and more experiment specific emtadata. The mechanism for handling this was poorly developed for DC04, and needs to be improved for future versions. However, it is important that people remember that the TMDB is not a permanent repository of metadata, as the information it contains will probably be deleted once the files are no longer in transit.
+The distribution system agents require easy access to metadata- both dedicated 
+distribution metadata and experiment specific metadata. The mechanism for handling most
+metadata was poorly developed for DC04, and needs to be improved for future versions.
 
-Logging of low level metrics- file transfer rates, etc- was handled very well by a number of tools- MonaLISA, GridICE, Lemon among them. Logging of higher level distribution component metrics however was not so well developed. Toward the end of DC04 the number fo files in each state was monitored using MonaLISA, but only for a predefined set of states (e.g. the total set of states was not dynamically determined). In the future this monitoring needs to be extended to cover agent uptime, transition of files through states, files handled per agent per second and no doubt others.
+The RLS is seen as a critical bottleneck in the system. We are currently coupled to it in
+three ways: transfers using the LCG RM tools are coupled transfer-and-RLS-register
+operations; the analysis jobs submitted via an LCG resource borker require an RLS for
+filename lookups; and we have also triggered some intensive performance-related
+development as a result of our activities, and it would be useful to remain in touch with
+these. However, it is important that we immediately consider alternative file catalogue
+architectures.
 
-Log entries should not be made in the TMDB- instead they should be handled locally by a tool such as netlogger- note that remote access to these logs on demand is still necessary; it should be pssible to query the log repository remotely.
+The version of SRB used during DC04 proved unable to meet the the requirements of it: it
+should be noted that this is more an issue of inadequate service provision on the part
+of a T1 than a problem with SRB per se, although the problem was compounded by the use of
+a single point-of-failure MCat, unaviodable in the SRB version deployed. It is apparent
+ that a clearer sense of ``a T1 production service'' in relation to accepted 
+responsibilities is required.
+
+Logging of low level metrics- file transfer rates, etc- was handled very well by a number
+of tools: MonaLISA, GridICE and Lemon. Logging of higher level distribution system metrics
+was not so so well developed. Toward the end of DC04 the number of files in each transfer 
+state was monitored in MonaLISA, but only for a rpedefined set of states. In the future
+this needs to be extended to cover agent uptime, transition of files through states, files
+handled per agent per second, and, no doubt, others. MonaLISA is our current tool of 
+choice for gathering this data, and amy also provide a good global control mechanism for
+agents.
+
+\subsection{Overall conclusion}
+It was shown that large scale scheduled distribution to a set of known destinations, and
+subsequent analysis, was possible at 25Hz, or with a 20 minute turnaround time, or at
+very high transfer rates. This gives us confidence that future versions will be able to 
+handle this load consistently, and for sustained periods. The variability in performance
+between different agent deployments shows that there is some exploratory work to be done
+in determining best practice for deployment and use.
 
 \bibliographystyle{plain}
 \bibliography{dc04-post-mortem}
