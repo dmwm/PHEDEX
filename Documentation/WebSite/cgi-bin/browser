@@ -46,11 +46,9 @@ sub intro
     <td><input type='submit' name='transfer' value='Transfer state'></td>
     <td><input type='submit' name='replicas' value='Replica state'></td>
     <td><input type='submit' name='subs' value='Subscriptions'></td>
-    <!-- td><input type='submit' name='stats' value='Simple stats'></td -->
+    <td><input type='submit' name='stats' value='File size stats'></td>
     </tr>
-    <tr>
-    <td colspan=6 align='center'>$stamp</td>
-    </tr>
+    <tr><td colspan=6 align='center'>$stamp</td></tr>
     </table>
     };
 
@@ -61,7 +59,7 @@ sub intro
 	    		 { RaiseError=>1, AutoCommit =>1 });
 
     my $needmain = 1;
-    foreach my $page (qw(main transfer replicas subs)) {
+    foreach my $page (qw(main transfer replicas subs stats)) {
         do { no strict 'refs'; $needmain = 0; &{$page}(); last } if param($page);
     }
     main() if $needmain;
@@ -125,7 +123,7 @@ sub format_num {
 }
 
 sub format_size {
-    my ($bytes) = @_;
+    my ($bytes, $nodash) = @_;
     my @bounds = ([ 2**10, 'k' ], [ 2**20, 'M' ], [ 2**30, 'G' ],
 		  [ 2**40, 'T' ], [ 2**50, 'P' ], [ 2**60, 'E' ]);
     my ($val, $unit) = ($bytes, '');
@@ -136,7 +134,7 @@ sub format_size {
 	shift (@bounds);
     }
 
-    return $bytes ? sprintf('%.1f&nbsp;%sB', $val, $unit) : '&#8211;';
+    return $bytes || $nodash ? sprintf('%.1f&nbsp;%sB', $val, $unit) : '&#8211;';
 }
 
 sub transfer {
@@ -438,22 +436,68 @@ sub subs {
 }
 
 sub stats {
-    my $agent = (param("agent")) ? param("agent") : "ALL";
+    my $now = time();
+    my $overview = $dbh->selectrow_arrayref(qq{
+			select
+			  update_stamp,
+			  n_files,
+			  sz_total,
+			  sz_min,
+			  sz_max,
+			  sz_mean,
+			  sz_median
+			from t_info_file_size_overview});
+    my $histo = $dbh->selectall_arrayref(qq{
+	    		select
+			  update_stamp,
+			  bin_low,
+			  bin_width,
+			  n_total,
+			  sz_total
+			from t_info_file_size_histogram});
 
-    # agent_menu($db);
-    # print "<input type=\"submit\" name=\"stats\" value=\"See stats\">";
+    print "<h2>File Size Statistics</h2>\n",
+    	  "<p>", sprintf ("%dh%02d", ($now - $overview->[0]) / 3600,
+		  	  (($now - $overview->[0]) % 3600) / 60),
+	  " ago</p>",
+    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+	  "<th>Files</th>",
+	  "<th>Total Size</th>",
+	  "<th>Min Size</th>",
+	  "<th>Max Size</th>",
+	  "<th>Mean Size</th>",
+	  "<th>Median Size</th>",
+	  "</tr>\n",
+	  "<tr>",
+	  "<td align='right'>@{[&format_num($overview->[1])]}</td>",
+	  "<td align='right'>@{[&format_size($overview->[2])]}</td>",
+	  "<td align='right'>@{[&format_size($overview->[3])]}</td>",
+	  "<td align='right'>@{[&format_size($overview->[4])]}</td>",
+	  "<td align='right'>@{[&format_size($overview->[5])]}</td>",
+	  "<td align='right'>@{[&format_size($overview->[6])]}</td>",
+	  "</tr>\n",
+	  "</table>\n",
+    	  "<hr>\n";
 
-    if ($agent eq "ALL") {
-        print "<h4>Summary of stats across all agents</h4>";
+    print "<h2>File Size Breakdown</h2>\n",
+    	  "<p>", sprintf ("%dh%02d", ($now - $histo->[0][0]) / 3600,
+		  	  (($now - $histo->[0][0]) % 3600) / 60),
+	  " ago</p>",
+    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+	  "<th>Bin</th>",
+	  "<th>Files</th>",
+	  "<th>Total Size</th>",
+	  "</tr>\n";
+    foreach my $row (@$histo)
+    {
+	  print "<tr>",
+	        "<td align='right'>@{[&format_size($row->[1] * $row->[2],1)]} ..",
+		" @{[&format_size(($row->[1] + 1) * $row->[2],1)]}</td>",
+	        "<td align='right'>@{[&format_num($row->[3])]}</td>",
+	        "<td align='right'>@{[&format_size($row->[4])]}</td>",
+	        "</tr>\n";
     }
-
-    # print "<table border=1><tr><td>File Size Data</td><td>Transfer Rate Data</td></tr><tr><td>";
-    print "<p>File Size Data</p>\n";
-    filesize_info(AGENT => "$agent", DB_TNSNAME => "$db");
-    # print "</td><td>";
-    # rate_info(AGENT => "$agent", DB_TNSNAME => "$db");
-    # print "(Disabled)";
-    # print "</td></tr>";
+    print "</table>\n";
 }
 
 sub end {
