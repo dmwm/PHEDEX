@@ -91,14 +91,14 @@ Coordination and management of people and agents proved highly inefficient, and 
 \subsection{Overall behaviour}
 One might use the lifetime of files in the system as a useful metric for measuring system performance, defining the lifetime of files as the period between appearance and migration to Castor. However, the mechanism for migrating to Castor was only implemented late in DC04, and migration was hampered by technical issues with the SRB chain which meant that a large backlog of files that had not been made safe at T1s appeared. Studying the comparison of lifetime with time of appearance, it is clear that files that appeared early remained in distribution for a long time, while files that appeared late had a correspondingly shorter lifetime (fig. \ref{fig:lifetime}).
 
-\begin{figure}[htb]
+\begin{figure}[tbp]
 \centering
 \includegraphics[width=10cm]{lifetime_by_appearance.eps} 
 \label{fig:lifetime}
 \caption{File ``lifetime'' (defined as period between appearance and Castor migration) decreases linearly with appearance time. This metric is strongly dependent on the time at which the Castor stage migrator/cleaner agent was deployed.}
 \end{figure}
 
-It is more meaningful to ask how long it was before files were available for analysis at a T1: figures for this vary from distribution chain to distribution chain, with the SRM-FNAL chain taking several days (TODO: check!), the LCG chain to CNAF taking many hours and the LCG chain to PIC taking only 20 minutes. More detailed analysis is included below.
+It is more meaningful to ask how long it was before files were available for analysis at a T1: figures for this vary from distribution chain to distribution chain, with the LCG chain to CNAF taking between 10 minutes and a day and a half, and the LCG chain to PIC taking only 20 minutes consistently. More detailed analysis is included below.
 
 Transfer rates varied greatly, and are treated in more detail below. Generally however, transfer rates at the start of DC04 were low- individual transfers reached maybe a MBps, with aggregate rates pushing 10MBps. These low transfer rates were due to the small size of files being pushed through the system- an example of poor initial coupling between the data source and the distribution system. Fortunately this poor coupling was improved to some extent by the implementation of a "merging" step (detailed below) which added files to one of a series of queues which expired and were written after either a certain aggregate size or time limit was reached. File sizes were typically ~500k median at the start of DC04.
 
@@ -115,7 +115,7 @@ In contrast to other databases used, the TMDB proved to be remarkably stable, on
 
 Development of the TMDB continued throughout DC04 as new use cases were discovered. The management of changes to the databases provided useful experience for the future. Most changes were easily accomodated thanks to a carefully designed database schema (for example, the addition of new agents was handled gracefully) (fig. \ref{fig:schema}).
 
-\begin{figure}[htb]
+\begin{figure}[tbp]
 \centering
 \includegraphics{v1_tmdb.eps}
 \label{fig:schema}
@@ -156,7 +156,7 @@ The SRM chain provides the model by which future versions of the distribution sy
 
 Initially problems were seen with repeated authentications: the agents were developed so that multiple streams, with multiple files in each stream, could be used to transfer files, reducing the number of authentications required. Transfer rates of over 10 MBps could be sustained for long periods (fig. \ref{fig:FNAL-network}).
 
-\begin{figure}[htb]
+\begin{figure}[tbp]
 \centering
 \includegraphics[width=10cm]{FNAL-network.eps}
 \label{fig:FNAL-network}
@@ -200,9 +200,9 @@ At the start of DC04, the LCG chain had no Export Buffer from which to export da
 
 The SE was managed as a distribution buffer by an EB agent, at first making third party transfers before being hosted by the SE node for reasons of efficiency.
 
-Files from the SE EB were drained down to Castor SE buffers at CNAF and PIC T1s, then replicated to disk-SEs to grant data access for ``fake-analysis''. Throughout DC04 the SE agent and the PIC and CNAF T1 agents were all able to match pace with the generation of files at the T0 (fig. \ref{PIC-FT}).
+Files from the SE EB were drained down to Castor SE buffers at CNAF and PIC T1s, then replicated to disk-SEs to grant data access for ``fake-analysis''. Throughout DC04 the SE agent and the PIC and CNAF T1 agents were all able to match pace with the generation of files at the T0 (fig. \ref{fig:PIC-FT}).
 
-\begin{figure}[htb]
+\begin{figure}[tbp]
 \centering
 \includegraphics[width=10cm]{PIC-FT.eps}
 \label{fig:PIC-FT}
@@ -215,21 +215,21 @@ CNAF chose to use the EDG RM C++ API with some very limited use of the LRC C++ A
 
 Subtle variations in approach aside, transfer rates from the SE EB could be sustained at over 2 MBps, peaking at 16 MBps (fig. \ref{fig:SE-EB-network}), with transfer rates into CNAF and PIC reaching a sustained 30 MBps for hours during a large-filesize stress test at the end of DC04 (fig's. \ref{fig:PIC-stress}, \ref{fig:CNAF-stress}). Internal monitoring at CNAF revealed a bottleneck on site, with an internal link to the SE operating at over 80\% capacity during the final stress test.
 
-\begin{figure}[htb]
+\begin{figure}[tbp]
 \centering
 \includegraphics[width=15cm]{SE-EB-network.eps}
 \label{fig:SE-EB-network}
 \caption{Transfer rates out of the SE EB could be sustained at over 2 MBps toward the end of DC04, and peaked at 16MBps.}
 \end{figure}
 
-\begin{figure}[htb]
+\begin{figure}[tbp]
 \centering
 \includegraphics[width=10cm]{PIC-stress.eps}
 \label{fig:PIC-stress}
 \caption{During a large filesize stress test at the end of DC04, files of 600MB and larger were put into distribution. PIC sustained transfer rates of 30 MBps for 6 hours.}
 \end{figure} 
 
-\begin{figure}[htb]
+\begin{figure}[tbp]
 \centering
 \includegraphics[width=10cm]{CNAF-stress.eps}
 \label{fig:CNAF-stress}
@@ -240,10 +240,50 @@ At CNAF issues with the Castor tape stager were found to be due to the high numb
 
 In contrast PIC experienced no problems with their Castor tape.
 
-PIC and CNAF were also able to distribute data on to T2s for analysis. To manage these further transfers, as well as real-time analysis, they effetively created a new set of distribution chains using a MySQL TMDB at PIC for collaboration information.
+PIC and CNAF were also able to distribute data on to T2s (X and Legnaro respectively) for analysis. To manage these further transfers, as well as real-time analysis, they effetively created a new set of distribution chains using a MySQL TMDB for collaboration information.
 
 \subsection{Real-time analysis agents}
-Wow! 20 minutes lag before results available! :)
+Real-time analysis- analysis of data as it arrived at the T1- was successfully attempted at CNAF, PIC, FNAL and IN2P3, with varying performance. 
+
+At CNAF, the T1 transfer agent notified a real-time analysis agent when new files were available for analysis. The eal-time analysis agent submitted analysis jobs on the new data using BOSS through LCG-2 RBs at CERN and CNAF, with the jobs being directed to CEs at CNAF or Legnaro. 
+
+15000 jobs were submitted in this way over the last two weeks of DC04. The minimum period between the files appearing in distribution and being analysed was 10 minutes- but with a large number of ``outliers''. 
+
+The outlying longer times were attributed to: the fact that datasets were completed over a relatively long length of time at CERN; Castor problems at CNAF reduced replication efficiency; analysis agents were actively developed during this period and were therefore not up all the time; and occasionally zipped metadata arrived late compared to the related dataset, delaying analysis.
+
+An analysis of the performance of a single job showed that the ORCA execution time was 25 minutes. For comparison, the time to stage files was just short of 3 minutes, and the overhead of submission to the Grid was only 2 minutes. Efficiency of submission to the grid was over 95\% (fig. \ref{fig:CNAF-RTA}).
+
+Significantly, the maximum rate of job submission was 194 jobs per hour- which corresponds to 26 Hz (or events per second), the target rate for DC04.
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=10cm]{CNAF-RTA.eps}
+\label{fig:CNAF-RTA}
+\caption{During the last two weeks of DC04 CNAF was able to analyse data in real time (or syncronously with the production of data). The minimum period between the appearance of files in distribution was 10 minutes. There is however a significant population of longer periods shown here, which were attributable to a number of issues like ongoing development of the analysis agents. It should be noted that CNAF was "in the front line" with real time analysis, and were the first to develop and deploy the system described here.}
+\end{figure} 
+
+Over the last four days of DC04 PIC was able to adapt the INFN real time analysis agents for their local environment, which included a private (dedicated) LCG-2 Resource Broker and Grid Information System. Job submission was not coordinated through BOSS due to lack of time and the necessity of sending large executables through the sandbox. Instead the agents communicated through a local MySQL database, and by making drops of XML catalogues for each other.
+
+The period between files appearing in distribution and undergoing analysis was noticeably shorter and more consistent at PIC: the median period was only 20 minutes, with 13 minutes median transfer time (fig. \ref{fig:PIC-RTA}).
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=10cm]{PIC-RTA.eps}
+\label{fig:PIC-RTA}
+\caption{During the last four days of DC04 PIC were able to implement a real time analysis system based on CNAF's system. Turnaround time for analysis at PIC was much shorter and more consistent than CNAF at a median of 20 minutes.}
+\end{figure} 
+
+TODO: Specific reasons why PIC turnaround time was shorter and more consistent that CNAF.
+
+TODO: At Fermilab a mean period of 252 minutes elapsed between availability and analysis ... over the Grid, of what type...? (fig. \ref{fig:FNAL-RTA}).
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=10cm]{FNAL-RTA.eps}
+\label{fig:FNAL-RTA}
+\caption{A caption here :)}
+\end{figure} 
+
 
 \section{Conclusions and future plans}
 Sources of throttling: access to tape/stage, catalogues, tmdb(?), intermediate links (no control over these?), buffer read/write, tape migration...
@@ -257,6 +297,8 @@ Data sources and distribution need to be coupled properly- for example, reconstr
 Most "big pushes" planned over the weekend! Not the best of ideas? Could it be done any other way?
 
 Management of agents in a global sense, and notification of local supervisors needs to be dramatically improved in future versions of the system, as email does not provide an efficient and reliable mechanism for coordinating agent shutdown and restart, and other global system actions.
+
+IT was shown that it is possible to analyse data as it arrives, with only a 20 minute period elapsing between the file being made available for distribution and it being used in analysis. This turnaround time gives us confidence that future versions will be able to handle this sort of analysis consistently and for sustained periods. The variability in eprformance between deifferent deployments of the real-time analysis agents and structure however shows that there is some exploraty work to be done to determine the best practice for deployment and use.
 
 The distribution system/ agents require easy access to metadata, both dedicated distribution metadata and more experiment specific emtadata. The mechanism for handling this was poorly developed for DC04, and needs to be improved for future versions. However, it is important that people remember that the TMDB is not a permanent repository of metadata, as the information it contains will probably be deleted once the files are no longer in transit.
 
