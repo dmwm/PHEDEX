@@ -37,8 +37,6 @@ while ($count > 0) {
     if ($exit_value == 1) {
         print "Problem creating file $file\n@output\nNot rolling back catalogue registration for $guid\n";
         exit(1);
-    } else {
-        chop($guid = $output[$#output]);
     }
     
     
