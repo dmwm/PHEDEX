@@ -323,8 +323,7 @@ sub write
     &dbbindexec ($self->{MINS}, ":guid" => $file->{GUID},
 	         map { ":" . $_ => $meta->{$_} } sort keys %$meta);
 
-    $self->{DBH}->rollback();
-    # $self->{DBH}->commit();
+    $self->{DBH}->commit();
 }
 
 ######################################################################
