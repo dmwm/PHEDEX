@@ -52,7 +52,7 @@ eval `cd /afs/cern.ch/sw/lcg/app/releases/POOL/POOL_1_6_4/src; scram -arch rh73_
  -pfndest $PHEDEX_CUSTOM/DownloadDest
  -delete $PHEDEX_CUSTOM/DownloadDelete
  -validate $PHEDEX_CUSTOM/DownloadVerify
- -publish $PHEDEX_CUSTOM/DownloadPub
+ -publish $PHEDEX_CUSTOM/DownloadPub,$PHEDEX_CATALOGUE
  -wanted 150G
  -jobs 7
  -wait 7
