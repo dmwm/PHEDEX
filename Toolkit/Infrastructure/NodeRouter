@@ -51,7 +51,7 @@ close(PID);
 while(!(-e "$g_work_dir/stop")) {
 	if ($g_once) { system("touch $g_work_dir/stop"); }
 	
-	my @neighbours = &get_neighbours( DB => $g_db, DBUSER => $g_db_user, DB_PASSWD => $g_db_passwd);
+	my @neighbours = &get_neighbours( DB => $g_db, DBUSER => $g_db_user, DB_PASSWD => $g_db_passwd, NODE => $g_parent_node);
 	
 	log_entry( ENTRY = "@neighbours" );
 }
@@ -106,6 +106,7 @@ sub get_neighbours {
 		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
 		DB_USER => 'some_user',
 		DB_PASSWD => 'some_password',
+		NODE => 'some_node',
 		@_
 	);
 	
@@ -117,7 +118,7 @@ sub get_neighbours {
 	my @neighbours = ();
 	my $query = "select gateway "
 				."from t_Routing "
-				."where from_node = 'Foo' "
+				."where from_node = '$args{NODE}' "
 				."and to_node = gateway";
 	$query->execute;
 	while (@row = $query->fetchrow_array) {
