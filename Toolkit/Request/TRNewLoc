@@ -10,10 +10,10 @@
 ##H
 ##H This script updates the transfer request ticket.
 
-BEGIN { use strict; use warnings; }
-my $me = $0; $me =~ s|.*/||;
-my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-unshift(@INC, $home);
+BEGIN { use strict; use warnings;
+  my $me = $0; $me =~ s|.*/||;
+  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+  unshift(@INC, $home); }
 use UtilsNet;
 use File::Path;
 use Cwd;

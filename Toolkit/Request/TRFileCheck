@@ -24,10 +24,10 @@
 ##H in tmdb, the second indicates there is still a drop in the disk
 ##H queues.
 
-BEGIN { use strict; use warnings; }
-my $me = $0; $me =~ s|.*/||;
-my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-unshift(@INC, $home);
+BEGIN { use strict; use warnings;
+  my $me = $0; $me =~ s|.*/||;
+  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+  unshift(@INC, $home); }
 use UtilsTR;
 
 my $mouth = shift (@ARGV);

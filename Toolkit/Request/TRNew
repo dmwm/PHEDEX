@@ -20,10 +20,10 @@
 #
 # Record in database too?
 
-BEGIN { use strict; use warnings; }
-my $me = $0; $me =~ s|.*/||;
-my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-unshift(@INC, $home);
+BEGIN { use strict; use warnings;
+  my $me = $0; $me =~ s|.*/||;
+  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+  unshift(@INC, $home); }
 # use DBI;
 use UtilsTR;
 use UtilsNet;

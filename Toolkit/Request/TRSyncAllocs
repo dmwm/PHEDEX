@@ -7,10 +7,10 @@
 ##H REQUEST is the request directory previously created with TRNew.
 ##H Synchronises the TMDB allocations with the request locations.
 
-BEGIN { use strict; use warnings; }
-my $me = $0; $me =~ s|.*/||;
-my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-unshift(@INC, $home);
+BEGIN { use strict; use warnings;
+  my $me = $0; $me =~ s|.*/||;
+  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+  unshift(@INC, $home); }
 use UtilsTR;
 use UtilsNet;
 use File::Path;

@@ -29,10 +29,10 @@
 # list of the dataset/dataset.owner/assignment expansions from
 # the patterns have changed.
 
-BEGIN { use strict; use warnings; }
-my $me = $0; $me =~ s|.*/||;
-my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-unshift(@INC, $home);
+BEGIN { use strict; use warnings;
+  my $me = $0; $me =~ s|.*/||;
+  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+  unshift(@INC, $home); }
 use UtilsTR;
 use UtilsNet;
 use File::Path;
