@@ -188,6 +188,9 @@ sub idle
 		        last;
 		    }
 	        }
+
+		# Maybe give up.
+		$self->maybeStop();
 	    }
 
 	    &logmsg ("$nodepat: considered $nincomplete destinations,"
