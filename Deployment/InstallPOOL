@@ -4,39 +4,39 @@ use warnings;
 use Getopt::Long;
 use English;
 
-my %args = (LVERSION => 'RH73');
+my $lversion = qx(cat /etc/redhat-release 2>/dev/null);
+my %args = (LVERSION => ($lversion =~ /Scientific/ ? "SL3" : "RH73"));
 
-&GetOptions("root=s"   => \$args{ROOT},
-	    "linuxv=s" => \$args{LVERSION},
-	    "cms"      => \$args{CMS},
-	    "help"     => \$args{HELP});
+&GetOptions("standalone" => \$args{STANDALONE},
+	    "cms"        => \$args{CMS},
+	    "help"       => \$args{HELP});
 
-if ($args{HELP} || (!$args{CMS} && !$args{ROOT}) ) {
-    print "Usage: poolsetup\n";
-    print "--help: provides this help text\n";
-    print "--cms: You already have a working CMS softrware environment. This will use scram to setup POOL tools for you\n";
-    print "--root: set the root dir for your POOL tools installation (required for standalone installation)\n";
-    print "--linuxv: choose between RH73 (default) or SLC3 binaries (only useful for standalone installation)\n\n";
+$args{ROOT} = shift(@ARGV);
+
+if ($args{HELP} || (!$args{STANDALONE} && !$args{CMS}) || !$args{ROOT}) {
+    print "Usage: $0 [--help] { --cms | --standalone } DESTINATION\n";
+    print " --help        This help text\n";
+    print " --cms         Use existing CMS software environment, ask scram for environment\n";
+    print " --standalone  Make standalone installation from RPMs\n";
+    print "\nThe tools (for standalone installation) and the environment set up script will\n",
+          "be installed into DESTINATION.\n";
     exit 1;
 }
 
-
 if ($args{CMS}) {
-    my $success = installScram();
-    print "Creation of script for scram based setup finished successfully. Please execute pool_setup.[c]sh script\n" if $success;
+    print "Installing POOL tools from SCRAM environment into $args{ROOT}\n";
+    my $success = installScram($args{ROOT});
     exit 1 if (!$success);
 } else {
+    print "Installing POOL tools from RPMS into $args{ROOT} for $args{LVERSION}\n";
     my $success = installStandalone($args{ROOT}, $args{LVERSION});
-    print "Your standalone installation was successful !\nPlease source pool_setup.[c]sh script to setup your environment\n" if $success;
     exit 1 if (!$success);
 }
 
 exit 0;
 
-
-
-sub installStandalone{
-
+sub installStandalone
+{
     my ($InstallRoot, $Lversion) = @_;
     my $RPMSource='http://cmsdoc.cern.ch/cms/oo/repos_standalone/download';
     my $versionTag='cms101';
@@ -72,56 +72,64 @@ sub installStandalone{
     eval {
 	# check for non working rpm version 4.0.4
 	my $RPMVersion = `rpm --version`;
-	die "version 4.0.4 of rpm gives trouble with external RPMDBs, "
-	    ."which are needed for this standalone installation.. Sorry\n" if ($RPMVersion =~ m|4.0.4|);
+	die "Your RPM is version 4.0.4 and does not support external RPMDBs correctly.\n"
+	    if ($RPMVersion =~ m|4.0.4|);
 
 	# prepare a local dummy RPM DB and copy over the system wide DB
-	if (!-e "$InstallRoot/RPMDB") {
-	    (! system("mkdir $InstallRoot/RPMDB")) or die "Couldn't create $InstallRoot/RPMDB directory.. please check permissions !\n";
-	} else {
+	if (!-e "$InstallRoot/RPMDB")
+	{
+	    (! system("mkdir -p $InstallRoot/RPMDB"))
+		or die "Couldn't create $InstallRoot/RPMDB directory.  Please check permissions.\n";
+	}
+	else
+	{
 	    system("rm $InstallRoot/RPMDB/\*");
 	}
-	(! system("cp -r /var/lib/rpm/\* $InstallRoot/RPMDB/")) or die 'No system-wide RPMDB found ? Expected it in /var/lib/rpm....\n';
+
+	(! system("cp -r /var/lib/rpm/\* $InstallRoot/RPMDB/"))
+	    or warn "No system-wide RPMDB found in /var/lib/rpm.  Proceeding without copying.\n";
+
 	# get rid of the index files (caused trouble in the past)
 	system("rm -f $InstallRoot/RPMDB/__db\*");
 
 	# get the initial RPMs needed from the web
 	if (!-e "$InstallRoot/RPMs") {
-	    (! system("mkdir $InstallRoot/RPMs")) or die "Couldn't create $InstallRoot/RPMs directory.. please check permissions !\n";
+	    (! system("mkdir $InstallRoot/RPMs"))
+		or die "Couldn't create $InstallRoot/RPMs directory.  Please check permissions.\n";
 	} else {
 	    system("rm $InstallRoot/RPMs/\*");
 	    system("rm -rf $InstallRoot/lcg") if (-e "$InstallRoot/lcg");
 	}
     
 	foreach my $packet (@packetlist){
-	    my $cmd = "wget -P $InstallRoot/RPMs -N $RPMSource/$versionTag/$packet";
-	    (! system($cmd)) or die "Couldn't download all packets.... Aborting !!\n";
+	    my $cmd = "wget -q -P $InstallRoot/RPMs -N $RPMSource/$versionTag/$packet";
+	    (! system($cmd)) or die "Couldn't download all RPMs.  Installation terminated.\n";
 	}
 
 	# lets install the stuff if we succeded to download the RPMs
 	my $RPMcmd="rpm --dbpath $InstallRoot/RPMDB --prefix $InstallRoot -i --nodeps --noscripts $InstallRoot/RPMs/\*";
 	
 	if (system($RPMcmd)) {
-	    die "Installation of RPMs failed... will clean-up and bail out\n";
+	    die "Installation of RPMs failed.  Installation terminated.\n";
 	}
     };
 
     if ($@) {
-	print "Something went wrong with the RPM installation:\n$@\nCleaning up now!\n";
+	print "RPM installation failed, cleaning up.\n";
 	system("rm -r $InstallRoot/RPMDB") if (-e "$InstallRoot/RPMDB");
 	system("rm -r $InstallRoot/RPMs") if (-e "$InstallRoot/RPMs");
 	return 0; # report failure
     }
 
-# now finally provide a script to set some environment variables (has to be sourced later)
+    # now finally provide a script to set some environment variables (has to be sourced later)
     my $file_h;
-    open($file_h,">pool_setup.sh");
+    open($file_h,">$InstallRoot/poolenv.sh");
     print $file_h "export LD_LIBRARY_PATH=$ENV{LD_LIBRARY_PATH}:$InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib:$InstallRoot/lcg/app/releases/SEAL/SEAL_1_4_3/$Linux_V/lib:$InstallRoot/lcg/external/xerces-c/$Xerces/lib:$InstallRoot/lcg/external/mysql/4.0.18/$Linux_Vshort/lib:$InstallRoot/lcg/external/mysqlpp/1.7.9_mysql.4.0.18/$Linux_Vshort/lib\n";
     print $file_h "export SEAL_PLUGINS=$InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib/modules:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib/modules\n";
     print $file_h "export PATH=$ENV{PATH}:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/bin\n";
     close($file_h);
 
-    open($file_h,">pool_setup.csh");
+    open($file_h,">$InstallRoot/poolenv.csh");
     print $file_h "setenv LD_LIBRARY_PATH $ENV{LD_LIBRARY_PATH}:$InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib:$InstallRoot/lcg/app/releases/SEAL/SEAL_1_4_3/$Linux_V/lib:$InstallRoot/lcg/external/xerces-c/$Xerces/lib:$InstallRoot/lcg/external/mysql/4.0.18/$Linux_Vshort/lib:$InstallRoot/lcg/external/mysqlpp/1.7.9_mysql.4.0.18/$Linux_Vshort/lib\n";
     print $file_h "setenv SEAL_PLUGINS $InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib/modules:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib/modules\n";
     print $file_h "setenv PATH $ENV{PATH}:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/bin\n";
@@ -131,45 +139,29 @@ sub installStandalone{
 }
 
 sub installScram {
+    my ($InstallRoot) = @_;
 
-    my $Shell = $ENV{SHELL};
-    $Shell =~ s|^/.+/||;
-    if ($Shell eq 'bash' || $Shell eq 'sh' || $Shell eq 'ksh' || $Shell eq 'zsh') {
-	$Shell = 'sh';
-    } elsif ($Shell eq 'csh' || $Shell eq 'tcsh') {
-	$Shell = 'csh';
-    } else {
-	print "Didn't recognize your shell: $Shell\nAborting !!!!\n";
-	return 0; # report failure
-    }
-
-
-    #look for lates-greatest OSCAR project in scram
-    my @scramprojects = `scram list |grep OSCAR |grep -v "/"`;
+    #look for lates-greatest OSCAR or ORCA project in scram
+    my @scramprojects = `scram list 2>/dev/null | grep -e OSCAR -e ORCA | grep -v "/"`;
     if (!scalar(@scramprojects) ) {
-	print 'Hmmm... no OSCAR registered in Scram. Please check your scram setup !\n';
+	print "No OSCAR or ORCA registered in scram database.  Please check your scram setup.\n";
 	return 0; # report failure
     }
 
-    my $OSCAR = pop @scramprojects;
-    chomp $OSCAR;
-    $OSCAR =~ s|OSCAR?||;
-    $OSCAR =~ s|\W*||g;
-    $OSCAR =~ m|OSCAR|;
-    my ($OSCAR_B, $OSCAR_V) = ($MATCH, $POSTMATCH);
-
+    my $line = pop @scramprojects;
+    my ($project, $version) = ($line =~ m|(\S+)|g);
     eval {
-	my $file_h;
-	open($file_h,">pool_setup.$Shell");
-	print $file_h "eval \`scram setroot -$Shell $OSCAR_B $OSCAR_B$OSCAR_V\`\n";
-	print $file_h "eval \`scram runtime -$Shell\`\n";
-	close($file_h);
+	foreach my $sh ("sh", "csh") {
+	    my $file_h;
+	    open($file_h,">$InstallRoot/poolenv.$sh");
+	    print $file_h "eval \`scram setroot -$sh $project $version && scram runtime -$sh\`\n";
+	    close($file_h);
+	}
     };
     if ($@) {
-	print "problems creating scram script:\n$@\nAborting !\n";
+	print "Environment setup script creation failed, installation terminated.\n";
 	return 0; #report failure
     }
     
-    print "please ignore eventual scram warning about missing project area.....\n";
     return 1; # report success
 }
