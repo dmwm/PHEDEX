@@ -193,7 +193,7 @@ sub purgeCache
     # Remove entries that are too old
     foreach my $item (keys %$cache)
     {
-	my ($time, @rest) = @{$cache->{$item}};
+	my ($time, @rest) = ($cache->{$item} =~ /^(\d+):(.*)/);
 	delete $cache->{$item}
 	   if ((! @rest && $time < $oldnomatch) || $time < $oldmatch);
     }
@@ -269,7 +269,7 @@ sub getStagerFiles
 	if (my $cache = $self->{GUID_CACHE}{$pfn})
 	{
 	    # Known in cache.  Just push into result.
-	    my ($cachtime, $guid) = ($cache =~ /^(\d+):(.*)/);
+	    my ($cachetime, $guid) = ($cache =~ /^(\d+):(.*)/);
 	    push (@$result, [ $guid, $pfn, $status ]);
 	}
 	else
