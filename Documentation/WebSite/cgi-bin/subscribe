@@ -7,8 +7,11 @@ use CGI::Carp qw(fatalsToBrowser);
 use POSIX;
 use DBI;
 
+my %databases = ("prod" => [ "cms", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
+		 "test" => [ "devdb", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
+		 "testbed" => [ "devdb", 'CMS_TRANSFERMGMT_TESTBED', 'phedexedehp' ]);
 my $cgi = new CGI;
-my $db = param("db") || "cms";    # tnsname of the database
+my $db = param("db") || "prod";
 my $dbh;
 
 my $badcolor = '#ff9e9e';
@@ -20,39 +23,73 @@ my $altcolor = '#e8e8e8';
 $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
 $ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/8174";
 $ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/8174/lib";
-$dbh = DBI->connect ("DBI:Oracle:$db", 'CMS_TRANSFERMGMT', 'smallAND_round',
-		     { RaiseError=>1, AutoCommit =>1 });
+$db = "prod" if ! grep ($db eq $_, keys %databases);
+my ($dbname, $dbuser, $dbpass) = @{$databases{$db}};
+$dbh = DBI->connect ("DBI:Oracle:$dbname", $dbuser, $dbpass,
+	    	     { RaiseError=>1, AutoCommit =>1 });
 
-    
-my $stream = $cgi->param('stream');
+my $owner = $cgi->param('owner');
+my $dataset = $cgi->param('dataset');
 my %nodesel = map { $_ => 1 } $cgi->param('sites');
-my @nodes = @{$dbh->selectcol_arrayref(qq{
-    select node_name from t_nodes order by node_name})};
+my $nodesql = $db ne 'prod' ? q{select name from t_node order by name}
+			    : q{select node_name from t_nodes order by node_name};
+my @nodes = @{$dbh->selectcol_arrayref($nodesql)};
 
-if ($stream && $cgi->param('submit'))
+if ($cgi->param ('submit'))
 {
-    my $stmt = $dbh->prepare(qq{
-	select count(*) from t_subscriptions
-	where destination = ? and stream = ?});
-    my $istmt = $dbh->prepare(qq{
-	insert into t_subscriptions values (?, ?)});
-    foreach my $dest (keys %nodesel)
+    if ($db ne 'prod' && $owner && $dataset)
     {
-	$stmt->execute($dest, $stream);
-	my $known = $stmt->fetchrow_arrayref();
-	$istmt->execute($dest, $stream) if ! $known || ! $known->[0];
+	my $stmt = $dbh->prepare(qq{
+	    select count(*) from t_subscription
+	    where destination = ? and owner = ? and dataset = ?});
+        my $istmt = $dbh->prepare(qq{
+	    insert into t_subscription
+	    (destination, owner, dataset)
+	    values (?, ?, ?)});
+        foreach my $dest (keys %nodesel)
+	{
+	    $stmt->execute ($dest, $owner, $dataset);
+	    my ($known) = $stmt->fetchrow();
+	    $istmt->execute ($dest, $owner, $dataset) if ! $known;
+	}
     }
-
+    elsif ($db eq 'prod' && $dataset)
+    {
+	my $stmt = $dbh->prepare(qq{
+	    select count(*) from t_subscriptions
+	    where destination = ? and stream = ?});
+        my $istmt = $dbh->prepare(qq{
+	    insert into t_subscriptions
+	    (destination, stream)
+	    values (?, ?)});
+        foreach my $dest (keys %nodesel)
+	{
+	    $stmt->execute ($dest, $dataset);
+	    my ($known) = $stmt->fetchrow();
+	    $istmt->execute ($dest, $dataset) if ! $known;
+	}
+    }
     %nodesel = ();
 }
 
-if ($stream)
+if ($db ne 'prod' && $owner && $dataset)
+{
+    my $stmt = $dbh->prepare (qq{
+	select destination
+	from t_subscription
+	where owner = ? and dataset = ?});
+    $stmt->execute ($owner, $dataset);
+    while (my ($node) = $stmt->fetchrow()) {
+	$nodesel{$node} = 1;
+    }
+}
+elsif ($db eq 'prod' && $dataset)
 {
     my $stmt = $dbh->prepare (qq{
 	select destination
 	from t_subscriptions
 	where stream = ?});
-    $stmt->execute ($stream);
+    $stmt->execute ($dataset);
     while (my ($node) = $stmt->fetchrow()) {
 	$nodesel{$node} = 1;
     }
@@ -65,8 +102,18 @@ print $cgi->header(),
     "<center><h1>PhEDEx Data Subscription</h1>\n",
     start_form(),
     "<table><tr>",
+    "<td>Database</td>",
+    "<td><select name='db'>",
+    "<option value='testbed'@{[$db eq 'testbed' && ' selected=selected']}>Testbed</option>",
+    "<option value='test'@{[$db eq 'test' && ' selected=selected']}>Test</option>",
+    "<option value='prod'@{[$db eq 'prod' && ' selected=selected']}>Production</option>",
+    "</select></td>\n",
+    "</tr><tr>\n",
+    "<td>Owner</td>",
+    "<td><input type='text' name='owner' size='20' value='$owner'></td>",
+    "</tr><tr>\n",
     "<td>Dataset</td>",
-    "<td><input type='text' name='stream' size='20' value='$stream'></td>",
+    "<td><input type='text' name='dataset' size='20' value='$dataset'></td>",
     "</tr>\n",
     (map { "<tr><td>$_</td>"
 	   ."<td><input type='checkbox' name='sites' value='$_'"
