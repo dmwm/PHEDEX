@@ -241,3 +241,12 @@ Schema/OracleSyns.sh cms_transfermgmt \
    cms_transfermgmt/smalland_round@devdb \
    cms_transfermgmt_writer/threebagsfull@devdb
 # FIXME: synonyms for sequences?
+
+* Refresh routes
+mkdir foo
+(echo "set lines 1000"; echo "set pages 0"; echo "select name from t_node;") |
+  sqlplus -S cms_transfermgmt/smalland_round@devdb | grep _ |
+  xargs -n1 Toolkit/Infrastructure/NodeRouter -once \
+    -db devdb -dbuser cms_transfermgmt -dbpass smalland_round \
+    -state foo -nodes
+rm -fr foo
