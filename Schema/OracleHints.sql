@@ -1,0 +1,11 @@
+-- create indices for foreign keys, otherwise locks entire table on update
+-- index/hash organised table (iot) for t_routing, t_replica_state?
+-- www.cern.ch/it-db -> Oracle @ CERN -> Sessions -> pdb01/cms -> login
+-- explain plan for ...
+-- @?/rdbms/admin/utilxpls.sql
+-- desc dbms_stats (in oradoc)
+-- analyze
+-- set timing on
+-- oradoc.cern.ch
+-- sqlplus / l / 16 / del / &foo
+-- create trigger for transfer history
