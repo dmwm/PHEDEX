@@ -53,6 +53,7 @@ use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
 use UtilsCatalogue;
+use UtilsNet;
 use UtilsDB;
 
 sub new
@@ -89,11 +90,12 @@ sub idle
 	my $item = undef;
 	my %status = ();
 	my $site = $self->{SITEID};
+	my $host = &getfullhostname();
 	my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
 	open (STATUS, "$home/DropStatus $self->{AGENTDIR}/* |") or return;
 	while (<STATUS>)
 	{
-	    if (/^.*\/(\S+)\/:/)
+	    if (/^.*\/(\S+):/)
 	    {
 		$item = $status{$1} = {};
 	    }
@@ -110,7 +112,7 @@ sub idle
         }
 	close (STATUS) or return;
 
-	$dbh->do(qq{delete from t_info_drop_status where site = '$site'});
+	$dbh->do(qq{delete from t_info_drop_status where site = '$site' and host = '$host'});
 	foreach my $agent (keys %status)
 	{
 	    foreach my $worker (keys %{$status{$agent}})
@@ -119,7 +121,8 @@ sub idle
 		{
 		    my $value = $status{$agent}{$worker}{$state};
 		    $dbh->do(qq{insert into t_info_drop_status values
-				    ($now, $site, $agent, $worker, $state, $value)});
+				    ($now, '$site', '$host', '$agent', '$worker',
+				     '$state', $value)});
 	        }
 	    }
 	}
