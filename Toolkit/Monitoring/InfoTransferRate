@@ -87,10 +87,10 @@ sub idle
 		  count(guid),			-- files
 		  sum(xsize),			-- bytes
 		  sum(xtime),			-- time
-		  sum(xsize)/sum(xtime),	-- B/s
-		  avg(xsize/xtime),		-- Mean B/s
-		  min(xsize/xtime),		-- Min B/s
-		  max(xsize/xtime)		-- Max B/s
+		  sum(xsize)/(sum(xtime)+0.001),-- B/s
+		  avg(xsize/(xtime+0.001)),	-- Mean B/s
+		  min(xsize/(xtime+0.001)),	-- Min B/s
+		  max(xsize/(xtime+0.001))	-- Max B/s
 		from (
 		  select
 		    ts.guid guid,
