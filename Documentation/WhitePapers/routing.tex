@@ -1,7 +1,7 @@
 \documentclass{cmspaper}
 \def\RCS$#1: #2 ${\expandafter\def\csname RCS#1\endcsname{#2}}
-\RCS$Revision$
-\RCS$Date$
+\RCS$Revision: 1.2 $
+\RCS$Date: 2004/05/27 12:46:29 $
 
 \begin{document}
 \begin{titlepage}
@@ -127,5 +127,139 @@ entirely suitable---pinging a tape stage disk server doesn't
 necessarily give you an idea of fileserving performance...) Other
 metrics such as the rate of the Mona Lisa file transfer rate metric
 could also be used.]
+
+\section{Requirement of sources of data and agents}
+\subsection{Typical agent-transfer management database communication}
+The following discussion doesn't include interactions with the logging
+database, or processes such as agent state publishing and other system
+maintenance tasks.  Instead, it is intended to give a feel for the flow
+of data through the system.
+
+\subsection{Data sources}
+To make data available for distribution:
+{\small\begin{verbatim}
+  insert into t_Files_for_transfer
+    values (guid, source_node, time, checksum, 0);
+\end{verbatim}}
+
+The data sources will also need to add the first metadata to the system.
+
+\subsection{Configuration agent}
+
+The configuration agent will scan \texttt{t\_Files\_for\_transfer}
+looking for unallocated files (allocated = 0).  Using configuration
+information it will allocate files to specific nodes by making entries
+in \texttt{t\_Destinations} and \texttt{t\_Current\_state}:
+
+First find new files for transfer
+
+{\small\begin{verbatim}
+  select guid, source_node
+  from t_Files_for_transfer
+  where allocated = 0;
+\end{verbatim}}
+
+Determine file allocation.  First it needs to query the POOL meta data
+to determine the file stream, then it needs to look up the stream
+(here it's done dynamically, but it could rebuild an internal table
+every loop...)
+
+{\small\begin{verbatim}
+  select destination from t_File_allocation_config
+  where stream = ``the_stream'';
+\end{verbatim}}
+
+For each destination, make entries in \texttt{t\_Destinations}.
+
+{\small\begin{verbatim}
+  insert into t_Destination
+    values (guid, destination);
+\end{verbatim}}
+
+Now lookup the gateway for each destination from the source node
+
+{\small\begin{verbatim}
+  select * from
+    (select gateway, hops
+     from t_Routing
+     where from = ``source_node''
+       and to = ``destination''
+     order by hops asc)
+  where rownum = 1;
+ \end{verbatim}}
+
+For each gateway, make an entry advertising the file in \texttt{t\_Current\_state}:
+
+{\small\begin{verbatim}
+  insert into t_Current_state
+    values (guid, gateway, ``available'',
+            currenttime, source_node);
+\end{verbatim}}
+
+It also needs to mark the guid as allocated...
+
+\subsection{Transfer agents}
+
+Transfer agents search \texttt{t\_Current\_state} for files advertised
+for them.  They copy those files, work out where to send them next (ie
+function basically as a router) and advertise them accordingly.
+
+First, search for new files:
+
+{\small\begin{verbatim}
+  select guid
+  from t_Current_state
+  where is_for_node = ``me'';
+\end{verbatim}}
+
+and work out where they are going
+
+{\small\begin{verbatim}
+  select destination
+  from t_Destinations
+  where guid = ``guid'';
+\end{verbatim}}
+
+Copy the file, marking it as in transfer
+
+{\small\begin{verbatim}
+  insert into t_Current_state
+    values (guid, ``me'', ``in transfer'',
+            currenttime, ``suorce_node'');
+\end{verbatim}}
+
+Work out where to send the file next:
+
+{\small\begin{verbatim}
+  select * from
+    (select gateway, hops
+     from t_Routing
+     where from = ``me''
+       and to = ``destination''
+     order by hops asc)
+  where rownum = 1;
+\end{verbatim}}
+
+Finally advertise the newly available file
+
+{\small\begin{verbatim}
+  insert into t_Current_state
+    values (guid, ``gateway'', ``available'',
+            currenttime, ``me'');
+\end{verbatim}}
+
+\subsection{Mass storage agents}
+These are an extension of the transfer agent---when they have made a
+file safe in mass storage they should advertise it as ``safe''.
+
+\subsection{Buffer cleaning agents}
+
+These agents should operate at each node. They should examine the
+state of each file at all sites (long inefficient query?). They need
+to decide whether it is safe to delete the file based on some
+criteria---a suitable criteria might be
+
+``If the file is marked “safe” at two or more nodes, then it can be
+deleted from this buffer.''
 
 \end{document}
