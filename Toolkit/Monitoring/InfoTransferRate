@@ -109,6 +109,10 @@ sub idle
 		!DETAIL! group by xfrom, xto};
 
 	$dbh->do(qq{delete from t_info_transfer_rate});
+	my $stmt = $dbh->prepare(qq{
+		insert into t_info_transfer_rate values
+		(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
+
 	foreach my $span (keys %start)
 	{
 	    my $row;
@@ -118,9 +122,8 @@ sub idle
 	    foreach $row (@{$dbh->selectall_arrayref($q)}) {
 		($from, $to, $files, $bytes, $time, $bps, $abps, $ibps, $xbps) = @$row;
 		next if ! $files;
-		$dbh->do(qq{insert into t_info_transfer_rate values (
-				$now, $span, 'N', '$from', '$to', $files, $bytes, $time,
-				$bps, $abps, $ibps, $xbps)});
+		$stmt->execute($now, $span, 'N', $from, $to, $files, $bytes, $time,
+			       $bps, $abps, $ibps, $xbps);
 	    }
 
 	    $q = $query;
@@ -128,9 +131,8 @@ sub idle
 	    foreach $row (@{$dbh->selectall_arrayref($q)}) {
 		($files, $bytes, $time, $bps, $abps, $ibps, $xbps) = @$row;
 		next if ! $files;
-	 	$dbh->do(qq{insert into t_info_transfer_rate values (
-				$now, $span, 'T', '', '', $files, $bytes, $time,
-				$bps, $abps, $ibps, $xbps)});
+		$stmt->execute($now, $span, 'T', '', '', $files, $bytes, $time,
+			       $bps, $abps, $ibps, $xbps);
 	    }
         }
 
