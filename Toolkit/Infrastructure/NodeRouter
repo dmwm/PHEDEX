@@ -53,7 +53,10 @@ while(!(-e "$g_work_dir/stop")) {
     my @known_routes = &get_routes_for_node( $g_parent_node );
 
     foreach $neighbour (&get_neighbours) {
+	log_entry( "$g_parent_node refresh acq. with $neighbour" );
 	refresh_acquaintance( $neighbour );
+
+	my @neighbours_routes = &increment_hops( &get_routes_for_node( $neighbour ) );
     }
 }
 
@@ -128,6 +131,23 @@ sub refresh_acquaintance {
     direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
 }
 
+sub split_route {
+    my $route = shift;
+    my ($to_node,$gateway,$timestamp,$hops) = split( ":", $route ); 
+}
+
+sub increment_hops {
+    my @table = shift;
+    
+    while ($route = pop( @table )) {
+	@bits = &split_route( $route );
+	@bits[3]++;
+	$route = join( ":",@bits );
+	push( @new_table, $route );
+    }
+    return @new_table;
+}
+
 sub get_routes_for_node {
     my $node = shift;
     my $dbh = DBI->connect( "DBI:Oracle:$g_db",
@@ -138,7 +158,7 @@ sub get_routes_for_node {
     my $selection = "select to_node,gateway,timestamp,hops "
         ."from t_Routing "
         ."where from_node = '$node'";
-    my @routes;
+    my @routes = ();
     my $query = $dbh->prepare($selection);
     $query->execute;
     while (@row = $query->fetchrow_array) {
