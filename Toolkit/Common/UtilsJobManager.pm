@@ -49,7 +49,7 @@ sub startJob
 	# Parent, record this child process
 	$job->{PID} = $pid;
 	$job->{STARTED} = time();
-	&logmsg( "started $job->{PID}, @{$job->{CMD}}" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} == 1 );
+	&logmsg( "P:START [$job->{PID}:] @{$job->{CMD}}" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} == 1 );
     }
     else
     {
@@ -84,16 +84,16 @@ sub checkJobs
 	    # around use SIGINT.  Next time around use SIGKILL.
 	    kill ($job->{PID}, $job->{FORCE_TERMINATE} ||= 1);
 	    $job->{FORCE_TERMINATE} = 9;
-	    &logmsg( "Timing out $job->{PID}" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} == 1 );
+	    &logmsg( "P:TIMEOUT [$job->{PID}:] @{$job->{CMD}}" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} == 1 );
 	}
 	elsif ($job->{PID} > 0 && waitpid ($job->{PID}, WNOHANG) > 0)
 	{
 	    # Command finished executing, save exit code and mark finished
 	    if ( WIFSIGNALED($?) ) {
-		&logmsg( "$job->{PID} terminated by signal $?" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} == 1 );
+		&logmsg( "P:SIGNAL [$job->{PID}:$?] @{$job->{CMD}}" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} == 1 );
 	    } elsif ( WIFEXITED($?) )
 	    {
-		&logmsg( "$job->{PID} exited, returning $?" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} == 1 );
+		&logmsg( "P:EXIT [$job->{PID}:$?] @{$job->{CMD}}" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} == 1 );
 	    }
 	    $job->{STATUS} = $? / 256;
 	    push (@finished, $job);
