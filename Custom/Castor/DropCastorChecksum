@@ -1,0 +1,159 @@
+#!/usr/bin/perl
+
+## Checksum files in castor if the drops don't have checksum info.
+##
+## The agent scans the XML catalog, and checks whether each file
+## listed has an entry in the checksum data.  Files that don't are
+## copied from castor and the checksum data is updated.
+##
+## This agent periodically inspects the drop box, looking for new
+## incoming directories from completed batch jobs.  For each such
+## new assignment, it goes through the checksumming process.  At
+## each step we update the state so that if the script terminates,
+## crashes or is otherwise stopped, it will pick up in the right
+## place.  At the end, we pass the assignment to the next agent.
+
+BEGIN { use strict; $^W = 1; }
+my ($dropdir, $nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
+my @startTime;
+my $waittime = 7;		# Seconds to sleep between meta set queries
+my $nrfcp = 5;			# Number of parallel rfcp copies
+my %bad = ();			# Drops we've warned are bad
+my %junk = ();			# Drops we've warned are junk in inbox
+
+$ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
+$ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
+
+my $me = $0; $me =~ s|.*/||;
+my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+
+use File::Path;
+eval qx(cat "$home/UtilsCommand.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsTiming.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsLogging.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsReaders.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsRFIO.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
+
+######################################################################
+# Routines specific to this agent.
+
+# Update checksums for all files that don't have it.  Copies files from
+# castor to the local working directory and checksums them there.
+sub updateChecksums
+{
+    my ($drop, $catalogue, $checksums) = @_;
+
+    # Create working directories
+    my $filesdir = "$workdir/$drop/files";
+    &rmtree ($filesdir);
+    eval { &mkpath ($filesdir); };
+    do { &alert ("could not create working directories: $@"); return 0; } if $@;
+
+    # Download files we don't have checksums for.
+    my %local = ();
+    foreach my $guid (keys %$catalogue)
+    {
+	my $pfn = $catalogue->{$guid}{PFN}[0];
+	my $lfn = $catalogue->{$guid}{LFN}[0];
+	next if grep ($_->[2] eq $lfn, @$checksums);
+
+	$local{$pfn} = "$filesdir/$lfn";
+    }
+
+    my %status = &rfcpmany ($nrfcp, %local);
+    my $failed = scalar (grep ($_, values %status));
+    do { &alert ("$drop: failed to copy $failed files"); &rmtree ($filesdir); return 0; }
+        if $failed;
+
+    # Checksum the new files
+    foreach my $local (values %local)
+    {
+	my $lfn = ($local =~ m|.*/([^/]+)$|)[0];
+	my $cksum = &checksum ($filesdir, $lfn);
+	do { &alert ("$drop: failed to cksum $lfn"); &rmtree ($filesdir); return 0; }
+	    if ! $cksum;
+
+	push (@$checksums, [ split(/\s+/, $cksum) ]);
+    }
+
+    &rmtree ($filesdir);
+
+    # Generate new checksum file
+    my $checkdata = join("\n", map { join(" ", @$_) } @$checksums);
+    $checkdata .= "\n" if $checkdata;
+    do { &alert ("$drop: failed to write checksum file"); return 0; }
+        if (! &output ("$workdir/$drop/CheckSum.$drop.txt", $checkdata));
+
+    # Mark drop itself done
+    do { &alert ("could not mark drop done: $!"); return 0; }
+	if ! &touch ("$workdir/$drop/done");
+
+    return 1;
+}
+
+# Actually process the drop.
+sub processDrop
+{
+    my ($drop) = @_;
+
+    # Sanity checking
+    return if (! &inspectDrop ($drop));
+    delete $bad{$drop};
+    &timeStart();
+
+    # Find and read the catalogue and the checksum data
+    my $xmlcat = (<$workdir/$drop/XMLCatFragment.*.{xml,txt}>)[0];
+    my $cksum = (<$workdir/$drop/CheckSum.*.txt>)[0];
+    if (! defined $xmlcat)
+    {
+        &alert ("no xml catalogue in $drop");
+        &markBad ($drop);
+        return;
+    }
+
+    my $catalogue = &readXMLCatalog ($drop, $xmlcat);
+    return if ! keys %$catalogue;
+
+    my @checksums = $cksum ? &readChecksumData ($drop, $cksum) : ();
+
+    # Stage files in, but leave drop in queue if files are still pending
+    return if ! &updateChecksums ($drop, $catalogue, \@checksums);
+    &relayDrop ($drop);
+    &logmsg("stats: $drop @{[&formatElapsedTime()]} success");
+}
+
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_HOST} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_POOL} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    { shift (@ARGV); $dropdir = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
+    { shift (@ARGV); $nextdir = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-rfcp' && scalar @ARGV > 1)
+    { shift (@ARGV); $nrfcp = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $waittime = shift(@ARGV); }
+    else
+    { last; }
+}
+	
+if (scalar @ARGV || !$dropdir)
+{
+    print STDERR
+	"usage: $me\n",
+	"    -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
+	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n",
+	"    [-rfcp N-PARALLEL-RFCP] [-wait SECS-TO-WAIT]\n";
+    exit (1);
+}
+
+&process();
+
+
+######################################################################
+# Routines specific to this agent.
+
