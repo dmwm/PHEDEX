@@ -29,7 +29,7 @@ unshift(@INC, $home);
 ######################################################################
 $ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
 $ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
-my %args = (DBITYPE => "Oracle");
+my %args = (DBITYPE => "Oracle", WAITTIME => 120);
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
@@ -50,15 +50,17 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-prefix' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{RM_PATH_PREFIX} = shift(@ARGV); }
     else
     { last; }
 }
 
 if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE})
+    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE} || !$args{RM_PATH_PREFIX})
 {
     print STDERR
-	"usage: $me -node TMDB-NODE\n",
+	"usage: $me -node TMDB-NODE -prefix PATH-PREFIX-TO-REMOVE\n",
 	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
 	"    -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n",
 	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n";
@@ -90,6 +92,7 @@ sub new
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
 	  	  MYNODE => undef,		# My TMDB node name
+	  	  RM_PATH_PREFIX => undef,	# Path prefix to remove
     	    	  MAXTAPEREQS => 4000,		# Max pending tape mounts
     	    	  MAXMYTAPEREQS => 1000,	# Max pending tape mounts by myself
     	    	  MAXSTAGEREQS => 200,		# Max pending stager requests
@@ -176,7 +179,7 @@ sub guidToPFN
 }
 
 # Map a PFN to GUID using a catalogue
-sub guidToPFN
+sub pfnToGuid
 {
     my ($pfn, $catalogue, $host) = @_;
 
@@ -194,8 +197,10 @@ sub getCatalogue
 
 sub getPendingFiles
 {
-    my ($dbh, $mynode, $catalogue, $hostkey) = @_;
+    my ($self, $dbh, $catalogue, $hostkey) = @_;
     my $result = [];
+    my $mynode = $self->{MYNODE};
+    my $prefix = $self->{RM_PATH_PREFIX};
     my $stmt = $dbh->prepare (qq{
     		select rs.guid, rs.local_time_stamp
 		from t_replica_state rs
@@ -206,7 +211,9 @@ sub getPendingFiles
     while (my $row = $stmt->fetchrow_arrayref())
     {
 	my ($guid, $time) = @$row;
-	push (@$result, [ $guid, &guidToPFN ($guid, $catalogue, $hostkey), $time ]);
+	my $pfn = &guidToPFN ($guid, $catalogue, $hostkey);
+	$pfn =~ s/$prefix//;
+	push (@$result, [ $guid, $pfn, $time ]);
     }
 
     return $result;
@@ -214,7 +221,7 @@ sub getPendingFiles
 
 sub getStagerFiles
 {
-    my ($catalogue, $hostkey) = @_;
+    my ($self, $catalogue, $hostkey) = @_;
     my $files = &stagerFileList();
     return undef if ! $files;
 
@@ -246,11 +253,11 @@ sub buildStatus
 	my ($guid, $pfn, $time) = @$file;
 
 	$files->{$pfn} ||= { GUID => $guid, PFN => $pfn, STATUS => "UNKNOWN" };
-	if ($files->{STATUS} eq 'UNKNOWN')
+	if ($files->{$pfn}{STATUS} eq 'UNKNOWN')
 	{
 	    my ($success, $tape, $pos, $size) = &fileProperties ($pfn, $cache);
-	    do { $files->{STATUS} = "RETRY"; next } if ! $success;
-	    do { &alert ("non-existent file $pfn"); $files->{STATUS} = "RETRY"; next }
+	    do { $files->{$pfn}{STATUS} = "RETRY"; next } if ! $success;
+	    do { &alert ("non-existent file $pfn"); $files->{$pfn}{STATUS} = "RETRY"; next }
 	        if (! defined $tape || ! defined $pos || ! defined $size);
 	
 	    $files->{$pfn}{TAPE} = $tape;
@@ -287,21 +294,23 @@ sub idle
 	my $catalogue = &getCatalogue ($dbh, $self->{MYNODE});
 	return if ! $catalogue;
 
-	my $files = $self->buildStatus (&getStagerFiles ($dbh, @$catalogue),
-					&getPendingFiles ($dbh, $mynode, @$catalogue));
+	my $files = $self->buildStatus ($self->getStagerFiles ($dbh, @$catalogue),
+					$self->getPendingFiles ($dbh, @$catalogue));
 	return if ! $files;
 
 	# Update file status.  First mark everything currently marked
 	# staged-in as not staged in, and then marked staged-in only
 	# the files that are truly currently staged-in.
 	my $now = time();
-	$dbh->do(qq{update t_replica_status
+	$dbh->do(qq{update t_replica_state
 		set local_state = (local_state/1000)*1000 + 0,
 		    local_time_stamp = $now
 		where node = '$mynode' and mod(local_state,1000) = 1});
-	foreach my $guid (map { $_->{GUID} } grep ($_->{STATUS} eq 'STAGED', values %$files))
+	foreach my $guid (map { $_->{GUID} }
+			  grep (defined $_->{GUID} && $_->{STATUS} eq 'STAGED',
+				values %$files))
 	{
-	    $dbh->do(qq{update t_replica_status
+	    $dbh->do(qq{update t_replica_state
 		set local_state = (local_state/1000)*1000 + 1,
 		    local_time_stamp = $now
 		where guid = '$guid' and node = '$mynode'});
