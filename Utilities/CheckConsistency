@@ -46,6 +46,8 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{SURLROOT} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-localroots' && scalar @ARGV > 1)
     { shift (@ARGV); $args{LOCALROOTS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-guessfromcat' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{GUESS} = shift(@ARGV) }
     else
     { last; }
 }
@@ -65,6 +67,7 @@ if (scalar @ARGV || !$args{DBNAME} || !$args{DBUSER} || !$args{DBPASS}
 
 
 my $files = {};
+my $recurse = 1;
 
 if ($args{DOMAINS}{p}) {
     if ( -e "./phedex-cache" ) {
@@ -74,13 +77,19 @@ if ($args{DOMAINS}{p}) {
 	&writePhedexCache(\%args,$files);
     }
 }
-if ($args{DOMAINS}{c}) {
+if ($args{DOMAINS}{c} || $args{GUESS} ) {
     if ( -e "./catalogue-cache" ) {
 	&readCatalogueCache(\%args, $files);
     } else {
 	die if ! &queryFileCatalogue(\%args, $files);
 	&writeCatalogueCache(\%args, $files);
     }
+}
+
+if ($args{GUESS}) {
+    $recurse = 0;
+    my @dirs = &getDirsFromCatalogue(\%args, $files);
+    $args{LOCALROOTS} = join( ',', @dirs );
 }
 if ($args{DOMAINS}{fs}) {
     die if ! &queryFileSystem(\%args, $files);
@@ -98,23 +107,53 @@ if ($args{DOMAINS}{f}) {
 # each domain the DOMAIN tag is ORd with the existing value. The domain
 # tag is then used to build a table of guid counts in each state
 my @counts = ();
+print "\nSummary of consistency check\n\n";
+open(OUT,">all-states");
 foreach my $file (values %$files) {
     $counts[$file->{DOMAINS}]++;
-
+    my $s = &convertDomainToString($file->{DOMAINS});
+    print OUT "$s: $file->{GUID} $file->{FCSURL} $file->{LOCALSURL}\n";
 }
+close(OUT);
 
-print "PCL  #\n";
+print "\rPCL  #          \n";
 for (my $idx=0;$idx<8;$idx++) {
-    my $s = '';
-    if ( $idx & 4 ) { $s = "x" } else { $s = " "; }
-    if ( $idx & 2 ) { $s .= "x" } else { $s .= " "; }
-    if ( $idx & 1 ) { $s .= "x" } else { $s .= " "; }
+    my $s = &convertDomainToString($idx);
     print "$s: $counts[$idx]\n";
 }
+
+print "\n";
 
 exit 0;
 
 ######################################################################
+sub getDirsFromCatalogue
+{
+    my ($args, $files) = @_;
+    my %dirs = ();
+    print "Extracting directories from catalogue\n";
+    foreach my $file (%$files) {
+	if ($file->{DOMAINS} & 2) {
+	    my $surl = $file->{FCSURL};
+	    my @bits = split( /\//, $surl );
+	    $surl =~ s|$args->{SURLROOT}||;
+	    $surl =~ s|$bits[$#bits]||;
+	    $dirs{$surl} = 1;
+	}
+    }
+    return keys %dirs;
+}
+
+sub convertDomainToString
+{
+    my $idx = shift;
+    my $s = '';
+    foreach my $d ( qw(4 2 1) ) {
+	if ( $idx & $d ) { $s .= "x"; } else { $s .= " "; }
+    }
+    return $s;
+}
+
 sub readPhedexCache
 {
     my ($args, $files) = @_;
@@ -135,7 +174,7 @@ sub writePhedexCache
     print "Writing PhEDEx cache\n";
     open(CACHE, "| gzip -c > ./phedex-cache") || die "Couldn't open phedex-cache for write";
     foreach my $file (values %$files) {
-	print CACHE "$file->{GUID}\n";
+	print CACHE "$file->{GUID}\n" if ($file->{DOMAINS} & 4);
     }
     die if ! close(CACHE);
 }
@@ -161,7 +200,7 @@ sub writeCatalogueCache
     print "Writing Catalogue cache\n";
     open(CACHE, "| gzip -c > ./catalogue-cache");
     foreach my $file (values %$files) {
-	print CACHE "$file->{GUID} $file->{FCSURL}\n";
+	print CACHE "$file->{GUID} $file->{FCSURL}\n" if ($file->{DOMAINS} & 2);;
     }
     die if ! close(CACHE);
 }
@@ -187,7 +226,7 @@ sub writeFileCache
     print "Writing File cache\n";
     open(CACHE, "| gzip -c > ./file-cache");
     foreach my $file (values %$files) {
-        print CACHE "$file->{GUID} $file->{LOCALSURL}\n";
+        print CACHE "$file->{GUID} $file->{LOCALSURL}\n" if ($file->{DOMAINS} & 1);;
     }
     die if ! close(CACHE);
 }
@@ -270,9 +309,9 @@ sub queryFiles
     my @dirs = split( /,/,$args->{LOCALROOTS} );
     push( @directories, @dirs ); 
 
-    my %SURL_to_GUID = {};
+    my%surltoguid = ();
     foreach $file ( values %$files ) {
-	$SURL_to_GUID{$file->{FCSURL}} = $file->{GUID} if ( $file->{FCSURL} );
+	$surltoguid{$file->{FCSURL}} = $file->{GUID} if ( $file->{DOMAINS} & 2 );
     }
 
     print "getting directory listings: ";
@@ -283,15 +322,15 @@ sub queryFiles
 	    chop;
 	    if ( /^d:/ ) {
 		my ($tag,$dir) = split( / / );
-		push( @directories, "$current/$dir" );
+		push( @directories, "$current/$dir" ) if ( $recurse == 0 );
 	    } else {
 		print "." if ++$nguids % 1000 == 0;
-		my $guid = $SURL_to_GUID{$_};
-		if ( ! $SURL_to_GUID{$_} ) {
+		my $guid = $surltoguid{$_};
+		if ( ! $surltoguid{$_} ) {
 		    # File isn't known from catalogue
 		    $guid = "placeholder".$count++;
 		    $files->{$guid}{GUID} = $guid;
-		} 
+		}  
 		$files->{$guid}{LOCALSURL} = $_;
 		$files->{$guid}{DOMAINS} += 1;
 	    }
