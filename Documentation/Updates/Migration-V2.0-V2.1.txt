@@ -1,0 +1,52 @@
+* Load schema:
+sqlplus cms_transfermgmt_testbed/phedexedehp@devdb <Schema/OracleCoreTopo.sql
+sqlplus cms_transfermgmt_testbed/phedexedehp@devdb <Schema/OracleCoreFiles.sql
+sqlplus cms_transfermgmt_testbed/phedexedehp@devdb <Schema/OracleCoreAgents.sql
+sqlplus cms_transfermgmt_testbed/phedexedehp@devdb <Schema/OracleCorePerf.sql
+sqlplus cms_transfermgmt_testbed/phedexedehp@devdb <Schema/OracleCoreTransfer.sql
+sqlplus cms_transfermgmt_testbed/phedexedehp@devdb <Schema/OracleCoreTriggers.sql
+sqlplus cms_transfermgmt_testbed/phedexedehp@devdb <Schema/OracleDSB.sql
+sqlplus cms_transfermgmt_testbed/phedexedehp@devdb <Schema/OracleFlow.sql
+sqlplus cms_transfermgmt_testbed/phedexedehp@devdb <Schema/OracleInfo.sql
+sqlplus cms_transfermgmt_testbed/phedexedehp@devdb <Schema/OracleReq.sql
+
+* Load initial data:
+insert into t_node values ('PIC_MSS');
+insert into t_node values ('FNAL_MSS');
+insert into t_node values ('INFN_MSS');
+insert into t_node values ('CERN_MSS');
+insert into t_node values ('CERN_Transfer');
+insert into t_node values ('TEST_Transfer');
+insert into t_node values ('TEST_MSS');
+insert into t_node values ('GLOBAL');
+insert into t_node values ('BA_MSS');
+insert into t_node values ('CNAF_MSS');
+insert into t_node values ('FZK_MSS');
+insert into t_node values ('LCGBO_MSS');
+insert into t_node values ('LNL_MSS');
+
+insert into t_node_import values ('CERN_Transfer', 'gsiftp', 1);
+insert into t_node_export values ('CERN_Transfer', 'gsiftp');
+insert into t_node_export values ('CERN_Transfer', 'srmcp');
+
+insert into t_node_import values ('TEST_Transfer', 'gsiftp', 1);
+
+insert into t_routing values (1105359939, 'CERN_MSS', 'CERN_Transfer', 'CERN_Transfer', 1);
+insert into t_routing values (1105359939, 'CERN_Transfer', 'CERN_MSS', 'CERN_MSS', 1);
+insert into t_routing values (1105359939, 'TEST_MSS', 'TEST_Transfer', 'TEST_Transfer', 1);
+insert into t_routing values (1105359939, 'TEST_Transfer', 'TEST_MSS', 'TEST_MSS', 1);
+insert into t_routing values (1105359939, 'CERN_Transfer', 'TEST_Transfer', 'TEST_Transfer', 2);
+
+* Start agents
+Custom/CERN/Master start
+
+* Inject initial data samples
+Utilities/DSBBlocks -db cms -dbuser cms_transfermgmt -dbpass smalland_round \
+  *{PU761,Hit245}*/*Mll2000* | sqlplus cms_transfermgmt_testbed/phedexedehp@devdb
+Utilities/DSBDrop -db cms -dbuser cms_transfermgmt -dbpass smalland_round \
+  $PHEDEX_STATE/entry/inbox *{PU761,Hit245}*/*Mll2000*
+
+* Subscribe test node for the data
+insert into t_subscription
+  (select x.value, 'mu03b_DY2mu_Mll2000', 'TEST_MSS' from
+   ( select distinct value from t_file_attributes where attribute = 'POOL_owner') x);
