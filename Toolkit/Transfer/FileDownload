@@ -398,7 +398,7 @@ sub markFilesWanted
 		left join t_replica_metadata m2
 		  on ts.guid = m2.guid and m2.attribute = 'POOL_jobid'
 		where ts.to_node = '$mynode' and ts.to_state = 0
-		order by trunc (ts.to_time_stamp/86400) desc, m2.value});
+		order by ts.from_state desc, trunc (ts.to_time_stamp/86400) desc, m2.value});
 	$stmt->execute();
 	while (my $file = $stmt->fetchrow_arrayref())
         {
