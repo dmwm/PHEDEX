@@ -118,10 +118,11 @@ sub get_neighbours {
 						 	{ RaiseError=>1, AutoCommit =>1 });
 	
 	my @neighbours = ();
-	my $query = "select gateway "
-				."from t_Routing "
-				."where from_node = '$args{NODE}' "
-				."and to_node = gateway";
+	my $selection = "select gateway "
+					."from t_Routing "
+					."where from_node = '$args{NODE}' "
+					."and to_node = gateway";
+	my $query->prepare($selection);
 	$query->execute;
 	while (@row = $query->fetchrow_array) {
 	    $row[0] =~ s/ //g;
