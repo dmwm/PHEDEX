@@ -126,6 +126,7 @@ sub updateTransferDatabase
 	    my $block = "$f->{META}{owner}/$f->{META}{dataset}";
 	    &dbbindexec ($bqstmt, ":block" => $block);
 	    my ($found) = $bqstmt->fetchrow();
+	    $bqstmt->finish();
 
 	    &dbbindexec ($bistmt,
 			 ":name" => $block,
