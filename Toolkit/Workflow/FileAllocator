@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/29 11:18:39 $
-# $Id: Allocator.pl,v 1.47 2004/07/29 11:18:39 barrass Exp $
+# $Date: 2004/07/29 11:19:49 $
+# $Id: Allocator.pl,v 1.48 2004/07/29 11:19:49 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -102,7 +102,7 @@ while(!(-e "$g_work_dir/stop")) {
                 }
             }
             
-            my $update = "update t_files_for_transfer set allocated = 0 where guid = '$guid'";
+            my $update = "update t_files_for_transfer set allocated = 1 where guid = '$guid'";
             push( @sql, $update );
             
         } else {
@@ -137,7 +137,7 @@ sub get_new_guid_list {
 	       ."t_replica_metadata.value "
 	       ."from t_files_for_transfer,"
 	       ."t_replica_metadata "
-	       ."where allocated = 1 "
+	       ."where allocated = 0 "
 	       ."and rownum < $g_max_guids "
 	       ."and t_files_for_transfer.guid = t_replica_metadata.guid "
 	       ."and key = 'POOL_dataset'";
