@@ -96,6 +96,7 @@ sub idle
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
 	# Read routing table into memory.
+	my $start = &mytimeofday ();
 	my $routes = $self->currentRoutes ($dbh);
 
 	# Route all files not yet at destination.
@@ -108,6 +109,7 @@ sub idle
 	    {
 		++$nincomplete;
 		++$nrouted if $self->routeNextHop ($dbh, $file, $routes);
+		last if (&mytimeofday () - $start > 10*60);
 	    }
 
 	    &logmsg ("$nodepat: considered $nincomplete destinations,"
@@ -116,6 +118,7 @@ sub idle
 	        ; #if $nincomplete;
 	
 	    $self->maybeStop();
+	    last if (&mytimeofday () - $start > 10*60);
 	}
 
 	# Clear SQL statement cache
