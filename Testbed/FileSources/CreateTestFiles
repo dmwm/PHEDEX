@@ -47,7 +47,7 @@ while ($count > 0) {
     $count--;
 }
 
-do_sql( "devdb9", @sql );
+do_sql( "devdb9", \@sql );
 
 # =========================================================
 # Subroutines
@@ -55,7 +55,7 @@ do_sql( "devdb9", @sql );
 
 sub do_sql {
     my $dbname = shift;
-    my @sql = shift;
+    my $sql = shift;
     
     eval {
         my $dbh;
@@ -64,7 +64,7 @@ sub do_sql {
     					     "threeBagsFULL",
     					     { RaiseError => 1, AutoCommit => 1 });              
 
-        foreach my $cmd (@sql) {
+        foreach my $cmd (@$sql) {
             print "$cmd\n";
             $dbh->do ($cmd);
         }
