@@ -32,7 +32,7 @@ if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
 {
     print STDERR
 	"usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-	"    -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n",
+	"    -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n";
     exit (1);
 }
 
