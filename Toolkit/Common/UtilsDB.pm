@@ -23,7 +23,8 @@ sub connectToDatabase
 	|| ! eval { $self->{DBH}->ping() }
 	|| $@)
     {
-	&logmsg ("(re)connecting to database");
+	$self->{DBH_LOGGING} = 1 if $ENV{PHEDEX_LOG_DB_CONNECTIONS};
+	&logmsg ("(re)connecting to database") if $self->{DBH_LOGGING};
 
 	# Clear previous connection.
 	eval { $self->{DBH}->disconnect() } if $self->{DBH};
@@ -94,7 +95,7 @@ sub disconnectFromDatabase
     my ($self, $dbh, $force) = @_;
     if ((exists $self->{DBH_CACHE} && ! $self->{DBH_CACHE}) || $force)
     {
-	&logmsg ("disconnected from database");
+	&logmsg ("disconnected from database") if $self->{DBH_LOGGING);
         $dbh->disconnect() if $dbh;
         undef $dbh;
         undef $self->{DBH};
