@@ -4,7 +4,7 @@ sub logmsg
     my $date = `date +"%Y-%m-%d %H:%M:%S"`;
     my $me = $0; $me =~ s|.*/||;
     chomp ($date);
-    print STDERR "$date: $me: ", @_, "\n";
+    print STDERR "$date: $me[$$]: ", @_, "\n";
 }
 
 sub alert
