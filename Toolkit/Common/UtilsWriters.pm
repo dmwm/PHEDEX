@@ -44,8 +44,12 @@ sub genXMLCatalogue
 	$content .= "    </logical>\n";
 
 	foreach my $m (keys %{$file->{META}}) {
-	    $content .= "   <metadata att_name=\"$m\" att_value=\"$file->{META}{$m}\"/>\n";
+	    my $value = $file->{META}{$m};
+	    $value = '' if ! defined $value;
+	    $content .= "   <metadata att_name=\"$m\" att_value=\"$value\"/>\n";
 	}
+
+	$content .= "  </File>\n";
     }
 
     $content .= &genXMLTrailer();
