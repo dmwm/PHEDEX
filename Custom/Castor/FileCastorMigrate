@@ -100,8 +100,7 @@ sub idle
 	my $now = time();
 	my $mynode = $self->{MYNODE};
 	my $prefix = $self->{RM_PATH_PREFIX};
-	$dbh = &connectToDatabase ($self);
-	die "failed to connect" if ! $dbh;
+	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
         # FIXME: Pick up and process messages to me
 
@@ -114,31 +113,46 @@ sub idle
 	# node -- they all go from the transfer node, which must
 	# always be closer to any destination that us and already
 	# has all the files we have.
-	$dbh->do(qq{
-		update t_transfer_state
-		set from_state = 1, from_time_stamp = $now
-		where to_node = '$mynode' and from_state = 0});
-	$dbh->do(qq{
-		update t_transfer_state
-		set to_state = 2, to_time_stamp = $now
-		where to_node = '$mynode' and to_state = 0});
+	my %args = (":node" => $mynode, ":now" => $now);
+	&dbexec($dbh, qq{
+	    update t_transfer_state
+	    set from_state = 1, from_time_stamp = :now
+	    where to_node = :node and from_state = 0},
+	    %args);
+	&dbexec($dbh, qq{
+	    update t_transfer_state
+	    set to_state = 2, to_time_stamp = :now
+	    where to_node = :node and to_state = 0},
+    	    %args);
 	$dbh->commit();
 
 	# Process files pending migration.
-	my $stmt = $dbh->prepare (qq{
-		select ts.guid,
-		       ts.from_time_stamp,
-		       n.catalogue_contact,
-		       n.host_string
-		from t_transfer_state ts
-		left join t_nodes n
-		  on n.node_name = ts.from_node
-		where ts.to_node = '$mynode'
-		  and ts.to_state = 2});
-        $stmt->execute();
-	while (my $row = $stmt->fetchrow_arrayref())
+        my $rsstmt = $dbh->prepare(qq{
+	    insert into t_replica_state (guid, node, insert_time_stamp,
+				         state, time_stamp,
+				         local_state, local_time_stamp)
+	    values (:guid, :node, :now, 0, :now, 0, :now)});
+        my $tsstmt = $dbh->prepare(qq{
+	    update t_transfer_state
+	    set to_state = 3, to_time_stamp = :now
+	    where guid = :guid and to_node = :node});
+	my ($qstmt) = &dbexec($dbh, qq{
+	    select ts.guid,
+	    	   m.value,
+	           ts.from_time_stamp,
+	           n.catalogue_contact,
+	           n.host_string
+	    from t_transfer_state ts
+	    left join t_replica_metadata m
+	      on m.guid = ts.guid and m.attribute = 'filesize'
+	    left join t_nodes n
+	      on n.node_name = ts.from_node
+	    where ts.to_node = :node
+	      and ts.to_state = 2},
+  	    ":node" => $mynode);
+	while (my $row = $qstmt->fetchrow_arrayref())
 	{
-	    my ($guid, $time, $catalogue, $hostkey) = @$row;
+	    my ($guid, $size, $time, $catalogue, $hostkey) = @$row;
 
 	    # FIXME: Do we need to actually issue commands to begin
 	    # migration?  If so, use to_state = 0 to indicate we
@@ -157,13 +171,9 @@ sub idle
 	    next if $status !~ /^m/;
 
 	    # Migrated, mark transfer completed
-	    $dbh->do(qq{
-		insert into t_replica_state values
-		  ('$guid', '$mynode', $now, 0, $now, 0, $now)});
-	    $dbh->do(qq{
-		update t_transfer_state
-		set to_state = 3, to_time_stamp = $now
-		where guid = '$guid' and to_node = '$mynode'});
+	    &dbbindexec($rsstmt, %args, ":guid" => $guid);
+	    &dbbindexec($tsstmt, %args, ":guid" => $guid);
+
 	    $dbh->commit ();
 
 	    # Log delay data.
@@ -171,7 +181,8 @@ sub idle
 	    my $dalloc = $nowh - $time;
 	    my $dtransfer = $nowh - $now;
     	    &logmsg ("xstats: $guid $mynode 3 "
-		    . sprintf('%.2f %.2f', $dalloc, $dtransfer));
+		    . sprintf('%.2f %.2f', $dalloc, $dtransfer)
+		    . " $size");
 
 	    # Give up if we've taken too long
 	    last if time() - $now > 10*60;
