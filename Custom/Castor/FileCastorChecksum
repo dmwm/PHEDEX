@@ -436,7 +436,6 @@ sub idle
 
         my @files = ();
         my $ndone = 0;
-        my $dbh = undef;
         my $basedir = $self->{DROPDIR};
         my $maxload = scalar @{$self->{WORKERS}} * 4;
         my $maxfiles = scalar @{$self->{WORKERS}} * 10;
