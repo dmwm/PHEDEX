@@ -44,8 +44,13 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-ignore' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{IGNORE_NODES}}, split(/,/, shift (@ARGV))); }
+    elsif ($ARGV[0] eq '-accept' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{ACCEPT_NODES}}, split(/,/, shift (@ARGV))); }
 
     elsif ($ARGV[0] eq '-wanted' && scalar @ARGV > 1)
     { shift (@ARGV); $args{WANT_LIMIT} = shift(@ARGV); }
@@ -58,12 +63,15 @@ while (scalar @ARGV)
     elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
 
-    elsif ($ARGV[0] eq '-pfndest' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{PFNSCRIPT} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-batch-files' && scalar @ARGV > 1)
     { shift (@ARGV); $args{BATCH_FILES} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-batch-size' && scalar @ARGV > 1)
     { shift (@ARGV); $args{BATCH_SIZE} = shift(@ARGV); }
+
+    elsif ($ARGV[0] eq '-pfndest' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{PFN_GEN_COMMAND} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-publish' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{PUBLISH_COMMAND}}, split(/,/, shift(@ARGV))); }
     elsif ($ARGV[0] eq '-validate' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{VALIDATE_COMMAND}}, split (/,/, shift(@ARGV))); }
     elsif ($ARGV[0] eq '-delete' && scalar @ARGV > 1)
@@ -72,6 +80,7 @@ while (scalar @ARGV)
     { shift (@ARGV); push (@{$args{COMMAND}}, split (/,/, shift(@ARGV))); }
     elsif ($ARGV[0] eq '-timeout' && scalar @ARGV > 1)
     { shift (@ARGV); $args{TIMEOUT} = shift (@ARGV); }
+
     else
     { last; }
 }
@@ -81,13 +90,14 @@ $args{BATCH_SIZE} = &sizeValue ($args{BATCH_SIZE}) if $args{BATCH_SIZE};
 
 if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
     || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE}
-    || !$args{WANT_LIMIT} || !$args{PFNSCRIPT} || !$args{NJOBS}
-    || !$args{BACKEND_TYPE})
+    || !$args{WANT_LIMIT} || !$args{PFN_GEN_COMMAND} || !$args{PUBLISH_COMMAND}
+    || !$args{NJOBS} || !$args{BACKEND_TYPE})
 {
     print STDERR
-	"usage: $me -state IN-DROP-BOX -backend BACKEND-TYPE\n",
+	"usage: $me -state IN-DROP-BOX -backend TYPE -wanted SIZE[kMGT]\n",
 	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-	"    -node NODE-NAME -pfndest PROGRAM -wanted SIZE[kMGT]\n",
+	"    -node NODE-NAME -pfndest PROGRAM -publish COMMAND[,ARGS]\n",
+	"    [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]\n",
 	"    [-batch-files N-FILES-LIMIT] [-batch-size SIZE-LIMIT[kMGT]]\n",
 	"    [-timeout TIMEOUT] [-command COPY-COMMAND[,ARGS]]\n",
 	"    [-validate COMMAND[,ARGS]] [-delete COMMAND[,ARGS]]\n",
@@ -133,6 +143,8 @@ sub new
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
 	  	  MYNODE => undef,		# My TMDB node name
+	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
+	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
 		  WANT_LIMIT => undef,		# Amount of data to prefetch
 		  WANT_UPDATE => 0,		# Last wanted data update
 		  BACKEND => undef,		# Backend type
@@ -162,9 +174,9 @@ sub resetPendingTransfers
     my ($self, $dbh) = @_;
     &dbexec ($dbh, qq{
 	update t_transfer_state
-	set to_state = 1, to_time_stamp = :now
+	set to_state = 1, to_timestamp = :now
 	where to_node = :node and (to_state = 2 or to_state >= 100)},
-	":now" => time(), ":node" => $self->{MYNODE});
+	":now" => &mytimeofday(), ":node" => $self->{MYNODE});
 }
 
 # Record completion for the transfer.  Mark files either transferred
@@ -186,14 +198,12 @@ sub completeTransferBatch
     {
         foreach my $file (@$batch)
         {
-	    my $now = time();
+	    my $now = &mytimeofday();
 	    my $to_state = 3;
 	    my $guid = $file->{GUID};
-	    my $to_node = $file->{TO_NODE};
-	    my $from_node = $file->{FROM_NODE};
 	    if ($file->{FAILURE})
 	    {
-	         &logmsg ("failed to transfer $guid: $file->{FAILURE}");
+	         &alert ("failed to transfer $guid: $file->{FAILURE}");
 	         $to_state = 101 + int(rand(10)); # 1..10 min cool-off
 	    }
 
@@ -202,24 +212,20 @@ sub completeTransferBatch
 	    my $dtransfer = $now - $file->{TIME_START};
 	    &dbexec ($dbh, qq{
 		update t_transfer_state
-		set to_state = :to_state, to_time_stamp = :now
-		where guid = :guid
-		  and to_node = :to_node
-		  and from_node = :from_node},
+		set to_state = :to_state, to_timestamp = :now
+		where guid = :guid and to_node = :to_node},
 		":to_state" => $to_state, ":now" => $now,
-		":guid" => $guid, ":to_node" => $to_node,
-		":from_node" => $from_node);
+		":guid" => $guid, ":to_node" => $self->{MYNODE});
 
 	    &dbexec ($dbh, qq{
                 insert into t_replica_state
-		(guid, node, state, local_state,
-		 insert_time_stamp, time_stamp, local_time_stamp)
-		values (:guid, :node, 0, 0, :now, :now, :now)},
-		":guid" => $guid, ":node" => $to_node, ":now" => $now)
+		(timestamp, guid, node, state, state_timestamp)
+		values (:now, :guid, :node, 0, :now)},
+		":guid" => $guid, ":node" => $self->{MYNODE}, ":now" => $now)
                 if ! $file->{FAILURE};
 
 	    # Log transfer delay stats
-	    &logmsg ("xstats: $guid $to_node $to_state "
+	    &logmsg ("xstats: $guid $self->{MYNODE} $to_state "
 		     . sprintf('%.2f %.2f', $dalloc, $dtransfer)
 	     	     . " $file->{FILESIZE}");
         }
@@ -246,20 +252,17 @@ sub completeTransferBatch
 sub startFileTransfer
 {
     my ($self, $dbh, $info) = @_;
-    my ($guid, $size, $cksum, $timestamp,
-	$from_node, $from_catalogue, $from_host,
-	$to_catalogue, $attrs) = @$info;
+    my ($guid, $lfn, $pfntype, $size, $cksum, $from, $timestamp, $from_pfn, $attrs) = @$info;
 
     # Mark the transfer started in the database.
     eval
     {
-	my $now = &mytimeofday();
 	&dbexec ($dbh, qq{
 	    update t_transfer_state
-	    set to_state = 2, to_time_stamp = :now
-	    where guid = :guid and to_node = :to_node and from_node = :from_node},
-	    ":now" => $now, ":guid" => $guid,
-	    ":to_node" => $self->{MYNODE}, ":from_node" => $from_node);
+	    set to_state = 2, to_timestamp = :now
+	    where guid = :guid and to_node = :to_node},
+	    ":now" => &mytimeofday (), ":guid" => $guid,
+	    ":to_node" => $self->{MYNODE});
 	$dbh->commit();
     };
 
@@ -272,15 +275,14 @@ sub startFileTransfer
 
     # Return a transfer object.
     return { GUID		=> $guid,
+	     LFN		=> $lfn,
+	     PFNTYPE		=> $pfntype,
 	     FILESIZE		=> $size,
 	     CHECKSUM		=> $cksum,
 	     TIME_ALLOC		=> $timestamp,
 	     TIME_START		=> &mytimeofday(),
-	     FROM_NODE		=> $from_node,
-	     FROM_CATALOGUE	=> $from_catalogue,
-	     FROM_HOST		=> $from_host,
-	     TO_NODE		=> $self->{MYNODE},
-	     TO_CATALOGUE	=> $to_catalogue,
+	     FROM_NODE		=> $from,
+	     FROM_PFN		=> $from_pfn,
 	     ATTRS		=> $attrs };
 }
 
@@ -292,7 +294,7 @@ sub markFilesWanted
     # Avoid executing very often, the updates below do take a fair
     # amount of time, and there's little point running here much
     # more than once a minute.
-    my $now = time();
+    my $now = &mytimeofday();
     return if $self->{WANT_UPDATE} > $now - 60;
     $self->{WANT_UPDATE} = $now;
     
@@ -306,24 +308,23 @@ sub markFilesWanted
 	# (FIXME: restore old time stamp?)
     	&dbexec ($dbh, qq{
 	    update t_transfer_state
-	    set to_state = (case when to_state > 100 then to_state - 1 else 0 end), to_time_stamp = :now
-	    where to_node = :node and to_state >= 100 and to_time_stamp < :old},
+	    set to_state = (case when to_state > 100 then to_state - 1 else 0 end), to_timestamp = :now
+	    where to_node = :node and to_state >= 100 and to_timestamp < :old},
     	    ":now" => $now, ":node" => $mynode, ":old" => $now - 60);
 
 	# Keep wanted time stamp at most ten minutes old.
 	&dbexec ($dbh, qq{
-	    update t_transfer_state
-	    set to_time_stamp = :now
-	    where to_node = :node and to_state = 1 and to_time_stamp < :old},
+	    update t_transfer_state set to_timestamp = :now
+	    where to_node = :node and to_state = 1 and to_timestamp < :old},
     	    ":now" => $now, ":node" => $mynode, ":old" => $now - 600);
 
   	# Check how much we already marked wanted.  Only mark new
 	# files wanted if we drop below 75% of our limit.
 	my ($total) = &dbexec($dbh, qq{
-	    select sum(m.value)
+	    select sum(f.filesize)
 	    from t_transfer_state ts
-	    left join t_replica_metadata m
-	      on ts.guid = m.guid and m.attribute = 'filesize'
+	    left join t_file f
+	      on f.guid = ts.guid
 	    where ts.to_node = :node and ts.to_state = 1},
     	    ":node" => $mynode)->fetchrow() || 0;
 	return if $total > .75 * $self->{WANT_LIMIT};
@@ -338,20 +339,24 @@ sub markFilesWanted
 	# old files.  (FIXME: Custom file priority rules?)
 	my $ustmt = &dbprep($dbh, qq{
 	    update t_transfer_state
-	    set to_state = 1, to_time_stamp = :now
+	    set to_state = 1, to_timestamp = :now
 	    where guid = :guid and to_node = :node});
 	my $stmt = &dbexec($dbh, qq{
-	    select ts.guid, ts.from_node, ts.to_time_stamp, m1.value
+	    select ts.guid, ts.from_node, f.filesize
 	    from t_transfer_state ts
-	    left join t_replica_metadata m1
-	      on ts.guid = m1.guid and m1.attribute = 'filesize'
-	    left join t_replica_metadata m2
-	      on ts.guid = m2.guid and m2.attribute = 'POOL_jobid'
+	    left join t_file f
+	      on f.guid = ts.guid
 	    where ts.to_node = :node and ts.to_state = 0
-	    order by ts.from_state desc, trunc (ts.to_time_stamp/86400) desc, m2.value},
+	    order by ts.from_state desc,
+	             trunc (ts.to_timestamp/86400) desc,
+		     f.inblock, f.insubblock},
     	    ":node" => $mynode);
-	while (my ($guid, $from_node, $stamp, $size) = $stmt->fetchrow())
+	while (my ($guid, $from, $size) = $stmt->fetchrow())
         {
+	    next if grep($_ eq $from, @{$self->{IGNORE_NODES}});
+	    next if (@{$self->{ACCEPT_NODES}}
+		     && ! grep ($_ eq $from, @{$self->{ACCEPT_NODES}}));
+
 	    $total += $size;
 	    last if ($total > $self->{WANT_LIMIT});
 
@@ -379,36 +384,34 @@ sub nextFiles
     # very quick (need an index on state?).
     if (scalar @{$self->{NEXT_FILES}} < $n)
     {
-        # FIXME: sort by filegroup, descending time?
         eval
         {
 	    my $attrq = &dbprep ($dbh, qq{
-		    select m.attribute, m.value from t_replica_metadata m
-		    where m.guid = :guid and m.attribute like 'POOL%'});
+		    select a.attribute, a.value from t_file_attributes a
+		    where a.guid = :guid and a.attribute like 'POOL%'});
 	    my $stmt = &dbexec ($dbh, qq{
 		    select ts.guid,
-		           m1.value,
-		           m2.value,
-		           ts.from_time_stamp,
-		           ts.from_node,
-		           n1.catalogue_contact,
-		           n1.host_string,
-		           n2.catalogue_contact
+			   f.lfn,
+			   f.filetype,
+		           f.filesize,
+		           f.checksum,
+			   ts.from_node,
+		           ts.from_timestamp,
+			   ts.from_pfn
 		    from t_transfer_state ts
-		    left join t_replica_metadata m1
-		      on m1.guid = ts.guid and m1.attribute = 'filesize'
-		    left join t_replica_metadata m2
-		      on m2.guid = ts.guid and m2.attribute = 'checksum'
-		    left join t_nodes n1
-		      on n1.node_name = ts.from_node
-		    left join t_nodes n2
-		      on n2.node_name = ts.to_node
+		    left join t_file f
+		      on f.guid = ts.guid
 		    where ts.to_node = :node
 		      and ts.to_state < 2
-	  	      and ts.from_state = 1},
+	  	      and ts.from_state = 1
+		    order by f.inblock, f.insubblock},
   		    ":node" => $self->{MYNODE});
 	    while (my @row = $stmt->fetchrow())
 	    {
+		next if grep($_ eq $row[5], @{$self->{IGNORE_NODES}});
+	        next if (@{$self->{ACCEPT_NODES}}
+		         && ! grep ($_ eq $row[5], @{$self->{ACCEPT_NODES}}));
+
 	        my $attrs = {};
 	        &dbbindexec ($attrq, ":guid" => $row[0]);
 	        foreach my $m (@{$attrq->fetchall_arrayref()})
@@ -445,7 +448,7 @@ sub idle
         # FIXME: Pick up and process messages to me
 
 	# If there are no pending jobs, kill database ghosts
-	my $now = time();
+	my $now = &mytimeofday();
 	if (scalar @{$self->{JOBS}} == 0 && $self->{LAST_RESET} < $now - 900)
 	{
 	    my $tmpdir = $self->{DROPDIR};
@@ -476,8 +479,8 @@ sub idle
     # and can start more jobs, break out of this loop and initiate
     # new transfers.  Otherwise if we have exhausted files that can
     # be transferred, just sleep here for a moment.
-    my $target = time() + $self->{WAITTIME};
-    while (time() < $target)
+    my $target = &mytimeofday() + $self->{WAITTIME};
+    while (&mytimeofday() < $target)
     {
         $self->maybeStop ();
 	$self->pumpJobs ();
