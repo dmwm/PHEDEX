@@ -67,6 +67,7 @@ sub fetchGuids
     print "downloading guids: ";
     while (my ($guid) = $stmt->fetchrow()) {
 	$files->{$guid}{GUID} = $guid;
+	$files->{$guid}{IN_TMDB} = 1;
 	print "." if ++$nguids % 1000 == 0;
     }
     print " done\n";
@@ -95,7 +96,10 @@ sub fetchPFNs
     while (<CAT>)
     {
 	my ($guid, $pfn) = /^([-0-9A-F]+)\s+(.*)/;
-	$files->{$guid}{PFN} = $pfn if $pfn =~ /$args->{HOST_KEY}/;
+	if ($pfn =~ /$args->{HOST_KEY}/) {
+	    $files->{$guid}{FCPFN} = $pfn;
+	    $files->{$guid}{IN_FC} = 1;
+	}
 	print "." if ++$nguids % 1000 == 0;
     }
     close (CAT) or die "PFClistGuidPFN: $!\n";
