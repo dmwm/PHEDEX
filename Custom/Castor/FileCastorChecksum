@@ -439,7 +439,7 @@ sub idle
         my $dbh = undef;
         my $basedir = $self->{DROPDIR};
         my $maxload = scalar @{$self->{WORKERS}} * 4;
-        my $maxfiles = scalar @{$self->{NWORKERS}} * 10;
+        my $maxfiles = scalar @{$self->{WORKERS}} * 10;
         while (scalar @{[<$basedir/worker-*/{inbox,work}/*>]} < $maxload)
         {
 	    # Guarantee to collect results from slaves quickly enough
