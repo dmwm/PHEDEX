@@ -61,8 +61,8 @@ sub intro
     "</select></td></tr></table>\n";
 
     $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
-    $ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/8174";
-    $ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/8174/lib";
+    $ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/10103";
+    $ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/10103/lib";
     $db = "prod" if ! grep ($db eq $_, keys %databases);
     my ($dbname, $dbuser, $dbpass) = @{$databases{$db}};
     $dbh = DBI->connect ("DBI:Oracle:$dbname", $dbuser, $dbpass,
