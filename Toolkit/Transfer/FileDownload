@@ -209,13 +209,6 @@ sub completeTransferBatch
 		":from_node" => $from_node);
 
 	    &dbexec ($dbh, qq{
-		insert into t_transfer_history
-		(guid, from_node, to_node, old_state, new_state, delta, time)
-		values (:guid, :from_node, :to_node, :old, :new, :delta, :now)},
-		":guid" => $guid, ":from_node" => $from_node, ":to_node" => $to_node,
-		":old" => 2, ":new" => $to_state, ":delta" => $dtransfer, ":now" => $now);
-
-	    &dbexec ($dbh, qq{
                 insert into t_replica_state
 		(guid, node, state, local_state,
 		 insert_time_stamp, time_stamp, local_time_stamp)
@@ -265,12 +258,6 @@ sub startFileTransfer
 	    where guid = :guid and to_node = :to_node and from_node = :from_node},
 	    ":now" => $now, ":guid" => $guid,
 	    ":to_node" => $self->{MYNODE}, ":from_node" => $from_node);
-	&dbexec ($dbh, qq{
-	    insert into t_transfer_history
-	    (guid, from_node, to_node, old_state, new_state, delta, time)
-	    values (:guid, :from_node, :to_node, :old, :new, :delta, :now)},
-	    ":guid" => $guid, ":from_node" => $from_node, ":to_node" => $self->{MYNODE},
-	    ":old" => 1, ":new" => 2, ":delta" => $now - $timestamp, ":now" => $now);
 	$dbh->commit();
     };
 
@@ -349,10 +336,6 @@ sub markFilesWanted
 	    update t_transfer_state
 	    set to_state = 1, to_time_stamp = :now
 	    where guid = :guid and to_node = :node});
-	my $istmt = &dbprep($dbh, qq{
-	    insert into t_transfer_history
-	    (guid, from_node, to_node, old_state, new_state, delta, time)
-	    values (:guid, :from_node, :to_node, :old, :new, :delta, :now)});
 	my $stmt = &dbexec($dbh, qq{
 	    select ts.guid, ts.from_node, ts.to_time_stamp, m1.value
 	    from t_transfer_state ts
@@ -369,9 +352,6 @@ sub markFilesWanted
 	    last if ($total > $self->{WANT_LIMIT});
 
 	    &dbbindexec($ustmt, ":guid" => $guid, ":node" => $mynode, ":now" => $now);
-	    &dbbindexec($istmt, ":guid" => $guid, ":from_node" => $from_node,
-		        ":to_node" => $mynode, ":old" => 0, ":new" => 1,
-			":delta" => $now - $stamp, ":now" => $now);
   	}
 
 	$dbh->commit();
