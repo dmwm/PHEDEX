@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/28 16:02:26 $
-# $Id: Allocator.pl,v 1.27 2004/07/28 16:02:26 barrass Exp $
+# $Date: 2004/07/28 16:03:25 $
+# $Id: Allocator.pl,v 1.28 2004/07/28 16:03:25 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -67,7 +67,8 @@ while(!(-e "$g_work_dir/stop")) {
     my $loop_start = time();
 
     my %dataset_by_new_guid = &get_new_guid_list;
-    # Do error check!
+    my %source_node_by_guid = get_source_nodes( keys %dataset_by_new_guid );
+    # Do error checks!
     my $guid = '';
     
     my %destinations_by_dataset = &get_current_subscriptions;
@@ -76,9 +77,15 @@ while(!(-e "$g_work_dir/stop")) {
     foreach $guid ( keys %dataset_by_new_guid ) {
         
         if ( exists( $destinations_by_dataset{$dataset_by_new_guid{$guid}} ) ) {
-            log_entry( "Will allocate to $destinations_by_dataset{$dataset_by_new_guid{$guid}}" );
+            log_entry( "$guid will go toward $destinations_by_dataset{$dataset_by_new_guid{$guid}}" );
             
-            # Do allocation here
+            @destinations = split( / /, $destinations_by_dataset{$dataset_by_new_guid{$guid}} );
+            foreach $dest ( @destinations ) {
+            
+                my $gateway = lookup_route( $source_node_by_guid{$guid}, $dest );
+                log_entry( "$guid source: $source_node_by_guid{$guid} dest: $dest via: $gateway" );
+            
+            }
             
         } else {
             add_new_stream_to_subscriptions( $dataset_by_new_guid{$guid} );
@@ -199,6 +206,81 @@ sub add_new_stream_to_subscriptions {
     $dbh->do($insert) if (!$no_updates);
 
     $dbh->disconnect;
+}
+
+sub get_source_nodes {
+    my @guids = shift;
+    my $selection = "select guid,source_node from t_files_for_transfer where";
+    foreach $guid (@guids) {
+        $selection .= "guid = $guid or ";
+    }
+    chop( $selection, 4 );
+    my %sources = ();
+
+
+	eval {
+        my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
+		    				 	'CMS_TRANSFERMGMT_WRITER', 
+		      				 	'threeBagsFULL', 
+		  	       			 	{ RaiseError=>1, AutoCommit =>1 });
+		  				 	
+        my $query = $dbh->prepare($selection);	
+		
+        $query->execute();while (@row = $query->fetchrow_array) {	
+	       $sources{$row[0]}  .= $row[1];
+        }
+        $query->finish();
+        
+        $dbh->disconnect();
+	};
+	
+	if (@_) {
+        log_entry( "Database operation failed getting source nodes for guids... @_" );
+        if ($dbh)
+        {
+            $dbh->rollback;
+            $dbh->disconnect;
+        }
+        return 1;
+    }    
+    
+    return( %sources );
+    
+}
+
+sub lookup_route {
+    my $source = shift;
+    my $dest = shift;
+    my $selection = "select gateway from t_routing where from_node = $source and to_node = $dest";
+
+	eval {
+        my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
+		    				 	'CMS_TRANSFERMGMT_WRITER', 
+		      				 	'threeBagsFULL', 
+		  	       			 	{ RaiseError=>1, AutoCommit =>1 });
+		  				 	
+        my $query = $dbh->prepare($selection);	
+		
+        $query->execute();while (@row = $query->fetchrow_array) {	
+	       $gateway = $row[0];
+        }
+        $query->finish();
+        
+        $dbh->disconnect();
+	};
+	
+	if (@_) {
+        log_entry( "Database operation failed getting source nodes for guids... @_" );
+        if ($dbh)
+        {
+            $dbh->rollback;
+            $dbh->disconnect;
+        }
+        return 1;
+    }       
+    
+    return $gateway;
+    
 }
 
 sub parse_command_line () {
