@@ -89,7 +89,7 @@ sub updateTransferDatabase
                 'debug_lfn' => $lfn,
                 'debug_pfn' => $pfn,
                 'debug_group' => $group,
-                map { "pool_" . lc($_) => $catalog->{$guid}{META}{$_} }
+                map { "POOL_$_" => $catalog->{$guid}{META}{$_} }
                 keys %{$catalog->{$guid}{META}});
 
 	    my @cmds = ("insert into cms_transfermgmt.t_files_for_transfer "
