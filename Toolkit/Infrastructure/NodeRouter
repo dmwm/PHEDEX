@@ -1,163 +1,134 @@
 #!/usr/bin/perl
 
-# Node Routing Agent
-#
-# This agent is responsible for making links between its parent
-# and neighbour nodes, and maintaining routing information for 
-# agents operating under the same parent node.
-#
-# The agent implements a version of the Routing Internet Protocol
-# algorithm (RFC 2543).
-#
-# Command line options
-# -node	<parent node>	parent node name
-# -db <tns name>		sets the Oracle db to talk to
-# -w <workdir>			sets the workdir for the agent
-# -no-updates			disables database updates
-# -once                 only runs once
-# -period               period over which the agent will loop
-# -infinity             max expected route length
-# -timeout              timeout routes after this many sec-
-#						if this is not set, or set = 0, timeouts
-#						are ignored
-#
-# You should provide a working dir name on the command line:
-# a pid file will be stored there during running, and to stop the
-# agent you should touch a file named "stop" within it.
+## Maintain links between a parent node and its neighbours, and
+## maintain routing information for agents operating under the
+## same parent node.
+##
+## This agent implements a version of the Routing Internet Protocol
+## algorithm (RFC 2543).
 
-use DBI;
-use Getopt::Long;
-$| = 1; # set autoflush
-
-$g_no_updates;		# 1 means will not make final updates in tmdb
-$g_work_dir = '';	# place pid and stop files here...
-$g_db = "devdb9";	# tnsname of Oracle db (tmdb)
-$g_db_user;			# Oracle user
-$g_db_passwd;		# Oracle password
-$g_parent_node = 'default_parent';		# parent node name
-$g_once;				# 1 means will only run once
-$g_period = 1;              # time between iterations
-$g_infinity = 10;            # maximum expected route length
-$g_timeout = 0;           # route timeout, secs
-
-# ###############################################################
-# Main agent loop
-# ###############################################################
-
-parse_command_line();
-
-open (PID, ">$g_work_dir/pid") || die "Pid file error $! $g_work_dir/pid\n";
-print PID "$$\n";
-close(PID);
-
-while(!(-e "$g_work_dir/stop")) {
-    if ($g_once) { system("touch $g_work_dir/stop"); }
-    my $start = time();
-    
-    # TODO: publish availability
-
-    &refresh_neighbour_links;
-
-    @new_routes = &get_new_routes;
-    @all_routes = &compare_with_existing_routes( \@new_routes  );
-    &update_table( \@all_routes );
-
-    my $pause = $g_period - (time() - $start);
-    sleep($pause) if $pause > 0;
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
 }
 
-
-
-
-
-# ###############################################################
-# Non-agent specific subroutines
-# ###############################################################
-sub log_entry {
-    my $entry = shift;
-    my $localtime = localtime(time());
-    print "$localtime [$$]: $entry\n";
+######################################################################
+my %args = (DBITYPE => "Oracle", WAITTIME => 600);
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    { shift (@ARGV); $master = 1; $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-infinity' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{INFINITY} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-timeout' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{TIMEOUT} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dryrun')
+    { shift (@ARGV); $args{DRYRUN} = 1; }
+    elsif ($ARGV[0] eq '-once')
+    { shift (@ARGV); $args{ONCE} = 1; }
+    else
+    { last; }
 }
 
-sub publish_availability {
-	my %args = (
-		NODE => 'default_node_label',
-		AGENT => 'default_agent_label',	
-		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
-		DB_USER => 'some_user',
-		DB_PASSWD => 'some_password',
-		@_
-	);
-	my $time = time();
-
-	$return = my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
-						 	'$args{DB_USER}', 
-						 	'$args{DB_PASSWD}', 
-						 	{ RaiseError=>1, AutoCommit =>1 });
-	
-	$log = "update t_Lookup "
-			."set last_contact=$time "
-			."where agent='$args{AGENT}' "
-			."and node='$args{NODE}'";
-	$return = $dbh->do($log);
-
-	$return = $dbh->disconnect();
+if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
+    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE})
+{
+    print STDERR
+	"usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
+	"    -node TMDB-NODE -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n",
+	"    [-infinity MAX-DISTANCE] [-timeout MAX-LINK-AGE] [-dryrun] [-once]\n";
+    exit (1);
 }
 
-sub direct_db_transaction {
-	my %args = (
-		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
-		DB_USER => 'some_user',
-		DB_PASSWD => 'some_password',
-		SQL => 'some_sql',
-		@_
-	);
-	
-	my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
-						 	"$args{DB_USER}", 
-						 	"$args{DB_PASSWD}", 
-						 	{ RaiseError=>1, AutoCommit =>1 });
-	
-	$dbh->do($args{SQL});
-	
-	$dbh->disconnect();
+my $agent = new NodeRouter (%args);
+# Recapture interrupt signal, oracle swallows it.
+$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
+$agent->process ();
+
+######################################################################
+# Routines for this agent.
+package NodeRouter; use strict; use warnings; use base 'UtilsAgent';
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsDB;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBITYPE => undef,		# Database driver binding
+    		  DBNAME => undef,		# Database name
+	  	  DBUSER => undef,		# Database user name
+	  	  DBPASS => undef,		# Database user password
+		  MYNODE => undef,		# My TMDB node
+		  INFINITY => 1000,		# Infinite distance
+		  TIMEOUT => 0,			# Route time out
+		  DRYRUN => 0,			# Prevent database updates
+		  ONCE => 0,			# Quit after one run
+	  	  AGENTID => "Routing");	# Identity for activity logs
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
 }
 
-# ###############################################################
-# Subroutines
-# ###############################################################
-sub refresh_neighbour_links {
-    my $time = time();
-    my $update = "update t_Routing "
-	."set timestamp = $time "
-	."where to_node = '$g_parent_node' "
-	."and gateway = '$g_parent_node'";
-    direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
+sub refreshNeighbourLinks
+{
+    my ($self, $dbh) = @_;
+    my $mynode = $self->{MYNODE};
+    my $now = time();
+    $dbh->do(qq{
+	update t_routing
+	set timestamp = $now
+	where to_node = '$mynode'
+	  and gateway = '$mynode'});
 }
 
-sub update_table {
-    my $routes = shift;
-    foreach $route (@$routes) {
-	my ($from, $to, $time, $hops, $status) = split( ":", $route );
-	my $sql = "";
-	if ($status eq "I") {
-	    $sql = "insert into t_Routing "
-		."values ('$g_parent_node','$to','$from',$time,$hops)";
-	} else {
-	    $sql = "update t_Routing "
-		."set gateway = '$from', "
-		."timestamp = $time, "
-		."hops = $hops "
-		."where from_node = '$g_parent_node' "
-		."and to_node = '$to'";
+sub updateTable
+{
+    my ($self, $dbh, $routes) = @_;
+    my $mynode = $self->{MYNODE};
+    foreach my $route (@$routes)
+    {
+	my ($from, $to, $time, $hops, $status) = split (":", $route);
+	if ($status eq "I")
+	{
+	    $dbh->do(qq{
+		insert into t_routing values
+		('$mynode', '$to', '$from', $time, $hops)});
 	}
-	direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $sql );
+	else
+	{
+	    $dbh->do(qq{
+		update t_routing
+		set gateway = '$from',
+		    timestamp = $time,
+		    hops = $hops
+		where from_node = '$from'
+		  and to_node = '$to'});
+	}
     }
 }
 
-sub get_new_routes {
-    my $dbh = DBI->connect("DBI:Oracle:$g_db", "$g_db_user", "$g_db_passwd",
-                           { RaiseError=>1, AutoCommit =>1 });
+sub getNewRoutes
+{
+    my ($self, $dbh) = @_;
 
     # Get all routes
     my %routes = ();
@@ -165,13 +136,14 @@ sub get_new_routes {
 	    select from_node, to_node, gateway, timestamp, hops
 	    from t_routing});
     $query->execute();
-    while (@row = $query->fetchrow_array()) {
+    while (my @row = $query->fetchrow_array())
+    {
 	my ($from, $to, $gateway, $stamp, $hops) = @row;
 	$from =~ s/\s+//g; $to =~ s/\s+//g;
-	$routes{$from}{$to} = { GATEWAY => $gateway,
-				HOPS => $hops,
-				STAMP => $stamp };
+	$routes{$from}{$to}
+	    = { GATEWAY => $gateway, HOPS => $hops, STAMP => $stamp };
     }
+    $query->finish();
 
     # Build the list of routes we want to process.  First get our immediate
     # neighbours: routes with from=me and to=gateway.  Then obtain the routes
@@ -179,177 +151,145 @@ sub get_new_routes {
     # destination.  Finally prune out routes we have already established and
     # which are still valid.
     my @new = ();
-    my @neighbours = grep ($routes{$g_parent_node}{$_}{GATEWAY} eq $_,
-	    		   keys %{$routes{$g_parent_node}});
-    foreach my $from (@neighbours) {
-	foreach my $to (keys %{$routes{$from}}) {
+    my $mynode = $self->{MYNODE};
+    my @neighbours = grep ($routes{$mynode}{$_}{GATEWAY} eq $_,
+	    		   keys %{$routes{$mynode}});
+    foreach my $from (@neighbours)
+    {
+	foreach my $to (keys %{$routes{$from}})
+	{
 	    my $gateway = $routes{$from}{$to}{GATEWAY};
 	    my $stamp = $routes{$from}{$to}{STAMP};
 	    my $hops = $routes{$from}{$to}{HOPS}
-	    	       + $routes{$g_parent_node}{$from}{HOPS};
+	    	       + $routes{$mynode}{$from}{HOPS};
 
-	    next if $to eq $g_parent_node;
-	    next if (exists $routes{$g_parent_node}{$to}
-		     && $routes{$g_parent_node}{$to}{GATEWAY} eq $from
-		     && $routes{$g_parent_node}{$to}{HOPS} eq $hops
-		     && $routes{$g_parent_node}{$to}{STAMP} eq $stamp);
+	    next if $to eq $mynode;
+	    next if (exists $routes{$mynode}{$to}
+		     && $routes{$mynode}{$to}{GATEWAY} eq $from
+		     && $routes{$mynode}{$to}{HOPS} eq $hops
+		     && $routes{$mynode}{$to}{STAMP} eq $stamp);
 
 	    # Handle split horizon with poisoned reverse.  Split horizon
 	    # means that routes with myself as the gateway are ignored.
 	    # Split horizon with poisoned reverse means such routes are
 	    # accepted, but the number of hops is set to infinity.
-	    $hops = $g_infinity if $gateway eq $g_parent_node;
+	    $hops = $self->{INFINITY} if $gateway eq $mynode;
 	    push (@new, "$from:$to:$stamp:$hops");
 	}
     }
-    $query->finish();
-    $dbh->disconnect();
 
     return @new;
 }
 
-sub clear_my_table {
-    my $neighbour = shift;
-    my $time = time();
-    my $update = "delete from t_Routing "
-	."where from_node = '$g_parent_node' ";
-    direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
-}
+sub getMyRouteHash
+{
+    my ($self, $dbh) = @_;
+    my $mynode = $self->{MYNODE};
+    my %table = ();
+    my $query = $dbh->prepare(qq{
+	select gateway, to_node, timestamp, hops
+	from t_routing
+	where from_node = '$mynode'});
 
-sub get_my_route_hash {
-    my $selection = "select gateway,to_node,timestamp,hops from t_Routing "
-        ."where from_node = '$g_parent_node'";
-    my %gate_time_hops_by_dest = ();
-
-    my $dbh = DBI->connect( "DBI:Oracle:$g_db",
-                            "$g_db_user",
-                            "$g_db_passwd",
-                            { RaiseError=>1, AutoCommit =>1 });
-    my $query = $dbh->prepare($selection);
-    $query->execute;
-    while (@row = $query->fetchrow_array) {
-        foreach (@row) { s/ //g; }
-        if (exists $gate_time_hops_by_dest{$row[1]} ){ log_entry( "Something wrong in routing: multiple entries for $row[1] \
-under $g_parent_node table!" ); }
-        my $gate_time_hops;
-        $gate_time_hops_by_dest{$row[1]} = "$row[0]:$row[2]:$row[3]:U";
+    $query->execute();
+    while (my @row = $query->fetchrow_array())
+    {
+        map { s/ //g; $_ } @row;
+	&alert ("multiple routes from $mynode to $row[1]") if exists $table{$row[1]};
+        $table{$row[1]} = "$row[0]:$row[2]:$row[3]:U";
     }
     $query->finish();
-    $dbh->disconnect();
 
-    return %gate_time_hops_by_dest;
+    return %table;
 }
 
-sub compare_with_existing_routes {
-    my $new_routes = shift;
+sub compareWithExistingRoutes
+{
+    my ($self, $dbh, $new_routes) = @_;
+    my %gate_time_hops_by_dest = $self->getMyRouteHash ($dbh);
     my $new_gate_time_hops;
-    my %gate_time_hops_by_dest = &get_my_route_hash();
 
     my $new_time = time();
-    foreach $route (@$new_routes) {
-	my ($new_gate,$new_to,$dummy_time,$new_hops) = split( /:/,$route );
+    foreach my $route (@$new_routes)
+    {
+	my ($new_gate,$new_to,$dummy_time,$new_hops) = split (/:/,$route);
 	$new_gate_time_hops = "$new_gate:$new_time:$new_hops";
-	if (exists $gate_time_hops_by_dest{$new_to}) {
+	if (exists $gate_time_hops_by_dest{$new_to})
+	{
 	    $new_gate_time_hops = $new_gate_time_hops.":U";
 	    my ($gate,$time,$hops) = split ( /:/,$gate_time_hops_by_dest{$new_to} );
-	    if (($gate eq $new_gate) || ($new_hops < $hops)) { # replace blindly OR minimise
-		$gate_time_hops_by_dest{$new_to} = $new_gate_time_hops;
-	    } 
-	} else {
-	    log_entry( "New route found $route" );
+	    $gate_time_hops_by_dest{$new_to} = $new_gate_time_hops
+	        if (($gate eq $new_gate) || ($new_hops < $hops)); # replace blindly OR minimise
+	}
+	else
+	{
+	    &logmsg ("new route found $self->{MYNODE} $route");
 	    $new_gate_time_hops = $new_gate_time_hops.":I"; 
 	    $gate_time_hops_by_dest{$new_to} = $new_gate_time_hops;
 	}
     }
 
     # timeout routes, check infinity
-    foreach $dest (keys %gate_time_hops_by_dest) {
-	my ($gate,$time,$hops,$status) = split( /:/,$gate_time_hops_by_dest{$dest} );
-	my $check = time() - $g_timeout;
-	if ($hops > $g_infinity) {
-	    $hops = $g_infinity;
-	}
-	if ($time < $check && $g_timeout != 0 ) {
-	    $hops = $g_infinity;
+    foreach my $dest (keys %gate_time_hops_by_dest)
+    {
+	my ($gate,$time,$hops,$status) = split (/:/,$gate_time_hops_by_dest{$dest});
+	my $infinity = $self->{INFINITY};
+	my $check = time() - $self->{TIMEOUT};
+	$hops = $infinity if $hops > $infinity;
+	if ($time < $check && $self->{TIMEOUT} != 0)
+	{
+	    $hops = $self->{INFINITY};
 	    # trigger update if it's a neighbour timeout
 	    # easy for us as we can pass the update message to
 	    # everyone in the network at the same time
-	    if ($gate eq $dest) {
-		my $update = "update t_Routing set hops = $g_infinity where to_node = $dest";
-		direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
-	    }
-	    log_entry( "Timeout for $gate:$dest:$time:$hops:$status" );
+	    $dbh->do(qq{
+		update t_routing set hops = $infinity
+		where to_node = '$dest'});
+	    &warning ("route timed out: $gate:$dest:$time:$hops:$status");
 	}
 	$gate_time_hops_by_dest{$dest} = "$gate:$time:$hops:$status";
     }
 
     # Build complete merged table
     my @routes = ();
-    foreach $destination (keys %gate_time_hops_by_dest) {
-        my ($gate, $time, $hops, $status) = split( /:/, $gate_time_hops_by_dest{$destination} );
+    foreach my $destination (keys %gate_time_hops_by_dest)
+    {
+        my ($gate, $time, $hops, $status) = split (/:/, $gate_time_hops_by_dest{$destination});
         my $route = "$gate:$destination:$time:$hops:$status";
-        push( @routes, $route );
+        push (@routes, $route);
     }
     return @routes;
 }
 
-sub min {
-    my ($a, $b) = @_;
-    if ($a >= $b) { return $b; } else { return $a; }
-}
+# Called by agent main routine before sleeping.  Pick up work
+# assignments from the database here and pass them to slaves.
+sub idle
+{
+    my ($self, @pending) = @_;
+    my $dbh = undef;
 
-sub parse_command_line {
-    GetOptions(	'node=s' => \$g_parent_node,
-		'w=s' => \$new_work_dir,
-		'db=s' => \$g_db,
-		'dbuser=s' => \$g_db_user,
-		'dbpasswd=s' => \$g_db_passwd,
-		"no-updates" => \$g_no_updates,
-		"once" => \$g_once,
-		"period=s" => \$g_period,
-		"infinity=s" => \$g_infinity,
-		"timeout=s" => \$g_timeout
-		);
-    
-    if ($g_once) {
-	log_entry( "only running once" );
-    }
-    if ($g_timeout) {
-	log_entry( "will timeout routes after $g_timeout s" );
-    }
-    if ($g_period) {
-        log_entry( "loop period is $g_period" );
-    }
-    if ($g_infinity) {
-        log_entry( "max expected route length is $g_infinity" );
-    }
-    if ($g_parent_node) {
-	log_entry( "parent node is $g_parent_node" );
-    }
-    if (!$new_work_dir) {
-	$g_work_dir = ".";
-    } else {
-	$g_work_dir = $g_work_dir.$new_work_dir;
-    }
-    log_entry( "work dir is $g_work_dir" );
-    if (-e "$g_work_dir/pid") {
-	log_entry( "Removing old pid file");
-	unlink("$g_work_dir/pid");
-    } 
-    if (-e "$g_work_dir/stop") {
-	log_entry( "Removing old stop file" );
-	unlink ("$g_work_dir/stop");
-    }
-    if (!$g_db) {
-	$g_db = "devdb9";
-    }
-    log_entry( "database is $g_db" );
-    if ($g_no_updates) {
-	log_entry( "not making final updates " );
-    }	
-    
-    log_entry( "Following arguments unprocessed by Getopt::Long" ) if $ARGV[0];
-    foreach (@ARGV) {
-	log_entry( "$_" );
-    }
+    # Always mark all files ready to go immediately.
+    eval
+    {
+	$dbh = &connectToDatabase ($self);
+	die "failed to connect" if ! $dbh;
+
+        # FIXME: Pick up and process messages to me
+
+        $self->refreshNeighbourLinks ($dbh);
+        my @new_routes = $self->getNewRoutes ($dbh);
+        my @all_routes = $self->compareWithExistingRoutes ($dbh, \@new_routes);
+        $self->updateTable ($dbh, \@all_routes);
+	$dbh->commit();
+    };
+    do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
+
+    # Disconnect from the database
+    $dbh->disconnect() if $dbh;
+    undef $dbh;
+
+    # Check children are still running and then wait
+    &touch ($self->{STOPFLAG}) if $self->{ONCE};
+    $self->maybeStop ();
+    sleep ($self->{WAITTIME});
 }
