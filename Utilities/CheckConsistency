@@ -107,9 +107,15 @@ if ($args{DOMAINS}{f}) {
 # each domain the DOMAIN tag is ORd with the existing value. The domain
 # tag is then used to build a table of guid counts in each state
 my @counts = ();
+my $localcount = 0;
+my $catcount = 0;
+my $phedexcount = 0;
 print "\nSummary of consistency check\n\n";
 open(OUT,">all-states");
 foreach my $file (values %$files) {
+    $phedexcount++ if ( $file->{DOMAINS} & 4 );
+    $catcount++ if ( $file->{DOMAINS} & 2 );
+    $localcount++ if ( $file->{DOMAINS} & 1 );
     $counts[$file->{DOMAINS}]++;
     my $s = &convertDomainToString($file->{DOMAINS});
     print OUT "$s: $file->{GUID} $file->{FCSURL} $file->{LOCALSURL}\n";
@@ -122,7 +128,9 @@ for (my $idx=0;$idx<8;$idx++) {
     print "$s: $counts[$idx]\n";
 }
 
-print "\n";
+print "\nTotal local     : $localcount\n"
+       ."Total catalogue : $catcount\n"
+       ."Total phedex    : $phedexcount\n";
 
 exit 0;
 
