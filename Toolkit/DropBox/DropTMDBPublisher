@@ -118,16 +118,16 @@ sub updateTransferDatabase
 			map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
 
 	    if ($self->{VERSION} == 1) {
-		@cmds = ("insert into cms_transfermgmt.filesfortransfer "
+		@cmds = ("insert into filesfortransfer "
 			 ." (guid,castor_filename,entry_time,checksum,filesize,allocated_to_t1s,filegroup)"
 		         ."values ('$f->{GUID}', '$f->{PFN}', $now, $f->{CHECKSUM},"
 		         ."  $f->{FILESIZE}, '1', '@{[$f->{META}{'jobid'} || '']}')");
 	    } elsif ($self->{VERSION} == 2) {
-		@cmds = ("insert into cms_transfermgmt.t_files_for_transfer"
+		@cmds = ("insert into t_files_for_transfer"
 			 ." values ('$f->{GUID}', '$self->{MYNODE}')",
-			 "insert into cms_transfermgmt.t_replica_state"
+			 "insert into t_replica_state"
 			 ." values ('$f->{GUID}', '$self->{MYNODE}', $now, 0, $now, 0, $now)",
-	       		 map { "insert into cms_transfermgmt.t_replica_metadata"
+	       		 map { "insert into t_replica_metadata"
 		     		." values ('$f->{GUID}', '$_', '$meta{$_}')" }
 		 	 sort keys %meta);
 	    }
