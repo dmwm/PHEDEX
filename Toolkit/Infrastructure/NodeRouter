@@ -54,12 +54,18 @@ while(!(-e "$g_work_dir/stop")) {
 	my @neighbours = &get_neighbours( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, NODE => $g_parent_node );
 	log_entry( ENTRY => "Neighbours: @neighbours" );
 
+	log_entry( ENTRY => "$g_parent_node known routes" );
+	my %my_hops_by_destination = get_neighbours_routes( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, MY_NODE => $g_parent_node, NODE => $g_parent_node  );
+	foreach $destination (keys %my_hops_by_destination) {
+	    log_entry( ENTRY => "$destination $my_hops_by_destination{$destination}" );
+	}
+
 	foreach $neighbour (@neighbours) {
 	    log_entry( ENTRY => "Refreshing link $g_parent_node : $neighbour" );
 	    refresh_acquaintance( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, MY_NODE => $g_parent_node, NODE => $neighbour );
 	
 		log_entry( ENTRY => "$g_parent_node querying routes known by $neighbour" );
-		%hops_by_destination = get_neighbours_routes( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, MY_NODE => $g_parent_node, NODE => $neighbour );
+		my %hops_by_destination = get_neighbours_routes( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, MY_NODE => $g_parent_node, NODE => $neighbour );
 		foreach $destination (keys %hops_by_destination) {
 		    log_entry( ENTRY => "$destination $hops_by_destination{$destination}" );
 		}
