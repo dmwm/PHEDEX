@@ -71,6 +71,8 @@ while(!(-e "$g_work_dir/stop")) {
 			$hops_by_destination{$destination} += 1;
 			
 			if (exists $my_hops_by_destination{$destination}) {
+				log_entry( ENTRY => "$destination already known to " );
+				
 				my $time = time();
 				my $update = "update t_Routing "
 								."set timestamp = $time, "
@@ -78,12 +80,12 @@ while(!(-e "$g_work_dir/stop")) {
 								."where from_node = '$g_parent_node' "
 								."and to_node = '$destination' "
 								."and gateway = '$neighbour'";
-				direct_db_transaction(  DB => $args{DB}, DB_USER => $args{DB_USER}, DB_PASSWD => $args{DB_PASSWD}, MY_NODE => $args{MY_NODE}, NODE => $args{NODE}, SQL => $update );
+				direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
 			} else {
 				my $time = time();
 				my $insert = "insert into t_Routing "
 								."values ('$g_parent_node','$destination','$neighbour',$time,%hops_by_destination{$neighbour})";
-				direct_db_transaction(  DB => $args{DB}, DB_USER => $args{DB_USER}, DB_PASSWD => $args{DB_PASSWD}, MY_NODE => $args{MY_NODE}, NODE => $args{NODE}, SQL => $insert );
+				direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $insert );
 			}
 			
 		}
@@ -140,8 +142,6 @@ sub direct_db_transaction {
 		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
 		DB_USER => 'some_user',
 		DB_PASSWD => 'some_password',
-		MY_NODE => 'some_node',
-		NODE => 'some_other_node',
 		SQL => 'some_sql',
 		@_
 	);
@@ -208,7 +208,7 @@ sub refresh_acquaintance {
 				."where from_node = '$args{NODE}' "
 				."and to_node = '$args{MY_NODE}' "
 				."and gateway = '$args{MY_NODE}'";
-	direct_db_transaction(  DB => $args{DB}, DB_USER => $args{DB_USER}, DB_PASSWD => $args{DB_PASSWD}, MY_NODE => $args{MY_NODE}, NODE => $args{NODE}, SQL => $update );
+	direct_db_transaction(  DB => $args{DB}, DB_USER => $args{DB_USER}, DB_PASSWD => $args{DB_PASSWD}, SQL => $update );
 }
 
 sub get_neighbours {
