@@ -55,7 +55,7 @@ if ($OK)
 }
 else
 {
-    print "Your setup is missing some crucial parts. Please check !\n";
+    print "Your setup is missing some crucial parts. Please check !\n\n";
     exit 1;
 }
 
@@ -76,7 +76,7 @@ sub testTools
 		  'dccp'              =>'not available');
 
     print "checking availability for ".scalar(keys(%ttools))." tools:\n";
-    print "---------------------------------------------------------\n";
+    print "---------------------------------------------------------------------\n";
     foreach my $tool (keys %ttools)
     {
 	# check if we find the binaries for that tool
@@ -90,7 +90,7 @@ sub testTools
 	#finally tell user the status of that tool
 	print "$tool: $ttools{$tool}\n";
     }
-    print "---------------------------------------------------------\n";
+    print "---------------------------------------------------------------------\n";
     return 0 if (!grep($_ !~ 'not available',(keys(%ttools)))); # report failure
     return 1; # report success
 }
@@ -102,32 +102,32 @@ sub testOracle
     # ORACLE_HOME must be set properly
     my $ORACLE = $ENV{ORACLE_HOME};
     do {print "ORACLE_HOME is not set... Please set it correctly !!\n";
-	print "---------------------------------------------------------\n";
+	print "---------------------------------------------------------------------\n";
 	return 0} if !$ORACLE;
 
     # TNSAdmin must be set properly
     my $TNSADMIN = $ENV{TNS_ADMIN};
-    do {print "TNS_ADMIN is not set... Please set it correctly !!\n";
-	print "---------------------------------------------------------\n";
+    do {print "TNS_ADMIN is not set...\n";
+	print "I typically points to '<PhedexInstallDir>/Schema' !!\n";
+	print "---------------------------------------------------------------------\n";
 	return 0} if !$TNSADMIN;
     
+    # make sure we find the DBI module....
+    # PERL5LIB must be set properly
+    my $PERL5LIB = $ENV{PERL5LIB};
+    do {print "---------------------------------------------------------------------\n";
+	print "PERL5LIB is not set ! It should include the DBI modules !\n";
+	print "---------------------------------------------------------------------\n";
+	return 0} if !$PERL5LIB;
+    do {print "---------------------------------------------------------------------\n";
+	print "DBI module wasn't found !!\n";
+	print "---------------------------------------------------------------------\n";
+	return 0} if (! -e "$PERL5LIB/DBI.pm");
+    
+
     # try to use the DBD modules to connect and disconnect from TMDB
     eval
     {
-	BEGIN{
-	    # make sure we find the DBI module....
-	    # PERL5LIB must be set properly
-	    my $PERL5LIB = $ENV{PERL5LIB};
-	    do {print "---------------------------------------------------------\n";
-		print "PERL5LIB is not set ! It should include the DBI modules !\n";
-		print "---------------------------------------------------------\n";
-		exit 5} if !$PERL5LIB;
-	    do {print "--------------------------------\n";
-		print "DBI module wasn't found !!\n";
-		print "--------------------------------\n";
-		exit 10} if (! -e "$PERL5LIB/DBI.pm");
-	}
-
 	# now get the DBI module
 	use DBI;
 	#try connecting to the DB
@@ -140,11 +140,11 @@ sub testOracle
     };
     do {print "Didn't succeed in using the DBD modules....\n";
 	print "Error was: $@\n";
-	print "---------------------------------------------------------\n";
+	print "---------------------------------------------------------------------\n";
 	return 0} if $@;
     
     print "DBD perl modules found and successfully accessed TMDB\n";
-    print "---------------------------------------------------------\n";
+    print "---------------------------------------------------------------------\n";
     return 1; #report success
 }
 
@@ -152,20 +152,21 @@ sub testGridCert
 {
     # check for grid-proxy-info command
     do {print "didn't find grid-proxy-info.... cannot check your certificate proxy\n";
+	print "---------------------------------------------------------------------\n";
 	return 0;} if system("which grid-proxy-info >& /dev/null");
     
     # use it and grep for time left
     my $timeleft = `grid-proxy-info |grep timeleft`;
     do {print "no certificate proxy found.... perform a grid-proxy-init\n";
-	print "---------------------------------------------------------\n";
+	print "---------------------------------------------------------------------\n";
 	return 0} if !$timeleft;
-    my $timeout = grep(m|0.0 days|,$timeleft);
+    my $timeout = grep(m|0:00:00|,$timeleft);
     do {print "certificate proxy timed out.... perform a new grid-proxy-init\n";
-	print "---------------------------------------------------------\n";
+	print "---------------------------------------------------------------------\n";
 	return 0} if $timeout;
     
     print "Grid certificate available and valid proxy found\n";
-    print "---------------------------------------------------------\n";
+    print "---------------------------------------------------------------------\n";
     return 1; # report success
 }
 
@@ -175,18 +176,18 @@ sub testPOOLSetup
     my ($cat) = @_;
     # check availability of FC POOL tools
     do {print "didn't find FClistPFN... probably no POOL tools installed\n";
-	print "---------------------------------------------------------\n";
+	print "---------------------------------------------------------------------\n";
 	return 0;} if system("which FClistPFN >& /dev/null");
     
     #next try to access the MySQL POOL catalogue
     my $cmd ="FClistLFN -u $cat -q \"guid=\'123456\'\"";
     do {print "simple dummy query didn't succeed. Please check your POOL installation\n";
-	print "command isued: \n";
+	print "command isued: $cmd\n";
 	print "----------------------------------------------------------------------\n";
 	return 0;} if system("$cmd >& /dev/null");
 
 
     print "POOL FC tools available and successfully tested\n";
-    print "---------------------------------------------------------\n";
+    print "---------------------------------------------------------------------\n";
     return 1; # report success
 }
