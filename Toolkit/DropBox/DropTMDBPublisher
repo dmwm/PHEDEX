@@ -103,8 +103,8 @@ sub updateTransferDatabase
 	    if $self->{DBNAME};
 
 	my $fstmt = &dbprep ($dbh, qq{
-	    insert into t_files_for_transfer (guid, node, filesize)
-	    values (:guid, :node, :size)});
+	    insert into t_files_for_transfer (guid, source_node, filesize)
+	    values (:guid, :node, :filesize)});
     	my $rstmt = &dbprep ($dbh, qq{
 	    insert into t_replica_state
 	    (guid, node, state, local_state,
@@ -116,38 +116,35 @@ sub updateTransferDatabase
 
     	my @cmds;
         my $now = &mytimeofday ();
-	foreach my $node (@$nodes)
+        foreach my $f (@$attrs)
 	{
-            foreach my $f (@$attrs)
-	    {
-                my %meta = ('filesize' => $f->{FILESIZE},
-		            (exists $f->{CHECKSUM} ? ('checksum' => $f->{CHECKSUM}) : ()),
-			    map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
-
-	        push (@cmds,
-		      [ $fstmt, { ":node" => $node,
-			          ":guid" => $f->{GUID},
-			          ":size" => $f->{FILESIZE} } ],
-	              [ $rstmt, { ":node" => $node,
-			          ":guid" => $f->{GUID},
-			          ":now"  => $now } ],
-		      map { [ $mstmt, { ":guid" => $f->{GUID},
-				        ":attr" => $_,
-				        ":value" => $meta{$_} } ] }
-		        sort keys %meta);
-	    }
+            my %meta = ('filesize' => $f->{FILESIZE},
+		        (exists $f->{CHECKSUM} ? ('checksum' => $f->{CHECKSUM}) : ()),
+			map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
+	    push (@cmds, [ $fstmt, { ":node" => $nodes->[0],
+			             ":guid" => $f->{GUID},
+			             ":filesize" => $f->{FILESIZE} } ]);
+	    push (@cmds, map { [ $mstmt, { ":guid" => $f->{GUID},
+				           ":attr" => $_,
+				           ":value" => $meta{$_} } ] }
+		  sort keys %meta);
+	    push (@cmds, map { [ $rstmt, { ":guid" => $f->{GUID},
+					   ":now" => $now,
+					   ":node" => $_ } ] }
+		  @$nodes);
 	}
 
 	foreach my $cmd (@cmds)
 	{
 	    if ($self->{DBNAME}) {
+		# &logmsg ("$cmd->[0]{Statement} @{[ %{$cmd->[1]} ]} }");
 		&dbbindexec ($cmd->[0], %{$cmd->[1]});
 	    } else {
-		&logmsg ("$cmd->[0]{Statement} { @{$cmd->[1]} }");
+		&logmsg ("$cmd->[0] { @{[ %{$cmd->[1]} ]} }");
 	    }
 	}
 
-	$dbh->commit() if $dbh;
+	$dbh->commit () if $dbh;
 	$dbh->disconnect() if $dbh;
     };
 
