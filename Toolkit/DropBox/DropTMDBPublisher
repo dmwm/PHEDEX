@@ -101,8 +101,8 @@ sub updateTransferDatabase
 	    my @cmds = ("insert into cms_transfermgmt.t_files_for_transfer "
 			."(guid, source_node, allocated) values ('$guid', '$mynode', 0)",
 	       		map { "insert into cms_transfermgmt.t_replica_metadata "
-		     		."(guid, key, value) values ('$guid', $_, $meta{$_})" }
-		 	keys %meta);
+		     		."(guid, key, value) values ('$guid', '$_', '$meta{$_}')" }
+		 	sort keys %meta);
 
 	    foreach my $cmd (@cmds)
 	    {
