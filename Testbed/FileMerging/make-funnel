@@ -3,20 +3,19 @@
 grep expiring ${1-MergeTest/logs/merge} |
   awk '{printf "%s\t%s\t%s\t%s\n", $6,$9,$12,$14}' |
   sort |
-  sed 's/.*\.\([A-Z]\)/\1/' |
+  sed 's/\.[0-9]*\.[0-9]*\t/\t/; s/^EVD\.//' |
   perl -e '
     while (<STDIN>) {
-      @line = split(/\s+/, $_);
-      $streams{$line[0]} = { AGE => 0, SIZE => 0, N => 0, COUNT => 0 }
-        if ! exists $streams{$line[0]};
-      $streams{$line[0]}{AGE} += $line[1];
-      $streams{$line[0]}{SIZE} += $line[2];
-      $streams{$line[0]}{N} += $line[3];
-      $streams{$line[0]}{COUNT}++;
+      ($name, $age, $size, $n) = m|(\S+)|g;
+      $streams{$name} ||= { AGE => 0, SIZE => 0, N => 0, COUNT => 0 };
+      $streams{$name}{AGE} += $age;
+      $streams{$name}{SIZE} += $size;
+      $streams{$name}{N} += $n;
+      $streams{$name}{COUNT}++;
     }
     while (($k, $v) = each %streams) {
-      print sprintf("%s\t%d\t%.2f\t%.2f\t%.2f\n",
-      		    $k, $v->{COUNT},
+      print sprintf("%s\t%d\t%d\t%.2f\t%.2f\t%.2f\n",
+      		    $k, $v->{COUNT}, $v->{N},
 		    $v->{AGE}/$v->{COUNT},
 		    $v->{SIZE}/$v->{COUNT},
 		    $v->{N}/$v->{COUNT});
