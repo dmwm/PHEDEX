@@ -54,6 +54,16 @@ To stop it
   touch /data/logs.cmsprod/T0/Configuration/stop
   ps auxwwf | grep allocator
 
+** Monitoring data allocations
+
+Periodically check the data subscriptions.  Tier-1s are currently
+subscribed to certain datasets.  The schedule page lists existing
+subscriptions, and currently unallocated streams.  To allocate streams
+choose them in the drop-down box to the right, then select a Tier-1.
+The allocator agent will then pick them up and assign them correctly.
+
+  http://www.cern.ch/dc04-tmdb/cgi-bin/development/scheduler.pl
+
 * V2 Setup
 
 ** Directories
