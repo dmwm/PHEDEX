@@ -145,6 +145,46 @@ sub add_node {
     
 }
 
+sub add_import {
+    my @sql = ();
+    
+    if ( 	$node_name eq '' || ! $node_protocol[0]) {
+	display_usage();
+    }
+    
+    @protos = map { split (',', $_) } @node_protocol;
+    log_entry( "Adding new node import" );
+    log_entry( "Name: $node_name" );
+    log_entry( "Protocols: @protos");
+    
+    for ($i = 0; $i <= $#protos; ++$i) {
+        push( @sql, "insert into t_node_import (node, protocol, priority) values ('$node_name', '$protos[$i]', $i)" );
+    }
+    
+    do_sql( \@sql );
+    
+}
+
+sub add_export {
+    my @sql = ();
+    
+    if ( 	$node_name eq '' || ! $node_protocol[0]) {
+	display_usage();
+    }
+    
+    @protos = map { split (',', $_) } @node_protocol;
+    log_entry( "Adding new node export" );
+    log_entry( "Name: $node_name" );
+    log_entry( "Protocols: @protos");
+    
+    for ($i = 0; $i <= $#protos; ++$i) {
+        push( @sql, "insert into t_node_export (node, protocol) values ('$node_name', '$protos[$i]')" );
+    }
+    
+    do_sql( \@sql );
+    
+}
+
 sub remove_link {
 	my @sql = ();
 
@@ -205,8 +245,10 @@ sub act_on_state {
 		new_neighbours();
 	} elsif ( $state eq "remove-link" ) {
 		remove_link();
-	} elsif ( $state eq "add-agent" ) {
-		add_agent(); 
+	} elsif ( $state eq "add-import-protocol" ) {
+		add_import();
+	} elsif ( $state eq "add-export-protocol" ) {
+		add_export(); 
 	} else {
 		display_usage();
 	}
@@ -221,23 +263,25 @@ sub log_entry {
 
 sub display_usage {
 	print "Usage:\n";
-	print "  $me add-node \t\t-name <node_name>\n\t\t\t\t\t-host <host_string>\n\t\t\t\t\t-cat <catalogue_uri>\n\t\t\t\t\t-neighbours <neighbour1>,<neighbour2>,<...\n\t\t\t\t\t[-db <dbname>\n\t\t\t\t\t-user <username> -password <password>]\n";
-	print "  $me remove-node \t\t-name <node_name>\n\t\t\t\t\t[-db <dbname>\n\t\t\t\t\t-user <username> -password <password>]\n";
-	print "  $me new-neighbours \t-name <node_name> \n\t\t\t\t\t-neighbours <neighbour1>,<neighbour2>,<...\n\t\t\t\t\t[-db <dbname>\n\t\t\t\t\t-user <username> -password <password>]\n";
-	print "  $me remove-link \t-name <node_name> \n\t\t\t\t\t-neighbours <neighbour1>,<neighbour2>,<...\n\t\t\t\t\t[-db <dbname>\n\t\t\t\t\t-user <username> -password <password>]\n";
-	print "  $me add-agent \t-name <agent_name> \n\t\t\t\t\t[-db <dbname>\n\t\t\t\t\t-user <username> -password <password>]\n";
+	print "  $me add-node -name <node_name>\n\t\t-db <dbname> -dbuser <username> -dbpass <password>\n";
+	print "  $me remove-node -name <node_name>\n\t\t-db <dbname> -dbuser <username> -dbpass <password>\n";
+	print "  $me new-neighbours -name <node_name> -neighbours <neighbour1>,<neighbour2>,<...\n\t\t-db <dbname> -dbuser <username> -dbpass <password>\n";
+	print "  $me remove-link -name <node_name> -neighbours <neighbour1>,<neighbour2>,<...\n\t\t-db <dbname> -dbuser <username> -dbpass <password>\n";
+	print "  $me add-import-protocol -name <node_name> -protocol <proto>,<proto>,<...\n\t\t-db <dbname> -dbuser <username> -dbpass <password>\n";
+	print "  $me add-export-protocol -name <node_name> -protocol <proto>,<proto>,<...\n\t\t-db <dbname> -dbuser <username> -dbpass <password>\n";
 	exit(1);
 }
 
 sub parse_command_line () {
 	GetOptions(	'name=s' => \$node_name,
-				'host=s' => \$node_host_string,
-				'cat=s' => \$node_cat_uri,
-				'neighbours=s' => \@node_neighbours,
-				'dbuser=s' => \$user,
-				'dbpass=s' => \$password,
-				'db=s' => \$dbname,
-				);
+			'host=s' => \$node_host_string,
+			'cat=s' => \$node_cat_uri,
+			'protocol=s' => \@node_protocol,
+			'neighbours=s' => \@node_neighbours,
+			'dbuser=s' => \$user,
+			'dbpass=s' => \$password,
+			'db=s' => \$dbname,
+			);
 				
 	@node_neighbours = split(/,/,join(',',@node_neighbours));
 				
