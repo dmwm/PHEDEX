@@ -256,7 +256,7 @@ sub validateBatch
 	foreach my $file (@$batch)
 	{
 	    do { $file->{DONE_VALIDATE} = 1; next }
-	        if $file->{FAILURE} || ! $file->{VALIDATE_COMMAND};
+	        if $file->{FAILURE} || ! $self->{VALIDATE_COMMAND};
 	
 	    $master->addJob (
 		sub { $self->validateBatch ($master, $batch, @_) },
