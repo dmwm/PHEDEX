@@ -189,11 +189,11 @@ sub idle
 	    }
 
 	    # If there is no protocol compatible with me and $to, warn
-	    # about this guid.  Assign back-off of 5 + 0-15 minutes.
+	    # about this guid and punish with back-off time.
 	    if (! defined $protos{$to})
 	    {
 		&alert ("$guid: no protocol matches $self->{MYNODE} and $to");
-		$self->{BACKOFF}{$guid}{$to} = $now + 60*(5 + rand(15));
+	    	$self->{BACKOFF}{$guid}{$to} = $now + 3600*(4 + rand(2));
 		next;
 	    }
 	    delete $self->{BACKOFF}{$guid}{$to};
