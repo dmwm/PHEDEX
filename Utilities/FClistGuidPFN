@@ -3,6 +3,7 @@ from PyFileCatalog import *
 from PyFCContainer import *
 from PyFCAction import *
 import unittest,os,os.path,getopt
+
 def usage():
     print 'FClistGuidPFN [-g | -p] -u catalog_contactstring ITEM...'
 
@@ -12,7 +13,6 @@ class myobj(object):
         self.input=[]
         try:
             optlist,self.input = getopt.getopt (sys.argv[1:],'gpu:')
-            #print self.input
         except getopt.GetoptError:
             usage()
             sys.exit(2)
@@ -30,9 +30,9 @@ class myobj(object):
             self.x=PyFileCatalog.PyFileCatalog()
             self.x.setWriteCatalog(self.cat)
         except PyFileCatalogError, er:
-            print 'PyFileCatalogError Caught:',er
+            print >> sys.stderr, 'PyFileCatalogError Caught:',er
             self.x.rollback()
-        
+
     def list(self):
         try:
             l = PyFClookup()
@@ -40,20 +40,26 @@ class myobj(object):
             self.x.connect()
             self.x.start()
             for i in self.input:
-		if (self.mode == 'g'):
-                    pfns = PyFCContainer.PyFCContainer(self.x,PFN,10000)
-		    l.lookupPFN("guid='" + i + "'", pfns)
-                    while pfns.hasNext():
-                        pentry=pfns.Next()
-                        print pentry[1], " ", pentry[0]
-		else:
-		    result=l.lookupFileByPFN(i)
-                    print i, " ", result['guid']
+		try:
+		    if (self.mode == 'g'):
+                        pfns = PyFCContainer.PyFCContainer(self.x,PFN,10000)
+		        l.lookupPFN("guid='" + i + "'", pfns)
+                        while pfns.hasNext():
+                            pentry=pfns.Next()
+                            print pentry[1], " ", pentry[0]
+		    else:
+		        result=l.lookupFileByPFN(i)
+                        print i, " ", result['guid']
+                except:
+		    # swallow failures, keep going with other files
+		    1
 
             self.x.commit(REFRESH)
             self.x.disconnect()
         except PyFileCatalogError, er:
-             print 'PyFileCatalogError Caught:',er
+             print >> sys.stderr, 'PyFileCatalogError Caught:',er
+	except:
+	     print >> sys.stderr, 'Unspecified error'
 
 if __name__=="__main__":
     y=myobj()
