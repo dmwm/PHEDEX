@@ -98,11 +98,11 @@ sub idle
 		    ts.guid guid,
 		    ts.from_node xfrom,
 		    ts.to_node xto,
-		    m.value xsize,
+		    f.filesize xsize,
 		    ts.to_time_stamp - ts.from_time_stamp xtime
 		  from t_transfer_state ts
-		  left join t_replica_metadata m
-		    on m.guid = ts.guid and m.attribute = 'filesize'
+		  left join t_files_for_transfer f
+		    on f.guid = ts.guid
 		  where ts.to_state = 3
 		    and ts.from_state = 1
 		    and ts.to_time_stamp > !START!)
