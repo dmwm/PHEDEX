@@ -403,7 +403,12 @@ NodeRouter & Maintains a node's routing table and contact with neighbours \\
 \hline
 \end{tabular}
 \end{table}
-FIXME: diagram of a typical agent workflow (internal, external state trans?)
+
+\begin{figure}
+\centering
+\includegraphics[width=3in]{sample-workflow.eps}
+\caption{A sample exchange between agents to manage the replication of a file. 1: a global allocator agent recognises that new files are available at site B for transfer. Using existing subscription information it allocates those files to a set of final destinations- in this case the neighbouring site A. 2: A FileRouter agent working at site A finds the new file allocated to it and initiates the transfer from B to A: in this case, initiates means putting the agents at A and B in contact. 3: the Download agent at A selects a group of files for transfer and marks them as "wanted" 4: the Export agent at B clusters the wanted files from all its neighbours and requests their stage in a manner that is efficient for local resources. When they are staged it marks the files as "available". 5: the Download agent uses some transfer tool to replicate available files. It then validates the transfer, publishes the file to a local catalogue and marks the transfer as complete.  }
+\end{figure}
 
 The blackboard space that agents use to exchange messages/state information was envisaged as a database schema. This database schema provides us with a structure for defining a set of message ontologies, and its deployment as a database provides us with a reliable mechanism of communication. The information stored in this schema tracks the list of files currently of interest to the data management system, useful metadata concerning the nodes in the system (names, routing information) and high level subscription information (which sites subscribe to which datasets, and which files are currently allocated to which specific node). It also tracks the current state of point-to-point transfers, and maintains an RLI-like structure that maps global replica set identifiers to nodes in the distribution network.
 
