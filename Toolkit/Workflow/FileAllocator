@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/30 11:05:20 $
-# $Id: Allocator.pl,v 1.54 2004/07/30 11:05:20 barrass Exp $
+# $Date: 2004/07/30 11:08:00 $
+# $Id: Allocator.pl,v 1.55 2004/07/30 11:08:00 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -138,6 +138,20 @@ while(!(-e "$g_work_dir/stop")) {
 # Subroutines
 # ###############################################################
 
+sub connect_to_db {
+    my $dbh = DBI->connect( "DBI:$d_db",
+			    $g_user,
+			    $g_passwd,
+			    {RaiseError => 1, AutoCommit => 1})
+	
+	or die "Couldn't connect to database $dbname @_";
+    
+    # FIXME: is this ok, or will it leave outstanding
+    # connections? Return ref to handle?
+    log_entry( "Connected to $dbname" );
+    return $dbh;
+}
+
 sub log_entry {
     my $entry = shift;
 	my $time = time();
@@ -146,39 +160,36 @@ sub log_entry {
 }
 
 sub get_new_guid_list {
-	my @row;
-	my $count = 0;
-	my $selection = "select t_files_for_transfer.guid,"
-	       ."t_replica_metadata.value "
-	       ."from t_files_for_transfer,"
-	       ."t_replica_metadata "
-	       ."where allocated = 0 "
-	       ."and rownum < $g_max_guids "
-	       ."and t_files_for_transfer.guid = t_replica_metadata.guid "
-	       ."and key = 'POOL_dataset'";
+    my @row;
+    my $count = 0;
+    my $selection = "select t_files_for_transfer.guid,"
+	."t_replica_metadata.value "
+	."from t_files_for_transfer,"
+	."t_replica_metadata "
+	."where allocated = 0 "
+	."and rownum < $g_max_guids "
+	."and t_files_for_transfer.guid = t_replica_metadata.guid "
+	."and key = 'POOL_dataset'";
 
     my %guid_list = ();
-
-	eval {
-        my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
-		    				 	$g_user, 
-		      				 	$g_passwd, 
-		  	       			 	{ RaiseError=>1, AutoCommit =>1 });
+    
+    eval {
+	my $dbh = connect_to_db();
 		  				 	
         my $query = $dbh->prepare($selection);	
 		
         $query->execute();while (@row = $query->fetchrow_array) {	
-	       $count++;
-	       $row[1] =~ s/\s+//g;
-	       $guid_list{$row[0]}  = $row[1];
+	    $count++;
+	    $row[1] =~ s/\s+//g;
+	    $guid_list{$row[0]}  = $row[1];
         }
         #log_entry(  "Found $count new GUIDs" );
         $query->finish();
         
         $dbh->disconnect();
-	};
-	
-	if (@_) {
+    };
+    
+    if (@_) {
         log_entry( "Database operation failed... @_" );
         if ($dbh)
         {
@@ -187,60 +198,54 @@ sub get_new_guid_list {
         }
         return 1;
     }
-	
-	return (%guid_list);
+    
+    return (%guid_list);
 }
 
 sub get_current_subscriptions {
-	my @row;
-	my $selection = "select * from t_subscriptions";
-
+    my @row;
+    my $selection = "select * from t_subscriptions";
+    
     my %destinations = ();
-
-	eval {
-        my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
-		    				 	$g_user, 
-		      				 	$g_passwd, 
-		  	       			 	{ RaiseError=>1, AutoCommit =>1 });
-		  				 	
-        my $query = $dbh->prepare($selection);	
-		
-        $query->execute();
-        while (@row = $query->fetchrow_array) {	
-	       $row[1] =~ s/\s+//g;
-	       $destinations{$row[1]}  .= "$row[0] ";
-        }
-        $query->finish();
-        
-        $dbh->disconnect();
-	};
+    
+    eval {
+	my $dbh = connect_to_db();
 	
-	if (@_) {
-        log_entry( "Database operation failed... @_" );
-        if ($dbh)
-        {
-            $dbh->rollback;
-            $dbh->disconnect;
-        }
-        return 1;
+	my $query = $dbh->prepare($selection);	
+	
+	$query->execute();
+	while (@row = $query->fetchrow_array) {	
+	    $row[1] =~ s/\s+//g;
+	    $destinations{$row[1]}  .= "$row[0] ";
+	}
+	$query->finish();
+	
+	$dbh->disconnect();
+    };
+    
+    if (@_) {
+	log_entry( "Database operation failed... @_" );
+	if ($dbh)
+	{
+	    $dbh->rollback;
+	    $dbh->disconnect;
+	}
+	return 1;
     }
-	
-	return ( %destinations );
+    
+    return ( %destinations );
 }
 
 sub do_sql {
     my $sql = shift;
     
     eval {
-        my $dbh = DBI->connect(    "DBI:Oracle:$g_db",
-	   				    $g_user,
-		  			    $g_passwd,
-	   				    { RaiseError=>1, AutoCommit =>1 });
+        my $dbh = connect_to_db();
     
         foreach $sql ( @$sql ) {
             $dbh->do($sql) if (!$g_no_updates);
         }
-
+	
         $dbh->disconnect;    
     };
     
@@ -263,13 +268,10 @@ sub get_source_nodes {
     }
     substr( $selection, -4 ) = '';
     my %sources = ();
-
-
-	eval {
-        my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
-		    				 	$g_user, 
-		      				 	$g_passwd, 
-		  	       			 	{ RaiseError=>1, AutoCommit =>1 });
+    
+    
+    eval {
+        my $dbh = connect_to_db();
 		  				 	
         my $query = $dbh->prepare($selection);	
 		
@@ -279,9 +281,9 @@ sub get_source_nodes {
         $query->finish();
         
         $dbh->disconnect();
-	};
-	
-	if (@_) {
+    };
+    
+    if (@_) {
         log_entry( "Database operation failed getting source nodes for guids... @_" );
         if ($dbh)
         {
@@ -301,25 +303,22 @@ sub lookup_route {
     my $selection = "select gateway from t_routing where from_node = '$source' and to_node = '$dest'";
     my $gateway = '';
     my @row = ();
-
-	eval {
-        my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
-		    				 	$g_user, 
-		      				 	$g_passwd, 
-		  	       			 	{ RaiseError=>1, AutoCommit =>1 });
-		  				 	
+    
+    eval {
+	my $dbh = connect_to_db();
+	
         my $query = $dbh->prepare($selection);	
-		
+	
         $query->execute();
         while (@row = $query->fetchrow_array) {	
-	       $gateway = $row[0];
+	    $gateway = $row[0];
         }
         $query->finish();
         
         $dbh->disconnect();
-	};
-	
-	if (@_) {
+    };
+    
+    if (@_) {
         log_entry( "Database operation failed looking up route... @_" );
         if ($dbh)
         {
