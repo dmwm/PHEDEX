@@ -1,0 +1,68 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>PhEDEx Depoyment Status</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<link href="style.css" rel="stylesheet" type="text/css">
+</head>
+
+<body>
+<h1>PhEDEx deployment status as of 2004-09-13</h1>
+
+<h2>PhEDEx V1</h2>
+
+<p>Currently transferring with V1: INFN, PIC, FNAL.</p>
+
+<p>Issues:</p>
+<ul>
+ <li> CNAF-INFN T1: Transferred all available hg03_H2mu_maX_tbY datasets;
+      42 files are missing in a couple of pathological states (FIXME:
+      savannah tracking ticket).</li>
+
+ <li> CNAF-INFN T1: cancel subscription for hg03_DY2mu_shat80; don't want
+      it and have not downloaded it (reason for many pending files)
+      (FIXME: savannah tracking ticket).</li>
+
+ <li> All: Stage-ins are a major headache.  Will be solved by the
+      switch to V2 (FIXME: savannah tracking ticket).</li>
+</ul>
+
+<p>Agents in use:</p>
+<ul>
+ <li> CNAF-INFN T1:</li>
+ <li> PIC:</li>
+ <li> FNAL:</li>
+</ul>
+
+<h2>PhDEx V2</h2>
+
+<p>V2 topologies: currently CastorGrid to all T1s back and forth,
+each T1 should also have one-way link to a MSS node associated with
+the transfer node.</p>
+
+<p>Current status:</p>
+<ul>
+ <li> CNAF-INFN T1: Transfer node ready.  mu03b_DY2mu_Mll2000 test
+      data (237 files) downloaded.  MSS node being worked on.  No
+      export yet, but have lots of local scripts for verifying
+      transfer state.  Not implemented schema changes yet.</li>
+
+ <li> PIC: Transfer node ready.  No schema update yet.  MSS node
+      being worked on.  Will try using example agents.  No export
+      yet; will try example agents.</li>
+
+ <li> FZK: Not transferring yet, but expect to test in a couple of
+      days.  Will use example agent for transfers to disk, but have
+      only limited disk space available.  Working on SRM migration
+      separately, but have issues.  No export.</li>
+
+ <li> ASCC: Testing example transfer agents with various degress of
+      success (bugs in example agents).  No MSS node yet.  No export.<li>
+
+ <li> FNAL: No report yet.</li>
+
+ <li> IN2P3: No report yet.</li>
+
+ <li> RAL: No report yet.</li>
+</body>
+</html>
