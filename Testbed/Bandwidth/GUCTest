@@ -41,7 +41,9 @@ use UtilsJobManager;
 my $mgr = new UtilsJobManager (NJOBS => $args{JOBS});
 foreach my $file (@files)
 {
-    $mgr->addJob (sub {}, {}, @ARGV, $file, $args{DEST});
+    my $lfn = $file; $lfn =~ s|.*/||;
+    my $dest = $args{DEST}; $dest =~ s|\$\{LFN\}|$lfn|;
+    $mgr->addJob (sub {}, {}, @ARGV, $file, $dest);
     $mgr->pumpJobs();
     select (undef, undef, undef, .1);
 }
