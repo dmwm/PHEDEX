@@ -65,6 +65,7 @@ sub do_sql {
     					     { RaiseError => 1, AutoCommit => 1 });              
 
         foreach my $cmd (@sql) {
+            print "$cmd\n";
             $dbh->do ($cmd);
         }
 
