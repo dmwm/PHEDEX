@@ -44,16 +44,16 @@ cd perl-modules
 wget http://search.cpan.org/CPAN/authors/id/T/TI/TIMB/DBD-Oracle-1.16.tar.gz
 tar zxvf DBD-Oracle-1.16.tar.gz
 
-mv Makefile.PL Makefile.PL.orig
-echo "diff Makefile.PL.orig Makefile.PL" > makefile-patch 
-echo "1122a1123,1126" >> makefile-patch
-echo ">     # Tim Barrass: hacked for Oracle Instant Client" >> makefile-patch
-echo ">     if ( \$OH =~ /instantclient/ ) {" >> makefile-patch
-echo ">         \$linkvia = \"\$ENV{ORACLE_HOME}/lib/libclntsh.so\";" >> makefile-patch
-echo ">     }" >> makefile-patch
-echo "1254a1259" >> makefile-patch
-echo ">        \"$OH/include\", # Tim Barrass, hacked for OIC install from zips" >> makefile-patch
-
+cd DBD-Oracle-1.16
+echo "diff Makefile.PL.orig Makefile.PL
+1122a1123,1126
+>     # Tim Barrass: hacked for Oracle Instant Client
+>     if ( \$OH =~ /instantclient/ ) {
+>         \$linkvia = \"\$ENV{ORACLE_HOME}/lib/libclntsh.so\";
+>     }
+1254a1259
+>        \"$OH/include\", # Tim Barrass, hacked for OIC install from zips" > Makefile.PL.patch
+patch Makefile.PL Makefile.PL.patch
 #perl Makefile.PL prefix=$BASE/perl-modules -m $ORACLE_HOME/demo/demo.mk
 
 #echo "If you see WARNING: I could not determine Oracle client version ..."
@@ -64,16 +64,14 @@ echo ">        \"$OH/include\", # Tim Barrass, hacked for OIC install from zips"
 
 # Create and environment script
 echo 'Writing local-oci-env.sh: please take a look and edit'
-echo "
-export BASE=$BASE\n
-export ORACLE_HOME=${BASE}/instantclient10_1\n
-export LD_LIBRARY_PATH=${ORACLE_HOME}/lib:${LD_LIBRARY_PATH}\n
-export PATH=${ORACLE_HOME}/bin:${PATH}\n
-export SQLPATH=${ORACLE_HOME}/bin\n
-# Note the trailing end of perl5lib might vary with architecture-\n
-# look out for where your DBD-Oracle actually gets installed\n
-export PERL5LIB=${ORACLE_HOME}/perl-modules/lib/<your path to dbd-oracle>\n
-export TNS_ADMIN=<path to your tnsnames.ora file>\n
-" > local-oci-env.sh
+echo "export BASE=$BASE
+export ORACLE_HOME=${BASE}/instantclient10_1
+export LD_LIBRARY_PATH=${ORACLE_HOME}/lib:${LD_LIBRARY_PATH}
+export PATH=${ORACLE_HOME}/bin:${PATH}
+export SQLPATH=${ORACLE_HOME}/bin
+# Note the trailing end of perl5lib might vary with architecture-
+# look out for where your DBD-Oracle actually gets installed
+export PERL5LIB=${ORACLE_HOME}/perl-modules/lib/<your path to dbd-oracle>
+export TNS_ADMIN=<path to your tnsnames.ora file>" > local-oci-env.sh
 
 # test at will ...
