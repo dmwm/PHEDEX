@@ -74,6 +74,26 @@ sub rfrm
 sub rfrmdir
 { return !&runcmd("rfrmdir", @_); }
 
+# Remove a RFIO directory and all files in it.  Returns non-zero on success.
+sub rfrmall
+{
+    my ($dir) = @_;
+
+    return 1 if ! &rfstat ($dir);
+    foreach my $file (&rffiles ($dir))
+    {
+        for (my $attempts = 1; $attempts <= 10; ++$attempts)
+        {
+            print "removing $dir/$file\n";
+            last if &rfrm ("$dir/$file");
+            &alert ("failed to remove $dir/$file (attempt $attempts), trying again in 10s");
+            sleep (10);
+        }
+    }
+
+    return &rfrmdir ($dir);
+}
+
 # Copy many files in parallel
 sub rfcpstart
 {
