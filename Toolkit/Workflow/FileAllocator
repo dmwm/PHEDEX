@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/29 10:13:11 $
-# $Id: Allocator.pl,v 1.40 2004/07/29 10:13:11 barrass Exp $
+# $Date: 2004/07/29 10:16:49 $
+# $Id: Allocator.pl,v 1.41 2004/07/29 10:16:49 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -83,7 +83,6 @@ while(!(-e "$g_work_dir/stop")) {
             foreach $dest ( @destinations ) {
             
                 my $gateway = lookup_route( $source_node_by_guid{$guid}, $dest );
-                log_entry( "$gateway" );
                 if ( $gateway eq '' ) {
                     # Could be transient, leave it for later...
                     log_entry( "Ag, no route from $source_node_by_guid{$guid} to $dest for $guid" );
