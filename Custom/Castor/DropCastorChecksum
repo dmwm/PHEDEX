@@ -70,7 +70,7 @@ sub updateChecksums
     foreach my $local (values %local)
     {
 	my $lfn = ($local =~ m|.*/([^/]+)$|)[0];
-	my $cksum = $cksum ($filesdir, $lfn);
+	my $cksum = &cksum($filesdir, $lfn);
 	do { &alert ("$drop: failed to cksum $lfn"); &rmtree ($filesdir); return 0; }
 	    if ! $cksum;
 
