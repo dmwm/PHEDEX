@@ -26,7 +26,7 @@ while (scalar @ARGV)
     if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
-    { shift (@ARGV); $master = 1; $args{DROPDIR} = shift(@ARGV); }
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
@@ -37,16 +37,19 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-nodes' && scalar @ARGV > 1)
+    { shift (@ARGV); push(@{$args{NODES}}, split(/,/, shift(@ARGV))); }
     else
     { last; }
 }
 
 if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE})
+    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE} || !$args{NODES})
 {
     print STDERR
 	"usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-	"    -node TMDB-NODE -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n";
+	"    -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n",
+	"    -node TMDB-NODE-NAME -nodes PATTERN[,PATTERN...]\n";
     exit (1);
 }
 
@@ -72,7 +75,8 @@ sub new
     		  DBNAME => undef,		# Database name
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
-		  MYNODE => undef,		# My TMDB node
+		  MYNODE => undef,		# My node name
+		  NODES => [],			# Nodes to route for
 	  	  AGENTID => "Router");		# Identity for activity logs
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
@@ -90,62 +94,107 @@ sub idle
     # Always mark all files ready to go immediately.
     eval
     {
-	$dbh = &connectToDatabase ($self);
-	die "failed to connect" if ! $dbh;
-
+	$dbh = &connectToDatabase ($self) or die "failed to connect";
         # FIXME: Pick up and process messages to me
 
-        my $stmt;
-
-	# Warn about files that cannot be routed
-	$stmt = $dbh->prepare(qq{
-		select guid, dest_final from (
-		  select d.guid guid, d.destination_node dest_final, count(r.gateway) paths
-		  from t_destinations d
-		  left join t_replica_state rs
-		    on rs.guid = d.guid
-		  left join t_routing r
-		    on r.from_node = rs.node and r.to_node = d.destination_node
-		  group by d.guid, d.destination_node)
-		where paths = 0});
-	$stmt->execute();
-	while (my $row = $stmt->fetchrow_arrayref())
+	# Select files that are not at destination yet.  We need two
+	# SQL statements, one to select files not yet at destination,
+	# another for each such file to select the best replica, the
+	# route to the next hop, and possibly existing transfer on
+	# that path.  If no such transfer exists, we create a new one.
+	foreach my $nodepat (@{$self->{NODES}})
 	{
-	    my ($guid, $dest) = @$row;
-	    next if $self->{WARNINGS}{NO_ROUTE}{$guid}{$dest};
-	    $self->{WARNINGS}{NO_ROUTE}{$guid}{$dest} = 1;
-	    &warn("@{[time()]} unroutable $guid $dest");
+	    my ($now, $nincomplete, $nrouted) = (&mytimeofday(), 0, 0);
+            my ($rstmt) = &dbprep ($dbh, qq{
+	        select
+	          rs.node,
+	          r.hops,
+	          r.gateway,
+	          r.timestamp,
+	          ts.to_node
+	        from t_replica_state rs
+	        left join t_routing r
+	          on r.from_node = rs.node and r.to_node = :dest
+	        left join t_transfer_state ts
+	          on ts.guid = rs.guid and ts.to_node = r.gateway
+	        where rs.guid = :guid
+	        order by r.hops asc nulls last});
+            my ($tstmt) = &dbprep ($dbh, qq{
+	        insert into t_transfer_state
+	        (guid, from_node, from_state, to_node, to_state,
+	         insert_time_stamp, from_time_stamp, to_time_stamp)
+	        values (:guid, :from_node, 0, :to_node, 0, :now, :now, :now)});
+            my ($dstmt) = &dbexec ($dbh, qq{
+	        select d.guid, d.destination_node
+	        from t_destinations d
+	        left join t_replica_state rs
+	          on rs.guid = d.guid and rs.node = d.destination_node
+	        where rs.node is null and d.destination_node like :pat},
+		":pat" => $nodepat);
+            while (my ($guid, $dest) = $dstmt->fetchrow())
+	    {
+	        ++$nincomplete;
+
+	        # Find best replica and route from there
+	        &dbbindexec($rstmt, ":guid" => $guid, ":dest" => $dest);
+	        my $routes = 0;
+	        while (1)
+	        {
+		    ++$routes;
+		    my ($node, $hops, $gw, $live, $transfer) = $rstmt->fetchrow();
+		    if (! defined $node && $routes == 1)
+		    {
+		        # Oops, there's no replica anywhere
+	    	        &alert ("$dest $guid: no source replica available")
+	    		    if ! $self->{WARNINGS}{UNAVAILABLE}{$guid}{$dest};
+	    	        $self->{WARNINGS}{UNAVAILABLE}{$guid}{$dest} = 1;
+		        last;
+		    }
+		    elsif (! defined $gw)
+		    {
+		        # We've exhausted available routes, complain
+	    	        &alert ("$dest $guid: no replica routable to destination"
+		    	        . " ($routes routes considered)")
+	    		    if ! $self->{WARNINGS}{NO_ROUTE}{$guid}{$dest};
+	    	        $self->{WARNINGS}{NO_ROUTE}{$guid}{$dest} = 1;
+		        last;
+		    }
+		    elsif (0 && $now - $live > 15*60)
+		    {
+		        # Best available route is down, warn and ignore it
+		        &warn ("$dest $guid: best replica at $node"
+			       . " ($hops hops via $gw) is unreachable,"
+			       . " route is @{[$now - $live]} seconds old")
+	    		    if ! $self->{WARNINGS}{ROUTE}{$guid}{$dest}{$node}{$gw};
+	    	        $self->{WARNINGS}{ROUTE}{$guid}{$dest}{$node}{$gw} = 1;
+		    }
+		    elsif (! defined $transfer)
+		    {
+		        # Live route, no existing transfer, create one
+		        &logmsg ("routing $guid to $dest from $node via $gw"
+			         . " ($hops hops, route $routes)");
+		        &dbbindexec($tstmt, ":guid" => $guid, ":now" => $now,
+			            ":from_node" => $node, ":to_node" => $gw);
+		        delete $self->{WARNINGS}{ROUTE}{$guid}{$dest}{$node}{$gw};
+		        delete $self->{WARNINGS}{UNAVAILABLE}{$guid}{$dest};
+		        delete $self->{WARNINGS}{NO_ROUTE}{$guid}{$dest};
+		        ++$nrouted;
+		        last;
+		    }
+		    else
+		    {
+		        # Route exists already
+		        last;
+		    }
+	        }
+	    }
+
+	    $dbh->commit ();
+	    &logmsg ("$nodepat: considered $nincomplete destinations,"
+		     . " $nrouted routes created in"
+		     . " @{[sprintf '%.1f', &mytimeofday() - $now]} seconds")
+	        if 1 || $nincomplete;
 	}
-
-	# For each destination of each file, select nearest replica.
-	# If it isn't in transfer already, issue a new request.  But
-	# as multiple destinations can go through a single gateway,
-	# prune out duplicates to a single transfer request.
-	my $now = time();
-	my $rows = $dbh->do(qq{
-	    insert into t_transfer_state (
-		select d.guid, rs.node, r.gateway, 0, 0, $now, $now, $now
-		from t_destinations d
-		left join t_replica_state rs
-		  on rs.guid = d.guid
-		left join t_routing r
-		  on r.from_node = rs.node
-		 and r.to_node = d.destination_node
-		left join t_transfer_state ts
-		  on ts.guid = d.guid
-		 and ts.from_node = rs.node
-		 and ts.to_node = r.gateway
-		where r.gateway is not null
-		  and ts.to_state is null
-		  and r.hops = (select min (rr.hops)
-	  			from t_routing rr, t_replica_state trs
-	  			where guid = d.guid
-				  and to_node = d.destination_node
-				  and rr.from_node = trs.node)
-		group by d.guid, rs.node, r.gateway)});
-	$dbh->commit ();
-
-	&logmsg ("$rows transfer routings added") if $rows > 0;
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
