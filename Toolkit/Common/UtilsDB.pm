@@ -1,6 +1,7 @@
 package UtilsDB; use strict; use warnings; use base 'Exporter';
 our @EXPORT = qw(connectToDatabase dbexec dbprep dbbindexec);
 use UtilsLogging;
+use UtilsTiming;
 use DBI;
 
 # Create a connection to the transfer database.  Updates the agent's
@@ -29,21 +30,28 @@ sub connectToDatabase
 	my $now = time();
 	my $mynode = $self->{MYNODE};
 	my $me = $self->{AGENTID} || $0; $me =~ s|.*/||;
-	my $agent = $dbh->selectcol_arrayref(qq{
-		select count(*) from t_agents where name = '$me'});
-	my $status = $dbh->selectcol_arrayref(qq{
-		select count(*) from t_lookup where node = '$mynode' and agent = '$me'});
+	my $agent = &dbexec($dbh, qq{
+	    select count(*) from t_agent where name = :me},
+	    ":me" => $me)->fetchrow_arrayref();
+	my $status = &dbexec($dbh, qq{
+	    select count(*) from t_agent_status
+	    where node = :node and agent = :me},
+    	    ":node" => $mynode, ":me" => $me)
+    	    ->fetchrow_arrayref();
 
-	$dbh->do(qq{insert into t_agents values ('$me')})
+	&dbexec($dbh, qq{insert into t_agent values (:me)}, ":me" => $me)
 	    if ! $agent || ! $agent->[0];
 
-	$dbh->do(qq{insert into t_lookup values ('$mynode', '$me', 1, $now)})
+	&dbexec($dbh, qq{
+	    insert into t_agent_status (timestamp, node, agent, state)
+	    values (:now, :node, :me, 1)},
+	    ":now" => &mytimeofday(), ":node" => $mynode, ":me" => $me)
 	    if ! $status || ! $status->[0];
 
-	$dbh->do(qq{
-		update t_lookup
-		set state = 1, last_contact = $now
-		where node = '$mynode' and agent = '$me'});
+	&dbexec($dbh, qq{
+	    update t_agent_status set state = 1, timestamp = :now
+	    where node = :node and agent = :me},
+	    ":now" => &mytimeofday(), ":node" => $mynode, ":me" => $me);
 	$dbh->commit();
     };
 
