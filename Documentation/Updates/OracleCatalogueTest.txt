@@ -43,3 +43,13 @@ FClistGuidPFN -u $cat -q "dataset='mu03_DY2mu'"
 
 You can vary the -j option between 1 and 200 to see what difference it will make on server load and query response time.
 
+8) Load data
+
+ssh suncmsa "cd /data/Publish/PRS; tar cf - */*/*/POOL_Catalogue_PCP*.xml" | tar xvf -
+(for f in {DC04,PTDR}/*/*/*.xml; do
+  FCpublish -d file:$f.new -u file:$f \
+    -q "pfname like 'rfio:/castor/cern.ch/cms/PCP04/%'";
+ done) >& puball-xml.txt </dev/null &
+(for f in {DC04,PTDR}/*/*/*.xml.new; do
+  FCpublish -d mysqlcatalog_mysql://cms_fcat_writer:fcat@cmslcgse02/cms_fcat -u file:$f;
+ done) >& puball-mysql.txt </dev/null &
