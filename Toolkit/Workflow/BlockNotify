@@ -1,9 +1,9 @@
 #! /usr/bin/env perl
 
 #-----------------------------------------------------------------------------------------------
-# agent name: site monitoring agent
-# purpose: monitor completeness of dataset/owner collections and triggers
-#          site specific actions like publication
+# agent name: block notification agent
+# purpose:    monitor completeness of dataset/owner collections and triggers
+#             site specific actions like publication
 #-----------------------------------------------------------------------------------------------
 
 BEGIN
