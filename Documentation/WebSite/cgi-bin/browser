@@ -136,7 +136,8 @@ sub format_size {
     my ($bytes, $nodash) = @_;
     my @bounds = ([ 2**10, 'k' ], [ 2**20, 'M' ], [ 2**30, 'G' ],
 		  [ 2**40, 'T' ], [ 2**50, 'P' ], [ 2**60, 'E' ]);
-    my ($val, $unit) = ($bytes, '');
+    my ($val, $unit, $minus) = ($bytes, '', $bytes < 0 ? "-" : "");
+    do { $val = -$val; $bytes = -$bytes; } if $minus;
     while (@bounds && $bytes >= $bounds [0][0])
     {
 	$val = $bytes / $bounds[0][0];
@@ -144,7 +145,9 @@ sub format_size {
 	shift (@bounds);
     }
 
-    return $bytes || $nodash ? sprintf('%.1f&nbsp;%sB', $val, $unit) : '&#8211;';
+    return $bytes || $nodash
+           ? sprintf('%s%.1f&nbsp;%sB', $minus, $val, $unit)
+	   : '&#8211;';
 }
 
 sub transfer {
@@ -613,7 +616,7 @@ sub rates {
     my $stampname = $db ne 'prod' ? "timestamp" : "update_stamp";
     my $q = $dbh->prepare(qq{
 			select
-			  $stampname,
+			  $stampname timestamp,
 			  time_span,
 			  info_type,
 			  from_node,
@@ -664,7 +667,7 @@ sub rates {
 			  @{$stats{$span}{'N'}}), @{$stats{$span}{'T'}})
 	{
 	    print "<tr>",
-		  "<td>", &age($now - $row->{UPDATE_STAMP}), "</td>",
+		  "<td>", &age($now - $row->{TIMESTAMP}), "</td>",
 		  ($row->{FROM_NODE}
 		   ? "<td>$row->{FROM_NODE}</td><td>$row->{TO_NODE}</td>"
 		   : "<td colspan='2'>Total</td>"),
