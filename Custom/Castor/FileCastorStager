@@ -175,6 +175,14 @@ sub guidToPFN
     return $pfns[0];
 }
 
+# Map a PFN to GUID using a catalogue
+sub guidToPFN
+{
+    my ($pfn, $catalogue, $host) = @_;
+
+    return undef;
+}
+
 sub getCatalogue
 {
     my ($dbh, $mynode) = @_;
