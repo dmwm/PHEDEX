@@ -65,10 +65,12 @@ sub end {
 sub main
 {
     my %status = ();
+    my %cats = ();
     my $query = $dbh->prepare(qq{
 	select
 	  fs.request_name,
 	  f.drop_name,
+	  d.drop_category,
 	  fs.guid,
 	  fs.location,
 	  fs.is_available,
@@ -77,14 +79,20 @@ sub main
 	from t_request_file_status fs
 	left join t_request_file f
 	  on f.request_name = fs.request_name
-	  and f.guid = fs.guid});
+	  and f.guid = fs.guid
+  	left join t_request_drop d
+	  on d.request_name = f.request_name
+	  and d.drop_name = f.drop_name});
 
     $query->execute();
-    while (my ($req, $drop, $guid, $loc, @stats) = $query->fetchrow())
+    while (my ($req, $drop, $cat, $guid, $loc, @stats) = $query->fetchrow())
     {
+	$cats{$cat} = 1;
 	$status{$req}{DROPS}{$drop} = 1;
+	$status{$req}{DROPS_IN_CAT}{$cat}{$drop} = 1;
 	$status{$req}{LOCS}{$loc} = 1;
 	$status{$req}{FILES}{$guid} = 1;
+	$status{$req}{FILES_IN_CAT}{$cat}{$guid} = 1;
 	$status{$req}{FILE_STATS}{$loc}
 	   ||= { AVAILABLE => 0, PENDING => 0, TRANSFERRED => 0 };
 	$status{$req}{FILE_STATS}{$loc}{AVAILABLE}++ if $stats[0];
@@ -94,25 +102,37 @@ sub main
     $query->finish();
 
     print "<h2>Request status</h2>\n",
-          "<table><tr>",
-	  "<th>Request</th>",
-	  "<th>Drops</th>",
-	  "<th>Files</th>",
-	  "<th>Origin</th>",
-	  "<th>Transferred</th>",
-	  "<th>Pending</th>",
-	  "<th>Available</th>",
+          "<table><tr valign='top' bgcolor='$altcolor'>",
+	  "<th rowspan='2'>Request</th>",
+	  "<th colspan='@{[scalar (keys %cats) + 1]}'>Drops</th>",
+	  "<th colspan='@{[scalar (keys %cats) + 1]}'>Files</th>",
+	  "<th rowspan='2'>Origin</th>",
+	  "<th rowspan='2'>Transferred</th>",
+	  "<th rowspan='2'>Pending</th>",
+	  "<th rowspan='2'>Available</th>",
+	  "</tr>\n",
+	  "<tr valign='top' bgcolor='$altcolor'>",
+	  "<th>Total</th>",
+	  (map { "<th>$_</th>" } sort keys %cats),
+	  "<th>Total</th>",
+	  (map { "<th>$_</th>" } sort keys %cats),
 	  "</tr>\n";
 
     foreach my $req (sort keys %status)
     {
 	my $info = $status{$req};
+	my %dincats = map { $_ => scalar keys %{$info->{DROPS_IN_CAT}{$_}} } keys %cats;
+	my %fincats = map { $_ => scalar keys %{$info->{FILES_IN_CAT}{$_}} } keys %cats;
 	my $ndrops = scalar keys %{$info->{DROPS}};
 	my $nlocs = scalar keys %{$info->{LOCS}};
 	my $nfiles = scalar keys %{$info->{FILES}};
-	print "<tr><td rowspan='$nlocs'>$req</td>",
+	my $nfiles = scalar keys %{$info->{FILES}};
+	print "<tr valign='top'>",
+	      "<td rowspan='$nlocs'>$req</td>",
 	      "<td rowspan='$nlocs'>$ndrops</td>",
-	      "<td rowspan='$nlocs'>$nfiles</td>";
+	      (map { "<td rowspan='$nlocs'>$dincats{$_}</td>" } sort keys %cats),
+	      "<td rowspan='$nlocs'>$nfiles</td>",
+	      (map { "<td rowspan='$nlocs'>$fincats{$_}</td>" } sort keys %cats);
 	my $first = 1;
         foreach my $loc (sort keys %{$info->{LOCS}})
 	{
