@@ -34,7 +34,7 @@ BEGIN {
 ######################################################################
 $ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
 $ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
-my %args = (DBITYPE => "Oracle", NJOBS => 1);
+my %args = (DBITYPE => "Oracle", NJOBS => 1, CAT_PROG => ["rfcat"]);
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
@@ -55,20 +55,22 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-prefix' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{RM_PATH_PREFIX} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-pfnquery' && scalar @ARGV > 1)
+    { shift (@ARGV); @{$args{PFN_QUERY}} = split (/,/, shift(@ARGV)); }
     elsif ($ARGV[0] eq '-jobs' && scalar @ARGV > 1)
     { shift (@ARGV); $args{NJOBS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-rfcat' && scalar @ARGV > 1)
+    { shift (@ARGV); @{$args{CAT_PROG}} = [ split (/,/, shift(@ARGV)) ]; }
     else
     { last; }
 }
 
 if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
     || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE}
-    || !$args{RM_PATH_PREFIX} || !$args{NJOBS})
+    || !$args{PFN_QUERY} || !$args{NJOBS} || !$args{CAT_PROG})
 {
     print STDERR
-	"usage: $me -node TMDB-NODE -prefix PATH-PREFIX-TO-REMOVE\n",
+	"usage: $me -node TMDB-NODE -pfnquery PFN-QUERY-SCRIPT\n",
 	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
 	"    -state IN-DROP-BOX [-jobs NUMBER] [-wait SECS-TO-WAIT]\n",
 	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n";
@@ -101,7 +103,8 @@ sub new
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
 	  	  MYNODE => undef,		# My TMDB node name
-	  	  RM_PATH_PREFIX => undef,	# Prefix to remove from PFNs
+	  	  PFN_QUERY => undef,		# Program to query PFNs
+	  	  CAT_PROG => undef,		# Program to "cat" the file
 	  	  AGENTID => "Checksum");	# Identity for activity logs
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
@@ -112,15 +115,13 @@ sub new
 # Start processing a file
 sub fileStart
 {
-    my ($self, $guid, $filesize, $assigned, $catalogue, $hostkey) = @_;
+    my ($self, $guid, $filesize) = @_;
 
     # Get the PFN for the GUID.
     my $now = &mytimeofday();
-    my $pfn = &guidToPFN ($guid, $catalogue, $hostkey);
+    my $pfn = &guidToPFN ($guid, "direct", "local", @{$self->{PFN_QUERY}});
     do { &alert ("failed to look up pfn for $guid"); return 0; } if ! $pfn;
-    $pfn =~ s|$self->{RM_PATH_PREFIX}||;
 
-    my $lfn = $pfn; $lfn =~ s|.*/||;
     my $dir = "$self->{WORKDIR}/$guid";
     do { &alert ("$dir: exists already"); return 0 } if -d $dir;
     eval { &mkpath ($dir); };
@@ -129,26 +130,23 @@ sub fileStart
     my $file = {
 	GUID		=> $guid,
 	PFN		=> $pfn,
-	LFN		=> $lfn,
 	WORKDIR		=> $dir,
 	FILESIZE	=> $filesize,
-	TIME_ASSIGNED	=> $assigned,
 	TIME_STARTED	=> $now
     };
 
     $self->{PENDING}{$guid} = 0;
-    $self->addJob (sub { $self->fileChecksummed ($file, @_) },
-	{ OUTPUT_FILE => "$file->{WORKDIR}/checksum" },
-	"sh", "-c", "rfcat $pfn | cksum > $file->{WORKDIR}/checksum");
+    $self->addJob (sub { $self->fileChecksummed ($file, "$dir/checksum", @_) },
+	{ }, "sh", "-c", "@{$self->{CAT_PROG}} $pfn | cksum > $dir/checksum");
     return 1;
 }
 
 # Respond to completed checksum.  Collect file checksum and size.
 sub fileChecksummed
 {
-    my ($self, $file, $job) = @_;
-    my $output = &input ($job->{OUTPUT_FILE});
-    unlink ($job->{OUTPUT_FILE});
+    my ($self, $file, $output_file, $job) = @_;
+    my $output = &input ($output_file);
+    unlink ($output_file);
     chomp ($output);
 
     if ($job->{STATUS}) {
@@ -176,7 +174,6 @@ sub fileComplete
     my $oldsize = $file->{FILESIZE};
     my $newsize = $file->{NEWSIZE};
     my $mynode = $self->{MYNODE};
-    my $now = time();
     my $dbh = undef;
     my $op;
 
@@ -202,16 +199,14 @@ sub fileComplete
 	# Check for an existing checksum; if there is one, make sure
 	# it's the same we got this time.  Add if there isn't one.
 	$op = "match old checksum";
-	my $oldsum = (&dbexec($dbh, qq{
-		select value from t_replica_metadata
-		where guid = :guid and attribute = 'checksum'},
-		":guid" => $guid))[0]->fetchrow_array();
-	die "$oldsum != $checksum" if defined $oldsum && $oldsum ne $checksum;
+	my $oldsum = &dbexec($dbh, qq{
+		select checksum from t_file where guid = :guid},
+		":guid" => $guid)->fetchrow_array();
+	die "$oldsum != $checksum" if defined $oldsum && $oldsum != -1 && $oldsum ne $checksum;
 
 	$op = "update checksum";
 	&dbexec($dbh, qq{
-	  insert into t_replica_metadata (guid, attribute, value)
-	    values (:guid, 'checksum', :checksum)},
+	  update t_file set checksum = :checksum where guid = :guid},
 	  ":guid" => $guid, ":checksum" => $checksum);
 
   	$op = "commit";
@@ -224,11 +219,9 @@ sub fileComplete
     undef $dbh;
 
     # Log transfer delay stats
-    $now = &mytimeofday ();
+    my $now = &mytimeofday ();
     &logmsg ("xstats: $guid $mynode $success "
-	     . sprintf ('%.2f %.2f',
-	    		$now - $file->{TIME_ASSIGNED},
-	    		$now - $file->{TIME_STARTED})
+	     . sprintf ('%.2f', $now - $file->{TIME_STARTED})
 	     . " $file->{FILESIZE}");
 
      # Mark this file no longer known to us, except if there was a
@@ -254,21 +247,13 @@ sub nextFiles
 	# Select files that need to be checksummed.  This is everything
 	# staged in at this node but without checksum.
 	my $stmt = &dbexec ($dbh, qq{
-		select rs.guid,
-		       m2.value,
-		       rs.time_stamp,
-		       n.catalogue_contact,
-		       n.host_string
+		select rs.guid, f.filesize
 		from t_replica_state rs
-		left join t_replica_metadata m1
-		  on m1.guid = rs.guid and m1.attribute = 'checksum'
-		left join t_replica_metadata m2
-		  on m2.guid = rs.guid and m2.attribute = 'filesize'
-		left join t_nodes n
-		  on n.node_name = rs.node
+		left join t_file f
+		  on f.guid = rs.guid
 		where rs.node = :node
 	  	  and rs.state = 1
-	  	  and m1.value is null},
+	  	  and f.checksum = -1},
 		":node" => $self->{MYNODE});
 	while (my $row = $stmt->fetchrow_arrayref())
 	{
