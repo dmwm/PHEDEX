@@ -10,12 +10,12 @@ sub initDropBoxAgent
     $inbox = "$dropdir/inbox";
     $workdir = "$dropdir/work";
     $outdir = "$dropdir/outbox";
-    $stopfile = "$dropdir/stop";
+    $stopflag = "$dropdir/stop";
     $pidfile = "$dropdir/pid";
 
-    if (-f $stopfile) {
+    if (-f $stopflag) {
 	&warn("removing (old?) stop flag");
-	unlink ($stopfile);
+	unlink ($stopflag);
     }
 
     if (-f $pidfile) {
@@ -42,11 +42,11 @@ sub maybeStop
 {
     # Check for the stop flag file.  If it exists, quit: remove the
     # pidfile and the stop flag and exit.
-    return if ! -f $stopfile;
+    return if ! -f $stopflag;
 
     &note("exiting from stop flag");
     unlink($pidfile);
-    unlink($stopfile);
+    unlink($stopflag);
     &stop() if defined (&stop);
     exit (0);
 }
