@@ -2,15 +2,28 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/04/07 21:22:45 $
-# $Id: configAgent.pl,v 1.23 2004/04/07 21:22:45 lat Exp $
+# $Date: 2004/07/23 14:01:56 $
+# $Id: Allocator.pl,v 1.1 2004/07/23 14:01:56 barrass Exp $
 #
-# This agent scans the FilesForTransfer table of the
-# transfer managment database. It builds a list of files marked
-# with allocated_to_t1s != 0. It cycles through this list and
-# allocates the files to certain T1s. The allocation is based on
-# information stored in the POOL file catalog in combination with
-# some configuration information.    
+# This agent handles the allocation of files to destinations. It allocates files
+# to destinations based on replica metadata and destination subscription
+# information, all which is stored in the TMDB.
+#
+# First it determines a list of guids that it hasn't yet dealt with (they have
+# allocated = 1). It queries the metadata (dataset, owner) for each
+# guid, then determines which destinations have subscribed to files characterised
+# by that metadata. It makes a guid:destination mapping for each destination in
+# the t_destinations table.
+#
+# The agent determines which node(s) in the network represent the first hop
+# toward each subscribing destination. It then makes an advertisement for those
+# first-hop nodes in the t_file_state table.
+#
+# If the dataset, owner combination is not present in the subscriptions table
+# the agent makes a blank entry, indicating that the combination is as yet
+# unallocated.
+#
+# If no destinations are found, no allocation is made.
 #
 # You should provide a working dir name on the command line:
 # a pid file will be stored there during running, and to stop the
