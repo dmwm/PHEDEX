@@ -41,23 +41,23 @@ my $g_once;				# 1 means will only run once
 # Main agent loop
 # ###############################################################
 
-my $entry = parse_command_line();
-log_entry( ENTRY => $entry );
+parse_command_line();
 
 open (PID, ">$g_work_dir/pid") || die "Pid file error $! $g_work_dir/pid\n";
 print PID "$$\n";
 close(PID);
 
 while(!(-e "$g_work_dir/stop")) {
-	if ($g_once) { system("touch $g_work_dir/stop"); }
-	
-	my @neighbours = &get_neighbours;
+    if ($g_once) { system("touch $g_work_dir/stop"); }
+    
+    log_entry( "Hello" );
 
-	foreach $neighbour (@neighbours) {
-	    log_entry( ENTRY => "Refreshing link $g_parent_node : $neighbour" );
-	    refresh_acquaintance( $neighbour );
-	}
-	
+    foreach $neighbour (&get_neighbours) {
+	refresh_acquaintance( $neighbour );
+    }
+
+    
+
 }
 
 
@@ -68,13 +68,9 @@ while(!(-e "$g_work_dir/stop")) {
 # Non-agent specific subroutines
 # ###############################################################
 sub log_entry {
-	my %args = (
-		ENTRY => 'default_log_entry',
-		@_
-	);
-	my $time = time();
-	my $localtime = localtime($time);
-	print "$localtime: $args{ENTRY}\n";
+    my $entry = shift;
+    my $localtime = localtime(time());
+    print "$localtime: $entry\n";
 }
 
 sub publish_availability {
@@ -159,50 +155,46 @@ sub get_neighbours {
     return @neighbours;	
 }
 
-sub parse_command_line () {
-	GetOptions(	'name=s' => \$g_parent_node,
-				'w=s' => \$new_work_dir,
-				'db=s' => \$g_db,
-				'dbuser=s' => \$g_db_user,
-				'dbpasswd=s' => \$g_db_passwd,
-				"no-updates" => \$g_no_updates,
-				"once" => \$g_once
-				);
-	
-	my $entry = '';
-	
-	if ($g_once) {
-		$entry = $entry."only running once,";
-	}
-	if ($g_parent_node) {
-		$entry = $entry."parent node is $g_parent_node,";
-	}
-	if (!$new_work_dir) {
-		$g_work_dir = ".";
-	} else {
-		$g_work_dir = $g_work_dir.$new_work_dir;
-	}
-	$entry = $entry."work dir is $g_work_dir,";
-	if (-e "$g_work_dir/pid") {
-		log_entry( ENTRY => "Removing old pid file");
-		unlink("$g_work_dir/pid");
-	} 
-	if (-e "$g_work_dir/stop") {
-		log_entry( ENTRY => "Removing old stop file" );
-		unlink ("$g_work_dir/stop");
-	}
-	if (!$g_db) {
-		$g_db = "devdb9";
-	}
-	$entry = $entry."database is $g_db,";
-	if ($g_no_updates) {
-		$entry = $entry."not making final updates, ";
-	}	
-	
-	print "Unprocessed by Getopt::Long\n" if $ARGV[0];
-	foreach (@ARGV) {
-	  print "$_\n";
-	}
-	
-	return $entry;
+sub parse_command_line {
+    GetOptions(	'name=s' => \$g_parent_node,
+		'w=s' => \$new_work_dir,
+		'db=s' => \$g_db,
+		'dbuser=s' => \$g_db_user,
+		'dbpasswd=s' => \$g_db_passwd,
+		"no-updates" => \$g_no_updates,
+		"once" => \$g_once
+		);
+    
+    if ($g_once) {
+	log_entry( "only running once" );
+    }
+    if ($g_parent_node) {
+	log_entry( "parent node is $g_parent_node" );
+    }
+    if (!$new_work_dir) {
+	$g_work_dir = ".";
+    } else {
+	$g_work_dir = $g_work_dir.$new_work_dir;
+    }
+    log_entry( "work dir is $g_work_dir" );
+    if (-e "$g_work_dir/pid") {
+	log_entry( "Removing old pid file");
+	unlink("$g_work_dir/pid");
+    } 
+    if (-e "$g_work_dir/stop") {
+	log_entry( "Removing old stop file" );
+	unlink ("$g_work_dir/stop");
+    }
+    if (!$g_db) {
+	$g_db = "devdb9";
+    }
+    log_entry( "database is $g_db" );
+    if ($g_no_updates) {
+	log_entry( "not making final updates " );
+    }	
+    
+    log_entry( "Following arguments unprocessed by Getopt::Long" ) if $ARGV[0];
+    foreach (@ARGV) {
+	log_entry( "$_" );
+    }
 }
