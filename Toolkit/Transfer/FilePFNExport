@@ -148,12 +148,16 @@ sub idle
 	my $now = &mytimeofday();
 
 	my $query = &dbexec($dbh,qq{
-	    select guid, to_node
-	    from t_transfer_state
-	    where from_node = :node
-	      and to_state = 1
-      	      and to_timestamp > :old
-	      and from_pfn is null},
+	    select ts.guid, ts.to_node
+	    from t_transfer_state ts
+	    left join t_replica_state rs
+	      on rs.guid = ts.guid
+	     and rs.node = ts.from_node
+	    where ((ts.from_node = :node
+	            and ts.to_state = 1
+      	            and ts.to_timestamp > :old)
+		   or rs.state = 1)
+	      and ts.from_pfn is null},
       	    ":node" => $self->{MYNODE},
 	    ":old" => $now - 15*60);
 
