@@ -1,0 +1,264 @@
+#!/usr/bin/env perl
+BEGIN
+{
+    use warnings; use strict; use Getopt::Long;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+
+#---------------------------------------------
+#     Argument parsing
+#---------------------------------------------
+
+my %args = (WAITTIME => 3600);
+
+&GetOptions ("state=s"		=> \$args{DROPDIR},
+	     "node=s"		=> \$args{MYNODE},
+	     "published=s"      => \$args{PUBLISHED},
+	     "catalogue=s"      => \$args{CAT},
+	     "catprefix=s"      => \$args{CATPREFIX},
+	     "method=s"         => \$args{PUBMETHOD},
+	     "scriptdigi=s"     => \$args{SCRIPTDIGI},
+	     "scriptdst=s"      => \$args{SCRIPTDST},
+	     "mcrunjobpublish"  => \$args{MCRUNJOBPUB},
+	     "wait=f"		=> \$args{WAITTIME});
+
+if (!$args{MYNODE} || !$args{DROPDIR} || !$args{PUBMETHOD}
+    || !$args{SCRIPTDIGI} || !$args{SCRIPTDST} || !$args{PUBLISHED}
+    || !$args{MCRUNJOBPUB} || !$args{CAT} || !$args{CATPREFIX})
+{
+    print STDERR "usage: $me -state IN-DROP-BOX -node NODENAME\n",
+	         "       -method <script/mcrunjob> -mcrunjob MCRUNJOB-COMMAND\n",
+                 "       -scriptdigi PATH-TO-HIT_DIGI_PUBLISHSCRIPT\n",
+                 "       -scriptdst PATH-TO-DST_PUBLISHSCRIPT -catalogue POOL-CONTACT\n",
+                 "       -catprefix CATALOG-PREFIX\n",
+                 "       -published FILE-WITH-TREATED-PACKETS [-wait SECONDS]\n";
+    exit 1;
+}
+
+
+my $agent = new BlockPublication (%args);
+$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
+$SIG{QUIT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
+$SIG{TERM} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
+$agent->process();
+
+################################################
+package BlockPublication; use strict; use warnings; use base 'UtilsAgent';
+use File::Path;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsCatalogue;
+use UtilsTR;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (MYNODE     => undef,          # My TMDB node name
+		  PUBMETHOD  => undef,          # method used for publishing
+                                                # (script or mcrunjob)
+		  SCRIPTDIGI => undef,          # path to script for HIT and
+                                                # DIGI datasets publishing
+		  SCRIPTDST  => undef,          # path to script for DST publishing
+		  MCRUNJOB   => undef,          # MCRUNJOB command for publishing
+		  CAT        => undef,          # local POOL catalogue contact
+		  CATPREFIX  => undef,          # Catalogue prefix to use
+		  PUBLISHED  => undef,          # file with treated owner/datasets
+		  AGENTID    => "Publication"); # Identity for activity logs
+
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+
+
+sub processDrop
+{
+    my ($self, $drop) = @_;
+
+    # Sanity checking
+    return if (! $self->inspectDrop ($drop));
+    delete $self->{BAD}{$drop};
+    &timeStart($self->{STARTTIME});
+
+    # Read back file information
+    my $dropdir = "$self->{WORKDIR}/$drop";
+    my $block = do { no strict "vars"; eval &input ("$dropdir/packet") };
+    if ($@ || !$block || !$block->{DATASET} || !$block->{OWNER} || !$block->{FILES})
+    {
+	&alert ("corrupt packet in $drop");
+	$self->markBad ($drop);
+	return;
+    }
+
+
+    # Do some consistency checks between RefDB and the catalogue we have here
+    # prior to starting the publishing
+    my $consistent = $self->checkConsistency($block);
+
+    # Perform publication and validation.  If something fails, don't worry
+    # we will get the drop once more.
+    my $publishStart = &mytimeofday();
+    my $publishOK = $self->publishBlock($block) if $consistent;
+
+    # Mark drop done so it will be nuked
+    &touch ("$dropdir/done");
+
+    # Log transfer delay stats
+    my $dtransfer = &mytimeofday() - $publishStart;
+    &logmsg ("xstats: $block->{DATASET} 0 " . sprintf('%.2f', $dtransfer));
+
+    # OK, got far enough to nuke and log it
+    $self->relayDrop ($drop);
+    if ($publishOK && $consistent)
+    {
+	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
+    }
+    else
+    {
+	&logmsg("publication and validation failed. Will retry later");
+    }
+}
+
+sub checkConsistency {
+    my ($self, $block) = @_;
+
+    # check the amount of files we have in our MySQL POOL catalogue
+    my @GuidPfnPOOL = ();
+    my @cmd = ("FClistPFN",
+	       " -u $self->{CAT}",
+	       " -q \"dataset = \'$block->{DATASET}\' and owner = \'$block->{OWNER}\'\" ",
+	       " |grep $self->{CATPREFIX} ");
+
+    @GuidPfnPOOL = `$cmd[0] $cmd[1] $cmd[2] $cmd[3]`;
+
+    if (scalar @GuidPfnPOOL != $block->{FILES})
+    {
+	&warn("Catalogue and TMDB disagree about the amount of files in this dataset" .
+	      "owner: $block->{OWNER}\ndataset: $block->{DATASET}\n" .
+	      "Catalogue files: ".scalar @GuidPfnPOOL." TMDB: $block->{FILES}");
+	return 0; # report failure
+    }
+    return 1; #report success
+}
+
+
+sub getHistory
+{
+    my ($history) = @_;
+    my @handeled = ();
+    
+    if (-e $history) {
+	open(my $histo_h,"<$history");
+	@handeled = <$histo_h>;
+	close($histo_h);
+    }
+    return @handeled;
+}
+
+sub addToHandeled
+{
+    my ($history, $dataset, $owner) = @_;
+
+    print "adding entry $dataset:$owner to history\n";
+    open(my $histo_h,">>$history");
+    print $histo_h "$owner:$dataset\n";
+    close($histo_h);
+}
+
+sub removeFromHandeled
+{
+    my ($history, $dataset, $owner) = @_;
+
+    print "removing entry $dataset:$owner from history\n";
+    open(my $histo_h,"<$history") or die "history file $history couldn't be opened !!\n";
+    my @entries = <$histo_h>;
+    close($histo_h);
+
+    open($histo_h,">$history.new");
+    foreach my $entry (@entries) {
+	print $histo_h "$entry" if ($entry !~ m|$owner\:$dataset|);
+    }
+    close($histo_h);
+    system("mv $history.new $history");
+}
+
+sub publishBlock
+{
+    my ($self, $block) = @_;
+
+    my $history = $self->{PUBLISHED};
+
+    # find out what we are dealing with (Hit, Digi, PileUp or DSTs)
+    my $pileup = grep(m|MBforPU|,$block->{DATASET});
+    my $digi = grep(m|PU|,$block->{OWNER}) if !$pileup;
+    my $hit = grep(m|Hit|,$block->{OWNER});
+    my $dst = grep(m|DST|,$block->{OWNER});
+    
+    # get the list of datasets/owners we already dealt with
+    my @entriesHandeled = &getHistory($history);
+
+    # check if we already handeled that dataset. If yes, that's all we do.
+    my $handeled = grep(m|$block->{OWNER}:$block->{DATASET}|, @entriesHandeled);
+
+    # declare the dataset/owner packet handeled,
+    # if we are dealing with (not yet handeled) Hit or PU
+    &addToHandeled($history, $block->{DATASET}, $block->{OWNER})
+	if (! $handeled && ($hit || $pileup));
+
+    # check if we have completely transfered Hit and PU
+    my $havehit = grep(m|Hit|,@entriesHandeled);
+    my $havePU = grep(m|MBforPU|,@entriesHandeled);
+
+    # start publishing if:
+    #                      1. we are dealing with a Digi owner and we have the corresponding Hits
+    #                      2. we are dealing with a DST
+    if (! $handeled && ( ($digi && $havehit) || $dst) )
+    {
+	
+	my $dir = '';
+	my @cmd = ('/bin/false');
+	$dir = `dirname $self->{SCRIPTDIGI}` if $digi;
+	$dir = `dirname $self->{SCRIPTDST}` if $dst;
+	chomp $dir;
+	print "triggering publishing of dataset: $block->{DATASET}\n";
+	print "using method: $self->{PUBMETHOD}\n";
+	
+	if ($self->{PUBMETHOD} eq 'script')
+	{
+	    @cmd = ("cd $dir; $self->{SCRIPTDIGI}",
+		" -dataset $block->{DATASET}",
+		" -owner $block->{OWNER}") if $digi;
+	    @cmd = ("cd $dir; $self->{SCRIPTDST}",
+		" -dataset $block->{DATASET}",
+		" -owner $block->{OWNER}") if $dst;
+	} elsif ($self->{PUBMETHOD} eq 'mcrunjob') {
+	    my $assid = &listAssignments($block->{DATASET},$block->{OWNER});
+	    @cmd = (" $self->{MCRUNJOB}",
+		    "",
+		    "$assid");
+	} else {
+	    &alert("unknown publishing method: $self->{PUBMETHOD} !!");
+	    return 0;
+	}
+	
+        my $err = 0;
+	print "executing command:@cmd\n";
+	# add dataset/owner to handeled file list in order to lock it
+	&addToHandeled($history, $block->{DATASET}, $block->{OWNER});
+        # my $err = &runcmd(@cmd);
+	do {&alert ("publishing didn't succeed !!");
+	    &removeFromHandeled($history,$block->{DATASET}, $block->{OWNER});
+	    return 0} if $err;
+    }
+    
+    return 1 # report success
+}
+

@@ -95,22 +95,17 @@ sub completeBlocks
 	":node" => $self->{MYNODE},
 	":now" => &mytimeofday());
  
+
+    # prepare the drop and fill in all informations required
     while (my ($dataset, $owner, $files) = $complete->fetchrow_array())
     {
 	$result->{$dataset}{$owner} = {
 	    DATASET => $dataset,
 	    OWNER => $owner,
-	    FILES => $files,
-	    OTHER_OWNERS => []
-	};
-
-	foreach my $other (keys %{$result->{$dataset}})
-	{
-	    next if $other eq $owner;
-	    push (@{$result->{$dataset}{$owner}{OTHER_OWNERS}}, $other);
-	}
+	    FILES => $files
+	    };
     }
-    
+
     return $result;
 }
 
@@ -140,7 +135,7 @@ sub idle
 		my $block = $completed->{$dataset}{$owner};
 		my $blockid = "$block->{OWNER}.$block->{DATASET}";
 		my $drop = "$self->{DROPDIR}/outbox/$blockid";
-		do { &alert ("$blockid already pending, skipping"); next; } if -d $drop;
+		do { &note ("$blockid already pending, skipping"); next; } if -d $drop;
 		do { &alert ("failed to create drop for $blockid"); &rmtree ($drop); last; }
     	            if (! &mkpath ($drop)
         		|| ! &output ("$drop/packet", Dumper ($block))
