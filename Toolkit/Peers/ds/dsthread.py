@@ -1,6 +1,6 @@
 import copy
 import inspect
-import Queue
+from ds import Queue
 import thread
 import threading
 import traceback

@@ -10,7 +10,7 @@ from ds import ui
 
 import copy
 from sets import Set
-import Queue
+from ds import Queue
 import SimpleXMLRPCServer
 import os
 import socket

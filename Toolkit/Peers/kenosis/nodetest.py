@@ -14,7 +14,7 @@ from kenosis import node
 
 RealTaskList = task.TaskList
 import gc
-import Queue
+from ds import Queue
 import random
 import socket
 import tempfile
