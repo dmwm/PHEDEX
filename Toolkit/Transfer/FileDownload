@@ -351,10 +351,10 @@ sub markFilesWanted
   	# Check how much we already marked wanted.  Only mark new
 	# files wanted if we drop below 75% of our limit.
 	my $row = $dbh->selectrow_arrayref(qq{
-		select sum(r.value)
+		select sum(m.value)
 		from t_transfer_state ts
 		left join t_replica_metadata m
-		  on ts.guid = r.guid and m.attribute = 'filesize'
+		  on ts.guid = m.guid and m.attribute = 'filesize'
 		where ts.dest_node = '$mynode' and ts.dest_state = 1});
 	return if (! defined $row || ($row->[0] || 0) > .75 * $self->{WANT_LIMIT});
 
