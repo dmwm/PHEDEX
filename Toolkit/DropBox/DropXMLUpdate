@@ -43,9 +43,6 @@ $ENV{STAGE_HOST} ||= "stagecmsprod";
 $ENV{STAGE_POOL} ||= "cms_prod2";
 
 use File::Path;
-eval qx(cat "$home/UtilsCommand.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsTiming.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsLogging.pm"); die $@ if $@;
 eval qx(cat "$home/UtilsWriters.pm"); die $@ if $@;
 eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
 

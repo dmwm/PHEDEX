@@ -45,9 +45,6 @@ my $STAGE_PENDING = 1;		# Stage-in still in progress
 my $STAGE_FAILED = 2;		# Something went bad
 
 use File::Path;
-eval qx(cat "$home/UtilsCommand.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsTiming.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsLogging.pm"); die $@ if $@;
 eval qx(cat "$home/UtilsReaders.pm"); die $@ if $@;
 eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
 

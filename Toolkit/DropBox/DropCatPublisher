@@ -29,9 +29,6 @@ my $me = $0; $me =~ s|.*/||;
 my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
 
 use File::Path;
-eval qx(cat "$home/UtilsCommand.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsTiming.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsLogging.pm"); die $@ if $@;
 eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
 
 ######################################################################

@@ -51,10 +51,6 @@ my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
 use POSIX; # qw(strftime sys_wait_h);
 use Data::Dumper;
 use File::Path;
-eval qx(cat "$home/UtilsCommand.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsTiming.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsLogging.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsRFIO.pm"); die $@ if $@;
 eval qx(cat "$home/UtilsReaders.pm"); die $@ if $@;
 eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
 
