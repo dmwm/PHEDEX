@@ -15,7 +15,7 @@ for f in $(rfdir /castor/cern.ch/cms/DSTs_801a | awk '{print $NF}'); do
 done > all-checksums
 
 echo DC04Sample.*/Drops/Pending/*/XML* |
-  xargs perl -IPHEDEX/Toolkit/Common -e '
+  perl -IPHEDEX/Toolkit/Common -e '
     use UtilsReaders;
     %info = ();
     open (CK, "< all-checksums") or die;
@@ -24,7 +24,7 @@ echo DC04Sample.*/Drops/Pending/*/XML* |
 	$info{$lfn} = [ $sum, $size ];
     }
     close (CK);
-    foreach $cat (@ARGV) {
+    foreach $cat (split(/\s+/, <STDIN>)) {
       my $s = $cat; $s =~ s|XMLCatFragment|Checksum|; $s =~ s|xml$|txt|;
       my $c = eval { &readXMLCatalogue ($cat) };
       do { print $@; close (CK); next } if $@;
