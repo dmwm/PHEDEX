@@ -224,7 +224,7 @@ sub updateCatalogue
 	# Reap finished jobs
 	my $file = $job->{FOR_FILE};
 	$file->{DONE_CATALOGUE} = 1;
-	unlink ($job->{EXTRA_FILE}) if $job->{EXTRA_FILE};
+	unlink (@{$job->{EXTRA_FILES}});
 	$file->{FAILURE} = "exit code $job->{STATUS} from @{$job->{CMD}}"
 	    if $job->{STATUS};
     }
@@ -241,7 +241,8 @@ sub updateCatalogue
 
 	    my $tmpcat = "$master->{DROPDIR}/$file->{GUID}.xml";
 	    my $xmlfrag = &genXMLCatalogue ({ GUID => $file->{GUID},
-					      PFNS => [ { TYPE => $file->{PFNTYPE}, PFN => $file->{TO_PFN} } ],
+					      PFNS => [ { TYPE => $file->{PFNTYPE},
+							  PFN => $file->{TO_PFN} } ],
 					      LFNS => [ $file->{LFN} ],
 					      META => $file->{ATTRS} });
 
@@ -252,7 +253,7 @@ sub updateCatalogue
 	    $file->{DONE_CATALOGUE} = undef;
 	    $master->addJob (
 		sub { $self->updateCatalogue ($master, $batch, @_) },
-		{ FOR_FILE => $file, EXTRA_FILE => $tmpcat,
+		{ FOR_FILE => $file, EXTRA_FILES => [ $tmpcat, "$tmpcat.BAK" ],
 		  TIMEOUT => $self->{TIMEOUT} },
 		@{$self->{PUBLISH_COMMAND}}, $file->{GUID}, $file->{TO_PFN}, $tmpcat);
 	}
