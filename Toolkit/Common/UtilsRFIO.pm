@@ -1,5 +1,6 @@
 package UtilsRFIO; use strict; use warnings; use base 'Exporter';
 our @EXPORT = qw(rfstat rfmkpath rflist rfsubdirs rffiles rfcp rfrm rfrmall rfcpmany);
+use UtilsCommand;
 
 # Check if a RFIO file exists.  Returns undef if the file
 # doesn't exist at all, otherwise the protection string.
