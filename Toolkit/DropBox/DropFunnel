@@ -595,5 +595,5 @@ sub idle
     # Check children are still running and then wait
     $self->maybeStop ();
     $self->checkWorkers ();
-    sleep ($self->{WAITTIME});
+    $self->nap ($self->{WAITTIME});
 }
