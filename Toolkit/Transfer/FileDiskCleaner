@@ -35,7 +35,7 @@ my %args = (DBITYPE => 'Oracle',
 	     "importloc=s"	=> \$args{IMPORTLOC});
 
 $args{PFN_QUERY} = [ split(/,/, $args{PFN_QUERY}) ] if $args{PFN_QUERY};
-$args{PFN_RM} = [ split(/,/, $args{PFN_QUERY}) ] if $args{PFN_RM};
+$args{PFN_RM} = [ split(/,/, $args{PFN_RM}) ] if $args{PFN_RM};
 
 if ($args{HELPME} || !$args{IMPORTLOC} || !$args{DBNAME} || !$args{DBUSER}
     || !$args{DBPASS} || !$args{MYNODE} || !$args{DROPDIR}
@@ -246,7 +246,6 @@ sub filesToDelete
 	do { &logmsg ("no pfn for $guid"); next } if ! $pfn;
 	push (@files,
 	      { GUID		=> $guid,
-		CATALOGUE	=> $catalogue,
 		PFN		=> $pfn,
 		TIME_START	=> &mytimeofday() });
     }
