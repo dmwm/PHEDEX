@@ -170,6 +170,9 @@ sub idle
 	    my $dtransfer = $nowh - $now;
     	    &logmsg ("xstats: $guid $mynode 3 "
 		    . sprintf('%.2f %.2f', $dalloc, $dtransfer));
+
+	    # Give up if we've taken too long
+	    last if time() - $now > 10*60;
 	}
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
