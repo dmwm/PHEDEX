@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/29 09:41:08 $
-# $Id: Allocator.pl,v 1.36 2004/07/29 09:41:08 barrass Exp $
+# $Date: 2004/07/29 09:46:31 $
+# $Id: Allocator.pl,v 1.37 2004/07/29 09:46:31 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -70,6 +70,7 @@ while(!(-e "$g_work_dir/stop")) {
     my %source_node_by_guid = get_source_nodes( keys %dataset_by_new_guid );
     # Do error checks!
     my $guid = '';
+    my @sql = ();
     
     my %destinations_by_dataset = &get_current_subscriptions;
     # Do error check!
@@ -83,12 +84,16 @@ while(!(-e "$g_work_dir/stop")) {
             foreach $dest ( @destinations ) {
             
                 my $gateway = lookup_route( $source_node_by_guid{$guid}, $dest );
-                my $time = time();
-                log_entry( "$guid source: $source_node_by_guid{$guid} dest: $dest via: $gateway" );
-                my $advert = "insert into t_file_state "
-                        ."values ('$guid','$gateway',1,'$source_node_by_guid{$guid}',$time)";
-                push( @adverts, $advert );
-            
+                if ( $gateway == '' ) {
+                    # Could be transient, leave it for later...
+                    log_entry( "Ag, no route from $source_node_by_guid{$guid} to $dest" );
+                } else {
+                    my $time = time();
+                    log_entry( "$guid source: $source_node_by_guid{$guid} dest: $dest via: $gateway" );
+                    my $advert = "insert into t_file_state "
+                            ."values ('$guid','$gateway',1,'$source_node_by_guid{$guid}',$time)";
+                    push( @sql, $advert );
+                }
             }
             
         } else {
@@ -96,7 +101,7 @@ while(!(-e "$g_work_dir/stop")) {
         }
     }
     
-    
+    do_sql( @sql );
 
     $time = time();
     sleep($g_period - $time + $loop_start);
