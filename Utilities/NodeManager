@@ -157,6 +157,21 @@ sub add_node {
 	new_neighbours();
 }
 
+sub add_agent {
+	my @sql = ();
+	
+	if ( 	$node_name eq '' ) {
+		display_usage();
+	}	
+	
+	log_entry( "Registering new agent name" );
+	log_entry( "Name: $node_name" );
+	
+	push( @sql, "insert into t_agents values ('$node_name')" );
+	
+	do_sql( \@sql );
+}
+
 sub remove_link {
 	my @sql = ();
 
@@ -193,7 +208,7 @@ sub remove_node {
 	# Note it also requires that there are no refrences to that node,
 	# so if there are still entries in t_file_state relating to it then
 	# they need to be dealt with (FIXME: remove-replicas)?
-	log_entry( "WARNING: currently not removing replica entries at $node_name." );
+	log_entry( "WARNING: currently not handling replica entries at $node_name. Read routinf.tex for strategies- you may for example want to redirect all existing transfers advertised for $node_name by hand. Parts of this transaction will fail if there are any references to the node in t_file_state" );
 	
 	# Remove routes
 	push( @sql, "delete from t_routing where from_node = '$node_name'" );
@@ -222,7 +237,9 @@ sub act_on_state {
 		new_neighbours();
 	} elsif ( $state eq "remove-link" ) {
 		remove_link();
-	}else {
+	} elseif ( $state eq "add-agent" ) {
+		add_agent(); 
+	} else {
 		display_usage();
 	}
 }
@@ -236,10 +253,11 @@ sub log_entry {
 
 sub display_usage {
 	print "Usage:\n";
-	print "  $me add-node \t\t-name <node_name>\n\t\t\t\t\t-host <host_string>\n\t\t\t\t\t-cat <catalogue_uri>\n\t\t\t\t\t-neighbours <neighbour1>,<neighbour2>,<...\n";
-	print "  $me remove-node \t\t-name <node_name>\n";
-	print "  $me new-neighbours \t-name <node_name> \n\t\t\t\t\t-neighbours <neighbour1>,<neighbour2>,<...\n";
-	print "  $me remove-link \t-name <node_name> \n\t\t\t\t\t-neighbours <neighbour1>,<neighbour2>,<...\n";
+	print "  $me add-node \t\t-name <node_name>\n\t\t\t\t\t-host <host_string>\n\t\t\t\t\t-cat <catalogue_uri>\n\t\t\t\t\t-neighbours <neighbour1>,<neighbour2>,<...\n\t\t\t\t\t[-db <dbname>\n\t\t\t\t\t-user <username> -password <password>]\n";
+	print "  $me remove-node \t\t-name <node_name>\n\t\t\t\t\t[-db <dbname>\n\t\t\t\t\t-user <username> -password <password>]\n";
+	print "  $me new-neighbours \t-name <node_name> \n\t\t\t\t\t-neighbours <neighbour1>,<neighbour2>,<...\n\t\t\t\t\t[-db <dbname>\n\t\t\t\t\t-user <username> -password <password>]\n";
+	print "  $me remove-link \t-name <node_name> \n\t\t\t\t\t-neighbours <neighbour1>,<neighbour2>,<...\n\t\t\t\t\t[-db <dbname>\n\t\t\t\t\t-user <username> -password <password>]\n";
+	print "  $me add-agent \t-name <agent_name> \n\t\t\t\t\t[-db <dbname>\n\t\t\t\t\t-user <username> -password <password>]\n";
 	exit(1);
 }
 

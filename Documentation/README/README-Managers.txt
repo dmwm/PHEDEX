@@ -4,9 +4,9 @@
 \ql \li0\ri0\widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin0\itap0 \lang2057\langfe1033\cgrid\langnp2057\langfenp1033 \snext0 Normal;}{\*\cs10 \additive Default Paragraph Font;}{\*
 \ts11\tsrowd\trftsWidthB3\trpaddl108\trpaddr108\trpaddfl3\trpaddft3\trpaddfb3\trpaddfr3\trcbpat1\trcfpat1\tscellwidthfts0\tsvertalt\tsbrdrt\tsbrdrl\tsbrdrb\tsbrdrr\tsbrdrdgl\tsbrdrdgr\tsbrdrh\tsbrdrv 
 \ql \li0\ri0\widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin0\itap0 \fs20\lang1024\langfe1024\cgrid\langnp1024\langfenp1024 \snext11 Normal Table;}{\*\cs15 \additive \ul\cf2 \sbasedon10 \styrsid4148593 Hyperlink;}{\*\cs16 \additive \i 
-\sbasedon10 \styrsid4148593 Emphasis;}}{\*\rsidtbl \rsid4148593}{\info{\author Tim Barrass}{\operator Tim Barrass}{\creatim\yr2004\mo8\dy19\min36}{\revtim\yr2004\mo8\dy19\hr7\min32}{\version6}{\edmins375}{\nofpages3}{\nofwords469}{\nofchars2677}
-{\*\company University of Bristol}{\nofcharsws3287}{\vern24577}}\ftnbj\aenddoc\noxlattoyen\expshrtn\noultrlspc\dntblnsbdb\nospaceforul\formshade\horzdoc\dghspace180\dgvspace180\dghorigin1701\dgvorigin1984\dghshow0\dgvshow0
-\jexpand\viewkind1\viewscale100\pgbrdrhead\pgbrdrfoot\splytwnine\ftnlytwnine\htmautsp\nolnhtadjtbl\useltbaln\alntblind\lytcalctblwd\lyttblrtgr\lnbrkrule\nobrkwrptbl\rsidroot12669697 \fet0\sectd 
+\sbasedon10 \styrsid4148593 Emphasis;}}{\*\rsidtbl \rsid2622915\rsid4148593\rsid6703026\rsid9120230}{\info{\author Tim Barrass}{\operator Tim Barrass}{\creatim\yr2004\mo8\dy19\min36}{\revtim\yr2004\mo8\dy19\hr16\min23}{\version8}{\edmins389}{\nofpages3}
+{\nofwords532}{\nofchars3036}{\*\company University of Bristol}{\nofcharsws3728}{\vern24577}}\ftnbj\aenddoc\noxlattoyen\expshrtn\noultrlspc\dntblnsbdb\nospaceforul\hyphcaps0\formshade\horzdoc\dgmargin\dghspace180\dgvspace180\dghorigin1800\dgvorigin1440
+\dghshow0\dgvshow0\jexpand\viewkind1\viewscale100\pgbrdrhead\pgbrdrfoot\splytwnine\ftnlytwnine\htmautsp\nolnhtadjtbl\useltbaln\alntblind\lytcalctblwd\lyttblrtgr\lnbrkrule\nobrkwrptbl\rsidroot12669697 \fet0\sectd 
 \linex0\headery708\footery708\colsx708\endnhere\sectdefaultcl\sectrsid4148593\sftnbj {\*\pnseclvl1\pnucrm\pnstart1\pnindent720\pnhang{\pntxta .}}{\*\pnseclvl2\pnucltr\pnstart1\pnindent720\pnhang{\pntxta .}}{\*\pnseclvl3\pndec\pnstart1\pnindent720\pnhang
 {\pntxta .}}{\*\pnseclvl4\pnlcltr\pnstart1\pnindent720\pnhang{\pntxta )}}{\*\pnseclvl5\pndec\pnstart1\pnindent720\pnhang{\pntxtb (}{\pntxta )}}{\*\pnseclvl6\pnlcltr\pnstart1\pnindent720\pnhang{\pntxtb (}{\pntxta )}}{\*\pnseclvl7
 \pnlcrm\pnstart1\pnindent720\pnhang{\pntxtb (}{\pntxta )}}{\*\pnseclvl8\pnlcltr\pnstart1\pnindent720\pnhang{\pntxtb (}{\pntxta )}}{\*\pnseclvl9\pnlcrm\pnstart1\pnindent720\pnhang{\pntxtb (}{\pntxta )}}\pard\plain 
@@ -34,9 +34,9 @@
 \par ./NodeManager.pl add-node \\\\
 \par \tab -name B \\\\
 \par \tab -host b-host.some.internet.address \\\\
-\par \tab -cat }{\field{\*\fldinst {\insrsid4148593  HYPERLINK "http://cat-contact-string" }{\insrsid4148593 {\*\datafield 
+\par \tab -cat }{\field{\*\fldinst {\insrsid4148593  HYPERLINK "http://cat-contact-string" }{\insrsid2622915 {\*\datafield 
 00d0c9ea79f9bace118c8200aa004ba90b02000000170000001a00000068007400740070003a002f002f006300610074002d0063006f006e0074006100630074002d0073007400720069006e0067000000e0c9ea79f9bace118c8200aa004ba90b3400000068007400740070003a002f002f006300610074002d0063006f00
-6e0074006100630074002d0073007400720069006e0067000000}}}{\fldrslt {\cs15\ul\cf2\insrsid4148593\charrsid6703026 http://cat-contact-string}}}{\insrsid4148593  \\\\
+6e0074006100630074002d0073007400720069006e00670000000000}}}{\fldrslt {\cs15\ul\cf2\insrsid4148593\charrsid6703026 http://cat-contact-string}}}{\insrsid4148593  \\\\
 \par \tab -neighbours A
 \par \tab -db theDBTNSname \\\\
 \par \tab -user DBusername \\\\
@@ -70,16 +70,17 @@
 \par ./NodeManager.pl add-node \\\\
 \par \tab -name C \\\\
 \par \tab -host b-host.some.internet.address \\\\
-\par \tab -cat }{\field{\*\fldinst {\insrsid4148593  HYPERLINK "http://cat-contact-string" }{\insrsid4148593 {\*\datafield 
-00d0c9ea79f9bace118c8200aa004ba90b0200000003000000e0c9ea79f9bace118c8200aa004ba90b3400000068007400740070003a002f002f006300610074002d0063006f006e0074006100630074002d0073007400720069006e0067000000}}}{\fldrslt {\cs15\ul\cf2\insrsid4148593\charrsid6703026 
-http://cat-contact-string}}}{\insrsid4148593  \\\\
+\par \tab -cat }{\field{\*\fldinst {\insrsid4148593  HYPERLINK "http://cat-contact-string" }{\insrsid2622915 {\*\datafield 
+00d0c9ea79f9bace118c8200aa004ba90b0200000003000000e0c9ea79f9bace118c8200aa004ba90b3400000068007400740070003a002f002f006300610074002d0063006f006e0074006100630074002d0073007400720069006e00670000000000}}}{\fldrslt {
+\cs15\ul\cf2\insrsid4148593\charrsid6703026 http://cat-contact-string}}}{\insrsid4148593  \\\\
 \par \tab -neighbours A,B
 \par \tab -db theDBTNSname \\\\
 \par \tab -user DBusername \\\\
 \par \tab -password DBpassword
 \par 
 \par ! Remove linking node and restore/ create link
-\par Imagine that you\rquote ve gone throught he above process but want to remove C- then you need to remove C first, then restore the A-B link
+\par Imagine that you\rquote ve gone throught he above process but want to remove C- then you need to }{\insrsid9120230 redirect all transfers advertised for C- this can be most easily achieved by retriggering distribution at source. Then }{\insrsid4148593 
+remove C first, then restore the A-B link}{\insrsid9120230 .}{\insrsid4148593 
 \par 
 \par ./NodeManager.pl remove-node \\\\
 \par \tab -name B \\\\
@@ -93,15 +94,23 @@ http://cat-contact-string}}}{\insrsid4148593  \\\\
 \par \tab -db theDBTNSname \\\\
 \par \tab -user DBusername \\\\
 \par \tab -password DBpassword
+\par }{\insrsid2622915 
 \par 
+\par }{\insrsid4148593 
+\par }{\insrsid2622915 + Register a new agent name
 \par 
-\par 
+\par ./NodeManager.pl new-neighbours \\\\
+\par \tab -name MyAgent \\\\
+\par \tab -db theDBTNSname \\\\
+\par \tab -user DBusername \\\\
+\par \tab -password DBpassword
+\par }{\insrsid4148593 
 \par 
 \par + Reallocate files
 \par You might have some set of files that is already in distribution; you want to reallocate these files to a new destination and retrigger distribution.
 \par 
-\par Currently this script uses a trivial algorithm that retriggers distribution from the original source. It doesn\rquote t make sure that the files are available at the source (i.e. staged). More sophisticated algorithms 
-are obviously required to e.g. search back from new destination for closest replicas; ensure staging of retriggered files; subscribe the node requesting the data to the dataset; etc
+\par Currently this script uses a trivial algorithm that retriggers distribution from the original source. It doesn\rquote t make sure that the files are available at t
+he source (i.e. staged). More sophisticated algorithms are obviously required to e.g. search back from new destination for closest replicas; ensure staging of retriggered files; subscribe the node requesting the data to the dataset; etc
 \par 
 \par You can retrigger distribution based on original source node- that is, all files sourced at a certain node
 \par 
