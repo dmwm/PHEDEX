@@ -409,7 +409,7 @@ sub subs {
 	my ($ds, $files, $total, $sites) = @{$data{$ds}};
 	my $dscolor = (scalar (keys %$sites) ? '' : " bgcolor='$warncolor'");
         print "<tr valign='top'$rowcolor>",
-	      "<td$dscolor>$ds</td>",
+	      "<td$dscolor><a href='subscribe?stream=$ds'>$ds</a></td>",
 	      "<td align='right'>@{[&format_num($files)]}</td>",
 	      "<td align='right'>@{[&format_size($total)]}</td>";
 
