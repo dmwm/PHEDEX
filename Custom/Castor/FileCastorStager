@@ -172,10 +172,10 @@ sub tapeMountLoad
 sub getCatalogue
 {
     my ($dbh, $mynode) = @_;
-    return &dbexec($dbh, qq{
+    return (&dbexec($dbh, qq{
 	select catalogue_contact, host_string
 	from t_nodes where node_name = :node},
-	":node" => $mynode)->fetchrow_arrayref();
+	":node" => $mynode))[0]->fetchrow_arrayref();
 }
 
 # Purge old entries from our caches.

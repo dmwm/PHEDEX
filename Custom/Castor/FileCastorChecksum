@@ -215,10 +215,10 @@ sub fileComplete
 	# Check for an existing checksum; if there is one, make sure
 	# it's the same we got this time.  Add if there isn't one.
 	$op = "match old checksum";
-	my ($oldsum) = &dbexec($dbh, qq{
+	my $oldsum = (&dbexec($dbh, qq{
 		select value from t_replica_metadata
 		where guid = :guid and attribute = 'checksum'},
-		":guid" => $guid)->fetchrow_array();
+		":guid" => $guid))[0]->fetchrow_array();
 	die "$oldsum != $checksum" if defined $oldsum && $oldsum ne $checksum;
 
 	$op = "update checksum";
