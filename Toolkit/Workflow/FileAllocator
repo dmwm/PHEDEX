@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/09/03 16:26:31 $
-# $Id: Allocator.pl,v 1.56 2004/09/03 16:26:31 barrass Exp $
+# $Date: 2004/09/03 16:45:40 $
+# $Id: Allocator.pl,v 1.57 2004/09/03 16:45:40 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -169,7 +169,7 @@ sub get_new_guid_list {
 	."where allocated = 0 "
 	."and rownum < $g_max_guids "
 	."and t_files_for_transfer.guid = t_replica_metadata.guid "
-	."and key = 'POOL_dataset'";
+	."and attribute = 'POOL_dataset'";
 
     my %guid_list = ();
     
