@@ -349,8 +349,10 @@ sub idle
         # FIXME: Pick up and process messages to me
 
 	# Get my catalogue details, pending and stager files
+	my $tstart = &mytimeofday();
 	&purgeCache ($self->{PFN_CACHE});
 	&purgeCache ($self->{GUID_CACHE});
+	my $tpurge = &mytimeofday();
 
 	my $catalogue = &getCatalogue ($dbh, $self->{MYNODE});
 	return if ! $catalogue;
@@ -358,6 +360,7 @@ sub idle
 	my $files = $self->buildStatus ($self->getStagerFiles (@$catalogue),
 					$self->getPendingFiles ($dbh, @$catalogue));
 	return if ! $files;
+	my $tstatus = &mytimeofday();
 
 	# Update file status.  First mark everything not staged in,
 	# then as staged-in the files currently in stager catalogue.
@@ -380,6 +383,7 @@ sub idle
 	    # &logmsg ("stats: $guid @{[&formatElapsedTime($timing)]} success");
 	}
 	$dbh->commit();
+	my $tdatabase = &mytimeofday();
 
         # Determine the files that need to be staged in, in a good order
         # i.e. sorted by tape and position, then issue requests in batches.
@@ -427,6 +431,14 @@ sub idle
 	    # Sleep a bit, castor doesn't like rapid-fire request chains
 	    select (undef, undef, undef, 0.33);
 	}
+
+	my $trequests = &mytimeofday();
+	&logmsg ("timing: "
+		 . " purge=@{[sprintf '%.1f', $tpurge - $tstart]}"
+		 . " status=@{[sprintf '%.1f', $tstatus - $tpurge]}"
+		 . " database=@{[sprintf '%.1f', $tdatabase - $tstatus]}"
+		 . " requests=@{[sprintf '%.1f', $trequests - $tdatabase]}"
+		 . " all=@{[sprintf '%.1f', $trequests - $tstart]}");
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
