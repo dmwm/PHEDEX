@@ -72,14 +72,17 @@ use UtilsLogging;
 use UtilsTiming;
 use UtilsReaders;
 
-my $STAGE_RETRY = -2;		# Retry another time
-my $STAGE_NONEXISTENT = -1;	# No such file
-my $STAGE_ON_DISK = 0;		# File has been staged on disk
-my $STAGE_PENDING = 1;		# Stage-in still in progress
-my $STAGE_UNKNOWN = 2;		# Stager hasn't heard of this file
+our ($STAGE_RETRY, $STAGE_NONEXISTENT, $STAGE_ON_DISK, $STAGE_PENDING, $STAGE_UNKNOWN);
 
 sub new
 {
+    # Somehow initialising these at package level doesn't set them
+    $STAGE_RETRY = -2;		# Retry another time
+    $STAGE_NONEXISTENT = -1;	# No such file
+    $STAGE_ON_DISK = 0;		# File has been staged on disk
+    $STAGE_PENDING = 1;		# Stage-in still in progress
+    $STAGE_UNKNOWN = 2;		# Stager hasn't heard of this file
+
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
@@ -117,7 +120,7 @@ sub fileProperties
 	close (NSLS);
     }
 
-    return (1, @{$cache->{$pfn}});
+    return (1, @{$cache->{$pfn} || []});
 }
 
 # Find out files stager knows about.  Returns a reference to a hash of
@@ -155,18 +158,6 @@ sub tapeMountLoad
     return ($total, $ours);
 }
 
-# Figure out stager load level.  Returns the number of outstanding
-# requests or undef if we cannot run the necessary programs for
-# some reason.  The latter should be considered a transient error.
-sub stagerLoad
-{
-    open(STAGEQ, "stageqry -h $ENV{STAGE_HOST} -a --format status |")
-	or do { &alert ("cannot run stageqry: $!"); return undef; };
-    my $reqs = scalar (grep(/STAGEIN/, <STAGEQ>));
-    close(STAGEQ);
-    return $reqs;
-}
-
 # Update the stage-in status of a file.  If we haven't initialised
 # state data for the file, do so.  Then check if the file is staged
 # in; if so, return $STAGE_ON_DISK to indicate it's availabale.
@@ -181,9 +172,7 @@ sub checkFileStatus
     my ($self, $file, $cache, $stagedin) = @_;
     my $pfn = $file->{PFN};
 
-    # Get file properties if we don't have them.  If this fails
-    # return undef to indicate transient failure.  Otherwise if
-    # the file doesn't exist, return zero to indicate failure.
+    # Get file properties if we don't have them.
     if (! exists $file->{TAPE})
     {
 	my ($success, $tape, $pos, $size) = &fileProperties ($pfn, $cache);
@@ -403,10 +392,10 @@ sub processAllFiles
 	    # Suspend until the system load drops low enough, and then go back
 	    # to start of the loop so we reconsider staged in files and send
 	    # them out.  Also makes it safer if we get stopped.
-	    my ($tapereqs, $mytapereqs, $stagereqs) = (&tapeMountLoad(), &stagerLoad());
+	    my ($tapereqs, $mytapereqs) = &tapeMountLoad();
+	    my $stagereqs = scalar (grep(/STAGEIN/, values %$stagedin));
 	    if (! defined $tapereqs
 	        || ! defined $mytapereqs
-	        || ! defined $stagereqs
 	        || $tapereqs > $self->{MAXTAPEREQS}
 	        || $mytapereqs > $self->{MAXMYTAPEREQS}
 	        || $stagereqs > $self->{MAXSTAGEREQS})
