@@ -119,6 +119,26 @@ sub main
     print "</table>";
 }
 
+sub format_num {
+    my ($n) = @_;
+    return $n ? "$n" : '&#8211;';
+}
+
+sub format_size {
+    my ($bytes) = @_;
+    my @bounds = ([ 2**10, 'k' ], [ 2**20, 'M' ], [ 2**30, 'G' ],
+		  [ 2**40, 'T' ], [ 2**50, 'P' ], [ 2**60, 'E' ]);
+    my ($val, $unit) = ($bytes, '');
+    while (@bounds && $bytes >= $bounds [0][0])
+    {
+	$val = $bytes / $bounds[0][0];
+	$unit = $bounds[0][1];
+	shift (@bounds);
+    }
+
+    return $bytes ? sprintf('%.1f&nbsp;%sB', $val, $unit) : '&#8211;';
+}
+
 sub transfer {
     my $rows = 0;
     my $query = $dbh->prepare(qq{
@@ -134,7 +154,9 @@ sub transfer {
 		   sum(case when ts.to_state = 1 then 1 else 0 end),
 		   sum(case when ts.to_state = 1 then r3.value else '0' end),
 		   sum(case when ts.to_state = 0 then 1 else 0 end),
-		   sum(case when ts.to_state = 0 then r3.value else '0' end)
+		   sum(case when ts.to_state = 0 then r3.value else '0' end),
+		   sum(case when ts.to_state > 3 then 1 else 0 end),
+		   sum(case when ts.to_state > 3 then r3.value else '0' end)
 	    from t_files_for_transfer f
 	    cross join t_nodes n
 	    left join t_replica_state rs
@@ -155,14 +177,16 @@ sub transfer {
 	  "<th colspan='2'>In Transfer</th>",
 	  "<th colspan='2'>Wanted</th>",
 	  "<th colspan='2'>Pending</th>",
+	  "<th colspan='2'>Other</th>",
           "</tr>\n",
-	  "<tr>",
-	  "<th align='right'>N</th><th align='right'>GB</th>",
-	  "<th align='right'>N</th><th align='right'>GB</th>",
-	  "<th align='right'>N</th><th align='right'>GB</th>",
-	  "<th align='right'>N</th><th align='right'>GB</th>",
-	  "<th align='right'>N</th><th align='right'>GB</th>",
-	  "<th align='right'>N</th><th align='right'>GB</th>",
+	  "<tr bgcolor='$altcolor' valign='top'>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
           "</tr>\n";
 
     $query->execute();
@@ -173,29 +197,32 @@ sub transfer {
 	    $staged, $stagedsize,
 	    $transf, $transfsize,
 	    $wanted, $wantedsize,
-	    $pending, $pendingsize) = @$row;
+	    $pending, $pendingsize,
+	    $other, $othersize) = @$row;
         my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
 	my $onscolor = ($onsite == $files) ? '' : " bgcolor='$pendcolor'";
 	my $tracolor = (!$transf) ? '' : " bgcolor='$goodcolor'";
 	my $wancolor = (!$wanted) ? '' : " bgcolor='$goodcolor'";
-	my $pencolor = ($files != $onsite + $transf + $wanted + $pending)
+	my $pencolor = ($files != $onsite + $transf + $wanted + $pending + $other)
 		       ? " bgcolor='$warncolor'" : ! $pending ? ''
 		       : " bgcolor='$pendcolor'";
 
         print "<tr valign='top'$rowcolor>",
 	      "<td>$n</td>",
-	      "<td align='right'>$files</td>",
-	      "<td align='right'>@{[!$files ? '' : sprintf '%.1f', $filesize/(2**30)]}</td>",
-	      "<td align='right'$onscolor>$onsite</td>",
-	      "<td align='right'$onscolor>@{[!$onsite ? '' : sprintf '%.1f', $onsitesize/(2**30)]}</td>",
-	      "<td align='right'>$staged</td>",
-	      "<td align='right'>@{[!$staged ? '' : sprintf '%.1f', $stagedsize/(2**30)]}</td>",
-	      "<td align='right'$tracolor>$transf</td>",
-	      "<td align='right'$tracolor>@{[!$transf ? '' : sprintf '%.1f', $transfsize/(2**30)]}</td>",
-	      "<td align='right'$wancolor>$wanted</td>",
-	      "<td align='right'$wancolor>@{[!$wanted  ? '' : sprintf '%.1f', $wantedsize/(2**30)]}</td>",
-	      "<td align='right'$pencolor>$pending</td>",
-	      "<td align='right'$pencolor>@{[!$pending  ? '' : sprintf '%.1f', $pendingsize/(2**30)]}</td>",
+	      "<td align='right'>@{[&format_num($files)]}</td>",
+	      "<td align='right'>@{[&format_size($filesize)]}</td>",
+	      "<td align='right'$onscolor>@{[&format_num($onsite)]}</td>",
+	      "<td align='right'$onscolor>@{[&format_size($onsitesize)]}</td>",
+	      "<td align='right'>@{[&format_num($staged)]}</td>",
+	      "<td align='right'>@{[&format_size($stagedsize)]}</td>",
+	      "<td align='right'$tracolor>@{[&format_num($transf)]}</td>",
+	      "<td align='right'$tracolor>@{[&format_size($transfsize)]}</td>",
+	      "<td align='right'$wancolor>@{[&format_num($wanted)]}</td>",
+	      "<td align='right'$wancolor>@{[&format_size($wantedsize)]}</td>",
+	      "<td align='right'$pencolor>@{[&format_num($pending)]}</td>",
+	      "<td align='right'$pencolor>@{[&format_size($pendingsize)]}</td>",
+	      "<td align='right'>@{[&format_num($other)]}</td>",
+	      "<td align='right'>@{[&format_size($othersize)]}</td>",
 	      "</tr>\n";
     }
     $query->finish();
@@ -265,8 +292,8 @@ sub replicas {
 	  (map { "<th colspan='2'>$_</th>" } sort keys %sites),
           "</tr>\n",
 	  "<tr bgcolor='$altcolor' valign='top'>",
-	  "<th align='right'>N</th><th align='right'>GB</th>",
-	  (map { "<th align='right'>N</th><th align='right'>GB</th>" } sort keys %sites),
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  (map { "<th align='right'>N</th><th align='right'>Size</th>" } sort keys %sites),
 	  "</tr>\n";
 
     foreach my $dso (sort keys %data)
@@ -278,9 +305,7 @@ sub replicas {
 	      "<td>$o</td>",
 	      "<td align='right'>$runs</td>",
 	      "<td align='right'>$files</td>",
-	      "<td align='right'>",
-	      (!$files ? "&nbsp;" : sprintf('%.1f', $total/(2**30))),
-	      "</td>";
+	      "<td align='right'>@{[&format_size($total)]}</td>";
 
 	foreach my $site (sort keys %sites)
 	{
@@ -288,10 +313,8 @@ sub replicas {
 	    {
 		my ($sfiles, $stotal) = @{$sites->{$site}};
 		my $scolor = ($sfiles == $files) ? '' : " bgcolor='$pendcolor'";
-		print "<td$scolor align='right'>$sfiles</td>",
-		      "<td$scolor align='right'>",
-		      (!$sfiles ? "&nbsp;" : sprintf('%.1f', $stotal/(2**30))),
-		      "</td>";
+		print "<td$scolor align='right'>@{[&format_num($sfiles)]}</td>",
+		      "<td$scolor align='right'>@{[&format_size($stotal)]}</td>";
 	    }
 	    else
 	    {
@@ -348,7 +371,7 @@ sub subs {
 	  (map { "<th rowspan='2'>$_</th>" } sort keys %sites),
           "</tr>\n",
 	  "<tr bgcolor='$altcolor' valign='top'>",
-	  "<th align='right'>Count</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
 	  "</tr>\n";
 
     foreach my $ds (sort keys %data)
@@ -358,10 +381,8 @@ sub subs {
 	my $dscolor = (scalar (keys %$sites) ? '' : " bgcolor='$warncolor'");
         print "<tr valign='top'$rowcolor>",
 	      "<td$dscolor>$ds</td>",
-	      "<td align='right'>$files</td>",
-	      "<td align='right'>",
-	      (!$files ? "&nbsp;" : sprintf('%.1f', $total/(2**30))),
-	      "</td>";
+	      "<td align='right'>@{[&format_num($files)]}</td>",
+	      "<td align='right'>@{[&format_size($total)]}</td>";
 
 	foreach my $site (sort keys %sites)
 	{
@@ -473,7 +494,7 @@ sub get_field_from_table {
     my $query = $dbh->prepare($selection);
     $query->execute;
     while (my @row = $query->fetchrow_array) {
-        push(@list,@row[0]);
+        push(@list,$row[0]);
     }
     $query->finish();
 
@@ -715,14 +736,14 @@ sub filesize_info {
 	= filesize_data (AGENT => $args{AGENT}, STEP => $bin_size,
 			 DB_TNSNAME => $args{DB_TNSNAME});
 
-    print (" <table>",
+    print " <table>",
 	   "  <tr align=right><td># files</td><td>$count</td><td>&nbsp;</td></tr>\n",
            "  <tr align=right><td>total</td><td>@{[sprintf '%.1f', $total / 1024]}</td><td>&nbsp;GB</td></tr>\n",
 	   "  <tr align=right><td>min</td><td>@{[sprintf '%.1f', $min * 1024]}</td><td>&nbsp;kB</td></tr>\n",
 	   "  <tr align=right><td>max</td><td>@{[sprintf '%.1f', $max]}</td><td>&nbsp;MB</td></tr>\n",
     	   "  <tr align=right><td>mean</td><td>@{[sprintf '%.1f', $avg]}</td><td>&nbsp;MB</td></tr>\n",
 	   "  <tr align=right><td>median</td><td>@{[sprintf '%.1f', $median * 1024]}</td><td>&nbsp;kB</td></tr>\n",
-	   " </table>\n");
+	   " </table>\n";
 
     print "<hr>\n";
 
