@@ -95,11 +95,11 @@ sub idle
 	    &dbbindexec ($archive, map { (":$_" => $row->{$_}) } keys %$row);
 	    &dbbindexec ($retire, ":guid" => $row->{GUID},
 		         ":to_node" => $row->{TO_NODE});
+	    $dbh->commit();
 	    ++$rows;
 	}
 
 	&logmsg ("$rows completed transfers archived") if $rows;
-	$dbh->commit();
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
