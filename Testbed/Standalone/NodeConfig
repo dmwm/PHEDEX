@@ -1,0 +1,74 @@
+#### NODE
+### ENVIRON
+PHEDEX_BASE=<base>
+PHEDEX_SCRIPTS=<base>/PHEDEX;
+PHEDEX_LOGS=<base>/<node>/logs;
+PHEDEX_STATE=<base>/<node>/state;
+PHEDEX_CUSTOM=<base>/<node>/node;
+
+PHEDEX_CATALOGUE=<cat>;
+
+PHEDEX_TMDB_USER=<user>;
+PHEDEX_TMDB_PASS=<pass>;
+PHEDEX_TMDB=<db>;
+PHEDEX_NODE=<node>;
+
+export PATH=/afs/cern.ch/sw/lcg/app/spi/scram:${PATH}
+eval `cd /afs/cern.ch/sw/lcg/app/releases/POOL/POOL_1_6_4/src; scram -arch rh73_gcc323 runtime -sh`;
+
+#### Drop box agents
+### AGENT LABEL=inject-tmdb PROGRAM=Toolkit/DropBox/DropTMDBPublisher STATEOPT=in STATELINK=entry
+ -db ${PHEDEX_TMDB}
+ -dbuser ${PHEDEX_TMDB_USER}
+ -dbpass ${PHEDEX_TMDB_PASS}
+ -node ${PHEDEX_NODE}
+ -wait 7
+
+#### Export-side agents
+### AGENT LABEL=exp-master PROGRAM=Toolkit/Transfer/FileDiskExport
+ -node ${PHEDEX_NODE}
+ -db ${PHEDEX_TMDB}
+ -dbuser ${PHEDEX_TMDB_USER}
+ -dbpass ${PHEDEX_TMDB_PASS}
+ -wait 7
+
+### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -node ${PHEDEX_NODE}
+ -db ${PHEDEX_TMDB}
+ -dbuser ${PHEDEX_TMDB_USER}
+ -dbpass ${PHEDEX_TMDB_PASS}
+ -pfnquery ${PHEDEX_CUSTOM}/PFNLookup,-u,${PHEDEX_CATALOGUE}
+ -wait 7
+
+#### Download agents
+### AGENT LABEL=download-master PROGRAM=Toolkit/Transfer/FileDownload
+ -node ${PHEDEX_NODE}
+ -db ${PHEDEX_TMDB}
+ -dbuser ${PHEDEX_TMDB_USER}
+ -dbpass ${PHEDEX_TMDB_PASS}
+ -backend Globus
+ -command cp
+ -pfndest $PHEDEX_CUSTOM/DownloadDest
+ -delete $PHEDEX_CUSTOM/DownloadDelete
+ -validate $PHEDEX_CUSTOM/DownloadVerify
+ -publish $PHEDEX_CUSTOM/DownloadPub
+ -wanted 150G
+ -jobs 7
+ -wait 7
+
+#### Management agents
+### AGENT LABEL=mgmt-rtab PROGRAM=Toolkit/Infrastructure/NodeRouter
+ -nodes ${PHEDEX_NODE}
+ -db ${PHEDEX_TMDB}
+ -dbuser ${PHEDEX_TMDB_USER}
+ -dbpass ${PHEDEX_TMDB_PASS}
+ -wait 600
+
+#### Start monitoring
+### AGENT LABEL=info-as PROGRAM=Toolkit/Monitoring/InfoDropStatus
+ -site Testbed
+ -dir ${PHEDEX_STATE}
+ -db ${PHEDEX_TMDB}
+ -dbuser ${PHEDEX_TMDB_USER}
+ -dbpass ${PHEDEX_TMDB_PASS}
+ -wait 60

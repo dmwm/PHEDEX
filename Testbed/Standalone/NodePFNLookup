@@ -1,0 +1,10 @@
+#!/bin/sh
+args=
+while [ $# -ge 1 ]; do
+  case $1 in
+    -u ) args="$args $1 $2"; shift; shift;;
+    -g | -p | -x | -m ) args="$args $1"; shift;;
+  esac
+done
+shift; shift
+<base>/PHEDEX/Utilities/PFClistGuidPFN -j 10 $args ${1+"$@"} | grep /<node>/
