@@ -8,6 +8,9 @@ ln -s null entry
 mkdir -p {null,xml,exist,mrg,out,ref}
 rm -fr {null,xml,exist,mrg,out,ref}/{inbox,work}/*
 
+mkdir -p entry/inbox
+echo V2DC04Sample/Drops/Pending/* | xargs cp -rp --target-directory entry/inbox
+
 # FIXME: also run in "maximal mode", first putting everything through to funnel
 # inbox, then running funnel maxed out on its entire collection of drops
 
