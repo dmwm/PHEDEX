@@ -1,0 +1,54 @@
+#!/usr/bin/perl
+
+# Create a new transfer request.
+#
+# Usage: TRNew REQUEST [AREA]
+#
+# REQUEST is the name of the new request, must be unique, and
+# must not exist yet.  Creates the necessary directory structure
+# in AREA (default: current working directory) and in the request
+# database.
+#
+# The request is initialisd empty.  Use TRFIXME to add data to
+# it.  This [FIXME]
+#
+# DIR
+#   RequestInfo
+#     DatasetPatterns > Datasets
+#      > DSOwnerPatterns > DSOwners
+#      > Assignments (expand Dataset > Digi/DST -> Hit)
+#     (other metadata?)
+#
+#   AssignmentData
+#   AssignmentInfo
+#   Drops
+#
+# Record in database too
+
+# use DBI;
+use UtilsNet;
+use File::Path;
+use Cwd;
+
+my $request = shift;
+my $area = shift || &getcwd();
+
+defined $request && defined $area
+  or die "usage: $0 REQUEST [AREA]\n";
+
+# my $dbh = DBI->connect ("DBI:Oracle:$db", "cms_transfermgmt_reader",
+# 			"slightlyJaundiced", { RaiseError => 1, AutoCommit => 1 });
+
+# Create the area
+! -e "$area/$request" or die "$area/$request: exists\n";
+eval { &mkpath ([ "$area/$request/Request",
+		  "$area/$request/AssignmentData",
+		  "$area/$request/AssignmentInfo",
+		  "$area/$request/Drops" ]); };
+die "$area/$request: cannot create request structure: $@\n" if $@;
+
+# Create ticket
+(open (TICKET, "> $area/$request/Request/Ticket")
+ && print(TICKET "@{[time()]} CMD TRNEW @{[scalar getpwuid($<)]}\@@{[&getfullhostname()]}\n")
+ && close (TICKET))
+    or die "$request: cannot create ticket: $!\n";

@@ -1,0 +1,149 @@
+#!/usr/bin/perl
+
+##H Expands data selection for a transfer request.
+##H
+##H Usage: TRNewData [-r] { -p | -f | -a } REQUEST [FILE...]
+##H
+##H REQUEST is the request directory previously created with TRNew.
+##H If the "-r" option is used, cancels previous data selections;
+##H otherwise appends new items to the list.
+##H
+##H The files given on the command line are read for the names of
+##H the data selection patterns; the "-p", "-f" or "-a" option
+##H indicates how the patterns should be interpreted.  If "-p"
+##H is used, each pattern is taken to be a "dataset.owner" pattern,
+##H and anything matching that pattern will be selected.  If "-f"
+##H is used, it is assumed that the patterns only select dataset
+##H names, and the script will automatically query the digi/dst
+##H owners, and from them the hit owners.  If "-a" is used, the
+##H patterns are taken to be assignment numbers.
+##H
+##H The patterns are expanded into a list of dataset.owner pairs
+##H and further into assignment numbers.  The assignments are
+##H what will eventually be injected into the transfer.
+##H
+##H This script updates the transfer request ticket.
+#
+# FIXME: At the end (e.g. as a sole operation if no FILEs are
+# given), check through the ticket history and complain if the
+# list of the dataset/dataset.owner/assignment expansions from
+# the patterns have changed.
+
+use UtilsNet;
+use File::Path;
+use Cwd;
+
+my $now = time();
+my $help = 0;
+my $reset = 0;
+my $mode = undef;
+my $request = undef;
+my @files = ();
+
+sub usage
+{
+    print STDERR @_;
+    open (ME, "< $0")
+        && print(STDERR map { s/^\#\#H ?//; $_ } grep (/^\#\#H/, <ME>))
+	&& close(ME);
+    exit(1);
+}
+
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+	$help = 1; shift (@ARGV);
+    } elsif ($ARGV[0] eq '-r') {
+	$reset = 1; shift (@ARGV);
+    } elsif ($ARGV[0] =~ '^-([pfa])$') {
+	$mode = $1; shift (@ARGV);
+    } elsif ($ARGV[0] eq '--') {
+	shift (@ARGV); last;
+    } elsif ($ARGV[0] =~ '^-') {
+	&usage ("$0: unrecognised option $ARGV[0]\n\n");
+    } else {
+	last;
+    }
+}
+
+$request = shift;
+@files = @ARGV;
+
+&usage() if $help;
+defined $request or &usage();
+-f "$request/Request/Ticket" or die "$request: not a transfer request\n";
+&usage() if (! defined $mode && scalar @files);
+
+my @userpats = &readPatterns (@files);
+my @patterns = &expandPatterns ($mode, @userpats);
+my @assids   = &expandAssignments (@patterns);
+
+# Append to the ticket
+(open (TICKET, ">> $request/Request/Ticket")
+ && print(TICKET "$now CMD TRNEWDATA @{[scalar getpwuid($<)]}\@@{[&getfullhostname()]}\n")
+ && (! $reset || print(TICKET "$now CANCEL DATA\n"))
+ && (print(TICKET "$now DATA UPATS.$mode @userpats\n"))
+ && (print(TICKET "$now DATA XPATS.$mode @patterns\n"))
+ && (print(TICKET "$now DATA ASSIDS @assids\n"))
+ && close (TICKET))
+    or die "$request: cannot update ticket: $!\n";
+
+# Read the pattern files.  Reads each file, splits it at white
+# space, and returns the list of all patterns in all the files.
+sub readPatterns
+{
+    my (@files) = @_;
+    my @patterns = ();
+    foreach my $file (@files)
+    {
+	if ($file =~ /^\@(.*)/) {
+	    open (FILE, "< $1") or die "$1: cannot read\n";
+	    push(@patterns, map { chomp; split(/\s+/, $_); } <FILE>);
+	    close (FILE);
+	} else {
+	    push(@patterns, $file);
+	}
+    }
+
+    return @patterns;
+}
+
+# Expand patterns according to the operating mode.  Returns the
+# list of all dataset.owner pairs that match the mode and the
+# input patterns.
+sub expandPatterns 
+{
+    my ($mode, @patterns) = @_;
+
+    # If "-a" option, the patterns are really assignment numbers
+    return @patterns if $mode eq 'a';
+
+    # If "-f" or "-p" option, the patterns are dataset.owners.
+    # For "-p", expand to the matching pairs.  For "-f", expand
+    # the resulting list by navigating backwards using assignment
+    # InputOwnerName in the DST/Digi/Hits chain.
+
+    open(LIST, "./RefDBList @patterns |")
+	or die "cannot run RefDBList: $!\n";
+    @patterns = map { chomp; $_ } <LIST>;
+    close (LIST);
+
+    return @patterns if mode eq 'p';
+
+    # FIXME: get assignment info, and walk to InputOwnerName
+    return @patterns;
+}
+
+# Expand patterns to assignment ids
+sub expandAssignments
+{
+    my @patterns = @_;
+    my @assignments = ();
+
+    open(LIST, "./RefDBAssignments @patterns |") 
+	or die "cannot run RefDBAssignments: $!\n";
+    push (@assignments, map { chomp; split (/\s+/, $_) } <LIST>);
+    close (LIST);
+
+    return @assignments;
+}
