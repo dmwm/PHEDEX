@@ -31,7 +31,7 @@ BEGIN {
 }
 
 ######################################################################
-my %args = (NWORKERS => 2);
+my %args = (NJOBS => 5);
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-in' && scalar @ARGV > 1)
@@ -42,39 +42,28 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{DRYRUN} = 1; }
     elsif ($ARGV[0] eq '-remove')
     { shift (@ARGV); $args{CLEAN} = 1; }
-    elsif ($ARGV[0] eq '-prefetch')
-    { shift (@ARGV); $args{PREFETCH} = 1; }
     elsif ($ARGV[0] eq '-store' && scalar @ARGV > 1)
     { shift (@ARGV); $args{OUTPUT} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
-    { shift (@ARGV); $ENV{STAGE_HOST} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
-    { shift (@ARGV); $ENV{STAGE_POOL} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-workers' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{NWORKERS} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-rfcp' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{NRFCP} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-queue' && scalar @ARGV > 2)
+    elsif ($ARGV[0] eq '-jobs' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{NJOBS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-queue' && scalar @ARGV > 3)
     { shift (@ARGV); push (@{$args{QUEUECONFS}}, [ $ARGV[0], $ARGV[1], $ARGV[2] ]);
       shift (@ARGV); shift (@ARGV); shift (@ARGV); }
     else
     { last; }
 }
 	
-if (scalar @ARGV || !$args{DROPDIR} || !$ENV{STAGE_HOST} || !$ENV{STAGE_POOL}
-    || ($args{DRYRUN} && $args{CLEAN}))
+if (scalar @ARGV || !$args{DROPDIR} || ($args{DRYRUN} && $args{CLEAN}))
 {
     print STDERR
 	"usage: $me -in IN-DROP-BOX\n",
 	"    [-queue NAME TIME-LIMIT SIZE-LIMIT]...\n",
 	"    { [-dryrun] | [-remove] [-store RFIO-OUTPUT-PATH] }\n",
-	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n",
-	"    [-out NEXT-DROP-BOX] [-wait SECS-TO-WAIT]\n",
-	"    [-rfcp N-PARALLEL-DOWNLOADS]\n",
-	"    [-workers NUM-WORKERS] [-prefetch]\n";
+	"    [-out NEXT-DROP-BOX] [-wait SECS-TO-WAIT] [-jobs NUM-JOBS]\n";
     exit (1);
+
 }
 
 (new DropFunnel (%args))->process();
@@ -82,7 +71,6 @@ if (scalar @ARGV || !$args{DROPDIR} || !$ENV{STAGE_HOST} || !$ENV{STAGE_POOL}
 ######################################################################
 # Routines specific to this agent.
 package DropFunnel; use strict; use warnings; use base 'UtilsAgent';
-use Data::Dumper;
 use File::Path;
 use UtilsCommand;
 use UtilsLogging;
@@ -101,12 +89,14 @@ sub new
 	    	  DRYRUN => 1,		# Flag to indicate zip creation or logging only
 		  CLEAN  => 0,		# Flag to indicate if we should remove originals
 		  OUTPUT => undef,	# Path for output zips
-		  PREFETCH => 0,	# Flag for prefetching files when idle
-		  NRFCP => 5,		# Number of parallel rfcp jobs
+		  WAITLIST => {},	# Drops and files pending processing
+		  FLUSHED => [],	# Flushed queues
 		  QUEUES => {});	# Queue status
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
+
+    &rmtree ("$self->{WORKDIR}/queues");
     return $self;
 }
 
@@ -140,7 +130,7 @@ sub fileProperties
 # Check and possibly create a queue assignment for a file.
 sub assignFile
 {
-    my ($self, $queues, $file) = @_;
+    my ($self, $file) = @_;
 
     # Get the GUID.
     my $drop = $file->{DROP};
@@ -149,51 +139,30 @@ sub assignFile
     return 0 if ! $guid;
 
     # Check for existing assignments.
-    my $dropdir = "$self->{WORKDIR}/$drop";
-    my @assigned = map { s|.*/QUEUED.$guid.||; $_ } <$dropdir/QUEUED.$guid.*>;
-    return 1 if (scalar @assigned == 1);
-    do { &alert ("$drop/$guid assigned to more than one queue: "
-		 . join(', ', @assigned)); return 0; }
-        if (scalar @assigned > 1);
+    return 1 if $self->{WAITLIST}{$drop}{$guid} >= 0;
 
     # Unassigned, determine what we should do with it.
     return 0 if ! $self->fileProperties ($file) || ! $file->{QUEUE};
 
-    my $q = $file->{QUEUE};
-    my $mytime = (stat("$dropdir/go"))[9];
-    $queues->{$q} ||= { START => time, &queueType ($q), MEMBERS => {} };
-    $queues->{$q}{START} = $mytime if $queues->{$q}{START} > $mytime;
+    my $qname = $file->{QUEUE};
+    my $mytime = (stat("$self->{WORKDIR}/$drop/go"))[9];
+    my $now = time();
 
-    return 0 if ! &touch ("$dropdir/QUEUED.$guid.$q");
-    &logmsg("assigning $drop/$guid/$lfn to $q");
-    $queues->{$q}{MEMBERS}{$guid} = $file;
-    $queues->{$q}{DIRTY} = 1;
+    &logmsg ("state: start $drop @{[&mytimeofday()]}")
+	if ! exists $self->{WAITLIST}{$drop};
+    $self->{WAITLIST}{$drop}{$guid} = 0;
+
+    &logmsg("assigning $drop/$guid/$lfn to $qname");
+    my $q = $self->{QUEUES}{$qname} ||= {
+	START => $now, &queueType ($qname), MEMBERS => [],
+	PENDING => 0, NAME => $qname, LFN => "Zipped$qname.$now",
+	WORKDIR => "$self->{DROPDIR}/queues/Zipped$qname.$now" };
+    $q->{START} = $mytime if $q->{START} > $mytime;
+    push(@{$q->{MEMBERS}}, $file);
     return 1;
 }
 
 ######################################################################
-# Get the names of the currently maintained queues.
-sub currentQueues
-{
-    my $self = shift;
-    my @items;
-    getdir ("$self->{DROPDIR}/queues", \@items);
-    return @items;
-}
-
-# Return the working directory for a queue.  Create the directory if
-# it doesn't exist yet.  The queue directory contains current file
-# assignments.  It is also where we download the files, create the
-# archive and make a drop when the time comes to it.
-sub queueDirectory
-{
-    my ($self, $name) = @_;
-    my $queuedir = "$self->{DROPDIR}/queues/$name";
-    eval { &mkpath ($queuedir); };
-    do { &alert ("cannot create queue directory $queuedir: $@"); return undef; } if $@;
-    return $queuedir;
-}
-
 # Return hash parameters to characterise queue by its name
 sub queueType
 {
@@ -206,76 +175,16 @@ sub queueType
 	    STREAM => $stream);
 }
 
-# Return the current assignments to the queue.
-sub readQueueStatus
-{
-    my ($self, $name) = @_;
-
-    # Determine queue location
-    my $dir = $self->queueDirectory ($name);
-
-    # Restore contents
-    my $state = do { no strict "vars"; eval &input ("$dir/state") };
-    if ($@)
-    {
-	&alert ("internal error when restoring queue state for $name: $@");
-	return undef;
-    }
-
-    $state->{DIRTY} = 0;
-
-    # Validate queue properties
-    my $bad = (! exists $state->{START}
-	       || ! exists $state->{MEMBERS}
-	       || ! exists $state->{NAME}
-	       || ! exists $state->{TYPE}
-	       || ! exists $state->{CATEGORY}
-	       || ! exists $state->{DATASET}
-	       || ! exists $state->{OWNER}
-	       || ! exists $state->{STREAM});
-
-    # Validate the data about each file
-    foreach my $member (values %{$state->{MEMBERS}})
-    {
-	$bad = 1 if (! $member->{FILE} 
-	             || ! $member->{DROP}
-	             || ! $member->{QUEUE});
-	last if $bad;
-    }
-
-    if ($bad)
-    {
-	&alert ("corrupt queue state $name");
-	return undef;
-    }
-
-    return $state;
-}
-
-# Update the assignments to the queue on disk.
-sub saveQueueStatus
-{
-    my ($self, $name, $data) = @_;
-    return 1 if ! $data->{DIRTY};
-
-    my $dir = $self->queueDirectory ($name);
-    do { &alert ("cannot update queue state for $name"); return 0; }
-	if ! &output ("$dir/state", Dumper ($data));
-
-    $data->{DIRTY} = 0;
-    return 1;
-}
-
 # Return properties for a named queue.  Uses the configuration
 # parameters given on command line.  Default queue properties
 # are 30min/1.5GB expiry.
 sub queueLimits
 {
-    my ($self, $queue) = @_;
+    my ($self, $qname) = @_;
     my $props = { AGE => 30 * 60, SIZE => 1500 }; # 30 mins, 1.5GB
     foreach my $conf (@{$self->{QUEUECONFS}})
     {
-	if ($queue =~ /$conf->[0]/)
+	if ($qname =~ /$conf->[0]/)
 	{
 	    $props->{AGE} = $conf->[1];
 	    $props->{SIZE} = $conf->[2];
@@ -289,57 +198,17 @@ sub queueLimits
 # Calcuate queue statistics
 sub queueStats
 {
-    my ($self, $qdata) = @_;
+    my ($self, $q) = @_;
     my $qstat = {};
     $qstat->{MEMBERS} = 0;
     $qstat->{SIZE} = 0;
-    $qstat->{AGE} = time - $qdata->{START};
-    foreach my $m (values %{$qdata->{MEMBERS}})
+    $qstat->{AGE} = time - $q->{START};
+    foreach my $m (@{$q->{MEMBERS}})
     {
 	$qstat->{SIZE} += $m->{FILE}{FILESIZE} / (1024*1024);
 	$qstat->{MEMBERS}++;
     }
     return $qstat;
-}
-
-# Flush a queue.  Transfer the queue to least-loaded worker thread.
-sub flushQueue
-{
-    my ($self, $queue, $data, $now) = @_;
-    return 0 if ! $self->saveQueueStatus ($queue, $data);
-
-    # Pick currently least loaded worker thread.
-    my $worker = $self->pickWorker();
-
-    # Transfer the queue to that worker, renaming it with current timestamp
-    my $queuedir = $self->queueDirectory ($queue);
-    return 0 if ! &touch ("$queuedir/go");
-    return 0 if ! &mv ($queuedir, "$self->{DROPDIR}/worker-$worker/inbox/Zipped$queue.$now");
-    return 1;
-}
-
-# Check for interconnected qeueue expiry.
-#
-# Keeps matching 'Events', 'DST' and 'Digi' simultaneously flushed.
-# This way the two always contain exactly the same set of runs.
-sub flushSync
-{
-    my ($queues, $q, $flush) = @_;
-    return if ! $flush->{$q};
-
-    my @sync = qw(DST Events Digi);
-    my $category = $queues->{$q}{CATEGORY};
-    if (grep ($category eq $_, @sync))
-    {
-	foreach my $syncit (grep ($category ne $_, @sync))
-	{
-	    my $other = $q;
-	    $other =~ s/\.$category\./.$syncit./;
-	    next if ! exists $queues->{$other};
-	    &logmsg ("synchronised expiry of $q and $other");
-	    $flush->{$other} = 1;
-	}
-    }
 }
 
 ######################################################################
@@ -349,12 +218,12 @@ sub flushSync
 # mixed EVD and other files, complains and marks the drop bad.
 sub isDropInteresting
 {
-    my ($self, $drop, $attrs) = @_;
+    my ($self, $drop, $files) = @_;
     return 0 if ! -d "$self->{WORKDIR}/$drop";
 
     # Count EVD and non-EVD files.
-    my $evds = scalar(grep ($_->{META}{DataType} eq 'EVD', @$attrs));
-    my $nonevds = scalar(@$attrs) - $evds;
+    my $evds = scalar(grep ($_->{META}{DataType} eq 'EVD', @$files));
+    my $nonevds = scalar(@$files) - $evds;
 
     # If not interesting, move downstream and indicate non-interest
     do { $self->relayDrop ($drop); return 0; } if ! $evds;
@@ -368,45 +237,17 @@ sub isDropInteresting
     return 0;
 }
 
-# Check if all files in the drop have already been
-# handled, and if so, remove it.
-sub isDropDone
-{
-    my ($self, $drop, $attrs) = @_;
-    my $dropdir = "$self->{WORKDIR}/$drop";
-    return 1 if ! -d $dropdir;
-
-    # Count files processed and assigned to queues
-    my @processed = <$dropdir/QUEUEDONE.*>;
-    my @assigned = <$dropdir/QUEUED.*>;
-
-    # Produce logging information on when this drop was first handled
-    &logmsg ("state: start $drop @{[&mytimeofday()]}") if ! scalar (@assigned);
-
-    # Return if more to do
-    return 0 if ! (scalar @assigned == scalar @processed
-		   && scalar @assigned == scalar(@$attrs));
-
-    # Delete and log when we finished handling this drop
-    &logmsg ("state: end $drop @{[&mytimeofday()]}");
-    &rmtree ($dropdir);
-    return 1;
-}
-
 ######################################################################
 # Assign all unassigned files of a drop into queues.
 sub assignToQueues
 {
-    my ($self, $drop, $attrs, $queues) = @_;
+    my ($self, $drop, $files) = @_;
 
     # Check if we should process this one
-    return 1 if ! $self->isDropInteresting ($drop, $attrs);
-
-    # Check if all files in this drop have already been handled
-    return 1 if $self->isDropDone ($drop, $attrs);
+    return 1 if ! $self->isDropInteresting ($drop, $files);
 
     # Ensure that the drop has enough information for us
-    if (my @missing = grep (! defined $_->{FILESIZE}, @$attrs))
+    if (my @missing = grep (! defined $_->{FILESIZE}, @$files))
     {
 	&alert ("$drop: missing size for @{[map { $_->{PFN} } @missing]}");
 	$self->markBad ($drop);
@@ -414,9 +255,9 @@ sub assignToQueues
     }
 
     # Maybe assign more files.
-    foreach my $file (@$attrs)
+    foreach my $file (@$files)
     {
-	$self->assignFile ($queues, { DROP => $drop, FILE => $file })
+	$self->assignFile ({ DROP => $drop, FILE => $file })
 	     or return 0;
     }
 
@@ -426,102 +267,68 @@ sub assignToQueues
 # Consider queue expiry times and flush those full/late enough.
 sub flushExpiredQueues
 {
-    my ($self, $queues, $last) = @_;
+    my ($self, $last) = @_;
     my %flush = ();
-    my ($q, $qdata, $qstat, $qlim, $qmem);
+    my ($q, $qstat, $qlim);
 
     # Check which queues ought to be flushed.
-    foreach $q (keys %$queues)
+    foreach $q (values %{$self->{QUEUES}})
     {
-	$qdata = $queues->{$q};
-	$qmem = $qdata->{MEMBERS};
-
 	# Flush if queue limits are exceeded, but consider size
 	# only if we have run out drops to handle.
-	$qstat = $qdata->{STATS} = $self->queueStats ($qdata);
-	$qlim = $qdata->{LIMITS} = $self->queueLimits ($q);
-	$flush{$q} = (($last && $qstat->{AGE} >= $qlim->{AGE})
-		      || $qstat->{SIZE} >= $qlim->{SIZE});
+	$qstat = $q->{STATS} = $self->queueStats ($q);
+	$qlim = $q->{LIMITS} = $self->queueLimits ($q->{NAME});
+	$flush{$q->{NAME}} = (($last && $qstat->{AGE} >= $qlim->{AGE})
+		              || $qstat->{SIZE} >= $qlim->{SIZE});
     }
 
-    # Synchronise linked queues
-    foreach $q (keys %$queues)
+    # Synchronise linked queues.  We keep matching "Events", "DST"
+    # and "Digi" simultaneously flushed.  This way the two always
+    # contain exactly the same set of runs.
+    foreach $q (values %{$self->{QUEUES}})
     {
-	&flushSync ($queues, $q, \%flush);
+        next if ! $flush{$q->{NAME}};
+        my @sync = qw(DST Events Digi);
+        my $category = $q->{CATEGORY};
+        if (grep ($category eq $_, @sync))
+        {
+	    foreach my $syncit (grep ($category ne $_, @sync))
+	    {
+	        my $other = $q;
+	        $other =~ s/\.$category\./.$syncit./;
+	        next if ! exists $self->{QUEUES}{$other};
+	        &logmsg ("synchronised expiry of $q and $other");
+	        $flush{$other} = 1;
+	    }
+        }
     }
 
     # Swoosshhh...
     my $now = time;
-    foreach $q (keys %$queues)
+    foreach $q (values %{$self->{QUEUES}})
     {
-	$self->maybeStop ();
-	$qdata = $queues->{$q};
-	next if ! $flush{$q};
-
-	$qlim = $qdata->{LIMITS};
-	$qstat = $self->queueStats ($qdata);
-	my $agewas = $qdata->{STATS}{AGE}; # when we made decision, flush takes a while
-	&logmsg ("expiring queue $q at age $qstat->{AGE} ($agewas; $qlim->{AGE}),"
+	next if ! $flush{$q->{NAME}};
+	$qlim = $q->{LIMITS};
+	$qstat = $q->{STATS};
+	&logmsg ("expiring queue $q->{NAME} at age $qstat->{AGE} ($qlim->{AGE}),"
 		 . " size @{[sprintf ('%.2f', $qstat->{SIZE})]} ($qlim->{SIZE}),"
 		 . " $qstat->{MEMBERS} members");
-	return 0 if ! $self->flushQueue ($q, $qdata, $now);
-        delete $queues->{$q};
+
+	push (@{$self->{FLUSHED}}, $q);
+	delete $self->{QUEUES}{$q->{NAME}};
     }
 
-    return 1;
-}
-
-# Purge drops for which all files have been zipped and shipped out.
-sub purgeProcessedDrop
-{
-    my ($self, $drop, $attrs) = @_;
-    $self->maybeStop ();
-    $self->isDropDone ($drop, $attrs);
     return 1;
 }
 
 ######################################################################
-# Start a worker
-sub startWorker
-{
-    my ($self, $i) = @_;
-    my $workerdir = "$self->{DROPDIR}/worker-$i";
-    &mkpath ($workerdir) if ! -d $workerdir;
-
-    my $pid = undef;
-    while (1)
-    {
-	last if defined ($pid = fork ());
-        &logmsg ("cannot fork: $!; trying again in 10 seconds");
-	sleep (10);
-    }
-
-    # Return child pid in parent;
-    return $pid if $pid;
-
-    # Child.
-    my @args = ("$::home/../DropBox/DropFunnelWorker",
-		"-main", $self->{DROPDIR}, "-in", $workerdir,
-		(map { ("-out", $_) } @{$self->{NEXTDIR}}),
-		"-stagehost", $ENV{STAGE_HOST}, "-stagepool", $ENV{STAGE_POOL},
-		($self->{DRYRUN} ? "-dryrun" : ()),
-		($self->{CLEAN} ? "-remove" : ()),
-		($self->{OUTPUT} ? ("-store", $self->{OUTPUT}) : ()),
-		"-rfcp", $self->{NRFCP},
-		"-wait", "7");
-
-    exec { $args[0] } @args;
-    die "Cannot start worker: $!\n";
-}
-
-# Actually process a drop.  This is an unusual agent in that we leave
-# files in their working directories while a queue accumulates.  We
-# only leave markers in the drop directory to indicate which decisions
-# and actions have been taken so the state is retained across runs.
-# Once we decide to ship an archive, we update the state of all its
-# members.  If we then detect a drop is fully handled, we remove it.
-# The only thing that is relayed onwards is the archive we create and
-# drops we don't recognise.
+# Actually process a drop.  This agent is unusual in that we keep the
+# master state in memory and leave the files in their drop directories
+# while queues accumulate.  We leave no markers in the file system on
+# which queue assignments have been made.  Once we decide to ship an
+# an archive, we update the state of all its members, and if we detect
+# a drop has been fully handled, we remove it.  The only thing relayed
+# onward is the archive we create and the drops we do not recognise.
 sub processDrop
 {
     my ($self, $drop, $left) = @_;
@@ -531,81 +338,380 @@ sub processDrop
     delete $self->{BAD}{$drop};
     &timeStart($self->{STARTTIME});
 
-    # Get queue configuration.  If we have memorised the status, use
-    # what we have in memory to speed up backlog processing (see save
-    # logic below to see when we remove the cache).
-    my $queues = $self->{QUEUES};
-    if (! defined $queues)
-    {
-         $queues = $self->{QUEUES} = {};
-         foreach my $q ($self->currentQueues())
-         {
-	     my $status = $self->readQueueStatus ($q);
-	     return if ! $status;
-
-	     $queues->{$q} = $status;
-         }
-    }
-
     # Expire already full queues, but only by size
-    return if ! $self->flushExpiredQueues ($queues, 0);
+    return if ! $self->flushExpiredQueues (0);
 
-    # Find the attribute cache to discover file information
+    # Read catalogue data and build attribute cache from it
     my $dropdir = "$self->{WORKDIR}/$drop";
-    my $attrs = eval { &readAttributeCache ("$dropdir/attrs") };
+    my $xmlcat = (<$dropdir/XMLCatFragment.*.{txt,xml}>)[0];
+    do { &alert("$drop: no catalogue"); $self->markBad ($drop); return }
+        if ! $xmlcat;
+    my $catalogue = eval { &readXMLCatalogue ($xmlcat) };
     do { &alert ("$drop: $@"); $self->markBad ($drop); return } if $@;
 
-    # Assign new files to queues
-    return if ! $self->assignToQueues ($drop, $attrs, $queues);
+    # Merge checksum data into cache
+    my $cksumfile = (<$dropdir/Checksum.*.txt>)[0];
+    do { &alert ("no checksum file in $drop"); $self->markBad ($drop); return }
+        if ! $cksumfile;
 
-    # Save queues.  If we have a backlog, do so only every so often
-    # but at least the last time.  When we are done with last drop,
-    # remove our memory of the queues.
-    if ($left % 10 == 0)
+    my @cksums = eval { &readChecksumData ($cksumfile) };
+    do { &alert ($@); $self->markBad ($drop); return } if $@;
+
+    my $bad = 0;
+    foreach my $file (@$catalogue)
     {
-        foreach my $q (keys %$queues) {
-	    $self->saveQueueStatus ($q, $queues->{$q});
-        }
-    }
-    delete $self->{QUEUES} if $left == 0;
+	my $lfn = $file->{LFN}[0];
+	my $cksum = (grep ($_->[2] eq $lfn, @cksums))[0];
 
-    # Check for and flush queues that have expired now
-    $self->flushExpiredQueues ($queues, $left == 0);
+	if (! $cksum)
+	{
+	   &alert ("$drop: no checksum for $lfn");
+	   $bad = 1;
+	   next;
+        }
+
+	&warn ("$drop: zero-size file $lfn") if ! $cksum->[1];
+
+	$file->{CHECKSUM} = $cksum->[0];
+	$file->{FILESIZE} = $cksum->[1];
+    }
+
+    do { $self->markBad ($drop); return } if $bad;
+
+    # Assign new files to queues
+    return if ! $self->assignToQueues ($drop, $catalogue);
 }
 
 # This is called by the main agent routine before sleeping.
-# Flush queues here.
+# Keep processing jobs for flushed queues here.
 sub idle
 {
     my ($self, @pending) = @_;
-    my $errors = 0;
 
-    # Maybe prefetch some files
-    if ($self->{PREFETCH})
+    # Check for and flush queues that have expired now
+    $self->flushExpiredQueues (1);
+
+    # Keep pumping tasks until we've waited long enough.
+    my $target = time() + $self->{WAITTIME};
+    while (time() < $target)
     {
-        my $now = &mytimeofday();
-        foreach my $q (keys %{$self->{QUEUES}})
+	# Process through the state machine for each flushed queue.
+        for (my $i = 0; $i < scalar @{$self->{FLUSHED}}; ++$i)
         {
-	    $self->maybeStop ();
-	    last if &mytimeofday() - $now > $self->{WAITTIME} * 3;
-	    &fetchQueueFiles ($self, $self->queueDirectory ($q), $self->{QUEUES}{$q});
+	    my $q = $self->{FLUSHED}[$i];
+
+            # 1) Download files.
+	    $self->queueFetchFiles ($q);
+
+	    # 2) Checksum and validate input files.
+	    $self->queueValidateFiles ($q);
+
+	    # 3) Generate XML template fragment for members.
+	    # 4) Output XML fragment for archive.
+	    # 5) Output checksum for archive.
+	    # 6) Output replica map for input files.
+	    # 7) Generate the zip of input files, XML template and checksums.
+	    $self->queueMergeFiles ($q);
+	
+	    # 8) Checksum the zip archive.
+	    $self->queueChecksum ($q);
+
+	    # 9) Store back in mass store.
+	    $self->queueStore ($q);
+
+	    # 10) Make XML template concrete for our own site.
+	    # 11) Mark all files done.
+	    $self->queueFinish ($q);
+
+	    # 12) Remove original input files if requested.
+	    $self->queueRemoveOrig ($q);
+
+	    # Clean up, remove working directories and mark files in drops.
+	    my $erase = 0;
+	    if ($q->{DONE_ALL})
+	    {
+		foreach my $m (@{$q->{MEMBERS}})
+		{
+		    $self->{WAITLIST}{$m->{DROP}}{$m->{FILE}{GUID}} = 1;
+		}
+
+		$erase = 1;
+	    }
+	    elsif ($q->{FAILURE} && ! $q->{PENDING})
+	    {
+		&alert ($q->{FAILURE});
+		if ($q->{CLEANUP})
+		{
+		    for (my $j = 0; $j < 10; ++$j)
+        	    {
+	    		last if &rfrm ($q->{CLEANUP});
+	    		&alert ("attempting to remove $q->{CLEANUP} again");
+	    		sleep (10);
+		    }
+		}
+
+		foreach my $m (@{$q->{MEMBERS}})
+		{
+		    $self->{WAITLIST}{$m->{DROP}}{$m->{FILE}{GUID}} = -1;
+		}
+
+		$erase = 1;
+	    }
+
+	    if ($erase)
+	    {
+		eval { &rmtree ($q->{WORKDIR}) };
+		splice (@{$self->{FLUSHED}}, $i, 1);
+		--$i;
+	    }
+        }
+
+	# Keep jobs running
+        $self->maybeStop ();
+        $self->pumpJobs ();
+        select (undef, undef, undef, .1);
+    }
+
+    # Remove all completed drops.  For each drop chek if all files have
+    # been assigned to a queue and that queue has been flushed.  If so,
+    # remove the drop.  Drops with unflushed files, or in failed flush,
+    # are left and will be reprocessed again later on.
+    foreach my $drop (@pending)
+    {
+	my $waitlist = $self->{WAITLIST}{$drop};
+	next if grep ($waitlist->{$_} != 1, keys %$waitlist);
+
+	&logmsg ("state: end $drop @{[&mytimeofday()]}");
+	&rmtree ("$self->{WORKDIR}/$drop");
+    }
+
+    # Purge memory of all drops that no longer exist.
+    foreach my $drop (keys %{$self->{WAITLIST}})
+    {
+	next if grep ($_ eq $drop, @pending);
+	delete $self->{WAITLIST}{$drop};
+    }
+}
+
+# Fetch all files in the queue.  If we've already done our job,
+# return immediately.  Otherwise keep track of how many files
+# are still remaining to be downloaded, and when they are all
+# finished, flag downloads completed.
+sub queueFetchFiles
+{
+    my ($self, $q, $job) = @_;
+    return if $q->{FAILURE} || $q->{DONE_DOWNLOADS} || $q->{PENDING};
+
+    # Create working directories if necessary
+    my $filesdir = "$q->{WORKDIR}/files";
+    eval { &mkpath ($filesdir); };
+    do { &logmsg ("$@"); return 0 } if $@;
+
+    # Start downloading files that have not been fetched yet
+    foreach my $member (@{$q->{MEMBERS}})
+    {
+	$q->{PENDING}++;
+
+	my $pfn = $member->{FILE}{PFN};
+	my $lfn = $member->{FILE}{LFN};
+	my @cmd = ($self->{DRYRUN}
+		   ? ("touch", "$filesdir/$lfn")
+		   : ("rfcp", "$pfn", "$filesdir/$lfn"));
+	$self->addJob (sub { my ($job) = @_; $q->{PENDING}--;
+			     $q->{DONE_DOWNLOADS} = 1 if ! $q->{PENDING};
+	    		     $q->{FAILURE} = "exit $job->{STATUS} from @cmd"
+			         if $job->{STATUS} },
+	    	       {}, @cmd);
+    }
+}
+
+# Verify that all the download files have the expected size; checksum
+# is ignored.  Marks queue failed if file size mismatch is detected.
+sub queueValidateFiles
+{
+    my ($self, $q) = @_;
+    return if $q->{FAILURE} || $q->{DONE_VALIDATE} || ! $q->{DONE_DOWNLOADS} || $q->{PENDING};
+
+    foreach my $member (@{$q->{MEMBERS}})
+    {
+	my $local = "$q->{WORKDIR}/files/$member->{FILE}{LFN}";
+	return $q->{FAILURE} = "$local: no such file" if ! -f $local;
+	return $q->{FAILURE} = "$local: file size mismatch"
+	    if (! $self->{DRYRUN} && (-s _ != $member->{FILE}{FILESIZE}));
+    }
+
+    $q->{DONE_VALIDATE} = 1;
+}
+
+# Produce a merged zip from the input files.
+sub queueMergeFiles
+{
+    my ($self, $q) = @_;
+    return if $q->{FAILURE} || $q->{DONE_MERGE} || ! $q->{DONE_VALIDATE} || $q->{PENDING};
+
+    my $time = ($q->{LFN} =~ /(\d+)$/)[0];
+    my $filesdir = "$q->{WORKDIR}/files";
+
+    # Generate XML fragment for the archive itself
+    my $uuid = qx(uuidgen | tr '[a-f]' '[A-F]'); chomp ($uuid);
+    return $q->{FAILURE} = "failed to generate uuid" if ! $uuid;
+
+    my $mainstream = ($q->{STREAM} eq 'MAIN');
+    my $owner = ($mainstream ? $q->{OWNER} : "$q->{OWNER}-C-$q->{DATASET}");
+    my $dataset = ($mainstream ? $q->{DATASET} : $q->{STREAM});
+    my $xmldata = <<EOF;
+<File ID="$uuid">
+  <physical>
+    <pfn filetype="EVDZip" name="\@ZIPPFN\@"/>
+  </physical>
+  <logical>
+    <lfn name="$q->{LFN}"/>
+  </logical>
+  <metadata att_name="Content" att_value="Zipped$q->{TYPE}"/>
+  <metadata att_name="DBoid" att_value=""/>
+  <metadata att_name="DataType" att_value="Zipped$q->{TYPE}"/>
+  <metadata att_name="FileCategory" att_value="Zipped$q->{CATEGORY}"/>
+  <metadata att_name="Flags" att_value=""/>
+  <metadata att_name="dataset" att_value="$dataset"/>
+  <metadata att_name="jobid" att_value="$time"/>
+  <metadata att_name="owner" att_value="$owner"/>
+  <metadata att_name="runid" att_value=""/>
+</File>
+EOF
+
+    # Generate template XML fragment for archive contents
+    my $replicas = "";
+    foreach my $member (@{$q->{MEMBERS}})
+    {
+	my $lfn = $member->{FILE}{LFN};
+	my $pfn = "zip-member:\@ZIPPFN\@#$lfn";
+	$replicas .= "$member->{FILE}{GUID} $pfn\n";
+
+	$xmldata .= "<File ID=\"$member->{FILE}{GUID}\">\n";
+	$xmldata .= "  <physical>\n";
+	$xmldata .= "    <pfn filetype=\"ROOT_All\" name=\"$pfn\"/>\n";
+	$xmldata .= "  </physical>\n";
+	$xmldata .= "  <logical>\n";
+	$xmldata .= "    <lfn name=\"$lfn\"/>\n";
+	$xmldata .= "  </logical>\n";
+	while (my ($attr, $value) = each %{$member->{FILE}{META}})
+	{
+	    $xmldata .= "  <metadata att_name=\"$attr\" att_value=\"$value\"/>\n";
+	}
+	$xmldata .= "</File>\n";
+    }
+
+    # Output XML fragment
+    return $q->{FAILURE} = "failed to write member xml catalog"
+        if (! &outputCatalog ("$filesdir/XMLCatFragment.$q->{LFN}.txt", $xmldata));
+
+    # Generate checksum file for archive contents
+    return $q->{FAILURE} = "failed to write archive contents checksum"
+        if (! &output ("$filesdir/CheckSum.Contents.$q->{LFN}.txt",
+		       join ("",
+                             map { "$_\n" }
+                             map { join(" ", @{$_->{FILE}{CHECKSUM}}) }
+                             @{$q->{MEMBERS}})));
+
+    # Generate replica map template for T1 agents
+    return $q->{FAILURE} = "failed to write replica map"
+        if (! &output ("$filesdir/ReplicaMap.txt", $replicas));
+
+    # Pack it up
+    $q->{PENDING}++;
+    $self->addJob (sub { my ($job) = @_; $q->{PENDING}--; $q->{DONE_MERGE} = 1;
+			 $q->{FAILURE} = "failed to generate the zip archive:"
+			     . " exit $job->{STATUS} from @{$job->{CMD}}"
+			     if $job->{STATUS} }, {},
+		   "zip", "-q", "-0", "-j", "$q->{WORKDIR}/$q->{LFN}.zip", <$filesdir/*>);
+}
+
+# Checksum the merged zip.
+sub queueChecksum
+{
+    my ($self, $q) = @_;
+    return if $q->{FAILURE} || $q->{DONE_CHECKSUM} || ! $q->{DONE_MERGE} || $q->{PENDING};
+
+    # Generate checksum for the archive for transfer
+    $q->{PENDING}++;
+    $self->addJob (sub { my ($job) = @_; $q->PENDING--; $q->{DONE_CHECKSUM} = 1;
+			 $q->{FAILURE} = "failed to write archive checksum:"
+			     . " exit $job->{STATUS} from @{$job->{CMD}}"
+			     if $job->{STATUS} }, {},
+		   "sh", "-c", "cd $q->{WORKDIR} && cksum $q->{LFN}.zip > CheckSum.$q->{LFN}.txt");
+
+    # return $q->{FAILURE} = "failed to write archive checksum"
+    #     if (! &output ("$q->{WORKDIR}/CheckSum.$q->{LFN}.txt",
+    #                    "-1 " . (-s "$q->{WORKDIR}/$q->{LFN}.zip") . " $q->{LFN}.zip\n"));
+}
+
+# Store the merged zip back into storage buffer.
+sub queueStore
+{
+    my ($self, $q) = @_;
+    return if $q->{FAILURE} || $q->{DONE_STORE} || ! $q->{DONE_CHECKSUM} || $q->{PENDING};
+
+    # Check output destination doesn't already exist.
+    my $storeddir = $self->{OUTPUT};
+    my $stored = $storeddir && "$storeddir/$q->{LFN}.zip";
+    return $q->{FAILURE} = "destination zip already exists: $stored"
+        if (! $self->{DRYRUN} && $self->{OUTPUT} && &rfstatmode ($stored));
+
+    # Store back into mass storage
+    if (! $self->{DRYRUN} && $self->{OUTPUT})
+    {
+	return $q->{FAILURE} = "failed to create target rfio directory $storeddir"
+            if ! &rfmkpath ($storeddir);
+
+	$q->{PENDING}++;
+        $q->{CLEANUP} = $stored;
+	$self->addJob (sub { my ($job) = @_; $q->{PENDING}--; $q->{DONE_STORE} = 1;
+		       $q->{FAILURE} = "failed to store archive to $stored:"
+			   . " exit $job->{STATUS} from @{$job->{CMD}}"
+			   if $job->{STATUS} }, {},
+		       "rfcp", "$q->{WORKDIR}/$q->{LFN}.zip", $stored);
+    }
+    else
+    {
+	$q->{DONE_STORE} = 1;
+    }
+}
+
+# Move information about the merged zip to the next agent
+# in processing line
+sub queueFinish
+{
+    my ($self, $q) = @_;
+    return if $q->{FAILURE} || $q->{DONE_FINISH} || ! $q->{DONE_STORE} || $q->{PENDING};
+
+    # Make XML fragment concrete for the drop
+    my $xml = &input ("$q->{WORKDIR}/files/XMLCatFragment.$q->{LFN}.txt");
+    my $replacement = ($self->{OUTPUT} ? "$self->{OUTPUT}/" : "") . "$q->{LFN}.zip";
+    $xml =~ s/\@ZIPPFN\@/$replacement/g;
+    return $q->{FAILURE} = "failed to write archive xml catalog"
+        if (! $xml || ! &output ("$q->{WORKDIR}/XMLCatFragment.$q->{LFN}.txt", $xml));
+}
+
+# Remove original input files from storage buffer if so requested.
+sub queueRemoveOrig
+{
+    my ($self, $q) = @_;
+    return if $q->{FAILURE} || $q->{DONE_REMOVE} || ! $q->{DONE_FINISH} || $q->{PENDING};
+
+    # Remove original members
+    if (! $self->{DRYRUN} && $self->{OUTPUT} && $self->{CLEAN})
+    {
+	foreach my $pfn (map { $_->{FILE}{PFN} } @{$q->{MEMBERS}})
+	{
+	    for (my $j = 0; $j < 10; ++$j)
+       	    {
+    		last if &rfrm ($pfn);
+    		&alert ("attempting to remove $pfn again");
+    		sleep (10);
+	    }
         }
     }
 
-    # Purge fully processed drops
-    foreach my $drop (@pending)
-    {
-	$self->maybeStop ();
-
-	my $dropdir = "$self->{WORKDIR}/$drop";
-	my $attrs = eval { &readAttributeCache ("$dropdir/attrs") };
-        do { &alert ("$drop: $@"); $self->markBad ($drop); last } if $@;
-
-        $self->purgeProcessedDrop ($drop, $attrs);
-    }
-
-    # Check children are still running and then wait
-    $self->maybeStop ();
-    $self->checkWorkers ();
-    $self->nap ($self->{WAITTIME});
 }
+
+1;
