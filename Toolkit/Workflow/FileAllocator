@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/29 09:22:39 $
-# $Id: Allocator.pl,v 1.32 2004/07/29 09:22:39 barrass Exp $
+# $Date: 2004/07/29 09:34:12 $
+# $Id: Allocator.pl,v 1.33 2004/07/29 09:34:12 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -173,7 +173,9 @@ sub get_current_subscriptions {
 		  				 	
         my $query = $dbh->prepare($selection);	
 		
-        $query->execute();while (@row = $query->fetchrow_array) {	
+        $query->execute();
+        while (@row = $query->fetchrow_array) {	
+	       $row[1] =~ s/\w+//g;
 	       $destinations{$row[1]}  .= "$row[0] ";
         }
         $query->finish();
