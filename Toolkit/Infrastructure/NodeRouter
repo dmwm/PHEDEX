@@ -59,11 +59,9 @@ while(!(-e "$g_work_dir/stop")) {
 	&insert_routes( \@new_routes );
     }
 
-#    if (@changed_routes = &get_changed_routes) { 
-#	log_entry( "Found changed routes, or new routes to existing destinations" ); 
-#	foreach $route (@changed_routes) { log_entry( $route ); }
-#	&update_routes( \@changed_routes );
-#    }
+    my @min_routes = &minimise_routes;
+    &clear_my_table;
+    &insert_routes( \@min_routes );
 
     # TODO: Timeout direct links
 }
@@ -139,22 +137,6 @@ sub refresh_acquaintance {
     direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
 }
 
-sub update_routes {
-    my $table = shift;
-    foreach $route (@$table) {
-	my $time = time();
-	my ($to, $gate, $hops) = split( ":", $route );
-	my $delete = "delete from t_Routing "
-	    ."where to_node = '$to' "
-	    ."and from_node = '$g_parent_node' "
-	    ."and gateway = '$gate' ";
-	direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $delete );
-	my $insert = " insert into t_Routing "
-	    ."values ('$g_parent_node','$to','$gate',$time,$hops)";
-	direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $insert );
-    }
-}
-
 sub insert_routes {
     my $table = shift;
     foreach $route (@$table) {
@@ -166,51 +148,11 @@ sub insert_routes {
     }
 }
 
-sub get_changed_routes {
-    my $dbh = DBI->connect( "DBI:Oracle:$g_db",
-                            "$g_db_user",
-                            "$g_db_passwd",
-                            { RaiseError=>1, AutoCommit =>1 });
-
-    my $selection = "select to_node,from_node,hops from t_Routing "
-	."where to_node in (select unique to_node from t_Routing where from_node = '$g_parent_node') "
-	."and from_node in (select from_node from t_Routing where to_node = '$g_parent_node' and gateway = '$g_parent_node') "
-	."and not to_node = '$g_parent_node' "
-	."and not gateway = '$g_parent_node' "
-	."minus "
-	."select to_node,gateway,hops-1 from t_Routing "
-	."where to_node in (select unique to_node from t_Routing where from_node = '$g_parent_node') "
-	."and from_node = '$g_parent_node' "
-	."and not to_node = '$g_parent_node' "
-	."and not gateway = '$g_parent_node'";
-
-    my @changed_routes = ();
-    my $query = $dbh->prepare($selection);
-    $query->execute;
-    while (@row = $query->fetchrow_array) {
-        foreach (@row) { s/ //g; }
-
-	$row[2]++;   # increment the number of hops here!
-
-        push(@changed_routes,join(':',@row));
-    }
-    $query->finish();
-    $dbh->disconnect();
-
-    return @changed_routes;
-}
-
 sub get_new_routes {
     my $dbh = DBI->connect( "DBI:Oracle:$g_db",
                             "$g_db_user",
                             "$g_db_passwd",
                             { RaiseError=>1, AutoCommit =>1 });
-
-#    my $selection = "select from_node,to_node,hops+1 from t_Routing "
-#	."where not to_node in (select unique to_node from t_Routing where from_node = '$g_parent_node') "
-#	."and from_node in (select from_node from t_Routing where to_node = '$g_parent_node' and gateway = '$g_parent_node') "
-#	."and not to_node = '$g_parent_node' "
-#	."and not gateway = '$g_parent_node'";
 
     my $selection = "select from_node,to_node,hops from t_Routing "
 	."where from_node in (select from_node from t_Routing where to_node = '$g_parent_node' and gateway = '$g_parent_node') "
@@ -220,19 +162,66 @@ sub get_new_routes {
 	."select gateway,to_node,hops-1 from t_Routing "
 	."where from_node = '$g_parent_node'";
 
-
     my @new_routes = ();
     my $query = $dbh->prepare($selection);
     $query->execute;
     while (@row = $query->fetchrow_array) {
         foreach (@row) { s/ //g; }
 	$row[2]++;
-        push(@new_routes,join(':',@row));
+	push( @new_routes, join( ":",@row ) );
     }
     $query->finish();
     $dbh->disconnect();
-    
+
     return @new_routes;
+}
+
+sub clear_my_table {
+    my $neighbour = shift;
+    my $time = time();
+    my $update = "delete from t_Routing "
+	."where from_node = '$g_parent_node'";
+    direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
+}
+
+sub minimise_routes {
+    my $dbh = DBI->connect( "DBI:Oracle:$g_db",
+                            "$g_db_user",
+                            "$g_db_passwd",
+                            { RaiseError=>1, AutoCommit =>1 });
+
+    my $selection = "select gateway,to_node,hops from t_Routing "
+	."where from_node = '$g_parent_node'";
+
+    my %hops_by_route = ();
+    my @routes = ();
+    my $query = $dbh->prepare($selection);
+    $query->execute;
+    while (@row = $query->fetchrow_array) {
+        foreach (@row) { s/ //g; }
+
+	my $route = "$row[0]:$row[1]";
+	
+	if (exists $hops_by_route{$route}) {
+	    $hops_by_route{$route} = min( $row[2], $hops_by_route{$route} );
+	} else {
+	    $hops_by_route{$route} = $row[2];
+	}
+
+    }
+    $query->finish();
+    $dbh->disconnect();
+
+    foreach $route (keys %hops_by_route) {
+	push( @routes, join( ":",$route,$hops_by_route{$route} ) );
+    }
+
+    return @routes;
+}
+
+sub min {
+    my ($a, $b) = @_;
+    if ($a >= $b) { return $b; } else { return $a; }
 }
 
 sub parse_command_line {
