@@ -1,7 +1,7 @@
 \documentclass{cmspaper}
 \def\RCS$#1: #2 ${\expandafter\def\csname RCS#1\endcsname{#2}}
-\RCS$Revision: 1.4 $
-\RCS$Date: 2004/06/17 12:56:04 $
+\RCS$Revision: 1.5 $
+\RCS$Date: 2004/06/17 13:52:52 $
 
 \usepackage{graphicx}
 
@@ -18,7 +18,7 @@
 
   \begin{abstract}
     This white paper describes the database schema for the CMS data
-    handling system. I also defines the expected set of agent-TMDB
+    handling system. It also defines the expected set of agent-TMDB
     interactions (effectively outlining the functionality of each
     agent).
   \end{abstract}
@@ -30,7 +30,7 @@
 
 \section{Transfer Management Database}
 
-\begin{figure}[tbp]
+\begin{figure}[htbp]
 \centering
   \includegraphics[width=15cm]{tmdb-schema.eps}
   \caption{Entities and relations in the TMDB V2.  Basic SQL
@@ -86,7 +86,7 @@
     For this version we only need very simple steering: {\em resume},
     {\em suspend}, {\em stop}.
 
-    A global client might post {\em <t1 : SUSPEND : A : false>} to suspend
+    A global client might post {\em t1 : SUSPEND : A : false} to suspend
     node A.  A's agent manager would need to find that message, suspend
     agent at A and mark the message as handled = true.
 
@@ -144,7 +144,10 @@
 \section{Requirement of sources of data and agents}
 \subsection{Typical agent-transfer management database communication}
 The following discussion is intended to give a feel for the flow
-of data through the system.
+of data through the system. The functionality of the agents can basically be defined in terms of these interactions.
+
+\subsection{Deploying generic agent SQL as PL/SQL}
+[ If all agents use the same queries, are these very valid candidates for pl/sql server side processes to increase performance? ]
 
 \subsection{File states in the V2 TMDB}
 Enumeration of file states is simpler in the V2 TMDB, as can be seen on table \ref{table:states}. The five states listed are those essential for the system. In contrast to work during DC04 it is critical that states are not replicated with different meanings between developers. 
@@ -153,7 +156,7 @@ Enumeration of file states is simpler in the V2 TMDB, as can be seen on table \r
 
 \begin{table}
 \centering
-\begin{tabular}[hbt]{|c|c|} 
+\begin{tabular}[!h]{|c|c|} 
 \hline index & state
 \\ \hline
 	1	& 	available
@@ -187,9 +190,9 @@ in \texttt{t\_Destinations} and \texttt{t\_Current\_state}. Assuming the config 
 
 {\small\begin{verbatim}
   update t_Lookup
-  	set last_contact = currenttime
-  	where node = 'Management'
-  	and agent = 'Config';
+    set last_contact = currenttime
+    where node = 'Management'
+    and agent = 'Config';
 \end{verbatim}}
 
 \subsubsection{\textbf{\texttt{find new files for transfer}}}
@@ -197,19 +200,18 @@ First find new files for transfer
 
 {\small\begin{verbatim}
   select guid, source_node
-  from t_Files_for_transfer
-  where allocated = 0;
+    from t_Files_for_transfer
+    where allocated = 0;
 \end{verbatim}}
 
 \subsubsection{\textbf{\texttt{determine file allocation}}}
-Determine file allocation.  First it needs to query the POOL meta data
-to determine the file stream, then it needs to look up the stream
-(here it's done dynamically, but it could rebuild an internal table
-every loop...)
+Files are allocated to destinations based on their stream name, at least in the first deployment of V2. In the TMDB the t\_File\_allocation\_config table stores mappings between destination nodes and parts of stream names- for example "mu03", which would be used by the config agent to match streams mu03\_tt\_hh mu03\_blah\_something mu03\_zippety\_whatsit.
+
+[ Interesting point is that you can probably put perl regexps in here? ]
 
 {\small\begin{verbatim}
-  select destination from t_File_allocation_config
-  where stream = 'the_stream';
+  select stream_name, destination
+    from t_File_allocation_config
 \end{verbatim}}
 
 \subsubsection{\textbf{\texttt{register destination for guid}}}
@@ -226,50 +228,90 @@ For each destination the appropriate gateway (or next hop in the chain) needs to
 {\small\begin{verbatim}
   select * from
     (select gateway, hops
-     from t_Routing
-     where from = 'Bar1'
-       and to = 'Dest1'
-     order by hops asc)
-  where rownum = 1;
+      from t_Routing
+      where from = 'Bar1'
+      and to = 'Dest1'
+      order by hops asc)
+    where rownum = 1;
 \end{verbatim}}
 
-Which might retutn the gateway Foo. 
+Which might return the gateway Foo. 
 
 \subsubsection{\textbf{\texttt{advertise as available}}}
 Finally advertise the newly ``available'' file (i.e. in state 1)
 
 {\small\begin{verbatim}
   insert into t_Current_state
-    values (guid1, 'Foo', 1,
-            currenttime, 'Bar1');
+    values (guid1, 'Foo', 1, currenttime, 'Bar1');
 \end{verbatim}}
 
 \subsubsection{\textbf{\texttt{complete allocation}}}
 It also needs to mark the guid as allocated...
 
 {\small\begin{verbatim}
-	update t_Files_for_transfer 
-		set allocated = 0
-		where guid = guid1;
+  update t_Files_for_transfer 
+    set allocated = 0
+    where guid = guid1;
 \end{verbatim}}
 
 
 \subsection{Transfer agents}
 
-Transfer agents search \texttt{t\_Current\_state} for files advertised
-for them.  They copy those files, work out where to send them next (ie
-function basically as a router) and advertise them accordingly.
+Transfer agents search \texttt{t\_Current\_state} for files advertised for them.  They copy those files, work out where to send them next (ie function basically as a router) and advertise them accordingly. 
 
-This example is for a transfer agent at a node named ``Foo''.
+This example is for a transfer agent named ``Transfer'' at a node named ``Foo''.
+
+\subsubsection{\textbf{\texttt{publish availability}}}
+
+{\small\begin{verbatim}
+  update t_Lookup
+    set last_contact = currenttime
+    where node = 'Foo'
+    and agent = 'Transfer';
+\end{verbatim}}
+
+\subsubsection{\textbf{\texttt{check for config message}}}
+This is a temp method for sending simple global config/ coordination messages to the nodes (i.e. only node granularity here). Simple messages should be just 'restart', 'suspend', 'stop' (table \ref{table:messages}).
+
+\begin{table}
+\centering
+\begin{tabular}[!h]{|c|c|l|} 
+\hline index & message & action to take
+\\ \hline
+	1 & restart & meant for proposed agent manager (can restart agents).
+\\	2 & suspend & agents seeing this should stay alive, but not do anything.
+\\	3 & stop & agents seeing this should shut down/ exit.
+\\ \hline
+\end{tabular}
+\caption{Simple coordination messages to be passed to agents/ agent managers through the t\_Config\_messages table.}
+\label{table:messages}
+\end{table}
+
+{\small\begin{verbatim}
+  select message,timestamp
+  	from t_Config_messages
+  	where handled = 0
+  	and node = 'Foo';
+\end{verbatim}}
+
+To indicate that the message has been handled
+
+{\small\begin{verbatim}
+  update t_Config_messages
+  	set handled = 1
+  	where timestamp = theTimestamp
+  	and node = 'Foo'
+  	and handled = 0;
+\end{verbatim}}
 
 \subsubsection{\textbf{\texttt{search for new files}}}
 First, search for new files (in state 1, ``available''):
 
 {\small\begin{verbatim}
   select guid, is_at_node
-  from t_Current_state
-  where is_for_node = 'Foo'
-  and state = 1;
+    from t_Current_state
+    where is_for_node = 'Foo'
+    and state = 1;
 \end{verbatim}}
 
 which might produce a set of guids {guid1, guid2, guid3 ...} currently at nodes {Bar1, Bar2, Bar3 ...}. 
@@ -279,8 +321,7 @@ The start of transfer of each guid should be marked by posting state as ``in tra
 
 {\small\begin{verbatim}
   insert into t_Current_state
-    values (guid1, 'Foo', 2,
-            currenttime, 'Bar1');
+    values (guid1, 'Foo', 2, currenttime, 'Bar1');
 \end{verbatim}}
 
 \subsubsection{\textbf{\texttt{complete transfer}}}
@@ -288,8 +329,7 @@ Transfer the file, then mark as complete by posting state ``on buffer'' or 3
 
 {\small\begin{verbatim}
   insert into t_Current_state
-    values (guid, 'Foo', 3,
-            currenttime, 'Bar1');
+    values (guid, 'Foo', 3, currenttime, 'Bar1');
 \end{verbatim}}
 
 \subsubsection{\textbf{\texttt{determine destinations}}}
@@ -297,8 +337,8 @@ The set of desinations for each guid then needs to be determined
 
 {\small\begin{verbatim}
   select destination
-  from t_Destinations
-  where guid = guid1;
+    from t_Destinations
+    where guid = guid1;
 \end{verbatim}}
 
 which might, for guid1, produce the set of destination nodes {Dest1, Dest2, ...}. 
@@ -309,22 +349,21 @@ For each destination the appropriate gateway (or next hop in the chain) needs to
 {\small\begin{verbatim}
   select * from
     (select gateway, hops
-     from t_Routing
-     where from = 'Foo'
-       and to = 'Dest1'
-     order by hops asc)
-  where rownum = 1;
+      from t_Routing
+      where from = 'Foo'
+      and to = 'Dest1'
+      order by hops asc)
+    where rownum = 1;
 \end{verbatim}}
 
-Which might retutn the gateway Gate1. 
+Which might return the gateway Gate1. 
 
 \subsubsection{\textbf{\texttt{advertise as available}}}
 Finally advertise the newly ``available'' file (i.e. in state 1)
 
 {\small\begin{verbatim}
   insert into t_Current_state
-    values (guid1, 'Gate1', 1,
-            currenttime, 'Foo');
+    values (guid1, 'Gate1', 1, currenttime, 'Foo');
 \end{verbatim}}
 
 [ To some extent I've tried to parcel this up so some element of failure recovery can be undertaken. e.g. if there are entries saying "on buffer" but not "available", then obviously the next hop for guids "in buffer" needs to be determined and them advertised as available appropriately. ]
@@ -333,6 +372,109 @@ Finally advertise the newly ``available'' file (i.e. in state 1)
 These are an extension of the transfer agent---when they have made a
 file safe in mass storage they should advertise it as ``safe''.
 
+Here described for an mss agent named ``MSS'', at a node named ``Foo''.
+
+\subsubsection{\textbf{\texttt{publish availability}}}
+
+{\small\begin{verbatim}
+  update t_Lookup
+    set last_contact = currenttime
+    where node = 'Foo'
+    and agent = 'MSS';
+\end{verbatim}}
+
+\subsubsection{\textbf{\texttt{check for config message}}}
+This is a temp method for sending simple global config/ coordination messages to the nodes (i.e. only node granularity here). Simple messages should be just 'restart', 'suspend', 'stop' (table \ref{table:messages}).
+
+{\small\begin{verbatim}
+  select message,timestamp
+  	from t_Config_messages
+  	where handled = 0
+  	and node = 'Foo';
+\end{verbatim}}
+
+To indicate that the message has been handled
+
+{\small\begin{verbatim}
+  update t_Config_messages
+  	set handled = 1
+  	where timestamp = theTimestamp
+  	and node = 'Foo'
+  	and handled = 0;
+\end{verbatim}}
+
+\subsubsection{\textbf{\texttt{search for new files}}}
+First, search for new files (in state 1, ``available''):
+
+{\small\begin{verbatim}
+  select guid, is_at_node
+    from t_Current_state
+    where is_for_node = 'Foo'
+    and state = 1;
+\end{verbatim}}
+
+which might produce a set of guids {guid1, guid2, guid3 ...} currently at nodes {Bar1, Bar2, Bar3 ...}. 
+
+\subsubsection{\textbf{\texttt{start transfer}}}
+[ Is this step necessary? Depends on local configuration... ]
+
+The start of transfer of each guid should be marked by posting state as ``in transfer'', or state 2- e.g. for guid1 at Bar1 to Foo
+
+{\small\begin{verbatim}
+  insert into t_Current_state
+    values (guid1, 'Foo', 2, currenttime, 'Bar1');
+\end{verbatim}}
+
+\subsubsection{\textbf{\texttt{complete transfer}}}
+[ Is this step necessary? Depends on local configuration... ]
+
+Transfer the file, then mark as complete by posting state ``on buffer'' or 3
+
+{\small\begin{verbatim}
+  insert into t_Current_state
+    values (guid, 'Foo', 3, currenttime, 'Bar1');
+\end{verbatim}}
+
+\subsubsection{\textbf{\texttt{start migration}}}
+The start of migration of each guid should be marked by posting state as ``in migration'', or state 4- e.g. for guid1 at Foo
+
+{\small\begin{verbatim}
+  insert into t_Current_state
+    values (guid1, 'Foo', 4, currenttime, 'Foo');
+\end{verbatim}}
+
+\subsubsection{\textbf{\texttt{complete migration}}}
+Migrate the file, then mark as complete by posting state ``safe'' or 5
+
+{\small\begin{verbatim}
+  insert into t_Current_state
+    values (guid, 'Foo', 5, currenttime, 'Foo');
+\end{verbatim}}
+
+\subsubsection{\textbf{\texttt{determine gateway for destination}}}
+For each destination the appropriate gateway (or next hop in the chain) needs to be determined, e.g. for guid1 going to Dest1
+
+{\small\begin{verbatim}
+  select * from
+    (select gateway, hops
+      from t_Routing
+      where from = 'Foo'
+      and to = 'Dest1'
+      order by hops asc)
+    where rownum = 1;
+\end{verbatim}}
+
+Which might return the gateway Gate1. 
+
+\subsubsection{\textbf{\texttt{advertise as available}}}
+Finally advertise the newly ``available'' file (i.e. in state 1)
+
+{\small\begin{verbatim}
+  insert into t_Current_state
+    values (guid1, 'Gate1', 1, currenttime, 'Foo');
+\end{verbatim}}
+
+
 \subsection{Buffer cleaning agents}
 
 These agents should operate at each node. They should examine the
@@ -340,82 +482,84 @@ state of each file at all sites (long inefficient query?). They need
 to decide whether it is safe to delete the file based on some
 criteria---a suitable criteria might be
 
-``If the file is marked \`{O}safe\'{O} at two or more nodes, then it can be
-deleted from this buffer.''
+If the file is marked ``safe'' at two or more nodes, then it can be
+deleted from this buffer.
 
 \section{SQL for the schema}
 
 {\small \begin{verbatim}
 CREATE TABLE t_Routing (
-    from varchar NOT NULL,
-    to varchar NOT NULL,
-    gateway varchar NOT NULL,
-    timestamp int NOT NULL,
-    hops int NOT NULL,
-    PRIMARY KEY(from));
+	from varchar NOT NULL, 
+	to varchar NOT NULL, 
+	gateway varchar NOT NULL, 
+	timestamp int NOT NULL, 
+	hops int NOT NULL, 
+	PRIMARY KEY(from),
+	FOREIGN KEY(to) REFERENCES t_Nodes (node_name),
+	FOREIGN KEY(from) REFERENCES t_Nodes (node_name),
+	FOREIGN KEY(gateway) REFERENCES t_Nodes (node_name));
 
 CREATE TABLE t_Files_for_transfer (
-    guid char[36] UNIQUE NOT NULL,
-    source_node varchar NOT NULL,
-    allocated char[1] NOT NULL,
-    PRIMARY KEY(guid));
+	guid char[36] UNIQUE NOT NULL, 
+	source_node varchar NOT NULL, 
+	allocated char[1] NOT NULL, 
+	PRIMARY KEY(guid),
+	FOREIGN KEY(source_node) REFERENCES t_Nodes (node_name));
 
 CREATE TABLE t_Nodes (
-    node_name varchar UNIQUE NOT NULL,
-    host_string varchar NOT NULL,
-    PRIMARY KEY(node_name),
-    FOREIGN KEY(node_name) REFERENCES t_Files_for_transfer (source_node),
-    FOREIGN KEY(node_name) REFERENCES t_Routing (from),
-    FOREIGN KEY(node_name) REFERENCES t_Routing (to),
-    FOREIGN KEY(node_name) REFERENCES t_Routing (gateway));
+	node_name varchar UNIQUE NOT NULL, 
+	host_string varchar NOT NULL, 
+	PRIMARY KEY(node_name));
 
 CREATE TABLE t_Destinations (
-    guid char[36] UNIQUE NOT NULL,
-    destination_node varchar NOT NULL,
-    PRIMARY KEY(guid),
-    FOREIGN KEY(guid) REFERENCES t_Files_for_transfer (guid),
-    FOREIGN KEY(destination_node) REFERENCES t_Nodes (node_name));
+	guid char[36] UNIQUE NOT NULL, 
+	destination_node varchar NOT NULL, 
+	PRIMARY KEY(guid),
+	FOREIGN KEY(guid) REFERENCES t_Files_for_transfer (guid),
+	FOREIGN KEY(destination_node) REFERENCES t_Nodes (node_name));
 
 CREATE TABLE t_Current_state (
-    guid char[36] UNIQUE NOT NULL,
-    is_for_node varchar NOT NULL,
-    state char[1] NOT NULL,
-    timestamp int NOT NULL,
-    isªt_node varchar NOT NULL,
-    PRIMARY KEY(guid),
-    FOREIGN KEY(guid) REFERENCES t_Files_for_transfer (guid),
-    FOREIGN KEY(is_for_node) REFERENCES t_Nodes (node_name));
+	guid char[36] UNIQUE NOT NULL, 
+	is_for_node varchar NOT NULL, 
+	state char[1] NOT NULL, 
+	timestamp int NOT NULL, 
+	is_at_node varchar NOT NULL, 
+	PRIMARY KEY(guid),
+	FOREIGN KEY(guid) REFERENCES t_Files_for_transfer (guid),
+	FOREIGN KEY(is_for_node) REFERENCES t_Nodes (node_name));
 
 CREATE TABLE t_Lookup (
-    node varchar NOT NULL,
-    agent varchar,
-    state char[1] NOT NULL,
-    last_contact int NOT NULL,
-    FOREIGN KEY(node) REFERENCES t_Nodes (node_name),
-    FOREIGN KEY(agent) REFERENCES t_Agents (name));
+	node varchar NOT NULL, 
+	agent varchar, 
+	state char[1] NOT NULL, 
+	last_contact int NOT NULL,
+	FOREIGN KEY(node) REFERENCES t_Nodes (node_name),
+	FOREIGN KEY(agent) REFERENCES t_Agents (name));
 
 CREATE TABLE t_Config_messages (
-    node varchar NOT NULL,
-    message varchar NOT NULL,
-    timestamp int NOT NULL,
-    handled char[1] NOT NULL,
-    FOREIGN KEY(node) REFERENCES t_Nodes (node_name));
+	node varchar NOT NULL, 
+	message varchar NOT NULL, 
+	timestamp int NOT NULL, 
+	handled char[1] NOT NULL,
+	FOREIGN KEY(node) REFERENCES t_Nodes (node_name));
 
 CREATE TABLE t_File_allocation_config (
-    stream varchar NOT NULL,
-    destination varchar NOT NULL,
-    FOREIGN KEY(destination) REFERENCES t_Nodes (node_name));
+	stream varchar NOT NULL, 
+	destination varchar NOT NULL,
+	FOREIGN KEY(destination) REFERENCES t_Nodes (node_name));
 
 CREATE TABLE t_Agents (
-    name varchar UNIQUE NOT NULL,
-    PRIMARY KEY(name));
+	name varchar UNIQUE NOT NULL, 
+	PRIMARY KEY(name));
 
 CREATE TABLE t_Replica_metadata (
-    guid char[36] UNIQUE NOT NULL,
-    key varchar NOT NULL,
-    value varchar,
-    PRIMARY KEY(guid),
-    FOREIGN KEY(guid) REFERENCES t_Files_for_transfer (guid));
-\end{verbatim}}
+	guid char[36] UNIQUE NOT NULL, 
+	key varchar NOT NULL, 
+	value varchar, 
+	PRIMARY KEY(guid),
+	FOREIGN KEY(guid) REFERENCES t_Files_for_transfer (guid));
+\end{verbatim}
+}
+
 
 \end{document}
