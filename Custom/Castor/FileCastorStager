@@ -446,7 +446,7 @@ sub idle
 		                grep($_->{TAPE} eq $tape, @requests);
 		@requests = grep($_->{TAPE} ne $tape, @requests);
 		&logmsg ("stagein @{[scalar @tapefiles]} files on tape $tape,"
-			 . " @{[scalar @requests]} left");
+			 . " @{[scalar @requests]} of $nreq left");
 
 		while (@tapefiles)
 		{
