@@ -481,10 +481,10 @@ sub flushPump
 	    splice (@{$self->{FLUSHED}}, $i, 1);
 	    --$i;
 	}
-    }
 
-    # Keep jobs running
-    $self->pumpJobs ();
+        # Keep jobs running
+        $self->pumpJobs ();
+    }
 }
 
 sub checkDropDone
@@ -516,7 +516,10 @@ sub idle
     {
 	$self->maybeStop ();
 	$self->flushPump ();
-        select (undef, undef, undef, .1);
+	my $npending = scalar @{$self->{FLUSHED}};
+	my $nrunning = scalar (grep ($_->{PID} > 0, @{$self->{JOBS}}));
+	next if ($npending && $nrunning < $self->{NJOBS});
+        select (undef, undef, undef, .02);
     }
 
     # Check if we can release any of the drops.
@@ -699,18 +702,21 @@ sub queueStore
     my ($self, $q) = @_;
     return if $q->{FAILURE} || $q->{DONE_STORE} || ! $q->{DONE_CHECKSUM} || $q->{PENDING};
 
-    # Check output destination doesn't already exist.
     my $storeddir = $self->{OUTPUT};
     my $stored = $storeddir && "$storeddir/$q->{LFN}.zip";
-    return $q->{FAILURE} = "destination zip already exists: $stored"
-        if (! $self->{DRYRUN} && $self->{OUTPUT} && &rfstatmode ($stored));
 
     # Store back into mass storage
     if (! $self->{DRYRUN} && $self->{OUTPUT})
     {
+        # Check output destination doesn't already exist.
+        return $q->{FAILURE} = "destination zip already exists: $stored"
+            if &rfstatmode ($stored);
+
+	# Create destination directories if necessary.
 	return $q->{FAILURE} = "failed to create target rfio directory $storeddir"
             if ! &rfmkpath ($storeddir);
 
+	# Initiate the copy
 	$q->{PENDING}++;
         $q->{CLEANUP} = $stored;
 	$self->addJob (sub { my ($job) = @_; $q->{PENDING}--; $q->{DONE_STORE} = 1;
