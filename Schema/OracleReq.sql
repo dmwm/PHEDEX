@@ -28,7 +28,9 @@ create table t_request_dataspec
   (timestamp		float		not null,
    request		integer		not null,
    operation		varchar (20)	not null,
-   dataset		integer);
+   owner		varchar (100),
+   dataset		varchar (100),
+   block		varchar (200));
 
 
 ----------------------------------------------------------------------
@@ -58,10 +60,6 @@ alter table t_request_dataspec
   add constraint fk_request_dataspec_req
   foreign key (request) references t_request (id);
 
-alter table t_request_dataspec
-  add constraint fk_request_dataspec_dataset
-  foreign key (dataset) references t_dsb_dataset (id);
-
 ----------------------------------------------------------------------
 -- Add indices
 
@@ -77,8 +75,4 @@ create index ix_request_subscription_req
 
 create index ix_request_dataspec_req
   on t_request_dataspec (request)
-  tablespace CMS_TRANSFERMGMT_INDX01;
-
-create index ix_request_dataspec_dataset
-  on t_request_dataspec (dataset)
   tablespace CMS_TRANSFERMGMT_INDX01;
