@@ -248,7 +248,7 @@ sub checkAssignmentFiles
         my @guids = map { $_->{GUID} } values %$cat;
         my @pfns = map { @{$_->{PFN}} } values %$cat;
         @pfns = map { s|^\./|$pfnroot/|; $_; } @pfns;
-        @pfns = map { s|^gsiftp://castorgrid.cern.ch/|/|; $_; } @pfns;
+        @pfns = map { s|^sfn://castorgrid.cern.ch/|/|; $_; } @pfns;
 
         # Find guids known in tmdb
         my $indb = 0;
