@@ -12,15 +12,22 @@ sub report
     my $bad = 0;
     my $done = 0;
     my $outbox = 0;
-    foreach my $d (<$dir/{inbox,work,outbox}/*>) {
-	my @files = <$d/{go,bad,done}>;
-	$inbox++ if $d =~ m|/inbox/|;
-	$received++ if $d =~ m|/inbox/| && grep (m|/go$|, @files);
-	$pending++  if $d =~ m|/work/|;
-	$bad++ if $d =~ m|/work/| && grep (m|/bad$|, @files);
-	$done++ if $d =~ m|/work/| && grep (m|/done$|, @files);
-	$outbox++ if $d =~ m|/outbox/|;
+
+    foreach my $d (<$dir/inbox/*>) {
+	$inbox++;
+	$received++ if -f "$d/go";
     }
+
+    foreach my $d (<$dir/work/*>) {
+	$pending++;
+	$bad++ if -f "$d/bad";
+	$done++ if -f "$d/done";
+    }
+
+    foreach my $d (<$dir/outbox/*>) {
+	$outbox++;
+    }
+
     print "$prefix:",
 	" @{[$inbox - $received]} pending,",
 	" $received received,",
