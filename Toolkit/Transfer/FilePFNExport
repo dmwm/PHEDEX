@@ -97,6 +97,8 @@ sub reapPFNs
 {
     my ($self, $dbh, $guids, $to, $proto, $output, $start, $job) = @_;
     my %guid2pfn = map { split(/\s+/, $_) } split('\n', &input ($output) || '');
+    unlink ($output);
+
     foreach my $guid (@$guids)
     {
 	my $pfn = $guid2pfn{$guid};
