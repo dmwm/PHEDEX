@@ -1,0 +1,218 @@
+#!/usr/bin/env perl
+
+## Add sizes for files that don't have the information.
+##
+## This agent looks for files without size information and updates
+## it from the castor nameservice.  This is an utility for tests,
+## not something that ought to be needed in regular service.
+
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+######################################################################
+$ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
+$ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
+my %args = (DBITYPE => "Oracle");
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_HOST} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_POOL} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-pfnquery' && scalar @ARGV > 1)
+    { shift (@ARGV); @{$args{PFN_QUERY}} = split (/,/, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+    else
+    { last; }
+}
+
+if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
+    || !$args{DBPASS} || !$args{DBITYPE} || !$args{PFN_QUERY} || !$args{MYNODE})
+{
+    print STDERR
+	"usage: $me -node TMDB-NDOE -pfnquery PFN-QUERY-SCRIPT\n",
+	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
+	"    -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n",
+	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n";
+    exit (1);
+}
+
+my $agent = new FileCastorFilesize (%args);
+# Recapture interrupt signal, oracle swallows it.
+$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
+$agent->process ();
+
+######################################################################
+# Routines specific to the agent.
+package FileCastorFilesize; use strict; use warnings; use base 'UtilsAgent';
+use File::Path;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsCatalogue;
+use UtilsDB;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBITYPE => undef,		# Database driver binding
+    		  DBNAME => undef,		# Database name
+	  	  DBUSER => undef,		# Database user name
+	  	  DBPASS => undef,		# Database user password
+	  	  MYNODE => undef,		# TMDB node name
+	  	  PFN_QUERY => undef,		# Program to query PFNs
+	  	  AGENTID => "Filesize");	# Identity for activity logs
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Determine the size for a file
+sub checkFileSize
+{
+    my ($self, $dbh, $guid, $pfn, $cache) = @_;
+
+    # Determine file PFN.  If there isn't one, ignore this file for a while.
+    my $start = &mytimeofday();
+    if (! $pfn)
+    {
+	&alert ("failed to look up pfn for $guid");
+	$self->{PENDING}{$guid} = $start + 300 + rand(300);
+	return;
+    }
+
+    # Determine the size of the file.  We remember entire directory listings.
+    if (! exists $cache->{$pfn})
+    {
+	my $dir = $pfn; $dir =~ s|/[^/]+$||;
+	open (NSLS, "nsls -l $dir |") or do { &alert ("failed to nsls $dir: $!"); return };
+        while (<NSLS>)
+        {
+            chomp;
+            my ($size, $file) = (split (/\s+/, $_))[4,8];
+            $cache->{"$dir/$file"} = $size;
+        }
+        close (NSLS);
+    }
+
+    if (! exists $cache->{$pfn})
+    {
+	&alert ("failed to find $pfn");
+	$self->{PENDING}{$guid} = $start + 3600 + rand(3600);
+	return;
+    }
+
+    # Ok, we have a file size.  Update database.
+    my $size = $cache->{$pfn};
+    my $op;
+
+    # Update the database as appropriate.
+    eval
+    {
+	$op = "update file size";
+	&dbexec ($dbh, qq{
+	    update t_file set filesize = :newsize where guid = :guid},
+	    ":guid" => $guid, ":newsize" => $size);
+
+	$op = "commit";
+	$dbh->commit();
+    };
+    do { &alert ("failed to $op for $guid: $@"); $dbh->rollback() if $dbh } if $@;
+
+    # Log delay stats
+    my $now = &mytimeofday ();
+    &logmsg ("xstats: $guid $self->{MYNODE} 1 "
+	     . sprintf ('%.2f', $now - $start)
+	     . " $size");
+
+     # Mark this file no longer known to us
+     delete $self->{PENDING}{$guid};
+}
+
+# Get N guids that should be checksummed.  Returns a list of arrays
+# with members GUID, FILESIZE, TIMESTAMP, CATALOGUE, HOST_KEY.
+sub nextFiles
+{
+    my ($self, $dbh, $n) = @_;
+    my @result = ();
+    eval
+    {
+	# Select files that need to be checksummed.  This is everything
+	# staged in at this node but without checksum.
+	my $stmt = &dbexec ($dbh, qq{
+	    select rs.guid
+	    from t_replica_state rs
+	    left join t_file f on f.guid = rs.guid
+	    where f.filesize = -1 and rs.node = :node},
+	    ":node" => $self->{MYNODE});
+	while (my ($guid) = $stmt->fetchrow_array())
+	{
+	    next if exists $self->{PENDING}{$guid};
+	    push (@result, $guid);
+	    last if ! $n--;
+	}
+    };
+    &alert ("failed to select next files: $@") if $@;
+    return @result;
+}
+
+# Called by agent main routine before sleeping.  Pick up work
+# assignments from the database here and start their processing.
+sub idle
+{
+    my ($self, @pending) = @_;
+    my $now = time();
+    my $dbh = undef;
+
+    eval
+    {
+	$dbh = &connectToDatabase ($self) or die "failed to connect";
+
+	# Purge "nsls" output cache if it's too old.
+	$self->{NSLS_CACHE} = [ $now + 3600, {} ] if (($self->{NSLS_CACHE}[0] || 0) < $now);
+
+	# Purge memory of bad files that have cooled long enough.
+	my $pending = $self->{PENDING};
+	map { delete $pending->{$_} }
+	  grep ($pending->{$_} && $pending->{$_} < $now, keys %$pending);
+
+	# Get the next lot of files, and process them until we run out of time.
+	my @files = $self->nextFiles ($dbh, 500);
+	return if ! @files;
+
+	my $pfns = &guidToPFN (\@files, "direct", "local", @{$self->{PFN_QUERY}});
+	foreach my $guid (@files)
+	{
+	    $self->checkFileSize ($dbh, $guid, $pfns->{$guid}, $self->{NSLS_CACHE}[1]);
+	    last if time() > $now + 600;
+	}
+    };
+    do { &alert("database error: $@"); $dbh->rollback() if $dbh } if $@;
+
+    # Disconnect from the database
+    $dbh->disconnect() if $dbh;
+    undef $dbh;
+
+    # Have a little nap.
+    $self->nap ($self->{WAITTIME});
+}
