@@ -1,0 +1,204 @@
+#!/usr/bin/perl
+
+## Manage a Castor MSS node, marking files migrated to tape.
+##
+## This agent is technically a transfer agent, so follows the file
+## routing rules.  However it can only be a terminal node and is
+## somewhat simplified in its logic.  We also short-cut the data
+## wanted/available protocol as this is not a real transfer.
+##
+## FIXME: tape management -- what happens with files that are not
+## destined to tape but are copied to /castor?  Do we care?
+
+BEGIN { use strict; use warnings; }
+my $me = $0; $me =~ s|.*/||;
+my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+unshift(@INC, $home);
+
+######################################################################
+$ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
+$ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
+my %args = (DBITYPE => "Oracle");
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_HOST} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_POOL} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    { shift (@ARGV); $master = 1; $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+    else
+    { last; }
+}
+
+if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
+    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE})
+{
+    print STDERR
+	"usage: $me -node TMDB-NODE\n",
+	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
+	"    -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n",
+	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n";
+    exit (1);
+}
+
+my $agent = new FileCastorMigrate (%args);
+# Recapture interrupt signal, oracle swallows it.
+$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
+$agent->process ();
+
+######################################################################
+# Routines for the master castor export agent.  This one simply manages
+# the file transfer requests and passes the work to appropriate other
+# local export agents (stage-in, checksum).
+package FileCastorMigrate; use strict; use warnings; use base 'UtilsAgent';
+use DBI;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBITYPE => undef,		# Database driver binding
+    		  DBNAME => undef,		# Database name
+	  	  DBUSER => undef,		# Database user name
+	  	  DBPASS => undef,		# Database user password
+	  	  MYNODE => undef);		# My TMDB node name
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Map a GUID to a PFN using a catalogue
+sub guidToPFN
+{
+    my ($guid, $catalogue, $host) = @_;
+
+    # FIXME: remove message suppression when pool has learnt to print
+    # diagnostic output somewhere else other than stdout...
+    open (PFNS, "POOL_OUTMSG_LEVEL=100 FClistPFN -u '$catalogue' -q \"guid='$guid'\" |")
+	or do { &alert ("cannot run FClistPFN: $!"); return undef; };
+    my @pfns = grep (/$host/, map { chomp; $_ } <PFNS>);
+    close (PFNS);
+    return $pfns[0];
+}
+
+# Called by agent main routine before sleeping.  Pick up work
+# assignments from the database here and pass them to slaves.
+sub idle
+{
+    my ($self, @pending) = @_;
+
+    # FIXME: Update agent status
+    # FIXME: Pick up and process messages to me
+
+    # Check how much is wanted downstream.  Select the files wanted
+    # downstream still pending for outward transfer here.  We fetch
+    # in one query the current state here, whether we have checksum,
+    # the number of requested copies, and the latest request time.
+    eval
+    {
+	my $now = time();
+	my $mynode = $self->{MYNODE};
+	my $dbh = DBI->connect ("DBI:$self->{DBITYPE}:$self->{DBNAME}",
+	    		 	$self->{DBUSER}, $self->{DBPASS},
+			 	{ RaiseError => 1, AutoCommit => 0 });
+
+	# Mark everything available for and already in transfer for
+	# this link.  Don't mark files wanted to avoid stager going
+	# wild because of us :-)  This is to keep browser displays
+	# correct, we don't use this information ourselves and it
+	# isn't used by the "sending" side.
+	$dbh->do(qq{
+		update t_transfer_state
+		set src_state = 1, src_time_stamp = $now
+		where dest_node = '$mynode' and src_state = 0});
+	$dbh->do(qq{
+		update t_transfer_state
+		set dest_state = 1, dest_time_stamp = $now
+		where dest_node = '$mynode' and dest_state = 0});
+	$dbh->commit();
+
+	# Get files still requiring migration.
+	my $stmt = $dbh->prepare (qq{
+		select ts.guid,
+		       ts.src_time_stamp,
+		       n.catalogue_contact,
+		       n.host_string
+		from t_transfer_state ts, t_nodes n
+		where ts.dest_node = '$mynode'
+		  and ts.dest_state = 1
+		  and n.node_name = ts.src_node});
+        $stmt->execute();
+	while (my $row = $stmt->fetchrow_arrayref())
+	{
+	    my ($guid, $time, $catalogue, $hostkey) = @$row;
+
+	    # FIXME: Do we need to actually issue commands to begin
+	    # migration?  If so, use dest_state = 0 to indicate we
+	    # haven't done that, dest_state = 1 to indicate migration
+	    # started, and dest_state = 2 to indicate it's complete.
+	    # Now we assume it's just always automatically started.
+
+	    # Check if the file has been migrated.  If not, skip it.
+	    my $pfn = &guidToPFN ($guid, $catalogue, $hostkey);
+	    open (NSLS, "nsls -l $pfn |") or die "cannot nsls $pfn: $!";
+	    my $status = <NSLS>;
+	    close (NSLS) or die "cannot nsls $pfn: $!";
+
+	    next if $status !~ /^m/;
+
+	    # Migrated, mark transfer completed
+	    $dbh->do(qq{
+		update t_replica_state
+		set state = 2, time_stamp = $now
+		where guid = '$guid' and node = '$mynode'});
+	    $dbh->do(qq{
+		update t_transfer_state
+		set dest_state = 2, dest_time_stamp = $now
+		where guid = '$guid' and dest_node = '$mynode'});
+	    $dbh->commit ();
+
+	    # Log delay data.
+	    my $nowh = &mygettimeofday();
+	    my $dalloc = $nowh - $time;
+	    my $dtransfer = $nowh - $now;
+    	    &logmsg ("xstats: $guid 2 @{[sprintf('%.2f %.2f', $dalloc, $dtransfer)]}");
+	}
+
+	# Purge old completed transfers we no longer need to track.
+	# Keep a day's worth of data for current state browsers.
+	my $old = time() - 86400;
+	$dbh->do(qq{
+		delete from t_transfer_state
+		where dest_node = '$mynode'
+	  	  and dest_state = 2
+	  	  and dest_time_stamp < $old});
+  	$dbh->commit ();
+
+        # Disconnect from the database
+        $dbh->disconnect if defined $dbh;
+        undef $dbh;
+    };
+    do { &alert ("database error: $@"); } if $@;
+
+    # Check children are still running and then wait
+    $self->maybeStop ();
+    sleep ($self->{WAITTIME});
+}
