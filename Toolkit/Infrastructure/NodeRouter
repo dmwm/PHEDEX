@@ -110,8 +110,6 @@ sub get_neighbours {
 		@_
 	);
 	
-	print "$g_db_user, $args{DB_USER}\n";
-	
 	my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
 						 	"$args{DB_USER}", 
 						 	"$args{DB_PASSWD}", 
@@ -136,7 +134,7 @@ sub get_neighbours {
 }
 
 sub parse_command_line () {
-	GetOptions(	"name" => \$g_parent_node,
+	GetOptions(	'name=s => \$g_parent_node,
 				'w=s' => \$new_work_dir,
 				'db=s' => \$g_db,
 				'dbuser=s' => \$g_db_user,
