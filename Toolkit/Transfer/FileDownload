@@ -25,10 +25,12 @@
 ## for demonstration purpose.  This makes this agent fully capable
 ## LCG SE transfer agent.
 
-BEGIN { use strict; use warnings; }
-$me = $0; $me =~ s|.*/||;
-$home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-unshift(@INC, $home);
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Common";
+  unshift(@INC, $home);
+}
 
 ######################################################################
 my %args = (DBITYPE => "Oracle");
@@ -323,7 +325,8 @@ sub completeTransferBatch
 	    my $dalloc = $now - $file->{TIME_ALLOC};
 	    my $dtransfer = $now - $file->{TIME_START};
 	    &logmsg ("xstats: $guid $to_node $to_state "
-		     . sprintf('%.2f %.2f', $dalloc, $dtransfer));
+		     . sprintf('%.2f %.2f', $dalloc, $dtransfer)
+	     	     . " $file->{FILESIZE}");
         }
         $dbh->commit ();
     };
@@ -348,7 +351,8 @@ sub completeTransferBatch
 sub startFileTransfer
 {
     my ($self, $dbh, $info) = @_;
-    my ($guid, $timestamp, $from_node, $from_catalogue, $from_host,
+    my ($guid, $size, $timestamp,
+	$from_node, $from_catalogue, $from_host,
 	$to_catalogue, $attrs) = @$info;
 
     # Mark the transfer started in the database.
@@ -374,6 +378,7 @@ sub startFileTransfer
 
     # Return a transfer object.
     return { GUID		=> $guid,
+	     FILESIZE		=> $size,
 	     TIME_ALLOC		=> $timestamp,
 	     TIME_START		=> &mytimeofday(),
 	     FROM_NODE		=> $from_node,
@@ -484,12 +489,16 @@ sub nextFiles
 	my $mynode = $self->{MYNODE};
 	my $stmt = $dbh->prepare (qq{
 		select ts.guid,
+		       m.value,
 		       ts.from_time_stamp,
 		       ts.from_node,
 		       n1.catalogue_contact,
 		       n1.host_string,
 		       n2.catalogue_contact
 		from t_transfer_state ts
+		left join t_replica_metadata m
+		  on m.guid = ts.guid
+		  and m.attribute = 'filesize'
 		left join t_nodes n1
 		  on n1.node_name = ts.from_node
 		left join t_nodes n2
