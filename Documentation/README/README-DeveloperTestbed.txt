@@ -98,8 +98,7 @@ Note that you need Perl DBI, and DBD:Oracle installed as well.
 Now we need to create a node using a few management files:
 
 cp ${NODETESTBED}/AgentToolkitExamples/NodeTestbed/DeployNode .
-cp ${NODETESTBED}/AgentToolkitExamples/NodeTestbed/start.sh-template .
-cp ${NODETESTBED}/AgentToolkitExamples/NodeTestbed/stop.sh-template .
+cp ${NODETESTBED}/AgentToolkitExamples/NodeTestbed/*template .
 
 DeployNode 
 -node First 
@@ -149,60 +148,34 @@ NodeManager.pl new-neighbours
 2g. Deploying a management node
 -------------------------------
 
-Create a simple management node with a allocating and file routing agents. First define the directory 
-structure
+Movement of data through the PhEDEx system as a whole relies on the action
+management agents that handle allocation of files by subscription information,
+and that handle the determination of the best route through the system.
 
-cd $NODETESTBED
-mkdir TestbedManagement
-mkdir TestbedManagement/scripts
-mkdir TestbedManagement/logs
-mkdir TestbedManagement/work
-mkdir TestbedManagement/work/inbox
+We can set up a management node for our testbed
 
-Note that the management node has no storage space, no SE.
-
-Now register the node with the TMDB: in an SQL client
-
-NodeManager.pl add-node \
--name GLOBAL \
--host nohost \
--cat nocat \
--db <contact string> \
--user <user> \
--password <user>
-
-Now deploy the management scripts
-
-cd TestbedManagement/scripts
-cp $NODETESTBED/AgentToolkitExamples/Managers/Allocator.pl .
-cp $NODETESTBED/AgentToolkitExamples/DropBox/FileRouter .
-cp $NODETESTBED/AgentToolkitExamples/DropBox/Utils* .
-
-and start them up
-
-./Allocator.pl
--db <Oracle tns name only>
--user <user>
--passwd <password>
--period 7
--w $NODETESTBED/TestbedManagement/work
->& $NODETESTBED/TestbedManagement/logs/log &
-
-./FileRouter
--db <Oracle tns name only>
--dbuser <user>
--dbpass {password}
+DeployNode
 -node GLOBAL
--state $NODETESTBED/TestbedManagement/work/inbox
->& $NODETESTBED/TestbedManagement/logs/routerlog &
+-management
+-base ${NODETESTBED}
+-db <your Oracle TNS name>
+-dbuser <your Oracle user>
+-dbpass <your Oracle password>
+-cat mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat
 
+
+
+2h. Starting the nodes up
+-------------------------
+
+. GLOBAL/start.sh
+. First/start.sh
+. Second/start.sh
 
 
 
 3. One-time Use
 ---------------
-
-
 
 3a. Making test data available at a simple source node
 ------------------------------------------------------
