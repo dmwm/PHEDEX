@@ -88,7 +88,7 @@ sub checkJobs
 	{
 	    # Command has taken too long to execute.  Nuke it.  First time
 	    # around use SIGINT.  Next time around use SIGKILL.
-	    kill ($job->{PID}, $job->{FORCE_TERMINATE} ||= 1);
+	    kill ($job->{FORCE_TERMINATE} ||= 1, $job->{PID});
 	    $job->{FORCE_TERMINATE} = 9;
 	    push(@pending, $job);
 	}
