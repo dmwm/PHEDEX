@@ -668,7 +668,7 @@ result of CMS experience, for which we would like to thank the developers
 at SDSC.
 
 It should be noted that SRB is not integrated into the LCG analysis
-system, and that while this is possible (reference ACAT paper) it may
+system, and that while this is possible \cite{gmcat} it may
 not be desirable to create a ``grid of grids'' without some
 significant additional desired functionality.  It is likely that CMS
 use of SRB will be phased out before DC05.
@@ -696,24 +696,18 @@ and PIC T1s, then replicated to disk-SEs to grant data access for
 T1 agents were all able to match pace with the generation of files at
 the T0 (fig. \ref{fig:PIC-FT}).
 
-At the start of DC04 both PIC and INFN used Java RM APIs to make
-transfers and catalogue lookups/registrations. This was found to be
-inefficient, and both sought other methods of transfer. Interestingly,
-the T1s chose subtly different methods to transfer from the T0 after
-moving away from the Java API.
+At the start of DC04 both PIC and INFN used Java RM command line tools
+to make transfers and catalogue lookups/registrations. This was found
+to be inefficient, and both sought other methods of
+transfer. Interestingly, the T1s chose subtly different methods to
+transfer from the T0 after moving away from the Java API.
 
-CNAF chose to use the Java EDG Replica Manager command line tools to
-transfer and register files with some very limited use of the LRC C++
-API to query the LRC for filenames to start transfers. Use of the RM
-API meant that their transfers and catalogue registrations were
-integral operations, and therefore more fully transactional.
-
-PIC chose to use globus-url-copy and the LRC C++ API to register
-replicas. In principle recovering from failed transfers was more
-difficult for PIC, as the transfer and register operations were not
-integral. This however should be weighed against CNAF's use of the
-slower Java RM tools- although the use of the Java RM could be
-supplanted by the use of the EDG C++ API.
+CNAF continued to use the Java EDG Replica Manager command line tools
+to transfer and register files with some very limited use of the LRC
+C++ API to query the LRC for filenames to start transfers. PIC chose
+to use globus-url-copy and the LRC C++ API to register replicas. The
+EDG RM C++ API is now available, and is likely to be used for future
+versions of these agents.
 
 Subtle variations in approach aside, transfer rates from the SE EB
 could be sustained at over 2 MBps, peaking at 16 MBps
