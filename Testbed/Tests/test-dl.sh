@@ -6,6 +6,8 @@ source /afs/cern.ch/project/oracle/script/setoraenv.sh -s 8174
 mkdir -p {fr,dl,si,cs,cm,exp}
 rm -fr {fr,dl,si,cs,cm,exp}/{inbox,work}/*
 
+TNS_ADMIN=$(pwd); export TNS_ADMIN
+
 DBARGS="-db devdb9 -dbuser cms_transfermgmt -dbpass smalland_round"
 STARGS="-stagehost stagecmsprod -stagepool cms_prod2"
 
