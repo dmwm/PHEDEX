@@ -1,0 +1,164 @@
+#!/usr/bin/env perl
+
+##H List dataset information from DSB
+##H
+##H Usage: DSBList [-h] [-dbitype TYPE] -db DBNAME -dbuser USER -dbpass PASS
+##H                [-details] [PATTERN...]
+##H
+##H Prints dataset information for PATTERNs that match OWNER/DATASET.
+##H Each PATTERN should be a shell glob pattern, e.g. "*/bt03_*".
+
+BEGIN { use strict; use warnings;
+  my $me = $0; $me =~ s|.*/||;
+  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+  unshift(@INC, "$home/../Toolkit/Common"); }
+use UtilsDB;
+use UtilsTR;
+use UtilsWriters;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsCatalogue;
+use TextGlob 'glob_to_regex';
+use File::Path;
+
+my %args = (DBITYPE => "Oracle");
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+	&usage();
+    } elsif ($ARGV[0] eq '-dbitype' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{DBITYPE} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{DBNAME} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{DBUSER} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{DBPASS} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '-details' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{DETAILS} = 1;
+    } elsif ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+	&usage();
+    } elsif ($ARGV[0] eq '--') {
+	shift (@ARGV); last;
+    } elsif ($ARGV[0] =~ '^-') {
+	&usage ("$0: unrecognised option $ARGV[0]\n\n");
+    } else {
+	last;
+    }
+}
+
+$TextGlob::strict_wildcard_slash = 0;
+$args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
+if (!$args{DBITYPE} || !$args{DBNAME} || !$args{DBUSER} || !$args{DBPASS})
+{
+    print STDERR "$0: Error: Not enough arguments",
+		 " (help available with \"-h\" option)\n";
+    exit (1);
+}
+
+# Connect to database
+my $dbh = &connectToDatabase (\%args, 0);
+$dbh->{FetchHashKeyName} = "NAME_uc";
+$dbh->{LongReadLen} = 4096;
+
+# Get all existing datasets and files
+my $datasets = &dbexec($dbh, qq{select id, dataset, owner from t_dsb_dataset
+				order by owner, dataset})
+	       ->fetchall_arrayref ({});
+
+# Get all current datasets
+my $stmtcache = {};
+foreach my $item (@$datasets)
+{
+    my $token = "$item->{OWNER}/$item->{DATASET}";
+    next if (@ARGV && !grep($token =~ $_, @{$args{PATS}}));
+    local $| = 1;
+    print "$token\n";
+    next if ! $args{DETAILS};
+
+    # Generate drops
+    &fetchDatasetInfo ($dbh, $item, $stmtcache);
+    my $runs = $item->{RUNS};
+    my @dsfiles = map { @{$_->{FILES}} } @$runs;
+    my $events = 0; map { $events += $_->{EVTS} } @$runs;
+
+    print " Id         = @{[$item->{ID} || '(new)']}\n";
+    print " Owner      = $item->{OWNER}\n";
+    print " Dataset    = $item->{DATASET}\n";
+    print " Datatype   = $item->{DSINFO}{InputProdStepType}\n";
+    print " InputOwner = $item->{DSINFO}{InputOwnerName}\n";
+    print " PUDataset  = $item->{DSINFO}{PUDatasetName}\n";
+    print " PUOwner    = $item->{DSINFO}{PUOwnerName}\n";
+    print " Runs       = @{[scalar @$runs]}\n";
+    print " Files      = @{[scalar @dsfiles]}\n";
+    print " Events     = $events\n";
+}
+
+$dbh->disconnect ();
+exit 0;
+
+# Get dataset information
+sub fetchDatasetInfo
+{
+    my ($dbh, $object, $stmtcache) = @_;
+
+    # Prepare statements
+    $stmtcache->{IGUID} ||= &dbprep ($dbh, qq{
+	select guid from t_dsb_fileid where id = :fileid});
+    $stmtcache->{IFILE} ||= &dbprep ($dbh, qq{
+	select filesize, checksum, filename, catfragment from t_dsb_file where fileid = :fileid});
+    $stmtcache->{IDR} ||= &dbprep ($dbh, qq{
+	select runid, events from t_dsb_dataset_run where dataset = :dataset});
+    $stmtcache->{IDRF} ||= &dbprep ($dbh, qq{
+	select fileid from t_dsb_dataset_run_file where dataset = :dataset and runid = :runid});
+    $stmtcache->{IDL} ||= &dbprep ($dbh, qq{
+	select location from t_dsb_dataset_availability where dataset = :dataset});
+    $stmtcache->{IDS} ||= &dbprep ($dbh, qq{
+	select datatype, dataset, owner, inputowner, pudataset, puowner from t_dsb_dataset where id = :dataset});
+
+    # Get dataset info
+    &dbbindexec ($stmtcache->{IDS}, ":dataset" => $object->{ID});
+    while (my ($datatype, $dataset, $owner, $inputowner, $pudataset, $puowner) = $stmtcache->{IDS}->fetchrow()) {
+	$object->{DATASET} = $dataset;
+	$object->{OWNER} = $owner;
+	$object->{DSINFO}{InputProdStepType} = $datatype;
+	$object->{DSINFO}{InputOwnerName} = $inputowner;
+	$object->{DSINFO}{PUDatasetName} = $pudataset;
+	$object->{DSINFO}{PUOwnerName} = $puowner;
+    }
+
+    # Get dataset locations
+    &dbbindexec ($stmtcache->{IDL}, ":dataset" => $object->{ID});
+    while (my ($loc) = $stmtcache->{IDL}->fetchrow()) {
+	push (@{$object->{SITES}}, $loc);
+    }
+
+    # Get runs and files
+    &dbbindexec ($stmtcache->{IDR}, ":dataset" => $object->{ID});
+    while (my ($runid, $evts) = $stmtcache->{IDR}->fetchrow ())
+    {
+	my $run = { ID => $runid, EVTS => $evts, FILES => [] };
+	push (@{$object->{RUNS}}, $run);
+	&dbbindexec ($stmtcache->{IDRF}, ":dataset" => $object->{ID}, ":runid" => $runid);
+	while (my ($fileid) = $stmtcache->{IDRF}->fetchrow ())
+	{
+	    &dbbindexec ($stmtcache->{IGUID}, ":fileid" => $fileid);
+	    my ($guid) = $stmtcache->{IGUID}->fetchrow();
+
+	    &dbbindexec ($stmtcache->{IFILE}, ":fileid" => $fileid);
+	    my ($size, $cksum, $filename, $frag) = $stmtcache->{IFILE}->fetchrow();
+	    push (@{$run->{FILES}}, { ID => $fileid,
+				      GUID => $guid,
+				      SIZE => $size,
+				      CHECKSUM => $cksum,
+				      LFN => $filename,
+				      XML => $frag });
+	}
+    }
+
+    $stmtcache->{IGUID}->finish ();
+    $stmtcache->{IFILE}->finish ();
+    $stmtcache->{IDRF}->finish ();
+    $stmtcache->{IDR}->finish ();
+    $stmtcache->{IDL}->finish ();
+}

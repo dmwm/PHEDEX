@@ -1,0 +1,325 @@
+#!/usr/bin/env perl
+
+BEGIN { use strict; use warnings;
+  my $me = $0; $me =~ s|.*/||;
+  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+  unshift(@INC, "$home/../Toolkit/Common"); }
+use UtilsDB;
+use UtilsTR;
+use UtilsNet;
+use UtilsReaders;
+use UtilsLogging;
+
+my $mode = undef;
+my %args = (DBITYPE => "Oracle", ONLY_NEW => 1);
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+	&usage();
+    } elsif ($ARGV[0] eq '-dbitype' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{DBITYPE} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{DBNAME} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{DBUSER} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{DBPASS} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '--') {
+	shift (@ARGV); last;
+    } elsif ($ARGV[0] =~ '^-') {
+	&usage ("$0: unrecognised option $ARGV[0]\n\n");
+    } else {
+	last;
+    }
+}
+
+# Connect to database
+my $dbh = &connectToDatabase (\%args, 0);
+$dbh->{FetchHashKeyName} = "NAME_uc";
+
+# Get all existing datasets and files
+my $datasets = &dbexec($dbh, qq{select id, dataset, owner from t_dsb_dataset})
+	       ->fetchall_arrayref ({});
+my $files =    &dbexec($dbh, qq{select id, guid from t_dsb_fileid})
+	       ->fetchall_arrayref ({});
+my %dso2dataset = map { join(" ", $_->{DATASET}, $_->{OWNER}) => $_ } @$datasets;
+my %guid2file = map { $_->{GUID} => $_ } @$files;
+
+# Get all current datasets
+my @current = &fetchPublishedData();
+my $stmtcache = {};
+foreach my $item (@current)
+{
+    print "processing $item->{OWNER}/$item->{DATASET}\n";
+
+    # Match this against known datasets
+    if (my $old = $dso2dataset{"$item->{OWNER}/$item->{DATASET}"})
+    {
+	$item->{ID} = $old->{ID};
+	$old->{KNOWN} = 1;
+	next if $args{ONLY_NEW};
+    }
+
+    # Get the full data
+    eval { &fillDatasetInfo ($item); };
+    do { &warn ($@); next; } if $@;
+    my $runs = $item->{RUNS};
+    my @dsfiles = map { @{$_->{FILES}} } @$runs;
+
+    # Match files against known files
+    foreach my $file (@dsfiles)
+    {
+	if (my $oldfile = $guid2file{$file->{GUID}})
+	{
+	    $file->{ID} = $oldfile->{ID};
+	    $oldfile->{KNOWN} = 1;
+	}
+    }
+
+    # Evaluate dataset information
+    my $events = 0; map { $events += $_->{EVTS} } @$runs;
+    print " Id         = @{[$item->{ID} || '(new)']}\n";
+    print " Owner      = $item->{OWNER}\n";
+    print " Dataset    = $item->{DATASET}\n";
+    print " Datatype   = $item->{DSINFO}{InputProdStepType}\n";
+    print " InputOwner = $item->{DSINFO}{InputOwnerName}\n";
+    print " PUDataset  = $item->{DSINFO}{PUDatasetName}\n";
+    print " PUOwner    = $item->{DSINFO}{PUOwnerName}\n";
+    print " Runs       = @{[scalar @$runs]}\n";
+    print " Files      = @{[scalar @dsfiles]}\n";
+    print " Events     = $events\n";
+    print " Filling database...\n";
+
+    # Update the database
+    &updateDatasetDB ($dbh, $item, $stmtcache);
+}
+
+# Delete unknown datasets
+foreach my $item (@$datasets)
+{
+    last;
+
+    # Skip if this is still known
+    next if $item->{KNOWN};
+    &clearDatasetFromDB ($item);
+    # FIXME: Delete transfer requests?
+}
+
+# Delete unknown files
+foreach my $item (@$files)
+{
+    last;
+
+    # Skip if this is still known
+    next if $item->{KNOWN};
+    &clearFileFromDB ($item);
+}
+
+$dbh->disconnect ();
+exit 0;
+
+# Get published datasets page contents
+sub fetchPublishedData
+{
+    # Fetch the page
+    my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/PubDB/"
+	    		."GetPublishedCollectionInfoFromRefDB.php");
+    die "no published data\n" if ! $data;
+    die "bad published data\n" if $data !~ /<TITLE>Publication Information/;
+
+    # Break it into bits
+    my @items = ();
+    my $item;
+    foreach my $row (split("\n", $data))
+    {
+	if ($row =~ /<\/?TR[\s>]/) {
+	    $item = undef;
+	} elsif (! $item && $row =~ /<A HREF=.*dataset-discovery.php\?.*DSPattern=(.*)&OwPattern=(.*)'/) {
+	    if (! ($item = (grep($_->{DATASET} eq $1 && $_->{OWNER} eq $2, @items))[0]))
+	    {
+		push (@items, $item = { DATASET => $1, OWNER => $2 });
+	    }
+	} elsif ($item && $row =~ /<A HREF="Maintainer:[^>]*>([^<]*)</) {
+	    $item->{SITES}{$1} = 1;
+	}
+    }
+
+    return @items;
+}
+
+# Get dataset information
+sub fetchDatasetInfo
+{
+    my ($object) = @_;
+    my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/data/"
+	    		."AnaInfo.php?DatasetName=$object->{DATASET}&"
+			."OwnerName=$object->{OWNER}");
+    die "no run data for $object->{OWNER}/$object->{DATASET}\n" if ! $data;
+    die "bad run data for $object->{OWNER}/$object->{DATASET}\n" if $data =~ /ERROR.*SELECT.*FROM/s;
+    foreach my $row (split("\n", $data))
+    {
+	if ($row =~ /^(\S+)=(.*)/) {
+	    $object->{DSINFO}{$1} = $2;
+	}
+    }
+}
+
+# Fetch information about all the jobs of a dataset
+sub fetchRunInfo
+{
+    my ($object) = @_;
+    my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/data/"
+	    		."GetJobSplit.php?DatasetName=$object->{DATASET}&"
+			."OwnerName=$object->{OWNER}");
+    die "no run data for $object->{OWNER}/$object->{DATASET}\n" if ! $data;
+    die "bad run data for $object->{OWNER}/$object->{DATASET}\n" if $data =~ /ERROR.*SELECT.*FROM/s;
+    my ($junk, @rows) = split("\n", $data);
+    foreach my $row (@rows)
+    {
+	my ($run, $evts, $xmlfrag, @rest) = split(/\s+/, $row);
+	my $label = "$object->{OWNER}/$object->{DATASET}/$run";
+	my $runobj = { ID => $run, EVTS => $evts, XML => undef, FILES => [] };
+	push (@{$object->{RUNS}}, $runobj);
+	if ($xmlfrag eq '0') {
+	    &warn ("$label: no xml cragment\n");
+	} else {
+	    # Grab XML fragment
+	    open (XMLEXP, "echo '$xmlfrag' | mimencode -u | gzip -dc |")
+	        or die "$label: cannot expand xml fragment: $!\n";
+	    $runobj->{XML} = join("", grep(!/^\d+a$/ && !/^\.$/, <XMLEXP>));
+	    close (XMLEXP) or die "$label: failed to read xml fragment: $!\n";
+
+	    # Parse XML into per-file data
+	    eval { $runobj->{FILES} = &parseXMLCatalogue ($runobj->{XML}) };
+	    &warn ("$label: $@") if $@;
+	}
+    }
+}
+
+# Fill dataset with information for it
+sub fillDatasetInfo
+{
+    my ($object) = @_;
+    &fetchDatasetInfo ($object);
+    &fetchRunInfo ($object);
+}
+
+# Update dataset information in database
+sub updateDatasetDB
+{
+    my ($dbh, $object, $stmtcache) = @_;
+    my $runs = $object->{RUNS};
+    my @dsfiles = map { @{$_->{FILES}} } @$runs;
+    foreach my $file (@dsfiles) {
+	&clearFileFromDB ($dbh, $file) if defined $file->{ID};
+    }
+    &clearDatasetFromDB ($dbh, $object) if defined $object->{ID};
+
+    # Prepare statements
+    $stmtcache->{IFID} ||= &dbprep ($dbh, qq{
+	insert into t_dsb_fileid (id, guid) values (?, ?)});
+    $stmtcache->{IFILE} ||= &dbprep ($dbh, qq{
+	insert into t_dsb_file
+	(fileid, filesize, checksum, filename, filetype, catfragment)
+	values (?, -1, -1, ?, ?, ?)});
+    $stmtcache->{IFATTR} ||= &dbprep ($dbh, qq{
+	insert into t_dsb_file_attributes (fileid, attribute, value)
+	values (?, ?, ?)});
+
+    $stmtcache->{IDS} ||= &dbprep ($dbh, qq{
+	insert into t_dsb_dataset
+	(id, datatype, dataset, owner, inputowner, pudataset, puowner)
+	values (?, ?, ?, ?, ?, ?, ?)});
+    $stmtcache->{IDR} ||= &dbprep ($dbh, qq{
+	insert into t_dsb_dataset_run (dataset, runid, events) values (?, ?, ?)});
+    $stmtcache->{IDRF} ||= &dbprep ($dbh, qq{
+	insert into t_dsb_dataset_run_file (dataset, runid, fileid) values (?, ?, ?)});
+    $stmtcache->{IDL} ||= &dbprep ($dbh, qq{
+	insert into t_dsb_dataset_availability (dataset, location) values (?, ?)});
+
+    # Build array insert parameters for file data
+    my %sqlargs = ();
+    foreach my $file (@dsfiles)
+    {
+	($file->{ID}) = &dbexec($dbh, qq{select seq_dsb_fileid.nextval from dual})
+				->fetchrow() if ! defined $file->{ID};
+	push(@{$sqlargs{IFID}{1}}, $file->{ID});
+	push(@{$sqlargs{IFID}{2}}, $file->{GUID});
+	
+	push(@{$sqlargs{IFILE}{1}}, $file->{ID});
+	push(@{$sqlargs{IFILE}{2}}, $file->{LFN}[0]);
+	push(@{$sqlargs{IFILE}{3}}, $file->{PFN}[0]{TYPE});
+	push(@{$sqlargs{IFILE}{4}}, $file->{TEXT});
+
+    	foreach my $m (sort keys %{$file->{META}})
+	{
+	    push(@{$sqlargs{IFATTR}{1}}, $file->{ID});
+	    push(@{$sqlargs{IFATTR}{2}}, "POOL_$m");
+	    push(@{$sqlargs{IFATTR}{3}}, $file->{META}{$m});
+	}
+    }
+
+    # Insert dataset information
+    ($object->{ID}) = &dbexec($dbh, qq{select seq_dsb_dataset.nextval from dual})
+    		      ->fetchrow() if ! defined $object->{ID};
+
+    push(@{$sqlargs{IDS}{1}}, $object->{ID});
+    push(@{$sqlargs{IDS}{2}}, $object->{DSINFO}{InputProdStepType});
+    push(@{$sqlargs{IDS}{3}}, $object->{DATASET});
+    push(@{$sqlargs{IDS}{4}}, $object->{OWNER});
+    push(@{$sqlargs{IDS}{5}}, $object->{DSINFO}{InputOwnerName});
+    push(@{$sqlargs{IDS}{6}}, $object->{DSINFO}{PUDatasetName});
+    push(@{$sqlargs{IDS}{7}}, $object->{DSINFO}{PUOwnerName});
+
+    foreach my $run (@$runs)
+    {
+	push(@{$sqlargs{IDR}{1}}, $object->{ID});
+	push(@{$sqlargs{IDR}{2}}, $run->{ID});
+	push(@{$sqlargs{IDR}{3}}, $run->{EVTS});
+
+    	foreach my $file (@{$run->{FILES}})
+	{
+	    push(@{$sqlargs{IDRF}{1}}, $object->{ID});
+	    push(@{$sqlargs{IDRF}{2}}, $run->{ID});
+	    push(@{$sqlargs{IDRF}{3}}, $file->{ID});
+	}
+    }
+    
+    foreach my $loc (keys %{$object->{SITES}})
+    {
+	push(@{$sqlargs{IDL}{1}}, $object->{ID});
+	push(@{$sqlargs{IDL}{2}}, $loc);
+    }
+
+    # Grand execute everything
+    foreach my $stmtname (qw(IFID IFILE IFATTR IDS IDR IDRF IDL))
+    {
+	my $stmt = $stmtcache->{$stmtname};
+	foreach my $k (keys %{$sqlargs{$stmtname}}) {
+	    $stmt->bind_param_array ($k, $sqlargs{$stmtname}{$k});
+	}
+	$stmt->execute_array ({ ArrayTupleResult => []});
+    }
+
+    # Now commit
+    $dbh->commit();
+}
+
+sub clearDatasetFromDB
+{
+    my ($dbh, $object) = @_;
+    my %id = (":id" => $object->{ID});
+    &dbexec ($dbh, qq{delete from t_dsb_dataset_availability where dataset = :id}, %id);
+    &dbexec ($dbh, qq{delete from t_dsb_dataset_run_file where dataset = :id}, %id);
+    &dbexec ($dbh, qq{delete from t_dsb_dataset_run where dataset = :id}, %id);
+    &dbexec ($dbh, qq{delete from t_dsb_dataset where id = :id}, %id);
+}
+
+sub clearFileFromDB
+{
+    my ($dbh, $object) = @_;
+    my %id = (":id" => $object->{ID});
+    &dbexec ($dbh, qq{delete from t_dsb_file_attributes where fileid = :id}, %id);
+    &dbexec ($dbh, qq{delete from t_dsb_file where fileid = :id}, %id);
+    &dbexec ($dbh, qq{delete from t_dsb_fileid where id = :id}, %id);
+}
