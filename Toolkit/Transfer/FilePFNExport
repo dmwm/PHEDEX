@@ -154,10 +154,10 @@ sub idle
 	    left join t_replica_state rs
 	      on rs.guid = ts.guid
 	     and rs.node = ts.from_node
-	    where ((ts.from_node = :node
-	            and ts.to_state = 1
+	    where ((ts.to_state = 1
       	            and ts.to_timestamp > :old)
 		   or rs.state = 1)
+	      and ts.from_node = :node
 	      and ts.from_pfn is null},
       	    ":node" => $self->{MYNODE},
 	    ":old" => $now - 15*60);
