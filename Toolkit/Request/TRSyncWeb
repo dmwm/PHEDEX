@@ -103,7 +103,7 @@ foreach my $request (@ARGV)
 	    insert into t_request_operation
 	    (request_name, time_stamp, operation, identity)
 	    values (:req, :stamp, :op, :arg)},
-	    ":request" => $request, ":stamp" => $op->{STAMP},
+	    ":req" => $request, ":stamp" => $op->{STAMP},
 	    ":op" => $op->{COMMAND}, ":arg" => $op->{ARG});
     }
 
@@ -112,7 +112,7 @@ foreach my $request (@ARGV)
 	    insert into t_request_subscription
 	    (request_name, time_stamp, operation, destination)
 	    values (:req, :stamp, :op, :arg)},
-	    ":request" => $request, ":stamp" => $op->{STAMP},
+	    ":req" => $request, ":stamp" => $op->{STAMP},
 	    ":op" => $op->{COMMAND}, ":arg" => $op->{ARG});
     }
 
@@ -121,7 +121,7 @@ foreach my $request (@ARGV)
 	    insert into t_request_data
 	    (request_name, time_stamp, operation, selection)
 	    values (:req, :stamp, :op, :arg)},
-	    ":request" => $request, ":stamp" => $op->{STAMP},
+	    ":req" => $request, ":stamp" => $op->{STAMP},
 	    ":op" => $op->{COMMAND}, ":arg" => $op->{ARG});
     }
 
@@ -130,7 +130,7 @@ foreach my $request (@ARGV)
 	    insert into t_request_drop
 	    (request_name, drop_name, drop_category)
 	    values (:req, :drop, :cat)},
-	    ":request" => $request,
+	    ":req" => $request,
 	    ":drop" => $drop->{DROPNAME},
 	    ":cat" => $drop->{DROP_CATEGORY});
 
@@ -139,7 +139,7 @@ foreach my $request (@ARGV)
 		insert into t_request_file
 		(request_name, guid, drop_name)
 		values (:req, :guid, :drop)},
-		":request" => $request,
+		":req" => $request,
 		":guid" => $file->{GUID},
 		":drop" => $drop->{DROPNAME});
 
@@ -148,7 +148,7 @@ foreach my $request (@ARGV)
 		(request_name, guid, location,
 		 is_available, is_pending, is_transferred)
 		values (:req, :guid, 'CERN_MSS', :av, :pend, :trans)},
-		":request" => $request,
+		":req" => $request,
 		":guid" => $file->{GUID},
 		":av" => $file->{IN_MSS} ? '1' : '0',
 		":pend" => $file->{PENDING} ? '1' : '0',
