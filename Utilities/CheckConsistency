@@ -11,6 +11,8 @@ BEGIN {
   unshift(@INC, $home);
 }
 
+use File::Copy;
+
 my $me = $0; $me =~ s|.*/||;
 my %args = (DBITYPE => "Oracle", NJOBS => 10);
 while (scalar @ARGV)
@@ -42,7 +44,6 @@ while (scalar @ARGV)
 # FIXME: would be good to check for known fstypes: castor or mount
 if (scalar @ARGV || !$args{DBNAME} || !$args{DBUSER} || !$args{DBPASS}
     || !$args{DBITYPE} || !$args{MYNODE} || !$args{HOST_KEY}
-    || !$args{DOMAINS} 
     || (($args{DOMAINS}{fs} || $args{DOMAINS}{f}) && !$args{TYPE} )
     || ($args{DOMAINS}{c} && !$args{CATALOGUE}) )
 {
@@ -56,26 +57,95 @@ if (scalar @ARGV || !$args{DBNAME} || !$args{DBUSER} || !$args{DBPASS}
 my $files = {};
 
 if ($args{DOMAINS}{p}) {
-    die if ! &queryPhEDEx(\%args, $files);
+    if ( -e "./phedex-cache" ) {
+	&readPhedexCache(\%args,$files);
+    } else {
+	die if ! &queryPhEDEx(\%args, $files);
+	&writePhedexCache(\%args,$files);
+    }
 }
 if ($args{DOMAINS}{c}) {
-    die if ! &queryFileCatalogue(\%args, $files);
+    if ( -e "./catalogue-cache" ) {
+	&readCatalogueCache(\%args, $files);
+    } else {
+	die if ! &queryFileCatalogue(\%args, $files);
+	&writeCatalogueCache(\%args, $files);
+    }
 }
 if ($args{DOMAINS}{fs}) {
-    die if ! &queryFileSystem(\%args, $file);
+    die if ! &queryFileSystem(\%args, $files);
 }
 if ($args{DOMAINS}{f}) {
-    die if ! &queryFiles(\%args, $file);
+    die if ! &queryFiles(\%args, $files);
 }
 
+# Build matrix of counts for all possible states. As guids are found in
+# each domain the DOMAIN tag is ORd with the existing value. The domain
+# tag is then used to build a table of guid counts in each state
+my @counts = ();
 foreach my $file (values %$files) {
-    print "no guid for pfn $file->{PFN}\n" if ! $file->{GUID};
-    print "no pfn for guid $file->{GUID}\n" if ! $file->{PFN};
+    $counts[$file->{DOMAINS}]++;
+}
+
+print "P C L  #\n";
+for (my $idx=0;$idx<8;$idx++) {
+    my $s = '';
+    if ( $idx & 4 ) { $s = "x " } else { $s = "  "; }
+    if ( $idx & 2 ) { $s .= "x " } else { $s .= "  "; }
+    if ( $idx & 1 ) { $s .= "x " } else { $s .= "  "; }
+    print "$s $counts[$idx]\n";
 }
 
 exit 0;
 
 ######################################################################
+sub readPhedexCache
+{
+    my ($args, $files) = @_;
+    open(CACHE, "gunzip -c < ./phedex-cache |");
+    while(<CACHE>) {
+	chop;
+	my ($guid) = split( / / );
+	$files->{$guid}{GUID} = $guid;
+	$files->{$guid}{DOMAINS} += 4;
+    }
+    die if ! close(CACHE);
+}
+
+sub writePhedexCache
+{
+    my ($args, $files) = @_;
+    open(CACHE, "| gzip -c > ./phedex-cache") || die "Couldn't open phedex-cache fro write";
+    foreach my $file (values %$files) {
+	print CACHE "$file->{GUID}\n";
+    }
+    die if ! close(CACHE);
+}
+
+sub readCatalogueCache
+{
+    my ($args, $files) = @_;
+    open(CACHE, "gunzip -c < ./catalogue-cache |");
+    while(<CACHE>) {
+	chop;
+	my ($guid,$fcsurl) = split( / / );
+	$files->{$guid}{GUID} = $guid;
+	$files->{$guid}{DOMAINS} += 2;
+	$files->{$guid}{FCSURL} = $fcsurl;
+    }
+    die if ! close(CACHE);
+}
+
+sub writeCatalogueCache
+{
+    my ($args, $files) = @_;
+    open(CACHE, "| gzip -c > ./catalogue-cache");
+    foreach my $file (values %$files) {
+	print CACHE "$file->{$guid}{GUID} $file->{$guid}{FCSURL}\n";
+    }
+    die if ! close(CACHE);
+}
+
 # Fetch all guids for a node in the TMDB.
 sub queryPhEDEx
 {
@@ -91,7 +161,7 @@ sub queryPhEDEx
     print "downloading guids: ";
     while (my ($guid) = $stmt->fetchrow()) {
 	$files->{$guid}{GUID} = $guid;
-	$files->{$guid}{IN_TMDB} = 1;
+	$files->{$guid}{DOMAINS} += 4;
 	print "." if ++$nguids % 1000 == 0;
     }
     print " done\n";
@@ -122,11 +192,12 @@ sub queryFileCatalogue
 	my ($guid, $pfn) = /^([-0-9A-F]+)\s+(.*)/;
 	if ($pfn =~ /$args->{HOST_KEY}/) {
 	    $files->{$guid}{FCPFN} = $pfn;
-	    $files->{$guid}{IN_FC} = 1;
+	    $files->{$guid}{DOMAINS} += 2;
 	}
 	print "." if ++$nguids % 1000 == 0;
     }
     close (CAT) or die "PFClistGuidPFN: $!\n";
+    print "done\n";
     return 1;
 }
 
