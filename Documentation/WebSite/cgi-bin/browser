@@ -12,7 +12,7 @@ my %databases = ("prod" => [ "cms", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
 		 "test" => [ "devdb", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
 		 "testbed" => [ "devdb", 'CMS_TRANSFERMGMT_TESTBED', 'phedexedehp' ]);
 my $cgi = new CGI;
-my $db = param("db") || "prod";    # tnsname of the database
+my $db = $cgi->param("db") || "prod";    # tnsname of the database
 my $dbh;
 
 my $badcolor = '#ff9e9e';
@@ -20,6 +20,9 @@ my $warncolor = '#ffd89e';
 my $pendcolor = '#ccccff'; # ececff
 my $goodcolor = '#ccffcc';
 my $altcolor = '#e8e8e8';
+
+$cgi->param('db', 'prod') if ! $cgi->param('db');
+$cgi->param('page', 'main') if ! $cgi->param('page');
 
 # ###############################################
 # Main loop
@@ -32,35 +35,39 @@ end();
 # Subroutines
 # ###############################################
 
+sub relurl
+{
+    my %args = ('db' => $db, @_);
+    my $newcgi = new CGI ($cgi->query_string);
+    map { $newcgi->param ($_, $args{$_}) } keys %args;
+    return $newcgi->self_url(-full=>0, -relative=>1);
+}
+
 sub intro
 {
     $| = 1;
     my $stamp = strftime ("%Y-%m-%d %H:%M:%S %Z", localtime(time()));
     print $cgi->header();
-    print start_form();
     print qq{
-    <html>
-    <title>PHEDEX Status</title>
-    <body bgcolor='#FFFFFF'>
-    <center>
-    <h1>PHEDEX Status</h1>
-    <table>
-    <tr>
-    <td><input type='submit' name='main' value='Front page'></td>
-    <td><input type='submit' name='transfer' value='Transfer state'></td>
-    <td><input type='submit' name='replicas' value='Replica state'></td>
-    <td><input type='submit' name='subs' value='Subscriptions'></td>
-    <td><input type='submit' name='stats' value='File size stats'></td>
-    <td><input type='submit' name='rates' value='Transfer rate'></td>
-    <td><input type='submit' name='agents' value='Agent status'></td>
-    </tr>
-    <tr><td colspan=7 align='center'>$stamp</td></tr>
-    <tr><td colspan=7 align='center'><select name='db'>"},
-    "<option value='testbed'@{[$db eq 'testbed' && ' selected=selected']}>Testbed</option>",
-    "<option value='test'@{[$db eq 'test' && ' selected=selected']}>Test</option>",
-    "<option value='rac'@{[$db eq 'rac' && ' selected=selected']}>RAC Test</option>",
-    "<option value='prod'@{[$db eq 'prod' && ' selected=selected']}>Production</option>",
-    "</select></td></tr></table>\n";
+      <html><title>PHEDEX Status</title><body bgcolor='#FFFFFF'>
+      <center><h1>PHEDEX Status</h1><table><tr>
+       	<td><a href='}, &relurl('page', 'main'), qq{'>Front page</a></td>
+       	<td><a href='}, &relurl('page', 'transfer'), qq{'>Transfer state</a></td>
+       	<td><a href='}, &relurl('page', 'replicas'), qq{'>Replica state</a></td>
+       	<td><a href='}, &relurl('page', 'subs'), qq{'>Subscriptions</a></td>
+       	<td><a href='}, &relurl('page', 'stats'), qq{'>File size stats</a></td>
+       	<td><a href='}, &relurl('page', 'rates'), qq{'>Transfer rate</a></td>
+       	<td><a href='}, &relurl('page', 'agents'), qq{'>Agent status</a></td>
+       </tr>
+       <tr><td colspan=7 align='center'>$stamp</td></tr>
+       <tr>
+         <td colspan=2>&nbsp;</td>
+       	 <td><a href='}, &relurl('db', 'testbed'), qq{'>Testbed</a></td>
+       	 <td><a href='}, &relurl('db', 'test'), qq{'>Test</a></td>
+       	 <td><a href='}, &relurl('db', 'rac'), qq{'>RAC Test</a></td>
+       	 <td><a href='}, &relurl('db', 'prod'), qq{'>Production</a></td>
+         <td>&nbsp;</td>
+        </td></tr></table>};
 
     $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
     $ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/10103";
@@ -70,11 +77,11 @@ sub intro
     $dbh = DBI->connect ("DBI:Oracle:$dbname", $dbuser, $dbpass,
 	    		 { RaiseError=>1, AutoCommit =>1 });
 
-    my $needmain = 1;
-    foreach my $page (qw(main transfer replicas subs stats agents rates)) {
-        do { no strict 'refs'; $needmain = 0; &{$page}(); last } if param($page);
-    }
-    main() if $needmain;
+    my %pages = ('main' => \&main,	   'transfer' => \&transfer,
+		 'replicas' => \&replicas, 'subs' => \&subs,
+		 'stats' => \&stats,       'agents' => \&agents,
+		 'rates' => \&rates);
+    &{$pages{param('page')} || \&main}();
     print "</body></html>\n";
 }
 
