@@ -20,8 +20,8 @@ create table t_routing
   (from_node		varchar (20)	not null,
    to_node		varchar (20)	not null,
    gateway		varchar (20)	not null,
-   timestamp		float		not null,
-   hops			integer		not null);
+   hops			integer		not null,
+   timestamp		float		not null);
 
 create table t_node_imports
   (node			varchar (20)	not null,
