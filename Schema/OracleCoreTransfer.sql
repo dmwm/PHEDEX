@@ -24,7 +24,6 @@ create table t_replica_state
   (guid			char (36)	not null,
    node			varchar (20)	not null,
    state		integer		not null,
-   local_state		integer		not null,
    timestamp		float		not null);
 
 create table t_transfer_state
@@ -35,7 +34,8 @@ create table t_transfer_state
    from_pfn		varchar (500),
    to_node		varchar (20)	not null,
    to_state		integer		not null,
-   to_timestamp		float		not null);
+   to_timestamp		float		not null,
+   timestamp		float		not null);
 
 ----------------------------------------------------------------------
 -- Add constraints
