@@ -164,9 +164,9 @@ sub getGroupsWanted {
     
 # any collections wanted, which are not in t_replica_state ? Let's check....    
     my $h_packet = &dbexec ($dbh, qq{
-	select tb.dataset, tb.owner, tbr.node
-        from t_block tb, t_block_replica tbr
-        where tb.name = tbr.name and tbr.files=0});
+	select dataset, owner, destination
+        from T_INFO_SUBSCRIPTIONS
+        where n_files_at_dest=0});
     
     while (my ($owner, $dataset, $node) = $h_packet->fetchrow_array){
 	push (@packet, "$dataset:$owner:$node");
