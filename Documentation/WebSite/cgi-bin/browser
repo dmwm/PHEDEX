@@ -47,6 +47,7 @@ sub intro
     <td><input type='submit' name='replicas' value='Replica state'></td>
     <td><input type='submit' name='subs' value='Subscriptions'></td>
     <td><input type='submit' name='stats' value='File size stats'></td>
+    <td><input type='submit' name='rates' value='Transfer rate'></td>
     <td><input type='submit' name='agents' value='Agent status'></td>
     </tr>
     <tr><td colspan=6 align='center'>$stamp</td></tr>
@@ -60,7 +61,7 @@ sub intro
 	    		 { RaiseError=>1, AutoCommit =>1 });
 
     my $needmain = 1;
-    foreach my $page (qw(main transfer replicas subs stats agents)) {
+    foreach my $page (qw(main transfer replicas subs stats agents rates)) {
         do { no strict 'refs'; $needmain = 0; &{$page}(); last } if param($page);
     }
     main() if $needmain;
@@ -434,7 +435,16 @@ sub subs {
 
 sub age {
     my ($diff) = @_;
-    return sprintf ("%dh%02d", $diff / 3600, ($diff % 3600) / 60);
+    my $str = "";
+    my $full = 0;
+    if ($diff >= 86400) {
+	$str .= sprintf("%dd", $diff / 86400);
+	$diff %= 86400;
+	$full = 1;
+    }
+    $str .= sprintf("%dh", $diff / 3600);
+    $diff %= 3600;
+    $str .= sprintf("%02d", $diff / 60);
 }
 
 sub stats {
@@ -557,6 +567,85 @@ sub agents {
 	}
     }
     print "</table>\n";
+}
+
+sub format_timespan {
+    my $span = shift;
+    if ($span >= 86400) {
+	$span /= 86400;
+	return $span == 1 ? "day" : "$span days";
+    } elsif ($span >= 3600) {
+	$span /= 3600;
+	return $span == 1 ? "hour" : "$span hours";
+    } elsif ($span >= 60) {
+	$span /= 60;
+	return $span == 1 ? "minute" : "$span minutes";
+    } else {
+	return $span == 1 ? "second" : "$span seconds";
+    }
+}
+
+sub rates {
+    my $now = time();
+    my %stats = ();
+    my $q = $dbh->prepare(qq{
+			select
+			  update_stamp,
+			  time_span,
+			  info_type,
+			  from_node,
+			  to_node,
+			  n_total,
+			  sz_total,
+			  time_total,
+			  bps_total,
+			  bps_average,
+			  bps_min,
+			  bps_max
+			from t_info_transfer_rate
+			order by time_span, info_type, bps_total desc});
+    $q->execute();
+    while (my $row = $q->fetchrow_hashref()) {
+	push(@{$stats{$row->{TIME_SPAN}}{$row->{INFO_TYPE}}}, $row);
+    }
+
+    print "<h2>Transfer Rate Statistics</h2>\n";
+    print "<table>\n";
+    foreach my $span (sort { $a <=> $b } keys %stats)
+    {
+    	print
+	  "<tr bgcolor='$altcolor' valign='top'>",
+	  "<th colspan='10'>", ($span == 0 ? "Overall" : "Last @{[&format_timespan($span)]}"), "</th></tr>\n",
+	  "<tr bgcolor='$altcolor' valign='top'>",
+	  "<th>Age</th>",
+	  "<th>From</th>",
+	  "<th>To</th>",
+	  "<th>Files</th>",
+	  "<th>Total Size</th>",
+	  "<th>Total Time</th>",
+	  "<th>Overall Rate</th>",
+	  "<th>Mean Rate</th>",
+	  "<th>Min Rate</th>",
+	  "<th>Max Rate</th>",
+	  "</tr>\n";
+	foreach my $row (@{$stats{$span}{'N'}}, @{$stats{$span}{'T'}})
+	{
+	    print "<tr>",
+		  "<td>", &age($now - $row->{UPDATE_STAMP}), "</td>",
+		  ($row->{FROM_NODE}
+		   ? "<td>$row->{FROM_NODE}</td><td>$row->{TO_NODE}</td>"
+		   : "<td colspan='2'>Total</td>"),
+	          "<td>$row->{N_TOTAL}</td>",
+	          "<td align='right'>@{[&format_size($row->{SZ_TOTAL})]}</td>",
+	          "<td align='right'>@{[&age($row->{TIME_TOTAL})]}</td>",
+	          "<td align='right'>@{[&format_size($row->{BPS_TOTAL})]}/s</td>",
+	          "<td align='right'>@{[&format_size($row->{BPS_AVERAGE})]}/s</td>",
+	          "<td align='right'>@{[&format_size($row->{BPS_MIN})]}/s</td>",
+	          "<td align='right'>@{[&format_size($row->{BPS_MAX})]}/s</td>",
+	          "</tr>\n";
+	}
+    }
+    print "</table>\n<hr>\n";
 }
 
 sub end {
