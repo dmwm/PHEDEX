@@ -40,7 +40,7 @@ alter table t_request
   using index tablespace INDX01;
 
 alter table t_request
-  add constraint uk_request_name
+  add constraint uq_request_name
   unique (name);
 
 
