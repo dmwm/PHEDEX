@@ -1,0 +1,21 @@
+#!/usr/bin/env perl
+
+use strict;
+
+my ($dir,$surlroot) = @ARGV;
+
+# This script takes a directory, and returns a list of subdirectories
+# and SURLs
+open( LS, "ls -l $dir |" );
+while( <LS> ) {
+    if ( ! /^total/ ) {
+	my ( $mode,$stuff,$user,$group,$size,$month,$day,$time,$file ) = split( /\s+/ );
+	if ( $mode =~ /^d/ ) {
+	    print "d: $file\n";
+	} else {
+	    my $surl = $surlroot."$dir$file";
+	    print "$surl\n";
+	}
+    }
+}
+close( LS );
