@@ -16,4 +16,4 @@ STARGS="-stagehost stagecmsprod -stagepool cms_prod2"
 ./FileCastorExport -state exp $DBARGS $STARGS -node castorgrid_mss >& log-exp &
 ./FileCastorStager -state si $DBARGS $STARGS -node castorgrid_mss -prefix sfn://castorgrid.cern.ch >& log-si &
 ./FileCastorChecksum -state cs $DBARGS $STARGS -node castorgrid_mss -prefix sfn://castorgrid.cern.ch >& log-cs &
-./FileCastorMigrate -state cm $DBARGS $STARGS -node castorgrid_mss_test -prefix sfn://castorgrid.cern.ch >& log-cs &
+./FileCastorMigrate -state cm $DBARGS $STARGS -node castorgrid_mss_test -prefix sfn://castorgrid.cern.ch >& log-cm &
