@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/29 09:11:48 $
-# $Id: Allocator.pl,v 1.29 2004/07/29 09:11:48 barrass Exp $
+# $Date: 2004/07/29 09:12:57 $
+# $Id: Allocator.pl,v 1.30 2004/07/29 09:12:57 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -212,7 +212,7 @@ sub get_source_nodes {
     my @guids = shift;
     my $selection = "select guid,source_node from t_files_for_transfer where";
     foreach $guid (@guids) {
-        $selection .= "guid = $guid or ";
+        $selection .= "guid = '$guid' or ";
     }
     substr( $selection, -4 );
     my %sources = ();
