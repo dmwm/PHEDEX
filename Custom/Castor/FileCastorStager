@@ -269,7 +269,7 @@ sub getStagerFiles
 	if ($cache && $cache =~ /^\d+:(.+)/)
 	{
 	    # Known in cache.  Just push into result.
-	    push (@$result, [ $guid, $1, $status ]);
+	    push (@$result, [ $1, $pfn, $status ]);
 	}
 	else
 	{
