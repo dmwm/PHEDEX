@@ -1,0 +1,150 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use CGI qw(:standard);
+use CGI::Carp qw(fatalsToBrowser);
+use POSIX;
+use DBI;
+
+my $cgi = new CGI;
+my $db = param("db") || "devdb9";    # tnsname of the database
+my $dbh;
+
+my $badcolor = '#ff9e9e';
+my $warncolor = '#ffd89e';
+my $pendcolor = '#ccccff'; # ececff
+my $goodcolor = '#ccffcc';
+my $altcolor = '#e8e8e8';
+
+# ###############################################
+# Main loop
+# ###############################################
+
+intro();
+end();
+
+# ###############################################
+# Subroutines
+# ###############################################
+
+sub intro
+{
+    $| = 1;
+    my $stamp = strftime ("%Y-%m-%d %H:%M:%S %Z", localtime(time()));
+    print $cgi->header();
+    print start_form();
+    print qq{
+    <html>
+    <title>PhEDEx Transfer Request Status</title>
+    <body bgcolor='#FFFFFF'>
+    <center>
+    <h1>PhEDEx Transfer Request Status</h1>
+    <table>
+    <tr><td colspan=7 align='center'>$stamp</td></tr>
+    <tr><td colspan=7 align='center'><select name='db'>"},
+    "<option value='devdb9'@{[$db eq 'devdb9' && ' selected=selected']}>Test</option>",
+    "<option value='pdb01'@{[$db eq 'pdb01' && ' selected=selected']}>Production</option>",
+    "</select></td></tr></table>\n";
+
+    $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
+    $ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/8174";
+    $ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/8174/lib";
+    $dbh = DBI->connect ("DBI:Oracle:$db", 'CMS_TRANSFERMGMT', 'smallAND_round',
+	    		 { RaiseError=>1, AutoCommit =>1 });
+
+    main();
+    print "</body></html>\n";
+}
+
+sub end {
+    print end_form();
+    $dbh->disconnect();
+}
+
+sub main
+{
+    my %status = ();
+    my $query = $dbh->prepare(qq{
+	select
+	  fs.request_name,
+	  f.drop_name,
+	  fs.guid,
+	  fs.location,
+	  fs.is_available,
+	  fs.is_pending,
+	  fs.is_transferred
+	from t_request_file_status fs
+	left join t_request_file f
+	  on f.request_name = fs.request_name
+	  and f.guid = fs.guid});
+
+    $query->execute();
+    while (my ($req, $drop, $guid, $loc, @stats) = $query->fetchrow())
+    {
+	$status{$req}{DROPS}{$drop} = 1;
+	$status{$req}{LOCS}{$loc} = 1;
+	$status{$req}{FILES}{$guid} = 1;
+	$status{$req}{FILE_STATS}{$loc}
+	   ||= { AVAILABLE => 0, PENDING => 0, TRANSFERRED => 0 };
+	$status{$req}{FILE_STATS}{$loc}{AVAILABLE}++ if $stats[0];
+	$status{$req}{FILE_STATS}{$loc}{PENDING}++ if $stats[1];
+	$status{$req}{FILE_STATS}{$loc}{TRANSFERRED}++ if $stats[2];
+    }
+    $query->finish();
+
+    print "<h2>Request status</h2>\n",
+          "<table><tr>",
+	  "<th>Request</th>",
+	  "<th>Drops</th>",
+	  "<th>Files</th>",
+	  "<th>Origin</th>",
+	  "<th>Transferred</th>",
+	  "<th>Pending</th>",
+	  "<th>Available</th>",
+	  "</tr>\n";
+
+    foreach my $req (sort keys %status)
+    {
+	my $info = $status{$req};
+	my $ndrops = scalar keys %{$info->{DROPS}};
+	my $nlocs = scalar keys %{$info->{LOCS}};
+	my $nfiles = scalar keys %{$info->{FILES}};
+	print "<tr><td rowspan='$nlocs'>$req</td>",
+	      "<td rowspan='$nlocs'>$ndrops</td>",
+	      "<td rowspan='$nlocs'>$nfiles</td>";
+	my $first = 1;
+        foreach my $loc (sort keys %{$info->{LOCS}})
+	{
+	    my $stats = $info->{FILE_STATS}{$loc};
+	    print "<tr>" if ! $first;
+	    print "<td>$loc</td>",
+	          "<td>$stats->{TRANSFERRED}</td>",
+	          "<td>$stats->{PENDING}</td>",
+	          "<td>$stats->{AVAILABLE}</td>",
+		  "</tr>\n";
+	    $first = 0;
+	}
+    }
+    print "</table>\n";
+}
+
+sub format_num {
+    my ($n) = @_;
+    return $n ? "$n" : '&#8211;';
+}
+
+sub format_size {
+    my ($bytes, $nodash) = @_;
+    my @bounds = ([ 2**10, 'k' ], [ 2**20, 'M' ], [ 2**30, 'G' ],
+		  [ 2**40, 'T' ], [ 2**50, 'P' ], [ 2**60, 'E' ]);
+    my ($val, $unit) = ($bytes, '');
+    while (@bounds && $bytes >= $bounds [0][0])
+    {
+	$val = $bytes / $bounds[0][0];
+	$unit = $bounds[0][1];
+	shift (@bounds);
+    }
+
+    return $bytes || $nodash ? sprintf('%.1f&nbsp;%sB', $val, $unit) : '&#8211;';
+}
