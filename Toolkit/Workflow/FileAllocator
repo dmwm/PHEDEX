@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/29 11:01:18 $
-# $Id: Allocator.pl,v 1.45 2004/07/29 11:01:18 barrass Exp $
+# $Date: 2004/07/29 11:09:39 $
+# $Id: Allocator.pl,v 1.46 2004/07/29 11:09:39 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -71,7 +71,7 @@ while(!(-e "$g_work_dir/stop")) {
     my $loop_start = time();
 
     my %dataset_by_new_guid = &get_new_guid_list;
-    my %source_node_by_guid = get_source_nodes( keys %dataset_by_new_guid );
+    my %source_node_by_guid = get_source_nodes( \(keys %dataset_by_new_guid) );
     # Do error checks!
     my $guid = '';
     my @sql = ();
@@ -111,7 +111,7 @@ while(!(-e "$g_work_dir/stop")) {
         }
     }
     
-    do_sql( @sql );
+    do_sql( \@sql );
 
     $time = time();
     sleep($g_period - $time + $loop_start);
@@ -213,7 +213,7 @@ sub get_current_subscriptions {
 }
 
 sub do_sql {
-    my @sql = shift;
+    my $sql = shift;
     
     eval {
         my $dbh = DBI->connect(    "DBI:Oracle:$g_db",
@@ -221,7 +221,7 @@ sub do_sql {
 		  			    $g_passwd,
 	   				    { RaiseError=>1, AutoCommit =>1 });
     
-        foreach $sql ( @sql ) {
+        foreach $sql ( @$sql ) {
             $dbh->do($sql) if (!$g_no_updates);
         }
 
@@ -240,9 +240,9 @@ sub do_sql {
 }
 
 sub get_source_nodes {
-    my @guids = shift;
+    my $guids = shift;
     my $selection = "select guid,source_node from t_files_for_transfer where ";
-    foreach $guid (@guids) {
+    foreach $guid (@$guids) {
         $selection .= "guid = '$guid' or ";
     }
     substr( $selection, -4 ) = '';
@@ -258,7 +258,7 @@ sub get_source_nodes {
         my $query = $dbh->prepare($selection);	
 		
         $query->execute();while (@row = $query->fetchrow_array) {	
-	       $sources{$row[0]}  .= $row[1];
+	       $sources{$row[0]}  = $row[1];
         }
         $query->finish();
         
