@@ -1,7 +1,7 @@
 rls1 =
   (DESCRIPTION=
-   (ADDRESS=(PROTOCOL=TCP) (HOST=rlslcg1db.cern.ch) (PORT=1521))
-   (CONNECT_DATA=(SID=rls1)))
+   (ADDRESS=(PROTOCOL=TCP) (HOST=lxshare071d.cern.ch) (PORT=1521))
+   (CONNECT_DATA=(SID=rls1))) 
 
 devdb9 =
   (DESCRIPTION=
