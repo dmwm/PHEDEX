@@ -31,6 +31,7 @@ eval qx(cat "$home/UtilsCommand.pm"); die $@ if $@;
 eval qx(cat "$home/UtilsTiming.pm"); die $@ if $@;
 eval qx(cat "$home/UtilsLogging.pm"); die $@ if $@;
 eval qx(cat "$home/UtilsRFIO.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsWriters.pm"); die $@ if $@;
 eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
 
 ######################################################################
@@ -175,20 +176,6 @@ sub flushQueue
     return 0 if ! &fetchQueueFiles ($queue, $data);
     my $checksum = map { "$_\n" } map { join(" ", @{$_->{CHECKSUM}}) } values %{$data->{MEMBERS}};
 
-    # Generate XML preamble/trailer
-    my $xmlpreamble = ("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n"
-	               . "<!DOCTYPE POOLFILECATALOG SYSTEM \"InMemory\"><POOLFILECATALOG>\n"
-		       . '  <META name="Content" type="string"/>' . "\n"
-		       . '  <META name="DBoid" type="string"/>' . "\n"
-		       . '  <META name="DataType" type="string"/>' . "\n"
-		       . '  <META name="FileCategory" type="string"/>' . "\n"
-		       . '  <META name="Flags" type="string"/>' . "\n"
-		       . '  <META name="dataset" type="string"/>' . "\n"
-		       . '  <META name="jobid" type="string"/>' . "\n"
-		       . '  <META name="owner" type="string"/>' . "\n"
-		       . '  <META name="runid" type="string"/>' . "\n");
-    my $xmltrailer = "</POOLFILECATALOG>\n"; 
-
     # Generate XML fragment or the archive itself
     my $uuid = qx(uuidgen | tr '[a-f]' '[A-F]');
     chomp ($uuid);
@@ -241,7 +228,7 @@ EOF
 
     # Output XML fragment
     return &flushFailed ($stats, $timing, "failed to write member xml catalog", $erase)
-        if (! &output ("$filesdir/$xfragname", $xmlpreamble . $xmldata . $xmltrailer));
+        if (! &outputCatalog ("$filesdir/$xfragname", $xmldata));
 
     # Generate checksum file for archive contents
     return &flushFailed ($stats, $timing, "failed to write archive contents checksum", $erase)
@@ -264,7 +251,7 @@ EOF
     my $replacement = $stored || $zipname;
     $xmldata =~ s/\@ZIPPFN\@/$replacement/g;
     return &flushFailed ($stats, $timing, "failed to write archive xml catalog", $erase)
-        if (! &output ("$basedir/$xfragname", $xmlpreamble . $xmldata . $xmltrailer));
+        if (! &outputCatalog ("$basedir/$xfragname", $xmldata));
 
     # Transfer onwards
     if (! $dryrun && $output)
