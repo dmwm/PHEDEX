@@ -8,7 +8,7 @@ use POSIX;
 use DBI;
 
 my $cgi = new CGI;
-my $db = param("db") || "devdb9";    # tnsname of the database
+my $db = param("db") || "pdb01";    # tnsname of the database
 my $dbh;
 
 my $badcolor = '#ff9e9e';
