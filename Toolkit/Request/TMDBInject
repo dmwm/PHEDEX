@@ -1,0 +1,194 @@
+#!/usr/bin/env perl
+
+## This utility injects files into TMDB.  Overall it works like
+## the DropTMDBPublisher agent.  The main differences are that
+## this utility processes only one set of data at a time, adds
+## only previously unknown files, and commits file at a time.
+##
+## Each invocation must be given an XML catalogue file, a
+## checksum file, and the list of nodes for which to add a
+## replica for the files.  Files and replicas previously unknown
+## are added to the database; previously known files are ignored.
+## No file destinations or subscriptions are added.
+##
+## If the program crashes or is terminated, it is always safe to
+## execute the program again with the same inputs.
+
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+######################################################################
+my %args = (DBITYPE => "Oracle");
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+
+    elsif ($ARGV[0] eq '-nodes' && scalar @ARGV > 1)
+    { shift (@ARGV); push(@{$args{NODES}}, split(',', shift(@ARGV))); }
+    elsif ($ARGV[0] eq '-catalogue' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{CATALOGUE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-cksums' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{CKSUMS} = shift(@ARGV); }
+
+    elsif ($ARGV[0] eq '-verbose')
+    { shift (@ARGV); $args{VERBOSE} = 1; }
+    else
+    { last; }
+}
+	
+if (scalar @ARGV || ! defined $args{DBNAME} || !$args{DBUSER}
+    || !$args{DBPASS} || !$args{DBITYPE} || !$args{NODES}
+    || !$args{CATALOGUE} || !$args{CKSUMS})
+{
+    print STDERR
+	"usage: $me -nodes NODE[,NODE...] -catalogue FILE -cksums FILE\n",
+	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE] [-verbose]\n";
+    exit (1);
+}
+
+
+-r $args{CATALOGUE} || die "$args{CATALOGUE}: cannot read: $!\n";
+-r $args{CKSUMS} || die "$args{CKSUMS}: cannot read: $!\n";
+
+######################################################################
+use UtilsCommand;
+use UtilsReaders;
+use UtilsTiming;
+use UtilsDB;
+
+# Read in the inputs
+print "Reading catalogue $args{CATALOGUE}\n" if $args{VERBOSE};
+my $catalogue = eval { &readXMLCatalogue ($args{CATALOGUE}) };
+
+print "Reading checksums $args{CKSUMS}\n" if $args{VERBOSE};
+my @cksums = eval { &readChecksumData ($args{CKSUMS}) };
+
+print "Checking data consistency\n" if $args{VERBOSE};
+my $bad = 0;
+foreach my $file (@$catalogue)
+{
+    my $lfn = $file->{LFN}[0];
+    my $cksum = (grep ($_->[2] eq $lfn, @cksums))[0];
+
+    if (! $cksum)
+    {
+	print STDERR "$lfn: no checksum\n";
+	$bad = 1;
+	next;
+    }
+
+    print STDERR "$lfn: zero-size file\n" if ! $cksum->[1];
+    $file->{CHECKSUM} = $cksum->[0];
+    $file->{FILESIZE} = $cksum->[1];
+}
+exit 1 if $bad;
+
+# Now update database
+print "Connecting to database\n" if $args{VERBOSE};
+my $dbh = &connectToDatabase (\%args, 0);
+my $now = &mytimeofday ();
+
+print "Processing files " if $args{VERBOSE};
+my $isfstmt = &dbprep ($dbh, qq{
+    select count(*) from t_file
+    where guid = :guid});
+my $isrstmt = &dbprep ($dbh, qq{
+    select count(*) from t_replica_state
+    where guid = :guid and node = :node});
+my $isbstmt = &dbprep ($dbh, qq{
+    select count(*) from t_block
+    where name = :block});
+
+my $fstmt = &dbprep ($dbh, qq{
+    insert into t_file
+    (timestamp, guid, node, inblock, insubblock,
+     lfn, filetype, filesize, checksum)
+    values (:now, :guid, :node, :inblock, :insubblock,
+     :lfn, :filetype, :filesize, :checksum)});
+my $rstmt = &dbprep ($dbh, qq{
+    insert into t_replica_state (timestamp, guid, node, state, state_timestamp)
+    values (:now, :guid, :node, 0, :now)});
+my $mstmt = &dbprep ($dbh, qq{
+    insert into t_file_attributes (guid, attribute, value)
+    values (:guid, :attr, :value)});
+my $bistmt = &dbprep ($dbh, qq{
+    insert into t_block (name, owner, dataset, files, bytes)
+    values (:name, :owner, :dataset, -1, -1)});
+
+foreach my $f (@$catalogue)
+{
+    # Print some dots
+    do { local $| = 1; print "." } if $args{VERBOSE};
+
+    # Check the file block is known, otherwise create an open one
+    my $block = "$f->{META}{owner}/$f->{META}{dataset}";
+    &dbbindexec ($isbstmt, ":block" => $block);
+    my ($found) = $isbstmt->fetchrow();
+    $isbstmt->finish();
+
+    &dbbindexec ($bistmt,
+		 ":name" => $block,
+		 ":owner" => $f->{META}{owner},
+		 ":dataset" => $f->{META}{dataset})
+	if ! $found;
+
+    # Check if the file is known, otherwise insert new entry
+    &dbbindexec ($isfstmt, ":guid" => $f->{GUID});
+    ($found) = $isfstmt->fetchrow();
+    $isfstmt->finish();
+
+    &dbbindexec ($fstmt,
+	         ":now" => $now,
+		 ":guid" => $f->{GUID},
+	         ":node" => $args{NODES}[0],
+		 ":inblock" => "$f->{META}{owner}/$f->{META}{dataset}",
+		 ":insubblock" => "$f->{META}{jobid}",
+		 ":lfn" => $f->{LFN}[0],
+		 ":filetype" => $f->{PFN}[0]{TYPE},
+		 ":filesize" => $f->{FILESIZE},
+	 	 ":checksum" => $f->{CHECKSUM})
+	 if ! $found;
+
+    # Insert file attribute data, again only if file not yet known
+    my %meta = (map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
+    foreach my $m (sort keys %meta)
+    {
+        &dbbindexec ($mstmt,
+		     ":guid" => $f->{GUID},
+		     ":attr" => $m,
+		     ":value" => $meta{$m})
+	     if ! $found;
+    }
+
+    # Insert replica for all nodes where we don't have one yet
+    foreach my $n (@{$args{NODES}})
+    {
+	&dbbindexec ($isrstmt, ":guid" => $f->{GUID}, ":node" => $n);
+	($found) = $isrstmt->fetchrow();
+	$isrstmt->finish();
+
+        &dbbindexec ($rstmt, 
+    	             ":now" => $now,
+		     ":guid" => $f->{GUID},
+		     ":node" => $n)
+	     if ! $found;
+    }
+
+    $dbh->commit();
+}
+print "\n" if $args{VERBOSE} && scalar @$catalogue;
+
+$dbh->disconnect ();
+undef $dbh;
+exit 0;
