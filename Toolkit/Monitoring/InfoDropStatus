@@ -91,18 +91,28 @@ sub idle
 	# Collect statistics
 	my $item = undef;
 	my %status = ();
+	my %alive = ();
 	my $site = $self->{SITEID};
 	my $host = &getfullhostname();
 	my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+	my $live = undef;
+	my $dir = undef;
 	open (STATUS, "$home/../../Utilities/DropStatus $self->{AGENTDIR}/* |") or return;
 	while (<STATUS>)
 	{
-	    if (/^.*\/(\S+):/)
+	    if (/^(.*\/(\S+)):/)
 	    {
-		$item = $status{$1} = {};
+	        next if ! -f "$1/pid";
+		$item = $status{$2} = {};
+		$live = $alive{$2} = {};
+		$dir = $1;
 	    }
-	    elsif (/^\s+([\S\d]+): /)
+	    elsif ($live && $dir && /^\s+((\S)(\d*)): /)
 	    {
+		my $subdir = $2 eq 'M' ? "" : "/worker-$3";
+		next if ! -f "$dir/$subdir/pid";
+		my $pid = qx(cat "$dir$subdir/pid"); chomp ($pid);
+		$live->{$1} = { PID => $pid, LIVE => kill (0, $pid) };
 		my $row = $item->{$1} = {};
 		my $line = $';
 		while ($line =~ /(\d+)\s(\S+)($|,)/)
@@ -122,9 +132,11 @@ sub idle
 		foreach my $state (keys %{$status{$agent}{$worker}})
 		{
 		    my $value = $status{$agent}{$worker}{$state};
+		    my $pid = $alive{$agent}{$worker}{PID};
+		    my $live = $alive{$agent}{$worker}{LIVE};
 		    $dbh->do(qq{insert into t_info_drop_status values
 				    ($now, '$site', '$host', '$agent', '$worker',
-				     '$state', $value)});
+				     $pid, $live, '$state', $value)});
 	        }
 	    }
 	}
