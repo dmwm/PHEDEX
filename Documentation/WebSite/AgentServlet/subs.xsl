@@ -6,7 +6,8 @@
 				<title>Phedex Stream Subscriptions</title>
 				<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
 				<link href="style.css" rel="stylesheet" type="text/css"/>
-				<LINK REL="SHORTCUT ICON" HREF="favicon.ico"/>
+				<link rel="SHORTCUT ICON" href="favicon.ico"/>
+				<link rel="alternate" type="application/rss+xml" title="RSS feed" href="display.html?rss=true"/>
 			</head>
 			<body>
 				<h1>

@@ -54,6 +54,8 @@ public class DisplaySubscriptions extends HttpServlet{
 			error.addContent(about);
 			Element xception = new Element("Exception");
 		    xception.setText(xte.getMessage());
+		    error.addContent(xception);
+		    error.setRootElement(root);
 			XMLOutputter outputter = new XMLOutputter(Format.getPrettyFormat());
 		    outputter.output(error, response.getOutputStream());
 		}
