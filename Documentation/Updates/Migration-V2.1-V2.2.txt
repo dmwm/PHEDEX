@@ -1,0 +1,59 @@
+**********************************************************************
+* RAC Test
+
+DBUSER=cms_transfermgmt DBPASS= DB=cmssg
+
+* Save old table data
+sqlplus $DBUSER/$DBPASS@$DB
+ rename t_replica_state to xt_replica_state;
+ rename t_transfer_state to xt_transfer_state;
+ alter table xt_replica_state rename constraint pk_replica_state to xpk_replica_state;
+ alter table xt_replica_state rename constraint fk_replica_state_guid to xfk_replica_state_guid;
+ alter table xt_replica_state rename constraint fk_replica_state_node to xfk_replica_state_node;
+ alter table xt_transfer_state rename constraint pk_transfer_state to xpk_transfer_state;
+ alter table xt_transfer_state rename constraint fk_transfer_state_guid to xfk_transfer_state_guid;
+ alter table xt_transfer_state rename constraint fk_transfer_state_from_node to xfk_transfer_state_from_node;
+ alter table xt_transfer_state rename constraint fk_transfer_state_to_node to xfk_transfer_state_to_node;
+ alter index ix_replica_state_node rename to xix_replica_state_node;
+ alter index ix_replica_state_state rename to xix_replica_state_state;
+ alter index ix_replica_state_common rename to xix_replica_state_common;
+ alter index ix_transfer_state_from_node rename to xix_transfer_state_from_node;
+ alter index ix_transfer_state_to_node rename to xix_transfer_state_to_node;
+ alter index ix_transfer_state_to_state rename to xix_transfer_state_to_state;
+ alter index ix_transfer_state_fromto_state rename to xix_transfer_state_fromto_stat;
+ alter index ix_transfer_state_fromto_pair rename to xix_transfer_state_fromto_pair;
+
+* Load new partitioned tables from OracleCoreTranfer
+sqlplus $DBUSER/$DBPASS@$DB
+-- paste sections on t_replica_state (table, constraints, indices)
+-- paste sections on t_transfer_state (table, constraints, indices)
+
+* Create partitions:
+for tab in t_replica_state t_transfer_state; do
+  ./Schema/OraclePartition.sh $DBUSER/$DBPASS@$DB $tab create cern  CERN_MSS CERN_Transfer
+  ./Schema/OraclePartition.sh $DBUSER/$DBPASS@$DB $tab create t1tw  ASCC_MSS ASCC_Transfer
+  ./Schema/OraclePartition.sh $DBUSER/$DBPASS@$DB $tab create t1it  INFN_MSS INFN_Transfer
+  ./Schema/OraclePartition.sh $DBUSER/$DBPASS@$DB $tab create t1uk  RAL_MSS RAL_Transfer T1_RAL_Buffer T1_RAL_ProdBuffer
+  ./Schema/OraclePartition.sh $DBUSER/$DBPASS@$DB $tab create t1sp  PIC_MSS PIC_Transfer
+  ./Schema/OraclePartition.sh $DBUSER/$DBPASS@$DB $tab create t1us  FNAL_MSS FNAL_Transfer
+  ./Schema/OraclePartition.sh $DBUSER/$DBPASS@$DB $tab create t1de  FZK_MSS FZK_Transfer
+  ./Schema/OraclePartition.sh $DBUSER/$DBPASS@$DB $tab create t1fr  IN2P3_MSS IN2P3_Transfer
+  ./Schema/OraclePartition.sh $DBUSER/$DBPASS@$DB $tab create t2sp  CIEMAT_Transfer
+  ./Schema/OraclePartition.sh $DBUSER/$DBPASS@$DB $tab create t2it  INFN_Bari
+  ./Schema/OraclePartition.sh $DBUSER/$DBPASS@$DB $tab create t2us  T2_Caltech_Buffer T2_UCSD_Buffer
+  ./Schema/OraclePartition.sh $DBUSER/$DBPASS@$DB $tab create t2tw  NCU_Transfer
+  ./Schema/OraclePartition.sh $DBUSER/$DBPASS@$DB $tab create other TEST_Transfer TEST_MSS NICPB_Transfer NCP_Transfer
+done
+
+* Copy data
+drop trigger new_transfer_state;
+drop trigger update_transfer_state;
+insert into t_replica_state (select * from xt_replica_state);
+insert into t_transfer_state (select * from xt_transfer_state);
+@Schema/OracleCoreTriggers.sql
+
+* Drop old tables
+drop table xt_replica_state;
+drop table xt_transfer_state;
+
+* Recreate primary keys (they fail above) pk_replica_state, pk_transfer_state
