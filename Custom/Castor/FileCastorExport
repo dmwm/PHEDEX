@@ -163,11 +163,15 @@ sub idle
 	      	      and ts.to_time_stamp >= $recent)});
 
         # 2) Mark unavailable online wanted files that have no checksum
-	# for checksum calculation. [NB: Again no "update (...) set" due
-	# to the joins with t_replica_metadata and t_transfer_state.]
+	# for checksum calculation.  Also mark them immediately available
+	# for transfer, running the checksum calculation asynchronously
+	# in parallel.  [NB: Again no "update (...) set" due to the joins
+	# with t_replica_metadata and t_transfer_state.]
 	$dbh->do(qq{
 		update t_replica_state
-		set local_state = trunc(local_state,-3) + 20,
+		set state = 1,
+		    time_stamp = $now,
+		    local_state = trunc(local_state,-3) + 20,
 		    local_time_stamp = $now
 		where node = '$mynode' and guid in
 		   (select distinct rs.guid
