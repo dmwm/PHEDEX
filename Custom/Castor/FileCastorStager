@@ -209,17 +209,30 @@ sub getPendingFiles
     # First fetch files from database.  If we come across something
     # we haven't seen before, remember it but don't look it up yet.
     # Otherwise just push the (GUID, PFN, TIME) tuple into result.
-    my ($stmt) = &dbexec($dbh, qq{
-    	select guid, local_time_stamp from t_replica_state
-	where node = :node and local_state = 10},
-	":node" => $self->{MYNODE});
+    #
+    # "Recently wanted" == time stamp on "wanted" state is less than
+    # fifteen minutes old.  Download agents expecting files will be
+    # refreshing the wanted status more often than that when they are
+    # running and capable of downloading files.
+    my %seen = ();
+    my $stmt = &dbexec($dbh, qq{
+	   select guid, to_time_stamp
+	   from t_transfer_state
+	   where from_node = :node
+	     and to_state = 1
+	     and to_time_stamp >= :recent
+           order by to_time_stamp asc},
+	   ":node" => $self->{MYNODE}, ":recent" => time() - 15*60);
     while (my ($guid, $time) = $stmt->fetchrow())
     {
+	next if $seen{$guid};
+	$seen{$guid} = 1;
+
 	my $cache = $self->{PFN_CACHE}{$guid};
 	if ($cache && $cache =~ /^\d+:(.*)/)
 	{
 	    # Known in cache.  Just push into result.
-	    push (@$result, [ $guid, $1 ? $1 : undef, $time ]);
+	    push (@$result, [ $guid, $1 || undef, $time ]);
 	}
 	else
 	{
@@ -240,8 +253,8 @@ sub getPendingFiles
         {
 	    my $pfn = $pfns->{$guid};
 	    $pfn =~ s/$prefix// if defined $pfn;
-	    $self->{PFN_CACHE}{$guid} = "@{[time()]}:@{[$pfn || '']}";
-	    $self->{GUID_CACHE}{$pfn} = "@{[time()]}:$guid" if defined $pfn;
+	    $self->{PFN_CACHE}{$guid} = "$now:@{[$pfn || '']}";
+	    $self->{GUID_CACHE}{$pfn} = "$now:$guid" if defined $pfn;
 	    push (@$result, [ $guid, $pfn, $unknown{$guid} ]);
         }
     }
@@ -269,7 +282,7 @@ sub getStagerFiles
 	if ($cache && $cache =~ /^\d+:(.*)/)
 	{
 	    # Known in cache.  Just push into result.
-	    push (@$result, [ $1 ? $1 : undef, $pfn, $status ]);
+	    push (@$result, [ $1 || undef, $pfn, $status ]);
 	}
 	else
 	{
@@ -289,8 +302,8 @@ sub getStagerFiles
         foreach my $pfn (@items)
         {
 	    my $guid = $guids->{$prefix.$pfn};
-	    $self->{PFN_CACHE}{$guid} = "@{[time()]}:$pfn" if defined $guid;
-	    $self->{GUID_CACHE}{$pfn} = "@{[time()]}:@{[$guid || '']}";
+	    $self->{PFN_CACHE}{$guid} = "$now:$pfn" if defined $guid;
+	    $self->{GUID_CACHE}{$pfn} = "$now:@{[$guid || '']}";
 	    push (@$result, [ $guid, $pfn, $files->{$pfn} ]);
         }
     }
@@ -327,6 +340,7 @@ sub buildStatus
 	    $files->{$pfn}{TAPE} = $tape;
 	    $files->{$pfn}{POS} = $pos;
 	    $files->{$pfn}{SIZE} = $size;
+	    $files->{$pfn}{TIME} = $time;
         }
     }
 
@@ -338,20 +352,6 @@ sub buildStatus
 sub idle
 {
     my ($self, @pending) = @_;
-
-    # If we haven't yet created a ties for the caches, do so now.
-    # Otherwise the caches just grow too large.
-    if (! tied %{$self->{GUID_CACHE}})
-    {
-	my @parms = (O_RDWR|O_CREAT, 0666, $DB_BTREE);
-	my $guids = "$self->{DROPDIR}/guid-cache";
-	my $pfns  = "$self->{DROPDIR}/pfn-cache";
-	tie (%{$self->{GUID_CACHE}}, 'DB_File', $guids, @parms)
-	    or die "failed to create guid-cache: $!\n";
-
-	tie (%{$self->{PFN_CACHE}}, 'DB_File', $pfns, @parms)
-	    or die "failed to create guid-cache: $!\n";
-    }
 
     my $dbh = undef;
     eval
@@ -378,33 +378,38 @@ sub idle
 	my $now = time();
 	&dbexec($dbh,qq{
 	    update t_replica_state
-	    set local_state = 0, local_time_stamp = :now
-	    where node = :node and local_state = 1},
+	    set state = 0, time_stamp = :now
+	    where node = :node and state = 1},
 	    ":node" => $self->{MYNODE}, ":now" => $now);
 	my $stmt = $dbh->prepare(qq{
 	    update t_replica_state
-	    set local_state = 1, local_time_stamp = :now
-	    where guid = :guid and node = :node
-	      and (local_state = 0 or local_state = 10)});
+	    set state = 1, time_stamp = :now
+	    where guid = :guid and node = :node});
 	foreach my $f (grep (defined $_->{GUID} && $_->{STATUS} eq 'STAGED',
 			     values %$files))
 	{
-	    $stmt->bind_param (":now", $now);
-	    $stmt->bind_param (":guid", $f->{GUID});
-	    $stmt->bind_param (":node", $self->{MYNODE});
-	    $stmt->execute ();
+	    &dbbindexec ($stmt, ":now" => $now, ":guid" => $f->{GUID},
+		         ":node" => $self->{MYNODE});
 	}
 	$dbh->commit();
 	$timing{DATABASE} = &mytimeofday();
 
-        # Determine the files that need to be staged in, in a good order
-        # i.e. sorted by tape and position, then issue requests in batches.
-        my @requests = sort { $a->{TAPE} cmp $b->{TAPE} || $a->{POS} cmp $b->{POS} }
-		       grep ($_->{STATUS} eq 'UNKNOWN', values %$files);
-	my $nreq = scalar @requests;
+	# Organise files into stage-in order.  Here we only arrange the
+	# files into time order, oldest "wanted" first.  When we take
+	# files from this list, we take first by tape, then position.
+	my @requests =
+	    sort { $a->{TIME} <=> $b->{TIME} }
+	    grep ($_->{STATUS} eq 'UNKNOWN', values %$files);
 
+	# Now issue requests for the files in batches.
+	my $nreq = scalar @requests;
 	while (@requests)
 	{
+	    # FIXME: Throttle stage-in requests based on how much we have
+	    # already committed to transfer (t_transfer_state.from_state=1)
+	    # and how much space (free space and unpinned files) is on the
+	    # stager pool.
+
 	    # Suspend until the system load drops low enough, and then go back
 	    # to start of the loop so we reconsider staged in files and send
 	    # them out.  Also makes it safer if we get stopped.
@@ -424,22 +429,28 @@ sub idle
 	        last;
 	    }
 
-	    # Select the next up to maxfiles to stage in
-	    my $nfiles = ($#requests+1 > $self->{MAXFILES} ? $self->{MAXFILES} : $#requests+1);
-	    my @slice = splice(@requests, 0, $nfiles);
+	    # Select the next lot of files.  We take all the files on
+	    # the same tape at once, and order them by position.
+	    while (@requests && $stagereqs < $self->{MAXFILES})
+	    {
+		my $tape = $requests[0]{TAPE};
+		my @slice = sort { $a->{POS} cmp $b->{POS} }
+		            grep($_->{TAPE} eq $tape, @requests);
+		@requests = grep($_->{TAPE} ne $tape, @requests);
 
-	    # Issue background stage-in
-	    my $rc = &runcmd ("stagein", "--nowait", "--rdonly",
+	        my $rc = &runcmd ("stagein", "--nowait", "--rdonly",
 			      "-h", $ENV{STAGE_HOST}, "-p", $ENV{STAGE_POOL},
 			      "-A", "deferred",
 			      map { ("-M", $_->{PFN}) } @slice);
-	    &alert ("stagein failed: @{[&runerror($rc)]}") if ($rc);
+	        &alert ("stagein failed: @{[&runerror($rc)]}") if ($rc);
 
-	    # Mark these files as pending now
-	    map { $_->{STATUS} = "STAGEIN" } @slice;
+	        # Mark these files as pending now
+	        map { $_->{STATUS} = "STAGEIN" } @slice;
+		$stagereqs += scalar @slice;
 
-	    # Sleep a bit, castor doesn't like rapid-fire request chains
-	    select (undef, undef, undef, 0.33);
+	        # Sleep a bit, castor doesn't like rapid-fire request chains
+	        select (undef, undef, undef, 0.33);
+	    }
 	}
 
 	$timing{REQUESTS} = &mytimeofday();

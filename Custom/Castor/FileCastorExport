@@ -115,63 +115,19 @@ sub idle
 
         # FIXME: Pick up and process messages to me
 
-	# Execute a series of updates that use variants of the same query.
-	# We go through the state machine at this node: 1) If unavailable
-	# file is recently wanted and not staged in, mark it for stage-in;
-	# 2) If a file is staged in, mark it available; 3) If a file is
-	# available, mark it ready for transfer; 4) If a file is not
-	# staged in, mark it unavailable and not ready for transfer, but
-	# ignore already completed transfers.
+	# Mark files available/unavailable based on their local status.
+	# This agent just reflects outcome from other agents (stager,
+	# checksummer) to the transfer table; the other agents work
+	# autonomously, we don't manage their work from here.
 	#
-	# Note that the stager agent demotes files to unavailable and not
-	# staged in *or* unavailable and staged in; we always flip the
-	# latter category of files back to available so download clients
-	# can prefer immediately available files.  Otherwise we only run
-	# the state machine only for files somebody actively wants.
-	#
-	# "Recently wanted" == time stamp on "wanted" state is less than
-	# fifteen minutes old.  Download agents expecting files will be
-	# refreshing the wanted status more often than that when they are
-	# running and capable of downloading files.
-
-	# FIXME: Purge staged-in files already transferred out.
-	# FIXME: Throttle stage-in requests based on how much we have
-	# already committed to transfer (t_transfer_state.from_state=1)
-	# and how much space (free space and unpinned files) is on the
-	# stager pool.
+	# Note that we reflect status of staged-in files into transfer
+	# table regardless of whether someone wants the file or not;
+	# this way download clients can prefer immediately available
+	# files.
 
 	my %args = (":node" => $self->{MYNODE}, ":now" => time());
 
-	# 1) Request stage-in for currently unavailable wanted files.
-	&dbexec($dbh, qq{
-	    update t_replica_state
-	    set local_state = 10, local_time_stamp = :now
-	    where node = :node and guid in
-	       (select distinct rs.guid
-	        from t_replica_state rs
-	        left join t_transfer_state ts
-	          on ts.guid = rs.guid and ts.from_node = rs.node
-	        where rs.node = :node
-	          and rs.state = 0
-	      	  and rs.local_state = 0
-	      	  and ts.to_state = 1
-	      	  and ts.to_time_stamp >= :recent)},
-	    %args, ":recent" => time() - 15*60);
-
-        # 2) Make staged in files available.  Note that checksummer
-	# separately notices staged in files without checksum and
-	# adds one.  We allow transfers to proceed without checksum
-	# to increase throughput -- the checksums should exist on
-	# most files and are rarely used.
-	&dbexec($dbh, qq{
-	    update t_replica_state
-	    set state = local_state, time_stamp = :now
-	    where node = :node
-	      and (local_state = 0 or local_state = 1)
-	      and local_state != state},
-      	    %args);
-
-        # 3) Mark staged in files available for transfer.
+        # Mark staged in files available for transfer.
 	&dbexec($dbh, qq{
 	    update (select ts.from_state, ts.from_time_stamp
 	            from t_transfer_state ts
@@ -183,7 +139,7 @@ sub idle
 	    set from_state = 1, from_time_stamp = :now},
 	    %args);
 
-        # 4) Mark unavailable files not ready for transfer.
+        # Mark unavailable files not ready for transfer.
 	&dbexec($dbh, qq{
 	    update (select ts.from_state, ts.from_time_stamp
 	            from t_transfer_state ts

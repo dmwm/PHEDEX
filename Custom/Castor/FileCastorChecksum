@@ -253,10 +253,10 @@ sub nextFiles
     {
 	# Select files that need to be checksummed.  This is everything
 	# staged in at this node but without checksum.
-	my ($stmt) = &dbexec ($dbh, qq{
+	my $stmt = &dbexec ($dbh, qq{
 		select rs.guid,
 		       m2.value,
-		       rs.local_time_stamp,
+		       rs.time_stamp,
 		       n.catalogue_contact,
 		       n.host_string
 		from t_replica_state rs
