@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/29 10:16:49 $
-# $Id: Allocator.pl,v 1.41 2004/07/29 10:16:49 barrass Exp $
+# $Date: 2004/07/29 10:17:44 $
+# $Id: Allocator.pl,v 1.42 2004/07/29 10:17:44 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -36,6 +36,8 @@
 # -u <pool cat uri>	sets the catalogue from which the agent takes info
 # -once             only run once
 # -period           repeat period, seconds
+# -user             db username
+# -passwd           db password
 
 use DBI;
 use Getopt::Long;
@@ -51,6 +53,8 @@ my $g_pool_uri = 'edgcatalog_http://rlscms.cern.ch:7777/cms/v2.2/edg-local-repli
 my $g_once;             # 1 means will only run once
 my $g_period = 600;     # repeat period of algorithm
 my $g_max_guids = 500;  # max new guids to return per cycle
+my $g_user = '';        # db username
+my $g_passwd = '';      # db password
 
 # ###############################################################
 # Main loop
@@ -134,8 +138,8 @@ sub get_new_guid_list {
 
 	eval {
         my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
-		    				 	'CMS_TRANSFERMGMT_WRITER', 
-		      				 	'threeBagsFULL', 
+		    				 	'$g_user', 
+		      				 	'$g_passwd', 
 		  	       			 	{ RaiseError=>1, AutoCommit =>1 });
 		  				 	
         my $query = $dbh->prepare($selection);	
@@ -172,8 +176,8 @@ sub get_current_subscriptions {
 
 	eval {
         my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
-		    				 	'CMS_TRANSFERMGMT_WRITER', 
-		      				 	'threeBagsFULL', 
+		    				 	'$g_user', 
+		      				 	'$g_passwd', 
 		  	       			 	{ RaiseError=>1, AutoCommit =>1 });
 		  				 	
         my $query = $dbh->prepare($selection);	
@@ -206,8 +210,8 @@ sub do_sql {
     
     eval {
         my $dbh = DBI->connect(    "DBI:Oracle:$g_db",
-	   				    'CMS_TRANSFERMGMT',
-		  			    'smallAND_round',
+	   				    '$g_user',
+		  			    '$g_passwd',
 	   				    { RaiseError=>1, AutoCommit =>1 });
     
         foreach $sql ( @sql ) {
@@ -234,8 +238,8 @@ sub add_new_stream_to_subscriptions {
     my $insert = "insert into t_subscriptions values ('','$new_stream')";
 
     my $dbh = DBI->connect(    "DBI:Oracle:$g_db",
-					    'CMS_TRANSFERMGMT',
-					    'smallAND_round',
+					    '$g_user',
+					    '$g_passwd',
 					    { RaiseError=>1, AutoCommit =>1 });
 
     log_entry( "New stream for subscriptions- $new_stream" );
@@ -256,8 +260,8 @@ sub get_source_nodes {
 
 	eval {
         my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
-		    				 	'CMS_TRANSFERMGMT_WRITER', 
-		      				 	'threeBagsFULL', 
+		    				 	'$g_user', 
+		      				 	'$g_passwd', 
 		  	       			 	{ RaiseError=>1, AutoCommit =>1 });
 		  				 	
         my $query = $dbh->prepare($selection);	
@@ -293,8 +297,8 @@ sub lookup_route {
 
 	eval {
         my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
-		    				 	'CMS_TRANSFERMGMT_WRITER', 
-		      				 	'threeBagsFULL', 
+		    				 	'$g_user', 
+		      				 	'$g_passwd', 
 		  	       			 	{ RaiseError=>1, AutoCommit =>1 });
 		  				 	
         my $query = $dbh->prepare($selection);	
@@ -330,7 +334,9 @@ sub parse_command_line () {
 				"no-updates" => \$g_no_updates,
 				'u=s' => \$g_pool_uri,
 				"once" => \$g_once,
-				'period=i' => \$g_period
+				'period=i' => \$g_period,
+				'user=s' => \$g_user,
+				'passwd=s' => \$g_passwd
 				);
 	
 	my $entry = '';
@@ -372,131 +378,3 @@ sub parse_command_line () {
 	
 	log_entry( $entry );
 }
-
-# JUNK FROM HERE DOWN
-
-
-
-
-
-
-
-
-
-
-sub get_all_agent_names_of_type {
-	my %args = (
-		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
-		TYPE => 'T1',
-		@_
-	);
-	my $selection = "select agent_label from agentstate where agent_type = '$args{TYPE}'";
-	my @list;
-	
-	my $return = my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
-						 	'CMS_TRANSFERMGMT_WRITER', 
-						 	'threeBagsFULL', 
-						 	{ RaiseError=>1, AutoCommit =>1 });
-	
-	$statusquery = $dbh->prepare($selection);
-	$statusquery->execute;
-	while (@row = $statusquery->fetchrow_array) {
-	    $row[0] =~ s/ //g;
-	    push(@list,@row[0]);
-	}
-	$statusquery->finish();
-	
-	$return = $dbh->disconnect();
-	
-	return @list;
-}
-
-
-
-sub get_available_agents_of_type {
-	my %args = (
-		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
-		TYPE => 'T1',
-		@_
-	);
-	my $time = time();
-	my $last_time = $time - 900;
-	my $t1;
-	my $return = my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
-						 	'CMS_TRANSFERMGMT_WRITER', 
-						 	'threeBagsFULL', 
-						 	{ RaiseError=>1, AutoCommit =>1 });
-	my $selection = $selection = "select agent_label from agentstate where last_contact >= $last_time and agent_type = '$args{TYPE}'";
-	my $statusquery = $dbh->prepare($selection);
-	my $number = 0;
-	my %available;
-
-	$statusquery->execute;
-	while (@row = $statusquery->fetchrow_array) {
-	    $row[0] =~ s/ //g;
-	    $available{$row[0]} = 1;
-	$number++;
-	}
-	$statusquery->finish();
-	$dbh->disconnect();
-	
-	my $log_entry = "$number available $args{TYPE} agents found: ";
-	foreach (sort keys %available) { $log_entry .= "$_\t"; }
-	
-	log_entry( ENTRY => $log_entry );	
-	return (\$number, \%available);
-}
-
-
-
-
-
-sub load_stream_config {
-	my $stream;
-	my $t1s;
-	my %t1s_by_stream;
-	my $entry;
-	my $selection = "select * from cms_transfermgmt.subscriptions";
-	my $dbh = DBI->connect(    "DBI:Oracle:$g_db",
-                                                        'CMS_TRANSFERMGMT',
-                                                        'smallAND_round',
-                                                        { RaiseError=>1, AutoCommit =>1 });
-
-        my $query = $dbh->prepare($selection);
-        my %guid_list;
-        $query->execute();
-        while (@row = $query->fetchrow_array) {
-	    $row[0] =~ s/ //g;
-	    $row[1] =~ s/ //g; 
-	    $t1s_by_stream{$row[1]} .= "$row[0]:";
-        }
-	
-	chop(%t1s_by_stream);
-	foreach $key (keys %t1s_by_stream) {
-	    $entry .= "$key $t1s_by_stream{$key}, ";
-	}
-	log_entry( ENTRY => "$entry" );
-	
-	return %t1s_by_stream;
-}
-
-sub load_t1_eb_associations {
-	my %t1s_by_eb;
-	my %eb_by_t1;
-	my @all_t1s;
-	my @all_ebs;
-	
-	open (IN, "<eb_config.txt");
-	while (<IN>) {
-	    chop;
-	    $t1s_by_eb = {};
-	    my ($eb,$t1s) = split(/\//);
-	    $t1s_by_eb{$eb} = $t1s;
-	    foreach my $t1 (split/:/,$t1s) {
-	    	$eb_by_t1{$t1} = $eb;
-	    }
-	}
-	return (\%t1s_by_eb, \%eb_by_t1);
-}
-
-
