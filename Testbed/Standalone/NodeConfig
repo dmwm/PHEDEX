@@ -15,7 +15,7 @@ PHEDEX_NODE=<node>;
 
 export PATH=/afs/cern.ch/sw/lcg/app/spi/scram:${PATH};
 eval `cd /afs/cern.ch/sw/lcg/app/releases/POOL/POOL_1_6_4/src; scram -arch rh73_gcc32 runtime -sh`;
-. /afs/cern.ch/projet/oracle/script/setoraenv.sh -s 8174
+. /afs/cern.ch/project/oracle/script/setoraenv.sh -s 8174
 
 #### Drop box agents
 ### AGENT LABEL=inject-tmdb PROGRAM=Toolkit/DropBox/DropTMDBPublisher STATEOPT=in STATELINK=entry
