@@ -1,5 +1,5 @@
 package UtilsDB; use strict; use warnings; use base 'Exporter';
-our @EXPORT = qw(connectToDatabase dbexec dbprep dbbindexec);
+our @EXPORT = qw(connectToDatabase disconnectFromDatabase dbexec dbprep dbbindexec);
 use UtilsLogging;
 use UtilsTiming;
 use DBI;
@@ -17,7 +17,7 @@ sub connectToDatabase
 
     # Use cached connection if it's still alive and the handle
     # isn't too old, otherwise create new one.
-    my $dbh;
+    my $dbh = $self->{DBH};
     if (! $self->{DBH}
 	|| time() - ($self->{DBH_AGE} || 0) > 3600
 	|| ! eval { $self->{DBH}->ping() }
