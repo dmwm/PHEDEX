@@ -158,10 +158,10 @@ sub completeOne
 {
     my ($self, $drop, $report) = @_;
 
-    # Dig out the report.  If transfer failed, revert the file back
-    # to state 1 (allocated) and give it back the timestamp it was
-    # originally posted to state 1 so logging will be accurate. Also
-    # log the error message to our output.
+    # Dig out the report.  If transfer failed, send the file to state
+    # 100+ (state-100 minutes to cool off).  (FIXME: save original
+    # time stamp for final reversion to state=0/1?) Also log the error
+    # message to our output.
     my $guid = $report->{GUID};
     my $from_node = $report->{FROM_NODE};
     my $to_node = $report->{TO_NODE};
@@ -171,8 +171,7 @@ sub completeOne
     if ($report->{FAILURE})
     {
 	&logmsg ("failed to transfer $guid: $report->{FAILURE}");
-	$now = $report->{TIME_ALLOC};
-	$to_state = 1;
+	$to_state = 101 + int(rand(10)); # 1..10 min cool-off
     }
 
     eval
@@ -340,10 +339,30 @@ sub markFilesWanted
     eval
     {
 	my $mynode = $self->{MYNODE};
+	my $now = time();
+
+	# Tick back-off timer for previously failed transfers.
+	# Each state above 100 counts as one-minute cool-down
+	# period (see code above how this is assigned).
+	# (FIXME: restore old time stamp?)
+	my $old = $now - 60;
+	$dbh->do(qq{
+		update t_transfer_state
+		set to_state = to_state - 1,
+		    to_time_stamp = $now
+		where to_node = '$mynode'
+		  and to_state > 101
+	  	  and to_time_stamp < $old});
+	$dbh->do(qq{
+		update t_transfer_state
+		set to_state = 0,
+		    to_time_stamp = $now
+		where to_node = '$mynode'
+		  and to_state = 100
+	  	  and to_time_stamp < $old});
 
 	# Keep wanted time stamp at most ten minutes old.
-	my $now = time();
-	my $old = $now - 600;
+	$old = $now - 600;
 	$dbh->do(qq{
 		update t_transfer_state
 		set to_time_stamp = $now
