@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/09/15 21:17:22 $
-# $Id: Allocator.pl,v 1.64 2004/09/15 21:17:22 lat Exp $
+# $Date: 2004/09/15 21:23:40 $
+# $Id: Allocator.pl,v 1.65 2004/09/15 21:23:40 lat Exp $
 #
 # This agent allocates files to destinations based on subscriptions.
 # It compares file replica metadata and destination subscriptons with
@@ -99,6 +99,26 @@ sub connect_to_db
     my $dbh = DBI->connect( "DBI:$g_dbi:$g_db", $g_user, $g_passwd,
 			    {RaiseError => 1, AutoCommit => 1})
 	or die "Couldn't connect to database $g_db @_";
+
+    my $now = time();
+    my $mynode = "GLOBAL";
+    my $me = "Allocator";
+    my $agent = $dbh->selectcol_arrayref(qq{
+	select count(*) from t_agents where name = '$me'});
+    my $status = $dbh->selectcol_arrayref(qq{
+	select count(*) from t_lookup where node = '$mynode' and agent = '$me'});
+
+    $dbh->do(qq{insert into t_agents values ('$me')})
+        if ! $agent || ! $agent->[0];
+
+    $dbh->do(qq{insert into t_lookup values ('$mynode', '$me', 1, $now)})
+        if ! $status || ! $status->[0];
+
+    $dbh->do(qq{
+        update t_lookup
+        set state = 1, last_contact = $now
+        where node = '$mynode' and agent = '$me'});
+    $dbh->commit();
     return $dbh;
 }
 
