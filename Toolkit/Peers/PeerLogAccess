@@ -1,24 +1,9 @@
 #!/usr/bin/env python
 
-import kenosis, sys, os, os.path, getopt, re
+import kenosis, sys, os, os.path, re
+from optparse import OptionParser
 from commands import getoutput
-from time import sleep
-
-def warn(arg):
-    print >> sys.stderr, "warning: %s" % arg
-
-def myoutput(file, contents):
-    try:
-        backup = "%s.%d.tmp" % (file, os.getpid())
-        f = os.open (backup, "w")
-        f.write (content)
-        f.close ()
-        os.rename (backup, file)
-        return True
-    except:
-        try: os.remove (backup);
-        except: None
-        return False
+from UtilsAgent import *
 
 class LogAccess:
     def __init__ (self, dir):
@@ -42,66 +27,32 @@ class LogAccess:
         else:
             return os.popen ("tail -%d %s" % (lines, path)).readlines()
 
-def usage():
-    print >> sys.stderr, 'PeerLogAccess -s STATEDIR -d LOGDIR [-b BOOT-HOST:PORT]'
-    print >> sys.stderr, '  -s Agent state directory STATEDIR'
-    print >> sys.stderr, '  -d Serve log files from LOGDIR'
-    print >> sys.stderr, '  -b Boot from node at BOOT-HOST:PORT'
+class PeerLogAccess (Agent):
+    def __init__ (self, opts):
+	# Initialise base class
+	Agent.__init__ (self, opts)
+
+        # Boot up this node
+        self.node = kenosis.Node (bootstrapNetAddress = getattr (opts, 'bootaddr', None))
+        self.node.registerNamedHandler ("LogAccess", LogAccess (getattr (opts, 'logdir')))
+
+    def stop (self):
+        self.node.stopEvent_.set ()
 
 if __name__ == "__main__":
-    statedir = None
-    logdir = None
-    bootaddr = None
+    cmds = OptionParser(usage="usage: %prog --state STATE --dir DIR [--boot BOOT] [--wait TIME]")
+    # cmds.add_option ("--help", action="help")
+    cmds.add_option ("--state", type="string", dest="statedir", help="Agent state directory")
+    cmds.add_option ("--wait", type="int", dest="waittime", help="Time to nap between operations")
+    cmds.add_option ("--dir", type="string", dest="logdir", help="Log directory to serve logs from")
+    cmds.add_option ("--boot", type="string", dest="bootaddr", help="Boot from HOST:PORT")
+    opts, args = cmds.parse_args ()
+    if len (args):
+	cmds.error ("extra command line parameters")
+    if not getattr (opts, 'logdir', None):
+	cmds.error ("--dir option requires a value")
+    if not getattr (opts, 'statedir', None):
+	cmds.error ("--state option requires a value")
 
-    # Process command line options
-    try:
-	optlist, rest = getopt.getopt (sys.argv[1:],'s:d:b:')
-    except getopt.GetoptError:
-        usage()
-        sys.exit(1)
-    for opt, arg in optlist:
-        if opt == '-s':
-            statedir = arg
-        elif opt == '-d':
-            logdir = arg
-        elif opt == '-b':
-            bootaddr = arg
-        else:
-            print >> sys.stderr, "unrecognised argument %s" % opt
-            usage()
-            sys.exit(1)
-	
-    # Check we got all we need
-    if (logdir == None or statedir == None):
-	usage()
-	sys.exit(1)
-
-    # FIXME: Do all the standard agent stuff: stop, pid, etc.
-    if not os.path.isdir (statedir):
-        print >> sys.stderr, "%s: non-existent state directory" % statedir
-        sys.exit (1)
-    
-    # FIXME: warn about overriding these as in perl
-    pidfile = "%s/pid" % statedir;
-    stopfile = "%s/stop" % statedir;
-    if os.path.isfile (stopfile):
-        warn ("removing (old?) stop flag");
-        os.remove (stopfile)
-    if os.path.isfile (pidfile):
-        oldpid = os.open (pidfile).read().strip ("\n")
-        warn ("removing (old?) pidfile (%s)" % oldpid)
-        os.remove (pidfile)
-
-    myoutput(pidfile, os.getpid())
-    myoutput(stopfile, "")
-
-    # Boot up this node
-    node = kenosis.Node (bootstrapNetAddress = bootaddr)
-    node.registerNamedHandler ("LogAccess", LogAccess (logdir))
-
-    # FIXME: Keep running until stopped, pumping rpc messages
-    while not os.path.isfile (stopfile):
-        sleep (1)
-        
-    node.stopEvent_.set ()
-
+    agent = PeerLogAccess (opts)
+    agent.process ()
