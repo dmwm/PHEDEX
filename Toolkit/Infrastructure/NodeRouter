@@ -200,14 +200,7 @@ sub compare_with_existing_routes {
         foreach (@row) { s/ //g; }
 	if (exists $gate_time_hops_by_dest{$row[1]} ){ log_entry( "Something wrong in routing: multiple entries for $row[1] under $g_parent_node table!" ); }
 	my $gate_time_hops;
-	# split horizon with poisoned reverse
-	if ($row[0] eq $g_parent_node) {
-	    # ignore completely for split horizon
-	    # set $row[3] to $g_infinity for poisoned reverse
-	    $gate_time_hops = "$row[0]:$row[2]:$g_infinity";
-	} else {
-	    $gate_time_hops = "$row[0]:$row[2]:$row[3]";
-	}
+	$gate_time_hops = "$row[0]:$row[2]:$row[3]";
 	$gate_time_hops_by_dest{$row[1]} = $gate_time_hops;
     }
     $query->finish();
