@@ -224,10 +224,20 @@ sub completeTransferBatch
 		":guid" => $guid, ":node" => $self->{MYNODE}, ":now" => $now)
                 if ! $file->{FAILURE};
 
+	    # generate profiling info
+	    my $getdest = $file->{TIMING}{GET_DEST_FINISH} - $file->{TIMING}{GET_DEST_START};
+	    my $jobadd = $file->{TIMING}{JOB_ADD_FINISH} - $file->{TIMING}{JOB_ADD_START};
+	    my $preclean = $file->{TIMING}{PRECLEAN_FINISH} - $file->{TIMING}{PRECLEAN_START};
+	    my $transfer = $file->{TIMING}{FINISH} - $file->{TIMING}{START};
+	    my $validate = $file->{TIMING}{VALIDATE_FINISH} - $file->{TIMING}{VALIDATE_START};
+	    my $postclean = $file->{TIMING}{POSTCLEAN_FINISH} - $file->{TIMING}{POSTCLEAN_START};
+	    my $update = $file->{TIMING}{UPDATE_CAT_FINISH} - $file->{TIMING}{UPDATE_CAT_START};
+
 	    # Log transfer delay stats
 	    &logmsg ("xstats: $guid $self->{MYNODE} $to_state "
 		     . sprintf('%.2f %.2f', $dalloc, $dtransfer)
-	     	     . " $file->{FILESIZE}");
+	     	     . " $file->{FILESIZE}"
+		     . " [ $getdest $jobadd $preclean $transfer $validate $postclean $update ]");
         }
         $dbh->commit ();
     };
@@ -282,7 +292,7 @@ sub startFileTransfer
 	     TIME_START		=> &mytimeofday(),
 	     FROM_NODE		=> $from,
 	     FROM_PFN		=> $from_pfn,
-	     ATTRS		=> $attrs };
+	     ATTRS		=> $attrs};
 }
 
 # Update wanted status on files in the database.
