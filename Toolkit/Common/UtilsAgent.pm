@@ -478,34 +478,6 @@ sub process
     }
 }
 
-# Generic connect to TMDB instance
-# Attempts to contact database given by $contact of form
-# Oracle:tnsname
-# mysql:hostname/database 
-# Attributes (e.g. RaiseError) need to be set after getting handle
-sub connectToDatabase {
-	my ($self,$contact,$user,$password,$attributes,$retries) = @_;
-
-	my $dbh;
-	
-	while ( ! $dbh && $retries > 0 ) {
-		$dbh = DBI->connect(	"DBI:$contact",
-								"$user",
-								"$password");
-		if ( ! $dbh ) {
-			sleep(60);
-			$retries--;
-		}
-	}
-	
-	if ( ! $dbh ) {
-		&alert("failed to connect to $contact: $!");
-		return 1;
-	} else {
-		return $dbh;
-	}
-}
-
 # Wait between scans
 sub idle
 {
