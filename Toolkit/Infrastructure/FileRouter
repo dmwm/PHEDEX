@@ -247,6 +247,17 @@ sub routeNextHop
 	    next;
 	}
 
+	# Make sure no replica exists at destination
+	if (exists $replicas{$route->{GATEWAY}})
+	{
+	    &warn ("$dest $guid: best replica at $route->{FROM}"
+		   . " ($route->{HOPS} hops away via $route->{GATEWAY})"
+		   . " is untransferrable, destination replica exists")
+	        if ! $self->{WARNINGS}{ROUTE}{$guid}{$dest}{$route->{FROM}}{$route->{GATEWAY}};
+	    $self->{WARNINGS}{ROUTE}{$guid}{$dest}{$route->{FROM}}{$route->{GATEWAY}} = 1;
+	    next;
+	}
+
 	# OK, usable route
 	&logmsg ("routing $guid to $dest from $route->{FROM} via $route->{GATEWAY}"
 	         . " ($route->{HOPS} hops, $age seconds ago)");
