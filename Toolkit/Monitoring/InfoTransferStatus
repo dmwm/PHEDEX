@@ -80,85 +80,68 @@ sub idle
 
         # FIXME: Pick up and process messages to me
 
-	# Select counts and time stamps from rows we are monitoring.
-	my %stamps = ();
-	foreach my $row (@{$dbh->selectall_arrayref(qq{
-				select
-				  node,
-				  count(guid),
-				  max(insert_time_stamp),
-				  max(time_stamp)
-				from t_replica_state
-				group by node})})
-	{
-	    my ($node, $files, $insert, $state) = @$row;
-	    $stamps{$node} = [ $node, $files, 0, $insert > $state ? $insert : $state ];
-	}
+	# Get most recent snapshot.  Pick a row that hasn't been updated
+	# in a while, and select it as victim to update.  This way we do
+	# only a limited amount of work each time around, limiting the
+	# transaction length, and gradually remove obsolete entries.
 
-	foreach my $row (@{$dbh->selectall_arrayref(qq{
-				select
-				  to_node,
-				  count(guid),
-				  max(insert_time_stamp),
-				  max(to_time_stamp)
-				from t_transfer_state
-				group by to_node})})
-	{
-	    my ($node, $files, $insert, $state) = @$row;
-	    my $old = ($stamps{$node} ||= [ $node, 0, 0, 0 ]);
-	    my $maxtime = (sort { $b <=> $a } $old->[3], $insert, $state)[0];
-	    $old->[2] = $files;
-	    $old->[3] = $maxtime;
-	}
+	my $squery = $dbh->prepare(qq{
+			select
+			  update_stamp,
+			  snap_rfiles,
+			  snap_tfiles
+			from t_info_transfer_status
+			where node = ?});
+	my $rquery = $dbh->prepare(qq{
+			select count(guid)
+			from t_replica_state
+			where node = ?});
+	my $tquery = $dbh->prepare(qq{
+			select count(guid)
+			from t_transfer_state
+			where to_node = ?});
 
-	# Get corresponding info from most recent snapshot, and remove
-	# from %stamps everything that is up to date.  What is left is
-	# rows we need to update: either they don't exist in snapshot,
-	# or the snapshot is out of date.
-	foreach my $row (@{$dbh->selectall_arrayref(qq{
-				select
-				  node,
-				  snap_rfiles,
-				  snap_tfiles,
-				  snap_max_time
-				from t_info_transfer_status})})
+	my $oldest = undef;
+	foreach my $row (@{$dbh->selectall_arrayref(qq{select node_name from t_nodes})})
 	{
-	    my ($node, $rfiles, $tfiles, $maxtime) = @$row;
-	    if (! exists $stamps{$node})
-	    {
-		$dbh->do(qq{
-		    delete from t_info_transfer_status
-		    where node = '$node'});
-		next;
-	    }
+	    my ($node) = @$row;
 
-	    delete $stamps{$node}
-	        if ($stamps{$node}[1] == $rfiles
-		    && $stamps{$node}[2] == $tfiles
-		    && $stamps{$node}[3] == $maxtime);
-	}
+	    # Get snapshot for this node
+	    $squery->execute($node);
+	    my ($stamp, $rfiles, $tfiles) = $squery->fetchrow();
+	    $stamp ||= 0; $rfiles ||= 0; $tfiles ||= 0;
 
-	# Everything that is left needs to be updated.  Get new stats
-	# and fill in new snapshots.
-	foreach my $node (sort keys %stamps)
-	{
-	    my $stats = $dbh->selectrow_arrayref(qq{
+	    # If this is oldest row, remember it
+	    $oldest = [ $node, $stamp ] if (! $oldest || $oldest->[1] > $stamp);
+        }
+
+	# If oldest row is less than 2 minutes, go away and sleep
+	return if ! $oldest || $now - $oldest->[1] < 120;
+
+	# No longer valid.  Remove this entry and recompute, then
+	# move and have a nap so we don't overstress the database.
+        my $node = $oldest->[0];
+	$dbh->do(qq{delete from t_info_transfer_status where node = '$node'});
+	$dbh->do(qq{
+		insert into t_info_transfer_status
+		(select $now, '$node', 0, 0, 0, x.*
+		 from (
 			    select count(f.guid),
-				   sum(r3.value),
+				   nvl(sum(r3.value), 0),
 				   count(rs.guid),
-				   sum(case when rs.guid is not null then r3.value else '0' end),
-				   sum(case when rs.state = 1 then 1 else 0 end),
-				   sum(case when rs.state = 1 then r3.value else '0' end),
-				   sum(case when ts.from_state = 1 and ts.to_state <= 2 then 1 else 0 end),
-				   sum(case when ts.from_state = 1 and ts.to_state <= 2 then r3.value else '0' end),
-				   sum(case when ts.to_state = 2 then 1 else 0 end),
-				   sum(case when ts.to_state = 2 then r3.value else '0' end),
-				   sum(case when ts.to_state = 1 then 1 else 0 end),
-				   sum(case when ts.to_state = 1 then r3.value else '0' end),
-				   sum(case when ts.to_state = 0 then 1 else 0 end),
-				   sum(case when ts.to_state = 0 then r3.value else '0' end),
-				   sum(case when ts.to_state > 3 then 1 else 0 end),
-				   sum(case when ts.to_state > 3 then r3.value else '0' end)
+				   nvl(sum(case when rs.guid is not null then r3.value else '0' end),0),
+				   nvl(sum(case when rs.state = 1 then 1 else 0 end),0),
+				   nvl(sum(case when rs.state = 1 then r3.value else '0' end),0),
+				   nvl(sum(case when ts.from_state = 1 and ts.to_state <= 2 then 1 else 0 end),0),
+				   nvl(sum(case when ts.from_state = 1 and ts.to_state <= 2 then r3.value else '0' end),0),
+				   nvl(sum(case when ts.to_state = 2 then 1 else 0 end),0),
+				   nvl(sum(case when ts.to_state = 2 then r3.value else '0' end),0),
+				   nvl(sum(case when ts.to_state = 1 then 1 else 0 end),0),
+				   nvl(sum(case when ts.to_state = 1 then r3.value else '0' end),0),
+				   nvl(sum(case when ts.to_state = 0 then 1 else 0 end),0),
+				   nvl(sum(case when ts.to_state = 0 then r3.value else '0' end),0),
+				   nvl(sum(case when ts.to_state > 3 then 1 else 0 end),0),
+				   nvl(sum(case when ts.to_state > 3 then r3.value else '0' end),0)
 			    from t_files_for_transfer f
 			    left join t_replica_state rs
 			      on rs.guid = f.guid and rs.node = '$node'
@@ -166,18 +149,10 @@ sub idle
 			      on ts.guid = f.guid and ts.to_node = '$node'
 			    left join t_replica_metadata r3
 			      on r3.guid = f.guid and r3.attribute = 'filesize'
-      			    where (rs.node = '$node') or (ts.to_node = '$node')});
-	    my $statsvals = join (', ', @$stats);
-	    $dbh->do (qq{delete from t_info_transfer_status where node = '$node'});
-	    $dbh->do (qq{insert into t_info_transfer_status values
-			  ($now, '$node',
-			   $stamps{$node}[1], $stamps{$node}[2], $stamps{$node}[3],
-			   $statsvals)});
-	    &logmsg("updated transfer stats for $node");
-	}
+      			    where (rs.node = '$node') or (ts.to_node = '$node')) x)});
 
-	$dbh->do (qq{update t_info_transfer_status set update_stamp = $now});
 	$dbh->commit();
+	&logmsg("updated transfer stats for $node");
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
