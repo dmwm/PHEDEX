@@ -91,7 +91,7 @@ on what needs to be done to access files from other sites.
 ** Run the agent
 
   nohup PHEDEX/Toolkit/Transfer/FileDownload		\
-	-db devdb9					\
+	-db devdb					\
 	-dbuser cms_transfermgmt_writer			\
 	-dbpass threebagsfull				\
   	-state incoming/transfer			\

@@ -52,7 +52,7 @@ sub intro
     </tr>
     <tr><td colspan=7 align='center'>$stamp</td></tr>
     <tr><td colspan=7 align='center'><select name='db'>"},
-    "<option value='devdb9'@{[$db eq 'devdb9' && ' selected=selected']}>Test</option>",
+    "<option value='devdb'@{[$db eq 'devdb' && ' selected=selected']}>Test</option>",
     "<option value='cms'@{[$db eq 'cms' && ' selected=selected']}>Production</option>",
     "</select></td></tr></table>\n";
 
@@ -144,7 +144,7 @@ sub transfer {
     my $now = time();
     my $query = $dbh->prepare(qq{
 	    select
-	      node, update_stamp,
+	      node, timestamp,
 	      n_files, sz_files,
 	      n_onsite, sz_onsite,
 	      n_staged, sz_staged,
@@ -438,7 +438,7 @@ sub stats {
     my $now = time();
     my $overview = $dbh->selectrow_arrayref(qq{
 			select
-			  update_stamp,
+			  timestamp,
 			  n_files,
 			  sz_total,
 			  sz_min,
@@ -448,7 +448,7 @@ sub stats {
 			from t_info_file_size_overview});
     my $histo = $dbh->selectall_arrayref(qq{
 	    		select
-			  update_stamp,
+			  timestamp,
 			  bin_low,
 			  bin_width,
 			  n_total,
@@ -504,7 +504,7 @@ sub agents {
     my %live = ();
     foreach my $row (@{$dbh->selectall_arrayref(qq{
 				select
-				  update_stamp,
+				  timestamp,
 				  site,
 				  host,
 				  agent,
@@ -586,7 +586,7 @@ sub rates {
     my %stats = ();
     my $q = $dbh->prepare(qq{
 			select
-			  update_stamp,
+			  timestamp,
 			  time_span,
 			  info_type,
 			  from_node,
@@ -694,7 +694,7 @@ $VERSION     = 1.00;
 # Display a select menu of t1s
 sub t1_menu {
     my %args = (
-        DB_TNSNAME  => 'devdb9',
+        DB_TNSNAME  => 'devdb',
         @_,
     );
 
@@ -705,7 +705,7 @@ sub t1_menu {
 # Display a select menu of agents
 sub agent_menu {
     my %args = (
-        DB_TNSNAME  => 'devdb9',
+        DB_TNSNAME  => 'devdb',
         @_,
     );
     
@@ -718,7 +718,7 @@ sub get_field_from_table {
     my %args = (
         FIELD_NAME  => '*',
         TABLE_NAME  => 'filesfortransfer',
-        DB_TNSNAME  => 'devdb9',
+        DB_TNSNAME  => 'devdb',
         @_,
     );
 
@@ -742,7 +742,7 @@ sub log_query {
     my %args = (
     	TIME => 60,
         AGENT       => 'RAL',
-        DB_TNSNAME  => 'devdb9',
+        DB_TNSNAME  => 'devdb',
         @_,
     );
 
@@ -810,7 +810,7 @@ sub state_query {
     my %args = (
         T1       => 'ALL',
         STATE   => "1",
-        DB_TNSNAME  => 'devdb9',
+        DB_TNSNAME  => 'devdb',
         @_,
     );
 
@@ -827,7 +827,7 @@ sub state_query {
 sub rate_info {
     my %args = (
         AGENT => 'CONFIG',
-        DB_TNSNAME  => 'devdb9',
+        DB_TNSNAME  => 'devdb',
         @_,
     );
     my $bin_size = 1;
@@ -858,7 +858,7 @@ sub aggregate_rate {
     my %args = (
     	TIME => '0',
         AGENT => 'ALL',
-        DB_TNSNAME  => 'devdb9',
+        DB_TNSNAME  => 'devdb',
         @_,
     );
     
@@ -897,7 +897,7 @@ sub transfer_data {
     my %args = (
     	START_TIME => '0',
         AGENT => 'CONFIG',
-        DB_TNSNAME  => 'devdb9',
+        DB_TNSNAME  => 'devdb',
         STEP    => '1',
         @_,
     );
@@ -964,7 +964,7 @@ sub transfer_data {
 sub filesize_info {
     my %args = (
         AGENT => 'CONFIG',
-        DB_TNSNAME  => 'devdb9',
+        DB_TNSNAME  => 'devdb',
         @_,
     );
     my $bin_size = 50;
@@ -1042,7 +1042,7 @@ sub draw_histogram_as_text {
 sub filesize_data {
     my %args = (
         AGENT => 'CONFIG',
-        DB_TNSNAME  => 'devdb9',
+        DB_TNSNAME  => 'devdb',
         STEP    => '1',
         @_,
     );

@@ -43,7 +43,7 @@ sub intro
     <table>
     <tr><td colspan=7 align='center'>$stamp</td></tr>
     <tr><td colspan=7 align='center'><select name='db'>"},
-    "<option value='devdb9'@{[$db eq 'devdb9' && ' selected=selected']}>Test</option>",
+    "<option value='devdb'@{[$db eq 'devdb' && ' selected=selected']}>Test</option>",
     "<option value='cms'@{[$db eq 'cms' && ' selected=selected']}>Production</option>",
     "</select></td></tr></table>\n";
 
