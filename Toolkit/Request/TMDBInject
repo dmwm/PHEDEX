@@ -36,6 +36,10 @@ while (scalar @ARGV)
 
     elsif ($ARGV[0] eq '-nodes' && scalar @ARGV > 1)
     { shift (@ARGV); push(@{$args{NODES}}, split(',', shift(@ARGV))); }
+    elsif ($ARGV[0] eq '-sites' && scalar @ARGV > 1)
+    { shift (@ARGV); push(@{$args{SITES}}, split(/[,\s]+/, shift(@ARGV))); }
+    elsif ($ARGV[0] eq '-sitemap' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{SITEMAP} = shift (@ARGV); }
     elsif ($ARGV[0] eq '-catalogue' && scalar @ARGV > 1)
     { shift (@ARGV); $args{CATALOGUE} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-cksums' && scalar @ARGV > 1)
@@ -48,16 +52,41 @@ while (scalar @ARGV)
 }
 	
 if (scalar @ARGV || ! defined $args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{DBITYPE} || !$args{NODES}
+    || !$args{DBPASS} || !$args{DBITYPE}
+    || !($args{NODES} || ($args{SITES} && $args{SITEMAP}))
     || !$args{CATALOGUE} || !$args{CKSUMS})
 {
     print STDERR
-	"usage: $me -nodes NODE[,NODE...] -catalogue FILE -cksums FILE\n",
-	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE] [-verbose]\n";
+	"usage: $me -catalogue FILE -cksums FILE [-verbose]\n",
+	"    { -nodes NODE[,NODE...] | -sitemap FILE -sites SITE[,SITE...] }\n",
+	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n";
     exit (1);
 }
 
+# If we got a site specification, map the nodes to site `
+if ($args{SITES})
+{
+    # Read site mappings
+    my %sitemap = ();
+    open(S, "< $args{SITEMAP}") || die "$args{SITEMAP}: cannot read: $!\n";
+    while (<S>)
+    {
+	chomp; s/#.*//; s/^\s+//; s/\s+$//; next if /^$/;
+	die "$args{SITEMAP}: $.: unrecognised line\n"
+	     if !  /^\s*(\S+)\s*=\s*(\S+)\s*$/;
+	$sitemap{$1} = $2;
+    }
+    close (S);
 
+    # Map sites to nodes
+    foreach my $site (@{$args{SITES}})
+    {
+	die "no mapping for site $site\n" if ! exists $sitemap{$site};
+	push(@{$args{NODES}}, $sitemap{$site});
+    }
+}
+
+# Ensure catalogue and checksum files exist and are readable
 -r $args{CATALOGUE} || die "$args{CATALOGUE}: cannot read: $!\n";
 -r $args{CKSUMS} || die "$args{CKSUMS}: cannot read: $!\n";
 
