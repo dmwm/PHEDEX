@@ -212,7 +212,7 @@ sub checkJobs
 	    kill ($job->{PID}, $job->{FORCE_TERMINATE} ||= 1);
 	    $job->{FORCE_TERMINATE} = 9;
 	}
-	elsif ($job->{PID} > 0 && ($status = waitpid ($job->{PID}, WNOHANG)) > 0)
+	elsif ($job->{PID} > 0 && waitpid ($job->{PID}, WNOHANG) > 0)
 	{
 	    # Command finished executing, save exit code and mark finished
 	    $job->{STATUS} = $? / 256;
@@ -244,10 +244,14 @@ sub pumpJobs
 
     # Start new jobs if possible
     my $jobs = $self->{JOBS};
+    my $running = grep ($_->{PID} > 0, @$jobs);
     foreach my $job (@$jobs)
     {
-	last if grep ($_->{PID} > 0, @$jobs) >= $self->{NJOBS};
-	$self->startJob ($job) if scalar @{$job->{CMD}};
+	next if ! @{$job->{CMD}};
+	next if $job->{PID} > 0;
+	last if $running >= $self->{NJOBS};
+	$self->startJob ($job);
+	$running++;
     }
 }
 
