@@ -113,6 +113,13 @@ sub idle
 
         # FIXME: Pick up and process messages to me
 
+	# FIXME: This query does not update staged-in status for files
+	# that are not wanted.  FileCastorStager sets state=0,local_state=0
+	# for all files, then sets local_state (only) to 1.  After that's
+	# happened, we don't upgrade state->1 until someone asks for a file.
+	# Think again how we wnat to cycle through local states.
+
+
         # Check how much is wanted downstream.  Select the files wanted
         # downstream still pending for outward transfer here.  We fetch
         # in one query the current state here, whether we have checksum,
