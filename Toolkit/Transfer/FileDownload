@@ -194,11 +194,10 @@ sub completeTransferBatch
     }
 
     # Have a connection to the database, now update status for all files
-    eval
+    foreach my $file (@$batch)
     {
-        foreach my $file (@$batch)
+        eval
         {
-	    my $now = &mytimeofday();
 	    my $to_state = 3;
 	    my $guid = $file->{GUID};
 	    if ($file->{FAILURE})
@@ -207,7 +206,7 @@ sub completeTransferBatch
 	         $to_state = 101 + int(rand(10)); # 1..10 min cool-off
 	    }
 
-	    $now = &mytimeofday ();
+	    my $now = &mytimeofday ();
 	    my $dalloc = $now - $file->{TIME_ALLOC};
 	    my $dtransfer = $now - $file->{TIME_START};
 	    &dbexec ($dbh, qq{
@@ -275,17 +274,17 @@ sub completeTransferBatch
 		     . sprintf('%.2f %.2f', $dalloc, $dtransfer)
 	     	     . " $file->{FILESIZE}"
 		     . " [ $profile_string ]");
-        }
-        $dbh->commit ();
-    };
+            $dbh->commit ();
+        };
 
-    # If we failed to update status, something's gone terribly bad,
-    # just skip these files, we will re-transfer them later again.
-    if ($@)
-    {
-        &alert ("failed to update transfer batch status: $@");
-        $dbh->rollback() if $dbh;
-    }
+        # If we failed to update status, something's gone terribly bad,
+        # just skip this file, we will re-transfer it later again.
+        if ($@)
+        {
+            &alert ("failed to update transfer batch status: $@");
+            $dbh->rollback() if $dbh;
+        }
+    };
 
     &disconnectFromDatabase ($self, $dbh);
 }
@@ -416,8 +415,7 @@ sub markFilesWanted
 }
 
 # Get the list of N guids that should be transferred next.  Returns
-# a list of arrays with members GUID, ALLOC_TIMESTAMP, FROM_NODE,
-# FROM_CATALOGUE, TO_CATALOGUE plus a hash of POOL file attributes.
+# a list of arrays of file information.
 sub nextFiles
 {
     my ($self, $dbh, $n) = @_;
@@ -454,6 +452,7 @@ sub nextFiles
   		    ":node" => $self->{MYNODE});
 	    while (my @row = $stmt->fetchrow())
 	    {
+		next if grep($_->[0] eq $row[0], @{$self->{NEXT_FILES}});
 		next if grep($_ eq $row[5], @{$self->{IGNORE_NODES}});
 	        next if (@{$self->{ACCEPT_NODES}}
 		         && ! grep ($_ eq $row[5], @{$self->{ACCEPT_NODES}}));
@@ -476,8 +475,6 @@ sub nextFiles
     }
 
     # Use cached values if we have enough of them
-    my $nfiles = scalar @{$self->{NEXT_FILES}};
-    $n = $nfiles if $nfiles < $n;
     return splice (@{$self->{NEXT_FILES}}, 0, $n);
 }
 
