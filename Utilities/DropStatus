@@ -4,17 +4,20 @@ BEGIN { use strict; use warnings; }
 
 sub report
 {
-    my ($prefix, $dir, @queues) = @_;
-    my @inbox = <$dir/inbox/*>;
-    my @pending = <$dir/work/*>;
-    my @outbox = <$dir/outbox/*>;
-    print "$prefix: ",
-	scalar (grep (! -f "$_/go", @inbox)), " pending, ",
-	scalar (grep (-f "$_/go", @inbox)), " received, ",
-	scalar (grep (! -f "$_/done" && ! -f "$_/bad", @pending)), " work, ",
-	scalar (grep (-f "$_/done", @pending)), " completed, ",
-	scalar (grep (-f "$_/bad", @pending)), " bad, ",
-	scalar (@outbox), " outgoing\n";
+    my ($prefix, $dir) = @_;
+    my $inbox = scalar @{[<$dir/inbox/*>]};
+    my $received = scalar @{[<$dir/inbox/*/go>]};
+    my $pending = scalar @{[<$dir/work/*>]};
+    my $bad = scalar @{[<$dir/work/*/bad>]};
+    my $done = scalar @{[<$dir/work/*/done>]};
+    my $outbox = scalar @{[<$dir/outbox/*>]};
+    print "$prefix:",
+	" @{[$inbox - $received]} pending,",
+	" $received received,",
+	" @{[$pending - $bad - $done]} work,",
+	" $done completed,",
+	" $bad bad,",
+	" $outbox outgoing\n";
 }
 
 foreach $dropdir (@ARGV)
@@ -23,8 +26,8 @@ foreach $dropdir (@ARGV)
     foreach $w (<$dropdir/worker-*>)
     {
 	my $id = ($w =~ /worker-(\d+)/)[0];
-	&report (" W$id", $w, <$w/{inbox,work}/*>);
+	&report (" W$id", $w);
     }
 
-    &report (" M", $dropdir, <$dropdir/queues/*>);
+    &report ("  M", $dropdir);
 }
