@@ -167,7 +167,7 @@ Manager (SRM) \cite{srm} with dCache \cite{dcache} and SRB \cite{srb}
 
 \begin{figure}[tbp]
 \centering
-\includegraphics[angle = 90]{chains.eps} 
+\includegraphics[width=15cm, angle = 90]{chains.eps} 
 \label{fig:chains}
 \caption{Overall view of the distribution chains deployed during DC04.}
 \end{figure}
@@ -402,11 +402,21 @@ of metadata, or having a varying schema for each replica- was
 essential, especially during development.
 
 \subsection{The DC04 Replica Location System (RLS)}
-The LCG-2 RLS was deployed as a global service for lfn:guid:pfn and metadata lookups during DC04: a Local Replica Catalogue (LRC) and Replica Metadata Catalogue (RMC) were deployed at CERN with an Oracle backend (TODO: details of Oracle backend). These catalogues were accessed in a variety of ways- for example, using the LRC C++ API for direct access to the LRC, or through POOL File Catalogue tools (the LRC-RMC combination can be represented as a single POOL File Catalogue).
+The LCG-2 RLS was deployed as a global service for lfn:guid:pfn and
+metadata lookups during DC04: a Local Replica Catalogue (LRC) and
+Replica Metadata Catalogue (RMC) were deployed on a Sun cluster at
+CERN running Oracle; the RLS web service frontend was deployed using
+Oracle Application Server. CMS' DC04 was the first full-scale test of
+the RLS.
 
-Note that some sites had separate MySQL POOL catalogues that partially replciated information in the RLS. These catalogues were not fully syncronised, although information was published to them from the RLS.
+These catalogues were accessed in a variety of ways- for example,
+using the LRC C++ API for direct access to the LRC, or through POOL
+File Catalogue tools (the LRC-RMC combination can be represented as a
+single POOL File Catalogue).
 
-The RLS proved to be a critical component during DC04, even if only judged on the number of processes accessing it (table \ref{table:rls}).
+The RLS proved to be a critical component during DC04, even if only
+judged on the number of processes accessing it (table
+\ref{table:rls}).
 
 \begin{table}
 \begin{tabular}[tbp]{|l|l|l|}
@@ -427,15 +437,39 @@ The RLS proved to be a critical component during DC04, even if only judged on th
 \caption{Summary of the many uses of the RLS during DC04. FC* commands are those provided by POOL.}
 \end{table}
 
-The RLS at CERN was found to be a critical bottleneck early in the challenge, and a significant amount of effort was expended in developing it so that performance was brought close to requirements. Even at the end of DC04 however it was still not ebing used generally- POOL XML catalogues were transferred alongside the data, and analysis either used these directly, or accessed the information via a local MySQL POOL catalogue if uploaded upon reacihng the destniation.
+The RLS at CERN was found to be a critical bottleneck early in the
+challenge, and a significant amount of effort was expended in
+developing it so that performance was brought close to
+requirements. Even at the end of DC04 however it was still not being
+used as a complete global catalogue; MySQL POOL catalogues that
+partially replicated information in the RLS were deployed to enable
+analysis at the T1s and T2s. These catalogues were not fully
+syncronised, although information was published to them from the RLS.
 
-In general inserting information into the LRC was slow, and using the RMC was slower. Looking up file information by GUID met performance requirements, but queries, including queries by GUID, took a long time. Throughout DC04 discussions on performance were held with the catalogue developers, and as a result a new optimized version was released just after DC04.
+In general inserting information into the LRC was slow, and using the
+RMC was slower. Looking up file information by GUID met performance
+requirements, but queries, including queries by GUID, took a long
+time. Throughout DC04 discussions on performance were held with the
+catalogue developers, and as a result a new optimized version was
+released just after DC04.
 
-Over one of the earliest busy periods of DC04- when the LRC and RMC began to fail- there were around $10^6$ interactions with LRC Oracle backend, and $3\times10^6$ interactions with the RMC per day. 
+Over one of the earliest busy periods of DC04- when the LRC and RMC
+began to fail- there were around $10^6$ interactions with LRC Oracle
+backend, and $3\times10^6$ interactions with the RMC per day.
 
-In total $~570$k lfns were stored in the RLS during DC04, each with 5-10 pfns and 9 metadata attributes. Inserting information into RLS was fast enough if  the appropriate tools were used. A variety of more appropriate tools were developed during DC04 leading to improvements in performance- for example, registering a new mapping using the LRC C++ API took 0.1-0.2 s per mapping, while using the POOL CLI with GUID took seconds per mapping.
+In total $~570$k lfns were stored in the RLS during DC04, each with
+5-10 pfns and 9 metadata attributes. Inserting information into RLS
+was fast enough once appropriate tools were developed. For example,
+registering a new mapping using the LRC C++ API took 0.1-0.2 s per
+mapping, while using the POOL CLI with a GUID at a time took seconds
+per mapping.
 
-Inserting files with metadata into the RLS was slow in comparison, although approximately usable at around 3 s per file. There were periods, however, where intervention was required on the server and insertion times dramatically reduced (fig. \ref{fig:rls}). Interventions included cleaning of log partitions, switching backend nodes, and optimizing queries.
+Inserting files with metadata into the RLS was slow in comparison,
+although approximately usable at around 3 s per file. There were
+periods, however, where intervention was required on the server and
+insertion times dramatically reduced
+(fig. \ref{fig:rls}). Interventions included cleaning of log
+partitions, switching backend nodes, and optimizing queries.
 
 \begin{figure}[tbp]
 \centering
@@ -444,13 +478,33 @@ Inserting files with metadata into the RLS was slow in comparison, although appr
 \caption{The time taken to register all files in drops as they appeared at the end of Reconstruction jobs shows some variation, with periods of high data production associated with longer registration times (near the middle of the plot). Typically there were 16 files per drop.}
 \end{figure} 
 
-Querying information from RLS was in general very slow. Looking up file information by GUID seemed sufficiently fast, but bulk queries by GUID took seconds per file. Queries on metadata were too slow- for instance, querying for all files of a specific "owner" took hours. In contrast, it took two minutes to dump the entire catalogue to file after gaining access to the Oracle backend.
+Querying information from RLS was in general very slow. Looking up
+file information by GUID seemed sufficiently fast, but bulk queries by
+GUID- strictly a metadata-based search- took seconds per file. Other
+queries on metadata were too slow- for instance, querying for all
+files of a specific ``owner'' took hours. In contrast, it took two
+minutes to dump the entire catalogue to file after gaining access to
+the Oracle backend.
 
-The problem was also not POOL-related: for comparison, a similar dumps from POOL MySQL or XML catalogues were a minimum factor 10 faster than a dump from a POOL RLS catalogue. It is entirely possible that a POOL MySQL catalogue could have met the demands of DC04: however, some transfers were undertaken using LCG tools that required an LCG RLS.
+The problem was also not POOL-related: for comparison, POOL MySQL or
+XML catalogues dumps were a minimum factor 10 faster than an
+equivalent dump from a POOL RLS catalogue. It is entirely possible
+that a POOL MySQL catalogue could have met the demands of DC04:
+however, some transfers were undertaken using LCG tools that required
+an LCG RLS.
 
-In summary, several workarounds or solutions were provided to speed up the access to RLS during DC04: use of the Java Replica Manager CLI was replaced by use of the C++ API; POOL developed improvements and workarounds; and CERN IT were able to index some meta data attributes in RLS (by default, none of the RLS tables are indexed). There were a number of requirements that were not met at the start of DC04: transactional access; a small voerhead compared to to direct RDBMS catalogues; and fast queries.
+In summary, several workarounds or solutions were provided to speed up
+the access to RLS during DC04: use of the Java Replica Manager CLI was
+replaced by use of the C++ API; POOL developed improvements and
+workarounds; and CERN IT were able to index some meta data attributes
+in RLS (by default, none of the RLS tables are indexed). There were a
+number of requirements that were not met at the start of DC04:
+transactional access; a small overhead compared to to direct RDBMS
+catalogues; and fast queries.
 
-Each of these issues needs to be met if the RLS is to be used in the future as the file catalogue of choice. Wheher it remains the ideal solution to storing replica metadata also needs to be examined.
+Each of these issues needs to be met if the RLS is to be used in the
+future as the file catalogue of choice. Wheher it remains the ideal
+solution to storing replica metadata also needs to be examined.
 
 \subsection{Dropbox agents}
 + Performed well, typically 0.01s per drop (O(10) files).
@@ -459,16 +513,37 @@ Each of these issues needs to be met if the RLS is to be used in the future as t
 
 + Numbers from Lassi.
 
+\subsubsection{Metadata}
+\subsubsection{Filegroup...}
+\subsubsection{Merging}
+
 \subsection{SRM chain}
-The SRM distribution chain comprised an SRM Export Buffer at CERN providing access to a dCache disk pool, and an SRM import buffer at FNAL providing access to Enstore, again via dCache. 
+The SRM distribution chain comprised an SRM Export Buffer at CERN
+providing access to a dCache disk pool, and an SRM import buffer at
+FNAL providing access to Enstore, again via dCache.
 
-At the T0, the SRM export buffer handled staging of files from Castor to dCache disk pool, where they were pinned until transferred.
+At the T0, the SRM export buffer handled staging of files from Castor
+to dCache disk pool, where they were pinned until transferred.
 
-The transfer agent copied files from the export buffer to the T1 import buffer by initiating a third aprty SRM transaction to receive a TURL from the export buffer, then using gridFTP to make the transfer.
+The transfer agent copied files from the export buffer to the T1
+import buffer by initiating a third party SRM transaction to receive a
+TURL from the export buffer, then using gridFTP to make the transfer.
 
-The use of storage media that presents a uniform SRM interface to the outside world is a model for the way components of the distribution system should behave in future versions. Use of SRM throughout would enable us to create generic transfer agents, and make implementing them simpler, as operations like file staging, etc would be handled automatically \footnote{Although whether the SRM method for handling staging is best for us is not clear. If we only use SRM to handle this, then ideally SRM gives the transfer agents a way to trigger a stage and return simply and gracefully when necessary.}.
+The use of storage media that presents a uniform SRM interface to the
+outside world is a model for the way storage will ideally behave in
+future versions. Use of SRM throughout would enable us to create
+generic transfer agents, and make implementing them simpler, as
+operations like file staging, etc would be handled automatically
+\footnote{Although whether the SRM method for handling staging is best
+for us is not clear. If we only use SRM to handle this, then ideally
+SRM gives the transfer agents a way to trigger a stage and return
+simply and gracefully when necessary.}.
 
-Initially problems were seen with repeated authentications: the agents were developed so that multiple streams, with multiple files in each stream, could be used to transfer files, reducing the number of authentications required. Transfer rates of over 10 MBps could be sustained for long periods (fig. \ref{fig:FNAL-network}).
+Initially problems were seen with repeated authentications: the agents
+were developed so that multiple streams, with multiple files in each
+stream, could be used to transfer files, reducing the number of
+authentications required. Transfer rates of over 10 MBps could be
+sustained for long periods (fig. \ref{fig:FNAL-network}).
 
 \begin{figure}[tbp]
 \centering
@@ -477,122 +552,118 @@ Initially problems were seen with repeated authentications: the agents were deve
 \caption{The SRM chain was able to sustain transfer rates of more than 10 MBps into FNAL for long periods.}
 \end{figure} 
 
-In contrast to other techniques, the use of SRM eased agent development with features like automatic directory creation, file migration and staging, and automatic failure recovery. Similar features were successfully implemented as parts of the distribution system in, for example, the LCG chain.
+In contrast to other techniques, the use of SRM eased agent
+development with features like automatic directory creation, file
+migration and staging, and automatic failure recovery. Similar
+features were successfully implemented as parts of the distribution
+system in, for example, the LCG chain.
 
-However, during DC04 it proved difficult to install monitoring technology, which meant that hardware failures had to be identified by a human operator, and restarts handled manually. In common with other distribution chains the SRM chain had difficulties with the large number of small files, which necessitated an increase ni the number of tapes available and the deployment of a larger namespace service.
+However, during DC04 it proved difficult to install monitoring
+technology, which meant that hardware failures had to be identified by
+a human operator, and restarts handled manually. In common with other
+distribution chains the SRM chain had difficulties with the large
+number of small files, which necessitated an increase in the number of
+tapes available and the deployment of a larger namespace service.
 
-FNAL also deployed a MySQL POOL catalogue to enable access to the transferred data in the US; they found its performance more than adequate for the task. Initially the publishing of entries from the RLS to the FNAL POOL catalogue proved difficult, with the RLS queries taking a long time (see above). Close work between agent developers at CERN and FNAL brought about a 100-fold increase in performance.
+FNAL also deployed a MySQL POOL catalogue to enable access to the
+transferred data in the US; they found its performance more than
+adequate for the task. Initially the publishing of entries from the
+RLS to the FNAL POOL catalogue proved difficult, with the RLS queries
+taking a long time (see above). Close work between agent developers at
+CERN and FNAL brought about a 100-fold increase in performance.
 
-All data access at FNAL was attempted through dCache via a ROOT plugin- so that COBRA based applciations could trivially access teh data. Read performance was shown to be "dramatically increased"- however, opening files became a dominant bottleneck, exacerbated by the large number of small files. The software environment consisted of access to applications over AFS at CERN, which proved quite stable.
+All data access at FNAL was attempted through dCache via a ROOT
+plugin- so that COBRA based applciations could trivially access the
+data. Read performance was shown to be "dramatically increased"-
+however, opening files became a dominant bottleneck, exacerbated by
+the large number of small files. The software environment consisted of
+access to applications over AFS at CERN, which proved quite stable.
 
-Access to the transferred data was found to be logistically difficult: as the files ina  dataset were reconstructed at a range of times through DC04, they were stored on a large number of tapes. Making data available for analysis therefore meant a large number of tape stages.
+Access to the transferred data was found to be logistically difficult:
+as the files in a dataset were reconstructed at a range of times
+through DC04, they were stored on a large number of tapes. Making data
+available for analysis therefore meant a large number of tape stages.
 
-Data was also transferred to UFL and Caltech T2s toward the end of the challenge. UFL was able to use the same software environment as the T1 to analyse data so transferred.
+Data was also transferred to UFL and Caltech T2s toward the end of the
+challenge. UFL was able to use the same software environment as the T1
+to analyse this data.
 
 \subsection{SRB chain}
 The performance of the SRB chain was severely hampered by technical
-issues:
-first with availability of the MCat metadata catalogue, hosted at RAL,
-and
-secondly with a small number of bugs in SRB client and server, and
-Oracle
-Linux implementations. Experience with the SRB chain has highlighted the
-vital importance of production-quality service and support at the T1s, 
-especially if they are to be responsible for mission-critical services
-during 
-experiment running.
+issues: first with availability of the MCat metadata catalogue, hosted
+at RAL, and secondly with a small number of bugs in SRB client and
+server, and Oracle Linux implementations. Experience with the SRB
+chain has highlighted the vital importance of production-quality
+service and support at the T1s, especially if they are to be
+responsible for mission-critical services during experiment running.
 
 Within SRB version 2 the MCat, or metadata catalogue, represents a
-single point 
-of failure. All user authentications, replica and metadata lookups are
-undertaken 
-using this single service (it should be noted that this is not true in
-version 3 
-of SRB). 
+single point of failure. All user authentications, replica and
+metadata lookups are undertaken using this single service (it should
+be noted that this is not true in version 3 of SRB).
 
 However, SRB had been used successfully by CMS production for a year
-beforehand. 
-In addition, LCG-2 resources were not available at several T1s. More
-critically 
-still, for RAL and IN2P3 SRB represented the only mechanism available
-for placing files in mass storage with consistent catalogue information 
-in an automated manner.
+beforehand.  In addition, LCG-2 resources were not available at
+several T1s. More critically still, for RAL and IN2P3 SRB represented
+the only mechanism available for placing files in mass storage with
+consistent catalogue information in an automated manner.
 
-Unfortunately during DC04 there came a serious break in service quality
-as staff 
-at RAL left and replacements were sought, and then brought up to speed.
-As a result 
-the MCat suffered serious problems on 22 of 56 days. Problems ranged
-from slight 
-loss of performance (lengthy directory query times) to severe loss of
-performance 
+Unfortunately during DC04 there came a serious break in service
+quality as staff at RAL left and replacements were sought, and then
+brought up to speed.  As a result the MCat suffered serious problems
+on 22 of 56 days. Problems ranged from slight loss of performance
+(lengthy directory query times) to severe loss of performance
 (transactions taking so long that transfer agents had no choice but to
-continually 
-time out) and unannounced reboots, geographical shifts of the database
-service and 
-core dumps.
+continually time out) and unannounced reboots, geographical shifts of
+the database service and core dumps.
 
-The SRB chain comprised an export buffer at the T0 and import buffers at
-RAL, IN2P3 
-and Karlsruhe T1s. Files were copied from Castor onto the export buffer,
-where they 
-were inserted (Sput) into SRB space. The files GUID was then added as
-additional SRB 
-metadata Tier 1 sites then transferred the files to the relevant import
-buffers and 
-mass storage systems, either using Sreplicate or Sget/Sput. 
+The SRB chain comprised an export buffer at the T0 and import buffers
+at RAL, IN2P3 and Karlsruhe T1s. Files were copied from Castor onto
+the export buffer, where they were inserted (Sput) into SRB space. The
+files GUID was then added as additional SRB metadata Tier 1 sites then
+transferred the files to the relevant import buffers and mass storage
+systems, either using Sreplicate or Sget/Sput.
 
-An application developed in the UK (GMCat) linked the name spaces of SRB
-and the other 
-chains by publishing SRB replica information into the LRC at CERN
-periodically. As the
-difficulties with the MCat increased GMCat was stopped as the system no
-longer reponded 
-in a useful timescale. 
+An application developed in the UK (GMCat) linked the name spaces of
+SRB and the other chains by publishing SRB replica information into
+the LRC at CERN periodically. As the difficulties with the MCat
+increased GMCat was stopped as the system no longer reponded in a
+useful timescale.
 
 While transfer speeds from T0-T1 were respectable (quote speed see
-graph) the initial 
-entry of the file onto the export buffer was particularily troublsome.
-Much of these 
-problems were caused by the strategy chosen when writing the agent,
-based on the 
-knowledge we had before DC04. Sput is particularily efficient with large
-files 
-and so was chosen as the tool to enter data into the export buffer. 
+graph) the initial entry of the file onto the export buffer was
+particularily troublsome.  Much of these problems were caused by the
+strategy chosen when writing the agent, based on the knowledge we had
+before DC04. Sput is particularily efficient with large files and so
+was chosen as the tool to enter data into the export buffer.
 
 During DC04 the file sizes were orders of magnitude smaller than
-expected. Had this small 
-filesize been aparent before the data challenge a different system would
-have been 
-developed. In retrospect an export buffer agent based on the drop boxes
-used in the 
-tier 0 would be a preferred system, separating transfers from the GUID metadata insertion.
-Since the data challenge came to an end a series of
-tests have been done in an attempt to replicate and solve the problems
-found during 
-the DC, as many components of the CMS grid will rely on similar backends
-(eg Oracle 
-databases) it is essential to understand the problems experienced.
+expected. Had this small filesize been aparent before the data
+challenge a different system would have been developed. In retrospect
+an export buffer agent based on the drop boxes used in the tier 0
+would be a preferred system, separating transfers from the GUID
+metadata insertion.  Since the data challenge came to an end a series
+of tests have been done in an attempt to replicate and solve the
+problems found during the DC, as many components of the CMS grid will
+rely on similar backends (eg Oracle databases) it is essential to
+understand the problems experienced.
 
-Code vs API, post mortem testing etc.
 
 Even with administration problems, transfers to IN2P3 reached 10 MBps
-over a period 
-of hours, althoa anugh typically they averaged only 30 Mbps over a whole
-day. The SRB 
-chain was not able to take part in a large filesize stress test at the
-end of DC04; 
-these transfer rates are due to small file sizes, and thus compare
-favourably with 
-other chains. Prior to the data challenge testing indicated that
-transfer rates could
-be sustained at a rate greater than this.
+over a period of hours, althoa anugh typically they averaged only 30
+Mbps over a whole day. The SRB chain was not able to take part in a
+large filesize stress test at the end of DC04; these transfer rates
+are due to small file sizes, and thus compare favourably with other
+chains. Prior to the data challenge testing indicated that transfer
+rates could be sustained at a rate greater than this.
 
 It should be noted that SRB is not integrated into the LCG analysis
-system, and that while this is possible (reference 
-ACAT paper) it may not be desirable to
-create a "grid of grids" without some significant additional desired functionality. 
-It is likely that CMS use of SRB will be phased out before DC05.
+system, and that while this is possible (reference ACAT paper) it may
+not be desirable to create a ``grid of grids'' without some
+significant additional desired functionality.  It is likely that CMS
+use of SRB will be phased out before DC05.
+
+
 
 \subsection{LCG chain}
 The LCG components required for distribution were the LRC at CERN, the dedicated information index (bdII), LCG-2 VO tools, a GridICE node at CNAF, Castor SEs at CNAF and PIC and "classic" disk SEs at CERN, CNAF, PIC, Legnaro, CIEMAT and Taiwan.
