@@ -22,6 +22,6 @@ connect="$1"
       "  options => 'GATHER AUTO',"				\
       "  estimate_percent => dbms_stats.auto_sample_size,"	\
       "  method_opt => 'for all columns size repeat',"		\
-      "  degree => 15,"						\
+      "  degree => 10,"						\
       "  cascade => true);") |
   sqlplus -S "$connect"
