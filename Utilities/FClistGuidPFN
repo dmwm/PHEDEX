@@ -1,57 +1,18 @@
-#!/usr/bin/perl
-BEGIN { use strict; use warnings; }
-use DBI;
-
-my $mode = 'g';
-my $contact = undef;
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-g')
-    { shift (@ARGV); $mode = 'g'; }
-    elsif ($ARGV[0] eq '-p')
-    { shift (@ARGV); $mode = 'p'; }
-    elsif ($ARGV[0] eq '-u' && scalar @ARGV > 1)
-    { shift (@ARGV); $contact = shift(@ARGV); }
-    else
-    { last; }
-}
-
-my $dbh = $dbh = DBI->connect ("DBI:Oracle:rls1", "rlscmspub", "rlscmspub",
-		     	       { RaiseError => 1, AutoCommit => 0 });
-my $key = $mode eq 'p' ? "pfn_pfn" : "guid_guid";
-my $stmt = $dbh->prepare(qq{
-	select guid_guid, pfn_pfn
-	from lcg2_cms_lrc.pfn, lcg2_cms_lrc.guid
-	where $key = ?  and guid_id = pfn_gid});
-foreach my $item (@ARGV)
-{
-    $stmt->execute ($item);
-    while (my @row = $stmt->fetchrow_array()) {
-	print "@row\n";
-    }
-}
-
-$dbh->rollback();
-$dbh->disconnect();
-exit(0);
-
-__END__
-# Old slow python version follows, this uses real POOL interfaces so it
-# works with any catalogue; the above perl code works only with RLS.
-
 #!/usr/bin/env python2.2
 from PyFileCatalog import *
 from PyFCContainer import *
 from PyFCAction import *
 import unittest,os,os.path,getopt
 def usage():
-    print 'FCGUID2PFN [-g | -p] -u catalog_contactstring ITEM...'
+    print 'FClistGuidPFN [-g | -p] -u catalog_contactstring ITEM...'
 
 class myobj(object):
     def __init__(self):
 	self.mode = 'g'
+        self.input=[]
         try:
-            optlist,args = getopt.getopt (sys.argv[1:],'gpu:')
+            optlist,self.input = getopt.getopt (sys.argv[1:],'gpu:')
+            #print self.input
         except getopt.GetoptError:
             usage()
             sys.exit(2)
@@ -71,23 +32,23 @@ class myobj(object):
         except PyFileCatalogError, er:
             print 'PyFileCatalogError Caught:',er
             self.x.rollback()
-
-    def list(self,guids):
+        
+    def list(self):
         try:
             l = PyFClookup()
             self.x.setAction(l)
             self.x.connect()
-            pfns = PyFCContainer.PyFCContainer(self.x,PFN,10000)
             self.x.start()
-            for guid in guids:
+            for i in self.input:
 		if (self.mode == 'g'):
-		    l.lookupPFNByQuery("guid='" + guid + "'", pfns)
+                    pfns = PyFCContainer.PyFCContainer(self.x,PFN,10000)
+		    l.lookupPFN("guid='" + i + "'", pfns)
+                    while pfns.hasNext():
+                        pentry=pfns.Next()
+                        print pentry[1], " ", pentry[0]
 		else:
-		    l.lookupPFNByQuery("pfname='" + guid + "'", pfns)
-
-                while pfns.hasNext():
-                    pentry=pfns.Next()
-                    print pentry[1], " ", pentry[0]
+		    result=l.lookupFileByPFN(i)
+                    print i, " ", result['guid']
 
             self.x.commit(REFRESH)
             self.x.disconnect()
@@ -96,4 +57,4 @@ class myobj(object):
 
 if __name__=="__main__":
     y=myobj()
-    y.list(sys.argv[1:])
+    y.list()
