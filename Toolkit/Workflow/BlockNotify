@@ -27,7 +27,6 @@ my %args = (DBITYPE => 'Oracle', WAITTIME => 3600, NEXTDIR => []);
 	     "dbitype=s"	=> \$args{DBITYPE},
 	     "dbuser=s"		=> \$args{DBUSER},
 	     "dbpass=s"		=> \$args{DBPASS},
-	     "dbitype=s"        => \$args{DBITYPE},
 	     "wait=f"		=> \$args{WAITTIME});
 
 if ($args{HELPME} || !$args{DBNAME} || !$args{DBUSER}

@@ -20,40 +20,34 @@ BEGIN
 my %args = (WAITTIME => 3600);
 
 &GetOptions ("state=s"		=> \$args{DROPDIR},
-	     "node=s"		=> \$args{MYNODE},
 	     "published=s"      => \$args{PUBLISHED},
-	     "catalogue=s"      => \$args{CAT},
-	     "catprefix=s"      => \$args{CATPREFIX},
+	     "pfnquery=s"       => \$args{PFN_QUERY},
 	     "script=s"         => \$args{SCRIPT},
 	     "wait=f"		=> \$args{WAITTIME});
 
-if (!$args{MYNODE} || !$args{DROPDIR}
-    || !$args{PUBLISHED} || !$args{CAT} || !$args{CATPREFIX}
-    || !$args{SCRIPT})
+$args{SCRIPT} = [ split(/,/, $args{SCRIPT}) ] if $args{SCRIPT};
+$args{PFN_QUERY} = [ split(/,/, $args{PFN_QUERY}) ] if $args{PFN_QUERY};
+if (!$args{DROPDIR} || !$args{PUBLISHED} || !$args{PFN_QUERY} || !$args{SCRIPT})
 {
-    print STDERR "usage: $me -state IN-DROP-BOX -node NODENAME\n",
-                 "       -script PUBLICATION-SCRIPT\n",
-                 "       -catprefix CATALOG-PREFIX -catalogue POOL-CONTACT\n",
-                 "       -published DIR-WITH-TREATED-PACKETS [-wait SECONDS]\n";
+    print STDERR "usage: $me -state IN-DROP-BOX -script PUBLISH-SCRIPT[,ARGS]\n",
+                 "       -pfnquery PFN-QUERY-SCRIPT[,ARGS]\n",
+                 "       -published HISTORY-DIRECTORY [-wait SECONDS]\n";
     exit 1;
 }
 
 
-my $agent = new BlockPublication (%args);
-$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
-$SIG{QUIT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
-$SIG{TERM} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
+my $agent = new BlockPublish (%args);
 $agent->process();
 
 ################################################
-package BlockPublication; use strict; use warnings; use base 'UtilsAgent';
+package BlockPublish; use strict; use warnings; use base 'UtilsAgent';
 use File::Path;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
 use UtilsCatalogue;
-use UtilsTR;
-use Cwd;
+use UtilsNet;
+use File::Path;
 
 sub new
 {
@@ -61,23 +55,15 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (MYNODE     => undef,          # My TMDB node name
-		  PUBMETHOD  => undef,          # method used for publishing
-                                                # (script or mcrunjob)
 		  SCRIPT     => undef,          # path to script for publishing
-		  MCRUNJOB   => undef,          # MCRUNJOB command for publishing
-		  CAT        => undef,          # local POOL catalogue contact
-		  CATPREFIX  => undef,          # Catalogue prefix to use
-		  PUBDIR     => undef,          # workdir for publish command
-		  PUBLISHED  => undef,          # file with treated owner/datasets
-		  AGENTID    => "Publication"); # Identity for activity logs
+		  PFN_QUERY  => undef,		# PFN query script
+		  PUBLISHED  => undef);         # dir with treated owner/datasets
 
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
 }
-
-
 
 sub processDrop
 {
@@ -98,148 +84,122 @@ sub processDrop
 	return;
     }
 
+    # Verify consistency of the packet, then publish.  We mark the
+    # drop bad before going anywhere because publication procedure is
+    # not atomic -- one has to clean up by hand if this is terminated
+    # for any reason.  However this agent will normally be fed the
+    # data several times (from block monitoring -- but is that also
+    # true if this is used for publishing produced data?), so we can
+    # in general expect to come around another time and finish the job
+    # after a human has cleaned up the mess.
 
-    # Do some consistency checks between RefDB and the local catalogue
-    # prior to starting the publishing
-    my $consistent = $self->checkConsistency($block);
-
-    # Perform publication and validation.  If something fails, don't worry
-    # we will get the drop once more.
-    my $publishStart = &mytimeofday();
-    my $publishOK = $self->publishBlock($block) if $consistent;
-
-    # Mark drop done so it will be nuked
+    my $start = &mytimeofday();
+    return if ! $self->checkConsistency ($drop, $block);
+    $self->publishBlock ($drop, $block);
     &touch ("$dropdir/done");
 
     # Log transfer delay stats
-    my $dtransfer = &mytimeofday() - $publishStart;
-    &logmsg ("xstats: $block->{DATASET} 0 " . sprintf('%.2f', $dtransfer));
-
-    # OK, got far enough to nuke and log it
+    my $delta = &mytimeofday() - $start;
+    &logmsg ("xstats: $block->{OWNER}/$block->{DATASET} " . sprintf('%.2f', $delta));
+    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
     $self->relayDrop ($drop);
-    if ($publishOK && $consistent)
+}
+
+# Check that the number of files registered in local catalogue match
+# the number of files in the block. Returns zero on failure, non-zero
+# if the catalogue is consistent.
+# The PFN query script needs to be provided as argument to the agent
+# Examples: 1. PFNLookup.sh,-u,<POOL_CATALOG>,-q,<protocol>,<node>
+#           2. FClistLFN,-u,<POOL_CATALOG>,-q
+sub checkConsistency
+{
+    my ($self, $drop, $block) = @_;
+    my $cmd = "@{$self->{PFN_QUERY}}"
+	. " \"dataset = '$block->{DATASET}' and owner = '$block->{OWNER}'\"";
+    my @pfns = qx($cmd);
+
+    if (scalar @pfns != $block->{FILES})
     {
-	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
+	&alert("$drop: $block->{OWNER}/$block->{DATASET}: expected $block->{FILES}"
+	       . " files, found @{[scalar @pfns]} in catalogue");
+	return 0;
     }
-    else
+    return 1;
+}
+
+# Get dataset pre-requisite information.
+# this information is gathered from RefDB. It contains the input owner
+# and PU owner/dataset needed fo publishing Digi datasets
+sub datasetRequirements
+{
+    my ($owner, $dataset) = @_;
+    my @pending = ([ $owner, $dataset ]);
+    my @history = ();
+    while (@pending)
     {
-	&logmsg("publication and validation failed. Please check manually !!");
+	my %info = ();
+	my ($owner, $dataset) = @{shift (@pending)};
+	my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/data/"
+			    ."AnaInfo.php?DatasetName=$dataset&OwnerName=$owner");
+	die "no run data for $owner/$dataset\n" if ! $data;
+	die "bad run data for $owner/$dataset\n" if $data =~ /ERROR.*SELECT.*FROM/s;
+	foreach my $row (split("\n", $data))
+	{
+	    if ($row =~ /^(\S+)=(.*)/) {
+		$info{$1} = $2;
+	    }
+	}
+
+	if ($info{InputOwnerName})
+	{
+	    push (@history, [ $info{InputOwnerName}, $info{DatasetName} ]);
+	    push (@pending, [ $info{InputOwnerName}, $info{DatasetName} ]);
+	}
+
+	if ($info{PUDatasetName} && $info{PUOwnerName})
+	{
+	    push (@history, [ $info{PUOwnerName}, $info{PUDatasetName} ]);
+	    push (@pending, [ $info{PUOwnerName}, $info{PUDatasetName} ]);
+	}
     }
+
+    return @history;
 }
 
-sub checkConsistency {
-    my ($self, $block) = @_;
-
-    # check the amount of files we have in our MySQL POOL catalogue
-    my @GuidPfnPOOL = ();
-    my @cmd = ("FClistPFN",
-	       " -u $self->{CAT}",
-	       " -q \"dataset = \'$block->{DATASET}\' and owner = \'$block->{OWNER}\'\" ",
-	       " |grep $self->{CATPREFIX} ");
-
-    @GuidPfnPOOL = `@cmd`;
-
-    if (scalar @GuidPfnPOOL != $block->{FILES})
-    {
-	&warn("Catalogue and TMDB disagree about the amount of files in this dataset" .
-	      "owner: $block->{OWNER}\ndataset: $block->{DATASET}\n" .
-	      "Catalogue files: ".scalar @GuidPfnPOOL." TMDB: $block->{FILES}");
-	return 0; # report failure
-    }
-    return 1; #report success
-}
-
-
-sub getHistory
-{
-    my ($history) = @_;
-    my @handeled = ();
-    
-    if (-d $history) {
-	&getdir($history,\@handeled);
-    }
-    return @handeled;
-}
-
-sub addToHandeled
-{
-    my ($history, $dataset, $owner) = @_;
-
-    &logmsg("adding entry $dataset:$owner to $history");
-    system("mkdir $history") if (! -d $history);
-    &touch("$history/$owner.$dataset");
- }
-
-sub removeFromHandeled
-{
-    my ($history, $dataset, $owner) = @_;
-
-    &logmsg("removing entry $dataset:$owner from history");
-    &rmtree("$history/$owner.$dataset");
-}
-
-sub markBad
-{
-    my ($history, $dataset, $owner) = @_;
-
-    &logmsg("marking bad $owner in history");
-    &mv("$history/$owner.$dataset", "$history/$owner.$dataset.bad");
-}
-
+# perform publication by invoking a site specific wrapper script
+# using the following arguments:
+# 1. dataset 2. owner 3. array with assignment IDs
 sub publishBlock
 {
-    my ($self, $block) = @_;
+    my ($self, $drop, $block) = @_;
 
-    my $history = $self->{PUBLISHED};
+    # Guess the type of the data we are processing.
+    my $type = ($block->{DATASET} =~ /MBforPU/ ? "PileUp"
+		: $block->{OWNER} =~ /Hit/ ? "Hit"
+		: $block->{OWNER} =~ /DST/ ? "DST"
+		: "Digi");
 
-    # find out what we are dealing with (Hit, Digi, PileUp or DSTs)
-    my $pileup = grep(m|MBforPU|,$block->{DATASET});
-    my $digi = grep(m|PU|,$block->{OWNER}) if !$pileup;
-    my $hit = grep(m|Hit|,$block->{OWNER});
-    my $dst = grep(m|DST|,$block->{OWNER});
-    
-    # get the list of datasets/owners we already dealt with
-    my @entriesHandeled = &getHistory($history);
+    # Check if we have already handled this one.  If so, skip it.
+    return 1 if -f "$self->{PUBLISHED}/$block->{OWNER}.$block->{DATASET}";
 
-    # check if we already handeled that dataset. If yes, that's all we do.
-    my $handeled = grep(m|$block->{OWNER}.$block->{DATASET}|, @entriesHandeled);
-
-    # declare the dataset/owner packet handeled,
-    # if we are dealing with (not yet handeled) Hit or PU
-    &addToHandeled($history, $block->{DATASET}, $block->{OWNER})
-	if (! $handeled && ($hit || $pileup));
-
-    # check if we have completely transfered Hit and PU
-    my $havehit = grep(m|Hit|,@entriesHandeled);
-    my $havePU = grep(m|MBforPU|,@entriesHandeled);
-
-    # start publishing if:
-    #                      1. we are dealing with a Digi owner and we have the corresponding Hits
-    #                      2. we are dealing with a DST
-    if (! $handeled && ( ($digi && $havehit) || $dst) )
+    # For Digi, Hit/PileUp are also required.  DST is stand-alone.
+    my @history = eval { &datasetRequirements($block->{OWNER}, $block->{DATASET}) };
+    do { &alert ($@); return 1 } if $@;
+    foreach my $item (@history)
     {
-	eval {
-	    
-	    my @cmd = ('/bin/false');
-	    &logmsg("triggering publishing of dataset: $block->{DATASET}");
-	    my $assid = &listAssignments($block->{DATASET},$block->{OWNER});
-	    
-	    # add dataset/owner to handeled file list in order to lock it
-	    &addToHandeled($history, $block->{DATASET}, $block->{OWNER});
-	
-	    @cmd = ($self->{SCRIPT},
-		    $block->{DATASET},
-		    $block->{OWNER},
-		    $assid);
-	    my $PubFailed = &runcmd(@cmd);
-	    die if $PubFailed;
-	};
-	
-	do {&alert ("publishing didn't succeed !!\n");
-	    &markBad($history,$block->{DATASET}, $block->{OWNER});
-	    return 0} if $@;
+	next if -f "$self->{PUBLISHED}/$item->[0].$item->[1]";
+	&warn ("$drop: required pre-requisite $item->[0]/$item->[1] not yet published");
+	return 1;
     }
-    
-    return 1 # report success
+
+    &logmsg("publishing $block->{OWNER}/$block->{DATASET}");
+    &touch ("$self->{PUBLISHED}/$block->{OWNER}.$block->{DATASET}");
+    my $failed = &runcmd("false", $self->{SCRIPT}, $block->{DATASET}, $block->{OWNER},
+		      &listAssignments($block->{DATASET},$block->{OWNER}));
+    &alert("$drop: publishing failed with exit code @{[&runerror ($failed)]}") if $failed;
+
+
+    # Always return success.
+    return 1;
 }
 
