@@ -1,74 +1,110 @@
 #!/usr/bin/perl
-#
-# Allocation Agent
-#
-# $Date: 2004/09/15 21:23:40 $
-# $Id: Allocator.pl,v 1.65 2004/09/15 21:23:40 lat Exp $
-#
-# This agent allocates files to destinations based on subscriptions.
-# It compares file replica metadata and destination subscriptons with
-# current set of destinations assigned for files, and automatically
-# creates new assignments when necessary.  All the information is
-# stored in the TMDB.
-#
-# The whole operation is done in a single SQL statement that compares
-# files and subscriptons with existing destination assignments and
-# replicas.  If there is a data subscription but no existing replica
-# (for the site originating the data) nor a destination assignmenet,
-# a new assignment is created.  Note that file routing is handled
-# elsewhere, so we don't care if or how the file can make it to the
-# requested destination.
-#
-# Please provide a working directory name on the command line, it is
-# used to store the pid file during running and is where the agent
-# will look for the stop flag file "stop"; existence of the file will
-# automatically stop the agent.
-#
-# Command line options
-# -w <workdir>		sets the workdir for the agent
-# -db <tns name>	sets the Oracle db to talk to
-# -once             only run once
-# -period           repeat period, seconds
-# -user             db username
-# -passwd           db password
 
-BEGIN { use strict; use warnings; }
-use DBI;
-use Getopt::Long;
-use File::Path;
-$| = 1; # set autoflush
+## Allocate files to destinations based on subscriptions.
+##
+## Compare file replica metadata and destination subscriptions with
+## current set of destinations assigned to files, and automatically
+## create new assignments when necessary.  All the information is
+## stored in the TMDB.
+##
+## The whole operation is done in a single SQL statement that compares
+## files and subscriptions with existing destination assignments and
+## replicas.  if there is a data subscription but no existing replica
+## (for the site originating the data) nor a destination assignment, a
+## new assignment is created.  File routing is handled elsewhere, this
+## agent does not worry about if or how the file can make it to the
+## requested destination, or which replica should be transferred.
 
-my $g_work_dir = '';	# place pid and stop files here...
-my $g_dbi = "Oracle";	# perl database interface
-my $g_db = "devdb9";	# tnsname of Oracle db (tmdb)
-my $g_once;             # 1 means will only run once
-my $g_period = 600;     # repeat period of algorithm
-my $g_user = '';        # db username
-my $g_passwd = '';      # db password
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
 
-# ###############################################################
-# Main loop
-# ###############################################################
+######################################################################
+my %args = (DBITYPE => "Oracle", WAITTIME => 600);
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    { shift (@ARGV); $master = 1; $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-once')
+    { shift (@ARGV); $args{ONCE} = 1; }
+    else
+    { last; }
+}
 
-parse_command_line();
+if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
+    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE})
+{
+    print STDERR
+	"usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
+	"    -node TMDB-NODE -state IN-DROP-BOX [-wait SECS-TO-WAIT] [-once]\n";
+    exit (1);
+}
 
-open (PID, ">$g_work_dir/pid") || die "Pid file error $! $g_work_dir/pid\n";
-print PID "$$\n";
-close(PID);
+my $agent = new FileAllocator (%args);
+# Recapture interrupt signal, oracle swallows it.
+$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
+$agent->process ();
 
-while(!(-e "$g_work_dir/stop")) {
-    if ($g_once) { system( "touch $g_work_dir/stop" ); }
-    my $now = time();
+######################################################################
+# Routines for this agent.
+package FileAllocator; use strict; use warnings; use base 'UtilsAgent';
+use UtilsCommand;
+use UtilsLogging;
+use UtilsDB;
 
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBITYPE => undef,		# Database driver binding
+    		  DBNAME => undef,		# Database name
+	  	  DBUSER => undef,		# Database user name
+	  	  DBPASS => undef,		# Database user password
+		  MYNODE => undef,		# My TMDB node
+		  ONCE => 0,			# Quit after one run
+	  	  AGENTID => "Allocator");	# Identity for activity logs
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Called by agent main routine before sleeping.  Do some work.
+sub idle
+{
+    my ($self, @pending) = @_;
+    my $dbh = undef;
+
+    # Always mark all files ready to go immediately.
     eval
     {
-	my $dbh = &connect_to_db();
+	$dbh = &connectToDatabase ($self);
+	die "failed to connect" if ! $dbh;
+
+        # FIXME: Pick up and process messages to me
 
 	# Create new destinations for files not yet assigned.
 	# Pick file/destination pairs where the file's dataset
 	# matches a stream subscription, the destination isn't
 	# yet entered into t_destinations nor is there a replica
 	# already at that site (probably the data originator).
+	my $now = time();
 	my $rows = $dbh->do(qq{
 			insert into t_destinations (
 			   select f.guid, s.destination, $now
@@ -85,76 +121,14 @@ while(!(-e "$g_work_dir/stop")) {
 
 	&log_entry("$rows new file destinations allocated") if $rows > 0;
     };
-    &log_entry("database operation failed: $@") if $@;
-    sleep ($g_period);
-}
+    do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
+    # Disconnect from the database
+    $dbh->disconnect() if $dbh;
+    undef $dbh;
 
-# ###############################################################
-# Subroutines
-# ###############################################################
-
-sub connect_to_db
-{
-    my $dbh = DBI->connect( "DBI:$g_dbi:$g_db", $g_user, $g_passwd,
-			    {RaiseError => 1, AutoCommit => 1})
-	or die "Couldn't connect to database $g_db @_";
-
-    my $now = time();
-    my $mynode = "GLOBAL";
-    my $me = "Allocator";
-    my $agent = $dbh->selectcol_arrayref(qq{
-	select count(*) from t_agents where name = '$me'});
-    my $status = $dbh->selectcol_arrayref(qq{
-	select count(*) from t_lookup where node = '$mynode' and agent = '$me'});
-
-    $dbh->do(qq{insert into t_agents values ('$me')})
-        if ! $agent || ! $agent->[0];
-
-    $dbh->do(qq{insert into t_lookup values ('$mynode', '$me', 1, $now)})
-        if ! $status || ! $status->[0];
-
-    $dbh->do(qq{
-        update t_lookup
-        set state = 1, last_contact = $now
-        where node = '$mynode' and agent = '$me'});
-    $dbh->commit();
-    return $dbh;
-}
-
-sub log_entry
-{
-    my $entry = shift;
-    my $time = time();
-    my $localtime = localtime($time);
-    print "$localtime [$$] $entry\n";
-}
-
-sub parse_command_line
-{
-    GetOptions ('w=s' => \$new_work_dir,
-		'dbi=s' => \$g_dbi,
-		'db=s' => \$g_db,
-		"once" => \$g_once,
-		'period=i' => \$g_period,
-		'user=s' => \$g_user,
-		'passwd=s' => \$g_passwd);
-	
-    my $entry = '';
-    $g_work_dir = $g_work_dir.$new_work_dir;
-    $entry .= "work dir is $g_work_dir, ";
-    if (-e "$g_work_dir/pid") {
-	log_entry( "Removing old pid file");
-	unlink("$g_work_dir/pid");
-    } 
-    if (-e "$g_work_dir/stop") {
-	log_entry( "Removing old stop file" );
-	unlink ("$g_work_dir/stop");
-    }
-    $g_db = "devdb9" if !$g_db;
-    $entry .= "database is $g_db, ";
-    $entry .= "only running once, " if $g_once;
-    $entry .= "with period $g_period, " if $g_period;
-    die "Extra options: @ARGV\n" if @ARGV;
-    log_entry( $entry );
+    # Have a nap.
+    &touch ($self->{STOPFLAG}) if $self->{ONCE};
+    $self->maybeStop ();
+    sleep ($self->{WAITTIME});
 }
