@@ -2,7 +2,7 @@
 
 #-----------------------------------------------------------------------------------------------
 # agent name: site monitoring agent
-# purpose: monitor completeness of dataset/owner collections and trigger site specific scripts
+# purpose: monitor replication status of blocks and update t_block_replica accordingly
 #-----------------------------------------------------------------------------------------------
 
 BEGIN
@@ -22,24 +22,23 @@ my %args = (DBITYPE => 'Oracle',
 	    WAITTIME => 60);
 
 &GetOptions ("state=s"		=> \$args{DROPDIR},
-	     "node=s"		=> \$args{MYNODE},
 	     "db=s"		=> \$args{DBNAME},
 	     "dbitype=s"	=> \$args{DBITYPE},
 	     "dbuser=s"		=> \$args{DBUSER},
 	     "dbpass=s"		=> \$args{DBPASS},
 	     "wait=f"		=> \$args{WAITTIME},
-	     "help"		=> \$args{HELPME},
+	     "node=s"           => \$args{MYNODE},
+	     "help"		=> \$args{HELPME});
 
 
 if ($args{HELPME} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{MYNODE} || !$args{DROPDIR})
+    || !$args{DBPASS} || !$args{DROPDIR})
 {
     print "Syntax for Monitoring agent: \n";
     print "--help:         this help text \n";
     print "--db:           database to connect to (required)\n";
     print "--dbuser:       database user name (required)\n";
     print "--dbpass:       database user password (required)\n";
-    print "--node:         phedex node name (required)\n";
     print "--state:        agent state directory (required)\n";
     print "--wait:         seconds to sleep between checks\n";
     exit 1;
@@ -70,10 +69,10 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBITYPE => undef,		# Database driver binding
+		  MYNODE => undef,              # my TMDB nodename
     		  DBNAME => undef,		# Database name
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
-	  	  MYNODE => undef,		# My TMDB node name
 	  	  AGENTID => "Monitoring");     # Identity for activity logs
 
     my %args = (@_);
@@ -102,8 +101,8 @@ sub idle
     do { &alert ("database error: $@"); $dbh->rollback if $dbh } if $@;
 
     # Disconnect from the database
-    $dbh->disconnect();
-    undef $dbh;
+    $dbh->disconnect() if $dbh;
+    undef $dbh if $dbh;
     
     # Have a little nap
     $self->nap ($self->{WAITTIME});
@@ -116,23 +115,25 @@ sub update_block_rep {
     my $now = time();
     
     my $h_got_rep = &dbexec($dbh, qq{
-	select count(rs.guids), rs.node, sum(f.filesize), f.inblock from t_replica_state rs, t_file f
+	select count(rs.guid), rs.node, sum(f.filesize), f.inblock from t_replica_state rs, t_file f
+        where rs.guid=f.guid and rs.node like '%MSS'
 	group by f.inblock, rs.node});
     while (my ($files, $node, $bytes, $name) = $h_got_rep->fetchrow_array) {
     # we need to check, if there is already an entry for the current name and node
-	my $exists = &dbexec($dbh, qq{
+	my ($exists) = &dbexec($dbh, qq{
 	    select count(name) from t_block_replica where
-	    name=:name and node=:node},":name"=>$name, ":node"=>$node);
+	    name=:name and node=:node},":name"=>$name, ":node"=>$node)->fetchrow_array;
 	if (! $exists) {
 	    &dbexec($dbh, qq{
 		insert into t_block_replica (timestamp, name, node, files, bytes)
-                values ($now, $name, $files, $bytes)});
+                values (:now, :name, :node, :files, :bytes)},
+                ":now"=>$now, ":name"=>$name, ":node"=>$node, ":files"=>$files, ":bytes"=>$bytes);
 	} else {
 	    &dbexec($dbh, qq{
 		update t_block_replica set
                 timestamp=:now, files=:files, bytes=:bytes where
                 name=:name and node=:node},
-		":mow"=>$now, ":files"=>$files, ":bytes"=>$bytes, ":name"=>$name, ":node"=>$name);
+		":now"=>$now, ":files"=>$files, ":bytes"=>$bytes, ":name"=>$name, ":node"=>$name);
 	}
     }
 }

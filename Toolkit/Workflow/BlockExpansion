@@ -23,6 +23,7 @@ my %args = (DBITYPE => 'Oracle',
 	    WAITTIME => 60);
 
 &GetOptions ("state=s"		=> \$args{DROPDIR},
+	     "node=s"           => \$args{MYNODE},
 	     "db=s"		=> \$args{DBNAME},
 	     "dbitype=s"	=> \$args{DBITYPE},
 	     "dbuser=s"		=> \$args{DBUSER},
@@ -68,6 +69,7 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBITYPE => undef,		# Database driver binding
+		  MYNODE => undef,              # my TMDB nodename
     		  DBNAME => undef,		# Database name
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
@@ -106,8 +108,8 @@ sub idle
     do { &alert ("database error: $@"); $dbh->rollback if $dbh } if $@;
 
     # Disconnect from the database
-    $dbh->disconnect();
-    undef $dbh;
+    $dbh->disconnect() if $dbh;
+    undef $dbh if $dbh;
 
 
     # Have a little nap
