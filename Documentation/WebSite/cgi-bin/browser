@@ -61,7 +61,7 @@ sub intro
 	    		 { RaiseError=>1, AutoCommit =>1 });
 
     my $needmain = 1;
-    foreach my $page (qw(main transfer replicas)) {
+    foreach my $page (qw(main transfer replicas subs)) {
         do { no strict 'refs'; $needmain = 0; &{$page}(); last } if param($page);
     }
     main() if $needmain;
@@ -283,6 +283,85 @@ sub replicas {
 	    else
 	    {
 		print "<td colspan='2'>&nbsp;</td>";
+	    }
+        }
+	print "</tr>\n";
+    }
+    print "</table>";
+}
+
+sub subs {
+    my $rows = 0;
+    my %data = ();
+    my %sites = ();
+    my $query = $dbh->prepare(qq{
+	    select
+	      m.value,				-- dataset
+	      s.destination,			-- destination
+	      count(m2.value),			-- files in dataset
+	      sum(m2.value),			-- total size of dataset
+	      sum(decode(m3.value,null,0,1)),	-- files at destination
+	      sum(nvl(m3.value,0))		-- size at destination
+	    from t_files_for_transfer f
+	    left join t_replica_metadata m
+	      on m.guid = f.guid and m.attribute = 'POOL_dataset'
+	    left join t_subscriptions s
+	      on s.stream = m.value
+	    left join t_replica_state rs
+	      on rs.guid = m.guid and rs.node = s.destination
+	    left join t_replica_metadata m2
+	      on m2.guid = m.guid and m2.attribute = 'filesize'
+	    left join t_replica_metadata m3
+	      on m3.guid = rs.guid and m3.attribute = 'filesize'
+	    group by m.value, s.destination});
+    $query->execute();
+    while (my $row = $query->fetchrow_arrayref)
+    {
+	my ($ds, $site, $files, $total, $sfiles, $stotal) = @$row;
+	$data{$ds} ||= [ $ds, $files, $total, {} ];
+	if ($site)
+	{
+	    $data{$ds}[3]{$site} = [ $sfiles, $stotal ];
+	    $sites{$site} = 1;
+        }
+    }
+    $query->finish();
+
+    print "<h2>Subscriptions</h2>\n",
+    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+	  "<th rowspan='2'>Dataset</th>",
+	  # "<th rowspan='2' align='right'>Runs</th>",
+	  "<th colspan='2' align='right'>Files</th>",
+	  (map { "<th rowspan='2'>$_</th>" } sort keys %sites),
+          "</tr>\n",
+	  "<tr bgcolor='$altcolor' valign='top'>",
+	  "<th align='right'>Count</th><th align='right'>Size</th>",
+	  "</tr>\n";
+
+    foreach my $ds (sort keys %data)
+    {
+        my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
+	my ($ds, $files, $total, $sites) = @{$data{$ds}};
+        print "<tr valign='top'$rowcolor>",
+	      "<td>$ds</td>",
+	      "<td align='right'>$files</td>",
+	      "<td align='right'>",
+	      (!$files ? "&nbsp;" : sprintf('%.1f', $total/(2**30))),
+	      "</td>";
+
+	foreach my $site (sort keys %sites)
+	{
+	    if (exists $sites->{$site})
+	    {
+		my ($sfiles, $stotal) = @{$sites->{$site}};
+		my $scolor = ($sfiles == $files) ? '' : " bgcolor='$pendcolor'";
+		print "<td$scolor align='right'>",
+		      sprintf('%0.2f&nbsp;/&nbsp;%0.2f', ($sfiles / $files), ($stotal / $total)),
+		      "</td>";
+	    }
+	    else
+	    {
+		print "<td>&nbsp;</td>";
 	    }
         }
 	print "</tr>\n";
