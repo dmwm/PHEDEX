@@ -66,43 +66,49 @@ sub main
 {
     my %status = ();
     my %cats = ();
-    my $query = $dbh->prepare(qq{
+    my $dquery = $dbh->prepare(qq{
 	select
-	  fs.request_name,
-	  f.drop_name,
+	  d.request_name,
 	  d.drop_category,
-	  fs.guid,
-	  fs.location,
-	  fs.is_available,
-	  fs.is_pending,
-	  fs.is_transferred
-	from t_request_file_status fs
+	  count(d.drop_name),
+	  count(f.guid)
+	from t_request_drop d
 	left join t_request_file f
-	  on f.request_name = fs.request_name
-	  and f.guid = fs.guid
-  	left join t_request_drop d
-	  on d.request_name = f.request_name
-	  and d.drop_name = f.drop_name});
-
-    $query->execute();
-    while (my ($req, $drop, $cat, $guid, $loc, @stats) = $query->fetchrow())
+	  on f.request_name = d.request_name
+	 and f.drop_name = d.drop_name
+	group by d.request_name, d.drop_category});
+    $dquery->execute();
+    while (my ($req, $cat, $ndrops, $nfiles) = $dquery->fetchrow())
     {
 	$cats{$cat} = 1;
-	$status{$req}{DROPS}{$drop} = 1;
-	$status{$req}{DROPS_IN_CAT}{$cat}{$drop} = 1;
-	$status{$req}{LOCS}{$loc} = 1;
-	$status{$req}{FILES}{$guid} = 1;
-	$status{$req}{FILES_IN_CAT}{$cat}{$guid} = 1;
-	$status{$req}{FILE_STATS}{$loc}
-	   ||= { AVAILABLE => 0, PENDING => 0, TRANSFERRED => 0 };
-	$status{$req}{FILE_STATS}{$loc}{AVAILABLE}++ if $stats[0];
-	$status{$req}{FILE_STATS}{$loc}{PENDING}++ if $stats[1];
-	$status{$req}{FILE_STATS}{$loc}{TRANSFERRED}++ if $stats[2];
+	$status{$req}{DROPS_IN_CAT}{$cat} = $ndrops;
+	$status{$req}{DROPS} ||= 0;
+	$status{$req}{DROPS} += $ndrops;
+	$status{$req}{FILES_IN_CAT}{$cat} = $nfiles;
+	$status{$req}{FILES} ||= 0;
+	$status{$req}{FILES} += $nfiles;
     }
-    $query->finish();
+    $dquery->finish();
+
+    my $fquery = $dbh->prepare(qq{
+	select
+	  request_name,
+	  location,
+	  sum(is_available),
+	  sum(is_pending),
+	  sum(is_transferred)
+	from t_request_file_status fs
+	group by request_name, location});
+    $fquery->execute();
+    while (my ($req, $loc, $av, $pend, $trans) = $fquery->fetchrow())
+    {
+	$status{$req}{FILE_STATS}{$loc}
+	    = { AVAILABLE => $av, PENDING => $pend, TRANSFERRED => $trans };
+    }
+    $fquery->finish();
 
     print "<h2>Request status</h2>\n",
-          "<table><tr valign='top' bgcolor='$altcolor'>",
+          "<table><tr valign='top' bgcolor='$altcolor' align='right'>",
 	  "<th rowspan='2'>Request</th>",
 	  "<th colspan='@{[scalar (keys %cats) + 1]}'>Drops</th>",
 	  "<th colspan='@{[scalar (keys %cats) + 1]}'>Files</th>",
@@ -118,33 +124,39 @@ sub main
 	  (map { "<th>$_</th>" } sort keys %cats),
 	  "</tr>\n";
 
+    my $color = "";
     foreach my $req (sort keys %status)
     {
 	my $info = $status{$req};
-	my %dincats = map { $_ => scalar keys %{$info->{DROPS_IN_CAT}{$_}} } keys %cats;
-	my %fincats = map { $_ => scalar keys %{$info->{FILES_IN_CAT}{$_}} } keys %cats;
-	my $ndrops = scalar keys %{$info->{DROPS}};
-	my $nlocs = scalar keys %{$info->{LOCS}};
-	my $nfiles = scalar keys %{$info->{FILES}};
-	my $nfiles = scalar keys %{$info->{FILES}};
-	print "<tr valign='top'>",
-	      "<td rowspan='$nlocs'>$req</td>",
-	      "<td rowspan='$nlocs'>$ndrops</td>",
-	      (map { "<td rowspan='$nlocs'>$dincats{$_}</td>" } sort keys %cats),
-	      "<td rowspan='$nlocs'>$nfiles</td>",
-	      (map { "<td rowspan='$nlocs'>$fincats{$_}</td>" } sort keys %cats);
+	my %dincats = map { $_ => $info->{DROPS_IN_CAT}{$_} } keys %cats;
+	my %fincats = map { $_ => $info->{FILES_IN_CAT}{$_} } keys %cats;
+	my $nlocs = scalar keys %{$info->{FILE_STATS}};
+	my $ndrops = $info->{DROPS};
+	my $nfiles = $info->{FILES};
+	print "<tr valign='top' align='right'$color>",
+	      "<td rowspan='$nlocs'>@{[&format_num($req)]}</td>",
+	      "<td rowspan='$nlocs'>@{[&format_num($ndrops)]}</td>",
+	      (map { "<td rowspan='$nlocs'>@{[&format_num($dincats{$_})]}</td>" } sort keys %cats),
+	      "<td rowspan='$nlocs'>@{[&format_num($nfiles)]}</td>",
+	      (map { "<td rowspan='$nlocs'>@{[&format_num($fincats{$_})]}</td>" } sort keys %cats);
 	my $first = 1;
-        foreach my $loc (sort keys %{$info->{LOCS}})
+        foreach my $loc (sort keys %{$info->{FILE_STATS}})
 	{
 	    my $stats = $info->{FILE_STATS}{$loc};
 	    print "<tr>" if ! $first;
 	    print "<td>$loc</td>",
-	          "<td>$stats->{TRANSFERRED}</td>",
-	          "<td>$stats->{PENDING}</td>",
-	          "<td>$stats->{AVAILABLE}</td>",
+	          "<td>@{[&format_num($stats->{TRANSFERRED})]}</td>",
+	          "<td>@{[&format_num($stats->{PENDING})]}</td>",
+	          "<td>@{[&format_num($stats->{AVAILABLE})]}</td>",
 		  "</tr>\n";
 	    $first = 0;
 	}
+	
+	if (! $color) {
+	    $color = " bgcolor='$altcolor'";
+	 } else {
+	    $color = "";
+	 }
     }
     print "</table>\n";
 }
