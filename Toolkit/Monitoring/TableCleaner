@@ -108,13 +108,22 @@ sub idle
 	&dbexec($dbh,qq{delete from t_info_agent_status where timestamp < :old}, %old);
 	$dbh->commit ();
 
-	# Downgrade obsolete "wanted" files (one day)
+	# Downgrade obsolete "wanted" or error files (one day)
 	my $now = &mytimeofday();
 	&dbexec($dbh, qq{
 	    update t_transfer_state
 	    set to_state = 0, to_timestamp = :now
-	    where to_state = 1 and to_timestamp < :old},
+	    where (to_state = 1 or to_state >= 100)
+	      and to_timestamp < :old},
 	    ":now" => $now, ":old" => $now - 86400);
+	$dbh->commit ();
+
+    	# And really obsolete transfers (one week)
+	&dbexec($dbh, qq{
+	    update t_transfer_state
+	    set to_state = 0, to_timestamp = :now
+	    where to_state = 2 and to_timestamp < :old},
+	    ":now" => $now, ":old" => $now - 7*86400);
 	$dbh->commit ();
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
