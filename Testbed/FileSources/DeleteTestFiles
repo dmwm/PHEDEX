@@ -23,6 +23,7 @@ while( defined( $file = readdir( DIR ) ) ) {
     
         print "$file\n";
     
+    
         open( FILE, $file ) or die "Can't open $file";
         while( <FILE> ) {
             $guid = $_;
@@ -36,16 +37,58 @@ while( defined( $file = readdir( DIR ) ) ) {
             exit(1);
         }
         
-            
+        
+        unlink( $file );
+        
+        
+        push( @sql, "delete from t_replica_metadata where guid = '$guid'" );
+        push( @sql, "delete from t_destinations where guid = '$guid'" );
+        push( @sql, "delete from t_file_state where guid = '$guid'" );
+        push( @sql, "delete from t_files_for_transfer where guid = '$guid'" );     
+    
+    
     }
     
 }
 close( DIR );
 
+do_sql( "devdb9", @sql );
+
 
 # =========================================================
 # Subroutines
 # =========================================================
+
+sub do_sql {
+    my $dbname = shift;
+    my @sql = shift;
+    
+    eval {
+        my $dbh;
+        eval "use DBI"; $dbh = DBI->connect ("DBI:Oracle:$dbname",
+    					     "CMS_TRANSFERMGMT_WRITER",
+    					     "threeBagsFULL",
+    					     { RaiseError => 1, AutoCommit => 1 });              
+
+        foreach my $cmd (@sql) {
+            $dbh->do ($cmd);
+        }
+
+    	$dbh->disconnect;
+    };
+
+    if ($@) {
+    	print "database operation failed: $@";
+        if ($dbh) {
+            $dbh->rollback;
+            $dbh->disconnect;
+	   }
+	   exit(1);
+    }
+    
+    return 0;    
+}
+
 
 sub run_command {
     my $cmd = shift;
