@@ -80,21 +80,26 @@ sub fetchGuids
 # get the information about PFNs for GUIDs known to the catalogue.
 sub collectPFNs
 {
-    my ($files, $mgr, $job) = @_;
+    my ($args, $files, $mgr, $job) = @_;
 
     if ($job->{STATUS})
     {
 	unlink $job->{OUTPUT_FILE};
 	print "<R $job->{OUTPUT_FILE}>";
-	$mgr->addJob (sub { &collectPFNs($files, $mgr, @_) },
-	    { OUTPUT_FILE => $job->{OUTPUT_FILE} },
-	    @{$job->{CMD}});
+	$mgr->addJob (sub { &collectPFNs($args, $files, $mgr, @_) },
+	    { OUTPUT_FILE => $job->{OUTPUT_FILE} }, @{$job->{CMD}});
         return;
     }
 
     open (PFNS, "< $job->{OUTPUT_FILE}")
 	or die "failed to open output $job->{OUTPUT_FILE}: $!";
-    map { /^([-0-9A-Z]+)\s+(.+)$/ and $files->{$1}{PFN} = $2 } <PFNS>;
+
+    while (<PFNS>)
+    {
+	next if !/^([-0-9A-Z]+)\s+(.+)$/;
+	my ($guid, $pfn) = ($1, $2);
+	$files->{$guid}{PFN} = $pfn if $pfn =~ /$args->{HOST_KEY}/;
+    }
     close (PFNS) or die "failed to read output $job->{OUTPUT_FILE}: $!";
     unlink $job->{OUTPUT_FILE};
     print ".";
@@ -120,12 +125,11 @@ sub fetchPFNs
 	    foreach my $z (@hex)
 	    {
 		my $output = "pfns.$x$y$z";
-		$mgr->addJob (sub { &collectPFNs($files, $mgr, @_) },
+		$mgr->addJob (sub { &collectPFNs($args, $files, $mgr, @_) },
 		    { OUTPUT_FILE => $output },
 		    "sh", "-c",
 		    "POOL_OUTMSG_LEVEL=100 $home/../../Utilities/FClistGuidPFN"
-		    . " -u '$args{CATALOGUE}'"
-		    . " -q \"guid like '$x$y$z%' and pfname like '$args->{HOSTKEY}'\" > $output");
+		    . " -u '$args->{CATALOGUE}' -g -m '$x$y$z%' > $output");
 	    }
 	    $mgr->pumpJobs();
 	}
