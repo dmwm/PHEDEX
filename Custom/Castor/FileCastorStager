@@ -172,9 +172,10 @@ sub tapeMountLoad
 sub getCatalogue
 {
     my ($dbh, $mynode) = @_;
-    return $dbh->selectrow_arrayref (qq{
-		select catalogue_contact, host_string
-		from t_nodes where node_name = '$mynode'});
+    return &dbexec($dbh, qq{
+	select catalogue_contact, host_string
+	from t_nodes where node_name = :node},
+	":node" => $mynode)->fetchrow_arrayref();
 }
 
 # Purge old entries from our caches.
@@ -203,18 +204,14 @@ sub getPendingFiles
     my ($self, $dbh, $catalogue, $hostkey) = @_;
     my %unknown = ();
     my $result = [];
-    my $mynode = $self->{MYNODE};
 
     # First fetch files from database.  If we come across something
     # we haven't seen before, remember it but don't look it up yet.
     # Otherwise just push the (GUID, PFN, TIME) tuple into result.
-    my $stmt = $dbh->prepare (qq{
-    		select rs.guid, rs.local_time_stamp
-		from t_replica_state rs
-		where rs.node = '$mynode'
-	  	  and rs.state = 0
-	  	  and mod(rs.local_state,1000) = 10});
-    $stmt->execute();
+    my ($stmt) = &dbexec($dbh, qq{
+    	select guid, local_time_stamp from t_replica_state
+	where node = :node and local_state = 10},
+	":node" => $self->{MYNODE});
     while (my $row = $stmt->fetchrow_arrayref())
     {
 	my ($guid, $time) = @$row;
@@ -342,17 +339,14 @@ sub idle
     my $dbh = undef;
     eval
     {
-	my $mynode = $self->{MYNODE};
-	$dbh = &connectToDatabase ($self);
-	die "failed to connect" if ! $dbh;
-
+	$dbh = &connectToDatabase ($self) or die "failed to connect";
         # FIXME: Pick up and process messages to me
 
 	# Get my catalogue details, pending and stager files
-	my $tstart = &mytimeofday();
+	my %timing = (START => &mytimeofday());
 	&purgeCache ($self->{PFN_CACHE});
 	&purgeCache ($self->{GUID_CACHE});
-	my $tpurge = &mytimeofday();
+	$timing{PURGE} = &mytimeofday();
 
 	my $catalogue = &getCatalogue ($dbh, $self->{MYNODE});
 	return if ! $catalogue;
@@ -360,41 +354,36 @@ sub idle
 	my $files = $self->buildStatus ($self->getStagerFiles (@$catalogue),
 					$self->getPendingFiles ($dbh, @$catalogue));
 	return if ! $files;
-	my $tstatus = &mytimeofday();
+	$timing{STATUS} = &mytimeofday();
 
 	# Update file status.  First mark everything not staged in,
 	# then as staged-in the files currently in stager catalogue.
 	my $now = time();
-	$dbh->do(qq{update t_replica_state
-		set state = 0,
-		    time_stamp = $now,
-		    local_state = trunc(local_state,-3) + 0,
-		    local_time_stamp = $now
-		where node = '$mynode' and mod(local_state,1000) = 1});
-	$dbh->do(qq{update t_transfer_state
-		set from_state = 0, from_time_stamp = $now
-		where from_node = '$mynode' and from_state = 1 and to_state < 2});
+	&dbexec($dbh,qq{
+	    update t_replica_state
+	    set local_state = 0, local_time_stamp = :now
+	    where node = :node and local_state = 1},
+	    ":node" => $self->{MYNODE}, ":now" => $now);
 	my $stmt = $dbh->prepare(qq{
-	        update t_replica_state
-		set local_state = trunc(local_state,-3) + 1,
-		    local_time_stamp = ?
-		where guid = ? and node = ?});
-	foreach my $guid (map { $_->{GUID} }
-			  grep (defined $_->{GUID} && $_->{STATUS} eq 'STAGED',
-				values %$files))
+	    update t_replica_state
+	    set local_state = 1, local_time_stamp = :now
+	    where guid = :guid and node = :node and local_state = 0});
+	foreach my $f (grep (defined $_->{GUID} && $_->{STATUS} eq 'STAGED',
+			     values %$files))
 	{
-	    $stmt->execute ($now, $guid, $mynode);
-	    # &logmsg ("stats: $guid @{[&formatElapsedTime($timing)]} success");
+	    $stmt->bind_param (":now", $now);
+	    $stmt->bind_param (":guid", $f->{GUID});
+	    $stmt->bind_param (":node", $self->{MYNODE});
+	    $stmt->execute ();
 	}
 	$dbh->commit();
-	my $tdatabase = &mytimeofday();
+	$timing{DATABASE} = &mytimeofday();
 
         # Determine the files that need to be staged in, in a good order
         # i.e. sorted by tape and position, then issue requests in batches.
-	# Note that we reverse the list because we take items off the end.
-        my @requests = reverse
-		       sort { $a->{TAPE} cmp $b->{TAPE} || $a->{POS} cmp $b->{POS} }
+        my @requests = sort { $a->{TAPE} cmp $b->{TAPE} || $a->{POS} cmp $b->{POS} }
 		       grep ($_->{STATUS} eq 'UNKNOWN', values %$files);
+	my $nreq = scalar @requests;
 
 	while (@requests)
 	{
@@ -419,8 +408,7 @@ sub idle
 
 	    # Select the next up to maxfiles to stage in
 	    my $nfiles = ($#requests > $self->{MAXFILES} ? $self->{MAXFILES} : $#requests);
-	    my @slice = @requests[$#requests - $nfiles .. $#requests];
-	    delete @requests[$#requests - $nfiles .. $#requests];
+	    my @slice = splice(@requests, 0, $nfiles);
 
 	    # Issue background stage-in
 	    my $rc = &runcmd ("stagein", "--nowait", "--rdonly",
@@ -436,13 +424,14 @@ sub idle
 	    select (undef, undef, undef, 0.33);
 	}
 
-	my $trequests = &mytimeofday();
+	$timing{REQUESTS} = &mytimeofday();
 	&logmsg ("timing:"
-		 . " purge=@{[sprintf '%.1f', $tpurge - $tstart]}"
-		 . " status=@{[sprintf '%.1f', $tstatus - $tpurge]}"
-		 . " database=@{[sprintf '%.1f', $tdatabase - $tstatus]}"
-		 . " requests=@{[sprintf '%.1f', $trequests - $tdatabase]}"
-		 . " all=@{[sprintf '%.1f', $trequests - $tstart]}");
+		 . " nreq=$nreq"
+		 . " purge=@{[sprintf '%.1f', $timing{PURGE} - $timing{START}]}"
+		 . " status=@{[sprintf '%.1f', $timing{STATUS} - $timing{PURGE}]}"
+		 . " database=@{[sprintf '%.1f', $timing{DATABASE} - $timing{STATUS}]}"
+		 . " requests=@{[sprintf '%.1f', $timing{REQUESTS} - $timing{DATABASE}]}"
+		 . " all=@{[sprintf '%.1f', $timing{REQUESTS} - $timing{START}]}");
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
