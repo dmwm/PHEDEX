@@ -1,75 +1,77 @@
 #!/usr/bin/env perl
 
-# This tool functions as a fake data source. cd to your fake SE
-# directory then run 
+# This tool functions as a fake data source. Usage:
 #
-# CreateTestFiles <number of files> <source node name> <db> <user> <password>
+# CreateTestFiles <base-directory> <set-name> <number-of-files>
 #
-# It will create N files in the pwd. First each file is registered
-# in the catalogue specified in $POOL_CATALOG. Each file will
-# contain its own guid. The files will also be registered in the
-# TMDB.
+# This will create number-of-files in <base-directory>, with POOL
+# catalogue owner/dataset set to <set-name>, and catalogue drops
+# made under <base-directory>/<set-name>.
+#
+# Each file will be simple, containing it's own GUID.
+#
+# The files won't be registered into a catalogue or TMDB.  You
+# need to do that separately.
 
-$count = $ARGV[0];
-$node = $ARGV[1];
-$db=$ARGV[2];
-$user=$ARGV[3];
-$pass=$ARGV[4];
-$pwd = $ENV{PWD};
-$head = $ARGV[5];
-@sql = ();
+use File::Path;
+my ($basedir, $setname, $count, @junk) = @ARGV;
 
-print "$count files, in $pwd, registered at node $node\n";
+print "$count files in $basedir as $setname\n";
 
-#$cat = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<!DOCTYPE POOLFILECATALOG SYSTEM \"InMemory\"><POOLFILECATALOG>\n<META name=\"Content\" type=\"string\"/>\n<META name=\"DBoid\" type=\"string\"/>\n<META name=\"DataType\" type=\"string\"/>\n<META name=\"FileCategory\" type=\"string\"/>\n<META name=\"Flags\" type=\"string\"/>\n<META name=\"dataset\" type=\"string\"/>\n<META name=\"jobid\" type=\"string\"/>\n<META name=\"owner\" type=\"string\"/>\n<META name=\"runid\" type=\"string\"/>\n";
-$cat = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<!DOCTYPE POOLFILECATALOG SYSTEM \"InMemory\">\n<POOLFILECATALOG>\n<META name=\"dataset\" type=\"string\"/>\n";
-$smry = "EVDS_OutputPath=$pwd\n";
+$preamble = <<EOF;
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<!DOCTYPE POOLFILECATALOG SYSTEM "InMemory">
+<POOLFILECATALOG>
+  <META name="Content" type="string"/>
+  <META name="DBoid" type="string"/>
+  <META name="DataType" type="string"/>
+  <META name="FileCategory" type="string"/>
+  <META name="Flags" type="string"/>
+  <META name="dataset" type="string"/>
+  <META name="jobid" type="string"/>
+  <META name="owner" type="string"/>
+  <META name="runid" type="string"/>
+EOF
+$trailer = "</POOLFILECATALOG>\n";
 
-while ($count > 0) {
-    
-    $guid = '';
-    $file = "TestbedFile".$count;
-    $full_path = $pwd."/".$file;
-    
-    ($exit_value, $guid) = run_command( "uuidgen" );
-    chop($guid);
-    $guid = uc($guid);
-    
-    ($exit_value, @output) = run_command( "echo $guid > $file" );
-    if ($exit_value == 1) {
-        print "Problem creating file $file\n@output\nNot rolling back catalogue registration for $guid\n";
-        exit(1);
+for (; $count > 0; --$count) {
+    &mkpath ("$basedir/$setname/$setname.$count");
+    open (CAT, "> $basedir/$setname/$setname.$count/XMLCatFragment.$setname.$count.xml") or die;
+    open (CKSUM, "> $basedir/$setname/$setname.$count/Checksum.$setname.$count.txt") or die;
+
+    print CAT $preamble;
+    for ($i = 1; $i <= 10; ++$i) {
+        $guid = qx(uuidgen); chomp ($guid);
+        my $file = "Testbed.$setname.$count.$i";
+        my $path = "$basedir/$file";
+        open (FILE, "> $path") || die "$file: $!\n";
+        print FILE "$guid\n";
+        close (FILE);
+
+	print CKSUM qx(cd $basedir && cksum $file);
+	print CAT <<EOF;
+
+  <File ID="$guid">
+    <physical>
+      <pfn filetype="ROOT_All" name="$path"/>
+    </physical>
+    <logical>
+      <lfn name="$file"/>
+    </logical>
+    <metadata att_name="Content" att_value=""/>
+    <metadata att_name="DBoid" att_value="FAKE_ENTRY"/>
+    <metadata att_name="DataType" att_value="EVD"/>
+    <metadata att_name="FileCategory" att_value="Events"/>
+    <metadata att_name="Flags" att_value=""/>
+    <metadata att_name="dataset" att_value="$setname"/>
+    <metadata att_name="jobid" att_value="fake"/>
+    <metadata att_name="owner" att_value="$setname"/>
+    <metadata att_name="runid" att_value="$count"/>
+  </File>
+EOF
     }
-    
-    $time = time();
 
-#    $cat .= "<File ID=\"$guid\">\n<physical>\n<pfn filetype=\"ROOT_All\" name=\"./$file\"/>\n</physical>\n<logical>\n<lfn name=\"$file\"/>\n</logical>\n<metadata att_name=\"Content\" att_value=\"\"/>\n<metadata att_name=\"DBoid\" att_value=\"FAKE_ENTRY\"/><metadata att_name=\"DataType\" att_value=\"EVD\"/>\n<metadata att_name=\"FileCategory\" att_value=\"Events\"/><metadata att_name=\"Flags\" att_value=\"\"/>\n<metadata att_name=\"dataset\" att_value=\"NodeTestbedSet\"/>\n<metadata att_name=\"jobid\" att_value=\"fake\"/>\n<metadata att_name=\"owner\" att_value=\"phedex_testbed\"/>\n<metadata att_name=\"runid\" att_value=\"1\"/>\n</File>\n\n";
-    $cat .= "<File ID=\"$guid\">\n<physical>\n<pfn filetype=\"ROOT_All\" name=\"./$file\"/>\n</physical>\n<logical>\n<lfn name=\"$file\"/>\n</logical>\n<metadata att_name=\"dataset\" att_value=\"NodeTestbedSet\"/>\n</File>\n\n";
-    $count--;
-}
-
-$cat .= "</POOLFILECATALOG>";
-
-# $cat now contains xml fragment, smry summary file content
-# need to write these to head of injection chain for drop
-
-system("mkdir $head/testdrop");
-open(OUT,">$head/testdrop/XMLCatFragment.testdrop.xml");
-print OUT $cat;
-close(OUT);
-open(OUT,">$head/testdrop/Smry.testdrop.txt");
-print OUT $smry;
-close(OUT);
-
-# =========================================================
-# Subroutines
-# =========================================================
-
-sub run_command {
-    my $cmd = shift;
-    
-    my @output = `$cmd 2>&1`;
-    my $exit_value = $? >> 8;
-    
-    return ($exit_value,@output);
+    print CAT $trailer;
+    close (CAT);
+    close (CKSUM);
 }
