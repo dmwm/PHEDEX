@@ -7,53 +7,24 @@ BEGIN { use strict; $^W = 1; }
 $me = $0; $me =~ s|.*/||;
 $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
 unshift(@INC, $home);
-use File::Path;
-use UtilsDelay;
-use UtilsAgent;
-
-use vars qw($me $home $dropdir @nextdir $inbox $workdir $outdir $stopflag $pidfile
-	    $waittime %bad %junk @startTime);
-$waittime = 7;			# Seconds to sleep between meta set queries
-my $modelfile = undef;		# Delay model data file
-my $model = undef;		# Delay model data
 
 ######################################################################
-# Routines specific to this agent.
-
-# Actually process the drop.
-sub processDrop
-{
-    my ($drop) = @_;
-
-    # Sanity checking
-    return if (! &inspectDrop ($drop));
-    delete $bad{$drop};
-    &timeStart();
-
-    # If we have delay model, apply it
-    &delayStatistically ($model) if $model;
-
-    # Pass on or delete
-    &touch ("$workdir/$drop/done");
-    &relayDrop ($drop);
-    &logmsg("stats: $drop @{[&formatElapsedTime()]} success");
-}
-
+my %args;
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-in' && scalar @ARGV > 1)
-    { shift (@ARGV); $dropdir = shift(@ARGV); }
+    { shift (@ARGV); $args{DROPDIR}= shift(@ARGV); }
     elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@nextdir, shift(@ARGV)); }
+    { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
     elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $waittime = shift(@ARGV); }
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-model' && scalar @ARGV > 1)
-    { shift (@ARGV); $modelfile = shift(@ARGV); }
+    { shift (@ARGV); $args{MODELFILE} = shift(@ARGV); }
     else
     { last; }
 }
 	
-if (scalar @ARGV || !$dropdir)
+if (scalar @ARGV || !$args{DROPDIR})
 {
     print STDERR
 	"usage: $me -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
@@ -61,5 +32,46 @@ if (scalar @ARGV || !$dropdir)
     exit (1);
 }
 
-$model = &readDelayModel ($modelfile) if $modelfile;
-&process();
+(new DropNullAgent (%args))->process();
+
+######################################################################
+# Routines specific to this agent.
+package DropNullAgent;
+use strict;
+use Exporter;
+use File::Path;
+use UtilsDelay;
+use UtilsAgent;
+use base 'UtilsAgent';
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = ();
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    $self->{MODEL} = &readDelayModel ($args{MODELFILE}) if $args{MODELFILE};
+    bless $self, $class;
+    return $self;
+}
+
+# Actually process the drop.
+sub processDrop
+{
+    my ($self, $drop) = @_;
+
+    # Sanity checking
+    return if (! $self->inspectDrop ($drop));
+    delete $self->{BAD}{$drop};
+    &timeStart($self->{STARTTIME});
+
+    # If we have delay model, apply it
+    &delayStatistically ($self->{MODEL}) if $self->{MODEL};
+
+    # Pass on or delete
+    &touch ("$self->{WORKDIR}/$drop/done");
+    $self->relayDrop ($drop);
+    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
+}

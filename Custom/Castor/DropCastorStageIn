@@ -27,20 +27,51 @@ BEGIN { use strict; $^W = 1; }
 $me = $0; $me =~ s|.*/||;
 $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
 unshift(@INC, $home);
+
+######################################################################
+$ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
+$ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
+my %args = (WAITTIME => 59);		# Sleep time between checks
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_HOST} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_POOL} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-hours' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{MAXHOURS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    else
+    { last; }
+}
+	
+if (scalar @ARGV || !$args{DROPDIR})
+{
+    print STDERR
+	"usage: $me\n",
+	"    -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
+	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n",
+	"    [-hours MAX-HOURS] [-wait SECS-TO-WAIT]\n";
+    exit (1);
+}
+
+(new DropCastorStageIn (%args))->process();
+
+######################################################################
+# Routines specific to this agent.
+package DropCastorStageIn;
+use strict;
+use Exporter;
 use File::Path;
 use Data::Dumper;
 use UtilsReaders;
 use UtilsAgent;
-
-use vars qw($me $home $dropdir @nextdir $inbox $workdir $outdir $stopflag $pidfile
-	    $waittime %bad %junk @startTime);
-$waittime = 59;			# Seconds to sleep between meta set queries
-
-my $maxhours = 60;		# Number of hours to retry stagein
-my $maxtapereqs = 4000;		# Max pending tape mounts
-my $maxmytapereqs = 1000;	# Max pending tape mounts by myself
-my $maxstagereqs = 200;		# Max pending stager requests
-my $maxfiles = 50;		# Max number of files in one request
+use base 'UtilsAgent';
 
 my $STAGE_RETRY = -2;		# Retry another time
 my $STAGE_NONEXISTENT = -1;	# No such file
@@ -48,11 +79,21 @@ my $STAGE_ON_DISK = 0;		# File has been staged on disk
 my $STAGE_PENDING = 1;		# Stage-in still in progress
 my $STAGE_UNKNOWN = 2;		# Stager hasn't heard of this file
 
-$ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
-$ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
-
-######################################################################
-# Routines specific to this agent.
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (MAXHOURS => 60,	# Number of hours to retry stagein
+    	    	  MAXTAPEREQS => 4000,	# Max pending tape mounts
+    	    	  MAXMYTAPEREQS => 1000,# Max pending tape mounts by myself
+    	    	  MAXSTAGEREQS => 200,	# Max pending stager requests
+    	    	  MAXFILES => 50);	# Max number of files in one request
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
 
 # Find out if the PFN exists in Castor, and if so, the tape it is on,
 # the position on the tape and the file size.  Return a four-tuple of
@@ -138,7 +179,7 @@ sub stagerLoad
 # $STAGE_RETRY if there was a transient error.
 sub checkFileStatus
 {
-    my ($file, $cache, $stagedin) = @_;
+    my ($self, $file, $cache, $stagedin) = @_;
     my $pfn = $file->{PFN};
 
     # Get file properties if we don't have them.  If this fails
@@ -174,10 +215,10 @@ sub checkFileStatus
     }
     elsif ($file->{STATUS} == $STAGE_PENDING && $now - $file->{LAST} > 900)
     {
-	if ($now - $file->{STARTED} > $maxhours * 3600)
+	if ($now - $file->{STARTED} > $self->{MAXHOURS} * 3600)
 	{
-	    &alert("file could not be staged in $maxhours hours, giving up");
-	    &markBad ($file->{DROP});
+	    &alert("file could not be staged in $self->{MAXHOURS} hours, giving up");
+	    $self->markBad ($file->{DROP});
 	    $file->{BAD} = 1;
 	    $file->{DIRTY} = 1;
 	    return $STAGE_RETRY;
@@ -197,12 +238,12 @@ sub checkFileStatus
 # Check and update the status of all files.
 sub updateFileStatus
 {
-    my ($file, $cache, $stagedin) = @_;
+    my ($self, $file, $cache, $stagedin) = @_;
 
     # Ignore files we've already complained about
     return if $file->{BAD};
 
-    my $status = &checkFileStatus ($file, $cache, $stagedin);
+    my $status = $self->checkFileStatus ($file, $cache, $stagedin);
     if ($status == $STAGE_RETRY)
     {
 	# Try again another time
@@ -212,7 +253,7 @@ sub updateFileStatus
     {
 	# Bad file, mark it bad
 	&alert ("$file->{DROP}: no such file $file->{PFN}");
-	&markBad ($file->{DROP});
+	$self->markBad ($file->{DROP});
 	$file->{BAD} = 1;
 	$file->{DIRTY} = 1;
     }
@@ -227,28 +268,29 @@ sub updateFileStatus
 # Restore saved file status
 sub readStageInProgress
 {
-    my (@pending) = @_;
+    my ($self, @pending) = @_;
     my @files = ();
 
     # Read in current file status
     for my $drop (@pending)
     {
-	&maybeStop();
+	$self->maybeStop();
 
     	# Sanity checking
-    	next if (! &inspectDrop ($drop));
-    	delete $bad{$drop};
+    	next if (! $self->inspectDrop ($drop));
+    	delete $self->{BAD}{$drop};
 
 	# Get XML catalogue
-	my $xmlcat = (<$workdir/$drop/XMLCatFragment.*.{txt,xml}>)[0];
+	my $dropdir = $self->{WORKDIR}/$drop;
+	my $xmlcat = (<$dropdir/XMLCatFragment.*.{txt,xml}>)[0];
 	if (! defined $xmlcat)
 	{
 	    &alert ("no xml catalogue in $drop");
-	    &markBad ($drop);
+	    $self->markBad ($drop);
 	    next;
 	}
     	my $catalog = eval { &readXMLCatalog ($drop, $xmlcat) };
-    	do { &alert($@); &markBad ($drop); next } if $@;
+    	do { &alert($@); $self->markBad ($drop); next } if $@;
 
 	# Create status object for each file, read in saved one if it exists.
     	foreach my $file (values %$catalog)
@@ -256,9 +298,9 @@ sub readStageInProgress
 	    my $pfn = $file->{PFN}[0];
 	    my $lfn = $file->{LFN}[0];
 	    my $info = { DROP => $drop, PFN => $pfn, LFN => $lfn, STATUS => $STAGE_RETRY };
-	    if (-f "$workdir/$drop/stagein.$lfn")
+	    if (-f "$self->{WORKDIR}/$drop/stagein.$lfn")
 	    {
-		my $saved = eval &input ("$workdir/$drop/stagein.$lfn");
+		my $saved = eval &input ("$self->{WORKDIR}/$drop/stagein.$lfn");
 		if ($@) {
 		    &warn ("ignoring corrupt stagein status for $drop/$lfn: $@");
 		} else {
@@ -276,7 +318,7 @@ sub readStageInProgress
 # Flush drops whose files have been staged in.
 sub flushStagedInDrops
 {
-    my ($files, $pending) = @_;
+    my ($self, $files, $pending) = @_;
 
     # Mark done drops whose all files have been staged in
     my %drops = ();
@@ -291,14 +333,15 @@ sub flushStagedInDrops
     }
     foreach my $drop (sort keys %drops)
     {
-	if ($drops{$drop}[0] == $drops{$drop}[1] && ! -f "$workdir/$drop/bad")
+	if ($drops{$drop}[0] == $drops{$drop}[1] && ! -f "$self->{WORKDIR}/$drop/bad")
 	{
 	    my $timing = [];
+	    my $dropdir = "$self->{WORKDIR}/$drop";
 	    &timeStart($timing);
 	    $timing->[0] = $drops{$drop}[2];
-	    unlink (<$workdir/$drop/stagein.*>);
-	    &touch ("$workdir/$drop/done");
-	    &relayDrop ($drop);
+	    unlink (<$dropdir/stagein.*>);
+	    &touch ("$dropdir/done");
+	    $self->relayDrop ($drop);
 	    &logmsg ("stats: $drop @{[&formatElapsedTime($timing)]} success");
 	}
 	else
@@ -313,11 +356,12 @@ sub flushStagedInDrops
 # Save the file status for the given files
 sub saveFileStatus
 {
+    my $self = shift;
     foreach my $file (@_)
     {
 	next if ! $file->{DIRTY};
         &alert ("failed to update stagein status for $file->{LFN}")
-	    if ! &output ("$workdir/$file->{DROP}/stagein.$file->{LFN}", Dumper ($file));
+	    if ! &output ("$self->{WORKDIR}/$file->{DROP}/stagein.$file->{LFN}", Dumper ($file));
     }
 }
 
@@ -325,13 +369,13 @@ sub saveFileStatus
 # to proceed and which ones need staging in.
 sub processAllFiles
 {
-    my (@pending) = @_;
+    my ($self, @pending) = @_;
     while (@pending)
     {
-	&maybeStop();
+	$self->maybeStop();
 
         # Recover where we were
-        my @files = &readStageInProgress (@pending);
+        my @files = $self->readStageInProgress (@pending);
 
         # Get the list of files already staged in
         my $stagedin = &stagerFileList();
@@ -340,14 +384,14 @@ sub processAllFiles
         # Update status
 	my %cache = ();
         foreach my $file (@files) {
-            &updateFileStatus ($file, \%cache, $stagedin);
+            $self->updateFileStatus ($file, \%cache, $stagedin);
         }
 
         # Write out the new file state
-	&saveFileStatus (@files);
+	$self->saveFileStatus (@files);
 
 	# Send out completely staged in drops
-	&flushStagedInDrops(\@files, \@pending);
+	$self->flushStagedInDrops(\@files, \@pending);
 
         # Determine the files that need to be staged in, in a good order
         # i.e. sorted by tape and position, then issue requests in batches.
@@ -364,9 +408,9 @@ sub processAllFiles
 	    if (! defined $tapereqs
 	        || ! defined $mytapereqs
 	        || ! defined $stagereqs
-	        || $tapereqs > $maxtapereqs
-	        || $mytapereqs > $maxmytapereqs
-	        || $stagereqs > $maxstagereqs)
+	        || $tapereqs > $self->{MAXTAPEREQS}
+	        || $mytapereqs > $self->{MAXMYTAPEREQS}
+	        || $stagereqs > $self->{MAXSTAGEREQS})
 	    {
 	        $tapereqs = 'U' if ! defined $tapereqs;
 	        $mytapereqs = 'U' if ! defined $mytapereqs;
@@ -375,14 +419,14 @@ sub processAllFiles
 	        return;
 	    }
 
-	    # Select the next up to $maxfiles to stage in
-	    my $nfiles = ($#requests > $maxfiles ? $maxfiles : $#requests);
+	    # Select the next up to maxfiles to stage in
+	    my $nfiles = ($#requests > $self->{MAXFILES} ? $self->{MAXFILES} : $#requests);
 	    my @slice = @requests[$#requests - $nfiles .. $#requests];
 	    delete @requests[$#requests - $nfiles .. $#requests];
 
 	    # Mark these files as pending now
 	    map { $_->{STATUS} = $STAGE_PENDING; $_->{DIRTY} = 1; } @slice;
-	    &saveFileStatus (@slice);
+	    $self->saveFileStatus (@slice);
 
 	    # Issue background stage-in
 	    my $rc = &runcmd ("stagein", "--nowait", "--rdonly",
@@ -397,44 +441,12 @@ sub processAllFiles
     }
 }
 
-# Actually process the drop.  Do nothing here.
-sub processDrop {}
-
+# Do all the processing in the idle routine
 sub idle
 {
-    my ($sleep, @pending) = @_;
-    &timeStart();
-    &processAllFiles (@pending);
-    &maybeStop();
-    sleep ($sleep);
+    my ($self, @pending) = @_;
+    &timeStart($self->{STARTTIME});
+    $self->processAllFiles (@pending);
+    $self->maybeStop();
+    sleep ($self->{WAITTIME});
 }
-
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
-    { shift (@ARGV); $ENV{STAGE_HOST} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
-    { shift (@ARGV); $ENV{STAGE_POOL} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-hours' && scalar @ARGV > 1)
-    { shift (@ARGV); $maxhours = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-in' && scalar @ARGV > 1)
-    { shift (@ARGV); $dropdir = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@nextdir, shift(@ARGV)); }
-    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $waittime = shift(@ARGV); }
-    else
-    { last; }
-}
-	
-if (scalar @ARGV || !$dropdir)
-{
-    print STDERR
-	"usage: $me\n",
-	"    -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
-	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n",
-	"    [-hours MAX-HOURS] [-wait SECS-TO-WAIT]\n";
-    exit (1);
-}
-
-&process();

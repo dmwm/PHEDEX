@@ -14,32 +14,74 @@
 ## place.  At the end, we pass the assignment to the next agent.
 
 BEGIN { use strict; $^W = 1; }
-$me = $0; $me =~ s|.*/||;
-$home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+my $me = $0; $me =~ s|.*/||;
+my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
 unshift(@INC, $home);
-use File::Path;
-use UtilsReaders;
-use UtilsAgent;
 
-use vars qw($me $home $dropdir @nextdir $inbox $workdir $outdir $stopflag $pidfile
-	    $waittime %bad %junk @startTime);
-$waittime = 7;			# Seconds to sleep between meta set queries
-my $nrfcp = 5;			# Number of parallel rfcp copies
-
+######################################################################
 $ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
 $ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
+my %args;
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_HOST} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_POOL} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-rfcp' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{NRFCP} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    else
+    { last; }
+}
+	
+if (scalar @ARGV || !$args{DROPDIR})
+{
+    print STDERR
+	"usage: $me\n",
+	"    -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
+	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n",
+	"    [-rfcp N-PARALLEL-RFCP] [-wait SECS-TO-WAIT]\n";
+    exit (1);
+}
+
+(new DropCastorChecksum (%args))->process();
 
 ######################################################################
 # Routines specific to this agent.
+package DropCastorChecksum;
+use strict;
+use Exporter;
+use File::Path;
+use UtilsReaders;
+use UtilsAgent;
+use base 'UtilsAgent';
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (NRFCP => 5);
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
 
 # Update checksums for all files that don't have it.  Copies files from
 # castor to the local working directory and checksums them there.
 sub updateChecksums
 {
-    my ($drop, $catalogue, $checksums) = @_;
+    my ($self, $drop, $catalogue, $checksums) = @_;
 
     # Create working directories
-    my $filesdir = "$workdir/$drop/files";
+    my $filesdir = "$self->{WORKDIR}/$drop/files";
     &rmtree ($filesdir);
     eval { &mkpath ($filesdir); };
     do { &alert ("could not create working directories: $@"); return 0; } if $@;
@@ -55,7 +97,7 @@ sub updateChecksums
 	$local{$pfn} = "$filesdir/$lfn";
     }
 
-    my %status = &rfcpmany ($nrfcp, %local);
+    my %status = &rfcpmany ($self->{NRFCP}, %local);
     my $failed = scalar (grep ($_, values %status));
     do { &alert ("$drop: failed to copy $failed files"); &rmtree ($filesdir); return 0; }
         if $failed;
@@ -77,11 +119,11 @@ sub updateChecksums
     my $checkdata = join("\n", map { join(" ", @$_) } @$checksums);
     $checkdata .= "\n" if $checkdata;
     do { &alert ("$drop: failed to write checksum file"); return 0; }
-        if (! &output ("$workdir/$drop/CheckSum.$drop.txt", $checkdata));
+        if (! &output ("$self->{WORKDIR}/$drop/CheckSum.$drop.txt", $checkdata));
 
     # Mark drop itself done
     do { &alert ("could not mark drop done: $!"); return 0; }
-	if ! &touch ("$workdir/$drop/done");
+	if ! &touch ("$self->{WORKDIR}/$drop/done");
 
     return 1;
 }
@@ -89,66 +131,32 @@ sub updateChecksums
 # Actually process the drop.
 sub processDrop
 {
-    my ($drop) = @_;
+    my ($self, $drop) = @_;
 
     # Sanity checking
-    return if (! &inspectDrop ($drop));
-    delete $bad{$drop};
-    &timeStart();
+    return if (! $self->inspectDrop ($drop));
+    delete $self->{BAD}{$drop};
+    &timeStart($self->{STARTTIME});
 
     # Find and read the catalogue and the checksum data
-    my $xmlcat = (<$workdir/$drop/XMLCatFragment.*.{xml,txt}>)[0];
-    my $cksum = (<$workdir/$drop/CheckSum.*.txt>)[0];
+    my $dropdir = "$self->{WORKDIR}/$drop";
+    my $xmlcat = (<$dropdir/XMLCatFragment.*.{xml,txt}>)[0];
+    my $cksum = (<$dropdir/CheckSum.*.txt>)[0];
     if (! defined $xmlcat)
     {
         &alert ("no xml catalogue in $drop");
-        &markBad ($drop);
+        $self->markBad ($drop);
         return;
     }
 
     my $catalogue = eval { &readXMLCatalog ($drop, $xmlcat) };
-    do { &alert($@); &markBad ($drop); return } if $@;
+    do { &alert($@); $self->markBad ($drop); return } if $@;
 
     my @checksums = eval { $cksum ? &readChecksumData ($drop, $cksum) : () };
-    do { &alert($@); &markBad ($drop); return } if $@;
+    do { &alert($@); $self->markBad ($drop); return } if $@;
 
     # Stage files in, but leave drop in queue if files are still pending
-    return if ! &updateChecksums ($drop, $catalogue, \@checksums);
-    &relayDrop ($drop);
-    &logmsg("stats: $drop @{[&formatElapsedTime()]} success");
+    return if ! $self->updateChecksums ($drop, $catalogue, \@checksums);
+    $self->relayDrop ($drop);
+    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
 }
-
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
-    { shift (@ARGV); $ENV{STAGE_HOST} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
-    { shift (@ARGV); $ENV{STAGE_POOL} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-in' && scalar @ARGV > 1)
-    { shift (@ARGV); $dropdir = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@nextdir, shift(@ARGV)); }
-    elsif ($ARGV[0] eq '-rfcp' && scalar @ARGV > 1)
-    { shift (@ARGV); $nrfcp = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $waittime = shift(@ARGV); }
-    else
-    { last; }
-}
-	
-if (scalar @ARGV || !$dropdir)
-{
-    print STDERR
-	"usage: $me\n",
-	"    -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
-	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n",
-	"    [-rfcp N-PARALLEL-RFCP] [-wait SECS-TO-WAIT]\n";
-    exit (1);
-}
-
-&process();
-
-
-######################################################################
-# Routines specific to this agent.
-

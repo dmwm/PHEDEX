@@ -33,19 +33,59 @@ BEGIN { use strict; $^W = 1; }
 $me = $0; $me =~ s|.*/||;
 $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
 unshift(@INC, $home);
-use File::Path;
-use UtilsWriters;
-use UtilsAgent;
 
-use vars qw($me $home $dropdir @nextdir $inbox $workdir $outdir $stopflag $pidfile
-	    $waittime %bad %junk @startTime);
-$waittime = 7;			# Seconds to sleep between meta set queries
-
+######################################################################
 $ENV{STAGE_HOST} ||= "stagecmsprod";
 $ENV{STAGE_POOL} ||= "cms_prod2";
+my %args;
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_HOST} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_POOL} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    else
+    { last; }
+}
+	
+if (scalar @ARGV || !$args{DROPDIR})
+{
+    print STDERR
+	"usage: $me -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
+	"    [-stagehost STAGE-HOST] [-stagepool STAGE-POOL]\n",
+	"    [-wait SECS-TO-WAIT]\n";
+    exit (1);
+}
+
+(new DropXMLUpdate (%args))->process();
 
 ######################################################################
 # Routines specific to this agent.
+package DropXMLUpdate;
+use strict;
+use Exporter;
+use File::Path;
+use UtilsWriters;
+use UtilsAgent;
+use base 'UtilsAgent';
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = ();
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
 
 # Determine actual location of a file in castor.  Used if there is
 # no summary file to tell the full path for the files.
@@ -100,7 +140,7 @@ sub getPFNRoot
 # current format (pre-POOL-1.4 to current).
 sub updateCatalog
 {
-    my ($drop, $xmlcat, $summary) = @_;
+    my ($self, $drop, $xmlcat, $summary) = @_;
     my $pfnroot = &getPFNRoot ($summary);
 
     if (! open (CAT, "< $xmlcat"))
@@ -149,15 +189,15 @@ sub updateCatalog
     # Rewrite to reformat old catalogues
     my $status = &runcmd ("FCpublish",
 			  "-u", "file:$xmlcat",
-			  "-d", "file:$workdir/$drop/newcat.$$.xml");
+			  "-d", "file:$self->{WORKDIR}/$drop/newcat.$$.xml");
     if ($status)
     {
 	&alert ("failed to clean up the catalogue with FCpublish for $drop: $status");
-	&markBad ($drop);
+	$self->markBad ($drop);
 	return 1;
     }
 
-    if (! &mv ("$workdir/$drop/newcat.$$.xml", $xmlcat))
+    if (! &mv ("$self->{WORKDIR}/$drop/newcat.$$.xml", $xmlcat))
     {
 	# Assume transient errors
 	&alert ("failed to rename catalogue in $drop: $!");
@@ -170,51 +210,26 @@ sub updateCatalog
 # Actually process the drop.
 sub processDrop
 {
-    my ($drop) = @_;
+    my ($self, $drop) = @_;
 
     # Sanity checking
-    return if (! &inspectDrop ($drop));
-    delete $bad{$drop};
-    &timeStart();
+    return if (! $self->inspectDrop ($drop));
+    delete $self->{BAD}{$drop};
+    &timeStart($self->{STARTTIME});
 
     # Find the catalog file.
-    my $xmlcat = (<$workdir/$drop/XMLCatFragment.*.{txt,xml}>)[0];
-    my $summary = (<$workdir/$drop/Smry.*.txt>)[0];
+    my $dropdir = "$self->{WORKDIR}/$drop";
+    my $xmlcat = (<$dropdir/XMLCatFragment.*.{txt,xml}>)[0];
+    my $summary = (<$dropdir/Smry.*.txt>)[0];
     if (! $xmlcat)
     {
 	&alert("no xml catalog file found in $drop");
-	&markBad ($drop);
+	$self->markBad ($drop);
 	return;
     }
 
     # Reformat catalog
-    return if &updateCatalog ($drop, $xmlcat, $summary);
-    &relayDrop ($drop);
-    &logmsg("stats: $drop @{[&formatElapsedTime()]} success");
+    return if $self->updateCatalog ($drop, $xmlcat, $summary);
+    $self->relayDrop ($drop);
+    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
 }
-
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-in' && scalar @ARGV > 1)
-    { shift (@ARGV); $dropdir = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@nextdir, shift(@ARGV)); }
-    elsif ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
-    { shift (@ARGV); $ENV{STAGE_HOST} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
-    { shift (@ARGV); $ENV{STAGE_POOL} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $waittime = shift(@ARGV); }
-    else
-    { last; }
-}
-	
-if (scalar @ARGV || !$dropdir)
-{
-    print STDERR
-	"usage: $me -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
-	"    [-wait SECS-TO-WAIT]\n";
-    exit (1);
-}
-
-&process();

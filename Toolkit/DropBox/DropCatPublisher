@@ -21,76 +21,24 @@ BEGIN { use strict; $^W = 1; }
 $me = $0; $me =~ s|.*/||;
 $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
 unshift(@INC, $home);
-use File::Path;
-use UtilsAgent;
-
-use vars qw($me $home $dropdir @nextdir $inbox $workdir $outdir $stopflag $pidfile
-	    $waittime %bad %junk @startTime);
-$waittime = 7;			# Seconds to sleep between meta set queries
-my ($dropdir, @nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
-my $catalogue = undef;		# Catalogue contact string
 
 ######################################################################
-# Routines specific to this agent.
-
-# Import the XML catalogue fragment to the file catalogue.
-sub updateFileCatalogue
-{
-    my ($drop, $xmlcat) = @_;
-    my $ret = &runcmd ("FCpublish", "-d", $catalogue, "-u", "file:$xmlcat");
-
-    if ($ret)
-    {
-	&alert("FCpublish failed for $drop: " . &runerror ($ret));
-	&markBad ($drop);
-	return 1;
-    }
-
-    unlink("$xmlcat.BAK");
-    &touch("$workdir/$drop/done");
-    return 0;
-}
-
-# Actually process the drop.
-sub processDrop
-{
-    my ($drop) = @_;
-
-    # Sanity checking
-    return if (! &inspectDrop ($drop));
-    delete $bad{$drop};
-    &timeStart();
-
-    # Find the catalogue file.
-    my $xmlcat = (<$workdir/$drop/XMLCatFragment.*.{txt,xml}>)[0];
-    if (! defined $xmlcat)
-    {
-	&alert("no xml catalogue file found in $drop");
-	&markBad ($drop);
-	return;
-    }
-
-    # Merge XML contents into RLS.
-    return if &updateFileCatalogue ($drop, $xmlcat);
-    &relayDrop ($drop);
-    &logmsg("stats: $drop @{[&formatElapsedTime()]} success");
-}
-
+my %args;
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-catalogue' && scalar @ARGV > 1)
-    { shift (@ARGV); $catalogue = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-in' && scalar @ARGV > 1)
-    { shift (@ARGV); $dropdir = shift(@ARGV); }
+    if ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-catalogue' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{CATALOGUE} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@nextdir, shift(@ARGV)); }
+    { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
     elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $waittime = shift(@ARGV); }
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
     else
     { last; }
 }
 	
-if (scalar @ARGV || !$dropdir || !$catalogue)
+if (scalar @ARGV || !$args{DROPDIR} || !$args{CATALOGUE})
 {
     print STDERR
 	"usage: $me -catalogue CONTACT-STRING\n",
@@ -99,4 +47,70 @@ if (scalar @ARGV || !$dropdir || !$catalogue)
     exit (1);
 }
 
-&process();
+(new DropCatPublisher (%args))->process();
+
+######################################################################
+# Routines specific to this agent.
+package DropCatPublisher;
+use strict;
+use Exporter;
+use File::Path;
+use UtilsAgent;
+use base 'UtilsAgent';
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (CATALOGUE => undef);	# Catalogue contact string
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    die if not defined $self->{CATALOGUE};
+    bless $self, $class;
+    return $self;
+}
+
+# Import the XML catalogue fragment to the file catalogue.
+sub updateFileCatalogue
+{
+    my ($self, $drop, $xmlcat) = @_;
+    my $ret = &runcmd ("FCpublish", "-d", $self->{CATALOGUE}, "-u", "file:$xmlcat");
+
+    if ($ret)
+    {
+	&alert("FCpublish failed for $drop: " . &runerror ($ret));
+	$self->markBad ($drop);
+	return 1;
+    }
+
+    unlink("$xmlcat.BAK");
+    &touch("$self->{WORKDIR}/$drop/done");
+    return 0;
+}
+
+# Actually process the drop.
+sub processDrop
+{
+    my ($self, $drop) = @_;
+
+    # Sanity checking
+    return if (! $self->inspectDrop ($drop));
+    delete $self->{BAD}{$drop};
+    &timeStart($self->{STARTTIME});
+
+    # Find the catalogue file.
+    my $dropdir = "$self->{WORKDIR}/$drop";
+    my $xmlcat = (<$dropdir/XMLCatFragment.*.{txt,xml}>)[0];
+    if (! defined $xmlcat)
+    {
+	&alert("no xml catalogue file found in $drop");
+	$self->markBad ($drop);
+	return;
+    }
+
+    # Merge XML contents into RLS.
+    return if $self->updateFileCatalogue ($drop, $xmlcat);
+    $self->relayDrop ($drop);
+    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
+}

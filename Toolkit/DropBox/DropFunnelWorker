@@ -10,24 +10,76 @@ BEGIN { use strict; $^W = 1; }
 $me = $0; $me =~ s|.*/||;
 $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
 unshift(@INC, $home);
-use File::Path;
-use UtilsWriters;
-use UtilsAgent;
 
-use vars qw($me $home $dropdir @nextdir $inbox $workdir $outdir $stopflag $pidfile
-	    $waittime %bad %junk @startTime);
-$waittime = 7;			# Seconds to sleep between meta set queries
-my $maindir;			# Main merger $dropdir
-my $dryrun = 0;			# Flag to indicate zip creation or logging only
-my $clean = 0;			# Flag to indicate if we should remove originals
-my $output = undef;		# Path for output zips
-my $stagehost = "stagecmsdc04";	# Castor stage host
-my $stagepool = "gdb";		# Castor stage pool
+######################################################################
+$ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
+$ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
+my %args;
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DROPDIR}= shift(@ARGV); }
+    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-dryrun')
+    { shift (@ARGV); $args{DRYRUN} = 1; }
+    elsif ($ARGV[0] eq '-remove')
+    { shift (@ARGV); $args{CLEAN} = 1; }
+    elsif ($ARGV[0] eq '-store' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{OUTPUT} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_HOST} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_POOL} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-main' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{MAINDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-rfcp' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{NRFCP} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    else
+    { last; }
+}
+	
+if (scalar @ARGV || !$args{DROPDIR} || !$ENV{STAGE_HOST} || !$ENV{STAGE_POOL}
+    || !$args{MAINDIR} || ($args{DRYRUN} && $args{CLEAN}))
+{
+    print STDERR
+	"usage: $me -main MAIN-DROP-BOX -in IN-DROP-BOX\n",
+	"    { [-dryrun] | [-remove] [-store RFIO-OUTPUT-PATH] }\n",
+	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n",
+	"    [-out NEXT-DROP-BOX] [-wait SECS-TO-WAIT]\n",
+	"    [-rfcp N-PARALLEL-DOWNLOADS]\n";
+    exit (1);
+}
 
-my $nrfcp = 5;			# Number of parallel rfcp copies
+(new DropFunnelWorker (%args))->process();
 
 ######################################################################
 # Routines specific to this agent.
+package DropFunnelWorker;
+use strict;
+use Exporter;
+use File::Path;
+use UtilsWriters;
+use UtilsAgent;
+use base 'UtilsAgent';
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (MAINDIR => undef,	# Main merger state directory
+	    	  DRYRUN => 1,		# Flag to indicate zip creation or logging only
+		  CLEAN  => 0,		# Flag to indicate if we should remove originals
+		  OUTPUT => undef,	# Path for output zips
+		  NRFCP => 5);		# Number of parallel rfcp jobs
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
 
 # Utility to log and cleanup from failed flush attempt
 sub flushFailed
@@ -62,11 +114,11 @@ sub flushFailed
 # Ensure all files for the queue have been fetched.
 sub fetchQueueFiles
 {
-    my ($queue, $data) = @_;
+    my ($self, $queue, $data) = @_;
     my $timing = [];
     &timeStart ($timing);
 
-    my $basedir = "$workdir/$queue";
+    my $basedir = "$self->{WORKDIR}/$queue";
     my $predir = "$basedir/prefetch";
     my $filesdir = "$basedir/files";
     my $stats = "prefetch: $queue";
@@ -85,14 +137,14 @@ sub fetchQueueFiles
 	my $lfn = $member->{CATALOG}{LFN}[0];
 
 	next if -f "$filesdir/$lfn";
-	if ($dryrun) {
+	if ($self->{DRYRUN}) {
 	    &touch ("$predir/$lfn");
 	} else {
 	    $copy{$pfn} = "$predir/$lfn";
 	}
     }
 
-    my %copied = &rfcpmany ($nrfcp, %copy);
+    my %copied = &rfcpmany ($self->{NRFCP}, %copy);
     my @failed = grep ($copied{$_}, keys %copied);
     return &flushFailed ($stats, $timing, "failed to copy @{[scalar @failed]} files", $predir)
         if @failed;
@@ -124,7 +176,7 @@ sub fetchQueueFiles
 # it to the next agent.  Optionally remove original files from castor.
 sub flushQueue
 {
-    my ($queue, $data) = @_;
+    my ($self, $queue, $data) = @_;
 
     my $timing = [];
     &timeStart($timing);
@@ -136,16 +188,15 @@ sub flushQueue
     my $ctcksumname = "CheckSum.Contents$queue.txt";
     my $replicamap = "ReplicaMap.txt";
 
-    my $storeddir = $output;
-    my $stored = $output && "$storeddir/$zipname";
-    my $basedir = "$workdir/$queue";
+    my $storeddir = $self->{OUTPUT};
+    my $stored = $storeddir && "$storeddir/$zipname";
+    my $basedir = "$self->{WORKDIR}/$queue";
     my $filesdir = "$basedir/files";
-    my $dropin = $nextdir[0] && "$nextdir[0]/inbox/$queue";
     my $stats = "zipstats: $queue";
 
     # If the output already exists, complain and assume something went
     # awfully wrong, and require operator intervention.
-    if (! $dryrun && $output && &rfstat ($stored))
+    if (! $self->{DRYRUN} && $self->{OUTPUT} && &rfstat ($stored))
     {
 	&alert ("zip already exists: $stored");
 	return 0;
@@ -154,7 +205,7 @@ sub flushQueue
     # Create new working area, first clean up from previous failed
     # attempts; assume errors are transient.
     my @stamps
-        = map { "$maindir/work/$_->{DROP}/QUEUEDONE.$_->{GUID}.$data->{NAME}" }
+        = map { "$self->{MAINDIR}/work/$_->{DROP}/QUEUEDONE.$_->{GUID}.$data->{NAME}" }
 	  values %{$data->{MEMBERS}};
 
     my $erase = [ @stamps, map { "$basedir/$_" } ($xfragname, $cksumname, $zipname) ];
@@ -165,7 +216,7 @@ sub flushQueue
     return &flushFailed ($stats, $timing, "could not create working directories: $@", $erase) if $@;
 
     # Download, checksum and validate checksum for files.
-    return 0 if ! &fetchQueueFiles ($queue, $data);
+    return 0 if ! $self->fetchQueueFiles ($queue, $data);
     my $checksum = map { "$_\n" } map { join(" ", @{$_->{CHECKSUM}}) } values %{$data->{MEMBERS}};
 
     # Generate XML fragment or the archive itself
@@ -198,7 +249,7 @@ EOF
 
     # Generate template XML fragment for archive contents
     my $replicas = "";
-    foreach $member (values %{$data->{MEMBERS}})
+    foreach my $member (values %{$data->{MEMBERS}})
     {
 	my $lfn = $member->{CATALOG}{LFN}[0];
 	my $pfn = "zip-member:\@ZIPPFN\@#$lfn";
@@ -246,7 +297,7 @@ EOF
         if (! &outputCatalog ("$basedir/$xfragname", $xmldata));
 
     # Transfer onwards
-    if (! $dryrun && $output)
+    if (! $self->{DRYRUN} && $self->{OUTPUT})
     {
         # Put it back on GDB
         return &flushFailed ($stats, $timing, "failed to create target rfio directory $storeddir", $erase)
@@ -271,7 +322,7 @@ EOF
     &rmtree ([ "$basedir/files", "$basedir/prefetch", "$basedir/START", "$basedir/state"]);
 
     # Remove original members
-    if (! $dryrun && $output && $clean)
+    if (! $self->{DRYRUN} && $self->{OUTPUT} && $self->{CLEAN})
     {
 	foreach my $pfn (map { @{$_->{CATALOG}{PFN}} } values %{$data->{MEMBERS}})
 	{
@@ -291,74 +342,31 @@ EOF
 # Process a flushed queue.
 sub processDrop
 {
-    my ($drop) = @_;
+    my ($self, $drop) = @_;
 
     # Sanity checking
-    return if (! &inspectDrop ($drop));
-    delete $bad{$drop};
-    &timeStart();
+    return if (! $self->inspectDrop ($drop));
+    delete $self->{BAD}{$drop};
+    &timeStart($self->{STARTTIME});
 
     # Get data
-    if (! -f "$workdir/$drop/state")
+    if (! -f "$self->{WORKDIR}/$drop/state")
     {
 	&alert ("no data in $drop");
-	&markBad ($drop);
+	$self->markBad ($drop);
 	return;
     }
 
-    my $data = eval &input ("$workdir/$drop/state");
+    my $data = eval &input ("$self->{WORKDIR}/$drop/state");
     if ($@)
     {
 	&alert ("corrupted drop data: $@");
-	&markBad ($drop);
+	$self->markBad ($drop);
 	return;
     }
     
     # Flush it
-    return if ! &flushQueue ($drop, $data);
-    &relayDrop ($drop);
-    &logmsg ("stats: $drop @{[&formatElapsedTime()]} success");
+    return if ! $self->flushQueue ($drop, $data);
+    $self->relayDrop ($drop);
+    &logmsg ("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
 }
-
-######################################################################
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-main' && scalar @ARGV > 1)
-    { shift (@ARGV); $maindir = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-in' && scalar @ARGV > 1)
-    { shift (@ARGV); $dropdir = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
-    { shift (@ARGV); push(@nextdir, shift(@ARGV)); }
-    elsif ($ARGV[0] eq '-dryrun')
-    { shift (@ARGV); $dryrun = 1; }
-    elsif ($ARGV[0] eq '-remove')
-    { shift (@ARGV); $clean = 1; }
-    elsif ($ARGV[0] eq '-store' && scalar @ARGV > 1)
-    { shift (@ARGV); $output = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
-    { shift (@ARGV); $stagehost = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
-    { shift (@ARGV); $stagepool = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-rfcp' && scalar @ARGV > 1)
-    { shift (@ARGV); $nrfcp = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $waittime = shift(@ARGV); }
-    else
-    { last; }
-}
-	
-if (scalar @ARGV || !$maindir || !$dropdir || !$stagehost || !$stagepool
-    || ($dryrun && $clean))
-{
-    print STDERR
-	"usage: $me -main MAIN-DROP-BOX -in IN-DROP-BOX\n",
-	"    { [-dryrun] | [-remove] [-store RFIO-OUTPUT-PATH] }\n",
-	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n",
-	"    [-out NEXT-DROP-BOX] [-wait SECS-TO-WAIT]\n",
-	"    [-rfcp N-PARALLEL-DOWNLOADS]\n";
-    exit (1);
-}
-
-$ENV{STAGE_HOST} = $stagehost;
-$ENV{STAGE_POOL} = $stagepool;
-&process();

@@ -23,25 +23,71 @@ BEGIN { use strict; $^W = 1; }
 $me = $0; $me =~ s|.*/||;
 $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
 unshift(@INC, $home);
-use File::Path;
-use UtilsReaders;
-use UtilsAgent;
 
-use vars qw($me $home $dropdir @nextdir $inbox $workdir $outdir $stopflag $pidfile
-	    $waittime %bad %junk @startTime);
-$waittime = 7;			# Seconds to sleep between meta set queries
-my $dbname = undef;		# Database name
-my $mynode = undef;		# My node name
-my $version = 2;		# TMDB version
+######################################################################
+my %args = (VERSION => 2);
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-version' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{VERSION} = shift(@ARGV); }
+    else
+    { last; }
+}
+	
+if (scalar @ARGV || !$args{DROPDIR}
+    || ($args{VERSION} ne 1 && $args{VERSION} ne 2)
+    || ($args{VERSION} eq 2 && !$args{MYNODE}))
+{
+    print STDERR
+	"usage: $me [-db DB-TNS-NAME] -node NODE-NAME\n",
+	"    -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
+	"    [-version 1/2] [-wait SECS-TO-WAIT]\n";
+    exit (1);
+}
+
+(new DropTMDBPublisher (%args))->process();
 
 ######################################################################
 # Routines specific to this agent.
+package DropTMDBPublisher;
+use strict;
+use Exporter;
+use File::Path;
+use UtilsReaders;
+use UtilsAgent;
+use base 'UtilsAgent';
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBNAME => undef,	# Database name
+	    	  DBUSER => "CMS_TRANSFERMGMT_WRITER",
+		  DBPASS => "threeBagsFULL",
+    		  MYNODE => undef,	# My node name
+	  	  VERSION => 2);	# TMDB version
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
 
 # Update TMDB for each file mentioned in the checksum files, using the
 # information from the catalog data.
 sub updateTransferDatabase
 {
-    my ($drop, $catalog, @files) = @_;
+    my ($self, $drop, $catalog, @files) = @_;
 
     # Build lfn-to-guid mapping table
     my %lfn2guid = ();
@@ -51,7 +97,7 @@ sub updateTransferDatabase
         if (exists $lfn2guid{$lfn})
 	{
             &alert ("multiple guids for lfn $lfn in $drop");
-            &markBad ($drop);
+            $self->markBad ($drop);
             return 1;
         }
 	$lfn2guid{$lfn} = $guid;
@@ -64,21 +110,20 @@ sub updateTransferDatabase
 	if (! exists $lfn2guid{$lfn})
 	{
 	    &alert ("catalog does not know lfn $lfn in $drop");
-	    &markBad ($drop);
+	    $self->markBad ($drop);
 	    return 1;
         }
     }
 
+    my $dbh;
     eval
     {
         # Update database
-        my $dbh;
-        if ($dbname)
+        if ($self->{DBNAME})
 	{
 	    eval "use DBI"; die $@ if $@; # Allow testing without DBI
-	    $dbh = DBI->connect ("DBI:Oracle:$dbname",
-				 "CMS_TRANSFERMGMT_WRITER",
-				 "threeBagsFULL",
+	    $dbh = DBI->connect ("DBI:Oracle:$self->{DBNAME}",
+		    		 $self->{DBUSER}, $self->{DBPASS},
 				 { RaiseError => 1, AutoCommit => 1 });
 	}
 
@@ -98,15 +143,15 @@ sub updateTransferDatabase
 			keys %{$catalog->{$guid}{META}});
 
 	    my @cmds;
-	    if ($version == 1) {
+	    if ($self->{VERSION} == 1) {
 		@cmds = ("insert into cms_transfermgmt.filesfortransfer "
 		         ."(guid, castor_filename, entry_time, checksum,"
 		         ." filesize, allocated_to_t1s, filegroup) values "
 		         ."('$guid', '$pfn', @{[time()]}, $checksum,"
 		         ." $size, '1', '$group')");
-	    } elsif ($version == 2) {
+	    } elsif ($self->{VERSION} == 2) {
 		@cmds = ("insert into cms_transfermgmt.t_files_for_transfer "
-			 ."(guid, source_node, allocated) values ('$guid', '$mynode', 0)",
+			 ."(guid, source_node, allocated) values ('$guid', '$self->{MYNODE}', 0)",
 	       		 map { "insert into cms_transfermgmt.t_replica_metadata "
 		     		."(guid, key, value) values ('$guid', '$_', '$meta{$_}')" }
 		 	 sort keys %meta);
@@ -114,7 +159,7 @@ sub updateTransferDatabase
 
 	    foreach my $cmd (@cmds)
 	    {
-		if ($dbname) {
+		if ($self->{DBNAME}) {
 		    $dbh->do ($cmd);
 	        } else {
 		    &logmsg ($cmd);
@@ -122,7 +167,7 @@ sub updateTransferDatabase
 	    }
 	}
 
-	$dbh->disconnect if $dbname;
+	$dbh->disconnect if $dbh;
     };
 
     if ($@)
@@ -133,79 +178,49 @@ sub updateTransferDatabase
 	    $dbh->rollback;
 	    $dbh->disconnect;
 	}
-	&markBad ($drop);
+	$self->markBad ($drop);
 	return 1;
     }
 
-    &touch("$workdir/$drop/done");
+    &touch("$self->{WORKDIR}/$drop/done");
     return 0;
 }
 
 # Actually process the drop.
 sub processDrop
 {
-    my ($drop) = @_;
+    my ($self, $drop) = @_;
 
     # Sanity checking
-    return if (! &inspectDrop ($drop));
-    delete $bad{$drop};
-    &timeStart();
+    return if (! $self->inspectDrop ($drop));
+    delete $self->{BAD}{$drop};
+    &timeStart($self->{STARTTIME});
 
     # Find and read the catalogue and the checksum data
-    my $xmlcat = (<$workdir/$drop/XMLCatFragment.*.{xml,txt}>)[0];
-    my $cksum = (<$workdir/$drop/CheckSum.*.txt>)[0];
+    my $dropdir = "$self->{WORKDIR}/$drop";
+    my $xmlcat = (<$dropdir/XMLCatFragment.*.{xml,txt}>)[0];
+    my $cksum = (<$dropdir/CheckSum.*.txt>)[0];
     if (! defined $xmlcat)
     {
 	&alert ("no xml catalogue in $drop");
-	&markBad ($drop);
+	$self->markBad ($drop);
 	return;
     }
     if (! defined $cksum)
     {
 	&alert ("no checksum in $drop");
-	&markBad ($drop);
+	$self->markBad ($drop);
 	return;
     }
 
     my $catalog = eval { &readXMLCatalog ($drop, $xmlcat) };
-    do { &alert($@); &markBad ($drop); return } if $@;
+    do { &alert($@); $self->markBad ($drop); return } if $@;
 
     my @checksums = eval { &readChecksumData ($drop, $cksum) };
-    do { &alert($@); &markBad ($drop); return } if $@;
+    do { &alert($@); $self->markBad ($drop); return } if $@;
 
     # OK, insert information to the database.
-    return if &updateTransferDatabase ($drop, $catalog, @checksums);
-    &relayDrop ($drop);
-    &logmsg("stats: $drop @{[&formatElapsedTime()]} success");
+    return if $self->updateTransferDatabase ($drop, $catalog, @checksums);
+    $self->relayDrop ($drop);
+    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
 }
-
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $dbname = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
-    { shift (@ARGV); $mynode = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-in' && scalar @ARGV > 1)
-    { shift (@ARGV); $dropdir = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@nextdir, shift(@ARGV)); }
-    elsif ($ARGV[0] eq '-version' && scalar @ARGV > 1)
-    { shift (@ARGV); $version = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $waittime = shift(@ARGV); }
-    else
-    { last; }
-}
-
-if (scalar @ARGV || !$dropdir
-    || ($version ne 1 && $version ne 2)
-    || ($version eq 2 && !$mynode))
-{
-    print STDERR
-	"usage: $me [-db DB-TNS-NAME] -node NODE-NAME\n",
-	"    -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
-	"    [-version 1/2] [-wait SECS-TO-WAIT]\n";
-    exit (1);
-}
-
-&process();
