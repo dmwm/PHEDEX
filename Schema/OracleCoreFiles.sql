@@ -11,11 +11,16 @@ drop table t_file_attributes;
 ----------------------------------------------------------------------
 -- Create new tables
 
+-- FIXME: index organised?
+-- FIXME: partitioned?
+-- FIXME: index attributes?
+
 create table t_files
   (guid			char (36)	not null,
-   source_node		varchar (20)	not null,
+   node			varchar (20)	not null,
    filesize		integer		not null,
-   checksum		integer);
+   checksum		integer,
+   timestamp		float		not null);
 
 create table t_file_attributes
   (guid			char (36)	not null,
