@@ -105,6 +105,7 @@ sub new
     	    	  MAXFILES => 50,		# Max number of files in one request
 		  PFN_CACHE => {},		# GUID -> PFN cache
 		  GUID_CACHE => {},		# PFN -> GUID cache
+		  DB_CACHE => {},		# Cache of DB state
 		  NSLS_CACHE => {});		# Cache for nsls (file pool) lookups
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
@@ -419,20 +420,38 @@ sub idle
 	# Update file status.  First mark everything not staged in,
 	# then as staged-in the files currently in stager catalogue.
 	my $now = time();
-	&dbexec($dbh,qq{
-	    update t_replica_state
-	    set state = 0, time_stamp = :now
-	    where node = :node and state = 1},
-	    ":node" => $self->{MYNODE}, ":now" => $now);
+	my $dbcache = $self->{DB_CACHE};
+	if (($dbcache->{VALIDITY} || 0) < $now)
+	{
+	    $dbcache->{VALIDITY} = $now + 4*3600;
+	    $dbcache->{FILES} = {};
+	    &dbexec($dbh,qq{
+	        update t_replica_state
+	        set state = 0, time_stamp = :now
+	        where node = :node and state = 1},
+	        ":node" => $self->{MYNODE}, ":now" => $now);
+	}
+
 	my $stmt = $dbh->prepare(qq{
 	    update t_replica_state
-	    set state = 1, time_stamp = :now
+	    set state = :state, time_stamp = :now
 	    where guid = :guid and node = :node});
-	foreach my $f (grep (defined $_->{GUID} && $_->{STATUS} eq 'STAGED',
-			     values %$files))
+	foreach my $f (values %$files)
 	{
-	    &dbbindexec ($stmt, ":now" => $now, ":guid" => $f->{GUID},
-		         ":node" => $self->{MYNODE});
+	    next if ! defined $f->{GUID};
+	    my $isstaged = $f->{STATUS} eq 'STAGED';
+	    if ($isstaged && ! $dbcache->{FILES}{$f->{GUID}})
+	    {
+		$dbcache->{FILES}{$f->{GUID}} = 1;
+		&dbbindexec ($stmt, ":now" => $now, ":node" => $self->{MYNODE},
+			     ":guid" => $f->{GUID}, ":state" => 1);
+	    }
+	    elsif (! $isstaged && $dbcache->{FILES}{$f->{GUID}})
+	    {
+		delete $dbcache->{FILES}{$f->{GUID}};
+		&dbbindexec ($stmt, ":now" => $now, ":node" => $self->{MYNODE},
+			     ":guid" => $f->{GUID}, ":state" => 0);
+	    }
 	}
 	$dbh->commit();
 	$timing{DATABASE} = &mytimeofday();
