@@ -58,8 +58,6 @@ while(!(-e "$g_work_dir/stop")) {
 
     &refresh_neighbour_links;
 
-    &clear_my_table;
-    
     if (@new_routes = &get_new_routes) { 
 	log_entry( "Found new routes" ); 
 	foreach $route (@new_routes) { log_entry( $route ); }
