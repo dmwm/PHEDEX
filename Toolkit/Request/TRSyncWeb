@@ -99,6 +99,7 @@ foreach my $request (@ARGV)
     # Then add new info
     &dbexec ($dbh, qq{insert into t_request values (:req)}, %args);
     foreach my $op (@cmds) {
+	print ("t_request_operation\n");
 	&dbexec ($dbh, qq{
 	    insert into t_request_operation
 	    (request_name, time_stamp, operation, identity)
@@ -108,6 +109,7 @@ foreach my $request (@ARGV)
     }
 
     foreach my $op (@locs) {
+	print ("t_request_subscription\n");
 	&dbexec ($dbh, qq{
 	    insert into t_request_subscription
 	    (request_name, time_stamp, operation, destination)
@@ -117,6 +119,7 @@ foreach my $request (@ARGV)
     }
 
     foreach my $op (@data) {
+	print ("t_request_data\n");
 	&dbexec ($dbh, qq{
 	    insert into t_request_data
 	    (request_name, time_stamp, operation, selection)
@@ -126,6 +129,7 @@ foreach my $request (@ARGV)
     }
 
     foreach my $drop (@drops) {
+	print ("t_request_drop\n");
 	&dbexec ($dbh, qq{
 	    insert into t_request_drop
 	    (request_name, drop_name, drop_category)
@@ -135,6 +139,7 @@ foreach my $request (@ARGV)
 	    ":drop_cat" => $drop->{DROP_CATEGORY});
 
     	foreach my $file (@{$drop->{FILES}}) {
+	    print ("t_request_file\n");
 	    &dbexec ($dbh, qq{
 		insert into t_request_file
 		(request_name, guid, drop_name)
@@ -143,6 +148,7 @@ foreach my $request (@ARGV)
 		":guid" => $file->{GUID},
 		":drop_name" => $drop->{DROPNAME});
 
+	    print ("t_request_file_status\n");
 	    &dbexec ($dbh, qq{
 		insert into t_request_file_status
 		(request_name, guid, location,
