@@ -622,9 +622,11 @@ the LRC at CERN periodically. As the difficulties with the MCat
 increased GMCat was stopped as the system no longer reponded in a
 useful timescale.
 
-However, SRB had been used successfully by CMS production for a year
-beforehand.  In addition, LCG-2 resources were not available at
-several T1s. More critically still, for RAL and IN2P3 SRB represented
+The poor performance of SRB came as a suprise as prior to DC04 it had been used 
+successfully by CMS production for data management throughout the pre-production.
+SRB was seen as a valid component of the DC04 system, especially as 
+LCG-2 resources were not available at several T1s. 
+More critically still, for RAL and IN2P3 SRB represented
 the only mechanism available for placing files in mass storage with
 consistent catalogue information in an automated manner.
 
@@ -647,8 +649,9 @@ While transfer speeds from T0-T1 were respectable (fig. \ref{fig:RAL-files})
  the initial entry of the file onto the export buffer was
 particularily troublsome.  Much of these problems were caused by the
 strategy chosen when writing the agent, based on the knowledge we had
-before DC04. Sput is particularily efficient with large files and so
-was chosen as the tool to enter data into the export buffer.
+before DC04. Pre-DC04 planning indicated that files would be of the order of 1GB insize,
+therefore Sput was chosen as the tool to enter data into the export buffer
+as it is particularily efficient with large files.
 
 During DC04 the file sizes were orders of magnitude smaller than
 expected. Had this small filesize been aparent before the data
