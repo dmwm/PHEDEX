@@ -12,8 +12,8 @@
 
 $count = $ARGV[0];
 $node = $ARGV[1];
-$db=$ARGS[2];
-$user=$ARGS[3];
+$db=$ARGV[2];
+$user=$ARGV[3];
 $pass=$ARGV[4];
 $pwd = $ENV{PWD};
 @sql = ();
