@@ -1,12 +1,8 @@
 use TextGlob 'glob_to_regex';
 use UtilsWriters;
 use UtilsReaders;
-use UtilsNet;
-
-# Ugly hacks, readXMLCatalog does markBad!
 use UtilsCommand;
-use UtilsLogging;
-sub markBad {}
+use UtilsNet;
 
 sub usage
 {
