@@ -1,0 +1,78 @@
+Grid 2005 paper
+
+Forming a production datagrid from simple, collaborative components
+
+Introduction
+Context
+CMS has made important steps toward a functioning datagrid to distribute its experimental and simulated data by developing a robust data management layer. It has a simple twofold goal: to manage the prioritized transfer of files from a source to multiple sinks; and to provide answers to questions of transfer latency and speed at a range of granularities. It was developed to meet a perceived need within the computing model to manage both "traditional" HEP data distribution- large scale scheduled transfers between major sites- and more recent Grid data distribution, which focuses more on point-to-point transfers and access-optimization.
+
+The data management layer- named PhEDEx, for Physics Experiment Data Export- is composed of a series of agents, which in the current version are robust, persistent, stateful processes. These agents share information about replica and transfer state through a blackboard architecture. The blackboard also hosts some higher-level information about network routing, site subscriptions and other management data.
+
+In contrast to existing Grid structures PhEDEx accommodates a not-completely connected distribution network- for example the tiered, hierarchical structure common to many HEP experiments. Existing Grid tools have tended to view the structure as completely connected, and all transfers as simply single file point-to-point. A better approximation to the HEP environment is a somewhat static core infrastructure in which transfers are continuous and directed, rather than optimized. This core infrastructure is intended to store multiple secure tape copies of invaluable experimental data within a certain time of generation, and relies on highly robust and available services. Such services are only available at the experimental centre, and at around 10 large, geographically distributed regional centres.
+
+Around this core infrastructure exists a dynamic infrastructure of sites that associate with regional centres. These smaller sites typically make resources available on something close to a best-effort basis- the extreme being a physicists laptop. These resources are intended for rapidly changing analysis tasks, typically with much fewer resources (storage and bandwidth). This dynamic environment is more ideally suited to management by a traditional datagrid that optimizes the storage and availability of data, and is driven by end-user analysis tasks.
+
+The key problem is the seamless blending of very high priority, continuous large-scale data transfers between highly available resources with smaller scale, lower priority transfers between smaller sites for analysis or reanalysis, and therefore make the infrastructure manageable by a small number of people. The data management layer needs to do this in an environment in which even the relatively static, stable core infrastructure is considered unreliable- and must therefore handle failover and retry of transfers to a given destination, or even reallocation of high-priority transfers to other resources based on collaboration policy. The data management layer should provide sufficient functionality to allow a person or process to specify some group of files and a number of destinations, and then have the layer manage the efficient replication of data from wherever it currently resides to those destinations.
+
+By devising a system in this manner, we meet the immediate needs of HEP experiments- which are typically the traditional large-scale directed transfers- by plugging in a simple replica management algorithm that takes subscriptions to datasets and manages transfers as they become possible, without having a manager oversee the entire transfer process. We also make it possible to add to this simple replica management a more sophisticated optimizing replica manager as the system matures.
+
+Overall use cases for a data management layer in HEP
+In HEP there are two broad use cases for a data management layer: "push" and "stream" (or "pull"). Push represents the transfer of invaluable raw experimental data from the detector to tape store at regional centres. In this sense, the collaboration chooses which regional centres store which data, and pushes the data onto them
+
+The streaming use case represents another on-going process instigated by either a regional centre, or a relatively stable smaller site. In this case, the site can subscribe to a given dataset; as files are created- wherever they are created in the infrastructure- they need to be transferred to the subscribing site. Similarly, these sites must make the data they create available for streaming to other sites. The pull use case is a subset of stream, and represents a small-scale one shot operation, in which say a single physicist is interested in some part of a dataset, and wishes to transfer it either to his University or even his laptop. In this case the end user would just connect his laptop to the data management layer, specify the data required, wait for the data management layer to transfer the necessary files and then remove the laptop from the layer.
+
+Note that the names of these use cases are not intended to describe low-level transfer activity. In all cases we implement point to point transfers as third party- although in the majority of cases they are instigated by an agent running near the destination rather than the source.
+
+The simplest requirements placed on the system is that it is required to be manageable at a high level by an individual, and that low level deployment and support take close to zero effort. To meet these requirements we devised an architecture based on quite simple, focused, robust processes that were able to handle failover and retry of transfers automatically, and which could collaborate to solve the problem of transferring data over multiple hops to multiple destinations.
+
+Current architecture/ system
+Introduction
+Large number of components, some standards... System architecture, assumptions etc. The core element of the data management system is a node- a logical entity to which persistent processes named agents are associated. Typical examples might be a regional centre's transfer node, with agents to, for example, manage transfers from the centre's neighbours to the centre's disk buffers; or a mass storage node with an agent to manage the clustering of requests from other nodes for files for transfer.
+
+SRM is an acronym denoting the Storage Resource Management interface, which provides generic access to any storage resource. Superficially SRM provides a defined two step interaction through which a file can be obtained from any storage medium for which the user has a Storage URL (SURL), which contains the hostname of the medium. During an SRM transaction the client presents an SRM server with the SURL, is is returned a Transport URL (TURL) which indicates the current (possibly temporary) location of the file and a transport protocol that can be used to access it. Varieties of SRM ...
+
+Catalogues: role is to map some global replica set identifer to some local identifer that can be used to access the file (SURL).  Point: do we need this functionality (currently yes, for POOL).
+
+Tools: globus-url-copy, srmcp, dccp, various site local tape management commands (typically SRM does not give us the granularity of management we need- e.g. need to KNOW that files are safe on tape, so we need to bypass SRM and use local knowledge ...
+
+System design
+Overall PhEDEx architectural principles: keep local information local, allow as much local management of files as possible (note issue with deletes etc that means still need  string relationship with local managers, and good consistency checking), don't create servers that aren't necessary, don't distribute (global) information that you need to query rapidly/ continuously, keep complex functionality in discrete chunks (only pass minimal information as messages). Deployment the same on regional centre or laptop, take ~0.0FTE to manage once set up.
+
+Scales by # of files in transfer. Leverages data chunking at higher level -- but doesn't require a chunk to exist anywhere in entirety.  Robust, internet-like design, no one part can bring entire transfer network down.  Maintains abstractions at different layers.  Should be able to saturate any hardware (network, storage) thrown at it.  Operates completely asynchronously from other data management systems, production, worker nodes, ...
+
+Layers/modules:
+1. Unreliable point-to-point file transfer: globus-url-copy, srmcp, ...
+2. Reliable point-to-point (= single-hop) transfer, local resource management
+3. Reliable routed (= multi-hop) transfer
+4. Dataset/chunk-level data transfer
+4.a. Allocate files to destinations, back-up routing etc.
+4.b. Monitor transfers at chunk level, notify site on progress
+4.c .Activate/deactivate chunks
+5. Placing files into transfer
+5.a. Production link: harvest files from completed jobs
+5.b. Bulk transfer requests: pick transfer assignments
+
+Overview of transfer operations- workflow (predelete, transfer, verify, postdelete) defined as local/internal state transitions. Global state transitions effectively messages passed between components- mark block wanted, stage, publish local SURL, transfer, migrate ... Error handling techniques (look at Phoenix, btw!), how to monitor errors, behaviour etc. Note also need to talk about how files get into data management, how we make requests for transfers ...
+
+The blackboard space that agents use to exchange messages/state information was envisaged as a database schema. This database schema tracks the list of files currently of interest to the data management system, useful metadata concerning the nodes in the system (names, routing information) and high level subscription information (which sites subscribe to which datasets, and which files are currently allocated to which specific node). It also tracks the current state of point to point transfers, and maintains an RLI like structure that maps global replica set identifiers to nodes in the distribution network.
+
+Agents are based around an agent toolkit, which wraps much of the low level functionality in common to all the agents- for example, handling database connections in a robust manner, processing job queues etc. An explicit decision was made at the start of the project to wrap core message passing/ database access in a toolkit rather than to provide services that overlay the databases. The advantage of making agent code simpler through the deployment of services to handle chunks of complex functionality was deemed lower priority than the minimisation of maintenance and support effort required to maintain a performant service- especially when robust services to handle database interactions (e.g. Oracle and MySQL both provide services to allow remote database interaction- to a large extent there is no need to create a new service over the top, however thin). This approach was taken in interactions with both the TMDB and, where possible, local File Catalogues.
+
+Development, deployment and operations
+Experience: summary of number of sites, types of components, bandwidth available, storage available... deployment and access to catalogues.
+
+Development (mostly) as perl scripts that call other transfer tools. 
+
+Summary of actual transfer experience- typical speeds, typical issues that get in the way etc (local deployment of research components like SRM, dCache, tools that create zero size files and not overwrite etc ...)
+
+Evaluation of future architectures, necessary improvements to the system
+Explicit handling of "priority" at various granularities: what does priority mean, why do we need it, moving to priority based replica management (straightforward extension of simple scheduling/subscription replica management).
+
+Queueing: filling trucks with parcels headed toward the same destination... simple attempts at this.
+
+Peer to peer: what does it mean in this case; would it be useful? How close are we to this already? What information is global, which is local? What information might we accept a cost for/ sliding cost based on need?
+
+Optimizing replica management? Coupling to workload management systems/ computational grids?
+
+Conclusions
+
