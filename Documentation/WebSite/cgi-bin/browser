@@ -526,6 +526,7 @@ sub agents {
     my @states = qw(pending received work completed bad outgoing);
     my %states = ();
     my %age = ();
+    my %live = ();
     foreach my $row (@{$dbh->selectall_arrayref(qq{
 				select
 				  update_stamp,
@@ -533,12 +534,15 @@ sub agents {
 				  host,
 				  agent,
 				  worker,
+				  pid,
+				  live,
 				  state,
 				  value
 				from t_info_drop_status})})
     {
-	my ($stamp, $site, $host, $agent, $worker, $state, $value) = @$row;
+	my ($stamp, $site, $host, $agent, $worker, $pid, $live, $state, $value) = @$row;
 	$age{$site}{$host} = $stamp;
+	$live{$site}{$host}{$agent}{$worker} = { PID => $pid, LIVE => $live };
 	$info{$site}{$host}{$agent}{$worker}{$state} = $value;
 	$states{$state} = 1 if ! grep ($_ eq $state, @states);
     }
@@ -550,6 +554,7 @@ sub agents {
 	  "<th>Host</th>",
 	  "<th>Agent</th>",
 	  "<th>Worker</th>",
+	  "<th>Process</th>",
 	  (map { "<th>$_</th>" } @states, sort keys %states),
 	  "</tr>\n";
 
@@ -561,12 +566,16 @@ sub agents {
 	    {
 		foreach my $worker (sort keys %{$info{$site}{$host}{$agent}})
 		{
+		    my $pid = $live{$site}{$host}{$agent}{$worker}{PID};
+		    my $live = $live{$site}{$host}{$agent}{$worker}{LIVE};
+		    my $pidcolor = $live ? "" : " bgcolor='$warncolor'";
 		    print "<tr>",
 			  "<td>", &age($now - $age{$site}{$host}), "</td>",
 			  "<td>$site</td>",
 			  "<td>$host</td>",
 			  "<td>$agent</td>",
-			  "<td>$worker</td>";
+			  "<td>$worker</td>",
+			  "<td$pidcolor>$pid</td>";
 		    foreach my $state (@states, sort keys %states)
 		    {
 			my $value = $info{$site}{$host}{$agent}{$worker}{$state};
