@@ -173,10 +173,10 @@ sub tapeMountLoad
 sub getCatalogue
 {
     my ($dbh, $mynode) = @_;
-    return (&dbexec($dbh, qq{
+    return &dbexec($dbh, qq{
 	select catalogue_contact, host_string
 	from t_nodes where node_name = :node},
-	":node" => $mynode))[0]->fetchrow_arrayref();
+	":node" => $mynode)->fetchrow_arrayref();
 }
 
 # Purge old entries from our caches.
@@ -213,14 +213,13 @@ sub getPendingFiles
     	select guid, local_time_stamp from t_replica_state
 	where node = :node and local_state = 10},
 	":node" => $self->{MYNODE});
-    while (my $row = $stmt->fetchrow_arrayref())
+    while (my ($guid, $time) = $stmt->fetchrow())
     {
-	my ($guid, $time) = @$row;
-	if (my $cache = $self->{PFN_CACHE}{$guid})
+	my $cache = $self->{PFN_CACHE}{$guid};
+	if ($cache && $cache =~ /^\d+:(.+)/)
 	{
 	    # Known in cache.  Just push into result.
-	    my ($cachetime, $pfn) = ($cache =~ /^(\d+):(.*)/);
-	    push (@$result, [ $guid, $pfn, $time ]);
+	    push (@$result, [ $guid, $1, $time ]);
 	}
 	else
 	{
@@ -241,7 +240,7 @@ sub getPendingFiles
         {
 	    my $pfn = $pfns->{$guid};
 	    $pfn =~ s/$prefix// if defined $pfn;
-	    $self->{PFN_CACHE}{$guid} = "@{[time()]}:$pfn";
+	    $self->{PFN_CACHE}{$guid} = "@{[time()]}:@{[$pfn || '']}";
 	    $self->{GUID_CACHE}{$pfn} = "@{[time()]}:$guid" if defined $pfn;
 	    push (@$result, [ $guid, $pfn, $unknown{$guid} ]);
         }
@@ -266,11 +265,11 @@ sub getStagerFiles
     foreach my $pfn (keys %$files)
     {
 	my $status = $files->{$pfn};
-	if (my $cache = $self->{GUID_CACHE}{$pfn})
+	my $cache = $self->{GUID_CACHE}{$pfn};
+	if ($cache && $cache =~ /^\d+:(.+)/)
 	{
 	    # Known in cache.  Just push into result.
-	    my ($cachetime, $guid) = ($cache =~ /^(\d+):(.*)/);
-	    push (@$result, [ $guid, $pfn, $status ]);
+	    push (@$result, [ $guid, $1, $status ]);
 	}
 	else
 	{
@@ -291,7 +290,7 @@ sub getStagerFiles
         {
 	    my $guid = $guids->{$prefix.$pfn};
 	    $self->{PFN_CACHE}{$guid} = "@{[time()]}:$pfn" if defined $guid;
-	    $self->{GUID_CACHE}{$pfn} = "@{[time()]}:$guid";
+	    $self->{GUID_CACHE}{$pfn} = "@{[time()]}:@{[$guid || '']}";
 	    push (@$result, [ $guid, $pfn, $files->{$pfn} ]);
         }
     }
