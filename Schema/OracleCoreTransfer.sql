@@ -19,7 +19,9 @@ create table t_replica_state
    guid			char (36)	not null,
    node			varchar (20)	not null,
    state		integer		not null,
-   state_timestamp	float		not null);
+   state_timestamp	float		not null)
+  partition by list (node)
+  (partition tp_replica_state_global values ('GLOBAL'));
 
 create table t_transfer_state
   (timestamp		float		not null,
@@ -30,7 +32,9 @@ create table t_transfer_state
    from_node		varchar (20)	not null,
    from_state		integer		not null,
    from_timestamp	float		not null,
-   from_pfn		varchar (500));
+   from_pfn		varchar (500))
+  partition by list (to_node)
+  (partition tp_transfer_state_global values ('GLOBAL'));
 
 create table t_transfer_completed
   (timestamp		float		not null,
