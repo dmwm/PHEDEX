@@ -1,0 +1,153 @@
+#!/usr/bin/env perl
+
+BEGIN { use strict; use warnings;
+  my $me = $0; $me =~ s|.*/||;
+  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+  unshift(@INC, "$home/../Toolkit/Common"); }
+use UtilsDB;
+use UtilsTR;
+use UtilsNet;
+use UtilsReaders;
+use TextGlob 'glob_to_regex';
+use UtilsLogging;
+
+my $mode = undef;
+my %args = (DBITYPE => "Oracle", DETAILS => 0);
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+	&usage();
+    } elsif ($ARGV[0] eq '-details') {
+	shift (@ARGV); $args{DETAILS} = 1;
+    } elsif ($ARGV[0] eq '--') {
+	shift (@ARGV); last;
+    } elsif ($ARGV[0] =~ '^-') {
+	&usage ("$0: unrecognised option $ARGV[0]\n\n");
+    } else {
+	last;
+    }
+}
+
+$TextGlob::strict_wildcard_slash = 0;
+$args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
+
+# Get all current datasets
+my @current = &fetchPublishedData();
+my $stmtcache = {};
+foreach my $item (@current)
+{
+    my $token = "$item->{OWNER}/$item->{DATASET}";
+    next if (@ARGV && !grep($token =~ $_, @{$args{PATS}}));
+    print "processing $token\n";
+    next if ! $args{DETAILS};
+
+    # Get the full data
+    eval { &fillDatasetInfo ($item); };
+    do { &warn ($@); next; } if $@;
+    my $runs = $item->{RUNS};
+    my @dsfiles = map { @{$_->{FILES}} } @$runs;
+
+    # Evaluate dataset information
+    my $events = 0; map { $events += $_->{EVTS} } @$runs;
+    print " Id         = @{[$item->{ID} || '(new)']}\n";
+    print " Owner      = $item->{OWNER}\n";
+    print " Dataset    = $item->{DATASET}\n";
+    print " Datatype   = $item->{DSINFO}{InputProdStepType}\n";
+    print " InputOwner = $item->{DSINFO}{InputOwnerName}\n";
+    print " PUDataset  = $item->{DSINFO}{PUDatasetName}\n";
+    print " PUOwner    = $item->{DSINFO}{PUOwnerName}\n";
+    print " Runs       = @{[scalar @$runs]}\n";
+    print " Files      = @{[scalar @dsfiles]}\n";
+    print " Events     = $events\n";
+    print " Sites      = @{$item->{SITES}}\n";
+}
+
+exit 0;
+
+# Get published datasets page contents
+sub fetchPublishedData
+{
+    # Fetch the page
+    my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/PubDB/"
+	    		."GetPublishedCollectionInfoFromRefDB.php");
+    die "no published data\n" if ! $data;
+    die "bad published data\n" if $data !~ /<TITLE>Publication Information/;
+
+    # Break it into bits
+    my @items = ();
+    my $item;
+    foreach my $row (split("\n", $data))
+    {
+	if ($row =~ /<\/?TR[\s>]/) {
+	    $item = undef;
+	} elsif (! $item && $row =~ /<A HREF=.*dataset-discovery.php\?.*DSPattern=(.*)&OwPattern=(.*)'/) {
+	    if (! ($item = (grep($_->{DATASET} eq $1 && $_->{OWNER} eq $2, @items))[0]))
+	    {
+		push (@items, $item = { DATASET => $1, OWNER => $2 });
+	    }
+	} elsif ($item && $row =~ /<A HREF="Maintainer:[^>]*>([^<]*)</) {
+	    $item->{SITES}{$1} = 1;
+	}
+    }
+
+    return @items;
+}
+
+# Get dataset information
+sub fetchDatasetInfo
+{
+    my ($object) = @_;
+    my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/data/"
+	    		."AnaInfo.php?DatasetName=$object->{DATASET}&"
+			."OwnerName=$object->{OWNER}");
+    die "no run data for $object->{OWNER}/$object->{DATASET}\n" if ! $data;
+    die "bad run data for $object->{OWNER}/$object->{DATASET}\n" if $data =~ /ERROR.*SELECT.*FROM/s;
+    foreach my $row (split("\n", $data))
+    {
+	if ($row =~ /^(\S+)=(.*)/) {
+	    $object->{DSINFO}{$1} = $2;
+	}
+    }
+}
+
+# Fetch information about all the jobs of a dataset
+sub fetchRunInfo
+{
+    my ($object) = @_;
+    my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/data/"
+	    		."GetJobSplit.php?DatasetName=$object->{DATASET}&"
+			."OwnerName=$object->{OWNER}");
+    die "no run data for $object->{OWNER}/$object->{DATASET}\n" if ! $data;
+    die "bad run data for $object->{OWNER}/$object->{DATASET}\n" if $data =~ /ERROR.*SELECT.*FROM/s;
+    my ($junk, @rows) = split("\n", $data);
+    foreach my $row (@rows)
+    {
+	my ($run, $evts, $xmlfrag, @rest) = split(/\s+/, $row);
+	my $label = "$object->{OWNER}/$object->{DATASET}/$run";
+	my $runobj = { ID => $run, EVTS => $evts, XML => undef, FILES => [] };
+	push (@{$object->{RUNS}}, $runobj);
+	if ($xmlfrag eq '0') {
+	    &warn ("$label: no xml cragment\n");
+	} else {
+	    # Grab XML fragment
+	    open (XMLEXP, "echo '$xmlfrag'"
+			  . " | perl -MMIME::Base64 -ne 'binmode(STDOUT); print decode_base64(\$_)'"
+			  . " | gzip -dc |")
+	        or die "$label: cannot expand xml fragment: $!\n";
+	    $runobj->{XML} = join("", grep(!/^\d+a$/ && !/^\.$/, <XMLEXP>));
+	    close (XMLEXP) or die "$label: failed to read xml fragment: $!\n";
+
+	    # Parse XML into per-file data
+	    eval { $runobj->{FILES} = &parseXMLCatalogue ($runobj->{XML}) };
+	    &warn ("$label: $@") if $@;
+	}
+    }
+}
+
+# Fill dataset with information for it
+sub fillDatasetInfo
+{
+    my ($object) = @_;
+    &fetchDatasetInfo ($object);
+    &fetchRunInfo ($object);
+}
