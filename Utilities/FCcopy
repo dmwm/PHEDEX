@@ -219,18 +219,11 @@ sub init
     $self->{LQUERY} = &dbprep($dbh, qq{select guid, lfname from t_lfn});
     $self->{PQUERY} = &dbprep($dbh, qq{
 	select filetype, pfname
-	from t_pfn where guid = :guid});
+	from t_pfn where guid = ?});
     $self->{MQUERY} = &dbprep($dbh, qq{
-	select "Content",
-	       "DBoid",
-	       "DataType",
-	       "FileCategory",
-	       "Flags",
-	       "dataset",
-	       "jobid",
-	       "owner",
-	       "runid"
-	from t_meta where guid = :guid});
+	select Content, DBoid, DataType, FileCategory, Flags,
+	       dataset, jobid, owner, runid
+	from t_meta where guid = ?});
 }
 
 sub read
@@ -240,12 +233,12 @@ sub read
     return undef if ! defined $guid;
 
     my $file = { GUID => $guid, PFNS => [], LFNS => [ $lfn ], META => {} };
-    &dbbindexec ($self->{PQUERY}, ":guid" => $guid);
+    &dbbindexec ($self->{PQUERY}, 1 => $guid);
     while (my ($type, $pfn) = $self->{PQUERY}->fetchrow()) {
 	push(@{$file->{PFNS}}, { PFN => $pfn, TYPE => $type });
     }
 
-    &dbbindexec ($self->{MQUERY}, ":guid" => $guid);
+    &dbbindexec ($self->{MQUERY}, 1 => $guid);
     while (my $attrs = $self->{MQUERY}->fetchrow_hashref()) {
 	$file->{META} = $attrs;
     }
@@ -285,13 +278,12 @@ sub init
         if $contact !~ /^mysql:([^:]+):([^:]+):([^:]+)$/;
     my $args = { DBITYPE => "mysql", DBNAME => $1, DBUSER => $2, DBPASS => $3 };
     my $dbh = $self->{DBH} = &connectToDatabase ($args, 0) or die "failed to connect to $contact";
-    $self->{LINS} = &dbprep($dbh, qq{insert into t_lfn (guid, lfname) values (:guid, :lfn)});
-    $self->{PINS} = &dbprep($dbh, qq{insert into t_pfn (guid, filetype, pfname) values (:guid, :type, :pfn)});
+    $self->{LINS} = &dbprep($dbh, qq{insert into t_lfn (guid, lfname) values (?, ?)});
+    $self->{PINS} = &dbprep($dbh, qq{insert into t_pfn (guid, filetype, pfname) values (?, ?, ?)});
     $self->{MINS} = &dbprep($dbh, qq{
-	insert into t_meta ("Content", "DBoid", "DataType", "FileCategory",
-	       "Flags", "dataset", "jobid", "owner", "runid")
-	   values (:Content, :DBoid, :DataType, :FileCategory,
-	           :Flags, :dataset, :jobid, :owner, :runid)});
+	insert into t_meta (guid, Content, DBoid, DataType, FileCategory,
+	       Flags, dataset, jobid, owner, runid)
+	   values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
 }
 
 sub finish
@@ -309,19 +301,22 @@ sub write
     foreach my $pfn (@{$file->{PFNS}})
     {
         &dbbindexec ($self->{PINS},
-		     ":guid" => $file->{GUID},
-		     ":type" => $pfn->{TYPE},
-		     ":pfn" => $pfn->{PFN});
+		     1 => $file->{GUID},
+		     2 => $pfn->{TYPE},
+		     3 => $pfn->{PFN});
     }
 
     foreach my $lfn (@{$file->{LFNS}})
     {
-        &dbbindexec ($self->{LINS}, ":guid" => $file->{GUID}, ":lfn" => $lfn);
+        &dbbindexec ($self->{LINS}, 1 => $file->{GUID}, 2 => $lfn);
     }
 
     my $meta = $file->{META};
-    &dbbindexec ($self->{MINS}, ":guid" => $file->{GUID},
-	         map { ":" . $_ => $meta->{$_} } sort keys %$meta);
+    my %keys = ("Content" => 2, "DBoid" => 3, "DataType" => 4,
+	        "FileCategory" => 5, "Flags" => 6, "dataset" => 7,
+		"jobid" => 8, "owner" => 9, "runid" => 10);
+    &dbbindexec ($self->{MINS}, 1 => $file->{GUID},
+	         map { $keys{$_} => $meta->{$_} } keys %$meta);
 
     $self->{DBH}->commit();
 }
