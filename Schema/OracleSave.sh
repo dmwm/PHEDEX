@@ -17,18 +17,25 @@ fi
 
 connect="$1"
 
-# Rename them
-for object in constraint:constraints index:indexes table:tables; do
-  objname=$(echo $object | sed 's/:.*//')
-  objtable=$(echo $object | sed 's/.*://')
-  (echo "set lines 1000;";
-   echo "set pages 0;";
-   echo "select ${objname}_name from user_$objtable;") |
-   sqlplus -S "$connect" |
-   awk '/^T_[A-Z0-9_]+/ {print $1} {}' |
-   while read name; do
-      newname="$(echo "$name" | sed 's/^T_/T_OLD_/')"
-      echo "rename $objname $name to $newname;"
-   done |
-   sqlplus -S "$connect"
-done
+scan_objects() {
+  (echo "set lines 1000;"; echo "set pages 0;"; echo ${1+"$@"}) |
+  sqlplus -S "$connect" |
+  awk '/^(T|SEQ|IX|FK|PK|UQ)_[A-Z0-9_]+/ {print $1, $2} {}'
+}
+
+# Rename tables and sequences
+scan_objects "select table_name from user_tables;" |
+  while read name; do echo "rename $name to X$name;"; done |
+  sqlplus -S "$connect"
+
+scan_objects "select sequence_name from user_sequences;" |
+  while read name; do echo "rename $name to X$name;"; done |
+  sqlplus -S "$connect"
+
+scan_objects "select constraint_name, table_name from user_constraints;" |
+  while read name tab; do echo "alter table $tab rename constraint $name to X$name;"; done |
+  sqlplus -S "$connect"
+
+scan_objects "select index_name from user_indexes;" |
+  while read name; do echo "alter index $name rename to X$name;"; done |
+  sqlplus -S "$connect"
