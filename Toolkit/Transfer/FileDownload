@@ -31,8 +31,7 @@ $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
 unshift(@INC, $home);
 
 ######################################################################
-my %args = (WORKERPROG => "$home/FileDownloadSlave", NWORKERS => 1,
-	    DBITYPE => "Oracle");
+my %args = (DBITYPE => "Oracle");
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
@@ -46,42 +45,44 @@ while (scalar @ARGV)
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
 
-    elsif ($ARGV[0] eq '-pfndest' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{PFNSCRIPT} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-wanted' && scalar @ARGV > 1)
     { shift (@ARGV); $args{WANT_LIMIT} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-worker' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{WORKERPROG} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-pass' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@{$args{WORKERARGS}},
-		    	   map { s/\\,/,/g; $_ }
-			   split (/(?<!\\),/, shift(@ARGV))); }
+    elsif ($ARGV[0] eq '-jobs' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{NJOBS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-backend' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{BACKEND_TYPE} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-workers' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{NWORKERS} = shift(@ARGV); }
+
+    elsif ($ARGV[0] eq '-pfndest' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{PFNSCRIPT} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-batch-files' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{BATCH_FILES} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-batch-size' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{BATCH_SIZE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-command' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{COMMAND}}, split (/,/, shift(@ARGV))); }
     else
     { last; }
 }
-	
-if ($args{WANT_LIMIT} && $args{WANT_LIMIT} =~ /^(\d+)([kMGT])$/)
-{
-    my %scale = ('k' => 1024, 'M' => 1024**2, 'G' => 1024**3, 'T' => 1024**4);
-    $args{WANT_LIMIT} = $1 * $scale{$2};
-}
+
+$args{WANT_LIMIT} = &sizeValue ($args{WANT_LIMIT}) if $args{WANT_LIMIT};
+$args{BATCH_SIZE} = &sizeValue ($args{BATCH_SIZE}) if $args{BATCH_SIZE};
 
 if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
     || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE}
-    || !$args{WANT_LIMIT} || !$args{PFNSCRIPT} || !$args{NWORKERS})
+    || !$args{WANT_LIMIT} || !$args{PFNSCRIPT} || !$args{NJOBS}
+    || !$args{BACKEND_TYPE})
 {
     print STDERR
-	"usage: $me -state IN-DROP-BOX\n",
+	"usage: $me -state IN-DROP-BOX -backend BACKEND-TYPE\n",
 	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
 	"    -node NODE-NAME -pfndest PROGRAM -wanted SIZE[kMGT]\n",
-	"    [-worker WORKER-PROGRAM] [-pass OPTIONS,TO,WORKER]\n",
-	"    [-wait SECS-TO-WAIT] [-workers NUM-WORKERS]\n";
+	"    [-batch-files N-FILES-LIMIT] [-batch-size SIZE-LIMIT[kMGT]]\n",
+	"    [-command COPY-COMMAND[,ARGS]] [-jobs NUM-PARALLEL-PROCESSES]\n",
+	"    [-wait SECS-TO-WAIT]\n";
     exit (1);
 }
 
@@ -89,6 +90,17 @@ my $agent = new FileDownload (%args);
 # Recapture interrupt signal, oracle swallows it.
 $SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
 $agent->process ();
+
+sub sizeValue
+{
+    my ($value) = @_;
+    if ($value =~ /^(\d+)([kMGT])$/)
+    {
+        my %scale = ('k' => 1024, 'M' => 1024**2, 'G' => 1024**3, 'T' => 1024**4);
+        $value = $1 * $scale{$2};
+    }
+    return $value;
+}
 
 ######################################################################
 # Routines specific to this agent.
@@ -100,6 +112,7 @@ use UtilsLogging;
 use UtilsTiming;
 use UtilsCatalogue;
 use UtilsDB;
+use POSIX;
 
 sub new
 {
@@ -111,203 +124,215 @@ sub new
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
 	  	  MYNODE => undef,		# My TMDB node name
-		  PFNSCRIPT => undef,		# Program to determine destination path
 		  WANT_LIMIT => undef,		# Amount of data to prefetch
-		  WORKERPROG => undef,		# Custom slave worker program
-		  WORKERARGS => [],		# Custom options to workers
+		  BACKEND => undef,		# Backend type
+		  NJOBS => 1,			# Max number of parallel processes
+		  JOBS => [],			# Pending jobs
+		  LAST_RESET => 0,		# Last time we reset bad transfers
 	  	  AGENTID => "Download");	# Identity for activity logs
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    $self->{BACKEND} = eval "use UtilsDownload$args{BACKEND_TYPE}; new UtilsDownload$args{BACKEND_TYPE}(\@_)";
+    die "Failed to create backend: $@\n" if $@;
     bless $self, $class;
     return $self;
 }
 
-# Start a worker
-sub startWorker
+######################################################################
+# JOB MANAGEMENT TOOLS
+#
+# Add a new command to the job list.  The command will only be started
+# if the current limit of available job slots is not exceeded; otherwise
+# the job simply gets added to the list of processes to start later on.
+# If the command list is empty, the job represents a delayed action to
+# be invoked on the next "pumpJobs".
+sub addJob
 {
-    my ($self, $i) = @_;
-    my $workerdir = "$self->{DROPDIR}/worker-$i";
-    &mkpath ($workerdir) if ! -d $workerdir;
+    my ($self, $action, $jobargs, @cmd) = @_;
+    my $job = { PID => 0, ACTION => $action, CMD => [ @cmd ], %{$jobargs || {}} };
+    my $jobs = $self->{JOBS};
+    push (@$jobs, $job);
 
+    $self->startJob($job)
+        if (scalar @cmd && scalar (grep ($_->{PID} > 0, @$jobs)) < $self->{NJOBS});
+}
+
+# Actually fork and execute a subcommand.  Updates the job object to
+# have the process id of the subprocess.  Internal helper routine.
+sub startJob
+{
+    my ($self, $job) = @_;
     my $pid = undef;
     while (1)
     {
-	last if defined ($pid = fork ());
-        &logmsg ("cannot fork: $!; trying again in 10 seconds");
-	sleep (10);
+        last if defined ($pid = fork ());
+        print STDERR "cannot fork: $!; trying again in 5 seconds\n";
+        sleep (5);
     }
 
-    # Return child pid in parent;
-    return $pid if $pid;
+    if ($pid)
+    {
+	# Parent, record this child process
+	$job->{PID} = $pid;
+    }
+    else
+    {
+	# Child, execute the requested program
+        exec { $job->{CMD}[0] } @{$job->{CMD}};
+        die "Cannot start @{$job->{CMD}}: $!\n";
+    }
+}
 
-    # Child.
-    my @args = ($self->{WORKERPROG},
-		"-in", $workerdir, "-out", $self->{DROPDIR}, "-wait", "7",
-		@{$self->{WORKERARGS}});
+# Find out which subprocesses have finished and collect them to a list
+# returned to the caller.  Finished jobs are removed from JOBS list.
+# Internal helper routine.
+sub checkJobs
+{
+    my ($self) = @_;
+    my @pending = ();
+    my @finished = ();
+    foreach my $job (@{$self->{JOBS}})
+    {
+	my $status;
+	if (! scalar @{$job->{CMD}}) {
+	    # Delayed action callback, no job associated with this one
+	    push (@finished, $job);
+	} elsif ($job->{PID} > 0 && ($status = waitpid ($job->{PID}, WNOHANG)) > 0) {
+	    # Command finished executing, save exit code and mark finished
+	    $job->{STATUS} = $? / 256;
+	    push (@finished, $job);
+	} else {
+	    # Still pending
+	    push(@pending, $job);
+	}
+    }
 
-    exec { $args[0] } @args;
-    die "Cannot start worker: $!\n";
+    $self->{JOBS} = \@pending;
+    return @finished;
+}
+
+# Invoke actions on completed subprocesses and start new jobs if there
+# are free slots.  Invoke this every once in a while to keep processes
+# going.
+sub pumpJobs
+{
+    my ($self) = @_;
+    
+    # Invoke actions on completed jobs
+    foreach my $job ($self->checkJobs())
+    {
+	&{$job->{ACTION}} ($job);
+    }
+
+    # Start new jobs if possible
+    my $jobs = $self->{JOBS};
+    foreach my $job (@$jobs)
+    {
+	last if grep ($_->{PID} > 0, @$jobs) >= $self->{NJOBS};
+	$self->startJob ($job) if scalar @{$job->{CMD}};
+    }
 }
 
 ######################################################################
-# A slave has finished with a transfer.  Complete the job by logging
-# the status into the database, and if the transfer was successful,
-# update the file state also.  Returns non-zero if the drop status
-# for successfully entered into the database and the drop can be
-# disposed.
-sub completeOne
+# FILE TRANSFER MANAGEMENT
+#
+# Remove from the database all existing transfers we are not
+# aware of.  This may occur if we are stopped and restarted
+# forcefully when there were pending transfers.  We assume
+# we are the only live transfer agent for this node, so if
+# we don't know about it, it's stale and can be removed.
+# Same with previously failed transfers, revert them all back.
+sub resetPendingTransfers
 {
-    my ($self, $drop, $report) = @_;
-
-    # Dig out the report.  If transfer failed, send the file to state
-    # 100+ (state-100 minutes to cool off).  (FIXME: save original
-    # time stamp for final reversion to state=0/1?) Also log the error
-    # message to our output.
-    my $guid = $report->{GUID};
-    my $from_node = $report->{FROM_NODE};
-    my $to_node = $report->{TO_NODE};
+    my ($self, $dbh) = @_;
+    my $mynode = $self->{MYNODE};
     my $now = time();
-    my $to_state = 3;
-    my $dbh = undef;
-    if ($report->{FAILURE})
-    {
-	&logmsg ("failed to transfer $guid: $report->{FAILURE}");
-	$to_state = 101 + int(rand(10)); # 1..10 min cool-off
-    }
-
-    eval
-    {
-	$dbh = &connectToDatabase ($self, 0);
-	$dbh->do (qq{
-	  update t_transfer_state
-	  set to_state = $to_state, to_time_stamp = $now
-	  where guid = '$guid'
-	    and to_node = '$to_node'
-	    and from_node = '$from_node'});
-
-	$dbh->do (qq{
-	  insert into t_replica_state values
-	  ('$guid', '$to_node', $now, 0, $now, 0, $now)})
-	    if ! $report->{FAILURE};
-
-	$dbh->commit ();
-    };
-
-    if ($@)
-    {
-	&alert ("failed to update $guid transferred: $@");
-	$dbh->rollback() if $dbh;
-	return 0;
-    }
-
-    # Disconnect from the database
-    $dbh->disconnect if $dbh;
-    undef $dbh;
-
-    # Mark drop done so it will be nuked
-    &touch ("$self->{WORKDIR}/$drop/done");
-
-    # Log transfer delay stats
-    $now = &mytimeofday ();
-    my $dalloc = $now - $report->{TIME_ALLOC};
-    my $dtransfer = $now - $report->{TIME_START};
-    &logmsg ("xstats: $guid $to_node $to_state "
-	     . sprintf('%.2f %.2f', $dalloc, $dtransfer));
-
-    return 1;
+    $dbh->do(qq{
+	    update t_transfer_state
+	    set to_state = 1, to_time_stamp = $now
+	    where to_node = '$mynode'
+	      and (to_state = 2 or to_state >= 100)});
 }
 
-# Actually process a drop.  Note that the only way we end up here is
-# when a slave has finished with a file transfer and transfers it to
-# our inbox.  Collect the transfer status and update the database to
-# reflect the state.  Note that the slaves never mark drops bad, they
-# just update the state information in the drop appropriately.  We
-# only mark drops bad only if the drop itself is corrupted; normally
-# we just flag transfers failed in the database and try again later.
-# There is no downstream drop box agent, so the drops are destroyed
-# once we've successfully entered the information into the database.
-sub processDrop
+# Record completion for the transfer.  Mark files either transferred
+# or send them to cool-off failure state.
+sub completeTransferBatch
 {
-    my ($self, $drop, $left) = @_;
-
-    # Sanity checking
-    return if (! $self->inspectDrop ($drop));
-    delete $self->{BAD}{$drop};
-    &timeStart($self->{STARTTIME});
-
-    # Read back the state
-    my $report = do { no strict "vars"; eval &input ("$self->{WORKDIR}/$drop/packet") };
-    if ($@ || ! $report || ! $report->{GUID})
+    my ($self, $batch) = @_;
+    my $dbh = eval { &connectToDatabase ($self, 0) };
+    if ($@)
     {
-	&alert ("corrupt packet in $drop");
-	$self->markBad ($drop);
+	&alert ("failed to update transfer batch status,"
+		. " trying again later, error was: $@");
+	$self->addJob (new sub { $self->completeTransferBatch($batch) });
 	return;
     }
 
-    # Update database
-    return if ! $self->completeOne ($drop, $report);
+    # Have a connection to the database, now update status for all files
+    eval
+    {
+        foreach my $file (@$batch)
+        {
+	    my $now = time();
+	    my $to_state = 3;
+	    my $guid = $file->{GUID};
+	    my $to_node = $file->{TO_NODE};
+	    my $from_node = $file->{FROM_NODE};
+	    if ($file->{FAILURE})
+	    {
+	         &logmsg ("failed to transfer $guid: $file->{FAILURE}");
+	         $to_state = 101 + int(rand(10)); # 1..10 min cool-off
+	    }
 
-    # OK, got far enough to nuke and log it
-    $self->relayDrop ($drop);
-    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
+            $dbh->do (qq{
+              update t_transfer_state
+              set to_state = $to_state, to_time_stamp = $now
+              where guid = '$guid'
+                and to_node = '$to_node'
+                and from_node = '$from_node'});
+
+            $dbh->do (qq{
+              insert into t_replica_state values
+              ('$guid', '$to_node', $now, 0, $now, 0, $now)})
+                if ! $file->{FAILURE};
+
+	    # Log transfer delay stats
+	    $now = &mytimeofday ();
+	    my $dalloc = $now - $file->{TIME_ALLOC};
+	    my $dtransfer = $now - $file->{TIME_START};
+	    &logmsg ("xstats: $guid $to_node $to_state "
+		     . sprintf('%.2f %.2f', $dalloc, $dtransfer));
+        }
+        $dbh->commit ();
+    };
+
+    # If we failed to update status, something's gone terribly bad,
+    # just skip these files, we will re-transfer them later again.
+    if ($@)
+    {
+        &alert ("failed to update transfer batch status: $@");
+        $dbh->rollback() if $dbh;
+    }
+
+    $dbh->disconnect();
+    undef $dbh;
 }
 
-######################################################################
 # Begin transferring a file.  Fetches the file information and creates
 # a new drop for the file in a worker.  If the drop is successfully
 # created, marks the file in transfer in the database and returns
 # non-zero.  Otherwise returns non-zero to indicate another attempt
 # should be made at a later time to initiate the transfer.
-sub startOne
+sub startFileTransfer
 {
-    my ($self, $dbh,
-	$guid, $timestamp, $from_node, $from_catalogue, $from_host,
-	$to_catalogue, $attrs) = @_;
+    my ($self, $dbh, $info) = @_;
+    my ($guid, $timestamp, $from_node, $from_catalogue, $from_host,
+	$to_catalogue, $attrs) = @$info;
 
-    # Get the PFN for the GUID and map it to destination PFN.
-    # (FIXME: Can we not get these from TMDB?)
-    my $from_pfn = &guidToPFN ($guid, $from_catalogue, $from_host);
-    do { &alert ("failed to look up pfn for $guid"); return 0; } if ! $from_pfn;
-
-    my $from_lfn = &guidToLFN ($guid, $from_catalogue);
-    do { &alert ("failed to look up lfn for $guid"); return 0; } if ! $from_lfn;
-
-    my $pfnargs = join(" ",
-		   "guid=$guid", "pfn=$from_pfn", "lfn=$from_lfn",
-		   map { "$_=$attrs->{$_}" } sort keys %$attrs);
-    my $to_pfn = qx($self->{PFNSCRIPT} $pfnargs); chomp ($to_pfn);
-    do { &alert ("no destination pfn for $guid"); return 0; } if ! $to_pfn;
-
-    # Find an idle worker
-    my $now = time();
-    my $worker = $self->pickWorker();
-
-    # Create a pending drop in the inbox of the selected worker
-    my $slavein = "$self->{DROPDIR}/worker-$worker/inbox/$guid";
-    do { &alert ("$slavein already exists"); return 0; } if -d $slavein;
-    my $transfer = { GUID		=> $guid,
-		     TIME_ALLOC		=> $timestamp,
-		     TIME_START		=> &mytimeofday(),
-		     FROM_NODE		=> $from_node,
-		     FROM_PFN		=> $from_pfn,
-		     FROM_LFN		=> $from_lfn,
-		     FROM_CATALOGUE	=> $from_catalogue,
-		     FROM_HOST		=> $from_host,
-		     TO_NODE		=> $self->{MYNODE},
-		     TO_PFN		=> $to_pfn,
-		     TO_LFN		=> $from_lfn,
-		     TO_CATALOGUE	=> $to_catalogue,
-		     ATTRS		=> $attrs };
-
-    do { &alert ("failed to create transfer packet for $guid"); &rmtree ($slavein); return 0; }
-	if (! &mkpath ($slavein)
-	    || ! &output ("$slavein/packet", Dumper ($transfer))
-	    || ! &touch ("$slavein/go.pending"));
-
-    # Mark the transfer started in the database.  Delete drop and
-    # retry later on failure.
+    # Mark the transfer started in the database.
     eval
     {
+	my $now = time();
 	my $mynode = $self->{MYNODE};
 	$dbh->do (qq{
 	  update t_transfer_state
@@ -321,16 +346,20 @@ sub startOne
     if ($@)
     {
 	&alert ("failed to mark $guid in transfer: $@");
-	&rmtree ($slavein);
 	$dbh->rollback();
-	return 0;
+	return undef;
     }
 
-    # OK, kick it go
-    &warning ("could not kick $worker to start $guid")
-	if ! &mv ("$slavein/go.pending", "$slavein/go");
-
-    return 1;
+    # Return a transfer object.
+    return { GUID		=> $guid,
+	     TIME_ALLOC		=> $timestamp,
+	     TIME_START		=> &mytimeofday(),
+	     FROM_NODE		=> $from_node,
+	     FROM_CATALOGUE	=> $from_catalogue,
+	     FROM_HOST		=> $from_host,
+	     TO_NODE		=> $self->{MYNODE},
+	     TO_CATALOGUE	=> $to_catalogue,
+	     ATTRS		=> $attrs };
 }
 
 # Update wanted status on files in the database.
@@ -427,7 +456,6 @@ sub nextFiles
     my ($self, $dbh, $n) = @_;
 
     # FIXME: sort by filegroup, descending time?
-    # FIXME: also select files that have been in transfer for too long?
     my @result = ();
     eval
     {
@@ -478,36 +506,32 @@ sub idle
     {
         # FIXME: Pick up and process messages to me
 
+	# If there are no pending jobs, make sure database ghosts
+	my $now = time();
+	if (scalar @{$self->{JOBS}} == 0 && $self->{LAST_RESET} < $now - 900)
+	{
+	    $self->resetPendingTransfers($dbh);
+	    $self->{LAST_RESET} = $now;
+        }
+
         # Request some more files
         $self->markFilesWanted ($dbh);
 
-        # Pump more files while there are idle workers.  Keep going
-	# just a little more files than the number of workers to stay
-	# ahead of worker wait times.
-        my @files = ();
-        my $ndone = 0;
-        my $basedir = $self->{DROPDIR};
-	my $maxload = scalar @{$self->{WORKERS}} * 4;
-	my $maxfiles = scalar @{$self->{WORKERS}} * 10;
-        while (scalar @{[<$basedir/worker-*/{inbox,work}/*>]} < $maxload)
-        {
-	    # Guarantee to collect results from slaves quickly enough
-	    last if (++$ndone >= $maxfiles);
+	# Pump more jobs.
+	$self->pumpJobs ();
 
-	    # Get more files if necessary
-	    @files = $self->nextFiles ($dbh, $maxload) if ! @files;
-
-	    # Create a drop for this file
-	    last if ! @files || ! $self->startOne ($dbh, @{shift @files});
-        }
+	# If there's still space in job queue, start new transfers.
+	if (scalar @{$self->{JOBS}} < $self->{NJOBS}) {
+	    $self->{BACKEND}->consumeFiles ($self, $dbh);
+	}
 
         # Disconnect from the database
         $dbh->disconnect if $dbh;
         undef $dbh;
     }
 
-    # Check children are still running and then wait
-    $self->maybeStop ();
-    $self->checkWorkers ();
-    sleep ($self->{WAITTIME});
+    # Keep jobs going while resting a bit.
+    my $target = time() + $self->{WAITTIME};
+    do { $self->maybeStop(); $self->pumpJobs (); select (undef, undef, undef, .1); }
+        while (time() < $target);
 }
