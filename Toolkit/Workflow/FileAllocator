@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/09/03 16:54:22 $
-# $Id: Allocator.pl,v 1.60 2004/09/03 16:54:22 barrass Exp $
+# $Date: 2004/09/03 17:01:24 $
+# $Id: Allocator.pl,v 1.61 2004/09/03 17:01:24 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -169,9 +169,14 @@ sub get_new_guid_list {
 	."t_replica_metadata "
 	."where allocated = 0 "
 	."and t_files_for_transfer.guid = t_replica_metadata.guid "
-	."and attribute = 'POOL_dataset' "
-	."limit 0, 10";
-
+	."and attribute = 'POOL_dataset' ";
+	if ( $g_db =~ /mysql/ ) {
+	    $selection .= "limit 0, $g_max_guids";
+	} elsif ( $g_db =~ /Oracle/ ) {
+	    $select .= "and rownum < $g_max_guids";
+	} else {
+	    log_entry( "Can only get guids from mysql, oracle so far: no known database type in -db option ($g_db)" );
+	}
 
     my %guid_list = ();
     
