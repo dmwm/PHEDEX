@@ -57,15 +57,21 @@ while(!(-e "$g_work_dir/stop")) {
 	refresh_acquaintance( $neighbour );
 
 	my @neighbours_routes = &get_routes_for_node( $neighbour );
-	my @neighbours_routes = &increment_hops( \@neighbours_routes );
+	@neighbours_routes = &increment_hops( \@neighbours_routes );
+	&display_routing_table( \@neighbours_routes );
+	log_entry( "changing gate" );
+	@neighbours_routes = &change_gateway( \@neighbours_routes );
+	&display_routing_table( \@neighbours_routes );
 
-	my @routes_to_update = &get_shared_routes( \@neighbours_routes );
-	my @routes_to_insert = &get_new_routes( \@neighbours_routes );
-	if (@routes_to_insert) { log_entry( "Found new routes" ); &display_routing_table( \@routes_to_insert ); }
-	my @route_to_clean = &get_dead_routes( \@neighbours_routes );
-	if (@routes_to_clean) { log_entry( "Found dead routes" ); &display_routing_table( \@routes_to_clean ); }
+#	my @routes_to_update = &get_shared_routes( \@neighbours_routes );
+#	my @routes_to_insert = &get_new_routes( \@neighbours_routes );
+#	if (@routes_to_insert) { log_entry( "Found new routes" ); &display_routing_table( \@routes_to_insert ); }
+#	my @route_to_clean = &get_dead_routes( \@neighbours_routes );
+#	if (@routes_to_clean) { log_entry( "Found dead routes" ); &display_routing_table( \@routes_to_clean ); }
 
-	
+#	&update_routes( \@routes_to_update );
+#	&insert_routes( \@routes_to_insert );
+#	&clean_routes( \@routes_to_clean );
     }
 }
 
@@ -140,6 +146,47 @@ sub refresh_acquaintance {
     direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
 }
 
+sub update_routes {
+    my $table = shift;
+    foreach $route (@$table) {
+	my $time = time();
+	my ($from, $to, $gate, $time, $hops) = &split_route( $route );
+	my $update = "update t_Routing "
+	    ."set timestamp = $time "
+	    ."where from_node = '$g_parent_node' "
+	    ."and to_node = '$to'"
+	    ."and gateway = '$gate' "
+	    ."and hops = '$hops'";
+	direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
+    }
+}
+
+sub insert_routes {
+    my $table = shift;
+    foreach $route (@$table) {
+        my $time = time();
+        my ($from, $to, $gate, $time, $hops) = &split_route( $route );
+        my $insert = "insert into t_Routing "
+            ."values ('$g_parent_node','$to','$gate','$time','$hops')";
+        log_entry( "$insert" );
+direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $insert );
+    }
+}
+
+sub clean_routes {
+    my $table = shift;
+    foreach $route (@$table) {
+        my $time = time();
+        my ($from, $to, $gate, $time, $hops) = &split_route( $route );
+	my $delete = "delete from t_Routing "
+            ."where from_node = '$g_parent_node' "
+            ."and to_node = '$to'"
+            ."and gateway = '$gate' "
+            ."and hops = '$hops'";
+        direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $delete );
+    }
+}
+
 sub display_routing_table {
     my $table = shift;
     foreach $route (@$table) {
@@ -171,9 +218,11 @@ sub get_new_routes {
 	my ($from, $to, $gate, $time, $hops) = &split_route( $other_route );
 	foreach $my_route (@g_known_routes) {
 	    my ($my_from, $my_to, $my_gate, $my_time, $my_hops) = &split_route( $my_route );
-	    $new_flag = 0 if ($to eq $my_to && $from eq $my_gate && $hops == $my_hops); 
+	    $new_flag = 0 if ($to eq $my_to && $from eq $my_gate && $hops == $my_hops);
 	}
-	push( @new_routes, $other_route ) if ($new_flag == 1 && $to ne $g_parent_node);
+	if ($new_flag == 1 && $to ne $g_parent_node) {
+	    push( @new_routes, $other_route );
+	}
     }
     return @new_routes;
 }
@@ -196,7 +245,24 @@ sub get_dead_routes {
 
 sub split_route {
     my $route = shift;
-    my ($to_node,$gateway,$timestamp,$hops) = split( ":", $route ); 
+    print "sr $route\n";
+    my @bits  = split( ":", $route ); 
+    return @bits;
+}
+
+sub change_gateway {
+    my $table = shift;
+
+    foreach $route (@$table) {
+	print "$route\n";
+        @bits = &split_route( $route );
+	print "@bits\n";
+        $bits[2] = $bits[0];
+        $route = join( ":",@bits );
+	print "$route\n";
+        push( @new_table, $route );
+    }
+    return @new_table;
 }
 
 sub increment_hops {
@@ -204,9 +270,10 @@ sub increment_hops {
     
     foreach $route (@$table) {
 	@bits = &split_route( $route );
-	@bits[4]++;
+	$bits[4]++;
 	$route = join( ":",@bits );
 	push( @new_table, $route );
+	print "hi $route\n";
     }
     return @new_table;
 }
