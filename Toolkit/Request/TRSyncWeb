@@ -92,7 +92,7 @@ foreach my $request (@ARGV)
     # First delete old information about this request
     my %args = (":req" => $request);
     map { &dbexec ($dbh, qq{delete from $_ where request_name = :req}, %args) }
-        qw(t_request_file_status t_request_files t_request_drop
+        qw(t_request_file_status t_request_file t_request_drop
 	   t_request_data t_request_subscription t_request_operation
 	   t_request);
 
