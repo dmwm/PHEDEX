@@ -325,6 +325,16 @@ sub relayDrop
 	    || -d "$self->{NEXTDIR}[0]/inbox"
 	    || return &alert("cannot create $self->{NEXTDIR}[0]/inbox: $!");
 
+	# Make sure the destination doesn't exist yet.  If it does but
+	# looks like a failed copy, nuke it; otherwise complain and give up.
+	if (-d "$self->{NEXTDIR}[0]/inbox/$drop"
+	    && -f "$self->{NEXTDIR}[0]/inbox/$drop/go-pending"
+	    && ! -f "$self->{NEXTDIR}[0]/inbox/$drop/go") {
+	    &rmtree ("$self->{NEXTDIR}[0]/inbox/$drop")
+        } elsif (-d "$self->{NEXTDIR}[0]/inbox/$drop") {
+	    return &alert("$self->{NEXTDIR}[0]/inbox/$drop already exists!");
+	}
+
 	&mv ("$self->{OUTDIR}/$drop", "$self->{NEXTDIR}[0]/inbox/$drop")
 	    || return &alert("failed to copy $drop to $self->{NEXTDIR}[0]/$drop: $!");
 	&touch ("$self->{NEXTDIR}[0]/inbox/$drop/go")
@@ -342,7 +352,7 @@ sub relayDrop
 		next;
 	    }
 
-	    # Local
+	    # Local.  Create destination inbox if necessary.
 	    -d "$dir/inbox"
 	        || mkdir "$dir/inbox"
 	        || -d "$dir/inbox"
