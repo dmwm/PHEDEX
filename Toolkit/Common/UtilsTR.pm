@@ -253,10 +253,6 @@ sub checkAssignmentFiles
     my ($mouth, $tmdb, $table, @dirs) = @_;
     my @pending = map { s|.*/||; $_ } <$mouth/*/{work,inbox}/*>;
 
-    eval "use DBI"; die $@ if $@; # Allow rest to be used without DBI
-    my $dbh = DBI->connect ("DBI:Oracle:$tmdb", "cms_transfermgmt_reader",
-			    "slightlyJaundiced", { RaiseError => 1, AutoCommit => 1 });
-
     # Collect information for all drops first.
     my $result = {};
     foreach my $drop (@dirs)
@@ -283,15 +279,18 @@ sub checkAssignmentFiles
 	    GUIDS => [ @guids ],
 	    PFNS => [ @pfns ]
 	};
-   }
+    }
 
-   # Now check all known pfns
-   my %known;
-   &castorCheck (\%known, map { @{$_->{PFNS}} } values %$result);
+    # Now check all known pfns
+    my %known;
+    &castorCheck (\%known, map { @{$_->{PFNS}} } values %$result);
 
-   # Now fill in the rest of the result
-   foreach my $drop (@dirs)
-   {
+    # Now fill in the rest of the result
+    eval "use DBI"; die $@ if $@; # Allow rest to be used without DBI
+    my $dbh = DBI->connect ("DBI:Oracle:$tmdb", "cms_transfermgmt_reader",
+			    "slightlyJaundiced", { RaiseError => 1, AutoCommit => 1 });
+    foreach my $drop (@dirs)
+    {
 	my @guids = @{$result->{$drop}{GUIDS}};
 	my @pfns = @{$result->{$drop}{PFNS}};
 
