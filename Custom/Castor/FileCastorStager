@@ -219,7 +219,8 @@ sub getPendingFiles
 	if (my $cache = $self->{PFN_CACHE}{$guid})
 	{
 	    # Known in cache.  Just push into result.
-	    push (@$result, [ $guid, $cache->[1], $time ]);
+	    my ($cachetime, $pfn) = ($cache =~ /^(\d+):(.*)/);
+	    push (@$result, [ $guid, $pfn, $time ]);
 	}
 	else
 	{
@@ -240,8 +241,8 @@ sub getPendingFiles
         {
 	    my $pfn = $pfns->{$guid};
 	    $pfn =~ s/$prefix// if defined $pfn;
-	    $self->{PFN_CACHE}{$guid} = [ time(), $pfn ];
-	    $self->{GUID_CACHE}{$pfn} = [ time(), $guid ] if defined $pfn;
+	    $self->{PFN_CACHE}{$guid} = "@{[time()]}:$pfn";
+	    $self->{GUID_CACHE}{$pfn} = "@{[time()]}:$guid" if defined $pfn;
 	    push (@$result, [ $guid, $pfn, $unknown{$guid} ]);
         }
     }
@@ -268,7 +269,8 @@ sub getStagerFiles
 	if (my $cache = $self->{GUID_CACHE}{$pfn})
 	{
 	    # Known in cache.  Just push into result.
-	    push (@$result, [ $cache->[1], $pfn, $status ]);
+	    my ($cachtime, $guid) = ($cache =~ /^(\d+):(.*)/);
+	    push (@$result, [ $guid, $pfn, $status ]);
 	}
 	else
 	{
@@ -288,8 +290,8 @@ sub getStagerFiles
         foreach my $pfn (@items)
         {
 	    my $guid = $guids->{$prefix.$pfn};
-	    $self->{PFN_CACHE}{$guid} = [ time(), $pfn ] if defined $guid;
-	    $self->{GUID_CACHE}{$pfn} = [ time(), $guid ];
+	    $self->{PFN_CACHE}{$guid} = "@{[time()]}:$pfn" if defined $guid;
+	    $self->{GUID_CACHE}{$pfn} = "@{[time()]}:$guid";
 	    push (@$result, [ $guid, $pfn, $files->{$pfn} ]);
         }
     }
