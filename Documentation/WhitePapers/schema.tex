@@ -1,7 +1,7 @@
 \documentclass{cmspaper}
 \def\RCS$#1: #2 ${\expandafter\def\csname RCS#1\endcsname{#2}}
-\RCS$Revision: 1.2 $
-\RCS$Date: 2004/05/27 12:46:29 $
+\RCS$Revision: 1.3 $
+\RCS$Date: 2004/06/17 12:39:08 $
 
 \usepackage{graphicx}
 
@@ -138,10 +138,28 @@
 
 \section{Requirement of sources of data and agents}
 \subsection{Typical agent-transfer management database communication}
-The following discussion doesn't include interactions with the logging
-database, or processes such as agent state publishing and other system
-maintenance tasks.  Instead, it is intended to give a feel for the flow
+The following discussion is intended to give a feel for the flow
 of data through the system.
+
+\subsection{File states in the V2 TMDB}
+Enumeration of file states is simpler in the V2 TMDB, as can be seen on table \ref{table:states}. The five states listed are those essential for the system. In contrast to work during DC04 it is critical that states are not replicated with different meanings between developers. 
+
+[ We need to find some way of agreeing these states before they are used. Table in TMDB? ]
+
+\begin{table}
+\begin{tabular}[tbp]{|c|c|} 
+\hline index & state
+\\ \hline
+	1	& 	available
+\\ 	2	&	in transfer
+\\	3	&	on buffer
+\\	4	&	safe
+\\	90	&	bad
+\\ \hline
+\end{tabular}
+\caption{Enumerated file states in the V2 TMDB.}
+\label{table:states}
+\end{table}
 
 \subsection{Data sources}
 To make data available for distribution:
@@ -214,32 +232,38 @@ function basically as a router) and advertise them accordingly.
 
 This example is for a transfer agent at a node named ``Foo''.
 
-First, search for new files:
+\subsubsection{\textbf{\texttt{search for new files}}}
+First, search for new files (in state 1, ``available''):
 
 {\small\begin{verbatim}
   select guid, is_at_node
   from t_Current_state
   where is_for_node = 'Foo'
-  and state = 'available';
+  and state = 1;
 \end{verbatim}}
 
-which might produce a set of guids {guid1, guid2, guid3 ...} currently at nodes {Bar1, Bar2, Bar3 ...}. The start of transfer of each guid should be marked by posting state- e.g. for guid1 at Bar1 to Foo
+which might produce a set of guids {guid1, guid2, guid3 ...} currently at nodes {Bar1, Bar2, Bar3 ...}. 
+
+\subsubsection{\textbf{\texttt{start transfer}}}
+The start of transfer of each guid should be marked by posting state as ``in transfer'', or state 2- e.g. for guid1 at Bar1 to Foo
 
 {\small\begin{verbatim}
   insert into t_Current_state
-    values (guid1, 'Foo', 'in transfer',
+    values (guid1, 'Foo', 2,
             currenttime, 'Bar1');
 \end{verbatim}}
 
-Transfer the file, then mark as complete by posting state
+\subsubsection{\textbf{\texttt{complete transfer}}}
+Transfer the file, then mark as complete by posting state ``on buffer'' or 3
 
 {\small\begin{verbatim}
   insert into t_Current_state
-    values (guid, 'Foo', `on buffer',
+    values (guid, 'Foo', 3,
             currenttime, 'Bar1');
 \end{verbatim}}
 
-The set of desinations for each guid needs to be determined
+\subsubsection{\textbf{\texttt{determine destinations}}}
+The set of desinations for each guid then needs to be determined
 
 {\small\begin{verbatim}
   select destination
@@ -247,7 +271,10 @@ The set of desinations for each guid needs to be determined
   where guid = guid1;
 \end{verbatim}}
 
-which might, for guid1, produce the set of destination nodes {Dest1, Dest2, ...}. For each destination the appropriate gateway (or next hop in the chain) needs to be determined, e.g. for guid1 going to Dest1
+which might, for guid1, produce the set of destination nodes {Dest1, Dest2, ...}. 
+
+\subsubsection{\textbf{\texttt{determine gateway for destination}}}
+For each destination the appropriate gateway (or next hop in the chain) needs to be determined, e.g. for guid1 going to Dest1
 
 {\small\begin{verbatim}
   select * from
@@ -259,11 +286,14 @@ which might, for guid1, produce the set of destination nodes {Dest1, Dest2, ...}
   where rownum = 1;
 \end{verbatim}}
 
-Which might retutn the gateway Gate1. Finally advertise the newly available file
+Which might retutn the gateway Gate1. 
+
+\subsubsection{\textbf{\texttt{advertise as available}}}
+Finally advertise the newly ``available'' file (i.e. in state 1)
 
 {\small\begin{verbatim}
   insert into t_Current_state
-    values (guid, 'Gate1', ``available'',
+    values (guid, 'Gate1', 1,
             currenttime, 'Foo');
 \end{verbatim}}
 
