@@ -11,7 +11,7 @@
   %\whitepaper 
   \internalnote{2004/XXX} % \cmsnote{2005/000} % \conferencereport{2005/000}
   \date{Revision \RCSRevision, \RCSDate}
-  \title{Software agents in data and workflow management during DC04- post-mortem}
+  \title{Experience with SRB from the 2004 CMS data challenge}
 
   \begin{Authlist}
   \end{Authlist}
@@ -22,7 +22,7 @@
 
   \begin{abstract}
 	This paper discusses the use of SRB (Storage Resource Broker) during the 2004 CMS
-	data challenge. It highlights problems experienced and details lessons that 
+	data challenge. It highlights the problems experienced and details lessons that 
 	have been learnt which apply to more general cases.
   \end{abstract} 
 
@@ -34,11 +34,31 @@
 \setcounter{page}{2}
 
 \section{Introduction}
-During March and April 2004 CMS carried out the first of a series of large scale data challenges, 
+During March and April 2004 CMS carried out the first of a series of large scale data challenges (DC04), 
 essentially a “test beam” of the computing infrastructure. The aim of DC04 was to distribute data 
 to six Tier 1 sites at a rate comparable to 25\% of the start up luminosity of the LHC.
-Of the six Tier 1 sites three used SDSC's SRB software to manage transfer and archiving of the data.
+Of the six Tier 1 sites three (RAL, IN2P3 and FZK) used SDSC's SRB software to manage transfer and 
+archiving of the data.
 ((Diagram of the SRB chain))
+All transfers were controlled by an "Agent" communicating to other agents in the system via a central
+database ((ref Tims paper)). These agents replicated files from Castor MSS at CERN (the T0) through a 
+series of intermediate disk buffers and onto MSS at the appropriate T1. This happened entirely within 
+SRB at two T1's, FZK had no SRB interface to their tape store and so the final step was done using dCache 
+(though still automated via an agent).
+
+\subsection{SRB}
+
+The SRB system is made of three components; a central metadata catalogue (the MCat), a group of storage 
+resources running the SRB server software and client tools used for transferring, modifying and listing data.
+
+The MCat is used to store authentication information, resource details, file location and metadata, 
+and user information. All resources must be registerred in the MCat, which makes combining two or 
+more resources into one logical resource possible. For DC04 the MCat was hosted at RAL on a ((details of 
+the machine here)).
+
+Lightweight server software is installed on machines providing access to storage resources (disk, tape or 
+a combination of both). Data is stored in a unique path so one server can host many replicas of the same file.
+As well as storing the data these servers act as portals to client software to SRB space.
 
 \section{Experience}
 
