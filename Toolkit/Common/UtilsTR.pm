@@ -1,6 +1,12 @@
 use TextGlob 'glob_to_regex';
 use UtilsWriters;
+use UtilsReaders;
 use UtilsNet;
+
+# Ugly hacks, readXMLCatalog does markBad!
+use UtilsCommand;
+use UtilsLogging;
+sub markBad {}
 
 sub usage
 {
@@ -196,8 +202,145 @@ sub listAssignments
 	   grep(/Assignments.*<TD>/, split(/\n/, $everything));
 }
 
-sub checkAssignmentFiles {}
-sub checkDrops {}
+# /drop/box/area should be the directory containing the state
+# directories for the drop box agents, so the script can check
+# which drops are still being processed ("pending")
+#
+# database should be the name of the tmdb oracle database, and
+# table should be the name of the file table (filesfortransfer
+# for v1, t_files_for_transfer for v2).
+#
+# The rest of the arguments are expected to be "drop" directories.
+# This tool reads the XML catalogue fragments from the drops, gets
+# the list of the GUIDs, and compares both with the tmdb database
+# and the drop box area to evaluate the status of the drop.
+#
+# For each drop, a line is printed out with the name of the drop,
+# the number of files found in the catalogue, the number of guids
+# already registered in tmdb, and two flags, "TRANSFERRED" and/or
+# "PENDING".  The former indicates that all the files were found
+# in tmdb, the second indicates there is still a drop in the disk
+# queues.
+sub checkAssignmentFiles
+{
+    my ($mouth, $tmdb, $table, @dirs) = @_;
+    my @pending = map { s|.*/||; $_ } <$mouth/*/{work,inbox}/*>;
+
+    eval "use DBI"; die $@ if $@; # Allow rest to be used without DBI
+    my $dbh = DBI->connect ("DBI:Oracle:$tmdb", "cms_transfermgmt_reader",
+			    "slightlyJaundiced", { RaiseError => 1, AutoCommit => 1 });
+
+    # Check all drops to see which files already exist in TMDB
+    my $result = {};
+    foreach my $drop (@dirs)
+    {
+        # Evaluate drop data
+        my $xml = (<$drop/XMLCatFragment.*.{txt,xml}>)[0];
+        my $smry = (<$drop/Smry.*.txt>)[0];
+        my $pfnroot = (map { split('=', $_) } grep(/^EVDS_OutputPath=/, split(/\n/, &input($smry))))[1];
+        defined $xml or die "no xml catalogue in $drop\n";
+        defined $smry or die "no summary file in $drop\n";
+        defined $pfnroot or die "no pfn root in $drop\n";
+
+        # Get guids and pfns
+        my $cat = &readXMLCatalog ($drop, $xml);
+        my @guids = map { $_->{GUID} } values %$cat;
+        my @pfns = map { @{$_->{PFN}} } values %$cat;
+        @pfns = map { s|^\./|$pfnroot/|; $_; } @pfns;
+        @pfns = map { s|^gsiftp://castorgrid.cern.ch/|/|; $_; } @pfns;
+
+        # Find guids known in tmdb
+        my $indb = 0;
+        my $sql = "select count(guid) from $table where "
+	         . join (' or ', map { "guid='$_'" } @guids);
+        map { $indb += $_->[0] } $dbh->selectrow_arrayref ($sql);
+
+        # Find out which files are in castor
+        my $inmss = scalar (grep (system("rfstat $_ >/dev/null 2>&1") == 0, @pfns));
+
+        # Add results
+        my $dropname = $drop; $dropname =~ s|.*/||;
+	my $nguids = scalar @guids;
+	my $npending = scalar (grep ($_ eq $dropname, @pending));
+	$result->{$drop} = {
+	    DROPNAME => $dropname,
+	    N_FILES => $nguids,
+	    N_TRANSFERRED => $indb,
+	    N_IN_MSS => $inmss,
+	    N_PENDING_TRANSFER => $npending,
+	    IS_PENDING_TRANSFER => $npending != 0,
+	    IS_FULLY_TRANSFERRED => $nguids == $indb,
+	    IS_FULLY_IN_MSS => $nguids == $inmss
+	};
+    }
+}
+
+sub feedDropsToAgents
+{
+    my ($mouth, $type, $status, @drops) = @_;
+    foreach my $drop (@drops)
+    {
+	my $info = $status->{$drop};
+	die "Error: no status for $drop\n" if ! defined $info;
+
+	my $dropname = $info->{DROPNAME};
+
+	# If we find multiple copies, remove replicas and pretend
+	# it's one we found elsewhere (= preferred version).
+	if ($type ne 'Done' && -d "$request/Drops/Done/$dropname")
+	{
+	    print "$type $drop already in Done, removing\n";
+	    (! $doit || &rmtree ($drop));
+	    $type = 'Done';
+	    $drop = "$request/Drops/Done/$dropname";
+        }
+	elsif ($type ne 'NotReady' && -d "$request/Drops/NotReady/$dropname")
+	{
+	    print "$type $drop already in NotReady, removing\n";
+	    (! $doit || &rmtree ($drop));
+	    $type = 'NotReady';
+	    $drop = "$request/Drops/NotReady/$dropname";
+    	}
+
+	# Check if it it's done (and make sure done are still done!)
+	if ($type ne 'Done' && $info->{IS_FULLY_TRANSFERRED})
+	{
+	    print "$type $drop already transferred, marking Done\n";
+	    (! $doit || system ("mv $drop $request/Drops/Done/$dropname"))
+	        or die "Error: $drop: cannot move to Done: $!\n";
+	}
+	elsif ($type ne 'Done' && $info->{IS_PENDING_TRANSFER})
+	{
+	    print "$type $drop already queued, marking Done\n";
+	    (! $doit || system ("mv $drop $request/Drops/Done/$dropname"))
+	        or die "Error: $drop: cannot move to Done: $!\n";
+	}
+	elsif ($type eq 'Done')
+	{
+	    print "$type $drop no longer done, marking Pending again\n";
+	    (! $doit || system ("mv $drop $request/Drops/Pending/$dropname"))
+		or die "Error: $drop: cannot move to Pending: $!\n";
+	    $type = 'Pending';
+	    $drop = "$request/Drops/Pending/$dropname";
+	}
+
+	# Process truly pending drops
+	if ($info->{IS_FULLY_IN_MSS})
+	{
+	    print "$type $drop available, feeding to agents and marking Done\n";
+	    (! $doit || system ("cp -rp $drop $mouth/$dropname"))
+		or die "Error: $drop: cannot copy to $mouth: $!\n";
+	    (! $doit || system ("mv $drop $request/Drops/Done/$dropname"))
+	    	or die "Error: $drop: cannot move to Done: $!\n";
+	}
+	elsif ($type ne 'NotReady')
+	{
+	    print "$type $drop not yet available, marking NotReady\n";
+	    (! $doit || system ("mv $drop $request/Drops/NotReady/$dropname"))
+	    	or die "Error: $drop: cannot move to NotReady: $!\n";
+	}
+    }
+}
 
 1;
 
