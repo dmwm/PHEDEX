@@ -632,7 +632,7 @@ the database service and core dumps.
 The SRB chain comprised an export buffer at the T0 and import buffers
 at RAL, IN2P3 and Karlsruhe T1s. Files were copied from Castor onto
 the export buffer, where they were inserted (Sput) into SRB space. The
-files GUID was then added as additional SRB metadata Tier 1 sites then
+files GUID was then added as additional SRB metadata (SmodD). Tier 1 sites then
 transferred the files to the relevant import buffers and mass storage
 systems, either using Sreplicate or Sget/Sput.
 
@@ -641,7 +641,6 @@ SRB and the other chains by publishing SRB replica information into
 the LRC at CERN periodically. As the difficulties with the MCat
 increased GMCat was stopped as the system no longer reponded in a
 useful timescale.
-
 
 While transfer speeds from T0-T1 were respectable (fig. \ref{fig:RAL-files})
  the initial entry of the file onto the export buffer was
@@ -661,10 +660,14 @@ problems found during the DC, as many components of the CMS grid will
 rely on similar backends (eg Oracle databases) it is essential to
 understand the problems experienced.
 
-The data challenge highlighted issues of the SRB CLI (return codes were not 
-reliable, at times returning 0 despite failure, and some killed transfers continued to 
-run in the background) and many problems can be attributed to using the CLI in
-a high load production environment. The combination of parrallel processes and
+The data challenge highlighted issues of the SRB CLI; return codes were not 
+reliable, at times returning 0 despite failure, some killed transfers continued to 
+run in the background, also the delete command (Srm) was particularily slow and 
+caused problems for sites with small disk servers. It would be fair to say that 
+many of the problems experienced can be attributed to using the CLI in
+a high load production environment, instead of creating bespoke tools. 
+
+The combination of parrallel processes and
 many authentication steps in the CLI tools meant that the load on the MCat was 
 sustained at high levels. Indeed on days of particularily high load the MCat
 had over 200,000 connection requests.This level of load could have been 
@@ -673,7 +676,7 @@ writing our own tools against the API's, however time constraints meant that
 neither were possible.
 
 Even with administration problems, transfers to IN2P3 reached 80 Mbps
-over a period of hours, althoa anugh typically they averaged only 30
+over a period of hours, although typically they averaged only 30
 Mbps over a whole day. The SRB chain was not able to take part in a
 large filesize stress test at the end of DC04; these transfer rates
 are due to small file sizes, and thus compare favourably with other
