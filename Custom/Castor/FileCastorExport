@@ -125,31 +125,32 @@ sub idle
 	# this way download clients can prefer immediately available
 	# files.
 
-	my %args = (":node" => $self->{MYNODE}, ":now" => time());
+	my %args = (":node" => $self->{MYNODE}, ":now" => &mytimeofday());
 
         # Mark staged in files available for transfer.
 	&dbexec($dbh, qq{
-	    update (select ts.from_state, ts.from_time_stamp
+	    update (select ts.from_state, ts.from_timestamp
 	            from t_transfer_state ts
 	            left join t_replica_state rs
 	              on rs.guid = ts.guid and rs.node = ts.from_node
 	            where rs.state = 1
 		      and ts.from_node = :node
-		      and ts.from_state = 0)
-	    set from_state = 1, from_time_stamp = :now},
+		      and ts.from_state = 0
+	      	      and ts.from_pfn is not null)
+	    set from_state = 1, from_timestamp = :now},
 	    %args);
 
         # Mark unavailable files not ready for transfer.
 	&dbexec($dbh, qq{
-	    update (select ts.from_state, ts.from_time_stamp
+	    update (select ts.from_state, ts.from_timestamp
 	            from t_transfer_state ts
 	            left join t_replica_state rs
 	              on rs.guid = ts.guid and rs.node = ts.from_node
-	            where rs.state != 1
-		      and ts.from_node = :node
+	            where ts.from_node = :node
 		      and ts.from_state = 1
-	      	      and ts.to_state < 2)
-	    set from_state = 0, from_time_stamp = :now},
+	              and ts.to_state < 2
+		      and (rs.state != 1 or ts.from_pfn is null))
+	    set from_state = 0, from_timestamp = :now},
 	    %args);
 
 	$dbh->commit();
@@ -160,7 +161,6 @@ sub idle
     $dbh->disconnect() if $dbh;
     undef $dbh;
 
-    # Check children are still running and then wait
-    $self->maybeStop ();
-    sleep ($self->{WAITTIME});
+    # Have a little nap
+    $self->nap ($self->{WAITTIME});
 }
