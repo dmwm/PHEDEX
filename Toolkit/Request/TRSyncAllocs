@@ -54,7 +54,7 @@ foreach my $request (@ARGV)
         } elsif (/^\d+ CANCEL DATA$/) {
 	    @patterns = ();
 	} elsif (/^\d+ DATA XPATS\.[a-z] (.*)$/) {
-	    push(@patterns, map { [ split('.', $_) ] } split(/\s+/, $1));
+	    push(@patterns, split(/\s+/, $1));
 	}
     }
     close (TICKET) or die "Cannot read ticket: $!\n";
@@ -65,7 +65,7 @@ foreach my $request (@ARGV)
 			    { RaiseError => 1, AutoCommit => 0 });
     foreach my $dso (@patterns)
     {
-	my ($ds, $o) = @$dso;
+	my ($ds, $o) = ($dso =~ /(.*)\.(.*)/);
 	foreach my $dest (@destinations)
 	{
             print "Verifying subscription for $ds $dest\n";
@@ -74,7 +74,8 @@ foreach my $request (@ARGV)
 		where destination = '$dest' and stream = '$ds'});
 	    print (qq{insert into t_subscriptions values ('$dest', '$ds')})
 		if ! $exists || ! $exists->[0];
-	    $dbh->commit();
 	}
     }
+    $dbh->commit();
+    $dbh->disconnect();
 }
