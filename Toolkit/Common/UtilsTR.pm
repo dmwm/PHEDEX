@@ -292,13 +292,13 @@ sub checkAssignmentFiles
    # Now fill in the rest of the result
    foreach my $drop (@dirs)
    {
-	my @guids = @{$result->{GUIDS}};
-	my @pfns = @{$result->{PFNS}};
+	my @guids = @{$result->{$drop}{GUIDS}};
+	my @pfns = @{$result->{$drop}{PFNS}};
 
         # Find guids known in tmdb
         my $indb = 0;
         my $sql = "select count(guid) from $table where "
-	         . join (' or ', map { "guid='$_'" } @{$result->{GUIDS}});
+	         . join (' or ', map { "guid='$_'" } @guids);
         map { $indb += $_->[0] } $dbh->selectrow_arrayref ($sql);
 
         # Find out which files are in castor
