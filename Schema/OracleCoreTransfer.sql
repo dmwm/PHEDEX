@@ -19,9 +19,7 @@ create table t_replica_state
    guid			char (36)	not null,
    node			varchar (20)	not null,
    state		integer		not null,
-   state_timestamp	float		not null)
-  partition by list (node)
-  (partition tp_replica_state_global values ('GLOBAL'));
+   state_timestamp	float		not null);
 
 create table t_transfer_state
   (timestamp		float		not null,
@@ -32,9 +30,7 @@ create table t_transfer_state
    from_node		varchar (20)	not null,
    from_state		integer		not null,
    from_timestamp	float		not null,
-   from_pfn		varchar (500))
-  partition by list (to_node)
-  (partition tp_transfer_state_global values ('GLOBAL'));
+   from_pfn		varchar (500));
 
 create table t_transfer_completed
   (timestamp		float		not null,
@@ -127,8 +123,9 @@ create index ix_transfer_state_fromto_state
   tablespace CMS_TRANSFERMGMT_INDX01;
 
 create index ix_transfer_state_fromto_pair
-  on t_transfer_state (guid, from_node, to_node)
+  on t_transfer_state (from_node, to_node)
   tablespace CMS_TRANSFERMGMT_INDX01;
+
 
 create index ix_transfer_completed_fromto
   on t_transfer_completed (from_node, to_node)
