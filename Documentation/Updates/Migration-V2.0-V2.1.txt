@@ -1,3 +1,6 @@
+**********************************************************************
+** TESTBED
+
 * Load schema:
 sqlplus cms_transfermgmt_testbed/phedexedehp@devdb <Schema/OracleCoreTopo.sql
 sqlplus cms_transfermgmt_testbed/phedexedehp@devdb <Schema/OracleCoreFiles.sql
@@ -12,18 +15,11 @@ sqlplus cms_transfermgmt_testbed/phedexedehp@devdb <Schema/OracleReq.sql
 
 * Load initial data:
 insert into t_node values ('PIC_MSS');
-insert into t_node values ('FNAL_MSS');
-insert into t_node values ('INFN_MSS');
 insert into t_node values ('CERN_MSS');
 insert into t_node values ('CERN_Transfer');
 insert into t_node values ('TEST_Transfer');
 insert into t_node values ('TEST_MSS');
 insert into t_node values ('GLOBAL');
-insert into t_node values ('BA_MSS');
-insert into t_node values ('CNAF_MSS');
-insert into t_node values ('FZK_MSS');
-insert into t_node values ('LCGBO_MSS');
-insert into t_node values ('LNL_MSS');
 
 insert into t_node_import values ('CERN_Transfer', 'gsiftp', 1);
 insert into t_node_export values ('CERN_Transfer', 'gsiftp');
@@ -50,3 +46,160 @@ Utilities/DSBDrop -db cms -dbuser cms_transfermgmt -dbpass smalland_round \
 insert into t_subscription
   (select x.value, 'mu03b_DY2mu_Mll2000', 'TEST_MSS' from
    ( select distinct value from t_file_attributes where attribute = 'POOL_owner') x);
+
+**********************************************************************
+** DEVDB
+
+* Save old schema and data
+(cd Schema; ./OracleSave.sh cms_transfermgmt/smalland_round@devdb)
+
+* Load new schema
+(cd Schema; sqlplus cms_transfermgmt/smalland_round@devdb < OracleInit.sql)
+
+* Migrate data
+insert into t_node
+  (select node_name from xt_nodes);
+insert into t_routing
+  (select timestamp, from_node, to_node, gateway, hops
+   from xt_routing where to_node = gateway);
+
+insert into t_file
+  (select rs.time_stamp, f.guid, f.source_node,
+          m1.value || '/' || m2.value, m3.value,
+	  'LFN-TO-FIX', 'TYPE-TO-FIX',
+	  f.filesize, nvl(m4.value, -1)
+   from xt_files_for_transfer f
+   left join xt_replica_state rs
+     on rs.guid = f.guid and rs.node = f.source_node
+   left join xt_replica_metadata m1
+     on m1.guid = f.guid and m1.attribute = 'POOL_owner'
+   left join xt_replica_metadata m2
+     on m2.guid = f.guid and m2.attribute = 'POOL_dataset'
+   left join xt_replica_metadata m3
+     on m3.guid = f.guid and m3.attribute = 'POOL_jobid'
+   left join xt_replica_metadata m4
+     on m4.guid = f.guid and m4.attribute = 'checksum');
+insert into t_file_attributes
+  (select guid, attribute, value
+   from xt_replica_metadata
+   where attribute like 'POOL_%');
+
+alter trigger new_transfer_state disable;
+alter trigger update_transfer_state disable;
+insert into t_destination
+  (select time_stamp, guid, destination_node
+   from xt_destinations);
+insert into t_replica_state
+  (select insert_time_stamp, guid, node, state, time_stamp
+   from xt_replica_state);
+insert into t_transfer_state
+  (select insert_time_stamp, guid,
+  	  to_node, to_state, to_time_stamp,
+  	  from_node, from_state, from_time_stamp,
+          null
+   from xt_transfer_state);
+insert into t_transfer_history
+  (select insert_time_stamp, guid, to_node, null, 0, from_node, null, 0
+   from xt_transfer_state);
+insert into t_transfer_history
+  (select to_time_stamp, guid, to_node, 0, 1, from_node, 0, 0
+   from xt_transfer_state where to_state = 1);
+insert into t_transfer_history
+  (select from_time_stamp, guid, to_node, 1, 1, from_node, 0, 1
+   from xt_transfer_state where from_state = 1);
+insert into t_transfer_history
+  (select to_time_stamp, guid, to_node, 1, 2, from_node, 1, 1
+   from xt_transfer_state where to_state = 2);
+insert into t_transfer_history
+  (select to_time_stamp, guid, to_node, 2, 3, from_node, 1, 1
+   from xt_transfer_state where to_state = 3);
+insert into t_transfer_history
+  (select to_time_stamp, guid, to_node, 2, to_state, from_node, 1, 1
+   from xt_transfer_state where to_state >= 100);
+alter trigger new_transfer_state enable;
+alter trigger update_transfer_state enable;
+
+insert into t_subscription
+  (select m.owner, m.dataset, s.destination
+   from xt_subscriptions s
+   left join (select distinct xm1.value dataset, xm2.value owner
+	      from xt_replica_metadata xm1
+	      left join xt_replica_metadata xm2
+	        on xm2.guid = xm1.guid and xm2.attribute = 'POOL_owner'
+	      where xm1.attribute = 'POOL_dataset') m
+     on m.dataset = s.stream);
+
+* Remove old data
+drop table xt_request_operation;
+drop table xt_request_subscription;
+drop table xt_request_file_status;
+drop table xt_request_file;
+drop table xt_request_drop;
+drop table xt_request_data;
+drop table xt_request;
+
+drop table xt_dsb_dataset_availability;
+drop table xt_dsb_dataset_run_file;
+drop table xt_dsb_dataset_run;
+drop table xt_dsb_dataset;
+drop table xt_dsb_file_attributes;
+drop table xt_dsb_file;
+drop table xt_dsb_fileid;
+
+drop table xt_lookup;
+drop table xt_config_messages;
+drop table xt_agents;
+
+drop table xt_subscriptions;
+drop table xt_destinations;
+
+drop table xt_info_drop_status;
+drop table xt_info_file_size_histogram;
+drop table xt_info_file_size_overview;
+drop table xt_info_replication_details;
+drop table xt_info_replication_overview;
+drop table xt_info_subscriptions;
+drop table xt_info_transfer_rate;
+drop table xt_info_transfer_status;
+
+drop table xt_replica_state;
+drop table xt_transfer_state;
+drop table xt_transfer_history;
+
+drop table xt_replica_metadata;
+drop table xt_files_for_transfer;
+drop table xt_routing;
+drop table xt_nodes;
+
+* Initialise import/export data
+for node in NICPB_Transfer INFN_Bari NCP_Transfer CERN_Transfer \
+            CIEMAT_Transfer TEST_Transfer PIC_Transfer INFN_Transfer \
+            IN2P3_Transfer ASCC_Transfer NCU_Transfer FZK_Transfer; do
+  Utilities/NodeManager add-import-protocol -name $node -protocol gsiftp \
+    -db devdb -dbuser cms_transfermgmt -dbpass smalland_round
+done
+
+for node in RAL_Transfer T1_RAL_Buffer FNAL_Transfer; do
+  Utilities/NodeManager add-import-protocol -name $node -protocol srm,gsiftp \
+    -db devdb -dbuser cms_transfermgmt -dbpass smalland_round
+done
+
+for node in CERN_Transfer; do
+  Utilities/NodeManager add-export-protocol -name $node -protocol gsiftp,srm \
+    -db devdb -dbuser cms_transfermgmt -dbpass smalland_round
+done
+
+* Repopulate DSB, requests
+Utilities/DSBFill -db cms -dbuser cms_transfermgmt -dbpass smalland_round
+Toolkit/Request/TRSyncWeb $PHEDEX_STATE devdb 2004-* 2005-* V2*
+
+* Initialise LFNs from DSB tables
+(echo "set lines 1000;"; echo "set pages 0;";
+ echo "select filename, filetype, guid from t_dsb_fileid left join t_dsb_file on id = fileid;") |
+ sqlplus -S cms_transfermgmt/smalland_round@cms |
+ egrep ' [-0-9A-Fa-f]{30,}$' |
+ while read lfn type guid; do
+   echo "update t_file set lfn='$lfn', filetype='$type' where guid='$guid';"
+   echo "commit;"
+ done |
+ sqlplus -S cms_transfermgmt/smalland_round@devdb
