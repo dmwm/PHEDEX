@@ -14,7 +14,7 @@ sub new
     if ($args{BATCH_FILES}
 	&& $args{BATCH_FILES} > 1)
     {
-	if (! open (GUC, "globus-url-copy -version |")
+	if (! open (GUC, "globus-url-copy -version 2>&1 |")
 	    || grep (/^globus-url-copy:\s*(\d+)(\.\d*)*\s*$/ && $1 < 3, <GUC>))
 	{
 	    &logmsg ("turning off batch transfers, not supported by globus-url-copy");
