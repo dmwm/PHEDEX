@@ -55,8 +55,13 @@ sub expandPatterns
     @patterns = &listDatasetOwners (@patterns);
     return @patterns if $mode eq 'p';
 
-    # FIXME: get assignment info, and walk to InputOwnerName
-    return @patterns;
+    # Walk dataset history
+    my @pats;
+    foreach my $pat (@patterns) {
+	push (@pats, &listDatasetHistory ($pat));
+    }
+
+    return @pats;
 }
 
 # Expand patterns to assignment ids
@@ -185,6 +190,46 @@ sub listDatasetOwners
 	} elsif (/OPTION.*value=["'\''](.*)\(\d+\)["'\'']/) {
 	    $owner = $1;
 	    push (@result, [ $ds, $owner ]) if grep ("$ds.$owner" =~ /$_/, @patterns);
+	}
+    }
+
+    return @result;
+}
+
+# Generate a list of additional dataset.owner patterns for the history.
+sub listDatasetHistory
+{
+    my ($dso) = @_;
+    my ($ds, $o) = @$dso;
+
+    # First get a page that tells us the dataset/owner numbers (ugh)
+    my ($dsn, $on) = (undef, undef);
+    foreach (split(/\n/, &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/"
+	    			  ."SQL/dataset-discovery.php?ProducedOn=&scriptstep=1&"
+				  ."DSPattern=$ds&OwPattern=$o")))
+    {
+	if (/INPUT.*SelDataset\[(\d+)\]/) {
+	    $dsn = $1;
+	} elsif (/OPTION.*value=["'\''].*\((\d+)\)["'\'']/) {
+	    $on = $1;
+        }
+    }
+
+    # Now get the history for this pair
+    my $found = 0;
+    my @result = ();
+    foreach (split(/\n/, &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/"
+	    		   	  ."SQL/dataset-discovery.php?DSPattern=$ds&"
+			   	  ."OwPattern=$o&SelDataset[$dsn]=$ds&SelOwner[$dsn]=$o($on)&"
+			   	  ."OnlyRecent=&ProducedOn=&"
+			   	  ."browse=DSHistory&scriptstep=2")))
+    {
+	if (! $found && /<TD.*>$ds(<|$)/) {
+	    $found = 1;
+	} elsif ($found && /<TD>(\S+)/) {
+	    push (@result, [ $ds, $1 ]);
+	} elsif ($found && /<TR/) {
+	    last;
 	}
     }
 
