@@ -56,8 +56,10 @@ while (scalar @ARGV)
     { last; }
 }
 
-if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE})
+if (scalar @ARGV || !$args{DROPDIR}
+    || !$args{DBNAME} || !$args{DBUSER}
+    || !$args{DBPASS} || !$args{DBITYPE}
+    || !$args{MYNODE})
 {
     print STDERR
 	"usage: $me -node TMDB-NODE\n",
