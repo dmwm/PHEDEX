@@ -34,17 +34,17 @@ alter table t_block
   using index tablespace INDX01;
 
 
-alter table t_block_state
-  add constraint pk_block_state
+alter table t_block_replica
+  add constraint pk_block_replica
   primary key (name, node)
   using index tablespace INDX01;
 
-alter table t_block_state
-  add constraint fk_block_state_name
+alter table t_block_replica
+  add constraint fk_block_replica_name
   foreign key (name) references t_block (name);
 
-alter table t_block_state
-  add constraint fk_block_state_node
+alter table t_block_replica
+  add constraint fk_block_replica_node
   foreign key (node) references t_node (name);
 
 
