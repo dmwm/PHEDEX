@@ -38,6 +38,8 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{DROPDIR}= shift(@ARGV); }
     elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-once')
+    { shift (@ARGV); $args{ONCE} = 1; }
     elsif ($ARGV[0] eq '-dryrun')
     { shift (@ARGV); $args{DRYRUN} = 1; }
     elsif ($ARGV[0] eq '-remove')
@@ -60,7 +62,7 @@ while (scalar @ARGV)
 if (scalar @ARGV || !$args{DROPDIR} || ($args{DRYRUN} && $args{CLEAN}))
 {
     print STDERR
-	"usage: $me -in IN-DROP-BOX\n",
+	"usage: $me -in IN-DROP-BOX [-once]\n",
 	"    [-queue NAME TIME-LIMIT SIZE-LIMIT]...\n",
 	"    { [-dryrun] | [-remove] [-store RFIO-OUTPUT-PATH] }\n",
 	"    [-out NEXT-DROP-BOX] [-wait SECS-TO-WAIT] [-jobs NUM-JOBS]\n";
@@ -88,6 +90,7 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (QUEUECONFS => [],	# Queue configuration
+	    	  ONCE => 0,		# Flag to indicate we should quit when all done
 	    	  DRYRUN => 1,		# Flag to indicate zip creation or logging only
 		  CLEAN  => 0,		# Flag to indicate if we should remove originals
 		  SYNCHRONISE => 0,	# Flag to indicate we should sync queues
@@ -154,6 +157,12 @@ sub assignFile
     my $mytime = (stat("$self->{WORKDIR}/$drop/go"))[9];
     my $now = time();
 
+    # If the queue exists, make sure there's enough space in it.
+    $self->maybeFlushQueue ($self->{QUEUES}{$qname}, 0,
+			    $file->{FILE}{FILESIZE} / (1024*1024))
+	if $self->{QUEUES}{$qname};
+
+    # Assign to the queue.  Create a new queue if necessary.
     &logmsg ("state: start $drop @{[&mytimeofday()]}")
         if ! exists $self->{WAITLIST}{$drop};
     &logmsg("assigning $drop/$guid/$lfn to $qname");
@@ -167,7 +176,7 @@ sub assignFile
 	    PENDING => 0, LABEL => "$qname.$now.$n", LFN => "Zipped$qname.$now.$n",
 	    WORKDIR => "$self->{DROPDIR}/queues/Zipped$qname.$now.$n",
 	    STATS => { MEMBERS => 0, SIZE => 0, AGE => 0 },
-	    LIMITS => $self->queueLimits ($q->{NAME})
+	    LIMITS => $self->queueLimits ($qname)
 	};
     }
     $q->{START} = $mytime if $q->{START} > $mytime;
@@ -192,11 +201,11 @@ sub queueType
 
 # Return properties for a named queue.  Uses the configuration
 # parameters given on command line.  Default queue properties
-# are 30min/1.5GB expiry.
+# are 30min/1.99GB expiry.
 sub queueLimits
 {
     my ($self, $qname) = @_;
-    my $props = { AGE => 30 * 60, SIZE => 1500 }; # 30 mins, 1.5GB
+    my $props = { AGE => 30 * 60, SIZE => 1990 }; # 30 mins, 1.99GB
     foreach my $conf (@{$self->{QUEUECONFS}})
     {
 	if ($qname =~ /$conf->[0]/)
@@ -208,14 +217,6 @@ sub queueLimits
     }
 
     return $props;
-}
-
-# Update queue statistics
-sub updateQueueStats
-{
-    my ($self, $q) = @_;
-    $q->{STATS}{AGE} = time - $q->{START};
-    return $q->{STATS};
 }
 
 ######################################################################
@@ -272,31 +273,28 @@ sub assignToQueues
     return 1;
 }
 
-# Consider queue expiry times and flush those full/late enough.
-sub flushExpiredQueues
+# Flush a queue if it's expired in time or size, or cannot take
+# the size of the file we would like to put into it.
+sub maybeFlushQueue
 {
-    my ($self, $last) = @_;
+    my ($self, $q, $last, $space) = @_;
     my %flush = ();
 
-    # Check which queues ought to be flushed.
-    foreach my $q (values %{$self->{QUEUES}})
-    {
-	# Flush if queue limits are exceeded, but consider size
-	# only if we have run out drops to handle.
-	$self->updateQueueStats ($q);
-	my $qlim = $q->{LIMITS};
-	my $qstat = $q->{STATS};
-	$flush{$q->{NAME}} = (($last && $qstat->{AGE} >= $qlim->{AGE})
-		              || $qstat->{SIZE} >= $qlim->{SIZE});
-    }
+    # Flush if queue limits are exceeded, but consider size only if
+    # we have no more drops to handle.  However make sure there is
+    # at least $space room size-wise; flush if there is less.
+    my $qlim = $q->{LIMITS};
+    my $qstat = $q->{STATS};
+    return if ! (($last && $qstat->{AGE} >= $qlim->{AGE})
+		 || ($qstat->{SIZE} + $space) >= $qlim->{SIZE});
+
+    $flush{$q->{NAME}} = 1;
 
     # Synchronise linked queues.  We keep matching "Events", "DST"
     # and "Digi" simultaneously flushed.  This way the two always
     # contain exactly the same set of runs.
-    foreach my $q (values %{$self->{QUEUES}})
+    if ($self->{SYNCHRONISE})
     {
-        next if ! $self->{SYNCHRONISE};
-        next if ! $flush{$q->{NAME}};
         my @sync = qw(DST Events Digi);
         my $category = $q->{CATEGORY};
         if (grep ($category eq $_, @sync))
@@ -314,9 +312,9 @@ sub flushExpiredQueues
 
     # Swoosshhh...
     my $now = time;
-    foreach my $q (values %{$self->{QUEUES}})
+    foreach my $qname (keys %flush)
     {
-	next if ! $flush{$q->{NAME}};
+	my $q = $self->{QUEUES}{$qname};
 	my $qlim = $q->{LIMITS};
 	my $qstat = $q->{STATS};
 	&logmsg ("expiring queue $q->{LABEL} at age $qstat->{AGE} ($qlim->{AGE}),"
@@ -324,7 +322,22 @@ sub flushExpiredQueues
 		 . " $qstat->{MEMBERS} members");
 
 	push (@{$self->{FLUSHED}}, $q);
-	delete $self->{QUEUES}{$q->{NAME}};
+	delete $self->{QUEUES}{$qname};
+    }
+}
+
+# Consider queue expiry times and flush those full/late enough.
+sub flushExpiredQueues
+{
+    my ($self, $last) = @_;
+    my %flush = ();
+
+    # Check which queues ought to be flushed.
+    foreach my $q (values %{$self->{QUEUES}})
+    {
+	# Update queue age first, then see if we should flush.
+        $q->{STATS}{AGE} = time - $q->{START};
+	$self->maybeFlushQueue ($q, $last, 0);
     }
 
     return 1;
@@ -396,8 +409,8 @@ sub processDrop
     return if ! $self->assignToQueues ($drop, $catalogue);
 
     # Pump jobs about a few times every so often
-    return if $left % 100;
-    $self->flushPump ();
+    return if $left % 1000;
+    # $self->flushPump ();
     &logmsg ("@{[scalar @{$self->{JOBS}}]} jobs,"
 	     . " @{[scalar @{$self->{FLUSHED}}]} flushed,"
 	     . " @{[scalar keys %{$self->{QUEUES}}]} queues,"
@@ -445,6 +458,7 @@ sub flushPump
 	my $erase = 0;
 	if ($q->{DONE_ALL})
 	{
+	    &logmsg ("done queue $q->{LABEL}");
 	    foreach my $m (@{$q->{MEMBERS}})
 	    {
 		&touch ("$self->{WORKDIR}/$m->{DROP}/DONE.$m->{FILE}{GUID}");
@@ -511,35 +525,46 @@ sub idle
     $self->flushExpiredQueues (1);
 
     # Keep pumping tasks until we've waited long enough.
-    my $target = time() + $self->{WAITTIME};
-    while (time() < $target)
+    my $target = &mytimeofday() + $self->{WAITTIME};
+    while (&mytimeofday() < $target && @{$self->{FLUSHED}})
     {
-	$self->maybeStop ();
 	$self->flushPump ();
 	my $npending = scalar @{$self->{FLUSHED}};
 	my $nrunning = scalar (grep ($_->{PID} > 0, @{$self->{JOBS}}));
 	next if ($npending && $nrunning < $self->{NJOBS});
         select (undef, undef, undef, .02);
+	$self->maybeStop ();
     }
 
-    # Check if we can release any of the drops.
-    foreach my $drop (@pending)
+    if (! @{$self->{FLUSHED}})
     {
-	$self->checkDropDone ($drop);
-    }
+        # Check if we can release any of the drops.
+        foreach my $drop (@pending)
+        {
+	    $self->checkDropDone ($drop);
+        }
 
-    # Purge memory of all drops that no longer exist.
-    my %known = map { ($_ => 1) } @pending;
-    foreach my $drop (keys %{$self->{WAITLIST}})
-    {
-	delete $self->{WAITLIST}{$drop} if ! $known{$drop};
+        # Purge memory of all drops that no longer exist.
+        my %known = map { ($_ => 1) } @pending;
+        foreach my $drop (keys %{$self->{WAITLIST}})
+        {
+	    delete $self->{WAITLIST}{$drop} if ! $known{$drop};
+        }
     }
 
     &logmsg ("@{[scalar @{$self->{JOBS}}]} jobs,"
 	     . " @{[scalar @{$self->{FLUSHED}}]} flushed,"
 	     . " @{[scalar keys %{$self->{QUEUES}}]} queues,"
 	     . " @{[scalar keys %{$self->{WAITLIST}}]} waiting,"
-	     . " @{[scalar @pending]} left");
+	     . " @{[scalar @pending]} left") if @pending;
+
+    # Stop now if nothing to do and we do only one pass
+    do { &touch($self->{STOPFLAG}); $self->maybeStop(); }
+	if $self->{ONCE} && ! @pending;
+
+    # Nap the remaining of the time (if any)
+    my $now = &mytimeofday ();
+    $self->nap ($target - $now) if $now < $target;
 }
 
 # Fetch all files in the queue.  If we've already done our job,
