@@ -140,28 +140,43 @@ writing our own tools against the API's, however time constraints meant that
 neither were possible.
 
 Even with administration problems, transfers to IN2P3 reached 80 Mbps
-over a period of hours, althoa anugh typically they averaged only 30
+over a period of hours, although typically they averaged only 30
 Mbps over a whole day. The SRB chain was not able to take part in a
 large filesize stress test at the end of DC04; these transfer rates
 are due to small file sizes, and thus compare favourably with other
 chains. Prior to the data challenge testing indicated that transfer
 rates could be sustained at a rate greater than this.
 
+\subsection{Agents}
+Mistakes made with the agents....
+
+The simple structure of the agents led to a (neccessarily) rapid development cycle, which 
+in turn led to a reduced amount of testing, eg. functionality was tested but little stress 
+testing was carried out. Had more stress testing been possible the high load on the MCat 
+server caused by the rapid use of CLI tools would have been identified and a workaround 
+determined. Clearly a despoke tool written against one of the SRB API's would have 
+been considerably more efficent than using generic CLI tools, indeed annecdotal evidence from 
+DC04 shows this clearly. Towards the end of the DC a tool combining the transfer and metadata
+insert was developed. Under initial testing it demostrated a order of magnitude better
+performance, due to reducing the amount of authentication step involved and parralelising the 
+transfer and metadata interaction. However the DC was coming to an end and this was not deployed.
+
+\subsection{GMCat}
+Details on the performance of GMCat...
+
+As the difficulties with the MCat increased GMCat was stopped as the system 
+no longer reponded in a useful timescale.
+
+\subsection{Manpower}
+Ooh not sure about this one....
+
+\section{Conclusions}
 Recent versions of SRB have included new features specifically as a 
 result of CMS experience, for which we would like to thank the developers
 at SDSC.
 
 It should be noted that SRB is not integrated into the LCG analysis
 system, and that while this is possible %\cite{gmcat} 
-it may
-not be desirable to create a ``grid of grids'' without some
+it may not be desirable to create a "grid of grids" without some
 significant additional desired functionality.  It is likely that CMS
 use of SRB will be phased out before DC05.
-
-\subsection{Agents}
-Mistakes made with the agents
-\subsection{GMCat}
-Details on the performance of GMCat
-
-As the difficulties with the MCat increased GMCat was stopped as the system 
-no longer reponded in a useful timescale.
