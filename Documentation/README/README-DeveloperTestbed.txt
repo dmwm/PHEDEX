@@ -284,13 +284,24 @@ script that creates local pfns- in this case you need to edit the file
 FileDownloadDest to map files onto your local Sink1 SE directory. The following
 shows how I had to do it
 
-diff FileDownloadDest~ FileDownloadDest
-19c19
-< local=/data/test/files/$subpath/$dataset/$owner/$lfn
----
-> local=/data/barrass/TestbedSink1/SE/$subpath/$dataset/$owner/$lfn
+#!/bin/sh
 
-[ FIXME: echo at end changed so it doesn't read file:$local as well! ]
+dataset= lfn=
+for arg; do
+  case $arg in
+      dataset=*) dataset=$(echo $arg | sed 's![^=]*=!!') ;;
+      lfn=*) lfn=$(echo $arg | sed 's![^=]*=!!') ;;
+  esac
+done
+
+[ -z "$lfn" ] && { echo "no lfn" 1>&2; exit 1; }
+ 
+# Copy everything into a subdirectories of a local directory.
+mkdir -p /data/barrass/Testbed/TestbedSink1/SE/$dataset
+fullpath=/data/barrass/Testbed/TestbedSink1/SE/$dataset/$lfn
+echo $fullpath
+
+# end of FileDownloadDest
 
 Now register the agent with the TMDB
 	
@@ -333,7 +344,7 @@ and also the transfer agent
 -pfndest FileDownloadDest 
 -node TestbedSink1 
 -wanted 100G 
--pass -cpcmd,cp
+-pass "-cpcmd,cp"
 >& $NODETESTBED/TestbedSink1/logs/transferlog &
 
 
@@ -375,7 +386,8 @@ and start them up
 ./Allocator.pl
 -db <Oracle tns name only>
 -user <user>
--password <password>
+-passwd <password>
+-period 7
 -w $NODETESTBED/TestbedManagement/work
 >& $NODETESTBED/TestbedManagement/logs/log &
 
