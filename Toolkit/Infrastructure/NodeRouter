@@ -71,8 +71,19 @@ while(!(-e "$g_work_dir/stop")) {
 			$hops_by_destination{$destination} += 1;
 			
 			if (exists $my_hops_by_destination{$destination}) {
+				my $time = time();
+				my $update = "update t_Routing "
+								."set timestamp = $time, "
+								."hops = $hops_by_destination{$destination} "
+								."where from_node = '$g_parent_node' "
+								."and to_node = '$destination' "
+								."and gateway = '$neighbour'";
+				direct_db_transaction(  DB => $args{DB}, DB_USER => $args{DB_USER}, DB_PASSWD => $args{DB_PASSWD}, MY_NODE => $args{MY_NODE}, NODE => $args{NODE}, SQL => $update );
 			} else {
-				
+				my $time = time();
+				my $insert = "insert into t_Routing "
+								."values ('$g_parent_node','$destination','$neighbour',$time,%hops_by_destination{$neighbour})";
+				direct_db_transaction(  DB => $args{DB}, DB_USER => $args{DB_USER}, DB_PASSWD => $args{DB_PASSWD}, MY_NODE => $args{MY_NODE}, NODE => $args{NODE}, SQL => $insert );
 			}
 			
 		}
