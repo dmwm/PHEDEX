@@ -1,0 +1,41 @@
+#!/usr/bin/env perl
+
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+use UtilsDB;
+
+$dbh = &connectToDatabase ( { DBITYPE => "Oracle",
+			      DBNAME => "cms",
+			      DBUSER => "cms_transfermgmt_reader",
+			      DBPASS => "slightlyjaundiced" }, 0);
+
+my %nodes = ();
+my %stats = ();
+my $query = &dbexec ($dbh, qq{
+	select
+          trunc(ts.to_time_stamp/86400),
+	  ts.to_node,
+	  sum(f.filesize)/(1024*1024*1024)
+        from t_transfer_state ts
+        left join t_files_for_transfer f on f.guid = ts.guid
+        where ts.to_node like '%_Transfer' and ts.to_state = 3
+        group by trunc(ts.to_time_stamp/86400), ts.to_node});
+while (my ($day, $node, $size) = $query->fetchrow()) {
+    $nodes{$node} = 1;
+    $stats{$day}{$node} = $size;
+}
+$dbh->disconnect();
+undef $dbh;
+
+my @days = sort { $a <=> $b } keys %stats;
+print join(", ", "Day", "Day From Start", sort keys %nodes), "\n";
+foreach my $day ($days[0] .. $days[$#days]) {
+    print join(", ", $day, $day - $days[0],
+	       map { $stats{$day}{$_} || 0 } sort keys %nodes), "\n";
+}
+exit 0;
