@@ -134,10 +134,10 @@ sub idle
 		# outbox, for agent core to copy downstream.
 		my $block = $completed->{$dataset}{$owner};
 		my $blockid = "$block->{OWNER}.$block->{DATASET}";
-		my $drop = "$self->{DROPDIR}/outbox/$blockid";
-		do { &note ("$blockid already pending, skipping"); next; } if -d $drop;
+		my $drop = `mktemp -d $self->{DROPDIR}/outbox/$blockid.XXXXXXX`;
+		chomp $drop;
 		do { &alert ("failed to create drop for $blockid"); &rmtree ($drop); last; }
-    	            if (! &mkpath ($drop)
+    	            if (! $drop
         		|| ! &output ("$drop/packet", Dumper ($block))
         		|| ! &touch ("$drop/go.pending"));
 

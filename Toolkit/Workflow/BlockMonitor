@@ -113,6 +113,7 @@ sub idle
 	my $RSChange = {};
         while (my ($block, $node, $nfiles, $nbytes) = $qreplicas->fetchrow_array())
         {
+
 	    # only interested in the blocks which changed (nbytes or nfiles)
 	    # and int the ones which don't exist yet
 	    my $exists = $BRDump->{$block}{$node};
