@@ -75,7 +75,7 @@ if (scalar @ARGV || !$args{DROPDIR}
 	            || !$args{MYNODE} || !$args{RM_PATH_PREFIX} || !$args{NWORKERS})))
 {
     print STDERR
-	"master: $me -node TMDB-NODE -prefix REMOVE-PATH-PREFIX\n",
+	"master: $me -node TMDB-NODE -prefix PATH-PREFIX-TO-REMOVE\n",
 	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
 	"    -state IN-DROP-BOX [-workers N-SLAVES] [-wait SECS-TO-WAIT]\n",
 	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n",
