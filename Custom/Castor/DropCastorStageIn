@@ -157,6 +157,7 @@ sub checkFileStatus
 	$file->{SIZE} = $size;
 	$file->{LAST} = 0;
 	$file->{STARTED} = time();
+	$file->{DIRTY} = 1;
     }
 
     # Check if it's in the list of staged in files.
@@ -170,6 +171,7 @@ sub checkFileStatus
     if (! $file->{LAST})
     {
 	$file->{LAST} = $now;
+	$file->{DIRTY} = 1;
     }
     elsif ($file->{STATUS} == $STAGE_PENDING && $now - $file->{LAST} > 900)
     {
@@ -178,10 +180,12 @@ sub checkFileStatus
 	    &alert("file could not be staged in $maxhours hours, giving up");
 	    &markBad ($file->{DROP});
 	    $file->{BAD} = 1;
+	    $file->{DIRTY} = 1;
 	    return $STAGE_RETRY;
 	}
 
 	$file->{LAST} = $now;
+	$file->{DIRTY} = 1;
 	my $status = &stageQueryFile ($pfn);
 	return $STAGE_RETRY if ! defined $status;
 	return $STAGE_PENDING if $status eq 'STAGEIN'; # Still known
@@ -212,11 +216,13 @@ sub updateFileStatus
 	&alert ("$file->{DROP}: no such file $file->{PFN}");
 	&markBad ($file->{DROP});
 	$file->{BAD} = 1;
+	$file->{DIRTY} = 1;
     }
-    else
+    elsif ($status != $file->{STATUS})
     {
 	# Update the file status
 	$file->{STATUS} = $status;
+	$file->{DIRTY} = 1;
     }
 }
 
@@ -259,6 +265,7 @@ sub readStageInProgress
 		    &warn ("ignoring corrupt stagein status for $drop/$lfn: $@");
 		} else {
 		    $info = $saved;
+		    $info->{DIRTY} = 0;
 		}
 	    }
 	    push(@files, $info);
@@ -310,6 +317,7 @@ sub saveFileStatus
 {
     foreach my $file (@_)
     {
+	next if ! $file->{DIRTY};
         &alert ("failed to update stagein status for $file->{LFN}")
 	    if ! &output ("$workdir/$file->{DROP}/stagein.$file->{LFN}", Dumper ($file));
     }
@@ -373,7 +381,7 @@ sub processAllFiles
 	    delete @requests[$#requests - $nfiles .. $#requests];
 
 	    # Mark these files as pending now
-	    map { $_->{STATUS} = $STAGE_PENDING } @slice;
+	    map { $_->{STATUS} = $STAGE_PENDING; $_->{DIRTY} = 1; } @slice;
 	    &saveFileStatus (@slice);
 
 	    # Issue background stage-in
