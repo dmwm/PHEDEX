@@ -153,7 +153,7 @@ sub filePropertiesForMissing
 	while (<NSLS>)
 	{
 	    chomp;
-	    my ($size, $file) = (split(/s\+/, $_))[4,8];
+	    my ($size, $file) = (split(/\s+/, $_))[4,8];
 	    $cache->{"$dir/$file"} = [ undef, undef, $size ]
 	        if ! exists $cache->{"$dir/$file"};
 	}
