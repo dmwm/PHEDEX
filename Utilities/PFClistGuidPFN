@@ -61,9 +61,9 @@ sub collectResult
     if ($job->{STATUS})
     {
 	unlink $job->{OUTPUT};
-	print STDERR "$job->{PATTERN} failed, re-executing\n";
+	print STDERR "Batch $job->{LOT} failed, re-executing\n";
 	$mgr->addJob (sub { &collectResult($mgr, @_) },
-	    { PATTERN => $job->{PATTERN}, OUTPUT => $job->{OUTPUT} },
+	    { LOT => $job->{LOT}, OUTPUT => $job->{OUTPUT} },
 	    @{$job->{CMD}});
         return;
     }
@@ -89,13 +89,15 @@ sub runQueries
     	      . " $home/../../Utilities/FClistGuidPFN"
 	      . " -u '$args{CATALOGUE}'"
 	      . " $args{MODE}"
-	      . ($args{MATCH} ? " -m" : "");
-    foreach my $item (@$items)
+	      . ($args{MATCH} ? " -m" : "")
+	      . " ";
+    for (my $i = 1; @$items; ++$i)
     {
-	my $output = "/tmp/tmp.$$.$item";
+	my @item  = splice(@$items, 0, $args{MATCH} ? 1 : 100);
+	my $output = "/tmp/tmp.$$.$i";
 	$mgr->addJob (sub { &collectResult($mgr, @_) },
-	    { OUTPUT => $output, PATTERN => $item },
-	    "sh", "-c", "$cmd '$item' > $output");
+	    { OUTPUT => $output, LOT => $i },
+	    "sh", "-c", $cmd . join("", map { " '$_'" } @item) . " > $output");
 	$mgr->pumpJobs();
     }
 
