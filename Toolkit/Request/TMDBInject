@@ -86,7 +86,7 @@ if ($args{SITES})
 	} elsif (! $sitemap{$site}) {
 	    warn "ignoring site $site, no mapping to node\n";
 	} else {
-	    print "mapping site $site to node $sitemap{$site}\n";
+	    print "mapping site $site to node $sitemap{$site}\n" if $args{VERBOSE};
 	    push(@{$args{NODES}}, $sitemap{$site});
 	}
     }
@@ -137,7 +137,7 @@ print "Connecting to database\n" if $args{VERBOSE};
 my $dbh = &connectToDatabase (\%args, 0);
 my $now = &mytimeofday ();
 
-print "Processing files " if $args{VERBOSE};
+print "Processing @{[scalar @$catalogue]} files " if $args{VERBOSE};
 my $isfstmt = &dbprep ($dbh, qq{
     select count(*) from t_file
     where guid = :guid});
@@ -166,7 +166,12 @@ my $bistmt = &dbprep ($dbh, qq{
 
 foreach my $f (@$catalogue)
 {
-    # Print some dots
+    # Print some dots, skip non-existent files
+    if ($f->{FILESIZE} == -1)
+    {
+	do { local $| = 1; print ":" } if $args{VERBOSE};
+	next;
+    }
     do { local $| = 1; print "." } if $args{VERBOSE};
 
     # Check the file block is known, otherwise create an open one
