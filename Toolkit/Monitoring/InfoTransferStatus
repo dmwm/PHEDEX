@@ -122,7 +122,14 @@ sub idle
 				from t_info_transfer_status})})
 	{
 	    my ($node, $rfiles, $tfiles, $maxtime) = @$row;
-	    next if ! exists $stamps{$node};
+	    if (! exists $stamps{$node})
+	    {
+		$dbh->do(qq{
+		    delete from t_info_transfer_status
+		    where node = '$node')};
+		next;
+	    }
+
 	    delete $stamps{$node}
 	        if ($stamps{$node}[1] == $rfiles
 		    && $stamps{$node}[2] == $tfiles
