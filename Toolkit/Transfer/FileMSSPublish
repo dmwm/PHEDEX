@@ -125,7 +125,7 @@ sub idle
   	$dbh->commit();
 
 	&logmsg("$rows files uploaded from $mssnode to $mynode ($rows2 updates)")
-	    if ($rows || $rows2);
+	    if ($rows > 0 || $rows2 > 0);
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
