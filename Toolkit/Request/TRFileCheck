@@ -1,83 +1,46 @@
 #!/usr/bin/perl
 
-# Checks the status of transfer request drops.
-#
-# Usage: TRCheckStatus /drop/box/area database table [drop...]
-#
-# /drop/box/area should be the directory containing the state
-# directories for the drop box agents, so the script can check
-# which drops are still being processed ("pending")
-#
-# database should be the name of the tmdb oracle database, and
-# table should be the name of the file table (filesfortransfer
-# for v1, t_files_for_transfer for v2).
-#
-# The rest of the arguments are expected to be "drop" directories.
-# This tool reads the XML catalogue fragments from the drops, gets
-# the list of the GUIDs, and compares both with the tmdb database
-# and the drop box area to evaluate the status of the drop.
-#
-# For each drop, a line is printed out with the name of the drop,
-# the number of files found in the catalogue, the number of guids
-# already registered in tmdb, and two flags, "TRANSFERRED" and/or
-# "PENDING".  The former indicates that all the files were found
-# in tmdb, the second indicates there is still a drop in the disk
-# queues.
+##H Checks the status of transfer request drops.
+##H
+##H Usage: TRFileCheck /drop/box/area database table [drop...]
+##H
+##H /drop/box/area should be the directory containing the state
+##H directories for the drop box agents, so the script can check
+##H which drops are still being processed ("pending")
+##H
+##H database should be the name of the tmdb oracle database, and
+##H table should be the name of the file table (filesfortransfer
+##H for v1, t_files_for_transfer for v2).
+##H
+##H The rest of the arguments are expected to be "drop" directories.
+##H This tool reads the XML catalogue fragments from the drops, gets
+##H the list of the GUIDs, and compares both with the tmdb database
+##H and the drop box area to evaluate the status of the drop.
+##H
+##H For each drop, a line is printed out with the name of the drop,
+##H the number of files found in the catalogue, the number of guids
+##H already registered in tmdb, and two flags, "TRANSFERRED" and/or
+##H "PENDING".  The former indicates that all the files were found
+##H in tmdb, the second indicates there is still a drop in the disk
+##H queues.
 
-use DBI;
-use UtilsCommand;
-use UtilsReaders;
-use UtilsLogging;
-sub markBad {}
+use UtilsTR;
 
-my $incoming = shift;
-my $db = shift;
-my $table = shift;
-my @pending = map { s|.*/||; $_ } <$incoming/*/{work,inbox}/*>;
-my $dbh = DBI->connect ("DBI:Oracle:$db", "cms_transfermgmt_reader",
-			"slightlyJaundiced", { RaiseError => 1, AutoCommit => 1 });
-
-# Check all "drops" (@ARGV) to see which files already exist in TMDB
+my $mouth = shift (@ARGV);
+my $db = shift (@ARGV);
+my $table = shift (@ARGV);
+my $result = &checkAssignmentFiles ($mouth, $db, $table, @ARGV);
 foreach my $drop (@ARGV)
 {
-    # Evaluate drop data
-    my $xml = (<$drop/XMLCatFragment.*.{txt,xml}>)[0];
-    my $smry = (<$drop/Smry.*.txt>)[0];
-    my $pfnroot = (map { split('=', $_) } grep(/^EVDS_OutputPath=/, split(/\n/, &input($smry))))[1];
-    defined $xml or die "no xml catalogue in $drop\n";
-    defined $smry or die "no summary file in $drop\n";
-    defined $pfnroot or die "no pfn root in $drop\n";
-
-    my $cat = &readXMLCatalog ($drop, $xml);
-    defined $cat or die "bad catalogue in $drop\n";
-
-    # Get guids and pfns
-    my @guids = map { $_->{GUID} } values %$cat;
-    my @pfns = map { @{$_->{PFN}} } values %$cat;
-    @pfns = map { s|^\./|$pfnroot/|; $_; } @pfns;
-
-    # Find guids known in tmdb
-    my $sql = "select count(guid) from $table where "
-	     . join (' or ', map { "guid='$_'" } @guids);
-    my $query = $dbh->prepare ($sql);
-    my $count = 0;
-
-    $query->execute();
-    while (my @row = $query->fetchrow_array) {
-	$count += $row[0];
-    }
-    $query->finish ();
-
-    # Find out which files are in castor
-    my $mss = 0;
-    foreach my $pfn (@pfns) {
-        $mss++ if system("rfstat $pfn >/dev/null 2>&1") == 0;
-    }
+    my $info = $result->{$drop};
+    next if ! defined $info; # FIXME: warn/whine?
 
     # Print stats line
-    my $dropname = $drop; $dropname =~ s|.*/||;
-    my $pending = grep ($_ eq $dropname, @pending) ? " PENDING" : "";
-    my $transfer = $count == scalar (@guids) ? " TRANSFERRED" : "";
-    my $onmss = $mss == scalar(@guids) ? " AVAILABLE" : "";
-    print "$drop FILES @{[scalar @guids]} MSS $mss INTMDB $count$onmss$pending$transfer\n";
+    my $pending  = $info->{IS_PENDING_TRANSFER} ? " PENDING" : "";
+    my $transfer = $info->{IS_FULLY_TRANSFERRED} ? " TRANSFERRED" : "";
+    my $onmss    = $info->{IS_FULLY_IN_MSS} ? " AVAILABLE" : "";
+    print "$drop FILES $info->{N_FILES}",
+          " MSS $info->{N_IN_MSS}",
+	  " INTMDB $info->{N_TRANSFERRED}",
+	  "$onmss$pending$transfer\n";
 }
