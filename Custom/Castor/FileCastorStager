@@ -220,9 +220,8 @@ sub getPendingFiles
     {
 	my ($guid, $time) = @$row;
 	my $pfn = $self->{PFN_CACHE}{$guid};
-	if (! $pfn)
+	if (! $pfn && ($pfn = &guidToPFN ($guid, $catalogue, $hostkey)))
 	{
-	    $pfn = &guidToPFN ($guid, $catalogue, $hostkey);
 	    $pfn =~ s/$prefix//;
 	    $self->{PFN_CACHE}{$guid} = $pfn;
 	    $self->{GUID_CACHE}{$pfn} = $guid;
@@ -246,9 +245,8 @@ sub getStagerFiles
     {
 	my $status = $files->{$pfn};
 	my $guid = $self->{GUID_CACHE}{$pfn};
-	if (! $guid)
+	if (! $guid && ($guid = &pfnToGuid ($prefix . $pfn, $catalogue, $hostkey)))
 	{
-	    $guid = &pfnToGuid ($prefix . $pfn, $catalogue, $hostkey);
 	    $self->{GUID_CACHE}{$pfn} = $guid;
 	    $self->{PFN_CACHE}{$guid} = $pfn;
         }
@@ -318,7 +316,7 @@ sub idle
 	my $catalogue = &getCatalogue ($dbh, $self->{MYNODE});
 	return if ! $catalogue;
 
-	my $files = $self->buildStatus ($self->getStagerFiles ($dbh, @$catalogue),
+	my $files = $self->buildStatus ($self->getStagerFiles (@$catalogue),
 					$self->getPendingFiles ($dbh, @$catalogue));
 	return if ! $files;
 
