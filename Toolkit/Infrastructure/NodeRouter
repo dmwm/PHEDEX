@@ -255,6 +255,10 @@ sub compare_with_existing_routes {
 	}
 	if ($time < $check) {
 	    $hops = $g_infinity;
+	    # trigger update- easy for us as we can pass the update message to
+	    # everyone in the network at the same time
+	    my $update = "update t_Routing set hops = $g_infinity where to_node = $dest";
+	    direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
 	    log_entry( "Timeout for $gate:$dest:$time:$hops:$status" );
 	}
 	$gate_time_hops_by_dest{$dest} = "$gate:$time:$hops:$status";
