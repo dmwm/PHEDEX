@@ -103,6 +103,17 @@ sub create_new_neighbour_route {
 	return @sql;
 }
 
+sub remove_neighbour_route {
+	my ($node1,$node2) = @_;
+	my @sql;
+	
+	my $time = time();
+	push( @sql, "delete from t_routing where from_node = '$node1' and gateway = '$node2'" );
+	push( @sql, "delete from t_routing where from_node = '$node2' and gateway = '$node1'" );	
+	
+	return @sql;
+}
+
 sub new_neighbours {
 	my @sql = ();
 
@@ -147,6 +158,27 @@ sub add_node {
 	new_neighbours();
 }
 
+sub remove_link {
+	my @sql = ();
+
+	if ( 	$node_name eq '' ||
+			! $node_neighbours[0] ) {
+		display_usage();
+	}
+	
+	log_entry( "Removing links between" );
+	log_entry( "Name: $node_name" );
+	log_entry( "Neighbours: @node_neighbours" );
+	
+	# Remove routes to neighbours
+	foreach $neighbour ( @node_neighbours ) {
+		my @routes = remove_neighbour_route( $node_name, $neighbour );
+		push( @sql, @routes );
+	}	
+	
+	do_sql( \@sql );
+}
+
 sub remove_node {
 	my @sql = ();
 
@@ -189,7 +221,9 @@ sub act_on_state {
 		remove_node();
 	} elsif ( $state eq "new-neighbours" ) {
 		new_neighbours();
-	} else {
+	} elsif ( $state eq "remove-link" ) {
+		remove_link();
+	}else {
 		display_usage();
 	}
 }
