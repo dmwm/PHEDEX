@@ -151,7 +151,9 @@ sub assignmentDrops
 		     . ".$assid-$ainfo->{ProdStepType}-$ainfo->{ProductionCycle}"
 		     . ".$run";
 	do { warn "$dropid: empty xml fragment\n"; next } if ($xmlfrag eq '0');
-	open (XMLEXP, "echo '$xmlfrag' | mimencode -u | gzip -dc |")
+	open (XMLEXP, "echo '$xmlfrag'"
+		      . " | perl -MMIME::Base64 -ne 'binmode(STDOUT); print decode_base64(\$_)'"
+		      . " | gzip -dc |")
 	    or die "$dropid: cannot expand xml fragment\n";
 	my $xml = join("", grep(!/^\d+a$/ && !/^\.$/, <XMLEXP>));
 	close (XMLEXP) or die "$dropid: cannot expand xml fragment\n";
