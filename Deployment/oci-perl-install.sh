@@ -13,6 +13,11 @@ echo "You need to set \$BASE to your top level directory for installation"
 exit
 fi
 
+if [ ! -e "./PHEDEX/Schema/tnsnames.ora" ]; then
+echo "Please checkout PHEDEX/Schema/tnsnames.ora as well"
+exit
+fi
+
 cd $BASE
 # download instantclient-basic-linux32-10.1.0.3.zip
 # download instantclient-sqlplus-linux32-10.1.0.3.zip
@@ -52,7 +57,7 @@ echo "diff Makefile.PL.orig Makefile.PL
 >         \$linkvia = \"\$ENV{ORACLE_HOME}/lib/libclntsh.so\";
 >     }
 1254a1259
->        \"$OH/include\", # Tim Barrass, hacked for OIC install from zips" > Makefile.PL.patch
+>        \"\$OH/include\", # Tim Barrass, hacked for OIC install from zips" > Makefile.PL.patch
 patch Makefile.PL Makefile.PL.patch
 perl Makefile.PL prefix=$BASE/perl-modules -m $ORACLE_HOME/demo/demo.mk
 
@@ -61,6 +66,9 @@ echo "remove the trailing slash from ORACLE_HOME"
 
 make
 make install
+
+cd $BASE
+cp PHEDEX/Schema/tnsnames.ora .
 
 # Create and environment script
 echo 'Writing local-oci-env.sh: please take a look and edit in your own PERL5LIB and TNS_ADMIN'
@@ -72,6 +80,6 @@ export SQLPATH=${ORACLE_HOME}/bin
 # Note the trailing end of perl5lib might vary with architecture-
 # look out for where your DBD-Oracle actually gets installed
 export PERL5LIB=${ORACLE_HOME}/perl-modules/lib/<your path to dbd-oracle>
-export TNS_ADMIN=<path to your tnsnames.ora file>" > local-oci-env.sh
+export TNS_ADMIN=$BASE" > local-oci-env.sh
 
 # test at will ...
