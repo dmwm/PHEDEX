@@ -38,7 +38,7 @@ create table t_transfer_state
 alter table t_destination
   add constraint pk_destination
   primary key (guid, node)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_destination
   add constraint fk_destination_guid
@@ -52,7 +52,7 @@ alter table t_destination
 alter table t_replica_state
   add constraint pk_replica_state
   primary key (guid, node)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_replica_state
   add constraint fk_replica_state_guid
@@ -66,7 +66,7 @@ alter table t_replica_state
 alter table t_transfer_state
   add constraint pk_transfer_state
   primary key (guid, to_node)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_transfer_state
   add constraint fk_transfer_state_guid
@@ -85,4 +85,4 @@ alter table t_transfer_state
 
 create index ix_transfer_state_from_node
   on t_transfer_state (from_node)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;

@@ -27,7 +27,7 @@ create table t_agent_status
 alter table t_agent
   add constraint pk_agent
   primary key (name)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 
 alter table t_agent_message
@@ -42,7 +42,7 @@ alter table t_agent_message
 alter table t_agent_status
   add constraint pk_agent_status
   primary key (node, agent)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_agent_status
   add constraint fk_agent_status_node
@@ -57,4 +57,4 @@ alter table t_agent_status
 
 create index ix_agent_message
   on t_agent_message (node, agent)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;

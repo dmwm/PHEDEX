@@ -44,8 +44,8 @@ create table t_transfer_summary
 
 create index ix_transfer_history
   on t_transfer_history (timestamp, guid)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;
 
 create index ix_transfer_summary
   on t_transfer_summary (timestamp, guid)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;

@@ -58,7 +58,7 @@ create table t_dsb_dataset_availability
 alter table t_dsb_fileid
   add constraint pk_dsb_fileid_id
   primary key (id)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_dsb_fileid
   add constraint uq_dsb_fileid_guid
@@ -68,7 +68,7 @@ alter table t_dsb_fileid
 alter table t_dsb_file
   add constraint pk_dsb_file
   primary key (fileid)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_dsb_file
   add constraint fk_dsb_file_fileid
@@ -78,7 +78,7 @@ alter table t_dsb_file
 alter table t_dsb_file_attributes
   add constraint pk_dsb_file_attributes
   primary key (fileid, attribute)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_dsb_file_attributes
   add constraint fk_dsb_file_attributes_fileid
@@ -88,13 +88,13 @@ alter table t_dsb_file_attributes
 alter table t_dsb_dataset
   add constraint pk_dsb_dataset
   primary key (id)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 
 alter table t_dsb_dataset_run
   add constraint pk_dsb_dataset_run
   primary key (dataset, runid)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_dsb_dataset_run
   add constraint fk_dsb_dataset_run_dataset
@@ -104,7 +104,7 @@ alter table t_dsb_dataset_run
 alter table t_dsb_dataset_run_file
   add constraint pk_dsb_dataset_run_file
   primary key (dataset, fileid)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_dsb_dataset_run_file
   add constraint fk_dsb_dataset_rfiles_dataset
@@ -118,7 +118,7 @@ alter table t_dsb_dataset_run_file
 alter table t_dsb_dataset_availability
   add constraint pk_dsb_dataset_availability
   primary key (dataset, location)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_dsb_dataset_availability
   add constraint fk_dsb_dataset_avail_dataset
@@ -130,4 +130,4 @@ alter table t_dsb_dataset_availability
 
 create index ix_dsb_file_attributes_attr
   on t_dsb_file_attributes (attribute)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;

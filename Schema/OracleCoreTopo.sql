@@ -31,13 +31,13 @@ create table t_node_export
 alter table t_node
   add constraint pk_node
   primary key (name)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 
 alter table t_routing
   add constraint pk_routing
   primary key (from_node, to_node)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_routing
   add constraint fk_routing_from_node
@@ -55,7 +55,7 @@ alter table t_routing
 alter table t_node_import
   add constraint pk_node_import
   primary key (node, protocol)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_node_import
   add constraint fk_node_import_node
@@ -65,7 +65,7 @@ alter table t_node_import
 alter table t_node_export
   add constraint pk_node_export
   primary key (node, protocol)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_node_export
   add constraint fk_node_export_node
@@ -76,4 +76,4 @@ alter table t_node_export
 
 create index ix_routing_gateway
   on t_routing (gateway)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;

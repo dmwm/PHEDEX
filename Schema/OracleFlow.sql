@@ -31,13 +31,13 @@ create table t_subscription
 alter table t_block
   add constraint pk_block
   primary key (name)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 
 alter table t_block_replica
   add constraint pk_block_replica
   primary key (name, node)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_block_replica
   add constraint fk_block_replica_name
@@ -53,8 +53,8 @@ alter table t_block_replica
 
 create index ix_subscription_stream
   on t_subscription (owner, dataset)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;
 
 create index ix_subscription_destination
   on t_subscription (destination)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;

@@ -31,7 +31,7 @@ create table t_file_attributes
 alter table t_file
   add constraint pk_file
   primary key (guid)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_file
   add constraint fk_file_node
@@ -40,7 +40,7 @@ alter table t_file
 alter table t_file_attributes
   add constraint pk_file_attributes
   primary key (guid, attribute)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_file_attributes
   add constraint fk_file_attributes_guid
@@ -51,9 +51,9 @@ alter table t_file_attributes
 
 create index ix_file_node
   on t_file (node)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;
 
 
 create index ix_file_attributes_attr
   on t_file_attributes (attribute)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;

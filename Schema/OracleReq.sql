@@ -37,7 +37,7 @@ create table t_request_dataspec
 alter table t_request
   add constraint pk_request
   primary key (id)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_request
   add constraint uq_request_name
@@ -67,18 +67,18 @@ alter table t_request_dataspec
 
 create index ix_request_operation_req
   on t_request_operation (request)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;
 
 
 create index ix_request_subscription_req
   on t_request_subscription (request)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;
 
 
 create index ix_request_dataspec_req
   on t_request_dataspec (request)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;
 
 create index ix_request_dataspec_dataset
   on t_request_dataspec (dataset)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;
