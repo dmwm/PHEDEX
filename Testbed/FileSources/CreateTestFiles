@@ -3,7 +3,7 @@
 # This tool functions as a fake data source. cd to your fake SE
 # directory then run 
 #
-# CreateTestFiles <number of files> <source node name>
+# CreateTestFiles <number of files> <source node name> <db> <user> <password>
 #
 # It will create N files in the pwd. First each file is registered
 # in the catalogue specified in $POOL_CATALOG. Each file will
@@ -12,6 +12,9 @@
 
 $count = $ARGV[0];
 $node = $ARGV[1];
+$db=$ARGS[2];
+$user=$ARGS[3];
+$pass=$ARGV[4];
 $pwd = $ENV{PWD};
 @sql = ();
 
@@ -47,21 +50,20 @@ while ($count > 0) {
     $count--;
 }
 
-do_sql( "devdb9", \@sql );
+do_sql( \@sql );
 
 # =========================================================
 # Subroutines
 # =========================================================
 
 sub do_sql {
-    my $dbname = shift;
     my $sql = shift;
     
     eval {
         my $dbh;
-        eval "use DBI"; $dbh = DBI->connect ("DBI:Oracle:$dbname",
-    					     "CMS_TRANSFERMGMT_WRITER",
-    					     "threeBagsFULL",
+        eval "use DBI"; $dbh = DBI->connect ("DBI:$db",
+    					     "$user",
+    					     "$pass",
     					     { RaiseError => 1, AutoCommit => 1 });              
 
         foreach my $cmd (@$sql) {
