@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/28 15:57:21 $
-# $Id: Allocator.pl,v 1.23 2004/07/28 15:57:21 barrass Exp $
+# $Date: 2004/07/28 15:58:04 $
+# $Id: Allocator.pl,v 1.24 2004/07/28 15:58:04 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -80,7 +80,7 @@ while(!(-e "$g_work_dir/stop")) {
             
             # Do allocation here
             
-        else {
+        } else {
             add_new_stream_to_subscriptions( $dataset_by_guid{$guid} );
         }
     }
