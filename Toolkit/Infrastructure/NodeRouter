@@ -50,14 +50,11 @@ close(PID);
 while(!(-e "$g_work_dir/stop")) {
     if ($g_once) { system("touch $g_work_dir/stop"); }
     
-    log_entry( "Hello" );
+    my @known_routes = &get_routes_for_node( $g_parent_node );
 
     foreach $neighbour (&get_neighbours) {
 	refresh_acquaintance( $neighbour );
     }
-
-    
-
 }
 
 
@@ -129,6 +126,30 @@ sub refresh_acquaintance {
 	."and to_node = '$g_parent_node' "
 	."and gateway = '$g_parent_node'";
     direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
+}
+
+sub get_routes_for_node {
+    my $node = shift;
+    my $dbh = DBI->connect( "DBI:Oracle:$g_db",
+                            "$g_db_user",
+                            "$g_db_passwd",
+                            { RaiseError=>1, AutoCommit =>1 });
+    
+    my $selection = "select to_node,gateway,timestamp,hops "
+        ."from t_Routing "
+        ."where from_node = '$node'";
+    my @routes;
+    my $query = $dbh->prepare($selection);
+    $query->execute;
+    while (@row = $query->fetchrow_array) {
+        foreach (@row) { s/ //g; }
+        push(@routes,join(':',@row));
+    }
+    $query->finish();
+
+    $dbh->disconnect();
+
+    return @routes;
 }
 
 sub get_neighbours {
