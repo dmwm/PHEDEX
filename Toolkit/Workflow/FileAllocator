@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/28 15:42:27 $
-# $Id: Allocator.pl,v 1.20 2004/07/28 15:42:27 barrass Exp $
+# $Date: 2004/07/28 15:43:49 $
+# $Id: Allocator.pl,v 1.21 2004/07/28 15:43:49 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -66,12 +66,10 @@ while(!(-e "$g_work_dir/stop")) {
     if ($g_once) { system( "touch $g_work_dir/stop" ); }
     my $loop_start = time();
 
-    my $temp = &get_new_guid_list;
-    my %dataset_by_new_guid = %$temp;
+    my %dataset_by_new_guid = &get_new_guid_list;
     my $guid = '';
     
     foreach $guid ( keys %dataset_by_new_guid ) {
-        
         log_entry( "$guid\t$dataset_by_new_guid{$guid}" );
     }
 
@@ -135,7 +133,7 @@ sub get_new_guid_list {
         return 1;
     }
 	
-	return (\%guid_list);
+	return (%guid_list);
 }
 
 
