@@ -422,7 +422,6 @@ sub nextFiles
 		left join t_nodes n2
 		  on n2.node_name = ts.dest_node
 		where ts.dest_node = '$mynode'
-		  and ts.dest_state = 1
 	  	  and ts.src_state = 1});
         $stmt->execute();
 	while (my $row = $stmt->fetchrow_arrayref())
