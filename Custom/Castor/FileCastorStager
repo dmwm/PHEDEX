@@ -355,8 +355,7 @@ sub buildStatus
 	    if (! defined $tape || ! defined $pos || ! defined $size)
 	    {
 	        ($success, $tape, $pos, $size) = &filePropertiesForMissing ($pfn, $cache);
-		do { $files->{$pfn}{STATUS} = "STAGED"; next }
-		    if (defined $size && $size == 0);
+		do { $files->{$pfn}{STATUS} = "STAGED"; next } if defined $size;
 	        do { &alert ("non-existent file $pfn"); $files->{$pfn}{STATUS} = "RETRY"; next }
 	            if (! defined $tape || ! defined $pos || ! defined $size);
 	    }
