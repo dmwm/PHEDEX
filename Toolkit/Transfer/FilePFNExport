@@ -1,0 +1,224 @@
+#!/usr/bin/env perl
+
+## Generate transfer file names (TURLS) for exported files.
+##
+## This agent generates the export file name for outbound file
+## transfers.  It monitors TMDB for wanted files that do not yet
+## have a transfer name, and generates one.
+##
+## In implementation, this is a database agent that uses the
+## job manager system heavily to invoke local site-specifc
+## glue script to actually generate the file name.
+
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+######################################################################
+my %args = (DBITYPE => "Oracle", NJOBS => 20);
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+
+    elsif ($ARGV[0] eq '-jobs' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{NJOBS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-timeout' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{TIMEOUT} = shift (@ARGV); }
+    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+
+    elsif ($ARGV[0] eq '-pfnquery' && scalar @ARGV > 1)
+    { shift (@ARGV); @{$args{PFN_QUERY}} = split(/,/, shift(@ARGV)); }
+    else
+    { last; }
+}
+
+if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
+    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE}
+    || !$args{PFN_QUERY} || !$args{NJOBS})
+{
+    print STDERR
+	"usage: $me -state IN-DROP-BOX -pfnquery PFN-QUERY-SCRIPT[,ARGS]\n",
+	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
+	"    -node NODE-NAME [-jobs NUM-PARALLEL-PROCESSES] [-timeout TIMEOUT]\n",
+	"    [-wait SECS-TO-WAIT]\n";
+    exit (1);
+}
+
+my $agent = new FilePFNExport (%args);
+# Recapture interrupt signal, oracle swallows it.
+$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
+$agent->process ();
+
+######################################################################
+# Routines specific to this agent.
+package FilePFNExport; use strict; use warnings; use base 'UtilsAgent';
+use File::Path;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsDB;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBITYPE => undef,		# Database driver binding
+    		  DBNAME => undef,		# Database name
+	  	  DBUSER => undef,		# Database user name
+	  	  DBPASS => undef,		# Database user password
+	  	  MYNODE => undef,		# My TMDB node name
+		  PFN_QUERY => undef,		# PFN query script
+	  	  AGENTID => "PFNExport");	# Identity for activity logs
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+######################################################################
+# Collect result from site query script glue
+sub reapPFN
+{
+    my ($self, $dbh, $guid, $to, $output, $start, $job) = @_;
+    my $line = &input ($output);
+    my ($oguid, $pfn, @junk) = split(/\s+/, $line);
+    if ($oguid eq $guid && $pfn)
+    {
+	&dbexec($dbh, qq{
+	    update t_transfer_state
+	    set from_pfn = :pfn
+	    where guid = :guid
+      	      and to_node = :tonode
+	      and from_node = :mynode
+      	      and from_pfn is null},
+      	    ":pfn" => $pfn,
+	    ":guid" => $guid,
+	    ":mynode" => $self->{MYNODE},
+	    ":tonode" => $to);
+        $dbh->commit();
+	&logmsg ("xstats: $guid $self->{MYNODE} "
+		 . sprintf('%.2f', &mytimeofday() - $start)
+		 . " $pfn");
+    }
+    else
+    {
+	# The script failed to produce output.  Whine.  Assign backoff
+	# time of 5 + 0-15 minutes as a penalty.
+	&warn ("no turl for $guid: $job->{STATUS} (@{$job->{CMD}})");
+	$self->{BACKOFF}{$guid}{$to} = &mytimeofday() + 60*(5 + rand(15));
+    }
+}
+
+# Pick up files that need PFN from database
+sub idle
+{
+    my ($self, @pending) = @_;
+    my $dbh = undef;
+    eval
+    {
+    	$dbh = &connectToDatabase ($self) or die "failed to connect";
+        # FIXME: Pick up and process messages to me
+
+	# If there are no pending jobs, delete old temp files.
+	if (! @{$self->{JOBS}})
+	{
+	    my $tmpdir = $self->{DROPDIR};
+	    unlink <$tmpdir/*.turl>;
+        }
+
+	# Create jobs for computing TURLs for files.
+	my %protos = ();
+	my $nfiles = 0;
+	my $now = &mytimeofday();
+
+	my $query = &dbexec($dbh,qq{
+	    select guid, to_node
+	    from t_transfer_state
+	    where from_node = :node
+	      and to_state = 1
+      	      and to_timestamp > :old
+	      and from_pfn is null},
+      	    ":node" => $self->{MYNODE},
+	    ":old" => $now - 15*60);
+
+        my $pquery = &dbprep($dbh,qq{
+	    select i.protocol
+	    from t_node_import i, t_node_export e
+	    where e.protocol = i.protocol
+	      and e.node = :exportnode
+	      and i.node = :importnode
+	    order by i.priority asc});
+
+        while (my ($guid, $to) = $query->fetchrow())
+	{
+	    # If we failed to generate TURL or determine protocol for
+	    # this file recently, ignore it until back-off time passes.
+	    next if ($self->{BACKOFF}{$guid}{$to} || $now) < $now;
+
+	    # Use cached protocol for $to, or cache one now.  We get
+	    # the first compatible protocol, sorted by importer's
+	    # priority order, as the download protocol.
+	    if (! defined $protos{$to})
+	    {
+		&dbbindexec($pquery,
+			    ":exportnode" => $self->{MYNODE},
+			    ":importnode" => $to);
+		$protos{$to} = ($pquery->fetchrow())[0];
+	    }
+
+	    # If there is no protocol compatible with me and $to, warn
+	    # about this guid.  Assign back-off of 5 + 0-15 minutes.
+	    if (! defined $protos{$to})
+	    {
+		&alert ("$guid: no protocol matches $self->{MYNODE} and $to");
+		$self->{BACKOFF}{$guid}{$to} = $now + 60*(5 + rand(15));
+		next;
+	    }
+	    delete $self->{BACKOFF}{$guid}{$to};
+
+	    # Ok, start sub-process to generate TURL for this guid.  The
+	    # site glue script gets from us the arguments protocol, node
+	    # and guid.  Generally the script just queries the catalogue
+	    # and generates a name for gridftp node or some such.
+	    my $output = "$self->{DROPDIR}/$guid.$to.turl";
+	    $self->addJob (sub { $self->reapPFN ($dbh, $guid, $to, $output, $now, @_) },
+		{}, "sh", "-c", "@{$self->{PFN_QUERY}} -g $protos{$to} $to $guid > $output");
+
+	    # Keep old jobs running while we are generating new jobs.
+	    $self->maybeStop ();
+	    $self->pumpJobs ();
+	}
+
+	# Wait till all jobs exit
+	while (@{$self->{JOBS}})
+	{
+	    $self->maybeStop ();
+	    $self->pumpJobs ();
+	    select (undef, undef, undef, .1);
+	}
+    };
+    do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
+
+    # Disconnect from the database
+    $dbh->disconnect if $dbh;
+    undef $dbh;
+
+    # Have a little nap
+    $self->nap ($self->{WAITTIME});
+}
