@@ -407,7 +407,7 @@ sub idle
 	    }
 
 	    # Select the next up to maxfiles to stage in
-	    my $nfiles = ($#requests > $self->{MAXFILES} ? $self->{MAXFILES} : $#requests);
+	    my $nfiles = ($#requests+1 > $self->{MAXFILES} ? $self->{MAXFILES} : $#requests+1);
 	    my @slice = splice(@requests, 0, $nfiles);
 
 	    # Issue background stage-in
