@@ -446,6 +446,13 @@ partially replicated information in the RLS were deployed to enable
 analysis at the T1s and T2s. These catalogues were not fully
 syncronised, although information was published to them from the RLS.
 
+Problems with the RLS stemmed from the performance of the RMC, and the
+implementation of the catalogue: the LRC and RMC are implemented as
+separate databases, so a query based on metadata must look up
+information in the RMC, and then correlate it with information in the
+LRC, rather than using the database server to make the correlation for
+the user.
+
 In general inserting information into the LRC was slow, and using the
 RMC was slower. Looking up file information by GUID met performance
 requirements, but queries, including queries by GUID, took a long
