@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/27 13:45:29 $
-# $Id: Allocator.pl,v 1.11 2004/07/27 13:45:29 barrass Exp $
+# $Date: 2004/07/27 14:13:29 $
+# $Id: Allocator.pl,v 1.12 2004/07/27 14:13:29 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -34,6 +34,8 @@
 # -w <workdir>		sets the workdir for the agent
 # -db <tns name>	sets the Oracle db to talk to
 # -u <pool cat uri>	sets the catalogue from which the agent takes info
+# -once             only run once
+# -period           repeat period, seconds
 
 use DBI;
 use Getopt::Long;
@@ -305,11 +307,11 @@ sub parse_command_line () {
 	$g_work_dir = $g_work_dir.$new_work_dir;
 	$entry = $entry."work dir is $g_work_dir,";
 	if (-e "$g_work_dir/pid") {
-		log_entry( ENTRY => "Removing old pid file");
+		log_entry( "Removing old pid file");
 		unlink("$g_work_dir/pid");
 	} 
 	if (-e "$g_work_dir/stop") {
-		log_entry( ENTRY => "Removing old stop file" );
+		log_entry( "Removing old stop file" );
 		unlink ("$g_work_dir/stop");
 	}
 	if (!$g_db) {
