@@ -17,70 +17,50 @@ my $pendcolor = '#ccccff'; # ececff
 my $goodcolor = '#ccffcc';
 my $altcolor = '#e8e8e8';
 
-# ###############################################
-# Main loop
-# ###############################################
-
-intro();
-end();
-
-# ###############################################
-# Subroutines
-# ###############################################
-
-sub intro
-{
-    $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
-    $ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/8174";
-    $ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/8174/lib";
-    $dbh = DBI->connect ("DBI:Oracle:$db", 'CMS_TRANSFERMGMT', 'smallAND_round',
-	    		 { RaiseError=>1, AutoCommit =>1 });
+$ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
+$ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/8174";
+$ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/8174/lib";
+$dbh = DBI->connect ("DBI:Oracle:$db", 'CMS_TRANSFERMGMT', 'smallAND_round',
+		     { RaiseError=>1, AutoCommit =>1 });
 
     
-    my $stream = $cgi->param('stream');
-    my %nodesel = map { $_ => 1 } $cgi->param('sites');
-    my @nodes = @{$dbh->selectcol_arrayref(qq{
-		    select node_name
-		    from t_nodes
-		    order by node_name})};
+my $stream = $cgi->param('stream');
+my %nodesel = map { $_ => 1 } $cgi->param('sites');
+my @nodes = @{$dbh->selectcol_arrayref(qq{
+    select node_name from t_nodes order by node_name})};
 
-    if ($stream && $cgi->param('submit'))
+if ($stream && $cgi->param('submit'))
+{
+    foreach my $dest (keys %nodesel)
     {
-	foreach my $dest (keys %nodesel)
-	{
-	    my $known = $dbh->selectcol_arrayref(qq{
-				select count(*)
-				from t_subscriptions
-				where destination = '$dest'
-				  and stream = '$stream'});
-	    $dbh->do(qq{insert into t_subscriptions values ('$dest', '$stream')})
-		if ! $known || ! $known->[0];
-	}
-
-	%nodesel = ();
+	my $known = $dbh->selectcol_arrayref(qq{
+		select count(*) from t_subscriptions
+		where destination = '$dest' and stream = '$stream'});
+	$dbh->do(qq{insert into t_subscriptions values ('$dest', '$stream')})
+	    if ! $known || ! $known->[0];
     }
 
-    print $cgi->header(),
-        "<html>\n",
-	"<title>PhEDEx Data Subscription</title>\n",
-	"<body bgcolor='#FFFFFF'>\n",
-	"<center><h1>PhEDEx Data Subscription</h1>\n",
-        start_form(),
-        "<table><tr>",
-        "<td>Dataset</td>",
-	"<td><input type='text' name='stream' size='20' value='$stream'></td>",
-        "</tr>\n",
-	(map { "<tr><td>$_</td>"
-	       ."<td><input type='checkbox' name='sites' value='$_'"
-	       .($nodesel{$_} ? ' checked' : '')
-	       ."></td></tr>\n" } @nodes),
-        "<tr><td><input type='submit' name='Submit'></td><td></td></tr>\n",
-	"</table>\n",
-	"</body>\n",
-	"</html>\n";
+    %nodesel = ();
 }
 
-sub end {
-    print end_form();
-    $dbh->disconnect();
-}
+print $cgi->header(),
+    "<html>\n",
+    "<title>PhEDEx Data Subscription</title>\n",
+    "<body bgcolor='#FFFFFF'>\n",
+    "<center><h1>PhEDEx Data Subscription</h1>\n",
+    start_form(),
+    "<table><tr>",
+    "<td>Dataset</td>",
+    "<td><input type='text' name='stream' size='20' value='$stream'></td>",
+    "</tr>\n",
+    (map { "<tr><td>$_</td>"
+	   ."<td><input type='checkbox' name='sites' value='$_'"
+	   .($nodesel{$_} ? ' checked' : '')
+	   ."></td></tr>\n" } @nodes),
+    "<tr><td><input type='submit' name='submit' value='Submit'></td><td></td></tr>\n",
+    "</table>\n",
+    end_form(),
+    "</body>\n",
+    "</html>\n";
+
+$dbh->disconnect();
