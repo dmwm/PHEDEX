@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/30 11:08:00 $
-# $Id: Allocator.pl,v 1.55 2004/07/30 11:08:00 barrass Exp $
+# $Date: 2004/09/03 16:26:31 $
+# $Id: Allocator.pl,v 1.56 2004/09/03 16:26:31 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -67,7 +67,7 @@ print PID "$$\n";
 close(PID);
 
 while(!(-e "$g_work_dir/stop")) {
-    if ($g_once) { log_entry( "Stopping, found stop file." ); system( "touch $g_work_dir/stop" ); }
+    if ($g_once) { system( "touch $g_work_dir/stop" ); }
     my $loop_start = time();
 
     my $guid = '';
@@ -139,7 +139,7 @@ while(!(-e "$g_work_dir/stop")) {
 # ###############################################################
 
 sub connect_to_db {
-    my $dbh = DBI->connect( "DBI:$d_db",
+    my $dbh = DBI->connect( "DBI:$g_db",
 			    $g_user,
 			    $g_passwd,
 			    {RaiseError => 1, AutoCommit => 1})
