@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/28 15:25:31 $
-# $Id: Allocator.pl,v 1.14 2004/07/28 15:25:31 barrass Exp $
+# $Date: 2004/07/28 15:30:12 $
+# $Id: Allocator.pl,v 1.15 2004/07/28 15:30:12 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -66,7 +66,12 @@ while(!(-e "$g_work_dir/stop")) {
     if ($g_once) { system( "touch $g_work_dir/stop" ); }
     my $loop_start = time();
 
-    my @new_guids = &get_new_guid_list;
+    my %new_guids = &get_new_guid_list;
+    my $guid = '';
+    
+    foreach $guid ( keys %new_guids ) {
+        log_entry( $guid );
+    }
 
     $time = time();
     sleep($g_period - $time + $loop_start);
@@ -88,10 +93,13 @@ sub get_new_guid_list {
 	my @new_guids = ();
 	my @row;
 	my $count = 0;
-	my $selection = "select unique guid from t_files_for_transfer "
-	       ."where allocated = 1 and rownum < $g_max_guids ";
+	my $selection = "select t_files_for_transfer.guid,t_replica_metadata.value "
+	       ."from t_files_for_transfer,t_replica_metadata "
+	       ."where allocated = 1 "
+	       ."and rownum < $g_max_guids "
+	       ."and t_files_for_transfer.guid = t_replica_metadata.guid";
 
-    my @guid_list;
+    my %guid_list = ();
 
 	eval {
         my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
@@ -103,8 +111,10 @@ sub get_new_guid_list {
 		
         $query->execute();while (@row = $query->fetchrow_array) {	
 	       $guid = $row[0];
+	       $row[1] =~ s/\w+//g;
+	       $dataset = $row[1];
 	       $count++;
-	       push( @guid_list, $guid);
+	       $guid_list{$guid}  = $dataset;
         }
         log_entry(  "Found $count new GUIDs" );
         $query->finish();
@@ -122,8 +132,12 @@ sub get_new_guid_list {
         return 1;
     }
 	
-	return (@guid_list);
+	return (%guid_list);
 }
+
+
+
+
 
 
 
@@ -212,37 +226,7 @@ sub get_available_agents_of_type {
 
 
 
-sub lookup_metadata {
-	my $uri = shift;
-	my $guid = shift;
-	my $query = "guid=\'$guid\'";
-  	my $isDST;
-  	my $attribute;
-  	my $stream_name;
 
-	
-	open(GETMETA, "FClistMetaData -u $uri -q $query |") or die "Couldn't list metadata\n";
-	while (<GETMETA>) {
-		if (/FileCategory/) {
-			@bits = split (/\),\(/);
-			foreach (@bits) {
-				if (/FileCategory/) {
-					if (/DST/g) {
-						$isDST = 0;
-					} else {
-						$isDST = 1;
-					}
-				}
-				if (/dataset/g) {
-					($temp,$stream_name) = split(/,/);
-					$stream_name =~ s/\)\n//g;
-				}				
-			}
-		}
-	}
-	close (GETMETA);
-	return ($isDST, $stream_name);
-}
 
 sub load_stream_config {
 	my $stream;
