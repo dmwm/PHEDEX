@@ -14,8 +14,8 @@ rm -fr {xml,exist,pfx,cat,tmdb}/{inbox,work}/*
 ./DropCatPublisher -in cat -out tmdb -catalogue file:catalog.xml >& log-cat &
 ./DropTMDBPublisher -in tmdb -db "devdb9" -dbuser cms_transfermgmt -dbpass smalland_round -node TEST_Transfer >& log-tmdb &
 
-rm -fr foodata
-./TRNew foodata
-./TRNewData -a foodata 4965
-./TRSyncDrops foodata
-./TRSyncFeed $PWD devdb9 t_files_for_transfer foodata
+: rm -fr foodata
+: ./TRNew foodata
+: ./TRNewData -a foodata 4965
+: ./TRSyncDrops foodata
+: ./TRSyncFeed $PWD devdb9 t_files_for_transfer foodata
