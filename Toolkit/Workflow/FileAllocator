@@ -2,32 +2,27 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/09/03 18:43:48 $
-# $Id: Allocator.pl,v 1.63 2004/09/03 18:43:48 barrass Exp $
+# $Date: 2004/09/15 21:17:22 $
+# $Id: Allocator.pl,v 1.64 2004/09/15 21:17:22 lat Exp $
 #
-# This agent handles the allocation of files to destinations. It allocates files
-# to destinations based on replica metadata and destination subscription
-# information, all which is stored in the TMDB.
+# This agent allocates files to destinations based on subscriptions.
+# It compares file replica metadata and destination subscriptons with
+# current set of destinations assigned for files, and automatically
+# creates new assignments when necessary.  All the information is
+# stored in the TMDB.
 #
-# First it determines a list of guids that it hasn't yet dealt with (they have
-# allocated = 1). It queries the metadata (dataset, owner) for each
-# guid, then determines which destinations have subscribed to files characterised
-# by that metadata. It makes a guid:destination mapping for each destination in
-# the t_destinations table.
+# The whole operation is done in a single SQL statement that compares
+# files and subscriptons with existing destination assignments and
+# replicas.  If there is a data subscription but no existing replica
+# (for the site originating the data) nor a destination assignmenet,
+# a new assignment is created.  Note that file routing is handled
+# elsewhere, so we don't care if or how the file can make it to the
+# requested destination.
 #
-# The agent determines which node(s) in the network represent the first hop
-# toward each subscribing destination. It then makes an advertisement for those
-# first-hop nodes in the t_file_state table.
-#
-# If the dataset, owner combination is not present in the subscriptions table
-# the agent makes a blank entry, indicating that the combination is as yet
-# unallocated.
-#
-# If no destinations are found, no allocation is made.
-#
-# You should provide a working dir name on the command line:
-# a pid file will be stored there during running, and to stop the
-# agent you should touch a file named "stop" within it.
+# Please provide a working directory name on the command line, it is
+# used to store the pid file during running and is where the agent
+# will look for the stop flag file "stop"; existence of the file will
+# automatically stop the agent.
 #
 # Command line options
 # -w <workdir>		sets the workdir for the agent
