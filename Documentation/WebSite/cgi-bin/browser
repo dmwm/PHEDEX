@@ -144,7 +144,7 @@ sub transfer {
     my $now = time();
     my $query = $dbh->prepare(qq{
 	    select
-	      node, timestamp,
+	      node, update_stamp,
 	      n_files, sz_files,
 	      n_onsite, sz_onsite,
 	      n_staged, sz_staged,
@@ -438,7 +438,7 @@ sub stats {
     my $now = time();
     my $overview = $dbh->selectrow_arrayref(qq{
 			select
-			  timestamp,
+			  update_stamp,
 			  n_files,
 			  sz_total,
 			  sz_min,
@@ -448,7 +448,7 @@ sub stats {
 			from t_info_file_size_overview});
     my $histo = $dbh->selectall_arrayref(qq{
 	    		select
-			  timestamp,
+			  update_stamp,
 			  bin_low,
 			  bin_width,
 			  n_total,
@@ -504,7 +504,7 @@ sub agents {
     my %live = ();
     foreach my $row (@{$dbh->selectall_arrayref(qq{
 				select
-				  timestamp,
+				  update_stamp,
 				  site,
 				  host,
 				  agent,
@@ -586,7 +586,7 @@ sub rates {
     my %stats = ();
     my $q = $dbh->prepare(qq{
 			select
-			  timestamp,
+			  update_stamp,
 			  time_span,
 			  info_type,
 			  from_node,
