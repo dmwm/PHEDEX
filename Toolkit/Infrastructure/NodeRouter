@@ -63,7 +63,7 @@ while(!(-e "$g_work_dir/stop")) {
     &update_table( \@all_routes );
 
     my $pause = $g_period - (time() - $start);
-    sleep($pause);
+    sleep($pause) if $pause > 0;
 }
 
 
@@ -156,42 +156,56 @@ sub update_table {
 }
 
 sub get_new_routes {
-    my $dbh = DBI->connect( "DBI:Oracle:$g_db",
-                            "$g_db_user",
-                            "$g_db_passwd",
-                            { RaiseError=>1, AutoCommit =>1 });
+    my $dbh = DBI->connect("DBI:Oracle:$g_db", "$g_db_user", "$g_db_passwd",
+                           { RaiseError=>1, AutoCommit =>1 });
 
-    my $selection = "select from_node,to_node,timestamp,hops from t_Routing "
-	."where from_node in (select from_node from t_Routing where to_node = '$g_parent_node' and gateway = '$g_parent_node') "
-	."and not to_node = '$g_parent_node' "
-	."minus "
-	."select gateway,to_node,timestamp,hops-1 from t_Routing "
-	."where from_node = '$g_parent_node'";
+    # Get all routes
+    my %routes = ();
+    my $query = $dbh->prepare(qq{
+	    select from_node, to_node, gateway, timestamp, hops
+	    from t_routing});
+    $query->execute();
+    while (@row = $query->fetchrow_array()) {
+	my ($from, $to, $gateway, $stamp, $hops) = @row;
+	$from =~ s/\s+//g; $to =~ s/\s+//g;
+	$routes{$from}{$to} = { GATEWAY => $gateway,
+				HOPS => $hops,
+				STAMP => $stamp };
+    }
 
-    my @new_routes = ();
-    my $query = $dbh->prepare($selection);
-    $query->execute;
-    while (@row = $query->fetchrow_array) {
-        foreach (@row) { s/ //g; }
-	$row[3]++;
+    # Build the list of routes we want to process.  First get our immediate
+    # neighbours: routes with from=me and to=gateway.  Then obtain the routes
+    # for all those immediate neighbours, excluding routes with myself as the
+    # destination.  Finally prune out routes we have already established and
+    # which are still valid.
+    my @new = ();
+    my @neighbours = grep ($routes{$g_parent_node}{$_}{GATEWAY} eq $_,
+	    		   keys %{$routes{$g_parent_node}});
+    foreach my $from (@neighbours) {
+	foreach my $to (keys %{$routes{$from}}) {
+	    my $gateway = $routes{$from}{$to}{GATEWAY};
+	    my $stamp = $routes{$from}{$to}{STAMP};
+	    my $hops = $routes{$from}{$to}{HOPS}
+	    	       + $routes{$g_parent_node}{$from}{HOPS};
 
-	# Here we handle split horizon with poisoned reverse
-	# Split horizon means that if we detect a route for
-	# which we are the gateway, we ignore it. Split 
-	# horizon with poisoned reverse means that we accept
-	# routes through us, but set the number of hops to
-	# "infinity".
-	if ($row[0] eq $g_parent_node) {
-	    $row[3] = $g_infinity;
-	} else {
-	    push( @new_routes, join( ":",@row ) );
+	    next if $to eq $g_parent_node;
+	    next if (exists $routes{$g_parent_node}{$to}
+		     && $routes{$g_parent_node}{$to}{GATEWAY} eq $from
+		     && $routes{$g_parent_node}{$to}{HOPS} eq $hops
+		     && $routes{$g_parent_node}{$to}{STAMP} eq $stamp);
+
+	    # Handle split horizon with poisoned reverse.  Split horizon
+	    # means that routes with myself as the gateway are ignored.
+	    # Split horizon with poisoned reverse means such routes are
+	    # accepted, but the number of hops is set to infinity.
+	    $hops = $g_infinity if $gateway eq $g_parent_node;
+	    push (@new, "$from:$to:$stamp:$hops");
 	}
-
     }
     $query->finish();
     $dbh->disconnect();
 
-    return @new_routes;
+    return @new;
 }
 
 sub clear_my_table {
