@@ -25,7 +25,7 @@ create table t_agent_status
   (node			varchar (20)	not null,
    agent		varchar (20)	not null,
    state		char (1)	not null,
-   last_contact		float		not null);
+   timestamp		float		not null);
 
 ----------------------------------------------------------------------
 -- Add constraints
