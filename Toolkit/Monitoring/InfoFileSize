@@ -74,18 +74,16 @@ sub idle
     my $dbh = undef;
     eval
     {
-	my $now = time();
-	$dbh = &connectToDatabase ($self, 0);
-	die "failed to connect" if ! $dbh;
-
+	$dbh = &connectToDatabase ($self, 0) or die "failed to connect";
         # FIXME: Pick up and process messages to me
 
 	# Recreate statistics
-	$dbh->do(qq{delete from t_info_file_size_overview});
-	$dbh->do(qq{delete from t_info_file_size_histogram});
-	$dbh->do(qq{insert into t_info_file_size_overview
+	my $now = time();
+	&dbexec($dbh, qq{delete from t_info_file_size_overview});
+	&dbexec($dbh, qq{delete from t_info_file_size_histogram});
+	&dbexec($dbh, qq{insert into t_info_file_size_overview
 			(select
-			   $now,
+			   :now,
 			   count(to_number(value)),
 		           sum(to_number(value)),
 		           min(to_number(value)),
@@ -93,10 +91,11 @@ sub idle
 	                   avg(to_number(value)),
 		           percentile_disc(.5) within group (order by to_number(value))
 			 from t_replica_metadata
-			 where attribute = 'filesize')});
-	$dbh->do(qq{insert into t_info_file_size_histogram
+			 where attribute = 'filesize')},
+	        ":now" => $now);
+	&dbexec($dbh, qq{insert into t_info_file_size_histogram
 			(select
-			   $now,
+			   :now,
 			   binsize,
 			   10 * 1024 * 1024,
 			   count(binsize),
@@ -106,7 +105,8 @@ sub idle
 				 to_number(value) as realsize
 			       from t_replica_metadata
 			       where attribute = 'filesize')
-			 group by binsize)});
+			 group by binsize)},
+	        ":now" => $now);
 
 	$dbh->commit();
     };

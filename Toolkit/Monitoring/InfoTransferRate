@@ -74,16 +74,14 @@ sub idle
     my $dbh = undef;
     eval
     {
-	my $now = time();
-	$dbh = &connectToDatabase ($self, 0);
-	die "failed to connect" if ! $dbh;
-
+	$dbh = &connectToDatabase ($self, 0) or die "failed to connect";
         # FIXME: Pick up and process messages to me
 
 	# Select counts and time stamps from rows we are monitoring.
 	my %info = ();
+	my $now = time();
 	my %start = (0 => 0, map { $_ => $now - $_ } 30*86400, 7 * 86400, 86400, 3600);
-	my $query = qq{
+	my $basequery = qq{
 		select
 		  !DETAIL! xfrom, xto,
 		  count(guid),			-- files
@@ -105,34 +103,39 @@ sub idle
 		    on f.guid = ts.guid
 		  where ts.to_state = 3
 		    and ts.from_state = 1
-		    and ts.to_time_stamp > !START!)
+		    and ts.to_time_stamp > :starttime)
 		!DETAIL! group by xfrom, xto};
 
-	$dbh->do(qq{delete from t_info_transfer_rate});
+	&dbexec ($dbh, qq{delete from t_info_transfer_rate});
 	my $stmt = $dbh->prepare(qq{
 		insert into t_info_transfer_rate values
-		(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
+		(:now, :span, :type, :from_node, :to_node, :files, :bytes, :time,
+		 :bps, :abps, :ibps, :xbps)});
 
 	foreach my $span (keys %start)
 	{
 	    my $row;
-	    my $q = $query;
+	    my $q = $basequery; $q =~ s/!DETAIL!//g;
 	    my ($from, $to, $files, $bytes, $time, $bps, $abps, $ibps, $xbps);
-	    $q =~ s/!DETAIL!//g; $q =~ s/!START!/$start{$span}/;
-	    foreach $row (@{$dbh->selectall_arrayref($q)}) {
+	    my ($query) = &dbexec($dbh, $q, ":starttime" => $start{$span});
+	    while (my $row = $query->fetchrow_arrayref()) {
 		($from, $to, $files, $bytes, $time, $bps, $abps, $ibps, $xbps) = @$row;
-		next if ! $files;
-		$stmt->execute($now, $span, 'N', $from, $to, $files, $bytes, $time,
-			       $bps, $abps, $ibps, $xbps);
+		&dbbindexec($stmt, ":now" => $now, ":span" => $span, ":type" => 'N',
+			    ":from_node" => $from, ":to_node" => $to,
+			    ":files" => $files, ":bytes" => $bytes, ":time" => $time,
+			    ":bps" => $bps, ":abps" => $abps, ":ibps" => $ibps, ":xbps" => $xbps)
+		    if $files;
 	    }
 
-	    $q = $query;
-	    $q =~ s/!DETAIL!/--/g; $q =~ s/!START!/$start{$span}/;
-	    foreach $row (@{$dbh->selectall_arrayref($q)}) {
+	    $q = $basequery; $q =~ s/!DETAIL!/--/g;
+	    ($query) = &dbexec($dbh, $q, ":starttime" => $start{$span});
+	    while (my $row = $query->fetchrow_arrayref()) {
 		($files, $bytes, $time, $bps, $abps, $ibps, $xbps) = @$row;
-		next if ! $files;
-		$stmt->execute($now, $span, 'T', '', '', $files, $bytes, $time,
-			       $bps, $abps, $ibps, $xbps);
+		&dbbindexec($stmt, ":now" => $now, ":span" => $span, ":type" => 'T',
+			    ":from_node" => '', ":to_node" => '',
+			    ":files" => $files, ":bytes" => $bytes, ":time" => $time,
+			    ":bps" => $bps, ":abps" => $abps, ":ibps" => $ibps, ":xbps" => $xbps)
+		    if $files;
 	    }
         }
 

@@ -86,21 +86,9 @@ sub idle
 	# transaction length, and gradually remove obsolete entries.
 
 	my $squery = $dbh->prepare(qq{
-			select
-			  update_stamp,
-			  snap_rfiles,
-			  snap_tfiles
+			select update_stamp
 			from t_info_transfer_status
 			where node = ?});
-	my $rquery = $dbh->prepare(qq{
-			select count(guid)
-			from t_replica_state
-			where node = ?});
-	my $tquery = $dbh->prepare(qq{
-			select count(guid)
-			from t_transfer_state
-			where to_node = ?});
-
 	my $oldest = undef;
 	foreach my $row (@{$dbh->selectall_arrayref(qq{select node_name from t_nodes})})
 	{
@@ -108,8 +96,8 @@ sub idle
 
 	    # Get snapshot for this node
 	    $squery->execute($node);
-	    my ($stamp, $rfiles, $tfiles) = $squery->fetchrow();
-	    $stamp ||= 0; $rfiles ||= 0; $tfiles ||= 0;
+	    my ($stamp) = $squery->fetchrow();
+	    $stamp ||= 0;
 
 	    # If this is oldest row, remember it
 	    $oldest = [ $node, $stamp ] if (! $oldest || $oldest->[1] > $stamp);
@@ -121,33 +109,35 @@ sub idle
 	# No longer valid.  Remove this entry and recompute, then
 	# move and have a nap so we don't overstress the database.
         my $node = $oldest->[0];
-	$dbh->do(qq{delete from t_info_transfer_status where node = '$node'});
-	$dbh->do(qq{
-		insert into t_info_transfer_status
-		(select $now, '$node', 0, 0, 0, x.*
-		 from (
-			    select count(f.guid),
-				   nvl(sum(f.filesize), 0),
-				   count(rs.guid),
-				   nvl(sum(case when rs.guid is not null then f.filesize else 0 end),0),
-				   nvl(sum(case when rs.state = 1 then 1 else 0 end),0),
-				   nvl(sum(case when rs.state = 1 then f.filesize else 0 end),0),
-				   nvl(sum(case when ts.from_state = 1 and ts.to_state <= 2 then 1 else 0 end),0),
-				   nvl(sum(case when ts.from_state = 1 and ts.to_state <= 2 then f.filesize else 0 end),0),
-				   nvl(sum(case when ts.to_state = 2 then 1 else 0 end),0),
-				   nvl(sum(case when ts.to_state = 2 then f.filesize else 0 end),0),
-				   nvl(sum(case when ts.to_state = 1 then 1 else 0 end),0),
-				   nvl(sum(case when ts.to_state = 1 then f.filesize else 0 end),0),
-				   nvl(sum(case when ts.to_state = 0 then 1 else 0 end),0),
-				   nvl(sum(case when ts.to_state = 0 then f.filesize else 0 end),0),
-				   nvl(sum(case when ts.to_state > 3 then 1 else 0 end),0),
-				   nvl(sum(case when ts.to_state > 3 then f.filesize else 0 end),0)
-			    from t_files_for_transfer f
-			    left join t_replica_state rs
-			      on rs.guid = f.guid and rs.node = '$node'
-			    left join t_transfer_state ts
-			      on ts.guid = f.guid and ts.to_node = '$node'
-      			    where (rs.node = '$node') or (ts.to_node = '$node')) x)});
+	&dbexec($dbh, qq{
+	    delete from t_info_transfer_status where node = :node},
+	    ":node" => $node);
+	&dbexec($dbh, qq{
+	    insert into t_info_transfer_status
+	    (select :now, :node, 0, 0, 0, x.*
+	     from (select count(f.guid),
+			  nvl(sum(f.filesize), 0),
+			  count(rs.guid),
+			  nvl(sum(case when rs.guid is not null then f.filesize else 0 end),0),
+			  nvl(sum(case when rs.state = 1 then 1 else 0 end),0),
+			  nvl(sum(case when rs.state = 1 then f.filesize else 0 end),0),
+			  nvl(sum(case when ts.from_state = 1 and ts.to_state <= 2 then 1 else 0 end),0),
+			  nvl(sum(case when ts.from_state = 1 and ts.to_state <= 2 then f.filesize else 0 end),0),
+			  nvl(sum(case when ts.to_state = 2 then 1 else 0 end),0),
+			  nvl(sum(case when ts.to_state = 2 then f.filesize else 0 end),0),
+			  nvl(sum(case when ts.to_state = 1 then 1 else 0 end),0),
+			  nvl(sum(case when ts.to_state = 1 then f.filesize else 0 end),0),
+			  nvl(sum(case when ts.to_state = 0 then 1 else 0 end),0),
+			  nvl(sum(case when ts.to_state = 0 then f.filesize else 0 end),0),
+			  nvl(sum(case when ts.to_state > 3 then 1 else 0 end),0),
+			  nvl(sum(case when ts.to_state > 3 then f.filesize else 0 end),0)
+		   from t_files_for_transfer f
+		   left join t_replica_state rs
+		     on rs.guid = f.guid and rs.node = :node
+		   left join t_transfer_state ts
+		     on ts.guid = f.guid and ts.to_node = :node
+      		   where (rs.node = :node) or (ts.to_node = :node)) x)},
+	    ":node" => $node, ":now" => $now);
 
 	$dbh->commit();
 	&logmsg("updated transfer stats for $node");
