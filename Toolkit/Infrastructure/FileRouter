@@ -123,7 +123,7 @@ sub idle
 	    # transfer state from any possible existing assignment
 	    # for that hop.  The value will be null (undef) if no
 	    # assignment exists yet, non-null otherwise.
-	    my $next = $dbh->selectall_arrayref(qq{
+	    my $rows = $dbh->selectall_arrayref(qq{
     		select d.destination_node as dest_final,
 		       rs.node as source,
 		       r.gateway as next_hop,
@@ -142,10 +142,10 @@ sub idle
 		 and ts.dest_node = r.gateway
 	 	where d.guid = '$guid'
 		order by dest_final, hops});
-	    last if ! defined $next;
+	    last if ! defined $rows;
 
 	    my %dests = ();
-	    foreach my $row (@$next)
+	    foreach my $row (@$rows)
 	    {
 		my ($dest, $source, $next, $dist, $status) = @$row;
 
