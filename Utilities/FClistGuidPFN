@@ -34,6 +34,7 @@ class myobj(object):
                 self.mode = 'p'
             elif o == '-q':
                 self.mode = 'q'
+		self.exact = 0
             else:
                 usage()
                 sys.exit(2)
@@ -55,38 +56,36 @@ class myobj(object):
             self.x.start()
             for i in self.input:
 		try:
-                    pfns = PyFCContainer.PyFCContainer(self.x,PFN,10000)
+                    container = PyFCContainer.PyFCContainer(self.x,PFN,10000)
 		    if (self.mode == 'g'):
 			# lookup by guid: exact or query
 			if (self.exact):
-		            l.lookupPFN(i, pfns)
+		            l.lookupPFN(i, container)
 			else:
-			    l.lookupPFNByQuery("guid like '" + i + "'", pfns)
-
-                        while pfns.hasNext():
-                            pentry=pfns.Next()
-                            print pentry[1], pentry[0]
+			    l.lookupPFNByQuery("guid like '" + i + "'", container)
 
 		    elif (self.mode == 'p'):
 			# lookup by pfn: exact or query
 			if (self.exact):
-		            result=l.lookupFileByPFN(i)
+		            result = l.lookupFileByPFN(i)
                             print result['guid'], i
+			    continue
 			else:
-			    result=l.lookupPFNByQuery("pfname like '" + i + "'", pfns)
-			    while pfns.hasNext():
-				pentry = pfns.Next()
-				print pentry[1], pentry[0]
+			    l.lookupPFNByQuery("pfname like '" + i + "'", container)
 
 		    elif (self.mode == 'q'):
 			# lookup by arbitrary query
-			result = l.lookupPFNByQuery (i, pfns)
-			while pfns.hasNext():
-			    pentry = pfns.Next()
-			    print pentry[1], pentry[0]
+			l.lookupPFNByQuery(i, container)
+
+                    while container.hasNext():
+                        entry = container.Next()
+                        print entry[1], entry[0]
 
                 except Exception:
-		    1 # swallow failures, keep going with other files
+		    # Swallow exception if we are in exact mode,
+		    # keep going with other files.  Otherwise it
+		    # is probably a hard error.
+		    if (self.exact == 0): raise
 
             self.x.commit(REFRESH)
             self.x.disconnect()
