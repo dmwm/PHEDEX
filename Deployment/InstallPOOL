@@ -157,7 +157,8 @@ sub installScram {
 	    (! system("mkdir -p $InstallRoot"))
 		or die "Failed to create $InstallRoot directory.  Please check permissions.\n";
 	    open(FH,">$InstallRoot/poolenv.$sh");
-	    print FH "eval \`scram setroot -$sh $project $version && scram runtime -$sh\`\n";
+	    print FH "eval \`scram setroot -$sh $project $version\`\n";
+	    print FH "eval \`scram runtime -$sh\`\n";
 	    close(FH);
 	}
     };
