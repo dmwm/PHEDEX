@@ -1,0 +1,205 @@
+#!/usr/bin/perl
+
+## Assign the next hops to files that have arrived to a node.
+##
+## This agent scans the transfer state table in TMDB.  When it finds
+## files that have arrived to a node (dest_state = 3), it determines
+## the next hops for the file considering the final destinations, all
+## current replicas and the distances in the routing table.  Given
+## all the candidate source replicas and the paths to the destination,
+## the best next hop alternative is assigned (if one doesn't already
+## exist).
+##
+## This agent manages the routing for all files regardless of nodes.
+
+BEGIN { use strict; use warnings; }
+my $me = $0; $me =~ s|.*/||;
+my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+unshift(@INC, $home);
+
+######################################################################
+my %args = (DBITYPE => "Oracle");
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    { shift (@ARGV); $master = 1; $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    else
+    { last; }
+}
+
+if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
+    || !$args{DBPASS} || !$args{DBITYPE})
+{
+    print STDERR
+	"usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
+	"    -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n";
+    exit (1);
+}
+
+my $agent = new FileRouter (%args);
+# Recapture interrupt signal, oracle swallows it.
+$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
+$agent->process ();
+
+######################################################################
+# Routines for this agent.
+package FileRouter; use strict; use warnings; use base 'UtilsAgent';
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsDB;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBITYPE => undef,		# Database driver binding
+    		  DBNAME => undef,		# Database name
+	  	  DBUSER => undef,		# Database user name
+	  	  DBPASS => undef);		# Database user password
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Called by agent main routine before sleeping.  Pick up work
+# assignments from the database here and pass them to slaves.
+sub idle
+{
+    my ($self, @pending) = @_;
+    my $dbh = undef;
+
+    # Always mark all files ready to go immediately.
+    eval
+    {
+	$dbh = &connectToDatabase ($self);
+	die "failed to connect" if ! $dbh;
+
+        # FIXME: Pick up and process messages to me
+
+	# Select completed transfers which we haven't yet closed with
+	# next hop assignment.  Process each such guid.
+	my $stmt = $dbh->prepare(qq{
+			select distinct guid
+			from t_transfer_state
+			where dest_state = 3});
+	$stmt->execute();
+	while (my $row = $stmt->fetchrow_arrayref())
+	{
+	    my $guid = $row->[0];
+
+	    # Select all destinations, possible source replicas, best
+	    # next hop and distance to the destination, and status of
+	    # any existing transfer assignment on that hop (if any).
+	    # We get all this information in one query, so we need to
+	    # unpack it aftwards.
+	    #
+	    # For each possible destination, we get a row for every
+	    # possible source replica, with the name of the next hop
+	    # if we use that source and the distance to the final
+	    # destination.  This information is sorted by hop distance
+	    # so we care only about the first destination/source pair.
+	    # If the source and the destination are the same, hop
+	    # distance will be zero and next hop will be null (undef).
+	    # If there is no path from the source to the destination
+	    # the next hop and the distance will both be null (undef).
+	    #
+	    # For each possible next hop returned we also get the
+	    # transfer state from any possible existing assignment
+	    # for that hop.  The value will be null (undef) if no
+	    # assignment exists yet, non-null otherwise.
+	    my $next = $dbh->selectall_arrayref(qq{
+    		select d.destination_node as dest_final,
+		       rs.node as source,
+		       r.gateway as next_hop,
+		       case when rs.node = d.destination_node then 0
+		       else r.hops end as hops,
+		       ts.dest_state as status
+		from t_destinations d
+		left join t_replica_state rs
+		  on d.guid = rs.guid
+		left join t_routing r
+		  on r.from_node = rs.node
+		 and r.to_node = d.destination_node
+		left join t_transfer_state ts
+		  on ts.guid = d.guid
+		 and ts.src_node = rs.node
+		 and ts.dest_node = r.gateway
+	 	where d.guid = '$guid'
+		order by dest_final, hops});
+	    last if ! $next || ! scalar @$next;
+
+	    my $alts = 0;
+	    my %dests = ();
+	    foreach my $row (@$next)
+	    {
+		++$alts;
+		my ($dest, $source, $next, $dist, $status) = @$row;
+
+		if (! exists $dests{$dest}
+		    && (! defined $source || ! defined $dist))
+	    	{
+		    # The best path to the destination is null: complain
+		    &alert ("$guid: no path to destination $dest");
+		}
+		elsif (! exists $dests{$dest})
+		{
+		    # Mark this destination seen so we'll ignore the
+		    # rest of the rows for it.
+		    $dests{$dest} = 1;
+
+		    # This is the best source for the destination.  If
+		    # the distance is zero, the file is already at the
+		    # destination (and source == dest).  Otherwise if
+		    # the status is non-null a transfer assignment
+		    # already exists for the file; if it is null, we
+		    # need to make one.
+		    next if $dist == 0 || defined $status;
+		    my $now = time();
+		    &logmsg ("next hop $guid/$dest $now $source $next $dist");
+		    $dbh->do(qq{
+			insert into t_transfer_state values
+			('$guid', '$source', '$next', 0, 0, $now, $now)});
+		}
+		else
+		{
+		   # FIXME: Keep track of all equidistance paths to the
+		   # destination and choose randomly among the sources
+		   # to avoid overloading any particular node?  Or maybe
+		   # use more dynamic data in routing table (recent node
+		   # performance, e.g. bandwidth etc.)?
+		   next;
+		}
+	    }
+
+	    # Now mark as processed all completed transfers for this file.
+	    my $now = time();
+	    $dbh->do(qq{
+		    update t_transfer_state
+		    set dest_state = 4, dest_time_stamp = $now
+		    where guid = '$guid' and dest_state = 3});
+	    $dbh->commit ();
+	}
+    };
+    do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
+
+    # Disconnect from the database
+    $dbh->disconnect() if $dbh;
+    undef $dbh;
+
+    # Check children are still running and then wait
+    $self->maybeStop ();
+    sleep ($self->{WAITTIME});
+}
