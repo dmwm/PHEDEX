@@ -84,6 +84,9 @@ use UtilsTiming;
 use UtilsCatalogue;
 use UtilsDB;
 
+sub min { return (sort { $a <=> $b } @_)[0] }
+sub max { return (sort { $b <=> $a } @_)[0] }
+
 sub new
 {
     my $proto = shift;
@@ -329,6 +332,7 @@ sub buildStatus
     {
 	my ($guid, $pfn, $time) = @$file;
 
+	do { &warn ("ignoring unknown wanted file $guid"); next } if ! $pfn;
 	$files->{$pfn} ||= { GUID => $guid, PFN => $pfn, STATUS => "UNKNOWN" };
 	if ($files->{$pfn}{STATUS} eq 'UNKNOWN')
 	{
@@ -429,27 +433,37 @@ sub idle
 	        last;
 	    }
 
-	    # Select the next lot of files.  We take all the files on
-	    # the same tape at once, and order them by position.
-	    while (@requests && $stagereqs < $self->{MAXFILES})
+	    # Go through requested files, pick the oldest wanted file,
+	    # and then all the files on the same tape, sorted by tape
+	    # position.  Feed these files in bunches of MAXFILES to
+	    # avoid exceeding command line length limits, however do
+	    # ask for all the files on the tape without stopping for
+	    # stager limits.
+	    while (@requests && $stagereqs <= $self->{MAXSTAGEREQS})
 	    {
 		my $tape = $requests[0]{TAPE};
-		my @slice = sort { $a->{POS} cmp $b->{POS} }
-		            grep($_->{TAPE} eq $tape, @requests);
+		my @tapefiles = sort { $a->{POS} cmp $b->{POS} }
+		                grep($_->{TAPE} eq $tape, @requests);
 		@requests = grep($_->{TAPE} ne $tape, @requests);
+		&logmsg ("stagein @{[scalar @tapefiles]} files on tape $tape,"
+			 . " @{[scalar @requests]} left");
 
-	        my $rc = &runcmd ("stagein", "--nowait", "--rdonly",
-			      "-h", $ENV{STAGE_HOST}, "-p", $ENV{STAGE_POOL},
-			      "-A", "deferred",
-			      map { ("-M", $_->{PFN}) } @slice);
-	        &alert ("stagein failed: @{[&runerror($rc)]}") if ($rc);
+		while (@tapefiles)
+		{
+		    my @slice = splice (@tapefiles, 0, $self->{MAXFILES});
+	            my $rc = &runcmd ("stagein", "--nowait", "--rdonly",
+			              "-h", $ENV{STAGE_HOST}, "-p", $ENV{STAGE_POOL},
+			              "-A", "deferred",
+			              map { ("-M", $_->{PFN}) } @slice);
+	            &alert ("stagein failed: @{[&runerror($rc)]}") if ($rc);
+
+	            # Sleep a bit, castor doesn't like rapid-fire request chains
+	            select (undef, undef, undef, 0.33);
+		}
 
 	        # Mark these files as pending now
-	        map { $_->{STATUS} = "STAGEIN" } @slice;
-		$stagereqs += scalar @slice;
-
-	        # Sleep a bit, castor doesn't like rapid-fire request chains
-	        select (undef, undef, undef, 0.33);
+	        map { $_->{STATUS} = "STAGEIN" } @tapefiles;
+		$stagereqs += scalar @tapefiles;
 	    }
 	}
 
