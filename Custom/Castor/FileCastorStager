@@ -16,8 +16,8 @@
 ## pending tape mounts is high (~4000) or pending stage requests is
 ## high (~200).
 ##
-## As TMDB only contains GUIDs and no PFNs, we map the guids into
-## file names through the catalogue (removing site-specific prefix).
+## As TMDB only contains GUIDs and no PFNs, we execute a site-local
+## script to map the GUIDs to PFNs, typically using local catalogue.
 ## Correspondingly, files reported by stager to be on disk are mapped
 ## back to GUIDs.
 
@@ -52,17 +52,17 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-prefix' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{RM_PATH_PREFIX} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-pfnquery' && scalar @ARGV > 1)
+    { shift (@ARGV); @{$args{PFN_QUERY}} = split(/,/, shift(@ARGV)); }
     else
     { last; }
 }
 
 if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE} || !$args{RM_PATH_PREFIX})
+    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE} || !$args{PFN_QUERY})
 {
     print STDERR
-	"usage: $me -node TMDB-NODE -prefix PATH-PREFIX-TO-REMOVE\n",
+	"usage: $me -node TMDB-NODE -pfnquery PFN-QUERY-SCRIPT\n",
 	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
 	"    -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n",
 	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n";
@@ -97,11 +97,11 @@ sub new
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
 	  	  MYNODE => undef,		# My TMDB node name
-	  	  RM_PATH_PREFIX => undef,	# Path prefix to remove
+	  	  PFN_QUERY => undef,		# Program to query PFNs
 	  	  AGENTID => "Stager",		# Identity for activity logs
     	    	  MAXTAPEREQS => 4000,		# Max pending tape mounts
     	    	  MAXMYTAPEREQS => 1000,	# Max pending tape mounts by myself
-    	    	  MAXSTAGEREQS => 200,		# Max pending stager requests
+    	    	  MAXSTAGEREQS => 2000,		# Max pending stager requests
     	    	  MAXFILES => 50,		# Max number of files in one request
 		  PFN_CACHE => {},		# GUID -> PFN cache
 		  GUID_CACHE => {},		# PFN -> GUID cache
@@ -187,7 +187,7 @@ sub stagerFileList
 # considered a transient error.
 sub tapeMountLoad
 {
-    my ($total, $ours) = (0, 0);
+    my ($total, $ours) = (undef, undef);
     open(QSTAT, "showqueues -x |")
 	or do { &alert ("cannot run showqueues: $!"); return (undef, undef); };
     while (<QSTAT>)
@@ -197,16 +197,6 @@ sub tapeMountLoad
     }
     close (QSTAT);
     return ($total, $ours);
-}
-
-# Get the catalogue contact information for a node.
-sub getCatalogue
-{
-    my ($dbh, $mynode) = @_;
-    return &dbexec($dbh, qq{
-	select catalogue_contact, host_string
-	from t_nodes where node_name = :node},
-	":node" => $mynode)->fetchrow_arrayref();
 }
 
 # Purge old entries from our caches.
@@ -232,7 +222,7 @@ sub purgeCache
 # Get the list of files that have been requested for stage-in.
 sub getPendingFiles
 {
-    my ($self, $dbh, $catalogue, $hostkey) = @_;
+    my ($self, $dbh) = @_;
     my %unknown = ();
     my $result = [];
 
@@ -246,12 +236,12 @@ sub getPendingFiles
     # running and capable of downloading files.
     my %seen = ();
     my $stmt = &dbexec($dbh, qq{
-	   select guid, to_time_stamp
+	   select guid, to_timestamp
 	   from t_transfer_state
 	   where from_node = :node
 	     and to_state = 1
-	     and to_time_stamp >= :recent
-           order by to_time_stamp asc},
+	     and to_timestamp >= :recent
+           order by to_timestamp asc},
 	   ":node" => $self->{MYNODE}, ":recent" => time() - 15*60);
     while (my ($guid, $time) = $stmt->fetchrow())
     {
@@ -277,12 +267,10 @@ sub getPendingFiles
     if (my @items = keys %unknown)
     {
         my $now = time();
-        my $pfns = &guidToPFN ([ @items ], $catalogue, $hostkey);
-        my $prefix = $self->{RM_PATH_PREFIX};
+        my $pfns = &guidToPFN ([ @items ], "direct", "local", @{$self->{PFN_QUERY}});
         foreach my $guid (@items)
         {
 	    my $pfn = $pfns->{$guid};
-	    $pfn =~ s/$prefix// if defined $pfn;
 	    $self->{PFN_CACHE}{$guid} = "$now:@{[$pfn || '']}";
 	    $self->{GUID_CACHE}{$pfn} = "$now:$guid" if defined $pfn;
 	    push (@$result, [ $guid, $pfn, $unknown{$guid} ]);
@@ -295,7 +283,7 @@ sub getPendingFiles
 # Get the list of files stager knows about
 sub getStagerFiles
 {
-    my ($self, $catalogue, $hostkey) = @_;
+    my ($self) = @_;
     my $files = &stagerFileList();
     return undef if ! $files;
 
@@ -327,11 +315,10 @@ sub getStagerFiles
     if (my @items = keys %unknown)
     {
         my $now = time();
-        my $prefix = $self->{RM_PATH_PREFIX};
-        my $guids = &pfnToGUID ([ map { $prefix . $_ } @items ], $catalogue, $hostkey);
+        my $guids = &pfnToGUID ([ @items ], "direct", "local", @{$self->{PFN_QUERY}});
         foreach my $pfn (@items)
         {
-	    my $guid = $guids->{$prefix.$pfn};
+	    my $guid = $guids->{$pfn};
 	    $self->{PFN_CACHE}{$guid} = "$now:$pfn" if defined $guid;
 	    $self->{GUID_CACHE}{$pfn} = "$now:@{[$guid || '']}";
 	    push (@$result, [ $guid, $pfn, $files->{$pfn} ]);
@@ -403,17 +390,15 @@ sub idle
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
         # FIXME: Pick up and process messages to me
 
-	# Get my catalogue details, pending and stager files
+	# Clean up caches
 	my %timing = (START => &mytimeofday());
 	&purgeCache ($self->{PFN_CACHE});
 	&purgeCache ($self->{GUID_CACHE});
 	$timing{PURGE} = &mytimeofday();
 
-	my $catalogue = &getCatalogue ($dbh, $self->{MYNODE});
-	return if ! $catalogue;
-
-	my $files = $self->buildStatus ($self->getStagerFiles (@$catalogue),
-					$self->getPendingFiles ($dbh, @$catalogue));
+	# Get pending and stager files
+	my $files = $self->buildStatus ($self->getStagerFiles (),
+					$self->getPendingFiles ($dbh));
 	return if ! $files;
 	$timing{STATUS} = &mytimeofday();
 
@@ -427,14 +412,14 @@ sub idle
 	    $dbcache->{FILES} = {};
 	    &dbexec($dbh,qq{
 	        update t_replica_state
-	        set state = 0, time_stamp = :now
+	        set state = 0, state_timestamp = :now
 	        where node = :node and state = 1},
 	        ":node" => $self->{MYNODE}, ":now" => $now);
 	}
 
 	my $stmt = $dbh->prepare(qq{
 	    update t_replica_state
-	    set state = :state, time_stamp = :now
+	    set state = :state, state_timestamp = :now
 	    where guid = :guid and node = :node});
 	foreach my $f (values %$files)
 	{
@@ -540,7 +525,6 @@ sub idle
     $dbh->disconnect() if $dbh;
     undef $dbh;
 
-    # Check children are still running and then wait
-    $self->maybeStop ();
-    sleep ($self->{WAITTIME});
+    # Have a little nap
+    $self->nap ($self->{WAITTIME});
 }
