@@ -260,20 +260,111 @@ Access to the transferred data was found to be logistically difficult: as the fi
 Data was also transferred to UFL and Caltech T2s toward the end of the challenge. UFL was able to use the same software environment as the T1 to analyse data so transferred.
 
 \subsection{SRB chain}
-The performance of the SRB chain was severely hampered by technical issues:
-first with availability of the MCat metadata catalogue, hosted at RAL, and
-secondly with a small number of bugs in SRB client and server, and Oracle
-Linux implementations. Experience with the SRB chain has highlighted the vital importance of production-quality service and support at the T1s, especially if they are to be responsible for mission-critical services during experiment running.
+The performance of the SRB chain was severely hampered by technical
+issues:
+first with availability of the MCat metadata catalogue, hosted at RAL,
+and
+secondly with a small number of bugs in SRB client and server, and
+Oracle
+Linux implementations. Experience with the SRB chain has highlighted the
+vital importance of production-quality service and support at the T1s, 
+especially if they are to be responsible for mission-critical services
+during 
+experiment running.
 
-Within SRB version 2 the MCat, or metadata catalogue, represents a single point of failure. All user authentications, replica and metadata lookups are undertaken using this single service (it should be noted that this is not true in version 3 of SRB). 
+Within SRB version 2 the MCat, or metadata catalogue, represents a
+single point 
+of failure. All user authentications, replica and metadata lookups are
+undertaken 
+using this single service (it should be noted that this is not true in
+version 3 
+of SRB). 
 
-However, SRB had been used successfully by CMS production for a year beforehand. In addition, LCG-2 resources were not available at several T1s. More critically still, for RAL and IN2P3 SRB represented the only mechanism available for placing files in mass storage.
+However, SRB had been used successfully by CMS production for a year
+beforehand. 
+In addition, LCG-2 resources were not available at several T1s. More
+critically 
+still, for RAL and IN2P3 SRB represented the only mechanism available
+for placing 
+files in mass storage.
 
-Unfortunately during DC04 there came a serious break in service quality as staff at RAL left and replacements were sought, and then brought up to speed. As a result the MCat suffered serious problems on 22 of 56 days. Problems ranged from slight loss of performance (lengthy directory query times) to severe loss of performance (transactions taking so long that transfer agents had no choice but to continually time out) and unannounced reboots, geographical shifts of the database service and core dumps.
+Unfortunately during DC04 there came a serious break in service quality
+as staff 
+at RAL left and replacements were sought, and then brought up to speed.
+As a result 
+the MCat suffered serious problems on 22 of 56 days. Problems ranged
+from slight 
+loss of performance (lengthy directory query times) to severe loss of
+performance 
+(transactions taking so long that transfer agents had no choice but to
+continually 
+time out) and unannounced reboots, geographical shifts of the database
+service and 
+core dumps.
 
-The SRB chain comprised an export buffer at the T0 and import buffers at RAL, IN2P3 and Karlsruhe T1s. Files were copied from Castor onto the export buffer, where they were injected (Sput) into SRB space. An application developed in the UK (GMCat) linked the name spaces of SRB and the other chains by publishing SRB replica information into the LRC at CERN periodically. Performance...
+The SRB chain comprised an export buffer at the T0 and import buffers at
+RAL, IN2P3 
+and Karlsruhe T1s. Files were copied from Castor onto the export buffer,
+where they 
+were inserted (Sput) into SRB space. The files GUID was then added as
+additional SRB 
+metadata Tier 1 sites then transferred the files to the relevant import
+buffers and 
+mass storage systems, either using Sreplicate or Sget/Sput. 
 
-Even with administration problems, transfers to IN2P3 reached 10 MBps over a period of hours, although typically they averaged only 30 Mbps over a whole day. The SRB chain was not able to take part in a large filesize stress test at the end of DC04; these transfer rates are due to small file sizes, and thus compare favourably with other chains.
+An application developed in the UK (GMCat) linked the name spaces of SRB
+and the other 
+chains by publishing SRB replica information into the LRC at CERN
+periodically. As the
+difficulties with the MCat increased GMCat was stopped as the system no
+longer reponded 
+in a useful timescale. 
+
+While transfer speeds from T0-T1 were respectable (quote speed see
+graph) the initial 
+entry of the file onto the export buffer was particularily troublsome.
+Much of these 
+problems were caused by the strategy chosen when writing the agent,
+based on the 
+knowledge we had before DC04. Sput is particularily efficient with large
+files 
+and so was chosen as the tool to enter data into the export buffer. 
+
+During DC04 the file sizes were orders of magnitude smaller than
+expected. Had this small 
+filesize been aparent before the data challenge a different system would
+have been 
+developed. In retrospect an export buffer agent based on the drop boxes
+used in the 
+tier 0 would be a preferred system. Since the data challenge came to an
+end a series of
+tests have been done in an attempt to replicate and solve the problems
+found during 
+the DC, as many components of the CMS grid will rely on similar backends
+(eg Oracle 
+databases) it is essential to understand the problems experienced.
+
+
+Code vs API, post mortem testing etc.
+
+Even with administration problems, transfers to IN2P3 reached 10 MBps
+over a period 
+of hours, althoa anugh typically they averaged only 30 Mbps over a whole
+day. The SRB 
+chain was not able to take part in a large filesize stress test at the
+end of DC04; 
+these transfer rates are due to small file sizes, and thus compare
+favourably with 
+other chains. Prior to the data challenge testing indicated that
+transfer rates could
+be sustained at a rate greater than this.
+
+It should be noted that SRB is not integrated into the LCG analysis
+system (reference 
+ACAT paper), and that while this is possible it may not be desirable to
+create a "grid 
+of grids". It is likely that CMS use of SRB will be phased out before
+DC05.
 
 \subsection{LCG chain}
 The LCG components required for distribution were the LRC at CERN, the dedicated information index (bdII), LCG-2 VO tools, a GridICE node at CNAF, Castor SEs at CNAF and PIC and "classic" disk SEs at CERN, CNAF, PIC, Legnaro, CIEMAT and Taiwan.
