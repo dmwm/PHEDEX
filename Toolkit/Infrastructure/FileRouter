@@ -104,18 +104,20 @@ sub idle
 	{
 	    my $nrouted = 0;
 	    my $nincomplete = 0;
-	    my $now = &mytimeofday ();
+	    my $startnode = &mytimeofday ();
 	    foreach my $file (@{$self->pendingFiles ($dbh, $nodepat)})
 	    {
 		++$nincomplete;
 		++$nrouted if $self->routeNextHop ($dbh, $file, $routes);
-		$routes = $self->currentRoutes ($dbh)
-		    if (&mytimeofday () - $start > 10*60);
+
+		my $now = &mytimeofday ();
+		do { $routes = $self->currentRoutes ($dbh); $start = $now; }
+		    if ($now - $start > 10*60);
 	    }
 
 	    &logmsg ("$nodepat: considered $nincomplete destinations,"
 		     . " $nrouted routes created in"
-		     . " @{[sprintf '%.1f', &mytimeofday() - $now]} seconds")
+		     . " @{[sprintf '%.1f', &mytimeofday() - $startnode]} seconds")
 	        ; #if $nincomplete;
 	
 	    $self->maybeStop();
