@@ -50,7 +50,7 @@ sub intro
     <td><input type='submit' name='rates' value='Transfer rate'></td>
     <td><input type='submit' name='agents' value='Agent status'></td>
     </tr>
-    <tr><td colspan=6 align='center'>$stamp</td></tr>
+    <tr><td colspan=7 align='center'>$stamp</td></tr>
     </table>
     };
 
@@ -602,10 +602,13 @@ sub rates {
 			  bps_average,
 			  bps_min,
 			  bps_max
-			from t_info_transfer_rate
-			order by time_span, info_type, bps_total desc});
+			from t_info_transfer_rate});
     $q->execute();
     while (my $row = $q->fetchrow_hashref()) {
+	$row->{BPS_AGGREGATE} =
+	    ($row->{TIME_SPAN}
+	     ? $row->{SZ_TOTAL} / $row->{TIME_SPAN}
+	     : -1);
 	push(@{$stats{$row->{TIME_SPAN}}{$row->{INFO_TYPE}}}, $row);
     }
 
@@ -615,7 +618,7 @@ sub rates {
     {
     	print
 	  "<tr bgcolor='$altcolor' valign='top'>",
-	  "<th colspan='10'>", ($span == 0 ? "Overall" : "Last @{[&format_timespan($span)]}"), "</th></tr>\n",
+	  "<th colspan='11'>", ($span == 0 ? "Overall" : "Last @{[&format_timespan($span)]}"), "</th></tr>\n",
 	  "<tr bgcolor='$altcolor' valign='top'>",
 	  "<th>Age</th>",
 	  "<th>From</th>",
@@ -623,12 +626,15 @@ sub rates {
 	  "<th>Files</th>",
 	  "<th>Total Size</th>",
 	  "<th>Total Time</th>",
+	  "<th>Aggregate Rate</th>",
 	  "<th>Overall Rate</th>",
 	  "<th>Mean Rate</th>",
 	  "<th>Min Rate</th>",
 	  "<th>Max Rate</th>",
 	  "</tr>\n";
-	foreach my $row (@{$stats{$span}{'N'}}, @{$stats{$span}{'T'}})
+	foreach my $row ((sort { $b->{BPS_AGGREGATE} <=> $a->{BPS_AGGREGATE}
+				|| $b->{BPS_TOTAL} <=> $a->{BPS_TOTAL} }
+			  @{$stats{$span}{'N'}}), @{$stats{$span}{'T'}})
 	{
 	    print "<tr>",
 		  "<td>", &age($now - $row->{UPDATE_STAMP}), "</td>",
@@ -638,6 +644,11 @@ sub rates {
 	          "<td>$row->{N_TOTAL}</td>",
 	          "<td align='right'>@{[&format_size($row->{SZ_TOTAL})]}</td>",
 	          "<td align='right'>@{[&age($row->{TIME_TOTAL})]}</td>",
+	          "<td align='right'>",
+		    ($row->{BPS_AGGREGATE} >= 0
+		     ? &format_size($row->{BPS_AGGREGATE}) . '/s'
+		     : &format_num(0)),
+		  "</td>",
 	          "<td align='right'>@{[&format_size($row->{BPS_TOTAL})]}/s</td>",
 	          "<td align='right'>@{[&format_size($row->{BPS_AVERAGE})]}/s</td>",
 	          "<td align='right'>@{[&format_size($row->{BPS_MIN})]}/s</td>",
