@@ -28,6 +28,6 @@ nohup ${PHEDEX_SCRIPTS}/FileRouter \
     -dbuser ${PHEDEX_USER} \
     -dbpasswd ${PHEDEX_PASS} \
     -node ${PHEDEX_NODE} \
-    -state ${PHEDEX_STATE}/inbox \
+    -state ${PHEDEX_STATE}/router \
     >> ${PHEDEX_LOGS}/router 2>&1 < /dev/null &
 
