@@ -60,7 +60,7 @@ foreach my $request (@ARGV)
     close (TICKET) or die "Cannot read ticket: $!\n";
 
     # Process each pair
-    my $dbh = DBI->connect ("DBI:Oracle:pdb01", # $self->{DBITYPE}:$self->{DBNAME}",
+    my $dbh = DBI->connect ("DBI:Oracle:$dbname", # $self->{DBITYPE}:$self->{DBNAME}",
 	    		    "cms_transfermgmt", "smalland_round", # $self->{DBUSER}, $self->{DBPASS},
 			    { RaiseError => 1, AutoCommit => 0 });
     foreach my $dso (@patterns)
@@ -69,9 +69,9 @@ foreach my $request (@ARGV)
 	foreach my $dest (@destinations)
 	{
 	    my $exists = $dbh->selectcol_arrayref(qq{
-		select count(*) from t_subscriptions
+		select count(*) from $table
 		where destination = '$dest' and stream = '$ds'});
-	    $dbh->do(qq{insert into t_subscriptions values ('$dest', '$ds')})
+	    $dbh->do(qq{insert into $table values ('$dest', '$ds')})
 		if ! $exists || ! $exists->[0];
 	}
     }
