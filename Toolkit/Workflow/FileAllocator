@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/09/03 17:10:46 $
-# $Id: Allocator.pl,v 1.62 2004/09/03 17:10:46 barrass Exp $
+# $Date: 2004/09/03 18:43:48 $
+# $Id: Allocator.pl,v 1.63 2004/09/03 18:43:48 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -30,7 +30,6 @@
 # agent you should touch a file named "stop" within it.
 #
 # Command line options
-# -no-updates		will run through the allocation algo but not make final changes in tmdb
 # -w <workdir>		sets the workdir for the agent
 # -db <tns name>	sets the Oracle db to talk to
 # -once             only run once
@@ -38,18 +37,17 @@
 # -user             db username
 # -passwd           db password
 
+BEGIN { use strict; use warnings; }
 use DBI;
 use Getopt::Long;
 use File::Path;
 $| = 1; # set autoflush
 
-my $time;	# holds current time
-my $g_no_updates;	# 1 means will not make final updates in tmdb
 my $g_work_dir = '';	# place pid and stop files here...
+my $g_dbi = "Oracle";	# perl database interface
 my $g_db = "devdb9";	# tnsname of Oracle db (tmdb)
 my $g_once;             # 1 means will only run once
 my $g_period = 600;     # repeat period of algorithm
-my $g_max_guids = 500;  # max new guids to return per cycle
 my $g_user = '';        # db username
 my $g_passwd = '';      # db password
 
@@ -65,70 +63,35 @@ close(PID);
 
 while(!(-e "$g_work_dir/stop")) {
     if ($g_once) { system( "touch $g_work_dir/stop" ); }
-    my $loop_start = time();
+    my $now = time();
 
-    my $guid = '';
-    my @sql = ();
-    my %new_streams = ();
-    my $allocated_count = 0;
+    eval
+    {
+	my $dbh = &connect_to_db();
 
-    my %dataset_by_new_guid = &get_new_guid_list;
-    my @guids = keys %dataset_by_new_guid;
-    my %source_node_by_guid = get_source_nodes( \@guids );
-    # Do error checks!
-    
-    my %destinations_by_dataset = &get_current_subscriptions;
-    # Do error check!
-    
-    foreach $guid ( keys %dataset_by_new_guid ) {
-        
-        if ( exists( $destinations_by_dataset{$dataset_by_new_guid{$guid}} ) ) {
-            
-            @destinations = split( / /, $destinations_by_dataset{$dataset_by_new_guid{$guid}} );
-            foreach $dest ( @destinations ) {
-            
-                if ( $dest ne '' ) {
+	# Create new destinations for files not yet assigned.
+	# Pick file/destination pairs where the file's dataset
+	# matches a stream subscription, the destination isn't
+	# yet entered into t_destinations nor is there a replica
+	# already at that site (probably the data originator).
+	my $rows = $dbh->do(qq{
+			insert into t_destinations (
+			   select f.guid, s.destination, $now
+			   from t_files_for_transfer f
+			   inner join t_replica_metadata r
+			     on r.guid = f.guid and r.attribute = 'POOL_dataset'
+			   inner join t_subscriptions s
+			     on s.stream = r.value
+			   left join t_destinations d
+			     on d.guid = f.guid and d.destination_node = s.destination
+			   left join t_replica_state rs
+			     on rs.guid = f.guid and rs.node = s.destination
+			   where d.guid is null and rs.guid is null)});
 
-                    my $gateway = lookup_route( $source_node_by_guid{$guid}, $dest );
-                    if ( $gateway eq '' ) {
-                        # Could be transient, leave it for later...
-                        log_entry( "Ag, no route from $source_node_by_guid{$guid} to $dest for $guid" );
-                    } else {
-                        my $time = time();
-                        #log_entry( "$guid source: $source_node_by_guid{$guid} dest: $dest via: $gateway" );
-                        $allocated_count++;
-                        my $goal = "insert into t_destinations "
-                                ."values ('$guid','$dest')";
-                        my $advert = "insert into t_file_state "
-                                ."values ('$guid','$gateway',1,'$source_node_by_guid{$guid}',$time)";
-                        push( @sql, $advert, $goal );
-                    }
-                            
-                    my $update = "update t_files_for_transfer set allocated = 1 where guid = '$guid'";
-                    push( @sql, $update );
-                    
-                }
-
-            }
-                
-        } else {
-            $new_streams{$dataset_by_new_guid{$guid}} = 1;
-        }   
-    }
-    
-    foreach $stream ( keys %new_streams ) {
-            log_entry( "New stream for subscriptions- $stream" );
-            my $new_stream = "insert into t_subscriptions values ('','$stream')";
-            push( @sql, $new_stream );
-    }
-    
-    do_sql( \@sql );
-
-    $total_guids = $#guids+1;
-    log_entry( "$allocated_count/$total_guids new guids allocated" );
-    
-    $time = time();
-    sleep($g_period - $time + $loop_start);
+	&log_entry("$rows new file destinations allocated") if $rows > 0;
+    };
+    &log_entry("database operation failed: $@") if $@;
+    sleep ($g_period);
 }
 
 
@@ -136,251 +99,47 @@ while(!(-e "$g_work_dir/stop")) {
 # Subroutines
 # ###############################################################
 
-sub connect_to_db {
-    my $dbh = DBI->connect( "DBI:$g_db",
-			    $g_user,
-			    $g_passwd,
+sub connect_to_db
+{
+    my $dbh = DBI->connect( "DBI:$g_dbi:$g_db", $g_user, $g_passwd,
 			    {RaiseError => 1, AutoCommit => 1})
-	
 	or die "Couldn't connect to database $g_db @_";
-    
-    # FIXME: is this ok, or will it leave outstanding
-    # connections? Return ref to handle?
-#    log_entry( "Connected to $g_db" );
     return $dbh;
 }
 
-sub log_entry {
+sub log_entry
+{
     my $entry = shift;
-	my $time = time();
-	my $localtime = localtime($time);
-	print "$localtime [$$] $entry\n";
+    my $time = time();
+    my $localtime = localtime($time);
+    print "$localtime [$$] $entry\n";
 }
 
-sub get_new_guid_list {
-    my @row;
-    my $count = 0;
-    my $selection = "select t_files_for_transfer.guid,"
-	."t_replica_metadata.value "
-	."from t_files_for_transfer,"
-	."t_replica_metadata "
-	."where allocated = 0 "
-	."and t_files_for_transfer.guid = t_replica_metadata.guid "
-	."and attribute = 'POOL_dataset' ";
-	if ( $g_db =~ /mysql/ ) {
-	    $selection .= "limit 0, $g_max_guids";
-	} elsif ( $g_db =~ /Oracle/ ) {
-	    $select .= "and rownum < $g_max_guids";
-	} else {
-	    log_entry( "Can only get guids from mysql, oracle so far: no known database type in -db option ($g_db)" );
-	}
-
-    my %guid_list = ();
-    
-    eval {
-	my $dbh = connect_to_db();
-		  				 	
-        my $query = $dbh->prepare($selection);	
-		
-        $query->execute();while (@row = $query->fetchrow_array) {	
-	    $count++;
-	    $row[1] =~ s/\s+//g;
-	    $guid_list{$row[0]}  = $row[1];
-        }
-#        log_entry(  "Found $count new GUIDs" );
-        $query->finish();
-        
-        $dbh->disconnect();
-    };
-    
-    if (@_) {
-        log_entry( "Database operation failed... @_" );
-        if ($dbh)
-        {
-            $dbh->rollback;
-            $dbh->disconnect;
-        }
-        return 1;
+sub parse_command_line
+{
+    GetOptions ('w=s' => \$new_work_dir,
+		'dbi=s' => \$g_dbi,
+		'db=s' => \$g_db,
+		"once" => \$g_once,
+		'period=i' => \$g_period,
+		'user=s' => \$g_user,
+		'passwd=s' => \$g_passwd);
+	
+    my $entry = '';
+    $g_work_dir = $g_work_dir.$new_work_dir;
+    $entry .= "work dir is $g_work_dir, ";
+    if (-e "$g_work_dir/pid") {
+	log_entry( "Removing old pid file");
+	unlink("$g_work_dir/pid");
+    } 
+    if (-e "$g_work_dir/stop") {
+	log_entry( "Removing old stop file" );
+	unlink ("$g_work_dir/stop");
     }
-    
-    return (%guid_list);
-}
-
-sub get_current_subscriptions {
-    my @row;
-    my $selection = "select * from t_subscriptions";
-    
-    my %destinations = ();
-    
-    eval {
-	my $dbh = connect_to_db();
-	
-	my $query = $dbh->prepare($selection);	
-	
-	$query->execute();
-	while (@row = $query->fetchrow_array) {	
-	    $row[1] =~ s/\s+//g;
-	    $destinations{$row[1]}  .= "$row[0] ";
-	}
-	$query->finish();
-	
-	$dbh->disconnect();
-    };
-    
-    if (@_) {
-	log_entry( "Database operation failed... @_" );
-	if ($dbh)
-	{
-	    $dbh->rollback;
-	    $dbh->disconnect;
-	}
-	return 1;
-    }
-    
-    return ( %destinations );
-}
-
-sub do_sql {
-    my $sql = shift;
-    
-    eval {
-        my $dbh = connect_to_db();
-    
-        foreach $sql ( @$sql ) {
-            $dbh->do($sql) if (!$g_no_updates);
-        }
-	
-        $dbh->disconnect;    
-    };
-    
-    if ( @_ ) {
-        log_entry( "Database operation failed doing sql list... @_" );
-        if ($dbh)
-        {
-            $dbh->rollback;
-            $dbh->disconnect;
-        }
-        return 1;
-    }
-}
-
-sub get_source_nodes {
-    my $guids = shift;
-    my $selection = "select guid,source_node from t_files_for_transfer where ";
-    foreach $guid ( @$guids ) {
-        $selection .= "guid = '$guid' or ";
-    }
-    substr( $selection, -4 ) = '';
-    my %sources = ();
-    
-    
-    eval {
-        my $dbh = connect_to_db();
-		  				 	
-        my $query = $dbh->prepare($selection);	
-		
-        $query->execute();while (@row = $query->fetchrow_array) {	
-	       $sources{$row[0]}  = $row[1];
-        }
-        $query->finish();
-        
-        $dbh->disconnect();
-    };
-    
-    if (@_) {
-        log_entry( "Database operation failed getting source nodes for guids... @_" );
-        if ($dbh)
-        {
-            $dbh->rollback;
-            $dbh->disconnect;
-        }
-        return 1;
-    }    
-    
-    return( %sources );
-    
-}
-
-sub lookup_route {
-    my $source = shift;
-    my $dest = shift;
-    my $selection = "select gateway from t_routing where from_node = '$source' and to_node = '$dest'";
-    my $gateway = '';
-    my @row = ();
-    
-    eval {
-	my $dbh = connect_to_db();
-	
-        my $query = $dbh->prepare($selection);	
-	
-        $query->execute();
-        while (@row = $query->fetchrow_array) {	
-	    $gateway = $row[0];
-        }
-        $query->finish();
-        
-        $dbh->disconnect();
-    };
-    
-    if (@_) {
-        log_entry( "Database operation failed looking up route... @_" );
-        if ($dbh)
-        {
-            $dbh->rollback;
-            $dbh->disconnect;
-        }
-        return 1;
-    }       
-    
-    return( $gateway );
-    
-}
-
-
-
-sub parse_command_line () {
-	GetOptions(	'w=s' => \$new_work_dir,
-				'db=s' => \$g_db,
-				"no-updates" => \$g_no_updates,
-				"once" => \$g_once,
-				'period=i' => \$g_period,
-				'user=s' => \$g_user,
-				'passwd=s' => \$g_passwd
-				);
-	
-	my $entry = '';
-	
-	$g_work_dir = $g_work_dir.$new_work_dir;
-	$entry = $entry."work dir is $g_work_dir,";
-	if (-e "$g_work_dir/pid") {
-		log_entry( "Removing old pid file");
-		unlink("$g_work_dir/pid");
-	} 
-	if (-e "$g_work_dir/stop") {
-		log_entry( "Removing old stop file" );
-		unlink ("$g_work_dir/stop");
-	}
-	if (!$g_db) {
-		$g_db = "devdb9";
-		
-	}
-	$entry = $entry."database is $g_db,";
-	if ($g_no_updates) {
-		$entry = $entry."not making final updates, ";
-	}	
-	if ($g_once) {
-		$entry = $entry."only running once, ";
-	}
-    if ($g_period) {
-		$entry = $entry."with period $g_period, ";
-	}	
-	
-	$time = time();
-	
-	print "Unprocessed by Getopt::Long\n" if $ARGV[0];
-	foreach (@ARGV) {
-	  print "$_\n";
-	}
-	
-	log_entry( $entry );
+    $g_db = "devdb9" if !$g_db;
+    $entry .= "database is $g_db, ";
+    $entry .= "only running once, " if $g_once;
+    $entry .= "with period $g_period, " if $g_period;
+    die "Extra options: @ARGV\n" if @ARGV;
+    log_entry( $entry );
 }
