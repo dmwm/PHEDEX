@@ -277,12 +277,12 @@ sub completeTransfer
     my $src_node = $report->{SRC_NODE};
     my $dest_node = $report->{DEST_NODE};
     my $now = time();
-    my $newstate = 3;
+    my $dest_state = 2;
     if ($report->{FAILURE})
     {
 	&logmsg ("failed to transfer $guid: $report->{FAILURE}");
 	$now = $report->{TIME_ALLOC};
-	$newstate = 1;
+	$dest_state = 0;
     }
 
     eval
@@ -290,7 +290,7 @@ sub completeTransfer
 	my $dbh = $self->connectToDatabase ();
 	$dbh->do (qq{
 	  update t_transfer_state
-	  set dest_state = 3, dest_time_stamp = $now
+	  set dest_state = $dest_state, dest_time_stamp = $now
 	  where guid = '$guid'
 	    and dest_node = '$dest_node'
 	    and src_node = '$src_node'});
@@ -298,7 +298,8 @@ sub completeTransfer
 	$dbh->do (qq{
 	  update t_replica_state
 	  set state = 2, local_state = 0, time_stamp = $now, local_time_stamp = $now
-	  where guid = '$guid' and node = '$dest_node'});
+	  where guid = '$guid' and node = '$dest_node'})
+	    if ! $report->{FAILURE};
     };
     do { &alert ("failed to update $guid transferred: $@"); return 0; } if $@;
 
@@ -309,7 +310,7 @@ sub completeTransfer
     $now = &mytimeofday ();
     my $dalloc = $now - $report->{TIME_ALLOC};
     my $dtransfer = $now - $report->{TIME_START};
-    &logmsg ("tstats: $guid $newstate @{[sprintf('%.2f %.2f', $dalloc, $dtransfer)]}");
+    &logmsg ("xstats: $guid $dest_state @{[sprintf('%.2f %.2f', $dalloc, $dtransfer)]}");
 
     return 1;
 }
