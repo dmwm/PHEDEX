@@ -1,3 +1,44 @@
+#!/usr/bin/perl
+BEGIN { use strict; use warnings; }
+use DBI;
+
+my $mode = 'g';
+my $contact = undef;
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-g')
+    { shift (@ARGV); $mode = 'g'; }
+    elsif ($ARGV[0] eq '-p')
+    { shift (@ARGV); $mode = 'p'; }
+    elsif ($ARGV[0] eq '-u' && scalar @ARGV > 1)
+    { shift (@ARGV); $contact = shift(@ARGV); }
+    else
+    { last; }
+}
+
+my $dbh = $dbh = DBI->connect ("DBI:Oracle:rls1", "rlscmspub", "rlscmspub",
+		     	       { RaiseError => 1, AutoCommit => 0 });
+my $key = $mode eq 'p' ? "pfn_pfn" : "guid_guid";
+my $stmt = $dbh->prepare(qq{
+	select guid_guid, pfn_pfn
+	from lcg2_cms_lrc.pfn, lcg2_cms_lrc.guid
+	where $key = ?  and guid_id = pfn_gid});
+foreach my $item (@ARGV)
+{
+    $stmt->execute ($item);
+    while (my @row = $stmt->fetchrow_array()) {
+	print "@row\n";
+    }
+}
+
+$dbh->rollback();
+$dbh->disconnect();
+exit(0);
+
+__END__
+# Old slow python version follows, this uses real POOL interfaces so it
+# works with any catalogue; the above perl code works only with RLS.
+
 #!/usr/bin/env python2.2
 from PyFileCatalog import *
 from PyFCContainer import *
