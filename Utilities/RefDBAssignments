@@ -1,0 +1,57 @@
+#!/bin/sh
+
+# Home and myself
+home=$(dirname $0)
+me=$(basename $0)
+
+# Die with a message
+die() { echo ${1+"$@"} 1>&2; exit 1; }
+
+# Download utilities
+download_method=
+download_curl () { curl -f -q -s "$1" -o "$2.tmp" && mv "$2.tmp" "$2"; }
+download_wget () { wget -q -O "$2.tmp" "$1" && mv "$2.tmp" "$2"; }
+download_none () { echo "no curl or wget, cannot fetch $1" 1>&2; exit 1; }
+download_getit () {
+  to="$1" url="$2"
+  if [ -z "$download_method" ]; then
+    if [ $(curl --version 2>&1 | wc -l) != 0 ]; then
+      download_method=curl
+    elif [ $(wget --version 2>&1 | wc -l) != 0 ]; then
+      download_method=wget
+    else
+      download_method=none
+    fi
+  fi
+
+  download_${download_method} "$url" "$to"
+}
+
+# Generate a list of assignments for a particular dataset.owner pair
+list_dso_assignments() {
+  dataset=$(echo $1 | sed 's/\..*//')
+  owner=$(echo $1 | sed 's/.*\.//')
+
+  # Get the assignments
+  tmp=$(mktemp /tmp/refdb.XXXXXX)
+  download_getit $tmp \
+    "http://cmsdoc.cern.ch/cms/production/www/cgi/SQL/DsOwnToAs.php?DatasetName=$dataset&OutputOwner=$owner&scriptstep=1"
+
+  # Find the matches
+  egrep "Assignments.*<TD>" < $tmp |
+    sed 's/.*<TD>//; s/[^0-9]/ /g; s/  */ /'
+
+  # Nuke temp
+  rm -f $tmp
+}
+
+while [ $# -gt 0 ]; do
+  case $1 in
+    -* ) echo "unrecognised option $1"; exit 1;;
+    *  ) break ;;
+  esac
+done
+
+for dso; do
+  list_dso_assignments $dso
+done
