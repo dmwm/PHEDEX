@@ -51,6 +51,7 @@ sub connect_to_db {
 	
 	# FIXME: is this ok, or will it leave outstanding
 	# connections? Return ref to handle?
+	log_entry( "Connected to $dbname" );
 	return $dbh;
 }
 
