@@ -252,7 +252,7 @@ sub checkAssignmentFiles
 {
     my ($mouth, $tmdb, $table, @dirs) = @_;
     my @pending = map { s|.*/||; $_ }
-	<$mouth/*/{work,inbox}/*>
+	<$mouth/*/{work,inbox}/*>,
 	<$mouth/*/worker-*/{work,inbox}/*>;
 
     # Collect information for all drops first.
