@@ -1,6 +1,7 @@
 package UtilsDownload; use strict; use warnings; use base 'Exporter';
 use UtilsLogging;
 use UtilsCommand;
+use UtilsWriters;
 
 sub new
 {
@@ -44,7 +45,13 @@ sub consumeFiles
 	$self->{BATCHID}++;
 
         # Start moving this batch if it's not empty
-        $self->prepareBatchInfo ($master, $batch) if @$batch;
+        $self->prepareBatchInfo ($master, $batch);
+
+	return 1;
+    }
+    else
+    {
+	return 0;
     }
 }
 
@@ -70,7 +77,7 @@ sub prepareBatchInfo
 	        # Command failed, record failure
 	        $file->{FAILURE} = "exit code $job->{STATUS} from @{$job->{CMD}}";
 	    }
-	    elsif (! $output)
+	    elsif (! defined $output || $output eq '')
 	    {
 		# Command succeded but didn't produce any output
 		$file->{FAILURE} = "no output from @{$job->{CMD}}";
@@ -92,13 +99,10 @@ sub prepareBatchInfo
 	    $file->{FROM_PFN} = undef;
 	    $master->addJob (
 		sub { $self->prepareBatchInfo ($master, $batch, @_) },
-		{ OUTPUT_FILE => $output,
-		  OUTPUT_VARIABLE => "FROM_PFN",
-		  OUTPUT_DESC => "get source pfn",
-		  FOR_FILE => $file },
+		{ OUTPUT_FILE => $output, OUTPUT_VARIABLE => "FROM_PFN", FOR_FILE => $file },
 		"sh", "-c", "POOL_OUTMSG_LEVEL=100 FClistPFN"
 		. " -u '$file->{FROM_CATALOGUE}' -q \"guid='$file->{GUID}'\""
-		. " > $output");
+		. " | grep '$file->{FROM_HOST}' > $output");
 	}
 
 	if (! exists $file->{FROM_LFN})
@@ -107,31 +111,27 @@ sub prepareBatchInfo
 	    $file->{FROM_LFN} = undef;
 	    my $job = $master->addJob (
 		sub { $self->prepareBatchInfo ($master, $batch, @_) },
-		{ OUTPUT_FILE => $output,
-		  OUTPUT_VARIABLE => "FROM_LFN",
-		  OUTPUT_DESC => "get source lfn",
-		  FOR_FILE => $file },
+		{ OUTPUT_FILE => $output, OUTPUT_VARIABLE => "FROM_LFN", FOR_FILE => $file },
 		"sh", "-c", "POOL_OUTMSG_LEVEL=100 FClistLFN"
 		. " -u '$file->{FROM_CATALOGUE}' -q \"guid='$file->{GUID}'\""
 		. " > $output");
     	}
 
-	if (! exists $file->{TO_PFN} && $file->{FROM_PFN} && $file->{FROM_LFN})
+	if (! exists $file->{TO_PFN}
+	    && $file->{FROM_PFN}
+	    && $file->{FROM_LFN})
 	{
 	    my $pfnargs = join(" ",
-		    	       "guid=$file->{GUID}",
-			       "pfn=$file->{FROM_PFN}",
-		    	       "lfn=$file->{FROM_LFN}",
-			       map { "$_=$file->{ATTRS}{$_}" }
+		    	       "guid='$file->{GUID}'",
+			       "pfn='$file->{FROM_PFN}'",
+		    	       "lfn='$file->{FROM_LFN}'",
+			       map { "'$_=@{[$file->{ATTRS}{$_} || '']}'" }
 			       sort keys %{$file->{ATTRS}});
 	    my $output = "$master->{DROPDIR}/$file->{GUID}.topfn";
-	    $file->{TO_LFN} = undef;
+	    $file->{TO_PFN} = undef;
 	    $master->addJob (
 		sub { $self->prepareBatchInfo ($master, $batch, @_) },
-		{ OUTPUT_FILE => $output,
-		  OUTPUT_VARIABLE => "TO_PFN",
-		  OUTPUT_DESC => "build destination pfn",
-		  FOR_FILE => $file },
+		{ OUTPUT_FILE => $output, OUTPUT_VARIABLE => "TO_PFN", FOR_FILE => $file },
 		"sh", "-c", "$self->{PFNSCRIPT} $pfnargs > $output");
 	}
 
@@ -188,7 +188,7 @@ sub updateCatalogue
 		my $tmpcat = "$master->{DROPDIR}/$file->{GUID}.xml";
 		my $xmlfrag = &genXMLCatalogue ({ GUID => $file->{GUID},
 						  PFNS => [ $file->{TO_PFN} ],
-						  LFNS => [ $file->{TO_LFN} ],
+						  LFNS => [ $file->{FROM_LFN} ],
 						  META => $file->{ATTRS} });
 		if (! &output ($tmpcat, $xmlfrag))
 		{
@@ -217,12 +217,13 @@ sub updateCatalogue
 		    "FCaddReplica", "-u", $file->{TO_CATALOGUE},
 		    "-g", $file->{GUID}, "-r", $file->{TO_PFN});
 	    }
-
-	    # Mark pending only if there is pending catalogue update
-	    # so we know whether we need to reinvoke ourselves after
-	    # a temporary file output failure.
-	    $pending++ if (exists $file->{DONE_CATALOGUE} && ! $file->{DONE_CATALOGUE});
 	}
+
+
+	# Mark pending only if there is pending catalogue update
+	# so we know whether we need to reinvoke ourselves after
+	# a temporary file output failure.
+	$pending++ if (exists $file->{DONE_CATALOGUE} && ! $file->{DONE_CATALOGUE});
     }
 
     if ($reinvoke && ! $pending)

@@ -22,10 +22,10 @@ sub transferBatch
     my %groups = ();
     foreach my $file (@$batch)
     {
-	if ($job && grep ($_ eq $file, $job->{FOR_FILES}))
+	if ($job && grep ($_ eq $file, @{$job->{FOR_FILES}}))
 	{
 	     $file->{DONE_TRANSFER} = 1;
-	     $file->{FAILURE} = "exit code $job->{STATUS} from $job->{CMD}[0]"
+	     $file->{FAILURE} = "exit code $job->{STATUS} from @{$job->{CMD}}"
 	         if $job->{STATUS};
 	}
 
@@ -46,7 +46,7 @@ sub transferBatch
 	     my ($to_dir, $to_file) = ($to_pfn =~ m|(.*)/([^/]+)$|);
 
 	     if ($from_file eq $to_file) {
-		 push (@{$groups{$to_dir}}, { FILE => $file, PATH => $from_file });
+		 push (@{$groups{$to_dir}}, { FILE => $file, PATH => $from_pfn });
 	     } else {
 		 push (@{$groups{$to_pfn}}, { FILE => $file, PATH => $from_pfn });
 	     }

@@ -23,10 +23,10 @@ sub transferBatch
     my $batchid = undef;
     foreach my $file (@$batch)
     {
-	if ($job && grep ($_ eq $file, $job->{FOR_FILES}))
+	if ($job && grep ($_ eq $file, @{$job->{FOR_FILES}}))
 	{
 	     $file->{DONE_TRANSFER} = 1;
-	     $file->{FAILURE} = "exit code $job->{STATUS} from $job->{CMD}[0]"
+	     $file->{FAILURE} = "exit code $job->{STATUS} from @{$job->{CMD}}"
 	         if $job->{STATUS};
 	}
 
@@ -37,7 +37,7 @@ sub transferBatch
 	     # Put this file into a transfer batch
 	     my $from_pfn = $file->{FROM_PFN}; $from_pfn =~ s/^[a-z]+:/srm:/;
 	     my $to_pfn = $file->{TO_PFN}; $to_pfn =~ s/^[a-z]+:/srm:/;
-	     push (@copyjob, [ $file, $from_pfn, $to_pfn ]);
+	     push (@copyjob, { FILE => $file, FROM => $from_pfn, TO => $to_pfn });
 	     $file->{DONE_TRANSFER} = undef;
 	     $batchid = $file->{BATCHID};
         }
@@ -49,7 +49,7 @@ sub transferBatch
     if (scalar @copyjob)
     {
 	my $specfile = "$master->{DROPDIR}/copyjob.$batchid";
-	if (! &output ($specfile, join ("", map { "$_->[1] $_->[2]\n" } @copyjob)))
+	if (! &output ($specfile, join ("", map { "$_->{FROM} $_->{TO}\n" } @copyjob)))
 	{
 	    # Report and ignore the error, and come back another time.
 	    &alert ("failed to create copyjob for batch $batchid");
@@ -58,8 +58,8 @@ sub transferBatch
 	}
 
 	$master->addJob (sub { $self->transferBatch ($master, $batch, @_) },
-	    { FOR_FILES => [ map { $_->[0] } @copyjob ] },
-	    @{$self->{COMMAND}}, "-copyjobfile=$specfile");
+			 { FOR_FILES => [ map { $_->{FILE} } @copyjob ] },
+			 @{$self->{COMMAND}}, "-copyjobfile=$specfile");
     }
 
     # Move to next stage if all is done.
