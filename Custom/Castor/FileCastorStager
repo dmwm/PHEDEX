@@ -182,10 +182,17 @@ sub guidToPFN
 sub pfnToGuid
 {
     my ($pfn, $catalogue, $host) = @_;
-
-    return undef;
+    # FIXME: remove message suppression when pool has learnt to print
+    # diagnostic output somewhere else other than stdout...
+    my $home = $0; $home =~ s|/[^/]+$||;
+    open (GUIDS, "POOL_OUTMSG_LEVEL=100 $home/FClistGuidPFN -u '$catalogue' -p '$pfn' |")
+	or do { &alert ("cannot run FClistGuidPFN: $!"); return undef; };
+    my @guids = map { chomp; [ split (/\s+/, $_) ] } <GUIDS>;
+    close (GUIDS);
+    return $guids[0][0];
 }
 
+# Get the catalogue contact information for a node.
 sub getCatalogue
 {
     my ($dbh, $mynode) = @_;
@@ -195,6 +202,7 @@ sub getCatalogue
 			where node_name = '$mynode'});
 }
 
+# Get the list of files that have been requested for stage-in.
 sub getPendingFiles
 {
     my ($self, $dbh, $catalogue, $hostkey) = @_;
@@ -211,30 +219,46 @@ sub getPendingFiles
     while (my $row = $stmt->fetchrow_arrayref())
     {
 	my ($guid, $time) = @$row;
-	my $pfn = &guidToPFN ($guid, $catalogue, $hostkey);
-	$pfn =~ s/$prefix//;
+	my $pfn = $self->{PFN_CACHE}{$guid};
+	if (! $pfn)
+	{
+	    $pfn = &guidToPFN ($guid, $catalogue, $hostkey);
+	    $pfn =~ s/$prefix//;
+	    $self->{PFN_CACHE}{$guid} = $pfn;
+	    $self->{GUID_CACHE}{$pfn} = $guid;
+	}
 	push (@$result, [ $guid, $pfn, $time ]);
     }
 
     return $result;
 }
 
+# Get the list of files currently staged-in.
 sub getStagerFiles
 {
     my ($self, $catalogue, $hostkey) = @_;
     my $files = &stagerFileList();
     return undef if ! $files;
 
+    my $prefix = $self->{RM_PATH_PREFIX};
     my $result = [];
     foreach my $pfn (keys %$files)
     {
 	my $status = $files->{$pfn};
-	push (@$result, [ &pfnToGuid ($pfn, $catalogue, $hostkey), $pfn, $status ]);
+	my $guid = $self->{GUID_CACHE}{$pfn};
+	if (! $guid)
+	{
+	    $guid = &pfnToGuid ($prefix . $pfn, $catalogue, $hostkey);
+	    $self->{GUID_CACHE}{$pfn} = $guid;
+	    $self->{PFN_CACHE}{$guid} = $pfn;
+        }
+	push (@$result, [ $guid, $pfn, $status ]);
     }
 
     return $result;
 }
 
+# Build status object from stager state and pending requests.
 sub buildStatus
 {
     my ($self, $stager, $pending) = @_;
