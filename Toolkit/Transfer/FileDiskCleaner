@@ -15,6 +15,7 @@ BEGIN
 my %args = (DBITYPE => 'Oracle',
 	    MAXFILLRATIO => 75,
 	    MINFREESPACE => 100,
+	    PURGE => 1000,
 	    WAITTIME => 60);
 
 &GetOptions ("state=s"		=> \$args{DROPDIR},
@@ -24,6 +25,7 @@ my %args = (DBITYPE => 'Oracle',
 	     "dbuser=s"		=> \$args{DBUSER},
 	     "dbpass=s"		=> \$args{DBPASS},
 	     "wait=f"		=> \$args{WAITTIME},
+	     "purgesize=f"      => \$args{PURGE},
 	     "help"		=> \$args{HELPME},
 
 	     "prefix=s"		=> \$args{RM_PATH_PREFIX},
@@ -47,6 +49,7 @@ if ($args{HELPME} || !$args{IMPORTLOC} || !$args{DBNAME} || !$args{DBUSER}
     print "--node:         phedex node name (required)\n";
     print "--state:        agent state directory (required)\n";
     print "--wait:         seconds to sleep between checks\n";
+    print "--purgesize:    amount of files to purge per check\n";
     exit 1;
 }
 
@@ -81,6 +84,7 @@ sub new
 	  	  AGENTID => "Cleaner",         # Identity for activity logs
 		  MAXFILLRATIO => undef,	# Maximum disk fill percentage
 		  MINFREESPACE => undef,	# Minimum free space in MB
+		  PURGE => undef,               # amount of files to purge per run
 		  IMPORTLOC => undef,		# Disk path to watch
 		  RM_PATH_PREFIX => undef);	# Path prefix to remove from PFNs
 
@@ -224,7 +228,7 @@ sub filesToDelete
     # transferred out of this node where the transfer is completed
     # (to_state = 3).  We take all the files, but oldest first(?).
     my @guids = map { $_->[0] } @{(&dbexec ($dbh, qq{
-	select rs.guid
+	select * from (select rs.guid
 	from t_replica_state rs
 	left join t_nodes n
 	  on n.node_name = rs.node
@@ -233,8 +237,9 @@ sub filesToDelete
 	where rs.state = 1
 	  and rs.node = :node
 	  and ts.to_state = 3
-	order by ts.to_time_stamp asc},
-        ":node" => $self->{MYNODE}))[0]->fetchall_arrayref()};
+	order by ts.to_time_stamp asc)
+        where  rownum <= :purgesize},
+        ":node" => $self->{MYNODE}, ":purgesize" => $self->{PURGE}))[0]->fetchall_arrayref()};
 
     # Now get PFNs for all those files.
     my @files = ();
