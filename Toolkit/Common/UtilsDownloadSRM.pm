@@ -1,6 +1,7 @@
 package UtilsDownloadSRM; use strict; use warnings; use base 'UtilsDownload';
 use UtilsLogging;
 use UtilsCommand;
+use UtilsTiming;
 
 sub new
 {
@@ -25,6 +26,7 @@ sub transferBatch
 	# Reap finished jobs
 	foreach my $file (@{$job->{FOR_FILES}})
 	{
+	    $file->{TIMING}{FINISH} = &mytimeofday();
 	    $file->{DONE_TRANSFER} = 1;
 	    $file->{TRANSFER_STATUS}{STATUS} = $job->{STATUS};
 	    $file->{TRANSFER_STATUS}{REPORT}
@@ -38,6 +40,7 @@ sub transferBatch
         foreach my $file (@$batch)
         {
 	    do { $file->{DONE_TRANSFER} = 1; next } if $file->{FAILURE};
+	    $file->{TIMING}{START} = &mytimeofday();
 
 	    # Put this file into a transfer batch
 	    push (@copyjob, $file);

@@ -2,6 +2,7 @@ package UtilsDownload; use strict; use warnings; use base 'Exporter';
 use UtilsLogging;
 use UtilsCommand;
 use UtilsWriters;
+use UtilsTiming;
 
 sub new
 {
@@ -73,6 +74,8 @@ sub getDestinationPaths
 	unlink ($job->{OUTPUT_FILE});
 	chomp ($output) if defined $output;
 
+	$file->{TIMING}{GET_DEST_START} = &mytimeofday();
+
 	$file->{"DONE_$var"} = 1;
 	if ($job->{STATUS})
 	{
@@ -89,6 +92,9 @@ sub getDestinationPaths
 	    # Success, collect output file and record it into the $file
 	    $file->{$var} = $output;
 	}
+	
+	$file->{TIMING}{GET_DEST_FINISH} = &mytimeofday();
+
     }
     else
     {
@@ -96,6 +102,8 @@ sub getDestinationPaths
 	foreach my $file (@$batch)
 	{
 	    do { $file->{DONE_TO_PFN} = 1; next } if $file->{FAILURE};
+
+	    $file->{TIMING}{JOB_ADD_START} = &mytimeofday();
 
 	    my $output = "$master->{DROPDIR}/$file->{GUID}.topfn";
 	    my $args = join(" ",
@@ -110,6 +118,8 @@ sub getDestinationPaths
 		{ OUTPUT_FILE => $output, OUTPUT_VARIABLE => "TO_PFN",
 		  FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
 		"sh", "-c", "@{$self->{PFN_GEN_COMMAND}} $args > $output");
+
+	    $file->{TIMING}{JOB_ADD_FINISH} = &mytimeofday();
 	}
     }
 
@@ -128,6 +138,8 @@ sub preClean
     {
 	# Reap finished jobs.  We don't care about success here.
 	$job->{FOR_FILE}{DONE_PRE_CLEAN} = 1;
+	my $file = $job->{FOR_FILE};
+	$file->{TIMING}{PRECLEAN_FINISH} = &mytimeofday();
     }
     else
     {
@@ -135,6 +147,9 @@ sub preClean
 	# but only if we have a deletion command in the first place.
 	foreach my $file (@$batch)
 	{
+	    $file->{TIMING}{PRECLEAN_START} = &mytimeofday();
+	    $file->{TIMING}{PRECLEAN_FINISH} = $file->{TIMING}{PRECLEAN_START} - 1;
+
 	    do { $file->{DONE_PRE_CLEAN} = 1; next }
 	        if $file->{FAILURE} || ! $self->{DELETE_COMMAND};
 
@@ -187,6 +202,8 @@ sub validateBatch
 		   : "was successful")
 	        . ")";
 	}
+	
+	$file->{TIMING}{VALIDATE_FINISH} = &mytimeofday();
     }
     else
     {
@@ -195,11 +212,13 @@ sub validateBatch
 	# validation, just use the status from transfer command.
 	foreach my $file (@$batch)
 	{
+	    $file->{TIMING}{VALIDATE_START} = &mytimeofday();
+
 	    do { $file->{FAILURE} = $file->{TRANSFER_STATUS}{REPORT} }
 	        if ! $self->{VALIDATE_COMMAND} && $file->{TRANSFER_STATUS}{STATUS};
 	    do { $file->{DONE_VALIDATE} = 1; next }
 	        if $file->{FAILURE} || ! $self->{VALIDATE_COMMAND};
-	
+
 	    $master->addJob (
 		sub { $self->validateBatch ($master, $batch, @_) },
 		{ FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
@@ -227,6 +246,8 @@ sub updateCatalogue
 	unlink (@{$job->{EXTRA_FILES}});
 	$file->{FAILURE} = "exit code $job->{STATUS} from @{$job->{CMD}}"
 	    if $job->{STATUS};
+
+	$file->{TIMING}{UPDATE_CAT_FINISH} = &mytimeofday();
     }
     else
     {
@@ -236,6 +257,8 @@ sub updateCatalogue
 	# against handling each file more than once.
 	foreach my $file (@$batch)
 	{
+	    $file->{TIMING}{UPDATE_CAT_START} = &mytimeofday();
+	    
 	    do { $file->{DONE_CATALOGUE} = 1; next } if $file->{FAILURE};
 	    next if exists $file->{DONE_CATALOGUE};
 
@@ -280,6 +303,8 @@ sub postClean
     if ($job)
     {
 	# Reap finished jobs.  We don't care about success here.
+        my $file = $job->{FOR_FILE};
+        $file->{TIMING}{POSTCLEAN_FINISH} = &mytimeofday();
 	$job->{FOR_FILE}{DONE_POST_CLEAN} = 1;
     }
     else
@@ -288,6 +313,9 @@ sub postClean
 	# have a deletion command in the first place.
 	foreach my $file (@$batch)
 	{
+	    $file->{TIMING}{POSTCLEAN_START} = &mytimeofday();
+	    $file->{TIMING}{POSTCLEAN_FINISH} = $file->{TIMING}{POSTCLEAN_START} - 1;
+
 	    do { $file->{DONE_POST_CLEAN} = 1; next }
 	        if ! $file->{FAILURE} || ! $self->{DELETE_COMMAND};
 

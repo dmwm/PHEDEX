@@ -1,5 +1,6 @@
 package UtilsDownloadGlobus; use strict; use warnings; use base 'UtilsDownload';
 use UtilsLogging;
+use UtilsTiming;
 
 sub new
 {
@@ -42,6 +43,7 @@ sub transferBatch
 	    $file->{TRANSFER_STATUS}{STATUS} = $job->{STATUS};
 	    $file->{TRANSFER_STATUS}{REPORT}
 	        = "exit code $job->{STATUS} from @{$job->{CMD}}";
+	    $file->{TIMING}{FINISH} = &mygettimeofday();
 	}
     }
     else
@@ -51,6 +53,8 @@ sub transferBatch
         foreach my $file (@$batch)
         {
 	    do { $file->{DONE_TRANSFER} = 1; next } if $file->{FAILURE};
+
+	    $file->{TIMING}{START} = &mygettimeofday();
 
 	    # FIXME: globus-url-copy 3.x support copyjob files like SRM.
 
