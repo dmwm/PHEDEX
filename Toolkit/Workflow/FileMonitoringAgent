@@ -1,0 +1,151 @@
+#! /usr/bin/env perl
+
+#-----------------------------------------------------------------------------------------------
+# agent name: site monitoring agent
+# purpose: monitor completeness of dataset/owner collections and trigger site specific scripts
+#-----------------------------------------------------------------------------------------------
+
+BEGIN
+{
+  use warnings; use strict; use Getopt::Long;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+
+#---------------------------------------------
+#     Argument parsing
+#---------------------------------------------
+
+my %args = (DBITYPE => 'Oracle',
+	    WAITTIME => 60);
+
+&GetOptions ("state=s"		=> \$args{DROPDIR},
+	     "node=s"		=> \$args{MYNODE},
+	     "db=s"		=> \$args{DBNAME},
+	     "dbitype=s"	=> \$args{DBITYPE},
+	     "dbuser=s"		=> \$args{DBUSER},
+	     "dbpass=s"		=> \$args{DBPASS},
+	     "wait=f"		=> \$args{WAITTIME},
+	     "help"		=> \$args{HELPME},
+
+	     "sitescript=s"	=> \$args{SITESCRIPT});
+
+if ($args{HELPME} || !$args{DBNAME} || !$args{DBUSER}
+    || !$args{DBPASS} || !$args{MYNODE} || !$args{DROPDIR}
+    || !$args{SITESCRIPT})
+{
+    print "Syntax for Monitoring agent: \n";
+    print "--help:         this help text \n";
+    print "--sitescript:   site specific tasks to be performed,\n";
+    print "                when full dataset transfered (required)\n";
+    print "--db:           database to connect to (required)\n";
+    print "--dbuser:       database user name (required)\n";
+    print "--dbpass:       database user password (required)\n";
+    print "--node:         phedex node name (required)\n";
+    print "--state:        agent state directory (required)\n";
+    print "--wait:         seconds to sleep between checks\n";
+    exit 1;
+}
+
+#CJR mapping for Lassi's dropbox toolkit
+my $agent = new MonitorAgent (%args);
+$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
+$SIG{QUIT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
+$SIG{TERM} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
+$agent->process();
+
+################################################
+package MonitorAgent; use strict; use warnings; use base 'UtilsAgent';
+use File::Path;
+use Data::Dumper;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsCatalogue;
+use UtilsDB;
+use UtilsTR;
+use DBI;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBITYPE => undef,		# Database driver binding
+    		  DBNAME => undef,		# Database name
+	  	  DBUSER => undef,		# Database user name
+	  	  DBPASS => undef,		# Database user password
+	  	  MYNODE => undef,		# My TMDB node name
+	  	  AGENTID => "Monitoring",      # Identity for activity logs
+		  SITESCRIPT => undef);	        # site specific actions after groups got transfered
+
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+
+# Pick up work from the database and start site specific scripts if necessary
+sub idle
+{
+    my ($self, @pending) = @_;
+    my $dbh = undef;
+    my @collectionsFinished = ();
+
+    eval
+    {
+	$dbh = &connectToDatabase ($self) or die "failed to connect";
+
+	# check if a group was transfered completely and return group
+	@collectionsFinished = $self->getGroups($dbh); # got group to remove
+	return if (scalar(@collectionsFinished) == 0); # return from eval if there is nothing to be done
+
+
+	$dbh->commit();
+    };
+    do { &alert ("database error: $@"); $dbh->rollback if $dbh } if $@;
+
+    # Disconnect from the database
+    $dbh->disconnect();
+    undef $dbh;
+
+
+    # Call external script to do publishing and site specific work (etc.)
+    foreach my $collection (@collectionsFinished){
+	chomp $collection;
+	my ($dataset, $owner) = split(':',$collection);
+	my $AssID = &listAssignments($dataset,$owner);
+	my $cmd = "$self->{SITESCRIPT} $dataset $owner $AssID";
+	my $error = system($cmd);
+	&alert("execution of site specific script returned an error for collection: $collection") if $error;
+    }
+
+    # Have a little nap
+    $self->nap ($self->{WAITTIME});
+}
+
+
+sub getGroups {
+    my ($self, $dbh, $dataset, $owner) = @_;
+    my @packet = ();
+
+# let's get all dataset-owner pairs, which were completely transfered
+    my $h_packet = &dbexec ($dbh, qq{
+	select tb.dataset, tb.owner
+        from t_block tb, t_block_replica tbr
+	where tbr.node=:node and
+        tbr.files=tb.files and
+        tb.name=tbr.name},
+	":node"=>$self->{MYNODE});
+ 
+    while (my ($owner, $dataset) = $h_packet->fetchrow_array){
+	push (@packet, "$dataset:$owner");
+    }
+# return those dataset owner pairs
+    return @packet;
+}
+
+
