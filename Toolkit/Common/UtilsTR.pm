@@ -296,6 +296,7 @@ sub feedDropsToAgents
 	    (! $doit || &rmtree ($drop));
 	    $type = 'Done';
 	    $drop = "$request/Drops/$type/$dropname";
+	    $status->{$drop} = $info;
         }
 	elsif ($type ne 'NotReady' && -d "$request/Drops/NotReady/$dropname")
 	{
@@ -303,6 +304,7 @@ sub feedDropsToAgents
 	    (! $doit || &rmtree ($drop));
 	    $type = 'NotReady';
 	    $drop = "$request/Drops/$type/$dropname";
+	    $status->{$drop} = $info;
     	}
 
 	# Check if it it's done (and make sure done are still done!)
@@ -313,6 +315,7 @@ sub feedDropsToAgents
 	        or die "Error: $drop: cannot move to Done: $?\n";
 	    $type = 'Done';
 	    $drop = "$request/Drops/$type/$dropname";
+	    $status->{$drop} = $info;
 	}
 	elsif ($type ne 'Done' && $info->{IS_PENDING_TRANSFER})
 	{
@@ -321,6 +324,7 @@ sub feedDropsToAgents
 	        or die "Error: $drop: cannot move to Done: $?\n";
 	    $type = 'Done';
 	    $drop = "$request/Drops/$type/$dropname";
+	    $status->{$drop} = $info;
 	}
 	elsif ($type eq 'Done'
 	       && ! ($info->{IS_FULLY_TRANSFERRED}
@@ -331,121 +335,34 @@ sub feedDropsToAgents
 		or die "Error: $drop: cannot move to Pending: $?\n";
 	    $type = 'Pending';
 	    $drop = "$request/Drops/$type/$dropname";
+	    $status->{$drop} = $info;
 	}
 
 	# Process truly pending drops
 	if ($type ne 'Done' && $info->{IS_FULLY_IN_MSS})
 	{
 	    print "$type $drop available, feeding to agents and marking Done\n";
+	    (-f "$drop/go" || ! $doit || system ("touch $drop/go") == 0)
+		or die "Error: $drop: cannot touch go: $?\n";
 	    (! $doit || system ("cp -rp $drop $mouth/entry/inbox/$dropname") == 0)
 		or die "Error: $drop: cannot copy to $mouth/entry/inbox: $?\n";
 	    (! $doit || system ("mv $drop $request/Drops/Done/$dropname") == 0)
 	    	or die "Error: $drop: cannot move to Done: $?\n";
 	    $type = 'Done';
 	    $drop = "$request/Drops/$type/$dropname";
+	    $status->{$drop} = $info;
 	}
 	elsif ($type ne 'NotReady' && ! $info->{IS_FULLY_IN_MSS})
 	{
 	    print "$type $drop not yet available, marking NotReady\n";
+	    (! $doit || unlink ("$drop/go"));
 	    (! $doit || system ("mv $drop $request/Drops/NotReady/$dropname") == 0)
 	    	or die "Error: $drop: cannot move to NotReady: $?\n";
 	    $type = 'NotReady';
 	    $drop = "$request/Drops/$type/$dropname";
+	    $status->{$drop} = $info;
 	}
     }
 }
 
 1;
-
-__END__
-# RefDBCheck
-#!/bin/sh
-
-# Home and myself
-home=$(dirname $0)
-me=$(basename $0)
-
-# Process options
-while [ $# -gt 0 ]; do
-  case $1 in
-    -* ) echo "unrecognised option $1"; exit 1;;
-    *  ) break ;;
-  esac
-done
-
-# Check all PFNs of all the drops for assignment ($@) to see if they
-# already exist in castor in places RefDBDrops thought they would be in
-for assignment; do
-  assignment=$(echo $assignment | sed 's|^drops-for-||; s|/$||')
-
-  nfiles=0 nexists=0
-  for d in drops-for-$assignment/drops/*/; do
-    [ -d $d ] || continue
-    pfnroot=$(grep EVDS_OutputPath $d/Smry.*.txt | sed 's/.*=//')
-    for pfn in $(grep pfn $d/XMLCatFragment.*.xml | sed 's|.*<pfn .*name="\./||; s|"/>.*||'); do
-      rfstat $pfnroot/$pfn >/dev/null 2>&1 && nexists=$(expr $nexists + 1)
-      nfiles=$(expr $nfiles + 1)
-    done
-  done
-
-  echo -n "$assignment: $nexists/$nfiles files present in castor"
-  if [ $nexists = $nfiles -a $nfiles != 0 ]; then
-    echo ": ready for transfer"
-    touch drops-for-$assignment/ready
-    for d in drops-for-$assignment/drops/*/; do
-      touch $d/go
-    done
-  else
-    echo ": not ready for transfer"
-  fi
-done
-
-
-# RefDBReady
-#!/bin/sh
-
-# Home and myself
-home=$(dirname $0)
-me=$(basename $0)
-
-# Process options
-do_patterns=true do_assignments=false patfile=
-while [ $# -gt 0 ]; do
-  case $1 in
-    -P ) do_patterns=true do_assignments=false patfile=$2; shift; shift;;
-    -p ) do_patterns=true do_assignments=false; shift;;
-    -a ) do_assignments=true do_patterns=false; shift;;
-    -* ) echo "unrecognised option $1"; exit 1;;
-    *  ) break ;;
-  esac
-done
-
-# If we don't have an assignment list, generate it first from given list
-# of dataset.owner patterns (default: *.*).  Merge patterns given on the
-# command line and those mentioned in the optional pattern file.
-$do_patterns &&
-  set -- $($home/RefDBAssignments \
-	   $($home/RefDBList \
-	     $([ -z "$patfile" ] || echo "-P $patfile") \
-	     ${1+"$@"}))
-
-# Now check we got a list of assignments; complain only if -P/-p option
-# was not used (if the pattern match failed, we already whined about it).
-if [ $# -eq 0 -a $do_patterns = false ]; then
-  echo "usage: RefDBReady -P DATASET.OWNER-PATTERN-FILE [-p] [dataset.owner-pattern...]"
-  echo "  or:             -p [dataset.owner-pattern...]"
-  echo "  or:             -a assignment..."
-  exit 1
-fi
-
-# Process requested assignments
-for assignment; do
-  $home/RefDBDrops $assignment
-done
-
-# Now check which ones are ready for transfer.
-# Do this separately from previous step to collect
-# output neatly into one place.
-for assignment; do
-  $home/RefDBCheck $assignment
-done
