@@ -57,6 +57,12 @@ while(!(-e "$g_work_dir/stop")) {
 	foreach $neighbour (@neighbours) {
 	    log_entry( ENTRY => "Refreshing link $g_parent_node : $neighbour" );
 	    refresh_acquaintance( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, MY_NODE => $g_parent_node, NODE => $neighbour );
+	
+		log_entry( ENTRY => "$g_parent_node querying routes for $neighbour" );
+		%hops_by_destination = get_neighbours_routes( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, MY_NODE => $g_parent_node, NODE => $neighbour );
+		foreach $destination (keys %hops_by_destination) {
+			log_entry( ENTRY => "$destination $hops_by_destination{$destination}" );
+		}
 	}
 	
 }
@@ -106,6 +112,36 @@ sub publish_availability {
 # ###############################################################
 # Subroutines
 # ###############################################################
+sub refresh_acquaintance {
+	my %args = (
+		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
+		DB_USER => 'some_user',
+		DB_PASSWD => 'some_password',
+		MY_NODE => 'some_node',
+		NODE => 'some_other_node',
+		@_
+	);
+	
+	my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
+						 	"$args{DB_USER}", 
+						 	"$args{DB_PASSWD}", 
+						 	{ RaiseError=>1, AutoCommit =>1 });
+	
+	my %hops_by_destination = ();
+	my $selection = "select to_node, hops "
+					."from t_Routing "
+					."where from_node = '$args{NODE}' ";
+	my $query = $dbh->prepare($selection);
+	$query->execute;
+	while (@row = $query->fetchrow_array) {
+	    $row[0] =~ s/ //g;
+	    $hops_by_destination{$row[0]} = $row[1];
+	}
+	$query->finish();
+	
+	$dbh->disconnect();
+}
+
 sub refresh_acquaintance {
 	my %args = (
 		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
