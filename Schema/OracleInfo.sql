@@ -63,12 +63,38 @@ create table t_info_drop_status
 	 state			varchar(20)	not null,
 	 value			integer		not null);
 
+create table t_info_subscriptions
+	(update_stamp		integer		not null,
+	 dataset		varchar(1000)	not null,
+	 destination		varchar(20),
+	 n_files		integer		not null,
+	 sz_files		integer		not null,
+	 n_files_at_dest	integer		not null,
+	 sz_files_at_dest	integer		not null);
+
+create table t_info_replication_overview
+	(update_stamp		integer		not null,
+	 dataset		varchar(1000)	not null,
+	 owner			varchar(1000)	not null,
+	 n_runs			integer		not null,
+	 n_files		integer		not null,
+	 sz_files		integer		not null);
+create table t_info_replication_details
+	(update_stamp		integer		not null,
+	 dataset		varchar(1000)	not null,
+	 owner			varchar(1000)	not null,
+	 node			varchar(20)	not null,
+	 n_files		integer		not null,
+	 sz_files		integer		not null);
 
 grant select on t_info_transfer_status		to cms_transfermgmt_reader;
 grant select on t_info_transfer_rate		to cms_transfermgmt_reader;
 grant select on t_info_file_size_overview	to cms_transfermgmt_reader;
 grant select on t_info_file_size_histogram	to cms_transfermgmt_reader;
 grant select on t_info_drop_status		to cms_transfermgmt_reader;
+grant select on t_info_subscriptions		to cms_transfermgmt_reader;
+grant select on t_info_replication_overview	to cms_transfermgmt_reader;
+grant select on t_info_replication_details	to cms_transfermgmt_reader;
 grant alter, delete, insert, select, update on t_info_transfer_status
    to cms_transfermgmt_writer;
 grant alter, delete, insert, select, update on t_info_transfer_rate
@@ -79,6 +105,12 @@ grant alter, delete, insert, select, update on t_info_file_size_histogram
    to cms_transfermgmt_writer;
 grant alter, delete, insert, select, update on t_info_drop_status
    to cms_transfermgmt_writer;
+grant alter, delete, insert, select, update on t_info_subscriptions
+   to cms_transfermgmt_writer;
+grant alter, delete, insert, select, update on t_info_replication_overview
+   to cms_transfermgmt_writer;
+grant alter, delete, insert, select, update on t_info_replication_details
+   to cms_transfermgmt_writer;
 
 -- as cms_transfermgmt_reader and cms_transfermgmt_writer
 create synonym t_info_transfer_status for cms_transfermgmt.t_info_transfer_status;
@@ -86,3 +118,6 @@ create synonym t_info_transfer_rate for cms_transfermgmt.t_info_transfer_rate;
 create synonym t_info_file_size_overview for cms_transfermgmt.t_info_file_size_overview;
 create synonym t_info_file_size_histogram for cms_transfermgmt.t_info_file_size_histogram;
 create synonym t_info_drop_status for cms_transfermgmt.t_info_drop_status;
+create synonym t_info_subscriptions for cms_transfermgmt.t_info_subscriptions;
+create synonym t_info_replication_overview for cms_transfermgmt.t_info_replication_overview;
+create synonym t_info_replication_details for cms_transfermgmt.t_info_replication_details;
