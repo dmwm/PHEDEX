@@ -66,6 +66,9 @@ while (1)
     {
 	$dest->write ($file);
     }
+
+    local $| = 1;
+    print ".";
 }
 $src->finish();
 $dest->finish();
