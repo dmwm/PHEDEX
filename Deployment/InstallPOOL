@@ -115,7 +115,7 @@ sub installStandalone
     };
 
     if ($@) {
-	print "RPM installation failed, cleaning up.\n";
+	print "ERROR: $@ERROR: RPM installation failed, cleaning up.\n";
 	system("rm -r $InstallRoot/RPMDB") if (-e "$InstallRoot/RPMDB");
 	system("rm -r $InstallRoot/RPMs") if (-e "$InstallRoot/RPMs");
 	return 0; # report failure
@@ -160,7 +160,7 @@ sub installScram {
 	}
     };
     if ($@) {
-	print "Environment setup script creation failed, installation terminated.\n";
+	print "ERROR: $@ERROR: Environment setup creation failed, installation terminated.\n";
 	return 0; #report failure
     }
     
