@@ -7,7 +7,7 @@
 ## from GDB and actually creates the zip.
 
 BEGIN { use strict; $^W = 1; }
-my ($dropdir, $nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
+my ($dropdir, @nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
 my $maindir;			# Main merger $dropdir
 
 my @startTime;
@@ -147,7 +147,7 @@ sub flushQueue
     my $stored = $output && "$storeddir/$zipname";
     my $basedir = "$workdir/$queue";
     my $filesdir = "$basedir/files";
-    my $dropin = $nextdir && "$nextdir/inbox/$queue";
+    my $dropin = $nextdir[0] && "$nextdir[0]/inbox/$queue";
     my $stats = "zipstats: $queue";
 
     # If the output already exists, complain and assume something went
@@ -349,7 +349,7 @@ while (scalar @ARGV)
     elsif ($ARGV[0] eq '-in' && scalar @ARGV > 1)
     { shift (@ARGV); $dropdir = shift(@ARGV); }
     elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
-    { shift (@ARGV); $nextdir = shift(@ARGV); }
+    { shift (@ARGV); push(@nextdir, shift(@ARGV)); }
     elsif ($ARGV[0] eq '-dryrun')
     { shift (@ARGV); $dryrun = 1; }
     elsif ($ARGV[0] eq '-remove')

@@ -27,7 +27,7 @@
 ## to analyse how well it would work in practise.
 
 BEGIN { use strict; $^W = 1; }
-my ($dropdir, $nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
+my ($dropdir, @nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
 my @startTime;
 my $waittime = 7;		# Seconds to sleep between inbox checks
 my %bad = ();			# Drops we've warned are bad
@@ -583,7 +583,7 @@ sub startWorker
     # Child.
     my @args = ("$home/T0-Funnel-Worker.pl",
 		"-main", $dropdir, "-in", $workerdir,
-		($nextdir ? ("-out", $nextdir) : ()),
+		(map { ("-out", $_) } @nextdir),
 		"-stagehost", $stagehost, "-stagepool", $stagepool,
 		($dryrun ? "-dryrun" : ()),
 		($remove ? "-remove" : ()),
@@ -720,7 +720,7 @@ while (scalar @ARGV)
     if ($ARGV[0] eq '-in' && scalar @ARGV > 1)
     { shift (@ARGV); $dropdir = shift(@ARGV); }
     elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
-    { shift (@ARGV); $nextdir = shift(@ARGV); }
+    { shift (@ARGV); push (@nextdir, shift(@ARGV)); }
     elsif ($ARGV[0] eq '-dryrun')
     { shift (@ARGV); $dryrun = 1; }
     elsif ($ARGV[0] eq '-remove')

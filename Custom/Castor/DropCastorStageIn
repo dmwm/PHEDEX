@@ -26,7 +26,7 @@
 ## place.  At the end, we pass the assignment to the next agent.
 
 BEGIN { use strict; $^W = 1; }
-my ($dropdir, $nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
+my ($dropdir, @nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
 my @startTime;
 my $waittime = 7;		# Seconds to sleep between meta set queries
 my %bad = ();			# Drops we've warned are bad
@@ -210,7 +210,7 @@ while (scalar @ARGV)
     elsif ($ARGV[0] eq '-in' && scalar @ARGV > 1)
     { shift (@ARGV); $dropdir = shift(@ARGV); }
     elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
-    { shift (@ARGV); $nextdir = shift(@ARGV); }
+    { shift (@ARGV); push (@nextdir, shift(@ARGV)); }
     elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
     { shift (@ARGV); $waittime = shift(@ARGV); }
     else
