@@ -23,14 +23,19 @@
       it and have not downloaded it (reason for many pending files)
       (FIXME: savannah tracking ticket).</li>
 
+ <li> RAL: Promised disks (30 TB) still not available; current best
+      estimate is October.</li>
+
+ <li> PIC: No issues, but haven't transferred anything recently.</li>
+
  <li> All: Stage-ins are a major headache.  Will be solved by the
       switch to V2 (FIXME: savannah tracking ticket).</li>
 </ul>
 
 <p>Agents in use:</p>
 <ul>
- <li> CNAF-INFN T1:</li>
- <li> PIC:</li>
+ <li> CNAF-INFN T1: INFN C agent.</li>
+ <li> PIC: PIC C agent.</li>
  <li> FNAL:</li>
 </ul>
 
@@ -38,31 +43,55 @@
 
 <p>V2 topologies: currently CastorGrid to all T1s back and forth,
 each T1 should also have one-way link to a MSS node associated with
-the transfer node.</p>
+the transfer node.  PIC-CIEMAT two-way link from PIC Tier-1 transfer
+node to CIEMAT Tier-2.</p>
+
+<p>Technology:</p>
+<ul>
+ <li> CNAF-INFN T1: LCG-2 SE.  Castor MSS.  INFN C agent.</li>
+ <li> PIC T1: LCG-2 SE?  Castor MSS.  PIC C agent.</li>
+ <li> CIEMAT T2: LCG-2 SE?  No MSS.  Agent?</li>
+ <li> FZK: Disk buffer, dCache MSS via SRM.  Toolkit.</li>
+ <li> ASCC: LCG-2 SE.  Castor MSS.  Toolkit.</li>
+ <li> RAL: ADS.  Toolkit.</li>
+ <li> IN2P3: </li>
+ <li> FNAL: </li>
+</ul>
 
 <p>Current status:</p>
 <ul>
- <li> CNAF-INFN T1: Transfer node ready.  mu03b_DY2mu_Mll2000 test
-      data (237 files) downloaded.  MSS node being worked on.  No
-      export yet, but have lots of local scripts for verifying
-      transfer state.  Not implemented schema changes yet.</li>
+ <li> CNAF-INFN T1: Transfer node ready; no schema changes yet.
+      mu03b_DY2mu_Mll2000 test data (237 files) downloaded.  MSS
+      node being worked on.  No export yet, but have lots of local
+      scripts for verifying transfer state; expect to test export
+      during/after workshop.</li>
 
- <li> PIC: Transfer node ready.  No schema update yet.  MSS node
-      being worked on.  Will try using example agents.  No export
-      yet; will try example agents.</li>
+ <li> PIC T1: Transfer node ready, sample data downloaded.  No
+      schema update yet.  MSS node being worked on.  Will try
+      using example agents.  No export yet; will try example
+      agents during/after workshop.</li>
 
- <li> FZK: Not transferring yet, but expect to test in a couple of
+ <li> CIEMAT T2: Transfer node ready but topology not tested, test
+      data not downloaded yet.  No schema update yet.  No MSS, so
+      no agent needed.  No export yet.</li>
+
+ <li> FZK T1: Not transferring yet, but expect to test in a couple of
       days.  Will use example agent for transfers to disk, but have
       only limited disk space available.  Working on SRM migration
-      separately, but have issues.  No export.</li>
+      separately, but have issues with that.  No export yet, expect
+      to try during/after workshop, depends on SRM (2-3 weeks?).</li>
 
- <li> ASCC: Testing example transfer agents with various degress of
-      success (bugs in example agents).  No MSS node yet.  No export.<li>
+ <li> ASCC T1/NCU T2: Testing example transfer agents with various
+      degress of success (bugs in example agents).  No MSS node yet.
+      No export yet.<li>
+
+ <li> RAL: No transfers, disk still unavailable.  Will use toolkit
+      where possible.  Estimate one working week (latency uncertain)
+      to implement when hardware comes.  Export expected mid/late
+      Q4/2004.</li>
 
  <li> FNAL: No report yet.</li>
 
  <li> IN2P3: No report yet.</li>
-
- <li> RAL: No report yet.</li>
 </body>
 </html>
