@@ -1,0 +1,58 @@
+#!/usr/bin/env python2.2
+from PyFileCatalog import *
+from PyFCContainer import *
+from PyFCAction import *
+import unittest,os,os.path,getopt
+def usage():
+    print 'FCGUID2PFN [-g | -p] -u catalog_contactstring ITEM...'
+
+class myobj(object):
+    def __init__(self):
+	self.mode = 'g'
+        try:
+            optlist,args = getopt.getopt (sys.argv[1:],'gpu:')
+        except getopt.GetoptError:
+            usage()
+            sys.exit(2)
+        for o,a in optlist:
+            if o == '-u':
+                self.cat = a
+            elif o == '-g':
+                self.mode = 'g'
+            elif o == '-p':
+                self.mode = 'p'
+            else:
+                usage()
+                sys.exit(2)
+        try:
+            self.x=PyFileCatalog.PyFileCatalog()
+            self.x.setWriteCatalog(self.cat)
+        except PyFileCatalogError, er:
+            print 'PyFileCatalogError Caught:',er
+            self.x.rollback()
+
+    def list(self,guids):
+        try:
+            l = PyFClookup()
+            self.x.setAction(l)
+            self.x.connect()
+            pfns = PyFCContainer.PyFCContainer(self.x,PFN,10000)
+            self.x.start()
+            for guid in guids:
+		if (self.mode == 'g'):
+		    l.lookupPFNByQuery("guid='" + guid + "'", pfns)
+		else:
+		    l.lookupPFNByQuery("pfname='" + guid + "'", pfns)
+
+                while pfns.hasNext():
+                    pentry=pfns.Next()
+                    print pentry[1], " ", pentry[0]
+
+            self.x.commit(REFRESH)
+            self.x.disconnect()
+        except PyFileCatalogError, er:
+             print 'PyFileCatalogError Caught:',er
+
+if __name__=="__main__":
+    y=myobj()
+    y.list(sys.argv[1:])
