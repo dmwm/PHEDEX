@@ -53,7 +53,7 @@ while(!(-e "$g_work_dir/stop")) {
 	
 	my @neighbours = &get_neighbours( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, NODE => $g_parent_node);
 	
-	log_entry( ENTRY = "@neighbours" );
+	log_entry( ENTRY => "@neighbours" );
 }
 
 
