@@ -720,7 +720,16 @@ problems found during the DC, as many components of the CMS grid will
 rely on similar backends (eg Oracle databases) it is essential to
 understand the problems experienced.
 
-Many of problems were caused by
+The data challenge highlighted issues of the SRB CLI (return codes were not 
+reliable, at times returning 0 despite failure, and some killed transfers continued to 
+run in the background) and many problems can be attributed to using the CLI in
+a high load production environment. The combination of parrallel processes and
+many authentication steps in the CLI tools meant that the load on the MCat was 
+sustained at high levels. Indeed on days of particularily high load the MCat
+had over 200,000 connection requests.This level of load could have been 
+eased by using the bulk commands available in newer versions of SRB or by 
+writing our own tools against the API's, however time constraints meant that 
+neither were possible.
 
 Even with administration problems, transfers to IN2P3 reached 80 Mbps
 over a period of hours, althoa anugh typically they averaged only 30
