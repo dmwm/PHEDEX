@@ -58,15 +58,10 @@ while(!(-e "$g_work_dir/stop")) {
 
     &refresh_neighbour_links;
 
-    if (@new_routes = &get_new_routes) { 
-	log_entry( "Found new routes" ); 
-	foreach $route (@new_routes) { log_entry( $route ); }
-	&insert_routes( \@new_routes );
-    }
-
-    my @min_routes = &minimise_routes;
+    @new_routes = &get_new_routes;
+    @all_routes = &compare_with_existing_routes( \@new_routes  );
     &clear_my_table;
-    &insert_routes( \@min_routes );
+    &insert_routes( \@all_routes );
 
     # TODO: Timeout direct links
     
@@ -185,44 +180,55 @@ sub clear_my_table {
     my $neighbour = shift;
     my $time = time();
     my $update = "delete from t_Routing "
-	."where from_node = '$g_parent_node' "
-	."and not to_node = gateway";
+	."where from_node = '$g_parent_node' ";
     direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
 }
 
-sub minimise_routes {
+sub compare_with_existing_routes {
+    my $new_routes = shift;
+    my $selection = "select gateway,to_node,hops from t_Routing "
+        ."where from_node = '$g_parent_node'";
+    my %gate_hops_by_dest = ();
+
+    # Build up hash of existing routes
+    # Should only be one entry per destination!
     my $dbh = DBI->connect( "DBI:Oracle:$g_db",
                             "$g_db_user",
                             "$g_db_passwd",
                             { RaiseError=>1, AutoCommit =>1 });
-
-    my $selection = "select gateway,to_node,hops from t_Routing "
-	."where from_node = '$g_parent_node'"
-	."and not to_node = gateway";
-    
-    my %hops_by_route = ();
-    my @routes = ();
     my $query = $dbh->prepare($selection);
     $query->execute;
     while (@row = $query->fetchrow_array) {
         foreach (@row) { s/ //g; }
-
-	my $route = "$row[0]:$row[1]";
-	
-	if (exists $hops_by_route{$route}) {
-	    $hops_by_route{$route} = min( $row[2], $hops_by_route{$route} );
-	} else {
-	    $hops_by_route{$route} = $row[2];
-	}
-
+        my $gate_hops = "$row[0]:$row[2]";
+	if (exists $gate_hops_by_dest{$row[1]} ){ log_entry( "Something wrong in routing: multiple entries for $row[1] under $g_parent_node table!" ); }
+        $gate_hops_by_dest{$row[1]} = $gate_hops;
     }
     $query->finish();
     $dbh->disconnect();
 
-    foreach $route (keys %hops_by_route) {
-	push( @routes, join( ":",$route,$hops_by_route{$route} ) );
+    # Compare new routes with existing routes, replace
+    # or minimise
+    foreach $route (@$new_routes) {
+	my ($new_gate,$new_to,$new_hops) = split( /:/,$route );
+	my $new_gate_hops = "$new_gate:$new_hops";
+	if (exists $gate_hops_by_dest{$new_to}) {
+	    my ($gate,$hops) = split ( /:/,$gate_hops_by_dest{$new_to} );
+	    if (($gate eq $new_gate) || ($new_hops < $hops)) { # replace blindly OR minimise
+		$gate_hops_by_dest{$new_to} = $new_gate_hops;
+	    } 
+	} else {
+	    $gate_hops_by_dest{$new_to} = $new_gate_hops;
+	}
     }
 
+    # Build complete merged table
+    my @routes = ();
+    foreach $destination (keys %gate_hops_by_dest) {
+        my ($gate, $hops) = split( /:/, $gate_hops_by_dest{$destination} );
+        my $route = "$gate:$destination:$hops";
+        push( @routes, $route );
+    }
     return @routes;
 }
 
