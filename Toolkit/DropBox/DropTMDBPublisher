@@ -46,23 +46,19 @@ while (scalar @ARGV)
     { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
     elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-version' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{VERSION} = shift(@ARGV); }
     else
     { last; }
 }
 	
 if (scalar @ARGV || !$args{DROPDIR}
-    || !$args{DBNAME} || !$args{DBUSER}
+    || ! defined $args{DBNAME} || !$args{DBUSER}
     || !$args{DBPASS} || !$args{DBITYPE}
-    || ($args{VERSION} ne 1 && $args{VERSION} ne 2)
-    || ($args{VERSION} eq 2 && !$args{MYNODE}))
+    || !$args{MYNODE})
 {
     print STDERR
-	"usage: $me -node NODE-NAME\n",
+	"usage: $me -node NODE-NAME -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
 	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-	"    -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
-	"    [-version 1/2] [-wait SECS-TO-WAIT]\n";
+	"    [-wait SECS-TO-WAIT]\n";
     exit (1);
 }
 
@@ -76,6 +72,7 @@ use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
 use UtilsCache;
+use UtilsDB;
 
 sub new
 {
@@ -86,8 +83,7 @@ sub new
     		  DBNAME => undef,		# Database name
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
-	  	  MYNODE => undef,		# My TMDB node name
-	  	  VERSION => 2);		# TMDB version
+	  	  MYNODE => undef);		# My TMDB node name
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -97,50 +93,57 @@ sub new
 # Update TMDB for each file mentioned.
 sub updateTransferDatabase
 {
-    my ($self, $drop, $attrs) = @_;
+    my ($self, $drop, $nodes, $attrs) = @_;
 
     my $dbh;
     eval
     {
         # Update database
-        if ($self->{DBNAME})
+	$dbh = &connectToDatabase ($self, 0) || die "failed to connect"
+	    if $self->{DBNAME};
+
+	my $fstmt = &dbprep ($dbh, qq{
+	    insert into t_files_for_transfer (guid, node, filesize)
+	    values (:guid, :node, :size)});
+    	my $rstmt = &dbprep ($dbh, qq{
+	    insert into t_replica_state
+	    (guid, node, state, local_state,
+	     insert_time_stamp, time_stamp, local_time_stamp)
+	    values (:guid, :node, 0, 0, :now, :now, :now)});
+    	my $mstmt = &dbprep ($dbh, qq{
+	    insert into t_replica_metadata (guid, attribute, value)
+	    values (:guid, :attr, :value)});
+
+    	my @cmds;
+        my $now = &mytimeofday ();
+	foreach my $node (@$nodes)
 	{
-	    eval "use DBI"; die $@ if $@; # Allow testing without DBI
-	    $dbh = DBI->connect ("DBI:$self->{DBITYPE}:$self->{DBNAME}",
-		    		 $self->{DBUSER}, $self->{DBPASS},
-				 { RaiseError => 1, AutoCommit => 0 });
+            foreach my $f (@$attrs)
+	    {
+                my %meta = ('filesize' => $f->{FILESIZE},
+		            (exists $f->{CHECKSUM} ? ('checksum' => $f->{CHECKSUM}) : ()),
+			    map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
+
+	        push (@cmds,
+		      [ $fstmt, { ":node" => $node,
+			          ":guid" => $f->{GUID},
+			          ":size" => $f->{FILESIZE} } ],
+	              [ $rstmt, { ":node" => $node,
+			          ":guid" => $f->{GUID},
+			          ":now"  => $now } ],
+		      map { [ $mstmt, { ":guid" => $f->{GUID},
+				        ":attr" => $_,
+				        ":value" => $meta{$_} } ] }
+		        sort keys %meta);
+	    }
 	}
 
-        foreach my $f (@$attrs)
+	foreach my $cmd (@cmds)
 	{
-	    my @cmds;
-	    my $now = time();
-            my %meta = ('filesize' => $f->{FILESIZE},
-		        (exists $f->{CHECKSUM} ? ('checksum' => $f->{CHECKSUM}) : ()),
-			map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
-
-	    if ($self->{VERSION} == 1) {
-		@cmds = ("insert into filesfortransfer "
-			 ." (guid,castor_filename,entry_time,checksum,filesize,allocated_to_t1s,filegroup)"
-		         ."values ('$f->{GUID}', '$f->{PFN}', $now, $f->{CHECKSUM},"
-		         ."  $f->{FILESIZE}, '1', '@{[$f->{META}{'jobid'} || '']}')");
-	    } elsif ($self->{VERSION} == 2) {
-		@cmds = ("insert into t_files_for_transfer"
-			 ." values ('$f->{GUID}', '$self->{MYNODE}')",
-			 "insert into t_replica_state"
-			 ." values ('$f->{GUID}', '$self->{MYNODE}', $now, 0, $now, 0, $now)",
-	       		 map { "insert into t_replica_metadata"
-		     		." values ('$f->{GUID}', '$_', '$meta{$_}')" }
-		 	 sort keys %meta);
-	    }
-
-	    foreach my $cmd (@cmds)
-	    {
-		if ($self->{DBNAME}) {
-		    $dbh->do ($cmd);
-	        } else {
-		    &logmsg ($cmd);
-		}
+	    if ($self->{DBNAME}) {
+		&dbbindexec ($cmd->[0], %{$cmd->[1]});
+	    } else {
+		&logmsg ("$cmd->[0]{Statement} { @{$cmd->[1]} }");
 	    }
 	}
 
@@ -178,9 +181,10 @@ sub processDrop
     my $dropdir = "$self->{WORKDIR}/$drop";
     my $attrs = eval { &readAttributeCache ("$dropdir/attrs") };
     do { &alert ("$drop: $@"); $self->markBad ($drop); return; } if $@;
+    my @nodes = split(/\s+/, &input ("$dropdir/PhEDEx-Nodes.txt") || $self->{MYNODE});
 
     # Insert information to the database.
-    return if $self->updateTransferDatabase ($drop, $attrs);
+    return if $self->updateTransferDatabase ($drop, \@nodes, $attrs);
     $self->relayDrop ($drop);
     &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
 }
