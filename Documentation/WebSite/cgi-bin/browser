@@ -205,42 +205,49 @@ sub replicas {
     my $query = $dbh->prepare(qq{
 	    select
 	      m1.value,				-- dataset
-	      count(m1.guid),			-- files
+	      m2.value,				-- owner
+	      count(m2.guid),			-- files
 	      count(distinct m3.value),		-- runs
-	      sum(m2.value)			-- total size
-	    from t_replica_metadata m1
+	      sum(m4.value)			-- total size
+	    from t_files_for_transfer f
+	    left join t_replica_metadata m1
+	      on m1.guid = f.guid and m1.attribute = 'POOL_dataset'
 	    left join t_replica_metadata m2
-	      on m2.guid = m1.guid and m2.attribute = 'filesize'
+	      on m2.guid = f.guid and m2.attribute = 'POOL_owner'
 	    left join t_replica_metadata m3
-	      on m3.guid = m1.guid and m3.attribute = 'POOL_jobid'
-	    where m1.attribute = 'POOL_dataset'
-	    group by m1.value});
+	      on m3.guid = f.guid and m3.attribute = 'POOL_jobid'
+	    left join t_replica_metadata m4
+	      on m4.guid = f.guid and m4.attribute = 'filesize'
+	    group by m1.value, m2.value});
 
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
-	my ($ds, $files, $runs, $total) = @$row;
-	$data{$ds} = [ $ds, $files, $total, $runs, {} ];
+	my ($ds, $o, $files, $runs, $total) = @$row;
+	$data{"$ds:$o"} = [ $ds, $o, $files, $total, $runs, {} ];
     }
     $query->finish();
 
     $query = $dbh->prepare (qq{
 	    select
 	      m1.value,				-- dataset
+	      m2.value,				-- owner
 	      rs.node,				-- site
 	      count(rs.guid),			-- replicas at this site
-	      sum(m2.value)			-- total size
+	      sum(m3.value)			-- total size
 	    from t_replica_state rs
 	    left join t_replica_metadata m1
 	      on m1.guid = rs.guid and m1.attribute = 'POOL_dataset'
 	    left join t_replica_metadata m2
- 	     on m2.guid = rs.guid and m2.attribute = 'filesize'
-	    group by m1.value, rs.node});
+	      on m2.guid = rs.guid and m2.attribute = 'POOL_owner'
+	    left join t_replica_metadata m3
+ 	     on m3.guid = rs.guid and m3.attribute = 'filesize'
+	    group by m1.value, m2.value, rs.node});
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
-	my ($ds, $site, $files, $total) = @$row;
-	$data{$ds}[4]{$site} = [ $files, $total ];
+	my ($ds, $o, $site, $files, $total) = @$row;
+	$data{"$ds:$o"}[5]{$site} = [ $files, $total ];
 	$sites{$site} = 1;
     }
     $query->finish();
@@ -248,6 +255,7 @@ sub replicas {
     print "<h2>Replication status</h2>\n",
     	  "<table><tr bgcolor='$altcolor' valign='top'>",
 	  "<th rowspan='2'>Dataset</th>",
+	  "<th rowspan='2'>Owner</th>",
 	  "<th rowspan='2' align='right'>Runs</th>",
 	  "<th colspan='2' align='right'>Files</th>",
 	  (map { "<th colspan='2'>$_</th>" } sort keys %sites),
@@ -257,12 +265,13 @@ sub replicas {
 	  (map { "<th align='right'>N</th><th align='right'>GB</th>" } sort keys %sites),
 	  "</tr>\n";
 
-    foreach my $ds (sort keys %data)
+    foreach my $dso (sort keys %data)
     {
         my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
-	my ($ds, $files, $total, $runs, $sites) = @{$data{$ds}};
+	my ($ds, $o, $files, $total, $runs, $sites) = @{$data{$dso}};
         print "<tr valign='top'$rowcolor>",
 	      "<td>$ds</td>",
+	      "<td>$o</td>",
 	      "<td align='right'>$runs</td>",
 	      "<td align='right'>$files</td>",
 	      "<td align='right'>",
@@ -342,8 +351,9 @@ sub subs {
     {
         my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
 	my ($ds, $files, $total, $sites) = @{$data{$ds}};
+	my $dscolor = (scalar (keys %$sites) ? '' : " bgcolor='$warncolor'");
         print "<tr valign='top'$rowcolor>",
-	      "<td>$ds</td>",
+	      "<td$dscolor>$ds</td>",
 	      "<td align='right'>$files</td>",
 	      "<td align='right'>",
 	      (!$files ? "&nbsp;" : sprintf('%.1f', $total/(2**30))),
