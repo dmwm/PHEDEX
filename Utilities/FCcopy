@@ -165,8 +165,8 @@ sub init
 	where pfn_gid = :guid});
     $self->{LQUERY} = &dbprep($dbh, qq{
 	select alias_alias
-	from lcg2_cms_rmc.alias
-	where alias_gid = :guid});
+	from lcg2_cms_rmc.alias, lcg2_cms_rmc.guid
+	where guid_guid = :guid and alias_gid = guid_id});
     $self->{MQUERY} = &dbprep($dbh, qq{
 	select guid."ATTR_pool_Content",
 	       guid."ATTR_pool_DBoid",
@@ -193,7 +193,7 @@ sub read
 	push(@{$file->{PFNS}}, { PFN => $pfn, TYPE => $type });
     }
 
-    &dbbindexec ($self->{LQUERY}, ":guid" => $id);
+    &dbbindexec ($self->{LQUERY}, ":guid" => $guid);
     while (my ($lfn) = $self->{LQUERY}->fetchrow()) {
 	push(@{$file->{LFNS}}, $lfn);
     }
