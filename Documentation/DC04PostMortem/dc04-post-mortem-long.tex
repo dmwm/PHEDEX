@@ -52,9 +52,9 @@ The system designed was based on a structure of semi-autonomous software agents 
 The system proved that it was possible to transfer 25 Hz reconstructed data, and to reach sustained aggregate data rates of 30+ MBps. The system was also used to analyse data in "real time", exhibiting a median lag of only 20 minutes between files being ready for distribution and the analysis results being available at a Tier 1.
 
 \section{The data distribution system}
-The CMS data distribution system for DC04 was a file transfer management structure, drawing on aspects of blackboard and multi-agent system design \cite{FG96,C03,Setal03}. Persistent, stateful agents were deployed at a number of geographically distributed sites, and handled point to point propagation of files through the system. Communication between agents (typically announcing the presence of files at some point in the system) was prohibited by design; propagation of information through the agent system required the agents to post information at a central ``blackboard''. This blackboard was implemented in Oracle and named the Transfer Management Database, or TMDB. 
+The CMS data distribution system for DC04 was a file transfer management structure, drawing on aspects of blackboard and multi-agent system design \cite{FG96,C03,Setal03}. Persistent, stateful agents were deployed at a number of geographically distributed sites, and handled point to point propagation of files through the system. Communication between agents (typically announcing the presence of files at some point in the system) was limited by design; propagation of information through the agent system required the agents to post information at a central ``blackboard''. This blackboard was implemented in Oracle and named the Transfer Management Database, or TMDB. 
 
-This architecture enabled us to maintain a coherent picture of system state in a central location, making it relatively trivial to diagnose and solve problems. It also meant that agent development was characterised by short timescales (the agents could be implemented in a local language of choice), and simplicity. 
+This architecture enabled us to maintain a coherent picture of system state in a central location, making it relatively easy to diagnose and solve problems. It also meant that agent development was characterised by short timescales (the agents could be implemented in a local language of choice), and simplicity. 
 
 Agent development was simple because the exchange of messages was used to define the behaviour of a small range of agents, which could then be implemented in a way that suited local developer groups. By doing this any need for local functionality were easily met by implementing a new agent, in whatever language was suitable. Strictly defined message passing encouraged the localisation of complex functionality within single agents \cite{B03}.
 
@@ -71,7 +71,48 @@ Export Buffer agents (dedicated to a number of T1s, all using the same distribut
 
 At each T1 an agent scanned the TMDB looking for files that were newly available on the Export Buffer. It transferred these files to the T1. Further agents ensured that the files were placed in mass storage.
 
-As files appeared at T1s, other agents submitted the files to analysis and published the results.
+As files appeared at T1s, other agents submitted the files to analysis and published the results. In some cases, further agents replicated files to T2 sites for analysis.
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[angle = 90]{T0-flow.eps} 
+\label{fig:flow1}
+\caption{Making data available to distribution during DC04.}
+\end{figure}
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[angle = 90]{T0-flow-2.eps} 
+\label{fig:flow2}
+\caption{Insertion of data into distribution chains during DC04.}
+\end{figure}
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[angle = 90]{T1-flow.eps} 
+\label{fig:flow3}
+\caption{Transfer of files to T1 mass storage during DC04}
+\end{figure}
+
+\subsection{DC04 distribution infrastructure}
+During DC04 data was distributed via three "chains", corresponding to three flavours of distribution middleware. These middleware tools were LCG, SRM + dCache and SRB (fig. \ref{fig:chains}).
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[angle = 90]{chains.eps} 
+\label{fig:chains}
+\caption{Overall view of the distribution chains deployed during DC04.}
+\end{figure}
+
+The LCG chain variously used the Replica Manager Java command line tools and Globus globus-url-copy to make transfers using gsiFTP, and the Local Replica Catalogue C++ API to query the RLS and make updates. The chain deployed various flavours of LCG and European DataGrid (EDG) Storage Elements (SEs) as file buffers.
+
+All chains used the LCG (LHC Computing Grid) Replica Location Service (RLS) as a repository of filename and metadata information. For future reference, the RLS deployed during DC04 comprised a single Local Replica Catalogue and Replica Metadata Catalogue deployed at CERN. The distribution chains used LCG tools- either LRC tools or POOL File Catalog tools- to query and make entries in the catalogue.
+
+SRM is an acronym denoting the Storage Resource Management interface, which provides generic access to any storage resource. Superficially SRM provides a defined two step interaction through which a file can be obtained from any storage medium for which the user has a Storage URL (SURL), which contains the hostname of the medium. The SRM chain deployed disk buffers coupled by dCache, a disk pool and tape storage management software as file buffers, and used gsiFTP to transfer files between them.
+
+SRB is an acronym for the Storage Resource Broker, another middleware that presents a uniform generic interface to files. SRB differs from the SRM and LCG in that it presents a uniform global interface to the user; that is, a user is typically unaware of where a file is within SRB filespace. The SRB filespace and file metadata is stored within a metadata catalogue named the MCat. During DC04 the SRB chain deployed SRB vaults as file buffers, and used Sput and Sreplicate commands to transfer files. The SRB and LCG file catalogues were syncronised by a standalone application named GMCat.
+
+More detailed descriptions of each chain, and experience with it during DC04, can be found below.
 
 \section{Experience}
 Development was rapid, and mostly straightforward. Several versions of export buffer, T1 transfer and mass storage agents were implemented within several weeks of the first examples being made available. This rapid development was due in part to the extremely limited responsibility of each agent, and the easy breakdown of agent workflow into chunks of functionality like ``publish state in database'', ``check for new guids'' (defined by TMDB interactions).
@@ -89,14 +130,7 @@ This sort of evolution was not without difficulty- the original design of the TM
 Coordination and management of people and agents proved highly inefficient, and it became clear that global mechanisms for suspending, restarting and monitoring agents needed to be deployed in future versions. During DC04, almost all system shutdown/restarts required an email sent to each operator, with the action only taken when all replies were received. In a similar vein, the presentation of global sysetm state must be improved: during DC04 a limited amount of all information was available via a simple web page. In the future some interpretive interface must be created to highlight current problems and warnings, and reveal more sophisticated information (file transfer rates, etc) in a more immediately intuitive and useful way.
 
 \subsection{Overall behaviour}
-One might use the lifetime of files in the system as a useful metric for measuring system performance, defining the lifetime of files as the period between appearance and migration to Castor. However, the mechanism for migrating to Castor was only implemented late in DC04, and migration was hampered by technical issues with the SRB chain which meant that a large backlog of files that had not been made safe at T1s appeared. Studying the comparison of lifetime with time of appearance, it is clear that files that appeared early remained in distribution for a long time, while files that appeared late had a correspondingly shorter lifetime (fig. \ref{fig:lifetime}).
-
-\begin{figure}[tbp]
-\centering
-\includegraphics[width=10cm]{lifetime_by_appearance.eps} 
-\label{fig:lifetime}
-\caption{File ``lifetime'' (defined as period between appearance and Castor migration) decreases linearly with appearance time. This metric is strongly dependent on the time at which the Castor stage migrator/cleaner agent was deployed.}
-\end{figure}
+One might use the lifetime of files in the system as a useful metric for measuring system performance, defining the lifetime of files as the period between appearance and migration to Castor at CERN. However, the mechanism for migrating to Castor was only implemented late in DC04, and migration was hampered by technical issues with the SRB chain which meant that a large backlog of files that had not been made safe at T1s appeared. Studying the comparison of lifetime with time of appearance, it is clear that files that appeared early remained in distribution for a long time, while files that appeared late had a correspondingly shorter lifetime; the information gained from such a study is negligible.
 
 It is more meaningful to ask how long it was before files were available for analysis at a T1: figures for this vary from distribution chain to distribution chain, with the LCG chain to CNAF taking between 10 minutes and a day and a half, and the LCG chain to PIC taking only 20 minutes consistently (fig. \ref{fig:PIC-RTA}). More detailed information on real time analysis during DC04 is available ELSEWHERE (TODO: fix this).
 
@@ -107,15 +141,17 @@ It is more meaningful to ask how long it was before files were available for ana
 \caption{During the last four days of DC04 PIC were able to implement a real time analysis system based on CNAF's system. Turnaround time for analysis at  PIC was much shorter and more consistent than CNAF at a median of 20 minutes.}
 \end{figure} 
 
-Transfer rates varied greatly, and are treated in more detail below. Generally however, transfer rates at the start of DC04 were low- individual transfers reached maybe a MBps, with aggregate rates pushing 10MBps. These low transfer rates were due to the small size of files being pushed through the system- an example of poor initial coupling between the data source and the distribution system. Fortunately this poor coupling was improved to some extent by the implementation of a "merging" step (detailed below) which added files to one of a series of queues which expired and were written after either a certain aggregate size or time limit was reached. File sizes were typically ~500k median at the start of DC04.
+Transfer rates varied greatly, and are treated in more detail below. Generally however, transfer rates at the start of DC04 were low- individual transfers reached maybe a MBps, with aggregate rates pushing 10MBps. These low transfer rates were due to the small size of files being pushed through the system. This is an example of poor initial coupling between the data source and the distribution system. Here the coupling is described as poor because it is easy for reconstruction to produce small files, but difficult for distribution to distribute them due to the overheads associated with each file, independent in most cases of size. These overheads include catalogue registration (which takes the same time despite file size); startup times for Java Virtual Machines; and inefficient ramping of TCP/IP window sizes for small file sizes.
+
+During DC04 this poor coupling was mostly dealt with by working around it. For example, poor transfer speeds were remedied by making as many parallel transfers as possible; file and metadata catalogue accesses were limited as far as possible; and the use of Java command line tools was replaced by the use of C++ APIs.
+
+At the very end of DC04 this poor coupling was improved to some extent by the implementation of a "merging" step (detailed below) which added files to one of a series of queues which expired and were written after either a certain aggregate size or time limit was reached. File sizes were typically ~500k median at the start of DC04.
 
 (TODO: table of filesizes).
 
-Agent uptime was not monitored directly, and is difficult to estimate. In many cases, for example, agents would not publish themselves as "available" if they could not complete any file transfers- as happened for example several times when the load on Castor was high. Interpretation of information about agent uptime is therefore difficult to interpret from DC04 logs. This is an area for improvement in future versions of the distribution system.
+Agent uptime was not monitored directly, and is difficult to estimate. Some agent types would not publish themselves as "available" if they could not complete any file transfers- as happened for example several times when the load on Castor was high. Typically the agents implemented as Bash scripts suffered this problem- the C agents were implemented in a slightly different way.  Interpretation of information about agent uptime is therefore difficult to interpret from DC04 logs. This is an area for improvement in future versions of the distribution system.
 
 Due to bugs in the reconstruction code large numbers of files were deemed of limited use for analysis. It was decided that these files should be marked as bad, and effectively removed from distribution. To do this a new state- or rather set of states- indexed 90 and above was introduced. As agents weren't looking for files in those states, the files were never transferred. The system was therefore flexible enough to meet new requirements during development.
-
-Coordination and management of people and agents proved highly inefficient, and it became clear that global mechanisms for suspending, restarting and monitoring agents needed to be deployed in future versions. During DC04, almost all system shutdown/restarts required an email sent to each operator, with the action only taken when all replies were received.
 
 \subsection{The TMDB}
 In contrast to other databases used, the TMDB proved to be remarkably stable, only experiencing a critical problem when log entries exceeded the initial tablespace allocated.
@@ -178,8 +214,7 @@ Inserting files with metadata into the RLS was slow in comparison, although appr
 \caption{The time taken to register all files in drops as they appeared at the end of Reconstruction jobs shows some variation, with periods of high data production associated with longer registration times (near the middle of the plot). Typically there were 16 files per drop.}
 \end{figure} 
 
-Querying information from RLS was in general very slow.
-Looking up file information by GUID seems sufficiently fast, but bulk queries by GUID took seconds per file. Queries on metadata were too slow- for instance, querying for all files of a specific "owner" took hours. In contrast, it took two minutes to dump the entire catalogue to file after gaining access to the Oracle backend.
+Querying information from RLS was in general very slow. Looking up file information by GUID seemed sufficiently fast, but bulk queries by GUID took seconds per file. Queries on metadata were too slow- for instance, querying for all files of a specific "owner" took hours. In contrast, it took two minutes to dump the entire catalogue to file after gaining access to the Oracle backend.
 
 The problem was also not POOL-related: for comparison, a similar dumps from POOL MySQL or XML catalogues were a minimum factor 10 faster than a dump from a POOL RLS catalogue. It is entirely possible that a POOL MySQL catalogue could have met the demands of DC04: however, some transfers were undertaken using LCG tools that required an LCG RLS.
 
@@ -201,7 +236,7 @@ At the T0, the SRM export buffer handled staging of files from Castor to dCache 
 
 The transfer agent copied files from the export buffer to the T1 import buffer by initiating a third aprty SRM transaction to receive a TURL from the export buffer, then using gridFTP to make the transfer.
 
-The SRM chain provides the model by which future versions of the distribution system are intended to work, when sufficient components are available.
+The use of storage media that presents a uniform SRM interface to the outside world is a model for the way components of the distribution system should behave in future versions. Use of SRM throughout would enable us to create generic transfer agents, and make implementing them simpler, as operations like file staging, etc would be handled automatically \footnote{Although whether the SRM method for handling staging is best for us is not clear. If we only use SRM to handle this, then ideally SRM gives the transfer agents a way to trigger a stage and return simply and gracefully when necessary.}.
 
 Initially problems were seen with repeated authentications: the agents were developed so that multiple streams, with multiple files in each stream, could be used to transfer files, reducing the number of authentications required. Transfer rates of over 10 MBps could be sustained for long periods (fig. \ref{fig:FNAL-network}).
 
@@ -212,7 +247,7 @@ Initially problems were seen with repeated authentications: the agents were deve
 \caption{The SRM chain was able to sustain transfer rates of more than 10 MBps into FNAL for long periods.}
 \end{figure} 
 
-In contrast to other techniques, the use of SRM eased agent development with features like automatic directory creation, file migration and staging, and automatic failure recovery.
+In contrast to other techniques, the use of SRM eased agent development with features like automatic directory creation, file migration and staging, and automatic failure recovery. Similar features were successfully implemented as parts of the distribution system in, for example, the LCG chain.
 
 However, during DC04 it proved difficult to install monitoring technology, which meant that hardware failures had to be identified by a human operator, and restarts handled manually. In common with other distribution chains the SRM chain had difficulties with the large number of small files, which necessitated an increase ni the number of tapes available and the deployment of a larger namespace service.
 
@@ -240,10 +275,8 @@ The SRB chain comprised an export buffer at the T0 and import buffers at RAL, IN
 
 Even with administration problems, transfers to IN2P3 reached 10 MBps over a period of hours, although typically they averaged only 30 Mbps over a whole day. The SRB chain was not able to take part in a large filesize stress test at the end of DC04; these transfer rates are due to small file sizes, and thus compare favourably with other chains.
 
-
-
 \subsection{LCG chain}
-The LCG components required for distribution were the LRC at CERN, the dedicated information index (bdII), LCG-2 VO tools, a GridICE node at CNAF, Castor SEs at CNAF and PIC and "classic" disk SEs at CERN, CNAF, PIC, Legnaro and Taiwan.
+The LCG components required for distribution were the LRC at CERN, the dedicated information index (bdII), LCG-2 VO tools, a GridICE node at CNAF, Castor SEs at CNAF and PIC and "classic" disk SEs at CERN, CNAF, PIC, Legnaro, CIEMAT and Taiwan.
 
 At the start of DC04, the LCG chain had no Export Buffer from which to export data. A temporary storage element (SE) was deployed at CERN on March 3rd for testing. Ten days later a "classic" (e.g. disk based) LCG SE was deployed, and was joined by two other nodes several days later. This deployment represents intense effort by CERN IT/EIS and was critical in getting the LCG chain moving data.
 
@@ -260,7 +293,9 @@ Files from the SE EB were drained down to Castor SE buffers at CNAF and PIC T1s,
 
 At the start of DC04 both used the Java RM API to make transfers and catalogue lookups/registrations. This was found to be inefficient. Interestingly, the T1s chose subtly different methods to transfer from the T0 after moving away from the Java API.
 
-CNAF chose to use the EDG RM C++ API with some very limited use of the LRC C++ API. Use of the RM API meant that their transfers and catalogue registrations were integral operations, and therefore more fully transactional. PIC chose to use globus-url-copy and the LRC C++ API to register replicas. In principle recovering from failed transfers was more costly for PIC: this however should be weighed against CNAF's use of the slower RM API.
+CNAF chose to use the Java EDG Replica Manager command line tools to transfer and register files with some very limited use of the LRC C++ API to query the LRC for filenames to start transfers. Use of the RM API meant that their transfers and catalogue registrations were integral operations, and therefore more fully transactional. 
+
+PIC chose to use globus-url-copy and the LRC C++ API to register replicas. In principle recovering from failed transfers was more difficult for PIC, as the transfer and register operations were not integral. This however should be weighed against CNAF's use of the slower Java RM tools- although the use of the Java RM could be supplanted by the use of the EDG C++ API.
 
 Subtle variations in approach aside, transfer rates from the SE EB could be sustained at over 2 MBps, peaking at 16 MBps (fig. \ref{fig:SE-EB-network}), with transfer rates into CNAF and PIC reaching a sustained 30 MBps for hours during a large-filesize stress test at the end of DC04 (fig's. \ref{fig:PIC-stress}, \ref{fig:CNAF-stress}). Internal monitoring at CNAF revealed a bottleneck on site, with an internal link to the SE operating at over 80\% capacity during the final stress test.
 
@@ -289,50 +324,7 @@ At CNAF issues with the Castor tape stager were found to be due to the high numb
 
 In contrast PIC experienced no problems with their Castor tape.
 
-PIC and CNAF were also able to distribute data on to T2s (X and Legnaro respectively) for analysis. To manage these further transfers, as well as real-time analysis, they effetively created a new set of distribution chains using a MySQL TMDB for collaboration information.
-
-%\subsection{Real-time analysis agents}
-%Real-time analysis- analysis of data as it arrived at the T1- was successfully attempted at CNAF, PIC, FNAL and IN2P3, with varying performance. 
-
-%At CNAF, the T1 transfer agent notified a real-time analysis agent when new files were available for analysis. The eal-time analysis agent submitted analysis jobs on the new data using BOSS through LCG-2 RBs at CERN and CNAF, with the jobs being directed to CEs at CNAF or Legnaro. 
-
-%15000 jobs were submitted in this way over the last two weeks of DC04. The minimum period between the files appearing in distribution and being analysed was 10 minutes- but with a large number of ``outliers''. 
-
-%The outlying longer times were attributed to: the fact that datasets were completed over a relatively long length of time at CERN; Castor problems at CNAF reduced replication efficiency; analysis agents were actively developed during this period and were therefore not up all the time; and occasionally zipped metadata arrived late compared to the related dataset, delaying analysis.
-
-%An analysis of the performance of a single job showed that the ORCA execution time was 25 minutes. For comparison, the time to stage files was just short of 3 minutes, and the overhead of submission to the Grid was only 2 minutes. Efficiency of submission to the grid was over 95\% (fig. \ref{fig:CNAF-RTA}).
-
-%Significantly, the maximum rate of job submission was 194 jobs per hour- which corresponds to 26 Hz (or events per second), the target rate for DC04.
-
-%\begin{figure}[tbp]
-%\centering
-%\includegraphics[width=10cm]{CNAF-RTA.eps}
-%\label{fig:CNAF-RTA}
-%\caption{During the last two weeks of DC04 CNAF was able to analyse data in %real time (or syncronously with the production of data). The minimum period between the appearance of files in distribution was 10 minutes. There is however a significant population of longer periods shown here, which were attributable to a number of issues like ongoing development of the analysis agents. It should be noted that CNAF was "in the front line" with real time analysis, and were the first to develop and deploy the system described here.}
-%\end{figure} 
-
-%Over the last four days of DC04 PIC was able to adapt the INFN real time analysis agents for their local environment, which included a private (dedicated) LCG-2 Resource Broker and Grid Information System. Job submission was not coordinated through BOSS due to lack of time and the necessity of sending large executables through the sandbox. Instead the agents communicated through a local MySQL database, and by making drops of XML catalogues for each other.
-
-%The period between files appearing in distribution and undergoing analysis was noticeably shorter and more consistent at PIC: the median period was only 20 minutes, with 13 minutes median transfer time (fig. \ref{fig:PIC-RTA}).
-
-%\begin{figure}[tbp]
-%\centering
-%\includegraphics[width=10cm]{PIC-RTA.eps}
-%\label{fig:PIC-RTA}
-%\caption{During the last four days of DC04 PIC were able to implement a real% time analysis system based on CNAF's system. Turnaround time for analysis at PIC was much shorter and more consistent than CNAF at a median of 20 minutes.}
-%\end{figure} 
-
-%TODO: Specific reasons why PIC turnaround time was shorter and more consistent that CNAF.
-
-%TODO: At Fermilab a mean period of 252 minutes elapsed between availability and analysis ... over the Grid, of what type...? (fig. \ref{fig:FNAL-RTA}).
-
-%\begin{figure}[tbp]
-%\centering
-%\includegraphics[width=10cm]{FNAL-RTA.eps}
-%\label{fig:FNAL-RTA}
-%\caption{A caption here :)}
-%\end{figure} 
-
+PIC and CNAF were also able to distribute data on to T2s (CIEMAT and Legnaro respectively) for analysis. To manage these further transfers, as well as real-time analysis, they effetively created a new set of distribution chains using a MySQL TMDB for collaboration information.
 
 \section{Conclusions and future plans}
 Sources of throttling: access to tape/stage, catalogues, tmdb(?), intermediate links (no control over these?), buffer read/write, tape migration...
@@ -358,162 +350,4 @@ Log entries should not be made in the TMDB- instead they should be handled local
 \bibliographystyle{plain}
 \bibliography{dc04-post-mortem}
 
-
-
-
-
-\appendix{The Transfer Management Database and the distribution system}
-\section{Building the system}
-The goal of the distribution system was to consistently store data from the Tier 0 in a storage media that is considered safe (e.g. MSS) at a number of Tier 1 sites. The structure described here used a common database (TMDB) that was available for read/write by all agents.
-
-Reco data was placed in a "general distribution buffer" (maybe flat file space) at the Tier 0. Beyond these requirements each data distribution system
-(e.g. LCG, GridFTP, SRB) will have its own requirements of buffer/staging space at T0 and T1s, although each method should meet the basic requirement of publishing file state information in the common database: that an entry of SAFE is made for each file when it has been safely stored in mass storage at each Tier 1 to which it is assigned.
-
-\subsection{The Transfer Management Database (TMDB)}
-The Transfer Management Database provided a space in which transfer agents communicated information. This information was principally file state metadata. The file state was used to determine the availability of files at  different stages of the distribution, and ultimately its safe storage on tape at a number of allocated T1s.
-
-\subsubsection{Users, servers}
-The tablespaces DATA01 and INDX01 existed on pdb01.cern.ch and devdb9.cern.ch. The former had 2GB on each tablespace, the latter only 100 MB, to be used for testing. The following users could access the database:
-
-\begin{tabular}[tbp]{|l|l|}
-\hline User & Description
-\\ \hline CMS\_TRANSFERMGMT & With 2GB quota on both of the DATA01 and INDX01 dedicated tablespaces.
-\\ CMS\_TRANSFERMGMT\_WRITER & Limited read and write permissions.
-\\ CMS\_TRANSFERMGMT\_READER & Read only permissions.
-\\ \hline
-\end{tabular}
-
-\subsection{Schema}
-
-TODO: See schema diagram at end of doc
-
-\subsubsection{t1sites}
-\begin{tabular}[tbp]{|c|c|c|c|}
-\hline \multicolumn{4}{|c|}{t1sites}
-\\ \hline field & type & constraints & index
-\\ \hline t1\_name	& char(20) & primary key &
-\\ \hline
-\end{tabular}
-
-{\bf t1sites} held the core list of T1s, to be used as a Foreign Key constraint on other tables. Sites in action at the start of DC04 were labelled as
-
-\begin{tabular}[tbp]{|c|c|} 
-\hline T1 & t1\_name
-\\ \hline RAL & RAL		
-\\ FNAL & FNAL
-\\ IN2P3 & IN2P3
-\\ PIC & PIC
-\\ FZK & FZK
-\\ \hline
-\end{tabular}
-
-“New” T1s could be added to this list if they contribute resources or if existing T1s change distribution scheme. This did not occur during DC04.
-
-\subsubsection{filesfortransfer}
-\begin{tabular}[tbp]{|c|c|c|c|}
-\hline \multicolumn{4}{|c|}{filesfortransfer}
-\\ \hline field & type & constraints & index
-\\ \hline guid		&		char(36) &		primary key &
-\\ castor\_filename	&	char(250) & &
-\\ entry\_time		&	int & &
-\\ checksum		&	int & &
-\\ allocated\_to\_t1s	& char(1) & & x
-\\ \hline
-\end{tabular}
-
-Guid indicates the unique identifier for a replica, and is of defined length. castor\_filename was the location of the file in Castor. The guid-Castor mapping will already be present in the LRC: it was also placed here to avoid extra LRC lookups. entry\_time was a unix timestamp (i.e. seconds since epoch start) of first entry into the distribution system. checksum was a normal unix checksum (generated with cksum). allocated\_to\_t1s indicated the state of the file (0 == true, !0 == false). false indicated files newly placed by Reco, true indicated that the configuration agent had allocated it to a number of T1s.
-
-\subsubsection{filestate}
-\begin{tabular}[tbp]{|c|c|c|c|}
-\hline \multicolumn{4}{|c|}{filestate}
-\\ \hline field & type & constraints & index
-\\ \hline guid		&		char(36) &		primary key &
-\\ t1\_name			& char(20)	& foreign primary &
-\\ state			& int	& & x
-\\ \hline
-\end{tabular}
-
-Guid again stored a unique file identifier, forming a primary key with t1\_name (a foreign key taken from t1sites). state indicated the current state of the propagation of the file. The following states were thought necessary: NEW, EB REALLOCATED, T1 REALLOCATED, IN BUFFER, AT T1, SAFE, CLEANED. During DC04, further states were added- some T1 specific, and some BAD states used for global management. Not all states were required, however- as failover was not tested in production, states EB and T1 REALLOCATED were not used.
-
-The states were enumerated-
-
-\begin{tabular}[tbp]{|c|c|} 
-\hline index & state
-\\ \hline 1	& NEW
-\\ 2	& EB REALLOCATED
-\\ 3	& T1 REALLOCATED
-\\ 4	& IN BUFFER
-\\ 5	& AT T1
-\\ 6	& SAFE
-\\ 7	& CLEANED
-\\ 8+	& T1 specific
-\\ \hline
-\end{tabular}
-
-TODO: there were more states at the end than this!
-
-as agents were the most frequent accessors of this information, and human operators accessed it via some front end which could interpret the state for them.
-
-\subsubsection{agentstate}
-\begin{tabular}[tbp]{|c|c|c|c|}
-\hline \multicolumn{4}{|c|}{agentstate}
-\\ \hline field & type & constraints & index
-\\ \hline agent\_label		& char(20)	&	primary key &
-\\ last\_contact	& 	int & &
-\\ \hline
-\end{tabular}
-
-agent\_label was a text string that uniquely identified a distribution component-
-
-\begin{tabular}[tbp]{|c|c|} 
-\hline component & label
-\\ \hline LCG SRM EB agent	& SE\_EB	
-\\ GRID3 SRM EB agent	& SRM\_EB\_DCACHE
-\\ SRB EB agent		& SRB\_EB
-\\ RAL transfer agent	& RAL
-\\ FNAL transfer agent	& FNAL
-\\ IN2P3 trans. agent	& IN2P3
-\\ PIC transfer agent	& PIC
-\\ CERN transfer agent	& CERN
-\\ FZK transfer agent	& FZK
-\\ \hline
-\end{tabular}
-
-TODO: There were more agents than this!
-
-and was used as a foreign key for other tables. Agents were required to periodically make contact with the database by updating last\_contact. Any agent failing to update over the predefined period was considered to be unavailable
-
-\subsubsection{agentlogging}
-\begin{tabular}[tbp]{|c|c|c|c|}
-\hline \multicolumn{4}{|c|}{agentlogging}
-\\ \hline field & type & constraints & index
-\\ \hline agent\_label		& char(20)	 & foreign &
-\\ guid				& char(36)	 & foreign &
-\\ start			& int & &
-\\ end				& int & &
-\\ action			& char(20) & &
-\\ return\_code	 &	int & &
-\\ log\_entry			& char(250) & &
-\\ \hline
-\end{tabular}
-
-agent\_label was a unique agent label as described above; similarly, guid uniquely defined a file replica. start and end indicate the period over which the entry was relevant (i.e. for file transfer log entries). action contained one of a number of globally defined quick search entries (these were open for discussion/additions, but should definitely be globally agreed).
-
-TRANSFER
-Single entry per file transfer.
-
-START
-When agent starts.
-
-FOUND
-When agent checks transfer management tables and finds file entries to deal with (used during normal operations and recovery phase).
-
-LEASED
-When agent updates the agent state database.
-
-FAIL
-When agent needs to shut down (e.g. buffer has filled up, etc).
-
-return\_code was used to store the return code of the operation that the log entry refers to. log\_entry provided a means to supply more descriptive entries if necessary.
- 
 \end{document}
