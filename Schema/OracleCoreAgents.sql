@@ -4,13 +4,6 @@
 -- REQUIRES: OracleCoreTopo.sql
 
 ----------------------------------------------------------------------
--- Drop old tables
-
-drop table t_agent;
-drop table t_agent_message;
-drop table t_agent_status;
-
-----------------------------------------------------------------------
 -- Create new tables
 
 create table t_agent

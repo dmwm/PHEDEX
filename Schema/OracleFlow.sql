@@ -4,13 +4,6 @@
 -- REQUIRES: None.
 
 ----------------------------------------------------------------------
--- Drop old tables
-
-drop table t_subscription;
-drop table t_block_replica;
-drop table t_block;
-
-----------------------------------------------------------------------
 -- Create new tables
 
 create table t_block

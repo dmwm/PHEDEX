@@ -4,12 +4,6 @@
 -- REQUIRES: OracleCoreTopo.sql, OracleCoreFiles.sql
 
 ----------------------------------------------------------------------
--- Drop old tables
-
-drop table t_transfer_history;
-drop table t_transfer_summary;
-
-----------------------------------------------------------------------
 -- Create new tables
 
 -- FIXME: partitioning by to_node?

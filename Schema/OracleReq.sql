@@ -4,15 +4,6 @@
 -- REQUIRES: OracleDSB.sql
 
 ----------------------------------------------------------------------
--- Drop old tables
-
-drop sequence seq_request_id;
-drop table t_request_dataspec;
-drop table t_request_subscription;
-drop table t_request_operation;
-drop table t_request;
-
-----------------------------------------------------------------------
 -- Create new tables
 
 create sequence seq_request_id;

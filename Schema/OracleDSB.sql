@@ -4,19 +4,6 @@
 -- REQUIRES: None.
 
 ----------------------------------------------------------------------
--- Drop old tables
-
-drop sequence seq_dsb_fileid;
-drop sequence seq_dsb_dataset;
-drop table t_dsb_dataset_availability;
-drop table t_dsb_dataset_run_file;
-drop table t_dsb_dataset_run;
-drop table t_dsb_dataset;
-drop table t_dsb_file_attributes;
-drop table t_dsb_file;
-drop table t_dsb_fileid;
-
-----------------------------------------------------------------------
 -- Create new tables
 
 create sequence seq_dsb_fileid;

@@ -4,12 +4,6 @@
 -- REQUIRES: OracleCoreTopo.sql
 
 ----------------------------------------------------------------------
--- Drop old tables
-
-drop table t_file;
-drop table t_file_attributes;
-
-----------------------------------------------------------------------
 -- Create new tables
 
 -- FIXME: index organised?

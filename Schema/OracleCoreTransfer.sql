@@ -4,13 +4,6 @@
 -- REQUIRES: OracleCoreTopo.sql, OracleCoreFiles.sql
 
 ----------------------------------------------------------------------
--- Drop old tables
-
-drop table t_destination;
-drop table t_replica_state;
-drop table t_transfer_state;
-
-----------------------------------------------------------------------
 -- Create new tables
 
 -- FIXME: partitioning

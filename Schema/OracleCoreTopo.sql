@@ -4,14 +4,6 @@
 -- REQUIRES: None.
 
 ----------------------------------------------------------------------
--- Drop old tables
-
-drop table t_node;
-drop table t_node_import;
-drop table t_node_export;
-drop table t_routing;
-
-----------------------------------------------------------------------
 -- Create new tables
 
 create table t_node

@@ -4,18 +4,6 @@
 -- REQUIRES: OracleCoreTopo.sql
 
 ----------------------------------------------------------------------
--- Drop old tables
-
-drop table t_info_transfer_status;
-drop table t_info_transfer_rate;
-drop table t_info_file_size_overview;
-drop table t_info_file_size_histogram;
-drop table t_info_agent_status;
-drop table t_info_subscriptions;
-drop table t_info_replication_overview;
-drop table t_info_replication_details;
-
-----------------------------------------------------------------------
 -- Create new tables
 
 create table t_info_transfer_status
