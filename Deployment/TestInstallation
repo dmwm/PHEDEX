@@ -18,23 +18,23 @@ BEGIN
 my %args = (DBTYPE => 'Oracle');
 my $OK = 1;
 
-&GetOptions ("help"                     => \$args{HELP},
-	     "dbtype=s"                 => \$args{DBTYPE},
-	     "dbname=s"                 => \$args{DBNAME},
-	     "dbuser=s"                 => \$args{DBUSER},
-	     "dbpass=s"                 => \$args{DBPASS},
-	     "poolcat=s"                => \$args{POOLCAT});
+&GetOptions ("help"       => \$args{HELP},
+	     "dbitype=s"  => \$args{DBTYPE},
+	     "db=s"       => \$args{DBNAME},
+	     "dbuser=s"   => \$args{DBUSER},
+	     "dbpass=s"   => \$args{DBPASS},
+	     "poolcat=s"  => \$args{POOLCAT});
 
 if ($args{HELP} || !$args{DBNAME} || !$args{DBUSER} || !$args{DBPASS}
     || !$args{POOLCAT} )
 {
     print STDERR "Usage:\n";
-    print STDERR "-help:    shows this help text\n";
-    print STDERR "-dbname:  name of DB to connect to\n";
-    print STDERR "-dbuser:  user for DB connection\n";
-    print STDERR "-dbpass:  password for DB connection\n";
+    print STDERR "-help:    Shows this help text\n";
+    print STDERR "-db:      Name of DB to connect to\n";
+    print STDERR "-dbuser:  User for DB connection\n";
+    print STDERR "-dbpass:  Password for DB connection\n";
     print STDERR "-poolcat: MySQL POOL contact string\n";
-    print STDERR "-dbtype:  type of DB (defaults to ORACLE)\n";
+    print STDERR "-dbitype: Type of database (defaults to Oracle)\n";
     exit 1;
 }
 
