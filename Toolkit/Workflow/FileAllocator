@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/29 10:07:50 $
-# $Id: Allocator.pl,v 1.38 2004/07/29 10:07:50 barrass Exp $
+# $Date: 2004/07/29 10:09:28 $
+# $Id: Allocator.pl,v 1.39 2004/07/29 10:09:28 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -288,6 +288,7 @@ sub lookup_route {
     my $source = shift;
     my $dest = shift;
     my $selection = "select gateway from t_routing where from_node = '$source' and to_node = '$dest'";
+    my $gateway = '';
 
 	eval {
         my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
@@ -297,7 +298,8 @@ sub lookup_route {
 		  				 	
         my $query = $dbh->prepare($selection);	
 		
-        $query->execute();while (@row = $query->fetchrow_array) {	
+        $query->execute();
+        while (@row = $query->fetchrow_array) {	
 	       $gateway = $row[0];
         }
         $query->finish();
