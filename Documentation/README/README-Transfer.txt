@@ -257,7 +257,7 @@ transfers.  Look at similar numbers from your network monitoring.
 3) Make sure your transfers aren't failing too often.  The "Other" column
 in "Transfer state" monitor page is usually files whose transfer has gone
 wrong.  If you are faced with unreliable networks, please contact the
-developers at cms-project-phedex@cern.ch to get in touch with those who
+developers at cms-phedex-developers@cern.ch to get in touch with those who
 are working in this area.
 
 4) Make sure there's no undue delays with your transfer commands.  We've

@@ -78,11 +78,7 @@ your site is "FOO_Transfer" (and possibly "FOO_MSS").
 
 *** Set up directories
 
-  mkdir -p /home/phedex
-  mkdir -p /home/phedex/{state,logs}
-  mkdir -p /home/phedex/gridcert
-  mkdir -p /home/phedex/tools/perl
-
+  mkdir -p /home/phedex/{state,logs,tools,gridcert}
   chmod 700 /home/phedex/gridcert
 
 *** PhEDEx
@@ -94,80 +90,97 @@ your site is "FOO_Transfer" (and possibly "FOO_MSS").
 
 *** LCG POOL tools
 
-Install POOL somewhere on your system, e.g. in /home/phedex/tools/POOL.
-You need version 1.6.2 or later.  We recommend installing with xcmsi.
-(NB: POOL 1.8.x versions have serious bugs in the file catalogue
-python implementation; we recommend using version 1.6.4 for now.)
+The POOL tools are required for CMS transfers, but not by core PhEDEx.
+Skip this section if you don't intend to participate in CMS transfers.
+
+You can either use an existing POOL installation on your system, or
+make a standalone installation from RPMs.  We assume you use a tool
+provided in PHEDEx to set things up for the sake of simplicity.  You
+need POOL version 1.6.2 or later.  We recommend versions 1.6.4, 1.6.5
+or 2.0.x; do not use 1.8.x versions.
+
+If you have CMS software installed such that "scram" command can be used
+to choose among OSCAR and/or ORCA releases, set up PhEDEx like this:
+  PHEDEX/Deployment/InstallPOOL --cms /home/phedex/tools
+
+If CMS software is not available on the node where you will run the
+agents, or you don't want to use it for any other reason, make a local
+standalone installation like this:
+  PHEDEX/Deployment/InstallPOOL --standalone /home/phedex/tools
+
+The script automatically detects whether you run on RedHat 7.x or
+Scientic Linux 3.x and sets things up appropriately.
 
 *** ORACLE client libraries
 
-You need to install Oracle client libraries.  A license at CERN covers
-all CMS use (in fact, LCG-wide).  See the following links for further
-information.  We recommend using a single Oracle version: use the same
-Oracle as used by your version of POOL.
+You need to install Oracle client: the libraries and "sqlplus" utility.
+CERN license covers CMS use LCG-wide.  For the sake of simplicity we
+suggest you download Oracle Instant Client kits and set them up using
+a script provided in PhEDEX, even if you already have a local Oracle
+installation.
 
-See:
-  - License agreement
-     http://cern.ch/wwwdb/oracle/oracle-license-agreement.html
-  - Server deployment statement
-     http://cern.ch/wwwdb/oracle/oracle-server-deployment.html
-  - Description of how and what to install for 10g.
-     https://savannah.cern.ch/projects/lcg-orat1/
-  - File download
-     https://savannah.cern.ch/files/?group=lcg-orat1
+To install everything required, go to http://otn.oracle.com, select
+"DOWNLOAD", select "Oracle Instant Client", select "Instant client for
+Linux x86", read and agree to the license if you can, and select each
+of the three zips listed below.  The zip links to a page that will sign
+into OTN; create yourself an account if you don't have one yet.  Save
+the zips to some directory TMP (does not have to be a new one, e.g.
+"/tmp" will do).  Then:
+  PHEDEX/Deployment/InstallOracleClient TMP /home/phedex/tools
+
+The zips you should download are:
+  instantclient-basic-linux32-10.1.0.3.zip
+  instantclient-sqlplus-linux32-10.1.0.3.zip
+  instantclient-sdk-linux32-10.1.0.3.zip
+
+You can delete the zips you downloaded after you've ran the script.
 
 *** Perl modules
 
-You need DBI and DBD::Oracle modules.  DBD::Oracle versions older
-than 1.16 have significant memory leaks; we recommend you install
-DBI 1.46 and DBD::Oracle 1.16 unless your system already has these
-installed.  We also recommend installing DBD::mysql if you will be
-installing a local MySQL catalogue.
-
-We installed everything something like this:
-
-   BASE=/home/phedex/tools
-   mkdir -p $BASE/perl/src
-   eval `cd $BASE/POOL/POOL_1_6_2/src; scram -arch rh73_gcc32 runtime -sh`
-
-   cd $BASE/src
-   wget http://search.cpan.org/CPAN/authors/id/R/RU/RUDY/DBD-mysql-2.9004.tar.gz
-   wget http://search.cpan.org/CPAN/authors/id/T/TI/TIMB/DBD-Oracle-1.16.tar.gz
-   wget http://search.cpan.org/CPAN/authors/id/T/TI/TIMB/DBI-1.46.tar.gz
-   wget http://search.cpan.org/CPAN/authors/id/P/PE/PETDANCE/Test-Harness-2.42.tar.gz
-   wget http://search.cpan.org/CPAN/authors/id/M/MS/MSCHWERN/Test-Simple-0.51.tar.gz
-
-   for x in Test-Harness-2.42 Test-Simple-0.51 DBI-1.46 DBD-Oracle-1.16 DBD-mysql-2.9004; do
-     tar zxf $x.tar.gz
-     cd $x
-     perl -I$BASE/perl/lib/perl5/site_perl/5.6.1/i386-linux Makefile.PL prefix=$BASE/perl
-     make; make install
-     cd ..
-   done
+You need certain perl modules to use PhEDEx.  Many of these may be
+installed on your system, but quite probably are versions with bugs
+that really need to be corrected.  We recommend you simply install
+all modules with the following command; it requires you already
+installed the Instant Client kits as explained above:
+   PHEDEX/Deployment/InstallPerlModules /home/phedex/tools
 
 *** Transfer utilities
 
-Finally you will need to install the software for the transfer tools
-you will use.  For most sites this is either globus-url-copy or srmcp.
-You will probably need to install also myproxy-related packages.  You
-need to arrange the relevant setup scripts to run; normally this would
-be done automatically for all users via /etc/profile.d/UI.sh or alike.
+Finally install the software for the transfer tools you will use.
+For most sites this is either globus-url-copy or srmcp.  You will
+probably need to install also myproxy-related packages.  You need
+to arrange the relevant setup scripts to run; normally this would
+be done automatically for all users via /etc/profile.d/UI.sh or
+alike.
+
+We provide no instructions on how to install this component; we
+do not even know which packages you need to install.  Try making
+"UI" installation or whatever corresponds to that in your grid.
 
 Ensure the following commands exist and work:
-  globus-url-copy
-  edg-gridftp-ls
-  edg-gridftp-mkdir
+  Either:
+    globus-url-copy
+    edg-gridftp-ls     (optional)
+    edg-gridftp-mkdir  (optional)
+  or:
+    srmcp
+
   grid-proxy-init
   grid-proxy-info
   myproxy-init
   myproxy-get-delegation
-  [srmcp]
-
 
 *** Configuring environment
 
-Make sure various environment variables are correctly set for all the
-above tools:
+The Deployment/Install* tools leave behind "env.sh" scripts you use
+to prepare your environment.  You will invoke them from your site
+"Config" as explained below.  If you used the commands listed
+above, you would:
+   source /home/phedex/tools/poolenv.sh
+   source /home/phedex/tools/oraenv.sh
+   source /home/phedex/tools/perlenv.sh
+
+You should verify the following environment variables are set correctly:
 
   PATH
   LD_LIBRARY_PATH
@@ -176,7 +189,7 @@ above tools:
   X509_USER_CERT
   X509_USER_KEY
   X509_USER_PROXY
-
+  ORACLE_HOME
 
 **********************************************************************
 ** Installing services
@@ -186,7 +199,7 @@ above tools:
 You need a POOL file catalogue for your site.  The same catalogue
 should be shared for EVD files (and only EVD files) for both PubDB
 if you have one, and PhEDEx.  It should be RDBMS-based, MySQL or
-ORACLE, not EDG RLS or XML catalogue.
+ORACLE, not EDG RLS, XML or EGEE catalogue.
 
 The file catalogue does not need to be accessible from outside your
 site.  Only programs from within your own site will ever access the
@@ -264,6 +277,12 @@ The "phedex" admin account should:
 **********************************************************************
 ** Configuration
 
+*** Testing your installation
+
+Verify that everything installed so far works correctly:
+   PHEDEX/Deployment/TestInstallation -db devdb -dbuser cms_transfermgmt \
+     -dbpass <password> -poolcat <catalogue>
+
 *** Registering your node to the topology
 
 To be able to transfer any files in our out, your site must become
@@ -305,12 +324,14 @@ To import data, you must run at least the following agents:
   3) NodeRouter
   4) InfoDropStatus
 
+We also recommend that you run "PeerLogAccess".
+
 If you have a separate MSS node, you must also run some kind
 of MSS migration agent.  You may be able to use some of the
 existing agents (FileCastorMigrate, FileDownload with DCCP
 backend, ...), or you'll have to write your own.  Depending
 on your setup you may also want to run a cleaner agent (see
-FileDiskCleaner).
+FileDiskCleaner, FileFakeCleaner).
 
 To export data from your site for others to download, you
 need a separate set of agents.  This is described in more

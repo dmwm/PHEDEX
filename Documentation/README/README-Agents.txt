@@ -284,6 +284,6 @@ Many agents take same or similar options:
 ** Support
 
 If you have any questions or comments, please contact the developers
-at <cms-project-phedex@cern.ch>.  You are welcome to file bug reports
+at <cms-phedex-developers@cern.ch>.  You are welcome to file bug reports
 and support requests at our Savannah site at
   http://savannah.cern.ch/projects/phedex

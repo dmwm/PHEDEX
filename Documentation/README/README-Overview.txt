@@ -25,6 +25,8 @@ should interpret and maintain the information.
 
 ** Management documentation
 
+README/README-Deployment.txt describes how to set up a new site.
+
 README/README-Managers.txt describes the management agents.
 
 README/README-DeveloperTestbed.txt describes how to set up a testbed.
@@ -49,6 +51,6 @@ catalogue performance benchmarking.
 ** Support
 
 If you have any questions or comments, please contact the developers
-at <cms-project-phedex@cern.ch>.  You are welcome to file bug reports
+at <cms-phedex-developers@cern.ch>.  You are welcome to file bug reports
 and support requests at our Savannah site at
   http://savannah.cern.ch/projects/phedex
