@@ -544,10 +544,14 @@ sub agents {
 			  "<td>$site</td>",
 			  "<td>$host</td>",
 			  "<td>$agent</td>",
-			  "<td>$worker</td>",
-			  (map { "<td>$info{$site}{$host}{$agent}{$worker}{$_}</td>" }
-			   @states, sort keys %states),
-		   	  "</tr>\n";
+			  "<td>$worker</td>";
+		    foreach my $state (@states, sort keys %states)
+		    {
+			my $value = $info{$site}{$host}{$agent}{$worker}{$state};
+			my $color = $value ? " bgcolor='$pendcolor'" : '';
+			print "<td$color>$value</td>";
+		    }
+		    print "</tr>\n";
 	        }
 	    }
 	}
