@@ -175,7 +175,7 @@ sub idle
 	{
 	    # If we failed to generate TURL or determine protocol for
 	    # this file recently, ignore it until back-off time passes.
-	    next if ($self->{BACKOFF}{$guid}{$to} || $now) < $now;
+	    next if ($self->{BACKOFF}{$guid}{$to} || $now) > $now;
 
 	    # Use cached protocol for $to, or cache one now.  We get
 	    # the first compatible protocol, sorted by importer's
