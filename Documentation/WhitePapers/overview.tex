@@ -1,0 +1,84 @@
+\documentclass{cmspaper}
+\begin{document}
+\begin{titlepage}
+  \whitepaper
+  \date{\today}
+  \title{CMS Data Handling Overview}
+
+  \begin{Authlist}
+    Tim~Barrass, Simon~Metson\Instfoot{bristol}{University of Bristol, Bristol, UK}
+    Lassi~A.~Tuura\Instfoot{neu}{Northeastern University, Boston, USA}
+  \end{Authlist}
+
+  \begin{abstract}
+    This white paper presents an overview of the CMS data handling system.
+  \end{abstract} 
+
+  \note{DRAFT version}
+\end{titlepage}
+
+\setcounter{page}{2}
+
+\section{Transition from DC04}
+
+The key change in version 2 is the inclusion of multiple data sources.
+We solve this by noting that in version 1, transfer agents were
+logically equivalent to internet routers---routes were effectively
+hard-coded into the agents.  In the next version we draw on
+established internet routing algorithms to maintain a view of routes
+(and distances) through the system.
+
+This entails a re-expression of information in the tmdb: replicas now
+have a generic source rather than a \verb|castor_location|, and a set
+of destinations.  The configuration agent no longer handles
+failover---this can be handled, if required, by the routing algorithm.
+Instead, it just allocates guids to a set of destinations, ensuring
+that all files have some destination.
+
+Experience also shows us where we can make optimisations of the
+database structure.  Principal changes include an explicit replica
+metadata table and the addition of tables to allow the passing of
+limited configuration messages between global management and agents.
+
+We also intend to wrap the existing and new functionality in a toolkit
+(in Perl) which means that access to the infrastructure is controlled,
+and that new agents can be coded more rapidly.
+
+\section{Introduction}
+Version 2 draws on our experience of managing agents with version 1.
+We found that at each site a ``manager'' process was required---a
+simple cron job in most cases---that could bring agents back up when
+they died.  In this document the term ``node'' is used to refer to a
+coherent (local) unit of agents, managers and buffers.
+
+Nodes are seen as logically equivalent to internet routers; they
+register with other nodes (agent managers register their node with
+another node in a global routing table) and share information about
+known routes to other nodes.  The routing of files around the network
+is governed by a modified implementation of the Routing Internet
+Protocol (see below).
+
+In this new structure failover can either be ignored, or handled by
+the nodes rather than by a global configuration agent (the config
+agent now only need to assign guids to destinations).  The routing
+algorithm incorporates a simple method of handling failover and
+recovery, in which failover becomes more dynamic re-establishment of
+routes rather than a route defined when a file enters distribution.
+
+[Question of policy: We need a maximum number of hops associated with
+a file before it times out and just needs to get placed in mass
+storage anywhere? Can implement this if record node type info (or
+maybe whether it has a mass store). Destination can be dynamically
+changed by something monitoring files (global?) that can check whether
+a file has reached it's maximum lifetime in distribution and just
+needs to be sent straight to the closest mass store. For next
+version?]
+
+Nodes are also able to use the global routing table to determine the
+shortest path to a destination.
+
+Agents in this new system can be categorised as data source agents,
+transfer agents, or as global agents (e.g. configuration
+agents---although only one configuration agent is necessary).
+
+\end{document}

@@ -1,0 +1,127 @@
+\documentclass{cmspaper}
+\begin{document}
+\begin{titlepage}
+  \whitepaper
+  \date{\today}
+  \title{CMS Data Handling: Routing System}
+
+  \begin{Authlist}
+    Tim~Barrass, Simon~Metson\Instfoot{bristol}{University of Bristol, Bristol, UK}
+    Lassi~A.~Tuura\Instfoot{neu}{Northeastern University, Boston, USA}
+  \end{Authlist}
+
+  \begin{abstract}
+    This white paper describes the components and algorithms used by
+    the system we use to route files to their destinations.  The main
+    algorith is the Routing Internet Protocol (RFC 2453) adapted for
+    our purposes.  This documented is intended to evolve as we extend
+    the implementation to handle more complex user requirements.
+  \end{abstract} 
+
+  \note{DRAFT version}
+\end{titlepage}
+
+\setcounter{page}{2}
+
+\section{Overview}
+
+[FIXME: Describe the objectives and what we are doing.]
+
+\section{Forming the network: registration and simple routing}
+
+This algorithm is an implementation of the Routing Internet Protocol
+(RFC2453), one of the simplest (and most widely used) distance vector
+based internet routing protocols. Our algorithm has certain
+modifications---principally we have chosen not to have nodes
+communicate with each other to determine current route
+information---instead, updates are made asynchronously in a central
+database.
+
+For this version we should keep state information in the TMDB.
+Instead of having distributed routing tables- with info for node a, b,
+etc---we can have a global table that is partitioned on a field
+indicating which node the information in a given row is for. We can
+form a global routing table in the TMDB, with the fields [from : to :
+gateway : hops : timestamp].
+
+At deployment, initial entries must be made in the table to register
+nodes with each other---e.g. if A and B are deployed then the entries
+
+\begin{tabular}{lllll}
+from	& to	& gate	& hops	& timestamp	\\ \hline
+% ------------------------------------------------
+A	& B	& B	& 1	& t0		\\
+B	& A	& A	& 1	& t0
+\end{tabular}
+
+must be made.
+
+From then on each agent manager periodically goes through a two or
+three step series of interactions with the global routing table: all
+agent managers should go through re-registration, and propagation of
+information in order to build the routing table.  If failover is
+required, then agent managers need to go through an expiry phase.
+
+Re-registration is necessary as the nodes are not dynamically querying
+each other.  The process of re-registration and propagation can be
+incorporated into the same step, using the following algorithm
+
+\begin{verbatim}
+# determine who registered with me
+@neighbours
+  = (select gateway from t_routing where from = `me' and to = `gateway');
+
+foreach $neighbour (@neighbours)
+  # refresh our acquaintance with them
+  update t_routing
+    set timestamp = currenttime
+    where from = `neighbour'
+      and to = `me'
+      and gateway = `me';
+
+  # get routes in $routes{TO} = HOPS hash.
+  foreach ($to, $hops) (select to, hops from t_routing where from = `neighbour')
+     $routes{$to} = min ($hops, $routes{$to})
+
+  # compare each route with my info and update
+  foreach $destination (keys %routes)
+    hops = routes{$destination} + 1;
+    if (destination in @destinations)
+      update t_routing
+        set hops = $hops, timestamp = currenttime
+	where from = `me'
+	  and gateway = `neighbour'
+	  and to = `destination';
+    else
+      insert into t_routing `all new values'
+\end{verbatim}
+
+If failover is not required, then the routing algorithm stops here.
+However, if failover is required, then the algorithm needs to be
+modified to handle nodes that disappear.  Disappearing nodes can be
+handled by effectively setting the number of hops to that node to
+infinity during an expiry phase.
+
+During this phase the agent manager examines links with each of its
+neighbours (e.g. links in it's own from-partition of the table for
+which to == gateway) in the routing table.  If an entry has not been
+refreshed within some critical period, the number of hops is
+effectively set to infinity (the RIP algorithm suggest 16, assuming
+that the protocols are useful only for networks where the longest
+direct routes are less than 15 hops).
+
+The information that a link is down is then gradually propagated
+throughout the table as nodes ``ask'' their neighbours (or examine
+their from-partitions) for their current estimate of hops for each
+route.  When the node comes back up and re-registers, it will
+automatically set the number of hops to 1.
+
+[The algorithm could be trivially extended to include some measure of
+dynamic network performance by entering ping round trip times instead
+of hops into the routing table (note tho' that ping might not be
+entirely suitable---pinging a tape stage disk server doesn't
+necessarily give you an idea of fileserving performance...) Other
+metrics such as the rate of the Mona Lisa file transfer rate metric
+could also be used.]
+
+\end{document}
