@@ -39,15 +39,17 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-prefix' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{RM_PATH_PREFIX} = shift(@ARGV); }
     else
     { last; }
 }
 
 if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE})
+    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE} || !$args{RM_PATH_PREFIX})
 {
     print STDERR
-	"usage: $me -node TMDB-NODE\n",
+	"usage: $me -node TMDB-NODE -prefix PATH-PREFIX-TO-REMOVE\n",
 	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
 	"    -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n",
 	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n";
@@ -77,7 +79,8 @@ sub new
     		  DBNAME => undef,		# Database name
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
-	  	  MYNODE => undef);		# My TMDB node name
+	  	  MYNODE => undef,		# My TMDB node name
+		  RM_PATH_PREFIX => undef);	# Prefix to remove from PFNs
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -93,6 +96,7 @@ sub idle
     {
 	my $now = time();
 	my $mynode = $self->{MYNODE};
+	my $prefix = $self->{RM_PATH_PREFIX};
 	$dbh = &connectToDatabase ($self);
 	die "failed to connect" if ! $dbh;
 
@@ -141,6 +145,8 @@ sub idle
 
 	    # Check if the file has been migrated.  If not, skip it.
 	    my $pfn = &guidToPFN ($guid, $catalogue, $hostkey);
+	    $pfn =~ s/$prefix//;
+
 	    open (NSLS, "nsls -l $pfn |") or die "cannot nsls $pfn: $!";
 	    my $status = <NSLS>;
 	    close (NSLS) or die "cannot nsls $pfn: $!";
