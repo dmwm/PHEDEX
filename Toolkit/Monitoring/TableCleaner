@@ -76,6 +76,8 @@ sub idle
     {
 	$dbh = &connectToDatabase ($self, 0) or die "failed to connect";
 
+	# Archive completed transfers from t_transfer_state into
+	# t_transfer_completed; completed is to_state=3.
 	my $rows = 0;
 	my $archive = &dbprep ($dbh, qq{
 	    insert into t_transfer_completed values
@@ -83,8 +85,7 @@ sub idle
 	     :from_node, :from_state, :from_timestamp)});
 	my $retire = &dbprep ($dbh, qq{
 	    delete from t_transfer_state
-	    where guid = :guid
-	      and to_node = :to_node});
+	    where guid = :guid and to_node = :to_node});
 	my $completed = &dbexec ($dbh, qq{
 	    select timestamp, guid, to_node, to_state, to_timestamp,
 	           from_node, from_state, from_timestamp
@@ -100,6 +101,11 @@ sub idle
 	}
 
 	&logmsg ("$rows completed transfers archived") if $rows;
+
+	# Delete obsolete agent status messages
+	my %old = (":old" => &mytimeofday() - 3*86400);
+	&dbexec($dbh,qq{delete from t_agent_status where timestamp < :old}, %old);
+	&dbexec($dbh,qq{delete from t_info_agent_status where timestamp < :old}, %old);
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
