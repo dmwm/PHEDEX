@@ -56,6 +56,7 @@ test-bed setup for RLS performance benchmarking.
 ** Support
 
 If you have any questions or comments, please contact Lassi A. Tuura
-<lassi.tuura@cern.ch> or Tim Barrass <tim.barrass@physics.org>.  You
-are welcome to file bug reports and support requests at our Savannah
-site at http://savannah.cern.ch/projects/phedex
+<lassi.tuura@cern.ch> or Tim Barrass <tim.barrass@physics.org> or the
+developers list at cms-phedex-developers@cern.ch.  You are welcome to
+file bug reports and support requests at our Savannah site at
+  http://savannah.cern.ch/projects/phedex

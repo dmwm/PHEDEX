@@ -68,16 +68,15 @@ The expected minimal drop processing chain is something like this:
 
 0) Drop source: reconstruction, simulation or RefDB tools.
 1) DropXMLUpdate: Expand XML fragment and PFNs to full paths.
-2) DropCastorStageIn: Stage the files in from the mass storage.
-3) DropCastorChecksum: Generate file checksums if they are missing.
-4) DropCastorGridPFN: Update PFNs to form expected by transfer agents
+2) DropCastorFileCheck: Check the PFNs mentioned in XML exist.
+3) DropCatPFNPrefix: Update PFNs to form expected by transfer agents
    (sfn://castorgrid.cern.ch/castor/some/file).
-5) DropCatPublish: Publish catalogue fragment to local/rls catalogue.
-6) DropTMDBPublish: Insert the files into the transfer.
+4) DropCatPublish: Publish catalogue fragment to local/rls catalogue.
+5) DropTMDBPublish: Insert the files into the transfer.
 
 If you wish to merge files into larger uncompressed zip archives for
 better storage and transport efficiency, use DropFunnel between steps
-3 and 4 as described in README-Funnel.txt.
+2 and 3 as described in README-Funnel.txt.
 
 ** Prerequisites
 
@@ -96,38 +95,42 @@ directory as scp:user@host:/remote/dir or rfio:/remote/dir.
 
 ** Setting up
 
+We recommend setting up the agents in a common structure as used
+for instance at CERN.  This also means creating a few scripts to
+set up the environment, start and stop the agents.  Please refer
+to README-Operations.txt and V2-CERN-*.sh.  (FIXME: And node
+deployment guide (where?).)
+
   mkdir -p /some/new/place
   cd /some/new/place
   export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/TMAgents
   cvs login # password is "98passwd"
   cvs co -d scripts TMAgents/AgentToolkitExamples
 
-[FIXME: Setup machine and directories.  See V2 part in
-  README-Operations.txt and/or ../NodeTestbed/readme]
-[FIXME: Setup environment script.  See V[12]-CERN-Environ.sh.]
-[FIXME: Setup ORACLE.  See end of V[12]-CERN-Environ.sh; need DBD/Oracle.]
-[FIXME: Setup catalogue.  See V[12]-CERN-Environ.sh.  Either use RLS,
-  like everybody does now, or setup local POOL catalogue, e.g. MySQL.]
+  # FIXME: Follow node deployment instructions:
+  #  - set up directories: mkdir incoming logs
+  #  - create environment setup script (see V2-CERN-Environ.sh)
+  #  - set up oracle and perl dbd (see V2-CERN-Environ.sh)
+  #  - set up catalogue contact (see V2-CERN-Environ.sh)
+  #     - can use either rls, or local oracle/mysql pool catalogue
 
-** Starting the agents
+** Starting and stopping the agents
 
-[FIXME: See V2 part in README-Operations.txt and V2-CERN-Start.sh.]
+Create scripts for these tasks.  You can use the node deployment
+tools to do so, or do it by hand using the V2-CERN-Start.sh and
+V2-CERN-Stop.sh as your model.  You might want to refer to
+README-Operations.txt for more details.
 
-** Stopping the agents
+** Generating and feeding drops to the agents
 
-[FIXME: See V2 part in README-Operations.txt and V2-CERN-Stop.sh.]
-
-** Generating drops
-
-[FIXME: Read README-RefDB.txt.]
-
-** Feeding drops to the agents
-
-[FIXME: See TRSyncFeed in README-RefDB.txt.]
+Please refer to README-RefDB.txt and using TRSyncFeed.
 
 ** Examining logs
 
-** FIXME: Configure netlogging
+If you follow the suggested configuration, your agents will produce
+logs to the "logs" directory parallel to "scripts".  You can tail
+them there.  In future will deploy distributed logging (netlogger)
+to collect the logs.
 
 ** Agent descriptions
 
@@ -155,30 +158,27 @@ DropXMLUpdate
 	files.  This makes XML fragments from production jobs suitable
 	for further downstream processing.
 
-DropCastorStageIn
+	Another important feature of this agent is that it creates
+	an attribute cache of the file properties.  When the files
+	are published for transfer in DropTMDBPublisher, only the
+	attribute caches are used.
 
-	Stage in Castor every PFN mentioned in the XML catalogues of
-	the drops that pass by.  The drops are sent downstream once
-	all the files in the drop have been successfully staged in.
-	This agent ensures that transfer agents can immediately access
-	the files when the files are inserted into the transfer.
+DropCastorFileCheck
 
-DropCastorChecksum
+	This agent checks that the PFNs mentioned in the catalogues
+	actually exist.  As this depends on the mass storage system,
+	the agent is mass-storage specific (Castor).  The agent does
+	not allow non-existent or zero-size files to pass into the
+	distribution, instead marking such files bad.  It also adds
+	to the attribute cache file size information that will be
+	required by the DropTMDBPublisher.
 
-	Check that there is a checksum file and that it has an entry
-	for every PFN mentioned in the XML catalogue of every drop
-	that passes through.  If checksums are missing, download the
-	files from castor, calculate the checksums, and update the
-	checksum file.  Note that existing contents of the checksum
-	file are assumed to be valid, entries are added only for files
-	without checksums.  Assumes the files are stored in Castor
-	[FIXME: add option -cpcmd to allow others?].
+DropCatPFNPrefix
 
-DropCastorGridPFN
-
-	Convert the PFNs in the drops that pass through.  Changes
-	/castor/cern.ch to sfn://castorgrid.cern.ch/castor/cern.ch so
-	that transfer agents can use globus-url-copy and CastorGrid
+	Convert the PFNs in the drops that pass through.  Adds a
+	simple text prefix to the file names, for instance at CERN
+	/castor/cern.ch becomes sfn://castorgrid.cern.ch/castor/cern.ch
+	so that transfer agents can use globus-url-copy and CastorGrid
 	service to read the files from CERN.
 
 DropCatPublisher
@@ -190,6 +190,10 @@ DropCatPublisher
 	catalogue as specified in TMDB as the site's catalogue
 	contact.
 
+	If the files already exist in the transfer catalogue, for example
+	if the transfer and PubDB catalogues are shared and data is
+	made available from PubDB, this agent is not needed at all.
+
 DropTMDBPublisher
 
 	This agent publishes the XML drops into the transfer system
@@ -200,14 +204,18 @@ DropTMDBPublisher
 	scheduling agents handle the assignment of the files to
 	destinations.
 
+	Note that this agent requires attribute cache information
+	that must be created by other agens.  DropXMLUpdate creates
+	basic file properties and meta data, DropCastorFileCheck
+	adds mandatory file size data.  Checksum data is also
+	possible to add if the information is available.
+
 DropFunnel
 DropFunnelWorker
 DropFunnelStatus
 	See README-Funnel.txt.
 
-ExampleTransfer
-ExampleTransferSlave
-ExampleCleaner
+File*
 	See README-Transfer.txt.
 
 [FIXME: Ranking]
@@ -215,11 +223,59 @@ ExampleCleaner
 
 ** Agent options
 
-[FIXME: describe common options.]
+Many agents take same or similar options:
+
+  -in, -state	The drop box/state directory for the agent.  The
+  		agent creates its working directories under this
+		directory, including the "inbox" into which new
+		drops should be made.  Agents that use "-state"
+		do not normally expect outside access to their
+		state directories.
+
+  -out		The drop box directory for the next agent.  More
+  		than one out link can be specified; the drops will
+		be copied to all of them.  The directory can either
+		be a local directory, or bridge to another machine
+		of type scp:<user>@<host>:</path> for copies with
+		scp, or rfio:<machine>:</path> for rfio copies.
+
+  -wait		The time in seconds the agent will sleep between
+  		inbox and pending work queue checks, to avoid busy
+		looping.  Depending on what the agent does the sleep
+		time should be a small number (e.g. 7), or something
+		fairly large (a few minutes: 120-600).
+
+  -stagehost	These options are used by Castor-related agent and
+  -stagepool	force values for the STAGE_HOST and STAGE_POOL
+  		environment variables, respectively.
+
+  -node		For the agents that work with TMDB, this option sets
+  		the PhEDEx node name for the agent.  The name must be
+		known in the node tables.
+
+  -workers	For master/slave-type agents this option sets how
+  		many worker slaves the master will start and keep
+		running.
+
+  -db		Used by any agent working with a database.  Defines
+  		the name of the database to use.  For ORACLE this
+		name must be registered in tnsnames.ora in $TNS_ADMIN.
+ 
+  -dbuser	Used by any agent working with a database.  Defines
+  		the user name for connecting to the database.
+
+  -dbpass	Used by any agent working with a database.  Defines
+  		the password for connecting to the database.
+
+  -dbitype	Used by any agent working with a database.  Defines
+  		the perl DBD library to be used.  The default is
+		"Oracle".  Note that interpretation of "-db" option
+		depends on the database "-dbitype" backend.
 
 ** Support
 
 If you have any questions or comments, please contact Lassi A. Tuura
-<lassi.tuura@cern.ch> or Tim Barrass <tim.barrass@physics.org>.  You
-are welcome to file bug reports and support requests at our Savannah
-site at http://savannah.cern.ch/projects/phedex
+<lassi.tuura@cern.ch> or Tim Barrass <tim.barrass@physics.org> or the
+developers list at cms-phedex-developers@cern.ch.  You are welcome to
+file bug reports and support requests at our Savannah site at
+  http://savannah.cern.ch/projects/phedex
