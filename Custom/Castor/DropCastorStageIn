@@ -91,9 +91,12 @@ sub fileProperties
 # cannot be run.  The latter should be treated as a transient error.
 sub stagedInFiles
 {
-    open(STAGEQ, "stageqry -h $ENV{STAGE_HOST} -p $ENV{STAGE_POOL} -a --format xfile |")
+    open(STAGEQ, "stageqry -h $ENV{STAGE_HOST} -p $ENV{STAGE_POOL} -a --format status,xfile |")
 	|| return undef;
-    my @files = map { chomp; $_ } <STAGEQ>;
+    my @files = ();
+    while (<STAGEQ>) {
+	push(@files, $1) if (/^STAGED\s+(\S+)\s*$/);
+    }
     close(STAGEQ);
     return @files;
 }
