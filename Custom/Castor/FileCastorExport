@@ -192,7 +192,7 @@ sub idle
 		    left join t_replica_metadata m
 		      on m.guid = rs.guid and m.attribute = 'checksum'
 		    where rs.node = '$mynode'
-		      and mod(rs.local_time,1000) = 1
+		      and mod(rs.local_state,1000) = 1
 	              and m.value is not null)});
 
         # 4) Mark available (and online) files ready for transfer.
