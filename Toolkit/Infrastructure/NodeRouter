@@ -53,10 +53,12 @@ while(!(-e "$g_work_dir/stop")) {
 	
 	my @neighbours = &get_neighbours( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, NODE => $g_parent_node );
 	log_entry( ENTRY => "Neighbours: @neighbours" );
-	
+
 	foreach $neighbour (@neighbours) {
-		refresh_acquaintance( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, NODE => $g_parent_node );
+	    log_entry( ENTRY => "Refreshing link $g_parent_node : $neighbour" );
+	    refresh_acquaintance( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, MY_NODE => $g_parent_node, NODE => $neighbour );
 	}
+	
 }
 
 
@@ -122,8 +124,8 @@ sub refresh_acquaintance {
 	my $time = time();
 	my $update = "update t_Routing "
 				."set timestamp = $time "
-				."where from = '$args{NODE}' "
-				."and to = '$args{MY_NODE}' "
+				."where from_node = '$args{NODE}' "
+				."and to_node = '$args{MY_NODE}' "
 				."and gateway = '$args{MY_NODE}'";
 	$dbh->do($update);
 	
