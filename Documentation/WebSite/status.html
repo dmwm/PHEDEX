@@ -7,6 +7,98 @@
 </head>
 
 <body>
+<h1>PhEDEx status as of 2004-11-29</h1>
+
+<p>V2 has been operational for a little over a month now.  ~30 TB
+of data was injected on Oct 19th, of which ~4 TB remains to be moved.
+After fair amount of work we are beginning to approach an operational
+state and files are moved fairly robustly.  We have not yet reached
+the state of running the system unattended for extended periods of
+time.</p>
+
+<p>We are now engaging in updating the schema to V2.1.  The principal
+change in this update is to separate PhEDEx from catalogues.  This
+means PhEDEx no longer accesses catalogues directly, but uses site-
+specific glue.  In particular, download agents will not access remote
+catalogues, the export agent invokes a site-specific glue scripts to
+generate a transfer name (TURL) for a file on demand.  Similarly, on
+import download agent invokes local script to add the file to the
+catalogue.</p>
+
+<p>News:</p>
+<ul>
+ <li> <a href="https://uimon.cern.ch/twiki/bin/view/CMS/PhEDEx">A wiki</a>
+      has been created for the project.</li>
+</ul>
+
+<p>PhEDEx Projects:</p>
+<ul>
+ <li> V2 migration: completed.</li>
+ <li> Transfer request tools: sufficient for now.  Web interface for
+      creating transfer requests being tested in PHYSH.  Adding support
+      to inject data using RefDB data availability information soon.
+      Expecting to move transfer requests into the database soon,
+      allowing much more convenient injection functionality.
+ <li> Transfer requests: new lot received from PRS/Lucia Silvestris.
+      Lucia will exercise the new wizard to create a new set of
+      transfer requests.</li>
+ <li> Production/PhEDEx link: A scheme has been agreed and will be
+      excercised this week.</li>
+ <li> Testbed: In place.  Will be used for V2.1 migration.</li>
+ <li> Toolkit development: V2.1 development ongoing.</li>
+
+<p>Deployment status:</p>
+<ul>
+ <li> CERN T0: Certificates obtained.  Download to be tested.
+      MSS migration works.  Export works.  Data injection works.
+      Checking consistency before V2.1 migration.  Have a local
+      MySQL catalogue, tested migration from RLS.  About to
+      test merge from PubDB catalogues.  No known issues.</li>
+
+ <li> ASCC T1: N/A.</li>
+ <li> CNAF-INFN T1: N/A.</li>
+ <li> FNAL T1: N/A.</li>
+ <li> FZK T1: N/A.</li>
+ <li> IN2P3 T1: Download works.  MSS migration mostly works?  No
+      export yet.  Still using RLS as catalogue and replica manager
+      as transfer tools.  All assigned data moved.</li>
+ <li> PIC T1: Download works.  MSS migration works.  Export from
+      disk works, export from MSS not yet(?).  Still using RLS as
+      catalogue and replica manager as transfer tool.  All assigned
+      data moved.</li>
+ <li> RAL T1: N/A.</li>
+</ul>
+
+<p>Deployment projects:</p>
+<ul>
+ <li> General: Test new download handshake with the V2.1 schema.
+      Test migration in dev database.  Migrate prod database.
+      Ensure RefDB-based multi-site injection works.  Performance
+      studies to find out why transfer rates are so slow..</li>
+
+ <li> CERN T0: Deploy local MySQL catalogue, shared with PubDB.
+      Check consistency between TMDB, catalogue and Castor.  Deploy
+      download agents with certificates.  Test new castor stager.</li>
+
+ <li> ASCC T1: N/A.</li>
+ <li> CNAF-INFN T1: N/A.  MSS Agent?  Export agent?  T1/T2 transfers?  V2.1 adaptation?</li>
+ <li> FNAL T1: N/A.  MSS Agent?  Export agent?  V2.1 adaptation?</li>
+ <li> FZK T1: N/A.  Export agent?  V2.1 adaptation?</li>
+ <li> IN2P3 T1: N/A.  Export agent?  V2.1 adapation?</li>
+ <li> PIC T1: N/A.  MSS Export agent? V2.1 adaptation?</li>
+ <li> RAL T1: N/A.  MSS Agent?  MSS Export agent?  Export agent?  V2.1 adaptation?</li>
+
+ <li> NCU T2: N/A.</li>
+ <li> INFN Legnaro T2: N/A.</li>
+ <li> INFN Bari T2: N/A.</li>
+ <li> LLR T2: N/A.</li>
+ <li> CIEMAT T2: N/A.</li>
+
+ <li> Aachen T3: N/A.</li>
+ <li> Hamburg T3: N/A.</li>
+</ul>
+
+
 <h1>PhEDEx status as of 2004-10-08</h1>
 
 <p>V1 is dead.  The data is being migrated to V2 (task tracking:
