@@ -122,7 +122,7 @@ sub get_neighbours {
 					."from t_Routing "
 					."where from_node = '$args{NODE}' "
 					."and to_node = gateway";
-	my $query->prepare($selection);
+	my $query = $dbh->prepare($selection);
 	$query->execute;
 	while (@row = $query->fetchrow_array) {
 	    $row[0] =~ s/ //g;
