@@ -390,20 +390,17 @@ sub nextFilesForTransfer
     {
 	my $mynode = $self->{MYNODE};
 	my $stmt = $dbh->prepare (qq{
-		select rs.guid,
+		select ts.guid,
 		       ts.src_time_stamp,
 		       ts.src_node,
 		       n1.catalogue_contact,
 		       n1.host_string,
 		       n2.catalogue_contact
-		from t_replica_state rs,
-		     t_transfer_state ts,
+		from t_transfer_state ts,
 		     t_nodes n1, t_nodes n2
-		where rs.state = 1
-		  and rs.node = '$mynode'
-	  	  and ts.guid = rs.guid
+		where ts.dest_node = '$mynode'
 	  	  and ts.src_state = 1
-	  	  and ts.dest_node = rs.node
+		  and ts.dest_state = 0
 		  and n1.node_name = ts.src_node
 		  and n2.node_name = ts.dest_node});
         $stmt->execute();
