@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/28 15:58:35 $
-# $Id: Allocator.pl,v 1.25 2004/07/28 15:58:35 barrass Exp $
+# $Date: 2004/07/28 16:01:42 $
+# $Id: Allocator.pl,v 1.26 2004/07/28 16:01:42 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -195,7 +195,7 @@ sub add_new_stream_to_subscriptions {
 					    'smallAND_round',
 					    { RaiseError=>1, AutoCommit =>1 });
 
-    log_entry(ENTRY=>"New stream for subscriptions- $new_stream");
+    log_entry( "New stream for subscriptions- $new_stream" );
     $dbh->do($insert) if (!$no_updates);
 
     $dbh->disconnect;
