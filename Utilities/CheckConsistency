@@ -282,7 +282,7 @@ sub queryFileCatalogue
     my $nguids = 0;
     while (<CAT>)
     {
-	my ($guid, $pfn) = /^([-0-9A-F]+)\s+(.*)/;
+	my ($guid, $pfn) = /^([-0-9A-Fa-f]+)\s+(.*)/;
 	if ($pfn =~ /$args->{HOST_KEY}/) {
 	    $files->{$guid}{GUID} = $guid;
 	    $files->{$guid}{FCSURL} = $pfn;
