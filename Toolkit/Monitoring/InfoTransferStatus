@@ -116,7 +116,7 @@ sub idle
         }
 
 	# If oldest row is less than 2 minutes, go away and sleep
-	return if ! $oldest || $now - $oldest->[1] < 120;
+	return if ! $oldest || $now - $oldest->[1] < 300;
 
 	# No longer valid.  Remove this entry and recompute, then
 	# move and have a nap so we don't overstress the database.
