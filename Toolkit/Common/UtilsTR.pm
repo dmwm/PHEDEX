@@ -279,13 +279,14 @@ sub checkAssignmentFiles
 
 sub feedDropsToAgents
 {
-    my ($mouth, $request, $doit, $type, $status, @drops) = @_;
+    my ($mouth, $request, $doit, $droptype, $status, @drops) = @_;
     foreach my $drop (@drops)
     {
 	my $info = $status->{$drop};
 	die "Error: no status for $drop\n" if ! defined $info;
 
 	my $dropname = $info->{DROPNAME};
+	my $type = $droptype;
 
 	# If we find multiple copies, remove replicas and pretend
 	# it's one we found elsewhere (= preferred version).
@@ -294,52 +295,62 @@ sub feedDropsToAgents
 	    print "$type $drop already in Done, removing\n";
 	    (! $doit || &rmtree ($drop));
 	    $type = 'Done';
-	    $drop = "$request/Drops/Done/$dropname";
+	    $drop = "$request/Drops/$type/$dropname";
         }
 	elsif ($type ne 'NotReady' && -d "$request/Drops/NotReady/$dropname")
 	{
 	    print "$type $drop already in NotReady, removing\n";
 	    (! $doit || &rmtree ($drop));
 	    $type = 'NotReady';
-	    $drop = "$request/Drops/NotReady/$dropname";
+	    $drop = "$request/Drops/$type/$dropname";
     	}
 
 	# Check if it it's done (and make sure done are still done!)
 	if ($type ne 'Done' && $info->{IS_FULLY_TRANSFERRED})
 	{
 	    print "$type $drop already transferred, marking Done\n";
-	    (! $doit || system ("mv $drop $request/Drops/Done/$dropname"))
-	        or die "Error: $drop: cannot move to Done: $!\n";
+	    (! $doit || system ("mv $drop $request/Drops/Done/$dropname") == 0)
+	        or die "Error: $drop: cannot move to Done: $?\n";
+	    $type = 'Done';
+	    $drop = "$request/Drops/$type/$dropname";
 	}
 	elsif ($type ne 'Done' && $info->{IS_PENDING_TRANSFER})
 	{
 	    print "$type $drop already queued, marking Done\n";
-	    (! $doit || system ("mv $drop $request/Drops/Done/$dropname"))
-	        or die "Error: $drop: cannot move to Done: $!\n";
+	    (! $doit || system ("mv $drop $request/Drops/Done/$dropname") == 0)
+	        or die "Error: $drop: cannot move to Done: $?\n";
+	    $type = 'Done';
+	    $drop = "$request/Drops/$type/$dropname";
 	}
-	elsif ($type eq 'Done')
+	elsif ($type eq 'Done'
+	       && ! ($info->{IS_FULLY_TRANSFERRED}
+		     || $info->{IS_PENDING_TRANSFER}))
 	{
 	    print "$type $drop no longer done, marking Pending again\n";
-	    (! $doit || system ("mv $drop $request/Drops/Pending/$dropname"))
-		or die "Error: $drop: cannot move to Pending: $!\n";
+	    (! $doit || system ("mv $drop $request/Drops/Pending/$dropname") == 0)
+		or die "Error: $drop: cannot move to Pending: $?\n";
 	    $type = 'Pending';
-	    $drop = "$request/Drops/Pending/$dropname";
+	    $drop = "$request/Drops/$type/$dropname";
 	}
 
 	# Process truly pending drops
-	if ($info->{IS_FULLY_IN_MSS})
+	if ($type ne 'Done' && $info->{IS_FULLY_IN_MSS})
 	{
 	    print "$type $drop available, feeding to agents and marking Done\n";
-	    (! $doit || system ("cp -rp $drop $mouth/$dropname"))
-		or die "Error: $drop: cannot copy to $mouth: $!\n";
-	    (! $doit || system ("mv $drop $request/Drops/Done/$dropname"))
-	    	or die "Error: $drop: cannot move to Done: $!\n";
+	    (! $doit || system ("cp -rp $drop $mouth/entry/inbox/$dropname") == 0)
+		or die "Error: $drop: cannot copy to $mouth/entry/inbox: $?\n";
+	    (! $doit || system ("mv $drop $request/Drops/Done/$dropname") == 0)
+	    	or die "Error: $drop: cannot move to Done: $?\n";
+	    $type = 'Done';
+	    $drop = "$request/Drops/$type/$dropname";
 	}
-	elsif ($type ne 'NotReady')
+	elsif ($type ne 'NotReady' && ! $info->{IS_FULLY_IN_MSS})
 	{
 	    print "$type $drop not yet available, marking NotReady\n";
-	    (! $doit || system ("mv $drop $request/Drops/NotReady/$dropname"))
-	    	or die "Error: $drop: cannot move to NotReady: $!\n";
+	    (! $doit || system ("mv $drop $request/Drops/NotReady/$dropname") == 0)
+	    	or die "Error: $drop: cannot move to NotReady: $?\n";
+	    $type = 'NotReady';
+	    $drop = "$request/Drops/$type/$dropname";
 	}
     }
 }
