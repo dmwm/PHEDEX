@@ -222,7 +222,15 @@ We then need to start the router running
 
 and also the transfer agent
 
-[ FIXME: start transfer agent! ]
+./FileDownload 
+-state $NODETESTBED/TestbedSink1/work/inbox 
+-db <tns name> 
+-dbuser <user>
+-dbpass <password>
+-pfndest FileDownloadDest 
+-node TestbedSink1 
+-wanted 100G 
+>& $NODETESTBED/TestbedSink1/logs/transferlog &
 
 
 
@@ -308,11 +316,11 @@ catalogue and then entering them into the TMDB.
 
 To remove test data from the system
 	
-	cd /NodeTestbed/TestbedSource1/SE
-	DeleteTestFiles \\
-'mysql:database=V2TMDB;host=<host>' \\
-phedex \\
-phedex		
+cd /NodeTestbed/TestbedSource1/SE
+DeleteTestFiles
+<contact string>
+<user>
+<password>		
 
 
 
@@ -326,34 +334,10 @@ table [this functionality will be offered by a web page].
 
 In an SQL client
 
-	insert into t_subscriptions values ('TBSink1','NodeTestbedSet');
+insert into t_subscriptions values ('TestbedSink1','NodeTestbedSet');
 
-
-
-3b. Using the allocator agent to allocate files to a sink node
---------------------------------------------------------------
-
-We can run the allocator once to pick up the new files and allocate them to the 
-sink based on the subscription information in the TMDB.
-
-	cd /NodeTestbed/TestbedManagement/scripts
-./Allocator.pl -once -period 1 \\
--w $NODETESTBED/TestbedManagement/work \\
--db 'mysql:database=V2TMDB;host=<host>' \\
--user phedex \\
--passwd phedex \\
--no-updates
-	
-This runs the allocator agent once without making any updates on the TMDB… it 
-should display a log indicating that it found and allocated the 5 new files 
-created above. Note that if we hadn't made a subscription above, and if we 
-hadn't specified no-updates, the allocator would make a blank entry in the 
-subscriptions table to warn a (human) distribution manager that a new dataset 
-had entered distribution and needed toe be allocated to a destination…
-
-
-3c. Using transfer agents to transfer data to a simple sink node
-----------------------------------------------------------------
+As all the agents are running, the files should- after a few seconds- be 
+picked up and transferred.
 
 
 

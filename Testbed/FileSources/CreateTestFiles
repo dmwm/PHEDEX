@@ -16,9 +16,13 @@ $db=$ARGV[2];
 $user=$ARGV[3];
 $pass=$ARGV[4];
 $pwd = $ENV{PWD};
+$head = $ARGV[5];
 @sql = ();
 
 print "$count files, in $pwd, registered at node $node\n";
+
+$cat = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<!DOCTYPE POOLFILECATALOG SYSTEM \"InMemory\"><POOLFILECATALOG>\n<META name=\"dataset\" type=\"string\"/>\n";
+$smry = "EVDS_OutputPath=$pwd\n";
 
 while ($count > 0) {
     
@@ -26,15 +30,9 @@ while ($count > 0) {
     $file = "TestbedFile".$count;
     $full_path = $pwd."/".$file;
     
-
-    ($exit_value, @output) = run_command( "FCregisterPFN -p $full_path" );
-    if ($exit_value == 1) {
-        print "Problem registering pfn\n@output\n";
-        exit(1);
-    } else {
-        chop($guid = $output[$#output]);
-    }
-    
+    ($exit_value, $guid) = run_command( "uuidgen" );
+    chop($guid);
+    $guid = uc($guid);
     
     ($exit_value, @output) = run_command( "echo $guid > $file" );
     if ($exit_value == 1) {
@@ -42,49 +40,29 @@ while ($count > 0) {
         exit(1);
     }
     
-    
-    push( @sql, "insert into t_files_for_transfer values ('$guid','$node')" );
-    push( @sql, "insert into t_replica_metadata values ('$guid','POOL_dataset','NodeTestbedSet')" );
-    push( @sql, "insert into t_replica_metadata values ('$guid','POOL_owner','NodeTestbed')" );
-    
+    $time = time();
+
+    $cat .= "<File ID=\"$guid\">\n<physical>\n<pfn filetype=\"ROOT_All\" name=\"./$file\"/>\n</physical>\n<logical>\n<lfn name=\"$file\"/>\n</logical>\n<metadata att_name=\"dataset\" att_value=\"NodeTestbedSet\"/>\n</File>\n\n";
+
     $count--;
 }
 
-do_sql( \@sql );
+$cat .= "</POOLFILECATALOG>";
+
+# $cat now contains xml fragment, smry summary file content
+# need to write these to head of injection chain for drop
+
+system("mkdir $head/testdrop");
+open (OUT, "$head/testdrop/XMLCatFragment.testdrop.xml");
+print OUT "$cat\n";
+close (OUT);
+open (OUT, "$head/testdrop/Smry.testdrop.txt");
+print OUT "$smry\n";
+close (OUT);
 
 # =========================================================
 # Subroutines
 # =========================================================
-
-sub do_sql {
-    my $sql = shift;
-    
-    eval {
-        my $dbh;
-        eval "use DBI"; $dbh = DBI->connect ("DBI:$db",
-    					     "$user",
-    					     "$pass",
-    					     { RaiseError => 1, AutoCommit => 1 });              
-
-        foreach my $cmd (@$sql) {
-            print "$cmd\n";
-            $dbh->do ($cmd);
-        }
-
-    	$dbh->disconnect;
-    };
-
-    if ($@) {
-    	print "database operation failed: $@";
-        if ($dbh) {
-            $dbh->rollback;
-            $dbh->disconnect;
-	   }
-	   exit(1);
-    }
-    
-    return 0;    
-}
 
 sub run_command {
     my $cmd = shift;
