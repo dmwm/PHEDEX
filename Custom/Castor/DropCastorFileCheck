@@ -11,16 +11,10 @@ BEGIN {
 }
 
 ######################################################################
-$ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
-$ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
 my %args;
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
-    { shift (@ARGV); $ENV{STAGE_HOST} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
-    { shift (@ARGV); $ENV{STAGE_POOL} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    if ($ARGV[0] eq '-in' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
@@ -34,7 +28,6 @@ if (scalar @ARGV || !$args{DROPDIR})
 {
     print STDERR
 	"usage: $me -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
-	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n",
 	"    [-wait SECS-TO-WAIT]\n";
     exit (1);
 }
