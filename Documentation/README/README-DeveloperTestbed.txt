@@ -1,257 +1,272 @@
-Node Testbed deployment and user guide
-========================================
+* Setting up PhEDEx testbed
 
-1. Introduction
----------------
+This document describes how to set up a local, stand-alone PhEDEx
+testbed with multiple nodes, how to start and stop agents, create
+test files and test the agents in a local environment without
+having to register new components with the CMS production system.
 
-The goal of this document is to enable developers to set up a local, self
-contained PhEDEx testbed system in which they can set up nodes, start agents,
-create files and test their own agents in their local environment without
-having to register new components with the global CMS distribution system.
+It is possible to set up a testbed network of PhEDEx distribution
+nodes entirely on a single machine.  The nodes manage storages which
+are simply local directories, copying files between them using "cp".
+Files are registered to a single MySQL catalogue shared among all
+the testbed nodes.
 
-It is possible to set up a testbed network of PhEDEx distribution nodes on a 
-single machine. The nodes manage Storage Elements which are simply local 
-directories, copying files between them using cp. Files are registered in a 
-testbed-global POOL XML catalogue (i.e. just an easily accessible file). 
-Currently updates into an Oracle Transfer Management Database are used.
+The testbed uses separate Oracle Transfer Management Database.
 
-This document details the deployment and use of such a testbed system.
+** Related documents
 
+README-Overview.txt explains where this document fits in.
+README-Transfer.txt explains how to set up transfer agents.
+README-Export.txt explains how to set up export agents.
+README-Deployment.txt explains standard deployment.
 
+**********************************************************************
+** Deployment
 
-2. Deployment
--------------
+This section details the process of setting up your testbed, with a
+simple data source, simple data sink, and management infrastructure
+required to link the agents together.  All of this can be on a single
+machine, but doesn't have to be.
 
-This section details the process of setting up a simple testbed, with a simple 
-source of data, a simple sink of data and the management infrastructure needed 
-to link agents together.
+*** Requirements
 
+You need:
+  1) RedHat 7.3.x or Scientific Linux 3.x machine with GCC 3.2.3
+  2) AFS access to POOL file catalogue tools.  You can use some
+     other means, e.g. install them an easy installation tool
+     such as xcmsi (http://www.cern.ch/cms-xcmsi), but in that
+     case you have to adjust the node configuration files.
+  3) Perl with DBI, DBD::Oracle and optionally DBD::mysql
+  4) MySQL
+  5) Oracle
 
+*** Setup environment and download tools
 
-2a. Requirements
-----------------
+Begin to create the testbed directory structure:
 
-To actually run the testbed:
+  # The commands below expect this to be set; choose your own
+  TESTBED=/NodeTestbed
 
-Linux rh73 machine with gcc32
-FIXME: Need to build FC tools locally.
-AFS access to CERN (for POOL File Catalogue tools)
-Perl (with Perl DBI DBD::Oracle and/or DBD::MySQL installed)
-MySQL
-Oracle
+  # Create area
+  mkdir -p $TESTBED
+  cd $TESTBED
 
-Naturally these can both be the same machine, but they don't have to be…
-
-
-
-2b. Setup environment and download tools
-----------------------------------------
-
-Begin to create the testbed directory structure. On your chosen testbed machine-
-
-export NODETESTBED=/NodeTestbed [ or whatever your chosen location is
-mkdir $NODETESTBED
-cd $NODETESTBED
-
-export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/PHEDEX
-cvs login
-#	[ password is 98passwd ]
-cvs co PHEDEX
-
-setenv POOL_CATALOG mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat
-setenv PATH ${PATH}:${NODETESTBED}/AgentToolkitExamples/NodeTestbed
-setenv PATH ${PATH}:${NODETESTBED}/AgentToolkitExamples/Managers
-setenv PATH /afs/cern.ch/sw/lcg/app/spi/scram:${PATH}
-cd /afs/cern.ch/sw/lcg/app/releases/POOL/POOL_1_6_5
-eval `scram runtime -csh`
-cd -
-
-You'll need to set the environment variables whenever you use the testbed.
+  # Get PhEDEx code
+  export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/PHEDEX
+  cvs login # when prompted for password, type: 98passwd
+  cvs co PHEDEX/{Toolkit,Schema,Utilities,Documentation/README,Testbed}
 
 
+*** MySQL POOL catalogue
 
-2c. MySQL POOL catalog
-----------------------
-
-Assuming mysql is running- create a POOL MySQL database called phedexcat
- (schema at pool.cern.ch), for user phedex, password phedex. We also need to
-define the metadata schema
-
-FCcreateMetaDataSpec -F -m
-        "(Content,string),(DBoid,string),(DataType,string),
-        (FileCategory,string),(Flags,string),(dataset,string),
-        (jobid,string),(owner,string),(runid,string)"
+Install and get MySQL running on your testbed node.  Create a database
+called "phedexcat" for user "phedex", password "phedex".  Load up the
+initial schema and seed data from PHEDEX/Schema/FC-MySQL.sql".
 
 
+*** Oracle TMDB deployment
 
-2d. Oracle TMDB deployment
---------------------------
+The Oracle TMDB schema is in PHEDEX/Schema/Oracle*.sql.  You only need
+to create the tables and indices, you don't need any of the privileges
+or synonyms.  Execute command like this to load all the schema:
+  (cd PHEDEX/Schema; sqlplus cms_transfermgmt_testbed9/password@devdb < OracleInit.sql)
 
-The Oracle TMDB schema can be found at $NODETESTBED/AgentDocs/V2OracleSchema.sql. Note that this schema is for the main TMDB at CERN: you will only need to create tables and indices, not grant priveleges to extra users or create synonyms.
-
-Note that you need Perl DBI, and DBD:Oracle installed as well.
-
-
-2e. Deploying a simple node
----------------------------
-
-Now we need to create a node using a few management files:
-
-cp ${NODETESTBED}/AgentToolkitExamples/NodeTestbed/DeployNode .
-cp ${NODETESTBED}/AgentToolkitExamples/NodeTestbed/*template .
-
-DeployNode 
--node First 
--base ${NODETESTBED} 
--db <your Oracle TNS name> 
--dbuser <your Oracle user> 
--dbpass <your Oracle password>
--cat mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat
-
-This script creates a simple directory structure for a node, with space for
-scripts, logs, working and file storage (called SE). It deploys the agent code
-necessary to run the node, and generates start.sh and stop.sh scripts that
-should be used to start and stop the node's agents.
-
-The node created is capable of the minimal functionality required for a 
-generic PhEDEx node. It can download files to it's own SE-space from other
-nodes. It can also act as a source of data by handling the local injection
-of files into distribution.
+Note that you need Perl DBI and DBD::Oracle installed as well.  The
+README-Deployment.txt guide includes details on how to install them.
 
 
+*** Deploying a simple node
 
-2f. Deploying a neighbouring node
----------------------------------
+To deploy a node you write a configuration file and then use an agent
+master to manage the agents for that node.  Create the node tree
+structure and the files with a utility we provide:
 
-A network isn't really a network with only one node, so let's deploy another
+  PHEDEX/Utilities/DeployNode		\
+    -node First				\
+    -base $TESTBED			\
+    -db <your-oracle-tns-name>		\
+    -dbuser <your-oracle-user>		\
+    -dbpass <your-oracle-pass>		\
+    -cat mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat
 
-DeployNode
--node Second
--base ${NODETESTBED}
--db <your Oracle TNS name>
--dbuser <your Oracle user>
--dbpass <your Oracle password>
--cat mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat
+  PHEDEX/Utilities/NodeManager		\
+    add-node				\
+    -name First				\
+    -db <your-oracle-tns-name>		\
+    -dbuser <your-oracle-user>		\
+    -dbpass <your-oracle-pass>
 
-To form a distribution link between them we need to initialise two routes in
-their respective routing tables. We can do this by
+  PHEDEX/Utilities/NodeManager		\
+    add-export-protocol			\
+    -name First				\
+    -protocol cp			\
+    -db <your-oracle-tns-name>		\
+    -dbuser <your-oracle-user>		\
+    -dbpass <your-oracle-pass>
 
-NodeManager.pl new-neighbours 
--name First 
--neighbours Second 
--db Oracle:<your Oracle TNS name> 
--user <your Oracle user>
--pass <your Oracle pass>
+This script creates a simple directory structure for a node, with
+space for scripts, logs and file storage.  It deploys the agent
+configuration file that you will use to start and stop the agents.
+
+The node created is capable of the minimal functionality required
+for a generic PhEDEx node.  It can download files to it's own
+storage space from other nodes.  It can also act as file source
+by injecting files into distribution, and make files available
+for other nodes to download.
 
 
+*** Deploying a neighbouring node
 
-2g. Deploying a management node
--------------------------------
+To create a network of nodes, let's deploy another one, this time
+routed with the previous node:
 
-Movement of data through the PhEDEx system as a whole relies on the action
-management agents that handle allocation of files by subscription information,
-and that handle the determination of the best route through the system.
+  PHEDEX/Utilities/DeployNode		\
+    -node Second			\
+    -base $TESTBED			\
+    -db <your-oracle-tns-name>		\
+    -dbuser <your-oracle-user>		\
+    -dbpass <your-oracle-pass>		\
+    -cat mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat
+
+  PHEDEX/Utilities/NodeManager		\
+    add-node				\
+    -name Second			\
+    -db <your-oracle-tns-name>		\
+    -dbuser <your-oracle-user>		\
+    -dbpass <your-oracle-pass>
+
+  PHEDEX/Utilities/NodeManager		\
+    add-import-protocol			\
+    -name Second			\
+    -protocol cp			\
+    -db <your-oracle-tns-name>		\
+    -dbuser <your-oracle-user>		\
+    -dbpass <your-oracle-pass>
+
+
+  PHEDEX/Utilities/NodeManager		\
+    new-neigbours			\
+    -name First				\
+    -neighbours Second			\
+    -db <your-oracle-tns-name>		\
+    -dbuser <your-oracle-user>		\
+    -dbpass <your-oracle-pass>
+
+
+*** Deploying a management node
+
+Data transfers through PhEDEx system as a whole rely on the action
+of management agents that handle allocation of files by subscription
+information, and that handle the best route through the system.
 
 We can set up a management node for our testbed
 
-DeployNode
--node GLOBAL
--management
--base ${NODETESTBED}
--db <your Oracle TNS name>
--dbuser <your Oracle user>
--dbpass <your Oracle password>
--cat mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat
+  PHEDEX/Utilities/DeployNode		\
+    -management				\
+    -node GLOBAL			\
+    -base $TESTBED			\
+    -db <your-oracle-tns-name>		\
+    -dbuser <your-oracle-user>		\
+    -dbpass <your-oracle-pass>		\
+    -cat mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat
+
+  PHEDEX/Utilities/NodeManager		\
+    add-node				\
+    -name GLOBAL			\
+    -db <your-oracle-tns-name>		\
+    -dbuser <your-oracle-user>		\
+    -dbpass <your-oracle-pass>
 
 
+*** Starting up the nodes
 
-2h. Starting the nodes up
--------------------------
-
-. GLOBAL/start.sh
-. First/start.sh
-. Second/start.sh
+  PHEDEX/Utilities/Master -config $TESTBED/GLOBAL/node/Config start
+  PHEDEX/Utilities/Master -config $TESTBED/First/node/Config start
+  PHEDEX/Utilities/Master -config $TESTBED/Second/node/Config start
 
 
+*** Shutting the nodes down
 
-2i. Shutting the nodes down
----------------------------
+  PHEDEX/Utilities/Master -config $TESTBED/GLOBAL/node/Config stop
+  PHEDEX/Utilities/Master -config $TESTBED/First/node/Config stop
+  PHEDEX/Utilities/Master -config $TESTBED/Second/node/Config stop
 
-. GLOBAL/stop.sh
-. First/stop.sh
-. Second/stop.sh
+**********************************************************************
+** Use
 
+*** Making test data available at a simple source node
 
+Let's create some random file first.
 
-3. Use
-------
+  PHEDEX/Testbed/FileSources/CreateTestFiles $TESTBED/First/SE TestSet 5
 
-3a. Making test data available at a simple source node
-------------------------------------------------------
+Now, we need to make them available in the catalogue.
 
-Now create some test files residing at the simple source node: make sure that 
-$POOL_CATALOG is set, then
+  eval $(PHEDEX/Utilities/Master -config $TESTBED/First/node/Config environ)
+  for f in $TESTBED/First/SE/TestSet/*/*.xml; do
+    FCpublish -d $PHEDEX_CATALOGUE -u file:$f
+  done
 
-cd /NodeTestbed/TestbedSource1/SE
-mkdir NodeTestbedSet
-cd NodeTestbedSet
-CreateTestFiles
-5
-First
-<contact string>
-<user>
-<password>
+OK, they are now known in the local catalogue of this node.  Let's
+inject them into transfer.
 
-The CreateTestFiles script (in the NodeTestbedToolkit dir) acts as a simple fake 
-source of data, generating some testfiles, registering them with the file 
-catalogue and then entering them into the TMDB.
+  cp -rp $TESTBED/First/SE/TestSet/* $TESTBED/First/state/entry/inbox
 
+[FIXME: Do something about t_block registration!]
 
+*** Subscribing a node to certain data streams
 
-3a'. Cleaning up- removing test data from a node
-------------------------------------------------
+CreateTestFiles creates files as necessary for registration into TMDB;
+the CMS "owner" and "dataset" attributes are set to from the test set
+name command line argument ("TestSet" above).  These can be used to
+subscribe a data sink in the t_subscription table as follows:
+  insert into t_subscription (owner, dataset, destination)
+    values ('TestSet', 'TestSet', 'Second');
 
-To remove test data from the system
-	
-[ FIXME: This actually doesn't work at the moment! ]
+As all the agents are already running, the files should be picked up
+for transfer and copied in a few seconds.
 
-cd /NodeTestbed/TestbedSource1/SE
-DeleteTestFiles
-<contact string>
-<user>
-<password>		
+*** Monitoring what is going on.
 
+The monitoring is currently rather low-level: look at the log files.
+There is a web browser in Documentation/WebSite/cgi-bin/browser, but
+it will require some adjusting to be able to access your private DB.
 
+You can monitor progress with:
+  tail -f $TESTBED/*/logs/*
 
-3b. Subscribing a node to certain data streams
-----------------------------------------------
+Following the output requires a little bit of practise, especially
+when the agents operate very quickly.  After the files have been
+transferred you should see them in $TESTBED/Second/SE.
 
-CreateTestFiles adds a metadata tag to each file it creates in the TMDB- in 
-t_replica_metadata it sets the key POOL_dataset to NodeTestbedSet. A sink can 
-subscribe to a set of datasets by making an entry in the TMDB t_subscriptions 
-table [this functionality will be offered by a web page].
+*** Cleaning up: removing test data from a node
 
-In an SQL client
+  rm -fr $TESTBED/First/SE/*
+  eval $(PHEDEX/Utilities/Master -config $TESTBED/First/Config environ)
+  FCdeletePFN -u $PHEDEX_CATALOGUE -q "pfname like '/First/'"
+  sqlplus cms_transfermgmt_testbed9/password@devdb
+     delete from t_transfer_state where to_node = 'First';
+     delete from t_replica_state where node = 'First';
 
-insert into t_subscriptions values ('Second','NodeTestbedSet');
+  # FIXME: THIS DOESN'T WORK RIGHT NOW
+  # PHEDEX/Testbed/FileSource/DeleteTestFiles $TESTBED/First/SE TestSet 5
 
-As all the agents are running, the files should- after a few seconds- be 
-picked up and transferred.
+*** Clearing up the database
 
+  # FIXME: Simplify
+  eval $(PHEDEX/Utilities/Master -config $TESTBED/First/Config environ)
+  sqlplus cms_transfermgmt_testbed9/password@devdb
+     delete from t_replica_state;
+     delete from t_transfer_state;
+     delete from t_transfer_history;
+     delete from t_transfer_summary;
+     delete from t_destination;
+     delete from t_file_attributes;
+     delete from t_file;
+     delete from t_block;
+     delete from t_block_replica;
+     delete from t_subscription;
 
-
-3c. Monitoring what's going on
-------------------------------
-
-The only method for doing this at the moment is at a very low level- by
-watching log files. This method will be replaced by the web interface asap-
-the same web interface as is used by the production system.
-
-You can monitor the progress with
-
-tail -f First/logs/*
-tail -f GLOBAL/logs/*
-tail -f Second/logs/*
-
-but you may need to be pretty quick off the mark :o) After the files have been
-transferred you should see them in Second/SE[/NodeTestbedSet/TestbedFile*]
+  # Or to apply the sledge-hammer in PHEDEX/Schema:
+  sqlplus cms_transfermgmt_testbed9/password@devdb < OracleReset.sql
+  sqlplus cms_transfermgmt_testbed9/password@devdb < OracleInit.sql

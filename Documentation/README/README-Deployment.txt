@@ -9,6 +9,7 @@ export CMS data.
 README-Overview.txt explains where this document fits in.
 README-Operations.txt explains how things are done at CERN.
 README-Transfer.txt explains how to set up transfer agents.
+README-Export.txt explains how to set up export agents.
 
 **********************************************************************
 ** Overview
@@ -78,11 +79,11 @@ your site is "FOO_Transfer" (and possibly "FOO_MSS").
 *** Set up directories
 
   mkdir -p /home/phedex
-  mkdir -p /home/phedex/FOO/{state,logs}
-  mkdir -p /home/phedex/certficates
+  mkdir -p /home/phedex/{state,logs}
+  mkdir -p /home/phedex/gridcert
   mkdir -p /home/phedex/tools/perl
 
-  chmod 700 /home/phedex/certificates
+  chmod 700 /home/phedex/gridcert
 
 *** PhEDEx
 
@@ -95,6 +96,8 @@ your site is "FOO_Transfer" (and possibly "FOO_MSS").
 
 Install POOL somewhere on your system, e.g. in /home/phedex/tools/POOL.
 You need version 1.6.2 or later.  We recommend installing with xcmsi.
+(NB: POOL 1.8.x versions have serious bugs in the file catalogue
+python implementation; we recommend using version 1.6.4 for now.)
 
 *** ORACLE client libraries
 
@@ -170,6 +173,9 @@ above tools:
   LD_LIBRARY_PATH
   PERL5LIB
   MYPROXY_SERVER
+  X509_USER_CERT
+  X509_USER_KEY
+  X509_USER_PROXY
 
 
 **********************************************************************
@@ -184,7 +190,8 @@ ORACLE, not EDG RLS or XML catalogue.
 
 The file catalogue does not need to be accessible from outside your
 site.  Only programs from within your own site will ever access the
-catalogue.
+catalogue.  Do note that PhEDEx may under certain circumstances hit
+your file catalogue *very hard*.
 
 You need to create a database and at least one database account for
 the catalogue.  To set up a MySQL catalogue on host "cathost":
@@ -203,17 +210,18 @@ proxy certificate.
 If there will be only one person administering the agents at your
 site, it's simplest to use your personal certificate.  We recommend
 following these conventions (X509_USER_PROXY is /home/phedex/
-certificates/proxy.cert):
+gridcert/proxy.cert):
 
-  1) Once a week, load a proxy certificate to myproxy service
+  1) Once a month, load a proxy certificate to myproxy service
         grid-proxy-init
-	myproxy-init
+	myproxy-init -c 720
 
   2) Extract the proxy into the certificate directory
 	cp /tmp/x509up_u$(id -u) $X509_USER_PROXY
 
   3) Make sure the $X509_USER_PROXY is set in the environment
-     when you start transfer agents.
+     when you start transfer agents.  Make sure $X509_USER_KEY
+     and $X509_USER_CERT are *not* set.
 
   4) Periodically (e.g. every four hours in cron job) update the proxy:
         myproxy-get-delegation -a $X509_USER_PROXY -o $X509_USER_PROXY
@@ -222,34 +230,36 @@ For using a service certificate the instructions are similar, but
 slightly more complicated because the certificates must be properly
 protected.  First of all, you need to obtain a service certificate,
 e.g. for "phedex/agenthost.your.site.edu".   Then obtain a unix
-group, and make all service administrators members of this group.
-Make /home/phedex/certificates owned by this group, and make the
-directory group-writeable.  Copy the "hostcert.pem" and "hostkey.pem"
-certificate files into this directory.
+group with all service administrators as members.  Change directory
+/home/phedex/gridcert to this group and make it group-writeable.
+Copy the service "hostcert.pem" and "hostkey.pem" certificate files
+into this directory.
 
 Then the administrator starting the service should:
 
   1) Once a week, load a proxy certificate to myproxy service
         grid-proxy-init
-	myproxy-init -l phedex -R "phedex/agenthost.your.site.edu"
+	myproxy-init -l phedex -R "phedex/agenthost.your.site.edu" -c 720
 
   2) As yourself, extract the proxy into the certificate directory
-	cp /tmp/x509up_u$(id -u) $X509_USER_PROXY.$(id -u)
-	chmod g+r $X509_USER_PROXY.$(id -u)
+	cp /tmp/x509up_u$(id -u) /home/phedex/gridcert/proxy.cert.$(id -u)
+	chmod g+r /home/phedex/gridcert/proxy.cert.$(id -u)
 
 The "phedex" admin account should:
 
-  3) As the "phedex" admin account, copy the certificate
-       cp $X509_USER_PROXY.* $X509_USER_PROXY
-       rm $X509_USER_PROXY.*
+  3) Copy the certificate
+       cp /home/phedex/gridcert/proxy.cert.* /home/phedex/gridcert/proxy.cert
+       rm /home/phedex/gridcert/proxy.cert.*
 
-  4) Make sure $X509_USER_CERT and _KEY are set to /home/phedex/
-     certificates/hostcert.pem and hostkey.pem, respectively.
-     Make sure $X509_USER_PROXY is set to /home/phedex/certificates/
-     proxy.cert.  These must be set before starting transfer agents.
+  4) For transfers agents make sure $X509_USER_CERT and $X509_USER_KEY
+     are *not* set, and $X509_USER_PROXY is set to /home/phedex/gridcert
+     /proxy.cert.
 
-  6) Periodically (e.g. every four hours in cron job) update the proxy:
+  5) Periodically, say hourly, refresh the proxy; this time make sure
+     $X509_USER_CERT and $X509_USER_KEY are set to the host certificate:
        myproxy-get-delegation -l phedex -a $X509_USER_PROXY -o $X509_USER_PROXY
+
+     See ProxyRenew and AFSCrontab in Custom/CERN for details.
 
 **********************************************************************
 ** Configuration
@@ -283,11 +293,11 @@ for suggestions giving as many details as you can:
 *** Setting up agent master scripts
 
 You should create a directory "Custom/FOO" for your site "FOO"
-in the "PHEDEX" checkout area.  You can use the environment
-setup and agent control scripts from CERN or other sites as
-an example.  Typically you'll create Environ.sh, Start.sh
-and Stop.sh.  Into the first file you put everything that
-you need to prepare for running the agents at your site.
+in the "PHEDEX" checkout area.  Then create site configuration
+file; you can use Custom/CERN/Config as a guide.  Typically you
+will have an environment section followed by agent sections.
+The environment section applies to all agents and should include
+everything that it takes for them to run at your site.
 
 To import data, you must run at least the following agents:
   1) FileDownload
@@ -302,40 +312,36 @@ backend, ...), or you'll have to write your own.  Depending
 on your setup you may also want to run a cleaner agent (see
 FileDiskCleaner).
 
-To export data you must run in addition some set of export
-agents.  If you are exporting files from disk, you may get
-away with just running FileDiskExport.  If you are exporting
-directly from Castor, you may be able to reuse FileMSSPublish,
-FileCastorExport, FileCastorStager.  If you have separate
-import/export buffer, you will most likely have to come up
-with something a little more sophisticated.
-
-Soon with V2.1 for data export you will also need to run an
-agent to generate transfer names (TURLs) for files.  If you
-have a single local catalogue for all files, you can simply
-run FilePFNExport with suitable site script argument.
+To export data from your site for others to download, you
+need a separate set of agents.  This is described in more
+detail in README-Export.txt.
 
 *** Writing site glue scripts
 
-You will need glue scripts for linking the agents and your
-site.  At present for imports you need to write a script to
-generate file names for downloaded files.  See FileDownloadDest
-scripts in various Custom/* directories.
+You also need site-specific scripts to communicate between
+your site (e.g. your file catalogue) and the agents.  You
+can use the scripts from Custom/CERN as examples.  There
+are more details about these in README-Transfer.txt.
+  1) FileDownload wants the following:
+     1.1) FileDownloadDest for download destination PFN.
+     1.2) FileDownloadVerify to validate downloaded file.
+     1.3) FileDownloadDelete to clean up failed downloads.
+     1.4) FileDownloadPublish to import downloaded files
+          to your site-local catalogue.
 
-Soon with V2.1 you will also need to provide scripts to
-wrap access to your site catalogue.  The idea is that your
-catalogue should store file names as they will be accessed
-by the analysis jobs.  You then write a couple of scripts
-to generate a transfer name (usually sticking "gridftp://
-somehost.your.site.edu/" prefix to the PFN), and the other
-way around to import catalogue data for a file after import.
-See README-Transfer.txt and Custom/* scripts for further
-details.
+  2) Various agents will want to invoke a script to look up
+     files either by GUID or PFN.  Use Custom/CERN/PFNLookup
+     as an example.
+
+  3) You'll probably want to archive all your logs to a
+     safe place.  See AFSCrontab and LogArchive in
+     Custom/CERN.
 
 **********************************************************************
 ** Support
 
 If you have any questions or comments, please contact the developers
-at <cms-phedex-developers@cern.ch>.  You are welcome to file bug reports
-and support requests at our Savannah site at
+at <cms-phedex-developers@cern.ch> and/or check out the documentation
+at http://cern.ch/cms-project-phedex.  You are welcome to file bug
+reports and support requests at our Savannah site at
   http://savannah.cern.ch/projects/phedex
