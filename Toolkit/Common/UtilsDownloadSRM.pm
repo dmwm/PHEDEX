@@ -40,18 +40,15 @@ sub transferBatch
 	    do { $file->{DONE_TRANSFER} = 1; next } if $file->{FAILURE};
 
 	    # Put this file into a transfer batch
-	    my $from_pfn = $file->{FROM_PFN}; $from_pfn =~ s/^[a-z]+:/srm:/;
-	    $from_pfn =~ s|srm://castorgrid.cern.ch|srm://www.cern.ch:80|; # FIXME: FNAL?
-	    my $to_pfn = $file->{TO_PFN}; $to_pfn =~ s/^[a-z]+:/srm:/;
-	    push (@copyjob, { FILE => $file, FROM => $from_pfn, TO => $to_pfn });
+	    push (@copyjob, $file);
         }
 
 	# Initiate transfer
         if (scalar @copyjob)
         {
-	    my $batchid = $copyjob[0]{FILE}{BATCHID};
+	    my $batchid = $copyjob[0]{BATCHID};
 	    my $specfile = "$master->{DROPDIR}/copyjob.$batchid";
-	    if (! &output ($specfile, join ("", map { "$_->{FROM} $_->{TO}\n" } @copyjob)))
+	    if (! &output ($specfile, join ("", map { "$_->{FROM_PFN} $_->{TO_PFN}\n" } @copyjob)))
 	    {
 	        &alert ("failed to create copyjob for batch $batchid");
 	        $master->addJob (sub { $self->transferBatch ($master, $batch) },
@@ -61,7 +58,7 @@ sub transferBatch
 	    {
 	        $master->addJob (
 		    sub { $self->transferBatch ($master, $batch, @_) },
-		    { FOR_FILES => [ map { $_->{FILE} } @copyjob ],
+		    { FOR_FILES => [ @copyjob ],
 		      TIMEOUT => $self->{TIMEOUT}, TEMPFILE => $specfile },
 		    @{$self->{COMMAND}}, "-copyjobfile=$specfile");
 	    }

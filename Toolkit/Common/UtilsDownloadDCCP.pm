@@ -12,15 +12,15 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (COMMAND => [ 'dccp' ]); # Transfer command
     my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
 
-    # DCCP only supports one file per transfer. Hence set it to one if multiple files are requested.
-    if ($args{BATCH_FILES} && $args{BATCH_FILES} > 1)
+    # Only file per transfer supported.
+    if ($self->{BATCH_FILES} > 1)
     {
-	print "dccp doesn't support batch files. Hence set to one file per job.\n";
-	$args{BATCH_FILES} = 1;
+	&logmsg ("transfer batching not supported, forcing batch mode off");
+	$self->{BATCH_FILES} = 1;
     }
 
-    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
 }
@@ -50,18 +50,15 @@ sub transferBatch
         {
 	    do { $file->{DONE_TRANSFER} = 1; next } if $file->{FAILURE};
 
-
 	    # Put this file into a transfer group.  If the files have the
 	    # same file name component at the source and destination, we
 	    # can group several transfers together by destination dir.
 	    # Otherwise we have to make individual transfers.
+	    # (Remove protocol, host part and collapse double slashes.)
 	    my ($from_pfn, $to_pfn) = ($file->{FROM_PFN}, $file->{TO_PFN});
-	    #CJR let's get rid of the protocol
 	    $from_pfn =~ s/^[a-z]+://; $to_pfn =~ s/^[a-z]+://;
-	    #CJR now we strip any machine part of the contact
-	    $from_pfn =~ s/^\/\/.+\/\//\//; $to_pfn =~ s/^\/\/.+\/\//\//;
-	    #CJR let's make sure, that we don't introduce // in the local paths
-	    $from_pfn =~ s/\/\//\//; $to_pfn =~ s/\/\//\//;
+	    $from_pfn =~ s|^//[^/]+//|/|; $to_pfn =~ s|^//[^/]+//|/|;
+	    $from_pfn =~ s|//|/|g; $to_pfn =~ s|//|/|g;
 	    my ($from_dir, $from_file) = ($from_pfn =~ m|(.*)/([^/]+)$|);
 	    my ($to_dir, $to_file) = ($to_pfn =~ m|(.*)/([^/]+)$|);
 

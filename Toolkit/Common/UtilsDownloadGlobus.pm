@@ -59,7 +59,6 @@ sub transferBatch
 	    # can group several transfers together by destination dir.
 	    # Otherwise we have to make individual transfers.
 	    my ($from_pfn, $to_pfn) = ($file->{FROM_PFN}, $file->{TO_PFN});
-	    $from_pfn =~ s/^[a-z]+:/gsiftp:/; $to_pfn =~ s/^[a-z]+:/gsiftp:/;
 	    my ($from_dir, $from_file) = ($from_pfn =~ m|(.*)/([^/]+)$|);
 	    my ($to_dir, $to_file) = ($to_pfn =~ m|(.*)/([^/]+)$|);
 

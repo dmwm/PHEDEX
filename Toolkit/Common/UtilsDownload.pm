@@ -13,7 +13,8 @@ sub new
 	BATCH_SIZE	=> $args{BATCH_SIZE} || undef,
 	DELETE_COMMAND	=> $args{DELETE_COMMAND} || undef,
 	VALIDATE_COMMAND=> $args{VALIDATE_COMMAND} || undef,
-	PFNSCRIPT	=> $args{PFNSCRIPT},
+	PFN_GEN_COMMAND	=> $args{PFN_GEN_COMMAND},
+	PUBLISH_COMMAND	=> $args{PUBLISH_COMMAND},
 	TIMEOUT		=> $args{TIMEOUT},
 	BATCHID		=> 0
     };
@@ -38,7 +39,7 @@ sub consumeFiles
 	my $file = $master->startFileTransfer ($dbh, shift (@files));
 	last if ! $file;
 
-	$size += $file ->{FILESIZE};
+	$size += $file->{FILESIZE};
 	$file->{BATCHID} = $self->{BATCHID};
 	push(@$batch, $file);
     }
@@ -49,7 +50,7 @@ sub consumeFiles
 	$self->{BATCHID}++;
 
         # Start moving this batch if it's not empty
-        $self->getSourcePaths ($master, $batch);
+        $self->getDestinationPaths ($master, $batch);
 
 	return 1;
     }
@@ -57,69 +58,6 @@ sub consumeFiles
     {
 	return 0;
     }
-}
-
-# Get source PFNs and LFNs for all files.
-sub getSourcePaths
-{
-    my ($self, $master, $batch, $job) = @_;
-    if ($job)
-    {
-	# Reap finished jobs.
-	my $file = $job->{FOR_FILE};
-	my $var = $job->{OUTPUT_VARIABLE};
-	my $output = &input ($job->{OUTPUT_FILE});
-	unlink ($job->{OUTPUT_FILE});
-	chomp ($output) if defined $output;
-
-	$file->{"DONE_$var"} = 1;
-	if ($job->{STATUS})
-	{
-	    # Command failed, record failure
-	    $file->{FAILURE} = "exit code $job->{STATUS} from @{$job->{CMD}}";
-	}
-	elsif (! defined $output || $output eq '')
-	{
-	    # Command succeded but didn't produce any output
-	    $file->{FAILURE} = "no output from @{$job->{CMD}}";
-	}
-	else
-	{
-	    # Success, collect output file and record it into the $file
-	    $file->{$var} = $output;
-	}
-    }
-    else
-    {
-	# First time around, start jobs
-	foreach my $file (@$batch)
-	{
-	    do { $file->{DONE_FROM_PFN} = $file->{DONE_FROM_LFN} = 1; next }
-	        if $file->{FAILURE};
-
-	    my $pfnoutput = "$master->{DROPDIR}/$file->{GUID}.frompfn";
-	    $master->addJob (
-		sub { $self->getSourcePaths ($master, $batch, @_) },
-		{ OUTPUT_FILE => $pfnoutput, OUTPUT_VARIABLE => "FROM_PFN",
-		  FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
-		"sh", "-c", "POOL_OUTMSG_LEVEL=100 FClistPFN"
-		. " -u '$file->{FROM_CATALOGUE}' -q \"guid='$file->{GUID}'\""
-		. " | grep '$file->{FROM_HOST}' > $pfnoutput");
-
-	    my $lfnoutput = "$master->{DROPDIR}/$file->{GUID}.fromlfn";
-	    $master->addJob (
-		sub { $self->getSourcePaths ($master, $batch, @_) },
-		{ OUTPUT_FILE => $lfnoutput, OUTPUT_VARIABLE => "FROM_LFN",
-		  FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
-		"sh", "-c", "POOL_OUTMSG_LEVEL=100 FClistLFN"
-		. " -u '$file->{FROM_CATALOGUE}' -q \"guid='$file->{GUID}'\""
-		. " > $lfnoutput");
-    	}
-    }
-
-    # Move to next stage when we have nothing more to do.
-    $self->getDestinationPaths ($master, $batch)
-        if ! grep (! $_->{DONE_FROM_PFN} || ! $_->{DONE_FROM_LFN}, @$batch);
 }
 
 # Get destination PFNs for all files.
@@ -157,20 +95,21 @@ sub getDestinationPaths
 	# First time around, start jobs for all files
 	foreach my $file (@$batch)
 	{
-	    do { $file->{DONE_TO_LFN} = 1; next } if $file->{FAILURE};
+	    do { $file->{DONE_TO_PFN} = 1; next } if $file->{FAILURE};
 
 	    my $output = "$master->{DROPDIR}/$file->{GUID}.topfn";
 	    my $args = join(" ",
 		    	    "guid='$file->{GUID}'",
 			    "pfn='$file->{FROM_PFN}'",
-		    	    "lfn='$file->{FROM_LFN}'",
+			    "pfntype='$file->{PFNTYPE}'",
+		    	    "lfn='$file->{LFN}'",
 			    map { "'$_=@{[$file->{ATTRS}{$_} || '']}'" }
 			    sort keys %{$file->{ATTRS}});
 	    $master->addJob (
 		sub { $self->getDestinationPaths ($master, $batch, @_) },
 		{ OUTPUT_FILE => $output, OUTPUT_VARIABLE => "TO_PFN",
 		  FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
-		"sh", "-c", "$self->{PFNSCRIPT} $args > $output");
+		"sh", "-c", "$self->{PFN_GEN_COMMAND} $args > $output");
 	}
     }
 
@@ -300,36 +239,22 @@ sub updateCatalogue
 	    do { $file->{DONE_CATALOGUE} = 1; next } if $file->{FAILURE};
 	    next if exists $file->{DONE_CATALOGUE};
 
-	    if ($file->{FROM_CATALOGUE} ne $file->{TO_CATALOGUE})
-	    {
-		my $tmpcat = "$master->{DROPDIR}/$file->{GUID}.xml";
-		my $xmlfrag = &genXMLCatalogue ({ GUID => $file->{GUID},
-						  PFNS => [ $file->{TO_PFN} ],
-						  LFNS => [ $file->{FROM_LFN} ],
-						  META => $file->{ATTRS} });
+	    my $tmpcat = "$master->{DROPDIR}/$file->{GUID}.xml";
+	    my $xmlfrag = &genXMLCatalogue ({ GUID => $file->{GUID},
+					      PFNS => [ { TYPE => $file->{PFNTYPE}, PFN => $file->{TO_PFN} } ],
+					      LFNS => [ $file->{LFN} ],
+					      META => $file->{ATTRS} });
 
-		do { &alert ("failed to generate $tmpcat"); next }
-		    if ! &output ($tmpcat, $xmlfrag);
+	    do { &alert ("failed to generate $tmpcat"); next }
+		if ! &output ($tmpcat, $xmlfrag);
 
-		# Schedule catalogue copy
-		$file->{DONE_CATALOGUE} = undef;
-	        $master->addJob (
-		    sub { $self->updateCatalogue ($master, $batch, @_) },
-		    { FOR_FILE => $file, EXTRA_FILE => $tmpcat,
-		      TIMEOUT => $self->{TIMEOUT} },
-		    "FCpublish", "-d", $file->{TO_CATALOGUE},
-		    "-u", "file:$tmpcat");
-	    }
-	    else
-	    {
-		# Schedule replica addition
-		$file->{DONE_CATALOGUE} = undef;
-	        $master->addJob (
-		    sub { $self->updateCatalogue ($master, $batch, @_) },
-		    { FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
-		    "FCaddReplica", "-u", $file->{TO_CATALOGUE},
-		    "-g", $file->{GUID}, "-r", $file->{TO_PFN});
-	    }
+	    # Schedule catalogue copy
+	    $file->{DONE_CATALOGUE} = undef;
+	    $master->addJob (
+		sub { $self->updateCatalogue ($master, $batch, @_) },
+		{ FOR_FILE => $file, EXTRA_FILE => $tmpcat,
+		  TIMEOUT => $self->{TIMEOUT} },
+		@{$self->{PUBLISH_COMMAND}}, $file->{GUID}, $file->{TO_PFN}, $tmpcat);
 	}
     }
 
