@@ -142,13 +142,11 @@ sub add_node {
     log_entry( "Name: $node_name" );
     log_entry( "Disk/tape host: $node_host_string" );
     log_entry( "Catalogue URI: $node_cat_uri" );
-    log_entry( "Neighbours: @node_neighbours" );
     
     push( @sql, "insert into t_nodes values ('$node_name','$node_host_string','$node_cat_uri')" );
     
     do_sql( \@sql );
     
-    new_neighbours();
 }
 
 sub add_agent {
