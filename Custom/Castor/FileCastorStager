@@ -104,7 +104,8 @@ sub new
     	    	  MAXSTAGEREQS => 200,		# Max pending stager requests
     	    	  MAXFILES => 50,		# Max number of files in one request
 		  PFN_CACHE => {},		# GUID -> PFN cache
-		  GUID_CACHE => {});		# PFN -> GUID cache
+		  GUID_CACHE => {},		# PFN -> GUID cache
+		  NSLS_CACHE => {});		# Cache for nsls (file pool) lookups
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -130,6 +131,31 @@ sub fileProperties
 	    chomp;
 	    my ($tape, $pos, $size, $file) = (split (/\s+/, $_))[3,4,6,8];
 	    $cache->{"$dir/$file"} = [ $tape, $pos, $size ];
+	}
+	close (NSLS);
+    }
+
+    return (1, @{$cache->{$pfn} || []});
+}
+
+# Like fileProperties(), but invoked when we think the file doesn't
+# exist.  Does a slightly more expensive check to look for zero-size
+# files: they are not migrated to tape, so they don't have a tape.
+sub filePropertiesForMissing
+{
+    my ($pfn, $cache) = @_;
+    if (! exists $cache->{$pfn})
+    {
+	# Like above, but without "-T" option.  This does list zero
+	# size files, but they obviously have no tape or position.
+	my $dir = $pfn; $dir =~ s|/[^/]+$||;
+	open (NSLS, "nsls -l $dir |") || return (0, undef, undef, undef);
+	while (<NSLS>)
+	{
+	    chomp;
+	    my ($size, $file) = (split(/s\+/, $_))[4,8];
+	    $cache->{"$dir/$file"} = [ undef, undef, $size ]
+	        if ! exists $cache->{"$dir/$file"};
 	}
 	close (NSLS);
     }
@@ -320,7 +346,14 @@ sub buildStatus
     my ($self, $stager, $pending) = @_;
     return undef if ! $stager || ! $pending;
 
-    my $cache = {};
+    my $nsls = $self->{NSLS_CACHE};
+    if (($nsls->{VALIDITY} || 0) < time())
+    {
+	$nsls->{VALIDITY} = time() + 4 * 3600;
+	$nsls->{FILES} = {};
+    }
+
+    my $cache = $nsls->{FILES};
     my $files = {};
     foreach my $file (@$stager)
     {
@@ -338,8 +371,14 @@ sub buildStatus
 	{
 	    my ($success, $tape, $pos, $size) = &fileProperties ($pfn, $cache);
 	    do { $files->{$pfn}{STATUS} = "RETRY"; next } if ! $success;
-	    do { &alert ("non-existent file $pfn"); $files->{$pfn}{STATUS} = "RETRY"; next }
-	        if (! defined $tape || ! defined $pos || ! defined $size);
+	    if (! defined $tape || ! defined $pos || ! defined $size)
+	    {
+	        ($success, $tape, $pos, $size) = &filePropertiesForMissing ($pfn, $cache);
+		do { $files->{$pfn}{STATUS} = "STAGED"; next }
+		    if (defined $size && $size == 0);
+	        do { &alert ("non-existent file $pfn"); $files->{$pfn}{STATUS} = "RETRY"; next }
+	            if (! defined $tape || ! defined $pos || ! defined $size);
+	    }
 	
 	    $files->{$pfn}{TAPE} = $tape;
 	    $files->{$pfn}{POS} = $pos;
