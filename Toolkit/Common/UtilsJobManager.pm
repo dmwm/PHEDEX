@@ -68,6 +68,16 @@ sub checkJobs
     my @pending = ();
     my @finished = ();
     my $now = 0;
+
+    if ( $ENV{'PHEDEX_PROCESS_LOG'} == 1 ) 
+    {
+	&logmsg( "Current job queue" );
+	foreach my $job (@{$self->{JOBS}})
+	{
+	    &logmsg( "[$job->{PID}] @{$job->{CMD}}" );
+	}
+    }
+
     foreach my $job (@{$self->{JOBS}})
     {
 	my $status;
