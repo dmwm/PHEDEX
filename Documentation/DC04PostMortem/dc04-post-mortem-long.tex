@@ -98,7 +98,14 @@ One might use the lifetime of files in the system as a useful metric for measuri
 \caption{File ``lifetime'' (defined as period between appearance and Castor migration) decreases linearly with appearance time. This metric is strongly dependent on the time at which the Castor stage migrator/cleaner agent was deployed.}
 \end{figure}
 
-It is more meaningful to ask how long it was before files were available for analysis at a T1: figures for this vary from distribution chain to distribution chain, with the LCG chain to CNAF taking between 10 minutes and a day and a half, and the LCG chain to PIC taking only 20 minutes consistently. More detailed analysis is included below.
+It is more meaningful to ask how long it was before files were available for analysis at a T1: figures for this vary from distribution chain to distribution chain, with the LCG chain to CNAF taking between 10 minutes and a day and a half, and the LCG chain to PIC taking only 20 minutes consistently (fig. \ref{fig:PIC-RTA}). More detailed information on real time analysis during DC04 is available ELSEWHERE (TODO: fix this).
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=10cm]{PIC-RTA.eps}
+\label{fig:PIC-RTA}
+\caption{During the last four days of DC04 PIC were able to implement a real% time analysis system based on CNAF's system. Turnaround time for analysis at  PIC was much shorter and more consistent than CNAF at a median of 20 minutes.}
+\end{figure} 
 
 Transfer rates varied greatly, and are treated in more detail below. Generally however, transfer rates at the start of DC04 were low- individual transfers reached maybe a MBps, with aggregate rates pushing 10MBps. These low transfer rates were due to the small size of files being pushed through the system- an example of poor initial coupling between the data source and the distribution system. Fortunately this poor coupling was improved to some extent by the implementation of a "merging" step (detailed below) which added files to one of a series of queues which expired and were written after either a certain aggregate size or time limit was reached. File sizes were typically ~500k median at the start of DC04.
 
