@@ -11,10 +11,14 @@
 
 <h2>PhEDEx V1</h2>
 
-<p>Currently transferring with V1: INFN, PIC, FNAL.</p>
+<p>Currently transferring with V1: INFN, PIC, FNAL.  FNAL is also ready
+to transfer to CERN with V1, but never got assignments.</p>
 
 <p>Issues:</p>
 <ul>
+ <li> All: Stage-ins are a major headache.  Will be solved by the
+      switch to V2 (FIXME: savannah tracking ticket).</li>
+
  <li> CNAF-INFN T1: Transferred all available hg03_H2mu_maX_tbY datasets;
       42 files are missing in a couple of pathological states (FIXME:
       savannah tracking ticket).</li>
@@ -28,15 +32,16 @@
 
  <li> PIC: No issues, but haven't transferred anything recently.</li>
 
- <li> All: Stage-ins are a major headache.  Will be solved by the
-      switch to V2 (FIXME: savannah tracking ticket).</li>
+ <li> FNAL: SRM at CERN and FNAL seem to work now after many problems.
+      Except for the stage-in issues mentioned above, which cause the
+      need to occasionally kill hanging SRM, there are no issues.</li>
 </ul>
 
 <p>Agents in use:</p>
 <ul>
  <li> CNAF-INFN T1: INFN C agent.</li>
  <li> PIC: PIC C agent.</li>
- <li> FNAL:</li>
+ <li> FNAL: SRM bash T1 agents.</li>
 </ul>
 
 <h2>PhDEx V2</h2>
@@ -55,7 +60,7 @@ node to CIEMAT Tier-2.</p>
  <li> ASCC: LCG-2 SE.  Castor MSS.  Toolkit.</li>
  <li> RAL: ADS.  Toolkit.</li>
  <li> IN2P3: </li>
- <li> FNAL: </li>
+ <li> FNAL: dCache write pool.  Enstore MSS.  SRM bash agents.</li>
 </ul>
 
 <p>Current status:</p>
@@ -90,7 +95,11 @@ node to CIEMAT Tier-2.</p>
       to implement when hardware comes.  Export expected mid/late
       Q4/2004.</li>
 
- <li> FNAL: No report yet.</li>
+ <li> FNAL: Completed script migration to V2, no new schema yet.
+      Test data not yet transferred.  Expecting couple of days
+      to adapt to new schema after the workshop.  No export yet,
+      but have experience from V1 export; a week should be enough
+      to adapt the tools after workshop.</li>
 
  <li> IN2P3: No report yet.</li>
 </body>
