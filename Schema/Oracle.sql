@@ -85,8 +85,8 @@ create table t_transfer_history
 	 to_node		varchar(20)	not null,
 	 old_state		integer		not null,
 	 new_state		integer		not null,
-	 delta_time		integer		not null,
-	 insert_time_stamp	integer		not null,
+	 delta			float		not null,
+	 time			integer		not null,
 	 foreign key		(guid) references t_files_for_transfer (guid),
 	 foreign key		(from_node) references t_nodes (node_name),
 	 foreign key		(to_node) references t_nodes (node_name));
