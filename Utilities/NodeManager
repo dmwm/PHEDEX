@@ -42,7 +42,7 @@ sub log_array_entries {
 # Eventually we might want to connect to MySQL etc as well,
 # so try to hide it ...
 sub connect_to_db {
-	my $dbh = DBI->connect(	"DBI:$dbname",
+	my $dbh = DBI->connect(	"DBI:Oracle:$dbname",
 							$user,
 							$password,
 							{RaiseError => 1, AutoCommit => 1})
@@ -92,8 +92,8 @@ sub create_new_neighbour_route {
 	my @sql;
 	
 	my $time = time();
-	push( @sql, "insert into t_routing values ('$node1','$node2','$node2',1,1)" );
-	push( @sql, "insert into t_routing values ('$node2','$node1','$node1',1,1)" );	
+	push( @sql, "insert into t_routing values ($time, '$node1','$node2','$node2',1)" );
+	push( @sql, "insert into t_routing values ($time, '$node2','$node1','$node1',1)" );	
 	
 	return @sql;
 }
@@ -132,36 +132,17 @@ sub new_neighbours {
 sub add_node {
     my @sql = ();
     
-    if ( 	$node_name eq '' ||
-		$node_host_string eq '' ||
-		$node_cat_uri eq '' ) {
+    if ( 	$node_name eq '' ) {
 	display_usage();
     }
     
     log_entry( "Adding new node" );
     log_entry( "Name: $node_name" );
-    log_entry( "Disk/tape host: $node_host_string" );
-    log_entry( "Catalogue URI: $node_cat_uri" );
     
-    push( @sql, "insert into t_nodes values ('$node_name','$node_host_string','$node_cat_uri')" );
+    push( @sql, "insert into t_node (name) values ('$node_name')" );
     
     do_sql( \@sql );
     
-}
-
-sub add_agent {
-	my @sql = ();
-	
-	if ( 	$node_name eq '' ) {
-		display_usage();
-	}	
-	
-	log_entry( "Registering new agent name" );
-	log_entry( "Name: $node_name" );
-	
-	push( @sql, "insert into t_agents values ('$node_name')" );
-	
-	do_sql( \@sql );
 }
 
 sub remove_link {
@@ -193,31 +174,26 @@ sub remove_node {
 	log_entry( "Removing node" );
 	log_entry( "Name: $node_name" );
 	
-	# Removing nodes is somewhat tricky, as we need to fix the routing
-	# afterwards. Best done by removing all references to the node in
-	# the routing table, then warning that you may want to create links
-	# between the old node's neighbours ...	
-	# Note it also requires that there are no refrences to that node,
-	# so if there are still entries in t_file_state relating to it then
-	# they need to be dealt with (FIXME: remove-replicas)?
-	log_entry( "WARNING: currently not handling replica entries at $node_name. Read routinf.tex for strategies- you may for example want to redirect all existing transfers advertised for $node_name by hand. Parts of this transaction will fail if there are any references to the node in t_file_state" );
-	
-	# Remove routes
-	push( @sql, "delete from t_routing where from_node = '$node_name'" );
-	push( @sql, "delete from t_routing where to_node = '$node_name'" );
-	push( @sql, "delete from t_routing where gateway = '$node_name'" );
-	log_entry( "WARNING: removing route entries explicitly using $node_name. You may want to rebuild some routes afterwards (i.e to form links between A and C if original route is A-B-C and you remove B)." );
-	
-	# Remove subscriptions
-	push( @sql, "delete from t_subscriptions where destination = '$node_name'" );
-	
-	# FIXME: Remove agents- first get list of agent names that are only used by
-	# the old node, then delete them
-	log_entry( "WARNING: currently not removing agents associated with node $node_name." );
-	
-	push( @sql, "delete from t_nodes where node_name = '$node_name'" );
-	
-	do_sql( \@sql );
+	# Disable this until further notice.  Removing a node requires
+	# major surgery on the data, so it's not safe to do with just
+	# a simple script.  The following data would need to be removed:
+	#  - t_agent_message, t_agent_status .node = node
+	#  - t_block_replica .node = node
+	#  - t_subscription .destination = node
+	#  - t_destination .node = node
+	#  - t_replica_state, t_file .node = node
+	#  - t_transfer_state .to_node/.from_node = node
+	#  - t_routing .from_node/.to_node/.gateway = node
+	#  - t_node_import, t_node_export .node = node
+	# plus also:
+	#  - t_transfer_history .to_node/.from_node = node
+	#  - t_transfer_summary .to_node/.from_node = node
+	#  - t_info_transfer_rate .from_node/.to_node = node
+	#  - t_info_replication_details .from_node/.to_node = node
+	#  - t_info_transfer_status .node = node
+
+	print STDERR "Sorry, too scared to remove node $node_name\n";
+	exit (1);
 }
 
 sub act_on_state {
@@ -258,8 +234,8 @@ sub parse_command_line () {
 				'host=s' => \$node_host_string,
 				'cat=s' => \$node_cat_uri,
 				'neighbours=s' => \@node_neighbours,
-				'user=s' => \$user,
-				'password=s' => \$password,
+				'dbuser=s' => \$user,
+				'dbpass=s' => \$password,
 				'db=s' => \$dbname,
 				);
 				
