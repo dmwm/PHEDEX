@@ -120,7 +120,7 @@ sub reapPFNs
 	    ":mynode" => $self->{MYNODE},
 	    ":tonode" => $to);
         $dbh->commit();
-	&logmsg ("xstats: $guid $self->{MYNODE} "
+	&logmsg ("xstats: $guid $self->{MYNODE} $to "
 		 . sprintf('%.2f', &mytimeofday() - $start)
 		 . " $pfn");
     }
