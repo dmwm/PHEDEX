@@ -77,6 +77,7 @@ $agent->process ();
 ######################################################################
 # Routines for this agent.
 package FileCastorStager; use strict; use warnings; use base 'UtilsAgent';
+use DB_File;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
@@ -336,6 +337,21 @@ sub buildStatus
 sub idle
 {
     my ($self, @pending) = @_;
+
+    # If we haven't yet created a ties for the caches, do so now.
+    # Otherwise the caches just grow too large.
+    if (! tied %{$self->{GUID_CACHE}})
+    {
+	my @parms = (O_RDWR|O_CREAT, 0666, $DB_BTREE);
+	my $guids = "$self->{WORKDIR}/guid-cache";
+	my $pfns  = "$self->{WORKDIR}/pfn-cache";
+	tie (%{$self->{GUID_CACHE}}, 'DB_File', $guids, @parms)
+	    or die "failed to create guid-cache: $!\n";
+
+	tie (%{$self->{PFN_CACHE}}, 'DB_File', $pfns, @parms)
+	    or die "failed to create guid-cache: $!\n";
+    }
+
     my $dbh = undef;
     eval
     {
