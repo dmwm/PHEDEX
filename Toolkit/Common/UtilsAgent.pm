@@ -113,14 +113,17 @@ sub stopWorkers
 
     # Make workers quit
     my @workers = @{$self->{WORKERS}};
+    my @stopflags = map { "$self->{DROPDIR}/worker-$_/stop" }
+    			0 .. ($self->{NWORKERS}-1);
     &note ("stopping worker threads");
-    &touch (map { "$self->{DROPDIR}/worker-$_/stop" } 0 .. $#workers);
+    &touch (@stopflags);
     while (scalar @workers)
     {
 	my $pid = waitpid (-1, 0);
 	@workers = grep ($pid ne $_, @workers);
 	&logmsg ("child process $pid exited, @{[scalar @workers]} workers remain") if $pid > 0;
     }
+    unlink (@stopflags);
 }
 
 # Pick least-loaded worker
