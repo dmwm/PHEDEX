@@ -87,11 +87,9 @@ sub idle
     my $dbh = undef;
     eval
     {
-	my $now = time();
 	my $mynode = $self->{MYNODE};
 	my $mssnode = $self->{MSSNODE};
-	$dbh = &connectToDatabase ($self);
-	die "failed to connect" if ! $dbh;
+	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
         # FIXME: Pick up and process messages to me
 
@@ -104,22 +102,30 @@ sub idle
 	# node -- they all go from the transfer node, which must
 	# always be closer to any destination that us and already
 	# has all the files we have.
-	my $rows = $dbh->do(qq{
-			insert into t_replica_state (
-			  select guid, '$mynode', $now, 0, $now, 0, $now
-			  from t_transfer_state
-			  where from_node = '$mssnode'
-			    and to_node = '$mynode'
-			    and to_state = 0)});
-    	$dbh->do(qq{
-		update t_transfer_state
-		set to_state = 3, to_time_stamp = $now
-		where from_node = '$mssnode'
-		  and to_node = '$mynode'
-	  	  and to_state = 0});
+	my %args = (":node" => $self->{MYNODE},
+		    ":mss" => $self->{MSSNODE},
+		    ":now" => time());
+	my ($stmt, $rows) = &dbexec($dbh, qq{
+	    insert into t_replica_state
+	       (guid, node, state, local_state,
+	        insert_time_stamp, time_stamp, local_time_stamp)
+	       (select guid, :node, 0, 0, :now, :now, :now
+	        from t_transfer_state
+	        where from_node = :mss
+		  and to_node = :node
+		  and to_state = 0)},
+  	    %args);
+  	my ($stmt2, $rows2) = &dbexec($dbh, qq{
+	    update t_transfer_state
+	    set to_state = 3, to_time_stamp = :now
+	    where from_node = :mss
+	      and to_node = :node
+	      and to_state = 0},
+	    %args);
   	$dbh->commit();
 
-	&logmsg("$rows files uploaded from $mssnode to $mynode") if $rows > 0;
+	&logmsg("$rows files uploaded from $mssnode to $mynode ($rows2 updates)")
+	    if ($rows || $rows2);
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
