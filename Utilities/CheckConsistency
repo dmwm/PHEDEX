@@ -76,72 +76,28 @@ sub fetchGuids
     return 1;
 }
 
-# Pick up result from running FClistGuidPFN: parse the output and
-# get the information about PFNs for GUIDs known to the catalogue.
-sub collectPFNs
-{
-    my ($args, $files, $mgr, $job) = @_;
-
-    if ($job->{STATUS})
-    {
-	unlink $job->{OUTPUT_FILE};
-	print "<R $job->{OUTPUT_FILE}>";
-	$mgr->addJob (sub { &collectPFNs($args, $files, $mgr, @_) },
-	    { OUTPUT_FILE => $job->{OUTPUT_FILE} }, @{$job->{CMD}});
-        return;
-    }
-
-    open (PFNS, "< $job->{OUTPUT_FILE}")
-	or die "failed to open output $job->{OUTPUT_FILE}: $!";
-
-    while (<PFNS>)
-    {
-	next if !/^([-0-9A-Z]+)\s+(.+)$/;
-	my ($guid, $pfn) = ($1, $2);
-	$files->{$guid}{PFN} = $pfn if $pfn =~ /$args->{HOST_KEY}/;
-    }
-    close (PFNS) or die "failed to read output $job->{OUTPUT_FILE}: $!";
-    unlink $job->{OUTPUT_FILE};
-    print ".";
-}
-
 # Map GUIDs to PFNs using catalogue, running a number of queries
 # in parallel.  Adds "PFN" entry to each file in $files.
 sub fetchPFNs
 {
     my ($args, $files) = @_;
-    use POSIX;
-    use UtilsJobManager;
     local $| = 1;
 
     # Create jobs to resolve guids to pfns
     print "fetching pfns: ";
-    my $mgr = new UtilsJobManager(%$args);
     my @hex = qw(0 1 2 3 4 5 6 7 8 9 A B C D E F);
-    foreach my $x (@hex)
+    my @hex2 = map { my $x = $_; map { "$x$_" } @hex } @hex;
+    my @hex3 = map { my $x = $_; map { "$x$_%" } @hex } @hex2;
+    open (CAT, "$home/../../Utilities/PFClistGuidPFN"
+	  . " -u '$args->{CATALOGUE}' -j '$args->{NJOBS}' -g -m @hex3 |")
+       or die "cannot run PFClistGuidPFN: $!\n";
+    my $nguids = 0;
+    while (<CAT>)
     {
-	foreach my $y (@hex)
-	{
-	    foreach my $z (@hex)
-	    {
-		my $output = "pfns.$x$y$z";
-		$mgr->addJob (sub { &collectPFNs($args, $files, $mgr, @_) },
-		    { OUTPUT_FILE => $output },
-		    "sh", "-c",
-		    "POOL_OUTMSG_LEVEL=100 $home/../../Utilities/FClistGuidPFN"
-		    . " -u '$args->{CATALOGUE}' -g -m '$x$y$z%' > $output");
-	    }
-	    $mgr->pumpJobs();
-	}
+	my ($guid, $pfn) = /^([-0-9A-F]+)\s+(.*)/;
+	$files->{$guid}{PFN} = $pfn if $pfn =~ /$args->{HOST_KEY}/;
+	print "." if ++$nguids % 1000 == 0;
     }
-	
-    # Now wait all results are collected
-    while (@{$mgr->{JOBS}})
-    {
-	$mgr->pumpJobs();
-	select (undef, undef, undef, .1);
-    }
-
-    print " done\n";
+    close (CAT) or die "PFClistGuidPFN: $!\n";
     return 1;
 }
