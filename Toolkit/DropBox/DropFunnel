@@ -531,14 +531,20 @@ sub processDrop
     delete $self->{BAD}{$drop};
     &timeStart($self->{STARTTIME});
 
-    # Get queue configuration
-    my $queues = $self->{QUEUES} = {};
-    foreach my $q ($self->currentQueues())
+    # Get queue configuration.  If we have memorised the status, use
+    # what we have in memory to speed up backlog processing (see save
+    # logic below to see when we remove the cache).
+    my $queues = $self->{QUEUES};
+    if (! defined $queues)
     {
-	my $status = $self->readQueueStatus ($q);
-	return if ! $status;
+         $queues = $self->{QUEUES} = {};
+         foreach my $q ($self->currentQueues())
+         {
+	     my $status = $self->readQueueStatus ($q);
+	     return if ! $status;
 
-	$queues->{$q} = $status;
+	     $queues->{$q} = $status;
+         }
     }
 
     # Expire already full queues, but only by size
@@ -552,10 +558,16 @@ sub processDrop
     # Assign new files to queues
     return if ! $self->assignToQueues ($drop, $attrs, $queues);
 
-    # Save queues.
-    foreach my $q (keys %$queues) {
-	$self->saveQueueStatus ($q, $queues->{$q});
+    # Save queues.  If we have a backlog, do so only every so often
+    # but at least the last time.  When we are done with last drop,
+    # remove our memory of the queues.
+    if ($left % 10 == 0)
+    {
+        foreach my $q (keys %$queues) {
+	    $self->saveQueueStatus ($q, $queues->{$q});
+        }
     }
+    delete $self->{QUEUES} if $left == 0;
 
     # Check for and flush queues that have expired now
     $self->flushExpiredQueues ($queues, $left == 0);
