@@ -43,7 +43,7 @@ if ($args{HELPME} || !$args{DBNAME} || !$args{DBUSER}
     print "--dbpass:       database user password (required)\n";
     print "--state:        agent state directory (required)\n";
     print "--wait:         seconds to sleep between checks\n";
-    print "--holdoff:      holdoff time for pruning after collection was touched last\n"
+    print "--holdoff:      holdoff time for pruning after collection was touched last\n";
     exit 1;
 }
 
@@ -115,9 +115,7 @@ sub idle
     do { &alert ("database error: $@"); $dbh->rollback if $dbh } if $@;
 
     # Disconnect from the database
-    $dbh->disconnect() if $dbh;
-    undef $dbh if $dbh;
-
+    &disconnectFromDatabase ($self, $dbh);
 
     # Have a little nap
     $self->nap ($self->{WAITTIME});

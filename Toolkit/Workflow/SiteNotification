@@ -113,8 +113,7 @@ sub idle
     do { &alert ("database error: $@"); $dbh->rollback if $dbh } if $@;
 
     # Disconnect from the database
-    $dbh->disconnect() if $dbh;
-    undef $dbh if $dbh;
+    &disconnectFromDatabase ($self, $dbh);
 
     # Call external script to do publishing and site specific work (etc.)
     foreach my $collection (@collectionsFinished){

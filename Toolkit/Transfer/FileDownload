@@ -240,8 +240,7 @@ sub completeTransferBatch
         $dbh->rollback() if $dbh;
     }
 
-    $dbh->disconnect() if ($dbh && ! $self->{DBH});
-    undef $dbh;
+    &disconnectFromDatabase ($self, $dbh);
 }
 
 # Begin transferring a file.  Fetches the file information and creates
@@ -469,9 +468,7 @@ sub idle
 	}
 
         # Disconnect from the database
-	delete $self->{DBH};
-        $dbh->disconnect if $dbh;
-        undef $dbh;
+        &disconnectFromDatabase ($self, $dbh);
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 

@@ -208,8 +208,7 @@ sub fileComplete
     do { &alert ("failed to $op for $guid: $@"); $dbh->rollback() if $dbh } if $@;
 
     # Disconnect from database
-    $dbh->disconnect() if $dbh;
-    undef $dbh;
+    &disconnectFromDatabase ($self, $dbh);
 
     # Log transfer delay stats
     my $now = &mytimeofday ();
@@ -297,8 +296,7 @@ sub idle
     do { &alert("database error: $@"); $dbh->rollback() if $dbh } if $@;
 
     # Disconnect from the database
-    $dbh->disconnect() if $dbh;
-    undef $dbh;
+    &disconnectFromDatabase ($self, $dbh);
 
     # Keep working, resting a bit at a time.  If we have available
     # job slots and more files to work on, break out of the loop to

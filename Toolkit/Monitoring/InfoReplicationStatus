@@ -119,8 +119,7 @@ sub idle
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
     # Disconnect from the database
-    $dbh->disconnect() if $dbh;
-    undef $dbh;
+    &disconnectFromDatabase ($self, $dbh);
 
     # Check children are still running and then wait
     $self->nap ($self->{WAITTIME});

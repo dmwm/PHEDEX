@@ -282,8 +282,7 @@ sub idle
             my @all_routes = $self->compareWithExistingRoutes ($dbh, \@new_routes);
             $self->updateTable ($dbh, \@all_routes);
 	    $dbh->commit();
-	    $dbh->disconnect ();
-	    undef $dbh;
+	    &disconnectFromDatabase ($self, $dbh);
 	}
 
 	$self->{MYNODE} = undef;
@@ -291,8 +290,7 @@ sub idle
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
     # Disconnect from the database
-    $dbh->disconnect() if $dbh;
-    undef $dbh;
+    &disconnectFromDatabase ($self, $dbh);
     $self->{MYNODE} = undef;
 
     # Check children are still running and then wait

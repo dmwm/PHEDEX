@@ -10,15 +10,33 @@ use DBI;
 # database-related data members DBITYPE, DBNAME, DBUSER, DBPASS, and
 # the TMDB node MYNODE.  The automatic identification is suppressed
 # if a second optional argument is given and it's value is zero.
+# Database connections are cached into $self->{DBH}.
 sub connectToDatabase
 {
     my ($self, $identify) = @_;
 
-    # Connect to the database.
-    my $dbh = DBI->connect ("DBI:$self->{DBITYPE}:$self->{DBNAME}",
-	    		    $self->{DBUSER}, $self->{DBPASS},
-			    { RaiseError => 1, AutoCommit => 0 });
-    return undef if ! $dbh;
+    # Use cached connection if it's still alive and the handle
+    # isn't too old, otherwise create new one.
+    my $dbh;
+    if (! $self->{DBH}
+	|| time() - ($self->{DBH_AGE} || 0) > 3600
+	|| ! eval { $self->{DBH}->ping() }
+	|| $@)
+    {
+	# Clear previous connection.
+	eval { $self->{DBH}->disconnect() } if $self->{DBH};
+	undef $self->{DBH};
+
+        # Start a new connection.
+        $dbh = DBI->connect ("DBI:$self->{DBITYPE}:$self->{DBNAME}",
+	    		     $self->{DBUSER}, $self->{DBPASS},
+			     { RaiseError => 1, AutoCommit => 0 });
+        return undef if ! $dbh;
+
+	# Cache it.
+	$self->{DBH_AGE} = time();
+	$self->{DBH} = $dbh;
+    }
 
     # Was identification suppressed?
     return $dbh if defined $identify && $identify == 0;
@@ -58,12 +76,27 @@ sub connectToDatabase
     if ($@)
     {
 	&alert ("failed to update agent status: $@");
-	$dbh->disconnect();
-	undef $dbh;
+	&disconnectFromDatabase ($self, $dbh, 1);
 	return undef;
     }
 
     return $dbh;
+}
+
+# Disconnect from the database.  Normally this does nothing, as we
+# cache the connection and try to keep it alive as long as we can
+# without disturbing program robustness.  If $self->{DBH_CACHE} is
+# defined and zero, connection caching is turned off.
+sub disconnectFromDatabase
+{
+    my ($self, $dbh, $force) = @_;
+    if ((exists $self->{DBH_CACHE} && ! $self->{DBH_CACHE}) || $force)
+    {
+        $dbh->disconnect() if $dbh;
+        undef $dbh;
+        undef $self->{DBH};
+        undef $self->{DBH_AGE};
+    }
 }
 
 # Simple utility to prepare a SQL statement

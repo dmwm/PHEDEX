@@ -126,8 +126,7 @@ sub idle
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
     # Disconnect from the database
-    $dbh->disconnect() if $dbh;
-    undef $dbh;
+    &disconnectFromDatabase ($self, $dbh);
 
     # Have a nap.
     &touch ($self->{STOPFLAG}) if $self->{ONCE};
