@@ -43,7 +43,7 @@ sub transferBatch
 	    $file->{TRANSFER_STATUS}{STATUS} = $job->{STATUS};
 	    $file->{TRANSFER_STATUS}{REPORT}
 	        = "exit code $job->{STATUS} from @{$job->{CMD}}";
-	    $file->{TIMING}{FINISH} = &mygettimeofday();
+	    $file->{TIMING}{FINISH} = &mytimeofday();
 	}
     }
     else
@@ -54,7 +54,7 @@ sub transferBatch
         {
 	    do { $file->{DONE_TRANSFER} = 1; next } if $file->{FAILURE};
 
-	    $file->{TIMING}{START} = &mygettimeofday();
+	    $file->{TIMING}{START} = &mytimeofday();
 
 	    # FIXME: globus-url-copy 3.x support copyjob files like SRM.
 
