@@ -42,7 +42,7 @@ sub log_array_entries {
 # Eventually we might want to connect to MySQL etc as well,
 # so try to hide it ...
 sub connect_to_db {
-	my $dbh = DBI->connect(	"DBI:Oracle:$dbname",
+	my $dbh = DBI->connect(	"DBI:$dbname",
 							$user,
 							$password,
 							{RaiseError => 1, AutoCommit => 1})
