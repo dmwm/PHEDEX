@@ -193,7 +193,7 @@ sub idle
 	    &logmsg ("$nodepat: considered $nincomplete destinations,"
 		     . " $nrouted routes created in"
 		     . " @{[sprintf '%.1f', &mytimeofday() - $now]} seconds")
-	        if 1 || $nincomplete;
+	        if $nincomplete;
 	}
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
