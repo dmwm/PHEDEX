@@ -1,0 +1,80 @@
+#!/usr/bin/perl
+#!/usr/bin/perl
+
+BEGIN { use strict; $^W = 1; }
+
+sub queueStats
+{
+    my ($queues, $stats, $q) = @_;
+    my $name = ($q =~ m|.*/([^/]+)$|)[0];
+
+    $queues->{$name} = eval qx(cat $q/state 2>/dev/null);
+
+    # Read the state back and update stats.
+    $stats->{$name} = { PMEMBERS => 0, PSIZE => 0,
+		        MEMBERS => 0, SIZE => 0,
+		        AGE => time - $queues->{$name}{START} };
+
+    foreach $m (values %{$queues->{$name}{MEMBERS}})
+    {
+	next if $@ || ref($m->{CHECKSUM}) ne 'ARRAY' || ref($m->{CATALOG}{LFN}) ne 'ARRAY';
+
+	$stats->{$name}{SIZE} += $m->{CHECKSUM}[1] / (1024*1024);
+	$stats->{$name}{MEMBERS}++;
+
+	if (-f "$q/files/$m->{CATALOG}{LFN}[0]")
+	{
+	    $stats->{$name}{PSIZE} += $m->{CHECKSUM}[1] / (1024*1024);
+	    $stats->{$name}{PMEMBERS}++;
+	}
+    }
+}
+
+sub queueReport
+{
+    my ($prefix, @dirs) = @_;
+    my %queues = ();
+    my %stats = ();
+
+    map { &queueStats (\%queues, \%stats, $_) } @dirs;
+    foreach $q (sort { $stats{$a}{AGE} <=> $stats{$b}{AGE}
+		       || $stats{$a}{SIZE} <=> $stats{$b}{SIZE}
+		     } keys %queues)
+    {
+	print join("\t", $prefix, $stats{$q}{AGE},
+		   sprintf ('%.1f', $stats{$q}{SIZE}),
+		   sprintf ('%.1f', $stats{$q}{PSIZE}),
+		   $stats{$q}{MEMBERS},
+		   $stats{$q}{PMEMBERS},
+		   $q), "\n";
+    }
+}
+
+sub report
+{
+    my ($prefix, $qprefix, $dir, @queues) = @_;
+    my @inbox = <$dir/inbox/*>;
+    my @pending = <$dir/work/*>;
+    my @outbox = <$dir/outbox/*>;
+    print "$prefix: ",
+	scalar (grep (! -f "$_/go", @inbox)), " pending, ",
+	scalar (grep (-f "$_/go", @inbox)), " received, ",
+	scalar (grep (! -f "$_/done" && ! -f "$_/bad", @pending)), " work, ",
+	scalar (grep (-f "$_/done", @pending)), " completed, ",
+	scalar (grep (-f "$_/bad", @pending)), " bad, ",
+	scalar (@outbox), " outgoing\n";
+
+    &queueReport ($qprefix, @queues);
+}
+
+foreach $dropdir (@ARGV)
+{
+    print "$dropdir: \n";
+    foreach $w (<$dropdir/worker-*>)
+    {
+	my $id = ($w =~ /worker-(\d+)/)[0];
+	&report (" W$id", "  QW$id", $w, <$w/{inbox,work}/*>);
+    }
+
+    &report (" Funnel", "  QM", $dropdir, <$dropdir/queues/*>);
+}
