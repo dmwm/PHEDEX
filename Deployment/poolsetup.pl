@@ -41,39 +41,51 @@ sub installStandalone{
     my $RPMSource='http://cmsdoc.cern.ch/cms/oo/repos_standalone/download';
     my $versionTag='cms101';
     my $Linux_V = undef;
+    my $Linux_Vshort = undef;
     my $Xerces = undef;
 
     my @packetlist = ();
     if ($Lversion eq 'RH73') {
 	$Linux_V = 'rh73_gcc323';
-	$Xerces = 'rh73_gcc32';
+	$Linux_Vshort = 'rh73_gcc32';
+	$Xerces = '2.3.0-1/rh73_gcc32';
 	@packetlist = ("LCG.POOL_1_8_1-rh73_gcc323-cms-1.i386.rpm",
 		       "LCG.SEAL_1_4_3-rh73_gcc323-cms-1.i386.rpm",
 		       "LCG.PI_1_2_5-rh73_gcc323-cms-1.i386.rpm",
+		       "LCG.mysql-rh73_gcc32-4.0.18-cms-1.i386.rpm",
+		       "LCG.mysqlpp-rh73_gcc32-1.7.9_mysql.4.0.18-cms-1.i386.rpm",
 		       "LCG.xerces-c-rh73_gcc32-2.3.0-1-cms-1.i386.rpm");
     } elsif ($Lversion eq 'SLC3') {
 	$Linux_V = 'slc3_ia32_gcc323';
-	$Xerces = 'slc3_ia32_gcc32';
-	@packetlist = ('LCG.POOL_1_8_1-slc3_ia32_gcc323-cms-1.i386.rpm',
-		       'LCG.SEAL_1_4_3-slc3_ia32_gcc323-cms-1.i386.rpm',
-		       'LCG.PI_1_2_5-slc3_ia32_gcc323-cms-1.i386.rpm',
-		       'LCG.xerces-c-slc3_ia32_gcc323-2.3.0-cms-1.i386.rpm');
+	$Linux_Vshort = 'slc3_ia32_gcc323';
+	$Xerces = '2.3.0/slc3_ia32_gcc323';
+	@packetlist = ("LCG.POOL_1_8_1-slc3_ia32_gcc323-cms-1.i386.rpm",
+		       "LCG.SEAL_1_4_3-slc3_ia32_gcc323-cms-1.i386.rpm",
+		       "LCG.PI_1_2_5-slc3_ia32_gcc323-cms-1.i386.rpm",
+		       "LCG.mysql-slc3_ia32_gcc323-4.0.18-cms-1.i386.rpm",
+		       "LCG.mysqlpp-slc3_ia32_gcc323-1.7.9_mysql.4.0.18-cms-1.i386.rpm",
+		       "LCG.xerces-c-slc3_ia32_gcc323-2.3.0-cms-1.i386.rpm");
     } else {
 	die "Unsupported linux version chosen !!\n";
     }
 
     eval {
-# prepare a local dummy RPM DB and copy over the system wide DB
+	# check for non working rpm version 4.0.4
+	my $RPMVersion = `rpm --version`;
+	die "version 4.0.4 of rpm gives trouble with external RPMDBs, "
+	    ."which are needed for this standalone installation.. Sorry\n" if ($RPMVersion =~ m|4.0.4|);
+
+	# prepare a local dummy RPM DB and copy over the system wide DB
 	if (!-e "$InstallRoot/RPMDB") {
 	    (! system("mkdir $InstallRoot/RPMDB")) or die "Couldn't create $InstallRoot/RPMDB directory.. please check permissions !\n";
 	} else {
 	    system("rm $InstallRoot/RPMDB/\*");
 	}
 	(! system("cp -r /var/lib/rpm/\* $InstallRoot/RPMDB/")) or die 'No system-wide RPMDB found ? Expected it in /var/lib/rpm....\n';
-	# get rid of the index files (caused troubl in the past)
+	# get rid of the index files (caused trouble in the past)
 	system("rm -f $InstallRoot/RPMDB/__db\*");
 
-# get the initial RPMs needed from the web
+	# get the initial RPMs needed from the web
 	if (!-e "$InstallRoot/RPMs") {
 	    (! system("mkdir $InstallRoot/RPMs")) or die "Couldn't create $InstallRoot/RPMs directory.. please check permissions !\n";
 	} else {
@@ -86,7 +98,7 @@ sub installStandalone{
 	    (! system($cmd)) or die "Couldn't download all packets.... Aborting !!\n";
 	}
 
-# lets install the stuff if we succeded to download the RPMs
+	# lets install the stuff if we succeded to download the RPMs
 	my $RPMcmd="rpm --dbpath $InstallRoot/RPMDB --prefix $InstallRoot -i --nodeps --noscripts $InstallRoot/RPMs/\*";
 	
 	if (system($RPMcmd)) {
@@ -104,13 +116,13 @@ sub installStandalone{
 # now finally provide a script to set some environment variables (has to be sourced later)
     my $file_h;
     open($file_h,">pool_setup.sh");
-    print $file_h "export LD_LIBRARY_PATH=$ENV{LD_LIBRARY_PATH}:$InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib:$InstallRoot/lcg/app/releases/SEAL/SEAL_1_4_3/$Linux_V/lib:$InstallRoot/lcg/external/xerces-c/2.3.0-1/$Xerces/lib\n";
+    print $file_h "export LD_LIBRARY_PATH=$ENV{LD_LIBRARY_PATH}:$InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib:$InstallRoot/lcg/app/releases/SEAL/SEAL_1_4_3/$Linux_V/lib:$InstallRoot/lcg/external/xerces-c/$Xerces/lib:$InstallRoot/lcg/external/mysql/4.0.18/$Linux_Vshort/lib:$InstallRoot/lcg/external/mysqlpp/1.7.9_mysql.4.0.18/$Linux_Vshort/lib\n";
     print $file_h "export SEAL_PLUGINS=$InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib/modules:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib/modules\n";
     print $file_h "export PATH=$ENV{PATH}:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/bin\n";
     close($file_h);
 
     open($file_h,">pool_setup.csh");
-    print $file_h "setenv LD_LIBRARY_PATH $ENV{LD_LIBRARY_PATH}:$InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib:$InstallRoot/lcg/app/releases/SEAL/SEAL_1_4_3/$Linux_V/lib:$InstallRoot/lcg/external/xerces-c/2.3.0-1/$Xerces/lib\n";
+    print $file_h "setenv LD_LIBRARY_PATH $ENV{LD_LIBRARY_PATH}:$InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib:$InstallRoot/lcg/app/releases/SEAL/SEAL_1_4_3/$Linux_V/lib:$InstallRoot/lcg/external/xerces-c/$Xerces/lib:$InstallRoot/lcg/external/mysql/4.0.18/$Linux_Vshort/lib:$InstallRoot/lcg/external/mysqlpp/1.7.9_mysql.4.0.18/$Linux_Vshort/lib\n";
     print $file_h "setenv SEAL_PLUGINS $InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib/modules:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib/modules\n";
     print $file_h "setenv PATH $ENV{PATH}:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/bin\n";
     close($file_h);
@@ -157,6 +169,7 @@ sub installScram {
 	print "problems creating scram script:\n$@\nAborting !\n";
 	return 0; #report failure
     }
-
+    
+    print "please ignore eventual scram warning about missing project area.....\n";
     return 1; # report success
 }

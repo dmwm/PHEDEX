@@ -39,6 +39,7 @@ if ($args{HELP} || !$args{DBNAME} || !$args{DBUSER} || !$args{DBPASS}
 }
 
 # execute one test after the other
+# if one test fails it will return 0, making $OK also 0
 $OK *= &testTools();
 $OK *= &testOracle($args{DBTYPE},$args{DBNAME},$args{DBUSER},$args{DBPASS});
 $OK *= &testGridCert();
