@@ -62,8 +62,7 @@ sub expandAssignments
 	if ($item =~ /^\d+$/) {
 	    push (@assignments, $item);
 	} else {
-	    my ($ds, $o) = ($item =~ /(.*)\.(.*)/);
-	    push (@assignments, &listAssignments ($ds, $o));
+	    push (@assignments, &listAssignments (@$item));
 	}
     }
 
