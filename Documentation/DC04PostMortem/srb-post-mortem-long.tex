@@ -1,7 +1,7 @@
 \documentclass{cmspaper}
 \def\RCS$#1: #2 ${\expandafter\def\csname RCS#1\endcsname{#2}}
-\RCS$Revision: 1.3 $
-\RCS$Date: 2004/05/27 12:46:29 $
+\RCS$Revision: 1.0 $
+\RCS$Date: 2004/07/07 15:58:00 $
 
 \usepackage{graphicx}
 \DeclareGraphicsExtensions{.eps,.pdf,.png,.mps}
@@ -105,7 +105,7 @@ increased GMCat was stopped as the system no longer reponded in a
 useful timescale.
 
 
-While transfer speeds from T0-T1 were respectable (fig. \ref{fig:RAL-files})
+While transfer speeds from T0-T1 were respectable %(fig. \ref{fig:RAL-files})
  the initial entry of the file onto the export buffer was
 particularily troublsome.  Much of these problems were caused by the
 strategy chosen when writing the agent, based on the knowledge we had
@@ -147,7 +147,8 @@ result of CMS experience, for which we would like to thank the developers
 at SDSC.
 
 It should be noted that SRB is not integrated into the LCG analysis
-system, and that while this is possible \cite{gmcat} it may
+system, and that while this is possible %\cite{gmcat} 
+it may
 not be desirable to create a ``grid of grids'' without some
 significant additional desired functionality.  It is likely that CMS
 use of SRB will be phased out before DC05.
