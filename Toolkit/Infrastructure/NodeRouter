@@ -51,9 +51,12 @@ close(PID);
 while(!(-e "$g_work_dir/stop")) {
 	if ($g_once) { system("touch $g_work_dir/stop"); }
 	
-	my @neighbours = &get_neighbours( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, NODE => $g_parent_node);
+	my @neighbours = &get_neighbours( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, NODE => $g_parent_node );
+	log_entry( ENTRY => "Neighbours: @neighbours" );
 	
-	log_entry( ENTRY => "@neighbours" );
+	foreach $neighbour (@neighbours) {
+		refresh_acquaintance( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, NODE => $g_parent_node );
+	}
 }
 
 
@@ -101,6 +104,32 @@ sub publish_availability {
 # ###############################################################
 # Subroutines
 # ###############################################################
+sub refresh_acquaintance {
+	my %args = (
+		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
+		DB_USER => 'some_user',
+		DB_PASSWD => 'some_password',
+		MY_NODE => 'some_node',
+		NODE => 'some_other_node',
+		@_
+	);
+	
+	my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
+						 	"$args{DB_USER}", 
+						 	"$args{DB_PASSWD}", 
+						 	{ RaiseError=>1, AutoCommit =>1 });
+	
+	my $time = time();
+	my $update = "update t_Routing "
+				."set timestamp = $time "
+				."where from = '$args{NODE}' "
+				."and to = '$args{MY_NODE}' "
+				."and gateway = '$args{MY_NODE}'";
+	$dbh->do($update);
+	
+	$dbh->disconnect();
+}
+
 sub get_neighbours {
 	my %args = (
 		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
