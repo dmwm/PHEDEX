@@ -86,37 +86,31 @@ sub idle
 	   (timestamp, dataset, owner, n_runs, n_files, sz_files)
 	   (select
 	      :now,
-              a1.value,
-              a2.value,
-              count(distinct a3.value),
-              count(a2.guid),
+              b.dataset,
+              b.owner,
+              count(distinct f.insubblock),
+              count(f.guid),
               nvl(sum(f.filesize),0)
             from t_file f
-            left join t_file_attributes a1
-              on a1.guid = f.guid and a1.attribute = 'POOL_dataset'
-            left join t_file_attributes a2
-              on a2.guid = f.guid and a2.attribute = 'POOL_owner'
-            left join t_file_attributes a3
-              on a3.guid = f.guid and a3.attribute = 'POOL_jobid'
-            group by :now, a1.value, a2.value)},
+            left join t_block b
+	      on b.name = f.inblock
+            group by :now, b.dataset, b.owner)},
 	    ":now" => $now);
 	@qry2 = &dbexec($dbh, qq{insert into t_info_replication_details
 	   (timestamp, dataset, owner, node, n_files, sz_files)
 	   (select
 	      :now,
-              a1.value,
-              a2.value,
+              b.dataset,
+              b.owner,
               rs.node,
               count(rs.guid),
               nvl(sum(f.filesize),0)
             from t_replica_state rs
 	    left join t_file f
 	      on f.guid = rs.guid
-            left join t_file_attributes a1
-              on a1.guid = rs.guid and a1.attribute = 'POOL_dataset'
-            left join t_file_attributes a2
-              on a2.guid = rs.guid and a2.attribute = 'POOL_owner'
-            group by :now, a1.value, a2.value, rs.node)},
+            left join t_block b
+	      on b.name = f.inblock
+            group by :now, b.dataset, b.owner, rs.node)},
 	    ":now" => $now);
 
 	$dbh->commit();
