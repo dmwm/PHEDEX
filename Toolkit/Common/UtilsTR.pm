@@ -280,7 +280,7 @@ sub castorCheck
 #
 # database should be the name of the tmdb oracle database, and
 # table should be the name of the file table (filesfortransfer
-# for v1, t_files_for_transfer for v2).
+# for v1, t_files for v2).
 #
 # The rest of the arguments are expected to be "drop" directories.
 # This tool reads the XML catalogue fragments from the drops, gets
@@ -314,8 +314,8 @@ sub checkAssignmentFiles
         defined $pfnroot or die "no pfn root in $drop\n";
 
         # Get files, for each the guid and pfn
-        my $cat = &readXMLCatalog ($xml);
-	my @files = map { { GUID => $_->{GUID}, PFN => $_->{PFN}[0] } } values %$cat;
+        my $cat = &readXMLCatalogue ($xml);
+	my @files = map { { GUID => $_->{GUID}, PFN => $_->{PFN}[0]{PFN} } } values %$cat;
 	map { $_->{PFN} =~ s|^\./|$pfnroot/| } @files;
 	map { $_->{PFN} =~ s|^sfn://castorgrid.cern.ch/|/| } @files;
 
