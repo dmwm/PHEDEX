@@ -257,7 +257,7 @@ sub readStageInProgress
     	{
 	    my $pfn = $file->{PFN}[0];
 	    my $lfn = $file->{LFN}[0];
-	    my $info = { DROP => $drop, PFN => $pfn, LFN => $lfn };
+	    my $info = { DROP => $drop, PFN => $pfn, LFN => $lfn, STATUS => $STAGE_RETRY };
 	    if (-f "$workdir/$drop/stagein.$lfn")
 	    {
 		my $saved = eval &input ("$workdir/$drop/stagein.$lfn");
