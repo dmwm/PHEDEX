@@ -22,10 +22,12 @@ my %new = %old;
 
 while (1)
 {
+    my $prefix = "";
     foreach my $if (sort keys %new) {
-        print "\t$if",
-	      sprintf ("\t%.1f", ($new{$if}[0] - $old{$if}[0]) / 1024),
-	      sprintf ("\t%.1f", ($new{$if}[8] - $old{$if}[8]) / 1024);
+        print "$prefix$if",
+	      sprintf ("%10.1f", ($new{$if}[0] - $old{$if}[0]) / 1024),
+	      sprintf ("%10.1f", ($new{$if}[8] - $old{$if}[8]) / 1024);
+	$prefix = "   ";
     }
     print "\r";
 
