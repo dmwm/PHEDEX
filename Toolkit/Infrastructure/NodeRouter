@@ -54,7 +54,6 @@ while(!(-e "$g_work_dir/stop")) {
     my @g_known_routes = &get_routes_for_node( $g_parent_node );
 
     foreach $neighbour (&get_neighbours) {
-	log_entry( "$g_parent_node refresh acq. with $neighbour" );
 	refresh_acquaintance( $neighbour );
 
 	my @neighbours_routes = &get_routes_for_node( $neighbour );
@@ -62,6 +61,9 @@ while(!(-e "$g_work_dir/stop")) {
 
 	my @routes_to_update = &get_shared_routes( \@neighbours_routes );
 	my @routes_to_insert = &get_new_routes( \@neighbours_routes );
+	if (@routes_to_insert) { log_entry( "Found new routes" ); &display_routing_table( \@routes_to_insert ); }
+	my @route_to_clean = &get_dead_routes( \@neighbours_routes );
+	if (@routes_to_clean) { log_entry( "Found dead routes" ); &display_routing_table( \@routes_to_clean ); }
     }
 }
 
@@ -138,7 +140,6 @@ sub refresh_acquaintance {
 
 sub display_routing_table {
     my $table = shift;
-    log_entry( "routing table" );
     foreach $route (@$table) {
         log_entry( "$route" );
     }
@@ -176,6 +177,22 @@ sub get_new_routes {
     }
     return @new_routes;
 }
+
+sub get_dead_routes {
+    my $table = shift;
+    my @dead_routes = ();
+    my $dead_flag = 0;
+    foreach $my_route (@g_known_routes) {
+        my ($my_from, $my_to, $my_gate, $my_time, $my_hops) = &split_route( $my_route );
+        foreach $other_route (@$table) {
+            my ($from, $to, $gate, $time, $hops) = &split_route( $other_route );
+	    $dead_flag = 1 if ($to eq $my_to && $from eq $my_gate);
+	}
+	push( @dead_routes, $my_route ) if ($dead_flag == 1);
+    }
+    return @dead_routes;
+}
+
 
 sub split_route {
     my $route = shift;
