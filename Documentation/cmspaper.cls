@@ -189,6 +189,9 @@
 \hfill\Large\bf CMS IN #1} 
 \begin{center}\includegraphics{cms_in.eps}\end{center}}
 
+% LAT: WHITE PAPER header \whitepaper
+\def\whitepaper{\begin{center}\includegraphics{cms_wp.eps}\end{center}}
+
 % CMS CONFERENCE REPORT header \conferencereport
 \def\conferencereport#1{{Available on CMS information server
 \hfill\Large\bf CMS CR #1} 
