@@ -142,7 +142,7 @@ sub idle
 		 and ts.dest_node = r.gateway
 	 	where d.guid = '$guid'
 		order by dest_final, hops});
-	    last if ! $next || ! scalar @$next;
+	    last if ! defined $next;
 
 	    my %dests = ();
 	    foreach my $row (@$next)
