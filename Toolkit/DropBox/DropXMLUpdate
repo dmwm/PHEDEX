@@ -46,6 +46,7 @@ use File::Path;
 eval qx(cat "$home/UtilsCommand.pm"); die $@ if $@;
 eval qx(cat "$home/UtilsTiming.pm"); die $@ if $@;
 eval qx(cat "$home/UtilsLogging.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsWriters.pm"); die $@ if $@;
 eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
 
 ######################################################################
@@ -143,21 +144,7 @@ sub updateCatalog
     }
     close (CAT);
 
-    $content = ("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n"
-		. "<!DOCTYPE POOLFILECATALOG SYSTEM \"InMemory\"><POOLFILECATALOG>\n"
-		. '  <META name="Content" type="string"/>' . "\n"
-		. '  <META name="DBoid" type="string"/>' . "\n"
-		. '  <META name="DataType" type="string"/>' . "\n"
-		. '  <META name="FileCategory" type="string"/>' . "\n"
-       		 . '  <META name="Flags" type="string"/>' . "\n"
-		. '  <META name="dataset" type="string"/>' . "\n"
-       		 . '  <META name="jobid" type="string"/>' . "\n"
-		. '  <META name="owner" type="string"/>' . "\n"
-		. '  <META name="runid" type="string"/>' . "\n"
-		. $content. "\n"
-		. "</POOLFILECATALOG>\n");
-
-    if (! &output ($xmlcat, $content))
+    if (! &outputCatalog ($xmlcat, $content))
     {
 	# Assume it's a transient error and return failure
 	&alert ("failed rewrite catalog for $drop: $!");
