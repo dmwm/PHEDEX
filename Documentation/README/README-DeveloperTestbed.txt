@@ -43,13 +43,6 @@ Oracle
 Naturally these can both be the same machine, but they don't have to be…
 
 
-2b. MySQL POOL catalog
-----------------------
-
-Assuming mysql is running- create a POOL MySQL database called phedexcat
- (schema at pool.cern.ch), for user phedex, password phedex.
-
-
 
 2b. Setup environment and download tools
 ----------------------------------------
@@ -77,7 +70,22 @@ cd -
 You'll need to set the environment variables whenever you use the testbed.
 
 
-2c. Oracle TMDB deployment
+
+2c. MySQL POOL catalog
+----------------------
+
+Assuming mysql is running- create a POOL MySQL database called phedexcat
+ (schema at pool.cern.ch), for user phedex, password phedex. We also need to
+define the metadata schema
+
+FCcreateMetaDataSpec -F -m
+        "(Content,string),(DBoid,string),(DataType,string),
+        (FileCategory,string),(Flags,string),(dataset,string),
+        (jobid,string),(owner,string),(runid,string)"
+
+
+
+2d. Oracle TMDB deployment
 --------------------------
 
 The Oracle TMDB schema can be found at $NODETESTBED/AgentDocs/V2OracleSchema.sql. Note that this schema is for the main TMDB at CERN: you will only need to create tables and indices, not grant priveleges to extra users or create synonyms.
@@ -85,8 +93,8 @@ The Oracle TMDB schema can be found at $NODETESTBED/AgentDocs/V2OracleSchema.sql
 Note that you need Perl DBI, and DBD:Oracle installed as well.
 
 
-2d. Deploying a simple (not full-functionality) source node
------------------------------------------------------------
+2e. Deploying a simple source node
+----------------------------------
 
 Now create a node. First we define the directory structure
 
@@ -137,9 +145,90 @@ We then need to start the router running
 -dbpasswd <password> 
 >& $NODETESTBED/TestbedSource1/logs/log &
 
+Now we need to create the chain of agents that will handle the injection of data
+into distribution at this node.
+
+cp $NODETESTBED/AgentToolkitExamples/DropBox/DropTMDBPublisher .
+cp $NODETESTBED/AgentToolkitExamples/DropBox/DropCatPublisher . 
+cp $NODETESTBED/AgentToolkitExamples/DropBox/DropXMLPublisher .
+cp $NODETESTBED/AgentToolkitExamples/DropBox/DropFileCheck .
+cp $NODETESTBED/AgentToolkitExamples/DropBox/Utils* .
+
+Then create the script start.sh, with content:
+
+#!/bin/sh
+
+export PHEDEX_BASE=<your path to testbed>
+export PHEDEX_STATE=${PHEDEX_BASE}/work
+export PHEDEX_TMDB=<db tns nams>
+export PHEDEX_USER=<db user>
+export PHEDEX_PASS=<db password>
+export PHEDEX_LOGS=../logs
+export PHEDEX_NODE=TestbedSource1
+export PHEDEX_CATALOGUE=mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat
+
+# Set general entry point.  Don't mess it unless we have to, we don't
+# want to change this if there happens to be drops going on.
+[ -e $PHEDEX_STATE/entry       ] || ln -s xml $PHEDEX_STATE/entry
+[ -e $PHEDEX_STATE/xml         ] || mkdir -p $PHEDEX_STATE/xml
+[ -e $PHEDEX_STATE/exist       ] || mkdir -p $PHEDEX_STATE/exist
+[ -e $PHEDEX_STATE/cat         ] || mkdir -p $PHEDEX_STATE/cat
+[ -e $PHEDEX_STATE/tmdb        ] || mkdir -p $PHEDEX_STATE/tmdb
+
+# Update catalogue entries
+nohup `dirname $0`/DropXMLUpdate                \
+        -in ${PHEDEX_STATE}/xml                 \
+        -out ${PHEDEX_STATE}/exist              \
+        -wait 7                                 \
+        >> ${PHEDEX_LOGS}/xml 2>&1 </dev/null &
+
+# Check the files actually exist and have non-zero size
+nohup `dirname $0`/DropFileCheck          \
+        -in ${PHEDEX_STATE}/exist               \
+        -out ${PHEDEX_STATE}/cat                \
+        -wait 7                                 \
+        >> ${PHEDEX_LOGS}/exist 2>&1 </dev/null &
+
+# Publish into catalog.
+nohup `dirname $0`/DropCatPublisher             \
+    -catalogue ${PHEDEX_CATALOGUE}              \
+    -in ${PHEDEX_STATE}/cat                     \
+    -out ${PHEDEX_STATE}/tmdb           \
+    -wait 7                                     \
+    >> ${PHEDEX_LOGS}/cat 2>&1 </dev/null &
+
+# Publish into TMDB
+nohup `dirname $0`/DropTMDBPublisher            \
+    -db "${PHEDEX_TMDB}"                        \
+    -dbuser ${PHEDEX_USER}              \
+    -dbpass ${PHEDEX_PASS}                      \
+    -in ${PHEDEX_STATE}/tmdb            \
+    -node ${PHEDEX_NODE}                        \
+    -version 2                          \
+    -wait 7                                     \
+    >> ${PHEDEX_LOGS}/tmdb 2>&1 </dev/null &
 
 
-2e. Deploying a simple sink node
+# script ends here ...
+
+then run it with
+
+bash
+. start.sh
+
+You can also create the script stop.sh, containing
+
+#!/bin/sh
+export PHEDEX_STATE=<your path to testbed>/work
+ls -d $PHEDEX_STATE/* | xargs -i touch '{}'/stop
+
+Any drops placed at the head of the chain- in 
+$NODETESTBED/TestbedSource1/work/entry/inbox- will get injected into
+distribution.
+
+
+
+2f. Deploying a simple sink node
 --------------------------------
 
 Now create a simple sink node with a transfer agent. First define the directory 
@@ -234,7 +323,7 @@ and also the transfer agent
 
 
 
-2f. Deploying a simple management node
+2g. Deploying a simple management node
 --------------------------------------
 
 Create a simple management node with a allocating and file routing agents. First define the directory 
