@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/23 14:23:08 $
-# $Id: Allocator.pl,v 1.2 2004/07/23 14:23:08 barrass Exp $
+# $Date: 2004/07/27 13:03:01 $
+# $Id: Allocator.pl,v 1.3 2004/07/27 13:03:01 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -47,6 +47,7 @@ my $g_db = "devdb9";	# tnsname of Oracle db (tmdb)
 my $g_pool_uri = 'edgcatalog_http://rlscms.cern.ch:7777/cms/v2.2/edg-local-replica-catalog/services/edg-local-replica-catalog';
 						# uri of pool catalogue to use
 my $g_once;             # 1 means will only run once
+my $g_period = 600;     # repeat period of algorithm
 
 
 # ###############################################################
@@ -62,11 +63,10 @@ close(PID);
 while(!(-e "$g_work_dir/stop")) {
     if ($g_once) { system( "touch $g_work_dir/stop" ); }
     #publish_availability ( DB => $g_db );
-    my $period = 600;
     my $loop_start = time();
 
     $time = time();
-    sleep($period - $time + $loop_start);
+    sleep($g_period - $time + $loop_start);
 }
 
 
@@ -303,7 +303,8 @@ sub parse_command_line () {
 				'db=s' => \$g_db,
 				"no-updates" => \$g_no_updates,
 				'u=s' => \$g_pool_uri,
-				"once" => \$g_once
+				"once" => \$g_once,
+				'p=s' => \$g_period
 				);
 	
 	my $entry = '';
@@ -331,6 +332,9 @@ sub parse_command_line () {
 	}	
 	if ($g_once) {
 		$entry = $entry."only running once, ";
+	}
+    if ($g_period) {
+		$entry = $entry."with period $g_period, ";
 	}	
 	
 	$time = time();
