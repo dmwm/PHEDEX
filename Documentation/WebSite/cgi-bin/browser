@@ -288,8 +288,8 @@ sub replicas {
     my %sites = ();
     my $query = $dbh->prepare(qq{
 	    select
-	      dataset,
 	      owner,
+	      dataset,
 	      n_runs,
 	      n_files,
 	      sz_files
@@ -297,15 +297,15 @@ sub replicas {
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
-	my ($ds, $o, $runs, $files, $total) = @$row;
-	$data{"$ds:$o"} = [ $ds, $o, $files, $total, $runs, {} ];
+	my ($o, $ds, $runs, $files, $total) = @$row;
+	$data{"$o:$ds"} = [ $o, $ds, $files, $total, $runs, {} ];
     }
     $query->finish();
 
     $query = $dbh->prepare (qq{
 	    select
-	      dataset,
 	      owner,
+	      dataset,
 	      node,
 	      n_files,
 	      sz_files
@@ -313,16 +313,16 @@ sub replicas {
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
-	my ($ds, $o, $site, $files, $total) = @$row;
-	$data{"$ds:$o"}[5]{$site} = [ $files, $total ];
+	my ($o, $ds, $site, $files, $total) = @$row;
+	$data{"$o:$ds"}[5]{$site} = [ $files, $total ];
 	$sites{$site} = 1;
     }
     $query->finish();
 
     print "<h2>Replication status</h2>\n",
     	  "<table><tr bgcolor='$altcolor' valign='top'>",
-	  "<th rowspan='2'>Dataset</th>",
 	  "<th rowspan='2'>Owner</th>",
+	  "<th rowspan='2'>Dataset</th>",
 	  "<th rowspan='2' align='right'>Runs</th>",
 	  "<th colspan='2' align='right'>Files</th>",
 	  (map { "<th colspan='2'>$_</th>" } sort keys %sites),
@@ -335,10 +335,10 @@ sub replicas {
     foreach my $dso (sort keys %data)
     {
         my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
-	my ($ds, $o, $files, $total, $runs, $sites) = @{$data{$dso}};
+	my ($o, $ds, $files, $total, $runs, $sites) = @{$data{$dso}};
         print "<tr valign='top'$rowcolor>",
-	      "<td>$ds</td>",
 	      "<td>$o</td>",
+	      "<td>$ds</td>",
 	      "<td align='right'>$runs</td>",
 	      "<td align='right'>$files</td>",
 	      "<td align='right'>@{[&format_size($total)]}</td>";
@@ -366,8 +366,10 @@ sub subs {
     my $rows = 0;
     my %data = ();
     my %sites = ();
+    my $ownercol = $db ne 'prod' ? "owner" : "''";
     my $query = $dbh->prepare(qq{
 	    select
+	      $ownercol,
 	      dataset,
 	      destination,
 	      n_files,
@@ -378,11 +380,11 @@ sub subs {
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
-	my ($ds, $site, $files, $total, $sfiles, $stotal) = @$row;
-	$data{$ds} ||= [ $ds, $files, $total, {} ];
+	my ($ow, $ds, $site, $files, $total, $sfiles, $stotal) = @$row;
+	$data{$ow}{$ds} ||= [ $ow, $ds, $files, $total, {} ];
 	if ($site)
 	{
-	    $data{$ds}[3]{$site} = [ $sfiles, $stotal ];
+	    $data{$ow}{$ds}[4]{$site} = [ $sfiles, $stotal ];
 	    $sites{$site} = 1;
         }
     }
@@ -390,6 +392,7 @@ sub subs {
 
     print "<h2>Subscriptions</h2>\n",
     	  "<table><tr bgcolor='$altcolor' valign='top'>",
+	  "<th rowspan='2'>Owner</th>",
 	  "<th rowspan='2'>Dataset</th>",
 	  # "<th rowspan='2' align='right'>Runs</th>",
 	  "<th colspan='2' align='right'>Files</th>",
@@ -399,31 +402,35 @@ sub subs {
 	  "<th align='right'>N</th><th align='right'>Size</th>",
 	  "</tr>\n";
 
-    foreach my $ds (sort keys %data)
+    foreach my $ow (sort keys %data)
     {
-        my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
-	my ($ds, $files, $total, $sites) = @{$data{$ds}};
-	my $dscolor = (scalar (keys %$sites) ? '' : " bgcolor='$warncolor'");
-        print "<tr valign='top'$rowcolor>",
-	      "<td$dscolor><a href='subscribe?stream=$ds&db=$db'>$ds</a></td>",
-	      "<td align='right'>@{[&format_num($files)]}</td>",
-	      "<td align='right'>@{[&format_size($total)]}</td>";
+        foreach my $ds (sort keys %{$data{$ow}})
+        {
+	    my ($ow, $ds, $files, $total, $sites) = @{$data{$ow}{$ds}};
+            my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
+	    my $dscolor = (scalar (keys %$sites) ? '' : " bgcolor='$warncolor'");
+            print "<tr valign='top'$rowcolor>",
+	          "<td$dscolor><a href='subscribe?owner=$ow&dataset=$ds&db=$db'>$ow</a></td>",
+	          "<td$dscolor><a href='subscribe?owner=$ow&dataset=$ds&db=$db'>$ds</a></td>",
+	          "<td align='right'>@{[&format_num($files)]}</td>",
+	          "<td align='right'>@{[&format_size($total)]}</td>";
 
-	foreach my $site (sort keys %sites)
-	{
-	    if (exists $sites->{$site})
+	    foreach my $site (sort keys %sites)
 	    {
-		my ($sfiles, $stotal) = @{$sites->{$site}};
-		my $scolor = ($sfiles == $files) ? '' : " bgcolor='$pendcolor'";
-		print "<td$scolor align='right'>",
-		      sprintf('%0.2f&nbsp;/&nbsp;%0.2f', ($sfiles / $files), ($stotal / $total)),
-		      "</td>";
-	    }
-	    else
-	    {
-		print "<td>&nbsp;</td>";
-	    }
-        }
+	        if (exists $sites->{$site})
+	        {
+		    my ($sfiles, $stotal) = @{$sites->{$site}};
+		    my $scolor = ($sfiles == $files) ? '' : " bgcolor='$pendcolor'";
+		    print "<td$scolor align='right'>",
+		          sprintf('%0.2f&nbsp;/&nbsp;%0.2f', ($sfiles / $files), ($stotal / $total)),
+		          "</td>";
+	        }
+	        else
+	        {
+		    print "<td>&nbsp;</td>";
+	        }
+            }
+	}
 	print "</tr>\n";
     }
     print "</table>";
