@@ -124,8 +124,12 @@ sub idle
 	close (STATUS) or return;
 
 	&dbexec($dbh, qq{
-	    delete from t_info_agent_status where site = :site and host = :host},
-	    ":site" => $site, ":host" => $host);
+	    delete from t_info_agent_status
+	    where site = :site
+	      and host = :host
+	      and path = :path},
+	    ":site" => $site, ":host" => $host,
+	    ":path" => $self->{AGENTDIR});
 	my $stmt = $dbh->prepare(qq{
 		    insert into t_info_agent_status values
 		    (:now, :site, :host, :path, :agent, :worker,
