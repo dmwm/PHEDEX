@@ -109,7 +109,7 @@ sub main
 	    if (($now - $contact) < $active) {
                 print "<td align='center' bgcolor='$goodcolor'>UP</td>";
 	    } elsif (($now - $contact) < $offline) {
-                print "<td balign='center' gcolor='$goodcolor'>UP ($ago ago)</td>";
+                print "<td align='center' bgcolor='$goodcolor'>UP ($ago ago)</td>";
             } else {
                 print "<td align='center' bgcolor='$badcolor'>DOWN ($ago ago)</td>";
             }
