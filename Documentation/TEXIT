@@ -1,0 +1,40 @@
+#!/bin/sh
+
+NAME=`echo $1 | sed "s/\.tex//g"`
+
+if [ "$NAME" = "" ]
+then
+  echo " "
+  echo "please supply tex file name as first argument"
+  echo " "
+  exit
+fi
+
+latex     $NAME.tex
+bibtex    $NAME
+makeindex $NAME
+makeindex -o $NAME.aind $NAME.aidx
+latex     $NAME.tex
+latex     $NAME.tex
+dvips     -o $NAME.ps $NAME.dvi
+dvipdfm   -o $NAME.pdf $NAME.dvi
+
+rm -f $NAME.aind
+rm -f $NAME.ind
+rm -f $NAME.ilg
+rm -f $NAME.KUIP
+rm -f $NAME.aux
+rm -f $NAME.aidx
+rm -f $NAME.idx
+rm -f $NAME.lof
+rm -f $NAME.lot
+rm -f $NAME.log
+rm -f $NAME.dvi
+rm -f $NAME.toc
+rm -f $NAME.blg
+rm -f $NAME.bbl
+rm -f texput.log
+rm -f missfont.log
+
+
+
