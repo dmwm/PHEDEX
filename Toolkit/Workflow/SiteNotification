@@ -27,8 +27,8 @@ my %args = (DBITYPE => 'Oracle',
 	     "dbitype=s"	=> \$args{DBITYPE},
 	     "dbuser=s"		=> \$args{DBUSER},
 	     "dbpass=s"		=> \$args{DBPASS},
+	     "dbitype=s"        => \$args{DBITYPE},
 	     "wait=f"		=> \$args{WAITTIME},
-	     "help"		=> \$args{HELPME},
 
 	     "sitescript=s"	=> \$args{SITESCRIPT});
 
@@ -36,20 +36,13 @@ if ($args{HELPME} || !$args{DBNAME} || !$args{DBUSER}
     || !$args{DBPASS} || !$args{MYNODE} || !$args{DROPDIR}
     || !$args{SITESCRIPT})
 {
-    print "Syntax for Monitoring agent: \n";
-    print "--help:         this help text \n";
-    print "--sitescript:   site specific tasks to be performed,\n";
-    print "                when full dataset transfered (required)\n";
-    print "--db:           database to connect to (required)\n";
-    print "--dbuser:       database user name (required)\n";
-    print "--dbpass:       database user password (required)\n";
-    print "--node:         phedex node name (required)\n";
-    print "--state:        agent state directory (required)\n";
-    print "--wait:         seconds to sleep between checks\n";
+    print STDERR "usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
+                 "       -state IN-DROP-BOX -node NODE-NAME -sitescript SCRIPT\n",
+                 "       [-wait SECONDS]\n";
     exit 1;
 }
 
-#CJR mapping for Lassi's dropbox toolkit
+
 my $agent = new NotificationAgent (%args);
 $SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $SIG{QUIT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
@@ -78,7 +71,7 @@ sub new
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
 	  	  MYNODE => undef,		# My TMDB node name
-	  	  AGENTID => "Notification",      # Identity for activity logs
+	  	  AGENTID => "Notification",    # Identity for activity logs
 		  SITESCRIPT => undef);	        # site specific actions after groups got transfered
 
     my %args = (@_);
@@ -88,13 +81,42 @@ sub new
 }
 
 
+sub completeBlocks
+{
+    my ($self, $dbh) = @_;
+    my $result = {};
+
+    # Get all dataset-owner pairs, which were completely
+    # transfered and not yet handled
+    my $complete = &dbexec ($dbh, qq{
+	select b.dataset, b.owner, b.files
+	from t_block_replica br
+	left join t_block b
+	  on b.name = br.name
+	where br.node = :node
+	  and br.files = b.files
+	  and br.timestamp < :now - 300},
+	":node" => $self->{MYNODE},
+	":now" => &mytimeofday());
+ 
+    while (my ($dataset, $owner, $files) = $complete->fetchrow_array())
+    {
+	$result->{$dataset}{$owner} = {
+	    DATASET => $dataset,
+	    OWNER => $owner,
+	    FILES => $files
+	};
+    }
+    
+    return $result;
+}
+
 # Pick up work from the database and start site specific scripts if necessary
 sub idle
 {
     my ($self, @pending) = @_;
     my $dbh = undef;
-    my @collectionsFinished = ();
-    my %dataset_members;
+    my $completed = undef;
 
     eval
     {
@@ -102,79 +124,30 @@ sub idle
 
 	# get the owners for each dataset of all transfered collections
         # (info needed for publishing or maybe other reasons)
-	%dataset_members = $self->getDatasetMembers($dbh);
-
-	# check if a group was transfered completely and return group
-	@collectionsFinished = $self->getGroups($dbh);
-	return if (scalar(@collectionsFinished) == 0); # return from eval if there is nothing to be done
-
-	$dbh->commit();
+	$completed = $self->completeBlocks ($dbh);
     };
-    do { &alert ("database error: $@"); $dbh->rollback if $dbh } if $@;
+    do { &alert ("database error: $@"); $dbh->rollback() if $dbh } if $@;
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
 
     # Call external script to do publishing and site specific work (etc.)
-    foreach my $collection (@collectionsFinished){
-	chomp $collection;
-	my ($dataset, $owner, $files) = split(':',$collection);
-	my ($AssID) = &listAssignments($dataset,$owner);
+    foreach my $dataset (sort keys %$completed)
+    {
+	foreach my $owner (sort keys %{$completed->{$dataset}})
+	{
+	    my @other = grep ($_ ne $owner, keys %{$completed->{$dataset}});
+	    my $ret = &runcmd (@{$self->{SITESCRIPT}}, $dataset, $owner,
+			       $completed->{$dataset}{$owner}{FILES},
+			       @other);
 
-	my $cmd = "$self->{SITESCRIPT} $dataset $owner $files $AssID $dataset_members{$dataset}";
-	my $error = system($cmd);
-	&alert("execution of site specific script returned an error for collection: $collection") if $error;
+	    &alert ("failed to notify site for $owner/$dataset: @{[&runnerror ($ret)]}")
+		if $ret;
+	}
     }
     
     # Have a little nap
     $self->nap ($self->{WAITTIME});
 }
 
-
-
-sub getGroups {
-    my ($self, $dbh) = @_;
-    my @packet = ();
-    my $now = time();
-
-# let's get all dataset-owner pairs, which were completely transfered
-# and not yet handled
-    my $h_packet = &dbexec ($dbh, qq{
-	select tb.dataset, tb.owner, tb.files
-        from t_block tb, t_block_replica tbr
-	where tbr.node=:node and
-        tbr.files = tb.files and
-        (tbr.timestamp +300) < :now and
-        tb.name=tbr.name},
-	":node"=>$self->{MYNODE}, ":now"=>$now);
- 
-    while (my ($dataset, $owner, $files) = $h_packet->fetchrow_array){
-	push (@packet, "$dataset:$owner:$files");
-    }
-    
-# return those dataset owner pairs
-    return @packet;
-}
-
-
-sub getDatasetMembers {
-    my ($self, $dbh) = @_;
-    my %members;
-    
-    my $h_dataset = &dbexec ($dbh, qq{
-	select tb.dataset, tb.owner
-        from t_block tb, t_block_replica tbr
-	where tbr.node=:node and
-        tbr.files=tb.files and
-        tb.name=tbr.name},
-	":node"=>$self->{MYNODE});
-
-    while (my ($dataset, $owner) = $h_dataset->fetchrow_array){
-	$owner = 'Hit' if grep(m|Hit|,$owner);
-	$owner = 'Digi' if grep(m|PU|,$owner);
-	$owner = 'DST' if grep(m|DST|,$owner);
-	$members{$dataset} = ($members{$dataset}?$members{$dataset}."/$owner":$owner);
-    }
-    return %members;
-}
 

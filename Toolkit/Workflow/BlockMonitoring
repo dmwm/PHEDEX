@@ -34,8 +34,8 @@ my %args = (DBITYPE => 'Oracle',
 if (!$args{DBNAME} || !$args{DBUSER}
     || !$args{DBPASS} || !$args{DROPDIR})
 {
-    print STDERR "$me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-                 "-state IN-DROP-BOX [-wait SECONDS]\n";
+    print STDERR "usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
+                 "       -state IN-DROP-BOX [-wait SECONDS]\n";
     exit 1;
 }
 
