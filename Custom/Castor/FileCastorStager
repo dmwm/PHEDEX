@@ -216,10 +216,10 @@ sub getPendingFiles
     while (my ($guid, $time) = $stmt->fetchrow())
     {
 	my $cache = $self->{PFN_CACHE}{$guid};
-	if ($cache && $cache =~ /^\d+:(.+)/)
+	if ($cache && $cache =~ /^\d+:(.*)/)
 	{
 	    # Known in cache.  Just push into result.
-	    push (@$result, [ $guid, $1, $time ]);
+	    push (@$result, [ $guid, $1 ? $1 : undef, $time ]);
 	}
 	else
 	{
@@ -266,10 +266,10 @@ sub getStagerFiles
     {
 	my $status = $files->{$pfn};
 	my $cache = $self->{GUID_CACHE}{$pfn};
-	if ($cache && $cache =~ /^\d+:(.+)/)
+	if ($cache && $cache =~ /^\d+:(.*)/)
 	{
 	    # Known in cache.  Just push into result.
-	    push (@$result, [ $1, $pfn, $status ]);
+	    push (@$result, [ $1 ? $1 : undef, $pfn, $status ]);
 	}
 	else
 	{
