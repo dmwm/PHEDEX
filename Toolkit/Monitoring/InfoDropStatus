@@ -90,10 +90,10 @@ sub idle
 	my %status = ();
 	my $site = $self->{SITEID};
 	my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-	open (STATUS, "cd $self->{AGENTDIR} && $home/DropStatus * |") or return;
+	open (STATUS, "$home/DropStatus $self->{AGENTDIR}/* |") or return;
 	while (<STATUS>)
 	{
-	    if (/^(\S+)\/:/)
+	    if (/^.*\/(\S+)\/:/)
 	    {
 		$item = $status{$1} = {};
 	    }
