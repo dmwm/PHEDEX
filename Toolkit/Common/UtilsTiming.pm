@@ -11,7 +11,7 @@ BEGIN {
     eval 'sub mytimeofday { my (@t) = &gettimeofday();
       return $t[0] + $t[1] / 1_000_000.0; }';
   } else {
-    eval { require 'sys/sycall.ph'; };
+    eval { require 'sys/syscall.ph'; };
     if (! defined (&SYS_gettimeofday) && $^O =~ /linux/) {
       eval { require 'asm/unistd.ph'; };
       if (defined (&__NR_gettimeofday)) {
