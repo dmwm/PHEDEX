@@ -88,8 +88,8 @@ sub idle
 	      :now,
               m1.value,
               m2.value,
-              count(m2.guid),
               count(distinct m3.value),
+              count(m2.guid),
               nvl(sum(m4.value),0)
             from t_files_for_transfer f
             left join t_replica_metadata m1
