@@ -240,6 +240,7 @@ sub display_usage {
 	print "  $me add-node \t\t-name <node_name>\n\t\t\t\t\t-host <host_string>\n\t\t\t\t\t-cat <catalogue_uri>\n\t\t\t\t\t-neighbours <neighbour1>,<neighbour2>,<...\n";
 	print "  $me remove-node \t\t-name <node_name>\n";
 	print "  $me new-neighbours \t-name <node_name> \n\t\t\t\t\t-neighbours <neighbour1>,<neighbour2>,<...\n";
+	print "  $me remove-link \t-name <node_name> \n\t\t\t\t\t-neighbours <neighbour1>,<neighbour2>,<...\n";
 	exit(1);
 }
 
