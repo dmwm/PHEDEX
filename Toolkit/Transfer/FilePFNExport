@@ -97,7 +97,7 @@ sub reapPFN
 {
     my ($self, $dbh, $guid, $to, $output, $start, $job) = @_;
     my $line = &input ($output);
-    my ($oguid, $pfn, @junk) = split(/\s+/, $line);
+    my ($oguid, $pfn, @junk) = split(/\s+/, $line || '');
     if ($oguid eq $guid && $pfn)
     {
 	&dbexec($dbh, qq{
