@@ -11,6 +11,9 @@ drop table t_transfer_summary;
 ----------------------------------------------------------------------
 -- Create new tables
 
+-- FIXME: partitioning
+-- FIXME: index organised?
+
 create table t_transfer_history
   (timestamp		float		not null,
    guid			char (36)	not null,

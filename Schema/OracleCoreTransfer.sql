@@ -12,6 +12,9 @@ drop table t_transfer_state;
 ----------------------------------------------------------------------
 -- Create new tables
 
+-- FIXME: partitioning
+-- FIXME: index organised?
+
 create table t_destinations
   (guid			char (36)	not null,
    node			varchar (20)	not null,
