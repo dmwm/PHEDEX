@@ -1,0 +1,11 @@
+for db in cms cmssg; do
+  addopt=; [ $db = cms ] && addopt="-add Documentation/DailyStatsDiff.txt"
+  for unit in hour day week month; do
+    ./Utilities/MakeDailyStats \
+       -db $db \
+       -dbuser $1 \
+       -dbpass $2 \
+       $(echo $addopt) \
+       -time $unit > $db-$unit.txt
+  done
+done
