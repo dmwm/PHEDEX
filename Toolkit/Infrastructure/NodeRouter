@@ -71,8 +71,7 @@ while(!(-e "$g_work_dir/stop")) {
 			$hops_by_destination{$destination} += 1;
 			
 			if (exists $my_hops_by_destination{$destination}) {
-				log_entry( ENTRY => "$destination already known to " );
-				
+				log_entry( ENTRY => "$destination already known to $g_parent_node" );
 				my $time = time();
 				my $update = "update t_Routing "
 								."set timestamp = $time, "
@@ -82,6 +81,7 @@ while(!(-e "$g_work_dir/stop")) {
 								."and gateway = '$neighbour'";
 				direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
 			} else {
+				log_entry( ENTRY => "$destination new to $g_parent_node" );
 				my $time = time();
 				my $insert = "insert into t_Routing "
 								."values ('$g_parent_node','$destination','$neighbour',$time,%hops_by_destination{$neighbour})";
