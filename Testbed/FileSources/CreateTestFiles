@@ -36,6 +36,7 @@ $trailer = "</POOLFILECATALOG>\n";
 
 for (; $count > 0; --$count) {
     my $dir = "$basedir/$setname/$setname.$count";
+    &mkpath ("$dir");
     system ("touch $dir/go");
     open (CAT, "> $dir/XMLCatFragment.$setname.$count.xml") or die;
     open (CKSUM, "> $dir/Checksum.$setname.$count.txt") or die;
