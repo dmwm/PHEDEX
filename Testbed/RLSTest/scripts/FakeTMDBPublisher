@@ -19,6 +19,7 @@ eval qx(cat "$home/UtilsCommand.pm"); die $@ if $@;
 eval qx(cat "$home/UtilsTiming.pm"); die $@ if $@;
 eval qx(cat "$home/UtilsLogging.pm"); die $@ if $@;
 eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsReaders.pm"); die $@ if $@;
 
 ######################################################################
 # Routines specific to this agent.
@@ -34,7 +35,7 @@ sub processDrop
     &timeStart();
 
     # Find the catalogue
-    my $xmlcat = (<$workdir/$drop/XMLCatFragment.*.{xml|txt}>)[0];
+    my $xmlcat = (<$workdir/$drop/XMLCatFragment.*.{xml,txt}>)[0];
     if (! defined $xmlcat)
     {
 	&alert ("no xml catalogue in $drop");
@@ -58,13 +59,13 @@ sub processDrop
 	    my $drop = $dir;
 	    $drop =~ s|.*/||;
 	    $drop = "$lfn-$drop";
-	    &mkpath ("$dir/$drop");
-	    if (!  &output ("$dir/$drop/lfn", $lfn)
-		|| !  &output ("$dir/$drop/pfn", $pfn)
-		|| !  &output ("$dir/$drop/guid", $guid)
-		|| !  &touch ("$dir/$drop/go-pending"))
+	    &mkpath ("$dir/inbox/$drop");
+	    if (!  &output ("$dir/inbox/$drop/lfn", $lfn)
+		|| !  &output ("$dir/inbox/$drop/pfn", $pfn)
+		|| !  &output ("$dir/inbox/$drop/guid", $guid)
+		|| !  &touch ("$dir/inbox/$drop/go-pending"))
 	    {
-		&alert ("cannot create send $lfn to $dir/$drop");
+		&alert ("cannot create send $lfn to $dir/inbox/$drop");
 		return;
 	    }
 	}
@@ -78,8 +79,8 @@ sub processDrop
 	    my $drop = $dir;
 	    $drop =~ s|.*/||;
 	    $drop = "$lfn-$drop";
-	    &mv("$dir/$drop/go-pending", "$dir/$drop/go")
-	        || &alert ("cannot activate $dir/$drop");
+	    &mv("$dir/inbox/$drop/go-pending", "$dir/inbox/$drop/go")
+	        || &alert ("cannot activate $dir/inbox/$drop");
 	}
     }
 

@@ -17,7 +17,7 @@ end
 nohup `dirname $0`/FakeNullAgent		\
 	-in ${T0_TMDB_DROP}/feed		\
 	-out ${T0_TMDB_DROP}/xml		\
-	-model ${T0_TMDB_MODELS}/25hz-flat	\
+	-model ${T0_TMDB_MODELS}/25hz		\
 	-wait 7					\
 	>>&! ${T0_TMDB_LOGS}/feed </dev/null &
 
@@ -45,29 +45,32 @@ nohup `dirname $0`/FakeTMDBPublisher		\
 
 # Start T0 EB transfer agents
 nohup `dirname $0`/FakeTransfer			\
+	-catalog ${T0_RLS_CATALOG}		\
+	-rewrite 's|^/|sfn://eb-se/|'		\
 	-in ${T0_TMDB_DROP}/eb-se		\
 	-out ${T0_TMDB_DROP}/se-infn		\
 	-out ${T0_TMDB_DROP}/se-pic		\
 	-model ${T0_TMDB_MODELS}/eb-se		\
-	-rewrite 's|^/|sfn://eb-se/|'		\
 	-wait 7					\
 	>>&! ${T0_TMDB_LOGS}/eb-se </dev/null &
 
 nohup `dirname $0`/FakeTransfer			\
+	-catalog ${T0_RLS_CATALOG}		\
+	-rewrite 's|^/|sfn://eb-srm/|'		\
 	-in ${T0_TMDB_DROP}/eb-srm		\
 	-out ${T0_TMDB_DROP}/srm-fnal		\
 	-model ${T0_TMDB_MODELS}/eb-srm		\
-	-rewrite 's|^/|sfn://eb-srm/|'		\
 	-wait 7					\
 	>>&! ${T0_TMDB_LOGS}/eb-srm </dev/null &
 
 nohup `dirname $0`/FakeTransfer			\
+	-catalog ${T0_RLS_CATALOG}		\
+	-rewrite 's|^/|sfn://eb-srb/|'		\
 	-in ${T0_TMDB_DROP}/eb-srb		\
 	-out ${T0_TMDB_DROP}/srb-ral		\
 	-out ${T0_TMDB_DROP}/srb-in2p3		\
 	-out ${T0_TMDB_DROP}/srb-fzk		\
 	-model ${T0_TMDB_MODELS}/eb-srb		\
-	-rewrite 's|^/|sfn://eb-srb/|'		\
 	-wait 7					\
 	>>&! ${T0_TMDB_LOGS}/eb-srb </dev/null &
 
@@ -89,40 +92,46 @@ nohup `dirname $0`/FakeTransfer			\
 # Start T1 transfer agents
 	# -out ${T0_TMDB_DROP}/eb-se-c
 nohup `dirname $0`/FakeTransfer			\
+	-catalog ${T0_RLS_CATALOG}		\
+	-rewrite 's|^/|sfn://se-infn/|'		\
 	-in ${T0_TMDB_DROP}/se-infn		\
 	-model ${T0_TMDB_MODELS}/se-infn	\
-	-rewrite 's|^/|sfn://se-infn/|'		\
 	-wait 7					\
 	>>&! ${T0_TMDB_LOGS}/se-infn </dev/null &
 nohup `dirname $0`/FakeTransfer			\
+	-catalog ${T0_RLS_CATALOG}		\
+	-rewrite 's|^/|sfn://se-pic/|'		\
 	-in ${T0_TMDB_DROP}/se-pic		\
 	-model ${T0_TMDB_MODELS}/se-pic		\
-	-rewrite 's|^/|sfn://se-pic/|'		\
 	-wait 7					\
 	>>&! ${T0_TMDB_LOGS}/se-pic </dev/null &
 
 nohup `dirname $0`/FakeTransfer			\
+	-catalog ${T0_RLS_CATALOG}		\
+	-rewrite 's|^/|sfn://srm-fnal/|'	\
 	-in ${T0_TMDB_DROP}/srm-fnal		\
 	-model ${T0_TMDB_MODELS}/srm-fnal	\
-	-rewrite 's|^/|sfn://srm-fnal/|'	\
 	-wait 7					\
 	>>&! ${T0_TMDB_LOGS}/srm-fnal </dev/null &
 
 nohup `dirname $0`/FakeTransfer			\
+	-catalog ${T0_RLS_CATALOG}		\
+	-rewrite 's|^/|sfn://srb-ral/|'		\
 	-in ${T0_TMDB_DROP}/srb-ral		\
 	-model ${T0_TMDB_MODELS}/srb-ral	\
-	-rewrite 's|^/|sfn://srb-ral/|'		\
 	-wait 7					\
 	>>&! ${T0_TMDB_LOGS}/srb-ral </dev/null &
 nohup `dirname $0`/FakeTransfer			\
+	-catalog ${T0_RLS_CATALOG}		\
+	-rewrite 's|^/|sfn://srb-in2p3/|'	\
 	-in ${T0_TMDB_DROP}/srb-in2p3		\
 	-model ${T0_TMDB_MODELS}/srb-in2p3	\
-	-rewrite 's|^/|sfn://srb-in2p3/|'	\
 	-wait 7					\
 	>>&! ${T0_TMDB_LOGS}/srb-in2p3 </dev/null &
 nohup `dirname $0`/FakeTransfer			\
+	-catalog ${T0_RLS_CATALOG}		\
+	-rewrite 's|^/|sfn://srb-fzk/|'		\
 	-in ${T0_TMDB_DROP}/srb-fzk		\
 	-model ${T0_TMDB_MODELS}/srb-fzk	\
-	-rewrite 's|^/|sfn://srb-fzk/|'		\
 	-wait 7					\
 	>>&! ${T0_TMDB_LOGS}/srb-fzk </dev/null &

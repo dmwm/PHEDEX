@@ -158,7 +158,9 @@ sub relayDrop
 
 	&mv ("$outdir/$drop", "$nextdir[0]/inbox/$drop")
 	    || return &alert("failed to copy $drop to $nextdir[0]/$drop: $!");
-	
+	&touch ("$nextdir[0]/inbox/$drop/go")
+	    || &alert ("failed to make $nextdir[0]/inbox/$drop go");
+
 	&rmtree ("$outdir/$drop");
     }
     else
