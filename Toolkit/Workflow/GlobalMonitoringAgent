@@ -147,7 +147,8 @@ sub getGroupstoDelete {
 	select tb.dataset, tb.owner
         from t_block tb, t_block_replica tbr left join on tb.name=tbr.name
         group by tb.dataset,tb.owner
-	having sum(tb.files)=sum(tbr.files) and max(tbr.timestamp)<($now-$self->{HOLDOFF})});
+	having sum(tb.files)=sum(tbr.files) and max(tbr.timestamp)<(:now-:holdoff)},
+        ":now"=>$now, ":holdoff"=>$self->{HOLDOFF});
 
  
     while (my ($owner, $dataset) = $h_packet->fetchrow_array){
@@ -163,13 +164,18 @@ sub getGroupsWanted {
     my @packet = ();
     
 # any collections wanted, which are not in t_replica_state ? Let's check....    
+# FIXME: really ugly SQL... I am wondering if this could be improved
     my $h_packet = &dbexec ($dbh, qq{
-	select dataset, owner, destination
-        from T_INFO_SUBSCRIPTIONS
-        where n_files_at_dest=0});
+	select ts.dataset, ts.owner, ts.destination
+        from t_subscription ts, t_file tf, t_block tb
+        where tf.inblock=tb.name and 
+        ts.dataset=tb.dataset and 
+        ts.owner=tb.owner and 
+        tf.guid not in (select guid from t_replica_state)});
     
     while (my ($owner, $dataset, $node) = $h_packet->fetchrow_array){
-	push (@packet, "$dataset:$owner:$node");
+	my $exists = grep(|"$dataset:$owner:$node"|,@packet);
+	push (@packet, "$dataset:$owner:$node") if ! $exists ;
     }
 # return those dataset owner pairs
     return @packet;
