@@ -49,54 +49,48 @@ sub updateTransferDatabase
 
     # Build lfn-to-guid mapping table
     my %lfn2guid = ();
-    foreach my $guid (keys %$catalog)
-    {
-	my $lfn = $catalog->{$guid}{LFN}[0];
-	if (exists $lfn2guid{$lfn})
-	{
-	    &alert ("multiple guids for lfn $lfn in $drop");
-	    &markBad ($drop);
-	    return 1;
-	}
-	$lfn2guid{$lfn} = $guid;
+    foreach my $guid (keys %$catalog) {
+        my $lfn = $catalog->{$guid}{LFN}[0];
+        if (exists $lfn2guid{$lfn}) {
+            &alert ("multiple guids for lfn $lfn in $drop");
+            &markBad ($drop);
+            return 1;
+        }
+	   $lfn2guid{$lfn} = $guid;
     }
 
     # Now make sure the catalog knows all the files
-    foreach my $f (@files)
-    {
-	my $lfn = $f->[2];
-	if (! exists $lfn2guid{$lfn})
-	{
-	    &alert ("catalog does not know lfn $lfn in $drop");
-	    &markBad ($drop);
-	    return 1;
-	}
+    foreach my $f (@files) {
+	   my $lfn = $f->[2];
+	   if (! exists $lfn2guid{$lfn}) {
+	       &alert ("catalog does not know lfn $lfn in $drop");
+	       &markBad ($drop);
+	       return 1;
+        }
     }
 
-    eval
-    {
-	# Update database
-	my $dbh;
-	do { eval "use DBI"; $dbh = DBI->connect ("DBI:Oracle:$dbname",
+    eval {
+        # Update database
+        my $dbh;
+        do { eval "use DBI"; $dbh = DBI->connect ("DBI:Oracle:$dbname",
 					     "CMS_TRANSFERMGMT_WRITER",
 					     "threeBagsFULL",
 					     { RaiseError => 1, AutoCommit => 1 }) }
-	    if ($dbname);
+	       if ($dbname);
 	
-	foreach my $f (@files)
-	{
-	    my ($checksum, $size, $lfn) = @$f;
-	    my $guid = $lfn2guid{$lfn};
-	    my $pfn = $catalog->{$guid}{PFN}[0];
-	    my $group = ($catalog->{$guid}{GROUP} || "");
-	    my %meta = ('filesize' => $size,
-			'checksum' => $checksum,
-			'tmdb_insertion_time' => time(),
-			'debug_lfn' => $lfn,
-			'debug_pfn' => $pfn,
-			'debug_group' => $group,
-			map { "pool_" . lc($_) => $catalog->{$guid}{META}{$_} };
-			keys %($catalog->{$guid}{META});
+        foreach my $f (@files) {
+            my ($checksum, $size, $lfn) = @$f;
+            my $guid = $lfn2guid{$lfn};
+            my $pfn = $catalog->{$guid}{PFN}[0];
+            my $group = ($catalog->{$guid}{GROUP} || "");
+            my %meta = ('filesize' => $size,
+                'checksum' => $checksum,
+                'tmdb_insertion_time' => time(),
+                'debug_lfn' => $lfn,
+                'debug_pfn' => $pfn,
+                'debug_group' => $group,
+                map { "pool_" . lc($_) => $catalog->{$guid}{META}{$_} }
+                keys %{$catalog->{$guid}{META}});
 
 	    my @cmds = ("insert into cms_transfermgmt.t_files_for_transfer "
 			."(guid, source_node, allocated) values ('$guid', '$mynode', 0)",
@@ -106,11 +100,11 @@ sub updateTransferDatabase
 
 	    foreach my $cmd (@cmds)
 	    {
-	        if ($dbname) {
-		    $dbh->do ($cmd);
-	        } else {
-		    &logmsg ($cmd);
-        }
+	       if ($dbname) {
+		      $dbh->do ($cmd);
+	       } else {
+		      &logmsg ($cmd);
+		      }
 	    }
 	}
 
