@@ -74,9 +74,7 @@ sub idle
     my $dbh = undef;
     eval
     {
-	my $now = time();
-	$dbh = &connectToDatabase ($self, 0);
-	die "failed to connect" if ! $dbh;
+	$dbh = &connectToDatabase ($self, 0) or die "failed to connect";
 
         # FIXME: Pick up and process messages to me
 
@@ -85,9 +83,10 @@ sub idle
 	# only a limited amount of work each time around, limiting the
 	# transaction length, and gradually remove obsolete entries.
 
+	my $oldest = undef;
+	my $now = &mytimeofday();
 	my $squery = &dbprep ($dbh, qq{
 	    select timestamp from t_info_transfer_status where node = ?});
-	my $oldest = undef;
 	foreach my $row (@{$dbh->selectall_arrayref(qq{select name from t_node})})
 	{
 	    my ($node) = @$row;
