@@ -18,14 +18,22 @@
 # -db <tns name>		sets the Oracle db to talk to
 # -w <workdir>			sets the workdir for the agent
 # -no-updates			disables database updates
+#
+# You should provide a working dir name on the command line:
+# a pid file will be stored there during running, and to stop the
+# agent you should touch a file named "stop" within it.
 
 use DBI;
 use Getopt::Long;
 $| = 1; # set autoflush
 
-my $g_no_updates;	# 1 means will not make final updates in tmdb
+my $g_no_updates;		# 1 means will not make final updates in tmdb
 my $g_work_dir = '';	# place pid and stop files here...
 my $g_db = "devdb9";	# tnsname of Oracle db (tmdb)
+my $g_db_user;			# Oracle user
+my $g_db_passwd;		# Oracle password
+my $g_parent_node;		# parent node name
+my $g_once;				# 1 means will only run once
 
 # ###############################################################
 # Main agent loop
@@ -34,6 +42,13 @@ my $g_db = "devdb9";	# tnsname of Oracle db (tmdb)
 my $entry = parse_command_line();
 log_entry( ENTRY => $entry );
 
+open (PID, ">$work_dir/pid") || die "Pid file error $! $work_dir/pid\n";
+print PID "$$\n";
+close(PID);
+
+while(!(-e "$work_dir/stop")) {
+	if ($g_once) { system("touch $work_dir/stop"); }
+}
 
 
 
@@ -81,15 +96,21 @@ sub publish_availability {
 # Subroutines
 # ###############################################################
 sub parse_command_line () {
-	GetOptions(	"name" => \$parent_node,
+	GetOptions(	"name" => \$g_parent_node,
 				"n" => \$neighbour_list,
 				'w=s' => \$new_work_dir,
 				'db=s' => \$g_db,
-				"no-updates" => \$no_updates,
+				'dbuser=s' => \$g_db_user,
+				'dbpasswd=s' => \$g_db_passwd,
+				"no-updates" => \$g_no_updates,
+				"once" => \$g_once
 				);
 	
 	my $entry = '';
 	
+	if ($g_once) {
+		$entry = $entry."only running once,";
+	}
 	$work_dir = $work_dir.$new_work_dir;
 	$entry = $entry."work dir is $work_dir,";
 	if (-e "$work_dir/pid") {
@@ -102,9 +123,11 @@ sub parse_command_line () {
 	}
 	if (!$g_db) {
 		$g_db = "devdb9";
-		
 	}
 	$entry = $entry."database is $g_db,";
+	if ($g_no_updates) {
+		$entry = $entry."not making final updates, ";
+	}	
 	
 	print "Unprocessed by Getopt::Long\n" if $ARGV[0];
 	foreach (@ARGV) {
