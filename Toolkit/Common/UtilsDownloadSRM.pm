@@ -36,6 +36,7 @@ sub transferBatch
 	{
 	     # Put this file into a transfer batch
 	     my $from_pfn = $file->{FROM_PFN}; $from_pfn =~ s/^[a-z]+:/srm:/;
+	     $from_pfn =~ s|srm://castorgrid.cern.ch|srm://www.cern.ch:80|; # FIXME: FNAL?
 	     my $to_pfn = $file->{TO_PFN}; $to_pfn =~ s/^[a-z]+:/srm:/;
 	     push (@copyjob, { FILE => $file, FROM => $from_pfn, TO => $to_pfn });
 	     $file->{DONE_TRANSFER} = undef;
