@@ -98,7 +98,7 @@ sub idle
 		    ts.to_node xto,
 		    f.filesize xsize,
 		    ts.to_timestamp - ts.from_timestamp xtime
-		  from t_transfer_state ts
+		  from t_transfer_completed ts
 		  left join t_file f
 		    on f.guid = ts.guid
 		  where ts.to_state = 3
