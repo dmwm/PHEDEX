@@ -36,6 +36,7 @@ my $g_db_user;			# Oracle user
 my $g_db_passwd;		# Oracle password
 my $g_parent_node = 'default_parent';		# parent node name
 my $g_once;				# 1 means will only run once
+my @g_known_routes = ();        # routes that this node knows about 
 
 # ###############################################################
 # Main agent loop
@@ -50,13 +51,17 @@ close(PID);
 while(!(-e "$g_work_dir/stop")) {
     if ($g_once) { system("touch $g_work_dir/stop"); }
     
-    my @known_routes = &get_routes_for_node( $g_parent_node );
+    my @g_known_routes = &get_routes_for_node( $g_parent_node );
 
     foreach $neighbour (&get_neighbours) {
 	log_entry( "$g_parent_node refresh acq. with $neighbour" );
 	refresh_acquaintance( $neighbour );
 
-	my @neighbours_routes = &increment_hops( &get_routes_for_node( $neighbour ) );
+	my @neighbours_routes = &get_routes_for_node( $neighbour );
+	my @neighbours_routes = &increment_hops( \@neighbours_routes );
+
+	my @routes_to_update = &get_shared_routes( \@neighbours_routes );
+	my @routes_to_insert = &get_new_routes( \@neighbours_routes );
     }
 }
 
@@ -131,17 +136,58 @@ sub refresh_acquaintance {
     direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
 }
 
+sub display_routing_table {
+    my $table = shift;
+    log_entry( "routing table" );
+    foreach $route (@$table) {
+        log_entry( "$route" );
+    }
+
+}
+
+sub get_shared_routes {
+    my $table = shift;
+    my @shared_routes = ();
+    foreach $my_route (@g_known_routes) {
+	my ($my_from, $my_to, $my_gate, $my_time, $my_hops) = &split_route( $my_route ); 
+	foreach $other_route (@$table) {
+	    my ($from, $to, $gate, $time, $hops) = &split_route( $other_route );
+	    if ($to eq $my_to && $from eq $my_gate) {
+		# TODO: Here we just say we have a match. At some stage we might need to determine
+		# whether one route is shorter, older...?
+		push( @shared_routes, $my_route );
+	    }
+	}
+    }
+    return @shared_routes;
+}
+
+sub get_new_routes {
+    my $table = shift;
+    my @new_routes = ();
+    my $new_flag = 1;
+    foreach $other_route (@$table) {
+	my ($from, $to, $gate, $time, $hops) = &split_route( $other_route );
+	foreach $my_route (@g_known_routes) {
+	    my ($my_from, $my_to, $my_gate, $my_time, $my_hops) = &split_route( $my_route );
+	    $new_flag = 0 if ($to eq $my_to && $from eq $my_gate); 
+	}
+	push( @new_routes, $other_route ) if ($new_flag == 1 && $to ne $g_parent_node);
+    }
+    return @new_routes;
+}
+
 sub split_route {
     my $route = shift;
     my ($to_node,$gateway,$timestamp,$hops) = split( ":", $route ); 
 }
 
 sub increment_hops {
-    my @table = shift;
+    my $table = shift;
     
-    while ($route = pop( @table )) {
+    foreach $route (@$table) {
 	@bits = &split_route( $route );
-	@bits[3]++;
+	@bits[4]++;
 	$route = join( ":",@bits );
 	push( @new_table, $route );
     }
@@ -155,7 +201,7 @@ sub get_routes_for_node {
                             "$g_db_passwd",
                             { RaiseError=>1, AutoCommit =>1 });
     
-    my $selection = "select to_node,gateway,timestamp,hops "
+    my $selection = "select from_node,to_node,gateway,timestamp,hops "
         ."from t_Routing "
         ."where from_node = '$node'";
     my @routes = ();
