@@ -1,36 +1,27 @@
 #!/usr/bin/perl
 
-## This T0 agent receives files from the T0 batch reconstruction farm
-## into the Global Distribution Buffer (GDB) Castor pool and registers
-## them to the RLS catalog.
+## This agent registers files into the catalogue (RLS or local) as a
+## preliminary step before transfer.
 ##
-## A T0 batch reconstruction farm produces data files, a XML catalog
-## file, a summary file and a checksum file.  At the end of the job,
-## the event data files are copied into the GDB Castor pool with RFIO.
-## The catalog, summary and checksum are copied to the inbox of this
-## agent.
+## The agent merges the XML catalogue into the local catalogue and moves
+## the drop to the next agent, normally the transfer database agent.
 ##
-## The agent merges the XML catalog into the RLS catalog and moves
-## the files forward to the T0 TMDB publishing agent,
-## which initiates the assignment and copy of the files to the T1s.
+## Note that normally the files have to be published in the catalogue
+## before publishing them for transfer so that transfer agents that
+## expect to find the info in the catalogue can do their job simply.
 ##
-## This order is currently required because the transfer agents from
-## the GDB to the export buffers expect the files to be registered
-## in the RLS.  This may change in future.  This agent may become a
-## part of the config agent.
-##
-## This agent periodically inspects the drop box, looking for new
-## incoming directories from completed batch jobs.  For each such
-## new assignment, it goes through the registration process.  At
-## each step we update the state so that if the script terminates,
-## crashes or is otherwise stopped, it will pick up in the right
-## place.  At the end, we pass the assignment to the next agent.
+## Like all drop box agents, this agent periodically inspects the
+## inbox, looking for new completed drops.  For each new drop, the
+## files are published, and the drop is passed to the next
+## drop box agent, or destroyed if there is no next agent.  If the
+## agent terminates, crashes or is otherwise stopped, it will pick
+## up in the right place when started the next time.
 
 BEGIN { use strict; $^W = 1; }
 my ($dropdir, @nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
 my @startTime;
 my $waittime = 7;		# Seconds to sleep between meta set queries
-my $rls_catalog = undef;	# Catalog to register into
+my $catalogue = undef;		# Catalogue contact string
 my %bad = ();			# Drops we've warned are bad
 my %junk = ();			# Drops we've warned are junk in inbox
 
@@ -46,11 +37,11 @@ eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
 ######################################################################
 # Routines specific to this agent.
 
-# Import the XML catalog fragment to the RLS catalog.
-sub updateRLS
+# Import the XML catalogue fragment to the file catalogue.
+sub updateFileCatalogue
 {
     my ($drop, $xmlcat) = @_;
-    my $ret = &runcmd ("FCpublish", "-d", $rls_catalog, "-u", "file:$xmlcat");
+    my $ret = &runcmd ("FCpublish", "-d", $catalogue, "-u", "file:$xmlcat");
 
     if ($ret)
     {
@@ -74,25 +65,25 @@ sub processDrop
     delete $bad{$drop};
     &timeStart();
 
-    # Find the catalog file.
+    # Find the catalogue file.
     my $xmlcat = (<$workdir/$drop/XMLCatFragment.*.{txt,xml}>)[0];
     if (! defined $xmlcat)
     {
-	&alert("no xml catalog file found in $drop");
+	&alert("no xml catalogue file found in $drop");
 	&markBad ($drop);
 	return;
     }
 
     # Merge XML contents into RLS.
-    return if &updateRLS ($drop, $xmlcat);
+    return if &updateFileCatalogue ($drop, $xmlcat);
     &relayDrop ($drop);
     &logmsg("stats: $drop @{[&formatElapsedTime()]} success");
 }
 
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-catalog' && scalar @ARGV > 1)
-    { shift (@ARGV); $rls_catalog = shift(@ARGV); }
+    if ($ARGV[0] eq '-catalogue' && scalar @ARGV > 1)
+    { shift (@ARGV); $catalogue = shift(@ARGV); }
     elsif ($ARGV[0] eq '-in' && scalar @ARGV > 1)
     { shift (@ARGV); $dropdir = shift(@ARGV); }
     elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
@@ -103,10 +94,10 @@ while (scalar @ARGV)
     { last; }
 }
 	
-if (scalar @ARGV || !$dropdir || !$rls_catalog)
+if (scalar @ARGV || !$dropdir || !$catalogue)
 {
     print STDERR
-	"usage: $me -catalog CATALOG\n",
+	"usage: $me -catalogue CONTACT-STRING\n",
 	"    -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
 	"    [-wait SECS-TO-WAIT]\n";
     exit (1);
