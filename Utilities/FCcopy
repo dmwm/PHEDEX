@@ -45,34 +45,45 @@ elsif ($args{DEST_CATALOGUE} =~ /^mysql:/) { $dest = new MySQLWrite; }
 elsif ($args{DEST_CATALOGUE} =~ /^XML:/) { $dest = new XMLWrite; }
 else { die "Unrecognised output catalogue $args{DEST_CATALOGUE}\n"; }
 
-my @files = ();
+my $ntotal = 0;
 $src->init ($args{SRC_CATALOGUE});
 $dest->init ($args{DEST_CATALOGUE});
 while (1)
 {
-    while (my $file = $src->read()) {
-	if ($args{MATCH}) {
+    # Fetch the next lot of files
+    my @files = ();
+    while (my $file = $src->read())
+    {
+	if ($args{MATCH})
+	{
 	    $file->{PFNS} = [ grep($_->{PFN} =~ /$args{MATCH}/o, @{$file->{PFNS}}) ];
-	    next if ! @{$file->{PFNS}};
+	    do { local $| = 1; print "_"; next } if ! @{$file->{PFNS}};
 	}
 	push (@files, $file);
-	last if scalar @files > 100;
+	last if scalar @files >= 100;
     }
 
-    last if ! @files;
+    # Maintain counts
+    my $nfiles = scalar @files;
+    $ntotal += $nfiles;
+
+    # Remap PFNs if requested
     &remapPFNs (\@files, %args) if $args{REWRITE};
 
+    # Write out
     while (my $file = shift (@files))
     {
 	$dest->write ($file);
     }
 
-    local $| = 1;
-    print ".";
+    # Show progress
+    do { local $| = 1; print "."; };
+    last if $nfiles < 100;
 }
 $src->finish();
 $dest->finish();
 
+print "\n$ntotal files copied\n";
 exit 0;
 
 # Pick result from remapping a PFN.
@@ -182,10 +193,6 @@ sub read
 	}
     }
 
-    $self->{PQUERY}->finish();
-    $self->{LQUERY}->finish();
-    $self->{MQUERY}->finish();
-
     return $file;
 }
 
@@ -196,6 +203,7 @@ sub finish
     undef $self->{PQUERY};
     undef $self->{LQUERY};
     undef $self->{MQUERY};
+    $self->{DBH}->disconnect();
     undef $self->{DBH};
 }
 
@@ -242,12 +250,8 @@ sub read
     }
 
     &dbbindexec ($self->{MQUERY}, 1 => $guid);
-    while (my $attrs = $self->{MQUERY}->fetchrow_hashref()) {
-	$file->{META} = $attrs;
-    }
-
-    $self->{PQUERY}->finish();
-    $self->{MQUERY}->finish();
+    my $meta = $self->{MQUERY}->fetchrow_hashref();
+    $file->{META} = $meta if $meta;
 
     return $file;
 }
@@ -258,6 +262,7 @@ sub finish
     undef $self->{LQUERY};
     undef $self->{PQUERY};
     undef $self->{MQUERY};
+    $self->{DBH}->disconnect();
     undef $self->{DBH};
 }
 
@@ -295,6 +300,8 @@ sub finish
     undef $self->{LINS};
     undef $self->{PINS};
     undef $self->{MINS};
+    $self->{DBH}->disconnect();
+    undef $self->{DBH};
 }
 
 sub write
