@@ -261,7 +261,7 @@ sub completeOne
 		where guid = '$guid' and attribute = 'checksum'});
 	if (defined $old)
 	{
-	    &alert ("checksum mismatch for $guid at $mynode: $old $checksum");
+	    &alert ("checksum mismatch for $guid at $mynode: $old $checksum")
 	        if $old ne $checksum;
 	    return;
         }
