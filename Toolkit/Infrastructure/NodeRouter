@@ -58,10 +58,10 @@ while(!(-e "$g_work_dir/stop")) {
 	    log_entry( ENTRY => "Refreshing link $g_parent_node : $neighbour" );
 	    refresh_acquaintance( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, MY_NODE => $g_parent_node, NODE => $neighbour );
 	
-		log_entry( ENTRY => "$g_parent_node querying routes for $neighbour" );
+		log_entry( ENTRY => "$g_parent_node querying routes known by $neighbour" );
 		%hops_by_destination = get_neighbours_routes( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, MY_NODE => $g_parent_node, NODE => $neighbour );
 		foreach $destination (keys %hops_by_destination) {
-			log_entry( ENTRY => "$destination $hops_by_destination{$destination}" );
+		    log_entry( ENTRY => "$destination $hops_by_destination{$destination}" );
 		}
 	}
 	
@@ -112,7 +112,7 @@ sub publish_availability {
 # ###############################################################
 # Subroutines
 # ###############################################################
-sub refresh_acquaintance {
+sub get_neighbours_routes{
 	my %args = (
 		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
 		DB_USER => 'some_user',
@@ -130,7 +130,8 @@ sub refresh_acquaintance {
 	my %hops_by_destination = ();
 	my $selection = "select to_node, hops "
 					."from t_Routing "
-					."where from_node = '$args{NODE}' ";
+					."where from_node = '$args{NODE}' "
+					."and not to_node = '$args{MY_NODE}'"; 
 	my $query = $dbh->prepare($selection);
 	$query->execute;
 	while (@row = $query->fetchrow_array) {
@@ -140,6 +141,8 @@ sub refresh_acquaintance {
 	$query->finish();
 	
 	$dbh->disconnect();
+	
+	return %hops_by_destination;
 }
 
 sub refresh_acquaintance {
