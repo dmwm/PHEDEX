@@ -121,15 +121,15 @@ sub idle
 	        order by r.hops asc nulls last});
             my ($tstmt) = &dbprep ($dbh, qq{
 	        insert into t_transfer_state
-	        (guid, from_node, from_state, to_node, to_state,
-	         insert_time_stamp, from_time_stamp, to_time_stamp)
-	        values (:guid, :from_node, 0, :to_node, 0, :now, :now, :now)});
+	        (timestamp, guid, to_node, to_state, to_timestamp,
+		 from_node, from_state, from_timestamp)
+	        values (:now, :guid, :to_node, 0, :now, :from_node, 0, :now)});
             my ($dstmt) = &dbexec ($dbh, qq{
-	        select d.guid, d.destination_node
-	        from t_destinations d
+	        select d.guid, d.node
+	        from t_destination d
 	        left join t_replica_state rs
-	          on rs.guid = d.guid and rs.node = d.destination_node
-	        where rs.node is null and d.destination_node like :pat},
+	          on rs.guid = d.guid and rs.node = d.node
+	        where rs.node is null and d.node like :pat},
 		":pat" => $nodepat);
             while (my ($guid, $dest) = $dstmt->fetchrow())
 	    {
@@ -179,6 +179,7 @@ sub idle
 		        delete $self->{WARNINGS}{UNAVAILABLE}{$guid}{$dest};
 		        delete $self->{WARNINGS}{NO_ROUTE}{$guid}{$dest};
 		        ++$nrouted;
+	    		$dbh->commit ();
 		        last;
 		    }
 		    else
@@ -189,7 +190,6 @@ sub idle
 	        }
 	    }
 
-	    $dbh->commit ();
 	    &logmsg ("$nodepat: considered $nincomplete destinations,"
 		     . " $nrouted routes created in"
 		     . " @{[sprintf '%.1f', &mytimeofday() - $now]} seconds")
@@ -203,6 +203,5 @@ sub idle
     undef $dbh;
 
     # Check children are still running and then wait
-    $self->maybeStop ();
-    sleep ($self->{WAITTIME});
+    $self->nap ($self->{WAITTIME});
 }
