@@ -23,7 +23,7 @@ while ($count > 0) {
     $full_path = $pwd.$file;
     
     @output = system( "FCregisterPFN -p $full_path" );
-    if (@#output > 1) {
+    if ($#output > 1) {
         print "Problem registering pfn\n@output\n";
     } else {
         $guid = $output[0];
