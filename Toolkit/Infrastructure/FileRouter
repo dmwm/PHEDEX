@@ -99,9 +99,9 @@ sub idle
 			from t_transfer_state
 			where dest_state = 3});
 	$stmt->execute();
-	while (my $row = $stmt->fetchrow_arrayref())
+	while (my $guidrow = $stmt->fetchrow_arrayref())
 	{
-	    my $guid = $row->[0];
+	    my $guid = $guidrow->[0];
 
 	    # Select all destinations, possible source replicas, best
 	    # next hop and distance to the destination, and status of
