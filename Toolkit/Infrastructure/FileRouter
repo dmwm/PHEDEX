@@ -99,8 +99,10 @@ sub idle
 		select guid, dest_final from (
 		  select d.guid guid, d.destination_node dest_final, count(r.gateway) paths
 		  from t_destinations d
-		  left join t_replica_state rs on rs.guid = d.guid
-		  left join t_routing r on r.from_node = rs.node and r.to_node = d.destination_node
+		  left join t_replica_state rs
+		    on rs.guid = d.guid
+		  left join t_routing r
+		    on r.from_node = rs.node and r.to_node = d.destination_node
 		  group by d.guid, d.destination_node)
 		where paths = 0});
 	$stmt->execute();
@@ -109,78 +111,32 @@ sub idle
 	    my ($guid, $dest) = @$row;
 	    next if $self->{WARNINGS}{NO_ROUTE}{$guid}{$dest};
 	    $self->{WARNINGS}{NO_ROUTE}{$guid}{$dest} = 1;
-	    &warning("$guid: no path to destination $dest");
+	    &warn("@{[time()]} unroutable $guid $dest");
 	}
 
-	# For each destination of each file, for each replica find the
-	# transfer that got the file there and possible next hop to the
-	# final destination.  Filter only the combinations that require
-	# a new hop assignment.  The query may return more than one row
-	# for a guid/destination pair: while there can be only possible
-	# previous and next hop for guid/destination/replica, there may
-	# be more than one replica we need to deal with.  This is even
-	# after filtering only the rows that are completed transfers
-	# and/or need a next hop assignment.  We sort the query result
-	# by dest_state, which causes null states to be sorted after
-	# non-null ones, and simply ignore what we've already handled.
-	my %seen = ();
-	$stmt = $dbh->prepare(qq{
-		select d.guid, d.destination_node, rs.node,
-		       r.from_node, ts.dest_state,
-		       r1.gateway, ts2.dest_state
+	# For each destination of each file, select nearest replica.
+	# If it isn't in transfer already, issue a new request.
+	my $now = time();
+	$stmt = $dbh->do(qq{
+	    insert into t_transfer_state (
+		select d.guid, rs.node, r.gateway, 0, $now, 0, $now
 		from t_destinations d
 		left join t_replica_state rs
 		  on rs.guid = d.guid
 		left join t_routing r
-		  on r.gateway = rs.node
+		  on r.from_node = rs.node
 		 and r.to_node = d.destination_node
 		left join t_transfer_state ts
 		  on ts.guid = d.guid
-		 and ts.src_node = r.from_node
-		 and ts.dest_node = rs.node
-		left join t_routing r1
-		  on r1.from_node = rs.node
-		 and r1.to_node = d.destination_node
-		left join t_transfer_state ts2
-		  on ts2.guid = d.guid
-		 and ts2.src_node = rs.node
-		 and ts2.dest_node = r1.gateway
-		where (ts.dest_state = 3 or (r1.gateway is not null and ts2.dest_state is null))
-	        order by d.guid, d.destination_node, ts.dest_state, ts2.dest_state, r.hops, r1.hops});
-	$stmt->execute();
-	while (my $row = $stmt->fetchrow_arrayref())
-	{
-	    my ($guid, $dest, $replica, $prev, $pstate, $next, $nstate) = @$row;
-	    delete $self->{WARNINGS}{NO_ROUTE}{$guid}{$dest};
-
-	    # If we haven't seen this completed transfer, mark it complete
-	    if (defined $pstate && ! $seen{"PREV:$guid:$prev:$replica"})
-	    {
-		my $now = time();
-		$seen{"PREV:$guid:$replica:$prev"} = 1;
-		$dbh->do(qq{
-			update t_transfer_state
-			set dest_state = 4, dest_time_stamp = $now
-			where guid = '$guid' and src_node = '$prev' and dest_node = '$replica'});
-		&logmsg ("final $now $guid $dest") if $replica eq $dest;
-	    }
-
-	    # If we haven't seen this destination yet, apply next hop if any
-	    if (! $seen{"DEST:$guid:$dest"})
-	    {
-		$seen{"DEST:$guid:$dest"} = 1;
-		if (defined $next && ! defined $nstate && ! $seen{"NEXT:$guid:$replica:$next"})
-		{
-		    my $now = time ();
-		    $seen{"NEXT:$guid:$replica:$next"} = 1;
-		    $dbh->do(qq{
-			    insert into t_transfer_state
-			    values ('$guid', '$replica', '$next', 0, 0 ,$now, $now)});
-		    &logmsg ("next $now $guid $dest $replica $next");
-	        }
-	    }
-	}
-
+		 and ts.src_node = rs.node
+		 and ts.dest_node = r.gateway
+		where r.gateway is not null
+		  and ts.dest_state is null
+		  and r.hops = (select min (rr.hops)
+	  			from t_routing rr, t_replica_state trs
+	  			where guid = d.guid
+				  and to_node = d.destination_node
+				  and rr.from_node = trs.node))});
 	$dbh->commit ();
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
