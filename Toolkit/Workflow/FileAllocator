@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/09/03 17:01:24 $
-# $Id: Allocator.pl,v 1.61 2004/09/03 17:01:24 barrass Exp $
+# $Date: 2004/09/03 17:10:46 $
+# $Id: Allocator.pl,v 1.62 2004/09/03 17:10:46 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -33,7 +33,6 @@
 # -no-updates		will run through the allocation algo but not make final changes in tmdb
 # -w <workdir>		sets the workdir for the agent
 # -db <tns name>	sets the Oracle db to talk to
-# -u <pool cat uri>	sets the catalogue from which the agent takes info
 # -once             only run once
 # -period           repeat period, seconds
 # -user             db username
@@ -48,8 +47,6 @@ my $time;	# holds current time
 my $g_no_updates;	# 1 means will not make final updates in tmdb
 my $g_work_dir = '';	# place pid and stop files here...
 my $g_db = "devdb9";	# tnsname of Oracle db (tmdb)
-my $g_pool_uri = 'edgcatalog_http://rlscms.cern.ch:7777/cms/v2.2/edg-local-replica-catalog/services/edg-local-replica-catalog';
-						# uri of pool catalogue to use
 my $g_once;             # 1 means will only run once
 my $g_period = 600;     # repeat period of algorithm
 my $g_max_guids = 500;  # max new guids to return per cycle
@@ -345,7 +342,6 @@ sub parse_command_line () {
 	GetOptions(	'w=s' => \$new_work_dir,
 				'db=s' => \$g_db,
 				"no-updates" => \$g_no_updates,
-				'u=s' => \$g_pool_uri,
 				"once" => \$g_once,
 				'period=i' => \$g_period,
 				'user=s' => \$g_user,
@@ -369,9 +365,6 @@ sub parse_command_line () {
 		
 	}
 	$entry = $entry."database is $g_db,";
-	if ($g_pool_uri) {
-		$entry = $entry."using POOL cat $g_pool_uri, ";
-	}	
 	if ($g_no_updates) {
 		$entry = $entry."not making final updates, ";
 	}	
