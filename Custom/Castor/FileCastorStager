@@ -95,7 +95,9 @@ sub new
     	    	  MAXTAPEREQS => 4000,		# Max pending tape mounts
     	    	  MAXMYTAPEREQS => 1000,	# Max pending tape mounts by myself
     	    	  MAXSTAGEREQS => 200,		# Max pending stager requests
-    	    	  MAXFILES => 50);		# Max number of files in one request
+    	    	  MAXFILES => 50,		# Max number of files in one request
+		  PFN_CACHE => {},		# GUID -> PFN cache
+		  GUID_CACHE => {});		# PFN -> GUID cache
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -172,13 +174,37 @@ sub getCatalogue
 		from t_nodes where node_name = '$mynode'});
 }
 
+# Purge old entries from our caches.
+sub purgeCache
+{
+    my ($cache) = @_;
+
+    # Remove old positive matches after a day to avoid building up
+    # a cache over a time.  Remove negative matches after an hour.
+    my $now = time ();
+    my $oldmatch = $now - 86400;
+    my $oldnomatch = $now - 3600;
+
+    # Remove entries that are too old
+    foreach my $item (keys %$cache)
+    {
+	my ($time, @rest) = @{$cache->{$item}};
+	delete $cache->{$item}
+	   if ((! @rest && $time < $oldnomatch) || $time < $oldmatch);
+    }
+}
+
 # Get the list of files that have been requested for stage-in.
 sub getPendingFiles
 {
     my ($self, $dbh, $catalogue, $hostkey) = @_;
+    my %unknown = ();
     my $result = [];
     my $mynode = $self->{MYNODE};
-    my $prefix = $self->{RM_PATH_PREFIX};
+
+    # First fetch files from database.  If we come across something
+    # we haven't seen before, remember it but don't look it up yet.
+    # Otherwise just push the (GUID, PFN, TIME) tuple into result.
     my $stmt = $dbh->prepare (qq{
     		select rs.guid, rs.local_time_stamp
 		from t_replica_state rs
@@ -189,38 +215,83 @@ sub getPendingFiles
     while (my $row = $stmt->fetchrow_arrayref())
     {
 	my ($guid, $time) = @$row;
-	my $pfn = $self->{PFN_CACHE}{$guid};
-	if (! $pfn && ($pfn = &guidToPFN ($guid, $catalogue, $hostkey)))
+	my $cache = $self->{PFN_CACHE}{$guid};
+	if (! $cache)
 	{
-	    $pfn =~ s/$prefix//;
-	    $self->{PFN_CACHE}{$guid} = $pfn;
-	    $self->{GUID_CACHE}{$pfn} = $guid;
+	    # Not seen this yet.  Remember it.
+	    $unknown{$guid} = $time;
 	}
-	push (@$result, [ $guid, $pfn, $time ]);
+	else
+	{
+	    # Known in cache.  Just push into result.
+	    push (@$result, [ $guid, $cache->[1], $time ]);
+	}
+    }
+
+    # Now go over everything that we hadn't seen yet.  Look up all
+    # the GUID/PFN mappings in one go with a single efficient pull,
+    # and then cache the results and fill in result.
+    if (my @items = keys %unknown)
+    {
+        my $now = time();
+        my $pfns = &guidToPFN ([ @items ], $catalogue, $hostkey);
+        my $prefix = $self->{RM_PATH_PREFIX};
+        foreach my $guid (@items)
+        {
+	    my $pfn = $pfns->{$guid};
+	    $pfn =~ s/$prefix// if defined $pfn;
+	    $self->{PFN_CACHE}{$guid} = [ time(), $pfn ];
+	    $self->{GUID_CACHE}{$pfn} = [ time(), $guid ] if defined $pfn;
+	    push (@$result, [ $guid, $pfn, $unknown{$guid} ]);
+        }
     }
 
     return $result;
 }
 
-# Get the list of files currently staged-in.
+# Get the list of files stager knows about
 sub getStagerFiles
 {
     my ($self, $catalogue, $hostkey) = @_;
     my $files = &stagerFileList();
     return undef if ! $files;
 
-    my $prefix = $self->{RM_PATH_PREFIX};
+    my %unknown = ();
     my $result = [];
+
+    # First pass.  If we come across something we haven't seen
+    # before, remember it but don't look it up yet.  Otherwise
+    # just push the (GUID, PFN, TIME) tuple into result.
     foreach my $pfn (keys %$files)
     {
 	my $status = $files->{$pfn};
-	my $guid = $self->{GUID_CACHE}{$pfn};
-	if (! $guid && ($guid = &pfnToGUID ($prefix.$pfn, $catalogue, $hostkey)))
+	my $cache = $self->{GUID_CACHE}{$pfn};
+	if (! $cache)
 	{
-	    $self->{GUID_CACHE}{$pfn} = $guid;
-	    $self->{PFN_CACHE}{$guid} = $pfn;
+	    # Not seen this yet.  Remember it.
+	    $unknown{$pfn} = 1;
+	}
+	else
+	{
+	    # Known in cache.  Just push into result.
+	    push (@$result, [ $cache->[1], $pfn, $status ]);
+	}
+    }
+
+    # Now go over everything that we hadn't seen yet.  Look up all
+    # the GUID/PFN mappings in one go with a single efficient pull,
+    # and then cache the results and fill in result.
+    if (my @items = keys %unknown)
+    {
+        my $now = time();
+        my $guids = &pfnToGUID ([ @items ], $catalogue, $hostkey);
+        foreach my $pfn (@items)
+        {
+	    my $guid = $guids->{$pfn};
+	    $self->{PFN_CACHE}{$guid} = [ time(), $pfn ] if defined $guid;
+	    $self->{GUID_CACHE}{$pfn} = [ time(), $guid ];
+	    push (@$result, [ $guid, $pfn, $files->{$pfn} ]);
         }
-	push (@$result, [ $guid, $pfn, $status ]);
     }
 
     return $result;
@@ -276,6 +347,9 @@ sub idle
         # FIXME: Pick up and process messages to me
 
 	# Get my catalogue details, pending and stager files
+	&purgeCache ($self->{PFN_CACHE});
+	&purgeCache ($self->{GUID_CACHE});
+
 	my $catalogue = &getCatalogue ($dbh, $self->{MYNODE});
 	return if ! $catalogue;
 
