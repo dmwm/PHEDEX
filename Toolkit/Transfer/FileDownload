@@ -281,7 +281,7 @@ sub completeTransferBatch
         # just skip this file, we will re-transfer it later again.
         if ($@)
         {
-            &alert ("failed to update transfer batch status: $@");
+            &alert ("failed to update transfer batch status for $file->{GUID}: $@");
             $dbh->rollback() if $dbh;
         }
     };
