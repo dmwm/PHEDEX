@@ -119,7 +119,7 @@ sub idle
 			     on rs.guid = f.guid and rs.node = s.destination
 			   where d.guid is null and rs.guid is null)});
 
-	&log_entry("$rows new file destinations allocated") if $rows > 0;
+	&logmsg ("$rows new file destinations allocated") if $rows > 0;
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
