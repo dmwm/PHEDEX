@@ -84,6 +84,7 @@ sub idle
 
 	# Update statistics in t_block_replica with number of files
 	# and total size in bytes using t_replica_state information.
+	# first get handel
         my $now = &mytimeofday ();
         my $qreplicas = &dbexec($dbh, qq{
 	    select
@@ -95,50 +96,75 @@ sub idle
     	    left join t_file f on f.guid = rs.guid
     	    group by f.inblock, rs.node});
 
+
+	my $qexisting = &dbexec($dbh, qq{
+	          select name, node, files, bytes
+		  from t_block_replica});
+
+	# Check for existing entries by dumping content of t_block_replica
+	# now get content of t_block_replica
+	my $BRDump = {};
+	while (my ($block, $node, $nfiles, $nbytes)=$qexisting->fetchrow_array())
+	{
+	    $BRDump->{$block}{$node} = [$nfiles, $nbytes];
+	}
+
+	# get all info needed to update the blocks in t_block_replica
+	my $RSChange = {};
         while (my ($block, $node, $nfiles, $nbytes) = $qreplicas->fetchrow_array())
         {
-	    # FIXME: Ignore t_replica_state with BlockDeactivate.  Add
-	    # a "isactive" flag to a block/block replica so we can
-	    # tell whether to look at t_replica_state for the block or
-	    # not.  BlockActivate/Deactivate must manage this flag.
-	    # Decide what to do in TMDBInject + DropTMDBPublisher.
+	    # only interested in the blocks which changed (nbytes or nfiles)
+	    # and int the ones which don't exist yet
+	    my $exists = $BRDump->{$block}{$node};
+	    $RSChange->{$block}{$node} = [$nfiles, $nbytes, $exists]
+		if ( ($exists
+		    && ($BRDump->{$block}{$node}->[0] != $nfiles
+			|| $BRDump->{$block}{$node}->[1] != $nbytes) )
+		     || !$exists);
+	}
 
-	    # Check for an existing entry for current name and node,
-	    # add new one if necessary.
-	    my ($exists) = &dbexec($dbh, qq{
-    	    	select count(name)
-    	    	from t_block_replica
-    	    	where name = :block
-    	    	  and node = :node},
-    	    	":block" => $block, ":node" => $node)
-    	    	->fetchrow();
-	    
-	    # Create a template entry if none yet exists.
-	    &dbexec($dbh, qq{
-    	    	 insert into t_block_replica
-    	    	 (timestamp, name, node, files, bytes)
+	# will only modify or create blocks which changed
+	# should reduce load on DB
+	foreach my $block (sort keys(%$RSChange))
+	{
+	    foreach my $node (sort keys(%{$RSChange->{$block}}))
+	    {
+		# FIXME: Ignore t_replica_state with BlockDeactivate.  Add
+		# a "isactive" flag to a block/block replica so we can
+		# tell whether to look at t_replica_state for the block or
+		# not.  BlockActivate/Deactivate must manage this flag.
+		# Decide what to do in TMDBInject + DropTMDBPublisher.
+
+		my $nfiles = $RSChange->{$block}{$node}->[0];
+		my $nbytes = $RSChange->{$block}{$node}->[1];
+		my $exists = $RSChange->{$block}{$node}->[2];
+		# Create a template entry if none yet exists.
+		&dbexec($dbh, qq{
+    	    	     insert into t_block_replica
+    	    	     (timestamp, name, node, files, bytes)
             	     values (:now, :block, :node, -1, -1)},
             	     ":now" => $now,
-    	    	 ":block" => $block,
-    	    	 ":node" => $node)
-		if ! $exists;
+    	    	     ":block" => $block,
+    	    	     ":node" => $node)
+		     if ! $exists;
 	    
-	    # Now update table values.
-	    &dbexec($dbh, qq{
-    	    	update t_block_replica
-    	    	set timestamp = :now,
+		# Now update table values.
+		&dbexec($dbh, qq{
+    	    	    update t_block_replica
+    	    	    set timestamp = :now,
     	    	    files = :files,
     	    	    bytes = :bytes
-    	    	where name = :block
-    	    	  and node = :node},
-    	    	":now" => $now,
-    	    	":files" => $nfiles,
-    	    	":bytes" => $nbytes,
-    	    	":block" => $block,
-    	    	":node" => $node);
-        }
-
-	$dbh->commit();
+    	    	    where name = :block
+    	    	    and node = :node},
+    	    	    ":now" => $now,
+    	    	    ":files" => $nfiles,
+    	    	    ":bytes" => $nbytes,
+    	    	    ":block" => $block,
+    	    	    ":node" => $node);
+        
+		$dbh->commit();
+	    }
+	}
     };
     do { &alert ("database error: $@"); $dbh->rollback if $dbh } if $@;
 
