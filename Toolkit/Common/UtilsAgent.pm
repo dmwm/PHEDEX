@@ -1,5 +1,6 @@
 package UtilsAgent; use strict; use warnings; use base 'Exporter';
 use POSIX;
+use File::Path;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;

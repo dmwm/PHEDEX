@@ -59,6 +59,9 @@ if (scalar @ARGV || !$args{DROPDIR} || !$ENV{STAGE_HOST} || !$ENV{STAGE_POOL}
 # Routines specific to this agent.
 package DropFunnelWorker; use strict; use warnings; use base 'UtilsAgent';
 use File::Path;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
 use UtilsWriters;
 
 sub new

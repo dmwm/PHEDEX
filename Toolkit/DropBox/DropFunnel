@@ -85,7 +85,11 @@ if (scalar @ARGV || !$args{DROPDIR} || !$ENV{STAGE_HOST} || !$ENV{STAGE_POOL}
 package DropFunnel; use strict; use warnings; use base 'UtilsAgent';
 use Data::Dumper;
 use File::Path;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
 use UtilsReaders;
+use UtilsRFIO;
 
 sub new
 {

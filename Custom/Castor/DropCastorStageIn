@@ -67,6 +67,9 @@ if (scalar @ARGV || !$args{DROPDIR})
 package DropCastorStageIn; use strict; use warnings; use base 'UtilsAgent';
 use File::Path;
 use Data::Dumper;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
 use UtilsReaders;
 
 my $STAGE_RETRY = -2;		# Retry another time
