@@ -98,7 +98,7 @@ sub reapPFN
     my ($self, $dbh, $guid, $to, $output, $start, $job) = @_;
     my $line = &input ($output);
     my ($oguid, $pfn, @junk) = split(/\s+/, $line || '');
-    if ($oguid eq $guid && $pfn)
+    if ($pfn && $oguid && $oguid eq $guid)
     {
 	&dbexec($dbh, qq{
 	    update t_transfer_state
