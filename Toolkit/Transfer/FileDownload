@@ -224,20 +224,49 @@ sub completeTransferBatch
 		":guid" => $guid, ":node" => $self->{MYNODE}, ":now" => $now)
                 if ! $file->{FAILURE};
 
-	    # generate profiling info
-	    my $getdest = $file->{TIMING}{GET_DEST_FINISH} - $file->{TIMING}{GET_DEST_START};
-	    my $jobadd = $file->{TIMING}{JOB_ADD_FINISH} - $file->{TIMING}{JOB_ADD_START};
-	    my $preclean = $file->{TIMING}{PRECLEAN_FINISH} - $file->{TIMING}{PRECLEAN_START};
-	    my $transfer = $file->{TIMING}{FINISH} - $file->{TIMING}{START};
-	    my $validate = $file->{TIMING}{VALIDATE_FINISH} - $file->{TIMING}{VALIDATE_START};
-	    my $postclean = $file->{TIMING}{POSTCLEAN_FINISH} - $file->{TIMING}{POSTCLEAN_START};
-	    my $update = $file->{TIMING}{UPDATE_CAT_FINISH} - $file->{TIMING}{UPDATE_CAT_START};
+	    # generate profiling info and display stats
+	    my $profile_string = '';
+	    if ( defined $file->{TIMING}{GET_DEST_FINISH} ) {
+		$profile_string .= "define_destination="
+		    .($file->{TIMING}{GET_DEST_FINISH} - $file->{TIMING}{GET_DEST_START})
+		    ." ";
+	    }
+            if ( defined $file->{TIMING}{JOB_ADD_FINISH} ) {
+                $profile_string .= "add_job_to_queue="
+                    .($file->{TIMING}{JOB_ADD_FINISH} - $file->{TIMING}{JOB_ADD_START})
+                    ." ";
+            }
+            if ( defined $file->{TIMING}{PRECLEAN_FINISH} ) {
+                $profile_string .= "preclean="
+                    .($file->{TIMING}{PRECLEAN_FINISH} - $file->{TIMING}{PRECLEAN_START})
+                    ." ";
+            }
+            if ( defined $file->{TIMING}{FINISH} ) {
+                $profile_string .= "transfer="
+                    .($file->{TIMING}{FINISH} - $file->{TIMING}{START})
+                    ." ";
+            }
+            if ( defined $file->{TIMING}{VALIDATE_FINISH} ) {
+                $profile_string .= "validate="
+                    .($file->{TIMING}{VALIDATE_FINISH} - $file->{TIMING}{VALIDATE_START})
+                    ." ";
+            }
+            if ( defined $file->{TIMING}{POSTCLEAN_FINISH} ) {
+                $profile_string .= "postclean="
+                    .($file->{TIMING}{POSTCLEAN_FINISH} - $file->{TIMING}{POSTCLEAN_START})
+                    ." ";
+            }
+            if ( defined $file->{TIMING}{UPDATE_CAT_FINISH} ) {
+                $profile_string .= "update_catalogue="
+                    .($file->{TIMING}{UPDATE_CAT_FINISH} - $file->{TIMING}{UPDATE_CAT_START})
+                    ." ";
+            }
 
 	    # Log transfer delay stats
 	    &logmsg ("xstats: $guid $self->{MYNODE} $to_state "
 		     . sprintf('%.2f %.2f', $dalloc, $dtransfer)
 	     	     . " $file->{FILESIZE}"
-		     . " [ $getdest $jobadd $preclean $transfer $validate $postclean $update ]");
+		     . " [ $profile_string ]");
         }
         $dbh->commit ();
     };
