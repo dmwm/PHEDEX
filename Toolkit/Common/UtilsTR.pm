@@ -160,7 +160,7 @@ sub assignmentDrops
 		          . " | perl -MMIME::Base64 -ne 'binmode(STDOUT); print decode_base64(\$_)'"
 		          . " | gzip -dc |")
 	        or die "$dropid: cannot expand xml fragment\n";
-	    $xml = join("", grep(!/^\d+a$/ && !/^\.$/, <XMLEXP>));
+	    $xml = join("", <XMLEXP>);
 	    close (XMLEXP) or die "$dropid: cannot expand xml fragment\n";
 	}
 	else
@@ -168,6 +168,7 @@ sub assignmentDrops
 	    $xml = Compress::Zlib::memGunzip (decode_base64 ($xmlfrag));
 	}
 
+	$xml = join("\n", grep(!/^\d+a$/ && !/^\.$/, split(/\n/, $xml)));
 	$result->{$dropid} = {
 	    XML => &genXMLPreamble() . $xml . &genXMLTrailer(),
 	    SMRY => "EVDS_OutputPath=$basedir/$subdir/$ainfo->{DatasetName}\n"
