@@ -1,0 +1,221 @@
+#!/usr/bin/perl
+
+## This T0 agent receives files from the T0 batch reconstruction farm
+## and converts incomplete paths to full Castor paths (PFNs).
+##
+## A T0 batch reconstruction farm produces data files, an XML catalog
+## file, a summary file, and a checksum file.  At the end of hte job,
+## the event data files are copied into the GDB castor pool with RFIO.
+## The catalog, summary and checksum files are dropped into the inbox
+## of this agent.
+##
+## This agent normalises the physical file names (PFNs) of the XML
+## file, as they are normally only local paths "./some-file".  The
+## location of the files in castor is determined using a Smry file
+## (if there is one), and failing that, asking castor with stageqry.
+## It also normalises the XML file to proper POOL format if it isn't
+## one yet.
+##
+## This agent periodically inspects the drop box, looking for new
+## incoming directories from completed batch jobs.  For each such
+## new assignment, it goes through the registration process.  At
+## each step we update the state so that if the script terminates,
+## crashes or is otherwise stopped, it will pick up in the right
+## place.  At the end, we pass the assignment to the next agent.
+
+BEGIN { use strict; $^W = 1; }
+my ($dropdir, @nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
+my @startTime;
+my $waittime = 7;		# Seconds to sleep between meta set queries
+my %bad = ();			# Drops we've warned are bad
+my %junk = ();			# Drops we've warned are junk in inbox
+
+my $me = $0; $me =~ s|.*/||;
+my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+
+use File::Path;
+eval qx(cat "$home/UtilsCommand.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsTiming.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsLogging.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
+
+######################################################################
+# Routines specific to this agent.
+
+# Determine actual location of a file in castor.  Used if there is
+# no summary file to tell the full path for the files.
+sub getPFNFromCastor
+{
+    my $lfn = shift;
+    open (PFN, "stageqry -f -h stagecmsdc04 -M $lfn |");
+    while (<PFN>) 
+    {
+        if (/^ \//)
+	{
+            s/\s//g;
+	    close (PFN);
+            return $_;
+        }
+    }
+    close (PFN);
+    return undef;
+}
+
+# Determine the full path for the files from the summary file.
+# Returns "undef" if this doesn't work (e.g. there is no summary),
+# in which case the caller falls back on getPFNFromCastor above.
+sub getPFNRoot
+{
+    my $summary = shift;
+    my $root = undef;
+    if ($summary && open (SMRY, "< $summary"))
+    {
+	while (<SMRY>)
+	{
+	    next if ! /^EVDS_OutputPath=(.*)$/;
+	    $root = $1;
+	    last;
+	}
+        close (SMRY);
+    }
+    return $root;
+}
+
+# Update the XML catalog fragment to real POOL format.  We should
+# receive the fragment as a pure fragment to which we add a wrapper
+# that makes it valid stand-alone catalog.  For historical reasons
+# it may also include a diff wrapper, which we remove.  Replaces the
+# original catalog file with a new one.
+#
+# While we are at it, also update PFNs in the catalog.  The incoming
+# catalog has fake PFNs of the format "./LFN".  Remap them to the real
+# physical paths either using the path given in a Smry file, or failing
+# that, by using "stageqry".
+sub updateCatalog
+{
+    my ($drop, $xmlcat, $summary) = @_;
+    my $pfnroot = &getPFNRoot ($summary);
+
+    if (! open (CAT, "< $xmlcat"))
+    {
+	# Assume it's a transient error and return failure
+	&alert ("Cannot read catalog in $drop: $!");
+	return 1;
+    }
+
+    my $content = "";
+    my $inbody = 0;
+    while (<CAT>)
+    {
+	if (! $inbody && m|<File\s|) {
+	    $inbody = 1;
+	    $content .= $_;
+	} elsif ($inbody && m|</File>|) {
+	    $inbody = 0;
+	    $content .= $_;
+        } elsif ($inbody && m|^(.*<pfn\s.*name=")\./(.*)("/>.*)|) {
+	    my ($pre, $lfn, $post) = ($1, $2, $3);
+	    my $pfn = ($pfnroot ? "$pfnroot/$lfn" : getPFNFromCastor($lfn));
+	    if (! $pfn || $pfn !~ m|^/|)
+	    {
+		close (CAT);
+		# Assume it's transient error and return failure.  stageqry
+		# seems to return nothing for some files every once in a while,
+		# but gets its act together later on.  So just keep trying.
+		&alert("cannot map logical file name $lfn to full castor path");
+		return 1;
+	    }
+	    $content .= $pre . $pfn . $post . "\n";
+	} elsif ($inbody) {
+	    $content .= $_;
+	}
+    }
+    close (CAT);
+
+    $content = ("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n"
+		. "<!DOCTYPE POOLFILECATALOG SYSTEM \"InMemory\"><POOLFILECATALOG>\n"
+		. '  <META name="Content" type="string"/>' . "\n"
+		. '  <META name="DBoid" type="string"/>' . "\n"
+		. '  <META name="DataType" type="string"/>' . "\n"
+		. '  <META name="FileCategory" type="string"/>' . "\n"
+       		 . '  <META name="Flags" type="string"/>' . "\n"
+		. '  <META name="dataset" type="string"/>' . "\n"
+       		 . '  <META name="jobid" type="string"/>' . "\n"
+		. '  <META name="owner" type="string"/>' . "\n"
+		. '  <META name="runid" type="string"/>' . "\n"
+		. $content. "\n"
+		. "</POOLFILECATALOG>\n");
+
+    if (! &output ($xmlcat, $content))
+    {
+	# Assume it's a transient error and return failure
+	&alert ("Cannot rewrite catalog for $drop: $!");
+	return 1;
+    }
+
+    return 0;
+}
+
+# Actually process the drop.
+sub processDrop
+{
+    my ($drop) = @_;
+
+    # Sanity checking
+    return if (! &inspectDrop ($drop));
+    delete $bad{$drop};
+    &timeStart();
+
+    # Find the catalog file.
+    my @files = ();
+    if (! getdir ("$workdir/$drop", \@files))
+    {
+	&alert("cannot read $workdir/$drop: $!");
+	return;
+    }
+
+    my $xmlcat = undef;
+    my $summary = undef;
+    foreach my $f (@files)
+    {
+	if ($f =~ /^Smry\..*\.txt$/) {
+	    $summary = "$workdir/$drop/$f";
+	} elsif ($f =~ /^XMLCatFragment\..*\.(txt|xml)$/) {
+	    $xmlcat = "$workdir/$drop/$f";
+	}
+    }
+
+    if (! $xmlcat)
+    {
+	&alert("no xml catalog file found in $drop");
+	&markBad ($drop);
+	return;
+    }
+
+    # Reformat catalog
+    return if &updateCatalog ($drop, $xmlcat, $summary);
+    &relayDrop ($drop);
+    &logmsg("stats: $drop @{[&formatElapsedTime()]} success");
+}
+
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    { shift (@ARGV); $dropdir = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@nextdir, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $waittime = shift(@ARGV); }
+    else
+    { last; }
+}
+	
+if (scalar @ARGV || !$dropdir)
+{
+    print STDERR
+	"usage: $me -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
+	"    [-wait SECS-TO-WAIT]\n";
+    exit (1);
+}
+
+&process();

@@ -1,0 +1,50 @@
+#!/bin/sh
+
+dir=
+
+while [ $# -gt 0 ]; do
+  case $1 in
+    -d ) dir=$2; shift; shift ;;
+    -* ) echo "unrecognised option $1"; exit 1;;
+    *  ) break ;;
+  esac
+done
+
+[ $# -eq 0 ] && { echo "usage: RefDBDrops [-d dir] assignment..."; exit 1; }
+
+# Setup
+for jobid; do
+  echo Generating drops for $jobid
+  if [ -z "$dir" ]; then
+    dest=drops-for-$jobid
+  else
+    dest=$dir
+  fi
+
+  mkdir -p $dest/assignments
+  mkdir -p $dest/drops
+
+  wget -O $dest/assignments/$jobid -q \
+     "https://cmsdoc.cern.ch/cms/production/www/cgi/data/GetAttachInfo.php?AssignmentID=$jobid"
+  [ -f $dest/assignments/$jobid ] || exit 1
+
+  # Split the info per job into XML fragments we can re-process
+  tail +2 $dest/assignments/$jobid | while read run stuff xmlfrag stuff; do
+    echo Generating drop $jobid-$run
+    mkdir -p $dest/drops/$jobid-$run
+    (echo '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>'
+     echo '<!DOCTYPE POOLFILECATALOG SYSTEM "InMemory">'
+     echo '<POOLFILECATALOG>'
+     echo '  <META name="Content" type="string"/>'
+     echo '  <META name="DBoid" type="string"/>'
+     echo '  <META name="DataType" type="string"/>'
+     echo '  <META name="FileCategory" type="string"/>'
+     echo '  <META name="Flags" type="string"/>'
+     echo '  <META name="dataset" type="string"/>'
+     echo '  <META name="jobid" type="string"/>'
+     echo '  <META name="owner" type="string"/>'
+     echo '  <META name="runid" type="string"/>'
+     echo "$xmlfrag" | mimencode -u | gzip -dc | grep -v -e '^[0-9][0-9]*a$' -e '^\.$'
+     echo '</POOLFILECATALOG>') > $dest/drops/$jobid-$run/XMLCatFragment.$jobid-$run.xml
+  done
+done

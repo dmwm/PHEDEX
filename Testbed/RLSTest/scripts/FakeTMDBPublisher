@@ -1,0 +1,111 @@
+#!/usr/bin/perl
+
+## This is a fake transfer tmdb agent that pretends to assign files to
+## transfer.  In reality, it doesn't use the oracle tmdb database at all,
+## but instead creates new drops to downstream agents for each file.
+
+BEGIN { use strict; $^W = 1; }
+my ($dropdir, @nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
+my @startTime;
+my $waittime = 7;		# Seconds to sleep between meta set queries
+my %bad = ();			# Drops we've warned are bad
+my %junk = ();			# Drops we've warned are junk in inbox
+
+my $me = $0; $me =~ s|.*/||;
+my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+
+use File::Path;
+eval qx(cat "$home/UtilsCommand.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsTiming.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsLogging.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
+
+######################################################################
+# Routines specific to this agent.
+
+# Actually process the drop.
+sub processDrop
+{
+    my ($drop) = @_;
+
+    # Sanity checking
+    return if (! &inspectDrop ($drop));
+    delete $bad{$drop};
+    &timeStart();
+
+    # Find the catalogue
+    my $xmlcat = (<$workdir/$drop/XMLCatFragment.*.{xml|txt}>)[0];
+    if (! defined $xmlcat)
+    {
+	&alert ("no xml catalogue in $drop");
+	&markBad ($drop);
+	return;
+    }
+
+    # Schedule each file for transfer by creating a drop in
+    # each downstream agent for each file.  We never pass this
+    # drop onwards!  In the first step create all the drops;
+    # in the second step activate them.  If we fail to do the
+    # second, no data is lost.
+    my $catalog = &readXMLCatalog ($drop, $xmlcat);
+    foreach my $guid (keys %$catalog)
+    {
+	my $lfn = $catalog->{$guid}{LFN}[0];
+	my $pfn = $catalog->{$guid}{PFN}[0];
+	foreach my $dir (@nextdir)
+	{
+	    # Give unique drop name from LFN + agent
+	    my $drop = $dir;
+	    $drop =~ s|.*/||;
+	    $drop = "$lfn-$drop";
+	    &mkpath ("$dir/$drop");
+	    if (!  &output ("$dir/$drop/lfn", $lfn)
+		|| !  &output ("$dir/$drop/pfn", $pfn)
+		|| !  &output ("$dir/$drop/guid", $guid)
+		|| !  &touch ("$dir/$drop/go-pending"))
+	    {
+		&alert ("cannot create send $lfn to $dir/$drop");
+		return;
+	    }
+	}
+    }
+
+    foreach my $guid (keys %$catalog)
+    {
+	my $lfn = $catalog->{$guid}{LFN}[0];
+	foreach my $dir (@nextdir)
+	{
+	    my $drop = $dir;
+	    $drop =~ s|.*/||;
+	    $drop = "$lfn-$drop";
+	    &mv("$dir/$drop/go-pending", "$dir/$drop/go")
+	        || &alert ("cannot activate $dir/$drop");
+	}
+    }
+
+    # Ok, nuke this drop
+    &rmtree ("$workdir/$drop");
+    &logmsg("stats: $drop @{[&formatElapsedTime()]} success");
+}
+
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    { shift (@ARGV); $dropdir = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@nextdir, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $waittime = shift(@ARGV); }
+    else
+    { last; }
+}
+	
+if (scalar @ARGV || !$dropdir)
+{
+    print STDERR
+	"usage: $me -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
+	"    [-wait SECS-TO-WAIT]\n";
+    exit (1);
+}
+
+&process();

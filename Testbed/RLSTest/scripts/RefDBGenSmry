@@ -1,0 +1,24 @@
+#!/bin/sh
+
+dir=
+
+while [ $# -gt 0 ]; do
+  case $1 in
+    -d ) dir=$2; shift; shift ;;
+    -* ) echo "unrecognised option $1"; exit 1;;
+    *  ) break ;;
+  esac
+done
+
+[ -z "$dir" ] && { echo "usage: RefDBGenSmry -d dir"; exit 1; }
+
+# Setup
+for run in $dir/drops/*; do
+  [ -d $run ] || continue
+  echo Generating summary for $run
+
+  runnr=$(echo $run | sed 's|.*/drops/||')
+  dataset=$(grep 'metadata.*dataset' $run/XML* | head -1 | sed 's/.*value="//; s/".*//')
+  # FIXME: Find the file in castor somehow?
+  echo "EVDS_OutputPath=/castor/cern.ch/cms/DSTs_801a/$dataset" > $run/Smry.$runnr.txt
+done
