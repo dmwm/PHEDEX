@@ -279,7 +279,7 @@ sub idle
 
 	# Pick up new work
 	my $files = $self->{FILES} ||= [];
-	my $maxload = $self->{NJOBS} * 10;
+	my $maxload = $self->{NJOBS} * 100;
         while (scalar @{$self->{JOBS}} < $self->{NJOBS})
         {
 	    # Get more files if necessary

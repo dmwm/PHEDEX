@@ -190,14 +190,16 @@ sub idle
 	  grep ($pending->{$_} && $pending->{$_} < $now, keys %$pending);
 
 	# Get the next lot of files, and process them until we run out of time.
-	my @files = $self->nextFiles ($dbh, 500);
-	return if ! @files;
-
-	my $pfns = &guidToPFN (\@files, "direct", "local", @{$self->{PFN_QUERY}});
-	foreach my $guid (@files)
+	while (time() < $now + 600)
 	{
-	    $self->checkFileSize ($dbh, $guid, $pfns->{$guid}, $self->{NSLS_CACHE}[1]);
-	    last if time() > $now + 600;
+	    my @files = $self->nextFiles ($dbh, 500);
+	    return if ! @files;
+
+	    my $pfns = &guidToPFN (\@files, "direct", "local", @{$self->{PFN_QUERY}});
+	    foreach my $guid (@files)
+	    {
+	        $self->checkFileSize ($dbh, $guid, $pfns->{$guid}, $self->{NSLS_CACHE}[1]);
+	    }
 	}
     };
     do { &alert("database error: $@"); $dbh->rollback() if $dbh } if $@;
