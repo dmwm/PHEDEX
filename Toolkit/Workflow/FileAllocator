@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/29 10:17:44 $
-# $Id: Allocator.pl,v 1.42 2004/07/29 10:17:44 barrass Exp $
+# $Date: 2004/07/29 10:27:04 $
+# $Id: Allocator.pl,v 1.43 2004/07/29 10:27:04 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -138,8 +138,8 @@ sub get_new_guid_list {
 
 	eval {
         my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
-		    				 	'$g_user', 
-		      				 	'$g_passwd', 
+		    				 	$g_user, 
+		      				 	$g_passwd, 
 		  	       			 	{ RaiseError=>1, AutoCommit =>1 });
 		  				 	
         my $query = $dbh->prepare($selection);	
@@ -176,8 +176,8 @@ sub get_current_subscriptions {
 
 	eval {
         my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
-		    				 	'$g_user', 
-		      				 	'$g_passwd', 
+		    				 	$g_user, 
+		      				 	$g_passwd, 
 		  	       			 	{ RaiseError=>1, AutoCommit =>1 });
 		  				 	
         my $query = $dbh->prepare($selection);	
@@ -210,8 +210,8 @@ sub do_sql {
     
     eval {
         my $dbh = DBI->connect(    "DBI:Oracle:$g_db",
-	   				    '$g_user',
-		  			    '$g_passwd',
+	   				    $g_user,
+		  			    $g_passwd,
 	   				    { RaiseError=>1, AutoCommit =>1 });
     
         foreach $sql ( @sql ) {
@@ -238,8 +238,8 @@ sub add_new_stream_to_subscriptions {
     my $insert = "insert into t_subscriptions values ('','$new_stream')";
 
     my $dbh = DBI->connect(    "DBI:Oracle:$g_db",
-					    '$g_user',
-					    '$g_passwd',
+					    $g_user,
+					    $g_passwd,
 					    { RaiseError=>1, AutoCommit =>1 });
 
     log_entry( "New stream for subscriptions- $new_stream" );
@@ -260,8 +260,8 @@ sub get_source_nodes {
 
 	eval {
         my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
-		    				 	'$g_user', 
-		      				 	'$g_passwd', 
+		    				 	$g_user, 
+		      				 	$g_passwd, 
 		  	       			 	{ RaiseError=>1, AutoCommit =>1 });
 		  				 	
         my $query = $dbh->prepare($selection);	
@@ -297,8 +297,8 @@ sub lookup_route {
 
 	eval {
         my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
-		    				 	'$g_user', 
-		      				 	'$g_passwd', 
+		    				 	$g_user, 
+		      				 	$g_passwd, 
 		  	       			 	{ RaiseError=>1, AutoCommit =>1 });
 		  				 	
         my $query = $dbh->prepare($selection);	
