@@ -24,11 +24,17 @@
 ## possible, all the work is done in &idle().
 
 BEGIN { use strict; $^W = 1; }
-my ($dropdir, @nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
-my @startTime;
-my $waittime = 59;		# Seconds to sleep between file checks
-my %bad = ();			# Drops we've warned are bad
-my %junk = ();			# Drops we've warned are junk in inbox
+$me = $0; $me =~ s|.*/||;
+$home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+unshift(@INC, $home);
+use File::Path;
+use Data::Dumper;
+use UtilsReaders;
+use UtilsAgent;
+
+use vars qw($me $home $dropdir @nextdir $inbox $workdir $outdir $stopflag $pidfile
+	    $waittime %bad %junk @startTime);
+$waittime = 59;			# Seconds to sleep between meta set queries
 
 my $maxhours = 60;		# Number of hours to retry stagein
 my $maxtapereqs = 4000;		# Max pending tape mounts
@@ -36,22 +42,14 @@ my $maxmytapereqs = 1000;	# Max pending tape mounts by myself
 my $maxstagereqs = 200;		# Max pending stager requests
 my $maxfiles = 50;		# Max number of files in one request
 
-$ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
-$ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
-
-my $me = $0; $me =~ s|.*/||;
-my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-
 my $STAGE_RETRY = -2;		# Retry another time
 my $STAGE_NONEXISTENT = -1;	# No such file
 my $STAGE_ON_DISK = 0;		# File has been staged on disk
 my $STAGE_PENDING = 1;		# Stage-in still in progress
 my $STAGE_UNKNOWN = 2;		# Stager hasn't heard of this file
 
-use File::Path;
-use Data::Dumper;
-eval qx(cat "$home/UtilsReaders.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
+$ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
+$ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
 
 ######################################################################
 # Routines specific to this agent.

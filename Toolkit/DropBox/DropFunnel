@@ -27,11 +27,18 @@
 ## to analyse how well it would work in practise.
 
 BEGIN { use strict; $^W = 1; }
-my ($dropdir, @nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
-my @startTime;
-my $waittime = 7;		# Seconds to sleep between inbox checks
-my %bad = ();			# Drops we've warned are bad
-my %junk = ();			# Drops we've warned are junk in inbox
+$me = $0; $me =~ s|.*/||;
+$home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+unshift(@INC, $home);
+use POSIX; # qw(strftime sys_wait_h);
+use Data::Dumper;
+use File::Path;
+use UtilsReaders;
+use UtilsAgent;
+
+use vars qw($me $home $dropdir @nextdir $inbox $workdir $outdir $stopflag $pidfile
+	    $waittime %bad %junk @startTime);
+$waittime = 7;			# Seconds to sleep between meta set queries
 
 my @queueconfs;			# Queue configuration
 my $dryrun = 0;			# Flag to indicate zip creation or logging only
@@ -44,15 +51,6 @@ my $prefetch = 0;		# Flag for prefetching files when idle
 my $nrfcp = 5;			# Number of parallel rfcp jobs
 my $nworkers = 2;		# Number of worker threads
 my @workers;			# Worker pids.
-
-my $me = $0; $me =~ s|.*/||;
-my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-
-use POSIX; # qw(strftime sys_wait_h);
-use Data::Dumper;
-use File::Path;
-eval qx(cat "$home/UtilsReaders.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
 
 ######################################################################
 # Routines specific to this agent.

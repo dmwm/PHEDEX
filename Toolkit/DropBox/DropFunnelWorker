@@ -7,14 +7,17 @@
 ## from GDB and actually creates the zip.
 
 BEGIN { use strict; $^W = 1; }
-my ($dropdir, @nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
+$me = $0; $me =~ s|.*/||;
+$home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+unshift(@INC, $home);
+use File::Path;
+use UtilsWriters;
+use UtilsAgent;
+
+use vars qw($me $home $dropdir @nextdir $inbox $workdir $outdir $stopflag $pidfile
+	    $waittime %bad %junk @startTime);
+$waittime = 7;			# Seconds to sleep between meta set queries
 my $maindir;			# Main merger $dropdir
-
-my @startTime;
-my $waittime = 7;		# Seconds to sleep between inbox checks
-my %bad = ();			# Drops we've warned are bad
-my %junk = ();			# Drops we've warned are junk in inbox
-
 my $dryrun = 0;			# Flag to indicate zip creation or logging only
 my $clean = 0;			# Flag to indicate if we should remove originals
 my $output = undef;		# Path for output zips
@@ -22,13 +25,6 @@ my $stagehost = "stagecmsdc04";	# Castor stage host
 my $stagepool = "gdb";		# Castor stage pool
 
 my $nrfcp = 5;			# Number of parallel rfcp copies
-
-my $me = $0; $me =~ s|.*/||;
-my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-
-use File::Path;
-eval qx(cat "$home/UtilsWriters.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
 
 ######################################################################
 # Routines specific to this agent.

@@ -1,7 +1,15 @@
-eval qx(cat "$home/UtilsRFIO.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsCommand.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsLogging.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsTiming.pm"); die $@ if $@;
+package UtilsAgent;
+# use strict;
+require Exporter;
+use UtilsTiming;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsRFIO;
+
+@ISA = qw(Exporter);
+@VARS = qw($me $home $dropdir @nextdir $inbox $workdir $outdir $stopflag $pidfile $waittime %bad %junk);
+@EXPORT = (@VARS, qw(initDropBoxAgent maybeStop renameDrop relayDrop inspectDrop markBad process));
+use vars @VARS;
 
 # Initialise drop-box-based agent.
 sub initDropBoxAgent

@@ -30,21 +30,19 @@
 ## up in the right place when started the next time.
 
 BEGIN { use strict; $^W = 1; }
-my ($dropdir, @nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
-my @startTime;
-my $waittime = 7;		# Seconds to sleep between meta set queries
-my %bad = ();			# Drops we've warned are bad
-my %junk = ();			# Drops we've warned are junk in inbox
+$me = $0; $me =~ s|.*/||;
+$home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+unshift(@INC, $home);
+use File::Path;
+use UtilsWriters;
+use UtilsAgent;
 
-my $me = $0; $me =~ s|.*/||;
-my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+use vars qw($me $home $dropdir @nextdir $inbox $workdir $outdir $stopflag $pidfile
+	    $waittime %bad %junk @startTime);
+$waittime = 7;			# Seconds to sleep between meta set queries
 
 $ENV{STAGE_HOST} ||= "stagecmsprod";
 $ENV{STAGE_POOL} ||= "cms_prod2";
-
-use File::Path;
-eval qx(cat "$home/UtilsWriters.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
 
 ######################################################################
 # Routines specific to this agent.

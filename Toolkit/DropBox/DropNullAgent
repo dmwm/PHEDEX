@@ -4,20 +4,18 @@
 ## destroys them.
 
 BEGIN { use strict; $^W = 1; }
-my ($dropdir, @nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
-my @startTime;
-my $waittime = 7;		# Seconds to sleep between meta set queries
+$me = $0; $me =~ s|.*/||;
+$home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+unshift(@INC, $home);
+use File::Path;
+use UtilsDelay;
+use UtilsAgent;
+
+use vars qw($me $home $dropdir @nextdir $inbox $workdir $outdir $stopflag $pidfile
+	    $waittime %bad %junk @startTime);
+$waittime = 7;			# Seconds to sleep between meta set queries
 my $modelfile = undef;		# Delay model data file
 my $model = undef;		# Delay model data
-my %bad = ();			# Drops we've warned are bad
-my %junk = ();			# Drops we've warned are junk in inbox
-
-my $me = $0; $me =~ s|.*/||;
-my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-
-use File::Path;
-eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsDelay.pm"); die $@ if $@;
 
 ######################################################################
 # Routines specific to this agent.

@@ -14,22 +14,20 @@
 ## place.  At the end, we pass the assignment to the next agent.
 
 BEGIN { use strict; $^W = 1; }
-my ($dropdir, @nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
-my @startTime;
-my $waittime = 7;		# Seconds to sleep between meta set queries
+$me = $0; $me =~ s|.*/||;
+$home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+unshift(@INC, $home);
+use File::Path;
+use UtilsReaders;
+use UtilsAgent;
+
+use vars qw($me $home $dropdir @nextdir $inbox $workdir $outdir $stopflag $pidfile
+	    $waittime %bad %junk @startTime);
+$waittime = 7;			# Seconds to sleep between meta set queries
 my $nrfcp = 5;			# Number of parallel rfcp copies
-my %bad = ();			# Drops we've warned are bad
-my %junk = ();			# Drops we've warned are junk in inbox
 
 $ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
 $ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
-
-my $me = $0; $me =~ s|.*/||;
-my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-
-use File::Path;
-eval qx(cat "$home/UtilsReaders.pm"); die $@ if $@;
-eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
 
 ######################################################################
 # Routines specific to this agent.

@@ -1,6 +1,7 @@
 # Timing utilities.  First define higher-resolution timing via
 # gettimeofday() where it is available, otherwise fall back on
 # time().
+use vars qw(@startTime);
 BEGIN {
   # missing virtually everywhere, but it's worth trying anyway
   eval "use Time::HiRes 'gettimeofday'";
