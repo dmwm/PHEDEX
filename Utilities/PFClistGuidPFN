@@ -10,7 +10,7 @@ BEGIN {
 # Process command line arguments
 my $me = $0; $me =~ s|.*/||;
 my %args = (JOBS => 10);
-while (scalar @ARGV)
+while (@ARGV)
 {
     if ($ARGV[0] eq '-u' && scalar @ARGV > 1)
     { shift (@ARGV); $args{CATALOGUE} = shift(@ARGV); }
@@ -19,7 +19,7 @@ while (scalar @ARGV)
     elsif ($ARGV[0] eq '-m')
     { $args{MATCH} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-r')
-    { $args{READ} = 1; }
+    { shift (@ARGV); $args{READ} = 1; }
     elsif ($ARGV[0] eq '-j' && scalar @ARGV > 1)
     { shift (@ARGV); $args{JOBS} = shift(@ARGV); }
     else
