@@ -24,9 +24,9 @@ You can also customise the agent to some degree.
 
   mkdir -p /some/new/place
   cd /some/new/place
-  export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/TMAgents
+  export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/PHEDEX
   cvs login # password is "98passwd"
-  cvs co -d scripts TMAgents/AgentToolkitExamples
+  cvs co PHEDEX
 
 ** Get yourself registered in V2 database
 
@@ -40,12 +40,12 @@ site.  Typically it is the name of the host (e.g. host name part of
 path.
 
   insert into t_nodes values ("TEST_Transfer", "/data/files/",
-    "xmlcatalog_file:/data/files/catalog.xml");
+    "mysqlcatalog_mysql://phedex:phedex@cmslcgco04/phedexcat");
 
-(Note that using an XML catalogue means you *must* not run parallel
-transfer agents!  Any other catalogue, mysql or rls, can.)
+(If use an XML catalogue you must *never* run parallel updates!  Any
+other catalogue, mysql or rls, supports them.)
 
-See Managers/readme (a RTF document) description of NodeManager.pl.
+See README-Managers.txt for description of NodeManager.
 
 ** Decide the destination location for your files
 
@@ -72,11 +72,11 @@ correctly.  At CERN the magic incantations are:
   eval `cd /some/where/POOL_1_6_2; scram -arch rh73_gcc32 runtime -sh`
   . /afs/cern.ch/project/oracle/script/setoraenv.sh -s 8174
 
-See also DropBox/V2-CERN-Environ.sh.
+See also Custom/CERN/V2-CERN-Environ.sh.
 
 ** Create state and log directories for your agent
 
-Create directories parallel to the "scripts" directory created above
+Create directories parallel to the "PHEDEX" directory created above
 with the CVS checkout:
 
   mkdir -p incoming/transfer logs
@@ -90,26 +90,29 @@ on what needs to be done to access files from other sites.
 
 ** Run the agent
 
-  nohup scripts/DropBox/FileDownload		\
-  	-state incoming/state			\
-	-node TEST_Transfer			\
-	-pfndest /your/pfn/script_from_above	\
-	-workers 2				\
-	-wanted 1G				\
-	-db devdb9				\
-	-dbuser cms_transfermgmt_writer		\
-	-dbpass threebagsfull			\
-	>> logs/ 2>&1 </dev/null &
+  nohup PHEDEX/Toolkit/Transfer/FileDownload		\
+	-db devdb9					\
+	-dbuser cms_transfermgmt_writer			\
+	-dbpass threebagsfull				\
+  	-state incoming/transfer			\
+	-node TEST_Transfer				\
+	-backend Globus					\
+	-command globus-url-copy,-p,10,-tcp-bs,4194304	\
+	-pfndest /your/pfn/script_from_above		\
+	-wanted 50G					\
+	-batch-files 50					\
+	-batch-size 10G					\
+	-jobs 10					\
+	>> logs/transfer 2>&1 </dev/null &
 
-See also DropBox/V2-CERN-{Start,Stop}.sh.  Note that for real transfer
-agent you should be using different parametres, see optimisation guide
-below.
+See also Custom/CERN/V2-CERN-{Start,Stop}.sh.  See optimisation guide
+for further hints on good parameter combinations to use.
 
 ** Run agent status reflector
 
 We recommend that whenever you run agents, you also run InfoDropStatus.
 You will want to point it to your "incoming" directory above.  See
-V2-CERN-Start.sh for details.
+Custom/CERN/V2-CERN-Start.sh for details.
 
 ** Monitor your agent
 
@@ -124,34 +127,21 @@ how to do this is beyond this document.
 
 * Customising the agent
 
-If "globus-url-copy src dest" isn't the right thing to do for your
-site, you can either use a different command.  Say if you'd like to
-use "foo src dest", give the options "-pass -cpcmd,foo" to the master
-FileDownloadSlave.  If you'd like to use "foo -option -other src dest",
-pass "-pass -cpcmd,foo,-option,-other" -- you get the idea.  If you
-want to pass options to the "cpcmd", i.e. globus-url-copy, you need
-to quote one layer of commas, like this:
-  -pass '-cpcmd,globus-url-copy\,-p\,10\,-tcp-bs\,4194304'
-(note the single quotes and backslashes).
+As shown above, you can use a different command for the transfer;
+the default is to use bare "globus-url-copy src dest".  Options to
+"globus-url-copy" should be separated with commas.  You can also use
+SRM backend with "-backend SRM".  This is probably the most efficient
+transfer method.
 
-A good use of this is for initial testing of your agent setup is to
-use "-pass -cpcmd,echo".  This will cause the transfer slaves to
-simply echo the file names they copy instead of doing any copying.
-This will allow you to short-circuit that part of the chain, and lets
-you test the rest of the setup.  (You will then need to go to the
-database and reset the file states back to "1"!)
+A good use of "-command" in initial testing is to say "-command echo"
+or "-command true".  The former will simply print out the file names
+instead of copying, the second does zero-cost non-transfer, allowing
+you to short-circuit transfers completely out and test the rest of
+your setup.  (You will then need to reset all file states back to
+zero or one in the database!)
 
-If FileDownloadSlave simply doesn't cut it for you, the next
-alternative is to replace it.  You should be able to continue to use
-the master, and simply replace the slave.  You do that by copying
-FileDownloadDesst to /your/program, edit it to do what it needs to
-do, and then pass the option "-worker /your/program" to the master.
-If you need to pass the slave options, use "-pass value[,value...]"
-option with the master.
-
-Note that the FileDownloadSlave automatically replaces "sfn:" prefix
-with "gsiftp:" before invoking globus-url-copy.  The file still goes
-into the catalogues with the "sfn:" prefix.
+You can also develop your own backend to the download agent.  See
+Toolkit/Common/UtilsDownload{Globus,SRM}.pm for examples.
 
 * Optimising transfer performance
 
@@ -179,30 +169,40 @@ wrong.  If you are faced with unreliable networks, please contact the
 developers at cms-project-phedex@cern.ch to get in touch with those who
 are working in this area.
 
-4) Make sure you are marking enough data "wanted".  We recommend 100GB
-sliding window: use "-wanted 100G" option.  If your agent regularly
+4) Make sure you are batching transfers.  This should alwawys work with
+SRM interface, and should provide substantial performance improvement.
+It will work with Globus backend only if you don't modify the file name
+part in the transfer.  Use "-batch-files" and "-batch-size" options to
+select suitable batch limits, the former sets the maximum number of
+files in one transfer, the latter the maximum number of bytes.  Batch
+is closed when either limit is exceeded.
+
+5) Make sure you are marking enough data "wanted".  We recommend 50-100GB
+sliding window: use "-wanted 50G" option.  If your agent regularly
 underruns data, you are probably transferring as much as the remote tape
 system is able to deliver.  In that case you may need to increase your
 sliding wanted window, but please do not increase the window beyond
 100 GB without consultation on the cms-phedex-developers@cern.ch list.
+You can see if your agent is running out of data by monitoring the
+"Transferable" column in the "Transfer state" web page.  If that drops
+to naught, your agent has run out of data to transfer.
 
-5) Make sure you are using good options to globus-url-copy.  Try something
-like: "-pass '-cpcmd,globus-url-copy\,-p\,10\,-tcp-bs\,4194304'" (note the
-single quotes and backslashes).
+6) Make sure you are using good options to globus-url-copy.  Try something
+like shown in the example above.
 
-6) Make sure you are transferring enough data in parallel.  We recommend
-5-10 parallel workers to avoid connection overheads: use "-workers 10".
-With 10 workers you should regularly see at least 20 files marked "In
-Transfer" on the monitor page, peaking at 40.  If you are seeing less
-than that, something else is serialising your transfers.
+7) If batching isn't enough or doesn't work for you, make sure you are
+transferring enough data in parallel.  We recommend 5-10 parallel workers
+to avoid connection overheads and to parallelise catalogue operations:
+use "-jobs 10".  Note however that parallel streaming writes to the same
+file system have been reported to cause serious file system fragmentation
+on certain Linux file systems.
 
-7) Make sure FileDownloadDest runs quickly enough.  This is one reason
-transfers may get serialised.  If you've done all you can to speed this
-up, and still have serialisation problem, do let us know.  You can find
-out what your agents are doing with "watch ps xwwf", it shows you the
-process tree in real time.  You should be seeing lots of time being spent
-in "globus-url-copy", if not, you probably have a serialisation issue and
-you'll known which command it is.
+8) Monitor for serialisation with "watch ps xwwf", it shows your process
+tree in real time.  You should be seeing substantial amounts of time
+spent in "globus-url-copy" or "srmcp"; if not, something else is
+serialiasing transfers, and you'll see which command it is.
 
-8) In theory, same rule applies to catalogue operations.  Let us know if
-you have a problem here.
+9) In theory, same rule applies to catalogue operations.  Let us know if
+you have a problem here.  Using more parallel commands ("-jobs 100") may
+help, but then again, you may cause rather a storm at the catalogue
+server -- but note the warnings on parallel file transfers in point 7.
