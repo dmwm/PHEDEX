@@ -77,10 +77,10 @@ $agent->process ();
 # the file transfer requests and passes the work to appropriate other
 # local export agents (stage-in, checksum).
 package FileCastorExport; use strict; use warnings; use base 'UtilsAgent';
-use DBI;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
+use UtilsDB;
 
 sub new
 {
@@ -103,56 +103,52 @@ sub new
 sub idle
 {
     my ($self, @pending) = @_;
-
-    # FIXME: Update agent status
-    # FIXME: Pick up and process messages to me
-
-    # Check how much is wanted downstream.  Select the files wanted
-    # downstream still pending for outward transfer here.  We fetch
-    # in one query the current state here, whether we have checksum,
-    # the number of requested copies, and the latest request time.
+    my $dbh = undef;
     eval
     {
 	my $now = time();
 	my $mynode = $self->{MYNODE};
-	my $dbh = DBI->connect ("DBI:$self->{DBITYPE}:$self->{DBNAME}",
-	    		 	$self->{DBUSER}, $self->{DBPASS},
-			 	{ RaiseError => 1, AutoCommit => 0 });
+	$dbh = &connectToDatabase ($self);
+	die "failed to connect" if ! $dbh;
+
+        # FIXME: Pick up and process messages to me
+
+        # Check how much is wanted downstream.  Select the files wanted
+        # downstream still pending for outward transfer here.  We fetch
+        # in one query the current state here, whether we have checksum,
+        # the number of requested copies, and the latest request time.
 	my $stmt = $dbh->prepare (qq{
-	    		select rs1.guid,
-			       rs1.state,
-			       mod (rs1.local_state, 1000),
-			       count(r.value),
-			       count(rs2.node),
-			       max(rs2.time_stamp)
-			from t_replica_state rs1
-			inner join t_replica_metadata r
-			  on r.guid = rs1.guid
-			inner join t_transfer_state ts
-			  on ts.guid = rs1.guid and ts.src_node = rs1.node
-			inner join t_replica_state rs2
-			  on rs2.guid = rs1.guid and ts.dest_node = rs2.node
-			where rs1.node = '$mynode'
-		  	  and rs2.state = 1
+	    		select rs.guid,
+			       rs.state,
+			       mod (rs.local_state, 1000),
+			       count(m.value),
+			       count(ts.dest_node),
+			       max(ts.dest_time_stamp)
+			from t_replica_state rs
+			left join t_replica_metadata m
+			  on m.guid = rs.guid and m.attribute = 'checksum'
+			left join t_transfer_state ts
+			  on ts.guid = rs.guid and ts.src_node = rs.node
+			where rs.node = '$mynode'
+		  	  and ts.dest_state = 1
 		  	  and ts.src_state = 0
-		  	  and r.attribute = 'checksum'
-		  	group by rs1.guid, rs1.state, mod (rs1.local_state, 1000)});
+		  	group by rs.guid, rs.state, mod (rs.local_state, 1000)});
 	$stmt->execute ();
 	while (my $row = $stmt->fetchrow_arrayref())
 	{
 	    my ($guid, $state, $local, $checksum, $dests, $desttime) = @$row;
 
-	    # Ignore anything older than fifteen minutes
+	    # Ignore if the most recent request is 15+ minutes old
 	    next if $desttime < $now - 15*60;
-
-	    # Ignore if it's not yet in a state we can handle
-	    next if $state != 2 && $state != 3;
-
 	    $now = time();
 
 	    # If it's still pending local processing, handle it
-	    if ($state == 2)
+	    if ($state == 0)
 	    {
+	        # FIXME: throttle stage-in requests based on how much we
+	        # have in t_transfer_state as committed available for
+	        # transfer and available free space on the pool.
+
 	        # Order: stage in, get checksum, mark available.
 	        if ($local == 0)
 	        {
@@ -171,44 +167,30 @@ sub idle
 	        elsif ($local == 1)
 	        {
 		    $dbh->do(qq{update t_replica_state
-			    set state = 3, time_stamp = $now
+			    set state = 1, time_stamp = $now
 			    where guid = '$guid' and node = '$mynode'});
-		    $state = 3;
+		    $state = 1;
 	        }
             }
 
 	    # If it's available for transfer, update transfer status.
-	    if ($state == 3 && $local == 1)
+	    if ($state == 1 && $local == 1)
 	    {
 	        $dbh->do(qq{update t_transfer_state
 		    set src_state = 1, src_time_stamp = $now
 		    where guid = '$guid' and src_node = '$mynode'});
 	    }
 
-	    # FIXME: throttle stage-in requests based on how much we
-	    # have in t_transfer_state as committed available for
-	    # transfer and available free space on the pool.
-
 	    $dbh->commit();
         }
 
-	# Purge old completed transfers we no longer need to track.
-	# Keep a day's worth of data for current state browsers.
-	# FIXME: purge staged-in files already transferred out.
-	my $old = time() - 86400;
-	$dbh->do(qq{
-		delete from t_transfer_state
-		where src_state = 1
-		  and src_node = '$mynode'
-	  	  and dest_state = 2
-	  	  and dest_time_stamp < $old});
-  	$dbh->commit ();
-
-        # Disconnect from the database
-        $dbh->disconnect if defined $dbh;
-        undef $dbh;
+	# FIXME: Purge staged-in files already transferred out.
     };
-    do { &alert ("database error: $@"); } if $@;
+    do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
+
+    # Disconnect from the database
+    $dbh->disconnect() if $dbh;
+    undef $dbh;
 
     # Check children are still running and then wait
     $self->maybeStop ();

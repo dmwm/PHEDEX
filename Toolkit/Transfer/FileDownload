@@ -93,12 +93,13 @@ $agent->process ();
 ######################################################################
 # Routines specific to this agent.
 package FileDownload; use strict; use warnings; use base 'UtilsAgent';
-use DBI;
 use File::Path;
 use Data::Dumper;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
+use UtilsCatalogue;
+use UtilsDB;
 
 sub new
 {
@@ -148,50 +149,116 @@ sub startWorker
 }
 
 ######################################################################
-# Create a connection to the transfer database.
-sub connectToDatabase
+# A slave has finished with a transfer.  Complete the job by logging
+# the status into the database, and if the transfer was successful,
+# update the file state also.  Returns non-zero if the drop status
+# for successfully entered into the database and the drop can be
+# disposed.
+sub completeOne
 {
-    my $self = shift;
-    return DBI->connect ("DBI:$self->{DBITYPE}:$self->{DBNAME}",
-	    		 $self->{DBUSER}, $self->{DBPASS},
-			 { RaiseError => 1, AutoCommit => 1 });
+    my ($self, $drop, $report) = @_;
+
+    # Dig out the report.  If transfer failed, revert the file back
+    # to state 1 (allocated) and give it back the timestamp it was
+    # originally posted to state 1 so logging will be accurate. Also
+    # log the error message to our output.
+    my $guid = $report->{GUID};
+    my $src_node = $report->{SRC_NODE};
+    my $dest_node = $report->{DEST_NODE};
+    my $now = time();
+    my $dest_state = 3;
+    my $dbh = undef;
+    if ($report->{FAILURE})
+    {
+	&logmsg ("failed to transfer $guid: $report->{FAILURE}");
+	$now = $report->{TIME_ALLOC};
+	$dest_state = 1;
+    }
+
+    eval
+    {
+	$dbh = &connectToDatabase ($self, 0);
+	$dbh->do (qq{
+	  update t_transfer_state
+	  set dest_state = $dest_state, dest_time_stamp = $now
+	  where guid = '$guid'
+	    and dest_node = '$dest_node'
+	    and src_node = '$src_node'});
+
+	$dbh->do (qq{
+	  insert into t_replica_state values
+	  ('$guid', '$dest_node', 0, 0, $now, $now)})
+	    if ! $report->{FAILURE};
+
+	$dbh->commit ();
+    };
+
+    if ($@)
+    {
+	&alert ("failed to update $guid transferred: $@");
+	$dbh->rollback() if $dbh;
+	return 0;
+    }
+
+    # Disconnect from the database
+    $dbh->disconnect if $dbh;
+    undef $dbh;
+
+    # Mark drop done so it will be nuked
+    &touch ("$self->{WORKDIR}/$drop/done");
+
+    # Log transfer delay stats
+    $now = &mytimeofday ();
+    my $dalloc = $now - $report->{TIME_ALLOC};
+    my $dtransfer = $now - $report->{TIME_START};
+    &logmsg ("xstats: $guid $dest_node $dest_state "
+	     . sprintf('%.2f %.2f', $dalloc, $dtransfer));
+
+    return 1;
 }
 
-# Map a GUID to a PFN using a catalogue
-sub guidToPFN
+# Actually process a drop.  Note that the only way we end up here is
+# when a slave has finished with a file transfer and transfers it to
+# our inbox.  Collect the transfer status and update the database to
+# reflect the state.  Note that the slaves never mark drops bad, they
+# just update the state information in the drop appropriately.  We
+# only mark drops bad only if the drop itself is corrupted; normally
+# we just flag transfers failed in the database and try again later.
+# There is no downstream drop box agent, so the drops are destroyed
+# once we've successfully entered the information into the database.
+sub processDrop
 {
-    my ($guid, $catalogue, $host) = @_;
+    my ($self, $drop, $left) = @_;
 
-    # FIXME: remove message suppression when pool has learnt to print
-    # diagnostic output somewhere else other than stdout...
-    open (PFNS, "POOL_OUTMSG_LEVEL=100 FClistPFN -u '$catalogue' -q \"guid='$guid'\" |")
-	or do { &alert ("cannot run FClistPFN: $!"); return undef; };
-    my @pfns = grep (/$host/, map { chomp; $_ } <PFNS>);
-    close (PFNS);
-    return $pfns[0];
+    # Sanity checking
+    return if (! $self->inspectDrop ($drop));
+    delete $self->{BAD}{$drop};
+    &timeStart($self->{STARTTIME});
+
+    # Read back the state
+    my $report = do { no strict "vars"; eval &input ("$self->{WORKDIR}/$drop/packet") };
+    if ($@ || ! $report || ! $report->{GUID})
+    {
+	&alert ("corrupt packet in $drop");
+	$self->markBad ($drop);
+	return;
+    }
+
+    # Update database
+    return if ! $self->completeOne ($drop, $report);
+
+    # OK, got far enough to nuke and log it
+    $self->relayDrop ($drop);
+    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
 }
 
-# Map a GUID to a LFN using a catalogue
-sub guidToLFN
-{
-    my ($guid, $catalogue) = @_;
-
-    # FIXME: remove message suppression when pool has learnt to print
-    # diagnostic output somewhere else other than stdout...
-    open (LFNS, "POOL_OUTMSG_LEVEL=100 FClistLFN -u '$catalogue' -q \"guid='$guid'\" |")
-	or do { &alert ("cannot run FClistPFN: $!"); return undef; };
-    my @lfns = map { chomp; $_ } <LFNS>;
-    close (LFNS);
-    return $lfns[0];
-}
-
+######################################################################
 # Begin transferring a file.  Fetches the file information and creates
-# a new drop for the file in an idle worker; the caller must guarantee
-# there is one available.  If the drop is successfully created, marks
-# the file in transfer in the database and returns non-zero.  Otherwise
-# returns non-zero to indicate another attempt should be made at a later
-# time to initiate the transfer.
-sub initTransfer
+# a new drop for the file in a worker.  If the drop is successfully
+# created, marks the file in transfer in the database and returns
+# non-zero.  Otherwise returns non-zero to indicate another attempt
+# should be made at a later time to initiate the transfer.
+sub startOne
 {
     my ($self, $dbh,
 	$guid, $timestamp, $src_node, $src_catalogue, $src_host,
@@ -234,22 +301,25 @@ sub initTransfer
 	    || ! &output ("$slavein/packet", Dumper ($transfer))
 	    || ! &touch ("$slavein/go.pending"));
 
-    # Mark the transfer started in the database.  If this fails, delete
-    # the drop; we will retry later.
+    # Mark the transfer started in the database.  Delete drop and
+    # retry later on failure.
     eval
     {
 	my $mynode = $self->{MYNODE};
 	$dbh->do (qq{
 	  update t_transfer_state
-	  set dest_state = 1, dest_time_stamp = $now
+	  set dest_state = 2, dest_time_stamp = $now
 	  where guid = '$guid'
 	    and dest_node = '$mynode'
 	    and src_node = '$src_node'});
+	$dbh->commit();
     };
+
     if ($@)
     {
 	&alert ("failed to mark $guid in transfer: $@");
 	&rmtree ($slavein);
+	$dbh->rollback();
 	return 0;
     }
 
@@ -260,126 +330,76 @@ sub initTransfer
     return 1;
 }
 
-# A slave has finished with a transfer.  Complete the job by logging
-# the status into the database, and if the transfer was successful,
-# update the file state also.  Returns non-zero if the drop status
-# for successfully entered into the database and the drop can be
-# disposed.
-sub completeTransfer
-{
-    my ($self, $drop, $report) = @_;
-
-    # Dig out the report.  If transfer failed, revert the file back
-    # to state 1 (allocated) and give it back the timestamp it was
-    # originally posted to state 1 so logging will be accurate. Also
-    # log the error message to our output.
-    my $guid = $report->{GUID};
-    my $src_node = $report->{SRC_NODE};
-    my $dest_node = $report->{DEST_NODE};
-    my $now = time();
-    my $dest_state = 2;
-    if ($report->{FAILURE})
-    {
-	&logmsg ("failed to transfer $guid: $report->{FAILURE}");
-	$now = $report->{TIME_ALLOC};
-	$dest_state = 0;
-    }
-
-    eval
-    {
-	my $dbh = $self->connectToDatabase ();
-	$dbh->do (qq{
-	  update t_transfer_state
-	  set dest_state = $dest_state, dest_time_stamp = $now
-	  where guid = '$guid'
-	    and dest_node = '$dest_node'
-	    and src_node = '$src_node'});
-
-	$dbh->do (qq{
-	  update t_replica_state
-	  set state = 2, local_state = 0, time_stamp = $now, local_time_stamp = $now
-	  where guid = '$guid' and node = '$dest_node'})
-	    if ! $report->{FAILURE};
-    };
-    do { &alert ("failed to update $guid transferred: $@"); return 0; } if $@;
-
-    # Mark drop done so it will be nuked
-    &touch ("$self->{WORKDIR}/$drop/done");
-
-    # Log transfer delay stats
-    $now = &mytimeofday ();
-    my $dalloc = $now - $report->{TIME_ALLOC};
-    my $dtransfer = $now - $report->{TIME_START};
-    &logmsg ("xstats: $guid $dest_state @{[sprintf('%.2f %.2f', $dalloc, $dtransfer)]}");
-
-    return 1;
-}
-
 # Update wanted status on files in the database.
 sub markFilesWanted
 {
     my ($self, $dbh) = @_;
-
     eval
     {
 	my $mynode = $self->{MYNODE};
 
-	# Refresh timestamps on files already marked wanted and
-	# where it's over ten minutes since we've last refreshed.
+	# Keep wanted time stamp at most ten minutes old.
 	my $now = time();
 	my $old = $now - 600;
 	$dbh->do(qq{
-		update t_replica_state
-		set time_stamp = $now
-		where node = '$mynode'
-		  and state = 1
-	  	  and time_stamp < $old});
+		update t_transfer_state
+		set dest_time_stamp = $now
+		where dest_node = '$mynode'
+		  and dest_state = 1
+	  	  and dest_time_stamp < $old});
 
-  	# Check how much already is marked wanted.  If this is
-	# unavailable or it's more than 75% of our max wanted,
-	# don't do anything.
+  	# Check how much we already marked wanted.  Only mark new
+	# files wanted if we drop below 75% of our limit.
 	my $row = $dbh->selectrow_arrayref(qq{
-				select sum(r.value)
-				from t_replica_state rs,
-				     t_replica_metadata r
-				where rs.node = '$mynode'
-				  and rs.state = 1
-			  	  and rs.guid = r.guid
-			  	  and r.attribute = 'filesize'});
+		select sum(r.value)
+		from t_transfer_state ts
+		left join t_replica_metadata m
+		  on ts.guid = r.guid and m.attribute = 'filesize'
+		where ts.dest_node = '$mynode' and ts.dest_state = 1});
 	return if (! defined $row || ($row->[0] || 0) > .75 * $self->{WANT_LIMIT});
 
-	# Mark some more files wanted.
+	# Mark more files wanted.  Select the best new files, keeping
+	# track of accumulated size and stopping at our limit.  The
+	# ordering criteria here is decreasing day and the job-id
+	# (FIXME: CMS/COBRA specific!).  We pick the newest files first
+	# -- if we are moving files in streaming mode and fall behind,
+	# it's better to keep up with the stream the best we can rather
+	# than disrupt everyone else trying to slug our way through the
+	# old files.  (FIXME: Custom file priority rules?)
 	my $total = $row->[0] || 0;
 	my $stmt = $dbh->prepare(qq{
-			select rs.guid, r1.value
-			from t_replica_state rs,
-			     t_replica_metadata r1,
-			     t_replica_metadata r2
-			where rs.node = '$mynode'
-			  and rs.state = 0
-			  and rs.guid = r1.guid
-			  and r1.attribute = 'filesize'
-			  and rs.guid = r2.guid
-			  and r2.attribute = 'POOL_jobid'
-			order by trunc (rs.time_stamp/86400) desc, r2.value});
+		select ts.guid, m1.value
+		from t_transfer_state ts
+		left join t_replica_metadata m1
+		  on ts.guid = m1.guid and m1.attribute = 'filesize'
+		left join t_replica_metadata m2
+		  on ts.guid = m2.guid and m2.attribute = 'POOL_jobid'
+		where ts.dest_node = '$mynode' and ts.dest_state = 0
+		order by trunc (ts.dest_time_stamp/86400) desc, m2.value});
 	$stmt->execute();
 	while (my $file = $stmt->fetchrow_arrayref())
         {
-	    last if ($total + $file->[1] > $self->{WANT_LIMIT});
+	    my ($guid, $size) = @$file;
+
+	    $total += $size;
+	    last if ($total > $self->{WANT_LIMIT});
+
 	    $dbh->do(qq{
-		update t_replica_state
-		set state = 1, time_stamp = $now
-		where node = '$mynode' and guid = '$file->[0]'});
-	    $total += $file->[1];
+		update t_transfer_state
+		set dest_state = 1, dest_time_stamp = $now
+		where guid = '$guid' and dest_node = '$mynode'});
   	}
+
+	$dbh->commit();
     };
-    &alert ("failed to mark files wanted: $@") if $@;
+
+    do { &alert ("failed to mark files wanted: $@"); $dbh->rollback() } if $@;
 }
 
 # Get the list of N guids that should be transferred next.  Returns
 # a list of arrays with members GUID, ALLOC_TIMESTAMP, SRC_NODE,
 # SRC_CATALOGUE, DEST_CATALOGUE plus a hash of POOL file attributes.
-sub nextFilesForTransfer
+sub nextFiles
 {
     my ($self, $dbh, $n) = @_;
 
@@ -396,13 +416,13 @@ sub nextFilesForTransfer
 		       n1.catalogue_contact,
 		       n1.host_string,
 		       n2.catalogue_contact
-		from t_transfer_state ts,
-		     t_nodes n1, t_nodes n2
+		from t_transfer_state ts
+		left join t_nodes n1
+		  on n1.node_name = ts.src_node
+		left join t_nodes n2
+		  on n2.node_name = ts.dest_node
 		where ts.dest_node = '$mynode'
-	  	  and ts.src_state = 1
-		  and ts.dest_state = 0
-		  and n1.node_name = ts.src_node
-		  and n2.node_name = ts.dest_node});
+	  	  and ts.src_state = 1});
         $stmt->execute();
 	while (my $row = $stmt->fetchrow_arrayref())
 	{
@@ -426,76 +446,41 @@ sub nextFilesForTransfer
     return @result;
 }
 
-######################################################################
-# Actually process a drop.  Note that the only way we end up here is
-# when a slave has finished with a file transfer and transfers it to
-# our inbox.  Collect the transfer status and update the database to
-# reflect the state.  Note that the slaves never mark drops bad, they
-# just update the state information in the drop appropriately.  We
-# only mark drops bad only if the drop itself is corrupted; normally
-# we just flag transfers failed in the database and try again later.
-# There is no downstream drop box agent, so the drops are destroyed
-# once we've successfully entered the information into the database.
-sub processDrop
-{
-    my ($self, $drop, $left) = @_;
-
-    # Sanity checking
-    return if (! $self->inspectDrop ($drop));
-    delete $self->{BAD}{$drop};
-    &timeStart($self->{STARTTIME});
-
-    # Read back the state
-    my $report = do { no strict "vars"; eval &input ("$self->{WORKDIR}/$drop/packet") };
-    if ($@ || ! $report || ! $report->{GUID})
-    {
-	&alert ("corrupt packet in $drop");
-	$self->markBad ($drop);
-	return;
-    }
-
-    # Update database
-    return if ! $self->completeTransfer ($drop, $report);
-
-    # OK, got far enough to nuke and log it
-    $self->relayDrop ($drop);
-    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
-}
-
-# This is called by the main agent routine before sleeping.
-# Flush queues here.
+# Pick up files to download from the database
 sub idle
 {
     my ($self, @pending) = @_;
-
-    # FIXME: Update agent status
-    # FIXME: Pick up and process messages to me
-
-    # Request some more files
-    my $dbh = $self->connectToDatabase();
-    $self->markFilesWanted($dbh);
-
-    # Pump more files while there are idle workers.  But keep a bit more going
-    # so we don't get killed by the worker's wait times.
-    my @files = ();
-    my $ndone = 0;
-    my $basedir = $self->{DROPDIR};
-    while (scalar @{[<$basedir/worker-*/{inbox,work}/*>]} < $self->{NWORKERS} * 4)
+    if (my $dbh = &connectToDatabase ($self))
     {
-	# Guarantee progress: don't stay here forever
-	last if (++$ndone >= $self->{NWORKERS} * 10);
+        # FIXME: Pick up and process messages to me
 
-	# Get more files if necessary
-	@files = $self->nextFilesForTransfer ($dbh, $self->{NWORKERS} * 4) if ! scalar @files;
-	last if ! scalar @files;
+        # Request some more files
+        $self->markFilesWanted ($dbh);
 
-	# Create a drop for this file
-	last if ! $self->initTransfer ($dbh, @{shift (@files)});
+        # Pump more files while there are idle workers.  Keep going
+	# just a little more files than the number of workers to stay
+	# ahead of worker wait times.
+        my @files = ();
+        my $ndone = 0;
+        my $basedir = $self->{DROPDIR};
+	my $maxload = scalar @{$self->{WORKERS}} * 4;
+	my $maxfiles = scalar @{$self->{WORKERS}} * 10;
+        while (scalar @{[<$basedir/worker-*/{inbox,work}/*>]} < $maxload)
+        {
+	    # Guarantee to collect results from slaves quickly enough
+	    last if (++$ndone >= $maxfiles);
+
+	    # Get more files if necessary
+	    @files = $self->nextFiles ($dbh, $maxload) if ! @files;
+
+	    # Create a drop for this file
+	    last if ! @files || ! $self->startOne ($dbh, @{shift @files});
+        }
+
+        # Disconnect from the database
+        $dbh->disconnect if $dbh;
+        undef $dbh;
     }
-
-    # Disconnect from the database
-    $dbh->disconnect if defined $dbh;
-    undef $dbh;
 
     # Check children are still running and then wait
     $self->maybeStop ();

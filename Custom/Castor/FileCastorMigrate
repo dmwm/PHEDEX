@@ -60,14 +60,13 @@ $SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
 $agent->process ();
 
 ######################################################################
-# Routines for the master castor export agent.  This one simply manages
-# the file transfer requests and passes the work to appropriate other
-# local export agents (stage-in, checksum).
+# Routines for this agent.
 package FileCastorMigrate; use strict; use warnings; use base 'UtilsAgent';
-use DBI;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
+use UtilsCatalogue;
+use UtilsDB;
 
 sub new
 {
@@ -85,66 +84,50 @@ sub new
     return $self;
 }
 
-# Map a GUID to a PFN using a catalogue
-sub guidToPFN
-{
-    my ($guid, $catalogue, $host) = @_;
-
-    # FIXME: remove message suppression when pool has learnt to print
-    # diagnostic output somewhere else other than stdout...
-    open (PFNS, "POOL_OUTMSG_LEVEL=100 FClistPFN -u '$catalogue' -q \"guid='$guid'\" |")
-	or do { &alert ("cannot run FClistPFN: $!"); return undef; };
-    my @pfns = grep (/$host/, map { chomp; $_ } <PFNS>);
-    close (PFNS);
-    return $pfns[0];
-}
-
-# Called by agent main routine before sleeping.  Pick up work
-# assignments from the database here and pass them to slaves.
+# Called by agent main routine before sleeping.  Pick up work.
 sub idle
 {
     my ($self, @pending) = @_;
-
-    # FIXME: Update agent status
-    # FIXME: Pick up and process messages to me
-
-    # Check how much is wanted downstream.  Select the files wanted
-    # downstream still pending for outward transfer here.  We fetch
-    # in one query the current state here, whether we have checksum,
-    # the number of requested copies, and the latest request time.
+    my $dbh = undef;
     eval
     {
 	my $now = time();
 	my $mynode = $self->{MYNODE};
-	my $dbh = DBI->connect ("DBI:$self->{DBITYPE}:$self->{DBNAME}",
-	    		 	$self->{DBUSER}, $self->{DBPASS},
-			 	{ RaiseError => 1, AutoCommit => 0 });
+	$dbh = &connectToDatabase ($self);
+	die "failed to connect" if ! $dbh;
+
+        # FIXME: Pick up and process messages to me
 
 	# Mark everything available for and already in transfer for
 	# this link.  Don't mark files wanted to avoid stager going
 	# wild because of us :-)  This is to keep browser displays
 	# correct, we don't use this information ourselves and it
-	# isn't used by the "sending" side.
+	# isn't used by the "sending" side (the neighbour transfer
+	# node).  Note that there are no transfers out from this
+	# node -- they all go from the transfer node, which must
+	# always be closer to any destination that us and already
+	# has all the files we have.
 	$dbh->do(qq{
 		update t_transfer_state
 		set src_state = 1, src_time_stamp = $now
 		where dest_node = '$mynode' and src_state = 0});
 	$dbh->do(qq{
 		update t_transfer_state
-		set dest_state = 1, dest_time_stamp = $now
+		set dest_state = 2, dest_time_stamp = $now
 		where dest_node = '$mynode' and dest_state = 0});
 	$dbh->commit();
 
-	# Get files still requiring migration.
+	# Process files pending migration.
 	my $stmt = $dbh->prepare (qq{
 		select ts.guid,
 		       ts.src_time_stamp,
 		       n.catalogue_contact,
 		       n.host_string
-		from t_transfer_state ts, t_nodes n
+		from t_transfer_state ts
+		left join t_nodes n
+		  on n.node_name = ts.src_node
 		where ts.dest_node = '$mynode'
-		  and ts.dest_state = 1
-		  and n.node_name = ts.src_node});
+		  and ts.dest_state = 2});
         $stmt->execute();
 	while (my $row = $stmt->fetchrow_arrayref())
 	{
@@ -152,8 +135,8 @@ sub idle
 
 	    # FIXME: Do we need to actually issue commands to begin
 	    # migration?  If so, use dest_state = 0 to indicate we
-	    # haven't done that, dest_state = 1 to indicate migration
-	    # started, and dest_state = 2 to indicate it's complete.
+	    # haven't done that, dest_state = 2 to indicate migration
+	    # started, and dest_state = 3 to indicate it's complete.
 	    # Now we assume it's just always automatically started.
 
 	    # Check if the file has been migrated.  If not, skip it.
@@ -166,12 +149,11 @@ sub idle
 
 	    # Migrated, mark transfer completed
 	    $dbh->do(qq{
-		update t_replica_state
-		set state = 2, time_stamp = $now
-		where guid = '$guid' and node = '$mynode'});
+		insert into t_replica_state values
+		  ('$guid', '$mynode', 0, 0, $now, 0)});
 	    $dbh->do(qq{
 		update t_transfer_state
-		set dest_state = 2, dest_time_stamp = $now
+		set dest_state = 3, dest_time_stamp = $now
 		where guid = '$guid' and dest_node = '$mynode'});
 	    $dbh->commit ();
 
@@ -179,24 +161,15 @@ sub idle
 	    my $nowh = &mygettimeofday();
 	    my $dalloc = $nowh - $time;
 	    my $dtransfer = $nowh - $now;
-    	    &logmsg ("xstats: $guid 2 @{[sprintf('%.2f %.2f', $dalloc, $dtransfer)]}");
+    	    &logmsg ("xstats: $guid $mynode 3 "
+		    . sprintf('%.2f %.2f', $dalloc, $dtransfer));
 	}
-
-	# Purge old completed transfers we no longer need to track.
-	# Keep a day's worth of data for current state browsers.
-	my $old = time() - 86400;
-	$dbh->do(qq{
-		delete from t_transfer_state
-		where dest_node = '$mynode'
-	  	  and dest_state = 2
-	  	  and dest_time_stamp < $old});
-  	$dbh->commit ();
-
-        # Disconnect from the database
-        $dbh->disconnect if defined $dbh;
-        undef $dbh;
     };
-    do { &alert ("database error: $@"); } if $@;
+    do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
+
+    # Disconnect from the database
+    $dbh->disconnect() if $dbh;
+    undef $dbh;
 
     # Check children are still running and then wait
     $self->maybeStop ();

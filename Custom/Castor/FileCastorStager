@@ -73,14 +73,13 @@ $SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
 $agent->process ();
 
 ######################################################################
-# Routines for the castor export stage-in agent.  This one manages
-# stage-in requests and reflects current stager status to the
-# local status of the replica.
+# Routines for this agent.
 package FileCastorStager; use strict; use warnings; use base 'UtilsAgent';
-use DBI;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
+use UtilsCatalogue;
+use UtilsDB;
 
 sub new
 {
@@ -164,42 +163,13 @@ sub tapeMountLoad
     return ($total, $ours);
 }
 
-# Map a GUID to a PFN using a catalogue
-sub guidToPFN
-{
-    my ($guid, $catalogue, $host) = @_;
-
-    # FIXME: remove message suppression when pool has learnt to print
-    # diagnostic output somewhere else other than stdout...
-    open (PFNS, "POOL_OUTMSG_LEVEL=100 FClistPFN -u '$catalogue' -q \"guid='$guid'\" |")
-	or do { &alert ("cannot run FClistPFN: $!"); return undef; };
-    my @pfns = grep (/$host/, map { chomp; $_ } <PFNS>);
-    close (PFNS);
-    return $pfns[0];
-}
-
-# Map a PFN to GUID using a catalogue
-sub pfnToGuid
-{
-    my ($pfn, $catalogue, $host) = @_;
-    # FIXME: remove message suppression when pool has learnt to print
-    # diagnostic output somewhere else other than stdout...
-    my $home = $0; $home =~ s|/[^/]+$||;
-    open (GUIDS, "POOL_OUTMSG_LEVEL=100 $home/FClistGuidPFN -u '$catalogue' -p '$pfn' |")
-	or do { &alert ("cannot run FClistGuidPFN: $!"); return undef; };
-    my @guids = map { chomp; [ split (/\s+/, $_) ] } <GUIDS>;
-    close (GUIDS);
-    return $guids[0][0];
-}
-
 # Get the catalogue contact information for a node.
 sub getCatalogue
 {
     my ($dbh, $mynode) = @_;
     return $dbh->selectrow_arrayref (qq{
-			select catalogue_contact, host_string
-			from t_nodes
-			where node_name = '$mynode'});
+		select catalogue_contact, host_string
+		from t_nodes where node_name = '$mynode'});
 }
 
 # Get the list of files that have been requested for stage-in.
@@ -213,7 +183,7 @@ sub getPendingFiles
     		select rs.guid, rs.local_time_stamp
 		from t_replica_state rs
 		where rs.node = '$mynode'
-	  	  and rs.state = 2
+	  	  and rs.state = 0
 	  	  and mod(rs.local_state,1000) = 10});
     $stmt->execute();
     while (my $row = $stmt->fetchrow_arrayref())
@@ -245,7 +215,7 @@ sub getStagerFiles
     {
 	my $status = $files->{$pfn};
 	my $guid = $self->{GUID_CACHE}{$pfn};
-	if (! $guid && ($guid = &pfnToGuid ($prefix . $pfn, $catalogue, $hostkey)))
+	if (! $guid && ($guid = &pfnToGUID ($prefix.$pfn, $catalogue, $hostkey)))
 	{
 	    $self->{GUID_CACHE}{$pfn} = $guid;
 	    $self->{PFN_CACHE}{$guid} = $pfn;
@@ -296,21 +266,14 @@ sub buildStatus
 sub idle
 {
     my ($self, @pending) = @_;
-
-    # FIXME: Update agent status
-    # FIXME: Pick up and process messages to me
-
-    # Check how much is wanted downstream.  Select the files wanted
-    # downstream still pending for outward transfer here.  We fetch
-    # in one query the current state here, whether we have checksum,
-    # the number of requested copies, and the latest request time.
     my $dbh = undef;
     eval
     {
 	my $mynode = $self->{MYNODE};
-	$dbh = DBI->connect ("DBI:$self->{DBITYPE}:$self->{DBNAME}",
-	    		     $self->{DBUSER}, $self->{DBPASS},
-			     { RaiseError => 1, AutoCommit => 0 });
+	$dbh = &connectToDatabase ($self);
+	die "failed to connect" if ! $dbh;
+
+        # FIXME: Pick up and process messages to me
 
 	# Get my catalogue details, pending and stager files
 	my $catalogue = &getCatalogue ($dbh, $self->{MYNODE});
@@ -320,13 +283,13 @@ sub idle
 					$self->getPendingFiles ($dbh, @$catalogue));
 	return if ! $files;
 
-	# Update file status.  First mark everything currently marked
-	# staged-in as not staged in, and then marked staged-in only
-	# the files that are truly currently staged-in.
+	# Update file status.  First mark everything not staged in,
+	# then as staged-in the files currently in stager catalogue.
+	# (FIXME: Who corrects src_state in t_transfer_state?)
 	my $now = time();
 	$dbh->do(qq{update t_replica_state
-		set state = 2,
-		    time_stamp = $now
+		set state = 0,
+		    time_stamp = $now,
 		    local_state = trunc(local_state,-3) + 0,
 		    local_time_stamp = $now
 		where node = '$mynode' and mod(local_state,1000) = 1});
@@ -388,12 +351,12 @@ sub idle
 	    # Sleep a bit, castor doesn't like rapid-fire request chains
 	    select (undef, undef, undef, 0.33);
 	}
-
-        # Disconnect from the database
-        $dbh->disconnect if defined $dbh;
-        undef $dbh;
     };
-    do { &alert ("database error: $@"); $dbh->disconnect if defined $dbh; undef $dbh; } if $@;
+    do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
+
+    # Disconnect from the database
+    $dbh->disconnect() if $dbh;
+    undef $dbh;
 
     # Check children are still running and then wait
     $self->maybeStop ();

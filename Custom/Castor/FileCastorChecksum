@@ -98,6 +98,7 @@ use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
 use UtilsRFIO;
+use UtilsDB;
 
 sub new
 {
@@ -175,12 +176,13 @@ sub processDrop
 ######################################################################
 # Routines specific to the master agent.
 package FileCastorChecksum; use strict; use warnings; use base 'UtilsAgent';
-use DBI;
 use File::Path;
 use Data::Dumper;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
+use UtilsCatalogue;
+use UtilsDB;
 
 sub new
 {
@@ -223,15 +225,6 @@ sub startWorker
     die "Cannot start worker: $!\n";
 }
 
-# Create a connection to the transfer database.
-sub connectToDatabase
-{
-    my $self = shift;
-    return DBI->connect ("DBI:$self->{DBITYPE}:$self->{DBNAME}",
-	    		 $self->{DBUSER}, $self->{DBPASS},
-			 { RaiseError => 1, AutoCommit => 0 });
-}
-
 ######################################################################
 # A slave has finished with a checksum.  Complete the job by logging
 # the status into the database, and if the operation was successful,
@@ -256,7 +249,8 @@ sub completeOne
     eval
     {
 	$op = "connect to the database";
-	$dbh = $self->connectToDatabase ();
+	$dbh = &connectToDatabase ($self, 0);
+	die "no connection" if ! $dbh;
 
 	# Check for an existing checksum; if there is one, make sure
 	# it's the same we got this time, and then ignore this drop.
@@ -267,19 +261,18 @@ sub completeOne
 		where guid = '$guid' and attribute = 'checksum'});
 	if (scalar @$old)
 	{
-	    die "checksum mismatch"
-	    	if $old->[0] ne $checksum;
+	    &alert ("checksum mismatch for $guid at $mynode,"
+		    ." old=$old->[0], new=$checksum")
+	        if $old->[0] ne $checksum;
 	    return;
         }
 
+        # OK, update the checksum and reset local file state.
 	$op = "update $guid checksum";
 	$dbh->do (qq{
 	  insert into t_replica_metadata
 	    values ('$guid', 'checksum', '$checksum')});
 
-        # OK, we've actually updated the checksum, reset local file
-	# state.  But if for any reason we've done overlapping checksum
-	# calculations, change the state only the first time around.
     	$op = "update $guid state";
 	$dbh->do (qq{
 	  update t_replica_state
@@ -299,7 +292,7 @@ sub completeOne
 
     # Log transfer delay stats
     $now = &mytimeofday ();
-    &logmsg ("xstats: $guid 0 "
+    &logmsg ("xstats: $guid $mynode 0 "
 	     . sprintf ('%.2f %.2f',
 	    		$now - $report->{TIME_ASSIGNED},
 	    		$now - $report->{TIME_STARTED}));
@@ -346,7 +339,6 @@ sub processDrop
 sub nextFiles
 {
     my ($self, $dbh, $n) = @_;
-
     my @result = ();
     eval
     {
@@ -356,13 +348,17 @@ sub nextFiles
 	my $mynode = $self->{MYNODE};
 	my $old = time() - 86400;
 	my $stmt = $dbh->prepare (qq{
-		select rs.guid, rs.local_time_stamp, n.catalogue_contact, n.host_string
-		from t_replica_state rs, t_nodes n
+		select rs.guid,
+		       rs.local_time_stamp,
+		       n.catalogue_contact,
+		       n.host_string
+		from t_replica_state rs
+		left join t_nodes n
+		  on n.node_name = rs.node
 		where rs.node = '$mynode'
 	  	  and (mod(rs.local_state,1000) = 20
 		       or (mod(rs.local_state,1000) = 21
-		           and rs.local_time_stamp < $old))
-		  and n.node_name = rs.node});
+		           and rs.local_time_stamp < $old))});
   	$stmt->execute();
 	while (my $row = $stmt->fetchrow_arrayref())
 	{
@@ -372,20 +368,6 @@ sub nextFiles
     };
     &alert ("failed to select next files: $@") if $@;
     return @result;
-}
-
-# Map a GUID to a PFN using a catalogue.
-sub guidToPFN
-{
-    my ($guid, $catalogue, $hostkey) = @_;
-
-    # FIXME: remove message suppression when pool has learnt to print
-    # diagnostic output somewhere else other than stdout...
-    open (PFNS, "POOL_OUTMSG_LEVEL=100 FClistPFN -u '$catalogue' -q \"guid='$guid'\" |")
-	or do { &alert ("cannot run FClistPFN: $!"); return undef; };
-    my @pfns = grep (/$hostkey/, map { chomp; $_ } <PFNS>);
-    close (PFNS);
-    return $pfns[0];
 }
 
 # Assign guid to a slave.  Picks least-loaded slave.  Returns non-zero
@@ -428,6 +410,7 @@ sub startOne
     };
     if ($@)
     {
+	$dbh->rollback();
 	&alert ("failed to mark $guid being processed: $@");
 	&rmtree ($slavein);
 	return 0;
@@ -446,33 +429,33 @@ sub idle
 {
     my ($self, @pending) = @_;
 
-    # FIXME: Update agent status
-    # FIXME: Pick up and process messages to me
-
     # Pump more files keeping moderate-size queue in each worker.
-    my @files = ();
-    my $ndone = 0;
-    my $dbh = undef;
-    my $basedir = $self->{DROPDIR};
-    while (scalar @{[<$basedir/worker-*/{inbox,work}/*>]} < $self->{NWORKERS} * 4)
+    if (my $dbh = &connectToDatabase ($self))
     {
-	# Guarantee progress: don't stay here forever
-	last if (++$ndone >= $self->{NWORKERS} * 10);
+        # FIXME: Pick up and process messages to me
 
-	# Connect to database if we haven't done so yet
-    	$dbh = $self->connectToDatabase() if ! $dbh;
+        my @files = ();
+        my $ndone = 0;
+        my $dbh = undef;
+        my $basedir = $self->{DROPDIR};
+        my $maxload = scalar @{$self->{WORKERS}} * 4;
+        my $maxfiles = scalar @{$self->{NWORKERS}} * 10;
+        while (scalar @{[<$basedir/worker-*/{inbox,work}/*>]} < $maxload)
+        {
+	    # Guarantee to collect results from slaves quickly enough
+	    last if (++$ndone >= $maxfiles);
 
-	# Get more files if necessary
-	@files = $self->nextFiles ($dbh, $self->{NWORKERS} * 4) if ! scalar @files;
-	last if ! scalar @files;
+	    # Get more files if necessary
+	    @files = $self->nextFiles ($dbh, $maxload) if ! @files;
 
-	# Create a drop for this file
-	last if ! $self->startOne ($dbh, @{shift (@files)});
+	    # Create a drop for this file
+	    last if ! @files || ! $self->startOne ($dbh, @{shift @files});
+        }
+
+        # Disconnect from the database
+        $dbh->disconnect() if $dbh;
+        undef $dbh;
     }
-
-    # Disconnect from the database
-    $dbh->disconnect if defined $dbh;
-    undef $dbh;
 
     # Check children are still running and then wait
     $self->maybeStop ();

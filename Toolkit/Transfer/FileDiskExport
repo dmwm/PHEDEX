@@ -50,10 +50,10 @@ $agent->process ();
 # the file transfer requests and passes the work to appropriate other
 # local export agents (stage-in, checksum).
 package FileDiskExport; use strict; use warnings; use base 'UtilsAgent';
-use DBI;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
+use UtilsDB;
 
 sub new
 {
@@ -76,24 +76,23 @@ sub new
 sub idle
 {
     my ($self, @pending) = @_;
-
-    # FIXME: Update agent status
-    # FIXME: Pick up and process messages to me
+    my $dbh = undef;
 
     # Always mark all files ready to go immediately.
     eval
     {
 	my $now = time();
 	my $mynode = $self->{MYNODE};
-	my $dbh = DBI->connect ("DBI:$self->{DBITYPE}:$self->{DBNAME}",
-	    		 	$self->{DBUSER}, $self->{DBPASS},
-			 	{ RaiseError => 1, AutoCommit => 1 });
+	my $dbh = &connectToDatabase ($self);
+	die "failed to connect" if ! $dbh;
+
+        # FIXME: Pick up and process messages to me
 
 	# Mark everything available locally.
 	$dbh->do(qq{
 		update t_replica_state
-		set state = 3, time_stamp = $now
-		where state = 2 and node = '$mynode'});
+		set state = 1, time_stamp = $now
+		where state = 0 and node = '$mynode'});
 
 	# Mark all pending transfers ready to go.
 	$dbh->do(qq{
@@ -101,16 +100,13 @@ sub idle
 		set src_state = 1, src_time_stamp = $now
 		where src_state = 0 and src_node = '$mynode'});
 
-	# Purge completed transfers we no longer need to track.
-	my $old = $now - 86400;
-	$dbh->do(qq{
-		delete from t_transfer_state
-		where src_state = 1
-		  and src_node = '$mynode'
-	  	  and dest_state = 2
-	  	  and dest_time_stamp < $old});
+	$dbh->commit();
     };
-    do { &alert ("database error: $@"); } if $@;
+    do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
+
+    # Disconnect from the database
+    $dbh->disconnect() if $dbh;
+    undef $dbh;
 
     # Check children are still running and then wait
     $self->maybeStop ();
