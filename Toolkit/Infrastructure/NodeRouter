@@ -246,10 +246,13 @@ sub compare_with_existing_routes {
 	}
     }
 
-    # timeout routes
+    # timeout routes, check infinity
     foreach $dest (keys %gate_time_hops_by_dest) {
 	my ($gate,$time,$hops,$status) = split( /:/,$gate_time_hops_by_dest{$dest} );
 	my $check = time() - $g_timeout;
+	if ($hops > $g_infinity) {
+	    $hops = $g_infinity;
+	}
 	if ($time < $check) {
 	    $hops = $g_infinity;
 	    log_entry( "Timeout for $gate:$dest:$time:$hops:$status" );
