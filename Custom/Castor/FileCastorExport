@@ -185,13 +185,24 @@ sub idle
 		    where guid = '$guid' and src_node = '$mynode'});
 	    }
 
-	    # FIXME: purge files no longer needed
 	    # FIXME: throttle stage-in requests based on how much we
 	    # have in t_transfer_state as committed available for
 	    # transfer and available free space on the pool.
 
 	    $dbh->commit();
         }
+
+	# Purge old completed transfers we no longer need to track.
+	# Keep a day's worth of data for current state browsers.
+	# FIXME: purge staged-in files already transferred out.
+	my $old = time() - 86400;
+	$dbh->do(qq{
+		delete from t_transfer_state
+		where src_state = 1
+		  and src_node = '$mynode'
+	  	  and dest_state = 2
+	  	  and dest_time_stamp < $old});
+  	$dbh->commit ();
 
         # Disconnect from the database
         $dbh->disconnect if defined $dbh;
