@@ -27,17 +27,17 @@ create table t_request_data
   (request_name		varchar (100)	not null,
    time_stamp		float		not null,
    operation		varchar (20)	not null,
-   selection		varchar (1000));
+   selection		varchar (2000));
 
 create table t_request_drop
   (request_name		varchar (100)	not null,
-   drop_name		varchar (100)	not null,
+   drop_name		varchar (200)	not null,
    drop_category	varchar (20)	not null);
 
 create table t_request_file
   (request_name		varchar (100)	not null,
    guid			char (36)	not null,
-   drop_name		varchar (100)	not null);
+   drop_name		varchar (200)	not null);
 
 create table t_request_file_status
   (request_name		varchar (100)	not null,
