@@ -144,11 +144,9 @@ sub idle
 		order by dest_final, hops});
 	    last if ! $next || ! scalar @$next;
 
-	    my $alts = 0;
 	    my %dests = ();
 	    foreach my $row (@$next)
 	    {
-		++$alts;
 		my ($dest, $source, $next, $dist, $status) = @$row;
 
 		if (! exists $dests{$dest}
@@ -169,12 +167,17 @@ sub idle
 		    # the status is non-null a transfer assignment
 		    # already exists for the file; if it is null, we
 		    # need to make one.
-		    next if $dist == 0 || defined $status;
-		    my $now = time();
-		    &logmsg ("next hop $guid/$dest $now $source $next $dist");
-		    $dbh->do(qq{
-			insert into t_transfer_state values
-			('$guid', '$source', '$next', 0, 0, $now, $now)});
+		    if ($dist == 0)
+		    {
+			&logmsg ("final $guid $dest @{[time()]}");
+		    }
+		    elsif (! defined $status)
+		    {
+		        my $now = time();
+		        &logmsg ("next $guid $dest $now $source $next $dist");
+		        $dbh->do(qq{insert into t_transfer_state values
+			    ('$guid', '$source', '$next', 0, 0, $now, $now)});
+	    	    }
 		}
 		else
 		{
@@ -183,7 +186,6 @@ sub idle
 		   # to avoid overloading any particular node?  Or maybe
 		   # use more dynamic data in routing table (recent node
 		   # performance, e.g. bandwidth etc.)?
-		   next;
 		}
 	    }
 
