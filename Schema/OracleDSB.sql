@@ -1,5 +1,6 @@
 -- PhEDEx ORACLE schema for agent operations.
--- NB: s/CMS_TRANSFERMGMT_INDX01/INDX01/g for devdb9
+-- NB: s/([ ])CMS_TRANSFERMGMT_INDX01/${1}INDX01/g for devdb
+-- NB: s/([ ])INDX01/${1}CMS_TRANSFERMGMT_INDX01/g for cms
 -- REQUIRES: None.
 
 ----------------------------------------------------------------------
@@ -7,10 +8,11 @@
 
 drop sequence seq_dsb_fileid;
 drop sequence seq_dsb_dataset;
-drop table t_dsb_file_availability;
-drop table t_dsb_file_attributes;
-drop table t_dsb_dataset_files;
+drop table t_dsb_dataset_availability;
+drop table t_dsb_dataset_run_file;
+drop table t_dsb_dataset_run;
 drop table t_dsb_dataset;
+drop table t_dsb_file_attributes;
 drop table t_dsb_file;
 drop table t_dsb_fileid;
 
@@ -26,29 +28,42 @@ create table t_dsb_fileid
 
 create table t_dsb_file
   (fileid		integer		not null,
-   filesize		integer,
-   checksum		integer,
+   filesize		integer		not null,
+   checksum		integer		not null,
+   filename		clob		not null,
+   filetype		varchar (20),
    catfragment		clob);
 
 create table t_dsb_file_attributes
   (fileid		integer		not null,
-   attribute		varchar (32)	not null,
-   value		varchar (1000)	not null);
-
-create table t_dsb_file_availability
-  (fileid		integer		not null,
-   location		varchar (20)	not null);
+   attribute		varchar (40)	not null,
+   value		clob);
 
 
 create table t_dsb_dataset
   (id			integer		not null,
-   dataset		varchar (1000)	not null,
-   owner		varchar (1000)	not null);
+   datatype		varchar (10)	not null,
+   dataset		varchar (100)	not null,
+   owner		varchar (100)	not null,
+   inputowner		varchar (100),
+   pudataset		varchar (100),
+   puowner		varchar (100));
 
-create table t_dsb_dataset_files
+-- FIXME: blocks
+
+create table t_dsb_dataset_run
   (dataset		integer		not null,
+   runid		varchar (40)	not null,
+   events		integer		not null);
+
+create table t_dsb_dataset_run_file
+  (dataset		integer		not null,
+   runid		varchar (40)	not null,
    fileid		integer		not null);
 
+create table t_dsb_dataset_availability
+  (dataset		integer		not null,
+   location		varchar (20)	not null);
 
 ----------------------------------------------------------------------
 -- Add constraints
@@ -56,7 +71,7 @@ create table t_dsb_dataset_files
 alter table t_dsb_fileid
   add constraint pk_dsb_fileid_id
   primary key (id)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace INDX01;
 
 alter table t_dsb_fileid
   add constraint uq_dsb_fileid_guid
@@ -66,7 +81,7 @@ alter table t_dsb_fileid
 alter table t_dsb_file
   add constraint pk_dsb_file
   primary key (fileid)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace INDX01;
 
 alter table t_dsb_file
   add constraint fk_dsb_file_fileid
@@ -76,41 +91,51 @@ alter table t_dsb_file
 alter table t_dsb_file_attributes
   add constraint pk_dsb_file_attributes
   primary key (fileid, attribute)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace INDX01;
 
 alter table t_dsb_file_attributes
   add constraint fk_dsb_file_attributes_fileid
   foreign key (fileid) references t_dsb_fileid (id);
 
 
-alter table t_dsb_file_availability
-  add constraint pk_dsb_file_availability
-  primary key (fileid, location)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
-
-alter table t_dsb_file_availability
-  add constraint fk_dsb_file_avail_fileid
-  foreign key (fileid) references t_dsb_fileid (id);
-
-
 alter table t_dsb_dataset
   add constraint pk_dsb_dataset
   primary key (id)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace INDX01;
 
 
-alter table t_dsb_dataset_files
-  add constraint pk_dsb_dataset_files
-  primary key (dataset, fileid)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+alter table t_dsb_dataset_run
+  add constraint pk_dsb_dataset_run
+  primary key (dataset, runid)
+  using index tablespace INDX01;
 
-alter table t_dsb_dataset_files
-  add constraint fk_dsb_dataset_files_dataset
+alter table t_dsb_dataset_run
+  add constraint fk_dsb_dataset_run_dataset
   foreign key (dataset) references t_dsb_dataset (id);
 
-alter table t_dsb_dataset_files
-  add constraint fk_dsb_dataset_files_fileid
+
+alter table t_dsb_dataset_run_file
+  add constraint pk_dsb_dataset_run_file
+  primary key (dataset, fileid)
+  using index tablespace INDX01;
+
+alter table t_dsb_dataset_run_file
+  add constraint fk_dsb_dataset_rfiles_dataset
+  foreign key (dataset) references t_dsb_dataset (id);
+
+alter table t_dsb_dataset_run_file
+  add constraint fk_dsb_dataset_rfiles_fileid
   foreign key (fileid) references t_dsb_fileid (id);
+
+
+alter table t_dsb_dataset_availability
+  add constraint pk_dsb_dataset_availability
+  primary key (dataset, location)
+  using index tablespace INDX01;
+
+alter table t_dsb_dataset_availability
+  add constraint fk_dsb_dataset_avail_dataset
+  foreign key (dataset) references t_dsb_dataset (id);
 
 
 ----------------------------------------------------------------------
@@ -118,4 +143,4 @@ alter table t_dsb_dataset_files
 
 create index ix_dsb_file_attributes_attr
   on t_dsb_file_attributes (attribute)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  tablespace INDX01;

@@ -1,11 +1,12 @@
 -- PhEDEx ORACLE schema for file information.
--- NB: s/CMS_TRANSFERMGMT_INDX01/INDX01/g for devdb9
+-- NB: s/([ ])CMS_TRANSFERMGMT_INDX01/${1}INDX01/g for devdb
+-- NB: s/([ ])INDX01/${1}CMS_TRANSFERMGMT_INDX01/g for cms
 -- REQUIRES: OracleCoreTopo.sql
 
 ----------------------------------------------------------------------
 -- Drop old tables
 
-drop table t_files;
+drop table t_file;
 drop table t_file_attributes;
 
 ----------------------------------------------------------------------
@@ -14,10 +15,14 @@ drop table t_file_attributes;
 -- FIXME: index organised?
 -- FIXME: partitioned?
 
-create table t_files
+create table t_file
   (timestamp		float		not null,
    guid			char (36)	not null,
    node			varchar (20)	not null,
+   inblock		varchar (200)	not null,
+   insubblock		varchar (200)	not null,
+   lfn			varchar (255)	not null,
+   filetype		varchar (100)	not null,
    filesize		integer		not null,
    checksum		integer);
 
@@ -29,33 +34,32 @@ create table t_file_attributes
 ----------------------------------------------------------------------
 -- Add constraints
 
-alter table t_files
-  add constraint pk_files
+alter table t_file
+  add constraint pk_file
   primary key (guid)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace INDX01;
 
-alter table t_files
-  add constraint fk_files_source_node
-  foreign key (node) references t_nodes (name);
-
+alter table t_file
+  add constraint fk_file_node
+  foreign key (node) references t_node (name);
 
 alter table t_file_attributes
   add constraint pk_file_attributes
   primary key (guid, attribute)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace INDX01;
 
 alter table t_file_attributes
   add constraint fk_file_attributes_guid
-  foreign key (guid) references t_files (guid);
+  foreign key (guid) references t_file (guid);
 
 ----------------------------------------------------------------------
 -- Add indices
 
-create index ix_files_node
-  on t_files (node)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+create index ix_file_node
+  on t_file (node)
+  tablespace INDX01;
 
 
 create index ix_file_attributes_attr
   on t_file_attributes (attribute)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  tablespace INDX01;

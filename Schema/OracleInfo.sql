@@ -1,5 +1,6 @@
 -- PhEDEx ORACLE schema for agent operations.
--- NB: s/CMS_TRANSFERMGMT_INDX01/INDX01/g for devdb9
+-- NB: s/([ ])CMS_TRANSFERMGMT_INDX01/${1}INDX01/g for devdb
+-- NB: s/([ ])INDX01/${1}CMS_TRANSFERMGMT_INDX01/g for cms
 -- REQUIRES: OracleCoreTopo.sql
 
 ----------------------------------------------------------------------
@@ -9,7 +10,7 @@ drop table t_info_transfer_status;
 drop table t_info_transfer_rate;
 drop table t_info_file_size_overview;
 drop table t_info_file_size_histogram;
-drop table t_info_drop_status;
+drop table t_info_agent_status;
 drop table t_info_subscriptions;
 drop table t_info_replication_overview;
 drop table t_info_replication_details;
@@ -20,9 +21,6 @@ drop table t_info_replication_details;
 create table t_info_transfer_status
   (timestamp		float		not null,
    node			varchar (20)	not null,
-   snap_rfiles		integer		not null,
-   snap_tfiles		integer		not null,
-   snap_max_time	integer		not null,
    n_files		integer		not null,
    sz_files		integer		not null,
    n_onsite		integer		not null,
@@ -72,10 +70,11 @@ create table t_info_file_size_histogram
    sz_total		integer		not null);
 
 
-create table t_info_drop_status
+create table t_info_agent_status
   (timestamp		float		not null,
    site			varchar (20)	not null,
    host			varchar (30)	not null,
+   path			varchar (255)	not null,
    agent		varchar (20)	not null,
    worker		varchar (20)	not null,
    pid			integer		not null,
@@ -86,8 +85,8 @@ create table t_info_drop_status
 
 create table t_info_subscriptions
   (timestamp		float		not null,
-   dataset		varchar (1000)	not null,
-   owner		varchar (1000)	not null,
+   owner		varchar (100)	not null,
+   dataset		varchar (100)	not null,
    destination		varchar (20),
    n_files		integer		not null,
    sz_files		integer		not null,
@@ -97,16 +96,16 @@ create table t_info_subscriptions
 
 create table t_info_replication_overview
   (timestamp		float		not null,
-   dataset		varchar (1000)	not null,
-   owner		varchar (1000)	not null,
+   owner		varchar (100)	not null,
+   dataset		varchar (100)	not null,
    n_runs		integer		not null,
    n_files		integer		not null,
    sz_files		integer		not null);
 
 create table t_info_replication_details
   (timestamp		float		not null,
-   dataset		varchar (1000)	not null,
-   owner		varchar (1000)	not null,
+   owner		varchar (100)	not null,
+   dataset		varchar (100)	not null,
    node			varchar (20)	not null,
    n_files		integer		not null,
    sz_files		integer		not null);

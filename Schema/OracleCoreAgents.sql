@@ -1,21 +1,22 @@
 -- PhEDEx ORACLE schema for agent operations.
--- NB: s/CMS_TRANSFERMGMT_INDX01/INDX01/g for devdb9
+-- NB: s/([ ])CMS_TRANSFERMGMT_INDX01/${1}INDX01/g for devdb
+-- NB: s/([ ])INDX01/${1}CMS_TRANSFERMGMT_INDX01/g for cms
 -- REQUIRES: OracleCoreTopo.sql
 
 ----------------------------------------------------------------------
 -- Drop old tables
 
-drop table t_agents;
-drop table t_agent_messages;
+drop table t_agent;
+drop table t_agent_message;
 drop table t_agent_status;
 
 ----------------------------------------------------------------------
 -- Create new tables
 
-create table t_agents
+create table t_agent
   (name			varchar (20)	not null);
 
-create table t_agent_messages
+create table t_agent_message
   (timestamp		float		not null,
    node			varchar (20)	not null,
    agent		varchar (20)	not null,
@@ -30,37 +31,37 @@ create table t_agent_status
 ----------------------------------------------------------------------
 -- Add constraints
 
-alter table t_agents
-  add constraint pk_agents
+alter table t_agent
+  add constraint pk_agent
   primary key (name)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace INDX01;
 
 
-alter table t_agent_messages
-  add constraint fk_agent_messages_node
-  foreign key (node) references t_nodes (name);
+alter table t_agent_message
+  add constraint fk_agent_message_node
+  foreign key (node) references t_node (name);
 
-alter table t_agent_messages
-  add constraint fk_agent_messages_agent
-  foreign key (agent) references t_agents (name);
+alter table t_agent_message
+  add constraint fk_agent_message_agent
+  foreign key (agent) references t_agent (name);
 
 
 alter table t_agent_status
   add constraint pk_agent_status
   primary key (node, agent)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace INDX01;
 
 alter table t_agent_status
   add constraint fk_agent_status_node
-  foreign key (node) references t_nodes (name);
+  foreign key (node) references t_node (name);
 
 alter table t_agent_status
   add constraint fk_agent_status_agent
-  foreign key (agent) references t_agents (name);
+  foreign key (agent) references t_agent (name);
 
 ----------------------------------------------------------------------
 -- Add indices
 
-create index ix_agent_messages
-  on t_agent_messages (node, agent)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+create index ix_agent_message
+  on t_agent_message (node, agent)
+  tablespace INDX01;
