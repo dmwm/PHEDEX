@@ -1,0 +1,53 @@
+#!/usr/bin/env perl
+
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+# Process command line arguments
+my $me = $0; $me =~ s|.*/||;
+my %args = (JOBS => 10);
+while (@ARGV)
+{
+    if ($ARGV[0] eq '-r' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{READ} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-j' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{JOBS} = shift(@ARGV); }
+    else
+    { last; }
+}
+
+if (!$args{READ} || !$args{JOBS})
+{
+    print STDERR "usage: $me -r FILE-OF-FILES [-j JOBS] globus-url-copy...\n";
+    exit (1);
+}
+
+# Read list of files
+my @files = ();
+open (FILES, "< $args{READ}") or die "$args{READ}: cannot open: $!\n";
+while (<FILES>) { chomp; push(@files, split(/\s+/, $_)); }
+close (FILES) or die "$args{READ}: cannot read: $!\n";
+
+use POSIX;
+use UtilsJobManager;
+
+# Create jobs for each file
+my $mgr = new UtilsJobManager (NJOBS => $args{JOBS});
+foreach my $file (@files)
+{
+    $mgr->addJob (sub {}, {}, @ARGV, $file, "file:/dev/null");
+    $mgr->pumpJobs();
+}
+
+# Now wait all jobs to finish
+while (@{$mgr->{JOBS}})
+{
+    $mgr->pumpJobs();
+    select (undef, undef, undef, .1);
+}
+
+exit 0;
