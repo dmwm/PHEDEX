@@ -163,7 +163,7 @@ sub transfer {
 	  "<th colspan='2'>Files</th>",
 	  "<th colspan='2'>On Site</th>",
 	  "<th colspan='2'>Staged</th>",
-	  "<th colspan='2'>Available</th>",
+	  "<th colspan='2'>Transferable</th>",
 	  "<th colspan='2'>In Transfer</th>",
 	  "<th colspan='2'>Wanted</th>",
 	  "<th colspan='2'>Pending</th>",
@@ -212,6 +212,7 @@ sub transfer {
         my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
 	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
 	my $onscolor = ($onsite == $files) ? '' : " bgcolor='$pendcolor'";
+	my $avacolor = (!$avail) ? '' : " bgcolor='$goodcolor'";
 	my $tracolor = (!$transf) ? '' : " bgcolor='$goodcolor'";
 	my $wancolor = (!$wanted) ? '' : " bgcolor='$goodcolor'";
 	my $pencolor = ($files != $onsite + $transf + $wanted + $pending + $other)
@@ -227,8 +228,8 @@ sub transfer {
 	      "<td align='right'$onscolor>@{[&format_size($onsitesize)]}</td>",
 	      "<td align='right'>@{[&format_num($staged)]}</td>",
 	      "<td align='right'>@{[&format_size($stagedsize)]}</td>",
-	      "<td align='right'>@{[&format_num($avail)]}</td>",
-	      "<td align='right'>@{[&format_size($availsize)]}</td>",
+	      "<td align='right'$avacolor>@{[&format_num($avail)]}</td>",
+	      "<td align='right'$avacolor>@{[&format_size($availsize)]}</td>",
 	      "<td align='right'$tracolor>@{[&format_num($transf)]}</td>",
 	      "<td align='right'$tracolor>@{[&format_size($transfsize)]}</td>",
 	      "<td align='right'$wancolor>@{[&format_num($wanted)]}</td>",
