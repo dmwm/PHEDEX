@@ -366,7 +366,7 @@ sub nextFiles
 	while (my $row = $stmt->fetchrow_arrayref())
 	{
 	    last if ! $n--;
-	    push (@result, $row);
+	    push (@result, [ @$row ]);
 	}
     };
     &alert ("failed to select next files: $@") if $@;
