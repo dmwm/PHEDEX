@@ -171,10 +171,10 @@ sub idle
 		where node = '$mynode' and guid in
 		   (select distinct rs.guid
 		    from t_replica_state rs
-		    left join t_replica_metadata m
-		      on m.guid = rs.guid and m.attribute = 'checksum'
 		    left join t_transfer_state ts
 		      on ts.guid = rs.guid and ts.from_node = rs.node
+		    left join t_replica_metadata m
+		      on m.guid = rs.guid and m.attribute = 'checksum'
 		    where rs.node = '$mynode'
 		      and mod(rs.local_state,1000) = 1
 	              and m.value is null
