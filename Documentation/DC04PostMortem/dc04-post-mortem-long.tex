@@ -542,17 +542,33 @@ for us is not clear. If we only use SRM to handle this, then ideally
 SRM gives the transfer agents a way to trigger a stage and return
 simply and gracefully when necessary.}.
 
-Initially problems were seen with repeated authentications: the agents
-were developed so that multiple streams, with multiple files in each
+Initially problems were seen with SRM security, both with the number
+of authentications and the overhead of authenticating: the agents were
+developed so that multiple streams, with multiple files in each
 stream, could be used to transfer files, reducing the number of
-authentications required. Transfer rates of over 10 MBps could be
-sustained for long periods (fig. \ref{fig:FNAL-network}).
+authentications required. The main performance improvement, however,
+was achieved by optimizing the behaviour of the globus security layer
+for our purposes. In the globus C version of the gssapi library, the
+delegated credentials uses a 512 bit modulus by default. However, in
+the CoG version of gssapi library (used by dCache gridFTP/SRM
+servers), the modulus is set to the same size as the service security
+context. Or in another word, the CoG generates delegated credentials
+with a modulus size equal to the service or host certificate.  At
+CERN, it was set to 2048 bits since the host certificate keys are 2048
+bits in length. The CoG gssapi library was modified to always generate
+requests with a 512 bit modulus- reasonable as transfers were
+short-lived and our data not sensitive). This modification improved transfer
+rates by a factor of about 3.5
+
+Once solutions to these problems were found, however, transfer rates
+of over 10 MBps could be sustained for long periods
+(fig. \ref{fig:FNAL-network}).
 
 In contrast to other techniques, the use of SRM eased agent
-development with features like automatic directory creation, file
-migration and staging, and automatic failure recovery. Similar
-features were successfully implemented as parts of the distribution
-system in, for example, the LCG chain.
+development with features like automatic directory creation and
+automatic failure recovery, and dCache handled automatic migration and
+staging. Similar features were successfully implemented as parts of
+the distribution system in, for example, the LCG chain.
 
 However, during DC04 it proved difficult to install monitoring
 technology, which meant that hardware failures had to be identified by
