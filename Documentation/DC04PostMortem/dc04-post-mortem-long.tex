@@ -604,13 +604,13 @@ to analyse this data.
 The SRB chain comprised an export buffer at the T0 and import buffers
 at RAL, IN2P3 and Karlsruhe T1s. Files were copied from Castor onto
 the export buffer, where they were inserted (Sput) into SRB space. The
-files GUID was then added as additional SRB metadata (SmodD). Tier 1 sites then
-transferred the files to the relevant import buffers and mass storage
+file's GUID was then added as additional SRB metadata (SmodD). Tier 1 sites then
+transferred the files to their import buffers and mass storage
 systems, either using Sreplicate or Sget/Sput.
 
 An application developed in the UK (GMCat) linked the name spaces of
 SRB and the other chains by publishing SRB replica information into
-the LRC at CERN periodically. As the difficulties with the MCat
+the LRC at CERN periodically. However, as difficulties with the MCat (discussed below)
 increased GMCat was stopped as the system no longer reponded in a
 useful timescale.
 
@@ -622,9 +622,9 @@ chain has highlighted the vital importance of production-quality
 service and support at the T1s, especially if they are to be
 responsible for mission-critical services during experiment running.
 
-The poor performance of SRB was unexpected as prior to DC04 it had been used 
+The poor performance of SRB was unexpected. Prior to DC04 it had been used 
 successfully by CMS production for data management throughout the pre-production.
-SRB was seen as a valid component of the DC04 system, especially as 
+For this reason SRB was seen as a valid component of the DC04 system, especially as 
 LCG-2 resources were not available at several T1s. 
 More critically still, for RAL and IN2P3 SRB represented
 the only mechanism available for placing files in mass storage with
@@ -643,32 +643,33 @@ Within SRB version 2 the MCat, or metadata catalogue, represents a
 single point of failure. All user authentications, replica and
 metadata lookups are undertaken using this single service (it should
 be noted that this is not true in version 3 of SRB). This means that 
-disruption to the MCat service cripples the whole of the SRB v2 chain.
+disruption to the MCat service crippled the whole of the SRB v2 chain.
 
 While transfer speeds from T0-T1 were respectable (fig. \ref{fig:RAL-files})
  the initial entry of the file onto the export buffer was
 particularily troublsome.  Much of these problems were caused by the
 strategy chosen when writing the agent, based on the knowledge we had
-before DC04. Pre-DC04 planning indicated that files would be of the order of 1GB insize,
+before DC04. Pre-DC04 planning indicated that files would be of the order of 1GB in size, and
 therefore Sput was chosen as the tool to enter data into the export buffer
 as it is particularily efficient with large files.
 
-During DC04 the file sizes were orders of magnitude smaller than
-expected. Had this small filesize been aparent before the data
-challenge a different system would have been developed. In retrospect
-an export buffer agent based on the drop boxes used in the tier 0
+During DC04 file sizes were orders of magnitude smaller than
+expected. Had this small filesize been apparent before the data
+challenge a different strategy for placing files in SRB would have been developed: in retrospect
+an export buffer agent based on drop boxes (as used at the Tier 0)
 would be a preferred system, separating transfers from the GUID
-metadata insertion.  Since the data challenge came to an end a series
-of tests have been done in an attempt to replicate and solve the
-problems found during the DC, as many components of the CMS grid will
-rely on similar backends (eg Oracle databases) it is essential to
+metadata insertion.  
+
+Since the data challenge came to an end a series
+of tests have been undertaken in an attempt to replicate and solve the
+problems encountered. This is seen as important as many components of the CMS grid will
+rely on similar backends (eg Oracle databases). It is therefore essential to
 understand the problems experienced.
 
-The data challenge highlighted issues of the SRB CLI; return codes were not 
-reliable, at times returning 0 despite failure, some killed transfers continued to 
-run in the background, also the delete command (Srm) was particularily slow and 
-caused problems for sites with small disk servers. It would be fair to say that 
-many of the problems experienced can be attributed to using the CLI in
+Use of the SRB CLI also posed some subtle problems: return codes were not 
+reliable, at times returning 0 despite failure; some killed transfers continued to 
+run in the background; and the delete command (Srm) was particularily slow and 
+caused problems for sites with small disk servers. Many of the problems experienced can be attributed to using the CLI in
 a high load production environment, instead of creating bespoke tools. 
 
 The combination of parrallel processes and
@@ -681,15 +682,14 @@ neither were possible.
 
 Even with administration problems, transfers to IN2P3 reached 80 Mbps
 over a period of hours, although typically they averaged only 30
-Mbps over a whole day. The SRB chain was not able to take part in a
-large filesize stress test at the end of DC04; these transfer rates
+Mbps over a whole day. These transfer rates
 are due to small file sizes, and thus compare favourably with other
-chains. Prior to the data challenge testing indicated that transfer
+chains (the SRB chain was unable to take part in the large filesize tests
+at the end of DC04). Prior to the data challenge testing indicated that transfer
 rates could be sustained at a rate greater than this.
 
-Recent versions of SRB have included new features specifically as a 
-result of CMS experience, for which we would like to thank the developers
-at SDSC.
+Recent versions of SRB have included new features developed in response to
+CMS experience, for which we would like to thank the developers at SDSC.
 
 It should be noted that SRB is not integrated into the LCG analysis
 system, and that while this is possible \cite{gmcat} it may
