@@ -19,10 +19,12 @@ sub connectToDatabase
     # isn't too old, otherwise create new one.
     my $dbh = $self->{DBH};
     if (! $self->{DBH}
-	|| time() - ($self->{DBH_AGE} || 0) > 3600
+	|| time() - ($self->{DBH_AGE} || 0) > 86400
 	|| ! eval { $self->{DBH}->ping() }
 	|| $@)
     {
+	&logmsg ("(re)connecting to database");
+
 	# Clear previous connection.
 	eval { $self->{DBH}->disconnect() } if $self->{DBH};
 	undef $self->{DBH};
