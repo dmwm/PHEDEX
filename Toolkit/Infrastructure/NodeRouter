@@ -7,14 +7,15 @@
 # agents operating under the same parent node.
 #
 # The agent implements a version of the Routing Internet Protocol
-# algorithm (RFC 2543), detailed in X.
+# algorithm (RFC 2543).
 #
 # Command line options
-# -name	<parent node>	parent node name
+# -node	<parent node>	parent node name
 # -db <tns name>		sets the Oracle db to talk to
 # -w <workdir>			sets the workdir for the agent
 # -no-updates			disables database updates
 # -once                 only runs once
+# -period               period over which the agent will loop
 #
 # You should provide a working dir name on the command line:
 # a pid file will be stored there during running, and to stop the
@@ -37,6 +38,7 @@ $g_db_user;			# Oracle user
 $g_db_passwd;		# Oracle password
 $g_parent_node = 'default_parent';		# parent node name
 $g_once;				# 1 means will only run once
+$g_period;              # time between iterations
 
 # ###############################################################
 # Main agent loop
@@ -50,6 +52,9 @@ close(PID);
 
 while(!(-e "$g_work_dir/stop")) {
     if ($g_once) { system("touch $g_work_dir/stop"); }
+    my $start = time();
+    
+    # TODO: publish availability
 
     # TODO: Refresh acquanitance with neighbours
     
@@ -64,6 +69,9 @@ while(!(-e "$g_work_dir/stop")) {
     &insert_routes( \@min_routes );
 
     # TODO: Timeout direct links
+    
+    my $pause = $g_period - (time() - $start);
+    sleep($pause);
 }
 
 
@@ -225,17 +233,21 @@ sub min {
 }
 
 sub parse_command_line {
-    GetOptions(	'name=s' => \$g_parent_node,
+    GetOptions(	'node=s' => \$g_parent_node,
 		'w=s' => \$new_work_dir,
 		'db=s' => \$g_db,
 		'dbuser=s' => \$g_db_user,
 		'dbpasswd=s' => \$g_db_passwd,
 		"no-updates" => \$g_no_updates,
-		"once" => \$g_once
+		"once" => \$g_once,
+		"period=s" => \$g_period
 		);
     
     if ($g_once) {
 	log_entry( "only running once" );
+    }
+    if ($g_period) {
+        log_entry( "loop period is $g_period" );
     }
     if ($g_parent_node) {
 	log_entry( "parent node is $g_parent_node" );
