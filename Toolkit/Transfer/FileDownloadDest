@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# Copy everything into a subdirectories of a local directory.
+local=/data/test/files/$(echo $1 | sed 's|sfn://castorgrid.cern.ch/castor/cern.ch/||')
+mkdir -p $(dirname $local)
+echo file:$local

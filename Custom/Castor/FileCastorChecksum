@@ -1,0 +1,481 @@
+#!/usr/bin/perl
+
+## Add checksums for files that don't have the information.
+##
+## This agent works in tandem with FileCastorExport.  The former
+## manages the file export castor stage pool based on file requests
+## from downstream transfer agents.  Once the files are brought on
+## disk, the export agent marks them as requiring checksum using a
+## special node-specific state.  This agent looks for files in such
+## a state, and if they don't have a checksum, calculates and adds
+## it to the database.  Only once the checksum is available we mark
+## the file available for transfer.
+##
+## This agent periodically checks TMDB for files in "needs checksum"
+## state.  For each such file it creates a job packet for an internal
+## slave that does the actual checksumming.  While the file is being
+## checksummed, we mark it as "in checksum" state so several checksum
+## agents can be ran in parallel on different computers.
+##
+## Note that inbox of this agent is used solely by the internal
+## slaves.  We create job packets as drops for the slaves, which
+## then pass the drops to our inbox when they are done.  The
+## main agent then updates the database according to the status.
+## The program itself is used both as a slave and a master, but
+## there are two separate agents.
+
+BEGIN { use strict; use warnings; }
+my $me = $0; $me =~ s|.*/||;
+my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+unshift(@INC, $home);
+
+######################################################################
+$ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
+$ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
+my %args = (DBITYPE => "Oracle");
+my $master = undef;
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_HOST} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_POOL} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+
+    elsif ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    { shift (@ARGV); $master = 0; $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
+
+    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    { shift (@ARGV); $master = 1; $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-prefix' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{RM_PATH_PREFIX} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-workers' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{NWORKERS} = shift(@ARGV); }
+    else
+    { last; }
+}
+
+$args{NWORKERS} ||= 1 if $master;
+
+if (scalar @ARGV || !$args{DROPDIR}
+    || ($master && (!$args{DBNAME} || !$args{DBUSER} || !$args{DBPASS} || !$args{DBITYPE}
+	            || !$args{MYNODE} || !$args{RM_PATH_PREFIX} || !$args{NWORKERS})))
+{
+    print STDERR
+	"master: $me -node TMDB-NODE -prefix REMOVE-PATH-PREFIX\n",
+	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
+	"    -state IN-DROP-BOX [-workers N-SLAVES] [-wait SECS-TO-WAIT]\n",
+	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n",
+	"slave: $me -in IN-DROP-BOX -out NEXT-DIR [-wait SECS-TO-WAIT]\n";
+    exit (1);
+}
+
+my $agentType = $master ? "FileCastorChecksum" : "FileCastorChecksumSlave";
+my $agent = new $agentType (%args);
+# Recapture interrupt signal, oracle swallows it.
+$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
+$agent->process ();
+
+######################################################################
+# Routines specific to the slave agent.
+package FileCastorChecksumSlave; use strict; use base 'UtilsAgent';
+use File::Path;
+use Data::Dumper;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsRFIO;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = ();
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Calculate checksums for a file.  Copies the file from castor to
+# a local directory and checksums it there.  Returns the output
+# from 'cksum' command as a three-element vector reference.
+sub calculateChecksum
+{
+    my ($self, $drop, $pfn) = @_;
+
+    # Create working directories
+    my $filesdir = "$self->{WORKDIR}/$drop/files";
+    &rmtree ($filesdir);
+    eval { &mkpath ($filesdir); };
+    do { &alert ("could not create working directories: $@"); return undef; } if $@;
+
+    # Download the file
+    my $lfn = $pfn; $lfn =~ s|.*/||;
+    do { &alert ("$drop: failed to fetch $pfn"); &rmtree ($filesdir); return undef; }
+        if ! &rfcp ($pfn, "$filesdir/$lfn");
+
+    # Checksum it
+    my $cksum = &cksum ($filesdir, $lfn);
+    do { &alert ("$drop: failed to cksum $lfn"); &rmtree ($filesdir); return undef; }
+        if ! $cksum;
+
+    &rmtree ($filesdir);
+    return [ split(/\s+/, $cksum) ];
+}
+
+# Process the drop.
+sub processDrop
+{
+    my ($self, $drop) = @_;
+
+    # Sanity checking
+    return if (! $self->inspectDrop ($drop));
+    delete $self->{BAD}{$drop};
+    &timeStart($self->{STARTTIME});
+
+    # Find and read the catalogue and the checksum data
+    my $dropdir = "$self->{WORKDIR}/$drop";
+    my $packet = eval &input ("$dropdir/packet");
+    if ($@ || ! defined $packet->{PFN})
+    {
+	&alert ("badly formed packet in $drop");
+	$self->markBad ($drop);
+	return;
+    }
+
+    # Calculate new checksum; bail out on transient errors
+    my $checksum = $self->calculateChecksum ($drop, $packet->{PFN});
+    return if ! defined $checksum;
+
+    # Update the packet; bail out on transient errors
+    $packet->{CHECKSUM} = $checksum->[0];
+    $packet->{SIZE} = $checksum->[1];
+    return if ! &output ("$dropdir/packet", Dumper ($packet));
+
+    # Done!
+    $self->relayDrop ($drop);
+    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
+}
+
+######################################################################
+# Routines specific to the master agent.
+package FileCastorChecksum; use strict; use warnings; use base 'UtilsAgent';
+use DBI;
+use File::Path;
+use Data::Dumper;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBITYPE => undef,		# Database driver binding
+    		  DBNAME => undef,		# Database name
+	  	  DBUSER => undef,		# Database user name
+	  	  DBPASS => undef,		# Database user password
+	  	  MYNODE => undef,		# My TMDB node name
+	  	  RM_PATH_PREFIX => undef);	# Prefix to remove from PFNs
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Start a worker
+sub startWorker
+{
+    my ($self, $i) = @_;
+    my $workerdir = "$self->{DROPDIR}/worker-$i";
+    &mkpath ($workerdir) if ! -d $workerdir;
+
+    my $pid = undef;
+    while (1)
+    {
+	last if defined ($pid = fork ());
+        &logmsg ("cannot fork: $!; trying again in 3 seconds");
+	sleep (3);
+    }
+
+    # Return child pid in parent;
+    return $pid if $pid;
+
+    # Child.
+    my @args = ($0, "-in", $workerdir, "-out", $self->{DROPDIR}, "-wait", "7");
+    exec { $args[0] } @args;
+    die "Cannot start worker: $!\n";
+}
+
+# Create a connection to the transfer database.
+sub connectToDatabase
+{
+    my $self = shift;
+    return DBI->connect ("DBI:$self->{DBITYPE}:$self->{DBNAME}",
+	    		 $self->{DBUSER}, $self->{DBPASS},
+			 { RaiseError => 1, AutoCommit => 0 });
+}
+
+######################################################################
+# A slave has finished with a checksum.  Complete the job by logging
+# the status into the database, and if the operation was successful,
+# update the file state also.  Returns non-zero if the drop status
+# for successfully entered into the database and the drop can be
+# disposed.
+sub completeOne
+{
+    my ($self, $drop, $report) = @_;
+
+    # Dig out the report.  Note that the checksum agent never fails,
+    # it marks files bad if something goes wrong with the checksum.
+    my $guid = $report->{GUID};
+    my $checksum = $report->{CHECKSUM};
+    my $size = $report->{SIZE}; # FIXME: validate?
+    my $mynode = $self->{MYNODE};
+    my $now = time();
+    my $dbh = undef;
+    my $op;
+
+    # Update the checksum.
+    eval
+    {
+	$op = "connect to the database";
+	$dbh = $self->connectToDatabase ();
+
+	# Check for an existing checksum; if there is one, make sure
+	# it's the same we got this time, and then ignore this drop.
+	# If there's isn't one, add it.
+	$op = "check for old checksum";
+	my $old = $dbh->selectrow_arrayref(qq{
+		select value from t_replica_metadata
+		where guid = '$guid' and attribute = 'checksum'});
+	if (scalar @$old)
+	{
+	    die "checksum mismatch"
+	    	if $old->[0] ne $checksum;
+	    return;
+        }
+
+	$op = "update $guid checksum";
+	$dbh->do (qq{
+	  insert into t_replica_metadata
+	    values ('$guid', 'checksum', '$checksum')});
+
+        # OK, we've actually updated the checksum, reset local file
+	# state.  But if for any reason we've done overlapping checksum
+	# calculations, change the state only the first time around.
+    	$op = "update $guid state";
+	$dbh->do (qq{
+	  update t_replica_state
+	  set local_state = (local_state/1000)*1000 + 1,
+	      local_time_stamp = $now
+	  where guid = '$guid'
+	    and node = '$mynode'
+	    and mod(local_state,1000) = 21});
+
+  	$op = "commit";
+	$dbh->commit();
+    };
+    do { &alert ("failed to $op: $@"); $dbh->rollback() if $dbh; return 0; } if $@;
+
+    # Mark drop done so it will be nuked
+    &touch ("$self->{WORKDIR}/$drop/done");
+
+    # Log transfer delay stats
+    $now = &mytimeofday ();
+    &logmsg ("xstats: $guid "
+	     . sprintf ('%.2f %.2f',
+	    		$now - $report->{TIME_ASSIGNED},
+	    		$now - $report->{TIME_STARTED}));
+
+    return 1;
+}
+
+# Actually process a drop.  The only way to arrive here is when a slave
+# is done with its operation and transfers it into our inbox.  Collect
+# the slave output and feed it back to the database.  There are no
+# downstream drop box agents, so once we are done with the drop, it
+# is simply destroyed; the master and slave form a tightly-coupled
+# stand-alone loop.
+sub processDrop
+{
+    my ($self, $drop, $left) = @_;
+
+    # Sanity checking
+    return if (! $self->inspectDrop ($drop));
+    delete $self->{BAD}{$drop};
+    &timeStart($self->{STARTTIME});
+
+    # Read back the state
+    my $dropdir = "$self->{WORKDIR}/$drop";
+    my $report = do { no strict "vars"; eval &input ("$dropdir/packet") };
+    if ($@ || ! $report || ! $report->{GUID} || ! $report->{CHECKSUM})
+    {
+	&alert ("corrupt packet in $drop");
+	$self->markBad ($drop);
+	return;
+    }
+
+    # Update database
+    return if ! $self->completeOne ($drop, $report);
+
+    # OK, got far enough to nuke and log it
+    $self->relayDrop ($drop);
+    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
+}
+
+######################################################################
+# Get N guids that should be checksummed.  Returns a list of arrays
+# with members GUID, TIMESTAMP, CATALOGUE, HOST_KEY.
+sub nextFiles
+{
+    my ($self, $dbh, $n) = @_;
+
+    my @result = ();
+    eval
+    {
+	# Select files that need to be checksummed.  This is everything
+	# in local state 20 (by export), or everything that has been in
+	# local state 21 (by myself) for more than a day.
+	my $mynode = $self->{MYNODE};
+	my $old = time() - 86400;
+	my $stmt = $dbh->prepare (qq{
+		select rs.guid, rs.local_time_stamp, n.catalogue_contact, n.host_string
+		from t_replica_state rs, t_nodes n
+		where rs.node = '$mynode'
+	  	  and (mod(rs.local_state,1000) = 20
+		       or (mod(rs.local_state,1000) = 21
+		           and rs.local_time_stamp < $old))
+		  and n.node_name = rs.node});
+  	$stmt->execute();
+	while (my $row = $stmt->fetchrow_arrayref())
+	{
+	    last if ! $n--;
+	    push (@result, $row);
+	}
+    };
+    &alert ("failed to select next files: $@") if $@;
+    return @result;
+}
+
+# Map a GUID to a PFN using a catalogue.
+sub guidToPFN
+{
+    my ($guid, $catalogue, $hostkey) = @_;
+
+    # FIXME: remove message suppression when pool has learnt to print
+    # diagnostic output somewhere else other than stdout...
+    open (PFNS, "POOL_OUTMSG_LEVEL=100 FClistPFN -u '$catalogue' -q \"guid='$guid'\" |")
+	or do { &alert ("cannot run FClistPFN: $!"); return undef; };
+    my @pfns = grep (/$hostkey/, map { chomp; $_ } <PFNS>);
+    close (PFNS);
+    return $pfns[0];
+}
+
+# Assign guid to a slave.  Picks least-loaded slave.  Returns non-zero
+# to indiciate success, zero for transient failures.
+sub startOne
+{
+    my ($self, $dbh, $guid, $assigned, $catalogue, $hostkey) = @_;
+
+    # Get the PFN for the GUID.
+    my $pfn = &guidToPFN ($guid, $catalogue, $hostkey);
+    do { &alert ("failed to look up pfn for $guid"); return 0; } if ! $pfn;
+    $pfn =~ s|$self->{RM_PATH_PREFIX}||;
+
+    # Find an idle worker
+    my $now = time();
+    my $worker = $self->pickWorker();
+
+    # Create a pending drop in the inbox of the selected worker
+    my $slavein = "$self->{DROPDIR}/worker-$worker/inbox/$guid";
+    do { &alert ("$slavein already exists"); return 0; } if -d $slavein;
+    my $packet = { GUID		 => $guid,
+	    	   TIME_ASSIGNED => $assigned,
+	    	   TIME_STARTED	 => &mytimeofday(),
+		   PFN		 => $pfn };
+    do { &alert ("failed to create packet for $guid"); &rmtree ($slavein); return 0; }
+	if (! &mkpath ($slavein)
+	    || ! &output ("$slavein/packet", Dumper ($packet))
+	    || ! &touch ("$slavein/go.pending"));
+
+    # Mark checksum pending.  Kill the drop if this fails.
+    eval
+    {
+	my $mynode = $self->{MYNODE};
+	$dbh->do (qq{
+	  update t_replica_state
+	  set local_state = (local_state/1000)*1000 + 21,
+	      local_time_stamp = $now
+	  where guid = '$guid' and node = '$mynode'});
+        $dbh->commit ();
+    };
+    if ($@)
+    {
+	&alert ("failed to mark $guid being processed: $@");
+	&rmtree ($slavein);
+	return 0;
+    }
+
+    # OK, kick it go
+    &warning ("failed to kick $worker to start on $guid")
+	if ! &mv ("$slavein/go.pending", "$slavein/go");
+
+    return 1;
+}
+
+# Called by agent main routine before sleeping.  Pick up work
+# assignments from the database here and pass them to slaves.
+sub idle
+{
+    my ($self, @pending) = @_;
+
+    # FIXME: Update agent status
+    # FIXME: Pick up and process messages to me
+
+    # Pump more files keeping moderate-size queue in each worker.
+    my @files = ();
+    my $ndone = 0;
+    my $dbh = undef;
+    my $basedir = $self->{DROPDIR};
+    while (scalar @{[<$basedir/worker-*/{inbox,work}/*>]} < $self->{NWORKERS} * 4)
+    {
+	# Guarantee progress: don't stay here forever
+	last if (++$ndone >= $self->{NWORKERS} * 10);
+
+	# Connect to database if we haven't done so yet
+    	$dbh = $self->connectToDatabase() if ! $dbh;
+
+	# Get more files if necessary
+	@files = $self->nextFiles ($dbh, $self->{NWORKERS} * 4) if ! scalar @files;
+	last if ! scalar @files;
+
+	# Create a drop for this file
+	last if ! $self->startOne ($dbh, @{shift (@files)});
+    }
+
+    # Disconnect from the database
+    $dbh->disconnect if defined $dbh;
+    undef $dbh;
+
+    # Check children are still running and then wait
+    $self->maybeStop ();
+    $self->checkWorkers ();
+    sleep ($self->{WAITTIME});
+}

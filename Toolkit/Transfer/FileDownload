@@ -1,0 +1,506 @@
+#!/usr/bin/perl
+
+## This is an example transfer agent.
+##
+## This agent demonstrates how to write a parallel transfer agent.
+## It monitors TMDB for files assigned to the agent, creates drop
+## box tasks for them internally, and keeps a configurable number
+## of transfers going on in parallel.
+##
+## In implementation, this is a combined drop box and database
+## agent.  The TMDB monitoring is done in the &idle() routine,
+## which is called whenever there is nothing to be done to the
+## drops any more, which is most of the time.  The idle routine
+## assigns files to idle workers.  Once the slave worker agent
+## has completed the transfer, whether successfully or not, it
+## moves the drop to the *inbox* of this agent, where this agent
+## collects the status information and updates the database to
+## reflect transfer progress.  In other words, the drops cycle
+## from the idle routine into the inbox of a slave, to the work
+## area of a slave, to inbox of the main agent, to its work area,
+## and finally udpated back to the database and destroyed.  Never
+## add data from outside this agent into its inbox!
+##
+## The copies this agent does are pure globus-url-copy operations
+## for demonstration purpose.  This makes this agent fully capable
+## LCG SE transfer agent.
+
+BEGIN { use strict; use warnings; }
+$me = $0; $me =~ s|.*/||;
+$home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+unshift(@INC, $home);
+
+######################################################################
+my %args = (WORKERPROG => "$home/FileDownloadSlave", NWORKERS => 1,
+	    DBITYPE => "Oracle");
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+
+    elsif ($ARGV[0] eq '-pfndest' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{PFNSCRIPT} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-wanted' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WANT_LIMIT} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-worker' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WORKERPROG} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-pass' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{WORKERARGS}},
+		    	   map { s/\\,/,/g; $_ }
+			   split (/(?<!\\),/, shift(@ARGV))); }
+    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-workers' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{NWORKERS} = shift(@ARGV); }
+    else
+    { last; }
+}
+	
+if ($args{WANT_LIMIT} && $args{WANT_LIMIT} =~ /^(\d+)([kMGT])$/)
+{
+    my %scale = ('k' => 1024, 'M' => 1024**2, 'G' => 1024**3, 'T' => 1024**4);
+    $args{WANT_LIMIT} = $1 * $scale{$2};
+}
+
+if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
+    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE}
+    || !$args{WANT_LIMIT} || !$args{PFNSCRIPT} || !$args{NWORKERS})
+{
+    print STDERR
+	"usage: $me -state IN-DROP-BOX\n",
+	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
+	"    -node NODE-NAME -pfndest PROGRAM -wanted SIZE[kMGT]\n",
+	"    [-worker WORKER-PROGRAM] [-pass OPTIONS,TO,WORKER]\n",
+	"    [-wait SECS-TO-WAIT] [-workers NUM-WORKERS]\n";
+    exit (1);
+}
+
+my $agent = new FileDownload (%args);
+# Recapture interrupt signal, oracle swallows it.
+$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
+$agent->process ();
+
+######################################################################
+# Routines specific to this agent.
+package FileDownload; use strict; use warnings; use base 'UtilsAgent';
+use DBI;
+use File::Path;
+use Data::Dumper;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBITYPE => undef,	# Database driver binding
+    		  DBNAME => undef,	# Database name
+	  	  DBUSER => undef,	# Database user name
+	  	  DBPASS => undef,	# Database user password
+	  	  MYNODE => undef,	# My TMDB node name
+		  PFNSCRIPT => undef,	# Program to determine destination path
+		  WANT_LIMIT => undef,	# Amount of data to prefetch
+		  WORKERPROG => undef,	# Custom slave worker program
+		  WORKERARGS => []);	# Custom options to workers
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Start a worker
+sub startWorker
+{
+    my ($self, $i) = @_;
+    my $workerdir = "$self->{DROPDIR}/worker-$i";
+    &mkpath ($workerdir) if ! -d $workerdir;
+
+    my $pid = undef;
+    while (1)
+    {
+	last if defined ($pid = fork ());
+        &logmsg ("cannot fork: $!; trying again in 10 seconds");
+	sleep (10);
+    }
+
+    # Return child pid in parent;
+    return $pid if $pid;
+
+    # Child.
+    my @args = ($self->{WORKERPROG},
+		"-in", $workerdir, "-out", $self->{DROPDIR}, "-wait", "7",
+		@{$self->{WORKERARGS}});
+
+    exec { $args[0] } @args;
+    die "Cannot start worker: $!\n";
+}
+
+######################################################################
+# Create a connection to the transfer database.
+sub connectToDatabase
+{
+    my $self = shift;
+    return DBI->connect ("DBI:$self->{DBITYPE}:$self->{DBNAME}",
+	    		 $self->{DBUSER}, $self->{DBPASS},
+			 { RaiseError => 1, AutoCommit => 1 });
+}
+
+# Map a GUID to a PFN using a catalogue
+sub guidToPFN
+{
+    my ($guid, $catalogue, $host) = @_;
+
+    # FIXME: remove message suppression when pool has learnt to print
+    # diagnostic output somewhere else other than stdout...
+    open (PFNS, "POOL_OUTMSG_LEVEL=100 FClistPFN -u '$catalogue' -q \"guid='$guid'\" |")
+	or do { &alert ("cannot run FClistPFN: $!"); return undef; };
+    my @pfns = grep (/$host/, map { chomp; $_ } <PFNS>);
+    close (PFNS);
+    return $pfns[0];
+}
+
+# Map a GUID to a LFN using a catalogue
+sub guidToLFN
+{
+    my ($guid, $catalogue) = @_;
+
+    # FIXME: remove message suppression when pool has learnt to print
+    # diagnostic output somewhere else other than stdout...
+    open (LFNS, "POOL_OUTMSG_LEVEL=100 FClistLFN -u '$catalogue' -q \"guid='$guid'\" |")
+	or do { &alert ("cannot run FClistPFN: $!"); return undef; };
+    my @lfns = map { chomp; $_ } <LFNS>;
+    close (LFNS);
+    return $lfns[0];
+}
+
+# Begin transferring a file.  Fetches the file information and creates
+# a new drop for the file in an idle worker; the caller must guarantee
+# there is one available.  If the drop is successfully created, marks
+# the file in transfer in the database and returns non-zero.  Otherwise
+# returns non-zero to indicate another attempt should be made at a later
+# time to initiate the transfer.
+sub initTransfer
+{
+    my ($self, $dbh,
+	$guid, $timestamp, $src_node, $src_catalogue, $src_host,
+	$dest_catalogue, $attrs) = @_;
+
+    # Get the PFN for the GUID and map it to destination PFN.
+    # (FIXME: Can we not get these from TMDB?)
+    my $src_pfn = &guidToPFN ($guid, $src_catalogue, $src_host);
+    do { &alert ("failed to look up pfn for $guid"); return 0; } if ! $src_pfn;
+
+    my $src_lfn = &guidToLFN ($guid, $src_catalogue);
+    do { &alert ("failed to look up lfn for $guid"); return 0; } if ! $src_lfn;
+
+    my $dest_pfn = qx($self->{PFNSCRIPT} '$src_pfn'); chomp ($dest_pfn);
+    do { &alert ("no destination pfn for $guid"); return 0; } if ! $dest_pfn;
+
+    # Find an idle worker
+    my $now = time();
+    my $worker = $self->pickWorker();
+
+    # Create a pending drop in the inbox of the selected worker
+    my $slavein = "$self->{DROPDIR}/worker-$worker/inbox/$guid";
+    do { &alert ("$slavein already exists"); return 0; } if -d $slavein;
+    my $transfer = { GUID		=> $guid,
+		     TIME_ALLOC		=> $timestamp,
+		     TIME_START		=> &mytimeofday(),
+		     SRC_NODE		=> $src_node,
+		     SRC_PFN		=> $src_pfn,
+		     SRC_LFN		=> $src_lfn,
+		     SRC_CATALOGUE	=> $src_catalogue,
+		     SRC_HOST		=> $src_host,
+		     DEST_NODE		=> $self->{MYNODE},
+		     DEST_PFN		=> $dest_pfn,
+		     DEST_LFN		=> $src_lfn,
+		     DEST_CATALOGUE	=> $dest_catalogue,
+		     ATTRS		=> $attrs };
+
+    do { &alert ("failed to create transfer packet for $guid"); &rmtree ($slavein); return 0; }
+	if (! &mkpath ($slavein)
+	    || ! &output ("$slavein/packet", Dumper ($transfer))
+	    || ! &touch ("$slavein/go.pending"));
+
+    # Mark the transfer started in the database.  If this fails, delete
+    # the drop; we will retry later.
+    eval
+    {
+	my $mynode = $self->{MYNODE};
+	$dbh->do (qq{
+	  update t_transfer_state
+	  set dest_state = 1, dest_time_stamp = $now
+	  where guid = '$guid'
+	    and dest_node = '$mynode'
+	    and src_node = '$src_node'});
+    };
+    if ($@)
+    {
+	&alert ("failed to mark $guid in transfer: $@");
+	&rmtree ($slavein);
+	return 0;
+    }
+
+    # OK, kick it go
+    &warning ("could not kick $worker to start $guid")
+	if ! &mv ("$slavein/go.pending", "$slavein/go");
+
+    return 1;
+}
+
+# A slave has finished with a transfer.  Complete the job by logging
+# the status into the database, and if the transfer was successful,
+# update the file state also.  Returns non-zero if the drop status
+# for successfully entered into the database and the drop can be
+# disposed.
+sub completeTransfer
+{
+    my ($self, $drop, $report) = @_;
+
+    # Dig out the report.  If transfer failed, revert the file back
+    # to state 1 (allocated) and give it back the timestamp it was
+    # originally posted to state 1 so logging will be accurate. Also
+    # log the error message to our output.
+    my $guid = $report->{GUID};
+    my $src_node = $report->{SRC_NODE};
+    my $dest_node = $report->{DEST_NODE};
+    my $now = time();
+    my $newstate = 3;
+    if ($report->{FAILURE})
+    {
+	&logmsg ("failed to transfer $guid: $report->{FAILURE}");
+	$now = $report->{TIME_ALLOC};
+	$newstate = 1;
+    }
+
+    eval
+    {
+	my $dbh = $self->connectToDatabase ();
+	$dbh->do (qq{
+	  update t_transfer_state
+	  set dest_state = 3, dest_time_stamp = $now
+	  where guid = '$guid'
+	    and dest_node = '$dest_node'
+	    and src_node = '$src_node'});
+
+	$dbh->do (qq{
+	  update t_replica_state
+	  set state = 2, local_state = 0, time_stamp = $now, local_time_stamp = $now
+	  where guid = '$guid' and node = '$dest_node'});
+    };
+    do { &alert ("failed to update $guid transferred: $@"); return 0; } if $@;
+
+    # Mark drop done so it will be nuked
+    &touch ("$self->{WORKDIR}/$drop/done");
+
+    # Log transfer delay stats
+    $now = &mytimeofday ();
+    my $dalloc = $now - $report->{TIME_ALLOC};
+    my $dtransfer = $now - $report->{TIME_START};
+    &logmsg ("tstats: $guid $newstate @{[sprintf('%.2f %.2f', $dalloc, $dtransfer)]}");
+
+    return 1;
+}
+
+# Update wanted status on files in the database.
+sub markFilesWanted
+{
+    my ($self, $dbh) = @_;
+
+    eval
+    {
+	my $mynode = $self->{MYNODE};
+
+	# Refresh timestamps on files already marked wanted and
+	# where it's over ten minutes since we've last refreshed.
+	my $now = time();
+	my $old = $now - 600;
+	$dbh->do(qq{
+		update t_replica_state
+		set time_stamp = $now
+		where node = '$mynode'
+		  and state = 1
+	  	  and time_stamp < $old});
+
+  	# Check how much already is marked wanted.  If this is
+	# unavailable or it's more than 75% of our max wanted,
+	# don't do anything.
+	my $row = $dbh->selectrow_arrayref(qq{
+				select sum(r.value)
+				from t_replica_state rs,
+				     t_replica_metadata r
+				where rs.node = '$mynode'
+				  and rs.state = 1
+			  	  and rs.guid = r.guid
+			  	  and r.attribute = 'filesize'});
+	return if (! defined $row || ($row->[0] || 0) > .75 * $self->{WANT_LIMIT});
+
+	# Mark some more files wanted.
+	my $total = $row->[0] || 0;
+	my $stmt = $dbh->prepare(qq{
+			select rs.guid, r1.value
+			from t_replica_state rs,
+			     t_replica_metadata r1,
+			     t_replica_metadata r2
+			where rs.node = '$mynode'
+			  and rs.state = 0
+			  and rs.guid = r1.guid
+			  and r1.attribute = 'filesize'
+			  and rs.guid = r2.guid
+			  and r2.attribute = 'POOL_jobid'
+			order by trunc (rs.time_stamp/86400) desc, r2.value});
+	$stmt->execute();
+	while (my $file = $stmt->fetchrow_arrayref())
+        {
+	    last if ($total + $file->[1] > $self->{WANT_LIMIT});
+	    $dbh->do(qq{
+		update t_replica_state
+		set state = 1, time_stamp = $now
+		where node = '$mynode' and guid = '$file->[0]'});
+	    $total += $file->[1];
+  	}
+    };
+    &alert ("failed to mark files wanted: $@") if $@;
+}
+
+# Get the list of N guids that should be transferred next.  Returns
+# a list of arrays with members GUID, ALLOC_TIMESTAMP, SRC_NODE,
+# SRC_CATALOGUE, DEST_CATALOGUE plus a hash of POOL file attributes.
+sub nextFilesForTransfer
+{
+    my ($self, $dbh, $n) = @_;
+
+    # FIXME: sort by filegroup, descending time?
+    # FIXME: also select files that have been in transfer for too long?
+    my @result = ();
+    eval
+    {
+	my $mynode = $self->{MYNODE};
+	my $stmt = $dbh->prepare (qq{
+		select rs.guid,
+		       ts.src_time_stamp,
+		       ts.src_node,
+		       n1.catalogue_contact,
+		       n1.host_string,
+		       n2.catalogue_contact
+		from t_replica_state rs,
+		     t_transfer_state ts,
+		     t_nodes n1, t_nodes n2
+		where rs.state = 1
+		  and rs.node = '$mynode'
+	  	  and ts.guid = rs.guid
+	  	  and ts.src_state = 1
+	  	  and ts.dest_node = rs.node
+		  and n1.node_name = ts.src_node
+		  and n2.node_name = ts.dest_node});
+        $stmt->execute();
+	while (my $row = $stmt->fetchrow_arrayref())
+	{
+	    last if ! $n--;
+	    my $attrs = {};
+	    foreach my $m (@{$dbh->selectall_arrayref(qq{
+				select m.attribute, m.value
+				from t_replica_metadata m
+				where m.guid = '$row->[0]'
+				  and m.attribute like 'POOL%'})})
+	    {
+		my ($key, $value) = @$m;
+		$key =~ s/^POOL_//;
+		$attrs->{$key} = $value;
+	    }
+
+	    push(@result, [ @$row, $attrs ]);
+	}
+    };
+    &alert ("failed to select files for transfer: $@") if $@;
+    return @result;
+}
+
+######################################################################
+# Actually process a drop.  Note that the only way we end up here is
+# when a slave has finished with a file transfer and transfers it to
+# our inbox.  Collect the transfer status and update the database to
+# reflect the state.  Note that the slaves never mark drops bad, they
+# just update the state information in the drop appropriately.  We
+# only mark drops bad only if the drop itself is corrupted; normally
+# we just flag transfers failed in the database and try again later.
+# There is no downstream drop box agent, so the drops are destroyed
+# once we've successfully entered the information into the database.
+sub processDrop
+{
+    my ($self, $drop, $left) = @_;
+
+    # Sanity checking
+    return if (! $self->inspectDrop ($drop));
+    delete $self->{BAD}{$drop};
+    &timeStart($self->{STARTTIME});
+
+    # Read back the state
+    my $report = do { no strict "vars"; eval &input ("$self->{WORKDIR}/$drop/packet") };
+    if ($@ || ! $report || ! $report->{GUID})
+    {
+	&alert ("corrupt packet in $drop");
+	$self->markBad ($drop);
+	return;
+    }
+
+    # Update database
+    return if ! $self->completeTransfer ($drop, $report);
+
+    # OK, got far enough to nuke and log it
+    $self->relayDrop ($drop);
+    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
+}
+
+# This is called by the main agent routine before sleeping.
+# Flush queues here.
+sub idle
+{
+    my ($self, @pending) = @_;
+
+    # FIXME: Update agent status
+    # FIXME: Pick up and process messages to me
+
+    # Request some more files
+    my $dbh = $self->connectToDatabase();
+    $self->markFilesWanted($dbh);
+
+    # Pump more files while there are idle workers.  But keep a bit more going
+    # so we don't get killed by the worker's wait times.
+    my @files = ();
+    my $ndone = 0;
+    my $basedir = $self->{DROPDIR};
+    while (scalar @{[<$basedir/worker-*/{inbox,work}/*>]} < $self->{NWORKERS} * 4)
+    {
+	# Guarantee progress: don't stay here forever
+	last if (++$ndone >= $self->{NWORKERS} * 10);
+
+	# Get more files if necessary
+	@files = $self->nextFilesForTransfer ($dbh, $self->{NWORKERS} * 4) if ! scalar @files;
+	last if ! scalar @files;
+
+	# Create a drop for this file
+	last if ! $self->initTransfer ($dbh, @{shift (@files)});
+    }
+
+    # Disconnect from the database
+    $dbh->disconnect if defined $dbh;
+    undef $dbh;
+
+    # Check children are still running and then wait
+    $self->maybeStop ();
+    $self->checkWorkers ();
+    sleep ($self->{WAITTIME});
+}

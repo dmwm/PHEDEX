@@ -1,0 +1,205 @@
+#!/usr/bin/perl
+
+## Prestage castor files before passing them to the rest of the chain.
+##
+## This agent scans the XML catalogues of all drops in its work queue
+## and stages in all the files that are not currently staged in.  The
+## drops stay pending in the work queue until all the files have been
+## staged in.
+##
+## The stage-in is done according to the instructions of the Castor
+## team to avoid overloading the stager and tape systems.  The stage
+## requests are ordered by tape name and position of the files.  We
+## issue several stage requests in one command to reduce the number
+## of stager processes at the server (there is one process for each
+## request).  Moreover, we throttle ourselves back if the number of
+## pending tape mounts is high (~4000) or pending stage requests is
+## high (~200).
+##
+## The file names in the catalogues must be correct full PFNs, the
+## agent does check that the file exists in Castor before attempting
+## to stage the files in.
+##
+## Because the agent wants to process simultaneously as many drops as
+## possible, all the work is done in &idle().
+
+BEGIN { use strict; use warnings; }
+my $me = $0; $me =~ s|.*/||;
+my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+unshift(@INC, $home);
+
+######################################################################
+$ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
+$ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
+my %args = (DBITYPE => "Oracle");
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_HOST} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_POOL} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    { shift (@ARGV); $master = 1; $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+    else
+    { last; }
+}
+
+if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
+    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE})
+{
+    print STDERR
+	"usage: $me -node TMDB-NODE\n",
+	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
+	"    -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n",
+	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n";
+    exit (1);
+}
+
+my $agent = new FileCastorExport (%args);
+# Recapture interrupt signal, oracle swallows it.
+$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
+$agent->process ();
+
+######################################################################
+# Routines for the master castor export agent.  This one simply manages
+# the file transfer requests and passes the work to appropriate other
+# local export agents (stage-in, checksum).
+package FileCastorExport; use strict; use warnings; use base 'UtilsAgent';
+use DBI;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBITYPE => undef,		# Database driver binding
+    		  DBNAME => undef,		# Database name
+	  	  DBUSER => undef,		# Database user name
+	  	  DBPASS => undef,		# Database user password
+	  	  MYNODE => undef);		# My TMDB node name
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Called by agent main routine before sleeping.  Pick up work
+# assignments from the database here and pass them to slaves.
+sub idle
+{
+    my ($self, @pending) = @_;
+
+    # FIXME: Update agent status
+    # FIXME: Pick up and process messages to me
+
+    # Check how much is wanted downstream.  Select the files wanted
+    # downstream still pending for outward transfer here.  We fetch
+    # in one query the current state here, whether we have checksum,
+    # the number of requested copies, and the latest request time.
+    eval
+    {
+	my $now = time();
+	my $mynode = $self->{MYNODE};
+	my $dbh = DBI->connect ("DBI:$self->{DBITYPE}:$self->{DBNAME}",
+	    		 	$self->{DBUSER}, $self->{DBPASS},
+			 	{ RaiseError => 1, AutoCommit => 0 });
+	my $stmt = $dbh->prepare (qq{
+	    		select rs1.guid,
+			       rs1.state,
+			       mod (rs1.local_state, 1000),
+			       count(r.value),
+			       count(rs2.node),
+			       max(rs2.time_stamp)
+			from t_replica_state rs1
+			inner join t_replica_metadata r
+			  on r.guid = rs1.guid
+			inner join t_transfer_state ts
+			  on ts.guid = rs1.guid and ts.src_node = rs1.node
+			inner join t_replica_state rs2
+			  on rs2.guid = rs1.guid and ts.dest_node = rs2.node
+			where rs1.node = '$mynode'
+		  	  and rs2.state = 1
+		  	  and ts.src_state = 0
+		  	  and r.attribute = 'checksum'
+		  	group by rs1.guid, rs1.state, mod (rs1.local_state, 1000)});
+	$stmt->execute ();
+	while (my $row = $stmt->fetchrow_arrayref())
+	{
+	    my ($guid, $state, $local, $checksum, $dests, $desttime) = @$row;
+
+	    # Ignore anything older than fifteen minutes
+	    next if $desttime < $now - 15*60;
+
+	    # Ignore if it's not yet in a state we can handle
+	    next if $state != 2 && $state != 3;
+
+	    $now = time();
+
+	    # If it's still pending local processing, handle it
+	    if ($state == 2)
+	    {
+	        # Order: stage in, get checksum, mark available.
+	        if ($local == 0)
+	        {
+		    $dbh->do(qq{update t_replica_state
+			    set local_state = (local_state/1000)*1000 + 10,
+			        local_time_stamp = $now
+			    where guid = '$guid' and node = '$mynode'});
+	        }
+	        elsif ($local == 1 && !$checksum)
+	        {
+		    $dbh->do(qq{update t_replica_state
+			    set local_state = (local_state/1000)*1000 + 20,
+			        local_time_stamp = $now
+			    where guid = '$guid' and node = '$mynode'});
+	        }
+	        elsif ($local == 1)
+	        {
+		    $dbh->do(qq{update t_replica_state
+			    set state = 3, time_stamp = $now
+			    where guid = '$guid' and node = '$mynode'});
+		    $state = 3;
+	        }
+            }
+
+	    # If it's available for transfer, update transfer status.
+	    if ($state == 3 && $local == 1)
+	    {
+	        $dbh->do(qq{update t_transfer_state
+		    set src_state = 1, src_time_stamp = $now
+		    where guid = '$guid' and src_node = '$mynode'});
+	    }
+
+	    # FIXME: purge files no longer needed
+	    # FIXME: throttle stage-in requests based on how much we
+	    # have in t_transfer_state as committed available for
+	    # transfer and available free space on the pool.
+
+	    $dbh->commit();
+        }
+
+        # Disconnect from the database
+        $dbh->disconnect if defined $dbh;
+        undef $dbh;
+    };
+    do { &alert ("database error: $@"); } if $@;
+
+    # Check children are still running and then wait
+    $self->maybeStop ();
+    sleep ($self->{WAITTIME});
+}
