@@ -1,0 +1,113 @@
+#!/usr/bin/perl
+
+## Verify PFNs mentioned in the drops actually exist and have
+## non-zero size.
+
+BEGIN { use strict; use warnings; }
+my $me = $0; $me =~ s|.*/||;
+my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+unshift(@INC, $home);
+
+######################################################################
+$ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
+$ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
+my %args;
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_HOST} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_POOL} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    else
+    { last; }
+}
+	
+if (scalar @ARGV || !$args{DROPDIR})
+{
+    print STDERR
+	"usage: $me -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
+	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n",
+	"    [-wait SECS-TO-WAIT]\n";
+    exit (1);
+}
+
+(new DropCastorFileCheck (%args))->process();
+
+######################################################################
+# Routines specific to this agent.
+package DropCastorFileCheck; use strict; use base 'UtilsAgent';
+use File::Path;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsReaders;
+use UtilsRFIO;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = ();
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Really process the drop.  Only done in leaf processes: either the
+# main agent if it has no workers, or in its slaves.
+sub processDrop
+{
+    my ($self, $drop) = @_;
+
+    # Sanity checking
+    return if (! $self->inspectDrop ($drop));
+    delete $self->{BAD}{$drop};
+    &timeStart($self->{STARTTIME});
+
+    # Find and read the catalogue and the checksum data
+    my $dropdir = "$self->{WORKDIR}/$drop";
+    my $xmlcat = (<$dropdir/XMLCatFragment.*.{xml,txt}>)[0];
+    if (! defined $xmlcat)
+    {
+        &alert ("no xml catalogue in $drop");
+        $self->markBad ($drop);
+        return;
+    }
+
+    my $catalogue = eval { &readXMLCatalog ($xmlcat) };
+    do { &alert($@); $self->markBad ($drop); return } if $@;
+
+    # Check that files exist
+    my $bad = 0;
+    foreach my $pfn (map { @{$_->{PFN}} } values %$catalogue)
+    {
+	my $size = &rfstatsize ($pfn);
+	if (! defined $size)
+	{
+	    &alert ("cowardly refusing to transfer non-existent file $pfn");
+	    $bad = 1;
+	}
+	elsif (! $size)
+	{
+	    &alert ("cowardly refusing to transfer zero-size file $pfn");
+	    $bad = 1;
+	}
+    }
+
+    # Mark drop accordingly
+    if ($bad) {
+        $self->markBad ($drop);
+    } else {
+        $self->relayDrop ($drop);
+        &touch ("$self->{WORKDIR}/$drop/done");
+        &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} failed");
+    }
+}
