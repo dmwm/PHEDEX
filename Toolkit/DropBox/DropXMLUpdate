@@ -135,7 +135,7 @@ sub updateCatalog
     # Rewrite relative PFNs to use $pfnroot
     foreach my $entry (values %$catalogue)
     {
-	$entry->{TEXT} =~ s|^(.*<pfn\s.*\sname=")\./(.*)("/>.*)|$1$pfnroot/$2$3|g;
+	$entry->{TEXT} =~ s|(<pfn\s.*name=")\./([^"]*)|$1$pfnroot/$2|gm;
 	map { s|^\./|$pfnroot/| } @{$entry->{PFN}};
     }
 
@@ -162,6 +162,7 @@ sub updateCatalog
         if ! &outputAttributeCache ($attrsfile, $attrs);
 
     # OK, we are done
+    unlink <$dropdir/*.xml.BAK>;
     &touch ("$dropdir/done");
     return 0;
 }
