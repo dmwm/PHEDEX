@@ -81,10 +81,18 @@ if ($args{SITES})
     # Map sites to nodes
     foreach my $site (@{$args{SITES}})
     {
-	die "no mapping for site $site\n" if ! exists $sitemap{$site};
-	warn "ignoring site $site, no mapping\n" if ! $sitemap{$site};
-	push(@{$args{NODES}}, $sitemap{$site}) if $sitemap{$site};
+	if (! exists $sitemap{$site}) {
+	    die "no mapping for site $site\n";
+	} elsif (! $sitemap{$site}) {
+	    warn "ignoring site $site, no mapping to node\n";
+	} else {
+	    print "mapping site $site to node $sitemap{$site}\n";
+	    push(@{$args{NODES}}, $sitemap{$site});
+	}
     }
+
+    die "no node mappings created from site list @{$args{SITES}}\n"
+	if ! @{$args{NODES}};
 }
 
 # Ensure catalogue and checksum files exist and are readable
