@@ -510,6 +510,8 @@ sub idle
 	my $now = time();
 	if (scalar @{$self->{JOBS}} == 0 && $self->{LAST_RESET} < $now - 900)
 	{
+	    my $tmpdir = $self->{DROPDIR};
+	    unlink <$tmpdir/*-*-*-*>;
 	    $self->resetPendingTransfers($dbh);
 	    $self->{LAST_RESET} = $now;
         }
@@ -517,12 +519,12 @@ sub idle
         # Request some more files
         $self->markFilesWanted ($dbh);
 
-	# Pump more jobs.
-	$self->pumpJobs ();
-
 	# If there's still space in job queue, start new transfers.
-	if (scalar @{$self->{JOBS}} < $self->{NJOBS}) {
-	    $self->{BACKEND}->consumeFiles ($self, $dbh);
+	while (scalar @{$self->{JOBS}} < $self->{NJOBS})
+	{
+	    $self->maybeStop ();
+	    $self->pumpJobs ();
+	    last if ! $self->{BACKEND}->consumeFiles ($self, $dbh);
 	}
 
         # Disconnect from the database
@@ -532,6 +534,9 @@ sub idle
 
     # Keep jobs going while resting a bit.
     my $target = time() + $self->{WAITTIME};
-    do { $self->maybeStop(); $self->pumpJobs (); select (undef, undef, undef, .1); }
-        while (time() < $target);
+    do {
+        $self->maybeStop();
+	$self->pumpJobs ();
+	select (undef, undef, undef, .1);
+    } while (time() < $target);
 }
