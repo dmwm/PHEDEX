@@ -56,6 +56,9 @@ Begin to create the testbed directory structure:
   cvs login # when prompted for password, type: 98passwd
   cvs co PHEDEX/{Toolkit,Schema,Utilities,Documentation/README,Testbed}
 
+  # Get ready for using ORACLE
+  . /afs/cern.ch/project/oracle/script/setoraenv.sh -s 8174
+
 
 *** MySQL POOL catalogue
 
@@ -211,8 +214,6 @@ OK, they are now known in the local catalogue of this node.  Let's
 inject them into transfer.
 
   cp -rp $TESTBED/First/SE/TestSet/* $TESTBED/First/state/entry/inbox
-
-[FIXME: Do something about t_block registration!]
 
 *** Subscribing a node to certain data streams
 
