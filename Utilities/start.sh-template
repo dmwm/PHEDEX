@@ -1,0 +1,87 @@
+#!/bin/sh
+
+export PHEDEX_BASE=<base>
+export PHEDEX_STATE=${PHEDEX_BASE}/<node>/work
+export PHEDEX_TMDB=<db>
+export PHEDEX_USER=<user>
+export PHEDEX_PASS=<pass>
+export PHEDEX_LOGS=${PHEDEX_BASE}/<node>/logs
+export PHEDEX_NODE=<node>
+export PHEDEX_CATALOGUE=<cat>
+export PHEDEX_SCRIPTS=${PHEDEX_BASE}/<node>/scripts
+
+export PERL5LIB=${PHEDEX_SCRIPTS}
+
+# Set general entry point.  Don't mess it unless we have to, we don't
+# want to change this if there happens to be drops going on.
+[ -e $PHEDEX_STATE/entry       ] || ln -s xml $PHEDEX_STATE/entry
+[ -e $PHEDEX_STATE/xml         ] || mkdir -p $PHEDEX_STATE/xml
+[ -e $PHEDEX_STATE/exist       ] || mkdir -p $PHEDEX_STATE/exist
+[ -e $PHEDEX_STATE/cat         ] || mkdir -p $PHEDEX_STATE/cat
+[ -e $PHEDEX_STATE/tmdb        ] || mkdir -p $PHEDEX_STATE/tmdb
+
+[ -e $PHEDEX_STATE/export      ] || mkdir -p $PHEDEX_STATE/export
+[ -e $PHEDEX_STATE/routing     ] || mkdir -p $PHEDEX_STATE/routing
+[ -e $PHEDEX_STATE/download    ] || mkdir -p $PHEDEX_STATE/download
+
+# Update catalogue entries
+nohup ${PHEDEX_SCRIPTS}/DropXMLUpdate                \
+        -in ${PHEDEX_STATE}/xml                 \
+        -out ${PHEDEX_STATE}/exist              \
+        -wait 7                                 \
+        >> ${PHEDEX_LOGS}/xml 2>&1 </dev/null &
+
+# Check the files actually exist and have non-zero size
+nohup ${PHEDEX_SCRIPTS}/DropFileCheck          \
+        -in ${PHEDEX_STATE}/exist               \
+        -out ${PHEDEX_STATE}/cat                \
+        -wait 7                                 \
+        >> ${PHEDEX_LOGS}/exist 2>&1 </dev/null &
+
+# Publish into catalog.
+nohup ${PHEDEX_SCRIPTS}/DropCatPublisher             \
+    -catalogue ${PHEDEX_CATALOGUE}              \
+    -in ${PHEDEX_STATE}/cat                     \
+    -out ${PHEDEX_STATE}/tmdb           \
+    -wait 7                                     \
+    >> ${PHEDEX_LOGS}/cat 2>&1 </dev/null &
+
+# Publish into TMDB
+nohup ${PHEDEX_SCRIPTS}/DropTMDBPublisher            \
+    -db "${PHEDEX_TMDB}"                        \
+    -dbuser ${PHEDEX_USER}              \
+    -dbpass ${PHEDEX_PASS}                      \
+    -in ${PHEDEX_STATE}/tmdb            \
+    -node ${PHEDEX_NODE}                        \
+    -version 2                          \
+    -wait 7                                     \
+    >> ${PHEDEX_LOGS}/tmdb 2>&1 </dev/null &
+
+# Export-side agents
+nohup ${PHEDEX_SCRIPTS}/FileDiskExport             \
+        -state ${PHEDEX_STATE}/export           \
+        -node ${PHEDEX_NODE}                    \
+        -db "${PHEDEX_TMDB}"                    \
+        -dbuser ${PHEDEX_USER}                \
+        -dbpass ${PHEDEX_PASS}                  \
+        -wait 7                                 \
+        >> ${PHEDEX_LOGS}/export 2>&1 </dev/null &
+
+nohup ${PHEDEX_SCRIPTS}/Node-Router.pl \
+    -node ${PHEDEX_NODE} \
+    -db ${PHEDEX_TMDB} \
+    -w ${PHEDEX_STATE}/routing \
+    -dbuser ${PHEDEX_USER} \
+    -dbpasswd ${PHEDEX_PASS} \
+    >> ${PHEDEX_LOGS}/routing 2>&1 </dev/null &
+
+nohup ${PHEDEX_SCRIPTS}/FileDownload \
+    -state ${PHEDEX_STATE}/download \
+    -db ${PHEDEX_TMDB} \
+    -dbuser ${PHEDEX_USER} \
+    -dbpass ${PHEDEX_PASS} \
+    -pfndest FilenameMap \
+    -node ${PHEDEX_NODE} \
+    -wanted 100G \
+    -pass "-cpcmd,cp" \
+    >> ${PHEDEX_LOGS}/download 2>&1 </dev/null &

@@ -49,16 +49,15 @@ Naturally these can both be the same machine, but they don't have to be…
 
 Begin to create the testbed directory structure. On your chosen testbed machine-
 
-setenv NODETESTBED /NodeTestbed [ or whatever your chosen location is
+export NODETESTBED=/NodeTestbed [ or whatever your chosen location is
 mkdir $NODETESTBED
 cd $NODETESTBED
 
-setenv CVSROOT :pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/TMAgents
-	
+export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/TMAgents
 cvs login
 #	[ password is 98passwd ]
 cvs co AgentToolkitExamples
-cd AgentToolkitExamples/NodeTestbed
+
 setenv POOL_CATALOG mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat
 setenv PATH ${PATH}:${NODETESTBED}/AgentToolkitExamples/NodeTestbed
 setenv PATH ${PATH}:${NODETESTBED}/AgentToolkitExamples/Managers
@@ -93,259 +92,57 @@ The Oracle TMDB schema can be found at $NODETESTBED/AgentDocs/V2OracleSchema.sql
 Note that you need Perl DBI, and DBD:Oracle installed as well.
 
 
-2e. Deploying a simple source node
-----------------------------------
+2e. Deploying a simple node
+---------------------------
 
-Now create a node. First we define the directory structure
+Now we need to create a node using a few management files:
 
-cd $NODETESTBED
-mkdir TestbedSource1
-mkdir TestbedSource1/scripts
-mkdir TestbedSource1/logs
-mkdir TestbedSource1/work
-mkdir TestbedSource1/SE
+cp ${NODETESTBED}/AgentToolkitExamples/NodeTestbed/DeployNode .
+cp ${NODETESTBED}/AgentToolkitExamples/NodeTestbed/start.sh-template .
+cp ${NODETESTBED}/AgentToolkitExamples/NodeTestbed/stop.sh-template .
 
-Now register the node with the TMDB: in an SQL client
+DeployNode 
+-node First 
+-base ${NODETESTBED} 
+-db <your Oracle TNS name> 
+-dbuser <your Oracle user> 
+-dbpass <your Oracle password>
+-cat mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat
 
-NodeManager.pl add-node \
--name TBSource1 \
--cat $POOL_CATALOG \
--host $NODETESTBED/TestbedSource1/SE \
--db <contact string> \
--user <user> \
--password <password> 
+This script creates a simple directory structure for a node, with space for
+scripts, logs, working and file storage (called SE). It deploys the agent code
+necessary to run the node, and generates start.sh and stop.sh scripts that
+should be used to start and stop the node's agents.
 
-DB contact strings are of the form mysql:database=V2TMDB;host=<host> for mysql, 
-or Oracle:<db tns name>, or Oracle:(complete connection string) for Oracle.
-
-[ These are basically inserted into a Perl DBI connect method call- so there are 
-other methods by which you could contact databases (e.g. Oracle… ). See the Perl 
-DBI, and DBD::MySQL and DBD::Oracle documentation for further details. ]
-
-Now we need to deploy a routing agent that will maintain our routing tables for 
-this node
-
-cd $NODETESTBED/TestbedSource1/scripts
-cp $NODETESTBED/AgentToolkitExamples/Routing/Node-Router.pl .
-
-and add this agent to the TMDB
-
-NodeManager.pl add-agent \
--name Source1_Router \
--db <contact string> \
--user <user> \
--password <password>
-
-We then need to start the router running
-
-./Node-Router.pl -node TestbedSource1 
--db <Oracle tns name only>
--w $NODETESTBED/TestbedSource1/work 
--dbuser <user> 
--dbpasswd <password> 
->& $NODETESTBED/TestbedSource1/logs/log &
-
-Now we need to create the chain of agents that will handle the injection of data
-into distribution at this node.
-
-cp $NODETESTBED/AgentToolkitExamples/DropBox/DropTMDBPublisher .
-cp $NODETESTBED/AgentToolkitExamples/DropBox/DropCatPublisher . 
-cp $NODETESTBED/AgentToolkitExamples/DropBox/DropXMLPublisher .
-cp $NODETESTBED/AgentToolkitExamples/DropBox/DropFileCheck .
-cp $NODETESTBED/AgentToolkitExamples/DropBox/Utils* .
-
-Then create the script start.sh, with content:
-
-#!/bin/sh
-
-export PHEDEX_BASE=<your path to testbed>
-export PHEDEX_STATE=${PHEDEX_BASE}/work
-export PHEDEX_TMDB=<db tns nams>
-export PHEDEX_USER=<db user>
-export PHEDEX_PASS=<db password>
-export PHEDEX_LOGS=../logs
-export PHEDEX_NODE=TestbedSource1
-export PHEDEX_CATALOGUE=mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat
-
-# Set general entry point.  Don't mess it unless we have to, we don't
-# want to change this if there happens to be drops going on.
-[ -e $PHEDEX_STATE/entry       ] || ln -s xml $PHEDEX_STATE/entry
-[ -e $PHEDEX_STATE/xml         ] || mkdir -p $PHEDEX_STATE/xml
-[ -e $PHEDEX_STATE/exist       ] || mkdir -p $PHEDEX_STATE/exist
-[ -e $PHEDEX_STATE/cat         ] || mkdir -p $PHEDEX_STATE/cat
-[ -e $PHEDEX_STATE/tmdb        ] || mkdir -p $PHEDEX_STATE/tmdb
-
-[ -e $PHEDEX_STATE/export      ] || mkdir -p $PHEDEX_STATE/export
-
-# Update catalogue entries
-nohup `dirname $0`/DropXMLUpdate                \
-        -in ${PHEDEX_STATE}/xml                 \
-        -out ${PHEDEX_STATE}/exist              \
-        -wait 7                                 \
-        >> ${PHEDEX_LOGS}/xml 2>&1 </dev/null &
-
-# Check the files actually exist and have non-zero size
-nohup `dirname $0`/DropFileCheck          \
-        -in ${PHEDEX_STATE}/exist               \
-        -out ${PHEDEX_STATE}/cat                \
-        -wait 7                                 \
-        >> ${PHEDEX_LOGS}/exist 2>&1 </dev/null &
-
-# Publish into catalog.
-nohup `dirname $0`/DropCatPublisher             \
-    -catalogue ${PHEDEX_CATALOGUE}              \
-    -in ${PHEDEX_STATE}/cat                     \
-    -out ${PHEDEX_STATE}/tmdb           \
-    -wait 7                                     \
-    >> ${PHEDEX_LOGS}/cat 2>&1 </dev/null &
-
-# Publish into TMDB
-nohup `dirname $0`/DropTMDBPublisher            \
-    -db "${PHEDEX_TMDB}"                        \
-    -dbuser ${PHEDEX_USER}              \
-    -dbpass ${PHEDEX_PASS}                      \
-    -in ${PHEDEX_STATE}/tmdb            \
-    -node ${PHEDEX_NODE}                        \
-    -version 2                          \
-    -wait 7                                     \
-    >> ${PHEDEX_LOGS}/tmdb 2>&1 </dev/null &
-
-# Export-side agents
-nohup `dirname $0`/FileDiskExport             \
-        -state ${PHEDEX_STATE}/export           \
-        -node ${PHEDEX_NODE}                    \
-        -db "${PHEDEX_TMDB}"                    \
-        -dbuser ${PHEDEX_USER}                \
-        -dbpass ${PHEDEX_PASS}                  \
-        -wait 7                                 \
-        >> ${PHEDEX_LOGS}/export 2>&1 </dev/null &
-
-
-# script ends here ...
-
-then run it with
-
-bash
-. start.sh
-
-You can also create the script stop.sh, containing
-
-#!/bin/sh
-export PHEDEX_STATE=<your path to testbed>/work
-ls -d $PHEDEX_STATE/* | xargs -i touch '{}'/stop
-
-Any drops placed at the head of the chain- in 
-$NODETESTBED/TestbedSource1/work/entry/inbox- will get injected into
-distribution.
+The node created is capable of the minimal functionality required for a 
+generic PhEDEx node. It can download files to it's own SE-space from other
+nodes. It can also act as a source of data by handling the local injection
+of files into distribution.
 
 
 
-2f. Deploying a simple sink node
---------------------------------
+2f. Deploying a neighbouring node
+---------------------------------
 
-Now create a simple sink node with a transfer agent. First define the directory 
-structure
+A network isn't really a network with only one node, so let's deploy another
 
-cd $NODETESTBED
-mkdir TestbedSink1
-mkdir TestbedSink1/scripts
-mkdir TestbedSink1/logs
-mkdir TestbedSink1/work
-mkdir TestbedSink1/SE
+DeployNode
+-node Second
+-base ${NODETESTBED}
+-db <your Oracle TNS name>
+-dbuser <your Oracle user>
+-dbpass <your Oracle password>
+-cat mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat
 
-Now register the node with the TMDB: in an SQL client
+To form a distribution link between them we need to initialise two routes in
+their respective routing tables. We can do this by
 
-NodeManager.pl add-node \
--name TestbedSink1 \
--host $NODETESTBED/TestbedSink1/SE \
--cat $POOL_CATALOG \
--db <contact string> \
--user <user> \
--password <user> 
-
-Now create a route between the two
-
-NodeManager.pl new-neighbours \\
--name TestbedSink1 \
--neighbours TestbedSource1 \
--db <contact string> \
--user <user> \
--password <password>
-
-Now deploy the transfer agent
-
-cd TestbedSink1/scripts
-cp $NODETESTBED/AgentToolkitExamples/DropBox/FileDownload* .
-
-This will copy over two scripts: one is a master agent that handles the querying 
-of the TMDB for new guids for transfer- it manages a pool of instances of the 
-other script, each of which handles a given transfer. We also need to define a
-script that creates local pfns- in this case you need to edit the file
-FileDownloadDest to map files onto your local Sink1 SE directory. The following
-shows how I had to do it
-
-#!/bin/sh
-
-dataset= lfn=
-for arg; do
-  case $arg in
-      dataset=*) dataset=$(echo $arg | sed 's![^=]*=!!') ;;
-      lfn=*) lfn=$(echo $arg | sed 's![^=]*=!!') ;;
-  esac
-done
-
-[ -z "$lfn" ] && { echo "no lfn" 1>&2; exit 1; }
- 
-# Copy everything into a subdirectories of a local directory.
-mkdir -p /data/barrass/Testbed/TestbedSink1/SE/$dataset
-fullpath=/data/barrass/Testbed/TestbedSink1/SE/$dataset/$lfn
-echo $fullpath
-
-# end of FileDownloadDest
-
-Now register the agent with the TMDB
-	
-NodeManager.pl add-agent \
--name TestbedSink1_Transfer \
--db <contact string> \
--user <user> \\
--password <password>
-
-And again we need to deploy a routing agent that will maintain our routing tables for
-this node
-
-cd $NODETESTBED/TestbedSink1/scripts
-cp $NODETESTBED/AgentToolkitExamples/Routing/Node-Router.pl .
-
-and add this agent to the TMDB
-
-NodeManager.pl add-agent \
--name Sink1_Router \
--db <contact string> \
--user <user> \
--password <password>
-
-We then need to start the router running
-
-./Node-Router.pl -node TestbedSink1
--db <Oracle tns name only>
--w $NODETESTBED/TestbedSource1/work
--dbuser <user>
--dbpasswd <password>
->& $NODETESTBED/TestbedSink1/logs/log &
-
-and also the transfer agent
-
-./FileDownload 
--state $NODETESTBED/TestbedSink1/work/inbox 
--db <tns name> 
--dbuser <user>
--dbpass <password>
--pfndest FileDownloadDest 
--node TestbedSink1 
--wanted 100G 
--pass "-cpcmd,cp"
->& $NODETESTBED/TestbedSink1/logs/transferlog &
+NodeManager.pl new-neighbours 
+-name First 
+-neighbours Second 
+-db Oracle:<your Oracle TNS name> 
+-user <your Oracle user>
+-pass <your Oracle pass>
 
 
 
