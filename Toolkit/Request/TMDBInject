@@ -73,7 +73,7 @@ if ($args{SITES})
     {
 	chomp; s/#.*//; s/^\s+//; s/\s+$//; next if /^$/;
 	die "$args{SITEMAP}: $.: unrecognised line\n"
-	     if !  /^\s*(\S+)\s*=\s*(\S+)\s*$/;
+	     if !  /^\s*(\S+)\s*=\s*(\S+)?\s*$/;
 	$sitemap{$1} = $2;
     }
     close (S);
@@ -82,7 +82,8 @@ if ($args{SITES})
     foreach my $site (@{$args{SITES}})
     {
 	die "no mapping for site $site\n" if ! exists $sitemap{$site};
-	push(@{$args{NODES}}, $sitemap{$site});
+	warn "ignoring site $site, no mapping\n" if ! $sitemap{$site};
+	push(@{$args{NODES}}, $sitemap{$site}) if $sitemap{$site};
     }
 }
 
