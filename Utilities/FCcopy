@@ -219,7 +219,7 @@ sub init
         if $contact !~ /^mysql:([^:]+):([^:]+):([^:]+)$/;
     my $args = { DBITYPE => "mysql", DBNAME => $1, DBUSER => $2, DBPASS => $3 };
     my $dbh = $self->{DBH} = &connectToDatabase ($args, 0) or die "failed to connect to $contact";
-    $self->{LQUERY} = &dbprep($dbh, qq{select guid, lfname from t_lfn});
+    $self->{LQUERY} = &dbexec($dbh, qq{select guid, lfname from t_lfn});
     $self->{PQUERY} = &dbprep($dbh, qq{
 	select filetype, pfname
 	from t_pfn where guid = ?});
