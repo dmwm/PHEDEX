@@ -53,37 +53,44 @@ while(!(-e "$g_work_dir/stop")) {
     if ($g_once) { system("touch $g_work_dir/stop"); }
     
     @g_known_routes = &get_routes_for_node( $g_parent_node );
+#    &display_routing_table( \@g_known_routes );
 
     foreach $neighbour (&get_neighbours) {
 	refresh_acquaintance( $neighbour );
 
 	my @neighbours_routes = &get_routes_for_node( $neighbour );
-	@neighbours_routes = &increment_hops( \@neighbours_routes );
 
 
-	my @routes_to_update = &get_shared_routes( \@neighbours_routes );
-	if (@routes_to_update) {
-	    log_entry( "Found routes to update" );
-            &display_routing_table( \@routes_to_update );
-	    &update_routes( \@routes_to_update );
-	}
+#	my @routes_to_update = &get_shared_routes( \@neighbours_routes );
+#	if (@routes_to_update) {
+#	    log_entry( "Found routes to update" );
+#            @routes_to_update = &change_gateway( \@routes_to_update );
+#            @routes_to_update = &change_from_node( \@routes_to_update );
+#            @routes_to_update = &increment_hops( \@routes_to_update );
+#            &display_routing_table( \@routes_to_update );
+#	    &update_routes( \@routes_to_update );
+#	}
 
 
 	my @routes_to_insert = &get_new_routes( \@neighbours_routes );
 	if (@routes_to_insert) { 
 	    log_entry( "Found new routes" ); 
+	    &display_routing_table( \@routes_to_insert );
 	    @routes_to_insert = &change_gateway( \@routes_to_insert );
+	    @routes_to_insert = &change_from_node( \@routes_to_insert );
+	    @routes_to_insert = &increment_hops( \@routes_to_insert );
+	    log_entry( "will insert routes" );
 	    &display_routing_table( \@routes_to_insert ); 
 	    &insert_routes( \@routes_to_insert );
 	}
 
 	
-	my @route_to_clean = &get_dead_routes( \@neighbours_routes );
-	if (@routes_to_clean) { 
-	    log_entry( "Found dead routes" ); 
-	    &display_routing_table( \@routes_to_clean ); 
-	    &clean_routes( \@routes_to_clean );
-	}
+#	my @route_to_clean = &get_dead_routes( \@neighbours_routes );
+#	if (@routes_to_clean) { 
+#	    log_entry( "Found dead routes" ); 
+#	    &display_routing_table( \@routes_to_clean ); 
+#	    &clean_routes( \@routes_to_clean );
+#	}
     }
 }
 
@@ -97,7 +104,7 @@ while(!(-e "$g_work_dir/stop")) {
 sub log_entry {
     my $entry = shift;
     my $localtime = localtime(time());
-    print "$localtime: $entry\n";
+    print "$localtime [$$]: $entry\n";
 }
 
 sub publish_availability {
@@ -179,7 +186,7 @@ sub insert_routes {
         my $time = time();
         my ($from, $to, $gate, $timestamp, $hops) = &split_route( $route );
         my $insert = "insert into t_Routing "
-            ."values ('$g_parent_node','$to','$gate','$time','$hops')";
+            ."values ('$from','$to','$gate','$time','$hops')";
 	direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $insert );
     }
 }
@@ -213,7 +220,7 @@ sub get_shared_routes {
 	my ($my_from, $my_to, $my_gate, $my_time, $my_hops) = &split_route( $my_route ); 
 	foreach $other_route (@$table) {
 	    my ($from, $to, $gate, $time, $hops) = &split_route( $other_route );
-	    if ($to eq $my_to && $from eq $my_gate && $hops == $my_hops) {
+	    if ($to eq $my_to && $from eq $my_gate) {
 		push( @shared_routes, $my_route );
 	    }
 	}
@@ -221,22 +228,46 @@ sub get_shared_routes {
     return @shared_routes;
 }
 
+# A route is new if the destination is new, the dest + hops is new, the dest + gate
+# is new, how about d + g + h? (oh, covered by previous two).
 sub get_new_routes {
     my $table = shift;
     my @new_routes = ();
-    my $new_flag = 1;
+    my $new_flag = 0;
+
+    my %destinations = ();
+    my %hops_by_dest = ();
+    my %gate_by_dest = ();
+    
+    foreach $my_route (@g_known_routes) {
+	my ($my_from, $my_to, $my_gate, $my_time, $my_hops) = &split_route( $my_route );
+	$destinations{$my_to} = 1;
+	$hops_by_dest{$my_to} = $my_hops;
+	$gate_by_dest{$my_to} = $my_gate;
+    }
+
     foreach $other_route (@$table) {
 	my ($from, $to, $gate, $time, $hops) = &split_route( $other_route );
-	foreach $my_route (@g_known_routes) {
-	    my ($my_from, $my_to, $my_gate, $my_time, $my_hops) = &split_route( $my_route );
-	    if ($to eq $my_to && $from eq $my_gate) {
-		$new_flag = 0;
+	if ($to ne $g_parent_node && $gate ne $g_parent_node) {
+	    
+	    if (!(exists( $destinations{$to} ))) {
+		log_entry( "new dest" );
+		$new_flag = 1;
+	    }
+	    if (exists( $destinations{$to} ) && $hops != $hops_by_dest{$to} - 1) {
+		log_entry( "new hop route" );
+		$new_flag = 1;
+	    }
+	    if (exists( $destinations{$to} ) && $gate != $gate_by_dest{$to}) {
+		log_entry( "new gate route" );
+		$new_flag = 1; 
+	    }
+	    if ($new_flag == 1) {
+		push( @new_routes, $other_route );
 	    }
 	}
-	if ($new_flag == 1 && $to ne $g_parent_node) {
-	    push( @new_routes, $other_route );
-	}
-    }
+    }     
+    
     return @new_routes;
 }
 
@@ -248,7 +279,7 @@ sub get_dead_routes {
         my ($my_from, $my_to, $my_gate, $my_time, $my_hops) = &split_route( $my_route );
         foreach $other_route (@$table) {
             my ($from, $to, $gate, $time, $hops) = &split_route( $other_route );
-	    $dead_flag = 1 if ($to eq $my_to && $from eq $my_gate && $hops == $my_hops);
+	    $dead_flag = 1 if ($to eq $my_to && $from eq $my_gate);
 	}
 	push( @dead_routes, $my_route ) if ($dead_flag == 1);
     }
@@ -260,6 +291,18 @@ sub split_route {
     my $route = shift;
     my @bits  = split( ":", $route ); 
     return @bits;
+}
+
+sub change_from_node {
+    my $table = shift;
+    my @new_table = ();
+    foreach $route (@$table) {
+        @bits = &split_route( $route );
+        $bits[0] = $g_parent_node;
+        $route = join( ":",@bits );
+        push( @new_table, $route );
+    }
+    return @new_table;
 }
 
 sub change_gateway {
