@@ -156,7 +156,7 @@ sub idle
 	    # Migrated, mark transfer completed
 	    $dbh->do(qq{
 		insert into t_replica_state values
-		  ('$guid', '$mynode', 0, 0, $now, 0)});
+		  ('$guid', '$mynode', $now, 0, $now, 0, $now)});
 	    $dbh->do(qq{
 		update t_transfer_state
 		set to_state = 3, to_time_stamp = $now

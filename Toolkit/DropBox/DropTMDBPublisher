@@ -123,9 +123,9 @@ sub updateTransferDatabase
 		         ."  $f->{FILESIZE}, '1', '@{[$f->{META}{'jobid'} || '']}')");
 	    } elsif ($self->{VERSION} == 2) {
 		@cmds = ("insert into cms_transfermgmt.t_files_for_transfer"
-			 ." values ('$f->{GUID}', '$self->{MYNODE}', 0)",
+			 ." values ('$f->{GUID}', '$self->{MYNODE}', $now)",
 			 "insert into cms_transfermgmt.t_replica_state"
-			 ." values ('$f->{GUID}', '$self->{MYNODE}', 0, $now, 0, $now)",
+			 ." values ('$f->{GUID}', '$self->{MYNODE}', $now, 0, $now, 0, $now)",
 	       		 map { "insert into cms_transfermgmt.t_replica_metadata"
 		     		." values ('$f->{GUID}', '$_', '$meta{$_}')" }
 		 	 sort keys %meta);

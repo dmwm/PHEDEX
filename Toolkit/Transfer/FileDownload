@@ -187,7 +187,7 @@ sub completeOne
 
 	$dbh->do (qq{
 	  insert into t_replica_state values
-	  ('$guid', '$to_node', 0, $now, 0, $now)})
+	  ('$guid', '$to_node', $now, 0, $now, 0, $now)})
 	    if ! $report->{FAILURE};
 
 	$dbh->commit ();
