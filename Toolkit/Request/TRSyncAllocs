@@ -68,11 +68,10 @@ foreach my $request (@ARGV)
 	my ($ds, $o) = ($dso =~ /(.*)\.(.*)/);
 	foreach my $dest (@destinations)
 	{
-            print "Verifying subscription for $ds $dest\n";
 	    my $exists = $dbh->selectcol_arrayref(qq{
 		select count(*) from t_subscriptions
 		where destination = '$dest' and stream = '$ds'});
-	    print (qq{insert into t_subscriptions values ('$dest', '$ds')})
+	    $dbh->do(qq{insert into t_subscriptions values ('$dest', '$ds')})
 		if ! $exists || ! $exists->[0];
 	}
     }
