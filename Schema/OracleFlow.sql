@@ -11,9 +11,9 @@ drop table t_subscriptions;
 -- Create new tables
 
 create table t_subscriptions
-	(destination		varchar (20),
-	 dataset		varchar (1000)	not null,
-	 owner			varchar (1000)	not null);
+  (destination		varchar (20),
+   dataset		varchar (1000)	not null,
+   owner		varchar (1000)	not null);
 
 ----------------------------------------------------------------------
 -- Add constraints

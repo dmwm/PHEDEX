@@ -13,26 +13,26 @@ drop table t_transfer_state;
 -- Create new tables
 
 create table t_destinations
-	(guid			char (36)	not null,
-	 node			varchar (20)	not null,
-	 timestamp		float		not null);
+  (guid			char (36)	not null,
+   node			varchar (20)	not null,
+   timestamp		float		not null);
 
 create table t_replica_state
-	(guid			char (36)	not null,
-	 node			varchar (20)	not null,
-	 state			integer		not null,
-	 local_state		integer		not null,
-	 timestamp		float		not null);
+  (guid			char (36)	not null,
+   node			varchar (20)	not null,
+   state		integer		not null,
+   local_state		integer		not null,
+   timestamp		float		not null);
 
 create table t_transfer_state
-	(guid			char (36)	not null,
-	 from_node		varchar (20)	not null,
-	 from_state		integer		not null,
-	 from_timestamp		float		not null,
-	 from_pfn		varchar (500),
-	 to_node		varchar (20)	not null,
-	 to_state		integer		not null,
-	 to_timestamp		float		not null);
+  (guid			char (36)	not null,
+   from_node		varchar (20)	not null,
+   from_state		integer		not null,
+   from_timestamp	float		not null,
+   from_pfn		varchar (500),
+   to_node		varchar (20)	not null,
+   to_state		integer		not null,
+   to_timestamp		float		not null);
 
 ----------------------------------------------------------------------
 -- Add constraints

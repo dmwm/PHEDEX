@@ -14,23 +14,23 @@ drop table t_routing;
 -- Create new tables
 
 create table t_nodes
-	(name			varchar (20)	not null);
+  (name			varchar (20)	not null);
 
 create table t_routing
-	(from_node		varchar (20)	not null,
-	 to_node		varchar (20)	not null,
-	 gateway		varchar (20)	not null,
-	 timestamp		float		not null,
-	 hops			integer		not null);
+  (from_node		varchar (20)	not null,
+   to_node		varchar (20)	not null,
+   gateway		varchar (20)	not null,
+   timestamp		float		not null,
+   hops			integer		not null);
 
 create table t_node_imports
-	(node			varchar (20)	not null,
-	 protocol		varchar (20)	not null,
-	 priority		integer		not null);
+  (node			varchar (20)	not null,
+   protocol		varchar (20)	not null,
+   priority		integer		not null);
 
 create table t_node_exports
-	(node			varchar (20)	not null,
-	 protocol		varchar (20)	not null);
+  (node			varchar (20)	not null,
+   protocol		varchar (20)	not null);
 
 ----------------------------------------------------------------------
 -- Add constraints

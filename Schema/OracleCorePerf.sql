@@ -12,27 +12,27 @@ drop table t_transfer_summary;
 -- Create new tables
 
 create table t_transfer_history
-	(timestamp		float		not null,
-	 guid			char (36)	not null,
-	 from_node		varchar (20)	not null,
-	 from_old_state		integer,
-	 from_new_state		integer		not null,
-	 to_node		varchar (20)	not null,
-	 to_old_state		integer,
-	 to_new_state		integer		not null);
+  (timestamp		float		not null,
+   guid			char (36)	not null,
+   from_node		varchar (20)	not null,
+   from_old_state	integer,
+   from_new_state	integer		not null,
+   to_node		varchar (20)	not null,
+   to_old_state		integer,
+   to_new_state		integer		not null);
 
 create table t_transfer_summary
-	(guid			char (36)	not null,
-	 from_node		varchar (20)	not null,
-	 to_node		varchar (20)	not null,
-	 assigned		float		not null,
-	 wanted			float,
-	 exported		float,
-	 started		float,
-	 completed		float,
-	 errors			integer		not null,
-	 inerror		float		not null,
-	 last_error_entry	float);
+  (guid			char (36)	not null,
+   from_node		varchar (20)	not null,
+   to_node		varchar (20)	not null,
+   assigned		float		not null,
+   wanted		float,
+   exported		float,
+   started		float,
+   completed		float,
+   errors		integer		not null,
+   inerror		float		not null,
+   last_error_entry	float);
 
 ----------------------------------------------------------------------
 -- Add constraints

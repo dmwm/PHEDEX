@@ -13,19 +13,19 @@ drop table t_agent_status;
 -- Create new tables
 
 create table t_agents
-	(name			varchar (20)	not null);
+  (name			varchar (20)	not null);
 
 create table t_agent_messages
-	(node			varchar (20)	not null,
-	 agent			varchar (20)	not null,
-	 message		varchar (20)	not null,
-	 timestamp		float		not null);
+  (node			varchar (20)	not null,
+   agent		varchar (20)	not null,
+   message		varchar (20)	not null,
+   timestamp		float		not null);
 
 create table t_agent_status
-	(node			varchar (20)	not null,
-	 agent			varchar (20)	not null,
-	 state			char (1)	not null,
-	 last_contact		float		not null);
+  (node			varchar (20)	not null,
+   agent		varchar (20)	not null,
+   state		char (1)	not null,
+   last_contact		float		not null);
 
 ----------------------------------------------------------------------
 -- Add constraints

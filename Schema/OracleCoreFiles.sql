@@ -12,15 +12,15 @@ drop table t_file_attributes;
 -- Create new tables
 
 create table t_files
-	(guid			char (36)	not null,
-	 source_node		varchar (20)	not null,
-	 filesize		integer		not null,
-	 checksum		integer);
+  (guid			char (36)	not null,
+   source_node		varchar (20)	not null,
+   filesize		integer		not null,
+   checksum		integer);
 
 create table t_file_attributes
-	(guid			char (36)	not null,
-	 attribute		varchar (1000)	not null,
-	 value			varchar (1000));
+  (guid			char (36)	not null,
+   attribute		varchar (1000)	not null,
+   value		varchar (1000));
 
 ----------------------------------------------------------------------
 -- Add constraints
