@@ -252,9 +252,12 @@ sub validateBatch
     else
     {
 	# First time around start validation command for all files,
-	# but only if validation was requested.
+	# but only if validation was requested.  If we are not doing
+	# validation, just use the status from transfer command.
 	foreach my $file (@$batch)
 	{
+	    do { $file->{FAILURE} = $file->{TRANSFER_STATUS}{REPORT} }
+	        if ! $self->{VALIDATE_COMMAND} && $file->{TRANSFER_STATUS}{STATUS};
 	    do { $file->{DONE_VALIDATE} = 1; next }
 	        if $file->{FAILURE} || ! $self->{VALIDATE_COMMAND};
 	
