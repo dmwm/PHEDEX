@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+
+BEGIN { use strict; use warnings; }
+
+sub report
+{
+    my ($prefix, $qprefix, $dir, @queues) = @_;
+    my @inbox = <$dir/inbox/*>;
+    my @pending = <$dir/work/*>;
+    my @outbox = <$dir/outbox/*>;
+    print "$prefix: ",
+	scalar (grep (! -f "$_/go", @inbox)), " pending, ",
+	scalar (grep (-f "$_/go", @inbox)), " received, ",
+	scalar (grep (! -f "$_/done" && ! -f "$_/bad", @pending)), " work, ",
+	scalar (grep (-f "$_/done", @pending)), " completed, ",
+	scalar (grep (-f "$_/bad", @pending)), " bad, ",
+	scalar (@outbox), " outgoing\n";
+}
+
+foreach $dropdir (@ARGV)
+{
+    print "$dropdir: \n";
+    foreach $w (<$dropdir/worker-*>)
+    {
+	my $id = ($w =~ /worker-(\d+)/)[0];
+	&report (" W$id", "  QW$id", $w, <$w/{inbox,work}/*>);
+    }
+
+    &report ("", "  QM", $dropdir, <$dropdir/queues/*>);
+}
