@@ -223,26 +223,6 @@ under $g_parent_node table!" ); }
 
 sub compare_with_existing_routes {
     my $new_routes = shift;
-#    my $selection = "select gateway,to_node,timestamp,hops from t_Routing "
-#        ."where from_node = '$g_parent_node'";
-#    my %gate_time_hops_by_dest = ();
-
-    # Build up hash of existing routes
-    # Should only be one entry per destination!
-#    my $dbh = DBI->connect( "DBI:Oracle:$g_db",
-#                            "$g_db_user",
-#                            "$g_db_passwd",
-#                            { RaiseError=>1, AutoCommit =>1 });
-#    my $query = $dbh->prepare($selection);
-#    $query->execute;
-#    while (@row = $query->fetchrow_array) {
-#        foreach (@row) { s/ //g; }
-#	if (exists $gate_time_hops_by_dest{$row[1]} ){ log_entry( "Something wrong in routing: multiple entries for $row[1] under $g_parent_node table!" ); }
-#	my $gate_time_hops;
-#	$gate_time_hops_by_dest{$row[1]} = "$row[0]:$row[2]:$row[3]";
-#    }
-#    $query->finish();
-#    $dbh->disconnect();
 
     my %gate_time_hops_by_dest = &get_my_route_hash;
 
