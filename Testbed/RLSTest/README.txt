@@ -182,6 +182,12 @@ ScpBridge
 	or ssh-agent to make sure you don't need to type in your
 	password thousands of times!
 
+Testing without RLS
+===================
+
+If you wish to test without RLS, change T0_RLS_CATALOG contact string
+to a XML file for instance.
+
 Support
 =======
 
