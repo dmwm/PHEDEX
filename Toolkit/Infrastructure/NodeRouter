@@ -52,45 +52,10 @@ while(!(-e "$g_work_dir/stop")) {
 	if ($g_once) { system("touch $g_work_dir/stop"); }
 	
 	my @neighbours = &get_neighbours;
-	log_entry( ENTRY => "Neighbours: @neighbours" );
-
-	log_entry( ENTRY => "$g_parent_node known routes" );
-	my %my_hops_by_destination = get_routes( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, MY_NODE => $g_parent_node, NODE => $g_parent_node  );
-	foreach $destination (keys %my_hops_by_destination) {
-	    log_entry( ENTRY => "$destination $my_hops_by_destination{$destination}" );
-	}
 
 	foreach $neighbour (@neighbours) {
 	    log_entry( ENTRY => "Refreshing link $g_parent_node : $neighbour" );
-	    refresh_acquaintance( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, MY_NODE => $g_parent_node, NODE => $neighbour );
-	
-		log_entry( ENTRY => "$g_parent_node querying routes known by $neighbour" );
-		my %hops_by_destination = get_routes( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, MY_NODE => $g_parent_node, NODE => $neighbour );
-		foreach $destination (keys %hops_by_destination) {
-		    log_entry( ENTRY => "$destination $hops_by_destination{$destination}" );
-			$hops_by_destination{$destination} += 1;
-			
-			if (exists $my_hops_by_destination{$destination}) {
-				log_entry( ENTRY => "$destination already known to $g_parent_node" );
-				my $time = time();
-				my $update = "update t_Routing "
-								."set timestamp = $time, "
-								."hops = $hops_by_destination{$destination} "
-								."where from_node = '$g_parent_node' "
-								."and to_node = '$destination' "
-								."and gateway = '$neighbour'";
-				direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
-			} else {
-				log_entry( ENTRY => "$destination new to $g_parent_node" );
-				my $time = time();
-				my $insert = "insert into t_Routing "
-								."values ('$g_parent_node','$destination','$neighbour',$time,$hops_by_destination{$destination})";
-				direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $insert );
-			}
-			
-		}
-		
-		
+	    refresh_acquaintance( $neighbour );
 	}
 	
 }
@@ -159,80 +124,39 @@ sub direct_db_transaction {
 # ###############################################################
 # Subroutines
 # ###############################################################
-sub get_routes{
-	my %args = (
-		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
-		DB_USER => 'some_user',
-		DB_PASSWD => 'some_password',
-		MY_NODE => 'some_node',
-		NODE => 'some_other_node',
-		@_
-	);
-	
-	my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
-						 	"$args{DB_USER}", 
-						 	"$args{DB_PASSWD}", 
-						 	{ RaiseError=>1, AutoCommit =>1 });
-	
-	my %hops_by_destination = ();
-	my $selection = "select to_node, hops "
-					."from t_Routing "
-					."where from_node = '$args{NODE}' "
-					."and not to_node = '$args{MY_NODE}'"; 
-	my $query = $dbh->prepare($selection);
-	$query->execute;
-	while (@row = $query->fetchrow_array) {
-	    $row[0] =~ s/ //g;
-	    $hops_by_destination{$row[0]} = $row[1];
-	}
-	$query->finish();
-	
-	$dbh->disconnect();
-	
-	return %hops_by_destination;
-}
-
 sub refresh_acquaintance {
-	my %args = (
-		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
-		DB_USER => 'some_user',
-		DB_PASSWD => 'some_password',
-		MY_NODE => 'some_node',
-		NODE => 'some_other_node',
-		@_
-	);
-	
-	my $time = time();
-	my $update = "update t_Routing "
-				."set timestamp = $time "
-				."where from_node = '$args{NODE}' "
-				."and to_node = '$args{MY_NODE}' "
-				."and gateway = '$args{MY_NODE}'";
-	direct_db_transaction(  DB => $args{DB}, DB_USER => $args{DB_USER}, DB_PASSWD => $args{DB_PASSWD}, SQL => $update );
+    my $neighbour = shift;
+    my $time = time();
+    my $update = "update t_Routing "
+	."set timestamp = $time "
+	."where from_node = '$neighbour' "
+	."and to_node = '$g_parent_node' "
+	."and gateway = '$g_parent_node'";
+    direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
 }
 
 sub get_neighbours {
-	my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
-			 	"$g_db_user", 
-				"$g_db_passwd", 
-				{ RaiseError=>1, AutoCommit =>1 });
-	
-	my @neighbours = ();
-	my $selection = "select gateway "
-			."from t_Routing "
-			."where from_node = '$g_parent_node' "
-			."and to_node = gateway";
-	my $query = $dbh->prepare($selection);
-	$query->execute;
-	while (@row = $query->fetchrow_array) {
-	    $row[0] =~ s/ //g;
-	    push(@neighbours,@row[0]);
-	}
-	$query->finish();
-	
-	$dbh->disconnect();
-
-	return @neighbours;	
+    my $dbh = DBI->connect( "DBI:Oracle:$g_db",
+			    "$g_db_user", 
+			    "$g_db_passwd", 
+			    { RaiseError=>1, AutoCommit =>1 });
+    
+    my @neighbours = ();
+    my $selection = "select gateway "
+	."from t_Routing "
+	."where from_node = '$g_parent_node' "
+	."and to_node = gateway";
+    my $query = $dbh->prepare($selection);
+    $query->execute;
+    while (@row = $query->fetchrow_array) {
+	$row[0] =~ s/ //g;
+	push(@neighbours,@row[0]);
+    }
+    $query->finish();
+    
+    $dbh->disconnect();
+    
+    return @neighbours;	
 }
 
 sub parse_command_line () {
