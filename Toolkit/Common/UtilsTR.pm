@@ -281,28 +281,33 @@ sub checkAssignmentFiles
 	};
     }
 
-    # Now check all known pfns
-    my %known;
-    &castorCheck (\%known, map { @{$_->{PFNS}} } values %$result);
+    # Check all known pfns in the directories involved
+    my %knownpfn;
+    &castorCheck (\%knownpfn, map { @{$_->{PFNS}} } values %$result);
 
-    # Now fill in the rest of the result
+    # Get all known guids (this *is* faster than asking for each guid)
+    my %knownguid;
     eval "use DBI"; die $@ if $@; # Allow rest to be used without DBI
     my $dbh = DBI->connect ("DBI:Oracle:$tmdb", "cms_transfermgmt_reader",
 			    "slightlyJaundiced", { RaiseError => 1, AutoCommit => 1 });
+    my $stmt = $dbh->prepare ("select guid from $table");
+    $stmt->execute();
+    while (my @row = $stmt->fetchrow_array()) {
+	$knownguid{$row[0]} = 1;
+    }
+    undef $dbh;
+
+    # Now finish off the results
     foreach my $drop (@dirs)
     {
 	my @guids = @{$result->{$drop}{GUIDS}};
 	my @pfns = @{$result->{$drop}{PFNS}};
 
-        # Find guids known in tmdb
-        my $indb = 0;
-        my $sql = "select count(guid) from $table where "
-	         . join (' or ', map { "guid='$_'" } @guids);
-        map { $indb += $_->[0] } $dbh->selectrow_arrayref ($sql);
+        # Find guids/files known in tmdb and castor
+        my $indb = grep ($knownguid{$_}, @guids);
+	my $inmss = scalar (grep ($knownpfn{$_}, @pfns));
 
-        # Find out which files are in castor
-	my $inmss = scalar (grep ($known{$_}, @pfns));
-
+	# Fill in result
 	my $nguids = scalar @guids;
 	my $npending = scalar (grep ($_ eq $result->{$drop}{DROPNAME}, @pending));
 
