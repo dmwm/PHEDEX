@@ -13,7 +13,7 @@ BEGIN {
   } else {
     eval { require 'sys/sycall.ph'; };
     if (! defined (&SYS_gettimeofday) && $^O =~ /linux/) {
-      require 'asm/unistd.ph';
+      eval { require 'asm/unistd.ph'; };
       if (defined (&__NR_gettimeofday)) {
         eval 'sub SYS_gettimeofday { &__NR_gettimeofday; }';
       }
