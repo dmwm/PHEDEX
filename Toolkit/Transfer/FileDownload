@@ -106,15 +106,16 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (DBITYPE => undef,	# Database driver binding
-    		  DBNAME => undef,	# Database name
-	  	  DBUSER => undef,	# Database user name
-	  	  DBPASS => undef,	# Database user password
-	  	  MYNODE => undef,	# My TMDB node name
-		  PFNSCRIPT => undef,	# Program to determine destination path
-		  WANT_LIMIT => undef,	# Amount of data to prefetch
-		  WORKERPROG => undef,	# Custom slave worker program
-		  WORKERARGS => []);	# Custom options to workers
+    my %params = (DBITYPE => undef,		# Database driver binding
+    		  DBNAME => undef,		# Database name
+	  	  DBUSER => undef,		# Database user name
+	  	  DBPASS => undef,		# Database user password
+	  	  MYNODE => undef,		# My TMDB node name
+		  PFNSCRIPT => undef,		# Program to determine destination path
+		  WANT_LIMIT => undef,		# Amount of data to prefetch
+		  WORKERPROG => undef,		# Custom slave worker program
+		  WORKERARGS => [],		# Custom options to workers
+	  	  AGENTID => "Download");	# Identity for activity logs
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;

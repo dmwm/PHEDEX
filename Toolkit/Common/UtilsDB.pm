@@ -27,7 +27,7 @@ sub connectToDatabase
     {
 	my $now = time();
 	my $mynode = $self->{MYNODE};
-	my $me = $0; $me =~ s|.*/||;
+	my $me = $self->{AGENTID} || $0; $me =~ s|.*/||;
 	my $agent = $dbh->selectcol_arrayref(qq{
 		select count(*) from t_agents where name = '$me'});
 	my $status = $dbh->selectcol_arrayref(qq{

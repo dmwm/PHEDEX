@@ -92,6 +92,7 @@ sub new
 	  	  DBPASS => undef,		# Database user password
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  RM_PATH_PREFIX => undef,	# Path prefix to remove
+	  	  AGENTID => "Stager",		# Identity for activity logs
     	    	  MAXTAPEREQS => 4000,		# Max pending tape mounts
     	    	  MAXMYTAPEREQS => 1000,	# Max pending tape mounts by myself
     	    	  MAXSTAGEREQS => 200,		# Max pending stager requests
