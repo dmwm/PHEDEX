@@ -22,8 +22,6 @@
 # You should provide a working dir name on the command line:
 # a pid file will be stored there during running, and to stop the
 # agent you should touch a file named "stop" within it.
-#
-
 
 use DBI;
 use Getopt::Long;
@@ -60,12 +58,8 @@ while(!(-e "$g_work_dir/stop")) {
 
     @new_routes = &get_new_routes;
     @all_routes = &compare_with_existing_routes( \@new_routes  );
-    &clear_my_table;
-    &insert_routes( \@all_routes );  # TODO: clear and insert should be 
-                                     # a single Oracle transaction
+    &update_table( \@all_routes );
 
-    # TODO: Timeout direct links
-    
     my $pause = $g_period - (time() - $start);
     sleep($pause);
 }
@@ -138,14 +132,23 @@ sub refresh_neighbour_links {
 	."and gateway = '$g_parent_node'";
     direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
 }
-
-sub insert_routes {
-    my $table = shift;
-    foreach $route (@$table) {
-        my ($from, $to, $time, $hops) = split( ":", $route );
-	my $insert = "insert into t_Routing "
-	    ."values ('$g_parent_node','$to','$from',$time,$hops)";
-	direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $insert );
+sub update_table {
+    my $routes = shift;
+    foreach $route (@$routes) {
+	my ($from, $to, $time, $hops, $status) = split( ":", $route );
+	my $sql = "";
+	if ($status eq "I") {
+	    $sql = "insert into t_Routing "
+		."values ('$g_parent_node','$to','$from',$time,$hops)";
+	} else {
+	    $sql = "update t_Routing "
+		."set gateway = '$from', "
+		."timestamp = $time, "
+		."hops = $hops "
+		."where from_node = '$g_parent_node' "
+		."and to_node = '$to'";
+	}
+	direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $sql );
     }
 }
 
@@ -200,8 +203,7 @@ sub get_my_route_hash {
     my $selection = "select gateway,to_node,timestamp,hops from t_Routing "
         ."where from_node = '$g_parent_node'";
     my %gate_time_hops_by_dest = ();
-    # Build up hash of existing routes
-    # Should only be one entry per destination!
+
     my $dbh = DBI->connect( "DBI:Oracle:$g_db",
                             "$g_db_user",
                             "$g_db_passwd",
@@ -213,50 +215,52 @@ sub get_my_route_hash {
         if (exists $gate_time_hops_by_dest{$row[1]} ){ log_entry( "Something wrong in routing: multiple entries for $row[1] \
 under $g_parent_node table!" ); }
         my $gate_time_hops;
-        $gate_time_hops_by_dest{$row[1]} = "$row[0]:$row[2]:$row[3]";
+        $gate_time_hops_by_dest{$row[1]} = "$row[0]:$row[2]:$row[3]:U";
     }
     $query->finish();
     $dbh->disconnect();
 
-    return %gate_time_hops_by_destination;
+    return %gate_time_hops_by_dest;
 }
 
 sub compare_with_existing_routes {
     my $new_routes = shift;
+    my $new_gate_time_hops;
+    my %gate_time_hops_by_dest = &get_my_route_hash();
 
-    my %gate_time_hops_by_dest = &get_my_route_hash;
-
-    # Compare new routes with existing routes, replace
-    # or minimise
     my $new_time = time();
     foreach $route (@$new_routes) {
 	my ($new_gate,$new_to,$dummy_time,$new_hops) = split( /:/,$route );
-	if (!($new_gate eq $new_to)) { # i.e. if it's a neighbour we want to let
-	                               # them do the update- especially timestamp
-	    my $new_gate_time_hops = "$new_gate:$new_time:$new_hops";
-	    if (exists $gate_time_hops_by_dest{$new_to}) {
-		my ($gate,$time,$hops) = split ( /:/,$gate_time_hops_by_dest{$new_to} );
-		if (($gate eq $new_gate) || ($new_hops < $hops)) { # replace blindly OR minimise
-		    $gate_time_hops_by_dest{$new_to} = $new_gate_time_hops;
-		} 
-	    } else {
+	$new_gate_time_hops = "$new_gate:$new_time:$new_hops";
+	if (exists $gate_time_hops_by_dest{$new_to}) {
+	    $new_gate_time_hops = $new_gate_time_hops.":U";
+	    my ($gate,$time,$hops) = split ( /:/,$gate_time_hops_by_dest{$new_to} );
+	    if (($gate eq $new_gate) || ($new_hops < $hops)) { # replace blindly OR minimise
 		$gate_time_hops_by_dest{$new_to} = $new_gate_time_hops;
-	    }
-	} else { 
-	    # however, if it is a neighbour then we might want
-	    # to time it out
-	    if ((!($new_time - $dummy_time) > $g_timeout) ) {
-		my $new_gate_time_hops = "$new_gate:$new_time:$new_hops";
-		$gate_time_hops_by_dest{$new_to} = $new_gate_time_hops;
-	    }
+	    } 
+	} else {
+	    log_entry( "New route found $route" );
+	    $new_gate_time_hops = $new_gate_time_hops.":I"; 
+	    $gate_time_hops_by_dest{$new_to} = $new_gate_time_hops;
 	}
     }
+
+    # timeout routes
+#    foreach $dest (keys %gate_time_hops_by_dest) {
+#	my ($gate,$time,$hops) = split( /:/,$gate_time_hops_by_dest{$dest} );
+#	my $check = time() - $g_timeout;
+#	if ($time < $check) {
+#	    $hops = $g_infinity;
+#	    log_entry( "Timeout for $gate:$dest:$time:$hops" );
+#	}
+#	$gate_time_hops_by_dest{$dest} = "$gate:$time:$hops";
+#    }
 
     # Build complete merged table
     my @routes = ();
     foreach $destination (keys %gate_time_hops_by_dest) {
-        my ($gate, $time, $hops) = split( /:/, $gate_time_hops_by_dest{$destination} );
-        my $route = "$gate:$destination:$time:$hops";
+        my ($gate, $time, $hops, $status) = split( /:/, $gate_time_hops_by_dest{$destination} );
+        my $route = "$gate:$destination:$time:$hops:$status";
         push( @routes, $route );
     }
     return @routes;
