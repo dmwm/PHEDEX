@@ -2,7 +2,7 @@ package UtilsTR; use strict; use warnings; use base 'Exporter';
 our @EXPORT = qw(usage readPatterns expandPatterns expandAssignments
 	         assignmentData assignmentInfo assignmentFileCategory
 	         assignmentDrops listDatasetOwners listAssignments
-	         checkAssignmentFiles feedDropsToAgents);
+	         castorExists checkAssignmentFiles feedDropsToAgents);
 use TextGlob 'glob_to_regex';
 use UtilsWriters;
 use UtilsReaders;
@@ -203,6 +203,35 @@ sub listAssignments
 	   grep(/Assignments.*<TD>/, split(/\n/, $everything));
 }
 
+# Efficiently check which files exist in castor
+sub castorExists
+{
+    my @files = @_;
+
+    # Determine all directories we need to look in
+    my (%dirs, %known) = ();
+    foreach my $file (@files)
+    {
+	my $dir = $file; $dir =~ s|/[^/]+$||;
+	$dirs{$dir} = 1;
+    }
+	
+    # List the contents of all the directories
+    foreach my $dir (sort keys %dirs)
+    {
+	open (NSLS, "nsls $dir |") or die "cannot run nsls: $!\n";
+	while (<NSLS>)
+	{
+	    chomp;
+	    $known{"$dir/$_"} = 1;
+	}
+	close (NSLS) or die "nsls failed: $!\n";
+    }
+
+    # Now match requested files against known files
+    return grep ($known{$_}, @files);
+}
+
 # /drop/box/area should be the directory containing the state
 # directories for the drop box agents, so the script can check
 # which drops are still being processed ("pending")
@@ -257,7 +286,7 @@ sub checkAssignmentFiles
         map { $indb += $_->[0] } $dbh->selectrow_arrayref ($sql);
 
         # Find out which files are in castor
-        my $inmss = scalar (grep (system("rfstat $_ >/dev/null 2>&1") == 0, @pfns));
+	my $inmss = scalar (&castorExists (@pfns));
 
         # Add results
         my $dropname = $drop; $dropname =~ s|.*/||;
