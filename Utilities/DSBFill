@@ -9,6 +9,7 @@ use UtilsTR;
 use UtilsNet;
 use UtilsReaders;
 use UtilsLogging;
+use TextGlob 'glob_to_regex';
 
 my $mode = undef;
 my %args = (DBITYPE => "Oracle", ONLY_NEW => 1);
@@ -33,6 +34,9 @@ while (scalar @ARGV)
     }
 }
 
+$TextGlob::strict_wildcard_slash = 0;
+$args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
+
 # Connect to database
 my $dbh = &connectToDatabase (\%args, 0);
 $dbh->{FetchHashKeyName} = "NAME_uc";
@@ -50,7 +54,9 @@ my @current = &fetchPublishedData();
 my $stmtcache = {};
 foreach my $item (@current)
 {
-    print "processing $item->{OWNER}/$item->{DATASET}\n";
+    my $token = "$item->{OWNER}/$item->{DATASET}";
+    next if (@ARGV && !grep($token =~ $_, @{$args{PATS}}));
+    print "processing $token\n";
 
     # Match this against known datasets
     if (my $old = $dso2dataset{"$item->{OWNER}/$item->{DATASET}"})
