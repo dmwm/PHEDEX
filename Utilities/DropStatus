@@ -5,12 +5,22 @@ BEGIN { use strict; use warnings; }
 sub report
 {
     my ($prefix, $dir) = @_;
-    my $inbox = scalar @{[<$dir/inbox/*>]};
-    my $received = scalar @{[<$dir/inbox/*/go>]};
-    my $pending = scalar @{[<$dir/work/*>]};
-    my $bad = scalar @{[<$dir/work/*/bad>]};
-    my $done = scalar @{[<$dir/work/*/done>]};
-    my $outbox = scalar @{[<$dir/outbox/*>]};
+    my %drops = ();
+    my $inbox = 0;
+    my $received = 0;
+    my $pending = 0;
+    my $bad = 0;
+    my $done = 0;
+    my $outbox = 0;
+    foreach my $d (<$dir/{inbox,work,outbox}/*>) {
+	my @files = <$d/{go,bad,done}>;
+	$inbox++ if $d =~ m|/inbox/|;
+	$received++ if $d =~ m|/inbox/| && grep (m|/go$|, @files);
+	$pending++  if $d =~ m|/work/|;
+	$bad++ if $d =~ m|/work/| && grep (m|/bad$|, @files);
+	$done++ if $d =~ m|/work/| && grep (m|/done$|, @files);
+	$outbox++ if $d =~ m|/outbox/|;
+    }
     print "$prefix:",
 	" @{[$inbox - $received]} pending,",
 	" $received received,",
