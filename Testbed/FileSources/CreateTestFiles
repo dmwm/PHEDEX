@@ -28,7 +28,9 @@ while ($count > 0) {
     }
     close( REG );
     
-    print "@_\n$guid\n";
+    if (@_) {
+        print "There was an error: @_:\n$guid:\n";
+    }
     
     $count--;
 }
