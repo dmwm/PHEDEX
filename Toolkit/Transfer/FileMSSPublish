@@ -1,0 +1,131 @@
+#!/usr/bin/perl
+
+## Download files from (Castor) MSS node to matching Transfer node.
+##
+## This agent is technically a download agent, so follows the file
+## routing rules.  However it is designed for unified mass storage
+## and transfer nodes, e.g. Castor and dCache.  No real transfer
+## ever occurs, we just directly jump to the final state.
+
+BEGIN { use strict; use warnings; }
+my $me = $0; $me =~ s|.*/||;
+my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+unshift(@INC, $home);
+
+######################################################################
+my %args = (DBITYPE => "Oracle");
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    { shift (@ARGV); $master = 1; $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-mssnode' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{MSSNODE} = shift(@ARGV); }
+    else
+    { last; }
+}
+
+if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
+    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE} || !$args{MSSNODE})
+{
+    print STDERR
+	"usage: $me -node TMDB-NODE -mssnode MSS-TMDB-NODE\n",
+	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
+	"    -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n";
+    exit (1);
+}
+
+my $agent = new FileCastorMigrate (%args);
+# Recapture interrupt signal, oracle swallows it.
+$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
+$agent->process ();
+
+######################################################################
+# Routines for this agent.
+package FileCastorMigrate; use strict; use warnings; use base 'UtilsAgent';
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsCatalogue;
+use UtilsDB;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBITYPE => undef,		# Database driver binding
+    		  DBNAME => undef,		# Database name
+	  	  DBUSER => undef,		# Database user name
+	  	  DBPASS => undef,		# Database user password
+	  	  MYNODE => undef,		# My TMDB node name
+	  	  MSSNODE => undef,		# MSS TMDB node name
+	  	  AGENTID => "DownloadFromMSS");# Identity for activity logs
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Called by agent main routine before sleeping.  Pick up work.
+sub idle
+{
+    my ($self, @pending) = @_;
+    my $dbh = undef;
+    eval
+    {
+	my $now = time();
+	my $mynode = $self->{MYNODE};
+	my $mssnode = $self->{MSSNODE};
+	$dbh = &connectToDatabase ($self);
+	die "failed to connect" if ! $dbh;
+
+        # FIXME: Pick up and process messages to me
+
+	# Mark everything available for and already in transfer for
+	# this link.  Don't mark files wanted to avoid stager going
+	# wild because of us :-)  This is to keep browser displays
+	# correct, we don't use this information ourselves and it
+	# isn't used by the "sending" side (the neighbour transfer
+	# node).  Note that there are no transfers out from this
+	# node -- they all go from the transfer node, which must
+	# always be closer to any destination that us and already
+	# has all the files we have.
+	my $rows = $dbh->do(qq{
+			insert into t_replica_state (
+			  select guid, '$mynode', $now, 0, $now, 0, $now
+			  from t_transfer_state
+			  where from_node = '$mssnode'
+			    and to_node = '$mynode'
+			    and to_state = 0)});
+    	$dbh->do(qq{
+		update t_transfer_state
+		set to_state = 3, to_time_stamp = $now
+		where from_node = '$mssnode'
+		  and to_node = '$mynode'
+	  	  and to_state = 0});
+  	$dbh->commit();
+
+	&logmsg("$rows files uploaded from $mssnode to $mynode") if $rows > 0;
+    };
+    do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
+
+    # Disconnect from the database
+    $dbh->disconnect() if $dbh;
+    undef $dbh;
+
+    # Check children are still running and then wait
+    $self->maybeStop ();
+    sleep ($self->{WAITTIME});
+}
