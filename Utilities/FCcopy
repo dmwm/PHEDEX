@@ -8,7 +8,7 @@ BEGIN {
 }
 
 # Process command line arguments
-my %args = (NJOBS => 10);
+my %args = (NJOBS => 50, BATCH => 1000);
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-u' && scalar @ARGV > 1)
@@ -21,6 +21,8 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{MATCH} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-j' && scalar @ARGV > 1)
     { shift (@ARGV); $args{NJOBS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-b' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{BATCH} = shift(@ARGV); }
     else
     { last; }
 }
@@ -28,7 +30,8 @@ while (scalar @ARGV)
 if (@ARGV || !$args{SRC_CATALOGUE} || !$args{DEST_CATALOGUE})
 {
     print STDERR "usage: $me -u SRC-CATALOGUE -d DEST-CATALOGUE\n",
-    		 "  [-m PFN-MATCH-RX] [-r PFN-REWRITE-SCRIPT] [-n N-JOBS]\n";
+    		 "  [-m PFN-MATCH-RX] [-r PFN-REWRITE-SCRIPT]\n",
+		 "  [-n N-JOBS] [-b BATCH-SIZE]\n";
     exit (1);
 }
 
@@ -63,7 +66,7 @@ while (1)
 	    do { local $| = 1; print "_"; next } if ! @{$file->{PFNS}};
 	}
 	push (@files, $file);
-	last if scalar @files >= 100;
+	last if scalar @files >= $args{BATCH};
     }
 
     # Maintain counts
@@ -81,7 +84,7 @@ while (1)
 
     # Show progress
     do { local $| = 1; print "."; };
-    last if $nfiles < 100;
+    last if $nfiles < $args{BATCH};
 }
 $src->finish();
 $dest->finish();
@@ -118,6 +121,7 @@ sub remapPFNs
 	my $output = qx(mktemp /tmp/tmp.XXXXXXX); chomp ($output);
 	$mgr->addJob (sub { &collectResult($file, $output, @_) },
 	    {}, "sh", "-c", "@cmd $file->{PFNS}[0]{PFN} > $output");
+    	$mgr->pumpJobs ();
     }
 
     # Now wait all results are collected
