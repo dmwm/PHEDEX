@@ -314,16 +314,16 @@ sub idle
 	  grep ($pending->{$_} && $pending->{$_} < $now, keys %$pending);
 
 	# Pick up new work
-	my @files = ();
+	my $files = $self->{FILES} ||= [];
 	my $maxload = $self->{NJOBS} * 10;
         while (scalar @{$self->{JOBS}} < $self->{NJOBS})
         {
 	    # Get more files if necessary
-	    @files = $self->nextFiles ($dbh, $maxload) if ! @files;
-	    last if ! @files;
+	    @$files = $self->nextFiles ($dbh, $maxload) if ! @$files;
+	    last if ! @$files;
 
 	    # Start processing this one if possible
-	    last if ! ($more = $self->fileStart (@{shift @files}));
+	    last if ! ($more = $self->fileStart (@{shift @$files}));
 
 	    # Move existing jobs
 	    $self->pumpJobs ();
@@ -344,7 +344,7 @@ sub idle
     {
         $self->maybeStop ();
         $self->pumpJobs ();
-        last if $more && scalar @{$self->{JOBS}} < $self->{NJOBS};
+        last if $more && @{$self->{FILES}} && scalar @{$self->{JOBS}} < $self->{NJOBS};
         select (undef, undef, undef, .1);
     }
 }
