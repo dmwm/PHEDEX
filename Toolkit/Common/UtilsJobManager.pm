@@ -66,7 +66,7 @@ sub checkJobs
     my ($self) = @_;
     my @pending = ();
     my @finished = ();
-    my $now = 0;
+    my $now = time();
 
     foreach my $job (@{$self->{JOBS}})
     {
