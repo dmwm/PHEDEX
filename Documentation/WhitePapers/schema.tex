@@ -1,0 +1,204 @@
+\documentclass{cmspaper}
+\usepackage{epsfig}
+
+\begin{document}
+\begin{titlepage}
+  \whitepaper
+  \date{\today}
+  \title{CMS Data Handling: Database Schema}
+
+  \begin{Authlist}
+    Tim~Barrass, Simon~Metson\Instfoot{bristol}{University of Bristol, Bristol, UK}
+    Lassi~A.~Tuura\Instfoot{neu}{Northeastern University, Boston, USA}
+  \end{Authlist}
+
+  \begin{abstract}
+    This white paper describes the database schema for the CMS data
+    handling system.
+  \end{abstract}
+
+  \note{DRAFT version}
+\end{titlepage}
+
+\setcounter{page}{2}
+
+\section{Transfer Management Database}
+
+\begin{figure}[!htb]
+\begin{center}
+  \mbox{\epsfig{file=tmdb-schema.eps,width=0.65\textwidth,clip=}}
+  \caption{Entities and relations in the TMDB V2.  Basic SQL
+    to create is detailed in the appendix.\label{fig:schema}}
+\end{center}
+\end{figure}
+
+\begin{description}
+  \item [\texttt{t\_Nodes}]\mbox{}
+
+    Table is just a reference against which node names are constrained
+    unique.  \verb|host_string| is a small string that can be used to
+    identify SURLs of files that reside on that node.
+
+  \item [\texttt{t\_Files\_for\_transfer}]\mbox{}
+
+    Agents make an entry in this table when they make data available
+    for distribution.
+
+    [Note that it's possible to add a file catalogue table
+    here---whether it will be performant is a different issue.
+    Problem is that LCG tools expect a webservice front end to the
+    FC... is this really a problem if we use
+    SRM+gridFTP+catalogue(POOL?) registration?]
+
+  \item [\texttt{t\_Destinations}]\mbox{}
+
+    The configuration agent finds new files for distribution and makes
+    destination entries here.  A GUID may appear multiple times (if it
+    is directed toward multiple destinations).
+
+    The configuration agent also needs to make the first advertisement
+    of the file.  Using the source and destination nodes, uses the
+    routing table to determine the first gateway and makes the
+    relevant entry in \texttt{t\_Current\_state}.
+
+  \item [\texttt{t\_Current\_state}]\mbox{}
+
+    The configuration agent and transfer agents post state in this
+    table. There should be an entry here for each replica in of a
+    given GUID in distribution.
+
+    The states recorded in current state can be a lot simpler than in
+    v1: {\em in transfer}, {\em available}, {\em safe}, {\em clean}.
+
+    An important difference between this state table and the previous
+    version is that no entries should be replaced---entries should just
+    be added, maintaining a log of the progress of GUIDs through
+    states at each node.
+
+  \item [\texttt{t\_Config\_messages}]\mbox{}
+
+    For this version we only need very simple steering: {\em resume},
+    {\em suspend}, {\em stop}.
+
+    A global client might post {\em <t1 : SUSPEND : A : false>} to suspend
+    node A.  A's agent manager would need to find that message, suspend
+    agent at A and mark the message as handled = true.
+
+    By marking entries handled rather than just deleting them we
+    retain a log of global system changes.
+
+  \item [\texttt{t\_Agents}]\mbox{}
+
+    Provides a reference against which agent names can be checked.
+
+  \item [\texttt{t\_Lookup}]\mbox{}
+
+    Very similar to original \texttt{agentstate}:
+    {\em <Node name : agent name : state : last contact>}
+
+    This allows for more sophisticated states than up or down... we
+    could just have agent as a unique key here, and lose the agent
+    table.  However, we want to indicate the state of nodes and of
+    agents here, so null entries under agent are possible.
+
+  \item [\texttt{t\_File\_allocation\_config}]\mbox{}
+
+    Stores global stream->destination configuration.  This used to be
+    written into a text file read by the configuration agent.
+
+  \item [\texttt{t\_Replica\_metadata}]\mbox{}
+
+    Allows storage of replica metadata (file size, checksum, specific
+    states, etc) coupled to GUIDs.  In DC04 we found that we needed to
+    add new meta data to GUIDs as new functionality appeared in the
+    system (``filegroup'' for real time analysis).  This meant tying
+    down the DB while adding fields to tables with a large number of
+    entries.  By having a separate table for this meta data we can add
+    meta data as necessary.
+
+    [Is it worth placing some limit/schema on the meta data?  Thinking
+    it through it could be used for some quite creative purposes.]
+
+  \item [\texttt{t\_Routing}]\mbox{}
+
+    A global routing table, should be partitioned on from (basically
+    creating the same set of tables as a distributed system of
+    routers).  The routing algorithm is described below.
+\end{description}
+
+\section{SQL for the schema}
+
+{\small \begin{verbatim}
+CREATE TABLE t_Routing (
+    from varchar NOT NULL,
+    to varchar NOT NULL,
+    gateway varchar NOT NULL,
+    timestamp int NOT NULL,
+    hops int NOT NULL,
+    PRIMARY KEY(from));
+
+CREATE TABLE t_Files_for_transfer (
+    guid char[36] UNIQUE NOT NULL,
+    source_node varchar NOT NULL,
+    allocated char[1] NOT NULL,
+    PRIMARY KEY(guid));
+
+CREATE TABLE t_Nodes (
+    node_name varchar UNIQUE NOT NULL,
+    host_string varchar NOT NULL,
+    PRIMARY KEY(node_name),
+    FOREIGN KEY(node_name) REFERENCES t_Files_for_transfer (source_node),
+    FOREIGN KEY(node_name) REFERENCES t_Routing (from),
+    FOREIGN KEY(node_name) REFERENCES t_Routing (to),
+    FOREIGN KEY(node_name) REFERENCES t_Routing (gateway));
+
+CREATE TABLE t_Destinations (
+    guid char[36] UNIQUE NOT NULL,
+    destination_node varchar NOT NULL,
+    PRIMARY KEY(guid),
+    FOREIGN KEY(guid) REFERENCES t_Files_for_transfer (guid),
+    FOREIGN KEY(destination_node) REFERENCES t_Nodes (node_name));
+
+CREATE TABLE t_Current_state (
+    guid char[36] UNIQUE NOT NULL,
+    is_for_node varchar NOT NULL,
+    state char[1] NOT NULL,
+    timestamp int NOT NULL,
+    isªt_node varchar NOT NULL,
+    PRIMARY KEY(guid),
+    FOREIGN KEY(guid) REFERENCES t_Files_for_transfer (guid),
+    FOREIGN KEY(is_for_node) REFERENCES t_Nodes (node_name));
+
+CREATE TABLE t_Lookup (
+    node varchar NOT NULL,
+    agent varchar,
+    state char[1] NOT NULL,
+    last_contact int NOT NULL,
+    FOREIGN KEY(node) REFERENCES t_Nodes (node_name),
+    FOREIGN KEY(agent) REFERENCES t_Agents (name));
+
+CREATE TABLE t_Config_messages (
+    node varchar NOT NULL,
+    message varchar NOT NULL,
+    timestamp int NOT NULL,
+    handled char[1] NOT NULL,
+    FOREIGN KEY(node) REFERENCES t_Nodes (node_name));
+
+CREATE TABLE t_File_allocation_config (
+    stream varchar NOT NULL,
+    destination varchar NOT NULL,
+    FOREIGN KEY(destination) REFERENCES t_Nodes (node_name));
+
+CREATE TABLE t_Agents (
+    name varchar UNIQUE NOT NULL,
+    PRIMARY KEY(name));
+
+CREATE TABLE t_Replica_metadata (
+    guid char[36] UNIQUE NOT NULL,
+    key varchar NOT NULL,
+    value varchar,
+    PRIMARY KEY(guid),
+    FOREIGN KEY(guid) REFERENCES t_Files_for_transfer (guid));
+\end{verbatim}}
+
+\end{document}
