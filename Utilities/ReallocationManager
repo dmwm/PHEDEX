@@ -30,6 +30,7 @@ my $dataset = '';
 my $for_node = '';
 my $user = '';
 my $password = '';
+my $review = 0;
 
 # #############################
 # Main loop
@@ -223,29 +224,32 @@ sub trivial {
 		
 		do_sql( \@sql );
 		
-#	} elsif ( $dataset ) {
+	} elsif ( $dataset ) {
 	
 	
-#		my %source_by_guid = (); my $gateway = '';
-#		my $selection = "select guid,source_node "
-#						."from t_destinations,t_files_for_transfer,t_replica_metadata "
-#						."where t_replica_metadata.guid = '$guid' "
-#						."and key = 'POOL_Dataset' "
-#						."and value = '$dataset' "
-#						."and t_destinations.guid = t_files_for_transfer.guid "
-#						."and t_destinations.guid = t_replica_metadata.guid"
-		# FIXME: Do guid selection -> %source_by_guid
+		push( @sql, "select source_node,t_files_for_transfer.guid "
+						."from t_files_for_transfer,t_replica_metadata "
+						."where key = 'POOL_dataset' "
+						."and value = '$dataset' "
+						."and t_files_for_transfer.guid = t_replica_metadata.guid" );
+		my %source_by_guid = sql_results_into_hash( \@sql );
 		
-#		foreach $guid ( keys %source_by_guid ) {
-			#FIXME: this can be a sub
-#			$selection = "select gateway from t_routing "
-#					."where from_node = '$source_by_guid{$guid}' " 
-#					."and to_node = '$for_node'";
-			# FIXME: Do route determination -> $gateway
+		@sql = ();
 		
-#			push( @sql, "insert into t_destinations '$guid','$for_node'" );
-#			push( @sql, "insert into t_file_state values ('$guid','$gateway',1,'$source_node',$time)" );			
-#		}		
+		foreach $guid ( keys %source_by_guid ) {
+			# FIXME: this can be a sub
+			my @temp = ();
+			push( @temp, "select gateway from t_routing "
+						."where from_node = '$source_by_guid{$guid}' " 
+						."and to_node = '$for_node'" );
+			my @gateway = sql_results_into_array( \@temp );
+		
+			push( @sql, "insert into t_destinations values ('$guid','$for_node')" );
+			push( @sql, "insert into t_file_state values ('$guid','$gateway[0]',1,'$source_by_guid{$guid}',$time)" );		
+
+		}
+		
+		do_sql( \@sql );		
 	
 	
 	} else {
