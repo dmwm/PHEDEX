@@ -35,16 +35,11 @@
 
 \section{Introduction}
 During March and April 2004 CMS carried out the first of a series of large scale data challenges (DC04), 
-essentially a “test beam” of the computing infrastructure. The aim of DC04 was to distribute data 
+essentially a "test beam" of the computing infrastructure. The aim of DC04 was to distribute data 
 to six Tier 1 sites at a rate comparable to 25\% of the start up luminosity of the LHC.
 Of the six Tier 1 sites three (RAL, IN2P3 and FZK) used SDSC's SRB software to manage transfer and 
 archiving of the data.
 ((Diagram of the SRB chain))
-All transfers were controlled by an "Agent" communicating to other agents in the system via a central
-database ((ref Tims paper)). These agents replicated files from Castor MSS at CERN (the T0) through a 
-series of intermediate disk buffers and onto MSS at the appropriate T1. This happened entirely within 
-SRB at two T1's, FZK had no SRB interface to their tape store and so the final step was done using dCache 
-(though still automated via an agent).
 
 \subsection{SRB}
 
@@ -59,6 +54,23 @@ the machine here)).
 Lightweight server software is installed on machines providing access to storage resources (disk, tape or 
 a combination of both). Data is stored in a unique path so one server can host many replicas of the same file.
 As well as storing the data these servers act as portals to client software to SRB space. ((details of the server here))
+
+\subsection{Agents}
+All transfers were controlled by an "Agent" communicating to other agents in the system via a central
+database ((ref Tims paper)). These agents replicated files from Castor MSS at CERN (the T0) through a 
+series of intermediate disk buffers and onto MSS at the appropriate T1. This happened entirely within 
+SRB at two T1's, FZK had no SRB interface to their tape store and so the final step was done using dCache 
+(though still automated via an agent).
+
+\subsection{GMCat}
+To maintain consistency between the LCG and SRB realms the GUID (Grid Unique Identifier, used 
+by the LCG software to identify replicas of files) for files placed onto the SRB Export Buffer 
+was attached as SRB metadata. Further replications of this file within SRB maintained this
+piece of metadata so successive replicas could be identified.
+
+In parrallel to the metadata inserts, a service named GMCat periodically updated the 
+LCG-RLS (Replica Location Service) with SRB guid:physical file names mappings, thus 
+providing a bridge between the two namespaces.
 
 \section{Experience}
 
@@ -97,13 +109,6 @@ the export buffer, where they were inserted (Sput) into SRB space. The
 files GUID was then added as additional SRB metadata Tier 1 sites then
 transferred the files to the relevant import buffers and mass storage
 systems, either using Sreplicate or Sget/Sput.
-
-An application developed in the UK (GMCat) linked the name spaces of
-SRB and the other chains by publishing SRB replica information into
-the LRC at CERN periodically. As the difficulties with the MCat
-increased GMCat was stopped as the system no longer reponded in a
-useful timescale.
-
 
 While transfer speeds from T0-T1 were respectable %(fig. \ref{fig:RAL-files})
  the initial entry of the file onto the export buffer was
@@ -152,3 +157,11 @@ it may
 not be desirable to create a ``grid of grids'' without some
 significant additional desired functionality.  It is likely that CMS
 use of SRB will be phased out before DC05.
+
+\subsection{Agents}
+Mistakes made with the agents
+\subsection{GMCat}
+Details on the performance of GMCat
+
+As the difficulties with the MCat increased GMCat was stopped as the system 
+no longer reponded in a useful timescale.
