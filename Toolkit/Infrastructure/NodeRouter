@@ -42,12 +42,12 @@ my $g_once;				# 1 means will only run once
 my $entry = parse_command_line();
 log_entry( ENTRY => $entry );
 
-open (PID, ">$work_dir/pid") || die "Pid file error $! $work_dir/pid\n";
+open (PID, ">$g_work_dir/pid") || die "Pid file error $! $g_work_dir/pid\n";
 print PID "$$\n";
 close(PID);
 
-while(!(-e "$work_dir/stop")) {
-	if ($g_once) { system("touch $work_dir/stop"); }
+while(!(-e "$g_work_dir/stop")) {
+	if ($g_once) { system("touch $g_work_dir/stop"); }
 }
 
 
