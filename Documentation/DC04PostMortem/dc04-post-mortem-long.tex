@@ -248,21 +248,11 @@ and reveal more sophisticated information (file transfer rates, etc)
 in a more immediately intuitive and useful way.
 
 \subsection{Overall behaviour}
-A total of 564,273 files were placed in distribution during DC04. At
-the end of DC04 there were 1,969,976 replicas being actively managed;
-a total of 2,942,368 single replica chains were known, where a replica
-denotes the set of replicas created in distributing a given file to
-a given destination \footnote{Thus a replica chain is represented in 
-the TMDB as a single entry per set of replicas from source
-to destination; e.g. from castor to RAL MSS. There were between 1 and
-4 replicas in each chain (i.e. there were up to 4 steps between CERN
-and each destination), so
-the system was aware of somewhere between 2,942,368 and 11,769,472
-replicas in total.}.
-
-A total of 278,081 files were made safe on tape, with the following
-breakdown: 33\% IN2P3, 32\% PIC, 28\% RAL, 8\% INFN, 0\% FNAL, 0\%
-FZK.
+A total of 564,273 files were placed in distribution during DC04, each
+expressed as somewhere between 5 and 10 replicas managed by the system.
+1,074,310 of a possible 3,385,638 replicas (32\%) were made safe on tape
+(the distribution scheme strategy for making files safe was highly
+redundant- all files were sent to tape everywhere). 
 
 One might use the lifetime of files in the system as a useful metric
 for measuring system performance, defining the lifetime of files as
@@ -562,7 +552,7 @@ servers), the modulus is set to the same size as the service security
 context. Or in another word, the CoG generates delegated credentials
 with a modulus size equal to the service or host certificate.  At
 CERN, it was set to 2048 bits since the host certificate keys are 2048
-bits in length. The CoG gssapi library was modified to always generate
+bits in length. The Globus GlobusGSSContextImpl class was modified to always generate
 requests with a 512 bit modulus- reasonable as transfers were
 short-lived and our data not sensitive). This modification improved transfer
 rates by a factor of about 3.5
