@@ -35,7 +35,6 @@ use File::Path;
 use Cwd;
 
 my $now = time();
-my $help = 0;
 my $reset = 0;
 my $mode = undef;
 my $request = undef;
@@ -44,7 +43,7 @@ my @files = ();
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
-	$help = 1; shift (@ARGV);
+	&usage();
     } elsif ($ARGV[0] eq '-r') {
 	$reset = 1; shift (@ARGV);
     } elsif ($ARGV[0] =~ '^-([pfa])$') {
@@ -61,7 +60,6 @@ while (scalar @ARGV)
 $request = shift;
 @files = @ARGV;
 
-&usage() if $help;
 defined $request or &usage();
 -f "$request/Request/Ticket" or die "$request: not a transfer request\n";
 &usage() if (! defined $mode && scalar @files);

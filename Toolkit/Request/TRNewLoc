@@ -16,14 +16,24 @@ use Cwd;
 
 my $now = time();
 my $reset = 0;
-if ($ARGV[0] eq '-r') {
-    $reset = 1;
-    shift (@ARGV);
+
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+	&usage();
+    } elsif ($ARGV[0] eq '-r') {
+	$reset = 1; shift (@ARGV);
+    } elsif ($ARGV[0] eq '--') {
+	shift (@ARGV); last;
+    } elsif ($ARGV[0] =~ '^-') {
+	&usage ("$0: unrecognised option $ARGV[0]\n\n");
+    } else {
+	last;
+    }
 }
 
 my $request = shift;
-defined $request && -d $request
-    or die "usage: $0 [-r] REQUEST [DEST...]\n";
+defined $request && -d $request or &usage();
 
 -f "$request/Request/Ticket"
     or die "$request: not a transfer request\n";

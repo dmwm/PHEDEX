@@ -1,34 +1,43 @@
 #!/usr/bin/perl
 
-# Create a new transfer request.
+##H Create a new transfer request.
+##H
+##H Usage: TRNew REQUEST [AREA]
+##H
+##H REQUEST is the name of the new request, must be unique, and
+##H must not exist yet.  Creates the necessary directory structure
+##H in AREA (default: current working directory) and in the request
+##H database.
+##H
+##H The request is initialisd empty.  Use TRNewLoc and TRNewData
+##H to add transfer destinations and data selections to it.
 #
-# Usage: TRNew REQUEST [AREA]
-#
-# REQUEST is the name of the new request, must be unique, and
-# must not exist yet.  Creates the necessary directory structure
-# in AREA (default: current working directory) and in the request
-# database.
-#
-# The request is initialisd empty.  Use TRFIXME to add data to
-# it.  This [FIXME]
-#
-# DIR
-#   RequestInfo
-#     DatasetPatterns > Datasets
-#      > DSOwnerPatterns > DSOwners
-#      > Assignments (expand Dataset > Digi/DST -> Hit)
-#     (other metadata?)
-#
+# REQUEST-DIR
+#   RequestInfo/Ticket
 #   AssignmentData
 #   AssignmentInfo
 #   Drops
 #
-# Record in database too
+# Record in database too?
 
 # use DBI;
+use UtilsTR;
 use UtilsNet;
 use File::Path;
 use Cwd;
+
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+	&usage ();
+    } elsif ($ARGV[0] eq '--') {
+	shift (@ARGV); last;
+    } elsif ($ARGV[0] =~ '^-') {
+	&usage ("$0: unrecognised option $ARGV[0]\n\n");
+    } else {
+	last;
+    }
+}
 
 my $request = shift;
 my $area = shift || &getcwd();
