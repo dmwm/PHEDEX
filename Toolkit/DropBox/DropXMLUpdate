@@ -1,27 +1,33 @@
 #!/usr/bin/perl
 
-## This T0 agent receives files from the T0 batch reconstruction farm
-## and converts incomplete paths to full Castor paths (PFNs).
+## This drop box agent converts incomplete paths to full mass storage
+## paths (PFNs) in the XML catalogues of the drops that pass through.
 ##
-## A T0 batch reconstruction farm produces data files, an XML catalog
-## file, a summary file, and a checksum file.  At the end of hte job,
-## the event data files are copied into the GDB castor pool with RFIO.
-## The catalog, summary and checksum files are dropped into the inbox
-## of this agent.
+## The batch processing environment produces catalogues where the PFNs
+## are relative (./EVD*).  Before entering the information into the
+## transfer chain, it is necessary to convert the paths to the full
+## local names.  This is done using either of two ways.  If the drop
+## has a summary file (Smry.*.txt), the EVDS_OutputPath is assumed to
+## be the directory into which the files were put; this information is
+## trusted blindly.  Failing that, castor is queried for the full path.
 ##
-## This agent normalises the physical file names (PFNs) of the XML
-## file, as they are normally only local paths "./some-file".  The
-## location of the files in castor is determined using a Smry file
-## (if there is one), and failing that, asking castor with stageqry.
-## It also normalises the XML file to proper POOL format if it isn't
-## one yet.
+## The script can therefore be used in one of two ways: by providing
+## correct Smry.*.txt files, in which case it will be happy to pass on
+## any information and is not dependent on castor in any way, or by
+## making sure the files are staged in on castor, and letting the
+## agent find them there then.  The former is more general, the latter
+## only really works correctly when receiving files live from a farm.
 ##
-## This agent periodically inspects the drop box, looking for new
-## incoming directories from completed batch jobs.  For each such
-## new assignment, it goes through the registration process.  At
-## each step we update the state so that if the script terminates,
-## crashes or is otherwise stopped, it will pick up in the right
-## place.  At the end, we pass the assignment to the next agent.
+## If the XML file is not in the proper POOL format, that too is
+## corrected.  Normally the files received from a farm or stored in
+## RefDB are not yet normalised in such a way.
+##
+## Like all drop box agents, this agent periodically inspects the
+## inbox, looking for new completed drops.  For each new drop, the
+## XMLCatFragment is updated, and the drop is passed to the next
+## drop box agent, or destroyed if there is no next agent.  If the
+## agent terminates, crashes or is otherwise stopped, it will pick
+## up in the right place when started the next time.
 
 BEGIN { use strict; $^W = 1; }
 my ($dropdir, @nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
@@ -32,6 +38,9 @@ my %junk = ();			# Drops we've warned are junk in inbox
 
 my $me = $0; $me =~ s|.*/||;
 my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+
+$ENV{STAGE_HOST} ||= "stagecmsprod";
+$ENV{STAGE_POOL} ||= "cms_prod2";
 
 use File::Path;
 eval qx(cat "$home/UtilsCommand.pm"); die $@ if $@;
@@ -47,7 +56,7 @@ eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
 sub getPFNFromCastor
 {
     my $lfn = shift;
-    open (PFN, "stageqry -f -h stagecmsdc04 -M $lfn |");
+    open (PFN, "stageqry -f -h $ENV{STAGE_HOST} -p $ENV{STAGE_POOL} -M $lfn |");
     while (<PFN>) 
     {
         if (/^ \//)
@@ -167,24 +176,8 @@ sub processDrop
     &timeStart();
 
     # Find the catalog file.
-    my @files = ();
-    if (! getdir ("$workdir/$drop", \@files))
-    {
-	&alert("cannot read $workdir/$drop: $!");
-	return;
-    }
-
-    my $xmlcat = undef;
-    my $summary = undef;
-    foreach my $f (@files)
-    {
-	if ($f =~ /^Smry\..*\.txt$/) {
-	    $summary = "$workdir/$drop/$f";
-	} elsif ($f =~ /^XMLCatFragment\..*\.(txt|xml)$/) {
-	    $xmlcat = "$workdir/$drop/$f";
-	}
-    }
-
+    my $xmlcat = (<$workdir/$drop/XMLCatFragment.*.{txt,xml}>)[0];
+    my $summary = (<$workdir/$drop/Smry.*.txt>)[0];
     if (! $xmlcat)
     {
 	&alert("no xml catalog file found in $drop");
@@ -204,6 +197,10 @@ while (scalar @ARGV)
     { shift (@ARGV); $dropdir = shift(@ARGV); }
     elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
     { shift (@ARGV); push (@nextdir, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_HOST} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
+    { shift (@ARGV); $ENV{STAGE_POOL} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
     { shift (@ARGV); $waittime = shift(@ARGV); }
     else
