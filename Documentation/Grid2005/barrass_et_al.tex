@@ -41,10 +41,10 @@
 %
 % This paper can be formatted using the peerreviewca
 % (instead of conference) mode.
-%\documentclass[conference]{IEEEtran}
+\documentclass[conference]{IEEEtran}
 % If the IEEEtran.cls has not been installed into the LaTeX system files, 
 % manually specify the path to it:
-\documentclass[draftcls]{./IEEEtran} 
+%\documentclass[draftcls]{./IEEEtran} 
 %\documentclass[conference]{./IEEEtran} 
 
 
@@ -337,7 +337,11 @@ PhEDEx accommodates a not-completely connected distribution network- for example
 
 A better representation of the HEP environment is a somewhat static core infrastructure in which transfers are continuous, sourced from a central site through successive ``tiers" of sites, hosting resources of decreasing capacity. CMS will use this core infrastructure to store multiple remote, secure tape copies of invaluable experimental data in real time, relying on the core infrastructure's more robust and available services. Services capable of meeting the requirements of this task are only available at the experimental centre, and at around 10 large, geographically distributed regional centres.
 
-FIXME: diagram of typicall tiered HEP distribution infrastructure.
+\begin{figure}
+\centering
+\includegraphics[width=3in]{tiered-data-flow.eps}
+\caption{Schematic representation of the tiered data flow common to many HEP experiments. Raw and reconstructed detector data is produced at the detector facility and flows to regional centres, where it is safely stored, and large scale analyses are undertaken. Further processed data is transferred to smaller sites for smaller scale analyses; in addition, smaller sites produce simulated data of use to the whole collaboration which is cached at the regional centres.}
+\end{figure}
 
 Smaller persistent sites that are part of the core experiment infrastructure associate with the regional centres, just as the regional centres associate with the experimental centre. By associating sites in this way the load- in terms of resource access and network bandwidth- on the experimental centre is reduced. These smaller sites take part in more dynamic tasks, like the production of detector simulation data, or analysis of data already processed at the experimental centre.
 
@@ -374,12 +378,31 @@ Local file catalogues map some (collaboration level) global replica set identife
 A number of tools are used for point-to-point transfer of data. WAN transfers are made with tools that overlie gsiFTP \cite{gsiftp:website}- basically FTP with X509 certificate authentication. Such tools are globus-url-copy \cite{globus:website} and srmcp \cite{srmcp:website}. PhEDEx also uses a number of site-local transfer and tape management commands. This variety of tools is accomodated with a plug-in component design that allows the system to provide generic components that can be easily configured to use local tools when necessary.\subsection{System design}PhEDEx design and development is guided by a number of architectural principles. The key principle is that complex functionality should be kept in discrete units, and that the handover of responsibility for sections of the transfer workflow should be handed between those units using as few messages- containing minimal information- as possible \cite{paper:messaging}. As the system is active, with stateful components, it is reasonable to model these units after agents rather than as passive stateless services.
 The PhEDEx design is characterised by layered abstractions. Our experience with data management tools has led us to view many operations and tools as unreliable. To manage this we wrap unreliable tools and systems in more robust layers to build a reliable data management system.
 
-FIXME: layers diagram
+\begin{figure}
+\centering
+\includegraphics[width=3in]{phedex-layers.eps}
+\caption{PhEDEx' layered architecture. Each layer is considered more reliable than the one below. For example: transfer tools are considered unreliable due to- in many cases- lack of reasonable failure recovery and unreliable error returns. The tools are therefore overlain by a layer that handles pre- and post-transfer validation checks and the subsequent retry of failed transfers. This layer also handles the collaboration between agents required to manage the clustered request and stage of data from tape, among other functions. }
+\end{figure}
 
 In addition, PhEDEx allows site managers to keep local information local, and allow as much local management of files as possible. This makes the system robust during local infrastructural change, but means that local and global information can become unsynchronised after deletion operations. For example, moving filesfrom one local disk to another is transparent if local catalogues are also kept up to date. However, file deletion requires an update of the PhEDEx system. This is not considered unscalable, as the straightforward deletion of files is rare in HEP systems: although data can be invalidated, it is rarely deleted. More problematic is the loss of files due to hardware failure; in this case PhEDEx currently relies on close interaction with local admin so that such failures are quickly accomodated.To guide development we avoid creating services that aren't necessary, generally by accepting a small increase in complexity on the``client" transfer components. To make message passing simple we utilise a blackboard architecture in which transfer components post state information. The blackboard is currently deployed as a single high availability database. We also leverage data chunking to improve performance by avoiding somewhat traditional file-to-site mappings, instead mapping files to chunks and chunks to sites; we don't, however, require a chunk to exist anywhere in entirety.\subsection{Overview of transfer operations}The core element of the data management system is a node- a logical entity to which persistent processes named agents are associated. Typical examples might be a regional centre's transfer node, with agents to, for example, manage transfers from the centre's neighbours to the centre's disk buffers; or a mass storage node with an agent to manage the clustering of requests from other nodes for files for transfer.
 Transfer workflows are divided into functionally coherent units- file transfer, for example, or migration to tape. Within those units workflow stages are defined as internal state transitions.  The handover of responsibility for a replication between units are seen as messages passed between agents, and are currently represented as state transitions on the blackboard. By way of example, the internal state transitions of a file transfer agent are: predelete, transfer, verify, postdelete, publish catalogue. The messages passed between agents involved in the transfer of files are for operations like: marking a number of files as wanted; or as being ready for transfer or migrate. This message passing represents the collaboration of agents to achieve their goals.
 
-FIXME: table of agents, functionalities
+\begin{table}
+\renewcommand{\arraystretch}{1.3}
+\caption{Agent functionalities}
+\centering
+\begin{tabular}{c|p{2in}}
+\hline
+\bfseries Agent & \bfseries Description \\
+\hline
+\hline
+Download & Manages the point to point transfer of files \\
+Export & Manages the process of making files available on request by a Download agent \\
+FileRouter & Triggers transfer hops for a given node based on nearest replica algorithm \\
+NodeRouter & Maintains a node's routing table and contact with neighbours \\
+\hline
+\end{tabular}
+\end{table}
 FIXME: diagram of a typical agent workflow (internal, external state trans?)
 
 The blackboard space that agents use to exchange messages/state information was envisaged as a database schema. This database schema provides us with a structure for defining a set of message ontologies, and its deployment as a database provides us with a reliable mechanism of communication. The information stored in this schema tracks the list of files currently of interest to the data management system, useful metadata concerning the nodes in the system (names, routing information) and high level subscription information (which sites subscribe to which datasets, and which files are currently allocated to which specific node). It also tracks the current state of point-to-point transfers, and maintains an RLI-like structure that maps global replica set identifiers to nodes in the distribution network.
