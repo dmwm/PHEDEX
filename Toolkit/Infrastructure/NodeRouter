@@ -120,7 +120,7 @@ sub updateTable
 		set gateway = '$from',
 		    timestamp = $time,
 		    hops = $hops
-		where from_node = '$from'
+		where from_node = '$mynode'
 		  and to_node = '$to'});
 	}
     }
