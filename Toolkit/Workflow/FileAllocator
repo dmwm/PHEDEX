@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/27 14:13:29 $
-# $Id: Allocator.pl,v 1.12 2004/07/27 14:13:29 barrass Exp $
+# $Date: 2004/07/28 15:22:50 $
+# $Id: Allocator.pl,v 1.13 2004/07/28 15:22:50 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -88,10 +88,9 @@ sub get_new_guid_list {
 	my @new_guids = ();
 	my @row;
 	my $count = 0;
-	my $selection = "select unique guid from t_files_for_transfer where allocated = 1";
-	if ( $g_max_guids ){
-		$selection .= " AND rownum < $g_max_guids "
-	}
+	my $selection = "select unique guid from t_files_for_transfer "
+	       ."where allocated = 1 and rownum < $g_max_guids "
+
     my @guid_list;
 
 	eval {
