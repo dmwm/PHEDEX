@@ -105,7 +105,6 @@ sub sql_results_into_hash {
 	
 	foreach $command ( @$sql ) {
 		if ($dbname) {
-		log_entry( $command );
 			my $query = $dbh->prepare($command);	
 			
     	    $query->execute();
@@ -122,7 +121,7 @@ sub sql_results_into_hash {
 				 
 	$dbh->disconnect() if $dbh;
 
-	return \%results;
+	return %results;
 }
 
 sub do_sql {
@@ -174,7 +173,7 @@ sub trivial {
 	if ( $source_node ) {
 	
 		
-		my @guids = (); my $gateway = '';
+		my @guids = ();
 		push( @sql, "select guid from t_files_for_transfer "
 						."where source_node = '$source_node'" );
 		@guids = sql_results_into_array( \@sql );
@@ -203,15 +202,10 @@ sub trivial {
 	} elsif ( $destination_node ) {
 		
 		
-		my $gateway = '';
-		push( @sql, "select t_files_for_transfer.guid,source_node from t_destinations,t_files_for_transfer "
+		push( @sql, "select source_node,t_files_for_transfer.guid from t_destinations,t_files_for_transfer "
 						."where destination_node = '$destination_node' "
 						."and t_files_for_transfer.guid = t_destinations.guid" );
-		my $source_by_guid = sql_results_into_hash( \@sql );
-		
-		foreach $k (keys %$source_by_guid) {
-			print "$k\n";
-		}
+		my %source_by_guid = sql_results_into_hash( \@sql );
 		
 		@sql = ();
 		
@@ -219,16 +213,15 @@ sub trivial {
 			# FIXME: this can be a sub
 			my @temp = ();
 			push( @temp, "select gateway from t_routing "
-						."where from_node = '$source_node' " 
+						."where from_node = '$source_by_guid{$guid}' " 
 						."and to_node = '$for_node'" );
 			my @gateway = sql_results_into_array( \@temp );
 		
 			push( @sql, "insert into t_destinations '$guid','$for_node'" );
-			push( @sql, "insert into t_file_state values ('$guid','$gateway[0]',1,'$source_node',$time)" );			
+			push( @sql, "insert into t_file_state values ('$guid','$gateway[0]',1,'$source_by_guid{$guid}',$time)" );			
 		}
 		
-		foreach (@sql) { print "$_\n"; }
-		
+		do_sql( \@sql );
 		
 #	} elsif ( $dataset ) {
 	
