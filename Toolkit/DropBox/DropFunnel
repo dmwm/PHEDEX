@@ -231,7 +231,7 @@ sub readQueueStatus
     my $dir = $self->queueDirectory ($name);
 
     # Restore contents
-    my $state = eval &input ("$dir/state");
+    my $state = do { no strict "vars"; eval &input ("$dir/state") };
     if ($@)
     {
 	&alert ("internal error when restoring queue state for $name: $@");

@@ -299,7 +299,7 @@ sub readStageInProgress
 	    my $info = { DROP => $drop, PFN => $pfn, LFN => $lfn, STATUS => $STAGE_RETRY };
 	    if (-f "$self->{WORKDIR}/$drop/stagein.$lfn")
 	    {
-		my $saved = eval &input ("$self->{WORKDIR}/$drop/stagein.$lfn");
+		my $saved = do { no strict "vars"; eval &input ("$self->{WORKDIR}/$drop/stagein.$lfn") };
 		if ($@) {
 		    &warn ("ignoring corrupt stagein status for $drop/$lfn: $@");
 		} else {

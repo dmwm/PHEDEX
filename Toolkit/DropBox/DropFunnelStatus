@@ -7,7 +7,7 @@ sub queueStats
     my ($queues, $stats, $q) = @_;
     my $name = ($q =~ m|.*/([^/]+)$|)[0];
 
-    $queues->{$name} = eval qx(cat $q/state 2>/dev/null);
+    $queues->{$name} = do { no strict "vars"; eval qx(cat $q/state 2>/dev/null) };
 
     # Read the state back and update stats.
     $stats->{$name} = { PMEMBERS => 0, PSIZE => 0,

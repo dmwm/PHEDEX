@@ -356,7 +356,7 @@ sub processDrop
 	return;
     }
 
-    my $data = eval &input ("$self->{WORKDIR}/$drop/state");
+    my $data = do { no strict "vars"; eval &input ("$self->{WORKDIR}/$drop/state") };
     if ($@)
     {
 	&alert ("corrupted drop data: $@");
