@@ -92,7 +92,7 @@ sub runQueries
 	      . ($args{MATCH} ? " -m" : "");
     foreach my $item (@$items)
     {
-	my $output = qx(mktemp); chomp ($output);
+	my $output = qx(mktemp /tmp/tmp.XXXXXXX); chomp ($output);
 	$mgr->addJob (sub { &collectResult($mgr, @_) },
 	    { OUTPUT => $output, PATTERN => $item },
 	    "sh", "-c", "$cmd '$item' > $output");
