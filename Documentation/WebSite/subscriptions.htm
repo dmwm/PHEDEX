@@ -10,8 +10,19 @@
 <body>
 <h1><u>Phedex Stream Subscriptions</u></h1>
 <form name="form1" method="post" action="">
-  <input type="submit" name="Submit" value="Select">  <input type="reset" name="Reset" value="Reset">
-  <table width="100%" border="0" cellspacing="0" cellpadding="3">
+  <p>
+    Select T1(s) to edit subscriptions: <select name="select">
+      <option selected>Select T1:</option>
+	  <option>-------------</option>
+      <option>FNAL</option>
+      <option>IN2P3</option>
+      <option>FZK</option>
+      <option>CIEMAT</option>
+      <option>RAL</option>
+      <option>CERN</option>
+    </select>
+  </p>
+  <table width="100%" border="1" cellpadding="3" cellspacing="0" bordercolor="#003300">
     <tr align="center" valign="middle" bgcolor="#006633"> 
       <td width="15"><p align="center" class="tableheading">Select</p></td>
       <td><p align="center" class="tableheading">Stream</p></td>
@@ -77,5 +88,6 @@
   <input type="submit" name="Submit" value="Select">  <input type="reset" name="Reset" value="Reset">
 </form>
 <p>Show number of files as percentage or a real number?</p>
+<p>Submitting will take you to <a href="editsubscriptions.htm">this</a>.</p>
 </body>
 </html>
