@@ -180,7 +180,7 @@ sub stagerFileList
 # considered a transient error.
 sub tapeMountLoad
 {
-    my ($total, $ours) = (undef, undef);
+    my ($total, $ours) = (0, 0);
     open(QSTAT, "showqueues -x |")
 	or do { &alert ("cannot run showqueues: $!"); return (undef, undef); };
     while (<QSTAT>)
