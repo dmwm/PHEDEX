@@ -119,7 +119,7 @@ sub idle
 	# as multiple destinations can go through a single gateway,
 	# prune out duplicates to a single transfer request.
 	my $now = time();
-	$stmt = $dbh->do(qq{
+	$rows = $dbh->do(qq{
 	    insert into t_transfer_state (
 		select d.guid, rs.node, r.gateway, 0, 0, $now, $now
 		from t_destinations d
@@ -141,6 +141,8 @@ sub idle
 				  and rr.from_node = trs.node)
 		group by d.guid, rs.node, r.gateway)});
 	$dbh->commit ();
+
+	&logmsg ("$rows transfer routings added") if $rows > 0;
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
