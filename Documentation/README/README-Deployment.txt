@@ -77,7 +77,7 @@ your site is "FOO_Transfer" (and possibly "FOO_MSS").
 
 *** Set up directories
 
-  mkdir -p /home/phedex/PHEDEX
+  mkdir -p /home/phedex
   mkdir -p /home/phedex/FOO/{state,logs}
   mkdir -p /home/phedex/certficates
   mkdir -p /home/phedex/tools/perl
@@ -86,7 +86,7 @@ your site is "FOO_Transfer" (and possibly "FOO_MSS").
 
 *** PhEDEx
 
-  cd /home/phedex/PHEDEX
+  cd /home/phedex
   export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/PHEDEX
   cvs login # password is "98passwd"
   cvs co PHEDEX
@@ -98,19 +98,26 @@ You need version 1.6.2 or later.  We recommend installing with xcmsi.
 
 *** ORACLE client libraries
 
-You need to install ORACLE client libraries.  A license at CERN covers
-all CMS use (in fact, LCG-wide).  We recommend installing Oracle 9i
-libraries to avoid conflicts with the version of ORACLE used by POOL.
+You need to install Oracle client libraries.  A license at CERN covers
+all CMS use (in fact, LCG-wide).  See the following links for further
+information.  We recommend using a single Oracle version: use the same
+Oracle as used by your version of POOL.
 
 See:
-  http://cern.ch/wwwdb/savannah-files/ora-lcgt1/docs/getting-binaries.html
-  http://cern.ch/wwwdb/oracle-license-agreement.html
+  - License agreement
+     http://cern.ch/wwwdb/oracle/oracle-license-agreement.html
+  - Server deployment statement
+     http://cern.ch/wwwdb/oracle/oracle-server-deployment.html
+  - Description of how and what to install for 10g.
+     https://savannah.cern.ch/projects/lcg-orat1/
+  - File download
+     https://savannah.cern.ch/files/?group=lcg-orat1
 
 *** Perl modules
 
 You need DBI and DBD::Oracle modules.  DBD::Oracle versions older
 than 1.16 have significant memory leaks; we recommend you install
-DBI 1.46 and DBD::Oracle unless your system already has these
+DBI 1.46 and DBD::Oracle 1.16 unless your system already has these
 installed.  We also recommend installing DBD::mysql if you will be
 installing a local MySQL catalogue.
 
@@ -183,12 +190,7 @@ You need to create a database and at least one database account for
 the catalogue.  To set up a MySQL catalogue on host "cathost":
 
  1) Create user phedex (password: phedex), and database phedexcat
- 2) Load the schema from http://pool.cern.ch/catalog/index.html
- 3) Load CMS metadata schema with:
-      FCcreateMetaDataSpec -u mysqlcatalog_mysql://phedex:phedex@cathost/phedexcat \
-         -F -m "(Content,string),(DBoid,string),(DataType,string),
-	        (FileCategory,string),(Flags,string),(dataset,string),
-		(jobid,string),(owner,string),(runid,string)"
+ 2) Load the schema and seed data from PHEDEX/Schema/FC-MySQL.sql
 
 *** Certificate management
 
