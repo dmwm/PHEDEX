@@ -92,6 +92,7 @@ foreach my $item (@$datasets)
     print " Runs       = @{[scalar @$runs]}\n";
     print " Files      = @{[scalar @dsfiles]}\n";
     print " Events     = $events\n";
+    print " Sites      = @{$item->{SITES}}\n";
 }
 
 $dbh->disconnect ();
