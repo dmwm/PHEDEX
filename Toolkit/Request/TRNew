@@ -14,9 +14,9 @@
 #
 # REQUEST-DIR
 #   RequestInfo/Ticket
-#   AssignmentData
-#   AssignmentInfo
-#   Drops
+#   Drops/Pending
+#     /NotReady
+#     /Done
 #
 # Record in database too?
 
@@ -50,10 +50,7 @@ defined $request && defined $area
 
 # Create the area
 ! -e "$area/$request" or die "$area/$request: exists\n";
-eval { &mkpath ([ "$area/$request/Request",
-		  "$area/$request/AssignmentData",
-		  "$area/$request/AssignmentInfo",
-		  "$area/$request/Drops" ]); };
+eval { &mkpath ([ "$area/$request/Request", "$area/$request/Drops" ]); };
 die "$area/$request: cannot create request structure: $@\n" if $@;
 
 # Create ticket
