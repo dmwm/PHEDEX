@@ -137,6 +137,7 @@ sub new
 		  BACKEND => undef,		# Backend type
 		  NJOBS => 1,			# Max number of parallel processes
 		  JOBS => [],			# Pending jobs
+		  NEXT_FILES => [],		# Cached files for transfer
 		  LAST_RESET => 0,		# Last time we reset bad transfers
 	  	  AGENTID => "Download");	# Identity for activity logs
     my %args = (@_);
@@ -297,13 +298,8 @@ sub markFilesWanted
 	# (FIXME: restore old time stamp?)
     	&dbexec ($dbh, qq{
 	    update t_transfer_state
-	    set to_state = 0, to_time_stamp = :node
-	    where to_node = :node and to_state = 100 and to_time_stamp < :old},
-    	    ":now" => $now, ":node" => $mynode, ":old" => $now - 60);
-	&dbexec ($dbh, qq{
-	    update t_transfer_state
-	    set to_state = to_state - 1, to_time_stamp = :node
-	    where to_node = :node and to_state >= 101 and to_time_stamp < :old},
+	    set to_state = (case when to_state > 100 then to_state - 1 else 0 end), to_time_stamp = :now
+	    where to_node = :node and to_state >= 100 and to_time_stamp < :old},
     	    ":now" => $now, ":node" => $mynode, ":old" => $now - 60);
 
 	# Keep wanted time stamp at most ten minutes old.
@@ -367,52 +363,64 @@ sub nextFiles
 {
     my ($self, $dbh, $n) = @_;
 
-    # FIXME: sort by filegroup, descending time?
-    my @result = ();
-    eval
+    # Instead of fetching new files every time we get called, cache
+    # lots of them (at least 10*$n) one each access.  Fetch new files
+    # only when we don't have enough cached already.  Otherwise just
+    # return files from the cache.  This avoids excessive database
+    # load and delays from executing the query below, which is not
+    # very quick (need an index on state?).
+    if (scalar @{$self->{NEXT_FILES}} < $n)
     {
-	my $attrq = &dbprep ($dbh, qq{
-		select m.attribute, m.value from t_replica_metadata m
-		where m.guid = :guid and m.attribute like 'POOL%'});
-	my $stmt = &dbexec ($dbh, qq{
-		select ts.guid,
-		       m1.value,
-		       m2.value,
-		       ts.from_time_stamp,
-		       ts.from_node,
-		       n1.catalogue_contact,
-		       n1.host_string,
-		       n2.catalogue_contact
-		from t_transfer_state ts
-		left join t_replica_metadata m1
-		  on m1.guid = ts.guid and m1.attribute = 'filesize'
-		left join t_replica_metadata m2
-		  on m2.guid = ts.guid and m2.attribute = 'checksum'
-		left join t_nodes n1
-		  on n1.node_name = ts.from_node
-		left join t_nodes n2
-		  on n2.node_name = ts.to_node
-		where ts.to_node = :node
-		  and ts.to_state < 2
-	  	  and ts.from_state = 1},
-  		":node" => $self->{MYNODE});
-	while (my @row = $stmt->fetchrow())
-	{
-	    last if ! $n--;
-	    my $attrs = {};
-	    &dbbindexec ($attrq, ":guid" => $row[0]);
-	    foreach my $m (@{$attrq->fetchall_arrayref()})
+        # FIXME: sort by filegroup, descending time?
+        eval
+        {
+	    my $attrq = &dbprep ($dbh, qq{
+		    select m.attribute, m.value from t_replica_metadata m
+		    where m.guid = :guid and m.attribute like 'POOL%'});
+	    my $stmt = &dbexec ($dbh, qq{
+		    select ts.guid,
+		           m1.value,
+		           m2.value,
+		           ts.from_time_stamp,
+		           ts.from_node,
+		           n1.catalogue_contact,
+		           n1.host_string,
+		           n2.catalogue_contact
+		    from t_transfer_state ts
+		    left join t_replica_metadata m1
+		      on m1.guid = ts.guid and m1.attribute = 'filesize'
+		    left join t_replica_metadata m2
+		      on m2.guid = ts.guid and m2.attribute = 'checksum'
+		    left join t_nodes n1
+		      on n1.node_name = ts.from_node
+		    left join t_nodes n2
+		      on n2.node_name = ts.to_node
+		    where ts.to_node = :node
+		      and ts.to_state < 2
+	  	      and ts.from_state = 1},
+  		    ":node" => $self->{MYNODE});
+	    while (my @row = $stmt->fetchrow())
 	    {
-		my ($key, $value) = @$m;
-		$key =~ s/^POOL_//;
-		$attrs->{$key} = $value;
-	    }
+	        my $attrs = {};
+	        &dbbindexec ($attrq, ":guid" => $row[0]);
+	        foreach my $m (@{$attrq->fetchall_arrayref()})
+	        {
+		    my ($key, $value) = @$m;
+		    $key =~ s/^POOL_//;
+		    $attrs->{$key} = $value;
+	        }
 
-	    push(@result, [ @row, $attrs ]);
-	}
-    };
-    &alert ("failed to select files for transfer: $@") if $@;
-    return @result;
+	        push(@{$self->{NEXT_FILES}}, [ @row, $attrs ]);
+	        last if scalar @{$self->{NEXT_FILES}} > 10*$n;
+	    }
+        };
+        &alert ("failed to select files for transfer: $@") if $@;
+    }
+
+    # Use cached values if we have enough of them
+    my $nfiles = scalar @{$self->{NEXT_FILES}};
+    $n = $nfiles if $nfiles < $n;
+    return splice (@{$self->{NEXT_FILES}}, 0, $n);
 }
 
 # Pick up files to download from the database
