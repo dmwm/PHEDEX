@@ -25,9 +25,10 @@ sub connectToDatabase
     # so wedged that we can't do anything useful, so bail out.
     eval
     {
-	my $me = $0; $me =~ s|.*/||;
-	my $mynode = $self->{MYNODE};
 	my $now = time();
+	my $mynode = $self->{MYNODE};
+	my $me = $0; $me =~ s|.*/||;
+
 	$dbh->do(qq{insert into t_agents values ('$me')})
 	    if ! scalar @{$dbh->selectall_arrayref(qq{
 		select count(*) from t_agents where name = '$me'})};
