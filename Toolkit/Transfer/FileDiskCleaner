@@ -155,7 +155,7 @@ sub deleteOneFile
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; $status = 0 } if $@;
     
     # Disconnect from the database
-    $dbh->disconnect ();
+    $dbh->disconnect () if $dbh;
     undef $dbh;
 
     # Return status code to caller
@@ -317,7 +317,7 @@ sub idle
     do { &alert ("database error: $@"); $dbh->rollback if $dbh } if $@;
 
     # Disconnect from the database
-    $dbh->disconnect();
+    $dbh->disconnect() if $dbh;
     undef $dbh;
 
     # Have a little nap

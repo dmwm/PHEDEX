@@ -172,7 +172,7 @@ sub resetPendingTransfers
 sub completeTransferBatch
 {
     my ($self, $batch) = @_;
-    my $dbh = eval { &connectToDatabase ($self, 0) };
+    my $dbh = eval { $self->{DBH} || &connectToDatabase ($self, 0) };
     if ($@)
     {
 	&alert ("failed to update transfer batch status,"
@@ -234,7 +234,7 @@ sub completeTransferBatch
         $dbh->rollback() if $dbh;
     }
 
-    $dbh->disconnect();
+    $dbh->disconnect() if ($dbh && ! $self->{DBH});
     undef $dbh;
 }
 
@@ -441,6 +441,7 @@ sub idle
     eval
     {
     	$dbh = &connectToDatabase ($self) or die "failed to connect";
+	$self->{DBH} = $dbh;
         # FIXME: Pick up and process messages to me
 
 	# If there are no pending jobs, kill database ghosts
@@ -465,6 +466,7 @@ sub idle
 	}
 
         # Disconnect from the database
+	delete $self->{DBH};
         $dbh->disconnect if $dbh;
         undef $dbh;
     };

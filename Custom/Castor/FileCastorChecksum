@@ -220,7 +220,7 @@ sub fileComplete
     do { &alert ("failed to $op for $guid: $@"); $dbh->rollback() if $dbh } if $@;
 
     # Disconnect from database
-    $dbh->disconnect();
+    $dbh->disconnect() if $dbh;
     undef $dbh;
 
     # Log transfer delay stats
