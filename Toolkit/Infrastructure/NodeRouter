@@ -51,7 +51,7 @@ close(PID);
 while(!(-e "$g_work_dir/stop")) {
 	if ($g_once) { system("touch $g_work_dir/stop"); }
 	
-	my @neighbours = &get_neighbours( DB => $g_db, DBUSER => $g_db_user, DB_PASSWD => $g_db_passwd, NODE => $g_parent_node);
+	my @neighbours = &get_neighbours( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, NODE => $g_parent_node);
 	
 	log_entry( ENTRY = "@neighbours" );
 }
@@ -83,7 +83,7 @@ sub publish_availability {
 		@_
 	);
 	my $time = time();
-	
+
 	$return = my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
 						 	'$args{DB_USER}', 
 						 	'$args{DB_PASSWD}', 
@@ -110,9 +110,11 @@ sub get_neighbours {
 		@_
 	);
 	
+	print "$g_db_user, $args{DB_USER}\n";
+	
 	my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
-						 	'$args{DB_USER}', 
-						 	'$args{DB_PASSWD}', 
+						 	"$args{DB_USER}", 
+						 	"$args{DB_PASSWD}", 
 						 	{ RaiseError=>1, AutoCommit =>1 });
 	
 	my @neighbours = ();
