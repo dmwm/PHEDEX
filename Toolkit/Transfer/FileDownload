@@ -411,7 +411,8 @@ sub nextFiles
 	        }
 
 	        push(@{$self->{NEXT_FILES}}, [ @row, $attrs ]);
-	        last if scalar @{$self->{NEXT_FILES}} > 10*$n;
+	        last if (scalar @{$self->{NEXT_FILES}} > 10*$n
+			 && scalar @{$self->{NEXT_FILES}} > 50);
 	    }
         };
         &alert ("failed to select files for transfer: $@") if $@;
