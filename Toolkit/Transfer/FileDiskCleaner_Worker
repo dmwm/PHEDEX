@@ -1,0 +1,191 @@
+#! /usr/bin/env perl
+BEGIN {use warnings; use strict; use Getopt::Long;}
+
+
+
+
+#---------------------------------------------
+#     Some global configuration variables
+#---------------------------------------------
+
+our $LOGDIR = '/grid/fzk.de/home/rehn/logs';
+
+#---------------------------------------------
+#     Argument parsing
+#---------------------------------------------
+
+my ($db, $db_pass, $db_user, $mynode, $guid, $pfn, $catalogue, $host, $in, $out);
+
+&GetOptions("dbase=s" => \$db, "dbpass=s" => \$db_pass, "dbuser=s" => \$db_user, "node=s" => \$mynode,
+	    "in=s" => \$in, "out=s" => \$out);
+
+
+if ($db_user eq '' || $in eq '' || $out eq '' ||
+    $db_pass eq '' || $mynode eq '') {
+    print "Syntax for Cleaner_Worker: \n";
+    print "--in: inbox (mandatory)\n";
+    print "--out: outbox (mandatory)\n";
+    print "--dbase: database to connect to\n";
+    print "--dbuser: connect to database as user dbuser (mandatory)\n";
+    print "--dbpass: supply a password for the database (mandatory)\n";
+    print "--node: name of node which filled the diskbuffer (mandatory)\n";
+    exit 0;
+}
+
+#CJR mapping for Lassi's dropbox toolkit
+my %args = (DBNAME => $db,
+	    DBITYPE => 'ORACLE',
+	    DBUSER => $db_user,
+	    DBPASS => $db_pass,
+	    MYNODE => $mynode,
+	    DROPDIR => $in,
+	    NEXTDIR => undef,
+	    GUID => $guid,
+	    PFN => $pfn,
+	    CATALOGUE => $catalogue,
+            HOST => $host);
+push (@{$args{NEXTDIR}}, $out);
+
+my $Slave = new Cleaner_Worker (%args);
+$Slave->process();
+
+######################################################################
+# Routines specific to this agent.
+package Cleaner_Worker; use strict; use warnings; use base 'UtilsAgent';
+use Data::Dumper;
+use File::Path;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsWriters;
+use DBI;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = ();
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Actually process the drop.
+sub processDrop
+{
+    my ($self, $drop) = @_;
+
+    # Sanity checking
+    return if (! $self->inspectDrop ($drop));
+    delete $self->{BAD}{$drop};
+    &timeStart($self->{STARTTIME});
+
+    # Read back the state
+    my $packet = do { no strict "vars"; eval &input ("$self->{WORKDIR}/$drop/packet") };
+    if (! $packet || !$packet->{GUID}) # FIXME: check more
+    {
+	&alert ("corrupt packet in $drop");
+	$self->markBad ($drop);
+	return;
+    }
+
+
+
+    my $localpath = $packet->{PFN};
+    $localpath =~ m/$packet->{HOST}/;
+    my $remcontact = "$`"."$&";
+    $localpath =~ s/$remcontact//;
+    $localpath =~ s/\/\//\//; # This is UGLY !!
+    chomp $localpath;
+
+
+#CJR connect to database
+    my $dbh = DBI->connect("DBI:Oracle:$packet->{DBNAME}", $packet->{DBUSER}, $packet->{DBPASS}, {RaiseError => 1, AutoCommit => 0})
+	or die "Could not connect to database $packet->{DB} \n";
+
+#CJR let's make sure, that the guid marked for deletion is indeed still a candidate ....
+#CJR it might have been included in a route to some other site, while we were busy with deleting other files...
+    my $availability = $dbh->do(qq{select guid from t_transfer_state where from_node='$packet->{MYNODE}' and guid='$packet->{GUID}'
+				   and to_state between '0' and '2'});
+    if ($availability != 0) {
+	&logmsg("WARNING: GUID $packet->{GUID} seems to be allocated for transfer!! \n");
+	&logmsg("WARNING: Availability check resulted in: $availability \n");
+	$dbh->diconnect();
+	return 1;
+    }
+
+#CJR first delete the entry in t_replica_state
+    my $delete_replica_state = $dbh->do(qq{delete from t_replica_state where node='$packet->{MYNODE}' and guid='$packet->{GUID}'});
+    if ($delete_replica_state != 1 && $delete_replica_state != 0) {
+	&logmsg("wasn't able to delete file from t_replica_state !! \n".
+		"lines affected (should be 1): $delete_replica_state \n");
+	$dbh->rollback;
+	$dbh->disconnect();
+	return 5;
+    }
+
+#CJR then remove the entries in t_transfer_state
+    my $delete_transfer_state = $dbh->do(qq{delete from t_transfer_state where guid='$packet->{GUID}' and
+						     (from_node='$packet->{MYNODE}' or to_node='$packet->{MYNODE}')});
+    if ($delete_transfer_state != 2 && $delete_transfer_state != 0) {
+	&logmsg("wasn't able to delete file from t_transfer_state !! \n".
+		"lines affected (should be 2): $delete_transfer_state \n");
+	$dbh->rollback;
+	$dbh->disconnect();
+	return 6;
+    }
+
+#CJR next remove the file physically
+    if (-e $localpath) {
+	my $cmd = "rm -f $localpath";
+	my $exit_rm = system($cmd);
+	if ($exit_rm != 0) {
+	    &logmsg("wasn't able to delete file from disk !! \n".
+		    "exit code was: $exit_rm \n");
+	    $dbh->rollback;
+	    $dbh->disconnect();
+	    return 10;
+	}
+    } else {
+	&logmsg("File doesn't seem to exist anymore....\n". 
+		"Someone deleted it by hand ?\n");
+    }
+
+#CJR commit changes and disconnect from database if no errors occured so far
+    $dbh->commit;	
+    $dbh->disconnect() if (defined $dbh);
+
+#CJR finally remove the POOL catalogue entry
+    my $errdetail = " ($packet->{GUID}, $packet->{FROM_PFN}, $packet->{TO_PFN})";
+    my $cmd = "FCdeletePFN -u $packet->{CATALOGUE} -p $packet->{PFN}";
+    my $exit_FCdeletePFN = system($cmd);
+    if ($exit_FCdeletePFN != 0) {
+	&logmsg("wasn't able to delete file from POOL catalogue !! \n".
+		"exit code was: $exit_FCdeletePFN \n".
+		"will store: $cmd to file for easy manual deletion \n");
+#CJR let's keep this in addition.... just to be sure
+	open(FCcommands, ">> $LOGDIR/failedFCcommands") or &alert("Couldn't open failedFCcommands file");
+	print FCcommands "$cmd \n";
+	close (FCcommands);
+
+	#CJR inlcude Lassi's failure dumper
+	# Update packet, including details about whatever last failure was
+	$packet->{FAILURE} = "$cmd failed: @{[&runerror($exit_FCdeletePFN)]} $errdetail";
+	if (! &output ("$self->{WORKDIR}/$drop/packet", Dumper ($packet)))
+	  {
+	    &alert ("failed to update packet in $drop");
+	    return;
+	  }
+	
+	return 15;
+      }
+
+    #CJR everything seemed to be fine
+    # Pass on or delete
+    &touch ("$self->{WORKDIR}/$drop/done");
+    $self->relayDrop ($drop);
+    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
+
+  }

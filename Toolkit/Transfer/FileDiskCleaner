@@ -1,0 +1,326 @@
+#! /usr/bin/env perl
+BEGIN {use warnings; use strict; use Getopt::Long;}
+
+our $me = $0; $me =~ s|.*/||;
+our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+unshift(@INC, $home);
+
+
+#---------------------------------------------
+#     Argument parsing
+#---------------------------------------------
+
+my ($maxdspace, $minfree, $helpwanted, $importloc, $utime, $db, $db_pass, $db_user, $mynode,
+     $dropdir, $workers, $worker) = (75.0,100.0,0,'',60,'','','','','',1,'');
+
+&GetOptions("maxdspace=f" => \$maxdspace,"minfree=f" => \$minfree, "help" => \$helpwanted,
+	    "importloc=s" => \$importloc, "update=f" => \$utime, "dbase=s" => \$db,
+	    "dbpass=s" => \$db_pass, "dbuser=s" => \$db_user, "node=s" => \$mynode,
+	    "dropdir=s" => \$dropdir, "workers=i" => \$workers, "worker=s" => \$worker);
+
+if ($helpwanted == 1 || $importloc eq '' || $db eq '' || $db_user eq '' ||
+    $db_pass eq '' || $mynode eq '' || $dropdir eq '' || $worker eq '') {
+    print "Syntax for FileDiskClean: \n";
+    print "--importloc: Path to importbuffer location (mandatory)\n";
+    print "--dbase: database to connect to (mandatory)\n";
+    print "--dbuser: connect to database as user dbuser (mandatory)\n";
+    print "--dbpass: supply a password for the database (mandatory)\n";
+    print "--node: name of node which filled the diskbuffer (mandatory)\n";
+    print "--dropdir: Path to dropdir (mandatory)\n";
+    print "--worker: path to worker program (mandatory)\n";
+    print "--help: this help text \n";
+    print "--maxdspace: max occupation of total disk space [%]\n";
+    print "--minfree: minimum diskspace which has to stay free [MB]\n";
+    print "--update: update intervall [s] \n";
+    print "--workers: amount of workers to start\n";
+    exit 0;
+}
+
+#CJR mapping for Lassi's dropbox toolkit
+my %args = (DBNAME => $db,
+	    DBITYPE => 'ORACLE',
+	    DBUSER => $db_user,
+	    DBPASS => $db_pass,
+	    MYNODE => $mynode,
+	    DROPDIR => $dropdir,
+	    WAITTIME => $utime,
+	    IMPORTLOC => $importloc,
+	    MAXOC => $maxdspace,
+	    MINFREE => $minfree,
+	    NWORKERS => $workers,
+	    WORKER => $worker);
+
+
+
+my $agent = new FileDiskCleaner (%args);
+
+#----------------------------------------------
+#     Signal handling
+#----------------------------------------------
+
+$SIG{"CHLD"} = "IGNORE";
+$SIG{"INT"} =  \&catchsignal;
+$SIG{"QUIT"} = \&catchsignal;
+$SIG{"TERM"} = \&catchsignal;
+
+sub catchsignal {
+    my $signal = shift @_;
+    print "received signal: $signal \n";
+    print "Entering termination procedures \n";
+#CJR copied from Lassi's Agents
+#    system "touch $agent->{STOPFLAG}";
+#    $agent->maybeStop ();
+    exit 12;
+}
+
+
+#-----------------------------------------------
+#     Main Program
+#-----------------------------------------------
+
+$agent->process();
+
+
+
+################################################
+package FileDiskCleaner; use strict; use warnings; use base 'UtilsAgent';
+use File::Path;
+use Data::Dumper;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsCatalogue;
+use UtilsDB;
+use DBI;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBITYPE => undef,		# Database driver binding
+    		  DBNAME => undef,		# Database name
+	  	  DBUSER => undef,		# Database user name
+	  	  DBPASS => undef,		# Database user password
+	  	  MYNODE => undef,		# My TMDB node name
+	  	  AGENTID => "Cleaner",         # Identity for activity logs
+		  DROPDIR => undef,             # PATH to dropdir
+		  WORKER => undef);             # PATH to worker
+                  
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+
+
+sub idle
+{
+#CJR let's see, whether we need to take action
+    my ($self, @pending) = @_;
+    my $diskoc = 0.0;
+    my $freespace = 0.0;
+    my %pfnstodelete = ();
+    my @POOLcontact = ();
+
+#CJR analyse the free disk space
+    &getdspace($importloc, \$diskoc, \$freespace);
+
+    if ($diskoc >= $maxdspace || $freespace <= $minfree) {
+	&logmsg("Watermark reached, we need to delete files !!\n".
+		"Diskoccupation: $diskoc % max allowed $maxdspace % \n".
+		"Free Space: $freespace MB at least $minfree MB have to be free\n");
+#CJR create a list of files to be deleted (sorted by priority)
+	$self->filelist(\%pfnstodelete, \@POOLcontact);
+
+	foreach my $key (keys %pfnstodelete) {
+	  $self->startOne($key, $pfnstodelete{$key}, $POOLcontact[0], $POOLcontact[1]);
+	}
+    } else {
+	&logmsg("Nothing to be done... waiting for the next cycle \n");
+    }
+
+    # Check children are still running and then wait
+    $self->maybeStop ();
+    $self->checkWorkers ();
+    sleep ($self->{WAITTIME});
+}
+
+
+sub startOne {
+#CJR fillig global variables
+    my $self =shift @_;
+    my $guid =shift @_;
+    my $pfn  =shift @_;
+    my $catalogue=shift @_;
+    my $host=shift @_;
+
+    # Find an idle worker
+    my $now = time();
+    my $worker = $self->pickWorker();
+
+    print "Creating drop for GUID $guid\n";
+    # Create a pending drop in the inbox of the selected worker
+    my $slavein = "$self->{DROPDIR}/worker-$worker/inbox/$guid";
+    do { &alert ("$slavein already exists"); return 0; } if -d $slavein;
+    my $cleanup = { GUID		=> $guid,
+		    TIME_START		=> &mytimeofday(),
+		    PFN		        => $pfn,
+		    CATALOGUE	        => $catalogue,
+		    HOST		=> $host,
+		    DBNAME              => $db,
+		    DBUSER              => $db_user,
+                    DBPASS              => $db_pass,
+		    MYNODE              => $mynode};
+
+    do { &alert ("failed to create cleanup packet for $guid"); &rmtree ($slavein); return 0; }
+	if (! &mkpath ($slavein)
+	    || ! &output ("$slavein/packet", Dumper ($cleanup))
+	    || ! &touch ("$slavein/go.pending"));
+
+
+    # OK, kick it go
+    &warning ("could not kick $worker to start $guid")
+	if ! &mv ("$slavein/go.pending", "$slavein/go");
+
+    return 1;
+}
+
+sub startWorker {
+    my ($self, $i) = @_;
+    my $workerdir = "$self->{DROPDIR}/worker-$i";
+    &mkpath ($workerdir) if ! -d $workerdir;
+
+    my $pid = undef;
+    while (1)
+    {
+	last if defined ($pid = fork ());
+        &logmsg ("cannot fork: $!; trying again in 10 seconds");
+	sleep (10);
+    }
+
+    # Return child pid in parent;
+    return $pid if $pid;
+
+
+    print "starting worker: $self->{WORKER}\n";
+    # Child.
+    my @args = ($self->{WORKER},
+		"--in", $workerdir,
+		"--out", $self->{DROPDIR},
+		"--dbase", $self->{DBNAME},
+		"--dbuser", $self->{DBUSER},
+		"--dbpass", $self->{DBPASS},
+		"--node", $self->{MYNODE});
+
+    exec { $args[0] } @args;
+    die "Cannot start worker: $!\n";
+
+}
+
+
+# Actually process a drop.  Note that the only way we end up here is
+# when a slave has finished with a file transfer and transfers it to
+# our inbox.  Collect the transfer status and update the database to
+# reflect the state.  Note that the slaves never mark drops bad, they
+# just update the state information in the drop appropriately.  We
+# only mark drops bad only if the drop itself is corrupted; normally
+# we just flag transfers failed in the database and try again later.
+# There is no downstream drop box agent, so the drops are destroyed
+# once we've successfully entered the information into the database.
+sub processDrop
+{
+    my ($self, $drop, $left) = @_;
+
+    # Sanity checking
+    return if (! $self->inspectDrop ($drop));
+    delete $self->{BAD}{$drop};
+    &timeStart($self->{STARTTIME});
+
+    # Read back the state
+    my $report = do { no strict "vars"; eval &input ("$self->{WORKDIR}/$drop/packet") };
+    if ($@ || ! $report || ! $report->{GUID})
+    {
+	&alert ("corrupt packet in $drop");
+	$self->markBad ($drop);
+	return;
+    }
+
+
+    # Mark drop done so it will be nuked
+    &touch ("$self->{WORKDIR}/$drop/done");
+
+    # Log transfer delay stats
+    my $now = &mytimeofday ();
+    my $dtransfer = $now - $report->{TIME_START};
+    &logmsg ("xstats: $report->{GUID}"
+	     . sprintf('%.2f', $dtransfer));
+
+
+    # OK, got far enough to nuke and log it
+    $self->relayDrop ($drop);
+    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
+}
+
+
+#------------------------------------------------
+#     Cleaner - Subroutines
+#------------------------------------------------
+
+sub getdspace {
+    my $importloc = shift @_;
+    my $diskocref = shift @_;
+    my $freespaceref = shift @_;
+    my @dfout = `df -m $importloc`;
+    chomp @dfout;
+    my @dflineparts = split " ",$dfout[$#dfout];
+
+    $$freespaceref = $dflineparts[2];
+    $$diskocref =  $dflineparts[3];
+    chop $$diskocref;
+}
+
+
+sub filelist {
+    my $self = shift @_;
+    my $pfnstodelete_ref = shift @_;
+    my $POOLcontact_ref = shift @_;
+
+
+#CJR connect to database
+    my $dbh = DBI->connect("DBI:Oracle:$db", $db_user, $db_pass, {RaiseError => 1, AutoCommit => 1})
+	or die "Could not connect to database $db \n";
+
+#CJR find all guids, which are candidates for removal (on buffer and all replications to final dest.
+#CJR finished successfully
+
+#FIXME: using wrong state values in order to get something selected at all :-))
+
+    my $guidreflist = $dbh->selectcol_arrayref(qq{select a.guid
+                      from t_replica_state a, t_transfer_state b
+		      where a.guid=b.guid and a.state=1 and a.node='$self->{MYNODE}'
+                      and b.from_node='$self->{MYNODE}' and b.to_state=3
+		      order by b.to_time_stamp});
+
+#CJR get also node specific informations
+    my @POOLcontact = $dbh->selectrow_array(qq{select catalogue_contact, host_string from t_nodes
+					       where node_name='$self->{MYNODE}'});
+    $POOLcontact_ref->[0] = $POOLcontact[0];
+    $POOLcontact_ref->[1] = $POOLcontact[1];
+
+#CJR disconnect from database
+    $dbh->disconnect() if (defined $dbh);
+
+#CJR now let's get the PFN for all guids we've selected
+    foreach my $guid (@{$guidreflist}) {
+	$pfnstodelete_ref->{ $guid } = `FClistPFN -u $POOLcontact_ref->[0] -q "guid='$guid'" |grep $POOLcontact_ref->[1]`;
+	if ($pfnstodelete_ref->{$guid} eq '') {
+	    &logmsg("Cannot find PFN in POOL catalogue !!\n".
+		"Affected GUID: $guid \n");
+	}
+    }
+}
+
+
+
