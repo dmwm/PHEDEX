@@ -6,3 +6,8 @@
    5439 5440 5441 5442 5443 5444 5445 \
    5449 5450 5452 5453 5454 5455 5457
 ./TRSyncDrops V2DC04Sample
+
+for f in V2DC04Sample/Drops/Pending/*; do
+  perl -p -i -e 's|/cms/PCP04/DSTs801|/cms/DSTs_801a|' $f/Smry*
+  touch $f/go
+done
