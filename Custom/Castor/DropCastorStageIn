@@ -353,7 +353,9 @@ sub processAllFiles
 
         # Determine the files that need to be staged in, in a good order
         # i.e. sorted by tape and position, then issue requests in batches.
-        my @requests = sort { $a->{TAPE} cmp $b->{TAPE} || $a->{POS} cmp $b->{POS} }
+	# Note that we reverse the list because we take items off the end.
+        my @requests = reverse
+		       sort { $a->{TAPE} cmp $b->{TAPE} || $a->{POS} cmp $b->{POS} }
 		       grep ($_->{STATUS} == $STAGE_UNKNOWN, @files);
 	while (@requests)
 	{
