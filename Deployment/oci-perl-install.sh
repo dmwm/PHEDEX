@@ -67,11 +67,14 @@ echo "remove the trailing slash from ORACLE_HOME"
 make
 make install
 
+VERSION=`ls $BASE/perl-modules/lib/perl5/site_perl/`
+ARCH=`ls $BASE/perl-modules/lib/perl5/site_perl/$VERSION`
+
 cd $BASE
 cp PHEDEX/Schema/tnsnames.ora .
 
 # Create and environment script
-echo 'Writing local-oci-env.sh: please take a look and edit in your own PERL5LIB and TNS_ADMIN'
+echo 'Writing local-oci-env.sh'
 echo "export BASE=$BASE
 export ORACLE_HOME=${BASE}/instantclient10_1
 export LD_LIBRARY_PATH=${ORACLE_HOME}/lib:${LD_LIBRARY_PATH}
@@ -79,7 +82,7 @@ export PATH=${ORACLE_HOME}/bin:${PATH}
 export SQLPATH=${ORACLE_HOME}/bin
 # Note the trailing end of perl5lib might vary with architecture-
 # look out for where your DBD-Oracle actually gets installed
-export PERL5LIB=${ORACLE_HOME}/perl-modules/lib/<your path to dbd-oracle>
-export TNS_ADMIN=$BASE" > local-oci-env.sh
+export PERL5LIB=${BASE}/perl-modules/lib/perl5/site_perl/${VERSION}/${ARCH}:${PERL5LIB}
+export TNS_ADMIN=${BASE}" > local-oci-env.sh
 
 # test at will ...
