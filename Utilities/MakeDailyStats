@@ -43,7 +43,7 @@ if (scalar @ARGV || !$args{DBNAME} || !$args{DBUSER}
 {
     print STDERR
 	"usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-	"    [-unit k|M|G|T] [-time day|week|month] [-add DELTA-FILE]\n";
+	"    [-unit k|M|G|T] [-time hour|day|week|month] [-add DELTA-FILE]\n";
     exit (1);
 }
 
@@ -60,16 +60,19 @@ if ($args{ADDFILE})
     {
 	my ($date, @words) = split(/\s+/, $_);
 	my ($year, $month, $day) = ($date =~ m|(\d\d\d\d)(\d\d)(\d\d)|);
-	my $timeval = &timegm (0, 0, 12, $day, $month-1, $year-1900, 0, -1);
-	my $unit = &formatTime ($timeval, $args{TIME});
-	$first = $timeval if (! $first || $first > $timeval);
 	while (@words)
 	{
 	    my $node = shift (@words);
 	    my $size = &sizeValue (shift (@words));
-	    $stats{$unit}{$node} = 0 if ! exists $stats{$unit}{$node};
-	    $stats{$unit}{$node} += $size / $args{UNIT};
-	    $nodes{$node} = 1;
+	    foreach my $hour (8 .. 19)
+	    {
+		my $timeval = &timegm (0, 0, $hour, $day, $month-1, $year-1900, 0, -1);
+		my $unit = &formatTime ($timeval, $args{TIME});
+		$first = $timeval if (! $first || $first > $timeval);
+	    	$stats{$unit}{$node} = 0 if ! exists $stats{$unit}{$node};
+	    	$stats{$unit}{$node} += $size / $args{UNIT} / 12.0;
+	    	$nodes{$node} = 1;
+	    }
 	}
     }
     close (F);
@@ -118,12 +121,12 @@ exit 0;
 # each such time series element is a half-open internval [LOW, HIGH).
 # The HIGH of one element is the LOW of the next element.
 #
-# If RANGE is "day", generates intervals for days, from midnight to
-# midnight in UTC time.  If RANGE is "week", returns intervals of ISO
-# weeks, from midnight on Monday to the next Monday.  If RANGE is
-# "month", returns intervals of calendar months from midnight of the
-# first day of the month to the midnight of the first day of the next
-# month.
+# If RANGE is "hour", generates intervals of hours.  If RANGE is "day",
+# generates intervals for days, from midnight to midnight in UTC time.
+# If RANGE is "week", returns intervals of ISO weeks, from midnight on
+# Monday to the next Monday.  If RANGE is "month", returns intervals of
+# calendar months from midnight of the first day of the month to the
+# midnight of the first day of the next month.
 #
 # Time series starts from the beginning of the interval FIRST falls
 # in and ends in an interval that contains current time.
@@ -134,7 +137,15 @@ sub timeSeries
     my @series = ();
     $first = int($first);
 
-    if ($range eq 'day') {
+    if ($range eq 'hour') {
+	# Convert first time to UTC hour.  Then make a
+	# time series of hours until end of current hour.
+	my $low = int($first / 3600);
+	my $high = int($now / 3600) + 1;
+	for ( ; $low < $high; ++$low) {
+	    push(@series, { LOW => $low * 3600, HIGH => ($low+1) * 3600 });
+        }
+    } elsif ($range eq 'day') {
 	# Convert first time to UTC day at 00:00.  Then make a
 	# time series of days until end of today.
 	my $low = int($first / 86400);
@@ -173,11 +184,12 @@ sub timeSeries
     return @series;
 }
 
-# Format TIME as unit of RANGE ("day", "week" or "month").
+# Format TIME as unit of RANGE ("hour", "day", "week" or "month").
 sub formatTime
 {
     my ($time, $range) = @_;
-    if ($range eq 'day') { return strftime ('%Y%m%d', gmtime(int($time))); }
+    if ($range eq 'hour') { return strftime ('%Y%m%dZ%H00', gmtime(int($time))); }
+    elsif ($range eq 'day') { return strftime ('%Y%m%d', gmtime(int($time))); }
     elsif ($range eq 'week') { return strftime ('%Y%V', gmtime(int($time))); }
     elsif ($range eq 'month') { return strftime ('%Y%m', gmtime(int($time))); }
 }
@@ -196,16 +208,17 @@ sub timegm
 
 # Convert a storage size into a numeric value (as bytes).  Storage
 # sizes are a floating point number optionally followed by a letter
-# "k", "M", "G" or "T", for kilo-, mega-, giga- and terabytes,
-# respectively.  A raw number is accepted as well, returned as such,
-# i.e. as bytes.
+# "k", "M", "G", "T", "P" or "E" for kilo-, mega-, giga-, tera-,
+# peta- and exabytes, respectively.  A raw number is accepted as
+# well, returned as such, i.e. as bytes.
 sub sizeValue
 {
     my ($value) = @_;
-    if ($value =~ /^(\d+)([kMGT])$/)
+    if ($value =~ /^([-+\d.Ee]+)([kMGTPE])$/)
     {
-        my %scale = ('k' => 1024, 'M' => 1024**2, 'G' => 1024**3, 'T' => 1024**4);
+        my %scale = ('k' => 2**10, 'M' => 2**20, 'G' => 2**30,
+		     'T' => 2**40, 'P' => 2**50, 'E' => 2**60);
         $value = $1 * $scale{$2};
     }
-    return $value;
+    return $value * 1.0;
 }
