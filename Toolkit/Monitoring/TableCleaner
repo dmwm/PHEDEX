@@ -102,10 +102,20 @@ sub idle
 
 	&logmsg ("$rows completed transfers archived") if $rows;
 
-	# Delete obsolete agent status messages
+	# Delete obsolete agent status messages (3 days)
 	my %old = (":old" => &mytimeofday() - 3*86400);
 	&dbexec($dbh,qq{delete from t_agent_status where timestamp < :old}, %old);
 	&dbexec($dbh,qq{delete from t_info_agent_status where timestamp < :old}, %old);
+	$dbh->commit ();
+
+	# Downgrade obsolete "wanted" files (one day)
+	my $now = &mytimeofday();
+	&dbexec($dbh, qq{
+	    update t_transfer_state
+	    set to_state = 0, to_timestamp = :now
+	    where to_state = 1 and to_timestamp < :old},
+	    ":now" => $now, ":old" => $now - 86400);
+	$dbh->commit ();
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
