@@ -1,10 +1,9 @@
-package UtilsAgent; use strict; use Exporter; use vars '@EXPORT';
+package UtilsAgent; use strict; use warnings; use base 'Exporter';
 use POSIX;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
 use UtilsRFIO;
-use base 'Exporter';
 
 sub new
 {

@@ -1,7 +1,7 @@
-package UtilsNet; use strict; use Exporter; use vars '@EXPORT';
+package UtilsNet; use strict; use warnings; use base 'Exporter';
+our @EXPORT = qw(getfullhostname getURL);
 require Socket;
 use Net::hostent;
-@EXPORT = qw(getfullhostname getURL);
 
 sub getfullhostname {
   my($hostname,$name,$aliases,$addrtype,$length,@addrs);

@@ -1,5 +1,5 @@
-package UtilsTiming; use strict; use Exporter; use vars '@EXPORT';
-@EXPORT = qw(timeStart elapsedTime formatElapsedTime mytimeofday);
+package UtilsTiming; use strict; use warnings; use base 'Exporter';
+our @EXPORT = qw(timeStart elapsedTime formatElapsedTime mytimeofday);
 
 # Timing utilities.  First define higher-resolution timing via
 # gettimeofday() where it is available, otherwise fall back on

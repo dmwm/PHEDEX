@@ -1,5 +1,5 @@
-package UtilsLogging; use strict; use Exporter; use vars '@EXPORT';
-@EXPORT = qw(logmsg alert warn note);
+package UtilsLogging; use strict; use warnings; use base 'Exporter';
+our @EXPORT = qw(logmsg alert warn note);
 
 # Produce an alert message
 sub logmsg

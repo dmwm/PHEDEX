@@ -1,5 +1,5 @@
-package UtilsCommand; use strict; use Exporter; use vars '@EXPORT';
-@EXPORT = qw(getdir runcmd runerror touch mv cksum output input);
+package UtilsCommand; use strict; use warnings; use base 'Exporter';
+our @EXPORT = qw(getdir runcmd runerror touch mv cksum output input);
 
 # Get directory contents
 sub getdir
@@ -29,7 +29,8 @@ sub runcmd
 }
 
 # Get exit code from a previously ran command
-sub runerror {
+sub runerror
+{
   my $rc	= shift;
   my $code	= $rc >> 8;
   my $signal	= $rc & 127;

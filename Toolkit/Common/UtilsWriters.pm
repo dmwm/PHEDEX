@@ -1,5 +1,5 @@
-package UtilsWriters; use strict; use Exporter; use vars '@EXPORT';
-@EXPORT = qw(genXMLPreamble genXMLTrailer genXMLCatalogue outputCatalog);
+package UtilsWriters; use strict; use warnings; use base 'Exporter';
+our @EXPORT = qw(genXMLPreamble genXMLTrailer genXMLCatalogue outputCatalog);
 
 sub genXMLPreamble
 {

@@ -1,5 +1,5 @@
-package UtilsRFIO; use strict; use Exporter; use vars '@EXPORT';
-@EXPORT = qw(readChecksumData readXMLCatalog);
+package UtilsReaders; use strict; use warnings; use base 'Exporter';
+our @EXPORT = qw(readChecksumData readXMLCatalog);
 
 # Read job checksum data: lines of "CHECKSUM SIZE FILE".
 sub readChecksumData
