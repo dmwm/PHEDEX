@@ -114,11 +114,26 @@ sub updateTransferDatabase
     	my $mstmt = &dbprep ($dbh, qq{
 	    insert into t_file_attributes (guid, attribute, value)
 	    values (:guid, :attr, :value)});
+    	my $bqstmt = &dbprep ($dbh, qq{
+	    select count(*) from t_block where name = :block});
+    	my $bistmt = &dbprep ($dbh, qq{
+	    insert into t_block (name, owner, dataset, files, bytes)
+	    values (:name, :owner, :dataset, -1, -1)});
 
         foreach my $f (@$attrs)
 	{
-	    # FIXME: inject PFN filetype, LFN
-            my %meta = (map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
+	    # Check the file block is known, otherwise create an open one
+	    my $block = "$f->{META}{owner}/$f->{META}{dataset}";
+	    &dbbindexec ($bqstmt, ":block" => $block);
+	    my ($found) = $bqstmt->fetchrow();
+
+	    &dbbindexec ($bistmt,
+			 ":name" => $block,
+			 ":owner" => $f->{META}{owner},
+			 ":dataset" => $f->{META}{dataset})
+		if ! $found;
+
+	    # Insert file information
 	    &dbbindexec ($fstmt,
 		         ":now" => $now,
 			 ":guid" => $f->{GUID},
@@ -130,6 +145,8 @@ sub updateTransferDatabase
 			 ":filesize" => $f->{FILESIZE},
 		 	 ":checksum" => $f->{CHECKSUM});
 
+	    # Insert file attribute data
+            my %meta = (map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
 	    foreach my $m (sort keys %meta)
 	    {
 	        &dbbindexec ($mstmt,
@@ -138,6 +155,7 @@ sub updateTransferDatabase
 			     ":value" => $meta{$m});
 	    }
 
+	    # Insert replica for all nodes
 	    foreach my $n (@$nodes)
 	    {
 	        &dbbindexec ($rstmt, 
