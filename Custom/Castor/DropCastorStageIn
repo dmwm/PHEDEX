@@ -116,6 +116,18 @@ sub tapeMountLoad
     return ($total, $ours);
 }
 
+# Figure out stager load level.  Returns the number of outstanding
+# requests or undef if we cannot run the necessary programs for
+# some reason.  The latter should be considered a transient error.
+sub stagerLoad
+{
+    open(STAGEQ, "stageqry -h $ENV{STAGE_HOST} -a --format status |")
+	or do { &alert ("cannot run stageqry: $!"); return undef; };
+    my $reqs = scalar (grep(/STAGEIN/, <STAGEQ>));
+    close(STAGEQ);
+    return $reqs;
+}
+
 # Update the stage-in status of a file.  If we haven't initialised
 # state data for the file, do so.  Then check if the file is staged
 # in; if so, return $STAGE_ON_DISK to indicate it's availabale.
@@ -296,15 +308,36 @@ sub processAllFiles
 		   grep ($_->{STATUS} == $STAGE_UNKNOWN, @files);
     while (scalar @requests)
     {
+	# Wait until the system load drops low enough.  This is not exactly
+	# optimal, but this is the only place where we can throttle.  It
+	# would be better to have updated the file status after we know
+	# we can carry out the actions, now we'll wait issuing the stage
+	# requests for arbitrarily long, and may even get stopped -- which
+	# isn't all that bad, we'll just think we lost the stage-in status
+	# and will retry.  Will be fixed by moving to use of PinDB.
+	my ($tapereqs, $mytapereqs, $stagereqs) = (&tapeMountLoad(), &stagerLoad());
+	do { &maybeStop(); sleep (30); }
+	    while (! defined $tapereqs
+		   || ! defined $mytapereqs
+		   || ! defined $stagereqs
+		   || $tapereqs > $maxtapereqs
+		   || $mytapereqs > $maxmytapereqs
+		   || $stagereqs > $maxstagereqs);
+
+	# Select the next up to $maxfiles to stage in
 	my $nfiles = ($#requests > $maxfiles ? $maxfiles : $#requests);
 	my @slice = @requests[0 .. $nfiles];
 	delete @requests[0 .. $nfiles];
 
+	# Issue background stage-in
 	my $rc = &runcmd ("stagein", "--nowait", "--rdonly",
 			  "-h", $ENV{STAGE_HOST}, "-p", $ENV{STAGE_POOL},
 			  "-A", "deferred",
 			  map { ("-M", $_) } @slice);
 	&alert ("stagein failed: @{[&runerror($rc)]}") if ($rc);
+
+	# Sleep a bit, castor doesn't like rapid-fire request chains
+	select (undef, undef, undef, 0.33);
     }
 }
 
@@ -314,13 +347,8 @@ sub processDrop {}
 sub idle
 {
     my ($sleep, @pending) = @_;
-    my ($tapereqs, $mytapereqs) = &tapeMountLoad();
 
-    &processAllFiles (@pending)
-        if (defined $tapereqs
-	    && $tapereqs < $maxtapereqs
-	    && defined $mytapereqs
-	    && $mytapereqs < $maxmytapereqs);
+    &processAllFiles (@pending);
 
     &maybeStop();
     sleep ($sleep);
