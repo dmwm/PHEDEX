@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/27 13:40:54 $
-# $Id: Allocator.pl,v 1.9 2004/07/27 13:40:54 barrass Exp $
+# $Date: 2004/07/27 13:43:05 $
+# $Id: Allocator.pl,v 1.10 2004/07/27 13:43:05 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -122,7 +122,7 @@ sub get_new_guid_list {
         return 1;
     }
 	
-	return (\@guid_list);
+	return (@guid_list);
 }
 
 
