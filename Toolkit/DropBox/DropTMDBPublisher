@@ -118,8 +118,9 @@ sub updateTransferDatabase
 			map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
 
 	    if ($self->{VERSION} == 1) {
-		@cmds = ("insert into cms_transfermgmt.filesfortransfer values"
-		         ." ('$f->{GUID}', '$f->{PFN}', $now, $f->{CHECKSUM},"
+		@cmds = ("insert into cms_transfermgmt.filesfortransfer "
+			 ." (guid,castor_filename,entry_time,checksum,filesize,allocated_to_t1s,filegroup)"
+		         ."values ('$f->{GUID}', '$f->{PFN}', $now, $f->{CHECKSUM},"
 		         ."  $f->{FILESIZE}, '1', '@{[$f->{META}{'jobid'} || '']}')");
 	    } elsif ($self->{VERSION} == 2) {
 		@cmds = ("insert into cms_transfermgmt.t_files_for_transfer"
