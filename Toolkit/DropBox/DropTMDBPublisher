@@ -89,8 +89,8 @@ sub updateTransferDatabase
                 'debug_lfn' => $lfn,
                 'debug_pfn' => $pfn,
                 'debug_group' => $group,
-                map { "POOL_$_" => $catalog->{$guid}{META}{$_} }
-                keys %{$catalog->{$guid}{META}});
+			map { "POOL_$_" => $catalog->{$guid}{META}{$_} }
+			keys %{$catalog->{$guid}{META}});
 
 	    my @cmds = ("insert into cms_transfermgmt.t_files_for_transfer "
 			."(guid, source_node, allocated) values ('$guid', '$mynode', 0)",
