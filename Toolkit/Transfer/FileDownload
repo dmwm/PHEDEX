@@ -272,7 +272,10 @@ sub startOne
     my $from_lfn = &guidToLFN ($guid, $from_catalogue);
     do { &alert ("failed to look up lfn for $guid"); return 0; } if ! $from_lfn;
 
-    my $to_pfn = qx($self->{PFNSCRIPT} '$from_pfn'); chomp ($to_pfn);
+    my $pfnargs = join(" ",
+		   "guid=$guid", "pfn=$from_pfn", "lfn=$from_lfn",
+		   map { "$_=$attrs->{$_}" } sort keys %$attrs);
+    my $to_pfn = qx($self->{PFNSCRIPT} $pfnargs); chomp ($to_pfn);
     do { &alert ("no destination pfn for $guid"); return 0; } if ! $to_pfn;
 
     # Find an idle worker
