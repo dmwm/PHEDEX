@@ -17,6 +17,7 @@
 # -once                 only runs once
 # -period               period over which the agent will loop
 # -infinity             max expected route length
+# -timeout              timeout routes after this many sec
 #
 # You should provide a working dir name on the command line:
 # a pid file will be stored there during running, and to stop the
@@ -37,6 +38,7 @@ $g_parent_node = 'default_parent';		# parent node name
 $g_once;				# 1 means will only run once
 $g_period = 1;              # time between iterations
 $g_infinity = 10;            # maximum expected route length
+$g_timeout = 180;           # route timeout, secs
 
 # ###############################################################
 # Main agent loop
@@ -194,12 +196,10 @@ sub clear_my_table {
     direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
 }
 
-sub compare_with_existing_routes {
-    my $new_routes = shift;
+sub get_my_route_hash {
     my $selection = "select gateway,to_node,timestamp,hops from t_Routing "
         ."where from_node = '$g_parent_node'";
     my %gate_time_hops_by_dest = ();
-
     # Build up hash of existing routes
     # Should only be one entry per destination!
     my $dbh = DBI->connect( "DBI:Oracle:$g_db",
@@ -210,12 +210,41 @@ sub compare_with_existing_routes {
     $query->execute;
     while (@row = $query->fetchrow_array) {
         foreach (@row) { s/ //g; }
-	if (exists $gate_time_hops_by_dest{$row[1]} ){ log_entry( "Something wrong in routing: multiple entries for $row[1] under $g_parent_node table!" ); }
-	my $gate_time_hops;
-	$gate_time_hops_by_dest{$row[1]} = "$row[0]:$row[2]:$row[3]";
+        if (exists $gate_time_hops_by_dest{$row[1]} ){ log_entry( "Something wrong in routing: multiple entries for $row[1] \
+under $g_parent_node table!" ); }
+        my $gate_time_hops;
+        $gate_time_hops_by_dest{$row[1]} = "$row[0]:$row[2]:$row[3]";
     }
     $query->finish();
     $dbh->disconnect();
+
+    return %gate_time_hops_by_destination;
+}
+
+sub compare_with_existing_routes {
+    my $new_routes = shift;
+#    my $selection = "select gateway,to_node,timestamp,hops from t_Routing "
+#        ."where from_node = '$g_parent_node'";
+#    my %gate_time_hops_by_dest = ();
+
+    # Build up hash of existing routes
+    # Should only be one entry per destination!
+#    my $dbh = DBI->connect( "DBI:Oracle:$g_db",
+#                            "$g_db_user",
+#                            "$g_db_passwd",
+#                            { RaiseError=>1, AutoCommit =>1 });
+#    my $query = $dbh->prepare($selection);
+#    $query->execute;
+#    while (@row = $query->fetchrow_array) {
+#        foreach (@row) { s/ //g; }
+#	if (exists $gate_time_hops_by_dest{$row[1]} ){ log_entry( "Something wrong in routing: multiple entries for $row[1] under $g_parent_node table!" ); }
+#	my $gate_time_hops;
+#	$gate_time_hops_by_dest{$row[1]} = "$row[0]:$row[2]:$row[3]";
+#    }
+#    $query->finish();
+#    $dbh->disconnect();
+
+    my %gate_time_hops_by_dest = &get_my_route_hash;
 
     # Compare new routes with existing routes, replace
     # or minimise
@@ -260,11 +289,15 @@ sub parse_command_line {
 		"no-updates" => \$g_no_updates,
 		"once" => \$g_once,
 		"period=s" => \$g_period,
-		"infinity=s" => \$g_infinity
+		"infinity=s" => \$g_infinity,
+		"timeout=s" => \$g_timeout
 		);
     
     if ($g_once) {
 	log_entry( "only running once" );
+    }
+    if ($g_timeout) {
+	log_entry( "will timeout routes after $g_timeout s" );
     }
     if ($g_period) {
         log_entry( "loop period is $g_period" );
