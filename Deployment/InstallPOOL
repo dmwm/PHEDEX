@@ -5,7 +5,7 @@ use Getopt::Long;
 use English;
 
 my $lversion = qx(cat /etc/redhat-release 2>/dev/null);
-my %args = (LVERSION => ($lversion =~ /Scientific/ ? "SL3" : "RH73"));
+my %args = (LVERSION => ($lversion =~ /Scientific/ ? "SLC3" : "RH73"));
 
 &GetOptions("standalone" => \$args{STANDALONE},
 	    "cms"        => \$args{CMS},
@@ -108,8 +108,7 @@ sub installStandalone
 
 	# lets install the stuff if we succeded to download the RPMs
 	my $RPMcmd="rpm --dbpath $InstallRoot/RPMDB --prefix $InstallRoot -i --nodeps --noscripts $InstallRoot/RPMs/\*";
-	
-	if (system($RPMcmd)) {
+	if (! system($RPMcmd)) {
 	    die "Installation of RPMs failed.  Installation terminated.\n";
 	}
     };
@@ -122,18 +121,21 @@ sub installStandalone
     }
 
     # now finally provide a script to set some environment variables (has to be sourced later)
-    my $file_h;
-    open($file_h,">$InstallRoot/poolenv.sh");
-    print $file_h "export LD_LIBRARY_PATH=$ENV{LD_LIBRARY_PATH}:$InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib:$InstallRoot/lcg/app/releases/SEAL/SEAL_1_4_3/$Linux_V/lib:$InstallRoot/lcg/external/xerces-c/$Xerces/lib:$InstallRoot/lcg/external/mysql/4.0.18/$Linux_Vshort/lib:$InstallRoot/lcg/external/mysqlpp/1.7.9_mysql.4.0.18/$Linux_Vshort/lib\n";
-    print $file_h "export SEAL_PLUGINS=$InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib/modules:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib/modules\n";
-    print $file_h "export PATH=$ENV{PATH}:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/bin\n";
-    close($file_h);
+    my $rpath = "$InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib:$InstallRoot/lcg/app/releases/SEAL/SEAL_1_4_3/$Linux_V/lib:$InstallRoot/lcg/external/xerces-c/$Xerces/lib:$InstallRoot/lcg/external/mysql/4.0.18/$Linux_Vshort/lib:$InstallRoot/lcg/external/mysqlpp/1.7.9_mysql.4.0.18/$Linux_Vshort/lib";
+    my $ppath = "$InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib/modules:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib/modules";
+    my $bpath = "$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/bin";
 
-    open($file_h,">$InstallRoot/poolenv.csh");
-    print $file_h "setenv LD_LIBRARY_PATH $ENV{LD_LIBRARY_PATH}:$InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib:$InstallRoot/lcg/app/releases/SEAL/SEAL_1_4_3/$Linux_V/lib:$InstallRoot/lcg/external/xerces-c/$Xerces/lib:$InstallRoot/lcg/external/mysql/4.0.18/$Linux_Vshort/lib:$InstallRoot/lcg/external/mysqlpp/1.7.9_mysql.4.0.18/$Linux_Vshort/lib\n";
-    print $file_h "setenv SEAL_PLUGINS $InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib/modules:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib/modules\n";
-    print $file_h "setenv PATH $ENV{PATH}:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/bin\n";
-    close($file_h);
+    open(FH, ">$InstallRoot/poolenv.sh");
+    print FH "export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:$rpath;\n";
+    print FH "export SEAL_PLUGINS=$ppath;\n";
+    print FH "export PATH=\${PATH}:$bpath;\n";
+    close(FH);
+
+    open(FH,">$InstallRoot/poolenv.csh");
+    print FH "setenv LD_LIBRARY_PATH \${LD_LIBRARY_PATH}:$rpath;\n";
+    print FH "setenv SEAL_PLUGINS $ppath;\n";
+    print FH "setenv PATH \${PATH}:$bpath;\n";
+    close(FH);
 
     return 1; # report success
 }
