@@ -5,3 +5,8 @@ $node = $ARGV[1];
 $pwd = $ENV{PWD};
 
 print "$count files, in $pwd, registered at node $node\n";
+
+while ($count > 0) {
+    
+    $count--;
+}
