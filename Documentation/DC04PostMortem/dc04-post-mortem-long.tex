@@ -161,8 +161,12 @@ reference, the RLS deployed during DC04 comprised a single Local
 Replica Catalogue and Replica Metadata Catalogue deployed at CERN. The
 distribution chains used LCG tools- either LRC tools or POOL
 \cite{POOL} File Catalog tools- to query and make entries in the
-catalogue. Local POOL file catalogues were also deployed as a means of
-accessing file information for analysis jobs at the T1s and T2s.
+catalogue. A number of methods were used to make file information
+available to analysis jobs at the T1s and T2s; generally speaking
+information was published from the RLS to either a MySQL POOL catalogue
+containing site filename information, or job-specific XML POOL
+catalogues.
+
 
 SRM is an acronym denoting the Storage Resource Management interface,
 which provides generic access to any storage resource
@@ -246,10 +250,13 @@ in a more immediately intuitive and useful way.
 \subsection{Overall behaviour}
 A total of 564,273 files were placed in distribution during DC04. At
 the end of DC04 there were 1,969,976 replicas being actively managed;
-a total of 2,942,368 single replica chains were known \footnote{Here a
-replica chain implies a single entry per set of replicas from source
-to destination; e.g. from castor to RAL MSS. The number of replcias
-involved in such a chain might be 4 times larger than this number, so
+a total of 2,942,368 single replica chains were known, where a replica
+denotes the set of replicas created in distributing a given file to
+a given destination \footnote{Thus a replica chain is represented in 
+the TMDB as a single entry per set of replicas from source
+to destination; e.g. from castor to RAL MSS. There were between 1 and
+4 replicas in each chain (i.e. there were up to 4 steps between CERN
+and each destination), so
 the system was aware of somewhere between 2,942,368 and 11,769,472
 replicas in total.}.
 
@@ -379,7 +386,7 @@ The RLS at CERN was found to be a critical bottleneck early in the
 challenge, and a significant amount of effort was expended in
 developing it so that performance was brought close to
 requirements. Even at the end of DC04 however it was still not being
-used as a complete global catalogue; MySQL POOL catalogues that
+used as a complete global catalogue; MySQL and XML POOL catalogues that
 partially replicated information in the RLS were deployed to enable
 analysis at the T1s and T2s. These catalogues were not fully
 syncronised, although information was published to them from the RLS.
@@ -476,11 +483,11 @@ RLStended to underperform, principally due to the lack of bulk
 operation access to the RLS.
 
 During DC04 realtime analysis required some mechanism by which it
-could determine whether all the files of a given dataset had
-arrived. This could be determined using ``filegroup'' metadata, where
-filegroup was a unique key generated during reconstruction that could
-be used to tie all files in a given dataset together. This metadata
-was added to the filesfortransfer TMDB table, as discussed above.
+could determine whether all the files required for a given analysis
+job had arrived. To run an analysis job required all files generated
+by a single production job, indicated by a unique ``jobid'' metadata.
+This metadata was added to the filesfortransfer TMDB table, as
+discussed above.
 
 One of the dropbox agents implemented the file merging step used in a
 large file transfer stress tests at the end of DC04. Files were
@@ -851,14 +858,20 @@ deployment and use.
 \caption{Overall view of the distribution chains deployed during DC04.}
 \end{figure}
 \clearpage
+\begin{table}
+\begin{tabular}[tbp]{|c|c|c|c|c|}
+\hline T1 & \# GUIDs allocated & Transferred & On Tape & Remainder
+\\ \hline PIC	& 503786	& 58	& 57	& 42\\ INFN	& 503785	& 61	& 43	& 39\\ RAL	& 456841	& 25	& 17	& 75\\ FZK	& 456841	& 12	& 11	& 88\\ IN2P3	& 456841	& 25	& 20	& 75\\ FNAL	& 564272	& 62	& 62	& 38
+\\ \hline
+\end{tabular}
+\label{table:migrated}
+\caption{Number of files successfully replicated to T1s and made safe on tape.}
+\end{table}\clearpage
 \begin{figure}[tbp]
 \centering
 \includegraphics[width=10cm]{PIC-RTA.eps}
 \label{fig:PIC-RTA}
-\caption{During the last four days of DC04 PIC were able to implement
-a real time analysis system based on CNAF's system. Turnaround time
-for analysis at PIC was much shorter and more consistent than CNAF at
-a median of 20 minutes. }
+\caption{During the last four days of DC04 PIC were able to implement a real time analysis system based on CNAF's system. Turnaround time for analysis at PIC was much shorter and more consistent than CNAF at a median of 20 minutes. }
 \end{figure}
 \clearpage
 \begin{figure}[tbp]
@@ -892,74 +905,56 @@ a median of 20 minutes. }
 \\ \hline
 \end{tabular}
 \label{table:rls}
-\caption{Summary of the many uses of the RLS during DC04. FC* commands are thos\
-e provided by POOL.}
+\caption{Summary of the many uses of the RLS during DC04. FC* commands are those provided by POOL.}
 \end{table}
 \clearpage
 \begin{figure}[tbp]
 \centering
 \includegraphics[angle=90,width=10cm]{rls.eps}
 \label{fig:rls}
-\caption{The time taken to register all files in drops as they
-appeared at the end of Reconstruction jobs shows some variation,
-with periods of high data production associated with longer
-registration times (near the middle of the plot). Typically there
-were 16 files per drop.}
+\caption{The time taken to register all files in drops as they appeared at the end of Reconstruction jobs shows some variation, with periods of high data production associated with longer registration times (near the middle of the plot). Typically there were 16 files per drop.}
 \end{figure}
 \clearpage
 \begin{figure}[tbp]
 \centering
 \includegraphics[angle=90,width=10cm]{FNAL-network.eps}
 \label{fig:FNAL-network}
-\caption{The SRM chain was able to sustain transfer rates of more than
-10 MBps into FNAL for long periods.}
+\caption{The SRM chain was able to sustain transfer rates of more than 10 MBps into FNAL for long periods.}
 \end{figure}
 \clearpage
 \begin{figure}[tbp]
 \centering
 \includegraphics[angle=90,width=10cm]{srbtmdb.eps}
 \label{fig:RAL-files}
-\caption{States for files assigned to RAL, transfers off the buffer
-happen as files apear but loading the buffer cannot keep up with the
-rate of new files.}
+\caption{States for files assigned to RAL, transfers off the buffer happen as files apear but loading the buffer cannot keep up with the rate of new files.}
 \end{figure}
 \clearpage
 \begin{figure}[tbp]
 \centering
 \includegraphics[angle=90,width=10cm]{PIC-FT.eps}
 \label{fig:PIC-FT}
-\caption{Throughout DC04 the number of files apparently at the T0 and
- on the SE (classed as NEW or IN\_BUFFER) was negligible for PIC and
- CNAF (the diagram here is for PIC, but is equally applicable to
- CNAF), suggesting that the SE and T1 agents were able to keep up
- with the rate of generation of files at the T0. }
+\caption{Throughout DC04 the number of files apparently at the T0 and on the SE (classed as NEW or IN\_BUFFER) was negligible for PIC and CNAF (the diagram here is for PIC, but is equally applicable to CNAF), suggesting that the SE and T1 agents were able to keep up with the rate of generation of files at the T0. }
 \end{figure}
 \clearpage
 \begin{figure}[tbp]
 \centering
 \includegraphics[angle=90,width=10cm]{SE-EB-network.eps}
 \label{fig:SE-EB-network}
-\caption{Transfer rates out of the SE EB could be sustained at over 2
-MBps toward the end of DC04, and peaked at 16MBps.}
+\caption{Transfer rates out of the SE EB could be sustained at over 2 MBps toward the end of DC04, and peaked at 16MBps.}
 \end{figure}
 \clearpage
 \begin{figure}[tbp]
 \centering
 \includegraphics[angle=90,width=10cm]{PIC-stress.eps}
 \label{fig:PIC-stress}
-\caption{During a large filesize stress test at the end of DC04, files
- of 600M\ and larger were put into distribution. PIC sustained
- transfer rates of 30 MBps for 6 hours.}
+\caption{During a large filesize stress test at the end of DC04, files of 600M\ and larger were put into distribution. PIC sustained transfer rates of 30 MBps for 6 hours.}
 \end{figure}
 \clearpage
 \begin{figure}[tbp]
 \centering
 \includegraphics[angle=90,width=4cm]{CNAF-stress.eps}
 \label{fig:CNAF-stress}
-\caption{During a large filesize stress test at the end of DC04 (the
-period fro m 0 at the right of the plot), files of 600MB and larger
-were put into distribution. CNAF sustained transfer rates of 40 MBps
-for 5 hours.}
+\caption{During a large filesize stress test at the end of DC04 (the period fro m 0 at the right of the plot), files of 600MB and larger were put into distribution. CNAF sustained transfer rates of 40 MBps for 5 hours.}
 \end{figure}
 
 \end{document}
