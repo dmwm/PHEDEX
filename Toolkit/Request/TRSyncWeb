@@ -41,6 +41,7 @@ my $table = "t_files_for_transfer";
 
 foreach my $request (@ARGV)
 {
+    $request =~ s|/+$||;
     -f "$request/Request/Ticket"
         or die "$request: not a transfer request\n";
 
