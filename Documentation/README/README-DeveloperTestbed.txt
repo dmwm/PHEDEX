@@ -175,6 +175,8 @@ export PHEDEX_CATALOGUE=mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat
 [ -e $PHEDEX_STATE/cat         ] || mkdir -p $PHEDEX_STATE/cat
 [ -e $PHEDEX_STATE/tmdb        ] || mkdir -p $PHEDEX_STATE/tmdb
 
+[ -e $PHEDEX_STATE/export      ] || mkdir -p $PHEDEX_STATE/export
+
 # Update catalogue entries
 nohup `dirname $0`/DropXMLUpdate                \
         -in ${PHEDEX_STATE}/xml                 \
@@ -207,6 +209,16 @@ nohup `dirname $0`/DropTMDBPublisher            \
     -version 2                          \
     -wait 7                                     \
     >> ${PHEDEX_LOGS}/tmdb 2>&1 </dev/null &
+
+# Export-side agents
+nohup `dirname $0`/FileDiskExport             \
+        -state ${PHEDEX_STATE}/export           \
+        -node ${PHEDEX_NODE}                    \
+        -db "${PHEDEX_TMDB}"                    \
+        -dbuser ${PHEDEX_USER}                \
+        -dbpass ${PHEDEX_PASS}                  \
+        -wait 7                                 \
+        >> ${PHEDEX_LOGS}/export 2>&1 </dev/null &
 
 
 # script ends here ...
@@ -278,6 +290,8 @@ diff FileDownloadDest~ FileDownloadDest
 ---
 > local=/data/barrass/TestbedSink1/SE/$subpath/$dataset/$owner/$lfn
 
+[ FIXME: echo at end changed so it doesn't read file:$local as well! ]
+
 Now register the agent with the TMDB
 	
 NodeManager.pl add-agent \
@@ -319,6 +333,7 @@ and also the transfer agent
 -pfndest FileDownloadDest 
 -node TestbedSink1 
 -wanted 100G 
+-pass -cpcmd,cp
 >& $NODETESTBED/TestbedSink1/logs/transferlog &
 
 
