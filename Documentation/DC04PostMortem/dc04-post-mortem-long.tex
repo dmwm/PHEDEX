@@ -1,0 +1,172 @@
+\documentclass{cmspaper}
+\def\RCS$#1: #2 ${\expandafter\def\csname RCS#1\endcsname{#2}}
+\RCS$Revision: 1.3 $
+\RCS$Date: 2004/05/27 12:46:29 $
+
+\begin{document}
+\begin{titlepage}
+  \whitepaper % \internalnote{2004/XXX} % \cmsnote{2005/000} % \conferencereport{2005/000}
+  \date{Revision \RCSRevision, \RCSDate}
+  \title{Software agents in data and workflow management during DC04- post-mortem}
+
+  \begin{Authlist}
+    Tim~Barrass, Simon~Metson\Instfoot{bristol}{University of Bristol, Bristol, UK}
+    Lassi~A.~Tuura\Instfoot{neu}{Northeastern University, Boston, USA}
+    % A.~Author\Iref{cern}, B.~Author\Iref{cern}, C.~Author\IAref{cern}{a},
+    % D.~Author\IIref{cern}{ieph}, E.~Author\IIAref{cern}{ieph}{b},
+    % F.~Author\Iref{ieph}
+  \end{Authlist}
+
+  %\Instfoot{cern}{CERN, Geneva, Switzerland}
+  %\Anotfoot{a}{On leave from prison}
+  %\collaboration{CMS collaboration}
+
+  \begin{abstract}
+	This paper collates the experience gained in data distribution during
+	DC04. It details the structure used, and discusses the overall behaviour
+	of each of the components.
+  \end{abstract} 
+
+  %\conference{Presented at {\it Physics Rumours}, Coconut Island, April 1, 2005}
+  %\submitted{Submitted to {\it Physics Rumours}}
+  \note{Preliminary DRAFT version}
+\end{titlepage}
+
+\setcounter{page}{2}
+
+\section{Introduction}
+Within the last year it has become apparent that not all CMS Grid use-cases
+have either been detailed in cross-experiment studies or been
+considered by Grid components. In particular, the use case of
+\em{managed or scheduled data transfer} has not been considered, although
+the more end-user oriented cases- that of \em{optimized data access} have
+been well examined.
+
+CMS has developed a system that to meet the following requirements of DC04:
+1. data reconstructed at CERN should be delivered to Tier 1 sites for
+analysis, 2. the distribution of data should require minimal management (be
+scalable).
+
+The system, based on a structure of semi-autonomous software agents, was
+rapidly prototyped and put into production during the months of March and
+April 2004.
+
+The system proved that it was possible to transfer 25 Hz reconstructed data,
+and to reach sustained aggregate data rates of 30+ MBps. The system was also
+used to analyse data in "real time", exhibiting a median lag of only 20
+minutes between files being ready for distribution and the analysis results
+being available at a Tier 1.
+
+\section{The data distribution system}
+\subsection{Software agents}
+Agents blah. Characterised by the passing of messages and ability to act
+autonomously blah.
+
+Form a structure based on easily accessed, proven technolgies. Simplify
+message passing by providing an easily accessed context for those messages.
+TMDB also provides useful global management function- as all messages pass
+through a single point then an overview of whole system easily maintained.
+
+Define behaviour fo agents solely in terms of a very simple ontology and
+sequence of messages to be passed. Effectively transfer agents boil down to
+"handle simple transfer and register file as available".
+
+By doing this needs for local functionality can easily be met by
+implementing a new agent, in whatever language is suitable. Strictly defined
+message passing encourages the localisation of complex functionality within
+a single agent.
+
+\subsection{Components and data flow}
+The distribution system drew files from Castor stage disk and streamed
+them to a number of T1s, where they were placed in mass storage. The transfer 
+of data through the system was handled by a series of agents of limited 
+responsibility.
+
+Files were placed in the Castor stage area by Reco jobs. To trigger 
+distribution an XML catalogue fragment and checksum file were placed in a
+dropbox for an agent to find. These agents then published file information
+in the RLS and the TMDB.
+
+A Configuration agent at the T0 allocated files to specific T1s, acting as a
+simple replica manager.
+
+T0/1 agents (dedicated to a number of T1s, all using the same distribution 
+tool) scanned the Transfer Management DB for newly allocated files. 
+Generically, they drew these files from the Castor stage area and placed 
+them on an Export Buffer dedicated to a specific distribution tool.
+
+At each T1 an agent scanned the Transfer Management DB looking for 
+files that were newly available on the Export Buffer. It transferred these 
+files to the T1. Further agents ensured that the files were placed in 
+mass storage.
+
+As files appeared at T1s, other agents submitted the files to analysis
+and published the results.
+
+\section{Experience}
+Development was found to be straightforward, as only the messages to be passed
+were defined: no new frameworks or coding languages were required. Around 50
+agent instances were created, varying from a core set of 10. Each chain of
+agents was coded and trivially tested within six weeks.
+
+\subsection{Overall behaviour}
+Typically files spent x amount of time "in distribution"- that is, between
+being made available and being migrated by Castor when finally safe. Transfer 
+rates of y, sustained over z were seen.
+
+\subsection{The TMDB}
+Performed very well, except when we did something (in retrospect) daft like
+adding a new field to a table with a few hundred thousand entries in it. But
+now we've seen what happens we can make a better version...
+
+\subsection{RLS}
+Good point was that it was used as a file and metadata catalogue for three
+different distribution spaces, a use case not explicitly considered
+
+The RLS was overloaded with queries early in the experiment: agent supervisors
+noticed that (around the x) RLS queries slowed to the extent that the system
+effectively locked up.
+
+Basically due to number of parallel queries on RLS (numbers).
+
+Other problems: slow access due to java single file-
+
+Actions taken- bulk update where possible, move from java cli tools to C++ API.
+
+Results...
+
+\subsection{Dropbox agents}
+
+\subsection{SRM chain}
+The SRM chain showed that it was possible
+
+\subsection{SRB chain}
+The performance of the SRB chain was severely hampered by technical issues:
+first with availability of the MCat metadata catalogue, hosted at RAL, and
+secondly with a small number of bugs in SRB client and server, and Oracle
+Linux implementations.
+
+Did see transfer rates of ...
+
+Shut down on ...
+
+Ongoing investigations to determine causes of problems ...
+
+\subsection{LCG chain}
+The LCG chain exhibited the best performance of all the chains during DC04,
+despite there not being a Storage Element export buffer available until
+some time into the challenge.
+
+\subsection{Real-time analysis agents}
+Wow! 20 minutes lag before results available! :)
+
+\section{Conclusions and future plans}
+Gonna do it again, and it's gonna be better.
+
+\begin{thebibliography}{9}
+  \bibitem {NOTE000} {\bf CMS Note 2005/000},
+    X.Somebody et al.,
+    {\em "CMS Note Template"}.
+\end{thebibliography}
+ 
+\end{document}
