@@ -1,7 +1,7 @@
 \documentclass{cmspaper}
 \def\RCS$#1: #2 ${\expandafter\def\csname RCS#1\endcsname{#2}}
-\RCS$Revision: 1.7 $
-\RCS$Date: 2004/06/17 19:42:51 $
+\RCS$Revision: 1.8 $
+\RCS$Date: 2004/06/21 14:43:42 $
 
 \usepackage{graphicx}
 
@@ -165,6 +165,7 @@ Enumeration of file states is simpler in the V2 TMDB, as can be seen on table \r
 \label{table:states}
 \end{table}
 
+\section{Sources of data}
 \subsection{Data sources}
 
 \subsubsection{\textbf{\texttt{make files available for distribution}}}
@@ -185,7 +186,7 @@ The data sources will also need to add the first metadata to the system. This ca
     values (guid, 'checksum', theChecksum);
 \end{verbatim}}
 
-
+\section{Replica and resource management}
 \subsection{Configuration agent/ Distribution manager}
 
 The configuration agent will scan \texttt{t\_Files\_for\_transfer}
@@ -261,6 +262,9 @@ It also needs to mark the guid as allocated...
     where guid = guid1;
 \end{verbatim}}
 
+\subsection{Scheduling transfers}
+
+\subsection{Garbage collection}
 
 \subsection{Transfer agents}
 
