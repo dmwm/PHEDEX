@@ -3,11 +3,11 @@
 \red255\green255\blue0;\red255\green255\blue255;\red0\green0\blue128;\red0\green128\blue128;\red0\green128\blue0;\red128\green0\blue128;\red128\green0\blue0;\red128\green128\blue0;\red128\green128\blue128;\red192\green192\blue192;}{\stylesheet{
 \ql \li0\ri0\widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin0\itap0 \lang2057\langfe1033\cgrid\langnp2057\langfenp1033 \snext0 Normal;}{\*\cs10 \additive Default Paragraph Font;}{\*
 \ts11\tsrowd\trftsWidthB3\trpaddl108\trpaddr108\trpaddfl3\trpaddft3\trpaddfb3\trpaddfr3\trcbpat1\trcfpat1\tscellwidthfts0\tsvertalt\tsbrdrt\tsbrdrl\tsbrdrb\tsbrdrr\tsbrdrdgl\tsbrdrdgr\tsbrdrh\tsbrdrv 
-\ql \li0\ri0\widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin0\itap0 \fs20\lang1024\langfe1024\cgrid\langnp1024\langfenp1024 \snext11 Normal Table;}{\*\cs15 \additive \ul\cf2 \sbasedon10 \styrsid4148593 Hyperlink;}}{\*\rsidtbl \rsid4148593}{\info
-{\author Tim Barrass}{\operator Tim Barrass}{\creatim\yr2004\mo8\dy19\min36}{\revtim\yr2004\mo8\dy19\min56}{\version3}{\edmins14}{\nofpages2}{\nofwords321}{\nofchars1835}{\*\company University of Bristol}{\nofcharsws2253}{\vern24577}}
-\ftnbj\aenddoc\noxlattoyen\expshrtn\noultrlspc\dntblnsbdb\nospaceforul\formshade\horzdoc\dghspace180\dgvspace180\dghorigin1701\dgvorigin1984\dghshow0\dgvshow0
+\ql \li0\ri0\widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin0\itap0 \fs20\lang1024\langfe1024\cgrid\langnp1024\langfenp1024 \snext11 Normal Table;}{\*\cs15 \additive \ul\cf2 \sbasedon10 \styrsid4148593 Hyperlink;}{\*\cs16 \additive \i 
+\sbasedon10 \styrsid4148593 Emphasis;}}{\*\rsidtbl \rsid4148593}{\info{\author Tim Barrass}{\operator Tim Barrass}{\creatim\yr2004\mo8\dy19\min36}{\revtim\yr2004\mo8\dy19\hr7\min32}{\version6}{\edmins375}{\nofpages3}{\nofwords469}{\nofchars2677}
+{\*\company University of Bristol}{\nofcharsws3287}{\vern24577}}\ftnbj\aenddoc\noxlattoyen\expshrtn\noultrlspc\dntblnsbdb\nospaceforul\formshade\horzdoc\dghspace180\dgvspace180\dghorigin1701\dgvorigin1984\dghshow0\dgvshow0
 \jexpand\viewkind1\viewscale100\pgbrdrhead\pgbrdrfoot\splytwnine\ftnlytwnine\htmautsp\nolnhtadjtbl\useltbaln\alntblind\lytcalctblwd\lyttblrtgr\lnbrkrule\nobrkwrptbl\rsidroot12669697 \fet0\sectd 
-\linex0\headery708\footery708\colsx708\endnhere\sectdefaultcl\sectrsid12669697\sftnbj {\*\pnseclvl1\pnucrm\pnstart1\pnindent720\pnhang{\pntxta .}}{\*\pnseclvl2\pnucltr\pnstart1\pnindent720\pnhang{\pntxta .}}{\*\pnseclvl3\pndec\pnstart1\pnindent720\pnhang
+\linex0\headery708\footery708\colsx708\endnhere\sectdefaultcl\sectrsid4148593\sftnbj {\*\pnseclvl1\pnucrm\pnstart1\pnindent720\pnhang{\pntxta .}}{\*\pnseclvl2\pnucltr\pnstart1\pnindent720\pnhang{\pntxta .}}{\*\pnseclvl3\pndec\pnstart1\pnindent720\pnhang
 {\pntxta .}}{\*\pnseclvl4\pnlcltr\pnstart1\pnindent720\pnhang{\pntxta )}}{\*\pnseclvl5\pndec\pnstart1\pnindent720\pnhang{\pntxtb (}{\pntxta )}}{\*\pnseclvl6\pnlcltr\pnstart1\pnindent720\pnhang{\pntxtb (}{\pntxta )}}{\*\pnseclvl7
 \pnlcrm\pnstart1\pnindent720\pnhang{\pntxtb (}{\pntxta )}}{\*\pnseclvl8\pnlcltr\pnstart1\pnindent720\pnhang{\pntxtb (}{\pntxta )}}{\*\pnseclvl9\pnlcrm\pnstart1\pnindent720\pnhang{\pntxtb (}{\pntxta )}}\pard\plain 
 \ql \li0\ri0\widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin0\itap0 \lang2057\langfe1033\cgrid\langnp2057\langfenp1033 {\insrsid4148593 Using Manager scripts
@@ -20,7 +20,8 @@
 \par + NodeManager.pl
 \par \tab Used to manage node entries in the TMDB.
 \par + ReallocationManager.pl
-\par }\pard \ql \li720\ri0\widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin720\itap0\pararsid4148593 {\insrsid4148593 Used to reallocate files already in distribution to new destinations, and retrigger distribution.
+\par }\pard \ql \li720\ri0\widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin720\itap0\pararsid4148593 {\insrsid4148593 Used to reallocate files already in distribution to new destinations, and retrigger distribution. NOTE that reallocation }{
+\i\insrsid4148593\charrsid4148593 doesn\rquote t}{\insrsid4148593  imply that the original allocations are removed! Only extra allocations are made.
 \par }\pard \ql \li0\ri0\widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin0\itap0\pararsid4148593 {\insrsid4148593 
 \par 
 \par 
@@ -92,5 +93,36 @@ http://cat-contact-string}}}{\insrsid4148593  \\\\
 \par \tab -db theDBTNSname \\\\
 \par \tab -user DBusername \\\\
 \par \tab -password DBpassword
-\par }{\insrsid12669697 
+\par 
+\par 
+\par 
+\par 
+\par + Reallocate files
+\par You might have some set of files that is already in distribution; you want to reallocate these files to a new destination and retrigger distribution.
+\par 
+\par Currently this script uses a trivial algorithm that retriggers distribution from the original source. It doesn\rquote t make sure that the files are available at the source (i.e. staged). More sophisticated algorithms 
+are obviously required to e.g. search back from new destination for closest replicas; ensure staging of retriggered files; subscribe the node requesting the data to the dataset; etc
+\par 
+\par You can retrigger distribution based on original source node- that is, all files sourced at a certain node
+\par 
+\par ./ReallocationManager trivial \\\\
+\par \tab -for nodeToReallocateTo \\\\
+\par \tab -source sourcenode
+\par \tab \u8230\'85
+\par 
+\par Similarly you can reallocate all files headed for a certain destination node
+\par 
+\par ./ReallocationManager trivial \\\\
+\par \tab -for nodeToReallocateTo \\\\
+\par \tab -destination destinationnode
+\par \tab \u8230\'85
+\par 
+\par 
+\par Finally you can reallocate all files in a certain dataset
+\par 
+\par ./ReallocationManager trivial \\\\
+\par \tab -for nodeToReallocateTo \\\\
+\par \tab -dataset dataset
+\par \tab \u8230\'85
+\par 
 \par }}
