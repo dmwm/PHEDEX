@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/28 15:43:49 $
-# $Id: Allocator.pl,v 1.21 2004/07/28 15:43:49 barrass Exp $
+# $Date: 2004/07/28 15:45:06 $
+# $Id: Allocator.pl,v 1.22 2004/07/28 15:45:06 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -67,10 +67,22 @@ while(!(-e "$g_work_dir/stop")) {
     my $loop_start = time();
 
     my %dataset_by_new_guid = &get_new_guid_list;
+    # Do error check!
     my $guid = '';
     
+    my %destinations_by_dataset = &get_current_subscriptions;
+    # Do error check!
+    
     foreach $guid ( keys %dataset_by_new_guid ) {
-        log_entry( "$guid\t$dataset_by_new_guid{$guid}" );
+        
+        if ( exists( $destinations_by_dataset{$dataset_by_guid{$guid}} ) ) {
+            log_entry( "Will allocate to "$destinations_by_dataset{$dataset_by_guid{$guid}}" );
+            
+            # Do allocation here
+            
+        else {
+            add_new_stream_to_subscriptions( $dataset_by_guid{$guid} );
+        }
     }
 
     $time = time();
@@ -90,7 +102,6 @@ sub log_entry {
 }
 
 sub get_new_guid_list {
-	my @new_guids = ();
 	my @row;
 	my $count = 0;
 	my $selection = "select t_files_for_transfer.guid,"
@@ -114,7 +125,6 @@ sub get_new_guid_list {
 		
         $query->execute();while (@row = $query->fetchrow_array) {	
 	       $count++;
-	       log_entry( "@row" );
 	       $guid_list{$row[0]}  = $row[1];
         }
         log_entry(  "Found $count new GUIDs" );
@@ -136,7 +146,110 @@ sub get_new_guid_list {
 	return (%guid_list);
 }
 
+sub get_current_subscriptions {
+	my @row;
+	my $count = 0;
+	my $selection = "select * from t_subscriptions";
 
+    my %subs = ();
+
+	eval {
+        my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
+		    				 	'CMS_TRANSFERMGMT_WRITER', 
+		      				 	'threeBagsFULL', 
+		  	       			 	{ RaiseError=>1, AutoCommit =>1 });
+		  				 	
+        my $query = $dbh->prepare($selection);	
+		
+        $query->execute();while (@row = $query->fetchrow_array) {	
+	       $count++;
+	       $guid_list{$row[1]}  .= "$row[0] ";
+        }
+        log_entry(  "Found $count new GUIDs" );
+        $query->finish();
+        
+        $dbh->disconnect();
+	};
+	
+	if (@_) {
+        log_entry( "Database operation failed... @_" );
+        if ($dbh)
+        {
+            $dbh->rollback;
+            $dbh->disconnect;
+        }
+        return 1;
+    }
+	
+	return (%guid_list);
+}
+
+sub add_new_stream_to_subscriptions {
+    my $new_stream = shift;
+
+    my $insert = "insert into t_subscriptions values ('','$new_stream')";
+
+    my $dbh = DBI->connect(    "DBI:Oracle:$g_db",
+					    'CMS_TRANSFERMGMT',
+					    'smallAND_round',
+					    { RaiseError=>1, AutoCommit =>1 });
+
+    log_entry(ENTRY=>"New stream for subscriptions- $new_stream");
+    $dbh->do($insert) if (!$no_updates);
+
+    $dbh->disconnect;
+}
+
+sub parse_command_line () {
+	GetOptions(	'w=s' => \$new_work_dir,
+				'db=s' => \$g_db,
+				"no-updates" => \$g_no_updates,
+				'u=s' => \$g_pool_uri,
+				"once" => \$g_once,
+				'period=i' => \$g_period
+				);
+	
+	my $entry = '';
+	
+	$g_work_dir = $g_work_dir.$new_work_dir;
+	$entry = $entry."work dir is $g_work_dir,";
+	if (-e "$g_work_dir/pid") {
+		log_entry( "Removing old pid file");
+		unlink("$g_work_dir/pid");
+	} 
+	if (-e "$g_work_dir/stop") {
+		log_entry( "Removing old stop file" );
+		unlink ("$g_work_dir/stop");
+	}
+	if (!$g_db) {
+		$g_db = "devdb9";
+		
+	}
+	$entry = $entry."database is $g_db,";
+	if ($g_pool_uri) {
+		$entry = $entry."using POOL cat $g_pool_uri, ";
+	}	
+	if ($g_no_updates) {
+		$entry = $entry."not making final updates, ";
+	}	
+	if ($g_once) {
+		$entry = $entry."only running once, ";
+	}
+    if ($g_period) {
+		$entry = $entry."with period $g_period, ";
+	}	
+	
+	$time = time();
+	
+	print "Unprocessed by Getopt::Long\n" if $ARGV[0];
+	foreach (@ARGV) {
+	  print "$_\n";
+	}
+	
+	log_entry( $entry );
+}
+
+# JUNK FROM HERE DOWN
 
 
 
@@ -174,22 +287,7 @@ sub get_all_agent_names_of_type {
 	return @list;
 }
 
-sub add_new_stream_to_subscriptions {
-    my $new_stream = shift;
 
-    my $insert = "insert into subscriptions values ('','$new_stream')";
-
-    my $dbh = DBI->connect(    "DBI:Oracle:$g_db",
-					    'CMS_TRANSFERMGMT',
-					    'smallAND_round',
-					    { RaiseError=>1, AutoCommit =>1 });
-
-    log_entry(ENTRY=>"New stream for subscriptions- $new_stream");
-    $dbh->do($insert) if (!$no_updates);
-
-    $dbh->disconnect;
-    
-}
 
 sub get_available_agents_of_type {
 	my %args = (
@@ -277,51 +375,4 @@ sub load_t1_eb_associations {
 	return (\%t1s_by_eb, \%eb_by_t1);
 }
 
-sub parse_command_line () {
-	GetOptions(	'w=s' => \$new_work_dir,
-				'db=s' => \$g_db,
-				"no-updates" => \$g_no_updates,
-				'u=s' => \$g_pool_uri,
-				"once" => \$g_once,
-				'period=i' => \$g_period
-				);
-	
-	my $entry = '';
-	
-	$g_work_dir = $g_work_dir.$new_work_dir;
-	$entry = $entry."work dir is $g_work_dir,";
-	if (-e "$g_work_dir/pid") {
-		log_entry( "Removing old pid file");
-		unlink("$g_work_dir/pid");
-	} 
-	if (-e "$g_work_dir/stop") {
-		log_entry( "Removing old stop file" );
-		unlink ("$g_work_dir/stop");
-	}
-	if (!$g_db) {
-		$g_db = "devdb9";
-		
-	}
-	$entry = $entry."database is $g_db,";
-	if ($g_pool_uri) {
-		$entry = $entry."using POOL cat $g_pool_uri, ";
-	}	
-	if ($g_no_updates) {
-		$entry = $entry."not making final updates, ";
-	}	
-	if ($g_once) {
-		$entry = $entry."only running once, ";
-	}
-    if ($g_period) {
-		$entry = $entry."with period $g_period, ";
-	}	
-	
-	$time = time();
-	
-	print "Unprocessed by Getopt::Long\n" if $ARGV[0];
-	foreach (@ARGV) {
-	  print "$_\n";
-	}
-	
-	log_entry( $entry );
-}
+
