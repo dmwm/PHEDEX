@@ -166,7 +166,19 @@ sub get_new_routes {
     while (@row = $query->fetchrow_array) {
         foreach (@row) { s/ //g; }
 	$row[3]++;
-	push( @new_routes, join( ":",@row ) );
+
+	# Here we handle split horizon with poisoned reverse
+	# Split horizon means that if we detect a route for
+	# which we are the gateway, we ignore it. Split 
+	# horizon with poisoned reverse means that we accept
+	# routes through us, but set the number of hops to
+	# "infinity".
+	if ($row[0] eq $g_parent_node) {
+	    $row[3] = $g_infinity;
+	} else {
+	    push( @new_routes, join( ":",@row ) );
+	}
+
     }
     $query->finish();
     $dbh->disconnect();
@@ -200,8 +212,7 @@ sub compare_with_existing_routes {
         foreach (@row) { s/ //g; }
 	if (exists $gate_time_hops_by_dest{$row[1]} ){ log_entry( "Something wrong in routing: multiple entries for $row[1] under $g_parent_node table!" ); }
 	my $gate_time_hops;
-	$gate_time_hops = "$row[0]:$row[2]:$row[3]";
-	$gate_time_hops_by_dest{$row[1]} = $gate_time_hops;
+	$gate_time_hops_by_dest{$row[1]} = "$row[0]:$row[2]:$row[3]";
     }
     $query->finish();
     $dbh->disconnect();
