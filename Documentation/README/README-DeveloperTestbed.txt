@@ -174,8 +174,17 @@ DeployNode
 
 
 
-3. One-time Use
----------------
+2i. Shutting the nodes down
+---------------------------
+
+. GLOBAL/stop.sh
+. First/stop.sh
+. Second/stop.sh
+
+
+
+3. Use
+------
 
 3a. Making test data available at a simple source node
 ------------------------------------------------------
@@ -184,9 +193,11 @@ Now create some test files residing at the simple source node: make sure that
 $POOL_CATALOG is set, then
 
 cd /NodeTestbed/TestbedSource1/SE
+mkdir NodeTestbedSet
+cd NodeTestbedSet
 CreateTestFiles
 5
-TestbedSource1
+First
 <contact string>
 <user>
 <password>
@@ -202,6 +213,8 @@ catalogue and then entering them into the TMDB.
 
 To remove test data from the system
 	
+[ FIXME: This actually doesn't work at the moment! ]
+
 cd /NodeTestbed/TestbedSource1/SE
 DeleteTestFiles
 <contact string>
@@ -210,8 +223,8 @@ DeleteTestFiles
 
 
 
-3b. Subscribing a sink node to certain data streams
----------------------------------------------------
+3b. Subscribing a node to certain data streams
+----------------------------------------------
 
 CreateTestFiles adds a metadata tag to each file it creates in the TMDB- in 
 t_replica_metadata it sets the key POOL_dataset to NodeTestbedSet. A sink can 
@@ -220,12 +233,25 @@ table [this functionality will be offered by a web page].
 
 In an SQL client
 
-insert into t_subscriptions values ('TestbedSink1','NodeTestbedSet');
+insert into t_subscriptions values ('Second','NodeTestbedSet');
 
 As all the agents are running, the files should- after a few seconds- be 
 picked up and transferred.
 
 
 
-4. Steady-state use
--------------------
+3c. Monitoring what's going on
+------------------------------
+
+The only method for doing this at the moment is at a very low level- by
+watching log files. This method will be replaced by the web interface asap-
+the same web interface as is used by the production system.
+
+You can monitor the progress with
+
+tail -f First/logs/*
+tail -f GLOBAL/logs/*
+tail -f Second/logs/*
+
+but you may need to be pretty quick off the mark :o) After the files have been
+transferred you should see them in Second/SE[/NodeTestbedSet/TestbedFile*]
