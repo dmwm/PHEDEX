@@ -11,13 +11,20 @@ export STAGE_POOL=cms_prod2;
 # PERL5LIB
 
 #### Drop box agents
+### AGENT LABEL=omerge PROGRAM=Toolkit/DropBox/DropFunnel STATEOPT=in DEFAULT=off
+ -out ${PHEDEX_STATE}/null
+ -queue . 1800 1990
+ # -remove -store /castor/cern.ch/cms/PCP04/Zip
+ -jobs 5
+ -wait 90
+
 ### AGENT LABEL=merge PROGRAM=Toolkit/DropBox/DropFunnel STATEOPT=in
  -out ${PHEDEX_STATE}/null
- # -queue . 1800 1500 # 1990
- # -remove -store /castor/cern.ch/cms/PCP04/Zip
+ -queue . 0 1990
+ -jobs 100
+ -wait 3600
  -dryrun
- -jobs 10
- -wait 90
+ -once
 
 ### AGENT LABEL=null PROGRAM=Toolkit/DropBox/DropNullAgent STATEOPT=in DEFAULT=off
  -wait 7
