@@ -1,7 +1,7 @@
 \documentclass{cmspaper}
 \def\RCS$#1: #2 ${\expandafter\def\csname RCS#1\endcsname{#2}}
-\RCS$Revision: 1.8 $
-\RCS$Date: 2004/06/21 14:43:42 $
+\RCS$Revision: 1.9 $
+\RCS$Date: 2004/06/28 17:34:29 $
 
 \usepackage{graphicx}
 
@@ -131,8 +131,46 @@
     routers).  The routing algorithm is described in a separate white paper.
 \end{description}
 
+\section{Registration and removal of network components}
+This section details the low-level SQL required to register and remove distribution network components, and how to form/remove route links between neighbours. In practice each of these processes will be wrapped by a tool (see Managers section in CVS).
 
+\subsection{Adding a new node}
+To add a new node you first determine name, host string (hostname of disk server/SE that it manages- although this can be any string that uniquely identifies pfns in the file catalogue as being at this node) and catalogue contact URL. For example, a node named TBSource1, with hostname/pfn matching string /NodeTestbed/TestbedSource1/SE and catalogue xmlcatalogue_file:/NodeTestbed/TestbedCatalogue.xml.
 
+	insert into t_nodes values
+		(‘TBSource1’,
+		’/NodeTestbed/TestbedSource1/SE’,
+		’xmlcatalogue_file:/NodeTestbed/TestbedCatalogue.xml’);
+
+If the new node is to be a neighbour of another node- say TBSink1 for the example above, then you need to build the route between them
+
+	insert into t_routing values
+		('TBSource1','TBSink1','TBSink1',0,1);
+	insert into t_routing values
+		('TBSink1','TBSource1','TBSource1',0,1);		
+
+\subsection{Adding a new agent name}
+If your desired agent name differs from an already used name then you need to register it- for example an agent named GUCTransfer
+
+	insert into t_agents values
+		('GUCTransfer');
+
+\subsection{Removing a node}
+Removing nodes is somewhat tricky, as it also requires that there are no refrences to that node, so if there are still entries in t_file_state relating to it then  they need to be dealt with first. We also need to fix the routing afterwards: this is best done by removing all references to the node in the routing table.
+
+So, for the example above, assuming that there are no references in the database to the node, then to remove TBSource1
+
+	delete from t_routing
+		where from_node = 'TBSource1';
+	delete from t_routing
+		where to_node = 'TBSource1';
+	delete from t_routing
+		where gateway = 'TBSource1';
+		
+	delete from t_nodes
+		where node_name = 'TBSource1'; 
+ 
+These are, however, relatively trivial cases. Imagine you have the existing network A-B, and you want to add C between A and B to create A-C-B. First you need to remove the existing link, then create the new node. If you then want to remove C you need to remove C first, then restore the A-B link
 
 
 \section{Requirement of sources of data and agents}
