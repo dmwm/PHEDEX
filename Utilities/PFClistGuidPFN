@@ -84,7 +84,7 @@ sub runQueries
     local $| = 1;
 
     # Create jobs to resolve guids to pfns
-    my $mgr = new UtilsJobManager (%args);
+    my $mgr = new UtilsJobManager (NJOBS => $args{JOBS});
     my $cmd = "POOL_OUTMSG_LEVEL=100"
     	      . " $home/../../Utilities/FClistGuidPFN"
 	      . " -u '$args{CATALOGUE}'"
@@ -92,7 +92,7 @@ sub runQueries
 	      . ($args{MATCH} ? " -m" : "");
     foreach my $item (@$items)
     {
-	my $output = qx(mktemp /tmp/tmp.XXXXXXX); chomp ($output);
+	my $output = "/tmp/tmp.$$.$item";
 	$mgr->addJob (sub { &collectResult($mgr, @_) },
 	    { OUTPUT => $output, PATTERN => $item },
 	    "sh", "-c", "$cmd '$item' > $output");
