@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/27 13:37:48 $
-# $Id: Allocator.pl,v 1.8 2004/07/27 13:37:48 barrass Exp $
+# $Date: 2004/07/27 13:40:54 $
+# $Id: Allocator.pl,v 1.9 2004/07/27 13:40:54 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -80,7 +80,7 @@ sub log_entry {
     my $entry = shift;
 	my $time = time();
 	my $localtime = localtime($time);
-	print "$localtime [$$] $args{ENTRY}\n";
+	print "$localtime [$$] $entry\n";
 }
 
 sub get_new_guid_list {
