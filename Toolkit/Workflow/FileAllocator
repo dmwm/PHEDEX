@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/29 09:46:31 $
-# $Id: Allocator.pl,v 1.37 2004/07/29 09:46:31 barrass Exp $
+# $Date: 2004/07/29 10:07:50 $
+# $Id: Allocator.pl,v 1.38 2004/07/29 10:07:50 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -78,7 +78,6 @@ while(!(-e "$g_work_dir/stop")) {
     foreach $guid ( keys %dataset_by_new_guid ) {
         
         if ( exists( $destinations_by_dataset{$dataset_by_new_guid{$guid}} ) ) {
-            log_entry( "$guid will go toward $destinations_by_dataset{$dataset_by_new_guid{$guid}}" );
             
             @destinations = split( / /, $destinations_by_dataset{$dataset_by_new_guid{$guid}} );
             foreach $dest ( @destinations ) {
@@ -86,7 +85,7 @@ while(!(-e "$g_work_dir/stop")) {
                 my $gateway = lookup_route( $source_node_by_guid{$guid}, $dest );
                 if ( $gateway == '' ) {
                     # Could be transient, leave it for later...
-                    log_entry( "Ag, no route from $source_node_by_guid{$guid} to $dest" );
+                    log_entry( "Ag, no route from $source_node_by_guid{$guid} to $dest for $guid" );
                 } else {
                     my $time = time();
                     log_entry( "$guid source: $source_node_by_guid{$guid} dest: $dest via: $gateway" );
@@ -197,10 +196,6 @@ sub get_current_subscriptions {
             $dbh->disconnect;
         }
         return 1;
-    }
-    
-    foreach $sub ( keys %destinations ) {
-        log_entry( "$sub: $destinations{$sub}" );
     }
 	
 	return ( %destinations );
