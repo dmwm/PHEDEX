@@ -73,7 +73,7 @@ sub new
 	  	  DBPASS => undef,		# Database user password
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  MSSNODE => undef,		# MSS TMDB node name
-	  	  AGENTID => "DownloadFromMSS");# Identity for activity logs
+	  	  AGENTID => "MSSUpload");	# Identity for activity logs
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -87,8 +87,6 @@ sub idle
     my $dbh = undef;
     eval
     {
-	my $mynode = $self->{MYNODE};
-	my $mssnode = $self->{MSSNODE};
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
         # FIXME: Pick up and process messages to me
@@ -102,30 +100,31 @@ sub idle
 	# node -- they all go from the transfer node, which must
 	# always be closer to any destination that us and already
 	# has all the files we have.
-	my %args = (":node" => $self->{MYNODE},
-		    ":mss" => $self->{MSSNODE},
-		    ":now" => time());
-	my ($stmt, $rows) = &dbexec($dbh, qq{
-	    insert into t_replica_state
-	       (guid, node, state, local_state,
-	        insert_time_stamp, time_stamp, local_time_stamp)
-	       (select guid, :node, 0, 0, :now, :now, :now
-	        from t_transfer_state
-	        where from_node = :mss
-		  and to_node = :node
-		  and to_state = 0)},
-  	    %args);
-  	my ($stmt2, $rows2) = &dbexec($dbh, qq{
-	    update t_transfer_state
-	    set to_state = 3, to_time_stamp = :now
-	    where from_node = :mss
-	      and to_node = :node
-	      and to_state = 0},
-	    %args);
-  	$dbh->commit();
+	my $now = &mytimeofday();
+	my $stmt = &dbexec ($dbh, qq{
+	    select guid, from_timestamp from t_transfer_state
+	    where from_node = :mss and to_node = :node and to_state = 0},
+	    ":node" => $self->{MYNODE}, ":mss" => $self->{MSSNODE});
+	while (my ($guid, $start) = $stmt->fetchrow())
+	{
+	    &dbexec ($dbh, qq{
+		insert into t_replica_state
+		    (timestamp, guid, node, state, state_timestamp)
+		    values (:now, :guid, :node, 0, :now)},
+		":node" => $self->{MYNODE}, ":now" => $now, ":guid" => $guid);
 
-	&logmsg("$rows files uploaded from $mssnode to $mynode ($rows2 updates)")
-	    if ($rows > 0 || $rows2 > 0);
+	    &dbexec ($dbh, qq{
+		update t_transfer_state
+		set to_state = 3, to_timestamp = :now
+		where guid = :guid and to_node = :node},
+		":node" => $self->{MYNODE}, ":now" => $now, ":guid" => $guid);
+
+	    $dbh->commit ();
+
+	    my $end = &mytimeofday();
+	    &logmsg ("xstats: $guid $self->{MYNODE} 3 "
+		     . sprintf('%.2f %.2f', $end - $start, $end - $now));
+	}
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
@@ -134,6 +133,5 @@ sub idle
     undef $dbh;
 
     # Check children are still running and then wait
-    $self->maybeStop ();
-    sleep ($self->{WAITTIME});
+    $self->nap ($self->{WAITTIME});
 }
