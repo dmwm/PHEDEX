@@ -5,7 +5,7 @@
 BEGIN {
   use strict; use warnings;
   our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Common";
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);
 }
 
@@ -94,7 +94,7 @@ sub idle
 	my $site = $self->{SITEID};
 	my $host = &getfullhostname();
 	my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-	open (STATUS, "$home/DropStatus $self->{AGENTDIR}/* |") or return;
+	open (STATUS, "$home/../../Utilities/DropStatus $self->{AGENTDIR}/* |") or return;
 	while (<STATUS>)
 	{
 	    if (/^.*\/(\S+):/)

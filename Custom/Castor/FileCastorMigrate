@@ -10,10 +10,12 @@
 ## FIXME: tape management -- what happens with files that are not
 ## destined to tape but are copied to /castor?  Do we care?
 
-BEGIN { use strict; use warnings; }
-my $me = $0; $me =~ s|.*/||;
-my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-unshift(@INC, $home);
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
 
 ######################################################################
 $ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host

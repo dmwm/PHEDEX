@@ -30,7 +30,7 @@ sub guidToPFN
 	my @slice = @items[$#items - $n .. $#items];
 	delete @items[$#items - $n .. $#items];
 
-        open (CAT, "POOL_OUTMSG_LEVEL=100 $home/FClistGuidPFN -u '$catalogue' -g @slice |")
+        open (CAT, "POOL_OUTMSG_LEVEL=100 $home/../../Utilities/FClistGuidPFN -u '$catalogue' -g @slice |")
 	    or do { &alert ("cannot run FClistGuidPFN: $!"); return undef; };
         while (<CAT>)
         {
@@ -98,7 +98,7 @@ sub pfnToGUID
 	my @slice = @items[$#items - $n .. $#items];
 	delete @items[$#items - $n .. $#items];
 
-        open (CAT, "POOL_OUTMSG_LEVEL=100 $home/FClistGuidPFN -u '$catalogue' -p @slice |")
+        open (CAT, "POOL_OUTMSG_LEVEL=100 $home/../../Utilities/FClistGuidPFN -u '$catalogue' -p @slice |")
 	    or do { &alert ("cannot run FClistGuidPFN: $!"); return undef; };
         while (<CAT>)
         {

@@ -26,7 +26,7 @@
 BEGIN {
   use strict; use warnings;
   our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Common";
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);
 }
 
@@ -500,7 +500,7 @@ sub startWorker
     return $pid if $pid;
 
     # Child.
-    my @args = ("$::home/DropFunnelWorker",
+    my @args = ("$::home/../DropBox/DropFunnelWorker",
 		"-main", $self->{DROPDIR}, "-in", $workerdir,
 		(map { ("-out", $_) } @{$self->{NEXTDIR}}),
 		"-stagehost", $ENV{STAGE_HOST}, "-stagepool", $ENV{STAGE_POOL},
