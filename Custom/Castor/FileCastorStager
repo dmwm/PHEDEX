@@ -303,7 +303,7 @@ sub idle
 	# the files that are truly currently staged-in.
 	my $now = time();
 	$dbh->do(qq{update t_replica_state
-		set local_state = (local_state/1000)*1000 + 0,
+		set local_state = trunc(local_state,-3) + 0,
 		    local_time_stamp = $now
 		where node = '$mynode' and mod(local_state,1000) = 1});
 	foreach my $guid (map { $_->{GUID} }
@@ -311,7 +311,7 @@ sub idle
 				values %$files))
 	{
 	    $dbh->do(qq{update t_replica_state
-		set local_state = (local_state/1000)*1000 + 1,
+		set local_state = trunc(local_state,-3) + 1,
 		    local_time_stamp = $now
 		where guid = '$guid' and node = '$mynode'});
 	    # &logmsg ("stats: $guid @{[&formatElapsedTime($timing)]} success");
