@@ -56,21 +56,6 @@ eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
 ######################################################################
 # Routines specific to this agent.
 
-# Find out stager status for a file
-sub stageQueryFile
-{
-    my $pfn = shift;
-    my $status = "UNSTAGED";
-    open (PFN, "stageqry -h $ENV{STAGE_HOST} --noheader --format status -M $pfn |");
-    while (<PFN>) 
-    {
-	chomp;
-	$status = $_;
-    }
-    close (PFN);
-    return $status;
-}
-
 # Find out if the PFN exists in Castor, and if so, the tape it is on,
 # the position on the tape and the file size.  Return a four-tuple of
 # success, tape, position and size.  The success is zero if we failed
@@ -86,19 +71,21 @@ sub fileProperties
     return (1, $tape, $pos, $size);
 }
 
-# Find out which files are currently staged in.  Returns the list of
-# PFNs currently staged in on the disk pool, or undef if stageqry
-# cannot be run.  The latter should be treated as a transient error.
-sub stagedInFiles
+# Find out files stager knows about.  Returns a reference to a hash of
+# PFNs currently in the stager disk pool, each with stager status such
+# as "STAGED" or "STAGEIN".   Returns undef if stageqry cannot be run.
+# The latter should be treated as a transient error.
+sub stagerFileList
 {
     open(STAGEQ, "stageqry -h $ENV{STAGE_HOST} -p $ENV{STAGE_POOL} -a --format status,xfile |")
 	|| return undef;
-    my @files = ();
+    my $files = {};
     while (<STAGEQ>) {
-	push(@files, $1) if (/^STAGED\s+(\S+)\s*$/);
+	my ($status, $file) = split(/\s+/, $_);
+	$files->{$file} = $status;
     }
     close(STAGEQ);
-    return @files;
+    return $files;
 }
 
 # Figure out tape mount load level.  Returns a tuple of total number
@@ -164,7 +151,7 @@ sub checkFileStatus
     }
 
     # Check if it's in the list of staged in files.
-    return $STAGE_ON_DISK if grep ($_ eq $pfn, @$stagedin);
+    return $STAGE_ON_DISK if (($stagedin->{$pfn} || '') eq 'STAGED');
 
     # If it's more than 15 minutes since we last requested for
     # stage-in, check that the system still knows we want it.
@@ -189,9 +176,8 @@ sub checkFileStatus
 
 	$file->{LAST} = $now;
 	$file->{DIRTY} = 1;
-	my $status = &stageQueryFile ($pfn);
-	return $STAGE_RETRY if ! defined $status;
-	return $STAGE_PENDING if $status eq 'STAGEIN'; # Still known
+	return $STAGE_RETRY if ! defined $stagedin->{$pfn};
+	return $STAGE_PENDING if $stagedin->{$pfn} eq 'STAGEIN'; # Still known
 	&alert ("File lost STAGEIN status, requesting again: $pfn");
     }
 
@@ -339,13 +325,13 @@ sub processAllFiles
         my @files = &readStageInProgress (@pending);
 
         # Get the list of files already staged in
-        my @staged = &stagedInFiles();
-        return if grep (! defined $_, @staged);
+        my $stagedin = &stagerFileList();
+        return if ! defined $stagedin;
 
         # Update status
         foreach my $file (@files) {
 	    &maybeStop();
-            &updateFileStatus ($file, \@staged);
+            &updateFileStatus ($file, $stagedin);
         }
 
         # Write out the new file state
