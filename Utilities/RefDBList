@@ -101,6 +101,27 @@ cat_collections() {
    rm -fr $vfs
 }
   
+# Same as cat_collections, but using production web pages
+prod_collections() {
+  # Get all dataset/owner pairs
+  tmp=$(mktemp /tmp/refdb.XXXXXX)
+  download_getit $tmp \
+    "http://cmsdoc.cern.ch/cms/production/www/cgi/SQL/dataset-discovery.php?DSPattern=%25&OwPattern=%25&ProducedOn=&scriptstep=1"
+
+  # Find the matches
+  perl -n -e '
+    if (/INPUT.*SelDataset.*value=["'\''](.*)["'\'']>/) { $ds=$1; }
+    elsif (/OPTION.*value=["'\''](.*)\(\d+\)["'\'']/) { print "$ds.$1\n"; }' $tmp |
+    while read dso; do
+      for pat in "$@"; do
+        case $dso in $pat ) echo $dso ;; esac
+      done
+    done
+
+  # Nuke temp
+  rm -f $tmp
+}
+
 # Process options
 patfile=
 while [ $# -gt 0 ]; do
@@ -115,4 +136,4 @@ done
 
 [ -n "$patfile" ] && set -- ${1+"$@"} $(cat $patfile)
 [ $# -eq 0 ] && set -- "*.*"
-cat_collections "$@"
+prod_collections "$@"
