@@ -2,7 +2,6 @@
 
 import kenosis, sys, os, os.path, re
 from optparse import OptionParser
-from commands import getoutput
 from UtilsAgent import *
 
 class LogAccess:
