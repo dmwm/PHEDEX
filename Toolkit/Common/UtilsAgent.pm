@@ -510,7 +510,15 @@ sub connectToDatabase {
 sub idle
 {
     my ($self, @pending) = @_;
-    sleep ($self->{WAITTIME});
+    $self->nap ($self->{WAITTIME});
+}
+
+# Sleep for a time, checking stop flag every once in a while.
+sub nap
+{
+    my ($self, $time) = @_;
+    my $target = &mytimeofday () + $time;
+    do { $self->maybeStop(); sleep (1); } while (&mytimeofday() < $target);
 }
 
 1;
