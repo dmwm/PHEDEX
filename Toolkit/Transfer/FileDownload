@@ -33,7 +33,7 @@ BEGIN {
 }
 
 ######################################################################
-my %args = (DBITYPE => "Oracle");
+my %args = (DBITYPE => "Oracle", NJOBS => 1);
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
@@ -64,6 +64,10 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{BATCH_FILES} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-batch-size' && scalar @ARGV > 1)
     { shift (@ARGV); $args{BATCH_SIZE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-validate' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{VALIDATE_COMMAND}}, split (/,/, shift(@ARGV))); }
+    elsif ($ARGV[0] eq '-delete' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{DELETE_COMMAND}}, split (/,/, shift(@ARGV))); }
     elsif ($ARGV[0] eq '-command' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{COMMAND}}, split (/,/, shift(@ARGV))); }
     elsif ($ARGV[0] eq '-timeout' && scalar @ARGV > 1)
@@ -85,8 +89,9 @@ if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
 	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
 	"    -node NODE-NAME -pfndest PROGRAM -wanted SIZE[kMGT]\n",
 	"    [-batch-files N-FILES-LIMIT] [-batch-size SIZE-LIMIT[kMGT]]\n",
-	"    [-command COPY-COMMAND[,ARGS]] [-jobs NUM-PARALLEL-PROCESSES]\n",
-	"    [-timeout TIMEOUT] [-wait SECS-TO-WAIT]\n";
+	"    [-timeout TIMEOUT] [-command COPY-COMMAND[,ARGS]]\n",
+	"    [-validate COMMAND[,ARGS]] [-delete COMMAND[,ARGS]]\n",
+	"    [-jobs NUM-PARALLEL-PROCESSES] [-wait SECS-TO-WAIT]\n";
     exit (1);
 }
 
@@ -136,7 +141,8 @@ sub new
 	  	  AGENTID => "Download");	# Identity for activity logs
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
-    $self->{BACKEND} = eval "use UtilsDownload$args{BACKEND_TYPE}; new UtilsDownload$args{BACKEND_TYPE}(\@_)";
+    $self->{BACKEND} = eval ("use UtilsDownload$args{BACKEND_TYPE};"
+	    		     . " new UtilsDownload$args{BACKEND_TYPE}(\@_)");
     die "Failed to create backend: $@\n" if $@;
     bless $self, $class;
     return $self;
@@ -351,7 +357,7 @@ sub completeTransferBatch
 sub startFileTransfer
 {
     my ($self, $dbh, $info) = @_;
-    my ($guid, $size, $timestamp,
+    my ($guid, $size, $cksum, $timestamp,
 	$from_node, $from_catalogue, $from_host,
 	$to_catalogue, $attrs) = @$info;
 
@@ -379,6 +385,7 @@ sub startFileTransfer
     # Return a transfer object.
     return { GUID		=> $guid,
 	     FILESIZE		=> $size,
+	     CHECKSUM		=> $cksum,
 	     TIME_ALLOC		=> $timestamp,
 	     TIME_START		=> &mytimeofday(),
 	     FROM_NODE		=> $from_node,
@@ -489,16 +496,18 @@ sub nextFiles
 	my $mynode = $self->{MYNODE};
 	my $stmt = $dbh->prepare (qq{
 		select ts.guid,
-		       m.value,
+		       m1.value,
+		       m2.value,
 		       ts.from_time_stamp,
 		       ts.from_node,
 		       n1.catalogue_contact,
 		       n1.host_string,
 		       n2.catalogue_contact
 		from t_transfer_state ts
-		left join t_replica_metadata m
-		  on m.guid = ts.guid
-		  and m.attribute = 'filesize'
+		left join t_replica_metadata m1
+		  on m1.guid = ts.guid and m1.attribute = 'filesize'
+		left join t_replica_metadata m2
+		  on m2.guid = ts.guid and m2.attribute = 'checksum'
 		left join t_nodes n1
 		  on n1.node_name = ts.from_node
 		left join t_nodes n2
@@ -533,11 +542,14 @@ sub nextFiles
 sub idle
 {
     my ($self, @pending) = @_;
-    if (my $dbh = &connectToDatabase ($self))
+    my $dbh = undef;
+    my $more = 0;
+    eval
     {
+    	$dbh = &connectToDatabase ($self) or die "failed to connect";
         # FIXME: Pick up and process messages to me
 
-	# If there are no pending jobs, make sure database ghosts
+	# If there are no pending jobs, kill database ghosts
 	my $now = time();
 	if (scalar @{$self->{JOBS}} == 0 && $self->{LAST_RESET} < $now - 900)
 	{
@@ -550,24 +562,31 @@ sub idle
         # Request some more files
         $self->markFilesWanted ($dbh);
 
-	# If there's still space in job queue, start new transfers.
+	# Initiate as many transfers as we can.
 	while (scalar @{$self->{JOBS}} < $self->{NJOBS})
 	{
+	    last if ! ($more = $self->{BACKEND}->consumeFiles ($self, $dbh));
 	    $self->maybeStop ();
 	    $self->pumpJobs ();
-	    last if ! $self->{BACKEND}->consumeFiles ($self, $dbh);
 	}
 
         # Disconnect from the database
         $dbh->disconnect if $dbh;
         undef $dbh;
-    }
+    };
+    do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
-    # Keep jobs going while resting a bit.
+    # Keep working, resting a bit at a time.  If we have work to do
+    # and can start more jobs, break out of this loop and initiate
+    # new transfers.  Otherwise if we have exhausted files that can
+    # be transferred, just sleep here for a moment.
     my $target = time() + $self->{WAITTIME};
-    do {
-        $self->maybeStop();
+    while (time() < $target)
+    {
+        $self->maybeStop ();
 	$self->pumpJobs ();
+	my $njobs = scalar @{$self->{JOBS}};
+	last if $more && $njobs < $self->{NJOBS};
 	select (undef, undef, undef, .1);
-    } while (time() < $target);
+    }
 }
