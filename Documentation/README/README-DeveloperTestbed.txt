@@ -16,7 +16,7 @@
 {\listlevel\levelnfc4\levelnfcn4\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid67698713\'02\'07.;}{\levelnumbers\'01;}\chbrdr\brdrnone\brdrcf1 \chshdng0\chcfpat1\chcbpat1 \fi-360\li5760
 \jclisttab\tx5760\lin5760 }{\listlevel\levelnfc2\levelnfcn2\leveljc2\leveljcn2\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid67698715\'02\'08.;}{\levelnumbers\'01;}\chbrdr\brdrnone\brdrcf1 \chshdng0\chcfpat1\chcbpat1 
 \fi-180\li6480\jclisttab\tx6480\lin6480 }{\listname ;}\listid1356925417}}{\*\listoverridetable{\listoverride\listid1356925417\listoverridecount0\ls1}}{\*\rsidtbl \rsid6378799}{\info{\title Node Testbed deployment and user guide}{\author Tim Barrass}
-{\operator Tim Barrass}{\creatim\yr2004\mo7\dy28\hr12\min36}{\revtim\yr2004\mo7\dy28\hr12\min42}{\version3}{\edmins10}{\nofpages1}{\nofwords511}{\nofchars2913}{\*\company University of Bristol}{\nofcharsws3577}{\vern24577}}\margl359\margr359 
+{\operator Tim Barrass}{\creatim\yr2004\mo7\dy28\hr12\min36}{\revtim\yr2004\mo7\dy28\hr12\min43}{\version4}{\edmins10}{\nofpages1}{\nofwords510}{\nofchars2907}{\*\company University of Bristol}{\nofcharsws3570}{\vern24577}}\margl359\margr359 
 \ftnbj\aenddoc\noxlattoyen\expshrtn\noultrlspc\dntblnsbdb\nospaceforul\formshade\horzdoc\dghspace180\dgvspace180\dghorigin1701\dgvorigin1984\dghshow0\dgvshow0
 \jexpand\viewkind4\viewscale100\pgbrdrhead\pgbrdrfoot\splytwnine\ftnlytwnine\htmautsp\nolnhtadjtbl\useltbaln\alntblind\lytcalctblwd\lyttblrtgr\lnbrkrule\nobrkwrptbl\rsidroot12669697 \fet0\sectd 
 \linex0\headery708\footery708\colsx708\endnhere\sectdefaultcl\sectrsid6378799\sftnbj {\*\pnseclvl1\pnucrm\pnstart1\pnindent720\pnhang{\pntxta .}}{\*\pnseclvl2\pnucltr\pnstart1\pnindent720\pnhang{\pntxta .}}{\*\pnseclvl3\pndec\pnstart1\pnindent720\pnhang
@@ -73,7 +73,7 @@ ies, copying files between them using cp. Files are registered in a testbed-glob
 \par \tab \tab \hich\af6\dbch\af15\loch\f6 [ password is 98passwd ]
 \par \tab \hich\af6\dbch\af15\loch\f6 cvs co AgentToolkitExamples
 \par 
-\par \tab \hich\af6\dbch\af15\loch\f6 cd AgentToolkitExamples/NodeTestbedToolkit
+\par \tab \hich\af6\dbch\af15\loch\f6 cd AgentTo\hich\af6\dbch\af15\loch\f6 olkitExamples/NodeTestbed
 \par \tab \hich\af6\dbch\af15\loch\f6 source SetupEnv\hich\af6\dbch\af15\loch\f6 ironment.csh
 \par 
 \par 
