@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-BEGIN { use strict; $^W = 1; }
+BEGIN { use strict; use warnings; }
 
 sub queueStats
 {

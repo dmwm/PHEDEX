@@ -19,7 +19,7 @@
 ## If the agent terminates, crashes or is otherwise stopped, it will
 ## pick up in the right place when started the next time.
 
-BEGIN { use strict; $^W = 1; }
+BEGIN { use strict; use warnings; }
 $me = $0; $me =~ s|.*/||;
 $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
 unshift(@INC, $home);
@@ -59,14 +59,9 @@ if (scalar @ARGV || !$args{DROPDIR}
 
 ######################################################################
 # Routines specific to this agent.
-package DropTMDBPublisher; use strict; use Exporter;
+package DropTMDBPublisher; use strict; use warnings; use base 'UtilsAgent';
 use File::Path;
-use UtilsCommand;
-use UtilsLogging;
-use UtilsTiming;
 use UtilsReaders;
-use UtilsAgent;
-use base 'UtilsAgent';
 
 sub new
 {

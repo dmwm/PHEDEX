@@ -13,7 +13,7 @@
 ## crashes or is otherwise stopped, it will pick up in the right
 ## place.  At the end, we pass the assignment to the next agent.
 
-BEGIN { use strict; $^W = 1; }
+BEGIN { use strict; use warnings; }
 my $me = $0; $me =~ s|.*/||;
 my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
 unshift(@INC, $home);
@@ -54,15 +54,9 @@ if (scalar @ARGV || !$args{DROPDIR})
 
 ######################################################################
 # Routines specific to this agent.
-package DropCastorChecksum; use strict; use Exporter;
+package DropCastorChecksum; use strict; use base 'UtilsAgent';
 use File::Path;
-use UtilsCommand;
-use UtilsLogging;
-use UtilsTiming;
-use UtilsRFIO;
 use UtilsReaders;
-use UtilsAgent;
-use base 'UtilsAgent';
 
 sub new
 {

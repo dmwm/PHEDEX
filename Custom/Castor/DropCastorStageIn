@@ -23,7 +23,7 @@
 ## Because the agent wants to process simultaneously as many drops as
 ## possible, all the work is done in &idle().
 
-BEGIN { use strict; $^W = 1; }
+BEGIN { use strict; use warnings; }
 $me = $0; $me =~ s|.*/||;
 $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
 unshift(@INC, $home);
@@ -64,15 +64,10 @@ if (scalar @ARGV || !$args{DROPDIR})
 
 ######################################################################
 # Routines specific to this agent.
-package DropCastorStageIn; use strict; use Exporter;
+package DropCastorStageIn; use strict; use warnings; use base 'UtilsAgent';
 use File::Path;
 use Data::Dumper;
-use UtilsCommand;
-use UtilsLogging;
-use UtilsTiming;
 use UtilsReaders;
-use UtilsAgent;
-use base 'UtilsAgent';
 
 my $STAGE_RETRY = -2;		# Retry another time
 my $STAGE_NONEXISTENT = -1;	# No such file

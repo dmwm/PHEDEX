@@ -6,7 +6,7 @@
 ## that receives files from the main funnel, extracts them
 ## from GDB and actually creates the zip.
 
-BEGIN { use strict; $^W = 1; }
+BEGIN { use strict; use warnings; }
 $me = $0; $me =~ s|.*/||;
 $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
 unshift(@INC, $home);
@@ -57,14 +57,9 @@ if (scalar @ARGV || !$args{DROPDIR} || !$ENV{STAGE_HOST} || !$ENV{STAGE_POOL}
 
 ######################################################################
 # Routines specific to this agent.
-package DropFunnelWorker; use strict; use Exporter;
+package DropFunnelWorker; use strict; use warnings; use base 'UtilsAgent';
 use File::Path;
-use UtilsCommand;
-use UtilsLogging;
-use UtilsTiming;
 use UtilsWriters;
-use UtilsAgent;
-use base 'UtilsAgent';
 
 sub new
 {

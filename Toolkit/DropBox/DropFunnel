@@ -26,7 +26,7 @@
 ## does the work and logs what it would have done.  This allows us
 ## to analyse how well it would work in practise.
 
-BEGIN { use strict; $^W = 1; }
+BEGIN { use strict; use warnings; }
 $me = $0; $me =~ s|.*/||;
 $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
 unshift(@INC, $home);
@@ -82,15 +82,10 @@ if (scalar @ARGV || !$args{DROPDIR} || !$ENV{STAGE_HOST} || !$ENV{STAGE_POOL}
 
 ######################################################################
 # Routines specific to this agent.
-package DropFunnel; use strict; use Exporter;
+package DropFunnel; use strict; use warnings; use base 'UtilsAgent';
 use Data::Dumper;
 use File::Path;
-use UtilsCommand;
-use UtilsLogging;
-use UtilsTiming;
 use UtilsReaders;
-use UtilsAgent;
-use base 'UtilsAgent';
 
 sub new
 {
