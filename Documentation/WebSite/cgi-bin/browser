@@ -7,8 +7,11 @@ use CGI::Carp qw(fatalsToBrowser);
 use POSIX;
 use DBI;
 
+my %databases = ("prod" => [ "cms", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
+		 "test" => [ "devdb", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
+		 "testbed" => [ "devdb", 'CMS_TRANSFERMGMT_TESTBED', 'phedexedehp' ]);
 my $cgi = new CGI;
-my $db = param("db") || "cms";    # tnsname of the database
+my $db = param("db") || "prod";    # tnsname of the database
 my $dbh;
 
 my $badcolor = '#ff9e9e';
@@ -52,14 +55,17 @@ sub intro
     </tr>
     <tr><td colspan=7 align='center'>$stamp</td></tr>
     <tr><td colspan=7 align='center'><select name='db'>"},
-    "<option value='devdb'@{[$db eq 'devdb' && ' selected=selected']}>Test</option>",
-    "<option value='cms'@{[$db eq 'cms' && ' selected=selected']}>Production</option>",
+    "<option value='testbed'@{[$db eq 'testbed' && ' selected=selected']}>Testbed</option>",
+    "<option value='test'@{[$db eq 'test' && ' selected=selected']}>Test</option>",
+    "<option value='prod'@{[$db eq 'prod' && ' selected=selected']}>Production</option>",
     "</select></td></tr></table>\n";
 
     $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
     $ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/8174";
     $ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/8174/lib";
-    $dbh = DBI->connect ("DBI:Oracle:$db", 'CMS_TRANSFERMGMT', 'smallAND_round',
+    $db = "prod" if ! grep ($db eq $_, keys %databases);
+    my ($dbname, $dbuser, $dbpass) = @{$databases{$db}};
+    $dbh = DBI->connect ("DBI:Oracle:$dbname", $dbuser, $dbpass,
 	    		 { RaiseError=>1, AutoCommit =>1 });
 
     my $needmain = 1;
@@ -75,7 +81,9 @@ sub main
     my $active = 60*5;
     my $offline = 60*15;
     my $now = time ();
-    my $query = $dbh->prepare(q{select node,agent,last_contact from t_lookup});
+    my $query = $dbh->prepare($db eq 'testbed'
+	    	   ? q{select node,agent,timestamp from t_agent_status}
+	    	   : q{select node,agent,last_contact from t_lookup});
     my %agents;
     my %status;
 
@@ -142,9 +150,10 @@ sub format_size {
 sub transfer {
     my $rows = 0;
     my $now = time();
+    my $stampname = $db eq 'testbed' ? "timestamp" : "update_stamp";
     my $query = $dbh->prepare(qq{
 	    select
-	      node, update_stamp,
+	      node, $stampname,
 	      n_files, sz_files,
 	      n_onsite, sz_onsite,
 	      n_staged, sz_staged,
@@ -436,9 +445,10 @@ sub age {
 
 sub stats {
     my $now = time();
+    my $stampname = $db eq 'testbed' ? "timestamp" : "update_stamp";
     my $overview = $dbh->selectrow_arrayref(qq{
 			select
-			  update_stamp,
+			  $stampname,
 			  n_files,
 			  sz_total,
 			  sz_min,
@@ -448,7 +458,7 @@ sub stats {
 			from t_info_file_size_overview});
     my $histo = $dbh->selectall_arrayref(qq{
 	    		select
-			  update_stamp,
+			  $stampname,
 			  bin_low,
 			  bin_width,
 			  n_total,
@@ -502,9 +512,10 @@ sub agents {
     my %states = ();
     my %age = ();
     my %live = ();
+    my $stampname = $db eq 'testbed' ? "timestamp" : "update_stamp";
     foreach my $row (@{$dbh->selectall_arrayref(qq{
 				select
-				  update_stamp,
+				  $stampname,
 				  site,
 				  host,
 				  agent,
@@ -584,9 +595,10 @@ sub format_timespan {
 sub rates {
     my $now = time();
     my %stats = ();
+    my $stampname = $db eq 'testbed' ? "timestamp" : "update_stamp";
     my $q = $dbh->prepare(qq{
 			select
-			  update_stamp,
+			  $stampname,
 			  time_span,
 			  info_type,
 			  from_node,
