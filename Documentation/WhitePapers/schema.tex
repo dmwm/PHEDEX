@@ -1,7 +1,7 @@
 \documentclass{cmspaper}
 \def\RCS$#1: #2 ${\expandafter\def\csname RCS#1\endcsname{#2}}
-\RCS$Revision: 1.3 $
-\RCS$Date: 2004/06/17 12:39:08 $
+\RCS$Revision: 1.4 $
+\RCS$Date: 2004/06/17 12:56:04 $
 
 \usepackage{graphicx}
 
@@ -111,6 +111,11 @@
 
     Stores global stream->destination configuration.  This used to be
     written into a text file read by the configuration agent.
+    
+    Note that this table may change in form as the metadata on which we
+    decide to allocate files becomes more sophisticated. Already what will
+    be stored here are actually stream "stubs", or parts of stream names
+    that can be used to define a set of streams (e.g. mu03 ...).
 
   \item [\texttt{t\_Replica\_metadata}]\mbox{}
 
@@ -147,7 +152,8 @@ Enumeration of file states is simpler in the V2 TMDB, as can be seen on table \r
 [ We need to find some way of agreeing these states before they are used. Table in TMDB? ]
 
 \begin{table}
-\begin{tabular}[tbp]{|c|c|} 
+\centering
+\begin{tabular}[hbt]{|c|c|} 
 \hline index & state
 \\ \hline
 	1	& 	available
@@ -170,13 +176,23 @@ To make data available for distribution:
 
 The data sources will also need to add the first metadata to the system.
 
-\subsection{Configuration agent}
+\subsection{Configuration agent/ Distribution manager}
 
 The configuration agent will scan \texttt{t\_Files\_for\_transfer}
 looking for unallocated files (allocated = 0).  Using configuration
 information it will allocate files to specific nodes by making entries
-in \texttt{t\_Destinations} and \texttt{t\_Current\_state}:
+in \texttt{t\_Destinations} and \texttt{t\_Current\_state}. Assuming the config agent is running at a node named 'Management'
 
+\subsubsection{\textbf{\texttt{publish availability}}}
+
+{\small\begin{verbatim}
+  update t_Lookup
+  	set last_contact = currenttime
+  	where node = 'Management'
+  	and agent = 'Config';
+\end{verbatim}}
+
+\subsubsection{\textbf{\texttt{find new files for transfer}}}
 First find new files for transfer
 
 {\small\begin{verbatim}
@@ -185,6 +201,7 @@ First find new files for transfer
   where allocated = 0;
 \end{verbatim}}
 
+\subsubsection{\textbf{\texttt{determine file allocation}}}
 Determine file allocation.  First it needs to query the POOL meta data
 to determine the file stream, then it needs to look up the stream
 (here it's done dynamically, but it could rebuild an internal table
@@ -192,37 +209,50 @@ every loop...)
 
 {\small\begin{verbatim}
   select destination from t_File_allocation_config
-  where stream = ``the_stream'';
+  where stream = 'the_stream';
 \end{verbatim}}
 
-For each destination, make entries in \texttt{t\_Destinations}.
+\subsubsection{\textbf{\texttt{register destination for guid}}}
+For each destination, make entries in \texttt{t\_Destinations}. One example might be, for a guid guid1 going to destination node Dest1
 
 {\small\begin{verbatim}
   insert into t_Destination
-    values (guid, destination);
+    values (guid1, Dest1);
 \end{verbatim}}
 
-Now lookup the gateway for each destination from the source node
+\subsubsection{\textbf{\texttt{determine gateway for destination}}}
+For each destination the appropriate gateway (or next hop in the chain) needs to be determined, e.g. for guid1 going to Dest1
 
 {\small\begin{verbatim}
   select * from
     (select gateway, hops
      from t_Routing
-     where from = ``source_node''
-       and to = ``destination''
+     where from = 'Bar1'
+       and to = 'Dest1'
      order by hops asc)
   where rownum = 1;
- \end{verbatim}}
+\end{verbatim}}
 
-For each gateway, make an entry advertising the file in \texttt{t\_Current\_state}:
+Which might retutn the gateway Foo. 
+
+\subsubsection{\textbf{\texttt{advertise as available}}}
+Finally advertise the newly ``available'' file (i.e. in state 1)
 
 {\small\begin{verbatim}
   insert into t_Current_state
-    values (guid, gateway, ``available'',
-            currenttime, source_node);
+    values (guid1, 'Foo', 1,
+            currenttime, 'Bar1');
 \end{verbatim}}
 
+\subsubsection{\textbf{\texttt{complete allocation}}}
 It also needs to mark the guid as allocated...
+
+{\small\begin{verbatim}
+	update t_Files_for_transfer 
+		set allocated = 0
+		where guid = guid1;
+\end{verbatim}}
+
 
 \subsection{Transfer agents}
 
@@ -293,7 +323,7 @@ Finally advertise the newly ``available'' file (i.e. in state 1)
 
 {\small\begin{verbatim}
   insert into t_Current_state
-    values (guid, 'Gate1', 1,
+    values (guid1, 'Gate1', 1,
             currenttime, 'Foo');
 \end{verbatim}}
 
