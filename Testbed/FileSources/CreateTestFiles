@@ -22,7 +22,7 @@ while ($count > 0) {
     $file = "TestbedFile".$count;
     $full_path = $pwd.$file;
     
-    @output = `FCregisterPFN -p $full_path`;
+    @output = `FCregisterPFN -p $full_path 2>&1`;
     $exit_value = $? >> 8;
 
     if ($exit_value == 1) {
