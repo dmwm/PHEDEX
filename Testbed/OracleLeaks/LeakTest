@@ -53,7 +53,7 @@ sub guids
 {
     my ($self, $dbh, $n) = @_;
     my @guids = ();
-    my $stmt = &dbexec($dbh, qq{select guid from t_files_for_transfer});
+    my $stmt = &dbexec($dbh, qq{select guid from t_file});
     while (my ($guid) = $stmt->fetchrow())
     {
 	push (@guids, $guid);
@@ -67,8 +67,7 @@ sub checksum
 {
     my ($self, $dbh, $guid) = @_;
     return &dbexec($dbh, qq{
-	select value from t_replica_metadata
-	where guid = :guid and attribute = 'checksum'},
+	select checksum from t_file where guid = :guid},
 	":guid" => $guid)->fetchrow_array();
 }
 

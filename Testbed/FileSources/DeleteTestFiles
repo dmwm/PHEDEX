@@ -42,10 +42,11 @@ while( defined( $file = readdir( DIR ) ) ) {
         
         
         
-        push( @sql, "delete from t_replica_metadata where guid = '$guid'" );
-        push( @sql, "delete from t_destinations where guid = '$guid'" );
-        push( @sql, "delete from t_file_state where guid = '$guid'" );
-        push( @sql, "delete from t_files_for_transfer where guid = '$guid'" );     
+        push( @sql, "delete from t_file_attributes where guid = '$guid'" );
+        push( @sql, "delete from t_destination where guid = '$guid'" );
+        push( @sql, "delete from t_replica_state where guid = '$guid'" );
+        push( @sql, "delete from t_transfer_state where guid = '$guid'" );
+        push( @sql, "delete from t_file where guid = '$guid'" );     
         do_sql( \@sql );
         @sql = ();
         
