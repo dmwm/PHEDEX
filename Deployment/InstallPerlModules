@@ -27,12 +27,8 @@ fi
 destdir="$1"
 [ -d "$destdir" ] || { echo "$destdir: not a directory" 1>&2; exit 1; }
 
-# If there are environment setup scripts there, source them
-for f in "$destdir"/*env.sh; do
-  [ -f "$f" ] || continue
-  . "$f"
-done
-
+# If there is environment setup script there, source it
+[ -f "$destdir"/oraenv.sh ] && . "$destdir"/oraenv.sh
 [ -z "$ORACLE_HOME" ] && { echo "\$ORACLE_HOME not set" 1>&2; exit 1; }
 
 # Create destination directory for modules.  Figure out all the places
@@ -40,10 +36,10 @@ done
 prefix="$destdir/perl-modules"
 version=$(perl -e 'use Config; print $Config{version}')
 iprefix=$(perl -e 'use Config; print $Config{installprefixexp}')
-sitearch=$(perl -e 'use Config; print $Config{installsitearch}' | sed "s!^$iprefix!$prefix/!")
-sitelib=$(perl -e 'use Config; print $Config{installsitelib}' | sed "s!^$iprefix!$prefix/!")
-perlarch=$(perl -e 'use Config; print $Config{installarchlib}' | sed "s!^$iprefix!$prefix/!")
-perllib=$(perl -e 'use Config; print $Config{installprivlib}' | sed "s!^$iprefix!$prefix/!")
+sitearch=$(perl -e 'use Config; print $Config{installsitearch}' | sed "s!^$iprefix/*!$prefix/!")
+sitelib=$(perl -e 'use Config; print $Config{installsitelib}' | sed "s!^$iprefix/*!$prefix/!")
+perlarch=$(perl -e 'use Config; print $Config{installarchlib}' | sed "s!^$iprefix/*!$prefix/!")
+perllib=$(perl -e 'use Config; print $Config{installprivlib}' | sed "s!^$iprefix/*!$prefix/!")
 PERL5LIB="$sitearch:$sitelib:$perlarch:$perllib:$PERL5LIB"; export PERL5LIB
 echo "*** building perl modules for version $version into $prefix, directories are:"
 echo "***   $sitearch"
