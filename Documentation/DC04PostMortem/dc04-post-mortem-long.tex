@@ -609,10 +609,18 @@ chain has highlighted the vital importance of production-quality
 service and support at the T1s, especially if they are to be
 responsible for mission-critical services during experiment running.
 
-Within SRB version 2 the MCat, or metadata catalogue, represents a
-single point of failure. All user authentications, replica and
-metadata lookups are undertaken using this single service (it should
-be noted that this is not true in version 3 of SRB).
+The SRB chain comprised an export buffer at the T0 and import buffers
+at RAL, IN2P3 and Karlsruhe T1s. Files were copied from Castor onto
+the export buffer, where they were inserted (Sput) into SRB space. The
+files GUID was then added as additional SRB metadata (SmodD). Tier 1 sites then
+transferred the files to the relevant import buffers and mass storage
+systems, either using Sreplicate or Sget/Sput.
+
+An application developed in the UK (GMCat) linked the name spaces of
+SRB and the other chains by publishing SRB replica information into
+the LRC at CERN periodically. As the difficulties with the MCat
+increased GMCat was stopped as the system no longer reponded in a
+useful timescale.
 
 However, SRB had been used successfully by CMS production for a year
 beforehand.  In addition, LCG-2 resources were not available at
@@ -629,18 +637,11 @@ on 22 of 56 days. Problems ranged from slight loss of performance
 continually time out) and unannounced reboots, geographical shifts of
 the database service and core dumps.
 
-The SRB chain comprised an export buffer at the T0 and import buffers
-at RAL, IN2P3 and Karlsruhe T1s. Files were copied from Castor onto
-the export buffer, where they were inserted (Sput) into SRB space. The
-files GUID was then added as additional SRB metadata (SmodD). Tier 1 sites then
-transferred the files to the relevant import buffers and mass storage
-systems, either using Sreplicate or Sget/Sput.
-
-An application developed in the UK (GMCat) linked the name spaces of
-SRB and the other chains by publishing SRB replica information into
-the LRC at CERN periodically. As the difficulties with the MCat
-increased GMCat was stopped as the system no longer reponded in a
-useful timescale.
+Within SRB version 2 the MCat, or metadata catalogue, represents a
+single point of failure. All user authentications, replica and
+metadata lookups are undertaken using this single service (it should
+be noted that this is not true in version 3 of SRB). This means that 
+disruption to the MCat service cripples the whole of the SRB v2 chain.
 
 While transfer speeds from T0-T1 were respectable (fig. \ref{fig:RAL-files})
  the initial entry of the file onto the export buffer was
