@@ -51,8 +51,10 @@ sub intro
     <td><input type='submit' name='agents' value='Agent status'></td>
     </tr>
     <tr><td colspan=7 align='center'>$stamp</td></tr>
-    </table>
-    };
+    <tr><td colspan=7 align='center'><select name='db'>"},
+    "<option value='devdb9'@{[$db eq 'devdb9' && ' selected=selected']}>Test</option>",
+    "<option value='pdb01'@{[$db eq 'pdb01' && ' selected=selected']}>Production</option>",
+    "</select></td></tr></table>\n";
 
     $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
     $ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/8174";
