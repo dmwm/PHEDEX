@@ -2,7 +2,7 @@ package UtilsTR; use strict; use warnings; use base 'Exporter';
 our @EXPORT = qw(usage readPatterns expandPatterns expandAssignments
 	         assignmentData assignmentInfo assignmentFileCategory
 	         assignmentDrops listDatasetOwners listAssignments
-	         castorExists checkAssignmentFiles feedDropsToAgents);
+	         castorCheck checkAssignmentFiles feedDropsToAgents);
 use TextGlob 'glob_to_regex';
 use UtilsWriters;
 use UtilsReaders;
@@ -204,16 +204,16 @@ sub listAssignments
 }
 
 # Efficiently check which files exist in castor
-sub castorExists
+sub castorCheck
 {
-    my @files = @_;
+    my ($known, @files) = @_;
 
     # Determine all directories we need to look in
-    my (%dirs, %known) = ();
+    my %dirs = ();
     foreach my $file (@files)
     {
-	my $dir = $file; $dir =~ s|/[^/]+$||;
-	$dirs{$dir} = 1;
+	$file =~ s|/[^/]+$||;
+	$dirs{$file} = 1;
     }
 	
     # List the contents of all the directories
@@ -223,13 +223,10 @@ sub castorExists
 	while (<NSLS>)
 	{
 	    chomp;
-	    $known{"$dir/$_"} = 1;
+	    $known->{"$dir/$_"} = 1;
 	}
 	close (NSLS);
     }
-
-    # Now match requested files against known files
-    return grep ($known{$_}, @files);
 }
 
 # /drop/box/area should be the directory containing the state
@@ -260,7 +257,7 @@ sub checkAssignmentFiles
     my $dbh = DBI->connect ("DBI:Oracle:$tmdb", "cms_transfermgmt_reader",
 			    "slightlyJaundiced", { RaiseError => 1, AutoCommit => 1 });
 
-    # Check all drops to see which files already exist in TMDB
+    # Collect information for all drops first.
     my $result = {};
     foreach my $drop (@dirs)
     {
@@ -279,29 +276,44 @@ sub checkAssignmentFiles
         @pfns = map { s|^\./|$pfnroot/|; $_; } @pfns;
         @pfns = map { s|^sfn://castorgrid.cern.ch/|/|; $_; } @pfns;
 
+        # Initialise results
+        my $dropname = $drop; $dropname =~ s|.*/||;
+	$result->{$drop} = {
+	    DROPNAME => $dropname,
+	    GUIDS => [ @guids ],
+	    PFNS => [ @pfns ]
+	};
+   }
+
+   # Now check all known pfns
+   my %known;
+   &castorCheck (\%known, map { @{$_->{PFNS}} } values %$result);
+
+   # Now fill in the rest of the result
+   foreach my $drop (@dirs)
+   {
+	my @guids = @{$result->{GUIDS}};
+	my @pfns = @{$result->{PFNS}};
+
         # Find guids known in tmdb
         my $indb = 0;
         my $sql = "select count(guid) from $table where "
-	         . join (' or ', map { "guid='$_'" } @guids);
+	         . join (' or ', map { "guid='$_'" } @{$result->{GUIDS}});
         map { $indb += $_->[0] } $dbh->selectrow_arrayref ($sql);
 
         # Find out which files are in castor
-	my $inmss = scalar (&castorExists (@pfns));
+	my $inmss = scalar (grep ($known{$_}, @pfns));
 
-        # Add results
-        my $dropname = $drop; $dropname =~ s|.*/||;
 	my $nguids = scalar @guids;
-	my $npending = scalar (grep ($_ eq $dropname, @pending));
-	$result->{$drop} = {
-	    DROPNAME => $dropname,
-	    N_FILES => $nguids,
-	    N_TRANSFERRED => $indb,
-	    N_IN_MSS => $inmss,
-	    N_PENDING_TRANSFER => $npending,
-	    IS_PENDING_TRANSFER => $npending != 0,
-	    IS_FULLY_TRANSFERRED => $nguids == $indb,
-	    IS_FULLY_IN_MSS => $nguids == $inmss
-	};
+	my $npending = scalar (grep ($_ eq $result->{$drop}{DROPNAME}, @pending));
+
+	$result->{$drop}{N_FILES}		= $nguids;
+	$result->{$drop}{N_TRANSFERRED}		= $indb;
+	$result->{$drop}{N_IN_MSS}		= $inmss;
+	$result->{$drop}{N_PENDING_TRANSFER}	= $npending;
+	$result->{$drop}{IS_PENDING_TRANSFER}	= $npending != 0;
+	$result->{$drop}{IS_FULLY_TRANSFERRED}	= $nguids == $indb;
+	$result->{$drop}{IS_FULLY_IN_MSS}	= $nguids == $inmss;
     }
 
     return $result;
