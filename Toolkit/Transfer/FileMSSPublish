@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ## Download files from (Castor) MSS node to matching Transfer node.
 ##

@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ## This T0 null agent that just receives drops and passes them on or
 ## destroys them.

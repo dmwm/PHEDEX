@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ## This is a fake transfer agent that pretends to transfer files, but
 ## does so only as a delay based on a statistical model.  Once the file

@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ## Maintain links between a parent node and its neighbours, and
 ## maintain routing information for agents operating under the

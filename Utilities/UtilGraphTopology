@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ##H Produce "dot" graph from the transfer topology.
 ##H

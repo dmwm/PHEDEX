@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ## Manage a Castor MSS node, marking files migrated to tape.
 ##

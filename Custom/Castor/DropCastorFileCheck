@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ## Verify PFNs mentioned in the drops actually exist and have
 ## non-zero size.

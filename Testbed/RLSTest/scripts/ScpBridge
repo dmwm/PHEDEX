@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ## This T0 agent that bridges drop boxes between two hosts using RFIO.
 

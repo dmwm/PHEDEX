@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ## This T0 agent receives files from the T0 batch reconstruction farm
 ## and converts incomplete paths to full Castor paths (PFNs).

@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ## This is a fake cleaning agent that cleans up export-buffer replicas
 ## after successful transfers.  Basically removes replica from RLS.

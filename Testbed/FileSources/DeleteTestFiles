@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # This script removes test files from the system. cd to your fake SE
 # directory then run 

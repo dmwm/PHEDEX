@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ## This is part of the T0 agent to merge files in the Global
 ## Distribution Buffer (GDB) Castor pool as they arrive from

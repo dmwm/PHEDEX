@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ## This T0 agent receives files from the T0 batch reconstruction farm
 ## into the Global Distribution Buffer (GDB) Castor pool and registers

@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # Manage the addition of a new node to the network. Takes user through
 # interactions required to add a new node, then asks to confirm before

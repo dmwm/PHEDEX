@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ## This agent registers files into the transfer database as new
 ## unallocated files.  This will cause the file allocation and

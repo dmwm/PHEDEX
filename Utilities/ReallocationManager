@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # Manage the reallocation of files that are already in distribution to
 # new destinations.

@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ## This agent is for disk-only sites that should always mark files
 ## ready for transfer when they are requested by other sites.

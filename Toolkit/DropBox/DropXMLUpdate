@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ## This drop box agent converts incomplete paths to full mass storage
 ## paths (PFNs) in the XML catalogues of the drops that pass through.

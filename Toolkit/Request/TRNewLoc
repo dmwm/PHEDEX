@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ##H Set the destination locations for the transfer request.
 ##H

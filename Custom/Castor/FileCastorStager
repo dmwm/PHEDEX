@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ## Manager castor stage-in pool based on master pool manager requests.
 ##

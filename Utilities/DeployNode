@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # Node deployment script
 # This script creates a node directory structure, deploys the

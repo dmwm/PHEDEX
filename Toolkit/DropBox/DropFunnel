@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ## This drop-box agent merges files.  It is meant to be run on sites
 ## injecting data before the files are exposed to the transfer system.
