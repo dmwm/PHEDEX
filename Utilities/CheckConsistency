@@ -1,5 +1,9 @@
 #!/usr/bin/env perl
 
+# tab: Note on domains option: allows you to choose which domains to examine
+# construct as comma separated list: p [phedex], c [catalogue], fs [file
+# system], f [files]
+
 BEGIN {
   use strict; use warnings;
   our $me = $0; $me =~ s|.*/||;
@@ -27,22 +31,36 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{HOST_KEY} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-jobs' && scalar @ARGV > 1)
     { shift (@ARGV); $args{NJOBS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-domains' && scalar @ARGV > 1)
+    { shift (@ARGV); map { $args{DOMAINS}{$_} = 1 } split(/,/, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-fstype' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{TYPE} = shift(@ARGV); }
     else
     { last; }
 }
 
+# FIXME: would be good to check for known fstypes: castor or mount
 if (scalar @ARGV || !$args{DBNAME} || !$args{DBUSER} || !$args{DBPASS}
-    || !$args{DBITYPE} || !$args{MYNODE} || !$args{CATALOGUE} || !$args{HOST_KEY})
+    || !$args{DBITYPE} || !$args{MYNODE} || !$args{HOST_KEY}
+    || !$args{DOMAINS} 
+    || (($args{DOMAINS}{fs} || $args{DOMAINS}{f}) && !$args{TYPE} )
+    || ($args{DOMAINS}{c} && !$args{CATALOGUE}) )
 {
-    print STDERR "usage: $me -node NODE -catalogue CATALOGUE -match PATTERN\n",
-		 " [-jobs NJOBS] -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n";
+    print STDERR "usage: $me -node NODE [-catalogue CATALOGUE] -match PATTERN\n",
+		 " [-jobs NJOBS] -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
+                 " -domains DOMAINS [-fstype TYPE]\n";
     exit (1);
 }
 
 
 my $files = {};
-die if ! &fetchGuids(\%args, $files);
-die if ! &fetchPFNs(\%args, $files);
+
+if ($args{DOMAINS}{p}) {
+    die if ! &queryPhEDEx(\%args, $files);
+}
+if ($args{DOMAINS}{c}) {
+    die if ! &queryFileCatalogue(\%args, $files);
+}
 
 foreach my $file (values %$files) {
     print "no guid for pfn $file->{PFN}\n" if ! $file->{GUID};
@@ -53,7 +71,7 @@ exit 0;
 
 ######################################################################
 # Fetch all guids for a node in the TMDB.
-sub fetchGuids
+sub queryPhEDEx
 {
     my ($args, $files) = @_;
     use UtilsDB;
@@ -79,7 +97,7 @@ sub fetchGuids
 
 # Map GUIDs to PFNs using catalogue, running a number of queries
 # in parallel.  Adds "PFN" entry to each file in $files.
-sub fetchPFNs
+sub queryFileCatalogue
 {
     my ($args, $files) = @_;
     local $| = 1;
