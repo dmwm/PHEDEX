@@ -1,0 +1,104 @@
+#!/usr/bin/perl
+
+## This agent rewrites PFNs in XML catalogues of the drops that pass
+## through so downstream transfer agents can use the PFNs with grid
+## tools.  It injects a custom prefix to all PFNs.
+
+BEGIN { use strict; use warnings; }
+$me = $0; $me =~ s|.*/||;
+$home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+unshift(@INC, $home);
+
+######################################################################
+my %args;
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-prefix' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{PATH_PREFIX} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    else
+    { last; }
+}
+	
+if (scalar @ARGV || !$args{DROPDIR} || !$args{PATH_PREFIX})
+{
+    print STDERR
+	"usage: $me -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
+	"    -prefix PREFIX-TO-ADD [-wait SECS-TO-WAIT]\n";
+    exit (1);
+}
+
+(new DropCatPFNPrefix (%args))->process();
+
+######################################################################
+# Routines specific to this agent.
+package DropCatPFNPrefix; use strict; use warnings; use base 'UtilsAgent';
+use File::Path;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsDelay;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (PATH_PREFIX => undef);	# Prefix to add to PFNs
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Actually process the drop.  Rewrite the PFNs to the form of
+# sfn://castorgrid.cern.ch for the grid tools to be able to use them.
+sub processDrop
+{
+    my ($self, $drop) = @_;
+
+    # Sanity checking
+    return if (! $self->inspectDrop ($drop));
+    delete $self->{BAD}{$drop};
+    &timeStart($self->{STARTTIME});
+
+    # Find the catalog file.
+    my $dropdir = "$self->{WORKDIR}/$drop";
+    my $xmlcat = (<$dropdir/XMLCatFragment.*.{txt,xml}>)[0];
+    if (! $xmlcat)
+    {
+        &alert("no xml catalog file found in $drop");
+        &markBad ($drop);
+        return;
+    }
+
+    # Rewrite the PFNs in the catalogue.  Assume errors are transient
+    my $content = "";
+    if (! open (CAT, "< $xmlcat"))
+    {
+	&alert ("Cannot read catalog in $drop: $!");
+	return;
+    }
+    while (<CAT>)
+    {
+    	s|(\s+name=")|$1$self->{PATH_PREFIX}| if m|^.*<pfn\s.*\sname="|;
+    	$content .= $_;
+    }
+    close(CAT);
+
+    if (! &output ($xmlcat, $content))
+    {
+	&alert ("Cannot rewrite catalog for $drop: $!");
+	return;
+    }
+
+    # Pass on or delete
+    &touch ("$self->{WORKDIR}/$drop/done");
+    $self->relayDrop ($drop);
+    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
+}
