@@ -1,0 +1,18 @@
+rls1 =
+  (DESCRIPTION=
+   (ADDRESS=(PROTOCOL=TCP) (HOST=rlslcg1db.cern.ch) (PORT=1521))
+   (CONNECT_DATA=(SID=rls1)))
+
+devdb9 =
+  (DESCRIPTION=
+   (ADDRESS=(PROTOCOL=TCP) (HOST=oradev9.cern.ch) (PORT=1521))
+   (CONNECT_DATA=(SID=D9)))
+
+pdb01 =
+   (DESCRIPTION=
+    (FAILOVER=ON)
+    (LOAD_BALANCE=ON)
+    (ADDRESS_LIST=
+     (ADDRESS=(PROTOCOL=TCP) (HOST=sundb07.cern.ch) (PORT=1521))
+     (ADDRESS=(PROTOCOL=TCP) (HOST=sundb08.cern.ch) (PORT=1521)))
+    (CONNECT_DATA=(SERVER=DEDICATED) (SERVICE_NAME=pdb01)))
