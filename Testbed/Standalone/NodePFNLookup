@@ -8,4 +8,5 @@ while [ $# -ge 1 ]; do
   esac
 done
 shift; shift
-<base>/PHEDEX/Utilities/PFClistGuidPFN -j 10 $args ${1+"$@"} | grep /<node>/
+<base>/PHEDEX/Utilities/PFClistGuidPFN -j 10 $args ${1+"$@"} |
+  grep /<node>/ | sed 's/file://'
