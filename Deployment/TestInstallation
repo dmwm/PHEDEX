@@ -120,11 +120,11 @@ sub testOracle
 	print "PERL5LIB is not set ! It should include the DBI modules !\n";
 	print "---------------------------------------------------------------------\n";
 	return 0} if !$PERL5LIB;
+    eval "use DBI";
     do {print "---------------------------------------------------------------------\n";
-	print "DBI module wasn't found !!\n";
+	print "DBI module wasn't found: $@ !!\n";
 	print "---------------------------------------------------------------------\n";
-	return 0} if (! -e "$PERL5LIB/DBI.pm");
-    
+	return 0} if ($@);  
 
     # try to use the DBD modules to connect and disconnect from TMDB
     eval
