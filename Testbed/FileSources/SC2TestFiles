@@ -7,7 +7,7 @@ $dirbase = "srm://radiantservice.cern.ch:8443/castor/cern.ch/grid/dteam/storage/
 $lfnpat = "sample-file-1gig-%02d.dat";
 $nfiles = 40;
 $size = 1048576000;
-$dups = 43200;
+$dups = shift(@ARGV) || 43200;
 
 open (XML, "> XMLCatFragment.xml") or die "XMLCatFragment.xml: $!\n";
 open (CKSUM, "> Checksum.txt") or die "Checksum.txt: $!\n";
