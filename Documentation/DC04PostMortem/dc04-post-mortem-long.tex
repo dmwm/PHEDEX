@@ -175,7 +175,7 @@ Manager (SRM) \cite{srm} with dCache \cite{dcache} and SRB \cite{srb}
 The LCG chain used LCG Replica Manager Java command line tools
 \cite{rmapi} and Globus globus-url-copy \cite{globus} to make
 transfers using gsiFTP \cite{gsiftp}, and the Local Replica Catalogue
-C++ API \cite{lrcapi} to query the RLS and make updates. The chain
+C++ API \cite{rmapi} to query the RLS and make updates. The chain
 deployed two varieties of LCG Storage Elements (SEs) as file buffers:
 an LCG "classic", or disk only, SE; and an LCG Castor SE with a
 stager-managed disk pool with access to tape.
@@ -507,15 +507,66 @@ future as the file catalogue of choice. Wheher it remains the ideal
 solution to storing replica metadata also needs to be examined.
 
 \subsection{Dropbox agents}
-+ Performed well, typically 0.01s per drop (O(10) files).
+A series of agents at CERN handled the coupling between the
+Reconstruction farm and the distribution system. Their design strategy
+was somewhat different to the other agents: they did not communicate
+as such, but rather functioned as limited file processors which
+propagaetd files through a series of dropboxes, or local folders. By
+doing this it was possible to implement a series of agents focused on
+specific tasks (e.g. staging files to disk, or merging files) that
+together formed a very powerful file state management tool.
 
-+ Found needed bulk access to POOL RLS...
+The dropbox agents in existence at the end of DC04 undertook the
+following series of tasks
+\begin{list}{}{}
+\item Publish COBRA META files.
+\item Update local filenames in XML catalogue.
+\item Pin files in Castor.
+\item Publish XML catalogue to RLS.
+\item Publish RLS entries for merged files.
+\item Publish information in the TMDB.
+\item Filter Zip files already processed.
+\item Funnel files to a merging process.
+\item Merge files into Zips.
+\item Rank files on GDB for migration.
+\item Migrate files to tape.
+\end{list}
+Typically they performed well, each taking \~0.01s per drop of O(10)
+files, easily fast enough to keep pace with steady state production,
+with some exceptions. The dropbox agents that interacted with the
+RLStended to underperform, principally due to the lack of bulk
+operation access to the RLS.
 
-+ Numbers from Lassi.
+During DC04 realtime analysis required some mechanism by which it
+could determine whether all the files of a given dataset had
+arrived. This could be determined using ``filegroup'' metadata, where
+filegroup was a unique key generated during reconstruction that could
+be used to tie all files in a given dataset together. This metadata
+was added to the filesfortransfer TMDB table, as discussed above.
 
-\subsubsection{Metadata}
-\subsubsection{Filegroup...}
-\subsubsection{Merging}
+One of the dropbox agents implemented the file merging step used in a
+large file transfer stress tests at the end of DC04. Files were
+assembled into larger chunks based on the data type.  Each such queue
+had a user-configurable size and time limit.  When either limit
+expired, the files collected were merged into a bigger file and sent
+downstream.  Files were merged into uncompressed zip archives;
+individual files in the archive retained their identity, and the rest
+of the system continued to see them as individual files.  The only
+difference between files in Zips and the files produced by Reco was a
+non-standard URL such as ``zip-member:rfio:/.../foo.zip\#member-name''.
+COBRA has means to read such ``sub-files'' directly, redirecting the
+file access into a sub-byte-range inside the archive.
+
+The merging process required significant processing power. Several
+zip-making agents must be run in parallel because sometimes rfcp from
+GDB takes so long that queues would stall- sometimes up to two hours.
+Unfortunately maintaining several concurrent processes each reading
+and writing 1.5GB data to disks is something Linux 2.4 kernels
+apparently do not do very well. As a result the merging agents had to
+be run on a dual processor Sun box with SAN disks. With this
+infrastructure there were no problems keeping up with production or
+processing backlogs from delays.
+
 
 \subsection{SRM chain}
 The SRM distribution chain comprised an SRM Export Buffer at CERN
