@@ -164,7 +164,7 @@ sub idle
 	    $dbh->commit ();
 
 	    # Log delay data.
-	    my $nowh = &mygettimeofday();
+	    my $nowh = &mytimeofday();
 	    my $dalloc = $nowh - $time;
 	    my $dtransfer = $nowh - $now;
     	    &logmsg ("xstats: $guid $mynode 3 "
