@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/09/03 16:52:15 $
-# $Id: Allocator.pl,v 1.59 2004/09/03 16:52:15 barrass Exp $
+# $Date: 2004/09/03 16:54:22 $
+# $Id: Allocator.pl,v 1.60 2004/09/03 16:54:22 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -127,7 +127,8 @@ while(!(-e "$g_work_dir/stop")) {
     
     do_sql( \@sql );
 
-    log_entry( "$allocated_count/$#guids new guids allocated" );
+    $total_guids = $#guids+1;
+    log_entry( "$allocated_count/$total_guids new guids allocated" );
     
     $time = time();
     sleep($g_period - $time + $loop_start);
@@ -148,7 +149,7 @@ sub connect_to_db {
     
     # FIXME: is this ok, or will it leave outstanding
     # connections? Return ref to handle?
-    log_entry( "Connected to $g_db" );
+#    log_entry( "Connected to $g_db" );
     return $dbh;
 }
 
@@ -184,7 +185,7 @@ sub get_new_guid_list {
 	    $row[1] =~ s/\s+//g;
 	    $guid_list{$row[0]}  = $row[1];
         }
-        log_entry(  "Found $count new GUIDs" );
+#        log_entry(  "Found $count new GUIDs" );
         $query->finish();
         
         $dbh->disconnect();
