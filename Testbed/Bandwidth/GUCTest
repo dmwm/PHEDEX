@@ -43,6 +43,7 @@ foreach my $file (@files)
 {
     $mgr->addJob (sub {}, {}, @ARGV, $file, $args{DEST});
     $mgr->pumpJobs();
+    select (undef, undef, undef, .1);
 }
 
 # Now wait all jobs to finish
