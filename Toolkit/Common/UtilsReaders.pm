@@ -1,7 +1,10 @@
+package UtilsRFIO; use strict; require Exporter; use vars '@EXPORT';
+@EXPORT = qw(readChecksumData readXMLCatalog);
+
 # Read job checksum data: lines of "CHECKSUM SIZE FILE".
 sub readChecksumData
 {
-    my ($drop, $file) = @_;
+    my ($file) = @_;
     open (IN, "< $file") or die "cannot read checksum file $file: $!";
     my @result = ();
     while(<IN>)
@@ -38,7 +41,7 @@ sub readChecksumData
 # FIXME: replace by a query call when POOL provides a suitable tool.
 sub readXMLCatalog
 {
-    my ($drop, $file) = @_;
+    my ($file) = @_;
     open (IN, "< $file") or die "cannot read catalog file $file: $!";
     my $result = {};
     while(<IN>)

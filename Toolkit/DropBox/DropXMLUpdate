@@ -71,7 +71,10 @@ package DropXMLUpdate;
 use strict;
 use Exporter;
 use File::Path;
+use UtilsCommand;
+use UtilsLogging;
 use UtilsWriters;
+use UtilsTiming;
 use UtilsAgent;
 use base 'UtilsAgent';
 

@@ -58,6 +58,10 @@ package DropCastorChecksum;
 use strict;
 use Exporter;
 use File::Path;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsRFIO;
 use UtilsReaders;
 use UtilsAgent;
 use base 'UtilsAgent';
@@ -149,10 +153,10 @@ sub processDrop
         return;
     }
 
-    my $catalogue = eval { &readXMLCatalog ($drop, $xmlcat) };
+    my $catalogue = eval { &readXMLCatalog ($xmlcat) };
     do { &alert($@); $self->markBad ($drop); return } if $@;
 
-    my @checksums = eval { $cksum ? &readChecksumData ($drop, $cksum) : () };
+    my @checksums = eval { $cksum ? &readChecksumData ($cksum) : () };
     do { &alert($@); $self->markBad ($drop); return } if $@;
 
     # Stage files in, but leave drop in queue if files are still pending

@@ -1,8 +1,14 @@
+package UtilsTR; use strict; require Exporter; use vars '@EXPORT';
 use TextGlob 'glob_to_regex';
 use UtilsWriters;
 use UtilsReaders;
 use UtilsCommand;
 use UtilsNet;
+
+@EXPORT = qw(usage readPatterns expandPatterns expandAssignments
+	     assignmentData assignmentInfo assignmentFileCategory
+	     assignmentDrops listDatasetOwners listAssignments
+	     checkAssignmentFiles feedDropsToAgents);
 
 sub usage
 {

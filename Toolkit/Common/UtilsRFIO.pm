@@ -1,3 +1,6 @@
+package UtilsRFIO; use strict; require Exporter; use vars '@EXPORT';
+@EXPORT = qw(rfstat rfmkpath rflist rfsubdirs rffiles rfcp rfrm rfrmall rfcpmany);
+
 # Check if a RFIO file exists.  Returns undef if the file
 # doesn't exist at all, otherwise the protection string.
 sub rfstat

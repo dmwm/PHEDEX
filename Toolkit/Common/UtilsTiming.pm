@@ -1,3 +1,6 @@
+package UtilsTiming; use strict; require Exporter; use vars '@EXPORT';
+@EXPORT = qw(timeStart elapsedTime formatElapsedTime mytimeofday);
+
 # Timing utilities.  First define higher-resolution timing via
 # gettimeofday() where it is available, otherwise fall back on
 # time().

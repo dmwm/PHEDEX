@@ -1,10 +1,13 @@
+package UtilsLogging; use strict; require Exporter; use vars '@EXPORT';
+@EXPORT = qw(logmsg alert warn note);
+
 # Produce an alert message
 sub logmsg
 {
     my $date = `date +"%Y-%m-%d %H:%M:%S"`;
     my $me = $0; $me =~ s|.*/||;
     chomp ($date);
-    print STDERR "$date: $me[$$]: ", @_, "\n";
+    print STDERR "$date: ${me}\[$$]: ", @_, "\n";
 }
 
 sub alert

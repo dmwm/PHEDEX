@@ -1,3 +1,6 @@
+package UtilsCommand; use strict; require Exporter; use vars '@EXPORT';
+@EXPORT = qw(getdir runcmd runerror touch mv cksum output input);
+
 # Get directory contents
 sub getdir
 {

@@ -88,6 +88,9 @@ use Exporter;
 use POSIX; # qw(strftime sys_wait_h);
 use Data::Dumper;
 use File::Path;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
 use UtilsReaders;
 use UtilsAgent;
 use base 'UtilsAgent';
@@ -669,10 +672,10 @@ sub processDrop
     }
 
     # Read catalog and checksum data
-    my $catalog = eval { &readXMLCatalog ($drop, $xmlcat) };
+    my $catalog = eval { &readXMLCatalog ($xmlcat) };
     do { &alert($@); $self->markBad ($drop); return } if $@;
 
-    my @checksums = eval { &readChecksumData ($drop, $cksum) };
+    my @checksums = eval { &readChecksumData ($cksum) };
     do { &alert($@); $self->markBad ($drop); return } if $@;
 
     # Assign new files to queues
@@ -715,7 +718,7 @@ sub idle
 	my $xmlcat = (<$dropdir/XMLCatFragment.*.{xml,txt}>)[0];
         next if ! defined $xmlcat;
 
-        my $catalog = eval { &readXMLCatalog ($drop, $xmlcat) };
+        my $catalog = eval { &readXMLCatalog ($xmlcat) };
 	do { &alert($@); $self->markBad ($drop); next } if $@;
 
         $self->purgeProcessedDrop ($drop, $catalog);

@@ -1,3 +1,6 @@
+package UtilsWriters; use strict; require Exporter; use vars '@EXPORT';
+@EXPORT = qw(genXMLPreamble genXMLTrailer genXMLCatalogue outputCatalog);
+
 sub genXMLPreamble
 {
     return ("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n"

@@ -1,9 +1,10 @@
 package UtilsAgent;
 use strict;
 require Exporter;
-use UtilsTiming;
+use POSIX;
 use UtilsCommand;
 use UtilsLogging;
+use UtilsTiming;
 use UtilsRFIO;
 use base 'Exporter';
 

@@ -55,6 +55,9 @@ package DropCatPublisher;
 use strict;
 use Exporter;
 use File::Path;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
 use UtilsAgent;
 use base 'UtilsAgent';
 

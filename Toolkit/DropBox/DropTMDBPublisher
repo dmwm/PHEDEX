@@ -63,6 +63,9 @@ package DropTMDBPublisher;
 use strict;
 use Exporter;
 use File::Path;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
 use UtilsReaders;
 use UtilsAgent;
 use base 'UtilsAgent';
@@ -213,10 +216,10 @@ sub processDrop
 	return;
     }
 
-    my $catalog = eval { &readXMLCatalog ($drop, $xmlcat) };
+    my $catalog = eval { &readXMLCatalog ($xmlcat) };
     do { &alert($@); $self->markBad ($drop); return } if $@;
 
-    my @checksums = eval { &readChecksumData ($drop, $cksum) };
+    my @checksums = eval { &readChecksumData ($cksum) };
     do { &alert($@); $self->markBad ($drop); return } if $@;
 
     # OK, insert information to the database.

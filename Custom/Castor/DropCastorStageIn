@@ -69,6 +69,9 @@ use strict;
 use Exporter;
 use File::Path;
 use Data::Dumper;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
 use UtilsReaders;
 use UtilsAgent;
 use base 'UtilsAgent';
@@ -289,7 +292,7 @@ sub readStageInProgress
 	    $self->markBad ($drop);
 	    next;
 	}
-    	my $catalog = eval { &readXMLCatalog ($drop, $xmlcat) };
+    	my $catalog = eval { &readXMLCatalog ($xmlcat) };
     	do { &alert($@); $self->markBad ($drop); next } if $@;
 
 	# Create status object for each file, read in saved one if it exists.
