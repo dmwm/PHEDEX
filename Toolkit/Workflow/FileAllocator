@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/29 09:13:55 $
-# $Id: Allocator.pl,v 1.31 2004/07/29 09:13:55 barrass Exp $
+# $Date: 2004/07/29 09:22:39 $
+# $Id: Allocator.pl,v 1.32 2004/07/29 09:22:39 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -83,7 +83,11 @@ while(!(-e "$g_work_dir/stop")) {
             foreach $dest ( @destinations ) {
             
                 my $gateway = lookup_route( $source_node_by_guid{$guid}, $dest );
+                my $time = time();
                 log_entry( "$guid source: $source_node_by_guid{$guid} dest: $dest via: $gateway" );
+                my $advert = "insert into t_file_state "
+                        ."values ('$guid','$gateway',1,'$source_node_by_guid{$guid}',$time)";
+                push( @adverts, $advert );
             
             }
             
@@ -91,6 +95,8 @@ while(!(-e "$g_work_dir/stop")) {
             add_new_stream_to_subscriptions( $dataset_by_new_guid{$guid} );
         }
     }
+    
+    
 
     $time = time();
     sleep($g_period - $time + $loop_start);
@@ -192,6 +198,33 @@ sub get_current_subscriptions {
 	return (%guid_list);
 }
 
+sub do_sql {
+    my @sql = shift;
+    
+    eval {
+        my $dbh = DBI->connect(    "DBI:Oracle:$g_db",
+	   				    'CMS_TRANSFERMGMT',
+		  			    'smallAND_round',
+	   				    { RaiseError=>1, AutoCommit =>1 });
+    
+        foreach $sql ( @sql ) {
+            $dbh->do($sql) if (!$g_no_updates);
+        }
+
+        $dbh->disconnect;    
+    };
+    
+    if ( @_ ) {
+        log_entry( "Database operation failed doing sql list... @_" );
+        if ($dbh)
+        {
+            $dbh->rollback;
+            $dbh->disconnect;
+        }
+        return 1;
+    }
+}
+
 sub add_new_stream_to_subscriptions {
     my $new_stream = shift;
 
@@ -203,7 +236,7 @@ sub add_new_stream_to_subscriptions {
 					    { RaiseError=>1, AutoCommit =>1 });
 
     log_entry( "New stream for subscriptions- $new_stream" );
-    $dbh->do($insert) if (!$no_updates);
+    $dbh->do($insert) if (!$g_no_updates);
 
     $dbh->disconnect;
 }
@@ -215,7 +248,6 @@ sub get_source_nodes {
         $selection .= "guid = '$guid' or ";
     }
     substr( $selection, -4 ) = '';
-    log_entry();
     my %sources = ();
 
 
@@ -271,7 +303,7 @@ sub lookup_route {
 	};
 	
 	if (@_) {
-        log_entry( "Database operation failed getting source nodes for guids... @_" );
+        log_entry( "Database operation failed looking up route... @_" );
         if ($dbh)
         {
             $dbh->rollback;
@@ -283,6 +315,8 @@ sub lookup_route {
     return $gateway;
     
 }
+
+
 
 sub parse_command_line () {
 	GetOptions(	'w=s' => \$new_work_dir,
