@@ -242,6 +242,13 @@ sub compare_with_existing_routes {
 	    } else {
 		$gate_time_hops_by_dest{$new_to} = $new_gate_time_hops;
 	    }
+	} else { 
+	    # however, if it is a neighbour then we might want
+	    # to time it out
+	    if ((!($new_time - $dummy_time) > $g_timeout) ) {
+		my $new_gate_time_hops = "$new_gate:$new_time:$new_hops";
+		$gate_time_hops_by_dest{$new_to} = $new_gate_time_hops;
+	    }
 	}
     }
 
