@@ -91,8 +91,10 @@ class myobj(object):
             self.x.disconnect()
         except PyFileCatalogError, er:
              print >> sys.stderr, 'File catalogue error:', er
+	     sys.exit (1)
 	except Exception, er:
 	     print >> sys.stderr, 'An exception occurred:', er
+	     sys.exit (1)
 
 if __name__=="__main__":
     y=myobj()
