@@ -92,111 +92,96 @@ sub idle
 
         # FIXME: Pick up and process messages to me
 
-	# Select completed transfers which we haven't yet closed with
-	# next hop assignment.  Process each such guid.
-	my $stmt = $dbh->prepare(qq{
-			select distinct guid
-			from t_transfer_state
-			where dest_state = 3});
-	$stmt->execute();
-	while (my $guidrow = $stmt->fetchrow_arrayref())
-	{
-	    my $guid = $guidrow->[0];
+        my $stmt;
 
-	    # Select all destinations, possible source replicas, best
-	    # next hop and distance to the destination, and status of
-	    # any existing transfer assignment on that hop (if any).
-	    # We get all this information in one query, so we need to
-	    # unpack it aftwards.
-	    #
-	    # For each possible destination, we get a row for every
-	    # possible source replica, with the name of the next hop
-	    # if we use that source and the distance to the final
-	    # destination.  This information is sorted by hop distance
-	    # so we care only about the first destination/source pair.
-	    # If the source and the destination are the same, hop
-	    # distance will be zero and next hop will be null (undef).
-	    # If there is no path from the source to the destination
-	    # the next hop and the distance will both be null (undef).
-	    #
-	    # For each possible next hop returned we also get the
-	    # transfer state from any possible existing assignment
-	    # for that hop.  The value will be null (undef) if no
-	    # assignment exists yet, non-null otherwise.
-	    my $rows = $dbh->selectall_arrayref(qq{
-    		select d.destination_node as dest_final,
-		       rs.node as source,
-		       r.gateway as next_hop,
-		       case when rs.node = d.destination_node then 0
-		       else r.hops end as hops,
-		       ts.dest_state as status
+	# Warn about files that cannot be routed
+	$stmt = $dbh->prepare(qq{
+		select guid, dest_final from (
+		  select d.guid guid, d.destination_node dest_final, count(r.gateway) paths
+		  from t_destinations d
+		  left join t_replica_state rs on rs.guid = d.guid
+		  left join t_routing r on r.from_node = rs.node and r.to_node = d.destination_node
+		  group by d.guid, d.destination_node)
+		where paths = 0});
+	$stmt->execute();
+	while (my $row = $stmt->fetchrow_arrayref())
+	{
+	    my ($guid, $dest) = @$row;
+	    next if $self->{WARNINGS}{NO_ROUTE}{$guid}{$dest};
+	    $self->{WARNINGS}{NO_ROUTE}{$guid}{$dest} = 1;
+	    &warning("$guid: no path to destination $dest");
+	}
+
+	# For each destination of each file, for each replica find the
+	# transfer that got the file there and possible next hop to the
+	# final destination.  Filter only the combinations that require
+	# a new hop assignment.  The query may return more than one row
+	# for a guid/destination pair: while there can be only possible
+	# previous and next hop for guid/destination/replica, there may
+	# be more than one replica we need to deal with.  This is even
+	# after filtering only the rows that are completed transfers
+	# and/or need a next hop assignment.  We sort the query result
+	# by dest_state, which causes null states to be sorted after
+	# non-null ones, and simply ignore what we've already handled.
+	my %seen = ();
+	$stmt = $dbh->prepare(qq{
+		select d.guid, d.destination_node, rs.node,
+		       r.from_node, ts.dest_state,
+		       r1.gateway, ts2.dest_state
 		from t_destinations d
 		left join t_replica_state rs
-		  on d.guid = rs.guid
+		  on rs.guid = d.guid
 		left join t_routing r
-		  on r.from_node = rs.node
+		  on r.gateway = rs.node
 		 and r.to_node = d.destination_node
 		left join t_transfer_state ts
 		  on ts.guid = d.guid
-		 and ts.src_node = rs.node
-		 and ts.dest_node = r.gateway
-	 	where d.guid = '$guid'
-		order by dest_final, hops});
-	    last if ! defined $rows;
+		 and ts.src_node = r.from_node
+		 and ts.dest_node = rs.node
+		left join t_routing r1
+		  on r1.from_node = rs.node
+		 and r1.to_node = d.destination_node
+		left join t_transfer_state ts2
+		  on ts2.guid = d.guid
+		 and ts2.src_node = rs.node
+		 and ts2.dest_node = r1.gateway
+		where (ts.dest_state = 3 or (r1.gateway is not null and ts2.dest_state is null))
+	        order by d.guid, d.destination_node, ts.dest_state, ts2.dest_state, r.hops, r1.hops});
+	$stmt->execute();
+	while (my $row = $stmt->fetchrow_arrayref())
+	{
+	    my ($guid, $dest, $replica, $prev, $pstate, $next, $nstate) = @$row;
+	    delete $self->{WARNINGS}{NO_ROUTE}{$guid}{$dest};
 
-	    my %dests = ();
-	    foreach my $row (@$rows)
+	    # If we haven't seen this completed transfer, mark it complete
+	    if (defined $pstate && ! $seen{"PREV:$guid:$prev:$replica"})
 	    {
-		my ($dest, $source, $next, $dist, $status) = @$row;
-
-		if (! exists $dests{$dest}
-		    && (! defined $source || ! defined $dist))
-	    	{
-		    # The best path to the destination is null: complain
-		    &alert ("$guid: no path to destination $dest");
-		}
-		elsif (! exists $dests{$dest})
-		{
-		    # Mark this destination seen so we'll ignore the
-		    # rest of the rows for it.
-		    $dests{$dest} = 1;
-
-		    # This is the best source for the destination.  If
-		    # the distance is zero, the file is already at the
-		    # destination (and source == dest).  Otherwise if
-		    # the status is non-null a transfer assignment
-		    # already exists for the file; if it is null, we
-		    # need to make one.
-		    if ($dist == 0)
-		    {
-			&logmsg ("final $guid $dest @{[time()]}");
-		    }
-		    elsif (! defined $status)
-		    {
-		        my $now = time();
-		        &logmsg ("next $guid $dest $now $source $next $dist");
-		        $dbh->do(qq{insert into t_transfer_state values
-			    ('$guid', '$source', '$next', 0, 0, $now, $now)});
-	    	    }
-		}
-		else
-		{
-		   # FIXME: Keep track of all equidistance paths to the
-		   # destination and choose randomly among the sources
-		   # to avoid overloading any particular node?  Or maybe
-		   # use more dynamic data in routing table (recent node
-		   # performance, e.g. bandwidth etc.)?
-		}
+		my $now = time();
+		$seen{"PREV:$guid:$replica:$prev"} = 1;
+		$dbh->do(qq{
+			update t_transfer_state
+			set dest_state = 4, dest_time_stamp = $now
+			where guid = '$guid' and src_node = '$prev' and dest_node = '$replica'});
+		&logmsg ("final $now $guid $dest") if $replica eq $dest;
 	    }
 
-	    # Now mark as processed all completed transfers for this file.
-	    my $now = time();
-	    $dbh->do(qq{
-		    update t_transfer_state
-		    set dest_state = 4, dest_time_stamp = $now
-		    where guid = '$guid' and dest_state = 3});
-	    $dbh->commit ();
+	    # If we haven't seen this destination yet, apply next hop if any
+	    if (! $seen{"DEST:$guid:$dest"})
+	    {
+		$seen{"DEST:$guid:$dest"} = 1;
+		if (defined $next && ! defined $nstate && ! $seen{"NEXT:$guid:$replica:$next"})
+		{
+		    my $now = time ();
+		    $seen{"NEXT:$guid:$replica:$next"} = 1;
+		    $dbh->do(qq{
+			    insert into t_transfer_state
+			    values ('$guid', '$replica', '$next', 0, 0 ,$now, $now)});
+		    &logmsg ("next $now $guid $dest $replica $next");
+	        }
+	    }
 	}
+
+	$dbh->commit ();
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 
