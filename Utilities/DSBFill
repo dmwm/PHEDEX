@@ -42,7 +42,7 @@ my $datasets = &dbexec($dbh, qq{select id, dataset, owner from t_dsb_dataset})
 	       ->fetchall_arrayref ({});
 my $files =    &dbexec($dbh, qq{select id, guid from t_dsb_fileid})
 	       ->fetchall_arrayref ({});
-my %dso2dataset = map { join(" ", $_->{DATASET}, $_->{OWNER}) => $_ } @$datasets;
+my %dso2dataset = map { join("/", $_->{OWNER}, $_->{DATASET}) => $_ } @$datasets;
 my %guid2file = map { $_->{GUID} => $_ } @$files;
 
 # Get all current datasets
@@ -184,7 +184,9 @@ sub fetchRunInfo
 	    &warn ("$label: no xml cragment\n");
 	} else {
 	    # Grab XML fragment
-	    open (XMLEXP, "echo '$xmlfrag' | mimencode -u | gzip -dc |")
+	    open (XMLEXP, "echo '$xmlfrag'"
+			  . " | perl -MMIME::Base64 -ne 'binmode(STDOUT); print decode_base64(\$_)'"
+			  . " | gzip -dc |")
 	        or die "$label: cannot expand xml fragment: $!\n";
 	    $runobj->{XML} = join("", grep(!/^\d+a$/ && !/^\.$/, <XMLEXP>));
 	    close (XMLEXP) or die "$label: failed to read xml fragment: $!\n";
