@@ -23,11 +23,15 @@ while ($count > 0) {
     $full_path = $pwd.$file;
     
     @output = `FCregisterPFN -p $full_path`;
-    if ($#output > 1) {
+    $exit_value = $? >> 8;
+
+    if ($exit_value == 1) {
         print "Problem registering pfn\n@output\n";
+        exit(1);
     } else {
-        $guid = $output[0];
+        $guid = $output[$#output-1];
     }
+    print "$guid\n";
     
     $count--;
 }
