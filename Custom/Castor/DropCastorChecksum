@@ -108,10 +108,11 @@ sub processDrop
         return;
     }
 
-    my $catalogue = &readXMLCatalog ($drop, $xmlcat);
-    return if ! keys %$catalogue;
+    my $catalogue = eval { &readXMLCatalog ($drop, $xmlcat) };
+    do { &alert($@); &markBad ($drop); return } if $@;
 
-    my @checksums = $cksum ? &readChecksumData ($drop, $cksum) : ();
+    my @checksums = eval { $cksum ? &readChecksumData ($drop, $cksum) : () };
+    do { &alert($@); &markBad ($drop); return } if $@;
 
     # Stage files in, but leave drop in queue if files are still pending
     return if ! &updateChecksums ($drop, $catalogue, \@checksums);

@@ -653,11 +653,11 @@ sub processDrop
     }
 
     # Read catalog and checksum data
-    my $catalog = &readXMLCatalog ($drop, $xmlcat);
-    return if ! keys %$catalog;
+    my $catalog = eval { &readXMLCatalog ($drop, $xmlcat) };
+    do { &alert($@); &markBad ($drop); return } if $@;
 
-    my @checksums = &readChecksumData ($drop, $cksum);
-    return if ! scalar @checksums;
+    my @checksums = eval { &readChecksumData ($drop, $cksum) };
+    do { &alert($@); &markBad ($drop); return } if $@;
 
     # Assign new files to queues
     return if ! &assignToQueues ($drop, $catalog, \@checksums, $queues);
@@ -698,8 +698,8 @@ sub idle
 	my $xmlcat = (<$workdir/$drop/XMLCatFragment.*.{xml,txt}>)[0];
         next if ! defined $xmlcat;
 
-        my $catalog = &readXMLCatalog ($drop, $xmlcat);
-        next if ! keys %$catalog;
+        my $catalog = eval { &readXMLCatalog ($drop, $xmlcat) };
+	do { &alert($@); &markBad ($drop); next } if $@;
 
         &purgeProcessedDrop ($drop, $catalog);
     }

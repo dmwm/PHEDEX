@@ -249,8 +249,8 @@ sub readStageInProgress
 	    &markBad ($drop);
 	    next;
 	}
-    	my $catalog = &readXMLCatalog ($drop, $xmlcat);
-    	next if ! keys %$catalog;
+    	my $catalog = eval { &readXMLCatalog ($drop, $xmlcat) };
+    	do { &alert($@); &markBad ($drop); next } if $@;
 
 	# Create status object for each file, read in saved one if it exists.
     	foreach my $file (values %$catalog)

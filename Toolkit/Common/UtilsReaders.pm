@@ -2,13 +2,7 @@
 sub readChecksumData
 {
     my ($drop, $file) = @_;
-    if (! open (IN, "< $file"))
-    {
-	&alert ("cannot read checksum file $file: $!");
-	&markBad ($drop);
-	return ();
-    }
-
+    open (IN, "< $file") or die "cannot read checksum file $file: $!";
     my @result = ();
     while(<IN>)
     {
@@ -25,9 +19,8 @@ sub readChecksumData
 	else
 	{
 	    # Complain about bad lines
-	    &alert("unrecognised checksum line: $file:$.");
-	    &markBad ($drop);
-	    last;
+	    close (IN);
+	    die "unrecognised checksum line: $file:$.";
 	}
     }
 
@@ -46,13 +39,7 @@ sub readChecksumData
 sub readXMLCatalog
 {
     my ($drop, $file) = @_;
-    if (! open (IN, "< $file"))
-    {
-	&alert("cannot read catalog file $file: $!");
-	&markBad ($drop);
-	return {};
-    }
-
+    open (IN, "< $file") or die "cannot read catalog file $file: $!";
     my $result = {};
     while(<IN>)
     {
@@ -82,17 +69,13 @@ sub readXMLCatalog
 		|| scalar @{$frag->{LFN}} != 1
 		|| ! $guid)
 	    {
-		&alert("cannot understand catalog $file");
-		&markBad ($drop);
-		$result = {};
-		last;
+		close (IN);
+		die "cannot understand catalog $file";
 	    }
 	    elsif (exists $result->{$guid})
 	    {
-		&alert("catalog $file with duplicate guid $guid");
-		&markBad ($drop);
-		$result = {};
-		last;
+		close (IN);
+		die "catalog $file with duplicate guid $guid";
 	    }
 	    else
 	    {
@@ -103,12 +86,7 @@ sub readXMLCatalog
 
     close (IN);
 
-    if (! keys %$result)
-    {
-	&alert("no guid mappings found in catalog $file");
-	&markBad ($drop);
-    }
-
+    die "no guid mappings found in catalog $file" if ! keys %$result;
     return $result;
 }
 

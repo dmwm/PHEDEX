@@ -169,11 +169,11 @@ sub processDrop
 	return;
     }
 
-    my $catalog = &readXMLCatalog ($drop, $xmlcat);
-    return if ! keys %$catalog;
+    my $catalog = eval { &readXMLCatalog ($drop, $xmlcat) };
+    do { &alert($@); &markBad ($drop); return } if $@;
 
-    my @checksums = &readChecksumData ($drop, $cksum);
-    return if ! scalar @checksums;
+    my @checksums = eval { &readChecksumData ($drop, $cksum) };
+    do { &alert($@); &markBad ($drop); return } if $@;
 
     # OK, insert information to the database.
     return if &updateTransferDatabase ($drop, $catalog, @checksums);
