@@ -515,8 +515,8 @@ beforehand.
 In addition, LCG-2 resources were not available at several T1s. More
 critically 
 still, for RAL and IN2P3 SRB represented the only mechanism available
-for placing 
-files in mass storage.
+for placing files in mass storage with consistent catalogue information 
+in an automated manner.
 
 Unfortunately during DC04 there came a serious break in service quality
 as staff 
@@ -566,14 +566,13 @@ filesize been aparent before the data challenge a different system would
 have been 
 developed. In retrospect an export buffer agent based on the drop boxes
 used in the 
-tier 0 would be a preferred system. Since the data challenge came to an
-end a series of
+tier 0 would be a preferred system, separating transfers from the GUID metadata insertion.
+Since the data challenge came to an end a series of
 tests have been done in an attempt to replicate and solve the problems
 found during 
 the DC, as many components of the CMS grid will rely on similar backends
 (eg Oracle 
 databases) it is essential to understand the problems experienced.
-
 
 Code vs API, post mortem testing etc.
 
@@ -590,11 +589,10 @@ transfer rates could
 be sustained at a rate greater than this.
 
 It should be noted that SRB is not integrated into the LCG analysis
-system (reference 
-ACAT paper), and that while this is possible it may not be desirable to
-create a "grid 
-of grids". It is likely that CMS use of SRB will be phased out before
-DC05.
+system, and that while this is possible (reference 
+ACAT paper) it may not be desirable to
+create a "grid of grids" without some significant additional desired functionality. 
+It is likely that CMS use of SRB will be phased out before DC05.
 
 \subsection{LCG chain}
 The LCG components required for distribution were the LRC at CERN, the dedicated information index (bdII), LCG-2 VO tools, a GridICE node at CNAF, Castor SEs at CNAF and PIC and "classic" disk SEs at CERN, CNAF, PIC, Legnaro, CIEMAT and Taiwan.
