@@ -38,21 +38,21 @@ while( defined( $file = readdir( DIR ) ) ) {
         }
         
         
-        unlink( $file );
-        
         
         push( @sql, "delete from t_replica_metadata where guid = '$guid'" );
         push( @sql, "delete from t_destinations where guid = '$guid'" );
         push( @sql, "delete from t_file_state where guid = '$guid'" );
         push( @sql, "delete from t_files_for_transfer where guid = '$guid'" );     
-    
-    
+        do_sql( "devdb9", \@sql );
+        @sql = ();
+        
+        
+        unlink( $file );
+        
     }
     
 }
 close( DIR );
-
-do_sql( "devdb9", \@sql );
 
 
 # =========================================================
@@ -61,7 +61,7 @@ do_sql( "devdb9", \@sql );
 
 sub do_sql {
     my $dbname = shift;
-    my @$sql = shift;
+    my $sql = shift;
     
     eval {
         my $dbh;
