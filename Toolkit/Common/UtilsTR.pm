@@ -277,7 +277,7 @@ sub checkAssignmentFiles
 
 sub feedDropsToAgents
 {
-    my ($mouth, $type, $status, @drops) = @_;
+    my ($mouth, $request, $doit, $type, $status, @drops) = @_;
     foreach my $drop (@drops)
     {
 	my $info = $status->{$drop};

@@ -67,7 +67,7 @@ foreach my $request (@ARGV)
     my $status   = &checkAssignmentFiles ($mouth, $dbname, $table,
 	    				  @pending, @notready, @done);
 
-    &feedDropsToAgents ($mouth, 'Pending', $status, @pending);
-    &feedDropsToAgents ($mouth, 'NotReady', $status, @notready);
-    &feedDropsToAgents ($mouth, 'Done', $status, @done);
+    &feedDropsToAgents ($mouth, $request, $doit, 'Pending', $status, @pending);
+    &feedDropsToAgents ($mouth, $request, $doit, 'NotReady', $status, @notready);
+    &feedDropsToAgents ($mouth, $request, $doit, 'Done', $status, @done);
 }
