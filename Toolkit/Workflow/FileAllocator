@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/27 13:12:07 $
-# $Id: Allocator.pl,v 1.6 2004/07/27 13:12:07 barrass Exp $
+# $Date: 2004/07/27 13:36:25 $
+# $Id: Allocator.pl,v 1.7 2004/07/27 13:36:25 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -122,7 +122,7 @@ sub get_new_guid_list {
 	};
 	
 	if (@_) {
-        log_entry( "Database operation failed..." );
+        log_entry( ENTRY => "Database operation failed... @_" );
         if ($dbh)
         {
             $dbh->rollback;
