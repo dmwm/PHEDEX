@@ -140,8 +140,8 @@ sub timeSeries
     if ($range eq 'hour') {
 	# Convert first time to UTC hour.  Then make a
 	# time series of hours until end of current hour.
-	my $low = int($first / 3600);
-	my $high = int($now / 3600) + 1;
+	my $low = 12 * int($first / 3600 / 12);
+	my $high = 12 * (int($now / 3600 / 12) + 1);
 	for ( ; $low < $high; ++$low) {
 	    push(@series, { LOW => $low * 3600, HIGH => ($low+1) * 3600 });
         }
