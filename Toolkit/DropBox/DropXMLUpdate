@@ -69,6 +69,8 @@ if (scalar @ARGV || !$args{DROPDIR})
 # Routines specific to this agent.
 package DropXMLUpdate; use strict; use warnings; use base 'UtilsAgent';
 use File::Path;
+use UtilsCache;
+use UtilsReaders;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
@@ -86,28 +88,7 @@ sub new
     return $self;
 }
 
-# Determine actual location of a file in castor.  Used if there is
-# no summary file to tell the full path for the files.
-sub getPFNFromCastor
-{
-    my $lfn = shift;
-    open (PFN, "stageqry -f -h $ENV{STAGE_HOST} -p $ENV{STAGE_POOL} -M $lfn |");
-    while (<PFN>) 
-    {
-        if (/^ \//)
-	{
-            s/\s//g;
-	    close (PFN);
-            return $_;
-        }
-    }
-    close (PFN);
-    return undef;
-}
-
 # Determine the full path for the files from the summary file.
-# Returns "undef" if this doesn't work (e.g. there is no summary),
-# in which case the caller falls back on getPFNFromCastor above.
 sub getPFNRoot
 {
     my $summary = shift;
@@ -139,70 +120,49 @@ sub getPFNRoot
 # current format (pre-POOL-1.4 to current).
 sub updateCatalog
 {
-    my ($self, $drop, $xmlcat, $summary) = @_;
-    my $pfnroot = &getPFNRoot ($summary);
+    my ($self, $drop, $xmlcat, $pfnroot) = @_;
 
-    if (! open (CAT, "< $xmlcat"))
+    # Read the catalogue.  Our read routine ignores random junk
+    my $dropdir = "$self->{WORKDIR}/$drop";
+    my $catalogue = eval { &readXMLCatalog ($xmlcat) };
+    do { &alert ("$drop: $@"); $self->markBad ($drop); return 1; } if $@;
+
+    # Read attribute data
+    my $attrsfile = "$dropdir/attrs";
+    my $attrs = eval { -f $attrsfile ? &readAttributeCache ($attrsfile) : [] };
+    do { &alert("$drop: $@"); $self->markBad ($drop); return 1; } if $@;
+
+    # Rewrite relative PFNs to use $pfnroot
+    foreach my $entry (values %$catalogue)
     {
-	# Assume it's a transient error and return failure
-	&alert ("Cannot read catalog in $drop: $!");
-	return 1;
+	$entry->{TEXT} =~ s|^(.*<pfn\s.*\sname=")\./(.*)("/>.*)|$1$pfnroot/$2$3|g;
+	map { s|^\./|$pfnroot/| } @{$entry->{PFN}};
     }
 
-    my $content = "";
-    my $inbody = 0;
-    while (<CAT>)
-    {
-	if (! $inbody && m|<File\s|) {
-	    $inbody = 1;
-	    $content .= $_;
-	} elsif ($inbody && m|</File>|) {
-	    $inbody = 0;
-	    $content .= $_;
-        } elsif ($inbody && m|^(.*<pfn\s.*name=")\./(.*)("/>.*)|) {
-	    my ($pre, $lfn, $post) = ($1, $2, $3);
-	    my $pfn = ($pfnroot ? "$pfnroot/$lfn" : getPFNFromCastor($lfn));
-	    if (! $pfn || $pfn !~ m|^/|)
-	    {
-		close (CAT);
-		# Assume it's transient error and return failure.  stageqry
-		# seems to return nothing for some files every once in a while,
-		# but gets its act together later on.  So just keep trying.
-		&alert("cannot map logical file name $lfn to full castor path");
-		return 1;
-	    }
-	    $content .= $pre . $pfn . $post . "\n";
-	} elsif ($inbody) {
-	    $content .= $_;
-	}
-    }
-    close (CAT);
+    my $content = join ("\n", map { $_->{TEXT} } values %$catalogue);
+    do { &alert("$drop: failed to write catalogue: $!"); return 1; }
+        if ! &outputCatalog ($xmlcat, $content);
 
-    if (! &outputCatalog ($xmlcat, $content))
+    # Reformat old POOL catalogues.  Assume POOL errors are fatal,
+    # other errors are transient.
+    if (my $status = &runcmd ("FCpublish", "-u", "file:$xmlcat", "-d",
+		    	      "file:$dropdir/newcat.$$.xml"))
     {
-	# Assume it's a transient error and return failure
-	&alert ("failed rewrite catalog for $drop: $!");
-	return 1;
-    }
-
-    # Rewrite to reformat old catalogues
-    my $status = &runcmd ("FCpublish",
-			  "-u", "file:$xmlcat",
-			  "-d", "file:$self->{WORKDIR}/$drop/newcat.$$.xml");
-    if ($status)
-    {
-	&alert ("failed to clean up the catalogue with FCpublish for $drop: $status");
+	&alert ("$drop: failed to upgrade catalogue: @{[&runerror($status)]}");
 	$self->markBad ($drop);
 	return 1;
     }
 
-    if (! &mv ("$self->{WORKDIR}/$drop/newcat.$$.xml", $xmlcat))
-    {
-	# Assume transient errors
-	&alert ("failed to rename catalogue in $drop: $!");
-	return 1;
-    }
+    do { &alert ("$drop: failed to replace catalogue: $!"); return 1; }
+        if ! &mv ("$dropdir/newcat.$$.xml", $xmlcat);
 
+    # Merge new catalogue to the attribute cache, and write it out
+    &mergeCatalogueToCache ($attrs, $catalogue);
+    do { &alert ("$drop: failed to write attribute cache: $!"); return 1; }
+        if ! &outputAttributeCache ($attrsfile, $attrs);
+
+    # OK, we are done
+    &touch ("$dropdir/done");
     return 0;
 }
 
@@ -220,15 +180,16 @@ sub processDrop
     my $dropdir = "$self->{WORKDIR}/$drop";
     my $xmlcat = (<$dropdir/XMLCatFragment.*.{txt,xml}>)[0];
     my $summary = (<$dropdir/Smry.*.txt>)[0];
-    if (! $xmlcat)
-    {
-	&alert("no xml catalog file found in $drop");
-	$self->markBad ($drop);
-	return;
-    }
+    my $pfnroot = &getPFNRoot ($summary);
+    do { &alert("$drop: no catalogue"); $self->markBad ($drop); return }
+        if ! $xmlcat;
+    do { &alert("$drop: no summary"); $self->markBad ($drop); return }
+        if ! $summary;
+    do { &alert ("$drop: no file root"); $self->markBad ($drop); return }
+        if ! $pfnroot;
 
     # Reformat catalog
-    return if $self->updateCatalog ($drop, $xmlcat, $summary);
+    return if $self->updateCatalog ($drop, $xmlcat, $pfnroot);
     $self->relayDrop ($drop);
     &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
 }

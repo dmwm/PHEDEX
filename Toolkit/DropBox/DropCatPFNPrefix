@@ -39,6 +39,9 @@ if (scalar @ARGV || !$args{DROPDIR} || !$args{PATH_PREFIX})
 # Routines specific to this agent.
 package DropCatPFNPrefix; use strict; use warnings; use base 'UtilsAgent';
 use File::Path;
+use UtilsCache;
+use UtilsReaders;
+use UtilsWriters;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
@@ -67,38 +70,38 @@ sub processDrop
     delete $self->{BAD}{$drop};
     &timeStart($self->{STARTTIME});
 
-    # Find the catalog file.
+    # Find the catalog file and attribute cache
     my $dropdir = "$self->{WORKDIR}/$drop";
     my $xmlcat = (<$dropdir/XMLCatFragment.*.{txt,xml}>)[0];
-    if (! $xmlcat)
-    {
-        &alert("no xml catalog file found in $drop");
-        &markBad ($drop);
-        return;
+    do { &alert ("$drop: no catalogue"); $self->markBad ($drop); return }
+        if ! $xmlcat;
+    my $catalogue = eval { &readXMLCatalog ($xmlcat) };
+    do { &alert ("$drop: $@"); $self->markBad ($drop); return } if $@;
+
+    my $attrsfile = "$dropdir/attrs";
+    my $attrs = eval { &readAttributeCache ($attrsfile) };
+    do { &alert ("$drop: $@"); $self->markBad ($drop); return } if $@;
+
+    # Rewrite PFNs in the catalogue
+    my $prefix = $self->{PATH_PREFIX};
+    foreach my $entry (values %$catalogue) {
+        $entry->{TEXT} =~ s|(<pfn\s.*\s+name=")|$1$prefix|g; #"
+	map { s/^/$prefix/; $_ } @{$entry->{PFN}};
     }
 
-    # Rewrite the PFNs in the catalogue.  Assume errors are transient
-    my $content = "";
-    if (! open (CAT, "< $xmlcat"))
-    {
-	&alert ("Cannot read catalog in $drop: $!");
-	return;
-    }
-    while (<CAT>)
-    {
-    	s|(\s+name=")|$1$self->{PATH_PREFIX}| if m|^.*<pfn\s.*\sname="|;
-    	$content .= $_;
-    }
-    close(CAT);
+    # Merge new catalogue to the attribute cache
+    &mergeCatalogueToCache ($attrs, $catalogue);
 
-    if (! &output ($xmlcat, $content))
-    {
-	&alert ("Cannot rewrite catalog for $drop: $!");
-	return;
-    }
+    # Actually write out the results, assume errors are transient
+    my $content = join("\n", map { $_->{TEXT} } values %$catalogue);
+    do { &alert ("$drop: failed to write catalogue: $!"); return }
+        if ! &outputCatalog ($xmlcat, $content);
+
+    do { &alert ("$drop: failed to write attribute cache: $!"); return }
+        if ! &outputAttributeCache ($attrsfile, $attrs);
 
     # Pass on or delete
-    &touch ("$self->{WORKDIR}/$drop/done");
+    &touch ("$dropdir/done");
     $self->relayDrop ($drop);
     &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
 }

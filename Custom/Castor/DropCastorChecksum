@@ -61,6 +61,7 @@ if (scalar @ARGV || !$args{DROPDIR})
 # Routines specific to this agent.
 package DropCastorChecksum; use strict; use base 'UtilsAgent';
 use File::Path;
+use UtilsCache;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
@@ -109,29 +110,57 @@ sub startWorker
     die "Cannot start worker: $!\n";
 }
 
+# Update file attribute cache for files, and return the hash of files
+# that miss the required information.
+sub updateCache
+{
+    my ($self, $drop, $attrs, $checksums) = @_;
+    my @missing = ();
+    foreach my $file (@$attrs)
+    {
+	my $pfn = $file->{PFN};
+	my $lfn = $file->{LFN};
+	my $csum = (grep ($_->[2] eq $lfn, @$checksums))[0];
+
+	# Verify any existing data
+	if (defined $csum)
+	{
+	    &warn ("$drop: discarding cached file size for $pfn"
+		   . " (old=$file->{FILESIZE}, new=$csum->[1])")
+	        if defined $file->{FILESIZE} && $file->{FILESIZE} ne $csum->[1];
+	    &warn ("$drop: discarding cached checksum for $pfn"
+		   . " (old=$file->{CHECKSUM}, new=$csum->[0])")
+	        if defined $file->{CHECKSUM} && $file->{CHECKSUM} ne $csum->[0];
+	    $file->{CHECKSUM} = $csum->[0];
+	    $file->{FILESIZE} = $csum->[1];
+	}
+
+	# If we have cached checksum, skip this file
+	next if defined $file->{CHECKSUM} && defined $file->{FILESIZE};
+
+	# This needs to be recalculated
+	push (@missing, [ $pfn, $lfn ]);
+    }
+
+    return @missing;
+}
+
 # Update checksums for all files that don't have it.  Copies files from
 # castor to the local working directory and checksums them there.
 sub updateChecksums
 {
-    my ($self, $drop, $catalogue, $checksums) = @_;
+    my ($self, $drop, $attrs, $checksums) = @_;
 
     # Create working directories
-    my $filesdir = "$self->{WORKDIR}/$drop/files";
+    my $dropdir = "$self->{WORKDIR}/$drop";
+    my $filesdir = "$dropdir/files";
     &rmtree ($filesdir);
     eval { &mkpath ($filesdir); };
-    do { &alert ("could not create working directories: $@"); return 0; } if $@;
+    do { &alert ("$drop: failed to create working diretories: $@"); return 0; } if $@;
 
     # Download files we don't have checksums for.
-    my %local = ();
-    foreach my $guid (keys %$catalogue)
-    {
-	my $pfn = $catalogue->{$guid}{PFN}[0];
-	my $lfn = $catalogue->{$guid}{LFN}[0];
-	next if grep ($_->[2] eq $lfn, @$checksums);
-
-	$local{$pfn} = "$filesdir/$lfn";
-    }
-
+    my @missing = $self->updateCache ($drop, $attrs, $checksums);
+    my %local = map { $_->[0] => "$filesdir/$_->[1]" } @missing;
     my %status = &rfcpmany ($self->{NRFCP}, %local);
     my $failed = scalar (grep ($_, values %status));
     do { &alert ("$drop: failed to copy $failed files"); &rmtree ($filesdir); return 0; }
@@ -145,20 +174,26 @@ sub updateChecksums
 	do { &alert ("$drop: failed to cksum $lfn"); &rmtree ($filesdir); return 0; }
 	    if ! $cksum;
 
+	# Update checksum data
 	push (@$checksums, [ split(/\s+/, $cksum) ]);
     }
 
     &rmtree ($filesdir);
 
-    # Generate new checksum file
+    # Generate new cache and checksum files
+    $self->updateCache ($drop, $attrs, $checksums);
+
     my $checkdata = join("\n", map { join(" ", @$_) } @$checksums);
     $checkdata .= "\n" if $checkdata;
     do { &alert ("$drop: failed to write checksum file"); return 0; }
-        if (! &output ("$self->{WORKDIR}/$drop/CheckSum.$drop.txt", $checkdata));
+        if (! &output ("$dropdir/CheckSum.$drop.txt", $checkdata));
+
+    do { &alert ("$drop: failed to write attribute cache"); return 0; }
+        if (! &outputAttributeCache ("$dropdir/attrs", $attrs));
 
     # Mark drop itself done
-    do { &alert ("could not mark drop done: $!"); return 0; }
-	if ! &touch ("$self->{WORKDIR}/$drop/done");
+    do { &alert ("$drop: failed to mark done: $!"); return 0; }
+	if ! &touch ("$dropdir/done");
 
     return 1;
 }
@@ -174,25 +209,17 @@ sub childProcessDrop
     delete $self->{BAD}{$drop};
     &timeStart($self->{STARTTIME});
 
-    # Find and read the catalogue and the checksum data
+    # Read attribute cache and merge in any checksum data we already have.
     my $dropdir = "$self->{WORKDIR}/$drop";
-    my $xmlcat = (<$dropdir/XMLCatFragment.*.{xml,txt}>)[0];
-    my $cksum = (<$dropdir/CheckSum.*.txt>)[0];
-    if (! defined $xmlcat)
-    {
-        &alert ("no xml catalogue in $drop");
-        $self->markBad ($drop);
-        return;
-    }
-
-    my $catalogue = eval { &readXMLCatalog ($xmlcat) };
+    my $attrs = eval { &readAttributeCache ("$dropdir/attrs") };
     do { &alert($@); $self->markBad ($drop); return } if $@;
 
+    my $cksum = (<$dropdir/CheckSum.*.txt>)[0];
     my @checksums = eval { $cksum ? &readChecksumData ($cksum) : () };
     do { &alert($@); $self->markBad ($drop); return } if $@;
 
-    # Stage files in, but leave drop in queue if files are still pending
-    return if ! $self->updateChecksums ($drop, $catalogue, \@checksums);
+    # Update checksums in the attribute cache
+    return if ! $self->updateChecksums ($drop, $attrs, \@checksums);
     $self->relayDrop ($drop);
     &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
 }
@@ -210,9 +237,18 @@ sub processDrop
     # If this is a child or we have no workers, process it myself.
     return $self->childProcessDrop ($drop) if ! $self->{NWORKERS};
 
-    # We have children, pass to the least loaded one
+    # We have children, pass to the least loaded one when its load
+    # level is acceptably low.  In other words, keep drops in our
+    # pending queue while workers are too busy.  This avoids over
+    # committing work to the children when we receive hundreds of
+    # drops.
     my $worker = $self->pickWorker();
-    my $slavein = "$self->{DROPDIR}/worker-$worker/inbox/$drop";
-    &alert ("failed to move $drop to $slavein: $!")
-        if ! &mv ("$self->{WORKDIR}/$drop", $slavein);
+    my $dropdir = "$self->{WORKDIR}/$drop";
+    my $workerdir = "$self->{DROPDIR}/worker-$worker";
+    if (scalar @{[<$workerdir/{inbox,work}/*>]} < 5)
+    {
+        my $slavein = "$workerdir/inbox/$drop";
+        &alert ("$drop: failed to move to $slavein: $!")
+            if ! &mv ($dropdir, $slavein);
+    }
 }

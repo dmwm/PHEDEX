@@ -1,5 +1,5 @@
 package UtilsWriters; use strict; use warnings; use base 'Exporter';
-our @EXPORT = qw(genXMLPreamble genXMLTrailer genXMLCatalogue outputCatalog);
+our @EXPORT = qw(outputCatalog genXMLPreamble genXMLTrailer genXMLCatalogue);
 use UtilsCommand;
 
 sub genXMLPreamble

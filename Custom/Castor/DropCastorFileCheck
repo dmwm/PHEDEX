@@ -43,6 +43,7 @@ if (scalar @ARGV || !$args{DROPDIR})
 # Routines specific to this agent.
 package DropCastorFileCheck; use strict; use base 'UtilsAgent';
 use File::Path;
+use UtilsCache;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
@@ -72,42 +73,51 @@ sub processDrop
     delete $self->{BAD}{$drop};
     &timeStart($self->{STARTTIME});
 
-    # Find and read the catalogue and the checksum data
+    # Read attribute cache to get the files we need to check
     my $dropdir = "$self->{WORKDIR}/$drop";
-    my $xmlcat = (<$dropdir/XMLCatFragment.*.{xml,txt}>)[0];
-    if (! defined $xmlcat)
-    {
-        &alert ("no xml catalogue in $drop");
-        $self->markBad ($drop);
-        return;
-    }
-
-    my $catalogue = eval { &readXMLCatalog ($xmlcat) };
+    my $attrsfile = "$dropdir/attrs";
+    my $attrs = eval { &readAttributeCache ($attrsfile) };
     do { &alert($@); $self->markBad ($drop); return } if $@;
 
-    # Check that files exist
+    # Check that the files exist and get their size
     my $bad = 0;
-    foreach my $pfn (map { @{$_->{PFN}} } values %$catalogue)
+    foreach my $file (@$attrs)
     {
+	my $pfn = $file->{PFN};
 	my $size = &rfstatsize ($pfn);
+
+	# Update attribute cache
+	&warn ("$drop: discarding cached file size for $pfn"
+	       . " (old=$file->{FILESIZE}, new=$size)")
+	    if (defined $file->{FILESIZE}
+	        && defined $size
+		&& $file->{FILESIZE} ne $size);
+	$file->{FILESIZE} = $size;
+
+	# Check that we like this file
 	if (! defined $size)
 	{
-	    &alert ("cowardly refusing to transfer non-existent file $pfn");
+	    &alert ("$drop: cowardly refusing to transfer non-existent file $pfn");
 	    $bad = 1;
 	}
 	elsif (! $size)
 	{
-	    &alert ("cowardly refusing to transfer zero-size file $pfn");
+	    &alert ("$drop: cowardly refusing to transfer zero-size file $pfn");
 	    $bad = 1;
 	}
     }
 
     # Mark drop accordingly
-    if ($bad) {
+    if ($bad)
+    {
         $self->markBad ($drop);
-    } else {
+    }
+    else
+    {
+	do { &alert ("$drop: failed to write out attribute cache"); return }
+	    if ! &outputAttributeCache ($attrsfile, $attrs);
+        &touch ("$dropdir/done");
         $self->relayDrop ($drop);
-        &touch ("$self->{WORKDIR}/$drop/done");
-        &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} failed");
+        &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} succcess");
     }
 }

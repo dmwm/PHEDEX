@@ -64,7 +64,7 @@ use File::Path;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
-use UtilsReaders;
+use UtilsCache;
 
 sub new
 {
@@ -82,37 +82,10 @@ sub new
     return $self;
 }
 
-# Update TMDB for each file mentioned in the checksum files, using the
-# information from the catalog data.
+# Update TMDB for each file mentioned.
 sub updateTransferDatabase
 {
-    my ($self, $drop, $catalog, @files) = @_;
-
-    # Build lfn-to-guid mapping table
-    my %lfn2guid = ();
-    foreach my $guid (keys %$catalog)
-    {
-        my $lfn = $catalog->{$guid}{LFN}[0];
-        if (exists $lfn2guid{$lfn})
-	{
-            &alert ("multiple guids for lfn $lfn in $drop");
-            $self->markBad ($drop);
-            return 1;
-        }
-	$lfn2guid{$lfn} = $guid;
-    }
-
-    # Now make sure the catalog knows all the files
-    foreach my $f (@files)
-    {
-	my $lfn = $f->[2];
-	if (! exists $lfn2guid{$lfn})
-	{
-	    &alert ("catalog does not know lfn $lfn in $drop");
-	    $self->markBad ($drop);
-	    return 1;
-        }
-    }
+    my ($self, $drop, $attrs) = @_;
 
     my $dbh;
     eval
@@ -126,33 +99,22 @@ sub updateTransferDatabase
 				 { RaiseError => 1, AutoCommit => 1 });
 	}
 
-        foreach my $f (@files)
+        foreach my $f (@$attrs)
 	{
-            my ($checksum, $size, $lfn) = @$f;
-            my $guid = $lfn2guid{$lfn};
-            my $pfn = $catalog->{$guid}{PFN}[0];
-            my $group = ($catalog->{$guid}{GROUP} || "");
-            my %meta = ('filesize' => $size,
-                	'checksum' => $checksum,
-                	'tmdb_insertion_time' => time(),
-                	'debug_lfn' => $lfn,
-                	'debug_pfn' => $pfn,
-                	'debug_group' => $group,
-                	map { "POOL_"."$_" => $catalog->{$guid}{META}{$_} }
-			keys %{$catalog->{$guid}{META}});
-
 	    my @cmds;
+            my %meta = ('filesize' => $f->{FILESIZE},
+		        (exists $f->{CHECKSUM} ? ('checksum' => $f->{CHECKSUM}) : ()),
+			map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
+
 	    if ($self->{VERSION} == 1) {
-		@cmds = ("insert into cms_transfermgmt.filesfortransfer "
-		         ."(guid, castor_filename, entry_time, checksum,"
-		         ." filesize, allocated_to_t1s, filegroup) values "
-		         ."('$guid', '$pfn', @{[time()]}, $checksum,"
-		         ." $size, '1', '$group')");
+		@cmds = ("insert into cms_transfermgmt.filesfortransfer values"
+		         ." ('$f->{GUID}', '$f->{PFN}', @{[time()]}, $f->{CHECKSUM},"
+		         ."  $f->{FILESIZE}, '1', '@{[$f->{META}{'jobid'} || '']}')");
 	    } elsif ($self->{VERSION} == 2) {
-		@cmds = ("insert into cms_transfermgmt.t_files_for_transfer "
-			 ."(guid, source_node, allocated) values ('$guid', '$self->{MYNODE}', 0)",
-	       		 map { "insert into cms_transfermgmt.t_replica_metadata "
-		     		."(guid, key, value) values ('$guid', '$_', '$meta{$_}')" }
+		@cmds = ("insert into cms_transfermgmt.t_files_for_transfer"
+			 ." values ('$f->{GUID}', '$self->{MYNODE}', 0)",
+	       		 map { "insert into cms_transfermgmt.t_replica_metadata"
+		     		." values ('$f->{GUID}', '$_', '$meta{$_}')" }
 		 	 sort keys %meta);
 	    }
 
@@ -171,7 +133,7 @@ sub updateTransferDatabase
 
     if ($@)
     {
-	&alert("database operation failed: $@");
+	&alert("$drop: database failure: $@");
 	if ($dbh)
 	{
 	    $dbh->rollback;
@@ -195,31 +157,13 @@ sub processDrop
     delete $self->{BAD}{$drop};
     &timeStart($self->{STARTTIME});
 
-    # Find and read the catalogue and the checksum data
+    # Read attribute cache, this is all we use
     my $dropdir = "$self->{WORKDIR}/$drop";
-    my $xmlcat = (<$dropdir/XMLCatFragment.*.{xml,txt}>)[0];
-    my $cksum = (<$dropdir/CheckSum.*.txt>)[0];
-    if (! defined $xmlcat)
-    {
-	&alert ("no xml catalogue in $drop");
-	$self->markBad ($drop);
-	return;
-    }
-    if (! defined $cksum)
-    {
-	&alert ("no checksum in $drop");
-	$self->markBad ($drop);
-	return;
-    }
+    my $attrs = eval { &readAttributeCache ("$dropdir/attrs") };
+    do { &alert ("$drop: $@"); $self->markBad ($drop); return; } if $@;
 
-    my $catalog = eval { &readXMLCatalog ($xmlcat) };
-    do { &alert($@); $self->markBad ($drop); return } if $@;
-
-    my @checksums = eval { &readChecksumData ($cksum) };
-    do { &alert($@); $self->markBad ($drop); return } if $@;
-
-    # OK, insert information to the database.
-    return if $self->updateTransferDatabase ($drop, $catalog, @checksums);
+    # Insert information to the database.
+    return if $self->updateTransferDatabase ($drop, $attrs);
     $self->relayDrop ($drop);
     &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
 }

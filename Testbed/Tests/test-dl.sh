@@ -12,7 +12,7 @@ DBARGS="-db devdb9 -dbuser cms_transfermgmt -dbpass smalland_round"
 STARGS="-stagehost stagecmsprod -stagepool cms_prod2"
 
 ./FileRouter -state fr $DBARGS -node GLOBAL >& log-fr &
-./FileDownload -state dl $DBARGS -node TEST_LAT -pfndest ./FileDownloadDest -wanted 1G >& log-dl &
+./FileDownload -state dl $DBARGS -node TEST_LAT -pfndest ./FileDownloadDest -wanted 1G -pass -cpcmd,echo >& log-dl &
 ./FileCastorExport -state exp $DBARGS $STARGS -node castorgrid_mss >& log-exp &
 ./FileCastorStager -state si $DBARGS $STARGS -node castorgrid_mss -prefix sfn://castorgrid.cern.ch >& log-si &
 ./FileCastorChecksum -state cs $DBARGS $STARGS -node castorgrid_mss -prefix sfn://castorgrid.cern.ch >& log-cs &
