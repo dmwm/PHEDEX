@@ -1,0 +1,34 @@
+#!/usr/bin/env perl
+
+BEGIN { use strict; use warnings; }
+
+sub getstats
+{
+    my %stats = ();
+    open (STATS, "< /proc/net/dev") or die "can't read /proc/net/dev: $!";
+    while (<STATS>)
+    {
+	if (/\s+(\S+):((\s*(\d+))+)/) {
+	    $stats{$1} = [ split (/\s+/, $2) ];
+	}
+    }
+    close (STATS);
+    return %stats;
+}
+
+$| = 1;
+my %old = &getstats();
+my %new = %old;
+
+while (1)
+{
+    foreach my $if (sort keys %new) {
+        print "\t$if",
+	      sprintf ("\t%.1f", ($new{$if}[0] - $old{$if}[0]) / 1024),
+	      sprintf ("\t%.1f", ($new{$if}[8] - $old{$if}[8]) / 1024);
+    }
+    print "\r";
+
+    sleep (1);
+    %old = %new; %new = &getstats();
+}
