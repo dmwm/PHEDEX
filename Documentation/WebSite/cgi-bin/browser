@@ -8,7 +8,7 @@ use POSIX;
 use DBI;
 
 my $cgi = new CGI;
-my $db = param("db") || "devdb9";    # tnsname of the database
+my $db = param("db") || "pdb01";    # tnsname of the database
 my $dbh;
 
 my $badcolor = '#ff9e9e';
@@ -128,12 +128,12 @@ sub status {
 		   sum(case when rs.guid is not null then r3.value else '0' end),
 		   sum(case when rs.state = 1 then 1 else 0 end),
 		   sum(case when rs.state = 1 then r3.value else '0' end),
-		   sum(case when ts.dest_state = 2 then 1 else 0 end),
-		   sum(case when ts.dest_state = 2 then r3.value else '0' end),
-		   sum(case when ts.dest_state = 1 then 1 else 0 end),
-		   sum(case when ts.dest_state = 1 then r3.value else '0' end),
-		   sum(case when ts.dest_state = 0 then 1 else 0 end),
-		   sum(case when ts.dest_state = 0 then r3.value else '0' end)
+		   sum(case when ts.to_state = 2 then 1 else 0 end),
+		   sum(case when ts.to_state = 2 then r3.value else '0' end),
+		   sum(case when ts.to_state = 1 then 1 else 0 end),
+		   sum(case when ts.to_state = 1 then r3.value else '0' end),
+		   sum(case when ts.to_state = 0 then 1 else 0 end),
+		   sum(case when ts.to_state = 0 then r3.value else '0' end)
 	    from t_files_for_transfer f
 	    cross join t_nodes n
 	    left join t_replica_metadata r1
@@ -147,8 +147,8 @@ sub status {
 	    left join t_replica_state rs
 	      on rs.guid = f.guid and rs.node = n.node_name
 	    left join t_transfer_state ts
-	      on ts.guid = f.guid and ts.dest_node = n.node_name
-      	    where (rs.node = n.node_name) or (ts.dest_node = n.node_name)
+	      on ts.guid = f.guid and ts.to_node = n.node_name
+      	    where (rs.node = n.node_name) or (ts.to_node = n.node_name)
 	    group by $dsoquery n.node_name});
 
     print "<h2>File replicaton status</h2>\n",
