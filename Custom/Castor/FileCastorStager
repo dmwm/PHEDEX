@@ -368,7 +368,7 @@ sub idle
 	    update t_replica_state
 	    set local_state = 1, local_time_stamp = :now
 	    where guid = :guid and node = :node
-	      and (local_state = 0 || local_state = 10)});
+	      and (local_state = 0 or local_state = 10)});
 	foreach my $f (grep (defined $_->{GUID} && $_->{STATUS} eq 'STAGED',
 			     values %$files))
 	{
