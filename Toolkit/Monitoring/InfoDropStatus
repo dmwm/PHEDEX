@@ -110,8 +110,7 @@ sub idle
 	    elsif ($live && $dir && /^\s+((\S)(\d*)): /)
 	    {
 		my $subdir = $2 eq 'M' ? "" : "/worker-$3";
-		next if ! -f "$dir$subdir/pid";
-		my $pid = qx(cat "$dir$subdir/pid"); chomp ($pid);
+		my $pid = qx(cat "$dir$subdir/pid" 2>/dev/null); chomp ($pid); $pid ||= -1;
 		$live->{$1} = { PID => $pid, LIVE => kill (0, $pid) };
 		my $row = $item->{$1} = {};
 		my $line = $';
@@ -125,11 +124,11 @@ sub idle
 	close (STATUS) or return;
 
 	&dbexec($dbh, qq{
-	    delete from t_info_drop_status where site = :site and host = :host},
+	    delete from t_info_agent_status where site = :site and host = :host},
 	    ":site" => $site, ":host" => $host);
 	my $stmt = $dbh->prepare(qq{
-		    insert into t_info_drop_status values
-		    (:now, :site, :host, :agent, :worker,
+		    insert into t_info_agent_status values
+		    (:now, :site, :host, :path, :agent, :worker,
 		     :pid, :live, :state, :value)});
 	foreach my $agent (keys %status)
 	{
@@ -141,6 +140,7 @@ sub idle
 			        ":now" => $now,
 				":site" => $site,
 				":host" => $host,
+				":path" => $self->{AGENTDIR},
 			    	":agent" => $agent,
 				":worker" => $worker,
 				":pid" => $alive{$agent}{$worker}{PID},
@@ -159,6 +159,5 @@ sub idle
     undef $dbh;
 
     # Check children are still running and then wait
-    $self->maybeStop ();
-    sleep ($self->{WAITTIME});
+    $self->nap ($self->{WAITTIME});
 }

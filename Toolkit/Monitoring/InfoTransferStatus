@@ -85,12 +85,10 @@ sub idle
 	# only a limited amount of work each time around, limiting the
 	# transaction length, and gradually remove obsolete entries.
 
-	my $squery = $dbh->prepare(qq{
-			select update_stamp
-			from t_info_transfer_status
-			where node = ?});
+	my $squery = &dbprep ($dbh, qq{
+	    select timestamp from t_info_transfer_status where node = ?});
 	my $oldest = undef;
-	foreach my $row (@{$dbh->selectall_arrayref(qq{select node_name from t_nodes})})
+	foreach my $row (@{$dbh->selectall_arrayref(qq{select name from t_node})})
 	{
 	    my ($node) = @$row;
 
@@ -114,7 +112,7 @@ sub idle
 	    ":node" => $node);
 	&dbexec($dbh, qq{
 	    insert into t_info_transfer_status
-	    (select :now, :node, 0, 0, 0, x.*
+	    (select :now, :node, x.*
 	     from (select count(f.guid),
 			  nvl(sum(f.filesize), 0),
 			  count(rs.guid),
@@ -131,7 +129,7 @@ sub idle
 			  nvl(sum(case when ts.to_state = 0 then f.filesize else 0 end),0),
 			  nvl(sum(case when ts.to_state > 3 then 1 else 0 end),0),
 			  nvl(sum(case when ts.to_state > 3 then f.filesize else 0 end),0)
-		   from t_files_for_transfer f
+		   from t_file f
 		   left join t_replica_state rs
 		     on rs.guid = f.guid and rs.node = :node
 		   left join t_transfer_state ts
@@ -149,6 +147,5 @@ sub idle
     undef $dbh;
 
     # Check children are still running and then wait
-    $self->maybeStop ();
-    sleep ($self->{WAITTIME});
+    $self->nap ($self->{WAITTIME});
 }

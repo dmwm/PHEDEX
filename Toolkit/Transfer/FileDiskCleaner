@@ -28,21 +28,27 @@ my %args = (DBITYPE => 'Oracle',
 	     "purgesize=f"      => \$args{PURGE},
 	     "help"		=> \$args{HELPME},
 
-	     "prefix=s"		=> \$args{RM_PATH_PREFIX},
+	     "pfnquery=s"	=> \$args{PFN_QUERY},
+	     "pfnrm=s"		=> \$args{PFN_RM},
  	     "maxfillratio=f"	=> \$args{MAXFILLRATIO},
 	     "minfreespace=f"	=> \$args{MINFREESPACE},
 	     "importloc=s"	=> \$args{IMPORTLOC});
 
+$args{PFN_QUERY} = [ split(/,/, $args{PFN_QUERY}) ] if $args{PFN_QUERY};
+$args{PFN_RM} = [ split(/,/, $args{PFN_QUERY}) ] if $args{PFN_RM};
+
 if ($args{HELPME} || !$args{IMPORTLOC} || !$args{DBNAME} || !$args{DBUSER}
     || !$args{DBPASS} || !$args{MYNODE} || !$args{DROPDIR}
-    || !$args{MAXFILLRATIO} || !$args{MINFREESPACE} || !$args{RM_PATH_PREFIX})
+    || !$args{MAXFILLRATIO} || !$args{MINFREESPACE} || !$args{PFN_QUERY}
+    || !$args{PFN_RM})
 {
     print "Syntax for FileDiskClean: \n";
     print "--help:         this help text \n";
     print "--importloc:    path to disk to watch (required)\n";
     print "--maxfillratio: maximum allowed disk usage in percentage\n";
     print "--minfreespace: minimum available disk free space in megabytes\n";
-    print "--prefix:       prefix to remove from pfns (required)\n";
+    print "--pfnquery:     script to query pfns from catalogue (required)\n";
+    print "--pfnrm:        script to remove pfns from catalogue (required)\n";
     print "--db:           database to connect to (required)\n";
     print "--dbuser:       database user name (required)\n";
     print "--dbpass:       database user password (required)\n";
@@ -86,7 +92,8 @@ sub new
 		  MINFREESPACE => undef,	# Minimum free space in MB
 		  PURGE => undef,               # amount of files to purge per run
 		  IMPORTLOC => undef,		# Disk path to watch
-		  RM_PATH_PREFIX => undef);	# Path prefix to remove from PFNs
+		  PFN_QUERY => undef,		# Program to query PFNs
+		  PFN_RM => undef);		# Program to remove PFNs
 
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
@@ -108,11 +115,10 @@ sub deleteOneFile
 	# Make sure the file is still safe to delete.  More transfers
 	# out might have been created for this file while we were not
 	# minding this particular file (sleeping or deleting things).
-	my ($npending) = (&dbexec($dbh, qq{
+	my ($npending) = &dbexec($dbh, qq{
 	    select count(guid) from t_transfer_state
 	    where from_node = :node and guid = :guid and to_state < 3},
-	    ":node" => $self->{MYNODE}, ":guid" => $file->{GUID}))[0]
-	    ->fetchrow();
+	    ":node" => $self->{MYNODE}, ":guid" => $file->{GUID})->fetchrow();
 	if ($npending)
 	{
 	    &warn ("not removing $file->{GUID}, $npending pending transfers");
@@ -123,7 +129,6 @@ sub deleteOneFile
 	&dbexec($dbh, qq{
 	    delete from t_replica_state where guid = :guid and node = :node},
 	    ":guid" => $file->{GUID}, ":node" => $self->{MYNODE});
-	$dbh->commit();
 
 	# Safely removed, now remove existing transfers in and out.
 	&dbexec($dbh, qq{
@@ -140,8 +145,7 @@ sub deleteOneFile
 	}
 
 	# Delete file from catalogue
-	if (my $rc = &runcmd ("FCdeletePFN", "-u", $file->{CATALOGUE},
-			      "-p", $file->{ORIGPFN}))
+	if (my $rc = &runcmd (@{$self->{PFN_RM}}, $file->{PFN}))
 	{
 	    &warn ("failed to remove $file->{GUID} from catalogue:"
 		   . " exit code @{[&runerror($rc)]}");
@@ -174,10 +178,7 @@ sub processDrop
     # Read back file information
     my $dropdir = "$self->{WORKDIR}/$drop";
     my $file = do { no strict "vars"; eval &input ("$dropdir/packet") };
-    if ($@ || ! $file
-	|| ! $file->{GUID} || ! $file->{PFN}
-	|| ! $file->{ORIGPFN} || ! $file->{CATALOGUE}
-	|| ! $file->{TIME_START})
+    if ($@ || !$file || !$file->{GUID} || !$file->{PFN} || !$file->{TIME_START})
     {
 	&alert ("corrupt packet in $drop");
 	$self->markBad ($drop);
@@ -193,8 +194,7 @@ sub processDrop
 
     # Log transfer delay stats
     my $dtransfer = &mytimeofday() - $file->{TIME_START};
-    &logmsg ("xstats: $file->{GUID} "
-	     . sprintf('%.2f', $dtransfer));
+    &logmsg ("xstats: $file->{GUID} 0 " . sprintf('%.2f', $dtransfer));
 
     # OK, got far enough to nuke and log it
     $self->relayDrop ($drop);
@@ -215,45 +215,38 @@ sub diskStats
 # Get a list of files to delete.
 sub filesToDelete
 {
-    my ($self, $dbh) = @_;
-
-    # Get my catalogue contact
-    my ($catalogue, $hostkey)
-	= (&dbexec ($dbh, qq{
-	    select catalogue_contact, host_string
-	    from t_nodes where node_name = :node},
-	    ":node" => $self->{MYNODE}))[0]->fetchrow();
+    my ($self, $dbh, $limit) = @_;
 
     # Find all the files that we are allowed to delete: everything
     # transferred out of this node where the transfer is completed
-    # (to_state = 3).  We take all the files, but oldest first(?).
-    my @guids = map { $_->[0] } @{(&dbexec ($dbh, qq{
-	select * from (select rs.guid
+    # (to_state = 3).  We take the files oldest first.
+    my @guids = ();
+    my $qguids = &dbexec($dbh,qq{
+	select rs.guid
 	from t_replica_state rs
-	left join t_nodes n
-	  on n.node_name = rs.node
 	left join t_transfer_state ts
 	  on ts.guid = rs.guid and ts.from_node = rs.node
 	where rs.state = 1
 	  and rs.node = :node
 	  and ts.to_state = 3
-	order by ts.to_time_stamp asc)
-        where  rownum <= :purgesize},
-        ":node" => $self->{MYNODE}, ":purgesize" => $self->{PURGE}))[0]->fetchall_arrayref()};
+	order by ts.to_timestamp asc},
+        ":node" => $self->{MYNODE});
+    while (my ($guid) = $qguids->fetchrow())
+    {
+	push (@guids, $guid);
+	last if scalar @guids >= $limit;
+    }
 
     # Now get PFNs for all those files.
     my @files = ();
-    my $prefix = $self->{RM_PATH_PREFIX};
-    my $pfns = &guidToPFN (\@guids, $catalogue, $hostkey);
+    my $pfns = &guidToPFN (\@guids, "direct", "local", @{$self->{PFN_QUERY}});
     foreach my $guid (@guids)
     {
-	my $origpfn = $pfns->{$guid};
-	do { &logmsg ("no pfn for $guid"); next } if ! $origpfn;
-	my $pfn = $origpfn; $pfn =~ s/$prefix//;
+	my $pfn = $pfns->{$guid};
+	do { &logmsg ("no pfn for $guid"); next } if ! $pfn;
 	push (@files,
 	      { GUID		=> $guid,
 		CATALOGUE	=> $catalogue,
-		ORIGPFN		=> $origpfn,
 		PFN		=> $pfn,
 		TIME_START	=> &mytimeofday() });
     }
@@ -303,7 +296,7 @@ sub idle
 
 	# Not enough space.  Get a list of victims to evict.
 	&logmsg ("disk $freespace/$usedpct% full, starting to clear out files");
-	foreach my $file ($self->filesToDelete ($dbh))
+	foreach my $file ($self->filesToDelete ($dbh, $self->{PURGE}))
 	{
 	    # If we are already processing this file, ignore it
 	    next if grep ($_ eq $file->{GUID}, @pending);
@@ -321,9 +314,7 @@ sub idle
     undef $dbh;
 
     # Have a little nap
-    $self->maybeStop ();
-    sleep ($self->{WAITTIME});
+    $self->nap ($self->{WAITTIME});
 }
 
 1;
-

@@ -79,7 +79,7 @@ sub idle
 
 	# Select counts and time stamps from rows we are monitoring.
 	my %info = ();
-	my $now = time();
+	my $now = &mytimeofday();
 	my %start = (0 => 0, map { $_ => $now - $_ } 30*86400, 7 * 86400, 86400, 3600);
 	my $basequery = qq{
 		select
@@ -97,13 +97,13 @@ sub idle
 		    ts.from_node xfrom,
 		    ts.to_node xto,
 		    f.filesize xsize,
-		    ts.to_time_stamp - ts.from_time_stamp xtime
+		    ts.to_timestamp - ts.from_timestamp xtime
 		  from t_transfer_state ts
-		  left join t_files_for_transfer f
+		  left join t_file f
 		    on f.guid = ts.guid
 		  where ts.to_state = 3
 		    and ts.from_state = 1
-		    and ts.to_time_stamp > :starttime)
+		    and ts.to_timestamp > :starttime)
 		!DETAIL! group by xfrom, xto};
 
 	&dbexec ($dbh, qq{delete from t_info_transfer_rate});
@@ -148,6 +148,5 @@ sub idle
     undef $dbh;
 
     # Check children are still running and then wait
-    $self->maybeStop ();
-    sleep ($self->{WAITTIME});
+    $self->nap ($self->{WAITTIME});
 }

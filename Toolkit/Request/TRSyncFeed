@@ -7,7 +7,7 @@
 ##H REQUEST is the request directory previously created with TRNew.
 ##H Those drops ready in each request are moved to the mouth of the
 ##H local drop box agent chain ENTRY.  DB is the name of the TMDB
-##H database (e.g. devdb9) and TABLE the name of the guid table
+##H database (e.g. devdb) and TABLE the name of the guid table
 ##H (t_files_for_transfer for V2, filesfortransfer for V1).
 ##H
 ##H If the "-n" option is given, also checks the drops previously

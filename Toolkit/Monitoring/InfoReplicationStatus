@@ -83,42 +83,40 @@ sub idle
 	&dbexec($dbh, qq{delete from t_info_replication_overview});
 	&dbexec($dbh, qq{delete from t_info_replication_details});
 	@qry1 = &dbexec($dbh, qq{insert into t_info_replication_overview
-	   (update_stamp, dataset, owner, n_runs, n_files, sz_files)
+	   (timestamp, dataset, owner, n_runs, n_files, sz_files)
 	   (select
 	      :now,
-              m1.value,
-              m2.value,
-              count(distinct m3.value),
-              count(m2.guid),
-              nvl(sum(m4.value),0)
-            from t_files_for_transfer f
-            left join t_replica_metadata m1
-              on m1.guid = f.guid and m1.attribute = 'POOL_dataset'
-            left join t_replica_metadata m2
-              on m2.guid = f.guid and m2.attribute = 'POOL_owner'
-            left join t_replica_metadata m3
-              on m3.guid = f.guid and m3.attribute = 'POOL_jobid'
-            left join t_replica_metadata m4
-              on m4.guid = f.guid and m4.attribute = 'filesize'
-            group by :now, m1.value, m2.value)},
+              a1.value,
+              a2.value,
+              count(distinct a3.value),
+              count(a2.guid),
+              nvl(sum(f.filesize),0)
+            from t_file f
+            left join t_file_attributes a1
+              on a1.guid = f.guid and a1.attribute = 'POOL_dataset'
+            left join t_file_attributes a2
+              on a2.guid = f.guid and a2.attribute = 'POOL_owner'
+            left join t_file_attributes a3
+              on a3.guid = f.guid and a3.attribute = 'POOL_jobid'
+            group by :now, a1.value, a2.value)},
 	    ":now" => $now);
 	@qry2 = &dbexec($dbh, qq{insert into t_info_replication_details
-	   (update_stamp, dataset, owner, node, n_files, sz_files)
+	   (timestamp, dataset, owner, node, n_files, sz_files)
 	   (select
 	      :now,
-              m1.value,
-              m2.value,
+              a1.value,
+              a2.value,
               rs.node,
               count(rs.guid),
-              nvl(sum(m3.value),0)
+              nvl(sum(f.filesize),0)
             from t_replica_state rs
-            left join t_replica_metadata m1
-              on m1.guid = rs.guid and m1.attribute = 'POOL_dataset'
-            left join t_replica_metadata m2
-              on m2.guid = rs.guid and m2.attribute = 'POOL_owner'
-            left join t_replica_metadata m3
-             on m3.guid = rs.guid and m3.attribute = 'filesize'
-            group by :now, m1.value, m2.value, rs.node)},
+	    left join t_file f
+	      on f.guid = rs.guid
+            left join t_file_attributes a1
+              on a1.guid = rs.guid and a1.attribute = 'POOL_dataset'
+            left join t_file_attributes a2
+              on a2.guid = rs.guid and a2.attribute = 'POOL_owner'
+            group by :now, a1.value, a2.value, rs.node)},
 	    ":now" => $now);
 
 	$dbh->commit();
@@ -131,6 +129,5 @@ sub idle
     undef $dbh;
 
     # Check children are still running and then wait
-    $self->maybeStop ();
-    sleep ($self->{WAITTIME});
+    $self->nap ($self->{WAITTIME});
 }

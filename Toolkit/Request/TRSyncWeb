@@ -102,7 +102,7 @@ foreach my $request (@ARGV)
     foreach my $op (@cmds) {
 	&dbexec ($dbh, qq{
 	    insert into t_request_operation
-	    (request_name, time_stamp, operation, identity)
+	    (request_name, timestamp, operation, identity)
 	    values (:req, :stamp, :op, :arg)},
 	    ":req" => $request, ":stamp" => $op->{STAMP},
 	    ":op" => $op->{COMMAND}, ":arg" => $op->{ARG});
@@ -111,7 +111,7 @@ foreach my $request (@ARGV)
     foreach my $op (@locs) {
 	&dbexec ($dbh, qq{
 	    insert into t_request_subscription
-	    (request_name, time_stamp, operation, destination)
+	    (request_name, timestamp, operation, destination)
 	    values (:req, :stamp, :op, :arg)},
 	    ":req" => $request, ":stamp" => $op->{STAMP},
 	    ":op" => $op->{COMMAND}, ":arg" => $op->{ARG});
@@ -120,7 +120,7 @@ foreach my $request (@ARGV)
     foreach my $op (@data) {
 	&dbexec ($dbh, qq{
 	    insert into t_request_data
-	    (request_name, time_stamp, operation, selection)
+	    (request_name, timestamp, operation, selection)
 	    values (:req, :stamp, :op, :arg)},
 	    ":req" => $request, ":stamp" => $op->{STAMP},
 	    ":op" => $op->{COMMAND}, ":arg" => $op->{ARG});

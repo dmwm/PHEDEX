@@ -65,6 +65,7 @@ $agent->process ();
 package FileAllocator; use strict; use warnings; use base 'UtilsAgent';
 use UtilsCommand;
 use UtilsLogging;
+use UtilsTiming;
 use UtilsDB;
 
 sub new
@@ -104,20 +105,21 @@ sub idle
 	# matches a stream subscription, the destination isn't
 	# yet entered into t_destinations nor is there a replica
 	# already at that site (probably the data originator).
-	my $now = time();
-	my $rows = $dbh->do(qq{
-			insert into t_destinations (
-			   select f.guid, s.destination, $now
-			   from t_files_for_transfer f
-			   inner join t_replica_metadata r
-			     on r.guid = f.guid and r.attribute = 'POOL_dataset'
-			   inner join t_subscriptions s
-			     on s.stream = r.value
-			   left join t_destinations d
-			     on d.guid = f.guid and d.destination_node = s.destination
-			   left join t_replica_state rs
-			     on rs.guid = f.guid and rs.node = s.destination
-			   where d.guid is null and rs.guid is null)});
+	my ($stmt, $rows) = &dbexec($dbh, qq{
+	   insert into t_destination
+	   (timestamp, guid, node)
+	   (select :now, f.guid, s.destination
+	    from t_file f
+	    inner join t_block b
+	      on b.name = f.inblock
+	    inner join t_subscription s
+	      on s.owner = b.owner and s.dataset = b.dataset
+	    left join t_destination d
+	      on d.guid = f.guid and d.node = s.destination
+	    left join t_replica_state rs
+	      on rs.guid = f.guid and rs.node = s.destination
+	    where d.guid is null and rs.guid is null)},
+	    ":now" => &mytimeofday());
 
 	&logmsg ("$rows new file destinations allocated") if $rows > 0;
     };
@@ -129,6 +131,5 @@ sub idle
 
     # Have a nap.
     &touch ($self->{STOPFLAG}) if $self->{ONCE};
-    $self->maybeStop ();
-    sleep ($self->{WAITTIME});
+    $self->nap ($self->{WAITTIME});
 }

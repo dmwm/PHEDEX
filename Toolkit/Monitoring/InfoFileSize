@@ -78,20 +78,19 @@ sub idle
         # FIXME: Pick up and process messages to me
 
 	# Recreate statistics
-	my $now = time();
+	my $now = &mytimeofday();
 	&dbexec($dbh, qq{delete from t_info_file_size_overview});
 	&dbexec($dbh, qq{delete from t_info_file_size_histogram});
 	&dbexec($dbh, qq{insert into t_info_file_size_overview
 			(select
 			   :now,
-			   count(to_number(value)),
-		           sum(to_number(value)),
-		           min(to_number(value)),
-		           max(to_number(value)),
-	                   avg(to_number(value)),
-		           percentile_disc(.5) within group (order by to_number(value))
-			 from t_replica_metadata
-			 where attribute = 'filesize')},
+			   nvl(count(filesize),0),
+		           nvl(sum(filesize),0),
+		           nvl(min(filesize),0),
+		           nvl(max(filesize),0),
+	                   nvl(avg(filesize),0),
+		           nvl(percentile_disc(.5) within group (order by filesize),0)
+			 from t_file)},
 	        ":now" => $now);
 	&dbexec($dbh, qq{insert into t_info_file_size_histogram
 			(select
@@ -101,10 +100,9 @@ sub idle
 			   count(binsize),
 			   sum(realsize)
 			 from (select
-			         trunc(to_number(value)/(10 * 1024 * 1024)) as binsize,
-				 to_number(value) as realsize
-			       from t_replica_metadata
-			       where attribute = 'filesize')
+			         trunc(filesize/(10 * 1024 * 1024)) as binsize,
+				 filesize as realsize
+			       from t_file)
 			 group by binsize)},
 	        ":now" => $now);
 
@@ -117,6 +115,5 @@ sub idle
     undef $dbh;
 
     # Check children are still running and then wait
-    $self->maybeStop ();
-    sleep ($self->{WAITTIME});
+    $self->nap ($self->{WAITTIME});
 }
