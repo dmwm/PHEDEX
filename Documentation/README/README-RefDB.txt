@@ -1,21 +1,26 @@
-*** Generating data from the RefDB
+* Generating data from the RefDB
+
+This document explains how to extract data from the CMS RefDB database
+and inject it into the PHEDEX transfer system.
 
 ** Background
 
 We have several utilities to help in inserting data into the transfer
-system from RefDB and CERN Castor MSS. "RefDB tools" allow the user to
-generate summary information to guide insertion of data.  "Drop*"
+system from RefDB and CERN Castor MSS.  "RefDB tools" allow the user
+to generate summary information to guide insertion of data.  "Drop*"
 tools are used to process that summary information and use it to
 insert data files into the transfer system.
 
-The objective of the RefDB tools is to simulate the output of a
+The objective of the RefDB tools is to simulate the output of a CMS
 reconstruction or simulation farm: they produce output in the same
 format, in packets of information we call "drops", as a normal job
 would.  Each drop must have at least two files, a XML catalogue
 fragment and a summary file, and optionally a checksum file.  The
 catalog fragment lists the files created by the job, using relative
 PFNs.  The summary file defines the base directory in which those
-files exist at that site, at CERN a path in Castor.
+files exist at that site, at CERN a path in Castor.  Note that if at
+all possible, do not lose the file checksum information -- it is very
+expensive to regenerate.
 
 The expected minimal drop processing chain is then something like
 this:
@@ -27,209 +32,151 @@ this:
   - DropCatPublish: Publish the XML to the local/rls catalogue.
   - DropTMDBPublish: Publish the files for transfer.
 
+Then the files are available in PHEDEX TMDB database.  Note that the
+definition of the "drop" is CMS-independent.  What is inside the drops
+is probably largely CMS-specific, but by the time the information
+makes it into TMDB, it is again largely CMS-independent.  However no
+matter which system you use to process the files, you will need to do
+pretty much the same thing, so you might as well formulate them much
+like CMS does :-)
+
 ** Overview of the RefDB tools
 
 Typically data is inserted into the transfer system using the
 following process:
-  1. Given a list of data requests, determine the full list of
-     dataset/owner pairs.
-  2. Map the dataset/owner pairs to RefDB assignments.
-  3. Generate "drops" for each job in each such assignment: extract
-     the XML fragment saved in RefDB, figure out where in Castor the
-     data producer uploaded the files and record the location in the
-     summary file.
-  4. Check if all the files have been uploaded into Castor.  If they
-     are all available, mark all the drops in the assignment ready for
-     transfer.
+  1. Prepare a transfer request
+     1.1. Create the request
+     1.2. Assign data destination
+     1.3. Assign data to the request
+  2. Generate the drops for the request
+  3. Feed the drops to the transfer chain
+  4. Afterwards, verify everything has been transferred correctly
+  5. Even more afterwards, verify the definition of the transfer
+     request hasn't changed (e.g. the expansion of wildcard patterns)
 
-The main tool, "RefDBReady", performs all these steps in one go.
-There is a separate script for each of these tasks, which RefDBReady
-simply invokes.
+For CMS, the first step typically consists of receiving a group of
+datasets to be transferred to some destination.  From this list you
+need to find out which owner/dataset pairs that exactly corresponds
+to.  That list then has to be mapped into RefDB assignments.  The
+tools automate large parts of this task, but it still takes some human
+decision-making along the way.
 
-"RefDBList" expands dataset.owner patterns to full names.  The
-patterns are shell file globs, given either on the command line or in
-a file.  (Note that patterns given on the command line may need to be
-quoted so your shell doesn't try to expand them!)
+The drops are generated from RefDB using the POOL XML catalogue
+fragments saved from the jobs that have already run.  The utilities
+try to figure out where those files are stored at CERN Castor, and
+records that location in a summary file.  RefDB does not at present
+record the checksum data, so none is generated.
 
-"RefDBAssignments" maps dataset.owner names to lists of assignments.
+If the drops arrive from running jobs, you would normally have all the
+three files automatically without any additional work.
 
-"RefDBDrops" generates drops for assignments: a drop with the XML
-fragment and the summary file for each job in each of the assignments
-it is given.
+As files from the assignments are uploaded to CERN from the production
+sites, the list of the files available on Castor changes.  Therefore,
+if not all the files for the transfer request are available, "sync"
+time to time newly available drops into the transfer chain.  You can
+also use the same tools to verify that everything has indeed been
+transferred correctly.
 
-"RefDBCheck" checks which fraction of the files are available in
-Castor and marks fully available assignments ready for transfer.
-Files become available as production sites upload them to CERN, and
-submit their status to RefDB.
+There are some additional utilities, RefDBList and RefDBAssignments,
+that provide easy browsing access to specific preparation steps.
 
-Invoking any of these scripts with the "-h" option will produce a
-brief guide to usage.
+All the "dataset.owner" patterns are interpreted as shell wildcards.
+So you can use something like bt03_b_*.* to list all datasets that
+match "bt03_b_*" and then all owners for those datasets.  If you don't
+use any wildcards, then the match is required to be exact.  Typical
+transfer requests use lengthy data selection patterns such as
+"bt03_b_*.bt_*{PU761,Hit75[012],DST813_2}*". If the pattern is of the
+form "@file", then the tools will read white-space separated list of
+patterns from "file".  You can use any number and mixture of patterns
+and "@file" arguments on the command line.  Note that wildcards given
+on the command line may need to be quoted so your shell doesn't try to
+expand them.
 
-** Examples of using the tools
+** Typical transfer request process
 
-* Download tools from CVS
+Transfer requests are simply directories in which the tools track the
+information.  Each request has a ticket (DIR/Request/Ticket) that
+tracks all the actions carried on the request.  We never remove
+information, only "cancel" previous choices.  Normally you can keep on
+invoking the commands and they will add to the ticket, you use an
+"-r" option to indicate you want to reset/cancel previous ones.
+
+There's nothing particular about where the requests are.  You can
+create a request anywhere you like, and call it anything you like.
+For management purposes we keep the requests on AFS in a single place,
+at /afs/cern.ch/cms/aprom/phedex/TransferRequests.  We call the
+requests YYYY-MM-DD-LABEL-ID, where YYYY-MM-DD is date when the
+request is made, LABEL is some semi-meaningful label, and ID is three
+first letters of your AFS user id (LAT, BARrass, WILdish, ...).  In
+any case the ticket tracks who did what and on which computer.
+
+The tools are in /afs/cern.ch/cms/aprom/phedex/Tools/DropBox.  All TR*
+commands should respond to "-h" option to get help.
+
+1) You create a new empty request with TRNew:
+     cd /afs/cern.ch/cms/aprom/phedex/TransferRequests
+     ../Tools/DropBox/TRNew 2004-08-20-TEST-LAT
+
+2) Add destination information -- where the data is wanted (we don't
+   currently do anything with this info, but mean to manage TMDB
+   subscriptions from them, so please keep adding it, even if it's
+   "just for the record" for now):
+     ../Tools/DropBox/TRNewLoc 2004-08-20-TEST-LAT FNAL INFN
+
+3) Add data:
+    ../Tools/DropBox/TRNewData -p 2004-08-20-TEST-LAT
+    'bt03_udsg*.bt_*{PU761,Hit75[012],Hit245,DST813_2}*'
+
+   TRNewData doesn't print out the result.  You can either:
+    A) cat 2004-08-20-TEST-LAT/Request/Ticket
+    B) ../Tools/DropBox/RefDBList <the-same-list-of-patterns-or-@files>
+    C) ../Tools/DropBox/RefDBAssignments -v $(../Tools/DropBox/RefDBList <args>)
+
+   As mentioned, you can run the commands more than once to add more
+   destinations / data.  Use -r option to cancel previous choices.
+   Use rm -fr request to start over.
+
+4) Once you've added all the data, you can generate drops for them.
+     ../Tools/DropBox/TRSyncDrops 2004-08-20-TEST-LAT
+
+5) To feed them into the chain, login as cmsprod on lxgate04, then in
+   TransferRequests do
+      source /afs/cern.ch/project/oracle/script/setoraenv.csh -s 8174
+      ../Tools/DropBox/TRSyncFeed \
+        /data/incoming.cmsprod/T0/TMDB pdb01 filesfortransfer \
+	2004-08-20-TEST-LAT
+
+   NOTE: Use the -x option to see what it would do, but without doing
+   anything for real ("dry-run").
+
+6) If there were drops marked "NotReady"  (= files not available in
+   castor), you can keep on running TRSyncFeed exactly the same way.
+   If more files have become available, it will feed the ready ones to
+   the transfer chain.
+
+7) To see the status of all the files (see mail to Daniele):
+     echo 2004-08-20-TEST-LAT/Drops/*/* |
+       xargs -n100 ../Tools/DropBox/TRFileCheck \
+	  /data/incoming.cmsprod/T0/TMDB pdb01 filesfortransfer
+
+8) Simple bean counting
+     ls 2004-08-20-TEST-LAT/Drops/Pending | wc -l
+     ls 2004-08-20-TEST-LAT/Drops/Done | wc -l
+     ls 2004-08-20-TEST-LAT/Drops/NotReady | wc -l
+
+** Utilities
+
+RefDBList expands "dataset.owner" patterns into full list of pairs.
+RefDBAssignment maps full dataset.owner names into lists of
+assignments.  See examples above.
+
+You can use TRFileCheck to check any drops anywhere to see their
+current status -- including drops in the state directories of drop box
+agents (see README-Agents.txt).  See examples of its use above.
+
+** Downloading tools from CVS
 
   setenv CVSROOT :pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/TMAgents
   cvs login # password is "98passwd"
-  cvs co AgentToolkitExamples/DropBox
-  cd AgentToolkitExamples/DropBox
-
-* Generate drops for assignments of mu03b_DY2mu*.*PU761*
-
-  $ ./RefDBReady 'mu03b_DY2mu*.*PU761*'
-  Generating drops for 6103
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800001
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800002
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800003
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800004
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800005
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800006
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800007
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800008
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800009
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800010
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800011
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800012
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800013
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800014
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800015
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800016
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800017
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800018
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800019
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800020
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800021
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800022
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800023
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800024
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800025
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800026
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800027
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800028
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800029
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800030
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800031
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800032
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800033
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800034
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800035
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800036
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800038
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800039
-  Generating drop mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC.6103-Digi-2x1033PU761_TkMu_2.67800040
-  6103: 117/117 files present in castor: ready for transfer
-
-* Generate drops for assignment 4961-4965
-
-  $ ./RefDBReady -a 4961 4962 4963 4964 4965
-  Generating drops for 4961
-  Generating drop hg03_hzz_2e2mu_115a.hg_2x1033PU761_TkMu_g133_CMS.4961-Digi-2x1033PU761_TkMu.130900001
-  Generating drop hg03_hzz_2e2mu_115a.hg_2x1033PU761_TkMu_g133_CMS.4961-Digi-2x1033PU761_TkMu.130900002
-  Generating drop hg03_hzz_2e2mu_115a.hg_2x1033PU761_TkMu_g133_CMS.4961-Digi-2x1033PU761_TkMu.130900003
-  Generating drop hg03_hzz_2e2mu_115a.hg_2x1033PU761_TkMu_g133_CMS.4961-Digi-2x1033PU761_TkMu.130900004
-  Generating drop hg03_hzz_2e2mu_115a.hg_2x1033PU761_TkMu_g133_CMS.4961-Digi-2x1033PU761_TkMu.130900005
-  Generating drop hg03_hzz_2e2mu_115a.hg_2x1033PU761_TkMu_g133_CMS.4961-Digi-2x1033PU761_TkMu.130900006
-  Generating drop hg03_hzz_2e2mu_115a.hg_2x1033PU761_TkMu_g133_CMS.4961-Digi-2x1033PU761_TkMu.130900007
-  Generating drop hg03_hzz_2e2mu_115a.hg_2x1033PU761_TkMu_g133_CMS.4961-Digi-2x1033PU761_TkMu.130900008
-  Generating drop hg03_hzz_2e2mu_115a.hg_2x1033PU761_TkMu_g133_CMS.4961-Digi-2x1033PU761_TkMu.130900009
-  Generating drop hg03_hzz_2e2mu_115a.hg_2x1033PU761_TkMu_g133_CMS.4961-Digi-2x1033PU761_TkMu.130900010
-  Generating drops for 4962
-  Generating drop hg03_hzz_2e2mu_120a.hg_2x1033PU761_TkMu_g133_CMS.4962-Digi-2x1033PU761_TkMu.131000001
-  Generating drop hg03_hzz_2e2mu_120a.hg_2x1033PU761_TkMu_g133_CMS.4962-Digi-2x1033PU761_TkMu.131000002
-  Generating drop hg03_hzz_2e2mu_120a.hg_2x1033PU761_TkMu_g133_CMS.4962-Digi-2x1033PU761_TkMu.131000003
-  Generating drop hg03_hzz_2e2mu_120a.hg_2x1033PU761_TkMu_g133_CMS.4962-Digi-2x1033PU761_TkMu.131000004
-  Generating drop hg03_hzz_2e2mu_120a.hg_2x1033PU761_TkMu_g133_CMS.4962-Digi-2x1033PU761_TkMu.131000005
-  Generating drop hg03_hzz_2e2mu_120a.hg_2x1033PU761_TkMu_g133_CMS.4962-Digi-2x1033PU761_TkMu.131000006
-  Generating drop hg03_hzz_2e2mu_120a.hg_2x1033PU761_TkMu_g133_CMS.4962-Digi-2x1033PU761_TkMu.131000007
-  Generating drop hg03_hzz_2e2mu_120a.hg_2x1033PU761_TkMu_g133_CMS.4962-Digi-2x1033PU761_TkMu.131000008
-  Generating drop hg03_hzz_2e2mu_120a.hg_2x1033PU761_TkMu_g133_CMS.4962-Digi-2x1033PU761_TkMu.131000009
-  Generating drop hg03_hzz_2e2mu_120a.hg_2x1033PU761_TkMu_g133_CMS.4962-Digi-2x1033PU761_TkMu.131000010
-  Generating drops for 4963
-  Generating drop hg03_hzz_2e2mu_130a.hg_2x1033PU761_TkMu_g133_CMS.4963-Digi-2x1033PU761_TkMu.131100001
-  Generating drop hg03_hzz_2e2mu_130a.hg_2x1033PU761_TkMu_g133_CMS.4963-Digi-2x1033PU761_TkMu.131100002
-  Generating drop hg03_hzz_2e2mu_130a.hg_2x1033PU761_TkMu_g133_CMS.4963-Digi-2x1033PU761_TkMu.131100003
-  Generating drop hg03_hzz_2e2mu_130a.hg_2x1033PU761_TkMu_g133_CMS.4963-Digi-2x1033PU761_TkMu.131100004
-  Generating drop hg03_hzz_2e2mu_130a.hg_2x1033PU761_TkMu_g133_CMS.4963-Digi-2x1033PU761_TkMu.131100005
-  Generating drop hg03_hzz_2e2mu_130a.hg_2x1033PU761_TkMu_g133_CMS.4963-Digi-2x1033PU761_TkMu.131100006
-  Generating drop hg03_hzz_2e2mu_130a.hg_2x1033PU761_TkMu_g133_CMS.4963-Digi-2x1033PU761_TkMu.131100007
-  Generating drop hg03_hzz_2e2mu_130a.hg_2x1033PU761_TkMu_g133_CMS.4963-Digi-2x1033PU761_TkMu.131100008
-  Generating drop hg03_hzz_2e2mu_130a.hg_2x1033PU761_TkMu_g133_CMS.4963-Digi-2x1033PU761_TkMu.131100009
-  Generating drop hg03_hzz_2e2mu_130a.hg_2x1033PU761_TkMu_g133_CMS.4963-Digi-2x1033PU761_TkMu.131100010
-  Generating drops for 4964
-  Generating drop hg03_hzz_2e2mu_140a.hg_2x1033PU761_TkMu_g133_CMS.4964-Digi-2x1033PU761_TkMu.131200001
-  Generating drop hg03_hzz_2e2mu_140a.hg_2x1033PU761_TkMu_g133_CMS.4964-Digi-2x1033PU761_TkMu.131200002
-  Generating drop hg03_hzz_2e2mu_140a.hg_2x1033PU761_TkMu_g133_CMS.4964-Digi-2x1033PU761_TkMu.131200003
-  Generating drop hg03_hzz_2e2mu_140a.hg_2x1033PU761_TkMu_g133_CMS.4964-Digi-2x1033PU761_TkMu.131200004
-  Generating drop hg03_hzz_2e2mu_140a.hg_2x1033PU761_TkMu_g133_CMS.4964-Digi-2x1033PU761_TkMu.131200005
-  Generating drop hg03_hzz_2e2mu_140a.hg_2x1033PU761_TkMu_g133_CMS.4964-Digi-2x1033PU761_TkMu.131200006
-  Generating drop hg03_hzz_2e2mu_140a.hg_2x1033PU761_TkMu_g133_CMS.4964-Digi-2x1033PU761_TkMu.131200007
-  Generating drop hg03_hzz_2e2mu_140a.hg_2x1033PU761_TkMu_g133_CMS.4964-Digi-2x1033PU761_TkMu.131200008
-  Generating drop hg03_hzz_2e2mu_140a.hg_2x1033PU761_TkMu_g133_CMS.4964-Digi-2x1033PU761_TkMu.131200009
-  Generating drop hg03_hzz_2e2mu_140a.hg_2x1033PU761_TkMu_g133_CMS.4964-Digi-2x1033PU761_TkMu.131200010
-  Generating drops for 4965
-  Generating drop hg03_hzz_2e2mu_150a.hg_2x1033PU761_TkMu_g133_CMS.4965-Digi-2x1033PU761_TkMu.131300001
-  Generating drop hg03_hzz_2e2mu_150a.hg_2x1033PU761_TkMu_g133_CMS.4965-Digi-2x1033PU761_TkMu.131300002
-  Generating drop hg03_hzz_2e2mu_150a.hg_2x1033PU761_TkMu_g133_CMS.4965-Digi-2x1033PU761_TkMu.131300003
-  Generating drop hg03_hzz_2e2mu_150a.hg_2x1033PU761_TkMu_g133_CMS.4965-Digi-2x1033PU761_TkMu.131300004
-  Generating drop hg03_hzz_2e2mu_150a.hg_2x1033PU761_TkMu_g133_CMS.4965-Digi-2x1033PU761_TkMu.131300005
-  Generating drop hg03_hzz_2e2mu_150a.hg_2x1033PU761_TkMu_g133_CMS.4965-Digi-2x1033PU761_TkMu.131300006
-  Generating drop hg03_hzz_2e2mu_150a.hg_2x1033PU761_TkMu_g133_CMS.4965-Digi-2x1033PU761_TkMu.131300007
-  Generating drop hg03_hzz_2e2mu_150a.hg_2x1033PU761_TkMu_g133_CMS.4965-Digi-2x1033PU761_TkMu.131300008
-  Generating drop hg03_hzz_2e2mu_150a.hg_2x1033PU761_TkMu_g133_CMS.4965-Digi-2x1033PU761_TkMu.131300009
-  Generating drop hg03_hzz_2e2mu_150a.hg_2x1033PU761_TkMu_g133_CMS.4965-Digi-2x1033PU761_TkMu.131300010
-  4961: 30/30 files present in castor: ready for transfer
-  4962: 30/30 files present in castor: ready for transfer
-  4963: 30/30 files present in castor: ready for transfer
-  4964: 30/30 files present in castor: ready for transfer
-  4965: 30/30 files present in castor: ready for transfer
-
-* List dataset.owner pairs for mu03b data
-
-  $ ./RefDBList 'mu03b*'
-  mu03b_DY2mu_Mll2000.mu_2x1033PU752_TkMu_2_g133_OSC
-  mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC
-  mu03b_DY2mu_Mll2000.mu_DST813_2_g133_OSC
-  mu03b_DY2mu_Mll2000.mu_Hit241_g133
-  mu03b_DY2mu_Mll2000.mu_Hit245_2_g133
-  mu03b_DY2mu_Mll2000.mu_NoPU752_TkMu_g133_OSC
-  mu03b_DY2mu_Mll2000.sw_Hit2404_g133
-  mu03b_DY2mu_Mll2000.sw_Hit2451_g133
-  mu03b_MBforPU.eg_Hit241_g133
-  mu03b_MBforPU.mu_cms133_g133
-  mu03b_MBforPU.mu_Hit244_g133
-  mu03b_MBforPU.mu_Hit244_g133
-  mu03b_MBforPU.mu_Hit245_g133
-  mu03b_MBforPU.mu_Hit245_g133
-  mu03b_MBforPU.mu_Hit750_g133
-  mu03b_MBforPU.mu_Hit750_g133
-  mu03b_MBforPU.sw_Hit2451_g133
-  mu03b_MBforPU.sw_Hit245462_g133
-  mu03b_MBforPU.sw_Hit323_2_3_g133
-  mu03b_zbb_4mu_compHEP.mu_2x1033PU761_TkMu_2_g133_OSC
-  mu03b_zbb_4mu_compHEP.mu_2x1033PU761_TkMu_2_g133_OSC
-  mu03b_zbb_4mu_compHEP.mu_Hit245_2_g133
-  mu03b_zbb_4mu_compHEP.mu_Hit245_2_g133_OSC
-
-* List assignments for mu03b_DY2mu dataset.owners
-
-  $ ./RefDBList 'mu03b_DY2mu*' | xargs ./RefDBAssignments -v
-  4272 mu03b_DY2mu_Mll2000.mu_2x1033PU752_TkMu_2_g133_OSC
-  6103 mu03b_DY2mu_Mll2000.mu_2x1033PU761_TkMu_2_g133_OSC
-  6116 mu03b_DY2mu_Mll2000.mu_DST813_2_g133_OSC
-  3618 mu03b_DY2mu_Mll2000.mu_Hit241_g133
-  4144 mu03b_DY2mu_Mll2000.mu_Hit245_2_g133
-  4259 mu03b_DY2mu_Mll2000.mu_NoPU752_TkMu_g133_OSC
-  3288 mu03b_DY2mu_Mll2000.sw_Hit2404_g133
-  3868 mu03b_DY2mu_Mll2000.sw_Hit2451_g133
-
-* Check whether previously created drops are now ready to go
-
-  $ ./RefDBCheck drops-for-*
-  3288: 0/0 files present in castor: not ready for transfer
-  3618: 0/190 files present in castor: not ready for transfer
-  3868: 0/69 files present in castor: not ready for transfer
-  4144: 120/120 files present in castor: ready for transfer
-  4259: 0/160 files present in castor: not ready for transfer
-  4272: 0/140 files present in castor: not ready for transfer
-  6103: 117/117 files present in castor: ready for transfer
-  6116: 114/114 files present in castor: ready for transfer
+  cvs co TMAgents/AgentToolkitExamples
+  cd TMAgents/AgentToolkitExamples/DropBox

@@ -7,6 +7,8 @@ can be run anywhere by anyone.
 
 ** Related documents.
 
+README-Overview.txt explains where this document fits in.
+README-Operations.txt explains how things are done at CERN.
 README-RefDB.txt explains how to inject data from RefDB into transfer.
 README-Transfer.txt explains how to set up the sample transfer agents.
 README-Funnel.txt explains how to merge files prior to transfer.
@@ -94,57 +96,34 @@ directory as scp:user@host:/remote/dir or rfio:/remote/dir.
 
 ** Setting up
 
-[FIXME: Get agent code.]
-[FIXME: Setup machine and directories.]
-[FIXME: Setup environment script.]
-[FIXME: Setup ORACLE.]
-[FIXME: Setup catalogue.]
+  mkdir -p /some/new/place
+  cd /some/new/place
+  export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/TMAgents
+  cvs login # password is "98passwd"
+  cvs co -d scripts TMAgents/AgentToolkitExamples
 
-On each computer running the fake agents, unpack this tar ball.  You
-will find the subdirectories "scripts", "logs", "incoming" and
-"models".  "scripts" contains everything the agents need to run.  The
-agent logging output will be sent under "logs" by default.  "incoming"
-is where "drops" are received: it has a subdirectory for each agent
-task queue and state, for example "incoming/xml".  The "model"
-directory contains the statistical models for the fake agents.
-
-The environment for the agents is set up by scripts/environ.csh.  This
-sets the parameters such as RLS contact string, and sources the POOL
-environment.  Update this as necessary.
-
-Two scripts, scripts/start.csh and scripts/stop.csh, start and stop
-all the agents.  Under scripts/examples, there are other variants of
-these for multi-host (e.g. WAN) tests.  These scripts automatically
-source scripts/environ.csh.
-
-If you run or source start.csh, the required agent chain is started.
-Running stop.csh will shut them down cleanly without losing any
-information.  If restarted, they will pick up where they left off.
-Use these scripts to start and stop the agents until you get familiar
-with starting and stopping them individually.
-
-Now all you need to feed it "drops": files to "transfer" through the
-system.
+[FIXME: Setup machine and directories.  See V2 part in
+  README-Operations.txt and/or ../NodeTestbed/readme]
+[FIXME: Setup environment script.  See V[12]-CERN-Environ.sh.]
+[FIXME: Setup ORACLE.  See end of V[12]-CERN-Environ.sh; need DBD/Oracle.]
+[FIXME: Setup catalogue.  See V[12]-CERN-Environ.sh.  Either use RLS,
+  like everybody does now, or setup local POOL catalogue, e.g. MySQL.]
 
 ** Starting the agents
 
+[FIXME: See V2 part in README-Operations.txt and V2-CERN-Start.sh.]
+
 ** Stopping the agents
+
+[FIXME: See V2 part in README-Operations.txt and V2-CERN-Stop.sh.]
 
 ** Generating drops
 
-[FIXME: Generate (test) drops with RefDB tools, see README-RefDB.txt.]
-
-[FIXME: DC04 drops:
-
-  RefDBReady -a \
-   5270 5272 5273 5274 5275 5276 5278 \
-   5439 5440 5441 5442 5443 5444 5445 \
-   5449 5450 5452 5453 5454 5455 5457
-
-The drops-for-*/drops directory now contains all the drops produced by
-T0 in CMS DC04.  FIXME: doesn't get summaries right!]
+[FIXME: Read README-RefDB.txt.]
 
 ** Feeding drops to the agents
+
+[FIXME: See TRSyncFeed in README-RefDB.txt.]
 
 ** Examining logs
 
@@ -241,33 +220,6 @@ ExampleCleaner
 ** Support
 
 If you have any questions or comments, please contact Lassi A. Tuura
-<lassi.tuura@cern.ch> or Tim Barrass <tim.barrass@physics.org>.
-
-** FIXME: Olde stuff: Feeding the drops
-
-For realistic tests, the drops need to be fed to the transfer chain at
-CMS DC04 rates.  Our target rate was 25Hz, translating to one drop
-every 40 seconds (1000 events per drop).  We never ran smoothly at
-that rate however.  The models/25hz defines a model that would
-still exercise the system at this rate.  There's also models/100hz
-that does the same at a higher rate, e.g. for future data challenges.
-There are also models/dc04-realistic and models/dc04-cleaned.  The
-first is the real DC04 distribution, the latter with excessive tails
-removed (when the whole system was down for days).  Note that if you
-use these models to feed the drops, in theory you will run as long as
-the data challenge took -- two months!  To run at faster rates, for
-example flat out to discover peak performance or how well one can
-recover from RLS service outages, construct your own model.
-
-The model files are simple histograms of "secs n".  The "secs" is the
-bin, and the "n" the number of the entries in that bin.  The task
-execution times are distributed randomly according to this histogram.
-
-The first agent in the chain is a "feed" that by default uses the 25Hz
-flat model.  Copy all the drops to the feeder's inbox for injection to
-transfer:
-
-  cp -Rp dc04/drops/* incoming/feed/inbox
-  for f in incoming/feed/inbox/*; do touch $f/go; done
-
-The model directory also contains realistic transfer agent models.
+<lassi.tuura@cern.ch> or Tim Barrass <tim.barrass@physics.org>.  You
+are welcome to file bug reports and support requests at our Savannah
+site at http://savannah.cern.ch/projects/phedex
