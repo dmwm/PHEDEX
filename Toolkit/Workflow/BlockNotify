@@ -100,7 +100,8 @@ sub completeBlocks
 	$result->{$dataset}{$owner} = {
 	    DATASET => $dataset,
 	    OWNER => $owner,
-	    FILES => $files
+	    FILES => $files,
+	    OTHER_OWNERS => []
 	};
 
 	foreach my $other (keys %{$result->{$dataset}})
