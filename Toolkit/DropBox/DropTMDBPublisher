@@ -71,7 +71,7 @@ use File::Path;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
-use UtilsCache;
+use UtilsReaders;
 use UtilsDB;
 
 sub new
@@ -99,48 +99,51 @@ sub updateTransferDatabase
     eval
     {
         # Update database
-	$dbh = &connectToDatabase ($self, 0) || die "failed to connect"
-	    if $self->{DBNAME};
+	$dbh = &connectToDatabase ($self, 0) or die "failed to connect";
 
+        my $now = &mytimeofday ();
 	my $fstmt = &dbprep ($dbh, qq{
-	    insert into t_files_for_transfer (guid, source_node, filesize)
-	    values (:guid, :node, :filesize)});
+	    insert into t_file
+	    (timestamp, guid, node, inblock, insubblock,
+	     lfn, filetype, filesize, checksum)
+	    values (:now, :guid, :node, :inblock, :insubblock,
+	     :lfn, :filetype, :filesize, :checksum)});
     	my $rstmt = &dbprep ($dbh, qq{
-	    insert into t_replica_state
-	    (guid, node, state, local_state,
-	     insert_time_stamp, time_stamp, local_time_stamp)
-	    values (:guid, :node, 0, 0, :now, :now, :now)});
+	    insert into t_replica_state (timestamp, guid, node, state, state_timestamp)
+	    values (:now, :guid, :node, 0, :now)});
     	my $mstmt = &dbprep ($dbh, qq{
-	    insert into t_replica_metadata (guid, attribute, value)
+	    insert into t_file_attributes (guid, attribute, value)
 	    values (:guid, :attr, :value)});
 
-    	my @cmds;
-        my $now = &mytimeofday ();
         foreach my $f (@$attrs)
 	{
-            my %meta = ('filesize' => $f->{FILESIZE},
-		        (exists $f->{CHECKSUM} ? ('checksum' => $f->{CHECKSUM}) : ()),
-			map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
-	    push (@cmds, [ $fstmt, { ":node" => $nodes->[0],
-			             ":guid" => $f->{GUID},
-			             ":filesize" => $f->{FILESIZE} } ]);
-	    push (@cmds, map { [ $mstmt, { ":guid" => $f->{GUID},
-				           ":attr" => $_,
-				           ":value" => $meta{$_} } ] }
-		  sort keys %meta);
-	    push (@cmds, map { [ $rstmt, { ":guid" => $f->{GUID},
-					   ":now" => $now,
-					   ":node" => $_ } ] }
-		  @$nodes);
-	}
+	    # FIXME: inject PFN filetype, LFN
+            my %meta = (map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
+	    &dbbindexec ($fstmt,
+		         ":now" => $now,
+			 ":guid" => $f->{GUID},
+		         ":node" => $self->{MYNODE},
+			 ":inblock" => "$f->{META}{owner}/$f->{META}{dataset}",
+			 ":insubblock" => "$f->{META}{jobid}",
+			 ":lfn" => $f->{LFN}[0],
+			 ":filetype" => $f->{PFN}[0]{TYPE},
+			 ":filesize" => $f->{FILESIZE},
+		 	 ":checksum" => $f->{CHECKSUM});
 
-	foreach my $cmd (@cmds)
-	{
-	    if ($self->{DBNAME}) {
-		# &logmsg ("$cmd->[0]{Statement} @{[ %{$cmd->[1]} ]} }");
-		&dbbindexec ($cmd->[0], %{$cmd->[1]});
-	    } else {
-		&logmsg ("$cmd->[0] { @{[ %{$cmd->[1]} ]} }");
+	    foreach my $m (sort keys %meta)
+	    {
+	        &dbbindexec ($mstmt,
+			     ":guid" => $f->{GUID},
+			     ":attr" => $m,
+			     ":value" => $meta{$m});
+	    }
+
+	    foreach my $n (@$nodes)
+	    {
+	        &dbbindexec ($rstmt, 
+	    	             ":now" => $now,
+			     ":guid" => $f->{GUID},
+			     ":node" => $n);
 	    }
 	}
 
@@ -174,14 +177,50 @@ sub processDrop
     delete $self->{BAD}{$drop};
     &timeStart($self->{STARTTIME});
 
-    # Read attribute cache, this is all we use
+    # Prepare attribute cache for this drop
     my $dropdir = "$self->{WORKDIR}/$drop";
-    my $attrs = eval { &readAttributeCache ("$dropdir/attrs") };
-    do { &alert ("$drop: $@"); $self->markBad ($drop); return; } if $@;
+
+    # Read catalogue data and build attribute cache from it
+    my $xmlcat = (<$dropdir/XMLCatFragment.*.{txt,xml}>)[0];
+    do { &alert("$drop: no catalogue"); $self->markBad ($drop); return }
+        if ! $xmlcat;
+    my $catalogue = eval { &readXMLCatalogue ($xmlcat) };
+    do { &alert ("$drop: $@"); $self->markBad ($drop); return } if $@;
+
+    # Merge checksum data into cache
+    my $cksumfile = (<$dropdir/Checksum.*.txt>)[0];
+    do { &alert ("no checksum file in $drop"); $self->markBad ($drop); return }
+        if ! $cksumfile;
+
+    my @cksums = eval { &readChecksumData ($cksumfile) };
+    do { &alert ($@); $self->markBad ($drop); return } if $@;
+
+    my $bad = 0;
+    foreach my $file (@$catalogue)
+    {
+	my $lfn = $file->{LFN}[0];
+	my $cksum = (grep ($_->[2] eq $lfn, @cksums))[0];
+
+	if (! $cksum)
+	{
+	   &alert ("$drop: no checksum for $lfn");
+	   $bad = 1;
+	   next;
+        }
+
+	&warn ("$drop: zero-size file $lfn") if ! $cksum->[1];
+
+	$file->{CHECKSUM} = $cksum->[0];
+	$file->{FILESIZE} = $cksum->[1];
+    }
+
+    do { $self->markBad ($drop); return } if $bad;
+
+    # Get node list
     my @nodes = split(/\s+/, &input ("$dropdir/PhEDEx-Nodes.txt") || $self->{MYNODE});
 
     # Insert information to the database.
-    return if $self->updateTransferDatabase ($drop, \@nodes, $attrs);
+    return if $self->updateTransferDatabase ($drop, \@nodes, $catalogue);
     $self->relayDrop ($drop);
     &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
 }
