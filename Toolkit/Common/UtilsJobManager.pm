@@ -71,10 +71,15 @@ sub checkJobs
 
     foreach my $job (@{$self->{JOBS}})
     {
-	my $status;
 	if (! scalar @{$job->{CMD}})
 	{
 	    # Delayed action callback, no job associated with this one
+	    push (@finished, $job);
+	}
+	elsif ($job->{PID} > 0 && waitpid ($job->{PID}, WNOHANG) > 0)
+	{
+	    # Command finished executing, save exit code and mark finished
+	    $job->{STATUS} = &runerror ($?);
 	    push (@finished, $job);
 	}
 	elsif ($job->{PID} > 0
@@ -86,12 +91,6 @@ sub checkJobs
 	    kill ($job->{PID}, $job->{FORCE_TERMINATE} ||= 1);
 	    $job->{FORCE_TERMINATE} = 9;
 	    push(@pending, $job);
-	}
-	elsif ($job->{PID} > 0 && waitpid ($job->{PID}, WNOHANG) > 0)
-	{
-	    # Command finished executing, save exit code and mark finished
-	    $job->{STATUS} = &runerror ($?);
-	    push (@finished, $job);
 	}
 	else
 	{
