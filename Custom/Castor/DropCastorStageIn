@@ -406,6 +406,7 @@ sub processDrop {}
 sub idle
 {
     my ($sleep, @pending) = @_;
+    &timeStart();
     &processAllFiles (@pending);
     &maybeStop();
     sleep ($sleep);
