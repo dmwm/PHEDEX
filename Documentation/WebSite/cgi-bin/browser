@@ -30,6 +30,7 @@ end();
 
 sub intro
 {
+    local $| = 1;
     my $stamp = strftime ("%Y-%m-%d %H:%M:%S %Z", localtime(time()));
     print $cgi->header();
     print start_form();
@@ -42,15 +43,15 @@ sub intro
     <table>
     <tr>
     <td><input type='submit' name='main' value='Front page'></td>
-    <td><input type='submit' name='status' value='Transfer state'></td>
+    <td><input type='submit' name='transfer' value='Transfer state'></td>
+    <td><input type='submit' name='replicas' value='Replica state'></td>
+    <td><input type='submit' name='subs' value='Subscriptions'></td>
     <!-- td><input type='submit' name='stats' value='Simple stats'></td -->
     </tr>
     <tr>
     <td colspan=6 align='center'>$stamp</td>
     </tr>
     </table>
-
-    <table>
     };
 
     $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
@@ -60,10 +61,11 @@ sub intro
 	    		 { RaiseError=>1, AutoCommit =>1 });
 
     my $needmain = 1;
-    foreach my $page (qw(main status)) {
+    foreach my $page (qw(main transfer replicas)) {
         do { no strict 'refs'; $needmain = 0; &{$page}(); last } if param($page);
     }
     main() if $needmain;
+    print "</body></html>\n";
 }
 
 sub main
@@ -114,7 +116,7 @@ sub main
     print "</table>";
 }
 
-sub status {
+sub transfer {
     my $rows = 0;
     my $breakdown = param('ds');
     my $dsquery = $breakdown ? "r1.value," : "";
@@ -139,7 +141,6 @@ sub status {
 		   sum(case when ts.to_state = 0 then r3.value else '0' end)
 	    from t_files_for_transfer f
 	    cross join t_nodes n
-	    $dsjoin
 	    left join t_replica_state rs
 	      on rs.guid = f.guid and rs.node = n.node_name
 	    left join t_transfer_state ts
@@ -148,10 +149,11 @@ sub status {
 	      on r3.guid = f.guid and r3.attribute = 'filesize'
 	    left join (select distinct guid from t_destinations) d
 	      on d.guid = f.guid
+	    $dsjoin
       	    where (rs.node = n.node_name) or (ts.to_node = n.node_name)
 	    group by $dsquery n.node_name});
 
-    print "<h2>File replicaton status</h2>\n",
+    print "<h2>Transfer status</h2>\n",
     	  "<input type='checkbox' name='ds'@{[$breakdown && \" checked='checked'\"]}>",
 	  "Break down by dataset",
     	  "<table><tr bgcolor='$altcolor'>",
@@ -193,6 +195,98 @@ sub status {
 	      "</tr>\n";
     }
     $query->finish();
+    print "</table>";
+}
+
+sub replicas {
+    my $rows = 0;
+    my %data = ();
+    my %sites = ();
+    my $query = $dbh->prepare(qq{
+	    select
+	      m1.value,				-- dataset
+	      count(m1.guid),			-- files
+	      count(distinct m3.value),		-- runs
+	      sum(m2.value)			-- total size
+	    from t_replica_metadata m1
+	    left join t_replica_metadata m2
+	      on m2.guid = m1.guid and m2.attribute = 'filesize'
+	    left join t_replica_metadata m3
+	      on m3.guid = m1.guid and m3.attribute = 'POOL_jobid'
+	    where m1.attribute = 'POOL_dataset'
+	    group by m1.value});
+
+    $query->execute();
+    while (my $row = $query->fetchrow_arrayref)
+    {
+	my ($ds, $files, $runs, $total) = @$row;
+	$data{$ds} = [ $ds, $files, $total, $runs, {} ];
+    }
+    $query->finish();
+
+    $query = $dbh->prepare (qq{
+	    select
+	      m1.value,				-- dataset
+	      rs.node,				-- site
+	      count(rs.guid),			-- replicas at this site
+	      sum(m2.value)			-- total size
+	    from t_replica_state rs
+	    left join t_replica_metadata m1
+	      on m1.guid = rs.guid and m1.attribute = 'POOL_dataset'
+	    left join t_replica_metadata m2
+ 	     on m2.guid = rs.guid and m2.attribute = 'filesize'
+	    group by m1.value, rs.node});
+    $query->execute();
+    while (my $row = $query->fetchrow_arrayref)
+    {
+	my ($ds, $site, $files, $total) = @$row;
+	$data{$ds}[4]{$site} = [ $files, $total ];
+	$sites{$site} = 1;
+    }
+    $query->finish();
+
+    print "<h2>Replication status</h2>\n",
+    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+	  "<th rowspan='2'>Dataset</th>",
+	  "<th rowspan='2' align='right'>Runs</th>",
+	  "<th colspan='2' align='right'>Files</th>",
+	  (map { "<th colspan='2'>$_</th>" } sort keys %sites),
+          "</tr>\n",
+	  "<tr bgcolor='$altcolor' valign='top'>",
+	  "<th align='right'>N</th><th align='right'>GB</th>",
+	  (map { "<th align='right'>N</th><th align='right'>GB</th>" } sort keys %sites),
+	  "</tr>\n";
+
+    foreach my $ds (sort keys %data)
+    {
+        my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
+	my ($ds, $files, $total, $runs, $sites) = @{$data{$ds}};
+        print "<tr valign='top'$rowcolor>",
+	      "<td>$ds</td>",
+	      "<td align='right'>$runs</td>",
+	      "<td align='right'>$files</td>",
+	      "<td align='right'>",
+	      (!$files ? "&nbsp;" : sprintf('%.1f', $total/(2**30))),
+	      "</td>";
+
+	foreach my $site (sort keys %sites)
+	{
+	    if (exists $sites->{$site})
+	    {
+		my ($sfiles, $stotal) = @{$sites->{$site}};
+		my $scolor = ($sfiles == $files) ? '' : " bgcolor='$pendcolor'";
+		print "<td$scolor align='right'>$sfiles</td>",
+		      "<td$scolor align='right'>",
+		      (!$sfiles ? "&nbsp;" : sprintf('%.1f', $stotal/(2**30))),
+		      "</td>";
+	    }
+	    else
+	    {
+		print "<td colspan='2'>&nbsp;</td>";
+	    }
+        }
+	print "</tr>\n";
+    }
     print "</table>";
 }
 
