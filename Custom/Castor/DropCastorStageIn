@@ -289,6 +289,7 @@ sub flushStagedInDrops
 	    my $timing = [];
 	    &timeStart($timing);
 	    $timing->[0] = $drops{$drop}[2];
+	    unlink (<$workdir/$drop/stagein.*>);
 	    &touch ("$workdir/$drop/done");
 	    &relayDrop ($drop);
 	    &logmsg ("stats: $drop @{[&formatElapsedTime($timing)]} success");
