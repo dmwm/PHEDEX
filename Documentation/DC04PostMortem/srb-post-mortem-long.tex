@@ -43,24 +43,39 @@ archiving of the data.
 
 \subsection{SRB}
 
-The SRB system is made of three components; a central metadata catalogue (the MCat), a group of storage 
-resources running the SRB server software and client tools used for transferring, modifying and listing data.
+The SRB system is made of three components; a central metadata catalogue (the MCat), a group of 
+storage resources running the SRB server software and client tools used for transferring, 
+modifying and listing data.
 
-The MCat is used to store authentication information, resource details, file location and metadata, 
-and user information. All resources must be registerred in the MCat, which makes combining two or 
-more resources into one logical resource possible. For DC04 the MCat was hosted at RAL on a ((details of 
-the machine here)).
+The MCat is used to store authentication information, resource details, file location and 
+metadata, and user information. All resources must be registerred in the MCat, which makes 
+combining two or more resources into one logical resource possible. For DC04 the MCat database 
+was hosted at RAL on a Oracle 9i RAC Enterprise Edition Database (v 9.2.0.5), an identical 
+setup at Daresbury laboratory was available for failover situations. The MCat server software 
+ran at RAL on a dual Intel P3 (1.4GHz) machine running Red Hat 7.3. These machines had been used
+throughout 2003 for the Pre-Challenge Production.
 
-Lightweight server software is installed on machines providing access to storage resources (disk, tape or 
-a combination of both). Data is stored in a unique path so one server can host many replicas of the same file.
-As well as storing the data these servers act as portals to client software to SRB space. ((details of the server here))
+Within SRB version 2 the MCat, or metadata catalogue, represents a single point of failure. All 
+user authentications, replica and metadata lookups are undertaken using this single service 
+(it should be noted that this is not true in version 3 of SRB).
+
+Lightweight server software is installed on machines providing access to storage resources 
+(disk, tape or a combination of both). Data is stored in a unique path so one server can host 
+many replicas of the same file. As well as storing the data these servers act as portals to 
+client software to SRB space. 
+
+In total 11Tb of disk space was managed via SRB. Of particular note is the resources used at 
+CERN to form the export buffer. This was made up of 4 machines each hosting 10 RAID disks. These
+disks were combined into a single logical resource via the MCat, making transfer to and from the 
+EB considerably easier.
 
 \subsection{Agents}
 All transfers were controlled by an "Agent" communicating to other agents in the system via a central
 database ((ref Tims paper)). These agents replicated files from Castor MSS at CERN (the T0) through a 
 series of intermediate disk buffers and onto MSS at the appropriate T1. This happened entirely within 
-SRB at two T1's, FZK had no SRB interface to their tape store and so the final step was done using dCache 
-(though still automated via an agent).
+SRB at RAL, FZK had no SRB interface to their tape store and so the final step was done using dCache,
+IN2P3 preferrerd the reliability of using the native HPSS commands combined with an Sregister
+to manage their MSS resources.
 
 \subsection{GMCat}
 To maintain consistency between the LCG and SRB realms the GUID (Grid Unique Identifier, used 
@@ -75,6 +90,8 @@ providing a bridge between the two namespaces.
 \section{Experience}
 
 \subsection{SRB chain}
+Change all of this.....
+
 The performance of the SRB chain was severely hampered by technical
 issues: first with availability of the MCat metadata catalogue, hosted
 at RAL, and secondly with a small number of bugs in SRB client and
@@ -82,11 +99,6 @@ server, and Oracle Linux implementations. Experience with the SRB
 chain has highlighted the vital importance of production-quality
 service and support at the T1s, especially if they are to be
 responsible for mission-critical services during experiment running.
-
-Within SRB version 2 the MCat, or metadata catalogue, represents a
-single point of failure. All user authentications, replica and
-metadata lookups are undertaken using this single service (it should
-be noted that this is not true in version 3 of SRB).
 
 However, SRB had been used successfully by CMS production for a year
 beforehand.  In addition, LCG-2 resources were not available at
@@ -148,26 +160,46 @@ chains. Prior to the data challenge testing indicated that transfer
 rates could be sustained at a rate greater than this.
 
 \subsection{Agents}
-Mistakes made with the agents....
-
 The simple structure of the agents led to a (neccessarily) rapid development cycle, which 
 in turn led to a reduced amount of testing, eg. functionality was tested but little stress 
 testing was carried out. Had more stress testing been possible the high load on the MCat 
 server caused by the rapid use of CLI tools would have been identified and a workaround 
-determined. Clearly a despoke tool written against one of the SRB API's would have 
-been considerably more efficent than using generic CLI tools, indeed annecdotal evidence from 
-DC04 shows this clearly. Towards the end of the DC a tool combining the transfer and metadata
-insert was developed. Under initial testing it demostrated a order of magnitude better
-performance, due to reducing the amount of authentication step involved and parralelising the 
-transfer and metadata interaction. However the DC was coming to an end and this was not deployed.
+determined. 
+
+Clearly a despoke tool written against one of the SRB API's would have been considerably more 
+efficent than using generic CLI tools, indeed annecdotal evidence from DC04 shows this clearly; 
+towards the end of the DC a tool combining the transfer and metadata insert was developed. 
+Under initial testing it demostrated a order of magnitude better performance, due to reducing 
+the amount of authentication steps involved and parralelising the transfer and metadata 
+interaction. However the DC was coming to an end and this was not deployed, nor was it tested 
+under significant strain.
+
+Consideration of the number of database interactions suggests that a system of "drop box" agents 
+(as used in the T0 system) would be a more appropriate manner to use the SRB CLI. A load of 
+files could be staged into one drop box, uploaded as a group (reducing the amount of 
+authentication involved), then successful Sput's could be dropped into a second box for the 
+metadata insert. Due to that nature of GMCat the metadata updates can be asynchronous to the 
+Sputs, GMCat just sees a delete and an insert. This system would also enable a level of failover 
+and recover not available in the DC04 system.
+
 
 \subsection{GMCat}
 Details on the performance of GMCat...
+Diagram? Graph?
 
-As the difficulties with the MCat increased GMCat was stopped as the system 
-no longer reponded in a useful timescale.
+As no RLI was deployed for the data challenge the GMCat service had to synchronise the files 
+added and deleted from SRB, instead of responding to individual queries. This meant that the 
+query on the MCat had to run over all files in SRB. Response to this query increased linearly 
+with the number of files. The updates to the LRC (using the java/wsdl API) at CERN uniformly 
+took 0.3s and posed no significant overhead.As the difficulties with the MCat increased GMCat 
+was stopped as the system no longer reponded in a useful timescale, a smaller program to add
+files added between two times was then run manually to update the RLS.
 
-\subsection{Manpower}
+Clearly this is a sub-optimum solution and integration to the RLS via the RLI would have been 
+preferred. Running the large query on the MCat was unlikely to scale beyond the scope of the 
+data challenge. MORE HERE
+
+\subsection{Manpower \& Readiness}
 Ooh not sure about this one....
 
 \section{Conclusions}
@@ -176,7 +208,6 @@ result of CMS experience, for which we would like to thank the developers
 at SDSC.
 
 It should be noted that SRB is not integrated into the LCG analysis
-system, and that while this is possible %\cite{gmcat} 
-it may not be desirable to create a "grid of grids" without some
-significant additional desired functionality.  It is likely that CMS
+system, and that while this is possible it may not be desirable to create a "grid of grids" 
+without some significant additional desired functionality.  It is likely that CMS
 use of SRB will be phased out before DC05.
