@@ -9,20 +9,22 @@ BEGIN {
 
 # Process command line arguments
 my $me = $0; $me =~ s|.*/||;
-my %args = (JOBS => 10);
+my %args = (JOBS => 10, DEST => "file:/dev/null");
 while (@ARGV)
 {
     if ($ARGV[0] eq '-r' && scalar @ARGV > 1)
     { shift (@ARGV); $args{READ} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-j' && scalar @ARGV > 1)
     { shift (@ARGV); $args{JOBS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-d' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DEST} = shift(@ARGV); }
     else
     { last; }
 }
 
 if (!$args{READ} || !$args{JOBS})
 {
-    print STDERR "usage: $me -r FILE-OF-FILES [-j JOBS] globus-url-copy...\n";
+    print STDERR "usage: $me -r FILE-OF-FILES [-d DEST] [-j JOBS] globus-url-copy...\n";
     exit (1);
 }
 
@@ -39,7 +41,7 @@ use UtilsJobManager;
 my $mgr = new UtilsJobManager (NJOBS => $args{JOBS});
 foreach my $file (@files)
 {
-    $mgr->addJob (sub {}, {}, @ARGV, $file, "file:/dev/null");
+    $mgr->addJob (sub {}, {}, @ARGV, $file, $args{DEST});
     $mgr->pumpJobs();
 }
 
