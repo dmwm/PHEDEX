@@ -109,7 +109,8 @@ sub idle
 	    {
 		++$nincomplete;
 		++$nrouted if $self->routeNextHop ($dbh, $file, $routes);
-		last if (&mytimeofday () - $start > 10*60);
+		$routes = $self->currentRoutes ($dbh)
+		    if (&mytimeofday () - $start > 10*60);
 	    }
 
 	    &logmsg ("$nodepat: considered $nincomplete destinations,"
@@ -118,7 +119,6 @@ sub idle
 	        ; #if $nincomplete;
 	
 	    $self->maybeStop();
-	    last if (&mytimeofday () - $start > 10*60);
 	}
 
 	# Clear SQL statement cache
