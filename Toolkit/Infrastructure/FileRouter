@@ -115,7 +115,9 @@ sub idle
 	}
 
 	# For each destination of each file, select nearest replica.
-	# If it isn't in transfer already, issue a new request.
+	# If it isn't in transfer already, issue a new request.  But
+	# as multiple destinations can go through a single gateway,
+	# prune out duplicates to a single transfer request.
 	my $now = time();
 	$stmt = $dbh->do(qq{
 	    insert into t_transfer_state (
@@ -136,7 +138,8 @@ sub idle
 	  			from t_routing rr, t_replica_state trs
 	  			where guid = d.guid
 				  and to_node = d.destination_node
-				  and rr.from_node = trs.node))});
+				  and rr.from_node = trs.node)
+		group by d.guid, rs.node, r.gateway)});
 	$dbh->commit ();
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
