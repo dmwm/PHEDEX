@@ -163,7 +163,7 @@ sub get_new_routes {
     my $selection = "select from_node,to_node,hops from t_Routing "
 	."where from_node in (select from_node from t_Routing where to_node = '$g_parent_node' and gateway = '$g_parent_node') "
 	."and not to_node = '$g_parent_node' "
-	."and not gateway = '$g_parent_node' "
+#	."and not gateway = '$g_parent_node' "
 	."minus "
 	."select gateway,to_node,hops-1 from t_Routing "
 	."where from_node = '$g_parent_node'";
