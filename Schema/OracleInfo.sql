@@ -87,6 +87,7 @@ create table t_info_drop_status
 create table t_info_subscriptions
   (timestamp		float		not null,
    dataset		varchar (1000)	not null,
+   owner		varchar (1000)	not null,
    destination		varchar (20),
    n_files		integer		not null,
    sz_files		integer		not null,

@@ -13,42 +13,49 @@ drop table t_file_attributes;
 
 -- FIXME: index organised?
 -- FIXME: partitioned?
--- FIXME: index attributes?
 
 create table t_files
-  (guid			char (36)	not null,
+  (timestamp		float		not null,
+   guid			char (36)	not null,
    node			varchar (20)	not null,
    filesize		integer		not null,
-   checksum		integer,
-   timestamp		float		not null);
+   checksum		integer);
 
 create table t_file_attributes
   (guid			char (36)	not null,
-   attribute		varchar (1000)	not null,
+   attribute		varchar (32)	not null,
    value		varchar (1000));
 
 ----------------------------------------------------------------------
 -- Add constraints
 
 alter table t_files
-  add constraint t_files_pk
+  add constraint pk_files
   primary key (guid)
   using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_files
-  add constraint t_files_fk_source_node
-  foreign key (source_node) references t_nodes (name);
+  add constraint fk_files_source_node
+  foreign key (node) references t_nodes (name);
 
 
 alter table t_file_attributes
-  add constraint t_file_attributes_pk
+  add constraint pk_file_attributes
   primary key (guid, attribute)
   using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_file_attributes
-  add constraint t_file_attributes_fk_guid
+  add constraint fk_file_attributes_guid
   foreign key (guid) references t_files (guid);
 
 ----------------------------------------------------------------------
 -- Add indices
 
+create index ix_files_node
+  on t_files (node)
+  tablespace CMS_TRANSFERMGMT_INDX01;
+
+
+create index ix_file_attributes_attr
+  on t_file_attributes (attribute)
+  tablespace CMS_TRANSFERMGMT_INDX01;

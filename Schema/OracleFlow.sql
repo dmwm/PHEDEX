@@ -11,9 +11,9 @@ drop table t_subscriptions;
 -- Create new tables
 
 create table t_subscriptions
-  (destination		varchar (20),
-   dataset		varchar (1000)	not null,
-   owner		varchar (1000)	not null);
+  (dataset		varchar (1000)	not null,
+   owner		varchar (1000)	not null,
+   destination		varchar (20));
 
 ----------------------------------------------------------------------
 -- Add constraints
@@ -21,3 +21,10 @@ create table t_subscriptions
 ----------------------------------------------------------------------
 -- Add indices
 
+create index ix_subscriptions_dso
+  on t_subscriptions (dataset, owner)
+  tablespace CMS_TRANSFERMGMT_INDX01;
+
+create index ix_subscriptions_dest
+  on t_subscriptions (destination)
+  tablespace CMS_TRANSFERMGMT_INDX01;
