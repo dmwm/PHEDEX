@@ -126,7 +126,7 @@ sub idle
 	    {
 		$dbh->do(qq{
 		    delete from t_info_transfer_status
-		    where node = '$node')};
+		    where node = '$node'});
 		next;
 	    }
 
