@@ -116,14 +116,14 @@ sub parse_command_line () {
 	} else {
 		$g_work_dir = $g_work_dir.$new_work_dir;
 	}
-	$entry = $entry."work dir is $work_dir,";
-	if (-e "$work_dir/pid") {
+	$entry = $entry."work dir is $g_work_dir,";
+	if (-e "$g_work_dir/pid") {
 		log_entry( ENTRY => "Removing old pid file");
-		unlink("$work_dir/pid");
+		unlink("$g_work_dir/pid");
 	} 
-	if (-e "$work_dir/stop") {
-		log_entry( ENTTRY => "Removing old stop file" );
-		unlink ("$work_dir/stop");
+	if (-e "$g_work_dir/stop") {
+		log_entry( ENTRY => "Removing old stop file" );
+		unlink ("$g_work_dir/stop");
 	}
 	if (!$g_db) {
 		$g_db = "devdb9";
