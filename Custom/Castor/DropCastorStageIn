@@ -171,7 +171,7 @@ sub checkFileStatus
     {
 	$file->{LAST} = $now;
     }
-    elsif ($now - $file->{LAST} > 900)
+    elsif ($file->{STATUS} == $STAGE_PENDING && $now - $file->{LAST} > 900)
     {
 	if ($now - $file->{STARTED} > $maxhours * 3600)
 	{
@@ -185,7 +185,6 @@ sub checkFileStatus
 	my $status = &stageQueryFile ($pfn);
 	return $STAGE_RETRY if ! defined $status;
 	return $STAGE_PENDING if $status eq 'STAGEIN'; # Still known
-	
 	&alert ("File lost STAGEIN status, requesting again: $pfn");
     }
 
@@ -216,18 +215,13 @@ sub updateFileStatus
     }
     else
     {
-	# Update the file status, and add to files we need
+	# Update the file status
 	$file->{STATUS} = $status;
     }
-
-    # Write out the new file state
-    &alert ("failed to update stagein status for $file->{LFN}")
-	if ! &output ("$workdir/$file->{DROP}/stagein.$file->{LFN}", Dumper ($file));
 }
 
-# Update the status for all files, then determine which drops are ready
-# to proceed and which ones need staging in.
-sub processAllFiles
+# Restore saved file status
+sub readStageInProgress
 {
     my (@pending) = @_;
     my @files = ();
@@ -258,7 +252,7 @@ sub processAllFiles
 	    my $info = { DROP => $drop, PFN => $pfn, LFN => $lfn };
 	    if (-f "$workdir/$drop/stagein.$lfn")
 	    {
-		my $saved = eval &input  ("$workdir/$drop/stagein.$lfn");
+		my $saved = eval &input ("$workdir/$drop/stagein.$lfn");
 		if ($@) {
 		    &warn ("ignoring corrupt stagein status for $drop/$lfn: $@");
 		} else {
@@ -269,18 +263,18 @@ sub processAllFiles
         }
     }
 
-    # Get the list of files already staged in
-    my @staged = &stagedInFiles();
-    return if grep (! defined $_, @staged);
+    return @files;
+}
 
-    # Update status
-    foreach my $file (@files) {
-        &updateFileStatus ($file, \@staged);
-    }
+# Flush drops whose files have been staged in.
+sub flushStagedInDrops
+{
+    my ($files, $pending) = @_;
 
     # Mark done drops whose all files have been staged in
     my %drops = ();
-    foreach my $file (@files)
+    my @remaining = ();
+    foreach my $file (@$files)
     {
 	my $drop = $file->{DROP};
 	$drops{$drop} ||= [ 0, 0, time() ];
@@ -288,7 +282,7 @@ sub processAllFiles
 	$drops{$drop}[1]++ if $file->{STATUS} == $STAGE_ON_DISK;
 	$drops{$drop}[2] = $file->{STARTED} if $drops{$drop}[2] > $file->{STARTED};
     }
-    foreach my $drop (keys %drops)
+    foreach my $drop (sort keys %drops)
     {
 	if ($drops{$drop}[0] == $drops{$drop}[1] && ! -f "$workdir/$drop/bad")
 	{
@@ -299,57 +293,95 @@ sub processAllFiles
 	    &relayDrop ($drop);
 	    &logmsg ("stats: $drop @{[&formatElapsedTime($timing)]} success");
 	}
+	else
+	{
+	    push(@remaining, $drop);
+	}
     }
 
-    # Determine the files that need to be staged in, in a good order
-    # i.e. sorted by tape and position, then issue requests in batches.
-    my @requests = map { $_->{PFN} }
-		   sort { $a->{TAPE} cmp $b->{TAPE} || $a->{POS} cmp $b->{POS} }
-		   grep ($_->{STATUS} == $STAGE_UNKNOWN, @files);
-    while (scalar @requests)
+    @$pending = @remaining;
+}
+
+# Save the file status for the given files
+sub saveFileStatus
+{
+    foreach my $file (@_)
     {
-	# Wait until the system load drops low enough.  This is not exactly
-	# optimal, but this is the only place where we can throttle.  It
-	# would be better to have updated the file status after we know
-	# we can carry out the actions, now we'll wait issuing the stage
-	# requests for arbitrarily long, and may even get stopped -- which
-	# isn't all that bad, we'll just think we lost the stage-in status
-	# and will retry.  Will be fixed by moving to use of PinDB.
-	# FIXME: notice new drops
-	# FIXME: pass completed drops ahead before sleeping
-	my ($tapereqs, $mytapereqs, $stagereqs);
-	while (1)
+        &alert ("failed to update stagein status for $file->{LFN}")
+	    if ! &output ("$workdir/$file->{DROP}/stagein.$file->{LFN}", Dumper ($file));
+    }
+}
+
+# Update the status for all files, then determine which drops are ready
+# to proceed and which ones need staging in.
+sub processAllFiles
+{
+    my (@pending) = @_;
+    while (@pending)
+    {
+	&maybeStop();
+
+        # Recover where we were
+        my @files = &readStageInProgress (@pending);
+
+        # Get the list of files already staged in
+        my @staged = &stagedInFiles();
+        return if grep (! defined $_, @staged);
+
+        # Update status
+        foreach my $file (@files) {
+            &updateFileStatus ($file, \@staged);
+        }
+
+        # Write out the new file state
+	&saveFileStatus (@files);
+
+	# Send out completely staged in drops
+	&flushStagedInDrops(\@files, \@pending);
+
+        # Determine the files that need to be staged in, in a good order
+        # i.e. sorted by tape and position, then issue requests in batches.
+        my @requests = sort { $a->{TAPE} cmp $b->{TAPE} || $a->{POS} cmp $b->{POS} }
+		       grep ($_->{STATUS} == $STAGE_UNKNOWN, @files);
+	while (@requests)
 	{
-	    ($tapereqs, $mytapereqs, $stagereqs) = (&tapeMountLoad(), &stagerLoad());
-	    last if (defined $tapereqs
-	             && defined $mytapereqs
-	             && defined $stagereqs
-	             && $tapereqs <= $maxtapereqs
-	             && $mytapereqs <= $maxmytapereqs
-	             && $stagereqs <= $maxstagereqs);
+	    # Suspend until the system load drops low enough, and then go back
+	    # to start of the loop so we reconsider staged in files and send
+	    # them out.  Also makes it safer if we get stopped.
+	    my ($tapereqs, $mytapereqs, $stagereqs) = (&tapeMountLoad(), &stagerLoad());
+	    if (! defined $tapereqs
+	        || ! defined $mytapereqs
+	        || ! defined $stagereqs
+	        || $tapereqs > $maxtapereqs
+	        || $mytapereqs > $maxmytapereqs
+	        || $stagereqs > $maxstagereqs)
+	    {
+	        $tapereqs = 'U' if ! defined $tapereqs;
+	        $mytapereqs = 'U' if ! defined $mytapereqs;
+	        $stagereqs = 'U' if ! defined $stagereqs;
+	        &note ("backing out, overloaded ($tapereqs/$mytapereqs/$stagereqs)");
+	        return;
+	    }
 
-	    &maybeStop();
-	    $tapereqs = 'U' if ! defined $tapereqs;
-	    $mytapereqs = 'U' if ! defined $mytapereqs;
-	    $stagereqs = 'U' if ! defined $stagereqs;
-	    &note ("overloaded, sleeping ($tapereqs/$mytapereqs/$stagereqs)");
-	    sleep (120);
+	    # Select the next up to $maxfiles to stage in
+	    my $nfiles = ($#requests > $maxfiles ? $maxfiles : $#requests);
+	    my @slice = @requests[$#requests - $nfiles .. $#requests];
+	    delete @requests[$#requests - $nfiles .. $#requests];
+
+	    # Mark these files as pending now
+	    map { $_->{STATUS} = $STAGE_PENDING } @slice;
+	    &saveFileStatus (@slice);
+
+	    # Issue background stage-in
+	    my $rc = &runcmd ("stagein", "--nowait", "--rdonly",
+			      "-h", $ENV{STAGE_HOST}, "-p", $ENV{STAGE_POOL},
+			      "-A", "deferred",
+			      map { ("-M", $_->{PFN}) } @slice);
+	    &alert ("stagein failed: @{[&runerror($rc)]}") if ($rc);
+
+	    # Sleep a bit, castor doesn't like rapid-fire request chains
+	    select (undef, undef, undef, 0.33);
 	}
-
-	# Select the next up to $maxfiles to stage in
-	my $nfiles = ($#requests > $maxfiles ? $maxfiles : $#requests);
-	my @slice = @requests[$#requests - $nfiles .. $#requests];
-	delete @requests[$#requests - $nfiles .. $#requests];
-
-	# Issue background stage-in
-	my $rc = &runcmd ("stagein", "--nowait", "--rdonly",
-			  "-h", $ENV{STAGE_HOST}, "-p", $ENV{STAGE_POOL},
-			  "-A", "deferred",
-			  map { ("-M", $_) } @slice);
-	&alert ("stagein failed: @{[&runerror($rc)]}") if ($rc);
-
-	# Sleep a bit, castor doesn't like rapid-fire request chains
-	select (undef, undef, undef, 0.33);
     }
 }
 
@@ -359,9 +391,7 @@ sub processDrop {}
 sub idle
 {
     my ($sleep, @pending) = @_;
-
     &processAllFiles (@pending);
-
     &maybeStop();
     sleep ($sleep);
 }
