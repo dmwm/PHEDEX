@@ -137,21 +137,10 @@ sub fileStart
     };
 
     $self->{PENDING}{$guid} = 0;
-    $self->addJob (sub { $self->fileDownloaded ($file, @_) },
-	{}, "rfcp", $pfn, "$file->{WORKDIR}/$lfn");
-    return 1;
-}
-
-# Respond to file arriving from mass storage.
-sub fileDownloaded
-{
-    my ($self, $file, $job) = @_;
-    $file->{FAILURE} = "exit code $job->{STATUS} from @{$job->{CMD}}" if $job->{STATUS};
-    return $self->completeFile ($file) if $file->{FAILURE};
-
     $self->addJob (sub { $self->fileChecksummed ($file, @_) },
 	{ OUTPUT_FILE => "$file->{WORKDIR}/checksum" },
-	"sh", "-c", "cd $file->{WORKDIR} && cksum $file->{LFN} > checksum");
+	"sh", "-c", "rfcat $pfn | cksum > $file->{WORKDIR}/checksum");
+    return 1;
 }
 
 # Respond to completed checksum.  Collect file checksum and size.
@@ -166,10 +155,8 @@ sub fileChecksummed
 	$file->{FAILURE} = "exit code $job->{STATUS} from @{$job->{CMD}}";
     } elsif (! $output) {
 	$file->{FAILURE} = "no output from @{$job->{CMD}}";
-    } elsif ($output !~ /^(\d+) (\d+) (\S+)$/) {
+    } elsif ($output !~ /^(\d+) (\d+)$/) {
 	$file->{FAILURE} = "malformed output from @{$job->{CMD}}";
-    } elsif ($3 ne $file->{LFN}) {
-	$file->{FAILURE} = "unexpected output from @{$job->{CMD}}";
     } else {
 	$file->{CHECKSUM} = $1;
 	$file->{NEWSIZE} = $2;
