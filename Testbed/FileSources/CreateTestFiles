@@ -22,7 +22,7 @@ while ($count > 0) {
     $file = "TestbedFile".$count;
     $full_path = $pwd.$file;
     
-    open( REG, "FCregisterPFN -p $full_path" );
+    open( REG, "FCregisterPFN -p $full_path |" );
     while(<REG>) {
         $guid = $_;
     }
