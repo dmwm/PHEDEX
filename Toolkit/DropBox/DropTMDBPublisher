@@ -24,7 +24,7 @@ my ($dropdir, @nextdir, $inbox, $workdir, $outdir, $stopflag, $pidfile);
 my @startTime;
 my $waittime = 7;		# Seconds to sleep between meta set queries
 my $dbname = undef;		# Database name
-my $node = undef;		# My node name
+my $mynode = undef;		# My node name
 my $version = 2;		# TMDB version
 my %bad = ();			# Drops we've warned are bad
 my %junk = ();			# Drops we've warned are junk in inbox
@@ -199,8 +199,9 @@ while (scalar @ARGV)
     { last; }
 }
 
-if (scalar @ARGV || !$dropdir || !$mynode
-    || ($version ne 1 && $version ne 2))
+if (scalar @ARGV || !$dropdir
+    || ($version ne 1 && $version ne 2)
+    || ($version eq 2 && !$mynode))
 {
     print STDERR
 	"usage: $me [-db DB-TNS-NAME] -node NODE-NAME\n",
