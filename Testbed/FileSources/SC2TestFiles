@@ -11,7 +11,6 @@ $dups = shift(@ARGV) || 43200;
 
 open (XML, "> XMLCatFragment.xml") or die "XMLCatFragment.xml: $!\n";
 open (CKSUM, "> Checksum.txt") or die "Checksum.txt: $!\n";
-open (CAT, "> FlatCatalogue.txt") or die "FlatCatalogue.txt: $!\n";
 
 print XML <<EOF;
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
@@ -36,7 +35,6 @@ for (my $dup = 0; $dup < $dups; ++$dup)
 	my $lfn = sprintf ($lfnpat, $i);
 	my $pfn = "$dirbase/$lfn";
 
-	print CAT "$uuid $pfn\n";
 	print CKSUM "-1 $size $lfn\n" if ! exists $cksumdone{$lfn};
 	$cksumdone{$lfn} = 1;
 	print XML <<EOF;
@@ -64,4 +62,3 @@ print XML "</POOLFILECATALOG>\n";
 
 close (XML);
 close (CKSUM);
-close (CAT);
