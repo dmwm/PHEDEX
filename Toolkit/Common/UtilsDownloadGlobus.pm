@@ -60,7 +60,8 @@ sub transferBatch
     {
 	my @files = @{$groups{$dest}};
 	$master->addJob (sub { $self->transferBatch ($master, $batch, @_) },
-	                 { FOR_FILES => [ map { $_->{FILE} } @files ] },
+	                 { FOR_FILES => [ map { $_->{FILE} } @files ],
+			   TIMEOUT => $self->{TIMEOUT} },
 	                 @{$self->{COMMAND}}, (map { $_->{PATH} } @files), $dest);
     }
 

@@ -12,6 +12,7 @@ sub new
 	BATCH_FILES	=> $args{BATCH_FILES} || 1,
 	BATCH_SIZE	=> $args{BATCH_SIZE} || undef,
 	PFNSCRIPT	=> $args{PFNSCRIPT},
+	TIMEOUT		=> $args{TIMEOUT},
 	BATCHID		=> 0
     };
     bless $self, $class;
@@ -99,7 +100,8 @@ sub prepareBatchInfo
 	    $file->{FROM_PFN} = undef;
 	    $master->addJob (
 		sub { $self->prepareBatchInfo ($master, $batch, @_) },
-		{ OUTPUT_FILE => $output, OUTPUT_VARIABLE => "FROM_PFN", FOR_FILE => $file },
+		{ OUTPUT_FILE => $output, OUTPUT_VARIABLE => "FROM_PFN",
+		  FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
 		"sh", "-c", "POOL_OUTMSG_LEVEL=100 FClistPFN"
 		. " -u '$file->{FROM_CATALOGUE}' -q \"guid='$file->{GUID}'\""
 		. " | grep '$file->{FROM_HOST}' > $output");
@@ -111,7 +113,8 @@ sub prepareBatchInfo
 	    $file->{FROM_LFN} = undef;
 	    my $job = $master->addJob (
 		sub { $self->prepareBatchInfo ($master, $batch, @_) },
-		{ OUTPUT_FILE => $output, OUTPUT_VARIABLE => "FROM_LFN", FOR_FILE => $file },
+		{ OUTPUT_FILE => $output, OUTPUT_VARIABLE => "FROM_LFN",
+		  FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
 		"sh", "-c", "POOL_OUTMSG_LEVEL=100 FClistLFN"
 		. " -u '$file->{FROM_CATALOGUE}' -q \"guid='$file->{GUID}'\""
 		. " > $output");
@@ -131,7 +134,8 @@ sub prepareBatchInfo
 	    $file->{TO_PFN} = undef;
 	    $master->addJob (
 		sub { $self->prepareBatchInfo ($master, $batch, @_) },
-		{ OUTPUT_FILE => $output, OUTPUT_VARIABLE => "TO_PFN", FOR_FILE => $file },
+		{ OUTPUT_FILE => $output, OUTPUT_VARIABLE => "TO_PFN",
+		  FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
 		"sh", "-c", "$self->{PFNSCRIPT} $pfnargs > $output");
 	}
 
@@ -202,7 +206,8 @@ sub updateCatalogue
 		    $file->{DONE_CATALOGUE} = undef;
 	            $master->addJob (
 		        sub { $self->updateCatalogue ($master, $batch, @_) },
-		        { FOR_FILE => $file, EXTRA_FILE => $tmpcat },
+		        { FOR_FILE => $file, EXTRA_FILE => $tmpcat,
+			  TIMEOUT => $self->{TIMEOUT} },
 		        "FCpublish", "-d", $file->{TO_CATALOGUE},
 			"-u", "file:$tmpcat");
 		}
@@ -213,7 +218,7 @@ sub updateCatalogue
 		$file->{DONE_CATALOGUE} = undef;
 	        $master->addJob (
 		    sub { $self->updateCatalogue ($master, $batch, @_) },
-		    { FOR_FILE => $file },
+		    { FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
 		    "FCaddReplica", "-u", $file->{TO_CATALOGUE},
 		    "-g", $file->{GUID}, "-r", $file->{TO_PFN});
 	    }

@@ -58,7 +58,8 @@ sub transferBatch
 	}
 
 	$master->addJob (sub { $self->transferBatch ($master, $batch, @_) },
-			 { FOR_FILES => [ map { $_->{FILE} } @copyjob ] },
+			 { FOR_FILES => [ map { $_->{FILE} } @copyjob ],
+			   TIMEOUT => $self->{TIMEOUT} },
 			 @{$self->{COMMAND}}, "-copyjobfile=$specfile");
     }
 

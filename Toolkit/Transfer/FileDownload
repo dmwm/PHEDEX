@@ -64,6 +64,8 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{BATCH_SIZE} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-command' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{COMMAND}}, split (/,/, shift(@ARGV))); }
+    elsif ($ARGV[0] eq '-timeout' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{TIMEOUT} = shift (@ARGV); }
     else
     { last; }
 }
@@ -82,7 +84,7 @@ if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
 	"    -node NODE-NAME -pfndest PROGRAM -wanted SIZE[kMGT]\n",
 	"    [-batch-files N-FILES-LIMIT] [-batch-size SIZE-LIMIT[kMGT]]\n",
 	"    [-command COPY-COMMAND[,ARGS]] [-jobs NUM-PARALLEL-PROCESSES]\n",
-	"    [-wait SECS-TO-WAIT]\n";
+	"    [-timeout TIMEOUT] [-wait SECS-TO-WAIT]\n";
     exit (1);
 }
 
@@ -174,6 +176,7 @@ sub startJob
     {
 	# Parent, record this child process
 	$job->{PID} = $pid;
+	$job->{STARTED} = time();
     }
     else
     {
@@ -191,17 +194,32 @@ sub checkJobs
     my ($self) = @_;
     my @pending = ();
     my @finished = ();
+    my $now = 0;
     foreach my $job (@{$self->{JOBS}})
     {
 	my $status;
-	if (! scalar @{$job->{CMD}}) {
+	if (! scalar @{$job->{CMD}})
+	{
 	    # Delayed action callback, no job associated with this one
 	    push (@finished, $job);
-	} elsif ($job->{PID} > 0 && ($status = waitpid ($job->{PID}, WNOHANG)) > 0) {
+	}
+	elsif ($job->{PID} > 0
+	       && $job->{TIMEOUT}
+	       && ($now - $job->{STARTED}) > $job->{TIMEOUT})
+	{
+	    # Command has taken too long to execute.  Nuke it.  First time
+	    # around use SIGINT.  Next time around use SIGKILL.
+	    kill ($job->{PID}, $job->{FORCE_TERMINATE} ||= 1);
+	    $job->{FORCE_TERMINATE} = 9;
+	}
+	elsif ($job->{PID} > 0 && ($status = waitpid ($job->{PID}, WNOHANG)) > 0)
+	{
 	    # Command finished executing, save exit code and mark finished
 	    $job->{STATUS} = $? / 256;
 	    push (@finished, $job);
-	} else {
+	}
+	else
+	{
 	    # Still pending
 	    push(@pending, $job);
 	}
