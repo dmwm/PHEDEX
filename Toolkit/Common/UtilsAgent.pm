@@ -1,4 +1,4 @@
-package UtilsAgent; use strict; use warnings; use base 'Exporter';
+package UtilsAgent; use strict; use warnings; use base 'UtilsJobManager';
 use POSIX;
 use DBI;
 use File::Path;
@@ -11,6 +11,7 @@ sub new
 {
     my $proto = shift;
     my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
     my %args = (@_);
     my $me = $0; $me =~ s|.*/||;
     die "$me: fatal error: no drop box directory given\n" if ! $args{DROPDIR};
@@ -23,7 +24,7 @@ sub new
 	}
     }
 
-    my $self = {
+    my %vals = (
 	ME => $me,
 	DROPDIR => $args{DROPDIR},
 	NEXTDIR => $args{NEXTDIR},
@@ -38,7 +39,8 @@ sub new
 	STARTTIME => [],
 	NWORKERS => $args{NWORKERS} || 0,
 	WORKERS => undef
-    };
+    );
+    while (my ($k, $v) = each %vals) { $self->{$k} = $v }
     bless $self, $class;
 
     if (-f $self->{STOPFLAG}) {
