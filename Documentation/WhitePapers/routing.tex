@@ -1,7 +1,7 @@
 \documentclass{cmspaper}
 \def\RCS$#1: #2 ${\expandafter\def\csname RCS#1\endcsname{#2}}
-\RCS$Revision: 1.3 $
-\RCS$Date: 2004/05/27 13:14:55 $
+\RCS$Revision: 1.4 $
+\RCS$Date: 2004/06/17 12:38:42 $
 
 \begin{document}
 \begin{titlepage}
@@ -15,11 +15,7 @@
   \end{Authlist}
 
   \begin{abstract}
-    This white paper describes the components and algorithms used by
-    the system we use to route files to their destinations.  The main
-    algorith is the Routing Internet Protocol (RFC 2453) adapted for
-    our purposes.  This documented is intended to evolve as we extend
-    the implementation to handle more complex user requirements.
+This white paper describes the components and algorithms used by the system we use to route files to their destinations.  Our algorithm of choiceis the Routing Internet Protocol (RFC 2453) adapted for our purposes.  This document is intended to evolve as we extend the implementation to handle more complex user requirements.
   \end{abstract} 
 
   \note{DRAFT version}
@@ -31,23 +27,19 @@
 
 [FIXME: Describe the objectives and what we are doing.]
 
+\subsection{Global database tables}
+
 \section{Forming the network: registration and simple routing}
+[FIXME: this more appropriate for overrview]
+This algorithm is an implementation of the Routing Internet Protocol (RFC2453), one of the simplest (and most widely used) distance vector based internet routing protocols. Our algorithm has certain modifications- principally we have chosen not to have nodes communicate with each other to determine current route information- instead, updates are made asynchronously in a central database.
 
-This algorithm is an implementation of the Routing Internet Protocol
-(RFC2453), one of the simplest (and most widely used) distance vector
-based internet routing protocols. Our algorithm has certain
-modifications---principally we have chosen not to have nodes
-communicate with each other to determine current route
-information---instead, updates are made asynchronously in a central
-database.
+The RIP describes a mechanism by which distributed routers can maintain a local table of routes to all other destinations in the system. Local routing tables are updated by passing messages between neighbouring routers.
 
-For this version we should keep state information in the TMDB.
-Instead of having distributed routing tables- with info for node a, b,
-etc---we can have a global table that is partitioned on a field
-indicating which node the information in a given row is for. We can
-form a global routing table in the TMDB, with the fields [from : to :
-gateway : hops : timestamp].
+In our system there are no distributed routing tables: instead there is a single global routing table. Distributed routing tables are effectively modelled in the central routing table, however, as each route stored is associated with the source node (the global table is effectively partitioned on the source node into separate "local" routing tables).
 
+Population and maintenance of these "local" routing tables is undertaken by a routing agent present at each node.
+
+\section{Deployment of nodes}
 At deployment, initial entries must be made in the table to register
 nodes with each other---e.g. if A and B are deployed then the entries
 
@@ -60,45 +52,57 @@ B	& A	& A	& 1	& t0
 
 must be made.
 
-From then on each agent manager periodically goes through a two or
-three step series of interactions with the global routing table: all
-agent managers should go through re-registration, and propagation of
-information in order to build the routing table.  If failover is
-required, then agent managers need to go through an expiry phase.
+\subsection{Building the routing table: registration and route sharing}
+At any given node the routing agent periodically executes a variation of the RIP algorithm. There are subtle differences between our algorithm and RIP: at some stages, where RIP routers actively send their neighbours their routing information, our nodes query their neighbours "local" routing tables for routing information.
 
-Re-registration is necessary as the nodes are not dynamically querying
-each other.  The process of re-registration and propagation can be
-incorporated into the same step, using the following algorithm
+In both algorithms disappearing routes are handled by timing out direct (or node to neighbour) routes that are not refreshed within a certain time limit. The distance metric- hops- associated with routes that time out are set to some number larger than the expected maximum number of hops in the network.
 
-\begin{verbatim}
-# determine who registered with me
-@neighbours
-  = (select gateway from t_routing where from = `me' and to = `gateway');
+The algorithm proceeds as follows. As with original RIP routers, our nodes "send" contact their neighbours to let them know they are still available- to avoid getting timed out. Our nodes do this by updating their single-hop entry in their neighbours tables. If the current time is $time, then a node named A would refresh its links with neighbours using
 
-foreach $neighbour (@neighbours)
-  # refresh our acquaintance with them
-  update t_routing
-    set timestamp = currenttime
-    where from = `neighbour'
-      and to = `me'
-      and gateway = `me';
+{\small\begin{verbatim}
+update t_Routing
+  set timestamp = $time
+  where to_node = 'A'
+    and gateway = 'A';
+\end{verbatim}}
 
-  # get routes in $routes{TO} = HOPS hash.
-  foreach ($to, $hops) (select to, hops from t_routing where from = `neighbour')
-     $routes{$to} = min ($hops, $routes{$to})
+RIP and our algorithm then have a phase in which routing information is shared between neighbours. RIP routers do this by sending their routing table to their neighbours. Our routing agents do this by querying their neighbours routing tables for information
 
-  # compare each route with my info and update
-  foreach $destination (keys %routes)
-    hops = routes{$destination} + 1;
-    if (destination in @destinations)
-      update t_routing
-        set hops = $hops, timestamp = currenttime
-	where from = `me'
-	  and gateway = `neighbour'
-	  and to = `destination';
-    else
-      insert into t_routing `all new values'
-\end{verbatim}
+{\small\begin{verbatim}
+select from_node,to_node,timestamp,hops+1 from t_Routing
+  where from_node in 
+    (select from_node from t_Routing where to_node = 'A' and gateway = 'A')
+    and not to_node = 'A'
+  minus
+  select gateway,to_node,timestamp,hops from t_Routing
+  where from_node = 'A';
+\end{verbatim}}
+
+Certain provisos are implemented to speed the propagation of information- especially about timed-out routes- through the network. In principle, if a node A determines that a route to node C from a neighbouring node B comes directly back through A then it can do one of two things. It can ignore the route (termed "split horizon")- safe, as there is clearly a more direct route from A to C that A will know about. Alternatively it can retain the route but set the number of hops effectively to infinity (termed "split horizon with poisoned reverse").
+
+Our algorithm implements split horizon with poisoned reverse, as is recommended in the router requirements RFC. It is applied to the new routes as they are returned from the SQL above.
+
+Both RIP and our algorithm then compare the new routes they have found with their existing routes, and build a new routing table by merging the two.
+
+To establish the node's existing routes- for node A
+
+{\small\begin{verbatim}
+  select gateway,to_node,timestamp,hops from t_Routing
+    where from_node = 'A';
+\end{verbatim}}
+
+The new routes are then compared with existing routes. If for a given new route the gateway and destination match, the new number of hops is taken to be accurate whether it is higher or lower than the existing hops estimate.
+
+If for a gven new route the gateway and destination do not match, then the route with the smallest number of hops is chosen for entry into the table.
+
+After routes are minimised and merged with the remaining new routes, our algorithm clears the node's "local" table
+
+{\small\begin{verbatim}
+  delete from t_Routing
+    where from_node = 'A';
+\end{verbatim}}
+
+and then rebuilds the local routing table from the merged table by inserting each entry with the current time as the timestamp.
 
 If failover is not required, then the routing algorithm stops here.
 However, if failover is required, then the algorithm needs to be
@@ -106,6 +110,7 @@ modified to handle nodes that disappear.  Disappearing nodes can be
 handled by effectively setting the number of hops to that node to
 infinity during an expiry phase.
 
+\subsection{Maintaining the routing table: failover}
 During this phase the agent manager examines links with each of its
 neighbours (e.g. links in it's own from-partition of the table for
 which to == gateway) in the routing table.  If an entry has not been
@@ -119,15 +124,5 @@ throughout the table as nodes ``ask'' their neighbours (or examine
 their from-partitions) for their current estimate of hops for each
 route.  When the node comes back up and re-registers, it will
 automatically set the number of hops to 1.
-
-[The algorithm could be trivially extended to include some measure of
-dynamic network performance by entering ping round trip times instead
-of hops into the routing table (note tho' that ping might not be
-entirely suitable---pinging a tape stage disk server doesn't
-necessarily give you an idea of fileserving performance...) Other
-metrics such as the rate of the Mona Lisa file transfer rate metric
-could also be used.]
-
-
 
 \end{document}
