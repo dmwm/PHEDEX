@@ -18,54 +18,59 @@ sub new
 sub transferBatch
 {
     my ($self, $master, $batch, $job) = @_;
-    my $pending = 0;
-    my @copyjob = ();
-    my $batchid = undef;
-    foreach my $file (@$batch)
+    if ($job && $job->{FOR_FILES})
     {
-	if ($job && grep ($_ eq $file, @{$job->{FOR_FILES}}))
+	unlink ($job->{TEMPFILE});
+
+	# Reap finished jobs
+	foreach my $file (@{$job->{FOR_FILES}})
 	{
-	     $file->{DONE_TRANSFER} = 1;
-	     $file->{FAILURE} = "exit code $job->{STATUS} from @{$job->{CMD}}"
-	         if $job->{STATUS};
+	    $file->{DONE_TRANSFER} = 1;
+	    $file->{TRANSFER_STATUS}{STATUS} = $job->{STATUS};
+	    $file->{TRANSFER_STATUS}{REPORT}
+	        = "exit code $job->{STATUS} from @{$job->{CMD}}";
 	}
+    }
+    else
+    {
+	# First time around initiate transfers all files.
+	my @copyjob = ();
+        foreach my $file (@$batch)
+        {
+	    do { $file->{DONE_TRANSFER} = 1; next } if $file->{FAILURE};
 
-	next if $file->{FAILURE};
-
-	if (! exists $file->{DONE_TRANSFER})
-	{
-	     # Put this file into a transfer batch
-	     my $from_pfn = $file->{FROM_PFN}; $from_pfn =~ s/^[a-z]+:/srm:/;
-	     $from_pfn =~ s|srm://castorgrid.cern.ch|srm://www.cern.ch:80|; # FIXME: FNAL?
-	     my $to_pfn = $file->{TO_PFN}; $to_pfn =~ s/^[a-z]+:/srm:/;
-	     push (@copyjob, { FILE => $file, FROM => $from_pfn, TO => $to_pfn });
-	     $file->{DONE_TRANSFER} = undef;
-	     $batchid = $file->{BATCHID};
+	    # Put this file into a transfer batch
+	    my $from_pfn = $file->{FROM_PFN}; $from_pfn =~ s/^[a-z]+:/srm:/;
+	    $from_pfn =~ s|srm://castorgrid.cern.ch|srm://www.cern.ch:80|; # FIXME: FNAL?
+	    my $to_pfn = $file->{TO_PFN}; $to_pfn =~ s/^[a-z]+:/srm:/;
+	    push (@copyjob, { FILE => $file, FROM => $from_pfn, TO => $to_pfn });
         }
 
-	$pending++ if ! $file->{DONE_TRANSFER};
-    }
-
-    # Initiate the copy job
-    if (scalar @copyjob)
-    {
-	my $specfile = "$master->{DROPDIR}/copyjob.$batchid";
-	if (! &output ($specfile, join ("", map { "$_->{FROM} $_->{TO}\n" } @copyjob)))
-	{
-	    # Report and ignore the error, and come back another time.
-	    &alert ("failed to create copyjob for batch $batchid");
-	    $master->addJob (sub { $self->transferBatch ($master, $batch) });
-	    map { delete $_->{DONE_TRANSFER} } @$batch;
+	# Initiate transfer
+        if (scalar @copyjob)
+        {
+	    my $batchid = $copyjob[0]{FILE}{BATCHID};
+	    my $specfile = "$master->{DROPDIR}/copyjob.$batchid";
+	    if (! &output ($specfile, join ("", map { "$_->{FROM} $_->{TO}\n" } @copyjob)))
+	    {
+	        &alert ("failed to create copyjob for batch $batchid");
+	        $master->addJob (sub { $self->transferBatch ($master, $batch) },
+		    {}, "sleep", "5");
+	    }
+	    else
+	    {
+	        $master->addJob (
+		    sub { $self->transferBatch ($master, $batch, @_) },
+		    { FOR_FILES => [ map { $_->{FILE} } @copyjob ],
+		      TIMEOUT => $self->{TIMEOUT}, TEMPFILE => $specfile },
+		    @{$self->{COMMAND}}, "-copyjobfile=$specfile");
+	    }
 	}
-
-	$master->addJob (sub { $self->transferBatch ($master, $batch, @_) },
-			 { FOR_FILES => [ map { $_->{FILE} } @copyjob ],
-			   TIMEOUT => $self->{TIMEOUT} },
-			 @{$self->{COMMAND}}, "-copyjobfile=$specfile");
     }
 
     # Move to next stage if all is done.
-    $self->updateCatalogue ($master, $batch) if ! $pending;
+    $self->validateBatch ($master, $batch)
+        if ! grep (! $_->{DONE_TRANSFER}, @$batch);
 }
 
 1;

@@ -11,8 +11,7 @@ sub new
 
     # Ensure batch transfers are supported by globus-url-copy if requested.
     # Assume any 3.x or newer version does.
-    if ($args{BATCH_FILES}
-	&& $args{BATCH_FILES} > 1)
+    if ($args{BATCH_FILES} && $args{BATCH_FILES} > 1)
     {
 	if (! open (GUC, "globus-url-copy -version 2>&1 |")
 	    || grep (/^globus-url-copy:\s*(\d+)(\.\d*)*\s*$/ && $1 < 3, <GUC>))
@@ -34,59 +33,62 @@ sub new
 sub transferBatch
 {
     my ($self, $master, $batch, $job) = @_;
-    my $pending = 0;
-    my %groups = ();
-    foreach my $file (@$batch)
+    if ($job)
     {
-	if ($job && grep ($_ eq $file, @{$job->{FOR_FILES}}))
+	# Reap finished jobs
+	foreach my $file (@{$job->{FOR_FILES}})
 	{
-	     $file->{DONE_TRANSFER} = 1;
-	     $file->{FAILURE} = "exit code $job->{STATUS} from @{$job->{CMD}}"
-	         if $job->{STATUS};
+	    $file->{DONE_TRANSFER} = 1;
+	    $file->{TRANSFER_STATUS}{STATUS} = $job->{STATUS};
+	    $file->{TRANSFER_STATUS}{REPORT}
+	        = "exit code $job->{STATUS} from @{$job->{CMD}}";
 	}
+    }
+    else
+    {
+	# First time around initiate transfers all files.
+        my %groups = ();
+        foreach my $file (@$batch)
+        {
+	    do { $file->{DONE_TRANSFER} = 1; next } if $file->{FAILURE};
 
-	next if $file->{FAILURE};
+	    # FIXME: globus-url-copy 3.x support copyjob files like SRM.
 
-	if (! exists $file->{DONE_TRANSFER})
-	{
-	     $file->{DONE_TRANSFER} = undef;
+	    # Put this file into a transfer group.  If the files have the
+	    # same file name component at the source and destination, we
+	    # can group several transfers together by destination dir.
+	    # Otherwise we have to make individual transfers.
+	    my ($from_pfn, $to_pfn) = ($file->{FROM_PFN}, $file->{TO_PFN});
+	    $from_pfn =~ s/^[a-z]+:/gsiftp:/; $to_pfn =~ s/^[a-z]+:/gsiftp:/;
+	    my ($from_dir, $from_file) = ($from_pfn =~ m|(.*)/([^/]+)$|);
+	    my ($to_dir, $to_file) = ($to_pfn =~ m|(.*)/([^/]+)$|);
 
-	     # Put this file into a transfer group.  If the files have the
-	     # same file name component at the source and destination, we
-	     # can group several transfers together by destination dir.
-	     # Otherwise we have to make individual transfers.
-	     my $from_pfn = $file->{FROM_PFN};
-	     my $to_pfn = $file->{TO_PFN};
-	     $from_pfn =~ s/^[a-z]+:/gsiftp:/; $to_pfn =~ s/^[a-z]+:/gsiftp:/;
-	     my ($from_dir, $from_file) = ($from_pfn =~ m|(.*)/([^/]+)$|);
-	     my ($to_dir, $to_file) = ($to_pfn =~ m|(.*)/([^/]+)$|);
-
-	     # If destination LFNs are equal and we attempt batch transfers,
-	     # try to create optimal transfer groups.  Otherwise don't bother;
-	     # if batch transfers are off, underlying globus-url-copy might
-	     # not even support directories as destinations.
-	     if ($from_file eq $to_file && $self->{BATCH_FILES} > 1) {
-		 push (@{$groups{$to_dir}}, { FILE => $file, PATH => $from_pfn });
-	     } else {
-		 push (@{$groups{$to_pfn}}, { FILE => $file, PATH => $from_pfn });
-	     }
+	    # If destination LFNs are equal and we attempt batch transfers,
+	    # try to create optimal transfer groups.  Otherwise don't bother;
+	    # if batch transfers are off, underlying globus-url-copy might
+	    # not even support directories as destinations.
+	    if ($from_file eq $to_file && $self->{BATCH_FILES} > 1) {
+		push (@{$groups{$to_dir}}, { FILE => $file, PATH => $from_pfn });
+	    } else {
+		push (@{$groups{$to_pfn}}, { FILE => $file, PATH => $from_pfn });
+	    }
         }
 
-	$pending++ if ! $file->{DONE_TRANSFER};
-    }
-
-    # Start transfer groups.
-    foreach my $dest (keys %groups)
-    {
-	my @files = @{$groups{$dest}};
-	$master->addJob (sub { $self->transferBatch ($master, $batch, @_) },
-	                 { FOR_FILES => [ map { $_->{FILE} } @files ],
-			   TIMEOUT => $self->{TIMEOUT} },
-	                 @{$self->{COMMAND}}, (map { $_->{PATH} } @files), $dest);
+        # Now start transfer groups.
+        foreach my $dest (keys %groups)
+        {
+	    my @files = @{$groups{$dest}};
+	    $master->addJob (
+		sub { $self->transferBatch ($master, $batch, @_) },
+	        { FOR_FILES => [ map { $_->{FILE} } @files ],
+		  TIMEOUT => $self->{TIMEOUT} },
+	        @{$self->{COMMAND}}, (map { $_->{PATH} } @files), $dest);
+        }
     }
 
     # Move to next stage if all is done.
-    $self->updateCatalogue ($master, $batch) if ! $pending;
+    $self->validateBatch ($master, $batch)
+        if ! grep (! $_->{DONE_TRANSFER}, @$batch);
 }
 
 1;

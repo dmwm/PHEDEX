@@ -11,6 +11,8 @@ sub new
     my $self = {
 	BATCH_FILES	=> $args{BATCH_FILES} || 1,
 	BATCH_SIZE	=> $args{BATCH_SIZE} || undef,
+	DELETE_COMMAND	=> $args{DELETE_COMMAND} || undef,
+	VALIDATE_COMMAND=> $args{VALIDATE_COMMAND} || undef,
 	PFNSCRIPT	=> $args{PFNSCRIPT},
 	TIMEOUT		=> $args{TIMEOUT},
 	BATCHID		=> 0
@@ -33,12 +35,12 @@ sub consumeFiles
 	@files = $master->nextFiles($dbh, $self->{BATCH_FILES}) if ! @files;
 	last if ! @files;
 
-	my $transfer = $master->startFileTransfer ($dbh, shift (@files));
-	last if ! $transfer;
+	my $file = $master->startFileTransfer ($dbh, shift (@files));
+	last if ! $file;
 
-	$size += $transfer->{FILESIZE};
-	$transfer->{BATCHID} = $self->{BATCHID};
-	push(@$batch, $transfer);
+	$size += $file ->{FILESIZE};
+	$file->{BATCHID} = $self->{BATCHID};
+	push(@$batch, $file);
     }
     
     if (@$batch)
@@ -47,7 +49,7 @@ sub consumeFiles
 	$self->{BATCHID}++;
 
         # Start moving this batch if it's not empty
-        $self->prepareBatchInfo ($master, $batch);
+        $self->getSourcePaths ($master, $batch);
 
 	return 1;
     }
@@ -57,100 +59,159 @@ sub consumeFiles
     }
 }
 
-# Keep getting source PFNs for the source files until we've got one
-# for every file in the batch.  Split into jobs per guid, respecting
-# the number of workers limit.  Once we get all the PFNs, get LFNs.
-# Then get destination PFNs.
-sub prepareBatchInfo
+# Get source PFNs and LFNs for all files.
+sub getSourcePaths
 {
     my ($self, $master, $batch, $job) = @_;
-    my $pending = 0;
-    foreach my $file (@$batch)
+    if ($job)
     {
-	# Reap finished jobs
-	if ($job && $job->{FOR_FILE} == $file)
-        {
-	    my $output = &input ($job->{OUTPUT_FILE});
-	    unlink ($job->{OUTPUT_FILE});
-	    chomp ($output) if defined $output;
+	# Reap finished jobs.
+	my $file = $job->{FOR_FILE};
+	my $var = $job->{OUTPUT_VARIABLE};
+	my $output = &input ($job->{OUTPUT_FILE});
+	unlink ($job->{OUTPUT_FILE});
+	chomp ($output) if defined $output;
 
-	    if ($job->{STATUS})
-	    {
-	        # Command failed, record failure
-	        $file->{FAILURE} = "exit code $job->{STATUS} from @{$job->{CMD}}";
-	    }
-	    elsif (! defined $output || $output eq '')
-	    {
-		# Command succeded but didn't produce any output
-		$file->{FAILURE} = "no output from @{$job->{CMD}}";
-	    }
-	    else
-	    {
-		# Success, collect output file and record it into the $file
-		$file->{$job->{OUTPUT_VARIABLE}} = $output;
-	    }
-	}
-
-	# Stop processing this file if we have failures.
-	next if $file->{FAILURE};
-
-	# Create new jobs for remaining tasks.
-	if (! exists $file->{FROM_PFN})
+	$file->{"DONE_$var"} = 1;
+	if ($job->{STATUS})
 	{
-	    my $output = "$master->{DROPDIR}/$file->{GUID}.frompfn";
-	    $file->{FROM_PFN} = undef;
+	    # Command failed, record failure
+	    $file->{FAILURE} = "exit code $job->{STATUS} from @{$job->{CMD}}";
+	}
+	elsif (! defined $output || $output eq '')
+	{
+	    # Command succeded but didn't produce any output
+	    $file->{FAILURE} = "no output from @{$job->{CMD}}";
+	}
+	else
+	{
+	    # Success, collect output file and record it into the $file
+	    $file->{$var} = $output;
+	}
+    }
+    else
+    {
+	# First time around, start jobs
+	foreach my $file (@$batch)
+	{
+	    do { $file->{DONE_FROM_PFN} = $file->{DONE_FROM_LFN} = 1; next }
+	        if $file->{FAILURE};
+
+	    my $pfnoutput = "$master->{DROPDIR}/$file->{GUID}.frompfn";
 	    $master->addJob (
-		sub { $self->prepareBatchInfo ($master, $batch, @_) },
-		{ OUTPUT_FILE => $output, OUTPUT_VARIABLE => "FROM_PFN",
+		sub { $self->getSourcePaths ($master, $batch, @_) },
+		{ OUTPUT_FILE => $pfnoutput, OUTPUT_VARIABLE => "FROM_PFN",
 		  FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
 		"sh", "-c", "POOL_OUTMSG_LEVEL=100 FClistPFN"
 		. " -u '$file->{FROM_CATALOGUE}' -q \"guid='$file->{GUID}'\""
-		. " | grep '$file->{FROM_HOST}' > $output");
-	}
+		. " | grep '$file->{FROM_HOST}' > $pfnoutput");
 
-	if (! exists $file->{FROM_LFN})
-	{
-	    my $output = "$master->{DROPDIR}/$file->{GUID}.fromlfn";
-	    $file->{FROM_LFN} = undef;
-	    my $job = $master->addJob (
-		sub { $self->prepareBatchInfo ($master, $batch, @_) },
-		{ OUTPUT_FILE => $output, OUTPUT_VARIABLE => "FROM_LFN",
+	    my $lfnoutput = "$master->{DROPDIR}/$file->{GUID}.fromlfn";
+	    $master->addJob (
+		sub { $self->getSourcePaths ($master, $batch, @_) },
+		{ OUTPUT_FILE => $lfnoutput, OUTPUT_VARIABLE => "FROM_LFN",
 		  FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
 		"sh", "-c", "POOL_OUTMSG_LEVEL=100 FClistLFN"
 		. " -u '$file->{FROM_CATALOGUE}' -q \"guid='$file->{GUID}'\""
-		. " > $output");
+		. " > $lfnoutput");
     	}
+    }
 
-	if (! exists $file->{TO_PFN}
-	    && $file->{FROM_PFN}
-	    && $file->{FROM_LFN})
+    # Move to next stage when we have nothing more to do.
+    $self->getDestinationPaths ($master, $batch)
+        if ! grep (! $_->{DONE_FROM_PFN} || ! $_->{DONE_FROM_LFN}, @$batch);
+}
+
+# Get destination PFNs for all files.
+sub getDestinationPaths
+{
+    my ($self, $master, $batch, $job) = @_;
+    if ($job)
+    {
+	# Reap finished jobs.
+	my $file = $job->{FOR_FILE};
+	my $var = $job->{OUTPUT_VARIABLE};
+	my $output = &input ($job->{OUTPUT_FILE});
+	unlink ($job->{OUTPUT_FILE});
+	chomp ($output) if defined $output;
+
+	$file->{"DONE_$var"} = 1;
+	if ($job->{STATUS})
 	{
-	    my $pfnargs = join(" ",
-		    	       "guid='$file->{GUID}'",
-			       "pfn='$file->{FROM_PFN}'",
-		    	       "lfn='$file->{FROM_LFN}'",
-			       map { "'$_=@{[$file->{ATTRS}{$_} || '']}'" }
-			       sort keys %{$file->{ATTRS}});
+	    # Command failed, record failure
+	    $file->{FAILURE} = "exit code $job->{STATUS} from @{$job->{CMD}}";
+	}
+	elsif (! defined $output || $output eq '')
+	{
+	    # Command succeded but didn't produce any output
+	    $file->{FAILURE} = "no output from @{$job->{CMD}}";
+	}
+	else
+	{
+	    # Success, collect output file and record it into the $file
+	    $file->{$var} = $output;
+	}
+    }
+    else
+    {
+	# First time around, start jobs for all files
+	foreach my $file (@$batch)
+	{
+	    do { $file->{DONE_TO_LFN} = 1; next } if $file->{FAILURE};
+
 	    my $output = "$master->{DROPDIR}/$file->{GUID}.topfn";
-	    $file->{TO_PFN} = undef;
+	    my $args = join(" ",
+		    	    "guid='$file->{GUID}'",
+			    "pfn='$file->{FROM_PFN}'",
+		    	    "lfn='$file->{FROM_LFN}'",
+			    map { "'$_=@{[$file->{ATTRS}{$_} || '']}'" }
+			    sort keys %{$file->{ATTRS}});
 	    $master->addJob (
-		sub { $self->prepareBatchInfo ($master, $batch, @_) },
+		sub { $self->getDestinationPaths ($master, $batch, @_) },
 		{ OUTPUT_FILE => $output, OUTPUT_VARIABLE => "TO_PFN",
 		  FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
-		"sh", "-c", "$self->{PFNSCRIPT} $pfnargs > $output");
+		"sh", "-c", "$self->{PFNSCRIPT} $args > $output");
 	}
+    }
 
-	$pending++ if (! $file->{FROM_LFN} || ! $file->{FROM_PFN} || ! $file->{TO_PFN});
+    # Move to next stage when we've done everything for each file.
+    $self->preClean ($master, $batch)
+        if ! grep (! $_->{DONE_TO_PFN}, @$batch);
+}
+
+# Remove destination PFNs before transferring.  Many transfer tools
+# refuse to a transfer a file over an existing one, so we do force
+# remove of the destination if the user gave a delete command.
+sub preClean
+{
+    my ($self, $master, $batch, $job) = @_;
+    if ($job)
+    {
+	# Reap finished jobs.  We don't care about success here.
+	$job->{FOR_FILE}{DONE_PRE_CLEAN} = 1;
+    }
+    else
+    {
+	# First time around, start deletion commands for all files,
+	# but only if we have a deletion command in the first place.
+	foreach my $file (@$batch)
+	{
+	    do { $file->{DONE_PRE_CLEAN} = 1; next }
+	        if $file->{FAILURE} || ! $self->{DELETE_COMMAND};
+
+	    $master->addJob (
+		sub { $self->preClean ($master, $batch, @_) },
+		{ FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
+		@{$self->{DELETE_COMMAND}}, "pre", $file->{TO_PFN});
+	}
     }
 
     # Move to next stage when we've done everything
-    $self->transferBatch ($master, $batch) if ! $pending;
+    $self->transferBatch ($master, $batch)
+        if ! grep (! $_->{DONE_PRE_CLEAN}, @$batch);
 }
 
-# Transfer batch of files.  Implementation defined.  For SRM, create
-# a "copyjob" file with the mappings, for globus-url-copy create as
-# many batches as we can (depends on source/dest directories and
-# whether source/destination file name parts match!).
+# Transfer batch of files.  Implementation defined, default fails.
 sub transferBatch
 {
     my ($self, $master, $batch) = @_;
@@ -161,33 +222,81 @@ sub transferBatch
     }
 
     # Move to next stage
-    $self->updateCatalogue ($master, $batch);
+    $self->validateBatch ($master, $batch);
 }
 
-# Update catalogue for each transferred file.  If this fails, mark the
-# file (not the entire batch!) transfer failed.
+# After transferring a batch, check which files were successfully
+# transferred.  For batch transfers, the transfer command may fail
+# but yet successfully copy some files.  On the other hand, some
+# tools are actually broken enough to corrupt the file in transfer.
+# Defer to an external tool to determine which files ought to be
+# accepted.
+sub validateBatch
+{
+    my ($self, $master, $batch, $job) = @_;
+    if ($job)
+    {
+	my $file = $job->{FOR_FILE};
+	$file->{DONE_VALIDATE} = 1;
+	if ($job->{STATUS})
+	{
+	    $file->{FAILURE} =
+	        "file failed validation: $job->{STATUS}"
+	        . " (transfer "
+		. ($file->{TRANSFER_STATUS}{STATUS}
+		   ? "failed with $file->{TRANSFER_STATUS}{REPORT}"
+		   : "was successful")
+	        . ")";
+	}
+    }
+    else
+    {
+	# First time around start validation command for all files,
+	# but only if validation was requested.
+	foreach my $file (@$batch)
+	{
+	    do { $file->{DONE_VALIDATE} = 1; next }
+	        if $file->{FAILURE} || ! $file->{VALIDATE_COMMAND};
+	
+	    $master->addJob (
+		sub { $self->validateBatch ($master, $batch, @_) },
+		{ FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
+		@{$self->{VALIDATE_COMMAND}},
+		$file->{TRANSFER_STATUS}{STATUS}, $file->{TO_PFN},
+		$file->{FILESIZE}, $file->{CHECKSUM});
+	}
+    }
+
+    $self->updateCatalogue ($master, $batch)
+        if ! grep (! $_->{DONE_VALIDATE}, @$batch);
+
+}
+
+# Update catalogue for successfully transferred files.
 sub updateCatalogue
 {
     my ($self, $master, $batch, $job) = @_;
-    my $pending = 0;
-    my $reinvoke = 0;
-    foreach my $file (@$batch)
+
+    if ($job && $job->{FOR_FILE})
     {
 	# Reap finished jobs
-	if ($job && $job->{FOR_FILE} == $file)
-        {
-	    $file->{DONE_CATALOGUE} = 1;
-	    unlink ($job->{EXTRA_FILE}) if $job->{EXTRA_FILE};
-	    $file->{FAILURE} = "exit code $job->{STATUS} from @{$job->{CMD}}"
-	        if $job->{STATUS};
-	}
-
-	# Skip the rest if this file has already failed
-	next if $file->{FAILURE};
-
-	# Create new jobs if we need to.
-	if (! exists $file->{DONE_CATALOGUE})
+	my $file = $job->{FOR_FILE};
+	$file->{DONE_CATALOGUE} = 1;
+	unlink ($job->{EXTRA_FILE}) if $job->{EXTRA_FILE};
+	$file->{FAILURE} = "exit code $job->{STATUS} from @{$job->{CMD}}"
+	    if $job->{STATUS};
+    }
+    else
+    {
+	# First time around register into catalogue all successfully
+	# transferred files.  However we may invoke ourselves several
+	# times if we fail to generate temporary files, so protect
+	# against handling each file more than once.
+	foreach my $file (@$batch)
 	{
+	    do { $file->{DONE_CATALOGUE} = 1; next } if $file->{FAILURE};
+	    next if exists $file->{DONE_CATALOGUE};
+
 	    if ($file->{FROM_CATALOGUE} ne $file->{TO_CATALOGUE})
 	    {
 		my $tmpcat = "$master->{DROPDIR}/$file->{GUID}.xml";
@@ -195,23 +304,18 @@ sub updateCatalogue
 						  PFNS => [ $file->{TO_PFN} ],
 						  LFNS => [ $file->{FROM_LFN} ],
 						  META => $file->{ATTRS} });
-		if (! &output ($tmpcat, $xmlfrag))
-		{
-		    # Failed to write, come back later
-		    &alert ("failed to generate $tmpcat");
-		    $reinvoke = 1;
-		}
-		else
-		{
-		    # Schedule full catalogue copy
-		    $file->{DONE_CATALOGUE} = undef;
-	            $master->addJob (
-		        sub { $self->updateCatalogue ($master, $batch, @_) },
-		        { FOR_FILE => $file, EXTRA_FILE => $tmpcat,
-			  TIMEOUT => $self->{TIMEOUT} },
-		        "FCpublish", "-d", $file->{TO_CATALOGUE},
-			"-u", "file:$tmpcat");
-		}
+
+		do { &alert ("failed to generate $tmpcat"); next }
+		    if ! &output ($tmpcat, $xmlfrag);
+
+		# Schedule catalogue copy
+		$file->{DONE_CATALOGUE} = undef;
+	        $master->addJob (
+		    sub { $self->updateCatalogue ($master, $batch, @_) },
+		    { FOR_FILE => $file, EXTRA_FILE => $tmpcat,
+		      TIMEOUT => $self->{TIMEOUT} },
+		    "FCpublish", "-d", $file->{TO_CATALOGUE},
+		    "-u", "file:$tmpcat");
 	    }
 	    else
 	    {
@@ -224,26 +328,50 @@ sub updateCatalogue
 		    "-g", $file->{GUID}, "-r", $file->{TO_PFN});
 	    }
 	}
-
-
-	# Mark pending only if there is pending catalogue update
-	# so we know whether we need to reinvoke ourselves after
-	# a temporary file output failure.
-	$pending++ if (exists $file->{DONE_CATALOGUE} && ! $file->{DONE_CATALOGUE});
     }
 
-    if ($reinvoke && ! $pending)
+    # If all is done, move to next stage.  Otherwise, if there are no
+    # more programs being executed, we failed to create some temporary
+    # files and need to invoke ourselves again a bit later.
+    if (scalar (grep ($_->{DONE_CATALOGUE}, @$batch)) == scalar @$batch)
     {
-	# If we failed something and want to come back, do so.  This
-	# is however required only if we are not going to come back
-	# here for other reasons (= there are no pending calls).
-        $master->addJob (sub { $self->updateCatalogue ($master, $batch) });
+	$self->postClean ($master, $batch);
     }
-    elsif (! $pending)
+    elsif (! grep (exists $_->{DONE_CATALOGUE} && ! $_->{DONE_CATALOGUE}, @$batch))
     {
-        # If we've finished working on this batch, tell master so.
-        $master->completeTransferBatch ($batch);
+	$master->addJob (sub { $self->updateCatalogue ($master, $batch) },
+	    {}, "sleep", "5");
     }
+}
+
+# Remove destination PFNs after failed transfers.
+sub postClean
+{
+    my ($self, $master, $batch, $job) = @_;
+    if ($job)
+    {
+	# Reap finished jobs.  We don't care about success here.
+	$job->{FOR_FILE}{DONE_POST_CLEAN} = 1;
+    }
+    else
+    {
+	# Start deletion commands for failed files, but only if we
+	# have a deletion command in the first place.
+	foreach my $file (@$batch)
+	{
+	    do { $file->{DONE_POST_CLEAN} = 1; next }
+	        if ! $file->{FAILURE} || ! $self->{DELETE_COMMAND};
+
+	    $master->addJob (
+		sub { $self->postClean ($master, $batch, @_) },
+		{ FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
+		@{$self->{DELETE_COMMAND}}, "post", $file->{TO_PFN});
+	}
+    }
+
+    # Move to next stage when we've done everything
+    $master->completeTransferBatch ($batch)
+        if ! grep (! $_->{DONE_POST_CLEAN}, @$batch);
 }
 
 1;
