@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/27 13:07:17 $
-# $Id: Allocator.pl,v 1.4 2004/07/27 13:07:17 barrass Exp $
+# $Date: 2004/07/27 13:09:52 $
+# $Id: Allocator.pl,v 1.5 2004/07/27 13:09:52 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -62,7 +62,6 @@ close(PID);
 
 while(!(-e "$g_work_dir/stop")) {
     if ($g_once) { system( "touch $g_work_dir/stop" ); }
-    #publish_availability ( DB => $g_db );
     my $loop_start = time();
 
     $time = time();
@@ -81,25 +80,7 @@ sub log_entry {
 	);
 	my $time = time();
 	my $localtime = localtime($time);
-	print "$localtime: $args{ENTRY}\n";
-}
-
-sub publish_availability {
-	my %args = (
-		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
-		@_
-	);
-	my $time = time();
-	
-	$return = my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
-						 	'CMS_TRANSFERMGMT_WRITER', 
-						 	'threeBagsFULL', 
-						 	{ RaiseError=>1, AutoCommit =>1 });
-	
-	$log = "update agentstate set last_contact=$time where agent_label='CONFIG'";
-	$return = $dbh->do($log);
-
-	$return = $dbh->disconnect();
+	print "$localtime [$$] $args{ENTRY}\n";
 }
 
 sub get_all_agent_names_of_type {
