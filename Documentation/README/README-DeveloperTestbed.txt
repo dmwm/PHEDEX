@@ -178,7 +178,16 @@ cp $NODETESTBED/AgentToolkitExamples/DropBox/FileDownload* .
 
 This will copy over two scripts: one is a master agent that handles the querying 
 of the TMDB for new guids for transfer- it manages a pool of instances of the 
-other script, each of which handles a given transfer.
+other script, each of which handles a given transfer. We also need to define a
+script that creates local pfns- in this case you need to edit the file
+FileDownloadDest to map files onto your local Sink1 SE directory. The following
+shows how I had to do it
+
+diff FileDownloadDest~ FileDownloadDest
+19c19
+< local=/data/test/files/$subpath/$dataset/$owner/$lfn
+---
+> local=/data/barrass/TestbedSink1/SE/$subpath/$dataset/$owner/$lfn
 
 Now register the agent with the TMDB
 	
