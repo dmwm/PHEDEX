@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/28 15:58:04 $
-# $Id: Allocator.pl,v 1.24 2004/07/28 15:58:04 barrass Exp $
+# $Date: 2004/07/28 15:58:35 $
+# $Id: Allocator.pl,v 1.25 2004/07/28 15:58:35 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -148,10 +148,9 @@ sub get_new_guid_list {
 
 sub get_current_subscriptions {
 	my @row;
-	my $count = 0;
 	my $selection = "select * from t_subscriptions";
 
-    my %subs = ();
+    my %destinations = ();
 
 	eval {
         my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
@@ -162,10 +161,8 @@ sub get_current_subscriptions {
         my $query = $dbh->prepare($selection);	
 		
         $query->execute();while (@row = $query->fetchrow_array) {	
-	       $count++;
-	       $guid_list{$row[1]}  .= "$row[0] ";
+	       $destinations{$row[1]}  .= "$row[0] ";
         }
-        log_entry(  "Found $count new GUIDs" );
         $query->finish();
         
         $dbh->disconnect();
@@ -179,6 +176,10 @@ sub get_current_subscriptions {
             $dbh->disconnect;
         }
         return 1;
+    }
+    
+    foreach $sub ( keys %destinations ) {
+        log_entry( "$sub: $destinations{$sub}" );
     }
 	
 	return (%guid_list);
