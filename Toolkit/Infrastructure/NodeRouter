@@ -51,7 +51,7 @@ close(PID);
 while(!(-e "$g_work_dir/stop")) {
 	if ($g_once) { system("touch $g_work_dir/stop"); }
 	
-	my @neighbours = &get_neighbours();
+	my @neighbours = &get_neighbours( DB => $g_db, DBUSER => $g_db_user, DB_PASSWD => $g_db_passwd);
 	
 	log_entry( ENTRY = "@neighbours" );
 }
