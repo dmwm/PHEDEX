@@ -7,6 +7,101 @@
 </head>
 
 <body>
+<h1>PhEDEx status as of 2004-10-08</h1>
+
+<p>V1 is dead.  The data is being migrated to V2 (task tracking:
+<a href="http://savannah.cern.ch/task/?func=detailitem&item_id=1190">#1190</a>).
+V2 schema has been loaded into the production database (pdb01) and
+the V1 data has been copied into V2 tables.  The new data has been
+verified to be consistent.  The following tasks track the anomalies
+discovered:
+<a href="http://savannah.cern.ch/task/?func=detailitem&item_id=1226">#1226</a>,
+<a href="http://savannah.cern.ch/task/?func=detailitem&item_id=1228">#1228</a>,
+<a href="http://savannah.cern.ch/task/?func=detailitem&item_id=1229">#1229</a>.
+Tasks remaining in migration to V2:
+<a href="http://savannah.cern.ch/task/?func=detailitem&item_id=1230">#1230</a>,
+<a href="http://savannah.cern.ch/task/?func=detailitem&item_id=1231">#1231</a>,
+<a href="http://savannah.cern.ch/task/?func=detailitem&item_id=1232">#1232</a>,
+<a href="http://savannah.cern.ch/task/?func=detailitem&item_id=1233">#1233</a>,
+<a href="http://savannah.cern.ch/task/?func=detailitem&item_id=1234">#1234</a>.</p>
+
+<p>Nobody is currently transferring.  Once migration is complete early next
+week we expect to inject all outstanding transfer requests with data available
+at CERN (task:
+<a href="http://savannah.cern.ch/task/?func=detailitem&item_id=1235">#1235</a>).
+We have also requested a new set of transfer requests from PRS (task:
+<a href="http://savannah.cern.ch/task/?func=detailitem&item_id=1236">#1236</a>).</p>
+
+<p>Current deployment status:</p>
+<ul>
+ <li> CERN T0: Inbound download to be configured and tested.
+      MSS migration works.  Export works.  Data injection works.
+      V2 consistency check ok.  Ready to start with V2.</li>
+
+ <li> ASCC T1: Inbound download works.  MSS migration works.
+      Export using toolkit agents?  Eagerly waiting for instructions
+      for data injection.  V2 data is consistent since there wasn't
+      any for ASCC.  Ready to start with V2.</li>
+
+      <ul>
+       <li> NCU T2: Idem.</li>
+      </ul></li>
+
+ <li> CNAF-INFN T1: Inbound download to IEB node (INFN_Transfer) works.
+      MSS migration in the works.  Export from MSS and IEB (transfer)
+      agents in the works.  No data injection yet.  Checking V2 data
+      consistency.  Ready to start with V2?
+      
+      <ul>
+       <li> INFN T2 (Legnaro?): no report yet.</li>
+      </ul></li>
+
+ <li> FNAL: Inbound download?  MSS migration?  Export?  No data
+      injection yet.  Checking V2 data consistency.  Ready to
+      start with V2?</li>
+
+ <li> FZK T1: Inbound download works.  SRM interface now available,
+      but to be considered in test, so transfers will continue with
+      globus-url-copy for now.  Export will be available once SRM
+      interface is stable; agent already exists.  Will require
+      contact string change in TMDB when SRM switch occurs.
+      V2 data is consistent since there wasn't any for FZK.
+      Collecting data requests from collaborators.  Ready to
+      start with V2.</li>
+
+ <li> IN2P3 T1: Inbound download works; no explicit MSS migration.
+      No export yet.  No data injection yet.  V2 data is consistent
+      since there wasn't any for IN2P3.  Ready to start with V2?
+      
+      <ul>
+       <li> LLR T2: Outstanding issues with libraries compiled
+            with a wrong version of GCC.  Ready to start with V2?</li>
+      </ul></li>
+
+ <li> PIC T1: Inbound download works.  MSS migration works.  Export
+      works using toolkit agents?  No data injection yet.  Ready to
+      start with V2?</li>
+
+      <ul>
+       <li> CIEMAT T2: Inbound download works.  No export or injection
+	    yet (is it even planned?).  Ready to start with V2?</li>
+      </ul></li>
+
+ <li> RAL: no news is good news?</li>
+</ul>
+
+<p>Work pending (FIXME: savannah tasks!):</p>
+<ul>
+ <li> Meta: Deploy testbed.</li>
+ <li> CERN: Enable agents.  Clean up lxgate04.  Test download.</li>
+ <li> ASCC/NCU: Test export.  Test injection.</li>
+ <li> FNAL: Finish V2 download agents, export and injection.</li>
+ <li> FZK: Stable interface for SRM.  Test export and injection.</li>
+ <li> CNAF-INFN, IN2P3/LLR, PIC/CIEMAT, RAL: waiting for report.</li>
+</ul>
+
+</body>
+</html>
 <h1>PhEDEx deployment status as of 2004-09-13</h1>
 
 <h2>PhEDEx V1</h2>
@@ -49,17 +144,19 @@ to transfer to CERN with V1, but never got assignments.</p>
 <p>V2 topologies: currently CastorGrid to all T1s back and forth,
 each T1 should also have one-way link to a MSS node associated with
 the transfer node.  PIC-CIEMAT two-way link from PIC Tier-1 transfer
-node to CIEMAT Tier-2.</p>
+node to CIEMAT Tier-2.  Similarly for ASCC-NCU and IN2P3-LLR.</p>
 
 <p>Technology:</p>
 <ul>
  <li> CNAF-INFN T1: LCG-2 SE.  Castor MSS.  INFN C agent.</li>
  <li> PIC T1: LCG-2 SE?  Castor MSS.  PIC C agent.</li>
- <li> CIEMAT T2: LCG-2 SE?  No MSS.  Agent?</li>
+ <li> CIEMAT T2: LCG-2 SE?  No MSS.  PIC C agent.</li>
  <li> FZK: Disk buffer, dCache MSS via SRM.  Toolkit.</li>
- <li> ASCC: LCG-2 SE.  Castor MSS.  Toolkit.</li>
+ <li> ASCC T1: LCG-2 SE.  Castor MSS.  Toolkit.</li>
+ <li> NCU T2: LCG-2 SE.  No MSS. Toolkit.</li>
  <li> RAL: ADS.  Toolkit.</li>
- <li> IN2P3: </li>
+ <li> IN2P3 T1:  No disk pool.  HPSS.  IN2P3 C agent.</li>
+ <li> LLR T2: LCG-2 SE.  No MSS.  IN2P3 C agent.</li>
  <li> FNAL: dCache write pool.  Enstore MSS.  SRM bash agents.</li>
 </ul>
 
@@ -88,7 +185,7 @@ node to CIEMAT Tier-2.</p>
 
  <li> ASCC T1/NCU T2: Testing example transfer agents with various
       degress of success (bugs in example agents).  No MSS node yet.
-      No export yet.</li>
+      No export yet, would like instructions.</li>
 
  <li> RAL: No transfers, disk still unavailable.  Will use toolkit
       where possible.  Estimate one working week (latency uncertain)
@@ -101,6 +198,7 @@ node to CIEMAT Tier-2.</p>
       but have experience from V1 export; a week should be enough
       to adapt the tools after workshop.</li>
 
- <li> IN2P3: No report yet.</li>
+ <li> IN2P3: Outstanding issues with libraries compiled with a
+      wrong version of GCC.</li>
 </body>
 </html>
