@@ -7,7 +7,7 @@
 </head>
 
 <body>
-<h1>PhEDEx status as of 2004-11-29</h1>
+<h1>PhEDEx status as of 2004-12-02</h1>
 
 <p>V2 has been operational for a little over a month now.  ~30 TB
 of data was injected on Oct 19th, of which ~4 TB remains to be moved.
@@ -57,17 +57,42 @@ catalogue.</p>
       test merge from PubDB catalogues.  No known issues.</li>
 
  <li> ASCC T1: N/A.</li>
- <li> CNAF-INFN T1: N/A.</li>
- <li> FNAL T1: N/A.</li>
- <li> FZK T1: N/A.</li>
- <li> IN2P3 T1: Download works.  MSS migration mostly works?  No
-      export yet.  Still using RLS as catalogue and replica manager
-      as transfer tools.  All assigned data moved.</li>
- <li> PIC T1: Download works.  MSS migration works.  Export from
-      disk works, export from MSS not yet(?).  Still using RLS as
-      catalogue and replica manager as transfer tool.  All assigned
-      data moved.</li>
- <li> RAL T1: N/A.</li>
+
+ <li> CNAF-INFN T1: N/A.  No MSS migration agent yet.  No file or
+      node routing agents yet.</li>
+
+ <li> FNAL T1: Download agent reliable, srmcp.  Files transferred
+      directly into dCache.  No MSS migration agent yet.  File and
+      node routing agents running.  Local MySQL catalogue, and has
+      been reliable.  All assigned data moved.</li>
+
+ <li> IN2P3 T1: Download works; C agent, lcg-rep command line tool.
+      MSS migration agent work, similar implementation.  No export
+      yet.  Still using RLS as catalogue and replica manager as
+      transfer tools.  All assigned data moved, some still migrating
+      to disk.  No file or node routing agents running yet.  Local
+      MySQL catalogue deployed.  PubDB deployed.</li>
+
+ <li> FZK T1: Download works, globus-url-copy.  MSS migration works
+      using dccp-based download agent.  Cleaner agent to clean up
+      import/export buffer disk.  File and node router agents up.
+      Export agent for files on import/export buffer; however no
+      export agent for transfer out of MSS yet.  Transfers running
+      reliably, but 2.5 TB still to move, hoping to finish by the
+      end of the week.  Local MySQL catalogue.</li>
+
+ <li> PIC T1: Download works, C agent, C replica manager API.  MSS
+      migration works, Castor migration agent.  Export from disk
+      exists and works, export from MSS not yet.  File and node router
+      agents running.  Still using RLS as catalogue, but local MySQL
+      catalogue also exists.  All assigned data moved, but some files
+      are missing from transfer.</li>
+
+ <li> RAL T1: N/A.  Site down this week for airconditioning works.</li>
+
+ <li> LLR T2: Small capacity site, for now intended purely as a
+      test site to transfer from IN2P3.  Nothing deployed yet.</li>
+ <li> CIEMAT T2: Single-node, agents available but not running.</li>
 </ul>
 
 <p>Deployment projects:</p>
@@ -83,17 +108,38 @@ catalogue.</p>
 
  <li> ASCC T1: N/A.</li>
  <li> CNAF-INFN T1: N/A.  MSS Agent?  Export agent?  T1/T2 transfers?  V2.1 adaptation?</li>
- <li> FNAL T1: N/A.  MSS Agent?  Export agent?  V2.1 adaptation?</li>
- <li> FZK T1: N/A.  Export agent?  V2.1 adaptation?</li>
- <li> IN2P3 T1: N/A.  Export agent?  V2.1 adapation?</li>
- <li> PIC T1: N/A.  MSS Export agent? V2.1 adaptation?</li>
+
+ <li> FNAL T1: Dataset completeness checking script, almost ready.
+      Make sure all missing files get transferred.  Make sure all
+      transferred files are properly registered in MySQL catalogue.
+      Export agent.  MSS agent.  Ready for V2.1 migration.</li>
+
+ <li> FZK T1: Transfer performance studies.  Exporting data to other
+      centres (RAL), including MSS export agent.  Deploying production
+      integration, testing it. Ready for V2.1 migration, just need new
+      site scripts.</li>
+
+ <li> IN2P3 T1: Cleaning agents to free disk space.  Performance
+      studies.  File and node router agents.  Publish META files
+      separately as XML catalogue on a web server.  Ready for V2.1
+      migration. </li>
+
+ <li> PIC T1: Planning to change topology to separate transfer and MSS
+      nodes and to add additional analysis node.   MySQL catalogue to
+      be populated.  Work on production coupling.  PIC-INFN direct
+      transfer exercise.  MSS export can use existing castor agent
+      (except if nodes are separated).  Ready for V2.1 migration.</li>
+
  <li> RAL T1: N/A.  MSS Agent?  MSS Export agent?  Export agent?  V2.1 adaptation?</li>
 
  <li> NCU T2: N/A.</li>
  <li> INFN Legnaro T2: N/A.</li>
  <li> INFN Bari T2: N/A.</li>
- <li> LLR T2: N/A.</li>
- <li> CIEMAT T2: N/A.</li>
+
+ <li> CIEMAT T2: Considerable increase in storage and computing resources
+      planned.  Agents to be started when DSTs available to be analysed
+      at CIEMAT.  Planning to use the node storage and export of local
+      production.</li>
 
  <li> Aachen T3: N/A.</li>
  <li> Hamburg T3: N/A.</li>
