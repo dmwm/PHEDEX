@@ -43,6 +43,10 @@ while (scalar @ARGV)
 
     elsif ($ARGV[0] eq '-pfnquery' && scalar @ARGV > 1)
     { shift (@ARGV); @{$args{PFN_QUERY}} = split(/,/, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-ignore' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{IGNORE_NODES}}, split(/,/, shift (@ARGV))); }
+    elsif ($ARGV[0] eq '-accept' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{ACCEPT_NODES}}, split(/,/, shift (@ARGV))); }
     else
     { last; }
 }
@@ -55,6 +59,7 @@ if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
 	"usage: $me -state IN-DROP-BOX -pfnquery PFN-QUERY-SCRIPT[,ARGS]\n",
 	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
 	"    -node NODE-NAME [-jobs NUM-PARALLEL-PROCESSES] [-timeout TIMEOUT]\n",
+	"    [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]\n",
 	"    [-wait SECS-TO-WAIT]\n";
     exit (1);
 }
@@ -83,6 +88,8 @@ sub new
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
 	  	  MYNODE => undef,		# My TMDB node name
+	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
+	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
 		  PFN_QUERY => undef,		# PFN query script
 	  	  AGENTID => "PFNExport");	# Identity for activity logs
     my %args = (@_);
@@ -175,6 +182,11 @@ sub idle
         my %todo = ();
         while (my ($guid, $to) = $query->fetchrow())
 	{
+	    # Process only if not filtered.
+	    next if grep($_ eq $to, @{$self->{IGNORE_NODES}});
+	    next if (@{$self->{ACCEPT_NODES}}
+		     && ! grep ($_ eq $to, @{$self->{ACCEPT_NODES}}));
+
 	    # If we failed to generate TURL or determine protocol for
 	    # this file recently, ignore it until back-off time passes.
 	    next if ($self->{BACKOFF}{$guid}{$to} || $now) > $now;
