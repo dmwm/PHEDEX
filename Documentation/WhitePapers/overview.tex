@@ -1,8 +1,12 @@
 \documentclass{cmspaper}
+\def\RCS$#1: #2 ${\expandafter\def\csname RCS#1\endcsname{#2}}
+\RCS$Revision$
+\RCS$Date$
+
 \begin{document}
 \begin{titlepage}
   \whitepaper
-  \date{\today}
+  \date{Revision \RCSRevision, \RCSDate}
   \title{CMS Data Handling Overview}
 
   \begin{Authlist}

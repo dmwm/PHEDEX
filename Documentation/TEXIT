@@ -10,12 +10,12 @@ then
   exit
 fi
 
-latex     $NAME.tex
+latex     $NAME.tex </dev/null
 bibtex    $NAME
 makeindex $NAME
 makeindex -o $NAME.aind $NAME.aidx
-latex     $NAME.tex
-latex     $NAME.tex
+latex     $NAME.tex </dev/null
+latex     $NAME.tex </dev/null
 dvips     -o $NAME.ps $NAME.dvi
 dvipdfm   -o $NAME.pdf $NAME.dvi
 
