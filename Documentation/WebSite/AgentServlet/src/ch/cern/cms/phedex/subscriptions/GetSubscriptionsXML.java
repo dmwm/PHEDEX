@@ -49,8 +49,11 @@ public class GetSubscriptionsXML {
 					"group by NODE) files " +
 					"on files.NODE = subs.destination order by subs.destination";
 				
-			//This gets the details of subscriptions
-			String subssql = "select * from T_SUBSCRIPTIONS";
+			//This gets the details of all subscriptions
+			String subssql = "select * from T_SUBSCRIPTIONS order by destination";
+			
+			//This gets all the destinations
+			String destsubsql = "select unique destination from T_SUBSCRIPTIONS order by destination";
 			
 			//Connect to the database
 			String driverName = "oracle.jdbc.driver.OracleDriver";
@@ -70,16 +73,18 @@ public class GetSubscriptionsXML {
 			Document out = new Document();
 			
 			Element root = new Element("root");
-			Element dest = new Element("destinations");
+			Element dest = new Element("destination");
 			Element stream = new Element("streams");
 			Element subs = new Element("subscriptions");
+			Element destin = new Element("all_destinations");
 			subs.addContent(dbxml.getRecords(conn, subssql).detachRootElement());
 			dest.addContent(dbxml.getRecords(conn, destsql).detachRootElement());
 			stream.addContent(dbxml.getRecords(conn, streamsql).detachRootElement());
+			destin.addContent(dbxml.getRecords(conn, destsubsql).detachRootElement());
 			root.addContent(stream);
 			root.addContent(dest);
 			root.addContent(subs);
-			
+			root.addContent(destin);
 			out.addContent(root);
             return out;
 			
