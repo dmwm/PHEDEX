@@ -280,7 +280,7 @@ sub readStageInProgress
     	delete $self->{BAD}{$drop};
 
 	# Get XML catalogue
-	my $dropdir = $self->{WORKDIR}/$drop;
+	my $dropdir = "$self->{WORKDIR}/$drop";
 	my $xmlcat = (<$dropdir/XMLCatFragment.*.{txt,xml}>)[0];
 	if (! defined $xmlcat)
 	{
