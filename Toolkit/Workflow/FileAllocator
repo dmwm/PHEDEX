@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/09/03 16:45:40 $
-# $Id: Allocator.pl,v 1.57 2004/09/03 16:45:40 barrass Exp $
+# $Date: 2004/09/03 16:47:02 $
+# $Id: Allocator.pl,v 1.58 2004/09/03 16:47:02 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -144,11 +144,11 @@ sub connect_to_db {
 			    $g_passwd,
 			    {RaiseError => 1, AutoCommit => 1})
 	
-	or die "Couldn't connect to database $dbname @_";
+	or die "Couldn't connect to database $g_db @_";
     
     # FIXME: is this ok, or will it leave outstanding
     # connections? Return ref to handle?
-    log_entry( "Connected to $dbname" );
+    log_entry( "Connected to $g_db" );
     return $dbh;
 }
 
@@ -167,9 +167,10 @@ sub get_new_guid_list {
 	."from t_files_for_transfer,"
 	."t_replica_metadata "
 	."where allocated = 0 "
-	."and rownum < $g_max_guids "
 	."and t_files_for_transfer.guid = t_replica_metadata.guid "
-	."and attribute = 'POOL_dataset'";
+	."and attribute = 'POOL_dataset' "
+	."limit 0, 10";
+
 
     my %guid_list = ();
     
