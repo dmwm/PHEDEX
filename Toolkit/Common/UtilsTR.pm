@@ -296,7 +296,8 @@ sub castorCheck
 sub checkAssignmentFiles
 {
     my ($mouth, $tmdb, $table, @dirs) = @_;
-    my @pending = map { s|.*/||; $_ }
+    my %pending = map { $_ => 1 }
+        map { s|.*/||; $_ }
 	<$mouth/*/{work,inbox}/*>,
 	<$mouth/*/worker-*/{work,inbox}/*>;
 
@@ -312,25 +313,20 @@ sub checkAssignmentFiles
         defined $smry or die "no summary file in $drop\n";
         defined $pfnroot or die "no pfn root in $drop\n";
 
-        # Get guids and pfns
+        # Get files, for each the guid and pfn
         my $cat = &readXMLCatalog ($xml);
-        my @guids = map { $_->{GUID} } values %$cat;
-        my @pfns = map { @{$_->{PFN}} } values %$cat;
-        @pfns = map { s|^\./|$pfnroot/|; $_; } @pfns;
-        @pfns = map { s|^sfn://castorgrid.cern.ch/|/|; $_; } @pfns;
+	my @files = map { { GUID => $_->{GUID}, PFN => $_->{PFN}[0] } } values %$cat;
+	map { $_->{PFN} =~ s|^\./|$pfnroot/| } @files;
+	map { $_->{PFN} =~ s|^sfn://castorgrid.cern.ch/|/| } @files;
 
         # Initialise results
         my $dropname = $drop; $dropname =~ s|.*/||;
-	$result->{$drop} = {
-	    DROPNAME => $dropname,
-	    GUIDS => [ @guids ],
-	    PFNS => [ @pfns ]
-	};
+	$result->{$drop} = { DROPNAME => $dropname, FILES => [ @files ] };
     }
 
     # Check all known pfns in the directories involved
     my %knownpfn;
-    &castorCheck (\%knownpfn, map { @{$_->{PFNS}} } values %$result);
+    &castorCheck (\%knownpfn, map { $_->{PFN} } map { @{$_->{FILES}} } values %$result);
 
     # Get all known guids (this *is* faster than asking for each guid)
     my %knownguid;
@@ -345,26 +341,28 @@ sub checkAssignmentFiles
     undef $dbh;
 
     # Now finish off the results
-    foreach my $drop (@dirs)
+    foreach my $drop (values %$result)
     {
-	my @guids = @{$result->{$drop}{GUIDS}};
-	my @pfns = @{$result->{$drop}{PFNS}};
+	my @files = @{$drop->{FILES}};
 
         # Find guids/files known in tmdb and castor
-        my $indb = grep ($knownguid{$_}, @guids);
-	my $inmss = scalar (grep ($knownpfn{$_}, @pfns));
+	map { $_->{TRANSFERRED} = 1 } grep ($knownguid{$_->{GUID}}, @files);
+	map { $_->{IN_MSS} = 1 } grep ($knownpfn{$_->{PFN}}, @files);
+	map { $_->{PENDING} = 1 } @files if $pending{$drop->{DROPNAME}};
 
 	# Fill in result
-	my $nguids = scalar @guids;
-	my $npending = scalar (grep ($_ eq $result->{$drop}{DROPNAME}, @pending));
+	my $nfiles = scalar @files;
+	my $nindb = scalar grep($_->{TRANSFERRED}, @files);
+	my $ninmss = scalar grep($_->{IN_MSS}, @files);
+	my $npending = scalar grep($_->{PENDING}, @files);
 
-	$result->{$drop}{N_FILES}		= $nguids;
-	$result->{$drop}{N_TRANSFERRED}		= $indb;
-	$result->{$drop}{N_IN_MSS}		= $inmss;
+	$result->{$drop}{N_FILES}		= $nfiles;
+	$result->{$drop}{N_TRANSFERRED}		= $nindb;
+	$result->{$drop}{N_IN_MSS}		= $ninmss;
 	$result->{$drop}{N_PENDING_TRANSFER}	= $npending;
 	$result->{$drop}{IS_PENDING_TRANSFER}	= $npending != 0;
-	$result->{$drop}{IS_FULLY_TRANSFERRED}	= $nguids == $indb;
-	$result->{$drop}{IS_FULLY_IN_MSS}	= $nguids == $inmss;
+	$result->{$drop}{IS_FULLY_TRANSFERRED}	= $nfiles == $nindb;
+	$result->{$drop}{IS_FULLY_IN_MSS}	= $nfiles == $ninmss;
     }
 
     return $result;
