@@ -3,7 +3,7 @@
 ## Assign the next hops to files that have arrived to a node.
 ##
 ## This agent scans the transfer state table in TMDB.  When it finds
-## files that have arrived to a node (dest_state = 3), it determines
+## files that have arrived to a node (to_state = 3), it determines
 ## the next hops for the file considering the final destinations, all
 ## current replicas and the distances in the routing table.  Given
 ## all the candidate source replicas and the paths to the destination,
@@ -130,10 +130,10 @@ sub idle
 		 and r.to_node = d.destination_node
 		left join t_transfer_state ts
 		  on ts.guid = d.guid
-		 and ts.src_node = rs.node
-		 and ts.dest_node = r.gateway
+		 and ts.from_node = rs.node
+		 and ts.to_node = r.gateway
 		where r.gateway is not null
-		  and ts.dest_state is null
+		  and ts.to_state is null
 		  and r.hops = (select min (rr.hops)
 	  			from t_routing rr, t_replica_state trs
 	  			where guid = d.guid
