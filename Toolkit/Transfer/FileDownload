@@ -134,6 +134,7 @@ sub new
 	  	  DBPASS => undef,		# Database user password
 	  	  MYNODE => undef,		# My TMDB node name
 		  WANT_LIMIT => undef,		# Amount of data to prefetch
+		  WANT_UPDATE => 0,		# Last wanted data update
 		  BACKEND => undef,		# Backend type
 		  NJOBS => 1,			# Max number of parallel processes
 		  JOBS => [],			# Pending jobs
@@ -287,10 +288,17 @@ sub startFileTransfer
 sub markFilesWanted
 {
     my ($self, $dbh) = @_;
+
+    # Avoid executing very often, the updates below do take a fair
+    # amount of time, and there's little point running here much
+    # more than once a minute.
+    my $now = time();
+    return if $self->{WANT_UPDATE} > $now - 60;
+    $self->{WANT_UPDATE} = $now;
+    
     eval
     {
 	my $mynode = $self->{MYNODE};
-	my $now = time();
 
 	# Tick back-off timer for previously failed transfers.
 	# Each state above 100 counts as one-minute cool-down
