@@ -64,6 +64,8 @@ while(!(-e "$g_work_dir/stop")) {
 	if (@routes_to_insert) { log_entry( "Found new routes" ); &display_routing_table( \@routes_to_insert ); }
 	my @route_to_clean = &get_dead_routes( \@neighbours_routes );
 	if (@routes_to_clean) { log_entry( "Found dead routes" ); &display_routing_table( \@routes_to_clean ); }
+
+	
     }
 }
 
@@ -153,9 +155,7 @@ sub get_shared_routes {
 	my ($my_from, $my_to, $my_gate, $my_time, $my_hops) = &split_route( $my_route ); 
 	foreach $other_route (@$table) {
 	    my ($from, $to, $gate, $time, $hops) = &split_route( $other_route );
-	    if ($to eq $my_to && $from eq $my_gate) {
-		# TODO: Here we just say we have a match. At some stage we might need to determine
-		# whether one route is shorter, older...?
+	    if ($to eq $my_to && $from eq $my_gate && $hops == $my_hops) {
 		push( @shared_routes, $my_route );
 	    }
 	}
@@ -171,7 +171,7 @@ sub get_new_routes {
 	my ($from, $to, $gate, $time, $hops) = &split_route( $other_route );
 	foreach $my_route (@g_known_routes) {
 	    my ($my_from, $my_to, $my_gate, $my_time, $my_hops) = &split_route( $my_route );
-	    $new_flag = 0 if ($to eq $my_to && $from eq $my_gate); 
+	    $new_flag = 0 if ($to eq $my_to && $from eq $my_gate && $hops == $my_hops); 
 	}
 	push( @new_routes, $other_route ) if ($new_flag == 1 && $to ne $g_parent_node);
     }
@@ -186,7 +186,7 @@ sub get_dead_routes {
         my ($my_from, $my_to, $my_gate, $my_time, $my_hops) = &split_route( $my_route );
         foreach $other_route (@$table) {
             my ($from, $to, $gate, $time, $hops) = &split_route( $other_route );
-	    $dead_flag = 1 if ($to eq $my_to && $from eq $my_gate);
+	    $dead_flag = 1 if ($to eq $my_to && $from eq $my_gate && $hops == $my_hops);
 	}
 	push( @dead_routes, $my_route ) if ($dead_flag == 1);
     }
