@@ -23,6 +23,8 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-catalogue' && scalar @ARGV > 1)
     { shift (@ARGV); $args{CATALOGUE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-match' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{HOST_KEY} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-jobs' && scalar @ARGV > 1)
     { shift (@ARGV); $args{NJOBS} = shift(@ARGV); }
     else
@@ -30,10 +32,10 @@ while (scalar @ARGV)
 }
 
 if (scalar @ARGV || !$args{DBNAME} || !$args{DBUSER} || !$args{DBPASS}
-    || !$args{DBITYPE} || !$args{MYNODE} || !$args{CATALOGUE})
+    || !$args{DBITYPE} || !$args{MYNODE} || !$args{CATALOGUE} || !$args{HOST_KEY})
 {
-    print STDERR "usage: $me -node NODE -catalogue CATALOGUE [-jobs NJOBS]\n",
-    		 "  -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n";
+    print STDERR "usage: $me -node NODE -catalogue CATALOGUE -match PATTERN\n",
+		 " [-jobs NJOBS] -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n";
     exit (1);
 }
 
@@ -64,7 +66,7 @@ sub fetchGuids
     my $nguids = 0;
     print "downloading guids: ";
     while (my ($guid) = $stmt->fetchrow()) {
-	$files->{$guid} = { GUID => $guid };
+	$files->{$guid}{GUID} = $guid;
 	print "." if ++$nguids % 1000 == 0;
     }
     print " done\n";
@@ -83,7 +85,7 @@ sub collectPFNs
     if ($job->{STATUS})
     {
 	unlink $job->{OUTPUT_FILE};
-	print "@{$job->{CMD}} failed with exit code $job->{STATUS}, retrying\n";
+	print "<R $job->{OUTPUT_FILE}>";
 	$mgr->addJob (sub { &collectPFNs($files, $mgr, @_) },
 	    { OUTPUT_FILE => $job->{OUTPUT_FILE} },
 	    @{$job->{CMD}});
@@ -110,18 +112,25 @@ sub fetchPFNs
     # Create jobs to resolve guids to pfns
     print "fetching pfns: ";
     my $mgr = new UtilsJobManager(%$args);
-    my @guids = sort keys %$files;
-    while (@guids)
+    my @hex = qw(0 1 2 3 4 5 6 7 8 9 A B C D E F);
+    foreach my $x (@hex)
     {
-	my @slice = splice (@guids, 0, 100);
-	my $output = "pfns.$slice[0]";
-	$mgr->addJob (sub { &collectPFNs($files, $mgr, @_) },
-	    { OUTPUT_FILE => $output },
-	    "sh", "-c",
-	    "POOL_OUTMSG_LEVEL=100 $home/../../Utilities/FClistGuidPFN"
-	    . " -u '$args{CATALOGUE}' -g @slice > $output");
+	foreach my $y (@hex)
+	{
+	    foreach my $z (@hex)
+	    {
+		my $output = "pfns.$x$y$z";
+		$mgr->addJob (sub { &collectPFNs($files, $mgr, @_) },
+		    { OUTPUT_FILE => $output },
+		    "sh", "-c",
+		    "POOL_OUTMSG_LEVEL=100 $home/../../Utilities/FClistGuidPFN"
+		    . " -u '$args{CATALOGUE}'"
+		    . " -q \"guid like '$x$y$z%' and pfname like '$args->{HOSTKEY}'\" > $output");
+	    }
+	    $mgr->pumpJobs();
+	}
     }
-
+	
     # Now wait all results are collected
     while (@{$mgr->{JOBS}})
     {
