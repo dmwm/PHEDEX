@@ -83,6 +83,26 @@ alter table t_transfer_state
 ----------------------------------------------------------------------
 -- Add indices
 
+create index ix_replica_state_node
+  on t_replica_state (node)
+  tablespace CMS_TRANSFERMGMT_INDX01;
+
+create index ix_replica_state_state
+  on t_replica_state (state)
+  tablespace CMS_TRANSFERMGMT_INDX01;
+
 create index ix_transfer_state_from_node
   on t_transfer_state (from_node)
+  tablespace CMS_TRANSFERMGMT_INDX01;
+
+create index ix_transfer_state_to_node
+  on t_transfer_state (to_node)
+  tablespace CMS_TRANSFERMGMT_INDX01;
+
+create index ix_transfer_state_to_state
+  on t_transfer_state (to_state)
+  tablespace CMS_TRANSFERMGMT_INDX01;
+
+create index ix_transfer_state_to_node
+  on t_transfer_state (to_node)
   tablespace CMS_TRANSFERMGMT_INDX01;
