@@ -41,3 +41,17 @@ while( defined( $file = readdir( DIR ) ) ) {
     
 }
 close( DIR );
+
+
+# =========================================================
+# Subroutines
+# =========================================================
+
+sub run_command {
+    my $cmd = shift;
+    
+    my @output = `$cmd 2>&1`;
+    my $exit_value = $? >> 8;
+    
+    return ($exit_value,@output);
+}
