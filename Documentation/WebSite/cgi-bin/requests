@@ -8,7 +8,7 @@ use POSIX;
 use DBI;
 
 my $cgi = new CGI;
-my $db = param("db") || "pdb01";    # tnsname of the database
+my $db = param("db") || "cms";    # tnsname of the database
 my $dbh;
 
 my $badcolor = '#ff9e9e';
@@ -44,7 +44,7 @@ sub intro
     <tr><td colspan=7 align='center'>$stamp</td></tr>
     <tr><td colspan=7 align='center'><select name='db'>"},
     "<option value='devdb9'@{[$db eq 'devdb9' && ' selected=selected']}>Test</option>",
-    "<option value='pdb01'@{[$db eq 'pdb01' && ' selected=selected']}>Production</option>",
+    "<option value='cms'@{[$db eq 'cms' && ' selected=selected']}>Production</option>",
     "</select></td></tr></table>\n";
 
     $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";

@@ -8,7 +8,7 @@ use POSIX;
 use DBI;
 
 my $cgi = new CGI;
-my $db = param("db") || "pdb01";    # tnsname of the database
+my $db = param("db") || "cms";    # tnsname of the database
 my $dbh;
 
 my $badcolor = '#ff9e9e';
@@ -31,13 +31,16 @@ my @nodes = @{$dbh->selectcol_arrayref(qq{
 
 if ($stream && $cgi->param('submit'))
 {
+    my $stmt = $dbh->prepare(qq{
+	select count(*) from t_subscriptions
+	where destination = ? and stream = ?});
+    my $istmt = $dbh->prepare(qq{
+	insert into t_subscriptions values (?, ?)});
     foreach my $dest (keys %nodesel)
     {
-	my $known = $dbh->selectcol_arrayref(qq{
-		select count(*) from t_subscriptions
-		where destination = '$dest' and stream = '$stream'});
-	$dbh->do(qq{insert into t_subscriptions values ('$dest', '$stream')})
-	    if ! $known || ! $known->[0];
+	$stmt->execute($dest, $stream);
+	my $known = $stmt->fetchrow_arrayref();
+	$istmt->execute($dest, $stream) if ! $known || ! $known->[0];
     }
 
     %nodesel = ();
@@ -45,10 +48,14 @@ if ($stream && $cgi->param('submit'))
 
 if ($stream)
 {
-    %nodesel = map { $_ => 1 } @{$dbh->selectcol_arrayref(qq{
-    					select destination
-			    		from t_subscriptions
-					where stream = '$stream'})};
+    my $stmt = $dbh->prepare (qq{
+	select destination
+	from t_subscriptions
+	where stream = ?});
+    $stmt->execute ($stream);
+    while (my ($node) = $stmt->fetchrow()) {
+	$nodesel{$node} = 1;
+    }
 }
 
 print $cgi->header(),
