@@ -7,8 +7,9 @@ mkdir -p {dl,si,cs,exp}
 rm -fr {dl,si,cs,exp}/{inbox,work}/*
 
 DBARGS="-db devdb9 -dbuser cms_transfermgmt -dbpass smalland_round"
+STARGS="-stagehost stagecmsprod -stagepool cms_prod2"
 
 ./FileDownload -state dl $DBARGS -node TEST_LAT -pfndest ./FileDownloadDest -wanted 1G >& log-dl &
-./FileCastorExport -state exp $DBARGS -node castorgrid_mss >& log-exp &
-./FileCastorStager -state si $DBARGS -node castorgrid_mss >& log-si &
-./FileCastorChecksum -state cs $DBARGS -node castorgrid_mss -prefix sfn://castorgrid.cern.ch >& log-cs &
+./FileCastorExport -state exp $DBARGS $STARGS -node castorgrid_mss >& log-exp &
+./FileCastorStager -state si $DBARGS $STARGS -node castorgrid_mss -prefix sfn://castorgrid.cern.ch >& log-si &
+./FileCastorChecksum -state cs $DBARGS $STARGS -node castorgrid_mss -prefix sfn://castorgrid.cern.ch >& log-cs &
