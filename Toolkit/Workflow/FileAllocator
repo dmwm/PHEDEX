@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/30 10:27:45 $
-# $Id: Allocator.pl,v 1.52 2004/07/30 10:27:45 barrass Exp $
+# $Date: 2004/07/30 10:49:29 $
+# $Id: Allocator.pl,v 1.53 2004/07/30 10:49:29 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -88,27 +88,32 @@ while(!(-e "$g_work_dir/stop")) {
             @destinations = split( / /, $destinations_by_dataset{$dataset_by_new_guid{$guid}} );
             foreach $dest ( @destinations ) {
             
-                my $gateway = lookup_route( $source_node_by_guid{$guid}, $dest );
-                if ( $gateway eq '' ) {
-                    # Could be transient, leave it for later...
-                    log_entry( "Ag, no route from $source_node_by_guid{$guid} to $dest for $guid" );
-                } else {
-                    my $time = time();
-                    log_entry( "$guid source: $source_node_by_guid{$guid} dest: $dest via: $gateway" );
-                    my $goal = "insert into t_destinations "
-                            ."values ('$guid','$dest')";
-                    my $advert = "insert into t_file_state "
-                            ."values ('$guid','$gateway',1,'$source_node_by_guid{$guid}',$time)";
-                    push( @sql, $advert, $goal );
+                if ( $dest ne '' ) {
+
+                    my $gateway = lookup_route( $source_node_by_guid{$guid}, $dest );
+                    if ( $gateway eq '' ) {
+                        # Could be transient, leave it for later...
+                        log_entry( "Ag, no route from $source_node_by_guid{$guid} to $dest for $guid" );
+                    } else {
+                        my $time = time();
+                        log_entry( "$guid source: $source_node_by_guid{$guid} dest: $dest via: $gateway" );
+                        my $goal = "insert into t_destinations "
+                                ."values ('$guid','$dest')";
+                        my $advert = "insert into t_file_state "
+                                ."values ('$guid','$gateway',1,'$source_node_by_guid{$guid}',$time)";
+                        push( @sql, $advert, $goal );
+                    }
+                            
+                    my $update = "update t_files_for_transfer set allocated = 1 where guid = '$guid'";
+                    push( @sql, $update );
+                    
                 }
+
             }
-            
-            my $update = "update t_files_for_transfer set allocated = 1 where guid = '$guid'";
-            push( @sql, $update );
-            
+                
         } else {
             $new_streams{$dataset_by_new_guid{$guid}} = 1;
-        }
+        }   
     }
     
     foreach $stream ( keys %new_streams ) {
