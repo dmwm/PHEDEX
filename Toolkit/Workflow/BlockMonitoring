@@ -1,7 +1,7 @@
 #! /usr/bin/env perl
 
 #-----------------------------------------------------------------------------------------------
-# agent name: site monitoring agent
+# agent name: global monitoring agent
 # purpose: monitor replication status of blocks and update t_block_replica accordingly
 #-----------------------------------------------------------------------------------------------
 
@@ -26,33 +26,28 @@ my %args = (DBITYPE => 'Oracle',
 	     "dbitype=s"	=> \$args{DBITYPE},
 	     "dbuser=s"		=> \$args{DBUSER},
 	     "dbpass=s"		=> \$args{DBPASS},
+	     "dbitype=s"        => \$args{DBITYPE},
 	     "wait=f"		=> \$args{WAITTIME},
-	     "node=s"           => \$args{MYNODE},
-	     "help"		=> \$args{HELPME});
+	     "node=s"           => \$args{MYNODE});
 
 
-if ($args{HELPME} || !$args{DBNAME} || !$args{DBUSER}
+if (!$args{DBNAME} || !$args{DBUSER}
     || !$args{DBPASS} || !$args{DROPDIR})
 {
-    print "Syntax for Monitoring agent: \n";
-    print "--help:         this help text \n";
-    print "--db:           database to connect to (required)\n";
-    print "--dbuser:       database user name (required)\n";
-    print "--dbpass:       database user password (required)\n";
-    print "--state:        agent state directory (required)\n";
-    print "--wait:         seconds to sleep between checks\n";
+    print STDERR "$me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
+                 "-state IN-DROP-BOX [-wait SECONDS]\n";
     exit 1;
 }
 
-#CJR mapping for Lassi's dropbox toolkit
-my $agent = new MonitorAgent (%args);
+
+my $agent = new BlockMonitor (%args);
 $SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $SIG{QUIT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $SIG{TERM} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $agent->process();
 
 ################################################
-package MonitorAgent; use strict; use warnings; use base 'UtilsAgent';
+package BlockMonitor; use strict; use warnings; use base 'UtilsAgent';
 use File::Path;
 use Data::Dumper;
 use UtilsCommand;
@@ -73,7 +68,7 @@ sub new
     		  DBNAME => undef,		# Database name
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
-	  	  AGENTID => "Monitoring");     # Identity for activity logs
+	  	  AGENTID => "BlockMonitor");   # Identity for activity logs
 
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
@@ -81,8 +76,7 @@ sub new
     return $self;
 }
 
-
-# Pick up work from the database and start site specific scripts if necessary
+# main routine 
 sub idle
 {
     my ($self, @pending) = @_;
@@ -93,47 +87,63 @@ sub idle
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
-	# update statistics in t_block_replica
-	$self->update_block_rep($dbh);
+	# Update statistics in t_block_replica.
+	# Get blockname, nodename, amount of files and total size.
+        my $now = &mytimeofday ();
+        my $qreplicas = &dbexec($dbh, qq{
+	    select
+    	    	f.inblock,
+    	    	rs.node,
+    	    	count (rs.guid),
+    	    	sum (f.filesize)
+    	    from t_replica_state rs
+    	    left join t_file f on f.guid = rs.guid
+    	    group by f.inblock, rs.node});
+
+        while (my ($block, $node, $nfiles, $nbytes) = $qreplicas->fetchrow_array())
+        {
+	    # Check for an existing entry for current name and node,
+	    # add new one if necessary.
+	    my ($exists) = &dbexec($dbh, qq{
+    	    	select count(name)
+    	    	from t_block_replica
+    	    	where name = :block
+    	    	  and node = :node},
+    	    	":block" => $block, ":node" => $node)
+    	    	->fetchrow();
+	    
+	    # If entry doesn't exist yet in table, create a template entry.
+	    &dbexec($dbh, qq{
+    	    	 insert into t_block_replica
+    	    	 (timestamp, name, node, files, bytes)
+            	     values (:now, :block, :node, -1, -1)},
+            	     ":now" => $now,
+    	    	 ":block" => $block,
+    	    	 ":node" => $node)
+    	    if ! $exists;
+	    
+	    # Now update table values.
+	    &dbexec($dbh, qq{
+    	    	update t_block_replica
+    	    	set timestamp = :now,
+    	    	    files = :files,
+    	    	    bytes = :bytes
+    	    	where name = :block
+    	    	  and node = :node},
+    	    	":now" => $now,
+    	    	":files" => $nfiles,
+    	    	":bytes" => $nbytes,
+    	    	":block" => $block,
+    	    	":node" => $node);
+        }
 
 	$dbh->commit();
     };
     do { &alert ("database error: $@"); $dbh->rollback if $dbh } if $@;
 
-    # Disconnect from the database
+    # Disconnect from the database.
     &disconnectFromDatabase ($self, $dbh);
 
-    # Have a little nap
+    # Have a little nap.
     $self->nap ($self->{WAITTIME});
 }
-
-
-
-sub update_block_rep {
-    my ($self, $dbh) = @_;
-    my $now = time();
-    
-    my $h_got_rep = &dbexec($dbh, qq{
-	select count(rs.guid), rs.node, sum(f.filesize), f.inblock from t_replica_state rs, t_file f
-        where rs.guid=f.guid and rs.node like '%MSS'
-	group by f.inblock, rs.node});
-    while (my ($files, $node, $bytes, $name) = $h_got_rep->fetchrow_array) {
-    # we need to check, if there is already an entry for the current name and node
-	my ($exists) = &dbexec($dbh, qq{
-	    select count(name) from t_block_replica where
-	    name=:name and node=:node},":name"=>$name, ":node"=>$node)->fetchrow_array;
-	if (! $exists) {
-	    &dbexec($dbh, qq{
-		insert into t_block_replica (timestamp, name, node, files, bytes)
-                values (:now, :name, :node, :files, :bytes)},
-                ":now"=>$now, ":name"=>$name, ":node"=>$node, ":files"=>$files, ":bytes"=>$bytes);
-	} else {
-	    &dbexec($dbh, qq{
-		update t_block_replica set
-                timestamp=:now, files=:files, bytes=:bytes where
-                name=:name and node=:node},
-		":now"=>$now, ":files"=>$files, ":bytes"=>$bytes, ":name"=>$name, ":node"=>$node);
-	}
-    }
-}
-
