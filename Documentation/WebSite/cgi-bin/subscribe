@@ -43,6 +43,14 @@ if ($stream && $cgi->param('submit'))
     %nodesel = ();
 }
 
+if ($stream)
+{
+    %nodesel = map { $_ => 1 } @{$dbh->selectcol_arrayref(qq{
+    					select destination
+			    		from t_subscriptions
+					where stream = '$stream'})};
+}
+
 print $cgi->header(),
     "<html>\n",
     "<title>PhEDEx Data Subscription</title>\n",
