@@ -17,7 +17,9 @@
 # -once                 only runs once
 # -period               period over which the agent will loop
 # -infinity             max expected route length
-# -timeout              timeout routes after this many sec
+# -timeout              timeout routes after this many sec-
+#						if this is not set, or set = 0, timeouts
+#						are ignored
 #
 # You should provide a working dir name on the command line:
 # a pid file will be stored there during running, and to stop the
@@ -36,7 +38,7 @@ $g_parent_node = 'default_parent';		# parent node name
 $g_once;				# 1 means will only run once
 $g_period = 1;              # time between iterations
 $g_infinity = 10;            # maximum expected route length
-$g_timeout = 180;           # route timeout, secs
+$g_timeout = 0;           # route timeout, secs
 
 # ###############################################################
 # Main agent loop
@@ -253,7 +255,7 @@ sub compare_with_existing_routes {
 	if ($hops > $g_infinity) {
 	    $hops = $g_infinity;
 	}
-	if ($time < $check) {
+	if ($time < $check && $g_timeout != 0 ) {
 	    $hops = $g_infinity;
 	    # trigger update if it's a neighbour timeout
 	    # easy for us as we can pass the update message to
