@@ -459,11 +459,11 @@ sub idle
 
 	            # Sleep a bit, castor doesn't like rapid-fire request chains
 	            select (undef, undef, undef, 0.33);
-		}
 
-	        # Mark these files as pending now
-	        map { $_->{STATUS} = "STAGEIN" } @tapefiles;
-		$stagereqs += scalar @tapefiles;
+	            # Mark these files as pending now
+	            map { $_->{STATUS} = "STAGEIN" } @slice;
+		    $stagereqs += scalar @slice;
+		}
 	    }
 	}
 
