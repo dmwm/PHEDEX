@@ -30,7 +30,7 @@ end();
 
 sub intro
 {
-    local $| = 1;
+    $| = 1;
     my $stamp = strftime ("%Y-%m-%d %H:%M:%S %Z", localtime(time()));
     print $cgi->header();
     print start_form();
@@ -118,17 +118,10 @@ sub main
 
 sub transfer {
     my $rows = 0;
-    my $breakdown = param('ds');
-    my $dsquery = $breakdown ? "r1.value," : "";
-    my $dsjoin = $breakdown
-        ? "left join t_replica_metadata r1 on r1.guid = f.guid and r1.attribute = 'POOL_dataset'"
-	: "";
     my $query = $dbh->prepare(qq{
-	    select $dsquery
-		   n.node_name,
+	    select n.node_name,
 		   count(f.guid),
-		   sum(case when f.guid is not null then r3.value else '0' end),
-		   count(d.guid),
+		   sum(r3.value),
 		   count(rs.guid),
 		   sum(case when rs.guid is not null then r3.value else '0' end),
 		   sum(case when rs.state = 1 then 1 else 0 end),
@@ -147,34 +140,38 @@ sub transfer {
 	      on ts.guid = f.guid and ts.to_node = n.node_name
 	    left join t_replica_metadata r3
 	      on r3.guid = f.guid and r3.attribute = 'filesize'
-	    left join (select distinct guid from t_destinations) d
-	      on d.guid = f.guid
-	    $dsjoin
       	    where (rs.node = n.node_name) or (ts.to_node = n.node_name)
-	    group by $dsquery n.node_name});
+	    group by n.node_name});
 
     print "<h2>Transfer status</h2>\n",
-    	  "<input type='checkbox' name='ds'@{[$breakdown && \" checked='checked'\"]}>",
-	  "Break down by dataset",
-    	  "<table><tr bgcolor='$altcolor'>",
-	  (map { "<th>$_</th>" }
-	   ($breakdown ? ("Dataset") : (),
-	    "Node", "Files", "Assigned",
-	    "On Site", "Staged", "In Transfer", "Wanted", "Pending")),
+    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+	  "<th rowspan='2'>Node</th>",
+	  "<th colspan='2'>Files</th>",
+	  "<th colspan='2'>On Site</th>",
+	  "<th colspan='2'>Staged</th>",
+	  "<th colspan='2'>In Transfer</th>",
+	  "<th colspan='2'>Wanted</th>",
+	  "<th colspan='2'>Pending</th>",
+          "</tr>\n",
+	  "<tr>",
+	  "<th align='right'>N</th><th align='right'>GB</th>",
+	  "<th align='right'>N</th><th align='right'>GB</th>",
+	  "<th align='right'>N</th><th align='right'>GB</th>",
+	  "<th align='right'>N</th><th align='right'>GB</th>",
+	  "<th align='right'>N</th><th align='right'>GB</th>",
+	  "<th align='right'>N</th><th align='right'>GB</th>",
           "</tr>\n";
 
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
-	my ($ds,
-	    $n, $files, $filesize, $assigned,
+	my ($n, $files, $filesize,
 	    $onsite, $onsitesize,
 	    $staged, $stagedsize,
 	    $transf, $transfsize,
 	    $wanted, $wantedsize,
-	    $pending, $pendingsize) = ($breakdown ? () : (undef), @$row);
+	    $pending, $pendingsize) = @$row;
         my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
-	my $asscolor = ($assigned == $files) ? '' : " bgcolor='$warncolor'";
 	my $onscolor = ($onsite == $files) ? '' : " bgcolor='$pendcolor'";
 	my $tracolor = (!$transf) ? '' : " bgcolor='$goodcolor'";
 	my $wancolor = (!$wanted) ? '' : " bgcolor='$goodcolor'";
@@ -183,15 +180,19 @@ sub transfer {
 		       : " bgcolor='$pendcolor'";
 
         print "<tr valign='top'$rowcolor>",
-	      $breakdown ? "<td>$ds</td>" : "",
 	      "<td>$n</td>",
-	      "<td>$files&nbsp;@{[!$files ? '' : sprintf '(%.1f&nbsp;GB)', $filesize/(2**30)]}</td>",
-	      "<td$asscolor>$assigned</td>",
-	      "<td$onscolor>$onsite&nbsp;@{[!$onsite ? '' : sprintf '(%.1f&nbsp;GB)', $onsitesize/(2**30)]}</td>",
-	      "<td>$staged&nbsp;@{[!$staged ? '' : sprintf '(%.1f&nbsp;GB)', $stagedsize/(2**30)]}</td>",
-	      "<td$tracolor>$transf&nbsp;@{[!$transf ? '' : sprintf '(%.1f&nbsp;GB)', $transfsize/(2**30)]}</td>",
-	      "<td$wancolor>$wanted&nbsp;@{[!$wanted  ? '' : sprintf '(%.1f&nbsp;GB)', $wantedsize/(2**30)]}</td>",
-	      "<td$pencolor>$pending&nbsp;@{[!$pending  ? '' : sprintf '(%.1f&nbsp;GB)', $pendingsize/(2**30)]}</td>",
+	      "<td align='right'>$files</td>",
+	      "<td align='right'>@{[!$files ? '' : sprintf '%.1f', $filesize/(2**30)]}</td>",
+	      "<td align='right'$onscolor>$onsite</td>",
+	      "<td align='right'$onscolor>@{[!$onsite ? '' : sprintf '%.1f', $onsitesize/(2**30)]}</td>",
+	      "<td align='right'>$staged</td>",
+	      "<td align='right'>@{[!$staged ? '' : sprintf '%.1f', $stagedsize/(2**30)]}</td>",
+	      "<td align='right'$tracolor>$transf</td>",
+	      "<td align='right'$tracolor>@{[!$transf ? '' : sprintf '%.1f', $transfsize/(2**30)]}</td>",
+	      "<td align='right'$wancolor>$wanted</td>",
+	      "<td align='right'$wancolor>@{[!$wanted  ? '' : sprintf '%.1f', $wantedsize/(2**30)]}</td>",
+	      "<td align='right'$pencolor>$pending</td>",
+	      "<td align='right'$pencolor>@{[!$pending  ? '' : sprintf '%.1f', $pendingsize/(2**30)]}</td>",
 	      "</tr>\n";
     }
     $query->finish();
