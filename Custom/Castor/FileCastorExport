@@ -111,26 +111,23 @@ sub idle
     my $dbh = undef;
     eval
     {
-	my $mynode = $self->{MYNODE};
-	$dbh = &connectToDatabase ($self);
-	die "failed to connect" if ! $dbh;
+	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
         # FIXME: Pick up and process messages to me
 
 	# Execute a series of updates that use variants of the same query.
 	# We go through the state machine at this node: 1) If unavailable
 	# file is recently wanted and not staged in, mark it for stage-in;
-	# 2) If unavailable file is recently wanted and staged in but has
-	# no checksum, get checksum; 3) If unavailable file is staged in
-	# and has checksum, mark it available; 4) Mark all available files
-	# ready for transfer.
+	# 2) If a file is staged in, mark it available; 3) If a file is
+	# available, mark it ready for transfer; 4) If a file is not
+	# staged in, mark it unavailable and not ready for transfer, but
+	# ignore already completed transfers.
 	#
 	# Note that the stager agent demotes files to unavailable and not
-	# staged in *or* unavailable and staged in; we will want to flip
-	# the latter category of files back to available if the checksums
-	# are calculated, even if nobody wants them.  However if there is
-	# no checksum or the file drops off stager, we only want to step
-	# through the state machine when somebody really wants that file.
+	# staged in *or* unavailable and staged in; we always flip the
+	# latter category of files back to available so download clients
+	# can prefer immediately available files.  Otherwise we only run
+	# the state machine only for files somebody actively wants.
 	#
 	# "Recently wanted" == time stamp on "wanted" state is less than
 	# fifteen minutes old.  Download agents expecting files will be
@@ -143,76 +140,61 @@ sub idle
 	# and how much space (free space and unpinned files) is on the
 	# stager pool.
 
-	my $now = time();
-	my $recent = $now - 15*60;
+	my %args = (":node" => $self->{MYNODE}, ":now" => time());
 
-	# 1) Mark unavailable offline wanted files for stage-in.
-	# [NB: We can't do "update (select ...) set..." as the join with
-	# t_transfer_state does not preserve keys, to_node is open.]
-	$dbh->do(qq{
-		update t_replica_state
-		set local_state = trunc(local_state,-3) + 10,
-		    local_time_stamp = $now
-		where node = '$mynode' and guid in
-		   (select distinct rs.guid
-		    from t_replica_state rs
-		    left join t_transfer_state ts
-		      on ts.guid = rs.guid and ts.from_node = rs.node
-		    where rs.node = '$mynode'
-		      and rs.state = 0
-	      	      and mod(rs.local_state,1000) = 0
-	      	      and ts.to_state = 1
-	      	      and ts.to_time_stamp >= $recent)});
+	# 1) Request stage-in for currently unavailable wanted files.
+	&dbexec($dbh, qq{
+	    update t_replica_state
+	    set local_state = 10, local_time_stamp = :now
+	    where node = :node and guid in
+	       (select distinct rs.guid
+	        from t_replica_state rs
+	        left join t_transfer_state ts
+	          on ts.guid = rs.guid and ts.from_node = rs.node
+	        where rs.node = :node
+	          and rs.state = 0
+	      	  and rs.local_state = 0
+	      	  and ts.to_state = 1
+	      	  and ts.to_time_stamp >= :recent)},
+	    %args, ":recent" => time() - 15*60);
 
-        # 2) Mark unavailable online wanted files that have no checksum
-	# for checksum calculation.  Also mark them immediately available
-	# for transfer, running the checksum calculation asynchronously
-	# in parallel.  [NB: Again no "update (...) set" due to the joins
-	# with t_replica_metadata and t_transfer_state.]
-	$dbh->do(qq{
-		update t_replica_state
-		set state = 1,
-		    time_stamp = $now,
-		    local_state = trunc(local_state,-3) + 20,
-		    local_time_stamp = $now
-		where node = '$mynode' and guid in
-		   (select distinct rs.guid
-		    from t_replica_state rs
-		    left join t_transfer_state ts
-		      on ts.guid = rs.guid and ts.from_node = rs.node
-		    left join t_replica_metadata m
-		      on m.guid = rs.guid and m.attribute = 'checksum'
-		    where rs.node = '$mynode'
-		      and mod(rs.local_state,1000) = 1
-	              and m.value is null
-	              and ts.to_state = 1
-	              and ts.to_time_stamp >= $recent)});
+        # 2) Make staged in files available.  Note that checksummer
+	# separately notices staged in files without checksum and
+	# adds one.  We allow transfers to proceed without checksum
+	# to increase throughput -- the checksums should exist on
+	# most files and are rarely used.
+	&dbexec($dbh, qq{
+	    update t_replica_state
+	    set state = local_state, time_stamp = :now
+	    where node = :node
+	      and (local_state = 0 or local_state = 1)
+	      and local_state != state},
+      	    %args);
 
-        # 3) Mark unavailable online files with checksum available,
-	# whether wanted by anyone or not.  [NB: This should be an
-	# "update (...) set" except oracle does not figure out that
-	# the join with t_replica_metadata is key-preserving.]
-	$dbh->do(qq{
-		update t_replica_state
-		set state = 1, time_stamp = $now
-		where node = '$mynode' and guid in
-		   (select rs.guid
-		    from t_replica_state rs
-		    left join t_replica_metadata m
-		      on m.guid = rs.guid and m.attribute = 'checksum'
-		    where rs.node = '$mynode'
-		      and mod(rs.local_state,1000) = 1
-	              and m.value is not null)});
+        # 3) Mark staged in files available for transfer.
+	&dbexec($dbh, qq{
+	    update (select ts.from_state, ts.from_time_stamp
+	            from t_transfer_state ts
+	            left join t_replica_state rs
+	              on rs.guid = ts.guid and rs.node = ts.from_node
+	            where rs.state = 1
+		      and ts.from_node = :node
+		      and ts.from_state = 0)
+	    set from_state = 1, from_time_stamp = :now},
+	    %args);
 
-        # 4) Mark available (and online) files ready for transfer.
-	$dbh->do(qq{
-		update (select ts.from_state, ts.from_time_stamp
-		        from t_transfer_state ts
-		        left join t_replica_state rs
-		          on rs.guid = ts.guid and rs.node = ts.from_node
-		        where rs.state = 1
-			  and ts.from_state = 0)
-		set from_state = 1, from_time_stamp = $now});
+        # 4) Mark unavailable files not ready for transfer.
+	&dbexec($dbh, qq{
+	    update (select ts.from_state, ts.from_time_stamp
+	            from t_transfer_state ts
+	            left join t_replica_state rs
+	              on rs.guid = ts.guid and rs.node = ts.from_node
+	            where rs.state != 1
+		      and ts.from_node = :node
+		      and ts.from_state = 1
+	      	      and ts.to_state < 2)
+	    set from_state = 0, from_time_stamp = :now},
+	    %args);
 
 	$dbh->commit();
     };
