@@ -125,3 +125,7 @@ create index ix_transfer_state_fromto_state
 create index ix_transfer_state_fromto_pair
   on t_transfer_state (guid, from_node, to_node)
   tablespace CMS_TRANSFERMGMT_INDX01;
+
+create index ix_transfer_completed_fromto
+  on t_transfer_completed (from_node, to_node)
+  tablespace CMS_TRANSFERMGMT_INDX01;
