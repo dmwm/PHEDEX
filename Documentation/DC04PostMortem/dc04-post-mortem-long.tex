@@ -575,6 +575,20 @@ infrastructure there were no problems keeping up with production or
 processing backlogs from delays.
 
 
+The dropbox agents managed the distribution of application metadata
+(COBRA META) files necessary for analysis. At the beginning of
+reconstruction ``virgin'' meta files were created, and needed to be
+distributed to T1s so analysis could start as soon as data files began
+to appear.  Gradually larger sets of partly completed DST meta files
+were published, and processing was completed final COBRA META files
+were made available.  The META files needed distributing at each
+stage. An agent polled the list of available META files.  Whenever new
+sets appeared, they were pushed through the distribution system to the
+T1s. Versioning of the metadata was concealed from the RLS as the
+files were hidden within a singly-registered Zip, in a similar fashion
+to the merged data.
+
+
 \subsection{SRM chain}
 The SRM distribution chain comprised an SRM Export Buffer at CERN
 providing access to a dCache disk pool, and an SRM import buffer at
