@@ -118,7 +118,7 @@ sub idle
               on m2.guid = rs.guid and m2.attribute = 'POOL_owner'
             left join t_replica_metadata m3
              on m3.guid = rs.guid and m3.attribute = 'filesize'
-            group by :now, m1.value, m2.value, rs.node},
+            group by :now, m1.value, m2.value, rs.node)},
 	    ":now" => $now);
 
 	$dbh->commit();
