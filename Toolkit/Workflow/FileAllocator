@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/27 13:09:52 $
-# $Id: Allocator.pl,v 1.5 2004/07/27 13:09:52 barrass Exp $
+# $Date: 2004/07/27 13:12:07 $
+# $Id: Allocator.pl,v 1.6 2004/07/27 13:12:07 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -64,6 +64,9 @@ while(!(-e "$g_work_dir/stop")) {
     if ($g_once) { system( "touch $g_work_dir/stop" ); }
     my $loop_start = time();
 
+    my @new_guids = get_new_guid_list( DB => $g_db );
+    print "@new_guids\n";
+
     $time = time();
     sleep($g_period - $time + $loop_start);
 }
@@ -82,6 +85,61 @@ sub log_entry {
 	my $localtime = localtime($time);
 	print "$localtime [$$] $args{ENTRY}\n";
 }
+
+sub get_new_guid_list {
+	my %args = (
+		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
+		POOL_URI => 'file:./yep_a_dummy_file',
+		MAX_GUID => 500,
+		@_
+	);
+	my @new_guids = ();
+	my @row;
+	my $count = 0;
+	my $selection = "select unique guid from t_files_for_transfer where allocated = 1";
+	if ( $args{MAX_GUID} ){
+		$selection .= " AND rownum < $args{MAX_GUID} "
+	}
+    my @guid_list;
+
+	eval {
+        my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
+		    				 	'CMS_TRANSFERMGMT_WRITER', 
+		      				 	'threeBagsFULL', 
+		  	       			 	{ RaiseError=>1, AutoCommit =>1 });
+		  				 	
+        my $query = $dbh->prepare($selection);	
+		
+        $query->execute();while (@row = $query->fetchrow_array) {	
+	       $guid = $row[0];
+	       $count++;
+	       push( @guid_list, $guid);
+        }
+        log_entry( ENTRY => "Found $count new GUIDs" );
+        $query->finish();
+        
+        $dbh->disconnect();
+	};
+	
+	if (@_) {
+        log_entry( "Database operation failed..." );
+        if ($dbh)
+        {
+            $dbh->rollback;
+            $dbh->disconnect;
+        }
+        return 1;
+    }
+	
+	return (\@guid_list);
+}
+
+
+
+
+
+
+
 
 sub get_all_agent_names_of_type {
 	my %args = (
@@ -161,43 +219,7 @@ sub get_available_agents_of_type {
 	return (\$number, \%available);
 }
 
-sub get_new_guid_list {
-	my %args = (
-		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
-		POOL_URI => 'file:./yep_a_dummy_file',
-		@_
-	);
-	my @new_guids = ();
-	my @row;
-	my $count = 0;
-	my $selection = "SELECT guid FROM CMS_TRANSFERMGMT.FilesForTransfer WHERE NOT allocated_to_t1s = 0";
-	if ( $args{MAX_GUID} ){
-		$selection .= " AND rownum < $args{MAX_GUID} "
-	}
 
-
-	my $return = my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
-						 	'CMS_TRANSFERMGMT_WRITER', 
-						 	'threeBagsFULL', 
-						 	{ RaiseError=>1, AutoCommit =>1 });
-	my $newguidquery = $dbh->prepare($selection);
-	my %guid_list;
-	
-	my $pool_cat_uri = $args{POOL_URI};
-		
-	$newguidquery->execute();
-	while (@row = $newguidquery->fetchrow_array) {	
-	   	$guid = $row[0];
-	   	$count++;
-		$guid_list{$guid} = 1;
-	}
-	log_entry( ENTRY => "Found $count new GUIDs" );
-	$newguidquery->finish();
-	
-	$dbh->disconnect();
-	
-	return (\%guid_list);
-}
 
 sub lookup_metadata {
 	my $uri = shift;
