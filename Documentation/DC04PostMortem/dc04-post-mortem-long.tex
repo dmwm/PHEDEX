@@ -364,7 +364,12 @@ In contrast to other databases used, the TMDB proved to be remarkably
 stable, only experiencing a critical problem when log entries exceeded
 the initial tablespace allocated.
 
-Development of the TMDB continued throughout DC04 as new use cases were discovered. The management of changes to the databases provided useful experience for the future. Most changes were easily accomodated thanks to a carefully designed database schema (for example, the addition of new agents was handled gracefully) (fig. \ref{fig:schema}).
+Development of the TMDB continued throughout DC04 as new use cases
+were discovered. The management of changes to the databases provided
+useful experience for the future. Most changes were easily accomodated
+thanks to a carefully designed database schema (for example, the
+addition of new agents was handled gracefully)
+(fig. \ref{fig:schema}).
 
 \begin{figure}[tbp]
 \centering
@@ -373,11 +378,28 @@ Development of the TMDB continued throughout DC04 as new use cases were discover
 \caption{The Transfer Management Database schema deployed during DC04.}
 \end{figure} 
 
-Some changes- notably the addition of some forms of metadata to the list of files for transfer- caused significant slow down in access. During DC04 it became apparent that some specific metadata- an entry denoting the filegroup, and some indication of cleaning priority- was required. Adding this new metadata was seen as a "one off", and was implemented as new fields in an existing table. At that stage, however, the TMDB had several hundred thousand files registered in it. The addition of new fields and entries to the database took many hours, and impaired access for the agents.
+However, some changes- notably the addition of some forms of metadata
+to the list of files for transfer- caused significant slow down in
+access. During DC04 it became apparent that some specific metadata- an
+entry denoting the filegroup, and some indication of cleaning
+priority- was required. Adding this new metadata was seen as a ``one
+off'', and was implemented as new fields in an existing table. At that
+stage, however, the TMDB had several hundred thousand files registered
+in it. The addition of new fields and entries to the database took
+many hours, and impaired access for the agents.
 
-Future versions of the TMDB will require that metadata be stored in a separate table referencing filefortransfer.guid, thus avoiding this problem.
+Future versions of the TMDB will require that metadata be stored in a
+separate table, thus avoiding this problem by allowing the addition of
+metadata in key:value pairs.
 
-The discussion of which metadata to add to the database- from LFNs through replica to application metadata- continued throughout DC04. Addition of metadata to the TMDB was vigorously opposed to avoid it being seen as a permanent repository of metadata (in principle all information in the TMDB is transient). It became apparent that the ability to add metadata to replica entries- even changing the schema of metadata, or having a varying schema for each replica- was essential, especially during development.
+The discussion of which metadata to add to the database- from LFNs
+through replica to application metadata- continued throughout
+DC04. Addition of metadata to the TMDB was vigorously opposed to avoid
+it being seen as a permanent repository of metadata (in principle all
+information in the TMDB is transient). It became apparent that the
+ability to add metadata to replica entries- even changing the schema
+of metadata, or having a varying schema for each replica- was
+essential, especially during development.
 
 \subsection{The DC04 Replica Location System (RLS)}
 The LCG-2 RLS was deployed as a global service for lfn:guid:pfn and metadata lookups during DC04: a Local Replica Catalogue (LRC) and Replica Metadata Catalogue (RMC) were deployed at CERN with an Oracle backend (TODO: details of Oracle backend). These catalogues were accessed in a variety of ways- for example, using the LRC C++ API for direct access to the LRC, or through POOL File Catalogue tools (the LRC-RMC combination can be represented as a single POOL File Catalogue).
