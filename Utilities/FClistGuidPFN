@@ -5,15 +5,16 @@ from PyFCAction import *
 import unittest,os,os.path,getopt
 
 def usage():
-    print 'FClistGuidPFN {-g | -p | -q} [-m] -u catalog_contactstring ITEM...'
-    print ''
-    print '-m means ITEMs are patterns, not exact strings'
-    print '-g means ITEMs are guids (or guid patterns if -m)'
-    print '-p means ITEMs are PFNs (or PFN patterns if -m)'
-    print '-q means ITEMs are general query patterns'
+    print >> sys.stderr, 'FClistGuidPFN {-g | -p | -q} [-m] -u catalog_contactstring ITEM...'
+    print >> sys.stderr, '  -m means ITEMs are patterns, not exact strings'
+    print >> sys.stderr, '  -g means ITEMs are guids (or guid patterns if -m)'
+    print >> sys.stderr, '  -p means ITEMs are PFNs (or PFN patterns if -m)'
+    print >> sys.stderr, '  -q means ITEMs are general query patterns'
+    print >> sys.stderr, '  -u specificies catalogue to contact'
 
 class myobj(object):
     def __init__(self):
+ 	self.cat = None
 	self.exact = 1
 	self.mode = 'g'
         self.input=[]
@@ -36,6 +37,9 @@ class myobj(object):
             else:
                 usage()
                 sys.exit(2)
+	if (self.cat == None):
+	    usage()
+	    sys.exit(2)
         try:
             self.x=PyFileCatalog.PyFileCatalog()
             self.x.setWriteCatalog(self.cat)
