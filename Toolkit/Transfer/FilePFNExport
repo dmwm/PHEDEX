@@ -95,7 +95,7 @@ sub new
 # Collect result from site query script glue
 sub reapPFNs
 {
-    my ($self, $dbh, $guids, $to, $output, $start, $job) = @_;
+    my ($self, $dbh, $guids, $to, $proto, $output, $start, $job) = @_;
     my %guid2pfn = map { split(/\s+/, $_) } split('\n', &input ($output) || '');
     foreach my $guid (@$guids)
     {
@@ -103,7 +103,7 @@ sub reapPFNs
 	if (! $pfn)
 	{
 	    # No output for this guid.  Whine.  Assign back-off time as a penalty.
-	    &warn ("no turl for $guid (exit code $job->{STATUS})");
+	    &warn ("no turl for $guid to $to with $proto (exit code $job->{STATUS})");
 	    $self->{BACKOFF}{$guid}{$to} = &mytimeofday() + 3600*(4 + rand(2));
 	    next;
 	}
@@ -218,7 +218,8 @@ sub idle
 		{
 		    my @batch = splice (@$guids, 0, 500);
 	            my $output = "$self->{WORKDIR}/$batch[0].$to.turl";
-	            $self->addJob (sub { $self->reapPFNs ($dbh, \@batch, $to, $output, $now, @_) },
+	            $self->addJob (
+			sub { $self->reapPFNs ($dbh, \@batch, $to, $proto, $output, $now, @_) },
 		        {}, "sh", "-c", "@{$self->{PFN_QUERY}} -g $proto $to @batch > $output");
 
 	    	    # Keep old jobs running while we are generating new jobs.
