@@ -13,7 +13,7 @@ use UtilsLogging;
 sub guidToPFN
 {
     my ($guid, $catalogue, $hostkey) = @_;
-    my $home = $0; $home =~ s|/[/]+$||;
+    my $home = $0; $home =~ s|/[^/]+$||;
 
     # FIXME: remove message suppression when pool has learnt to print
     # diagnostic output somewhere else other than stdout...
@@ -70,7 +70,7 @@ sub guidToLFN
 sub pfnToGUID
 {
     my ($pfn, $catalogue) = @_;
-    my $home = $0; $home =~ s|/[/]+$||;
+    my $home = $0; $home =~ s|/[^/]+$||;
 
     # FIXME: remove message suppression when pool has learnt to print
     # diagnostic output somewhere else other than stdout...
