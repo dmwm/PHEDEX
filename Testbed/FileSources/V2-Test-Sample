@@ -1,0 +1,5 @@
+#!/bin/sh
+
+./TRNew V2TestSample
+./TRNewData -p V2TestSample 'mu03b_DY2mu_Mll2000.mu_*{PU761,Hit245}*'
+./TRSyncDrops V2TestSample
