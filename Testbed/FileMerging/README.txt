@@ -1,20 +1,20 @@
 *** Generating drops for DC04 data
 
-PHEDEX/Toolkit/Request/TRNew DC04Sample
-PHEDEX/Toolkit/Request/TRNewData -a DC04Sample 5272
-PHEDEX/Toolkit/Request/TRSyncDrops DC04Sample
-
-The full set of DC04 assignments:
-   5270 5272 5273 5274 5275 5276 5278 \
-   5439 5440 5441 5442 5443 5444 5445 \
-   5449 5450 5452 5453 5454 5455 5457
+for a in 5270 5272 5273 5274 5275 5276 5278 \
+         5439 5440 5441 5442 5443 5444 5445 \
+	 5449 5450 5452 5453 5454 5455 5457; do
+  PHEDEX/Toolkit/Request/TRNew DC04Sample.$a
+  PHEDEX/Toolkit/Request/TRNewData -a DC04Sample.$a $a
+  PHEDEX/Toolkit/Request/TRSyncDrops DC04Sample.$a
+done
 
 *** Adding checksum information
 
-rfdir /castor/cern.ch/cms/DSTs_801a/eg03_Wenu_calibration |
-  awk '{print -1, $5, $9}' > all-checksums
+for f in $(rfdir /castor/cern.ch/cms/DSTs_801a | awk '{print $NF}'); do
+  rfdir /castor/cern.ch/cms/DSTs_801a/$f | awk '{print -1, $5, $9}'
+done > all-checksums
 
-echo DC04Sample/Drops/Pending/*/XML* |
+echo DC04Sample.*/Drops/Pending/*/XML* |
   xargs perl -IPHEDEX/Toolkit/Common -e '
     use UtilsReaders;
     %info = ();
@@ -36,9 +36,7 @@ echo DC04Sample/Drops/Pending/*/XML* |
       close (CK);
     }'
 
-for f in DC04Sample/Drops/Pending/*; do
-  touch $f/go
-done
+for f in DC04Sample.*/Drops/Pending/*; do touch $f/go; done
 
 *** Setup an agent chain
 
@@ -52,5 +50,5 @@ Stop:  PHEDEX/Utilities/Master -config PHEDEX/Testbed/FileMerging/Config stop
 
 *** Feed data to the agents
 
-echo DC04Sample/Drops/Pending/* |
+echo DC04Sample.*/Drops/Pending/* |
   xargs cp -rp --target-directory=MergeTest/state/merge/inbox
