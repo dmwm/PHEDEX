@@ -1,0 +1,486 @@
+#!/usr/bin/perl
+#
+# Allocation Agent
+#
+# $Date: 2004/04/07 21:22:45 $
+# $Id: configAgent.pl,v 1.23 2004/04/07 21:22:45 lat Exp $
+#
+# This agent scans the FilesForTransfer table of the
+# transfer managment database. It builds a list of files marked
+# with allocated_to_t1s != 0. It cycles through this list and
+# allocates the files to certain T1s. The allocation is based on
+# information stored in the POOL file catalog in combination with
+# some configuration information.    
+#
+# You should provide a working dir name on the command line:
+# a pid file will be stored there during running, and to stop the
+# agent you should touch a file named "stop" within it.
+#
+# Command line options
+# -ignore-status	will allocate to desired t1/eb even if it is down
+# -ignore-streams	will allocate to all t1s, ignoring streaming
+# -no-updates		will run through the allocation algo but not make final changes in tmdb
+# -w <workdir>		sets the workdir for the agent
+# -db <tns name>	sets the Oracle db to talk to
+# -u <pool cat uri>	sets the catalogue from which the agent takes info
+
+use DBI;
+use Getopt::Long;
+use File::Path;
+$| = 1; # set autoflush
+
+my $time;	# holds current time
+my $log;	# a log entry as sql
+my $ignore_streams;	# 1 means ignore streams
+my $ignore_status;	# 1 means will ignore status of t1s and ebs
+my $no_updates;	# 1 means will not make final updates in tmdb
+my $work_dir = '';	# place pid and stop files here...
+my $g_db = "devdb9";	# tnsname of Oracle db (tmdb)
+my $g_pool_uri = 'edgcatalog_http://rlscms.cern.ch:7777/cms/v2.2/edg-local-replica-catalog/services/edg-local-replica-catalog';
+						# uri of pool catalogue to use
+#Set a limit on number of guids to fetch at a time.
+my $max_guids=300;
+
+
+# ###############################################################
+# Main loop
+# ###############################################################
+
+my $entry = parse_command_line();
+log_entry_in_db( DB => $g_db, START => $time, END => $time, ACTION => "START", RETURN => 0, ENTRY => "Started config agent: $entry" );
+log_entry( ENTRY => $entry );
+
+open (PID, ">$work_dir/pid") || die "Pid file error $! $work_dir/pid\n";
+print PID "$$\n";
+close(PID);
+
+while(!(-e "$work_dir/stop")) {
+    publish_availability ( DB => $g_db );
+    my $period = 600;
+    my $loop_start = time();
+    
+    # Get configuration information
+    my @all_t1s = ("FNAL","INFN","PIC");
+    my %t1s_by_stream = load_stream_config();
+    my @known_streams = keys %t1s_by_stream;
+    log_entry( ENTRY => "Known streams: @known_streams" );
+    
+
+    my $guid_list_ref = get_new_guid_list( DB => $g_db, POOL_URI => $g_pool_uri, MAX_GUID => $max_guids );
+    my @new_guids = keys %$guid_list_ref;
+    
+    # Loop through guids and allocate
+    my $guid;
+    my %new_streams;
+    my $t1_count;
+    foreach $guid (@new_guids) {
+	my $log_entry;
+	$log_entry .= "$guid ";
+	my %allocated_t1s = ();
+	my $t1;
+	my @t1s = ();
+
+	# Getting metadata here
+	my %dst_guids = ();;
+	my %stream_by_guid = ();
+	my ($dst, $stream_name) = lookup_metadata($g_pool_uri, $guid);
+	# DISABLED DST checking for now!
+#	if ( 0 == $dst) {
+#	    $dst_guids{$guid} = 1 ;
+#	}
+	
+	# if we're ignoring streams, or it's DST, or an unknown stream, send it everywhere
+	# if not, work out which T1s want the stream and allocate it to them
+	if ($ignore_streams || exists $dst_guids{$guid} ) {
+	    if (exists $dst_guids{$guid}) {
+		$log_entry .= "Is DST. ";
+	    }
+	    foreach $t1 (@all_t1s) {
+		$allocated_t1s{$t1} = 1;
+	    }
+	} else {
+	    # want to match whole (part?) of stream_name with one of stream_keys
+	    $stream_flag = 1;
+	    foreach $key (keys %t1s_by_stream) {
+		if ($stream_name =~ /$key/) 
+		{
+		    if ($t1s_by_stream{$key} ne "") {
+			@t1s = split(/:/,$t1s_by_stream{$key});
+		    } else {
+			log_entry( ENTRY => "$stream_name currently unallocated" );
+		    }
+		    $stream_flag = 0;
+		}
+	    }
+
+	    if ($stream_flag == 1) {
+		$log_entry .= "Is part of an unkown stream ($stream_name). ";
+		$new_streams{$stream_name} = 1;
+	    }
+
+	    $t1_count = 0;
+	    foreach $t1 (@t1s) {
+		$allocated_t1s{$t1} = 1;
+		$t1_count++;
+	    }
+	    
+	    $log_entry .= "alloc to @t1s ";
+	}
+	log_entry( ENTRY => $log_entry );
+	    
+	    
+	# Now go through and deal with allocations from lists
+	$log_entry =  "$guid: Final Allocation: ";
+	my $dbh = DBI->connect("DBI:Oracle:$g_db", 'CMS_TRANSFERMGMT_WRITER', 'threeBagsFULL', { RaiseError=>1, AutoCommit =>1 }); 	 
+	foreach $t1 (keys %allocated_t1s) {
+	    $eb = $eb_by_t1{$t1};
+	    if (!exists($reallocated_ebs{$eb})) {
+		if (!exists($reallocated_t1s{$t1})) {
+		    $log_entry .= "$t1 NEW\t";
+		    $insert = "insert into cms_transfermgmt.filestate values ('$guid','$t1',1)";
+		    $dbh->do($insert) if (!$no_updates);
+		} else {
+		    $log_entry .= "$t1 T1_REALLOCATED\t";
+		    $insert = "insert into cms_transfermgmt.filestate values ('$guid','$t1',3)";
+		    $dbh->do($insert)  if (!$no_updates);				} 
+	    } else {
+		$log_entry .= "$t1 EB_REALLOCATED\t";
+		$insert = "insert into cms_transfermgmt.filestate values ('$guid','$t1',2)";
+		$log = "insert into agentlogging (start_time,end_time,action,return_code,log_entry,agent_label,agent_type,guid) values ($time,$time,'EB_REALLOCATED',0,'$insert','CONFIG','CONFIGURATION','$guid')";
+	    }
+	}
+	if ($t1_count != 0) {
+	    $update = "update cms_transfermgmt.filesfortransfer set allocated_to_t1s = 0 where guid = '$guid'";
+	    $dbh->do($update)  if (!$no_updates);
+	}
+	log_entry( ENTRY => $log_entry );    
+	
+	$commit_count++;
+	if ( 300 == $commit_count ) {
+	    $commit_count = 0;
+	    $dbh->do("commit;") if (!$no_updates);
+	}
+	$dbh->disconnect();
+    }	    
+
+    foreach $stream (keys %new_streams) {
+	if ($stream ne "") {
+	    add_new_stream_to_subscriptions($stream);
+	}
+    }
+
+    $time = time();
+    sleep($period - $time + $loop_start);
+    
+}
+
+
+# ###############################################################
+# Subroutines
+# ###############################################################
+
+sub log_entry {
+	my %args = (
+		ENTRY => 'default_log_entry',
+		@_
+	);
+	my $time = time();
+	my $localtime = localtime($time);
+	print "$localtime: $args{ENTRY}\n";
+}
+
+sub publish_availability {
+	my %args = (
+		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
+		@_
+	);
+	my $time = time();
+	
+	$return = my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
+						 	'CMS_TRANSFERMGMT_WRITER', 
+						 	'threeBagsFULL', 
+						 	{ RaiseError=>1, AutoCommit =>1 });
+	
+	$log = "update agentstate set last_contact=$time where agent_label='CONFIG'";
+	$return = $dbh->do($log);
+
+	$return = $dbh->disconnect();
+}
+
+sub log_entry_in_db {
+	my %args = (
+		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
+		START => 0,
+		END => 0,
+		ACTION => '',
+		RETURN => 0,
+		ENTRY => 'This is a defauly entry- change it in call of sub log entry',
+		GUID => '',
+		@_
+	);
+	
+	my $return = my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
+						 	'CMS_TRANSFERMGMT_WRITER', 
+						 	'threeBagsFULL', 
+						 	{ RaiseError=>1, AutoCommit =>1 });
+	
+	$entry = substr($args{ENTRY},0,249);
+	
+	$log = "insert into agentlogging values ("
+			."$args{START},$args{END},'$args{ACTION}',$args{RETURN},'$entry',"
+			."'CONFIG','CONFIGURATION','$args{GUID}')";
+	$return = $dbh->do($log);
+
+	$return = $dbh->disconnect();
+}
+
+sub get_all_agent_names_of_type {
+	my %args = (
+		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
+		TYPE => 'T1',
+		@_
+	);
+	my $selection = "select agent_label from agentstate where agent_type = '$args{TYPE}'";
+	my @list;
+	
+	my $return = my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
+						 	'CMS_TRANSFERMGMT_WRITER', 
+						 	'threeBagsFULL', 
+						 	{ RaiseError=>1, AutoCommit =>1 });
+	
+	$statusquery = $dbh->prepare($selection);
+	$statusquery->execute;
+	while (@row = $statusquery->fetchrow_array) {
+	    $row[0] =~ s/ //g;
+	    push(@list,@row[0]);
+	}
+	$statusquery->finish();
+	
+	$return = $dbh->disconnect();
+	
+	return @list;
+}
+
+sub add_new_stream_to_subscriptions {
+    my $new_stream = shift;
+
+    my $insert = "insert into subscriptions values ('','$new_stream')";
+
+    my $dbh = DBI->connect(    "DBI:Oracle:$g_db",
+					    'CMS_TRANSFERMGMT',
+					    'smallAND_round',
+					    { RaiseError=>1, AutoCommit =>1 });
+
+    log_entry(ENTRY=>"New stream for subscriptions- $new_stream");
+    $dbh->do($insert) if (!$no_updates);
+
+    $dbh->disconnect;
+    
+}
+
+sub get_available_agents_of_type {
+	my %args = (
+		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
+		TYPE => 'T1',
+		@_
+	);
+	my $time = time();
+	my $last_time = $time - 900;
+	my $t1;
+	my $return = my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
+						 	'CMS_TRANSFERMGMT_WRITER', 
+						 	'threeBagsFULL', 
+						 	{ RaiseError=>1, AutoCommit =>1 });
+	my $selection = $selection = "select agent_label from agentstate where last_contact >= $last_time and agent_type = '$args{TYPE}'";
+	my $statusquery = $dbh->prepare($selection);
+	my $number = 0;
+	my %available;
+
+	$statusquery->execute;
+	while (@row = $statusquery->fetchrow_array) {
+	    $row[0] =~ s/ //g;
+	    $available{$row[0]} = 1;
+	$number++;
+	}
+	$statusquery->finish();
+	$dbh->disconnect();
+	
+	my $log_entry = "$number available $args{TYPE} agents found: ";
+	foreach (sort keys %available) { $log_entry .= "$_\t"; }
+	
+	log_entry( ENTRY => $log_entry );
+	log_entry_in_db( DB => $g_db, START => $time, END => $time, ACTION => "STATUS", RETURN => 0, ENTRY => "$number available $args{TYPE} agents found" );
+	
+	return (\$number, \%available);
+}
+
+sub get_new_guid_list {
+	my %args = (
+		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
+		POOL_URI => 'file:./yep_a_dummy_file',
+		@_
+	);
+	my @new_guids = ();
+	my @row;
+	my $count = 0;
+	my $selection = "SELECT guid FROM CMS_TRANSFERMGMT.FilesForTransfer WHERE NOT allocated_to_t1s = 0";
+	if ( $args{MAX_GUID} ){
+		$selection .= " AND rownum < $args{MAX_GUID} "
+	}
+
+
+	my $return = my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
+						 	'CMS_TRANSFERMGMT_WRITER', 
+						 	'threeBagsFULL', 
+						 	{ RaiseError=>1, AutoCommit =>1 });
+	my $newguidquery = $dbh->prepare($selection);
+	my %guid_list;
+	
+	my $pool_cat_uri = $args{POOL_URI};
+		
+	$newguidquery->execute();
+	while (@row = $newguidquery->fetchrow_array) {	
+	   	$guid = $row[0];
+	   	$count++;
+		$guid_list{$guid} = 1;
+	}
+	log_entry( ENTRY => "Found $count new GUIDs" );
+	$newguidquery->finish();
+	log_entry_in_db( DB => $g_db, START => $time, END => $time, ACTION => "FOUND", RETURN => 0, ENTRY => "Found $count new guids" );
+	
+	$dbh->disconnect();
+	
+	return (\%guid_list);
+}
+
+sub lookup_metadata {
+	my $uri = shift;
+	my $guid = shift;
+	my $query = "guid=\'$guid\'";
+  	my $isDST;
+  	my $attribute;
+  	my $stream_name;
+
+	
+	open(GETMETA, "FClistMetaData -u $uri -q $query |") or die "Couldn't list metadata\n";
+	while (<GETMETA>) {
+		if (/FileCategory/) {
+			@bits = split (/\),\(/);
+			foreach (@bits) {
+				if (/FileCategory/) {
+					if (/DST/g) {
+						$isDST = 0;
+					} else {
+						$isDST = 1;
+					}
+				}
+				if (/dataset/g) {
+					($temp,$stream_name) = split(/,/);
+					$stream_name =~ s/\)\n//g;
+				}				
+			}
+		}
+	}
+	close (GETMETA);
+	return ($isDST, $stream_name);
+}
+
+sub load_stream_config {
+	my $stream;
+	my $t1s;
+	my %t1s_by_stream;
+	my $entry;
+	my $selection = "select * from cms_transfermgmt.subscriptions";
+	my $dbh = DBI->connect(    "DBI:Oracle:$g_db",
+                                                        'CMS_TRANSFERMGMT',
+                                                        'smallAND_round',
+                                                        { RaiseError=>1, AutoCommit =>1 });
+
+        my $query = $dbh->prepare($selection);
+        my %guid_list;
+        $query->execute();
+        while (@row = $query->fetchrow_array) {
+	    $row[0] =~ s/ //g;
+	    $row[1] =~ s/ //g; 
+	    $t1s_by_stream{$row[1]} .= "$row[0]:";
+        }
+	
+	chop(%t1s_by_stream);
+	foreach $key (keys %t1s_by_stream) {
+	    $entry .= "$key $t1s_by_stream{$key}, ";
+	}
+	log_entry( ENTRY => "$entry" );
+	log_entry_in_db( DB => $g_db, START => $time, END => $time, ACTION => "START", RETURN => 0, ENTRY => "$entry" );
+	
+	return %t1s_by_stream;
+}
+
+sub load_t1_eb_associations {
+	my %t1s_by_eb;
+	my %eb_by_t1;
+	my @all_t1s;
+	my @all_ebs;
+	
+	open (IN, "<eb_config.txt");
+	while (<IN>) {
+	    chop;
+	    $t1s_by_eb = {};
+	    my ($eb,$t1s) = split(/\//);
+	    $t1s_by_eb{$eb} = $t1s;
+	    foreach my $t1 (split/:/,$t1s) {
+	    	$eb_by_t1{$t1} = $eb;
+	    }
+	}
+	return (\%t1s_by_eb, \%eb_by_t1);
+}
+
+sub parse_command_line () {
+	GetOptions(	"ignore-streams" => \$ignore_streams,
+				"ignore-status" => \$ignore_status,
+				'w=s' => \$new_work_dir,
+				'db=s' => \$g_db,
+				"no-updates" => \$no_updates,
+				'u=s' => \$g_pool_uri
+				);
+	
+	my $entry = '';
+	
+	if ($ignore_streams) {
+		$entry = $entry."ignoring streams,";
+	}
+	if ($ignore_status) {
+		$entry = $entry."ignoring status,";
+	}	
+	$work_dir = $work_dir.$new_work_dir;
+	$entry = $entry."work dir is $work_dir,";
+	if (-e "$work_dir/pid") {
+		log_entry( ENTRY => "Removing old pid file");
+		unlink("$work_dir/pid");
+	} 
+	if (-e "$work_dir/stop") {
+		log_entry( ENTTRY => "Removing old stop file" );
+		unlink ("$work_dir/stop");
+	}
+	if (!$g_db) {
+		$g_db = "devdb9";
+		
+	}
+	$entry = $entry."database is $g_db,";
+	if ($g_pool_uri) {
+		$entry = $entry."using POOL cat $g_pool_uri, ";
+	}	
+	if ($no_updates) {
+		$entry = $entry."not making final updates, ";
+	}	
+
+	
+	$time = time();
+	
+	print "Unprocessed by Getopt::Long\n" if $ARGV[0];
+	foreach (@ARGV) {
+	  print "$_\n";
+	}
+	
+	return $entry;
+}
+
