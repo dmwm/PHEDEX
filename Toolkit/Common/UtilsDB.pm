@@ -69,7 +69,8 @@ sub dbexec
 {
     my ($dbh, $sql, %params) = @_;
     my $stmt = &dbprep ($dbh, $sql);
-    return ($stmt, &dbbindexec($stmt, %params));
+    my $rv = &dbbindexec ($stmt, %params);
+    return wantarray ? ($stmt, $rv) : $stmt;
 }
 
 # Simple bind and execute a SQL statement.
