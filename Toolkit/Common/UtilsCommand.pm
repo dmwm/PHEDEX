@@ -66,6 +66,8 @@ sub touch
 # NB: Don't use File::Copy as it seems to create new files?
 sub mv
 {
+    return 0 if -e $_[1] && ! unlink ($_[1]);
+    return 1 if rename ($_[0], $_[1]);
     my $status = &runcmd ("mv", @_);
     if ($status)
     {
