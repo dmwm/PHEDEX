@@ -33,7 +33,7 @@ sub genXMLCatalogue
 
 	$content .= "    <physical>\n";
 	foreach my $pfn (@{$file->{PFNS}}) {
-	    $content .= "      <pfn filetype=\"ROOT_All\" name=\"$pfn\"/>\n";
+	    $content .= "      <pfn filetype=\"$pfn->{TYPE}\" name=\"$pfn->{PFN}\"/>\n";
 	}
 	$content .= "    </physical>\n";
 
