@@ -1,7 +1,12 @@
 * General
 
-Everything is installed under /data on lxgate04.cern.ch.  Always use
-the "cmsprod" account for everything.
+Production agents are installed under /data on lxgate04.cern.ch.  Use
+the "phedex" account for all operations.
+
+Various test agents (testbed, test, service challenges) operate from
+a different machine, cmslcgco04, under user account "lat", under
+"/data/lat" directory.  All the configurations are however stored in
+the CVS repository.
 
 * Directories
 
@@ -10,21 +15,36 @@ Agent directories
   agent state:            /data/V2Nodes/CERN/incoming
   mouth of distribution:  /data/V2Nodes/CERN/incoming/entry/inbox
   agent logs:             /data/V2Nodes/CERN/logs
+  configuration:          /data/V2Nodes/PHEDEX/Custom/CERN
 
 * Managing the drop box agents
 
-See V2-CERN-Environ.sh, V2-CERN-Start.sh and V2-CERN-Stop.sh in PHEDEX
-Custom/CERN directory.  Use the start script to start the agents, and
-the stop script to stop them.  The environment script can be sourced
-in bourne shell to get various useful variables.  Use "ps xwwf" as
-cmsprod to see which agents are running.
+The agent configuration, including the environment used by the agents,
+is fully defined in PHEDEX/Custom/CERN/Config.  It has a section named
+"ENVIRON" in the beginning which defines all the configurations used
+at CERN, followed by "AGENT" sections for each agent.  The agent
+settings partly rely on the environment variables defined in the first
+section.
 
-Start the scripts with the start script.  If you find you need to
-modify the start sequence for any reason, modify the script, and then
-run it.  The start script starts all agents that need to run at CERN.
+There are also a few CERN-specific glue scripts under Custom/CERN.
+The purpose for these is explained in the other README-*.txt files.
 
-Normally stop the processes with the stop script; they exit cleanly
-quite quickly.  If you have to kill them, do
+To start the default set of agents:
+  PHEDEX/Custom/CERN/Master start
+
+To start specific agents:
+  PHEDEX/Custom/CERN/Master start info-ts info-ds into-tc
+
+To stop the default set of agents:
+  PHEDEX/Custom/CERN/Master stop
+
+To stop specific agents:
+  PHEDEX/Custom/CERN/Master stop info-ts info-ds into-tc
+
+To stop everything known in Config whether running or not:
+  PHEDEX/Custom/CERN/Master stop all
+
+To force kill all the agents in case of emergency:
   kill $(cat /data/V2Nodes/CERN/incoming/*/pid)
 
 * Monitoring data allocations
@@ -33,4 +53,4 @@ Periodically check the data subscriptions.  Tier-1s are currently
 subscribed to certain datasets.  The schedule page lists existing
 subscriptions, and currently unallocated streams.
 
-  http://cern.ch/cms-project-phedex/cgi-bin/browser?subs=1
+  http://cern.ch/cms-project-phedex/cgi-bin/browser?page=subs

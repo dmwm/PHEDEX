@@ -227,10 +227,10 @@ gridcert/proxy.cert):
 
   1) Once a month, load a proxy certificate to myproxy service
         grid-proxy-init
-	myproxy-init -c 720
+        myproxy-init -c 720
 
   2) Extract the proxy into the certificate directory
-	cp /tmp/x509up_u$(id -u) $X509_USER_PROXY
+        cp /tmp/x509up_u$(id -u) $X509_USER_PROXY
 
   3) Make sure the $X509_USER_PROXY is set in the environment
      when you start transfer agents.  Make sure $X509_USER_KEY
@@ -252,11 +252,11 @@ Then the administrator starting the service should:
 
   1) Once a week, load a proxy certificate to myproxy service
         grid-proxy-init
-	myproxy-init -l phedex -R "phedex/agenthost.your.site.edu" -c 720
+        myproxy-init -l phedex -R "phedex/agenthost.your.site.edu" -c 720
 
   2) As yourself, extract the proxy into the certificate directory
-	cp /tmp/x509up_u$(id -u) /home/phedex/gridcert/proxy.cert.$(id -u)
-	chmod g+r /home/phedex/gridcert/proxy.cert.$(id -u)
+        cp /tmp/x509up_u$(id -u) /home/phedex/gridcert/proxy.cert.$(id -u)
+        chmod g+r /home/phedex/gridcert/proxy.cert.$(id -u)
 
 The "phedex" admin account should:
 

@@ -13,12 +13,10 @@ To add a new neighbour B to an existing node A:
 
   ./NodeManager add-node			\
       -name B					\
-      -host b-host.some.internet.address	\
-      -cat http://cat-contact-string		\
       -neighbours A				\
       -db theDBTNSname				\
-      -user DBusername				\
-      -password DBpassword
+      -dbuser DBusername			\
+      -dbpass DBpassword
 
 To make the new node neighbour of multiple nodes, separate the node
 names with commas, like this: "-neighbours A,X,Y,Z".
@@ -30,8 +28,8 @@ To remove the node B we just created:
   ./NodeManager remove-node			\
       -name B					\
       -db theDBTNSname				\
-      -user DBusername				\
-      -password DBpassword
+      -dbuser DBusername			\
+      -dbpass DBpassword
 
 ** Breaking a link with new node
 
@@ -45,17 +43,15 @@ new node:
       -name B					\
       -neighbours A				\
       -db theDBTNSname				\
-      -user DBusername				\
-      -password DBpassword
+      -dbuser DBusername			\
+      -dbpass DBpassword
 
   ./NodeManager add-node			\
-	-name C					\
-	-host c-host.some.internet.address	\
-	-cat http://cat-contact-string		\
-	-neighbours A,B				\
-	-db theDBTNSname			\
-	-user DBusername			\
-	-password DBpassword
+      -name C					\
+      -neighbours A,B				\
+      -db theDBTNSname				\
+      -dbuser DBusername			\
+      -dbpass DBpassword
 
 ** Removing an intermediate node
 
@@ -70,12 +66,12 @@ database, you can proceed to delete the node C.
       -name C					\
       -neighbours A,B				\
       -db theDBTNSname				\
-      -user DBusername				\
-      -password DBpassword
+      -dbuser DBusername			\
+      -dbpass DBpassword
 
   ./NodeManager new-neighbours			\
       -name B					\
       -neighbours A				\
       -db theDBTNSname				\
-      -user DBusername				\
-      -password DBpassword
+      -dbuser DBusername			\
+      -dbpass DBpassword
