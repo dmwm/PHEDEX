@@ -92,7 +92,7 @@ sub flushFailed
         while ($attempts <= 10)
         {
 	    last if &rfrm ($remote);
-	    last if !&rfstat ($remote);
+	    last if !&rfstatmode ($remote);
 	    &alert ("failed to remove $remote (attempt $attempts), trying again in 10 seconds");
 	    sleep (10);
 	    $attempts++;
@@ -195,7 +195,7 @@ sub flushQueue
 
     # If the output already exists, complain and assume something went
     # awfully wrong, and require operator intervention.
-    if (! $self->{DRYRUN} && $self->{OUTPUT} && &rfstat ($stored))
+    if (! $self->{DRYRUN} && $self->{OUTPUT} && &rfstatmode ($stored))
     {
 	&alert ("zip already exists: $stored");
 	return 0;

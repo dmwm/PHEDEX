@@ -1,24 +1,41 @@
 package UtilsRFIO; use strict; use warnings; use base 'Exporter';
-our @EXPORT = qw(rfstat rfmkpath rflist rfsubdirs rffiles rfcp rfrm rfrmall rfcpmany);
+our @EXPORT = qw(rfstat rfstatmode rfstatsize rfmkpath rflist
+		 rfsubdirs rffiles rfcp rfrm rfrmall rfcpmany);
 use UtilsCommand;
 
 # Check if a RFIO file exists.  Returns undef if the file
-# doesn't exist at all, otherwise the protection string.
+# doesn't exist at all, otherwise matches the stat output
+# to the second argument and returns the match from the
+# first parenthesised capture ($1).
 sub rfstat
 {
-    my ($name) = @_;
-    my $mode = undef;
+    my ($name, $pattern) = @_;
+    my $info = undef;
     open (RFCMD, "rfstat $name 2>/dev/null |") || die "cannot run rfstat";
     while (<RFCMD>)
     {
-	if (/^Protection\s*:\s*(\S+)\s+/)
+	if (/$pattern/)
 	{
-	    $mode = $1;
+	    $info = $1;
 	    last;
 	}
     }
     close (RFCMD);
-    return $mode;
+    return $info;
+}
+
+# Check if a RFIO file exists.  Returns undef if the file
+# doesn't exist at all, otherwise the mode string.
+sub rfstatmode
+{
+    return &rfstat (@_, qr/^Protection\s*:\s*(\S+)\s+/);
+}
+
+# Check if a RFIO file exists.  Returns undef if the file
+# doesn't exist at all, otherwise the size.
+sub rfstatsize
+{
+    return &rfstat (@_, qr/^Size[^:]*bytes[^:]*:\s*(\S+)/);
 }
 
 # Make RFIO directory tree if it doesn't exist yet.  Returns
@@ -27,7 +44,7 @@ sub rfstat
 sub rfmkpath
 {
     my ($name) = @_;
-    my $status = &rfstat ($name);
+    my $status = &rfstatmode ($name);
     if (! $status) {
 	return !&runcmd ("rfmkdir", "-p", $name);
     } elsif ($status =~ /^d/) {
@@ -83,7 +100,7 @@ sub rfrmall
 {
     my ($dir) = @_;
 
-    return 1 if ! &rfstat ($dir);
+    return 1 if ! &rfstatmode ($dir);
     foreach my $file (&rffiles ($dir))
     {
         for (my $attempts = 1; $attempts <= 10; ++$attempts)
