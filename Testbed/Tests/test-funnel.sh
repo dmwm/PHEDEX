@@ -5,12 +5,12 @@ source /afs/cern.ch/project/oracle/script/setoraenv.sh -s 8174
 
 rm -f entry
 ln -s null entry
-mkdir -p {null,xml,exist,mrg,out}
-rm -fr {null,xml,exist,mrg,out}/{inbox,work}/*
+mkdir -p {null,xml,exist,mrg,out,ref}
+rm -fr {null,xml,exist,mrg,out,ref}/{inbox,work}/*
 
 ./DropNullAgent -in null -out xml -model ../RLSTest/models/25hz >& log-null &
 ./DropXMLUpdate -in xml -out exist >& log-xml &
-./DropCastorFileCheck -in exist -out mrg >& log-exist &
+./DropCastorFileCheck -in exist -out mrg -out ref >& log-exist &
 ./DropFunnel -in mrg -out out \
 	-queue . 1800 1500 \
 	-stagehost stagecmsprod \
