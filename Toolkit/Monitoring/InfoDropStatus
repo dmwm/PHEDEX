@@ -140,6 +140,7 @@ sub idle
 		    &dbbindexec($stmt,
 			        ":now" => $now,
 				":site" => $site,
+				":host" => $host,
 			    	":agent" => $agent,
 				":worker" => $worker,
 				":pid" => $alive{$agent}{$worker}{PID},
