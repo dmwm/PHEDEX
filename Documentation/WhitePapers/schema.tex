@@ -1,7 +1,7 @@
 \documentclass{cmspaper}
 \def\RCS$#1: #2 ${\expandafter\def\csname RCS#1\endcsname{#2}}
-\RCS$Revision: 1.9 $
-\RCS$Date: 2004/06/28 17:34:29 $
+\RCS$Revision: 1.10 $
+\RCS$Date: 2004/08/19 10:55:19 $
 
 \usepackage{graphicx}
 
@@ -135,31 +135,39 @@
 This section details the low-level SQL required to register and remove distribution network components, and how to form/remove route links between neighbours. In practice each of these processes will be wrapped by a tool (see Managers section in CVS).
 
 \subsection{Adding a new node}
-To add a new node you first determine name, host string (hostname of disk server/SE that it manages- although this can be any string that uniquely identifies pfns in the file catalogue as being at this node) and catalogue contact URL. For example, a node named TBSource1, with hostname/pfn matching string /NodeTestbed/TestbedSource1/SE and catalogue xmlcatalogue_file:/NodeTestbed/TestbedCatalogue.xml.
+To add a new node you first determine name, host string (hostname of disk server/SE that it manages- although this can be any string that uniquely identifies pfns in the file catalogue as being at this node) and catalogue contact URL. For example, a node named TBSource1, with hostname/pfn matching string /NodeTestbed/TestbedSource1/SE and catalogue xmlcatalogue\_file:/NodeTestbed/TestbedCatalogue.xml.
 
+{\small\begin{verbatim}
 	insert into t_nodes values
 		(‘TBSource1’,
 		’/NodeTestbed/TestbedSource1/SE’,
 		’xmlcatalogue_file:/NodeTestbed/TestbedCatalogue.xml’);
+\end{verbatim}}
+
 
 If the new node is to be a neighbour of another node- say TBSink1 for the example above, then you need to build the route between them
 
+{\small\begin{verbatim}
 	insert into t_routing values
 		('TBSource1','TBSink1','TBSink1',0,1);
 	insert into t_routing values
-		('TBSink1','TBSource1','TBSource1',0,1);		
+		('TBSink1','TBSource1','TBSource1',0,1);
+\end{verbatim}}	
 
 \subsection{Adding a new agent name}
 If your desired agent name differs from an already used name then you need to register it- for example an agent named GUCTransfer
 
+{\small\begin{verbatim}
 	insert into t_agents values
 		('GUCTransfer');
+\end{verbatim}}
 
 \subsection{Removing a node}
 Removing nodes is somewhat tricky, as it also requires that there are no refrences to that node, so if there are still entries in t_file_state relating to it then  they need to be dealt with first. We also need to fix the routing afterwards: this is best done by removing all references to the node in the routing table.
 
 So, for the example above, assuming that there are no references in the database to the node, then to remove TBSource1
 
+{\small\begin{verbatim}
 	delete from t_routing
 		where from_node = 'TBSource1';
 	delete from t_routing
@@ -169,7 +177,8 @@ So, for the example above, assuming that there are no references in the database
 		
 	delete from t_nodes
 		where node_name = 'TBSource1'; 
- 
+\end{verbatim}}
+
 These are, however, relatively trivial cases. Imagine you have the existing network A-B, and you want to add C between A and B to create A-C-B. First you need to remove the existing link, then create the new node. If you then want to remove C you need to remove C first, then restore the A-B link
 
 
