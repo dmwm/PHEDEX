@@ -132,6 +132,7 @@ sub refresh_neighbour_links {
 	."and gateway = '$g_parent_node'";
     direct_db_transaction(  DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, SQL => $update );
 }
+
 sub update_table {
     my $routes = shift;
     foreach $route (@$routes) {
@@ -246,15 +247,15 @@ sub compare_with_existing_routes {
     }
 
     # timeout routes
-#    foreach $dest (keys %gate_time_hops_by_dest) {
-#	my ($gate,$time,$hops) = split( /:/,$gate_time_hops_by_dest{$dest} );
-#	my $check = time() - $g_timeout;
-#	if ($time < $check) {
-#	    $hops = $g_infinity;
-#	    log_entry( "Timeout for $gate:$dest:$time:$hops" );
-#	}
-#	$gate_time_hops_by_dest{$dest} = "$gate:$time:$hops";
-#    }
+    foreach $dest (keys %gate_time_hops_by_dest) {
+	my ($gate,$time,$hops,$status) = split( /:/,$gate_time_hops_by_dest{$dest} );
+	my $check = time() - $g_timeout;
+	if ($time < $check) {
+	    $hops = $g_infinity;
+	    log_entry( "Timeout for $gate:$dest:$time:$hops:$status" );
+	}
+	$gate_time_hops_by_dest{$dest} = "$gate:$time:$hops:$status";
+    }
 
     # Build complete merged table
     my @routes = ();
