@@ -197,7 +197,7 @@ sub refresh_acquaintance {
 				."where from_node = '$args{NODE}' "
 				."and to_node = '$args{MY_NODE}' "
 				."and gateway = '$args{MY_NODE}'";
-	direct_db_transaction(  DB => $args{DB}, DB_USER => $args{DB_USER}, DB_PASSWD => $args{DB_PASSWD}, MY_NODE => $args{MY_NODE}, NODE => $args{NODE}, SQL = $update );
+	direct_db_transaction(  DB => $args{DB}, DB_USER => $args{DB_USER}, DB_PASSWD => $args{DB_PASSWD}, MY_NODE => $args{MY_NODE}, NODE => $args{NODE}, SQL => $update );
 }
 
 sub get_neighbours {
