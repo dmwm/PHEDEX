@@ -104,7 +104,7 @@ sub idle
 	{
 	    my ($node, $files, $insert, $state) = @$row;
 	    my $old = ($stamps{$node} ||= [ $node, 0, 0, 0 ]);
-	    my $maxtime = (reverse sort { $b <=> $a } $old->[3], $insert, $state)[0];
+	    my $maxtime = (sort { $b <=> $a } $old->[3], $insert, $state)[0];
 	    $old->[2] = $files;
 	    $old->[3] = $maxtime;
 	}
