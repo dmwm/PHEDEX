@@ -140,8 +140,7 @@ sub add_node {
 
 	if ( 	$node_name eq '' ||
 			$node_host_string eq '' ||
-			$node_cat_uri eq '' ||
-			! $node_neighbours[0] ) {
+			$node_cat_uri eq '' }
 		display_usage();
 	}
 	
