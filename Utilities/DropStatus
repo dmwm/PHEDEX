@@ -4,7 +4,7 @@ BEGIN { use strict; use warnings; }
 
 sub report
 {
-    my ($prefix, $qprefix, $dir, @queues) = @_;
+    my ($prefix, $dir, @queues) = @_;
     my @inbox = <$dir/inbox/*>;
     my @pending = <$dir/work/*>;
     my @outbox = <$dir/outbox/*>;
@@ -23,8 +23,8 @@ foreach $dropdir (@ARGV)
     foreach $w (<$dropdir/worker-*>)
     {
 	my $id = ($w =~ /worker-(\d+)/)[0];
-	&report (" W$id", "  QW$id", $w, <$w/{inbox,work}/*>);
+	&report (" W$id", $w, <$w/{inbox,work}/*>);
     }
 
-    &report ("", "  QM", $dropdir, <$dropdir/queues/*>);
+    &report (" M", $dropdir, <$dropdir/queues/*>);
 }
