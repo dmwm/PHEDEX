@@ -1,10 +1,19 @@
+eval qx(cat "$home/UtilsRFIO.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsCommand.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsLogging.pm"); die $@ if $@;
+eval qx(cat "$home/UtilsTiming.pm"); die $@ if $@;
+
 # Initialise drop-box-based agent.
 sub initDropBoxAgent
 {
     die "$me: fatal error: no drop box directory given\n" if ! $dropdir;
     die "$me: fatal error: non-existent drop box directory\n" if ! -d $dropdir;
     foreach my $dir (@nextdir) {
-      die "$me: fatal error: no downstream drop box\n" if ! -d $dir;
+	if ($dir =~ /^([a-z]+):/) {
+            die "$me: fatal error: unrecognised bridge $1" if ($1 ne "scp" && $1 ne "rfio");
+	} else {
+            die "$me: fatal error: no downstream drop box\n" if ! -d $dir;
+	}
     }
 
     $inbox = "$dropdir/inbox";
@@ -117,6 +126,61 @@ sub renameDrop
     return 1;
 }
 
+# Utility to undo from failed scp bridge operation
+sub scpBridgeFailed
+{
+    my ($msg, $remote) = @_;
+    # &runcmd ("ssh", $host, "rm -fr $remote");
+    &alert ($msg);
+    return 0;
+}
+
+sub scpBridgeDrop
+{
+    my ($source, $target) = @_;
+
+    return &scpBridgeFailed ("failed to chmod $source", $target)
+        if ! chmod(0775, "$source");
+
+    return &scpBridgeFailed ("failed to copy $source", $target)
+        if &runcmd ("scp", "-rp", "$source", "$target");
+
+    return &scpBridgeFailed ("failed to copy /dev/null to $target/go", $target)
+        if &runcmd ("scp", "/dev/null", "$target/go"); # FIXME: go-pending?
+
+    return 1;
+}
+
+# Utility to undo from failed rfio bridge operation
+sub rfioBridgeFailed
+{
+    my ($msg, $remote) = @_;
+    &rfrmall ($remote) if $remote;
+    &alert ($msg);
+    return 0;
+}
+
+sub rfioBridgeDrop
+{
+    my ($source, $target) = @_;
+    my @files = <$source/*>;
+    do { &alert ("empty $workdir/$drop"); return 0; } if ! scalar @files;
+
+    return &rfioBridgeFailed ("failed to create $target")
+        if ! &rfmkpath ($target);
+
+    foreach my $file (@files)
+    {
+        return &rfioBridgeFailed ("failed to copy $file to $target", $target)
+            if ! &rfcp ("$source/$file", "$target/$file");
+    }
+
+    return &rfioBridgeFailed ("failed to copy /dev/null to $target", $target)
+        if ! &rfcp ("/dev/null", "$target/go");  # FIXME: go-pending?
+
+    return 1;
+}
+
 # Transfer the drop to the next agent
 sub relayDrop
 {
@@ -149,7 +213,7 @@ sub relayDrop
     {
 	&rmtree ("$outdir/$drop");
     }
-    elsif (scalar @nextdir == 1)
+    elsif (scalar @nextdir == 1 && $nextdir[0] !~ /^([a-z]+):/)
     {
 	-d "$nextdir[0]/inbox"
 	    || mkdir "$nextdir[0]/inbox"
@@ -167,6 +231,15 @@ sub relayDrop
     {
         foreach my $dir (@nextdir)
         {
+	    if ($dir =~ /^scp:/) {
+		&scpBridgeDrop ("$outdir/$drop", "$dir/inbox/$drop");
+		next;
+	    } elsif ($dir =~ /^rfio:/) {
+		&rfioBridgeDrop ("$outdir/$drop", "$dir/inbox/$drop");
+		next;
+	    }
+
+	    # Local
 	    -d "$dir/inbox"
 	        || mkdir "$dir/inbox"
 	        || -d "$dir/inbox"
@@ -199,6 +272,7 @@ sub relayDrop
         # still manually fix them to be in ready state.  We haven't lost
         # anything.  (FIXME: avoidable?)
         foreach my $dir (@nextdir) {
+	    next if $dir =~ /^([a-z]+):/; # FIXME: also handle here?
 	    &mv("$dir/inbox/$drop/go-pending", "$dir/inbox/$drop/go");
         }
 
