@@ -33,12 +33,12 @@ sub connectToDatabase
 	    if ! scalar @{$dbh->selectall_arrayref(qq{
 		select count(*) from t_agents where name = '$me'})};
 
-	$dbh->do(qq{insert into t_config values ('$mynode', '$me', 1, $now)})
+	$dbh->do(qq{insert into t_lookup values ('$mynode', '$me', 1, $now)})
 	    if ! scalar @{$dbh->selectall_arrayref(qq{
-		select count(*) from t_config where node = '$mynode' and agent = '$me'})};
+		select count(*) from t_lookup where node = '$mynode' and agent = '$me'})};
 
 	$dbh->do(qq{
-		update t_config
+		update t_lookup
 		set state = 1, last_contact = $now
 		where node = '$mynode' and agent = '$me'});
 	$dbh->commit();
