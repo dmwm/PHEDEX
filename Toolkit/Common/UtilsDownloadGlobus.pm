@@ -1,4 +1,5 @@
 package UtilsDownloadGlobus; use strict; use warnings; use base 'UtilsDownload';
+use UtilsLogging;
 
 sub new
 {
@@ -7,6 +8,21 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (COMMAND => [ 'globus-url-copy' ]); # Transfer command
     my %args = (@_);
+
+    # Ensure batch transfers are supported by globus-url-copy if requested.
+    # Assume any 3.x or newer version does.
+    if ($args{BATCH_FILES}
+	&& $args{BATCH_FILES} > 1)
+    {
+	if (! open (GUC, "globus-url-copy -version |")
+	    || grep (/^globus-url-copy:\s*(\d+)(\.\d*)*\s*$/ && $1 < 3, <GUC>))
+	{
+	    &logmsg ("turning off batch transfers, not supported by globus-url-copy");
+	    $args{BATCH_FILES} = 1;
+	}
+	close (GUC);
+    }
+
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
@@ -41,11 +57,15 @@ sub transferBatch
 	     # Otherwise we have to make individual transfers.
 	     my $from_pfn = $file->{FROM_PFN};
 	     my $to_pfn = $file->{TO_PFN};
-	     $from_pfn =~ s/^[a-z]:/gsiftp:/; $to_pfn =~ s/^[a-z]:/gsiftp:/;
+	     $from_pfn =~ s/^[a-z]+:/gsiftp:/; $to_pfn =~ s/^[a-z]+:/gsiftp:/;
 	     my ($from_dir, $from_file) = ($from_pfn =~ m|(.*)/([^/]+)$|);
 	     my ($to_dir, $to_file) = ($to_pfn =~ m|(.*)/([^/]+)$|);
 
-	     if ($from_file eq $to_file) {
+	     # If destination LFNs are equal and we attempt batch transfers,
+	     # try to create optimal transfer groups.  Otherwise don't bother;
+	     # if batch transfers are off, underlying globus-url-copy might
+	     # not even support directories as destinations.
+	     if ($from_file eq $to_file && $self->{BATCH_FILES} > 1) {
 		 push (@{$groups{$to_dir}}, { FILE => $file, PATH => $from_pfn });
 	     } else {
 		 push (@{$groups{$to_pfn}}, { FILE => $file, PATH => $from_pfn });
