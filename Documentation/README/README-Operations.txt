@@ -41,8 +41,8 @@ in http://cern.ch/cms-project-phedex/cgi-bin/browser
 
 To restart the allocator agent (as cmsprod@lxgate04.cern.ch):
   cd /data/V2Nodes/ManagementNode/scripts
-  . /afs/cern.ch/project/oracle/script/setoranv.sh -s 8174
-  nohup ./Allocator.pl -db devdb9 \
+  . /afs/cern.ch/project/oracle/script/setoraenv.sh -s 8174
+  nohup ./Allocator.pl -db pdb01 \
      -user cms_transfermgmt \
      -passwd smalland_round \
      -w ../work \
