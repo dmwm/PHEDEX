@@ -68,7 +68,16 @@ while(!(-e "$g_work_dir/stop")) {
 		my %hops_by_destination = get_routes( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, MY_NODE => $g_parent_node, NODE => $neighbour );
 		foreach $destination (keys %hops_by_destination) {
 		    log_entry( ENTRY => "$destination $hops_by_destination{$destination}" );
+			$hops_by_destination{$destination} += 1;
+			
+			if (exists $my_hops_by_destination{$destination}) {
+			} else {
+				
+			}
+			
 		}
+		
+		
 	}
 	
 }
@@ -113,6 +122,27 @@ sub publish_availability {
 	$return = $dbh->do($log);
 
 	$return = $dbh->disconnect();
+}
+
+sub direct_db_transaction {
+	my %args = (
+		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
+		DB_USER => 'some_user',
+		DB_PASSWD => 'some_password',
+		MY_NODE => 'some_node',
+		NODE => 'some_other_node',
+		SQL => 'some_sql',
+		@_
+	);
+	
+	my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
+						 	"$args{DB_USER}", 
+						 	"$args{DB_PASSWD}", 
+						 	{ RaiseError=>1, AutoCommit =>1 });
+	
+	$dbh->do($args{SQL});
+	
+	$dbh->disconnect();
 }
 
 # ###############################################################
@@ -161,20 +191,13 @@ sub refresh_acquaintance {
 		@_
 	);
 	
-	my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
-						 	"$args{DB_USER}", 
-						 	"$args{DB_PASSWD}", 
-						 	{ RaiseError=>1, AutoCommit =>1 });
-	
 	my $time = time();
 	my $update = "update t_Routing "
 				."set timestamp = $time "
 				."where from_node = '$args{NODE}' "
 				."and to_node = '$args{MY_NODE}' "
 				."and gateway = '$args{MY_NODE}'";
-	$dbh->do($update);
-	
-	$dbh->disconnect();
+	direct_db_transaction(  DB => $args{DB}, DB_USER => $args{DB_USER}, DB_PASSWD => $args{DB_PASSWD}, MY_NODE => $args{MY_NODE}, NODE => $args{NODE}, SQL = $update );
 }
 
 sub get_neighbours {
