@@ -148,6 +148,7 @@ sub transfer {
 	      n_files, sz_files,
 	      n_onsite, sz_onsite,
 	      n_staged, sz_staged,
+	      n_available, sz_available,
 	      n_in_transfer, sz_in_transfer,
 	      n_wanted, sz_wanted,
 	      n_pending, sz_pending,
@@ -162,6 +163,7 @@ sub transfer {
 	  "<th colspan='2'>Files</th>",
 	  "<th colspan='2'>On Site</th>",
 	  "<th colspan='2'>Staged</th>",
+	  "<th colspan='2'>Available</th>",
 	  "<th colspan='2'>In Transfer</th>",
 	  "<th colspan='2'>Wanted</th>",
 	  "<th colspan='2'>Pending</th>",
@@ -175,12 +177,14 @@ sub transfer {
 	  "<th align='right'>N</th><th align='right'>Size</th>",
 	  "<th align='right'>N</th><th align='right'>Size</th>",
 	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
           "</tr>\n";
 
     $query->execute();
     my ($tfiles, $tfilesize,
 	$tonsite, $tonsitesize,
 	$tstaged, $tstagedsize,
+	$tavail, $tavailsize,
 	$ttransf, $ttransfsize,
 	$twanted, $twantedsize,
 	$tpending, $tpendingsize,
@@ -191,6 +195,7 @@ sub transfer {
 	my ($n, $stamp, $files, $filesize,
 	    $onsite, $onsitesize,
 	    $staged, $stagedsize,
+	    $avail, $availsize,
 	    $transf, $transfsize,
 	    $wanted, $wantedsize,
 	    $pending, $pendingsize,
@@ -198,6 +203,7 @@ sub transfer {
     	$tfiles += $files; $tfilesize += $filesize;
 	$tonsite += $onsite; $tonsitesize += $onsitesize;
 	$tstaged += $staged; $tstagedsize += $stagedsize;
+	$tavail += $avail; $tavailsize += $availsize;
 	$ttransf += $transf; $ttransfsize += $transfsize;
 	$twanted += $wanted; $twantedsize += $wantedsize;
 	$tpending += $pending; $tpendingsize += $pendingsize;
@@ -221,6 +227,8 @@ sub transfer {
 	      "<td align='right'$onscolor>@{[&format_size($onsitesize)]}</td>",
 	      "<td align='right'>@{[&format_num($staged)]}</td>",
 	      "<td align='right'>@{[&format_size($stagedsize)]}</td>",
+	      "<td align='right'>@{[&format_num($avail)]}</td>",
+	      "<td align='right'>@{[&format_size($availsize)]}</td>",
 	      "<td align='right'$tracolor>@{[&format_num($transf)]}</td>",
 	      "<td align='right'$tracolor>@{[&format_size($transfsize)]}</td>",
 	      "<td align='right'$wancolor>@{[&format_num($wanted)]}</td>",
@@ -247,6 +255,8 @@ sub transfer {
 	  "<th align='right'$onscolor>@{[&format_size($tonsitesize)]}</th>",
 	  "<th align='right'>@{[&format_num($tstaged)]}</th>",
 	  "<th align='right'>@{[&format_size($tstagedsize)]}</th>",
+	  "<th align='right'>@{[&format_num($tavail)]}</th>",
+	  "<th align='right'>@{[&format_size($tavailsize)]}</th>",
 	  "<th align='right'$tracolor>@{[&format_num($ttransf)]}</th>",
 	  "<th align='right'$tracolor>@{[&format_size($ttransfsize)]}</th>",
 	  "<th align='right'$wancolor>@{[&format_num($twanted)]}</th>",
