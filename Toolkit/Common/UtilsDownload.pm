@@ -148,7 +148,6 @@ sub preClean
 	foreach my $file (@$batch)
 	{
 	    $file->{TIMING}{PRECLEAN_START} = &mytimeofday();
-	    $file->{TIMING}{PRECLEAN_FINISH} = $file->{TIMING}{PRECLEAN_START} - 1;
 
 	    do { $file->{DONE_PRE_CLEAN} = 1; next }
 	        if $file->{FAILURE} || ! $self->{DELETE_COMMAND};
@@ -314,7 +313,6 @@ sub postClean
 	foreach my $file (@$batch)
 	{
 	    $file->{TIMING}{POSTCLEAN_START} = &mytimeofday();
-	    $file->{TIMING}{POSTCLEAN_FINISH} = $file->{TIMING}{POSTCLEAN_START} - 1;
 
 	    do { $file->{DONE_POST_CLEAN} = 1; next }
 	        if ! $file->{FAILURE} || ! $self->{DELETE_COMMAND};
