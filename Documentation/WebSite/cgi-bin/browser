@@ -633,9 +633,18 @@ sub rates {
 
     print "<h2>Transfer Rate Statistics</h2>\n";
     print "<p>CERN Daily External Internet Traffic<br>\n";
-    print "<a href='http://pcstats.cern.ch/misc/cern-all.html'><IMG
-      VSPACE=10 WIDTH=600 HEIGHT=135 ALIGN=TOP
-      SRC='http://pcstats.cern.ch/misc/cern-all-day.png' ALT='day'></a></p>\n";
+    if ($db ne 'rac')
+    {
+        print "<a href='http://pcstats.cern.ch/misc/cern-all.html'><IMG
+          VSPACE=10 WIDTH=600 HEIGHT=135 ALIGN=TOP
+          SRC='http://pcstats.cern.ch/misc/cern-all-day.png' ALT='day'></a></p>\n";
+    }
+    else
+    {
+        print "<a href='http://pcstats.cern.ch/dtag/cernusa.html'><IMG
+          VSPACE=10 WIDTH=600 HEIGHT=135 ALIGN=TOP
+          SRC='http://pcstats.cern.ch/dtag/cernusa-day.png' ALT='day'></a></p>\n";
+    }
     print "<table>\n";
     foreach my $span (sort { ($a || 9999999) <=> ($b || 9999999) } keys %stats)
     {
