@@ -64,11 +64,21 @@ eval qx(cat "$home/UtilsAgent.pm"); die $@ if $@;
 # the values are undef, the file doesn't exist.
 sub fileProperties
 {
-    my ($pfn) = @_;
-    open (NSLS, "nsls -lT $pfn |") || return (0, undef, undef, undef);
-    my ($tape, $pos, $size) = (split(/\s+/, <NSLS>))[3,4,6];
-    close (NSLS);
-    return (1, $tape, $pos, $size);
+    my ($pfn, $cache) = @_;
+    if (! exists $cache->{$pfn})
+    {
+	# Fill cache for the whole directory
+	my $dir = $pfn; $dir =~ s|[^/]+$||;
+	open (NSLS, "nsls -lT $dir |") || return (0, undef, undef, undef);
+	while (<NSLS>)
+	{
+	    my ($tape, $pos, $size, $file) = (split (/s+/, $_))[3,4,6,8];
+	    $cache->{"$dir/$file"} = [ $tape, $pos, $size ];
+	}
+	close (NSLS);
+    }
+
+    return (1, @{$cache->{$pfn}});
 }
 
 # Find out files stager knows about.  Returns a reference to a hash of
@@ -129,7 +139,7 @@ sub stagerLoad
 # $STAGE_RETRY if there was a transient error.
 sub checkFileStatus
 {
-    my ($file, $stagedin) = @_;
+    my ($file, $cache, $stagedin) = @_;
     my $pfn = $file->{PFN};
 
     # Get file properties if we don't have them.  If this fails
@@ -137,7 +147,7 @@ sub checkFileStatus
     # the file doesn't exist, return zero to indicate failure.
     if (! exists $file->{TAPE})
     {
-	my ($success, $tape, $pos, $size) = &fileProperties ($pfn);
+	my ($success, $tape, $pos, $size) = &fileProperties ($pfn, $cache);
 	return $STAGE_RETRY if ! $success;
 	return $STAGE_NONEXISTENT
 	    if (! defined $tape || ! defined $pos || ! defined $size);
@@ -188,12 +198,12 @@ sub checkFileStatus
 # Check and update the status of all files.
 sub updateFileStatus
 {
-    my ($file, $stagedin) = @_;
+    my ($file, $cache, $stagedin) = @_;
 
     # Ignore files we've already complained about
     return if $file->{BAD};
 
-    my $status = &checkFileStatus ($file, $stagedin);
+    my $status = &checkFileStatus ($file, $cache, $stagedin);
     if ($status == $STAGE_RETRY)
     {
 	# Try again another time
@@ -329,9 +339,9 @@ sub processAllFiles
         return if ! defined $stagedin;
 
         # Update status
+	my %cache = ();
         foreach my $file (@files) {
-	    &maybeStop();
-            &updateFileStatus ($file, $stagedin);
+            &updateFileStatus ($file, \%cache, $stagedin);
         }
 
         # Write out the new file state
