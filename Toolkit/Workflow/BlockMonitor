@@ -72,7 +72,7 @@ sub new
     return $self;
 }
 
-# main routine 
+# Update statistics.
 sub idle
 {
     my ($self, @pending) = @_;
@@ -136,8 +136,6 @@ sub idle
     	    	":bytes" => $nbytes,
     	    	":block" => $block,
     	    	":node" => $node);
-
-	    &logmsg ("xstats: $node $block $nfiles @{[sprintf '%.2fTB', $nbytes / (1024**4)]}");
         }
 
 	$dbh->commit();
