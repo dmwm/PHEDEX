@@ -1,0 +1,115 @@
+#!/usr/bin/perl
+
+# Node Routing Agent
+#
+# This agent is responsible for making links between its parent
+# and neighbour nodes, and maintaining routing information for 
+# agents operating under the same parent node.
+#
+# The agent implements a version of the Routing Internet Protocol
+# algorithm (RFC 2543), detailed in X.
+#
+# It is configured with its own node name, the node names of its 
+# neighbours.
+#
+# Command line options
+# -name	<parent node>	parent node name
+# -n <neighbour list>	colon-separated list of neighbour names (e.g. INFN_Transfer:CERN_MSS)
+# -db <tns name>		sets the Oracle db to talk to
+# -w <workdir>			sets the workdir for the agent
+# -no-updates			disables database updates
+
+use DBI;
+use Getopt::Long;
+$| = 1; # set autoflush
+
+my $g_no_updates;	# 1 means will not make final updates in tmdb
+my $g_work_dir = '';	# place pid and stop files here...
+my $g_db = "devdb9";	# tnsname of Oracle db (tmdb)
+
+# ###############################################################
+# Main agent loop
+# ###############################################################
+
+my $entry = parse_command_line();
+log_entry( ENTRY => $entry );
+
+
+
+
+
+
+# ###############################################################
+# Non-agent specific subroutines
+# ###############################################################
+sub log_entry {
+	my %args = (
+		ENTRY => 'default_log_entry',
+		@_
+	);
+	my $time = time();
+	my $localtime = localtime($time);
+	print "$localtime: $args{ENTRY}\n";
+}
+
+sub publish_availability {
+	my %args = (
+		NODE => 'default_node_label',
+		AGENT => 'default_agent_label',	
+		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
+		DB_USER => 'some_user',
+		DB_PASSWD => 'some_password',
+		@_
+	);
+	my $time = time();
+	
+	$return = my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
+						 	'$args{DB_USER}', 
+						 	'$args{DB_PASSWD}', 
+						 	{ RaiseError=>1, AutoCommit =>1 });
+	
+	$log = "update t_Lookup "
+			."set last_contact=$time "
+			."where agent='$args{AGENT}' "
+			."and node='$args{NODE}'";
+	$return = $dbh->do($log);
+
+	$return = $dbh->disconnect();
+}
+
+# ###############################################################
+# Subroutines
+# ###############################################################
+sub parse_command_line () {
+	GetOptions(	"name" => \$parent_node,
+				"n" => \$neighbour_list,
+				'w=s' => \$new_work_dir,
+				'db=s' => \$g_db,
+				"no-updates" => \$no_updates,
+				);
+	
+	my $entry = '';
+	
+	$work_dir = $work_dir.$new_work_dir;
+	$entry = $entry."work dir is $work_dir,";
+	if (-e "$work_dir/pid") {
+		log_entry( ENTRY => "Removing old pid file");
+		unlink("$work_dir/pid");
+	} 
+	if (-e "$work_dir/stop") {
+		log_entry( ENTTRY => "Removing old stop file" );
+		unlink ("$work_dir/stop");
+	}
+	if (!$g_db) {
+		$g_db = "devdb9";
+		
+	}
+	$entry = $entry."database is $g_db,";
+	
+	print "Unprocessed by Getopt::Long\n" if $ARGV[0];
+	foreach (@ARGV) {
+	  print "$_\n";
+	}
+	
+	return $entry;
+}
