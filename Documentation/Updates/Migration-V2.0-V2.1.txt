@@ -193,7 +193,7 @@ done
 Utilities/DSBFill -db cms -dbuser cms_transfermgmt -dbpass smalland_round
 Toolkit/Request/TRSyncWeb $PHEDEX_STATE devdb 2004-* 2005-* V2*
 
-* Initialise LFNs from DSB tables
+* Initialise LFNs from DSB tables, rest from CERN catalogues
 (echo "set lines 1000;"; echo "set pages 0;";
  echo "select filename, filetype, guid from t_dsb_fileid left join t_dsb_file on id = fileid;") |
  sqlplus -S cms_transfermgmt/smalland_round@cms |
@@ -203,6 +203,33 @@ Toolkit/Request/TRSyncWeb $PHEDEX_STATE devdb 2004-* 2005-* V2*
    echo "commit;"
  done |
  sqlplus -S cms_transfermgmt/smalland_round@devdb
+
+perl -we '
+  BEGIN { use lib "Toolkit/Common"; use strict; } use UtilsReaders;
+  foreach my $f (@ARGV) {
+     foreach my $x (@{&readXMLCatalogue ($f)}) {
+       print "update t_file set lfn='\''$x->{LFN}[0]'\'',",
+            " filetype='\''$x->{PFN}[0]{TYPE}'\''",
+            " where guid='\''$x->{GUID}'\'';\ncommit;\n"
+      }
+ }' /data/lat/puball/PTDR/bt_Hit752_g133/bt03_ttjj_ttH/*.xml.new |
+sqlplus -S cms_transfermgmt/smalland_round@devdb
+-- FIXME: sw_Hit245_2_g133/PLAY_Usman_LCG2 needs to be done by Jose
+
+(echo "set lines 1000"; echo "set pages 0"; echo "select distinct inblock from t_file;") |
+  sqlplus -S cms_transfermgmt/smalland_round@devdb | grep / |
+  xargs Utilities/DSBBlocks -db cms -dbuser cms_transfermgmt -dbpass smalland_round |
+  sqlplus -S cms_transfermgmt/smalland_round@devdb
+
+(echo "set lines 1000"; echo "set pages 0";
+ echo "select distinct inblock from t_file" \
+      " left join t_block on name = inblock" \
+      " where name is null;") |
+ sqlplus -S cms_transfermgmt/smalland_round@devdb | grep / |
+ while read block; do
+   ow=$(echo $block | sed 's|/.*||'); ds=$(echo $block | sed 's|.*/||');
+   echo "insert into t_block values ('$block', '$ow', '$ds', -1, -1);";
+ done | sqlplus -S cms_transfermgmt/smalland_round@devdb
 
 * Restore privileges, recreate synonyms
 Schema/OraclePrivs.sh cms_transfermgmt/smalland_round@devdb \
