@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/27 13:36:25 $
-# $Id: Allocator.pl,v 1.7 2004/07/27 13:36:25 barrass Exp $
+# $Date: 2004/07/27 13:37:48 $
+# $Id: Allocator.pl,v 1.8 2004/07/27 13:37:48 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -48,7 +48,7 @@ my $g_pool_uri = 'edgcatalog_http://rlscms.cern.ch:7777/cms/v2.2/edg-local-repli
 						# uri of pool catalogue to use
 my $g_once;             # 1 means will only run once
 my $g_period = 600;     # repeat period of algorithm
-
+my $g_max_guids = 500;  # max new guids to return per cycle
 
 # ###############################################################
 # Main loop
@@ -64,7 +64,7 @@ while(!(-e "$g_work_dir/stop")) {
     if ($g_once) { system( "touch $g_work_dir/stop" ); }
     my $loop_start = time();
 
-    my @new_guids = get_new_guid_list( DB => $g_db );
+    my @new_guids = &get_new_guid_list;
     print "@new_guids\n";
 
     $time = time();
@@ -77,33 +77,24 @@ while(!(-e "$g_work_dir/stop")) {
 # ###############################################################
 
 sub log_entry {
-	my %args = (
-		ENTRY => 'default_log_entry',
-		@_
-	);
+    my $entry = shift;
 	my $time = time();
 	my $localtime = localtime($time);
 	print "$localtime [$$] $args{ENTRY}\n";
 }
 
 sub get_new_guid_list {
-	my %args = (
-		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
-		POOL_URI => 'file:./yep_a_dummy_file',
-		MAX_GUID => 500,
-		@_
-	);
 	my @new_guids = ();
 	my @row;
 	my $count = 0;
 	my $selection = "select unique guid from t_files_for_transfer where allocated = 1";
-	if ( $args{MAX_GUID} ){
-		$selection .= " AND rownum < $args{MAX_GUID} "
+	if ( $g_max_guids ){
+		$selection .= " AND rownum < $g_max_guids "
 	}
     my @guid_list;
 
 	eval {
-        my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
+        my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
 		    				 	'CMS_TRANSFERMGMT_WRITER', 
 		      				 	'threeBagsFULL', 
 		  	       			 	{ RaiseError=>1, AutoCommit =>1 });
@@ -115,14 +106,14 @@ sub get_new_guid_list {
 	       $count++;
 	       push( @guid_list, $guid);
         }
-        log_entry( ENTRY => "Found $count new GUIDs" );
+        log_entry(  "Found $count new GUIDs" );
         $query->finish();
         
         $dbh->disconnect();
 	};
 	
 	if (@_) {
-        log_entry( ENTRY => "Database operation failed... @_" );
+        log_entry( "Database operation failed... @_" );
         if ($dbh)
         {
             $dbh->rollback;
@@ -347,5 +338,5 @@ sub parse_command_line () {
 	  print "$_\n";
 	}
 	
-	log_entry( ENTRY => $entry );
+	log_entry( $entry );
 }
