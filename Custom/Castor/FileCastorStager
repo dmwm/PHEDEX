@@ -267,12 +267,13 @@ sub idle
     # downstream still pending for outward transfer here.  We fetch
     # in one query the current state here, whether we have checksum,
     # the number of requested copies, and the latest request time.
+    my $dbh = undef;
     eval
     {
 	my $mynode = $self->{MYNODE};
-	my $dbh = DBI->connect ("DBI:$self->{DBITYPE}:$self->{DBNAME}",
-	    		 	$self->{DBUSER}, $self->{DBPASS},
-			 	{ RaiseError => 1, AutoCommit => 0 });
+	$dbh = DBI->connect ("DBI:$self->{DBITYPE}:$self->{DBNAME}",
+	    		     $self->{DBUSER}, $self->{DBPASS},
+			     { RaiseError => 1, AutoCommit => 0 });
 
 	# Get my catalogue details, pending and stager files
 	my $catalogue = &getCatalogue ($dbh, $self->{MYNODE});
@@ -351,7 +352,7 @@ sub idle
         $dbh->disconnect if defined $dbh;
         undef $dbh;
     };
-    do { &alert ("database error: $@"); } if $@;
+    do { &alert ("database error: $@"); $dbh->disconnect if defined $dbh; undef $dbh; } if $@;
 
     # Check children are still running and then wait
     $self->maybeStop ();
