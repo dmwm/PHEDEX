@@ -104,8 +104,7 @@ sub processDrop
 	}
 	elsif (! $size)
 	{
-	    &alert ("$drop: cowardly refusing to transfer zero-size file $pfn");
-	    $bad = 1;
+	    &warn ("$drop: zero-size file $pfn");
 	}
     }
 
