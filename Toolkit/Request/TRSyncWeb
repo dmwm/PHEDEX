@@ -67,7 +67,7 @@ foreach my $request (@ARGV)
         }
 	elsif (/^(\d+) DATA ([A-Z]PATS\.[a-z]) (.*)$/) {
 	    foreach my $pat (split(/\s+/, $3)) {
-		push(@data, { STAMP => $1, COMMAND => $2, ARG => $3 });
+		push(@data, { STAMP => $1, COMMAND => $2, ARG => $pat });
 	    }
         }
     }
