@@ -13,6 +13,7 @@
 $count = $ARGV[0];
 $node = $ARGV[1];
 $pwd = $ENV{PWD};
+@sql = ();
 
 print "$count files, in $pwd, registered at node $node\n";
 
@@ -20,7 +21,7 @@ while ($count > 0) {
     
     $guid = '';
     $file = "TestbedFile".$count;
-    $full_path = $pwd.$file;
+    $full_path = $pwd."/".$file;
     
 
     ($exit_value, @output) = run_command( "FCregisterPFN -p $full_path" );
@@ -41,9 +42,47 @@ while ($count > 0) {
     }
     
     
-    
+    push( @sql, "insert into t_files_for_transfer values ('$guid','$node',1)" );
+    push( @sql, "insert into t_replica_metadata values ('$guid','POOL_dataset','NodeTestbedSet')" );
+    push( @sql, "insert into t_replica_metadata values ('$guid','POOL_dataset','NodeTestbed')" );
     
     $count--;
+}
+
+do_sql( "devdb9", @sql );
+
+# =========================================================
+# Subroutines
+# =========================================================
+
+sub do_sql {
+    my $dbname = shift;
+    my @sql = shift;
+    
+    eval {
+        my $dbh;
+        eval "use DBI"; $dbh = DBI->connect ("DBI:Oracle:$dbname",
+    					     "CMS_TRANSFERMGMT_WRITER",
+    					     "threeBagsFULL",
+    					     { RaiseError => 1, AutoCommit => 1 });              
+
+        foreach my $cmd (@sql) {
+            $dbh->do ($cmd);
+        }
+
+    	$dbh->disconnect;
+    };
+
+    if ($@) {
+    	&alert("database operation failed: $@");
+        if ($dbh) {
+            $dbh->rollback;
+            $dbh->disconnect;
+	   }
+	   exit(1);
+    }
+    
+    return 0;    
 }
 
 sub run_command {
