@@ -63,7 +63,7 @@ if ($g_management == 0) {
     }
 } else {
     print "Creating node configuration...\n";
-    foreach $file (<$g_basepath/PHEDEX/Standalone/Mgr*>) {
+    foreach $file (<$g_basepath/PHEDEX/Testbed/Standalone/Mgr*>) {
 	$output = $file; $output =~ s|.*/Mgr||;
 	$output = "$g_basepath/$g_nodename/node/$output";
 	open (INPUT, "< $file") or die "$file: $!\n";
