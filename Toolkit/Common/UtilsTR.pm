@@ -177,7 +177,7 @@ sub listDatasetOwners
 
     # Parse and pick matching ones into result
     my ($ds, $owner);
-    my @all = ();
+    my @result = ();
     foreach (split(/\n/, $everything))
     {
         if (/INPUT.*SelDataset.*value=["'\''](.*)["'\'']>/) {
