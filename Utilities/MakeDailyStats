@@ -6,36 +6,149 @@ BEGIN {
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
   unshift(@INC, $home);
 }
-
 use UtilsDB;
+use POSIX;
 
-$dbh = &connectToDatabase ( { DBITYPE => "Oracle",
-			      DBNAME => "cms",
-			      DBUSER => "cms_transfermgmt_reader",
-			      DBPASS => "slightlyjaundiced" }, 0);
+my %args = (DBITYPE => "Oracle", UNIT => '1T', TIME => 'day');
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-unit' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{UNIT} = "1" . shift(@ARGV); }
+    elsif ($ARGV[0] eq '-time' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{TIME} = shift(@ARGV); }
+    else
+    { last; }
+}
+
+$args{UNIT} = &sizeValue ($args{UNIT}) if $args{UNIT};
+
+if (scalar @ARGV || !$args{DBNAME} || !$args{DBUSER}
+    || !$args{DBPASS} || !$args{DBITYPE}
+    || !$args{UNIT} || !$args{TIME})
+{
+    print STDERR
+	"usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
+	"    [-unit k|M|G|T] [-time day|week|month]\n";
+    exit (1);
+}
+
+my $sqlepoch = q{to_timestamp_tz('1970-01-01 00:00:00 00:00','YYYY-MM-DD HH24:MI:SS TZH:TZM')};
+my $timefmt = ($args{TIME} eq 'day' ? 'IYYYMMDD'
+	       : $args{TIME} eq 'week' ? 'IYYYIW'
+	       : $args{TIME} eq 'month' ? 'IYYYMM'
+	       : die "unexpected time unit '$args{TIME}'\n");
+my $timedef = qq{to_char($sqlepoch+ts.to_time_stamp/86400, '$timefmt')};
+my $sizediv = $args{UNIT};
+
+$dbh = &connectToDatabase (\%args, 0);
 
 my %nodes = ();
 my %stats = ();
-my $query = &dbexec ($dbh, qq{
-	select
-          trunc(ts.to_time_stamp/86400),
-	  ts.to_node,
-	  sum(f.filesize)/(1024*1024*1024)
-        from t_transfer_state ts
-        left join t_files_for_transfer f on f.guid = ts.guid
-        where ts.to_node like '%_Transfer' and ts.to_state = 3
-        group by trunc(ts.to_time_stamp/86400), ts.to_node});
-while (my ($day, $node, $size) = $query->fetchrow()) {
-    $nodes{$node} = 1;
-    $stats{$day}{$node} = $size;
+my ($first) = &dbexec ($dbh, qq{
+    select min(to_time_stamp) from t_transfer_state
+    where from_node like '%_Transfer'
+      and to_node like '%_Transfer'
+      and to_state = 3})->fetchrow();
+my $bindata = &dbprep ($dbh, qq{
+    select ts.to_node, sum(f.filesize)/$sizediv
+    from t_transfer_state ts
+    left join t_files_for_transfer f on f.guid = ts.guid
+    where ts.from_node like '%_Transfer'
+      and ts.to_node like '%_Transfer'
+      and ts.to_state = 3
+      and ts.to_time_stamp >= :low
+      and ts.to_time_stamp < :high
+    group by ts.to_node});
+
+my @timeseries = &timeSeries ($first, $args{TIME});
+foreach my $time (@timeseries) {
+    &dbbindexec ($bindata, ":low" => $time->{LOW}, ":high" => $time->{HIGH});
+    while (my ($node, $size) = $bindata->fetchrow()) {
+	$nodes{$node} = 1;
+	$stats{$time->{LOW}}{$node} = $size;
+    }
 }
+
 $dbh->disconnect();
 undef $dbh;
 
-my @days = sort { $a <=> $b } keys %stats;
-print join(", ", "Day", "Day From Start", sort keys %nodes), "\n";
-foreach my $day ($days[0] .. $days[$#days]) {
-    print join(", ", $day, $day - $days[0],
-	       map { $stats{$day}{$_} || 0 } sort keys %nodes), "\n";
+print join(",", "Time Base", sort keys %nodes), "\n";
+foreach my $time (@timeseries) {
+    print join(",",
+	       &formatTime ($time->{LOW}, $args{TIME}),
+	       map { $stats{$time->{LOW}}{$_} || 0 } sort keys %nodes), "\n";
 }
 exit 0;
+
+sub sizeValue
+{
+    my ($value) = @_;
+    if ($value =~ /^(\d+)([kMGT])$/)
+    {
+        my %scale = ('k' => 1024, 'M' => 1024**2, 'G' => 1024**3, 'T' => 1024**4);
+        $value = $1 * $scale{$2};
+    }
+    return $value;
+}
+
+sub timeSeries
+{
+    my ($first, $range) = @_;
+    my $now = time();
+    my @series = ();
+
+    if ($range eq 'day') {
+	# Convert first time to UTC day at 00:00.  Then make a
+	# time series of days until end of today.
+	my $low = int($first / 86400);
+	my $high = int($now / 86400) + 1;
+	for ( ; $low < $high; ++$low) {
+	    push(@series, { LOW => $low * 86400, HIGH => ($low+1) * 86400 });
+        }
+    } elsif ($range eq 'week') {
+	# Convert first time to previous Monday.  Then make a
+	# time series of weeks until we pass today.
+	my %diff = (0 => 6, 1 => 0, 2 => 1, 3 => 2, 4 => 3, 5 => 4, 6 => 5);
+	my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday) = gmtime ($first);
+	my $low = int(($first - $diff{$wday})/86400);
+	my $high = int($now / 86400) + 1;
+	for ( ; $low < $high; $low += 7) {
+	    push(@series, { LOW => $low * 86400, HIGH => ($low+7) * 86400 });
+	}
+    } elsif ($range eq 'month') {
+	# Convert first time to first of the month.  Then convert
+	# into a time-series of months.  This is a bit dodgy, we
+	# go by day so we don't need to worry about month dates.
+	my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday) = gmtime ($first);
+	my $start = int(($first - ($mday-1)*86400)/86400);
+	my $limit = int($now / 86400) + 1;
+	while ($start < $limit) {
+	    my $low = $start;
+	    my ($prevyear, $prevmon) = ($year, $mon);
+	    while ($year == $prevyear && $mon == $prevmon) {
+		($sec, $min, $hour, $mday, $mon, $year, $wday, $yday)
+		    = gmtime ((++$start) * 86400);
+	    }
+	    push (@series, { LOW => $low * 86400, HIGH => $start * 86400});
+	}
+    }
+
+    return @series;
+}
+
+sub formatTime
+{
+    my ($time, $range) = @_;
+    if ($range eq 'day') { return strftime ('%Y%m%d', gmtime($time)); }
+    elsif ($range eq 'week') { return strftime ('%Y%V', gmtime($time)); }
+    elsif ($range eq 'month') { return strftime ('%Y%m', gmtime($time)); }
+}
+
