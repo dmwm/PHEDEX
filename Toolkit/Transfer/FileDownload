@@ -163,16 +163,16 @@ sub completeOne
     # originally posted to state 1 so logging will be accurate. Also
     # log the error message to our output.
     my $guid = $report->{GUID};
-    my $src_node = $report->{SRC_NODE};
-    my $dest_node = $report->{DEST_NODE};
+    my $from_node = $report->{FROM_NODE};
+    my $to_node = $report->{TO_NODE};
     my $now = time();
-    my $dest_state = 3;
+    my $to_state = 3;
     my $dbh = undef;
     if ($report->{FAILURE})
     {
 	&logmsg ("failed to transfer $guid: $report->{FAILURE}");
 	$now = $report->{TIME_ALLOC};
-	$dest_state = 1;
+	$to_state = 1;
     }
 
     eval
@@ -180,14 +180,14 @@ sub completeOne
 	$dbh = &connectToDatabase ($self, 0);
 	$dbh->do (qq{
 	  update t_transfer_state
-	  set dest_state = $dest_state, dest_time_stamp = $now
+	  set to_state = $to_state, to_time_stamp = $now
 	  where guid = '$guid'
-	    and dest_node = '$dest_node'
-	    and src_node = '$src_node'});
+	    and to_node = '$to_node'
+	    and from_node = '$from_node'});
 
 	$dbh->do (qq{
 	  insert into t_replica_state values
-	  ('$guid', '$dest_node', 0, $now, 0, $now)})
+	  ('$guid', '$to_node', 0, $now, 0, $now)})
 	    if ! $report->{FAILURE};
 
 	$dbh->commit ();
@@ -211,7 +211,7 @@ sub completeOne
     $now = &mytimeofday ();
     my $dalloc = $now - $report->{TIME_ALLOC};
     my $dtransfer = $now - $report->{TIME_START};
-    &logmsg ("xstats: $guid $dest_node $dest_state "
+    &logmsg ("xstats: $guid $to_node $to_state "
 	     . sprintf('%.2f %.2f', $dalloc, $dtransfer));
 
     return 1;
@@ -261,19 +261,19 @@ sub processDrop
 sub startOne
 {
     my ($self, $dbh,
-	$guid, $timestamp, $src_node, $src_catalogue, $src_host,
-	$dest_catalogue, $attrs) = @_;
+	$guid, $timestamp, $from_node, $from_catalogue, $from_host,
+	$to_catalogue, $attrs) = @_;
 
     # Get the PFN for the GUID and map it to destination PFN.
     # (FIXME: Can we not get these from TMDB?)
-    my $src_pfn = &guidToPFN ($guid, $src_catalogue, $src_host);
-    do { &alert ("failed to look up pfn for $guid"); return 0; } if ! $src_pfn;
+    my $from_pfn = &guidToPFN ($guid, $from_catalogue, $from_host);
+    do { &alert ("failed to look up pfn for $guid"); return 0; } if ! $from_pfn;
 
-    my $src_lfn = &guidToLFN ($guid, $src_catalogue);
-    do { &alert ("failed to look up lfn for $guid"); return 0; } if ! $src_lfn;
+    my $from_lfn = &guidToLFN ($guid, $from_catalogue);
+    do { &alert ("failed to look up lfn for $guid"); return 0; } if ! $from_lfn;
 
-    my $dest_pfn = qx($self->{PFNSCRIPT} '$src_pfn'); chomp ($dest_pfn);
-    do { &alert ("no destination pfn for $guid"); return 0; } if ! $dest_pfn;
+    my $to_pfn = qx($self->{PFNSCRIPT} '$from_pfn'); chomp ($to_pfn);
+    do { &alert ("no destination pfn for $guid"); return 0; } if ! $to_pfn;
 
     # Find an idle worker
     my $now = time();
@@ -285,15 +285,15 @@ sub startOne
     my $transfer = { GUID		=> $guid,
 		     TIME_ALLOC		=> $timestamp,
 		     TIME_START		=> &mytimeofday(),
-		     SRC_NODE		=> $src_node,
-		     SRC_PFN		=> $src_pfn,
-		     SRC_LFN		=> $src_lfn,
-		     SRC_CATALOGUE	=> $src_catalogue,
-		     SRC_HOST		=> $src_host,
-		     DEST_NODE		=> $self->{MYNODE},
-		     DEST_PFN		=> $dest_pfn,
-		     DEST_LFN		=> $src_lfn,
-		     DEST_CATALOGUE	=> $dest_catalogue,
+		     FROM_NODE		=> $from_node,
+		     FROM_PFN		=> $from_pfn,
+		     FROM_LFN		=> $from_lfn,
+		     FROM_CATALOGUE	=> $from_catalogue,
+		     FROM_HOST		=> $from_host,
+		     TO_NODE		=> $self->{MYNODE},
+		     TO_PFN		=> $to_pfn,
+		     TO_LFN		=> $from_lfn,
+		     TO_CATALOGUE	=> $to_catalogue,
 		     ATTRS		=> $attrs };
 
     do { &alert ("failed to create transfer packet for $guid"); &rmtree ($slavein); return 0; }
@@ -308,10 +308,10 @@ sub startOne
 	my $mynode = $self->{MYNODE};
 	$dbh->do (qq{
 	  update t_transfer_state
-	  set dest_state = 2, dest_time_stamp = $now
+	  set to_state = 2, to_time_stamp = $now
 	  where guid = '$guid'
-	    and dest_node = '$mynode'
-	    and src_node = '$src_node'});
+	    and to_node = '$mynode'
+	    and from_node = '$from_node'});
 	$dbh->commit();
     };
 
@@ -343,10 +343,10 @@ sub markFilesWanted
 	my $old = $now - 600;
 	$dbh->do(qq{
 		update t_transfer_state
-		set dest_time_stamp = $now
-		where dest_node = '$mynode'
-		  and dest_state = 1
-	  	  and dest_time_stamp < $old});
+		set to_time_stamp = $now
+		where to_node = '$mynode'
+		  and to_state = 1
+	  	  and to_time_stamp < $old});
 
   	# Check how much we already marked wanted.  Only mark new
 	# files wanted if we drop below 75% of our limit.
@@ -355,7 +355,7 @@ sub markFilesWanted
 		from t_transfer_state ts
 		left join t_replica_metadata m
 		  on ts.guid = m.guid and m.attribute = 'filesize'
-		where ts.dest_node = '$mynode' and ts.dest_state = 1});
+		where ts.to_node = '$mynode' and ts.to_state = 1});
 	return if (! defined $row || ($row->[0] || 0) > .75 * $self->{WANT_LIMIT});
 
 	# Mark more files wanted.  Select the best new files, keeping
@@ -374,8 +374,8 @@ sub markFilesWanted
 		  on ts.guid = m1.guid and m1.attribute = 'filesize'
 		left join t_replica_metadata m2
 		  on ts.guid = m2.guid and m2.attribute = 'POOL_jobid'
-		where ts.dest_node = '$mynode' and ts.dest_state = 0
-		order by trunc (ts.dest_time_stamp/86400) desc, m2.value});
+		where ts.to_node = '$mynode' and ts.to_state = 0
+		order by trunc (ts.to_time_stamp/86400) desc, m2.value});
 	$stmt->execute();
 	while (my $file = $stmt->fetchrow_arrayref())
         {
@@ -386,8 +386,8 @@ sub markFilesWanted
 
 	    $dbh->do(qq{
 		update t_transfer_state
-		set dest_state = 1, dest_time_stamp = $now
-		where guid = '$guid' and dest_node = '$mynode'});
+		set to_state = 1, to_time_stamp = $now
+		where guid = '$guid' and to_node = '$mynode'});
   	}
 
 	$dbh->commit();
@@ -397,8 +397,8 @@ sub markFilesWanted
 }
 
 # Get the list of N guids that should be transferred next.  Returns
-# a list of arrays with members GUID, ALLOC_TIMESTAMP, SRC_NODE,
-# SRC_CATALOGUE, DEST_CATALOGUE plus a hash of POOL file attributes.
+# a list of arrays with members GUID, ALLOC_TIMESTAMP, FROM_NODE,
+# FROM_CATALOGUE, TO_CATALOGUE plus a hash of POOL file attributes.
 sub nextFiles
 {
     my ($self, $dbh, $n) = @_;
@@ -411,19 +411,19 @@ sub nextFiles
 	my $mynode = $self->{MYNODE};
 	my $stmt = $dbh->prepare (qq{
 		select ts.guid,
-		       ts.src_time_stamp,
-		       ts.src_node,
+		       ts.from_time_stamp,
+		       ts.from_node,
 		       n1.catalogue_contact,
 		       n1.host_string,
 		       n2.catalogue_contact
 		from t_transfer_state ts
 		left join t_nodes n1
-		  on n1.node_name = ts.src_node
+		  on n1.node_name = ts.from_node
 		left join t_nodes n2
-		  on n2.node_name = ts.dest_node
-		where ts.dest_node = '$mynode'
-		  and ts.dest_state < 2
-	  	  and ts.src_state = 1});
+		  on n2.node_name = ts.to_node
+		where ts.to_node = '$mynode'
+		  and ts.to_state < 2
+	  	  and ts.from_state = 1});
         $stmt->execute();
 	while (my $row = $stmt->fetchrow_arrayref())
 	{

@@ -113,34 +113,34 @@ sub idle
 	# has all the files we have.
 	$dbh->do(qq{
 		update t_transfer_state
-		set src_state = 1, src_time_stamp = $now
-		where dest_node = '$mynode' and src_state = 0});
+		set from_state = 1, from_time_stamp = $now
+		where to_node = '$mynode' and from_state = 0});
 	$dbh->do(qq{
 		update t_transfer_state
-		set dest_state = 2, dest_time_stamp = $now
-		where dest_node = '$mynode' and dest_state = 0});
+		set to_state = 2, to_time_stamp = $now
+		where to_node = '$mynode' and to_state = 0});
 	$dbh->commit();
 
 	# Process files pending migration.
 	my $stmt = $dbh->prepare (qq{
 		select ts.guid,
-		       ts.src_time_stamp,
+		       ts.from_time_stamp,
 		       n.catalogue_contact,
 		       n.host_string
 		from t_transfer_state ts
 		left join t_nodes n
-		  on n.node_name = ts.src_node
-		where ts.dest_node = '$mynode'
-		  and ts.dest_state = 2});
+		  on n.node_name = ts.from_node
+		where ts.to_node = '$mynode'
+		  and ts.to_state = 2});
         $stmt->execute();
 	while (my $row = $stmt->fetchrow_arrayref())
 	{
 	    my ($guid, $time, $catalogue, $hostkey) = @$row;
 
 	    # FIXME: Do we need to actually issue commands to begin
-	    # migration?  If so, use dest_state = 0 to indicate we
-	    # haven't done that, dest_state = 2 to indicate migration
-	    # started, and dest_state = 3 to indicate it's complete.
+	    # migration?  If so, use to_state = 0 to indicate we
+	    # haven't done that, to_state = 2 to indicate migration
+	    # started, and to_state = 3 to indicate it's complete.
 	    # Now we assume it's just always automatically started.
 
 	    # Check if the file has been migrated.  If not, skip it.
@@ -159,8 +159,8 @@ sub idle
 		  ('$guid', '$mynode', 0, 0, $now, 0)});
 	    $dbh->do(qq{
 		update t_transfer_state
-		set dest_state = 3, dest_time_stamp = $now
-		where guid = '$guid' and dest_node = '$mynode'});
+		set to_state = 3, to_time_stamp = $now
+		where guid = '$guid' and to_node = '$mynode'});
 	    $dbh->commit ();
 
 	    # Log delay data.

@@ -358,7 +358,7 @@ sub idle
 
 	# Update file status.  First mark everything not staged in,
 	# then as staged-in the files currently in stager catalogue.
-	# (FIXME: Who corrects src_state in t_transfer_state?)
+	# (FIXME: Who corrects from_state in t_transfer_state?)
 	my $now = time();
 	$dbh->do(qq{update t_replica_state
 		set state = 0,

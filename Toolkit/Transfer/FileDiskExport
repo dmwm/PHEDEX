@@ -97,8 +97,8 @@ sub idle
 	# Mark all pending transfers ready to go.
 	$dbh->do(qq{
 		update t_transfer_state
-		set src_state = 1, src_time_stamp = $now
-		where src_state = 0 and src_node = '$mynode'});
+		set from_state = 1, from_time_stamp = $now
+		where from_state = 0 and from_node = '$mynode'});
 
 	$dbh->commit();
     };
