@@ -3,8 +3,8 @@
 eval `cd /afs/cern.ch/sw/lcg/app/releases/POOL/POOL_1_6_2/src; scram -arch rh73_gcc32 run -sh`
 source /afs/cern.ch/project/oracle/script/setoraenv.sh -s 8174
 
-mkdir -p {fr,dl,si,cs,exp}
-rm -fr {fr,dl,si,cs,exp}/{inbox,work}/*
+mkdir -p {fr,dl,si,cs,cm,exp}
+rm -fr {fr,dl,si,cs,cm,exp}/{inbox,work}/*
 
 DBARGS="-db devdb9 -dbuser cms_transfermgmt -dbpass smalland_round"
 STARGS="-stagehost stagecmsprod -stagepool cms_prod2"
