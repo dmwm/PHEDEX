@@ -200,6 +200,8 @@ sub transfer {
 	    $wanted, $wantedsize,
 	    $pending, $pendingsize,
 	    $other, $othersize) = @$row;
+        next if ! $files;
+
     	$tfiles += $files; $tfilesize += $filesize;
 	$tonsite += $onsite; $tonsitesize += $onsitesize;
 	$tstaged += $staged; $tstagedsize += $stagedsize;
