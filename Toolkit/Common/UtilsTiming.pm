@@ -1,7 +1,6 @@
 # Timing utilities.  First define higher-resolution timing via
 # gettimeofday() where it is available, otherwise fall back on
 # time().
-use vars qw(@startTime);
 BEGIN {
   # missing virtually everywhere, but it's worth trying anyway
   eval "use Time::HiRes 'gettimeofday'";
@@ -32,14 +31,14 @@ BEGIN {
 sub timeStart
 {
     my ($array) = @_;
-    ($array ? @$array : @startTime) = (&mytimeofday, times);
+    @$array = (&mytimeofday, times);
 }
 
 sub elapsedTime 
 {
     my ($start) = @_;
     my @now = (&mytimeofday, times);
-    my @old = ($start ? @$start : @startTime);
+    my @old = @$start;
     return ($now [0] - $old [0], $now[3] - $old [3], $now[4] - $old [4]);
 }
 
