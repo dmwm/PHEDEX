@@ -35,27 +35,29 @@ for (my $dup = 0; $dup < $dups; ++$dup)
 	my $uuid = qx(uuidgen); chomp ($uuid); $uuid =~ y/[a-z]/[A-Z]/;
 	my $lfn = sprintf ($lfnpat, $i);
 	my $pfn = "$dirbase/$lfn";
+
+	print CAT "$uuid $pfn\n";
+	print CKSUM "-1 $size $lfn\n" if ! exists $cksumdone{$lfn};
+	$cksumdone{$lfn} = 1;
 	print XML <<EOF;
-	  <File ID="$uuid">
-	    <physical>
-	      <pfn filetype="ROOT_All" name="$pfn"/>
-	    </physical>
-	    <logical>
-	      <lfn name="$lfn"/>
-	    </logical>
-	    <metadata att_name="Content" att_value=""/>
-	    <metadata att_name="DBoid" att_value="SC2_FAKE"/>
-	    <metadata att_name="DataType" att_value="SC2_FAKE"/>
-	    <metadata att_name="FileCategory" att_value="SC2_FAKE"/>
-	    <metadata att_name="Flags" att_value=""/>
-	    <metadata att_name="dataset" att_value="SC2"/>
-	    <metadata att_name="jobid" att_value="$dup"/>
-	    <metadata att_name="owner" att_value="SC2"/>
-	    <metadata att_name="runid" att_value="$i"/>
-	  </File>
+  <File ID="$uuid">
+    <physical>
+      <pfn filetype="ROOT_All" name="$pfn"/>
+    </physical>
+    <logical>
+      <lfn name="$lfn"/>
+    </logical>
+    <metadata att_name="Content" att_value=""/>
+    <metadata att_name="DBoid" att_value="SC2_FAKE"/>
+    <metadata att_name="DataType" att_value="SC2_FAKE"/>
+    <metadata att_name="FileCategory" att_value="SC2_FAKE"/>
+    <metadata att_name="Flags" att_value=""/>
+    <metadata att_name="dataset" att_value="SC2"/>
+    <metadata att_name="jobid" att_value="$dup"/>
+    <metadata att_name="owner" att_value="SC2"/>
+    <metadata att_name="runid" att_value="$i"/>
+  </File>
 EOF
-	print CKSUM "-1 $size $lfn\n";
-	print CAT "$uuid $lfn $pfn\n";
     }
 }
 print XML "</POOLFILECATALOG>\n";
