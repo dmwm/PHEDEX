@@ -1,6 +1,6 @@
 -- PhEDEx ORACLE schema for agent operations.
 -- NB: s/CMS_TRANSFERMGMT_INDX01/INDX01/g for devdb9
--- REQUIRES: OracleCoreTopo.sql
+-- REQUIRES: OracleDSB.sql
 
 ----------------------------------------------------------------------
 -- Drop old tables
