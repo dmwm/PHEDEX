@@ -1,0 +1,180 @@
+#!/usr/bin/perl
+
+## Update transfer status data for faster web access.
+
+BEGIN { use strict; use warnings; }
+my $me = $0; $me =~ s|.*/||;
+my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+unshift(@INC, $home);
+
+######################################################################
+my %args = (DBITYPE => "Oracle", WAITTIME => 120);
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    { shift (@ARGV); $master = 1; $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    else
+    { last; }
+}
+
+if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
+    || !$args{DBPASS} || !$args{DBITYPE})
+{
+    print STDERR
+	"usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
+	"    -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n",
+    exit (1);
+}
+
+my $agent = new InfoTransferStatus (%args);
+# Recapture interrupt signal, oracle swallows it.
+$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
+$agent->process ();
+
+######################################################################
+# Routines for this agent.
+package InfoTransferStatus; use strict; use warnings; use base 'UtilsAgent';
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsCatalogue;
+use UtilsDB;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBITYPE => undef,		# Database driver binding
+    		  DBNAME => undef,		# Database name
+	  	  DBUSER => undef,		# Database user name
+	  	  DBPASS => undef);		# Database user password
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Called by agent main routine before sleeping.  Update database.
+sub idle
+{
+    my ($self, @pending) = @_;
+    my $dbh = undef;
+    eval
+    {
+	my $now = time();
+	$dbh = &connectToDatabase ($self, 0);
+	die "failed to connect" if ! $dbh;
+
+        # FIXME: Pick up and process messages to me
+
+	# Select counts and time stamps from rows we are monitoring.
+	my %stamps = ();
+	foreach my $row (@{$dbh->selectall_arrayref(qq{
+				select
+				  node,
+				  count(guid),
+				  max(insert_time_stamp),
+				  max(time_stamp)
+				from t_replica_state
+				group by node})})
+	{
+	    my ($node, $files, $insert, $state) = @$row;
+	    $stamps{$node} = [ $node, $files, 0, $insert > $state ? $insert : $state ];
+	}
+
+	foreach my $row (@{$dbh->selectall_arrayref(qq{
+				select
+				  to_node,
+				  count(guid),
+				  max(insert_time_stamp),
+				  max(to_time_stamp)
+				from t_transfer_state
+				group by to_node})})
+	{
+	    my ($node, $files, $insert, $state) = @$row;
+	    my $old = ($stamps{$node} ||= [ $node, 0, 0, 0 ]);
+	    my $maxtime = (reverse sort { $b <=> $a } $old->[3], $insert, $state)[0];
+	    $old->[2] = $files;
+	    $old->[3] = $maxtime;
+	}
+
+	# Get corresponding info from most recent snapshot, and remove
+	# from %stamps everything that is up to date.  What is left is
+	# rows we need to update: either they don't exist in snapshot,
+	# or the snapshot is out of date.
+	foreach my $row (@{$dbh->selectall_arrayref(qq{
+				select
+				  node,
+				  snap_rfiles,
+				  snap_tfiles,
+				  snap_max_time
+				from t_info_transfer_status})})
+	{
+	    my ($node, $rfiles, $tfiles, $maxtime) = @$row;
+	    next if ! exists $stamps{$node};
+	    delete $stamps{$node}
+	        if ($stamps{$node}[1] == $rfiles
+		    && $stamps{$node}[2] == $tfiles
+		    && $stamps{$node}[3] == $maxtime);
+	}
+
+	# Everything that is left needs to be updated.  Get new stats
+	# and fill in new snapshots.
+	foreach my $node (sort keys %stamps)
+	{
+	    my $stats = $dbh->selectrow_arrayref(qq{
+			    select count(f.guid),
+				   sum(r3.value),
+				   count(rs.guid),
+				   sum(case when rs.guid is not null then r3.value else '0' end),
+				   sum(case when rs.state = 1 then 1 else 0 end),
+				   sum(case when rs.state = 1 then r3.value else '0' end),
+				   sum(case when ts.to_state = 2 then 1 else 0 end),
+				   sum(case when ts.to_state = 2 then r3.value else '0' end),
+				   sum(case when ts.to_state = 1 then 1 else 0 end),
+				   sum(case when ts.to_state = 1 then r3.value else '0' end),
+				   sum(case when ts.to_state = 0 then 1 else 0 end),
+				   sum(case when ts.to_state = 0 then r3.value else '0' end),
+				   sum(case when ts.to_state > 3 then 1 else 0 end),
+				   sum(case when ts.to_state > 3 then r3.value else '0' end)
+			    from t_files_for_transfer f
+			    left join t_replica_state rs
+			      on rs.guid = f.guid and rs.node = '$node'
+			    left join t_transfer_state ts
+			      on ts.guid = f.guid and ts.to_node = '$node'
+			    left join t_replica_metadata r3
+			      on r3.guid = f.guid and r3.attribute = 'filesize'
+      			    where (rs.node = '$node') or (ts.to_node = '$node')});
+	    my $statsvals = join (', ', @$stats);
+	    $dbh->do (qq{delete from t_info_transfer_status where node = '$node'});
+	    $dbh->do (qq{insert into t_info_transfer_status values
+			  ($now, '$node',
+			   $stamps{$node}[1], $stamps{$node}[2], $stamps{$node}[3],
+			   $statsvals)});
+	    &logmsg("updated transfer stats for $node");
+	}
+
+	$dbh->do (qq{update t_info_transfer_status set update_stamp = $now});
+	$dbh->commit();
+    };
+    do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
+
+    # Disconnect from the database
+    $dbh->disconnect() if $dbh;
+    undef $dbh;
+
+    # Check children are still running and then wait
+    $self->maybeStop ();
+    sleep ($self->{WAITTIME});
+}
