@@ -5,7 +5,12 @@ from PyFCAction import *
 import unittest,os,os.path,getopt
 
 def usage():
-    print 'FClistGuidPFN {-g | -p} [-m] -u catalog_contactstring ITEM...'
+    print 'FClistGuidPFN {-g | -p | -q} [-m] -u catalog_contactstring ITEM...'
+    print ''
+    print '-m means ITEMs are patterns, not exact strings'
+    print '-g means ITEMs are guids (or guid patterns if -m)'
+    print '-p means ITEMs are PFNs (or PFN patterns if -m)'
+    print '-q means ITEMs are general query patterns'
 
 class myobj(object):
     def __init__(self):
@@ -13,7 +18,7 @@ class myobj(object):
 	self.mode = 'g'
         self.input=[]
         try:
-            optlist,self.input = getopt.getopt (sys.argv[1:],'mgpu:')
+            optlist,self.input = getopt.getopt (sys.argv[1:],'qmgpu:')
         except getopt.GetoptError:
             usage()
             sys.exit(2)
@@ -26,6 +31,8 @@ class myobj(object):
                 self.exact = 0
             elif o == '-p':
                 self.mode = 'p'
+            elif o == '-q':
+                self.mode = 'q'
             else:
                 usage()
                 sys.exit(2)
@@ -56,7 +63,7 @@ class myobj(object):
                             pentry=pfns.Next()
                             print pentry[1], pentry[0]
 
-		    else:
+		    elif (self.mode == 'p'):
 			# lookup by pfn: exact or query
 			if (self.exact):
 		            result=l.lookupFileByPFN(i)
@@ -66,6 +73,13 @@ class myobj(object):
 			    while pfns.hasNext():
 				pentry = pfns.Next()
 				print pentry[1], pentry[0]
+
+		    elif (self.mode == 'q'):
+			# lookup by arbitrary query
+			result = l.lookupPFNByQuery (i, pfns)
+			while pfns.hasNext():
+			    pentry = pfns.Next()
+			    print pentry[1], pentry[0]
 
                 except Exception:
 		    1 # swallow failures, keep going with other files
