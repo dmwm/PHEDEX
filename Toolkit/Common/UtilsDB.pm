@@ -1,5 +1,6 @@
 package UtilsDB; use strict; use warnings; use base 'Exporter';
 our @EXPORT = qw(connectToDatabase dbexec dbprep dbbindexec);
+use UtilsLogging;
 use DBI;
 
 # Create a connection to the transfer database.  Updates the agent's
@@ -77,8 +78,18 @@ sub dbexec
 sub dbbindexec
 {
     my ($stmt, %params) = @_;
+
     while (my ($param, $val) = each %params) {
 	$stmt->bind_param ($param, $val);
     }
+
+    if ($ENV{PHEDEX_LOG_SQL})
+    {
+        my $sql = $stmt->{Statement};
+	$sql =~ s/\s+/ /g; $sql =~ s/^\s+//; $sql =~ s/\s+$//;
+	my $bound = join (", ", map { "($_, $params{$_})" } sort keys %params);
+        &logmsg ("executing statement `$sql' [$bound]");
+    }
+
     return $stmt->execute();
 }
