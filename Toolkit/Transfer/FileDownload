@@ -69,7 +69,7 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{BATCH_SIZE} = shift(@ARGV); }
 
     elsif ($ARGV[0] eq '-pfndest' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{PFN_GEN_COMMAND} = shift(@ARGV); }
+    { shift (@ARGV); push (@{$args{PFN_GEN_COMMAND}}, split(/,/,  shift(@ARGV))); }
     elsif ($ARGV[0] eq '-publish' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{PUBLISH_COMMAND}}, split(/,/, shift(@ARGV))); }
     elsif ($ARGV[0] eq '-validate' && scalar @ARGV > 1)

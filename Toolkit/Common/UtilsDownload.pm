@@ -109,7 +109,7 @@ sub getDestinationPaths
 		sub { $self->getDestinationPaths ($master, $batch, @_) },
 		{ OUTPUT_FILE => $output, OUTPUT_VARIABLE => "TO_PFN",
 		  FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
-		"sh", "-c", "$self->{PFN_GEN_COMMAND} $args > $output");
+		"sh", "-c", "@{$self->{PFN_GEN_COMMAND}} $args > $output");
 	}
     }
 
