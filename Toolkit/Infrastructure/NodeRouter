@@ -51,7 +51,7 @@ close(PID);
 while(!(-e "$g_work_dir/stop")) {
 	if ($g_once) { system("touch $g_work_dir/stop"); }
 	
-	my @neighbours = &get_neighbours( DB => $g_db, DB_USER => $g_db_user, DB_PASSWD => $g_db_passwd, NODE => $g_parent_node );
+	my @neighbours = &get_neighbours;
 	log_entry( ENTRY => "Neighbours: @neighbours" );
 
 	log_entry( ENTRY => "$g_parent_node known routes" );
@@ -212,24 +212,16 @@ sub refresh_acquaintance {
 }
 
 sub get_neighbours {
-	my %args = (
-		DB => 'edit_me_with_default_db_tns_name_for_sub_log_entry',
-		DB_USER => 'some_user',
-		DB_PASSWD => 'some_password',
-		NODE => 'some_node',
-		@_
-	);
-	
-	my $dbh = DBI->connect(	"DBI:Oracle:$args{DB}",
-						 	"$args{DB_USER}", 
-						 	"$args{DB_PASSWD}", 
-						 	{ RaiseError=>1, AutoCommit =>1 });
+	my $dbh = DBI->connect(	"DBI:Oracle:$g_db",
+			 	"$g_db_user", 
+				"$g_db_passwd", 
+				{ RaiseError=>1, AutoCommit =>1 });
 	
 	my @neighbours = ();
 	my $selection = "select gateway "
-					."from t_Routing "
-					."where from_node = '$args{NODE}' "
-					."and to_node = gateway";
+			."from t_Routing "
+			."where from_node = '$g_parent_node' "
+			."and to_node = gateway";
 	my $query = $dbh->prepare($selection);
 	$query->execute;
 	while (@row = $query->fetchrow_array) {
