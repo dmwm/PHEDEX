@@ -244,7 +244,7 @@ sub checkAssignmentFiles
         defined $pfnroot or die "no pfn root in $drop\n";
 
         # Get guids and pfns
-        my $cat = &readXMLCatalog ($drop, $xml);
+        my $cat = &readXMLCatalog ($xml);
         my @guids = map { $_->{GUID} } values %$cat;
         my @pfns = map { @{$_->{PFN}} } values %$cat;
         @pfns = map { s|^\./|$pfnroot/|; $_; } @pfns;
