@@ -34,7 +34,7 @@ BEGIN {
 ######################################################################
 $ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
 $ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
-my %args = (DBITYPE => "Oracle");
+my %args = (DBITYPE => "Oracle", NJOBS => 1);
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
@@ -136,13 +136,13 @@ sub fileStart
 	TIME_STARTED	=> $now
     };
 
-    $self->{PENDING}{$guid} = 1;
+    $self->{PENDING}{$guid} = 0;
     $self->addJob (sub { $self->fileDownloaded ($file, @_) },
 	{}, "rfcp", $pfn, "$file->{WORKDIR}/$lfn");
     return 1;
 }
 
-# Fetch the file from mass storage to a local directory.
+# Respond to file arriving from mass storage.
 sub fileDownloaded
 {
     my ($self, $file, $job) = @_;
@@ -154,7 +154,7 @@ sub fileDownloaded
 	"sh", "-c", "cd $file->{WORKDIR} && cksum $file->{LFN} > checksum");
 }
 
-# Calculate file checksum and size.
+# Respond to completed checksum.  Collect file checksum and size.
 sub fileChecksummed
 {
     my ($self, $file, $job) = @_;
@@ -167,7 +167,9 @@ sub fileChecksummed
     } elsif (! $output) {
 	$file->{FAILURE} = "no output from @{$job->{CMD}}";
     } elsif ($output !~ /^(\d+) (\d+) (\S+)$/) {
-	$file->{FAILURE} = "bad output from @{$job->{CMD}}";
+	$file->{FAILURE} = "malformed output from @{$job->{CMD}}";
+    } elsif ($3 ne $file->{LFN}) {
+	$file->{FAILURE} = "unexpected output from @{$job->{CMD}}";
     } else {
 	$file->{CHECKSUM} = $1;
 	$file->{NEWSIZE} = $2;
@@ -175,13 +177,12 @@ sub fileChecksummed
     $self->fileComplete ($file);
 }
 
-# Update checksum in the database if the operation was successful.
+# Update checksum in the database if the file was succefully processed.
 sub fileComplete
 {
     my ($self, $file) = @_;
 
-    # Dig out the report.  Note that the checksum agent never fails,
-    # it marks files bad if something goes wrong with the checksum.
+    # Dig out the report.
     my $guid = $file->{GUID};
     my $success = $file->{FAILURE} ? 1 : 0;
     my $checksum = $file->{CHECKSUM};
@@ -192,26 +193,27 @@ sub fileComplete
     my $dbh = undef;
     my $op;
 
-    # Update the checksum.
+    # Update the database as appropriate.
     eval
     {
 	# Check preceding failures
-	$op = "calculate checksum"; die $file->{FAILURE} if $file->{FAILURE};
+	$op = "calculate checksum";
+	die $file->{FAILURE} if $file->{FAILURE};
 
 	# Nuke working directory
 	$op = "remove working directory";
 	&rmtree ($file->{WORKDIR});
 
 	# Check file size matches
-	$op = "match file size"; die "$oldsize != $newsize" if $oldsize != $newsize;
+	$op = "match file size";
+	die "$oldsize != $newsize" if $oldsize != $newsize;
 
 	# Ok, it's worth talking to database.  Get connected.
 	$op = "connect to the database";
 	$dbh = &connectToDatabase ($self, 0) or die "failed to connect";
 
 	# Check for an existing checksum; if there is one, make sure
-	# it's the same we got this time, and then ignore this drop.
-	# If there's isn't one, add it.
+	# it's the same we got this time.  Add if there isn't one.
 	$op = "match old checksum";
 	my ($oldsum) = &dbexec($dbh, qq{
 		select value from t_replica_metadata
@@ -219,19 +221,11 @@ sub fileComplete
 		":guid" => $guid)->fetchrow_array();
 	die "$oldsum != $checksum" if defined $oldsum && $oldsum ne $checksum;
 
-        # OK, update the checksum and reset local file state.
 	$op = "update checksum";
 	&dbexec($dbh, qq{
-	  insert into t_replica_metadata
+	  insert into t_replica_metadata (guid, attribute, value)
 	    values (:guid, 'checksum', :checksum)},
 	  ":guid" => $guid, ":checksum" => $checksum);
-
-    	$op = "update file state";
-	&dbexec($dbh, qq{
-	  update t_replica_state
-	  set local_state = 1, local_time_stamp = :now
-	  where guid = :guid and node = :node and local_state = 20},
-  	  ":guid" => $guid, ":node" => $mynode, ":now" => $now); 
 
   	$op = "commit";
 	$dbh->commit();
@@ -250,10 +244,16 @@ sub fileComplete
 	    		$now - $file->{TIME_STARTED})
 	     . " $file->{FILESIZE}");
 
-     # Mark this file no longer known to us
-     delete $self->{PENDING}{$guid};
-
-     # FIXME: Back off on this file for a while?
+     # Mark this file no longer known to us, except if there was a
+     # failure, remember it for a while longer so we back off on bad
+     # files for a while.  We remove memory of such files in &idle().
+     if (! $file->{FAILURE}) {
+	 # Success, remove memory
+	 delete $self->{PENDING}{$guid};
+     } else {
+	 # Failed, ignore for 5-10 minutes.
+	 $self->{PENDING}{$guid} = $now + 300 + rand(300);
+     }
 }
 
 # Get N guids that should be checksummed.  Returns a list of arrays
@@ -265,24 +265,27 @@ sub nextFiles
     eval
     {
 	# Select files that need to be checksummed.  This is everything
-	# in local state 20 we don't already know about.
+	# staged in at this node but without checksum.
 	my ($stmt) = &dbexec ($dbh, qq{
 		select rs.guid,
-		       m.value,
+		       m2.value,
 		       rs.local_time_stamp,
 		       n.catalogue_contact,
 		       n.host_string
 		from t_replica_state rs
-		left join t_replica_metadata m
-		  on m.guid = rs.guid and m.attribute = 'filesize'
+		left join t_replica_metadata m1
+		  on m1.guid = rs.guid and m1.attribute = 'checksum'
+		left join t_replica_metadata m2
+		  on m2.guid = rs.guid and m2.attribute = 'filesize'
 		left join t_nodes n
 		  on n.node_name = rs.node
 		where rs.node = :node
-	  	  and rs.local_state = 20},
+	  	  and rs.state = 1
+	  	  and m1.value is null},
 		":node" => $self->{MYNODE});
 	while (my $row = $stmt->fetchrow_arrayref())
 	{
-	    next if $self->{PENDING}{$row->[0]};
+	    next if exists $self->{PENDING}{$row->[0]};
 	    last if ! $n--;
 	    push (@result, [ @$row ]);
 	}
@@ -292,19 +295,25 @@ sub nextFiles
 }
 
 # Called by agent main routine before sleeping.  Pick up work
-# assignments from the database here and pass them to slaves.
+# assignments from the database here and start their processing.
 sub idle
 {
     my ($self, @pending) = @_;
+    my $now = time();
     my $dbh = undef;
     my $more = 0;
 
-    # Pump more files keeping moderate-size queue in each worker.
     eval
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
         # FIXME: Pick up and process messages to me
 
+	# Purge memory of bad files that have cooled long enough.
+	my $pending = $self->{PENDING};
+	map { delete $pending->{$_} }
+	  grep ($pending->{$_} && $pending->{$_} < $now, keys %$pending);
+
+	# Pick up new work
 	my @files = ();
 	my $maxload = $self->{NJOBS} * 10;
         while (scalar @{$self->{JOBS}} < $self->{NJOBS})
@@ -317,7 +326,6 @@ sub idle
 	    last if ! ($more = $self->fileStart (@{shift @files}));
 
 	    # Move existing jobs
-	    $self->maybeStop();
 	    $self->pumpJobs ();
         }
     };
@@ -327,17 +335,16 @@ sub idle
     $dbh->disconnect() if $dbh;
     undef $dbh;
 
-    # Keep working, resting a bit at a time.  If we have work to do
-    # and can start more jobs, break out of this loop and initiate
-    # new transfers.  Otherwise if we have exhausted files that can
-    # be processed, just sleep here for a moment.
+    # Keep working, resting a bit at a time.  If we have available
+    # job slots and more files to work on, break out of the loop to
+    # initiate new jobs.  Otherwise if we have exhausted available
+    # files, sleep here for a moment.
     my $target = time() + $self->{WAITTIME};
     while (time() < $target)
     {
         $self->maybeStop ();
         $self->pumpJobs ();
-        my $njobs = scalar @{$self->{JOBS}};
-        last if $more && $njobs < $self->{NJOBS};
+        last if $more && scalar @{$self->{JOBS}} < $self->{NJOBS};
         select (undef, undef, undef, .1);
     }
 }
