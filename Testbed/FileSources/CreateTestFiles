@@ -43,7 +43,7 @@ while ($count > 0) {
     }
     
     
-    push( @sql, "insert into t_files_for_transfer values ('$guid','$node',0)" );
+    push( @sql, "insert into t_files_for_transfer values ('$guid','$node')" );
     push( @sql, "insert into t_replica_metadata values ('$guid','POOL_dataset','NodeTestbedSet')" );
     push( @sql, "insert into t_replica_metadata values ('$guid','POOL_owner','NodeTestbed')" );
     

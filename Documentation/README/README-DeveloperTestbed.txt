@@ -220,7 +220,9 @@ We then need to start the router running
 -dbpasswd <password>
 >& $NODETESTBED/TestbedSink1/logs/log &
 
+and also the transfer agent
 
+[ FIXME: start transfer agent! ]
 
 
 
@@ -285,15 +287,15 @@ and start them up
 ------------------------------------------------------
 
 Now create some test files residing at the simple source node: make sure that 
-$POOL_CATALOG is set to xmlcatalog_file:$NODETESTBED/TestbedCatalogue.xml, then
+$POOL_CATALOG is set, then
 
-	cd /NodeTestbed/TestbedSource1/SE
-	CreateTestFiles \\
-		5 \\
-		TBSource1 \\
-		'mysql:database=phedexcat;host=<host>' \\
-		phedex \\
-		phedex
+cd /NodeTestbed/TestbedSource1/SE
+CreateTestFiles
+5
+TestbedSource1
+<contact string>
+<user>
+<password>
 
 The CreateTestFiles script (in the NodeTestbedToolkit dir) acts as a simple fake 
 source of data, generating some testfiles, registering them with the file 
