@@ -1,0 +1,370 @@
+#!/usr/bin/env perl
+
+## Manager castor stage-in pool based on master pool manager requests.
+##
+## This agent checks for files marked in the database as "stage-in"
+## and issues stage-in requests for them.  It updates the current
+## stage-in status of the files in TMDB based on stager disk state.
+## (FIXME: Handle stage purge requests too?)
+##
+## The stage-in is done according to the instructions of the Castor
+## team to avoid overloading the stager and tape systems.  The stage
+## requests are ordered by tape name and position of the files.  We
+## issue several stage requests in one command to reduce the number
+## of stager processes at the server (there is one process for each
+## request).  Moreover, we throttle ourselves back if the number of
+## pending tape mounts is high (~4000) or pending stage requests is
+## high (~200).
+##
+## As TMDB only contains GUIDs and no PFNs, we execute a site-local
+## script to map the GUIDs to PFNs, typically using local catalogue.
+## Correspondingly, files reported by stager to be on disk are mapped
+## back to GUIDs.
+
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+######################################################################
+my %args = (DBITYPE => "Oracle", WAITTIME => 120);
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    { shift (@ARGV); $master = 1; $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-pfnquery' && scalar @ARGV > 1)
+    { shift (@ARGV); @{$args{PFN_QUERY}} = split(/,/, shift(@ARGV)); }
+    else
+    { last; }
+}
+
+if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
+    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE} || !$args{PFN_QUERY})
+{
+    print STDERR
+	"usage: $me -node TMDB-NODE -pfnquery PFN-QUERY-SCRIPT\n",
+	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
+	"    -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n";
+    exit (1);
+}
+
+my $agent = new FileCastorStager (%args);
+# Recapture interrupt signal, oracle swallows it.
+$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
+$agent->process ();
+
+######################################################################
+# Routines for this agent.
+package FileCastorStager; use strict; use warnings; use base 'UtilsAgent';
+use DB_File;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsCatalogue;
+use UtilsDB;
+
+sub min { return (sort { $a <=> $b } @_)[0] }
+sub max { return (sort { $b <=> $a } @_)[0] }
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBITYPE => undef,		# Database driver binding
+    		  DBNAME => undef,		# Database name
+	  	  DBUSER => undef,		# Database user name
+	  	  DBPASS => undef,		# Database user password
+	  	  MYNODE => undef,		# My TMDB node name
+	  	  PFN_QUERY => undef,		# Program to query PFNs
+	  	  AGENTID => "Stager",		# Identity for activity logs
+    	    	  MAXFILES => 50,		# Max number of files in one request
+		  PFN_CACHE => {},		# GUID -> PFN cache
+		  GUID_CACHE => {},		# PFN -> GUID cache
+		  DB_CACHE => {},		# Cache of DB state
+		  NSLS_CACHE => {});		# Cache for nsls (file pool) lookups
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Find out files stager knows about.  Returns a reference to a hash of
+# PFNs currently in the stager disk pool, each with stager status such
+# as "STAGED" or "STAGEIN".   Returns undef if stageqry cannot be run.
+# The latter should be treated as a transient error.
+sub stagerFileList
+{
+    open(STAGEQ, "stageqry.pl --getpath |")
+	|| return undef;
+    my $files = {};
+    while (<STAGEQ>) {
+	my ($status, $file) = split(/\s+/, $_);
+	$files->{$file} = $status;
+    }
+    close(STAGEQ);
+    return $files;
+}
+
+# Purge old entries from our caches.
+sub purgeCache
+{
+    my ($cache) = @_;
+
+    # Remove old positive matches after a day to avoid building up
+    # a cache over a time.  Remove negative matches after an hour.
+    my $now = time ();
+    my $oldmatch = $now - 86400;
+    my $oldnomatch = $now - 3600;
+
+    # Remove entries that are too old
+    foreach my $item (keys %$cache)
+    {
+	my ($time, @rest) = ($cache->{$item} =~ /^(\d+):(.*)/);
+	delete $cache->{$item}
+	   if ((! @rest && $time < $oldnomatch) || $time < $oldmatch);
+    }
+}
+
+# Get the list of files that have been requested for stage-in.
+sub getPendingFiles
+{
+    my ($self, $dbh) = @_;
+    my %unknown = ();
+    my $result = [];
+
+    # First fetch files from database.  If we come across something
+    # we haven't seen before, remember it but don't look it up yet.
+    # Otherwise just push the (GUID, PFN, TIME) tuple into result.
+    #
+    # "Recently wanted" == time stamp on "wanted" state is less than
+    # fifteen minutes old.  Download agents expecting files will be
+    # refreshing the wanted status more often than that when they are
+    # running and capable of downloading files.
+    my %seen = ();
+    my $stmt = &dbexec($dbh, qq{
+	   select guid, to_timestamp
+	   from t_transfer_state
+	   where from_node = :node
+	     and to_state = 1
+	     and to_timestamp >= :recent
+           order by to_timestamp asc},
+	   ":node" => $self->{MYNODE}, ":recent" => time() - 15*60);
+    while (my ($guid, $time) = $stmt->fetchrow())
+    {
+	next if $seen{$guid};
+	$seen{$guid} = 1;
+
+	my $cache = $self->{PFN_CACHE}{$guid};
+	if ($cache && $cache =~ /^\d+:(.*)/)
+	{
+	    # Known in cache.  Just push into result.
+	    push (@$result, [ $guid, $1 || undef, $time ]);
+	}
+	else
+	{
+	    # Not seen this yet.  Remember it.
+	    $unknown{$guid} = $time;
+	}
+    }
+
+    # Now go over everything that we hadn't seen yet.  Look up all
+    # the GUID/PFN mappings in one go with a single efficient pull,
+    # and then cache the results and fill in result.
+    if (my @items = keys %unknown)
+    {
+        my $now = time();
+        my $pfns = &guidToPFN ([ @items ], "direct", "local", @{$self->{PFN_QUERY}});
+        foreach my $guid (@items)
+        {
+	    my $pfn = $pfns->{$guid};
+	    $self->{PFN_CACHE}{$guid} = "$now:@{[$pfn || '']}";
+	    $self->{GUID_CACHE}{$pfn} = "$now:$guid" if defined $pfn;
+	    push (@$result, [ $guid, $pfn, $unknown{$guid} ]);
+        }
+    }
+
+    return $result;
+}
+
+# Get the list of files stager knows about
+sub getStagerFiles
+{
+    my ($self) = @_;
+    my $files = &stagerFileList();
+    return undef if ! $files;
+
+    my %unknown = ();
+    my $result = [];
+
+    # First pass.  If we come across something we haven't seen
+    # before, remember it but don't look it up yet.  Otherwise
+    # just push the (GUID, PFN, TIME) tuple into result.
+    foreach my $pfn (keys %$files)
+    {
+	my $status = $files->{$pfn};
+	my $cache = $self->{GUID_CACHE}{$pfn};
+	if ($cache && $cache =~ /^\d+:(.*)/)
+	{
+	    # Known in cache.  Just push into result.
+	    push (@$result, [ $1 || undef, $pfn, $status ]);
+	}
+	else
+	{
+	    # Not seen this yet.  Remember it.
+	    $unknown{$pfn} = 1;
+	}
+    }
+
+    # Now go over everything that we hadn't seen yet.  Look up all
+    # the GUID/PFN mappings in one go with a single efficient pull,
+    # and then cache the results and fill in result.
+    if (my @items = keys %unknown)
+    {
+        my $now = time();
+        my $guids = &pfnToGUID ([ @items ], "direct", "local", @{$self->{PFN_QUERY}});
+        foreach my $pfn (@items)
+        {
+	    my $guid = $guids->{$pfn};
+	    $self->{PFN_CACHE}{$guid} = "$now:$pfn" if defined $guid;
+	    $self->{GUID_CACHE}{$pfn} = "$now:@{[$guid || '']}";
+	    push (@$result, [ $guid, $pfn, $files->{$pfn} ]);
+        }
+    }
+
+    return $result;
+}
+
+# Build status object from stager state and pending requests.
+sub buildStatus
+{
+    my ($self, $stager, $pending) = @_;
+    return undef if ! $stager || ! $pending;
+
+    my $files = {};
+    foreach my $file (@$stager)
+    {
+	my ($guid, $pfn, $status) = @$file;
+	$files->{$pfn} = { GUID => $guid, PFN => $pfn, STATUS => $status };
+    }
+
+    foreach my $file (@$pending)
+    {
+	my ($guid, $pfn, $time) = @$file;
+
+	do { &warn ("ignoring unknown wanted file $guid"); next } if ! $pfn;
+	$files->{$pfn} ||= { GUID => $guid, PFN => $pfn, STATUS => "UNKNOWN" };
+    }
+
+    return $files;
+}
+
+# Called by agent main routine before sleeping.  Pick up stage-in
+# assignments and map current stager state back to the database.
+sub idle
+{
+    my ($self, @pending) = @_;
+
+    my $dbh = undef;
+    eval
+    {
+	$dbh = &connectToDatabase ($self) or die "failed to connect";
+        # FIXME: Pick up and process messages to me
+
+	# Clean up caches
+	my %timing = (START => &mytimeofday());
+	&purgeCache ($self->{PFN_CACHE});
+	&purgeCache ($self->{GUID_CACHE});
+	$timing{PURGE} = &mytimeofday();
+
+	# Get pending and stager files
+	my $files = $self->buildStatus ($self->getStagerFiles (),
+					$self->getPendingFiles ($dbh));
+	return if ! $files;
+	$timing{STATUS} = &mytimeofday();
+
+	# Update file status.  First mark everything not staged in,
+	# then as staged-in the files currently in stager catalogue.
+	my $now = time();
+	my $dbcache = $self->{DB_CACHE};
+	if (($dbcache->{VALIDITY} || 0) < $now)
+	{
+	    $dbcache->{VALIDITY} = $now + 4*3600;
+	    $dbcache->{FILES} = {};
+	    &dbexec($dbh,qq{
+	        update t_replica_state
+	        set state = 0, state_timestamp = :now
+	        where node = :node and state = 1},
+	        ":node" => $self->{MYNODE}, ":now" => $now);
+	}
+
+	my $stmt = $dbh->prepare(qq{
+	    update t_replica_state
+	    set state = :state, state_timestamp = :now
+	    where guid = :guid and node = :node});
+	foreach my $f (values %$files)
+	{
+	    next if ! defined $f->{GUID};
+	    my $isstaged = $f->{STATUS} eq 'STAGED';
+	    if ($isstaged && ! $dbcache->{FILES}{$f->{GUID}})
+	    {
+		$dbcache->{FILES}{$f->{GUID}} = 1;
+		&dbbindexec ($stmt, ":now" => $now, ":node" => $self->{MYNODE},
+			     ":guid" => $f->{GUID}, ":state" => 1);
+	    }
+	    elsif (! $isstaged && $dbcache->{FILES}{$f->{GUID}})
+	    {
+		delete $dbcache->{FILES}{$f->{GUID}};
+		&dbbindexec ($stmt, ":now" => $now, ":node" => $self->{MYNODE},
+			     ":guid" => $f->{GUID}, ":state" => 0);
+	    }
+	}
+	$dbh->commit();
+	$timing{DATABASE} = &mytimeofday();
+
+	# Issue stage-in requests for new files in batches.
+	my @requests = grep ($_->{STATUS} eq 'UNKNOWN', values %$files);
+	my $nreq = scalar @requests;
+	while (@requests)
+	{
+	    my @slice = splice (@requests, 0, $self->{MAXFILES});
+	    my $rc = &runcmd ("stagein", # "--nowait", "--rdonly",
+			      (map { ("-M", $_->{PFN}) } @slice));
+	    &alert ("stagein failed: @{[&runerror($rc)]}") if ($rc);
+
+	    # Mark these files as pending now
+	    map { $_->{STATUS} = "STAGEIN" } @slice;
+	}
+
+	$timing{REQUESTS} = &mytimeofday();
+	&logmsg ("timing:"
+		 . " nreq=$nreq"
+		 . " purge=@{[sprintf '%.1f', $timing{PURGE} - $timing{START}]}"
+		 . " status=@{[sprintf '%.1f', $timing{STATUS} - $timing{PURGE}]}"
+		 . " database=@{[sprintf '%.1f', $timing{DATABASE} - $timing{STATUS}]}"
+		 . " requests=@{[sprintf '%.1f', $timing{REQUESTS} - $timing{DATABASE}]}"
+		 . " all=@{[sprintf '%.1f', $timing{REQUESTS} - $timing{START}]}");
+    };
+    do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
+
+    # Disconnect from the database
+    $dbh->disconnect() if $dbh;
+    undef $dbh;
+
+    # Have a little nap
+    $self->nap ($self->{WAITTIME});
+}
