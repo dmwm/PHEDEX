@@ -225,42 +225,50 @@ sub completeTransferBatch
                 if ! $file->{FAILURE};
 
 	    # generate profiling info and display stats
-	    my $profile_string = '';
+	    my @profile_names = ();
+	    my @profile_values = ();
 	    if ( defined $file->{TIMING}{GET_DEST_FINISH} ) {
-		$profile_string .= "define_destination="
-		    .($file->{TIMING}{GET_DEST_FINISH} - $file->{TIMING}{GET_DEST_START})
-		    ." ";
+		push( @profile_names, "define_destination");
+		push( @profile_values, 
+		      $file->{TIMING}{GET_DEST_FINISH} - $file->{TIMING}{GET_DEST_START});
 	    }
             if ( defined $file->{TIMING}{JOB_ADD_FINISH} ) {
-                $profile_string .= "add_job_to_queue="
-                    .($file->{TIMING}{JOB_ADD_FINISH} - $file->{TIMING}{JOB_ADD_START})
-                    ." ";
+                push( @profile_names, "add_job_to_queue" );
+		push( @profile_values,
+		      $file->{TIMING}{JOB_ADD_FINISH} - $file->{TIMING}{JOB_ADD_START});
             }
             if ( defined $file->{TIMING}{PRECLEAN_FINISH} ) {
-                $profile_string .= "preclean="
-                    .($file->{TIMING}{PRECLEAN_FINISH} - $file->{TIMING}{PRECLEAN_START})
-                    ." ";
+                push( @profile_names, "preclean" );
+                push( @profile_values,
+		      $file->{TIMING}{PRECLEAN_FINISH} - $file->{TIMING}{PRECLEAN_START});
             }
             if ( defined $file->{TIMING}{FINISH} ) {
-                $profile_string .= "transfer="
-                    .($file->{TIMING}{FINISH} - $file->{TIMING}{START})
-                    ." ";
+                push( @profile_names, "transfer" );
+		push( @profile_values,
+		      $file->{TIMING}{FINISH} - $file->{TIMING}{START});
             }
             if ( defined $file->{TIMING}{VALIDATE_FINISH} ) {
-                $profile_string .= "validate="
-                    .($file->{TIMING}{VALIDATE_FINISH} - $file->{TIMING}{VALIDATE_START})
-                    ." ";
+                push( @profile_names, "validate" );
+		push( @profile_values,
+		      $file->{TIMING}{VALIDATE_FINISH} - $file->{TIMING}{VALIDATE_START});
             }
             if ( defined $file->{TIMING}{POSTCLEAN_FINISH} ) {
-                $profile_string .= "postclean="
-                    .($file->{TIMING}{POSTCLEAN_FINISH} - $file->{TIMING}{POSTCLEAN_START})
-                    ." ";
+                push( @profile_names, "postclean" );
+		push( @profile_values,
+		      $file->{TIMING}{POSTCLEAN_FINISH} - $file->{TIMING}{POSTCLEAN_START});
             }
             if ( defined $file->{TIMING}{UPDATE_CAT_FINISH} ) {
-                $profile_string .= "update_catalogue="
-                    .($file->{TIMING}{UPDATE_CAT_FINISH} - $file->{TIMING}{UPDATE_CAT_START})
-                    ." ";
+                push( @profile_names, "update_catalogue" );
+                push( @profile_values,    
+		      $file->{TIMING}{UPDATE_CAT_FINISH} - $file->{TIMING}{UPDATE_CAT_START});
             }
+	    my $count = 0;
+	    my $profile_string = '';
+	    foreach my $name ( @profile_names ) {
+		my $value = sprintf( "%.2f", $profile_values[$count] );
+		$profile_string .= "$name=$value ";
+		$count++;
+	    }
 
 	    # Log transfer delay stats
 	    &logmsg ("xstats: $guid $self->{MYNODE} $to_state "
