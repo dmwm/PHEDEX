@@ -2,8 +2,8 @@
 #
 # Allocation Agent
 #
-# $Date: 2004/07/28 15:40:50 $
-# $Id: Allocator.pl,v 1.19 2004/07/28 15:40:50 barrass Exp $
+# $Date: 2004/07/28 15:42:27 $
+# $Id: Allocator.pl,v 1.20 2004/07/28 15:42:27 barrass Exp $
 #
 # This agent handles the allocation of files to destinations. It allocates files
 # to destinations based on replica metadata and destination subscription
@@ -95,13 +95,14 @@ sub get_new_guid_list {
 	my @new_guids = ();
 	my @row;
 	my $count = 0;
-	my $selection = "select unique t_files_for_transfer.guid,"
+	my $selection = "select t_files_for_transfer.guid,"
 	       ."t_replica_metadata.value "
 	       ."from t_files_for_transfer,"
 	       ."t_replica_metadata "
 	       ."where allocated = 1 "
 	       ."and rownum < $g_max_guids "
-	       ."and t_files_for_transfer.guid = t_replica_metadata.guid";
+	       ."and t_files_for_transfer.guid = t_replica_metadata.guid "
+	       ."and key = 'POOL_dataset'";
 
     my %guid_list = ();
 
@@ -114,11 +115,9 @@ sub get_new_guid_list {
         my $query = $dbh->prepare($selection);	
 		
         $query->execute();while (@row = $query->fetchrow_array) {	
-	       $guid = $row[0];
-	       $row[1] =~ s/\w+//g;
 	       $count++;
 	       log_entry( "@row" );
-	       $guid_list{$guid}  = $dataset;
+	       $guid_list{$row[0]}  = $row[1];
         }
         log_entry(  "Found $count new GUIDs" );
         $query->finish();
