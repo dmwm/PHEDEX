@@ -94,6 +94,7 @@ sub disconnectFromDatabase
     my ($self, $dbh, $force) = @_;
     if ((exists $self->{DBH_CACHE} && ! $self->{DBH_CACHE}) || $force)
     {
+	&logmsg ("disconnected from database");
         $dbh->disconnect() if $dbh;
         undef $dbh;
         undef $self->{DBH};
