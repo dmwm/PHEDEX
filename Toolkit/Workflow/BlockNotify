@@ -91,7 +91,7 @@ sub completeBlocks
 	  on b.name = br.name
 	where br.node = :node
 	  and br.files = b.files
-	  and br.timestamp < :now - 300},
+	  and br.timestamp < :now - 30},
 	":node" => $self->{MYNODE},
 	":now" => &mytimeofday());
  
