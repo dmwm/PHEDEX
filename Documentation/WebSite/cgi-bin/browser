@@ -47,6 +47,7 @@ sub intro
     <td><input type='submit' name='replicas' value='Replica state'></td>
     <td><input type='submit' name='subs' value='Subscriptions'></td>
     <td><input type='submit' name='stats' value='File size stats'></td>
+    <td><input type='submit' name='agents' value='Agent status'></td>
     </tr>
     <tr><td colspan=6 align='center'>$stamp</td></tr>
     </table>
@@ -59,7 +60,7 @@ sub intro
 	    		 { RaiseError=>1, AutoCommit =>1 });
 
     my $needmain = 1;
-    foreach my $page (qw(main transfer replicas subs stats)) {
+    foreach my $page (qw(main transfer replicas subs stats agents)) {
         do { no strict 'refs'; $needmain = 0; &{$page}(); last } if param($page);
     }
     main() if $needmain;
@@ -101,9 +102,7 @@ sub main
 		next;
 	    }
 
-	    my $ago = sprintf ('%02dh%02d',
-		               int(($now - $contact)/3600),
-		               int(($now - $contact)%3600/60));
+	    my $ago = &age ($now - $contact);
 	    if (($now - $contact) < $active) {
                 print "<td align='center' bgcolor='$goodcolor'>UP</td>";
 	    } elsif (($now - $contact) < $offline) {
@@ -211,9 +210,7 @@ sub transfer {
 		       : " bgcolor='$pendcolor'";
 
         print "<tr valign='top'$rowcolor>",
-	      "<td$stampcolor>",
-	      ($now - $stamp < 5*60 ? 'Current'
-	       : sprintf("%dh%02d", ($now - $stamp)/3600, (($now - $stamp)%3600)/60)), "</td>",
+	      "<td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>",
 	      "<td>$n</td>",
 	      "<td align='right'>@{[&format_num($files)]}</td>",
 	      "<td align='right'>@{[&format_size($filesize)]}</td>",
@@ -435,6 +432,11 @@ sub subs {
     print "</table>";
 }
 
+sub age {
+    my ($diff) = @_;
+    return sprintf ("%dh%02d", $diff / 3600, ($diff % 3600) / 60);
+}
+
 sub stats {
     my $now = time();
     my $overview = $dbh->selectrow_arrayref(qq{
@@ -457,8 +459,7 @@ sub stats {
 			from t_info_file_size_histogram});
 
     print "<h2>File Size Statistics</h2>\n",
-    	  "<p>", sprintf ("%dh%02d", ($now - $overview->[0]) / 3600,
-		  	  (($now - $overview->[0]) % 3600) / 60),
+    	  "<p>", &age($now - $overview->[0]), " ago </td>",
 	  " ago</p>",
     	  "<table><tr bgcolor='$altcolor' valign='top'>",
 	  "<th>Files</th>",
@@ -480,8 +481,7 @@ sub stats {
     	  "<hr>\n";
 
     print "<h2>File Size Breakdown</h2>\n",
-    	  "<p>", sprintf ("%dh%02d", ($now - $histo->[0][0]) / 3600,
-		  	  (($now - $histo->[0][0]) % 3600) / 60),
+    	  "<p>", &age($now - $histo->[0][0]), " ago</p>",
 	  " ago</p>",
     	  "<table><tr bgcolor='$altcolor' valign='top'>",
 	  "<th colspan='2'>Bin</th>",
@@ -496,6 +496,63 @@ sub stats {
 	        "<td align='right'>@{[&format_num($row->[3])]}</td>",
 	        "<td align='right'>@{[&format_size($row->[4])]}</td>",
 	        "</tr>\n";
+    }
+    print "</table>\n";
+}
+
+sub agents {
+    my $now = time();
+    my %info = ();
+    my @states = qw(pending received work completed bad outgoing);
+    my %states = ();
+    my %age = ();
+    foreach my $row (@{$dbh->selectall_arrayref(qq{
+				select
+				  update_stamp,
+				  site,
+				  host,
+				  agent,
+				  worker,
+				  state,
+				  value
+				from t_info_drop_status})})
+    {
+	my ($stamp, $site, $host, $agent, $worker, $state, $value) = @$row;
+	$age{$site}{$host} = $stamp;
+	$info{$site}{$host}{$agent}{$worker}{$state} = $value;
+	$states{$state} = 1 if ! grep ($_ eq $state, @states);
+    }
+
+    print "<h2>Agent Status</h2>\n",
+    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+	  "<th>Age</th>",
+	  "<th>Site</th>",
+	  "<th>Host</th>",
+	  "<th>Agent</th>",
+	  "<th>Worker</th>",
+	  (map { "<th>$_</th>" } @states, sort keys %states),
+	  "</tr>\n";
+
+    foreach my $site (sort keys %info)
+    {
+	foreach my $host (sort keys %{$info{$site}})
+	{
+	    foreach my $agent (sort keys %{$info{$site}{$host}})
+	    {
+		foreach my $worker (sort keys %{$info{$site}{$host}{$agent}})
+		{
+		    print "<tr>",
+			  "<td>", &age($now - $age{$site}{$host}), "</td>",
+			  "<td>$site</td>",
+			  "<td>$host</td>",
+			  "<td>$agent</td>",
+			  "<td>$worker</td>",
+			  (map { "<td>$info{$site}{$host}{$agent}{$worker}{$_}</td>" }
+			   @states, sort keys %states),
+		   	  "</tr>\n";
+	        }
+	    }
+	}
     }
     print "</table>\n";
 }
