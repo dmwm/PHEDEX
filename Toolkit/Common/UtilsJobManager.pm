@@ -103,7 +103,7 @@ sub checkJobs
 		#&logmsg( "P:SIGNAL [$job->{PID}:$?] @{$job->{CMD}}" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} );
 	    } elsif ( WIFEXITED($?) )
 	    {
-		&#logmsg( "P:EXIT [$job->{PID}:$?] @{$job->{CMD}}" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} );
+		#&logmsg( "P:EXIT [$job->{PID}:$?] @{$job->{CMD}}" ) if ( $ENV{'PHEDEX_PROCESS_LOG'} );
 	    }
 	    $job->{STATUS} = $? / 256;
 	    push (@finished, $job);
