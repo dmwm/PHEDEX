@@ -8,6 +8,7 @@ use POSIX;
 use DBI;
 
 my %databases = ("prod" => [ "cms", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
+		 "rac" => [ "cmssg", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
 		 "test" => [ "devdb", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
 		 "testbed" => [ "devdb", 'CMS_TRANSFERMGMT_TESTBED', 'phedexedehp' ]);
 my $cgi = new CGI;
@@ -48,6 +49,7 @@ sub intro
     <tr><td colspan=7 align='center'><select name='db'>"},
     "<option value='testbed'@{[$db eq 'testbed' && ' selected=selected']}>Testbed</option>",
     "<option value='test'@{[$db eq 'test' && ' selected=selected']}>Test</option>",
+    "<option value='rac'@{[$db eq 'rac' && ' selected=selected']}>RAC Test</option>",
     "<option value='prod'@{[$db eq 'prod' && ' selected=selected']}>Production</option>",
     "</select></td></tr></table>\n";
 
