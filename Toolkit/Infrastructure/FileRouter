@@ -121,7 +121,7 @@ sub idle
 	my $now = time();
 	my $rows = $dbh->do(qq{
 	    insert into t_transfer_state (
-		select d.guid, rs.node, r.gateway, 0, 0, $now, $now
+		select d.guid, rs.node, r.gateway, 0, 0, $now, $now, $now
 		from t_destinations d
 		left join t_replica_state rs
 		  on rs.guid = d.guid
