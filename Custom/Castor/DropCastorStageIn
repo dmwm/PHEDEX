@@ -72,7 +72,8 @@ sub fileProperties
 	open (NSLS, "nsls -lT $dir |") || return (0, undef, undef, undef);
 	while (<NSLS>)
 	{
-	    my ($tape, $pos, $size, $file) = (split (/s+/, $_))[3,4,6,8];
+	    chomp;
+	    my ($tape, $pos, $size, $file) = (split (/\s+/, $_))[3,4,6,8];
 	    $cache->{"$dir/$file"} = [ $tape, $pos, $size ];
 	}
 	close (NSLS);
