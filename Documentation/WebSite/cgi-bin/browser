@@ -81,9 +81,7 @@ sub main
     my $active = 60*5;
     my $offline = 60*15;
     my $now = time ();
-    my $query = $dbh->prepare($db ne 'prod'
-	    	   ? q{select node,agent,timestamp from t_agent_status}
-	    	   : q{select node,agent,last_contact from t_lookup});
+    my $query = $dbh->prepare(q{select node,agent,timestamp from t_agent_status});
     my %agents;
     my %status;
 
@@ -153,10 +151,9 @@ sub format_size {
 sub transfer {
     my $rows = 0;
     my $now = time();
-    my $stampname = $db ne 'prod' ? "timestamp" : "update_stamp";
     my $query = $dbh->prepare(qq{
 	    select
-	      node, $stampname,
+	      node, timestamp,
 	      n_files, sz_files,
 	      n_onsite, sz_onsite,
 	      n_staged, sz_staged,
@@ -369,10 +366,9 @@ sub subs {
     my $rows = 0;
     my %data = ();
     my %sites = ();
-    my $ownercol = $db ne 'prod' ? "owner" : "''";
     my $query = $dbh->prepare(qq{
 	    select
-	      $ownercol,
+	      owner,
 	      dataset,
 	      destination,
 	      n_files,
@@ -455,10 +451,9 @@ sub age {
 
 sub stats {
     my $now = time();
-    my $stampname = $db ne 'prod' ? "timestamp" : "update_stamp";
     my $overview = $dbh->selectrow_arrayref(qq{
 			select
-			  $stampname,
+			  timestamp,
 			  n_files,
 			  sz_total,
 			  sz_min,
@@ -468,7 +463,7 @@ sub stats {
 			from t_info_file_size_overview});
     my $histo = $dbh->selectall_arrayref(qq{
 	    		select
-			  $stampname,
+			  timestamp,
 			  bin_low,
 			  bin_width,
 			  n_total,
@@ -522,22 +517,19 @@ sub agents {
     my %states = ();
     my %age = ();
     my %live = ();
-    my $stampname = $db ne 'prod' ? "timestamp" : "update_stamp";
-    my $tabname = $db ne 'prod' ? "t_info_agent_status" : "t_info_drop_status";
-    my $pathpart = $db ne 'prod' ? "path" : "'(N/A)'";
     foreach my $row (@{$dbh->selectall_arrayref(qq{
 				select
-				  $stampname,
+				  timestamp,
 				  site,
 				  host,
-				  $pathpart,
+				  path,
 				  agent,
 				  worker,
 				  pid,
 				  live,
 				  state,
 				  value
-				from $tabname})})
+				from t_info_agent_status})})
     {
 	my ($stamp, $site, $host, $path, $agent, $worker, $pid, $live, $state, $value) = @$row;
 	$age{$site}{$host}{$path} = $stamp;
@@ -613,10 +605,9 @@ sub format_timespan {
 sub rates {
     my $now = time();
     my %stats = ();
-    my $stampname = $db ne 'prod' ? "timestamp" : "update_stamp";
     my $q = $dbh->prepare(qq{
 			select
-			  $stampname timestamp,
+			  timestamp,
 			  time_span,
 			  info_type,
 			  from_node,
