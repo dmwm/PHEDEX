@@ -16,14 +16,16 @@ sub queueStats
 
     foreach $m (values %{$queues->{$name}{MEMBERS}})
     {
-	next if $@ || ref($m->{CHECKSUM}) ne 'ARRAY' || ref($m->{CATALOG}{LFN}) ne 'ARRAY';
+	my $lfn = $m->{FILE}{LFN};
+	my $size = $m->{FILE}{FILESIZE} / 1024**2;
+	next if $@ || ! defined $size || ! defined $lfn;
 
-	$stats->{$name}{SIZE} += $m->{CHECKSUM}[1] / (1024*1024);
+	$stats->{$name}{SIZE} += $size;
 	$stats->{$name}{MEMBERS}++;
 
-	if (-f "$q/files/$m->{CATALOG}{LFN}[0]")
+	if (-f "$q/files/$lfn")
 	{
-	    $stats->{$name}{PSIZE} += $m->{CHECKSUM}[1] / (1024*1024);
+	    $stats->{$name}{PSIZE} += $size;
 	    $stats->{$name}{PMEMBERS}++;
 	}
     }

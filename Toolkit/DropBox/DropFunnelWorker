@@ -63,6 +63,7 @@ use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
 use UtilsWriters;
+use UtilsFunnel;
 
 sub new
 {
@@ -78,94 +79,6 @@ sub new
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
-}
-
-# Utility to log and cleanup from failed flush attempt
-sub flushFailed
-{
-    my ($stats, $time, $msg, $dirs, $remote) = @_;
-
-    # Try clean up RFIO file if there is one
-    if ($remote)
-    {
-        my $attempts = 1;
-        while ($attempts <= 10)
-        {
-	    last if &rfrm ($remote);
-	    last if !&rfstatmode ($remote);
-	    &alert ("failed to remove $remote (attempt $attempts), trying again in 10 seconds");
-	    sleep (10);
-	    $attempts++;
-	}
-    }
-
-    # Get rid of temporary directories
-    &rmtree ($dirs);
-
-    # Log messages
-    &alert ($msg);
-    &logmsg ("$stats @{[&formatElapsedTime($time)]} failed");
-
-    # Indicate failure
-    return 0;
-}
-
-# Ensure all files for the queue have been fetched.
-sub fetchQueueFiles
-{
-    my ($self, $queue, $data) = @_;
-    my $timing = [];
-    &timeStart ($timing);
-
-    my $basedir = "$self->{WORKDIR}/$queue";
-    my $predir = "$basedir/prefetch";
-    my $filesdir = "$basedir/files";
-    my $stats = "prefetch: $queue";
-
-    # Create upload directory if necessary
-    eval { &mkpath ([$predir, $filesdir]); };
-    return &flushFailed ($stats, $timing, "could not create working directories: $@",
-			 [$predir, $filesdir])
-	if $@;
-
-    # Download and validate files.
-    my %copy = ();
-    foreach my $member (values %{$data->{MEMBERS}})
-    {
-	my $pfn = $member->{CATALOG}{PFN}[0];
-	my $lfn = $member->{CATALOG}{LFN}[0];
-
-	next if -f "$filesdir/$lfn";
-	if ($self->{DRYRUN}) {
-	    &touch ("$predir/$lfn");
-	} else {
-	    $copy{$pfn} = "$predir/$lfn";
-	}
-    }
-
-    my %copied = &rfcpmany ($self->{NRFCP}, %copy);
-    my @failed = grep ($copied{$_}, keys %copied);
-    return &flushFailed ($stats, $timing, "failed to copy @{[scalar @failed]} files", $predir)
-        if @failed;
-
-    foreach my $member (values %{$data->{MEMBERS}})
-    {
-	my $pfn = $member->{CATALOG}{PFN}[0];
-	my $lfn = $member->{CATALOG}{LFN}[0];
-
-	next if ! -f "$predir/$lfn" && -f "$filesdir/$lfn";
-
-	return &flushFailed ($stats, $timing, "file size mismatch for $lfn", $predir)
-	    if ((stat("$predir/$lfn"))[7] != $member->{CHECKSUM}[1]);
-
-	unlink ("$filesdir/$lfn");
-	return &flushFailed ($stats, $timing, "failed to move $lfn into files",
-			     [ $predir, $filesdir ])
-	    if ! &mv ("$predir/$lfn", "$filesdir/$lfn");
-    }
-
-    &logmsg ("$stats @{[&formatElapsedTime($timing)]} success") if keys %copied;
-    return 1;
 }
 
 # Flush a queue.  Copy all the data from the castor pool, generate
@@ -204,7 +117,7 @@ sub flushQueue
     # Create new working area, first clean up from previous failed
     # attempts; assume errors are transient.
     my @stamps
-        = map { "$self->{MAINDIR}/work/$_->{DROP}/QUEUEDONE.$_->{GUID}.$data->{NAME}" }
+        = map { "$self->{MAINDIR}/work/$_->{DROP}/QUEUEDONE.$_->{FILE}{GUID}.$data->{NAME}" }
 	  values %{$data->{MEMBERS}};
 
     my $erase = [ @stamps, map { "$basedir/$_" } ($xfragname, $cksumname, $zipname) ];
@@ -215,8 +128,11 @@ sub flushQueue
     return &flushFailed ($stats, $timing, "could not create working directories: $@", $erase) if $@;
 
     # Download, checksum and validate checksum for files.
-    return 0 if ! $self->fetchQueueFiles ($queue, $data);
-    my $checksum = map { "$_\n" } map { join(" ", @{$_->{CHECKSUM}}) } values %{$data->{MEMBERS}};
+    return 0 if ! &fetchQueueFiles ($self, "$self->{WORKDIR}/$queue", $data);
+    my $checksum = join ("",
+			 map { "$_\n" }
+			 map { join(" ", @{$_->{FILE}{CHECKSUM}}) }
+			 grep (defined $_->{FILE}{CHECKSUM}, values %{$data->{MEMBERS}}));
 
     # Generate XML fragment or the archive itself
     my $uuid = qx(uuidgen | tr '[a-f]' '[A-F]');
@@ -250,18 +166,18 @@ EOF
     my $replicas = "";
     foreach my $member (values %{$data->{MEMBERS}})
     {
-	my $lfn = $member->{CATALOG}{LFN}[0];
+	my $lfn = $member->{FILE}{LFN};
 	my $pfn = "zip-member:\@ZIPPFN\@#$lfn";
-	$replicas .= "$member->{GUID} $pfn\n";
+	$replicas .= "$member->{FILE}{GUID} $pfn\n";
 
-	$xmldata .= "<File ID=\"$member->{GUID}\">\n";
+	$xmldata .= "<File ID=\"$member->{FILE}{GUID}\">\n";
 	$xmldata .= "  <physical>\n";
 	$xmldata .= "    <pfn filetype=\"ROOT_All\" name=\"$pfn\"/>\n";
 	$xmldata .= "  </physical>\n";
 	$xmldata .= "  <logical>\n";
 	$xmldata .= "    <lfn name=\"$lfn\"/>\n";
 	$xmldata .= "  </logical>\n";
-	while (my ($meta, $value) = each %{$member->{CATALOG}{META}})
+	while (my ($meta, $value) = each %{$member->{FILE}{META}})
 	{
 	    $xmldata .= "  <metadata att_name=\"$meta\" att_value=\"$value\"/>\n";
 	}
@@ -323,7 +239,7 @@ EOF
     # Remove original members
     if (! $self->{DRYRUN} && $self->{OUTPUT} && $self->{CLEAN})
     {
-	foreach my $pfn (map { @{$_->{CATALOG}{PFN}} } values %{$data->{MEMBERS}})
+	foreach my $pfn (map { $_->{FILE}{PFN} } values %{$data->{MEMBERS}})
 	{
             my $attempts = 1;
             while ($attempts < 10)
@@ -366,6 +282,7 @@ sub processDrop
     
     # Flush it
     return if ! $self->flushQueue ($drop, $data);
+
     $self->relayDrop ($drop);
     &logmsg ("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
 }

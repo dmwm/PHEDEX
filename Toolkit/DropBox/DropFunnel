@@ -1,13 +1,15 @@
 #!/usr/bin/perl
 
-## This is the T0 agent to merge files in the Global Distribution
-## Buffer (GDB) Castor pool as they arrive from reconstruction.
+## This drop-box agent merges files.  It is meant to be run on sites
+## injecting data before the files are exposed to the transfer system.
 ##
 ## Due to various reasons, jobs running on the reconstruction farm
 ## produce each their own files.  Logically the output of the whole
 ## farm could be merged into a number of queues based on the type
 ## of the data; there is no non-technical reason to split the output
-## into many small chunks.  This agent does the merging.
+## into many small chunks.  This agent does the merging.  It doesn't
+## matter whether the files arrive from a farm, or from other source,
+## for instance the RefDB.
 ##
 ## Files are assembled into larger chunks based on the data type.
 ## Each such queue has user-configurable size and time limit.
@@ -20,11 +22,6 @@
 ## strange URL such as "zip-member:rfio:/.../foo.zip#member-name".
 ## COBRA has means to read such "sub-files" directly, redirecting
 ## the file access into a sub-byte-range inside the archive.
-##
-## Currently the agent is running only in logging mode, it does do
-## all the work except it never touches the original files, only
-## does the work and logs what it would have done.  This allows us
-## to analyse how well it would work in practise.
 
 BEGIN { use strict; use warnings; }
 $me = $0; $me =~ s|.*/||;
@@ -90,6 +87,8 @@ use UtilsLogging;
 use UtilsTiming;
 use UtilsReaders;
 use UtilsRFIO;
+use UtilsFunnel;
+use UtilsCache;
 
 sub new
 {
@@ -109,20 +108,6 @@ sub new
     return $self;
 }
 
-# Determine the cksum of a LFN.
-sub fileCksum
-{
-    my ($self, $drop, $checksums, $lfn) = @_;
-    my @cksums = grep ($_->[2] eq $lfn, @$checksums);
-    if (scalar @cksums != 1)
-    {
-	&alert (scalar(@cksums) . " checksums match $lfn");
-	$self->markBad ($drop);
-	return undef;
-    }
-    return $cksums[0];
-}
-
 # Compute the attributes of a file we need in classification.  Returns
 # 1 and modifies the file attributes on success, otherwise returns zero.
 sub fileProperties
@@ -130,14 +115,13 @@ sub fileProperties
     my ($self, $file) = @_;
 
     # Check that it's a file we handle.
-    delete $file->{CATALOG}{TEXT};
-    my $type = $file->{CATALOG}{META}{DataType};
-    my $category = $file->{CATALOG}{META}{FileCategory};
-    my $dataset = $file->{CATALOG}{META}{dataset};
-    my $owner = $file->{CATALOG}{META}{owner};
-    my $runid = $file->{CATALOG}{META}{runid};
-    my $jobid = $file->{CATALOG}{META}{jobid};
-    do { &alert ("unrecognised file $file->{DROP}/$file->{CATALOG}{LFN}[0]");
+    my $type = $file->{FILE}{META}{DataType};
+    my $category = $file->{FILE}{META}{FileCategory};
+    my $dataset = $file->{FILE}{META}{dataset};
+    my $owner = $file->{FILE}{META}{owner};
+    my $runid = $file->{FILE}{META}{runid};
+    my $jobid = $file->{FILE}{META}{jobid};
+    do { &alert ("unrecognised file $file->{DROP}/$file->{FILE}{LFN}");
 	 $self->markBad ($file->{DROP}); return 0; }
       if ((! $type || $type ne 'EVD')
 	  || (! $category || ($category ne "Events"
@@ -160,8 +144,8 @@ sub assignFile
 
     # Get the GUID.
     my $drop = $file->{DROP};
-    my $guid = $file->{CATALOG}{GUID};
-    my $lfn = $file->{CATALOG}{LFN}[0];
+    my $guid = $file->{FILE}{GUID};
+    my $lfn = $file->{FILE}{LFN};
     return 0 if ! $guid;
 
     # Check for existing assignments.
@@ -253,11 +237,7 @@ sub readQueueStatus
     # Validate the data about each file
     foreach my $member (values %{$state->{MEMBERS}})
     {
-	$bad = 1 if (! $member->{GUID}
-		     || ! $member->{CHECKSUM}
-	             || ref $member->{CHECKSUM} ne 'ARRAY'
-	             || scalar @{$member->{CHECKSUM}} != 3
-	             || ! $member->{CATALOG}
+	$bad = 1 if (! $member->{FILE} 
 	             || ! $member->{DROP}
 	             || ! $member->{QUEUE});
 	last if $bad;
@@ -316,96 +296,10 @@ sub queueStats
     $qstat->{AGE} = time - $qdata->{START};
     foreach my $m (values %{$qdata->{MEMBERS}})
     {
-	$qstat->{SIZE} += $m->{CHECKSUM}[1] / (1024*1024);
+	$qstat->{SIZE} += $m->{FILE}{FILESIZE} / (1024*1024);
 	$qstat->{MEMBERS}++;
     }
     return $qstat;
-}
-
-# Utility to log and cleanup from failed flush attempt
-sub flushFailed
-{
-    my ($stats, $time, $msg, $dirs, $remote) = @_;
-
-    # Try clean up RFIO file if there is one
-    if ($remote)
-    {
-        my $attempts = 1;
-        while ($attempts <= 10)
-        {
-	    last if &rfrm ($remote);
-	    &alert ("failed to remove $remote (attempt $attempts), trying again in 10 seconds");
-	    sleep (10);
-	    $attempts++;
-	}
-    }
-
-    # Get rid of temporary directories
-    &rmtree ($dirs);
-
-    # Log messages
-    &alert ($msg);
-    &logmsg ("$stats @{[&formatElapsedTime($time)]} failed");
-
-    # Indicate failure
-    return 0;
-}
-
-# Ensure all files for the queue have been fetched.
-sub fetchQueueFiles
-{
-    my ($self, $queue, $data) = @_;
-    my $timing = [];
-    &timeStart ($timing);
-
-    my $basedir = $self->queueDirectory ($queue);
-    my $predir = "$basedir/prefetch";
-    my $filesdir = "$basedir/files";
-    my $stats = "prefetch: $queue";
-    my $fetched = 0;
-
-    # Create upload directory if necessary
-    eval { &mkpath ([$predir, $filesdir]); };
-    return &flushFailed ($stats, $timing, "could not create working directories: $@", $filesdir) if $@;
-
-    # Download and validate files.
-    my %copy = ();
-    foreach my $member (values %{$data->{MEMBERS}})
-    {
-	my $pfn = $member->{CATALOG}{PFN}[0];
-	my $lfn = $member->{CATALOG}{LFN}[0];
-
-	next if -f "$filesdir/$lfn";
-	if ($self->{DRYRUN}) {
-	    &touch ("$predir/$lfn");
-	} else {
-	    $copy{$pfn} = "$predir/$lfn";
-	}
-    }
-
-    my %copied = &rfcpmany ($self->{NRFCP}, %copy);
-    my @failed = grep ($copied{$_}, keys %copied);
-    return &flushFailed ($stats, $timing, "failed to copy @{[scalar @failed]} files", $predir)
-        if @failed;
-
-    foreach my $member (values %{$data->{MEMBERS}})
-    {
-	my $pfn = $member->{CATALOG}{PFN}[0];
-	my $lfn = $member->{CATALOG}{LFN}[0];
-
-	next if ! -f "$predir/$lfn" && -f "$filesdir/$lfn";
-
-	return &flushFailed ($stats, $timing, "file size mismatch for $lfn", $predir)
-	    if ((stat("$predir/$lfn"))[7] != $member->{CHECKSUM}[1]);
-
-	unlink ("$filesdir/$lfn");
-	return &flushFailed ($stats, $timing, "failed to move $lfn into files",
-			     [ $predir, $filesdir ])
-	    if ! &mv ("$predir/$lfn", "$filesdir/$lfn");
-    }
-
-    &logmsg ("$stats @{[&formatElapsedTime($timing)]} success") if $fetched;
-    return 1;
 }
 
 # Flush a queue.  Transfer the queue to least-loaded worker thread.
@@ -455,13 +349,12 @@ sub flushSync
 # mixed EVD and other files, complains and marks the drop bad.
 sub isDropInteresting
 {
-    my ($self, $drop, $catalog) = @_;
+    my ($self, $drop, $attrs) = @_;
     return 0 if ! -d "$self->{WORKDIR}/$drop";
 
     # Count EVD and non-EVD files.
-    my @files = values %$catalog;
-    my $evds = scalar(grep ($_->{META}{DataType} eq 'EVD', @files));
-    my $nonevds = scalar(@files) - $evds;
+    my $evds = scalar(grep ($_->{META}{DataType} eq 'EVD', @$attrs));
+    my $nonevds = scalar(@$attrs) - $evds;
 
     # If not interesting, move downstream and indicate non-interest
     do { $self->relayDrop ($drop); return 0; } if ! $evds;
@@ -479,7 +372,7 @@ sub isDropInteresting
 # handled, and if so, remove it.
 sub isDropDone
 {
-    my ($self, $drop, $catalog) = @_;
+    my ($self, $drop, $attrs) = @_;
     my $dropdir = "$self->{WORKDIR}/$drop";
     return 1 if ! -d $dropdir;
 
@@ -492,7 +385,7 @@ sub isDropDone
 
     # Return if more to do
     return 0 if ! (scalar @assigned == scalar @processed
-		   && scalar @assigned == scalar(keys %$catalog));
+		   && scalar @assigned == scalar(@$attrs));
 
     # Delete and log when we finished handling this drop
     &logmsg ("state: end $drop @{[&mytimeofday()]}");
@@ -504,25 +397,27 @@ sub isDropDone
 # Assign all unassigned files of a drop into queues.
 sub assignToQueues
 {
-    my ($self, $drop, $catalog, $checksums, $queues) = @_;
+    my ($self, $drop, $attrs, $queues) = @_;
 
     # Check if we should process this one
-    return 1 if ! $self->isDropInteresting ($drop, $catalog);
+    return 1 if ! $self->isDropInteresting ($drop, $attrs);
 
     # Check if all files in this drop have already been handled
-    return 1 if $self->isDropDone ($drop, $catalog);
+    return 1 if $self->isDropDone ($drop, $attrs);
+
+    # Ensure that the drop has enough information for us
+    if (my @missing = grep (! defined $_->{FILESIZE}, @$attrs))
+    {
+	&alert ("$drop: missing size for @{[map { $_->{PFN} } @missing]}");
+	$self->markBad ($drop);
+	return 0;
+    }
 
     # Maybe assign more files.
-    foreach my $f (values %$catalog) {
-	my $file = {
-	    DROP => $drop,
-	    GUID => $f->{GUID},
-	    CATALOG => $f,
-	    CHECKSUM => $self->fileCksum ($drop, $checksums, @{$f->{LFN}})
-	};
-
-	return 0 if ! $file->{CHECKSUM};
-	return 0 if ! $self->assignFile ($queues, $file);
+    foreach my $file (@$attrs)
+    {
+	$self->assignFile ($queues, { DROP => $drop, FILE => $file })
+	     or return 0;
     }
 
     return 1;
@@ -579,9 +474,9 @@ sub flushExpiredQueues
 # Purge drops for which all files have been zipped and shipped out.
 sub purgeProcessedDrop
 {
-    my ($self, $drop, $catalog) = @_;
+    my ($self, $drop, $attrs) = @_;
     $self->maybeStop ();
-    $self->isDropDone ($drop, $catalog);
+    $self->isDropDone ($drop, $attrs);
     return 1;
 }
 
@@ -649,33 +544,13 @@ sub processDrop
     # Expire already full queues, but only by size
     return if ! $self->flushExpiredQueues ($queues, 0);
 
-    # Find the catalog and checksum files
+    # Find the attribute cache to discover file information
     my $dropdir = "$self->{WORKDIR}/$drop";
-    my $xmlcat = (<$dropdir/XMLCatFragment.*.{xml,txt}>)[0];
-    my $cksum = (<$dropdir/CheckSum.*.txt>)[0];
-    if (! defined $cksum)
-    {
-	&alert ("no checksum file found in $drop");
-	$self->markBad ($drop);
-	return;
-    }
-
-    if (! defined $xmlcat)
-    {
-	&alert ("no xml catalog file found in $drop");
-	$self->markBad ($drop);
-	return;
-    }
-
-    # Read catalog and checksum data
-    my $catalog = eval { &readXMLCatalog ($xmlcat) };
-    do { &alert($@); $self->markBad ($drop); return } if $@;
-
-    my @checksums = eval { &readChecksumData ($cksum) };
-    do { &alert($@); $self->markBad ($drop); return } if $@;
+    my $attrs = eval { &readAttributeCache ("$dropdir/attrs") };
+    do { &alert ("$drop: $@"); $self->markBad ($drop); return } if $@;
 
     # Assign new files to queues
-    return if ! $self->assignToQueues ($drop, $catalog, \@checksums, $queues);
+    return if ! $self->assignToQueues ($drop, $attrs, $queues);
 
     # Save queues.
     foreach my $q (keys %$queues) {
@@ -701,7 +576,7 @@ sub idle
         {
 	    $self->maybeStop ();
 	    last if &mytimeofday() - $now > $self->{WAITTIME} * 3;
-	    $self->fetchQueueFiles ($q, $self->{QUEUES}{$q});
+	    &fetchQueueFiles ($self, $self->queueDirectory ($q), $self->{QUEUES}{$q});
         }
     }
 
@@ -711,13 +586,10 @@ sub idle
 	$self->maybeStop ();
 
 	my $dropdir = "$self->{WORKDIR}/$drop";
-	my $xmlcat = (<$dropdir/XMLCatFragment.*.{xml,txt}>)[0];
-        next if ! defined $xmlcat;
+	my $attrs = eval { &readAttributeCache ("$dropdir/attrs") };
+        do { &alert ("$drop: $@"); $self->markBad ($drop); last } if $@;
 
-        my $catalog = eval { &readXMLCatalog ($xmlcat) };
-	do { &alert($@); $self->markBad ($drop); next } if $@;
-
-        $self->purgeProcessedDrop ($drop, $catalog);
+        $self->purgeProcessedDrop ($drop, $attrs);
     }
 
     # Check children are still running and then wait
