@@ -61,6 +61,12 @@ if ($args{DOMAINS}{p}) {
 if ($args{DOMAINS}{c}) {
     die if ! &queryFileCatalogue(\%args, $files);
 }
+if ($args{DOMAINS}{fs}) {
+    die if ! &queryFileSystem(\%args, $file);
+}
+if ($args{DOMAINS}{f}) {
+    die if ! &queryFiles(\%args, $file);
+}
 
 foreach my $file (values %$files) {
     print "no guid for pfn $file->{PFN}\n" if ! $file->{GUID};
@@ -121,5 +127,19 @@ sub queryFileCatalogue
 	print "." if ++$nguids % 1000 == 0;
     }
     close (CAT) or die "PFClistGuidPFN: $!\n";
+    return 1;
+}
+
+# Get local SURLs. Compare to FC. If all files are in the FC then
+# and only then can we make the full comparison to the TMDB.
+sub queryFileSystem
+{
+    print "Sorry, direct File System checks aren't supported yet\n";
+    return 1;
+}
+
+sub queryFiles
+{
+    print "Sorry, direct file checks aren't supported yet\n";
     return 1;
 }
