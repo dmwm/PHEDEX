@@ -1,0 +1,165 @@
+<!-- All web pages go in web directory -->
+<!-- All java source goes in src -->
+
+<project name="AgentServlet" default="build" basedir=".">
+  <taskdef name="deploy" classname="org.apache.catalina.ant.DeployTask" />
+  
+  <property name="app.path" value="/${ant.project.name}"/>
+  
+    <!-- Create the deployment directory -->
+    <target name="createToDeployDir" unless="toDeployExists">
+        <mkdir dir="toDeploy" />
+        <mkdir dir="toDeploy/META-INF" />
+        <mkdir dir="toDeploy/WEB-INF" />
+        <mkdir dir="toDeploy/WEB-INF/classes" />
+        <mkdir dir="toDeploy/WEB-INF/lib" />
+    </target>
+
+    <!-- Set some properties and timestamp -->
+    <target name="init">
+        <property name="appname" value="${ant.project.name}"/>
+        <property name="servlet.jar" value="/home/phxsm/jakarta-tomcat-4.1.29/common/lib/servlet.jar" />
+        <available property="toDeployExists" file="toDeploy" />
+        <tstamp>
+            <format property="TODAY_UK" pattern="d-MMMM-yyyy" locale="en"/>
+        </tstamp>
+    </target>
+
+    <target name="build" depends="init,createToDeployDir,copyWebPages,copyConfigFiles,copyLibFiles,compile">
+    </target>
+
+    <!-- This target copies web pages from /web to toDeploy -->
+    <target name="copyWebPages">
+        <copy todir="toDeploy">
+            <fileset dir=".">
+            	<include name="**/*.html" />
+                <include name="**/*.htm" />
+                <include name="**/*.xsl" />
+            	<include name="**/*.css" />
+                <include name="**/*.jpg" />
+            	<include name="**/*.gif" />
+            	<include name="**/*.ico" />
+            	<exclude name="**/web.xml"/>
+            	<exclude name="**/build.xml"/>
+        		<exclude name="**/toDeploy"/>
+            </fileset>
+        </copy>
+    </target>
+
+    <!-- Copy all configuration files to the correct toDeploy dirs -->
+    <target name="copyConfigFiles">
+        <copy todir="toDeploy/META-INF">
+            <fileset dir=".">
+                <include name="context.xml" />
+            </fileset>
+        </copy>
+        <copy todir="toDeploy/WEB-INF">
+            <fileset dir=".">
+                <include name="web.xml" />
+            </fileset>
+        </copy>
+    </target>
+    
+    <!-- Copy all lib files to correct toDeploy dirs -->
+    <target name="copyLibFiles">
+    	<copy todir="toDeploy/WEB-INF/lib">
+            <fileset dir="lib">
+                <include name="*.jar" />
+            </fileset>
+        </copy>
+    </target>
+	
+    <target name="copyClassFiles">
+    	<copy todir="toDeploy/WEB-INF/classes">
+            <fileset dir="bin/">
+                <include name="**/*.class" />
+            </fileset>
+        </copy>
+    </target>
+    
+    <target name="compile">
+        <javac srcdir="src"
+        destdir="toDeploy/WEB-INF/classes"
+        debug="true"
+        deprecation="false"
+        optimize="false">
+            <classpath >
+                <pathelement location="${servlet.jar}" />
+                <fileset dir="lib/">
+            		<include name="*.jar"/>
+        		</fileset>
+            </classpath>
+        </javac>
+    </target>
+
+    <!-- Clean all files from toDeploy ready for a clean build -->
+    <target name="clean">
+        <delete>
+            <fileset dir=".">
+                <include name="**/*.war" />
+            </fileset>
+            <fileset dir="toDeploy">
+                <include name="**/*"/>
+            </fileset>
+            <fileset dir=".">
+                <include name="**/toDeploy" />
+            </fileset>
+        </delete>
+    </target>
+
+    <!-- Create the war for deployment -->
+    <target name="war" depends="build" >
+        <jar jarfile="${appname}.war">
+            <fileset dir="toDeploy">
+                <include name="**"/>
+            </fileset>
+        </jar>
+    </target>
+	
+    <target name="warnocompile" depends="init,createToDeployDir,copyWebPages,copyConfigFiles,copyLibFiles,copyClassFiles" >
+    	
+        <jar jarfile="${appname}.war">
+            <fileset dir="toDeploy">
+                <include name="**"/>
+            </fileset>
+        </jar>
+    </target>
+
+    <!-- Deploy the .war to remote server -->
+	<target name="deploynocompile" depends="warnocompile">
+		<property name="war.file" location="${appname}.war"/>
+		<echo message="Deploying ${appname}. File path = ${war.file}"/>
+    	<deploy url="http://tuber1.phy.bris.ac.uk:8080/manager" 
+    		username="admin"
+            password="bosscat" 
+    		path="/${ant.project.name}"
+            war="file:${war.file}" />
+		<echo message="Finished deploying webapp......."/>
+	</target>
+	
+    <!-- Deploy the .war to remote server -->
+	<target name="deploy" depends="war">
+		<property name="war.file" location="${appname}.war"/>
+		<echo message="Deploying ${appname}. File path = ${war.file}"/>
+    	<deploy url="http://tuber1.phy.bris.ac.uk:8080/manager" 
+    		username="admin"
+            password="bosscat" 
+    		path="/${ant.project.name}"
+            war="file:${war.file}" />
+		<echo message="Finished deploying webapp......."/>
+	</target>
+	
+	<!-- Undeploy the .war from remote server -->
+    <target name="undeploy">
+		<echo message="Remove the war file......."/>
+		<get src="http://tuber1.phy.bris.ac.uk:8080/manager/html/undeploy?path=/${ant.project.name}" dest="undeploy.log" username="admin" password="bosscat"/>
+		<delete>
+            <fileset dir=".">
+                <include name="**/undeploy.log" />
+            </fileset>
+		</delete>
+		<echo message="Finished uninstalling webapp......."/>
+	</target>
+    <target name="fullclean" depends="clean,undeploy"/>
+  	<target name="redeploy" depends="fullclean,deploy"/>
+</project>

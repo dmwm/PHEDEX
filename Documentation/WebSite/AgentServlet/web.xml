@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE web-app    PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.2//EN"
+    "http://java.sun.com/j2ee/dtds/web-app_2_2.dtd">
+
+<web-app>
+    <display-name>Agent Control Centre Servlet</display-name>
+    <description>
+	Servlet to display and control the status of transfer agents
+    </description>
+
+    <servlet>
+        <servlet-name>Display</servlet-name>
+        <servlet-class>ch.cern.cms.phedex.subscriptions.DisplaySubscriptions</servlet-class>
+    </servlet>
+    
+    <servlet>
+        <servlet-name>Edit</servlet-name>
+        <servlet-class>ch.cern.cms.phedex.subscriptions.EditSubscriptions</servlet-class>
+    </servlet>
+
+    <servlet>
+        <servlet-name>Status</servlet-name>
+        <servlet-class>ch.cern.cms.phedex.control.Status</servlet-class>
+    </servlet>
+    
+    <servlet>
+        <servlet-name>Control</servlet-name>
+        <servlet-class>ch.cern.cms.phedex.control.Control</servlet-class>
+    </servlet>
+    
+    <servlet-mapping>
+        <servlet-name>Display</servlet-name>
+        <url-pattern>display.html</url-pattern>
+    </servlet-mapping>
+    
+    <servlet-mapping>
+        <servlet-name>Edit</servlet-name>
+        <url-pattern>edit.html</url-pattern>
+    </servlet-mapping>
+    
+    <servlet-mapping>
+        <servlet-name>Status</servlet-name>
+        <url-pattern>status.html</url-pattern>
+    </servlet-mapping>
+    
+    <servlet-mapping>
+        <servlet-name>Control</servlet-name>
+        <url-pattern>control.html</url-pattern>
+    </servlet-mapping>
+    
+</web-app>
