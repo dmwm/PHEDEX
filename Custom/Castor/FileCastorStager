@@ -343,8 +343,8 @@ sub idle
     if (! tied %{$self->{GUID_CACHE}})
     {
 	my @parms = (O_RDWR|O_CREAT, 0666, $DB_BTREE);
-	my $guids = "$self->{WORKDIR}/guid-cache";
-	my $pfns  = "$self->{WORKDIR}/pfn-cache";
+	my $guids = "$self->{DROPDIR}/guid-cache";
+	my $pfns  = "$self->{DROPDIR}/pfn-cache";
 	tie (%{$self->{GUID_CACHE}}, 'DB_File', $guids, @parms)
 	    or die "failed to create guid-cache: $!\n";
 
