@@ -1,11 +1,9 @@
 #! /usr/bin/env perl
 
 #-----------------------------------------------------------------------------------------------
-# agent name: global monitoring agent
-# purpose 1: monitor completeness of dataset/owner collections
-#            and trigger removal of file level information in TMDB
-# purpose 2: recreate file level information if dataset/owner collections
-#            are needed again (e.g. new subscriptions)
+# agent name: collapse agent
+# purpose: monitor completeness of dataset/owner collections
+#          and trigger removal of file level information in TMDB
 #-----------------------------------------------------------------------------------------------
 
 BEGIN
@@ -25,7 +23,6 @@ my %args = (DBITYPE => 'Oracle',
 	    WAITTIME => 60);
 
 &GetOptions ("state=s"		=> \$args{DROPDIR},
-	     "node=s"		=> \$args{MYNODE},
 	     "db=s"		=> \$args{DBNAME},
 	     "dbitype=s"	=> \$args{DBITYPE},
 	     "dbuser=s"		=> \$args{DBUSER},
@@ -36,14 +33,13 @@ my %args = (DBITYPE => 'Oracle',
 
 
 if ($args{HELPME} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{MYNODE} || !$args{DROPDIR})
+    || !$args{DBPASS} || !$args{DROPDIR})
 {
     print "Syntax for Monitoring agent: \n";
     print "--help:         this help text \n";
     print "--db:           database to connect to (required)\n";
     print "--dbuser:       database user name (required)\n";
     print "--dbpass:       database user password (required)\n";
-    print "--node:         phedex node name (required)\n";
     print "--state:        agent state directory (required)\n";
     print "--wait:         seconds to sleep between checks\n";
     print "--holdoff:      holdoff time for pruning after collection was touched last\n"
@@ -51,14 +47,14 @@ if ($args{HELPME} || !$args{DBNAME} || !$args{DBUSER}
 }
 
 #CJR mapping for Lassi's dropbox toolkit
-my $agent = new MonitorAgent (%args);
+my $agent = new CollapseAgent (%args);
 $SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $SIG{QUIT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $SIG{TERM} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $agent->process();
 
 ################################################
-package MonitorAgent; use strict; use warnings; use base 'UtilsAgent';
+package CollapseAgent; use strict; use warnings; use base 'UtilsAgent';
 use File::Path;
 use Data::Dumper;
 use UtilsCommand;
@@ -77,8 +73,7 @@ sub new
     		  DBNAME => undef,		# Database name
 	  	  DBUSER => undef,		# Database user name
 	  	  DBPASS => undef,		# Database user password
-	  	  MYNODE => undef,		# My TMDB node name
-	  	  AGENTID => "Monitoring",      # Identity for activity logs
+	  	  AGENTID => "Collapse",        # Identity for activity logs
 		  HOLDOFF => 86400);            # hold-off time for pruning (24h default)
 
     my %args = (@_);
@@ -94,7 +89,6 @@ sub idle
     my ($self, @pending) = @_;
     my $dbh = undef;
     my @collectionsFinished = ();
-    my @collectionsWanted = ();
 
     eval
     {
@@ -110,15 +104,6 @@ sub idle
 	    # let's get rid of that stuff collection by collection !!
 	    foreach my $collection (@collectionsFinished) {
 		$self->removeInTMDB($dbh, $collection);
-	    }
-	}
-	
-	# look for newly requested collections and make the files available in t_replica_state
-	@collectionsWanted = $self->getGroupsWanted($dbh);
-	if (scalar (@collectionsWanted) !=0) {
-	    # make those collections available in t_replica_state if necessary
-	    foreach my $collection (@collectionsWanted) {
-		$self->makeAvailInTMDB($dbh, $collection);
 	    }
 	}
 	
@@ -159,30 +144,6 @@ sub getGroupstoDelete {
 }
 
 
-sub getGroupsWanted {
-    my ($self, $dbh) = @_; 
-    my @packet = ();
-    
-# any collections wanted, which are not in t_replica_state ? Let's check....    
-# FIXME: really ugly SQL... I am wondering if this could be improved
-    my $h_packet = &dbexec ($dbh, qq{
-	select ts.dataset, ts.owner, ts.destination
-        from t_subscription ts, t_file tf, t_block tb
-        where tf.inblock=tb.name and 
-        ts.dataset=tb.dataset and 
-        ts.owner=tb.owner and 
-        tf.guid not in (select guid from t_replica_state)});
-    
-    while (my ($owner, $dataset, $node) = $h_packet->fetchrow_array){
-	my $exists = grep(|"$dataset:$owner:$node"|,@packet);
-	push (@packet, "$dataset:$owner:$node") if ! $exists ;
-    }
-# return those dataset owner pairs
-    return @packet;
-    
-}
-
-
 sub removeInTMDB {
     my ($self, $dbh, $collection) = @_;
     my ($dataset, $owner) = split(':',$collection);
@@ -204,29 +165,6 @@ sub removeInTMDB {
 	$dbh->commit();
     }
 	
-}
-
-sub makeAvailInTMDB {
-    my ($self, $dbh, $collection) = @_;
-    my ($dataset, $owner, $node) = split(':',$collection);
-    
-    my $now = time();
-# we need the guids for the files belonging to the selected dataset-owner pairs
-    my @guids = &getGUIDs($dataset, $owner);
-    
-    foreach my $guid (@guids) {
-# let's check, if the guids are already in t_replica state and add them if they are not
-	my $guid_exists = &dbexec($dbh, qq{
-	    select count(*) from t_replica_state
-	    where node=:node and guid=:guid},
-	    ":node"=>$node, ":guid"=>$guid);
-
-	&dbexec($dbh, qq{
-	    insert into t_replica_state (timestamp,guid,node,state,state_timestamp)
-      	    values ("$now","$guid","$node",'0',"$now")}) if !$guid_exists;
-
-	$dbh->commit();
-    }
 }
 
 

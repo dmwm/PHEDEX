@@ -103,6 +103,10 @@ sub idle
 	# update statistics in t_block_replica
 	$self->update_block_rep($dbh);
 
+	# get the owners for each dataset of all transfered collections
+        # (info needed for publishing or maybe other reasons)
+	%dataset_members = $self->getDatasetMembers($dbh);
+
 	# check if a group was transfered completely and return group
 	@collectionsFinished = $self->getGroups($dbh);
 	return if (scalar(@collectionsFinished) == 0); # return from eval if there is nothing to be done
@@ -114,39 +118,20 @@ sub idle
     # Disconnect from the database
     $dbh->disconnect();
     undef $dbh;
-    print "collection finished: $collectionsFinished[0]\n";
 
     # Call external script to do publishing and site specific work (etc.)
     foreach my $collection (@collectionsFinished){
 	chomp $collection;
-	my ($dataset, $owner) = split(':',$collection);
+	my ($dataset, $owner, $files) = split(':',$collection);
 	my $AssID = &listAssignments($dataset,$owner);
-	# find out what portion of the dataset we actually have available
-	$dataset_members{$dataset} = '';
-	$dataset_members{$dataset} = $dataset_members{$dataset}."Hit" if ($owner =~ m|Hit|);
-	$dataset_members{$dataset} = $dataset_members{$dataset}."Digi" if ($owner =~ m|Digi|);
 
-
-	my $cmd = "$self->{SITESCRIPT} $dataset $owner $AssID $dataset_members{$dataset}";
+	my $cmd = "$self->{SITESCRIPT} $dataset $owner $files $AssID $dataset_members{$dataset}";
 	my $error = system($cmd);
 	&alert("execution of site specific script returned an error for collection: $collection") if $error;
-
-	# update time information after site specific actions got triggered
-	eval
-	{
-	    $dbh = &connectToDatabase ($self) or die "failed to connect";
-	    
-	    $self->updateTimeStamp($dbh, $dataset, $owner);
-	    
-	    $dbh->commit();
-	};
-	do { &alert ("database error: $@"); $dbh->rollback if $dbh } if $@;
-	
-
-	# Have a little nap
-	$self->nap ($self->{WAITTIME});
     }
-
+    
+    # Have a little nap
+    $self->nap ($self->{WAITTIME});
 }
 
 
@@ -175,7 +160,7 @@ sub getGroups {
 # let's get all dataset-owner pairs, which were completely transfered
 # and not yet handled
     my $h_packet = &dbexec ($dbh, qq{
-	select tb.dataset, tb.owner
+	select tb.dataset, tb.owner, tb.files
         from t_block tb, t_block_replica tbr
 	where tbr.node=:node and
         tbr.files=tb.files and
@@ -183,13 +168,33 @@ sub getGroups {
         tb.name=tbr.name},
 	":node"=>$self->{MYNODE}, ":now"=>$now);
  
-    while (my ($owner, $dataset) = $h_packet->fetchrow_array){
-	push (@packet, "$dataset:$owner");
+    while (my ($owner, $dataset, $files) = $h_packet->fetchrow_array){
+	push (@packet, "$dataset:$owner:$files");
+# update timestamp in t_block_replica
+	$self->updateTimeStamp($dbh, $dataset, $owner);
     }
-
 
 # return those dataset owner pairs
     return @packet;
+}
+
+
+sub getDatasetMembers {
+    my ($self, $dbh) = @_;
+    my %members;
+    
+    my $h_dataset = &dbexec ($dbh, qq{
+	select tb.dataset, tb.owner
+        from t_block tb, t_block_replica tbr
+	where tbr.node=:node and
+        tbr.files=tb.files and
+        tb.name=tbr.name},
+	":node"=>$self->{MYNODE});
+
+    while (my ($owner, $dataset) = $h_dataset->fetchrow_array){
+	$members{$dataset} = ($members{$dataset}?$members{$dataset}."/$owner":$owner);
+    }
+    return %members;
 }
 
 sub updateTimeStamp {
