@@ -16,8 +16,8 @@
 {\listlevel\levelnfc4\levelnfcn4\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid67698713\'02\'07.;}{\levelnumbers\'01;}\chbrdr\brdrnone\brdrcf1 \chshdng0\chcfpat1\chcbpat1 \fi-360\li5760
 \jclisttab\tx5760\lin5760 }{\listlevel\levelnfc2\levelnfcn2\leveljc2\leveljcn2\levelfollow0\levelstartat1\levelspace0\levelindent0{\leveltext\leveltemplateid67698715\'02\'08.;}{\levelnumbers\'01;}\chbrdr\brdrnone\brdrcf1 \chshdng0\chcfpat1\chcbpat1 
 \fi-180\li6480\jclisttab\tx6480\lin6480 }{\listname ;}\listid1356925417}}{\*\listoverridetable{\listoverride\listid1356925417\listoverridecount0\ls1}}{\*\rsidtbl \rsid662841\rsid1523512\rsid5772644\rsid6232420\rsid6378799\rsid10055205\rsid10699851
-\rsid12207247\rsid16283747}{\info{\title Node Testbed deployment and user guide}{\author Tim Barrass}{\operator Tim Barrass}{\creatim\yr2004\mo7\dy28\hr12\min36}{\revtim\yr2004\mo9\dy3\hr18\min6}{\version42}{\edmins91}{\nofpages1}{\nofwords1447}
-{\nofchars8249}{\*\company University of Bristol}{\nofcharsws10130}{\vern24577}}\margl359\margr359 \ftnbj\aenddoc\noxlattoyen\expshrtn\noultrlspc\dntblnsbdb\nospaceforul\hyphcaps0\formshade\horzdoc\dgmargin\dghspace180\dgvspace180\dghorigin1701
+\rsid12207247\rsid16283747}{\info{\title Node Testbed deployment and user guide}{\author Tim Barrass}{\operator Tim Barrass}{\creatim\yr2004\mo7\dy28\hr12\min36}{\revtim\yr2004\mo9\dy3\hr19\min44}{\version44}{\edmins101}{\nofpages1}{\nofwords1480}
+{\nofchars8437}{\*\company University of Bristol}{\nofcharsws10361}{\vern24577}}\margl359\margr359 \ftnbj\aenddoc\noxlattoyen\expshrtn\noultrlspc\dntblnsbdb\nospaceforul\hyphcaps0\formshade\horzdoc\dgmargin\dghspace180\dgvspace180\dghorigin1701
 \dgvorigin1984\dghshow0\dgvshow0\jexpand\viewkind4\viewscale100\pgbrdrhead\pgbrdrfoot\splytwnine\ftnlytwnine\htmautsp\nolnhtadjtbl\useltbaln\alntblind\lytcalctblwd\lyttblrtgr\lnbrkrule\nobrkwrptbl\rsidroot12669697 \fet0\sectd 
 \linex0\headery708\footery708\colsx708\endnhere\sectdefaultcl\sectrsid6378799\sftnbj {\*\pnseclvl1\pnucrm\pnstart1\pnindent720\pnhang{\pntxta .}}{\*\pnseclvl2\pnucltr\pnstart1\pnindent720\pnhang{\pntxta .}}{\*\pnseclvl3\pndec\pnstart1\pnindent720\pnhang
 {\pntxta .}}{\*\pnseclvl4\pnlcltr\pnstart1\pnindent720\pnhang{\pntxta )}}{\*\pnseclvl5\pndec\pnstart1\pnindent720\pnhang{\pntxtb (}{\pntxta )}}{\*\pnseclvl6\pnlcltr\pnstart1\pnindent720\pnhang{\pntxtb (}{\pntxta )}}{\*\pnseclvl7
@@ -134,7 +134,7 @@ state char(1), is_at_node varchar(20) references t_nodes(node_name), timestamp i
 \par }{\dbch\f15\insrsid16283747\charrsid6378799 \tab \hich\af6\dbch\af15\loch\f6 mkdir $NODETESTBED}{\dbch\f15\insrsid6378799\charrsid6378799 
 \par }{\dbch\f15\insrsid16283747\charrsid6378799 \tab \hich\af6\dbch\af15\loch\f6 cd $NODETESTBED}{\dbch\f15\insrsid12207247\charrsid6378799 
 \par }{\dbch\f15\insrsid6378799\charrsid6378799 
-\par }{\dbch\f15\insrsid10699851\charrsid6378799 \tab \hich\af6\dbch\af15\loch\f6 export CVSROOT=\\
+\par }{\dbch\f15\insrsid16283747\charrsid6378799 \tab \hich\af6\dbch\af15\loch\f6 setenv\hich\af6\dbch\af15\loch\f6  CVSROOT }{\dbch\f15\insrsid10699851\charrsid6378799 \\
 \par }\pard \s15\ql \fi720\li0\ri0\widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin0\itap0\pararsid10699851 {\dbch\f15\insrsid6378799\charrsid6378799 \hich\af6\dbch\af15\loch\f6 :pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/TMAgents
 \par }\pard \s15\ql \li0\ri0\widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin0\itap0\pararsid6378799 {\dbch\f15\insrsid6378799\charrsid6378799 \tab 
 \par \tab \hich\af6\dbch\af15\loch\f6 cvs lo\hich\af6\dbch\af15\loch\f6 gin
@@ -142,10 +142,18 @@ state char(1), is_at_node varchar(20) references t_nodes(node_name), timestamp i
 \par \tab \hich\af6\dbch\af15\loch\f6 cvs co AgentToolkitExamples
 \par 
 \par \tab \hich\af6\dbch\af15\loch\f6 cd }{\dbch\f15\insrsid12207247\charrsid6378799 \hich\af6\dbch\af15\loch\f6 AgentToolkitExamples/NodeTestbed}{\dbch\f15\insrsid6378799\charrsid6378799 
-\par \tab }{\dbch\f15\insrsid10699851\charrsid10699851 \hich\af6\dbch\af15\loch\f6 source SetupEnvironment.csh}{\dbch\f15\insrsid6378799\charrsid10699851 
-\par }{\dbch\f15\insrsid16283747\charrsid6378799 \tab \hich\af6\dbch\af15\loch\f6 setenv PATH $\{PATH\}:$\{NODETESTBED\}}{\dbch\f15\insrsid12207247\charrsid6378799 \hich\af6\dbch\af15\loch\f6 /A}{\dbch\f15\insrsid16283747\charrsid6378799 
-\hich\af6\dbch\af15\loch\f6 gentToolkitExamples/NodeTestbed}{\dbch\f15\insrsid12207247\charrsid6378799 
-\par }{\dbch\f15\insrsid16283747\charrsid6378799 \tab \hich\af6\dbch\af15\loch\f6 setenv PATH $\{PATH\}:$\{NODETESTBED\}/AgentToolkitExamples/Man\hich\af6\dbch\af15\loch\f6 agers}{\dbch\f15\insrsid12207247\charrsid6378799 
+\par \tab }{\dbch\f15\insrsid16283747\charrsid6378799 \hich\af6\dbch\af15\loch\f6 [}{\dbch\f15\insrsid10699851\charrsid10699851 \hich\af6\dbch\af15\loch\f6 source SetupEnvironment.csh}{\dbch\f15\insrsid16283747\charrsid10699851 \hich\af6\dbch\af15\loch\f6 ]}{
+\dbch\f15\insrsid6378799\charrsid10699851 
+\par }{\dbch\f15\insrsid16283747\charrsid6378799 \tab \hich\af6\dbch\af15\loch\f6 setenv POOL_CATALOG \hich\af6\dbch\af15\loch\f6 xmlcatalog_file:$NO\hich\af6\dbch\af15\loch\f6 DETESTBED\hich\af6\dbch\af15\loch\f6 /TestbedCatalogue.xml
+\par }\pard \s15\ql \fi720\li0\ri0\widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin0\itap0\pararsid16283747 {\dbch\f15\insrsid16283747\charrsid6378799 \hich\af6\dbch\af15\loch\f6 setenv PATH $\{PATH\}:$\{NODETESTBED\}}{
+\dbch\f15\insrsid12207247\charrsid6378799 \hich\af6\dbch\af15\loch\f6 /A}{\dbch\f15\insrsid16283747\charrsid6378799 \hich\af6\dbch\af15\loch\f6 gentToolkitExamples/NodeTestbed}{\dbch\f15\insrsid12207247\charrsid6378799 
+\par }\pard \s15\ql \li0\ri0\widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin0\itap0\pararsid6378799 {\dbch\f15\insrsid16283747\charrsid6378799 \tab \hich\af6\dbch\af15\loch\f6 setenv PATH $\{PATH\}:$\{NODETESTBED\}/AgentToolkitExamples/Man
+\hich\af6\dbch\af15\loch\f6 agers}{\dbch\f15\insrsid12207247\charrsid6378799 
+\par }{\dbch\f15\insrsid16283747\charrsid6378799 \tab \hich\af6\dbch\af15\loch\f6 setenv PATH \hich\af6\dbch\af15\loch\f6 /afs/cern.ch/sw/lcg/app/spi/scram\hich\af6\dbch\af15\loch\f6 :\hich\af6\dbch\af15\loch\f6 $\{PATH\}
+\par \tab \hich\af6\dbch\af15\loch\f6 cd /afs/cern.ch/sw/lcg/app/releases/POOL/POOL_1_6_5
+\par \tab \hich\af6\dbch\af15\loch\f6 eval `scram runtime \endash \hich\af6\dbch\af15\loch\f6 csh`
+\par 
+\par \hich\af6\dbch\af15\loch\f6 You\rquote \hich\af6\dbch\af15\loch\f6 ll need to set the environment variables whenever you use the testbed\loch\af6\dbch\af15\hich\f6 \u8230\'85
 \par }{\dbch\f15\insrsid6378799\charrsid6378799 
 \par 
 \par 
@@ -330,7 +338,6 @@ ach file it creates in the TMDB- in t_replica_metadata it sets the key POOL_data
 \par \hich\af6\dbch\af15\loch\f6 -db \hich\af6\dbch\af15\loch\f6 'mysql:d\hich\af6\dbch\af15\loch\f6 atabase=V2TMDB;host=<host>\hich\af6\dbch\af15\loch\f6 ' \\\\
 \par \hich\af6\dbch\af15\loch\f6 -user phedex \\\\
 \par \hich\af6\dbch\af15\loch\f6 -passwd phedex \\\\
-\par \hich\af6\dbch\af15\loch\f6 -u \hich\af6\dbch\af15\loch\f6 xmlcatalog_file:$NODETESTBED/\hich\af6\dbch\af15\loch\f6 TestbedCatalogue.xml\hich\af6\dbch\af15\loch\f6  \\\\
 \par \hich\af6\dbch\af15\loch\f6 -no-updates}{\dbch\f15\insrsid16283747 
 \par }\pard \s15\ql \li0\ri0\widctlpar\aspalpha\aspnum\faauto\adjustright\rin0\lin0\itap0\pararsid6378799 {\dbch\f15\insrsid5772644\charrsid6378799 \tab 
 \par \hich\af6\dbch\af15\loch\f6 \hich\f6 This runs the allocator agent once without making any updates on the TMDB\u8230\'85\loch\f6  it should display a log indicating that it found }{\dbch\f15\insrsid16283747\charrsid6378799 \hich\af6\dbch\af15\loch\f6 
