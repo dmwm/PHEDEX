@@ -99,7 +99,9 @@ sub getPFNRoot
 # While we are at it, also update PFNs in the catalog.  The incoming
 # catalog has fake PFNs of the format "./LFN".  Remap them to the real
 # physical paths either using the path given in a Smry file, or failing
-# that, by using "stageqry".
+# that, by using "stageqry".  Finally, run the whole catalogue through
+# FCpublish again to make sure old XML catalogues are updated to the
+# current format (pre-POOL-1.4 to current).
 sub updateCatalog
 {
     my ($drop, $xmlcat, $summary) = @_;
@@ -158,7 +160,25 @@ sub updateCatalog
     if (! &output ($xmlcat, $content))
     {
 	# Assume it's a transient error and return failure
-	&alert ("Cannot rewrite catalog for $drop: $!");
+	&alert ("failed rewrite catalog for $drop: $!");
+	return 1;
+    }
+
+    # Rewrite to reformat old catalogues
+    my $status = &runcmd ("FCpublish",
+			  "-u", "file:$xmlcat",
+			  "-d", "file:$workdir/$drop/newcat.$$.xml");
+    if ($status)
+    {
+	&alert ("failed to clean up the catalogue with FCpublish for $drop: $status");
+	&markBad ($drop);
+	return 1;
+    }
+
+    if (! &mv ("$workdir/$drop/newcat.$$.xml", $xmlcat))
+    {
+	# Assume transient errors
+	&alert ("failed to rename catalogue in $drop: $!");
 	return 1;
     }
 
