@@ -129,19 +129,19 @@ foreach my $request (@ARGV)
 	&dbexec ($dbh, qq{
 	    insert into t_request_drop
 	    (request_name, drop_name, drop_category)
-	    values (:req, :drop, :cat)},
+	    values (:req, :drop_name, :drop_cat)},
 	    ":req" => $request,
-	    ":drop" => $drop->{DROPNAME},
-	    ":cat" => $drop->{DROP_CATEGORY});
+	    ":drop_name" => $drop->{DROPNAME},
+	    ":drop_cat" => $drop->{DROP_CATEGORY});
 
     	foreach my $file (@{$drop->{FILES}}) {
 	    &dbexec ($dbh, qq{
 		insert into t_request_file
 		(request_name, guid, drop_name)
-		values (:req, :guid, :drop)},
+		values (:req, :guid, :drop_name)},
 		":req" => $request,
 		":guid" => $file->{GUID},
-		":drop" => $drop->{DROPNAME});
+		":drop_name" => $drop->{DROPNAME});
 
 	    &dbexec ($dbh, qq{
 		insert into t_request_file_status
