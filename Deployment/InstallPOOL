@@ -72,10 +72,13 @@ sub installStandalone
     }
 
     eval {
+	# additional rpm options needed due to unsatisfied dependencies
+	my $RPMopt = '--nodeps --noscripts';
+
 	# check for non working rpm version 4.0.4
 	my $RPMVersion = `rpm --version`;
-	die "Your RPM is version 4.0.4 and does not support external RPMDBs correctly.\n"
-	    if ($RPMVersion =~ m|4.0.4|);
+	$RPMopt = '--nodeps --nopost' if ($RPMVersion =~ m|4.0.4|);
+
 
 	# prepare a local dummy RPM DB and copy over the system wide DB
 	if (!-e "$InstallRoot/RPMDB")
@@ -109,7 +112,7 @@ sub installStandalone
 	}
 
 	# lets install the stuff if we succeded to download the RPMs
-	my $RPMcmd="rpm --dbpath $InstallRoot/RPMDB --prefix $InstallRoot -i --nodeps --noscripts $InstallRoot/RPMs/\*";
+	my $RPMcmd="rpm --dbpath $InstallRoot/RPMDB --prefix $InstallRoot -i $RPMopt $InstallRoot/RPMs/\*";
 	(! system($RPMcmd)) or
 	    die "Installation of RPMs failed.  Installation terminated.\n";
     };
