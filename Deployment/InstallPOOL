@@ -110,9 +110,8 @@ sub installStandalone
 
 	# lets install the stuff if we succeded to download the RPMs
 	my $RPMcmd="rpm --dbpath $InstallRoot/RPMDB --prefix $InstallRoot -i --nodeps --noscripts $InstallRoot/RPMs/\*";
-	if (! system($RPMcmd)) {
+	(! system($RPMcmd)) or
 	    die "Installation of RPMs failed.  Installation terminated.\n";
-	}
     };
 
     if ($@) {
