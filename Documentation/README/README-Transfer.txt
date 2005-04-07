@@ -182,9 +182,9 @@ you have trouble.
 
 *** Get some data assigned to your node
 
-You need to subscribe to data by entering a subscription into
-t_subscription, and data will be allocated to your site.  Just
-how to do this is beyond this document.
+For a small scale assignment of data, send an email to 
+cms-phedex-developers@cern.ch, specifying the owner and dataset names.
+Large scale allocations of data must be sent through PRS for approval.
 
 **********************************************************************
 ** Customising the agent
