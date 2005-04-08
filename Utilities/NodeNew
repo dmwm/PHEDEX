@@ -1,0 +1,44 @@
+#!/bin/sh
+
+##H Create a new node with export and import protocols and nearest neighbours.
+##H
+##H Usage:
+##H   NodeNew NODE EXPORT[:EXPORT...] IMPORT[:IMPORT...]
+##H           NEIGHBOUR[:DISTANCE] [NEIGHBOUR[:DISTANCE]]...
+##H
+##H Examples:
+##H   NodeNew T2_Foo_Buffer srm:gsiftp srm:gsiftp T1_Bar_Buffer
+##H   NodeNew T1_Foo_Buffer gsiftp gsiftp T1_Foo_MSS:1 T1_Xyzzy_Buffer
+##H
+##H NODE is the name of the new node.
+##H EXPORT is the colon-separated list of available export protocols,
+##H   highest-priority protocol first.
+##H IMPORT is like colon-separated list of available import protocols,
+##H   highest-priroity protocol first.
+##H NEIGHBOUR is an existing neighbour node at optional DISTANCE, default 2.
+##H
+##H The command outputs the SQL to create the node.  If it looks correct,
+##H pipe the output to sqlplus or equivalent.
+
+[ $# -le 4 ] && { grep '^##H' < $0 | sed 's/^##H//; s/^ //'; exit 1; }
+
+now=$(date +%s)
+node="$1"; shift
+exps="$(echo $1 | sed 's/:/ /g')"; shift
+imps="$(echo $1 | sed 's/:/ /g')"; shift
+echo "insert into t_node values ('$node');"
+n=0; for proto in $exps; do
+  echo "insert into t_node_import values ('$node', '$proto', $n);"
+  n=$(expr $n + 1)
+done
+for proto in $imps; do
+  echo "insert into t_node_export values ('$node', '$proto');"
+done
+for item; do
+  other="$(echo $item | sed 's/:.*//')"
+  case $item in *:* ) distane=$(echo $item | sed 's/.*://');; *) distance=2 ;; esac
+  echo "insert into t_routing values ($now, '$node', '$other', '$other', $distance);"
+  echo "insert into t_routing values ($now, '$other', '$node', '$node', $distance);"
+done
+
+echo "commit;"
