@@ -2,13 +2,12 @@
 
 ##H Pump drops from transfer requests to the agents.
 ##H
-##H Usage: TRSyncFeed [-n] [-d] [-x] ENTRY DB TABLE REQUEST...
+##H Usage: TRSyncFeed [-n] [-d] [-x] -mouth ENTRY -dbconfig FILE REQUEST...
 ##H
 ##H REQUEST is the request directory previously created with TRNew.
 ##H Those drops ready in each request are moved to the mouth of the
-##H local drop box agent chain ENTRY.  DB is the name of the TMDB
-##H database (e.g. devdb) and TABLE the name of the guid table
-##H (t_files_for_transfer for V2, filesfortransfer for V1).
+##H local drop box agent chain ENTRY.  FILE specifies database
+##H configuration as usual.
 ##H
 ##H If the "-n" option is given, also checks the drops previously
 ##H marked not ready.  If the "-d" option is given, checks also
@@ -23,26 +22,28 @@ BEGIN {
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);
 }
+use UtilsDB;
 use UtilsTR;
 use UtilsNet;
 use File::Path;
 use Cwd;
 
+my %args;
 my $now = time();
-my $doit = 1;
-my $check_not_ready = 0;
-my $check_done = 0;
-
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    if ($ARGV[0] eq '-h') {
 	&usage();
+    } elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{DBCONFIG} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '-mouth' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{MOUTH} = shift (@ARGV);
     } elsif ($ARGV[0] eq '-d') {
-	$check_done = 1; shift (@ARGV);
+	shift (@ARGV); $args{CHECK_DONE} = 1;
     } elsif ($ARGV[0] eq '-n') {
-	$check_not_ready = 1; shift (@ARGV);
+	shift (@ARGV); $args{CHECK_NOT_READY} = 1;
     } elsif ($ARGV[0] eq '-x') {
-	$doit = 0; shift (@ARGV);
+	shift (@ARGV); $args{DOIT} = 0;
     } elsif ($ARGV[0] eq '--') {
 	shift (@ARGV); last;
     } elsif ($ARGV[0] =~ '^-') {
@@ -52,10 +53,12 @@ while (scalar @ARGV)
     }
 }
 
+if (!$args{MOUTH} || ! -d $args{MOUTH} || !$args{DBCONFIG})
+{
+    die "Incorrect parameters, use -h for help.\n";
+}
+
 &usage() if scalar @ARGV < 3;
-my $mouth = shift (@ARGV);
-my $dbname = shift (@ARGV);
-my $table = shift (@ARGV);
 
 foreach my $request (@ARGV)
 {
@@ -67,13 +70,13 @@ foreach my $request (@ARGV)
 
     &mkpath ([ "$request/Drops/Done", "$request/Drops/NotReady" ]);
 
+    my $dbh      = &connectToDatabase (\%args, 0);
     my @pending  = <$request/Drops/Pending/*>;
-    my @notready = $check_not_ready ? <$request/Drops/NotReady/*> : ();
-    my @done     = $check_done ? <$request/Drops/Done/*> : ();
-    my $status   = &checkAssignmentFiles ($mouth, $dbname, $table,
-	    				  @pending, @notready, @done);
+    my @notready = $args{CHECK_NOT_READY} ? <$request/Drops/NotReady/*> : ();
+    my @done     = $args{CHECK_DONE} ? <$request/Drops/Done/*> : ();
+    my $status   = &checkAssignmentFiles ($args{MOUTH}, $dbh, @pending, @notready, @done);
 
-    &feedDropsToAgents ($mouth, $request, $doit, 'Pending', $status, @pending);
-    &feedDropsToAgents ($mouth, $request, $doit, 'NotReady', $status, @notready);
-    &feedDropsToAgents ($mouth, $request, $doit, 'Done', $status, @done);
+    &feedDropsToAgents ($args{MOUTH}, $request, $doit, 'Pending', $status, @pending);
+    &feedDropsToAgents ($args{MOUTH}, $request, $doit, 'NotReady', $status, @notready);
+    &feedDropsToAgents ($args{MOUTH}, $request, $doit, 'Done', $status, @done);
 }

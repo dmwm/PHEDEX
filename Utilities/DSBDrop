@@ -1,18 +1,19 @@
 #!/usr/bin/env perl
 
-##H Generate drops from dataset bookkeeping information.
+##H Generate drops from dataset bookkeeing system.
 ##H
-##H Usage: DSBDrop [-h] [-dbitype TYPE] -db DBNAME -dbuser USER -dbpass PASS
-##H                TO-DIRECTORY [PATTERN...]
+##H Usage:
+##H   DBSDrop -dbconfig FILE DIRECTORY [PATTERN...]
 ##H
-##H Generates into TO-DIRECTORY drops for OWNER/DATASET pairs
-##H that match PATTERNs.  Each pattern should be a shell glob
-##H pattern for a OWNER/DATASET pair, e.g. "*/bt03_*".
+##H -dbconfig  database connection configuration parameter file
+##H DIRECTORY  create drops as subdirectories here, typically some inbox
+##H PATTERN    block match constraint (owner/dataset), such as "*/bt03_*"
 
 BEGIN { use strict; use warnings;
   my $me = $0; $me =~ s|.*/||;
   my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
   unshift(@INC, "$home/../Toolkit/Common"); }
+use UtilsHelp;
 use UtilsDB;
 use UtilsTR;
 use UtilsWriters;
@@ -21,21 +22,13 @@ use UtilsLogging;
 use TextGlob 'glob_to_regex';
 use File::Path;
 
-my %args = (DBITYPE => "Oracle");
+my %args;
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    if ($ARGV[0] eq '-h') {
 	&usage();
-    } elsif ($ARGV[0] eq '-dbitype' && scalar @ARGV > 1) {
-	shift (@ARGV); $args{DBITYPE} = shift (@ARGV);
-    } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
-	shift (@ARGV); $args{DBNAME} = shift (@ARGV);
-    } elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1) {
-	shift (@ARGV); $args{DBUSER} = shift (@ARGV);
-    } elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1) {
-	shift (@ARGV); $args{DBPASS} = shift (@ARGV);
-    } elsif ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
-	&usage();
+    } elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1) {
+        shift (@ARGV); $args{DBCONFIG} = shift(@ARGV);
     } elsif ($ARGV[0] eq '--') {
 	shift (@ARGV); last;
     } elsif ($ARGV[0] =~ '^-') {
@@ -48,12 +41,9 @@ while (scalar @ARGV)
 $args{TODIR} = shift (@ARGV);
 $TextGlob::strict_wildcard_slash = 0;
 $args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
-if (!$args{TODIR} || !$args{DBITYPE} || !$args{DBNAME}
-    || !$args{DBUSER} || !$args{DBPASS})
+if (!$args{TODIR} || !$args{DBCONFIG})
 {
-    print STDERR "$0: Error: Not enough arguments",
-		 " (help available with \"-h\" option)\n";
-    exit (1);
+    die "Insufficient parameters, use -h for help.\n";
 }
 
 # Connect to database

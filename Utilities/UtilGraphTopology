@@ -2,19 +2,23 @@
 
 ##H Produce "dot" graph from the transfer topology.
 ##H
-##H USAGE: UtilTopologyGraph DATABASE
+##H USAGE: UtilTopologyGraph -dbconfig FILE
 
-BEGIN { use strict; use warnings;
-  my $me = $0; $me =~ s|.*/||;
-  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
   unshift(@INC, $home); }
-use DBI;
-use UtilsTR;
+use UtilsHelp;
+use UtilsDB;
 
+my %args;
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    if ($ARGV[0] eq '-h') {
 	&usage ();
+    } elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{DBCONFIG} = shift(@ARGV);
     } elsif ($ARGV[0] eq '--') {
 	shift (@ARGV); last;
     } elsif ($ARGV[0] =~ '^-') {
@@ -24,13 +28,12 @@ while (scalar @ARGV)
     }
 }
 
-my $db = shift;
+if (@ARGV || !$args{UNIT} || !$args{TIME} || !$args{DBCONFIG})
+{
+    die "Incorrect parameters, use -h for help.\n";
+}
 
-defined $db or die "usage: $0 DATABASE\n";
-
-my $dbh = DBI->connect ("DBI:Oracle:$db", "cms_transfermgmt_reader",
-			"slightlyJaundiced", { RaiseError => 1, AutoCommit => 1 });
-
+my $dbh = &connectToDatabase (\%args, 0);
 my $nodes = $dbh->selectall_arrayref(qq{
 		select from_node, gateway from t_routing
 		where to_node = gateway});

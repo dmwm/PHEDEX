@@ -1,9 +1,18 @@
 #!/usr/bin/env perl
 
+##H Fill the DBS database from RefDB.
+##H
+##H Usage:
+##H   DBSFill -dbconfig FILE [PATTERN...]
+##H
+##H -dbconfig  database connection configuration parameter file
+##H PATTERN    block match constraint (owner/dataset), such as "*/bt03_*"
+
 BEGIN { use strict; use warnings;
   my $me = $0; $me =~ s|.*/||;
   my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
   unshift(@INC, "$home/../Toolkit/Common"); }
+use UtilsHelp;
 use UtilsDB;
 use UtilsTR;
 use UtilsNet;
@@ -12,19 +21,13 @@ use UtilsLogging;
 use TextGlob 'glob_to_regex';
 
 my $mode = undef;
-my %args = (DBITYPE => "Oracle", ONLY_NEW => 1);
+my %args = (ONLY_NEW => 1);
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    if ($ARGV[0] eq '-h') {
 	&usage();
-    } elsif ($ARGV[0] eq '-dbitype' && scalar @ARGV > 1) {
-	shift (@ARGV); $args{DBITYPE} = shift (@ARGV);
-    } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
-	shift (@ARGV); $args{DBNAME} = shift (@ARGV);
-    } elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1) {
-	shift (@ARGV); $args{DBUSER} = shift (@ARGV);
-    } elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1) {
-	shift (@ARGV); $args{DBPASS} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1) {
+        shift (@ARGV); $args{DBCONFIG} = shift(@ARGV);
     } elsif ($ARGV[0] eq '--') {
 	shift (@ARGV); last;
     } elsif ($ARGV[0] =~ '^-') {
@@ -36,6 +39,10 @@ while (scalar @ARGV)
 
 $TextGlob::strict_wildcard_slash = 0;
 $args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
+if (!$args{DBCONFIG})
+{
+    die "Insufficient parameters, use -h for help.\n";
+}
 
 # Connect to database
 my $dbh = &connectToDatabase (\%args, 0);

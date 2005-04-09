@@ -12,10 +12,10 @@ use TextGlob 'glob_to_regex';
 use UtilsLogging;
 
 my $mode = undef;
-my %args = (DBITYPE => "Oracle", DETAILS => 0);
+my %args = (DETAILS => 0);
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    if ($ARGV[0] eq '-h') {
 	&usage();
     } elsif ($ARGV[0] eq '-details') {
 	shift (@ARGV); $args{DETAILS} = 1;

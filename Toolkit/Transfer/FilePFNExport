@@ -1,14 +1,34 @@
 #!/usr/bin/env perl
 
-## Generate transfer file names (TURLS) for exported files.
-##
-## This agent generates the export file name for outbound file
-## transfers.  It monitors TMDB for wanted files that do not yet
-## have a transfer name, and generates one.
-##
-## In implementation, this is a database agent that uses the
-## job manager system heavily to invoke local site-specifc
-## glue script to actually generate the file name.
+##H Produce transfer file names (TURLs) for exported files.
+##H
+##H This agent generates the export file name for outbound file
+##H transfers.  It monitors the database for wanted or staged
+##H files that do not yet have a transfer name, and generates
+##H one.
+##H
+##H A site-specific script is used to actually generate the
+##H the file name.  The script is passed a list of GUIDs and
+##H is expected to produce a list of "GUID PFN" lines.  A
+##H number of such query jobs can be executed in parallel.
+##H The arguments passed to the command are described in more
+##H detail in the manual.
+##H
+##H Usage:
+##H   FilePFNExport
+##H      -state DIRECTORY -node NAME -dbconfig FILE [-wait SECS]
+##H      -pfnquery CMD[,ARGS...] [-jobs NJOBS] [-timeout SECS]
+##H      [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]
+##H
+##H -state     agent state directory
+##H -node      the node where this agent runs
+##H -dbconfig  database connection configuration parameter file
+##H -wait      time to wait in seconds between work scans
+##H -pfnquery  the command for querying export names
+##H -jobs      number of parallel -pfnquery jobs to execute (default: 20)
+##H -timeout   time after which to terminate -pfnquery jobs (default: never)
+##H -ignore    comma-separated list of nodes to ignore transfers from
+##H -accept    comma-separated list of nodes to accept transfers from
 
 BEGIN {
   use strict; use warnings;
@@ -18,17 +38,12 @@ BEGIN {
 }
 
 ######################################################################
-my %args = (DBITYPE => "Oracle", NJOBS => 20);
+use UtilsHelp;
+my %args = (NJOBS => 20);
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    if ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
 
@@ -47,21 +62,16 @@ while (scalar @ARGV)
     { shift (@ARGV); push (@{$args{IGNORE_NODES}}, split(/,/, shift (@ARGV))); }
     elsif ($ARGV[0] eq '-accept' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{ACCEPT_NODES}}, split(/,/, shift (@ARGV))); }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
     else
     { last; }
 }
 
-if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE}
+if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG}
     || !$args{PFN_QUERY} || !$args{NJOBS})
 {
-    print STDERR
-	"usage: $me -state IN-DROP-BOX -pfnquery PFN-QUERY-SCRIPT[,ARGS]\n",
-	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-	"    -node NODE-NAME [-jobs NUM-PARALLEL-PROCESSES] [-timeout TIMEOUT]\n",
-	"    [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]\n",
-	"    [-wait SECS-TO-WAIT]\n";
-    exit (1);
+    die "Insufficient parameters, use -h for help.\n";
 }
 
 my $agent = new FilePFNExport (%args);
@@ -83,10 +93,7 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (DBITYPE => undef,		# Database driver binding
-    		  DBNAME => undef,		# Database name
-	  	  DBUSER => undef,		# Database user name
-	  	  DBPASS => undef,		# Database user password
+    my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept

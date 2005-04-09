@@ -1,4 +1,23 @@
 #! /usr/bin/env perl
+
+##H *** Ask Jens Rehn to write a description of what this program does
+##H and what the command line options are in detail.  ***
+##H
+##H Usage:
+##H   FileDiskCleaner
+##H      -state DIRECTORY -node NAME -dbconfig FILE [-wait SECS]
+##H
+##H -state         agent state directory
+##H -node          the node where this agent runs
+##H -dbconfig      database connection configuration parameter file
+##H -wait          time to wait in seconds between work scans
+##H -importloc     path to disk to watch
+##H -maxfillratio  maximum allowed disk usage in percentage (default: 75)
+##H -minfreespace  minimum available disk free space in megabytes (default: 100)
+##H -pfnquery      command to query pfns from catalogue
+##H -pfnrm         command to remove pfns from catalogue
+##H -purgesize     maximum number of files to purge per round
+
 BEGIN
 {
   use warnings; use strict; use Getopt::Long;
@@ -11,22 +30,18 @@ BEGIN
 #---------------------------------------------
 #     Argument parsing
 #---------------------------------------------
-
-my %args = (DBITYPE => 'Oracle',
-	    MAXFILLRATIO => 75,
+use UtilsHelp;
+my %args = (MAXFILLRATIO => 75,
 	    MINFREESPACE => 100,
 	    PURGE => 1000,
 	    WAITTIME => 60);
 
 &GetOptions ("state=s"		=> \$args{DROPDIR},
 	     "node=s"		=> \$args{MYNODE},
-	     "db=s"		=> \$args{DBNAME},
-	     "dbitype=s"	=> \$args{DBITYPE},
-	     "dbuser=s"		=> \$args{DBUSER},
-	     "dbpass=s"		=> \$args{DBPASS},
+	     "dbconfig=s"	=> \$args{DBCONFIG},
 	     "wait=f"		=> \$args{WAITTIME},
 	     "purgesize=f"      => \$args{PURGE},
-	     "help"		=> \$args{HELPME},
+	     "help|h"		=> sub { &usage() },
 
 	     "pfnquery=s"	=> \$args{PFN_QUERY},
 	     "pfnrm=s"		=> \$args{PFN_RM},
@@ -37,26 +52,12 @@ my %args = (DBITYPE => 'Oracle',
 $args{PFN_QUERY} = [ split(/,/, $args{PFN_QUERY}) ] if $args{PFN_QUERY};
 $args{PFN_RM} = [ split(/,/, $args{PFN_RM}) ] if $args{PFN_RM};
 
-if ($args{HELPME} || !$args{IMPORTLOC} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{MYNODE} || !$args{DROPDIR}
+if ($args{HELPME} || !$args{IMPORTLOC}
+    || !$args{MYNODE} || !$args{DROPDIR} || !$args{DBCONFIG}
     || !$args{MAXFILLRATIO} || !$args{MINFREESPACE} || !$args{PFN_QUERY}
     || !$args{PFN_RM})
 {
-    print "Syntax for FileDiskClean: \n";
-    print "--help:         this help text \n";
-    print "--importloc:    path to disk to watch (required)\n";
-    print "--maxfillratio: maximum allowed disk usage in percentage\n";
-    print "--minfreespace: minimum available disk free space in megabytes\n";
-    print "--pfnquery:     script to query pfns from catalogue (required)\n";
-    print "--pfnrm:        script to remove pfns from catalogue (required)\n";
-    print "--db:           database to connect to (required)\n";
-    print "--dbuser:       database user name (required)\n";
-    print "--dbpass:       database user password (required)\n";
-    print "--node:         phedex node name (required)\n";
-    print "--state:        agent state directory (required)\n";
-    print "--wait:         seconds to sleep between checks\n";
-    print "--purgesize:    amount of files to purge per check\n";
-    exit 1;
+    die "Insufficient parameters, use -h for help.\n";
 }
 
 #CJR mapping for Lassi's dropbox toolkit
@@ -82,10 +83,7 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (DBITYPE => undef,		# Database driver binding
-    		  DBNAME => undef,		# Database name
-	  	  DBUSER => undef,		# Database user name
-	  	  DBPASS => undef,		# Database user password
+    my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  AGENTID => "Cleaner",         # Identity for activity logs
 		  MAXFILLRATIO => undef,	# Maximum disk fill percentage

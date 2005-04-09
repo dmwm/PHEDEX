@@ -1,50 +1,54 @@
 #!/usr/bin/env perl
 
+##H Clean up active tables by moving away historical and timed-out data.
+##H
+##H Usage:
+##H   MakeDailyStats
+##H      -dbconfig FILE [-unit k|G|M|T] [-time hour|day|week|month] [-add FILE]
+##H
+##H -dbconfig  database connection configuration parameter file
+##H -unit      report in specified unit instead of bare number of bytes (default: T)
+##H -time      group by the specified time span (default: day)
+##H -add       add transfer deltas from a file, with lines in the format
+##H               YYYYMMDD NODE SIZE-VAL [NODE SIZE-VAL]...
+
 BEGIN {
   use strict; use warnings;
   our $me = $0; $me =~ s|.*/||;
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
   unshift(@INC, $home);
 }
+use UtilsHelp;
 use UtilsDB;
 use POSIX;
 
 my %stats = ();
 my %nodes = ();
 my $first = undef;
-my %args = (DBITYPE => "Oracle", UNIT => '1T', TIME => 'day');
+my %args = (UNIT => '1T', TIME => 'day');
 
 # Process command line arguments.
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    if ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-unit' && scalar @ARGV > 1)
     { shift (@ARGV); $args{UNIT} = "1" . shift(@ARGV); }
     elsif ($ARGV[0] eq '-time' && scalar @ARGV > 1)
     { shift (@ARGV); $args{TIME} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-add' && scalar @ARGV > 1)
     { shift (@ARGV); $args{ADDFILE} = shift (@ARGV); }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
     else
     { last; }
 }
 
 # Check arguments.
 $args{UNIT} = &sizeValue ($args{UNIT}) if $args{UNIT};
-if (scalar @ARGV || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{DBITYPE}
-    || !$args{UNIT} || !$args{TIME})
+if (@ARGV || !$args{UNIT} || !$args{TIME} || !$args{DBCONFIG})
 {
-    print STDERR
-	"usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-	"    [-unit k|M|G|T] [-time hour|day|week|month] [-add DELTA-FILE]\n";
-    exit (1);
+    die "Insufficient parameters, use -h for help.\n";
 }
 
 # If we were given a file of transfer stats that are no longer known

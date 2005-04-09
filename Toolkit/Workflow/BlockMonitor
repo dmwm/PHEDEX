@@ -1,40 +1,37 @@
 #! /usr/bin/env perl
 
-#-----------------------------------------------------------------------------------------------
-# agent name: global monitoring agent
-# purpose: monitor replication status of blocks and update t_block_replica accordingly
-#-----------------------------------------------------------------------------------------------
+##H Monitor block-level transfer completeness.
+##H
+##H Usage:
+##H   BlockMonitor
+##H      -state DIRECTORY -node NAME -dbconfig FILE [-wait SECS]
+##H
+##H -state     agent state directory
+##H -node      the node where this agent runs
+##H -dbconfig  database connection configuration parameter file
+##H -wait      time to wait in seconds between work scans
 
-BEGIN
-{
-  use warnings; use strict; use Getopt::Long;
+BEGIN {
+  use warnings; use strict;
   our $me = $0; $me =~ s|.*/||;
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);
 }
 
 
-#---------------------------------------------
-#     Argument parsing
-#---------------------------------------------
-
-my %args = (DBITYPE => 'Oracle', WAITTIME => 180);
-
+######################################################################
+use UtilsHelp;
+use Getopt::Long;
+my %args = (WAITTIME => 180);
 &GetOptions ("state=s"		=> \$args{DROPDIR},
-	     "db=s"		=> \$args{DBNAME},
-	     "dbitype=s"	=> \$args{DBITYPE},
-	     "dbuser=s"		=> \$args{DBUSER},
-	     "dbpass=s"		=> \$args{DBPASS},
-	     "dbitype=s"        => \$args{DBITYPE},
+	     "dbconfig=s"       => \$args{DBCONFIG},
 	     "wait=f"		=> \$args{WAITTIME},
-	     "node=s"           => \$args{MYNODE});
+	     "node=s"           => \$args{MYNODE},
+     	     "help|h"		=> sub { &usage() });
 
-
-if (!$args{DBNAME} || !$args{DBUSER} || !$args{DBPASS} || !$args{DROPDIR})
+if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
 {
-    print STDERR "usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-                 "       -state IN-DROP-BOX [-wait SECONDS]\n";
-    exit 1;
+    die "Insufficient parameters, use -h for help.\n";
 }
 
 
@@ -59,11 +56,8 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (DBITYPE => undef,		# Database driver binding
-		  MYNODE => undef,              # my TMDB nodename
-    		  DBNAME => undef,		# Database name
-	  	  DBUSER => undef,		# Database user name
-	  	  DBPASS => undef,		# Database user password
+    my %params = (MYNODE => undef,              # my TMDB nodename
+		  DBCONFIG => undef,		# Database configuration file
 	  	  AGENTID => "BlockMonitor");   # Identity for activity logs
 
     my %args = (@_);

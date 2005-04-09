@@ -26,7 +26,7 @@ my $now = time();
 
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    if ($ARGV[0] eq '-h') {
 	&usage();
     } elsif ($ARGV[0] eq '--') {
 	shift (@ARGV); last;

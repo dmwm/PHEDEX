@@ -19,12 +19,16 @@ use UtilsNet;
 use File::Path;
 use Cwd;
 
+my %args;
 my $now = time();
-
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    if ($ARGV[0] eq '-h') {
 	&usage();
+    } elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{DBCONFIG} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '-mouth' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{MOUTH} = shift (@ARGV);
     } elsif ($ARGV[0] eq '--') {
 	shift (@ARGV); last;
     } elsif ($ARGV[0] =~ '^-') {
@@ -34,10 +38,10 @@ while (scalar @ARGV)
     }
 }
 
-&usage() if scalar @ARGV < 2;
-my $mouth = shift (@ARGV);
-my $dbname = shift (@ARGV);
-my $table = "t_files_for_transfer";
+if (!$args{MOUTH} || ! -d $args{MOUTH} || !$args{DBCONFIG})
+{
+    die "Incorrect parameters, use -h for help.\n";
+}
 
 foreach my $request (@ARGV)
 {
@@ -75,21 +79,17 @@ foreach my $request (@ARGV)
     close (TICKET) or die "Cannot read ticket: $!\n";
 
     # Obtain status of drops
+    my $dbh      = &connectToDatabase (\%args, 0);
     my @pending  = <$request/Drops/Pending/*>;
     my @notready = <$request/Drops/NotReady/*>;
     my @done	 = <$request/Drops/Done/*>;
     my @drops	 = (@pending, @notready, @done);
-
-    my $status = &checkAssignmentFiles ($mouth, $dbname, $table, @drops);
+    my $status   = &checkAssignmentFiles ($args{MOUTH}, $dbh, @drops);
     map { $status->{$_}{DROP_CATEGORY} = 'Pending' } @pending;
     map { $status->{$_}{DROP_CATEGORY} = 'NotReady' } @notready;
     map { $status->{$_}{DROP_CATEGORY} = 'Done' } @done;
 
     # Reflect information back into database
-    my $dbh = DBI->connect ("DBI:Oracle:$dbname", # $self->{DBITYPE}:$self->{DBNAME}",
-	    		    "cms_transfermgmt", "smalland_round", # $self->{DBUSER}, $self->{DBPASS},
-			    { RaiseError => 1, AutoCommit => 0 });
-
     # First delete old information about this request
     my %args = (":req" => $request);
     map { &dbexec ($dbh, qq{delete from $_ where request_name = :req}, %args) }

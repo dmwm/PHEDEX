@@ -1,28 +1,28 @@
 #!/usr/bin/env perl
 
-## Add checksums for files that don't have the information.
-##
-## This agent works in tandem with FileCastorExport.  The former
-## manages the file export castor stage pool based on file requests
-## from downstream transfer agents.  Once the files are brought on
-## disk, the export agent marks them as requiring checksum using a
-## special node-specific state.  This agent looks for files in such
-## a state, and if they don't have a checksum, calculates and adds
-## it to the database.  Only once the checksum is available we mark
-## the file available for transfer.
-##
-## This agent periodically checks TMDB for files in "needs checksum"
-## state.  For each such file it creates a job packet for an internal
-## slave that does the actual checksumming.  While the file is being
-## checksummed, we mark it as "in checksum" state so several checksum
-## agents can be ran in parallel on different computers.
-##
-## Note that inbox of this agent is used solely by the internal
-## slaves.  We create job packets as drops for the slaves, which
-## then pass the drops to our inbox when they are done.  The
-## main agent then updates the database according to the status.
-## The program itself is used both as a slave and a master, but
-## there are two separate agents.
+##H Add checksums for files that don't have the information.
+##H
+##H This agent is an export-side agent that ensures the files have a
+##H a checksum, ideally priort to transfer but we do not actually
+##H guarantee that.  The agent checks for staged-in files and if the
+##H file checksum is -1, it calculates the checksum and updates the
+##H database.  The agent doesn't require great disk or cpu capacity,
+##H but it will use all the network bandwidth it can get -- set the
+##H number of parallel "cksum" jobs according to available network.
+##H
+##H Usage:
+##H   FileCastorChecksum
+##H      -state DIRECTORY -node NAME -dbconfig FILE [-wait SECS]
+##H      -pfnquery COMMAND[,ARGS...] [-rfcat COMMAND[,ARGS...]]
+##H      [-jobs NJOBS]
+##H
+##H -state     agent state directory
+##H -node      the node where this agent runs
+##H -dbconfig  database connection configuration parameter file
+##H -wait      time to wait in seconds between work scans
+##H -pfnquery  command to query pfns from catalogue
+##H -rfcat     command to replace "rfcat" (e.g. "cat")
+##H -jobs      number of parallel subjobs to run (default: 4)
 
 BEGIN {
   use strict; use warnings;
@@ -32,21 +32,16 @@ BEGIN {
 }
 
 ######################################################################
-my %args = (DBITYPE => "Oracle", NJOBS => 1, CAT_PROG => ["rfcat"]);
+use UtilsHelp;
+my %args = (NJOBS => 4, CAT_PROG => ["rfcat"]);
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-pfnquery' && scalar @ARGV > 1)
@@ -55,19 +50,16 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{NJOBS} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-rfcat' && scalar @ARGV > 1)
     { shift (@ARGV); @{$args{CAT_PROG}} = [ split (/,/, shift(@ARGV)) ]; }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
     else
     { last; }
 }
 
-if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE}
+if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{MYNODE}
     || !$args{PFN_QUERY} || !$args{NJOBS} || !$args{CAT_PROG})
 {
-    print STDERR
-	"usage: $me -node TMDB-NODE -pfnquery PFN-QUERY-SCRIPT\n",
-	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-	"    -state IN-DROP-BOX [-jobs NUMBER] [-wait SECS-TO-WAIT]\n";
-    exit (1);
+    die "Insufficient parameters, use -h for help.\n";
 }
 
 my $agent = new FileCastorChecksum (%args);
@@ -91,10 +83,7 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (DBITYPE => undef,		# Database driver binding
-    		  DBNAME => undef,		# Database name
-	  	  DBUSER => undef,		# Database user name
-	  	  DBPASS => undef,		# Database user password
+    my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  PFN_QUERY => undef,		# Program to query PFNs
 	  	  CAT_PROG => undef,		# Program to "cat" the file

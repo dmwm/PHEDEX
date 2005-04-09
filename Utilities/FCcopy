@@ -1,5 +1,9 @@
 #!/usr/bin/env perl
 
+    print STDERR "usage: $me -u SRC-CATALOGUE -d DEST-CATALOGUE\n",
+    		 "  [-m PFN-MATCH-RX] [-r PFN-REWRITE-SCRIPT]\n",
+		 "  [-n N-JOBS] [-b BATCH-SIZE]\n";
+    exit (1);
 BEGIN {
   use strict; use warnings;
   our $me = $0; $me =~ s|.*/||;
@@ -8,6 +12,7 @@ BEGIN {
 }
 
 # Process command line arguments
+use UtilsHelp;
 my %args = (NJOBS => 50, BATCH => 1000);
 while (scalar @ARGV)
 {
@@ -23,16 +28,15 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{NJOBS} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-b' && scalar @ARGV > 1)
     { shift (@ARGV); $args{BATCH} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
     else
     { last; }
 }
 
 if (@ARGV || !$args{SRC_CATALOGUE} || !$args{DEST_CATALOGUE})
 {
-    print STDERR "usage: $me -u SRC-CATALOGUE -d DEST-CATALOGUE\n",
-    		 "  [-m PFN-MATCH-RX] [-r PFN-REWRITE-SCRIPT]\n",
-		 "  [-n N-JOBS] [-b BATCH-SIZE]\n";
-    exit (1);
+    die "Insufficient parameters, use -h for help.\n";
 }
 
 my ($src, $dest, $files) = (undef, undef, {});

@@ -1,45 +1,44 @@
 #! /usr/bin/env perl
 
-#-----------------------------------------------------------------------------------------------
-# agent name: block deactivate agent
-# purpose:    monitor completeness of dataset/owner collections
-#             and trigger removal of file level information in TMDB
-#-----------------------------------------------------------------------------------------------
+##H Deactivate blocks when file-level information is not needed.
+##H
+##H Files belong to blocks; when the file replicas are no longer needed
+##H they are collapsed to block replicas, which remember entire sets of
+##H files.  This agent monitors completeness of blocks and triggers
+##H removal of the file-level information in TMDB.
+##H
+##H Usage:
+##H   BlockDeactivate
+##H      -state DIRECTORY -node NAME -dbconfig FILE [-wait SECS]
+##H      [-holdoff SECS]
+##H
+##H -state     agent state directory
+##H -node      the node where this agent runs
+##H -dbconfig  database connection configuration parameter file
+##H -wait      time to wait in seconds between work scans
+##H -holdoff   time lag before deactivation (default: 86400 = day)
 
-BEGIN
-{
-  use warnings; use strict; use Getopt::Long;
+BEGIN {
+  use warnings; use strict;
   our $me = $0; $me =~ s|.*/||;
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);
 }
 
-
-#---------------------------------------------
-#     Argument parsing
-#---------------------------------------------
-
-my %args = (DBITYPE => 'Oracle',
-	    WAITTIME => 60);
-
+######################################################################
+use UtilsHelp;
+use Getopt::Long;
+my %args = (WAITTIME => 60);
 &GetOptions ("state=s"		=> \$args{DROPDIR},
 	     "node=s"           => \$args{MYNODE},
-	     "db=s"		=> \$args{DBNAME},
-	     "dbitype=s"	=> \$args{DBITYPE},
-	     "dbuser=s"		=> \$args{DBUSER},
-	     "dbpass=s"		=> \$args{DBPASS},
+	     "dbconfig=s"	=> \$args{DBCONFIG},
 	     "wait=f"		=> \$args{WAITTIME},
-	     "help"		=> \$args{HELPME},
+	     "help|h"		=> sub { &usage() },
 	     "holdoff=f"        => \$args{HOLDOFF});
 
-
-if ($args{HELPME} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{DROPDIR})
+if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
 {
-    print STDERR "usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-                 "       -state IN-DROP-BOX [-holdoff SECONDS-AFTER-LAST-TOUCH]\n",
-                 "       [-wait SECONDS]\n";
-    exit 1;
+    die "Insufficient parameters, use -h for help.\n";
 }
 
 my $agent = new BlockActivate (%args);
@@ -64,11 +63,7 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (DBITYPE => undef,		# Database driver binding
-		  MYNODE => undef,              # my TMDB nodename
-    		  DBNAME => undef,		# Database name
-	  	  DBUSER => undef,		# Database user name
-	  	  DBPASS => undef,		# Database user password
+    my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  AGENTID => "BlockActivate",   # Identity for activity logs
 		  HOLDOFF => 86400);            # hold-off time for pruning (24h default)
 
@@ -141,7 +136,7 @@ sub removeInTMDB {
     my ($dataset, $owner) = split(':',$collection);
 
 # we need the guids for the files belonging to the selected dataset-owner pairs
-    my @guids = &getGUIDs($dataset, $owner);
+    my @guids = &getGUIDs($dbh, $dataset, $owner);
     
      foreach my $guid (@guids) {
 # let's remove all t_transfer and t_replica info for the chosen guids
@@ -159,9 +154,8 @@ sub removeInTMDB {
 	
 }
 
-
-sub getGUIDS {
-    my ($dataset, $owner) = @_;
+sub getGUIDs {
+    my ($dbh, $dataset, $owner) = @_;
     my @guids = ();
 
     # fetch GUIDs from TMDB for given dataset and owner

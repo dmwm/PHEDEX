@@ -1,7 +1,19 @@
 #!/usr/bin/env perl
 
-## This T0 null agent that just receives drops and passes them on or
-## destroys them.
+##H A drop-box agent that just receives drops and passes them on, or
+##H destroyes them if there is no next agent.  Only useful feature of
+##H this agent is that it can delay the processing of a drop based on
+##H a statistical model.
+##H
+##H Usage:
+##H   DropNullAgent
+##H      -state DIRECTORY [-next NEXT] [-wait SECS]
+##H      [-model MODEL-FILE]
+##H
+##H -state     agent state directory, including inbox
+##H -next      next agent to pass the drops to; can be given several times
+##H -wait      time to wait in seconds between work scans
+##H -model     read in a statisical delay model file of "TIME FREQ" lines
 
 BEGIN {
   use strict; use warnings;
@@ -11,27 +23,27 @@ BEGIN {
 }
 
 ######################################################################
+use UtilsHelp;
 my %args;
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    if ($ARGV[0] eq '-state' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DROPDIR}= shift(@ARGV); }
-    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
+    elsif ($ARGV[0] eq '-next' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
     elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-model' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MODELFILE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
     else
     { last; }
 }
 	
-if (scalar @ARGV || !$args{DROPDIR})
+if (@ARGV || !$args{DROPDIR})
 {
-    print STDERR
-	"usage: $me -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
-	"    [-model MODEL] [-wait SECS-TO-WAIT]\n";
-    exit (1);
+    die "Insufficient parameters, use -h for help.\n";
 }
 
 (new DropNullAgent (%args))->process();

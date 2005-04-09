@@ -1,11 +1,26 @@
 #!/usr/bin/env perl
 
-## Maintain links between a parent node and its neighbours, and
-## maintain routing information for agents operating under the
-## same parent node.
-##
-## This agent implements a version of the Routing Internet Protocol
-## algorithm (RFC 2543).
+##H Maintain routing links between a node and its neighbours, and routing
+##H vectors for visible horizon.  The routing table info is used by other
+##H agents working at the same node.
+##H
+##H This agent implements a version of the Routing Internet Protocol
+##H algorithm (RFC 2543).
+##H
+##H Usage:
+##H   NodeRouter
+##H      -state DIRECTORY -nodes NAME[,NAME...] [-infinity MAX-DISTANCE]
+##H      [-timeout MAX-LINK-AGE] [-dryrun] [-once]
+##H      -dbconfig FILE [-wait SECS]
+##H
+##H -state     agent state directory
+##H -nodes     comma-separated list of the node names to maintain routes for
+##H -infinity  maximum route distance, used to mark bad routes (default: 1000)
+##H -timeout   limit in seconds for dead routes (default: 1800; 0 = no timeout)
+##H -dryrun    run the algorithm but do not change the database
+##H -once      run the alogrithm once, then quit -- don't go into daemon mode
+##H -dbconfig  database connection configuration parameter file
+##H -wait      time to wait in seconds between work scans
 
 BEGIN {
   use strict; use warnings;
@@ -15,21 +30,16 @@ BEGIN {
 }
 
 ######################################################################
-my %args = (DBITYPE => "Oracle", WAITTIME => 600);
+use UtilsHelp;
+my %args = (WAITTIME => 600, TIMEOUT => 1800);
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
-    { shift (@ARGV); $master = 1; $args{DROPDIR} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-nodes' && scalar @ARGV > 1)
     { shift (@ARGV); $args{NODES} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-infinity' && scalar @ARGV > 1)
@@ -40,18 +50,15 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{DRYRUN} = 1; }
     elsif ($ARGV[0] eq '-once')
     { shift (@ARGV); $args{ONCE} = 1; }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
     else
     { last; }
 }
 
-if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{DBITYPE} || !$args{NODES})
+if (@ARGV || !$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG})
 {
-    print STDERR
-	"usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-	"    -nodes TMDB-NODE[,NODE...] -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n",
-	"    [-infinity MAX-DISTANCE] [-timeout MAX-LINK-AGE] [-dryrun] [-once]\n";
-    exit (1);
+    die "Insufficient parameters, use -h for help.\n";
 }
 
 my $agent = new NodeRouter (%args);
@@ -72,10 +79,7 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (DBITYPE => undef,		# Database driver binding
-    		  DBNAME => undef,		# Database name
-	  	  DBUSER => undef,		# Database user name
-	  	  DBPASS => undef,		# Database user password
+    my %params = (DBCONFIG => undef,		# Database configuration file
 		  MYNODE => undef,		# My TMDB node (temporary)
 		  NODES => undef,		# Nodes to process
 		  INFINITY => 1000,		# Infinite distance

@@ -1,7 +1,14 @@
 #!/usr/bin/env perl
 
-## Verify PFNs mentioned in the drops actually exist and have
-## non-zero size.
+##H Verify PFNs mentioned in the drops exist and have non-zero size.
+##H
+##H Usage:
+##H   DropFileCheck
+##H      -state DIRECTORY [-next DIRECTORY] [-wait SECS]
+##H
+##H -state     agent state directory, including inbox
+##H -next      next agent to pass the drops to; can be given several times
+##H -wait      time to wait in seconds between work scans
 
 BEGIN {
   use strict; use warnings;
@@ -11,25 +18,25 @@ BEGIN {
 }
 
 ######################################################################
+use UtilsHelp;
 my %args;
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    if ($ARGV[0] eq '-state' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
     elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
     else
     { last; }
 }
 	
-if (scalar @ARGV || !$args{DROPDIR})
+if (@ARGV || !$args{DROPDIR})
 {
-    print STDERR
-	"usage: $me -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
-	"    [-wait SECS-TO-WAIT]\n";
-    exit (1);
+    die "Insufficient parameters, use -h for help.\n";
 }
 
 (new DropCastorFileCheck (%args))->process();

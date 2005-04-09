@@ -1,45 +1,49 @@
 #! /usr/bin/env perl
 
-#-----------------------------------------------------------------------------------------------
-# agent name: block notification agent
-# purpose:    monitor completeness of dataset/owner collections and triggers
-#             site specific actions like publication
-#-----------------------------------------------------------------------------------------------
+##H Notify the site about completely transferred blocks.
+##H
+##H The BlockMonitor agent periodically updates the transfer progress
+##H of various blocks.  Once a block has been transferred completely,
+##H this agent notifies the site.  It creates a drop with the data
+##H about the block, and another agent, typically BlockPublish, uses
+##H the information to update site-local information (e.g. PubDB).
+##H
+##H Usage:
+##H   BlockNotify
+##H      -state DIRECTORY -node NAME -dbconfig FILE [-wait SECS]
+##H      -next DIRECTORY
+##H
+##H -state     agent state directory
+##H -node      the node where this agent runs
+##H -dbconfig  database connection configuration parameter file
+##H -wait      time to wait in seconds between work scans
+##H -next      state directory for the next agent; can be repeated
 
-BEGIN
-{
-    use warnings; use strict; use Getopt::Long; use Data::Dumper;
+BEGIN {
+  use warnings; use strict;
   our $me = $0; $me =~ s|.*/||;
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);
 }
 
 
-#---------------------------------------------
-#     Argument parsing
-#---------------------------------------------
-my %args = (DBITYPE => 'Oracle', WAITTIME => 3600, NEXTDIR => []);
-
+######################################################################
+use UtilsHelp;
+use Getopt::Long;
+use Data::Dumper;
+my %args = (WAITTIME => 3600, NEXTDIR => []);
 &GetOptions ("state=s"		=> \$args{DROPDIR},
-	     "out=s@"           => $args{NEXTDIR},
+	     "next=s@"          => $args{NEXTDIR},
 	     "node=s"		=> \$args{MYNODE},
-	     "db=s"		=> \$args{DBNAME},
-	     "dbitype=s"	=> \$args{DBITYPE},
-	     "dbuser=s"		=> \$args{DBUSER},
-	     "dbpass=s"		=> \$args{DBPASS},
-	     "wait=f"		=> \$args{WAITTIME});
+	     "dbconfig=s"	=> \$args{DBCONFIG},
+	     "wait=f"		=> \$args{WAITTIME},
+     	     "help|h"		=> sub { &usage() });
 
-if ($args{HELPME} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{MYNODE} || !$args{DROPDIR}
-    || !@{$args{NEXTDIR}})
+if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{NEXTDIR}
+    || !$args{DBCONFIG})
 {
-    print STDERR "usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-                 "       -state IN-DROP-BOX -node NODE-NAME\n",
-                 "       -out NEXT-DROP [-wait SECONDS]\n";
-
-    exit 1;
+    die "Insufficient parameters, use -h for help.\n";
 }
-
 
 my $agent = new BlockNotify (%args);
 $SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
@@ -61,10 +65,7 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (DBITYPE => undef,		# Database driver binding
-    		  DBNAME => undef,		# Database name
-	  	  DBUSER => undef,		# Database user name
-	  	  DBPASS => undef,		# Database user password
+    my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  AGENTID => "BlockNotify");    # Identity for activity logs
 

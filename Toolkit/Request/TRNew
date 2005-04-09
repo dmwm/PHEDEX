@@ -26,7 +26,6 @@ BEGIN {
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);
 }
-# use DBI;
 use UtilsTR;
 use UtilsNet;
 use File::Path;
@@ -34,7 +33,7 @@ use Cwd;
 
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    if ($ARGV[0] eq '-h') {
 	&usage ();
     } elsif ($ARGV[0] eq '--') {
 	shift (@ARGV); last;
@@ -45,14 +44,12 @@ while (scalar @ARGV)
     }
 }
 
-my $request = shift;
-my $area = shift || &getcwd();
-
-defined $request && defined $area
-  or die "usage: $0 REQUEST [AREA]\n";
-
-# my $dbh = DBI->connect ("DBI:Oracle:$db", "cms_transfermgmt_reader",
-# 			"slightlyJaundiced", { RaiseError => 1, AutoCommit => 1 });
+my $request = shift (@ARGV);
+my $area = shift (@ARGV) || &getcwd();
+if (@ARGV || !$request || !$area)
+{
+    die "Incorrect parameters, use -h for help.\n";
+}
 
 # Create the area
 ! -e "$area/$request" or die "$area/$request: exists\n";

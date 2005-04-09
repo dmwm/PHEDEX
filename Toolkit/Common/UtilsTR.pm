@@ -308,7 +308,7 @@ sub castorCheck
 # queues.
 sub checkAssignmentFiles
 {
-    my ($mouth, $tmdb, $table, @dirs) = @_;
+    my ($mouth, $dbh, @dirs) = @_;
     my %pending = map { $_ => 1 }
         map { s|.*/||; $_ }
 	<$mouth/*/{work,inbox}/*>,
@@ -343,10 +343,7 @@ sub checkAssignmentFiles
 
     # Get all known guids (this *is* faster than asking for each guid)
     my %knownguid;
-    eval "use DBI"; die $@ if $@; # Allow rest to be used without DBI
-    my $dbh = DBI->connect ("DBI:Oracle:$tmdb", "cms_transfermgmt_reader",
-			    "slightlyJaundiced", { RaiseError => 1, AutoCommit => 1 });
-    my $stmt = $dbh->prepare ("select guid from $table");
+    my $stmt = $dbh->prepare ("select guid from t_file");
     $stmt->execute();
     while (my @row = $stmt->fetchrow_array()) {
 	$knownguid{$row[0]} = 1;

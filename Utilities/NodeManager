@@ -1,14 +1,31 @@
 #!/usr/bin/env perl
 
-# Manage the addition of a new node to the network. Takes user through
-# interactions required to add a new node, then asks to confirm before
-# commit
-#
-# Request node details; request routing neighbours; request new agent
-# details ...
+##H Manage the addition of a new node to the network.  Provides commands
+##H for various steps of creating a new node and attaching it to network.
+##H
+##H Usage:
+##H   NodeManager
+##H      add-node       -dbconfig FILE -name NAME
+##H      remove-node    -dbconfig FILE -name NAME
+##H      new-neighbours -dbconfig FILE -name NAME -neighbours NODE[,NODE...]
+##H      remove-link    -dbconfig FILE -name NAME -neighbours NODE[,NODE...]
+##H      add-import     -dbconfig FILE -name NAME -protocol NAME[,NAME...]
+##H      add-export     -dbconfig FILE -name NAME -protocol NAME[,NAME...]
+##H
+##H -dbconfig    database connection configuration parameter file
+##H -name        the name of the node
+##H -neighbours  comma-separated list of neighbour nodes
+##H -protocol    comma-separated list of transfer protocols
 
-use DBI;
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
+  unshift(@INC, $home);
+}
 use Getopt::Long;
+use UtilsHelp;
+use UtilsDB;
 
 my $me = $0;
 my $state = '';
@@ -16,9 +33,6 @@ my $node_name = '';
 my $node_host_string = '';
 my $node_cat_uri = '';
 my @node_neighbours = ();
-my $user = '';
-my $password = '';
-my $dbname = '';
 
 # #############################
 # Main loop
@@ -261,33 +275,12 @@ sub log_entry {
 	print "$local: $entry\n";
 }
 
-sub display_usage {
-	print "Usage:\n";
-	print "  $me add-node -name <node_name>\n\t\t-db <dbname> -dbuser <username> -dbpass <password>\n";
-	print "  $me remove-node -name <node_name>\n\t\t-db <dbname> -dbuser <username> -dbpass <password>\n";
-	print "  $me new-neighbours -name <node_name> -neighbours <neighbour1>,<neighbour2>,<...\n\t\t-db <dbname> -dbuser <username> -dbpass <password>\n";
-	print "  $me remove-link -name <node_name> -neighbours <neighbour1>,<neighbour2>,<...\n\t\t-db <dbname> -dbuser <username> -dbpass <password>\n";
-	print "  $me add-import-protocol -name <node_name> -protocol <proto>,<proto>,<...\n\t\t-db <dbname> -dbuser <username> -dbpass <password>\n";
-	print "  $me add-export-protocol -name <node_name> -protocol <proto>,<proto>,<...\n\t\t-db <dbname> -dbuser <username> -dbpass <password>\n";
-	exit(1);
-}
-
 sub parse_command_line () {
-	GetOptions(	'name=s' => \$node_name,
-			'host=s' => \$node_host_string,
-			'cat=s' => \$node_cat_uri,
-			'protocol=s' => \@node_protocol,
-			'neighbours=s' => \@node_neighbours,
-			'dbuser=s' => \$user,
-			'dbpass=s' => \$password,
-			'db=s' => \$dbname,
-			);
-				
-	@node_neighbours = split(/,/,join(',',@node_neighbours));
-				
-	if ( ! $ARGV[0] || $ARGV[1]) {
-		display_usage();
-	} else {
-		$state = $ARGV[0];
-	}
+    GetOptions ('name=s' => \$node_name,
+		'protocol=s' => \@node_protocol,
+		'neighbours=s' => \@node_neighbours,
+		'dbconfig=s' => \$config);
+    @node_neighbours = map { split(/,/, $_) } @node_neighbours;
+    @node_protocol = map { split(/,/, $_) } @node_protocol;
+    die "Incorrect parameters, use -h for help\n" if @ARGV;
 }

@@ -19,12 +19,14 @@ use File::Path;
 use DBI;
 use Cwd;
 
+my %args;
 my $now = time();
-
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    if ($ARGV[0] eq '-h') {
 	&usage();
+    } elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{DBCONFIG} = shift (@ARGV);
     } elsif ($ARGV[0] eq '--') {
 	shift (@ARGV); last;
     } elsif ($ARGV[0] =~ '^-') {
@@ -34,9 +36,10 @@ while (scalar @ARGV)
     }
 }
 
-&usage() if scalar @ARGV < 2;
-my $dbname = shift (@ARGV);
-my $table = shift (@ARGV);
+if (!$args{DBCONFIG})
+{
+    die "Incorrect parameters, use -h for help.\n";
+}
 
 foreach my $request (@ARGV)
 {
@@ -62,18 +65,18 @@ foreach my $request (@ARGV)
     close (TICKET) or die "Cannot read ticket: $!\n";
 
     # Process each pair
-    my $dbh = DBI->connect ("DBI:Oracle:$dbname", # $self->{DBITYPE}:$self->{DBNAME}",
-	    		    "cms_transfermgmt", "smalland_round", # $self->{DBUSER}, $self->{DBPASS},
-			    { RaiseError => 1, AutoCommit => 0 });
+    my $dbh = &connectToDatabase (\%args, 0);
     foreach my $dso (@patterns)
     {
 	my ($ds, $o) = ($dso =~ /(.*)\.(.*)/);
 	foreach my $dest (@destinations)
 	{
 	    my $exists = $dbh->selectcol_arrayref(qq{
-		select count(*) from $table
-		where destination = '$dest' and stream = '$ds'});
-	    $dbh->do(qq{insert into $table values ('$dest', '$ds')})
+		select count(*) from t_subscription
+		where destination = '$dest'
+		  and owner = '$o'
+		  and dataset = '$ds'});
+	    $dbh->do(qq{insert into t_subscription values ('$o', '$ds', '$dest')})
 		if ! $exists || ! $exists->[0];
 	}
     }

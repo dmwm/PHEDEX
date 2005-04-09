@@ -1,29 +1,59 @@
 #!/usr/bin/env perl
 
-## This is an example transfer agent.
-##
-## This agent demonstrates how to write a parallel transfer agent.
-## It monitors TMDB for files assigned to the agent, creates drop
-## box tasks for them internally, and keeps a configurable number
-## of transfers going on in parallel.
-##
-## In implementation, this is a combined drop box and database
-## agent.  The TMDB monitoring is done in the &idle() routine,
-## which is called whenever there is nothing to be done to the
-## drops any more, which is most of the time.  The idle routine
-## assigns files to idle workers.  Once the slave worker agent
-## has completed the transfer, whether successfully or not, it
-## moves the drop to the *inbox* of this agent, where this agent
-## collects the status information and updates the database to
-## reflect transfer progress.  In other words, the drops cycle
-## from the idle routine into the inbox of a slave, to the work
-## area of a slave, to inbox of the main agent, to its work area,
-## and finally udpated back to the database and destroyed.  Never
-## add data from outside this agent into its inbox!
-##
-## The copies this agent does are pure globus-url-copy operations
-## for demonstration purpose.  This makes this agent fully capable
-## LCG SE transfer agent.
+##H Parallel reliable file download agent.
+##H
+##H This agent monitors TMDB for files assigned to the agent, and
+##H downloads them.  A separate backend (Globus, SRM, ...) is used
+##H to make the actual transfer steps.  A configurable number of
+##H parallel subprocesses, both for transfers and other tasks, is
+##H automatically maintained.  If an error occurs in any part of
+##H the transfer, the file is put into an error state and retried
+##H later on.
+##H
+##H The agent maintains a sliding window of "wanted" files, and
+##H creates batches of transferrable files.  The backend assigns
+##H the files in a batch to actual transfers, and issues commands
+##H to make the copies.  Once the files have been transferred a
+##H check is made to verify the completeness of the transfer, and
+##H if successful, the file is given to the site for publishing.
+##H
+##H The agent has no site-specific knowledge, it invokes several
+##H commands to invoke operations that require knowledge about the
+##H local configuration.  These commands are described in detail
+##H in the manual.  The general syntax is CMD[,ARG...], where CMD
+##H is the actual command to execute, followed by comma-separated
+##H list of arguments to pass to it.
+##H
+##H Usage:
+##H   FileDownload
+##H      -state DIRECTORY -node NAME -dbconfig FILE [-wait SECS]
+##H      -wanted SIZE[kGMT] -backend TYPE -command CMD[,ARG...]
+##H      -pfndest CMD[,ARG...] -publish CMD[,ARG...]
+##H      [-validate CMD[,ARG...]] [-delete CMD[,ARG...]]
+##H      [-batch-files N] [-batch-size SIZE[kMGT]]
+##H      [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]
+##H      [-timeout SECS] [-jobs NJOBS]
+##H
+##H -state       agent state directory
+##H -node        the node where this agent runs
+##H -dbconfig    database connection configuration parameter file
+##H -wait        time to wait in seconds between work scans
+##H -wanted      number of bytes to mark wanted before transfer;
+##H               suffix k = kilo, M = mega, G = giga, T = tera
+##H -backend     the transfer backend to use: Globus, SRM, DCCP
+##H -command     override the transfer command, for instance
+##H               globus-url-copy,-p,3,-tcp-bs,2097152
+##H -pfndest     command to produce destination transfer name
+##H -publish     command to publish file after transfer
+##H -validate    command to verify file transfer success; if not specified
+##H               uses -command exit code, which is normally a bad idea
+##H -delete      command to delete file on failure
+##H -batch-files enable batching, set maximum number of files per batch
+##H -batch-size  enable batching, set maximum number of bytes per batch
+##H -ignore      comma-separated list of nodes to ignore transfers from
+##H -accept      comma-separated list of nodes to accept transfers from
+##H -timeout     set time limit on commands to avoid e.g. hung transfers
+##H -jobs        set the number of jobs to run in parallel (default: 1)
 
 BEGIN {
   use strict; use warnings;
@@ -33,17 +63,12 @@ BEGIN {
 }
 
 ######################################################################
-my %args = (DBITYPE => "Oracle", NJOBS => 1);
+use UtilsHelp;
+my %args = (NJOBS => 1);
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    if ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
 
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
@@ -81,6 +106,8 @@ while (scalar @ARGV)
     elsif ($ARGV[0] eq '-timeout' && scalar @ARGV > 1)
     { shift (@ARGV); $args{TIMEOUT} = shift (@ARGV); }
 
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
     else
     { last; }
 }
@@ -88,21 +115,11 @@ while (scalar @ARGV)
 $args{WANT_LIMIT} = &sizeValue ($args{WANT_LIMIT}) if $args{WANT_LIMIT};
 $args{BATCH_SIZE} = &sizeValue ($args{BATCH_SIZE}) if $args{BATCH_SIZE};
 
-if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE}
+if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG}
     || !$args{WANT_LIMIT} || !$args{PFN_GEN_COMMAND} || !$args{PUBLISH_COMMAND}
     || !$args{NJOBS} || !$args{BACKEND_TYPE})
 {
-    print STDERR
-	"usage: $me -state IN-DROP-BOX -backend TYPE -wanted SIZE[kMGT]\n",
-	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-	"    -node NODE-NAME -pfndest PROGRAM -publish COMMAND[,ARGS]\n",
-	"    [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]\n",
-	"    [-batch-files N-FILES-LIMIT] [-batch-size SIZE-LIMIT[kMGT]]\n",
-	"    [-timeout TIMEOUT] [-command COPY-COMMAND[,ARGS]]\n",
-	"    [-validate COMMAND[,ARGS]] [-delete COMMAND[,ARGS]]\n",
-	"    [-jobs NUM-PARALLEL-PROCESSES] [-wait SECS-TO-WAIT]\n";
-    exit (1);
+    die "Insufficient parameters, use -h for help.\n";
 }
 
 my $agent = new FileDownload (%args);
@@ -138,10 +155,7 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (DBITYPE => undef,		# Database driver binding
-    		  DBNAME => undef,		# Database name
-	  	  DBUSER => undef,		# Database user name
-	  	  DBPASS => undef,		# Database user password
+    my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept

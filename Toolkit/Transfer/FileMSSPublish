@@ -1,11 +1,28 @@
 #!/usr/bin/env perl
 
-## Download files from (Castor) MSS node to matching Transfer node.
-##
-## This agent is technically a download agent, so follows the file
-## routing rules.  However it is designed for unified mass storage
-## and transfer nodes, e.g. Castor and dCache.  No real transfer
-## ever occurs, we just directly jump to the final state.
+##H Upload files from a MSS node to a transfer node, where the two
+##H are assumed to be actually the same, such as Castor or dCache.
+##H Makes the replica available at the destination transfer node;
+##H the outbound transfer availability from the destination is
+##H controlled by whether the file is staged or not.
+##H
+##H This is technically a download agent, so it follows the file
+##H routing rules.  However no real transfer ever occurs, the
+##H files jump directly to the final state.  Note that if there
+##H is a download agent running at the destination node, you will
+##H want to run that with -ignore set to same as -mssnode here so
+##H that the two won't compete over the same files.
+##H
+##H Usage:
+##H   FileMSSPublish
+##H      -state DIRECTORY -dbconfig FILE [-wait SECS]
+##H      -node NAME -mssnode NAME
+##H
+##H -state     agent state directory
+##H -dbconfig  database connection configuration parameter file
+##H -wait      time to wait in seconds between work scans
+##H -node      the name of the destination node
+##H -mssnode   the name of the source mass storage node
 
 BEGIN {
   use strict; use warnings;
@@ -15,47 +32,40 @@ BEGIN {
 }
 
 ######################################################################
-my %args = (DBITYPE => "Oracle");
+use UtilsHelp;
+my %args;
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
-    { shift (@ARGV); $master = 1; $args{DROPDIR} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-mssnode' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MSSNODE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
     else
     { last; }
 }
 
-if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE} || !$args{MSSNODE})
+if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{MSSNODE}
+    || !$args{DBCONFIG})
 {
-    print STDERR
-	"usage: $me -node TMDB-NODE -mssnode MSS-TMDB-NODE\n",
-	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-	"    -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n";
-    exit (1);
+    die "Insufficient parameters, use -h for help.\n";
 }
 
-my $agent = new FileCastorMigrate (%args);
+my $agent = new FileMSSPublish (%args);
 # Recapture interrupt signal, oracle swallows it.
 $SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
 $agent->process ();
 
 ######################################################################
 # Routines for this agent.
-package FileCastorMigrate; use strict; use warnings; use base 'UtilsAgent';
+package FileMSSPublish; use strict; use warnings; use base 'UtilsAgent';
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
@@ -67,10 +77,7 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (DBITYPE => undef,		# Database driver binding
-    		  DBNAME => undef,		# Database name
-	  	  DBUSER => undef,		# Database user name
-	  	  DBPASS => undef,		# Database user password
+    my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  MSSNODE => undef,		# MSS TMDB node name
 	  	  AGENTID => "MSSUpload");	# Identity for activity logs

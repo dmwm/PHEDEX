@@ -15,6 +15,46 @@ sub connectToDatabase
 {
     my ($self, $identify) = @_;
 
+    # If we have database configuration file, read it
+    if ($self->{DBCONFIG} && ! $self->{DBNAME})
+    {
+	if ($self->{DBCONFIG} =~ /(.*):(.*)/)
+	{
+	    $self->{DBCONFIG} = $1;
+	    $self->{DBSECTION} = $2;
+	}
+
+	my $insection = $self->{DBSECTION} ? 0 : 1;
+	open (DBCONF, "< $self->{DBCONFIG}")
+	    or die "$self->{DBCONFIG}: $!\n";
+	while (<DBCONF>)
+	{
+	    chomp; s/#.*//; s/^\s+//; s/\s+$//; s/\s+/ /g; next if /^$/;
+	    if (/^Section (\S+)$/) {
+		$insection = ($1 eq $self->{DBSECTION});
+	    } elsif (/^Interface (\S+)$/) {
+		$self->{DBITYPE} = $1 if $insection;
+	    } elsif (/^Database (\S+)$/) {
+		$self->{DBNAME} = $1 if $insection;
+	    } elsif (/^Username (\S+)$/) {
+		$self->{DBUSER} = $1 if $insection;
+	    } elsif (/^Password (\S+)$/) {
+		$self->{DBPASS} = $1 if $insection;
+	    } elsif (/^LogConnection (on|off)$/) {
+		$self->{DBH_LOGGING} = ($1 eq 'on') if $insection;
+	    } elsif (/^LogSQL (on|off)$/) {
+		$ENV{PHEDEX_LOG_SQL} = ($1 eq 'on') if $insection;
+	    } else {
+		die "$self->{DBCONFIG}: $.: Unrecognised line\n";
+	    }
+	}
+	close (DBCONF);
+
+	die "$self->{DBCONFIG}: database parameters not found\n"
+	    if (! $self->{DBITYPE} || ! $self->{DBNAME}
+		|| ! $self->{DBUSER} || ! $self->{DBPASS});
+    }
+
     # Use cached connection if it's still alive and the handle
     # isn't too old, otherwise create new one.
     my $dbh = $self->{DBH};

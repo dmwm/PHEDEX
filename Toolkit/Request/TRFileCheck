@@ -2,15 +2,13 @@
 
 ##H Checks the status of transfer request drops.
 ##H
-##H Usage: TRFileCheck /drop/box/area database table [drop...]
+##H Usage: TRFileCheck -dbconfig FILE -mouth DIRECTORY [DROP...]
 ##H
-##H /drop/box/area should be the directory containing the state
+##H DIRECTORY should be the directory containing the state
 ##H directories for the drop box agents, so the script can check
 ##H which drops are still being processed ("pending")
 ##H
-##H database should be the name of the tmdb oracle database, and
-##H table should be the name of the file table (filesfortransfer
-##H for v1, t_files_for_transfer for v2).
+##H FILE specifies database connection, as in all utilities.
 ##H
 ##H The rest of the arguments are expected to be "drop" directories.
 ##H This tool reads the XML catalogue fragments from the drops, gets
@@ -31,11 +29,33 @@ BEGIN {
   unshift(@INC, $home);
 }
 use UtilsTR;
+use UtilsDB;
 
-my $mouth = shift (@ARGV);
-my $db = shift (@ARGV);
-my $table = shift (@ARGV);
-my $result = &checkAssignmentFiles ($mouth, $db, $table, @ARGV);
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-h') {
+	&usage ();
+    } elsif ($ARGV[0] eq '-mouth' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{MOUTH} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{DBCONFIG} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '--') {
+	shift (@ARGV); last;
+    } elsif ($ARGV[0] =~ '^-') {
+	&usage ("$0: unrecognised option $ARGV[0]\n\n");
+    } else {
+	last;
+    }
+}
+
+my $table = "t_file";
+if (!$args{MOUTH} || !$args{DBCONFIG})
+{
+    die "Incorrect parameters, use -h for help.\n";
+}
+
+my $dbh = &connectToDatabase (\%args, 0);
+my $result = &checkAssignmentFiles ($args{MOUTH}, $dbh, @ARGV);
 foreach my $drop (@ARGV)
 {
     my $info = $result->{$drop};

@@ -25,7 +25,7 @@ my $reset = 0;
 
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    if ($ARGV[0] eq '-h') {
 	&usage();
     } elsif ($ARGV[0] eq '-r') {
 	$reset = 1; shift (@ARGV);
@@ -38,8 +38,11 @@ while (scalar @ARGV)
     }
 }
 
-my $request = shift;
-defined $request && -d $request or &usage();
+my $request = shift (@ARGV);
+if (@ARGV || !$request || ! -d $request)
+{
+    die "Incorrect parameters, use -h for help.\n";
+}
 
 -f "$request/Request/Ticket"
     or die "$request: not a transfer request\n";

@@ -1,43 +1,50 @@
 #!/usr/bin/env perl
-BEGIN
-{
-    use warnings; use strict; use Getopt::Long;
+
+##H Published completed received blocks to the local PubDB.
+##H
+##H This agent receives drops from BlockNotify and processes them to
+##H ensure safe publishing into the PubDB database.  Both McRunjob
+##H publish service and Nicola de Filippis' scripts are supported.
+##H
+##H Usage:
+##H   BlockPublish
+##H      -state DIRECTORY -next DIRECTORY [-wait SECS]
+##H      -script CMD[,ARGS...] -pfnquery CMD[,ARGS...]
+##H      -published DIRECTORY
+##H
+##H -state     agent state directory
+##H -next      state directory for the next agent; can be repeated
+##H -wait      time to wait in seconds between work scans
+##H -script    the publishing script to be invoked
+##H -pfnquery  command to query pfns from catalogue
+##H -published history directory for already published datasets
+
+BEGIN {
+  use warnings; use strict;
   our $me = $0; $me =~ s|.*/||;
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);
 }
 
-#-----------------------------------------------------------------------------------------------
-# agent name: block publication agent
-# purpose:    is triggered by BlockNotify agent via dropbox. Invokes site specific script to
-#             perform publication of DST and Digi datasets
-#-----------------------------------------------------------------------------------------------
-
-#---------------------------------------------
-#     Argument parsing
-#---------------------------------------------
-
+######################################################################
+use UtilsHelp;
+use Getopt::Long;
 my %args = (WAITTIME => 3600);
-
 &GetOptions ("state=s"		=> \$args{DROPDIR},
 	     "published=s"      => \$args{PUBLISHED},
 	     "pfnquery=s"       => \$args{PFN_QUERY},
 	     "script=s"         => \$args{SCRIPT},
-	     "wait=f"		=> \$args{WAITTIME});
+	     "wait=f"		=> \$args{WAITTIME},
+     	     "help|h"		=> sub { &usage() });
 
 $args{SCRIPT} = [ split(/,/, $args{SCRIPT}) ] if $args{SCRIPT};
 $args{PFN_QUERY} = [ split(/,/, $args{PFN_QUERY}) ] if $args{PFN_QUERY};
 if (!$args{DROPDIR} || !$args{PUBLISHED} || !$args{PFN_QUERY} || !$args{SCRIPT})
 {
-    print STDERR "usage: $me -state IN-DROP-BOX -script PUBLISH-SCRIPT[,ARGS]\n",
-                 "       -pfnquery PFN-QUERY-SCRIPT[,ARGS]\n",
-                 "       -published HISTORY-DIRECTORY [-wait SECONDS]\n";
-    exit 1;
+    die "Insufficient parameters, use -h for help.\n";
 }
 
-
-my $agent = new BlockPublish (%args);
-$agent->process();
+(new BlockPublish (%args))->process();
 
 ################################################
 package BlockPublish; use strict; use warnings; use base 'UtilsAgent';

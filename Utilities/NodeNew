@@ -20,7 +20,8 @@
 ##H The command outputs the SQL to create the node.  If it looks correct,
 ##H pipe the output to sqlplus or equivalent.
 
-[ $# -le 4 ] && { grep '^##H' < $0 | sed 's/^##H//; s/^ //'; exit 1; }
+[ X"$1" = X-h ] && { grep '^##H' < $0 | sed 's/^##H//; s/^ //'; exit 1; }
+[ $# -lt 4 ] && { echo "Incorrect parameters, use -h for help."; exit 1; }
 
 now=$(date +%s)
 node="$1"; shift

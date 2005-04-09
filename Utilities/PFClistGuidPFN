@@ -1,5 +1,7 @@
 #!/usr/bin/env perl
 
+    print STDERR "usage: $me -u CATALOGUE { -p | -g | -x } [-m] [-r] [-j JOBS] ITEM...\n";
+    exit (1);
 BEGIN {
   use strict; use warnings;
   our $me = $0; $me =~ s|.*/||;
@@ -8,7 +10,7 @@ BEGIN {
 }
 
 # Process command line arguments
-my $me = $0; $me =~ s|.*/||;
+use UtilsHelp;
 my %args = (JOBS => 10);
 while (@ARGV)
 {
@@ -22,14 +24,15 @@ while (@ARGV)
     { shift (@ARGV); $args{READ} = 1; }
     elsif ($ARGV[0] eq '-j' && scalar @ARGV > 1)
     { shift (@ARGV); $args{JOBS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
     else
     { last; }
 }
 
 if (!$args{CATALOGUE} || !$args{MODE} || !$args{JOBS})
 {
-    print STDERR "usage: $me -u CATALOGUE { -p | -g | -x } [-m] [-r] [-j JOBS] ITEM...\n";
-    exit (1);
+    die "Insufficient parameters, use -h for help.\n";
 }
 
 # Build list of query arguments

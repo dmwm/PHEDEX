@@ -1,25 +1,35 @@
 #!/usr/bin/env perl
 
-## Manager castor stage-in pool based on master pool manager requests.
-##
-## This agent checks for files marked in the database as "stage-in"
-## and issues stage-in requests for them.  It updates the current
-## stage-in status of the files in TMDB based on stager disk state.
-## (FIXME: Handle stage purge requests too?)
-##
-## The stage-in is done according to the instructions of the Castor
-## team to avoid overloading the stager and tape systems.  The stage
-## requests are ordered by tape name and position of the files.  We
-## issue several stage requests in one command to reduce the number
-## of stager processes at the server (there is one process for each
-## request).  Moreover, we throttle ourselves back if the number of
-## pending tape mounts is high (~4000) or pending stage requests is
-## high (~200).
-##
-## As TMDB only contains GUIDs and no PFNs, we execute a site-local
-## script to map the GUIDs to PFNs, typically using local catalogue.
-## Correspondingly, files reported by stager to be on disk are mapped
-## back to GUIDs.
+##H Manage castor stage-in pool based on file download requests.
+##H
+##H This agent checks for files wanted for transfer from this node and
+##H issues stage-in requests for them.  It updates the current stage-in
+##H status of the files in TMDB based on stager disk state.
+##H
+##H The stage-in is done according to the instructions of the Castor
+##H team to avoid overloading the stager and tape systems.  The stage
+##H requests are ordered by tape name and position of the files.  We
+##H issue several stage requests in one command to reduce the number
+##H of stager processes at the server (there is one process for each
+##H request).  Moreover, we throttle ourselves back if the number of
+##H pending tape mounts is high (~4000) or pending stage requests is
+##H high (~200).
+##H
+##H As TMDB only contains GUIDs and no PFNs, we execute a site-local
+##H script to map the GUIDs to PFNs, typically using local catalogue.
+##H Correspondingly, files reported by stager to be on disk are mapped
+##H back to GUIDs.
+##H
+##H Usage:
+##H   FileCastorFilesize
+##H      -state DIRECTORY -node NAME -dbconfig FILE [-wait SECS]
+##H      -pfnquery COMMAND[,ARGS...]
+##H
+##H -state     agent state directory
+##H -node      the node where this agent runs
+##H -dbconfig  database connection configuration parameter file
+##H -wait      time to wait in seconds between work scans
+##H -pfnquery  command to query pfns and guids from catalogue
 
 BEGIN {
   use strict; use warnings;
@@ -29,37 +39,30 @@ BEGIN {
 }
 
 ######################################################################
-my %args = (DBITYPE => "Oracle", WAITTIME => 120);
+use UtilsHelp;
+my %args = (WAITTIME => 120);
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
-    { shift (@ARGV); $master = 1; $args{DROPDIR} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-pfnquery' && scalar @ARGV > 1)
     { shift (@ARGV); @{$args{PFN_QUERY}} = split(/,/, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
     else
     { last; }
 }
 
-if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE} || !$args{PFN_QUERY})
+if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG}
+    || !$args{MYNODE} || !$args{PFN_QUERY})
 {
-    print STDERR
-	"usage: $me -node TMDB-NODE -pfnquery PFN-QUERY-SCRIPT\n",
-	"    -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-	"    -state IN-DROP-BOX [-wait SECS-TO-WAIT]\n";
-    exit (1);
+    die "Insufficient parameters, use -h for help.\n";
 }
 
 my $agent = new FileCastorStager (%args);
@@ -85,10 +88,7 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (DBITYPE => undef,		# Database driver binding
-    		  DBNAME => undef,		# Database name
-	  	  DBUSER => undef,		# Database user name
-	  	  DBPASS => undef,		# Database user password
+    my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  PFN_QUERY => undef,		# Program to query PFNs
 	  	  AGENTID => "Stager",		# Identity for activity logs

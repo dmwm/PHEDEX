@@ -1,19 +1,29 @@
 #!/usr/bin/env perl
 
-## Allocate files to destinations based on subscriptions.
-##
-## Compare file replica metadata and destination subscriptions with
-## current set of destinations assigned to files, and automatically
-## create new assignments when necessary.  All the information is
-## stored in the TMDB.
-##
-## The whole operation is done in a single SQL statement that compares
-## files and subscriptions with existing destination assignments and
-## replicas.  if there is a data subscription but no existing replica
-## (for the site originating the data) nor a destination assignment, a
-## new assignment is created.  File routing is handled elsewhere, this
-## agent does not worry about if or how the file can make it to the
-## requested destination, or which replica should be transferred.
+##H Allocate files to destinations based on subscriptions.
+##H
+##H Compare file block information and destination subscriptions with
+##H current set of destinations assigned to files, and automatically
+##H create new assignments when necessary.  All the information is
+##H stored in the TMDB.
+##H
+##H The whole operation is done in a single SQL statement that compares
+##H files and subscriptions with existing destination assignments and
+##H replicas.  If there is a data subscription but no existing replica
+##H (for the site originating the data) nor a destination assignment, a
+##H new assignment is created.  File routing is handled elsewhere, this
+##H agent does not worry about if or how the file can make it to the
+##H requested destination, or which replica should be transferred.
+##H
+##H Usage:
+##H   FileAllocator
+##H      -state DIRECTORY -node NAME -dbconfig FILE [-wait SECS] [-once]
+##H
+##H -state     agent state directory
+##H -node      the node where this agent runs
+##H -dbconfig  database connection configuration parameter file
+##H -wait      time to wait in seconds between work scans
+##H -once      run the alogrithm once, then quit -- don't go into daemon mode
 
 BEGIN {
   use strict; use warnings;
@@ -23,36 +33,29 @@ BEGIN {
 }
 
 ######################################################################
-my %args = (DBITYPE => "Oracle", WAITTIME => 600);
+use UtilsHelp;
+my %args = (WAITTIME => 600);
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
-    { shift (@ARGV); $master = 1; $args{DROPDIR} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBNAME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbi' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBITYPE} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbuser' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBUSER} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbpass' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBPASS} = shift(@ARGV); }
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-once')
     { shift (@ARGV); $args{ONCE} = 1; }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
     else
     { last; }
 }
 
-if (scalar @ARGV || !$args{DROPDIR} || !$args{DBNAME} || !$args{DBUSER}
-    || !$args{DBPASS} || !$args{DBITYPE} || !$args{MYNODE})
+if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG})
 {
-    print STDERR
-	"usage: $me -db NAME -dbuser USER -dbpass PASSWORD [-dbitype TYPE]\n",
-	"    -node TMDB-NODE -state IN-DROP-BOX [-wait SECS-TO-WAIT] [-once]\n";
-    exit (1);
+    die "Insufficient parameters, use -h for help.\n";
 }
 
 my $agent = new FileAllocator (%args);
@@ -73,10 +76,7 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (DBITYPE => undef,		# Database driver binding
-    		  DBNAME => undef,		# Database name
-	  	  DBUSER => undef,		# Database user name
-	  	  DBPASS => undef,		# Database user password
+    my %params = (DBCONFIG => undef,		# Database configuration file
 		  MYNODE => undef,		# My TMDB node
 		  ONCE => 0,			# Quit after one run
 	  	  AGENTID => "Allocator");	# Identity for activity logs

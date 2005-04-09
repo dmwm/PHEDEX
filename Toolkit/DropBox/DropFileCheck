@@ -1,7 +1,14 @@
 #!/usr/bin/env perl
 
-## Verify PFNs mentioned in the drops actually exist and have
-## non-zero size.
+##H Verify PFNs mentioned in the drops exist and have non-zero size.
+##H
+##H Usage:
+##H   DropFileCheck
+##H      -state DIRECTORY [-next DIRECTORY] [-wait SECS]
+##H
+##H -state     agent state directory, including inbox
+##H -next      next agent to pass the drops to; can be given several times
+##H -wait      time to wait in seconds between work scans
 
 BEGIN {
   use strict; use warnings;
@@ -11,39 +18,32 @@ BEGIN {
 }
 
 ######################################################################
-$ENV{STAGE_HOST} ||= "stagecmsprod";	# Castor stage host
-$ENV{STAGE_POOL} ||= "cms_prod2";	# Castor stage pool
+use UtilsHelp;
 my %args;
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-stagehost' && scalar @ARGV > 1)
-    { shift (@ARGV); $ENV{STAGE_HOST} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-stagepool' && scalar @ARGV > 1)
-    { shift (@ARGV); $ENV{STAGE_POOL} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    if ($ARGV[0] eq '-state' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
+    elsif ($ARGV[0] eq '-next' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
     elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
     else
     { last; }
 }
 	
-if (scalar @ARGV || !$args{DROPDIR})
+if (@ARGV || !$args{DROPDIR})
 {
-    print STDERR
-	"usage: $me -in IN-DROP-BOX [-out NEXT-DROP-BOX]\n",
-	"    [-stagehost STAGE-HOST] [-stagepool POOL]\n",
-	"    [-wait SECS-TO-WAIT]\n";
-    exit (1);
+    die "Insufficient parameters, use -h for help.\n";
 }
 
-(new DropCastorFileCheck (%args))->process();
+(new DropFileCheck (%args))->process();
 
 ######################################################################
 # Routines specific to this agent.
-package DropCastorFileCheck; use strict; use base 'UtilsAgent';
+package DropFileCheck; use strict; use base 'UtilsAgent';
 use File::Path;
 use UtilsCache;
 use UtilsCommand;
@@ -74,26 +74,21 @@ sub processDrop
     delete $self->{BAD}{$drop};
     &timeStart($self->{STARTTIME});
 
-    # Read attribute cache to get the files we need to check
+    # Read catalogue data and build attribute cache from it
     my $dropdir = "$self->{WORKDIR}/$drop";
-    my $attrsfile = "$dropdir/attrs";
-    my $attrs = eval { &readAttributeCache ($attrsfile) };
-    do { &alert($@); $self->markBad ($drop); return } if $@;
+    my $xmlcat = (<$dropdir/XMLCatFragment.*.{txt,xml}>)[0];
+    do { &alert("$drop: no catalogue"); $self->markBad ($drop); return }
+        if ! $xmlcat;
+    my $catalogue = eval { &readXMLCatalogue ($xmlcat) };
+    do { &alert ("$drop: $@"); $self->markBad ($drop); return } if $@;
 
     # Check that the files exist and get their size
     my $bad = 0;
-    foreach my $file (@$attrs)
+    foreach my $file (@$catalogue)
     {
-	my $pfn = $file->{PFN};
-	my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = stat($pfn);
-
-	# Update attribute cache
-	&warn ("$drop: discarding cached file size for $pfn"
-	       . " (old=$file->{FILESIZE}, new=$size)")
-	    if (defined $file->{FILESIZE}
-	        && defined $size
-		&& $file->{FILESIZE} ne $size);
-	$file->{FILESIZE} = $size;
+	my $pfn = $file->{PFN}[0]{PFN};
+	my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
+	    $atime, $mtime, $ctime, $blksize, $blocks) = stat($pfn);
 
 	# Check that we like this file
 	if (! defined $size)
@@ -103,8 +98,7 @@ sub processDrop
 	}
 	elsif (! $size)
 	{
-	    &alert ("$drop: cowardly refusing to transfer zero-size file $pfn");
-	    $bad = 1;
+	    &warn ("$drop: zero-size file $pfn");
 	}
     }
 
@@ -115,11 +109,8 @@ sub processDrop
     }
     else
     {
-	do { &alert ("$drop: failed to write out attribute cache"); return }
-	    if ! &outputAttributeCache ($attrsfile, $attrs);
         &touch ("$dropdir/done");
         $self->relayDrop ($drop);
         &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} succcess");
     }
 }
-

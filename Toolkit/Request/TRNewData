@@ -48,7 +48,7 @@ my @files = ();
 
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    if ($ARGV[0] eq '-h') {
 	&usage();
     } elsif ($ARGV[0] eq '-r') {
 	$reset = 1; shift (@ARGV);
@@ -63,13 +63,14 @@ while (scalar @ARGV)
     }
 }
 
-$request = shift;
+$request = shift (@ARGV);
 @files = @ARGV;
+if (@ARGV || !$request || (! $mode && @files))
+{
+    die "Incorrect parameters, use -h for help.\n";
+}
 
-defined $request or &usage();
 -f "$request/Request/Ticket" or die "$request: not a transfer request\n";
-&usage() if (! defined $mode && scalar @files);
-
 my @userpats = &readPatterns (@files);
 my @patterns = &expandPatterns ($mode, @userpats);
 my @assids   = &expandAssignments (@patterns);
