@@ -5,14 +5,14 @@
 ##H
 ##H Usage:
 ##H   NodeManager
-##H      add-node       -dbconfig FILE -name NAME
-##H      remove-node    -dbconfig FILE -name NAME
-##H      new-neighbours -dbconfig FILE -name NAME -neighbours NODE[,NODE...]
-##H      remove-link    -dbconfig FILE -name NAME -neighbours NODE[,NODE...]
-##H      add-import     -dbconfig FILE -name NAME -protocol NAME[,NAME...]
-##H      add-export     -dbconfig FILE -name NAME -protocol NAME[,NAME...]
+##H      add-node       -db FILE[:SECTION] -name NAME
+##H      remove-node    -db FILE[:SECTION] -name NAME
+##H      new-neighbours -db FILE[:SECTION] -name NAME -neighbours NODE[,NODE...]
+##H      remove-link    -db FILE[:SECTION] -name NAME -neighbours NODE[,NODE...]
+##H      add-import     -db FILE[:SECTION] -name NAME -protocol NAME[,NAME...]
+##H      add-export     -db FILE[:SECTION] -name NAME -protocol NAME[,NAME...]
 ##H
-##H -dbconfig    database connection configuration parameter file
+##H -db          database connection configuration parameter file
 ##H -name        the name of the node
 ##H -neighbours  comma-separated list of neighbour nodes
 ##H -protocol    comma-separated list of transfer protocols
@@ -279,7 +279,7 @@ sub parse_command_line () {
     GetOptions ('name=s' => \$node_name,
 		'protocol=s' => \@node_protocol,
 		'neighbours=s' => \@node_neighbours,
-		'dbconfig=s' => \$config);
+		'db=s' => \$config);
     @node_neighbours = map { split(/,/, $_) } @node_neighbours;
     @node_protocol = map { split(/,/, $_) } @node_protocol;
     die "Incorrect parameters, use -h for help\n" if @ARGV;

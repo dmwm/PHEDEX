@@ -3,9 +3,9 @@
 ##H List dataset information from DBS database.
 ##H
 ##H Usage:
-##H   DBSFill -dbconfig FILE [-details] [PATTERN...]
+##H   DBSFill -db FILE[:SECTION] [-details] [PATTERN...]
 ##H
-##H -dbconfig  database connection configuration parameter file
+##H -db        database connection configuration parameter file
 ##H -details   include detailed information about files (more costly)
 ##H PATTERN    block match constraint (owner/dataset), such as "*/bt03_*"
 
@@ -28,7 +28,7 @@ while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-h') {
 	&usage();
-    } elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1) {
+    } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
         shift (@ARGV); $args{DBCONFIG} = shift(@ARGV);
     } elsif ($ARGV[0] eq '-details') {
 	shift (@ARGV); $args{DETAILS} = 1;

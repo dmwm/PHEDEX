@@ -3,9 +3,9 @@
 ##H Fill the DBS database from RefDB.
 ##H
 ##H Usage:
-##H   DBSFill -dbconfig FILE [PATTERN...]
+##H   DBSFill -db FILE[:SECTION] [PATTERN...]
 ##H
-##H -dbconfig  database connection configuration parameter file
+##H -db        database connection configuration parameter file
 ##H PATTERN    block match constraint (owner/dataset), such as "*/bt03_*"
 
 BEGIN { use strict; use warnings;
@@ -26,7 +26,7 @@ while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-h') {
 	&usage();
-    } elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1) {
+    } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
         shift (@ARGV); $args{DBCONFIG} = shift(@ARGV);
     } elsif ($ARGV[0] eq '--') {
 	shift (@ARGV); last;

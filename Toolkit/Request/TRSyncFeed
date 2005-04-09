@@ -2,7 +2,7 @@
 
 ##H Pump drops from transfer requests to the agents.
 ##H
-##H Usage: TRSyncFeed [-n] [-d] [-x] -mouth ENTRY -dbconfig FILE REQUEST...
+##H Usage: TRSyncFeed [-n] [-d] [-x] -mouth ENTRY -db FILE[:SECTION] REQUEST...
 ##H
 ##H REQUEST is the request directory previously created with TRNew.
 ##H Those drops ready in each request are moved to the mouth of the
@@ -34,7 +34,7 @@ while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-h') {
 	&usage();
-    } elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1) {
+    } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
 	shift (@ARGV); $args{DBCONFIG} = shift (@ARGV);
     } elsif ($ARGV[0] eq '-mouth' && scalar @ARGV > 1) {
 	shift (@ARGV); $args{MOUTH} = shift (@ARGV);

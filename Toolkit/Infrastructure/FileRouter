@@ -12,13 +12,13 @@
 ##H Usage:
 ##H   FileRouter
 ##H      -state DIRECTORY -node NAME -nodes PATTERN[,PATTERN...]
-##H      -dbconfig FILE [-wait SECS]
+##H      -db FILE[:SECTION] [-wait SECS]
 ##H
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
 ##H -nodes     comma-separated list of node name patterns to route for;
 ##H            pattern wildcards are '%' (any string) and '_' (any character)
-##H -dbconfig  database connection configuration parameter file
+##H -db        database connection configuration parameter file
 ##H -wait      time to wait in seconds between work scans
 
 BEGIN {
@@ -37,7 +37,7 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1)
+    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }

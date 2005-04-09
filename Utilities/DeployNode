@@ -23,7 +23,7 @@ while (scalar @ARGV)
     { shift (@ARGV); $g_basepath = shift(@ARGV); }
     elsif ($ARGV[0] eq '-cat' && scalar @ARGV > 1)
     { shift (@ARGV); $g_cat = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1)
+    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $g_dbconfig = shift(@ARGV); }
     elsif ($ARGV[0] eq '-management' && scalar @ARGV > 1)
     { shift (@ARGV); $g_management = 1 }

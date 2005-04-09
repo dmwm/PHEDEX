@@ -3,9 +3,9 @@
 ##H Generate transfer rate statistics for report card.
 ##H
 ##H Usage:
-##H   MakeAllStats -dbconfig FILE
+##H   MakeAllStats -db FILE[:SECTION]
 ##H
-##H -dbconfig  database connection configuration parameter file
+##H -db   database connection configuration parameter file
 
 for db in cms cmssg; do
   addopt=; [ $db = cms ] && addopt="-add Documentation/DailyStatsDiff.txt"

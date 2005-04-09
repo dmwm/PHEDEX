@@ -3,9 +3,9 @@
 ##H Generate drops from dataset bookkeeing system.
 ##H
 ##H Usage:
-##H   DBSDrop -dbconfig FILE DIRECTORY [PATTERN...]
+##H   DBSDrop -db FILE[:SECTION] DIRECTORY [PATTERN...]
 ##H
-##H -dbconfig  database connection configuration parameter file
+##H -db        database connection configuration parameter file
 ##H DIRECTORY  create drops as subdirectories here, typically some inbox
 ##H PATTERN    block match constraint (owner/dataset), such as "*/bt03_*"
 
@@ -27,7 +27,7 @@ while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-h') {
 	&usage();
-    } elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1) {
+    } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
         shift (@ARGV); $args{DBCONFIG} = shift(@ARGV);
     } elsif ($ARGV[0] eq '--') {
 	shift (@ARGV); last;

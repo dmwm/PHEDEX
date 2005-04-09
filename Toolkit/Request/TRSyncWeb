@@ -2,7 +2,7 @@
 
 ##H FIXME: Brief intro
 ##H
-##H Usage: TRSyncWeb REQUEST...
+##H Usage: TRSyncWeb -db FILE[:SECTION] -mouth ENTRY REQUEST...
 ##H
 ##H REQUEST is the request directory previously created with TRNew.
 ##H Synchronises the web database for the requests.
@@ -25,7 +25,7 @@ while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-h') {
 	&usage();
-    } elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1) {
+    } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
 	shift (@ARGV); $args{DBCONFIG} = shift (@ARGV);
     } elsif ($ARGV[0] eq '-mouth' && scalar @ARGV > 1) {
 	shift (@ARGV); $args{MOUTH} = shift (@ARGV);

@@ -26,7 +26,7 @@
 ##H
 ##H Usage:
 ##H   FileDownload
-##H      -state DIRECTORY -node NAME -dbconfig FILE [-wait SECS]
+##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
 ##H      -wanted SIZE[kGMT] -backend TYPE -command CMD[,ARG...]
 ##H      -pfndest CMD[,ARG...] -publish CMD[,ARG...]
 ##H      [-validate CMD[,ARG...]] [-delete CMD[,ARG...]]
@@ -36,7 +36,7 @@
 ##H
 ##H -state       agent state directory
 ##H -node        the node where this agent runs
-##H -dbconfig    database connection configuration parameter file
+##H -db          database connection configuration parameter file
 ##H -wait        time to wait in seconds between work scans
 ##H -wanted      number of bytes to mark wanted before transfer;
 ##H               suffix k = kilo, M = mega, G = giga, T = tera
@@ -67,7 +67,7 @@ use UtilsHelp;
 my %args = (NJOBS => 1);
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1)
+    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
 
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)

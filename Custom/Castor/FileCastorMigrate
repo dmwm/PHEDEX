@@ -13,12 +13,12 @@
 ##H
 ##H Usage:
 ##H   FileCastorFilesize
-##H      -state DIRECTORY -node NAME -dbconfig FILE [-wait SECS]
+##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
 ##H      -pfnquery COMMAND[,ARGS...]
 ##H
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
-##H -dbconfig  database connection configuration parameter file
+##H -db        database connection configuration parameter file
 ##H -wait      time to wait in seconds between work scans
 ##H -pfnquery  command to query pfns from catalogue
 
@@ -38,7 +38,7 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1)
+    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }

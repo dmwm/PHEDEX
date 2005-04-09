@@ -11,11 +11,11 @@
 ##H
 ##H Usage:
 ##H   CheckConsistency
-##H      -node NAME [-catalogue CATALOGUE] -match PATTERN -dbconfig FILE
+##H      -node NAME [-catalogue CATALOGUE] -match PATTERN -db FILE[:SECTION]
 ##H      [-jobs NJOBS] -domains DOMAINS
 ##H      [-localroots ROOTDIRs -locallister CMD -surlroot SURLROOT]
 ##H
-##H -dbconfig  database connection configuration parameter file
+##H -db database connection configuration parameter file
 ##H
 ##H *** Ask Tim Barrass about what the other options mean. ***
 
@@ -31,7 +31,7 @@ use File::Copy;
 my %args = (NJOBS => 10);
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1)
+    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }

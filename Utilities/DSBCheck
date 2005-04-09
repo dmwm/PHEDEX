@@ -4,9 +4,9 @@
 ##H in the node's local file catalogue.
 ##H
 ##H Usage:
-##H   DBSCheck -dbconfig FILE -pfnquery CMD[,ARG...] -node NAME [PATTERN...]
+##H   DBSCheck -db FILE[:SECTION] -pfnquery CMD[,ARG...] -node NAME [PATTERN...]
 ##H
-##H -dbconfig  database connection configuration parameter file
+##H -db        database connection configuration parameter file
 ##H -pfnquery  the command to query local file catalogue; see agents
 ##H -node      the node for which to check replica completeness
 ##H PATTERN    block match constraint (owner/dataset), such as "*/bt03_*"
@@ -35,7 +35,7 @@ while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-h') {
 	&usage();
-    } elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1) {
+    } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
         shift (@ARGV); $args{DBCONFIG} = shift(@ARGV);
     } elsif ($ARGV[0] eq '-pfnquery' && scalar @ARGV > 1) {
 	shift (@ARGV); push(@{$args{PFN_QUERY}}, split (',', shift (@ARGV)));

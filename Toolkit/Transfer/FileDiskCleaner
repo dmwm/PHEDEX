@@ -5,11 +5,11 @@
 ##H
 ##H Usage:
 ##H   FileDiskCleaner
-##H      -state DIRECTORY -node NAME -dbconfig FILE [-wait SECS]
+##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
 ##H
 ##H -state         agent state directory
 ##H -node          the node where this agent runs
-##H -dbconfig      database connection configuration parameter file
+##H -db            database connection configuration parameter file
 ##H -wait          time to wait in seconds between work scans
 ##H -importloc     path to disk to watch
 ##H -maxfillratio  maximum allowed disk usage in percentage (default: 75)
@@ -38,7 +38,7 @@ my %args = (MAXFILLRATIO => 75,
 
 &GetOptions ("state=s"		=> \$args{DROPDIR},
 	     "node=s"		=> \$args{MYNODE},
-	     "dbconfig=s"	=> \$args{DBCONFIG},
+	     "db=s"		=> \$args{DBCONFIG},
 	     "wait=f"		=> \$args{WAITTIME},
 	     "purgesize=f"      => \$args{PURGE},
 	     "help|h"		=> sub { &usage() },

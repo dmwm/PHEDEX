@@ -4,9 +4,9 @@
 ##H
 ##H Usage:
 ##H   MakeDailyStats
-##H      -dbconfig FILE [-unit k|G|M|T] [-time hour|day|week|month] [-add FILE]
+##H      -db FILE[:SECTION] [-unit k|G|M|T] [-time hour|day|week|month] [-add FILE]
 ##H
-##H -dbconfig  database connection configuration parameter file
+##H -db        database connection configuration parameter file
 ##H -unit      report in specified unit instead of bare number of bytes (default: T)
 ##H -time      group by the specified time span (default: day)
 ##H -add       add transfer deltas from a file, with lines in the format
@@ -30,7 +30,7 @@ my %args = (UNIT => '1T', TIME => 'day');
 # Process command line arguments.
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1)
+    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-unit' && scalar @ARGV > 1)
     { shift (@ARGV); $args{UNIT} = "1" . shift(@ARGV); }

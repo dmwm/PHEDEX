@@ -18,12 +18,12 @@
 ##H Usage:
 ##H   DropTMDBPublisher
 ##H      -state DIRECTORY [-next DIRECTORY] -node NAME
-##H      -dbconfig FILE [-wait SECS]
+##H      -db FILE[:SECTION] [-wait SECS]
 ##H
 ##H -state     agent state directory, including inbox
 ##H -next      next agent to pass the drops to; can be given several times
 ##H -node      default node to register files for; drops can override this
-##H -dbconfig  database connection configuration parameter file
+##H -db        database connection configuration parameter file
 ##H -wait      time to wait in seconds between work scans
 
 BEGIN {
@@ -38,7 +38,7 @@ use UtilsHelp;
 my %args;
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1)
+    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }

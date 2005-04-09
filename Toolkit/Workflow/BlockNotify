@@ -10,12 +10,12 @@
 ##H
 ##H Usage:
 ##H   BlockNotify
-##H      -state DIRECTORY -node NAME -dbconfig FILE [-wait SECS]
+##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
 ##H      -next DIRECTORY
 ##H
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
-##H -dbconfig  database connection configuration parameter file
+##H -db        database connection configuration parameter file
 ##H -wait      time to wait in seconds between work scans
 ##H -next      state directory for the next agent; can be repeated
 
@@ -35,7 +35,7 @@ my %args = (WAITTIME => 3600, NEXTDIR => []);
 &GetOptions ("state=s"		=> \$args{DROPDIR},
 	     "next=s@"          => $args{NEXTDIR},
 	     "node=s"		=> \$args{MYNODE},
-	     "dbconfig=s"	=> \$args{DBCONFIG},
+	     "db=s"     	=> \$args{DBCONFIG},
 	     "wait=f"		=> \$args{WAITTIME},
      	     "help|h"		=> sub { &usage() });
 

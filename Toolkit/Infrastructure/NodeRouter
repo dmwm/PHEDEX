@@ -11,7 +11,7 @@
 ##H   NodeRouter
 ##H      -state DIRECTORY -nodes NAME[,NAME...] [-infinity MAX-DISTANCE]
 ##H      [-timeout MAX-LINK-AGE] [-dryrun] [-once]
-##H      -dbconfig FILE [-wait SECS]
+##H      -db FILE[:SECTION] [-wait SECS]
 ##H
 ##H -state     agent state directory
 ##H -nodes     comma-separated list of the node names to maintain routes for
@@ -19,7 +19,7 @@
 ##H -timeout   limit in seconds for dead routes (default: 1800; 0 = no timeout)
 ##H -dryrun    run the algorithm but do not change the database
 ##H -once      run the alogrithm once, then quit -- don't go into daemon mode
-##H -dbconfig  database connection configuration parameter file
+##H -db        database connection configuration parameter file
 ##H -wait      time to wait in seconds between work scans
 
 BEGIN {
@@ -38,7 +38,7 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1)
+    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-nodes' && scalar @ARGV > 1)
     { shift (@ARGV); $args{NODES} = shift(@ARGV); }

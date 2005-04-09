@@ -16,13 +16,13 @@
 ##H
 ##H Usage:
 ##H   FilePFNExport
-##H      -state DIRECTORY -node NAME -dbconfig FILE [-wait SECS]
+##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
 ##H      -pfnquery CMD[,ARGS...] [-jobs NJOBS] [-timeout SECS]
 ##H      [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]
 ##H
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
-##H -dbconfig  database connection configuration parameter file
+##H -db        database connection configuration parameter file
 ##H -wait      time to wait in seconds between work scans
 ##H -pfnquery  the command for querying export names
 ##H -jobs      number of parallel -pfnquery jobs to execute (default: 20)
@@ -42,7 +42,7 @@ use UtilsHelp;
 my %args = (NJOBS => 20);
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-dbconfig' && scalar @ARGV > 1)
+    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }

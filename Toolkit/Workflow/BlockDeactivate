@@ -9,12 +9,12 @@
 ##H
 ##H Usage:
 ##H   BlockDeactivate
-##H      -state DIRECTORY -node NAME -dbconfig FILE [-wait SECS]
+##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
 ##H      [-holdoff SECS]
 ##H
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
-##H -dbconfig  database connection configuration parameter file
+##H -db        database connection configuration parameter file
 ##H -wait      time to wait in seconds between work scans
 ##H -holdoff   time lag before deactivation (default: 86400 = day)
 
@@ -31,7 +31,7 @@ use Getopt::Long;
 my %args = (WAITTIME => 60);
 &GetOptions ("state=s"		=> \$args{DROPDIR},
 	     "node=s"           => \$args{MYNODE},
-	     "dbconfig=s"	=> \$args{DBCONFIG},
+	     "db=s"		=> \$args{DBCONFIG},
 	     "wait=f"		=> \$args{WAITTIME},
 	     "help|h"		=> sub { &usage() },
 	     "holdoff=f"        => \$args{HOLDOFF});

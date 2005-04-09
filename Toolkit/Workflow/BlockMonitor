@@ -4,11 +4,11 @@
 ##H
 ##H Usage:
 ##H   BlockMonitor
-##H      -state DIRECTORY -node NAME -dbconfig FILE [-wait SECS]
+##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
 ##H
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
-##H -dbconfig  database connection configuration parameter file
+##H -db        database connection configuration parameter file
 ##H -wait      time to wait in seconds between work scans
 
 BEGIN {
@@ -24,7 +24,7 @@ use UtilsHelp;
 use Getopt::Long;
 my %args = (WAITTIME => 180);
 &GetOptions ("state=s"		=> \$args{DROPDIR},
-	     "dbconfig=s"       => \$args{DBCONFIG},
+	     "db=s"             => \$args{DBCONFIG},
 	     "wait=f"		=> \$args{WAITTIME},
 	     "node=s"           => \$args{MYNODE},
      	     "help|h"		=> sub { &usage() });
