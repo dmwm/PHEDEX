@@ -11,14 +11,27 @@ create table t_block
    owner		varchar (100)	not null,
    dataset		varchar (100)	not null,
    files		integer		not null,
-   bytes		integer		not null);
+   bytes		integer		not null,
+   isopen		char (1)	not null);
 
 create table t_block_replica
   (timestamp		float		not null,
    name			varchar (200)	not null,
    node			varchar (20)	not null,
-   files		integer		not null,
-   bytes		integer		not null);
+   isactive		char (1)	not null,
+   last_update		float		not null,
+   dest_files		integer		not null,
+   dest_bytes		integer		not null,
+   node_files		integer		not null,
+   node_bytes		integer		not null,
+   xfer_files		integer		not null,
+   xfer_bytes		integer		not null);
+
+create table t_block_destination
+  (timestamp		float		not null,
+   name			varchar (200)	not null,
+   node			varchar (20)	not null,
+   completed		float);
 
 create table t_subscription
   (owner		varchar (100)	not null,
@@ -47,6 +60,19 @@ alter table t_block_replica
   add constraint fk_block_replica_node
   foreign key (node) references t_node (name);
 
+
+alter table t_block_destination
+  add constraint pk_block_destination
+  primary key (name, node)
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
+
+alter table t_block_destination
+  add constraint fk_block_destination_name
+  foreign key (name) references t_block (name);
+
+alter table t_block_destination
+  add constraint fk_block_destination_node
+  foreign key (node) references t_node (name);
 
 ----------------------------------------------------------------------
 -- Add indices
