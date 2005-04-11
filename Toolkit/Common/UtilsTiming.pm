@@ -1,34 +1,11 @@
 package UtilsTiming; use strict; use warnings; use base 'Exporter';
 our @EXPORT = qw(timeStart elapsedTime formatElapsedTime mytimeofday);
+use Time::HiRes 'gettimeofday';
 
-# Timing utilities.  First define higher-resolution timing via
-# gettimeofday() where it is available, otherwise fall back on
-# time().
-BEGIN {
-  # missing virtually everywhere, but it's worth trying anyway
-  eval "use Time::HiRes 'gettimeofday'";
-  if (! $@) {
-    eval 'sub mytimeofday { my (@t) = &gettimeofday();
-      return $t[0] + $t[1] / 1_000_000.0; }';
-  } else {
-    eval { require 'sys/syscall.ph'; };
-    if (! defined (&SYS_gettimeofday) && $^O =~ /linux/) {
-      eval { require 'asm/unistd.ph'; };
-      if (defined (&__NR_gettimeofday)) {
-        eval 'sub SYS_gettimeofday { &__NR_gettimeofday; }';
-      }
-    }
-    if (defined (&SYS_gettimeofday)) {
-      eval 'sub mytimeofday {
-        my $t = pack("LL", ());
-        syscall (&SYS_gettimeofday, $t, 0) != -1 or die "gettimeofday: $!";
-        my @tv = unpack ("LL", $t);
-	return $tv[0] + $tv[1]/1_000_000.0;
-      }';
-    } else {
-      eval 'sub mytimeofday { return time(); }';
-    }
-  }
+# High-resolution timing.
+sub mytimeofday
+{
+    return &gettimeofday();
 }
 
 sub timeStart
