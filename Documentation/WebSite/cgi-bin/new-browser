@@ -18,20 +18,20 @@ end();
 # ###############################################
 # Subroutines
 # ###############################################
+sub relurl
+{
+    my %args = ();
+    my $newcgi = new CGI ($cgi->query_string);
+    map { $newcgi->param ($_, $args{$_}) } keys %args;
+    return $newcgi->self_url(-full=>0, -relative=>1);
+}
+
 sub intro
 {
     $| = 1;
 
     my $stamp = strftime ("%Y-%m-%d %H:%M:%S %Z", localtime(time()));
     print $cgi->header();
-
-    print $cgi->start_form(-method=>'POST');
-
-    # What we need to do here is work out what was selected, and
-    # set those again. Lassi does this by getting the query string
-    # and remapping it... we can do it by parsing the command line
-    # and rebuilding the menu &c list so that the correct things are
-    # selected when you re-enter
 
     print "
         <head>
@@ -41,24 +41,19 @@ sub intro
         <body>
         <h1>PhEDEx Monitoring</h1>
         <p>$stamp
+        <a href='}, &relurl('page', 'main'), qq{'>Front page</a>
+       	<a href='}, &relurl('page', 'transfer'), qq{'>Transfer state</a>
+       	<a href='}, &relurl('page', 'replicas'), qq{'>Replica state</a>
+       	<a href='}, &relurl('page', 'subs'), qq{'>Subscriptions</a>
+       	<a href='}, &relurl('page', 'stats'), qq{'>File size stats</a>
+       	<a href='}, &relurl('page', 'rates'), qq{'>Transfer rate</a>
+       	<a href='}, &relurl('page', 'agents'), qq{'>Agent status</a>
     ";
-    
-    my %pages = (   'main','Front page',
-                    'transfer','Transfer state');
-    print "<select name='page'>";
-    foreach my $page ( keys %pages ) {
-        my $sel = "";
-        if ( "$cgi->param('page')" eq "$page" ) { $sel = "selected"; }
-        print "<option $sel value='$page'>$pages{$page}</option>";
-    }
-    print "</select>";
-
-    print "<input type='submit' value='submit'>";
     
     if ($cgi->param('page')) { print $cgi->param('page'); }
 }
 
 sub end
 {
-    print "</body></html>";
+    print "</body></html>\n";
 }
