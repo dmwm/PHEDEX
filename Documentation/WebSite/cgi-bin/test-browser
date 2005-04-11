@@ -1,0 +1,4 @@
+#!/usr/bin/env perl
+
+use CGI qw(:standard);
+use CGI::Carp qw(fatalsToBrowser);
