@@ -30,7 +30,7 @@ sub intro
     print "
         <head>
         <title>PhEDEx monitoring</title>
-        <meta http-equiv="refresh" content="5">
+        <meta http-equiv=\"refresh\" content=\"5\">
         </head>
         <body>
         <h1>PhEDEx Monitoring</h1>
