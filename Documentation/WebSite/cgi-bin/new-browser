@@ -44,7 +44,7 @@ sub intro
        	<option value='rates'>Transfer rate</option>
        	<option value='agents'>Agent status</option>
        	</select>
-       	<submit>
+       	<input type='submit' value='submit'>
     ";
     if ($cgi->param('page')) { print $cgi->param('page'); }
 }
