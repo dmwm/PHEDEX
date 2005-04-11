@@ -27,6 +27,12 @@ sub intro
 
     print $cgi->start_form(-method=>'POST');
 
+    # What we need to do here is work out what was selected, and
+    # set those again. Lassi does this by getting the query string
+    # and remapping it... we can do it by parsing the command line
+    # and rebuilding the menu &c list so that the correct things are
+    # selected when you re-enter
+
     print "
         <head>
         <title>PhEDEx monitoring</title>
@@ -35,17 +41,20 @@ sub intro
         <body>
         <h1>PhEDEx Monitoring</h1>
         <p>$stamp
-        <select name=page>
-       	<option value='main'>Front page</option>
-       	<option value='transfer'>Transfer state</option>
-       	<option value='replicas'>Replica state</option>
-       	<option value='subs'>Subscriptions</option>
-       	<option value='stats'>File size stats</option>
-       	<option value='rates'>Transfer rate</option>
-       	<option value='agents'>Agent status</option>
-       	</select>
-       	<input type='submit' value='submit'>
     ";
+    
+    my %pages = (   'main','Front page',
+                    'transfer','Transfer state');
+    print "<select name='page'>";
+    foreach my $page ( keys %pages ) {
+        my $sel = "";
+        if ( "$cgi->param('page')" eq "$page" ) { $sel = "selected"; }
+        print "<option $sel value='$page'>$pages{$page}</option>";
+    }
+    print "</select>";
+
+    print "<input type='submit' value='submit'>";
+    
     if ($cgi->param('page')) { print $cgi->param('page'); }
 }
 
