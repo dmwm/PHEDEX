@@ -1,0 +1,1118 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use CGI qw(:standard);
+use CGI::Carp qw(fatalsToBrowser);
+use POSIX;
+use DBI;
+
+my %databases = ("prod" => [ "cms", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
+		 "rac" => [ "cmssg", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
+		 "test" => [ "devdb", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
+		 "testbed" => [ "devdb", 'CMS_TRANSFERMGMT_TESTBED', 'phedexedehp' ]);
+my $cgi = new CGI;
+my $db = $cgi->param("db") || "prod";    # tnsname of the database
+my $dbh;
+
+my $badcolor = '#ff9e9e';
+my $warncolor = '#ffd89e';
+my $pendcolor = '#ccccff'; # ececff
+my $goodcolor = '#ccffcc';
+my $altcolor = '#e8e8e8';
+
+$cgi->param('db', 'prod') if ! $cgi->param('db');
+$cgi->param('page', 'main') if ! $cgi->param('page');
+
+# ###############################################
+# Main loop
+# ###############################################
+
+intro();
+end();
+
+# ###############################################
+# Subroutines
+# ###############################################
+
+sub relurl
+{
+    my %args = ('db' => $db, @_);
+    my $newcgi = new CGI ($cgi->query_string);
+    map { $newcgi->param ($_, $args{$_}) } keys %args;
+    return $newcgi->self_url(-full=>0, -relative=>1);
+}
+
+sub intro
+{
+    $| = 1;
+    my $stamp = strftime ("%Y-%m-%d %H:%M:%S %Z", localtime(time()));
+    print $cgi->header();
+    print qq{
+      <html><title>PHEDEX Status</title><body bgcolor='#FFFFFF'>
+      <center><h1>PHEDEX Status</h1><table><tr>
+       	<td><a href='}, &relurl('page', 'main'), qq{'>Front page</a></td>
+       	<td><a href='}, &relurl('page', 'transfer'), qq{'>Transfer state</a></td>
+       	<td><a href='}, &relurl('page', 'replicas'), qq{'>Replica state</a></td>
+       	<td><a href='}, &relurl('page', 'subs'), qq{'>Subscriptions</a></td>
+       	<td><a href='}, &relurl('page', 'stats'), qq{'>File size stats</a></td>
+       	<td><a href='}, &relurl('page', 'rates'), qq{'>Transfer rate</a></td>
+       	<td><a href='}, &relurl('page', 'agents'), qq{'>Agent status</a></td>
+       </tr>
+       <tr><td colspan=7 align='center'>$stamp</td></tr>
+       <tr>
+         <td colspan=2>&nbsp;</td>
+       	 <td><a href='}, &relurl('db', 'testbed'), qq{'>Testbed</a></td>
+       	 <td><a href='}, &relurl('db', 'test'), qq{'>Test</a></td>
+       	 <td><a href='}, &relurl('db', 'rac'), qq{'>RAC Test</a></td>
+       	 <td><a href='}, &relurl('db', 'prod'), qq{'>Production</a></td>
+         <td>&nbsp;</td>
+        </td></tr></table>};
+
+    $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
+    $ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/10103";
+    $ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/10103/lib";
+    $db = "prod" if ! grep ($db eq $_, keys %databases);
+    my ($dbname, $dbuser, $dbpass) = @{$databases{$db}};
+    $dbh = DBI->connect ("DBI:Oracle:$dbname", $dbuser, $dbpass,
+	    		 { RaiseError=>1, AutoCommit =>1 });
+
+    my %pages = ('main' => \&main,	   'transfer' => \&transfer,
+		 'replicas' => \&replicas, 'subs' => \&subs,
+		 'stats' => \&stats,       'agents' => \&agents,
+		 'rates' => \&rates);
+    &{$pages{param('page')} || \&main}();
+    print "</body></html>\n";
+}
+
+sub main
+{
+    my $active = 60*5;
+    my $offline = 60*15;
+    my $now = time ();
+    my $query = $dbh->prepare(q{select node,agent,timestamp from t_agent_status});
+    my %agents;
+    my %status;
+
+    $query->execute();
+    while (my $row = $query->fetchrow_arrayref)
+    {
+	my ($node, $agent, $contact) = @$row;
+	$status{$node}{$agent} = $contact;
+	$agents{$agent} = 1;
+    }
+    $query->finish();
+
+    print "<h2>Component status</h2>\n",
+          "<table><tr><th>Node</th>",
+	  (map { "<th>$_</th>" } sort keys %agents),
+	  "</tr>\n";
+
+    foreach my $node (sort keys %status)
+    {
+	print "<tr><td>$node</td>";
+        foreach my $agent (sort keys %agents)
+	{
+	    my $contact = $status{$node}{$agent};
+	    if (! defined $contact)
+	    {
+		print "<td>&nbsp;</td>";
+		next;
+	    }
+
+	    my $ago = &age ($now - $contact);
+	    if (($now - $contact) < $active) {
+                print "<td align='center' bgcolor='$goodcolor'>UP</td>";
+	    } elsif (($now - $contact) < $offline) {
+                print "<td align='center' bgcolor='$goodcolor'>UP ($ago ago)</td>";
+            } else {
+                print "<td align='center' bgcolor='$badcolor'>DOWN ($ago ago)</td>";
+            }
+	}
+	print "</tr>\n";
+    }
+    print "</table>";
+}
+
+sub format_num {
+    my ($n) = @_;
+    return $n ? "$n" : '&#8211;';
+}
+
+sub format_size {
+    my ($bytes, $nodash) = @_;
+    my @bounds = ([ 2**10, 'k' ], [ 2**20, 'M' ], [ 2**30, 'G' ],
+		  [ 2**40, 'T' ], [ 2**50, 'P' ], [ 2**60, 'E' ]);
+    my ($val, $unit, $minus) = ($bytes, '', $bytes < 0 ? "-" : "");
+    do { $val = -$val; $bytes = -$bytes; } if $minus;
+    while (@bounds && $bytes >= $bounds [0][0])
+    {
+	$val = $bytes / $bounds[0][0];
+	$unit = $bounds[0][1];
+	shift (@bounds);
+    }
+
+    return $bytes || $nodash
+           ? sprintf('%s%.1f&nbsp;%sB', $minus, $val, $unit)
+	   : '&#8211;';
+}
+
+sub transfer {
+    my $rows = 0;
+    my $now = time();
+    my $query = $dbh->prepare(qq{
+	    select
+	      node, timestamp,
+	      n_files, sz_files,
+	      n_onsite, sz_onsite,
+	      n_staged, sz_staged,
+	      n_available, sz_available,
+	      n_in_transfer, sz_in_transfer,
+	      n_wanted, sz_wanted,
+	      n_pending, sz_pending,
+	      n_other, sz_other
+	    from t_info_transfer_status
+	    order by node});
+
+    print "<h2>Transfer status</h2>\n",
+    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+	  "<th rowspan='2'>Age</th>",
+	  "<th rowspan='2'>Node</th>",
+	  "<th colspan='2'>Files</th>",
+	  "<th colspan='2'>On Site</th>",
+	  "<th colspan='2'>Staged</th>",
+	  "<th colspan='2'>Transferable</th>",
+	  "<th colspan='2'>In Transfer</th>",
+	  "<th colspan='2'>Wanted</th>",
+	  "<th colspan='2'>Pending</th>",
+	  "<th colspan='2'>Other</th>",
+          "</tr>\n",
+	  "<tr bgcolor='$altcolor' valign='top'>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+          "</tr>\n";
+
+    $query->execute();
+    my ($tfiles, $tfilesize,
+	$tonsite, $tonsitesize,
+	$tstaged, $tstagedsize,
+	$tavail, $tavailsize,
+	$ttransf, $ttransfsize,
+	$twanted, $twantedsize,
+	$tpending, $tpendingsize,
+	$tother, $tothersize) = (0) x 14;
+
+    while (my $row = $query->fetchrow_arrayref)
+    {
+	my ($n, $stamp, $files, $filesize,
+	    $onsite, $onsitesize,
+	    $staged, $stagedsize,
+	    $avail, $availsize,
+	    $transf, $transfsize,
+	    $wanted, $wantedsize,
+	    $pending, $pendingsize,
+	    $other, $othersize) = @$row;
+        next if ! $files;
+
+    	$tfiles += $files; $tfilesize += $filesize;
+	$tonsite += $onsite; $tonsitesize += $onsitesize;
+	$tstaged += $staged; $tstagedsize += $stagedsize;
+	$tavail += $avail; $tavailsize += $availsize;
+	$ttransf += $transf; $ttransfsize += $transfsize;
+	$twanted += $wanted; $twantedsize += $wantedsize;
+	$tpending += $pending; $tpendingsize += $pendingsize;
+	$tother += $other; $tothersize += $othersize;
+
+        my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
+	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
+	my $onscolor = ($onsite == $files) ? '' : " bgcolor='$pendcolor'";
+	my $avacolor = (!$avail) ? '' : " bgcolor='$goodcolor'";
+	my $tracolor = (!$transf) ? '' : " bgcolor='$goodcolor'";
+	my $wancolor = (!$wanted) ? '' : " bgcolor='$goodcolor'";
+	my $pencolor = ($files != $onsite + $transf + $wanted + $pending + $other)
+		       ? " bgcolor='$warncolor'" : ! $pending ? ''
+		       : " bgcolor='$pendcolor'";
+
+        print "<tr valign='top'$rowcolor>",
+	      "<td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>",
+	      "<td>$n</td>",
+	      "<td align='right'>@{[&format_num($files)]}</td>",
+	      "<td align='right'>@{[&format_size($filesize)]}</td>",
+	      "<td align='right'$onscolor>@{[&format_num($onsite)]}</td>",
+	      "<td align='right'$onscolor>@{[&format_size($onsitesize)]}</td>",
+	      "<td align='right'>@{[&format_num($staged)]}</td>",
+	      "<td align='right'>@{[&format_size($stagedsize)]}</td>",
+	      "<td align='right'$avacolor>@{[&format_num($avail)]}</td>",
+	      "<td align='right'$avacolor>@{[&format_size($availsize)]}</td>",
+	      "<td align='right'$tracolor>@{[&format_num($transf)]}</td>",
+	      "<td align='right'$tracolor>@{[&format_size($transfsize)]}</td>",
+	      "<td align='right'$wancolor>@{[&format_num($wanted)]}</td>",
+	      "<td align='right'$wancolor>@{[&format_size($wantedsize)]}</td>",
+	      "<td align='right'$pencolor>@{[&format_num($pending)]}</td>",
+	      "<td align='right'$pencolor>@{[&format_size($pendingsize)]}</td>",
+	      "<td align='right'>@{[&format_num($other)]}</td>",
+	      "<td align='right'>@{[&format_size($othersize)]}</td>",
+	      "</tr>\n";
+    }
+    my $onscolor = ($tonsite == $tfiles) ? '' : " bgcolor='$pendcolor'";
+    my $tracolor = (!$ttransf) ? '' : " bgcolor='$goodcolor'";
+    my $wancolor = (!$twanted) ? '' : " bgcolor='$goodcolor'";
+    my $pencolor = ($tfiles != $tonsite + $ttransf + $twanted + $tpending + $tother)
+		   ? " bgcolor='$warncolor'" : ! $tpending ? ''
+		   : " bgcolor='$pendcolor'";
+
+    print "<tr valign='top' bgcolor='$altcolor'>",
+	  "<th>&nbsp;</th>",
+	  "<th align='left'>Total</th>",
+	  "<th align='right'>@{[&format_num($tfiles)]}</th>",
+	  "<th align='right'>@{[&format_size($tfilesize)]}</th>",
+	  "<th align='right'$onscolor>@{[&format_num($tonsite)]}</th>",
+	  "<th align='right'$onscolor>@{[&format_size($tonsitesize)]}</th>",
+	  "<th align='right'>@{[&format_num($tstaged)]}</th>",
+	  "<th align='right'>@{[&format_size($tstagedsize)]}</th>",
+	  "<th align='right'>@{[&format_num($tavail)]}</th>",
+	  "<th align='right'>@{[&format_size($tavailsize)]}</th>",
+	  "<th align='right'$tracolor>@{[&format_num($ttransf)]}</th>",
+	  "<th align='right'$tracolor>@{[&format_size($ttransfsize)]}</th>",
+	  "<th align='right'$wancolor>@{[&format_num($twanted)]}</th>",
+	  "<th align='right'$wancolor>@{[&format_size($twantedsize)]}</th>",
+	  "<th align='right'$pencolor>@{[&format_num($tpending)]}</th>",
+	  "<th align='right'$pencolor>@{[&format_size($tpendingsize)]}</th>",
+	  "<th align='right'>@{[&format_num($tother)]}</th>",
+	  "<th align='right'>@{[&format_size($tothersize)]}</th>",
+	  "</tr>\n";
+    $query->finish();
+    print "</table>";
+}
+
+sub replicas {
+    my $rows = 0;
+    my %data = ();
+    my %sites = ();
+    my $query = $dbh->prepare(qq{
+	    select
+	      owner,
+	      dataset,
+	      n_runs,
+	      n_files,
+	      sz_files
+	    from t_info_replication_overview});
+    $query->execute();
+    while (my $row = $query->fetchrow_arrayref)
+    {
+	my ($o, $ds, $runs, $files, $total) = @$row;
+	$data{"$o:$ds"} = [ $o, $ds, $files, $total, $runs, {} ];
+    }
+    $query->finish();
+
+    $query = $dbh->prepare (qq{
+	    select
+	      owner,
+	      dataset,
+	      node,
+	      n_files,
+	      sz_files
+	    from t_info_replication_details});
+    $query->execute();
+    while (my $row = $query->fetchrow_arrayref)
+    {
+	my ($o, $ds, $site, $files, $total) = @$row;
+	$data{"$o:$ds"}[5]{$site} = [ $files, $total ];
+	$sites{$site} = 1;
+    }
+    $query->finish();
+
+    print "<h2>Replication status</h2>\n",
+    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+	  "<th rowspan='2'>Owner</th>",
+	  "<th rowspan='2'>Dataset</th>",
+	  "<th rowspan='2' align='right'>Runs</th>",
+	  "<th colspan='2' align='right'>Files</th>",
+	  (map { "<th colspan='2'>$_</th>" } sort keys %sites),
+          "</tr>\n",
+	  "<tr bgcolor='$altcolor' valign='top'>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  (map { "<th align='right'>N</th><th align='right'>Size</th>" } sort keys %sites),
+	  "</tr>\n";
+
+    foreach my $dso (sort keys %data)
+    {
+        my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
+	my ($o, $ds, $files, $total, $runs, $sites) = @{$data{$dso}};
+        print "<tr valign='top'$rowcolor>",
+	      "<td>$o</td>",
+	      "<td>$ds</td>",
+	      "<td align='right'>$runs</td>",
+	      "<td align='right'>$files</td>",
+	      "<td align='right'>@{[&format_size($total)]}</td>";
+
+	foreach my $site (sort keys %sites)
+	{
+	    if (exists $sites->{$site})
+	    {
+		my ($sfiles, $stotal) = @{$sites->{$site}};
+		my $scolor = ($sfiles == $files) ? '' : " bgcolor='$pendcolor'";
+		print "<td$scolor align='right'>@{[&format_num($sfiles)]}</td>",
+		      "<td$scolor align='right'>@{[&format_size($stotal)]}</td>";
+	    }
+	    else
+	    {
+		print "<td colspan='2'>&nbsp;</td>";
+	    }
+        }
+	print "</tr>\n";
+    }
+    print "</table>";
+}
+
+sub subs {
+    my $rows = 0;
+    my %data = ();
+    my %sites = ();
+    my $query = $dbh->prepare(qq{
+	    select
+	      owner,
+	      dataset,
+	      destination,
+	      n_files,
+	      sz_files,
+	      n_files_at_dest,
+	      sz_files_at_dest
+	    from t_info_subscriptions});
+    $query->execute();
+    while (my $row = $query->fetchrow_arrayref)
+    {
+	my ($ow, $ds, $site, $files, $total, $sfiles, $stotal) = @$row;
+	$data{$ow}{$ds} ||= [ $ow, $ds, $files, $total, {} ];
+	if ($site)
+	{
+	    $data{$ow}{$ds}[4]{$site} = [ $sfiles, $stotal ];
+	    $sites{$site} = 1;
+        }
+    }
+    $query->finish();
+
+    print "<h2>Subscriptions</h2>\n",
+    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+	  "<th rowspan='2'>Owner</th>",
+	  "<th rowspan='2'>Dataset</th>",
+	  # "<th rowspan='2' align='right'>Runs</th>",
+	  "<th colspan='2' align='right'>Files</th>",
+	  (map { "<th rowspan='2'>$_</th>" } sort keys %sites),
+          "</tr>\n",
+	  "<tr bgcolor='$altcolor' valign='top'>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "</tr>\n";
+
+    foreach my $ow (sort keys %data)
+    {
+        foreach my $ds (sort keys %{$data{$ow}})
+        {
+	    my ($ow, $ds, $files, $total, $sites) = @{$data{$ow}{$ds}};
+            my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
+	    my $dscolor = (scalar (keys %$sites) ? '' : " bgcolor='$warncolor'");
+            print "<tr valign='top'$rowcolor>",
+	          "<td$dscolor><a href='subscribe?owner=$ow&dataset=$ds&db=$db'>$ow</a></td>",
+	          "<td$dscolor><a href='subscribe?owner=$ow&dataset=$ds&db=$db'>$ds</a></td>",
+	          "<td align='right'>@{[&format_num($files)]}</td>",
+	          "<td align='right'>@{[&format_size($total)]}</td>";
+
+	    foreach my $site (sort keys %sites)
+	    {
+	        if (exists $sites->{$site})
+	        {
+		    my ($sfiles, $stotal) = @{$sites->{$site}};
+		    my $scolor = ($sfiles == $files) ? '' : " bgcolor='$pendcolor'";
+		    print "<td$scolor align='right'>",
+		          sprintf('%0.2f&nbsp;/&nbsp;%0.2f', ($sfiles / $files), ($stotal / $total)),
+		          "</td>";
+	        }
+	        else
+	        {
+		    print "<td>&nbsp;</td>";
+	        }
+            }
+	}
+	print "</tr>\n";
+    }
+    print "</table>";
+}
+
+sub age {
+    my ($diff) = @_;
+    my $str = "";
+    my $full = 0;
+    if ($diff >= 86400) {
+	$str .= sprintf("%dd", $diff / 86400);
+	$diff %= 86400;
+	$full = 1;
+    }
+    $str .= sprintf("%dh", $diff / 3600);
+    $diff %= 3600;
+    $str .= sprintf("%02d", $diff / 60);
+}
+
+sub stats {
+    my $now = time();
+    my $overview = $dbh->selectrow_arrayref(qq{
+			select
+			  timestamp,
+			  n_files,
+			  sz_total,
+			  sz_min,
+			  sz_max,
+			  sz_mean,
+			  sz_median
+			from t_info_file_size_overview});
+    my $histo = $dbh->selectall_arrayref(qq{
+	    		select
+			  timestamp,
+			  bin_low,
+			  bin_width,
+			  n_total,
+			  sz_total
+			from t_info_file_size_histogram});
+
+    print "<h2>File Size Statistics</h2>\n",
+    	  "<p>", &age($now - $overview->[0]), " ago </td>",
+    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+	  "<th>Files</th>",
+	  "<th>Total Size</th>",
+	  "<th>Min Size</th>",
+	  "<th>Max Size</th>",
+	  "<th>Mean Size</th>",
+	  "<th>Median Size</th>",
+	  "</tr>\n",
+	  "<tr>",
+	  "<td align='right'>@{[&format_num($overview->[1])]}</td>",
+	  "<td align='right'>@{[&format_size($overview->[2])]}</td>",
+	  "<td align='right'>@{[&format_size($overview->[3])]}</td>",
+	  "<td align='right'>@{[&format_size($overview->[4])]}</td>",
+	  "<td align='right'>@{[&format_size($overview->[5])]}</td>",
+	  "<td align='right'>@{[&format_size($overview->[6])]}</td>",
+	  "</tr>\n",
+	  "</table>\n",
+    	  "<hr>\n";
+
+    print "<h2>File Size Breakdown</h2>\n",
+    	  "<p>", &age($now - $histo->[0][0]), " ago</p>",
+    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+	  "<th colspan='2'>Bin</th>",
+	  "<th>Files</th>",
+	  "<th>Total Size</th>",
+	  "</tr>\n";
+    foreach my $row (@$histo)
+    {
+	  print "<tr>",
+	        "<td align='right'>@{[&format_size($row->[1] * $row->[2],1)]} ..</td>",
+		"<td align='right'>@{[&format_size(($row->[1] + 1) * $row->[2],1)]}</td>",
+	        "<td align='right'>@{[&format_num($row->[3])]}</td>",
+	        "<td align='right'>@{[&format_size($row->[4])]}</td>",
+	        "</tr>\n";
+    }
+    print "</table>\n";
+}
+
+sub agents {
+    my $now = time();
+    my %info = ();
+    my @states = qw(pending received work completed bad outgoing);
+    my %states = ();
+    my %age = ();
+    my %live = ();
+    foreach my $row (@{$dbh->selectall_arrayref(qq{
+				select
+				  timestamp,
+				  site,
+				  host,
+				  path,
+				  agent,
+				  worker,
+				  pid,
+				  live,
+				  state,
+				  value
+				from t_info_agent_status})})
+    {
+	my ($stamp, $site, $host, $path, $agent, $worker, $pid, $live, $state, $value) = @$row;
+	$age{$site}{$host}{$path} = $stamp;
+	$live{$site}{$host}{$path}{$agent}{$worker} = { PID => $pid, LIVE => $live };
+	$info{$site}{$host}{$path}{$agent}{$worker}{$state} = $value;
+	$states{$state} = 1 if ! grep ($_ eq $state, @states);
+    }
+
+    print "<h2>Agent Status</h2>\n",
+    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+	  "<th>Age</th>",
+	  "<th>Site</th>",
+	  "<th>Host</th>",
+	  "<th>Path</th>",
+	  "<th>Agent</th>",
+	  "<th>Worker</th>",
+	  "<th>Process</th>",
+	  (map { "<th>$_</th>" } @states, sort keys %states),
+	  "</tr>\n";
+
+    foreach my $site (sort keys %info)
+    {
+	foreach my $host (sort keys %{$info{$site}})
+	{
+	    foreach my $path (sort keys %{$info{$site}{$host}})
+	    {
+	        foreach my $agent (sort keys %{$info{$site}{$host}{$path}})
+	        {
+		    foreach my $worker (sort keys %{$info{$site}{$host}{$path}{$agent}})
+		    {
+		        my $pid = $live{$site}{$host}{$path}{$agent}{$worker}{PID};
+		        my $live = $live{$site}{$host}{$path}{$agent}{$worker}{LIVE};
+		        my $pidcolor = $live ? "" : " bgcolor='$warncolor'";
+		        print "<tr>",
+			      "<td>", &age($now - $age{$site}{$host}{$path}), "</td>",
+			      "<td>$site</td>",
+			      "<td>$host</td>",
+			      "<td>$path</td>",
+			      "<td>$agent</td>",
+			      "<td>$worker</td>",
+			      "<td$pidcolor>$pid</td>";
+		        foreach my $state (@states, sort keys %states)
+		        {
+			    my $value = $info{$site}{$host}{$path}{$agent}{$worker}{$state};
+			    my $color = $value ? " bgcolor='$pendcolor'" : '';
+			    print "<td$color>$value</td>";
+		        }
+		        print "</tr>\n";
+	            }
+	        }
+	    }
+	}
+    }
+    print "</table>\n";
+}
+
+sub format_timespan {
+    my $span = shift;
+    if ($span >= 86400) {
+	$span /= 86400;
+	return $span == 1 ? "day" : "$span days";
+    } elsif ($span >= 3600) {
+	$span /= 3600;
+	return $span == 1 ? "hour" : "$span hours";
+    } elsif ($span >= 60) {
+	$span /= 60;
+	return $span == 1 ? "minute" : "$span minutes";
+    } else {
+	return $span == 1 ? "second" : "$span seconds";
+    }
+}
+
+sub rates {
+    my $now = time();
+    my %stats = ();
+    my $q = $dbh->prepare(qq{
+			select
+			  timestamp,
+			  time_span,
+			  info_type,
+			  from_node,
+			  to_node,
+			  n_total,
+			  sz_total,
+			  time_total,
+			  bps_total,
+			  bps_average,
+			  bps_min,
+			  bps_max
+			from t_info_transfer_rate});
+    $q->execute();
+    while (my $row = $q->fetchrow_hashref()) {
+	$row->{BPS_AGGREGATE} =
+	    ($row->{TIME_SPAN}
+	     ? $row->{SZ_TOTAL} / $row->{TIME_SPAN}
+	     : -1);
+	push(@{$stats{$row->{TIME_SPAN}}{$row->{INFO_TYPE}}}, $row);
+    }
+
+    print "<h2>Transfer Rate Statistics</h2>\n";
+    print "<p>CERN Daily External Internet Traffic<br>\n";
+    if ($db ne 'rac')
+    {
+        print "<a href='http://pcstats.cern.ch/misc/cern-all.html'><IMG
+          VSPACE=10 WIDTH=600 HEIGHT=135 ALIGN=TOP
+          SRC='http://pcstats.cern.ch/misc/cern-all-day.png' ALT='day'></a></p>\n";
+    }
+    else
+    {
+        print "<a href='http://pcstats.cern.ch/dtag/cernusa.html'><IMG
+          VSPACE=10 WIDTH=600 HEIGHT=135 ALIGN=TOP
+          SRC='http://pcstats.cern.ch/dtag/cernusa-day.png' ALT='day'></a></p>\n";
+    }
+    print "<table>\n";
+    foreach my $span (sort { ($a || 9999999) <=> ($b || 9999999) } keys %stats)
+    {
+    	print
+	  "<tr bgcolor='$altcolor' valign='top'>",
+	  "<th colspan='11'>", ($span == 0 ? "Overall" : "Last @{[&format_timespan($span)]}"), "</th></tr>\n",
+	  "<tr bgcolor='$altcolor' valign='top'>",
+	  "<th>Age</th>",
+	  "<th>From</th>",
+	  "<th>To</th>",
+	  "<th>Files</th>",
+	  "<th>Total Size</th>",
+	  "<th>Total Time</th>",
+	  "<th>Aggregate Rate</th>",
+	  "<th>Overall Rate</th>",
+	  "<th>Mean Rate</th>",
+	  "<th>Min Rate</th>",
+	  "<th>Max Rate</th>",
+	  "</tr>\n";
+	foreach my $row ((sort { $b->{BPS_AGGREGATE} <=> $a->{BPS_AGGREGATE}
+				|| $b->{BPS_TOTAL} <=> $a->{BPS_TOTAL} }
+			  @{$stats{$span}{'N'}}), @{$stats{$span}{'T'}})
+	{
+	    print "<tr>",
+		  "<td>", &age($now - $row->{TIMESTAMP}), "</td>",
+		  ($row->{FROM_NODE}
+		   ? "<td>$row->{FROM_NODE}</td><td>$row->{TO_NODE}</td>"
+		   : "<td colspan='2'>Total</td>"),
+	          "<td>$row->{N_TOTAL}</td>",
+	          "<td align='right'>@{[&format_size($row->{SZ_TOTAL})]}</td>",
+	          "<td align='right'>@{[&age($row->{TIME_TOTAL})]}</td>",
+	          "<td align='right'>",
+		    ($row->{BPS_AGGREGATE} >= 0
+		     ? &format_size($row->{BPS_AGGREGATE}) . '/s'
+		     : &format_num(0)),
+		  "</td>",
+	          "<td align='right'>@{[&format_size($row->{BPS_TOTAL})]}/s</td>",
+	          "<td align='right'>@{[&format_size($row->{BPS_AVERAGE})]}/s</td>",
+	          "<td align='right'>@{[&format_size($row->{BPS_MIN})]}/s</td>",
+	          "<td align='right'>@{[&format_size($row->{BPS_MAX})]}/s</td>",
+	          "</tr>\n";
+	}
+    }
+    print "</table>\n<hr>\n";
+}
+
+sub end {
+    print end_form();
+    $dbh->disconnect();
+}
+
+package tmdb;
+use strict;
+use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION);
+use CGI qw(:Standard);
+use DBI;
+
+$VERSION     = 1.00;
+@ISA         = qw(Exporter);
+@EXPORT      = qw(  &get_agents
+                    &agent_menu
+                    &log_query    
+                    &t1_menu
+                    &state_query
+                    &filesize_data
+                    &draw_histogram_as_text
+                    &add_to_histogram
+                    &bytes_as_MB
+                    &filesize_info
+                    &transfer_data
+                    &rate_info
+                    &get_file_states
+                    &get_field_from_table
+                    &aggregate_rate
+                );
+@EXPORT_OK   = qw();
+%EXPORT_TAGS = ();
+
+# Display a select menu of t1s
+sub t1_menu {
+    my %args = (
+        DB_TNSNAME  => 'devdb',
+        @_,
+    );
+
+    my @t1s = get_field_from_table(DB_TNS_NAME => "$args{DB_TNSNAME}", FIELD_NAME => "t1_name", TABLE_NAME => "t1sites");
+    print p( "T1", popup_menu( "T1", \@t1s));
+}
+
+# Display a select menu of agents
+sub agent_menu {
+    my %args = (
+        DB_TNSNAME  => 'devdb',
+        @_,
+    );
+    
+    my @agents = get_field_from_table(DB_TNS_NAME => "$args{DB_TNSNAME}", FIELD_NAME => "agent_label", TABLE_NAME => "agentstate");
+    print p( "Agent", popup_menu( "agent", \@agents));
+}
+
+# Return list of agent names
+sub get_field_from_table {
+    my %args = (
+        FIELD_NAME  => '*',
+        TABLE_NAME  => 'filesfortransfer',
+        DB_TNSNAME  => 'devdb',
+        @_,
+    );
+
+    my $dbh = DBI->connect("DBI:Oracle:$args{DB_TNSNAME}", 'CMS_TRANSFERMGMT_WRITER', 'threeBagsFULL', { RaiseError=>1, AutoCommit =>1 });
+
+    my @list;
+
+    my $selection = "select $args{FIELD_NAME} from $args{TABLE_NAME}";
+    my $query = $dbh->prepare($selection);
+    $query->execute;
+    while (my @row = $query->fetchrow_array) {
+        push(@list,$row[0]);
+    }
+    $query->finish();
+
+    $dbh->disconnect();
+    return @list;
+}
+
+sub log_query {
+    my %args = (
+    	TIME => 60,
+        AGENT       => 'RAL',
+        DB_TNSNAME  => 'devdb',
+        @_,
+    );
+
+    my $dbh = DBI->connect("DBI:Oracle:$args{DB_TNSNAME}", 'CMS_TRANSFERMGMT_WRITER', 'threeBagsFULL', { RaiseError=>1, AutoCommit =>1 });
+
+	my $time = time();
+	$time = $time - $args{TIME};
+
+    my $selection = "select * from agentlogging where agent_label = '$args{AGENT}' and start_time > $time";
+    my $query = $dbh->prepare($selection);
+    $query->execute;
+    print "<table>";
+        print "<tr>";
+        print "<td>start</td>";
+        print "<td>end</td>";
+        print "<td>action</td>";
+        print "<td>return code</td>";
+        print "<td>log</td>";
+        print "<td>agent</td>";
+        print "<td>agent type</td>";
+        print "<td>guid</td>";
+        print "</tr>";
+    while (my @row = $query->fetchrow_array) {
+        print "<tr>";
+        my $start = localtime($row[0]);
+        my $end = localtime($row[1]);
+        print "<td>$start</td>";
+        print "<td>$end</td>";
+        print "<td>$row[2]</td>";
+        print "<td>$row[3]</td>";
+        print "<td>$row[4]</td>";
+        print "<td>$row[5]</td>";
+        print "<td>$row[6]</td>";
+        print "<td>$row[7]</td>";
+        print "</tr>";
+    }
+    $query->finish();
+
+    $dbh->disconnect();
+}
+
+sub get_file_states {
+    return (	1 => "New file", 
+		2 => "Allocated to different EB",
+		3 => "Allocated to a different T1",
+		4 => "On the EB",
+		5 => "At the T1",
+		6 => "Safe in MSS",
+		7 => "Cleaned from EB",
+		51 => "Yujun's In Transfer state",
+		55 => "FZK MSS Test Safe",
+		90 => "Bad",
+		91 => "Bad",
+		92 => "Bad",
+		93 => "Bad",
+		94 => "Bad",
+		95 => "Bad",
+		96 => "Bad",
+		97 => "Bad",
+		98 => "Bad",
+		99 => "Bad");
+}
+
+sub state_query {
+    my %args = (
+        T1       => 'ALL',
+        STATE   => "1",
+        DB_TNSNAME  => 'devdb',
+        @_,
+    );
+
+    my $dbh = DBI->connect("DBI:Oracle:$args{DB_TNSNAME}", 'CMS_TRANSFERMGMT_WRITER', 'threeBagsFULL', { RaiseError=>1, AutoCommit =>1 });
+    my $results = $dbh->selectall_arrayref("select t1_name, state, count(state) from filestate group by t1_name, state");
+    my $state_data = {};
+    foreach my $row (@$results) {
+	$state_data->{$row->[0]}{$row->[1]} = $row->[2];
+    }
+    $dbh->disconnect;
+    return $state_data;
+}
+
+sub rate_info {
+    my %args = (
+        AGENT => 'CONFIG',
+        DB_TNSNAME  => 'devdb',
+        @_,
+    );
+    my $bin_size = 1;
+    
+	my ($count, $mean_rate, $mean_time, $longest, $quickest, $error_count, $r_histo) = transfer_data(START => 0, AGENT => $args{AGENT}, STEP => $bin_size, DB_TNSNAME => $args{DB_TNSNAME});
+	my @histo = @$r_histo;
+
+    print "<table><tr><td># transfers</td><td>";
+    print $count;
+    print "</td><td /></tr><tr><td># erroneous entries</td><td>";
+    print $error_count;
+    print "</td><td /></tr><tr><td>mean rate</td><td>";
+    printf "%0.1f",$mean_rate;
+    print"</td><td>MBps</td></tr><tr><td>mean time</td><td>";
+    printf "%0.1f",$mean_time;
+    print "</td><td>s</td></tr><tr><td>longest</td><td>";
+    printf "%0.1f",$longest;
+    print "</td><td>s</td></tr><tr><td>quickest</td><td>";
+    printf "%0.1f",$quickest;
+    print "</td><td>MBps</td></tr></table>";
+
+    print "<hr>";
+	    
+    draw_histogram_as_text("Rate breakdown (MBps)",$bin_size,$quickest,\@histo)
+}
+
+sub aggregate_rate {
+    my %args = (
+    	TIME => '0',
+        AGENT => 'ALL',
+        DB_TNSNAME  => 'devdb',
+        @_,
+    );
+    
+    my $dbh = DBI->connect("DBI:Oracle:$args{DB_TNSNAME}", 'CMS_TRANSFERMGMT_WRITER', 'threeBagsFULL', { RaiseError=>1, AutoCommit =>1 });
+	
+	my $selection = "select start_time,end_time,filesize from agentlogging,filesfortransfer  where action='TRANSFER' and agentlogging.guid = filesfortransfer.guid and return_code = 0 and start_time < $args{TIME} and end_time > $args{TIME}";
+	if ($args{AGENT} ne "ALL") {
+		$selection .= " and agent_label='$args{AGENT}'";
+	}
+	my @row = ();
+    my $query = $dbh->prepare($selection);
+	my $diff;
+	my $rate;
+	my $size;
+	my $total_rate = 0;
+
+	$query->execute;
+    while (@row = $query->fetchrow_array) {
+    	# calculate rate
+		$diff = $row[1] - $row[0];
+        $size = $row[2];
+        $size = bytes_to_MB($size);
+        if ($diff >0 ) {
+            $rate = $size / $diff;
+        }
+        $total_rate += $rate;
+    }
+    $query->finish();
+
+	$dbh->disconnect();
+	
+	return $rate;    
+}
+
+sub transfer_data {
+    my %args = (
+    	START_TIME => '0',
+        AGENT => 'CONFIG',
+        DB_TNSNAME  => 'devdb',
+        STEP    => '1',
+        @_,
+    );
+
+    my $dbh = DBI->connect("DBI:Oracle:$args{DB_TNSNAME}", 'CMS_TRANSFERMGMT_WRITER', 'threeBagsFULL', { RaiseError=>1, AutoCommit =>1 });
+    my $step = $args{STEP};
+    my $mean_time;
+    my $mean_rate;
+    my $total_time = 0;
+    my $total_rate = 0;
+    my $selection = "select start_time,end_time,filesize from agentlogging,filesfortransfer where action='TRANSFER' and agentlogging.guid = filesfortransfer.guid and return_code = 0 and start_time > $args{START}";
+    if ($args{AGENT} ne "ALL"){
+        $selection = $selection." and agent_label='$args{AGENT}'";
+    }
+    my @row = ();
+    my $count = 0;
+    my $query = $dbh->prepare($selection);
+    my $longest = 0;
+    my $quickest = 0;
+    my $diff;
+    my $error_count = 0;
+    my $rate;
+    my $size;
+    my $bins;
+    my $r_histo;
+    my @histo;
+
+    $query->execute;
+    while (@row = $query->fetchrow_array) {
+        $diff = $row[1] - $row[0];
+        $size = $row[2];
+        $size = bytes_to_MB($size);
+
+        if ($diff >0 ) {
+            $rate = $size / $diff;
+            $total_time = $total_time + $diff;
+            $total_rate = $total_rate + $rate;
+
+            if ($diff > $longest) {
+                $longest = $diff;
+            }
+            if ($rate > $quickest) {
+                $quickest = $rate;
+            }
+
+            ($bins, $r_histo) = add_to_histogram($step,$rate,$bins,\@histo);
+            @histo = @$r_histo;
+
+            $count++;
+        } else {
+            $error_count++;
+        }
+    }
+    $query->finish();
+
+    if ($count != 0) {
+        $mean_time = $total_time / $count;
+        $mean_rate = $total_rate / $count;
+    }
+    return ($count, $mean_rate, $mean_time, $longest, $quickest, $error_count, \@histo);
+}
+
+
+sub filesize_info {
+    my %args = (
+        AGENT => 'CONFIG',
+        DB_TNSNAME  => 'devdb',
+        @_,
+    );
+    my $bin_size = 50;
+    my ($count, $total, $min, $max, $avg, $median, @histo)
+	= filesize_data (AGENT => $args{AGENT}, STEP => $bin_size,
+			 DB_TNSNAME => $args{DB_TNSNAME});
+
+    print " <table>",
+	   "  <tr align=right><td># files</td><td>$count</td><td>&nbsp;</td></tr>\n",
+           "  <tr align=right><td>total</td><td>@{[sprintf '%.1f', $total / 1024]}</td><td>&nbsp;GB</td></tr>\n",
+	   "  <tr align=right><td>min</td><td>@{[sprintf '%.1f', $min * 1024]}</td><td>&nbsp;kB</td></tr>\n",
+	   "  <tr align=right><td>max</td><td>@{[sprintf '%.1f', $max]}</td><td>&nbsp;MB</td></tr>\n",
+    	   "  <tr align=right><td>mean</td><td>@{[sprintf '%.1f', $avg]}</td><td>&nbsp;MB</td></tr>\n",
+	   "  <tr align=right><td>median</td><td>@{[sprintf '%.1f', $median * 1024]}</td><td>&nbsp;kB</td></tr>\n",
+	   " </table>\n";
+
+    print "<hr>\n";
+
+    print "\n<table><tr><td colspan=4>File size breakdown</td></tr>\n";
+    print "\n<tr><th>Bin</th><th>Files</th><th colspan=2>Total size</th></tr>\n";
+    foreach my $bin (@histo) {
+	print "<tr align=right><td>$bin->[0]..@{[$bin->[0]+10]} MB</td>",
+	      "<td>$bin->[1]</td>",
+	      "<td>@{[sprintf '%.1f', $bin->[2] / 1024]}</td>",
+	      "<td>&nbsp;GB</td></tr>\n";
+    }
+    print "</table>\n";
+}
+
+sub bytes_to_MB {
+    my $bytes = shift;
+    return $bytes / (1024 * 1024);
+}
+
+sub add_to_histogram {
+    my $step = shift;
+    my $data = shift;
+    my $bins = shift;
+    my $r_histo = shift;
+    my $bin_count = 0;
+    my @histo = @$r_histo;
+
+    while ($bin_count * $step < $data) {
+        $bin_count++;
+    }
+
+    $histo[$bin_count - 1]++;
+
+    if ($bin_count > $bins) {
+        $bins = $bin_count;
+    }
+
+    return ($bins, \@histo);
+}
+
+sub draw_histogram_as_text {
+    my $title = shift;
+    my $step = shift;
+    my $max = shift;
+    my $r_histo = shift;
+    my @histo = @$r_histo;
+    my $bin_count = 0;
+
+    print "
+    <table>
+    <tr><td colspan=2>$title</td></tr>
+    ";
+    while ($bin_count * $step < $max) {
+        print "<tr><td>".$step * $bin_count."</td><td>$histo[$bin_count]</td></tr>";
+        $bin_count++;
+    }
+    print "</table>";
+}
+
+sub filesize_data {
+    my %args = (
+        AGENT => 'CONFIG',
+        DB_TNSNAME  => 'devdb',
+        STEP    => '1',
+        @_,
+    );
+
+    my $dbh = DBI->connect("DBI:Oracle:$args{DB_TNSNAME}", 'CMS_TRANSFERMGMT_WRITER',
+			   'threeBagsFULL', { RaiseError=>1, AutoCommit =>1 });
+
+    # First get general stats
+    my $stats = $dbh->selectall_arrayref (q{
+			select	count(filesize),
+				sum(filesize/(1024*1024)),
+				min(filesize/(1024*1024)),
+				max(filesize/(1024*1024)),
+				avg(filesize/(1024*1024)),
+				(percentile_disc(.5) within group (order by filesize))/(1024*1024)
+			from	filesfortransfer});
+    my ($nfiles, $total, $min, $max, $avg, $median) = @{$stats->[0]};
+
+    # Now fetch data binned in histogram
+    my $bins = $dbh->selectall_arrayref(q{
+			select binsize, count(binsize), sum(realsize)
+			from (select trunc(filesize/(10 * 1024 * 1024)) as binsize,
+				     filesize/(1024*1024) as realsize
+			      from filesfortransfer) group by binsize});
+    my @histo = ();
+    foreach my $bin (@$bins) {
+	$bin->[0] *= 10;
+	push (@histo, $bin);
+    }
+
+    return ($nfiles, $total, $min, $max, $avg, $median, @histo);
+}
+
+1;
