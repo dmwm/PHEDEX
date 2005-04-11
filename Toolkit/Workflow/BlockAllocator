@@ -1,22 +1,13 @@
 #!/usr/bin/env perl
 
-##H Allocate files to destinations based on subscriptions.
+##H Allocate blocks to destinations based on subscriptions.
 ##H
-##H Compare file block information and destination subscriptions with
-##H current set of destinations assigned to files, and automatically
-##H create new assignments when necessary.  All the information is
-##H stored in the TMDB.
-##H
-##H The whole operation is done in a single SQL statement that compares
-##H files and subscriptions with existing destination assignments and
-##H replicas.  If there is a data subscription but no existing replica
-##H (for the site originating the data) nor a destination assignment, a
-##H new assignment is created.  File routing is handled elsewhere, this
-##H agent does not worry about if or how the file can make it to the
-##H requested destination, or which replica should be transferred.
+##H Compare file blocks to subscription destinations and currently
+##H existing block replicas, and automatically create new assignments
+##H where necessary.
 ##H
 ##H Usage:
-##H   FileAllocator
+##H   BlockAllocator
 ##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS] [-once]
 ##H
 ##H -state     agent state directory
@@ -58,15 +49,14 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG})
     die "Insufficient parameters, use -h for help.\n";
 }
 
-my $agent = new FileAllocator (%args);
+my $agent = new BlockAllocator (%args);
 # Recapture interrupt signal, oracle swallows it.
 $SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
 $agent->process ();
 
 ######################################################################
 # Routines for this agent.
-package FileAllocator; use strict; use warnings; use base 'UtilsAgent';
-use UtilsCommand;
+package BlockAllocator; use strict; use warnings; use base 'UtilsAgent';
 use UtilsLogging;
 use UtilsTiming;
 use UtilsDB;
@@ -98,28 +88,22 @@ sub idle
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
         # FIXME: Pick up and process messages to me
 
-	# Create new destinations for files not yet assigned.
-	# Pick file/destination pairs where the file's dataset
-	# matches a stream subscription, the destination isn't
-	# yet entered into t_destinations nor is there a replica
-	# already at that site (probably the data originator).
+	# Create new destinations for blocks not yet assigned.
+	# Pick block/destination pairs where the block matches
+	# a subscription and destination isn't yet entered.
 	my ($stmt, $rows) = &dbexec($dbh, qq{
-	   insert into t_destination
-	   (timestamp, guid, node)
-	   (select :now, f.guid, s.destination
-	    from t_file f
-	    inner join t_block b
-	      on b.name = f.inblock
-	    inner join t_subscription s
+	   insert into t_block_destination
+	   (timestamp, name, node, completed)
+	   (select :now, b.name, s.destination, null
+	    from t_block b
+	    join t_subscription s
 	      on s.owner = b.owner and s.dataset = b.dataset
-	    left join t_destination d
-	      on d.guid = f.guid and d.node = s.destination
-	    left join t_replica_state rs
-	      on rs.guid = f.guid and rs.node = s.destination
-	    where d.guid is null and rs.guid is null)},
+	    left join t_block_destination bd
+	      on bd.name = b.name and bd.node = s.destination
+	    where bd.name is null)},
 	    ":now" => &mytimeofday());
 
-	&logmsg ("$rows new file destinations allocated") if $rows > 0;
+	&logmsg ("$rows new block destinations allocated") if $rows > 0;
     };
     do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
 

@@ -30,7 +30,6 @@ BEGIN {
 ######################################################################
 use UtilsHelp;
 use Getopt::Long;
-use Data::Dumper;
 my %args = (WAITTIME => 3600, NEXTDIR => []);
 &GetOptions ("state=s"		=> \$args{DROPDIR},
 	     "next=s@"          => $args{NEXTDIR},
@@ -47,8 +46,6 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{NEXTDIR}
 
 my $agent = new BlockNotify (%args);
 $SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
-$SIG{QUIT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
-$SIG{TERM} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $agent->process();
 
 ################################################

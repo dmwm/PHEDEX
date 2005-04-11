@@ -41,22 +41,15 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
     die "Insufficient parameters, use -h for help.\n";
 }
 
-my $agent = new BlockActivate (%args);
+my $agent = new BlockDeactivate (%args);
 $SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
-$SIG{QUIT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
-$SIG{TERM} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $agent->process();
 
 ################################################
-package BlockActivate; use strict; use warnings; use base 'UtilsAgent';
-use File::Path;
-use Data::Dumper;
-use UtilsCommand;
+package BlockDeactivate; use strict; use warnings; use base 'UtilsAgent';
 use UtilsLogging;
 use UtilsTiming;
-use UtilsCatalogue;
 use UtilsDB;
-use DBI;
 
 sub new
 {
@@ -64,7 +57,7 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
-	  	  AGENTID => "BlockActivate",   # Identity for activity logs
+	  	  AGENTID => "BlockDeactivate", # Identity for activity logs
 		  HOLDOFF => 86400);            # hold-off time for pruning (24h default)
 
     my %args = (@_);
@@ -79,27 +72,47 @@ sub idle
 {
     my ($self, @pending) = @_;
     my $dbh = undef;
-    my @collectionsFinished = ();
-
     eval
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
-
-	# check if a group was transfered completely to all destinations and return group
-	@collectionsFinished = $self->getGroupstoDelete($dbh); # got group to remove
-	if (scalar(@collectionsFinished) != 0) {
-
-	    
-	    # let's get rid of that stuff block by block !!
-	    foreach my $collection (@collectionsFinished) {
-		$self->removeInTMDB($dbh, $collection);
-	    }
-	}
 	
-	# final commit
-	$dbh->commit();
+	# Deactivate complete blocks.  Get all blocks whose all replicas
+	# are complete and active.  (Block replicas that are already
+	# inactive are not interesting, nor any blocks whose destination
+	# count does not match files at the node (FIXME: do we want to
+	# constrain this?), or if there are still files in transfer.)
+	# Do not act on blocks until specified time limit has passed.
+	my %blocks = ();
+	my $qblocks = &dbexec ($dbh, qq{
+	    select b.name
+	    from t_block b
+	    where b.isopen = 0
+	      and b.timestamp < :limit
+	      and (b.files, b.bytes, 0, 0, 1, 1) = all
+      	          (select br.node_files, br.node_bytes,
+		  	  sign(br.node_files - br.dest_files),
+			  sign(br.xfer_files),
+			  sign(:limit - br.last_update),
+			  br.isactive
+		   from t_block_replica br
+		   where br.name = b.name)},
+	    ":limit" => &mytimeofday () - $self->{HOLDOFF});
+        while (my ($name) = $qblocks->fetchrow())
+	{
+	    # Deactivate
+	    my ($dr, $nr) = &dbexec ($dbh, qq{
+		delete from t_replica_state where guid in
+		(select guid from t_file where inblock = :block)},
+		":block" => $name);
+	    my ($db, $nb) = &dbexec ($dbh, qq{
+		update t_block_replica set isactive = 0 where name = :block},
+		":block" => $name);
+	    $dbh->commit ();
+
+	    &logmsg ("deactivated $name, $nr replicas removed, $nb block replicas");
+        }
     };
-    do { &alert ("database error: $@"); $dbh->rollback if $dbh } if $@;
+    do { &alert ("database error: $@"); $dbh->rollback() if $dbh } if $@;
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
@@ -107,29 +120,6 @@ sub idle
     # Have a little nap
     $self->nap ($self->{WAITTIME});
 }
-
-
-sub getGroupstoDelete {
-    my ($self, $dbh) = @_;
-    my @packet = ();
-
-    my $now = time();
-# let's get all dataset-owner pairs, which got completely transfered
-    my $h_packet = &dbexec ($dbh, qq{
-	select tb.dataset, tb.owner
-        from t_block tb, t_block_replica tbr left join on tb.name=tbr.name
-        group by tb.dataset,tb.owner
-	having sum(tb.files)=sum(tbr.files) and max(tbr.timestamp)<(:now-:holdoff)},
-        ":now"=>$now, ":holdoff"=>$self->{HOLDOFF});
-
- 
-    while (my ($owner, $dataset) = $h_packet->fetchrow_array){
-	push (@packet, "$dataset:$owner");
-    }
-# return those dataset owner pairs
-    return @packet;
-}
-
 
 sub removeInTMDB {
     my ($self, $dbh, $collection) = @_;

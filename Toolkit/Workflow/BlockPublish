@@ -55,7 +55,6 @@ use UtilsTiming;
 use UtilsCatalogue;
 use UtilsNet;
 use UtilsTR;
-use File::Path;
 
 sub new
 {

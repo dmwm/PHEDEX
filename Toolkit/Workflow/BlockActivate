@@ -39,22 +39,15 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
     die "Insufficient parameters, use -h for help.\n";
 }
 
-my $agent = new BlockDeactivate (%args);
+my $agent = new BlockActivate (%args);
 $SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
-$SIG{QUIT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
-$SIG{TERM} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
 $agent->process();
 
 ################################################
-package BlockDeactivate; use strict; use warnings; use base 'UtilsAgent';
-use File::Path;
-use Data::Dumper;
-use UtilsCommand;
+package BlockActivate; use strict; use warnings; use base 'UtilsAgent';
 use UtilsLogging;
 use UtilsTiming;
-use UtilsCatalogue;
 use UtilsDB;
-use DBI;
 
 sub new
 {
@@ -62,7 +55,7 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
-	  	  AGENTID => "BlockDeactivate");      # Identity for activity logs
+	  	  AGENTID => "BlockActivate");  # Identity for activity logs
 
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
@@ -76,92 +69,55 @@ sub idle
 {
     my ($self, @pending) = @_;
     my $dbh = undef;
-    my @collectionsWanted = ();
 
     eval
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
-	
-	# look for newly requested collections and make the files available in t_replica_state
-	@collectionsWanted = $self->getGroupsWanted($dbh);
-	if (scalar (@collectionsWanted) !=0) {
-	    # make those collections available in t_replica_state if necessary
-	    foreach my $collection (@collectionsWanted) {
-		$self->makeAvailInTMDB($dbh, $collection);
+
+	# Reactivate blocks with incomplete destinations.
+        my $stmt = &dbexec ($dbh, qq{
+	    select b.name, count(br.name), sum(br.isactive)
+	    from t_block b
+	    join (select distinct name from t_block_destination
+	          where completed is null) bd
+	      on bd.name = b.name
+	    join t_block_replica br
+	      on br.namme = b.name
+	    group by b.name});
+	while (my ($block, $nreplica, $nactive) = $stmt->fetchrow())
+	{
+	    # Ignore active blocks
+	    if ($nactive)
+	    {
+		&alert ("$block has $nreplica replicas, $nactive active")
+		    if $nreplica != $nactive;
+	        next;
 	    }
+
+	    # Inactive and wanted, activate the file replicas
+	    my ($stmt, $ret) = &dbexec ($dbh, qq{
+		insert into t_replica_state
+		(timestamp, guid, node, state, state_timestamp)
+		(select :now, f.guid, br.node, 0, :now
+		 from t_block_replica br
+		 join t_file f on f.inblock = br.name
+		 where br.name = :block},
+	   	 ":block" => $block, ":now" => &mytimeofday());
+
+	    &dbexec ($dbh, qq{
+		update t_block_replica set isactive = 0 where name = :block},
+		":block" => $block);
+
+	    &logmsg ("reactivated $ret replicas for $block");
+	    $dbh->commit();
 	}
-	
-	# final commit
-	$dbh->commit();
+
     };
-    do { &alert ("database error: $@"); $dbh->rollback if $dbh } if $@;
+    do { &alert ("database error: $@"); $dbh->rollback() if $dbh } if $@;
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
 
     # Have a little nap
     $self->nap ($self->{WAITTIME});
-}
-
-
-sub getGroupsWanted {
-    my ($self, $dbh) = @_; 
-    my @packet = ();
-    
-# any collections wanted, which are not in t_replica_state ? Let's check....    
-# FIXME: really ugly SQL... I am wondering if this could be improved
-    my $h_packet = &dbexec ($dbh, qq{
-	select ts.dataset, ts.owner, ts.destination
-        from t_subscription ts, t_file tf, t_block tb
-        where tf.inblock=tb.name and 
-        ts.dataset=tb.dataset and 
-        ts.owner=tb.owner and 
-        tf.guid not in (select guid from t_replica_state)});
-    
-    while (my ($owner, $dataset, $node) = $h_packet->fetchrow_array){
-	push (@packet, "$dataset:$owner:$node")
-	    if ! grep(/"$dataset:$owner:$node"/,@packet);
-    }
-# return those dataset owner pairs
-    return @packet;
-    
-}
-
-
-sub makeAvailInTMDB {
-    my ($self, $dbh, $collection) = @_;
-    my ($dataset, $owner, $node) = split(':',$collection);
-    
-    my $now = time();
-# we need the guids for the files belonging to the selected dataset-owner pairs
-    my @guids = &getGUIDs($dbh, $dataset, $owner);
-    
-    foreach my $guid (@guids) {
-# let's check, if the guids are already in t_replica state and add them if they are not
-	my $guid_exists = &dbexec($dbh, qq{
-	    select count(*) from t_replica_state
-	    where node=:node and guid=:guid},
-	    ":node"=>$node, ":guid"=>$guid);
-
-	&dbexec($dbh, qq{
-	    insert into t_replica_state (timestamp,guid,node,state,state_timestamp)
-      	    values ("$now","$guid","$node",'0',"$now")}) if !$guid_exists;
-
-	$dbh->commit();
-    }
-}
-
-sub getGUIDs {
-    my ($dbh, $dataset, $owner) = @_;
-    my @guids = ();
-
-    my $guids_h = &dbexec ($dbh, qq{
-	select f.guid from t_dsb_fileid f, t_dsb_dataset d
-	where  d.dataset=:dataset and d.owner=:owner and d.id=f.id},
-	":dataset"=>$dataset, ":owner"=>$owner);
-    
-    while (my ($guid) = $guids_h->fetchrow() ) {
-	push (@guids, $guid);
-    }
-    return @guids;
 }
