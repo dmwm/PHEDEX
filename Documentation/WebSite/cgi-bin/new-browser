@@ -108,13 +108,13 @@ sub intro
     # format it to make the table a reasonable size ...
     my @nodes = &nodes_menu();
     my $count = 1;
-    print "<td><select name='nodes'>";
+    print "<td><select name='nodes' multiple>";
     foreach my $node (@nodes) {
         my $sel = '';
         foreach my $temp_node ($cgi->param('nodes')) {
             if ( $temp_node =~ /$node/ ) { $sel = "SELECTED"; }
         }
-        print "<td><option $sel value='$node'>$node</input></td>";
+        print "<td><option $sel value='$node'>$node</option></td>";
     }
     print "</select></td>";
     
