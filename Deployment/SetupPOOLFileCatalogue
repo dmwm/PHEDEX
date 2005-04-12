@@ -1,0 +1,101 @@
+#!/usr/bin/env perl
+
+# script purpose: setup a POOL MySQL file catalogue needed for Phedex transfers
+
+use strict;
+use warnings;
+use Getopt::Long;
+
+
+my %args = (POOLUSER =>"phedex", POOLPASS =>"phedex", DBNAME =>"phedexcat", HOST =>"localhost");
+my $HOSTNAME = `hostname -f`;
+
+&GetOptions("help"                  =>\$args{HELP},
+	    "overwrite"             =>\$args{OVERWRITE},
+	    "pooluser=s"            =>\$args{POOLUSER},
+	    "poolpass=s"            =>\$args{POOLPASS},
+	    "dbname=s"              =>\$args{DBNAME},
+	    "dbhost=s"              =>\$args{HOST},
+	    "dbrootpass=s"          =>\$args{ROOTPASS},
+	    "phedexbase=s"          =>\$args{BASEDIR},
+	    "dbtype=s"              =>\$args{DBTYPE});
+
+if ($args{HELP} || !$args{BASEDIR} || !$args{ROOTPASS} || !$args{DBTYPE})
+{
+    print "Usage: $0 [-help] -dbrootpass PASSWORD [-pooluser USERNAME] [-poolpass PASSWORD]\n";
+    print "          [-dbname DBNAME] -dbtype {MYSQL | RDBMS | ORACLE} [-overwrite]\n";
+    print "          [-dbhost HOSTNAME] -phedexbase BASEDIR\n";
+    print "-help          this help text\n";
+    print "-dbrootpass    root password for the DB server (NOT the system rootpass !!)\n";
+    print "-pooluser      user for accessing the POOL catalogue\n";
+    print "-poolpass      passwd for accessing the POOL catalogue\n";
+    print "-dbname        name of the DB hosting the POOL file catalogue\n";
+    print "-dbtype        type of DB in use: MYSQL, ORACLE\n";
+    print "-overwrite     force installation of POOL SQL although DB seems to exist already\n";
+    print "-dbhost        host on which the DB server resides\n";
+    print "-phedexbase    basedir of the Phedex installation\n";
+    exit 1;
+}
+
+# POOL schema and client binary location for supported DB types
+my %SCHEMA = (MYSQL    => ["$args{BASEDIR}/Schema/FC-MySQL.sql","mysql"],
+	      ORACLE   => undef);
+
+# privileges for phedex MySQL POOL user
+my $priv = 'select, insert, update, create, delete, drop';
+
+eval
+{
+    # check if we have a schema ready for the requested DB type
+    die "no SQL file available in Schema dir for your DB type $args{DBTYPE}... Sorry\n"
+	if !$SCHEMA{$args{DBTYPE}}->[0];
+
+    # check for client software to access DB
+    die "The client binary is not in your Path or not installed... Aborting !\n"
+	if system("which $SCHEMA{$args{DBTYPE}}->[1] >& /dev/null");
+    
+    # find out if a DB server is running and accessible
+    my $cmd = "mysql -h $args{HOST} -u root -p$args{ROOTPASS} -e \'show databases\'";
+    my @databases = ();
+    @databases = `$cmd 2>/dev/null` if !system("$cmd &>/dev/null");
+    die "Problems accessing DB on host $args{HOST} using command\n$cmd\n" if (scalar(@databases) == 0);
+
+    # check for existing POOL catalogue
+    my $DBexists = grep(m|$args{DBNAME}|,@databases);
+    die "The database seems to exist already and you did not ask to overwrite it !\n"
+	if ($DBexists && !$args{OVERWRITE});
+
+    # remove old DB
+    $cmd = "mysql -h $args{HOST} -u root -p$args{ROOTPASS} "
+	."-e \'drop database $args{DBNAME}\'";
+    die "Drop of old DB $args{DBNAME} failed using command:\n$cmd\n"
+	if system($cmd);
+    
+    
+    # Create user and database
+    $cmd = "mysql -h $args{HOST} -u root -p$args{ROOTPASS} "
+	."-e \'create database if not exists $args{DBNAME}\'";
+    die "Creation of DB $args{DBNAME} failed using command:\n$cmd\n"
+	if system($cmd);
+    $cmd = "mysql -h $args{HOST} -u root -p$args{ROOTPASS} "
+	."-e \'grant $priv ON $args{DBNAME}.* TO $args{POOLUSER}\@$HOSTNAME identified by "
+	."\"$args{POOLPASS}\"\'";
+    die "Creation of DB $args{DBNAME} failed using command:\n$cmd\n"
+	if system($cmd);
+    
+    # setup the catalogue using the Phedex MySQL SQL schema
+    $cmd = "mysql -h $args{HOST} -u root -p$args{ROOTPASS} $args{DBNAME} < $SCHEMA{MYSQL}->[0]";
+    die "Couldn't apply $SCHEMA{MYSQL}->[0] on database $args{DBNAME} using command:\n$cmd\n"
+	if system($cmd);
+};
+
+# interpret the outcome of the setup procedure
+do
+{
+    print "Setup of MySQL POOL DB aborted. The error was:\n";
+    print "$@\n";
+    exit 5;
+} if $@;
+
+print "Setup of MySQL POOL DB seemed to be successful\n";
+exit 0;
