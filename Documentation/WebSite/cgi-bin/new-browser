@@ -114,7 +114,7 @@ sub intro
         foreach my $temp_node ($cgi->param('nodes')) {
             if ( $temp_node =~ /$node/ ) { $sel = "SELECTED"; }
         }
-        print "<td><option $sel value='$node'>$node</option></td>";
+        print "<option $sel value='$node'>$node</option>";
     }
     print "</select></td>";
     
