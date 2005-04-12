@@ -5,7 +5,7 @@ use Time::HiRes 'gettimeofday';
 # High-resolution timing.
 sub mytimeofday
 {
-    return &gettimeofday();
+    return scalar (&gettimeofday());
 }
 
 sub timeStart
