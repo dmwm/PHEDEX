@@ -3,7 +3,7 @@
 ##H Update transfer status data for faster web access.
 ##H
 ##H Usage:
-##H   InfoTransferStatus
+##H   InfoTransferStates
 ##H      -state DIRECTORY -db FILE[:SECTION] [-wait SECS]
 ##H
 ##H -state     agent state directory
@@ -39,11 +39,11 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
     die "Insufficient parameters, use -h for help.\n";
 }
 
-(new InfoTransferStatus (%args))->process();
+(new InfoTransferStates (%args))->process();
 
 ######################################################################
 # Routines for this agent.
-package InfoTransferStatus; use strict; use warnings; use base 'UtilsAgent';
+package InfoTransferStates; use strict; use warnings; use base 'UtilsAgent';
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
@@ -74,20 +74,13 @@ sub idle
 
 	# Summarise from t_block_replica information.
 	# FIXME: Remove 0, 0 entries before V2.2 release, update schema
-	&dbexec($dbh, qq{delete from t_info_transfer_status});
+	&dbexec($dbh, qq{delete from t_info_transfer_states});
 	&dbexec($dbh, qq{
-	    insert into t_info_transfer_status
-	    (select :now, br.node,
-	            nvl (sum (br.dest_files), 0), nvl (sum (br.dest_bytes), 0),
-		    nvl (sum (br.node_files), 0), nvl (sum (br.node_bytes), 0),
-		    0, 0, /* staged */
-		    0, 0, /* available */
-		    0, 0, /* in-transfer */
-		    0, 0, /* wanted */
-		    nvl (sum (br.xfer_files), 0), nvl (sum (br.xfer_files), 0),
-		    0, 0 /* other */
-	     from t_block_replica br
-	     group by :now, br.node)},
+	    insert into t_info_transfer_states
+	    (select :now, from_node, to_node, from_state, to_state,
+	            count (ts.guid), nvl (sum (f.filesize), 0)
+	     from t_transfer_state ts join t_file f on f.guid = ts.guid
+	     group by :now, from_node, to_node, from_state, to_state)},
 	     ":now" => &mytimeofday ());
 
 	$dbh->commit();
