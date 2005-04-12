@@ -19,6 +19,7 @@ drop table t_dsb_fileid;
 
 ----------------------------------------------------------------------
 -- Info
+drop table t_info_transfer_states;
 drop table t_info_transfer_status;
 drop table t_info_transfer_rate;
 drop table t_info_file_size_overview;
@@ -32,6 +33,7 @@ drop table t_info_replication_details;
 -- Flow
 drop table t_subscription;
 drop table t_block_replica;
+drop table t_block_destination;
 drop table t_block;
 
 ----------------------------------------------------------------------
@@ -40,9 +42,9 @@ drop trigger new_transfer_state;
 drop trigger update_transfer_state;
 
 -- CoreTransfer
-drop table t_destination;
 drop table t_replica_state;
 drop table t_transfer_state;
+drop table t_transfer_completed;
 
 -- CorePerf
 drop table t_transfer_history;

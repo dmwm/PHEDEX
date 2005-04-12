@@ -9,22 +9,21 @@
 create table t_info_transfer_status
   (timestamp		float		not null,
    node			varchar (20)	not null,
-   n_files		integer		not null,
-   sz_files		integer		not null,
-   n_onsite		integer		not null,
-   sz_onsite		integer		not null,
-   n_staged		integer		not null,
-   sz_staged		integer		not null,
-   n_available		integer		not null,
-   sz_available		integer		not null,
-   n_in_transfer	integer		not null,
-   sz_in_transfer	integer		not null,
-   n_wanted		integer		not null,
-   sz_wanted		integer		not null,
-   n_pending		integer		not null,
-   sz_pending		integer		not null,
-   n_other		integer		not null,
-   sz_other		integer		not null);
+   dest_files		integer		not null,
+   dest_bytes		integer		not null,
+   node_files		integer		not null,
+   node_bytes		integer		not null,
+   xfer_files		integer		not null,
+   xfer_bytes		integer		not null);
+
+create table t_info_transfer_states
+  (timestamp		float		not null,
+   from_node		varchar (20)	not null,
+   to_node		varchar (20)	not null,
+   from_state		integer		not null,
+   to_state		integer		not null,
+   files		integer		not null,
+   bytes		integer		not null);
 
 create table t_info_transfer_rate
   (timestamp		float		not null,
