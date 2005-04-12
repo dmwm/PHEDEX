@@ -72,6 +72,8 @@ sub intro
     my $stamp = strftime ("%Y-%m-%d %H:%M:%S %Z", localtime(time()));
     print $cgi->header();
 
+
+
     # First print the main header, and set up the form with page and db choice tables
     print qq{
         <head>
@@ -81,7 +83,7 @@ sub intro
         <body>
         <h1>PhEDEx Monitoring</h1>
         <p>$stamp
-        <form action='}, &relurl('page',$cgi->param('page')), qq{&page=$cgi->param('page')' method='GET'>
+        <form action='}, &relurl('page',$cgi->param('page')), qq{' method='GET'>
         <table>
         <tr>
         <td><a href='}, &relurl('page', 'main'), qq{'>Front page</a></td>
