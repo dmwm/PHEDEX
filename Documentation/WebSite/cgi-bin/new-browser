@@ -87,7 +87,7 @@ sub intro
     };
     my @nodes = &nodes_menu();
     foreach my $node (@nodes) {
-        print "<input type='checkbox' name='nodes' value='$node'>";
+        print "<input type='checkbox' name='nodes' value='$node'>$node</input>";
     }
     print qq{
         </tr>
