@@ -308,7 +308,7 @@ sub transfer
     my $pencolor = ($tfiles != $tonsite + $ttransf + $twanted + $tpending + $tother)
 		   ? " bgcolor='$warncolor'" : ! $tpending ? ''
 		   : " bgcolor='$pendcolor'";
-    } else next;
+    }
 
     print "<tr valign='top' bgcolor='$altcolor'>",
 	  "<th>&nbsp;</th>",
