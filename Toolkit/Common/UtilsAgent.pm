@@ -148,10 +148,24 @@ sub maybeStop
     # Check for the stop flag file.  If it exists, quit: remove the
     # pidfile and the stop flag and exit.
     return if ! -f $self->{STOPFLAG};
-
     &note("exiting from stop flag");
+    $self->doStop();
+}
+
+# Actually make the agent stop and exit.
+sub doStop
+{
+    my ($self) = @_;
+
+    # Force database off
+    eval { $self->{DBH}->rollback() } if $self->{DBH};
+    eval { $self->{DBH}->disconnect() } if $self->{DBH};
+
+    # Remove stop flag and pidfile
     unlink($self->{PIDFILE});
     unlink($self->{STOPFLAG});
+
+    # Stop the rest
     $self->stopWorkers() if $self->{NWORKERS};
     $self->stop();
     exit (0);
@@ -445,9 +459,15 @@ sub processDrop
 sub process
 {
     my $self = shift;
+
+    # Initialise subclass.
     $self->init();
     $self->initWorkers();
 
+    # Restore signals.  Oracle apparently is in habit of blocking them.
+    $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = sub { $self->doStop() };
+
+    # Work.
     while (1)
     {
 	my $drop;
