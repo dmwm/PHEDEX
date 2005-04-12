@@ -33,7 +33,7 @@ sub intro
     my $stamp = strftime ("%Y-%m-%d %H:%M:%S %Z", localtime(time()));
     print $cgi->header();
 
-    print "
+    print qq{
         <head>
         <title>PhEDEx monitoring</title>
         <meta http-equiv=\"refresh\" content=\"5\">
@@ -48,7 +48,7 @@ sub intro
        	<a href='}, &relurl('page', 'stats'), qq{'>File size stats</a>
        	<a href='}, &relurl('page', 'rates'), qq{'>Transfer rate</a>
        	<a href='}, &relurl('page', 'agents'), qq{'>Agent status</a>
-    ";
+    };
     
     if ($cgi->param('page')) { print $cgi->param('page'); }
 }
