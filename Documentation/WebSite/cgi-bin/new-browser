@@ -50,7 +50,7 @@ sub nodes_menu
     my $sql = "select * from t_node";
     my $query = $dbh->prepare($sql);
     $query->execute();
-    foreach (my @row = fetchrow_array()) {
+    foreach (my @row = $query->fetchrow_array()) {
         push( @nodes, $row[0] );
         print "$row[0] ";
     }
