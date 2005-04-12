@@ -194,6 +194,144 @@ sub main
 sub transfer
 {
     print "<h2>Transfer status</h2>";
+    my $rows = 0;
+    my $now = time();
+    my $query = $dbh->prepare(qq{
+	    select
+	      node, timestamp,
+	      n_files, sz_files,
+	      n_onsite, sz_onsite,
+	      n_staged, sz_staged,
+	      n_available, sz_available,
+	      n_in_transfer, sz_in_transfer,
+	      n_wanted, sz_wanted,
+	      n_pending, sz_pending,
+	      n_other, sz_other
+	    from t_info_transfer_status
+	    order by node});
+
+    print "<h2>Transfer status</h2>\n",
+    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+	  "<th rowspan='2'>Age</th>",
+	  "<th rowspan='2'>Node</th>",
+	  "<th colspan='2'>Files</th>",
+	  "<th colspan='2'>On Site</th>",
+	  "<th colspan='2'>Staged</th>",
+	  "<th colspan='2'>Transferable</th>",
+	  "<th colspan='2'>In Transfer</th>",
+	  "<th colspan='2'>Wanted</th>",
+	  "<th colspan='2'>Pending</th>",
+	  "<th colspan='2'>Other</th>",
+          "</tr>\n",
+	  "<tr bgcolor='$altcolor' valign='top'>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+          "</tr>\n";
+
+    $query->execute();
+    my ($tfiles, $tfilesize,
+	$tonsite, $tonsitesize,
+	$tstaged, $tstagedsize,
+	$tavail, $tavailsize,
+	$ttransf, $ttransfsize,
+	$twanted, $twantedsize,
+	$tpending, $tpendingsize,
+	$tother, $tothersize) = (0) x 14;
+
+        my %choice_nodes = ();
+        foreach my $temp_node ($cgi->param('nodes')) {
+            $choice_nodes{$temp_node} = 1;
+        }
+
+    while (my $row = $query->fetchrow_arrayref)
+    {
+	my ($n, $stamp, $files, $filesize,
+	    $onsite, $onsitesize,
+	    $staged, $stagedsize,
+	    $avail, $availsize,
+	    $transf, $transfsize,
+	    $wanted, $wantedsize,
+	    $pending, $pendingsize,
+	    $other, $othersize) = @$row;
+        next if ! $files;
+
+    next if (! exists $choice_nodes{$n});
+
+    	$tfiles += $files; $tfilesize += $filesize;
+	$tonsite += $onsite; $tonsitesize += $onsitesize;
+	$tstaged += $staged; $tstagedsize += $stagedsize;
+	$tavail += $avail; $tavailsize += $availsize;
+	$ttransf += $transf; $ttransfsize += $transfsize;
+	$twanted += $wanted; $twantedsize += $wantedsize;
+	$tpending += $pending; $tpendingsize += $pendingsize;
+	$tother += $other; $tothersize += $othersize;
+
+        my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
+	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
+	my $onscolor = ($onsite == $files) ? '' : " bgcolor='$pendcolor'";
+	my $avacolor = (!$avail) ? '' : " bgcolor='$goodcolor'";
+	my $tracolor = (!$transf) ? '' : " bgcolor='$goodcolor'";
+	my $wancolor = (!$wanted) ? '' : " bgcolor='$goodcolor'";
+	my $pencolor = ($files != $onsite + $transf + $wanted + $pending + $other)
+		       ? " bgcolor='$warncolor'" : ! $pending ? ''
+		       : " bgcolor='$pendcolor'";
+
+        print "<tr valign='top'$rowcolor>",
+	      "<td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>",
+	      "<td>$n</td>",
+	      "<td align='right'>@{[&format_num($files)]}</td>",
+	      "<td align='right'>@{[&format_size($filesize)]}</td>",
+	      "<td align='right'$onscolor>@{[&format_num($onsite)]}</td>",
+	      "<td align='right'$onscolor>@{[&format_size($onsitesize)]}</td>",
+	      "<td align='right'>@{[&format_num($staged)]}</td>",
+	      "<td align='right'>@{[&format_size($stagedsize)]}</td>",
+	      "<td align='right'$avacolor>@{[&format_num($avail)]}</td>",
+	      "<td align='right'$avacolor>@{[&format_size($availsize)]}</td>",
+	      "<td align='right'$tracolor>@{[&format_num($transf)]}</td>",
+	      "<td align='right'$tracolor>@{[&format_size($transfsize)]}</td>",
+	      "<td align='right'$wancolor>@{[&format_num($wanted)]}</td>",
+	      "<td align='right'$wancolor>@{[&format_size($wantedsize)]}</td>",
+	      "<td align='right'$pencolor>@{[&format_num($pending)]}</td>",
+	      "<td align='right'$pencolor>@{[&format_size($pendingsize)]}</td>",
+	      "<td align='right'>@{[&format_num($other)]}</td>",
+	      "<td align='right'>@{[&format_size($othersize)]}</td>",
+	      "</tr>\n";
+    }
+    my $onscolor = ($tonsite == $tfiles) ? '' : " bgcolor='$pendcolor'";
+    my $tracolor = (!$ttransf) ? '' : " bgcolor='$goodcolor'";
+    my $wancolor = (!$twanted) ? '' : " bgcolor='$goodcolor'";
+    my $pencolor = ($tfiles != $tonsite + $ttransf + $twanted + $tpending + $tother)
+		   ? " bgcolor='$warncolor'" : ! $tpending ? ''
+		   : " bgcolor='$pendcolor'";
+
+    print "<tr valign='top' bgcolor='$altcolor'>",
+	  "<th>&nbsp;</th>",
+	  "<th align='left'>Total</th>",
+	  "<th align='right'>@{[&format_num($tfiles)]}</th>",
+	  "<th align='right'>@{[&format_size($tfilesize)]}</th>",
+	  "<th align='right'$onscolor>@{[&format_num($tonsite)]}</th>",
+	  "<th align='right'$onscolor>@{[&format_size($tonsitesize)]}</th>",
+	  "<th align='right'>@{[&format_num($tstaged)]}</th>",
+	  "<th align='right'>@{[&format_size($tstagedsize)]}</th>",
+	  "<th align='right'>@{[&format_num($tavail)]}</th>",
+	  "<th align='right'>@{[&format_size($tavailsize)]}</th>",
+	  "<th align='right'$tracolor>@{[&format_num($ttransf)]}</th>",
+	  "<th align='right'$tracolor>@{[&format_size($ttransfsize)]}</th>",
+	  "<th align='right'$wancolor>@{[&format_num($twanted)]}</th>",
+	  "<th align='right'$wancolor>@{[&format_size($twantedsize)]}</th>",
+	  "<th align='right'$pencolor>@{[&format_num($tpending)]}</th>",
+	  "<th align='right'$pencolor>@{[&format_size($tpendingsize)]}</th>",
+	  "<th align='right'>@{[&format_num($tother)]}</th>",
+	  "<th align='right'>@{[&format_size($tothersize)]}</th>",
+	  "</tr>\n";
+    $query->finish();
+    print "</table>";
 }
 
 sub replicas
