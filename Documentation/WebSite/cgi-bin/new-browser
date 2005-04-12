@@ -100,7 +100,7 @@ sub intro
        	<td><a href='}, &relurl('db', 'rac'), qq{'>RAC Test</a></td>
        	<td><a href='}, &relurl('db', 'prod'), qq{'>Production</a></td>
         </tr>
-        </tr>
+        <tr>
     };
 
     # Now we need to let the user choose which nodes. Because it's refreshed
@@ -108,15 +108,15 @@ sub intro
     # format it to make the table a reasonable size ...
     my @nodes = &nodes_menu();
     my $count = 1;
+    print "<td><select name='nodes'>";
     foreach my $node (@nodes) {
         my $sel = '';
         foreach my $temp_node ($cgi->param('nodes')) {
-            if ( $temp_node =~ /$node/ ) { $sel = "CHECKED"; }
+            if ( $temp_node =~ /$node/ ) { $sel = "SELECTED"; }
         }
-        print "<td><input type='checkbox' name='nodes' value='$node' $sel>$node</input></td>";
-        $count++;
-        if ($count == 8) { print "</tr><tr>"; $count = 1; }
+        print "<td><option $sel value='$node'>$node</input></td>";
     }
+    print "</select></td>";
     
     # Now we can finish the menu off ...
     print qq{
