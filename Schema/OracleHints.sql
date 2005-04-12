@@ -3,6 +3,7 @@
 -- www.cern.ch/it-db -> Oracle @ CERN -> Sessions -> pdb01/cms -> login
 -- explain plan for ...
 -- @?/rdbms/admin/utilxpls.sql
+-- select plan_table_output from table(dbms_xplan.display('plan_table',null,'serial'))
 -- desc dbms_stats (in oradoc)
 -- analyze
 -- set timing on
