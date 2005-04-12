@@ -15,6 +15,12 @@ my %databases = ("prod" => [ "cms", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
                  "test" => [ "devdb", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
                  "testbed" => [ "devdb", 'CMS_TRANSFERMGMT_TESTBED', 'phedexedehp' ]);
 
+my $badcolor = '#ff9e9e';
+my $warncolor = '#ffd89e';
+my $pendcolor = '#ccccff'; # ececff
+my $goodcolor = '#ccffcc';
+my $altcolor = '#e8e8e8';
+
 # ###############################################
 # Main loop
 # ###############################################
