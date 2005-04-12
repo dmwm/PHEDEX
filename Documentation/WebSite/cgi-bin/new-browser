@@ -213,3 +213,17 @@ sub agents
 sub rates
 {
 }
+
+sub age {
+    my ($diff) = @_;
+    my $str = "";
+    my $full = 0;
+    if ($diff >= 86400) {
+	$str .= sprintf("%dd", $diff / 86400);
+	$diff %= 86400;
+	$full = 1;
+    }
+    $str .= sprintf("%dh", $diff / 3600);
+    $diff %= 3600;
+    $str .= sprintf("%02d", $diff / 60);
+}
