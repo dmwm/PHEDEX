@@ -38,7 +38,7 @@ $dbh->disconnect();
 # ###############################################
 sub relurl
 {
-    my %args = ( @_ );
+    my %args = ('db' => $db, @_);
     my $newcgi = new CGI ($cgi->query_string);
     map { $newcgi->param ($_, $args{$_}) } keys %args;
     return $newcgi->self_url(-full=>0, -relative=>1);
@@ -69,7 +69,7 @@ sub intro
     print qq{
         <head>
         <title>PhEDEx monitoring</title>
-        <meta http-equiv=\"refresh\" content=\"60\">
+        <meta http-equiv='refresh' content='60'>
         </head>
         <body>
         <h1>PhEDEx Monitoring</h1>
@@ -86,6 +86,12 @@ sub intro
         <td><a href='}, &relurl('page', 'agents'), qq{'>Agent status</a></td>
         </tr>
         <tr>
+        <td><a href='}, &relurl('db', 'testbed'), qq{'>Testbed</a></td>
+       	<td><a href='}, &relurl('db', 'test'), qq{'>Test</a></td>
+       	<td><a href='}, &relurl('db', 'rac'), qq{'>RAC Test</a></td>
+       	<td><a href='}, &relurl('db', 'prod'), qq{'>Production</a></td>
+        </tr>
+        </tr>
     };
 
     # Now we need to let the user choose which nodes. Because it's refreshed
