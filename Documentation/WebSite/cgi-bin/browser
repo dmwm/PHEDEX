@@ -53,6 +53,7 @@ sub intro
       <center><h1>PHEDEX Status</h1><table><tr>
        	<td><a href='}, &relurl('page', 'main'), qq{'>Front page</a></td>
        	<td><a href='}, &relurl('page', 'transfer'), qq{'>Transfer state</a></td>
+       	<td><a href='}, &relurl('page', 'tstates'), qq{'>State details</a></td>
        	<td><a href='}, &relurl('page', 'replicas'), qq{'>Replica state</a></td>
        	<td><a href='}, &relurl('page', 'subs'), qq{'>Subscriptions</a></td>
        	<td><a href='}, &relurl('page', 'stats'), qq{'>File size stats</a></td>
@@ -80,7 +81,7 @@ sub intro
     my %pages = ('main' => \&main,	   'transfer' => \&transfer,
 		 'replicas' => \&replicas, 'subs' => \&subs,
 		 'stats' => \&stats,       'agents' => \&agents,
-		 'rates' => \&rates);
+		 'rates' => \&rates,	   'tstates' => \&tstates);
     &{$pages{param('page')} || \&main}();
     print "</body></html>\n";
 }
@@ -178,24 +179,34 @@ sub transfer {
     	  "<table><tr bgcolor='$altcolor' valign='top'>",
 	  "<th rowspan='2'>Age</th>",
 	  "<th rowspan='2'>Node</th>",
-	  "<th colspan='2'>Files</th>",
-	  "<th colspan='2'>On Site</th>",
-	  "<th colspan='2'>Staged</th>",
-	  "<th colspan='2'>Transferable</th>",
-	  "<th colspan='2'>In Transfer</th>",
-	  "<th colspan='2'>Wanted</th>",
-	  "<th colspan='2'>Pending</th>",
-	  "<th colspan='2'>Other</th>",
-          "</tr>\n",
-	  "<tr bgcolor='$altcolor' valign='top'>",
-	  "<th align='right'>N</th><th align='right'>Size</th>",
-	  "<th align='right'>N</th><th align='right'>Size</th>",
-	  "<th align='right'>N</th><th align='right'>Size</th>",
-	  "<th align='right'>N</th><th align='right'>Size</th>",
-	  "<th align='right'>N</th><th align='right'>Size</th>",
-	  "<th align='right'>N</th><th align='right'>Size</th>",
-	  "<th align='right'>N</th><th align='right'>Size</th>",
-	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  ($db ne 'testbed' ? (
+	   "<th colspan='2'>Files</th>",
+	   "<th colspan='2'>On Site</th>",
+	   "<th colspan='2'>Staged</th>",
+	   "<th colspan='2'>Transferable</th>",
+	   "<th colspan='2'>In Transfer</th>",
+	   "<th colspan='2'>Wanted</th>",
+	   "<th colspan='2'>Pending</th>",
+	   "<th colspan='2'>Other</th>",
+           "</tr>\n",
+	   "<tr bgcolor='$altcolor' valign='top'>",
+	   "<th align='right'>N</th><th align='right'>Size</th>",
+	   "<th align='right'>N</th><th align='right'>Size</th>",
+	   "<th align='right'>N</th><th align='right'>Size</th>",
+	   "<th align='right'>N</th><th align='right'>Size</th>",
+	   "<th align='right'>N</th><th align='right'>Size</th>",
+	   "<th align='right'>N</th><th align='right'>Size</th>",
+	   "<th align='right'>N</th><th align='right'>Size</th>",
+	   "<th align='right'>N</th><th align='right'>Size</th>") : (
+
+    	   "<th colspan='2'>Destined</th>",
+	   "<th colspan='2'>On Site</th>",
+	   "<th colspan='2'>In Transfer</th>",
+           "</tr>\n",
+	   "<tr bgcolor='$altcolor' valign='top'>",
+	   "<th align='right'>N</th><th align='right'>Size</th>",
+	   "<th align='right'>N</th><th align='right'>Size</th>",
+	   "<th align='right'>N</th><th align='right'>Size</th>")),
           "</tr>\n";
 
     $query->execute();
@@ -218,7 +229,7 @@ sub transfer {
 	    $wanted, $wantedsize,
 	    $pending, $pendingsize,
 	    $other, $othersize) = @$row;
-        next if ! $files;
+        next if (! $files && $db ne 'testbed');
 
     	$tfiles += $files; $tfilesize += $filesize;
 	$tonsite += $onsite; $tonsitesize += $onsitesize;
@@ -238,6 +249,15 @@ sub transfer {
 	my $pencolor = ($files != $onsite + $transf + $wanted + $pending + $other)
 		       ? " bgcolor='$warncolor'" : ! $pending ? ''
 		       : " bgcolor='$pendcolor'";
+	if ($db eq 'testbed')
+	{
+	   $onscolor = (($files && $onsite > $files) ? " bgcolor='$warncolor'"
+		   	: ($files && $onsite < $files) ? " bgcolor='$pendcolor'"
+		   	: ($pending) ? " bgcolor='$pendcolor'" : "");
+	   $pencolor = (($files && $pending + $onsite > $files) ? " bgcolor='$warncolor'"
+			: ($pending) ? " bgcolor='$goodcolor'"
+			: ($pending < $files) ? " bgcolor='$pendcolor'" : "");
+	}
 
         print "<tr valign='top'$rowcolor>",
 	      "<td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>",
@@ -246,6 +266,7 @@ sub transfer {
 	      "<td align='right'>@{[&format_size($filesize)]}</td>",
 	      "<td align='right'$onscolor>@{[&format_num($onsite)]}</td>",
 	      "<td align='right'$onscolor>@{[&format_size($onsitesize)]}</td>",
+	      ($db eq 'testbed' ? () : (
 	      "<td align='right'>@{[&format_num($staged)]}</td>",
 	      "<td align='right'>@{[&format_size($stagedsize)]}</td>",
 	      "<td align='right'$avacolor>@{[&format_num($avail)]}</td>",
@@ -253,11 +274,12 @@ sub transfer {
 	      "<td align='right'$tracolor>@{[&format_num($transf)]}</td>",
 	      "<td align='right'$tracolor>@{[&format_size($transfsize)]}</td>",
 	      "<td align='right'$wancolor>@{[&format_num($wanted)]}</td>",
-	      "<td align='right'$wancolor>@{[&format_size($wantedsize)]}</td>",
+	      "<td align='right'$wancolor>@{[&format_size($wantedsize)]}</td>")),
 	      "<td align='right'$pencolor>@{[&format_num($pending)]}</td>",
 	      "<td align='right'$pencolor>@{[&format_size($pendingsize)]}</td>",
+	      ($db eq 'testbed' ? () : (
 	      "<td align='right'>@{[&format_num($other)]}</td>",
-	      "<td align='right'>@{[&format_size($othersize)]}</td>",
+	      "<td align='right'>@{[&format_size($othersize)]}</td>")),
 	      "</tr>\n";
     }
     my $onscolor = ($tonsite == $tfiles) ? '' : " bgcolor='$pendcolor'";
@@ -266,6 +288,13 @@ sub transfer {
     my $pencolor = ($tfiles != $tonsite + $ttransf + $twanted + $tpending + $tother)
 		   ? " bgcolor='$warncolor'" : ! $tpending ? ''
 		   : " bgcolor='$pendcolor'";
+    if ($db eq 'testbed')
+    {
+	$onscolor = (($tfiles && $tonsite < $tfiles) ? " bgcolor='$pendcolor'"
+		     : ($tpending) ? " bgcolor='$pendcolor'" : "");
+	$pencolor = (($tpending) ? " bgcolor='$goodcolor'"
+		     : ($tpending < $tfiles) ? " bgcolor='$pendcolor'" : "");
+    }
 
     print "<tr valign='top' bgcolor='$altcolor'>",
 	  "<th>&nbsp;</th>",
@@ -274,6 +303,7 @@ sub transfer {
 	  "<th align='right'>@{[&format_size($tfilesize)]}</th>",
 	  "<th align='right'$onscolor>@{[&format_num($tonsite)]}</th>",
 	  "<th align='right'$onscolor>@{[&format_size($tonsitesize)]}</th>",
+	  ($db eq 'testbed' ? () : (
 	  "<th align='right'>@{[&format_num($tstaged)]}</th>",
 	  "<th align='right'>@{[&format_size($tstagedsize)]}</th>",
 	  "<th align='right'>@{[&format_num($tavail)]}</th>",
@@ -281,12 +311,78 @@ sub transfer {
 	  "<th align='right'$tracolor>@{[&format_num($ttransf)]}</th>",
 	  "<th align='right'$tracolor>@{[&format_size($ttransfsize)]}</th>",
 	  "<th align='right'$wancolor>@{[&format_num($twanted)]}</th>",
-	  "<th align='right'$wancolor>@{[&format_size($twantedsize)]}</th>",
+	  "<th align='right'$wancolor>@{[&format_size($twantedsize)]}</th>")),
 	  "<th align='right'$pencolor>@{[&format_num($tpending)]}</th>",
 	  "<th align='right'$pencolor>@{[&format_size($tpendingsize)]}</th>",
+	  ($db eq 'testbed' ? () : (
 	  "<th align='right'>@{[&format_num($tother)]}</th>",
-	  "<th align='right'>@{[&format_size($tothersize)]}</th>",
+	  "<th align='right'>@{[&format_size($tothersize)]}</th>")),
 	  "</tr>\n";
+    $query->finish();
+    print "</table>";
+}
+
+
+sub tstates {
+    my $rows = 0;
+    my $now = time();
+    my $query = $dbh->prepare(qq{
+	    select
+	      timestamp,
+	      to_node, from_node,
+	      to_state, from_state,
+	      files, bytes
+	    from t_info_transfer_states
+	    order by to_node, from_node, to_state, from_state});
+
+    print "<h2>State details</h2>\n",
+    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+	  "<th rowspan='2'>Age</th>",
+	  "<th rowspan='2'>To node</th>",
+	  "<th rowspan='2'>To state</th>",
+	  "<th rowspan='2'>From node</th>",
+	  "<th rowspan='2'>From state</th>",
+	  "<th colspan='2'>Files</th>",
+          "</tr>\n",
+	  "<tr bgcolor='$altcolor' valign='top'>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+          "</tr>\n";
+
+    $query->execute();
+    while (my $row = $query->fetchrow_arrayref)
+    {
+	my ($stamp,
+	    $to_node, $from_node,
+	    $to_state, $from_state,
+	    $files, $bytes) = @$row;
+
+        my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
+	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
+	my $to_state_name = ($to_state == 0 ? "assigned"
+			     : $to_state == 1 ? "wanted"
+			     : $to_state == 2 ? "in transfer"
+			     : $to_state == 3 ? "transferred"
+			     : ($to_state >= 100 && $to_state < 999)
+			     ? "error cool-off @{[$to_state-100]}"
+			     : "unknown");
+	my $from_state_name = ($from_state == 0 ? "assigned"
+			       : $from_state == 1 ? "transferrable"
+			       : "unknown");
+	my $to_color = (($to_state == 2) ? " bgcolor='$goodcolor'"
+		   	: ($to_state == 1) ? " bgcolor='$pendcolor'"
+		   	: ($to_state >= 100) ? " bgcolor='$warncolor'"
+			: "");
+	my $from_color = ($from_state == 1 ? " bgcolor='$goodcolor'" : "");
+        print "<tr valign='top'$rowcolor>",
+	      "<td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>",
+	      "<td>$to_node</td>",
+	      "<td$to_color>$to_state ($to_state_name)</td>",
+	      "<td>$from_node</td>",
+	      "<td$from_color>$from_state ($from_state_name)</td>",
+	      "<td align='right'>@{[&format_num($files)]}</td>",
+	      "<td align='right'>@{[&format_size($bytes)]}</td>",
+	      "</tr>\n";
+    }
     $query->finish();
     print "</table>";
 }
