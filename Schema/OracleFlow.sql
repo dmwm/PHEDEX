@@ -7,7 +7,8 @@
 -- Create new tables
 
 create table t_block
-  (name			varchar (200)	not null,
+  (timestamp		float		not null,
+   name			varchar (200)	not null,
    owner		varchar (100)	not null,
    dataset		varchar (100)	not null,
    files		integer		not null,
