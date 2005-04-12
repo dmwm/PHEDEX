@@ -117,7 +117,7 @@ sub intro
         print "<option $sel value='$node'>$node</option>";
     }
     print "</select></td>";
-    print "<td><input type='text' name='nodematch' size=20 maxlength=20 value='some regexp here'></td>";
+    print "<td><input type='text' name='nodematch' size=20 maxlength=20 value=\"$cgi->param('nodematch')\"></td>";
     
     # Now we can finish the menu off ...
     print qq{
