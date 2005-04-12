@@ -152,7 +152,7 @@ sub main
 	my ($node, $agent, $contact) = @$row;
         my %choice_nodes = ();
         foreach my $temp_node ($cgi->param('nodes')) {
-            $choice_nodes{temp_node} = 1;
+            $choice_nodes{$temp_node} = 1;
         }
         if ( exists $choice_nodes{$node} || exists $choice_nodes{'all'} ) {
             $status{$node}{$agent} = $contact;
