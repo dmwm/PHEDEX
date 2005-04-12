@@ -83,7 +83,7 @@ sub intro
         <body>
         <h1>PhEDEx Monitoring</h1>
         <p>$stamp
-        <form action='}, &relurl('page',$cgi->param('page')), qq{;page=}, $cgi->param('page'), qq{'\
+        <form action='}, &relurl('page',$cgi->param('page')) qq{'\
  method='GET'>
         <table>
         <tr>
