@@ -260,7 +260,7 @@ sub transfer
 	    $other, $othersize) = @$row;
         next if ! $files;
 
-    next if (! exists $choice_nodes{$n} && ! exists $choice_nodes{'all'});
+    if ( exists $choice_nodes{$node} || exists $choice_nodes{'all'} ) {
 
     	$tfiles += $files; $tfilesize += $filesize;
 	$tonsite += $onsite; $tonsitesize += $onsitesize;
@@ -329,6 +329,8 @@ sub transfer
 	  "<th align='right'>@{[&format_num($tother)]}</th>",
 	  "<th align='right'>@{[&format_size($tothersize)]}</th>",
 	  "</tr>\n";
+    }
+    
     $query->finish();
     print "</table>";
 }
