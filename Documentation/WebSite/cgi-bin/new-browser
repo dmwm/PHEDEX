@@ -150,9 +150,10 @@ sub main
     {
 	my ($node, $agent, $contact) = @$row;
         foreach my $temp_node ($cgi->param('nodes')) {
-        if ($temp_node eq $node) {
-            $status{$node}{$agent} = $contact;
-            $agents{$agent} = 1;
+            if ($temp_node eq $node) {
+                $status{$node}{$agent} = $contact;
+                $agents{$agent} = 1;
+            }
         }
     }
     $query->finish();
