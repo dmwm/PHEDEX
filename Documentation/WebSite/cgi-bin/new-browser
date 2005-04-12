@@ -83,17 +83,18 @@ sub intro
        	<td><a href='}, &relurl('page', 'rates'), qq{'>Transfer rate</a></td>
        	<td><a href='}, &relurl('page', 'agents'), qq{'>Agent status</a></td>
        	</tr>
-       	<tr><select name='nodes'>
+       	<tr>
     };
     my @nodes = &nodes_menu();
     foreach my $node (@nodes) {
-        print "<option value='$node'>$node</option>";
+        print "<input type='checkbox' name='nodes' value='$node'>";
     }
     print qq{
-        </select></tr>
+        </tr>
     };
     
     if ($cgi->param('page')) { print $cgi->param('page'); }
+    if ($cgi->param('nodes')) { print $cgi->param('nodes'); }
 }
 
 sub end
