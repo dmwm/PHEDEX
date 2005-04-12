@@ -18,6 +18,8 @@ sub connectToDatabase
     # If we have database configuration file, read it
     if ($self->{DBCONFIG} && ! $self->{DBNAME})
     {
+	$self->{DBH_LIFE} = 86400;
+	$self->{DBH_AGE} = 0;
 	if ($self->{DBCONFIG} =~ /(.*):(.*)/)
 	{
 	    $self->{DBCONFIG} = $1;
@@ -33,13 +35,16 @@ sub connectToDatabase
 	    if (/^Section (\S+)$/) {
 		$insection = ($1 eq $self->{DBSECTION});
 	    } elsif (/^Interface (\S+)$/) {
-		$self->{DBITYPE} = $1 if $insection;
+		$self->{DBH_DBITYPE} = $1 if $insection;
 	    } elsif (/^Database (\S+)$/) {
-		$self->{DBNAME} = $1 if $insection;
+		$self->{DBH_DBNAME} = $1 if $insection;
 	    } elsif (/^Username (\S+)$/) {
-		$self->{DBUSER} = $1 if $insection;
+		$self->{DBH_DBUSER} = $1 if $insection;
 	    } elsif (/^Password (\S+)$/) {
-		$self->{DBPASS} = $1 if $insection;
+		$self->{DBH_DBPASS} = $1 if $insection;
+	    } elsif (/^ConnectionLife (\d+)$/) {
+		$self->{DBH_LIFE} = $1 if $insection;
+		$self->{DBH_CACHE} = 0 if $insection && $1 == 0;
 	    } elsif (/^LogConnection (on|off)$/) {
 		$self->{DBH_LOGGING} = ($1 eq 'on') if $insection;
 	    } elsif (/^LogSQL (on|off)$/) {
@@ -51,15 +56,15 @@ sub connectToDatabase
 	close (DBCONF);
 
 	die "$self->{DBCONFIG}: database parameters not found\n"
-	    if (! $self->{DBITYPE} || ! $self->{DBNAME}
-		|| ! $self->{DBUSER} || ! $self->{DBPASS});
+	    if (! $self->{DBH_DBITYPE} || ! $self->{DBH_DBNAME}
+		|| ! $self->{DBH_DBUSER} || ! $self->{DBH_DBPASS});
     }
 
     # Use cached connection if it's still alive and the handle
     # isn't too old, otherwise create new one.
     my $dbh = $self->{DBH};
     if (! $self->{DBH}
-	|| time() - ($self->{DBH_AGE} || 0) > 86400
+	|| time() - $self->{DBH_AGE} > $self->{DBH_LIFE}
 	|| ! eval { $self->{DBH}->ping() }
 	|| $@)
     {
@@ -71,8 +76,8 @@ sub connectToDatabase
 	undef $self->{DBH};
 
         # Start a new connection.
-        $dbh = DBI->connect ("DBI:$self->{DBITYPE}:$self->{DBNAME}",
-	    		     $self->{DBUSER}, $self->{DBPASS},
+        $dbh = DBI->connect ("DBI:$self->{DBH_DBITYPE}:$self->{DBH_DBNAME}",
+	    		     $self->{DBH_DBUSER}, $self->{DBH_DBPASS},
 			     { RaiseError => 1, AutoCommit => 0 });
         return undef if ! $dbh;
 
@@ -119,6 +124,7 @@ sub connectToDatabase
     if ($@)
     {
 	&alert ("failed to update agent status: $@");
+	eval { $dbh->rollback() };
 	&disconnectFromDatabase ($self, $dbh, 1);
 	return undef;
     }
@@ -136,7 +142,7 @@ sub disconnectFromDatabase
     if ((exists $self->{DBH_CACHE} && ! $self->{DBH_CACHE}) || $force)
     {
 	&logmsg ("disconnected from database") if $self->{DBH_LOGGING};
-        $dbh->disconnect() if $dbh;
+        eval { $dbh->disconnect() } if $dbh;
         undef $dbh;
         undef $self->{DBH};
         undef $self->{DBH_AGE};
@@ -164,16 +170,16 @@ sub dbbindexec
 {
     my ($stmt, %params) = @_;
 
-    while (my ($param, $val) = each %params) {
-	$stmt->bind_param ($param, $val);
-    }
-
     if ($ENV{PHEDEX_LOG_SQL})
     {
         my $sql = $stmt->{Statement};
 	$sql =~ s/\s+/ /g; $sql =~ s/^\s+//; $sql =~ s/\s+$//;
 	my $bound = join (", ", map { "($_, $params{$_})" } sort keys %params);
         &logmsg ("executing statement `$sql' [$bound]");
+    }
+
+    while (my ($param, $val) = each %params) {
+	$stmt->bind_param ($param, $val);
     }
 
     return $stmt->execute();
