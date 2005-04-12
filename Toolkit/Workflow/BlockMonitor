@@ -223,7 +223,7 @@ sub idle
 		        dest_files = :dest_files, dest_bytes = :dest_bytes,
 			node_files = :node_files, node_bytes = :node_bytes,
 			xfer_files = :xfer_files, xfer_bytes = :xfer_bytes
-		    where block = :block and node = :node},
+		    where name = :block and node = :node},
 		    ":now" => $now,
 		    ":block" => $b->{NAME},
 		    ":node" => $b->{NODE},
