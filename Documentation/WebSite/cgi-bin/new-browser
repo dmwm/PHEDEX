@@ -81,7 +81,7 @@ sub intro
         <body>
         <h1>PhEDEx Monitoring</h1>
         <p>$stamp
-        <form action='http://cms-project-phedex.web.cern.ch/cms-project-phedex/cgi-bin/new-browser' method='GET'>
+        <form action='}, &relurl('page',$cgi->param('page')), qq{' method='GET'>
         <table>
         <tr>
         <td><a href='}, &relurl('page', 'main'), qq{'>Front page</a></td>
@@ -210,8 +210,7 @@ sub transfer
 	    from t_info_transfer_status
 	    order by node});
 
-    print "<h2>Transfer status</h2>\n",
-    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+    print "<table><tr bgcolor='$altcolor' valign='top'>",
 	  "<th rowspan='2'>Age</th>",
 	  "<th rowspan='2'>Node</th>",
 	  "<th colspan='2'>Files</th>",
