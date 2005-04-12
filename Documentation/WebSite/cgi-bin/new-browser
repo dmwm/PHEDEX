@@ -260,7 +260,7 @@ sub transfer
 	    $other, $othersize) = @$row;
         next if ! $files;
 
-    if ( exists $choice_nodes{$node} || exists $choice_nodes{'all'} ) {
+    if ( exists $choice_nodes{$n} || exists $choice_nodes{'all'} ) {
 
     	$tfiles += $files; $tfilesize += $filesize;
 	$tonsite += $onsite; $tonsitesize += $onsitesize;
