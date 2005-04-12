@@ -302,6 +302,7 @@ sub transfer
 	      "<td align='right'>@{[&format_size($othersize)]}</td>",
 	      "</tr>\n";
     }
+    }
     
     my $onscolor = ($tonsite == $tfiles) ? '' : " bgcolor='$pendcolor'";
     my $tracolor = (!$ttransf) ? '' : " bgcolor='$goodcolor'";
