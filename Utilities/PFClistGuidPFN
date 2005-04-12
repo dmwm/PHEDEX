@@ -111,7 +111,8 @@ sub runQueries
     for (my $i = 1; @$items; ++$i)
     {
 	my @item  = splice(@$items, 0, $args{MATCH} ? 1 : 100);
-	my $output = "/tmp/tmp.$$.$i";
+	my $output = qx(mktemp /tmp/PFClistGuidPFN.$<.XXXXXXX);
+	chomp ($output);
 	$mgr->addJob (sub { &collectResult($mgr, @_) },
 	    { OUTPUT => $output, LOT => $i },
 	    "sh", "-c", $cmd . join("", map { " '$_'" } @item) . " > $output");
