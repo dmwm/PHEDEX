@@ -34,7 +34,7 @@ my %args = (WAITTIME => 60);
 	     "wait=f"		=> \$args{WAITTIME},
 	     "help|h"		=> sub { &usage() });
 
-if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
+if (@ARGV || !$args{MYNODE} || !$args{DROPDIR} || !$args{DBCONFIG})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
