@@ -149,15 +149,20 @@ sub main
     my %agents;
     my %status;
 
+    my %choice_nodes = ();
+    foreach my $temp_node ($cgi->param('nodes')) {
+        $choice_nodes{$temp_node} = 1;
+    }
+    my $match=$cgi->param('nodematch');
+
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
-	my ($node, $agent, $contact) = @$row;
-        my %choice_nodes = ();
-        foreach my $temp_node ($cgi->param('nodes')) {
-            $choice_nodes{$temp_node} = 1;
-        }
-        if ( exists $choice_nodes{$node} || exists $choice_nodes{'all'} || $node =~ /$cgi->param('nodematch')/ ) {
+        my ($node, $agent, $contact) = @$row;
+        if ( exists $choice_nodes{$node} 
+            || exists $choice_nodes{'all'} 
+            || $node =~ /$match/ ) {
+            
             $status{$node}{$agent} = $contact;
             $agents{$agent} = 1;
         }
