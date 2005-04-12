@@ -138,10 +138,10 @@ sub idle
 	# executed too often.
 	my %active = ();
         my $qactive = &dbexec($dbh, qq{
-	    select f.inblock, d.node, count (d.guid), sum (f.filesize)
-	    from t_destination d
-	    join t_file f on f.guid = d.guid
-	    group by f.inblock, d.node});
+	    select bd.name, bd.node, count (f.guid), sum (f.filesize)
+	    from t_block_destination bd
+	    join t_file f on f.inblock = bd.name
+	    group by bd.name, bd.node});
         while (my ($block, $node, $files, $bytes) = $qactive->fetchrow())
         {
 	    $active{$block}{$node} ||= { NAME => $block, NODE => $node };

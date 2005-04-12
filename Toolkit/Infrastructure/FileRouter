@@ -162,12 +162,13 @@ sub pendingFiles
     my ($self, $dbh, $pattern) = @_;
     my $result = [];
     my $dstmt = $self->{STMT_CACHE}{DEST} ||= &dbprep ($dbh, qq{
-	select d.guid, d.node
-	from t_destination d
+	select f.guid, bd.node
+	from t_file f
+	join t_block_destination bd
+	  on bd.name = f.inblock
 	left join t_replica_state rs
-	  on rs.guid = d.guid and rs.node = d.node
-	where rs.node is null and d.node like :pattern});
-
+	  on rs.guid = f.guid and rs.node = bd.node
+	where rs.guid is null and bd.node like :pattern});
     &dbbindexec ($dstmt, ":pattern" => $pattern);
     while (my ($guid, $dest) = $dstmt->fetchrow())
     {
