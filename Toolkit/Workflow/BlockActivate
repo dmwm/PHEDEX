@@ -82,7 +82,7 @@ sub idle
 	          where completed is null) bd
 	      on bd.name = b.name
 	    join t_block_replica br
-	      on br.namme = b.name
+	      on br.name = b.name
 	    group by b.name});
 	while (my ($block, $nreplica, $nactive) = $stmt->fetchrow())
 	{
