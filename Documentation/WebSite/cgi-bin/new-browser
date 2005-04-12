@@ -52,9 +52,9 @@ sub nodes_menu
     $query->execute();
     while (my @row = $query->fetchrow_array) {
         push( @nodes, $row[0] );
-        print "$row[0] ";
     }
     $query->finish();
+    return @nodes;
 }
 
 
@@ -83,8 +83,14 @@ sub intro
        	<td><a href='}, &relurl('page', 'rates'), qq{'>Transfer rate</a></td>
        	<td><a href='}, &relurl('page', 'agents'), qq{'>Agent status</a></td>
        	</tr>
-       	<tr>}, &nodes_menu(), qq{</tr>
-       	</table>
+       	<tr><select name='nodes'>
+    };
+    my @nodes = &nodes_menu();
+    foreach my $node (@nodes) {
+        print "<option value='$node'>$node</option>";
+    }
+    print qq{
+        </select></tr>
     };
     
     if ($cgi->param('page')) { print $cgi->param('page'); }
