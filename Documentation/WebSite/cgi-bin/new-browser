@@ -260,17 +260,6 @@ sub transfer
 	    $other, $othersize) = @$row;
         next if ! $files;
 
-    if ( exists $choice_nodes{$n} || exists $choice_nodes{'all'} ) {
-
-    	$tfiles += $files; $tfilesize += $filesize;
-	$tonsite += $onsite; $tonsitesize += $onsitesize;
-	$tstaged += $staged; $tstagedsize += $stagedsize;
-	$tavail += $avail; $tavailsize += $availsize;
-	$ttransf += $transf; $ttransfsize += $transfsize;
-	$twanted += $wanted; $twantedsize += $wantedsize;
-	$tpending += $pending; $tpendingsize += $pendingsize;
-	$tother += $other; $tothersize += $othersize;
-
         my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
 	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
 	my $onscolor = ($onsite == $files) ? '' : " bgcolor='$pendcolor'";
@@ -280,6 +269,17 @@ sub transfer
 	my $pencolor = ($files != $onsite + $transf + $wanted + $pending + $other)
 		       ? " bgcolor='$warncolor'" : ! $pending ? ''
 		       : " bgcolor='$pendcolor'";
+		   
+    if ( exists $choice_nodes{$n} || exists $choice_nodes{'all'} ) {
+
+    $tfiles += $files; $tfilesize += $filesize;
+	$tonsite += $onsite; $tonsitesize += $onsitesize;
+	$tstaged += $staged; $tstagedsize += $stagedsize;
+	$tavail += $avail; $tavailsize += $availsize;
+	$ttransf += $transf; $ttransfsize += $transfsize;
+	$twanted += $wanted; $twantedsize += $wantedsize;
+	$tpending += $pending; $tpendingsize += $pendingsize;
+	$tother += $other; $tothersize += $othersize;
 
         print "<tr valign='top'$rowcolor>",
 	      "<td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>",
@@ -302,13 +302,13 @@ sub transfer
 	      "<td align='right'>@{[&format_size($othersize)]}</td>",
 	      "</tr>\n";
     }
+    
     my $onscolor = ($tonsite == $tfiles) ? '' : " bgcolor='$pendcolor'";
     my $tracolor = (!$ttransf) ? '' : " bgcolor='$goodcolor'";
     my $wancolor = (!$twanted) ? '' : " bgcolor='$goodcolor'";
     my $pencolor = ($tfiles != $tonsite + $ttransf + $twanted + $tpending + $tother)
 		   ? " bgcolor='$warncolor'" : ! $tpending ? ''
 		   : " bgcolor='$pendcolor'";
-    }
 
     print "<tr valign='top' bgcolor='$altcolor'>",
 	  "<th>&nbsp;</th>",
