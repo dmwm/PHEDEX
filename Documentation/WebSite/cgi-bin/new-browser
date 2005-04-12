@@ -81,7 +81,7 @@ sub intro
         <body>
         <h1>PhEDEx Monitoring</h1>
         <p>$stamp
-        <form action='}, &relurl('page',$cgi->param('page')), qq{' method='GET'>
+        <form action='}, &relurl('page',$cgi->param('page')), qq{&page=$cgi->param('page')' method='GET'>
         <table>
         <tr>
         <td><a href='}, &relurl('page', 'main'), qq{'>Front page</a></td>
