@@ -240,14 +240,14 @@ sub compareWithExistingRoutes
 	$hops = $infinity if $hops > $infinity;
 	if ($time < $check && $self->{TIMEOUT} != 0)
 	{
-	    $hops = $self->{INFINITY};
+	    $hops = $infinity;
 	    # trigger update if it's a neighbour timeout
 	    # easy for us as we can pass the update message to
 	    # everyone in the network at the same time
-	    $dbh->do(qq{
+	    &dbexec($dbh, qq{
 		update t_routing set hops = :infinity where to_node = :dest},
 		":infinity" => $infinity, ":dest" => $dest);
-	    &warning ("route timed out: $gate:$dest:$time:$hops:$status");
+	    &warn ("route timed out: $gate:$dest:$time:$hops:$status");
 	}
 	$gate_time_hops_by_dest{$dest} = "$gate:$time:$hops:$status";
     }
