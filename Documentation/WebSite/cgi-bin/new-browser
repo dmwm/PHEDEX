@@ -11,9 +11,9 @@ my $cgi = new CGI;
 my $db = $cgi->param("db") || "prod";    # tnsname of the database
 my $dbh;
 my %databases = ("prod" => [ "cms", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
-		 "rac" => [ "cmssg", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
-		 "test" => [ "devdb", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
-		 "testbed" => [ "devdb", 'CMS_TRANSFERMGMT_TESTBED', 'phedexedehp' ]);
+                 "rac" => [ "cmssg", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
+                 "test" => [ "devdb", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
+                 "testbed" => [ "devdb", 'CMS_TRANSFERMGMT_TESTBED', 'phedexedehp' ]);
 
 # ###############################################
 # Main loop
@@ -26,7 +26,7 @@ $ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/10103/lib";
 $db = "prod" if ! grep ($db eq $_, keys %databases);
 my ($dbname, $dbuser, $dbpass) = @{$databases{$db}};
 $dbh = DBI->connect ("DBI:Oracle:$dbname", $dbuser, $dbpass,
-	    		 { RaiseError=>1, AutoCommit =>1 });
+                         { RaiseError=>1, AutoCommit =>1 });
 
 intro();
 end();
@@ -65,36 +65,54 @@ sub intro
     my $stamp = strftime ("%Y-%m-%d %H:%M:%S %Z", localtime(time()));
     print $cgi->header();
 
+    # First print the main header, and set up the form and page choice table
     print qq{
         <head>
         <title>PhEDEx monitoring</title>
-        <meta http-equiv=\"refresh\" content=\"5\">
+        <meta http-equiv=\"refresh\" content=\"60\">
         </head>
         <body>
         <h1>PhEDEx Monitoring</h1>
         <p>$stamp
+        <form action='http://cms-project-phedex.web.cern.ch/cms-project-phedex/cgi-bin/new-browser' method='GET'>
         <table>
         <tr>
         <td><a href='}, &relurl('page', 'main'), qq{'>Front page</a></td>
-       	<td><a href='}, &relurl('page', 'transfer'), qq{'>Transfer state</a></td>
-       	<td><a href='}, &relurl('page', 'replicas'), qq{'>Replica state</a></td>
-       	<td><a href='}, &relurl('page', 'subs'), qq{'>Subscriptions</a></td>
-       	<td><a href='}, &relurl('page', 'stats'), qq{'>File size stats</a></td>
-       	<td><a href='}, &relurl('page', 'rates'), qq{'>Transfer rate</a></td>
-       	<td><a href='}, &relurl('page', 'agents'), qq{'>Agent status</a></td>
-       	</tr>
-       	<tr>
+        <td><a href='}, &relurl('page', 'transfer'), qq{'>Transfer state</a></td>
+        <td><a href='}, &relurl('page', 'replicas'), qq{'>Replica state</a></td>
+        <td><a href='}, &relurl('page', 'subs'), qq{'>Subscriptions</a></td>
+        <td><a href='}, &relurl('page', 'stats'), qq{'>File size stats</a></td>
+        <td><a href='}, &relurl('page', 'rates'), qq{'>Transfer rate</a></td>
+        <td><a href='}, &relurl('page', 'agents'), qq{'>Agent status</a></td>
+        </tr>
+        <tr>
     };
+
+    # Now we need to let the user choose which nodes. Because it's refreshed
+    # we need to check what they chose, and refresh the checks. We also need to
+    # format it to make the table a reasonable size ...
     my @nodes = &nodes_menu();
+    my $count = 1;
     foreach my $node (@nodes) {
-        print "<input type='checkbox' name='nodes' value='$node'>$node</input>";
+        my $sel = '';
+        foreach my $temp_node ($cgi->param('nodes')) {
+            if ( $temp_node =~ /$node/ ) { $sel = "CHECKED"; }
+        }
+        print "<td><input type='checkbox' name='nodes' value='$node' $sel>$node</input></td>";
+        $count++;
+        if ($count == 8) { print "</tr><tr>"; $count = 1; }
     }
+
+    # Now we can finish the menu off ...
     print qq{
         </tr>
+        <tr><td><input type='submit' value='Refresh choices'>
+        </table>
+        </form>
     };
     
     if ($cgi->param('page')) { print $cgi->param('page'); }
-    if ($cgi->param('nodes')) { print $cgi->param('nodes'); }
+    if ($cgi->param('nodes')) { foreach my $node ($cgi->param('nodes')) { print "Node $node "; } }
 }
 
 sub end
