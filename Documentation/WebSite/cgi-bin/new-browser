@@ -149,11 +149,15 @@ sub main
     my %agents;
     my %status;
 
+    # Want the node matching text to override the multiple choice box
     my %choice_nodes = ();
-    foreach my $temp_node ($cgi->param('nodes')) {
+    my $match = 'x'; # Sorry, this is a horrible hack- hope noone names a node 'x'
+    if ( $cgi->param('nodematch') ) {
+        $match=$cgi->param('nodematch')
+    } else {
+        foreach my $temp_node ($cgi->param('nodes')) {
         $choice_nodes{$temp_node} = 1;
     }
-    my $match=$cgi->param('nodematch');
 
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
