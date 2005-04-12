@@ -58,10 +58,7 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{MSSNODE}
     die "Insufficient parameters, use -h for help.\n";
 }
 
-my $agent = new FileMSSPublish (%args);
-# Recapture interrupt signal, oracle swallows it.
-$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
-$agent->process ();
+(new FileMSSPublish (%args))->process();
 
 ######################################################################
 # Routines for this agent.
@@ -133,7 +130,8 @@ sub idle
 		     . sprintf('%.2f %.2f', $end - $start, $end - $now));
 	}
     };
-    do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
+    do { &alert ("database error: $@");
+	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);

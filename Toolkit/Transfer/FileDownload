@@ -122,10 +122,7 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG}
     die "Insufficient parameters, use -h for help.\n";
 }
 
-my $agent = new FileDownload (%args);
-# Recapture interrupt signal, oracle swallows it.
-$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
-$agent->process ();
+(new FileDownload (%args))->process();
 
 sub sizeValue
 {
@@ -296,7 +293,7 @@ sub completeTransferBatch
         if ($@)
         {
             &alert ("failed to update transfer batch status for $file->{GUID}: $@");
-            $dbh->rollback() if $dbh;
+            eval { $dbh->rollback() } if $dbh;
         }
     };
 
@@ -328,7 +325,7 @@ sub startFileTransfer
     if ($@)
     {
 	&alert ("failed to mark $guid in transfer: $@");
-	$dbh->rollback();
+	eval { $dbh->rollback() };
 	return undef;
     }
 
@@ -425,7 +422,8 @@ sub markFilesWanted
 	$dbh->commit();
     };
 
-    do { &alert ("failed to mark files wanted: $@"); $dbh->rollback() } if $@;
+    do { &alert ("failed to mark files wanted: $@");
+	 eval { $dbh->rollback() }; } if $@;
 }
 
 # Get the list of N guids that should be transferred next.  Returns
@@ -527,7 +525,8 @@ sub idle
         # Disconnect from the database
         &disconnectFromDatabase ($self, $dbh);
     };
-    do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
+    do { &alert ("database error: $@");
+	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Keep working, resting a bit at a time.  If we have work to do
     # and can start more jobs, break out of this loop and initiate

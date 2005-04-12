@@ -39,10 +39,7 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
     die "Insufficient parameters, use -h for help.\n";
 }
 
-my $agent = new TableCleaner (%args);
-# Recapture interrupt signal, oracle swallows it.
-$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
-$agent->process ();
+(new TableCleaner (%args))->process();
 
 ######################################################################
 # Routines for this agent.
@@ -124,7 +121,8 @@ sub idle
 	    ":now" => $now, ":old" => $now - 7*86400);
 	$dbh->commit ();
     };
-    do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
+    do { &alert ("database error: $@");
+	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);

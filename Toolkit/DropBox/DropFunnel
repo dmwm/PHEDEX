@@ -572,8 +572,7 @@ sub idle
 	     . " @{[scalar @pending]} left") if @pending;
 
     # Stop now if nothing to do and we do only one pass
-    do { &touch($self->{STOPFLAG}); $self->maybeStop(); }
-	if $self->{ONCE} && ! keys %{$self->{WAITLIST}};
+    $self->doStop() if $self->{ONCE} && ! keys %{$self->{WAITLIST}};
 
     # Nap the remaining of the time (if any)
     my $now = &mytimeofday ();

@@ -74,10 +74,7 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG}
     die "Insufficient parameters, use -h for help.\n";
 }
 
-my $agent = new FilePFNExport (%args);
-# Recapture interrupt signal, oracle swallows it.
-$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
-$agent->process ();
+(new FilePFNExport (%args))->process();
 
 ######################################################################
 # Routines specific to this agent.
@@ -258,7 +255,8 @@ sub idle
 	    select (undef, undef, undef, .1);
 	}
     };
-    do { &alert ("database error: $@"); $dbh->rollback() if $dbh; } if $@;
+    do { &alert ("database error: $@");
+	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);

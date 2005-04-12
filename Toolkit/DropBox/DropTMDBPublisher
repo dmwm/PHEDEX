@@ -167,11 +167,8 @@ sub updateTransferDatabase
     if ($@)
     {
 	&alert("$drop: database failure: $@");
-	if ($dbh)
-	{
-	    $dbh->rollback();
-	    &disconnectFromDatabase ($self, $dbh);
-	}
+	eval { $dbh->rollback() } if $dbh;
+	&disconnectFromDatabase ($self, $dbh);
 	$self->markBad ($drop);
 	return 1;
     }

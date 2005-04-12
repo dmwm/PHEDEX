@@ -60,12 +60,7 @@ if ($args{HELPME} || !$args{IMPORTLOC}
     die "Insufficient parameters, use -h for help.\n";
 }
 
-#CJR mapping for Lassi's dropbox toolkit
-my $agent = new FileDiskCleaner (%args);
-$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
-$SIG{QUIT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
-$SIG{TERM} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
-$agent->process();
+(new FileDiskCleaner (%args))->process();
 
 ################################################
 package FileDiskCleaner; use strict; use warnings; use base 'UtilsAgent';
@@ -154,7 +149,9 @@ sub deleteOneFile
 	return 1;
     };
 
-    do { &alert ("database error: $@"); $dbh->rollback() if $dbh; $status = 0 } if $@;
+    do { &alert ("database error: $@");
+	 eval { $dbh->rollback() } if $dbh;
+	 $status = 0 } if $@;
     
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
@@ -303,7 +300,8 @@ sub idle
 
 	$dbh->commit();
     };
-    do { &alert ("database error: $@"); $dbh->rollback if $dbh } if $@;
+    do { &alert ("database error: $@");
+	 eval { $dbh->rollback() } if $dbh } if $@;
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);

@@ -44,9 +44,7 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{NEXTDIR}
     die "Insufficient parameters, use -h for help.\n";
 }
 
-my $agent = new BlockNotify (%args);
-$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
-$agent->process();
+(new BlockNotify (%args))->process();
 
 ################################################
 package BlockNotify; use strict; use warnings; use base 'UtilsAgent';
@@ -144,7 +142,8 @@ sub idle
 	    }
         }
     };
-    do { &alert ("database error: $@"); $dbh->rollback() if $dbh } if $@;
+    do { &alert ("database error: $@");
+	 eval { $dbh->rollback() } if $dbh } if $@;
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
