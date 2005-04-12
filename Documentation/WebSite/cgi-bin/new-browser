@@ -156,7 +156,8 @@ sub main
         $match=$cgi->param('nodematch')
     } else {
         foreach my $temp_node ($cgi->param('nodes')) {
-        $choice_nodes{$temp_node} = 1;
+            $choice_nodes{$temp_node} = 1;
+        }
     }
 
     $query->execute();
