@@ -5,15 +5,33 @@ use warnings;
 use CGI qw(:standard);
 use CGI::Carp qw(fatalsToBrowser);
 use POSIX;
+use DBI;
 
 my $cgi = new CGI;
+my $db = $cgi->param("db") || "prod";    # tnsname of the database
+my $dbh;
+my %databases = ("prod" => [ "cms", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
+		 "rac" => [ "cmssg", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
+		 "test" => [ "devdb", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
+		 "testbed" => [ "devdb", 'CMS_TRANSFERMGMT_TESTBED', 'phedexedehp' ]);
 
 # ###############################################
 # Main loop
 # ###############################################
 
+$ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
+$ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/10103";
+$ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/10103/lib";
+
+$db = "prod" if ! grep ($db eq $_, keys %databases);
+my ($dbname, $dbuser, $dbpass) = @{$databases{$db}};
+$dbh = DBI->connect ("DBI:Oracle:$dbname", $dbuser, $dbpass,
+	    		 { RaiseError=>1, AutoCommit =>1 });
+
 intro();
 end();
+
+$dbh->disconnect();
 
 # ###############################################
 # Subroutines
@@ -25,6 +43,20 @@ sub relurl
     map { $newcgi->param ($_, $args{$_}) } keys %args;
     return $newcgi->self_url(-full=>0, -relative=>1);
 }
+
+sub nodes_menu
+{
+    my @nodes = ();
+    my $sql = "select * from t_node";
+    my $query = $dbh->prepare($sql);
+    $query->execute();
+    foreach (my @row = fetchrow_array()) {
+        push( @nodes, $row[0] );
+        print "$row[0] ";
+    }
+    $query->finish();
+}
+
 
 sub intro
 {
@@ -41,13 +73,18 @@ sub intro
         <body>
         <h1>PhEDEx Monitoring</h1>
         <p>$stamp
-        <a href='}, &relurl('page', 'main'), qq{'>Front page</a>
-       	<a href='}, &relurl('page', 'transfer'), qq{'>Transfer state</a>
-       	<a href='}, &relurl('page', 'replicas'), qq{'>Replica state</a>
-       	<a href='}, &relurl('page', 'subs'), qq{'>Subscriptions</a>
-       	<a href='}, &relurl('page', 'stats'), qq{'>File size stats</a>
-       	<a href='}, &relurl('page', 'rates'), qq{'>Transfer rate</a>
-       	<a href='}, &relurl('page', 'agents'), qq{'>Agent status</a>
+        <table>
+        <tr>
+        <td><a href='}, &relurl('page', 'main'), qq{'>Front page</a></td>
+       	<td><a href='}, &relurl('page', 'transfer'), qq{'>Transfer state</a></td>
+       	<td><a href='}, &relurl('page', 'replicas'), qq{'>Replica state</a></td>
+       	<td><a href='}, &relurl('page', 'subs'), qq{'>Subscriptions</a></td>
+       	<td><a href='}, &relurl('page', 'stats'), qq{'>File size stats</a></td>
+       	<td><a href='}, &relurl('page', 'rates'), qq{'>Transfer rate</a></td>
+       	<td><a href='}, &relurl('page', 'agents'), qq{'>Agent status</a></td>
+       	</tr>
+       	<tr>}, &nodes_menu(), qq{</tr>
+       	</table>
     };
     
     if ($cgi->param('page')) { print $cgi->param('page'); }
