@@ -50,10 +50,7 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{PFN_QUERY} || !$args{
     die "Insufficient parameters, use -h for help.\n";
 }
 
-my $agent = new FileCastorFilesize (%args);
-# Recapture interrupt signal, oracle swallows it.
-$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop (); };
-$agent->process ();
+(new FileCastorFilesize (%args))->process();
 
 ######################################################################
 # Routines specific to the agent.
@@ -130,7 +127,8 @@ sub checkFileSize
 	$op = "commit";
 	$dbh->commit();
     };
-    do { &alert ("failed to $op for $guid: $@"); $dbh->rollback() if $dbh } if $@;
+    do { &alert ("failed to $op for $guid: $@");
+	 eval { $dbh->rollback() } if $dbh } if $@;
 
     # Log delay stats
     my $now = &mytimeofday ();
@@ -202,7 +200,8 @@ sub idle
 	    }
 	}
     };
-    do { &alert("database error: $@"); $dbh->rollback() if $dbh } if $@;
+    do { &alert("database error: $@");
+	 eval { $dbh->rollback() } if $dbh } if $@;
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
