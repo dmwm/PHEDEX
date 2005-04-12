@@ -308,6 +308,7 @@ sub transfer
     my $pencolor = ($tfiles != $tonsite + $ttransf + $twanted + $tpending + $tother)
 		   ? " bgcolor='$warncolor'" : ! $tpending ? ''
 		   : " bgcolor='$pendcolor'";
+    } else next;
 
     print "<tr valign='top' bgcolor='$altcolor'>",
 	  "<th>&nbsp;</th>",
@@ -329,8 +330,7 @@ sub transfer
 	  "<th align='right'>@{[&format_num($tother)]}</th>",
 	  "<th align='right'>@{[&format_size($tothersize)]}</th>",
 	  "</tr>\n";
-    }
-    
+
     $query->finish();
     print "</table>";
 }
