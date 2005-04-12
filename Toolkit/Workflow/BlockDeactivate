@@ -16,7 +16,7 @@
 ##H -node      the node where this agent runs
 ##H -db        database connection configuration parameter file
 ##H -wait      time to wait in seconds between work scans
-##H -holdoff   time lag before deactivation (default: 86400 = day)
+##H -holdoff   time lag in seconds before deactivation (default: 3 days)
 
 BEGIN {
   use warnings; use strict;
@@ -41,9 +41,7 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
     die "Insufficient parameters, use -h for help.\n";
 }
 
-my $agent = new BlockDeactivate (%args);
-$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
-$agent->process();
+(new BlockDeactivate (%args))->process();
 
 ################################################
 package BlockDeactivate; use strict; use warnings; use base 'UtilsAgent';
@@ -57,8 +55,9 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
+		  MYNODE => undef,		# My TMDB node
 	  	  AGENTID => "BlockDeactivate", # Identity for activity logs
-		  HOLDOFF => 86400);            # hold-off time for pruning (24h default)
+		  HOLDOFF => 3*86400);          # Hold-off time for pruning
 
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
@@ -66,8 +65,7 @@ sub new
     return $self;
 }
 
-
-# Pick up work from the database and start site specific scripts if necessary
+# Run the main loop of this agent.
 sub idle
 {
     my ($self, @pending) = @_;
@@ -75,31 +73,55 @@ sub idle
     eval
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
-	
+
+	# Guarantee full consistency.  We need to ensure that a) this
+	# procedure is aborted if someone goes and makes block open
+	# again and adds more files, b) we delete exactly as many
+	# t_replica_state rows as we planned to.
+	&dbexec ($dbh, q{set transaction isolation level serializable});
+
 	# Deactivate complete blocks.  Get all blocks whose all replicas
-	# are complete and active.  (Block replicas that are already
-	# inactive are not interesting, nor any blocks whose destination
-	# count does not match files at the node (FIXME: do we want to
-	# constrain this?), or if there are still files in transfer.)
-	# Do not act on blocks until specified time limit has passed.
-	my %blocks = ();
+	# are complete and active.  First of all, ignore blocks where
+	# replicas are already inactive.  Secondly, ignore all blocks
+	# which have been touched "recently" to allow things to settle.
+	#
+	# Consider remaining (active) blcok replicas.  If all replicas
+	# of a block have as many files as the block has, deactive the
+	# block (and all replicas).  We also require for extra safety
+	# that there can be no files in transfer.
+	#
+	# We do *not* require that dest_files = node_files, as in nodes
+	# which are file sources dest_files is usually zero, and we
+	# still want to deactivate.  This should be relatively safe --
+	# the only way we can deactivate a block on intermediate node
+	# is if a) the entire block has already reached all current
+	# destination nodes, b) either all or none of the files have
+	# been removed in intermediate nodes, and c) at least several
+	# days has passed like this.  It is unlikely that all these
+	# criteria will be met simultaneously, and in any case the fix
+	# is easy: reactivate the block.
+	#
+	# Do just one at a time to avoid overflowing undo segmens and
+	# running the risk this whole transaction will fail.  This is
+	# because we require transactional integrity for the entire
+	# select/delete/update (see above).  It's OK to do work
+	# incrementally here.
 	my $qblocks = &dbexec ($dbh, qq{
 	    select b.name
 	    from t_block b
 	    where b.isopen = 0
 	      and b.timestamp < :limit
-	      and (b.files, b.bytes, 0, 0, 1, 1) = all
-      	          (select br.node_files, br.node_bytes,
-		  	  sign(br.node_files - br.dest_files),
-			  sign(br.xfer_files),
-			  sign(:limit - br.last_update),
-			  br.isactive
+	      and (b.files, b.bytes, 0, 1, 1) = all
+      	          (select br.node_files, br.node_bytes, br.xfer_files,
+			  sign(:limit - br.last_update), br.isactive
 		   from t_block_replica br
 		   where br.name = b.name)},
 	    ":limit" => &mytimeofday () - $self->{HOLDOFF});
-        while (my ($name) = $qblocks->fetchrow())
+        if (my ($name) = $qblocks->fetchrow())
 	{
-	    # Deactivate
+	    # Deactivate.  The last "update" has no effect except it
+	    # guarantees the transasction will fail if the block is
+	    # touched concurrently (e.g. to reopen to add new files).
 	    my ($dr, $nr) = &dbexec ($dbh, qq{
 		delete from t_replica_state where guid in
 		(select guid from t_file where inblock = :block)},
@@ -107,12 +129,18 @@ sub idle
 	    my ($db, $nb) = &dbexec ($dbh, qq{
 		update t_block_replica set isactive = 0 where name = :block},
 		":block" => $name);
-	    $dbh->commit ();
+	    &dbexec ($dbh, qq{update t_block set isopen = 0 where name = :block},
+		":block" => $name);
 
-	    &logmsg ("deactivated $name, $nr replicas removed, $nb block replicas");
+	    &logmsg ("deactivated $name: $nr file replicas, $nb block replicas");
         }
+
+	# Commit everything.  See above for comments why we don't
+	# want to commit partially each block.
+	$dbh->commit ();
     };
-    do { &alert ("database error: $@"); $dbh->rollback() if $dbh } if $@;
+    do { &alert ("database error: $@");
+	 eval { $dbh->rollback() } if $dbh } if $@;
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);

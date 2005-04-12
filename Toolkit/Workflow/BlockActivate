@@ -39,9 +39,7 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
     die "Insufficient parameters, use -h for help.\n";
 }
 
-my $agent = new BlockActivate (%args);
-$SIG{INT} = sub { system "touch $agent->{STOPFLAG}"; $agent->maybeStop() };
-$agent->process();
+(new BlockActivate (%args))->process();
 
 ################################################
 package BlockActivate; use strict; use warnings; use base 'UtilsAgent';
@@ -75,6 +73,7 @@ sub idle
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
 	# Reactivate blocks with incomplete destinations.
+	my $now = &mytimeofday ();
         my $stmt = &dbexec ($dbh, qq{
 	    select b.name, count(br.name), sum(br.isactive)
 	    from t_block b
@@ -102,18 +101,21 @@ sub idle
 		 from t_block_replica br
 		 join t_file f on f.inblock = br.name
 		 where br.name = :block},
-	   	 ":block" => $block, ":now" => &mytimeofday());
+	   	 ":block" => $block, ":now" => $now);
 
 	    &dbexec ($dbh, qq{
-		update t_block_replica set isactive = 0 where name = :block},
-		":block" => $block);
+		update t_block_replica
+		set isactive = 1, last_update = :now
+		where name = :block},
+		":block" => $block, ":now" => $now);
 
 	    &logmsg ("reactivated $ret replicas for $block");
 	    $dbh->commit();
 	}
 
     };
-    do { &alert ("database error: $@"); $dbh->rollback() if $dbh } if $@;
+    do { &alert ("database error: $@");
+	 eval { $dbh->rollback() } if $dbh } if $@;
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
