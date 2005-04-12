@@ -1,7 +1,21 @@
 #!/usr/bin/env perl
 
-    print STDERR "usage: $me -u CATALOGUE { -p | -g | -x } [-m] [-r] [-j JOBS] ITEM...\n";
-    exit (1);
+##H Parallel FClistGuidPFN.
+##H
+##H Works the same as FClistGuidPFN, except also takes option
+##H -j JOBS for parallel number of jobs (default: 10).
+##H
+##H Usage:
+##H   PFClistGuidPFN -u CATALOGUE { -p | -g | -x } [-m] [-r] [-j JOBS] ITEM...
+##H
+##H -u specifies catalogue contact string.
+##H -p selects query by PFN
+##H -g selects query by GUID
+##H -x selects arbitrary query expressions
+##H -m selects match queryies (-p / -g)
+##H -r specifies that ITEMs are files to read rather than actual search terms
+##H ITEM are the search terms: GUIDs, GUID patterns, PFNs, PFN patterns etc.
+
 BEGIN {
   use strict; use warnings;
   our $me = $0; $me =~ s|.*/||;
