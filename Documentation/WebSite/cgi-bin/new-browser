@@ -65,7 +65,7 @@ sub intro
     my $stamp = strftime ("%Y-%m-%d %H:%M:%S %Z", localtime(time()));
     print $cgi->header();
 
-    # First print the main header, and set up the form and page choice table
+    # First print the main header, and set up the form with page and db choice tables
     print qq{
         <head>
         <title>PhEDEx monitoring</title>
@@ -117,11 +117,93 @@ sub intro
         </form>
     };
     
-    if ($cgi->param('page')) { print $cgi->param('page'); }
-    if ($cgi->param('nodes')) { foreach my $node ($cgi->param('nodes')) { print "Node $node "; } }
+   my %pages = ('main' => \&main,	   'transfer' => \&transfer,
+		 'replicas' => \&replicas, 'subs' => \&subs,
+		 'stats' => \&stats,       'agents' => \&agents,
+		 'rates' => \&rates);
+    &{$pages{param('page')} || \&main}();
 }
 
 sub end
 {
     print "</body></html>\n";
+}
+
+sub main
+{
+    print "<h2>System status</h2>";
+    my $active = 60*5;
+    my $offline = 60*15;
+    my $now = time ();
+    my $query = $dbh->prepare(q{select node,agent,timestamp from t_agent_status});
+    my %agents;
+    my %status;
+
+    $query->execute();
+    while (my $row = $query->fetchrow_arrayref)
+    {
+	my ($node, $agent, $contact) = @$row;
+	$status{$node}{$agent} = $contact;
+	$agents{$agent} = 1;
+    }
+    $query->finish();
+
+    print "<h2>Component status</h2>\n",
+          "<table><tr><th>Node</th>",
+	  (map { "<th>$_</th>" } sort keys %agents),
+	  "</tr>\n";
+
+    foreach my $node (sort keys %status)
+    {
+	print "<tr><td>$node</td>";
+        foreach my $agent (sort keys %agents)
+	{
+	    my $contact = $status{$node}{$agent};
+	    if (! defined $contact)
+	    {
+		print "<td>&nbsp;</td>";
+		next;
+	    }
+
+	    my $ago = &age ($now - $contact);
+	    if (($now - $contact) < $active) {
+                print "<td align='center' bgcolor='$goodcolor'>UP</td>";
+	    } elsif (($now - $contact) < $offline) {
+                print "<td align='center' bgcolor='$goodcolor'>UP ($ago ago)</td>";
+            } else {
+                print "<td align='center' bgcolor='$badcolor'>DOWN ($ago ago)</td>";
+            }
+	}
+	print "</tr>\n";
+    }
+    print "</table>";
+}
+
+sub transfer
+{
+    print "<h2>Transfer status</h2>";
+}
+
+sub replicas
+{
+    print "<h2>Replica state</h2>";
+}
+
+sub subs
+{
+    print "<h2>Subscriptions</h2>";
+}
+
+sub stats
+{
+    print "<h2>Status</h2>";
+}
+
+sub agents
+{
+    print "<h2>Agent status</h2>";
+}
+
+sub rates
+{
 }
