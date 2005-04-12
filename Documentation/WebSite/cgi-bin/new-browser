@@ -117,6 +117,7 @@ sub intro
         print "<option $sel value='$node'>$node</option>";
     }
     print "</select></td>";
+    print "<td><input type='text' name='nodematch' size=20 maxlength=20 value='some regexp here'></td>";
     
     # Now we can finish the menu off ...
     print qq{
@@ -156,7 +157,7 @@ sub main
         foreach my $temp_node ($cgi->param('nodes')) {
             $choice_nodes{$temp_node} = 1;
         }
-        if ( exists $choice_nodes{$node} || exists $choice_nodes{'all'} ) {
+        if ( exists $choice_nodes{$node} || exists $choice_nodes{'all'} || $node =~ /$cgi->param('nodematch')/ ) {
             $status{$node}{$agent} = $contact;
             $agents{$agent} = 1;
         }
