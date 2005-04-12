@@ -114,7 +114,7 @@ sub intro
         $count++;
         if ($count == 8) { print "</tr><tr>"; $count = 1; }
     }
-    print "</tr><tr><td><input type='checkbox' name='nodes' value='all' $sel>All nodes</input></td>";
+    print "</tr><tr><td><input type='checkbox' name='nodes' value='all'>All nodes</input></td>";
 
     # Now we can finish the menu off ...
     print qq{
