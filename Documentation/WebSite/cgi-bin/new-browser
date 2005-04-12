@@ -371,3 +371,26 @@ sub age {
     $diff %= 3600;
     $str .= sprintf("%02d", $diff / 60);
 }
+
+sub format_num {
+    my ($n) = @_;
+    return $n ? "$n" : '&#8211;';
+}
+
+sub format_size {
+    my ($bytes, $nodash) = @_;
+    my @bounds = ([ 2**10, 'k' ], [ 2**20, 'M' ], [ 2**30, 'G' ],
+		  [ 2**40, 'T' ], [ 2**50, 'P' ], [ 2**60, 'E' ]);
+    my ($val, $unit, $minus) = ($bytes, '', $bytes < 0 ? "-" : "");
+    do { $val = -$val; $bytes = -$bytes; } if $minus;
+    while (@bounds && $bytes >= $bounds [0][0])
+    {
+	$val = $bytes / $bounds[0][0];
+	$unit = $bounds[0][1];
+	shift (@bounds);
+    }
+
+    return $bytes || $nodash
+           ? sprintf('%s%.1f&nbsp;%sB', $minus, $val, $unit)
+	   : '&#8211;';
+}
