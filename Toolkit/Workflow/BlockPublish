@@ -201,7 +201,7 @@ sub publishBlock
 
     &logmsg("publishing $block->{OWNER}/$block->{DATASET}");
     &touch ("$self->{PUBLISHED}/$block->{OWNER}.$block->{DATASET}");
-    my $failed = &runcmd("false", $self->{SCRIPT}, $block->{DATASET}, $block->{OWNER},
+    my $failed = &runcmd(@{$self->{SCRIPT}}, $block->{DATASET}, $block->{OWNER},
 		      &listAssignments($block->{DATASET},$block->{OWNER}));
     &alert("$drop: publishing failed with exit code @{[&runerror ($failed)]}") if $failed;
 
