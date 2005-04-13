@@ -25,6 +25,13 @@ create table t_info_transfer_states
    files		integer		not null,
    bytes		integer		not null);
 
+create table t_info_replica_states
+  (timestamp		float		not null,
+   node			varchar (20)	not null,
+   state		integer		not null,
+   files		integer		not null,
+   bytes		integer		not null);
+
 create table t_info_transfer_rate
   (timestamp		float		not null,
    time_span		varchar (20)	not null,
