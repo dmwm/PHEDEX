@@ -335,7 +335,7 @@ sub tstates {
 	    from t_info_transfer_states
 	    order by to_node, from_node, to_state, from_state});
 
-    print "<h2>State details</h2>\n",
+    print "<h2>Transfer state details</h2>\n",
     	  "<table><tr bgcolor='$altcolor' valign='top'>",
 	  "<th rowspan='2'>Age</th>",
 	  "<th rowspan='2'>To node</th>",
@@ -381,6 +381,42 @@ sub tstates {
 	      "<td$from_color>$from_state ($from_state_name)</td>",
 	      "<td align='right'>@{[&format_num($files)]}</td>",
 	      "<td align='right'>@{[&format_size($bytes)]}</td>",
+	      "</tr>\n";
+    }
+    $query->finish();
+    print "</table>";
+
+    my $query = $dbh->prepare(qq{
+	    select timestamp, node, state, files, bytes
+	    from t_info_replica_states order by node, state});
+
+    print "<h2>Replica state details</h2>\n",
+    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+	  "<th rowspan='2'>Age</th>",
+	  "<th rowspan='2'>Node</th>",
+	  "<th rowspan='2'>State</th>",
+	  "<th colspan='2'>Files</th>",
+          "</tr>\n",
+	  "<tr bgcolor='$altcolor' valign='top'>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+          "</tr>\n";
+
+    $query->execute();
+    while (my $row = $query->fetchrow_arrayref)
+    {
+	my ($stamp, $node, $state, $files, $bytes) = @$row;
+        my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
+	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
+	my $state_name = ($state == 0 ? "at node"
+			     : $state == 1 ? "on disk"
+			     : "unknown");
+	my $color = (($state == 1) ? " bgcolor='$goodcolor'" : "");
+        print "<tr valign='top'$rowcolor>",
+	      "<td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>",
+	      "<td>$node</td>",
+	      "<td$color>$state ($state_name)</td>",
+	      "<td$color align='right'>@{[&format_num($files)]}</td>",
+	      "<td$color align='right'>@{[&format_size($bytes)]}</td>",
 	      "</tr>\n";
     }
     $query->finish();
