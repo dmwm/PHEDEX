@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-##H Update transfer status data for faster web access.
+##H Update transfer state data for faster web access.
 ##H
 ##H Usage:
 ##H   InfoTransferStates
