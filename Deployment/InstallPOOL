@@ -45,28 +45,43 @@ sub installStandalone
     my $Linux_V = undef;
     my $Linux_Vshort = undef;
     my $Xerces = undef;
+    my $PI = undef;
+    my $POOL = undef;
+    my $SEAL = undef;
+    my $PYTHON = undef;
 
     my @packetlist = ();
     if ($Lversion eq 'RH73') {
 	$Linux_V = 'rh73_gcc323';
 	$Linux_Vshort = 'rh73_gcc32';
 	$Xerces = '2.3.0-1/rh73_gcc32';
+	$PI = 'PI_1_2_5';
+	$POOL = 'POOL_1_8_1';
+	$SEAL = 'SEAL_1_4_3';
+	$PYTHON = '2.3.4';
 	@packetlist = ("LCG.POOL_1_8_1-rh73_gcc323-cms-1.i386.rpm",
 		       "LCG.SEAL_1_4_3-rh73_gcc323-cms-1.i386.rpm",
 		       "LCG.PI_1_2_5-rh73_gcc323-cms-1.i386.rpm",
 		       "LCG.mysql-rh73_gcc32-4.0.18-cms-1.i386.rpm",
 		       "LCG.mysqlpp-rh73_gcc32-1.7.9_mysql.4.0.18-cms-1.i386.rpm",
-		       "LCG.xerces-c-rh73_gcc32-2.3.0-1-cms-1.i386.rpm");
+		       "LCG.xerces-c-rh73_gcc32-2.3.0-1-cms-1.i386.rpm",
+		       "LCG.python-rh73_gcc32-2.3.4-cms-1.i386.rpm");
     } elsif ($Lversion eq 'SLC3') {
+	$versionTag='cms111';
 	$Linux_V = 'slc3_ia32_gcc323';
 	$Linux_Vshort = 'slc3_ia32_gcc323';
 	$Xerces = '2.3.0/slc3_ia32_gcc323';
-	@packetlist = ("LCG.POOL_1_8_1-slc3_ia32_gcc323-cms-1.i386.rpm",
-		       "LCG.SEAL_1_4_3-slc3_ia32_gcc323-cms-1.i386.rpm",
-		       "LCG.PI_1_2_5-slc3_ia32_gcc323-cms-1.i386.rpm",
+	$PI = 'PI_1_3_1';
+	$POOL = 'POOL_2_0_3';
+	$SEAL = 'SEAL_1_6_1';
+	$PYTHON = '2.3.4';
+	@packetlist = ("LCG.POOL_2_0_3-slc3_ia32_gcc323-cms-1.i386.rpm",
+		       "LCG.SEAL_1_6_1-slc3_ia32_gcc323-cms-1.i386.rpm",
+		       "LCG.PI_1_3_1-slc3_ia32_gcc323-cms-1.i386.rpm",
 		       "LCG.mysql-slc3_ia32_gcc323-4.0.18-cms-1.i386.rpm",
-		       "LCG.mysqlpp-slc3_ia32_gcc323-1.7.9_mysql.4.0.18-cms-1.i386.rpm",
-		       "LCG.xerces-c-slc3_ia32_gcc323-2.3.0-cms-1.i386.rpm");
+		       "LCG.mysqlpp-slc3_ia32_gcc323-1.7.31_mysql.4.0.18-cms-1.i386.rpm",
+		       "LCG.xerces-c-slc3_ia32_gcc323-2.3.0-cms-1.i386.rpm",
+		       "LCG.python-slc3_ia32_gcc323-2.3.4-cms-2.i386.rpm");
     } else {
 	die "Unsupported linux version chosen !!\n";
     }
@@ -125,20 +140,23 @@ sub installStandalone
     }
 
     # now finally provide a script to set some environment variables (has to be sourced later)
-    my $rpath = "$InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib:$InstallRoot/lcg/app/releases/SEAL/SEAL_1_4_3/$Linux_V/lib:$InstallRoot/lcg/external/xerces-c/$Xerces/lib:$InstallRoot/lcg/external/mysql/4.0.18/$Linux_Vshort/lib:$InstallRoot/lcg/external/mysqlpp/1.7.9_mysql.4.0.18/$Linux_Vshort/lib";
-    my $ppath = "$InstallRoot/lcg/app/releases/PI/PI_1_2_5/$Linux_V/lib/modules:$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/lib/modules";
-    my $bpath = "$InstallRoot/lcg/app/releases/POOL/POOL_1_8_1/$Linux_V/bin";
+    my $rpath = "$InstallRoot/lcg/app/releases/PI/$PI/$Linux_V/lib:$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/lib:$InstallRoot/lcg/app/releases/SEAL/$SEAL/$Linux_V/lib:$InstallRoot/lcg/external/xerces-c/$Xerces/lib:$InstallRoot/lcg/external/mysql/4.0.18/$Linux_Vshort/lib:$InstallRoot/lcg/external/mysqlpp/1.7.31_mysql.4.0.18/$Linux_Vshort/lib:$InstallRoot/lcg/external/python/$PYTHON/$Linux_Vshort/lib";
+    my $ppath = "$InstallRoot/lcg/app/releases/PI/$PI/$Linux_V/lib/modules:$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/lib/modules";
+    my $bpath = "$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/bin";
+    my $pypath = "$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/lib:$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/bin";
 
     open(FH, ">$InstallRoot/poolenv.sh");
     print FH "export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:$rpath;\n";
     print FH "export SEAL_PLUGINS=$ppath;\n";
     print FH "export PATH=\${PATH}:$bpath;\n";
+    print FH "export PYTHONPATH=$pypath;\n";
     close(FH);
 
     open(FH,">$InstallRoot/poolenv.csh");
     print FH "setenv LD_LIBRARY_PATH \${LD_LIBRARY_PATH}:$rpath;\n";
     print FH "setenv SEAL_PLUGINS $ppath;\n";
     print FH "setenv PATH \${PATH}:$bpath;\n";
+    print FH "setenv PYTHONPATH $pypath;\n";
     close(FH);
 
     return 1; # report success
