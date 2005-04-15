@@ -93,10 +93,47 @@ sub new
 sub refreshNeighbourLinks
 {
     my ($self, $dbh) = @_;
-    &dbexec($dbh, qq{
-	update t_routing set timestamp = :now
-	where to_node = :node and gateway = :node},
-	":now" => &mytimeofday(), ":node" => $self->{MYNODE});
+    my $mynode = $self->{MYNODE};
+    my %distances = ();
+
+    # First cache our _fixed_ neighbour routes- redo every time in case something
+    # changes. These are used to recover correct hop link values after a failure
+    my $query = &dbexec($dbh, qq{
+	select neighbour,hops from t_node_neighbours where node = '$mynode'});
+    while (my ($neighbour,$hops) = $query->fetchrow()) {
+	$neighbour =~ s/\s+//g;
+	$distances{$neighbour} = $hops;
+    }
+
+    # We need to check to see if a direct route is already there
+    my %established = ();
+    $query = &dbexec($dbh, qq{
+        select from_node, to_node, gateway, timestamp, hops from t_routing});
+    while (my ($from, $to, $gateway, $stamp, $hops) = $query->fetchrow())
+    {
+        $from =~ s/\s+//g; $to =~ s/\s+//g;
+	if ( $to eq $mynode && exists $distances{$from} ) {
+	    $established{$from} = 1;
+	}
+    }
+
+    # Now for every neighbour, refresh our link. Check to see if a link exists first!
+    my $time = &mytimeofday();
+    foreach my $neighbour ( keys %distances ) {
+	if ( ! exists $established{$neighbour} ) {
+	    &dbexec($dbh, qq{
+		insert into t_routing
+		    values ($time,'$neighbour','$mynode','$mynode',$distances{$neighbour})});
+	} else {
+	    &dbexec($dbh, qq{
+		update t_routing set timestamp = :now, hops = :hops
+		    where to_node = :node and gateway = :node and from_node = :from_node},
+		    ":now" => $time,
+		    ":node" => $mynode,
+		    ":from_node" => $neighbour,
+		    ":hops" => $distances{$neighbour});
+	}
+    }
 }
 
 sub updateTable
