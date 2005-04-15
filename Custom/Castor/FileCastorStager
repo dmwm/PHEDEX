@@ -70,7 +70,6 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG}
 ######################################################################
 # Routines for this agent.
 package FileCastorStager; use strict; use warnings; use base 'UtilsAgent';
-use DB_File;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
