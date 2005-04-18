@@ -1,7 +1,8 @@
 package UtilsTR; use strict; use warnings; use base 'Exporter';
 our @EXPORT = qw(usage readPatterns expandPatterns expandAssignments
 	         assignmentData assignmentInfo assignmentFileCategory
-	         assignmentDrops listDatasetOwners listAssignments
+	         assignmentDrops expandXMLFragment
+		 listDatasetOwners listAssignments
 	         castorCheck checkAssignmentFiles feedDropsToAgents);
 use TextGlob 'glob_to_regex';
 use UtilsWriters;
@@ -152,23 +153,7 @@ sub assignmentDrops
 		     . ".$assid-$ainfo->{ProdStepType}-$ainfo->{ProductionCycle}"
 		     . ".$run";
 	do { warn "$dropid: empty xml fragment\n"; next } if ($xmlfrag eq '0');
-	eval "use Compress::Zlib";
-	my $xml = undef;
-	if ($@)
-	{
-	    open (XMLEXP, "echo '$xmlfrag'"
-		          . " | perl -MMIME::Base64 -ne 'binmode(STDOUT); print decode_base64(\$_)'"
-		          . " | gzip -dc |")
-	        or die "$dropid: cannot expand xml fragment\n";
-	    $xml = join("", <XMLEXP>);
-	    close (XMLEXP) or die "$dropid: cannot expand xml fragment\n";
-	}
-	else
-	{
-	    $xml = Compress::Zlib::memGunzip (decode_base64 ($xmlfrag));
-	}
-
-	$xml = join("\n", grep(!/^\d+a$/ && !/^\.$/, split(/\n/, $xml)));
+	my $xml = &expandXMLFragment ($dropid, $xmlfrag);
 	$result->{$dropid} = {
 	    XML => &genXMLPreamble() . $xml . &genXMLTrailer(),
 	    SMRY => "EVDS_OutputPath=$basedir/$subdir/$ainfo->{DatasetName}\n"
@@ -176,6 +161,29 @@ sub assignmentDrops
     }
 
     return $result;
+}
+
+# Utility subroutine to expand a run XML fragment and to clean it up.
+sub expandXMLFragment
+{
+    my ($context, $xmlfrag) = @_;
+    eval "use Compress::Zlib";
+    my $xml = undef;
+    if ($@)
+    {
+	open (XMLEXP, "echo '$xmlfrag'"
+		      . " | perl -MMIME::Base64 -ne 'binmode(STDOUT); print decode_base64(\$_)'"
+		      . " | gzip -dc |")
+	    or die "$context: cannot expand xml fragment\n";
+	$xml = join("", <XMLEXP>);
+	close (XMLEXP) or die "$context: cannot expand xml fragment\n";
+    }
+    else
+    {
+	$xml = Compress::Zlib::memGunzip (decode_base64 ($xmlfrag));
+    }
+
+    return join("\n", grep(!/^\d+a$/ && !/^\.$/, split(/\n/, $xml)));
 }
 
 # Query RefDB for a list of dataset/owner pairs that match the
