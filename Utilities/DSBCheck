@@ -4,12 +4,15 @@
 ##H in the node's local file catalogue.
 ##H
 ##H Usage:
-##H   DBSCheck -db FILE[:SECTION] -pfnquery CMD[,ARG...] -node NAME [PATTERN...]
+##H   DSBCheck { -from RefDB | -from PhEDEx -db FILE[:SECTION] }
+##H            -pfnquery CMD[,ARG...] -node NAME [PATTERN...]
 ##H
-##H -db        database connection configuration parameter file
-##H -pfnquery  the command to query local file catalogue; see agents
-##H -node      the node for which to check replica completeness
-##H PATTERN    block match constraint (owner/dataset), such as "*/bt03_*"
+##H -from RefDB   read information from RefDB
+##H -from PhEDEx  read information from PhEDEx pseudo-bookkeeping-system
+##H -db           database connection configuration parameter file
+##H -pfnquery     the command to query local file catalogue; see agents
+##H -node         the node for which to check replica completeness
+##H PATTERN       block match constraint (owner/dataset), such as "*/bt03_*"
 ##H
 ##H Generates summary information for each owner/dataset pair that matches
 ##H PATTERNs.  Prints out owner/dataset pair with three numbers: number of
@@ -21,20 +24,16 @@ BEGIN { use strict; use warnings;
   my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
   unshift(@INC, "$home/../Toolkit/Common"); }
 use UtilsHelp;
-use UtilsDB;
-use UtilsTR;
-use UtilsWriters;
-use UtilsCommand;
-use UtilsLogging;
-use UtilsCatalogue;
+use UtilsDBS;
 use TextGlob 'glob_to_regex';
-use File::Path;
 
 my %args;
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-h') {
 	&usage();
+    } elsif ($ARGV[0] eq '-from' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{FROM} = shift (@ARGV);
     } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
         shift (@ARGV); $args{DBCONFIG} = shift(@ARGV);
     } elsif ($ARGV[0] eq '-pfnquery' && scalar @ARGV > 1) {
@@ -52,23 +51,22 @@ while (scalar @ARGV)
 
 $TextGlob::strict_wildcard_slash = 0;
 $args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
-if (!$args{DBCONFIG} || !$args{PFN_QUERY} || !$args{NODE})
+if (!$args{PFN_QUERY} || !$args{NODE} || !$args{FROM}
+    || !($args{FROM} eq 'RefDB' || $args{FROM} eq 'PhEDEx')
+    || !($args{FROM} ne 'PhEDEx' || $args{DBCONFIG}))
 {
     die "Insufficient parameters, use -h for help.\n";
 }
 
-# Connect to database
-my $dbh = &connectToDatabase (\%args, 0);
-$dbh->{FetchHashKeyName} = "NAME_uc";
-$dbh->{LongReadLen} = 4096;
+# Create appropriate dataset bookkeeping proxy
+my $dbs = ($args{FROM} eq 'RefDB'
+	   ? new UtilsDBS::RefDB (%args)
+	   : new UtilsDBS::PhEDEx (%args));
 
-# Get all existing datasets and files
-my $datasets = &dbexec($dbh, qq{select id, dataset, owner from t_dsb_dataset
-				order by owner, dataset})
-	       ->fetchall_arrayref ({});
+# Get all existing datasets
+my $datasets = $dbs->fetchPublishedData();
 
 # Get all current datasets
-my $stmtcache = {};
 foreach my $item (@$datasets)
 {
     my $token = "$item->{OWNER}/$item->{DATASET}";
@@ -77,7 +75,7 @@ foreach my $item (@$datasets)
     print $token;
 
     # Generate drops
-    &fetchDatasetInfo ($dbh, $item, $stmtcache);
+    $dbs->fetchDatasetInfo ($item);
     my @dsfiles = map { @{$_->{FILES}} } @{$item->{RUNS}};
     my $nfiles = scalar @dsfiles;
     my $onsite = grep ($_ eq $args{NODE}, @{$item->{SITES}}) ? $nfiles : 0;
@@ -87,58 +85,4 @@ foreach my $item (@$datasets)
     print " $nfiles $onsite $found\n";
 }
 
-$dbh->disconnect ();
 exit 0;
-
-# Get dataset information
-sub fetchDatasetInfo
-{
-    my ($dbh, $object, $stmtcache) = @_;
-
-    # Prepare statements
-    $stmtcache->{IGUID} ||= &dbprep ($dbh, qq{
-	select guid from t_dsb_fileid where id = :fileid});
-    $stmtcache->{IFILE} ||= &dbprep ($dbh, qq{
-	select filesize, checksum, filename, catfragment from t_dsb_file where fileid = :fileid});
-    $stmtcache->{IDR} ||= &dbprep ($dbh, qq{
-	select runid from t_dsb_dataset_run where dataset = :dataset});
-    $stmtcache->{IDRF} ||= &dbprep ($dbh, qq{
-	select fileid from t_dsb_dataset_run_file where dataset = :dataset and runid = :runid});
-    $stmtcache->{IDL} ||= &dbprep ($dbh, qq{
-	select location from t_dsb_dataset_availability where dataset = :dataset});
-
-    # Get dataset locations
-    &dbbindexec ($stmtcache->{IDL}, ":dataset" => $object->{ID});
-    while (my ($loc) = $stmtcache->{IDL}->fetchrow()) {
-	push (@{$object->{SITES}}, $loc);
-    }
-
-    # Get runs and files
-    &dbbindexec ($stmtcache->{IDR}, ":dataset" => $object->{ID});
-    while (my ($runid) = $stmtcache->{IDR}->fetchrow ())
-    {
-	my $run = { ID => $runid, FILES => [] };
-	push (@{$object->{RUNS}}, $run);
-	&dbbindexec ($stmtcache->{IDRF}, ":dataset" => $object->{ID}, ":runid" => $runid);
-	while (my ($fileid) = $stmtcache->{IDRF}->fetchrow ())
-	{
-	    &dbbindexec ($stmtcache->{IGUID}, ":fileid" => $fileid);
-	    my ($guid) = $stmtcache->{IGUID}->fetchrow();
-
-	    &dbbindexec ($stmtcache->{IFILE}, ":fileid" => $fileid);
-	    my ($size, $cksum, $filename, $frag) = $stmtcache->{IFILE}->fetchrow();
-	    push (@{$run->{FILES}}, { ID => $fileid,
-				      GUID => $guid,
-				      SIZE => $size,
-				      CHECKSUM => $cksum,
-				      LFN => $filename,
-				      XML => $frag });
-	}
-    }
-
-    $stmtcache->{IGUID}->finish ();
-    $stmtcache->{IFILE}->finish ();
-    $stmtcache->{IDRF}->finish ();
-    $stmtcache->{IDR}->finish ();
-    $stmtcache->{IDL}->finish ();
-}
