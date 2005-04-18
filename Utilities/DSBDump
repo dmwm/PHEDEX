@@ -19,6 +19,8 @@ while (scalar @ARGV)
 	&usage();
     } elsif ($ARGV[0] eq '-details') {
 	shift (@ARGV); $args{DETAILS} = 1;
+    } elsif ($ARGV[0] eq '-files') {
+	shift (@ARGV); $args{FILES} = 1;
     } elsif ($ARGV[0] eq '--') {
 	shift (@ARGV); last;
     } elsif ($ARGV[0] =~ '^-') {
@@ -52,14 +54,22 @@ foreach my $item (@current)
     print " Id         = @{[$item->{ID} || '(new)']}\n";
     print " Owner      = $item->{OWNER}\n";
     print " Dataset    = $item->{DATASET}\n";
+    print " Collection = $item->{COLLECTION}\n";
     print " Datatype   = $item->{DSINFO}{InputProdStepType}\n";
     print " InputOwner = $item->{DSINFO}{InputOwnerName}\n";
     print " PUDataset  = $item->{DSINFO}{PUDatasetName}\n";
     print " PUOwner    = $item->{DSINFO}{PUOwnerName}\n";
+    print " Status     = $item->{DSINFO}{CollectionStatus}\n";
     print " Runs       = @{[scalar @$runs]}\n";
     print " Files      = @{[scalar @dsfiles]}\n";
     print " Events     = $events\n";
-    print " Sites      = @{$item->{SITES}}\n";
+    print " Sites      = @{[sort keys %{$item->{SITES}}]}\n";
+    next if ! $args{FILES};
+
+    foreach my $f (@dsfiles)
+    {
+	print " File $f->{GUID} $f->{LFN}[0]\n";
+    }
 }
 
 exit 0;
@@ -85,6 +95,8 @@ sub fetchPublishedData
 	    {
 		push (@items, $item = { DATASET => $1, OWNER => $2 });
 	    }
+	} elsif ($item && $row =~ /list-collections.php\?CollID=(\d+)/) {
+	    $item->{COLLECTION} = $1;
 	} elsif ($item && $row =~ /<A HREF="Maintainer:[^>]*>([^<]*)</) {
 	    $item->{SITES}{$1} = 1;
 	}
@@ -108,6 +120,19 @@ sub fetchDatasetInfo
 	    $object->{DSINFO}{$1} = $2;
 	}
     }
+
+    $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/SQL/"
+	    	     ."GetCollectionInfo.php?CollectionID=$object->{COLLECTION}"
+		     ."&scriptstep=1");
+    die "no collection info for $object->{OWNER}/$object->{DATASET}\n" if ! $data;
+    die "bad collection info for $object->{OWNER}/$object->{DATASET}\n" if $data =~ /[Ee]rror.*SELECT.*FROM/s;
+    foreach my $row (split("\n", $data))
+    {
+	if ($row =~ /^\s*<TR><TD><B>Collection Status<\/B><TD>(\d+)$/)
+	{
+	    $object->{DSINFO}{CollectionStatus} = $1;
+	}
+    }
 }
 
 # Fetch information about all the jobs of a dataset
@@ -127,15 +152,10 @@ sub fetchRunInfo
 	my $runobj = { ID => $run, EVTS => $evts, XML => undef, FILES => [] };
 	push (@{$object->{RUNS}}, $runobj);
 	if ($xmlfrag eq '0') {
-	    &warn ("$label: no xml cragment\n");
+	    &warn ("$label: no xml fragment\n");
 	} else {
 	    # Grab XML fragment
-	    open (XMLEXP, "echo '$xmlfrag'"
-			  . " | perl -MMIME::Base64 -ne 'binmode(STDOUT); print decode_base64(\$_)'"
-			  . " | gzip -dc |")
-	        or die "$label: cannot expand xml fragment: $!\n";
-	    $runobj->{XML} = join("", grep(!/^\d+a$/ && !/^\.$/, <XMLEXP>));
-	    close (XMLEXP) or die "$label: failed to read xml fragment: $!\n";
+	    $runobj->{XML} = &expandXMLFragment ($label, $xmlfrag);
 
 	    # Parse XML into per-file data
 	    eval { $runobj->{FILES} = &parseXMLCatalogue ($runobj->{XML}) };
