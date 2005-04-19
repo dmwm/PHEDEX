@@ -16,7 +16,7 @@ sub connectToDatabase
     my ($self, $identify) = @_;
 
     # If we have database configuration file, read it
-    if ($self->{DBCONFIG} && ! $self->{DBNAME})
+    if ($self->{DBCONFIG} && ! $self->{DBH_DBNAME})
     {
 	$self->{DBH_LIFE} = 86400;
 	$self->{DBH_AGE} = 0;
