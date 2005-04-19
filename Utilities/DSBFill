@@ -22,8 +22,6 @@ while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-h') {
 	&usage();
-    } elsif ($ARGV[0] eq '-from' && scalar @ARGV > 1) {
-	shift (@ARGV); $args{FROM} = shift (@ARGV);
     } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
         shift (@ARGV); $args{DBCONFIG} = shift(@ARGV);
     } elsif ($ARGV[0] eq '--') {
@@ -37,9 +35,7 @@ while (scalar @ARGV)
 
 $TextGlob::strict_wildcard_slash = 0;
 $args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
-if (!$args{FROM}
-    || !($args{FROM} eq 'RefDB' || $args{FROM} eq 'PhEDEx')
-    || !($args{FROM} ne 'PhEDEx' || $args{DBCONFIG}))
+if (!$args{DBCONFIG})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -50,7 +46,7 @@ my $phedex      = new UtilsDBS::PhEDEx (%args);
 
 # Get all existing datasets
 my $datasets    = $phedex->fetchPublishedData();
-my $files       = &phedex->fetchKnownFiles();
+my $files       = $phedex->fetchKnownFiles();
 my %dso2dataset = map { join("/", $_->{OWNER}, $_->{DATASET}) => $_ } @$datasets;
 my %guid2file   = map { $_->{GUID} => $_ } @$files;
 
@@ -73,12 +69,10 @@ foreach my $item (@$current)
 
     # Get the full data
     eval { $refdb->fillDatasetInfo ($item); };
-    do { &warn ($@); next; } if $@;
-    my $runs = $item->{RUNS};
-    my @dsfiles = map { @{$_->{FILES}} } @$runs;
+    do { warn ($@); next } if $@;
 
     # Match files against known files
-    foreach my $file (@dsfiles)
+    foreach my $file (@{$item->{FILES}})
     {
 	if (my $oldfile = $guid2file{$file->{GUID}})
 	{
@@ -87,23 +81,30 @@ foreach my $item (@$current)
 	}
     }
 
-    # Evaluate dataset information
-    my $events = 0; map { $events += $_->{EVTS} } @$runs;
-    print " Id         = @{[$item->{ID} || '(new)']}\n";
+    my $blocks = $item->{BLOCKS};
+    my $runs = $item->{RUNS};
+    my $files = $item->{FILES};
+    my $events = 0; map { $events += $_->{EVTS} } values %$runs;
+    print " Id         = @{[$item->{ID} || '']}\n";
     print " Owner      = $item->{OWNER}\n";
     print " Dataset    = $item->{DATASET}\n";
+    print " Collection = $item->{COLLECTION}\n";
     print " Datatype   = $item->{DSINFO}{InputProdStepType}\n";
     print " InputOwner = $item->{DSINFO}{InputOwnerName}\n";
     print " PUDataset  = $item->{DSINFO}{PUDatasetName}\n";
     print " PUOwner    = $item->{DSINFO}{PUOwnerName}\n";
-    print " Runs       = @{[scalar @$runs]}\n";
-    print " Files      = @{[scalar @dsfiles]}\n";
+    print " Status     = $item->{DSINFO}{CollectionStatus}\n";
+    print " Blocks     = @{[scalar keys %$blocks]}\n";
+    print " Runs       = @{[scalar keys %$runs]}\n";
+    print " Files      = @{[scalar @$files]}\n";
     print " Events     = $events\n";
-    print " Filling database...\n";
+    print " Sites      = @{[sort keys %{$item->{SITES}}]}\n";
 
     # Update the database
     $phedex->updateDataset ($item);
 }
+
+exit 0;
 
 # Delete unknown datasets
 foreach my $item (@$datasets)
