@@ -122,12 +122,6 @@ sub deleteOneFile
 	&dbexec($dbh, qq{
 	    delete from t_replica_state where guid = :guid and node = :node},
 	    ":guid" => $file->{GUID}, ":node" => $self->{MYNODE});
-
-	# Safely removed, now remove existing transfers in and out.
-	&dbexec($dbh, qq{
-	    delete from t_transfer_state
-	    where guid = :guid and (from_node = :node or to_node = :node)},
-	    ":guid" => $file->{GUID}, ":node" => $self->{MYNODE});
 	$dbh->commit();
 
 	# Remove file from disk now.
