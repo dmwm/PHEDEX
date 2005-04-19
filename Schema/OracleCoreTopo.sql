@@ -9,6 +9,11 @@
 create table t_node
   (name			varchar (20)	not null);
 
+create table t_node_neighbour
+  (node			varchar (20)	not null,
+   neighbour		varchar (20)	not null,
+   hops			integer		not null);
+
 create table t_routing
   (timestamp		float		not null,
    from_node		varchar (20)	not null,
@@ -32,6 +37,20 @@ alter table t_node
   add constraint pk_node
   primary key (name)
   using index tablespace CMS_TRANSFERMGMT_INDX01;
+
+
+alter table t_node_neighbour
+  add constraint pk_node_neighbour
+  primary key (node, neighbour)
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
+
+alter table t_node_neighbour
+  add constraint fk_node_neighbour_node
+  foreign key (node) references t_node (name);
+
+alter table t_node_neighbour
+  add constraint fk_node_neighbour_neighbour
+  foreign key (neighbour) references t_node (name);
 
 
 alter table t_routing
