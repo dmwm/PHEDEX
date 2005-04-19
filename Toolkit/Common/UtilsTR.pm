@@ -10,6 +10,7 @@ use UtilsReaders;
 use UtilsCommand;
 use UtilsNet;
 use MIME::Base64;
+use Compress::Zlib;
 
 sub usage
 {
@@ -167,22 +168,7 @@ sub assignmentDrops
 sub expandXMLFragment
 {
     my ($context, $xmlfrag) = @_;
-    eval "use Compress::Zlib";
-    my $xml = undef;
-    if ($@)
-    {
-	open (XMLEXP, "echo '$xmlfrag'"
-		      . " | perl -MMIME::Base64 -ne 'binmode(STDOUT); print decode_base64(\$_)'"
-		      . " | gzip -dc |")
-	    or die "$context: cannot expand xml fragment\n";
-	$xml = join("", <XMLEXP>);
-	close (XMLEXP) or die "$context: cannot expand xml fragment\n";
-    }
-    else
-    {
-	$xml = Compress::Zlib::memGunzip (decode_base64 ($xmlfrag));
-    }
-
+    my $xml = Compress::Zlib::memGunzip (decode_base64 ($xmlfrag));
     return join("\n", grep(!/^\d+a$/ && !/^\.$/, split(/\n/, $xml)));
 }
 
