@@ -59,6 +59,7 @@ sub intro
        	<td><a href='}, &relurl('page', 'stats'), qq{'>File size stats</a></td>
        	<td><a href='}, &relurl('page', 'rates'), qq{'>Transfer rate</a></td>
        	<td><a href='}, &relurl('page', 'agents'), qq{'>Agent status</a></td>
+       	<td><a href='}, &relurl('page', 'dbinfo'), qq{'>Database info</a></td>
        </tr>
        <tr><td colspan=7 align='center'>$stamp</td></tr>
        <tr>
@@ -81,7 +82,8 @@ sub intro
     my %pages = ('main' => \&main,	   'transfer' => \&transfer,
 		 'replicas' => \&replicas, 'subs' => \&subs,
 		 'stats' => \&stats,       'agents' => \&agents,
-		 'rates' => \&rates,	   'tstates' => \&tstates);
+		 'rates' => \&rates,	   'tstates' => \&tstates,
+	 	 'dbinfo' => \&dbinfo);
     &{$pages{param('page')} || \&main}();
     print "</body></html>\n";
 }
@@ -828,6 +830,45 @@ sub rates {
 	}
     }
     print "</table>\n<hr>\n";
+}
+
+sub dbinfo
+{
+    my $extents = $dbh->selectall_arrayref(qq{
+	select
+	    segment_type,
+	    segment_name,
+	    tablespace_name,
+	    sum(bytes),
+	    sum(blocks),
+	    count(extent_id)
+	from user_extents
+	group by segment_name, segment_type, tablespace_name
+	order by sum(bytes) desc, segment_type desc, segment_name});
+    print "<h2>Database Information</h2>\n",
+    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+	  "<th>Bytes</th>",
+	  "<th>Blocks</th>",
+	  "<th>Extents</th>",
+	  "<th>Object</th>",
+	  "<th>Tablespace</th>",
+	  "<th>Type</th>",
+	  "</tr>\n";
+    my $rows = 0;
+    foreach my $row (@$extents)
+    {
+	my ($type, $name, $tspace, $bytes, $blocks, $extents) = @$row;
+        my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
+	print "<tr$rowcolor>",
+	      "<td align='right'>@{[&format_size($bytes)]}</td>",
+	      "<td align='right'>@{[&format_num($blocks)]}</td>",
+	      "<td align='right'>@{[&format_num($extents)]}</td>",
+	      "<td>$name</td>",
+	      "<td>$tspace</td>",
+	      "<td>$type</td>",
+	      "</tr>\n";
+    }
+    print "</table>\n";
 }
 
 sub end {
