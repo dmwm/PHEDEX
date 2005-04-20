@@ -78,6 +78,10 @@ sub fetchDatasetInfo
 	    $object->{DSINFO}{CollectionStatus} = $1;
 	}
     }
+
+    $object->{BLOCKS} = {};
+    $object->{RUNS} = {};
+    $object->{FILES} = [];
 }
 
 # Fetch information about all the jobs of a dataset
@@ -249,6 +253,13 @@ sub fetchDatasetInfo
 	$object->{DSINFO}{PUDatasetName} = $pudataset;
 	$object->{DSINFO}{PUOwnerName} = $puowner;
 	$object->{DSINFO}{CollectionStatus} = $collstatus;
+
+	$object->{BLOCKS} = {};
+	$object->{RUNS} = {};
+	$object->{FILES} = [];
+
+	$object->{BLOCKS_BY_ID} = {};
+	$object->{RUNS_BY_ID} = {};
     }
 
     # Get dataset locations
