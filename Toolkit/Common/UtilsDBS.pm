@@ -495,6 +495,7 @@ sub updateDataset
     # Grand execute everything
     foreach my $stmtname (qw(IFILE IFATTR IDS IBLOCK IRUN IFMAP IDLS))
     {
+	next if ! keys %{$sqlargs{$stmtname}};
 	my $stmt = $stmtcache->{$stmtname};
 	foreach my $k (keys %{$sqlargs{$stmtname}}) {
 	    $stmt->bind_param_array ($k, $sqlargs{$stmtname}{$k});
