@@ -101,7 +101,8 @@ foreach my $item (@$current)
     print " Sites      = @{[sort keys %{$item->{SITES}}]}\n";
 
     # Update the database
-    $phedex->updateDataset ($item);
+    eval { $phedex->updateDataset ($item) };
+    warn $@ if $@;
 }
 
 exit 0;
