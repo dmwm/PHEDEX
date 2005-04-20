@@ -57,8 +57,9 @@ sub fetchDatasetInfo
     my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/data/"
 	    		."AnaInfo.php?DatasetName=$object->{DATASET}&"
 			."OwnerName=$object->{OWNER}");
-    die "no run data for $object->{OWNER}/$object->{DATASET}\n" if ! $data;
-    die "bad run data for $object->{OWNER}/$object->{DATASET}\n" if $data =~ /ERROR.*SELECT.*FROM/s;
+    die "no dataset info for $object->{OWNER}/$object->{DATASET}\n" if ! $data;
+    die "bad dataset info for $object->{OWNER}/$object->{DATASET}\n"
+        if $data =~ /ERROR.*SELECT.*FROM/si;
     foreach my $row (split("\n", $data))
     {
 	if ($row =~ /^(\S+)=(.*)/) {
@@ -70,7 +71,8 @@ sub fetchDatasetInfo
 	    	     ."GetCollectionInfo.php?CollectionID=$object->{COLLECTION}"
 		     ."&scriptstep=1");
     die "no collection info for $object->{OWNER}/$object->{DATASET}\n" if ! $data;
-    die "bad collection info for $object->{OWNER}/$object->{DATASET}\n" if $data =~ /[Ee]rror.*SELECT.*FROM/s;
+    die "bad collection info for $object->{OWNER}/$object->{DATASET}\n"
+        if $data =~ /ERROR.*SELECT.*FROM/si;
     foreach my $row (split("\n", $data))
     {
 	if ($row =~ /^\s*<TR><TD><B>Collection Status<\/B><TD>(\d+)$/)
@@ -134,7 +136,8 @@ sub fetchRunInfo
 	    		."GetJobSplit.php?DatasetName=$object->{DATASET}&"
 			."OwnerName=$object->{OWNER}&FIXME_ASSIGNMENTS=1");
     die "no run data for $object->{OWNER}/$object->{DATASET}\n" if ! $data;
-    die "bad run data for $object->{OWNER}/$object->{DATASET}\n" if $data =~ /ERROR.*SELECT.*FROM/s;
+    die "bad run data for $object->{OWNER}/$object->{DATASET}\n"
+        if $data =~ /ERROR.*SELECT.*FROM/si;
     my ($junk, @rows) = split("\n", $data);
     foreach my $row (@rows)
     {
