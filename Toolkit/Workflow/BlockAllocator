@@ -100,6 +100,7 @@ sub idle
 	    where bd.name is null)},
 	    ":now" => &mytimeofday());
 
+    	$dbh->commit();
 	&logmsg ("$rows new block destinations allocated") if $rows > 0;
     };
     do { &alert ("database error: $@");
