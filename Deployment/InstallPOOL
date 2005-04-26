@@ -1,8 +1,11 @@
 #!/usr/bin/env perl
-use strict;
-use warnings;
-use Getopt::Long;
-use English;
+BEGIN
+{
+    use strict;
+    use warnings;
+    use Getopt::Long;
+    use English;
+}
 
 my $lversion = qx(cat /etc/redhat-release 2>/dev/null);
 my %args = (LVERSION => ($lversion =~ /Scientific/ ? "SLC3" : "RH73"));
@@ -27,6 +30,9 @@ if ($args{HELP} || (!$args{STANDALONE} && !$args{CMS} && !$args{XCMSI})
     "be installed into DESTINATION.\n";
     exit 1;
 }
+
+# make sure all kinds of architecure strings are interpreted correctly
+$args{LVERSION} = ($args{LVERSION} =~ m|slc|i ? "SLC3" : "RH73");
 
 if ($args{CMS}) {
     print "Installing POOL tools from SCRAM environment into $args{ROOT}\n";
