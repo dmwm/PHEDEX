@@ -163,7 +163,21 @@ sub format_size {
 sub transfer {
     my $rows = 0;
     my $now = time();
-    my $query = $dbh->prepare(qq{
+    my $query =
+        ($db eq 'rac' ?  $dbh->prepare(qq{
+	    select
+	      node, timestamp,
+	      dest_files, dest_bytes,
+	      node_files, node_bytes,
+	      0, 0,
+	      0, 0,
+	      0, 0,
+	      0, 0,
+	      xfer_files, xfer_bytes,
+	      0, 0
+	    from t_info_transfer_status
+	    order by node})
+         : $dbh->prepare(qq{
 	    select
 	      node, timestamp,
 	      n_files, sz_files,
@@ -175,13 +189,13 @@ sub transfer {
 	      n_pending, sz_pending,
 	      n_other, sz_other
 	    from t_info_transfer_status
-	    order by node});
+	    order by node}));
 
     print "<h2>Transfer status</h2>\n",
     	  "<table><tr bgcolor='$altcolor' valign='top'>",
 	  "<th rowspan='2'>Age</th>",
 	  "<th rowspan='2'>Node</th>",
-	  ($db ne 'testbed' ? (
+	  (($db ne 'testbed' && $db ne 'rac') ? (
 	   "<th colspan='2'>Files</th>",
 	   "<th colspan='2'>On Site</th>",
 	   "<th colspan='2'>Staged</th>",
@@ -231,7 +245,7 @@ sub transfer {
 	    $wanted, $wantedsize,
 	    $pending, $pendingsize,
 	    $other, $othersize) = @$row;
-        next if (! $files && $db ne 'testbed');
+        next if (! $files && $db ne 'testbed' && $db ne 'rac');
 
     	$tfiles += $files; $tfilesize += $filesize;
 	$tonsite += $onsite; $tonsitesize += $onsitesize;
@@ -251,7 +265,7 @@ sub transfer {
 	my $pencolor = ($files != $onsite + $transf + $wanted + $pending + $other)
 		       ? " bgcolor='$warncolor'" : ! $pending ? ''
 		       : " bgcolor='$pendcolor'";
-	if ($db eq 'testbed')
+	if ($db eq 'testbed' || $db eq 'rac')
 	{
 	   $onscolor = (($files && $onsite > $files) ? " bgcolor='$warncolor'"
 		   	: ($files && $onsite < $files) ? " bgcolor='$pendcolor'"
@@ -268,7 +282,7 @@ sub transfer {
 	      "<td align='right'>@{[&format_size($filesize)]}</td>",
 	      "<td align='right'$onscolor>@{[&format_num($onsite)]}</td>",
 	      "<td align='right'$onscolor>@{[&format_size($onsitesize)]}</td>",
-	      ($db eq 'testbed' ? () : (
+	      (($db eq 'testbed' || $db eq 'rac') ? () : (
 	      "<td align='right'>@{[&format_num($staged)]}</td>",
 	      "<td align='right'>@{[&format_size($stagedsize)]}</td>",
 	      "<td align='right'$avacolor>@{[&format_num($avail)]}</td>",
@@ -279,7 +293,7 @@ sub transfer {
 	      "<td align='right'$wancolor>@{[&format_size($wantedsize)]}</td>")),
 	      "<td align='right'$pencolor>@{[&format_num($pending)]}</td>",
 	      "<td align='right'$pencolor>@{[&format_size($pendingsize)]}</td>",
-	      ($db eq 'testbed' ? () : (
+	      (($db eq 'testbed' || $db eq 'rac') ? () : (
 	      "<td align='right'>@{[&format_num($other)]}</td>",
 	      "<td align='right'>@{[&format_size($othersize)]}</td>")),
 	      "</tr>\n";
@@ -290,7 +304,7 @@ sub transfer {
     my $pencolor = ($tfiles != $tonsite + $ttransf + $twanted + $tpending + $tother)
 		   ? " bgcolor='$warncolor'" : ! $tpending ? ''
 		   : " bgcolor='$pendcolor'";
-    if ($db eq 'testbed')
+    if ($db eq 'testbed' || $db eq 'rac')
     {
 	$onscolor = (($tfiles && $tonsite < $tfiles) ? " bgcolor='$pendcolor'"
 		     : ($tpending) ? " bgcolor='$pendcolor'" : "");
@@ -305,7 +319,7 @@ sub transfer {
 	  "<th align='right'>@{[&format_size($tfilesize)]}</th>",
 	  "<th align='right'$onscolor>@{[&format_num($tonsite)]}</th>",
 	  "<th align='right'$onscolor>@{[&format_size($tonsitesize)]}</th>",
-	  ($db eq 'testbed' ? () : (
+	  (($db eq 'testbed' || $db eq 'rac') ? () : (
 	  "<th align='right'>@{[&format_num($tstaged)]}</th>",
 	  "<th align='right'>@{[&format_size($tstagedsize)]}</th>",
 	  "<th align='right'>@{[&format_num($tavail)]}</th>",
@@ -316,7 +330,7 @@ sub transfer {
 	  "<th align='right'$wancolor>@{[&format_size($twantedsize)]}</th>")),
 	  "<th align='right'$pencolor>@{[&format_num($tpending)]}</th>",
 	  "<th align='right'$pencolor>@{[&format_size($tpendingsize)]}</th>",
-	  ($db eq 'testbed' ? () : (
+	  (($db eq 'testbed' || $db eq 'rac') ? () : (
 	  "<th align='right'>@{[&format_num($tother)]}</th>",
 	  "<th align='right'>@{[&format_size($tothersize)]}</th>")),
 	  "</tr>\n";
