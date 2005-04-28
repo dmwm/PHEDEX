@@ -4,10 +4,10 @@
 ##H
 ##H Usage: FCcopy -u SRC-CATALOGUE -d DEST-CATALOGUE
 ##H               [-m PFN-MATCH-RX] [-r PFN-REWRITE-SCRIPT[,ARG...]]
-##H               [-n NJOBS] [-b BATCH-SIZE]
+##H               [-n NJOBS] [-b BATCH-SIZE] [-v]
 ##H
-##H SRC-CATALOGUE      The source catalogue
-##H DEST-CATALOGUE     The destination catalogue
+##H -u SRC-CATALOGUE   The source catalogue
+##H -d DEST-CATALOGUE  The destination catalogue
 ##H   Both of these must be of the format "proto:contact"; possible
 ##H   protocols are "RLSOracle", "Oracle", "mysql" and "XML", both
 ##H   for source and destination.  The rest of the contact is:
@@ -16,15 +16,16 @@
 ##H      mysql:Database:User:Password
 ##H      XML:filename
 ##H
-##H PFN-MATCH-RX       SQL pattern to match PFNs to.  Only matching PFNs
+##H -m PFN-MATCH-RX    SQL pattern to match PFNs to.  Only matching PFNs
 ##H                    will be copied to the destination catalogue.
 ##H                    Files with no matching PFNs are skipped.
-##H PFN-REWRITE-SCRIPT If defined, invoked for every PFN to rewrite the
+##H -r REWRITE-SCRIPT  If defined, invoked for every PFN to rewrite the
 ##H                    PFN for destination catalogue.  The script is
 ##H                    passed the PFN on command line and must print
 ##H                    the new PFN to standard output.
-##H NJOBS              Run NJOBS of PFN-REWRITE-SCRIPT concurrently.
-##H BATCH-SIZE         Print progress dot when this many files copied.
+##H -n NJOBS           Run NJOBS of PFN-REWRITE-SCRIPT concurrently.
+##H -b BATCH-SIZE      Print verbosity dots when BATCH-SIZE files copied.
+##H -v                 Be verbose.
 
 BEGIN {
   use strict; use warnings;
@@ -50,6 +51,8 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{NJOBS} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-b' && scalar @ARGV > 1)
     { shift (@ARGV); $args{BATCH} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-v')
+    { shift (@ARGV); $args{VERBOSE} = 1; }
     elsif ($ARGV[0] eq '-h')
     { &usage(); }
     else
@@ -90,7 +93,7 @@ while (1)
 	if ($args{MATCH})
 	{
 	    $file->{PFN} = [ grep($_->{PFN} =~ /$args{MATCH}/o, @{$file->{PFN}}) ];
-	    do { local $| = 1; print "_"; next } if ! @{$file->{PFN}};
+	    do { local $| = 1; print "_" if $args{VERBOSE}; next } if ! @{$file->{PFN}};
 	}
 	push (@files, $file);
 	last if scalar @files >= $args{BATCH};
@@ -110,13 +113,13 @@ while (1)
     }
 
     # Show progress
-    do { local $| = 1; print "."; };
+    do { local $| = 1; print "." if $args{VERBOSE}; };
     last if $nfiles < $args{BATCH};
 }
 $src->finish();
 $dest->finish();
 
-print "\n$ntotal files copied\n";
+print "\n$ntotal files copied\n" if $args{VERBOSE};
 exit 0;
 
 # Pick result from remapping a PFN.
