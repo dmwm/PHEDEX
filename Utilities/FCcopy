@@ -1,9 +1,31 @@
 #!/usr/bin/env perl
 
-    print STDERR "usage: $me -u SRC-CATALOGUE -d DEST-CATALOGUE\n",
-    		 "  [-m PFN-MATCH-RX] [-r PFN-REWRITE-SCRIPT]\n",
-		 "  [-n N-JOBS] [-b BATCH-SIZE]\n";
-    exit (1);
+##H Copy file catalogues the rudimentary way
+##H
+##H Usage: FCcopy -u SRC-CATALOGUE -d DEST-CATALOGUE
+##H               [-m PFN-MATCH-RX] [-r PFN-REWRITE-SCRIPT[,ARG...]]
+##H               [-n NJOBS] [-b BATCH-SIZE]
+##H
+##H SRC-CATALOGUE      The source catalogue
+##H DEST-CATALOGUE     The destination catalogue
+##H   Both of these must be of the format "proto:contact"; possible
+##H   protocols are "RLSOracle", "Oracle", "mysql" and "XML", both
+##H   for source and destination.  The rest of the contact is:
+##H      RLSOracle:Database:User:Password
+##H      Oracle:Database:User:Password
+##H      mysql:Database:User:Password
+##H      XML:filename
+##H
+##H PFN-MATCH-RX       SQL pattern to match PFNs to.  Only matching PFNs
+##H                    will be copied to the destination catalogue.
+##H                    Files with no matching PFNs are skipped.
+##H PFN-REWRITE-SCRIPT If defined, invoked for every PFN to rewrite the
+##H                    PFN for destination catalogue.  The script is
+##H                    passed the PFN on command line and must print
+##H                    the new PFN to standard output.
+##H NJOBS              Run NJOBS of PFN-REWRITE-SCRIPT concurrently.
+##H BATCH-SIZE         Print progress dot when this many files copied.
+
 BEGIN {
   use strict; use warnings;
   our $me = $0; $me =~ s|.*/||;
@@ -44,6 +66,7 @@ my ($src, $dest, $files) = (undef, undef, {});
 if ($args{SRC_CATALOGUE} =~ /^RLSOracle:/) { $src = new RLSRead; }
 elsif ($args{SRC_CATALOGUE} =~ /^Oracle:/) { $src = new OracleRead; }
 elsif ($args{SRC_CATALOGUE} =~ /^mysql:/) { $src = new MySQLRead; }
+elsif ($args{SRC_CATALOGUE} =~ /^XML/) { $src = new XMLRead; }
 else { die "Unrecognised input catalogue $args{SRC_CATALOGUE}\n"; }
 
 if ($args{DEST_CATALOGUE} =~ /^RLSOracle:/) { $dest = new RLSWrite; }
@@ -66,8 +89,8 @@ while (1)
     {
 	if ($args{MATCH})
 	{
-	    $file->{PFNS} = [ grep($_->{PFN} =~ /$args{MATCH}/o, @{$file->{PFNS}}) ];
-	    do { local $| = 1; print "_"; next } if ! @{$file->{PFNS}};
+	    $file->{PFN} = [ grep($_->{PFN} =~ /$args{MATCH}/o, @{$file->{PFN}}) ];
+	    do { local $| = 1; print "_"; next } if ! @{$file->{PFN}};
 	}
 	push (@files, $file);
 	last if scalar @files >= $args{BATCH};
@@ -106,7 +129,7 @@ sub collectResult
     unlink $output;
 
     die "Remapping $job->{PFN} failed\n" if $job->{STATUS} || ! $pfn;
-    $file->{PFNS}[0]{PFN} = $pfn;
+    $file->{PFN}[0]{PFN} = $pfn;
 }
 
 # Map GUIDs to PFNs using catalogue, running a number of queries
@@ -124,7 +147,7 @@ sub remapPFNs
     {
 	my $output = qx(mktemp /tmp/tmp.XXXXXXX); chomp ($output);
 	$mgr->addJob (sub { &collectResult($file, $output, @_) },
-	    {}, "sh", "-c", "@cmd $file->{PFNS}[0]{PFN} > $output");
+	    {}, "sh", "-c", "@cmd $file->{PFN}[0]{PFN} > $output");
     	$mgr->pumpJobs ();
     }
 
@@ -191,15 +214,15 @@ sub read
     my ($id, $guid) = $self->{GQUERY}->fetchrow();
     return undef if ! defined $id;
 
-    my $file = { GUID => $guid, PFNS => [], LFNS => [], META => {} };
+    my $file = { GUID => $guid, PFN => [], LFN => [], META => {} };
     &dbbindexec ($self->{PQUERY}, ":guid" => $id);
     while (my ($type, $pfn) = $self->{PQUERY}->fetchrow()) {
-	push(@{$file->{PFNS}}, { PFN => $pfn, TYPE => $type });
+	push(@{$file->{PFN}}, { PFN => $pfn, TYPE => $type });
     }
 
     &dbbindexec ($self->{LQUERY}, ":guid" => $guid);
     while (my ($lfn) = $self->{LQUERY}->fetchrow()) {
-	push(@{$file->{LFNS}}, $lfn);
+	push(@{$file->{LFN}}, $lfn);
     }
 
     &dbbindexec ($self->{MQUERY}, ":guid" => $guid);
@@ -260,10 +283,10 @@ sub read
     my ($guid, $lfn) = $self->{LQUERY}->fetchrow();
     return undef if ! defined $guid;
 
-    my $file = { GUID => $guid, PFNS => [], LFNS => [ $lfn ], META => {} };
+    my $file = { GUID => $guid, PFN => [], LFN => [ $lfn ], META => {} };
     &dbbindexec ($self->{PQUERY}, 1 => $guid);
     while (my ($type, $pfn) = $self->{PQUERY}->fetchrow()) {
-	push(@{$file->{PFNS}}, { PFN => $pfn, TYPE => $type });
+	push(@{$file->{PFN}}, { PFN => $pfn, TYPE => $type });
     }
 
     &dbbindexec ($self->{MQUERY}, 1 => $guid);
@@ -325,7 +348,7 @@ sub write
 {
     my ($self, $file) = @_;
 
-    foreach my $pfn (@{$file->{PFNS}})
+    foreach my $pfn (@{$file->{PFN}})
     {
         &dbbindexec ($self->{PINS},
 		     1 => $file->{GUID},
@@ -333,7 +356,7 @@ sub write
 		     3 => $pfn->{PFN});
     }
 
-    foreach my $lfn (@{$file->{LFNS}})
+    foreach my $lfn (@{$file->{LFN}})
     {
         &dbbindexec ($self->{LINS}, 1 => $file->{GUID}, 2 => $lfn);
     }
@@ -346,6 +369,47 @@ sub write
 	         map { $keys{$_} => $meta->{$_} } keys %$meta);
 
     $self->{DBH}->commit();
+}
+
+######################################################################
+package XMLRead; use strict; use warnings; use base 'Exporter';
+use UtilsReaders;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = {};
+    bless $self, $class;
+    return $self;
+}
+
+sub init
+{
+    my ($self, $contact) = @_;
+    my ($file) = ($contact =~ m|^XML:(.*)|);
+    die "expecting XML:File as contact, got $contact" if ! $file;
+    $self->{NEXT} = 0;
+    $self->{CATALOGUE} = eval { &readXMLCatalogue ($file) };
+    if ($@ && $@ =~ /no guid mappings/) {
+	$self->{CATALOGUE} = [];
+    } elsif ($@) {
+	die $@;
+    }
+}
+
+sub read
+{
+    my ($self) = @_;
+    return undef if $self->{NEXT} >= scalar @{$self->{CATALOGUE}};
+    return $self->{CATALOGUE}[$self->{NEXT}++];
+}
+
+sub finish
+{
+    my ($self) = @_;
+    delete $self->{CATALOGUE};
+    delete $self->{NEXT};
 }
 
 ######################################################################
@@ -395,13 +459,13 @@ sub write
 
     print XMLOUT "  <File ID='$file->{GUID}'>\n";
     print XMLOUT "    <physical>\n";
-    foreach my $pfn (@{$file->{PFNS}}) {
+    foreach my $pfn (@{$file->{PFN}}) {
 	print XMLOUT "      <pfn filetype='@{[$pfn->{TYPE} || '']}' name='$pfn->{PFN}'/>\n";
     }
     print XMLOUT "    </physical>\n";
 
     print XMLOUT "    <logical>\n";
-    foreach my $lfn (@{$file->{LFNS}}) {
+    foreach my $lfn (@{$file->{LFN}}) {
         print XMLOUT "      <lfn name='$lfn'/>\n";
     }
     print XMLOUT "    </logical>\n";
