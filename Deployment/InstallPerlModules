@@ -62,23 +62,38 @@ for module in http://search.cpan.org/CPAN/authors/id/J/JH/JHI/Time-HiRes-1.66.ta
   moduletar=$(basename $module)
   moduledir=$(basename $moduletar .tar.gz)
   echo; echo "*** building perl module $moduledir"
-  (cd $tmpdir || exit $?
-   wget -q $module || exit $?
-   tar zxf $moduletar || exit $?
-   cd $moduledir || exit $?
+  (set -e; cd $tmpdir; wget -q $module; tar zxf $moduletar; cd $moduledir
    perl Makefile.PL prefix="$prefix" || exit $?
-   make && make install) || exit $?
+   make; make install) || exit $?
 done
+
+# Build XML::Parser if it doesn't exist
+if perl -e 'use XML::Parser' >/dev/null 2>&1; then :; else
+  expat=http://service-spi.web.cern.ch/service-spi/external/pacman/cache/expat-1.95.8.tar.gz
+  expattar=$(basename $expat)
+  expatdir=$(basename $expattar .tar.gz)
+  echo; echo "*** building $expatdir"
+  (set -e; cd $tmpdir; wget -q $expat; tar zxf $expattar; cd $expatdir
+   ./configure --prefix="$destdir/expat" --disable-shared
+   make; make install) || exit $?
+
+  module=http://search.cpan.org/CPAN/authors/id/M/MS/MSERGEANT/XML-Parser-2.34.tar.gz
+  moduletar=$(basename $module)
+  moduledir=$(basename $moduletar .tar.gz)
+  echo; echo "*** building perl module $moduledir"
+  (set -e; cd $tmpdir; wget -q $module; tar zxf $moduletar; cd $moduledir
+   perl Makefile.PL prefix="$prefix" \
+        EXPATLIBPATH=$destdir/expat/lib \
+	EXPATINCPATH=$destdir/expat/include
+   make; make install) || exit $?
+fi
 
 # Build DBD::Oracle with instant client libraries
 for module in http://search.cpan.org/CPAN/authors/id/T/TI/TIMB/DBD-Oracle-1.16.tar.gz; do
   moduletar=$(basename $module)
   moduledir=$(basename $moduletar .tar.gz)
   echo; echo "*** building perl module $moduledir"
-  (cd $tmpdir || exit $?
-   wget -q $module || exit $?
-   tar zxf $moduletar || exit $?
-   cd $moduledir || exit $?
+  (set -e; cd $tmpdir; wget -q $module; tar zxf $moduletar; cd $moduledir
    patch Makefile.PL << \EOF
 diff Makefile.PL.orig Makefile.PL
 1254a1255
@@ -86,8 +101,8 @@ diff Makefile.PL.orig Makefile.PL
 EOF
    [ $(uname) = Darwin ] &&
       perl -p -i -e 's/NMEDIT = nmedit/NMEDIT = true/' Makefile.PL
-   perl Makefile.PL prefix="$prefix" -l -m $ORACLE_HOME/demo/demo.mk || exit $?
-   make && make install) || exit $?
+   perl Makefile.PL prefix="$prefix" -l -m $ORACLE_HOME/demo/demo.mk
+   make; make install) || exit $?
 done
 
 rm -fr "$tmpdir"
