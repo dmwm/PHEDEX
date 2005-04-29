@@ -140,6 +140,7 @@ sub installScram
 {
     my ($InstallRoot, $LVERSION) = @_;
     my $VO_CMS_SW_DIR = '/afs/cern.ch/sw';
+    my $POOLver = 'POOL_2_0_3';
     my $arch = 'rh73_gcc323';
     $arch = 'slc3_ia32_gcc323' if ($LVERSION eq 'SLC3');
 
@@ -154,6 +155,10 @@ sub installScram
     
 
     eval {
+	( -d "$VO_CMS_SW_DIR/lcg/app/releases/POOL/$POOLver")
+	    or die "Didn't find $POOLver !\n",
+	    "Expected it in $VO_CMS_SW_DIR/lcg/app/releases/POOL/$POOLver \n";
+	
 	foreach my $sh ("sh", "csh") {
 	    (! system("mkdir -p $InstallRoot"))
 		or die "Failed to create $InstallRoot directory.  Please check permissions.\n";
@@ -165,7 +170,8 @@ sub installScram
 	}
     };
     if ($@) {
-	print "ERROR: $@ERROR: Environment setup creation failed, installation terminated.\n";
+	print "ERROR: Environment setup creation failed, installation terminated.\n";
+	print "Reason was: $@";
 	return 0; #report failure
     }
     
