@@ -35,8 +35,8 @@ if ($args{HELP} || (!$args{STANDALONE} && !$args{CMS} && !$args{XCMSI})
 $args{LVERSION} = ($args{LVERSION} =~ m|slc|i ? "SLC3" : "RH73");
 
 if ($args{CMS}) {
-    print "Installing POOL tools from SCRAM environment into $args{ROOT}\n";
-    my $success = installScram($args{ROOT});
+    print "Installing POOL tools from SCRAM environment into $args{ROOT} for $args{LVERSION}\n";
+    my $success = installScram($args{ROOT}, $args{LVERSION});
     exit 1 if (!$success);
 } elsif ($args{STANDALONE}){
     print "Installing POOL tools from RPMS into $args{ROOT} for $args{LVERSION}\n";
@@ -138,24 +138,29 @@ sub installStandalone
 
 sub installScram
 {
-    my ($InstallRoot) = @_;
+    my ($InstallRoot, $LVERSION) = @_;
+    my $VO_CMS_SW_DIR = '/afs/cern.ch/sw';
+    my $arch = 'rh73_gcc323';
+    $arch = 'slc3_ia32_gcc323' if ($LVERSION eq 'SLC3');
 
-    #look for lates-greatest OSCAR or ORCA project in scram
-    my @scramprojects = `scram list 2>/dev/null | grep -e OSCAR -e ORCA | grep -v "/" |grep -v error`;
-    if (!scalar(@scramprojects) ) {
-	print "No OSCAR or ORCA registered in scram database.  Please check your scram setup.\n";
-	return 0; # report failure
-    }
+    # check for existence of VO_CMS_SW_DIR. If it dosn't exist we assume
+    # we are at Cern and have afs available.
+    $VO_CMS_SW_DIR = $ENV{VO_CMS_SW_DIR} if $ENV{VO_CMS_SW_DIR};
+    print "\nwarning: VO_CMS_SW_DIR env variable is not set....\n",
+    "this is fine, if we have access to afs\n",
+    "if this is not the case, please set VO_CMS_SW_DIR to point\n",
+    "to your CMS installation and restart this script !!\n\n"
+	if (! $ENV{VO_CMS_SW_DIR});
+    
 
-    my $line = pop @scramprojects;
-    my ($project, $version) = ($line =~ m|(\S+)|g);
     eval {
 	foreach my $sh ("sh", "csh") {
 	    (! system("mkdir -p $InstallRoot"))
 		or die "Failed to create $InstallRoot directory.  Please check permissions.\n";
 	    open(FH,">$InstallRoot/poolenv.$sh");
-	    print FH "eval \`scram setroot -$sh $project $version\`\n";
-	    print FH "eval \`scram runtime -$sh\`\n";
+	    print FH "cd $VO_CMS_SW_DIR/lcg/app/releases/POOL/POOL_2_0_3/src; ",
+	    "eval \`scram -arch $arch runtime -$sh\` \n";
+	    print FH "cd - \n";
 	    close(FH);
 	}
     };
