@@ -1,5 +1,6 @@
 package UtilsWriters; use strict; use warnings; use base 'Exporter';
-our @EXPORT = qw(outputCatalog genXMLPreamble genXMLTrailer genXMLCatalogue);
+our @EXPORT = qw(outputCatalog genXMLPreamble genXMLTrailer
+		 genXMLCatalogue genXMLOneFile);
 use UtilsCommand;
 
 sub genXMLPreamble
@@ -22,6 +23,35 @@ sub genXMLTrailer
     return "</POOLFILECATALOG>\n";
 }
 
+sub genXMLOneFile
+{
+    my ($file) = @_;
+    my $content = "";
+    $content .= "  <File ID=\"$file->{GUID}\">\n";
+    $content .= "    <physical>\n";
+    foreach my $pfn (@{$file->{PFN}})
+    {
+	$content .= "      <pfn filetype=\"$pfn->{TYPE}\" name=\"$pfn->{PFN}\"/>\n";
+    }
+    $content .= "    </physical>\n";
+
+    $content .= "    <logical>\n";
+    foreach my $lfn (@{$file->{LFN}})
+    {
+	$content .= "      <lfn name=\"$lfn\"/>\n";
+    }
+    $content .= "    </logical>\n";
+
+    foreach my $m (sort keys %{$file->{META}}) {
+	my $value = $file->{META}{$m};
+	$value = '' if ! defined $value;
+	$content .= "   <metadata att_name=\"$m\" att_value=\"$value\"/>\n";
+    }
+
+    $content .= "  </File>\n";
+    return $content;
+}
+
 sub genXMLCatalogue
 {
     my @files = @_;
@@ -29,27 +59,7 @@ sub genXMLCatalogue
     my $content = &genXMLPreamble();
     foreach my $file (@files)
     {
-	$content .= "  <File ID=\"$file->{GUID}\">\n";
-
-	$content .= "    <physical>\n";
-	foreach my $pfn (@{$file->{PFN}}) {
-	    $content .= "      <pfn filetype=\"$pfn->{TYPE}\" name=\"$pfn->{PFN}\"/>\n";
-	}
-	$content .= "    </physical>\n";
-
-	$content .= "    <logical>\n";
-	foreach my $lfn (@{$file->{LFN}}) {
-	    $content .= "      <lfn name=\"$lfn\"/>\n";
-	}
-	$content .= "    </logical>\n";
-
-	foreach my $m (keys %{$file->{META}}) {
-	    my $value = $file->{META}{$m};
-	    $value = '' if ! defined $value;
-	    $content .= "   <metadata att_name=\"$m\" att_value=\"$value\"/>\n";
-	}
-
-	$content .= "  </File>\n";
+	$content .= &genXMLOneFile ($file);
     }
 
     $content .= &genXMLTrailer();
