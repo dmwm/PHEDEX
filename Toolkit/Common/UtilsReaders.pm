@@ -1,11 +1,12 @@
 package UtilsReaders; use strict; use warnings; use base 'Exporter';
 our @EXPORT = qw(readChecksumData readXMLCatalogue parseXMLCatalogue parseXMLAttrs);
+use XML::Parser;
 
 # Read job checksum data: lines of "CHECKSUM SIZE FILE".
 sub readChecksumData
 {
     my ($file) = @_;
-    open (IN, "< $file") or die "cannot read checksum file $file: $!";
+    open (IN, "< $file") or die "cannot read checksum file $file: $!\n";
     my @result = ();
     while(<IN>)
     {
@@ -23,7 +24,7 @@ sub readChecksumData
 	{
 	    # Complain about bad lines
 	    close (IN);
-	    die "unrecognised checksum line: $file:$.";
+	    die "unrecognised checksum line: $file:$.\n";
 	}
     }
 
@@ -42,88 +43,96 @@ sub readChecksumData
 sub readXMLCatalogue
 {
     my ($file) = @_;
-    open (IN, "< $file") or die "cannot read catalog file $file: $!";
+    open (IN, "< $file") or die "cannot read catalog file $file: $!\n";
     my $contents = join("", <IN>);
-    close (IN) or die "failed to read catalog file $file: $!";
+    close (IN) or die "failed to read catalog file $file: $!\n";
     return &parseXMLCatalogue ($contents);
-}
-
-# Parse XML attribute sequence
-sub parseXMLAttrs
-{
-    my ($string) = @_;
-    my %attrs = ();
-    $string =~ s/^\s+//;
-    while ($string ne '')
-    {
-	if ($string =~ /^(\w+)='([^']*)'/) {
-	    $attrs{$1} = $2; $string = $';
-	 } elsif ($string =~ /^(\w+)="([^"]*)"/) {
-	    $attrs{$1} = $2; $string = $';
-	 } else {
-	    die "unrecognised xml attributes: <$string>";
-	 }
-         $string =~ s/^\s+//;
-    }
-
-    return %attrs;
 }
 
 # Parse XML catalogue from a string.
 sub parseXMLCatalogue
 {
     my ($string) = @_;
-    my $result = [];
-    my @rows = split("\n", $string);
-    my $line = 0;
-    while (defined ($_ = shift (@rows)))
-    {
-	++$line;
-	if (m|<File\s(.*?)>|)
-	{
-	    my %attrs = &parseXMLAttrs ($1);
-	    my $guid = $attrs{ID};
-	    my $frag = { GUID => $guid, TEXT => "$_\n", PFN => [], LFN => [] };
-	    while (defined ($_ = shift (@rows)))
-	    {
-		$frag->{TEXT} .= "$_\n";
-		chomp;
-		++$line;
+    
+    # Remove any "diff" noise in the catalogue
+    $string =~ s/^\d+a$//mg;
+    $string =~ s/^\.$//mg;
 
-		if (m|<pfn\s(.*?)/>|) {
-		    %attrs = &parseXMLAttrs ($1);
-		    push (@{$frag->{PFN}},
-			  { PFN => $attrs{'name'},
-			    TYPE => $attrs{'filetype'} });
-		} elsif (m|<lfn\s(.*?)/>|) {
-		    %attrs = &parseXMLAttrs ($1);
-		    push (@{$frag->{LFN}}, $attrs{'name'});
-		} elsif (m|<metadata\s(.*?)/>|) {
-		    %attrs = &parseXMLAttrs ($1);
-		    $frag->{META}{$attrs{'att_name'}} = $attrs{'att_value'};
-		    $frag->{GROUP} = $attrs{'att_value'}
-		        if ($attrs{'att_name'} eq 'jobid');
-		} elsif (m|</File>|) {
-		    last;
+    # If it has no catalogue wrapper, add one
+    my $doctype = "<!DOCTYPE POOLFILECATALOG SYSTEM \"InMemory\">";
+    $string = "$doctype\n<POOLFILECATALOG>\n$string\n</POOLFILECATALOG>\n"
+        if $string =~ /^\s*<File/s;
+
+    # Parse the catalogue and remove top-level white space
+    my $parsed = (new XML::Parser (Style => "Tree"))->parse ($string);
+    while ($parsed->[0] eq "0" && $parsed->[1] =~ /^\s*$/s)
+    {
+	shift (@$parsed);
+	shift (@$parsed);
+    }
+    while ($parsed->[scalar @$parsed - 2] eq "0"
+	   && $parsed->[scalar @$parsed - 1] =~ /^\s*$/s)
+    {
+	pop (@$parsed);
+	pop (@$parsed);
+    }
+
+    # Now reconstruct our own thing from it
+    die "unexpected catalogue structure, expected single result\n"
+        if scalar @$parsed != 2;
+    die "unexpected catalogue structure, expected top POOLFILECATALOG\n"
+        if $parsed->[0] ne 'POOLFILECATALOG';
+
+    my $result = [];
+    my ($attrs, @contents) = @{$parsed->[1]};
+    while (@contents)
+    {
+	my ($element, $value) = splice (@contents, 0, 2);
+
+	# Verify we've got what we like: white-space, META or File
+	next if ($element eq "0" && $value =~ /^\s*$/s);
+	next if ($element eq "META");
+	die "unexpected catalogue element $element\n" if $element ne 'File';
+
+	# Get file information
+	$attrs = shift (@$value);
+	die "no guid for catalogue file\n" if ! $attrs->{ID};
+	my $f = { GUID => $attrs->{ID}, PFN => [], LFN => [] };
+	push (@$result, $f);
+	while (@$value)
+	{
+	    my ($el, $val) = splice (@$value, 0, 2);
+	    next if ($el eq "0" && $val =~ /^\s*$/s);
+	    if ($el eq "physical")
+	    {
+		shift (@$val);
+		while (@$val)
+		{
+		    my ($e, $v) = splice (@$val, 0, 2);
+		    next if ($e eq "0" && $v =~ /^\s*$/s);
+		    die "unexpected catalogue element $e\n" if $e ne 'pfn';
+		    push (@{$f->{PFN}}, { PFN => $v->[0]{'name'}, TYPE => $v->[0]{'filetype'} });
 		}
 	    }
-
-	    if (! $guid)
+	    elsif ($el eq "logical")
 	    {
-		die "cannot understand catalog (line $line)";
+		shift (@$val);
+		while (@$val)
+		{
+		    my ($e, $v) = splice (@$val, 0, 2);
+		    next if ($e eq "0" && $v =~ /^\s*$/s);
+		    die "unexpected catalogue element $e\n" if $e ne 'lfn';
+		    push (@{$f->{LFN}}, $v->[0]{'name'});
+		}
 	    }
-	    elsif (grep ($_->{GUID} eq $guid, @$result))
+	    elsif ($el eq "metadata")
 	    {
-		die "catalogue has duplicate guid $guid (line $line)";
-	    }
-	    else
-	    {
-		push (@$result, $frag);
+		die "metadata element must be empty\n" if scalar @$val > 1;
+		$f->{META}{$val->[0]{'att_name'}} = $val->[0]{'att_value'};
 	    }
 	}
     }
 
-    die "no guid mappings found in catalog" if ! @$result;
     return $result;
 }
 
