@@ -158,7 +158,7 @@ sub installScram
 	    (! system("mkdir -p $InstallRoot"))
 		or die "Failed to create $InstallRoot directory.  Please check permissions.\n";
 	    open(FH,">$InstallRoot/poolenv.$sh");
-	    print FH "cd $VO_CMS_SW_DIR/lcg/app/releases/POOL/POOL_2_0_3/src; ",
+	    print FH "cd $VO_CMS_SW_DIR/lcg/app/releases/POOL/POOL_2_0_3; ",
 	    "eval \`scram -arch $arch runtime -$sh\` \n";
 	    print FH "cd - \n";
 	    close(FH);
@@ -179,11 +179,7 @@ sub InstallRPMs
     # perform the RPM intallation voodoo
     eval {
 	# additional rpm options needed due to unsatisfied dependencies
-	my $RPMopt = '--nodeps --noscripts';
-
-	# check for non working rpm version 4.0.4
-	my $RPMVersion = `rpm --version`;
-	$RPMopt = '--nodeps --nopost' if ($RPMVersion =~ m|4.0.4|);
+	my $RPMopt = '--nodeps --nopost';
 
 
 	# prepare a local dummy RPM DB and copy over the system wide DB
