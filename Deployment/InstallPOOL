@@ -34,6 +34,9 @@ if ($args{HELP} || (!$args{STANDALONE} && !$args{CMS} && !$args{XCMSI})
 # make sure all kinds of architecure strings are interpreted correctly
 $args{LVERSION} = ($args{LVERSION} =~ m|slc|i ? "SLC3" : "RH73");
 
+# check if target dir exists.....
+die "destination directory doesn't exist !! Aborting...\n" if (! -d $args{ROOT});
+
 if ($args{CMS}) {
     print "Installing POOL tools from SCRAM environment into $args{ROOT} for $args{LVERSION}\n";
     my $success = installScram($args{ROOT}, $args{LVERSION});
@@ -47,7 +50,7 @@ if ($args{CMS}) {
     my $success = installStandalone($args{ROOT}, $args{LVERSION});
     exit 1 if (!$success);
 } else {
-    print "Don't know what to do. Please use \"-help\".... This shouldn't happen !!\n";
+    print "Don't know what to do. Please use \"-help\".... This shouldn't happen at all !!\n";
     exit 5;
 }
 
