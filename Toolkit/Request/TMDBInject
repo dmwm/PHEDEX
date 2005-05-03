@@ -144,13 +144,13 @@ my $now = &mytimeofday ();
 
 print "Processing @{[scalar @$catalogue]} files " if $args{VERBOSE};
 my $isfstmt = &dbprep ($dbh, qq{
-    select count(*) from t_file
+    select guid from t_file
     where guid = :guid});
 my $isrstmt = &dbprep ($dbh, qq{
-    select count(*) from t_replica_state
+    select guid from t_replica_state
     where guid = :guid and node = :node});
 my $isbstmt = &dbprep ($dbh, qq{
-    select count(*) from t_block
+    select name from t_block
     where name = :block});
 
 my $fstmt = &dbprep ($dbh, qq{
@@ -167,7 +167,10 @@ my $mstmt = &dbprep ($dbh, qq{
     values (:guid, :attr, :value)});
 my $bistmt = &dbprep ($dbh, qq{
     insert into t_block (name, owner, dataset, files, bytes)
-    values (:name, :owner, :dataset, -1, -1)});
+    values (:name, :owner, :dataset, 0, 0)});
+my $bistmt2 = ($args{DBSECTION} eq 'RAC') && &dbprep ($dbh, qq{
+    insert into t_block (timestamp, name, owner, dataset, files, bytes, isopen)
+    values (:now, :name, :owner, :dataset, 0, 0, 1)});
 
 foreach my $f (@$catalogue)
 {
@@ -185,11 +188,12 @@ foreach my $f (@$catalogue)
     my ($found) = $isbstmt->fetchrow();
     $isbstmt->finish();
 
-    &dbbindexec ($bistmt,
+    &dbbindexec (($bistmt2 ? ($bistmt2, ":now" => $now) : ($bistmt)),
 		 ":name" => $block,
 		 ":owner" => $f->{META}{owner},
 		 ":dataset" => $f->{META}{dataset})
 	if ! $found;
+    $dbh->commit();
 
     # Check if the file is known, otherwise insert new entry
     &dbbindexec ($isfstmt, ":guid" => $f->{GUID});
@@ -218,6 +222,7 @@ foreach my $f (@$catalogue)
 		     ":value" => $meta{$m})
 	     if ! $found;
     }
+    $dbh->commit();
 
     # Insert replica for all nodes where we don't have one yet
     foreach my $n (@{$args{NODES}})
