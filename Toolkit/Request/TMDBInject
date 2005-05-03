@@ -141,18 +141,9 @@ exit 1 if $bad;
 print "Connecting to database\n" if $args{VERBOSE};
 my $dbh = &connectToDatabase (\%args, 0);
 my $now = &mytimeofday ();
+my %seen = ();
 
 print "Processing @{[scalar @$catalogue]} files " if $args{VERBOSE};
-my $isfstmt = &dbprep ($dbh, qq{
-    select guid from t_file
-    where guid = :guid});
-my $isrstmt = &dbprep ($dbh, qq{
-    select guid from t_replica_state
-    where guid = :guid and node = :node});
-my $isbstmt = &dbprep ($dbh, qq{
-    select name from t_block
-    where name = :block});
-
 my $fstmt = &dbprep ($dbh, qq{
     insert into t_file
     (timestamp, guid, node, inblock, insubblock,
@@ -167,7 +158,7 @@ my $mstmt = &dbprep ($dbh, qq{
     values (:guid, :attr, :value)});
 my $bistmt = &dbprep ($dbh, qq{
     insert into t_block (name, owner, dataset, files, bytes)
-    values (:name, :owner, :dataset, 0, 0)});
+    values (:name, :owner, :dataset, -1, -1)});
 my $bistmt2 = ($args{DBSECTION} eq 'RAC') && &dbprep ($dbh, qq{
     insert into t_block (timestamp, name, owner, dataset, files, bytes, isopen)
     values (:now, :name, :owner, :dataset, 0, 0, 1)});
@@ -182,62 +173,56 @@ foreach my $f (@$catalogue)
     }
     do { local $| = 1; print "." } if $args{VERBOSE};
 
-    # Check the file block is known, otherwise create an open one
+    # Insert block; ignore duplicate errors.
     my $block = "$f->{META}{owner}/$f->{META}{dataset}";
-    &dbbindexec ($isbstmt, ":block" => $block);
-    my ($found) = $isbstmt->fetchrow();
-    $isbstmt->finish();
-
-    &dbbindexec (($bistmt2 ? ($bistmt2, ":now" => $now) : ($bistmt)),
-		 ":name" => $block,
-		 ":owner" => $f->{META}{owner},
-		 ":dataset" => $f->{META}{dataset})
-	if ! $found;
-    $dbh->commit();
-
-    # Check if the file is known, otherwise insert new entry
-    &dbbindexec ($isfstmt, ":guid" => $f->{GUID});
-    ($found) = $isfstmt->fetchrow();
-    $isfstmt->finish();
-
-    &dbbindexec ($fstmt,
-	         ":now" => $now,
-		 ":guid" => $f->{GUID},
-	         ":node" => $args{NODES}[0],
-		 ":inblock" => "$f->{META}{owner}/$f->{META}{dataset}",
-		 ":insubblock" => "$f->{META}{jobid}",
-		 ":lfn" => $f->{LFN}[0],
-		 ":filetype" => $f->{PFN}[0]{TYPE},
-		 ":filesize" => $f->{FILESIZE},
-	 	 ":checksum" => $f->{CHECKSUM})
-	 if ! $found;
-
-    # Insert file attribute data, again only if file not yet known
-    my %meta = (map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
-    foreach my $m (sort keys %meta)
+    if (! $seen{$block})
     {
-        &dbbindexec ($mstmt,
-		     ":guid" => $f->{GUID},
-		     ":attr" => $m,
-		     ":value" => $meta{$m})
-	     if ! $found;
+	eval { &dbbindexec (($bistmt2 ? ($bistmt2, ":now" => $now) : ($bistmt)),
+		            ":name" => $block,
+		            ":owner" => $f->{META}{owner},
+		            ":dataset" => $f->{META}{dataset}) };
+	die "$@" if ($@ && $@ !~ /unique constraint.*violated/);
+        $dbh->commit();
+        $seen{$block} = 1;
+    }
+
+    # Insert the file; ignore duplicate errors.  We are basically
+    # taking our chances that this is the cheapest way to do it.
+    eval { &dbbindexec ($fstmt,
+	                ":now" => $now,
+		        ":guid" => $f->{GUID},
+	                ":node" => $args{NODES}[0],
+		        ":inblock" => $block,
+		        ":insubblock" => "$f->{META}{jobid}",
+		        ":lfn" => $f->{LFN}[0],
+		        ":filetype" => $f->{PFN}[0]{TYPE},
+		        ":filesize" => $f->{FILESIZE},
+	 	        ":checksum" => $f->{CHECKSUM}) };
+    die "$@" if ($@ && $@ !~ /unique constraint.*violated/);
+
+    # Insert file attributes if we successfully inserted the file.
+    if (! $@)
+    {
+        my %meta = (map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
+        foreach my $m (sort keys %meta)
+        {
+            &dbbindexec ($mstmt,
+		         ":guid" => $f->{GUID},
+		         ":attr" => $m,
+		         ":value" => $meta{$m});
+        }
     }
     $dbh->commit();
 
-    # Insert replica for all nodes where we don't have one yet
+    # Insert replicas; again ignore duplicate errors.
     foreach my $n (@{$args{NODES}})
     {
-	&dbbindexec ($isrstmt, ":guid" => $f->{GUID}, ":node" => $n);
-	($found) = $isrstmt->fetchrow();
-	$isrstmt->finish();
-
-        &dbbindexec ($rstmt, 
-    	             ":now" => $now,
-		     ":guid" => $f->{GUID},
-		     ":node" => $n)
-	     if ! $found;
+        eval { &dbbindexec ($rstmt, 
+    	                    ":now" => $now,
+		            ":guid" => $f->{GUID},
+		            ":node" => $n) };
+	die "$@" if ($@ && $@ !~ /unique constraint.*violated/);
     }
-
     $dbh->commit();
 }
 print "\n" if $args{VERBOSE};
