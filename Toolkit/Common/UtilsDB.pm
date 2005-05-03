@@ -78,7 +78,9 @@ sub connectToDatabase
         # Start a new connection.
         $dbh = DBI->connect ("DBI:$self->{DBH_DBITYPE}:$self->{DBH_DBNAME}",
 	    		     $self->{DBH_DBUSER}, $self->{DBH_DBPASS},
-			     { RaiseError => 1, AutoCommit => 0 });
+			     { RaiseError => 1,
+			       AutoCommit => 0,
+			       PrintError => 0 });
         return undef if ! $dbh;
 
 	# Cache it.
