@@ -115,14 +115,14 @@ print "Reading catalogue $args{CATALOGUE}\n" if $args{VERBOSE};
 my $catalogue = eval { &readXMLCatalogue ($args{CATALOGUE}) };
 
 print "Reading checksums $args{CKSUMS}\n" if $args{VERBOSE};
-my @cksums = eval { &readChecksumData ($args{CKSUMS}) };
+my %cksums = eval { map { $_->[2] => $_ } &readChecksumData ($args{CKSUMS}) };
 
 print "Checking data consistency\n" if $args{VERBOSE};
 my $bad = 0;
 foreach my $file (@$catalogue)
 {
     my $lfn = $file->{LFN}[0];
-    my $cksum = (grep ($_->[2] eq $lfn, @cksums))[0];
+    my $cksum = $cksums{$lfn};
 
     if (! $cksum)
     {
