@@ -37,7 +37,9 @@ for proto in $imps; do
 done
 for item; do
   other="$(echo $item | sed 's/:.*//')"
-  case $item in *:* ) distane=$(echo $item | sed 's/.*://');; *) distance=2 ;; esac
+  case $item in *:* ) distance=$(echo $item | sed 's/.*://');; *) distance=2 ;; esac
+  echo "insert into t_node_neighbours values ('$node','$other',$distance);"
+  echo "insert into t_node_neighbours values ('$other','$node',$distance);"
   echo "insert into t_routing values ($now, '$node', '$other', '$other', $distance);"
   echo "insert into t_routing values ($now, '$other', '$node', '$node', $distance);"
 done
