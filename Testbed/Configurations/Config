@@ -14,7 +14,7 @@ PHEDEX_CUSTOM=$PHEDEX_SCRIPTS/Testbed/Configurations;
 PHEDEX_TMDB_USER=cms_transfermgmt;
 PHEDEX_TMDB_PASS=smalland_round;
 PHEDEX_TMDB=devdb;
-PHEDEX_NODE=TEST_Buffer;
+PHEDEX_NODE=T1;
 
 
 # set the catalogue contact strings
@@ -42,25 +42,25 @@ PHEDEX_CATALOGUE=${ORACLE};
 # MYPROXY_SERVER=myproxy.cern.ch; export MYPROXY_SERVER;
 
 #### Export-side agents
-NODE=001;
-### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
- -node ${PHEDEX_NODE}_${NODE}
+NODE="A";
+### AGENT LABEL=exp-pfn_${NODE} PROGRAM=Toolkit/Transfer/FilePFNExport
+ -node ${PHEDEX_NODE}_${NODE}_Buffer
  -db ${PHEDEX_TMDB}
  -dbuser ${PHEDEX_TMDB_USER}
  -dbpass ${PHEDEX_TMDB_PASS}
  -pfnquery ${PHEDEX_CUSTOM}/PFNLookup.sh,-u,${PHEDEX_CATALOGUE}
  -wait $(expr 10 + $RANDOM % 10)
 
-### AGENT LABEL=exp-disk PROGRAM=Toolkit/Transfer/FileDiskExport
- -db ${PHEDEX_TMDB}_${NODE}
+### AGENT LABEL=exp-disk_${NODE} PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_TMDB}_${NODE}_Buffer
  -dbuser ${PHEDEX_TMDB_USER}
  -dbpass ${PHEDEX_TMDB_PASS}
  -node ${PHEDEX_NODE}_${NODE}
  -wait $(expr 10 + $RANDOM % 10)
 
 #### Download agents
-### AGENT LABEL=download-transfer PROGRAM=Toolkit/Transfer/FileDownload
- -node ${PHEDEX_NODE}_transfer_${NODE}
+### AGENT LABEL=download-transfer_${NODE} PROGRAM=Toolkit/Transfer/FileDownload
+ -node ${PHEDEX_NODE}_${NODE}_Buffer
  -db ${PHEDEX_TMDB}
  -dbuser ${PHEDEX_TMDB_USER}
  -dbpass ${PHEDEX_TMDB_PASS}
@@ -73,8 +73,8 @@ NODE=001;
  -jobs 1
  -wait $(expr 10 + $RANDOM % 10)
 
-### AGENT LABEL=download-mss PROGRAM=Toolkit/Transfer/FileDownload
- -node ${PHEDEX_NODE}_mss_${NODE}
+### AGENT LABEL=download-mss_${NODE} PROGRAM=Toolkit/Transfer/FileDownload
+ -node ${PHEDEX_NODE}_${NODE}_MSS
  -db ${PHEDEX_TMDB}
  -dbuser ${PHEDEX_TMDB_USER}
  -dbpass ${PHEDEX_TMDB_PASS}
@@ -89,17 +89,28 @@ NODE=001;
 
 
 #### Management agents
-### AGENT LABEL=mgmt-rtab PROGRAM=Toolkit/Infrastructure/NodeRouter
- -nodes ${PHEDEX_NODE}_${NODE}
+### AGENT LABEL=mgmt-rtab_${NODE} PROGRAM=Toolkit/Infrastructure/NodeRouter
+ -nodes ${PHEDEX_NODE}_${NODE}_Buffer, ${PHEDEX_NODE}_${NODE}_MSS
  -db ${PHEDEX_TMDB}
  -dbuser ${PHEDEX_TMDB_USER}
  -dbpass ${PHEDEX_TMDB_PASS}
  -wait $(expr 600 + $RANDOM % 600)
 
-### AGENT LABEL=mgmt-router PROGRAM=Toolkit/Infrastructure/FileRouter
- -node ${PHEDEX_NODE}_${NODE}
+### AGENT LABEL=mgmt-router_${NODE} PROGRAM=Toolkit/Infrastructure/FileRouter
+ -node ${PHEDEX_NODE}_${NODE}_Buffer
  -nodes ${PHEDEX_NODE}
  -db ${PHEDEX_TMDB}
  -dbuser ${PHEDEX_TMDB_USER}
  -dbpass ${PHEDEX_TMDB_PASS}
  -wait $(expr 60 + $RANDOM % 60)
+
+#### Start monitoring
+### AGENT LABEL=info-ds_${NODE} PROGRAM=Toolkit/Monitoring/InfoDropStatus
+ -site ${PHEDEX_NODE}
+ -dir ${PHEDEX_STATE}
+ -db ${PHEDEX_TMDB}
+ -dbuser ${PHEDEX_TMDB_USER}
+ -dbpass ${PHEDEX_TMDB_PASS}
+ -wait $(expr 60 + $RANDOM % 60)
+
+
