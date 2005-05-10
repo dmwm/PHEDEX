@@ -1,0 +1,105 @@
+#### General configuration
+### ENVIRON
+# Set directories
+PHEDEX_BASE=/data/TestNodes;
+
+PHEDEX_SCRIPTS=$PHEDEX_BASE/PHEDEX;
+PHEDEX_LOGS=$PHEDEX_BASE/logs;
+PHEDEX_STATE=$PHEDEX_BASE/state;
+PHEDEX_DL_HISTORY=$PHEDEX_BASE/logs/history;
+
+PHEDEX_CUSTOM=$PHEDEX_SCRIPTS/Testbed/Configurations;
+
+# TMDB settings
+PHEDEX_TMDB_USER=cms_transfermgmt;
+PHEDEX_TMDB_PASS=smalland_round;
+PHEDEX_TMDB=devdb;
+PHEDEX_NODE=TEST_Buffer;
+
+
+# set the catalogue contact strings
+MYSQL=mysqlcatalog_mysql://phedex:phedex@cmslcgco04/phedexcat;
+ORACLE=relationalcatalog_oracle://raltest/JENS;
+
+
+# Oracle testsystem specific env variables
+export POOL_ORA_TS_TAB=JENS_DATA01;
+export POOL_ORA_TS_IND=JENS_INDX01;
+export POOL_AUTH_USER=jens;
+export POOL_AUTH_PASSWORD=atarimaus;
+export TNS_ADMIN=/afs/cern.ch/user/r/rado/public/oracle/ADMIN;
+export POOL_OUTMSG_LEVEL=E;
+
+
+# Local catalogue contact
+PHEDEX_CATALOGUE=${ORACLE};
+
+
+# Get tools
+#    X509_USER_PROXY=/data/V2Nodes/gridcert/proxy.cert; export X509_USER_PROXY;
+#    unset X509_USER_CERT X509_USER_KEY;
+
+# MYPROXY_SERVER=myproxy.cern.ch; export MYPROXY_SERVER;
+
+#### Export-side agents
+NODE=001;
+### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -node ${PHEDEX_NODE}_${NODE}
+ -db ${PHEDEX_TMDB}
+ -dbuser ${PHEDEX_TMDB_USER}
+ -dbpass ${PHEDEX_TMDB_PASS}
+ -pfnquery ${PHEDEX_CUSTOM}/PFNLookup.sh,-u,${PHEDEX_CATALOGUE}
+ -wait $(expr 10 + $RANDOM % 10)
+
+### AGENT LABEL=exp-disk PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_TMDB}_${NODE}
+ -dbuser ${PHEDEX_TMDB_USER}
+ -dbpass ${PHEDEX_TMDB_PASS}
+ -node ${PHEDEX_NODE}_${NODE}
+ -wait $(expr 10 + $RANDOM % 10)
+
+#### Download agents
+### AGENT LABEL=download-transfer PROGRAM=Toolkit/Transfer/FileDownload
+ -node ${PHEDEX_NODE}_transfer_${NODE}
+ -db ${PHEDEX_TMDB}
+ -dbuser ${PHEDEX_TMDB_USER}
+ -dbpass ${PHEDEX_TMDB_PASS}
+ -backend Globus
+ -command /bin/true
+ -pfndest ${PHEDEX_CUSTOM}/Transfer_URLmapper.sh node=${NODE}
+ -publish ${PHEDEX_CUSTOM}/Publish.pl,${PHEDEX_CATALOGUE},${NODE}
+ -timeout 600
+ -wanted 200G
+ -jobs 1
+ -wait $(expr 10 + $RANDOM % 10)
+
+### AGENT LABEL=download-mss PROGRAM=Toolkit/Transfer/FileDownload
+ -node ${PHEDEX_NODE}_mss_${NODE}
+ -db ${PHEDEX_TMDB}
+ -dbuser ${PHEDEX_TMDB_USER}
+ -dbpass ${PHEDEX_TMDB_PASS}
+ -backend DCCP
+ -command /bin/true
+ -pfndest ${PHEDEX_CUSTOM}/MSS_URLmapper.sh node=${NODE}
+ -publish ${PHEDEX_CUSTOM}/Publish.pl,${PHEDEX_CATALOGUE},${NODE}
+ -timeout 600
+ -wanted 200G
+ -jobs 1
+ -wait $(expr 10 + $RANDOM % 10)
+
+
+#### Management agents
+### AGENT LABEL=mgmt-rtab PROGRAM=Toolkit/Infrastructure/NodeRouter
+ -nodes ${PHEDEX_NODE}_${NODE}
+ -db ${PHEDEX_TMDB}
+ -dbuser ${PHEDEX_TMDB_USER}
+ -dbpass ${PHEDEX_TMDB_PASS}
+ -wait $(expr 600 + $RANDOM % 600)
+
+### AGENT LABEL=mgmt-router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -node ${PHEDEX_NODE}_${NODE}
+ -nodes ${PHEDEX_NODE}
+ -db ${PHEDEX_TMDB}
+ -dbuser ${PHEDEX_TMDB_USER}
+ -dbpass ${PHEDEX_TMDB_PASS}
+ -wait $(expr 60 + $RANDOM % 60)
