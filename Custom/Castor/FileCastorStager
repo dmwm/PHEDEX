@@ -23,13 +23,14 @@
 ##H Usage:
 ##H   FileCastorFilesize
 ##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
-##H      -pfnquery COMMAND[,ARGS...]
+##H      -pfnquery COMMAND[,ARGS...] -tapeusers USER[,USER]
 ##H
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
 ##H -db        database connection configuration parameter file
 ##H -wait      time to wait in seconds between work scans
 ##H -pfnquery  command to query pfns and guids from catalogue
+##H -tapeusers list of users to watch tape accesses for
 
 BEGIN {
   use strict; use warnings;
@@ -53,6 +54,8 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-pfnquery' && scalar @ARGV > 1)
     { shift (@ARGV); @{$args{PFN_QUERY}} = split(/,/, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-tapeusers' && scalar @ARGV > 1)
+    { shift (@ARGV); @{$args{TAPE_USERS}} = split(/,/, shift(@ARGV)); }
     elsif ($ARGV[0] eq '-h')
     { &usage(); }
     else
@@ -87,6 +90,7 @@ sub new
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  PFN_QUERY => undef,		# Program to query PFNs
+	  	  TAPE_USERS => undef,		# Tape users to monitor
 	  	  AGENTID => "Stager",		# Identity for activity logs
     	    	  MAXTAPEREQS => 4000,		# Max pending tape mounts
     	    	  MAXMYTAPEREQS => 1000,	# Max pending tape mounts by myself
@@ -176,13 +180,16 @@ sub stagerFileList
 # considered a transient error.
 sub tapeMountLoad
 {
+    my ($self) = @_;
     my ($total, $ours) = (0, 0);
     open(QSTAT, "showqueues -x |")
 	or do { &alert ("cannot run showqueues: $!"); return (undef, undef); };
+
+    my $tapeusers = join("|", map { quotemeta } @{$self->{TAPE_USERS});
     while (<QSTAT>)
     {
 	$total++ if /^Q/;
-	$ours++ if /^Q.*cmsprod/; # FIXME: don't hardcode cmsprod
+	$ours++ if /^Q.*($tapeusers)/;
     }
     close (QSTAT);
     return ($total, $ours);
@@ -449,7 +456,7 @@ sub idle
 	    # to start of the loop so we reconsider staged in files and send
 	    # them out.  Also makes it safer if we get stopped.
 	    my $nrequests = scalar @requests;
-	    my ($tapereqs, $mytapereqs) = &tapeMountLoad();
+	    my ($tapereqs, $mytapereqs) = $self->tapeMountLoad();
 	    my $stagereqs = scalar (grep($_->{STATUS} eq 'STAGEIN', values %$files));
 	    if (! defined $tapereqs
 	        || ! defined $mytapereqs
