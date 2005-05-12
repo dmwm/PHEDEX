@@ -1,0 +1,161 @@
+#!/usr/bin/env perl
+
+## This drop box agent parses LCG production jobs summary files 
+## and drops a XML catalog fragment and a checksum file.
+## Those two files are used by DropTMDBPublisher to inject the data into TMDB.
+##
+## In LCG, the output EVD files are packaged in a zip archive. The zip file
+## is the one injected in TMDB. 
+##
+## Like all drop box agents, this agent periodically inspects the
+## inbox, looking for new completed drops.  Each new drop is processed
+## and passed to the next
+## drop box agent, or destroyed if there is no next agent.  If the
+## agent terminates, crashes or is otherwise stopped, it will pick
+## up in the right place when started the next time.
+
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+######################################################################
+
+my %args;
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-in' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    else
+    { last; }
+}
+
+if (scalar @ARGV || !$args{DROPDIR})
+{
+    print STDERR
+	"usage: $me -in IN-DROP-BOX -out NEXT-DROP-BOX\n",
+	"           [-wait SECS-TO-WAIT]\n";
+    exit (1);
+}
+
+(new DropSmryLCG (%args))->process();
+
+######################################################################
+# Routines specific to this agent.
+package DropSmryLCG; use strict; use warnings; use base 'UtilsAgent';
+use File::Path; use UtilsCache; use UtilsReaders; use UtilsCommand; use UtilsLogging;
+use UtilsTiming; use UtilsWriters; use MIME::Base64; use Compress::Zlib;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = ();      
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+sub ProcessSmry
+{
+    my ($self, $drop, $smryfile) = @_;
+    my $assID = undef;
+    my $guid = undef;
+    my $size = undef;
+    my $lfn  = undef;
+    my $dropdir = "$self->{WORKDIR}/$drop";
+
+    # Parse the smry file.
+    if (!open (IN, "< $smryfile")) {&alert ("cannot open summary file $smryfile: $!"); return 1;}
+    while(<IN>) {
+        chomp;
+	$assID = $1   if /_ASS_ID=(\d+)/;             # assignment ID     
+	$guid  = $1   if /OUT_GUID=([-0-9A-Fa-f]+)/;  # zip's guid
+	$size  = $1   if /OUT_SIZE=(\d+)/;            # zip's size
+	$lfn   = $1   if /OUT_LFN=(.+)/;              # zip's LFN
+    }
+    close (IN);
+    if (!$assID || !$guid || !$size || !$lfn ) {
+	&alert ("$drop: failed to parse $smryfile"); return 1;
+    }
+
+    # create XML POOL fragment
+    my $XMLCatFragment="$dropdir/XMLCatFragment.$assID.xml";
+    my $XMLcontent = &createZipXMLfragment($guid, $lfn);
+    do { &alert("$drop: failed to create XML fragment for zip archive"); return 1} if !$XMLcontent;
+    do { &alert("$drop: failed to write $XMLCatFragment"); return 1}
+      if ! &output ($XMLCatFragment, &genXMLPreamble() . $XMLcontent . &genXMLTrailer());
+
+    # create chksum file with format "cksum filesize LFN"
+    my $ChecksumFile="$dropdir/Checksum.$assID.txt";
+    my $cksumContent = "-1 $size $lfn\n";
+    do { &alert("$drop: failed to write $ChecksumFile"); return 1}
+      if  ! &output ($ChecksumFile, $cksumContent);
+
+    # OK, we are done
+    &touch ("$dropdir/done");
+    return 0;
+}
+
+
+sub createZipXMLfragment
+{
+    my ($guid, $lfn) = @_;
+    
+    if ($lfn =~ /.+\.(\w+)\.(\d+)\.(.+)\.(.+)\./) {
+	my $xmldata = <<EOF;
+  <File ID="$guid">
+    <physical>
+      <pfn filetype="EVDZip" name="./$lfn"/>
+    </physical>
+    <logical>
+      <lfn name="$lfn"/>
+    </logical>
+    <metadata att_name="Content" att_value="ZippedProd"/>
+    <metadata att_name="DBoid" att_value=""/>
+    <metadata att_name="DataType" att_value="ZippedProd"/>
+    <metadata att_name="FileCategory" att_value="ZippedProd"/>
+    <metadata att_name="Flags" att_value=""/>
+    <metadata att_name="dataset" att_value="$3"/>
+    <metadata att_name="jobid" att_value="$1"/>
+    <metadata att_name="owner" att_value="$4"/>
+    <metadata att_name="runid" att_value="$2"/>
+  </File>
+EOF
+      return $xmldata;
+    } else {
+	&alert("wrong format for LFN = $lfn"); return 0;	
+    }
+}
+
+
+# Actually process the drop.
+sub processDrop
+{
+    my ($self, $drop) = @_;
+    # Sanity checking
+    return if (! $self->inspectDrop ($drop));
+    delete $self->{BAD}{$drop};
+    &timeStart($self->{STARTTIME});
+
+    # Find the Smry file.
+    my $dropdir = "$self->{WORKDIR}/$drop";
+    my $smryfile = (<$dropdir/*.smry>)[0];
+    do { &alert("$drop: no summary file"); $self->markBad ($drop); return }
+      if ! $smryfile;
+
+    # Process summary file
+    do { $self->markBad ($drop); return }
+      if $self->ProcessSmry ($drop, $smryfile);
+
+    $self->relayDrop ($drop);
+    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
+}
