@@ -185,7 +185,7 @@ sub tapeMountLoad
     open(QSTAT, "showqueues -x |")
 	or do { &alert ("cannot run showqueues: $!"); return (undef, undef); };
 
-    my $tapeusers = join("|", map { quotemeta } @{$self->{TAPE_USERS});
+    my $tapeusers = join("|", map { quotemeta } @{$self->{TAPE_USERS}});
     while (<QSTAT>)
     {
 	$total++ if /^Q/;
