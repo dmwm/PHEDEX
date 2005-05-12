@@ -68,9 +68,10 @@ sub ProcessSmry
 {
     my ($self, $drop, $smryfile) = @_;
     my $assID = undef;
-    my $guid = undef;
-    my $size = undef;
-    my $lfn  = undef;
+    my $guid  = undef;
+    my $size  = undef;
+    my $cksum = undef;
+    my $lfn   = undef;
     my $dropdir = "$self->{WORKDIR}/$drop";
 
     # Parse the smry file.
@@ -80,6 +81,7 @@ sub ProcessSmry
 	$assID = $1   if /_ASS_ID=(\d+)/;             # assignment ID     
 	$guid  = $1   if /OUT_GUID=([-0-9A-Fa-f]+)/;  # zip's guid
 	$size  = $1   if /OUT_SIZE=(\d+)/;            # zip's size
+	$cksum = $1   if /OUT_CKSUM=(\d+)/;           # zip's cksum
 	$lfn   = $1   if /OUT_LFN=(.+)/;              # zip's LFN
     }
     close (IN);
@@ -96,7 +98,8 @@ sub ProcessSmry
 
     # create chksum file with format "cksum filesize LFN"
     my $ChecksumFile="$dropdir/Checksum.$assID.txt";
-    my $cksumContent = "-1 $size $lfn\n";
+    $cksum = -1 if !$cksum;
+    my $cksumContent = "$cksum $size $lfn\n";
     do { &alert("$drop: failed to write $ChecksumFile"); return 1}
       if  ! &output ($ChecksumFile, $cksumContent);
 
