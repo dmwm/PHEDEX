@@ -30,7 +30,7 @@ this document. These two modes are different in several aspects (see
 below for details). In short, local farm production requires a real (local) 
 PhEDEx node with a local relational PhEDEx catalogue, while files produced
 in LCG are harvested by means of a virtual PhEDEx node which makes use of a
-global LCG catalogue (currently RLS). In addition, files generated in LCG
+global LCG catalogue (currently the RLS). In addition, files generated in LCG
 are bundled up in a zip archive which gets injected into PhEDEx while files
 produced in local farm mode are individually injected and transferred. 
 
@@ -44,7 +44,7 @@ Summary files of production jobs that terminated successfully appear in a
 pre-specified directory configured by production.
 The summary files must be dropped into the inbox directory of the 
 DropSmry agent. This agent parses the summary file extracting from it the 
-POOL XML fragment and checksums of the EVD data files. The file sizes are 
+POOL XML fragment and checksums of the EVD data files. File sizes are 
 currently not available in the summary file. DropSmry calls a local site 
 glue script (option -sizequery) passing as arguments the LFN and the 
 output directory of the EVD files in the production jobs. See e.g. 
@@ -60,27 +60,31 @@ publishes the information into TMDB.
 
 Production jobs in LCG bundle up the output files into a single zip 
 archive. The zip files are stored in LCG SEs and registered in the LCG
-central file catalogue (currently the RLS). 
+RLS catalogue. 
 
 Files produced using LCG resources are (potentially) spread among many LCG 
 sites. A virtual PhEDEx node has been created to harvest production files  
-in LCG and transfer them to a real PhEDEx node. This approach assumes that
-files in LCG are available on disk since no PhEDEx stager agents run at
-the remote LCG sites. 
+in LCG and transfer them to a real PhEDEx node. For an efficient harvest, 
+files in LCG SEs should be available on disk since no PhEDEx stager agents 
+can run at the remote LCG sites. 
 
-Routing and Export agents for this node run somewhere centrally. 
-Several instances of the LCG drop box chain (DropSmryLCG and 
+Routing and Export agents for this node run somewhere centrally (currently
+at PIC). Several instances of the LCG drop box chain (DropSmryLCG and 
 DropTMDBpublisher agents) can be run at different sites, 
-typically one at every UI machine submitting production jobs to LCG.
+typically one at every UI machine submitting production jobs to LCG. 
+See Custom/LCGProduction/Config for the configuration. 
+
 The summary file of a production job that terminated successfully is 
 stored in the job output sandbox. The job output sandbox must be retrieved 
 by the job submitter (or an agent) and the summary file dropped into the 
-inbox directory of the DropSmryLCG agent. The zip file containing the EVD 
+inbox directory of the DropSmryLCG agent (see
+Custom/LCGProduction/drop_summary_files.sh for a simple script to make
+drops for DropSmryLCG). The zip file containing the EVD 
 data files is the one injected into PhEDEx. DropSmryLCG creates a 
 XML POOL fragment for the zip file which is dropped into the 
-DropTMDBpublisher inbox. The summary file contains the zip file size but
-not its checksum. Until the checksum is incorportated in the summary file,
-zip files will be checksummed at the harvesting real PhEDEx node. 
+DropTMDBpublisher inbox. If the checksum of the zip file is not available
+in the summary file, the zip file should be checksummed at the harvesting 
+real PhEDEx node. 
 No publication into a local PhEDEx catalogue is needed. The LCG global 
 catalogue acts as PhEDEx catalogue for the virtual LCG node. The Export 
 agent uses it to convert GUIDs into TURLs. 
