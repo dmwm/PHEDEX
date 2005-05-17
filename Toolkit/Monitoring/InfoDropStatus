@@ -87,12 +87,12 @@ sub idle
         # FIXME: Pick up and process messages to me
 
 	# Collect statistics
-	my $item = undef;
 	my %status = ();
 	my %alive = ();
 	my $site = $self->{SITEID};
 	my $host = &getfullhostname();
 	my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+	my $item = undef;
 	my $live = undef;
 	my $dir = undef;
 	open (STATUS, "$home/../../Utilities/DropStatus $self->{AGENTDIR}/* |") or return;
@@ -108,7 +108,7 @@ sub idle
 	    elsif ($live && $dir && /^\s+((\S)(\d*)): /)
 	    {
 		my $subdir = $2 eq 'M' ? "" : "/worker-$3";
-		my $pid = qx(cat "$dir$subdir/pid" 2>/dev/null); chomp ($pid); $pid ||= -1;
+		my $pid = &input("$dir$subdir/pid") || ""; chomp ($pid); $pid ||= -1;
 		$live->{$1} = { PID => $pid, LIVE => kill (0, $pid) };
 		my $row = $item->{$1} = {};
 		my $line = $';
