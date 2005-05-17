@@ -14,7 +14,9 @@ create table t_info_transfer_status
    node_files		integer		not null,
    node_bytes		integer		not null,
    xfer_files		integer		not null,
-   xfer_bytes		integer		not null);
+   xfer_bytes		integer		not null,
+   expt_files		integer		not null,
+   expt_bytes		integer		not null);
 
 create table t_info_transfer_states
   (timestamp		float		not null,
