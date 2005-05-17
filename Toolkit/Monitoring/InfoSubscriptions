@@ -88,7 +88,7 @@ sub idle
               count(rs.guid),
               sum(decode(rs.guid,null,0,f.filesize))
             from t_file f
-            left join t_block b
+            join t_block b
 	      on b.name = f.inblock
             left join t_subscription s
               on s.owner = b.owner and s.dataset = b.dataset

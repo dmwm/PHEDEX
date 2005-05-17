@@ -153,7 +153,7 @@ sub nextFiles
 	my $stmt = &dbexec ($dbh, qq{
 	    select rs.guid
 	    from t_replica_state rs
-	    left join t_file f on f.guid = rs.guid
+	    join t_file f on f.guid = rs.guid
 	    where f.filesize = -1 and rs.node = :node},
 	    ":node" => $self->{MYNODE});
 	while (my ($guid) = $stmt->fetchrow_array())

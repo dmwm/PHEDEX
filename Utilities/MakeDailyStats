@@ -88,7 +88,7 @@ $dbh = &connectToDatabase (\%args, 0);
 my $data = &dbexec ($dbh, qq{
     select ts.to_timestamp, ts.to_node, f.filesize
     from t_transfer_completed ts
-    left join t_file f on f.guid = ts.guid
+    join t_file f on f.guid = ts.guid
     where ts.from_node not like '%_MSS'
       and ts.to_node not like '%_MSS'});
 

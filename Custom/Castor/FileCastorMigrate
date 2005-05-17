@@ -128,10 +128,8 @@ sub idle
 	my ($qstmt) = &dbexec($dbh, qq{
 	    select ts.guid, f.filesize, ts.from_timestamp
 	    from t_transfer_state ts
-	    left join t_file f
-	      on f.guid = ts.guid
-	    where ts.to_node = :node
-	      and ts.to_state = 2},
+	    join t_file f on f.guid = ts.guid
+	    where ts.to_node = :node and ts.to_state = 2},
   	    ":node" => $self->{MYNODE});
 	while (my $row = $qstmt->fetchrow_arrayref())
 	{

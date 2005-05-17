@@ -228,8 +228,7 @@ sub nextFiles
 	my $stmt = &dbexec ($dbh, qq{
 		select rs.guid, f.filesize
 		from t_replica_state rs
-		left join t_file f
-		  on f.guid = rs.guid
+		join t_file f on f.guid = rs.guid
 		where rs.node = :node
 	  	  and rs.state = 1
 	  	  and f.checksum = -1},

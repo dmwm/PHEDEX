@@ -379,8 +379,7 @@ sub markFilesWanted
 	my ($total) = &dbexec($dbh, qq{
 	    select sum(f.filesize)
 	    from t_transfer_state ts
-	    left join t_file f
-	      on f.guid = ts.guid
+	    join t_file f on f.guid = ts.guid
 	    where ts.to_node = :node and ts.to_state = 1},
     	    ":node" => $mynode)->fetchrow() || 0;
 	return if $total > .75 * $self->{WANT_LIMIT};
@@ -400,8 +399,7 @@ sub markFilesWanted
 	my $stmt = &dbexec($dbh, qq{
 	    select ts.guid, ts.from_node, f.filesize
 	    from t_transfer_state ts
-	    left join t_file f
-	      on f.guid = ts.guid
+	    join t_file f on f.guid = ts.guid
 	    where ts.to_node = :node and ts.to_state = 0
 	    order by ts.from_state desc,
 	             trunc (ts.to_timestamp/86400) desc,
@@ -455,8 +453,7 @@ sub nextFiles
 		           ts.from_timestamp,
 			   ts.from_pfn
 		    from t_transfer_state ts
-		    left join t_file f
-		      on f.guid = ts.guid
+		    join t_file f on f.guid = ts.guid
 		    where ts.to_node = :node
 		      and ts.to_state < 2
 	  	      and ts.from_state = 1

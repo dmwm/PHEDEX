@@ -87,7 +87,7 @@ sub idle
               count(f.guid),
               nvl(sum(f.filesize),0)
             from t_file f
-            left join t_block b
+            join t_block b
 	      on b.name = f.inblock
             group by :now, b.dataset, b.owner)},
 	    ":now" => $now);
@@ -101,9 +101,9 @@ sub idle
               count(rs.guid),
               nvl(sum(f.filesize),0)
             from t_replica_state rs
-	    left join t_file f
+	    join t_file f
 	      on f.guid = rs.guid
-            left join t_block b
+            join t_block b
 	      on b.name = f.inblock
             group by :now, b.dataset, b.owner, rs.node)},
 	    ":now" => $now);
