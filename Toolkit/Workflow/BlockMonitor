@@ -74,12 +74,18 @@ sub limitCheck
     &alert ("$reason $b->{NAME} at $b->{NODE} has $b->{NODE_BYTES} bytes,"
 	    . " more than expected ($ref->{BYTES})")
 	if $b->{NODE_BYTES} > $ref->{BYTES};
-    &alert ("$reason $b->{NAME} at $b->{XFER} transferring $b->{XFER_FILES} files,"
+    &alert ("$reason $b->{NAME} at $b->{NODE} transferring $b->{XFER_FILES} files,"
 	    . " more than expected ($ref->{FILES})")
 	if $b->{XFER_FILES} > $ref->{FILES};
-    &alert ("$reason $b->{NAME} at $b->{XFER} transferring $b->{XFER_BYTES} bytes,"
+    &alert ("$reason $b->{NAME} at $b->{NODE} transferring $b->{XFER_BYTES} bytes,"
 	    . " more than expected ($ref->{BYTES})")
 	if $b->{XFER_BYTES} > $ref->{BYTES};
+    &alert ("$reason $b->{NAME} at $b->{NODE} transferring $b->{EXPT_FILES} files,"
+	    . " more than expected ($ref->{FILES})")
+	if $b->{EXPT_FILES} > $ref->{FILES};
+    &alert ("$reason $b->{NAME} at $b->{NODE} transferring $b->{EXPT_BYTES} bytes,"
+	    . " more than expected ($ref->{BYTES})")
+	if $b->{EXPT_BYTES} > $ref->{BYTES};
 }
 
 # Update statistics.
@@ -106,7 +112,8 @@ sub idle
 		   b.files, b.bytes, b.isopen,
 	           br.dest_files, br.dest_bytes,
 		   br.node_files, br.node_bytes,
-		   br.xfer_files, br.xfer_bytes
+		   br.xfer_files, br.xfer_bytes,
+		   br.expt_files, br.expt_bytes
 	    from t_block_replica br
 	    join t_block b on b.name = br.name});
         while (my $row = $qexisting->fetchrow_arrayref())
@@ -116,7 +123,8 @@ sub idle
 		FILES => $row->[3], BYTES => $row->[4], ISOPEN => $row->[5],
 		DEST_FILES => $row->[6], DEST_BYTES => $row->[7],
 		NODE_FILES => $row->[8], NODE_BYTES => $row->[9],
-		XFER_FILES => $row->[10], XFER_BYTES => $row->[11]
+		XFER_FILES => $row->[10], XFER_BYTES => $row->[11],
+		EXPT_FILES => $row->[12], EXPT_BYTES => $row->[13]
 	    };
 	    &limitCheck ("existing block", $replicas{$row->[0]}{$row->[1]});
 	}
@@ -173,11 +181,24 @@ sub idle
 	    $active{$block}{$node}{XFER_BYTES} = $bytes;
 	}
 
+        $qactive = &dbexec($dbh, qq{
+	    select f.inblock, ts.from_node, count (ts.guid), sum (f.filesize)
+	    from t_transfer_state ts
+	    join t_file f on f.guid = ts.guid
+	    group by f.inblock, ts.from_node});
+        while (my ($block, $node, $files, $bytes) = $qactive->fetchrow())
+        {
+	    $active{$block}{$node} ||= { NAME => $block, NODE => $node };
+	    $active{$block}{$node}{EXPT_FILES} = $files;
+	    $active{$block}{$node}{EXPT_BYTES} = $bytes;
+	}
+
 	foreach my $b (map { values %$_ } values %active)
 	{
 	    $b->{DEST_FILES} ||= 0; $b->{DEST_BYTES} ||= 0;
 	    $b->{NODE_FILES} ||= 0; $b->{NODE_BYTES} ||= 0;
 	    $b->{XFER_FILES} ||= 0; $b->{XFER_BYTES} ||= 0;
+	    $b->{EXPT_FILES} ||= 0; $b->{EXPT_BYTES} ||= 0;
 	}
 
 	# Compare differences I: start from previous replicas.
@@ -213,7 +234,9 @@ sub idle
 		|| $b->{NODE_FILES} != $new->{NODE_FILES}
 		|| $b->{NODE_BYTES} != $new->{NODE_BYTES}
 		|| $b->{XFER_FILES} != $new->{XFER_FILES}
-		|| $b->{XFER_BYTES} != $new->{XFER_BYTES})
+		|| $b->{XFER_BYTES} != $new->{XFER_BYTES}
+		|| $b->{EXPT_FILES} != $new->{EXPT_FILES}
+		|| $b->{EXPT_BYTES} != $new->{EXPT_BYTES})
 	    {
 		&limitCheck ("updated block", $new, $b);
 		&logmsg ("updating $b->{NAME} at $b->{NODE}");
@@ -222,7 +245,8 @@ sub idle
 		    set last_update = :now, isactive = 1,
 		        dest_files = :dest_files, dest_bytes = :dest_bytes,
 			node_files = :node_files, node_bytes = :node_bytes,
-			xfer_files = :xfer_files, xfer_bytes = :xfer_bytes
+			xfer_files = :xfer_files, xfer_bytes = :xfer_bytes,
+			expt_files = :expt_files, expt_bytes = :expt_bytes
 		    where name = :block and node = :node},
 		    ":now" => $now,
 		    ":block" => $b->{NAME},
@@ -232,7 +256,9 @@ sub idle
 		    ":node_files" => $new->{NODE_FILES},
 		    ":node_bytes" => $new->{NODE_BYTES},
 		    ":xfer_files" => $new->{XFER_FILES},
-		    ":xfer_bytes" => $new->{XFER_BYTES});
+		    ":xfer_bytes" => $new->{XFER_BYTES},
+		    ":expt_files" => $new->{EXPT_FILES},
+		    ":expt_bytes" => $new->{EXPT_BYTES});
 	    }
         }
 
@@ -246,11 +272,13 @@ sub idle
 		(timestamp, name, node, isactive, last_update,
 		 dest_files, dest_bytes,
 		 node_files, node_bytes,
-		 xfer_files, xfer_bytes)
+		 xfer_files, xfer_bytes,
+		 expt_files, expt_bytes)
 		values (:now, :block, :node, 1, :now,
 		        :dest_files, :dest_bytes,
 			:node_files, :node_bytes,
-			:xfer_files, :xfer_bytes)},
+			:xfer_files, :xfer_bytes,
+			:expt_files, :expt_bytes)},
 		":now" => $now,
 		":block" => $b->{NAME},
 		":node" => $b->{NODE},
@@ -259,7 +287,9 @@ sub idle
 		":node_files" => $b->{NODE_FILES},
 		":node_bytes" => $b->{NODE_BYTES},
 		":xfer_files" => $b->{XFER_FILES},
-		":xfer_bytes" => $b->{XFER_BYTES});
+		":xfer_bytes" => $b->{XFER_BYTES},
+		":expt_files" => $b->{EXPT_FILES},
+		":expt_bytes" => $b->{EXPT_BYTES});
 	}
 
 	# All done.
