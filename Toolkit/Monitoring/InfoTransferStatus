@@ -73,19 +73,14 @@ sub idle
         # FIXME: Pick up and process messages to me
 
 	# Summarise from t_block_replica information.
-	# FIXME: Remove 0, 0 entries before V2.2 release, update schema
 	&dbexec($dbh, qq{delete from t_info_transfer_status});
 	&dbexec($dbh, qq{
 	    insert into t_info_transfer_status
 	    (select :now, br.node,
 	            nvl (sum (br.dest_files), 0), nvl (sum (br.dest_bytes), 0),
 		    nvl (sum (br.node_files), 0), nvl (sum (br.node_bytes), 0),
-		    0, 0, /* staged */
-		    0, 0, /* available */
-		    0, 0, /* in-transfer */
-		    0, 0, /* wanted */
 		    nvl (sum (br.xfer_files), 0), nvl (sum (br.xfer_files), 0),
-		    0, 0 /* other */
+		    nvl (sum (br.expt_files), 0), nvl (sum (br.expt_files), 0)
 	     from t_block_replica br
 	     group by :now, br.node)},
 	     ":now" => &mytimeofday ());
