@@ -1,0 +1,151 @@
+#!/usr/bin/env perl
+
+##H run: runs a specific PhEDEx test
+##H
+##H Thinking of this as a base generic test... don't want to take it too far, rather
+##H want to work out what functionality we _need_ of a test suite. Particularly, we want
+##H to be able to periodically query the TMDB and compare the results of a particular
+##H query with what we expect.
+##H
+##H Usage:
+##H
+##H -db       database connection configuration parameter file
+##H -test     test name- the directory in which the test is stored
+
+# FIXME: when things fail, make sure you shut down the agents!
+
+BEGIN {
+    use strict; use warnings;
+    our $me = $0; $me =~ s|.*/||;
+    our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+    unshift(@INC, $home);
+}
+
+$SIG{INT} = sub { print "Caught sig INT\n"; exit 2 };
+
+######################################################################
+
+use UtilsHelp;
+
+my %args = ();
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-test' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{TEST} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
+    else 
+    { last; }
+}
+
+if (@ARGV || !$args{DBCONFIG} || !$args{TEST})
+{
+    die "Sorry, you're missing parameters, use -h for help.\n";
+}
+
+(new Tool (%args))->process();
+
+######################################################################
+package Tool; use strict; use warnings; use base 'Exporter';
+# Define any more 'use's here.
+use UtilsDB;
+use UtilsLogging;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = {};
+    my %params = (DBCONFIG => undef,
+		  TEST => undef);
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+sub process 
+{
+    my $self = shift;
+
+    &logmsg( "Running test $self->{TEST}" );
+    my $dbh = undef; $dbh = &connectToDatabase ($self,0) or die "failed to connect";
+    $self->prepareTMDB( $dbh );
+    $self->startAgents();
+    &disconnectFromDatabase ($self, $dbh);
+    
+    $self->testLoop( $dbh );
+
+    $dbh = &connectToDatabase ($self,0) or die "failed to connect";
+    $self->stopAgents();
+    $self->cleanTMDB( $dbh );
+    &disconnectFromDatabase ($self, $dbh);
+}
+
+
+sub prepareTMDB {
+    my ($self, $dbh) = @_;
+
+    &logmsg( "Preparing TMDB" );
+    eval {
+	open ( SQL, "$self->{TEST}/prep.sql" );
+	while (<SQL>) {
+	    &dbexec( $dbh, $_ );
+	}
+	$dbh->commit();
+	close( SQL );
+    };
+    do { &alert ("Problem prepping TMDB: $@");
+         eval { $dbh->rollback() } if $dbh; } if $@;
+}
+
+sub startAgents {
+    my $self = shift;
+    
+    &logmsg( "Starting agents" );
+    # FIXME: cycle logs from previous runs rather than just deleting
+
+    # FIXME: Check to see that agents started correctly
+    system( "./Master -config $self->{TEST}/Config start all");
+    sleep(2);
+    system( "ps wwf" );
+}
+
+sub testLoop {
+    my ( $self, $dbh ) = @_;
+
+    &logmsg( "In test loop" );
+
+    my $start = time();
+    while( time() - $start < 60 ) {
+        system( "./$self->{TEST}/TheTest -db $self->{DBCONFIG}:$self->{DBSECTION} -test $self->{TEST}" );
+	sleep(5);
+    }
+}
+
+sub stopAgents {
+    my $self = shift;
+
+    &logmsg( "Stopping agents" );
+
+    # FIXME: Check to see that agents started correctly
+    system( "./Master -config $self->{TEST}/Config stop all");
+}
+
+sub cleanTMDB() {
+    my ($self, $dbh) = @_;
+
+    &logmsg( "Cleaning TMDB" );
+    eval {
+        open ( SQL, "$self->{TEST}/clean.sql" );
+        while (<SQL>) {
+            &dbexec( $dbh, $_ );
+        }
+        $dbh->commit();
+        close( SQL );
+    };
+    do { &alert ("Problem cleaning TMDB: $@");
+         eval { $dbh->rollback() } if $dbh; } if $@;
+}
