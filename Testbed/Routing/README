@@ -1,0 +1,25 @@
+This is a first attempt at exploring what we need from a test harness. In this
+directory are contained a number of tests (e.g. SimpleTwoNode) that will test
+the behaviour of elements of the PhEDEx routing system.
+
+At present (first iteration) there a number of files in each test directory:
+
+prep.sql
+clean.sql
+idealtable.txt
+run
+
+The first two are used to prep and clean the TMDB before and after the test. The
+third contains the output we expect from a query on the TMDB that is run during
+the test. The fourth is a test executable. This preps the TMDB, start agents, runs
+the test, stops the agents and cleans the TMDB again.
+
+In addition, there needs to be an env.sh script in the Routing directory; an
+example from RAL is included here.
+The agents and run also need to access a DBparam file to connect to the TMDB.
+
+Future:
+
+run can be made pretty generic- the only test-specific part at the moment is the
+stuff in testLoop. This should be extracted into a specific test executable for 
+each test, and run moved to the top level dir (or into Testbed proper?).
