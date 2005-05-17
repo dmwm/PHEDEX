@@ -7,19 +7,19 @@ At present (first iteration) there a number of files in each test directory:
 prep.sql
 clean.sql
 idealtable.txt
-run
+TheTest
+Config
 
 The first two are used to prep and clean the TMDB before and after the test. The
 third contains the output we expect from a query on the TMDB that is run during
-the test. The fourth is a test executable. This preps the TMDB, start agents, runs
-the test, stops the agents and cleans the TMDB again.
+the test. The fourth is a test executable. The last is a standardd Config 
+file that is used to actually run the agents for the test.
 
 In addition, there needs to be an env.sh script in the Routing directory; an
 example from RAL is included here.
 The agents and run also need to access a DBparam file to connect to the TMDB.
 
-Future:
+To run one of the tests:
 
-run can be made pretty generic- the only test-specific part at the moment is the
-stuff in testLoop. This should be extracted into a specific test executable for 
-each test, and run moved to the top level dir (or into Testbed proper?).
+. env.sh
+./RunTest -db <your DBparam file> -test <a test directory>
