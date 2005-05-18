@@ -99,10 +99,10 @@ sub refreshNeighbourLinks
     # First cache our _fixed_ neighbour routes- redo every time in case something
     # changes. These are used to recover correct hop link values after a failure
     my $query = &dbexec($dbh, qq{
-	select neighbour,hops from t_node_neighbour 
-	    where node = :me},
-	    ":me" => $mynode);
-    while (my ($neighbour,$hops) = $query->fetchrow()) {
+	select neighbour, hops from t_node_neighbour where node = :me},
+	":me" => $mynode);
+    while (my ($neighbour, $hops) = $query->fetchrow())
+    {
 	$neighbour =~ s/\s+//g;
 	$distances{$neighbour} = $hops;
     }
