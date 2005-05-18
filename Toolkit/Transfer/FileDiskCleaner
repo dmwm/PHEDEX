@@ -1,29 +1,36 @@
 #! /usr/bin/env perl
 
-##H Delete replica entries, files and POOL catalogue entries for disk buffers
+##H Delete replica entries, files and POOL catalogue entries for
+##H disk buffers
 ##H
-##H This agent is meant as garbage collection system for sites with an MSS node for
-##H for lomg term storage plus an intermediate disk buffer. The agent continuously checks
-##H the free disk space on the disk buffer and initiates a clean-up if a certain watermark
-##H (e.g. fill level) is reached. The maximum fill level allowed can be adjusted via
-##H "-maxfillratio" and "-minfreespace". If any of the two requirements are met, a clean-up
-##H is initiated.
+##H This agent is meant as garbage collection system for sites with
+##H an MSS node for for lomg term storage plus an intermediate disk
+##H buffer. The agent continuously checks the free disk space on the
+##H disk buffer and initiates a clean-up if a certain watermark
+##H (e.g. fill level) is reached. The maximum fill level allowed can
+##H be adjusted via "-maxfillratio" and "-minfreespace". If any of
+##H the two requirements are met, a clean-up is initiated.
 ##H
-##H In that case a list of expendable fils is created by checking the buffer for files
-##H which already are already safe on MSS. Those files are subject to the following clean-up
-##H procedure:
+##H In that case a list of expendable fils is created by checking the
+##H buffer for files which already are already safe on MSS. Those
+##H files are subject to the following clean-up procedure:
 ##H 1. remove the corresponding replica in TMDB (t_replica_state)
 ##H 2. remove the file physically from disk
-##H 3. remove the corresponding replica entry in the local POOL catalogue
+##H 3. remove the corresponding replica entry in the local POOL
+##H    catalogue
 ##H
-##H In addition to the watermark setting, the user also needs to provide
-##H 1. the path to the diskbuffer, which should be watched ("-importloc");
-##H 2. the POOL commands or scripts which should be used to query PFNs from
-##H    the catalogue("-pfnquery"): e.g. "PFNLookup.sh,-u,$PHEDEX_CATALOGUE"
-##H 3. the POOL command or script to remove PFNs from the catalogue ("-pfnrm"):
-##H    e.g. "FCdeletePFN,-u,$PHEDEX_CATALOGUE,-p"
-##H 4. the amount of files to purge before the next check of available diskspace
-##H    ("-purgesize"): here some 1000 files is usually a good value
+##H In addition to the watermark setting, the user also needs to
+##H provide:
+##H 1. the path to the diskbuffer, which should be watched
+##H    "-importloc"
+##H 2. the POOL commands or scripts which should be used to query
+##H    PFNs from the catalogue "-pfnquery":
+##H    e.g. "PFNLookup.sh,-u,$PHEDEX_CATALOGUE"
+##H 3. the POOL command or script to remove PFNs from the catalogue
+##H    "-pfnrm": e.g. "FCdeletePFN,-u,$PHEDEX_CATALOGUE,-p"
+##H 4. the amount of files to purge before the next check of
+##H    available diskspace
+##H    "-purgesize": here some 1000 files is usually a good value
 ##H
 ##H
 ##H Usage:
@@ -35,8 +42,10 @@
 ##H -db            database connection configuration parameter file
 ##H -wait          time to wait in seconds between work scans
 ##H -importloc     path to disk to watch
-##H -maxfillratio  maximum allowed disk usage in percentage (default: 75)
-##H -minfreespace  minimum available disk free space in megabytes (default: 100)
+##H -maxfillratio  maximum allowed disk usage in percentage
+##H                (default: 75)
+##H -minfreespace  minimum available disk free space in megabytes
+##H                (default: 100)
 ##H -pfnquery      command to query pfns from catalogue
 ##H -pfnrm         command to remove pfns from catalogue
 ##H -purgesize     maximum number of files to purge per check-iteration
