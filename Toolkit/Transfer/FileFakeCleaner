@@ -16,6 +16,8 @@
 ##H -state     agent state directory
 ##H -nodes     comma-separated list of nodes to run the agent for
 ##H -db        database connection configuration parameter file
+##H -backoff   time to wait in seconds after last outbound transfer
+##H            before starting to delete replicas
 ##H -wait      time to wait in seconds between work scans
 
 BEGIN {
@@ -27,13 +29,15 @@ BEGIN {
 
 ######################################################################
 use UtilsHelp;
-my %args = (WAITTIME => 8*3600);
+my %args = (WAITTIME => 8*3600, BACKOFF => 3*86400);
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-backoff' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{BACKOFF} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-nodes' && scalar @ARGV > 1)
@@ -69,6 +73,7 @@ sub new
 	  	  NODES => undef,		# Nodes to clean tables for
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  MSSNODE => undef,		# MSS TMDB node name
+		  BACKOFF => undef,             # safety time to wait before cleanup
 	  	  AGENTID => "Cleaner");	# Identity for activity logs
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
@@ -95,7 +100,7 @@ sub idle
 		  and node = :node
 		  and guid not in (select guid from t_transfer_state
 	  			   where to_node = :node or from_node = :node)},
-		":old" => $start - 3*86400,
+		":old" => $start - $self->{BACKOFF},
 		":node" => $self->{MYNODE});
 	    $dbh->commit();
 	    &logmsg ("deleted $ndel replicas for $node in "
