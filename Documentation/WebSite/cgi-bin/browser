@@ -164,7 +164,7 @@ sub transfer {
     my $rows = 0;
     my $now = time();
     my $query =
-        ($db eq 'rac' ?  $dbh->prepare(qq{
+        (($db eq 'rac' || $db eq 'testbed') ?  $dbh->prepare(qq{
 	    select
 	      node, timestamp,
 	      dest_files, dest_bytes,
@@ -174,7 +174,7 @@ sub transfer {
 	      0, 0,
 	      0, 0,
 	      xfer_files, xfer_bytes,
-	      0, 0
+	      expt_files, expt_bytes
 	    from t_info_transfer_status
 	    order by node})
          : $dbh->prepare(qq{
@@ -218,8 +218,10 @@ sub transfer {
     	   "<th colspan='2'>Destined</th>",
 	   "<th colspan='2'>On Site</th>",
 	   "<th colspan='2'>In Transfer</th>",
+	   "<th colspan='2'>In Export</th>",
            "</tr>\n",
 	   "<tr bgcolor='$altcolor' valign='top'>",
+	   "<th align='right'>N</th><th align='right'>Size</th>",
 	   "<th align='right'>N</th><th align='right'>Size</th>",
 	   "<th align='right'>N</th><th align='right'>Size</th>",
 	   "<th align='right'>N</th><th align='right'>Size</th>")),
@@ -293,9 +295,8 @@ sub transfer {
 	      "<td align='right'$wancolor>@{[&format_size($wantedsize)]}</td>")),
 	      "<td align='right'$pencolor>@{[&format_num($pending)]}</td>",
 	      "<td align='right'$pencolor>@{[&format_size($pendingsize)]}</td>",
-	      (($db eq 'testbed' || $db eq 'rac') ? () : (
 	      "<td align='right'>@{[&format_num($other)]}</td>",
-	      "<td align='right'>@{[&format_size($othersize)]}</td>")),
+	      "<td align='right'>@{[&format_size($othersize)]}</td>",
 	      "</tr>\n";
     }
     my $onscolor = ($tonsite == $tfiles) ? '' : " bgcolor='$pendcolor'";
@@ -330,9 +331,8 @@ sub transfer {
 	  "<th align='right'$wancolor>@{[&format_size($twantedsize)]}</th>")),
 	  "<th align='right'$pencolor>@{[&format_num($tpending)]}</th>",
 	  "<th align='right'$pencolor>@{[&format_size($tpendingsize)]}</th>",
-	  (($db eq 'testbed' || $db eq 'rac') ? () : (
 	  "<th align='right'>@{[&format_num($tother)]}</th>",
-	  "<th align='right'>@{[&format_size($tothersize)]}</th>")),
+	  "<th align='right'>@{[&format_size($tothersize)]}</th>",
 	  "</tr>\n";
     $query->finish();
     print "</table>";
