@@ -349,23 +349,24 @@ sub markFilesWanted
 
     # Avoid executing very often, the updates below do take a fair
     # amount of time, and there's little point running here much
-    # more than once a minute.
+    # more than once every several minutes.
     my $now = &mytimeofday();
-    return if $self->{WANT_UPDATE} > $now - 60;
+    return if $self->{WANT_UPDATE} > $now - 600;
     $self->{WANT_UPDATE} = $now;
     
     eval
     {
 	my $mynode = $self->{MYNODE};
 
-	# Tick back-off timer for previously failed transfers.
-	# Each state above 100 counts as one-minute cool-down
-	# period (see code above how this is assigned).
-	# (FIXME: restore old time stamp?)
+	# Restore files that have cooled off long enough.  Each
+	# state above 100 counts as a minute of cool-down period.
     	&dbexec ($dbh, qq{
 	    update t_transfer_state
-	    set to_state = (case when to_state > 100 then to_state - 1 else 0 end), to_timestamp = :now
-	    where to_node = :node and to_state >= 100 and to_timestamp < :old},
+	    set to_state = 0, to_timestamp = :now
+	    where to_node = :node
+	      and to_state >= 100
+              and to_state - 100 < (:now - to_timestamp)/60
+      	      and to_timestamp < :old},
     	    ":now" => $now, ":node" => $mynode, ":old" => $now - 60);
 
 	# Keep wanted time stamp at most ten minutes old.
