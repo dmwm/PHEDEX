@@ -78,10 +78,6 @@ create index ix_replica_state_node
   on t_replica_state (node)
   tablespace CMS_TRANSFERMGMT_INDX01;
 
-create index ix_replica_state_state
-  on t_replica_state (state)
-  tablespace CMS_TRANSFERMGMT_INDX01;
-
 create index ix_replica_state_common
   on t_replica_state (node, state, guid)
   tablespace CMS_TRANSFERMGMT_INDX01;
