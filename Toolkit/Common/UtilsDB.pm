@@ -1,5 +1,5 @@
 package UtilsDB; use strict; use warnings; use base 'Exporter';
-our @EXPORT = qw(connectToDatabase disconnectFromDatabase dbexec dbprep dbbindexec);
+our @EXPORT = qw(connectToDatabase disconnectFromDatabase dbsql dbexec dbprep dbbindexec);
 use UtilsLogging;
 use UtilsTiming;
 use DBI;
@@ -38,10 +38,14 @@ sub connectToDatabase
 		$self->{DBH_DBITYPE} = $1 if $insection;
 	    } elsif (/^Database (\S+)$/) {
 		$self->{DBH_DBNAME} = $1 if $insection;
-	    } elsif (/^Username (\S+)$/) {
+	    } elsif (/^AuthDBUsername (\S+)$/) {
 		$self->{DBH_DBUSER} = $1 if $insection;
-	    } elsif (/^Password (\S+)$/) {
+	    } elsif (/^AuthDBPassword (\S+)$/) {
 		$self->{DBH_DBPASS} = $1 if $insection;
+	    } elsif (/^AuthRole (\S+)$/) {
+		$self->{DBH_DBROLE} = $1 if $insection;
+	    } elsif (/^AuthRolePassword (\S+)$/) {
+		$self->{DBH_DBROLE_PASS} = $1 if $insection;
 	    } elsif (/^ConnectionLife (\d+)$/) {
 		$self->{DBH_LIFE} = $1 if $insection;
 		$self->{DBH_CACHE} = 0 if $insection && $1 == 0;
@@ -58,6 +62,9 @@ sub connectToDatabase
 	die "$self->{DBCONFIG}: database parameters not found\n"
 	    if (! $self->{DBH_DBITYPE} || ! $self->{DBH_DBNAME}
 		|| ! $self->{DBH_DBUSER} || ! $self->{DBH_DBPASS});
+
+	die "$self->{DBCONFIG}: role specified without username or password\n"
+	    if ($self->{DBH_DBROLE} && ! $self->{DBH_DBROLE_PASS});
     }
 
     # Use cached connection if it's still alive and the handle
@@ -82,6 +89,12 @@ sub connectToDatabase
 			       AutoCommit => 0,
 			       PrintError => 0 });
         return undef if ! $dbh;
+
+	# Acquire role if one was specified
+	&dbexec ($dbh,
+		 "set role $self->{DBH_DBROLE} identified by"
+		 . " $self->{DBH_DBROLE_PASS}")
+	    if $self->{DBH_DBROLE};
 
 	# Cache it.
 	$self->{DBH_AGE} = time();
@@ -151,11 +164,21 @@ sub disconnectFromDatabase
     }
 }
 
+# Tidy up SQL statement
+sub dbsql
+{
+    my ($sql) = @_;
+    $sql =~ s/^\s+//mg;
+    $sql =~ s/\s+$//mg;
+    $sql =~ s/\n/ /g;
+    return $sql;
+}
+
 # Simple utility to prepare a SQL statement
 sub dbprep
 {
     my ($dbh, $sql) = @_;
-    return $dbh->prepare ($sql);
+    return $dbh->prepare (&dbsql ($sql));
 }
 
 # Simple utility to prepare, bind and execute a SQL statement.
