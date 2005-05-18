@@ -1,0 +1,92 @@
+#!/usr/bin/env perl
+
+##H ExecuteSQL: basically does the same thing that piping through sqlplus would do,
+##H but just uses the PhEDEx libraries to manage the database interaction
+##H
+##H Usage:
+##H
+##H -db       database connection configuration parameter file
+##H -test     test name- the directory in which the test is stored
+##H -stage    stage- prep, clean ...
+
+BEGIN {
+    use strict; use warnings;
+    our $me = $0; $me =~ s|.*/||;
+    our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+    unshift(@INC, $home);
+}
+
+$SIG{INT} = sub { print "Caught sig INT\n"; exit 2 };
+
+######################################################################
+
+use UtilsHelp;
+
+my %args = ();
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-test' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{TEST} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-stage' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{STAGE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
+    else 
+    { last; }
+}
+
+if (@ARGV || !$args{DBCONFIG} || !$args{TEST} || !$args{STAGE})
+{
+    die "Sorry, you're missing parameters, use -h for help.\n";
+}
+
+(new Tool (%args))->process();
+
+######################################################################
+package Tool; use strict; use warnings; use base 'Exporter';
+# Define any more 'use's here.
+use UtilsDB;
+use UtilsLogging;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = {};
+    my %params = (DBCONFIG => undef,
+		  TEST => undef,
+		  STAGE => undef);
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+sub process 
+{
+    my $self = shift;
+
+    my $dbh = undef; $dbh = &connectToDatabase ($self,0) or die "failed to connect";
+    $self->runSQL( $dbh );
+    &disconnectFromDatabase ($self, $dbh);
+}
+
+
+sub runSQL {
+    my ( $self, $dbh ) = @_;
+
+    &logmsg( "Running SQL for $self->{STAGE} stage" );
+    eval {
+        open ( SQL, "$self->{TEST}/$self->{STAGE}.sql" );
+        while (<SQL>) {
+            &dbexec( $dbh, $_ );
+        }
+        $dbh->commit();
+        close( SQL );
+    };
+    do { &alert ("Problem running SQL for $self->{STAGE} stage: $@");
+         eval { $dbh->rollback() } if $dbh; } if $@;
+}
+

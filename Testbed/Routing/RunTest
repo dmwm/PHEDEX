@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-##H run: runs a specific PhEDEx test
+##H RunTest: runs a specific PhEDEx test
 ##H
 ##H Thinking of this as a base generic test... don't want to take it too far, rather
 ##H want to work out what functionality we _need_ of a test suite. Particularly, we want
@@ -50,7 +50,6 @@ if (@ARGV || !$args{DBCONFIG} || !$args{TEST})
 ######################################################################
 package Tool; use strict; use warnings; use base 'Exporter';
 # Define any more 'use's here.
-use UtilsDB;
 use UtilsLogging;
 
 sub new
@@ -71,34 +70,17 @@ sub process
     my $self = shift;
 
     &logmsg( "Running test $self->{TEST}" );
-    my $dbh = undef; $dbh = &connectToDatabase ($self,0) or die "failed to connect";
-    $self->prepareTMDB( $dbh );
-    $self->startAgents();
-    &disconnectFromDatabase ($self, $dbh);
-    
-    $self->testLoop( $dbh );
-
-    $dbh = &connectToDatabase ($self,0) or die "failed to connect";
+    $self->runSQL( "prep" );
+    $self->startAgents();    
+    $self->testLoop();
     $self->stopAgents();
-    $self->cleanTMDB( $dbh );
-    &disconnectFromDatabase ($self, $dbh);
+    $self->runSQL( "clean" );
 }
 
+sub runSQL {
+    my ( $self, $stage ) = @_;
 
-sub prepareTMDB {
-    my ($self, $dbh) = @_;
-
-    &logmsg( "Preparing TMDB" );
-    eval {
-	open ( SQL, "$self->{TEST}/prep.sql" );
-	while (<SQL>) {
-	    &dbexec( $dbh, $_ );
-	}
-	$dbh->commit();
-	close( SQL );
-    };
-    do { &alert ("Problem prepping TMDB: $@");
-         eval { $dbh->rollback() } if $dbh; } if $@;
+    system( "./ExecuteSQL -db $self->{DBCONFIG} -test $self->{TEST} -stage $stage" );
 }
 
 sub startAgents {
@@ -110,17 +92,16 @@ sub startAgents {
     # FIXME: Check to see that agents started correctly
     system( "./Master -config $self->{TEST}/Config start all");
     sleep(2);
-    system( "ps wwf" );
 }
 
 sub testLoop {
-    my ( $self, $dbh ) = @_;
+    my $self = shift;
 
     &logmsg( "In test loop" );
 
     my $start = time();
     while( time() - $start < 60 ) {
-        system( "./$self->{TEST}/TheTest -db $self->{DBCONFIG}:$self->{DBSECTION} -test $self->{TEST}" );
+        system( "./$self->{TEST}/TheTest -db $self->{DBCONFIG} -test $self->{TEST}" );
 	sleep(5);
     }
 }
@@ -134,18 +115,4 @@ sub stopAgents {
     system( "./Master -config $self->{TEST}/Config stop all");
 }
 
-sub cleanTMDB() {
-    my ($self, $dbh) = @_;
 
-    &logmsg( "Cleaning TMDB" );
-    eval {
-        open ( SQL, "$self->{TEST}/clean.sql" );
-        while (<SQL>) {
-            &dbexec( $dbh, $_ );
-        }
-        $dbh->commit();
-        close( SQL );
-    };
-    do { &alert ("Problem cleaning TMDB: $@");
-         eval { $dbh->rollback() } if $dbh; } if $@;
-}
