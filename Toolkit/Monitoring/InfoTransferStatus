@@ -79,8 +79,8 @@ sub idle
 	    (select :now, br.node,
 	            nvl (sum (br.dest_files), 0), nvl (sum (br.dest_bytes), 0),
 		    nvl (sum (br.node_files), 0), nvl (sum (br.node_bytes), 0),
-		    nvl (sum (br.xfer_files), 0), nvl (sum (br.xfer_files), 0),
-		    nvl (sum (br.expt_files), 0), nvl (sum (br.expt_files), 0)
+		    nvl (sum (br.xfer_files), 0), nvl (sum (br.xfer_bytes), 0),
+		    nvl (sum (br.expt_files), 0), nvl (sum (br.expt_bytes), 0)
 	     from t_block_replica br
 	     group by :now, br.node)},
 	     ":now" => &mytimeofday ());
