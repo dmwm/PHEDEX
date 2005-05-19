@@ -86,12 +86,16 @@ sub runSQL {
 sub startAgents {
     my $self = shift;
     
-    &logmsg( "Starting agents" );
+    &logmsg( "Deleting logs,history,state and starting agents" );
     # FIXME: cycle logs from previous runs rather than just deleting
+    system( "rm logs/*" );
+    system( "rm -fr history/*" );
+    system( "rm -fr incoming/*" );
 
     # FIXME: Check to see that agents started correctly
     system( "./Master -config $self->{TEST}/Config start all");
     sleep(2);
+    system( "ps wwf" );
 }
 
 sub testLoop {

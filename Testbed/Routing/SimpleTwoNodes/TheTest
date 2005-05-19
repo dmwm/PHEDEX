@@ -11,6 +11,8 @@ BEGIN {
 
 use UtilsHelp;
 
+# FIXME: should be able to determine which test it is from the directory it's in!
+
 my %args = ();
 while (scalar @ARGV)
 {
@@ -66,6 +68,7 @@ sub process
 sub testLoop {
     my ($self, $dbh) = @_;
 
+    # First we check the database against expected contents
     my @idealTable = ();
     open ( IDEAL, "$self->{TEST}/idealtable.txt" );
     while (<IDEAL>) {
@@ -88,15 +91,44 @@ sub testLoop {
     $query->finish();
 
     my $count = 0;
-    my $failed = 0;
+    my $tableCompFailed = 0;
     foreach my $row ( @actualTable ) {
 	if ( $row ne $idealTable[$count] ) {
 	    print "$row\t$idealTable[$count]\n";
-	    $failed = 1;
+	    $tableCompFailed = 1;
 	}
 	$count++;
     }
-    if ( $failed == 1 ) {
-	&logmsg( "Test failed" );
+
+    # Now we check the logs
+    system( "touch logs/last-router-a logs/last-router-b" );
+
+    my $deadlockFailed = 0;
+    open ( LOG, "diff logs/router-a logs/last-router-a |" );
+    while(<LOG>) {
+	if (/deadlock/) {
+	    $deadlockFailed = 1;
+	}
+    }
+    close( LOG );
+    open ( LOG, "diff logs/router-b logs/last-router-b |" );
+    while(<LOG>) {
+        if (/deadlock/) {
+            $deadlockFailed = 1;
+        }
+    }
+    close( LOG );
+
+    system( "rm logs/last-router-a" );
+    system( "cat logs/router-a > logs/last-router-a" );
+    system( "rm logs/last-router-b" );
+    system( "cat logs/router-b > logs/last-router-b" );
+
+
+    if ( $tableCompFailed == 1 ) {
+        &logmsg( "Table comparison failed" );
+    }
+    if ( $deadlockFailed == 1 ) {
+        &logmsg( "Deadlock check failed" );
     }
 }

@@ -7,11 +7,11 @@
     -infinity 20
     -nodes Tim-B
     -db '/home/csf/phtab/PhEDExDev/DBParam:RAC'        
-    -wait $(expr 12 + $RANDOM "%" 1)
+    -wait 10
 
 ### AGENT LABEL=router-a PROGRAM=Toolkit/Infrastructure/NodeRouter
     -state ${PHEDEX_STATE}/router-a
     -infinity 20
     -nodes Tim-A
     -db '/home/csf/phtab/PhEDExDev/DBParam:RAC'
-    -wait $(expr 10 + $RANDOM "%" 1)
+    -wait 10
