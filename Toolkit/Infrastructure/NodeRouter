@@ -134,27 +134,48 @@ sub refreshNeighbourLinks
 		    ":hops" => $distances{$neighbour});
 	} else {
 	    &dbexec($dbh, qq{
+		select * from t_routing
+		    where to_node = :to_node and gateway = :to_node and from_node = :from_node
+		    for update},
+                    ":to_node" => $mynode,
+                    ":from_node" => $neighbour);
+	    &dbexec($dbh, qq{
 		update t_routing set timestamp = :now, hops = :hops
-		    where to_node = :node and gateway = :node and from_node = :from_node},
+		    where to_node = :to_node and gateway = :to_node and from_node = :from_node},
 		    ":now" => $time,
-		    ":node" => $mynode,
+		    ":to_node" => $mynode,
 		    ":from_node" => $neighbour,
 		    ":hops" => $distances{$neighbour});
+	    $dbh->commit();
 	}
     }
 }
 
 sub updateTable
 {
+    # FIXME: can we just drop the whole of our part of the routing table and
+    # just rebuild it now?
+
     my ($self, $dbh, $routes) = @_;
     my $mynode = $self->{MYNODE};
+    
+    # Trying just dropping the whole of our routing table here ...
+    &dbexec($dbh, qq{
+	select * from t_routing where from_node = :from_node for update},
+	    ":from_node" => $mynode);
+    &dbexec($dbh, qq{
+	delete from t_routing
+	    where from_node = :from_node},
+	    ":from_node" => $mynode);
+    $dbh->commit();
+    
     foreach my $route (@$routes)
     {
 	my ($from, $to, $time, $hops, $status) = split (":", $route);
-	if ($status eq "I")
-	{
-	    &dbexec($dbh, qq{
-		insert into t_routing
+	
+	# And here, just inserting the new routes
+	&dbexec($dbh, qq{
+	    insert into t_routing
 		(timestamp, from_node, to_node, gateway, hops)
 		values (:timestamp, :from_node, :to_node, :gateway, :hops)},
 		":timestamp" => $time,
@@ -162,29 +183,57 @@ sub updateTable
 		":to_node" => $to,
 		":gateway" => $from,
 		":hops" => $hops);
-	}
-	else
-	{
-	    &dbexec($dbh, qq{
-		update t_routing
-		set timestamp = :timestamp,
-		    gateway = :gateway,
-		    hops = :hops
-		where from_node = :from_node
-		  and to_node = :to_node},
-		":timestamp" => $time,
-  		":gateway" => $from,
-		":hops" => $hops,
-		":from_node" => $mynode,
-		":to_node" => $to);
-	}
+
+	#if ($status eq "I")
+	#{
+	#    &dbexec($dbh, qq{
+	#	insert into t_routing
+	#	    (timestamp, from_node, to_node, gateway, hops)
+	#	    values (:timestamp, :from_node, :to_node, :gateway, :hops)},
+	#	    ":timestamp" => $time,
+	#	    ":from_node" => $mynode,
+	#	    ":to_node" => $to,
+	#	    ":gateway" => $from,
+	#	    ":hops" => $hops);
+	#}
+	#else
+	#{
+	#    # FIXME: we only need to update gateway here IF the gateway has changed
+	#    if ( $status eq "UN" ) {
+	#	&dbexec($dbh, qq{
+	#	    update t_routing
+	#		set timestamp = :timestamp,
+	#		gateway = :gateway,
+	#		hops = :hops
+	#		where from_node = :from_node
+	#		and to_node = :to_node},
+	#		":timestamp" => $time,
+	#		":gateway" => $from,
+	#		":hops" => $hops,
+	#		":from_node" => $mynode,
+	#		":to_node" => $to);
+	#    } else {
+	#	&dbexec($dbh, qq{
+        #            update t_routing
+        #                set timestamp = :timestamp,
+        #                hops = :hops
+        #                where from_node = :from_node
+        #                and to_node = :to_node
+	#	        and gateway = :gateway},
+        #                ":timestamp" => $time,
+        #                ":gateway" => $from,
+        #                ":hops" => $hops,
+        #                ":from_node" => $mynode,
+        #                ":to_node" => $to);
+	#    }
+	#}
     }
 }
 
 sub getNewRoutes
 {
     my ($self, $dbh) = @_;
-
+    
     # Get all routes
     my %routes = ();
     my $query = &dbexec($dbh, qq{
@@ -193,9 +242,9 @@ sub getNewRoutes
     {
 	$from =~ s/\s+//g; $to =~ s/\s+//g;
 	$routes{$from}{$to}
-	    = { GATEWAY => $gateway, HOPS => $hops, STAMP => $stamp };
+	= { GATEWAY => $gateway, HOPS => $hops, STAMP => $stamp };
     }
-
+    
     # Build the list of routes we want to process.  First get our immediate
     # neighbours: routes with from=me and to=gateway.  Then obtain the routes
     # for all those immediate neighbours, excluding routes with myself as the
@@ -250,6 +299,11 @@ sub getMyRouteHash
     return %table;
 }
 
+# Here we compare neighbours' routing tables with what we know, and build our new
+# routing table from the information. The in-memory routing table comprises a set of
+# rows, one for each route, with infomation :-separated. The information includes a 
+# status field: U => an existing route for update, I => a new route for insertion,
+# UN => an existing route with a new gateway
 sub compareWithExistingRoutes
 {
     my ($self, $dbh, $new_routes) = @_;
@@ -265,8 +319,10 @@ sub compareWithExistingRoutes
 	{
 	    $new_gate_time_hops = $new_gate_time_hops.":U";
 	    my ($gate,$time,$hops) = split ( /:/,$gate_time_hops_by_dest{$new_to} );
-	    $gate_time_hops_by_dest{$new_to} = $new_gate_time_hops
-	        if (($gate eq $new_gate) || ($new_hops < $hops)); # replace blindly OR minimise
+	    if (($gate eq $new_gate) || ($new_hops < $hops)) {
+		$new_gate_time_hops = $new_gate_time_hops."N";
+		$gate_time_hops_by_dest{$new_to} = $new_gate_time_hops; # replace blindly OR minimise
+	    }
 	}
 	else
 	{
