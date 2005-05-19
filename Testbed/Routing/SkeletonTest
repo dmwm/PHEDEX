@@ -1,0 +1,91 @@
+#!/usr/bin/env perl
+
+BEGIN {
+    use strict; use warnings;
+    our $me = $0; $me =~ s|.*/||;
+    our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../../Toolkit/Common";
+    unshift(@INC, $home);
+}
+
+######################################################################
+
+use UtilsHelp;
+
+# FIXME: should be able to determine which test it is from the directory it's in!
+
+my %args = ();
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-test' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{TEST} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
+    else 
+    { last; }
+}
+
+if (@ARGV || !$args{DBCONFIG} || !$args{TEST})
+{
+    die "Sorry, you're missing parameters, use -h for help.\n";
+}
+
+(new Tool (%args))->process();
+
+######################################################################
+package Tool; use strict; use warnings; use base 'Exporter';
+# Define any more 'use's here.
+use UtilsDB;
+use UtilsLogging;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = {};
+    my %params = (DBCONFIG => undef,
+                  TEST => undef);
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+sub process 
+{
+    my $self = shift;
+
+    my $dbh = undef; $dbh = &connectToDatabase ($self,0) or die "failed to connect";
+    eval {
+        $self->checkLogs( $dbh );  # These are automatic tests of the logs for alerts etc
+	$self->test( $dbh );      # This is the custom, specific test
+    };
+    do { &alert ("Problem in test loop: $@") } if $@;
+    $dbh->disconnect();
+}
+
+sub checkLogs {
+    my ($self, $dbh) = @_;
+
+    opendir( DIR, "logs" ) or die "Couldn't open log directory: $!";
+    while( defined (my $file = readdir( DIR )) ) {
+	open( FILE, "logs/$file" );
+	while(<FILE>) {
+	    if (/alert/ || /'uninitialized value'/) {
+		&logmsg( "Problem in $file log" );
+		print "$_\n";
+	    }
+	}
+	close( FILE );
+    }
+    close( DIR );
+}
+
+sub test {
+    my ($self, $dbh) = @_;
+
+    # First we check the database against expected contents... ?
+    # Now we check the logs for non-standard problems... ?
+    # And what else... ?
+}

@@ -5,7 +5,6 @@ PHEDEX_TEST_BASE=$PHEDEX_SCRIPTS/Testbed
 PHEDEX_LOGS=$PHEDEX_TEST_BASE/Routing/logs;
 PHEDEX_STATE=$PHEDEX_TEST_BASE/Routing/incoming;
 PHEDEX_DL_HISTORY=$PHEDEX_TEST_BASE/Routing/history;
-PHEDEX_CUSTOM=$PHEDEX_SCRIPTS/Custom/RAL;
 
 # Local catalogue contact
 PHEDEX_CATALOGUE='mysqlcatalog_mysql://boss_manager:boss$db@sql.gridpp.rl.ac.uk/cms_pool_filecatalog';
