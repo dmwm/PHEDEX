@@ -72,7 +72,7 @@ sub checkLogs {
     while( defined (my $file = readdir( DIR )) ) {
 	open( FILE, "logs/$file" );
 	while(<FILE>) {
-	    if (/alert/ || /'uninitialized value'/) {
+	    if (/alert/ || /Use of uninitialized value/) {
 		&logmsg( "Problem in $file log" );
 		print "$_\n";
 	    }
