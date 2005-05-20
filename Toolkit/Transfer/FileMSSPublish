@@ -92,51 +92,45 @@ sub idle
     eval
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
+        # FIXME: Pick up and process messages to me
 
-	# Upload files.  We short-circuit normal handshake, especially
-	# to avoid exporter from responding to transfers on this edge.
-	# We create an appearance of correct transfer statistics for
-	# monitoring purposes.  We expect no genuine transfers out of
-	# the MSS node -- they will all go through the buffer node in
-	# front of the MSS node.
-        my %args = (":node" => $self->{MYNODE},
-                    ":mss" => $self->{MSSNODE},
-                    ":now" => &mytimeofday());
-	
-	# Guarantee a consistent result across the insert/update and
-	# prevent others from touching the source rows we are using.
-	&dbexec($dbh, qq{set transaction isolation level serializable});
-	&dbexec($dbh, qq{select guid, :now from t_transfer_state
-			 where from_node = :mss
-			   and to_node = :node
-		   	   and to_state = 0
-		   	 for update}, %args);
+	# Mark everything available for and already in transfer for
+	# this link.  Don't mark files wanted to avoid stager going
+	# wild because of us :-)  This is to keep browser displays
+	# correct, we don't use this information ourselves and it
+	# isn't used by the "sending" side (the neighbour transfer
+	# node).  Note that there are no transfers out from this
+	# node -- they all go from the transfer node, which must
+	# always be closer to any destination that us and already
+	# has all the files we have.
+	my $n = 0;
+	my $now = &mytimeofday();
+	my $stmt = &dbexec ($dbh, qq{
+	    select guid, from_timestamp from t_transfer_state
+	    where from_node = :mss and to_node = :node and to_state = 0},
+	    ":node" => $self->{MYNODE}, ":mss" => $self->{MSSNODE});
+	while (my ($guid, $start) = $stmt->fetchrow())
+	{
+	    &dbexec ($dbh, qq{
+		insert into t_replica_state
+		    (timestamp, guid, node, state, state_timestamp)
+		    values (:now, :guid, :node, 0, :now)},
+		":node" => $self->{MYNODE}, ":now" => $now, ":guid" => $guid);
 
-	# First insert replicas for the transfers
-        my ($istmt, $irows) = &dbexec($dbh, qq{
-           insert into t_replica_state
-              (timestamp, guid, node, state, state_timestamp)
-              (select :now, guid, :node, 0, :now
-               from t_transfer_state
-               where from_node = :mss
-                 and to_node = :node
-                 and to_state = 0)},
-           %args);
+	    &dbexec ($dbh, qq{
+		update t_transfer_state
+		set to_state = 3, to_timestamp = :now
+		where guid = :guid and to_node = :node},
+		":node" => $self->{MYNODE}, ":now" => $now, ":guid" => $guid);
 
-	# Then mark the transfers completed
-	my ($ustmt, $urows) = &dbexec($dbh, qq{
-           update t_transfer_state
-           set to_state = 3, to_timestamp = :now
-           where from_node = :mss
-             and to_node = :node
-             and to_state = 0},
-           %args);
+	    $dbh->commit () if ++$n % 500 == 0;
 
-	# Prevent inconsistent update
-        die "inconsistent update: $irows vs. $urows\n" if $irows != $urows;
-        $dbh->commit();
+	    my $end = &mytimeofday();
+	    &logmsg ("xstats: $guid $self->{MYNODE} 3 "
+		     . sprintf('%.2f %.2f', $end - $start, $end - $now));
+	}
 
-	&logmsg ("$irows files uploaded") if $irows > 0;
+	$dbh->commit ();
     };
     do { &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
