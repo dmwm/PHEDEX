@@ -227,12 +227,28 @@ sub completeTransferBatch
 		":to_state" => $to_state, ":now" => $now,
 		":guid" => $guid, ":to_node" => $self->{MYNODE});
 
-	    &dbexec ($dbh, qq{
-                insert into t_replica_state
-		(timestamp, guid, node, state, state_timestamp)
-		values (:now, :guid, :node, 0, :now)},
-		":guid" => $guid, ":node" => $self->{MYNODE}, ":now" => $now)
-                if ! $file->{FAILURE};
+	    if (! $file->{FAILURE})
+	    {
+		# Complete the transfer
+	        &dbexec ($dbh, qq{
+                    insert into t_replica_state
+		    (timestamp, guid, node, state, state_timestamp)
+		    values (:now, :guid, :node, 0, :now)},
+		    ":guid" => $guid, ":node" => $self->{MYNODE}, ":now" => $now);
+
+		&dbexec ($dbh, qq{
+		    insert into t_transfer_completed
+		    (select to_timestamp, guid, to_node, to_state, to_timestamp,
+			    from_node, from_state, from_timestamp
+		     from t_transfer_state
+		     where guid = :guid and to_node = :to_node},
+		    ":guid" => $guid, ":to_node" => $self->{MYNODE});
+
+		&dbexec ($dbh, qq{
+		    delete from t_transfer_state
+		    where guid = :guid and to_node = :to_node},
+		    ":guid" => $guid, ":to_node" => $self->{MYNODE});
+	    }
 
 	    # generate profiling info and display stats
 	    my @profile_names = ();
