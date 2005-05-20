@@ -168,6 +168,7 @@ sub disconnectFromDatabase
 sub dbsql
 {
     my ($sql) = @_;
+    $sql =~ s/--.*//mg;
     $sql =~ s/^\s+//mg;
     $sql =~ s/\s+$//mg;
     $sql =~ s/\n/ /g;
