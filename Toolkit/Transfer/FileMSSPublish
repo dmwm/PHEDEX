@@ -103,8 +103,14 @@ sub idle
                     ":mss" => $self->{MSSNODE},
                     ":now" => &mytimeofday());
 	
-	# Guarantee a consistent result across the insert/update.
+	# Guarantee a consistent result across the insert/update and
+	# prevent others from touching the source rows we are using.
 	&dbexec($dbh, qq{set transaction isolation level serializable});
+	&dbexec($dbh, qq{select guid, :now from t_transfer_state
+			 where from_node = :mss
+			   and to_node = :node
+		   	   and to_state = 0
+		   	 for update}, %args);
 
 	# First insert replicas for the transfers
         my ($istmt, $irows) = &dbexec($dbh, qq{
