@@ -106,6 +106,9 @@ sub idle
 	# because we require transactional integrity for the entire
 	# select/delete/update (see above).  It's OK to do work
 	# incrementally here.
+	#
+	# Also note the "select ... for update" so nobody can change
+	# these blocks while we work on them.
 	my $qblocks = &dbexec ($dbh, qq{
 	    select b.name
 	    from t_block b
@@ -116,21 +119,18 @@ sub idle
 		  	  br.expt_files, sign(:limit - br.last_update),
 			  br.isactive
 		   from t_block_replica br
-		   where br.name = b.name)},
+		   where br.name = b.name)
+	    for update},
 	    ":limit" => &mytimeofday () - $self->{HOLDOFF});
         if (my ($name) = $qblocks->fetchrow())
 	{
-	    # Deactivate.  The last "update" has no effect except it
-	    # guarantees the transasction will fail if the block is
-	    # touched concurrently (e.g. to reopen to add new files).
+	    # Deactivate.
 	    my ($dr, $nr) = &dbexec ($dbh, qq{
 		delete from t_replica_state where guid in
 		(select guid from t_file where inblock = :block)},
 		":block" => $name);
 	    my ($db, $nb) = &dbexec ($dbh, qq{
 		update t_block_replica set isactive = 0 where name = :block},
-		":block" => $name);
-	    &dbexec ($dbh, qq{update t_block set isopen = 0 where name = :block},
 		":block" => $name);
 
 	    &logmsg ("deactivated $name: $nr file replicas, $nb block replicas");
