@@ -173,6 +173,7 @@ sub idle
 	    select f.inblock, ts.to_node, count (ts.guid), sum (f.filesize)
 	    from t_transfer_state ts
 	    join t_file f on f.guid = ts.guid
+	    where ts.to_state != 3
 	    group by f.inblock, ts.to_node});
         while (my ($block, $node, $files, $bytes) = $qactive->fetchrow())
         {
@@ -185,6 +186,7 @@ sub idle
 	    select f.inblock, ts.from_node, count (ts.guid), sum (f.filesize)
 	    from t_transfer_state ts
 	    join t_file f on f.guid = ts.guid
+	    where ts.to_state != 3
 	    group by f.inblock, ts.from_node});
         while (my ($block, $node, $files, $bytes) = $qactive->fetchrow())
         {
