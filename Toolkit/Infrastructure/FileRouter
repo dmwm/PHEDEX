@@ -72,6 +72,7 @@ sub new
     my %params = (DBCONFIG => undef,		# Database configuration file
 		  MYNODE => undef,		# My node name
 		  NODES => [],			# Nodes to route for
+		  SUSPEND_ROUTING => 0,		# Internal cool-off
 	  	  AGENTID => "Router");		# Identity for activity logs
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
@@ -108,6 +109,10 @@ sub idle
 		my $now = &mytimeofday ();
 		do { $routes = $self->currentRoutes ($dbh); $start = $now; }
 		    if ($now - $start > 10*60);
+
+		# If we've routed too many files, take a breather to avoid
+		# getting the database too overloaded.
+		do { $self->{SUSPEND_ROUTING} = $now + 300; last } if $nrouted > 500;
 	    }
 
 	    &logmsg ("$nodepat: considered $nincomplete destinations,"
@@ -115,6 +120,10 @@ sub idle
 		     . " @{[sprintf '%.1f', &mytimeofday() - $startnode]} seconds")
 	        ; #if $nincomplete;
 	
+	    # If we suspended routing, bail out.
+	    do { &logmsg ("$nodepat: routing suspended, taking a breather"); last }
+		if ($self->{SUSPEND_ROUTING} || $start) > $start;
+
 	    $self->maybeStop();
 	}
 
