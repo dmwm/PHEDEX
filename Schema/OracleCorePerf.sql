@@ -49,3 +49,9 @@ create index ix_transfer_history
 create index ix_transfer_summary
   on t_transfer_summary (timestamp, guid)
   tablespace CMS_TRANSFERMGMT_INDX01;
+
+----------------------------------------------------------------------
+-- Modify storage options
+
+alter table t_transfer_history			move initrans 8;
+alter index ix_transfer_history			rebuild initrans 8;

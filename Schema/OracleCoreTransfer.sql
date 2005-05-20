@@ -107,3 +107,20 @@ create index ix_transfer_state_fromto_pair
 create index ix_transfer_completed_fromto
   on t_transfer_completed (from_node, to_node)
   tablespace CMS_TRANSFERMGMT_INDX01;
+
+----------------------------------------------------------------------
+-- Modify storage options
+
+alter table t_replica_state			move initrans 8;
+alter table t_transfer_state			move initrans 8;
+
+alter index pk_replica_state			rebuild initrans 8;
+alter index ix_replica_state_node		rebuild initrans 8;
+alter index ix_replica_state_common		rebuild initrans 8;
+
+alter index pk_transfer_state			rebuild initrans 8;
+alter index ix_transfer_state_from_node		rebuild initrans 8;
+alter index ix_transfer_state_to_node		rebuild initrans 8;
+alter index ix_transfer_state_to_state		rebuild initrans 8;
+alter index ix_transfer_state_fromto_state	rebuild initrans 8;
+alter index ix_transfer_state_fromto_pair	rebuild initrans 8;
