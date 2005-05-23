@@ -72,6 +72,7 @@ sub new
     my %params = (DBCONFIG => undef,		# Database configuration file
 		  MYNODE => undef,		# My node name
 		  NODES => [],			# Nodes to route for
+		  INFINITY => 1000,		# Avoid replicas this far away
 		  SUSPEND_ROUTING => 0,		# Internal cool-off
 	  	  AGENTID => "Router");		# Identity for activity logs
     my %args = (@_);
@@ -91,11 +92,9 @@ sub idle
 	# Connect to the database.
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
-	# Read routing table into memory.
-	my $start = &mytimeofday ();
-	my $routes = $self->currentRoutes ($dbh);
-
 	# Route all files not yet at destination.
+	my $start = 0;
+	my $routes = undef;
 	foreach my $nodepat (@{$self->{NODES}})
 	{
 	    my $nrouted = 0;
@@ -103,22 +102,33 @@ sub idle
 	    my $startnode = &mytimeofday ();
 	    foreach my $file (@{$self->pendingFiles ($dbh, $nodepat)})
 	    {
-		++$nincomplete;
-		++$nrouted if $self->routeNextHop ($dbh, $file, $routes);
-
+		# Read new routing table if necessary.  If the routing table
+		# looks obsolete, bail out -- this will happen for instance if
+		# the agents have been down and NodeRouter and FileRouter are
+		# started simultaneously, and all routes will appear "old".
 		my $now = &mytimeofday ();
 		do { $routes = $self->currentRoutes ($dbh); $start = $now; }
 		    if ($now - $start > 10*60);
+		do { &logmsg ("$file->{DEST}: neighbour routes are down, waiting"
+			      . " for node routing to restore links"); last }
+	      	    if ! grep($_->{FROM} eq $file->{DEST}
+			      && $_->{TO} eq $_->{GATEWAY}
+			      && $_->{TIME} >= $now - 15*60,
+			      values %$routes);
+
+		++$nincomplete;
+		++$nrouted if $self->routeNextHop ($dbh, $file, $routes);
 
 		# If we've routed too many files, take a breather to avoid
 		# getting the database too overloaded.
-		do { $self->{SUSPEND_ROUTING} = $now + 300; last } if $nrouted > 500;
+		do { $self->{SUSPEND_ROUTING} = &mytimeofday() + 300; last }
+		    if $nrouted > 500;
 	    }
 
 	    &logmsg ("$nodepat: considered $nincomplete destinations,"
 		     . " $nrouted routes created in"
 		     . " @{[sprintf '%.1f', &mytimeofday() - $startnode]} seconds")
-	        ; #if $nincomplete;
+	        if $nincomplete;
 	
 	    # If we suspended routing, bail out.
 	    do { &logmsg ("$nodepat: routing suspended, taking a breather"); last }
@@ -246,9 +256,18 @@ sub routeNextHop
 	# Done if there is an existing transfer already.
 	return 0 if exists $transfers{$route->{GATEWAY}};
 
-	# Ignore this one if the route is too old
+	# Ignore this one if the route is too old or infinite
 	my $age = sprintf ('%.1f', $now - $route->{TIME});
-	if ($route->{TIME} < $oldroute)
+	if ($route->{HOPS} >= $self->{INFINITY})
+	{
+	    &warn ("$dest $guid: best replica at $route->{FROM}"
+		   . " ($route->{HOPS} away via $route->{GATEWAY})"
+		   . " is on a dead route, route is $age seconds old")
+	        if ! $self->{WARNINGS}{ROUTE}{$guid}{$dest}{$route->{FROM}}{$route->{GATEWAY}};
+	    $self->{WARNINGS}{ROUTE}{$guid}{$dest}{$route->{FROM}}{$route->{GATEWAY}} = 1;
+	    next;
+    	}
+	elsif ($route->{TIME} < $oldroute)
 	{
 	    &warn ("$dest $guid: best replica at $route->{FROM}"
 		   . " ($route->{HOPS} hops away via $route->{GATEWAY})"
