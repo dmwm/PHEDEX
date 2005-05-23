@@ -1,0 +1,42 @@
+# Database connection parameters for different databases.
+# *DO NOT COMMIT INTO CVS*.
+
+Section			Testbed
+Interface		Oracle
+Database		devdb
+AuthDBUsername		cms_transfermgmt_testbed
+AuthDBPassword		phedexedehp
+ConnectionLife		0
+LogSQL			off
+LogConnection		off
+
+Section			Dev
+Interface		Oracle
+Database		devdb
+AuthDBUsername		cms_transfermgmt
+AuthDBPassword		smalland_round
+ConnectionLife		0
+LogSQL			off
+LogConnection		off
+
+Section			Production
+Interface		Oracle
+Database		cms
+AuthDBUsername		cms_transfermgmt
+AuthDBPassword		smalland_round
+# AuthRole		myrole
+# AuthRolePassword	something
+ConnectionLife		86400
+LogSQL			off
+LogConnection		on
+
+Section			RAC
+Interface		Oracle
+Database		cmssg
+AuthDBUsername		cms_transfermgmt
+AuthDBPassword		smalland_round
+# AuthRole		myrole
+# AuthRolePassword	something
+ConnectionLife		86400
+LogSQL			off
+LogConnection		on

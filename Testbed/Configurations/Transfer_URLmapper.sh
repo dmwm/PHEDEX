@@ -32,7 +32,7 @@ esac
 [ -z "$lfn" ] && { echo "no lfn" 1>&2; exit 1; }
  
 # Copy everything into a subdirectories of a local directory.
-basedir=${node}
+basedir="T1_${node}"
 local=$basedir/$subpath/$dataset/$lfn
 echo file:/$local |perl -ne 'print length() < 250 ? $_ : substr($_, 0, 210)."'$guid'"'
 
