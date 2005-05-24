@@ -167,7 +167,6 @@ sub updateTable
 	delete from t_routing
 	    where from_node = :from_node},
 	    ":from_node" => $mynode);
-    $dbh->commit();
     
     foreach my $route (@$routes)
     {
@@ -228,6 +227,7 @@ sub updateTable
 	#    }
 	#}
     }
+    $dbh->commit();
 }
 
 sub getNewRoutes
