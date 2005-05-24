@@ -70,16 +70,21 @@ sub checkLogs {
 
     opendir( DIR, "logs" ) or die "Couldn't open log directory: $!";
     while( defined (my $file = readdir( DIR )) ) {
-	open( FILE, "logs/$file" );
-	while(<FILE>) {
-	    if (/alert/ 
-		|| /Use of uninitialized value/
-		|| /unique constraint/) {
-		&logmsg( "Problem in $file log" );
-		print "$_\n";
+	if ( $file ne "." && $file ne ".." ) {
+	    system( "touch logs/last-$file" );
+	    open( FILE, "diff logs/$file logs/last-$file |" );
+	    while(<FILE>) {
+		if (/alert/ 
+		    || /Use of uninitialized value/
+		    || /unique constraint/) {
+		    &logmsg( "Problem in $file log" );
+		    print "$_\n";
+		}
 	    }
+	    close( FILE );
+	    system( "rm logs/last-$file" );
+	    system( "cat logs/$file > logs/last-$file" );
 	}
-	close( FILE );
     }
     close( DIR );
 }
@@ -87,8 +92,8 @@ sub checkLogs {
 sub test {
     my ($self, $dbh) = @_;
 
+    # First check to see if the total number of routes is as expected
     my $count = 0;
-
     my $sql = "select count(*) from t_routing where gateway like 'Test-FCL-%'"; 
     my $query = $dbh->prepare($sql);
     $query->execute();
@@ -99,5 +104,54 @@ sub test {
 	}
     }
     $query->finish();
+
+    # Now check whether the table has changed since the last iteration
+    # In this test it should remain the same, I think
+    my %lastTable = ();
+    system( "touch $self->{TEST}/last-routes.txt" );
+    open ( LAST, "$self->{TEST}/last-routes.txt" );
+    while (<LAST>) {
+        chop;
+	my ($from,$to,$gate,$hops) = split (/ /);
+        my $route = "$from $to";
+	$lastTable{"$route"} = "$gate $hops";
+    }
+    close( LAST );
+
+    my %actualTable = ();
+    $sql = "select from_node,to_node,gateway,hops
+            from t_routing
+            where to_node like 'Test-FCL-%' order by 'from_node' asc";
+    $query = $dbh->prepare($sql);
+    $query->execute();
+    while (my @row = $query->fetchrow())
+    {
+	$actualTable{"$row[0] $row[1]"} = "$row[2] $row[3]";
+	if ( $row[3] > 3 ) {
+	    &logmsg( "Found route that's too long @row" );
+	}
+    }
+    $query->finish();
     
+    my $tableCompFailed = 0;
+    foreach my $route ( keys %actualTable ) {
+	if ( ! exists $lastTable{$route} || $actualTable{$route} ne $lastTable{$route}) {
+	    $tableCompFailed = 1;
+	}
+	$count++;
+    }
+    
+    if ($tableCompFailed == 1) {
+	&logmsg( "$count routes have changed" );
+    }
+    
+    system( "rm $self->{TEST}/last-routes.txt; touch $self->{TEST}/last-routes.txt" );
+    open ( NEWLAST, ">$self->{TEST}/last-routes.txt" );
+    $count = 0;
+    foreach my $route ( keys %actualTable ) {
+	print NEWLAST "$route $actualTable{$route}\n";
+    }
+    close( NEWLAST );
+
 }
+    

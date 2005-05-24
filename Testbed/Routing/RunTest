@@ -34,13 +34,15 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-test' && scalar @ARGV > 1)
     { shift (@ARGV); $args{TEST} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-duration' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DURATION} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-h')
     { &usage(); }
     else 
     { last; }
 }
 
-if (@ARGV || !$args{DBCONFIG} || !$args{TEST})
+if (@ARGV || !$args{DBCONFIG} || !$args{TEST} )
 {
     die "Sorry, you're missing parameters, use -h for help.\n";
 }
@@ -58,7 +60,8 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = {};
     my %params = (DBCONFIG => undef,
-		  TEST => undef);
+		  TEST => undef,
+		  DURATION => 60 );
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -104,7 +107,7 @@ sub testLoop {
     &logmsg( "In test loop" );
 
     my $start = time();
-    while( time() - $start < 60 ) {
+    while( time() - $start < $self->{DURATION} ) {
         system( "./$self->{TEST}/TheTest -db $self->{DBCONFIG} -test $self->{TEST}" );
 	sleep(5);
     }

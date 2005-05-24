@@ -7,42 +7,42 @@
     -infinity 20
     -nodes Test-FCL-A
     -db '/home/csf/phtab/PhEDExDev/DBParam:RAC'
-    -wait 10
+    -wait $(expr 10 + $RANDOM "%" 5)
 
 ### AGENT LABEL=router-b PROGRAM=Toolkit/Infrastructure/NodeRouter
     -state ${PHEDEX_STATE}/router-b
     -infinity 20
     -nodes Test-FCL-B
     -db '/home/csf/phtab/PhEDExDev/DBParam:RAC'
-    -wait 10
+    -wait $(expr 10 + $RANDOM "%" 5)
 
 ### AGENT LABEL=router-c PROGRAM=Toolkit/Infrastructure/NodeRouter
     -state ${PHEDEX_STATE}/router-c
     -infinity 20
     -nodes Test-FCL-C
     -db '/home/csf/phtab/PhEDExDev/DBParam:RAC'
-    -wait 10
+    -wait $(expr 10 + $RANDOM "%" 5)
 
 ### AGENT LABEL=router-d PROGRAM=Toolkit/Infrastructure/NodeRouter
     -state ${PHEDEX_STATE}/router-d
     -infinity 20
     -nodes Test-FCL-D
     -db '/home/csf/phtab/PhEDExDev/DBParam:RAC'
-    -wait 10
+    -wait $(expr 10 + $RANDOM "%" 5)
 
 ### AGENT LABEL=router-e PROGRAM=Toolkit/Infrastructure/NodeRouter
     -state ${PHEDEX_STATE}/router-e
     -infinity 20
     -nodes Test-FCL-E
     -db '/home/csf/phtab/PhEDExDev/DBParam:RAC'
-    -wait 10
+    -wait $(expr 10 + $RANDOM "%" 5)
 
 ### AGENT LABEL=router-f PROGRAM=Toolkit/Infrastructure/NodeRouter
     -state ${PHEDEX_STATE}/router-f
     -infinity 20
     -nodes Test-FCL-F
     -db '/home/csf/phtab/PhEDExDev/DBParam:RAC'
-    -wait 10
+    -wait $(expr 10 + $RANDOM "%" 5)
 
 
 ### AGENT LABEL=router-a-mss PROGRAM=Toolkit/Infrastructure/NodeRouter
@@ -50,39 +50,39 @@
     -infinity 20
     -nodes Test-FCL-A-MSS
     -db '/home/csf/phtab/PhEDExDev/DBParam:RAC'
-    -wait 10
+    -wait $(expr 10 + $RANDOM "%" 5)
 
 ### AGENT LABEL=router-b-mss PROGRAM=Toolkit/Infrastructure/NodeRouter
     -state ${PHEDEX_STATE}/router-b-mss
     -infinity 20
     -nodes Test-FCL-B-MSS
     -db '/home/csf/phtab/PhEDExDev/DBParam:RAC'
-    -wait 10
+    -wait $(expr 10 + $RANDOM "%" 5)
 
 ### AGENT LABEL=router-c-mss PROGRAM=Toolkit/Infrastructure/NodeRouter
     -state ${PHEDEX_STATE}/router-c-mss
     -infinity 20
     -nodes Test-FCL-C-MSS
     -db '/home/csf/phtab/PhEDExDev/DBParam:RAC'
-    -wait 10
+    -wait $(expr 10 + $RANDOM "%" 5)
 
 ### AGENT LABEL=router-d-mss PROGRAM=Toolkit/Infrastructure/NodeRouter
     -state ${PHEDEX_STATE}/router-d-mss
     -infinity 20
     -nodes Test-FCL-D-MSS
     -db '/home/csf/phtab/PhEDExDev/DBParam:RAC'
-    -wait 10
+    -wait $(expr 10 + $RANDOM "%" 5)
 
 ### AGENT LABEL=router-e-mss PROGRAM=Toolkit/Infrastructure/NodeRouter
     -state ${PHEDEX_STATE}/router-e-mss
     -infinity 20
     -nodes Test-FCL-E-MSS
     -db '/home/csf/phtab/PhEDExDev/DBParam:RAC'
-    -wait 10
+    -wait $(expr 10 + $RANDOM "%" 5)
 
 ### AGENT LABEL=router-f-mss PROGRAM=Toolkit/Infrastructure/NodeRouter
     -state ${PHEDEX_STATE}/router-f-mss
     -infinity 20
     -nodes Test-FCL-F-MSS
     -db '/home/csf/phtab/PhEDExDev/DBParam:RAC'
-    -wait 10
+    -wait $(expr 10 + $RANDOM "%" 5)
