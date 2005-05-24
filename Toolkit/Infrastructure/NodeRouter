@@ -107,6 +107,13 @@ sub refreshNeighbourLinks
 	$distances{$neighbour} = $hops;
     }
 
+    # Now I need to lock my and my neighbours' tables
+    my $sql = "select * from t_routing where from_node = '$mynode' ";
+    foreach my $neighbour ( keys %distances ) {
+	$sql .= "or from_node = '$neighbour' ";
+    }
+    $sql .= " for update";
+
     # We need to check to see if a direct route is already there
     my %established = ();
     $query = &dbexec($dbh, qq{
@@ -134,21 +141,15 @@ sub refreshNeighbourLinks
 		    ":hops" => $distances{$neighbour});
 	} else {
 	    &dbexec($dbh, qq{
-		select * from t_routing
-		    where to_node = :to_node and gateway = :to_node and from_node = :from_node
-		    for update},
-                    ":to_node" => $mynode,
-                    ":from_node" => $neighbour);
-	    &dbexec($dbh, qq{
 		update t_routing set timestamp = :now, hops = :hops
 		    where to_node = :to_node and gateway = :to_node and from_node = :from_node},
 		    ":now" => $time,
 		    ":to_node" => $mynode,
 		    ":from_node" => $neighbour,
 		    ":hops" => $distances{$neighbour});
-	    $dbh->commit();
 	}
     }
+    $dbh->commit();
 }
 
 sub updateTable
