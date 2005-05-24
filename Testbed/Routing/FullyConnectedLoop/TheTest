@@ -72,7 +72,9 @@ sub checkLogs {
     while( defined (my $file = readdir( DIR )) ) {
 	open( FILE, "logs/$file" );
 	while(<FILE>) {
-	    if (/alert/ || /Use of uninitialized value/) {
+	    if (/alert/ 
+		|| /Use of uninitialized value/
+		|| /unique constraint/) {
 		&logmsg( "Problem in $file log" );
 		print "$_\n";
 	    }
@@ -85,7 +87,17 @@ sub checkLogs {
 sub test {
     my ($self, $dbh) = @_;
 
-    # First we check the database against expected contents... ?
-    # Now we check the logs for non-standard problems... ?
-    # And what else... ?
+    my $count = 0;
+
+    my $sql = "select count(*) from t_routing where gateway like 'Test-FCL-%'"; 
+    my $query = $dbh->prepare($sql);
+    $query->execute();
+    while (my @row = $query->fetchrow())
+    {
+	if ($row[0] != 132) {
+	    &logmsg( "Found $row[0] routes instead of 132" );
+	}
+    }
+    $query->finish();
+    
 }
