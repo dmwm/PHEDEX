@@ -70,7 +70,7 @@ sub checkLogs {
 
     opendir( DIR, "logs" ) or die "Couldn't open log directory: $!";
     while( defined (my $file = readdir( DIR )) ) {
-	if ( $file ne "." && $file ne ".." ) {
+	if ( $file ne "." && $file ne ".." && ! $file =~ /^last-/ ) {
 	    system( "touch logs/last-$file" );
 	    open( FILE, "diff logs/$file logs/last-$file |" );
 	    while(<FILE>) {
@@ -108,8 +108,8 @@ sub test {
     # Now check whether the table has changed since the last iteration
     # In this test it should remain the same, I think
     my %lastTable = ();
-    system( "touch $self->{TEST}/last-routes.txt" );
-    open ( LAST, "$self->{TEST}/last-routes.txt" );
+    system( "touch temp/last-routes.txt" );
+    open ( LAST, "temp/last-routes.txt" );
     while (<LAST>) {
         chop;
 	my ($from,$to,$gate,$hops) = split (/ /);
@@ -145,8 +145,8 @@ sub test {
 	&logmsg( "$count routes have changed" );
     }
     
-    system( "rm $self->{TEST}/last-routes.txt; touch $self->{TEST}/last-routes.txt" );
-    open ( NEWLAST, ">$self->{TEST}/last-routes.txt" );
+    system( "rm temp/last-routes.txt; touch temp/last-routes.txt" );
+    open ( NEWLAST, ">temp/last-routes.txt" );
     $count = 0;
     foreach my $route ( keys %actualTable ) {
 	print NEWLAST "$route $actualTable{$route}\n";
