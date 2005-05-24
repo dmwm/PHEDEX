@@ -106,7 +106,7 @@ PHEDEX_CATALOGUE=${PHEDEX_MYSQL};
 
 ### AGENT LABEL=mgmt-router PROGRAM=Toolkit/Infrastructure/FileRouter
  -node ${PHEDEX_NODE}_${NODE}_Buffer
- -nodes ${PHEDEX_NODE}_${NODE}%
+ -nodes ${PHEDEX_NODE}_${NODE}_Buffer,${PHEDEX_NODE}_${NODE}_MSS
  -db ${PHEDEX_DBParam}:${PHEDEX_LABEL}
  -wait $(expr 50 + $RANDOM % 20)
 
