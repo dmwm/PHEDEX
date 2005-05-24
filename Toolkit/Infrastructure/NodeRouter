@@ -153,9 +153,6 @@ sub refreshNeighbourLinks
 
 sub updateTable
 {
-    # FIXME: can we just drop the whole of our part of the routing table and
-    # just rebuild it now?
-
     my ($self, $dbh, $routes) = @_;
     my $mynode = $self->{MYNODE};
     
@@ -182,50 +179,6 @@ sub updateTable
 		":to_node" => $to,
 		":gateway" => $from,
 		":hops" => $hops);
-
-	#if ($status eq "I")
-	#{
-	#    &dbexec($dbh, qq{
-	#	insert into t_routing
-	#	    (timestamp, from_node, to_node, gateway, hops)
-	#	    values (:timestamp, :from_node, :to_node, :gateway, :hops)},
-	#	    ":timestamp" => $time,
-	#	    ":from_node" => $mynode,
-	#	    ":to_node" => $to,
-	#	    ":gateway" => $from,
-	#	    ":hops" => $hops);
-	#}
-	#else
-	#{
-	#    # FIXME: we only need to update gateway here IF the gateway has changed
-	#    if ( $status eq "UN" ) {
-	#	&dbexec($dbh, qq{
-	#	    update t_routing
-	#		set timestamp = :timestamp,
-	#		gateway = :gateway,
-	#		hops = :hops
-	#		where from_node = :from_node
-	#		and to_node = :to_node},
-	#		":timestamp" => $time,
-	#		":gateway" => $from,
-	#		":hops" => $hops,
-	#		":from_node" => $mynode,
-	#		":to_node" => $to);
-	#    } else {
-	#	&dbexec($dbh, qq{
-        #            update t_routing
-        #                set timestamp = :timestamp,
-        #                hops = :hops
-        #                where from_node = :from_node
-        #                and to_node = :to_node
-	#	        and gateway = :gateway},
-        #                ":timestamp" => $time,
-        #                ":gateway" => $from,
-        #                ":hops" => $hops,
-        #                ":from_node" => $mynode,
-        #                ":to_node" => $to);
-	#    }
-	#}
     }
     $dbh->commit();
 }
