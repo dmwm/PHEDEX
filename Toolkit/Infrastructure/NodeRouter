@@ -1,3 +1,4 @@
+
 #!/usr/bin/env perl
 
 ##H Maintain routing links between a node and its neighbours, and routing
@@ -129,6 +130,12 @@ sub refreshNeighbourLinks
     # Now for every neighbour, refresh our link. Check to see if a link exists first!
     my $time = &mytimeofday();
     foreach my $neighbour ( keys %distances ) {
+	&dbexec($dbh, qq{
+	    select * from t_routing
+		where to_node = :to_node and gateway = :to_node and from_node = :from_node
+		for update},
+		":to_node" => $mynode,
+		":from_node" => $neighbour);
 	if ( ! exists $established{$neighbour} ) {
 	    &dbexec($dbh, qq{
 		insert into t_routing
@@ -148,6 +155,7 @@ sub refreshNeighbourLinks
 		    ":from_node" => $neighbour,
 		    ":hops" => $distances{$neighbour});
 	}
+	$dbh->commit();
     }
     $dbh->commit();
 }
@@ -159,13 +167,9 @@ sub updateTable
     
     # Trying just dropping the whole of our routing table here ...
     &dbexec($dbh, qq{
-	select * from t_routing where from_node = :from_node for update},
-	    ":from_node" => $mynode);
-    &dbexec($dbh, qq{
 	delete from t_routing
 	    where from_node = :from_node},
-	    ":from_node" => $mynode);
-    
+	    ":from_node" => $mynode);    
     foreach my $route (@$routes)
     {
 	my ($from, $to, $time, $hops, $status) = split (":", $route);
@@ -187,8 +191,13 @@ sub updateTable
 sub getNewRoutes
 {
     my ($self, $dbh) = @_;
-    
-    # Get all routes
+    my $mynode = $self->{MYNODE};
+
+    # Get all routes- lock first!
+    &dbexec($dbh, qq{
+        select * from t_routing where from_node = :from_node for update},
+            ":from_node" => $mynode);
+
     my %routes = ();
     my $query = &dbexec($dbh, qq{
 	select from_node, to_node, gateway, timestamp, hops from t_routing});
@@ -198,6 +207,18 @@ sub getNewRoutes
 	$routes{$from}{$to}
 	= { GATEWAY => $gateway, HOPS => $hops, STAMP => $stamp };
     }
+
+    # Cache my fixed routes
+    my %distances = ();
+    $query = &dbexec($dbh, qq{
+        select neighbour, hops from t_node_neighbour where node = :me},
+			":me" => $mynode);
+    while (my ($neighbour, $hops) = $query->fetchrow())
+    {
+        $neighbour =~ s/\s+//g;
+        $distances{$neighbour} = $hops;
+    }
+
     
     # Build the list of routes we want to process.  First get our immediate
     # neighbours: routes with from=me and to=gateway.  Then obtain the routes
@@ -205,7 +226,6 @@ sub getNewRoutes
     # destination.  Finally prune out routes we have already established and
     # which are still valid.
     my @new = ();
-    my $mynode = $self->{MYNODE};
     my @neighbours = grep ($routes{$mynode}{$_}{GATEWAY} eq $_,
 	    		   keys %{$routes{$mynode}});
     foreach my $from (@neighbours)
@@ -215,13 +235,19 @@ sub getNewRoutes
 	    my $gateway = $routes{$from}{$to}{GATEWAY};
 	    my $stamp = $routes{$from}{$to}{STAMP};
 	    my $hops = $routes{$from}{$to}{HOPS}
-	    	       + $routes{$mynode}{$from}{HOPS};
+	    	       + $distances{$from};
+
+	    # FIXME: check to see if the timestamp is still valid
+
+	    # Want to ignore if this route overrides a neighbour route- we
+	    # already know about our neighbours
+	    next if ( defined $distances{$to} ); 
 
 	    next if $to eq $mynode;
 	    next if (exists $routes{$mynode}{$to}
 		     && $routes{$mynode}{$to}{GATEWAY} eq $from
-		     && $routes{$mynode}{$to}{HOPS} eq $hops
-		     && $routes{$mynode}{$to}{STAMP} eq $stamp);
+		     && $routes{$mynode}{$to}{HOPS} eq $hops);
+#		     && $routes{$mynode}{$to}{STAMP} eq $stamp);
 
 	    # Handle split horizon with poisoned reverse.  Split horizon
 	    # means that routes with myself as the gateway are ignored.
