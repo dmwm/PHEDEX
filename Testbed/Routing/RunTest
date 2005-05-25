@@ -11,6 +11,9 @@
 ##H
 ##H -db       database connection configuration parameter file
 ##H -test     test name- the directory in which the test is stored
+##H -period   the period of iteration of the test code
+##H -duration the duration the test should run for
+##H -delay    the delay in startup from agent to agent
 
 # FIXME: when things fail, make sure you shut down the agents!
 
@@ -40,6 +43,8 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{DURATION} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-delay' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DELAY} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-period' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{PERIOD} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-h')
     { &usage(); }
     else 
@@ -68,7 +73,8 @@ sub new
     my %params = (DBCONFIG => undef,
 		  TEST => undef,
 		  DURATION => 60,
-		  DELAY => 0);
+		  DELAY => 0,
+		  PERIOD => 1);
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -90,7 +96,7 @@ sub process
 		  "start","all" );
     $mgr->addJob( sub{ $self->collectResult($mgr,"logs/test",@_) },
 		  { TIMEOUT => 600 },
-		  "sh","-c","./$self->{TEST}/TheTest -db $self->{DBCONFIG} -test $self->{TEST} -duration $self->{DURATION} -delay $self->{DELAY} > logs/test 2>&1");
+		  "sh","-c","./$self->{TEST}/TheTest -db $self->{DBCONFIG} -test $self->{TEST} -duration $self->{DURATION} -delay $self->{DELAY} -period $self->{PERIOD} > logs/test 2>&1");
 
     while (@{$mgr->{JOBS}})
     {
