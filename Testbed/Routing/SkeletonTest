@@ -20,6 +20,12 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-test' && scalar @ARGV > 1)
     { shift (@ARGV); $args{TEST} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-duration' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DURATION} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-delay' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DELAY} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-period' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{PERIOD} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-h')
     { &usage(); }
     else 
@@ -28,7 +34,7 @@ while (scalar @ARGV)
 
 if (@ARGV || !$args{DBCONFIG} || !$args{TEST})
 {
-    die "Sorry, you're missing parameters, use -h for help.\n";
+    die "TheTest- Sorry, you're missing parameters, use -h for help.\n";
 }
 
 (new Tool (%args))->process();
@@ -45,7 +51,10 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = {};
     my %params = (DBCONFIG => undef,
-                  TEST => undef);
+		  TEST => undef,
+		  DURATION => 60,
+		  DELAY => 5,
+		  PERIOD => 1););
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -56,13 +65,24 @@ sub process
 {
     my $self = shift;
 
-    my $dbh = undef; $dbh = &connectToDatabase ($self,0) or die "failed to connect";
-    eval {
-        $self->checkLogs( $dbh );  # These are automatic tests of the logs for alerts etc
-	$self->test( $dbh );      # This is the custom, specific test
-    };
-    do { &alert ("Problem in test loop: $@") } if $@;
-    $dbh->disconnect();
+    my $start = time();
+    while( time() - $start < $self->{DURATION} ) {    
+	my $loopStart = time();
+	
+	my $dbh = undef; $dbh = &connectToDatabase ($self,0) or die "failed to connect";
+	eval {
+	    $self->checkLogs( $dbh );  # These are automatic tests of the logs for alerts etc
+	    $self->test( $dbh );      # This is the custom, specific test
+	};
+	do { &alert ("Problem in test loop: $@") } if $@;
+	$dbh->disconnect();
+	
+	if ( (time() - $loopStart) > $self->{PERIOD} ) {
+	    &alert( "Test is taking longer than your test cycle period!" );
+	} else {
+	    sleep( $self->{PERIOD} - time() + $loopStart );
+	}
+    }
 }
 
 sub checkLogs {
@@ -71,15 +91,21 @@ sub checkLogs {
     opendir( DIR, "logs" ) or die "Couldn't open log directory: $!";
     while( defined (my $file = readdir( DIR )) ) {
 	open( FILE, "logs/$file" );
-	while(<FILE>) {
-	    if (/alert/ 
-		|| /Use of uninitialized value/
-		|| /unique constraint/) {
-		&logmsg( "Problem in $file log" );
-		print "$_\n";
+	if ( $file ne "." && $file ne ".." && ! $file =~ /^last-/ ) {
+	    system( "touch logs/last-$file" );
+	    open( FILE, "diff logs/$file logs/last-$file |" );
+	    while(<FILE>) {
+		if (/alert/ 
+		    || /Use of uninitialized value/
+		    || /unique constraint/) {
+		    &logmsg( "Problem in $file log" );
+		    print "$_\n";
+		}
 	    }
 	}
 	close( FILE );
+	system( "rm logs/last-$file" );
+	system( "cat logs/$file > logs/last-$file" );
     }
     close( DIR );
 }
