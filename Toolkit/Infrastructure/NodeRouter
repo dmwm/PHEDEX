@@ -140,8 +140,8 @@ sub refreshNeighbourLinks
 		    ":hops" => $distances{$neighbour});
 	} else {
 	    &dbexec($dbh, qq{
-		update t_routing set timestamp = :now, hops = :hops
-		    where to_node = :to_node and gateway = :to_node and from_node = :from_node},
+		update t_routing set timestamp = :now, hops = :hops, gateway = :to_node 
+		    where to_node = :to_node and from_node = :from_node},
 		    ":now" => $time,
 		    ":to_node" => $mynode,
 		    ":from_node" => $neighbour,
@@ -192,7 +192,7 @@ sub getNewRoutes
     
     # Cache my fixed routes
     my %distances = ();
-    $query = &dbexec($dbh, qq{
+    my $query = &dbexec($dbh, qq{
 	select neighbour, hops from t_node_neighbour where node = :me},
 		     ":me" => $mynode);
     while (my ($neighbour, $hops) = $query->fetchrow())
