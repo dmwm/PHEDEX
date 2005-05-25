@@ -99,28 +99,28 @@ sub test {
     $query->execute();
     while (my @row = $query->fetchrow())
     {
-				if ($row[0] != 132) {
-						&logmsg( "Found $row[0] routes instead of 132" );
-				}
+	if ($row[0] != 132) {
+	    &logmsg( "Found $row[0] routes instead of 132" );
+	}
     }
     $query->finish();
-		
+    
     # Now check whether the table has changed since the last iteration
     # In this test it should remain the same, I think
-
-		# Restore the routing table information form the last iteration
+    
+    # Restore the routing table information form the last iteration
     my %lastTable = ();
     system( "touch temp/last-routes.txt" );
     open ( LAST, "temp/last-routes.txt" );
     while (<LAST>) {
         chop;
-				my ($from,$to,$gate,$hops) = split (/ /);
+	my ($from,$to,$gate,$hops) = split (/ /);
         my $route = "$from $to";
-				$lastTable{"$route"} = "$gate $hops";
+	$lastTable{"$route"} = "$gate $hops";
     }
     close( LAST );
-		
-		# Get the new routing table
+    
+    # Get the new routing table
     my %actualTable = ();
     $sql = "select from_node,to_node,gateway,hops
             from t_routing
@@ -128,29 +128,29 @@ sub test {
     $query = $dbh->prepare($sql);
     $query->execute();
     my @longRoutes = ();
-		my $longRoutesFail = 0;
-		while (my @row = $query->fetchrow())
+    my $longRoutesFail = 0;
+    while (my @row = $query->fetchrow())
     {
-				$actualTable{"$row[0] $row[1]"} = "$row[2] $row[3]";
-				if ( $row[3] > 3 ) {
-						push ( @longRoutes, "@row" );
-						$longRoutesFail = 1;
-				}
+	$actualTable{"$row[0] $row[1]"} = "$row[2] $row[3]";
+	if ( $row[3] > 3 ) {
+	    push ( @longRoutes, "@row" );
+	    $longRoutesFail = 1;
+	}
     }
     $query->finish();
-		if ( $longRoutesFail == 1 ) {
-				foreach my $row ( @longRoutes ) {
-						my ($from,$to,$gate,$hops) = split( / /,$row );
-						&traceRoute( \%actualTable, $from, $to );
-				}
-		}
+    if ( $longRoutesFail == 1 ) {
+	foreach my $row ( @longRoutes ) {
+	    my ($from,$to,$gate,$hops) = split( / /,$row );
+	    &traceRoute( \%actualTable, $from, $to );
+	}
+    }
     
-		# Compare the routing tables
+    # Compare the routing tables
     my $tableCompFailed = 0;
     foreach my $route ( keys %actualTable ) {
-				if ( ! exists $lastTable{$route} || $actualTable{$route} ne $lastTable{$route}) {
-						$tableCompFailed = 1;
-				}
+	if ( ! exists $lastTable{$route} || $actualTable{$route} ne $lastTable{$route}) {
+	    $tableCompFailed = 1;
+	}
 				$count++;
     }
     if ($tableCompFailed == 1) {
@@ -191,5 +191,5 @@ sub traceRoute {
 		}
 
 		push( @route, "$to:0" );
-		&logmsg( "@route" );
+		&logmsg( "[ Whole route $from:$to ] @route" );
 }

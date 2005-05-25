@@ -36,6 +36,8 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{TEST} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-duration' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DURATION} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-delay' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DELAY} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-h')
     { &usage(); }
     else 
@@ -61,7 +63,8 @@ sub new
     my $self = {};
     my %params = (DBCONFIG => undef,
 		  TEST => undef,
-		  DURATION => 60 );
+		  DURATION => 60,
+		  DELAY => 0);
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -97,7 +100,7 @@ sub startAgents {
     system( "rm -fr temp/*" );
 
     # FIXME: Check to see that agents started correctly
-    system( "./Master -config $self->{TEST}/Config start all");
+    system( "./Master -config $self->{TEST}/Config -delay $self->{DELAY} start all");
     sleep(2);
     system( "ps wwf" );
 }

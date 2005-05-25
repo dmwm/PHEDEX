@@ -2,15 +2,20 @@
 BEGIN { use warnings; use strict; }
 
 my $home = $0; $home =~ s|/[^/]+$||;
-my %args = (CONFIG => "$home/Config");
+my %args = (CONFIG => "$home/Config", DELAY => 0);
 
 while (@ARGV)
 {
     if ($ARGV[0] eq "-config" && scalar @ARGV > 1) {
 	shift (@ARGV); $args{CONFIG} = shift (@ARGV);
-    } elsif ($ARGV[0] =~ /^-/) {
+    } 
+    elsif ($ARGV[0] eq "-delay" && scalar @ARGV > 1) {
+        shift (@ARGV); $args{DELAY} = shift (@ARGV);
+    }
+    elsif ($ARGV[0] =~ /^-/) {
 	die "unrecognised option $ARGV[0]\n";
-    } else {
+    } 
+    else {
 	last;
     }
 }
@@ -78,6 +83,7 @@ if ($mode eq "start" || $mode eq "stop" || $mode eq 'show')
     } elsif ($mode eq 'stop') {
       print SH "touch \${PHEDEX_STATE}/$agent->{LABEL}/stop\n";
     }
+    sleep ($args{DELAY});
   }
   close (SH);
   print "Some problem starting agent @_\n" if (@_);
