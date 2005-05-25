@@ -14,6 +14,8 @@
 
 # FIXME: when things fail, make sure you shut down the agents!
 
+$|=1;
+
 BEGIN {
     use strict; use warnings;
     our $me = $0; $me =~ s|.*/||;
@@ -46,7 +48,7 @@ while (scalar @ARGV)
 
 if (@ARGV || !$args{DBCONFIG} || !$args{TEST} )
 {
-    die "Sorry, you're missing parameters, use -h for help.\n";
+    die "RunTest- Sorry, you're missing parameters, use -h for help.\n";
 }
 
 (new Tool (%args))->process();
@@ -55,6 +57,8 @@ if (@ARGV || !$args{DBCONFIG} || !$args{TEST} )
 package Tool; use strict; use warnings; use base 'Exporter';
 # Define any more 'use's here.
 use UtilsLogging;
+use UtilsJobManager;
+use POSIX;
 
 sub new
 {
@@ -77,10 +81,43 @@ sub process
 
     &logmsg( "Running test $self->{TEST}" );
     $self->runSQL( "prep" );
-    $self->startAgents();    
-    $self->testLoop();
+
+    my $mgr = new UtilsJobManager (NJOBS => 2);
+    &logmsg( "Starting job queue" );
+    $mgr->addJob( sub { },
+		  { TIMEOUT => 600 }, 
+		  "./Master","-config","$self->{TEST}/Config","-delay","$self->{DELAY}",
+		  "start","all" );
+    $mgr->addJob( sub{ $self->collectResult($mgr,"logs/test",@_) },
+		  { TIMEOUT => 600 },
+		  "sh","-c","./$self->{TEST}/TheTest -db $self->{DBCONFIG} -test $self->{TEST} -duration $self->{DURATION} -delay $self->{DELAY} > logs/test 2>&1");
+
+    while (@{$mgr->{JOBS}})
+    {
+        $mgr->pumpJobs();
+        select (undef, undef, undef, .1);
+    }
+
     $self->stopAgents();
     $self->runSQL( "clean" );
+}
+
+sub collectResult 
+{
+    my ($self, $mgr, $output, $job) = @_;
+
+    if ($job->{STATUS}) {
+        &logmsg( "Job running @{$job->{CMD}} has had a problem: $job->{STATUS}" );
+    }
+    else 
+    {
+        open (IN, "< $output") or die "$output: cannot open: $!\n";
+        while(<IN>) {
+            print "$_";
+        }
+        close (IN) or die "$output: cannot read: $!\n";
+#        unlink $output;
+    }
 }
 
 sub runSQL {
@@ -89,41 +126,13 @@ sub runSQL {
     system( "./ExecuteSQL -db $self->{DBCONFIG} -test $self->{TEST} -stage $stage" );
 }
 
-sub startAgents {
-    my $self = shift;
-    
-    &logmsg( "Deleting logs,history,state and test temp dirs, and starting agents" );
-    # FIXME: cycle logs from previous runs rather than just deleting
-    system( "rm logs/*" );
-    system( "rm -fr history/*" );
-    system( "rm -fr incoming/*" );
-    system( "rm -fr temp/*" );
-
-    # FIXME: Check to see that agents started correctly
-    system( "./Master -config $self->{TEST}/Config -delay $self->{DELAY} start all");
-    sleep(2);
-    system( "ps wwf" );
-}
-
-sub testLoop {
-    my $self = shift;
-
-    &logmsg( "In test loop" );
-
-    my $start = time();
-    while( time() - $start < $self->{DURATION} ) {
-        system( "./$self->{TEST}/TheTest -db $self->{DBCONFIG} -test $self->{TEST}" );
-	sleep(5);
-    }
-}
-
 sub stopAgents {
     my $self = shift;
 
     &logmsg( "Stopping agents" );
+    system( "./Master -config $self->{TEST}/Config stop all -delay 0");
 
-    # FIXME: Check to see that agents started correctly
-    system( "./Master -config $self->{TEST}/Config stop all");
+    sleep( 5 );
 }
 
 
