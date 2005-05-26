@@ -84,6 +84,7 @@ if ($mode eq "start" || $mode eq "stop" || $mode eq 'show')
   foreach $agent (@agents) {
     next if (@ARGV && !grep($_ eq "all" || $_ eq $agent->{LABEL}, @ARGV));
     next if (! @ARGV && ($agent->{DEFAULT} || 'on') eq 'off');
+    next if (! @ARGV); # without agent name or all, nothing is started
 
     if ($mode eq 'start' || $mode eq 'show') {
       print SH "mkdir -p \${PHEDEX_STATE}/$agent->{LABEL} &&",
