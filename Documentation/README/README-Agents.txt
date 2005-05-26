@@ -125,10 +125,11 @@ read README-DeveloperTestbed.txt as another deployment guide.
 
 ** Starting and stopping the agents
 
-In PHEDEX/Custom/YourSite you should create three scripts to manage
-tasks for your agents.  Create "Environ.sh", "Start.sh" and "Stop.sh"
-using scripts from Custom/CERN as a model.  You might want to refer
-to README-Operations.txt for more details.
+# FIXME: this part got replaced by the Master and Config scripts
+# In PHEDEX/Custom/YourSite you should create three scripts to manage
+# tasks for your agents.  Create "Environ.sh", "Start.sh" and "Stop.sh"
+# using scripts from Custom/CERN as a model.  You might want to refer
+# to README-Operations.txt for more details.
 
 ** Generating and feeding drops to the agents
 
@@ -266,20 +267,28 @@ Many agents take same or similar options:
   		many worker slaves the master will start and keep
 		running.
 
-  -db		Used by any agent working with a database.  Defines
-  		the name of the database to use.  For ORACLE this
-		name must be registered in tnsnames.ora in $TNS_ADMIN.
- 
-  -dbuser	Used by any agent working with a database.  Defines
-  		the user name for connecting to the database.
+# FIXME: we now only need -db defining the DB config file and the DB name
+  -db           Used by any agent working with a database. Defines
+                the location of the DB-config file which includes
+                usernames and passwords for the different DBs.
+                Directly after the full path to the config file the
+                name of the database has to be given separated by a
+                colon. [-db <PATHtoDBconfig>:<DBname>]
 
-  -dbpass	Used by any agent working with a database.  Defines
-  		the password for connecting to the database.
-
-  -dbitype	Used by any agent working with a database.  Defines
-  		the perl DBD library to be used.  The default is
-		"Oracle".  Note that interpretation of "-db" option
-		depends on the database "-dbitype" backend.
+#   -db		Used by any agent working with a database.  Defines
+#   		the name of the database to use.  For ORACLE this
+# 		name must be registered in tnsnames.ora in $TNS_ADMIN.
+#  
+#   -dbuser	Used by any agent working with a database.  Defines
+#   		the user name for connecting to the database.
+# 
+#   -dbpass	Used by any agent working with a database.  Defines
+#   		the password for connecting to the database.
+# 
+#   -dbitype	Used by any agent working with a database.  Defines
+#   		the perl DBD library to be used.  The default is
+# 		"Oracle".  Note that interpretation of "-db" option
+# 		depends on the database "-dbitype" backend.
 
 ** Support
 
