@@ -1,15 +1,15 @@
 #!/usr/bin/env perl
 
-# This is a variation on the production Master for use with tests. A different
-# Master is required because each test is defined by at least one Config file.
-# Shifting the tests to work somewhere else would require identical changes to
-# the environment variables defined (ik!) in each of these Config files. To
-# avoid this, here we allow the user to specify a file containing key=value
-# pairs which are then used to when starting up agents.
-
+# This Master script is used to startup agents in a well-defined
+# environment. The environment is defined by one or more configuration
+# files. These configuration files have a specific format, but typically
+# have one of two types of section- denoted either ENVIRON, in which
+# environment variables are set, or AGENT, in which a particular agent
+# instance is defined, indicating executable and command line arguments.
+#
 # Usage
 #
-# Master -config <Config file> -env <env file> MODE AGENT|all
+# Master -config <Config file>[,<Config file>,...]  MODE AGENT|all
 
 # First we need to parse the command line arguments
 BEGIN { use warnings; use strict; }
@@ -74,39 +74,39 @@ foreach my $file ( @{$args{CONFIG}} ) {
 # And finally act on all this information
 if ($mode eq "start" || $mode eq "stop" || $mode eq 'show')
 {
-  if ($mode eq 'show') {
-      open (SH, ">&STDOUT") or die "cannot open output: $!\n";
-  } else {
-      open (SH, "| sh") or die "cannot exec sh: $!\n";
-  }
-  print SH $environ, "\n";
-
-  foreach $agent (@agents) {
-    next if (@ARGV && !grep($_ eq "all" || $_ eq $agent->{LABEL}, @ARGV));
-    next if (! @ARGV && ($agent->{DEFAULT} || 'on') eq 'off');
-    next if (! @ARGV); # without agent name or all, nothing is started
-
-    if ($mode eq 'start' || $mode eq 'show') {
-      print SH "mkdir -p \${PHEDEX_STATE}/$agent->{LABEL} &&",
-               " mkdir -p \${PHEDEX_LOGS} &&",
-               ($agent->{STATELINK}
-                ? " ln -sf $agent->{LABEL} \${PHEDEX_STATE}/$agent->{STATELINK};" : " :;"),
-               "\nnohup \${PHEDEX_SCRIPTS}/$agent->{PROGRAM}",
-               (" -", $agent->{STATEOPT} || "state", " ", "\${PHEDEX_STATE}/$agent->{LABEL}"),
-               $agent->{OPTS},
-               " >> \${PHEDEX_LOGS}/$agent->{LABEL} 2>&1 </dev/null &\n";
-    } elsif ($mode eq 'stop') {
-      print SH "touch \${PHEDEX_STATE}/$agent->{LABEL}/stop\n";
+    if ($mode eq 'show') {
+	open (SH, ">&STDOUT") or die "cannot open output: $!\n";
+    } else {
+	open (SH, "| sh") or die "cannot exec sh: $!\n";
     }
-  }
-  close (SH);
+    print SH $environ, "\n";
+    
+    foreach $agent (@agents) {
+	next if (@ARGV && !grep($_ eq "all" || $_ eq $agent->{LABEL}, @ARGV));
+	next if (! @ARGV && ($agent->{DEFAULT} || 'on') eq 'off');
+	next if (! @ARGV); # without agent name or all, nothing is started
+	
+	if ($mode eq 'start' || $mode eq 'show') {
+	    print SH "mkdir -p \${PHEDEX_STATE}/$agent->{LABEL} &&",
+	    " mkdir -p \${PHEDEX_LOGS} &&",
+	    ($agent->{STATELINK}
+	     ? " ln -sf $agent->{LABEL} \${PHEDEX_STATE}/$agent->{STATELINK};" : " :;"),
+	    "\nnohup \${PHEDEX_SCRIPTS}/$agent->{PROGRAM}",
+	    (" -", $agent->{STATEOPT} || "state", " ", "\${PHEDEX_STATE}/$agent->{LABEL}"),
+	    $agent->{OPTS},
+	    " >> \${PHEDEX_LOGS}/$agent->{LABEL} 2>&1 </dev/null &\n";
+	} elsif ($mode eq 'stop') {
+	    print SH "touch \${PHEDEX_STATE}/$agent->{LABEL}/stop\n";
+	}
+    }
+    close (SH);
 }
 elsif ($mode eq "environ")
 {
-  print $environ, "\n";
+    print $environ, "\n";
 }
 else
 {
-  die "unrecognised operation mode \"$mode\"\n";
+    die "unrecognised operation mode \"$mode\"\n";
 }
-    
+
