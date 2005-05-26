@@ -1,47 +1,85 @@
 #!/usr/bin/env perl
 
+##H This script tests the following requirements:
+##H
+##H 1. availability of transfer tools
+##H 2. availability of Perl DBI modules and quick check they do work
+##H 3. check grid certificate
+##H 4. check for POOL FC tools and make sure a MySQL DB can be accessed
+##H
+##H It is meant to provide a quick overview whether required tools are
+##H available and set-up correctly.
+##H
+##H Usage:
+##H   TestInstallation 
+##H      [-help] -db DBCONFIG:DBNAME -poolcat POOLCATALOGUE
+##H
+##H -help:    Shows this help text
+##H -db:      DB config file plus DBname to contact to
+##H -poolcat: MySQL POOL contact string
+##H
+
 BEGIN
 {
-    use strict; use warnings; use Getopt::Long;
+    use strict;
+    use warnings;
+    use Getopt::Long;
+    our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
+    unshift(@INC, $home);
 }
 
 #--------------------------------------------------------------------
-# things this script should check:
-# 1. availability of transfer tools
-# 2. availability of Perl DBI modules and quick check they do work
-# 3. check grid certificate
-# 4. check for POOL FC tools and make sure a MySQL DB can be accessed
 #--------------------------------------------------------------------
 
+use UtilsHelp;
 
 # get arguments
 my %args = (DBTYPE => 'Oracle');
 my $OK = 1;
 
 &GetOptions ("help"       => \$args{HELP},
-	     "dbitype=s"  => \$args{DBTYPE},
-	     "db=s"       => \$args{DBNAME},
-	     "dbuser=s"   => \$args{DBUSER},
-	     "dbpass=s"   => \$args{DBPASS},
+	     "db=s"       => \$args{DBConfig},
 	     "poolcat=s"  => \$args{POOLCAT});
 
-if ($args{HELP} || !$args{DBNAME} || !$args{DBUSER} || !$args{DBPASS}
+if ($args{HELP} || !$args{DBConfig}
     || !$args{POOLCAT} )
-{
-    print STDERR "Usage:\n";
-    print STDERR "-help:    Shows this help text\n";
-    print STDERR "-db:      Name of DB to connect to\n";
-    print STDERR "-dbuser:  User for DB connection\n";
-    print STDERR "-dbpass:  Password for DB connection\n";
-    print STDERR "-poolcat: MySQL POOL contact string\n";
-    print STDERR "-dbitype: Type of database (defaults to Oracle)\n";
-    exit 1;
+{ &usage(); }
+
+# get the DB config from the DBConfig file
+my ($DBFile, $DBSection) = split(":", $args{DBConfig});
+open (CONFFILE,"<$DBFile") or die "Couldn't open $DBFile";
+
+my $rightsect = 0;
+my @DBParams =();
+
+foreach my $line (<CONFFILE>) {
+    chomp $line;
+    if ($line =~ m|Section|) {
+	$rightsection = 1 if ($line =~ m|$DBSection|);
+	$rightsection = 0 if ($line !~ m|$DBSection|);
+    }
+
+    if ($line =~ m|^Interface.+\W+|) {
+	$DBParams[0] = "$'" if $rightsection;
+    } elsif ($line =~ m|Database.+\W+|) {
+	$DBParams[1] = "$'" if $rightsection;
+    } elsif ($line =~ m|AuthDBUsername.+\W+|) {
+	$DBParams[2] = "$'" if $rightsection;
+    } elsif ($line =~ m|AuthDBPassword.+\W+|) {
+	$DBParams[3] = "$'" if $rightsection;
+    }
 }
+close(CONFFILE);
+
+print "Interface: $DBParams[0]\n";
+print "Database:  $DBParams[1]\n";
+print "Username:  $DBParams[2]\n";
+print "Password:  $DBParams[3]\n";
 
 # execute one test after the other
 # if one test fails it will return 0, making $OK also 0
 $OK *= &testTools();
-$OK *= &testOracle($args{DBTYPE},$args{DBNAME},$args{DBUSER},$args{DBPASS});
+$OK *= &testOracle(@DBParams);
 $OK *= &testGridCert();
 $OK *= &testPOOLSetup($args{POOLCAT});
 

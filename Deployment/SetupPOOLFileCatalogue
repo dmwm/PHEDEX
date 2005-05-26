@@ -1,11 +1,41 @@
 #!/usr/bin/env perl
 
-# script purpose: setup a POOL MySQL file catalogue needed for Phedex transfers
+##H Setup a POOL MySQL file catalogue needed for Phedex transfers
+##H
+##H This script is meant to automize the setup of a MySQL based POOL
+##H catalogue. It checks for the existence of another POOL catalogue
+##H on the same server and aborts unless forced to overwrite. Needless
+##H to say, that one has to use utmost care when overwriting an
+##H already existing DB.
+##H
+##H Usage:
+##H   SetupPOOLFileCatalogue
+##H       [-help] -dbrootpass PASSWORD [-pooluser USERNAME] [-poolpass PASSWORD]
+##H       [-dbname DBNAME] -dbtype {MYSQL | ORACLE} [-overwrite]
+##H       [-dbhost HOSTNAME] -phedexbase BASEDIR
+##H
+##H    -help          this help text
+##H    -dbrootpass    root password for the DB server
+##H                   (NOT the system's rootpass !!)
+##H    -pooluser      user for accessing the POOL catalogue
+##H    -poolpass      passwd for accessing the POOL catalogue
+##H    -dbname        name of the DB hosting the POOL file catalogue
+##H    -dbtype        type of DB in use: MYSQL, ORACLE
+##H    -overwrite     force installation of POOL SQL although DB seems
+##H                   to exist already
+##H    -dbhost        host on which the DB server resides
+##H    -phedexbase    basedir of the Phedex installation
+##H
 
-use strict;
-use warnings;
-use Getopt::Long;
+BEGIN {
+    use strict;
+    use warnings;
+    use Getopt::Long;
+    our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
+    unshift(@INC, $home);
+}
 
+use UtilsHelp;
 
 my %args = (POOLUSER =>"phedex", POOLPASS =>"phedex", DBNAME =>"phedexcat", HOST =>"localhost");
 my $HOSTNAME = `hostname -f`;
@@ -21,21 +51,7 @@ my $HOSTNAME = `hostname -f`;
 	    "dbtype=s"              =>\$args{DBTYPE});
 
 if ($args{HELP} || !$args{BASEDIR} || !$args{ROOTPASS} || !$args{DBTYPE})
-{
-    print "Usage: $0 [-help] -dbrootpass PASSWORD [-pooluser USERNAME] [-poolpass PASSWORD]\n";
-    print "          [-dbname DBNAME] -dbtype {MYSQL | RDBMS | ORACLE} [-overwrite]\n";
-    print "          [-dbhost HOSTNAME] -phedexbase BASEDIR\n";
-    print "-help          this help text\n";
-    print "-dbrootpass    root password for the DB server (NOT the system rootpass !!)\n";
-    print "-pooluser      user for accessing the POOL catalogue\n";
-    print "-poolpass      passwd for accessing the POOL catalogue\n";
-    print "-dbname        name of the DB hosting the POOL file catalogue\n";
-    print "-dbtype        type of DB in use: MYSQL, ORACLE\n";
-    print "-overwrite     force installation of POOL SQL although DB seems to exist already\n";
-    print "-dbhost        host on which the DB server resides\n";
-    print "-phedexbase    basedir of the Phedex installation\n";
-    exit 1;
-}
+{ &usage(); }
 
 # POOL schema and client binary location for supported DB types
 my %SCHEMA = (MYSQL    => ["$args{BASEDIR}/Schema/FC-MySQL.sql","mysql"],

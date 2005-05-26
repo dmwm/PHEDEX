@@ -1,11 +1,40 @@
 #!/usr/bin/env perl
+
+##H Installation script for the POOL FC tools
+##H
+##H This script is supposed to install the the POOL FC tools needed
+##H by PhEDEx to register the transfered files in the local POOL
+##H catalogue.
+##H
+##H Usage:
+##H   InstallPOOL
+##H         [-help] [-arch {RH73 | SLC3}]
+##H         {-cms | -standalone | -xcmsi} DESTINATION
+##H
+##H   -help:       This help text
+##H   -cms         Use existing CMS software environment, ask scram
+##H                for environment
+##H   -standalone  Make standalone installation from RPMs
+##H   -xcmsi       XCMSi driven installation... don't use this
+##H                interactively !!
+##H   -arch        Force architecture to RH73 (default for non-RH OS)
+##H                or SLC3
+##H  
+##H The tools (for standalone installation) and the environment setup
+##H scripts will be installed into DESTINATION
+##H
+
 BEGIN
 {
     use strict;
     use warnings;
     use Getopt::Long;
     use English;
+    our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
+    unshift(@INC, $home);
 }
+
+use UtilsHelp;
 
 my $lversion = qx(cat /etc/redhat-release 2>/dev/null);
 my %args = (LVERSION => ($lversion =~ /Scientific/ ? "SLC3" : "RH73"));
@@ -19,17 +48,7 @@ my %args = (LVERSION => ($lversion =~ /Scientific/ ? "SLC3" : "RH73"));
 $args{ROOT} = shift(@ARGV);
 
 if ($args{HELP} || (!$args{STANDALONE} && !$args{CMS} && !$args{XCMSI})
-    || !$args{ROOT}) {
-    print "Usage: $0 [-help] [-arch {RH73 | SLC3}] {-cms | -standalone | -xcmsi} DESTINATION\n";
-    print " -help        This help text\n";
-    print " -cms         Use existing CMS software environment, ask scram for environment\n";
-    print " -standalone  Make standalone installation from RPMs\n";
-    print " -xcmsi       XCMSi driven installation... don't use this interactively !!\n";
-    print " -arch        Force architecture to RH73 (default for non-RH OS) or SLC3\n";
-    print "\nThe tools (for standalone installation) and the environment set up script will\n",
-    "be installed into DESTINATION.\n";
-    exit 1;
-}
+    || !$args{ROOT}) { &usage();}
 
 # make sure all kinds of architecure strings are interpreted correctly
 $args{LVERSION} = ($args{LVERSION} =~ m|slc|i ? "SLC3" : "RH73");
