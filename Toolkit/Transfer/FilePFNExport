@@ -107,7 +107,9 @@ sub new
 sub reapPFNs
 {
     my ($self, $dbh, $guids, $to, $proto, $output, $start, $job) = @_;
-    my %guid2pfn = map { split(/\s+/, $_) } split('\n', &input ($output) || '');
+    my $temp = &input($output);
+    if ( ! defined $temp ) { alert "Failed to read the output of $self->{PFN_QUERY}"; }
+    my %guid2pfn = map { split(/\s+/, $_) } split('\n', $temp || '');
     unlink ($output);
 
     foreach my $guid (@$guids)
