@@ -121,4 +121,16 @@ sub input
         ? $content : undef;
 }
 
+# Diff two files
+sub diff
+{
+    my ($file1,$file2) = @_;
+    my $out = '';
+
+    return ( open( DIFF, "diff $file1 $file2 |" )
+             && ( $out = join( "",$_ ) )
+             && close( DIFF ) )
+        ? $out : undef;
+}
+
 1;

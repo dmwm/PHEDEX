@@ -1,6 +1,8 @@
 package UtilsTest; use strict; use warnings; use base 'Exporter';
 use UtilsDB;
 use UtilsLogging;
+use UtilsCommand;
+use UtilsTiming;
 
 sub new
 {
@@ -18,8 +20,8 @@ sub new
     while (my ($k, $v) = each %vals) { $self->{$k} = $v }
     bless $self, $class;
     
-# FIXME: Would be good to check/create necessary dirs here
-# (See UtilsAgent)
+    # FIXME: Would be good to check/create necessary dirs here
+    # (See UtilsAgent)
     
     return $self;
 }
@@ -29,52 +31,76 @@ sub new
 sub process 
 {
     my $self = shift;
-    
-    my $start = time();
-    while( time() - $start < $self->{DURATION} ) {    
-        my $loopStart = time();
-	
-        my $dbh = undef; $dbh = &connectToDatabase ($self,0) or die "failed to connect";
-        eval {
-            $self->checkLogs( $dbh );  # These are automatic tests of the logs for alerts etc
-            $self->test( $dbh );      # This is the custom, specific test
-        };
-        do { &alert ("Problem in test loop: $@") } if $@;
-        $dbh->disconnect();
+    my $start = &mytimeofday();
+    my $elapsed = 0;
 
-        if ( (time() - $loopStart) > $self->{PERIOD} ) {
-            &alert( "Test is taking longer than your test cycle period!" );
-        } else {
-            sleep( $self->{PERIOD} - time() + $loopStart );
-        }
+    while( $elapsed < $self->{DURATION} ) 
+    {    
+        my $loopStart = time();
+
+	$self->doTestTasks();
+	
+        if ( (&mytimeofday() - $loopStart) > $self->{PERIOD} ) 
+	{ 
+	    &alert( "Test is taking longer than your test cycle period!" ); 
+	} else { 
+	    sleep( $self->{PERIOD} - time() + $loopStart ); 
+	}
+	
+	$elapsed = &mytimeofday() - $start;
     }
 }
 
-# Generic log checking
+sub doTestTasks
+{
+    my $self = shift;
+    my $dbh = undef;
+
+    $dbh = &connectToDatabase ($self,0) or die "failed to connect";
+    eval {
+	$self->checkLogs( $dbh );
+	$self->test( $dbh );
+    };
+    if ( $@ ) {
+	&alert ("Problem in test loop: $@");
+    }
+    $dbh->disconnect();
+}
+
 sub checkLogs {
     my ($self, $dbh) = @_;
     my $logDir = "$self->{WORKDIR}/logs";
+    my @files = ();
+    my @triggers = ( "alert",
+		     "Use of uninitialized value",
+		     "unique constraint"
+		     );
+    
+    &getdir( $logDir, \@files );
 
-    opendir( DIR, "$logDir" ) or die "Couldn't open log directory: $!";
-    while( defined (my $file = readdir( DIR )) ) {
-        open( FILE, "$logDir/$file" );
-        if ( $file ne "." && $file ne ".." && ! $file =~ /^last-/ ) {
-            system( "touch $logDir/last-$file" );
-            open( FILE, "diff $logDir/$file $logDir/last-$file |" );
-            while(<FILE>) {
-                if (/alert/ 
-                    || /Use of uninitialized value/
-                    || /unique constraint/) {
-                    &logmsg( "Problem in $file log" );
-                    print "$_\n";
-                }
-            }
-            system( "rm $logDir/last-$file" );
-            system( "cat $logDir/$file > $logDir/last-$file" );
-        }
-        close( FILE );
+    # Here we examine log file entries made since the last test iteration. For
+    # each file we check for each of the triggers listed in @triggers. Each log
+    # file is cached as last-<file> for comparison in the next iteration
+    foreach my $file ( @files )
+    {
+	if ( ! $file =~ /^last-/ )
+	{
+	    open( FILE, "$logDir/$file" );
+	    my @diff = diff(  "$logDir/$file", "$logDir/last-$file" );
+	    foreach ( @diff )
+	    {
+		foreach my $trigger ( @triggers ) 
+		{
+		    if ( /$trigger/ )
+		    {
+			&logmsg( "Problem in $file log\n$_" );
+		    }
+		}
+	    }
+	    close(FILE);
+	    system( "rm $logDir/last-$file; cat $logDir/$file > $logDir/last-$file" );
+	}
     }
-    close( DIR );
 }
 
 1;
