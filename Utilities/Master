@@ -97,16 +97,16 @@ foreach my $file ( @{$args{CONFIG}} ) {
 # And finally act on all this information
 if ($mode eq "start" || $mode eq "stop" || $mode eq 'show')
 {
-    if ($mode eq 'show') {
-	open (SH, ">&STDOUT") or die "cannot open output: $!\n";
-    } else {
-	open (SH, "| sh") or die "cannot exec sh: $!\n";
-    }
-    
     foreach $agent (@agents) {
 	next if (@ARGV && !grep($_ eq "all" || $_ eq $agent->{LABEL}, @ARGV));
 	next if (! @ARGV && ($agent->{DEFAULT} || 'on') eq 'off');
 	next if (! @ARGV); # without agent name or all, nothing is started
+
+	if ($mode eq 'show') {
+	    open (SH, ">&STDOUT") or die "cannot open output: $!\n";
+	} else {
+	    open (SH, "| sh") or die "cannot exec sh: $!\n";
+	}
 	
 	print SH "\n#\n# Environment and startup for agent $agent->{LABEL}\n#\n";
 
