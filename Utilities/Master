@@ -128,6 +128,10 @@ if ($mode eq "start" || $mode eq "stop" || $mode eq 'show')
 	} else {
 	    print SH $environs{$agent->{ENVIRON}},"\n";
 	}
+	if ( defined $environs{"common"} )
+	{
+	    print SH $environs{"common"}, "\n";
+	}
 	    
 	# Now actually act on the mode, and start or show agents
 	if ($mode eq 'start' || $mode eq 'show') {
