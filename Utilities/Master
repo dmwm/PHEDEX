@@ -32,28 +32,51 @@ if (!$args{CONFIG} ) {
 # Then set variables at script scope...
 my @configuration = ();
 my $environ = '';
+my %environs = ();
 my @agents = ();
 
 # Then we need to open up each of the config files
 foreach my $file ( @{$args{CONFIG}} ) {
     -f $file || die "$file: no such file\n";
     -r $file || die "$file: not readable\n";
-    open(CONFIG, "< $file") || die "$file: cannot read: $!\n";
 
+    open(CONFIG, "< $file") || die "$file: cannot read: $!\n";
     while (<CONFIG>) {
-	while (/^###\s+([A-Z]+)(\s+(.*)|$)/) {
-	    chomp; s/\s+$//;
+	while (/^\#\#\#\s+([A-Z]+)(\s+(.*)|$)/) {
+	    chomp; 
+	    s/\s+$//;
+	    
+	    # Here we process ENVIRON sections, defined as follows:
+	    # ### ENVIRON [optional label]
 	    if ($1 eq "ENVIRON")
 	    {
+		chomp;
+		my @tags = split( / / );
+		my $label = '';
+		if ( $tags[2] =~ /[a-z]/)
+		{
+		    $label = $tags[2];
+		    $label =~ s/\s//;
+		} else {
+		    $label = "generic";
+		    if ( defined $environs{$label} )
+		    {
+			print "# You have multiple environs without labels- they will be run together!\n";
+		    } 
+		}
 		while (<CONFIG>)
 		{
 		    last if /^###/; chomp; s/#.*//; s/^\s+//; s/\s+$//;
-		    $environ .= "$_\n" if ($_ ne "");
+		    $environs{$label} .= "$_\n" if ($_ ne "");
 		}
 	    }
+
+	    # Here we process AGENT sections, defined as follows:
+	    # ### AGENT LABEL=<label> PROGRAM=<executable> [ENVIRON=<label>
 	    elsif ($1 eq "AGENT")
 	    {
-		push(@agents, $agent = { map { m|([^=]+)=(\S+)|g } split(/\s+/, $3) });
+		my $agent = { map { m|([^=]+)=(\S+)|g } split(/\s+/, $3) };
+		push( @agents, $agent );
 		while (<CONFIG>)
 		{
 		    last if /^###/; chomp; s/#.*//; s/^\s+//; s/\s+$//;
@@ -79,13 +102,34 @@ if ($mode eq "start" || $mode eq "stop" || $mode eq 'show')
     } else {
 	open (SH, "| sh") or die "cannot exec sh: $!\n";
     }
-    print SH $environ, "\n";
     
     foreach $agent (@agents) {
 	next if (@ARGV && !grep($_ eq "all" || $_ eq $agent->{LABEL}, @ARGV));
 	next if (! @ARGV && ($agent->{DEFAULT} || 'on') eq 'off');
 	next if (! @ARGV); # without agent name or all, nothing is started
 	
+	print SH "\n#\n# Environment and startup for agent $agent->{LABEL}\n#\n";
+
+	# Here we need to work out which environment each agent needs, make sure
+	# it's been defined and if so, source it. Skip agents with wierd or undecidable
+	# environment requirements
+	if ( ! defined $agent->{ENVIRON} )
+	{
+	    if ( ! defined $environs{"generic"} )
+	    {
+		print "# Agent $agent->{LABEL} doesn't specify an environment, and no generic environment is set, not starting\n";
+		next;
+	    } else {
+		print SH $environs{"generic"}, "\n";
+	    }
+	} elsif ( ! exists $environs{$agent->{ENVIRON}} ) {
+	    print "# Agent $agent->{LABEL} specifies an environment that doesn't exist, not starting\n";
+	    next;
+	} else {
+	    print SH $environs{$agent->{ENVIRON}},"\n";
+	}
+	    
+	# Now actually act on the mode, and start or show agents
 	if ($mode eq 'start' || $mode eq 'show') {
 	    print SH "mkdir -p \${PHEDEX_STATE}/$agent->{LABEL} &&",
 	    " mkdir -p \${PHEDEX_LOGS} &&",
@@ -103,7 +147,20 @@ if ($mode eq "start" || $mode eq "stop" || $mode eq 'show')
 }
 elsif ($mode eq "environ")
 {
-    print $environ, "\n";
+    if (! @ARGV) 
+    {
+	print "# Writing out all environments\n";
+	foreach my $label ( keys %environs ) {
+	    print "# Environment: $label\n";
+	    print "$environs{$label}\n";
+	}
+    } else {
+	foreach my $label ( @ARGV ) 
+	{
+	    print "# Environment: $label\n";
+	    print "$environs{$label}\n";
+	}
+    }
 }
 else
 {
