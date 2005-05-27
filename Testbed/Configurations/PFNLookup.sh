@@ -63,5 +63,5 @@ case $proto:$mode in
 esac
 
 tools="$(dirname $0)/../../Utilities"
-"$tools/PFClistGuidPFN" -u "$cat" -j 10 $mode $match ${1+"$@"} |grep "$pfnselect" 2> /dev/null
+"$tools/PFClistGuidPFN" -u "$cat" -j 2 $mode $match ${1+"$@"} |grep "$pfnselect" 2> /dev/null
 exit $?

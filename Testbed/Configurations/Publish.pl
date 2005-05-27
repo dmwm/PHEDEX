@@ -26,8 +26,10 @@ my $locpfn = "$pfn"."_"."$node";
 
 #check if we already have a copy of the GUID
 #in this case just add the replica to the POOL catalogue
-if (`FClistPFN -u $pool_cat -q "guid='$guid'"`) {
-    my $cmd="FCaddReplica -u $pool_cat -r $locpfn -g $guid >& /dev/null";
+if (1) {
+#if (`FClistPFN -u $pool_cat -q "guid='$guid'" |grep -v Info |grep -v Debug |grep -v Warning`) {
+#    my $cmd="FCaddReplica -u $pool_cat -r $locpfn -g $guid >& /dev/null";
+    my $cmd="/bin/true";
     my $err = system($cmd);
     if ($err) {
 	print "couldn't add local PFN to POOL catalogue (exit 1)\n";
@@ -52,7 +54,8 @@ if (`FClistPFN -u $pool_cat -q "guid='$guid'"`) {
 	exit 3;
     }
 # publish the catalogue fragment too POOL
-    $cmd="FCpublish -u xmlcatalog_file:$xml -d $pool_cat >& /dev/null";
+#    $cmd="FCpublish -u xmlcatalog_file:$xml -d $pool_cat >& /dev/null";
+    $cmd='/bin/true';
     $err = system($cmd);
     if ($err) {
 	print "couldn't publish fragment to POOL (exit 4)\n";

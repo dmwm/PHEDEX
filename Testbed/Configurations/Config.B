@@ -3,7 +3,7 @@
 # Node suffix
 NODE="B";
 # Set directories
-PHEDEX_BASE=/data/TestNodes;
+PHEDEX_BASE=/data/rehn/TestNodes;
 
 PHEDEX_SCRIPTS=${PHEDEX_BASE}/PHEDEX;
 PHEDEX_LOGS=${PHEDEX_BASE}/logs/logs_${NODE};
@@ -21,7 +21,7 @@ source ${PHEDEX_BASE}/tools/oraenv.sh;
 source ${PHEDEX_BASE}/tools/perlenv.sh;
 
 # TMDB settings
-PHEDEX_DBParam='/data/TestNodes/PHEDEX/Testbed/Configurations/DBParam';
+PHEDEX_DBParam="${PHEDEX_BASE}/PHEDEX/Testbed/Configurations/DBParam";
 PHEDEX_LABEL='RAC';
 PHEDEX_NODE=T1;
 
@@ -35,12 +35,13 @@ PHEDEX_ORACLE=relationalcatalog_oracle://itrac/JENS;
 export POOL_ORA_TS_TAB=JENS_DATA01;
 export POOL_ORA_TS_IND=JENS_INDX01;
 export POOL_AUTH_USER=jens;
-export POOL_AUTH_PASSWORD=atarimaus;
-export TNS_ADMIN=${PHEDEX_SCRIPTS}/Schema;
+export POOL_AUTH_PASSWORD=jens;
+export TNS_ADMIN=${PHEDEX_CUSTOM}/Oracle_Admin_RAC;
 export POOL_OUTMSG_LEVEL=100;
 
 
 # Local catalogue contact
+#PHEDEX_CATALOGUE=${PHEDEX_ORACLE};
 PHEDEX_CATALOGUE=${PHEDEX_MYSQL};
 
 
@@ -53,6 +54,7 @@ PHEDEX_CATALOGUE=${PHEDEX_MYSQL};
 #### Export-side agents
 ### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
  -node ${PHEDEX_NODE}_${NODE}_Buffer
+ -ignore ${PHEDEX_NODE}_${NODE}_Buffer
  -db ${PHEDEX_DBParam}:${PHEDEX_LABEL}
  -pfnquery ${PHEDEX_CUSTOM}/PFNLookup.sh,-u,${PHEDEX_CATALOGUE},-n,${PHEDEX_NODE}_${NODE}
  -wait $(expr 10 + $RANDOM % 10)
