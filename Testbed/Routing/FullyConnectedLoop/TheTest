@@ -11,39 +11,33 @@ BEGIN {
 
 use UtilsHelp;
 
-# FIXME: should be able to determine which test it is from the directory it's in!
-
 my %args = ();
-
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-test' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{TEST} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-workdir' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WORKDIR} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-duration' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DURATION} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-delay' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DELAY} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-period' && scalar @ARGV > 1)
     { shift (@ARGV); $args{PERIOD} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-testdir' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{TESTDIR} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-h')
     { &usage(); }
-    else 
+    else
     { last; }
 }
 
-if ( ! $args{DBCONFIG} || 
-     ! $args{TEST} )
+if (@ARGV || !$args{DBCONFIG} || !$args{WORKDIR} || !$args{TESTDIR})
 {
     die "TheTest- Sorry, you're missing parameters, use -h for help.\n";
 }
 
-(new Tool (%args))->process();
+(new MyTest (%args))->process();
 
-######################################################################
-package Tool; use strict; use warnings; use base 'Exporter';
-# Define any more 'use's here.
+package MyTest; use strict; use warnings; use base 'UtilsTest';
 use UtilsDB;
 use UtilsLogging;
 
@@ -51,69 +45,22 @@ sub new
 {
     my $proto = shift;
     my $class = ref($proto) || $proto;
-    my $self = {};
+    my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,
-                  TEST => undef,
-		  DURATION => 60,
-		  DELAY => 5,
-		  PERIOD => 1);
+                  WORKDIR => undef,
+                  DURATION => 60,
+                  PERIOD => 1,
+                  TESTDIR => undef);
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
 }
 
-sub process 
-{
-    my $self = shift;
-
-    my $start = time();
-    while( time() - $start < $self->{DURATION} ) {    
-	my $loopStart = time();
-
-	my $dbh = undef; $dbh = &connectToDatabase ($self,0) or die "failed to connect";
-	eval {
-	    $self->checkLogs( $dbh );  # These are automatic tests of the logs for alerts etc
-	    $self->test( $dbh );      # This is the custom, specific test
-	};
-	do { &alert ("Problem in test loop: $@") } if $@;
-	$dbh->disconnect();
-	
-	if ( (time() - $loopStart) > $self->{PERIOD} ) {
-	    &alert( "Test is taking longer than your test cycle period!" );
-	} else {
-	    sleep( $self->{PERIOD} - time() + $loopStart );
-	}
-    }
-}
-
-sub checkLogs {
-    my ($self, $dbh) = @_;
-		
-    opendir( DIR, "logs" ) or die "Couldn't open log directory: $!";
-    while( defined (my $file = readdir( DIR )) ) {
-	if ( $file ne "." && $file ne ".." && ! $file =~ /^last-/ ) {
-	    system( "touch logs/last-$file" );
-	    open( FILE, "diff logs/$file logs/last-$file |" );
-	    while(<FILE>) {
-		if (/alert/ 
-		    || /Use of uninitialized value/
-		    || /unique constraint/) {
-		    &logmsg( "Problem in $file log" );
-		    print "$_\n";
-		}
-	    }
-	    close( FILE );
-	    system( "rm logs/last-$file" );
-	    system( "cat logs/$file > logs/last-$file" );
-	}
-    }
-    close( DIR );
-}
-
+######################################################################   
 sub test {
     my ($self, $dbh) = @_;
-		
+
     # First check to see if the total number of routes is as expected
     my $count = 0;
     my $sql = "select count(*) from t_routing where gateway like 'Test-FCL-%'"; 
@@ -121,9 +68,9 @@ sub test {
     $query->execute();
     while (my @row = $query->fetchrow())
     {
-	if ($row[0] != 132) {
-	    &logmsg( "Found $row[0] routes instead of 132" );
-	}
+        if ($row[0] != 132) {
+            &logmsg( "Found $row[0] routes instead of 132" );
+        }
     }
     $query->finish();
     
@@ -132,13 +79,13 @@ sub test {
     
     # Restore the routing table information form the last iteration
     my %lastTable = ();
-    system( "touch temp/last-routes.txt" );
-    open ( LAST, "temp/last-routes.txt" );
+    system( "touch $self->{WORKDIR}/temp/last-routes.txt" );
+    open ( LAST, "$self->{WORKDIR}/temp/last-routes.txt" );
     while (<LAST>) {
         chop;
-	my ($from,$to,$gate,$hops) = split (/ /);
+        my ($from,$to,$gate,$hops) = split (/ /);
         my $route = "$from $to";
-	$lastTable{"$route"} = "$gate $hops";
+        $lastTable{"$route"} = "$gate $hops";
     }
     close( LAST );
     
@@ -153,65 +100,65 @@ sub test {
     my $longRoutesFail = 0;
     while (my @row = $query->fetchrow())
     {
-	$actualTable{"$row[0] $row[1]"} = "$row[2] $row[3]";
-	if ( $row[3] > 3 ) {
-	    push ( @longRoutes, "@row" );
-	    $longRoutesFail = 1;
-	}
+        $actualTable{"$row[0] $row[1]"} = "$row[2] $row[3]";
+        if ( $row[3] > 3 ) {
+            push ( @longRoutes, "@row" );
+            $longRoutesFail = 1;
+        }
     }
     $query->finish();
     if ( $longRoutesFail == 1 ) {
-	foreach my $row ( @longRoutes ) {
-	    my ($from,$to,$gate,$hops) = split( / /,$row );
-	    &traceRoute( \%actualTable, $from, $to );
-	}
+        foreach my $row ( @longRoutes ) {
+            my ($from,$to,$gate,$hops) = split( / /,$row );
+            &traceRoute( \%actualTable, $from, $to );
+        }
     }
     
     # Compare the routing tables
     my $tableCompFailed = 0;
     foreach my $route ( keys %actualTable ) {
-	if ( ! exists $lastTable{$route} || $actualTable{$route} ne $lastTable{$route}) {
-	    $tableCompFailed = 1;
-	}
-				$count++;
+        if ( ! exists $lastTable{$route} || $actualTable{$route} ne $lastTable{$route}) {
+            $tableCompFailed = 1;
+        }
+	$count++;
     }
     if ($tableCompFailed == 1) {
-				&logmsg( "$count routes have changed" );
+	&logmsg( "$count routes have changed" );
     }
 
     # Store the routing table for the next iteration
-    system( "rm temp/last-routes.txt; touch temp/last-routes.txt" );
-    open ( NEWLAST, ">temp/last-routes.txt" );
+    system( "rm $self->{WORKDIR}/temp/last-routes.txt; touch $self->{WORKDIR}/temp/last-routes.txt" );
+    open ( NEWLAST, ">$self->{WORKDIR}/temp/last-routes.txt" );
     $count = 0;
     foreach my $route ( keys %actualTable ) {
-				print NEWLAST "$route $actualTable{$route}\n";
+	print NEWLAST "$route $actualTable{$route}\n";
     }
     close( NEWLAST );
-		
+
 }
 
 # Idea of this subroutine is to determine the hops in a route between
 # A and B givena  complete routing table. Table is passed as a ref to a
 # hash: hash is {"from to"} = "gateway hops"
 sub traceRoute {
-		my ($table,$from,$to) = @_;
-		my $current;
-		my @route = ();
+    my ($table,$from,$to) = @_;
+    my $current;
+    my @route = ();
 
-		$current = $from;
-		
-		while ( $current ne $to ) {
-				no strict 'refs';
-				if ( ! defined $$table{"$current $to"} ) {
-						push( @route, "No route from $current to $to!" );
-						last;
-				}
-				my ($next,$hops) = split( / /, $$table{"$current $to"} );
-				use strict 'refs';
-				push ( @route, "$current:$hops" );
-				$current = $next;
-		}
+    $current = $from;
 
-		push( @route, "$to:0" );
-		&logmsg( "[ Whole route $from:$to ] @route" );
+    while ( $current ne $to ) {
+	no strict 'refs';
+	if ( ! defined $$table{"$current $to"} ) {
+	    push( @route, "No route from $current to $to!" );
+	    last;
+	}
+	my ($next,$hops) = split( / /, $$table{"$current $to"} );
+	use strict 'refs';
+	push ( @route, "$current:$hops" );
+	$current = $next;
+    }
+
+    push( @route, "$to:0" );
+    &logmsg( "[ Whole route $from:$to ] @route" );
 }
