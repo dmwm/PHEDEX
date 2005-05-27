@@ -113,6 +113,10 @@ if ($mode eq "start" || $mode eq "stop" || $mode eq 'show')
 	# Here we need to work out which environment each agent needs, make sure
 	# it's been defined and if so, source it. Skip agents with wierd or undecidable
 	# environment requirements
+        if ( defined $environs{"common"} )
+        {
+            print SH $environs{"common"}, "\n";
+        }
 	if ( ! defined $agent->{ENVIRON} )
 	{
 	    if ( ! defined $environs{"generic"} )
@@ -127,10 +131,6 @@ if ($mode eq "start" || $mode eq "stop" || $mode eq 'show')
 	    next;
 	} else {
 	    print SH $environs{$agent->{ENVIRON}},"\n";
-	}
-	if ( defined $environs{"common"} )
-	{
-	    print SH $environs{"common"}, "\n";
 	}
 	    
 	# Now actually act on the mode, and start or show agents
