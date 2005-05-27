@@ -142,8 +142,8 @@ if ($mode eq "start" || $mode eq "stop" || $mode eq 'show')
 	} elsif ($mode eq 'stop') {
 	    print SH "touch \${PHEDEX_STATE}/$agent->{LABEL}/stop\n";
 	}
+	close(SH);
     }
-    close (SH);
 }
 elsif ($mode eq "environ")
 {
