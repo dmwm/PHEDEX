@@ -202,7 +202,7 @@ sub getNewRoutes
     }
 
     my %routes = ();
-    my $query = &dbexec($dbh, qq{
+    $query = &dbexec($dbh, qq{
 	select from_node, to_node, gateway, timestamp, hops from t_routing});
     while (my ($from, $to, $gateway, $stamp, $hops) = $query->fetchrow())
     {
