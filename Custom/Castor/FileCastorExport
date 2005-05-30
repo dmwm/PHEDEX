@@ -81,7 +81,6 @@ sub idle
     eval
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
-
         # FIXME: Pick up and process messages to me
 
 	# Mark files available/unavailable based on their local status.
@@ -100,7 +99,7 @@ sub idle
 	&dbexec($dbh, qq{
 	    update (select ts.from_state, ts.from_timestamp
 	            from t_transfer_state ts
-	            left join t_replica_state rs
+	            join t_replica_state rs
 	              on rs.guid = ts.guid and rs.node = ts.from_node
 	            where rs.state = 1
 		      and ts.from_node = :node
@@ -113,7 +112,7 @@ sub idle
 	&dbexec($dbh, qq{
 	    update (select ts.from_state, ts.from_timestamp
 	            from t_transfer_state ts
-	            left join t_replica_state rs
+	            join t_replica_state rs
 	              on rs.guid = ts.guid and rs.node = ts.from_node
 	            where ts.from_node = :node
 		      and ts.from_state = 1
