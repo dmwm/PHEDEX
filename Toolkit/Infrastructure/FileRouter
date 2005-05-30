@@ -114,7 +114,7 @@ sub idle
 	      	    if ! grep($_->{FROM} eq $file->{DEST}
 			      && $_->{TO} eq $_->{GATEWAY}
 			      && $_->{TIME} >= $now - 15*60,
-			      map {values %$_} (values %$routes));
+			      map {values %$_}(values %$routes));
 
 		++$nincomplete;
 		++$nrouted if $self->routeNextHop ($dbh, $file, $routes);
