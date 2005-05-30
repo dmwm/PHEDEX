@@ -96,7 +96,6 @@ sub idle
 
     eval
     {
-	my $starttime = &mytimeofday();
 
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
@@ -151,7 +150,6 @@ sub idle
 	    select bd.name, bd.node, count (f.guid), sum (f.filesize)
 	    from t_block_destination bd
 	    join t_file f on f.inblock = bd.name
-	    where bd.completed is null
 	    group by bd.name, bd.node});
         while (my ($block, $node, $files, $bytes) = $qactive->fetchrow())
         {
@@ -217,7 +215,9 @@ sub idle
 		&alert ("$b->{NAME} at $b->{NODE} inactive but open")
 		    if $b->{ISOPEN};
 		&alert ("$b->{NAME} at $b->{NODE} inactive but active")
-		    if exists $active{$b->{NAME}}{$b->{NODE}};
+		    if (exists $active{$b->{NAME}}{$b->{NODE}}{$b->{NODE_FILES}})
+		    or (exists $active{$b->{NAME}}{$b->{NODE}}{$b->{XFER_FILES}})
+		    or (exists $active{$b->{NAME}}{$b->{NODE}}{$b->{EXPT_FILES}});
 		next;
 	    }
 
@@ -317,9 +317,6 @@ sub idle
 	    ":now" => &mytimeofday());
 	$dbh->commit ();
 	
-	my $rttime = &mytimeofday() - $starttime;
-	
-	&note("roundtrip time: $rttime seconds");
     };
     do { &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
