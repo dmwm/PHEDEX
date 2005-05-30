@@ -209,15 +209,18 @@ sub idle
 	{
 	    # Check consistency of inactive blocks before ignoring
 	    # them: they can't be open or have active replicas or
-	    # transfers.
+	    # transfers.  Count block active if it has active
+	    # file replicas or transfers; destinations alone do
+	    # not make a block active.
 	    if (! $b->{ISACTIVE})
 	    {
 		&alert ("$b->{NAME} at $b->{NODE} inactive but open")
 		    if $b->{ISOPEN};
 		&alert ("$b->{NAME} at $b->{NODE} inactive but active")
-		    if (exists $active{$b->{NAME}}{$b->{NODE}}{$b->{NODE_FILES}})
-		    or (exists $active{$b->{NAME}}{$b->{NODE}}{$b->{XFER_FILES}})
-		    or (exists $active{$b->{NAME}}{$b->{NODE}}{$b->{EXPT_FILES}});
+		    if (exists $active{$b->{NAME}}{$b->{NODE}}
+			&& ($active{$b->{NAME}}{$b->{NODE}}{NODE_FILES}
+			    || $active{$b->{NAME}}{$b->{NODE}}{XFER_FILES}
+			    || $active{$b->{NAME}}{$b->{NODE}}{EXPT_FILES}));
 		next;
 	    }
 
@@ -270,6 +273,7 @@ sub idle
 	# Compare differences II: new ones.
 	foreach my $b (map { values %$_ } values %active)
 	{
+
 	    next if exists $replicas{$b->{NAME}}{$b->{NODE}};
 	    &logmsg ("creating $b->{NAME} at $b->{NODE}");
 	    &dbexec ($dbh, qq{
