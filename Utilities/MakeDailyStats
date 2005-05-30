@@ -86,11 +86,10 @@ if ($args{ADDFILE})
 # and fill into %stats.
 $dbh = &connectToDatabase (\%args, 0);
 my $data = &dbexec ($dbh, qq{
-    select ts.to_timestamp, ts.to_node, f.filesize
-    from t_transfer_completed ts
-    join t_file f on f.guid = ts.guid
-    where ts.from_node not like '%_MSS'
-      and ts.to_node not like '%_MSS'});
+    select timebin, to_node, xferred_bytes
+    from t_perf_histogram
+    where from_node not like '%_MSS'
+      and to_node not like '%_MSS'});
 
 while (my ($time, $tonode, $size) = $data->fetchrow())
 {
