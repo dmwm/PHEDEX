@@ -96,6 +96,8 @@ sub idle
 
     eval
     {
+	my $starttime = &mytimeofday();
+
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
 	# Guarantee full consistency.  We need to ensure that a) this
@@ -149,6 +151,7 @@ sub idle
 	    select bd.name, bd.node, count (f.guid), sum (f.filesize)
 	    from t_block_destination bd
 	    join t_file f on f.inblock = bd.name
+	    where bd.completed is null
 	    group by bd.name, bd.node});
         while (my ($block, $node, $files, $bytes) = $qactive->fetchrow())
         {
@@ -313,6 +316,10 @@ sub idle
 	    set completed = :now},
 	    ":now" => &mytimeofday());
 	$dbh->commit ();
+	
+	my $rttime = &mytimeofday() - $starttime;
+	
+	&note("roundtrip time: $rttime seconds");
     };
     do { &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
