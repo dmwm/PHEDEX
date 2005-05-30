@@ -42,14 +42,19 @@ for role in \
     $((echo "select table_name from user_tables;") |
       sqlplus -S "$connect" | awk '/^T_[A-Z0-9_]+/ { print $1 } {}'); do
 
-    echo; echo "grant select on $table to $reader;"
     case $table:$role in
+      T_AUTH*:* )
+        # Invisible to all but admin
+        ;;
+
       T_INFO_AGENT_STATUS:* | \
       T_INFO*:SITE_CERN | \
       T_DBS*:SITE_CERN | \
       T_DLS*:SITE_CERN | \
       T_REQUEST*:SITE_CERN | \
       T_BLOCK_*:SITE_CERN )
+        # Restricted update
+        echo; echo "grant select on $table to $reader;"
         echo "grant alter, delete, insert, select, update on $table to $role;" ;;
 
       T_SUBSCRIPTION:* | \
@@ -59,9 +64,13 @@ for role in \
       T_DLS*:* | \
       T_REQUEST*:* | \
       T_BLOCK_*:* )
+        # Read-only (see also restricted update above)
+        echo; echo "grant select on $table to $reader;"
       	echo "grant select on $table to $role;" ;;
 
       *:* )
+        # General update
+        echo; echo "grant select on $table to $reader;"
       	echo "grant alter, delete, insert, select, update on $table to $role;" ;;
     esac
   done

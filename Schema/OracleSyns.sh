@@ -38,6 +38,7 @@ master="$1" master_connect="$2" target_connect="$3"
  echo "select * from tab;") |
  sqlplus -S "$master_connect" |
  awk '/^T_[A-Z0-9_]+/ {print $1} {}' |
+ grep -v T_AUTH |
  while read tab; do
     echo "create synonym $tab for $master.$tab;"
  done |
