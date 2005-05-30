@@ -36,8 +36,22 @@ create table t_transfer_summary
    error_total		float		not null,
    error_began		float);
 
+create table t_perf_histogram
+  (timebin		float		not null,
+   from_node		varchar (20)	not null,
+   to_node		varchar (20)	not null,
+   xferred_files	integer,
+   xferred_bytes	integer,
+   pending_files	integer,
+   pending_bytes	integer);
+
 ----------------------------------------------------------------------
 -- Add constraints
+
+alter table t_perf_histogram
+  add constraint pk_perf_histogram
+  primary key (timebin, from_node, to_node)
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 ----------------------------------------------------------------------
 -- Add indices
