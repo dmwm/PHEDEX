@@ -22,6 +22,8 @@ for rename; do
   echo "update t_transfer_history set from_node = '$new' where from_node = '$old';"
   echo "update t_transfer_summary set to_node = '$new' where to_node = '$old';"
   echo "update t_transfer_summary set from_node = '$new' where from_node = '$old';"
+  echo "update t_perf_histogram set to_node = '$new' where to_node = '$old';"
+  echo "update t_perf_histogram set from_node = '$new' where from_node = '$old';"
   echo "update t_agent_status set node = '$new' where node = '$old';"
   echo "delete from t_node where name = '$old';"
   echo "commit;"
