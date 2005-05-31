@@ -1,6 +1,6 @@
-* General
+* General- CERN Operations
 
-Production agents are installed under /data on lxgate04.cern.ch.  Use
+Production agents are installed under /data on lxgate10.cern.ch.  Use
 the "phedex" account for all operations.
 
 Various test agents (testbed, test, service challenges) operate from

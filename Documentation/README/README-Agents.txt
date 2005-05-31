@@ -125,11 +125,82 @@ read README-DeveloperTestbed.txt as another deployment guide.
 
 ** Starting and stopping the agents
 
-# FIXME: this part got replaced by the Master and Config scripts
-# In PHEDEX/Custom/YourSite you should create three scripts to manage
-# tasks for your agents.  Create "Environ.sh", "Start.sh" and "Stop.sh"
-# using scripts from Custom/CERN as a model.  You might want to refer
-# to README-Operations.txt for more details.
+PhEDEx provides a tool named Master (PHEDEX/Utilities/Master) to make
+the startup and stopping of agents more manageable. Master reads in
+one or more configuration files in order to start or stop one or all
+of a number of agents. The configuration files contain information
+that allows Master to set the necessary shell environment for each
+agent, and then run each agent with desired command line parameters.
+
+The configuration files have a defined structure. They comprise two
+sections, named ENVIRON and AGENT. Within the ENVIRON section
+environment variables are set; other scripts can be sourced to help in
+this. Within an AGENT section the parameters necessary to run a single
+agent are set.
+
+You may use a single configuration file with a number of ENVIRON
+sections, and a number of AGENT sections- or you may decide to split
+your set of sections across a number of files. In principle a single
+ENVIRON section may be split across multiple files; a single AGENT
+section may not. However, the more complex you decide to make this
+structure the more careful you need to be in cooridinating your use of
+environment variables.
+
+When Master runs, it executes an/ a number of agents in a bash
+shell. It first executes any settings in an ENVIRON labelled
+"common". Then it executes the settings in an ENVIRON defined b
+
+In detail, the syntax of an ENVIRON section is as follows- square
+brackets indicate an optional parameter. The content of the ENVIRON
+section is executed as a bash script before starting the agent.
+
+### ENVIRON [label]
+[ SOME_VARIABLE="some value" ]
+[ . some/path/to/a/script ]
+[ export SOME_OTHER_VAR="bobbins" ]
+[ ... &c ... ]
+
+If there are parameters that are common to a number of environments
+you may find it practical to modify them in one place rather than
+many. In this case, you should use the special ENVIRON label "common":
+these common settings will be executed first- *BEFORE* any other
+environment settings.
+
+If you do not label the ENVIRON it becomes part of a "generic"
+ENVIRON. If an agent does not specify an environment, it just uses
+this default "generic" environment.
+
+The content of each AGENT section is used to start a single agent
+within the same bash shell. It's syntax is as follows
+
+### AGENT LABEL=an_agent_name PROGRAM=Toolkit/some/agent_code [ ENVIRON=some_environ_label ]
+  [ -option1 some_option_value ]
+  [ -option2 ${SOME_VARIABLE}/some/script ]
+  [ ... &c ... ]
+
+As noted above, if you do not label an ENVIRON the agent will be
+started with whatever generic (or unlabelled environment) has been
+set.
+
+For examples of configuration files, see files named Config under
+PHEDEX/Custom/XXX.
+
+Once you have created your configuration file- or files- you can use
+Master to do a number of things
+
+   * Print environment settings to stdout
+   Master -config /path/to/Configfile environ [ specific label ]
+
+   * Start an agent- or all agents
+   Master -config /path/to/Configfile start an_agent_name|all
+
+   * Stop an agent- or all agents
+   Master -config /path/to/Configfile stop an_agent_name|all
+
+To specify multiple configuration files, create a comma separated list
+
+   Master -config file1,file2,file3 ...
+
 
 ** Generating and feeding drops to the agents
 
