@@ -179,18 +179,31 @@ sub pendingFiles
 {
     my ($self, $dbh, $pattern) = @_;
     my $result = [];
-    my $dstmt = $self->{STMT_CACHE}{DEST} ||= &dbprep ($dbh, qq{
-	select f.guid, bd.node
-	from t_file f
-	join t_block_destination bd
-	  on bd.name = f.inblock
-	left join t_replica_state rs
-	  on rs.guid = f.guid and rs.node = bd.node
-	where rs.guid is null and bd.node like :pattern});
-    &dbbindexec ($dstmt, ":pattern" => $pattern);
-    while (my ($guid, $dest) = $dstmt->fetchrow())
+    
+    my @blocklist = ();
+    my $bquery = $self->{STMT_CACHE}{BDEST} ||= &dbprep ($dbh, qq{
+	select name, node from t_block_destination
+	where completed is null and node like :pattern});
+    my $fquery = $self->{STMT_CACHE}{FDEST} ||= &dbprep ($dbh, qq{
+	select rs.guid, rs.node
+	from t_replica_state rs
+	join t_file f on f.guid = rs.guid
+	where f.inblock = :block
+	order by rs.guid});
+    &dbbindexec ($bquery, ":pattern" => $pattern);
+    while (my ($block, $dest) = $bquery->fetchrow())
     {
-	push (@$result, { GUID => $guid, DEST => $dest });
+	my $info = undef;
+	&dbbindexec ($fquery, ":block" => $block);
+	while (my ($guid, $node) = $fquery->fetchrow())
+	{
+	    if (! $info || $info->{GUID} ne $guid)
+	    {
+		$info = { GUID => $guid, DEST => $dest, REPLICAS => [] };
+		push (@$result, $info);
+	    }
+	    push (@{$info->{REPLICAS}}, $node);
+	}
     }
 
     return $result;
@@ -213,19 +226,18 @@ sub routeNextHop
     my ($self, $dbh, $file, $routes) = @_;
     my $guid = $file->{GUID};
     my $dest = $file->{DEST};
+    my %replicas = map { $_ => 1 } @{$file->{REPLICAS}};
+    my %transfers = ();
     my $now = &mytimeofday ();
     my $oldroute = $now - 15*60;
 
     # Do a quick check if we should be routing this file
     # return 0 if ! $self->shouldRouteFile ($dbh, $file);
+    return 0 if exists $replicas{$dest};
 
     # Get statements we need
-    my $rstmt = $self->{STMT_CACHE}{RS} ||= &dbprep ($dbh, qq{
-	select rs.node, ts.to_node
-	from t_replica_state rs
-	left join t_transfer_state ts
-	  on ts.guid = rs.guid and ts.from_node = rs.node
-	where rs.guid = :guid});
+    my $tstmt = $self->{STMT_CACHE}{TS} ||= &dbprep ($dbh, qq{
+	select to_node from t_transfer_state where guid = :guid});
     my $istmt = $self->{STMT_CACHE}{INS} ||= &dbprep ($dbh, qq{
 	insert into t_transfer_state
 	(timestamp, guid, to_node, to_state, to_timestamp,
@@ -233,13 +245,11 @@ sub routeNextHop
 	values (:now, :guid, :to_node, 0, :now, :from_node, 0, :now)});
 
     # Determine replicas and transfers for this file.
-    my (%replicas, %transfers) = ();
-    &dbbindexec ($rstmt, ":guid" => $guid);
-    while (my ($node, $to) = $rstmt->fetchrow()) {
-	$replicas{$node} = 1;
+    &dbbindexec ($tstmt, ":guid" => $guid);
+    while (my ($to) = $tstmt->fetchrow()) {
 	$transfers{$to} = 1 if $to;
     }
-    $rstmt->finish ();
+    $tstmt->finish ();
 
     # Determine nearest replica
     my @best = sort { $a->{HOPS} <=> $b->{HOPS} }
