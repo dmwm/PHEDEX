@@ -77,8 +77,7 @@ sub idle
 	# is a heart-beat routine, we want to execute this regularly
 	# so the histogram has no gaps -- if we miss a beat, there will
 	# be no data for this time bin.
-	my $now = &mytimeofday();
-	my $timebin = int($now / 300)*300;
+	my $timebin = int(&mytimeofday() / 300)*300;
 	my $qpending = &dbexec ($dbh, qq{
 	    select
 	      ts.from_node,
@@ -118,20 +117,22 @@ sub idle
 	$dbh->commit();
 
 	# Part II: Move completed transfer information into the histogram.
-	my $qcompleted = &dbexec ($dbh, qq{
+	# This is currently rather a sledge-hammer with the big lock, but
+	# is required for this agent to keep up at high throughput (and
+	# makes little difference at low throughput).
+	&dbexec ($dbh, qq{lock table t_transfer_completed in exclusive mode});
+	my $qrows = &dbexec ($dbh, qq{
 	    select
-	      tc.guid,
-	      tc.to_timestamp,
-	      tc.from_node,
-	      tc.to_node,
-	      f.filesize
+	        trunc (tc.to_timestamp/300)*300,
+		tc.from_node,
+		tc.to_node,
+		count(tc.guid),
+		sum(f.filesize)
 	    from t_transfer_completed tc
-	    join t_file f on f.guid = tc.guid});
-    	while (my ($guid, $time, $from, $to, $size) = $qcompleted->fetchrow())
+	    join t_file f on f.guid = tc.guid
+	    group by trunc (tc.to_timestamp/300)*300, from_node, to_node});
+	while (my ($bin, $from, $to, $files, $bytes) = $qrows->fetchrow())
 	{
-	    # Insert new bin if none exists yet.  Then update the stats
-	    # for the bin.  Then delete the original row, and commit.
-	    my $bin = int($time/300)*300;
 	    eval { &dbexec ($dbh, qq{
 		insert into t_perf_histogram
 		(timebin, from_node, to_node, xferred_files, xferred_bytes)
@@ -141,30 +142,19 @@ sub idle
 		":to_node" => $to) };
 	    &dbexec ($dbh, qq{
 		update t_perf_histogram
-		set xferred_files = xferred_files + 1,
-		    xferred_bytes = xferred_bytes + :bytes
+		set xferred_files = xferred_files + :new_files,
+		    xferred_bytes = xferred_bytes + :new_bytes
 		where timebin = :timebin
 		  and from_node = :from_node
 		  and to_node = :to_node},
 		":timebin" => $bin,
 		":from_node" => $from,
 		":to_node" => $to,
-		":bytes" => $size);
-	    &dbexec ($dbh, qq{
-		delete from t_transfer_completed
-		where guid = :guid
-		  and from_node = :from_node
-		  and to_node = :to_node
-		  and to_timestamp = :timestamp},
-	  	":guid" => $guid,
-		":from_node" => $from,
-		":to_node" => $to,
-		":timestamp" => $time);
-	    $dbh->commit();
-
-	    # If it's time for another heart beat, give up
-	    last if int(&mytimeofday()/300)*300 != $timebin;
+	  	":new_files" => $files,
+		":new_bytes" => $bytes);
 	}
+	&dbexec ($dbh, qq{delete from t_transfer_completed});
+	$dbh->commit();
     };
     do { &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
