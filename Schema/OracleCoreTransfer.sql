@@ -113,6 +113,7 @@ create index ix_transfer_completed_fromto
 
 alter table t_replica_state			move initrans 8;
 alter table t_transfer_state			move initrans 8;
+alter table t_transfer_completed		move initrans 8;
 
 alter index pk_replica_state			rebuild initrans 8;
 alter index ix_replica_state_node		rebuild initrans 8;
@@ -124,3 +125,5 @@ alter index ix_transfer_state_to_node		rebuild initrans 8;
 alter index ix_transfer_state_to_state		rebuild initrans 8;
 alter index ix_transfer_state_fromto_state	rebuild initrans 8;
 alter index ix_transfer_state_fromto_pair	rebuild initrans 8;
+
+alter index ix_transfer_completed_fromto	rebuild initrans 8;
