@@ -166,6 +166,11 @@ PHEDEX_CATALOGUE=${PHEDEX_MYSQL};
  -db        ${PHEDEX_DBParam}:${PHEDEX_LABEL}
  -wait      $(expr 10000 + $RANDOM "%" 2000)
 
+### AGENT LABEL=info-pm PROGRAM=Toolkit/Monitoring/PerfMonitor
+ -db        ${PHEDEX_DBParam}:${PHEDEX_LABEL}
+ -wait      $(expr 120 + $RANDOM "%" 30)
+
+
 #### AGENT LABEL=peer-la PROGRAM=Toolkit/Peers/PeerLogAccess STATEOPT=-state DEFAULT=off
 # --boot     http://cms-project-phedex.web.cern.ch/cms-project-phedex/Documents/PeerList
 # --persist  ${PHEDEX_CUSTOM}/PeerIdentities
