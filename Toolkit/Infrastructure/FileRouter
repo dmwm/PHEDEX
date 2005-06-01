@@ -185,24 +185,15 @@ sub pendingFiles
 	select name, node from t_block_destination
 	where completed is null and node like :pattern});
     my $fquery = $self->{STMT_CACHE}{FDEST} ||= &dbprep ($dbh, qq{
-	select rs.guid, rs.node
-	from t_replica_state rs
-	join t_file f on f.guid = rs.guid
-	where f.inblock = :block
-	order by rs.guid});
+	select guid from t_file where inblock = :block});
     &dbbindexec ($bquery, ":pattern" => $pattern);
     while (my ($block, $dest) = $bquery->fetchrow())
     {
 	my $info = undef;
 	&dbbindexec ($fquery, ":block" => $block);
-	while (my ($guid, $node) = $fquery->fetchrow())
+	while (my ($guid) = $fquery->fetchrow())
 	{
-	    if (! $info || $info->{GUID} ne $guid)
-	    {
-		$info = { GUID => $guid, DEST => $dest, REPLICAS => [] };
-		push (@$result, $info);
-	    }
-	    push (@{$info->{REPLICAS}}, $node);
+	    push (@$result, { GUID => $guid, DEST => $dest });
 	}
     }
 
@@ -226,16 +217,17 @@ sub routeNextHop
     my ($self, $dbh, $file, $routes) = @_;
     my $guid = $file->{GUID};
     my $dest = $file->{DEST};
-    my %replicas = map { $_ => 1 } @{$file->{REPLICAS}};
-    my %transfers = ();
     my $now = &mytimeofday ();
     my $oldroute = $now - 15*60;
+    my %transfers = ();
+    my %replicas = ();
 
     # Do a quick check if we should be routing this file
     # return 0 if ! $self->shouldRouteFile ($dbh, $file);
-    return 0 if exists $replicas{$dest};
 
     # Get statements we need
+    my $rstmt = $self->{STMT_CACHE}{RS} ||= &dbprep ($dbh, qq{
+	select node from t_replica_state where guid = :guid});
     my $tstmt = $self->{STMT_CACHE}{TS} ||= &dbprep ($dbh, qq{
 	select to_node from t_transfer_state where guid = :guid});
     my $istmt = $self->{STMT_CACHE}{INS} ||= &dbprep ($dbh, qq{
@@ -245,10 +237,17 @@ sub routeNextHop
 	values (:now, :guid, :to_node, 0, :now, :from_node, 0, :now)});
 
     # Determine replicas and transfers for this file.
+    &dbbindexec ($rstmt, ":guid" => $guid);
     &dbbindexec ($tstmt, ":guid" => $guid);
-    while (my ($to) = $tstmt->fetchrow()) {
-	$transfers{$to} = 1 if $to;
+    while (my ($node) = $rstmt->fetchrow()) {
+	return 0 if $node eq $dest;
+	$replicas{$node} = 1;
     }
+
+    while (my ($node) = $tstmt->fetchrow()) {
+	$transfers{$node} = 1;
+    }
+    $rstmt->finish ();
     $tstmt->finish ();
 
     # Determine nearest replica
