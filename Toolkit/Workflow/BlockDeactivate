@@ -114,6 +114,8 @@ sub idle
 	    from t_block b
 	    where b.isopen = 0
 	      and b.timestamp < :limit
+      	      and exists (select name from t_block_replica br
+      		          where br.name = b.name)
 	      and (b.files, b.bytes, 0, 0, 1, 1) = all
       	          (select br.node_files, br.node_bytes, br.xfer_files,
 		  	  br.expt_files, sign(:limit - br.last_update),
