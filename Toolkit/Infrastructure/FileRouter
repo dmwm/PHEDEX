@@ -226,29 +226,43 @@ sub routeNextHop
     # return 0 if ! $self->shouldRouteFile ($dbh, $file);
 
     # Get statements we need
-    my $rstmt = $self->{STMT_CACHE}{RS} ||= &dbprep ($dbh, qq{
-	select node from t_replica_state where guid = :guid});
     my $tstmt = $self->{STMT_CACHE}{TS} ||= &dbprep ($dbh, qq{
 	select to_node from t_transfer_state where guid = :guid});
+    my $rstmt = $self->{STMT_CACHE}{RS} ||= &dbprep ($dbh, qq{
+	select node from t_replica_state where guid = :guid});
     my $istmt = $self->{STMT_CACHE}{INS} ||= &dbprep ($dbh, qq{
 	insert into t_transfer_state
 	(timestamp, guid, to_node, to_state, to_timestamp,
 	 from_node, from_state, from_timestamp)
 	values (:now, :guid, :to_node, 0, :now, :from_node, 0, :now)});
 
-    # Determine replicas and transfers for this file.
-    &dbbindexec ($rstmt, ":guid" => $guid);
+    # Determine replicas and transfers for this file.  Note that the
+    # order is significant here: transfers first, then replicas, due
+    # to a race condition with FileDownload agent.  Download agents
+    # create a new replica, then remove a transfer state.  It does
+    # happen that the download transaction is committed in the split
+    # moment between the two queries below, in which case it is very
+    # important we get the information the "harmless" way around.
+    # Namely, if we get transfers first then replicas, we may end up
+    # with an extra transfer but do pick up the new replica, which is
+    # harmless for us.  The other way around we may actually lose
+    # both the replica (not yet created) and the transfer (already
+    # deleted), and reschedule the transfer, causing a constraint
+    # violation in FileDownload later on.  We don't want to do any
+    # locking here that we can avoid to prevent performance impact.
     &dbbindexec ($tstmt, ":guid" => $guid);
+    while (my ($node) = $tstmt->fetchrow()) {
+	return 0 if $node eq $dest;
+	$transfers{$node} = 1;
+    }
+    $tstmt->finish ();
+
+    &dbbindexec ($rstmt, ":guid" => $guid);
     while (my ($node) = $rstmt->fetchrow()) {
 	return 0 if $node eq $dest;
 	$replicas{$node} = 1;
     }
-
-    while (my ($node) = $tstmt->fetchrow()) {
-	$transfers{$node} = 1;
-    }
     $rstmt->finish ();
-    $tstmt->finish ();
 
     # Determine nearest replica
     my @best = sort { $a->{HOPS} <=> $b->{HOPS} }
