@@ -122,7 +122,7 @@ sub idle
 		# If we've routed too many files, take a breather to avoid
 		# getting the database too overloaded.
 		do { $self->{SUSPEND_ROUTING} = &mytimeofday() + 120; last }
-		    if $nrouted > 2000;
+		    if $nrouted > 4000;
 	    }
 
 	    &logmsg ("$nodepat: considered $nincomplete destinations,"
