@@ -1,15 +1,40 @@
 #!/usr/bin/env perl
 
-# This Master script is used to startup agents in a well-defined
-# environment. The environment is defined by one or more configuration
-# files. These configuration files have a specific format, but typically
-# have one of two types of section- denoted either ENVIRON, in which
-# environment variables are set, or AGENT, in which a particular agent
-# instance is defined, indicating executable and command line arguments.
-#
-# Usage
-#
-# Master -config <Config file>[,<Config file>,...]  MODE <AGENT|all>
+##H Master -config FILE[,FILE...] environ
+##H Master -config FILE[,FILE...] start     [AGENT... | all]
+##H Master -config FILE[,FILE...] stop      [AGENT... | all]
+##H Master -config FILE[,FILE...] terminate [AGENT... | all]
+##H Master -config FILE[,FILE...] show      [AGENT... | all]
+##H
+##H Manage an agent configuration.  If more than one configuration file
+##H is given, the different sections of each file are merged and the
+##H operations apply to resulting merged view.
+##H
+##H The configuration file can contain "ENVIRON" and "AGENT" sections.
+##H The former specifies, in Bourne shell syntax, the code to execute
+##H to set up environment necessary for the agents to run.  It may
+##H also define variables that can be referred to in the agent section.
+##H
+##H The -config option specified one or more configuration files to
+##H process, files separated by commas ",".  More than one -config
+##H option can be provided; "-config A -config B" is equivalent to
+##H "-config A,B".
+##H
+##H The "environ" command prints out the shell commands to set up the
+##H environment.  This is useful for e.g.
+##H    eval $(Master -config MyConfig environ)
+##H
+##H The "start" and "stop" commands start and stop, respectively, a
+##H set of agents.  If no AGENT names are specified, the operation
+##H will apply to default agents (i.e. all those agent definitions
+##H which don't have DEFAULT=off attribute).  If "all" is specified,
+##H all agents, including DEFAULT=off agents, will be affected.
+##H Otherwise, a list of agent labels (LABEL=xyz) names is expected.
+##H
+##H The "show" command behaves like "start", but prints out the
+##H shell commands the master would issue instead of executing them.
+##H
+##H The "terminate" forcefully terminates (kills) the specified agents.
 
 # First we need to parse the command line arguments
 BEGIN { use warnings; use strict; }
@@ -18,17 +43,21 @@ while (@ARGV)
 {
     if ($ARGV[0] eq "-config" && scalar @ARGV > 1) 	
     { shift (@ARGV); push (@{$args{CONFIG}}, split(/,/, shift(@ARGV))); }
-    elsif ($ARGV[0] eq "-help")
-    { &help(); exit 1; }
+    elsif ($ARGV[0] eq "-h")
+    { open (ME, "< $0")
+      && print(STDERR map { s/^\#\#H ?//; $_ } grep (/^\#\#H/, <ME>))
+      && close(ME);
+      exit(1); }
     elsif ($ARGV[0] =~ /^-/) 
-    { die "TestMaster- unrecognised option $ARGV[0]\nPlease use -help\n"; } 
-    else { last; }
+    { die "Unexpected option $ARGV[0], please use -h for help\n"; }
+    else
+    { last; }
 }
 
-my $mode = shift(@ARGV) || "start";
-
-if (!$args{CONFIG} ) { 
-    die "Sorry, you need to specify a config file\nPlease use -help\n"; 
+my $mode = shift(@ARGV);
+if (!$args{CONFIG} || !$mode)
+{ 
+    die "Insufficient parameters, please use -h for help\n";
 }
 
 # Then set variables at script scope...
@@ -38,34 +67,26 @@ my %environs = ();
 my @agents = ();
 
 # Then we need to open up each of the config files
-foreach my $file ( @{$args{CONFIG}} ) {
+foreach my $file (@{$args{CONFIG}})
+{
     -f $file || die "$file: no such file\n";
     -r $file || die "$file: not readable\n";
 
     open(CONFIG, "< $file") || die "$file: cannot read: $!\n";
-    while (<CONFIG>) {
-	while (/^\#\#\#\s+([A-Z]+)(\s+(.*)|$)/) {
-	    chomp; 
-	    s/\s+$//;
-	    
+    while (<CONFIG>)
+    {
+	while (/^\#\#\#\s+([A-Z]+)(\s+(.*)|$)/)
+	{
+	    chomp; s/\s+$//;
 	    # Here we process ENVIRON sections, defined as follows:
 	    # ### ENVIRON [optional label]
 	    if ($1 eq "ENVIRON")
 	    {
-		chomp;
-		my @tags = split( / / );
-		my $label = '';
-		if ( $tags[2] =~ /[a-z]/)
-		{
-		    $label = $tags[2];
-		    $label =~ s/\s//;
-		} else {
-		    $label = "generic";
-		    if ( defined $environs{$label} )
-		    {
-			print "# You have multiple environs without labels- they will be run together!\n";
-		    } 
-		}
+		print STDERR "$file: $.: Unlabelled ENVIRONs are",
+		    	     " deprecated, treating as 'common'\n"
+		    if ! $3;
+
+		my $label = $3 || "common";
 		while (<CONFIG>)
 		{
 		    last if /^###/; chomp; s/#.*//; s/^\s+//; s/\s+$//;
@@ -78,7 +99,7 @@ foreach my $file ( @{$args{CONFIG}} ) {
 	    elsif ($1 eq "AGENT")
 	    {
 		my $agent = { map { m|([^=]+)=(\S+)|g } split(/\s+/, $3) };
-		push( @agents, $agent );
+		push(@agents, $agent);
 		while (<CONFIG>)
 		{
 		    last if /^###/; chomp; s/#.*//; s/^\s+//; s/\s+$//;
@@ -97,94 +118,59 @@ foreach my $file ( @{$args{CONFIG}} ) {
 }
     
 # And finally act on all this information
-if ($mode eq "start" || $mode eq "stop" || $mode eq 'show')
+if (grep ($mode eq $_, qw(start stop show terminate)))
 {
-    foreach $agent (@agents) {
+    if ($mode eq 'show') {
+	open (SH, ">&STDOUT") or die "cannot open output: $!\n";
+    } else {
+	open (SH, "| sh") or die "cannot exec sh: $!\n";
+    }
+    print SH $environs{"common"}, "\n";
+
+    foreach my $agent (@agents)
+    {
 	next if (@ARGV && !grep($_ eq "all" || $_ eq $agent->{LABEL}, @ARGV));
 	next if (! @ARGV && ($agent->{DEFAULT} || 'on') eq 'off');
 
-	if ($mode eq 'show') {
-	    open (SH, ">&STDOUT") or die "cannot open output: $!\n";
-	} else {
-	    open (SH, "| sh") or die "cannot exec sh: $!\n";
-	}
-	
-	print SH "\n#\n# Environment and startup for agent $agent->{LABEL}\n#\n";
-
-	# Here we need to work out which environment each agent needs, make sure
-	# it's been defined and if so, source it. Skip agents with wierd or undecidable
-	# environment requirements
-        if ( defined $environs{"common"} )
-        {
-            print SH $environs{"common"}, "\n";
-        }
-	if ( ! defined $agent->{ENVIRON} )
+	print SH "(";
+	if ($agent->{ENVIRON} && ! exists $environs{$agent->{ENVIRON}})
 	{
-	    if ( ! defined $environs{"generic"} )
-	    {
-		print "# Agent $agent->{LABEL} doesn't specify an environment, and no generic environment is set, not starting\n";
-		next;
-	    } else {
-		print SH $environs{"generic"}, "\n";
-	    }
-	} elsif ( ! exists $environs{$agent->{ENVIRON}} ) {
-	    print "# Agent $agent->{LABEL} specifies an environment that doesn't exist, not starting\n";
-	    next;
-	} else {
-	    print SH $environs{$agent->{ENVIRON}},"\n";
+	    print STDERR "Agent $agent->{LABEL} requests non-existent",
+	    		 " environment $agent->{ENVIRON}\n";
 	}
-	    
+	elsif ($agent->{ENVIRON})
+	{
+	    print SH $environs{$agent->{ENVIRON}}, "\n";
+	}
+
 	# Now actually act on the mode, and start or show agents
 	if ($mode eq 'start' || $mode eq 'show') {
 	    print SH "mkdir -p \${PHEDEX_STATE}/$agent->{LABEL} &&",
 	    " mkdir -p \${PHEDEX_LOGS} &&",
 	    ($agent->{STATELINK}
 	     ? " ln -sf $agent->{LABEL} \${PHEDEX_STATE}/$agent->{STATELINK};" : " :;"),
-	    "\nnohup \${PHEDEX_SCRIPTS}/$agent->{PROGRAM}",
+	    " nohup \${PHEDEX_SCRIPTS}/$agent->{PROGRAM}",
 	    (" -", $agent->{STATEOPT} || "state", " ", "\${PHEDEX_STATE}/$agent->{LABEL}"),
 	    $agent->{OPTS},
-	    " >> \${PHEDEX_LOGS}/$agent->{LABEL} 2>&1 </dev/null &\n";
+	    " >> \${PHEDEX_LOGS}/$agent->{LABEL} 2>&1 </dev/null &";
 	} elsif ($mode eq 'stop') {
-	    print SH "touch \${PHEDEX_STATE}/$agent->{LABEL}/stop\n";
+	    print SH "touch \${PHEDEX_STATE}/$agent->{LABEL}/stop";
+	} elsif ($mode eq 'terminate') {
+	    print SH "kill \$(cat \${PHEDEX_STATE}/$agent->{LABEL}/pid)";
 	}
-	close(SH);
+	print SH ")\n";
     }
+
+    close(SH);
 }
 elsif ($mode eq "environ")
 {
-    if (! @ARGV) 
+    foreach my $label (@ARGV ? @ARGV : "common")
     {
-	print "# Writing out all environments\n";
-	foreach my $label ( keys %environs ) {
-	    print "# Environment: $label\n";
-	    print "$environs{$label}\n";
-	}
-    } else {
-	foreach my $label ( @ARGV ) 
-	{
-	    print "# Environment: $label\n";
-	    print "$environs{$label}\n";
-	}
+	print $environs{$label}, "\n";
     }
 }
 else
 {
-    die "unrecognised operation mode \"$mode\"\nPlease use -help\n";
-}
-
-sub help
-{    
-    print "Usage:\n",
-    "Master -config <Config file>[,<Config file>,...]  MODE [AGENT|all]\n\n",
-    "Possible MODEs are\n",
-    "       start:   will start agent(s)\n",
-    "       stop:    will stop agent(s)\n",
-    "       environ: will list the environment (suitable for eval)\n\n",
-    "If start or stop mode is used and NO agent name, nor\n",
-    "the keyword \"all\" is given, then ALL agents specified\n",
-    "in the config file will be started or stopped\n\n",
-    "The keyword \"all\" specifies all agents in the config file\n",
-    "not flagged as \"DEFAULT=off\"\n";
-
-return 1
+    die "Unrecognised operation mode '$mode', use -h for help\n";
 }
