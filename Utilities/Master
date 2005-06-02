@@ -9,7 +9,7 @@
 #
 # Usage
 #
-# Master -config <Config file>[,<Config file>,...]  MODE AGENT|all
+# Master -config <Config file>[,<Config file>,...]  MODE <AGENT|all>
 
 # First we need to parse the command line arguments
 BEGIN { use warnings; use strict; }
@@ -18,15 +18,17 @@ while (@ARGV)
 {
     if ($ARGV[0] eq "-config" && scalar @ARGV > 1) 	
     { shift (@ARGV); push (@{$args{CONFIG}}, split(/,/, shift(@ARGV))); }
+    elsif ($ARGV[0] eq "-help")
+    { &help(); exit 1; }
     elsif ($ARGV[0] =~ /^-/) 
-    { die "TestMaster- unrecognised option $ARGV[0]\n"; } 
+    { die "TestMaster- unrecognised option $ARGV[0]\nPlease use -help\n"; } 
     else { last; }
 }
 
 my $mode = shift(@ARGV) || "start";
 
 if (!$args{CONFIG} ) { 
-    die "Sorry, you need to specify a config file\n"; 
+    die "Sorry, you need to specify a config file\nPlease use -help\n"; 
 }
 
 # Then set variables at script scope...
@@ -100,7 +102,6 @@ if ($mode eq "start" || $mode eq "stop" || $mode eq 'show')
     foreach $agent (@agents) {
 	next if (@ARGV && !grep($_ eq "all" || $_ eq $agent->{LABEL}, @ARGV));
 	next if (! @ARGV && ($agent->{DEFAULT} || 'on') eq 'off');
-	next if (! @ARGV); # without agent name or all, nothing is started
 
 	if ($mode eq 'show') {
 	    open (SH, ">&STDOUT") or die "cannot open output: $!\n";
@@ -168,6 +169,22 @@ elsif ($mode eq "environ")
 }
 else
 {
-    die "unrecognised operation mode \"$mode\"\n";
+    die "unrecognised operation mode \"$mode\"\nPlease use -help\n";
 }
 
+sub help
+{    
+    print "Usage:\n",
+    "Master -config <Config file>[,<Config file>,...]  MODE [AGENT|all]\n\n",
+    "Possible MODEs are\n",
+    "       start:   will start agent(s)\n",
+    "       stop:    will stop agent(s)\n",
+    "       environ: will list the environment (suitable for eval)\n\n",
+    "If start or stop mode is used and NO agent name, nor\n",
+    "the keyword \"all\" is given, then ALL agents specified\n",
+    "in the config file will be started or stopped\n\n",
+    "The keyword \"all\" specifies all agents in the config file\n",
+    "not flagged as \"DEFAULT=off\"\n";
+
+return 1
+}
