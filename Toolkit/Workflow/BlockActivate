@@ -119,7 +119,7 @@ sub idle
 		(select :now, f.guid, br.node, 0, :now
 		 from t_block_replica br
 		 join t_file f on f.inblock = br.name
-		 where br.name = :block},
+		 where br.name = :block)},
 	   	 ":block" => $block, ":now" => $now);
 
 	    &dbexec ($dbh, qq{
