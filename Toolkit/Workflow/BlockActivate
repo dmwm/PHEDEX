@@ -73,10 +73,7 @@ sub idle
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
-	# Reactivate blocks with incomplete destinations.  Lock the
-	# block row so nobody can mess up the replicas while we look
-	# at the information (not that this is critical -- if the
-	# block is inactive, it can't be changed).
+	# Reactivate blocks with incomplete destinations.
 	my $now = &mytimeofday ();
         my $stmt = &dbexec ($dbh, qq{
 	    select b.name, count(br.name), sum(br.isactive)
@@ -86,8 +83,7 @@ sub idle
 	      on bd.name = b.name
 	    join t_block_replica br
 	      on br.name = b.name
-	    group by b.name
-	    for update of b.name});
+	    group by b.name});
 	while (my ($block, $nreplica, $nactive) = $stmt->fetchrow())
 	{
 	    # Ignore active blocks
@@ -98,7 +94,25 @@ sub idle
 	        next;
 	    }
 
-	    # Inactive and wanted, activate the file replicas
+	    # Inactive and wanted.  Activate the file replicas.  However
+	    # before we start, lock the block and check counts again in
+	    # case something changes.
+	    &dbexec ($dbh, qq{
+		select * from t_block where name = :block for update},
+		":block" => $block);
+
+	    my ($xblock, $xnreplica, $xnactive) = &dbexec ($dbh, qq{
+		select b.name, count(br.name), sum(br.isactive) from t_block b
+		join t_block_replica br on br.name=b.name where b.name=:block
+		group by b.name}, ":block" => $block)->fetchrow();
+
+	    if ($xnactive != $nactive || $xnreplica != $nreplica)
+	    {
+		&alert ("$block changed while locking it, giving up");
+		next;
+	    }
+
+	    # Proceed to activate.
 	    my ($stmt, $ret) = &dbexec ($dbh, qq{
 		insert into t_replica_state
 		(timestamp, guid, node, state, state_timestamp)
