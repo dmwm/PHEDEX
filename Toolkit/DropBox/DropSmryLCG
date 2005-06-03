@@ -34,6 +34,8 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-nodesmap' && scalar @ARGV > 1)
     { shift (@ARGV); $args{NODESMAP} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-publish' && scalar @ARGV > 1)
+    { shift (@ARGV); @{$args{PUBLISH}} = split(/,/, shift(@ARGV)); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
     else
@@ -45,6 +47,7 @@ if (scalar @ARGV || !$args{DROPDIR} || !$args{NODESMAP} || !$args{MYNODE})
     print STDERR
 	"usage: $me -in IN-DROP-BOX -out NEXT-DROP-BOX\n",
 	"           -node NODE-NAME -nodesmap NODESMAP-FILE\n",
+        "           [-publish PUBLISH-SCRIPT[,ARGS]]\n",
 	"           [-wait SECS-TO-WAIT]\n";
     exit (1);
 }
@@ -62,8 +65,9 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (NODESMAP => undef,     # File with nodes and regex to consider a file local
-		  MYNODE => undef);      # My TMDB node name
+    my %params = (NODESMAP => undef,   # File with nodes and regex to consider a file local
+		  MYNODE => undef,     # My TMDB node name
+		  PUBLISH => undef);   # glue script to publish files into local phedex pool catalog 
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -99,7 +103,8 @@ sub ProcessSmry
 
     # create XML POOL fragment
     my $XMLCatFragment="$dropdir/XMLCatFragment.$assID.xml";
-    my $XMLcontent = &createZipXMLfragment($guid, $lfn);
+    my $surl=$turl; $surl =~ s/^[a-z]*:/sfn:/;
+    my $XMLcontent = &createZipXMLfragment($guid, $lfn, $surl);
     do { &alert("$drop: failed to create XML fragment for zip archive"); return 1} if !$XMLcontent;
     do { &alert("$drop: failed to write $XMLCatFragment"); return 1}
       if ! &output ($XMLCatFragment, &genXMLPreamble() . $XMLcontent . &genXMLTrailer());
@@ -119,6 +124,12 @@ sub ProcessSmry
 	  if  ! &output ($PhEDExNodesfile, $Nodescontent);
     }
 
+    # execute script to publish into local phedex pool catalog
+    if ($self->{PUBLISH}) {
+        &warn ("failed to publish $XMLCatFragment into local catalogue") 
+            if &runcmd (@{$self->{PUBLISH}}, "$XMLCatFragment"); 
+    }
+
     # OK, we are done
     &touch ("$dropdir/done");
     return 0;
@@ -127,13 +138,13 @@ sub ProcessSmry
 
 sub createZipXMLfragment
 {
-    my ($guid, $lfn) = @_;
+    my ($guid, $lfn, $surl) = @_;
     
     if ($lfn =~ /.+\.(\w+)\.(\d+)\.(.+)\.(.+)\./) {
 	my $xmldata = <<EOF;
   <File ID="$guid">
     <physical>
-      <pfn filetype="EVDZip" name="./$lfn"/>
+      <pfn filetype="EVDZip" name="$surl"/>
     </physical>
     <logical>
       <lfn name="$lfn"/>
