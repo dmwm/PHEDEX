@@ -273,8 +273,35 @@ sub idle
 	# Compare differences II: new ones.
 	foreach my $b (map { values %$_ } values %active)
 	{
+	    if (exists $replicas{$b->{NAME}}{$b->{NODE}})
+	    {
+		# Already handled above
+		next;
+	    }
+	    elsif (grep (! $_->{ISACTIVE}, values %{$replicas{$b->{NAME}}}))
+	    {
+		# This block has inactive replicas.  Make sure all the
+		# replicas are inactive, then make sure this new replica
+		# has nothing but destinations defined (everything else
+		# is a consistency failure), and wait for BlockActivate
+		# to reactivate the block.
+		if (grep ($_->{ISACTIVE}, values %{$replicas{$b->{NAME}}}))
+		{
+		    &alert ("$b->{NAME} has inactive and active replicas");
+		}
+		elsif ($b->{NODE_FILES} || $b->{XFER_FILES} || $b->{EXPT_FILES})
+		{
+		    &alert ("$b->{NAME} at $b->{NODE} is active but the"
+			    . " block is otherwise inactive");
+		}
+	  	else
+		{
+		    &logmsg ("$b->{NAME} is inactive with new destinations"
+			     . " for $b->{NODE}, waiting for activation");
+		}
+	   	next;
+	    }
 
-	    next if exists $replicas{$b->{NAME}}{$b->{NODE}};
 	    &logmsg ("creating $b->{NAME} at $b->{NODE}");
 	    &dbexec ($dbh, qq{
 		insert into t_block_replica
