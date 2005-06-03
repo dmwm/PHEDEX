@@ -122,7 +122,7 @@ sub checkConsistency
 {
     my ($self, $drop, $block) = @_;
     my $cmd = "@{$self->{PFN_QUERY}}"
-	. " \"dataset = '$block->{DATASET}' and owner = '$block->{OWNER}'\"";
+	. " \"dataset='$block->{DATASET}' and owner='$block->{OWNER}'\"";
     my @pfns = qx($cmd);
 
     if (scalar @pfns != $block->{FILES})
