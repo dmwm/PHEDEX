@@ -73,7 +73,10 @@ sub idle
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
-	# Reactivate blocks with incomplete destinations.
+	# Reactivate blocks with incomplete destinations.  Lock the
+	# block row so nobody can mess up the replicas while we look
+	# at the information (not that this is critical -- if the
+	# block is inactive, it can't be changed).
 	my $now = &mytimeofday ();
         my $stmt = &dbexec ($dbh, qq{
 	    select b.name, count(br.name), sum(br.isactive)
@@ -83,7 +86,8 @@ sub idle
 	      on bd.name = b.name
 	    join t_block_replica br
 	      on br.name = b.name
-	    group by b.name});
+	    group by b.name
+	    for update of b.name});
 	while (my ($block, $nreplica, $nactive) = $stmt->fetchrow())
 	{
 	    # Ignore active blocks
