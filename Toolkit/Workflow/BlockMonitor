@@ -90,7 +90,6 @@ sub idle
 
     eval
     {
-
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
 	# Guarantee full consistency.  We need to ensure that a) this
@@ -110,7 +109,8 @@ sub idle
 		   br.xfer_files, br.xfer_bytes,
 		   br.expt_files, br.expt_bytes
 	    from t_block_replica br
-	    join t_block b on b.name = br.name});
+	    join t_block b on b.name = br.name
+	    for update of b.name});
         while (my $row = $qexisting->fetchrow_arrayref())
 	{
 	    $replicas{$row->[0]}{$row->[1]} = {
@@ -341,7 +341,6 @@ sub idle
 	    set completed = :now},
 	    ":now" => &mytimeofday());
 	$dbh->commit ();
-	
     };
     do { &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
