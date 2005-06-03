@@ -74,41 +74,37 @@ sub idle
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
-	# Guarantee full consistency.  We need to ensure that a) this
-	# procedure is aborted if someone goes and makes block open
-	# again and adds more files, b) we delete exactly as many
-	# t_replica_state rows as we planned to.
-	&dbexec ($dbh, q{set transaction isolation level serializable});
-
 	# Deactivate complete blocks.  Get all blocks whose all replicas
 	# are complete and active.  First of all, ignore blocks where
 	# replicas are already inactive.  Secondly, ignore all blocks
 	# which have been touched "recently" to allow things to settle.
 	#
-	# Consider remaining (active) blcok replicas.  If all replicas
+	# Consider remaining (active) block replicas.  If all replicas
 	# of a block have as many files as the block has, deactive the
 	# block (and all replicas).  We also require for extra safety
-	# that there can be no files in transfer.
+	# that there can be no files in transfer, or export.
 	#
-	# We do *not* require that dest_files = node_files, as in nodes
-	# which are file sources dest_files is usually zero, and we
-	# still want to deactivate.  This should be relatively safe --
-	# the only way we can deactivate a block on intermediate node
-	# is if a) the entire block has already reached all current
-	# destination nodes, b) either all or none of the files have
-	# been removed in intermediate nodes, and c) at least several
-	# days has passed like this.  It is unlikely that all these
-	# criteria will be met simultaneously, and in any case the fix
-	# is easy: reactivate the block.
+	# We do *not* require that dest_files = node_files, as at file
+	# source nodes dest_files is usually zero, and we still want
+	# to deactivate.  This should be safe -- we deactivate a block
+	# on intermediate node is if a) the entire block has already
+	# reached all current destination nodes, b) either all or none
+	# of the files have been removed in intermediate nodes, and
+	# c) several days has passed like this.  It is unlikely that
+	# all these criteria will be met simultaneously, and in any
+	# case the fix is easy: reactivate the block.
 	#
-	# Do just one at a time to avoid overflowing undo segmens and
-	# running the risk this whole transaction will fail.  This is
-	# because we require transactional integrity for the entire
-	# select/delete/update (see above).  It's OK to do work
-	# incrementally here.
+	# Process just one block each time to avoid overloading undo
+	# segments unncessarily.  We can always deactive more later.
 	#
-	# Also note the "select ... for update" so nobody can change
-	# these blocks while we work on them.
+	# What we do here requires a great degree of transactinal
+	# consistency.  For one, we don't want someone to open blocks
+	# while we are deactiving them; this is prevented by locking
+	# the t_block row with "select .. for update" while operating
+	# on it, a convention followed by all programs which modify
+	# block table.  Secondly, we need to make sure we delete the
+	# exact number of file replicas we expected to delete; if an
+	# inconsitency is detected, we roll back the transcation.
 	my $qblocks = &dbexec ($dbh, qq{
 	    select b.name
 	    from t_block b
@@ -122,25 +118,44 @@ sub idle
 			  br.isactive
 		   from t_block_replica br
 		   where br.name = b.name)
-	    for update},
+	    for update of b.name},
 	    ":limit" => &mytimeofday () - $self->{HOLDOFF});
         if (my ($name) = $qblocks->fetchrow())
 	{
+	    # Get the number of file replicas expected to delete.
+	    my ($nfr) = &dbexec ($dbh, qq{
+		select sum(node_files)
+		from t_block_replica
+		where name = :block},
+		":block" => $name)
+		->fetchrow();
+	    if (! $nrf)
+	    {
+		&alert ("refusing to deactivate block $name with no files");
+		next;
+	    }
+
 	    # Deactivate.
 	    my ($dr, $nr) = &dbexec ($dbh, qq{
 		delete from t_replica_state where guid in
 		(select guid from t_file where inblock = :block)},
 		":block" => $name);
-	    my ($db, $nb) = &dbexec ($dbh, qq{
-		update t_block_replica set isactive = 0 where name = :block},
-		":block" => $name);
 
-	    &logmsg ("deactivated $name: $nr file replicas, $nb block replicas");
+	    if ($nr != $nrf)
+	    {
+		&alert ("deactivating $name deleted $nr file replicas,"
+			. " expected to delete $nfr, undoing deactivation");
+		$dbh->rollback ();
+	    }
+	    else
+	    {
+	        my ($db, $nb) = &dbexec ($dbh, qq{
+		    update t_block_replica set isactive = 0 where name = :block},
+		    ":block" => $name);
+	        &logmsg ("deactivated $name: $nr file replicas, $nb block replicas");
+	        $dbh->commit ();
+	    }
         }
-
-	# Commit everything.  See above for comments why we don't
-	# want to commit partially each block.
-	$dbh->commit ();
     };
     do { &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
