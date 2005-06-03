@@ -129,7 +129,7 @@ sub idle
 		where name = :block},
 		":block" => $name)
 		->fetchrow();
-	    if (! $nrf)
+	    if (! $nfr)
 	    {
 		&alert ("refusing to deactivate block $name with no files");
 		next;
@@ -141,7 +141,7 @@ sub idle
 		(select guid from t_file where inblock = :block)},
 		":block" => $name);
 
-	    if ($nr != $nrf)
+	    if ($nr != $nfr)
 	    {
 		&alert ("deactivating $name deleted $nr file replicas,"
 			. " expected to delete $nfr, undoing deactivation");
@@ -167,41 +167,4 @@ sub idle
     $self->nap ($self->{WAITTIME});
 }
 
-sub removeInTMDB {
-    my ($self, $dbh, $collection) = @_;
-    my ($dataset, $owner) = split(':',$collection);
-
-# we need the guids for the files belonging to the selected dataset-owner pairs
-    my @guids = &getGUIDs($dbh, $dataset, $owner);
-    
-     foreach my $guid (@guids) {
-# let's remove all t_transfer and t_replica info for the chosen guids
-	&dbexec ($dbh, qq{
-		delete from t_transfer_state where
-	        guid = :guid},
-	        ":guid"=>$guid);
-	    
-	&dbexec ($dbh, qq{
-		delete from t_replica_state where
-	        guid = :guid},
-	        ":guid"=>$guid);
-	$dbh->commit();
-    }
-	
-}
-
-sub getGUIDs {
-    my ($dbh, $dataset, $owner) = @_;
-    my @guids = ();
-
-    # fetch GUIDs from TMDB for given dataset and owner
-    my $guids_h = &dbexec ($dbh, qq{
-	select f.guid from t_dsb_fileid f, t_dsb_dataset d
-	where  d.dataset=:dataset and d.owner=:owner and d.id=f.id},
-	":dataset"=>$dataset, ":owner"=>$owner);
-    
-    while (my ($guid) = $guids_h->fetchrow() ) {
-	push (@guids, $guid);
-    }
-    return @guids;
-}
+1;
