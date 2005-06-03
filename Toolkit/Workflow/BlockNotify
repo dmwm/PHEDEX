@@ -84,7 +84,7 @@ sub completeBlocks
 	from t_block_replica br
 	join t_block b on b.name = br.name
 	where br.node = :node
-	  and br.files = b.files
+	  and br.node_files = b.files
 	  and br.timestamp < :now - 30},
 	":node" => $self->{MYNODE},
 	":now" => &mytimeofday());
@@ -97,7 +97,7 @@ sub completeBlocks
 	    DATASET => $dataset,
 	    OWNER => $owner,
 	    FILES => $files
-	    };
+	};
     }
 
     return $result;
