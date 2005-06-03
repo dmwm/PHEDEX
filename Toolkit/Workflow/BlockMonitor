@@ -80,12 +80,6 @@ sub limitCheck
     &alert ("$reason $b->{NAME} at $b->{NODE} transferring $b->{XFER_BYTES} bytes,"
 	    . " more than expected ($ref->{BYTES})")
 	if $b->{XFER_BYTES} > $ref->{BYTES};
-    &alert ("$reason $b->{NAME} at $b->{NODE} transferring $b->{EXPT_FILES} files,"
-	    . " more than expected ($ref->{FILES})")
-	if $b->{EXPT_FILES} > $ref->{FILES};
-    &alert ("$reason $b->{NAME} at $b->{NODE} transferring $b->{EXPT_BYTES} bytes,"
-	    . " more than expected ($ref->{BYTES})")
-	if $b->{EXPT_BYTES} > $ref->{BYTES};
 }
 
 # Update statistics.
