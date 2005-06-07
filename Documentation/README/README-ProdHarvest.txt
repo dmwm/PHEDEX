@@ -6,7 +6,7 @@ for download.
 
 The link between Production and PhEDEx is the Production summary file. It 
 is created after successful completion of a Production job and contains 
-all the information needed to inject the produced data into Phedex.
+all the information needed to inject the produced data into PhEDEx.
 
 Files are "atomically" injected run-by-run (per job basis) as they become 
 available from Production. There is no need to wait until the data have 

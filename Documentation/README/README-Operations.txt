@@ -1,4 +1,4 @@
-* General- CERN Operations
+* General: CERN Operations
 
 Production agents are installed under /data on lxgate10.cern.ch.  Use
 the "phedex" account for all operations.
@@ -45,7 +45,7 @@ To stop everything known in Config whether running or not:
   PHEDEX/Custom/CERN/Master stop all
 
 To force kill all the agents in case of emergency:
-  kill $(cat /data/V2Nodes/CERN/incoming/*/pid)
+  PHEDEX/Custom/CERN/Master terminate all
 
 * Monitoring data allocations
 

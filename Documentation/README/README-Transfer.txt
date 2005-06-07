@@ -158,9 +158,7 @@ Typical agent configuration looks like this:
   ### AGENT LABEL=download-master PROGRAM=Toolkit/Transfer/FileDownload
    -node ${PHEDEX_NODE}_Transfer
    -ignore ${PHEDEX_NODE}_MSS
-   -db ${PHEDEX_TMDB}
-   -dbuser ${PHEDEX_TMDB_USER}
-   -dbpass ${PHEDEX_TMDB_PASS}
+   -db ${PHEDEX_DBPARAM}:Dev
    -backend Globus
    -command globus-url-copy,-p,3,-tcp-bs,2097152
    -pfndest $PHEDEX_CUSTOM/FileDownloadDest

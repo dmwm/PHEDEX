@@ -27,12 +27,14 @@ should interpret and maintain the information.
 
 README/README-Deployment.txt describes how to set up a new site.
 
-README/README-Managers.txt describes the management agents.
-
-README/README-DeveloperTestbed.txt describes how to set up a testbed.
+README/README-Auth.txt describes how to authenticate to database.
 
 README/README-Operations.txt describes current operations practises for
 CMS transfers; currently only for CERN, but hopelly more later on.
+
+README/README-DeveloperTestbed.txt describes how to set up a testbed.
+
+README/README-Managers.txt describes the management agents.
 
 ** Detailed documentation
 

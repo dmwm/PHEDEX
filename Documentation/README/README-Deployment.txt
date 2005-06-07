@@ -86,7 +86,7 @@ your site is "FOO_Transfer" (and possibly "FOO_MSS").
   cd /home/phedex
   export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/PHEDEX
   cvs login # password is "98passwd"
-  cvs co PHEDEX
+  cvs co -r PHEDEX_V2_2 PHEDEX
 
 *** LCG POOL tools
 
@@ -96,8 +96,7 @@ Skip this section if you don't intend to participate in CMS transfers.
 You can either use an existing POOL installation on your system, or
 make a standalone installation from RPMs.  We assume you use a tool
 provided in PHEDEx to set things up for the sake of simplicity.  You
-need POOL version 1.6.2 or later.  We recommend versions 1.6.4, 1.6.5
-or 2.0.x; do not use 1.8.x versions.
+should use POOL version 2.0.x tools; we recommend 2.0.3 or 2.0.7.
 
 If you have CMS software installed such that "scram" command can be used
 to choose among OSCAR and/or ORCA releases, set up PhEDEx like this:
@@ -117,7 +116,7 @@ You need to install Oracle client: the libraries and "sqlplus" utility.
 CERN license covers CMS use LCG-wide.  For the sake of simplicity we
 suggest you download Oracle Instant Client kits and set them up using
 a script provided in PhEDEX, even if you already have a local Oracle
-installation.
+installation.  You must use Oracle 10g client libraries.
 
 To install everything required, go to http://otn.oracle.com, select
 "DOWNLOAD", select "Oracle Instant Client", select "Instant client for
@@ -280,8 +279,9 @@ The "phedex" admin account should:
 *** Testing your installation
 
 Verify that everything installed so far works correctly:
-   PHEDEX/Deployment/TestInstallation -db devdb -dbuser cms_transfermgmt \
-     -dbpass <password> -poolcat <catalogue>
+   PHEDEX/Deployment/TestInstallation -db DBParam:Dev -poolcat <catalogue>
+
+(Please refer to README-Auth.txt on "DBParam" file.)
 
 *** Registering your node to the topology
 
@@ -303,11 +303,9 @@ for suggestions giving as many details as you can:
   3) The topology you plan to have at your site: disk buffers, MSS etc.
 
   4) The name(s) by which you would like your node(s) to be known.
-     The names are a descriptive name for your site (e.g. INFN),
-     plus underscore, plus node type (Transfer / MSS / ...)
-
-  5) Catalogue contact for your site and unique match key on PFNS
-     for your site (unnecessary with V2.1).
+     The names are a descriptive name for your site (e.g. CNAF, or
+     geographical name such as "Wisconsin"), plus underscore, plus
+     node type (Buffer / MSS / ...).
 
 *** Setting up agent master scripts
 
@@ -323,8 +321,6 @@ To import data, you must run at least the following agents:
   2) FileRouter
   3) NodeRouter
   4) InfoDropStatus
-
-We also recommend that you run "PeerLogAccess".
 
 If you have a separate MSS node, you must also run some kind
 of MSS migration agent.  You may be able to use some of the

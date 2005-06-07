@@ -21,8 +21,7 @@ probably need some amount of creativity to apply the instructions.
 It is assumed that the data you are serving for transfer is already
 known at your site, for instance in PubDB, and registered to your
 local POOL catalogue, and known as replicas on your site.  How to
-get that far is covered in other documentation (README-Production.txt
--- not written yet :-).
+get that far is documented elsewhere (README-ProdHarvest.txt).
 
 To serve the data out you need a "matser" export agent and a few
 additional ogents.  We first explain how this is set up at CERN
@@ -99,3 +98,9 @@ Option B: Your transfer and mss nodes are actually separate.
 
   Note that V2.1 added targeted download agents, so you can run different
   download agent instances for different node links.
+
+Option C: You have no MSS node, only a disk node (e.g. a Tier 2 or Tier 3)
+
+ 1: Use disk based export: Toolkit/Transfer/FileDiskExport
+ 2: PFN-generation agent: Toolkit/Transfer/FilePFNExport.  See above.
+

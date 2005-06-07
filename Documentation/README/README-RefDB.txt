@@ -3,6 +3,9 @@
 This document explains how to extract data from the CMS RefDB database
 and inject it into the PHEDEX transfer system.
 
+NOTE: THIS PROCEDURE HAS BEEN SUPERCEDED.  See for example
+  Custom/CERN/TransferPublishedMess.txt
+
 ** Background
 
 We have several utilities to help in inserting data into the transfer
