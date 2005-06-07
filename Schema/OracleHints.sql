@@ -32,3 +32,33 @@ access policy is the following:
 
 Role DESIGNER is a role that all your account have by default so probably
 it is reasonable to keep this role active.  */
+
+
+/*
+Q: Dump a database schema *in sql format* (i.e. something we can feed
+to sqlplus later, or compare with our own *.sql files)?
+
+A: Unfortunately this task in Oracle in not trivial and there is no
+single command/tool that exports all schema objects in form of DDL
+statements. However there is DBMS_METADATA PL/SQL package that helps
+to perform such export. Please refer Oracle documentation:
+
+http://oracle-documentation.web.cern.ch/oracle-documentation/ora9ir2/appdev.920/a96612/d_metada.htm#1656
+
+I am not sure but it is possible that Oracle Designer provides
+functionality you need.
+
+You can also use some non-Oracle reverse engineering tools like this
+offered at http://www.keeptool.com. Although this software is commercial
+there should be 30-day, full functional version, available.
+
+Q: Dump a database and reload into another database?
+
+A: This task is easy only if you want to move data from one Oracle
+database to another Oracle database. For this purpose you should use
+DataPump export/import tools on Oracle10g
+http://oracle-documentation.web.cern.ch/oracle-documentation/10gdoc/server.101/b10825/toc.htm
+
+or legacy export/import tools in case of Oracle9i
+http://oracle-documentation.web.cern.ch/oracle-documentation/ora9ir2/server.920/a96652/toc.htm
+*/
