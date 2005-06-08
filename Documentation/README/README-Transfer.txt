@@ -35,7 +35,7 @@ whereas transfers are made using PFNs of the form
    gsiftp://castorgrid.cern.ch/castor/cern.ch/cms/PCP04/...
    srm://www.cern.ch/castor/cern.ch/cms/PCP04/...
 
-Your site-local scripts need to perform such remappings. A script
+Your site-local scripts need to perform such remappings. An agent
 performing such a remapping is PFNExport (see README-Export), which is
 used to advertise TURLs for transfers to other nodes based on the PFNs
 stored in your catalogue. Even if you only intend to import data, this
