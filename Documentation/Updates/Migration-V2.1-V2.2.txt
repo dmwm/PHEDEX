@@ -370,8 +370,7 @@ cvs co -r PHEDEX_2_2_20050601 PHEDEX/Schema
 export PATH=$PATH:$BASE/PHEDEX/Deployment:$BASE/PHEDEX/Utilities 
 
 cd Tools
-export VO_CMS_SW_DIR=/afs/cern.ch/sw
-InstallPOOL -arch SLC3 -cms $BASE/Tools
+export VO_CMS_SW_DIR=/afs/cern.ch/sw; InstallPOOL -arch SLC3 -cms $BASE/Tools
 InstallOracleClient $BASE/Tools $BASE/Tools $BASE/PHEDEX/Schema
 InstallPerlModules $BASE/Tools
 . ./poolenv.sh
@@ -381,7 +380,7 @@ InstallPerlModules $BASE/Tools
     PROBLEM: Setting environment when you log back in.
     
     SOLUTION: In 3.2 we create Common.config: just
-    . Common.config
+    . ./Common.config
 
 3.1 Generate fake publish and pfn export scripts
 ------------------------------------------------
