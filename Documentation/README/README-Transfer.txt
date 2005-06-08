@@ -35,14 +35,11 @@ whereas transfers are made using PFNs of the form
    gsiftp://castorgrid.cern.ch/castor/cern.ch/cms/PCP04/...
    srm://www.cern.ch/castor/cern.ch/cms/PCP04/...
 
-Your site-local scripts need to perform such remappings. An agent
-performing such a remapping is PFNExport (see README-Export), which is
-used to advertise TURLs for transfers to other nodes based on the PFNs
-stored in your catalogue. Even if you only intend to import data, this
-might be of interest to you if your local disk buffer and your MSS are
-physically separated (e.g. you need to use a special command to
-manually migrate your data from disk buffer to tape and this procedure
-is not covered by a system like dCache or Castor).
+Your site-local scripts need to perform such remappings.  If you have
+separate disk buffer and MSS nodes, in order to achieve transfers all
+the way to your MSS node you will need to run export agents for the
+disk buffer node.  Please refer to README-Export.txt for details.
+
 
 
 **********************************************************************
