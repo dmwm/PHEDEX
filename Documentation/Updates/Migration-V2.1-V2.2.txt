@@ -189,14 +189,19 @@ sqlplus $TESTBEDUSER/$TESTBEDPASS@devdb @copy-data.sql
 ---------------
 A recap from 1.0
 
-export TESTBEDUSER=XXX
-export TESTBEDPASS=XXX
-export DEVUSER=XXX
-export DEVPASS=XXX
-export BASE=/a/working/directory/for/migration
+# export TESTBEDUSER=XXX
+# export TESTBEDPASS=XXX
+# export DEVUSER=XXX
+# export DEVPASS=XXX
+export BASE=/data/tim/MigrationNode
 export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/PHEDEX
 cvs login
+mkdir -p $BASE
 cd $BASE
+
+    FIXME: Also need to have checked out PHEDEX/Schema from CVS here!
+    
+    FIXME: Also assumes you have all the tools installed (POOL, OIC, perl)!
 
 2.1 Save existing schema
 ------------------------
@@ -208,6 +213,8 @@ cd $BASE/PHEDEX/Schema
     aren't possible!
 
     SOLUTION: By hand I renamed this Index XIX_FROMTO_STATE. 
+    
+    A look at Dev shows that this index has been removed already.
 
 
 2.2 Load new schema
@@ -370,11 +377,11 @@ cvs co -r PHEDEX_2_2_20050601 PHEDEX/Schema
 export PATH=$PATH:$BASE/PHEDEX/Deployment:$BASE/PHEDEX/Utilities 
 
 cd Tools
-export VO_CMS_SW_DIR=/afs/cern.ch/sw; InstallPOOL -arch SLC3 -cms $BASE/Tools
-InstallOracleClient $BASE/Tools $BASE/Tools $BASE/PHEDEX/Schema
-InstallPerlModules $BASE/Tools
+VO_CMS_SW_DIR=/afs/cern.ch/sw InstallPOOL -arch SLC3 -cms $BASE/Tools
 . ./poolenv.sh
+InstallOracleClient $BASE/Tools $BASE/Tools $BASE/PHEDEX/Schema
 . ./oraenv.sh
+InstallPerlModules $BASE/Tools
 . ./perlenv.sh
 
     PROBLEM: Setting environment when you log back in.
@@ -903,26 +910,121 @@ involving retagging the head of CVS and starting from there.
 5. Migrate Dev
 --------------
 
-To recap the process then, without the transfer of data- from 2.
+To recap the process then, without the transfer of data. The following complete migration
+sequence is a mixture of what happens above.
 
-5.0 Prep
+5.0 Preparation
 5.1 Save existing schema
 5.2 Load new schema
 5.3 Map old data onto new schema
+5.4 Issues
 
-I'll start from a blank base install.
+I'll start from a blank base install, on cmslcgco04, using the tagged version
+PHEDEX_V2_2_20050607.
 
-5.0
----
-export TESTBEDUSER=XXX
-export TESTBEDPASS=XXX
-export DEVUSER=XXX
-export DEVPASS=XXX
-export BASE=/data/tim/DevMigrationNodes
+5.0 Preparation
+---------------
+
+# export DEVUSER=XXX
+# export DEVPASS=XXX
+
+export BASE=/data/tim/MigrationNodes
 export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/PHEDEX
 cvs login
-mkdir $BASE
+mkdir -p $BASE
 cd $BASE
+cvs co -r PHEDEX_V2_2_20050607 PHEDEX
+mkdir $BASE/Tools
 
-5.1
----
+# Copied the DBParam file to $BASE
+# Copied the Oracle Instant Client zips to $BASE/Tools
+
+export PATH=$PATH:$BASE/PHEDEX/Deployment:$BASE/PHEDEX/Utilities 
+cd Tools
+VO_CMS_SW_DIR=/afs/cern.ch/sw InstallPOOL -arch SLC3 -cms $BASE/Tools
+. ./poolenv.sh
+InstallOracleClient $BASE/Tools $BASE/Tools $BASE/PHEDEX/Schema
+. ./oraenv.sh
+InstallPerlModules $BASE/Tools
+. ./perlenv.sh
+
+
+5.1 Save existing schema
+------------------------
+
+cd $BASE/PHEDEX/Schema
+./OracleSave.sh $DEVUSER/$DEVPASS@devdb
+sqlplus $DEVUSER/$DEVPASS@devdb
+    > alter trigger new_transfer_state rename to x_new_transfer_state;
+    > alter trigger update_transfer_state rename to x_update_transfer_state;
+    > commit;
+
+5.2 Load new schema
+-------------------
+
+perl -p -i -e 's/([ ])CMS_TRANSFERMGMT_INDX01/${1}INDX01/g' *.sql
+sqlplus ${DEVUSER}/${DEVPASS}@devdb < OracleInit.sql
+
+5.3 Map old data onto new schema
+--------------------------------
+
+sqlplus $DEVUSER/$DEVPASS@devdb
+    > insert into t_node
+        (select name from xt_node);
+    > insert into t_file 
+        (select timestamp,guid,node,inblock,insubblock,
+            lfn,filetype,filesize,checksum
+        from xt_file);
+    > insert into t_file_attributes
+        (select guid,attribute,value from xt_file_attributes);
+    > insert into t_node_import
+        (select node,protocol,priority from xt_node_import);
+    > insert into t_node_export
+        (select node,protocol from xt_node_export);
+    > insert into t_node_neighbour 
+        (select from_node,to_node,hops
+            from xt_routing
+            where to_node = gateway);
+    > insert into t_replica_state
+        (select timestamp,guid,node,state,state_timestamp 
+            from xt_replica_state);
+    > alter trigger new_transfer_state disable;
+    > alter trigger update_transfer_state disable;
+    > insert into t_transfer_state
+        (select timestamp,guid,to_node,to_state,to_timestamp,
+                from_node,from_state,from_timestamp,from_pfn
+            from xt_transfer_state);
+    > alter trigger new_transfer_state enable;
+    > alter trigger update_transfer_state enable;
+    > insert into t_transfer_completed
+        (select timestamp,guid,to_node,to_state,to_timestamp,
+                from_node,from_state,from_timestamp
+            from xt_transfer_completed);    
+    > insert into t_transfer_history
+        (select timestamp,guid,to_node,to_old_state,to_new_state,
+                from_node,from_old_state,from_new_state
+            from xt_transfer_history);
+    > insert into t_transfer_summary
+        (select timestamp,guid,from_node,to_node,assigned,wanted1st,wanted,
+                exported,started,completed,cleared,errors,error_total,error_began
+            from xt_transfer_summary);
+    > insert into t_subscription
+        (select owner,dataset,destination from xt_subscription);
+    > insert into t_block 
+        (select 0, name, owner, dataset, 0, 0, 1 
+            from xt_block);
+    > update t_block 
+        set (timestamp, files, bytes) = 
+            (select min(timestamp), count(guid), sum(filesize) 
+                from t_file 
+                where inblock = name);
+
+5.4 Issues
+----------
+
+    PROBLEM: [5.3] Thought I'd nuked t_transfer_history on Dev. When I
+    migrated, it inserted 14 rows. Checking, there were 14 rows in
+    xt_transfer_history. This worries me. It probably wasn't created
+    by OracleSave.sh. Could something have run against Dev while
+    testing?
+
