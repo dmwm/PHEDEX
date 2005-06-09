@@ -86,7 +86,7 @@ your site is "FOO_Transfer" (and possibly "FOO_MSS").
   cd /home/phedex
   export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/PHEDEX
   cvs login # password is "98passwd"
-  cvs co -r PHEDEX_V2_2 PHEDEX
+  cvs co PHEDEX
 
 *** LCG POOL tools
 
