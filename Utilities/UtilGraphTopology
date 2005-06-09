@@ -28,7 +28,7 @@ while (scalar @ARGV)
     }
 }
 
-if (@ARGV || !$args{UNIT} || !$args{TIME} || !$args{DBCONFIG})
+if (@ARGV || !$args{DBCONFIG})
 {
     die "Incorrect parameters, use -h for help.\n";
 }
