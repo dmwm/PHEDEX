@@ -1,3 +1,7 @@
+* Role authentication in PhEDEx
+
+** Introduction
+
 This document describes the authentication model used with the V2.2
 and later PhEDEx databases.  The overview is as follows:
   - All passwords will be changed
@@ -32,27 +36,97 @@ this:
    Interface               Oracle
    Database                cmssg
    AuthDBUsername          cms_transfermgmt_writer
-   AuthDBPassword          edit_password_here
+   AuthDBPassword          FILL_ME_IN
    AuthRole                site_cern
-   AuthRolePassword        edit_password_here
+   AuthRolePassword        FILL_ME_IN
    ConnectionLife          86400
    LogSQL                  off
    LogConnection           on
 
-Now, as a check you are reading so far :) please send to the developer
-list (cms-phedex-developers@cern.ch) the following information:
-- Site name (the name of your directory under "Custom", or the name
-  used after Tn_ in agents, e.g. "CERN")
-- The e-mail address of the contact person for the site
-- The DN for that person's grid certificate
 
-We will create the roles and communicate the passwords as we receive
-the information.  Just to be clear, this will only apply to the V2.2
-system (aka "cmssg"), which is not available for use yet!  This does
-not affect the production system we are using now (V2.1, aka "cms").
+** User's process for registering for a role
 
-Tier-1 representatives please make sure your Tier-2 people get the
-message in case they are not on the list.  (And if they are not,
-please encourage them to subscribe!)
+Send the following information to the developer list
+(cms-phedex-developers@cern.ch):
 
-If you have any questions regarding this model, please ask on the list.
+   - Site name (the name of your directory under "Custom", or the name
+     used after Tn_ in agents, e.g. "CERN") 
+   - The e-mail address of the contact person for the site 
+   - The DN for that person's grid certificate 
+   - The public key portion of your grid certificate:
+     this is most likely stored as usercert.pem in your .globus
+     directory
+
+Download a copy of PHEDEX/Schema/DBParam.Site to your site, and copy
+it *OUT OF THE CVS TREE!* Only modify the copy of DBParam- we would
+like to ensure that no passwords get committed into CVS. As this file
+contains plaintext password information, it should be treated with
+similar care to your grid certificate files.
+
+Wait to receive an encrypted file that contains the information you
+need to access the TMDB. To decrypt the file you'll need to use
+openssl with your public key (usercert.pem) and private key
+(userkey.pem) files.
+
+   openssl smime -decrypt			 \
+	   -in <the encrypted file you received> \
+	   -recip <your public key file>	 \
+	   -inkey <your private key file>    
+
+It will ask you for your password- your usual grid password- and then
+write the decrypted file to stdout. This file will give you the passwords
+you need to insert into your copied DBParam file.
+
+You'll need to pass the location of this copied DBParam file to your
+agents so that they can access the TMDB.
+
+
+** Admin's process for registering a role
+
+Receive an email containing the information in 1. above. Assuming then
+that
+
+   # PHEDEX_SITE=<the site name>
+   # PHEDEX_EMAIL=<the user's email>
+   # PHEDEX_DN=<user cert DN string>
+   # PHEDEX_PUBLIC_KEY_FILE=<path to user's public key file>
+   # PHEDEX_MASTER=<master account name>
+   # PHEDEX_MASTER_PASS=<master account password>
+   # PHEDEX_TMDB=<the TMDB tnsname, e.g. devdb>
+   # PHEDEX_READER=<reader account>
+   # PHEDEX_WRITER=<writer account>
+   # PHEDEX_WRITER_PASS=<writer account apssword>
+
+then, on lxgate10, to enter the new role into devdb
+
+   cd /data/V2Nodes
+   cp $PHEDEX_PUBLIC_KEY_FILE ./Keys/$PHEDEX_EMAIL
+  
+   ROLE_NAME=site_$PHEDEX_SITE
+   ROLE_PASS=`PHEDEX/Utilities/WordMunger`
+
+   OracleNewRole.sh $PHEDEX_MASTER/$PHEDEX_MASTER_PASS@$PHEDEX_TMDB \
+       $ROLE_NAME      \
+       $ROLE_PASS
+   echo "insert into t_auth values (0,'$ROLE_NAME','$PHEDEX_EMAIL','$PHEDEX_DN');" \
+       | sqlplus -S $PHEDEX_MASTER/$PHEDEX_MASTER_PASS@$PHEDEX_TMDB
+   OraclePrivs.sh $PHEDEX_MASTER/$PHEDEX_MASTER_PASS@$PHEDEX_TMDB \
+       $PHEDEX_READER  \
+       $PHEDEX_WRITER
+
+   cat > DBParamInfo << "EOF"
+   AuthDBPassword	$PHEDEX_WRITER_PASS
+   AuthRole		$ROLE_NAME
+   AuthRolePassword	$ROLE_PASS
+   EOF       
+
+   openssl smime -encrypt 
+	   -in DBParamInfo
+	   -out DBParamInfo.encrypted 
+	   /data/V2Nodes/Keys/$PHEDEX_EMAIL
+
+   rm DBParamInfo
+
+You then need to email the remaining DBParamInfo.encrypted file to the
+user who deals with it as described above.
+
