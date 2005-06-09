@@ -64,3 +64,7 @@ LogSQL                  off
 Utilities/DBDump -db Schema/DBParam:SC3/Admin t_node
 Utilities/DBDump -db Schema/DBParam:SC3/CERN t_node
 Utilities/DBDump -db Schema/DBParam:SC3/Reader t_node
+
+# Stats
+Schema/OracleStatsEnable.sh cms_transfermgmt_sc/<password>@cmssg
+Schema/OracleStatsUpdate.sh cms_transfermgmt_sc/<password>@cmssg
