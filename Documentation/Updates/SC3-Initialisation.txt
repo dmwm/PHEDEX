@@ -1,0 +1,66 @@
+*** 2005-06-09
+
+-- Generate three passwords (repeat until good passwords)
+sh Utilities/GenPass
+sh Utilities/GenPass
+sh Utilities/GenPass
+
+-- Initialise passwords (prompted on first login, just exit)
+sqlplus cms_transfermgmt_sc@cmssg
+sqlplus cms_transfermgmt_sc_reader@cmssg
+sqlplus cms_transfermgmt_sc_writer@cmssg
+
+-- Load initial schema
+cd Schema
+perl -p -i -e 's/([ ])CMS_TRANSFERMGMT_INDX01/${1}CMS_TRANSFERMGMT_SC_INDX01/g' *.sql
+sqlplus cms_transfermgmt_sc/<password>@cmssg @OracleInit.sql
+perl -p -i -e 's/([ ])CMS_TRANSFERMGMT_SC_INDX01/${1}CMS_TRANSFERMGMT_INDX01/g' *.sql
+cd ..
+
+-- Create roles and apply privileges
+sh Utilities/GenPass
+Schema/OracleNewRole.sh cms_transfermgmt_sc/<password>@cmsssg \
+  site_cern <newpass>
+Schema/OraclePrivs.sh cms_transfermgmt_sc/<password>@cmssg \
+  cms_transfermgmt_sc_reader cms_transfermgmt_sc_writer
+Schema/OracleSyns.sh cms_transfermgmt_sc \
+  cms_transfermgmt_sc/<password>@cmssg \
+  cms_transfermgmt_sc_reader/<password>n@cmssg
+Schema/OracleSyns.sh cms_transfermgmt_sc \
+  cms_transfermgmt_sc/<password>@cmssg \
+  cms_transfermgmt_sc_writer/<password>n@cmssg
+
+# Prepare DBParam
+Section                 SC3/Admin
+Interface               Oracle
+Database                cmssg
+AuthDBUsername          cms_transfermgmt_sc
+AuthDBPassword          <password>
+ConnectionLife          86400
+LogConnection           on
+LogSQL                  off
+
+Section                 SC3/CERN
+Interface               Oracle
+Database                cmssg
+AuthDBUsername          cms_transfermgmt_sc_writer
+AuthDBPassword          <password>
+AuthRole                site_cern
+AuthRolePassword        <password>
+ConnectionLife          86400
+LogConnection           on
+LogSQL                  off
+
+Section                 SC3/Reader
+Interface               Oracle
+Database                cmssg
+AuthDBUsername          cms_transfermgmt_sc_reader
+AuthDBPassword          <passsword>
+ConnectionLife          86400
+LogConnection           on
+LogSQL                  off
+
+# Test
+Utilities/DBDump -db Schema/DBParam:SC3/Admin t_node
+Utilities/DBDump -db Schema/DBParam:SC3/CERN t_node
+Utilities/DBDump -db Schema/DBParam:SC3/Reader t_node
