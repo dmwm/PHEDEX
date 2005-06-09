@@ -66,14 +66,15 @@ my $environ = '';
 my %environs = ();
 my @agents = ();
 
-# Then we need to open up each of the config files
-foreach my $file (@{$args{CONFIG}})
+sub readConfig
 {
+    my ($file, $fhpattern) = @_;
     -f $file || die "$file: no such file\n";
     -r $file || die "$file: not readable\n";
 
-    open(CONFIG, "< $file") || die "$file: cannot read: $!\n";
-    while (<CONFIG>)
+    $fhpattern++; # Avoid stomping over recursed files
+    open($fhpattern, "< $file") || die "$file: cannot read: $!\n";
+    while (<$fhpattern>)
     {
 	while (/^\#\#\#\s+([A-Z]+)(\s+(.*)|$)/)
 	{
@@ -87,7 +88,7 @@ foreach my $file (@{$args{CONFIG}})
 		    if ! $3;
 
 		my $label = $3 || "common";
-		while (<CONFIG>)
+		while (<$fhpattern>)
 		{
 		    last if /^###/; chomp; s/#.*//; s/^\s+//; s/\s+$//;
 		    $environs{$label} .= "$_\n" if ($_ ne "");
@@ -100,11 +101,21 @@ foreach my $file (@{$args{CONFIG}})
 	    {
 		my $agent = { map { m|([^=]+)=(\S+)|g } split(/\s+/, $3) };
 		push(@agents, $agent);
-		while (<CONFIG>)
+		while (<$fhpattern>)
 		{
 		    last if /^###/; chomp; s/#.*//; s/^\s+//; s/\s+$//;
 		    $agent->{OPTS} .= " $_" if ($_ ne "");
 		}
+	    }
+
+	    # Here we process IMPORT sections, defined as follows:
+	    # ### IMPORT FILE
+	    elsif ($1 eq "IMPORT")
+	    {
+		my $dirpart = $file;
+		$dirpart =~ s|/[^/]+$||;
+		$dirpart = "." if $dirpart eq $file;
+		&readConfig ("$dirpart/$3", $fhpattern);
 	    }
 	    else
 	    {
@@ -113,10 +124,16 @@ foreach my $file (@{$args{CONFIG}})
 	}
     }
 	       
-    close (CONFIG);
+    close ($fhpattern);
 
 }
     
+# Then we need to open up each of the config files
+foreach my $file (@{$args{CONFIG}})
+{
+    &readConfig ($file, "fh00");
+}
+
 # And finally act on all this information
 if (grep ($mode eq $_, qw(start stop show terminate)))
 {
