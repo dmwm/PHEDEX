@@ -7,12 +7,23 @@ use CGI::Carp qw(fatalsToBrowser);
 use POSIX;
 use DBI;
 
-my %databases = ("prod" => [ "cms", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
-		 "rac" => [ "cmssg", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
-		 "test" => [ "devdb", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
-		 "testbed" => [ "devdb", 'CMS_TRANSFERMGMT_TESTBED', 'phedexedehp' ]);
+# Read database access tokens
+my $home = $0; $home =~ s|/[^/]*$||; $home = "." if ! $home;
+my @dbnames = ();
+my %databases = ();
+open (DBNAMES, "< $home/.db/names") || die "Failed to read database configuration\n";
+while (<DBNAMES>)
+{
+    chomp;
+    my ($db, @args) = split(/\s+/);
+    $databases{$db} = [ @args ];
+    push (@dbnames, $db);
+}
+close (DBNAMES);
 my $cgi = new CGI;
 my $db = $cgi->param("db") || "prod";    # tnsname of the database
+my $dbversion = $databases{$db}[4] || 'V2.2';
+my $dbid = $databases{$db}[3] || '';
 my $dbh;
 
 my $badcolor = '#ff9e9e';
@@ -63,19 +74,16 @@ sub intro
        </tr>
        <tr><td colspan=7 align='center'>$stamp</td></tr>
        <tr>
-         <td colspan=2>&nbsp;</td>
-       	 <td><a href='}, &relurl('db', 'testbed'), qq{'>Testbed</a></td>
-       	 <td><a href='}, &relurl('db', 'test'), qq{'>Test</a></td>
-       	 <td><a href='}, &relurl('db', 'rac'), qq{'>RAC Test</a></td>
-       	 <td><a href='}, &relurl('db', 'prod'), qq{'>Production</a></td>
-         <td>&nbsp;</td>
+         <td>&nbsp;</td>},
+	 (map { "<td><a href='" . &relurl('db', $_) . "'>$databases{$_}[3]</a></td>\n" } @dbnames),
+	 qq{<td>&nbsp;</td>
         </td></tr></table>};
 
     $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
     $ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/10103";
     $ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/10103/lib";
     $db = "prod" if ! grep ($db eq $_, keys %databases);
-    my ($dbname, $dbuser, $dbpass) = @{$databases{$db}};
+    my ($dbname, $dbuser, $dbpass, @dbjunk) = @{$databases{$db}};
     $dbh = DBI->connect ("DBI:Oracle:$dbname", $dbuser, $dbpass,
 	    		 { RaiseError=>1, AutoCommit =>1 });
 
@@ -164,7 +172,7 @@ sub transfer {
     my $rows = 0;
     my $now = time();
     my $query =
-        (($db eq 'rac' || $db eq 'testbed') ?  $dbh->prepare(qq{
+        (($dbversion eq 'V2.2') ?  $dbh->prepare(qq{
 	    select
 	      node, timestamp,
 	      dest_files, dest_bytes,
@@ -195,7 +203,7 @@ sub transfer {
     	  "<table><tr bgcolor='$altcolor' valign='top'>",
 	  "<th rowspan='2'>Age</th>",
 	  "<th rowspan='2'>Node</th>",
-	  (($db ne 'testbed' && $db ne 'rac') ? (
+	  (($dbversion ne 'V2.2') ? (
 	   "<th colspan='2'>Files</th>",
 	   "<th colspan='2'>On Site</th>",
 	   "<th colspan='2'>Staged</th>",
@@ -247,7 +255,7 @@ sub transfer {
 	    $wanted, $wantedsize,
 	    $pending, $pendingsize,
 	    $other, $othersize) = @$row;
-        next if (! $files && $db ne 'testbed' && $db ne 'rac');
+        next if (! $files && $dbversion ne 'V2.2');
 
     	$tfiles += $files; $tfilesize += $filesize;
 	$tonsite += $onsite; $tonsitesize += $onsitesize;
@@ -267,7 +275,7 @@ sub transfer {
 	my $pencolor = ($files != $onsite + $transf + $wanted + $pending + $other)
 		       ? " bgcolor='$warncolor'" : ! $pending ? ''
 		       : " bgcolor='$pendcolor'";
-	if ($db eq 'testbed' || $db eq 'rac')
+	if ($dbversion eq 'V2.2')
 	{
 	   $onscolor = (($files && $onsite > $files) ? " bgcolor='$warncolor'"
 		   	: ($files && $onsite < $files) ? " bgcolor='$pendcolor'"
@@ -284,7 +292,7 @@ sub transfer {
 	      "<td align='right'>@{[&format_size($filesize)]}</td>",
 	      "<td align='right'$onscolor>@{[&format_num($onsite)]}</td>",
 	      "<td align='right'$onscolor>@{[&format_size($onsitesize)]}</td>",
-	      (($db eq 'testbed' || $db eq 'rac') ? () : (
+	      (($dbversion eq 'V2.2') ? () : (
 	      "<td align='right'>@{[&format_num($staged)]}</td>",
 	      "<td align='right'>@{[&format_size($stagedsize)]}</td>",
 	      "<td align='right'$avacolor>@{[&format_num($avail)]}</td>",
@@ -305,7 +313,7 @@ sub transfer {
     my $pencolor = ($tfiles != $tonsite + $ttransf + $twanted + $tpending + $tother)
 		   ? " bgcolor='$warncolor'" : ! $tpending ? ''
 		   : " bgcolor='$pendcolor'";
-    if ($db eq 'testbed' || $db eq 'rac')
+    if ($dbversion eq 'V2.2')
     {
 	$onscolor = (($tfiles && $tonsite < $tfiles) ? " bgcolor='$pendcolor'"
 		     : ($tpending) ? " bgcolor='$pendcolor'" : "");
@@ -320,7 +328,7 @@ sub transfer {
 	  "<th align='right'>@{[&format_size($tfilesize)]}</th>",
 	  "<th align='right'$onscolor>@{[&format_num($tonsite)]}</th>",
 	  "<th align='right'$onscolor>@{[&format_size($tonsitesize)]}</th>",
-	  (($db eq 'testbed' || $db eq 'rac') ? () : (
+	  (($dbversion eq 'V2.2') ? () : (
 	  "<th align='right'>@{[&format_num($tstaged)]}</th>",
 	  "<th align='right'>@{[&format_size($tstagedsize)]}</th>",
 	  "<th align='right'>@{[&format_num($tavail)]}</th>",
@@ -402,7 +410,7 @@ sub tstates {
     $query->finish();
     print "</table>";
 
-    my $query = $dbh->prepare(qq{
+    $query = $dbh->prepare(qq{
 	    select timestamp, node, state, files, bytes
 	    from t_info_replica_states order by node, state});
 
@@ -788,7 +796,7 @@ sub rates {
 
     print "<h2>Transfer Rate Statistics</h2>\n";
     print "<p>CERN Daily External Internet Traffic<br>\n";
-    if ($db ne 'rac')
+    if ($dbid !~ /SC/)
     {
         print "<a href='http://pcstats.cern.ch/misc/cern-all.html'><IMG
           VSPACE=10 WIDTH=600 HEIGHT=135 ALIGN=TOP
@@ -889,417 +897,3 @@ sub end {
     print end_form();
     $dbh->disconnect();
 }
-
-package tmdb;
-use strict;
-use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION);
-use CGI qw(:Standard);
-use DBI;
-
-$VERSION     = 1.00;
-@ISA         = qw(Exporter);
-@EXPORT      = qw(  &get_agents
-                    &agent_menu
-                    &log_query    
-                    &t1_menu
-                    &state_query
-                    &filesize_data
-                    &draw_histogram_as_text
-                    &add_to_histogram
-                    &bytes_as_MB
-                    &filesize_info
-                    &transfer_data
-                    &rate_info
-                    &get_file_states
-                    &get_field_from_table
-                    &aggregate_rate
-                );
-@EXPORT_OK   = qw();
-%EXPORT_TAGS = ();
-
-# Display a select menu of t1s
-sub t1_menu {
-    my %args = (
-        DB_TNSNAME  => 'devdb',
-        @_,
-    );
-
-    my @t1s = get_field_from_table(DB_TNS_NAME => "$args{DB_TNSNAME}", FIELD_NAME => "t1_name", TABLE_NAME => "t1sites");
-    print p( "T1", popup_menu( "T1", \@t1s));
-}
-
-# Display a select menu of agents
-sub agent_menu {
-    my %args = (
-        DB_TNSNAME  => 'devdb',
-        @_,
-    );
-    
-    my @agents = get_field_from_table(DB_TNS_NAME => "$args{DB_TNSNAME}", FIELD_NAME => "agent_label", TABLE_NAME => "agentstate");
-    print p( "Agent", popup_menu( "agent", \@agents));
-}
-
-# Return list of agent names
-sub get_field_from_table {
-    my %args = (
-        FIELD_NAME  => '*',
-        TABLE_NAME  => 'filesfortransfer',
-        DB_TNSNAME  => 'devdb',
-        @_,
-    );
-
-    my $dbh = DBI->connect("DBI:Oracle:$args{DB_TNSNAME}", 'CMS_TRANSFERMGMT_WRITER', 'threeBagsFULL', { RaiseError=>1, AutoCommit =>1 });
-
-    my @list;
-
-    my $selection = "select $args{FIELD_NAME} from $args{TABLE_NAME}";
-    my $query = $dbh->prepare($selection);
-    $query->execute;
-    while (my @row = $query->fetchrow_array) {
-        push(@list,$row[0]);
-    }
-    $query->finish();
-
-    $dbh->disconnect();
-    return @list;
-}
-
-sub log_query {
-    my %args = (
-    	TIME => 60,
-        AGENT       => 'RAL',
-        DB_TNSNAME  => 'devdb',
-        @_,
-    );
-
-    my $dbh = DBI->connect("DBI:Oracle:$args{DB_TNSNAME}", 'CMS_TRANSFERMGMT_WRITER', 'threeBagsFULL', { RaiseError=>1, AutoCommit =>1 });
-
-	my $time = time();
-	$time = $time - $args{TIME};
-
-    my $selection = "select * from agentlogging where agent_label = '$args{AGENT}' and start_time > $time";
-    my $query = $dbh->prepare($selection);
-    $query->execute;
-    print "<table>";
-        print "<tr>";
-        print "<td>start</td>";
-        print "<td>end</td>";
-        print "<td>action</td>";
-        print "<td>return code</td>";
-        print "<td>log</td>";
-        print "<td>agent</td>";
-        print "<td>agent type</td>";
-        print "<td>guid</td>";
-        print "</tr>";
-    while (my @row = $query->fetchrow_array) {
-        print "<tr>";
-        my $start = localtime($row[0]);
-        my $end = localtime($row[1]);
-        print "<td>$start</td>";
-        print "<td>$end</td>";
-        print "<td>$row[2]</td>";
-        print "<td>$row[3]</td>";
-        print "<td>$row[4]</td>";
-        print "<td>$row[5]</td>";
-        print "<td>$row[6]</td>";
-        print "<td>$row[7]</td>";
-        print "</tr>";
-    }
-    $query->finish();
-
-    $dbh->disconnect();
-}
-
-sub get_file_states {
-    return (	1 => "New file", 
-		2 => "Allocated to different EB",
-		3 => "Allocated to a different T1",
-		4 => "On the EB",
-		5 => "At the T1",
-		6 => "Safe in MSS",
-		7 => "Cleaned from EB",
-		51 => "Yujun's In Transfer state",
-		55 => "FZK MSS Test Safe",
-		90 => "Bad",
-		91 => "Bad",
-		92 => "Bad",
-		93 => "Bad",
-		94 => "Bad",
-		95 => "Bad",
-		96 => "Bad",
-		97 => "Bad",
-		98 => "Bad",
-		99 => "Bad");
-}
-
-sub state_query {
-    my %args = (
-        T1       => 'ALL',
-        STATE   => "1",
-        DB_TNSNAME  => 'devdb',
-        @_,
-    );
-
-    my $dbh = DBI->connect("DBI:Oracle:$args{DB_TNSNAME}", 'CMS_TRANSFERMGMT_WRITER', 'threeBagsFULL', { RaiseError=>1, AutoCommit =>1 });
-    my $results = $dbh->selectall_arrayref("select t1_name, state, count(state) from filestate group by t1_name, state");
-    my $state_data = {};
-    foreach my $row (@$results) {
-	$state_data->{$row->[0]}{$row->[1]} = $row->[2];
-    }
-    $dbh->disconnect;
-    return $state_data;
-}
-
-sub rate_info {
-    my %args = (
-        AGENT => 'CONFIG',
-        DB_TNSNAME  => 'devdb',
-        @_,
-    );
-    my $bin_size = 1;
-    
-	my ($count, $mean_rate, $mean_time, $longest, $quickest, $error_count, $r_histo) = transfer_data(START => 0, AGENT => $args{AGENT}, STEP => $bin_size, DB_TNSNAME => $args{DB_TNSNAME});
-	my @histo = @$r_histo;
-
-    print "<table><tr><td># transfers</td><td>";
-    print $count;
-    print "</td><td /></tr><tr><td># erroneous entries</td><td>";
-    print $error_count;
-    print "</td><td /></tr><tr><td>mean rate</td><td>";
-    printf "%0.1f",$mean_rate;
-    print"</td><td>MBps</td></tr><tr><td>mean time</td><td>";
-    printf "%0.1f",$mean_time;
-    print "</td><td>s</td></tr><tr><td>longest</td><td>";
-    printf "%0.1f",$longest;
-    print "</td><td>s</td></tr><tr><td>quickest</td><td>";
-    printf "%0.1f",$quickest;
-    print "</td><td>MBps</td></tr></table>";
-
-    print "<hr>";
-	    
-    draw_histogram_as_text("Rate breakdown (MBps)",$bin_size,$quickest,\@histo)
-}
-
-sub aggregate_rate {
-    my %args = (
-    	TIME => '0',
-        AGENT => 'ALL',
-        DB_TNSNAME  => 'devdb',
-        @_,
-    );
-    
-    my $dbh = DBI->connect("DBI:Oracle:$args{DB_TNSNAME}", 'CMS_TRANSFERMGMT_WRITER', 'threeBagsFULL', { RaiseError=>1, AutoCommit =>1 });
-	
-	my $selection = "select start_time,end_time,filesize from agentlogging,filesfortransfer  where action='TRANSFER' and agentlogging.guid = filesfortransfer.guid and return_code = 0 and start_time < $args{TIME} and end_time > $args{TIME}";
-	if ($args{AGENT} ne "ALL") {
-		$selection .= " and agent_label='$args{AGENT}'";
-	}
-	my @row = ();
-    my $query = $dbh->prepare($selection);
-	my $diff;
-	my $rate;
-	my $size;
-	my $total_rate = 0;
-
-	$query->execute;
-    while (@row = $query->fetchrow_array) {
-    	# calculate rate
-		$diff = $row[1] - $row[0];
-        $size = $row[2];
-        $size = bytes_to_MB($size);
-        if ($diff >0 ) {
-            $rate = $size / $diff;
-        }
-        $total_rate += $rate;
-    }
-    $query->finish();
-
-	$dbh->disconnect();
-	
-	return $rate;    
-}
-
-sub transfer_data {
-    my %args = (
-    	START_TIME => '0',
-        AGENT => 'CONFIG',
-        DB_TNSNAME  => 'devdb',
-        STEP    => '1',
-        @_,
-    );
-
-    my $dbh = DBI->connect("DBI:Oracle:$args{DB_TNSNAME}", 'CMS_TRANSFERMGMT_WRITER', 'threeBagsFULL', { RaiseError=>1, AutoCommit =>1 });
-    my $step = $args{STEP};
-    my $mean_time;
-    my $mean_rate;
-    my $total_time = 0;
-    my $total_rate = 0;
-    my $selection = "select start_time,end_time,filesize from agentlogging,filesfortransfer where action='TRANSFER' and agentlogging.guid = filesfortransfer.guid and return_code = 0 and start_time > $args{START}";
-    if ($args{AGENT} ne "ALL"){
-        $selection = $selection." and agent_label='$args{AGENT}'";
-    }
-    my @row = ();
-    my $count = 0;
-    my $query = $dbh->prepare($selection);
-    my $longest = 0;
-    my $quickest = 0;
-    my $diff;
-    my $error_count = 0;
-    my $rate;
-    my $size;
-    my $bins;
-    my $r_histo;
-    my @histo;
-
-    $query->execute;
-    while (@row = $query->fetchrow_array) {
-        $diff = $row[1] - $row[0];
-        $size = $row[2];
-        $size = bytes_to_MB($size);
-
-        if ($diff >0 ) {
-            $rate = $size / $diff;
-            $total_time = $total_time + $diff;
-            $total_rate = $total_rate + $rate;
-
-            if ($diff > $longest) {
-                $longest = $diff;
-            }
-            if ($rate > $quickest) {
-                $quickest = $rate;
-            }
-
-            ($bins, $r_histo) = add_to_histogram($step,$rate,$bins,\@histo);
-            @histo = @$r_histo;
-
-            $count++;
-        } else {
-            $error_count++;
-        }
-    }
-    $query->finish();
-
-    if ($count != 0) {
-        $mean_time = $total_time / $count;
-        $mean_rate = $total_rate / $count;
-    }
-    return ($count, $mean_rate, $mean_time, $longest, $quickest, $error_count, \@histo);
-}
-
-
-sub filesize_info {
-    my %args = (
-        AGENT => 'CONFIG',
-        DB_TNSNAME  => 'devdb',
-        @_,
-    );
-    my $bin_size = 50;
-    my ($count, $total, $min, $max, $avg, $median, @histo)
-	= filesize_data (AGENT => $args{AGENT}, STEP => $bin_size,
-			 DB_TNSNAME => $args{DB_TNSNAME});
-
-    print " <table>",
-	   "  <tr align=right><td># files</td><td>$count</td><td>&nbsp;</td></tr>\n",
-           "  <tr align=right><td>total</td><td>@{[sprintf '%.1f', $total / 1024]}</td><td>&nbsp;GB</td></tr>\n",
-	   "  <tr align=right><td>min</td><td>@{[sprintf '%.1f', $min * 1024]}</td><td>&nbsp;kB</td></tr>\n",
-	   "  <tr align=right><td>max</td><td>@{[sprintf '%.1f', $max]}</td><td>&nbsp;MB</td></tr>\n",
-    	   "  <tr align=right><td>mean</td><td>@{[sprintf '%.1f', $avg]}</td><td>&nbsp;MB</td></tr>\n",
-	   "  <tr align=right><td>median</td><td>@{[sprintf '%.1f', $median * 1024]}</td><td>&nbsp;kB</td></tr>\n",
-	   " </table>\n";
-
-    print "<hr>\n";
-
-    print "\n<table><tr><td colspan=4>File size breakdown</td></tr>\n";
-    print "\n<tr><th>Bin</th><th>Files</th><th colspan=2>Total size</th></tr>\n";
-    foreach my $bin (@histo) {
-	print "<tr align=right><td>$bin->[0]..@{[$bin->[0]+10]} MB</td>",
-	      "<td>$bin->[1]</td>",
-	      "<td>@{[sprintf '%.1f', $bin->[2] / 1024]}</td>",
-	      "<td>&nbsp;GB</td></tr>\n";
-    }
-    print "</table>\n";
-}
-
-sub bytes_to_MB {
-    my $bytes = shift;
-    return $bytes / (1024 * 1024);
-}
-
-sub add_to_histogram {
-    my $step = shift;
-    my $data = shift;
-    my $bins = shift;
-    my $r_histo = shift;
-    my $bin_count = 0;
-    my @histo = @$r_histo;
-
-    while ($bin_count * $step < $data) {
-        $bin_count++;
-    }
-
-    $histo[$bin_count - 1]++;
-
-    if ($bin_count > $bins) {
-        $bins = $bin_count;
-    }
-
-    return ($bins, \@histo);
-}
-
-sub draw_histogram_as_text {
-    my $title = shift;
-    my $step = shift;
-    my $max = shift;
-    my $r_histo = shift;
-    my @histo = @$r_histo;
-    my $bin_count = 0;
-
-    print "
-    <table>
-    <tr><td colspan=2>$title</td></tr>
-    ";
-    while ($bin_count * $step < $max) {
-        print "<tr><td>".$step * $bin_count."</td><td>$histo[$bin_count]</td></tr>";
-        $bin_count++;
-    }
-    print "</table>";
-}
-
-sub filesize_data {
-    my %args = (
-        AGENT => 'CONFIG',
-        DB_TNSNAME  => 'devdb',
-        STEP    => '1',
-        @_,
-    );
-
-    my $dbh = DBI->connect("DBI:Oracle:$args{DB_TNSNAME}", 'CMS_TRANSFERMGMT_WRITER',
-			   'threeBagsFULL', { RaiseError=>1, AutoCommit =>1 });
-
-    # First get general stats
-    my $stats = $dbh->selectall_arrayref (q{
-			select	count(filesize),
-				sum(filesize/(1024*1024)),
-				min(filesize/(1024*1024)),
-				max(filesize/(1024*1024)),
-				avg(filesize/(1024*1024)),
-				(percentile_disc(.5) within group (order by filesize))/(1024*1024)
-			from	filesfortransfer});
-    my ($nfiles, $total, $min, $max, $avg, $median) = @{$stats->[0]};
-
-    # Now fetch data binned in histogram
-    my $bins = $dbh->selectall_arrayref(q{
-			select binsize, count(binsize), sum(realsize)
-			from (select trunc(filesize/(10 * 1024 * 1024)) as binsize,
-				     filesize/(1024*1024) as realsize
-			      from filesfortransfer) group by binsize});
-    my @histo = ();
-    foreach my $bin (@$bins) {
-	$bin->[0] *= 10;
-	push (@histo, $bin);
-    }
-
-    return ($nfiles, $total, $min, $max, $avg, $median, @histo);
-}
-
-1;
