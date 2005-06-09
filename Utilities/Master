@@ -113,9 +113,10 @@ sub readConfig
 	    elsif ($1 eq "IMPORT")
 	    {
 		my $dirpart = $file;
+		my $newfile = $3;
 		$dirpart =~ s|/[^/]+$||;
 		$dirpart = "." if $dirpart eq $file;
-		&readConfig ("$dirpart/$3", $fhpattern);
+		&readConfig ("$dirpart/$newfile", $fhpattern);
 	    }
 	    else
 	    {
