@@ -49,7 +49,7 @@ if ($args{HELP} || !$args{DBConfig}
 my ($DBFile, $DBSection) = split(":", $args{DBConfig});
 open (CONFFILE,"<$DBFile") or die "Couldn't open $DBFile";
 
-my $rightsect = 0;
+my $rightsection = 0;
 my @DBParams =();
 
 foreach my $line (<CONFFILE>) {
@@ -59,14 +59,14 @@ foreach my $line (<CONFFILE>) {
 	$rightsection = 0 if ($line !~ m|$DBSection|);
     }
 
-    if ($line =~ m|^Interface.+\W+|) {
-	$DBParams[0] = "$'" if $rightsection;
-    } elsif ($line =~ m|Database.+\W+|) {
-	$DBParams[1] = "$'" if $rightsection;
-    } elsif ($line =~ m|AuthDBUsername.+\W+|) {
-	$DBParams[2] = "$'" if $rightsection;
-    } elsif ($line =~ m|AuthDBPassword.+\W+|) {
-	$DBParams[3] = "$'" if $rightsection;
+    if ($rightsection && $line =~ m|^Interface\s+(\S+)|) {
+	$DBParams[0] = $1;
+    } elsif ($rightsection && $line =~ m|Database\s+(\S+)|) {
+	$DBParams[1] = $1;
+    } elsif ($rightsection && $line =~ m|AuthDBUsername\s+(\S+)|) {
+	$DBParams[2] = $1;
+    } elsif ($rightsection && $line =~ m|AuthDBPassword\s+(\S+)|) {
+	$DBParams[3] = $1;
     }
 }
 close(CONFFILE);
