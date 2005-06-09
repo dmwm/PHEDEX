@@ -1,9 +1,9 @@
 *** 2005-06-09
 
 -- Generate three passwords (repeat until good passwords)
-sh Utilities/GenPass
-sh Utilities/GenPass
-sh Utilities/GenPass
+sh Utilities/WordMunger
+sh Utilities/WordMunger
+sh Utilities/WordMunger
 
 -- Initialise passwords (prompted on first login, just exit)
 sqlplus cms_transfermgmt_sc@cmssg
@@ -18,7 +18,7 @@ perl -p -i -e 's/([ ])CMS_TRANSFERMGMT_SC_INDX01/${1}CMS_TRANSFERMGMT_INDX01/g' 
 cd ..
 
 -- Create roles and apply privileges
-sh Utilities/GenPass
+sh Utilities/WordMunger
 Schema/OracleNewRole.sh cms_transfermgmt_sc/<password>@cmsssg \
   site_cern <newpass>
 Schema/OraclePrivs.sh cms_transfermgmt_sc/<password>@cmssg \
