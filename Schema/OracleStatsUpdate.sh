@@ -16,9 +16,10 @@ if [ $# -ne 1 ]; then
 fi
 
 connect="$1"
+user=$(echo "$connect" | sed 's|/.*||')
 
 (echo "exec dbms_stats.gather_schema_stats"			\
-      " (ownname => 'cms_transfermgmt',"			\
+      " (ownname => '$user',"					\
       "  options => 'GATHER AUTO',"				\
       "  estimate_percent => dbms_stats.auto_sample_size,"	\
       "  method_opt => 'for all columns size repeat',"		\
