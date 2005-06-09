@@ -30,6 +30,10 @@ Schema/OracleSyns.sh cms_transfermgmt_sc \
   cms_transfermgmt_sc/<password>@cmssg \
   cms_transfermgmt_sc_writer/<password>n@cmssg
 
+sqlplus cms_transfermgmt_sc/<password>@cmsssg
+  insert into t_authorisation values (1118335369, 'SITE_CERN',
+     'lassi.tuura@cern.ch', '/C=CH/O=CERN/OU=GRID/CN=Lassi Tuura 3370');
+
 # Prepare DBParam
 Section                 SC3/Admin
 Interface               Oracle
@@ -68,3 +72,24 @@ Utilities/DBDump -db Schema/DBParam:SC3/Reader t_node
 # Stats
 Schema/OracleStatsEnable.sh cms_transfermgmt_sc/<password>@cmssg
 Schema/OracleStatsUpdate.sh cms_transfermgmt_sc/<password>@cmssg
+
+# Copy data
+sqlplus cms_transfermgmt_sc/<password>@cmssg
+  insert into t_node values ('T1_CERN_MSS');
+
+./Utilities/NodeNew T1_CERN_Buffer srm:gsiftp srm:gsiftp T1_CERN_MSS:1 |
+   sqlplus cms_transfermgmt_sc/<password>@cmssg
+
+sqlplus cms_transfermgmt_sc_writer/<password>@cmssg
+  set role site_cern identified by <password>;
+  copy from cms_transfermgmt/<password>@cms insert t_file using
+    select * from t_file where filesize >= 400*1024*1024 and node like 'T1_CERN%';
+  copy from cms_transfermgmt/<password>@cms insert t_file_attributes using
+    select * from t_file_attributes where guid in
+      (select guid from t_file where filesize >= 400*1024*1024 and node like 'T1_CERN%');
+  insert into t_replica_state
+      (select timestamp, guid, 'T1_CERN_MSS', 0, timestamp from t_file);
+  insert into t_block
+      (select min(timestamp), inblock, substr(inblock, 1, instr(inblock, '/')-1),
+              substr(inblock, instr(inblock, '/')+1), count(guid), sum(filesize), 1
+       from t_file group by inblock);
