@@ -16,9 +16,9 @@ create table t_authorisation
 -- Add constraints
 
 alter table t_authorisation
-  add constraint pk_file
+  add constraint pk_authorisation
   primary key (role_name)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace CMS_TRANSFERMGMT_SC_INDX01;
 
 ----------------------------------------------------------------------
 -- Add indices

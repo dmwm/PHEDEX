@@ -1,5 +1,6 @@
 -- Load new tables
 
+@OracleCoreAuth.sql
 @OracleCoreTopo.sql
 @OracleCoreFiles.sql
 @OracleCoreAgents.sql
