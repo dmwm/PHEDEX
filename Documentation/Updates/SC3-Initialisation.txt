@@ -34,7 +34,7 @@ sqlplus cms_transfermgmt_sc/<password>@cmsssg
   insert into t_authorisation values (1118335369, 'SITE_CERN',
      'lassi.tuura@cern.ch', '/C=CH/O=CERN/OU=GRID/CN=Lassi Tuura 3370');
 
-# Prepare DBParam
+-- Prepare DBParam
 Section                 SC3/Admin
 Interface               Oracle
 Database                cmssg
@@ -64,16 +64,16 @@ ConnectionLife          86400
 LogConnection           on
 LogSQL                  off
 
-# Test
+-- Test
 Utilities/DBDump -db Schema/DBParam:SC3/Admin t_node
 Utilities/DBDump -db Schema/DBParam:SC3/CERN t_node
 Utilities/DBDump -db Schema/DBParam:SC3/Reader t_node
 
-# Stats
+-- Stats
 Schema/OracleStatsEnable.sh cms_transfermgmt_sc/<password>@cmssg
 Schema/OracleStatsUpdate.sh cms_transfermgmt_sc/<password>@cmssg
 
-# Copy data
+-- Copy data
 sqlplus cms_transfermgmt_sc/<password>@cmssg
   insert into t_node values ('T1_CERN_MSS');
 
@@ -93,3 +93,32 @@ sqlplus cms_transfermgmt_sc_writer/<password>@cmssg
       (select min(timestamp), inblock, substr(inblock, 1, instr(inblock, '/')-1),
               substr(inblock, instr(inblock, '/')+1), count(guid), sum(filesize), 1
        from t_file group by inblock);
+
+-- On cmsgate, initialise agent area
+cd /data
+mkdir SC3Nodes
+cd SC3Nodes
+ln -s ../V2Nodes/gridcert .
+cvs -d :pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/PHEDEX co PHEDEX
+
+mkdir tools
+VO_CMS_SW_DIR=/afs/cern.ch/sw PHEDEX/Deployment/InstallPOOL -arch SLC3 -cms $PWD/tools
+PHEDEX/Deployment/InstallOracleClient /data/oracle $PWD/tools
+PHEDEX/Deployment/InstallPerlModules $PWD/tools
+
+# scp Schema/DBParam phedex@cmsgate.cern.ch:/data/SC3Nodes/PHEDEX/Schema
+: source ./tools/poolenv.sh
+/data/SC3Nodes
+: source ./tools/oraenv.sh 
+: source ./tools/perlenv.sh
+PHEDEX/Deployment/TestInstallation -db PHEDEX/Schema/DBParam:SC3/CERN \
+  -poolcat mysqlcatalog_mysql://phedex:phedex@cmslcgco04/phedexcat
+
+-- Cycle agents
+PHEDEX/Utilities/Master -config PHEDEX/Custom/CERN/Config.SC3 start
+PHEDEX/Utilities/Master -config PHEDEX/Custom/CERN/Config.SC3 stop
+
+-- Make sure others can operate it all
+chgrp -R phedex /data/SC3Nodes
+chmod -R g+w /data/SC3Nodes
+chmod o-rwx /data/SC3Nodes/PHEDEX/Schema/DBParam
