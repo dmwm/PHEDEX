@@ -108,7 +108,8 @@ then, on lxgate10, to enter the new role into devdb
    OracleNewRole.sh $PHEDEX_MASTER/$PHEDEX_MASTER_PASS@$PHEDEX_TMDB \
        $ROLE_NAME      \
        $ROLE_PASS
-   echo "insert into t_auth values (`date +%s`,'$ROLE_NAME','$PHEDEX_EMAIL','$PHEDEX_DN');" \
+   echo "insert into t_authorisation values" \
+   	"(`date +%s`,'$ROLE_NAME','$PHEDEX_EMAIL','$PHEDEX_DN');" \
        | sqlplus -S $PHEDEX_MASTER/$PHEDEX_MASTER_PASS@$PHEDEX_TMDB
    OraclePrivs.sh $PHEDEX_MASTER/$PHEDEX_MASTER_PASS@$PHEDEX_TMDB \
        $PHEDEX_READER  \
