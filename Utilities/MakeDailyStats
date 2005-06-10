@@ -86,10 +86,11 @@ if ($args{ADDFILE})
 # and fill into %stats.
 $dbh = &connectToDatabase (\%args, 0);
 my $data = &dbexec ($dbh, qq{
-    select timebin, to_node, xferred_bytes
+    select timebin, to_node, sum(xferred_bytes)
     from t_perf_histogram
     where from_node not like '%_MSS'
-      and to_node not like '%_MSS'});
+      and to_node not like '%_MSS'
+    group by timebin, to_node});
 
 while (my ($time, $tonode, $size) = $data->fetchrow())
 {
