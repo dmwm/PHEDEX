@@ -7,8 +7,12 @@
 ##H
 ##H -db   database connection configuration parameter file
 
-for db in cms cmssg; do
-  addopt=; [ $db = cms ] && addopt="-add Documentation/DailyStatsDiff.txt"
+for db in cms; do
+  addopt=
+  if [ $db = cms ]; then
+    addopt="-add Documentation/DailyStatsDiff.txt"
+    addopt="$addopt -add Documentation/DailyStatsFZKDiff.txt"
+  fi
   for unit in hour day week month; do
     ./Utilities/MakeDailyStats ${1+"$@"} $(echo $addopt) -time $unit > $db-$unit.txt
   done
