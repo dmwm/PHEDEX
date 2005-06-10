@@ -122,3 +122,9 @@ PHEDEX/Utilities/Master -config PHEDEX/Custom/CERN/Config.SC3 stop
 chgrp -R phedex /data/SC3Nodes
 chmod -R g+w /data/SC3Nodes
 chmod o-rwx /data/SC3Nodes/PHEDEX/Schema/DBParam
+
+
+*** 2005-06-10
+
+-- Mark all blocks closed in sqlplus
+update t_block set isopen = 0;
