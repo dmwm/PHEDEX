@@ -54,7 +54,7 @@ if ($args{HELP} || !$args{BASEDIR} || !$args{ROOTPASS} || !$args{DBTYPE})
 { &usage(); }
 
 # POOL schema and client binary location for supported DB types
-my %SCHEMA = (MYSQL    => ["$args{BASEDIR}/Schema/FC-MySQL.sql","mysql"],
+my %SCHEMA = (MYSQL    => ["$args{BASEDIR}/PHEDEX/Schema/FC-MySQL.sql","mysql"],
 	      ORACLE   => undef);
 
 # privileges for phedex MySQL POOL user
