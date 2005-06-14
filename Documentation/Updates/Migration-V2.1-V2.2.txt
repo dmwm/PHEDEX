@@ -1036,6 +1036,7 @@ sqlplus $DEVUSER/$DEVPASS@devdb
 6.0 Preparation
 6.1 Create role tables in TMDB
 6.2 Create CERN role
+6.3 Create synonyms
 
 6.0 Preparation
 ---------------
@@ -1083,6 +1084,7 @@ cd $BASE/PHEDEX/Schema
 # export DEVREADER=XXX
 # export DEVWRITER=XXX
 # export DEVWRITERPASS=XXX
+# export DEVREADERPASS=XXX
 ROLE_NAME=site_cern
 ROLE_PASS=`../Utilities/WordMunger`
 ./OracleNewRole.sh $DEVUSER/$DEVPASS@devdb $ROLE_NAME $ROLE_PASS 
@@ -1101,3 +1103,12 @@ EOF
 
 openssl smime -encrypt  -in site_cern-Dev -out site_cern-Dev.Jens ./jens.rehn@cern.ch
 openssl smime -encrypt  -in site_cern-Dev -out site_cern-Dev.Lassi ./lassi.tuura@cern.ch   
+
+6.3 Create synonyms
+-------------------
+
+./OracleSyns.sh $DEVUSER $DEVUSER/$DEVPASS@devdb \
+    $DEVWRITER/$DEVWRITERPASS@devdb
+./OracleSyns.sh $DEVUSER $DEVUSER/$DEVPASS@devdb \
+    $DEVREADER/$DEVREADERPASS@devdb
+    
