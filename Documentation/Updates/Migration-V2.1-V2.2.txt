@@ -7,9 +7,10 @@ Steps in this migration are as follows
 3. Test agents against Testbed
 4. Drop old Testbed schema
 5. Migrate Dev (should be smooth, scripted)
-6. Test agents against Dev
-7. Drop old Dev schema
-8. Migrate Prod (should be flawless)
+6. Create roles, synonyms on Dev
+7. Test agents against Dev
+8. Drop old Dev schema
+9. Migrate Prod (should be flawless)
 
 As defined in 2.2 DBParam files
 Testbed => devdb testbed 
@@ -1028,3 +1029,75 @@ sqlplus $DEVUSER/$DEVPASS@devdb
     by OracleSave.sh. Could something have run against Dev while
     testing?
 
+
+6. Create roles, synonyms etc for Dev
+-------------------------------------
+
+6.0 Preparation
+6.1 Create role tables in TMDB
+6.2 Create CERN role
+
+6.0 Preparation
+---------------
+
+# export DEVUSER=XXX
+# export DEVPASS=XXX
+export BASE=/data/tim/MigrationNodes
+cd $BASE/Tools
+. ./poolenv.sh
+. ./oraenv.sh
+. ./perlenv.sh
+
+6.1 Create role tables in TMDB
+------------------------------
+
+Working from HEAD, some modifications to Schema
+
+cd $BASE/PHEDEX/Schema
+cvs update -A
+perl -p -i -e 's/([ ])CMS_TRANSFERMGMT_INDX01/${1}INDX01/g' *.sql
+sqlplus $DEVUSER/$DEVPASS@devdb @OracleCoreAuth.sql
+
+6.2 Create CERN role
+--------------------
+
+Creating a CERN role, for Lassi
+
+cd $BASE/Utilities
+cvs update -A
+
+Had to modify WordMunger, as dictionary is slightly different
+retrieving revision 1.2
+diff -r1.2 WordMunger
+1c1
+< perl -e 'open d,"/usr/share/dict/web2";@w=<d>;close d;chomp @w;($f.=$w[rand $#w])until(length($f)>10);$f=substr($f,0,10);$f=~s/(\w)/a($1)/ge;while($c<2){$s=rand(length($f));$f=substr($f,0,$s).b().substr($f,$s,length($f));$c++;}print "$f\n"; sub a { rand(100) < 20 ? "\u$_[0]" : "\l$_[0]" } sub b { @o=("_","1","2","3","4","5","6","7","8","9","0"); return $o[rand($#o)];}'
+---
+> perl -e 'open d,"/usr/share/dict/linux.words";@w=<d>;close d;chomp @w;($f.=$w[rand $#w])until(length($f)>10);$f=substr($f,0,10);$f=~s/(\w)/a($1)/ge;while($c<2){$s=rand(length($f));$f=substr($f,0,$s).b().substr($f,$s,length($f));$c++;}print "$f\n"; sub a { rand(100) < 20 ? "\u$_[0]" : "\l$_[0]" } sub b { @o=("_","1","2","3","4","5","6","7","8","9","0"); return $o[rand($#o)];}'
+
+mkdir -p $BASE/Keys
+cd $BASE/Keys
+
+# Copy public keys from lxgate10:/data/V2Nodes/Keys to here
+
+cd $BASE/PHEDEX/Schema
+# export DEVREADER=XXX
+# export DEVWRITER=XXX
+# export DEVWRITERPASS=XXX
+ROLE_NAME=site_cern
+ROLE_PASS=`../Utilities/WordMunger`
+./OracleNewRole.sh $DEVUSER/$DEVPASS@devdb $ROLE_NAME $ROLE_PASS 
+echo "insert into t_authorisation values \
+    (`date +%s`,'$ROLE_NAME','lassi.tuura@cern.ch', \
+    '/C=CH/O=CERN/OU=GRID/CN=Lassi Tuura 3370');"  \
+    | sqlplus $DEVUSER/$DEVPASS@devdb
+./OraclePrivs.sh $DEVUSER/$DEVPASS@devdb $DEVREADER $DEVWRITER
+
+cd $BASE/Keys
+cat > site_cern-Dev << "EOF"
+AuthDBPassword          $DEVWRITERPASS
+AuthRole                $ROLE_NAME
+AuthRolePassword        $ROLE_PASS
+EOF
+
+openssl smime -encrypt  -in site_cern-Dev -out site_cern-Dev.Jens ./jens.rehn@cern.ch
+openssl smime -encrypt  -in site_cern-Dev -out site_cern-Dev.Lassi ./lassi.tuura@cern.ch   
