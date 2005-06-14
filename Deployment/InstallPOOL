@@ -189,9 +189,8 @@ sub installScram
 	    (! system("mkdir -p $InstallRoot"))
 		or die "Failed to create $InstallRoot directory.  Please check permissions.\n";
 	    open(FH,">$InstallRoot/poolenv.$sh");
-	    print FH "cd $VO_CMS_SW_DIR/lcg/app/releases/POOL/POOL_2_0_3; ",
-	    "eval \`scram -arch $arch runtime -$sh\` \n";
-	    print FH "cd - \n";
+	    print FH "eval \`cd $VO_CMS_SW_DIR/lcg/app/releases/POOL/POOL_2_0_3; ",
+	    "scram -arch $arch runtime -$sh\` \n";
 	    close(FH);
 	}
     };
