@@ -282,7 +282,7 @@ sub transfer {
 		   	: ($pending) ? " bgcolor='$pendcolor'" : "");
 	   $pencolor = (($files && $pending + $onsite > $files) ? " bgcolor='$warncolor'"
 			: ($pending) ? " bgcolor='$goodcolor'"
-			: ($pending < $files) ? " bgcolor='$pendcolor'" : "");
+			: ($pending + $onsite < $files) ? " bgcolor='$pendcolor'" : "");
 	}
 
         print "<tr valign='top'$rowcolor>",
@@ -317,8 +317,8 @@ sub transfer {
     {
 	$onscolor = (($tfiles && $tonsite < $tfiles) ? " bgcolor='$pendcolor'"
 		     : ($tpending) ? " bgcolor='$pendcolor'" : "");
-	$pencolor = (($tpending) ? " bgcolor='$goodcolor'"
-		     : ($tpending < $tfiles) ? " bgcolor='$pendcolor'" : "");
+	$pencolor = (($tpending) ? " bgcolor='$goodcolor'" : "");
+		     : ($tpending + $tonsite < $tfiles) ? " bgcolor='$pendcolor'" : "");
     }
 
     print "<tr valign='top' bgcolor='$altcolor'>",
