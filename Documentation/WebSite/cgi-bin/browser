@@ -317,7 +317,7 @@ sub transfer {
     {
 	$onscolor = (($tfiles && $tonsite < $tfiles) ? " bgcolor='$pendcolor'"
 		     : ($tpending) ? " bgcolor='$pendcolor'" : "");
-	$pencolor = (($tpending) ? " bgcolor='$goodcolor'" : "");
+	$pencolor = (($tpending) ? " bgcolor='$goodcolor'"
 		     : ($tpending + $tonsite < $tfiles) ? " bgcolor='$pendcolor'" : "");
     }
 
