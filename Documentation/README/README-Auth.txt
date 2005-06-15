@@ -99,8 +99,8 @@ that
 
 then, on lxgate10, to enter the new role into devdb
 
-   cd /data/V2Nodes
-   cp $PHEDEX_PUBLIC_KEY_FILE ./Keys/$PHEDEX_EMAIL
+   cd /data/V2Nodes/Keys
+   cp $PHEDEX_PUBLIC_KEY_FILE ./$PHEDEX_EMAIL
   
    ROLE_NAME=site_$PHEDEX_SITE
    ROLE_PASS=`PHEDEX/Utilities/WordMunger`
@@ -115,18 +115,16 @@ then, on lxgate10, to enter the new role into devdb
        $PHEDEX_READER  \
        $PHEDEX_WRITER
 
-   cat > DBParamInfo << "EOF"
+   cat > "Details/$ROLE_NAME-$PHEDEX_TMDB" << "EOF"
    AuthDBPassword	$PHEDEX_WRITER_PASS
    AuthRole		$ROLE_NAME
    AuthRolePassword	$ROLE_PASS
    EOF       
 
    openssl smime -encrypt 
-	   -in DBParamInfo
-	   -out DBParamInfo.encrypted 
+	   -in "Details/$ROLE_NAME-$PHEDEX_TMDB"
+	   -out "Details/$ROLE_NAME-$PHEDEX_TMDB.$PHEDEX_EMAIL" 
 	   /data/V2Nodes/Keys/$PHEDEX_EMAIL
-
-   rm DBParamInfo
 
 You then need to email the remaining DBParamInfo.encrypted file to the
 user who deals with it as described above.
