@@ -241,7 +241,7 @@ sub InstallRPMs
     
 	foreach my $packet (@packetlist){
 	    my $cmd = "wget -q -P $InstallRoot/RPMs -N $RPMSource/$versionTag/$packet";
-	    (! system($cmd)) or die "Couldn't download all RPMs.  Installation terminated.\n";
+	    (! system($cmd)) or die "Couldn't download RPM: $packet. Installation terminated.\n";
 	}
 
 	# lets install the stuff if we succeded to download the RPMs
