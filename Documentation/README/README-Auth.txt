@@ -126,6 +126,6 @@ then, on lxgate10, to enter the new role into devdb
 	   -out "Details/$ROLE_NAME-$PHEDEX_TMDB.$PHEDEX_EMAIL" 
 	   /data/V2Nodes/Keys/$PHEDEX_EMAIL
 
-You then need to email the remaining DBParamInfo.encrypted file to the
+You then need to email the encrypted file to the
 user who deals with it as described above.
 
