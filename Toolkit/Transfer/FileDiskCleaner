@@ -239,17 +239,19 @@ sub filesToDelete
 
     # Find all the files that we are allowed to delete: everything
     # transferred out of this node where the transfer is completed
-    # (to_state = 3).  We take the files oldest first.
+    # (TableCleaner removed t_transfer_state entries).
+    # We take the files oldest first.
     my @guids = ();
     my $qguids = &dbexec($dbh,qq{
-	select rs.guid
-	from t_replica_state rs
-	join t_transfer_state ts
-	  on ts.guid = rs.guid and ts.from_node = rs.node
-	where rs.state = 1
-	  and rs.node = :node
-	  and ts.to_state = 3
-	order by ts.to_timestamp asc},
+	select guid
+	from t_replica_state
+	where state = 1
+	  and node = :node
+	  and guid not in
+	     (select guid from t_transfer_state
+	         where to_node = :node
+	         or from_node = :node)
+	order by state_timestamp asc},
         ":node" => $self->{MYNODE});
     while (my ($guid) = $qguids->fetchrow())
     {
