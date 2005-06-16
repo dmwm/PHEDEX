@@ -1038,13 +1038,16 @@ sqlplus $DEVUSER/$DEVPASS@devdb
 6.2 Create CERN role
 6.3 Create synonyms
 
+    FIXME: At first this was done on cmslcgco04. Now Lassi is running
+    Dev agents on lxgate10, I've swapped there.
+
 6.0 Preparation
 ---------------
 
 # export DEVUSER=XXX
 # export DEVPASS=XXX
-export BASE=/data/tim/MigrationNodes
-cd $BASE/Tools
+export BASE=/data/DevNodes
+cd $BASE/tools
 . ./poolenv.sh
 . ./oraenv.sh
 . ./perlenv.sh
@@ -1064,7 +1067,7 @@ sqlplus $DEVUSER/$DEVPASS@devdb @OracleCoreAuth.sql
 
 Creating a CERN role, for Lassi
 
-cd $BASE/Utilities
+cd $BASE/PHEDEX/Utilities
 cvs update -A
 
 Had to modify WordMunger, as dictionary is slightly different
@@ -1094,6 +1097,8 @@ echo "insert into t_authorisation values \
     | sqlplus $DEVUSER/$DEVPASS@devdb
 ./OraclePrivs.sh $DEVUSER/$DEVPASS@devdb $DEVREADER $DEVWRITER
 
+# FIXME: variables not substituted in!
+
 cd $BASE/Keys
 cat > site_cern-Dev << "EOF"
 AuthDBPassword          $DEVWRITERPASS
@@ -1103,6 +1108,10 @@ EOF
 
 openssl smime -encrypt  -in site_cern-Dev -out site_cern-Dev.Jens ./jens.rehn@cern.ch
 openssl smime -encrypt  -in site_cern-Dev -out site_cern-Dev.Lassi ./lassi.tuura@cern.ch   
+
+    PROBLEM: In doing this for Daniele found DN too long for field
+    
+    SOLUTION: Increase size of field in devdb and OracleCoreAuth.sql.
 
 6.3 Create synonyms
 -------------------
