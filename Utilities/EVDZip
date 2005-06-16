@@ -43,7 +43,7 @@ my $workingdir = ".";
 
 # Check destination doesn't exist yet
 my $realoutputdir = $outputdir; $realoutputdir =~ s/^[a-z]+://;
-system("rfstat $realoutputdir/$zipname.zip")
+system("rfstat $realoutputdir/$zipname.zip 2>/dev/null")
     or die "$realoutputdir/$zipname.zip: cowardly refusing to overwrite existing zip\n";
 
 # Read input catalogue
@@ -57,7 +57,7 @@ mkdir ("$workingdir/files") or die "$workingdir/files: cannot create: $!\n";
 foreach my $file (@$catalogue)
 {
     my $pfn = $file->{PFN}[0]{PFN}; $pfn =~ s/^[a-z]+://;
-    system ("rfcp $file->{PFN}[0]{PFN} $workingdir/files/$file->{LFN}[0]")
+    system ("rfcp $pfn $workingdir/files/$file->{LFN}[0]")
         and die "$file->{PFN}[0]{PFN}: failed to copy: $?\n";
 }
 
