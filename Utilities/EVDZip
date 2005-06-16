@@ -42,8 +42,9 @@ $dataset or die "could not determine dataset from zip name $zipname\n";
 my $workingdir = ".";
 
 # Check destination doesn't exist yet
-system("rfstat $outputdir/$zipname.zip")
-    or die "$outputdir/$zipname.zip: cowardly refusing to overwrite existing zip\n";
+my $realoutputdir = $outputdir; $realoutputdir =~ s/^[a-z]+://;
+system("rfstat $realoutputdir/$zipname.zip")
+    or die "$realoutputdir/$zipname.zip: cowardly refusing to overwrite existing zip\n";
 
 # Read input catalogue
 my $catalogue = &readXMLCatalogue ($poolcat);
@@ -55,6 +56,7 @@ mkdir ("$workingdir/files") or die "$workingdir/files: cannot create: $!\n";
 # Fetch input files
 foreach my $file (@$catalogue)
 {
+    my $pfn = $file->{PFN}[0]{PFN}; $pfn =~ s/^[a-z]+://;
     system ("rfcp $file->{PFN}[0]{PFN} $workingdir/files/$file->{LFN}[0]")
         and die "$file->{PFN}[0]{PFN}: failed to copy: $?\n";
 }
@@ -125,7 +127,7 @@ system("cd $workingdir && cksum $zipname.zip > CheckSum.$zipname.txt")
     and die "$workingdir/$zipname.zip: failed to checksum: $?\n";
 
 # Store the merged zip back into storage buffer.
-system("rfcp $workingdir/$zipname.zip $outputdir/$zipname.zip")
+system("rfcp $workingdir/$zipname.zip $realoutputdir/$zipname.zip")
     and die "$outputdir/$zipname.zip: failed to copy: $?\n";
 
 # Instantiate the catalogue
