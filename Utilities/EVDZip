@@ -1,0 +1,238 @@
+#!/usr/bin/env perl
+
+##H This script merges EVD files.  The main input is a POOL XML catalogue
+##H which defines the files to merge.  The files are copied from Castor
+##H into a local working directory, checksummed, zipped, and the result
+##H zip is stored back into Castor.
+##H
+##H A simple XML template catalogue is also included into the zip file,
+##H such that the member files can be automatically registered into the
+##H local catalogue, for instance after a transfer.  The checksums and
+##H the sizes of the input files as well as a simple replica map are
+##H also included into the zip.
+##H
+##H The job leaves behind in it's working directory (".") a checksum
+##H and XML catalogue for the zip itself.
+##H
+##H Usage:
+##H   EVDZip OUTPUT-DIR POOL-CATALOGUE ZIP-BASE-NAME
+##H
+##H OUTPUT-DIR      Defines the castor directory into which the final
+##H                 zip file should be copied into.
+##H POOL-CATALOGUE  A POOL XML catalogue file with full information
+##H                 about all the files that should go into the zip.
+##H ZIP-BASE-NAME   The name of the zip file.  This should not include
+##H                 any leading directory components, nor the .zip
+##H                 suffix.  Owner and dataset names are automatically
+##H                 extracted from the zip file name, which must be of
+##H                 the form: EVD*.$owner.$dataset.$runstart.$runend*
+
+BEGIN { use strict; use warnings; }
+use File::Path;
+
+######################################################################
+my ($outputdir, $poolcat, $zipname, @rest) = @ARGV;
+($outputdir && $poolcat && $zipname && ! @rest && -f $poolcat)
+    or die "usage: $0 OUTPUT-DIR POOL-CATALOGUE ZIP-NAME\n";
+
+my ($owner, $dataset) = ($zipname =~ /^EVD[^.]*\.([^.]+)\.([^.]+)\.\d+\.\d+/);
+$owner or die "could not determine owner from zip name $zipname\n";
+$dataset or die "could not determine dataset from zip name $zipname\n";
+
+my $workingdir = ".";
+
+# Check destination doesn't exist yet
+system("rfstat $outputdir/$zipname.zip")
+    or die "$outputdir/$zipname.zip: cowardly refusing to overwrite existing zip\n";
+
+# Read input catalogue
+my $catalogue = &readXMLCatalogue ($poolcat);
+
+# Create output directory
+&rmtree ([ "$workingdir/$zipname.zip", "$workingdir/files" ]);
+mkdir ("$workingdir/files") or die "$workingdir/files: cannot create: $!\n";
+
+# Fetch input files
+foreach my $file (@$catalogue)
+{
+    system ("rfcp $file->{PFN}[0]{PFN} $workingdir/files/$file->{LFN}[0]")
+        and die "$file->{PFN}[0]{PFN}: failed to copy: $?\n";
+}
+
+# Do checksums and file sizes
+foreach my $file (@$catalogue)
+{
+    system ("cd $workingdir/files && cksum $file->{LFN}[0] >> CheckSum.Contents.$zipname.txt")
+	and die "$file->{LFN}[0]: failed to checksum $?\n";
+}
+
+# Generate XML fragment for the zip itself and the contents
+my $xmlcontents = "$workingdir/files/XMLFragment.$zipname.txt";
+my $uuid = qx(uuidgen | tr '[a-f]' '[A-F]'); chomp ($uuid);
+$uuid or die "failed to generate uuid for the zip\n";
+open (F, "> $xmlcontents") or die "$xmlcontents: failed to open: $!\n";
+print F <<EOF;
+<File ID="$uuid">
+  <physical>
+    <pfn filetype="EVDZip" name="\@ZIPPFN\@"/>
+  </physical>
+  <logical>
+    <lfn name="$zipname.zip"/>
+  </logical>
+  <metadata att_name="Content" att_value="ZippedEVD"/>
+  <metadata att_name="DBoid" att_value=""/>
+  <metadata att_name="DataType" att_value="ZippedEVD"/>
+  <metadata att_name="FileCategory" att_value="ZippedEVD"/>
+  <metadata att_name="Flags" att_value=""/>
+  <metadata att_name="dataset" att_value="$dataset"/>
+  <metadata att_name="jobid" att_value="@{[time()]}"/>
+  <metadata att_name="owner" att_value="$owner"/>
+  <metadata att_name="runid" att_value=""/>
+</File>
+EOF
+
+foreach my $file (@$catalogue)
+{
+    print F
+    	"<File ID=\"$file->{GUID}\">\n",
+    	"  <physical>\n",
+    	"    <pfn filetype=\"$file->{PFN}[0]{TYPE}\" name=\"zip-member:\@ZIPPFN\@#$file->{LFN}[0]\"/>\n",
+	"  </physical>\n",
+	"  <logical>\n",
+    	"    <lfn name=\"$file->{LFN}[0]\"/>\n",
+    	"  </logical>\n",
+	(map { "  <metadata att_name=\"$_\" att_value=\"$file->{META}{$_}\"/>\n" }
+	 sort keys %{$file->{META}}),
+	"</File>\n";
+}
+close(F) or die "$xmlcontents: failed to write: $!\n";
+
+# Generate replica map
+my $pfncontents = "$workingdir/files/ReplicaMap.txt";
+open (F, "> $pfncontents") or die "$pfncontents: failed to open: $!\n";
+foreach my $file (@$catalogue)
+{
+    print F "$file->{GUID} zip-member:\@ZIPPFN\@#$file->{LFN}[0]\n";
+}
+close (F) or die "$pfncontents: failed to write: $!\n";
+
+# Merge the files into the zip
+system("zip -q -0 -r -j $workingdir/$zipname.zip $workingdir/files")
+    and die "$workingdir/$zipname.zip: failed to produce: $?\n";
+
+# Checksum the merged zip.
+system("cd $workingdir && cksum $zipname.zip > CheckSum.$zipname.txt")
+    and die "$workingdir/$zipname.zip: failed to checksum: $?\n";
+
+# Store the merged zip back into storage buffer.
+system("rfcp $workingdir/$zipname.zip $outputdir/$zipname.zip")
+    and die "$outputdir/$zipname.zip: failed to copy: $?\n";
+
+# Instantiate the catalogue
+my $xmlreal = "$workingdir/XMLCatFragment.$zipname.txt";
+open (X, "< $xmlcontents") or die "$xmlcontents: failed to open: $!\n";
+open (F, "> $xmlreal") or die "$xmlreal: failed to open: $!\n";
+print F map { s|\@ZIPPFN\@|$outputdir/$zipname.zip|g } <X>;
+close (F) or die "$xmlreal: failed to write: $!\n";
+
+# Get rid of temporary files
+&rmtree ([ "$workingdir/$zipname.zip", "$workingdir/files" ]);
+
+# FIXME: The output of this job are:
+#  - $workingdir/CheckSum.$zipname.txt (checksum for the zip itself)
+#  - $workingdir/XMLFragment.$zipname.txt (instantiated catalogue)
+
+exit (0);
+
+
+######################################################################
+## This is replicated from an old version of UtilsReaders.pm to make
+## this script standalone.
+
+# Read an XML catalogue.
+sub readXMLCatalogue
+{
+    my ($file) = @_;
+    open (IN, "< $file") or die "cannot read catalog file $file: $!";
+    my $contents = join("", <IN>);
+    close (IN) or die "failed to read catalog file $file: $!";
+    return &parseXMLCatalogue ($contents);
+}
+
+# Parse XML attribute sequence
+sub parseXMLAttrs
+{
+    my ($string) = @_;
+    my %attrs = ();
+    $string =~ s/^\s+//;
+    while ($string ne '')
+    {
+        if ($string =~ /^(\w+)='([^']*)'/) {
+            $attrs{$1} = $2; $string = $';
+         } elsif ($string =~ /^(\w+)="([^"]*)"/) {
+            $attrs{$1} = $2; $string = $';
+         } else {
+            die "unrecognised xml attributes: <$string>";
+         }
+         $string =~ s/^\s+//;
+    }
+
+    return %attrs;
+}
+
+# Parse XML catalogue from a string.
+sub parseXMLCatalogue
+{
+    my ($string) = @_;
+    my $result = [];
+    my @rows = split("\n", $string);
+    my $line = 0;
+    while (defined ($_ = shift (@rows)))
+    {
+        ++$line;
+        if (m|<File\s(.*?)>|)
+        {
+            my %attrs = &parseXMLAttrs ($1);
+            my $guid = $attrs{ID};
+            my $frag = { GUID => $guid, TEXT => "$_\n", PFN => [], LFN => [] };
+            while (defined ($_ = shift (@rows)))
+            {
+                $frag->{TEXT} .= "$_\n";
+                chomp;
+                ++$line;
+
+                if (m|<pfn\s(.*?)/>|) {
+                    %attrs = &parseXMLAttrs ($1);
+                    push (@{$frag->{PFN}},
+                          { PFN => $attrs{'name'},
+                            TYPE => $attrs{'filetype'} });
+                } elsif (m|<lfn\s(.*?)/>|) {
+                    %attrs = &parseXMLAttrs ($1);
+                    push (@{$frag->{LFN}}, $attrs{'name'});
+                } elsif (m|<metadata\s(.*?)/>|) {
+                    %attrs = &parseXMLAttrs ($1);
+                    $frag->{META}{$attrs{'att_name'}} = $attrs{'att_value'};
+                    $frag->{GROUP} = $attrs{'att_value'}
+                        if ($attrs{'att_name'} eq 'jobid');
+                } elsif (m|</File>|) {
+                    last;
+                }
+            }
+
+            if (! $guid)
+            {
+                die "cannot understand catalog (line $line)";
+            }
+            elsif (grep ($_->{GUID} eq $guid, @$result))
+            {
+                die "catalogue has duplicate guid $guid (line $line)";
+            }
+            else
+            {
+                push (@$result, $frag);
+            }
+        }
+    }
+
+    return $result;
+}
