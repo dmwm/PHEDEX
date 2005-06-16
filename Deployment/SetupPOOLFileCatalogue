@@ -68,7 +68,7 @@ eval
 	if !$SCHEMA{$args{DBTYPE}}->[0];
 
     # check for client software to access DB
-    die "The client binary is not in your Path or not installed... Aborting !\n"
+    die "The client binary is not in your path or not installed... Aborting !\n"
 	if system("which $SCHEMA{$args{DBTYPE}}->[1] >& /dev/null");
     
     # find out if a DB server is running and accessible
@@ -82,25 +82,27 @@ eval
     die "The database seems to exist already and you did not ask to overwrite it !\n"
 	if ($DBexists && !$args{OVERWRITE});
 
+    my @cmda = ();
     # remove old DB
     if ($DBexists)
     {
-	$cmd = "mysql -h $args{HOST} -u root -p$args{ROOTPASS} "
-	    ."-e \'drop database $args{DBNAME}\'";
-	die "Drop of old DB $args{DBNAME} failed using command:\n$cmd\n"
-	    if system($cmd);
+	@cmda = ('mysql', '-h', "$args{HOST}", '-u', 'root', "-p$args{ROOTPASS}",
+		'-Ne', "drop database $args{DBNAME}");
+	die "Drop of old DB $args{DBNAME} failed using command:\n@cmda\n"
+	    if &runcmd (@cmda);
     }
     
     # Create user and database
-    $cmd = "mysql -h $args{HOST} -u root -p$args{ROOTPASS} "
-	."-e \'create database if not exists $args{DBNAME}\'";
-    die "Creation of DB $args{DBNAME} failed using command:\n$cmd\n"
-	if system($cmd);
-    $cmd = "mysql -h $args{HOST} -u root -p$args{ROOTPASS} "
-	."-e \'grant $priv ON $args{DBNAME}.* TO \'\\'$args{POOLUSER}\\'\'\@\'\\'$HOSTNAME\\'\' "
-	."identified by \"$args{POOLPASS}\"\'";
-    die "Creation of DB $args{DBNAME} failed using command:\n$cmd\n"
-	if system($cmd);
+    @cmda = ('mysql', '-h', "$args{HOST}", '-u', 'root', "-p$args{ROOTPASS}",
+	    '-Ne', "create database if not exists $args{DBNAME}");
+    die "Creation of DB $args{DBNAME} failed using command:\n@cmda\n"
+	if &runcmd (@cmda);
+    @cmda = ('mysql', '-h', "$args{HOST}", '-u', 'root', "-p$args{ROOTPASS}",
+	    '-Ne',
+	    "\'grant $priv ON $args{DBNAME}.* TO \"'$args{POOLUSER}'\"\@\"'$HOSTNAME'\"",
+	    "identified by \"$args{POOLPASS}\""\');
+    die "Creation of DB $args{DBNAME} failed using command:\n@cmda\n"
+	if &runcmd ($cmda);
     
     # setup the catalogue using the Phedex MySQL SQL schema
     $cmd = "mysql -h $args{HOST} -u root -p$args{ROOTPASS} $args{DBNAME} < $SCHEMA{MYSQL}->[0]";
@@ -118,3 +120,17 @@ do
 
 print "Setup of MySQL POOL DB seemed to be successful\n";
 exit 0;
+
+# Borrowed from UtilsCommand.pm
+sub runcmd
+{
+    my ($cmd, @args) = @_;
+    my $pid = open(SUBCMD, "|-");
+    if (! defined $pid) {
+	return 255;
+    } elsif (! $pid) {
+	(exec $cmd $cmd, @args) || exit (255);
+    } else {
+	return close(SUBCMD) ? 0 : $?;
+    }
+}
