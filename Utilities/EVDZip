@@ -134,7 +134,7 @@ system("rfcp $workingdir/$zipname.zip $realoutputdir/$zipname.zip")
 my $xmlreal = "$workingdir/XMLCatFragment.$zipname.txt";
 open (X, "< $xmlcontents") or die "$xmlcontents: failed to open: $!\n";
 open (F, "> $xmlreal") or die "$xmlreal: failed to open: $!\n";
-print F map { s|\@ZIPPFN\@|$outputdir/$zipname.zip|g } <X>;
+print F map { s|\@ZIPPFN\@|$outputdir/$zipname.zip|g; $_ } <X>;
 close (F) or die "$xmlreal: failed to write: $!\n";
 
 # Get rid of temporary files
