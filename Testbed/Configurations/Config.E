@@ -1,5 +1,5 @@
 #### General configuration
-### ENVIRON
+### ENVIRON common
 # Node suffix
 NODE="E";
 # Set directories

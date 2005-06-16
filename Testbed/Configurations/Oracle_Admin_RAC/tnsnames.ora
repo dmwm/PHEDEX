@@ -1,0 +1,1947 @@
+rls1 =
+  (DESCRIPTION=
+   (ADDRESS=(PROTOCOL=TCP) (HOST=lxshare071d.cern.ch) (PORT=1521))
+   (CONNECT_DATA=(SID=rls1))) 
+
+devdb9 =
+  (DESCRIPTION=
+   (ADDRESS=(PROTOCOL=TCP) (HOST=oradev9.cern.ch) (PORT=1521))
+   (CONNECT_DATA=(SID=D9)))
+
+pdb01 =
+   (DESCRIPTION=
+    (ADDRESS_LIST=
+     (FAILOVER=ON)
+     (LOAD_BALANCE=ON)
+     (ADDRESS=(PROTOCOL=TCP) (HOST=sundb07.cern.ch) (PORT=1521))
+     (ADDRESS=(PROTOCOL=TCP) (HOST=sundb08.cern.ch) (PORT=1521)))
+    (CONNECT_DATA=(SERVER=DEDICATED) (SERVICE_NAME=pdb01)))
+
+devdb =
+    (DESCRIPTION=
+     (ADDRESS=(PROTOCOL=TCP) (HOST=oradev.cern.ch) (PORT=10521))
+     (CONNECT_DATA=(SID=D)))
+
+cms =
+  (DESCRIPTION=
+   (ADDRESS_LIST=
+    (FAILOVER=on)
+    (LOAD_BALANCE=off)
+    (ADDRESS=(PROTOCOL=TCP) (HOST=sundb08.cern.ch) (PORT=1521))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=sundb07.cern.ch) (PORT=1521)))
+   (CONNECT_DATA=
+    (SERVER=DEDICATED)
+    (SERVICE_NAME=pdb01)
+    (FAILOVER_MODE=(TYPE=SELECT)(METHOD=BASIC))))
+
+cmssg =
+  (DESCRIPTION=
+   (ADDRESS=(PROTOCOL=TCP) (HOST=pdbcms.cern.ch) (PORT=1521))
+   (CONNECT_DATA=(SERVER=DEDICATED) (SERVICE_NAME=cmssg.cern.ch)))
+
+raltest=
+  (DESCRIPTION=
+   (ADDRESS=(PROTOCOL=TCP) (HOST=lxfs6123.cern.ch) (PORT=1521))
+   (CONNECT_DATA= (SID=raltest)))
+
+
+itrac =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac06-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac02-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac03-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac04-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac05-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac07-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac08-v.cern.ch)(PORT = 1521))
+    (LOAD_BALANCE = no)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = test1)
+    )
+  )
+
+LISTENERS_TEST1 =
+  (ADDRESS_LIST =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac06-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac02-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac03-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac04-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac05-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac07-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac08-v.cern.ch)(PORT = 1521))
+  )
+
+TEST17 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac08-v.cern.ch)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = test1)
+      (INSTANCE_NAME = test17)
+    )
+  )
+
+TEST16 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac07-v.cern.ch)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = test1)
+      (INSTANCE_NAME = test16)
+    )
+  )
+
+TEST15 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac06-v.cern.ch)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = test1)
+      (INSTANCE_NAME = test15)
+    )
+  )
+
+TEST14 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac05-v.cern.ch)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = test1)
+      (INSTANCE_NAME = test14)
+    )
+  )
+
+TEST13 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac04-v.cern.ch)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = test1)
+      (INSTANCE_NAME = test13)
+    )
+  )
+
+TEST12 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac03-v.cern.ch)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = test1)
+      (INSTANCE_NAME = test12)
+    )
+  )
+
+TEST11 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac02-v.cern.ch)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = test1)
+      (INSTANCE_NAME = test11)
+    )
+  )
+
+TEST1_S1 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac06-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac02-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac03-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac04-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac05-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac07-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac08-v.cern.ch)(PORT = 1521))
+    (LOAD_BALANCE = yes)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = test1_s1)
+      (FAILOVER_MODE =
+        (TYPE = SELECT)
+        (METHOD = BASIC)
+        (RETRIES = 180)
+        (DELAY = 5)
+      )
+    )
+  )
+
+#itrac=(DESCRIPTION= (ADDRESS= (PROTOCOL=TCP) (HOST=itrac03.cern.ch) (PORT=1521)) (CONNECT_DATA= (SERVICE_NAME=test1)))
+#itrac=(DESCRIPTION= (ADDRESS= (PROTOCOL=TCP) (HOST=itrac05.cern.ch) (PORT=1521)) (CONNECT_DATA= (SERVICE_NAME=test1)))
+#itrac=(DESCRIPTION= (ADDRESS= (PROTOCOL=TCP) (HOST=itrac05.cern.ch) (PORT=1521)) (CONNECT_DATA= (SERVICE_NAME=test1)))
+#itrac03=(DESCRIPTION= (ADDRESS= (PROTOCOL=TCP) (HOST=itrac03.cern.ch) (PORT=1521)) (CONNECT_DATA= (SERVICE_NAME=test1)))
+#itrac04=(DESCRIPTION= (ADDRESS= (PROTOCOL=TCP) (HOST=itrac04.cern.ch) (PORT=1521)) (CONNECT_DATA= (SERVICE_NAME=test1)))
+#itrac05=(DESCRIPTION= (ADDRESS= (PROTOCOL=TCP) (HOST=itrac05.cern.ch) (PORT=1521)) (CONNECT_DATA= (SERVICE_NAME=test1)))
+#itrac06=(DESCRIPTION= (ADDRESS= (PROTOCOL=TCP) (HOST=itrac06.cern.ch) (PORT=1521)) (CONNECT_DATA= (SERVICE_NAME=test1)))
+#itrac07=(DESCRIPTION= (ADDRESS= (PROTOCOL=TCP) (HOST=itrac07.cern.ch) (PORT=1521)) (CONNECT_DATA= (SERVICE_NAME=test1)))
+#itrac08=(DESCRIPTION= (ADDRESS= (PROTOCOL=TCP) (HOST=itrac08.cern.ch) (PORT=1521)) (CONNECT_DATA= (SERVICE_NAME=test1)))
+#itrac15=(DESCRIPTION= (ADDRESS= (PROTOCOL=TCP) (HOST=itrac15.cern.ch) (PORT=1521)) (CONNECT_DATA= (SERVICE_NAME=t4)))
+#itrac16=(DESCRIPTION= (ADDRESS= (PROTOCOL=TCP) (HOST=itrac16.cern.ch) (PORT=1521)) (CONNECT_DATA= (SERVICE_NAME=t4)))
+rls1hs=(DESCRIPTION= (ADDRESS= (PROTOCOL=TCP) (HOST=lxshare069d.cern.ch) (PORT=1521)) (CONNECT_DATA= (SID=rls1)))
+raltest=(DESCRIPTION= (ADDRESS= (PROTOCOL=TCP) (HOST=lxfs6123.cern.ch) (PORT=1521)) (CONNECT_DATA= (SID=raltest)))
+TEST10G = (DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = lxb0767.cern.ch)(PORT = 1521))) (CONNECT_DATA = (SERVICE_NAME = test)))
+cmsrrls1=(DESCRIPTION=
+        (ADDRESS= (PROTOCOL=TCP)
+                (HOST=lxshare116d.cern.ch)
+                (PORT=1521))
+      (CONNECT_DATA= (SID=cmsrrls1))
+    )
+rlsdev01=(DESCRIPTION=
+   (ADDRESS=
+      (PROTOCOL=TCP)
+      (HOST=lxshare089d)
+      (PORT=1521)
+   )
+  (CONNECT_DATA=
+   (SID= rlsdev01))
+  )
+rls1=(DESCRIPTION=
+   (ADDRESS=
+      (PROTOCOL=TCP)
+      (HOST=lxshare071d)
+      (PORT=1521)
+   )
+  (CONNECT_DATA=
+   (SID= rls1))
+  )
+c2k=(DESCRIPTION=
+       (ADDRESS=(PROTOCOL=TCP)
+                (HOST=cristaldb01.cern.ch)
+                (PORT=1521)
+        )
+       (CONNECT_DATA=(SID=c2k)
+       )
+     )
+elsah=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=elsah.cern.ch)
+                (PORT=1521)
+             )
+        (CONNECT_DATA=
+                (SID=SXDB))
+        )
+newclust=(DESCRIPTION=
+        (ADDRESS_LIST=
+               (ADDRESS=
+                  (PROTOCOL=tcp)
+                  (HOST=dbsc11)
+                  (PORT=1521)
+               )
+               (ADDRESS=
+                  (PROTOCOL=tcp)
+                  (HOST=dbsc12)
+                  (PORT=1521)
+               )
+               (ADDRESS=
+                  (PROTOCOL=tcp)
+                  (HOST=dbsc13)
+                  (PORT=1521)
+               )
+        )
+          (CONNECT_DATA=
+                  (SERVICE_NAME=OPSDB.world)))
+pvssdb=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=ccs003d.cern.ch)
+                (PORT=1521)
+             )
+        (CONNECT_DATA=
+                (SID=PVSS))
+        )
+pvssdbd=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=ccs003d.cern.ch)
+                (PORT=1521)
+             )
+        (CONNECT_DATA=
+                (SID=PVSSD))
+        )
+pvssdbp=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=ccs003d.cern.ch)
+                (PORT=1521)
+             )
+        (CONNECT_DATA=
+                (SID=PVSSP))
+        )
+alicet.cern.ch =
+      (DESCRIPTION =
+        (LOAD_BALANCE = on)
+        (failover = on)
+        (ADDRESS_LIST =
+          (ADDRESS = (PROTOCOL = TCP)(HOST = sundb07.cern.ch)(PORT = 1521))
+          (ADDRESS = (PROTOCOL = TCP)(HOST = sundb08.cern.ch)(PORT = 1521))
+        )
+        (CONNECT_DATA =
+          (SERVER = DEDICATED)
+          (SERVICE_NAME = alicet)
+        )
+      )
+comptst1=(DESCRIPTION=
+      (ADDRESS=
+         (PROTOCOL=TCP)
+         (HOST=lxshare084d.cern.ch)
+         (PORT=1521)
+      )
+     (CONNECT_DATA=
+      (SERVICE_NAME= comptst1))
+       )
+compdb1=(DESCRIPTION=
+      (ADDRESS=
+         (PROTOCOL=TCP)
+         (HOST=compassdb01.cern.ch)
+         (PORT=1521)
+      )
+     (CONNECT_DATA=
+      (SERVICE_NAME= compdb1))
+       )
+compdb2=(DESCRIPTION=
+      (ADDRESS=
+         (PROTOCOL=TCP)
+         (HOST=compassdb02.cern.ch)
+         (PORT=1521)
+      )
+     (CONNECT_DATA=
+      (SERVICE_NAME= compdb2))
+       )
+compdb3=(DESCRIPTION=
+ 		(ADDRESS= 
+ 		   (PROTOCOL=TCP)
+ 		   (HOST=compassdb03.cern.ch)
+ 		   (PORT=1521)
+ 		)
+ 	(CONNECT_DATA=
+ 		(SERVICE_NAME = compdb3))
+   	)
+harpdb1 =
+   (DESCRIPTION =
+     (ADDRESS_LIST =
+       (ADDRESS = (PROTOCOL = TCP)(HOST = harpdb01.cern.ch)(PORT = 1521))
+     )
+     (CONNECT_DATA =
+       ( SERVICE_NAME = harpdb1 )
+     )
+   )
+wp4test=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=lcgmon002d.cern.ch)
+                (PORT=1521)
+             )
+        (CONNECT_DATA=
+                (SID=wp4))
+        )
+wp4prod=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=lcgmon001d.cern.ch)
+                (PORT=1521)
+              )
+         (CONNECT_DATA=
+                 (SID=wp4))
+         ) 
+gen9ir2=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=suncmse.cern.ch)
+                (PORT=1521)
+             )
+        (CONNECT_DATA=
+                (SID=gen9ir2))
+        )
+slejb=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=pc2sl154)
+                (PORT=1521)
+             )
+        (CONNECT_DATA=
+                (SID=EJB))
+        )
+condb9itest,9itest01=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sundb05.cern.ch)
+                (PORT=1521)
+             )
+        (CONNECT_DATA=
+                (SID=D9))
+        )
+9itest02=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sundb06)
+                (PORT=1521)
+             )
+        (CONNECT_DATA=
+                (SID=D9))
+        )
+ora9r2b=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sunodb1)
+                (PORT=1521)
+             )
+        (CONNECT_DATA=
+                (SERVICE_NAME= ora9R2b.sunodb1.cern.ch))
+        )
+tzdbmeas=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sunslps)
+                (PORT=1521)
+             )
+        (CONNECT_DATA=
+                (SID=SPS))
+        )
+tzdbprod=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sunslps)
+                (PORT=1521)
+             )
+        (CONNECT_DATA=
+                (SID=SPS))
+        )
+pemdev=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=pdpdev04)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=PEM))
+        )
+oratcr=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sundbst1)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=TCR))
+        )
+strings2,mtadb=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=dblhcias)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=STR))
+        )      
+castor9=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=ccs001d.cern.ch)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=CASTOR))
+        )
+castordev=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=castordev.cern.ch)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=CASTOR))
+        )
+castor=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=castor)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=CASTOR))
+        )
+castor5=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=castor5)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=CASTOR))
+        )
+castorns1=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=castorns1.cern.ch)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=CASTOR))
+        )
+castorns2=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=castorns2.cern.ch)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=CASTOR))
+        )
+castorns3=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=castorns3.cern.ch)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=CASTOR))
+        )
+castorns4=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=castorns4.cern.ch)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=CASTOR))
+        )
+cmstrack=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=x5oracle)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=CMSTRACK))
+        )
+cmstrack_offline=(DESCRIPTION=
+                (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=miclinux01)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=CMSTRACK))
+        )
+rmdy=(DESCRIPTION=
+          (ADDRESS_LIST=
+            (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=orapdb1)
+                (PORT=1521)
+            )
+            (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=orapdb2)
+                (PORT=1521)
+            )
+          )
+          (CONNECT_DATA=
+                (SID=PDB)
+          )
+        )
+rmdy02=(DESCRIPTION=
+          (ADDRESS=
+                  (PROTOCOL=TCP)
+                  (HOST=sunar02)
+                  (PORT=1521)
+       )
+       (CONNECT_DATA=
+               (SID=RMDY))
+       ) 
+chorusdb=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=dbsun02.cern.ch)
+                (port=1525)
+        )
+        (CONNECT_DATA=
+                (SID=CHORUS)
+        )
+        )
+stkmon=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=stkmon)
+                (port=1521)
+        )
+        (CONNECT_DATA=
+                (SID=stagdefs)
+        )
+        )
+sldev=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=orasldev.cern.ch)
+                (port=1524)
+        )
+        (CONNECT_DATA=
+                (SID=sldev)
+        )
+        )
+csdb=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=suncsdb)
+                (port=1521)
+        )
+        (CONNECT_DATA=
+                (SID=CS)
+        )
+        )
+newcsdb=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=sundbcs)
+                (port=1521)
+        )
+        (CONNECT_DATA=
+                (SID=CS)
+        )
+        )
+cryo=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=sunlhcacr)
+                (port=1521)
+        )
+        (CONNECT_DATA=
+                (SID=CRYO)
+        )
+        )
+hamar=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=hamar)
+                (PORT=1524)
+        )
+        (CONNECT_DATA=
+                (SID=CAS)
+        )
+        )
+havana=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=havana)
+                (PORT=1524)
+        )
+        (CONNECT_DATA=
+                (SID=CAS)
+        )
+        )
+haifa=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=haifa)
+                (port=1524)
+        )
+        (CONNECT_DATA=
+                (SID=CAS)
+        )
+        )
+secmon=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=afsecdb)
+                (PORT=1521)
+             )
+        (CONNECT_DATA=
+                (SID=SEC))
+        )
+secdb=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=secdb1.cern.ch)
+                (PORT=1521)
+             )
+        (CONNECT_DATA=
+                (SID=SEC))
+        )
+dbslco=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sunslps)
+                (PORT=1521)
+             )
+        (CONNECT_DATA=
+                (SID=SPS))
+        )
+dbabco=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sunslps)
+                (PORT=1521)
+             )
+        (CONNECT_DATA=
+                (SID=dbco))
+        )
+dbpsco=(DESCRIPTION=
+             (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sunslps)
+                (PORT=1521)
+             )
+        (CONNECT_DATA=
+                (SID=dbco))
+        )
+lv2db = (DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=vxl3j0)
+                (PORT=1521)   )
+        (CONNECT_DATA=
+                (SID=L)       )
+        )
+leplog=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sunrfdb)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=RF))
+        )
+sllog=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sunrfdb)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=RF))
+        )
+oldleplog=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sunsldb)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=LL))
+        )
+oldsllog=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sunsldb)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=LL))
+        )
+lhcias=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sunsldb)
+                (PORT=1522)
+        )
+        (CONNECT_DATA=
+                (SID=STR))
+        )
+cerndb1=(DESCRIPTION=
+          (ADDRESS_LIST=
+            (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=orapdb1)
+                (PORT=1521)
+            )
+            (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=orapdb2)
+                (PORT=1521)
+            )
+          )
+          (CONNECT_DATA=
+                (SID=PDB)
+          )
+        )
+infscdb=(DESCRIPTION=
+          (ADDRESS_LIST=
+            (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=dbsc11)
+                (PORT=1521)
+             )
+             (ADDRESS=
+                 (PROTOCOL=TCP)
+                 (HOST=dbsc12)
+                 (port=1521)
+             )
+             (ADDRESS=
+                 (PROTOCOL=TCP)
+                 (HOST=dbsc13)
+                 (port=1521)
+             )
+           )
+           (CONNECT_DATA=
+                  (SID=OPS)
+           ) 
+        ) 
+cerndb18=(DESCRIPTION=
+          (ADDRESS_LIST=
+            (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=orapdb1)
+                (PORT=1525)
+            )
+          )
+          (CONNECT_DATA=
+                (SID=PDB)
+          )
+        )
+accdb=(DESCRIPTION=
+          (ADDRESS_LIST=
+            (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=orapdb2)
+                (PORT=1521)
+            )
+            (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=orapdb1)
+                (PORT=1521)
+            )
+          )
+          (CONNECT_DATA=
+                (SID=PDB)
+          )
+      )
+cdddb=(DESCRIPTION=
+          (ADDRESS_LIST=
+            (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=orapdb1)
+                (PORT=1521)
+            )
+            (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=orapdb2)
+                (PORT=1521)
+            )
+          )
+          (CONNECT_DATA=
+                (SID=PDB)
+          )
+        )
+casedb=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=oracase.cern.ch)
+                (PORT=1520)
+        )
+        (CONNECT_DATA=
+                (SID=C))
+        )
+casetest=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sunslps.cern.ch)
+                (PORT=1525)
+        )
+        (CONNECT_DATA=
+                (SID=C))
+        )
+migdb9=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=oramig9.cern.ch)
+                (PORT=1525)
+        )
+        (CONNECT_DATA=
+                (SID=M9))
+        )
+devdb9=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=oradev9.cern.ch)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=D9))
+        )
+devdb=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=oradev)
+                (PORT=10521)
+        )
+        (CONNECT_DATA=
+                (SID=D))
+        )
+# 2001/03/01 edmsdb-dev=devdb
+edmsdb-dev=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=oradev)
+                (PORT=10521)
+        )
+        (CONNECT_DATA=
+                (SID=D))
+        )
+# 20030414 edmsdb-training EG
+edmsdb-training= (DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=dbsun02.cern.ch)
+                (port=1526)
+        )
+        (CONNECT_DATA=
+                (SID=EDMSDBT)
+        )
+        )
+# 2001/06/10 edmsdb-test=chorusdb
+edmsdb-test,edbt= (DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=dbsun02.cern.ch)
+                (port=1525)
+        )
+        (CONNECT_DATA=
+                (SID=CHORUS)
+        )
+        )
+alarmdwh=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sunalarm.cern.ch)
+                (PORT=1523)
+        )
+        (CONNECT_DATA=
+                (SID=DWH))
+        )
+srvdb=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=stdlog)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=TCR))
+        )
+tcrdb=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=stdlog)
+                (PORT=1524)
+        )
+        (CONNECT_DATA=
+                (SID=TCR))
+        )
+spslog=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sunslps)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=SPS))
+        )
+spsdbmeas=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sunslps)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=SPS))
+        )
+lepdbmeas=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=sunrfdb)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=LEP))
+        )
+trainingdb=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=TCP)
+                 (HOST=oratraining)
+                 (PORT=1522)
+          )
+          (CONNECT_DATA=
+                  (SID=TRAINING))
+          )
+abbims1=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=hpabb03)
+                (PORT=1526)
+        )
+        (CONNECT_DATA=
+                (SID=advantdb))
+        )
+abbims2=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=hpabb01)
+                (PORT=1526)
+        )
+        (CONNECT_DATA=
+                (SID=advantdb))
+        )
+opal =
+  (DESCRIPTION =
+    (ADDRESS_LIST =
+        (ADDRESS =
+          (PROTOCOL = TCP)
+          (HOST = hpopora.cern.ch)
+          (PORT = 1521)
+        )
+    )
+    (CONNECT_DATA =
+      (SID = PIT)
+    )
+  )
+# EDMSDB on the PDB June 24th 1999
+edmsdb1,edb,edmsdb= 
+  (DESCRIPTION = 
+    (ADDRESS_LIST = 
+        (ADDRESS = 
+          (PROTOCOL = TCP)
+          (Host = oraedms1)
+          (Port = 1522)
+        )
+        (ADDRESS =
+          (PROTOCOL = TCP)
+          (Host = oraedms2)
+          (Port = 1522)
+        )
+    )
+    (CONNECT_DATA =
+       (SID = EDMS)
+       (GLOBAL_NAME = EDMS)
+    )
+  )
+edmsdb2=
+  (DESCRIPTION =
+    (ADDRESS_LIST =
+        (ADDRESS =
+          (PROTOCOL = TCP)
+          (Host = oraedms2)
+          (Port = 1522)
+        )
+        (ADDRESS =
+          (PROTOCOL = TCP)
+          (Host = oraedms1)
+          (Port = 1522)
+        )
+    )
+    (CONNECT_DATA =
+       (SID = EDMS)
+       (GLOBAL_NAME = EDMS)
+    )
+  )
+# Tuovi Developement database
+tuovidb=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=pcephc29)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=TDEV))
+        )
+pdgdb=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=susy.lbl.gov)
+                (port=1521)
+        )
+        (CONNECT_DATA=
+                (SID=PDG))
+      )
+rfdb=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=sunrfdb)
+                (port=1521)
+        )
+        (CONNECT_DATA=
+                (SID=RF)
+        )
+        )
+tms=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=tms)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=TMS))
+        )
+tms-2=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=TCP)
+           (HOST=tms-2)
+                  (PORT=1521)
+         )
+         (CONNECT_DATA=
+                 (SID=TMS))
+      )
+amsdb=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=oraams)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=AMS))
+        )
+maillogdb=(DESCRIPTION=
+            (ADDRESS_LIST=
+             (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=orapdb2)
+                (PORT=1524)
+             )
+             (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=orapdb1)
+                (PORT=1524)
+             )
+            )
+          (CONNECT_DATA=
+                (SID=MAIL))
+          )
+##############################################                                   
+#  HR connect string points to HR11i on missu                                    
+##############################################                                   
+hr_tcp=(DESCRIPTION=                                                             
+         (ADDRESS=                                                               
+                 (PROTOCOL=tcp)                                                  
+                 (HOST=hr11idb)                                                  
+                 (PORT=1561)                                                     
+         )                                                                       
+         (CONNECT_DATA=                                                          
+                 (SID=HR11i)                                                     
+         )                                                                       
+         )                                                                       
+hr=(DESCRIPTION=                                                                 
+         (ADDRESS=                                                               
+                 (PROTOCOL=tcp)                                                  
+                 (HOST=hr11idb)                                                  
+                 (PORT=1561)                                                     
+         )                                                                       
+         (CONNECT_DATA=                                                          
+                 (SID=HR11i)                                                     
+         )                                                                       
+         )         
+###########################
+#  HR database on missd
+###########################
+hr107_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=hrdb)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=HR)
+        )
+        )
+hr107=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=hrdb)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=HR)
+        )
+        )
+###########################
+#  FOUND Database on missh
+###########################
+found_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=founddb)
+                (PORT=1523)
+        )
+        (CONNECT_DATA=
+                (SID=FOUND)
+        )
+        )
+found=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=founddb)
+                (PORT=1523)
+        )
+        (CONNECT_DATA=
+                (SID=FOUND)
+        )
+        )
+###########################
+# CERN Database on miss
+###########################
+cern_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=cerndb)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=CERN)
+        )
+        )
+cern=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=cerndb)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=CERN)
+        )
+        )
+###########################
+# BHT Dtabase on aisws4
+###########################
+bht_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=bhtdb)
+                (PORT=1522)
+        )
+        (CONNECT_DATA=
+                (SID=BHT))
+        )
+bht=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=bhtdb)
+                (PORT=1522)
+        )
+        (CONNECT_DATA=
+                (SID=BHT))
+        )
+###########################
+# EDH Database on aisws4
+###########################
+edh_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=edhdb)
+                (PORT=1554)
+        )
+        (CONNECT_DATA=
+                (SID=EDH))
+        )
+edh=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=edhdb)
+                (PORT=1554)
+        )
+        (CONNECT_DATA=
+                (SID=EDH))
+        )
+###########################
+# EDHWF Database on aisws4
+###########################
+edhwf_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=edhwfdb)
+                (PORT=1555)
+        )
+        (CONNECT_DATA=
+                (SID=EDHWF))
+        )
+edhwf=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=edhwfdb)
+                (PORT=1555)
+        )
+        (CONNECT_DATA=
+                (SID=EDHWF))
+        )
+###########################
+# STORES Database on missn
+###########################
+stores_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=storesdb)
+                (PORT=1522)
+        )
+        (CONNECT_DATA=
+                (SID=STORES)
+        )
+        )
+stores=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=storesdb)
+                (PORT=1522)
+        )
+        (CONNECT_DATA=
+                (SID=STORES)
+        )
+        )
+###########################
+# HRT Database on cluster BHT db
+###########################
+hrt_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=bhtdb.cern.ch)
+                (PORT=1559)
+        )
+        (CONNECT_DATA=
+                (SID=BHT))
+        )
+hrt=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=bhtdb.cern.ch)
+                (PORT=1559)
+        )
+        (CONNECT_DATA=
+                (SID=BHT))
+        )
+
+###########################
+# ARS Database on missh
+###########################
+ars_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=arsdb)
+                (PORT=1524)
+        )
+        (CONNECT_DATA=
+                (SID=ARS))
+        )
+ars=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=arsdb)
+                (PORT=1524)
+        )
+        (CONNECT_DATA=
+                (SID=ARS))
+        )
+###########################
+# HISTO Database on missh
+###########################
+histo_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=histodb)
+                (PORT=1523)
+        )
+        (CONNECT_DATA=
+                (SID=HISTO))
+        )
+histo=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=histodb)
+                (PORT=1523)
+        )
+        (CONNECT_DATA=
+                (SID=HISTO))
+        )
+
+###########################
+# JAVADB Database on missc
+###########################
+javadb_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=javadb.cern.ch)
+                (PORT=1522)
+        )
+        (CONNECT_DATA=
+                (SID=JAVADB))
+        )
+javadb=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=javadb.cern.ch)
+                (PORT=1522)
+        )
+        (CONNECT_DATA=
+                (SID=JAVADB))
+        )
+
+###########################
+# WAPPS Database on missl
+###########################
+wapps_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=wappsdb)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=WAPPS))
+        )
+wapps=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=wappsdb)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=WAPPS))
+        )
+
+###########################
+# CL Database on missl
+###########################
+cl_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=cldb)
+                (PORT=1524)
+        )
+        (CONNECT_DATA=
+                (SID=CL))
+        )
+cl=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=cldb)
+                (PORT=1524)
+        )
+        (CONNECT_DATA=
+                (SID=CL))
+        )
+
+##########################
+# ORACLE 8 case database
+# Designer2000 2.1
+# CASE8 Database on missc
+###########################
+case8_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=case8db)
+                (PORT=1526)
+        )
+        (CONNECT_DATA=
+                (SID=CASE8))
+        )
+case8=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=case8db)
+                (PORT=1526)
+        )
+        (CONNECT_DATA=
+               (SID=CASE8))
+        )
+
+#############################################
+# ORACLE 8 OAS database
+# Oracle Application Server 4 (web server 4)
+# OAS Database on missa
+#############################################
+oas_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=oasdb)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=OAS))
+        )
+oas=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=oasdb)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+               (SID=OAS))
+        )
+
+###########################
+# BAANIV Database on missn
+###########################
+baaniv=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=baanivdb)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=BAANIV))
+        )
+baaniv_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=baanivdb)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=BAANIV))
+        )
+
+ars_test=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=arstestdb)
+                (PORT=1524)
+        )
+        (CONNECT_DATA=
+                (SID=ARS))
+        )
+cern_test=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=cern2000db)
+                (PORT=1525)
+        )
+        (CONNECT_DATA=
+                (SID=CERN)
+        )
+        )
+edh_test=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=edhtestdb)
+                (PORT=1544)
+        )
+        (CONNECT_DATA=
+                (SID=EDH))
+        )
+bht_test=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=bhttestdb)
+                (PORT=1523)
+        )
+        (CONNECT_DATA=
+                (SID=BHT))
+        )
+wapps_test=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=wappstestdb)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=WAPPS))
+        )
+edhwf_test=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=edhwftestdb)
+                (PORT=1545)
+        )
+        (CONNECT_DATA=
+                (SID=EDHWF))
+        )
+wf_test=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=wfdb)
+                (PORT=1522)
+        )
+        (CONNECT_DATA=
+                (SID=WF))
+        )
+###########################
+# CFU Database on misse
+###########################
+cfu_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=cfudb)
+                (PORT=1522)
+        )
+        (CONNECT_DATA=
+                (SID=CFU))
+        )
+cfu=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=cfudb)
+                (PORT=1522)
+        )
+        (CONNECT_DATA=
+                (SID=CFU))
+        )
+
+###########################                        
+# HRPATCH Database on missb                        
+###########################                        
+hrpatch_tcp=(DESCRIPTION=                          
+         (ADDRESS=                                 
+                 (PROTOCOL=tcp)                    
+                 (HOST=hrpatchdb)                  
+                 (PORT=1546)                       
+         )                                         
+         (CONNECT_DATA=                            
+                 (SID=HRPATCH))                    
+         )                                         
+hrpatch=(DESCRIPTION=                              
+         (ADDRESS=                                 
+                 (PROTOCOL=tcp)                    
+                 (HOST=hrpatchdb)                  
+                 (PORT=1546)                       
+         )                                         
+         (CONNECT_DATA=                            
+                 (SID=HRPATCH))                    
+         )
+####################################
+# HRNCA Database on missm(miss2000)
+####################################
+hrnca_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=hrncadb)
+                (PORT=1532)
+        )
+        (CONNECT_DATA=
+                (SID=HRNCA))
+        )
+hrnca=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=hrncadb)
+                (PORT=1532)
+        )
+        (CONNECT_DATA=
+                (SID=HRNCA))
+        )
+
+#####################################
+#  WCERN database on missb
+#####################################
+wcern=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=wcerndb)
+                (PORT=1531)
+        )
+        (CONNECT_DATA=
+                (SID=WCERN))
+        )
+
+wcern_tcp=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=wcerndb)
+                (PORT=1531)
+        )
+        (CONNECT_DATA=
+                (SID=WCERN))
+        )
+
+###################################
+#  BAANIV test database on miss2000
+###################################
+baaniv_test=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=baaniv2000db)
+                (PORT=1528)
+        )
+        (CONNECT_DATA=
+                (SID=BAANIV))
+        )
+
+####################################
+# HR11i Dev & Test Database on missu
+####################################
+hr11i_dev=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=tcp)
+                 (HOST=hr11itestdb)
+                 (PORT=1562)
+         )
+         (CONNECT_DATA=
+                 (SID=HR11I))
+         )
+###########################
+# HR11i Databases on missu
+###########################
+hr11i_tcp=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=tcp)
+                 (HOST=hr11idb)
+                 (PORT=1561)
+         )
+         (CONNECT_DATA=
+                 (SID=HR11I))
+         )
+hr11i=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=tcp)
+                 (HOST=hr11idb)
+                 (PORT=1561)
+         )
+         (CONNECT_DATA=
+                 (SID=HR11I))
+         )
+###########################
+# VIS11i Databases on missu
+###########################
+vis11i_tcp=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=tcp)
+                 (HOST=vis11idb)
+                 (PORT=1562)
+         )
+         (CONNECT_DATA=
+                 (SID=VIS11I))
+         )
+vis11i=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=tcp)
+                 (HOST=vis11idb)
+                 (PORT=1562)
+         )
+         (CONNECT_DATA=
+                 (SID=VIS11I))
+         )
+###########################
+# PPT Database on missv
+###########################
+ppt_tcp=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=tcp)
+                 (HOST=pptdb) 
+                 (PORT=1558)
+          )
+          (CONNECT_DATA=
+                  (SID=PPT))
+          )
+ppt=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=tcp)
+                 (HOST=pptdb)
+                 (PORT=1558)
+          )
+          (CONNECT_DATA=
+                  (SID=PPT))
+          )
+###########################
+# CET Database on missv
+###########################
+cet_tcp=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=tcp)
+                 (HOST=cetdb)
+                 (PORT=1557)
+         )
+         (CONNECT_DATA=
+                 (SID=CET))
+         )
+cet=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=tcp)
+                 (HOST=cetdb)
+                 (PORT=1557)
+         )
+         (CONNECT_DATA=
+                 (SID=CET))
+         )
+extproc_connection_data=(DESCRIPTION=
+                         (ADDRESS=
+                           (PROTOCOL=ipc)
+                           (KEY=d8ext)
+                         )
+                         (CONNECT_DATA=
+                              (SID=D8)
+                         )
+                        )
+# dbnetra01 normal listener
+netra01=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=dbnetra01)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=DBNET0101))
+        )
+# dbnetra02 normal listener
+netra02=(DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=TCP)
+                (HOST=dbnetra02)
+                (PORT=1521)
+        )
+        (CONNECT_DATA=
+                (SID=DBNET0201))
+        )
+# netra01 private MTS listener for mod_ose
+netra01_http=(DESCRIPTION=
+               (ADDRESS=(PROTOCOL=tcp)(HOST=dbnetra01.cern.ch)(PORT=5521))
+               (CONNECT_DATA=
+                    (SERVICE_NAME=MODOSE)
+                    (SERVER=shared)
+                    (PRESENTATION=http://admin)
+                )
+             )
+
+###################################
+#  BAANIV V8 test database on missc
+###################################
+
+baaniv_test2=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=tcp)
+                 (HOST=missc.cern.ch)
+                 (PORT=1521)
+         )
+         (CONNECT_DATA=
+                 (SID=BAANIV))
+         )
+
+###################################
+#  STORES V8 test database on missc
+###################################
+
+stores_test2=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=tcp)
+                 (HOST=missc.cern.ch)
+                 (PORT=1522)
+         )
+         (CONNECT_DATA=
+                 (SID=STORES))
+         )
+
+###########################
+# IMEDIA Database on missr
+###########################
+imedia_tcp=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=tcp)
+                 (HOST=missr.cern.ch)
+                 (PORT=1552)
+         )
+         (CONNECT_DATA=
+                 (SID=IMEDIA))
+         )
+imedia=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=tcp)
+                 (HOST=missr.cern.ch)
+                 (PORT=1552)
+         )
+         (CONNECT_DATA=
+                 (SID=IMEDIA))
+         )
+###################################
+# PDM cluster - March 2003
+###################################
+
+pdb01 =
+   (DESCRIPTION =
+     (LOAD_BALANCE = on)
+     (failover = on)
+     (ADDRESS_LIST =
+       (ADDRESS = (PROTOCOL = TCP)(HOST = sundb07)(PORT = 1521))
+       (ADDRESS = (PROTOCOL = TCP)(HOST = sundb08)(PORT = 1521))
+     )
+     (CONNECT_DATA =
+       (SERVER = DEDICATED)
+       (SERVICE_NAME = pdb01)
+     )
+   )
+
+pdb01-1 =
+   (DESCRIPTION =
+     (ADDRESS_LIST =
+       (ADDRESS = (PROTOCOL = TCP)(HOST = sundb07)(PORT = 1521))
+     )
+     (CONNECT_DATA =
+       ( SERVICE_NAME = pdb01 )
+       ( INSTANCE_NAME = pdb01-1 )
+     )
+   )
+
+pdb01-2 =
+   (DESCRIPTION =
+     (ADDRESS_LIST =
+       (ADDRESS = (PROTOCOL = TCP)(HOST = sundb08)(PORT = 1521))
+     )
+     (CONNECT_DATA =
+       ( SERVICE_NAME = pdb01 )
+       ( INSTANCE_NAME = pdb01-2 )
+     )
+   )
+#####################################
+#  HRINST database
+#####################################
+hrinst=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=tcp)
+                 (HOST=hrinstdb)
+                 (PORT=1560)
+         )
+         (CONNECT_DATA=
+                 (SID=HRINST))
+         )
+
+hrinst_tcp=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=tcp)
+                 (HOST=hrinstdb)
+                 (PORT=1560)
+         )
+         (CONNECT_DATA=
+                 (SID=HRINST))
+         )
+## OEMREP @ DBSUN01
+oemrep= (DESCRIPTION=
+        (ADDRESS=
+                (PROTOCOL=tcp)
+                (HOST=dbsun01)
+                (port=1525)
+        )
+        (CONNECT_DATA=
+                (SID=OEM)
+        )
+        )
+####################################
+# HR11i  Test Database on misse
+####################################
+hr11i_test=(DESCRIPTION=
+         (ADDRESS=
+                 (PROTOCOL=tcp)
+                 (HOST=misse.cern.ch)
+                 (PORT=1563)
+         )
+         (CONNECT_DATA=
+                 (SID=HR11i))
+         )
+#########################################
+#  Compass DBs
+#########################################
+compdb4=(DESCRIPTION=
+ 		(ADDRESS= 
+ 		   (PROTOCOL=TCP)
+ 		   (HOST=compassdb04.cern.ch)
+ 		   (PORT=1521)
+ 		)
+ 	(CONNECT_DATA=
+ 		(SERVICE_NAME = compdb4))
+   	)
+compdb5=(DESCRIPTION=
+ 		(ADDRESS= 
+ 		   (PROTOCOL=TCP)
+ 		   (HOST=compassdb05.cern.ch)
+ 		   (PORT=1521)
+ 		)
+ 	(CONNECT_DATA=
+ 		(SERVICE_NAME = compdb5))
+   	)
+compdb6=(DESCRIPTION=
+ 		(ADDRESS= 
+ 		   (PROTOCOL=TCP)
+ 		   (HOST=compassdb06.cern.ch)
+ 		   (PORT=1521)
+ 		)
+ 	(CONNECT_DATA=
+ 		(SERVICE_NAME = compdb6))
+   	)

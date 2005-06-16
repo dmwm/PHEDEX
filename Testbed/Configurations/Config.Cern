@@ -1,5 +1,5 @@
 #### General configuration
-### ENVIRON
+### ENVIRON common
 # Node suffix
 NODE="CERN";
 # Set directories
@@ -57,7 +57,7 @@ PHEDEX_CATALOGUE=${PHEDEX_MYSQL};
 ### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
  -node		${PHEDEX_NODE}_${NODE}_Buffer
  -db		${PHEDEX_DBParam}:${PHEDEX_LABEL}
- -pfnquery		${PHEDEX_CUSTOM}/PFNLookup.sh,-u,${PHEDEX_CATALOGUE},-n,'cern.ch'
+ -pfnquery		${PHEDEX_CUSTOM}/PFNLookup.sh,-u,${PHEDEX_CATALOGUE},-n,castor
  -wait		$(expr 10 + $RANDOM % 10)
 
 ### AGENT LABEL=exp-disk PROGRAM=Toolkit/Transfer/FileDiskExport
