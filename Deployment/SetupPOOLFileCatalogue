@@ -39,6 +39,7 @@ use UtilsHelp;
 
 my %args = (POOLUSER =>"phedex", POOLPASS =>"phedex", DBNAME =>"phedexcat", HOST =>"localhost");
 my $HOSTNAME = `hostname -f`;
+chomp $HOSTNAME;
 
 &GetOptions("help"                  =>\$args{HELP},
 	    "overwrite"             =>\$args{OVERWRITE},
@@ -96,8 +97,8 @@ eval
     die "Creation of DB $args{DBNAME} failed using command:\n$cmd\n"
 	if system($cmd);
     $cmd = "mysql -h $args{HOST} -u root -p$args{ROOTPASS} "
-	."-e \'grant $priv ON $args{DBNAME}.* TO $args{POOLUSER}\@$HOSTNAME identified by "
-	."\"$args{POOLPASS}\"\'";
+	."-e \'grant $priv ON $args{DBNAME}.* TO \'\\'$args{POOLUSER}\\'\'\@\'\\'$HOSTNAME\\'\' "
+	."identified by \"$args{POOLPASS}\"\'";
     die "Creation of DB $args{DBNAME} failed using command:\n$cmd\n"
 	if system($cmd);
     
