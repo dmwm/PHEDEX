@@ -100,9 +100,9 @@ eval
     @cmda = ('mysql', '-h', "$args{HOST}", '-u', 'root', "-p$args{ROOTPASS}",
 	    '-Ne',
 	    "\'grant $priv ON $args{DBNAME}.* TO \"'$args{POOLUSER}'\"\@\"'$HOSTNAME'\"",
-	    "identified by \"$args{POOLPASS}\""\');
+	    "identified by \"$args{POOLPASS}\"\'");
     die "Creation of DB $args{DBNAME} failed using command:\n@cmda\n"
-	if &runcmd ($cmda);
+	if &runcmd (@cmda);
     
     # setup the catalogue using the Phedex MySQL SQL schema
     $cmd = "mysql -h $args{HOST} -u root -p$args{ROOTPASS} $args{DBNAME} < $SCHEMA{MYSQL}->[0]";
