@@ -69,7 +69,7 @@ create table t_info_file_size_histogram
 create table t_info_agent_status
   (timestamp		float		not null,
    site			varchar (20)	not null,
-   host			varchar (30)	not null,
+   host			varchar (40)	not null,
    path			varchar (255)	not null,
    agent		varchar (20)	not null,
    worker		varchar (20)	not null,
