@@ -75,7 +75,8 @@ eval
     my $cmd = "mysql -h $args{HOST} -u root -p$args{ROOTPASS} -e \'show databases\'";
     my @databases = ();
     @databases = `$cmd 2>/dev/null` if !system("$cmd &>/dev/null");
-    die "Problems accessing DB on host $args{HOST} using command\n$cmd\n" if (scalar(@databases) == 0);
+    die "Problems accessing DB on host $args{HOST} using command\n$cmd\n"
+	if (scalar(@databases) == 0);
 
     # check for existing POOL catalogue
     my $DBexists = grep(m|$args{DBNAME}|,@databases);
@@ -98,9 +99,9 @@ eval
     die "Creation of DB $args{DBNAME} failed using command:\n@cmda\n"
 	if &runcmd (@cmda);
     @cmda = ('mysql', '-h', "$args{HOST}", '-u', 'root', "-p$args{ROOTPASS}",
-	    '-Ne',
-	    "\'grant $priv ON $args{DBNAME}.* TO \"'$args{POOLUSER}'\"\@\"'$HOSTNAME'\"",
-	    "identified by \"$args{POOLPASS}\"\'");
+	     '-Ne',
+	     "grant $priv ON $args{DBNAME}.* TO \'$args{POOLUSER}\'\@\'$HOSTNAME\' ".
+	     "identified by \"$args{POOLPASS}\"");
     die "Creation of DB $args{DBNAME} failed using command:\n@cmda\n"
 	if &runcmd (@cmda);
     
