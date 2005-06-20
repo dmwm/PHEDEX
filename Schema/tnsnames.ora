@@ -38,3 +38,20 @@ cmssg =
   (DESCRIPTION=
    (ADDRESS=(PROTOCOL=TCP) (HOST=pdbcms.cern.ch) (PORT=1521))
    (CONNECT_DATA=(SERVER=DEDICATED) (SERVICE_NAME=cmssg.cern.ch)))
+
+cms_phedex =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac09-v.cern.ch)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac10-v.cern.ch)(PORT = 1521))
+    (LOAD_BALANCE = yes)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = cms_phedex)
+      (FAILOVER_MODE =
+        (TYPE = SELECT)
+        (METHOD = BASIC)
+        (RETRIES = 180)
+        (DELAY = 5)
+      )
+    )
+  )
