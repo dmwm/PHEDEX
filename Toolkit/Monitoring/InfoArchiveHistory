@@ -189,10 +189,10 @@ sub idle
 	if ($outputfh)
 	{
 	    my $destfile = $self->saveFile ($fname, $outputfh);
-	    &logmsg ("$nrows transfer history rows archived to $destfile");
 	    &dbexec($dbh, qq{
 		delete from t_transfer_history where timestamp <= :last},
 		":last" => $lasttime);
+	    &logmsg ("$nrows transfer history rows archived to $destfile");
 	}
 
 	$dbh->commit();
