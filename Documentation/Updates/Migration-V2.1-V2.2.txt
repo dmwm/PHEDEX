@@ -1095,7 +1095,7 @@ echo "insert into t_authorisation values \
     (`date +%s`,'$ROLE_NAME','lassi.tuura@cern.ch', \
     '/C=CH/O=CERN/OU=GRID/CN=Lassi Tuura 3370');"  \
     | sqlplus $DEVUSER/$DEVPASS@devdb
-./OraclePrivs.sh $DEVUSER/$DEVPASS@devdb $DEVREADER $DEVWRITER
+
 
 # FIXME: variables not substituted in!
 
@@ -1121,3 +1121,180 @@ openssl smime -encrypt  -in site_cern-Dev -out site_cern-Dev.Lassi ./lassi.tuura
 ./OracleSyns.sh $DEVUSER $DEVUSER/$DEVPASS@devdb \
     $DEVREADER/$DEVREADERPASS@devdb
     
+    
+9 Migrate Prod
+--------------
+
+9.0 Preparation
+9.1 Drop existing connections, change passwords
+9.2 Save existing schema
+9.3 Load new schema
+9.4 Map old data onto new schema
+9.6 Roles and privileges
+
+
+9.0 Preparation
+---------------
+
+# export ADMIN=XXX
+# export ADMINPASS=XXX
+# export WRITER=XXX
+# export WRITERPASS=XXX
+# export READER=XXX
+# export READERPASS=XXX
+
+export BASE=/data/MigrationNodes 
+mkdir -p $BASE
+cd $BASE
+
+mkdir $BASE/tools
+export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/PHEDEX
+cvs login
+cvs co PHEDEX
+
+export PATH=$PATH:$BASE/PHEDEX/Deployment:$BASE/PHEDEX/Utilities 
+cd tools
+VO_CMS_SW_DIR=/afs/cern.ch/sw InstallPOOL -arch SLC3 -cms $BASE/tools
+. ./poolenv.sh
+# Copy Oracle Instant Client zips to $BASE/tools
+InstallOracleClient $BASE/tools/OIC-zips $BASE/tools $BASE/PHEDEX/Schema
+. ./oraenv.sh
+InstallPerlModules $BASE/Tools
+. ./perlenv.sh
+cd $BASE
+
+# NOTE, on restart just need
+export BASE=/data/MigrationNodes 
+export PATH=$PATH:$BASE/PHEDEX/Deployment:$BASE/PHEDEX/Utilities 
+cd $BASE/tools
+. ./poolenv.sh
+. ./oraenv.sh
+. ./perlenv.sh
+cd $BASE
+
+9.1 Drop existing connections, change passwords
+-----------------------------------------------
+
+# Logged in as cms_transfermgmt* on the web-based oracle session manager,
+# Killed all sessions
+
+export ADMINPASS=`/data/MigrationNodes/PHEDEX/Utilities/WordMunger`
+export WRITERPASS=`/data/MigrationNodes/PHEDEX/Utilities/WordMunger`
+export READERPASS=`/data/MigrationNodes/PHEDEX/Utilities/WordMunger`
+
+# Created file /data/V2Nodes/Keys/Details/Prod containing
+# content:
+# cms_transfermgmt                XXX
+# cms_transfermgmt_writer         XXX
+# cms_transfermgmt_reader         XXX
+# for reference...
+
+9.2 Save existing schema
+------------------------
+
+cd $BASE/PHEDEX/Schema
+sqlplus $ADMIN/$ADMINPASS@cms
+    > alter index IX_TRANSFER_STATE_FROMTO_STATE rename to XIX_FROMTO_STATE;
+    > commit;
+./OracleSave.sh $ADMIN/$ADMINPASS@cms
+
+sqlplus $ADMIN/$ADMINPASS@devdb
+    > alter trigger new_transfer_state rename to x_new_transfer_state;
+    > alter trigger update_transfer_state rename to x_update_transfer_state;
+    > commit;
+
+9.3 Load new schema
+-------------------
+
+cd $BASE/PHEDEX/Schema
+
+# Modify the SQL to use cms tablespaces!
+perl -p -i -e 's/([ ])INDX01/${1}CMS_TRANSFERMGMT_INDX01/g' *.sql
+
+sqlplus $ADMIN/$ADMINPASS@cms < OracleInit.sql
+
+9.4 Map old data onto new schema
+--------------------------------
+
+cat > migrate.sql << "EOF"
+insert into t_node
+        (select name from xt_node);
+insert into t_file 
+        (select timestamp,guid,node,inblock,insubblock,
+            lfn,filetype,filesize,checksum
+        from xt_file);
+insert into t_file_attributes
+        (select guid,attribute,value from xt_file_attributes);
+insert into t_node_import
+        (select node,protocol,priority from xt_node_import);
+insert into t_node_export
+        (select node,protocol from xt_node_export);
+insert into t_node_neighbour 
+        (select from_node,to_node,hops
+            from xt_routing
+            where to_node = gateway);
+insert into t_replica_state
+        (select timestamp,guid,node,state,state_timestamp 
+            from xt_replica_state);
+alter trigger new_transfer_state disable;
+alter trigger update_transfer_state disable;
+insert into t_transfer_state
+        (select timestamp,guid,to_node,to_state,to_timestamp,
+                from_node,from_state,from_timestamp,from_pfn
+            from xt_transfer_state);
+alter trigger new_transfer_state enable;
+alter trigger update_transfer_state enable;
+insert into t_transfer_completed
+        (select timestamp,guid,to_node,to_state,to_timestamp,
+                from_node,from_state,from_timestamp
+            from xt_transfer_completed);    
+insert into t_transfer_history
+        (select timestamp,guid,to_node,to_old_state,to_new_state,
+                from_node,from_old_state,from_new_state
+            from xt_transfer_history);
+insert into t_transfer_summary
+        (select timestamp,guid,from_node,to_node,assigned,wanted1st,wanted,
+                exported,started,completed,cleared,errors,error_total,error_began
+            from xt_transfer_summary);
+insert into t_subscription
+        (select owner,dataset,destination from xt_subscription);
+insert into t_block 
+        (select 0, name, owner, dataset, 0, 0, 1 
+            from xt_block);
+update t_block 
+        set (timestamp, files, bytes) = 
+            (select min(timestamp), count(guid), sum(filesize) 
+                from t_file 
+                where inblock = name);
+commit;
+EOF
+
+sqlplus $ADMIN/$ADMINPASS@cms @migrate.sql
+
+    PROBLEM: No space!
+    SOLUTION: drop all t_* tables; recreate schema; get some temp space AND
+    archive t_transfer_history.
+
+
+9.6 Roles and privileges
+------------------------
+
+# Creating roles and passwords in one go using
+ROLE_NAME=site_x
+ROLE_PASS=`$BASE/PHEDEX/Utilities/WordMunger`
+./OracleNewRole.sh $ADMIN/$ADMINPASS@cms $ROLE_NAME $ROLE_PASS 
+
+# Building a file $BASE/PHEDEX/Schema/roles.sh
+# echo "insert into t_authorisation values (`date +%s`,'site_cern','lassi.tuura@cern.ch','/C=CH/O=CERN/OU=GRID/CN=Lassi Tuura 3370');" | sqlplus $ADMIN/$ADMINPASS@cms;
+# echo "insert into t_authorisation values (`date +%s`,'site_in2p3','igor.semeniouk@poly.in2p3.fr','/O=GRID-FR/C=FR/O=CNRS/OU=LLR/CN=Igor Semeniouk');" | sqlplus $ADMIN/$ADMINPASS@cms;
+...
+echo "insert into t_authorisation values (`date +%s`,'site_','','');" | sqlplus $ADMIN/$ADMINPASS@cms;
+
+# creating/modigfying /data/V2Nodes/Keys/Details/$ROLE_NAME files as well
+# encrypting and sending to recipients
+
+When migration complete, need to
+. $BASE/PHEDEX/Schema/roles.sql
+
+$BASE/PHEDEX/Schema/OraclePrivs.sh $ADMIN/$ADMINPASS@cms $READER $WRITER
+
