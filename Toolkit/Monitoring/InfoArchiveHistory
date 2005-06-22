@@ -14,7 +14,9 @@
 ##H -archive   destination directory to copy into
 ##H -pattern   pattern to be used for the archive file names; in
 ##H             the pattern @MONTH@ will be replaced by the month
-##H             for which the data is for (in the form "YYYYMM")
+##H             for which the data is for (in the form "YYYYMM"),
+##H             and @STAMP@ with current date as of archiving (in
+##H             the form "YYYYMMDDZhhmm")
 ##H
 ##H The archive files will be DIRECTORY/PATTERN-REPLACEMENT. where
 ##H the PATTERN-REPLACEMENT is result of making the replacements
@@ -117,6 +119,9 @@ sub idle
 	my $outputfh = undef;
 	my $fname = undef;
 
+	my $cachemonth = undef;
+	my $cachetime = undef;
+
 	# Lock the table so we can sweep at the end without having to
 	# worry about phantom reads.
 	&dbexec ($dbh, qq{lock table t_transfer_history in exclusive mode});
@@ -130,7 +135,16 @@ sub idle
 		   $from_node, $from_old_state, $from_new_state)
 	       = $qhistory->fetchrow())
         {
-	    my $month = strftime ('%Y%m', gmtime (int ($time)));
+	    my $month;
+	    if ($cachetime && int($cachetime/86400) == int($time/86400))
+	    {
+		$month = $cachemonth;
+	    }
+	    else
+	    {
+		$cachemonth = $month = strftime ('%Y%m', gmtime (int ($time)));
+		$cachetime = $time;
+	    }
 
 	    # Don't archive into this month
 	    last if $month eq $thismonth;
@@ -143,8 +157,10 @@ sub idle
 		$outputfh = undef;
 
 		# Create a new one
+		my $now = strftime ('%Y%m%dZ%H%M', gmtime(time()));
 		$fname = $self->{DEST_PATTERN};
 		$fname =~ s/\@MONTH\@/$month/g;
+		$fname =~ s/\@STAMP\@/$now/g;
 		$fname = "$self->{WORKDIR}/$fname";
 		! -f $fname || die "$fname: already exists\n";
 		open ($outputfh, "| gzip --best > $fname") or die "$fname: cannot open: $!\n";
@@ -161,6 +177,7 @@ sub idle
 	    		    (defined $from_new_state ? $from_new_state : ()), "\n";
 
 	    $lasttime = $time;
+	    $lastmonth = $month;
 	}
 
 	# Flush the file
