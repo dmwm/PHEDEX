@@ -24,8 +24,8 @@
 ##H ZIP-BASE-NAME   The name of the zip file.  This should not include
 ##H                 any leading directory components, nor the .zip
 ##H                 suffix.  Owner and dataset names are automatically
-##H                 extracted from the zip file name, which must be of
-##H                 the form: EVD*.$owner.$dataset.$runstart.$runend*
+##H                 extracted from the zip file name, which must be
+##H                 ZippedEVD.$firstrun.$lastrun.$owner.$dataset
 
 BEGIN { use strict; use warnings; }
 use File::Path;
@@ -35,7 +35,7 @@ my ($outputdir, $poolcat, $zipname, @rest) = @ARGV;
 ($outputdir && $poolcat && $zipname && ! @rest && -f $poolcat)
     or die "usage: $0 OUTPUT-DIR POOL-CATALOGUE ZIP-NAME\n";
 
-my ($owner, $dataset) = ($zipname =~ /^EVD[^.]*\.([^.]+)\.([^.]+)\.\d+\.\d+/);
+my ($owner, $dataset) = ($zipname =~ /^ZippedEVD\.\d+\.\d+\.([^.]+)\.([^.]+)$/);
 $owner or die "could not determine owner from zip name $zipname\n";
 $dataset or die "could not determine dataset from zip name $zipname\n";
 
