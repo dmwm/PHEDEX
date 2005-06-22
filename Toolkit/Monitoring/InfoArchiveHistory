@@ -147,7 +147,7 @@ sub idle
 		$fname =~ s/\@MONTH\@/$month/g;
 		$fname = "$self->{WORKDIR}/$fname";
 		! -f $fname || die "$fname: already exists\n";
-		open ($outputfh, "> $fname") or die "$fname: cannot open: $!\n";
+		open ($outputfh, "| gzip --best > $fname") or die "$fname: cannot open: $!\n";
 		print $outputfh "TIMESTAMP,GUID,TO_NODE,TO_OLD_STATE,TO_NEW_STATE,",
 				"FROM_NODE,FROM_OLD_STATE,FROM_NEW_STATE\n";
 	    }
