@@ -89,10 +89,11 @@ sub new
 sub saveFile
 {
     my ($self, $fname, $outputfh) = @_;
+    my $destfile = undef;
     eval
     {
 	close ($outputfh) or die "$fname: cannot write: $!\n";
-	my $destfile = $fname;
+	$destfile = $fname;
 	$destfile =~ s|.*/||;
 	$destfile = "$self->{DEST_DIR}/$destfile";
 	my $rc = &runcmd (@{$self->{COPY_COMMAND}}, $fname, $destfile);
@@ -100,6 +101,7 @@ sub saveFile
     };
     unlink ($fname);
     die $@ if $@;
+    return $destfile;
 }
 
 # Called by agent main routine before sleeping.  Update database.
@@ -121,6 +123,7 @@ sub idle
 
 	my $cachemonth = undef;
 	my $cachetime = undef;
+	my $nrows = 0;
 
 	# Lock the table so we can sweep at the end without having to
 	# worry about phantom reads.
@@ -149,14 +152,13 @@ sub idle
 	    # Don't archive into this month
 	    last if $month eq $thismonth;
 
-	    # See if we need to open a new archive
-	    if (! $lastmonth || $lastmonth ne $month)
-	    {
-		# Flush previous file
-		$self->saveFile ($fname, $outputfh) if $outputfh;
-		$outputfh = undef;
+	    # Stop processing when month changes.  This avoids massive
+	    # transaction when there is a lot of history to process.
+	    last if $lastmonth && $lastmonth ne $month;
 
-		# Create a new one
+	    # Open a new archive if this is the first row of month
+	    if (! $outputfh)
+	    {
 		my $now = strftime ('%Y%m%dZ%H%M%S', gmtime(time()));
 		$fname = $self->{DEST_PATTERN};
 		$fname =~ s/\@MONTH\@/$month/g;
@@ -165,7 +167,8 @@ sub idle
 		! -f $fname || die "$fname: already exists\n";
 		open ($outputfh, "| gzip --best > $fname") or die "$fname: cannot open: $!\n";
 		print $outputfh "TIMESTAMP,GUID,TO_NODE,TO_OLD_STATE,TO_NEW_STATE,",
-				"FROM_NODE,FROM_OLD_STATE,FROM_NEW_STATE\n";
+				"FROM_NODE,FROM_OLD_STATE,FROM_NEW_STATE\n"
+		    or die "$fname: failed to write: $!\n";
 	    }
 
 	    # Write out the data
@@ -174,18 +177,19 @@ sub idle
 	    		    (defined $to_new_state ? $to_new_state : ()), ",",
 			    "\"$from_node\",",
 	    		    (defined $from_old_state ? $from_old_state : ()), ",",
-	    		    (defined $from_new_state ? $from_new_state : ()), "\n";
+	    		    (defined $from_new_state ? $from_new_state : ()), "\n"
+		or die "$fname: failed to write: $!\n";
 
 	    $lasttime = $time;
 	    $lastmonth = $month;
+	    ++$nrows;
 	}
 
-	# Flush the file
-	$self->saveFile ($fname, $outputfh) if $outputfh;
-
-	# Now delete the rows we processed
-	if (defined $lasttime)
+	# Flush the file and delete processed rows (if any)
+	if ($outputfh)
 	{
+	    my $destfile = $self->saveFile ($fname, $outputfh);
+	    &logmsg ("$nrows transfer history rows archived to $destfile");
 	    &dbexec($dbh, qq{
 		delete from t_transfer_history where timestamp <= :last},
 		":last" => $lasttime);
