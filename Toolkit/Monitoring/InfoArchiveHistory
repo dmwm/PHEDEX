@@ -157,7 +157,7 @@ sub idle
 		$outputfh = undef;
 
 		# Create a new one
-		my $now = strftime ('%Y%m%dZ%H%M', gmtime(time()));
+		my $now = strftime ('%Y%m%dZ%H%M%S', gmtime(time()));
 		$fname = $self->{DEST_PATTERN};
 		$fname =~ s/\@MONTH\@/$month/g;
 		$fname =~ s/\@STAMP\@/$now/g;
