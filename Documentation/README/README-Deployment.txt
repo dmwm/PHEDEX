@@ -211,6 +211,14 @@ the catalogue.  To set up a MySQL catalogue on host "cathost":
  1) Create user phedex (password: phedex), and database phedexcat
  2) Load the schema and seed data from PHEDEX/Schema/FC-MySQL.sql
 
+Alternatively you can also try to automize the above steps by using
+"SetupPOOLFileCatalogue", which can be found in PHEDEX/Deployment.
+Just execute it without options or using -help to get usage
+informations. Beware, that although care was taken to not accidentally
+delete/destroy already existing databases, this tool should be use
+with caution !
+
+
 *** Certificate management
 
 To run the transfer agents, you need to have a grid certficate and
