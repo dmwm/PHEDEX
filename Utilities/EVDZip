@@ -137,6 +137,10 @@ open (F, "> $xmlreal") or die "$xmlreal: failed to open: $!\n";
 print F map { s|\@ZIPPFN\@|$outputdir/$zipname.zip|g; $_ } <X>;
 close (F) or die "$xmlreal: failed to write: $!\n";
 
+# Save contents checksums
+system("cp $workingdir/files/CheckSum.Contents.$zipname.txt $workingdir")
+    and die "$workingdir/CheckSum.Contents.$zipname.txt: failed to copy: $?\n";
+
 # Get rid of temporary files
 &rmtree ([ "$workingdir/$zipname.zip", "$workingdir/files" ]);
 
