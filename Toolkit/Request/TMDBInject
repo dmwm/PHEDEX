@@ -156,12 +156,16 @@ my $rstmt = &dbprep ($dbh, qq{
 my $mstmt = &dbprep ($dbh, qq{
     insert into t_file_attributes (guid, attribute, value)
     values (:guid, :attr, :value)});
+my $blstmt = &dbprep ($dbh, qq{
+    select * from t_block where name = :name for update});
+my $bqstmt = &dbprep ($dbh, qq{
+    select isopen from t_block where name = :name});
 my $bistmt = &dbprep ($dbh, qq{
-    insert into t_block (name, owner, dataset, files, bytes)
-    values (:name, :owner, :dataset, -1, -1)});
-my $bistmt2 = ($args{DBSECTION} eq 'RAC') && &dbprep ($dbh, qq{
     insert into t_block (timestamp, name, owner, dataset, files, bytes, isopen)
     values (:now, :name, :owner, :dataset, 0, 0, 1)});
+my $bustmt = &dbprep ($dbh, qq{
+    update t_block set files = files + 1, bytes = bytes + :filesize
+    where name = :name});
 
 foreach my $f (@$catalogue)
 {
@@ -177,11 +181,27 @@ foreach my $f (@$catalogue)
     my $block = "$f->{META}{owner}/$f->{META}{dataset}";
     if (! $seen{$block})
     {
-	eval { &dbbindexec (($bistmt2 ? ($bistmt2, ":now" => $now) : ($bistmt)),
+	eval { &dbbindexec ($bistmt,
+			    ":now" => $now,
 		            ":name" => $block,
 		            ":owner" => $f->{META}{owner},
 		            ":dataset" => $f->{META}{dataset}) };
-	die "$@" if ($@ && $@ !~ /unique constraint.*violated/);
+	if (! $@ || $@ =~ /unique constraint.*violated/)
+	{
+	    # Block exists, lock it
+	    &dbbindexec ($blstmt, ":name" => $block);
+
+	    # Ensure the block is open
+	    # FIXME: Avoid error if not actually adding files?
+	    # FIXME: Activate block if not open?
+	    &dbbindexec ($bqstmt, ":name" => $block);
+	    my ($isopen) = $bqstmt->fetchrow();
+	    die "block $block not open, cannot add files\n" if ! $isopen;
+	}
+	elsif ($@)
+	{
+	    die $@;
+	}
         $dbh->commit();
         $seen{$block} = 1;
     }
@@ -200,9 +220,12 @@ foreach my $f (@$catalogue)
 	 	        ":checksum" => $f->{CHECKSUM}) };
     die "$@" if ($@ && $@ !~ /unique constraint.*violated/);
 
-    # Insert file attributes if we successfully inserted the file.
+    # Insert file attributes and update block stats if we successfully
+    # inserted the file.
     if (! $@)
     {
+	&dbbindexec ($bustmt, ":name" => $block, "filesize" => $f->{FILESIZE});
+
         my %meta = (map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
         foreach my $m (sort keys %meta)
         {
