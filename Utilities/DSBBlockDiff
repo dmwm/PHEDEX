@@ -1,0 +1,107 @@
+#!/usr/bin/env perl
+
+##H Compare block composition in DBS and TMDB.
+##H
+##H Usage:
+##H   DSBCheck -db FILE[:SECTION] [PATTERN...]
+##H
+##H -from RefDB   read information from RefDB
+##H -from PhEDEx  read information from PhEDEx pseudo-bookkeeping-system
+##H -db           database connection configuration parameter file
+##H PATTERN       block match constraint (owner/dataset), such as "*/bt03_*"
+##H
+##H Generates summary information for each owner/dataset pair that matches
+##H PATTERNs.  Prints out number of files for the block in RefDB, number
+##H of files in TMDB, plus difference in the files in RefDB/TMDB.
+
+BEGIN { use strict; use warnings;
+  my $me = $0; $me =~ s|.*/||;
+  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+  unshift(@INC, "$home/../Toolkit/Common"); }
+use UtilsHelp;
+use UtilsDBS;
+use UtilsDB;
+use TextGlob 'glob_to_regex';
+
+my %args;
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-h') {
+	&usage();
+    } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
+        shift (@ARGV); $args{DBCONFIG} = shift(@ARGV);
+    } elsif ($ARGV[0] eq '--') {
+	shift (@ARGV); last;
+    } elsif ($ARGV[0] =~ '^-') {
+	&usage ("$0: unrecognised option $ARGV[0]\n\n");
+    } else {
+	last;
+    }
+}
+
+$TextGlob::strict_wildcard_slash = 0;
+$args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
+if (!$args{DBCONFIG})
+{
+    die "Insufficient parameters, use -h for help.\n";
+}
+
+# Create appropriate dataset bookkeeping proxy
+my $dbs = new UtilsDBS::RefDB ();
+my $dbh = &connectToDatabase (\%args, 0);
+
+# Get all existing datasets
+my $datasets = $dbs->fetchPublishedData();
+
+# Get all current datasets
+foreach my $item (@$datasets)
+{
+    my $token = "$item->{OWNER}/$item->{DATASET}";
+    next if (@ARGV && !grep($token =~ $_, @{$args{PATS}}));
+    local $| = 1;
+    print $token;
+
+    # Fetch file information from RefDB
+    $dbs->fetchDatasetInfo ($item);
+    $dbs->fillDatasetInfo ($item);
+    my %dbsfiles = map { $_->{GUID} => 1 } @{$item->{FILES}};
+
+    # Fetch file information from PhEDEx
+    my %tmdbfiles = ();
+    my $qfile = &dbexec ($dbh, qq{
+	select guid from t_file where inblock = :block},
+	":block" => $token);
+    while (my ($guid) = $qfile->fetchrow())
+    {
+	$tmdbfiles{$guid} = 1;
+    }
+    $qfile->finish();
+
+    # Compare the file sets
+    my (%common, %dbsonly, %tmdbonly) = ();
+    foreach my $guid (keys %dbsfiles)
+    {
+	if (exists $tmdbfiles{$guid})
+	{ $common{$guid} = 1; }
+	else
+	{ $dbsonly{$guid} = 1; }
+    }
+
+    foreach my $guid (keys %tmdbfiles)
+    {
+	if (exists $dbsfiles{$guid})
+	{ $common{$guid} = 1; }
+	else
+	{ $tmdbonly{$guid} = 1; }
+    }
+
+    print " inrefdb=@{[scalar keys %dbsfiles]}",
+          " intmdb=@{[scalar keys %tmdbfiles]}",
+	  " common=@{[scalar keys %common]}",
+	  " refdbonly=@{[scalar keys %dbsonly]}",
+	  " tmdbbonly=@{[scalar keys %tmdbonly]}",
+	  "\n";
+}
+
+$dbh->disconnect();
+exit 0;
