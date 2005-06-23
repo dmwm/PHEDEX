@@ -170,7 +170,7 @@ sub fileComplete
 
 	# Check file size matches
 	$op = "match file size";
-	die "$oldsize != $newsize\n" if $oldsize != $newsize;
+	die "$oldsize (database) != $newsize (calculated)\n" if $oldsize != $newsize;
 
 	# Ok, it's worth talking to database.  Get connected.
 	$op = "connect to the database";
@@ -182,7 +182,8 @@ sub fileComplete
 	my $oldsum = &dbexec($dbh, qq{
 		select checksum from t_file where guid = :guid},
 		":guid" => $guid)->fetchrow_array();
-	die "$oldsum != $checksum\n" if defined $oldsum && $oldsum != -1 && $oldsum ne $checksum;
+	die "$oldsum (database) != $checksum (calculated)\n"
+	    if defined $oldsum && $oldsum != -1 && $oldsum ne $checksum;
 
 	$op = "update checksum";
 	&dbexec($dbh, qq{
