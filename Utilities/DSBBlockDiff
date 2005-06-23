@@ -99,7 +99,7 @@ foreach my $item (@$datasets)
           " intmdb=@{[scalar keys %tmdbfiles]}",
 	  " common=@{[scalar keys %common]}",
 	  " refdbonly=@{[scalar keys %dbsonly]}",
-	  " tmdbbonly=@{[scalar keys %tmdbonly]}",
+	  " tmdbonly=@{[scalar keys %tmdbonly]}",
 	  "\n";
 }
 
