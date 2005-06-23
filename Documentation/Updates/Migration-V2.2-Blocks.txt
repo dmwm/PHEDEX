@@ -5,10 +5,16 @@ source ../tools/oraenv.sh
 source ../tools/perlenv.sh
 
 # Run the diff
-./Utilities/DSBBlockDiff -db Schema/DBParam:Production/CERN >& blockdiff.txt </dev/null &
+(for f in $(./Utilities/DSBDump -from RefDB |
+              grep processing | awk '{print $2}' |
+              sed 's/^\([^_]*\).*/\1/' | sort | uniq)
+ do
+   ./Utilities/DSBBlockDiff -db Schema/DBParam:Production/CERN \
+     "$f*" >& blockdiff_$f.txt &
+ done) >& /dev/null </dev/null &
 
 # When finished, process accurate blocks
-grep "status=6.*refdbonly=0 tmdbonly=0" < blockdiff.txt |
+grep " status=6 .* refdbonly=0 tmdbonly=0" < blockdiff_*.txt |
   while read block rest; do
     echo "update t_block set isopen = 0 where name = '$block';"
   done > blockdiff.sql
