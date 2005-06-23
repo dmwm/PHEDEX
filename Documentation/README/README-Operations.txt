@@ -15,37 +15,44 @@ Agent directories
   agent state:            /data/V2Nodes/CERN/incoming
   mouth of distribution:  /data/V2Nodes/CERN/incoming/entry/inbox
   agent logs:             /data/V2Nodes/CERN/logs
+  transferred files:      /data/V2Nodes/CERN/history
   configuration:          /data/V2Nodes/PHEDEX/Custom/CERN
 
 * Managing the drop box agents
 
 The agent configuration, including the environment used by the agents,
-is fully defined in PHEDEX/Custom/CERN/Config.  It has a section named
-"ENVIRON" in the beginning which defines all the configurations used
-at CERN, followed by "AGENT" sections for each agent.  The agent
-settings partly rely on the environment variables defined in the first
-section.
+is fully defined in PHEDEX/Custom/CERN/Config.* (for * = Prod/Dev/SC3).
+This pulls in the configuration composed of the ConfigPart.* files.
+The sections named "ENVIRON common" in the beginning define environment
+variables etc. required to run the agents.  The "AGENT" sections define
+which agents run, and use settings defined in the environment part.
+
+PLEASE NOTE: Some agents are off by default ("DEFAULT=off").  Please do
+not do "Master ... start all" as it will start these agents as well, use
+simple "start".
 
 There are also a few CERN-specific glue scripts under Custom/CERN.
 The purpose for these is explained in the other README-*.txt files.
 
 To start the default set of agents:
-  PHEDEX/Custom/CERN/Master start
+  Utilities/Master -config Custom/CERN/Config.Prod start
 
 To start specific agents:
-  PHEDEX/Custom/CERN/Master start info-ts info-ds into-tc
+  Utilities/Master -config Custom/CERN/Config.Prod start \
+    info-ts info-ds info-tc
 
 To stop the default set of agents:
-  PHEDEX/Custom/CERN/Master stop
+  Utilities/Master -config Custom/CERN/Config.Prod stop
 
 To stop specific agents:
-  PHEDEX/Custom/CERN/Master stop info-ts info-ds into-tc
+  Utilities/Master -config Custom/CERN/Config.Prod stop \
+    info-ts info-ds info-tc
 
 To stop everything known in Config whether running or not:
-  PHEDEX/Custom/CERN/Master stop all
+  Utilities/Master -config Custom/CERN/Config.Prod stop all
 
 To force kill all the agents in case of emergency:
-  PHEDEX/Custom/CERN/Master terminate all
+  Utilities/Master -config Custom/CERN/Config.Prod terminate all
 
 * Monitoring data allocations
 
