@@ -171,181 +171,95 @@ sub format_size {
 sub transfer {
     my $rows = 0;
     my $now = time();
-    my $query =
-        (($dbversion eq 'V2.2') ?  $dbh->prepare(qq{
+    my $query = $dbh->prepare(qq{
 	    select
 	      node, timestamp,
 	      dest_files, dest_bytes,
 	      node_files, node_bytes,
-	      0, 0,
-	      0, 0,
-	      0, 0,
-	      0, 0,
 	      xfer_files, xfer_bytes,
 	      expt_files, expt_bytes
 	    from t_info_transfer_status
-	    order by node})
-         : $dbh->prepare(qq{
-	    select
-	      node, timestamp,
-	      n_files, sz_files,
-	      n_onsite, sz_onsite,
-	      n_staged, sz_staged,
-	      n_available, sz_available,
-	      n_in_transfer, sz_in_transfer,
-	      n_wanted, sz_wanted,
-	      n_pending, sz_pending,
-	      n_other, sz_other
-	    from t_info_transfer_status
-	    order by node}));
+	    order by node});
 
     print "<h2>Transfer status</h2>\n",
     	  "<table><tr bgcolor='$altcolor' valign='top'>",
 	  "<th rowspan='2'>Age</th>",
 	  "<th rowspan='2'>Node</th>",
-	  (($dbversion ne 'V2.2') ? (
-	   "<th colspan='2'>Files</th>",
-	   "<th colspan='2'>On Site</th>",
-	   "<th colspan='2'>Staged</th>",
-	   "<th colspan='2'>Transferable</th>",
-	   "<th colspan='2'>In Transfer</th>",
-	   "<th colspan='2'>Wanted</th>",
-	   "<th colspan='2'>Pending</th>",
-	   "<th colspan='2'>Other</th>",
-           "</tr>\n",
-	   "<tr bgcolor='$altcolor' valign='top'>",
-	   "<th align='right'>N</th><th align='right'>Size</th>",
-	   "<th align='right'>N</th><th align='right'>Size</th>",
-	   "<th align='right'>N</th><th align='right'>Size</th>",
-	   "<th align='right'>N</th><th align='right'>Size</th>",
-	   "<th align='right'>N</th><th align='right'>Size</th>",
-	   "<th align='right'>N</th><th align='right'>Size</th>",
-	   "<th align='right'>N</th><th align='right'>Size</th>",
-	   "<th align='right'>N</th><th align='right'>Size</th>") : (
-
-    	   "<th colspan='2'>Destined</th>",
-	   "<th colspan='2'>On Site</th>",
-	   "<th colspan='2'>In Transfer</th>",
-	   "<th colspan='2'>In Export</th>",
-           "</tr>\n",
-	   "<tr bgcolor='$altcolor' valign='top'>",
-	   "<th align='right'>N</th><th align='right'>Size</th>",
-	   "<th align='right'>N</th><th align='right'>Size</th>",
-	   "<th align='right'>N</th><th align='right'>Size</th>",
-	   "<th align='right'>N</th><th align='right'>Size</th>")),
+    	  "<th colspan='2'>Destined</th>",
+	  "<th colspan='2'>On Site</th>",
+	  "<th colspan='2'>In Transfer</th>",
+	  "<th colspan='2'>In Export</th>",
+          "</tr>\n",
+	  "<tr bgcolor='$altcolor' valign='top'>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<th align='right'>N</th><th align='right'>Size</th>",
           "</tr>\n";
 
     $query->execute();
-    my ($tfiles, $tfilesize,
-	$tonsite, $tonsitesize,
-	$tstaged, $tstagedsize,
-	$tavail, $tavailsize,
-	$ttransf, $ttransfsize,
-	$twanted, $twantedsize,
-	$tpending, $tpendingsize,
-	$tother, $tothersize) = (0) x 14;
+    my ($tdest_files, $tdest_size,
+	$tnode_files, $tnode_size,
+	$txfer_files, $txfer_size,
+	$texpt_files, $texpt_size) = (0) x 8;
 
     while (my $row = $query->fetchrow_arrayref)
     {
-	my ($n, $stamp, $files, $filesize,
-	    $onsite, $onsitesize,
-	    $staged, $stagedsize,
-	    $avail, $availsize,
-	    $transf, $transfsize,
-	    $wanted, $wantedsize,
-	    $pending, $pendingsize,
-	    $other, $othersize) = @$row;
-        next if (! $files && $dbversion ne 'V2.2');
+	my ($n, $stamp,
+	    $dest_files, $dest_size,
+	    $node_files, $node_size,
+	    $xfer_files, $xfer_size,
+	    $expt_files, $expt_size) = @$row;
 
-    	$tfiles += $files; $tfilesize += $filesize;
-	$tonsite += $onsite; $tonsitesize += $onsitesize;
-	$tstaged += $staged; $tstagedsize += $stagedsize;
-	$tavail += $avail; $tavailsize += $availsize;
-	$ttransf += $transf; $ttransfsize += $transfsize;
-	$twanted += $wanted; $twantedsize += $wantedsize;
-	$tpending += $pending; $tpendingsize += $pendingsize;
-	$tother += $other; $tothersize += $othersize;
+    	$tdest_files += $dest_files; $tdest_size += $dest_size;
+    	$tnode_files += $node_files; $tnode_size += $node_size;
+    	$txfer_files += $xfer_files; $txfer_size += $xfer_size;
+    	$texpt_files += $expt_files; $texpt_size += $expt_size;
 
         my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
 	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
-	my $onscolor = ($onsite == $files) ? '' : " bgcolor='$pendcolor'";
-	my $avacolor = (!$avail) ? '' : " bgcolor='$goodcolor'";
-	my $tracolor = (!$transf) ? '' : " bgcolor='$goodcolor'";
-	my $wancolor = (!$wanted) ? '' : " bgcolor='$goodcolor'";
-	my $pencolor = ($files != $onsite + $transf + $wanted + $pending + $other)
-		       ? " bgcolor='$warncolor'" : ! $pending ? ''
-		       : " bgcolor='$pendcolor'";
-	if ($dbversion eq 'V2.2')
-	{
-	   $onscolor = (($files && $onsite > $files) ? " bgcolor='$warncolor'"
-		   	: ($files && $onsite < $files) ? " bgcolor='$pendcolor'"
-		   	: ($pending) ? " bgcolor='$pendcolor'" : "");
-	   $pencolor = (($files && $pending + $onsite > $files) ? " bgcolor='$warncolor'"
-			: ($pending) ? " bgcolor='$goodcolor'"
-			: ($pending + $onsite < $files) ? " bgcolor='$pendcolor'" : "");
-	}
+	my $node_color = (($dest_files && $node_files < $dest_files) ? " bgcolor='$pendcolor'"
+		   	  : $xfer_files ? " bgcolor='$pendcolor'" : "");
+	my $xfer_color = (($xfer_files) ? " bgcolor='$goodcolor'"
+			  : ($xfer_files + $node_files < $dest_files) ? " bgcolor='$pendcolor'"
+			  : "");
+	my $expt_color = (($expt_files) ? " bgcolor='$goodcolor'" : "");
 
         print "<tr valign='top'$rowcolor>",
 	      "<td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>",
 	      "<td>$n</td>",
-	      "<td align='right'>@{[&format_num($files)]}</td>",
-	      "<td align='right'>@{[&format_size($filesize)]}</td>",
-	      "<td align='right'$onscolor>@{[&format_num($onsite)]}</td>",
-	      "<td align='right'$onscolor>@{[&format_size($onsitesize)]}</td>",
-	      (($dbversion eq 'V2.2') ? () : (
-	      "<td align='right'>@{[&format_num($staged)]}</td>",
-	      "<td align='right'>@{[&format_size($stagedsize)]}</td>",
-	      "<td align='right'$avacolor>@{[&format_num($avail)]}</td>",
-	      "<td align='right'$avacolor>@{[&format_size($availsize)]}</td>",
-	      "<td align='right'$tracolor>@{[&format_num($transf)]}</td>",
-	      "<td align='right'$tracolor>@{[&format_size($transfsize)]}</td>",
-	      "<td align='right'$wancolor>@{[&format_num($wanted)]}</td>",
-	      "<td align='right'$wancolor>@{[&format_size($wantedsize)]}</td>")),
-	      "<td align='right'$pencolor>@{[&format_num($pending)]}</td>",
-	      "<td align='right'$pencolor>@{[&format_size($pendingsize)]}</td>",
-	      "<td align='right'>@{[&format_num($other)]}</td>",
-	      "<td align='right'>@{[&format_size($othersize)]}</td>",
+	      "<td align='right'>@{[&format_num($dest_files)]}</td>",
+	      "<td align='right'>@{[&format_size($dest_size)]}</td>",
+	      "<td align='right'$node_color>@{[&format_num($node_files)]}</td>",
+	      "<td align='right'$node_color>@{[&format_size($node_size)]}</td>",
+	      "<td align='right'$xfer_color>@{[&format_num($xfer_files)]}</td>",
+	      "<td align='right'$xfer_color>@{[&format_size($xfer_size)]}</td>",
+	      "<td align='right'$expt_color>@{[&format_num($expt_files)]}</td>",
+	      "<td align='right'$expt_color>@{[&format_size($expt_size)]}</td>",
 	      "</tr>\n";
     }
-    my $onscolor = ($tonsite == $tfiles) ? '' : " bgcolor='$pendcolor'";
-    my $tracolor = (!$ttransf) ? '' : " bgcolor='$goodcolor'";
-    my $wancolor = (!$twanted) ? '' : " bgcolor='$goodcolor'";
-    my $pencolor = ($tfiles != $tonsite + $ttransf + $twanted + $tpending + $tother)
-		   ? " bgcolor='$warncolor'" : ! $tpending ? ''
-		   : " bgcolor='$pendcolor'";
-    if ($dbversion eq 'V2.2')
-    {
-	$onscolor = (($tfiles && $tonsite < $tfiles) ? " bgcolor='$pendcolor'"
-		     : ($tpending) ? " bgcolor='$pendcolor'" : "");
-	$pencolor = (($tpending) ? " bgcolor='$goodcolor'"
-		     : ($tpending + $tonsite < $tfiles) ? " bgcolor='$pendcolor'" : "");
-    }
+    my $node_color = (($tdest_files && $tnode_files < $tdest_files) ? " bgcolor='$pendcolor'"
+		      : ($txfer_files) ? " bgcolor='$pendcolor'" : "");
+    my $xfer_color = (($txfer_files) ? " bgcolor='$goodcolor'"
+		      : ($txfer_files + $tnode_files < $tdest_files) ? " bgcolor='$pendcolor'"
+		      : "");
+    my $expt_color = (($texpt_files) ? " bgcolor='$goodcolor'" : "");
 
     print "<tr valign='top' bgcolor='$altcolor'>",
 	  "<th>&nbsp;</th>",
 	  "<th align='left'>Total</th>",
-	  "<th align='right'>@{[&format_num($tfiles)]}</th>",
-	  "<th align='right'>@{[&format_size($tfilesize)]}</th>",
-	  "<th align='right'$onscolor>@{[&format_num($tonsite)]}</th>",
-	  "<th align='right'$onscolor>@{[&format_size($tonsitesize)]}</th>",
-	  (($dbversion eq 'V2.2') ? () : (
-	  "<th align='right'>@{[&format_num($tstaged)]}</th>",
-	  "<th align='right'>@{[&format_size($tstagedsize)]}</th>",
-	  "<th align='right'>@{[&format_num($tavail)]}</th>",
-	  "<th align='right'>@{[&format_size($tavailsize)]}</th>",
-	  "<th align='right'$tracolor>@{[&format_num($ttransf)]}</th>",
-	  "<th align='right'$tracolor>@{[&format_size($ttransfsize)]}</th>",
-	  "<th align='right'$wancolor>@{[&format_num($twanted)]}</th>",
-	  "<th align='right'$wancolor>@{[&format_size($twantedsize)]}</th>")),
-	  "<th align='right'$pencolor>@{[&format_num($tpending)]}</th>",
-	  "<th align='right'$pencolor>@{[&format_size($tpendingsize)]}</th>",
-	  "<th align='right'>@{[&format_num($tother)]}</th>",
-	  "<th align='right'>@{[&format_size($tothersize)]}</th>",
+	  "<th align='right'>@{[&format_num($tdest_files)]}</th>",
+	  "<th align='right'>@{[&format_size($tdest_size)]}</th>",
+	  "<th align='right'$node_color>@{[&format_num($tnode_files)]}</th>",
+	  "<th align='right'$node_color>@{[&format_size($tnode_size)]}</th>",
+	  "<th align='right'$xfer_color>@{[&format_num($txfer_files)]}</th>",
+	  "<th align='right'$xfer_color>@{[&format_size($txfer_size)]}</th>",
+	  "<th align='right'$expt_color>@{[&format_num($texpt_files)]}</th>",
+	  "<th align='right'$expt_color>@{[&format_size($texpt_size)]}</th>",
 	  "</tr>\n";
     $query->finish();
     print "</table>";
 }
-
 
 sub tstates {
     my $rows = 0;
@@ -778,19 +692,10 @@ sub rates {
 			  from_node,
 			  to_node,
 			  n_total,
-			  sz_total,
-			  time_total,
-			  bps_total,
-			  bps_average,
-			  bps_min,
-			  bps_max
+			  sz_total
 			from t_info_transfer_rate});
     $q->execute();
     while (my $row = $q->fetchrow_hashref()) {
-	$row->{BPS_AGGREGATE} =
-	    ($row->{TIME_SPAN}
-	     ? $row->{SZ_TOTAL} / $row->{TIME_SPAN}
-	     : -1);
 	push(@{$stats{$row->{TIME_SPAN}}{$row->{INFO_TYPE}}}, $row);
     }
 
@@ -813,24 +718,19 @@ sub rates {
     {
     	print
 	  "<tr bgcolor='$altcolor' valign='top'>",
-	  "<th colspan='11'>", ($span == 0 ? "Overall" : "Last @{[&format_timespan($span)]}"), "</th></tr>\n",
+	  "<th colspan='6'>", ($span == 0 ? "Overall" : "Last @{[&format_timespan($span)]}"), "</th></tr>\n",
 	  "<tr bgcolor='$altcolor' valign='top'>",
 	  "<th>Age</th>",
 	  "<th>From</th>",
 	  "<th>To</th>",
 	  "<th>Files</th>",
 	  "<th>Total Size</th>",
-	  "<th>Total Time</th>",
 	  "<th>Aggregate Rate</th>",
-	  "<th>Overall Rate</th>",
-	  "<th>Mean Rate</th>",
-	  "<th>Min Rate</th>",
-	  "<th>Max Rate</th>",
 	  "</tr>\n";
-	foreach my $row ((sort { $b->{BPS_AGGREGATE} <=> $a->{BPS_AGGREGATE}
-				|| $b->{BPS_TOTAL} <=> $a->{BPS_TOTAL} }
+	foreach my $row ((sort { $b->{SZ_TOTAL} <=> $a->{SZ_TOTAL} }
 			  @{$stats{$span}{'N'}}), @{$stats{$span}{'T'}})
 	{
+	    my $bps = ($row->{TIME_SPAN} ? $row->{SZ_TOTAL} / $row->{TIME_SPAN} : -1);
 	    print "<tr>",
 		  "<td>", &age($now - $row->{TIMESTAMP}), "</td>",
 		  ($row->{FROM_NODE}
@@ -838,16 +738,7 @@ sub rates {
 		   : "<td colspan='2'>Total</td>"),
 	          "<td>$row->{N_TOTAL}</td>",
 	          "<td align='right'>@{[&format_size($row->{SZ_TOTAL})]}</td>",
-	          "<td align='right'>@{[&age($row->{TIME_TOTAL})]}</td>",
-	          "<td align='right'>",
-		    ($row->{BPS_AGGREGATE} >= 0
-		     ? &format_size($row->{BPS_AGGREGATE}) . '/s'
-		     : &format_num(0)),
-		  "</td>",
-	          "<td align='right'>@{[&format_size($row->{BPS_TOTAL})]}/s</td>",
-	          "<td align='right'>@{[&format_size($row->{BPS_AVERAGE})]}/s</td>",
-	          "<td align='right'>@{[&format_size($row->{BPS_MIN})]}/s</td>",
-	          "<td align='right'>@{[&format_size($row->{BPS_MAX})]}/s</td>",
+		  "<td align='right'>", ($bps >= 0 ? &format_size($bps) . '/s' : &format_num(0)), "</td>",
 	          "</tr>\n";
 	}
     }
