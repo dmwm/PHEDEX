@@ -58,12 +58,10 @@ foreach my $item (@$datasets)
 {
     my $token = "$item->{OWNER}/$item->{DATASET}";
     next if (@ARGV && !grep($token =~ $_, @{$args{PATS}}));
-    local $| = 1;
-    print $token;
 
     # Fetch file information from RefDB
-    $dbs->fetchDatasetInfo ($item);
-    $dbs->fillDatasetInfo ($item);
+    eval { $dbs->fillDatasetInfo ($item); $dbs->fillDatasetInfo ($item); };
+    do { $@ =~ s/\n+$//s; warn ($@); next } if $@;
     my %dbsfiles = map { $_->{GUID} => 1 } @{$item->{FILES}};
 
     # Fetch file information from PhEDEx
@@ -96,7 +94,8 @@ foreach my $item (@$datasets)
     }
 
     # Print out the statistics
-    print " status=$item->{DSINFO}{CollectionStatus}",
+    print $token,
+          " status=$item->{DSINFO}{CollectionStatus}",
           " inrefdb=@{[scalar keys %dbsfiles]}",
           " intmdb=@{[scalar keys %tmdbfiles]}",
 	  " common=@{[scalar keys %common]}",
