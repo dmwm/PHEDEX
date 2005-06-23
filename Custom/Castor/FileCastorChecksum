@@ -213,8 +213,8 @@ sub fileComplete
 	 # Success, remove memory
 	 delete $self->{PENDING}{$guid};
      } else {
-	 # Failed, ignore for 5-10 minutes.
-	 $self->{PENDING}{$guid} = $now + 300 + rand(300);
+	 # Failed, ignore for at least an hour.
+	 $self->{PENDING}{$guid} = $now + 3600 + rand(3600);
      }
 }
 
