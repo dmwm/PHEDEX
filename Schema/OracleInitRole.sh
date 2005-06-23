@@ -63,7 +63,7 @@ case $ora_writer in */*@* ) ;; * )
   echo "$dbparam:$section/Writer: database contact not defined" 1>&2; exit 1;;
 esac
 
-$home/Schema/OracleNewRole.sh "$ora_master" "$role_name" "$role_pass"
+$home/Schema/OracleNewRole.sh "$ora_master" "$role_name" "$role_passwd"
 (echo "delete from t_authorisation where role_name = '$role_name';";
  echo "insert into t_authorisation values" \
      "(`date +%s`,'$role_name','$role_email','$role_dn');") |
