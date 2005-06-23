@@ -64,8 +64,9 @@ case $ora_writer in */*@* ) ;; * )
 esac
 
 $home/Schema/OracleNewRole.sh "$ora_master" "$role_name" "$role_pass"
-echo "insert into t_authorisation values" \
-     "(`date +%s`,'$role_name','$role_email','$role_dn');" |
+(echo "delete from t_authorisation where role_name = '$role_name';";
+ echo "insert into t_authorisation values" \
+     "(`date +%s`,'$role_name','$role_email','$role_dn');") |
   sqlplus -S "$ora_master"
 $home/Schema/OraclePrivs.sh "$ora_master" \
   "$(echo $ora_reader | sed 's|/.*||')" \
