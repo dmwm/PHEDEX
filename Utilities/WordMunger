@@ -1,1 +1,32 @@
-perl -e 'open d,(</usr/share/dict/{words,web2}>)[0];@w=<d>;close d;chomp @w;($f.=$w[rand $#w])until(length($f)>10);$f=substr($f,0,10);$f=~s/(\w)/a($1)/ge;while($c<2){$s=rand(length($f));$f=substr($f,0,$s).b().substr($f,$s,length($f));$c++;}print "$f\n"; sub a { rand(100) < 20 ? "\u$_[0]" : "\l$_[0]" } sub b { @o=("_","1","2","3","4","5","6","7","8","9","0"); return $o[rand($#o)];}'
+#!/usr/bin/env perl
+
+# Read in words
+open d,(</usr/share/dict/{words,web2}>)[0];
+@w=<d>;
+close d;
+
+# Strip newlines
+chomp @w;
+
+# Generate password letters of at least 10 characeters.
+($f .= $w[rand $#w]) until length($f) > 10;
+$f = substr($f, 0, 10);
+
+# Randomly lower/uppercase characters
+$f =~ s/(\w)/a($1)/ge;
+
+# Replace at least three characters with digits, but not
+# in the beginning of the string.
+while ($c < 2)
+{
+  $s = rand(length($f)-1)+1;
+  $f = substr($f,0,$s) . b() . substr($f,$s,length($f));
+  $c++;
+}
+
+# Print it out
+print "$f\n";
+
+# Utilities to fiddle character case and generate non-letters
+sub a { rand(100) < 20 ? "\u$_[0]" : "\l$_[0]" }
+sub b { @o=("_","1","2","3","4","5","6","7","8","9","0"); return $o[rand($#o)]; }
