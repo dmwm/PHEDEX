@@ -63,11 +63,11 @@ case $ora_writer in */*@* ) ;; * )
   echo "$dbparam:$section/Writer: database contact not defined" 1>&2; exit 1;;
 esac
 
-echo $home/Schema/OracleNewRole.sh "$ora_master" "$role_name" "$role_pass"
+$home/Schema/OracleNewRole.sh "$ora_master" "$role_name" "$role_pass"
 echo "insert into t_authorisation values" \
      "(`date +%s`,'$role_name','$role_email','$role_dn');" |
-  cat # sqlplus -S "$ora_master"
-echo $home/Schema/OraclePrivs.sh "$ora_master" \
+  sqlplus -S "$ora_master"
+$home/Schema/OraclePrivs.sh "$ora_master" \
   "$(echo $ora_reader | sed 's|/.*||')" \
   "$(echo $ora_writer | sed 's|/.*||')"
 (echo "AuthDBPassword     $(echo $ora_writer | sed 's|.*/||; s|@.*||')"
