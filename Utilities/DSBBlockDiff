@@ -95,7 +95,8 @@ foreach my $item (@$datasets)
 	{ $tmdbonly{$guid} = 1; }
     }
 
-    print " inrefdb=@{[scalar keys %dbsfiles]}",
+    print " status=$item->{DSINFO}{CollectionStatus}",
+          " inrefdb=@{[scalar keys %dbsfiles]}",
           " intmdb=@{[scalar keys %tmdbfiles]}",
 	  " common=@{[scalar keys %common]}",
 	  " refdbonly=@{[scalar keys %dbsonly]}",
