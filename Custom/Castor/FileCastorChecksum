@@ -147,6 +147,7 @@ sub fileComplete
     my ($self, $file) = @_;
 
     # Dig out the report.
+    my $pfn = $file->{PFN};
     my $guid = $file->{GUID};
     my $success = $file->{FAILURE} ? 1 : 0;
     my $checksum = $file->{CHECKSUM};
@@ -161,7 +162,7 @@ sub fileComplete
     {
 	# Check preceding failures
 	$op = "calculate checksum";
-	die $file->{FAILURE} if $file->{FAILURE};
+	die "$file->{FAILURE}\n" if $file->{FAILURE};
 
 	# Nuke working directory
 	$op = "remove working directory";
@@ -169,11 +170,11 @@ sub fileComplete
 
 	# Check file size matches
 	$op = "match file size";
-	die "$oldsize != $newsize" if $oldsize != $newsize;
+	die "$oldsize != $newsize\n" if $oldsize != $newsize;
 
 	# Ok, it's worth talking to database.  Get connected.
 	$op = "connect to the database";
-	$dbh = &connectToDatabase ($self, 0) or die "failed to connect";
+	$dbh = &connectToDatabase ($self, 0) or die "failed to connect\n";
 
 	# Check for an existing checksum; if there is one, make sure
 	# it's the same we got this time.  Add if there isn't one.
@@ -181,7 +182,7 @@ sub fileComplete
 	my $oldsum = &dbexec($dbh, qq{
 		select checksum from t_file where guid = :guid},
 		":guid" => $guid)->fetchrow_array();
-	die "$oldsum != $checksum" if defined $oldsum && $oldsum != -1 && $oldsum ne $checksum;
+	die "$oldsum != $checksum\n" if defined $oldsum && $oldsum != -1 && $oldsum ne $checksum;
 
 	$op = "update checksum";
 	&dbexec($dbh, qq{
@@ -191,7 +192,8 @@ sub fileComplete
   	$op = "commit";
 	$dbh->commit();
     };
-    do { &alert ("failed to $op for $guid: $@");
+    do { $@ =~ s/\n+$//s;
+	 &alert ("failed to $op for $guid ($pfn): $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
 
     # Disconnect from database
@@ -255,7 +257,7 @@ sub idle
 
     eval
     {
-	$dbh = &connectToDatabase ($self) or die "failed to connect";
+	$dbh = &connectToDatabase ($self) or die "failed to connect\n";
         # FIXME: Pick up and process messages to me
 
 	# Purge memory of bad files that have cooled long enough.
