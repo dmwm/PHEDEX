@@ -95,6 +95,7 @@ foreach my $item (@$datasets)
 	{ $tmdbonly{$guid} = 1; }
     }
 
+    # Print out the statistics
     print " status=$item->{DSINFO}{CollectionStatus}",
           " inrefdb=@{[scalar keys %dbsfiles]}",
           " intmdb=@{[scalar keys %tmdbfiles]}",
@@ -102,6 +103,11 @@ foreach my $item (@$datasets)
 	  " refdbonly=@{[scalar keys %dbsonly]}",
 	  " tmdbonly=@{[scalar keys %tmdbonly]}",
 	  "\n";
+
+    # Clear out the item so we don't accumulate lots of memory
+    $item->{FILES} = [];
+    $item->{BLOCKS} = {};
+    $item->{RUNS} = {};
 }
 
 $dbh->disconnect();
