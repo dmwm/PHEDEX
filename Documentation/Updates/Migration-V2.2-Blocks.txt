@@ -14,10 +14,10 @@ source ../tools/perlenv.sh
  done) >& /dev/null </dev/null &
 
 # When finished, process accurate blocks
-grep " status=6 .* refdbonly=0 tmdbonly=0" < blockdiff_*.txt |
+grep ' status=6 .* refdbonly=0 tmdbonly=0$' < blockdiff_*.txt |
   while read block rest; do
     echo "update t_block set isopen = 0 where name = '$block';"
   done > blockdiff.sql
 
 # Execute it
-sqlplus cms_transfermgmt/<password>@cms < blockdiff.sql
+sqlplus cms_transfermgmt@cms @blockdiff.sql
