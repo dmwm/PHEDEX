@@ -1,8 +1,64 @@
 package UtilsDB; use strict; use warnings; use base 'Exporter';
-our @EXPORT = qw(connectToDatabase disconnectFromDatabase dbsql dbexec dbprep dbbindexec);
+our @EXPORT = qw(parseDatabaseInfo connectToDatabase disconnectFromDatabase
+                 dbsql dbexec dbprep dbbindexec);
 use UtilsLogging;
 use UtilsTiming;
 use DBI;
+
+# Parse database connection arguments.
+sub parseDatabaseInfo
+{
+    my ($self) = @_;
+
+    $self->{DBH_LIFE} = 86400;
+    $self->{DBH_AGE} = 0;
+    if ($self->{DBCONFIG} =~ /(.*):(.*)/)
+    {
+	$self->{DBCONFIG} = $1;
+	$self->{DBSECTION} = $2;
+    }
+
+    my $insection = $self->{DBSECTION} ? 0 : 1;
+    open (DBCONF, "< $self->{DBCONFIG}")
+	or die "$self->{DBCONFIG}: $!\n";
+
+    while (<DBCONF>)
+    {
+	chomp; s/#.*//; s/^\s+//; s/\s+$//; s/\s+/ /g; next if /^$/;
+	if (/^Section (\S+)$/) {
+	    $insection = ($1 eq $self->{DBSECTION});
+	} elsif (/^Interface (\S+)$/) {
+	    $self->{DBH_DBITYPE} = $1 if $insection;
+	} elsif (/^Database (\S+)$/) {
+	    $self->{DBH_DBNAME} = $1 if $insection;
+	} elsif (/^AuthDBUsername (\S+)$/) {
+	    $self->{DBH_DBUSER} = $1 if $insection;
+	} elsif (/^AuthDBPassword (\S+)$/) {
+	    $self->{DBH_DBPASS} = $1 if $insection;
+	} elsif (/^AuthRole (\S+)$/) {
+	    $self->{DBH_DBROLE} = $1 if $insection;
+	} elsif (/^AuthRolePassword (\S+)$/) {
+	    $self->{DBH_DBROLE_PASS} = $1 if $insection;
+	} elsif (/^ConnectionLife (\d+)$/) {
+	    $self->{DBH_LIFE} = $1 if $insection;
+	    $self->{DBH_CACHE} = 0 if $insection && $1 == 0;
+	} elsif (/^LogConnection (on|off)$/) {
+	    $self->{DBH_LOGGING} = ($1 eq 'on') if $insection;
+	} elsif (/^LogSQL (on|off)$/) {
+	    $ENV{PHEDEX_LOG_SQL} = ($1 eq 'on') if $insection;
+	} else {
+	    die "$self->{DBCONFIG}: $.: Unrecognised line\n";
+	}
+    }
+    close (DBCONF);
+
+    die "$self->{DBCONFIG}: database parameters not found\n"
+	if (! $self->{DBH_DBITYPE} || ! $self->{DBH_DBNAME}
+	    || ! $self->{DBH_DBUSER} || ! $self->{DBH_DBPASS});
+
+    die "$self->{DBCONFIG}: role specified without username or password\n"
+	if ($self->{DBH_DBROLE} && ! $self->{DBH_DBROLE_PASS});
+}
 
 # Create a connection to the transfer database.  Updates the agent's
 # last contact, inserting the agent entries if necessary.  Takes one
@@ -16,56 +72,7 @@ sub connectToDatabase
     my ($self, $identify) = @_;
 
     # If we have database configuration file, read it
-    if ($self->{DBCONFIG} && ! $self->{DBH_DBNAME})
-    {
-	$self->{DBH_LIFE} = 86400;
-	$self->{DBH_AGE} = 0;
-	if ($self->{DBCONFIG} =~ /(.*):(.*)/)
-	{
-	    $self->{DBCONFIG} = $1;
-	    $self->{DBSECTION} = $2;
-	}
-
-	my $insection = $self->{DBSECTION} ? 0 : 1;
-	open (DBCONF, "< $self->{DBCONFIG}")
-	    or die "$self->{DBCONFIG}: $!\n";
-	while (<DBCONF>)
-	{
-	    chomp; s/#.*//; s/^\s+//; s/\s+$//; s/\s+/ /g; next if /^$/;
-	    if (/^Section (\S+)$/) {
-		$insection = ($1 eq $self->{DBSECTION});
-	    } elsif (/^Interface (\S+)$/) {
-		$self->{DBH_DBITYPE} = $1 if $insection;
-	    } elsif (/^Database (\S+)$/) {
-		$self->{DBH_DBNAME} = $1 if $insection;
-	    } elsif (/^AuthDBUsername (\S+)$/) {
-		$self->{DBH_DBUSER} = $1 if $insection;
-	    } elsif (/^AuthDBPassword (\S+)$/) {
-		$self->{DBH_DBPASS} = $1 if $insection;
-	    } elsif (/^AuthRole (\S+)$/) {
-		$self->{DBH_DBROLE} = $1 if $insection;
-	    } elsif (/^AuthRolePassword (\S+)$/) {
-		$self->{DBH_DBROLE_PASS} = $1 if $insection;
-	    } elsif (/^ConnectionLife (\d+)$/) {
-		$self->{DBH_LIFE} = $1 if $insection;
-		$self->{DBH_CACHE} = 0 if $insection && $1 == 0;
-	    } elsif (/^LogConnection (on|off)$/) {
-		$self->{DBH_LOGGING} = ($1 eq 'on') if $insection;
-	    } elsif (/^LogSQL (on|off)$/) {
-		$ENV{PHEDEX_LOG_SQL} = ($1 eq 'on') if $insection;
-	    } else {
-		die "$self->{DBCONFIG}: $.: Unrecognised line\n";
-	    }
-	}
-	close (DBCONF);
-
-	die "$self->{DBCONFIG}: database parameters not found\n"
-	    if (! $self->{DBH_DBITYPE} || ! $self->{DBH_DBNAME}
-		|| ! $self->{DBH_DBUSER} || ! $self->{DBH_DBPASS});
-
-	die "$self->{DBCONFIG}: role specified without username or password\n"
-	    if ($self->{DBH_DBROLE} && ! $self->{DBH_DBROLE_PASS});
-    }
+    &parseDatabaseInfo ($self) if ($self->{DBCONFIG} && ! $self->{DBH_DBNAME});
 
     # Use cached connection if it's still alive and the handle
     # isn't too old, otherwise create new one.
