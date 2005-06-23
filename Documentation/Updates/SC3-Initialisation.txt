@@ -128,3 +128,47 @@ chmod o-rwx /data/SC3Nodes/PHEDEX/Schema/DBParam
 
 -- Mark all blocks closed in sqlplus
 update t_block set isopen = 0;
+
+*** 2005-06-23
+-- Recreate t_authorisation with new sizes
+cd Schema
+perl -p -i -e 's/([ ])CMS_TRANSFERMGMT_INDX01/${1}CMS_TRANSFERMGMT_SC_INDX01/g' OracleCoreAuth.sql
+sqlplus cms_transfermgmt_sc/<password>@cmssg @OracleCoreAuth.sql
+perl -p -i -e 's/([ ])CMS_TRANSFERMGMT_SC_INDX01/${1}CMS_TRANSFERMGMT_INDX01/g' OracleCoreAuth.sql
+cd ..
+
+-- Copy nodes from production database
+copy from cms_transfermgmt_reader/<password>@cms insert t_node using
+  select * from t_node where name not like '%CERN%';
+copy from cms_transfermgmt_reader/<password>@cms insert t_node_neighbour using
+  select * from t_node_neighbour where node != 'T1_CERN_MSS' and neighbour != 'T1_CERN_MSS';
+copy from cms_transfermgmt_reader/<password>@cms insert t_node_import using
+  select * from t_node_import where node not like '%CERN%';
+copy from cms_transfermgmt_reader/<password>@cms insert t_node_export using
+  select * from t_node_export where node not like '%CERN%';
+
+-- Generate roles
+cd /data/SC3Nodes/Keys
+initrole="../PHEDEX/Schema/OracleInitRole.sh ../PHEDEX/Schema/DBParam SC3 $PWD"
+$initrole "alessandra.fanfani@bo.infn.it"            bologna
+$initrole "anastasios.papageorgiou@imperial.ac.uk"   imperial
+$initrole "bbockelm@math.unl.edu"                    nebraska
+$initrole "chia-ming.kuo@cern.ch"                    ascc
+$initrole "chia-ming.kuo@cern.ch"                    ncu
+$initrole "daniele.bonacorsi@bo.infn.it"             cnaf
+$initrole "federico.calzolari@sns.it"                pisa
+$initrole "francesco.safaitehrani@roma1.infn.it"     rome
+$initrole "giacinto.donvito@ba.infn.it"              bari
+$initrole "igor.semeniouk@poly.in2p3.fr"             in2p3
+$initrole "jens.rehn@cern.ch"                        unika
+$initrole "jose.hernandez@ciemat.es"                 pic
+$initrole "jose.hernandez@ciemat.es"                 ciemat
+$initrole "jose.hernandez@ciemat.es"                 lcgprod
+$initrole "klaus.rabbertz@cern.ch"                   fzk
+$initrole "lassi.tuura@cern.ch"                      cern
+$initrole "letts@physics.ucsd.edu"                   ucsd
+$initrole "massimo.biasotto@lnl.infn.it"             legnaro
+$initrole "michael.ernst@desy.de"                    desy
+$initrole "tim.barrass@bris.ac.uk"                   ral
+$initrole "yujun@fnal.gov"                           fnal
+
