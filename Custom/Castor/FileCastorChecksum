@@ -260,6 +260,13 @@ sub idle
 	$dbh = &connectToDatabase ($self) or die "failed to connect\n";
         # FIXME: Pick up and process messages to me
 
+	# If there are no pending jobs, remove excess work directories
+	if (! @{$self->{JOBS}})
+	{
+	    my $workdir = $self->{WORKDIR};
+	    &rmtree ([ <$workdir/*> ]);
+	}
+
 	# Purge memory of bad files that have cooled long enough.
 	my $pending = $self->{PENDING};
 	map { delete $pending->{$_} }
