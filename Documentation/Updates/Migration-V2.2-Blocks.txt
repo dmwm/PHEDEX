@@ -1,0 +1,17 @@
+# Set up environment
+cd /data/V2Nodes/PHEDEX
+source ../tools/poolenv.sh
+source ../tools/oraenv.sh
+source ../tools/perlenv.sh
+
+# Run the diff
+./Utilities/DSBBlockDiff -db Schema/DBParam:Production/CERN >& blockdiff.txt </dev/null &
+
+# When finished, process accurate blocks
+grep "status=6.*refdbonly=0 tmdbonly=0" < blockdiff.txt |
+  while read block rest; do
+    echo "update t_block set isopen = 0 where name = '$block';"
+  done > blockdiff.sql
+
+# Execute it
+sqlplus cms_transfermgmt/<password>@cms < blockdiff.sql
