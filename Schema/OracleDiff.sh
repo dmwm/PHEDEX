@@ -26,9 +26,9 @@ scan_objects() {
 
 table_count() {
   (echo "set lines 1000;"; echo "set pages 0;";
-   echo "select '$1', count(*) from $1 group by '$1';") |
+   echo "select 'COUNT=' || count(*) from $1;") |
   sqlplus -S "$connect" |
-  awk '/^X*(T|SEQ|IX|FK|PK|UQ)_[A-Z0-9_]+/ {print $2} {}'
+  awk -F= '/^COUNT/ {print $2} {}'
 }
 
 
