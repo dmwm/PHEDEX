@@ -36,6 +36,7 @@ for role in \
   $((echo "select granted_role from user_role_privs;") |
     sqlplus -S "$connect" | awk '/SITE_/ { print $1 } {}'); do
   echo; echo; echo "-- role $role"
+  echo "set feedback off;"
   echo "grant $role to $writer;"
 
   for table in \
