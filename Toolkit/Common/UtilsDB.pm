@@ -97,11 +97,16 @@ sub connectToDatabase
 			       PrintError => 0 });
         return undef if ! $dbh;
 
-	# Acquire role if one was specified
-	&dbexec ($dbh,
-		 "set role $self->{DBH_DBROLE} identified by"
-		 . " $self->{DBH_DBROLE_PASS}")
-	    if $self->{DBH_DBROLE};
+	# Acquire role if one was specified.  Do not use &dbexec() here
+	# as it will expose the password used in the logs.
+	if ($self->{DBH_DBROLE})
+	{
+	    eval { $dbh->do ("set role $self->{DBH_DBROLE} identified by"
+		             . " $self->{DBH_DBROLE_PASS}") };
+	    die "failed to authenticate to $self->{DBH_DBNAME} as"
+	        . " $self->{DBH_DBUSER} using role $self->{DBH_DBROLE}\n"
+		if $@;
+	}
 
 	# Cache it.
 	$self->{DBH_AGE} = time();
