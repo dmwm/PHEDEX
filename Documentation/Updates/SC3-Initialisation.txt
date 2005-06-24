@@ -196,3 +196,68 @@ cd /data/SC3Nodes/Keys
      echo; cat $f) | /usr/sbin/sendmail -t -f lassi.tuura@cern.ch
   done
 
+-- Load information about the zips
+source /data/SC3Nodes/tools/poolenv.sh
+source /data/SC3Nodes/tools/oraenv.sh
+source /data/SC3Nodes/tools/perlenv.sh
+cd /data/Inject/Zips/drop
+rsync -avuz /afs/cern.ch/user/c/cmsprod/w6/Zip/drop/ ./
+
+# Uncompress
+(for x in $(ls | grep -v .txt | sed 's/_.*//' | sort | uniq); do
+   for f in $x*/*.gz; do
+     [ -f ${f:r} -a ! ${f:r} -ot $f ] && continue
+     gzip -dc < $f > ${f:r} && touch -r $f ${f:r}
+   done &
+ done; wait)
+
+# Select files we need (the zips) and fix paths
+(for x in $(ls | grep -v .txt | sed 's/_.*//' | sort | uniq); do
+   for f in $x*/XMLCatFragment.*.txt; do
+     [ -f $f.xfer -a ! $f.xfer -ot $f ] && continue
+     echo "processing $f" $(stat -c '%s' $f)
+     /data/SC3Nodes/PHEDEX/Utilities/FCcopy -u XML:$f -d XML:$f.xfer.new \
+        -m '/castor/cern.ch/cms/%' &&
+        perl -p -i -e 's|/castor|rfio:/castor|g' $f.xfer.new &&
+        mv $f.xfer.new $f.xfer &&
+        touch -r $f $f.xfer
+   done &
+ done; wait) >>& zip-xml.txt </dev/null
+
+# Publish to TMDB
+(for x in $(ls | grep -v .txt | sed 's/_.*//' | sort | uniq); do
+   for f in $x*/XMLCatFragment.*.txt.xfer; do
+     [ -f $f.inj -a ! $f.inj -ot $f ] && continue
+     echo "processing $f" $(stat -c '%s' $f)
+     /data/SC3Nodes/PHEDEX/Toolkit/Request/TMDBInject \
+       -catalogue $f -cksums ${f:r:s/XMLCatFragment/CheckSum} -nodes T1_CERN_MSS \
+       -db /data/SC3Nodes/PHEDEX/Schema/DBParam:SC3/Admin -verbose &&
+       touch -r $f $f.inj
+   done &
+ done; wait) >>& zip-inject.txt </dev/null
+
+# Publish to LFC
+(for x in $(ls | grep -v .txt | sed 's/_.*//' | sort | uniq); do
+   for f in $x*/XMLCatFragment.*.txt.xfer; do
+     [ -f $f.pub -a ! $f.pub -ot $f ] && continue
+     echo "processing $f" $(stat -c '%s' $f)
+     POOL_XMLBACKUP=0 POOL_OUTMSG_LEVEL=E \
+     FCpublish -m 50000 \
+       -d lfccatalog_lfc://lfc-cms-test.cern.ch/grid/cms/sc3-guid-index \
+       -u file:$f
+     if [ $? != 0 ]; then echo "*** $f failed with exit $?";
+     else touch -r $f $f.pub
+   done &
+ done; wait) >>& zip-pub.txt </dev/null
+
+# Delete previous set of test files
+sqlplus cms_transfermgmt_sc@cms_phedex
+  delete from t_file_attributes where guid in
+    (select guid from t_file where lfn not like 'Z%');
+  delete from t_replica_state where guid in
+    (select guid from t_file where lfn not like 'Z%');
+  delete from t_file where lfn not like 'Z%';
+  delete from t_block where name in
+    (select name from t_block left join t_file on inblock = name where inblock is null);
+  update t_block set (files, bytes) =
+    (select count(guid), sum(filesize) from t_file where inblock = name);
