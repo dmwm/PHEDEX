@@ -83,49 +83,30 @@ agents so that they can access the TMDB.
 
 ** Admin's process for registering a role
 
-Receive an email containing the information in 1. above. Assuming then
-that
+Receive an email containing the information in 1. above.
+Then, on lxgate10, to enter the new role into database.
+The instructions below account for doing this for all
+database instances:
 
-   # PHEDEX_SITE=<the site name>
-   # PHEDEX_EMAIL=<the user's email>
-   # PHEDEX_DN=<user cert DN string>
-   # PHEDEX_PUBLIC_KEY_FILE=<path to user's public key file>
-   # PHEDEX_MASTER=<master account name>
-   # PHEDEX_MASTER_PASS=<master account password>
-   # PHEDEX_TMDB=<the TMDB tnsname, e.g. devdb>
-   # PHEDEX_READER=<reader account>
-   # PHEDEX_WRITER=<writer account>
-   # PHEDEX_WRITER_PASS=<writer account apssword>
+   cd /data/V2Nodes/PHEDEX
+   source ../tools/oraenv.sh
+   source ../tools/perlenv.sh
+   cp $USERCERT ../Keys/$EMAIL
+   Schema/OracleInitRole.sh Schema/DBParam Production ../Keys "$EMAIL" $SITE
+   /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < ../Keys/Output/site_${SITE}:*
 
-then, on lxgate10, to enter the new role into devdb
+   cd /data/DevNodes/Keys
+   cp $USERCERT ../Keys/$EMAIL
+   Schema/OracleInitRole.sh Schema/DBParam Dev ../Keys "$EMAIL" $SITE
+   /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < ../Keys/Output/site_${SITE}:*
 
-   cd /data/V2Nodes/Keys
-   cp $PHEDEX_PUBLIC_KEY_FILE ./$PHEDEX_EMAIL
-  
-   ROLE_NAME=site_$PHEDEX_SITE
-   ROLE_PASS=`PHEDEX/Utilities/WordMunger`
+   cd /data/SC3Nodes/Keys
+   cp $USERCERT ../Keys/$EMAIL
+   Schema/OracleInitRole.sh Schema/DBParam SC3 ../Keys "$EMAIL" $SITE
+   /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < ../Keys/Output/site_${SITE}:*
 
-   OracleNewRole.sh $PHEDEX_MASTER/$PHEDEX_MASTER_PASS@$PHEDEX_TMDB \
-       $ROLE_NAME      \
-       $ROLE_PASS
-   echo "insert into t_authorisation values" \
-   	"(`date +%s`,'$ROLE_NAME','$PHEDEX_EMAIL','$PHEDEX_DN');" \
-       | sqlplus -S $PHEDEX_MASTER/$PHEDEX_MASTER_PASS@$PHEDEX_TMDB
-   OraclePrivs.sh $PHEDEX_MASTER/$PHEDEX_MASTER_PASS@$PHEDEX_TMDB \
-       $PHEDEX_READER  \
-       $PHEDEX_WRITER
+A rough example of the above commands:
 
-   cat > "Details/$ROLE_NAME-$PHEDEX_TMDB" << "EOF"
-   AuthDBPassword	$PHEDEX_WRITER_PASS
-   AuthRole		$ROLE_NAME
-   AuthRolePassword	$ROLE_PASS
-   EOF       
-
-   openssl smime -encrypt 
-	   -in "Details/$ROLE_NAME-$PHEDEX_TMDB"
-	   -out "Details/$ROLE_NAME-$PHEDEX_TMDB.$PHEDEX_EMAIL" 
-	   /data/V2Nodes/Keys/$PHEDEX_EMAIL
-
-You then need to email the encrypted file to the
-user who deals with it as described above.
-
+   scp lat@lxplus:~/.globus/usercert.pem /data/V2Nodes/Keys/lassi.tuura@cern.ch
+   Schema/OracleInitRole.sh Schema/DBParam SC3 ../Keys "lassi.tuura@cern.ch" cern
+   /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < ../Keys/Output/site_cern:*
