@@ -190,12 +190,14 @@ foreach my $f (@$catalogue)
 	{
 	    # Block exists, lock it
 	    &dbbindexec ($blstmt, ":name" => $block);
+	    $blstmt->finish();
 
 	    # Ensure the block is open
 	    # FIXME: Avoid error if not actually adding files?
 	    # FIXME: Activate block if not open?
 	    &dbbindexec ($bqstmt, ":name" => $block);
 	    my ($isopen) = $bqstmt->fetchrow();
+	    $bqstmt->finish();
 	    die "block $block not open, cannot add files\n" if ! $isopen;
 	}
 	elsif ($@)
@@ -224,7 +226,7 @@ foreach my $f (@$catalogue)
     # inserted the file.
     if (! $@)
     {
-	&dbbindexec ($bustmt, ":name" => $block, "filesize" => $f->{FILESIZE});
+	&dbbindexec ($bustmt, ":name" => $block, ":filesize" => $f->{FILESIZE});
 
         my %meta = (map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
         foreach my $m (sort keys %meta)
