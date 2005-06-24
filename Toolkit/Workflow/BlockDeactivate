@@ -118,6 +118,7 @@ sub idle
 			  br.isactive
 		   from t_block_replica br
 		   where br.name = b.name)
+	    order by b.files desc
 	    for update of b.name},
 	    ":limit" => &mytimeofday () - $self->{HOLDOFF});
         if (my ($name) = $qblocks->fetchrow())
