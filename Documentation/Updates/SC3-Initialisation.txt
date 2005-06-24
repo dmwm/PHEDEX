@@ -108,7 +108,6 @@ PHEDEX/Deployment/InstallPerlModules $PWD/tools
 
 # scp Schema/DBParam phedex@cmsgate.cern.ch:/data/SC3Nodes/PHEDEX/Schema
 : source ./tools/poolenv.sh
-/data/SC3Nodes
 : source ./tools/oraenv.sh 
 : source ./tools/perlenv.sh
 PHEDEX/Deployment/TestInstallation -db PHEDEX/Schema/DBParam:SC3/CERN \
@@ -149,26 +148,51 @@ copy from cms_transfermgmt_reader/<password>@cms insert t_node_export using
 
 -- Generate roles
 cd /data/SC3Nodes/Keys
-initrole="../PHEDEX/Schema/OracleInitRole.sh ../PHEDEX/Schema/DBParam SC3 $PWD"
-$initrole "alessandra.fanfani@bo.infn.it"            bologna
-$initrole "anastasios.papageorgiou@imperial.ac.uk"   imperial
-$initrole "bbockelm@math.unl.edu"                    nebraska
-$initrole "chia-ming.kuo@cern.ch"                    ascc
-$initrole "chia-ming.kuo@cern.ch"                    ncu
-$initrole "daniele.bonacorsi@bo.infn.it"             cnaf
-$initrole "federico.calzolari@sns.it"                pisa
-$initrole "francesco.safaitehrani@roma1.infn.it"     rome
-$initrole "giacinto.donvito@ba.infn.it"              bari
-$initrole "igor.semeniouk@poly.in2p3.fr"             in2p3
-$initrole "jens.rehn@cern.ch"                        unika
-$initrole "jose.hernandez@ciemat.es"                 pic
-$initrole "jose.hernandez@ciemat.es"                 ciemat
-$initrole "jose.hernandez@ciemat.es"                 lcgprod
-$initrole "klaus.rabbertz@cern.ch"                   fzk
-$initrole "lassi.tuura@cern.ch"                      cern
-$initrole "letts@physics.ucsd.edu"                   ucsd
-$initrole "massimo.biasotto@lnl.infn.it"             legnaro
-$initrole "michael.ernst@desy.de"                    desy
-$initrole "tim.barrass@bris.ac.uk"                   ral
-$initrole "yujun@fnal.gov"                           fnal
+(initrole="../PHEDEX/Schema/OracleInitRole.sh ../PHEDEX/Schema/DBParam SC3 $PWD"
+ $initrole "alessandra.fanfani@bo.infn.it"            bologna
+ $initrole "anastasios.papageorgiou@imperial.ac.uk"   imperial
+ $initrole "bbockelm@math.unl.edu"                    nebraska
+ $initrole "chia-ming.kuo@cern.ch"                    ascc
+ $initrole "chia-ming.kuo@cern.ch"                    ncu
+ $initrole "daniele.bonacorsi@bo.infn.it"             cnaf
+ $initrole "federico.calzolari@sns.it"                pisa
+ $initrole "francesco.safaitehrani@roma1.infn.it"     rome
+ $initrole "giacinto.donvito@ba.infn.it"              bari
+ $initrole "igor.semeniouk@poly.in2p3.fr"             in2p3
+ $initrole "jens.rehn@cern.ch"                        karlsruhe
+ $initrole "jose.hernandez@ciemat.es"                 pic
+ $initrole "jose.hernandez@ciemat.es"                 ciemat
+ $initrole "jose.hernandez@ciemat.es"                 lcgprod
+ $initrole "jens.rehn@cern.ch"                        fzk
+ $initrole "lassi.tuura@cern.ch"                      cern
+ $initrole "letts@physics.ucsd.edu"                   ucsd
+ $initrole "massimo.biasotto@lnl.infn.it"             legnaro
+ $initrole "michael.ernst@desy.de"                    desy
+ $initrole "tim.barrass@bris.ac.uk"                   ral
+ $initrole "yujun@fnal.gov"                           fnal)
+
+*** 2005-06-23
+--- Load files into LFC
+: cd /data/SC3Nodes/PHEDEX 
+: eval $(Utilities/Master -config Custom/CERN/Config.SC3 environ)
+: cd /data/Inject/Mirror 
+: (for dir in PTDR DC04 Validation; do
+   for f in $dir/*_*/*/POOL_Catalogue_PCP.*.xml.xfer; do
+     echo "processing $f" $(stat -c '%s' $f)
+     POOL_XMLBACKUP=0 POOL_OUTMSG_LEVEL=E \
+     FCpublish -m 50000 \
+       -d lfccatalog_lfc://lfc-cms-test.cern.ch/grid/cms/sc3-guid-index \
+       -u file:$f || echo "*** $f failed with exit $?"
+   done &
+ done; wait) >>& lfc-pub.txt </dev/null
+
+-- Send out the role e-mails
+: cd /data/SC3Nodes/Keys/Output
+: for f in *:*; do                                                                                                                                                  
+    site=$(echo $f | sed 's/:.*//; s/^site_//' | tr '[:lower:]' '[:upper:]')
+    email=$(echo $f | sed 's/[^:]*://')
+    (echo "Subject: PhEDEx authentication role for SC3/$site"
+     echo "To: $email"; echo "Cc: lassi.tuura@cern.ch, tim.barrass@physics.org"
+     echo; cat $f) | /usr/sbin/sendmail -t -f lassi.tuura@cern.ch
+  done
 
