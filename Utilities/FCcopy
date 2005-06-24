@@ -84,6 +84,7 @@ $dest->init ($args{DEST_CATALOGUE});
 $args{MATCH} =~ s/([^a-zA-Z0-9_%])/\\$1/g;
 $args{MATCH} =~ s/_/./g;
 $args{MATCH} =~ s/%/.*/g;
+$args{MATCH} = "^$args{MATCH}\$";
 while (1)
 {
     # Fetch the next lot of files
