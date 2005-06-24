@@ -241,17 +241,19 @@ rsync -avuz /afs/cern.ch/user/c/cmsprod/w6/Zip/drop/ ./
    for f in $x*/XMLCatFragment.*.txt.xfer; do
      [ -f $f.pub -a ! $f.pub -ot $f ] && continue
      echo "processing $f" $(stat -c '%s' $f)
+     # lfccatalog_lfc://lfc-cms-test.cern.ch/grid/cms/sc3-guid-index
+     # mysqlcatalog_mysql://phedex:phedex@cmslcgco04.cern.ch/phedexcat
      POOL_XMLBACKUP=0 POOL_OUTMSG_LEVEL=E \
      FCpublish -m 50000 \
-       -d lfccatalog_lfc://lfc-cms-test.cern.ch/grid/cms/sc3-guid-index \
+       -d mysqlcatalog_mysql://phedex:phedex@cmslcgco04.cern.ch/phedexcat \
        -u file:$f
      if [ $? != 0 ]; then echo "*** $f failed with exit $?";
-     else touch -r $f $f.pub
+     else touch -r $f $f.pub; fi
    done &
  done; wait) >>& zip-pub.txt </dev/null
 
 # Delete previous set of test files
-sqlplus cms_transfermgmt_sc@cms_phedex
+sqlplus $(Schema/OracleConnectId -db Schema/DBParam:SC3/Admin)
   delete from t_file_attributes where guid in
     (select guid from t_file where lfn not like 'Z%');
   delete from t_replica_state where guid in
@@ -261,3 +263,16 @@ sqlplus cms_transfermgmt_sc@cms_phedex
     (select name from t_block left join t_file on inblock = name where inblock is null);
   update t_block set (files, bytes) =
     (select count(guid), sum(filesize) from t_file where inblock = name);
+
+# Default most nodes to transfer with srm protocol
+sqlplus $(Schema/OracleConnectId -db Schema/DBParam:SC3/Admin)
+  delete from t_node_import where node like 'T1_%' and protocol = 'gsiftp';
+  insert into t_node_import
+    (select name, 'srm', 0 from t_node
+     left join t_node_import on name = node
+     where node is null and name like '%_Buffer');
+
+# Subscribe all T1 MSS nodes to all files
+insert into t_subscription
+  (select b.owner, b.dataset, n.name from t_block b, t_node n
+   where n.name like 'T1%MSS' and n.name not like '%CERN%');
