@@ -78,7 +78,8 @@ $home/Schema/OraclePrivs.sh "$ora_master" \
   > $keydir/Details/$role_name_lc
 
 mkdir -p $keydir/Output
-(echo "Hello $role_email ($role_dn),"; echo;
+(echo "Hello $role_email";
+ echo "($role_dn),"; echo;
  echo "Below is an authentication data for your PhEDEx database connection";
  echo "for database $section/$(echo $sitename | tr '[:lower:]' '[:upper:]')" \
       "using authentication role $role_name.";
@@ -101,4 +102,4 @@ mkdir -p $keydir/Output
  echo "Yours truly,";
  echo "  PhEDEx administrators";
  echo "  (cms-phedex-developers@cern.ch)") \
-  > "$keydir/Output/$role_email"
+  > "$keydir/Output/${role_name_lc}#${role_email}"
