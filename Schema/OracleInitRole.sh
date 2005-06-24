@@ -44,10 +44,12 @@ esac
 
 home=$(dirname $0)/..
 
+sitename_uc="$(echo $sitename | tr '[:lower:]' '[:upper:]')"
+
 role_dn="$(grid-cert-info -subject -file $keydir/$usercert)"
 role_email="$usercert"
 role_passwd="$($home/Utilities/WordMunger)"
-role_name="SITE_$(echo $sitename | tr '[:lower:]' '[:upper:]')"
+role_name="SITE_$sitename_uc"
 role_name_lc="$(echo $role_name | tr '[:upper:]' '[:lower:]')"
 
 ora_master="$($home/Schema/OracleConnectId -db $dbparam:$section/Admin)"
@@ -78,11 +80,14 @@ $home/Schema/OraclePrivs.sh "$ora_master" \
   > $keydir/Details/$role_name_lc
 
 mkdir -p $keydir/Output
-(echo "Hello $role_email";
+(echo "Subject: PhEDEx authentication role for $section/$sitename_uc";
+ echo "To: $role_email";
+ echo "Cc: lassi.tuura@cern.ch, tim.barrass@physics.org";
+ echo;
+ echo "Hello $role_email";
  echo "($role_dn),"; echo;
  echo "Below is an authentication data for your PhEDEx database connection";
- echo "for database $section/$(echo $sitename | tr '[:lower:]' '[:upper:]')" \
-      "using authentication role $role_name.";
+ echo "for database $section/$sitename_uc using authentication role $role_name.";
  echo;
  echo "Please store the information in DBParam file, using Schema/DBParam.Site";
  echo "as your example.  Please keep this information secure: do not store it";
