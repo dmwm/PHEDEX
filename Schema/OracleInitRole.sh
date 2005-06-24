@@ -102,4 +102,4 @@ mkdir -p $keydir/Output
  echo "Yours truly,";
  echo "  PhEDEx administrators";
  echo "  (cms-phedex-developers@cern.ch)") \
-  > "$keydir/Output/${role_name_lc}#${role_email}"
+  > "$keydir/Output/${role_name_lc}:${role_email}"
