@@ -1,0 +1,53 @@
+#!/bin/sh
+
+##H This script installs "srmcp" command required by the SRM backend
+##H of PhEDEx download agent FileDownload.
+##H
+##H Usage: InstallSRMCP DESTINATION
+##H
+##H DESTINATION is the directory under which you want to install the
+##H perl modules.  Typically this is the same destination you give to
+##H the other "Install" deployment tools.
+
+# Check command line arguments
+if [ $# -ne 1 ]; then
+  grep '^##H' $0 | sed 's/^##H\( \|\)//'
+  exit 1
+fi
+
+destdir="$1"
+[ -d "$destdir" ] || { echo "$destdir: not a directory" 1>&2; exit 1; }
+
+# Download the archive
+echo "Downloading and installing srmcp"
+(set -e
+ cd "$destdir"
+ wget -q http://home.fnal.gov/~timur/srmcp_v1_17_NULL.tar
+ tar xf srmcp_v1_17_NULL.tar
+ rm srmcp_v1_17_NULL.tar) || exit $?
+
+if [ ! -f $HOME/.srmconfig/config.xml ]; then
+  echo "Generating a srmcp configuration"
+  SRM_PATH=$destdir/srmclient $destdir/srmclient/sbin/srm \
+    -copy file:///dev/null file:///dev/null > /dev/null 2>&1
+  [ -f $HOME/.srmconfig/config.xml ] ||
+    { echo "failed to generate configuration" 1>&2; exit 1; }
+fi
+
+if [ ! -d $destdir/.srmconfig/config.xml ]; then
+  echo "Copying srmcp configuration to $destdir/.srmconfig/config.xml"
+  echo "Remember to edit X509 certificate settings to be correct!"
+  mkdir -p $destdir/.srmconfig
+  cp -p $HOME/.srmconfig/config.xml $destdir/.srmconfig/config.xml
+else
+  echo "You already have $destdir/.srmconfig/config.xml -- not changing it"
+  echo "Remember to edit X509 certificate settings to be correct!"
+fi
+
+echo "You may also need to edit $destdir/srmclient/sbin/url-copy.sh"
+
+# Finally, generate required environment setup
+(echo "PATH=$destdir/srmclient/bin:\$PATH; export PATH;"
+ echo "SRM_PATH=$destdir/srmclient; export SRM_PATH;"
+ echo "SRM_CONFIG=$destdir/.srmconfig/config.xml; export SRM_CONFIG;"
+ ) > "$destdir/srmcpenv.sh" || exit $?
