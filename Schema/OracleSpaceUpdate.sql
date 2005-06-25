@@ -5,7 +5,7 @@
 -- of transfer history, completion of significant file transfers, or the
 -- deactivation of large numbers of file blocks.
 --
--- This automatically updates table statistics afterwards.
+-- Remember to update table statistics afterwards.
 --
 -- This stuff is Oracle 10g only.  For an explanation on how this could
 -- perhaps be done in 91 via dbms_redefinition package, please see see
@@ -23,5 +23,3 @@ alter table t_transfer_state shrink space cascade;
 
 alter table t_transfer_completed shrink space compact cascade;
 alter table t_transfer_completed shrink space cascade;
-
-@OracleStatsUpdate.sql
