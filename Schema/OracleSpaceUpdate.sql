@@ -23,3 +23,7 @@ alter table t_transfer_state shrink space cascade;
 
 alter table t_transfer_completed shrink space compact cascade;
 alter table t_transfer_completed shrink space cascade;
+
+-- Can do separately (if "cascade" not used above):
+-- alter index ix_x coalesce;
+-- alter index ix_x rebuild pctfree 0 online;
