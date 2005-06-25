@@ -1,0 +1,309 @@
+#!/usr/bin/env perl
+
+##H Generate daily PhEDEx status- and health report.  Various issues of
+##H concern to the administrators of the system are reported in a nice
+##H convenient summary which can be archived and/or mailed out.
+##H
+##H The report includes the following information:
+##H   - Database space usage, quota limits.
+##H   - Average transfer performance and pending queues.
+##H   - Statistics on sites preventing block deactivation.
+##H   - Consistency check warnings on the tables.
+##H
+##H Usage:
+##H   MakeDailyReport -db FILE[:SECTION]
+##H
+##H -db        database connection configuration parameter file
+##H
+##H The output goes to the standard output in plain text format.
+
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
+  unshift(@INC, $home);
+}
+use UtilsTiming;
+use UtilsHelp;
+use UtilsNet;
+use UtilsDB;
+use POSIX;
+
+# Process command line arguments.
+my %args = ();
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
+    elsif ($ARGV[0] eq '--')
+    { last; }
+    elsif ($ARGV[0] =~ /^-/)
+    { &usage("Unrecognised option $ARGV[0]\n\n"); }
+    else
+    { last; }
+}
+
+# Check arguments.
+if (@ARGV || !$args{DBCONFIG})
+{
+    die "Insufficient parameters, use -h for help.\n";
+}
+
+my $dbh = &connectToDatabase (\%args, 0);
+
+print "PhEDEx status report for $args{DBSECTION} ($args{DBH_DBUSER}\@$args{DBH_DBNAME})\n",
+      "generated at @{[strftime('%Y-%m-%d %H:%M:%S', gmtime())]} GMT",
+      " by <@{[scalar(getpwuid($<)) . '@' . &getfullhostname()]}>.\n\n";
+
+######################################################################
+# Database table used space statistics
+
+print "#" x 70, "\n";
+print "# Table used space\n\n";
+print sprintf ("%-8s %-31s %-31s %10s %10s %10s\n",
+	       "TYPE", "SEGMENT", "TABLESPACE",
+	       "MEGABYTES", "BLOCKS", "EXTENTS");
+print "-" x 8, " ", "-" x 31, " ", "-" x 31, " ",
+      "-" x 10, " ", "-" x 10, " ", "-" x 10, "\n";
+
+my $qtables = &dbexec($dbh, qq{
+	select
+            segment_type,
+            segment_name,
+            tablespace_name,
+            sum(bytes),
+            sum(blocks),
+            count(extent_id)
+        from user_extents
+        group by segment_name, segment_type, tablespace_name
+        order by sum(bytes) desc, segment_type desc, segment_name});
+while (my ($type, $object, $tspace, $bytes, $blocks, $extents) = $qtables->fetchrow())
+{
+    print sprintf ("%-8s %-31s %-31s %10.2f %10d %10d\n",
+	    	   $type, $object, $tspace,
+		   $bytes/(1024**2), $blocks, $extents);
+}
+$qtables->finish();
+
+print "\n\n";
+
+######################################################################
+# Database tablespace used, available statistics
+
+print "#" x 70, "\n";
+print "# Tablespace used space\n\n";
+print sprintf ("%-31s %15s %15s %15s %15s %-6s\n", "TABLESPACE", "USED_MEGABYTES",
+	       "USED_BLOCKS", "FREE_MEGABYTES", "FREE_BLOCKS", "STATUS");
+print "-" x 31, " ", "-" x 15, " ", "-" x 15, " ", "-" x 15, " ", "-" x 15, " ", "-" x 6, "\n";
+
+my $qtspace = &dbexec($dbh, qq{
+	select
+	    used.tablespace_name,
+	    used.bytes, used.blocks,
+	    free.bytes, free.blocks
+	from (select tablespace_name, sum(bytes) bytes, sum(blocks) blocks
+	      from user_extents group by tablespace_name) used
+	join (select tablespace_name, sum(bytes) bytes, sum(blocks) blocks
+	      from user_free_space group by tablespace_name) free
+	  on used.tablespace_name = free.tablespace_name
+	order by free.bytes asc, used.bytes desc});
+while (my ($tspace, $bytes_used, $blocks_used,
+	   $bytes_free, $blocks_free) = $qtspace->fetchrow())
+{
+    print sprintf ("%-31s %15.2f %15d %15.2f %15d %-6s\n",
+	    	   $tspace, $bytes_used/(1024**2), $blocks_used,
+		   $bytes_free/(1024**2), $blocks_free,
+	   	   $bytes_free < 100*(1024**2) ? "FULL!" : "OK");
+}
+$qtspace->finish();
+
+print "\n\n";
+
+######################################################################
+# Database tablespace used, available statistics
+
+print "#" x 70, "\n";
+print "# Recent transfer status\n",
+      "#\n",
+      "# XFER_MBPS_TOT      Aggregate transfer rate over the period\n",
+      "# XFER_GB_TOT        Total amount in gigabytes transferred\n",
+      "# XFER_F_TOT         Total number of files transferred\n",
+      "# XFER_MBPS_HRMIN    Minimum average hourly transfer rate in MB/s\n",
+      "# XFER_MBPS_HRMAX    Maximum average hourly transfer rate in MB/s\n",
+      "# XFER_MBPS_HRAVG    Average average hourly transfer rate in MB/s\n",
+      "# WAIT_GB_CHNG       Aggregate difference in pending queue in gigabytes over period\n",
+      "# WAIT_GB_FIN        Pending queue in gigabytes at the end of period\n",
+      "# WAIT_F_FIN         Pending queue in number of files at the end of period\n",
+      "# WAIT_GB_MIN        Minimum size of pending queue during the period\n",
+      "# WAIT_GB_MAX        Maximum size of pending queue during the period\n",
+      "# WAIT_GB_AVG        Average size of pending queue during the period\n";
+
+foreach my $prevdays (1, 7, 30)
+{
+    my ($timelow, $timemax, %perf);
+    my $qperf = &dbexec($dbh, qq{
+	select
+	    to_node,
+	    timebin,
+	    xferred_files,
+	    xferred_bytes,
+	    pending_files,
+	    pending_bytes
+	from t_perf_histogram
+	where timebin >= :limit
+	order by to_node, timebin},
+	":limit" => (int(&mytimeofday()/86400)-$prevdays)*86400);
+    while (my ($node, $bin, $xfiles, $xbytes, $pfiles, $pbytes) = $qperf->fetchrow())
+    {
+        $timemax = $bin if (! defined $timemax || $bin > $timemax);
+        $timelow = $bin if (! defined $timelow || $bin < $timelow);
+        push (@{$perf{$node}{XFERRED}}, { BIN => $bin, FILES => $xfiles, BYTES => $xbytes });
+        push (@{$perf{$node}{PENDING}}, { BIN => $bin, FILES => $pfiles, BYTES => $pbytes });
+    }
+
+    my $timespan = $timemax + 300 - $timelow;
+
+    print "\n# $prevdays-day period from ",
+          strftime ('%Y-%m-%d %H:%M:%S', gmtime(int($timelow))), " to ",
+          strftime ('%Y-%m-%d %H:%M:%S', gmtime(int($timemax+300))), "\n\n";
+    print sprintf ("%20s" . " %15s" x 13 . "\n",
+	           "DESTINATION",
+	           "XFER_MBPS_TOT", "XFER_GB_TOT", "XFER_F_TOT", "XFER_MBPS_HRMIN", "XFER_MBPS_HRMAX", "XFER_MBPS_HRAVG",
+	           "WAIT_GB_CHNG", "WAIT_GB_FIN", "WAIT_F_FIN", "WAIT_GB_MIN", "WAIT_GB_MAX", "WAIT_GB_AVG",
+	           "EST_DAYS_LEFT");
+    print "-" x 20, (" ", "-" x 15) x 13, "\n";
+
+    foreach my $node (sort keys %perf)
+    {
+        my %stats = (XFER_MBPS_TOT => 0, XFER_GB_TOT => 0, XFER_F_TOT => 0,
+	             XFER_MBPS_HRMIN => 0, XFER_MBPS_HRMAX => 0, XFER_MBPS_HRAVG => 0,
+		     WAIT_GB_CHNG => 0, WAIT_GB_FIN => 0, WAIT_F_FIN => 0,
+		     WAIT_GB_MIN => 0, WAIT_GB_MAX => 0, WAIT_GB_AVG => 0);
+
+        my %xfer_hourly = ();
+        my @xferred = @{$perf{$node}{XFERRED}};
+        foreach my $v (@xferred)
+        {
+	    my $hour = int($v->{BIN}/3600)*3600;
+	    $xfer_hourly{$hour} ||= 0;
+	    $xfer_hourly{$hour} += $v->{BYTES};
+
+	    $stats{XFER_GB_TOT} += $v->{BYTES} / (1024**3);
+	    $stats{XFER_F_TOT} += $v->{FILES};
+        }
+
+        my @xfer_sorted = sort { $a <=> $b } values %xfer_hourly;
+        $stats{XFER_MBPS_HRMIN} = ($xfer_sorted[0] || 0) / (1024**2) / 3600;
+        $stats{XFER_MBPS_HRMAX} = ($xfer_sorted[$#xfer_sorted] || 0) / (1024**2) / 3600;
+        $stats{XFER_MBPS_HRAVG} = (&avg(@xfer_sorted) || 0) / (1024**2) / 3600;
+        $stats{XFER_MBPS_TOT} = $stats{XFER_GB_TOT} * 1024 / $timespan;
+
+        my %pend_binned = ();
+        my @pending = @{$perf{$node}{PENDING}};
+        foreach my $v (@pending)
+        {
+	    $pend_binned{$v->{BIN}} ||= { BIN => $v->{BIN}, FILES => 0, BYTES => 0 };
+	    $pend_binned{$v->{BIN}}{FILES} += $v->{FILES};
+	    $pend_binned{$v->{BIN}}{BYTES} += $v->{BYTES};
+        }
+
+        my @pend_sorted = sort { $a <=> $b } map { $_->{BYTES} } values %pend_binned;
+        my @pendtimes = sort { $a <=> $b } keys %pend_binned;
+        my $pendmin = $pendtimes[0];
+        my $pendmax = $timemax;
+
+        $stats{WAIT_GB_MIN} = ($pend_sorted[0] || 0) / (1024**3);
+        $stats{WAIT_GB_MAX} = ($pend_sorted[$#pend_sorted] || 0) / (1024**3);
+        $stats{WAIT_GB_AVG} = (&avg(@pend_sorted) || 0) / (1024**3);
+        $stats{WAIT_GB_FIN} = $pend_binned{$pendmax}{BYTES} / (1024**3);
+        $stats{WAIT_F_FIN}  = $pend_binned{$pendmin}{FILES};
+        $stats{WAIT_GB_CHNG} = ($pend_binned{$pendmax}{BYTES}
+			        - $pend_binned{$pendmin}{BYTES}) / (1024**3);
+
+        print sprintf ("%20s"
+	               . " %15.3f %15.3f %15d"
+		       . " %15.3f %15.3f %15.3f"
+		       . " %15.3f %15.3f %15d"
+		       . " %15.3f %15.3f %15.3f"
+		       . " %s\n",
+	               $node,
+		       $stats{XFER_MBPS_TOT}, $stats{XFER_GB_TOT}, $stats{XFER_F_TOT},
+		       $stats{XFER_MBPS_HRMIN}, $stats{XFER_MBPS_HRMAX}, $stats{XFER_MBPS_HRAVG},
+		       $stats{WAIT_GB_CHNG}, $stats{WAIT_GB_FIN}, $stats{WAIT_F_FIN},
+		       $stats{WAIT_GB_MIN}, $stats{WAIT_GB_MAX}, $stats{WAIT_GB_AVG},
+	   	       ($stats{XFER_MBPS_TOT} && $stats{WAIT_GB_FIN}
+		        ? sprintf ("%15.3f", $stats{WAIT_GB_FIN} / ($stats{XFER_MBPS_TOT}*86400/1024))
+	   	        : !$stats{WAIT_GB_FIN} ? sprintf ("%15.3f", 0)
+		        : sprintf ("%15s", "N/A")));
+    }
+}
+
+print "\n\n";
+
+######################################################################
+# Sites preventing block activation
+
+print "#" x 70, "\n";
+print "# Sites preventing block deactivation\n\n";
+print sprintf ("%-20s %15s %15s %15s\n", "DESTINATION",
+	       "BLOCKS", "REPLICAS", "GIGABYTES");
+print "-" x 20, (" ", "-" x 15) x 3, "\n";
+
+my $qblocks = &dbexec($dbh, qq{
+    select
+        br.node,
+	count(b.name),
+	sum(b.files - br.node_files),
+	sum(b.bytes - br.node_bytes)
+    from t_block b
+    join t_block_replica br on br.name = b.name
+    where b.isopen = 0
+      and br.isactive = 1
+      and br.dest_files > 0
+      and br.node_files != br.dest_files
+    group by br.node
+    order by 2 desc, 4 desc});
+while (my ($node, $blocks, $files, $bytes) = $qblocks->fetchrow())
+{
+    print sprintf ("%-20s %15d %15d %15.2f\n",
+	           $node, $blocks, $files, $bytes/(1024**3));
+}
+
+print "\n\n";
+
+######################################################################
+# Consistency checks
+
+print "#" x 70, "\n";
+print "# Consistency checks\n\n";
+
+my $errors = 0;
+my $qtrdups = &dbexec($dbh, qq{
+    select ts.to_node, ts.guid
+    from t_transfer_state ts
+    join t_replica_state rs
+      on rs.guid = ts.guid
+     and rs.node = ts.to_node
+    order by ts.to_node, ts.guid});
+while (my ($to, $guid) = $qtrdups->fetchrow ())
+{
+    print "WARNING: $to is transferring $guid, but destination replica exists\n";
+    ++$errors;
+}
+
+print "(Nothing to report)\n" if ! $errors;
+
+print "\n\n";
+
+######################################################################
+$dbh->disconnect();
+exit 0;
+
+sub avg
+{
+    my (@values) = @_;
+    my $sum = 0; foreach my $val (@values) { $sum += $val };
+    return scalar @values ? ($sum / scalar (@values)) : undef;
+}
