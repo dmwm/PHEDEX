@@ -1,66 +1,24 @@
 ----------------------------------------------------------------------
--- Req
-drop sequence seq_request_id;
-drop table t_request_dataspec;
-drop table t_request_subscription;
-drop table t_request_operation;
-drop table t_request;
+-- Drop all schema objects.
 
--- DSB
-drop sequence seq_dsb_fileid;
-drop sequence seq_dsb_dataset;
-drop table t_dsb_dataset_availability;
-drop table t_dsb_dataset_run_file;
-drop table t_dsb_dataset_run;
-drop table t_dsb_dataset;
-drop table t_dsb_file_attributes;
-drop table t_dsb_file;
-drop table t_dsb_fileid;
+set serveroutput on size 100000
+BEGIN
+   -- Tables
+   FOR o IN (SELECT table_name name FROM user_tables) LOOP
+      dbms_output.put_line ('Dropping table ' || o.name || ' with dependencies');
+      execute immediate 'drop table ' || o.name || ' cascade constraints';
+   END LOOP;
 
-----------------------------------------------------------------------
--- Info
-drop table t_info_transfer_states;
-drop table t_info_transfer_status;
-drop table t_info_transfer_rate;
-drop table t_info_file_size_overview;
-drop table t_info_file_size_histogram;
-drop table t_info_agent_status;
-drop table t_info_subscriptions;
-drop table t_info_replication_overview;
-drop table t_info_replication_details;
+   -- Sequences
+   FOR o IN (SELECT sequence_name name FROM user_sequences) LOOP
+      dbms_output.put_line ('Dropping sequence ' || o.name);
+      execute immediate 'drop sequence ' || o.name;
+   END LOOP;
 
-----------------------------------------------------------------------
--- Flow
-drop table t_subscription;
-drop table t_block_replica;
-drop table t_block_destination;
-drop table t_block;
-
-----------------------------------------------------------------------
--- CoreTriggers
-drop trigger new_transfer_state;
-drop trigger update_transfer_state;
-
--- CoreTransfer
-drop table t_replica_state;
-drop table t_transfer_state;
-drop table t_transfer_completed;
-
--- CorePerf
-drop table t_transfer_history;
-drop table t_transfer_summary;
-
--- CoreAgents
-drop table t_agent_status;
-drop table t_agent_message;
-drop table t_agent;
-
--- CoreFiles
-drop table t_file_attributes;
-drop table t_file;
-
--- CoreTopo
-drop table t_node_import;
-drop table t_node_export;
-drop table t_routing;
-drop table t_node;
+   -- Triggers
+   FOR o IN (SELECT trigger_name name FROM user_triggers) LOOP
+      dbms_output.put_line ('Dropping trigger ' || o.name);
+      execute immediate 'drop trigger ' || o.name;
+   END LOOP;
+END;
+/
