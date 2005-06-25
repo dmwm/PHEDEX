@@ -195,6 +195,7 @@ sub fileComplete
     };
     do { $@ =~ s/\n+$//s;
 	 &alert ("failed to $op for $guid ($pfn): $@");
+	 $file->{FAILURE} = $op; $success = 1;
 	 eval { $dbh->rollback() } if $dbh } if $@;
 
     # Disconnect from database
@@ -269,9 +270,11 @@ sub idle
 	}
 
 	# Purge memory of bad files that have cooled long enough.
-	my $pending = $self->{PENDING};
-	map { delete $pending->{$_} }
-	  grep ($pending->{$_} && $pending->{$_} < $now, keys %$pending);
+	foreach my $guid (keys %{$self->{PENDING}})
+	{
+	    next if ! $self->{PENDING}{$guid}; # Skip if being checksummed
+	    delete $self->{PENDING}{$guid} if $self->{PENDING}{$guid} < $now;
+	}
 
 	# Pick up new work
 	my $files = $self->{FILES} ||= [];
