@@ -111,6 +111,10 @@ create index ix_transfer_completed_fromto
 ----------------------------------------------------------------------
 -- Modify storage options
 
+alter table t_replica_state			enable row movement;
+alter table t_transfer_state			enable row movement;
+alter table t_transfer_completed		enable row movement;
+
 alter table t_replica_state			move initrans 8;
 alter table t_transfer_state			move initrans 8;
 alter table t_transfer_completed		move initrans 8;

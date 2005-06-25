@@ -67,5 +67,6 @@ create index ix_transfer_summary
 ----------------------------------------------------------------------
 -- Modify storage options
 
+alter table t_transfer_history			enable row movement;
 alter table t_transfer_history			move initrans 8;
 alter index ix_transfer_history			rebuild initrans 8;
