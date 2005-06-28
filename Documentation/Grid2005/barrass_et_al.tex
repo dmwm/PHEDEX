@@ -1,4 +1,4 @@
-\documentclass[twocolumn]{article}
+\documentclass[twocolumn,a4paper]{article}
 
 \usepackage{cite}
 \usepackage{graphicx}
@@ -8,15 +8,11 @@
 % http://iris.usc.edu/Information/ieee/latex.html
 
 \pagestyle{empty}
-%set dimensions of columns, gap between columns, and paragraph indent 
-\setlength{\textheight}{23cm}
-\setlength{\columnsep}{2.0pc}
-\setlength{\textwidth}{15cm}
-\setlength{\topmargin}{0.0cm}
-\setlength{\headheight}{0.0cm}
-\setlength{\headsep}{0.0cm}
-\setlength{\oddsidemargin}{0.0cm}
-\setlength{\parindent}{1pc}
+        \oddsidemargin  0.5cm
+        \textwidth      15cm
+        \topmargin      0.0cm
+        \headheight     0.0cm
+        \textheight     23cm
 %I copied stuff out of art10.sty and modified them to 
 %   conform to IEEE format
 \makeatletter
@@ -60,7 +56,9 @@ plus 1ex} {.2ex plus .2ex}{\subsize\bf}}
     \bigskip
 
     \begin{@twocolumnfalse}
-    The CMS experiment has taken a novel approach to Grid data management. Instead of having a central processing component making global decisions on replica allocation, CMS has a data management layer composed of a series of collaborating agents; the agents are persistent, stateless processes which manage specific parts of replication operations at each site in the distribution network. The agents communicate asynchronously through a blackboard architecture; as a result the system is robust in the face of many local failures. CMS' data distribution network is represented in a similar fashion to the internet. This means that the management of multi-hop transfers at dataset level is simple. This system allows CMS to seamlessly bridge the gap between traditional HEP ``waterfall" type data distribution, and more dynamic Grid data distribution. Using this system CMS is able to reach transfer rates of 500Mbps, and sustain transfers for long periods in tape-to-tape transfers. The system has been used to manage branches of large scale Service Challenges for LCG this year.
+    \centerline{
+    \parbox{13cm}{The CMS experiment has taken a novel approach to Grid data management. Instead of having a central processing component making global decisions on replica allocation, CMS has a data management layer composed of a series of collaborating agents; the agents are persistent, stateless processes which manage specific parts of replication operations at each site in the distribution network. The agents communicate asynchronously through a blackboard architecture; as a result the system is robust in the face of many local failures. CMS' data distribution network is represented in a similar fashion to the internet. This means that the management of multi-hop transfers at dataset level is simple. This system allows CMS to seamlessly bridge the gap between traditional HEP ``waterfall" type data distribution, and more dynamic Grid data distribution. Using this system CMS is able to reach transfer rates of 500Mbps, and sustain transfers for long periods in tape-to-tape transfers. The system has been used to manage branches of large scale Service Challenges for LCG this year.}
+    }
     \bigskip
     \end{@twocolumnfalse}
 ]
@@ -108,7 +106,7 @@ The system should also scale by the number of files in transfer. It should have 
 
 Within PhEDEx we have met, or will soon meet many of these requirements.
 
-FIXME: Note that what we do not discuss here is co-scheduling of replication with jobs. In this environment the cost of replication is very much higher than the cost of running a job, and therefore it makes sense to distribute data throughout the collaboration and then send jobs to the data.
+Note that what we do not discuss here is co-scheduling of replication with jobs. In this environment the cost of replication is very much higher than the cost of running a job, and therefore it makes sense to distribute data throughout the collaboration and then send jobs to the data.
 
 
 \section{Comparison with other replication technologies}
@@ -116,19 +114,19 @@ The scale of data distribution for the LHC experimentsis therefore much larger t
 
 There have been many advances in replication technology in recent years, with the development of data Grids and peer to peer filesharing technologies...
 
-\subsection{FIXME: Previous methods for distributing HEP data}
+\subsection{Previous methods for distributing HEP data}
 Existing HEP experiments tend to manage data distribution in a structured but manpower intensive ways. One such example is the use of rsync to manage the periodic transfer of data files from an authoratative source to a remote site. This was typically done by issuing commands whenever a tranfer was required, rather than by having an automated process manage the transfers. This was the approach taken by, for example, the BaBar experiment \cite{babar:website}. More recently the BaBar experiment has investigated the use of the Storage Resource Broker to distribute and manage access to it's data \cite{babar:srb}; it also has a home grown application named BdbServer++ that enables users to locate distributed replicas and create a complete dataset replica on the user's laptop \cite{babar:distribution}.
 
 For job data management the D0 \cite{d0:website} and CDF \cite{cdf:website} experiments use a sophisticated system named SAM \cite{sam:website} which couples every aspect of data gathering and access together. Data replication and tape management, however, is still a complicated manual operation, even when using this system. In both cases these solutions are ideal, as data is not distributed to a large number of sites, and the solutions therefore scale adequately.
 
-\subsection{FIXME: Grid Computing Technologies}
+\subsection{Grid Computing Technologies}
 Most Grid technologies are focused on the running of jobs rather than on the large scale replication of data; the latter is currently a larger problem for HEP experiments.
 
 For example, Condor \cite{condor:website} and its Grid-equivalent, Condor-G, focus very much on the running of jobs, and views the management of data to be something to be solved by external processes. Similarly, commercial products and services like the Sun Grid Engine \cite{sungrid:website} focus on providing the resources to run jobs rather than managing the replication and custody of data over a number of distributed sites.
 
 A large scale EU project named the European DataGrid (EDG) \cite{edg:website} was initiated to develop a Grid infrastructure that would meet the needs of HEP, Biology and Medical Imaging, and Earth Observation research to access significant distributed computing resources. The project- now replaced by EGEE (Enabling Grids for ESciencE) \cite{glite:website}- developed a number of low-level infrastructural elements that can be used to build a data Grid. However, the components assume a completely-connected network of peers; data replication was intended to be undertaken in response to demand, rather than policy; and there was no sense of custody or responsibility for data outside of a source site.
 
-\subsection{FIXME: Peer-to-Peer Filesharing}
+\subsection{Peer-to-Peer Filesharing}
 A number of peer-to-peer filesharing applications have appeared since the origin of Napster in 1999. They vary in nature between more-centralized systems in which peers and replicas of data are tracked in a manner similar to instant messaging systems, and less centralized in  which client communication is more truly peer-to-peer and doesn't rely on centralized services to make contact with peers or find replicas. An example of the former is BitTorrent \cite{bittorrent:website}, and of the latter, GnuTella \cite{gnutella:website}.
 
 One important benefit of peer-to-peer filesharing is the ability to download a file from multiple sources: the file is split into blocks, and the client replicates blocks from whichever peers are capable of serving them. This concept is easy to map onto HEP data without developing mechanisms for splitting files, as HEP data is typically organised into datasets which form the basic unit of access; therefore the basic unit of distribution in HEP is the dataset rather than the file.
@@ -186,8 +184,6 @@ Cleaner &  Removes stale or unrequired replicas from disk \\
 The blackboard space that agents use to exchange messages/state information was envisaged as a database schema. This database schema provides us with a structure for defining a set of message ontologies, and its deployment as a database provides us with a reliable mechanism of communication. The information stored in this schema tracks the list of files currently of interest to the data management system, useful metadata concerning the nodes in the system (names, routing information) and high level subscription information (which sites subscribe to which datasets, and which files are currently allocated to which specific node). It also tracks the current state of point-to-point transfers, and maintains an index structure that maps global replica set identifiers to nodes in the distribution network.
 
 Note that the database schema is designed with the goal of insulating information that is considered ``local": all tables are logically partitioned by node where possible, and agents typically only touch data concerning their own node, or that of their neighbours.
-
-FIXME: overview schema diagram? 
 
 Agents are defined at a high level only, in terms of their functional behaviour and expected interactions with other agents. They are developed using an agent toolkit, which wraps much of the low level functionality in common to all the agents: for example, handling database connections in a robust manner, or processing job queues. An explicit decision was made at the start of the project to wrap core message passing/ database access in a toolkit rather than to provide services that overlay the databases. 
 
@@ -251,108 +247,12 @@ The load on the central blackboard might be lessened by smearing information acr
 
 Of course, decentralisation is not without cost; in this context decentralisation makes it more difficult to determine aspects of system state. In relation to the specific mechanisms described above it would become much harder to build a complete routing table, for example, or to locate all replicas of a dataset.
 
-% Reminder: the "draftcls" or "draftclsnofoot", not "draft", class option
-% should be used if it is desired that the figures are to be displayed while
-% in draft mode.
-
-% An example of a floating figure using the graphicx package.
-% Note that \label must occur AFTER (or within) \caption.
-% For figures, \caption should occur after the \includegraphics.
-%
-%\begin{figure}
-%\centering
-%\includegraphics[width=2.5in]{myfigure}
-% where an .eps filename suffix will be assumed under latex, 
-% and a .pdf suffix will be assumed for pdflatex
-%\caption{Simulation Results}
-%\label{fig_sim}
-%\end{figure}
-
-
-% An example of a double column floating figure using two subfigures.
-%(The subfigure.sty package must be loaded for this to work.)
-% The subfigure \label commands are set within each subfigure command, the
-% \label for the overall fgure must come after \caption.
-% \hfil must be used as a separator to get equal spacing
-%
-%\begin{figure*}
-%\centerline{\subfigure[Case I]{\includegraphics[width=2.5in]{subfigcase1}
-% where an .eps filename suffix will be assumed under latex, 
-% and a .pdf suffix will be assumed for pdflatex
-%\label{fig_first_case}}
-%\hfil
-%\subfigure[Case II]{\includegraphics[width=2.5in]{subfigcase2}
-% where an .eps filename suffix will be assumed under latex, 
-% and a .pdf suffix will be assumed for pdflatex
-%\label{fig_second_case}}}
-%\caption{Simulation results}
-%\label{fig_sim}
-%\end{figure*}
-
-
-
-% An example of a floating table. Note that, for IEEE style tables, the 
-% \caption command should come BEFORE the table. Table text will default to
-% \footnotesize as IEEE normally uses this smaller font for tables.
-% The \label must come after \caption as always.
-%
-%\begin{table}
-%% increase table row spacing, adjust to taste
-%\renewcommand{\arraystretch}{1.3}
-%\caption{An Example of a Table}
-%\label{table_example}
-%\begin{center}
-%% Some packages, such as MDW tools, offer better commands for making tables
-%% than the plain LaTeX2e tabular which is used here.
-%\begin{tabular}{|c||c|}
-%\hline
-%One & Two\\
-%\hline
-%Three & Four\\
-%\hline
-%\end{tabular}
-%\end{center}
-%\end{table}
-
-
 \section{Conclusion}
 The conclusion goes here.
 
-% conference papers do not normally have an appendix
-
-% use section* for acknowledgement
-\section*{Acknowledgment}
-% optional entry into table of contents (if used)
-%\addcontentsline{toc}{section}{Acknowledgment}
-The authors would like to thank...
-
-% trigger a \newpage just before the given reference
-% number - used to balance the columns on the last page
-% adjust value as needed - may need to be readjusted if
-% the document is modified later
-%\IEEEtriggeratref{8}
-% The "triggered" command can be changed if desired:
-%\IEEEtriggercmd{\enlargethispage{-5in}}
-
-% references section
-% NOTE: BibTeX documentation can be easily obtained at:
-% http://www.ctan.org/tex-archive/biblio/bibtex/contrib/doc/
-
-% can use a bibliography generated by BibTeX as a .bbl file
-% standard IEEE bibliography style from:
-% http://www.ctan.org/tex-archive/macros/latex/contrib/supported/IEEEtran/bibtex
 \bibliographystyle{IEEEtran.bst}
-% argument is your BibTeX string definitions and bibliography database(s)
 \bibliography{IEEEabrv,./barrass_et_al}
-%
-% <OR> manually copy in the resultant .bbl file
-% set second argument of \begin to the number of references
-% (used to reserve space for the reference number labels box)
-%\begin{thebibliography}{1}
 
-%\end{thebibliography}
-
-% that's all folks
 \end{document}
 
 
