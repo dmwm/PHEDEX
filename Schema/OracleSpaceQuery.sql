@@ -1,5 +1,7 @@
 ----------------------------------------------------------------------
 -- Report block space usage distribution for all tables.
+set lines 1000
+set pages 1000
 
 set serveroutput on size 100000
 DECLARE
@@ -48,17 +50,8 @@ END;
 
 ----------------------------------------------------------------------
 -- Report table growth trends (10g only)
-set serveroutput on size 100000
-DECLARE
-   free NUMBER;
-BEGIN
-   dbms_output.put_line('-- Free blocks in each table.');
 
-   FOR user_tables_rec IN (SELECT table_name FROM user_tables) LOOP
-      select * from table (dbms_space.object_growth_trend (USER, user_tables_rec.table_name, 'TABLE'));
-   END LOOP;
-END; 
-/
+select table_name, x.* from user_tables, table(select dbms_space.object_growth_trend (user, table_name, 'TABLE') from dual) x
 
 ----------------------------------------------------------------------
 -- Report table space statistics.
