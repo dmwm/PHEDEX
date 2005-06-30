@@ -276,3 +276,9 @@ sqlplus $(Schema/OracleConnectId -db Schema/DBParam:SC3/Admin)
 insert into t_subscription
   (select b.owner, b.dataset, n.name from t_block b, t_node n
    where n.name like 'T1%MSS' and n.name not like '%CERN%');
+
+insert into t_subscription
+  (select b.owner, b.dataset, n.name from t_block b, t_node n
+   where n.name like 'T2_Nebraska%');
+
+
