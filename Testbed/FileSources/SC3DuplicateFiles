@@ -69,9 +69,9 @@ foreach my $pos (@positions)
 	     node, state, state_timestamp from t_replica_state where guid like '%-%-%-%-%')},
 	    ":pos" => $pos, ":letter" => $letter);
 
+	$tmdb->commit();
         print "\n";
     }
 }
 
-$tmdb->commit();
 exit 0;
