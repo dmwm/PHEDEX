@@ -709,9 +709,9 @@ sub rates {
     }
     else
     {
-        print "<a href='http://pcstats.cern.ch/dtag/cernusa.html'><IMG
+        print "<a href='http://pcstats.cern.ch/misc/openlab.html'><IMG
           VSPACE=10 WIDTH=600 HEIGHT=135 ALIGN=TOP
-          SRC='http://pcstats.cern.ch/dtag/cernusa-day.png' ALT='day'></a></p>\n";
+          SRC='http://pcstats.cern.ch/misc/openlab-day.png' ALT='day'></a></p>\n";
     }
     print "<table>\n";
     foreach my $span (sort { ($a || 9999999) <=> ($b || 9999999) } keys %stats)
