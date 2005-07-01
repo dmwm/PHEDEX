@@ -76,7 +76,8 @@ foreach my $pos (@positions)
         &dbexec ($tmdb, qq{
 	    insert into t_replica_state (timestamp, guid, node, state, state_timestamp)
 	    (select timestamp, substr(guid,1,:pos) || :letter || substr(guid,:pos+2),
-	     node, state, state_timestamp from t_replica_state where guid like '%-%-%-%-%')},
+	     node, state, state_timestamp from t_replica_state where guid like '%-%-%-%-%'
+	     and node like '%CERN%')},
 	    ":pos" => $pos, ":letter" => $letter);
 
         do { local $| = 1; print "B"; };
