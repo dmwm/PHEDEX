@@ -46,6 +46,16 @@ foreach my $pos (@positions)
     foreach my $letter (@letters)
     {
         print "$pos/$letter: ";
+	do { local $| = 1; print "C"; };
+	my $safepat = ("_" x $pos) . ($letter eq '_' ? "\\$letter" : $letter) . "%";
+	my $exists = &dbexec ($tmdb,
+	    "select count(guid) from t_file where guid like :pat escape '\\'",
+	    ":pat" => $safepat)->fetchrow();
+    	do { print "\n"; next } if $exists;
+
+	do { local $| = 1; print "L"; };
+        &dbexec ($tmdb, qq{select * from t_block for update});
+
 	do { local $| = 1; print "F"; };
         &dbexec ($tmdb, qq{
 	    insert into t_file
@@ -69,9 +79,16 @@ foreach my $pos (@positions)
 	     node, state, state_timestamp from t_replica_state where guid like '%-%-%-%-%')},
 	    ":pos" => $pos, ":letter" => $letter);
 
+        do { local $| = 1; print "B"; };
+        &dbexec ($tmdb, qq{
+	    update t_block set (files, bytes) =
+	    (select count(guid), sum(filesize) from t_file where inblock = name)});
+
+        do { local $| = 1; print "!"; };
 	$tmdb->commit();
         print "\n";
     }
 }
 
+$tmdb->disconnect();
 exit 0;
