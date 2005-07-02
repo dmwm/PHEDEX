@@ -200,20 +200,20 @@ cd /data/SC3Nodes/Keys
 source /data/SC3Nodes/tools/poolenv.sh
 source /data/SC3Nodes/tools/oraenv.sh
 source /data/SC3Nodes/tools/perlenv.sh
-cd /data/Inject/Zips/drop
-rsync -avuz /afs/cern.ch/user/c/cmsprod/w6/Zip/drop/ ./
+cd /data/Inject/Zips
+rsync -avuz /afs/cern.ch/user/c/cmsprod/w6/Zip/drop/ drop/
 
 # Uncompress
-(for x in $(ls | grep -v .txt | sed 's/_.*//' | sort | uniq); do
-   for f in $x*/*.gz; do
+(for x in $(ls drop | sed 's/_.*//' | sort | uniq); do
+   for f in drop/$x*/*.gz; do
      [ -f ${f:r} -a ! ${f:r} -ot $f ] && continue
      gzip -dc < $f > ${f:r} && touch -r $f ${f:r}
    done &
  done; wait)
 
 # Select files we need (the zips) and fix paths
-(for x in $(ls | grep -v .txt | sed 's/_.*//' | sort | uniq); do
-   for f in $x*/XMLCatFragment.*.txt; do
+(for x in $(ls drop | sed 's/_.*//' | sort | uniq); do
+   for f in drop/$x*/XMLCatFragment.*.txt; do
      [ -f $f.xfer -a ! $f.xfer -ot $f ] && continue
      echo "processing $f" $(stat -c '%s' $f)
      /data/SC3Nodes/PHEDEX/Utilities/FCcopy -u XML:$f -d XML:$f.xfer.new \
@@ -225,20 +225,20 @@ rsync -avuz /afs/cern.ch/user/c/cmsprod/w6/Zip/drop/ ./
  done; wait) >>& zip-xml.txt </dev/null
 
 # Publish to TMDB
-(for x in $(ls | grep -v .txt | sed 's/_.*//' | sort | uniq); do
-   for f in $x*/XMLCatFragment.*.txt.xfer; do
+(for x in $(ls drop | sed 's/_.*//' | sort | uniq); do
+   for f in drop/$x*/XMLCatFragment.*.txt.xfer; do
      [ -f $f.inj -a ! $f.inj -ot $f ] && continue
      echo "processing $f" $(stat -c '%s' $f)
      /data/SC3Nodes/PHEDEX/Toolkit/Request/TMDBInject \
        -catalogue $f -cksums ${f:r:s/XMLCatFragment/CheckSum} -nodes T1_CERN_MSS \
-       -db /data/SC3Nodes/PHEDEX/Schema/DBParam:SC3/Admin -verbose &&
+       -db /data/SC3Nodes/PHEDEX/Schema/DBParam:SC3/Admin &&
        touch -r $f $f.inj
    done &
  done; wait) >>& zip-inject.txt </dev/null
 
 # Publish to LFC
-(for x in $(ls | grep -v .txt | sed 's/_.*//' | sort | uniq); do
-   for f in $x*/XMLCatFragment.*.txt.xfer; do
+(for x in $(ls drop | sed 's/_.*//' | sort | uniq); do
+   for f in drop/$x*/XMLCatFragment.*.txt.xfer; do
      [ -f $f.pub -a ! $f.pub -ot $f ] && continue
      echo "processing $f" $(stat -c '%s' $f)
      # lfccatalog_lfc://lfc-cms-test.cern.ch/grid/cms/sc3-guid-index
@@ -247,7 +247,7 @@ rsync -avuz /afs/cern.ch/user/c/cmsprod/w6/Zip/drop/ ./
      FCpublish -m 50000 \
        -d mysqlcatalog_mysql://phedex:phedex@cmslcgco04.cern.ch/phedexcat \
        -u file:$f
-     if [ $? != 0 ]; then echo "*** $f failed with exit $?";
+     s=$?; if [ $s != 0 ]; then echo "*** $f failed with exit $s";
      else touch -r $f $f.pub; fi
    done &
  done; wait) >>& zip-pub.txt </dev/null
@@ -272,13 +272,109 @@ sqlplus $(Schema/OracleConnectId -db Schema/DBParam:SC3/Admin)
      left join t_node_import on name = node
      where node is null and name like '%_Buffer');
 
+# Subscribe all MSS nodes and all T2 buffer nodes to all files
+insert into t_subscription
+  (select b.owner, b.dataset, n.name from t_block b, t_node n
+   where (n.name like '%MSS' or n.name like 'T2%Buffer')
+    and n.name not like '%CERN%'
+    and not exists (select * from t_subscription s where
+                    s.owner = b.owner and s.dataset = b.dataset
+                    and s.destination = n.name));
+
+*** 2005-06-30
+
+-- Create a "static" catalogue as fallback for testing
+(eval $(cd /data/SC3Nodes/PHEDEX; Utilities/Master -config Custom/CERN/Config.SC3 environ)
+ for x in $(ls drop | sed 's/_.*//' | sort | uniq); do
+   for f in drop/$x*/XMLCatFragment.*.txt.xfer; do
+   perl -I$PHEDEX_SCRIPTS/Toolkit/Common -e '
+     use UtilsReaders;
+     my (%known, %seen);
+     foreach $cat (@ARGV) {
+       do { local $|=1; print "processing $cat @{[-s $cat]}\n" };
+       open(ST, "> $cat.static") or die "$cat.static: $!\n";
+       my $c = eval { &readXMLCatalogue($cat) };
+       do { print $@; close (ST); next; } if $@;
+       print ST map { "$_->{GUID} $_->{PFN}[0]{PFN}\n" } @$c;
+       close(ST);
+     }' $f
+   done &
+ done; wait
+ echo **/*.static | xargs cat > $PHEDEX_CUSTOM/StaticCatalogue.txt
+ ) >>& zip-static.txt </dev/null
+
+-- Clear out nodes
+-- Delete from t_node_neighbour all nodes and links that should not exist.
+-- Make sure topology is correct in t_node_neighbour (except NCU via CERN).
+-- Delete all other noise:
+delete from t_subscription where destination not in (select node from t_node_neighbour);
+delete from t_block_destination where node not in (select node from t_node_neighbour);
+delete from t_block_replica where node not in (select node from t_node_neighbour);
+delete from t_node_import where node not in (select node from t_node_neighbour);
+delete from t_node_export where node not in (select node from t_node_neighbour);
+delete from t_routing where from_node not in (select node from t_node_neighbour);
+delete from t_routing where to_node not in (select node from t_node_neighbour);
+delete from t_node where name not in (select node from t_node_neighbour);
+
+
+*** 2006-07-01
+
+-- Reinitialise the set of files in TMDB from the published Zips.
+
+-- 1. Stop agents.  Leave info-pm to clean t_transfer_completed,
+--    then exit it as well.
+
+-- 2. Clear files from mysql database:
+delete from t_pfn where filetype = 'EVDZip';
+delete from t_lfn where lfname like 'ZippedEVD%';
+delete from t_meta where Content = 'ZippedEVD';
+
+-- 3. Clear files from TMDB:
+delete from t_subscription;
+
+delete from t_block_destination;
+delete from t_block_replica;
+delete from t_block;
+
+delete from t_transfer_state;
+delete from t_replica_state;
+delete from t_file_attributes;
+delete from t_file;
+
+-- 4. Restart agents.
+
+-- 5. Clear /data/Inject/Zips/drop, and redo the procedures above
+--    to refill TMDB and catalogue, and to make a static catalogue.
+# rsync
+# Uncompress
+# Select files we need (the zips) and fix paths
+# Create a "static" catalogue as fallback for testing
+# Publish to TMDB
+# Publish to LFC
 # Subscribe all T1 MSS nodes to all files
-insert into t_subscription
-  (select b.owner, b.dataset, n.name from t_block b, t_node n
-   where n.name like 'T1%MSS' and n.name not like '%CERN%');
 
-insert into t_subscription
-  (select b.owner, b.dataset, n.name from t_block b, t_node n
-   where n.name like 'T2_Nebraska%');
+-- 6. Make fake copies of files
+Testbed/FileSources/SC3DuplicateFiles -db Schema/DBParam:SC3/Admin  
 
 
+*** 2005-07-02
+
+-- Redo the file replica creation: remove excess replicas, and prepare
+-- to do it on demand (e.g. in cron job) as transfers progress, so the
+-- file size distribution remains roughly correct at the destinations.
+select * from t_block for update;
+select * from t_transfer_state for update;
+create table t_scratchme as select guid from t_file f
+  where guid not like '%-%-%-%-%'
+  and not exists (select rs.guid from t_replica_state rs
+                  where rs.guid = f.guid and rs.node not like '%CERN%')
+  and not exists (select ts.guid from t_transfer_state ts
+                  where ts.guid = f.guid and ts.from_node like '%CERN%'
+                  and to_state >= 2);
+delete from t_transfer_state where guid in (select * from t_scratchme);
+delete from t_replica_state where guid in (select * from t_scratchme);
+delete from t_file_attributes where guid in (select * from t_scratchme);
+delete from t_file where guid in (select * from t_scratchme);
+update t_block set (files, bytes) =
+  (select count(guid), sum(filesize) from t_file where inblock = name);
+drop table t_scratchme;
