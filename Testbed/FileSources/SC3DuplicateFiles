@@ -54,6 +54,7 @@ LOOP: foreach my $pos (@positions)
         print "$pos/$letter: ";
 	do { local $| = 1; print "C"; };
 	my $safepat = ("_" x $pos) . ($letter eq '_' ? "\\$letter" : $letter) . "%";
+	my $suffix = ".P${pos}${letter}";
 	my ($nexists) = &dbexec ($tmdb,
 	    "select count(guid) from t_file where guid like :pat escape '\\'",
 	    ":pat" => $safepat)->fetchrow();
@@ -70,12 +71,14 @@ LOOP: foreach my $pos (@positions)
 	    (select
 	       timestamp,
 	       substr(guid,1,:pos) || :letter || substr(guid,:pos+2),
-	       node, inblock, insubblock, lfn, filetype, filesize, checksum
+	       node, inblock, insubblock, lfn || :suffix, filetype,
+	       filesize, checksum
 	     from t_file
 	     where guid like '%-%-%-%-%'
 	       and guid not in (select replace(guid,:letter,'-')
 	                        from t_file where guid like :pat))},
-	    ":pos" => $pos, ":letter" => $letter, ":pat" => $safepat);
+	    ":pos" => $pos, ":letter" => $letter, ":pat" => $safepat,
+	    ":suffix" => $suffix);
 
 	do { local $| = 1; print "A"; };
         &dbexec ($tmdb, qq{
@@ -93,7 +96,7 @@ LOOP: foreach my $pos (@positions)
 	    update t_file_attributes set value = value || :suffix
 	    where guid like :pat and attribute = 'POOL_owner'
 	      and value not like '%' || :suffix},
-	    ":suffix" => ".P${pos}${letter}", ":pat" => $safepat);
+	    ":suffix" => $suffix, ":pat" => $safepat);
 
 	do { local $| = 1; print "R"; };
         &dbexec ($tmdb, qq{
