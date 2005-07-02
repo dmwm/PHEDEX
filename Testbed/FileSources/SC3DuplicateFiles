@@ -89,6 +89,11 @@ LOOP: foreach my $pos (@positions)
                                 from t_file_attributes where guid not like :pat))},
 	    ":pos" => $pos, ":letter" => $letter, ":pat" => $safepat);
 
+        &dbexec ($tmdb, qq{
+	    update t_file_attributes set value = value || :suffix
+	    where guid like :pat and attribute = 'POOL_owner'},
+	    ":suffix" => ".P${pos}${letter}", ":pat" => $safepat);
+
 	do { local $| = 1; print "R"; };
         &dbexec ($tmdb, qq{
 	    insert into t_replica_state (timestamp, guid, node, state, state_timestamp)
