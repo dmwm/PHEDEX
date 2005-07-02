@@ -44,6 +44,8 @@ my @positions = (8, 13, 18, 23);
 my @letters = qw(a b c d e f g h i j k l m n o p q r s t u v w x y z ! = + _ . , ^ #);
 my @guids = map { @$_ } @{&dbexec($tmdb, "select guid from t_file")->fetchall_arrayref()};
 my $count = 0;
+my ($nfiles) = &dbexec ($tmdb, qq{
+    select count(guid) from t_file where guid like '%-%-%-%-%'})->fetchrow();
 
 LOOP: foreach my $pos (@positions)
 {
@@ -52,10 +54,10 @@ LOOP: foreach my $pos (@positions)
         print "$pos/$letter: ";
 	do { local $| = 1; print "C"; };
 	my $safepat = ("_" x $pos) . ($letter eq '_' ? "\\$letter" : $letter) . "%";
-	my $exists = &dbexec ($tmdb,
+	my ($nexists) = &dbexec ($tmdb,
 	    "select count(guid) from t_file where guid like :pat escape '\\'",
 	    ":pat" => $safepat)->fetchrow();
-    	do { print "\n"; next } if $exists;
+    	do { print "\n"; next } if $nexists && $nexists == $nfiles;
 	do { print "\n"; last LOOP } if ++$count > $args{COUNT};
 
 	do { local $| = 1; print "L"; };
@@ -65,25 +67,41 @@ LOOP: foreach my $pos (@positions)
         &dbexec ($tmdb, qq{
 	    insert into t_file
 	    (timestamp, guid, node, inblock, insubblock, lfn, filetype, filesize, checksum)
-	    (select timestamp, substr(guid,1,:pos) || :letter || substr(guid,:pos+2),
-	     node, inblock, insubblock, lfn, filetype, filesize, checksum from t_file
-	     where guid like '%-%-%-%-%')},
-	    ":pos" => $pos, ":letter" => $letter);
+	    (select
+	       timestamp,
+	       substr(guid,1,:pos) || :letter || substr(guid,:pos+2),
+	       node, inblock, insubblock, lfn, filetype, filesize, checksum
+	     from t_file
+	     where guid like '%-%-%-%-%'
+	       and guid not in (select replace(guid,:letter,'-')
+	                        from t_file where guid like :pat))},
+	    ":pos" => $pos, ":letter" => $letter, ":pat" => $safepat);
 
 	do { local $| = 1; print "A"; };
         &dbexec ($tmdb, qq{
 	    insert into t_file_attributes (guid, attribute, value)
-	    (select substr(guid,1,:pos) || :letter || substr(guid,:pos+2),
-	     attribute, value from t_file_attributes where guid like '%-%-%-%-%')},
-	    ":pos" => $pos, ":letter" => $letter);
+	    (select
+	       substr(guid,1,:pos) || :letter || substr(guid,:pos+2),
+	       attribute, value
+	     from t_file_attributes
+	     where guid like '%-%-%-%-%'
+	       and guid not in (select replace(guid,:letter,'-')
+                                from t_file_attributes where guid not like :pat))},
+	    ":pos" => $pos, ":letter" => $letter, ":pat" => $safepat);
 
 	do { local $| = 1; print "R"; };
         &dbexec ($tmdb, qq{
 	    insert into t_replica_state (timestamp, guid, node, state, state_timestamp)
-	    (select timestamp, substr(guid,1,:pos) || :letter || substr(guid,:pos+2),
-	     node, state, state_timestamp from t_replica_state where guid like '%-%-%-%-%'
-	     and node like '%CERN%')},
-	    ":pos" => $pos, ":letter" => $letter);
+	    (select
+	       timestamp,
+	       substr(guid,1,:pos) || :letter || substr(guid,:pos+2),
+	       node, state, state_timestamp
+	     from t_replica_state
+	     where node like '%CERN%'
+	       and guid like '%-%-%-%-%'
+	       and guid not in (select replace(guid,:letter,'-')
+                                from t_replica_state where guid not like :pat))},
+	    ":pos" => $pos, ":letter" => $letter, ":pat" => $safepat);
 
         do { local $| = 1; print "B"; };
         &dbexec ($tmdb, qq{
