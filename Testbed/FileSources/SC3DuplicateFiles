@@ -91,7 +91,8 @@ LOOP: foreach my $pos (@positions)
 
         &dbexec ($tmdb, qq{
 	    update t_file_attributes set value = value || :suffix
-	    where guid like :pat and attribute = 'POOL_owner'},
+	    where guid like :pat and attribute = 'POOL_owner'
+	      and value not like '%' || :suffix},
 	    ":suffix" => ".P${pos}${letter}", ":pat" => $safepat);
 
 	do { local $| = 1; print "R"; };
