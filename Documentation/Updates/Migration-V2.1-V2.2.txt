@@ -1219,23 +1219,30 @@ sqlplus $ADMIN/$ADMINPASS@cms < OracleInit.sql
 cat > migrate.sql << "EOF"
 insert into t_node
         (select name from xt_node);
+commit;
 insert into t_file 
         (select timestamp,guid,node,inblock,insubblock,
             lfn,filetype,filesize,checksum
         from xt_file);
+commit;
 insert into t_file_attributes
         (select guid,attribute,value from xt_file_attributes);
+commit;
 insert into t_node_import
         (select node,protocol,priority from xt_node_import);
+commit;
 insert into t_node_export
         (select node,protocol from xt_node_export);
+commit;
 insert into t_node_neighbour 
         (select from_node,to_node,hops
             from xt_routing
             where to_node = gateway);
+commit;
 insert into t_replica_state
         (select timestamp,guid,node,state,state_timestamp 
             from xt_replica_state);
+commit;
 alter trigger new_transfer_state disable;
 alter trigger update_transfer_state disable;
 insert into t_transfer_state
@@ -1244,23 +1251,29 @@ insert into t_transfer_state
             from xt_transfer_state);
 alter trigger new_transfer_state enable;
 alter trigger update_transfer_state enable;
+commit;
 insert into t_transfer_completed
         (select timestamp,guid,to_node,to_state,to_timestamp,
                 from_node,from_state,from_timestamp
             from xt_transfer_completed);    
+commit;
 insert into t_transfer_history
         (select timestamp,guid,to_node,to_old_state,to_new_state,
                 from_node,from_old_state,from_new_state
             from xt_transfer_history);
+commit;
 insert into t_transfer_summary
         (select timestamp,guid,from_node,to_node,assigned,wanted1st,wanted,
                 exported,started,completed,cleared,errors,error_total,error_began
             from xt_transfer_summary);
+commit;
 insert into t_subscription
         (select owner,dataset,destination from xt_subscription);
+commit;
 insert into t_block 
         (select 0, name, owner, dataset, 0, 0, 1 
             from xt_block);
+commit;
 update t_block 
         set (timestamp, files, bytes) = 
             (select min(timestamp), count(guid), sum(filesize) 
@@ -1297,4 +1310,10 @@ When migration complete, need to
 . $BASE/PHEDEX/Schema/roles.sql
 
 $BASE/PHEDEX/Schema/OraclePrivs.sh $ADMIN/$ADMINPASS@cms $READER $WRITER
+$BASE/PHEDEX/Schema/OracleSyns.sh $ADMIN $ADMIN/$ADMINPASS@cms $WRITER/$WRITERPASS@cms
+$BASE/PHEDEX/Schema/OracleSyns.sh $ADMIN $ADMIN/$ADMINPASS@cms $READER/$READERPASS@cms
 
+9.7 Stats
+---------
+
+$BASE/PHEDEX/Schema/OracleStatsEnable.sh $ADMIN/$ADMINPASS@cms
