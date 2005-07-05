@@ -143,19 +143,20 @@ sub installStandalone
     my $rpath = "$InstallRoot/lcg/app/releases/PI/$PI/$Linux_V/lib:$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/lib:$InstallRoot/lcg/app/releases/SEAL/$SEAL/$Linux_V/lib:$InstallRoot/lcg/external/xerces-c/$Xerces/lib:$InstallRoot/lcg/external/mysql/4.0.18/$Linux_Vshort/lib:$InstallRoot/lcg/external/mysqlpp/$MYSQLPP/$Linux_Vshort/lib:$InstallRoot/lcg/external/python/$PYTHON/$Linux_Vshort/lib:$InstallRoot/lcg/external/pcre/4.4/$Linux_Vshort/lib:$InstallRoot/lcg/external/uuid/1.32/$Linux_Vshort/lib";
     my $ppath = "$InstallRoot/lcg/app/releases/PI/$PI/$Linux_V/lib/modules:$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/lib/modules";
     my $bpath = "$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/bin";
+    my $bpath_pre = "$InstallRoot/lcg/external/python/$PYTHON/$Linux_Vshort/bin";
     my $pypath = "$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/lib:$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/bin";
 
     open(FH, ">$InstallRoot/poolenv.sh");
     print FH "export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:$rpath;\n";
     print FH "export SEAL_PLUGINS=$ppath;\n";
-    print FH "export PATH=\${PATH}:$bpath;\n";
+    print FH "export PATH=$bpath_pre:\${PATH}:$bpath;\n";
     print FH "export PYTHONPATH=$pypath;\n";
     close(FH);
 
     open(FH,">$InstallRoot/poolenv.csh");
     print FH "setenv LD_LIBRARY_PATH \${LD_LIBRARY_PATH}:$rpath;\n";
     print FH "setenv SEAL_PLUGINS $ppath;\n";
-    print FH "setenv PATH \${PATH}:$bpath;\n";
+    print FH "setenv PATH $bpath_pre:\${PATH}:$bpath;\n";
     print FH "setenv PYTHONPATH $pypath;\n";
     close(FH);
 
