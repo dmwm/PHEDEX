@@ -15,6 +15,7 @@ BEGIN {
   unshift(@INC, $home);
 }
 use UtilsHelp;
+use UtilsTiming;
 use UtilsDB;
 use POSIX;
 
@@ -99,18 +100,14 @@ LOOP: foreach my $pos (@positions)
 	    ":suffix" => $suffix, ":pat" => $safepat);
 
 	do { local $| = 1; print "R"; };
-        &dbexec ($tmdb, qq{
-	    insert into t_replica_state (timestamp, guid, node, state, state_timestamp)
-	    (select
-	       timestamp,
-	       substr(guid,1,:pos) || :letter || substr(guid,:pos+2),
-	       node, state, state_timestamp
-	     from t_replica_state
-	     where node like '%CERN%'
-	       and guid like '%-%-%-%-%'
-	       and guid not in (select replace(guid,:letter,'-')
-                                from t_replica_state where guid not like :pat))},
-	    ":pos" => $pos, ":letter" => $letter, ":pat" => $safepat);
+	foreach my $node (qw(T1_CERN_MSS T1_CERN_Buffer))
+	{
+            &dbexec ($tmdb, qq{
+	        insert into t_replica_state (timestamp, guid, node, state, state_timestamp)
+	        (select :now, guid, :node, 0, :now from t_file
+	         where guid not in (select guid from t_replica_state where node = :node))},
+	        ":now" => &mytimeofday(), ":node" => $node);
+	}
 
         do { local $| = 1; print "B"; };
         &dbexec ($tmdb, qq{
