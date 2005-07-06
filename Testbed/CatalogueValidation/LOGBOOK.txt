@@ -1,0 +1,394 @@
+--------------- Dump of PFNs via PCFlistGuidPFN -------------------
+|                          MySQL DB                               |
+|   syntax used: FClistGuidPFN -u $cat -j $j -g -m $pattern       |
+|   used pattern resulted in: 497.104 PFNs 484.670 GUIDS          |
+-------------------------------------------------------------------
+j=1: 19m16s
+j=1: 17m43s
+j=1: 17m57s
+j=1: 17m11s
+j=1: 16m32s
+j=1: 16m24s
+j=1: 16m02s
+j=1: 16m08s
+j=1: 16m09s
+j=1: 16m11s
+
+j=5: 13m29s
+j=5: 13m04s
+j=5: 12m33s
+j=5: 12m35s
+j=5: 12m39s
+j=5: 11m58s
+j=5: 12m30s
+j=5: 13m01s
+j=5: 12m15s
+j=5: 12m54s
+
+An exception occurred: MySQL server has gone away: happened once
+j=20:11m30s
+j=20:11m19s
+j=20:11m40s
+j=20:11m46s
+j=20:11m44s
+j=20:11m36s
+j=20:11m38s
+j=20:11m37s
+j=20:12m33s
+j=20:11m00s
+
+An exception occurred: MySQL server has gone away: happened once
+j=50:11m14s
+j=50:11m27s
+j=50:10m58s
+j=50:10m58s
+j=50:11m00s
+j=50:11m00s
+j=50:11m13s
+j=50:10m54s
+j=50:10m55s
+j=50:10m54s
+
+j=75:11m02s
+
+j=90:11m26s
+
+j=100: wasn't possible. MySQL server has gone away occured very often.
+max of jobs possible:90 
+
+
+---------------------------------------------------------------------
+additional test using lxcmsg1
+---------------------------------------------------------------------
+j=100: 48m40s
+j=100: 44m27s
+
+j=150: 50m29s quite some time-outs.... probably limit
+
+j=200: time-out occured very often.
+
+
+--------------- Dump of PFNs via PCFlistGuidPFN -------------------
+|                        ORACLE DB                                |
+|   syntax used: FClistGuidPFN -u $cat -j $j -g -m $pattern       |
+|   used pattern resulted in: 2.179.216 PFNs 615.830 GUIDS        |
+-------------------------------------------------------------------
+
+--- too good due to flaw in metadata table.. not a problem, since this part is only meant to find the max stree possible---
+j=1: 39m47s
+j=1: 42m58s
+j=1: 39m09s
+j=1: 39m35s
+j=1: 39m38s
+j=1: 39m21s
+j=1: 39m41s
+j=1: 39m36s
+j=1: 39m45s
+j=1: 
+
+j=5: 21m59s
+j=5: 21m44s
+j=5: 22m16s
+j=5: 21m44s
+j=5: 21m29s
+j=5: 21m25s
+j=5: 21m20s
+j=5: 21m32s
+j=5: 21m36s
+j=5: 21m31s
+
+------------------------------ flaw was fixed from here on ---------------------------------------------
+
+j=20:33m27s
+j=20:35m09s
+j=20:33m07s
+j=20:33m16s
+j=20:32m03s
+j=20:31m44s
+j=20:31m13s
+j=20:34m46s
+j=20:34m38s
+j=20:31m34s
+
+j=50:41m38s
+j=50:35m21s
+j=50:38m38s
+j=50:32m48s
+j=50:33m12s
+
+j=100:36m14s
+j=100:39m19s
+j=100:37m03s
+j=100:------
+j=100:------
+
+j=200:46m40s
+j=200:78m46s
+j=200:52m33s
+j=200:54m50s
+j=200:50m45s
+
+j=400:164m35s (1 machine)
+j=400:74m13s:11m53s (2 machines)
+
+stopped stress test..... Oracle POOL DB survived 400 parallel jobs...
+no time-outs occured.
+
+There seems to be some client side effect of one machine
+taking a factor of five longer for the same query... But that's only a client effect.
+
+
+
+------------------ Query list of guids -------------------
+|              50.000 queries hit MySQL DB               |
+|                giving back 51.101 PFNs                 |
+|        PFClistGuidPFN -u $cat -j $j -g -r guids        |
+----------------------------------------------------------
+
+j=1: 3m56s
+j=1: 2m34s
+j=1: 4m02s
+j=1: 2m47s
+j=1: 2m32s
+j=1: 2m56s
+j=1: 2m31s
+j=1: 3m04s
+j=1: 4m07s
+j=1: 2m37s
+
+j=5: 8m47s
+j=5:10m46s 
+j=5:10m33s 
+j=5:10m25s 
+j=5:10m12s
+j=5:10m33s
+j=5:10m29s 
+j=5:10m29s
+j=5:10m12s
+j=5:------
+
+j=20:12m07s
+j=20:12m43s
+j=20:12m29s
+j=20:12m40s
+j=20:12m34s
+j=20:12m39s
+j=20:12m41s
+j=20:12m33s
+j=20:12m45s
+j=20:12m48s
+
+j=50:14m54s
+j=50:14m58s
+j=50:14m03s
+j=50:13m51s
+j=50:13m36s
+j=50:11m53s
+j=50:12m18s
+j=50:15m16s
+j=50:12m58s
+j=50:13m14s
+
+
+------------------ Query list of guids -------------------
+|              50.000 queries hit ORACLE DB              |
+|                giving back 245.192 PFNs                |
+----------------------------------------------------------
+
+j=1: 9m22s
+j=1:10m26s
+j=1:10m40s
+j=1:11m04s
+j=1:11m39s
+j=1:10m16s
+j=1:10m40s
+j=1:11m32s
+j=1:11m00s
+j=1:11m31s
+
+j=5: 3m58s
+j=5: 4m41s
+j=5: 4m31s
+j=5: 4m49s
+j=5: 4m29s
+j=5: 4m35s
+j=5: 3m49s
+j=5: 3m44s
+j=5: 4m39s
+j=5: 5m06s
+
+j=20:3m54s
+j=20:3m42s
+j=20:4m33s
+j=20:4m40s
+j=20:3m49s
+j=20:9m44s
+j=20:3m44s
+j=20:3m42s
+j=20:3m42s
+j=20:4m02s
+
+j=50:10m34s
+j=50:07m04s
+j=50:06m26s
+j=50:09m27s
+j=50:04m52s
+j=50:07m20s
+j=50:04m12s
+j=50:04m17s
+j=50:04m08s
+j=50:04m14s
+
+
+
+------------------ Query list of PFNs --------------------
+|              50.000 queries hit MySQL DB               |
+|                giving back 50.000 PFNs                 |
+|        PFClistGuidPFN -u $cat -j $j -p -r pfns         |
+----------------------------------------------------------
+
+j=1:3m20s
+j=1:3m17s
+j=1:3m00s
+j=1:3m19s
+j=1:3m15s
+j=1:2m58s
+j=1:2m57s
+j=1:3m14s
+j=1:3m11s
+j=1:2m58s
+
+j=5:10m16s
+j=5:10m40s
+j=5:11m10s
+j=5:10m53s
+j=5:10m21s
+j=5:12m15s
+j=5:10m06s
+j=5:11m31s
+j=5:10m01s
+j=5:------
+
+j=20:11m40s
+j=20:12m31s
+j=20:11m35s
+j=20:11m36s
+j=20:11m35s
+j=20:11m43s
+j=20:12m16s
+j=20:11m33s
+j=20:11m50s
+j=20:11m36s
+
+j=50:11m47s
+j=50:12m04s
+j=50:11m34s
+j=50:11m30s
+j=50:11m32s
+j=50:11m42s
+j=50:11m57s
+j=50:11m34s
+j=50:11m37s
+j=50:11m41s
+
+
+------------------ Query list of PFNs --------------------
+|              50.000 queries hit ORACLE DB              |
+|                giving back 50.000 PFNs                 |
+----------------------------------------------------------
+
+j=1:6m28s
+j=1:5m31s
+j=1:5m25s
+j=1:5m31s
+j=1:5m48s
+j=1:5m45s
+j=1:5m50s 
+j=1:5m30s
+j=1:5m30s
+j=1:5m46s
+
+j=5:4m37s
+j=5:5m16s
+j=5:4m41s
+j=5:5m11s
+j=5:4m55s
+j=5:4m23s
+j=5:4m52s
+j=5:5m21s
+j=5:4m23s
+j=5:5m08s
+
+j=20:4m23s
+j=20:4m07s
+j=20:4m24s
+j=20:4m29s
+j=20:4m19s
+j=20:4m17s
+j=20:4m17s
+j=20:5m55s
+j=20:4m49s
+j=20:---
+
+j=50:6m51s
+j=50:6m29s
+j=50:8m05s
+j=50:5m08s
+j=50:5m11s
+j=50:4m58s
+j=50:5m03s
+j=50:5m06s
+j=50:4m54s
+j=50:5m06s
+
+
+------------------ Query list of PFNs --------------------
+|              50.000 queries hit ORACLE RAC-DB          |
+|                giving back 50.000 PFNs                 |
+----------------------------------------------------------
+
+j=1:7m19s
+j=1:7m02s
+j=1:7m59s
+j=1:5m54s
+j=1:5m34s
+j=1:5m37s
+j=1:5m20s
+j=1:5m23s
+j=1:5m18s
+j=1:5m12s
+
+j=5:3m42s
+j=5:4m05s
+j=5:4m12s
+j=5:4m34s
+j=5:4m17s
+j=5:4m09s
+j=5:4m31s
+j=5:5m29s
+j=5:9m07s
+j=5:6m38s
+
+j=20:4m55s
+j=20:3m42s
+j=20:3m02s
+j=20:3m46s
+j=20:3m21s
+j=20:4m14s
+j=20:3m36s
+j=20:3m13s
+j=20:2m55s
+j=20:3m50s
+
+j=50:6m21s
+j=50:6m15s
+j=50:5m03s
+j=50:4m50s
+j=50:6m24s
+j=50:4m30s
+j=50:5m13s
+j=50:4m55s
+j=50:5m23s
+j=50:5m06s
+
+
