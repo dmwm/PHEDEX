@@ -1,0 +1,19 @@
+#!/bin/sh
+
+for db in Production SC3 Dev; do
+  for plot in $db-hour.txt:$db-hour-last24:24:Hour	\
+              $db-hour.txt:$db-hour-all:0:Hour		\
+	      $db-day.txt:$db-day-last30:30:Day		\
+	      $db-day.txt:$db-day-all:0:Day		\
+	      $db-week.txt:$db-week-all:0:Week		\
+	      $db-month.txt:$db-month-all:0:Month; do
+    input=$(echo $plot | sed 's/:.*//')
+    output=$(echo $plot | sed 's/[^:]*://; s/:.*//')
+    ntail=$(echo $plot | sed 's/[^:]*:[^:]*://; s/:.*//')
+    label=$(echo $plot | sed 's/.*://')
+
+    ./Utilities/MakeGraph $ntail $label $db < $input |
+      ~/Desktop/jgraph/jgraph > $output.eps
+    eps2gif --resolution=100 $output.eps > $output.gif
+  done
+done

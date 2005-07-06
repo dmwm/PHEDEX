@@ -1,0 +1,133 @@
+#!/usr/bin/env perl
+
+BEGIN { $^W = 1; use strict; use warnings }
+
+my $nlines = shift(@ARGV) || 0;
+my $timeunit = shift(@ARGV) || "Day";
+my $instance = shift(@ARGV) || "Production";
+
+my $hdr = <STDIN>; chomp ($hdr);
+my ($x, @nodes) = split(/,/, $hdr);
+my @nodestyle = map { &stylefor ($_, $#nodes) } @nodes;
+my @lines = map { chomp; $_ } <STDIN>;
+@lines = splice (@lines, $nlines ? -$nlines : 0);
+my $maxval = 0;
+my @xvalues = ();
+my $day = 0;
+foreach (@lines)
+{
+  my ($x, @values) = split(/,/);
+  my $sum = 0; map { $sum += $_; $_ } @values;
+  $maxval = $sum if $sum > $maxval;
+  $x =~ s/Z(\d\d)(\d\d)/ $1:$2/;
+  do { $day++; next } if ((scalar @lines >= 20) && $day % (scalar @lines / 10));
+  push (@xvalues, [ $day++ + .5, $x ]);
+}
+
+$maxval += .1;
+my $xlabels = join("\n    ", map { "hash_label at $_->[0] : $_->[1]" } @xvalues);
+
+print <<PREAMBLE;
+newgraph
+  border
+  title
+    vjc
+    y @{[$maxval + $maxval / 50]}
+    font Helvetica-Bold
+    fontsize 14
+    : Transfers by $timeunit ($instance)
+
+  xaxis
+    size 6.0
+    min 0
+    max $day
+    no_auto_hash_labels
+    hash_labels rotate 45 hjr font Helvetica
+    $xlabels
+    label
+      font Helvetica-Bold
+      fontsize 9
+      : $timeunit
+
+  yaxis
+    size 4.0
+    min 0
+    grid_lines
+    (* mgrid_lines *)
+    mgrid_gray 0.8
+    label
+      font Helvetica-Bold
+      fontsize 9
+      : Terabytes
+PREAMBLE
+
+$day = 0;
+foreach (@lines)
+{
+  my ($x, @values) = split(/,/);
+  my $sum = 0; map { $sum += $_; $_ } @values;
+  for (my $i = 0; $i <= $#nodes; ++$i)
+  {
+    next if ! $values[$i];
+    print "newcurve pts @{[$day + .5]} $sum marktype xbar marksize .75 1 $nodestyle[$i]\n";
+    $sum -= $values [$i];
+  }
+  ++$day;
+}
+
+print "newgraph y_translate -1.0 xaxis min 0 max 4 size 6.0 nodraw yaxis size min 0 max 1 size 0.5 nodraw\n";
+foreach (my $i = 0; $i <= $#nodes; ++$i)
+{
+  my $node = $nodes[$i];
+  my $style = $nodestyle[$i];
+  
+  print "newcurve marktype xbar $nodestyle[$i] label x @{[$i % 4]} y -@{[int($i / 4) * .25]} font Helvetica hjl : $nodes[$i]\n";
+}
+print "legend bottom linelength 2.0 custom\n";
+
+######################################################################
+local %styles_used = ();
+sub stylefor
+{
+	# 0.3 1.0 1.0 = 0.20 1.00 0.00 # 0.8 1.0 0.8 = 0.64 0.00 0.80
+	# 0.6 1.0 0.8 = 0.00 0.32 0.80 # 0.5 1.0 0.8 = 0.00 0.80 0.80
+	# 0.9 1.0 0.8 = 0.80 0.00 0.48 # 0.3 0.4 1.0 = 0.68 1.00 0.60
+	# 0.0 1.0 0.8 = 0.80 0.00 0.00 # 0.1 1.0 0.8 = 0.80 0.48 0.00
+	# 0.2 1.0 0.8 = 0.64 0.80 0.00 # 0.5 1.0 1.0 = 0.00 1.00 1.00
+	# 0.7 1.0 1.0 = 0.20 0.00 1.00 # 0.1 1.0 1.0 = 1.00 0.60 0.00
+	# 0.8 1.0 1.0 = 0.80 0.00 1.00 # 0.0 1.0 1.0 = 1.00 0.00 0.00
+	# 0.9 1.0 1.0 = 1.00 0.00 0.60 
+local @style_colours  = ("cfill 0.20 1.00 0.00",
+		      "cfill 0.64 0.00 0.80",
+		      "cfill 0.00 0.32 0.80",
+		      "cfill 0.00 0.80 0.80",
+		      "cfill 0.80 0.00 0.48",
+		      "cfill 0.68 1.00 0.60",
+		      "cfill 0.80 0.00 0.00",
+		      "cfill 0.80 0.48 0.00",
+		      "cfill 0.64 0.80 0.00",
+		      "cfill 0.00 1.00 1.00",
+		      "cfill 0.20 0.00 1.00",
+		      "cfill 1.00 0.60 0.00",
+		      "cfill 1.00 0.00 0.00",
+		      "cfill 1.00 0.00 0.00",
+		      "cfill 1.00 0.00 0.60");
+local @style_patterns = ("pattern solid",
+		      "pattern stripe -45",
+	      	      "pattern stripe 45");
+
+    my ($key, $count) = @_;
+    for (my $i = 0; ; ++$i)
+    {
+	for (my $j = 0; $j <= ($count > 10 ? 0 : $#style_patterns); ++$j)
+	{
+	    for (my $k = 0; $k <= $#style_colours; ++$k)
+	    {
+		my $style = "(* $i *) $style_colours[$k] $style_patterns[$j]";
+		next if exists $styles_used{$style};
+		$styles_used{$style} = 1;
+		return $style;
+	    }
+	}
+    }
+}
