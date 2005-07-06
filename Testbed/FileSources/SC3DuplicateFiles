@@ -90,7 +90,7 @@ LOOP: foreach my $pos (@positions)
 	     from t_file_attributes
 	     where guid like '%-%-%-%-%'
 	       and guid not in (select replace(guid,:letter,'-')
-                                from t_file_attributes where guid not like :pat))},
+                                from t_file_attributes where guid like :pat))},
 	    ":pos" => $pos, ":letter" => $letter, ":pat" => $safepat);
 
         &dbexec ($tmdb, qq{
