@@ -3,17 +3,17 @@
 ##H Generate transfer rate statistics for report card.
 ##H
 ##H Usage:
-##H   MakeAllStats -db FILE[:SECTION]
+##H   MakeAllStats -db FILE
 ##H
 ##H -db   database connection configuration parameter file
 
-for db in cms; do
+for db in Production SC3 Dev; do
   addopt=
-  if [ $db = cms ]; then
+  if [ $db = Production ]; then
     addopt="-add Documentation/DailyStatsDiff.txt"
     addopt="$addopt -add Documentation/DailyStatsFZKDiff.txt"
   fi
   for unit in hour day week month; do
-    ./Utilities/MakeDailyStats ${1+"$@"} $(echo $addopt) -time $unit > $db-$unit.txt
+    ./Utilities/MakeDailyStats $1 $2:$db/Reader  $(echo $addopt) -time $unit > $db-$unit.txt
   done
 done
