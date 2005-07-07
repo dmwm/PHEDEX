@@ -10,10 +10,13 @@
 for db in Production SC3 Dev; do
   addopt=
   if [ $db = Production ]; then
-    addopt="-add Documentation/DailyStatsDiff.txt"
-    addopt="$addopt -add Documentation/DailyStatsFZKDiff.txt"
+    addopt="-add $(dirname $0)/../Documentation/DailyStatsDiff.txt"
+    addopt="$addopt -add $(dirname $0)/../Documentation/DailyStatsFZKDiff.txt"
   fi
-  for unit in hour day week month; do
-    ./Utilities/MakeDailyStats $1 $2:$db/Reader  $(echo $addopt) -time $unit > $db-$unit.txt
+  for kind in total rate; do
+    for unit in hour day week month; do
+      $(dirname $0)/MakeDailyStats $1 $2:$db/Reader \
+         $(echo $addopt) -time $unit -$kind > $db-$unit-$kind.csv
+    done
   done
 done
