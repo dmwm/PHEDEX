@@ -75,11 +75,9 @@ sub intro
        	<td><a href='}, &relurl('page', 'dbreports'), qq{'>Daily Reports</a></td>
        </tr>
        <tr><td colspan=5 align='center'>$stamp</td></tr>
-       <tr>
-         <td>&nbsp;</td>},
+       <tr>},
 	 (map { "<td><a href='" . &relurl('db', $_) . "'>$databases{$_}[3]</a></td>\n" } @dbnames),
-	 qq{<td>&nbsp;</td>
-        </td></tr></table>};
+	 qq{</tr></table>};
 
     $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
     $ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/10103";
@@ -787,7 +785,7 @@ sub rateplot
     print "<h2>Transfer rate plots</h2>\n";
     foreach my $kind (qw(total rate))
     {
-	foreach my $time (qw(30:hour 7:day 6:week 0:day 0:week 0:month))
+	foreach my $time (qw(48:hour 7:day 6:week 0:day 0:week 0:month))
 	{
 	    my ($last, $unit) = $time =~ /([^:]+)/g;
 	    print "<img width=900 height=400 src='http://cmsdoc.cern.ch/cms/aprom/phedex/WebSite/cgi-bin/perf-graph.php?db=$db&span=$unit&kind=$kind&last=$last'>\n";
