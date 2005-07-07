@@ -15,10 +15,10 @@ function read_csv ($file, $delimiter)
 include BASE_PATH . "/jpgraph/jpgraph.php";
 include BASE_PATH . "/jpgraph/jpgraph_bar.php";
 
-function makeGraph($graph, $data, $tail, $instance, $title, $xtitle, $ytitle, $xunit)
+function makeGraph($graph, $data, $tail, $instance, $title, $xtitle, $ytitle, $xunit, $rewrite)
 {
   // Get category labels and styles for each site
-  $startrow = (! $tail || $tail > count($data)-1 ? 1 : count($data)-$tail-1);
+  $startrow = (! $tail || $tail > count($data)-1 ? 1 : count($data)-$tail);
   $categories = $data[0];
   $styles = array(/* 0.3 1.0 1.0 = */ "#33ff00", /* 0.8 1.0 0.8 = */ "#a300cc",
   		  /* 0.6 1.0 0.8 = */ "#0052cc", /* 0.5 1.0 0.8 = */ "#00cccc",
@@ -49,12 +49,12 @@ function makeGraph($graph, $data, $tail, $instance, $title, $xtitle, $ytitle, $x
   $xlabels = array();
   $nrows = count($data) - $startrow;
   $nxunits = round($nrows / $xunit) + ($nrows % $xunit ? 1 : 0);
-  if ($nrows <= 10) $nrowskip = 1;
-  else if ($nxunits <= 10) $nrowskip = $xunit;
-  else $nrowskip = round($nxunits/10) * $xunit;
+  $nrowskip = ($nrows <= 10 ? 1 : ($nxunits <= 10 ? $xunit : round($nxunits/10) * $xunit));
   for ($row = $startrow; $row < count($data); $row++)
   {
-     $xlabels[] = $data[$row][0];
+     $label = $data[$row][0];
+     if ($rewrite) $label = preg_replace($rewrite[0], $rewrite[1], $label);
+     $xlabels[] = $label;
   }
 
   // Build a compound bar plot from those
@@ -66,6 +66,7 @@ function makeGraph($graph, $data, $tail, $instance, $title, $xtitle, $ytitle, $x
   $graph->SetColor("white");
   $graph->SetMarginColor("white");
   $graph->img->SetMargin(65,300,40,40);
+  $graph->img->SetAntiAliasing();
 
   $graph->title->Set("PhEDEx Data Transfers $title");
   $graph->title->SetFont(FF_FONT2,FS_BOLD);
@@ -101,16 +102,18 @@ $entries  = $GLOBALS['HTTP_GET_VARS']['last'];
 
 $ytitle   = ($kind == 'rate' ? 'Throughput (MB/s)' : 'Terabytes');
 $ksuffix  = (($kind == 'rate' || $kind == 'total') ? $kind : 'Unknown');
-$prefix   = (($srcdb == 'prod') ? 'Production'
-	     : ($srcdb == 'test') ? 'Dev'
-	     : ($srcdb == 'sc') ? 'SC3'
-	     : 'Unknown');
+$prefix   = ($srcdb == 'prod' ? 'Production'
+	     : ($srcdb == 'test' ? 'Dev'
+	        : ($srcdb == 'sc' ? 'SC3'
+	           : 'Unknown')));
 if ($span == "hour")
 {
   $tsuffix = $span;
   $title = ($entries ? "Last $entries Hours" : "By Hour");
   $xtitle = "Hour";
   $xunit = 4;
+  $rewrite = ($entries ? array('/.*Z(..)(..)/', '\1:\2')
+  	      : array('/(.*)Z(.*)/', '\1\n\2'));
 }
 else if ($span == "day")
 {
@@ -118,6 +121,7 @@ else if ($span == "day")
   $title = ($entries ? "Last $entries Days" : "By Day");
   $xtitle = "Day";
   $xunit = 7;
+  $rewrite = array('/(....)(..)(..)/', '\1-\2-\3');
 }
 else if ($span == "week")
 {
@@ -125,6 +129,7 @@ else if ($span == "week")
   $title = ($entries ? "Last $entries Weeks" : "By Week");
   $xtitle = "Week";
   $xunit = 4;
+  $rewrite = array('/(....)(..)/', '\1/\2');
 }
 else if ($span == "month")
 {
@@ -132,6 +137,7 @@ else if ($span == "month")
   $title = ($entries ? "Last $entries Months" : "By Month");
   $xtitle = "Month";
   $xunit = 2;
+  $rewrite = array('/(....)(..)/', '\1-\2');
 }
 else
 {
@@ -139,10 +145,11 @@ else
   $title = "Unknown Time Period";
   $xtitle = "Time Period";
   $xunit = 2;
+  $rewrite = 0;
 }
 
 $graph = new Graph (900, 400, "auto");
 $data = read_csv (BASE_PATH . "/data/$prefix-$tsuffix-$ksuffix.csv", ",");
-makeGraph ($graph, $data, $entries, $prefix, $title, $xtitle, $ytitle, $xunit);
+makeGraph ($graph, $data, $entries, $prefix, $title, $xtitle, $ytitle, $xunit, $rewrite);
 
 ?>
