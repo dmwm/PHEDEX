@@ -72,7 +72,8 @@ function makeGraph($graph, $data, $tail, $instance, $title, $xtitle, $ytitle, $x
   $graph->title->SetFont(FF_FONT2,FS_BOLD);
   $graph->title->SetColor("black");
 
-  $graph->subtitle->Set("$instance Transfers");
+  $nowstamp = date("Y-m-d H:i");
+  $graph->subtitle->Set("$instance Transfers, $nowstamp GMT");
   $graph->subtitle->SetFont(FF_FONT1,FS_BOLD);
   $graph->subtitle->SetColor("black");
 
