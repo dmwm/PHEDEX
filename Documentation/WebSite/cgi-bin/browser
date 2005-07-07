@@ -783,13 +783,31 @@ sub dbreport
 sub rateplot
 {
     print "<h2>Transfer rate plots</h2>\n";
+    my @plotorder = qw(l48h l7d l6w ad aw am);
+    my %plots = ("l48h" => [ "48:hour", "Last 48 Hours" ],
+	         "l7d" => [ "7:day", "Last 7 Days" ],
+		 "l6w" => [ "6:week", "Last 6 Weeks" ],
+	         "ad" => [ "0:day", "Daily Since Start" ],
+		 "aw" => [ "0:week", "Weekly Since Start" ],
+		 "am" => [ "0:month", "Monthly Since Start" ]);
+    my $plot = param("plot");
+    $plot = 'l48h' if (! $plot || ! exists $plots{$plot});
+
+    print "<p><form method='GET' action='@{[&relurl()]}'>\n",
+          "<input type='hidden' name='page' value='@{[param('page')]}'>\n",
+          "<input type='hidden' name='db' value='@{[param('db')]}'>\n",
+          "<select name='plot' onchange='submit()'>";
+    foreach my $p (@plotorder)
+    {
+	print "<option ", ($plot eq $p ? 'selected=selected' : ''),
+	      " value='$p'>$plots{$p}[1]</option>";
+    }
+    print "</select>\n";
+    print "<input type='submit' value='Update'></form>\n";
     foreach my $kind (qw(total rate))
     {
-	foreach my $time (qw(48:hour 7:day 6:week 0:day 0:week 0:month))
-	{
-	    my ($last, $unit) = $time =~ /([^:]+)/g;
-	    print "<img width=900 height=400 src='http://cmsdoc.cern.ch/cms/aprom/phedex/WebSite/cgi-bin/perf-graph.php?db=$db&span=$unit&kind=$kind&last=$last'>\n";
-	}
+	my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
+	print "<p><img width=900 height=400 src='http://cmsdoc.cern.ch/cms/aprom/phedex/WebSite/cgi-bin/perf-graph.php?db=$db&span=$unit&kind=$kind&last=$last'>";
     }
 }
 
