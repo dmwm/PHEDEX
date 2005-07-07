@@ -4,13 +4,16 @@
 ##H
 ##H Usage:
 ##H   MakeDailyStats
-##H      -db FILE[:SECTION] [-unit k|G|M|T] [-time hour|day|week|month] [-add FILE]
+##H      -db FILE[:SECTION] [-unit k|G|M|T] [-time hour|day|week|month]
+##H      [-add FILE] [-rate | -total]
 ##H
 ##H -db        database connection configuration parameter file
 ##H -unit      report in specified unit instead of bare number of bytes (default: T)
 ##H -time      group by the specified time span (default: day)
 ##H -add       add transfer deltas from a file, with lines in the format
 ##H               YYYYMMDD NODE SIZE-VAL [NODE SIZE-VAL]...
+##H -rate      show transfer rate (MB/s, or unit)
+##H -show      show total data transferred (terabytes, or unit)
 
 BEGIN {
   use strict; use warnings;
@@ -25,7 +28,7 @@ use POSIX;
 my %stats = ();
 my %nodes = ();
 my $first = undef;
-my %args = (UNIT => '1T', TIME => 'day');
+my %args = (MODE => 'total', TIME => 'day');
 
 # Process command line arguments.
 while (scalar @ARGV)
@@ -38,6 +41,10 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{TIME} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-add' && scalar @ARGV > 1)
     { shift (@ARGV); $args{ADDFILE} = shift (@ARGV); }
+    elsif ($ARGV[0] eq '-rate')
+    { shift (@ARGV); $args{MODE} = 'rate'; }
+    elsif ($ARGV[0] eq '-total')
+    { shift (@ARGV); $args{MODE} = 'total'; }
     elsif ($ARGV[0] eq '-h')
     { &usage(); }
     else
@@ -45,8 +52,9 @@ while (scalar @ARGV)
 }
 
 # Check arguments.
+$args{UNIT} = ($args{MODE} eq 'rate' ? "1M" : "1T") if ! $args{UNIT};
 $args{UNIT} = &sizeValue ($args{UNIT}) if $args{UNIT};
-if (@ARGV || !$args{UNIT} || !$args{TIME} || !$args{DBCONFIG})
+if (@ARGV || !$args{UNIT} || !$args{TIME} || !$args{DBCONFIG} || !$args{MODE})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -112,7 +120,15 @@ my @nodenames = sort keys %nodes;
 print join(",", "Time Base", @nodenames), "\n";
 foreach my $time (&timeSeries ($first, $args{TIME})) {
     my $unit = &formatTime ($time->{LOW}, $args{TIME});
-    print $unit, (map { "," . ($stats{$unit}{$_} || 0) } @nodenames), "\n";
+    print $unit;
+    foreach my $node (@nodenames)
+    {
+        my $amount = $stats{$unit}{$node} || 0;
+        $amount /= $time->{HIGH} - $time->{LOW}
+	   if $args{MODE} eq 'rate';
+        print ",$amount";
+    }
+    print "\n";
 }
 
 # Done.
