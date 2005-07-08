@@ -20,19 +20,13 @@ function makeGraph($graph, $data, $tail, $instance, $title, $xtitle, $ytitle, $x
   // Get category labels and styles for each site
   $startrow = (! $tail || $tail > count($data)-1 ? 1 : count($data)-$tail);
   $categories = $data[0];
-  $styles = array(/* 0.3 1.0 1.0 = */ "#33ff00", /* 0.8 1.0 0.8 = */ "#a300cc",
-  		  /* 0.6 1.0 0.8 = */ "#0052cc", /* 0.5 1.0 0.8 = */ "#00cccc",
-		  /* 0.9 1.0 0.8 = */ "#cc007a", /* 0.3 1.0 0.8 = */ "#29cc00",
-		  /* 0.3 1.0 1.0 = */ "#33ff00", /* 0.3 1.0 1.0 = */ "#33ff00",
-		  /* 0.3 0.4 1.0 = */ "#adff99", /* 0.0 1.0 0.8 = */ "#cc0000",
-		  /* 0.1 1.0 0.8 = */ "#cc7a00", /* 0.2 1.0 0.8 = */ "#a3cc00",
-		  /* 0.5 1.0 1.0 = */ "#00ffff", /* 0.7 1.0 1.0 = */ "#3300ff",
-		  /* 0.1 1.0 1.0 = */ "#ff9900", /* 0.8 1.0 1.0 = */ "#cc00ff",
-		  /* 0.0 1.0 1.0 = */ "#ff0000", /* 0.9 1.0 1.0 = */ "#ff0099");
+  $styles = array("#e66266", "#fff8a9", "#7bea81", "#8d4dff", "#ffbc71", "#a57e81",
+		  "#baceac", "#00ccff", "#63aafe", "#ccffff", "#ccffcc", "#ffff99",
+		  "#99ccff", "#ff99cc", "#cc99ff", "#ffcc99", "#3366ff", "#33cccc");
 
   // Build an array of bar plots, one for each category (site)
   $plots = array();
-  for ($cat = count($categories)-1; $cat >= 1; $cat--)
+  for ($cat = 1; $cat < count($categories); $cat++)
   {
     $plotdata = array();
     for ($row = $startrow; $row < count($data); $row++)
