@@ -23,6 +23,9 @@ function makeGraph($graph, $data, $tail, $instance, $title, $xtitle, $ytitle, $x
   $styles = array("#e66266", "#fff8a9", "#7bea81", "#8d4dff", "#ffbc71", "#a57e81",
 		  "#baceac", "#00ccff", "#63aafe", "#ccffff", "#ccffcc", "#ffff99",
 		  "#99ccff", "#ff99cc", "#cc99ff", "#ffcc99", "#3366ff", "#33cccc");
+  $patterns = array(array ('/^T1/', 0),
+  		    array ('/^T2/', PATTERN_DIAG2),
+		    array ('/^/', PATTERN_DIAG4));
 
   // Build an array of bar plots, one for each category (site)
   $plots = array();
@@ -35,6 +38,12 @@ function makeGraph($graph, $data, $tail, $instance, $title, $xtitle, $ytitle, $x
     }
     $barplot = new BarPlot($plotdata);
     $barplot->SetFillColor ($styles[($cat-1) % count($styles)]);
+    for ($pat = 0; $pat < count($patterns); $pat++)
+    {
+	if (! preg_match($patterns[$pat][0], $categories[$cat])) continue;
+	if ($patterns[$pat][1]) $barplot->SetPattern ($patterns[$pat][1], 'black');
+	break;
+    }
     $barplot->SetLegend ($categories[$cat]);
     $plots[] = $barplot;
   }
