@@ -6,7 +6,7 @@ function read_csv ($file, $delimiter)
   $data_array = file($file);
   for ( $i = 0; $i < count($data_array); $i++ )
   {
-    $parts_array[$i] = explode($delimiter,$data_array[$i]);
+    $parts_array[$i] = explode($delimiter,trim($data_array[$i]));
   }
   return $parts_array;
 }
