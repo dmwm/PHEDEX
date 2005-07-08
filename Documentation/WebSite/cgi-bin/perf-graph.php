@@ -61,11 +61,14 @@ function makeGraph($graph, $data, $tail, $instance, $title, $xtitle, $ytitle, $x
   $plot = new AccBarPlot ($plots);
   $plot->SetWidth(0.65);
 
+  // Compute how much the legend needs
+  $legendcols = (count($categories) > 16 ? 2 : 1);
+
   // Configure the graph
   $graph->SetScale("textlin");
   $graph->SetColor("white");
   $graph->SetMarginColor("white");
-  $graph->img->SetMargin(65,300,40,40);
+  $graph->img->SetMargin(65,56 + $legendcols * 122,40,40);
   $graph->img->SetAntiAliasing();
 
   $graph->title->Set("PhEDEx Data Transfers $title");
@@ -89,7 +92,7 @@ function makeGraph($graph, $data, $tail, $instance, $title, $xtitle, $ytitle, $x
   $graph->yaxis->title->SetFont(FF_FONT1,FS_BOLD);
 
   $graph->legend->Pos(0.01, 0.5, "right", "center");
-  $graph->legend->SetColumns(2);
+  $graph->legend->SetColumns($legendcols);
   $graph->legend->SetShadow(0);
   // $graph->legend->SetLayout(LEGEND_HOR);
   $graph->Add ($plot);
