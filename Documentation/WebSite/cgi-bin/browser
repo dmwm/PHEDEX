@@ -804,7 +804,7 @@ sub rateplot
     }
     print "</select>\n";
     print "<input type='submit' value='Update'></form>\n";
-    foreach my $kind (qw(total rate))
+    foreach my $kind (qw(rate total))
     {
 	my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
 	print "<p><img width=900 height=400 src='http://cmsdoc.cern.ch/cms/aprom/phedex/WebSite/cgi-bin/perf-graph.php?db=$db&span=$unit&kind=$kind&last=$last'>";
