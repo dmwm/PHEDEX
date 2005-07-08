@@ -84,7 +84,10 @@ function makeGraph($graph, $data, $tail, $filter,
   $graph->title->SetColor("black");
 
   $nowstamp = gmdate("Y-m-d H:i");
-  $graph->subtitle->Set("$instance Transfers, $nowstamp GMT");
+  $graph->subtitle->Set("$instance Transfers"
+  	                . ((isset($filter) && $filter != '')
+			   ? " Matching `$filter'" : "")
+	                . ", $nowstamp GMT");
   $graph->subtitle->SetFont(FF_FONT1,FS_BOLD);
   $graph->subtitle->SetColor("black");
 
