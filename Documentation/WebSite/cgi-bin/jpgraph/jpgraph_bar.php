@@ -4,7 +4,7 @@
 // Description:	Bar plot extension for JpGraph
 // Created: 	2001-01-08
 // Author:	Johan Persson (johanp@aditus.nu)
-// Ver:		$Id: jpgraph_bar.php 21 2005-05-30 20:35:34Z ljp $
+// Ver:		$Id: jpgraph_bar.php,v 1.1 2005/07/07 10:51:41 lat Exp $
 //
 // Copyright (c) Aditus Consulting. All rights reserved.
 //========================================================================
@@ -619,7 +619,7 @@ class AccBarPlot extends BarPlot {
 // PUBLIC METHODS	
     function Legend(&$graph) {
 	$n = count($this->plots);
-	for( $i=$n-1; $i >= 0; --$i ) {
+	for($i=0; $i < $n; ++$i) { //LAT: for( $i=$n-1; $i >= 0; --$i ) {
 	    $c = strtolower(get_class($this->plots[$i]));
 	    if( $c !== 'barplot' ) {
 		JpGraphError::Raise('One of the objects submitted to AccBar is not a BarPlot. Make sure that you create the AccBar plot from an array of BarPlot objects.(Class='.$c.')');
