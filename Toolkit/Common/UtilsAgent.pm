@@ -166,6 +166,7 @@ sub doStop
     unlink($self->{STOPFLAG});
 
     # Stop the rest
+    $self->stopAllJobs() if @{$self->{JOBS}};
     $self->stopWorkers() if $self->{NWORKERS};
     $self->stop();
     exit (0);

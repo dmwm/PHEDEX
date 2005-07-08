@@ -54,8 +54,9 @@ sub startJob
     else
     {
 	# Child, execute the requested program
-        exec { $job->{CMD}[0] } @{$job->{CMD}};
-        die "Cannot start @{$job->{CMD}}: $!\n";
+	setpgrp(0,$$);
+	exec { $job->{CMD}[0] } @{$job->{CMD}};
+	die "Cannot start @{$job->{CMD}}: $!\n";
     }
 }
 
@@ -86,10 +87,27 @@ sub checkJobs
 	       && $job->{TIMEOUT}
 	       && ($now - $job->{STARTED}) > $job->{TIMEOUT})
 	{
-	    # Command has taken too long to execute.  Nuke it.  First time
-	    # around use SIGINT.  Next time around use SIGKILL.
-	    kill ($job->{FORCE_TERMINATE} ||= 1, $job->{PID});
-	    $job->{FORCE_TERMINATE} = 9;
+	    # Command has taken too long to execute, so we need to stop it and its
+	    # children. Normally it would be polite to SIGINT the parent process first
+	    # and let it INT its children. However, this is something of a hack
+	    # because some transfer tools are badly behaved (their children ignore 
+	    # their elders). So- instead we just address the whole process group.
+	    my %signals = ( 0 => [1,-$job->{PID}],
+			    1 => [15,-$job->{PID}],
+			    15 => [9,-$job->{PID}] );
+
+	    # Now set signal if not set, send the signal, increase the timeout to give
+	    # the parent time to react, and move to next signal
+	    $job->{SIGNAL} ||= 0;
+	    kill(@{$signals{$job->{SIGNAL}}});
+	    $job->{TIMEOUT} += 15;
+	    if ($job->{SIGNAL} != 9) 
+	    {
+		$job->{SIGNAL} = $signals{$job->{SIGNAL}}[0];
+	    } else {
+		&alert("Job $job->{PID} not responding to requests to quit");
+	    }
+
 	    push(@pending, $job);
 	}
 	else
@@ -101,6 +119,27 @@ sub checkJobs
 
     $self->{JOBS} = \@pending;
     return @finished;
+}
+
+# Send a signal to all generated process groups?
+sub killAllJobs
+{
+    foreach my $job (@{$self->{JOBS}})
+    {
+	kill(9,-$job->{PID});
+    }
+
+    # I want to wait here until everything's stopped
+    my $allDead = false;
+    while (! $allDead)
+    {
+	$allDead = true;
+	foreach my $job (@{$self->{JOBS}})
+	{
+	    if (kill(0,-$job->{PID})) { $allDead = false; }
+	}
+    }
+    &logmsg("Stopped all queued jobs");
 }
 
 # Invoke actions on completed subprocesses and start new jobs if there
