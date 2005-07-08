@@ -65,7 +65,7 @@ function makeGraph($graph, $data, $tail, $instance, $title, $xtitle, $ytitle, $x
   $plot->SetWidth(0.65);
 
   // Compute how much the legend needs
-  $legendcols = (count($categories) > 16 ? 2 : 1);
+  $legendcols = (count($categories) > 20 ? 2 : 1);
 
   // Configure the graph
   $graph->SetScale("textlin");
