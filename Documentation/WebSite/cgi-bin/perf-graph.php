@@ -15,7 +15,9 @@ function read_csv ($file, $delimiter)
 include BASE_PATH . "/jpgraph/jpgraph.php";
 include BASE_PATH . "/jpgraph/jpgraph_bar.php";
 
-function makeGraph($graph, $data, $tail, $instance, $title, $xtitle, $ytitle, $xunit, $rewrite)
+function makeGraph($graph, $data, $tail, $filter,
+		   $instance, $title, $xtitle, $ytitle,
+		   $xunit, $rewrite)
 {
   // Get category labels and styles for each site
   $startrow = (! $tail || $tail > count($data)-1 ? 1 : count($data)-$tail);
@@ -31,6 +33,9 @@ function makeGraph($graph, $data, $tail, $instance, $title, $xtitle, $ytitle, $x
   $plots = array();
   for ($cat = 1; $cat < count($categories); $cat++)
   {
+    if (isset($filter) && $filter != '' && ! preg_match("/$filter/", $categories[$cat]))
+      continue;
+
     $plotdata = array();
     for ($row = $startrow; $row < count($data); $row++)
     {
@@ -106,6 +111,7 @@ $srcdb    = $GLOBALS['HTTP_GET_VARS']['db'];
 $span     = $GLOBALS['HTTP_GET_VARS']['span'];
 $kind     = $GLOBALS['HTTP_GET_VARS']['kind'];
 $entries  = $GLOBALS['HTTP_GET_VARS']['last'];
+$filter   = $GLOBALS['HTTP_GET_VARS']['filter'];
 
 $ytitle   = ($kind == 'rate' ? 'Throughput (MB/s)' : 'Terabytes');
 $ksuffix  = (($kind == 'rate' || $kind == 'total') ? $kind : 'Unknown');
@@ -157,6 +163,8 @@ else
 
 $graph = new Graph (900, 400, "auto");
 $data = read_csv (BASE_PATH . "/data/$prefix-$tsuffix-$ksuffix.csv", ",");
-makeGraph ($graph, $data, $entries, $prefix, $title, $xtitle, $ytitle, $xunit, $rewrite);
+makeGraph ($graph, $data, $entries, $filter,
+	   $prefix, $title, $xtitle, $ytitle,
+	   $xunit, $rewrite);
 
 ?>
