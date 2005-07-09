@@ -15,7 +15,7 @@ for db in Production SC3 Dev; do
   fi
   for kind in total rate; do
     for unit in hour day week month; do
-      $(dirname $0)/MakeDailyStats $1 $2:$db/Reader \
+      $(dirname $0)/MakeDailyStats $1 $2:$db/Admin \
          $(echo $addopt) -time $unit -$kind > $db-$unit-$kind.csv
     done
   done
