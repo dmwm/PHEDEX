@@ -49,11 +49,15 @@ my $data = &dbexec ($dbh, qq{
     from t_transfer_history
     group by trunc(timestamp/3600)*3600, to_node});
 
-print "Time,Node,Attempts,Failures,Completed\n";
+print "Month,Week,Day,Hour,Node,Attempts,Failures,Completed\n";
 while (my ($time, $node, $attempts, $failures, $completed) = $data->fetchrow())
 {
-    my $hour = strftime('%Y%m%dZ%H00', gmtime(int($time)));
-    print "$hour,$node,$attempts,$failures,$completed\n";
+    my @gmtime = gmtime(int($time));
+    my $month = strftime('%Y%m', @gmtime);
+    my $week = strftime('%Y%V', @gmtime);
+    my $day = strftime('%Y%m%d', @gmtime);
+    my $hour = strftime('%Y%m%dZ%H00', @gmtime);
+    print "$month,$week,$day,$hour,$node,$attempts,$failures,$completed\n";
 }
 $data->finish ();
 $dbh->disconnect ();
