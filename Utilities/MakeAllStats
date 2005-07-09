@@ -19,4 +19,5 @@ for db in Production SC3 Dev; do
          $(echo $addopt) -time $unit -$kind > $db-$unit-$kind.csv
     done
   done
+  $(dirname $0)/MakeQualityStats $1 $2:$db/Admin > $db-xfer-quality.csv
 done
