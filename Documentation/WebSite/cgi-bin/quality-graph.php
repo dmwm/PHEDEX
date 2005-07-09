@@ -168,9 +168,9 @@ function makeGraph($graph, $data, $args)
   $graph->Stroke();
 }
 
-$kind_types       = array ('attempted'       => "Count of Attempted Transfer",
-		           'failed'          => "Count of Failed Transfer",
-		           'completed'       => "Count of Completed Transfer",
+$kind_types       = array ('attempted'       => "Count of Attempted Transfers",
+		           'failed'          => "Count of Failed Transfers",
+		           'completed'       => "Count of Completed Transfers",
 		           'completed_ratio' => "Fraction of Completed Transfers vs. Attempted",
 		           'failed_ratio'    => "Fraction of Failed Transfers vs. Attempted");
 $srcdb            = $GLOBALS['HTTP_GET_VARS']['db'];
