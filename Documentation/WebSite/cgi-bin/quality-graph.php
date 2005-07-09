@@ -25,6 +25,8 @@ function selectData($data, $xbin, $tail, $filter)
     $node = $data[$i][4];
     if (isset($filter) && $filter != '' && ! preg_match("/$filter/", $node))
       continue;
+    if ($data[$i][5] == 0 && $data[$i][6] == 0 && $data[$i][7] == 0)
+      continue;
 
     // Select the right time for X axis plus convert to desired format.
     // Stop when we have $tail unique X values.
