@@ -28,22 +28,22 @@ function selectData($data, $xbin, $tail, $filter)
 
     // Select the right time for X axis plus convert to desired format.
     // Stop when we have $tail unique X values.
-    $origtime = $data[$i][$xbin];
-    if (! count($xvals) || $xvals[count($xvals)-1] != $origtime) $xvals[] = $origtime;
+    $time = $data[$i][$xbin];
+    if (! count($xvals) || $xvals[count($xvals)-1] != $time) $xvals[] = $time;
     if (isset($tail) && $tail && count($xvals) > $tail) break;
 
     // Transpose data to $newdata[xbin][node][attempted, errors, transferred]
-    if (! isset ($newdata[$origtime][$node]))
+    if (! isset ($newdata[$time][$node]))
     {
-      $newdata[$origtime][$node] = array(0, 0, 0, $fmttime);
+      $newdata[$time][$node] = array(0, 0, 0);
     }
 
-    $newdata[$origtime][$node][0] += $data[$i][5];
-    $newdata[$origtime][$node][1] += $data[$i][6];
-    $newdata[$origtime][$node][2] += $data[$i][7];
+    $newdata[$time][$node][0] += $data[$i][5];
+    $newdata[$time][$node][1] += $data[$i][6];
+    $newdata[$time][$node][2] += $data[$i][7];
   }
 
-  return $newdata;
+  return array_reverse($newdata, true);
 }
 
 function makeGraph($graph, $data, $args)
@@ -57,8 +57,8 @@ function makeGraph($graph, $data, $args)
   // Build X-axis labels.  Make sure there are not too many of them.
   $xrewrite = $args['xrewrite'];
   $xlabels = array();
-  foreach (array_keys($data) as $origtime)
-      $xlabels[] = preg_replace("/{$xrewrite[0]}/", $xrewrite[1], $origtime);
+  foreach (array_keys($data) as $time)
+      $xlabels[] = preg_replace("/{$xrewrite[0]}/", $xrewrite[1], $time);
 
   $xbins = count($data);
   $xunit = $args['xunit'];
@@ -168,9 +168,9 @@ function makeGraph($graph, $data, $args)
   $graph->Stroke();
 }
 
-$kind_types       = array ('attempted'       => "Attempted Transfer Counts",
-		           'failed'          => "Failed Transfer Counts",
-		           'completed'       => "Completed Transfer Counts",
+$kind_types       = array ('attempted'       => "Count of Attempted Transfer",
+		           'failed'          => "Count of Failed Transfer",
+		           'completed'       => "Count of Completed Transfer",
 		           'completed_ratio' => "Fraction of Completed Transfers vs. Attempted",
 		           'failed_ratio'    => "Fraction of Failed Transfers vs. Attempted");
 $srcdb            = $GLOBALS['HTTP_GET_VARS']['db'];
@@ -215,8 +215,7 @@ else // hour
   $args['xtitle'] = "Hour";
   $args['xunit'] = 4;
   $args['xbin'] = 3;
-  $args['xrewrite'] = ($entries ? array('.*Z(..)(..)', '\1:\2')
-  		       : array('(....)(..)(..)Z(..)(..)', '\1-\2-\3\n\4:\5'));
+  $args['xrewrite'] = array('(....)(..)(..)Z(..)(..)', "\\1-\\2-\\3\n   \\4:\\5");
 }
 
 $graph = new Graph (900, 400, "auto");
