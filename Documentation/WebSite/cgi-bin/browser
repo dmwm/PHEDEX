@@ -77,7 +77,9 @@ sub intro
        	<td><a href='}, &relurl('page', 'stats'), qq{'>File size stats</a></td>
        	<td><a href='}, &relurl('page', 'rates'), qq{'>Transfer rate</a></td>
        	<td><a href='}, &relurl('page', 'rateplot'), qq{'>Transfer plots<a></td>
+       	<td><a href='}, &relurl('page', 'qplot'), qq{'>Transfer quality<a></td>
        	<td><a href='}, &relurl('page', 'agents'), qq{'>Agent status</a></td>
+      </tr><tr>
        	<td><a href='}, &relurl('page', 'dbreports'), qq{'>Daily Reports</a></td>
        </tr>
        <tr><td colspan=5 align='center'>$stamp</td></tr>
@@ -97,7 +99,7 @@ sub intro
 		 'replicas' => \&replicas,   'subs' => \&subs,
 		 'stats' => \&stats,         'agents' => \&agents,
 		 'rates' => \&rates,	     'rateplot' => \&rateplot,
-		 'tstates' => \&tstates,
+		 'qplot' => \&qplot,	     'tstates' => \&tstates,
 	 	 'dbreports' => \&dbreports, 'dbreport' => \&dbreport);
     &{$pages{param('page')} || \&main}();
     print "</body></html>\n";
@@ -818,6 +820,46 @@ sub rateplot
 	my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
 	print "<p><img width=900 height=400 src='",
 	      "http://cmsdoc.cern.ch/cms/aprom/phedex/WebSite/cgi-bin/perf-graph.php?",
+	      &urlencode('db' => $db, 'span' => $unit, 'kind' => $kind,
+		         'last' => $last, 'filter' => $filter),
+	      "'>";
+    }
+}
+
+sub qplot
+{
+    print "<h2>Transfer quality plots</h2>\n";
+    my @plotorder = qw(l8h l12h l48h l7d l6w ad aw am);
+    my %plots = ("l8h" => [ "8:hour", "Last 8 Hours" ],
+	         "l12h" => [ "12:hour", "Last 12 Hours" ],
+	         "l48h" => [ "48:hour", "Last 48 Hours" ],
+	         "l7d" => [ "7:day", "Last 7 Days" ],
+		 "l6w" => [ "6:week", "Last 6 Weeks" ],
+	         "ad" => [ "0:day", "Daily Since Start" ],
+		 "aw" => [ "0:week", "Weekly Since Start" ],
+		 "am" => [ "0:month", "Monthly Since Start" ]);
+    my $plot = param("plot");
+    my $filter = param("filter") || '';
+    $plot = $plotorder[0] if (! $plot || ! exists $plots{$plot});
+
+    print "<p><form method='GET' action='@{[&relurl()]}'>\n",
+          "<input type='hidden' name='page' value='@{[param('page')]}'>\n",
+          "<input type='hidden' name='db' value='@{[param('db')]}'>\n",
+          "<select name='plot' onchange='submit()'>";
+    foreach my $p (@plotorder)
+    {
+	print "<option ", ($plot eq $p ? 'selected=selected' : ''),
+	      " value='$p'>$plots{$p}[1]</option>";
+    }
+    print "</select>\n",
+          "Filter ",
+	  $cgi->textfield(-name=>'filter', -default=>$filter, -size=>15),
+    	  "<input type='submit' value='Update'></form>\n";
+    foreach my $kind (qw(completed_ratio failed_ratio attempted completed failed))
+    {
+	my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
+	print "<p><img width=900 height=400 src='",
+	      "http://cmsdoc.cern.ch/cms/aprom/phedex/WebSite/cgi-bin/quality-graph.php?",
 	      &urlencode('db' => $db, 'span' => $unit, 'kind' => $kind,
 		         'last' => $last, 'filter' => $filter),
 	      "'>";
