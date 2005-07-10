@@ -1,0 +1,34 @@
+grep expiring logs/funnel | grep \; |
+  awk '{print $6, $9, $10, $13, $14, $15}' |
+  tr -d '(),;' |
+  sed 's/EVD\.\([^.]*\)\.[^.]*\.[^.]*/\1/' |
+  sort |
+  grep -v 10826 |
+  perl -e '
+    while (<STDIN>) {
+      ($q, @a) = m|(\S+)|g;
+      push(@{$qs{$q}}, [ @a ]);
+    }
+    foreach $q (sort keys %qs) {
+      @a = (0) x 5;
+      foreach $i (@{$qs{$q}}) {
+        map { $a[$_] += $i->[$_] } 0..4; }
+	print "$q\t", join("\t", map { sprintf "%.1f", $_ / scalar(@{$qs{$q}}) } @a), "\n";
+    }'
+grep expiring logs/funnel | grep \; |
+  awk '{print $6, $9, $10, $13, $15}' |
+  tr -d '(),;' |
+  sed 's/EVD\.\([^.]*\)\.\([^.]*\)\.[^.]*/\2.\1/' |
+  sort | grep -v 10826 |
+  perl -e '
+    while (<STDIN>) {
+      ($q, @a) = m|(\S+)|g;
+      push(@{$qs{$q}}, [ @a ]);
+    }
+    foreach $q (sort keys %qs) {
+      @a = (0) x 4;
+      foreach $i (@{$qs{$q}}) {
+        map { $a[$_] += $i->[$_] } 0..3; }
+	print "$q\t", join("\t", map { sprintf "%.1f", $_ / scalar(@{$qs{$q}}) } @a), "\n";
+    }'
+
