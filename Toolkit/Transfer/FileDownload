@@ -173,6 +173,32 @@ sub new
     return $self;
 }
 
+# Agent initialisation.  Init randomisation of file selection.
+#
+# The purpose of the randomisation is to make different download
+# agents select files in different orders (they still *request* the
+# files in "wanted" status in the same order for efficient stage-in),
+# in reduce competition for files and to spread the download charge
+# on different files.
+#
+# We store the random keys in our state directory to maintain the same
+# ordering, so if the agent is restarted it will still download in the
+# same order it did before.
+sub init
+{
+    my ($self) = @_;
+    my $randomness = "$self->{DROPDIR}/randomness";
+    my @random = split(/\s+/, &input ($randomness) || '');
+    @random = (int(rand(10))+3, int(rand(10))+4, int(rand(2000))+1000)
+        if (scalar (@random) != 3
+	    || int($random[0]) < 3 || int($random[0]) > 15
+	    || int($random[1]) < 3 || int($random[1]) > 15
+    	    || int($random[2]) < 1000 || int($random[2]) > 3000);
+    &output ($randomness, "@random");
+    $self->{RANDOM_FILES} = [ @random ];
+    &logmsg ("using file selection randomisation parameters @random");
+}
+
 ######################################################################
 # Remove from the database all existing transfers we are not
 # aware of.  This may occur if we are stopped and restarted
@@ -453,6 +479,8 @@ sub nextFiles
     # return files from the cache.  This avoids excessive database
     # load and delays from executing the query below, which is not
     # very quick (need an index on state?).
+    #
+    # See &init() about the RANDOM_FILES parametrisation.
     if (scalar @{$self->{NEXT_FILES}} < $n)
     {
         eval
@@ -474,8 +502,13 @@ sub nextFiles
 		    where ts.to_node = :node
 		      and ts.to_state < 2
 	  	      and ts.from_state = 1
-		    order by f.inblock, f.insubblock},
-  		    ":node" => $self->{MYNODE});
+		    order by
+		      substr(f.inblock, :random_start, :random_len), f.inblock,
+		      dbms_utility.get_hash_value (f.insubblock, 0, :random_mod)},
+  		    ":node" => $self->{MYNODE},
+	    	    ":random_start" => $self->{RANDOM_FILES}[0],
+	    	    ":random_len" => $self->{RANDOM_FILES}[1],
+	    	    ":random_mod" => $self->{RANDOM_FILES}[2]);
 	    while (my @row = $stmt->fetchrow())
 	    {
 		next if grep($_->[0] eq $row[0], @{$self->{NEXT_FILES}});
