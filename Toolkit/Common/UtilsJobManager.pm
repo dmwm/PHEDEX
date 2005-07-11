@@ -124,22 +124,18 @@ sub checkJobs
 # Send a signal to all generated process groups?
 sub killAllJobs
 {
-    foreach my $job (@{$self->{JOBS}})
+    my ($self) = @_;
+    &logmsg ("Stopping all pending jobs...");
+    while (@{$self->{JOBS}})
     {
-	kill(9,-$job->{PID});
+	# While there are jobs to run, mark them timed out,
+	# then wait job processing to terminate all those.
+	# This allows job actions to clean up properly.
+	map { $_->{TIMEOUT} = 1 } @{$self->{JOBS}};
+	$self->pumpJobs();
+	select (undef, undef, undef, 0.1);
     }
-
-    # I want to wait here until everything's stopped
-    my $allDead = false;
-    while (! $allDead)
-    {
-	$allDead = true;
-	foreach my $job (@{$self->{JOBS}})
-	{
-	    if (kill(0,-$job->{PID})) { $allDead = false; }
-	}
-    }
-    &logmsg("Stopped all queued jobs");
+    &logmsg("Stopped all pending jobs");
 }
 
 # Invoke actions on completed subprocesses and start new jobs if there
