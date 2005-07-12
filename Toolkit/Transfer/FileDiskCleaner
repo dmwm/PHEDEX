@@ -181,7 +181,7 @@ sub deleteOneFile
 	    }
 	} elsif ($self->{PROTOCOL} eq 'srm') {
 	    &warn ("wasn't able to delete $file->{PFN} via SRM") if
-		&runcmd ("srm-advisory-delete $self->{PFN}");
+		&runcmd ("srm-advisory-delete $file->{PFN}");
 	} else {
 	    my $directPFN = $file->{PFN}; $directPFN =~ s/^[a-z]*://;
 	    if (-e $directPFN) {
@@ -287,7 +287,7 @@ sub diskStatsDCAP
     my $free = $srmout[2];
     my $used = $srmout[1];
     my $usedpcg = undef;
-    $usedpcg = $used/$total if ($total > 0);
+    $usedpcg = $used/$total*100.0 if ($total > 0);
     return ($free, $usedpcg);
 }
 
