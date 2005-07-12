@@ -97,15 +97,12 @@ sub idle
 	      :now,
               b.dataset,
               b.owner,
-              rs.node,
-              count(rs.guid),
-              nvl(sum(f.filesize),0)
-            from t_replica_state rs
-	    join t_file f
-	      on f.guid = rs.guid
-            join t_block b
-	      on b.name = f.inblock
-            group by :now, b.dataset, b.owner, rs.node)},
+              br.node,
+              br.node_files,
+	      br.node_bytes
+            from t_block_replica br
+            join t_block b on b.name = br.name
+	    where br.node_files > 0)},
 	    ":now" => $now);
 
 	$dbh->commit();
