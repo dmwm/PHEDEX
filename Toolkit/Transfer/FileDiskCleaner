@@ -304,8 +304,7 @@ sub filesToDelete
     my $qguids = &dbexec($dbh,qq{
 	select guid
 	from t_replica_state
-	where state = 1
-	  and node = :node
+	where node = :node
 	  and guid not in
 	     (select guid from t_transfer_state
 	         where to_node = :node
