@@ -185,7 +185,7 @@ sub deleteOneFile
 	} else {
 	    my $directPFN = $file->{PFN}; $directPFN =~ s/^[a-z]*://;
 	    if (-e $directPFN) {
-		&rmtree ($directPFN);
+		unlink ($directPFN);
 	    } else {
 		&warn ("$directPFN: no such file $directPFN");
 	    }
