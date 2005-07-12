@@ -41,7 +41,8 @@
 ##H -node          the node where this agent runs
 ##H -db            database connection configuration parameter file
 ##H -wait          time to wait in seconds between work scans
-##H -importloc     path to disk to watch
+##H -importloc     path to disk to watch (in direct mode)
+##H                path to wdsl file on SRM server in dcap mode
 ##H -maxfillratio  maximum allowed disk usage in percentage
 ##H                (default: 75)
 ##H -minfreespace  minimum available disk free space in megabytes
@@ -49,6 +50,12 @@
 ##H -pfnquery      command to query pfns from catalogue
 ##H -pfnrm         command to remove pfns from catalogue
 ##H -purgesize     maximum number of files to purge per check-iteration
+##H -protocol      file access protocol used.
+##H                rfio: acces to Castor MSS systems
+##H                dcap: access to dCache MSS systems via PNFS
+##H                srm: access to SRM interfaced MSS systems
+##H                direct: direct file or NFS based access (default)
+##H
 
 BEGIN
 {
@@ -79,16 +86,20 @@ my %args = (MAXFILLRATIO => 75,
 	     "pfnrm=s"		=> \$args{PFN_RM},
  	     "maxfillratio=f"	=> \$args{MAXFILLRATIO},
 	     "minfreespace=f"	=> \$args{MINFREESPACE},
-	     "importloc=s"	=> \$args{IMPORTLOC});
+	     "importloc=s"	=> \$args{IMPORTLOC},
+	     "protocol=s"       => \$args{PROTOCOL});
 
 $args{PFN_QUERY} = [ split(/,/, $args{PFN_QUERY}) ] if $args{PFN_QUERY};
 $args{PFN_RM} = [ split(/,/, $args{PFN_RM}) ] if $args{PFN_RM};
 
-if ($args{HELPME} || !$args{IMPORTLOC}
+if ($args{HELPME}
     || !$args{MYNODE} || !$args{DROPDIR} || !$args{DBCONFIG}
     || !$args{MAXFILLRATIO} || !$args{MINFREESPACE} || !$args{PFN_QUERY}
     || !$args{PFN_RM})
 {
+    die "Insufficient parameters, use -h for help.\n";
+}
+if (!$args{PROTOCOL} && !$args{IMPORTLOC}) {
     die "Insufficient parameters, use -h for help.\n";
 }
 
@@ -104,6 +115,7 @@ use UtilsTiming;
 use UtilsCatalogue;
 use UtilsDB;
 use DBI;
+use UtilsRFIO;
 
 sub new
 {
@@ -118,6 +130,7 @@ sub new
 		  PURGE => undef,               # amount of files to purge per run
 		  IMPORTLOC => undef,		# Disk path to watch
 		  PFN_QUERY => undef,		# Program to query PFNs
+		  PROTOCOL => undef,            # File access protocol
 		  PFN_RM => undef);		# Program to remove PFNs
 
     my %args = (@_);
@@ -136,7 +149,7 @@ sub deleteOneFile
     my $dbh = undef;
     my $status = eval {
 	$dbh = &connectToDatabase ($self, 0) or die "failed to connect";
-
+	
 	# Make sure the file is still safe to delete.  More transfers
 	# out might have been created for this file while we were not
 	# minding this particular file (sleeping or deleting things).
@@ -157,12 +170,27 @@ sub deleteOneFile
 	$dbh->commit();
 
 	# Remove file from disk now.
-	if (-e $file->{PFN}) {
-	    &rmtree ($file->{PFN});
+	if ($self->{PROTOCOL} eq 'rfio') {
+	    my $directPFN = $file->{PFN}; $directPFN =~ s/^[a-z]*://;
+	    if (&rfstatmode($directPFN)) {
+		&warn ("failed to remove $directPFN from castor") if 
+		    &runcmd ("stageclr", "-h", "$ENV{STAGE_HOST}", "-p", 
+			     "$ENV{STAGE_POOL}", "-remove_from_hsm", "-M", $directPFN);
+	    } else {
+		&warn ("$file->{GUID}: no such file $directPFN"); 
+	    }
+	} elsif ($self->{PROTOCOL} eq 'srm') {
+	    &warn ("wasn't able to delete $file->{PFN} via SRM") if
+		&runcmd ("srm-advisory-delete $self->{PFN}");
 	} else {
-	    &warn ("$file->{GUID}: no such file $file->{PFN}");
+	    my $directPFN = $file->{PFN}; $directPFN =~ s/^[a-z]*://;
+	    if (-e $directPFN) {
+		&rmtree ($directPFN);
+	    } else {
+		&warn ("$directPFN: no such file $directPFN");
+	    }
 	}
-
+	
 	# Delete file from catalogue
 	if (my $rc = &runcmd (@{$self->{PFN_RM}}, $file->{PFN}))
 	{
@@ -172,6 +200,7 @@ sub deleteOneFile
 	}
 
 	# Job done!
+	&logmsg ("$file->{GUID} $file->{PFN} deleted");
 	return 1;
     };
 
@@ -223,6 +252,7 @@ sub processDrop
 
 
 # Return megabytes free and percent of disk space used.
+# direct file access using regular mount points
 sub diskStats
 {
     my ($self) = @_;
@@ -230,6 +260,35 @@ sub diskStats
     my ($free, $used) = @dfout[3,4];
     $used =~ s/%$//;
     return ($free, $used);
+}
+
+# Return megabytes free and percent of disk space used.
+# RFIO based file access
+sub diskStatsRfio
+{
+    my ($self) = @_;
+    my @out = split (/\s+/, qx(stageqry -h $ENV{STAGE_HOST} -p $ENV{STAGE_POOL} -s | grep FREE | head -1));
+    my ($free, $freepcg) = @out[4,5];
+    do {$free  =~ s/T//; $free = $free * 1024 * 1024} if $free =~ /T/;
+    do {$free  =~ s/G//; $free = $free * 1024} if $free =~ /G/;
+    $freepcg =~ s/\(//; $freepcg =~ s/%\)//;
+    return ($free, 100 - $freepcg);
+}
+
+# Return megabytes free and percent of disk space used.
+# DCAP based file access (dCache)
+sub diskStatsDCAP
+{
+    my ($self) = @_;
+    my @srmout = qx(srm-storage-element-info $self->{IMPORTLOC} 2>&1 |grep "Space");
+    map { s|.*=||; s|\s\(\d+.*|| } @srmout;
+    chomp @srmout;
+    my $total = $srmout[0];
+    my $free = $srmout[2];
+    my $used = $srmout[1];
+    my $usedpcg = undef;
+    $usedpcg = $used/$total if ($total > 0);
+    return ($free, $usedpcg);
 }
 
 # Get a list of files to delete.
@@ -261,7 +320,7 @@ sub filesToDelete
 
     # Now get PFNs for all those files.
     my @files = ();
-    my $pfns = &guidToPFN (\@guids, "direct", "local", @{$self->{PFN_QUERY}});
+    my $pfns = &guidToPFN (\@guids, $self->{PROTOCOL} ? $self->{PROTOCOL} : "direct", "local", @{$self->{PFN_QUERY}});
     foreach my $guid (@guids)
     {
 	my $pfn = $pfns->{$guid};
@@ -310,7 +369,14 @@ sub idle
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
 	# Check whether there's enough disk space.  If yes, bail out.
-	my ($freespace, $usedpct) = $self->diskStats ();
+	my ($freespace, $usedpct) = undef, undef;
+	if ($self->{PROTOCOL} eq 'rfio') {
+	    ($freespace, $usedpct) = $self->diskStatsRfio ();
+	} elsif ($self->{PROTOCOL} eq 'dcap' or $self->{PROTOCOL} eq 'srm') {
+	    ($freespace, $usedpct) = $self->diskStatsDCAP ();
+	} else {
+	    ($freespace, $usedpct) = $self->diskStats ();
+        }
 	return if ! defined $freespace || ! defined $usedpct;
 	return if ($usedpct < $self->{MAXFILLRATIO}
 		   && $freespace > $self->{MINFREESPACE});
