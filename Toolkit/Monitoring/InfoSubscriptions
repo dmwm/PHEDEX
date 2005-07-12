@@ -83,18 +83,15 @@ sub idle
               b.owner,
               b.dataset,
               s.destination,
-              count(f.guid),
-              nvl(sum(f.filesize),0),
-              count(rs.guid),
-              sum(decode(rs.guid,null,0,f.filesize))
-            from t_file f
-            join t_block b
-	      on b.name = f.inblock
+	      b.files,
+	      b.bytes,
+	      nvl(br.node_files,0),
+	      nvl(br.node_bytes,0)
+            from t_block b
             left join t_subscription s
               on s.owner = b.owner and s.dataset = b.dataset
-            left join t_replica_state rs
-              on rs.guid = f.guid and rs.node = s.destination
-            group by :now, b.owner, b.dataset, s.destination)},
+            left join t_block_replica br
+              on br.name = b.name and br.node = s.destination)},
 	    ":now" => $now);
 	$dbh->commit();
     	&logmsg ("updated $qry[1] subscription summary rows") if $qry[1];
