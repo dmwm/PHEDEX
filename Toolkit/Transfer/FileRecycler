@@ -104,11 +104,11 @@ sub deleteFile
 
     # Remove file from catalogue
     ($status = &runcmd (@{$self->{CMD_CAT_RM}}, $pfn))
-        || &warn ("exit code @{[&runerror($status)]} from @{$self->{CMD_CAT_RM}} $pfn");
+	and &warn ("exit code @{[&runerror($status)]} from @{$self->{CMD_CAT_RM}} $pfn");
 
     # Remove from the disk
     ($status = &runcmd (@{$self->{CMD_PFN_RM}}, $pfn))
-        || &warn ("exit code @{[&runerror($status)]} from @{$self->{CMD_PFN_RM}} $pfn");
+	and &warn ("exit code @{[&runerror($status)]} from @{$self->{CMD_PFN_RM}} $pfn");
 
     # Remove replica
     &dbexec ($dbh, qq{
