@@ -800,13 +800,15 @@ sub dbreport
 sub rateplot
 {
     print "<h2>Transfer rate plots</h2>\n";
-    my @plotorder = qw(l48h l72h l96h l132h l7d l14d l6w ad aw am);
+    my @plotorder = qw(l48h l72h l96h l132h l7d l14d l30d l90d l6w ad aw am);
     my %plots = ("l48h" => [ "48:hour", "Last 48 Hours" ],
 	         "l72h" => [ "72:hour", "Last 72 Hours" ],
 	         "l96h" => [ "96:hour", "Last 96 Hours" ],
 	         "l132h" => [ "132:hour", "Last 132 Hours" ],
 	         "l7d" => [ "7:day", "Last 7 Days" ],
 	         "l14d" => [ "14:day", "Last 14 Days" ],
+	         "l30d" => [ "30:day", "Last 30 Days" ],
+	         "l90d" => [ "90:day", "Last 90 Days" ],
 		 "l6w" => [ "6:week", "Last 6 Weeks" ],
 	         "ad" => [ "0:day", "Daily Since Start" ],
 		 "aw" => [ "0:week", "Weekly Since Start" ],
@@ -842,7 +844,7 @@ sub rateplot
 sub qplot
 {
     print "<h2>Transfer quality plots</h2>\n";
-    my @plotorder = qw(l8h l12h l24h l48h l72h l96h l132h l7d l14d l6w ad aw am);
+    my @plotorder = qw(l8h l12h l24h l48h l72h l96h l132h l7d l14d l30d l90d l6w ad aw am);
     my %plots = ("l8h" => [ "8:hour", "Last 8 Hours" ],
 	         "l12h" => [ "12:hour", "Last 12 Hours" ],
 	         "l24h" => [ "24:hour", "Last 24 Hours" ],
@@ -852,6 +854,8 @@ sub qplot
 	         "l132h" => [ "132:hour", "Last 132 Hours" ],
 	         "l7d" => [ "7:day", "Last 7 Days" ],
 	         "l14d" => [ "14:day", "Last 14 Days" ],
+	         "l30d" => [ "30:day", "Last 30 Days" ],
+	         "l90d" => [ "90:day", "Last 90 Days" ],
 		 "l6w" => [ "6:week", "Last 6 Weeks" ],
 	         "ad" => [ "0:day", "Daily Since Start" ],
 		 "aw" => [ "0:week", "Weekly Since Start" ],
