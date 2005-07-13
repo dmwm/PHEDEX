@@ -217,8 +217,9 @@ sub getNewRoutes
     # destination.  Finally prune out routes we have already established and
     # which are still valid.
     my @new = ();
-    my @neighbours = grep ($routes{$mynode}{$_}{GATEWAY} eq $_,
-	    		   keys %{$routes{$mynode}});
+#    my @neighbours = grep ($routes{$mynode}{$_}{GATEWAY} eq $_,
+#	    		   keys %{$routes{$mynode}});
+    my @neighbours = keys %distances;
     foreach my $from (@neighbours)
     {
 	foreach my $to (keys %{$routes{$from}})
