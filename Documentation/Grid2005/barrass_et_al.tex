@@ -68,7 +68,7 @@ Historically High Energy Physics (HEP) experiments have been able to rely on man
 
 In general existing HEP distribution networks are very structured, often characterised by simple tree-like toplogies in which nodes are persistent, but routes are typically not in constant saturating use. Access to and production of data is undertaken at large regional centres or computing centres at Institutes or Universities. This level of activity will not scale to the LHC era however; a solution is to utilise resources that are presented to scientific collaborations for opportunisitc use. However, as these resources are typically transient the previously quite stable HEP infrastructure will be afflicted by greater churn. Data distribution in this type of environment is more suited to recent Grid or peer-to-peer filesharing technologies, which are characterised by random topologies to avoid network segmentation.
 
-The HEP distribution environment is therefore something of a blend of a static core infrastructure in which transfers are continuous, sourced from a central site through successive ``tiers" of sites, hosting resources of decreasing capacity (fig. \ref{fig:tiers}) \cite{monarc:paper}. LHC experiments will use this core infrastructure to store multiple remote, secure tape copies of invaluable experimental data in real time, relying on the core infrastructure's more robust and available services. To operate effectively however they will also need to be able to make opportunistic use of transient resources to enable on-demand analysis of new or controversial data.
+The HEP distribution environment is therefore a blend of static core infrastructure with an associated infrastructure of transiently available resources. Over the former infrastructure transfers are continuous, sourced from a central site through successive ``tiers" of sites, hosting resources of decreasing capacity (fig. \ref{fig:tiers}) \cite{monarc:paper}). LHC experiments will use this core infrastructure to store multiple remote, secure tape copies of invaluable experimental data in real time, relying on the core infrastructure's more robust and available services. To operate effectively however they will also need to be able to make opportunistic use of transient resources to enable on-demand analysis of new or controversial data.
 
 \begin{figure}
 \centering
@@ -78,7 +78,9 @@ The HEP distribution environment is therefore something of a blend of a static c
 \end{figure}
 
 \bigskip
-\subsection{CMS and PhEDEx}CMS \cite{cms:tdr}- one of the four LHC experiments currently being built at CERN- has made important progress toward using a functioning datagrid by developing a robust data management layer. This data management layer has a simple twofold goal: to manage the prioritized transfer of files from multiple sources to multiple sinks; and to provide answers to questions of transfer latency and speed to enable scheduling of transfer operations. 
+\subsection{CMS and PhEDEx}CMS \cite{cms:tdr}- one of the four LHC experiments currently being built at CERN- has among the most demanding requirements of data management \ref{cms:computingtdr}. It is predicted that in a given year it will need to transfer around 5 PB of data over the WAN, just in order to distribute its raw detector data. Additionally, a further 5 PB of processed data, and a similar quantity of  simulated raw and processed data must also be transferred. This will require the distributed management of millions of file replicas, assuming a filesize of order 10 GB.
+
+CMS has made important progress toward using a functioning datagrid by developing a robust data management layer. This data management layer has a simple twofold goal: to manage the prioritized transfer of files from multiple sources to multiple sinks; and to provide answers to questions of transfer latency and speed to enable scheduling of transfer operations. 
 The data management layer, named PhEDEx, for Physics Experiment Data Export \cite{phedex:website}, is composed of a series of autonomous, robust, persistent, stateless processes. We term these processes agents, as their design is inspired by agent frameworks \cite{fipa:website,jade:website,shafi:diamonds}. These agents share information about replica and transfer state through a blackboard architecture \cite{corkhill:blackboards}. The blackboard also hosts some higher-level information about network routing, dataset subscriptions and other infrastructural information.
 
 PhEDEx accommodates a not-completely connected distribution network- for example the tiered, hierarchical structure common to many HEP experiments. Existing Grid middleware has tended to view such structures as completely connected, and all transfers as simply single file point-to-point \cite{edg:website,guy:replicas}. More recent iterations of these applications promise to bring about great improvements in the reliability of bulk data transfers \cite{glite:website} by taking the design of PhEDEx as their starting point.
@@ -95,17 +97,15 @@ The key problem for a HEP data management layer is to seamlessly blend very high
 
 \bigskip
 \section{Overall use cases for HEP data distribution}
-In HEP there are two broad use cases for a data management layer: ``push" and ``stream" (or ``pull"). Push indicates the transfer of invaluable raw experimental data from the detector to tape store at regional centres. In this case, the collaboration chooses which regional centres store which data, and pushes the data onto them. It is this use case that is the source of the differences between PhEDEx and existing file distribution systems. To operate efficiently it must be possible to clear newly-created files in buffer space at data sources; to do this it is vital to know whether that file has been made ``safe", where ``safe" is defined as ``in tape storage at the detector facility and at least one regional centre". To do this PhEDEx maintains monitors the transfer and migration of files, and is given responsibility for cleaning buffer space when it knows that files are safe at their destinations.
+In HEP there are two broad use cases for a data management layer: ``push" and ``pull". Push indicates the transfer of invaluable raw experimental data from the detector to tape store at regional centres. ``Pull" represents a request for or subscription to data. In both cases the data distribution layer must manage the transfer of either complete or incomplete datasets. In the latter case, new files must be automatically harvested and propogated to the relevant sites.
 
-The streaming use case represents another on-going process instigated by either a regional centre, or a relatively stable smaller site. In this case, the site can subscribe to a given dataset; as files in this dataset are created, wherever they are created in the distribution infrastructure, they are transferred to the subscribing site. Similarly, these sites must make the data they create available for streaming to other sites.
+For some data- notably the invaluable raw detector data- the collaboration chooses custodial regional centres and effectively ``pushes'' the data onto them. Furthermore, for efficient operation it must be possible to clear newly-created files from buffer space at data sources. To do this it is vital to know whether a given file has been made ``safe". For raw data, ``safe" is defined as ``in tape storage at the detector facility and at least one regional centre". It is this use case, and the explicit necessity of managing end-to-end file state, that is the source of the differences between PhEDEx and existing file distribution systems. To manage file state the PhEDEx agents collaborate in the transfer and migration of files, and are given the responsibility for cleaning buffer space when it knows that files are safe, as governed by collaboration policy.
 
-The pull use case is a subset of stream, and represents a small-scale one-shot operation, in which say a single physicist is interested in some part of a dataset, and wishes to transfer it either to their University or even their laptop. In this case the end user would just connect their laptop or other resource to the data management layer, specify the data required, wait for the data management layer to transfer the necessary files and then remove the laptop from the layer.
+The pull use case can represent a scale of activities from on-going requests for data by sites as large as Universities and Institutes for group analysis to small-scale one-shot operation, in which say a single physicist is interested in some part of a dataset, and wishes to transfer it either to their University or even their laptop. These transfers are typically of lower priority than the transfers of raw detector data.
 
 Note that the names of these use cases are not intended to describe low-level transfer activity. In all cases we implement point to point transfers as third party- although in the majority of cases they are instigated by an agent running near the destination rather than the source.
 
 The simplest requirements placed on the system are that it should be manageable at a high level by an individual, and that low level deployment and support take close to zero effort. To meet these requirements we devised an architecture based on quite simple, focused, robust processes that were able to handle failover and retry of transfers autonomously, and which could collaborate to solve the problem of transferring data over multiple hops to multiple destinations.
-
-FIXME: Performance requirements ...
 
 The system should also scale by the number of files in transfer. It should have a robust, internet-like design where no one part can bring entire transfer network down. The system should be able to saturate any hardware (network, storage) on which it is deployed. It should also operate completely asynchronously from other systems, for example: data management systems; data production processes; or analysis tasks running on batch computing nodes.
 
@@ -113,17 +113,17 @@ Within PhEDEx we have met, or will soon meet many of these requirements.
 
 Note that what we do not discuss here is co-scheduling of replication with jobs. In this environment the cost of replication is very much higher than the cost of running a job, and therefore it makes sense to distribute data throughout the collaboration and then send jobs to the data.
 
-
+\bigskip
 \section{Comparison with other replication technologies}
-The scale of data distribution for the LHC experimentsis therefore much larger than previous experiments....
+The scale of data distribution for the LHC experiments is much larger than previous HEP experiments, and therefore requires distribution management mechanisms that scale to function efficiently in such demanding environments. In areas outside HEP there have been many advances in replication technology in recent years. Data Grids and peer to peer filesharing technologies promise to meet these demands.
 
-There have been many advances in replication technology in recent years, with the development of data Grids and peer to peer filesharing technologies...
-
+\bigskip
 \subsection{Previous methods for distributing HEP data}
 Existing HEP experiments tend to manage data distribution in a structured but manpower intensive ways. One such example is the use of rsync to manage the periodic transfer of data files from an authoratative source to a remote site. This was typically done by issuing commands whenever a tranfer was required, rather than by having an automated process manage the transfers. This was the approach taken by, for example, the BaBar experiment \cite{babar:website}. More recently the BaBar experiment has investigated the use of the Storage Resource Broker to distribute and manage access to it's data \cite{babar:srb}; it also has a home grown application named BdbServer++ that enables users to locate distributed replicas and create a complete dataset replica on the user's laptop \cite{babar:distribution}.
 
 For job data management the D0 \cite{d0:website} and CDF \cite{cdf:website} experiments use a sophisticated system named SAM \cite{sam:website} which couples every aspect of data gathering and access together. Data replication and tape management, however, is still a complicated manual operation, even when using this system. In both cases these solutions are ideal, as data is not distributed to a large number of sites, and the solutions therefore scale adequately.
 
+\bigskip
 \subsection{Grid Computing Technologies}
 Most Grid technologies are focused on the running of jobs rather than on the large scale replication of data; the latter is currently a larger problem for HEP experiments.
 
@@ -131,6 +131,7 @@ For example, Condor \cite{condor:website} and its Grid-equivalent, Condor-G, foc
 
 A large scale EU project named the European DataGrid (EDG) \cite{edg:website} was initiated to develop a Grid infrastructure that would meet the needs of HEP, Biology and Medical Imaging, and Earth Observation research to access significant distributed computing resources. The project- now replaced by EGEE (Enabling Grids for ESciencE) \cite{glite:website}- developed a number of low-level infrastructural elements that can be used to build a data Grid. However, the components assume a completely-connected network of peers; data replication was intended to be undertaken in response to demand, rather than policy; and there was no sense of custody or responsibility for data outside of a source site.
 
+\bigskip
 \subsection{Peer-to-Peer Filesharing}
 A number of peer-to-peer filesharing applications have appeared since the origin of Napster in 1999. They vary in nature between more-centralized systems in which peers and replicas of data are tracked in a manner similar to instant messaging systems, and less centralized in  which client communication is more truly peer-to-peer and doesn't rely on centralized services to make contact with peers or find replicas. An example of the former is BitTorrent \cite{bittorrent:website}, and of the latter, GnuTella \cite{gnutella:website}.
 
