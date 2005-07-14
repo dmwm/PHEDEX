@@ -66,7 +66,7 @@ plus 1ex} {.2ex plus .2ex}{\subsize\bf}}
 \section{Introduction}
 Historically High Energy Physics (HEP) experiments have been able to rely on manpower-intensive mechanisms for distributing data to geographically dispersed collaborators. The new era of CERN Large Hadron Collider (LHC) \cite{lcg:website} computing necessitates a move to more scalable data distribution and management systems; many experiments have identified Grid computing as a suitable basis for creating such systems. In the near future these systems must bridge the gap between ``traditional" HEP data distribution- large scale scheduled transfers between major sites- and more dynamic data distribution, which enables optimized replication in response to user demand.
 
-In general existing HEP distribution networks are very structured, often characterised by simple tree-like toplogies in which nodes are persistent, but routes are typically not in constant saturating use. Access to and production of data is undertaken at large regional centres or computing centres at Institutes or Universities. This level of activity will not scale to the LHC era however; a solution is to utilise resources that are presented to scientific collaborations for opportunisitc use. However, as these resources are typically transient the previously quite stable HEP infrastructure will be afflicted by greater churn. Data distribution in this type of environment is more suited to recent Grid or peer-to-peer filesharing technologies, which are characterised by random topologies to avoid network segmentation.
+In general existing HEP distribution networks are very structured, often characterised by simple tree-like toplogies in which nodes are persistent, but routes are typically not in constant saturating use. Access to and production of data is undertaken at large regional centres or computing centres at Institutes or Universities. This level of activity will not scale to the LHC era however; a solution is to utilise resources that are presented to scientific collaborations for opportunisitc use. However, as these resources are typically transient the previously quite stable HEP infrastructure will be afflicted by greater churn. Data distribution in this type of environment is more suited to recent Grid \cite{foster:gridbook} or peer-to-peer filesharing technologies, which are characterised by random topologies to avoid network segmentation.
 
 The HEP distribution environment is therefore a blend of static core infrastructure with an associated infrastructure of transiently available resources. Over the former infrastructure transfers are continuous, sourced from a central site through successive ``tiers" of sites, hosting resources of decreasing capacity (fig. \ref{fig:tiers}) \cite{monarc:paper}). LHC experiments will use this core infrastructure to store multiple remote, secure tape copies of invaluable experimental data in real time, relying on the core infrastructure's more robust and available services. To operate effectively however they will also need to be able to make opportunistic use of transient resources to enable on-demand analysis of new or controversial data.
 
@@ -114,77 +114,55 @@ Within PhEDEx we have met, or will soon meet many of these requirements.
 Note that what we do not discuss here is co-scheduling of replication with jobs. In this environment the cost of replication is very much higher than the cost of running a job, and therefore it makes sense to distribute data throughout the collaboration and then send jobs to the data.
 
 \bigskip
-\section{Comparison with other replication technologies}
-The scale of data distribution for the LHC experiments is much larger than previous HEP experiments, and therefore requires distribution management mechanisms that scale to function efficiently in such demanding environments. In areas outside HEP there have been many advances in replication technology in recent years. Data Grids and peer to peer filesharing technologies promise to meet these demands.
-
-\bigskip
-\subsection{Previous methods for distributing HEP data}
-Existing HEP experiments tend to manage data distribution in a structured but manpower intensive ways. One such example is the use of rsync to manage the periodic transfer of data files from an authoratative source to a remote site. This was typically done by issuing commands whenever a tranfer was required, rather than by having an automated process manage the transfers. This was the approach taken by, for example, the BaBar experiment \cite{babar:website}. More recently the BaBar experiment has investigated the use of the Storage Resource Broker to distribute and manage access to it's data \cite{babar:srb}; it also has a home grown application named BdbServer++ that enables users to locate distributed replicas and create a complete dataset replica on the user's laptop \cite{babar:distribution}.
-
-For job data management the D0 \cite{d0:website} and CDF \cite{cdf:website} experiments use a sophisticated system named SAM \cite{sam:website} which couples every aspect of data gathering and access together. Data replication and tape management, however, is still a complicated manual operation, even when using this system. In both cases these solutions are ideal, as data is not distributed to a large number of sites, and the solutions therefore scale adequately.
-
-\bigskip
-\subsection{Grid Computing Technologies}
-Most Grid technologies are focused on the running of jobs rather than on the large scale replication of data; the latter is currently a larger problem for HEP experiments.
-
-For example, Condor \cite{condor:website} and its Grid-equivalent, Condor-G, focus very much on the running of jobs, and views the management of data to be something to be solved by external processes. Similarly, commercial products and services like the Sun Grid Engine \cite{sungrid:website} focus on providing the resources to run jobs rather than managing the replication and custody of data over a number of distributed sites.
-
-A large scale EU project named the European DataGrid (EDG) \cite{edg:website} was initiated to develop a Grid infrastructure that would meet the needs of HEP, Biology and Medical Imaging, and Earth Observation research to access significant distributed computing resources. The project- now replaced by EGEE (Enabling Grids for ESciencE) \cite{glite:website}- developed a number of low-level infrastructural elements that can be used to build a data Grid. However, the components assume a completely-connected network of peers; data replication was intended to be undertaken in response to demand, rather than policy; and there was no sense of custody or responsibility for data outside of a source site.
-
-\bigskip
-\subsection{Peer-to-Peer Filesharing}
-A number of peer-to-peer filesharing applications have appeared since the origin of Napster in 1999. They vary in nature between more-centralized systems in which peers and replicas of data are tracked in a manner similar to instant messaging systems, and less centralized in  which client communication is more truly peer-to-peer and doesn't rely on centralized services to make contact with peers or find replicas. An example of the former is BitTorrent \cite{bittorrent:website}, and of the latter, GnuTella \cite{gnutella:website}.
-
-One important benefit of peer-to-peer filesharing is the ability to download a file from multiple sources: the file is split into blocks, and the client replicates blocks from whichever peers are capable of serving them. This concept is easy to map onto HEP data without developing mechanisms for splitting files, as HEP data is typically organised into datasets which form the basic unit of access; therefore the basic unit of distribution in HEP is the dataset rather than the file.
-
-There are however differences between the environment managed by existing peer-to-peer applications and the HEP environment. Typically peer-to-peer systems assume a completely transient, dynamic environment in which most routes are short-lived. To avoid network segmentation in this environment existing peer-to-peer apps create random peer topologies to minimize the consequences of peers losing contact. In contrast, the HEP environment is characterised by well-funded and managed dedicated high-speed links between large international institutions that are relatively long lived. HEP distribution topologies are therefore more structured as the links between peers are maintained by social contract rather than by transient applications.
-
-Furthermore, existing peer-to-peer systems have no sense of the value of data, or any sense of custody of data at sites remote to the original source. P2P clients are typically characterised by on-demand transactions rather than the continuous sustained replications that characterise the bulk of HEP distribution.
-
-Note however that in addition to these core activities HEP experiments need to maintain the flexibility to enable typically chaotic analysis activities, and to meet sudden demand for specific ``hot" data, and this is where Grid computing and peer-to-peer services are of most use. In general though no technology completely meets HEP experiments' needs for managing secure custody of data and maintained large-scale data transfers; hence the CMS experiment decided to develop PhEDEx.
-
-\section{Current PhEDEx architecture}\subsection{Introduction}HEP environments are typically heterogeneous at all levels of operation, although some standards in transfer tools and storage management are beginning to emerge. To develop PhEDEx we rely on a core set of tools and services that are most widely available. These tools and services are broadly cataegorized as either storage management or transfer tools.
+\section{Current PhEDEx architecture}HEP environments are typically heterogeneous at all levels of operation, although some standards in transfer tools and storage management are beginning to emerge. To develop PhEDEx we rely on a core set of tools and services that are most widely available. These tools and services are broadly cataegorized as either storage management or transfer tools.
 For storage management we rely on SRM (Storage Resource Management) \cite{srm:website}, which provides generic access to any storage resource. Superficially SRM provides a defined two step interaction through which a file can be obtained from any storage resource by using a Storage URL (SURL), which contains the hostname of the resource and some identifier that can be interpreted by the resource. During an SRM transaction the client presents an SRM server with the SURL; the server returns a Transport URL (TURL) which indicates the current (possibly temporary) location of the file and a transport protocol that can be used to access it. This means that someone wishing to access a file at a given site does not need to know on which or what type of physical resource the file resides. 
 
 In conjunction with SRM, local file catalogues map some (collaboration level) global replica set identifer to some (local) identifer that can be used to access the file. These catalogues are not strictly seen as part of PhEDEx, as they are shared with other activities at each site- analysis tasks, for example. In this context ``catalogue" is quite a generic term: it could refer simply to the internal catalogue maintained by the filesystem, or to something more complex like a MySQL database that serves file information for multiple tasks, including distribution.
 
-A number of tools are used for point-to-point transfer of data. WAN transfers are made with tools that overlie GridFTP \cite{gridftp:website}- basically FTP with X509 certificate authentication. Such tools are globus-url-copy \cite{globus:website} and srmcp \cite{srm:website}. PhEDEx also uses a number of site-local transfer and tape management commands. This variety of tools is accomodated with a plug-in design that allows the system to provide generic components that can be easily configured to use local tools when necessary.\subsection{System design}PhEDEx design and development is guided by a number of architectural principles. The key principle is that complex functionality should be kept in discrete units, and that the handover of responsibility for sections of the transfer workflow should be handed between those units using as few messages- containing minimal information- as possible \cite{bryson:complexity}. As the system comprises active components it is reasonable to model these units after agents rather than as passive stateless services.
+A number of tools are used for point-to-point transfer of data. WAN transfers are made with tools that overlie GridFTP \cite{gridftp:website}- basically FTP with X509 certificate authentication. Such tools are globus-url-copy \cite{globus:website} and srmcp \cite{srm:website}. PhEDEx also uses a number of site-local transfer and tape management commands. This variety of tools is accomodated with a plug-in design that allows the system to provide generic components that can be easily configured to use local tools when necessary.
+
+\bigskip\subsection{System design}PhEDEx design and development is guided by a number of architectural principles. The key principle is that complex functionality should be kept in discrete units, and that the handover of responsibility for sections of the transfer workflow should be handed between those units using as few messages- containing minimal information- as possible \cite{bryson:complexity}. As the system comprises active components it is reasonable to model these units after agents rather than as passive stateless services.
 The PhEDEx design is characterised by layered abstractions. Our experience with data management tools has led us to view many operations and tools as unreliable. To manage this we wrap unreliable tools and systems in more robust layers to build a reliable data transport system.
 
 \begin{figure}
 \centering
 \includegraphics[width=7cm]{phedex-layers.eps}
-\mycaption{PhEDEx' layered architecture. Each layer is considered more reliable than the one below. For example: transfer tools are considered unreliable due to- in many cases- lack of reasonable failure recovery and unreliable error returns. The tools are therefore overlain by a layer that handles pre- and post-transfer validation checks and the subsequent retry of failed transfers. This layer also handles the collaboration between agents required to manage the clustered request and stage of data from tape, among other functions. }
+\mycaption{PhEDEx' layered architecture. Each layer is considered more reliable than the one below. }
 \end{figure}
 
-In addition, PhEDEx allows site managers to keep local information local, and allow as much local management of files as possible. This makes the system robust during local infrastructural change, but means that local and global information can become unsynchronised after deletion operations. For example, moving files from one local disk to another is transparent if local catalogues are also kept up to date. However, file deletion requires an update of the PhEDEx system. This is not considered unscalable, as the straightforward deletion of files is rare in HEP systems: although data can be invalidated, it is rarely deleted. More problematic is the loss of files due to hardware failure; in this case PhEDEx currently relies on close interaction with local admin so that such failures are quickly accomodated.To guide development we avoid creating services that aren't necessary, generally by accepting a small increase in complexity on the ``client" transfer components. To make message passing simple we utilise a blackboard architecture in which transfer components post state information. The blackboard is currently deployed as a single high availability database. We also leverage data chunking to improve performance by avoiding somewhat traditional file-to-site mappings, instead mapping files to chunks and chunks to sites; we don't, however, require a chunk to exist anywhere in entirety.\subsection{Overview of transfer operations}The core element of the data management system is a node- a logical entity to which persistent processes named agents are associated. Typical examples might be a regional centre's transfer node, with agents to, for example, manage transfers from the centre's neighbours to the centre's disk buffers; or a mass storage node with an agent to manage the clustering of requests from other nodes for files for transfer.
+In addition, PhEDEx allows site managers to keep local information local, and allow as much local management of files as possible. This makes the system robust during local infrastructural change, but means that local and global information can become unsynchronised after deletion operations. For example, moving files from one local disk to another is transparent if local catalogues are also kept up to date. However, file deletion requires an update of the PhEDEx system. This is not considered unscalable, as the straightforward deletion of files is rare in HEP systems: although data can be invalidated, it is rarely deleted. More problematic is the loss of files due to hardware failure; in this case PhEDEx currently relies on close interaction with local admin so that such failures are quickly accomodated.To guide development we avoid creating services that aren't necessary, generally by accepting a small increase in complexity on the ``client" transfer components. To make message passing simple we utilise a blackboard architecture in which transfer components post state information. The blackboard is currently deployed as a single high availability database. We also leverage data chunking to improve performance by avoiding somewhat traditional file-to-site mappings, instead mapping files to chunks and chunks to sites; we don't, however, require a chunk to exist anywhere in entirety.
+
+\bigskip\subsection{Overview of transfer operations}The core element of the data management system is a node- a logical entity to which persistent processes named agents are associated. Typical examples might be a regional centre's transfer node, with agents to, for example, manage transfers from the centre's neighbours to the centre's disk buffers; or a mass storage node with an agent to manage the clustering of requests from other nodes for files for transfer.
 Transfer workflows are divided into functionally coherent units- file transfer, for example, or migration to tape. Within those units workflow stages are defined as internal state transitions.  The handover of responsibility for a replication between units are seen as messages passed between agents, and are currently represented as state transitions on the blackboard. By way of example, the state transitions of a file transfer are: predelete, transfer, verify, postdelete, publish catalogue. The messages passed between agents involved in the transfer of files are for operations like: marking a number of files as wanted; or as being ready for transfer or migrate. This message passing represents the collaboration of agents to achieve their goals.
 
-\begin{table*}
-\renewcommand{\arraystretch}{1.3}
-\mycaption{Broad agent functionalities}
-\centering
-\begin{tabular}{p{3cm}|p{10cm}}
-\hline
-\bfseries Agent type & \bfseries Description \\
-\hline
-\hline
-Allocator & Allocates blocks of files to destination based on subscriptions and collaboration policy \\
-Download & Manages the point to point transfer of files \\
-Export & Manages the process of making files available on request by a Download agent \\
-FileRouter & Triggers transfer hops for a given node based on nearest replica algorithm \\
-NodeRouter & Maintains a node's routing table and contact with neighbours \\
-Stager & Manages the bulk staging of files from tape to disk \\
-Migrator & Manages the migration of files to tape \\
-Cleaner &  Removes stale or unrequired replicas from disk \\
-\hline
-\end{tabular}
-\end{table*}
+For example, a basic transfer workflow proceeds as shown in Fig. \ref{fig:exchange}. 1: Allocator agent recognises that new files are available at site B for transfer. Using subscription information it allocates those files to a set of final destinations- in this case site A. 2: FileRouter agent working at A finds the new file allocated to it, finds a replica at B and posts a B-A transfer request. 3: Download agent at A selects a group of files for transfer and marks them as ``wanted" 4: Export agent at B clusters the wanted files from all its neighbours and requests their stage in a manner that is efficient for local resources. When they are staged it marks the files as ``available". 5: Download agent uses some transfer tool to replicate available files. It then validates the transfer, publishes the file to a local catalogue and marks the transfer as complete. 
+
+%\begin{table*}
+%\renewcommand{\arraystretch}{1.3}
+%\mycaption{Broad agent functionalities}
+%\centering
+%\begin{tabular}{p{3cm}|p{10cm}}
+%\hline
+%\bfseries Agent type & \bfseries Description \\
+%\hline
+%\hline
+%Allocator & Allocates blocks of files to destination based on subscriptions and collaboration policy \\
+%Download & Manages the point to point transfer of files \\
+%Export & Manages the process of making files available on request by a Download agent \\
+%FileRouter & Triggers transfer hops for a given node based on nearest replica algorithm \\
+%NodeRouter & Maintains a node's routing table and contact with neighbours \\
+%Stager & Manages the bulk staging of files from tape to disk \\
+%Migrator & Manages the migration of files to tape \\
+%Cleaner &  Removes stale or unrequired replicas from disk \\
+%\hline
+%\end{tabular}
+%\end{table*}
 
 \begin{figure}
 \centering
 \includegraphics[width=7cm]{sample-workflow.eps}
-\mycaption{A sample exchange between agents to manage the replication of a file. 1: Allocator agent recognises that new files are available at site B for transfer. Using subscription information it allocates those files to a set of final destinations- in this case site A. 2: FileRouter agent working at A finds the new file allocated to it, finds a replica at B and posts a B-A transfer request. 3: Download agent at A selects a group of files for transfer and marks them as ``wanted" 4: Export agent at B clusters the wanted files from all its neighbours and requests their stage in a manner that is efficient for local resources. When they are staged it marks the files as ``available". 5: Download agent uses some transfer tool to replicate available files. It then validates the transfer, publishes the file to a local catalogue and marks the transfer as complete.  }
+\mycaption{A sample exchange between agents to manage the replication of a file. Please refer to text for description }
+\label{fig:exchange}
 \end{figure}
 
 The blackboard space that agents use to exchange messages/state information was envisaged as a database schema. This database schema provides us with a structure for defining a set of message ontologies, and its deployment as a database provides us with a reliable mechanism of communication. The information stored in this schema tracks the list of files currently of interest to the data management system, useful metadata concerning the nodes in the system (names, routing information) and high level subscription information (which sites subscribe to which datasets, and which files are currently allocated to which specific node). It also tracks the current state of point-to-point transfers, and maintains an index structure that maps global replica set identifiers to nodes in the distribution network.
@@ -220,11 +198,13 @@ The advantage of making agent code simpler through the deployment of services to
 
 %Buffers are then cleaned by cleaner agents. These agents act as garbage collectors: they check with the replicas on a given node are required. Typically, if the file has reached all currently known destinations then the replicas created and cached at intermediate buffers are no longer required, and can be deleted.
 
-\section{Scalability Tests}
+\bigskip
+\section{Scalability}
 By design it is easy to deploy a self-contained PhEDEx testbed in which all operations (if necessary) can be faked: for example, fake transfers (with no file movement) can be set to succeed immediately every time, or to succeed or fail with a finite time governed by a statistical analysis of real operational data. On a test network of 5 nodes- a similar number to the number of regional centres in CMS- it is possible to show that PhEDEx can replicate around 30,000 files an hour (which translates to approximately 200,000 routing decisions an hour).
 
 In addition, PhEDEx can handle of order $10^6$ files in transfer at any given time. This performance is currently being enhanced by considering replicas of file sets rather than files, thus limiting the number of files considered at any given time.
 
+\bigskip
 \section{Operations}PhEDEx is currently deployed at 8 large CMS regional centres, as well as a number of smaller sites. It manages transfers between a variety of storage resource types: SRM, gsiftp servers, dCache \cite{dcache} disk pool managers, and a variety of underlying tape storage technologies (Castor \cite{castor}, Enstore \cite{enstore}, ADS \cite{ads}). WAN transfers are managed using globus-url-copy and srmcp.
 
 All sites are capable of downloading data; some sites are capable of uploading data. By far the largest problems encountered have been in managing problems with the underling storage and transfer technologies. Although SRM is in some sense a standard, there is sufficient variation between implementations (and versions of implementations) to mean that installation and upgrade is not trivial; differences in implementations have led to a number of problems resulting in failed transfers.
@@ -234,30 +214,58 @@ Bandwidth is very rarely an issue as the experiment doesn't have enough data to 
 
 As of June 2005 PhEDEx managed over 200TB of data. In the preceding 6 months it managed the transfer 45TB of data, with some sustained transfers of nearly 20TB a month. PhEDEx proved able to manage aggregate transfer rates in excess of 500 Mbps, including PhEDEx overhead for catalogue publishing and validation of transfers. Our current experience with the system is that efficient tape staging is the key bottleneck in the system: high rates can be achieved disk-to-disk, but stage pools are rapidly depleted of files to transfer. Generally the highest real stage rates achievable for tape stages are ~300Mbps; efficient tape stages represent the most keenly-sought improvement in our performance.
 
+\bigskip
+\section{Comparison with other replication technologies}
+The scale of data distribution for the LHC experiments is much larger than previous HEP experiments, and therefore requires distribution management mechanisms that scale to function efficiently in such demanding environments. In areas outside HEP there have been many advances in replication technology in recent years. Data Grids and peer to peer filesharing technologies promise to meet these demands.
+
+\bigskip
+\subsection{Previous methods for distributing HEP data}
+Existing HEP experiments tend to manage data distribution in structured but manpower intensive ways. One such example is the use of rsync to manage the periodic transfer of data files from an authoratative source to a remote site. This was typically done by issuing commands whenever a transfer was required, rather than by having an automated process manage the transfers. This was the approach taken by, for example, the BaBar experiment \cite{babar:website}. More recently the BaBar experiment has investigated the use of the Storage Resource Broker to distribute and manage access to it's data \cite{babar:srb}; it also has a home grown application named BdbServer++ that enables users to locate distributed replicas and create a complete dataset replica on the user's laptop \cite{babar:distribution}.
+
+For job data management the D0 \cite{d0:website} and CDF \cite{cdf:website} experiments use a sophisticated system named SAM \cite{sam:website} which couples every aspect of data gathering and access together. Data replication and tape management, however, is still a complicated manual operation, even when using this system. In both cases these solutions are ideal, as data is not distributed to a large number of sites, and the solutions therefore scale adequately.
+
+\bigskip
+\subsection{Grid Computing Technologies}
+Most Grid technologies are focused on the running of jobs rather than on the large scale replication of data. For example, Condor \cite{condor:website} and its Grid-equivalent, Condor-G, focus very much on the running of jobs, and views the management of data to be something to be solved by external processes. Similarly, commercial products and services like the Sun Grid Engine \cite{sungrid:website} focus on providing the resources to run jobs rather than managing the replication and custody of data over a number of distributed sites.
+
+A large scale EU project named the European DataGrid (EDG) \cite{edg:website} was initiated to develop a Grid infrastructure that would meet the needs of HEP, Biology and Medical Imaging, and Earth Observation research to access significant distributed computing resources. The project- now replaced by EGEE (Enabling Grids for ESciencE) \cite{glite:website}- developed a number of low-level infrastructural elements that can be used to build a data Grid. However, the components assume a completely-connected network of peers; data replication was intended to be undertaken in response to demand, rather than policy; and there was no sense of custody or responsibility for data outside of a source site.
+
+Grid data management tools, like SRB \cite{srb:website}, focus on providing distributed access to data, and enable users to create replicas within the system. SRB also provides sophisticated functionality, maintaining a sense of master or authoritative files, and ensuring for example that the last replica of a file in the system cannot be accidentally deleted. However, again the system does not provide a mechansim for harvesting files as they are created, and then automatically propogating those files through some structured network.
+
+\bigskip
+\subsection{Peer-to-Peer Filesharing}
+Peer-to-peer filesharing applications vary between more-centralized systems in which peers and replicas of data are tracked in a manner similar to instant messaging systems, and less centralized in which client communication is more truly peer-to-peer and doesn't rely on centralized services to make contact with peers or find replicas. An example of the former is the original BitTorrent \cite{bittorrent:website}, and of the latter, GnuTella \cite{gnutella:website}.
+
+There are differences between the environment managed by existing peer-to-peer applications and the HEP environment. Typically peer-to-peer systems assume a completely transient, dynamic environment in which most routes are short-lived. To avoid network segmentation in this environment existing peer-to-peer apps create random peer topologies to minimize the consequences of peers losing contact. In contrast, the HEP environment is characterised by well-funded and managed dedicated high-speed links between large international institutions that are relatively long lived.
+
+Furthermore, existing peer-to-peer systems have no sense of the value of data, or any sense of custody of data at sites remote to the original source. Peer-to-peer clients are typically characterised by on-demand transactions rather than the continuous sustained replications that characterise the bulk of HEP distribution.
+
+On the other hand, peer-to-peer filesharing applications do have many characteristics that make them suitable for use in the HEP environment. Decentralisation of system state information makes some systems very robust in the face of resource outages. Also, many peer-to-peer filesharing applications enable the download a file from multiple sources: the file is split into blocks, and the client replicates blocks from whichever peers are capable of serving them. This concept is easy to map onto HEP data without developing mechanisms for splitting files, as HEP data is typically organised into datasets which form the basic unit of access; therefore the basic unit of distribution in HEP is the dataset rather than the file.
+
+Note however that in addition to these core activities HEP experiments need to maintain the flexibility to enable typically chaotic analysis activities, and to meet sudden demand for specific ``hot" data, and this is where Grid computing and peer-to-peer services are of most use. In general though no technology completely meets HEP experiments' needs for managing secure custody of data and maintained large-scale data transfers; hence the CMS experiment decided to develop PhEDEx.
+
+\bigskip
 \section{Future developments}
 
+\bigskip
 \subsection{File Routing by Contract Tender}
-At present the files of a dataset are routed through the network on a bulk basis without concern for whether the node chosen at a given time might continue to be the best source for those files. A simple modification of the existing routing mechanism would be to only route subsets of a dataset at any given time, and to wait for transfers to complete before routing any more of the files. This would allow the system to take advantage of the data becaming available from a closer or more available node. A simple measure of more available in this case might be just the number of sucessfully completed transfers between two given nodes in the last hour, for example.
+The current PhEDEx routing mechansim is the heaviest load on the central blackboard. An alternative mechanism is for a filerouter to send out a tender for transfer contracts: agents at each of the nodes where a replica for a given file exist would determine the cost of supplying that file, and hand their response over to the next hop in the transfer chain. A similar agent at the next hop would determine it's cost for supplying that files, and hand over to the next hop, and so on, until a total cost for each chain of possible transfers from replicas to destination had been established. The destination file router could then choose the lowest-cost transfer chain for each file and trigger transfers as necessary.
 
-However, this mechanism is unlikely to be much more scalable than the existing mechanism; both make quite heavy database queries to make their routing decisions. An alternative is for a filerouter to send out a tender for transfer contracts: agents at each of the nodes where a replica for a given file exist would determine the cost of supplying that file, and hand their response over to the next hop in the transfer chain. A similar agent at the next hop would determine it's cost for supplying that files, and hand over to the next hop, and so on, until a total cost for each chain of possible transfers from replicas to destination had been established. The destination file router could then choose the lowest-cost transfer chain for each file and trigger transfers as necessary.
+\bigskip
+\subsection{Decentralisation}
+At present the use of a single point-of-failure database is only a theoretical problem; indeed, the central blackboard has been the most stable component of the system. Peer-to-peer filesharing applications like BitTorrent also have similar single-points-of-failure and are also demonstrably robust. There are obviously, however, arguments for decentralizing sections of the information in the central blackboard. The most likely candidates for this decentralisation are the routing tables and the replica location information. Decentralised analogues of the former are found in everyday routing networks; analogues of the latter might be the separation of storage and lookup in peer-to-peer systems like Chord or Pastry \cite{dabek:chord,rowstron:pastry}.
 
-\subsection{Policy and Priority}
-Explicit handling of "priority" at various granularities: what does priority mean, why do we need it, moving to priority based replica management (straightforward extension of simple scheduling/subscription replica management).
+\bigskip
+\subsection{Priority}
+One of the key issues in large-scale HEP data distribution is the management of transfer priority. Push transfers are typically higher priority than pull transfers. The balance between these two use cases might be easily met with a simple priority system. Within these use cases however there are grades of importance- some raw data might be important for calibration so that the rest might be processed, for example. Some pulled analysis data might be for a particularly interesting new analysis of interest to many people. Orthogonally to these, there must also be a resolution of global and local priority- a given site, for example, may give higher priority to data that it requests than to data that it is just cacheing for other sites. Within PhEDEx the discussion of this subject is currently getting underway.
 
-\subsection{Decentralization}
-At present the use of a single point-of-failure database is only a theoretical problem; indeed, the central blackboard has been the most stable component of the system. Peer-to-peer filesharing applications like BitTorrent also have similar single-points-of-failure and are also demonstrably robust. There are obviously, however, arguments for decentralizing sections of the information in the central blackboard.
-
-Routing table design is partitioned, and responsibility for a node's routing table could be easily devolved to a particular agent with its own database. However, then need agents to communicate directly with their neighbours to maintain their routing table...
-
-The load on the central blackboard might be lessened by smearing information across nodes using a peer-to-peer alogorithm like Kademlia. A good candidate for this treatment is replica location information. Algorithms like Kademlia work by   giving each node in the network a unique identifier generated with a random hash function. Replica sets can similarly be given unique identifiers, and then information about those replica sets can be held at one or more nodes with node identifiers that are algorithmically close to the replica set identifer.
-
-Of course, decentralisation is not without cost; in this context decentralisation makes it more difficult to determine aspects of system state. In relation to the specific mechanisms described above it would become much harder to build a complete routing table, for example, or to locate all replicas of a dataset.
-
+\bigskip
 \section{Conclusion}
-The conclusion goes here.
+The LCG HEP environment places great demands on data transfer infrastructures. The LCG CMS experiment has developed a data transfer layer named PhEDEx that demonstrably scales to meet these demands...
 
+\bigskip
 \bibliographystyle{IEEEtran.bst}
-\bibliography{IEEEabrv,./barrass_et_al}
+\bibliography{./barrass_et_al}
 
 \end{document}
 
