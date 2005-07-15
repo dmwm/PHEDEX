@@ -719,7 +719,7 @@ sub rates {
 
     print "<h2>Transfer Rate Statistics</h2>\n";
     print "<p>CERN Daily External Internet Traffic<br>\n";
-    if ($dbid !~ /SC/)
+    if (0 && $dbid !~ /SC/)
     {
         print "<a href='http://pcstats.cern.ch/misc/cern-all.html'><IMG
           VSPACE=10 WIDTH=600 HEIGHT=135 ALIGN=TOP
