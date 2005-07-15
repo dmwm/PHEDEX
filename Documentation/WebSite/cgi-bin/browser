@@ -830,7 +830,7 @@ sub rateplot
           "Filter ",
 	  $cgi->textfield(-name=>'filter', -default=>$filter, -size=>15),
     	  "<input type='submit' value='Update'></form>\n";
-    foreach my $kind (qw(rate total))
+    foreach my $kind (qw(rate total pending))
     {
 	my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
 	print "<p><img width=900 height=400 src='",
