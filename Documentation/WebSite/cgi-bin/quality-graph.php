@@ -5,9 +5,7 @@ function read_csv ($file, $delimiter)
 {
   $data_array = file($file);
   for ( $i = 0; $i < count($data_array); $i++ )
-  {
     $parts_array[$i] = explode($delimiter,trim($data_array[$i]));
-  }
   return $parts_array;
 }
 
@@ -17,32 +15,37 @@ include BASE_PATH . "/jpgraph/jpgraph_bar.php";
 
 function selectData($data, $xbin, $tail, $filter)
 {
-  // Collect all the data into correct binning
-  $newdata = array(); $xvals = array();
+  // Build a map of nodes we are interested in.
+  $newdata = array(); $xvals = array(); $nodes = array();
+  for ($n = 4; $n < count($data[0]); ++$n)
+    $nodes[$n] = (! preg_match("/MSS$/", $data[0][$n])
+    		  && (! isset($filter)
+    		      || $filter == ''
+		      || preg_match("/$filter/", $data[0][$n])));
+
+  // Collect all the data into correct binning.
   for ($i = count($data)-1; $i >= 1; --$i)
   {
-    // Reject data for nodes not interest to us
-    $node = $data[$i][4];
-    if (isset($filter) && $filter != '' && ! preg_match("/$filter/", $node))
-      continue;
-    if ($data[$i][5] == 0 && $data[$i][6] == 0 && $data[$i][7] == 0)
-      continue;
-
-    // Select the right time for X axis plus convert to desired format.
+    // Select correct time for X axis, plus convert to desired format.
     // Stop when we have $tail unique X values.
     $time = $data[$i][$xbin];
     if (! count($xvals) || $xvals[count($xvals)-1] != $time) $xvals[] = $time;
     if (isset($tail) && $tail && count($xvals) > $tail) break;
 
-    // Transpose data to $newdata[xbin][node][attempted, errors, transferred]
-    if (! isset ($newdata[$time][$node]))
+    // Select columns matching the filter and append to $newdata[$time][$node]
+    $newrow = array($time);
+    for ($n = 4; $n < count($data[$i]); ++$n)
     {
-      $newdata[$time][$node] = array(0, 0, 0);
-    }
+      $node = $data[0][$n];
+      if (! $nodes[$n]) continue;
+      if (! isset ($newdata[$time][$node]))
+        $newdata[$time][$node] = array (0, 0, 0);
 
-    $newdata[$time][$node][0] += $data[$i][5];
-    $newdata[$time][$node][1] += $data[$i][6];
-    $newdata[$time][$node][2] += $data[$i][7];
+      $values = explode ("/", $data[$i][$n]);
+      $newdata[$time][$node][0] += $values[0];
+      $newdata[$time][$node][1] += $values[1];
+      $newdata[$time][$node][2] += $values[2];
+    }
   }
 
   return array_reverse($newdata, true);
@@ -89,6 +92,13 @@ function makeGraph($graph, $data, $args)
   $barplots = array();
   foreach ($nodes as $n => $node)
   {
+    $allzero = true;
+    foreach ($data as $xbin => $xdata)
+      if (isset($xdata[$node]) && max($xdata[$node]) > 0)
+	$allzero = false;
+
+    if ($allzero) continue;
+
     $plotdata = array();
     if ($args['metric'] == 'attempted')
       foreach ($data as $xbin => $xdata)
@@ -217,11 +227,11 @@ else // hour
   $args['xtitle'] = "Hour";
   $args['xunit'] = 4;
   $args['xbin'] = 3;
-  $args['xrewrite'] = array('(....)(..)(..)Z(..)(..)', "\\1-\\2-\\3\n   \\4:\\5");
+  $args['xrewrite'] = array('(....)(..)(..)Z(..)(..)', '\4:\5');
 }
 
 $graph = new Graph (900, 400, "auto");
-$data = read_csv (BASE_PATH . "/data/{$args['instance']}-xfer-quality.csv", ",");
+$data = read_csv (BASE_PATH . "/data/{$args['instance']}-quality.csv", ",");
 $data = selectData ($data, $args['xbin'], $entries, $args['filter']);
 makeGraph ($graph, $data, $args);
 

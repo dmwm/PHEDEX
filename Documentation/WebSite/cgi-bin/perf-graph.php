@@ -5,9 +5,7 @@ function read_csv ($file, $delimiter)
 {
   $data_array = file($file);
   for ( $i = 0; $i < count($data_array); $i++ )
-  {
     $parts_array[$i] = explode($delimiter,trim($data_array[$i]));
-  }
   return $parts_array;
 }
 
@@ -15,62 +13,111 @@ function read_csv ($file, $delimiter)
 include BASE_PATH . "/jpgraph/jpgraph.php";
 include BASE_PATH . "/jpgraph/jpgraph_bar.php";
 
-function makeGraph($graph, $data, $tail, $filter,
-		   $instance, $title, $xtitle, $ytitle,
-		   $xunit, $rewrite)
+function selectData($data, $xbin, $tail, $filter)
 {
-  // Get category labels and styles for each site
-  $startrow = (! $tail || $tail > count($data)-1 ? 1 : count($data)-$tail);
-  $categories = $data[0];
+  // Build a map of nodes we are interested in.
+  $newdata = array(); $xvals = array(); $nodes = array();
+  for ($n = 4; $n < count($data[0]); ++$n)
+    $nodes[$n] = (! preg_match("/MSS$/", $data[0][$n])
+    		  && (! isset($filter)
+    		      || $filter == ''
+		      || preg_match("/$filter/", $data[0][$n])));
+
+  // Collect all the data into correct binning.
+  for ($i = count($data)-1; $i >= 1; --$i)
+  {
+    // Select correct time for X axis, plus convert to desired format.
+    // Stop when we have $tail unique X values.
+    $time = $data[$i][$xbin];
+    if (! count($xvals) || $xvals[count($xvals)-1] != $time) $xvals[] = $time;
+    if (isset($tail) && $tail && count($xvals) > $tail) break;
+
+    // Select columns matching the filter and append to $newdata[$time][$node]
+    $newrow = array($time);
+    for ($n = 4; $n < count($data[$i]); ++$n)
+    {
+      $node = $data[0][$n];
+      if (! $nodes[$n]) continue;
+      if (! isset ($newdata[$time][$node]))
+        $newdata[$time][$node] = array (0, 0);
+
+      $newdata[$time][$node][0] += $data[$i][$n];
+      $newdata[$time][$node][1]++;
+    }
+  }
+
+  return array_reverse($newdata, true);
+}
+
+function makeGraph($graph, $data, $args)
+{
+  // Rendering parameters
   $styles = array("#e66266", "#fff8a9", "#7bea81", "#8d4dff", "#ffbc71", "#a57e81",
 		  "#baceac", "#00ccff", "#63aafe", "#ccffff", "#ccffcc", "#ffff99",
 		  "#99ccff", "#ff99cc", "#cc99ff", "#ffcc99", "#3366ff", "#33cccc");
-  $patterns = array(array ('/^T1/', 0),
-  		    array ('/^T2/', PATTERN_DIAG2),
-		    array ('/^/', PATTERN_DIAG4));
-
-  // Build an array of bar plots, one for each category (site)
-  $plots = array();
-  for ($cat = 1; $cat < count($categories); $cat++)
-  {
-    if (isset($filter) && $filter != '' && ! preg_match("/$filter/", $categories[$cat]))
-      continue;
-
-    $plotdata = array();
-    for ($row = $startrow; $row < count($data); $row++)
-    {
-      $plotdata[$row-$startrow] = $data[$row][$cat];
-    }
-    $barplot = new BarPlot($plotdata);
-    $barplot->SetFillColor ($styles[($cat-1) % count($styles)]);
-    for ($pat = 0; $pat < count($patterns); $pat++)
-    {
-	if (! preg_match($patterns[$pat][0], $categories[$cat])) continue;
-	if ($patterns[$pat][1]) $barplot->SetPattern ($patterns[$pat][1], 'black');
-	break;
-    }
-    $barplot->SetLegend ($categories[$cat]);
-    $plots[] = $barplot;
-  }
+  $patterns = array('/^T1/' => 0, '/^T2/' => PATTERN_DIAG2, '/^/' => PATTERN_DIAG4);
 
   // Build X-axis labels.  Make sure there are not too many of them.
+  $xrewrite = $args['xrewrite'];
   $xlabels = array();
-  $nrows = count($data) - $startrow;
-  $nxunits = round($nrows / $xunit) + ($nrows % $xunit ? 1 : 0);
-  $nrowskip = ($nrows <= 10 ? 1 : ($nxunits <= 10 ? $xunit : round($nxunits/10) * $xunit));
-  for ($row = $startrow; $row < count($data); $row++)
+  foreach (array_keys($data) as $time)
+      $xlabels[] = preg_replace("/{$xrewrite[0]}/", $xrewrite[1], $time);
+
+  $xbins = count($data);
+  $xunit = $args['xunit'];
+  $nxunits = round($xbins / $xunit) + ($xbins % $xunit ? 1 : 0);
+  $nrowskip = ($xbins <= 10 ? 1 : ($nxunits <= 10 ? $xunit : round($nxunits/10) * $xunit));
+
+  // Get category labels for each style, used to generate consistent style
+  $nodes = array();
+  foreach ($data as $xbin => $xdata)
+    foreach ($xdata as $node => $info)
+      $nodes[$node] = 1;
+  sort ($nodes = array_keys ($nodes));
+
+  // Assign patterns to nodes
+  $nodepats = array();
+  foreach ($nodes as $n => $node)
+    foreach ($patterns as $pat => $patvalue)
+    {
+      if (! preg_match($pat, $node)) continue;
+      $nodepats[$node] = $patvalue;
+      break;
+    }
+
+  // Build a bar plot for each node and selected transfer metric.
+  $legend = array();
+  $barplots = array();
+  foreach ($nodes as $n => $node)
   {
-     $label = $data[$row][0];
-     if ($rewrite) $label = preg_replace($rewrite[0], $rewrite[1], $label);
-     $xlabels[] = $label;
+    $plotdata = array();
+    if ($args['metric'] == 'rate')
+      foreach ($data as $xbin => $xdata)
+        $plotdata[] = (isset ($xdata[$node]) && $xdata[$node][1])
+		      ? (1024*1024*$xdata[$node][0])/($xdata[$node][1]*3600)
+		      : 0;
+    else if ($args['metric'] == 'total')
+      foreach ($data as $xbin => $xdata)
+        $plotdata[] = isset ($xdata[$node]) ? $xdata[$node][0] : 0;
+
+    $barplot = new BarPlot($plotdata);
+    $barplot->SetFillColor ($styles[$n % count($styles)]);
+    if ($nodepats[$node])
+      $barplot->SetPattern ($nodepats[$node], 'black');
+    if (! isset ($legend[$node]))
+    {
+      $legend[$node] = 1;
+      $barplot->SetLegend ($node);
+    }
+    $barplots[] = $barplot;
   }
 
-  // Build a compound bar plot from those
-  $plot = new AccBarPlot ($plots);
+  // Build an accumulated bar plot from those
+  $plot = new AccBarPlot ($barplots);
   $plot->SetWidth(0.65);
 
   // Compute how much the legend needs
-  $legendcols = (count($categories) > 20 ? 2 : 1);
+  $legendcols = (count($nodes) > 20 ? 2 : 1);
 
   // Configure the graph
   $graph->SetScale("textlin");
@@ -79,26 +126,26 @@ function makeGraph($graph, $data, $tail, $filter,
   $graph->img->SetMargin(65,56 + $legendcols * 122,40,40);
   $graph->img->SetAntiAliasing();
 
-  $graph->title->Set("PhEDEx Data Transfers $title");
+  $graph->title->Set("PhEDEx Data Transfers {$args['title']}");
   $graph->title->SetFont(FF_FONT2,FS_BOLD);
   $graph->title->SetColor("black");
 
   $nowstamp = gmdate("Y-m-d H:i");
-  $graph->subtitle->Set("$instance Transfers"
-  	                . ((isset($filter) && $filter != '')
-			   ? " Matching `$filter'" : "")
+  $graph->subtitle->Set("{$args['instance']} Transfers"
+  	                . ((isset($args['filter']) && $args['filter'] != '')
+			   ? " Matching `{$args['filter']}'" : "")
 	                . ", $nowstamp GMT");
   $graph->subtitle->SetFont(FF_FONT1,FS_BOLD);
   $graph->subtitle->SetColor("black");
 
-  $graph->xaxis->SetTitle($xtitle, 'middle');
+  $graph->xaxis->SetTitle($args['xtitle'], 'middle');
   $graph->xaxis->SetTextLabelInterval($nrowskip);
   $graph->xaxis->SetTickLabels($xlabels);
   $graph->xaxis->SetLabelAlign('center');
   $graph->xaxis->title->SetFont(FF_FONT1,FS_BOLD);
   $graph->xscale->ticks->Set($nrowskip, $xunit);
 
-  $graph->yaxis->title->Set($ytitle);
+  $graph->yaxis->title->Set($args['ytitle']);
   $graph->yaxis->SetTitleMargin(35);
   $graph->yaxis->title->SetFont(FF_FONT1,FS_BOLD);
 
@@ -110,64 +157,56 @@ function makeGraph($graph, $data, $tail, $filter,
   $graph->Stroke();
 }
 
-$srcdb    = $GLOBALS['HTTP_GET_VARS']['db'];
-$span     = $GLOBALS['HTTP_GET_VARS']['span'];
-$kind     = $GLOBALS['HTTP_GET_VARS']['kind'];
-$entries  = $GLOBALS['HTTP_GET_VARS']['last'];
-$filter   = $GLOBALS['HTTP_GET_VARS']['filter'];
+$kind_types       = array ('rate'       => "Throughput (MB/s)",
+		           'total'      => "Data Transferred (TB)");
+$srcdb            = $GLOBALS['HTTP_GET_VARS']['db'];
+$span             = $GLOBALS['HTTP_GET_VARS']['span'];
+$kind             = $GLOBALS['HTTP_GET_VARS']['kind'];
+$entries          = $GLOBALS['HTTP_GET_VARS']['last'];
+$args['filter']   = $GLOBALS['HTTP_GET_VARS']['filter'];
 
-$ytitle   = ($kind == 'rate' ? 'Throughput (MB/s)' : 'Terabytes');
-$ksuffix  = (($kind == 'rate' || $kind == 'total') ? $kind : 'Unknown');
-$prefix   = ($srcdb == 'prod' ? 'Production'
-	     : ($srcdb == 'test' ? 'Dev'
-	        : ($srcdb == 'sc' ? 'SC3'
-	           : 'Unknown')));
-if ($span == "hour")
+$args['metric']   = (isset ($kind_types[$kind]) ? $kind : 'rate');
+$args['ytitle']   = $kind_types[$args['metric']];
+$args['instance'] = ($srcdb == 'prod' ? 'Production'
+	             : ($srcdb == 'test' ? 'Dev'
+	                : ($srcdb == 'sc' ? 'SC3'
+	                   : 'SC3')));
+if ($span == "month")
 {
-  $tsuffix = $span;
-  $title = ($entries ? "Last $entries Hours" : "By Hour");
-  $xtitle = "Hour";
-  $xunit = 4;
-  $rewrite = ($entries ? array('/.*Z(..)(..)/', '\1:\2')
-  	      : array('/(.*)Z(.*)/', '\1\n\2'));
-}
-else if ($span == "day")
-{
-  $tsuffix = $span;
-  $title = ($entries ? "Last $entries Days" : "By Day");
-  $xtitle = "Day";
-  $xunit = 7;
-  $rewrite = array('/(....)(..)(..)/', '\1-\2-\3');
+  $args['title'] = ($entries ? "Last $entries Months" : "By Month");
+  $args['xtitle'] = "Month";
+  $args['xunit'] = 2;
+  $args['xbin'] = 0;
+  $args['xrewrite'] = array('(....)(..)', '\1-\2');
 }
 else if ($span == "week")
 {
-  $tsuffix = $span;
-  $title = ($entries ? "Last $entries Weeks" : "By Week");
-  $xtitle = "Week";
-  $xunit = 4;
-  $rewrite = array('/(....)(..)/', '\1/\2');
+  $args['title'] = ($entries ? "Last $entries Weeks" : "By Week");
+  $args['xtitle'] = "Week";
+  $args['xunit'] = 4;
+  $args['xbin'] = 1;
+  $args['xrewrite'] = array('(....)(..)', '\1/\2');
 }
-else if ($span == "month")
+else if ($span == "day")
 {
-  $tsuffix = $span;
-  $title = ($entries ? "Last $entries Months" : "By Month");
-  $xtitle = "Month";
-  $xunit = 2;
-  $rewrite = array('/(....)(..)/', '\1-\2');
+  $args['title'] = ($entries ? "Last $entries Days" : "By Day");
+  $args['xtitle'] = "Day";
+  $args['xunit'] = 7;
+  $args['xbin'] = 2;
+  $args['xrewrite'] = array('(....)(..)(..)', '\1-\2-\3');
 }
-else
+else // hour
 {
-  $tsuffix = "Unknown";
-  $title = "Unknown Time Period";
-  $xtitle = "Time Period";
-  $xunit = 2;
-  $rewrite = 0;
+  $args['title'] = ($entries ? "Last $entries Hours" : "By Hour");
+  $args['xtitle'] = "Hour";
+  $args['xunit'] = 4;
+  $args['xbin'] = 3;
+  $args['xrewrite'] = array('(....)(..)(..)Z(..)(..)', '\4:\5');
 }
 
 $graph = new Graph (900, 400, "auto");
-$data = read_csv (BASE_PATH . "/data/$prefix-$tsuffix-$ksuffix.csv", ",");
-makeGraph ($graph, $data, $entries, $filter,
-	   $prefix, $title, $xtitle, $ytitle,
-	   $xunit, $rewrite);
+$data = read_csv (BASE_PATH . "/data/{$args['instance']}-total.csv", ",");
+$data = selectData ($data, $args['xbin'], $entries, $args['filter']);
+makeGraph ($graph, $data, $args);
 
 ?>
