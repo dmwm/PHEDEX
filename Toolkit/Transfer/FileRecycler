@@ -197,7 +197,7 @@ sub idle
 
 	# Get PFNs and delete the files
 	my $catpfns = &guidToPFN (\@guids, $self->{PROTO_CAT_RM}, "local", @{$self->{PFN_QUERY}});
-	my $diskpfns = &guidToPFN (\@guids, $self->{PROTO_DISK_RM}, "local", @{$self->{PFN_QUERY}});
+	my $diskpfns = &guidToPFN (\@guids, $self->{PROTO_PFN_RM}, "local", @{$self->{PFN_QUERY}});
 	foreach my $guid (@guids)
 	{
 	    my $catpfn = $catpfns->{$guid};
