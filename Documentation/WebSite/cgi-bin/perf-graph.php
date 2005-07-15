@@ -13,15 +13,10 @@ function read_csv ($file, $delimiter)
 include BASE_PATH . "/jpgraph/jpgraph.php";
 include BASE_PATH . "/jpgraph/jpgraph_bar.php";
 
-function selectData($data, $xbin, $tail, $filter)
+function selectData($data, $xbin, $tail, $sum)
 {
   // Build a map of nodes we are interested in.
-  $newdata = array(); $xvals = array(); $nodes = array();
-  for ($n = 4; $n < count($data[0]); ++$n)
-    $nodes[$n] = (! preg_match("/MSS$/", $data[0][$n])
-    		  && (! isset($filter)
-    		      || $filter == ''
-		      || preg_match("/$filter/", $data[0][$n])));
+  $newdata = array(); $xvals = array();
 
   // Collect all the data into correct binning.
   for ($i = count($data)-1; $i >= 1; --$i)
@@ -32,17 +27,23 @@ function selectData($data, $xbin, $tail, $filter)
     if (! count($xvals) || $xvals[count($xvals)-1] != $time) $xvals[] = $time;
     if (isset($tail) && $tail && count($xvals) > $tail) break;
 
-    // Select columns matching the filter and append to $newdata[$time][$node]
+    // Append to $newdata[$time][$node].  If $sum, it's additive (rate
+    // or data transferred), otherwise pick last value of period (pending)
     $newrow = array($time);
     for ($n = 4; $n < count($data[$i]); ++$n)
     {
       $node = $data[0][$n];
-      if (! $nodes[$n]) continue;
+      if (preg_match("/MSS$/", $node)) continue;
       if (! isset ($newdata[$time][$node]))
         $newdata[$time][$node] = array (0, 0);
 
-      $newdata[$time][$node][0] += $data[$i][$n];
-      $newdata[$time][$node][1]++;
+      if ($sum)
+      {
+        $newdata[$time][$node][0] += $data[$i][$n];
+        $newdata[$time][$node][1]++;
+      }
+      else if (! $newdata[$time][$node][0])
+        $newdata[$time][$node][0] = $data[$i][$n];
     }
   }
 
@@ -88,15 +89,19 @@ function makeGraph($graph, $data, $args)
   // Build a bar plot for each node and selected transfer metric.
   $legend = array();
   $barplots = array();
+  $filter = $args['filter'];
   foreach ($nodes as $n => $node)
   {
+    if (isset($filter) && $filter != '' && ! preg_match("/$filter/", $node))
+      continue;
+
     $plotdata = array();
     if ($args['metric'] == 'rate')
       foreach ($data as $xbin => $xdata)
         $plotdata[] = (isset ($xdata[$node]) && $xdata[$node][1])
 		      ? (1024*1024*$xdata[$node][0])/($xdata[$node][1]*3600)
 		      : 0;
-    else if ($args['metric'] == 'total')
+    else // total || pending
       foreach ($data as $xbin => $xdata)
         $plotdata[] = isset ($xdata[$node]) ? $xdata[$node][0] : 0;
 
@@ -117,7 +122,7 @@ function makeGraph($graph, $data, $args)
   $plot->SetWidth(0.65);
 
   // Compute how much the legend needs
-  $legendcols = (count($nodes) > 20 ? 2 : 1);
+  $legendcols = (count($barplots) > 20 ? 2 : 1);
 
   // Configure the graph
   $graph->SetScale("textlin");
@@ -158,13 +163,15 @@ function makeGraph($graph, $data, $args)
 }
 
 $kind_types       = array ('rate'       => "Throughput (MB/s)",
-		           'total'      => "Data Transferred (TB)");
+		           'total'      => "Data Transferred (TB)",
+		           'pending'    => "Pending Transfer Queue (TB)");
 $srcdb            = $GLOBALS['HTTP_GET_VARS']['db'];
 $span             = $GLOBALS['HTTP_GET_VARS']['span'];
 $kind             = $GLOBALS['HTTP_GET_VARS']['kind'];
 $entries          = $GLOBALS['HTTP_GET_VARS']['last'];
 $args['filter']   = $GLOBALS['HTTP_GET_VARS']['filter'];
 
+$suffix           = ($kind == 'pending' ? 'pending' : 'total');
 $args['metric']   = (isset ($kind_types[$kind]) ? $kind : 'rate');
 $args['ytitle']   = $kind_types[$args['metric']];
 $args['instance'] = ($srcdb == 'prod' ? 'Production'
@@ -205,8 +212,8 @@ else // hour
 }
 
 $graph = new Graph (900, 400, "auto");
-$data = read_csv (BASE_PATH . "/data/{$args['instance']}-total.csv", ",");
-$data = selectData ($data, $args['xbin'], $entries, $args['filter']);
+$data = read_csv (BASE_PATH . "/data/{$args['instance']}-$suffix.csv", ",");
+$data = selectData ($data, $args['xbin'], $entries, $args['metric'] != 'pending');
 makeGraph ($graph, $data, $args);
 
 ?>
