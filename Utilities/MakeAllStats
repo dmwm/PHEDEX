@@ -13,11 +13,5 @@ for db in Production SC3 Dev; do
     addopt="-add $(dirname $0)/../Documentation/DailyStatsDiff.txt"
     addopt="$addopt -add $(dirname $0)/../Documentation/DailyStatsFZKDiff.txt"
   fi
-  for kind in total rate; do
-    for unit in hour day week month; do
-      $(dirname $0)/MakeDailyStats $1 $2:$db/Admin \
-         $(echo $addopt) -time $unit -$kind > $db-$unit-$kind.csv
-    done
-  done
-  $(dirname $0)/MakeQualityStats $1 $2:$db/Admin > $db-xfer-quality.csv
+  $(dirname $0)/MakeDailyStats $1 $2:$db/Admin $(echo $addopt) -output $db-
 done
