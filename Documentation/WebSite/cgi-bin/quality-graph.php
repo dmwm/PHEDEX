@@ -13,15 +13,10 @@ function read_csv ($file, $delimiter)
 include BASE_PATH . "/jpgraph/jpgraph.php";
 include BASE_PATH . "/jpgraph/jpgraph_bar.php";
 
-function selectData($data, $xbin, $tail, $filter)
+function selectData($data, $xbin, $tail)
 {
   // Build a map of nodes we are interested in.
-  $newdata = array(); $xvals = array(); $nodes = array();
-  for ($n = 4; $n < count($data[0]); ++$n)
-    $nodes[$n] = (! preg_match("/MSS$/", $data[0][$n])
-    		  && (! isset($filter)
-    		      || $filter == ''
-		      || preg_match("/$filter/", $data[0][$n])));
+  $newdata = array(); $xvals = array();
 
   // Collect all the data into correct binning.
   for ($i = count($data)-1; $i >= 1; --$i)
@@ -32,12 +27,12 @@ function selectData($data, $xbin, $tail, $filter)
     if (! count($xvals) || $xvals[count($xvals)-1] != $time) $xvals[] = $time;
     if (isset($tail) && $tail && count($xvals) > $tail) break;
 
-    // Select columns matching the filter and append to $newdata[$time][$node]
+    // Append to $newdata[$time][$node]
     $newrow = array($time);
     for ($n = 4; $n < count($data[$i]); ++$n)
     {
       $node = $data[0][$n];
-      if (! $nodes[$n]) continue;
+      if (preg_match("/MSS$/", $node)) continue;
       if (! isset ($newdata[$time][$node]))
         $newdata[$time][$node] = array (0, 0, 0);
 
@@ -90,8 +85,12 @@ function makeGraph($graph, $data, $args)
   // Build a bar plot for each node and selected transfer metric.
   $legend = array();
   $barplots = array();
+  $filter = $args['filter'];
   foreach ($nodes as $n => $node)
   {
+    if (isset($filter) && $filter != '' && ! preg_match("/$filter/", $node))
+      continue;
+
     $allzero = true;
     foreach ($data as $xbin => $xdata)
       if (isset($xdata[$node]) && max($xdata[$node]) > 0)
@@ -132,7 +131,7 @@ function makeGraph($graph, $data, $args)
 
   // Build an accumulated bar plot from those
   if ($args['metric'] == 'failed_ratio' || $args['metric'] == 'completed_ratio')
-    $plot = new GroupBarPlot ($barplots);
+    $plot = count($barplots) ? new GroupBarPlot ($barplots) : new AccBarPlot ($barplots);
   else
   {
     $plot = new AccBarPlot ($barplots);
@@ -140,7 +139,7 @@ function makeGraph($graph, $data, $args)
   }
 
   // Compute how much the legend needs
-  $legendcols = (count($nodes) > 20 ? 2 : 1);
+  $legendcols = (count($barplots) > 20 ? 2 : 1);
 
   // Configure the graph
   $graph->SetScale("textlin");
@@ -232,7 +231,7 @@ else // hour
 
 $graph = new Graph (900, 400, "auto");
 $data = read_csv (BASE_PATH . "/data/{$args['instance']}-quality.csv", ",");
-$data = selectData ($data, $args['xbin'], $entries, $args['filter']);
+$data = selectData ($data, $args['xbin'], $entries);
 makeGraph ($graph, $data, $args);
 
 ?>
