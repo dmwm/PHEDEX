@@ -109,10 +109,12 @@ while (my ($hour, $node, $xferred) = $data->fetchrow())
 }
 
 $data = &dbexec ($dbh, qq{
-    select trunc(timebin/3600)*3600, to_node, pending_bytes
-    from t_perf_histogram where from_node not like '%_MSS'});
-while (my ($hour, $node, $pending) = $data->fetchrow())
+    select timebin, to_node, sum(pending_bytes)
+    from t_perf_histogram where from_node not like '%_MSS'
+    group by timebin, to_node order by timebin, to_node});
+while (my ($timebin, $node, $pending) = $data->fetchrow())
 {
+    my $hour = int($timebin/3600)*3600;
     $first = $hour if (! $first || $first > $hour);
     $pending{$hour}{$node} = $pending;
     $nodes{$node} = 1;
@@ -161,14 +163,18 @@ foreach my $time (&timeSeries ($first, "hour"))
     my $hour = $time->{LOW};
     my $span = $time->{HIGH} - $time->{LOW};
     my @times = map { &formatTime ($hour, $_) } qw(month week day hour);
+    my $x = $xferred{$hour};
+    my $p = $pending{$hour};
+    my $q = $quality{$hour};
+
     print XFER_TOTAL
-        join(",", @times, map { ($xferred{$hour}{$_}||0)/$TERABYTE } @nodenames), "\n";
+        join(",", @times, map { ($x->{$_}||0)/$TERABYTE } @nodenames), "\n";
     print PENDING
-        join(",", @times, map { ($pending{$hour}{$_}||0)/$TERABYTE } @nodenames), "\n";
+        join(",", @times, map { ($p->{$_}||0)/$TERABYTE } @nodenames), "\n";
     print QUALITY
-        join(",", @times, map { ($quality{$hour}{$_}{ATTEMPTED}||0) . "/" .
-				($quality{$hour}{$_}{FAILED}||0) . "/" .
-				($quality{$hour}{$_}{COMPLETED}||0) } @nodenames), "\n";
+        join(",", @times, map { ($q->{$_}{ATTEMPTED} || 0) . "/" .
+				($q->{$_}{FAILED} || 0) . "/" .
+				($q->{$_}{COMPLETED} || 0) } @nodenames), "\n";
 }
 
 # Done.
@@ -201,7 +207,7 @@ sub timeSeries
 	# Convert first time to UTC hour in units of half a day.  Then
 	# make a time series of hours until end of current 4 hours.
 	my $low = 12 * int($first / 3600 / 12);
-	my $high = 4 * (int($now / 3600 / 4) + 1);
+	my $high = int($now / 3600) + 1;
 	for ( ; $low < $high; ++$low) {
 	    push(@series, { LOW => $low * 3600, HIGH => ($low+1) * 3600 });
         }
