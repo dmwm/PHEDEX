@@ -23,7 +23,7 @@
 ##H -wait      time to wait in seconds between work scans
 
 BEGIN {
-  use strict; use warnings;
+  $^W=1; use strict; use warnings;
   our $me = $0; $me =~ s|.*/||;
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);
@@ -76,14 +76,14 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (DBCONFIG => undef,		# Database configuration file
-		  MYNODE => undef,		# My TMDB node (temporary)
-		  NODES => undef,		# Nodes to process
-		  INFINITY => 1000,		# Infinite distance
-		  TIMEOUT => 0,			# Route time out
-		  DRYRUN => 0,			# Prevent database updates
-		  ONCE => 0,			# Quit after one run
-	  	  AGENTID => "Routing");	# Identity for activity logs
+    my %params = (DBCONFIG => undef,            # Database configuration file
+                  MYNODE => undef,              # My TMDB node (temporary)
+                  NODES => undef,               # Nodes to process
+                  INFINITY => 1000,             # Infinite distance
+                  TIMEOUT => 0,                 # Route time out
+                  DRYRUN => 0,                  # Prevent database updates
+                  ONCE => 0,                    # Quit after one run
+                  AGENTID => "Routing");        # Identity for activity logs
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -99,55 +99,54 @@ sub refreshNeighbourLinks
     # First cache our _fixed_ neighbour routes- redo every time in case something
     # changes. These are used to recover correct hop link values after a failure
     my $query = &dbexec($dbh, qq{
-	select neighbour, hops from t_node_neighbour where node = :me},
-	":me" => $mynode);
+        select neighbour, hops from t_node_neighbour where node = :me},
+        ":me" => $mynode);
     while (my ($neighbour, $hops) = $query->fetchrow())
     {
-	$neighbour =~ s/\s+//g;
-	$distances{$neighbour} = $hops;
+        $neighbour =~ s/\s+//g;
+        $distances{$neighbour} = $hops;
     }
 
     # We need to check to see if a direct route is already there
     my %established = ();
-    $query = &dbexec($dbh, qq{
-        select from_node, to_node, gateway, timestamp, hops from t_routing});
-    while (my ($from, $to, $gateway, $stamp, $hops) = $query->fetchrow())
+    $query = &dbexec($dbh, qq{select from_node, to_node from t_routing});
+    while (my ($from, $to) = $query->fetchrow())
     {
         $from =~ s/\s+//g; $to =~ s/\s+//g;
-	if ( $to eq $mynode && exists $distances{$from} ) {
-	    $established{$from} = 1;
-	}
+        if ( $to eq $mynode && exists $distances{$from} ) {
+            $established{$from} = 1;
+        }
     }
 
     # Now for every neighbour, refresh our link. Check to see if a link exists first!
     my $time = &mytimeofday();
     foreach my $neighbour ( keys %distances ) {
-	&dbexec($dbh, qq{
-	    select * from t_routing
-		where to_node = :to_node and gateway = :to_node and from_node = :from_node
-		for update},
-		":to_node" => $mynode,
-		":from_node" => $neighbour);
-	if ( ! exists $established{$neighbour} ) {
-	    &dbexec($dbh, qq{
-		insert into t_routing
-		    (timestamp,from_node,to_node,gateway,hops)
-		    values
-		    (:time,:neighbour,:me,:me,:hops)},
-		    ":time" =>$time,
-		    ":neighbour" => $neighbour,
-		    ":me" => $mynode,
-		    ":hops" => $distances{$neighbour});
-	} else {
-	    &dbexec($dbh, qq{
-		update t_routing set timestamp = :now, hops = :hops, gateway = :to_node 
-		    where to_node = :to_node and from_node = :from_node},
-		    ":now" => $time,
-		    ":to_node" => $mynode,
-		    ":from_node" => $neighbour,
-		    ":hops" => $distances{$neighbour});
-	}
-	$dbh->commit();
+        &dbexec($dbh, qq{
+            select * from t_routing
+                where to_node = :to_node and gateway = :to_node and from_node = :from_node
+                for update},
+                ":to_node" => $mynode,
+                ":from_node" => $neighbour);
+        if ( ! exists $established{$neighbour} ) {
+            &dbexec($dbh, qq{
+                insert into t_routing
+                    (timestamp,from_node,to_node,gateway,hops)
+                    values
+                    (:time,:neighbour,:me,:me,:hops)},
+                    ":time" =>$time,
+                    ":neighbour" => $neighbour,
+                    ":me" => $mynode,
+                    ":hops" => $distances{$neighbour});
+        } else {
+            &dbexec($dbh, qq{
+                update t_routing set timestamp = :now, hops = :hops, gateway = :to_node 
+                    where to_node = :to_node and from_node = :from_node},
+                    ":now" => $time,
+                    ":to_node" => $mynode,
+                    ":from_node" => $neighbour,
+                    ":hops" => $distances{$neighbour});
+        }
+        $dbh->commit();
     }
 }
 
@@ -157,25 +156,23 @@ sub updateTable
     my $mynode = $self->{MYNODE};
     
     # Trying just dropping the whole of our routing table here ...
-    &dbexec($dbh, qq{
-	delete from t_routing
-	    where from_node = :from_node},
-	    ":from_node" => $mynode);
+    &dbexec($dbh, qq{delete from t_routing where from_node = :from_node},
+        ":from_node" => $mynode);
     
     foreach my $route (@$routes)
     {
-	my ($from, $to, $time, $hops, $status) = split (":", $route);
-	
-	# And here, just inserting the new routes
-	&dbexec($dbh, qq{
-	    insert into t_routing
-		(timestamp, from_node, to_node, gateway, hops)
-		values (:timestamp, :from_node, :to_node, :gateway, :hops)},
-		":timestamp" => $time,
-		":from_node" => $mynode,
-		":to_node" => $to,
-		":gateway" => $from,
-		":hops" => $hops);
+        my ($from, $to, $time, $hops, $status) = split (":", $route);
+
+        # And here, just inserting the new routes
+        &dbexec($dbh, qq{
+            insert into t_routing
+                (timestamp, from_node, to_node, gateway, hops)
+                values (:timestamp, :from_node, :to_node, :gateway, :hops)},
+                ":timestamp" => $time,
+                ":from_node" => $mynode,
+                ":to_node" => $to,
+                ":gateway" => $from,
+                ":hops" => $hops);
     }
     $dbh->commit();
 }
@@ -187,67 +184,69 @@ sub getNewRoutes
 
     # Get all routes- lock first!
     &dbexec($dbh, qq{
-	select * from t_routing where from_node = :from_node for update},
-	    ":from_node" => $mynode);
+        select * from t_routing where from_node = :from_node for update},
+            ":from_node" => $mynode);
     
-    # Cache my fixed routes
+    # Cache known distances FROM me TO my neighbours
     my %distances = ();
     my $query = &dbexec($dbh, qq{
-	select neighbour, hops from t_node_neighbour where node = :me},
-		     ":me" => $mynode);
+        select node, hops from t_node_neighbour where neighbour = :me},
+        ":me" => $mynode);
     while (my ($neighbour, $hops) = $query->fetchrow())
     {
-	$neighbour =~ s/\s+//g;
-	$distances{$neighbour} = $hops;
+        $neighbour =~ s/\s+//g;
+        $distances{$neighbour} = $hops;
     }
 
     my %routes = ();
     $query = &dbexec($dbh, qq{
-	select from_node, to_node, gateway, timestamp, hops from t_routing});
+        select r.from_node, r.to_node, r.gateway, r.timestamp, r.hops from t_routing r
+        join t_node_neighbour n on n.node = r.gateway and n.neighbour = r.from_node
+        where r.hops < 1000 and r.timestamp > :old},
+	":old" => &mytimeofday() - $self->{TIMEOUT});
     while (my ($from, $to, $gateway, $stamp, $hops) = $query->fetchrow())
     {
-	$from =~ s/\s+//g; $to =~ s/\s+//g;
-	$routes{$from}{$to}
-	= { GATEWAY => $gateway, HOPS => $hops, STAMP => $stamp };
+        $from =~ s/\s+//g; $to =~ s/\s+//g;
+        $routes{$from}{$to}
+        = { GATEWAY => $gateway, HOPS => $hops, STAMP => $stamp };
     }
-    
+
     # Build the list of routes we want to process.  First get our immediate
-    # neighbours: routes with from=me and to=gateway.  Then obtain the routes
-    # for all those immediate neighbours, excluding routes with myself as the
-    # destination.  Finally prune out routes we have already established and
-    # which are still valid.
+    # neighbours. Then obtain the routes for those immediate neighbours, 
+    # to whom a complemtary route from us to them exists. We exclude
+    # routes with us as the destination. Finally prune out routes we have 
+    # already established and which are still valid.
     my @new = ();
-#    my @neighbours = grep ($routes{$mynode}{$_}{GATEWAY} eq $_,
-#	    		   keys %{$routes{$mynode}});
     my @neighbours = keys %distances;
     foreach my $from (@neighbours)
     {
-	foreach my $to (keys %{$routes{$from}})
-	{
-	    my $gateway = $routes{$from}{$to}{GATEWAY};
-	    my $stamp = $routes{$from}{$to}{STAMP};
-	    my $hops = $routes{$from}{$to}{HOPS} + 
-		$distances{$from};
-
-	    # FIXME: check to see if the timestamp is still valid
-	    
-	    # Want to ignore if this route overrides a neighbour route- we
-	    # already know about our neighbours
-	    next if ( defined $distances{$to} ); 
-	    
-	    next if $to eq $mynode;
-	    next if (exists $routes{$mynode}{$to}
-		     && $routes{$mynode}{$to}{GATEWAY} eq $from
-		     && $routes{$mynode}{$to}{HOPS} eq $hops
-		     && $routes{$mynode}{$to}{STAMP} eq $stamp);
-
-	    # Handle split horizon with poisoned reverse.  Split horizon
-	    # means that routes with myself as the gateway are ignored.
-	    # Split horizon with poisoned reverse means such routes are
-	    # accepted, but the number of hops is set to infinity.
-	    $hops = $self->{INFINITY} if $gateway eq $mynode;
-	    push (@new, "$from:$to:$stamp:$hops");
-	}
+        foreach my $to (keys %{$routes{$from}})
+        {
+            my $gateway = $routes{$from}{$to}{GATEWAY};
+            my $stamp = $routes{$from}{$to}{STAMP};
+            my $hops = $routes{$from}{$to}{HOPS} + 
+                $distances{$from};
+            
+            # FIXME: check to see if the timestamp is still valid
+            
+            # Want to ignore if this route overrides a neighbour route- we
+            # already know about our neighbours
+            next if ( defined $distances{$to} ); 
+            
+            next if $to eq $mynode;
+            next if (exists $routes{$mynode}{$to}
+                     && $routes{$mynode}{$to}{GATEWAY} eq $from
+                     && $routes{$mynode}{$to}{HOPS} eq $hops
+                     && $routes{$mynode}{$to}{STAMP} eq $stamp);
+            
+            # Handle split horizon with poisoned reverse.  Split horizon
+            # means that routes with myself as the gateway are ignored.
+            # Split horizon with poisoned reverse means such routes are
+            # accepted, but the number of hops is set to infinity.
+            $hops = $self->{INFINITY} if $gateway eq $mynode;
+            
+            push (@new, "$from:$to:$stamp:$hops");
+        }
     }
 
     return @new;
@@ -257,14 +256,16 @@ sub getMyRouteHash
 {
     my ($self, $dbh) = @_;
     my %table = ();
-    my $query = &dbexec($dbh, qq{
-	select gateway, to_node, timestamp, hops from t_routing
-	where from_node = :node}, ":node" => $self->{MYNODE});
 
+    my $query = &dbexec($dbh, qq{
+        select r.gateway, r.to_node, r.timestamp, r.hops from t_routing r
+	join t_node_neighbour n on n.node = r.gateway and n.neighbour = r.from_node
+        where r.from_node = :node and r.hops < 1000 and r.timestamp > :old},
+        ":node" => $self->{MYNODE}, ":old" => &mytimeofday() - $self->{TIMEOUT});
     while (my @row = $query->fetchrow_array())
     {
         map { s/\s+//g; $_ } @row;
-	&alert ("multiple routes from $self->{MYNODE} to $row[1]") if exists $table{$row[1]};
+        &alert ("multiple routes from $self->{MYNODE} to $row[1]") if exists $table{$row[1]};
         $table{$row[1]} = "$row[0]:$row[2]:$row[3]:U";
     }
 
@@ -285,44 +286,44 @@ sub compareWithExistingRoutes
     my $new_time = &mytimeofday();
     foreach my $route (@$new_routes)
     {
-	my ($new_gate,$new_to,$dummy_time,$new_hops) = split (/:/,$route);
-	$new_gate_time_hops = "$new_gate:$new_time:$new_hops";
-	if (exists $gate_time_hops_by_dest{$new_to})
-	{
-	    $new_gate_time_hops = $new_gate_time_hops.":U";
-	    my ($gate,$time,$hops) = split ( /:/,$gate_time_hops_by_dest{$new_to} );
-	    if (($gate eq $new_gate) || ($new_hops < $hops)) {
-		$new_gate_time_hops = $new_gate_time_hops."N";
-		$gate_time_hops_by_dest{$new_to} = $new_gate_time_hops; # replace blindly OR minimise
-	    }
-	}
-	else
-	{
-	    &logmsg ("new route found $self->{MYNODE} $route");
-	    $new_gate_time_hops = $new_gate_time_hops.":I"; 
-	    $gate_time_hops_by_dest{$new_to} = $new_gate_time_hops;
-	}
+        my ($new_gate,$new_to,$dummy_time,$new_hops) = split (/:/,$route);
+        $new_gate_time_hops = "$new_gate:$new_time:$new_hops";
+        if (exists $gate_time_hops_by_dest{$new_to})
+        {
+            $new_gate_time_hops = $new_gate_time_hops.":U";
+            my ($gate,$time,$hops) = split ( /:/,$gate_time_hops_by_dest{$new_to} );
+            if (($gate eq $new_gate) || ($new_hops < $hops)) {
+                $new_gate_time_hops = $new_gate_time_hops."N";
+                $gate_time_hops_by_dest{$new_to} = $new_gate_time_hops; # replace blindly OR minimise
+            }
+        }
+        else
+        {
+            &logmsg ("new route found $self->{MYNODE} $route");
+            $new_gate_time_hops = $new_gate_time_hops.":I"; 
+            $gate_time_hops_by_dest{$new_to} = $new_gate_time_hops;
+        }
     }
 
     # timeout routes, check infinity
     foreach my $dest (keys %gate_time_hops_by_dest)
     {
-	my ($gate,$time,$hops,$status) = split (/:/,$gate_time_hops_by_dest{$dest});
-	my $infinity = $self->{INFINITY};
-	my $check = &mytimeofday() - $self->{TIMEOUT};
-	$hops = $infinity if $hops > $infinity;
-	if ($time < $check && $self->{TIMEOUT} != 0)
-	{
-	    $hops = $infinity;
-	    # trigger update if it's a neighbour timeout
-	    # easy for us as we can pass the update message to
-	    # everyone in the network at the same time
-	    &dbexec($dbh, qq{
-		update t_routing set hops = :infinity where to_node = :dest},
-		":infinity" => $infinity, ":dest" => $dest);
-	    &warn ("route timed out: $gate:$dest:$time:$hops:$status");
-	}
-	$gate_time_hops_by_dest{$dest} = "$gate:$time:$hops:$status";
+        my ($gate,$time,$hops,$status) = split (/:/,$gate_time_hops_by_dest{$dest});
+        my $infinity = $self->{INFINITY};
+        my $check = &mytimeofday() - $self->{TIMEOUT};
+        $hops = $infinity if $hops > $infinity;
+        if ($time < $check && $self->{TIMEOUT} != 0)
+        {
+            $hops = $infinity;
+            # trigger update if it's a neighbour timeout
+            # easy for us as we can pass the update message to
+            # everyone in the network at the same time
+            &dbexec($dbh, qq{
+                update t_routing set hops = :infinity where to_node = :dest},
+                ":infinity" => $infinity, ":dest" => $dest);
+            &warn ("route timed out: $gate:$dest:$time:$hops:$status");
+        }
+        $gate_time_hops_by_dest{$dest} = "$gate:$time:$hops:$status";
     }
 
     # Build complete merged table
@@ -346,23 +347,23 @@ sub idle
     # Always mark all files ready to go immediately.
     eval
     {
-	foreach my $node (split(/,/, $self->{NODES}))
-	{
-	    $self->{MYNODE} = $node;
-	    $dbh = &connectToDatabase ($self) or die "failed to connect";
+        foreach my $node (split(/,/, $self->{NODES}))
+        {
+            $self->{MYNODE} = $node;
+            $dbh = &connectToDatabase ($self) or die "failed to connect";
 
             $self->refreshNeighbourLinks ($dbh);
             my @new_routes = $self->getNewRoutes ($dbh);
             my @all_routes = $self->compareWithExistingRoutes ($dbh, \@new_routes);
             $self->updateTable ($dbh, \@all_routes);
-	    $dbh->commit();
-	    &disconnectFromDatabase ($self, $dbh);
-	}
+            $dbh->commit();
+            &disconnectFromDatabase ($self, $dbh);
+        }
 
-	$self->{MYNODE} = undef;
+        $self->{MYNODE} = undef;
     };
     do { &alert ("database error: $@");
-	 eval { $dbh->rollback() } if $dbh; } if $@;
+         eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
