@@ -28,8 +28,8 @@
 ##H -disk-rm          command to delete file from the disk
 ##H -disk-proto       protocol for looping up file name for disk removal (default: direct)
 ##H -disk-monitor     command to check if disk is full (default: ignore disk)
-##H -delay-purge      clear files after this period (default: 48 hours)
-##H -delay-inactive   time to prevent routing after purge (default: 8 hours)
+##H -delay-purge      clear files after this period in hours (default: 48 hours)
+##H -delay-inactive   time in hours to prevent routing after purge (default: 8 hours)
 
 BEGIN
 {
