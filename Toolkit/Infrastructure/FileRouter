@@ -113,7 +113,7 @@ sub idle
 			      . " for node routing to restore links"); last }
 	      	    if ! grep($_->{FROM} eq $file->{DEST}
 			      && $_->{TO} eq $_->{GATEWAY}
-			      && $_->{TIME} >= $now - 15*60,
+			      && $_->{TIME} >= $now - 30*60,
 			      map { values %$_ } values %$routes);
 
 		++$nincomplete;
