@@ -42,11 +42,11 @@ while (scalar @ARGV)
     { last; }
 }
 
-if (scalar @ARGV || !$args{DROPDIR} || !$args{NODESMAP} || !$args{MYNODE})
+if (scalar @ARGV || !$args{DROPDIR} || !$args{MYNODE})
 {
     print STDERR
 	"usage: $me -in IN-DROP-BOX -out NEXT-DROP-BOX\n",
-	"           -node NODE-NAME -nodesmap NODESMAP-FILE\n",
+	"           -node NODE-NAME [-nodesmap NODESMAP-FILE]\n",
         "           [-publish PUBLISH-SCRIPT[,ARGS]]\n",
 	"           [-wait SECS-TO-WAIT]\n";
     exit (1);
@@ -77,7 +77,6 @@ sub new
 sub ProcessSmry
 {
     my ($self, $drop, $smryfile) = @_;
-    my $assID = undef;
     my $guid  = undef;
     my $size  = undef;
     my $cksum = undef;
@@ -89,7 +88,6 @@ sub ProcessSmry
     do {&alert ("cannot open summary file $smryfile: $!"); return 1;} if !open (IN, "< $smryfile");
     while(<IN>) {
         chomp;
-	$assID = $1   if /_ASS_ID=(\d+)/;             # assignment ID     
 	$guid  = $1   if /OUT_GUID=([-0-9A-Fa-f]+)/;  # zip's guid
 	$size  = $1   if /OUT_SIZE=(\d+)/;            # zip's size
 	$cksum = $1   if /OUT_CKSUM=(\d+)/;           # zip's cksum
@@ -97,12 +95,12 @@ sub ProcessSmry
 	$turl  = $1   if /OUT_TURL=(.+)/;             # zip's TURL 
     }
     close (IN);
-    if (!$assID || !$guid || !$size || !$lfn || !$turl) {
+    if (!$guid || !$size || !$lfn || !$turl) {
 	&alert ("$drop: failed to parse $smryfile"); return 1;
     }
 
     # create XML POOL fragment
-    my $XMLCatFragment="$dropdir/XMLCatFragment.$assID.xml";
+    my $XMLCatFragment="$dropdir/XMLCatFragment.$guid.xml";
     my $surl=$turl; $surl =~ s/^[a-z]*:/sfn:/;
     my $XMLcontent = &createZipXMLfragment($guid, $lfn, $surl);
     do { &alert("$drop: failed to create XML fragment for zip archive"); return 1} if !$XMLcontent;
@@ -110,18 +108,20 @@ sub ProcessSmry
       if ! &output ($XMLCatFragment, &genXMLPreamble() . $XMLcontent . &genXMLTrailer());
 
     # create chksum file with format "cksum filesize LFN"
-    my $ChecksumFile="$dropdir/Checksum.$assID.txt";
+    my $ChecksumFile="$dropdir/Checksum.$guid.txt";
     $cksum = -1 if !$cksum;
     my $cksumContent = "$cksum $size $lfn\n";
     do { &alert("$drop: failed to write $ChecksumFile"); return 1}
       if  ! &output ($ChecksumFile, $cksumContent);
 
     # create PhEDEx-Nodes.txt file if file to be injected already available in a real PhEDEx node
-    my $Nodescontent = &createNodeFile($self->{NODESMAP}, $turl, $self->{MYNODE});
-    if ($Nodescontent) {
-	my $PhEDExNodesfile = "$dropdir/PhEDEx-Nodes.txt";
-	do { &alert("$drop: failed to write $PhEDExNodesfile"); return 1}
-	  if  ! &output ($PhEDExNodesfile, $Nodescontent);
+    if ($self->{NODESMAP}) {
+	my $Nodescontent = &createNodeFile($self->{NODESMAP}, $turl, $self->{MYNODE});
+	if ($Nodescontent) {
+	    my $PhEDExNodesfile = "$dropdir/PhEDEx-Nodes.txt";
+	    do { &alert("$drop: failed to write $PhEDExNodesfile"); return 1}
+	    if  ! &output ($PhEDExNodesfile, $Nodescontent);
+	}
     }
 
     # execute script to publish into local phedex pool catalog
