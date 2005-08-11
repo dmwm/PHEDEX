@@ -1,0 +1,83 @@
+#!/bin/sh
+
+##H Help in publishing zip files after transfer.  Invoke this script:
+##H   ZipPublishHelper CATALOGUE ZIP-PFN [COBRA-AREA [SCRAM-ARCH [SCRAM]]]]
+##H
+##H The required arguments are:
+##H   CATALOGUE      The destination catalogue contact string.
+##H   ZIP-PFN        The PFN for the zip file in the form that can be
+##H                    be passed directly to the applications.
+##H
+##H If the ZIP-PFN does not resemble a zip file, the command exits.  It
+##H is thus safe to invoke it on all downloaded files.
+##H
+##H If the required COBRA tools (test_StorageFactory_ZipList, _Any) are
+##H not in the environment, you must also supply the optional arguments:
+##H   COBRA-AREA     Path to the COBRA area from where to pick the tools.
+##H   SCRAM-ARCH     Override default SCRAM architecture.
+##H   SCRAM          Override default SCRAM command (scramv1).
+##H
+##H Examples:
+##H   ZipPublishHelper \
+##H     mysqlcatalog_mysql://foo:bar@host/db \
+##H     rfio:/castor/cern.ch/cms/ZippedEVD.zip
+##H
+##H   ZipPublishHelper \
+##H     lfccatalog_lfc://host/path \
+##H     dcap:/pfns/path/ZippedEVD.zip \
+##H     $VO_CMS_SW_DIR/COBRA/COBRA_8_5_2
+##H
+##H   ZipPublishHelper \
+##H     lfccatalog_lfc://host/path \
+##H     dcap:/pfns/path/ZippedEVD.zip \
+##H     $VO_CMS_SW_DIR/COBRA/COBRA_8_1_0 \
+##H     slc3_ia32_gcc323 scram
+
+catalogue="$1" zippfn="$2" cobra="$3" scramarch="$4" scram="$5"
+
+# Check we have required arguments
+if [ -z "$catalogue" -o -z "$zippfn" ]; then
+  grep '^##H' < $0 | sed 's/^\(##H \|##H$\)//'
+  exit 1
+fi
+
+# If it doesn't look like a zip archive, ignore it
+case "$zippfn" in */ZippedEVD.* ) ;; * ) exit 0 ;; esac
+
+# OK, we need it; if COBRA environment fixed on command line, evaluate it,
+# otherwise just assume it's already all been set in our environment.
+if [ ! -z "$cobra" ]; then 
+  if [ ! -d "$cobra" ]; then 
+    echo "$cobra: error: no such directory" 1>&2
+    exit 2
+  fi
+  eval $(cd "$cobra" && ${scram:-scramv1} ${scramarch:+-arch $scramarch} runtime -sh)
+fi
+
+# Get the name of the XML template from the zip archive.
+xmlfrag="$(test_StorageFactory_ZipList "$zippfn" | grep XMLFragment | awk '{print $NF}')"
+if [ -z "$xmlfrag" ]; then
+  echo "$zippfn: error: cannot determine name of XML fragment" 1>&2
+  exit 3
+fi
+
+# Instantiate the XML fragment.  Being a COBRA tool it prints out all
+# manner of useless noise, so filter it out.
+xmltmp=$(mktemp /tmp/ZipPublishHelper.XXXXXX)
+test_StorageFactory_Any "zip-member:$zippfn#$xmlfrag" 2>/dev/null |
+  awk '/<File/,/<\/File/ { print } {}'  |
+  sed "s|@ZIPPFN@|$zippfn|g" > $xmltmp
+$(dirname $0)/UtilFixCat $xmltmp
+
+if [ $(grep EVDZip $xmltmp | wc -l) = 0 ]; then
+  echo "$zippfn: error: instantiated xml catalogue appears suspect" 1>&2
+  exit 4
+fi
+
+# Now publish the catalogue
+POOL_XMLBACKUP=0 POOL_OUTMSG_LEVEL=W FCpublish -d "$catalogue" -u "file:$xmltmp"
+status=$?
+
+# Exit
+rm -f $xmltmp
+exit $status
