@@ -75,7 +75,8 @@ if [ $(grep EVDZip $xmltmp | wc -l) = 0 ]; then
 fi
 
 # Now publish the catalogue
-POOL_XMLBACKUP=0 POOL_OUTMSG_LEVEL=W FCpublish -d "$catalogue" -u "file:$xmltmp"
+POOL_XMLBACKUP=0 POOL_OUTMSG_LEVEL=W FCpublish \
+  -d "$catalogue" -u "file:$xmltmp" -q "pfname != '$zippfn'"
 status=$?
 
 # Exit
