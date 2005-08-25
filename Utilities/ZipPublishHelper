@@ -76,7 +76,7 @@ fi
 
 # Now publish the catalogue
 POOL_XMLBACKUP=0 POOL_OUTMSG_LEVEL=W FCpublish \
-  -d "$catalogue" -u "file:$xmltmp" -q "pfname != '$zippfn'"
+  -d "$catalogue" -u "file:$xmltmp" -q "pfname like 'zip-member%'"
 status=$?
 
 # Exit
