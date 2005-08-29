@@ -1,7 +1,249 @@
-p, h1, ul, li {
-	font-family: Georgia, "Times New Roman", Times, serif;
+/* PhEDEx website style sheet.  Somewhat inspired by a combination of
+   Ruby on Rails and A List Apart.  More changes still coming.  */
+
+/**********************************************************************/
+/* General elements */
+
+* {
+  margin:		0;
+  padding:		0;
 }
 
-.tableheading {
-	color: #FFFFFF;
+body {
+  margin-bottom:	1em;
+
+  color:		#222;
+
+  background-color:	#fff;
+  background-image:	url(phedex-header-backdrop.gif);
+  background-repeat:	repeat-x;
+
+  font-size:		80%;
+  font-family:		'Lucida Grande', verdana, helvetica, arial, sans-serif;
+  line-height:		1.6em;
+
+  text-align:		center; /* IE5.5 */
+}
+
+h1 {
+  margin-top:		1em;
+  margin-bottom:	0.5em;
+  font-size:		2em;
+  font-weight:		normal;
+  letter-spacing:	-0.04em;
+}
+
+h2 {
+  margin-top:		1em;
+  margin-bottom:	0.5em;
+  font-size:		1.5em;
+  font-weight:		normal;
+  letter-spacing:	-0.04em;
+}
+
+iframe {
+  border:		none;
+}
+
+img {
+  border:		none;
+}
+
+.right {
+  float:		right;
+  margin-left:		5px;
+  margin-bottom:	5px;
+}
+
+p {
+  margin-bottom:	1em;
+}
+
+ul {
+  margin-top:		1em;
+  margin-bottom:	1em;
+  /** list-style-type:	none; **/
+}
+
+ul li {
+  margin-left:		0.5em;
+  padding-left:		1em;
+  /** background-image:	url(/images/bullet.gif); **/
+  /** background-repeat:	no-repeat;  **/
+  /** background-position:	0 0.55em; **/
+}
+
+ol {
+  margin-left:		1em;
+  margin-bottom:	1em;
+  padding-left:		1em;
+}
+
+ol li {
+  margin-left: 		0.5em;
+  padding-left:		0.5em;
+}
+
+/**********************************************************************/
+/* General classes */
+
+/**********************************************************************/
+/* Structure elements: header, content, sidebars etc.  */
+
+div#page {
+  position:		relative;
+  width:		90%;
+  max-width:		720px;
+
+  padding:		0;
+  margin-top:		5px;
+  margin-left:		20px;
+  margin-right:		20px;
+
+  font-size:		1em;
+  text-align:		left;
+}
+
+div#header {
+  height:		160px;
+  overflow:		hidden;
+}
+
+div#heading {
+  height:		73px;
+  margin:		0;
+  margin-top:		16px;
+  margin-left:		140px;
+  padding:		0;
+}
+
+div#heading h1 {
+  padding:		0;
+  margin:		0;
+  text-align:		left;
+  color:		#ffffff;
+  text-shadow:		3px 3px 4px #000000;
+}
+
+div#heading h2 {
+  padding:		0;
+  margin:		0;
+  margin-top:		5px;
+  text-align:		left;
+  color:		#ffffff;
+  text-shadow:		3px 3px 3px #000000;
+}
+
+div#logo {
+  float:		left;
+  width:		120px;
+  height:		140px;
+  margin-right:		25px;
+}
+
+
+div#content {
+  position:		absolute;
+  left:			145px;
+}
+
+/* Fix the IE only 3pixel jog - documented at http://www.positioniseverything.net/articles/hollyhack.html#haslayout \*/
+* html #content {
+  height: 1px;
+}
+/* End hide from IE5-mac */
+
+/**********************************************************************/
+ul#navmain {
+  height:		42px;
+  margin: 		0;
+  padding: 		5px 0 0 0;
+  list-style-type:	none;
+}
+
+ul#navmain li {
+  display:		inline;
+  background-image:	none;
+  margin:		0;
+  padding:		0;
+}
+
+ul#navmain li {
+  border-left:		1px solid #b01f28;
+  /* Mac IE5.x, repeated from "li a" to space the vertical bar from the link.  */
+  // padding:		0 0 0 0.8em;
+}
+
+ul#navmain li.first { /* IE limitations. */
+  border-left:		none;
+  padding-left:		0;
+}
+
+ul#navmain li.first a { /* IE limitations. */
+  padding-left:		0;
+}
+
+ul#navmain li.next {
+  margin-left:		10px;
+  border-left:		2px solid #b01f28;
+}
+
+ul#navmain li a {
+  padding:		0.2em 0.5em 0.2em 0.8em;
+  color:		#b01f28;
+  text-decoration:	none;
+}
+
+ul#navmain li a:hover {
+  text-decoration:	underline;
+  background-color:	transparent;
+}
+
+ul#navmain li a.selected {
+  font-weight:		bold;
+}
+
+/**********************************************************************/
+/* Site elements: highlight boxes, navigation elements, etc. */
+
+.topic {
+  margin-bottom:	1em;
+  padding:		1em;
+
+  font-size:		1.3em;
+  line-height: 		1.6em;
+  background-color:	#D6DFE8;
+}
+
+.topic p {
+  margin-bottom:				0;
+}
+
+/**********************************************************************/
+/* Specific area elements  */
+
+
+#presentations {
+  border:		1px solid #666666;
+  border-collapse:	collapse;
+}
+
+#presentations tbody {
+  border:		1px solid #666666;
+}
+
+#presentations tbody tr td {
+  font-size:		0.9em;
+  padding:		3px 3px;
+  border-left:		1px solid #D9D9D9;
+  vertical-align:	top;
+}
+  
+#presentations tbody tr.selected td {
+  background-color:	#3d80df;
+  color:		#ffffff;
+  font-weight:		bold;
+  border-left:		1px solid #346DBE;
+  border-bottom:	1px solid #7DAAEA;
+  vertical-align:	top;
 }
