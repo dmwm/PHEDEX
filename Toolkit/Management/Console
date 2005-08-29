@@ -104,8 +104,8 @@ sub run
     if (! defined $self->{TIMEOUT})
     {
         # If no default timeout was given, set it.  In daemon mode we
-	# use 300 seconds (5 minutes), and in interactive mode a day.
-	$self->{TIMEOUT} = $self->{DAEMON} ? 300 : 86400;
+	# use 300 seconds (5 minutes), and in interactive an hour.
+	$self->{TIMEOUT} = $self->{DAEMON} ? 300 : 3600;
     }
 
     # Initialise home directory
@@ -184,7 +184,7 @@ sub runloop
 	while (my $request = $conn->get_request())
 	{
 	    last if $self->{TIME_AUTO_QUIT} - time() <= 0;
-	    $self->handle ($peer, $conn, $request);
+	    return if ! $self->handle ($peer, $conn, $request);
 	    $self->{TIME_AUTO_QUIT} = time() + $self->{TIMEOUT} if $self->{TIMEOUT};
 	}
 
@@ -204,11 +204,19 @@ sub handle
 	{
 	    my $path = "$self->{FILE_HOME}/Toolkit/Management/index.html";
 	    $connection->send_file_response ($path);
-	    return;
+	    return 1;
+	}
+
+	elsif ($request->url->path eq '/quit')
+	{
+	    my $path = "$self->{FILE_HOME}/Toolkit/Management/quit.html";
+	    $connection->send_file_response ($path);
+	    return 0;
 	}
     }
 
     $connection->send_error (RC_FORBIDDEN);
+    return 1;
 }
 
 # Put the program into daemon mode.
