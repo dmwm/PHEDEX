@@ -49,24 +49,19 @@ img {
   border:		none;
 }
 
-.right {
-  float:		right;
-  margin-left:		5px;
-  margin-bottom:	5px;
-}
-
 p {
   margin-bottom:	1em;
 }
 
 ul {
+  margin-left:		1em;
   margin-top:		1em;
   margin-bottom:	1em;
-  /** list-style-type:	none; **/
+  /** list-style-type:	bullet; **/
 }
 
 ul li {
-  margin-left:		0.5em;
+  margin-left:		1em;
   padding-left:		1em;
   /** background-image:	url(/images/bullet.gif); **/
   /** background-repeat:	no-repeat;  **/
@@ -86,6 +81,12 @@ ol li {
 
 /**********************************************************************/
 /* General classes */
+
+.right {
+  float:		right;
+  margin-left:		5px;
+  margin-bottom:	5px;
+}
 
 /**********************************************************************/
 /* Structure elements: header, content, sidebars etc.  */
