@@ -10,11 +10,11 @@
 
 body {
   color:		#222;
-  font-size:		80%;
+  font-size:		64%;
   font-family:		'Lucida Grande', verdana, helvetica, arial, sans-serif;
   line-height:		1.6em;
   text-align:		left;
-  font-size:		0.8em;
+  margin-top:		2px;
 }
 
 h1 {
