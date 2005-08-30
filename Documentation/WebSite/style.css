@@ -118,12 +118,23 @@ div#heading {
   padding:		0;
 }
 
-div#heading h1 {
+div#heading h1.title {
+  display:		inline;
   padding:		0;
   margin:		0;
   text-align:		left;
-  color:		#ffffff;
-  text-shadow:		3px 3px 4px #000000;
+  color:		#fff;
+  text-shadow:		3px 3px 4px #000;
+}
+
+div#heading h2.title {
+  display:		inline;
+  padding:		0;
+  margin:		0;
+  margin-top:		5px;
+  text-align:		left;
+  color:		#fff;
+  text-shadow:		3px 3px 3px #000;
 }
 
 div#heading h2 {
@@ -131,8 +142,8 @@ div#heading h2 {
   margin:		0;
   margin-top:		5px;
   text-align:		left;
-  color:		#ffffff;
-  text-shadow:		3px 3px 3px #000000;
+  color:		#fff;
+  text-shadow:		3px 3px 3px #000;
 }
 
 div#logo {
@@ -228,6 +239,11 @@ ul#navmain li a.selected {
   color:		#b01f28;
   background-color:	#f8e5a0;
   border-bottom:	1px solid #b01f28;
+}
+
+.sidetopic iframe {
+  width:		130px;
+  height:		100%;
 }
 
 .topic {
