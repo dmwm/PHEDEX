@@ -145,7 +145,9 @@ div#logo {
 
 div#content {
   position:		absolute;
-  left:			145px;
+  left:			139px;
+  border-left:		1px solid #b01f28;
+  padding-left:		8px;
 }
 
 /* Fix the IE only 3pixel jog - documented at http://www.positioniseverything.net/articles/hollyhack.html#haslayout \*/
@@ -207,6 +209,27 @@ ul#navmain li a.selected {
 /**********************************************************************/
 /* Site elements: highlight boxes, navigation elements, etc. */
 
+#sidebar {
+  float:		left;
+  width:		130px;
+  font-size:		0.8em;
+  padding:		0;
+}
+
+.sidetopic {
+  margin-bottom:	1em;
+}
+
+.sidetopic h2 {
+  margin:		0;
+  padding:		0;
+  padding-left:		4px;
+  font-size:		1em;
+  color:		#b01f28;
+  background-color:	#f8e5a0;
+  border-bottom:	1px solid #b01f28;
+}
+
 .topic {
   margin-bottom:	1em;
   padding:		1em;
@@ -217,7 +240,7 @@ ul#navmain li a.selected {
 }
 
 .topic p {
-  margin-bottom:				0;
+  margin-bottom:	0;
 }
 
 /**********************************************************************/

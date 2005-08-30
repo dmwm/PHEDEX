@@ -20,67 +20,81 @@
   </div>
 
   <div id="heading">
-    <h1>PhEDEx</h1><h2>Physics Experimental Data Export</h2>
+    <h1>PhEDEx &mdash; Physics Experimental Data Export</h1>
   </div>
 
   <!-- Main navigation bar: public/developers/other -->
   <ul id="navmain">
     <li class="first"><a class="selected" href="./" title="About">About</a></li>
     <li><a href="cgi-bin/browser" title="Status">Status</a></li>
-    <li><a href="cgi-bin/requests" title="Requests">Requests</a></li>
+    <li><a href="cgi-bin/requests" title="Data Requests">Data Requests</a></li>
 
     <li class="next"><a href="https://uimon.cern.ch/twiki/bin/view/CMS/PhEDEx" title="Wiki">Wiki</a></li>
     <li><a href="http://cmsdoc.cern.ch/swdev/viewcvs/viewcvs.cgi/PHEDEX/?cvsroot=PHEDEX" title="CVS">CVS</a></li>
     <li><a href="http://savannah.cern.ch/projects/phedex" title="Savannah">Savannah</a></li>
-
-    <li class="next"><a href="documents.html" title="Documents">Documents</a></li>
-    <li><a href="https://wwwlistbox.cern.ch/earchive/cms-phedex-developers" title="Mail Archive">Mail Archive</a></li>
   </ul>
 </div> <!-- /header -->
 
+<!-- side navigation bar -->
+<div id="sidebar">
+  <div class="sidetopic"><h2>Links</h2>
+    <p><a href="https://wwwlistbox.cern.ch/earchive/cms-phedex-developers" title="Mail Archive">Mail Archive</a>
+    <br><a href="presentations.html" title="Presentations">Presentations</a>
+    <br><a href="documents.html" title="Documents">Documents</a>
+    </p>
+  </div>
+
+  <div class="sidetopic">
+    <h2>Service Status</h2>
+    <iframe src="cgi-bin/status" title="Service Status">
+      <p>(Unavailable)</p>
+    </iframe>
+  </div>
+</div> <!-- /sidebar -->
+
+<!-- main content -->
 <div id="content">
+  <div class="topic">
+    <p>The PhEDEx project provides the data placement and the file transfer
+    system for the <a href="http://cmsdoc.cern.ch/">CMS experiment</a>.  The
+    project name is short for &ldquo;Physics Experiment Data Export.&rdquo;</p>
+  </div>
 
-<div class="topic">
-  <p>The PhEDEx project provides the data placement and the file transfer
-  system for the <a href="http://cmsdoc.cern.ch/">CMS experiment</a>.  The
-  project name is short for &ldquo;Physics Experiment Data Export.&rdquo;</p>
-</div>
 
+  <p><img class="right" src="sample-workflow.gif" alt="Sample workflow" width="204" height="200" />
+  The PhEDEx components are:</p>
+  <ol>
+   <li> Transfer management database (TMDB), currently version is 2.</li>
+   <li> Transfer agents that manage the movement of files between sites.
+   This also includes agents to migrate files to mass storage, to
+   manage local mass storage stager pools and stage in files efficiently
+   based on transfer demand, and to calculate file checksums when necessary
+   before transfers.</li>
+   <li> Management agents, in particular the allocator agent which assigns
+   files to destinations based on site data subscriptions, and agents to
+   maintains file transfer topology routing information.</li>
+   <li> Tools to manage transfer requests; CMS/RefDB/PubDB specific.</li>
+   <li> Local agents for managing files locally, for
+   instance as files arrive from a transfer request or a production farm,
+   including any processing that needs to be done before they can be made
+   available for transfer: massaging information, merging files, registering
+   files into the catalogues, injecting into TMDB.</li>
+   <li> Web monitoring tools.</li>
+  </ol>
 
-<p><img class="right" src="sample-workflow.gif" alt="Sample workflow" width="204" height="200" />
-The PhEDEx components are:</p>
-<ol>
- <li> Transfer management database (TMDB), currently version is 2.</li>
- <li> Transfer agents that manage the movement of files between sites.
- This also includes agents to migrate files to mass storage, to
- manage local mass storage stager pools and stage in files efficiently
- based on transfer demand, and to calculate file checksums when necessary
- before transfers.</li>
- <li> Management agents, in particular the allocator agent which assigns
- files to destinations based on site data subscriptions, and agents to
- maintains file transfer topology routing information.</li>
- <li> Tools to manage transfer requests; CMS/RefDB/PubDB specific.</li>
- <li> Local agents for managing files locally, for
- instance as files arrive from a transfer request or a production farm,
- including any processing that needs to be done before they can be made
- available for transfer: massaging information, merging files, registering
- files into the catalogues, injecting into TMDB.</li>
- <li> Web monitoring tools.</li>
-</ol>
+  <p>If you have any questions or comments, please contact the
+  <a href="mailto:cms-phedex-developers@cern.ch">developer list</a>.
+  You are welcome to file bug reports and support requests at our
+  <a href="http://savannah.cern.ch/projects/phedex">Savannah site.</a></p>
 
-<p>If you have any questions or comments, please contact the
-<a href="mailto:cms-phedex-developers@cern.ch">developer list</a>.
-You are welcome to file bug reports and support requests at our
-<a href="http://savannah.cern.ch/projects/phedex">Savannah site.</a></p>
+  <h2>News</h2>
 
-<h2>News</h2>
-
-<ul>
- <li><a href="status.html">PhEDEx status report</a> as of 2004-12-02.</li>
- <li><a href="2004-09-workshop.html">16-17 September, 2004</a>
-  PhEDEx hands-on workshop at CERN.</li>
-</ul>
+  <ul>
+   <li><a href="status.html">PhEDEx status report</a> as of 2004-12-02.</li>
+   <li><a href="2004-09-workshop.html">16-17 September, 2004</a>
+    PhEDEx hands-on workshop at CERN.</li>
+  </ul>
 </div> <!-- /content -->
-
+</div> <!-- /page -->
 </body>
 </html>
