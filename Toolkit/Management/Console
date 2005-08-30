@@ -206,7 +206,7 @@ sub handle
 	if (! $session)
 	{
 	    my ($port, $host) = sockaddr_in ($peer);
-	    $session = sprintf ("S%X%X%X", time(), $port, rand(16));
+	    $session = sprintf ("S%X%X%X", $port, time(), rand(16));
 	    $self->{SESSION_DATA}{$session} = {
 		SESSIONID => $session,
 		REMOTE_HOST => $host,
