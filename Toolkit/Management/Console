@@ -200,7 +200,24 @@ sub handle
     my ($self, $peer, $connection, $request) = @_;
     if ($request->method eq 'GET')
     {
-	if ($request->url->path eq '/' || $request->url->path eq '/index.html')
+	my $rpath = $request->url->path;
+	my ($session, $rest) = ($rpath =~ m!^/(S[\dA-F]+)(/.*)?!);
+	$rest ||= "/";
+	if (! $session)
+	{
+	    my ($port, $host) = sockaddr_in ($peer);
+	    $session = sprintf ("S%X%X%X", time(), $port, rand(16));
+	    $self->{SESSION_DATA}{$session} = {
+		SESSIONID => $session,
+		REMOTE_HOST => $host,
+		REMOTE_PORT => $port
+	    };
+
+	    $connection->send_redirect ("/$session$rest");
+	    return 1;
+	}
+
+	if (grep($rest eq $_, qw(/ /index.html /index.htm /default.htm)))
 	{
 	    my $path = "$self->{FILE_HOME}/Toolkit/Management/index.html";
 	    $connection->send_file_response ($path);
