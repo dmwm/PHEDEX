@@ -22,10 +22,12 @@ while (<DBNAMES>)
 close (DBNAMES);
 my $cgi = new CGI;
 my $db = $cgi->param("db") || "prod";    # tnsname of the database
-my $dbversion = $databases{$db}[4] || 'V2.2';
-my $dbid = $databases{$db}[3] || '';
-my $dbh;
+$db = "prod" if ! grep ($db eq $_, @dbnames);
+my ($dbtns, $dbuser, $dbpass, $dbid, $dbversion) = @{$databases{$db}};
+$dbversion ||= 'V2.2';
+$dbid ||= '';
 
+my $dbh;
 my $badcolor = '#ff9e9e';
 my $warncolor = '#ffd89e';
 my $pendcolor = '#ccccff'; # ececff
@@ -39,8 +41,7 @@ $cgi->param('page', 'main') if ! $cgi->param('page');
 # Main loop
 # ###############################################
 
-intro();
-end();
+runme();
 
 # ###############################################
 # Subroutines
@@ -60,49 +61,97 @@ sub urlencode
     my %args = @_; return new CGI (\%args)->query_string();
 }
 
-sub intro
+sub dblink
 {
-    $| = 1;
-    my $stamp = strftime ("%Y-%m-%d %H:%M:%S %Z", localtime(time()));
+    my ($db, $dbother) = @_;
+    my $othername = $databases{$dbother}[3];
+    return "<a href='" . &relurl('db', $dbother)
+         . ($db eq $dbother ? "' class='selected' " : "' ")
+    	 . "title='$othername Database Instance'>$othername</a>";
+}
+
+sub runme
+{
+    # Select page we are visiting
+    my @pageinfo = ([ 'main',		\&main,		"Component Status" ],
+	            [ 'transfer',	\&transfer,	"Transfer State" ],
+		    [ 'tstates',	\&tstates,	"Transfer State Details" ],
+		    [ 'replicas',	\&replicas,	"Replica State" ],
+		    [ 'subs',		\&subs,		"Subscriptions" ],
+		    [ 'stats',		\&stats,	"File Size Stats" ],
+		    [ 'rates',		\&rates,	"Transfer Rate" ],
+		    [ 'rateplot',	\&rateplot,	"Transfer Rate Plots" ],
+		    [ 'qplot',		\&qplot,	"Transfer Quality Plots" ],
+		    [ 'agents',		\&agents,	"Agent Status" ],
+		    [ 'dbreports',	\&dbreports,	"Daily Reports" ],
+		    [ 'dbreport',	\&dbreport,	undef ]);
+    my %pagemap = map { $pageinfo[$_][0] => $_ } 0 .. $#pageinfo;
+    my $pagename = param('page');
+    my $page = ($pagename && exists $pagemap{$pagename} ? $pagemap{$pagename} : 0);
+
+    # Initialise page template
+    my $template = do { local $/; undef $/; <DATA> };
+    my $replacements = {
+     	'CONTENT' => '',
+	'PAGETITLE' => $pageinfo[$page][2],
+	'TIME'	=> strftime ("%Y-%m-%d %H:%M:%S GMT", gmtime(time())),
+	'DBID' => $dbid,
+	'DB' => $db,
+	'DBSELECTOR' =>
+	    ("  <ul id='navmain'>\n" .
+	     "    <li class='first'>Database: " .  &dblink ($db, $dbnames[0]) .
+	     "</li>\n    " .
+	     join ("\n    ",
+		   map { "<li>" . &dblink ($db, $_) . "</li>" }
+		   @dbnames[1 .. $#dbnames]) .
+	     "\n  </ul>\n"),
+	'PAGESELECTOR' =>
+	    (join("", map { ($_ ? "<br>" : "") .
+			    "<a href='" . &relurl('page', $pageinfo[$_][0]) .
+			    "'>$pageinfo[$_][2]</a>\n    " }
+		      grep (defined $pageinfo[$_][2], 0 .. $#pageinfo))),
+
+    };
+
+    # Execute the desired page.  We save old STDOUT to print to it
+    # later, then redirect the page routine's output to CONTENT.
+    my $capture = new IO::Capture::Stdout;
+    $capture->start();
+    eval
+    {
+        # Connect to the database, do the page, the disconnect
+        $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
+        $ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/10103";
+        $ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/10103/lib";
+        $dbh = DBI->connect ("DBI:Oracle:$dbtns", $dbuser, $dbpass,
+	    		     { RaiseError=>1, AutoCommit =>1 });
+	&{$pageinfo[$page][1]} ();
+        $dbh->disconnect();
+    };
+
+    if ($@)
+    {
+	my $message = $@;
+	$message =~ s/&/&amp;/g;
+	$message =~ s/</&lt;/g;
+	$message =~ s/>/&gt;/g;
+	print "<div align='left'>\n",
+	      "<p>Apologies, looks like we have a server error,",
+	      " details of which below.</p>\n",
+	      "<p><i>$message</i></p>\n",
+	      "</div>\n";
+    }
+    $capture->stop();
+    $replacements->{CONTENT} = join("\n", $capture->read());
+
+    # Instantiate the template and spit it out
+    while (my ($key, $value) = each %$replacements)
+    {
+	$template =~ s/\@$key\@/$value/g;
+    }
+
     print $cgi->header();
-    print qq{
-      <html><title>PHEDEX Status</title><body bgcolor='#FFFFFF'>
-      <center><h1>PHEDEX Status</h1><table><tr>
-       	<td><a href='}, &relurl('page', 'main'), qq{'>Front page</a></td>
-       	<td><a href='}, &relurl('page', 'transfer'), qq{'>Transfer state</a></td>
-       	<td><a href='}, &relurl('page', 'tstates'), qq{'>State details</a></td>
-       	<td><a href='}, &relurl('page', 'replicas'), qq{'>Replica state</a></td>
-       	<td><a href='}, &relurl('page', 'subs'), qq{'>Subscriptions</a></td>
-      </tr><tr>
-       	<td><a href='}, &relurl('page', 'stats'), qq{'>File size stats</a></td>
-       	<td><a href='}, &relurl('page', 'rates'), qq{'>Transfer rate</a></td>
-       	<td><a href='}, &relurl('page', 'rateplot'), qq{'>Transfer plots<a></td>
-       	<td><a href='}, &relurl('page', 'qplot'), qq{'>Transfer quality<a></td>
-       	<td><a href='}, &relurl('page', 'agents'), qq{'>Agent status</a></td>
-      </tr><tr>
-       	<td><a href='}, &relurl('page', 'dbreports'), qq{'>Daily Reports</a></td>
-       </tr>
-       <tr><td colspan=5 align='center'>$stamp</td></tr>
-       <tr>},
-	 (map { "<td><a href='" . &relurl('db', $_) . "'>$databases{$_}[3]</a></td>\n" } @dbnames),
-	 qq{</tr></table>};
-
-    $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
-    $ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/10103";
-    $ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/10103/lib";
-    $db = "prod" if ! grep ($db eq $_, keys %databases);
-    my ($dbname, $dbuser, $dbpass, @dbjunk) = @{$databases{$db}};
-    $dbh = DBI->connect ("DBI:Oracle:$dbname", $dbuser, $dbpass,
-	    		 { RaiseError=>1, AutoCommit =>1 });
-
-    my %pages = ('main' => \&main,	     'transfer' => \&transfer,
-		 'replicas' => \&replicas,   'subs' => \&subs,
-		 'stats' => \&stats,         'agents' => \&agents,
-		 'rates' => \&rates,	     'rateplot' => \&rateplot,
-		 'qplot' => \&qplot,	     'tstates' => \&tstates,
-	 	 'dbreports' => \&dbreports, 'dbreport' => \&dbreport);
-    &{$pages{param('page')} || \&main}();
-    print "</body></html>\n";
+    print $template;
 }
 
 sub main
@@ -129,37 +178,44 @@ sub main
     foreach my $item (([ "Administrative", @admin ], [ "Common", @standard ]))
     {
 	my ($type, @agents) = @{$item};
-	print "<h2>$type component status</h2>\n",
-              "<table><tr><th>Node</th>",
-	      (map { "<th>$_</th>" } @agents),
+        print "<p><table class='striped'>\n",
+	      "<tbody>\n",
+	      "<tr class='selected'>\n",
+	      " <td align='center' colspan='" . (scalar @agents + 1) . "'>$type Agents</td>\n",
+	      "</tr>\n",
+	      "<tr class='selected'>\n",
+	      " <th>Node</th>\n",
+	      (map { " <th>$_</th>\n" } @agents),
 	      "</tr>\n";
 
         foreach my $node (sort keys %status)
         {
 	    next if ! grep (defined $status{$node}{$_}, @agents);
 
-	    print "<tr><td>$node</td>";
+	    print "<tr>\n",
+	          " <td>$node</td>\n";
             foreach my $agent (@agents)
 	    {
 	        my $contact = $status{$node}{$agent};
 	        if (! defined $contact)
 	        {
-		    print "<td>&nbsp;</td>";
+		    print " <td>&nbsp;</td>\n";
 		    next;
 	        }
 
 	        my $ago = &age ($now - $contact);
 	        if (($now - $contact) < $active) {
-                    print "<td align='center' bgcolor='$goodcolor'>UP</td>";
+                    print "<td align='center' bgcolor='$goodcolor'>UP</td>\n";
 	        } elsif (($now - $contact) < $offline) {
-                    print "<td align='center' bgcolor='$goodcolor'>UP ($ago ago)</td>";
+                    print "<td align='center' bgcolor='$goodcolor'>UP ($ago ago)</td>\n";
                 } else {
-                    print "<td align='center' bgcolor='$badcolor'>DOWN ($ago ago)</td>";
+                    print "<td align='center' bgcolor='$badcolor'>DOWN ($ago ago)</td>\n";
                 }
 	    }
 	    print "</tr>\n";
         }
-        print "</table>";
+        print "</tbody>\n",
+              "</table>\n";
    }
 }
 
@@ -199,20 +255,21 @@ sub transfer {
 	    from t_info_transfer_status
 	    order by node});
 
-    print "<h2>Transfer status</h2>\n",
-    	  "<table><tr bgcolor='$altcolor' valign='top'>",
-	  "<th rowspan='2'>Age</th>",
-	  "<th rowspan='2'>Node</th>",
-    	  "<th colspan='2'>Destined</th>",
-	  "<th colspan='2'>On Site</th>",
-	  "<th colspan='2'>In Transfer</th>",
-	  "<th colspan='2'>In Export</th>",
+    print "<p><table class='striped'>\n",
+          "<tbody>\n",
+          "<tr class='selected'>\n",
+	  " <th rowspan='2'>Age</th>\n",
+	  " <th rowspan='2'>Node</th>\n",
+    	  " <th colspan='2'>Destined</th>\n",
+	  " <th colspan='2'>On Site</th>\n",
+	  " <th colspan='2'>In Transfer</th>\n",
+	  " <th colspan='2'>In Export</th>\n",
           "</tr>\n",
-	  "<tr bgcolor='$altcolor' valign='top'>",
-	  "<th align='right'>N</th><th align='right'>Size</th>",
-	  "<th align='right'>N</th><th align='right'>Size</th>",
-	  "<th align='right'>N</th><th align='right'>Size</th>",
-	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<tr class='selected'>\n",
+	  " <th align='right'>N</th><th align='right'>Size</th>\n",
+	  " <th align='right'>N</th><th align='right'>Size</th>\n",
+	  " <th align='right'>N</th><th align='right'>Size</th>\n",
+	  " <th align='right'>N</th><th align='right'>Size</th>\n",
           "</tr>\n";
 
     $query->execute();
@@ -234,7 +291,6 @@ sub transfer {
     	$txfer_files += $xfer_files; $txfer_size += $xfer_size;
     	$texpt_files += $expt_files; $texpt_size += $expt_size;
 
-        my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
 	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
 	my $node_color = (($dest_files && $node_files < $dest_files) ? " bgcolor='$pendcolor'"
 		   	  : $xfer_files ? " bgcolor='$pendcolor'" : "");
@@ -243,17 +299,17 @@ sub transfer {
 			  : "");
 	my $expt_color = (($expt_files) ? " bgcolor='$goodcolor'" : "");
 
-        print "<tr valign='top'$rowcolor>",
-	      "<td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>",
-	      "<td>$n</td>",
-	      "<td align='right'>@{[&format_num($dest_files)]}</td>",
-	      "<td align='right'>@{[&format_size($dest_size)]}</td>",
-	      "<td align='right'$node_color>@{[&format_num($node_files)]}</td>",
-	      "<td align='right'$node_color>@{[&format_size($node_size)]}</td>",
-	      "<td align='right'$xfer_color>@{[&format_num($xfer_files)]}</td>",
-	      "<td align='right'$xfer_color>@{[&format_size($xfer_size)]}</td>",
-	      "<td align='right'$expt_color>@{[&format_num($expt_files)]}</td>",
-	      "<td align='right'$expt_color>@{[&format_size($expt_size)]}</td>",
+        print "<tr>\n",
+	      " <td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>\n",
+	      " <td>$n</td>\n",
+	      " <td align='right'>@{[&format_num($dest_files)]}</td>\n",
+	      " <td align='right'>@{[&format_size($dest_size)]}</td>\n",
+	      " <td align='right'$node_color>@{[&format_num($node_files)]}</td>\n",
+	      " <td align='right'$node_color>@{[&format_size($node_size)]}</td>\n",
+	      " <td align='right'$xfer_color>@{[&format_num($xfer_files)]}</td>\n",
+	      " <td align='right'$xfer_color>@{[&format_size($xfer_size)]}</td>\n",
+	      " <td align='right'$expt_color>@{[&format_num($expt_files)]}</td>\n",
+	      " <td align='right'$expt_color>@{[&format_size($expt_size)]}</td>\n",
 	      "</tr>\n";
     }
     my $node_color = (($tdest_files && $tnode_files < $tdest_files) ? " bgcolor='$pendcolor'"
@@ -263,20 +319,21 @@ sub transfer {
 		      : "");
     my $expt_color = (($texpt_files) ? " bgcolor='$goodcolor'" : "");
 
-    print "<tr valign='top' bgcolor='$altcolor'>",
-	  "<th>&nbsp;</th>",
-	  "<th align='left'>Total</th>",
-	  "<th align='right'>@{[&format_num($tdest_files)]}</th>",
-	  "<th align='right'>@{[&format_size($tdest_size)]}</th>",
-	  "<th align='right'$node_color>@{[&format_num($tnode_files)]}</th>",
-	  "<th align='right'$node_color>@{[&format_size($tnode_size)]}</th>",
-	  "<th align='right'$xfer_color>@{[&format_num($txfer_files)]}</th>",
-	  "<th align='right'$xfer_color>@{[&format_size($txfer_size)]}</th>",
-	  "<th align='right'$expt_color>@{[&format_num($texpt_files)]}</th>",
-	  "<th align='right'$expt_color>@{[&format_size($texpt_size)]}</th>",
+    print "<tr>\n",
+	  " <th>&nbsp;</th>\n",
+	  " <th align='left'>Total</th>\n",
+	  " <th align='right'>@{[&format_num($tdest_files)]}</th>\n",
+	  " <th align='right'>@{[&format_size($tdest_size)]}</th>\n",
+	  " <th align='right'$node_color>@{[&format_num($tnode_files)]}</th>\n",
+	  " <th align='right'$node_color>@{[&format_size($tnode_size)]}</th>\n",
+	  " <th align='right'$xfer_color>@{[&format_num($txfer_files)]}</th>\n",
+	  " <th align='right'$xfer_color>@{[&format_size($txfer_size)]}</th>\n",
+	  " <th align='right'$expt_color>@{[&format_num($texpt_files)]}</th>\n",
+	  " <th align='right'$expt_color>@{[&format_size($texpt_size)]}</th>\n",
 	  "</tr>\n";
     $query->finish();
-    print "</table>";
+    print "</tbody>\n",
+          "</table>\n";
 }
 
 sub tstates {
@@ -291,17 +348,24 @@ sub tstates {
 	    from t_info_transfer_states
 	    order by to_node, from_node, to_state, from_state});
 
-    print "<h2>Transfer state details</h2>\n",
-    	  "<table><tr bgcolor='$altcolor' valign='top'>",
-	  "<th rowspan='2'>Age</th>",
-	  "<th rowspan='2'>To node</th>",
-	  "<th rowspan='2'>To state</th>",
-	  "<th rowspan='2'>From node</th>",
-	  "<th rowspan='2'>From state</th>",
-	  "<th colspan='2'>Files</th>",
+    print "<p><table class='striped'>\n",
+          "<tbody>\n",
+	  "<tr class='selected'>\n",
+	  " <th colspan='7' align='center'>Transfer State Details</th>\n",
+	  "</tr>\n",
+	  "<tr class='selected'>\n",
+	  " <th rowspan='2'>Age</th>\n",
+	  " <th colspan='2'>To</th>\n",
+	  " <th colspan='2'>From</th>\n",
+	  " <th colspan='2'>Files</th>\n",
           "</tr>\n",
-	  "<tr bgcolor='$altcolor' valign='top'>",
-	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<tr class='selected'>",
+	  " <th>Node</th>\n",
+	  " <th>State</th>\n",
+	  " <th>Node</th>\n",
+	  " <th>State</th>\n",
+	  " <th>N</th>\n",
+	  " <th>Size</th>\n",
           "</tr>\n";
 
     $query->execute();
@@ -312,7 +376,6 @@ sub tstates {
 	    $to_state, $from_state,
 	    $files, $bytes) = @$row;
 
-        my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
 	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
 	my $to_state_name = ($to_state == 0 ? "assigned"
 			     : $to_state == 1 ? "wanted"
@@ -329,60 +392,79 @@ sub tstates {
 		   	: ($to_state >= 100) ? " bgcolor='$warncolor'"
 			: "");
 	my $from_color = ($from_state == 1 ? " bgcolor='$goodcolor'" : "");
-        print "<tr valign='top'$rowcolor>",
-	      "<td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>",
-	      "<td>$to_node</td>",
-	      "<td$to_color>$to_state ($to_state_name)</td>",
-	      "<td>$from_node</td>",
-	      "<td$from_color>$from_state ($from_state_name)</td>",
-	      "<td align='right'>@{[&format_num($files)]}</td>",
-	      "<td align='right'>@{[&format_size($bytes)]}</td>",
+        print "<tr>\n",
+	      " <td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>\n",
+	      " <td>$to_node</td>\n",
+	      " <td align='right'$to_color>$to_state</td>\n", # ($to_state_name)
+	      " <td>$from_node</td>\n",
+	      " <td align='right'$from_color>$from_state</td>\n", # ($from_state_name)
+	      " <td align='right'>@{[&format_num($files)]}</td>\n",
+	      " <td align='right'>@{[&format_size($bytes)]}</td>\n",
 	      "</tr>\n";
     }
     $query->finish();
-    print "</table>";
+    print "</tbody>\n",
+          "</table>\n",
+	  "</p>\n";
 
     $query = $dbh->prepare(qq{
 	    select timestamp, node, state, files, bytes
 	    from t_info_replica_states order by node, state});
 
-    print "<h2>Replica state details</h2>\n",
-    	  "<table><tr bgcolor='$altcolor' valign='top'>",
-	  "<th rowspan='2'>Age</th>",
-	  "<th rowspan='2'>Node</th>",
-	  "<th rowspan='2'>State</th>",
-	  "<th colspan='2'>Files</th>",
+    print "<table class='striped'>\n",
+          "<tbody>\n",
+	  "<tr class='selected'>\n",
+	  " <th colspan='5' align='center'>Replica State Details</th>\n",
+	  "</tr>\n",
+	  "<tr class='selected'>\n",
+	  " <th rowspan='2'>Age</th>",
+	  " <th rowspan='2'>Node</th>",
+	  " <th rowspan='2'>State</th>",
+	  " <th colspan='2'>Files</th>",
           "</tr>\n",
-	  "<tr bgcolor='$altcolor' valign='top'>",
-	  "<th align='right'>N</th><th align='right'>Size</th>",
+	  "<tr class='selected'>\n",
+	  " <th>N</th>\n",
+	  " <th>Size</th>\n",
           "</tr>\n";
 
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
 	my ($stamp, $node, $state, $files, $bytes) = @$row;
-        my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
 	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
 	my $state_name = ($state == 0 ? "at node"
 			     : $state == 1 ? "on disk"
 			     : "unknown");
 	my $color = (($state == 1) ? " bgcolor='$goodcolor'" : "");
-        print "<tr valign='top'$rowcolor>",
-	      "<td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>",
-	      "<td>$node</td>",
-	      "<td$color>$state ($state_name)</td>",
-	      "<td$color align='right'>@{[&format_num($files)]}</td>",
-	      "<td$color align='right'>@{[&format_size($bytes)]}</td>",
+        print "<tr>\n",
+	      " <td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>\n",
+	      " <td>$node</td>\n",
+	      " <td$color>$state</td>\n", # ($state_name)
+	      " <td$color align='right'>@{[&format_num($files)]}</td>\n",
+	      " <td$color align='right'>@{[&format_size($bytes)]}</td>\n",
 	      "</tr>\n";
     }
     $query->finish();
-    print "</table>";
+    print "</tbody>\n",
+          "</table>\n",
+	  "</p>\n";
 }
 
 sub replicas {
     my $rows = 0;
     my %data = ();
     my %sites = ();
+    my $nodepat = param('nodepat') || 'CERN_MSS';
+    my $datapat = param('datapat') || '';
+    print "<p style='text-align: left'><form method='GET' action='@{[&relurl()]}'>\n",
+          "<input type='hidden' name='page' value='@{[param('page')]}'>\n",
+          "<input type='hidden' name='db' value='@{[param('db')]}'>\n",
+          "Filter: Data ",
+	  $cgi->textfield(-name=>'datapat', -default=>$datapat, -size=>15),
+          " Nodes ",
+	  $cgi->textfield(-name=>'nodepat', -default=>$nodepat, -size=>15),
+    	  " <input type='submit' value='Update'></form></p>\n";
+
     my $query = $dbh->prepare(qq{
 	    select
 	      owner,
@@ -395,6 +477,7 @@ sub replicas {
     while (my $row = $query->fetchrow_arrayref)
     {
 	my ($o, $ds, $runs, $files, $total) = @$row;
+	next if ($datapat && "$o/$ds" !~ /$datapat/);
 	$data{"$o:$ds"} = [ $o, $ds, $files, $total, $runs, {} ];
     }
     $query->finish();
@@ -411,13 +494,14 @@ sub replicas {
     while (my $row = $query->fetchrow_arrayref)
     {
 	my ($o, $ds, $site, $files, $total) = @$row;
+	next if ($datapat && "$o/$ds" !~ /$datapat/);
+	next if ($nodepat && $site !~ /$nodepat/);
 	$data{"$o:$ds"}[5]{$site} = [ $files, $total ];
 	$sites{$site} = 1;
     }
     $query->finish();
 
-    print "<h2>Replication status</h2>\n",
-    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+    print "<table><tr bgcolor='$altcolor' valign='top'>",
 	  "<th rowspan='2'>Owner</th>",
 	  "<th rowspan='2'>Dataset</th>",
 	  "<th rowspan='2' align='right'>Runs</th>",
@@ -433,6 +517,7 @@ sub replicas {
     {
         my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
 	my ($o, $ds, $files, $total, $runs, $sites) = @{$data{$dso}};
+	next if ($nodepat && ! grep (/$nodepat/, keys %$sites));
         print "<tr valign='top'$rowcolor>",
 	      "<td>$o</td>",
 	      "<td>$ds</td>",
@@ -463,6 +548,17 @@ sub subs {
     my $rows = 0;
     my %data = ();
     my %sites = ();
+    my $nodepat = param('nodepat') || 'CERN_MSS';
+    my $datapat = param('datapat') || '';
+    print "<p style='text-align: left'><form method='GET' action='@{[&relurl()]}'>\n",
+          "<input type='hidden' name='page' value='@{[param('page')]}'>\n",
+          "<input type='hidden' name='db' value='@{[param('db')]}'>\n",
+          "Filter: Data ",
+	  $cgi->textfield(-name=>'datapat', -default=>$datapat, -size=>15),
+          " Nodes ",
+	  $cgi->textfield(-name=>'nodepat', -default=>$nodepat, -size=>15),
+    	  " <input type='submit' value='Update'></form></p>\n";
+
     my $query = $dbh->prepare(qq{
 	    select
 	      owner,
@@ -477,6 +573,8 @@ sub subs {
     while (my $row = $query->fetchrow_arrayref)
     {
 	my ($ow, $ds, $site, $files, $total, $sfiles, $stotal) = @$row;
+	next if ($datapat && "$ow/$ds" !~ /$datapat/);
+	next if ($nodepat && $site !~ /$nodepat/);
 	$data{$ow}{$ds} ||= [ $ow, $ds, $files, $total, {} ];
 	if ($site)
 	{
@@ -486,8 +584,7 @@ sub subs {
     }
     $query->finish();
 
-    print "<h2>Subscriptions</h2>\n",
-    	  "<table><tr bgcolor='$altcolor' valign='top'>",
+    print "<table><tr bgcolor='$altcolor' valign='top'>",
 	  "<th rowspan='2'>Owner</th>",
 	  "<th rowspan='2'>Dataset</th>",
 	  # "<th rowspan='2' align='right'>Runs</th>",
@@ -567,44 +664,55 @@ sub stats {
 			  sz_total
 			from t_info_file_size_histogram});
 
-    print "<h2>File Size Statistics</h2>\n",
-    	  "<p>", &age($now - $overview->[0]), " ago </td>",
-    	  "<table><tr bgcolor='$altcolor' valign='top'>",
-	  "<th>Files</th>",
-	  "<th>Total Size</th>",
-	  "<th>Min Size</th>",
-	  "<th>Max Size</th>",
-	  "<th>Mean Size</th>",
-	  "<th>Median Size</th>",
+    print "<p>",
+          "<table class='striped'>\n",
+          "<tbody>\n",
+	  "<tr class='selected'>\n",
+	  " <th colspan='6'>File size statistics ", &age($now - $overview->[0]), " ago</th>\n",
 	  "</tr>\n",
-	  "<tr>",
-	  "<td align='right'>@{[&format_num($overview->[1])]}</td>",
-	  "<td align='right'>@{[&format_size($overview->[2])]}</td>",
-	  "<td align='right'>@{[&format_size($overview->[3])]}</td>",
-	  "<td align='right'>@{[&format_size($overview->[4])]}</td>",
-	  "<td align='right'>@{[&format_size($overview->[5])]}</td>",
-	  "<td align='right'>@{[&format_size($overview->[6])]}</td>",
+	  "<tr class='selected'>\n",
+	  " <th>Files</th>\n",
+	  " <th>Total Size</th>\n",
+	  " <th>Min Size</th>\n",
+	  " <th>Max Size</th>\n",
+	  " <th>Mean Size</th>\n",
+	  " <th>Median Size</th>\n",
 	  "</tr>\n",
+	  "<tr>\n",
+	  " <td align='right'>@{[&format_num($overview->[1])]}</td>\n",
+	  " <td align='right'>@{[&format_size($overview->[2])]}</td>\n",
+	  " <td align='right'>@{[&format_size($overview->[3])]}</td>\n",
+	  " <td align='right'>@{[&format_size($overview->[4])]}</td>\n",
+	  " <td align='right'>@{[&format_size($overview->[5])]}</td>\n",
+	  " <td align='right'>@{[&format_size($overview->[6])]}</td>\n",
+	  "</tr>\n",
+	  "</tbody>\n",
 	  "</table>\n",
-    	  "<hr>\n";
+	  "</p>";
 
-    print "<h2>File Size Breakdown</h2>\n",
-    	  "<p>", &age($now - $histo->[0][0]), " ago</p>",
-    	  "<table><tr bgcolor='$altcolor' valign='top'>",
-	  "<th colspan='2'>Bin</th>",
-	  "<th>Files</th>",
-	  "<th>Total Size</th>",
+    print "<p>",
+          "<table class='striped'>\n",
+          "<tbody>\n",
+	  "<tr class='selected'>\n",
+	  " <th colspan='4'>File size breakdown</th>\n",
+	  "</tr>\n",
+	  "<tr class='selected'>\n",
+	  " <th colspan='2'>Bin</th>\n",
+	  " <th>Files</th>\n",
+	  " <th>Total Size</th>\n",
 	  "</tr>\n";
     foreach my $row (@$histo)
     {
-	  print "<tr>",
-	        "<td align='right'>@{[&format_size($row->[1] * $row->[2],1)]} ..</td>",
-		"<td align='right'>@{[&format_size(($row->[1] + 1) * $row->[2],1)]}</td>",
-	        "<td align='right'>@{[&format_num($row->[3])]}</td>",
-	        "<td align='right'>@{[&format_size($row->[4])]}</td>",
+	  print "<tr>\n",
+	        " <td align='right'>@{[&format_size($row->[1] * $row->[2],1)]} ..</td>\n",
+		" <td align='right'>@{[&format_size(($row->[1] + 1) * $row->[2],1)]}</td>\n",
+	        " <td align='right'>@{[&format_num($row->[3])]}</td>\n",
+	        " <td align='right'>@{[&format_size($row->[4])]}</td>\n",
 	        "</tr>\n";
     }
-    print "</table>\n";
+    print "</tbody>\n",
+          "</table>\n",
+          "</p>\n";
 }
 
 sub agents {
@@ -635,16 +743,16 @@ sub agents {
 	$states{$state} = 1 if ! grep ($_ eq $state, @states);
     }
 
-    print "<h2>Agent Status</h2>\n",
-    	  "<table><tr bgcolor='$altcolor' valign='top'>",
-	  "<th>Age</th>",
-	  "<th>Site</th>",
-	  "<th>Host</th>",
-	  "<th>Path</th>",
-	  "<th>Agent</th>",
-	  "<th>Worker</th>",
-	  "<th>Process</th>",
-	  (map { "<th>$_</th>" } @states, sort keys %states),
+    print "<p><table class='striped'><tbody>\n",
+          "<tr class='selected'>",
+	  " <th>Age</th>",
+	  " <th>Site</th>",
+	  " <th>Agent</th>",
+	  " <th>Process</th>",
+	  " <th>Host</th>",
+	  " <th>Worker</th>",
+	  (map { " <th>$_</th>\n" } @states, sort keys %states),
+	  " <th>Path</th>",
 	  "</tr>\n";
 
     foreach my $site (sort keys %info)
@@ -659,28 +767,31 @@ sub agents {
 		    {
 		        my $pid = $live{$site}{$host}{$path}{$agent}{$worker}{PID};
 		        my $live = $live{$site}{$host}{$path}{$agent}{$worker}{LIVE};
+		        my $agecolor = $now - $age{$site}{$host}{$path} <= 120 ? "" : " bgcolor='$warncolor'";
 		        my $pidcolor = $live ? "" : " bgcolor='$warncolor'";
-		        print "<tr>",
-			      "<td>", &age($now - $age{$site}{$host}{$path}), "</td>",
-			      "<td>$site</td>",
-			      "<td>$host</td>",
-			      "<td>$path</td>",
-			      "<td>$agent</td>",
-			      "<td>$worker</td>",
-			      "<td$pidcolor>$pid</td>";
+			my $agentname = $agent;
+			$agentname =~ s/-/&#8209;/g;
+		        print "<tr>\n",
+			      " <td$agecolor>", &age($now - $age{$site}{$host}{$path}), "</td>\n",
+			      " <td>$site</td>\n",
+			      " <td>$agentname</td>\n",
+			      " <td$pidcolor>$pid</td>\n",
+			      " <td>$host</td>\n",
+			      " <td>$worker</td>\n";
 		        foreach my $state (@states, sort keys %states)
 		        {
 			    my $value = $info{$site}{$host}{$path}{$agent}{$worker}{$state};
 			    my $color = $value ? " bgcolor='$pendcolor'" : '';
-			    print "<td$color>$value</td>";
+			    print " <td$color>$value</td>\n";
 		        }
-		        print "</tr>\n";
+			print " <td>$path</td>\n",
+		              "</tr>\n";
 	            }
 	        }
 	    }
 	}
     }
-    print "</table>\n";
+    print "</tbody></table></p>\n";
 }
 
 sub format_timespan {
@@ -717,7 +828,6 @@ sub rates {
 	push(@{$stats{$row->{TIME_SPAN}}{$row->{INFO_TYPE}}}, $row);
     }
 
-    print "<h2>Transfer Rate Statistics</h2>\n";
     print "<p>CERN Daily External Internet Traffic<br>\n";
     if (1 || $dbid !~ /SC/)
     {
@@ -731,19 +841,22 @@ sub rates {
           VSPACE=10 WIDTH=600 HEIGHT=135 ALIGN=TOP
           SRC='http://pcstats.cern.ch/misc/openlab-day.png' ALT='day'></a></p>\n";
     }
-    print "<table>\n";
+    print "<p><table class='striped'><tbody>\n";
     foreach my $span (sort { ($a || 9999999) <=> ($b || 9999999) } keys %stats)
     {
     	print
-	  "<tr bgcolor='$altcolor' valign='top'>",
-	  "<th colspan='6'>", ($span == 0 ? "Overall" : "Last @{[&format_timespan($span)]}"), "</th></tr>\n",
-	  "<tr bgcolor='$altcolor' valign='top'>",
-	  "<th>Age</th>",
-	  "<th>From</th>",
-	  "<th>To</th>",
-	  "<th>Files</th>",
-	  "<th>Total Size</th>",
-	  "<th>Aggregate Rate</th>",
+	  "<tr class='selected'>\n",
+	  " <th colspan='6'>",
+	  ($span == 0 ? "Overall" : "Last @{[&format_timespan($span)]}"),
+	  "</th>\n",
+	  "</tr>\n",
+	  "<tr class='selected'>\n",
+	  " <th>Age</th>\n",
+	  " <th>From</th>\n",
+	  " <th>To</th>\n",
+	  " <th>Files</th>\n",
+	  " <th>Total Size</th>\n",
+	  " <th>Aggregate Rate</th>\n",
 	  "</tr>\n";
 	foreach my $row ((sort { $b->{SZ_TOTAL} <=> $a->{SZ_TOTAL} }
 			  @{$stats{$span}{'N'}}), @{$stats{$span}{'T'}})
@@ -760,23 +873,45 @@ sub rates {
 	          "</tr>\n";
 	}
     }
-    print "</table>\n<hr>\n";
+    print "</tbody></table></p>\n";
 }
 
 sub dbreports
 {
     my $reportdir = "/afs/cern.ch/cms/aprom/phedex/DailyReports";
     my @reports = sort <$reportdir/$dbid-*.txt*>;
-    print "<h2>Daily Reports</h2>\n";
-    print "<pre>\n";
+    print "<p><table class='striped'><tbody>\n",
+          "<tr class='selected'><th colspan='32'>Available reports</th></tr>\n",
+	  "<tr class='selected'>\n",
+	  " <th>Month</td>\n",
+	  (map { sprintf " <th>%02d</th>\n", $_ } 1 .. 31),
+	  "</tr>\n";
+    my $prev = "";
+    my $prevday = 0;
     foreach my $file (@reports)
     {
 	my $basename = $file; $basename =~ s|.*/||;
 	my $cleanname = $basename; $cleanname =~ s|^$dbid-||;
-	print "<a href='" . &relurl("page" => "dbreport", "reportfile" => $cleanname) . "'>$cleanname</a>\n";
+	my $url = &relurl("page" => "dbreport", "reportfile" => $cleanname);
+	my ($year, $month, $day) = ($cleanname =~ /(\d\d\d\d)(\d\d)(\d\d)\..*/);
+	if ("$year-$month" ne $prev)
+	{
+	    if ($prev)
+	    {
+	        while (++$prevday <= 31) { print "<td></td>\n"; }
+	        print "</tr>\n";
+	    }
+
+	    print "<tr>\n <td>$year&#8209;$month</td>\n";
+	    $prev = "$year-$month";
+	    $prevday = 0;
+	}
+	while (++$prevday < $day) { print " <td></td>\n"; }
+	print "<td align='center'><a href='$url'>R</a></td>\n";
+	$prevday = $day;
     }
 
-    print "</pre>\n";
+    print "</tbody></table></p>\n";
 }
 
 sub dbreport
@@ -799,7 +934,6 @@ sub dbreport
 
 sub rateplot
 {
-    print "<h2>Transfer rate plots</h2>\n";
     my @plotorder = qw(l48h l72h l96h l132h l7d l14d l30d l90d l6w ad aw am);
     my %plots = ("l48h" => [ "48:hour", "Last 48 Hours" ],
 	         "l72h" => [ "72:hour", "Last 72 Hours" ],
@@ -828,8 +962,8 @@ sub rateplot
     }
     print "</select>\n",
           "Filter ",
-	  $cgi->textfield(-name=>'filter', -default=>$filter, -size=>15),
-    	  "<input type='submit' value='Update'></form>\n";
+	  $cgi->textfield(-name=>'filter', -default=>$filter, -size=>15), "\n",
+    	  "<input type='submit' value='Update'></form></p>\n";
     foreach my $kind (qw(rate total pending))
     {
 	my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
@@ -843,7 +977,6 @@ sub rateplot
 
 sub qplot
 {
-    print "<h2>Transfer quality plots</h2>\n";
     my @plotorder = qw(l8h l12h l24h l48h l72h l96h l132h l7d l14d l30d l90d l6w ad aw am);
     my %plots = ("l8h" => [ "8:hour", "Last 8 Hours" ],
 	         "l12h" => [ "12:hour", "Last 12 Hours" ],
@@ -875,8 +1008,8 @@ sub qplot
     }
     print "</select>\n",
           "Filter ",
-	  $cgi->textfield(-name=>'filter', -default=>$filter, -size=>15),
-    	  "<input type='submit' value='Update'></form>\n";
+	  $cgi->textfield(-name=>'filter', -default=>$filter, -size=>15), "\n",
+    	  "<input type='submit' value='Update'></form></p>\n";
     foreach my $kind (qw(completed_ratio failed_ratio attempted completed failed))
     {
 	my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
@@ -888,7 +1021,238 @@ sub qplot
     }
 }
 
-sub end {
-    print end_form();
-    $dbh->disconnect();
+######################################################################
+# Nicked IO::Capture::Stdout from CPAN.
+#
+# Mark Reynolds <reynolds@sgi.com>; Jon Morgan <jmorgan@sgi.com>.
+# Copyright (c) 2003, Mark Reynolds. All Rights Reserved. This module
+# is free software. It may be used, redistributed and/or modified under
+# the same terms as Perl itself.
+package IO::Capture::Tie_STDx;
+sub TIEHANDLE { my $class = shift; bless [], $class; }
+sub PRINTF { my $self   = shift; my $format = shift; $self->PRINT( sprintf( $format, @_ ) ); }
+sub PRINT { my $self = shift; push @$self, join '',@_; }
+sub READLINE { my $self = shift; return wantarray ? @$self : shift @$self; }
+sub CLOSE { my $self = shift; return close $self; }
+1;
+
+package IO::Capture;
+use strict;
+use Carp;
+
+sub new {
+    my $class = shift;
+    if (ref $class) {
+	carp "WARNING: " . __PACKAGE__ . "::new cannot be called from existing object. (cloned)";
+	return;
+    }
+    my $object = shift || {};
+    bless $object, $class;
+    $object->_initialize; 
 }
+
+sub _check_pre_conditions {
+    my $self = shift;
+
+    if( $self->{'IO::Capture::status'} ne "Ready") {
+	carp "Start issued on an in progress capture ". ref($self);
+	return;
+    }
+
+    return 1;
+}
+
+sub _initialize {
+    my $self = shift;
+    if (!ref $self) {
+	carp "WARNING: _initialize was called, but not called from a valid object";
+	return;
+    }
+
+    $self->{'IO::Capture::messages'} = [];
+    $self->{'IO::Capture::line_pointer'} = 1;
+    $self->{'IO::Capture::status'} = "Ready";
+    return $self;
+}
+
+sub start {
+    my $self = shift;
+
+    if (! $self->_check_pre_conditions) {
+	carp "Error: failed _check_pre_confitions in ". ref($self);
+	return;
+    }
+
+    if (! $self->_save_current_configuration ) { 
+	carp "Error saving configuration in " . ref($self);
+	return;
+    }
+
+    $self->{'IO::Capture::status'} = "Busy";
+
+    if (! $self->_start(@_)) {
+	carp "Error starting capture in " . ref($self);
+	return;
+    }
+    return 1;
+}
+
+sub stop {
+    my $self = shift;
+
+    if( $self->{'IO::Capture::status'} ne "Busy") {
+	carp "Stop issued on an unstarted capture ". ref($self);
+	return;
+    }
+
+    if (! $self->_retrieve_captured_text() ) {
+        carp "Error retreaving captured text in " . ref($self);
+	return;
+    }
+
+    if (!$self->_stop() ) {
+	carp "Error return from _stop() " . ref($self) . "\n";
+	return;
+    }
+
+    $self->{'IO::Capture::status'} = "Ready";
+    return 1;
+}
+
+sub read {
+    my $self = shift;
+    $self->_read;
+}
+
+#
+#  Internal start routine.  This needs to be overriden with instance
+#  method
+#
+sub _start {
+    my $self = shift;
+    return 1;
+}
+
+sub _read {
+    my $self = shift;
+    my $messages = \@{$self->{'IO::Capture::messages'}};
+    my $line_pointer = \$self->{'IO::Capture::line_pointer'};
+
+    if ($self->{'IO::Capture::status'} ne "Ready") {
+	carp "Read cannot be done while capture is in progress". ref($self);
+	return;
+    }
+
+    return if $$line_pointer > @$messages;
+    return wantarray ? @$messages :  $messages->[($$line_pointer++)-1];
+}
+
+sub _retrieve_captured_text {
+    return 1;
+    
+}
+
+sub _save_current_configuration {
+    my $self = shift;
+    $self->{'IO::Capture::handler_save'} = $SIG{__WARN__};
+    open STDOUT_SAVE, ">&STDOUT";
+    $self->{'IO::Capture::stdout_save'} = *STDOUT_SAVE;
+    open STDERR_SAVE, ">&STDOUT";
+    $self->{'IO::Capture::stderr_save'} = *STDERR_SAVE;
+    return $self; 
+}
+
+sub _stop {
+    my $self = shift;
+    return 1;
+}
+
+sub line_pointer {
+    my $self = shift;
+    my $new_number = shift;
+
+    $self->{'IO::Capture::line_pointer'} = $new_number if $new_number;
+    return $self->{'IO::Capture::line_pointer'};
+}
+1;
+
+package IO::Capture::Stdout;
+use Carp; use base qw/IO::Capture/;
+
+sub _start {
+    my $self = shift;
+    $self->line_pointer(1);
+    tie *STDOUT, "IO::Capture::Tie_STDx";
+}
+
+sub _retrieve_captured_text {
+    my $self = shift;
+    my $messages = \@{$self->{'IO::Capture::messages'}};
+    @$messages = <STDOUT>;
+    #$self->line_pointer(1);
+    return 1;
+}
+
+sub _check_pre_conditions {
+    my $self = shift;
+    return unless $self->SUPER::_check_pre_conditions;
+    if (tied *STDOUT) {
+	carp "WARNING: STDOUT already tied, unable to capture";
+	return;
+    }
+    return 1;
+}
+
+sub _stop { untie *STDOUT; }
+1;
+######################################################################
+__END__
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+  <meta name="keywords" content="PhEDEx, file transfer, monitoring, status" />
+  <link rel="stylesheet" href="../style.css" type="text/css" />
+  <link rel="shortcut icon" href="../favicon.ico" />
+  <script type="text/javascript" src="../stripe.js"></script>
+
+  <title>PhEDEx @DBID@ Status</title>
+</head>
+
+<body onload='stripe("#fff", "#edf3fe")'>
+<div id="page">
+<div id="header">
+  <!-- Logo and page title -->
+  <div id="logo">
+    <a href="http://cern.ch/cms-project-phedex/" title="PhEDEx Home Page"
+      ><img src="../phedex-logo.gif" alt="PhEDEx" height="120" /></a>
+  </div>
+
+  <div id="heading">
+    <h1 class="title">PhEDEx @DBID@ Status</h1>
+    <h2>@PAGETITLE@</h2>
+    <h4>@TIME@</h4>
+  </div>
+
+  <!-- Main navigation bar: public/developers/other -->
+  @DBSELECTOR@
+</div> <!-- /header -->
+
+<!-- side navigation bar -->
+<div id="sidebar">
+  <div class="sidetopic"><h2>Monitor Options</h2>
+    <p>@PAGESELECTOR@</p>
+  </div>
+</div> <!-- /sidebar -->
+
+<!-- main content -->
+<div id="content">
+<center>
+@CONTENT@
+<hr />
+</center>
+</div>
+</div>
+</body>
+</html>

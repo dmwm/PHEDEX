@@ -79,6 +79,19 @@ ol li {
   padding-left:		0.5em;
 }
 
+pre, code {
+  font-size:		1.2em !important;
+}
+
+pre {
+  line-height:		1.3em;
+  overflow:		auto; 
+  margin-bottom:	10px;
+  padding:		10px;
+  background:		#eee;
+  border:		1px solid #ccc;
+}
+
 /**********************************************************************/
 /* General classes */
 
@@ -144,6 +157,14 @@ div#heading h2 {
   text-align:		left;
   color:		#fff;
   text-shadow:		3px 3px 3px #000;
+}
+
+div#heading h3, div#heading h4 {
+  padding:		0;
+  margin:		0;
+  text-align:		left;
+  color:		#fff;
+  text-shadow:		2px 2px 2px #000;
 }
 
 div#logo {
@@ -263,27 +284,36 @@ ul#navmain li a.selected {
 /* Specific area elements  */
 
 
-#presentations {
+table.striped {
   border:		1px solid #666666;
   border-collapse:	collapse;
 }
 
-#presentations tbody {
+table.striped tbody {
   border:		1px solid #666666;
 }
 
-#presentations tbody tr td {
+table.striped tbody tr td {
   font-size:		0.9em;
-  padding:		3px 3px;
-  border-left:		1px solid #D9D9D9;
+  padding:		2px 2px;
+  border-left:		1px dotted #D9D9D9;
+  vertical-align:	top;
+}
+
+table.striped tbody tr th {
+  font-size:		0.9em;
+  padding:		2px 2px;
+  border-left:		1px dotted #D9D9D9;
+  -border-bottom:	1px dotted #D9D9D9;
   vertical-align:	top;
 }
   
-#presentations tbody tr.selected td {
+table.striped tbody tr.selected td,
+table.striped tbody tr.selected th {
   background-color:	#3d80df;
   color:		#ffffff;
   font-weight:		bold;
   border-left:		1px solid #346DBE;
-  border-bottom:	1px solid #7DAAEA;
+  -border-bottom:	1px solid #7DAAEA;
   vertical-align:	top;
 }
