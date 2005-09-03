@@ -146,6 +146,89 @@ sub connectToDatabase
 	    where node = :node and agent = :me},
 	    ":now" => &mytimeofday(), ":node" => $mynode, ":me" => $me);
 	$dbh->commit();
+
+	# Now look for messages to me.  There may be many, so handle
+	# them in the order given, but only act on the final state.
+	# The possible messages are "STOP" (quit), "SUSPEND" (hold),
+	# and "RESTART".  We can act on the first two commands, but
+	# not the last one.  Therefore, if we see both STOP/SUSPEND
+	# and then a RESTART, pretend nothing has happened.
+	#
+	# When we see a RESTART or STOP, we "execute" it and delete all
+	# messages up to and including the message itself (a RESTART
+	# seen by the agent is likely indication that the manager did
+	# just that; it is not a message we as an agent can do anything
+	# about, an agent manager must act on it, so if we see it, it's
+	# an indicatioon the manager has done what was requested).
+	# SUSPENDs we leave in the database until we see a RESTART.
+	while (1)
+	{
+	    my ($time, $action, $keep) = (undef, 'CONTINUE', 0);
+	    my $messages = &dbexec($dbh, qq{
+	       select timestamp, message
+	       from t_agent_message
+	       where node = :node and agent = :me
+	       order by timestamp asc},
+	       ":node" => $mynode, ":me" => $me);
+            while (my ($t, $msg) = $messages->fetchrow())
+	    {
+	        if ($msg eq 'SUSPEND')
+	        {
+		    # Hold, keep this in the database
+		    ($time, $action, $keep) = ($t, $msg, 1);
+		    $keep = 1;
+	        }
+	        elsif ($msg eq 'STOP')
+	        {
+		    # Quit.  Something to act on, and kill this message
+		    # and anything that preceded it.
+		    ($time, $action, $keep) = ($t, $msg, 0);
+	        }
+	        elsif ($msg eq 'RESTART')
+	        {
+		    # Restart.  This is not something we can have done,
+		    # so the agent manager must have acted on it, or we
+		    # are processing historical sequence.  We can kill
+		    # this message and everything that preceded it, and
+		    # put us back into 'CONTINUE' state to override any
+		    # previous STOP or SUSPEND.
+		    ($time, $action, $keep) = (undef, 'CONTINUE', 0);
+	        }
+	        else
+	        {
+		    # Keep anything we don't understand, but no action.
+		    $keep = 1;
+	        }
+
+	        &dbexec($dbh, qq{
+		    delete from t_agent_message
+		    where node = :node and agent = :me
+		      and (timestamp < :t or timestamp = :t and message = :msg)},
+	      	    ":node" => $mynode, ":me" => $me, ":t" => $t, ":msg" => $msg)
+	            if ! $keep;
+	    }
+
+	    # Act on the final state.
+	    if ($action eq 'STOP')
+	    {
+	        &logmsg ("agent stopped via control message at $time");
+	        $self->stop ();
+		exit(0); # Still running?
+	    }
+	    elsif ($action eq 'SUSPEND')
+	    {
+	        # The message doesn't actually specify for how long, take
+	        # a reasonable nap to avoid filling the log files.
+	        &logmsg ("agent suspended via control message at $time");
+	        $self->nap (90);
+	        next;
+	    }
+	    else
+	    {
+	        # Good to go.
+	        last;
+	    }
+	}
     };
 
     if ($@)
