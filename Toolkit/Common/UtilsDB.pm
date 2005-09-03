@@ -203,7 +203,7 @@ sub connectToDatabase
 	        &dbexec($dbh, qq{
 		    delete from t_agent_message
 		    where node = :node and agent = :me
-		      and (timestamp < :t or timestamp = :t and message = :msg)},
+		      and (timestamp < :t or (timestamp = :t and message = :msg))},
 	      	    ":node" => $mynode, ":me" => $me, ":t" => $t, ":msg" => $msg)
 	            if ! $keep;
 	    }
