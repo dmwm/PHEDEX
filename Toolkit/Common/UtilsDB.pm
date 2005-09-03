@@ -208,6 +208,9 @@ sub connectToDatabase
 	            if ! $keep;
 	    }
 
+	    # Apply our changes.
+	    $dbh->commit();
+
 	    # Act on the final state.
 	    if ($action eq 'STOP')
 	    {
