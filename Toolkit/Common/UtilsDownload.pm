@@ -15,12 +15,29 @@ sub new
 	DELETE_COMMAND	=> $args{DELETE_COMMAND} || undef,
 	VALIDATE_COMMAND=> $args{VALIDATE_COMMAND} || undef,
 	PFN_GEN_COMMAND	=> $args{PFN_GEN_COMMAND},
+	BYPASS_COMMAND	=> $args{BYPASS_COMMAND},
 	PUBLISH_COMMAND	=> $args{PUBLISH_COMMAND},
 	TIMEOUT		=> $args{TIMEOUT},
 	BATCHID		=> 0
     };
     bless $self, $class;
     return $self;
+}
+
+# Start timer on a file operation
+sub startFileTiming
+{
+    my ($self, $file, $op) = @_;
+    push (@{$file->{TIMING}}, [ $op, &mytimeofday() ]);
+}
+
+# Stop timer on a file operation
+sub stopFileTiming
+{
+    my ($self, $file) = @_;
+    my $last = pop(@{$file->{TIMING}});
+    push (@$last, &mytimeofday());
+    push (@{$file->{TIMING}}, $last);
 }
 
 # Keep adding new files to the batch until quota is reached.
@@ -64,48 +81,37 @@ sub consumeFiles
 # Get destination PFNs for all files.
 sub getDestinationPaths
 {
-    my ($self, $master, $batch, $job) = @_;
+    my ($self, $master, $batch, $file, $outfile, $job) = @_;
     if ($job)
     {
 	# Reap finished jobs.
-	my $file = $job->{FOR_FILE};
-	my $var = $job->{OUTPUT_VARIABLE};
-	my $output = &input ($job->{OUTPUT_FILE});
-	unlink ($job->{OUTPUT_FILE});
+	my $output = &input ($outfile);
+	unlink ($outfile);
 	chomp ($output) if defined $output;
 
-	$file->{TIMING}{GET_DEST_START} = &mytimeofday();
-
-	$file->{"DONE_$var"} = 1;
-	if ($job->{STATUS})
-	{
+	$file->{DONE_TO_PFN} = 1;
+	if ($job->{STATUS}) {
 	    # Command failed, record failure
 	    $file->{FAILURE} = "exit code $job->{STATUS} from @{$job->{CMD}}";
-	}
-	elsif (! defined $output || $output eq '')
-	{
+	} elsif (! defined $output || $output eq '') {
 	    # Command succeded but didn't produce any output
 	    $file->{FAILURE} = "no output from @{$job->{CMD}}";
-	}
-	else
-	{
+	} else {
 	    # Success, collect output file and record it into the $file
-	    $file->{$var} = $output;
+	    $file->{TO_PFN} = $output;
 	}
-	
-	$file->{TIMING}{GET_DEST_FINISH} = &mytimeofday();
 
+	$self->stopFileTiming($file);
     }
     else
     {
 	# First time around, start jobs for all files
-	foreach my $file (@$batch)
+	foreach $file (@$batch)
 	{
 	    do { $file->{DONE_TO_PFN} = 1; next } if $file->{FAILURE};
 
-	    $file->{TIMING}{JOB_ADD_START} = &mytimeofday();
-
-	    my $output = "$master->{DROPDIR}/$file->{GUID}.topfn";
+	    $self->startFileTiming ($file, "pfndest");
+	    $outfile = "$master->{DROPDIR}/$file->{GUID}.topfn";
 	    my $args = join(" ",
 		    	    "guid='$file->{GUID}'",
 			    "pfn='$file->{FROM_PFN}'",
@@ -114,18 +120,72 @@ sub getDestinationPaths
 			    map { "'$_=@{[$file->{ATTRS}{$_} || '']}'" }
 			    sort keys %{$file->{ATTRS}});
 	    $master->addJob (
-		sub { $self->getDestinationPaths ($master, $batch, @_) },
-		{ OUTPUT_FILE => $output, OUTPUT_VARIABLE => "TO_PFN",
-		  FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
-		"sh", "-c", "@{$self->{PFN_GEN_COMMAND}} $args > $output");
+		sub { $self->getDestinationPaths ($master, $batch, $file, $outfile, @_) },
+		{ TIMEOUT => $self->{TIMEOUT} },
+		"sh", "-c", "@{$self->{PFN_GEN_COMMAND}} $args > $outfile");
+	}
+    }
 
-	    $file->{TIMING}{JOB_ADD_FINISH} = &mytimeofday();
+    # Move to next stage when we've done everything for each file.
+    $self->getBypassPaths ($master, $batch)
+        if ! grep (! $_->{DONE_TO_PFN}, @$batch);
+}
+
+# Check for file transfer bypass.  If a BYPASS_COMMAND is specified,
+# run it for each source / destination file pair.  If the command
+# outputs something, use it as the new destination path and skip the
+# file transfer.  This is used to short-circuit transfers between
+# "virtual" and real nodes, where the source and destination storages
+# overlap but we don't know it is so.
+sub getBypassPaths
+{
+    my ($self, $master, $batch, $file, $outfile, $job) = @_;
+    if ($job)
+    {
+	# Reap finished jobs.  Ignore status code; all we care is if
+	# the command printed out anything.
+	my $output = &input ($outfile);
+	unlink ($outfile);
+	chomp ($output) if defined $output;
+
+	$file->{DONE_BYPASS} = 1;
+	if ($output)
+	{
+	    # It print outed something, use this as destination
+	    # and pretend the file has alread been transferred.
+	    &logmsg ("transfer bypassed for $file->{GUID}:"
+		     . " from=$file->{FROM_PFN}"
+		     . " to=$file->{TO_PFN}"
+		     . " newto=$output");
+	    $file->{TO_PFN} = $output;
+	    $file->{DONE_TRANSFER} = 1;
+	    $file->{TRANSFER_STATUS}{STATUS} = 0;
+	    $file->{TRANSFER_STATUS}{REPORT} = "transfer was bypassed";
+	}
+
+	$self->stopFileTiming ($file);
+    }
+    else
+    {
+	# First time around, start jobs for all files
+	foreach $file (@$batch)
+	{
+	    do { $file->{DONE_BYPASS} = 1; next }
+	        if $file->{FAILURE} || ! $self->{BYPASS_COMMAND};
+
+	    $self->startFileTiming ($file, "bypass");
+	    $outfile = "$master->{DROPDIR}/$file->{GUID}.bypass";
+	    my $args = "$file->{FROM_PFN} $file->{TO_PFN}";
+	    $master->addJob (
+		sub { $self->getBypassPaths ($master, $batch, $file, $outfile, @_) },
+		{ TIMEOUT => $self->{TIMEOUT} },
+		"sh", "-c", "@{$self->{BYPASS_COMMAND}} $args > $outfile");
 	}
     }
 
     # Move to next stage when we've done everything for each file.
     $self->preClean ($master, $batch)
-        if ! grep (! $_->{DONE_TO_PFN}, @$batch);
+        if ! grep (! $_->{DONE_BYPASS}, @$batch);
 }
 
 # Remove destination PFNs before transferring.  Many transfer tools
@@ -133,28 +193,26 @@ sub getDestinationPaths
 # remove of the destination if the user gave a delete command.
 sub preClean
 {
-    my ($self, $master, $batch, $job) = @_;
+    my ($self, $master, $batch, $file, $job) = @_;
     if ($job)
     {
 	# Reap finished jobs.  We don't care about success here.
-	$job->{FOR_FILE}{DONE_PRE_CLEAN} = 1;
-	my $file = $job->{FOR_FILE};
-	$file->{TIMING}{PRECLEAN_FINISH} = &mytimeofday();
+	$file->{DONE_PRE_CLEAN} = 1;
+	$self->stopFileTiming ($file);
     }
     else
     {
 	# First time around, start deletion commands for all files,
 	# but only if we have a deletion command in the first place.
-	foreach my $file (@$batch)
+	foreach $file (@$batch)
 	{
-	    $file->{TIMING}{PRECLEAN_START} = &mytimeofday();
-
 	    do { $file->{DONE_PRE_CLEAN} = 1; next }
 	        if $file->{FAILURE} || ! $self->{DELETE_COMMAND};
 
+	    $self->startFileTiming ($file, "preclean");
 	    $master->addJob (
-		sub { $self->preClean ($master, $batch, @_) },
-		{ FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
+		sub { $self->preClean ($master, $batch, $file, @_) },
+		{ TIMEOUT => $self->{TIMEOUT} },
 		@{$self->{DELETE_COMMAND}}, "pre", $file->{TO_PFN});
 	}
     }
@@ -186,10 +244,9 @@ sub transferBatch
 # accepted.
 sub validateBatch
 {
-    my ($self, $master, $batch, $job) = @_;
+    my ($self, $master, $batch, $file, $job) = @_;
     if ($job)
     {
-	my $file = $job->{FOR_FILE};
 	$file->{DONE_VALIDATE} = 1;
 	if ($job->{STATUS})
 	{
@@ -201,26 +258,25 @@ sub validateBatch
 		   : "was successful")
 	        . ")";
 	}
-	
-	$file->{TIMING}{VALIDATE_FINISH} = &mytimeofday();
+
+	$self->stopFileTiming ($file);
     }
     else
     {
 	# First time around start validation command for all files,
 	# but only if validation was requested.  If we are not doing
 	# validation, just use the status from transfer command.
-	foreach my $file (@$batch)
+	foreach $file (@$batch)
 	{
-	    $file->{TIMING}{VALIDATE_START} = &mytimeofday();
-
 	    do { $file->{FAILURE} = $file->{TRANSFER_STATUS}{REPORT} }
 	        if ! $self->{VALIDATE_COMMAND} && $file->{TRANSFER_STATUS}{STATUS};
 	    do { $file->{DONE_VALIDATE} = 1; next }
 	        if $file->{FAILURE} || ! $self->{VALIDATE_COMMAND};
 
+	    $self->startFileTiming ($file, "validate");
 	    $master->addJob (
-		sub { $self->validateBatch ($master, $batch, @_) },
-		{ FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
+		sub { $self->validateBatch ($master, $batch, $file, @_) },
+		{ TIMEOUT => $self->{TIMEOUT} },
 		@{$self->{VALIDATE_COMMAND}},
 		$file->{TRANSFER_STATUS}{STATUS}, $file->{TO_PFN},
 		$file->{FILESIZE}, $file->{CHECKSUM});
@@ -229,24 +285,20 @@ sub validateBatch
 
     $self->updateCatalogue ($master, $batch)
         if ! grep (! $_->{DONE_VALIDATE}, @$batch);
-
 }
 
 # Update catalogue for successfully transferred files.
 sub updateCatalogue
 {
-    my ($self, $master, $batch, $job) = @_;
-
-    if ($job && $job->{FOR_FILE})
+    my ($self, $master, $batch, $file, $extra, $job) = @_;
+    if ($job)
     {
 	# Reap finished jobs
-	my $file = $job->{FOR_FILE};
 	$file->{DONE_CATALOGUE} = 1;
-	unlink (@{$job->{EXTRA_FILES}});
+	unlink (@$extra);
 	$file->{FAILURE} = "exit code $job->{STATUS} from @{$job->{CMD}}"
 	    if $job->{STATUS};
-
-	$file->{TIMING}{UPDATE_CAT_FINISH} = &mytimeofday();
+	$self->stopFileTiming ($file);
     }
     else
     {
@@ -254,13 +306,12 @@ sub updateCatalogue
 	# transferred files.  However we may invoke ourselves several
 	# times if we fail to generate temporary files, so protect
 	# against handling each file more than once.
-	foreach my $file (@$batch)
+	foreach $file (@$batch)
 	{
-	    $file->{TIMING}{UPDATE_CAT_START} = &mytimeofday();
-	    
 	    do { $file->{DONE_CATALOGUE} = 1; next } if $file->{FAILURE};
 	    next if exists $file->{DONE_CATALOGUE};
 
+	    $self->startFileTiming ($file, "publish");
 	    my $tmpcat = "$master->{DROPDIR}/$file->{GUID}.xml";
 	    my $xmlfrag = &genXMLCatalogue ({ GUID => $file->{GUID},
 					      PFN => [ { TYPE => $file->{PFNTYPE},
@@ -274,9 +325,8 @@ sub updateCatalogue
 	    # Schedule catalogue copy
 	    $file->{DONE_CATALOGUE} = undef;
 	    $master->addJob (
-		sub { $self->updateCatalogue ($master, $batch, @_) },
-		{ FOR_FILE => $file, EXTRA_FILES => [ $tmpcat, "$tmpcat.BAK" ],
-		  TIMEOUT => $self->{TIMEOUT} },
+		sub { $self->updateCatalogue ($master, $batch, $file, [ $tmpcat, "$tmpcat.BAK" ], @_) },
+		{ TIMEOUT => $self->{TIMEOUT} },
 		@{$self->{PUBLISH_COMMAND}}, $file->{GUID}, $file->{TO_PFN}, $tmpcat);
 	}
     }
@@ -298,28 +348,26 @@ sub updateCatalogue
 # Remove destination PFNs after failed transfers.
 sub postClean
 {
-    my ($self, $master, $batch, $job) = @_;
+    my ($self, $master, $batch, $file, $job) = @_;
     if ($job)
     {
 	# Reap finished jobs.  We don't care about success here.
-        my $file = $job->{FOR_FILE};
-        $file->{TIMING}{POSTCLEAN_FINISH} = &mytimeofday();
-	$job->{FOR_FILE}{DONE_POST_CLEAN} = 1;
+	$file->{DONE_POST_CLEAN} = 1;
+	$self->stopFileTiming ($file);
     }
     else
     {
 	# Start deletion commands for failed files, but only if we
 	# have a deletion command in the first place.
-	foreach my $file (@$batch)
+	foreach $file (@$batch)
 	{
-	    $file->{TIMING}{POSTCLEAN_START} = &mytimeofday();
-
 	    do { $file->{DONE_POST_CLEAN} = 1; next }
 	        if ! $file->{FAILURE} || ! $self->{DELETE_COMMAND};
 
+	    $self->startFileTiming ($file, "postclean");
 	    $master->addJob (
-		sub { $self->postClean ($master, $batch, @_) },
-		{ FOR_FILE => $file, TIMEOUT => $self->{TIMEOUT} },
+		sub { $self->postClean ($master, $batch, $file, @_) },
+		{ TIMEOUT => $self->{TIMEOUT} },
 		@{$self->{DELETE_COMMAND}}, "post", $file->{TO_PFN});
 	}
     }

@@ -31,17 +31,17 @@ sub new
 # file name parts match.
 sub transferBatch
 {
-    my ($self, $master, $batch, $job) = @_;
+    my ($self, $master, $batch, $files, $job) = @_;
     if ($job)
     {
 	# Reap finished jobs
-	foreach my $file (@{$job->{FOR_FILES}})
+	foreach my $file (@$files)
 	{
 	    $file->{DONE_TRANSFER} = 1;
 	    $file->{TRANSFER_STATUS}{STATUS} = $job->{STATUS};
 	    $file->{TRANSFER_STATUS}{REPORT}
 	        = "exit code $job->{STATUS} from @{$job->{CMD}}";
-	    $file->{TIMING}{FINISH} = &mytimeofday();
+	    $self->stopFileTiming ($file);
 	}
     }
     else
@@ -50,9 +50,9 @@ sub transferBatch
         my %groups = ();
         foreach my $file (@$batch)
         {
+	    next if $file->{DONE_TRANSFER};
 	    do { $file->{DONE_TRANSFER} = 1; next } if $file->{FAILURE};
-
-	    $file->{TIMING}{START} = &mytimeofday();
+	    $self->startFileTiming ($file, "transfer");
 
 	    # Put this file into a transfer group.  If the files have the
 	    # same file name component at the source and destination, we
@@ -67,9 +67,7 @@ sub transferBatch
 	    my ($to_dir, $to_file) = ($to_pfn =~ m|(.*)/([^/]+)$|);
 
 	    # If destination LFNs are equal and we attempt batch transfers,
-	    # try to create optimal transfer groups.  Otherwise don't bother;
-	    # if batch transfers are off, underlying globus-url-copy might
-	    # not even support directories as destinations.
+	    # try to create optimal transfer groups.  Otherwise don't bother.
 	    if ($from_file eq $to_file && $self->{BATCH_FILES} > 1) {
 		push (@{$groups{$to_dir}}, { FILE => $file, PATH => $from_pfn });
 	    } else {
@@ -81,11 +79,12 @@ sub transferBatch
         foreach my $dest (keys %groups)
         {
 	    my @files = @{$groups{$dest}};
+	    my @sourcefiles = map { $_->{FILE} } @files;
+	    my @sourcepaths = map { $_->{PATH} } @files;
 	    $master->addJob (
-		sub { $self->transferBatch ($master, $batch, @_) },
-	        { FOR_FILES => [ map { $_->{FILE} } @files ],
-		  TIMEOUT => $self->{TIMEOUT} },
-	        @{$self->{COMMAND}}, (map { $_->{PATH} } @files), $dest);
+		sub { $self->transferBatch ($master, $batch, \@sourcefiles, @_) },
+	        { TIMEOUT => $self->{TIMEOUT} },
+	        @{$self->{COMMAND}}, @sourcepaths, $dest);
         }
     }
 

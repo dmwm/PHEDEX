@@ -18,19 +18,36 @@ sub new
 # Transfer batch of files with a single srmcp command.
 sub transferBatch
 {
-    my ($self, $master, $batch, $job) = @_;
-    if ($job && $job->{FOR_FILES})
+    my ($self, $master, $batch, $files, $reportfile, $specfile, $job) = @_;
+    if ($job)
     {
-	unlink ($job->{TEMPFILE});
+	# If we have a report file, build {FROM}{TO}=STATUS hash of
+	# the "FROM TO STATUS" lines in the report.  Then nuke temps.
+	my %reported = ();
+	map { my ($from, $to, $status, @rest) = split(/\s+/, $_);
+	      $reported{$from}{$to} = $status }
+	   split (/\n/, &input($reportfile) || '');
+
+	unlink ($specfile, $reportfile);
 
 	# Reap finished jobs
-	foreach my $file (@{$job->{FOR_FILES}})
+	foreach my $file (@$files)
 	{
-	    $file->{TIMING}{FINISH} = &mytimeofday();
 	    $file->{DONE_TRANSFER} = 1;
-	    $file->{TRANSFER_STATUS}{STATUS} = $job->{STATUS};
-	    $file->{TRANSFER_STATUS}{REPORT}
-	        = "exit code $job->{STATUS} from @{$job->{CMD}}";
+	    if (exists $reported{$file->{FROM_PFN}}{$file->{TO_PFN}}) {
+		# This copy has a report entry.  Use that instead.
+		my $status = $reported{$file->{FROM_PFN}}{$file->{TO_PFN}};
+		$file->{TRANSFER_STATUS}{STATUS} = $status;
+	        $file->{TRANSFER_STATUS}{REPORT}
+	            = "transfer report code $status;"
+		      . " exit code $job->{STATUS} from @{$job->{CMD}}";
+	    } else {
+		# No report entry, use command exit code.
+	        $file->{TRANSFER_STATUS}{STATUS} = $job->{STATUS};
+	        $file->{TRANSFER_STATUS}{REPORT}
+	            = "exit code $job->{STATUS} from @{$job->{CMD}}";
+	    }
+	    $self->stopFileTiming ($file);
 	}
     }
     else
@@ -39,8 +56,9 @@ sub transferBatch
 	my @copyjob = ();
         foreach my $file (@$batch)
         {
+	    next if $file->{DONE_TRANSFER};
 	    do { $file->{DONE_TRANSFER} = 1; next } if $file->{FAILURE};
-	    $file->{TIMING}{START} = &mytimeofday();
+	    $self->startFileTiming ($file, "transfer");
 
 	    # Put this file into a transfer batch
 	    push (@copyjob, $file);
@@ -50,7 +68,8 @@ sub transferBatch
         if (scalar @copyjob)
         {
 	    my $batchid = $copyjob[0]{BATCHID};
-	    my $specfile = "$master->{DROPDIR}/copyjob.$batchid";
+	    $specfile = "$master->{DROPDIR}/copyjob.$batchid";
+	    $reportfile = "$master->{DROPDIR}/report.$batchid";
 	    if (! &output ($specfile, join ("", map { "$_->{FROM_PFN} $_->{TO_PFN}\n" } @copyjob)))
 	    {
 	        &alert ("failed to create copyjob for batch $batchid");
@@ -60,10 +79,11 @@ sub transferBatch
 	    else
 	    {
 	        $master->addJob (
-		    sub { $self->transferBatch ($master, $batch, @_) },
-		    { FOR_FILES => [ @copyjob ],
-		      TIMEOUT => $self->{TIMEOUT}, TEMPFILE => $specfile },
-		    @{$self->{COMMAND}}, "-copyjobfile=$specfile");
+		    sub { $self->transferBatch ($master, $batch, \@copyjob,
+				    	        $reportfile, $specfile, @_) },
+		    { TIMEOUT => $self->{TIMEOUT} },
+		    @{$self->{COMMAND}}, "-copyjobfile=$specfile",
+		    "-report=$reportfile"));
 	    }
 	}
     }

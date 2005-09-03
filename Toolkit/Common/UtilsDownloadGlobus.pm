@@ -33,17 +33,17 @@ sub new
 # file name parts match.
 sub transferBatch
 {
-    my ($self, $master, $batch, $job) = @_;
+    my ($self, $master, $batch, $files, $job) = @_;
     if ($job)
     {
 	# Reap finished jobs
-	foreach my $file (@{$job->{FOR_FILES}})
+	foreach my $file (@$files)
 	{
 	    $file->{DONE_TRANSFER} = 1;
 	    $file->{TRANSFER_STATUS}{STATUS} = $job->{STATUS};
 	    $file->{TRANSFER_STATUS}{REPORT}
 	        = "exit code $job->{STATUS} from @{$job->{CMD}}";
-	    $file->{TIMING}{FINISH} = &mytimeofday();
+	    $self->stopFileTiming ($file);
 	}
     }
     else
@@ -52,11 +52,9 @@ sub transferBatch
         my %groups = ();
         foreach my $file (@$batch)
         {
+	    next if $file->{DONE_TRANSFER};
 	    do { $file->{DONE_TRANSFER} = 1; next } if $file->{FAILURE};
-
-	    $file->{TIMING}{START} = &mytimeofday();
-
-	    # FIXME: globus-url-copy 3.x support copyjob files like SRM.
+	    $self->startFileTiming ($file, "transfer");
 
 	    # Put this file into a transfer group.  If the files have the
 	    # same file name component at the source and destination, we
@@ -80,12 +78,15 @@ sub transferBatch
         # Now start transfer groups.
         foreach my $dest (keys %groups)
         {
+	    # FIXME: globus-url-copy 3.x support copyjob files like SRM.
 	    my @files = @{$groups{$dest}};
+	    my @sourcefiles = map { $_->{FILE} } @files;
+	    my @sourcepaths = map { $_->{PATH} } @files;
 	    $master->addJob (
-		sub { $self->transferBatch ($master, $batch, @_) },
+		sub { $self->transferBatch ($master, $batch, \@sourcefiles, @_) },
 	        { FOR_FILES => [ map { $_->{FILE} } @files ],
 		  TIMEOUT => $self->{TIMEOUT} },
-	        @{$self->{COMMAND}}, (map { $_->{PATH} } @files), $dest);
+	        @{$self->{COMMAND}}, @sourcepaths, $dest);
         }
     }
 
