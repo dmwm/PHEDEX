@@ -158,6 +158,7 @@ sub getBypassPaths
 		     . " to=$file->{TO_PFN}"
 		     . " newto=$output");
 	    $file->{TO_PFN} = $output;
+	    $file->{DONE_PRE_CLEAN} = 1;
 	    $file->{DONE_TRANSFER} = 1;
 	    $file->{TRANSFER_STATUS}{STATUS} = 0;
 	    $file->{TRANSFER_STATUS}{REPORT} = "transfer was bypassed";
@@ -206,6 +207,7 @@ sub preClean
 	# but only if we have a deletion command in the first place.
 	foreach $file (@$batch)
 	{
+	    next if $file->{DONE_PRE_CLEAN};
 	    do { $file->{DONE_PRE_CLEAN} = 1; next }
 	        if $file->{FAILURE} || ! $self->{DELETE_COMMAND};
 
