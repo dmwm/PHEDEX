@@ -94,7 +94,8 @@ sub checkJobs
 	    # their elders). So- instead we just address the whole process group.
 	    my %signals = ( 0 => [1,-$job->{PID}],
 			    1 => [15,-$job->{PID}],
-			    15 => [9,-$job->{PID}] );
+			    15 => [9,-$job->{PID}],
+			    9 => [9,-$job->{PID}] );
 
 	    # Now set signal if not set, send the signal, increase the timeout to give
 	    # the parent time to react, and move to next signal
