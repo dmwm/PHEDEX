@@ -212,7 +212,7 @@ sub connectToDatabase
 	    if ($action eq 'STOP')
 	    {
 	        &logmsg ("agent stopped via control message at $time");
-	        $self->stop ();
+	        $self->doStop ();
 		exit(0); # Still running?
 	    }
 	    elsif ($action eq 'SUSPEND')
