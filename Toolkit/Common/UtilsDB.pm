@@ -150,9 +150,11 @@ sub connectToDatabase
 	# Now look for messages to me.  There may be many, so handle
 	# them in the order given, but only act on the final state.
 	# The possible messages are "STOP" (quit), "SUSPEND" (hold),
-	# and "RESTART".  We can act on the first two commands, but
-	# not the last one.  Therefore, if we see both STOP/SUSPEND
-	# and then a RESTART, pretend nothing has happened.
+	# "GOAWAY" (permanent stop), and "RESTART".  We can act on the
+	# first three commands, but not the last one, except if the
+	# latter has been superceded by a later message: if we see
+	# both STOP/SUSPEND/GOAWAY and then a RESTART, just ignore
+	# the messages before RESTART.
 	#
 	# When we see a RESTART or STOP, we "execute" it and delete all
 	# messages up to and including the message itself (a RESTART
@@ -161,8 +163,12 @@ sub connectToDatabase
 	# about, an agent manager must act on it, so if we see it, it's
 	# an indicatioon the manager has done what was requested).
 	# SUSPENDs we leave in the database until we see a RESTART.
+	#
+	# Messages are only executed until my current time; there may
+	# be "scheduled intervention" messages for future.
 	while (1)
 	{
+	    my $now = &mytimeofday ();
 	    my ($time, $action, $keep) = (undef, 'CONTINUE', 0);
 	    my $messages = &dbexec($dbh, qq{
 	       select timestamp, message
@@ -172,9 +178,12 @@ sub connectToDatabase
 	       ":node" => $mynode, ":me" => $me);
             while (my ($t, $msg) = $messages->fetchrow())
 	    {
-	        if ($msg eq 'SUSPEND')
+		# If it's a message for a future time, stop processing.
+		last if $t > $now;
+
+	        if ($msg eq 'SUSPEND' && $action ne 'STOP')
 	        {
-		    # Hold, keep this in the database
+		    # Hold, keep this in the database.
 		    ($time, $action, $keep) = ($t, $msg, 1);
 		    $keep = 1;
 	        }
@@ -184,6 +193,12 @@ sub connectToDatabase
 		    # and anything that preceded it.
 		    ($time, $action, $keep) = ($t, $msg, 0);
 	        }
+	        elsif ($msg eq 'GOAWAY')
+	        {
+		    # Permanent quit: quit, but leave the message in
+		    # the database to prevent restarts before 'RESTART'.
+		    ($time, $action, $keep) = ($t, 'STOP', 1);
+	        }
 	        elsif ($msg eq 'RESTART')
 	        {
 		    # Restart.  This is not something we can have done,
@@ -191,7 +206,7 @@ sub connectToDatabase
 		    # are processing historical sequence.  We can kill
 		    # this message and everything that preceded it, and
 		    # put us back into 'CONTINUE' state to override any
-		    # previous STOP or SUSPEND.
+		    # previous STOP/SUSPEND/GOAWAY.
 		    ($time, $action, $keep) = (undef, 'CONTINUE', 0);
 	        }
 	        else
