@@ -224,6 +224,7 @@ sub connectToDatabase
 	    }
 
 	    # Apply our changes.
+	    $messages->finish();
 	    $dbh->commit();
 
 	    # Act on the final state.
