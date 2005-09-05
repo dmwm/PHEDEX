@@ -102,15 +102,23 @@ sub processDrop
 
     my $start = &mytimeofday();
     return if ! $self->checkConsistency ($drop, $block);
-    $self->publishBlock ($drop, $block);
+    my $publishreturn = $self->publishBlock ($drop, $block);
     &touch ("$dropdir/done");
 
     # Log transfer delay stats
     my $delta = &mytimeofday() - $start;
     &logmsg ("xstats: $block->{OWNER}/$block->{DATASET} " . sprintf('%.2f', $delta));
-    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
+    # distinguish between successful publication and "nothing to do" rounds
+    if ($publishreturn == 10)
+    {
+	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} already done");
+    } else {
+	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
+    }
+
     $self->relayDrop ($drop);
 }
+
 
 # Check that the number of files registered in local catalogue match
 # the number of files in the block. Returns zero on failure, non-zero
@@ -187,19 +195,20 @@ sub publishBlock
 		: "Digi");
 
     # Check if we have already handled this one.  If so, skip it.
-    return 1 if -f "$self->{PUBLISHED}/$block->{OWNER}.$block->{DATASET}";
+    return 10 if (-e "$self->{PUBLISHED}/$block->{OWNER}.$block->{DATASET}");
 
     # For Digi, Hit/PileUp are also required.  DST is stand-alone.
     my @history = eval { &datasetRequirements($block->{OWNER}, $block->{DATASET}) };
     do { &alert ($@); return 1 } if $@;
     foreach my $item (@history)
     {
-	next if -f "$self->{PUBLISHED}/$item->[0].$item->[1]";
+	next if (-e "$self->{PUBLISHED}/$item->[0].$item->[1]");
 	&warn ("$drop: required pre-requisite $item->[0]/$item->[1] not yet published");
 	return 1;
     }
 
     &logmsg("publishing $block->{OWNER}/$block->{DATASET}");
+    &runcmd(("mkdir", "-p", "$self->{PUBLISHED}")) if (! -d $self->{PUBLISHED});
     &touch ("$self->{PUBLISHED}/$block->{OWNER}.$block->{DATASET}");
     my $failed = &runcmd(@{$self->{SCRIPT}}, $block->{DATASET}, $block->{OWNER},
 		      &listAssignments($block->{DATASET},$block->{OWNER}));
