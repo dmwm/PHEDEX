@@ -83,7 +83,7 @@ sub transferBatch
 				    	        $reportfile, $specfile, @_) },
 		    { TIMEOUT => $self->{TIMEOUT} },
 		    @{$self->{COMMAND}}, "-copyjobfile=$specfile",
-		    "-report=$reportfile"));
+		    "-report=$reportfile");
 	    }
 	}
     }
