@@ -1,0 +1,31 @@
+#!/bin/sh
+
+dumpdir="SC3Dump-$(date +%Y%m%d)"
+rm -fr $dumpdir
+mkdir -p $dumpdir
+
+for table in			\
+  t_file			\
+  t_file_attributes		\
+  t_block			\
+  t_block_destination		\
+  t_block_replica		\
+  t_subscription		\
+  t_replica_state		\
+  t_transfer_state		\
+  t_transfer_completed		\
+  t_transfer_history		\
+  t_perf_histogram		\
+  t_node			\
+  t_node_neighbour		\
+  t_node_import			\
+  t_node_export			\
+  t_routing
+do
+  echo "Dumping $table..."
+  Utilities/DBDump -db Schema/DBParam:SC3/Admin $table > $dumpdir/$table.csv
+done
+
+echo "Archiving..."
+tar jvvcf $dumpdir.tar.bz2 $dumpdir
+rm -fr $dumpdir
