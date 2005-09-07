@@ -32,8 +32,6 @@ while (scalar @ARGV)
     { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
     elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
     { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-nodesmap' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{NODESMAP} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-publish' && scalar @ARGV > 1)
     { shift (@ARGV); @{$args{PUBLISH}} = split(/,/, shift(@ARGV)); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
@@ -46,7 +44,7 @@ if (scalar @ARGV || !$args{DROPDIR} || !$args{MYNODE})
 {
     print STDERR
 	"usage: $me -in IN-DROP-BOX -out NEXT-DROP-BOX\n",
-	"           -node NODE-NAME [-nodesmap NODESMAP-FILE]\n",
+	"           -node NODE-NAME\n",
         "           [-publish PUBLISH-SCRIPT[,ARGS]]\n",
 	"           [-wait SECS-TO-WAIT]\n";
     exit (1);
@@ -65,8 +63,7 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (NODESMAP => undef,   # File with nodes and regex to consider a file local
-		  MYNODE => undef,     # My TMDB node name
+    my %params = (MYNODE => undef,     # My TMDB node name
 		  PUBLISH => undef);   # glue script to publish files into local phedex pool catalog 
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
@@ -114,16 +111,6 @@ sub ProcessSmry
     do { &alert("$drop: failed to write $ChecksumFile"); return 1}
       if  ! &output ($ChecksumFile, $cksumContent);
 
-    # create PhEDEx-Nodes.txt file if file to be injected already available in a real PhEDEx node
-    if ($self->{NODESMAP}) {
-	my $Nodescontent = &createNodeFile($self->{NODESMAP}, $turl, $self->{MYNODE});
-	if ($Nodescontent) {
-	    my $PhEDExNodesfile = "$dropdir/PhEDEx-Nodes.txt";
-	    do { &alert("$drop: failed to write $PhEDExNodesfile"); return 1}
-	    if  ! &output ($PhEDExNodesfile, $Nodescontent);
-	}
-    }
-
     # execute script to publish into local phedex pool catalog
     if ($self->{PUBLISH}) {
         &warn ("failed to publish $XMLCatFragment into local catalogue") 
@@ -165,30 +152,6 @@ EOF
 	&alert("wrong format for LFN = $lfn"); return 0;	
     }
 }
-
-
-sub createNodeFile
-{
-    my ($nodesmap, $turl, $mynode) = @_;
-    my $nodes = undef;
-
-    do { &alert ("cannot open node file: $!"); return 1;} if !open (IN, "< $nodesmap");
-    while(<IN>) {
-        chomp;
-        next if /^$/;                          # Skip empty lines
-        if (/^(\S+)\s+(\S+)$/) {               # Process matching lines (<PHEDEX_NODE_NAME> <regex>)
-	    my ($node, $regex) = ($1, $2);
-	    $nodes .= "$node\n" if $turl =~ m|$regex|;
-        } else {                               # Complain about bad lines
-            &warn ("unrecognised nodesmap line: $nodesmap:$.");
-        }
-    }
-    close (IN);
-
-    $nodes .= "$mynode\n" if $nodes;         # add harvesting node
-    return $nodes;
-}
-
 
 # Actually process the drop.
 sub processDrop
