@@ -108,8 +108,8 @@ sub purgeCache
     }
 }
 
-# Get the list of files that have been requested for stage-in.
-sub getPendingFiles
+# Get the list of files at the node, including stage-in requests.
+sub getNodeFiles
 {
     my ($self, $dbh) = @_;
     my %unknown = ();
@@ -117,55 +117,48 @@ sub getPendingFiles
 
     # First fetch files from database.  If we come across something
     # we haven't seen before, remember it but don't look it up yet.
-    # Otherwise just push the (GUID, PFN, TIME) tuple into result.
     #
-    # "Recently wanted" == time stamp on "wanted" state is less than
-    # fifteen minutes old.  Download agents expecting files will be
-    # refreshing the wanted status more often than that when they are
-    # running and capable of downloading files.
+    # We get files exported from the node, plus most recent time the
+    # file was in that state.
     my %seen = ();
     my $stmt = &dbexec($dbh, qq{
-	   select guid, to_timestamp
+	   select guid, to_state, to_timestamp
 	   from t_transfer_state
-	   where from_node = :node
-	     and to_state = 1
-	     and to_timestamp >= :recent
-           order by to_timestamp asc},
-	   ":node" => $self->{MYNODE}, ":recent" => time() - 15*60);
-    while (my ($guid, $time) = $stmt->fetchrow())
+	   where from_node = :node and to_state <= 1},
+	   ":node" => $self->{MYNODE});
+    while (my ($guid, $state, $time) = $stmt->fetchrow())
     {
-	next if $seen{$guid};
-	$seen{$guid} = 1;
+	$seen{$guid} = { GUID => $guid, STATE => $state, TIME => $time }
+	    if ((exists $seen{$guid} && $seen{$guid}{STATE} <= $state)
+	        || (exists $seen{$guid} && $seen{$guid}{TIME} <= $time)
+	        || ! exists $seen{$guid});
+    }
 
+    # Now, collect PFNs for cached files.
+    foreach my $guid (keys %seen)
+    {
 	my $cache = $self->{PFN_CACHE}{$guid};
 	if ($cache && $cache =~ /^\d+:(.*)/)
 	{
-	    # Known in cache.  Just push into result.
-	    push (@$result, [ $guid, $1 || undef, $time ]);
-	}
-	else
-	{
-	    # Not seen this yet.  Remember it.
-	    $unknown{$guid} = $time;
+	    $seen{$guid}{PFN} = $1;
 	}
     }
 
-    # Now go over everything that we hadn't seen yet.  Look up all
-    # the GUID/PFN mappings in one go with a single efficient pull,
-    # and then cache the results and fill in result.
-    if (my @items = keys %unknown)
+    # Finally PFNs for files not in cache.  We do this in single
+    # efficient pull + cache results.
+    if (my @guids = grep(! $seen{$_}{PFN}, keys %seen))
     {
         my $now = time();
-        my $pfns = &guidToPFN ([ @items ], "direct", "local", @{$self->{PFN_QUERY}});
-        foreach my $guid (@items)
+        my $pfns = &guidToPFN (\@guids, "direct", "local", @{$self->{PFN_QUERY}});
+        foreach my $guid (@guids)
         {
 	    my $pfn = $pfns->{$guid};
 	    $self->{PFN_CACHE}{$guid} = "$now:@{[$pfn || '']}";
-	    push (@$result, [ $guid, $pfn, $unknown{$guid} ]);
+	    $seen{$guid}{PFN} = $pfn;
         }
     }
 
-    return $result;
+    return \%seen;
 }
 
 # Get the list of files stager knows about.  We only get files
@@ -180,14 +173,15 @@ sub getPendingFiles
 # taken to be a transient error.
 sub getStagerFiles
 {
-    my ($self, $pending) = @_;
+    my ($self, $files) = @_;
+    return undef if ! $files;
 
     # First get stager status for pending files.
-    my @pfns = grep (defined $_, map { $_->[1] } @$pending);
+    my @pfns = grep (defined $_, map { $_->{PFN} } values %$files);
     my %status = ();
     while (scalar @pfns)
     {
-	my $args = join("", map { "-M $_" } splice (@pfns, 0, $self->{MAXFILES}));
+	my $args = join(" ", map { "-M $_" } splice (@pfns, 0, $self->{MAXFILES}));
 	open (STAGEQ, "stager_qry $args |")
 	    || do { &alert ("stager_qry failed: $!"); return undef };
 	while (<STAGEQ>)
@@ -200,37 +194,31 @@ sub getStagerFiles
     }
 
     # Now fill in the information.
-    my $result = [];
-    foreach my $file (@$pending)
+    foreach my $file (values %$files)
     {
-	my ($guid, $pfn, $time) = @$file;
-	next if ! $guid || ! $pfn;
-	next if ! $status{$pfn};
-	push (@$result, [ $guid, $pfn, $status{$pfn} ]);
+	next if ! $file->{PFN};
+	next if ! $status{$file->{PFN}};
+	$file->{STATUS} = $status{$file->{PFN}};
     }
 
-    return $result;
+    return $files;
 }
 
 # Build status object from stager state and pending requests.
 sub buildStatus
 {
-    my ($self, $stager, $pending) = @_;
-    return undef if ! $stager || ! $pending;
+    my ($self, $files) = @_;
+    return undef if ! $files;
 
-    my $files = {};
-    foreach my $file (@$stager)
+    # "Recently wanted" == time stamp on "wanted"
+    # state is less than fifteen minutes old.  Download agents
+    # expecting files will be refreshing the wanted status more often
+    # than that when they are running and capable of downloading files.
+    foreach my $file (values %$files)
     {
-	my ($guid, $pfn, $status) = @$file;
-	$files->{$pfn} = { GUID => $guid, PFN => $pfn, STATUS => $status };
-    }
-
-    foreach my $file (@$pending)
-    {
-	my ($guid, $pfn, $time) = @$file;
-
-	do { &warn ("ignoring unknown wanted file $guid"); next } if ! $pfn;
-	$files->{$pfn} ||= { GUID => $guid, PFN => $pfn, STATUS => "UNKNOWN" };
+	do { &warn ("unknown wanted file $file->{GUID}"); next }
+	    if ! $file->{PFN};
+	$file->{STATUS} ||= "UNKNOWN";
     }
 
     return $files;
@@ -254,10 +242,9 @@ sub idle
 	$timing{PURGE} = &mytimeofday();
 
 	# Get pending and stager files
-	my $pending = $self->getPendingFiles ($dbh);
-	my $staged = $self->getStagerFiles ($pending);
-	my $files = $self->buildStatus ($staged, $pending);
-	return if ! $files;
+	my $files = $self->getNodeFiles ($dbh);
+	return if ! $self->getStagerFiles ($files);
+	return if ! $self->buildStatus ($files);
 	$timing{STATUS} = &mytimeofday();
 
 	# Update file status.  First mark everything not staged in,
