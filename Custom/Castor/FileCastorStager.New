@@ -171,30 +171,18 @@ sub getStagerFiles
 {
     my ($self, $files) = @_;
     return undef if ! $files;
-
-    # First get stager status for pending files.
-    my @pfns = grep (defined $_, map { $_->{PFN} } values %$files);
-    my %status = ();
-    while (scalar @pfns)
+    foreach my $file (values %$files)
     {
-	my $args = join(" ", map { "-M $_" } splice (@pfns, 0, $self->{MAXFILES}));
-	open (STAGEQ, "stager_qry $args |")
+	next if ! $file->{PFN};
+	open (STAGEQ, "stager_qry -M $file->{PFN} |")
 	    || do { &alert ("stager_qry failed: $!"); return undef };
 	while (<STAGEQ>)
 	{
 	    chomp;
-	    my ($file, $status, $rest) = split(/\s+/, $_);
-	    $status{$file} = $status if $status && $status ne 'NA';
+	    next if ! /^\d+\@\S+\s+([A-Z_]+)$/;
+	    $file->{STATUS} = $1;
 	}
 	close (STAGEQ);
-    }
-
-    # Now fill in the information.
-    foreach my $file (values %$files)
-    {
-	next if ! $file->{PFN};
-	next if ! $status{$file->{PFN}};
-	$file->{STATUS} = $status{$file->{PFN}};
     }
 
     return $files;
