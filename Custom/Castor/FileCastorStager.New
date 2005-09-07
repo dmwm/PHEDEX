@@ -81,30 +81,11 @@ sub new
 	  	  AGENTID => "Stager",		# Identity for activity logs
     	    	  MAXFILES => 50,		# Max number of files in one request
 		  PFN_CACHE => {},		# GUID -> PFN cache
-		  GUID_CACHE => {},		# PFN -> GUID cache
-		  DB_CACHE => {},		# Cache of DB state
-		  NSLS_CACHE => {});		# Cache for nsls (file pool) lookups
+		  DB_CACHE => {});		# Cache of DB state
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
-}
-
-# Find out files stager knows about.  Returns a reference to a hash of
-# PFNs currently in the stager disk pool, each with stager status such
-# as "STAGED" or "STAGEIN".   Returns undef if stageqry cannot be run.
-# The latter should be treated as a transient error.
-sub stagerFileList
-{
-    open(STAGEQ, "stageqry.pl --getpath |")
-	|| return undef;
-    my $files = {};
-    while (<STAGEQ>) {
-	my ($status, $file) = split(/\s+/, $_);
-	$files->{$file} = $status;
-    }
-    close(STAGEQ);
-    return $files;
 }
 
 # Purge old entries from our caches.
@@ -180,7 +161,6 @@ sub getPendingFiles
         {
 	    my $pfn = $pfns->{$guid};
 	    $self->{PFN_CACHE}{$guid} = "$now:@{[$pfn || '']}";
-	    $self->{GUID_CACHE}{$pfn} = "$now:$guid" if defined $pfn;
 	    push (@$result, [ $guid, $pfn, $unknown{$guid} ]);
         }
     }
@@ -188,49 +168,45 @@ sub getPendingFiles
     return $result;
 }
 
-# Get the list of files stager knows about
+# Get the list of files stager knows about.  We only get files
+# we are currently exporting -- it is not currently possible
+# to ask for all files staged in.
+#
+# Returns an array of files known to the stager, always a subset
+# of the files in input argument $pending.  Each entry is [ GUID,
+# PFN, STATUS ], where STATUS is "STAGED", "STAGEIN" and so on.
+#
+# Returns undef if the stager can't be queried, which should be
+# taken to be a transient error.
 sub getStagerFiles
 {
-    my ($self) = @_;
-    my $files = &stagerFileList();
-    return undef if ! $files;
+    my ($self, $pending) = @_;
 
-    my %unknown = ();
-    my $result = [];
-
-    # First pass.  If we come across something we haven't seen
-    # before, remember it but don't look it up yet.  Otherwise
-    # just push the (GUID, PFN, TIME) tuple into result.
-    foreach my $pfn (keys %$files)
+    # First get stager status for pending files.
+    my @pfns = grep (defined $_, map { $_->[1] } @$pending);
+    my %status = ();
+    while (scalar @pfns)
     {
-	my $status = $files->{$pfn};
-	my $cache = $self->{GUID_CACHE}{$pfn};
-	if ($cache && $cache =~ /^\d+:(.*)/)
+	my $args = join("", map { "-M $_" } splice (@pfns, 0, $self->{MAXFILES}));
+	open (STAGEQ, "stager_qry $args |")
+	    || do { &alert ("stager_qry failed: $!"); return undef };
+	while (<STAGEQ>)
 	{
-	    # Known in cache.  Just push into result.
-	    push (@$result, [ $1 || undef, $pfn, $status ]);
+	    chomp;
+	    my ($file, $status) = split(/\s+/, $_);
+	    $status{$file} = $status;
 	}
-	else
-	{
-	    # Not seen this yet.  Remember it.
-	    $unknown{$pfn} = 1;
-	}
+	close (STAGEQ);
     }
 
-    # Now go over everything that we hadn't seen yet.  Look up all
-    # the GUID/PFN mappings in one go with a single efficient pull,
-    # and then cache the results and fill in result.
-    if (my @items = keys %unknown)
+    # Now fill in the information.
+    my $result = [];
+    foreach my $file (@$pending)
     {
-        my $now = time();
-        my $guids = &pfnToGUID ([ @items ], "direct", "local", @{$self->{PFN_QUERY}});
-        foreach my $pfn (@items)
-        {
-	    my $guid = $guids->{$pfn};
-	    $self->{PFN_CACHE}{$guid} = "$now:$pfn" if defined $guid;
-	    $self->{GUID_CACHE}{$pfn} = "$now:@{[$guid || '']}";
-	    push (@$result, [ $guid, $pfn, $files->{$pfn} ]);
-        }
+	my ($guid, $pfn, $time) = @$file;
+	next if ! $guid || ! $pfn;
+	next if ! $status{$pfn};
+	push (@$result, [ $guid, $pfn, $status{$pfn} ]);
     }
 
     return $result;
@@ -275,12 +251,12 @@ sub idle
 	# Clean up caches
 	my %timing = (START => &mytimeofday());
 	&purgeCache ($self->{PFN_CACHE});
-	&purgeCache ($self->{GUID_CACHE});
 	$timing{PURGE} = &mytimeofday();
 
 	# Get pending and stager files
-	my $files = $self->buildStatus ($self->getStagerFiles (),
-					$self->getPendingFiles ($dbh));
+	my $pending = $self->getPendingFiles ($dbh);
+	my $staged = $self->getStagerFiles ($pending);
+	my $files = $self->buildStatus ($staged, $pending);
 	return if ! $files;
 	$timing{STATUS} = &mytimeofday();
 
@@ -299,6 +275,7 @@ sub idle
 	        ":node" => $self->{MYNODE}, ":now" => $now);
 	}
 
+	my %outdated = map { $_ => 1 } keys %{$dbcache->{FILES}};
 	my $stmt = $dbh->prepare(qq{
 	    update t_replica_state
 	    set state = :state, state_timestamp = :now
@@ -309,16 +286,24 @@ sub idle
 	    my $isstaged = $f->{STATUS} eq 'STAGED';
 	    if ($isstaged && ! $dbcache->{FILES}{$f->{GUID}})
 	    {
+		delete $outdated{$f->{GUID}};
 		$dbcache->{FILES}{$f->{GUID}} = 1;
 		&dbbindexec ($stmt, ":now" => $now, ":node" => $self->{MYNODE},
 			     ":guid" => $f->{GUID}, ":state" => 1);
 	    }
 	    elsif (! $isstaged && $dbcache->{FILES}{$f->{GUID}})
 	    {
+		delete $outdated{$f->{GUID}};
 		delete $dbcache->{FILES}{$f->{GUID}};
 		&dbbindexec ($stmt, ":now" => $now, ":node" => $self->{MYNODE},
 			     ":guid" => $f->{GUID}, ":state" => 0);
 	    }
+	}
+	foreach my $guid (keys %outdated)
+	{
+	    delete $dbcache->{FILES}{$guid};
+	    &dbbindexec ($stmt, ":now" => $now, ":node" => $self->{MYNODE},
+			 ":guid" => $guid, ":state" => 0);
 	}
 	$dbh->commit();
 	$timing{DATABASE} = &mytimeofday();
@@ -329,9 +314,8 @@ sub idle
 	while (@requests)
 	{
 	    my @slice = splice (@requests, 0, $self->{MAXFILES});
-	    my $rc = &runcmd ("stagein", # "--nowait", "--rdonly",
-			      (map { ("-M", $_->{PFN}) } @slice));
-	    &alert ("stagein failed: @{[&runerror($rc)]}") if ($rc);
+	    my $rc = &runcmd ("stager_get", (map { ("-M", $_->{PFN}) } @slice));
+	    &alert ("stager_get failed: @{[&runerror($rc)]}") if ($rc);
 
 	    # Mark these files as pending now
 	    map { $_->{STATUS} = "STAGEIN" } @slice;
