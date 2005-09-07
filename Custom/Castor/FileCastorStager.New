@@ -108,19 +108,17 @@ sub purgeCache
     }
 }
 
-# Get the list of files at the node, including stage-in requests.
+# Get the list of files in transfer out of the node.
 sub getNodeFiles
 {
     my ($self, $dbh) = @_;
-    my %unknown = ();
-    my $result = [];
+    my %files = ();
 
     # First fetch files from database.  If we come across something
     # we haven't seen before, remember it but don't look it up yet.
     #
     # We get files exported from the node, plus most recent time the
     # file was in that state.
-    my %seen = ();
     my $stmt = &dbexec($dbh, qq{
 	   select guid, to_state, to_timestamp
 	   from t_transfer_state
@@ -128,49 +126,47 @@ sub getNodeFiles
 	   ":node" => $self->{MYNODE});
     while (my ($guid, $state, $time) = $stmt->fetchrow())
     {
-	$seen{$guid} = { GUID => $guid, STATE => $state, TIME => $time }
-	    if ((exists $seen{$guid} && $seen{$guid}{STATE} <= $state)
-	        || (exists $seen{$guid} && $seen{$guid}{TIME} <= $time)
-	        || ! exists $seen{$guid});
+	$files{$guid} = { GUID => $guid, STATE => $state, TIME => $time }
+	    if ((exists $files{$guid}
+		 && $files{$guid}{STATE} <= $state)
+	        || (exists $files{$guid}
+		    && $files{$guid}{STATE} == $state
+		    && $files{$guid}{TIME} <= $time)
+	        || ! exists $files{$guid});
     }
 
     # Now, collect PFNs for cached files.
-    foreach my $guid (keys %seen)
+    foreach my $guid (keys %files)
     {
 	my $cache = $self->{PFN_CACHE}{$guid};
 	if ($cache && $cache =~ /^\d+:(.*)/)
 	{
-	    $seen{$guid}{PFN} = $1;
+	    $files{$guid}{PFN} = $1;
 	}
     }
 
     # Finally PFNs for files not in cache.  We do this in single
     # efficient pull + cache results.
-    if (my @guids = grep(! $seen{$_}{PFN}, keys %seen))
+    if (my @guids = grep(! $files{$_}{PFN}, keys %files))
     {
         my $now = time();
-        my $pfns = &guidToPFN (\@guids, "direct", "local", @{$self->{PFN_QUERY}});
+        my $pfns = &guidToPFN ([ @guids ], "direct", "local", @{$self->{PFN_QUERY}});
         foreach my $guid (@guids)
         {
 	    my $pfn = $pfns->{$guid};
 	    $self->{PFN_CACHE}{$guid} = "$now:@{[$pfn || '']}";
-	    $seen{$guid}{PFN} = $pfn;
+	    $files{$guid}{PFN} = $pfn;
         }
     }
 
-    return \%seen;
+    return \%files;
 }
 
-# Get the list of files stager knows about.  We only get files
-# we are currently exporting -- it is not currently possible
-# to ask for all files staged in.
+# Append into the file list the stager status information.
+# It is not currently possible to get all files on stager.
 #
-# Returns an array of files known to the stager, always a subset
-# of the files in input argument $pending.  Each entry is [ GUID,
-# PFN, STATUS ], where STATUS is "STAGED", "STAGEIN" and so on.
-#
-# Returns undef if the stager can't be queried, which should be
-# taken to be a transient error.
+# Returns undef if the stager can't be queried because of
+# a transient error.  Otherwise returns the input hash.
 sub getStagerFiles
 {
     my ($self, $files) = @_;
@@ -210,10 +206,7 @@ sub buildStatus
     my ($self, $files) = @_;
     return undef if ! $files;
 
-    # "Recently wanted" == time stamp on "wanted"
-    # state is less than fifteen minutes old.  Download agents
-    # expecting files will be refreshing the wanted status more often
-    # than that when they are running and capable of downloading files.
+    # Mark in unknown state all files without clear status.
     foreach my $file (values %$files)
     {
 	do { &warn ("unknown wanted file $file->{GUID}"); next }
@@ -295,8 +288,12 @@ sub idle
 	$dbh->commit();
 	$timing{DATABASE} = &mytimeofday();
 
-	# Issue stage-in requests for new files in batches.
-	my @requests = grep ($_->{STATUS} eq 'UNKNOWN', values %$files);
+	# Issue stage-in requests for new files in batches.  Only consider
+	# recent enough files in wanted state.
+	my @requests = grep ($_->{STATUS} eq 'UNKNOWN'
+		             && $_->{STATE} == 1
+		             && $_->{TIME} >= $timing{START} - 15*60,
+			     values %$files);
 	my $nreq = scalar @requests;
 	while (@requests)
 	{
