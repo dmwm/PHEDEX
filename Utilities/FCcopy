@@ -269,8 +269,8 @@ sub init
     my ($self, $contact) = @_;
     die "expecting mysql:Database:User:Pass as contact, got $contact"
         if $contact !~ /^mysql:([^:]+):([^:]+):([^:]+)$/;
-    my $args = { DBITYPE => "mysql", DBNAME => $1, DBUSER => $2, DBPASS => $3 };
-    my $dbh = $self->{DBH} = &connectToDatabase ($args, 0) or die "failed to connect to $contact";
+    my $dbh = $self->{DBH} = DBI->connect ("DBI:mysql:$1", $2, $3, { RaiseError => 1, AutoCommit => 0 })
+	or die "failed to connect to $contact";
     $self->{LQUERY} = &dbexec($dbh, qq{select guid, lfname from t_lfn});
     $self->{PQUERY} = &dbprep($dbh, qq{
 	select filetype, pfname
@@ -328,8 +328,8 @@ sub init
     my ($self, $contact) = @_;
     die "expecting mysql:Database:User:Pass as contact, got $contact"
         if $contact !~ /^mysql:([^:]+):([^:]+):([^:]+)$/;
-    my $args = { DBITYPE => "mysql", DBNAME => $1, DBUSER => $2, DBPASS => $3 };
-    my $dbh = $self->{DBH} = &connectToDatabase ($args, 0) or die "failed to connect to $contact";
+    my $dbh = $self->{DBH} = DBI->connect ("DBI:mysql:$1", $2, $3, { RaiseError => 1, AutoCommit => 0 })
+	or die "failed to connect to $contact";
     $self->{LINS} = &dbprep($dbh, qq{insert into t_lfn (guid, lfname) values (?, ?)});
     $self->{PINS} = &dbprep($dbh, qq{insert into t_pfn (guid, filetype, pfname) values (?, ?, ?)});
     $self->{MINS} = &dbprep($dbh, qq{
