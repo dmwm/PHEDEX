@@ -183,8 +183,8 @@ sub getStagerFiles
 	while (<STAGEQ>)
 	{
 	    chomp;
-	    my ($file, $status) = split(/\s+/, $_);
-	    $status{$file} = $status;
+	    my ($file, $status, $rest) = split(/\s+/, $_);
+	    $status{$file} = $status if $status && $status ne 'NA';
 	}
 	close (STAGEQ);
     }
