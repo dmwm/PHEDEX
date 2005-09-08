@@ -171,18 +171,31 @@ sub getStagerFiles
 {
     my ($self, $files) = @_;
     return undef if ! $files;
+
+    my $tmpdir = $self->{WORKDIR};
+    unlink (<$tmpdir/qry.*>);
+
+    my $jobs = new UtilsJobManager (NJOBS => 10);
     foreach my $file (values %$files)
     {
-	next if ! $file->{PFN};
-	open (STAGEQ, "stager_qry -M $file->{PFN} |")
-	    || do { &alert ("stager_qry failed: $!"); return undef };
-	while (<STAGEQ>)
-	{
-	    chomp;
-	    next if ! /^\d+\@\S+\s+([A-Z_]+)$/;
-	    $file->{STATUS} = $1;
-	}
-	close (STAGEQ);
+	my $pfn = $file->{PFN};
+	next if ! $pfn;
+
+	my $outfile = "$tmpdir/qry.$file->{GUID}";
+	$jobs->addJob(sub { my ($job) = @_; return if $job->{STATUS};
+			    return if ! open (STAGEQ, "< $outfile");
+		            while (<STAGEQ>) {
+	    		       chomp; next if ! /^\d+\@\S+\s+([A-Z_]+)$/;
+	    		       $file->{STATUS} = $1;
+			    }
+		    	    close (STAGEQ); unlink ($outfile); },
+		      {}, "sh", "-c", "stager_qry -M $pfn > $outfile");
+    }
+
+    while (@{$jobs->{JOBS}})
+    {
+	$jobs->pumpJobs ();
+	sleep (0.05);
     }
 
     return $files;
