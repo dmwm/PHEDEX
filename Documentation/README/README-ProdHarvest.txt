@@ -89,18 +89,14 @@ No publication into a local PhEDEx catalogue is needed. The LCG global
 catalogue acts as PhEDEx catalogue for the virtual LCG node. The Export 
 agent uses it to convert GUIDs into TURLs. 
 
-Some LCG sites hosting data produced in LCG run a real PhEDEx node, eg. PIC. 
-It might be for those sites that the LCG storage is the same as the storage 
-managed by PhEDEx so that part of the data managed by the PhEDEx LCG virtual 
-node is already local to the real PhEDEx node. 
-In this case, when injecting data into the virtual node, the corresponding
-replicas for the data local to the real node should also be created in TMDB.
-For this purpose, DropSmryLCG makes use of a file (option -nodesmap) which
-maps real PhEDEx nodes to LCG storage accessible to PhEDEx at that node.
-See Custom/LCGProduction/NodesFile. The first column is the real node name 
-and the second is a regular expression to match a PFN to be considered local
-to the PhEDEx real node. When injecting a file in TMDB for the virtual PhEDEx
-node, if the regular expresion matches the PFN of the file being injected, the
-corresponding replica will be created for the matching real PhEDEx node. 
+Data produced in LCG and injected into the LCG virtual node migh be locally
+accessible by a real PhEDEx node. However, those data are not known to PhEDEx 
+as available at the real PhEDEx node since the corresponding replicas in TMDB 
+do not exist and the file POOL attributes are not published in the local 
+catalogue of the real PhEDEx node. When transferring those data from the LCG 
+node to the real node, the copy of the files already available at the real node
+can be bypassed by using the -bypass option in the Download agent. 
+See README-Transfer.txt for details. 
+
  
   
