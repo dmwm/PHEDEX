@@ -190,6 +190,7 @@ sub getStagerFiles
 			    }
 		    	    close (STAGEQ); unlink ($outfile); },
 		      {}, "sh", "-c", "stager_qry -M $pfn > $outfile");
+	$jobs->pumpJobs();
     }
 
     while (@{$jobs->{JOBS}})
