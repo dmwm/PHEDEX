@@ -81,6 +81,7 @@ sub new
 	  	  AGENTID => "Stager",		# Identity for activity logs
     	    	  MAXFILES => 50,		# Max number of files in one request
 		  PFN_CACHE => {},		# GUID -> PFN cache
+		  STAGE_CACHE => {},		# Stager query cache
 		  DB_CACHE => {});		# Cache of DB state
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
@@ -172,20 +173,47 @@ sub getStagerFiles
     my ($self, $files) = @_;
     return undef if ! $files;
 
+    # Purge old working files and cache entries
     my $tmpdir = $self->{WORKDIR};
     unlink (<$tmpdir/qry.*>);
+
+    my $now = time();
+    my $cache = $self->{STAGE_CACHE};
+    foreach my $pfn (keys %$cache)
+    {
+	delete $cache->{$pfn} if $cache->{$pfn}{TIME} < $now - 4*3600;
+    }
 
     my $jobs = new UtilsJobManager (NJOBS => 30);
     foreach my $file (values %$files)
     {
+	# Check we know about this file
 	my $pfn = $file->{PFN};
 	next if ! $pfn;
 
+        # Check for cached stager status.  If the cache has a record
+	# newer than an hour of the file having been staged, or not
+	# staged and the file is not wanted, trust the cache. If the
+	# file is wanted and the cache records negative or no record,
+	# or if the cache record is too old, query again.
+	my $c = $cache->{$pfn};
+	if ($c
+	    && $c->{TIME} >= $now-3600
+	    && (($c->{STATUS} || '') eq 'STAGED'
+      	        || (exists $c->{STATUS}
+		    && ($file->{STATE} != 1 || $file->{TIME} < $now-15*60))))
+        {
+	    $file->{STATUS} = $c->{STATUS};
+	    next;
+        }
+
 	my $outfile = "$tmpdir/qry.$file->{GUID}";
+	$cache->{$pfn} = { TIME => time(), STATUS => undef };
 	$jobs->addJob(sub { my ($job) = @_; return if $job->{STATUS};
 			    return if ! open (STAGEQ, "< $outfile");
 		            while (<STAGEQ>) {
 	    		       chomp; next if ! /^\d+\@\S+\s+([A-Z_]+)$/;
+			       $cache->{$pfn} = { TIME => time(), STATUS => $1 };
 	    		       $file->{STATUS} = $1;
 			    }
 		    	    close (STAGEQ); unlink ($outfile); },
