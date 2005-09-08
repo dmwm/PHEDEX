@@ -175,7 +175,7 @@ sub getStagerFiles
     my $tmpdir = $self->{WORKDIR};
     unlink (<$tmpdir/qry.*>);
 
-    my $jobs = new UtilsJobManager (NJOBS => 10);
+    my $jobs = new UtilsJobManager (NJOBS => 30);
     foreach my $file (values %$files)
     {
 	my $pfn = $file->{PFN};
@@ -189,7 +189,7 @@ sub getStagerFiles
 	    		       $file->{STATUS} = $1;
 			    }
 		    	    close (STAGEQ); unlink ($outfile); },
-		      {}, "sh", "-c", "stager_qry -M $pfn > $outfile");
+		      {}, "sh", "-c", "exec stager_qry -M $pfn > $outfile");
 	$jobs->pumpJobs();
     }
 
