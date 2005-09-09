@@ -74,12 +74,19 @@ $home/Schema/OracleNewRole.sh "$ora_master" "$role_name" "$role_passwd"
 $home/Schema/OraclePrivs.sh "$ora_master" \
   "$(echo $ora_reader | sed 's|/.*||')" \
   "$(echo $ora_writer | sed 's|/.*||')"
-(echo "AuthDBPassword     $(echo $ora_writer | sed 's|.*/||; s|@.*||')"
+(echo "Section            $section/$sitename_uc"
+ echo "Interface          Oracle"
+ echo "Database           $(echo $ora_writer | sed 's|.*@||')"
+ echo "AuthDBUsername     $(echo $ora_writer | sed 's|/.*||')"
+ echo "AuthDBPassword     $(echo $ora_writer | sed 's|.*/||; s|@.*||')"
  echo "AuthRole           $role_name_lc"
- echo "AuthRolePassword   $role_passwd") \
-  > $keydir/Details/$role_name_lc
+ echo "AuthRolePassword   $role_passwd"
+ echo "ConnectionLife     86400"
+ echo "LogConnection      on"
+ echo "LogSQL             off") \
+  > Details/$role_name_lc
 
-mkdir -p $keydir/Output
+mkdir -p Output
 (echo "Subject: PhEDEx authentication role for $section/$sitename_uc";
  echo "To: $role_email";
  echo "Cc: lassi.tuura@cern.ch, tim.barrass@physics.org";
@@ -100,11 +107,11 @@ mkdir -p $keydir/Output
  echo "in ~/.globus/userkey.pem."
  echo; echo "====";
  echo "cat << "\\"END_OF_DATA | openssl smime -decrypt -in /dev/stdin -recip ~/.globus/usercert.pem -inkey ~/.globus/userkey.pem"
- openssl smime -encrypt -in $keydir/Details/$role_name_lc $keydir/$usercert
+ openssl smime -encrypt -in Details/$role_name_lc $keydir/$usercert
  echo "END_OF_DATA";
  echo "====";
  echo;
  echo "Yours truly,";
  echo "  PhEDEx administrators";
  echo "  (cms-phedex-developers@cern.ch)") \
-  > "$keydir/Output/${role_name_lc}:${role_email}"
+  > "Output/${role_name_lc}:${role_email}"
