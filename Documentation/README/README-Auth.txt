@@ -4,44 +4,44 @@
 
 This document describes the authentication model used with the V2.2
 and later PhEDEx databases.  The overview is as follows:
-  - All passwords will be changed
-  - The cms_transfermgmt account will become admin only
-  - The cms_transfermgmt_reader should be used for read-only access
+  - Every site will have unique passwords
+  - The cms_transfermgmt account is only for admins
+  - The cms_transfermgmt_reader is for read-only access only
   - The cms_transfermgmt_writer account is used for all updates,
     including agents running at the sites.
 
-As an added twist, the *_writer account actually has no write access
-to the database as such, only read access.  To gain write access, you
-need to acquire a "role" that gives you write permissions to certain
-tables (not all of them).  Each site will be given a different role,
-and a unique password to go with it.  You will need to keep that
-password secret, including not commit it into CVS, or otherwise
-inadvertently make it public.  If you lose your password or
-accidentally make it public, we can re-create your role without
-disturbing the other ones.
+The *_writer account has no write access to the database as such.  To
+gain write access, you need to acquire a "role" that gives you write
+permissions to some of the tables.  Each site has a role in each of
+the databases we use, and a unique password to go with it.
+
+The sites need to keep the passwords secret: do not commit files with
+the passwords into CVS, make available on the web, and so on.  If you
+lose your password or accidentally make it public, please let the
+admins know, and your role will be regenerated.  This will not affect
+other sites.
 
 A typical session would look like this:
-  $ sqlplus cms_transfermgmt_writer/some_password@cmssg
-  SQL> set role site_cern identified by another_password;
+  $ sqlplus `Schema/OracleConnectId -db DBParam:Dev/CERN`
+  SQL> set role site_cern identified by secret_password;
   SQL> -- you can make changes now
 
-The agents will obviously support this automatically.  All agents in
-V2.2 will take a single database-related option "-db", which is a of
-the form FILE:SECTION.  The FILE is a name of the file with database
-connection parameters, and SECTION will pick out a part of it (see
-below).  We will provide you a skeleton file which has all the
-necessary parameters except the real passwords.  The files look like
-this:
+The agents support this notion; the information is stored in a database
+parameter file, typically kept in Schema/DBParam.  The agents are given
+option "-db FILE:SECTION", where FILE is a name of the file with the
+database access details, and SECTION picks a specific part of it; see
+below for an example.  The actual section is sent to you when you apply
+for an authentication role as described below.
    Section                 Production
    Interface               Oracle
-   Database                cmssg
+   Database                cms
    AuthDBUsername          cms_transfermgmt_writer
    AuthDBPassword          FILL_ME_IN
    AuthRole                site_cern
    AuthRolePassword        FILL_ME_IN
    ConnectionLife          86400
-   LogSQL                  off
    LogConnection           on
+   LogSQL                  off
 
 
 ** User's process for registering for a role
@@ -49,64 +49,62 @@ this:
 Send the following information to the developer list
 (cms-phedex-developers@cern.ch):
 
-   - Site name (the name of your directory under "Custom", or the name
-     used after Tn_ in agents, e.g. "CERN") 
-   - The e-mail address of the contact person for the site 
-   - The DN for that person's grid certificate 
-   - The public key portion of your grid certificate:
-     this is most likely stored as usercert.pem in your .globus
-     directory
+   - Site name: the name of your directory under "Custom", and the
+     name used in node names after T<N>_, e.g. "CERN".
+   - The e-mail address of the contact person for the site.
+   - The DN for that person's grid certificate.
+   - The public key portion of the grid certificate:  this is
+     most likely ~/.globus/usercert.pem.  Send us the whole file.
 
 Download a copy of PHEDEX/Schema/DBParam.Site to your site, and copy
-it *OUT OF THE CVS TREE!* Only modify the copy of DBParam- we would
-like to ensure that no passwords get committed into CVS. As this file
-contains plaintext password information, it should be treated with
-similar care to your grid certificate files.
+it *OUT OF THE CVS TREE!* Only modify the copy of DBParam, we would
+like to ensure that no passwords get committed into CVS.  As this
+file contains plaintext password information, it should be treated
+with similar care to your grid certificate files.
 
 Wait to receive an encrypted file that contains the information you
-need to access the TMDB. To decrypt the file you'll need to use
-openssl with your public key (usercert.pem) and private key
-(userkey.pem) files.
+need to access the TMDB.  To decrypt the file you'll need to use
+openssl with your public key "usercert.pem" and private key
+"userkey.pem" files.
 
    openssl smime -decrypt			 \
 	   -in <the encrypted file you received> \
-	   -recip <your public key file>	 \
-	   -inkey <your private key file>    
+	   -recip ~/.globus/usercert.pem         \
+	   -inkey ~/.globus/userkey.pem
 
-It will ask you for your password- your usual grid password- and then
-write the decrypted file to stdout. This file will give you the passwords
-you need to insert into your copied DBParam file.
+It will ask you for your password, which your usual grid password that
+protects access to your certificate, and then writes the decrypted info
+to the standard output.  Copy and paste the output into your copied
+DBParam file.
 
-You'll need to pass the location of this copied DBParam file to your
-agents so that they can access the TMDB.
+Finally, pass the location of this copied DBParam file to your agents.
+They should now be able to access the TMDB.
 
 
 ** Admin's process for registering a role
 
-Receive an email containing the information in 1. above.
-Then, on lxgate10, to enter the new role into database.
-The instructions below account for doing this for all
-database instances:
+Receive an e-mail containing the information in step 1 above.  Login
+as "phedex" to "cmsgate.cern.ch", and enter the role into each
+database instance.  The following instructions will register the
+role for all three databases.
 
-   cd /data/V2Nodes/PHEDEX
-   source ../tools/oraenv.sh
-   source ../tools/perlenv.sh
+   cd ~/private/roles/V2
+   source /data/V2Nodes/tools/oraenv.sh
+   source /data/V2Nodes/tools/perlenv.sh
    cp $USERCERT ../Keys/$EMAIL
    Schema/OracleInitRole.sh Schema/DBParam Production ../Keys "$EMAIL" $SITE
-   /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < ../Keys/Output/site_${SITE}:*
+   /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < Output/site_${SITE}:*
 
-   cd /data/DevNodes/Keys
-   cp $USERCERT ../Keys/$EMAIL
+   cd ~/private/roles/Dev
    Schema/OracleInitRole.sh Schema/DBParam Dev ../Keys "$EMAIL" $SITE
-   /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < ../Keys/Output/site_${SITE}:*
+   /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < Output/site_${SITE}:*
 
-   cd /data/SC3Nodes/Keys
-   cp $USERCERT ../Keys/$EMAIL
+   cd ~/private/roles/SC3
    Schema/OracleInitRole.sh Schema/DBParam SC3 ../Keys "$EMAIL" $SITE
-   /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < ../Keys/Output/site_${SITE}:*
+   /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < Output/site_${SITE}:*
 
 A rough example of the above commands:
 
-   scp lat@lxplus:~/.globus/usercert.pem /data/V2Nodes/Keys/lassi.tuura@cern.ch
+   scp lat@lxplus:~/.globus/usercert.pem ~/private/roles/Keys/lassi.tuura@cern.ch
    Schema/OracleInitRole.sh Schema/DBParam SC3 ../Keys "lassi.tuura@cern.ch" cern
-   /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < ../Keys/Output/site_cern:*
+   /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < Output/site_cern:*
