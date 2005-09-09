@@ -184,7 +184,7 @@ sub getStagerFiles
 	delete $cache->{$pfn} if $cache->{$pfn}{TIME} < $now - 4*3600;
     }
 
-    my $jobs = new UtilsJobManager (NJOBS => 30);
+    my $jobs = new UtilsJobManager (NJOBS => 5);
     foreach my $file (values %$files)
     {
 	# Check we know about this file
