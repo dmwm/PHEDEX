@@ -106,12 +106,12 @@ sub getDestinationPaths
     else
     {
 	# First time around, start jobs for all files
-	foreach $file (@$batch)
+	foreach my $file (@$batch)
 	{
 	    do { $file->{DONE_TO_PFN} = 1; next } if $file->{FAILURE};
 
 	    $self->startFileTiming ($file, "pfndest");
-	    $outfile = "$master->{DROPDIR}/$file->{GUID}.topfn";
+	    my $outfile = "$master->{DROPDIR}/$file->{GUID}.topfn";
 	    my $args = join(" ",
 		    	    "guid='$file->{GUID}'",
 			    "pfn='$file->{FROM_PFN}'",
@@ -169,13 +169,13 @@ sub getBypassPaths
     else
     {
 	# First time around, start jobs for all files
-	foreach $file (@$batch)
+	foreach my $file (@$batch)
 	{
 	    do { $file->{DONE_BYPASS} = 1; next }
 	        if $file->{FAILURE} || ! $self->{BYPASS_COMMAND};
 
 	    $self->startFileTiming ($file, "bypass");
-	    $outfile = "$master->{DROPDIR}/$file->{GUID}.bypass";
+	    my $outfile = "$master->{DROPDIR}/$file->{GUID}.bypass";
 	    my $args = "$file->{FROM_PFN} $file->{TO_PFN}";
 	    $master->addJob (
 		sub { $self->getBypassPaths ($master, $batch, $file, $outfile, @_) },
