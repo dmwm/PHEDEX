@@ -41,9 +41,6 @@ if [ -z "$catalogue" -o -z "$zippfn" ]; then
   exit 1
 fi
 
-# If it doesn't look like a zip archive, ignore it
-case "$zippfn" in */ZippedEVD.* ) ;; * ) exit 0 ;; esac
-
 # OK, we need it; if COBRA environment fixed on command line, evaluate it,
 # otherwise just assume it's already all been set in our environment.
 if [ ! -z "$cobra" ]; then 
