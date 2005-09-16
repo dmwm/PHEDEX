@@ -233,6 +233,24 @@ Normally you would have a special "upload" agent for transfers from
 your MSS node to the disk buffer (or pseudo-buffer) node, so you
 would say "-ignore ${PHEDEX_NODE}_MSS" on your buffer downloader.
 
+*** Bypassing downloads
+
+You can use the -bypass <script> to bypass the copy of a file. This is 
+useful when the file to be transferred is already available at the site
+but not yet known to PhEDEx. With this option the actual
+copy of the file is skipped but the file is published into the catalogue
+and the corresponding replica entry is created in TMDB. 
+
+Immediately after FileDownloadDest has been invoked, the agent runs the 
+script specified with the -bypass option with from-pfn and to-pfn as 
+arguments. If the script prints anything, the agent considers the file 
+downloaded and uses the output as the new to-pfn (local destination).
+Normally one would print either from-pfn or nothing, but any local PFN
+can be returned. Note that the bypass script output overrides the default 
+file destination from FileDownloadDest and that the post-transfer 
+validation will still run.
+
+
 **********************************************************************
 ** Optimising transfer performance
 
