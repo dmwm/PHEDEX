@@ -313,7 +313,7 @@ sub idle
 	        ":node" => $self->{MYNODE}, ":now" => $now);
 	}
 
-	my %outdated = map { $_ => 1 } keys %{$dbcache->{FILES}};
+	my %oldcache = %{$dbcache->{FILES}};
 	my $stmt = $dbh->prepare(qq{
 	    update t_replica_state
 	    set state = :state, state_timestamp = :now
@@ -321,23 +321,16 @@ sub idle
 	foreach my $f (values %$files)
 	{
 	    next if ! defined $f->{GUID};
-	    my $isstaged = $f->{STATUS} eq 'STAGED';
-	    if ($isstaged && ! $dbcache->{FILES}{$f->{GUID}})
-	    {
-		delete $outdated{$f->{GUID}};
-		$dbcache->{FILES}{$f->{GUID}} = 1;
-		&dbbindexec ($stmt, ":now" => $now, ":node" => $self->{MYNODE},
-			     ":guid" => $f->{GUID}, ":state" => 1);
-	    }
-	    elsif (! $isstaged && $dbcache->{FILES}{$f->{GUID}})
-	    {
-		delete $outdated{$f->{GUID}};
-		delete $dbcache->{FILES}{$f->{GUID}};
-		&dbbindexec ($stmt, ":now" => $now, ":node" => $self->{MYNODE},
-			     ":guid" => $f->{GUID}, ":state" => 0);
-	    }
+	    my $isstaged = $f->{STATUS} eq 'STAGED' ? 1 : 0;
+	    my $oldstaged = $dbcache->{FILES}{$f->{GUID}} ? 1 : 0;
+	    $dbcache->{FILES}{$f->{GUID}} = $isstaged;
+	    delete $oldcache{$f->{GUID}};
+	    next if $isstaged == $oldstaged;
+
+	    &dbbindexec ($stmt, ":now" => $now, ":node" => $self->{MYNODE},
+			 ":guid" => $f->{GUID}, ":state" => $isstaged);
 	}
-	foreach my $guid (keys %outdated)
+	foreach my $guid (keys %oldcache)
 	{
 	    delete $dbcache->{FILES}{$guid};
 	    &dbbindexec ($stmt, ":now" => $now, ":node" => $self->{MYNODE},
