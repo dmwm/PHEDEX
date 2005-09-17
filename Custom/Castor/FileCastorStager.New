@@ -176,8 +176,9 @@ sub getStagerFiles
 
     # First look up file inodes since stager_qry is arcane enough
     # to not actually to print out the names of the files we query.
-    my %i2pfn = ();
     my %pfn2f = map { $_->{PFN} => $_ } values %$files;
+    my %i2pfn = map { $self->{NSLS_CACHE}{$_}{VALUE} => $_ }
+                keys %{$self->{NSLS_CACHE}};
     foreach my $file (values %$files)
     {
 	# Check we know about this file
