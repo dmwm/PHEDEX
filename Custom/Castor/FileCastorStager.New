@@ -93,12 +93,13 @@ sub new
 # Purge old entries from our caches.
 sub purgeCache
 {
-    my ($cache) = @_;
+    my ($cache, $lifetime) = @_;
+    $lifetime ||= 86400;
 
     # Remove old positive matches after a day to avoid building up
     # a cache over a time.  Remove negative matches after an hour.
     my $now = time ();
-    my $oldmatch = $now - 86400;
+    my $oldmatch = $now - $lifetime;
     my $oldnomatch = $now - 3600;
 
     # Remove entries that are too old
@@ -194,6 +195,7 @@ sub getStagerFiles
 	    or do { &alert ("nsls: cannot execute: $!"); return undef };
 	while (<NSLS>)
 	{
+	    chomp;
 	    next if ! /^\s+(\d+)\s(\S+)$/;
 	    my $fname = "$dir/$2";
 	    $i2pfn{$1} = $fname;
@@ -203,13 +205,11 @@ sub getStagerFiles
 	close (NSLS);
     }
 
-    # Now check which files don't have a cached stager status.  Note
-    # the cached stager status check.  If there is no cached status,
-    # or it's too old, or if the file is wanted and the file wasn't
-    # staged the last we checked, query again.  Otherwise trust the
-    # cache, including if the file isn't wanted and wasn't staged
-    # when we last checked it: hence, we check unwanted files at
-    # most once an hour, we do check them.
+    # Now check which files don't have a cached stager status.  If
+    # we have not cached nay status, or if the file is wanted and
+    # the file wasn't staged the last we checked, query.  Otherwise
+    # trust the cache.  This implies we'll check on unwanted files
+    # only about once an hour.
     my @todo = ();
     my $now = time();
     foreach my $file (values %$files)
@@ -219,7 +219,6 @@ sub getStagerFiles
 	my $c = $self->{STAGE_CACHE}{$pfn};
 	do { push (@todo, $file); next }
 	    if (! $c
-		|| $c->{TIME} < $now-3600
 		|| (($c->{VALUE} || '') ne 'STAGED'
 		    && $file->{STATE} == 1
 		    && $file->{TIME} >= $now-15*60));
@@ -227,19 +226,27 @@ sub getStagerFiles
 	$file->{STATUS} = $c->{VALUE};
     }
 
-    # Finally, look up stager status for the files
+    # Finally, look up stager status for the files.  First mark the
+    # pending files as negative match in the cache, then a bunch of
+    # files at a time invoke stager_qry.  For the files this returns
+    # status for, update the file status and the cache.
+    map { $self->{STAGE_CACHE}{$_->{PFN}} = {TIME=>$now, VALUE=>undef} } @todo;
     while (@todo)
     {
 	my @slice = splice(@todo, 0, $self->{MAXFILES});
-	my $args = join(" ", map { "-M $_->{PFN}" } @slice);
-	open (QRY, "stager_qry $args |")
+	my @args = map { "-M $_->{PFN}" } @slice;
+	open (QRY, "stager_qry @args |")
 	    or do { &alert ("stager_qry: cannot execute: $!"); return undef };
         while (<QRY>)
 	{
+	    chomp;
 	    next if ! /^(\d+)\@\S+\s+(\S+)$/;
-	    next if ! exists $i2pfn{$1};
-	    next if ! exists $pfn2f{$i2pfn{$1}};
+	    do { &alert ("stager_qry output unrecognised inode $1"); next }
+	        if ! exists $i2pfn{$1};
+	    do { &alert ("stager_qry output unrecognised file $i2pfn{$1}"); next }
+	        if ! exists $pfn2f{$i2pfn{$1}};
 	    $pfn2f{$i2pfn{$1}}{STATUS} = $2;
+	    $self->{STAGE_CACHE}{$i2pfn{$1}} = { TIME => time(), VALUE => $2 };
 	}
 	close (QRY);
     }
@@ -280,7 +287,7 @@ sub idle
 	my %timing = (START => &mytimeofday());
 	&purgeCache ($self->{PFN_CACHE});
 	&purgeCache ($self->{NSLS_CACHE});
-	&purgeCache ($self->{STAGE_CACHE});
+	&purgeCache ($self->{STAGE_CACHE}, 3600);
 	$timing{PURGE} = &mytimeofday();
 
 	# Get pending and stager files
