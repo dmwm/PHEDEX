@@ -82,7 +82,7 @@ sub new
     	    	  MAXFILES => 50,		# Max number of files in one request
 		  PFN_CACHE => {},		# GUID -> PFN cache
 		  NSLS_CACHE => {},		# File inode query cache
-		  STAGE_CACHE => {},		# Stager query cache
+		  STAGE_CACHE => {},		# Stage status cache
 		  DB_CACHE => {});		# Cache of DB state
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
@@ -104,9 +104,10 @@ sub purgeCache
     # Remove entries that are too old
     foreach my $item (keys %$cache)
     {
-	my ($time, @rest) = ($cache->{$item} =~ /^(\d+):(.*)/);
 	delete $cache->{$item}
-	   if ((! @rest && $time < $oldnomatch) || $time < $oldmatch);
+	   if ($cache->{$item}{TIME} < $oldmatch
+	       || (! $cache->{$item}{VALUE}
+		   && $cache->{$item}{TIME} < $oldnomatch));
     }
 }
 
@@ -123,11 +124,13 @@ sub getNodeFiles
     # file was in that state.
     my $stmt = &dbexec($dbh, qq{
 	   select guid, to_state, to_timestamp
-	   from t_transfer_state
-	   where from_node = :node and to_state <= 1},
+	   from t_transfer_state where from_node = :node},
 	   ":node" => $self->{MYNODE});
     while (my ($guid, $state, $time) = $stmt->fetchrow())
     {
+	# Remap states: 1, 2 => wanted (1), others => unwanted (0)
+	$state = ($state == 1 || $state == 2) ? 1 : 0;
+
 	$files{$guid} = { GUID => $guid, STATE => $state, TIME => $time }
 	    if ((exists $files{$guid}
 		 && $files{$guid}{STATE} <= $state)
@@ -140,11 +143,8 @@ sub getNodeFiles
     # Now, collect PFNs for cached files.
     foreach my $guid (keys %files)
     {
-	my $cache = $self->{PFN_CACHE}{$guid};
-	if ($cache && $cache =~ /^\d+:(.*)/)
-	{
-	    $files{$guid}{PFN} = $1;
-	}
+	$files{$guid}{PFN} = $self->{PFN_CACHE}{$guid}{VALUE}
+	    if exists $self->{PFN_CACHE}{$guid};
     }
 
     # Finally PFNs for files not in cache.  We do this in single
@@ -156,7 +156,7 @@ sub getNodeFiles
         foreach my $guid (@guids)
         {
 	    my $pfn = $pfns->{$guid};
-	    $self->{PFN_CACHE}{$guid} = "$now:@{[$pfn || '']}";
+	    $self->{PFN_CACHE}{$guid} = { TIME => $now, VALUE => $pfn }; 
 	    $files{$guid}{PFN} = $pfn;
         }
     }
@@ -184,6 +184,8 @@ sub getStagerFiles
 	my $pfn = $file->{PFN};
 	next if ! $pfn;
 	next if defined $file->{INODE};
+	do { $file->{INODE} = $self->{NSLS_CACHE}{$pfn}{VALUE}; next }
+	    if exists $self->{NSLS_CACHE}{$pfn};
 
 	# Look up whole directory at once
 	my ($dir, $lfn) = ($pfn =~ m|(.*)/([^/]+)$|);
@@ -195,12 +197,36 @@ sub getStagerFiles
 	    my $fname = "$dir/$2";
 	    $i2pfn{$1} = $fname;
 	    $pfn2f{$fname}{INODE} = $1 if exists $pfn2f{$fname};
+	    $self->{NSLS_CACHE}{$fname} = { TIME => time(), VALUE => $1 };
 	}
 	close (NSLS);
     }
 
-    # Now look up stager status
-    my @todo = values %$files;
+    # Now check which files don't have a cached stager status.  Note
+    # the cached stager status check.  If there is no cached status,
+    # or it's too old, or if the file is wanted and the file wasn't
+    # staged the last we checked, query again.  Otherwise trust the
+    # cache, including if the file isn't wanted and wasn't staged
+    # when we last checked it: hence, we check unwanted files at
+    # most once an hour, we do check them.
+    my @todo = ();
+    my $now = time();
+    foreach my $file (values %$files)
+    {
+	my $pfn = $file->{PFN};
+	next if ! $pfn;
+	my $c = $self->{STAGE_CACHE}{$pfn};
+	do { push (@todo, $file); next }
+	    if (! $c
+		|| $c->{TIME} < $now-3600
+		|| (($c->{VALUE} || '') ne 'STAGED'
+		    && $file->{STATE} == 1
+		    && $file->{TIME} >= $now-15*60));
+
+	$file->{STATUS} = $c->{VALUE};
+    }
+
+    # Finally, look up stager status for the files
     while (@todo)
     {
 	my @slice = splice(@todo, 0, 100);
@@ -252,6 +278,8 @@ sub idle
 	# Clean up caches
 	my %timing = (START => &mytimeofday());
 	&purgeCache ($self->{PFN_CACHE});
+	&purgeCache ($self->{NSLS_CACHE});
+	&purgeCache ($self->{STAGE_CACHE});
 	$timing{PURGE} = &mytimeofday();
 
 	# Get pending and stager files
@@ -262,6 +290,8 @@ sub idle
 
 	# Update file status.  First mark everything not staged in,
 	# then as staged-in the files currently in stager catalogue.
+	# However, remember the status of the files we have updated
+	# in the database in the last 4 hours, and only mark a delta.
 	my $now = time();
 	my $dbcache = $self->{DB_CACHE};
 	if (($dbcache->{VALIDITY} || 0) < $now)
