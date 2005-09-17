@@ -79,7 +79,7 @@ sub new
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  PFN_QUERY => undef,		# Program to query PFNs
 	  	  AGENTID => "Stager",		# Identity for activity logs
-    	    	  MAXFILES => 50,		# Max number of files in one request
+    	    	  MAXFILES => 100,		# Max number of files in one request
 		  PFN_CACHE => {},		# GUID -> PFN cache
 		  NSLS_CACHE => {},		# File inode query cache
 		  STAGE_CACHE => {},		# Stage status cache
@@ -230,7 +230,7 @@ sub getStagerFiles
     # Finally, look up stager status for the files
     while (@todo)
     {
-	my @slice = splice(@todo, 0, 100);
+	my @slice = splice(@todo, 0, $self->{MAXFILES});
 	my $args = join(" ", map { "-M $_->{PFN}" } @slice);
 	open (QRY, "stager_qry $args |")
 	    or do { &alert ("stager_qry: cannot execute: $!"); return undef };
