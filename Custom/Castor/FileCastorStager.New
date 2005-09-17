@@ -236,7 +236,7 @@ sub getStagerFiles
 	    or do { &alert ("stager_qry: cannot execute: $!"); return undef };
         while (<QRY>)
 	{
-	    next if ! /^(\d+)\@(\S+)\s+(\S+)$/;
+	    next if ! /^(\d+)\@\S+\s+(\S+)$/;
 	    next if ! exists $i2pfn{$1};
 	    next if ! exists $pfn2f{$i2pfn{$1}};
 	    $pfn2f{$i2pfn{$1}}{STATUS} = $2;
