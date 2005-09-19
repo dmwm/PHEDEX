@@ -835,12 +835,9 @@ sub rates {
           VSPACE=10 WIDTH=600 HEIGHT=135 ALIGN=TOP
           SRC='http://pcstats.cern.ch/misc/cern-all-day.png' ALT='day'></a></p>\n";
     }
-    else
-    {
-        print "<a href='http://pcstats.cern.ch/misc/openlab.html'><IMG
-          VSPACE=10 WIDTH=600 HEIGHT=135 ALIGN=TOP
-          SRC='http://pcstats.cern.ch/misc/openlab-day.png' ALT='day'></a></p>\n";
-    }
+    print "<a href='http://pcstats.cern.ch/misc/openlab.html'><IMG
+      VSPACE=10 WIDTH=600 HEIGHT=135 ALIGN=TOP
+      SRC='http://pcstats.cern.ch/misc/openlab-day.png' ALT='day'></a></p>\n";
     print "<p><table class='striped'><tbody>\n";
     foreach my $span (sort { ($a || 9999999) <=> ($b || 9999999) } keys %stats)
     {
