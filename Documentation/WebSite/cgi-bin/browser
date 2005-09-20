@@ -84,7 +84,7 @@ sub runme
 		    [ 'qplot',		\&qplot,	"Transfer Quality Plots" ],
 		    [ 'agents',		\&agents,	"Agent Status" ],
 		    [ 'dbreports',	\&dbreports,	"Daily Reports" ],
-		    [ 'dbreport',	\&dbreport,	undef ]);
+		    [ 'dbreport',	\&dbreport,	"Daily Report" ]);
     my %pagemap = map { $pageinfo[$_][0] => $_ } 0 .. $#pageinfo;
     my $pagename = param('page');
     my $page = ($pagename && exists $pagemap{$pagename} ? $pagemap{$pagename} : 0);
@@ -1212,7 +1212,7 @@ __END__
   <link rel="shortcut icon" href="../favicon.ico" />
   <script type="text/javascript" src="../stripe.js"></script>
 
-  <title>PhEDEx @DBID@ Status</title>
+  <title>PhEDEx @DBID@ Status: @PAGETITLE@</title>
 </head>
 
 <body onload='stripe("#fff", "#edf3fe")'>
