@@ -27,7 +27,7 @@
 ##H -wait      time to wait in seconds between work scans
 
 BEGIN {
-  use strict; use warnings;
+  use strict; use warnings; $^W=1;
   our $me = $0; $me =~ s|.*/||;
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);
@@ -68,8 +68,6 @@ use File::Path;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
-use UtilsReaders;
-use UtilsDB;
 
 sub new
 {
@@ -82,99 +80,6 @@ sub new
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
-}
-
-# Update TMDB for each file mentioned.
-sub updateTransferDatabase
-{
-    my ($self, $drop, $nodes, $attrs) = @_;
-
-    my $dbh;
-    eval
-    {
-        # Update database
-	$dbh = &connectToDatabase ($self, 0) or die "failed to connect";
-
-        my $now = &mytimeofday ();
-	my $fstmt = &dbprep ($dbh, qq{
-	    insert into t_file
-	    (timestamp, guid, node, inblock, insubblock,
-	     lfn, filetype, filesize, checksum)
-	    values (:now, :guid, :node, :inblock, :insubblock,
-	     :lfn, :filetype, :filesize, :checksum)});
-    	my $rstmt = &dbprep ($dbh, qq{
-	    insert into t_replica_state (timestamp, guid, node, state, state_timestamp)
-	    values (:now, :guid, :node, 0, :now)});
-    	my $mstmt = &dbprep ($dbh, qq{
-	    insert into t_file_attributes (guid, attribute, value)
-	    values (:guid, :attr, :value)});
-    	my $bqstmt = &dbprep ($dbh, qq{
-	    select count(*) from t_block where name = :block});
-    	my $bistmt = &dbprep ($dbh, qq{
-	    insert into t_block (name, owner, dataset, files, bytes)
-	    values (:name, :owner, :dataset, -1, -1)});
-
-        foreach my $f (@$attrs)
-	{
-	    # Check the file block is known, otherwise create an open one
-	    my $block = "$f->{META}{owner}/$f->{META}{dataset}";
-	    &dbbindexec ($bqstmt, ":block" => $block);
-	    my ($found) = $bqstmt->fetchrow();
-	    $bqstmt->finish();
-
-	    &dbbindexec ($bistmt,
-			 ":name" => $block,
-			 ":owner" => $f->{META}{owner},
-			 ":dataset" => $f->{META}{dataset})
-		if ! $found;
-
-	    # Insert file information
-	    &dbbindexec ($fstmt,
-		         ":now" => $now,
-			 ":guid" => $f->{GUID},
-		         ":node" => $self->{MYNODE},
-			 ":inblock" => "$f->{META}{owner}/$f->{META}{dataset}",
-			 ":insubblock" => "$f->{META}{jobid}",
-			 ":lfn" => $f->{LFN}[0],
-			 ":filetype" => $f->{PFN}[0]{TYPE},
-			 ":filesize" => $f->{FILESIZE},
-		 	 ":checksum" => $f->{CHECKSUM});
-
-	    # Insert file attribute data
-            my %meta = (map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
-	    foreach my $m (sort keys %meta)
-	    {
-	        &dbbindexec ($mstmt,
-			     ":guid" => $f->{GUID},
-			     ":attr" => $m,
-			     ":value" => $meta{$m});
-	    }
-
-	    # Insert replica for all nodes
-	    foreach my $n (@$nodes)
-	    {
-	        &dbbindexec ($rstmt, 
-	    	             ":now" => $now,
-			     ":guid" => $f->{GUID},
-			     ":node" => $n);
-	    }
-	}
-
-	$dbh->commit () if $dbh;
-	&disconnectFromDatabase ($self, $dbh);
-    };
-
-    if ($@)
-    {
-	&alert("$drop: database failure: $@");
-	eval { $dbh->rollback() } if $dbh;
-	&disconnectFromDatabase ($self, $dbh);
-	$self->markBad ($drop);
-	return 1;
-    }
-
-    &touch("$self->{WORKDIR}/$drop/done");
-    return 0;
 }
 
 # Actually process the drop.
@@ -190,47 +95,33 @@ sub processDrop
     # Prepare attribute cache for this drop
     my $dropdir = "$self->{WORKDIR}/$drop";
 
-    # Read catalogue data and build attribute cache from it
+    # Locate XML catalogue and checksums, load node list
+    my @nodes = split(/\s+/, &input ("$dropdir/PhEDEx-Nodes.txt") || $self->{MYNODE});
     my $xmlcat = (<$dropdir/XMLCatFragment.*.{txt,xml}>)[0];
     do { &alert("$drop: no catalogue"); $self->markBad ($drop); return }
         if ! $xmlcat;
-    my $catalogue = eval { &readXMLCatalogue ($xmlcat) };
-    do { &alert ("$drop: $@"); $self->markBad ($drop); return } if $@;
 
-    # Merge checksum data into cache
     my $cksumfile = (<$dropdir/Checksum.*.txt>)[0];
     do { &alert ("no checksum file in $drop"); $self->markBad ($drop); return }
         if ! $cksumfile;
 
-    my @cksums = eval { &readChecksumData ($cksumfile) };
-    do { &alert ($@); $self->markBad ($drop); return } if $@;
+    # Run publish.  This is actually done by a helper program shared
+    # with other tools, so we don't repeat the code here.
+    my $toolhome = $0; $toolhome =~ s|/[^/]*$||;
+    my @cmd = ("$toolhome/Toolkit/Request/TMDBInject",
+               "-db", $self->{DBCONFIG},
+	       "-catalogue", $xmlcat,
+	       "-cksums", $cksumfile,
+	       "-nodes", join(",", @nodes));
 
-    my $bad = 0;
-    foreach my $file (@$catalogue)
+    if (my $rc = &runcmd (@cmd))
     {
-	my $lfn = $file->{LFN}[0];
-	my $cksum = (grep ($_->[2] eq $lfn, @cksums))[0];
-
-	if (! $cksum)
-	{
-	   &alert ("$drop: no checksum for $lfn");
-	   $bad = 1;
-	   next;
-        }
-
-	&warn ("$drop: zero-size file $lfn") if ! $cksum->[1];
-
-	$file->{CHECKSUM} = $cksum->[0];
-	$file->{FILESIZE} = $cksum->[1];
+	 &alert ("exit code @{[&runerror($rc)]} from @cmd");
+         $self->markBad ($drop);
+	 return;
     }
 
-    do { $self->markBad ($drop); return } if $bad;
-
-    # Get node list
-    my @nodes = split(/\s+/, &input ("$dropdir/PhEDEx-Nodes.txt") || $self->{MYNODE});
-
-    # Insert information to the database.
-    return if $self->updateTransferDatabase ($drop, \@nodes, $catalogue);
+    # Success, relay onwards
     $self->relayDrop ($drop);
     &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
 }
