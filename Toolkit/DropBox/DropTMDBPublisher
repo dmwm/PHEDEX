@@ -107,7 +107,7 @@ sub processDrop
 
     # Run publish.  This is actually done by a helper program shared
     # with other tools, so we don't repeat the code here.
-    my $toolhome = $0; $toolhome =~ s|/[^/]*$||;
+    my $toolhome = $0; $toolhome =~ s|/[^/]*$||; $toolhome .= "/../..";
     my @cmd = ("$toolhome/Toolkit/Request/TMDBInject",
                "-db", $self->{DBCONFIG},
 	       "-catalogue", $xmlcat,
