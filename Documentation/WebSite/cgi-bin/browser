@@ -1212,7 +1212,7 @@ __END__
   <link rel="shortcut icon" href="../favicon.ico" />
   <script type="text/javascript" src="../stripe.js"></script>
 
-  <title>PhEDEx @DBID@ Status: @PAGETITLE@</title>
+  <title>@DBID@ @PAGETITLE@: PhEDEx Status</title>
 </head>
 
 <body onload='stripe("#fff", "#edf3fe")'>
