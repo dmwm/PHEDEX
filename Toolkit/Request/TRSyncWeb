@@ -89,7 +89,7 @@ foreach my $request (@ARGV)
     }
     else
     {
-	($reqid) = &dbexec ($dbh, qq{select nextval from seq_request_id})
+	($reqid) = &dbexec ($dbh, qq{select seq_request_id.nextval from dual})
 	    ->fetchrow();
 	&dbexec ($dbh, qq{insert into t_request values (:reqid, :req)},
 	    ":reqid" => $reqid, ":req" => $request);
