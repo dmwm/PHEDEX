@@ -521,17 +521,20 @@ sub checknew
     }
     else
     {
+	my $now = time();
+	my $prefix = strftime('%Y-%m', gmtime($now));
 	my $mail = ""
-	    . "Subject: TRANSFER REQUEST via web form submission\n"
+	    . "Subject: TRANSFER REQUEST\n"
 	    . "To: lassi.tuura\@cern.ch\n"
 	    . "\n"
-	    . "# Transfer request submitted on the web form by $email\n"
-	    . "# @{[strftime('%Y-%m-%d %H:%M:%S', gmtime(time()))]}\n"
+	    . "# Requestor: $email\n"
+	    . "# Date: @{[strftime('%Y-%m-%d %H:%M:%S', gmtime($now))]}\n"
 	    . "\n"
-	    . "\$TRTOOLS/TRNew $reqname\n"
-	    . "\$TRTOOLS/TRNewLoc $reqname @dests\n"
-	    . "\$TRTOOLS/TRNewData -f $reqname "
-	    .   join (" ", map { "'$_'" } @data) . "\n"
+	    . "mkdir -p $prefix\n"
+	    . "\$TRTOOLS/TRNew $prefix/$reqname\n"
+	    . "\$TRTOOLS/TRNewLoc $prefix/$reqname \\\n  @dests\n"
+	    . "\$TRTOOLS/TRNewData -f $prefix/$reqname \\\n  "
+	    .   join (" \\\n  ", map { "'$_'" } @data) . "\n"
 	    . "\n"
 	    . "Yours truly,\n"
 	    . "  PhEDEx subscription web form\n";
@@ -563,11 +566,11 @@ sub checknew
 	      "  <td>Owner/datasets</td>\n",
 	      "  <td colspan='3'>", (map { &escapeHTML($_) . "<br />" } @data), "</td>\n",
 	      " </tr>\n",
+	      " <tr>\n",
+	      "  <td colspan='4'><pre>", &escapeHTML($mail), "</pre></td>\n",
+	      " </tr>\n",
 	      "</table>\n",
 	      "</p>\n";
-
-	 print "<p align='left'>The following mail has been sent.</p>";
-	 print "<pre>", &escapeHTML($mail), "</pre>\n";
     }
 }
 
