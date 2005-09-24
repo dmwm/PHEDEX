@@ -221,17 +221,20 @@ sub data
 	select
 	  r.name, s.block,
 	  min(s.dbs_files), min(s.dbs_bytes),
-	  min(s.tmdb_files), min(s.tmdb_bytes)
+	  min(s.tmdb_files), min(s.tmdb_bytes),
+	  min(s.common_files), min(s.dbs_only_files), min(s.tmdb_only_files)
 	from t_request r join t_request_status s on s.request = r.id
 	group by r.name, s.block});
     $rquery->execute();
     while (my ($req, $block,
 	       $dbs_files, $dbs_bytes,
-	       $tmdb_files, $tmdb_bytes) = $rquery->fetchrow())
+	       $tmdb_files, $tmdb_bytes,
+	       $common, $dbs_only, $tmdb_only) = $rquery->fetchrow())
     {
 	$status{$req}{$block} = {
 	    DBS_FILES => $dbs_files, DBS_BYTES => $dbs_bytes,
-	    TMDB_FILES => $tmdb_files, TMDB_BYTES => $tmdb_bytes
+	    TMDB_FILES => $tmdb_files, TMDB_BYTES => $tmdb_bytes,
+	    COMMON => $common, DBS_ONLY => $dbs_only, TMDB_ONLY => $tmdb_only
 	};
     }
 
@@ -239,19 +242,23 @@ sub data
           "<table class='striped'>\n",
           "<tbody>\n",
 	  "<tr class='selected'>\n",
-	  " <th colspan='6'>Transfer request status</th>",
+	  " <th colspan='9'>Transfer request status</th>",
 	  "</tr>\n",
 	  "<tr class='selected'>\n",
 	  " <th rowspan='2'>Request</th>\n",
 	  " <th rowspan='2'>Block</th>\n",
 	  " <th colspan='2'>DBS</th>\n",
 	  " <th colspan='2'>TMDB</th>\n",
+	  " <th colspan='3'>Difference</th>\n",
 	  "</tr>\n",
 	  "<tr class='selected'>\n",
 	  " <th>Files</th>\n",
 	  " <th>Size</th>\n",
 	  " <th>Files</th>\n",
 	  " <th>Size</th>\n",
+	  " <th>Common</th>\n",
+	  " <th>DBS</th>\n",
+	  " <th>TMDB</th>\n",
 	  "</tr>\n";
 
     foreach my $req (sort keys %status)
@@ -262,6 +269,9 @@ sub data
 	    my $block = $blocks[$i];
 	    my $x = $status{$req}{$block};
 	    my $tmdb_color = ($x->{TMDB_FILES} == $x->{DBS_FILES} ? "" : " bgcolor='$pendcolor'");
+	    my $common_color = ($x->{COMMON} == $x->{DBS_FILES} ? "" : " bgcolor='$warncolor'");
+	    my $dbs_only_color = (!$x->{DBS_ONLY} ? "" : " bgcolor='$warncolor'");
+	    my $tmdb_only_color = (!$x->{TMDB_ONLY} ? "" : " bgcolor='$warncolor'");
 	    print "<tr>\n",
 	          ($i == 0 ? (" <td rowspan='@{[scalar @blocks]}'>$req</td>\n") : ()),
 	          " <td>$block</td>\n",
@@ -269,6 +279,9 @@ sub data
 	          " <td>", &format_size ($x->{DBS_BYTES}), "</td>\n",
 	          " <td$tmdb_color>", &format_num ($x->{TMDB_FILES}), "</td>\n",
 	          " <td$tmdb_color>", &format_size ($x->{TMDB_BYTES}), "</td>\n",
+	          " <td$common_color>", &format_num ($x->{COMMON}), "</td>\n",
+	          " <td$dbs_only_color>", &format_num ($x->{DBS_ONLY}), "</td>\n",
+	          " <td$tmdb_only_color>", &format_num ($x->{TMDB_ONLY}), "</td>\n",
 	          "</tr>\n";
 	}
     }
