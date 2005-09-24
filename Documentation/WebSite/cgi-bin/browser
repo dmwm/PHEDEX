@@ -57,7 +57,8 @@ sub relurl
 
 sub baseurl
 {
-    my %args = ('db' => $db, 'page' => param('page'), @_);
+    my $curpage = param('page');
+    my %args = ('db' => $db, ($curpage ? ('page' => $curpage) : ()), @_);
     my $newcgi = new CGI ("");
     map { $newcgi->param ($_, $args{$_}) } keys %args;
     return $newcgi->self_url(-full=>0, -relative=>1);
@@ -73,7 +74,7 @@ sub dblink
 {
     my ($db, $dbother) = @_;
     my $othername = $databases{$dbother}[3];
-    return "<a href='" . &baseurl ('db', $dbother)
+    return "<a href='" . &baseurl ('db' => $dbother)
          . ($db eq $dbother ? "' class='selected' " : "' ")
     	 . "title='$othername Database Instance'>$othername</a>";
 }
@@ -115,7 +116,7 @@ sub runme
 	     "\n  </ul>\n"),
 	'PAGESELECTOR' =>
 	    (join("", map { ($_ ? "<br>" : "") .
-			    "<a href='" . &baseurl ('page', $pageinfo[$_][0]) .
+			    "<a href='" . &baseurl ('page' => $pageinfo[$_][0]) .
 			    "'>$pageinfo[$_][2]</a>\n    " }
 		      grep (defined $pageinfo[$_][2], 0 .. $#pageinfo))),
 
