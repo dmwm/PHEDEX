@@ -84,7 +84,8 @@ foreach my $request (@$requests)
 	if ($op eq 'CANCEL') {
 	    @blocks = ();
 	} elsif ($op =~ /XPATS.[a-z]/) {
-	    push (@blocks, [ $block, $owner, $dataset ]);
+	    push (@blocks, [ $block, $owner, $dataset ])
+	        if ! grep ($_->[0] eq $block, @blocks);
 	} elsif ($op =~ /UPATS.[a-z]/) {
 	    # Ignore user input patterns
 	} else {
@@ -105,7 +106,7 @@ foreach my $request (@$requests)
 	if ($op eq 'CANCEL') {
 	    @dests = ();
 	} elsif ($op eq 'LOC') {
-	    push (@dests, $dest);
+	    push (@dests, $dest) if ! grep ($_ eq $dest, @dests);
 	} else {
 	    die "$request->{NAME} (id=$request->{ID}): unrecognised "
 	        . "data location operation `$op'\n";
@@ -205,20 +206,19 @@ foreach my $request (@$requests)
             { $tmdbonly{$guid} = 1; }
         }
 
-        # Print out the statistics
-        print $block,
-              " dbsopen=$info->{DBS}{ISOPEN}",
-              " tmdbsopen=$info->{TMDB}{ISOPEN}",
-              " indbs=$info->{DBS}{FILES}/$info->{DBS}{SIZE}",
-              " intmdb=$info->{TMDB}{FILES}/$info->{TMDB}{SIZE}",
-              " common=@{[scalar keys %common]}",
-              " dbsonly=@{[scalar keys %dbsonly]}",
-              " tmdbonly=@{[scalar keys %tmdbonly]}",
-              "\n";
-
-        # Update database
+        # Update database and print out stats
 	foreach my $dest (@dests)
 	{
+            print " $block\[$dest]:",
+                  " dbsopen=$info->{DBS}{ISOPEN}",
+                  " tmdbsopen=$info->{TMDB}{ISOPEN}",
+                  " indbs=$info->{DBS}{FILES}/$info->{DBS}{SIZE}",
+                  " intmdb=$info->{TMDB}{FILES}/$info->{TMDB}{SIZE}",
+                  " common=@{[scalar keys %common]}",
+                  " dbsonly=@{[scalar keys %dbsonly]}",
+                  " tmdbonly=@{[scalar keys %tmdbonly]}",
+                  "\n";
+
 	    &dbexec ($dbh, qq{
 	        insert into t_request_status
 	        (timestamp, request, block, destination,
