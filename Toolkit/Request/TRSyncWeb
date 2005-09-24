@@ -1,26 +1,21 @@
 #!/usr/bin/env perl
 
-##H FIXME: Brief intro
+##H Synchronise web database for the requests.
 ##H
 ##H Usage: TRSyncWeb -db FILE[:SECTION] REQUEST...
 ##H
-##H REQUEST is the request directory previously created with TRNew.
-##H Synchronises the web database for the requests.
+##H REQUEST is the request ticket previously created with TRNew.
 
 BEGIN {
-  use strict; use warnings;
+  use strict; use warnings; $^W=1;
   our $me = $0; $me =~ s|.*/||;
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);
 }
-use UtilsTR;
+use UtilsHelp;
 use UtilsDB;
-use UtilsNet;
-use File::Path;
-use Cwd;
 
 my %args;
-my $now = time();
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-h') {
@@ -44,6 +39,8 @@ if (!$args{DBCONFIG})
 foreach my $request (@ARGV)
 {
     -f "$request" or die "$request: not a transfer request\n";
+    my ($reqname) = ($request =~ m|/([^/]+)$|);
+    print "Updating database for $request\n";
 
     # Read ticket
     my @cmds = ();
@@ -79,9 +76,9 @@ foreach my $request (@ARGV)
 
     # Check if the request is known.  If so, delete all info about it
     my ($reqid) = &dbexec ($dbh, qq{select id from t_request where name = :req},
-	":req" => $request)->fetchrow();
+	":req" => $reqname)->fetchrow();
 
-    if ($reqid && defined $reqid->[0])
+    if (defined $reqid)
     {
 	my %args = (":reqid" => $reqid);
 	map { &dbexec ($dbh, qq{delete from $_ where request = :reqid}, %args) }
@@ -92,14 +89,14 @@ foreach my $request (@ARGV)
 	($reqid) = &dbexec ($dbh, qq{select seq_request_id.nextval from dual})
 	    ->fetchrow();
 	&dbexec ($dbh, qq{insert into t_request values (:reqid, :req)},
-	    ":reqid" => $reqid, ":req" => $request);
+	    ":reqid" => $reqid, ":req" => $reqname);
     }
 
     # Then add new info
     foreach my $op (@cmds) {
 	&dbexec ($dbh, qq{
 	    insert into t_request_operation
-	    (tiemstamp, request, operation, identity)
+	    (timestamp, request, operation, identity)
 	    values (:stamp, :reqid, :op, :arg)},
 	    ":reqid" => $reqid, ":stamp" => $op->{STAMP},
 	    ":op" => $op->{COMMAND}, ":arg" => $op->{ARG});
