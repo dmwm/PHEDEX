@@ -7,166 +7,275 @@ use CGI::Carp qw(fatalsToBrowser);
 use POSIX;
 use DBI;
 
-my %databases = ("prod" => [ "cms", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
-		 "rac" => [ "cmssg", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
-		 "test" => [ "devdb", 'CMS_TRANSFERMGMT', 'smallAND_round' ],
-		 "testbed" => [ "devdb", 'CMS_TRANSFERMGMT_TESTBED', 'phedexedehp' ]);
+# Read database access tokens
+my $home = $0; $home =~ s|/[^/]*$||; $home = "." if ! $home;
+my @dbnames = ();
+my %databases = ();
+open (DBNAMES, "< $home/.db/names") || die "Failed to read database configuration\n";
+while (<DBNAMES>)
+{
+    chomp;
+    my ($db, @args) = split(/\s+/);
+    $databases{$db} = [ @args ];
+    push (@dbnames, $db);
+}
+close (DBNAMES);
 my $cgi = new CGI;
-my $db = param("db") || "prod";    # tnsname of the database
-my $dbh;
+my $db = $cgi->param("db") || "prod";    # tnsname of the database
+$db = "prod" if ! grep ($db eq $_, @dbnames);
+my ($dbtns, $dbuser, $dbpass, $dbid, $dbversion) = @{$databases{$db}};
+$dbversion ||= 'V2.2';
+$dbid ||= '';
 
+my $dbh;
 my $badcolor = '#ff9e9e';
 my $warncolor = '#ffd89e';
 my $pendcolor = '#ccccff'; # ececff
 my $goodcolor = '#ccffcc';
 my $altcolor = '#e8e8e8';
 
+$cgi->param('db', 'prod') if ! $cgi->param('db');
+$cgi->param('page', 'main') if ! $cgi->param('page');
+
 # ###############################################
 # Main loop
 # ###############################################
 
-intro();
-end();
+runme();
 
 # ###############################################
 # Subroutines
 # ###############################################
 
-sub intro
+sub relurl
 {
-    $| = 1;
-    my $stamp = strftime ("%Y-%m-%d %H:%M:%S %Z", localtime(time()));
-    print $cgi->header();
-    print start_form();
-    print qq{
-    <html>
-    <title>PhEDEx Transfer Request Status</title>
-    <body bgcolor='#FFFFFF'>
-    <center>
-    <h1>PhEDEx Transfer Request Status</h1>
-    <table>
-    <tr><td colspan=7 align='center'>$stamp</td></tr>
-    <tr><td colspan=7 align='center'><select name='db'>"},
-    "<option value='testbed'@{[$db eq 'testbed' && ' selected=selected']}>Testbed</option>",
-    "<option value='test'@{[$db eq 'test' && ' selected=selected']}>Test</option>",
-    "<option value='rac'@{[$db eq 'rac' && ' selected=selected']}>RAC Test</option>",
-    "<option value='prod'@{[$db eq 'prod' && ' selected=selected']}>Production</option>",
-    "</select></td></tr></table>\n";
-
-    $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
-    $ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/10103";
-    $ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/10103/lib";
-    $db = "prod" if ! grep ($db eq $_, keys %databases);
-    my ($dbname, $dbuser, $dbpass) = @{$databases{$db}};
-    $dbh = DBI->connect ("DBI:Oracle:$dbname", $dbuser, $dbpass,
-	    		 { RaiseError=>1, AutoCommit =>1 });
-
-    main();
-    print "</body></html>\n";
+    my %args = ('db' => $db, @_);
+    my $newcgi = new CGI ($cgi->query_string);
+    map { $newcgi->param ($_, $args{$_}) } keys %args;
+    return $newcgi->self_url(-full=>0, -relative=>1);
 }
 
-sub end {
-    print end_form();
-    $dbh->disconnect();
+sub urlencode
+{
+    eval "use CGI '-oldstyle_urls'";
+    my %args = @_; return new CGI (\%args)->query_string();
+}
+
+sub dblink
+{
+    my ($db, $dbother) = @_;
+    my $othername = $databases{$dbother}[3];
+    return "<a href='" . &relurl('db', $dbother)
+         . ($db eq $dbother ? "' class='selected' " : "' ")
+    	 . "title='$othername Database Instance'>$othername</a>";
+}
+
+sub runme
+{
+    # Select page we are visiting
+    my @pageinfo = ([ 'main',		\&main,		"Request Status" ],
+                    [ 'data',		\&data,		"Request Data" ]);
+    my %pagemap = map { $pageinfo[$_][0] => $_ } 0 .. $#pageinfo;
+    my $pagename = param('page');
+    my $page = ($pagename && exists $pagemap{$pagename} ? $pagemap{$pagename} : 0);
+
+    # Initialise page template
+    my $template = do { local $/; undef $/; <DATA> };
+    my $replacements = {
+     	'CONTENT' => '',
+	'PAGETITLE' => $pageinfo[$page][2],
+	'TIME'	=> strftime ("%Y-%m-%d %H:%M:%S GMT", gmtime(time())),
+	'DBID' => $dbid,
+	'DB' => $db,
+	'DBSELECTOR' =>
+	    ("  <ul id='navmain'>\n" .
+	     "    <li class='first'>Database: " .  &dblink ($db, $dbnames[0]) .
+	     "</li>\n    " .
+	     join ("\n    ",
+		   map { "<li>" . &dblink ($db, $_) . "</li>" }
+		   @dbnames[1 .. $#dbnames]) .
+	     "\n  </ul>\n"),
+	'PAGESELECTOR' =>
+	    (join("", map { ($_ ? "<br>" : "") .
+			    "<a href='" . &relurl('page', $pageinfo[$_][0]) .
+			    "'>$pageinfo[$_][2]</a>\n    " }
+		      grep (defined $pageinfo[$_][2], 0 .. $#pageinfo))),
+
+    };
+
+    # Execute the desired page.  We save old STDOUT to print to it
+    # later, then redirect the page routine's output to CONTENT.
+    my $capture = new IO::Capture::Stdout;
+    $capture->start();
+    eval
+    {
+        # Connect to the database, do the page, the disconnect
+        $ENV{TNS_ADMIN} = "/afs/cern.ch/project/oracle/admin";
+        $ENV{ORACLE_HOME} = "/afs/cern.ch/project/oracle/\@sys/10103";
+        $ENV{LD_LIBRARY_PATH} = "/afs/cern.ch/project/oracle/\@sys/10103/lib";
+        $dbh = DBI->connect ("DBI:Oracle:$dbtns", $dbuser, $dbpass,
+	    		     { RaiseError=>1, AutoCommit =>1 });
+	&{$pageinfo[$page][1]} ();
+        $dbh->disconnect();
+    };
+
+    if ($@)
+    {
+	my $message = $@;
+	$message =~ s/&/&amp;/g;
+	$message =~ s/</&lt;/g;
+	$message =~ s/>/&gt;/g;
+	print "<div align='left'>\n",
+	      "<p>Apologies, looks like we have a server error,",
+	      " details of which below.</p>\n",
+	      "<p><i>$message</i></p>\n",
+	      "</div>\n";
+    }
+    $capture->stop();
+    $replacements->{CONTENT} = join("\n", $capture->read());
+
+    # Instantiate the template and spit it out
+    while (my ($key, $value) = each %$replacements)
+    {
+	$template =~ s/\@$key\@/$value/g;
+    }
+
+    print $cgi->header();
+    print $template;
 }
 
 sub main
 {
     my %status = ();
-    my %cats = ();
-    my $dquery = $dbh->prepare(qq{
+    my $rquery = $dbh->prepare(qq{
 	select
-	  d.request_name,
-	  d.drop_category,
-	  count(distinct d.drop_name),
-	  count(f.guid)
-	from t_request_drop d
-	left join t_request_file f
-	  on f.request_name = d.request_name
-	 and f.drop_name = d.drop_name
-	group by d.request_name, d.drop_category});
-    $dquery->execute();
-    while (my ($req, $cat, $ndrops, $nfiles) = $dquery->fetchrow())
+	  r.name, s.destination,
+	  count(s.block),
+	  sum(s.dbs_files), sum(s.dbs_bytes),
+	  sum(s.tmdb_files), sum(s.tmdb_bytes),
+	  sum(s.dest_files), sum(s.dest_bytes)
+	from t_request r join t_request_status s on s.request = r.id
+	group by r.name, s.destination});
+    $rquery->execute();
+    while (my ($req, $dest, $blocks,
+	       $dbs_files, $dbs_bytes,
+	       $tmdb_files, $tmdb_bytes,
+	       $node_files, $node_bytes) = $rquery->fetchrow())
     {
-	$cats{$cat} = 1;
-	$status{$req}{DROPS_IN_CAT}{$cat} = $ndrops;
-	$status{$req}{DROPS} ||= 0;
-	$status{$req}{DROPS} += $ndrops;
-	$status{$req}{FILES_IN_CAT}{$cat} = $nfiles;
-	$status{$req}{FILES} ||= 0;
-	$status{$req}{FILES} += $nfiles;
+	$status{$req}{$dest} = {
+	    BLOCKS => $blocks,
+	    DBS_FILES => $dbs_files, DBS_BYTES => $dbs_bytes,
+	    TMDB_FILES => $tmdb_files, TMDB_BYTES => $tmdb_bytes,
+	    NODE_FILES => $node_files, NODE_BYTES => $node_bytes
+	};
     }
-    $dquery->finish();
 
-    my $fquery = $dbh->prepare(qq{
-	select
-	  request_name,
-	  location,
-	  sum(is_available),
-	  sum(is_pending),
-	  sum(is_transferred)
-	from t_request_file_status fs
-	group by request_name, location});
-    $fquery->execute();
-    while (my ($req, $loc, $av, $pend, $trans) = $fquery->fetchrow())
-    {
-	$status{$req}{FILE_STATS}{$loc}
-	    = { AVAILABLE => $av, PENDING => $pend, TRANSFERRED => $trans };
-    }
-    $fquery->finish();
-
-    print "<h2>Request status</h2>\n",
-          "<table><tr valign='top' bgcolor='$altcolor' align='right'>",
-	  "<th rowspan='2'>Request</th>",
-	  "<th colspan='@{[scalar (keys %cats) + 1]}'>Runs</th>",
-	  "<th colspan='@{[scalar (keys %cats) + 1]}'>Files</th>",
-	  "<th rowspan='2'>Origin</th>",
-	  "<th rowspan='2'>Transferred</th>",
-	  "<th rowspan='2'>Pending</th>",
-	  "<th rowspan='2'>Available</th>",
+    print "<p>",
+          "<table class='striped'>\n",
+          "<tbody>\n",
+	  "<tr class='selected'>\n",
+	  " <th colspan='8'>Transfer request status</th>",
 	  "</tr>\n",
-	  "<tr valign='top' bgcolor='$altcolor'>",
-	  "<th>Total</th>",
-	  (map { "<th>$_</th>" } sort keys %cats),
-	  "<th>Total</th>",
-	  (map { "<th>$_</th>" } sort keys %cats),
+	  "<tr class='selected'>\n",
+	  " <th rowspan='2'>Request</th>\n",
+	  " <th rowspan='2'>Destination</th>\n",
+	  " <th colspan='2'>Known Files</th>\n",
+	  " <th colspan='2'>Destination</th>\n",
+	  "</tr>\n",
+	  "<tr class='selected'>\n",
+	  " <th>Files</th>\n",
+	  " <th>Size</th>\n",
+	  " <th>Files</th>\n",
+	  " <th>Size</th>\n",
 	  "</tr>\n";
 
-    my $color = "";
     foreach my $req (sort keys %status)
     {
-	my $info = $status{$req};
-	my %dincats = map { $_ => $info->{DROPS_IN_CAT}{$_} } keys %cats;
-	my %fincats = map { $_ => $info->{FILES_IN_CAT}{$_} } keys %cats;
-	my $nlocs = scalar keys %{$info->{FILE_STATS}};
-	my $ndrops = $info->{DROPS};
-	my $nfiles = $info->{FILES};
-	print "<tr valign='top' align='right'$color>",
-	      "<td rowspan='$nlocs'>@{[&format_num($req)]}</td>",
-	      "<td rowspan='$nlocs'>@{[&format_num($ndrops)]}</td>",
-	      (map { "<td rowspan='$nlocs'>@{[&format_num($dincats{$_})]}</td>" } sort keys %cats),
-	      "<td rowspan='$nlocs'>@{[&format_num($nfiles)]}</td>",
-	      (map { "<td rowspan='$nlocs'>@{[&format_num($fincats{$_})]}</td>" } sort keys %cats);
-	my $first = 1;
-        foreach my $loc (sort keys %{$info->{FILE_STATS}})
+	my @dests = sort keys %{$status{$req}};
+	for (my $i = 0; $i <= $#dests; ++$i)
 	{
-	    my $stats = $info->{FILE_STATS}{$loc};
-	    print "<tr>" if ! $first;
-	    print "<td>$loc</td>",
-	          "<td>@{[&format_num($stats->{TRANSFERRED})]}</td>",
-	          "<td>@{[&format_num($stats->{PENDING})]}</td>",
-	          "<td>@{[&format_num($stats->{AVAILABLE})]}</td>",
-		  "</tr>\n";
-	    $first = 0;
+	    my $dest = $dests[$i];
+	    my $x = $status{$req}{$dest};
+	    my $tmdb_color = ($x->{TMDB_FILES} == $x->{DBS_FILES} ? "" : " bgcolor='$pendcolor'");
+	    my $node_color = ($x->{NODE_FILES} == $x->{TMDB_FILES} ? "" : " bgcolor='$pendcolor'");
+	    print "<tr>\n",
+	          ($i == 0 ? (" <td rowspan='@{[scalar @dests]}'>$req</td>\n") : ()),
+	          " <td>$dest</td>\n",
+	          " <td$tmdb_color>", &format_num ($x->{TMDB_FILES}), "</td>\n",
+	          " <td$tmdb_color>", &format_size ($x->{TMDB_BYTES}), "</td>\n",
+	          " <td$node_color>", &format_num ($x->{NODE_FILES}), "</td>\n",
+	          " <td$node_color>", &format_size ($x->{NODE_BYTES}), "</td>\n",
+	          "</tr>\n";
 	}
-	
-	if (! $color) {
-	    $color = " bgcolor='$altcolor'";
-	 } else {
-	    $color = "";
-	 }
     }
-    print "</table>\n";
+
+    print "</tbody>\n",
+          "</table>\n",
+	  "</p>\n";
+}
+
+sub data
+{
+    my %status = ();
+    my $rquery = $dbh->prepare(qq{
+	select
+	  r.name, s.block,
+	  min(s.dbs_files), min(s.dbs_bytes),
+	  min(s.tmdb_files), min(s.tmdb_bytes)
+	from t_request r join t_request_status s on s.request = r.id
+	group by r.name, s.block});
+    $rquery->execute();
+    while (my ($req, $block,
+	       $dbs_files, $dbs_bytes,
+	       $tmdb_files, $tmdb_bytes) = $rquery->fetchrow())
+    {
+	$status{$req}{$block} = {
+	    DBS_FILES => $dbs_files, DBS_BYTES => $dbs_bytes,
+	    TMDB_FILES => $tmdb_files, TMDB_BYTES => $tmdb_bytes
+	};
+    }
+
+    print "<p>",
+          "<table class='striped'>\n",
+          "<tbody>\n",
+	  "<tr class='selected'>\n",
+	  " <th colspan='6'>Transfer request status</th>",
+	  "</tr>\n",
+	  "<tr class='selected'>\n",
+	  " <th rowspan='2'>Request</th>\n",
+	  " <th rowspan='2'>Block</th>\n",
+	  " <th colspan='2'>DBS</th>\n",
+	  " <th colspan='2'>TMDB</th>\n",
+	  "</tr>\n",
+	  "<tr class='selected'>\n",
+	  " <th>Files</th>\n",
+	  " <th>Size</th>\n",
+	  " <th>Files</th>\n",
+	  " <th>Size</th>\n",
+	  "</tr>\n";
+
+    foreach my $req (sort keys %status)
+    {
+	my @blocks = sort keys %{$status{$req}};
+	for (my $i = 0; $i <= $#blocks; ++$i)
+	{
+	    my $block = $blocks[$i];
+	    my $x = $status{$req}{$block};
+	    my $tmdb_color = ($x->{TMDB_FILES} == $x->{DBS_FILES} ? "" : " bgcolor='$pendcolor'");
+	    print "<tr>\n",
+	          ($i == 0 ? (" <td rowspan='@{[scalar @blocks]}'>$req</td>\n") : ()),
+	          " <td>$block</td>\n",
+	          " <td>", &format_num ($x->{DBS_FILES}), "</td>\n",
+	          " <td>", &format_size ($x->{DBS_BYTES}), "</td>\n",
+	          " <td$tmdb_color>", &format_num ($x->{TMDB_FILES}), "</td>\n",
+	          " <td$tmdb_color>", &format_size ($x->{TMDB_BYTES}), "</td>\n",
+	          "</tr>\n";
+	}
+    }
+
+    print "</tbody>\n",
+          "</table>\n",
+	  "</p>\n";
 }
 
 sub format_num {
@@ -188,3 +297,239 @@ sub format_size {
 
     return $bytes || $nodash ? sprintf('%.1f&nbsp;%sB', $val, $unit) : '&#8211;';
 }
+
+######################################################################
+# Nicked IO::Capture::Stdout from CPAN.
+#
+# Mark Reynolds <reynolds@sgi.com>; Jon Morgan <jmorgan@sgi.com>.
+# Copyright (c) 2003, Mark Reynolds. All Rights Reserved. This module
+# is free software. It may be used, redistributed and/or modified under
+# the same terms as Perl itself.
+package IO::Capture::Tie_STDx;
+sub TIEHANDLE { my $class = shift; bless [], $class; }
+sub PRINTF { my $self   = shift; my $format = shift; $self->PRINT( sprintf( $format, @_ ) ); }
+sub PRINT { my $self = shift; push @$self, join '',@_; }
+sub READLINE { my $self = shift; return wantarray ? @$self : shift @$self; }
+sub CLOSE { my $self = shift; return close $self; }
+1;
+
+package IO::Capture;
+use strict;
+use Carp;
+
+sub new {
+    my $class = shift;
+    if (ref $class) {
+	carp "WARNING: " . __PACKAGE__ . "::new cannot be called from existing object. (cloned)";
+	return;
+    }
+    my $object = shift || {};
+    bless $object, $class;
+    $object->_initialize; 
+}
+
+sub _check_pre_conditions {
+    my $self = shift;
+
+    if( $self->{'IO::Capture::status'} ne "Ready") {
+	carp "Start issued on an in progress capture ". ref($self);
+	return;
+    }
+
+    return 1;
+}
+
+sub _initialize {
+    my $self = shift;
+    if (!ref $self) {
+	carp "WARNING: _initialize was called, but not called from a valid object";
+	return;
+    }
+
+    $self->{'IO::Capture::messages'} = [];
+    $self->{'IO::Capture::line_pointer'} = 1;
+    $self->{'IO::Capture::status'} = "Ready";
+    return $self;
+}
+
+sub start {
+    my $self = shift;
+
+    if (! $self->_check_pre_conditions) {
+	carp "Error: failed _check_pre_confitions in ". ref($self);
+	return;
+    }
+
+    if (! $self->_save_current_configuration ) { 
+	carp "Error saving configuration in " . ref($self);
+	return;
+    }
+
+    $self->{'IO::Capture::status'} = "Busy";
+
+    if (! $self->_start(@_)) {
+	carp "Error starting capture in " . ref($self);
+	return;
+    }
+    return 1;
+}
+
+sub stop {
+    my $self = shift;
+
+    if( $self->{'IO::Capture::status'} ne "Busy") {
+	carp "Stop issued on an unstarted capture ". ref($self);
+	return;
+    }
+
+    if (! $self->_retrieve_captured_text() ) {
+        carp "Error retreaving captured text in " . ref($self);
+	return;
+    }
+
+    if (!$self->_stop() ) {
+	carp "Error return from _stop() " . ref($self) . "\n";
+	return;
+    }
+
+    $self->{'IO::Capture::status'} = "Ready";
+    return 1;
+}
+
+sub read {
+    my $self = shift;
+    $self->_read;
+}
+
+#
+#  Internal start routine.  This needs to be overriden with instance
+#  method
+#
+sub _start {
+    my $self = shift;
+    return 1;
+}
+
+sub _read {
+    my $self = shift;
+    my $messages = \@{$self->{'IO::Capture::messages'}};
+    my $line_pointer = \$self->{'IO::Capture::line_pointer'};
+
+    if ($self->{'IO::Capture::status'} ne "Ready") {
+	carp "Read cannot be done while capture is in progress". ref($self);
+	return;
+    }
+
+    return if $$line_pointer > @$messages;
+    return wantarray ? @$messages :  $messages->[($$line_pointer++)-1];
+}
+
+sub _retrieve_captured_text {
+    return 1;
+    
+}
+
+sub _save_current_configuration {
+    my $self = shift;
+    $self->{'IO::Capture::handler_save'} = $SIG{__WARN__};
+    open STDOUT_SAVE, ">&STDOUT";
+    $self->{'IO::Capture::stdout_save'} = *STDOUT_SAVE;
+    open STDERR_SAVE, ">&STDOUT";
+    $self->{'IO::Capture::stderr_save'} = *STDERR_SAVE;
+    return $self; 
+}
+
+sub _stop {
+    my $self = shift;
+    return 1;
+}
+
+sub line_pointer {
+    my $self = shift;
+    my $new_number = shift;
+
+    $self->{'IO::Capture::line_pointer'} = $new_number if $new_number;
+    return $self->{'IO::Capture::line_pointer'};
+}
+1;
+
+package IO::Capture::Stdout;
+use Carp; use base qw/IO::Capture/;
+
+sub _start {
+    my $self = shift;
+    $self->line_pointer(1);
+    tie *STDOUT, "IO::Capture::Tie_STDx";
+}
+
+sub _retrieve_captured_text {
+    my $self = shift;
+    my $messages = \@{$self->{'IO::Capture::messages'}};
+    @$messages = <STDOUT>;
+    #$self->line_pointer(1);
+    return 1;
+}
+
+sub _check_pre_conditions {
+    my $self = shift;
+    return unless $self->SUPER::_check_pre_conditions;
+    if (tied *STDOUT) {
+	carp "WARNING: STDOUT already tied, unable to capture";
+	return;
+    }
+    return 1;
+}
+
+sub _stop { untie *STDOUT; }
+1;
+######################################################################
+__END__
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+  <meta name="keywords" content="PhEDEx, file transfer, transfer request" />
+  <link rel="stylesheet" href="../style.css" type="text/css" />
+  <link rel="shortcut icon" href="../favicon.ico" />
+  <script type="text/javascript" src="../stripe.js"></script>
+
+  <title>@DBID@ @PAGETITLE@: PhEDEx Transfer Request</title>
+</head>
+
+<body onload='stripe("#fff", "#edf3fe")'>
+<div id="page">
+<div id="header">
+  <!-- Logo and page title -->
+  <div id="logo">
+    <a href="http://cern.ch/cms-project-phedex/" title="PhEDEx Home Page"
+      ><img src="../phedex-logo.gif" alt="PhEDEx" height="120" /></a>
+  </div>
+
+  <div id="heading">
+    <h1 class="title">PhEDEx Transfer Request</h1>
+    <h2>@DBID@ @PAGETITLE@</h2>
+    <h4>@TIME@</h4>
+  </div>
+
+  <!-- Main navigation bar: public/developers/other -->
+  @DBSELECTOR@
+</div> <!-- /header -->
+
+<!-- side navigation bar -->
+<div id="sidebar">
+  <div class="sidetopic"><h2>Request Options</h2>
+    <p>@PAGESELECTOR@</p>
+  </div>
+</div> <!-- /sidebar -->
+
+<!-- main content -->
+<div id="content">
+<center>
+@CONTENT@
+<hr />
+</center>
+</div>
+</div>
+</body>
+</html>
