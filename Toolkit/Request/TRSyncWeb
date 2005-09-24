@@ -82,7 +82,8 @@ foreach my $request (@ARGV)
     {
 	my %args = (":reqid" => $reqid);
 	map { &dbexec ($dbh, qq{delete from $_ where request = :reqid}, %args) }
-            qw(t_request_dataspec t_request_subscription t_request_operation);
+            qw(t_request_dataspec t_request_subscription
+	       t_request_operation t_request_status);
     }
     else
     {
