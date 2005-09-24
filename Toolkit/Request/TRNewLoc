@@ -39,7 +39,7 @@ while (scalar @ARGV)
 }
 
 my $request = shift (@ARGV);
-if (@ARGV || !$request || ! -d $request)
+if (!$request || ! -f $request)
 {
     die "Incorrect parameters, use -h for help.\n";
 }

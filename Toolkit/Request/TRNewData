@@ -62,7 +62,7 @@ while (scalar @ARGV)
 
 $request = shift (@ARGV);
 @files = @ARGV;
-if (@ARGV || !$request || (! $mode && @files))
+if (!$request || (! $mode && @files))
 {
     die "Incorrect parameters, use -h for help.\n";
 }
