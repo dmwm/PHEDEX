@@ -1,11 +1,10 @@
 #!/usr/bin/env perl
 
-##H FIXME: Brief intro
+##H Synchronise request subscritions to TMDB allocations.
 ##H
 ##H Usage: TRSyncAllocs -db FILE[:SECTION] REQUEST...
 ##H
-##H REQUEST is the request directory previously created with TRNew.
-##H Synchronises the TMDB allocations with the request locations.
+##H REQUEST is the request ticket previously created with TRNew.
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -13,14 +12,10 @@ BEGIN {
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);
 }
-use UtilsTR;
-use UtilsNet;
-use File::Path;
-use DBI;
-use Cwd;
+use UtilsHelp;
+use UtilsDB;
 
 my %args;
-my $now = time();
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-h') {
