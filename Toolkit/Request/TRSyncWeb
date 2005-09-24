@@ -80,7 +80,7 @@ foreach my $request (@ARGV)
     # Check if the request is known.  If so, delete all info about it
     my %args = (":req" => $request);
     my $reqid = &dbexec ($dbh, qq{select id from t_request where name = :req}, %args)
-        ->selectall_colref();
+        ->selectcol_arrayref();
 
     if ($reqid && defined $reqid->[0])
     {
@@ -91,7 +91,7 @@ foreach my $request (@ARGV)
     else
     {
 	$reqid = &dbexec ($dbh, qq{select nextval from seq_request_id})
-	    ->selectall_colref();
+	    ->selectcol_arrayref();
 	&dbexec ($dbh, qq{insert into t_request values (:reqid, :req)},
 	    ":reqid" => $reqid->[0], ":req" => $request);
     }
