@@ -45,15 +45,13 @@ if (!$args{MOUTH} || ! -d $args{MOUTH} || !$args{DBCONFIG})
 
 foreach my $request (@ARGV)
 {
-    $request =~ s|/+$||;
-    -f "$request/Request/Ticket"
-        or die "$request: not a transfer request\n";
+    -f "$request" or die "$request: not a transfer request\n";
 
     # Read ticket
     my @cmds = ();
     my @locs = ();
     my @data = ();
-    open(TICKET, "< $request/Request/Ticket") or die "Cannot read ticket: $!\n";
+    open(TICKET, "< $request") or die "Cannot read ticket: $!\n";
     while (<TICKET>)
     {
 	if (/^(\d+) CMD (\S+) (\S+)/) {
@@ -80,14 +78,6 @@ foreach my $request (@ARGV)
 
     # Obtain status of drops
     my $dbh      = &connectToDatabase (\%args, 0);
-    my @pending  = <$request/Drops/Pending/*>;
-    my @notready = <$request/Drops/NotReady/*>;
-    my @done	 = <$request/Drops/Done/*>;
-    my @drops	 = (@pending, @notready, @done);
-    my $status   = &checkAssignmentFiles ($args{MOUTH}, $dbh, @drops);
-    map { $status->{$_}{DROP_CATEGORY} = 'Pending' } @pending;
-    map { $status->{$_}{DROP_CATEGORY} = 'NotReady' } @notready;
-    map { $status->{$_}{DROP_CATEGORY} = 'Done' } @done;
 
     # Reflect information back into database
     # First delete old information about this request
@@ -126,37 +116,8 @@ foreach my $request (@ARGV)
 	    ":op" => $op->{COMMAND}, ":arg" => $op->{ARG});
     }
 
-    foreach my $drop (@drops) {
-	&dbexec ($dbh, qq{
-	    insert into t_request_drop
-	    (request_name, drop_name, drop_category)
-	    values (:req, :drop_name, :drop_cat)},
-	    ":req" => $request,
-	    ":drop_name" => $status->{$drop}{DROPNAME},
-	    ":drop_cat" => $status->{$drop}{DROP_CATEGORY});
-
-    	foreach my $file (@{$status->{$drop}{FILES}}) {
-	    &dbexec ($dbh, qq{
-		insert into t_request_file
-		(request_name, guid, drop_name)
-		values (:req, :guid, :drop_name)},
-		":req" => $request,
-		":guid" => $file->{GUID},
-		":drop_name" => $status->{$drop}{DROPNAME});
-
-	    &dbexec ($dbh, qq{
-		insert into t_request_file_status
-		(request_name, guid, location,
-		 is_available, is_pending, is_transferred)
-		values (:req, :guid, 'CERN_MSS', :av, :pend, :trans)},
-		":req" => $request,
-		":guid" => $file->{GUID},
-		":av" => $file->{IN_MSS} ? '1' : '0',
-		":pend" => $file->{PENDING} ? '1' : '0',
-		":trans" => $file->{TRANSFERRED} ? '1' : '0');
-	}
-    }
-
+    # FIXME: Compare with DBS and files known in PhEDEx,
+    # and insert status information.
     $dbh->commit();
     $dbh->disconnect();
 }

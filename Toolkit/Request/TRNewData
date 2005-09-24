@@ -9,28 +9,25 @@
 ##H otherwise appends new items to the list.
 ##H
 ##H The files given on the command line are read for the names of
-##H the data selection patterns; the "-p", "-f" or "-a" option
-##H indicates how the patterns should be interpreted.  If "-p"
-##H is used, each pattern is taken to be a "dataset.owner" pattern,
-##H and anything matching that pattern will be selected.  If "-f"
-##H is used, it is assumed that the patterns only select dataset
-##H names, and the script will automatically query the digi/dst
-##H owners, and from them the hit owners.  If "-a" is used, the
-##H patterns are taken to be assignment numbers.
+##H the data selection patterns; the "-p" or "-f" options indicate
+##H how the patterns should be interpreted.  With "-p" patterns
+##H are "owner/dataset" globs, and anything matching the pattern
+##H ought to be selected.  Without "-p" the patterns are expected
+##H to be actual "owner/dataset" names.  With "-f" the patterns
+##H select not only the datasets, but all their ancestry as well.
 ##H
-##H The patterns are expanded into a list of dataset.owner pairs
-##H and further into assignment numbers.  The assignments are
-##H what will eventually be injected into the transfer.
+##H The request will track both the input selection parameters and
+##H what they expanded into.
 ##H
-##H This script updates the transfer request ticket.
+##H This program updates the transfer request ticket.
 #
 # FIXME: At the end (e.g. as a sole operation if no FILEs are
 # given), check through the ticket history and complain if the
-# list of the dataset/dataset.owner/assignment expansions from
-# the patterns have changed.
+# list of the dataset, owner/dataset or assignment expansions
+# from the patterns have changed.
 
 BEGIN {
-  use strict; use warnings;
+  use strict; use warnings; $^W=1;
   our $me = $0; $me =~ s|.*/||;
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);
@@ -52,7 +49,7 @@ while (scalar @ARGV)
 	&usage();
     } elsif ($ARGV[0] eq '-r') {
 	$reset = 1; shift (@ARGV);
-    } elsif ($ARGV[0] =~ '^-([pfa])$') {
+    } elsif ($ARGV[0] =~ '^-([pf])$') {
 	$mode = $1; shift (@ARGV);
     } elsif ($ARGV[0] eq '--') {
 	shift (@ARGV); last;
@@ -70,17 +67,15 @@ if (@ARGV || !$request || (! $mode && @files))
     die "Incorrect parameters, use -h for help.\n";
 }
 
--f "$request/Request/Ticket" or die "$request: not a transfer request\n";
+-f "$request" or die "$request: not a transfer request\n";
 my @userpats = &readPatterns (@files);
 my @patterns = &expandPatterns ($mode, @userpats);
-my @assids   = &expandAssignments (@patterns);
 
 # Append to the ticket
-(open (TICKET, ">> $request/Request/Ticket")
- && print(TICKET "$now CMD TRNEWDATA @{[scalar getpwuid($<)]}\@@{[&getfullhostname()]}\n")
+(open (TICKET, ">> $request")
+ && print(TICKET "$now CMD $me @{[scalar getpwuid($<)]}\@@{[&getfullhostname()]}\n")
  && (! $reset || print(TICKET "$now CANCEL DATA\n"))
  && (print(TICKET "$now DATA UPATS.$mode @userpats\n"))
- && (print(TICKET "$now DATA XPATS.$mode @{[ map { ref $_ ? join('.', @$_) : $_} @patterns]}\n"))
- && (print(TICKET "$now DATA ASSIDS @assids\n"))
+ && (print(TICKET "$now DATA XPATS.$mode @{[ map { ref $_ ? join('/', @$_) : $_} @patterns]}\n"))
  && close (TICKET))
     or die "$request: cannot update ticket: $!\n";

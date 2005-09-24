@@ -5,27 +5,22 @@
 ##H Usage: TRNew REQUEST [AREA]
 ##H
 ##H REQUEST is the name of the new request, must be unique, and
-##H must not exist yet.  Creates the necessary directory structure
-##H in AREA (default: current working directory) and in the request
-##H database.
-##H
-##H The request is initialisd empty.  Use TRNewLoc and TRNewData
-##H to add transfer destinations and data selections to it.
-#
-# REQUEST-DIR
-#   RequestInfo/Ticket
-#   Drops/Pending
-#     /NotReady
-#     /Done
-#
-# Record in database too?
+##H must not exist yet.  Initialises the request as an empty
+##H ticket in AREA, by default the current directory.  Use
+##H TRNewLoc and TRNewData to add transfer destinations and
+##H data selections to it.
+
+# Eventually record everything in a database instead of files.
+# In that case, we need to track request status, such as
+# "tentative", "authorised", "applied", etc.
 
 BEGIN {
-  use strict; use warnings;
+  use strict; use warnings; $^W=1;
   our $me = $0; $me =~ s|.*/||;
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);
 }
+
 use UtilsTR;
 use UtilsNet;
 use File::Path;
@@ -53,11 +48,9 @@ if (@ARGV || !$request || !$area)
 
 # Create the area
 ! -e "$area/$request" or die "$area/$request: exists\n";
-eval { &mkpath ([ "$area/$request/Request", "$area/$request/Drops" ]); };
-die "$area/$request: cannot create request structure: $@\n" if $@;
 
 # Create ticket
-(open (TICKET, "> $area/$request/Request/Ticket")
- && print(TICKET "@{[time()]} CMD TRNEW @{[scalar getpwuid($<)]}\@@{[&getfullhostname()]}\n")
+(open (TICKET, "> $area/$request")
+ && print(TICKET "@{[time()]} CMD $me @{[scalar getpwuid($<)]}\@@{[&getfullhostname()]}\n")
  && close (TICKET))
-    or die "$request: cannot create ticket: $!\n";
+    or die "$area/$request: cannot create request ticket: $!\n";
