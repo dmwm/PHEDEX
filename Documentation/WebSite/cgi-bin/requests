@@ -529,6 +529,7 @@ sub checknew
 	    . "\n"
 	    . "# Requestor: $email\n"
 	    . "# Date: @{[strftime('%Y-%m-%d %H:%M:%S', gmtime($now))]}\n"
+	    . "# Database: $dbid\n"
 	    . "\n"
 	    . "mkdir -p $prefix\n"
 	    . "\$TRTOOLS/TRNew $prefix/$reqname\n"
