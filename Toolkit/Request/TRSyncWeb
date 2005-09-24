@@ -75,25 +75,24 @@ foreach my $request (@ARGV)
     close (TICKET) or die "Cannot read ticket: $!\n";
 
     # Obtain status of drops
-    my $dbh      = &connectToDatabase (\%args, 0);
+    my $dbh = &connectToDatabase (\%args, 0);
 
     # Check if the request is known.  If so, delete all info about it
-    my %args = (":req" => $request);
-    my $reqid = &dbexec ($dbh, qq{select id from t_request where name = :req}, %args)
-        ->selectcol_arrayref();
+    my ($reqid) = &dbexec ($dbh, qq{select id from t_request where name = :req},
+	":req" => $request)->fetchrow();
 
     if ($reqid && defined $reqid->[0])
     {
-	%args = (":reqid" => $reqid->[0]);
+	my %args = (":reqid" => $reqid);
 	map { &dbexec ($dbh, qq{delete from $_ where request = :reqid}, %args) }
             qw(t_request_dataspec t_request_subscription t_request_operation);
     }
     else
     {
-	$reqid = &dbexec ($dbh, qq{select nextval from seq_request_id})
-	    ->selectcol_arrayref();
+	($reqid) = &dbexec ($dbh, qq{select nextval from seq_request_id})
+	    ->fetchrow();
 	&dbexec ($dbh, qq{insert into t_request values (:reqid, :req)},
-	    ":reqid" => $reqid->[0], ":req" => $request);
+	    ":reqid" => $reqid, ":req" => $request);
     }
 
     # Then add new info
@@ -102,7 +101,7 @@ foreach my $request (@ARGV)
 	    insert into t_request_operation
 	    (tiemstamp, request, operation, identity)
 	    values (:stamp, :reqid, :op, :arg)},
-	    ":reqid" => $reqid->[0], ":stamp" => $op->{STAMP},
+	    ":reqid" => $reqid, ":stamp" => $op->{STAMP},
 	    ":op" => $op->{COMMAND}, ":arg" => $op->{ARG});
     }
 
@@ -111,7 +110,7 @@ foreach my $request (@ARGV)
 	    insert into t_request_subscription
 	    (timestamp, request, operation, destination)
 	    values (:stamp, :reqid, :op, :arg)},
-	    ":reqid" => $reqid->[0], ":stamp" => $op->{STAMP},
+	    ":reqid" => $reqid, ":stamp" => $op->{STAMP},
 	    ":op" => $op->{COMMAND}, ":arg" => $op->{ARG});
     }
 
@@ -120,8 +119,8 @@ foreach my $request (@ARGV)
 	&dbexec ($dbh, qq{
 	    insert into t_request_dataspec
 	    (timestamp, request, operation, owner, dataset, block)
-	    values (:req, :stamp, :op, :ow, :ds, :block)},
-	    ":req" => $request, ":stamp" => $op->{STAMP}, ":op" => $op->{COMMAND},
+	    values (:stamp, :reqid, :op, :ow, :ds, :block)},
+	    ":reqid" => $reqid, ":stamp" => $op->{STAMP}, ":op" => $op->{COMMAND},
 	    ":ow" => $ow, ":ds" => $ds, ":block" => $op->{ARG});
     }
 

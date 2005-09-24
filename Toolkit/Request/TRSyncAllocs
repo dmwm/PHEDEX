@@ -70,15 +70,15 @@ foreach my $request (@ARGV)
 	my ($ds, $o) = ($dso =~ /(.*)\.(.*)/);
 	foreach my $dest (@destinations)
 	{
-	    my $exists = &dbexec(qq{
+	    my ($exists) = &dbexec($dbh, qq{
 		select count(*) from t_subscription
 		where destination = :dest
 		  and owner = :o and dataset = :ds},
   		":dest" => $dest, ":o" => $o, ":ds" => $ds)
-		->selectcol_arrayref();
+		->fetchrow();
 	    &dbexec (qq{insert into t_subscription values (:o, :ds, :dest)},
 	    	":dest" => $dest, ":o" => $o, ":ds" => $ds)
-		if ! $exists || ! $exists->[0];
+		if ! $exists;
 	}
     }
     $dbh->commit();
