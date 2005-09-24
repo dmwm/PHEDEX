@@ -1,0 +1,46 @@
+*** 2005-09-07
+
+# Archive and nuke the tables.
+Documentation/Updates/SC3Dump
+rfcp SC3Dump-20050907.tar.bz2 /castor/cern.ch/user/p/phedex
+rm SC3Dump-20050907.tar.bz2
+
+sqlplus $(Schema/OracleConnectId -db Schema/DBParam:SC3/Admin) <<EOF
+  truncate table t_routing drop storage;
+  truncate table t_replica_state drop storage;
+  truncate table t_transfer_state drop storage;
+  truncate table t_transfer_completed drop storage;
+  truncate table t_transfer_history drop storage;
+  truncate table t_perf_histogram drop storage;
+
+  truncate table t_block_destination drop storage;
+  truncate table t_block_replica drop storage;
+  delete from t_block;
+  truncate table t_subscription drop storage;
+
+  truncate table t_file_attributes drop storage;
+  delete from t_file;
+EOF
+
+*** 2005-09-07
+# Subscribe ASCC to ~4 TB of data
+sqlplus $(Schema/OracleConnectId -db Schema/DBParam:SC3/Admin) <<EOF
+  insert into t_subscription (
+    select owner, dataset, 'T1_ASCC_MSS'
+    from t_block where dataset like 'su%LM%');
+EOF
+
+*** 2005-09-17
+# Create subscriptions based on those in Dev
+
+sqlplus -S $(Schema/OracleConnectId -db Schema/DBParam:Dev/Admin) << EOF
+  set lines 1000 pages 1000 feedback off heading off
+  select distinct 'insert into t_subscription values ('''
+     || owner || ''', ''' || dataset || ''', ''' || destination || ''');'
+     from t_subscription where dataset like '%taujmu%';
+EOF
+
+# Close some blocks
+sqlplus $(Schema/OracleConnectId -db Schema/DBParam:SC3/Admin) << EOF
+  update t_block set isopen = 0 where dataset like 'su05%LM%';
+EOF
