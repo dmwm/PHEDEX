@@ -143,7 +143,7 @@ sub listDatasetOwners
 	    $ds = $1;
 	} elsif (/OPTION.*value=["'\''](.*)\(\d+\)["'\'']/) {
 	    $owner = $1;
-	    push (@result, [ $ds, $owner ]) if grep ("$owner/$ds" =~ /$_/, @patterns);
+	    push (@result, [ $owner, $ds ]) if grep ("$owner/$ds" =~ /$_/, @patterns);
 	}
     }
 
@@ -181,7 +181,7 @@ sub listDatasetHistory
 	if (! $found && /<TD.*>$ds(<|$)/) {
 	    $found = 1;
 	} elsif ($found && /<TD>(\S+)/) {
-	    push (@result, [ $ds, $1 ]);
+	    push (@result, [ $1, $ds ]);
 	} elsif ($found && /<TR/) {
 	    last;
 	}
