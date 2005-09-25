@@ -21,7 +21,7 @@ sub getURL
     if (! defined $urlprog)
     {
 	if (open (URL, "curl --version 2>&1 |")) {
-	    $urlprog = "curl -f -q -s"; close (URL);
+	    $urlprog = "curl -f -g -q -s"; close (URL);
 	} elsif (open (URL, "wget --version 2>&1 |")) {
 	    $urlprog = "wget -q -O -"; close (URL);
 	} else {
