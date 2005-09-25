@@ -202,7 +202,7 @@ sub main
 	  " <th>Size</th>\n",
 	  "</tr>\n";
 
-    foreach my $req (sort keys %status)
+    foreach my $req (sort { $b cmp $a } keys %status)
     {
 	my @dests = sort keys %{$status{$req}};
 	for (my $i = 0; $i <= $#dests; ++$i)
@@ -285,7 +285,7 @@ sub data
 	  " <th>TMDB</th>\n",
 	  "</tr>\n";
 
-    foreach my $req (sort keys %status)
+    foreach my $req (sort { $b cmp $a } keys %status)
     {
 	next if $reqparam && $req !~ /$reqparam/;
 
