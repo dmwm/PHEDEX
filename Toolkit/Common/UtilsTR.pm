@@ -154,7 +154,7 @@ sub listDatasetOwners
 sub listDatasetHistory
 {
     my ($dso) = @_;
-    my ($ds, $o) = @$dso;
+    my ($o, $ds) = @$dso;
 
     # First get a page that tells us the dataset/owner numbers (ugh)
     my ($dsn, $on) = (undef, undef);
