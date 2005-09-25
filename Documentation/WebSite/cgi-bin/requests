@@ -329,7 +329,7 @@ sub getnodelist
 	$nodes{$node} = 1;
     }
     foreach my $node (keys %nodes) {
-	delete $nodes{$node} if ($node =~ /(.*)_Buffer$/ && exists $nodes{"$1_MSS"});
+	delete $nodes{$node} if ($node =~ /(.*)_(Buffer|Stage)$/ && exists $nodes{"$1_MSS"});
     }
 
     return sort keys %nodes;
