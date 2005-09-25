@@ -62,7 +62,7 @@ foreach my $request (@ARGV)
     my $dbh = &connectToDatabase (\%args, 0);
     foreach my $dso (@patterns)
     {
-	my ($ds, $o) = ($dso =~ /(.*)\.(.*)/);
+	my ($o, $ds) = ($dso =~ /(.*)\/(.*)/);
 	foreach my $dest (@destinations)
 	{
 	    my ($exists) = &dbexec($dbh, qq{
