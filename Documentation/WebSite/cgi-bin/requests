@@ -7,7 +7,7 @@ use CGI qw(:standard);
 use CGI::Carp qw(fatalsToBrowser);
 use POSIX;
 use DBI;
-use RFC822Addr 'valid'; # Mail::RFC822::Address really;
+use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
 
 # Read database access tokens
 my $home = $0; $home =~ s|/[^/]*$||; $home = "." if ! $home;
@@ -433,12 +433,26 @@ sub checknew
 	$errors = 1;
     }
 
+    if ($reqname !~ /^\d\d\d\d-\d\d-\d\d-/) {
+	print "<div class='alert'><p><b>Error:</b>",
+	      " Request names must begin with date prefix",
+	      " &ldquo;YYYY-MM-DD-&rdquo;.</p></div>";
+	$errors = 1;
+    }
+
+    if ($reqname !~ /^[-0-9A-Za-z]*$/) {
+	print "<div class='alert'><p><b>Error:</b>",
+	      " Request names may only contain digits, letters A-Z and a-z,",
+	      " and dash.</p></div>";
+	$errors = 1;
+    }
+
     if ($reqname =~ /-PURPOSE-/ || $reqname =~ /-CREATOR$/) {
 	print "<div class='alert'><p><b>Error:</b>",
-	      " Request name @{[&escapeHTML($reqname)]} contains template",
-	      " material.  Please replace PURPOSE with the purpose for which",
-	      " this request is being created, and CREATOR with the initials",
-	      " of the creator's name.</p></div>";
+	      " Request name &ldquo;@{[&escapeHTML($reqname)]}&rdquo; contains",
+	      " template material.  Please replace PURPOSE with the purpose for",
+	      " which this request is being created, and CREATOR with the initials",
+	      " of the request creator's name.</p></div>";
 	$errors = 1;
     }
 
@@ -449,10 +463,11 @@ sub checknew
 	$errors = 1;
     }
 
-    if ($email ne '' && ! valid ($email)) {
+    my ($nrvalidmails, @emails) = validlist ($email);
+    if ($email ne '' && ! $nrvalidmails) {
 	print "<div class='alert'><p><b>Error:</b>",
 	      " Requestor e-mail &ldquo;@{[&escapeHTML($email)]}&rdquo; is",
-	      " not a valid RFC822 e-mail address.</p></div>\n";
+	      " not a valid RFC822 e-mail address or address list.</p></div>\n";
 	$errors = 1;
     }
 
@@ -498,7 +513,7 @@ sub checknew
 	      " </tr>\n",
 	      " <tr valign='top'>\n",
 	      "  <td>Requestor e-mail</td>\n",
-	      "  <td colspan='3'>", &escapeHTML($email), "</td>\n",
+	      "  <td colspan='3'>", (map { &escapeHTML($_) . "<br />" } @emails), "</td>\n",
 	      " </tr>\n",
 	      " <tr valign='top'>\n",
 	      "  <td>Destinations</td>\n",
@@ -522,25 +537,54 @@ sub checknew
     else
     {
 	my $now = time();
-	my $prefix = strftime('%Y-%m', gmtime($now));
+	my ($prefix) = ($reqname =~ m|^(\d\d\d\d-\d\d)|);
 	my $mail = ""
-	    . "Subject: TRANSFER REQUEST\n"
+	    . "Subject: TRANSFER REQUEST $reqname\n"
+	    . "From: PhEDEx Request Form <phedex.admin\@cern.ch>\n"
 	    . "To: lassi.tuura\@cern.ch\n"
 	    . "\n"
-	    . "# Requestor: $email\n"
-	    . "# Date: @{[strftime('%Y-%m-%d %H:%M:%S', gmtime($now))]}\n"
-	    . "# Database: $dbid\n"
+	    . "Greetings.  The following transfer request has been filed.\n"
+	    . "Please notify the contact people when the request has been\n"
+	    . "processed in full.  Thank you.\n"
+	    . "\n"
+	    . "  * Name: $reqname\n"
+	    . "  * Database: $dbid\n"
+	    . "  * Contacts:\n"
+	    . join("", map { "     $_\n" } @emails)
+	    . "  * Destinations:\n"
+	    . join("", map { "     $_\n" } @dests)
+	    . "  * Data:\n"
+	    . join("", map { "     $_\n" } @data)
+	    . "\n"
+	    . "===================================================\n"
+	    . "===== Please remove everything below when replying!\n"
+	    . "\n"
+	    . "Commands to process this request:\n"
 	    . "\n"
 	    . "mkdir -p $prefix\n"
 	    . "\$TRTOOLS/TRNew $prefix/$reqname\n"
+	    . "\$TRTOOLS/TRNewDatabase $prefix/$reqname $dbid\n"
+	    . "\$TRTOOLS/TRNewContact $prefix/$reqname \\\n  "
+	    .   join (" \\\n  ", map { "'$_'" } @emails) . "\n"
 	    . "\$TRTOOLS/TRNewLoc $prefix/$reqname \\\n  @dests\n"
-	    . "\$TRTOOLS/TRNewData -f $prefix/$reqname \\\n  "
+	    . "\$TRTOOLS/TRNewData -p $prefix/$reqname \\\n  "
 	    .   join (" \\\n  ", map { "'$_'" } @data) . "\n"
 	    . "\n"
+	    . "Submission information:\n"
+	    . "  * User agent: @{[$cgi->user_agent()]}\n"
+	    . "  * Remote host: @{[$cgi->remote_host()]}\n"
+	    . "  * Referrer: @{[$cgi->referer()]}\n"
+	    . "  * Server name: @{[$cgi->server_name()]}\n"
+	    . "  * Virtual host: @{[$cgi->virtual_host()]}\n"
+	    . "  * Server port: @{[$cgi->server_port()]}\n"
+	    . "  * Server software: @{[$cgi->server_software()]}\n"
+	    . "  * Request method: @{[$cgi->request_method()]}\n"
+	    . "  * Content type: @{[$cgi->content_type()]}\n"
+	    . "\n"
 	    . "Yours truly,\n"
-	    . "  PhEDEx subscription web form\n";
+	    . "  PhEDEx data subscription web form\n";
 
-	(open (MAIL, "| /usr/sbin/sendmail -t -f phedex.admin\@cern.ch")
+	(open (MAIL, "| /usr/sbin/sendmail -t")
 	 && (print MAIL $mail) && close (MAIL))
 	    or do { print "<div class='alert'><p><b>Error:</b>",
 	                  " Failed to send mail: $!.\n</p></div>";
@@ -548,7 +592,7 @@ sub checknew
 
         print "<p>",
               "<table class='striped'>\n",
-	      " <tr class='selected'><th colspan='4'>Request confirmed!</th></tr>\n",
+	      " <tr class='selected'><th colspan='4'>Request sent!</th></tr>\n",
 	      " <tr valign='top'>\n",
 	      "  <td>Request name</td>\n",
 	      "  <td colspan='3'>", &escapeHTML($reqname), "</td>\n",
@@ -566,9 +610,6 @@ sub checknew
 	      " <tr valign='top'>\n",
 	      "  <td>Owner/datasets</td>\n",
 	      "  <td colspan='3'>", (map { &escapeHTML($_) . "<br />" } @data), "</td>\n",
-	      " </tr>\n",
-	      " <tr>\n",
-	      "  <td colspan='4'><pre>", &escapeHTML($mail), "</pre></td>\n",
 	      " </tr>\n",
 	      "</table>\n",
 	      "</p>\n";
