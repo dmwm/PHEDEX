@@ -209,16 +209,6 @@ foreach my $request (@$requests)
         # Update database and print out stats
 	foreach my $dest (@dests)
 	{
-            print " $block\[$dest]:",
-                  " dbsopen=$info->{DBS}{ISOPEN}",
-                  " tmdbsopen=$info->{TMDB}{ISOPEN}",
-                  " indbs=$info->{DBS}{FILES}/$info->{DBS}{SIZE}",
-                  " intmdb=$info->{TMDB}{FILES}/$info->{TMDB}{SIZE}",
-                  " common=@{[scalar keys %common]}",
-                  " dbsonly=@{[scalar keys %dbsonly]}",
-                  " tmdbonly=@{[scalar keys %tmdbonly]}",
-                  "\n";
-
 	    &dbexec ($dbh, qq{
 	        insert into t_request_status
 	        (timestamp, request, block, destination,
