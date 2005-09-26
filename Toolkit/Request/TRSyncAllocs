@@ -71,7 +71,7 @@ foreach my $request (@ARGV)
 		  and owner = :o and dataset = :ds},
   		":dest" => $dest, ":o" => $o, ":ds" => $ds)
 		->fetchrow();
-	    &dbexec (qq{insert into t_subscription values (:o, :ds, :dest)},
+	    &dbexec ($dbh, qq{insert into t_subscription values (:o, :ds, :dest)},
 	    	":dest" => $dest, ":o" => $o, ":ds" => $ds)
 		if ! $exists;
 	}
