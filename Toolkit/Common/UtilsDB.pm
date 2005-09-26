@@ -79,8 +79,8 @@ sub connectToDatabase
     my $dbh = $self->{DBH};
     if (! $self->{DBH}
 	|| time() - $self->{DBH_AGE} > $self->{DBH_LIFE}
-	|| ! eval { $self->{DBH}->ping() }
-	|| $@)
+	|| (! eval { $self->{DBH}->ping() } || $@)
+	|| (! eval { $dbh->do("select 1 from dual") } || $@))
     {
 	$self->{DBH_LOGGING} = 1 if $ENV{PHEDEX_LOG_DB_CONNECTIONS};
 	&logmsg ("(re)connecting to database") if $self->{DBH_LOGGING};
