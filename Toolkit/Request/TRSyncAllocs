@@ -36,6 +36,7 @@ if (!$args{DBCONFIG})
     die "Incorrect parameters, use -h for help.\n";
 }
 
+my $dbh = &connectToDatabase (\%args, 0);
 foreach my $request (@ARGV)
 {
     -f "$request" or die "$request: not a transfer request\n";
@@ -59,7 +60,6 @@ foreach my $request (@ARGV)
     close (TICKET) or die "Cannot read ticket: $!\n";
 
     # Process each pair
-    my $dbh = &connectToDatabase (\%args, 0);
     foreach my $dso (@patterns)
     {
 	my ($o, $ds) = ($dso =~ /(.*)\/(.*)/);
