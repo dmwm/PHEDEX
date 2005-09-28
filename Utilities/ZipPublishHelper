@@ -52,7 +52,9 @@ if [ ! -z "$cobra" ]; then
 fi
 
 # Get the name of the XML template from the zip archive.
-xmlfrag="$(test_StorageFactory_ZipList "$zippfn" | grep XMLFragment | awk '{print $NF}')"
+xmlfrag="$(test_StorageFactory_ZipList "$zippfn" 2>/dev/null |
+           egrep 'XMLFragment|fragment_full' |
+	   awk '{print $NF}')"
 if [ -z "$xmlfrag" ]; then
   echo "$zippfn: error: cannot determine name of XML fragment" 1>&2
   exit 3
@@ -61,15 +63,32 @@ fi
 # Instantiate the XML fragment.  Being a COBRA tool it prints out all
 # manner of useless noise, so filter it out.
 xmltmp=$(mktemp /tmp/ZipPublishHelper.XXXXXX)
-test_StorageFactory_Any "zip-member:$zippfn#$xmlfrag" 2>/dev/null |
-  awk '/<File/,/<\/File/ { print } {}'  |
-  sed "s|@ZIPPFN@|$zippfn|g" > $xmltmp
-$(dirname $0)/UtilFixCat $xmltmp
+case $xmlfrag in
+  XMLFrag* )
+    # EVDZip style
+    test_StorageFactory_Any "zip-member:$zippfn#$xmlfrag" 2>/dev/null |
+      awk '/<File/,/<\/File/ { print } {}'  |
+      sed "s|@ZIPPFN@|$zippfn|g" > $xmltmp
+    $(dirname $0)/UtilFixCat $xmltmp
 
-if [ $(grep EVDZip $xmltmp | wc -l) = 0 ]; then
-  echo "$zippfn: error: instantiated xml catalogue appears suspect" 1>&2
-  exit 4
-fi
+    if [ $(grep EVDZip $xmltmp | wc -l) = 0 ]; then
+      echo "$zippfn: error: instantiated xml catalogue appears suspect" 1>&2
+      exit 4
+    fi
+    ;;
+
+  fragment* )
+    # LCG production style
+    test_StorageFactory_Any "zip-member:$zippfn#$xmlfrag" 2>/dev/null |
+      awk '/<File/,/<\/File/ { print } {}'  |
+      sed "s|./EVD|zip-member:$zippfn#EVD|g" > $xmltmp
+    $(dirname $0)/UtilFixCat $xmltmp
+    cp $xmltmp /tmp/phedex
+    ;;
+
+  * )
+    echo "$0: internal error: unexpected template format" 1>&2; exit 5 ;;
+esac
 
 # Now publish the catalogue
 POOL_XMLBACKUP=0 POOL_OUTMSG_LEVEL=W FCpublish \
