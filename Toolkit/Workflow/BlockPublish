@@ -132,7 +132,7 @@ sub checkConsistency
     my $cmd = "@{$self->{PFN_QUERY}}"
 	. " \"dataset='$block->{DATASET}' and owner='$block->{OWNER}'\"";
     my @pfns = qx($cmd);
-    my $zipmembers = grep($_ =~ m|ZippedEVD|,@pfns);
+    my $zipmembers = grep($_ =~ m|Zipped|,@pfns);
 
     my $filesincatalog = 0;
     if ($zipmembers)
