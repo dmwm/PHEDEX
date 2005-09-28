@@ -3,20 +3,20 @@
 ##H Published completed received blocks to the local PubDB.
 ##H
 ##H This agent receives drops from BlockNotify and processes them to
-##H ensure safe publishing into the PubDB database.  Both McRunjob
-##H publish service and Nicola de Filippis' scripts are supported.
+##H ensure safe publishing into the PubDB database.  Both CMS Glide
+##H publish service and the validation tools are supported.
 ##H
 ##H Usage:
 ##H   BlockPublish
 ##H      -state DIRECTORY -next DIRECTORY [-wait SECS]
-##H      -script CMD[,ARGS...] -pfnquery CMD[,ARGS...]
+##H      -script CMD[,ARGS...] -lfnquery CMD[,ARGS...]
 ##H      -published DIRECTORY
 ##H
 ##H -state     agent state directory
 ##H -next      state directory for the next agent; can be repeated
 ##H -wait      time to wait in seconds between work scans
 ##H -script    the publishing script to be invoked
-##H -pfnquery  command to query pfns from catalogue
+##H -lfnquery  command to query lfns from catalogue
 ##H -published history directory for already published datasets
 
 BEGIN {
@@ -32,14 +32,14 @@ use Getopt::Long;
 my %args = (WAITTIME => 3600);
 &GetOptions ("state=s"		=> \$args{DROPDIR},
 	     "published=s"      => \$args{PUBLISHED},
-	     "pfnquery=s"       => \$args{PFN_QUERY},
+	     "lfnquery=s"       => \$args{LFN_QUERY},
 	     "script=s"         => \$args{SCRIPT},
 	     "wait=f"		=> \$args{WAITTIME},
      	     "help|h"		=> sub { &usage() });
 
 $args{SCRIPT} = [ split(/,/, $args{SCRIPT}) ] if $args{SCRIPT};
-$args{PFN_QUERY} = [ split(/,/, $args{PFN_QUERY}) ] if $args{PFN_QUERY};
-if (!$args{DROPDIR} || !$args{PUBLISHED} || !$args{PFN_QUERY} || !$args{SCRIPT})
+$args{LFN_QUERY} = [ split(/,/, $args{LFN_QUERY}) ] if $args{LFN_QUERY};
+if (!$args{DROPDIR} || !$args{PUBLISHED} || !$args{LFN_QUERY} || !$args{SCRIPT})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -63,7 +63,7 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (MYNODE     => undef,          # My TMDB node name
 		  SCRIPT     => undef,          # path to script for publishing
-		  PFN_QUERY  => undef,		# PFN query script
+		  LFN_QUERY  => undef,		# LFN query script
 		  PUBLISHED  => undef);         # dir with treated owner/datasets
 
     my %args = (@_);
@@ -123,23 +123,22 @@ sub processDrop
 # Check that the number of files registered in local catalogue match
 # the number of files in the block. Returns zero on failure, non-zero
 # if the catalogue is consistent.
-# The PFN query script needs to be provided as argument to the agent
-# Examples: 1. PFNLookup.sh,-u,<POOL_CATALOG>,-q,<protocol>,<node>
-#           2. FClistLFN,-u,<POOL_CATALOG>,-q
+# The LFN query needs to be provided as argument to the agent
+# Example: FClistLFN,-u,<POOL_CATALOG>,-q
 sub checkConsistency
 {
     my ($self, $drop, $block) = @_;
-    my $cmd = "@{$self->{PFN_QUERY}}"
+    my $cmd = "@{$self->{LFN_QUERY}}"
 	. " \"dataset='$block->{DATASET}' and owner='$block->{OWNER}'\"";
-    my @pfns = qx($cmd);
-    my $zipmembers = grep($_ =~ m|Zipped|,@pfns);
+    my @lfns = qx($cmd);
+    my $zipmembers = grep($_ =~ m|Zipped|,@lfns);
 
     my $filesincatalog = 0;
     if ($zipmembers)
     {
 	$filesincatalog = $zipmembers;
     } else {
-	$filesincatalog = scalar @pfns;
+	$filesincatalog = scalar @lfns;
     }
 
 
