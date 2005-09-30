@@ -1,7 +1,8 @@
 package UtilsTR; use strict; use warnings; use base 'Exporter';
 our @EXPORT = qw(usage readPatterns expandPatterns
 	         assignmentData assignmentInfo assignmentFileCategory
-	         expandXMLFragment listDatasetOwners listAssignments);
+	         expandXMLFragment listDatasetOwners listAssignments
+		 listDatasetHistory);
 use TextGlob 'glob_to_regex';
 use UtilsWriters;
 use UtilsReaders;
