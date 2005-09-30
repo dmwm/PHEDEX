@@ -978,11 +978,8 @@ sub rateplot
 
 sub qplot
 {
-    my @plotorder = qw(l8h l12h l24h l48h l72h l96h l132h l7d l14d l30d l90d l6w ad aw am);
-    my %plots = ("l8h" => [ "8:hour", "Last 8 Hours" ],
-	         "l12h" => [ "12:hour", "Last 12 Hours" ],
-	         "l24h" => [ "24:hour", "Last 24 Hours" ],
-	         "l48h" => [ "48:hour", "Last 48 Hours" ],
+    my @plotorder = qw(l48h l72h l96h l132h l7d l14d l30d l90d l6w ad aw am);
+    my %plots = ("l48h" => [ "48:hour", "Last 48 Hours" ],
 	         "l72h" => [ "72:hour", "Last 72 Hours" ],
 	         "l96h" => [ "96:hour", "Last 96 Hours" ],
 	         "l132h" => [ "132:hour", "Last 132 Hours" ],
@@ -1014,8 +1011,9 @@ sub qplot
     foreach my $kind (qw(completed_ratio failed_ratio attempted completed failed))
     {
 	my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
+	my $php = ($kind =~ /_/ ? "quality-map.php" : "quality-graph.php");
 	print "<p><img width=900 height=400 src='",
-	      "http://cmsdoc.cern.ch/cms/aprom/phedex/WebSite/cgi-bin/quality-graph.php?",
+	      "http://cmsdoc.cern.ch/cms/aprom/phedex/WebSite/cgi-bin/$php?",
 	      &urlencode('db' => $db, 'span' => $unit, 'kind' => $kind,
 		         'last' => $last, 'filter' => $filter),
 	      "'>";
