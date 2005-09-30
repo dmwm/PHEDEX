@@ -1008,7 +1008,7 @@ sub qplot
           "Filter ",
 	  $cgi->textfield(-name=>'filter', -default=>$filter, -size=>15), "\n",
     	  "<input type='submit' value='Update'></form></p>\n";
-    foreach my $kind (qw(completed_ratio failed_ratio attempted completed failed))
+    foreach my $kind (qw(completed_ratio attempted completed failed))
     {
 	my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
 	my $php = ($kind =~ /_/ ? "quality-map.php" : "quality-graph.php");
