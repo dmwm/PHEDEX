@@ -1,5 +1,6 @@
 <?
 error_reporting(E_ALL);
+ini_set("max_execution_time", "120");
 
 function read_csv ($file, $delimiter)
 {
