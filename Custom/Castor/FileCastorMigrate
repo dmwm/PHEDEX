@@ -143,6 +143,7 @@ sub idle
 
 	    # Check if the file has been migrated.  If not, skip it.
 	    my $pfn = &guidToPFN ($guid, "direct", "local", @{$self->{PFN_QUERY}});
+	    do { &alert ("failed to find pfn for guid $guid"); next } if !$pfn;
 	    open (NSLS, "nsls -l $pfn |") or die "cannot nsls $pfn: $!";
 	    my $status = <NSLS>;
 	    close (NSLS) or die "cannot nsls $pfn: $!";
