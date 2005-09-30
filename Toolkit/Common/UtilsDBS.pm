@@ -169,12 +169,78 @@ sub fetchRunInfo
     }
 }
 
+
+# Get application information
+sub fetchApplicationInfo
+{
+    my ($self, $object) = @_;
+    my $ainfo;
+    my @assidList=&listAssignments ($object->{DATASET}, $object->{OWNER});
+    # just pick up the first assignment since the application info
+    # should be the same within the same dataset-owner
+    my $assid=$assidList[0];
+    $ainfo ||= &assignmentInfo ($assid);
+    $object->{APPINFO}{ASSIGNMENT} = $assid;
+    $object->{APPINFO}{ProdStepType}=$ainfo->{ProdStepType};
+    $object->{APPINFO}{ProductionCycle}=$ainfo->{ProductionCycle};
+    $object->{APPINFO}{ApplicationVersion}=$ainfo->{ApplicationVersion};
+    $object->{APPINFO}{ApplicationName}=$ainfo->{ApplicationName};
+    $object->{APPINFO}{ExecutableName}=$ainfo->{ExecutableName};                   
+ }
+
+# Get the provenance
+sub fetchProvenanceInfo
+{
+    my ($self, $object) = @_;
+    ## get dataset-history
+    my @history=&listDatasetHistory ([ $object->{DATASET}, $object->{OWNER} ]);
+
+    foreach my $parent (@history) {
+      ## select only parents (skip itself) 
+      if ( $object->{OWNER} ne @$parent[1] ){
+       #print "parentinfo:  @$parent[0]  @$parent[1]\n";
+       my $Pdataset= @$parent[0];
+       my $Powner= @$parent[1];
+
+       my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/data/"
+                           ."AnaInfo.php?DatasetName=$Pdataset&"
+                           ."OwnerName=$Powner");
+       die "no dataset info for $Powner/$Pdataset\n" if ! $data;
+       #die "Parent bad dataset info for $Powner/$Pdataset\n"
+       # if $data =~ /ERROR.*SELECT.*FROM/si;
+        
+       if ( $data =~ /ERROR.*SELECT.*FROM/si ) {
+       ## AnaInfo.php do not work for Generation step , as well as DSOwnToAs.php,DSOwnToColl.php
+          print "Error extracting info for $Powner/$Pdataset\n";
+          $object->{PARENTS}{$Powner}{DSINFO}{DatasetName}=$Pdataset;
+          $object->{PARENTS}{$Powner}{DSINFO}{OwnerName}=$Powner; 
+          $object->{PARENTS}{$Powner}->{DSINFO}{InputProdStepType}="Error";
+          
+       } else {
+
+          foreach my $row (split("\n", $data))
+          {
+             if ($row =~ /^(\S+)=(.*)/) {
+                $object->{PARENTS}{$Powner}{DSINFO}{$1} = $2;
+             }
+          }
+
+       }
+
+
+      }
+    }
+     
+}
+
 # Fill dataset with information for it
 sub fillDatasetInfo
 {
     my ($self, $object) = @_;
     $self->fetchDatasetInfo ($object);
     $self->fetchRunInfo ($object);
+    $self->fetchApplicationInfo ($object);
+    $self->fetchProvenanceInfo ($object);
 }
 
 sub fetchKnownFiles
