@@ -1,0 +1,152 @@
+#!/usr/bin/env perl
+
+##H List dataset information from DBS database.
+##H
+##H Usage:
+##H   RefDBDump { -evc | -application | -details | -files | blocks } [PATTERN...]
+##H
+##H -evc          print out EventCollection information (more costly)
+##H -application  print out Application information (more costly)
+##H -details      include detailed information about files (more costly)
+##H -blocks       print out block information (more costly)
+##H -files        print out file GUID and LFNs (more costly)
+##H PATTERN       block match constraint (owner/dataset), such as "*/bt03_*"
+
+BEGIN { use strict; use warnings;
+  my $me = $0; $me =~ s|.*/||;
+  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+  unshift(@INC, "$home/../Toolkit/Common"); }
+use UtilsHelp;
+use UtilsDBS;
+use TextGlob 'glob_to_regex';
+
+my %args = (DETAILS => 0, FILES => 0);
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-h') {
+	&usage();
+    } elsif ($ARGV[0] eq '-details') {
+	shift (@ARGV); $args{DETAILS} = 1;
+    } elsif ($ARGV[0] eq '-evc') {
+        shift (@ARGV); $args{EVC} = 1;
+    } elsif ($ARGV[0] eq '-application') {
+        shift (@ARGV); $args{APPLICATION} = 1;
+    } elsif ($ARGV[0] eq '-blocks') {
+	shift (@ARGV); $args{BLOCKS} = 1;
+    } elsif ($ARGV[0] eq '-files') {
+	shift (@ARGV); $args{FILES} = $args{DETAILS} = 1;
+    } elsif ($ARGV[0] eq '--') {
+	shift (@ARGV); last;
+    } elsif ($ARGV[0] =~ '^-') {
+	&usage ("$0: unrecognised option $ARGV[0]\n\n");
+    } else {
+	last;
+    }
+}
+
+$TextGlob::strict_wildcard_slash = 0;
+$args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
+if (!$args{DETAILS} && !$args{FILES} && !$args{BLOCKS} && !$args{EVC} && !$args{APPLICATION})
+{
+    die "Insufficient parameters, use -h for help.\n";
+}
+
+
+# Create appropriate dataset bookkeeping proxy
+my $dbs = new UtilsDBS::RefDB (%args);
+
+# Get all existing datasets
+my $datasets = $dbs->fetchPublishedData();
+
+# Get all current datasets
+foreach my $item (@$datasets)
+{
+    my $token = "$item->{OWNER}/$item->{DATASET}";
+    next if (@ARGV && !grep($token =~ $_, @{$args{PATS}}));
+    print "processing $token\n";
+    if ($args{EVC} || $args{APPLICATION} || $args{DETAILS} || $args{FILES} || $args{BLOCKS})
+    {
+        # Get the full data
+        eval { $dbs->fillDatasetInfo ($item); };
+        do { warn ($@); next } if $@;
+    }
+
+
+    # Evaluate dataset information
+
+    ## get event collection information
+    if ($args{EVC}){
+        foreach my $run (values %{$item->{RUNS}}){
+         print "-- EventCollection: EvC_Run$run->{NAME}  Evts: $run->{EVTS}\n";
+         foreach my $f (@{$run->{FILES}})
+          {
+            print "  FileLFN: $f->{LFN}[0] FileGUID: $f->{GUID}\n";
+          }
+        }
+    }
+     ## get application info 
+    if ($args{APPLICATION}){
+        print " Dataset    = $item->{DATASET}\n";
+        print " Owner      = $item->{OWNER}\n";
+        print " InputOwner      = $item->{DSINFO}{InputOwnerName}\n";
+        print " Datatype   = $item->{DSINFO}{InputProdStepType}\n";
+        #foreach my $assid (values %{$item->{APPINFO}{ASSIGNMENT}}){
+        print " Application        = $item->{APPINFO}{ApplicationName}\n";
+        print " ApplicationVersion = $item->{APPINFO}{ApplicationVersion}\n";
+        print " ExecutableName = $item->{APPINFO}{ExecutableName}\n";
+        print " ( info extracted from AssignmentID = $item->{APPINFO}{ASSIGNMENT})\n";
+        #}
+        print " DBS Pathname = /$item->{DATASET}/$item->{DSINFO}{InputProdStepType}/$item->{OWNER} \n";
+        print "\n --- Provenance Info --- \n";
+        foreach my $parent (values %{$item->{PARENTS}}){
+        print " -- \n";
+        print " ParentDataset    = $parent->{DSINFO}{DatasetName}\n";
+        print " ParentOwner      = $parent->{DSINFO}{OwnerName}\n";
+        print " ParentDatatype   = $parent->{DSINFO}{InputProdStepType}\n";
+        print " DBS Pathname = /$parent->{DSINFO}{DatasetName}/$parent->{DSINFO}{InputProdStepType}/$parent->{DSINFO}{OwnerName} \n";
+        }
+
+    }
+
+
+    if ($args{DETAILS})
+    {
+        my $blocks = $item->{BLOCKS};
+        my $runs = $item->{RUNS};
+        my $files = $item->{FILES};
+        my $events = 0; map { $events += $_->{EVTS} } values %$runs;
+        print " Id         = @{[$item->{ID} || '']}\n";
+        print " Owner      = $item->{OWNER}\n";
+        print " Dataset    = $item->{DATASET}\n";
+        print " Collection = $item->{COLLECTION}\n";
+        print " Datatype   = $item->{DSINFO}{InputProdStepType}\n";
+        print " InputOwner = $item->{DSINFO}{InputOwnerName}\n";
+        print " PUDataset  = $item->{DSINFO}{PUDatasetName}\n";
+        print " PUOwner    = $item->{DSINFO}{PUOwnerName}\n";
+        print " Status     = $item->{DSINFO}{CollectionStatus}\n";
+        print " Blocks     = @{[scalar keys %$blocks]}\n";
+        print " Runs       = @{[scalar keys %$runs]}\n";
+        print " Files      = @{[scalar @$files]}\n";
+        print " Events     = $events\n";
+        print " Sites      = @{[sort keys %{$item->{SITES}}]}\n";
+
+    }
+
+    if ($args{BLOCKS})
+    {
+        foreach my $b (values %{$item->{BLOCKS}})
+        {
+	    print " Block $b->{NAME} $b->{ASSIGNMENT}\n";
+        }
+    }
+
+    if ($args{FILES})
+    {
+        foreach my $f (@{$item->{FILES}})
+        {
+	    print " File $f->{GUID} $f->{INBLOCK} $f->{LFN}[0]\n";
+        }
+    }
+}
+
+exit 0;
