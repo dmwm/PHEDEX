@@ -4,7 +4,7 @@
 // Description:	PHP Graph Plotting library. Base module.
 // Created: 	2001-01-08
 // Author:	Johan Persson (johanp@aditus.nu)
-// Ver:		$Id: jpgraph.php 21 2005-05-30 20:35:34Z ljp $
+// Ver:		$Id: jpgraph.php,v 1.1 2005/07/07 10:51:41 lat Exp $
 //
 // Copyright (c) Aditus Consulting. All rights reserved.
 //========================================================================
@@ -3986,6 +3986,7 @@ class Axis {
 	// (Usefull when the first label might interfere with another
 	// axis.)
 	$i = $this->show_first_label ? 0 : 1 ;
+	$ioff = -$i;
 	if( !$this->show_last_label ) --$nbr;
 	// Now run through all labels making sure we don't overshoot the end
 	// of the scale.	
@@ -4004,7 +4005,7 @@ class Axis {
 	    	return; 
 	    }
 	    // we only draw every $label_step label
-	    if( ($i % $this->label_step)==0 ) {
+	    if( (($i+$ioff) % $this->label_step)==0 ) {
 
 		// Set specific label color if specified
 		if( $ncolor > 0 )
