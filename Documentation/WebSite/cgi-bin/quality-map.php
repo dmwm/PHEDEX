@@ -1,5 +1,6 @@
 <?
 error_reporting(E_ALL);
+ini_set("max_execution_time", "120");
 
 function read_csv ($file, $delimiter)
 {
@@ -46,22 +47,45 @@ function selectData($data, $xbin, $tail)
   return array_reverse($newdata, true);
 }
 
-function styleByValue($value)
+function hsv2rgb($h, $s, $v)
 {
-  // Rendering parameters: limit, color, line color, description
-  $styles = array(array(-.1, "#ffffff", "#000000", "No transfers"),     // white
-                  array(.15, "#ae0000", "#6a2055", "0-15% success"),    // blood red
-  		  array(.25, "#ff0000", "#ff0000", "15-25% success"),   // bright red
-  		  array(.50, "#012dfa", "#0518d5", "25-50% success"),   // dark blue
-  		  array(.75, "#5287fe", "#0849de", "50-75% success"),   // light blue
-		  array(.85, "#c0fe52", "#9cd70a", "75-85% success"),   // light green
-		  array(.95, "#00c023", "#009d01", "85-95% success"),   // dark green
-		  array(1.0, "#00e942", "#52c252", "95-100% success"),  // bright green
-		  array(1e9, "#000000", "#ffffff", ">100% success"));   // black
+  if ($s == 0)
+    return array($v, $v, $v);
+  else
+  {
+    if ($h == 1.) $h = 0.;
+    $h *= 6.;
+    $i = (int) $h;
+    $f = $h - $i;
+    $p = $v * (1. - $s);
+    $q = $v * (1. - $s * $f);
+    $t = $v * (1. - $s * (1. - $f));
+    switch ($i)
+    {
+      case 0: return array($v, $t, $p);
+      case 1: return array($q, $v, $p);
+      case 2: return array($p, $v, $t);
+      case 3: return array($p, $q, $v);
+      case 4: return array($t, $p, $q);
+      case 5: return array($v, $p, $q);
+    }
+  }
+}
 
-  for ($s = 0; $s < count($styles); ++$s)
-    if ($value <= $styles[$s][0])
-      return $styles[$s][1];
+function styleByValue($base, $dir, $value)
+{
+  // The first half of a "hsv" colour map, from IGUANA IgSbColorMap.cc.
+
+  // First constrain $value.  <0 == none, otherwise clamp to [0, 1].
+  // Then scale [0, 1] to [$base, $base+$dir] to use good portion of HSV gradient.
+  $value = ($value > 1 ? 1 : $value);
+  $value = ($value < 0 ? $value : $base + $dir * $value);
+  if ($value < 0.) {
+    $rgb = array (1, 1, 1);
+  } else {
+    $rgb = hsv2rgb ($value, 1, 1);
+  }
+  return sprintf ("#%02x%02x%02x", $rgb[0]*255, $rgb[1]*255, $rgb[2]*255);
 }
 
 function makeGraph($graph, $data, $args)
@@ -88,15 +112,23 @@ function makeGraph($graph, $data, $args)
   // colouring is achieved by having a trivial line plot (height 1),
   // and adding "areas" to it, and then stacking the line plots so a
   // plot for each node stands on the other in vertical (Y) direction.
-  $legend = array();
   $plots = array();
+  $ylabels = array();
   $filter = $args['filter'];
   foreach ($nodes as $n => $node)
   {
     if (isset($filter) && $filter != '' && ! preg_match("/$filter/", $node))
       continue;
 
+    // Suppress fully zero rows: nodes without any transfers
+    $iszero = -1;
+    foreach ($data as $xbin => $xdata)
+      if (isset($xdata[$node]) && ($iszero = $xdata[$node][0]) > 0)
+	break;
+    if ($iszero <= 0) continue;
+
     // Construct an y bin (node) a line plot + areas for this node.
+    $ylabels[] = $node;
     $thisplot = new LinePlot(array_fill(0, count($data), 1));
     $thisplot->SetColor ("#000000");
 
@@ -105,39 +137,31 @@ function makeGraph($graph, $data, $args)
       foreach ($data as $xbin => $xdata)
       {
         $thisplot->AddArea ($i, $i+1, LP_AREA_FILLED, styleByValue
-			    (isset ($xdata[$node]) && $xdata[$node][0]
-	                     ? $xdata[$node][1] / $xdata[$node][0] : -1));
-	++$i;
+			    (.4, -.4, isset ($xdata[$node]) && $xdata[$node][0]
+			     ? $xdata[$node][1] / $xdata[$node][0] : -1));
+        ++$i;
       }
     else if ($args['metric'] == 'completed_ratio')
       foreach ($data as $xbin => $xdata)
       {
         $thisplot->AddArea ($i, $i+1, LP_AREA_FILLED, styleByValue
-			    (isset ($xdata[$node]) && $xdata[$node][0]
+			    (0, .4, isset ($xdata[$node]) && $xdata[$node][0]
 	                     ? $xdata[$node][2] / $xdata[$node][0] : -1));
-	++$i;
+        ++$i;
       }
 
     $plots[] = $thisplot;
-    /*
-    if (! isset ($legend[$node]))
-    {
-      $legend[$node] = 1;
-      $barplot->SetLegend ($node);
-    }
-    */
   }
 
+  $ylabels[] = "";
   $plot = new AccLinePlot ($plots);
 
-  // Compute how much the legend needs
-  $legendcols = (count($plots) > 20 ? 2 : 1);
-
   // Configure the graph
-  $graph->SetScale("textlin", 0, count($nodes));
+  $graph->SetScale("textlin", 0, count($ylabels)-1);
+  $graph->SetY2Scale ("lin", 0, count($ylabels)-1);
   $graph->SetColor("white");
   $graph->SetMarginColor("white");
-  $graph->img->SetMargin(65,56 + $legendcols * 122,40,40);
+  $graph->img->SetMargin(65,56+122,40,70);
   $graph->img->SetAntiAliasing();
 
   $graph->title->Set("PhEDEx Transfer Quality {$args['title']}");
@@ -160,20 +184,26 @@ function makeGraph($graph, $data, $args)
   $graph->xscale->ticks->Set($nrowskip, $xunit);
 
   $graph->yaxis->title->Set($args['ytitle']);
-  $graph->yaxis->SetTitleMargin(-130);
-  $graph->yaxis->SetPos ('max');
-  $graph->yaxis->SetLabelSide (SIDE_RIGHT);
-  $graph->yaxis->SetTickSide (SIDE_LEFT);
-  $graph->yaxis->SetTickLabels (array_merge(array_values ($nodes), array("")));
-  $graph->yaxis->SetTextTickInterval (1, 0);
   $graph->yaxis->title->SetFont(FF_FONT1,FS_BOLD);
-  $graph->yscale->ticks->Set(1,1);
+  $graph->yaxis->SetTitleMargin(35);
+  $graph->yaxis->HideLabels ();
 
-  $graph->legend->Pos(0.01, 0.5, "right", "center");
-  $graph->legend->SetColumns($legendcols);
+  $graph->y2axis->SetLabelAlign ('left', 'bottom');
+  $graph->y2axis->SetTickLabels ($ylabels);
+  $graph->y2axis->SetTextTickInterval (1, 0);
+  $graph->y2axis->SetTextLabelInterval (1);
+  $graph->y2scale->ticks->Set(1,1);
+
+  for ($i = 0; $i <= 100; $i += 10)
+  {
+    $color = styleByValue (0, 0.4, $i/100.);
+    $range = $i == 100 ? "100+%" : sprintf ("%d-%d%%", $i, $i+10);
+    $graph->legend->Add ($range, $color);
+  }
+  $graph->legend->Pos(0.44, 0.98, "center", "bottom");
+  $graph->legend->SetLayout(LEGEND_HOR);
   $graph->legend->SetShadow(0);
-  // $graph->legend->SetLayout(LEGEND_HOR);
-  $graph->Add ($plot);
+  $graph->AddY2 ($plot);
   $graph->Stroke();
 }
 
