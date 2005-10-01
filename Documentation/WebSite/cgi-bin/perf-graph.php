@@ -1,63 +1,16 @@
 <?
-error_reporting(E_ALL);
-ini_set("max_execution_time", "120");
-
-function read_csv ($file, $delimiter)
-{
-  $data_array = file($file);
-  for ( $i = 0; $i < count($data_array); $i++ )
-    $parts_array[$i] = explode($delimiter,trim($data_array[$i]));
-  return $parts_array;
-}
-
 @define ('BASE_PATH', dirname(__FILE__));
+include BASE_PATH . "/phedex-utils.php";
 include BASE_PATH . "/jpgraph/jpgraph.php";
 include BASE_PATH . "/jpgraph/jpgraph_bar.php";
-
-function selectData($data, $xbin, $tail, $sum)
-{
-  // Build a map of nodes we are interested in.
-  $newdata = array(); $xvals = array();
-
-  // Collect all the data into correct binning.
-  for ($i = count($data)-1; $i >= 1; --$i)
-  {
-    // Select correct time for X axis, plus convert to desired format.
-    // Stop when we have $tail unique X values.
-    $time = $data[$i][$xbin];
-    if (! count($xvals) || $xvals[count($xvals)-1] != $time) $xvals[] = $time;
-    if (isset($tail) && $tail && count($xvals) > $tail) break;
-
-    // Append to $newdata[$time][$node].  If $sum, it's additive (rate
-    // or data transferred), otherwise pick last value of period (pending)
-    $newrow = array($time);
-    for ($n = 4; $n < count($data[$i]); ++$n)
-    {
-      $node = $data[0][$n];
-      if (preg_match("/MSS$/", $node)) continue;
-      if (! isset ($newdata[$time][$node]))
-        $newdata[$time][$node] = array (0, 0);
-
-      if ($sum)
-      {
-        $newdata[$time][$node][0] += $data[$i][$n];
-        $newdata[$time][$node][1]++;
-      }
-      else if (! $newdata[$time][$node][0])
-        $newdata[$time][$node][0] = $data[$i][$n];
-    }
-  }
-
-  return array_reverse($newdata, true);
-}
 
 function makeGraph($graph, $data, $args)
 {
   // Rendering parameters
-  $styles = array("#e66266", "#fff8a9", "#7bea81", "#8d4dff", "#ffbc71", "#a57e81",
-		  "#baceac", "#00ccff", "#63aafe", "#ccffff", "#ccffcc", "#ffff99",
-		  "#99ccff", "#ff99cc", "#cc99ff", "#ffcc99", "#3366ff", "#33cccc");
   $patterns = array('/^T1/' => 0, '/^T2/' => PATTERN_DIAG2, '/^/' => PATTERN_DIAG4);
+  for ($i = 0; $i < 20; ++$i)
+    $styles[] = ($i < 10 ? styleByValue (0, 0.5, 1, $i/10.)
+    		 : styleByValue (0.5, 0.5, .75, ($i-10)/10.));
 
   // Build X-axis labels.  Make sure there are not too many of them.
   $xrewrite = $args['xrewrite'];
@@ -123,7 +76,7 @@ function makeGraph($graph, $data, $args)
   $plot->SetWidth(0.65);
 
   // Compute how much the legend needs
-  $legendcols = (count($barplots) > 20 ? 2 : 1);
+  $legendcols = (count($barplots) > 25 ? 2 : 1);
 
   // Configure the graph
   $graph->SetScale("textlin");
@@ -213,8 +166,8 @@ else // hour
 }
 
 $graph = new Graph (900, 400, "auto");
-$data = read_csv (BASE_PATH . "/data/{$args['instance']}-$suffix.csv", ",");
-$data = selectData ($data, $args['xbin'], $entries, $args['metric'] != 'pending');
+$data = readCSV (BASE_PATH . "/data/{$args['instance']}-$suffix.csv", ",");
+$data = selectPerformanceData ($data, $args['xbin'], $entries, $args['metric'] != 'pending');
 makeGraph ($graph, $data, $args);
 
 ?>
