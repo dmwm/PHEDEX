@@ -90,6 +90,7 @@ sub runme
 		    [ 'stats',		\&stats,	"File Size Stats" ],
 		    [ 'rates',		\&rates,	"Transfer Rate" ],
 		    [ 'rateplot',	\&rateplot,	"Transfer Rate Plots" ],
+		    [ 'pplot',		\&rateplot,	"Transfer Queue Plots" ],
 		    [ 'qplot',		\&qplot,	"Transfer Quality Plots" ],
 		    [ 'agents',		\&agents,	"Agent Status" ],
 		    [ 'dbreports',	\&dbreports,	"Daily Reports" ],
@@ -965,7 +966,7 @@ sub rateplot
           "Filter ",
 	  $cgi->textfield(-name=>'filter', -default=>$filter, -size=>15), "\n",
     	  "<input type='submit' value='Update'></form></p>\n";
-    foreach my $kind (qw(rate total pending))
+    foreach my $kind (param('page') eq 'rateplot' ? qw(rate total) : qw(pending))
     {
 	my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
 	print "<p><img width=900 height=400 src='",
