@@ -1,92 +1,8 @@
 <?
-error_reporting(E_ALL);
-ini_set("max_execution_time", "120");
-
-function read_csv ($file, $delimiter)
-{
-  $data_array = file($file);
-  for ( $i = 0; $i < count($data_array); $i++ )
-    $parts_array[$i] = explode($delimiter,trim($data_array[$i]));
-  return $parts_array;
-}
-
 @define ('BASE_PATH', dirname(__FILE__));
+include BASE_PATH . "/phedex-utils.php";
 include BASE_PATH . "/jpgraph/jpgraph.php";
 include BASE_PATH . "/jpgraph/jpgraph_line.php";
-
-function selectData($data, $xbin, $tail)
-{
-  // Build a map of nodes we are interested in.
-  $newdata = array(); $xvals = array();
-
-  // Collect all the data into correct binning.
-  for ($i = count($data)-1; $i >= 1; --$i)
-  {
-    // Select correct time for X axis, plus convert to desired format.
-    // Stop when we have $tail unique X values.
-    $time = $data[$i][$xbin];
-    if (! count($xvals) || $xvals[count($xvals)-1] != $time) $xvals[] = $time;
-    if (isset($tail) && $tail && count($xvals) > $tail) break;
-
-    // Append to $newdata[$time][$node]
-    $newrow = array($time);
-    for ($n = 4; $n < count($data[$i]); ++$n)
-    {
-      $node = $data[0][$n];
-      if (preg_match("/MSS$/", $node)) continue;
-      if (! isset ($newdata[$time][$node]))
-        $newdata[$time][$node] = array (0, 0, 0);
-
-      $values = explode ("/", $data[$i][$n]);
-      $newdata[$time][$node][0] += $values[0];
-      $newdata[$time][$node][1] += $values[1];
-      $newdata[$time][$node][2] += $values[2];
-    }
-  }
-
-  return array_reverse($newdata, true);
-}
-
-function hsv2rgb($h, $s, $v)
-{
-  if ($s == 0)
-    return array($v, $v, $v);
-  else
-  {
-    if ($h == 1.) $h = 0.;
-    $h *= 6.;
-    $i = (int) $h;
-    $f = $h - $i;
-    $p = $v * (1. - $s);
-    $q = $v * (1. - $s * $f);
-    $t = $v * (1. - $s * (1. - $f));
-    switch ($i)
-    {
-      case 0: return array($v, $t, $p);
-      case 1: return array($q, $v, $p);
-      case 2: return array($p, $v, $t);
-      case 3: return array($p, $q, $v);
-      case 4: return array($t, $p, $q);
-      case 5: return array($v, $p, $q);
-    }
-  }
-}
-
-function styleByValue($base, $dir, $value)
-{
-  // The first half of a "hsv" colour map, from IGUANA IgSbColorMap.cc.
-
-  // First constrain $value.  <0 == none, otherwise clamp to [0, 1].
-  // Then scale [0, 1] to [$base, $base+$dir] to use good portion of HSV gradient.
-  $value = ($value > 1 ? 1 : $value);
-  $value = ($value < 0 ? $value : $base + $dir * $value);
-  if ($value < 0.) {
-    $rgb = array (1, 1, 1);
-  } else {
-    $rgb = hsv2rgb ($value, 1, 1);
-  }
-  return sprintf ("#%02x%02x%02x", $rgb[0]*255, $rgb[1]*255, $rgb[2]*255);
-}
 
 function makeGraph($graph, $data, $args)
 {
@@ -137,7 +53,7 @@ function makeGraph($graph, $data, $args)
       foreach ($data as $xbin => $xdata)
       {
         $thisplot->AddArea ($i, $i+1, LP_AREA_FILLED, styleByValue
-			    (.4, -.4, isset ($xdata[$node]) && $xdata[$node][0]
+			    (.4, -.4, 1, isset ($xdata[$node]) && $xdata[$node][0]
 			     ? $xdata[$node][1] / $xdata[$node][0] : -1));
         ++$i;
       }
@@ -145,7 +61,7 @@ function makeGraph($graph, $data, $args)
       foreach ($data as $xbin => $xdata)
       {
         $thisplot->AddArea ($i, $i+1, LP_AREA_FILLED, styleByValue
-			    (0, .4, isset ($xdata[$node]) && $xdata[$node][0]
+			    (0, .4, 1, isset ($xdata[$node]) && $xdata[$node][0]
 	                     ? $xdata[$node][2] / $xdata[$node][0] : -1));
         ++$i;
       }
@@ -187,16 +103,17 @@ function makeGraph($graph, $data, $args)
   $graph->yaxis->title->SetFont(FF_FONT1,FS_BOLD);
   $graph->yaxis->SetTitleMargin(35);
   $graph->yaxis->HideLabels ();
+  $graph->yaxis->HideTicks();
 
-  $graph->y2axis->SetLabelAlign ('left', 'bottom');
+  $graph->y2axis->scale->ticks->Set (.5,.5);
   $graph->y2axis->SetTickLabels ($ylabels);
-  $graph->y2axis->SetTextTickInterval (1, 0);
-  $graph->y2axis->SetTextLabelInterval (1);
-  $graph->y2scale->ticks->Set(1,1);
+  $graph->y2axis->SetTextLabelInterval (2);
+  $graph->y2axis->HideFirstTickLabel ();
+  $graph->y2axis->HideTicks ();
 
   for ($i = 0; $i <= 100; $i += 10)
   {
-    $color = styleByValue (0, 0.4, $i/100.);
+    $color = styleByValue (0, 0.4, 1, $i/100.);
     $range = $i == 100 ? "100+%" : sprintf ("%d-%d%%", $i, $i+10);
     $graph->legend->Add ($range, $color);
   }
@@ -255,8 +172,8 @@ else // hour
 }
 
 $graph = new Graph (900, 400, "auto");
-$data = read_csv (BASE_PATH . "/data/{$args['instance']}-quality.csv", ",");
-$data = selectData ($data, $args['xbin'], $entries);
+$data = readCSV (BASE_PATH . "/data/{$args['instance']}-quality.csv", ",");
+$data = selectQualityData ($data, $args['xbin'], $entries);
 makeGraph ($graph, $data, $args);
 
 ?>
