@@ -161,6 +161,7 @@ sub datasetRequirements
     my @history = ();
     while (@pending)
     {
+	# FIXME: This should use CollectionTreeAndPU; see UtilsDBS.pm.
 	my %info = ();
 	my ($owner, $dataset) = @{shift (@pending)};
 	my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/data/"
