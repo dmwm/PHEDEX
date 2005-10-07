@@ -27,7 +27,7 @@
 ##H                 extracted from the zip file name, which must be
 ##H                 ZippedEVD.$firstrun.$lastrun.$owner.$dataset
 
-BEGIN { use strict; use warnings; }
+BEGIN { use strict; use warnings; $^W=1; }
 use File::Path;
 
 ######################################################################

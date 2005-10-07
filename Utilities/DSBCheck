@@ -19,7 +19,7 @@
 ##H files in the set, number of files at the node, number of files in the
 ##H catalogue.
 
-BEGIN { use strict; use warnings;
+BEGIN { use strict; use warnings; $^W=1;
   my $me = $0; $me =~ s|.*/||;
   my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
   unshift(@INC, "$home/../Toolkit/Common"); }

@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-BEGIN { use strict; use warnings; }
+BEGIN { use strict; use warnings; $^W=1; }
 
 sub report
 {

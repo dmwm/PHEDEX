@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-use strict;
+use strict; $^W=1;
 
 my ($dir,$surlroot) = @ARGV;
 

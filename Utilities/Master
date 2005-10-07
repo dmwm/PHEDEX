@@ -37,7 +37,7 @@
 ##H The "terminate" forcefully terminates (kills) the specified agents.
 
 # First we need to parse the command line arguments
-BEGIN { use warnings; use strict; }
+BEGIN { use warnings; use strict; $^W=1; }
 
 while (@ARGV)
 {

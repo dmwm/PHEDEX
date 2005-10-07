@@ -14,7 +14,7 @@
 ##H -files        print out file GUID and LFNs (more costly)
 ##H PATTERN       block match constraint (owner/dataset), such as "*/bt03_*"
 
-BEGIN { use strict; use warnings;
+BEGIN { use strict; use warnings; $^W=1;
   my $me = $0; $me =~ s|.*/||;
   my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
   unshift(@INC, "$home/../Toolkit/Common"); }

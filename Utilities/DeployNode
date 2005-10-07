@@ -7,7 +7,7 @@
 ##H
 ##H *** Ask Tim Barrass to document this program. ***
 
-BEGIN { use strict; use warnings;
+BEGIN { use strict; use warnings; $^W=1;
   my $me = $0; $me =~ s|.*/||;
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
   unshift(@INC, $home);
