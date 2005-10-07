@@ -69,13 +69,13 @@ if (!$request || (! $mode && @files))
 
 -f "$request" or die "$request: not a transfer request\n";
 my @userpats = &readPatterns (@files);
-my @patterns = &expandPatterns ($mode, @userpats);
+my @data = &expandPatterns ($mode, @userpats);
 
 # Append to the ticket
 (open (TICKET, ">> $request")
  && print(TICKET "$now CMD $me @{[scalar getpwuid($<)]}\@@{[&getfullhostname()]}\n")
  && (! $reset || print(TICKET "$now CANCEL DATA\n"))
  && (print(TICKET "$now DATA UPATS.$mode @userpats\n"))
- && (print(TICKET "$now DATA XPATS.$mode @{[ map { ref $_ ? join('/', @$_) : $_} @patterns]}\n"))
+ && (print(TICKET "$now DATA XPATS.$mode @{[map { $_->{OWNER}.'/'.$_->{DATASET} } @data]}\n"))
  && close (TICKET))
     or die "$request: cannot update ticket: $!\n";
