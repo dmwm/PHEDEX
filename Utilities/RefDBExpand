@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-BEGIN { use strict; use warnings;
+BEGIN { use strict; use warnings; $^W=1;
   my $me = $0; $me =~ s|.*/||;
   my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
   unshift(@INC, "$home/../Toolkit/Common"); }
@@ -24,5 +24,5 @@ while (scalar @ARGV)
 
 &usage() if (! defined $mode);
 my @userpats = &readPatterns (@ARGV);
-my @patterns = &expandPatterns ($mode, @userpats);
-print map { "$_->[0].$_->[1]\n" } @patterns;
+my @data = &expandPatterns ($mode, @userpats);
+print map { "$_->{OWNER}/$_->{DATASET}\n" } @data;

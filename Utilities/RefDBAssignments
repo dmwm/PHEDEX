@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-BEGIN { use strict; use warnings;
+BEGIN { use strict; use warnings; $^W=1;
   my $me = $0; $me =~ s|.*/||;
   my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
   unshift(@INC, "$home/../Toolkit/Common"); }
@@ -12,8 +12,8 @@ if ($ARGV[0] eq '-v') {
 }
 
 foreach my $dso (@ARGV) {
-    my ($ds, $o) = ($dso =~ /(.*)\.(.*)/);
+    my ($o, $ds) = ($dso =~ /(.*)\/(.*)/);
     my @assids = &listAssignments ($ds, $o);
-    print "@assids", ($verbose ? " $ds.$o" : ""), "\n"
+    print "@assids", ($verbose ? " $o/$ds" : ""), "\n"
 	if @assids;
 }

@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 
-BEGIN { use strict; use warnings;
+BEGIN { use strict; use warnings; $^W=1;
   my $me = $0; $me =~ s|.*/||;
   my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
   unshift(@INC, "$home/../Toolkit/Common"); }
 use UtilsTR;
 
-print map { "$_->[0].$_->[1]\n" } &listDatasetOwners (&readPatterns (@ARGV));
+print map { "$_->{OWNER}/$_->{DATASET}\n" } &listDatasetOwners (&readPatterns (@ARGV));
