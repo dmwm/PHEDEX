@@ -56,10 +56,12 @@ for role in \
       T_BLOCK_*:SITE_CERN )
         # Restricted update
         echo; echo "grant select on $table to $reader;"
+        echo "grant select on $table to $writer;"
         echo "grant alter, delete, insert, select, update on $table to $role;" ;;
 
       T_SUBSCRIPTION:* | \
-      T_NODE*:* | \
+      T_NODE_NEIGHBOUR:* | \
+      T_NODE:* | \
       T_INFO*:* | \
       T_DBS*:* | \
       T_DLS*:* | \
@@ -67,11 +69,13 @@ for role in \
       T_BLOCK_*:* )
         # Read-only (see also restricted update above)
         echo; echo "grant select on $table to $reader;"
+        echo "grant select on $table to $writer;"
       	echo "grant select on $table to $role;" ;;
 
       *:* )
         # General update
         echo; echo "grant select on $table to $reader;"
+        echo "grant select on $table to $writer;"
       	echo "grant alter, delete, insert, select, update on $table to $role;" ;;
     esac
   done
