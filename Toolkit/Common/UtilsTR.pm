@@ -51,13 +51,17 @@ sub expandPatterns
     # For "-p", expand to the matching pairs.  For "-f", expand
     # the resulting list by navigating backwards using assignment
     # InputOwnerName in the DST/Digi/Hits chain.
-    @patterns = &listDatasetOwners (@patterns);
-    return @patterns if $mode eq 'p';
+    my @info = &listDatasetOwners (@patterns);
+    return @info if $mode eq 'p';
 
     # Walk dataset history
-    my @pats;
-    foreach my $pat (@patterns) {
-	push (@pats, &listDatasetHistory ($pat));
+    my @pats = @info;
+    foreach my $pat (@info) {
+	foreach my $prev (&listDatasetHistory ($pat)) {
+	    push (@pats, $prev) if ! grep ($_->{OWNER} eq $prev->{OWNER}
+					   && $_->{DATASET} eq $prev->{DATASET},
+					   @pats);
+	}
     }
 
     return @pats;
@@ -125,66 +129,52 @@ sub expandXMLFragment
 sub listDatasetOwners
 {
     my (@patterns) = @_;
+    my @result;
 
     # Make an array of perl regexps
     @patterns = map { glob_to_regex($_) } @patterns;
 
     # Get list from the production web page
-    my $everything = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/"
-			      ."SQL/dataset-discovery.php?DSPattern=%25&"
-			      ."OwPattern=%25&ProducedOn=&scriptstep=1");
-    die "cannot list dataset/owner pairs\n" if ! $everything;
-
-    # Parse and pick matching ones into result
-    my ($ds, $owner);
-    my @result = ();
-    foreach (split(/\n/, $everything))
+    foreach (split(/\n/, &getURL ("http://cmsdoc.cern.ch/cms/production/www/ZipDB/"
+			          ."ListProductionZipAndPublicationSites.php?"
+				  ."rc=&owner=%&dataset=%&bycoll=&ascii=1&unAssigned=")))
     {
-        if (/INPUT.*SelDataset.*value=["'\''](.*)["'\'']>/) {
-	    $ds = $1;
-	} elsif (/OPTION.*value=["'\''](.*)\(\d+\)["'\'']/) {
-	    $owner = $1;
-	    push (@result, [ $owner, $ds ]) if grep ("$owner/$ds" =~ /$_/, @patterns);
-	}
+	next if /^Dataset:Owner:/;
+	my ($dataset, $owner, $id, $zipsites, $prodsites, $pubsites) = split(/:/);
+	my @published = grep($_ ne '', split(/;/, $pubsites));
+	push (@result, {
+		COLLECTION => $id,
+		TYPE => undef,
+		DATASET => $dataset,
+		OWNER => $owner,
+		SUBCOLLECTION => $dataset,
+		SITES => { map { $_ => 1 } @published } })
+	    if (! @patterns || grep ("$owner/$dataset" =~ /$_/, @patterns));
     }
 
     return @result;
 }
 
-# Generate a list of additional dataset.owner patterns for the history.
+# Generate a list of additional datasets required by this one.
 sub listDatasetHistory
 {
     my ($dso) = @_;
-    my ($o, $ds) = @$dso;
+    my @result;
 
-    # First get a page that tells us the dataset/owner numbers (ugh)
-    my ($dsn, $on) = (undef, undef);
     foreach (split(/\n/, &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/"
-	    			  ."SQL/dataset-discovery.php?ProducedOn=&scriptstep=1&"
-				  ."DSPattern=$ds&OwPattern=$o")))
+			    	  ."SQL/CollectionTreeAndPU.php?"
+				  ."dataset=$dso->{DATASET}&owner=$dso->{OWNER}")))
     {
-	if (/INPUT.*SelDataset\[(\d+)\]/) {
-	    $dsn = $1;
-	} elsif (/OPTION.*value=["'\''].*\((\d+)\)["'\'']/) {
-	    $on = $1;
-        }
-    }
-
-    # Now get the history for this pair
-    my $found = 0;
-    my @result = ();
-    foreach (split(/\n/, &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/"
-	    		   	  ."SQL/dataset-discovery.php?DSPattern=$ds&"
-			   	  ."OwPattern=$o&SelDataset[$dsn]=$ds&SelOwner[$dsn]=$o($on)&"
-			   	  ."OnlyRecent=&ProducedOn=&"
-			   	  ."browse=DSHistory&scriptstep=2")))
-    {
-	if (! $found && /<TD.*>$ds(<|$)/) {
-	    $found = 1;
-	} elsif ($found && /<TD>(\S+)/) {
-	    push (@result, [ $1, $ds ]);
-	} elsif ($found && /<TR/) {
-	    last;
+	if (/ID=(\d+), Name=(\S+), Type=(\S+), Owner=(\S+), Dataset=(\S+)$/)
+	{
+	    # Type = DST/Digi/Hit/PU
+	    push (@result, {
+		COLLECTION => $1,
+		TYPE => $3,
+		DATASET => $5,
+		OWNER => $4,
+		SUBCOLLECTION => $2 })
+		if ! ($5 eq $dso->{DATASET} && $4 eq $dso->{OWNER});
 	}
     }
 
