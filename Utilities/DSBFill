@@ -1,11 +1,19 @@
 #!/usr/bin/env perl
 
-##H Fill the DBS database from RefDB.
+##H Fill a DBS from another one.
 ##H
 ##H Usage:
-##H   DSBFill -db FILE[:SECTION] [PATTERN...]
+##H   DSBFill { -from RefDB | -from { PhEDEx | DBS } -fromdb FILE[:SECTION] }
+##H           -to { PhEDEx | DBS } -todb FILE[:SECTION]
+##H           [PATTERN...]
 ##H
-##H -db           database connection configuration parameter file
+##H -from DBS     read information from DBS
+##H -from RefDB   read information from RefDB
+##H -from PhEDEx  read information from PhEDEx pseudo-bookkeeping-system
+##H -fromdb       database connection configuration parameter file for source
+##H -to  DBS      store into DBS
+##H -to  PhEDEx   store into PhEDEx pseudo-bookkeeping-system
+##H -todb         database connection configuration parameter file for destination
 ##H PATTERN       block match constraint (owner/dataset), such as "*/bt03_*"
 
 BEGIN { use strict; use warnings; $^W=1;
@@ -22,8 +30,14 @@ while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-h') {
 	&usage();
-    } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
-        shift (@ARGV); $args{DBCONFIG} = shift(@ARGV);
+    } elsif ($ARGV[0] eq '-from' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{FROM} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '-fromdb' && scalar @ARGV > 1) {
+        shift (@ARGV); $args{FROM_DBCONFIG} = shift(@ARGV);
+    } elsif ($ARGV[0] eq '-to' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{TO} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '-todb' && scalar @ARGV > 1) {
+        shift (@ARGV); $args{TO_DBCONFIG} = shift(@ARGV);
     } elsif ($ARGV[0] eq '--') {
 	shift (@ARGV); last;
     } elsif ($ARGV[0] =~ '^-') {
@@ -35,23 +49,26 @@ while (scalar @ARGV)
 
 $TextGlob::strict_wildcard_slash = 0;
 $args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
-if (!$args{DBCONFIG})
+if (!$args{FROM} || !$args{TO} || !$args{TO_DBCONFIG}
+    || !grep($args{FROM} eq $_, qw(RefDB PhEDEx DBS))
+    || !($args{FROM} ne 'PhEDEx' || $args{DBCONFIG})
+    || !($args{FROM} ne 'DBS' || $args{DBCONFIG}))
 {
     die "Insufficient parameters, use -h for help.\n";
 }
 
 # Create appropriate dataset bookkeeping proxy
-my $refdb       = new UtilsDBS::RefDB (%args);
-my $phedex      = new UtilsDBS::PhEDEx (%args);
+my $source      = UtilsDBS->connect ($args{FROM}, $args{FROM_DBCONFIG});
+my $dest        = UtilsDBS->connect ($args{TO}, $args{TO_DBCONFIG});
 
 # Get all existing datasets
-my $datasets    = $phedex->fetchPublishedData();
-my $files       = $phedex->fetchKnownFiles();
+my $datasets    = $dest->fetchPublishedData();
+my $files       = $dest->fetchKnownFiles();
 my %dso2dataset = map { join("/", $_->{OWNER}, $_->{DATASET}) => $_ } @$datasets;
 my %guid2file   = map { $_->{GUID} => $_ } @$files;
 
 # Get all current datasets
-my $current     = $refdb->fetchPublishedData();
+my $current     = $source->fetchPublishedData();
 
 foreach my $item (@$current)
 {
@@ -68,7 +85,7 @@ foreach my $item (@$current)
     }
 
     # Get the full data
-    eval { $refdb->fillDatasetInfo ($item); };
+    eval { $source->fillDatasetInfo ($item); };
     do { warn ($@); next } if $@;
 
     # Match files against known files
@@ -85,23 +102,41 @@ foreach my $item (@$current)
     my $runs = $item->{RUNS};
     my $files = $item->{FILES};
     my $events = 0; map { $events += $_->{EVTS} } values %$runs;
-    print " Id         = @{[$item->{ID} || '']}\n";
-    print " Owner      = $item->{OWNER}\n";
-    print " Dataset    = $item->{DATASET}\n";
-    print " Collection = $item->{COLLECTION}\n";
-    print " Datatype   = $item->{DSINFO}{InputProdStepType}\n";
-    print " InputOwner = $item->{DSINFO}{InputOwnerName}\n";
-    print " PUDataset  = $item->{DSINFO}{PUDatasetName}\n";
-    print " PUOwner    = $item->{DSINFO}{PUOwnerName}\n";
-    print " Status     = $item->{DSINFO}{CollectionStatus}\n";
-    print " Blocks     = @{[scalar keys %$blocks]}\n";
-    print " Runs       = @{[scalar keys %$runs]}\n";
-    print " Files      = @{[scalar @$files]}\n";
-    print " Events     = $events\n";
-    print " Sites      = @{[sort keys %{$item->{SITES}}]}\n";
+    print " Id                 = @{[$item->{ID} || '']}\n";
+    print " Owner              = $item->{OWNER}\n";
+    print " Dataset            = $item->{DATASET}\n";
+    print " Collection         = $item->{COLLECTION}\n";
+    print " Datatype           = $item->{DSINFO}{InputProdStepType}\n";
+    print " InputOwner         = @{[$item->{DSINFO}{InputOwnerName} || '']}\n";
+    print " PUDataset          = @{[$item->{DSINFO}{PUDatasetName} || '']}\n";
+    print " PUOwner            = @{[$item->{DSINFO}{PUOwnerName} || '']}\n";
+    print " Status             = $item->{DSINFO}{CollectionStatus}\n";
+    print " Blocks             = @{[scalar keys %$blocks]}\n";
+    print " Runs               = @{[scalar keys %$runs]}\n";
+    print " Files              = @{[scalar @$files]}\n";
+    print " Events             = $events\n";
+    print " Sites              = @{[sort keys %{$item->{SITES}}]}\n";
+    print " DBSPath            = /$item->{DATASET}/$item->{DSINFO}{InputProdStepType}/$item->{OWNER} \n";
+    print " Application        = $item->{APPINFO}{ApplicationName}\n";
+    print " ApplicationVersion = $item->{APPINFO}{ApplicationVersion}\n";
+    print " ExecutableName     = $item->{APPINFO}{ExecutableName} (from assignment $item->{APPINFO}{ASSIGNMENT})\n";
+    for ($i = 0; $i < scalar @{$item->{PARENTS}}; ++$i)
+    {
+	my $parent = $item->{PARENTS}[$i];
+        print " Provenance history #$i\n";
+	print "  ParentReason      = $parent->{TYPE}\n";
+	print "  ParentDataset     = $parent->{DSINFO}{DatasetName}\n";
+	print "  ParentOwner       = $parent->{DSINFO}{OwnerName}\n";
+	print "  ParentDatatype    = $parent->{DSINFO}{InputProdStepType}\n";
+	print "  DBSPath           = /$parent->{DATASET}/$parent->{DSINFO}{InputProdStepType}/$parent->{OWNER}\n";
+    }
+    foreach my $b (values %{$item->{BLOCKS}})
+    {
+	print " Block $b->{NAME} $b->{ASSIGNMENT}\n";
+    }
 
     # Update the database
-    eval { $phedex->updateDataset ($item) };
+    eval { $dest->updateDataset ($item) };
     warn $@ if $@;
 }
 
@@ -114,7 +149,7 @@ foreach my $item (@$datasets)
 
     # Skip if this is still known
     next if $item->{KNOWN};
-    $phedex->clearDatasetFromDB ($item);
+    $dest->clearDatasetFromDB ($item);
     # FIXME: Delete transfer requests?
 }
 
@@ -125,7 +160,7 @@ foreach my $item (@$files)
 
     # Skip if this is still known
     next if $item->{KNOWN};
-    $phedex->clearFileFromDB ($item);
+    $dest->clearFileFromDB ($item);
 }
 
 exit 0;
