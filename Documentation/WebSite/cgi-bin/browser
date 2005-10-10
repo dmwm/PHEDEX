@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 
-use strict;
-use warnings;
+BEGIN { use strict; use warnings; $^W=1; }
 use CGI qw(:standard);
 use CGI::Carp qw(fatalsToBrowser);
 use POSIX;
