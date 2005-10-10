@@ -51,7 +51,7 @@ $TextGlob::strict_wildcard_slash = 0;
 $args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
 
 # Create appropriate dataset bookkeeping proxy
-my $dbs = new UtilsDBS::RefDB (%args);
+my $dbs = UtilsDBS->connect ("RefDB");
 
 # Get all existing datasets
 my $datasets = $dbs->fetchPublishedData();
