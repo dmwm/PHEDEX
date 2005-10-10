@@ -172,7 +172,7 @@ else // hour
 }
 
 $graph = new Graph (900, 400, "auto");
-$data = readCSV (BASE_PATH . "/data/{$args['instance']}-quality.csv", ",");
+$data = readCSV ("/afs/cern.ch/cms/aprom/phedex/DBPerfData/{$args['instance']}-quality.csv", ",");
 $data = selectQualityData ($data, $args['xbin'], $entries);
 makeGraph ($graph, $data, $args);
 
