@@ -10,7 +10,8 @@ use DBI;
 my $home = $0; $home =~ s|/[^/]*$||; $home = "." if ! $home;
 my @dbnames = ();
 my %databases = ();
-open (DBNAMES, "< $home/.db/names") || die "Failed to read database configuration\n";
+open (DBNAMES, "< /afs/cern.ch/cms/aprom/phedex/DBAccessInfo/names")
+    || die "Failed to read database configuration\n";
 while (<DBNAMES>)
 {
     chomp;
