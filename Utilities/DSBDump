@@ -96,7 +96,7 @@ foreach my $item (@$datasets)
         print " Id                 = @{[$item->{ID} || '']}\n";
         print " Owner              = $item->{OWNER}\n";
         print " Dataset            = $item->{DATASET}\n";
-        print " Collection         = $item->{COLLECTION}\n";
+        print " Collection         = @{[$item->{COLLECTION} || '']}\n";
         print " Datatype           = $item->{DSINFO}{InputProdStepType}\n";
         print " InputOwner         = @{[$item->{DSINFO}{InputOwnerName} || '']}\n";
         print " PUDataset          = @{[$item->{DSINFO}{PUDatasetName} || '']}\n";
@@ -133,15 +133,15 @@ foreach my $item (@$datasets)
 
     if ($args{BLOCKS})
     {
-        foreach my $b (values %{$item->{BLOCKS}})
+        foreach my $b (sort { $a->{NAME} cmp $b->{NAME} } values %{$item->{BLOCKS}})
         {
-	    print " Block $b->{NAME} $b->{ASSIGNMENT}\n";
+	    print " Block $b->{NAME}\n";
         }
     }
 
     if ($args{EVC})
     {
-	foreach my $run (values %{$item->{RUNS}})
+	foreach my $run (sort { $a->{NAME} cmp $b->{NAME} } values %{$item->{RUNS}})
 	{
             print " EventCollection: EvC_Run$run->{NAME} ($run->{EVTS} events)\n";
             foreach my $f (@{$run->{FILES}})
@@ -153,11 +153,14 @@ foreach my $item (@$datasets)
 
     if ($args{FILES})
     {
-        foreach my $f (@{$item->{FILES}})
+        foreach my $f (sort { $a->{LFN}[0] cmp $b->{LFN}[0] } @{$item->{FILES}})
         {
 	    print " File $f->{GUID} $f->{INBLOCK} $f->{LFN}[0]\n";
         }
     }
 }
+
+
+$dbs->disconnect();
 
 exit 0;
