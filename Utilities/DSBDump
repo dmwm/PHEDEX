@@ -158,6 +158,11 @@ foreach my $item (@$datasets)
 	    print " File $f->{GUID} $f->{INBLOCK} $f->{LFN}[0]\n";
         }
     }
+
+    # Clear out the item so we don't accumulate lots of memory
+    $item->{FILES} = [];
+    $item->{BLOCKS} = {};
+    $item->{RUNS} = {};
 }
 
 

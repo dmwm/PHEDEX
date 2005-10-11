@@ -145,6 +145,11 @@ foreach my $pass (qw(Hit Digi DST))
         # Update the database
         eval { $dest->updateDataset ($item) };
         warn $@ if $@;
+
+        # Clear out the item so we don't accumulate lots of memory
+        $item->{FILES} = [];
+        $item->{BLOCKS} = {};
+        $item->{RUNS} = {};
     }
 }
 
