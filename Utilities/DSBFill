@@ -70,75 +70,86 @@ my %guid2file   = map { $_->{GUID} => $_ } @$files;
 # Get all current datasets
 my $current     = $source->fetchPublishedData();
 
-foreach my $item (@$current)
+foreach my $pass (qw(Hit Digi DST))
 {
-    my $token = "$item->{OWNER}/$item->{DATASET}";
-    next if (@ARGV && !grep($token =~ $_, @{$args{PATS}}));
-    print "processing $token\n";
-
-    # Match this against known datasets
-    if (my $old = $dso2dataset{"$item->{OWNER}/$item->{DATASET}"})
+    foreach my $item (@$current)
     {
-	$item->{ID} = $old->{ID};
-	$old->{KNOWN} = 1;
-	next if $args{ONLY_NEW};
-    }
+	my $itemtype = ($item->{OWNER} =~ /Hit/ ? "Hit"
+			: $item->{OWNER} =~ /DST/ ? "DST"
+			: "Digi");
+	next if $itemtype ne $pass;
 
-    # Get the full data
-    eval { $source->fillDatasetInfo ($item); };
-    do { warn ($@); next } if $@;
+        my $token = "$item->{OWNER}/$item->{DATASET}";
+        next if (@ARGV && !grep($token =~ $_, @{$args{PATS}}));
+        print "processing $token\n";
 
-    # Match files against known files
-    foreach my $file (@{$item->{FILES}})
-    {
-	if (my $oldfile = $guid2file{$file->{GUID}})
-	{
-	    $file->{ID} = $oldfile->{ID};
-	    $oldfile->{KNOWN} = 1;
-	}
-    }
+        # Match this against known datasets
+        if (my $old = $dso2dataset{"$item->{OWNER}/$item->{DATASET}"})
+        {
+	    $item->{ID} = $old->{ID};
+	    $old->{KNOWN} = 1;
+	    next if $args{ONLY_NEW};
+        }
 
-    my $blocks = $item->{BLOCKS};
-    my $runs = $item->{RUNS};
-    my $files = $item->{FILES};
-    my $events = 0; map { $events += $_->{EVTS} } values %$runs;
-    print " Id                 = @{[$item->{ID} || '']}\n";
-    print " Owner              = $item->{OWNER}\n";
-    print " Dataset            = $item->{DATASET}\n";
-    print " Collection         = $item->{COLLECTION}\n";
-    print " Datatype           = $item->{DSINFO}{InputProdStepType}\n";
-    print " InputOwner         = @{[$item->{DSINFO}{InputOwnerName} || '']}\n";
-    print " PUDataset          = @{[$item->{DSINFO}{PUDatasetName} || '']}\n";
-    print " PUOwner            = @{[$item->{DSINFO}{PUOwnerName} || '']}\n";
-    print " Status             = $item->{DSINFO}{CollectionStatus}\n";
-    print " Blocks             = @{[scalar keys %$blocks]}\n";
-    print " Runs               = @{[scalar keys %$runs]}\n";
-    print " Files              = @{[scalar @$files]}\n";
-    print " Events             = $events\n";
-    print " Sites              = @{[sort keys %{$item->{SITES}}]}\n";
-    print " DBSPath            = /$item->{DATASET}/$item->{DSINFO}{InputProdStepType}/$item->{OWNER} \n";
-    print " Application        = $item->{APPINFO}{ApplicationName}\n";
-    print " ApplicationVersion = $item->{APPINFO}{ApplicationVersion}\n";
-    print " ExecutableName     = $item->{APPINFO}{ExecutableName} (from assignment $item->{APPINFO}{ASSIGNMENT})\n";
-    for ($i = 0; $i < scalar @{$item->{PARENTS}}; ++$i)
-    {
-	my $parent = $item->{PARENTS}[$i];
-        print " Provenance history #$i\n";
-	print "  ParentReason      = $parent->{TYPE}\n";
-	print "  ParentDataset     = $parent->{DSINFO}{DatasetName}\n";
-	print "  ParentOwner       = $parent->{DSINFO}{OwnerName}\n";
-	print "  ParentDatatype    = $parent->{DSINFO}{InputProdStepType}\n";
-	print "  DBSPath           = /$parent->{DATASET}/$parent->{DSINFO}{InputProdStepType}/$parent->{OWNER}\n";
-    }
-    foreach my $b (values %{$item->{BLOCKS}})
-    {
-	print " Block $b->{NAME} $b->{ASSIGNMENT}\n";
-    }
+        # Get the full data
+        eval { $source->fillDatasetInfo ($item); };
+        do { warn ($@); next } if $@;
 
-    # Update the database
-    eval { $dest->updateDataset ($item) };
-    warn $@ if $@;
+        # Match files against known files
+        foreach my $file (@{$item->{FILES}})
+        {
+    	    if (my $oldfile = $guid2file{$file->{GUID}})
+	    {
+		$file->{ID} = $oldfile->{ID};
+		$oldfile->{KNOWN} = 1;
+	    }
+        }
+
+        my $blocks = $item->{BLOCKS};
+        my $runs = $item->{RUNS};
+        my $files = $item->{FILES};
+        my $events = 0; map { $events += $_->{EVTS} } values %$runs;
+        print " Id                 = @{[$item->{ID} || '']}\n";
+        print " Owner              = $item->{OWNER}\n";
+        print " Dataset            = $item->{DATASET}\n";
+        print " Collection         = @{[$item->{COLLECTION} || '']}\n";
+        print " Datatype           = $item->{DSINFO}{InputProdStepType}\n";
+        print " InputOwner         = @{[$item->{DSINFO}{InputOwnerName} || '']}\n";
+        print " PUDataset          = @{[$item->{DSINFO}{PUDatasetName} || '']}\n";
+        print " PUOwner            = @{[$item->{DSINFO}{PUOwnerName} || '']}\n";
+        print " Status             = $item->{DSINFO}{CollectionStatus}\n";
+        print " Blocks             = @{[scalar keys %$blocks]}\n";
+        print " Runs               = @{[scalar keys %$runs]}\n";
+        print " Files              = @{[scalar @$files]}\n";
+        print " Events             = $events\n";
+        print " Sites              = @{[sort keys %{$item->{SITES}}]}\n";
+        print " DBSPath            = /$item->{DATASET}/$item->{DSINFO}{InputProdStepType}/$item->{OWNER} \n";
+        print " Application        = $item->{APPINFO}{ApplicationName}\n";
+        print " ApplicationVersion = $item->{APPINFO}{ApplicationVersion}\n";
+        print " ExecutableName     = $item->{APPINFO}{ExecutableName} (from assignment $item->{APPINFO}{ASSIGNMENT})\n";
+        for ($i = 0; $i < scalar @{$item->{PARENTS}}; ++$i)
+        {
+    	    my $parent = $item->{PARENTS}[$i];
+	    print " Provenance history #$i\n";
+	    print "  ParentReason      = $parent->{TYPE}\n";
+    	    print "  ParentDataset     = $parent->{DSINFO}{DatasetName}\n";
+    	    print "  ParentOwner       = $parent->{DSINFO}{OwnerName}\n";
+    	    print "  ParentDatatype    = $parent->{DSINFO}{InputProdStepType}\n";
+    	    print "  DBSPath           = /$parent->{DATASET}/$parent->{DSINFO}{InputProdStepType}/$parent->{OWNER}\n";
+        }
+        foreach my $b (values %{$item->{BLOCKS}})
+        {
+    	    print " Block $b->{NAME}\n";
+        }
+
+        # Update the database
+        eval { $dest->updateDataset ($item) };
+        warn $@ if $@;
+    }
 }
+
+$source->disconnect();
+$dest->disconnect();
 
 exit 0;
 
