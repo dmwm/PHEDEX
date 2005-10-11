@@ -14,10 +14,14 @@ sub connect
     }
 }
 
+sub disconnect
+{
+}
+
 1;
 
 ######################################################################
-package UtilsDBS::RefDB; use strict; use warnings; use base 'Exporter';
+package UtilsDBS::RefDB; use strict; use warnings; use base 'UtilsDBS';
 use UtilsTR;
 use UtilsNet;
 use UtilsReaders;
@@ -82,8 +86,8 @@ sub fetchRunInfo
     my ($self, $object) = @_;
     foreach my $assid (&listAssignments ($object->{DATASET}, $object->{OWNER}))
     {
-	my $context = "$object->{OWNER}/$object->{DATASET}/$assid";
-	$object->{BLOCKS}{$context} = { NAME => $context, ASSIGNMENT => $assid, FILES => [] };
+	my $context = "$object->{OWNER}/$object->{DATASET}";
+	$object->{BLOCKS}{$context} ||= { NAME => $context, FILES => [] };
 
         my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/"
 			    ."data/GetAttachInfo.php?AssignmentID=${assid}");
@@ -214,7 +218,7 @@ sub fetchKnownFiles
 1;
 
 ######################################################################
-package UtilsDBS::PhEDEx; use strict; use warnings; use base 'Exporter';
+package UtilsDBS::PhEDEx; use strict; use warnings; use base 'UtilsDBS';
 use UtilsDB;
 use UtilsTR;
 use UtilsNet;
@@ -550,11 +554,10 @@ sub setID
 1;
 
 ######################################################################
-package UtilsDBS::DBS; use strict; use warnings; use base 'Exporter';
+package UtilsDBS::DBS; use strict; use warnings; use base 'UtilsDBS';
 use UtilsDB;
-use UtilsTR;
 use UtilsNet;
-use UtilsReaders;
+use UtilsTiming;
 use UtilsLogging;
 
 # Initialise object
@@ -562,7 +565,17 @@ sub new
 {
     my $proto = shift;
     my $class = ref($proto) || $proto;
-    return bless { DBCONFIG => shift }, $class;
+    my $self = bless { DBCONFIG => shift }, $class;
+    &connectToDatabase ($self, 0);
+    $self->{DBH}{FetchHashKeyName} = "NAME_uc";
+    $self->{DBH}{LongReadLen} = 4096;
+    return $self;
+}
+
+sub disconnect
+{
+    my $self = shift;
+    $self->{DBH}->disconnect();
 }
 
 # Simple tool to fetch everything from a table.  Useful for various
@@ -570,36 +583,40 @@ sub new
 # of hashes, where each hash has keys with the column names.
 sub fetchAll
 {
-    my ($dbh, $table) = @_;
-    return &dbexec($dbh, qq{select * from $table})->fetchall_arrayref ({});
+    my ($self, $kind) = @_;
+    return $self->{uc($kind)}
+        = &dbexec($self->{DBH}, qq{select * from t_$kind})->fetchall_arrayref ({});
 }
 
 # Get published datasets page contents
 sub fetchPublishedData
 {
     my ($self) = @_;
-    my $dbh = &connectToDatabase ($self, 0);
-    $dbh->{FetchHashKeyName} = "NAME_uc";
-    $dbh->{LongReadLen} = 4096;
 
     # Get all "metadata"
-    $self->{PEOPLE} = &fetchAll($dbh, "t_person");
-    $self->{PHYSICS_GROUP} = &fetchAll($dbh, "t_physics_group");
-    $self->{COLLECTION_TYPE} = &fetchAll($dbh, "t_collection_type");
-    $self->{APP_FAMILY} = &fetchAll($dbh, "t_app_family");
-    $self->{APPLICATION} = &fetchAll($dbh, "t_application");
-    $self->{APP_CONFIG} = &fetchAll($dbh, "t_app_config");
-    $self->{DATA_TIER} = &fetchAll($dbh, "t_data_tier");
-    $self->{BLOCK_STATUS} = &fetchAll($dbh, "t_block_status");
-    $self->{FILE_STATUS} = &fetchAll($dbh, "t_file_status");
-    $self->{FILE_TYPE} = &fetchAll($dbh, "t_file_type");
-    $self->{VALIDATION_STATUS} = &fetchAll($dbh, "t_validation_status");
-    $self->{DATASET_STATUS} = &fetchAll($dbh, "t_dataset_status");
-    $self->{EVCOLL_STATUS} = &fetchAll($dbh, "t_evcoll_status");
-    $self->{PARENTAGE_TYPE} = &fetchAll($dbh, "t_parentage_type");
+    &fetchAll($self, "person");
+    &fetchAll($self, "physics_group");
+    &fetchAll($self, "collection_type");
+    &fetchAll($self, "app_family");
+    &fetchAll($self, "application");
+    &fetchAll($self, "app_config");
+    &fetchAll($self, "data_tier");
+    &fetchAll($self, "block_status");
+    &fetchAll($self, "file_status");
+    &fetchAll($self, "file_type");
+    &fetchAll($self, "validation_status");
+    &fetchAll($self, "dataset_status");
+    &fetchAll($self, "evcoll_status");
+    &fetchAll($self, "parentage_type");
+
+    # FIXME: fetch lazily
+    &fetchAll($self, "desc_mc");
+    &fetchAll($self, "desc_primary");
+    &fetchAll($self, "primary_dataset");
+    &fetchAll($self, "processing_path");
 
     # Get all current datasets
-    return &dbexec($dbh, qq{
+    return &dbexec($self->{DBH}, qq{
 	select
 	  procds.id id,
 	  primds.name dataset,
@@ -614,17 +631,16 @@ sub fetchPublishedData
 sub fetchDatasetInfo
 {
     my ($self, $object) = @_;
-    my $dbh = &connectToDatabase ($self, 0);
+    my $dbh = $self->{DBH};
     my $stmtcache = $self->{STMTS} ||= {};
-    $dbh->{FetchHashKeyName} = "NAME_uc";
-    $dbh->{LongReadLen} = 4096;
 
     # Prepare statements
     my $qprocds = $stmtcache->{QPROCDS} ||= &dbprep ($dbh, qq{
 	select
 	    ppath.data_tier,
 	    primds.name,
-	    procds.name
+	    procds.name,
+	    procds.is_open
 	from t_processed_dataset procds
 	join t_primary_dataset primds
 	  on primds.id = procds.primary_dataset
@@ -646,6 +662,8 @@ sub fetchDatasetInfo
 	  on ec2.id = ep.parent
 	join t_processed_dataset procds
 	  on procds.id = ec2.processed_dataset
+	join t_processing_path ppath
+	  on ppath.id = procds.processing_path
 	join t_primary_dataset primds
 	  on primds.id = procds.primary_dataset
 	join t_parentage_type pt
@@ -654,19 +672,20 @@ sub fetchDatasetInfo
 
     # Get dataset info
     &dbbindexec ($qprocds, ":id" => $object->{ID});
-    while (my ($tier, $primary, $processed) = $qprocds->fetchrow())
+    while (my ($tier, $primary, $processed, $is_open) = $qprocds->fetchrow())
     {
 	$object->{DATASET} = $primary;
 	$object->{OWNER} = $processed;
-	$object->{COLLECTION} = undef;
 	$object->{DSINFO}{InputProdStepType}
-	    = (grep($_->{NAME} eq $tier, @{$self->{DATA_TIER}}))[0];
-	$object->{DSINFO}{CollectionStatus} = undef;
+	    = (grep($_->{ID} eq $tier, @{$self->{DATA_TIER}}))[0]->{NAME};
+	$object->{DSINFO}{CollectionStatus} = $is_open eq 'y' ? 4 : 6;
 
+	$object->{PARENTS} = [];
         &dbbindexec ($qdsinputs, ":id" => $object->{ID});
 	while (my ($type, $id, $tier, $primary, $processed) = $qdsinputs->fetchrow())
 	{
-	    if ($type eq 'Input')
+	    if (($processed =~ /DST/ && $type eq 'Digi')
+		|| ($processed !~ /DST/ && $type eq 'Hit'))
 	    {
 		$object->{DSINFO}{InputOwnerName} = $processed;
 	    }
@@ -676,11 +695,14 @@ sub fetchDatasetInfo
 		$object->{DSINFO}{PUOwnerName} = $processed;
 	    }
 
+	    $tier = (grep($_->{ID} eq $tier, @{$self->{DATA_TIER}}))[0]->{NAME};
 	    push (@{$object->{PARENTS}}, {
 		TYPE => $type,
+		OWNER => $processed,
+		DATASET => $primary,
 		DSINFO => { OwnerName => $processed,
 		            DatasetName => $primary,
-		            InputProdStepType => $tier }
+		            InputProdStepType =>  $tier }
 	    });
 	}
 
@@ -702,10 +724,8 @@ sub fetchDatasetInfo
 sub fetchRunInfo
 {
     my ($self, $object) = @_;
-    my $dbh = &connectToDatabase ($self, 0);
+    my $dbh = $self->{DBH};
     my $stmtcache = $self->{STMTS} ||= {};
-    $dbh->{FetchHashKeyName} = "NAME_uc";
-    $dbh->{LongReadLen} = 4096;
 
     # Prepare statements
     my $qblock = $stmtcache->{QBLOCK} ||= &dbprep ($dbh, qq{
@@ -723,7 +743,7 @@ sub fetchRunInfo
 	  evi.name
 	from t_event_collection evc
 	join t_info_evcoll evi on evi.event_collection = evc.id
-	where processed_dataset = :id});
+	where evc.processed_dataset = :id});
 
     my $qfile = $stmtcache->{QFILE} ||= &dbprep ($dbh, qq{
 	select
@@ -734,14 +754,18 @@ sub fetchRunInfo
 	  f.logical_name,
 	  f.checksum,
 	  f.filesize,
-	  f.status,
-	  f.type
+	  fs.name,
+	  ft.name
 	from t_event_collection evc
 	join t_evcoll_file evf
-	  on evf.evcoll = ec.id
+	  on evf.evcoll = evc.id
 	join t_file f
 	  on f.id = evf.fileid
-	where ec.processed_dataset = :id});
+	join t_file_status fs
+	  on fs.id = f.status
+	join t_file_type ft
+	  on ft.id = f.type
+	where evc.processed_dataset = :id});
 
     # Get blocks, event collections (runs) and files
     &dbbindexec ($qblock, ":id" => $object->{ID});
@@ -750,7 +774,7 @@ sub fetchRunInfo
 	$object->{BLOCKS_BY_ID}{$id} =
 	$object->{BLOCKS}{"$id"} = {
 	    ID => $id,
-	    NAME => "#$id", # FIXME: $object->{PATH}#ID
+	    NAME => "$object->{DATASET}/$object->{DSINFO}{InputProdStepType}/$object->{OWNER}/#$id",
 	    STATUS => $status,
 	    NFILES => $files,
 	    NBYTES => $bytes,
@@ -786,7 +810,7 @@ sub fetchRunInfo
 	    GUID => $guid,
 	    SIZE => $size,
 	    CHECKSUM => $checksum,
-	    LFN => $filename,
+	    LFN => [ $filename ],
 	    STATUS => $status,
 	    TYPE => $type,
 
@@ -807,15 +831,13 @@ sub fetchRunInfo
 sub fetchApplicationInfo
 {
     my ($self, $object) = @_;
-    my $dbh = &connectToDatabase ($self, 0);
+    my $dbh = $self->{DBH};
     my $stmtcache = $self->{STMTS} ||= {};
-    $dbh->{FetchHashKeyName} = "NAME_uc";
-    $dbh->{LongReadLen} = 4096;
 
     # Prepare statements
     my $qappinfo = $stmtcache->{QAPPINFO} ||= &dbprep ($dbh, qq{
 	select
-	    dt.name
+	    dt.name,
 	    app.executable,
 	    app.app_version,
 	    af.name,
@@ -835,11 +857,12 @@ sub fetchApplicationInfo
 	  on ct.id = app.input_type
 	where pd.id = :id});
 
+    &dbbindexec ($qappinfo, ":id" => $object->{ID});
     if (my ($tier, $exe, $appvers, $appname, $intype) = $qappinfo->fetchrow())
     {
 	$object->{APPINFO}{ASSIGNMENT} = 0;
 	$object->{APPINFO}{ProdStepType} = $intype;
-	$object->{APPINFO}{ProductionCycle} = 'N/A';
+	$object->{APPINFO}{ProductionCycle} = 'N/A'; # FIXME
 	$object->{APPINFO}{ApplicationVersion} = $appvers;
 	$object->{APPINFO}{ApplicationName} = $appname;
 	$object->{APPINFO}{ExecutableName} = $exe;
@@ -860,120 +883,334 @@ sub fillDatasetInfo
 sub fetchKnownFiles
 {
     my ($self) = @_;
-    my $dbh = &connectToDatabase ($self, 0);
-    $dbh->{FetchHashKeyName} = "NAME_uc";
-    $dbh->{LongReadLen} = 4096;
+    return &dbexec ($self->{DBH}, qq{select * from t_file})
+    	->fetchall_arrayref ({});
+}
 
-    return &dbexec ($dbh, qq{select * from t_file})
-    	   ->fetchall_arrayref ({});
+sub makeNamed
+{
+    my ($self, $kind, $name, $person) = @_;
+    return (grep($_->{NAME} eq $name, @{$self->{uc($kind)}}))[0]
+	|| $self->newObject ($kind, {
+	    NAME => $name,
+	    CREATED_AT => &mytimeofday(),
+	    CREATED_BY => $person->{ID} });
+}
+
+sub makePerson
+{
+    my ($self, $object) = @_;
+    my $email = scalar getpwuid($<) . '@' . &getfullhostname();
+    my $certemail = qx(openssl x509 -in \$HOME/.globus/usercert.pem -noout -email 2>/dev/null);
+    my $dn = qx(openssl x509 -in \$HOME/.globus/usercert.pem -noout -subject 2>/dev/null);
+    my $name = (getpwuid($<))[6]; $name =~ s/,.*//;
+    do { chomp($certemail); $email = $certemail }  if $certemail;
+    do { chomp($dn); $dn =~ s/^subject\s*=\s*// } if $dn;
+    do { $name = $1 } if ($dn && $dn =~ m!/CN=(.*)( \d+)?(/.*)?$!);
+
+    my $p = (grep ($_->{NAME} eq $name, @{$self->{PERSON}}))[0];
+    return $p if $p;
+
+    $p = { NAME => $name,
+	   CONTACT_INFO => $email,
+	   DISTINGUISHED_NAME => $dn,
+           CREATED_AT => &mytimeofday() };
+    return $self->newObject ('person', $p, 'CREATED_BY');
+}
+
+sub makePhysicsGroup
+{
+    my ($self, $object, $person) = @_;
+    my $group = (grep ($_->{NAME} eq "Fake Imported", @{$self->{PHYSICS_GROUP}}))[0]
+        || $self->newObject ("physics_group", {
+	    NAME => "Fake Imported",
+	    CONVENOR => undef,
+	    CREATED_AT => &mytimeofday(),
+	    CREATED_BY => $person->{ID} });
+    return $group;
+}
+
+sub makeAppInfo
+{
+    my ($self, $object, $person, $pgroup) = @_;
+    my $intype = $object->{ProdStepType};
+    my $appname = $object->{ApplicationName};
+    my $appvers = $object->{ApplicationVersion};
+    my $exe = $object->{ExecutableName};
+
+    # FIXME: Figure out output collection stuff
+    # FIXME: Input/output collection types are not part of t_application key!?
+    my $incollobj = (grep($_->{NAME} eq $intype, @{$self->{COLLECTION_TYPE}}))[0]
+        || $self->newObject ("collection_type", {
+	    NAME => $intype,
+	    CREATED_AT => &mytimeofday(),
+	    CREATED_BY => $person->{ID} });
+    my $outcollobj = (grep($_->{NAME} eq "Output", @{$self->{COLLECTION_TYPE}}))[0]
+        || $self->newObject ("collection_type", {
+	    NAME => "Output",
+	    CREATED_AT => &mytimeofday(),
+	    CREATED_BY => $person->{ID} }); # FIXME
+    my $appfamobj = (grep($_->{NAME} eq $appname, @{$self->{APP_FAMILY}}))[0]
+        || $self->newObject ("app_family", {
+	    NAME => $appname,
+	    CREATED_AT => &mytimeofday(),
+	    CREATED_BY => $person->{ID} });
+    my $appobj = (grep($_->{EXECUTABLE} eq $exe
+		       && $_->{APP_VERSION} eq $appvers
+		       && $_->{APP_FAMILY} eq $appfamobj->{ID},
+		       @{$self->{APPLICATION}}))[0]
+	|| $self->newObject ("application", {
+	    EXECUTABLE => $exe,
+	    APP_VERSION => $appvers,
+	    APP_FAMILY => $appfamobj->{ID},
+	    INPUT_TYPE => $incollobj->{ID},
+	    OUTPUT_TYPE => $outcollobj->{ID},
+    	    CREATED_AT => &mytimeofday (),
+    	    CREATED_BY => $person->{ID} });
+    my $appconfobj = (grep($_->{APPLICATION} eq $appobj->{ID}
+		           && $_->{CONDITIONS_VERSION} eq 'None',
+			   @{$self->{APP_CONFIG}}))[0]
+	|| $self->newObject ("app_config", {
+	    APPLICATION => $appobj->{ID},
+	    CONDITIONS_VERSION => "None",
+	    CREATED_AT => &mytimeofday (),
+	    CREATED_BY => $person->{ID} });
+
+    return $appconfobj;
+}
+
+sub makePrimaryDataset
+{
+    my ($self, $object, $person, $pgroup) = @_;
+
+    # FIXME: Do this lazily.
+    my $mcdesc = (grep ($_->{DESCRIPTION} eq $object->{DATASET}, @{$self->{DESC_MC}}))[0]
+	|| $self->newObject ("desc_mc", {
+	    DESCRIPTION => $object->{DATASET},
+	    PRODUCTION => "FIXME",
+	    DECAY_CHAIN => "FIXME",
+	    CREATED_AT => &mytimeofday(),
+	    CREATED_BY => $person->{ID} });
+
+    my $primdesc = (grep ($_->{MC_CHANNEL} eq $mcdesc->{ID}, @{$self->{DESC_PRIMARY}}))[0]
+	|| $self->newObject ("desc_primary", {
+	    MC_CHANNEL => $mcdesc->{ID},
+	    IS_MC_DATA => 'y',
+	    CREATED_AT => &mytimeofday(),
+	    CREATED_BY => $person->{ID} });
+
+    my $primary = (grep ($_->{NAME} eq $object->{DATASET}, @{$self->{PRIMARY_DATASET}}))[0]
+	|| $self->newObject ("primary_dataset", {
+	    NAME => $object->{DATASET},
+	    DESCRIPTION => $primdesc->{ID},
+	    PHYSICS_GROUP => $pgroup->{ID},
+	    CREATED_AT => &mytimeofday(),
+	    CREATED_BY => $person->{ID} });
+
+    return $primary;
+}
+
+sub makeProcessingPath
+{
+    my ($self, $object, $appinfo, $person) = @_;
+    my $tier = (grep($_->{NAME} eq $object->{DSINFO}{InputProdStepType},
+		     @{$self->{DATA_TIER}}))[0];
+    my $ppath = (grep($_->{APP_CONFIG} eq $appinfo->{ID}
+		      && $_->{DATA_TIER} eq $tier->{ID},
+		      @{$self->{PROCESSING_PATH}}))[0]
+	|| $self->newObject ("processing_path", {
+	    APP_CONFIG => $appinfo->{ID},
+	    FULL_PATH => "FIXME",
+	    DATA_TIER => $tier->{ID},
+	    CREATED_AT => &mytimeofday(),
+	    CREATED_BY => $person->{ID} });
+
+    return $ppath;
+}
+
+sub findParentCollection
+{
+    my ($self, $object, $parent) = @_;
+    my $qparent = $self->{STMTS}{QPARENT} ||= &dbprep ($self->{DBH}, qq{
+	select ec.id
+	from t_processed_dataset procds
+	join t_primary_dataset primds
+	  on primds.id = procds.primary_dataset
+	join t_event_collection ec
+	  on ec.processed_dataset = procds.id
+	join t_info_evcoll evi
+	  on evi.event_collection = ec.id
+	where procds.name = :owner
+          and primds.name = :dataset
+          and evi.name = 'EvC_META'});
+
+    &dbbindexec($qparent,
+		":dataset" => $parent->{DATASET},
+		":owner" => $parent->{OWNER});
+    my ($id) = $qparent->fetchrow();
+    $qparent->finish ();
+    return $id;
 }
 
 # Update dataset information in database
 sub updateDataset
 {
     my ($self, $object) = @_;
-    my $dbh = &connectToDatabase ($self, 0);
-    my $stmtcache = $self->{STMTS} ||= {};
 
     my %sqlargs = ();
     my $runs = $object->{RUNS};
     my $blocks = $object->{BLOCKS};
     my $files = $object->{FILES};
 
-    # Prepare statements
-    $stmtcache->{IFILE} ||= &dbprep ($dbh, qq{
-	insert into t_dbs_file
-	(id, guid, filesize, checksum, filename, filetype, catfragment)
-	values (?, ?, null, null, ?, ?, ?)});
-    $stmtcache->{IFATTR} ||= &dbprep ($dbh, qq{
-	insert into t_dbs_file_attributes
-	(fileid, attribute, value)
-	values (?, ?, ?)});
+    # Initialise basic meta data (FIXME: take person etc. as input!)
+    my $person = $self->makePerson ($object);
+    my $pgroup = $self->makePhysicsGroup ($object, $person);
+    my $appinfo = $self->makeAppInfo ($object->{APPINFO}, $person, $pgroup);
 
-    $stmtcache->{IDS} ||= &dbprep ($dbh, qq{
-	insert into t_dbs_dataset
-	(id, datatype, dataset, owner,
-	 collectionid, collectionstatus,
-	 inputowner, pudataset, puowner)
-	values (?, ?, ?, ?,  ?, ?,  ?, ?, ?)});
+    # Now go for the core data
+    my $datatier = $self->makeNamed ("data_tier", $object->{DSINFO}{InputProdStepType}, $person);
+    my $primary = $self->makePrimaryDataset ($object, $person, $pgroup);
+    my $ppath = $self->makeProcessingPath ($object, $appinfo, $person);
+
+    # Prepare statements
+    my $dbh = $self->{DBH};
+    my $stmtcache = $self->{STMTS} ||= {};
+    $stmtcache->{IPROCDS} ||= &dbprep ($dbh, qq{
+	insert into t_processed_dataset
+	(id, primary_dataset, processing_path, name, is_open,
+	 created_at, created_by)
+	values (?, ?, ?, ?, ?, ?, ?)});
+
+    $stmtcache->{IEVCOLL} ||= &dbprep ($dbh, qq{
+	insert into t_event_collection
+	(id, processed_dataset, collection_index, is_primary,
+	 created_at, created_by)
+	values (?, ?, ?, ?, ?, ?)});
+
+    $stmtcache->{IEVCOLLINFO} ||= &dbprep ($dbh, qq{
+	insert into t_info_evcoll
+	(event_collection, events, status, validation_status, name,
+	 created_at, created_by)
+	values (?, ?, ?, ?, ?, ?, ?)});
+
     $stmtcache->{IBLOCK} ||= &dbprep ($dbh, qq{
-	insert into t_dbs_block
-	(id, dataset, name, assignment)
-	values (?, ?, ?, ?)});
-    $stmtcache->{IRUN} ||= &dbprep ($dbh, qq{
-	insert into t_dbs_run
-	(id, dataset, name, events)
-	values (?, ?, ?, ?)});
-    $stmtcache->{IFMAP} ||= &dbprep ($dbh, qq{
-	insert into t_dbs_file_map
-	(fileid, dataset, block, run)
-	values (?, ?, ?, ?)});
-    $stmtcache->{IDLS} ||= &dbprep ($dbh, qq{
-	insert into t_dls_index
-	(block, location)
-	values (?, ?)});
+	insert into t_block
+	(id, processed_dataset, status, files, bytes,
+	 created_at, created_by)
+	values (?, ?, ?, ?, ?, ?, ?)});
+
+    $stmtcache->{IFILE} ||= &dbprep ($dbh, qq{
+	insert into t_file
+	(id, guid, logical_name, checksum, filesize,
+	 status, type, inblock, created_at, created_by)
+	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
+
+    $stmtcache->{IEVCOLLFILE} ||= &dbprep ($dbh, qq{
+	insert into t_evcoll_file
+	(id, evcoll, fileid, created_at, created_by)
+	values (?, ?, ?, ?, ?)});
+
+    $stmtcache->{IEVCOLLPROV} ||= &dbprep ($dbh, qq{
+	insert into t_evcoll_parentage
+	(parent, child, type, created_at, created_by)
+	values (?, ?, ?, ?, ?)});
 
     # Insert dataset information
-    &setID ($dbh, $object, "seq_dbs_dataset");
-    push(@{$sqlargs{IDS}{1}}, $object->{ID});
-    push(@{$sqlargs{IDS}{2}}, $object->{DSINFO}{InputProdStepType});
-    push(@{$sqlargs{IDS}{3}}, $object->{DATASET});
-    push(@{$sqlargs{IDS}{4}}, $object->{OWNER});
-    push(@{$sqlargs{IDS}{5}}, $object->{COLLECTION});
-    push(@{$sqlargs{IDS}{6}}, $object->{DSINFO}{CollectionStatus});
-    push(@{$sqlargs{IDS}{7}}, $object->{DSINFO}{InputOwnerName});
-    push(@{$sqlargs{IDS}{8}}, $object->{DSINFO}{PUDatasetName});
-    push(@{$sqlargs{IDS}{9}}, $object->{DSINFO}{PUOwnerName});
+    $self->setID ("processed_dataset", $object);
+    push(@{$sqlargs{IPROCDS}{1}}, $object->{ID});
+    push(@{$sqlargs{IPROCDS}{2}}, $primary->{ID});
+    push(@{$sqlargs{IPROCDS}{3}}, $ppath->{ID});
+    push(@{$sqlargs{IPROCDS}{4}}, $object->{OWNER});
+    push(@{$sqlargs{IPROCDS}{5}}, $object->{DSINFO}{CollectionStatus} eq 6 ? 'n' : 'y');
+    push(@{$sqlargs{IPROCDS}{6}}, &mytimeofday());
+    push(@{$sqlargs{IPROCDS}{7}}, $person->{ID});
+
+    foreach my $run ({ EVTS => 0, NAME => 0 }, values %$runs)
+    {
+        $self->setID ("event_collection", $run);
+	push(@{$sqlargs{IEVCOLL}{1}}, $run->{ID});
+	push(@{$sqlargs{IEVCOLL}{2}}, $object->{ID});
+	push(@{$sqlargs{IEVCOLL}{3}}, $run->{NAME}); # FIXME: collection_index?
+	push(@{$sqlargs{IEVCOLL}{4}}, 'y');
+	push(@{$sqlargs{IEVCOLL}{5}}, &mytimeofday());
+	push(@{$sqlargs{IEVCOLL}{6}}, $person->{ID});
+
+	push(@{$sqlargs{IEVCOLLINFO}{1}}, $run->{ID});
+	push(@{$sqlargs{IEVCOLLINFO}{2}}, $run->{EVTS});
+	push(@{$sqlargs{IEVCOLLINFO}{3}}, $self->makeNamed ("evcoll_status", "FIXME", $person)->{ID});
+	push(@{$sqlargs{IEVCOLLINFO}{4}}, $self->makeNamed ("validation_status", "FIXME", $person)->{ID});
+	push(@{$sqlargs{IEVCOLLINFO}{5}}, ($run->{NAME} == 0 ? "EvC_META"
+					   : "EvC_Run$run->{NAME}"));
+	push(@{$sqlargs{IEVCOLLINFO}{6}}, &mytimeofday());
+	push(@{$sqlargs{IEVCOLLINFO}{7}}, $person->{ID});
+
+	my %parentsdone = ();
+	foreach my $parent (@{$object->{PARENTS}})
+	{
+	    # For the moment put dependencies only on META/META
+	    next if $run->{NAME} != 0;
+
+	    # Ignore Init{Digi,Hit} dependnecies for now.
+	    next if $parent->{TYPE} =~ /^Init/;
+
+	    # For the moment, suppress duplicates -- the provenance from RefDB
+	    # includes complete history, not just one level up, and as we map
+	    # them all on "EvC_META", we can end up with duplicates here.
+	    my $parentid = $self->findParentCollection ($object, $parent);
+	    do { &warn ("parent $parent->{OWNER}/$parent->{DATASET} of"
+			. " $object->{OWNER}/$object->{DATASET} not found\n"); next }
+	        if ! defined $parentid;
+	    next if $parentsdone{$parentid};
+	    $parentsdone{$parentid} = 1;
+
+	    push(@{$sqlargs{IEVCOLLPROV}{1}}, $parentid);
+	    push(@{$sqlargs{IEVCOLLPROV}{2}}, $run->{ID});
+	    push(@{$sqlargs{IEVCOLLPROV}{3}}, $self->makeNamed ("parentage_type", $parent->{TYPE}, $person)->{ID});
+	    push(@{$sqlargs{IEVCOLLPROV}{4}}, &mytimeofday());
+	    push(@{$sqlargs{IEVCOLLPROV}{5}}, $person->{ID});
+	}
+    }
 
     foreach my $block (values %$blocks)
     {
-        &setID ($dbh, $block, "seq_dbs_block");
+	my $status = $object->{DSINFO}{CollectionStatus} eq 6 ? 'Closed' : 'Open';
+	my $bytes = 0; map { $bytes += $_->{SIZE} || 0; $_ } @{$block->{FILES}};
+        $self->setID ("block", $block);
 	push(@{$sqlargs{IBLOCK}{1}}, $block->{ID});
 	push(@{$sqlargs{IBLOCK}{2}}, $object->{ID});
-	push(@{$sqlargs{IBLOCK}{3}}, $block->{NAME});
-	push(@{$sqlargs{IBLOCK}{4}}, $block->{ASSIGNMENT});
-
-        foreach my $loc (keys %{$object->{SITES}})
-	{
-	    push(@{$sqlargs{IDLS}{1}}, $block->{ID});
-	    push(@{$sqlargs{IDLS}{2}}, $loc);
-	}
+	push(@{$sqlargs{IBLOCK}{3}}, $self->makeNamed ("block_status", $status, $person)->{ID});
+	push(@{$sqlargs{IBLOCK}{4}}, scalar @{$block->{FILES}});
+	push(@{$sqlargs{IBLOCK}{5}}, $bytes);
+	push(@{$sqlargs{IBLOCK}{6}}, &mytimeofday());
+	push(@{$sqlargs{IBLOCK}{7}}, $person->{ID});
     }
 
-    foreach my $run (values %$runs)
-    {
-        &setID ($dbh, $run, "seq_dbs_run");
-	push(@{$sqlargs{IRUN}{1}}, $run->{ID});
-	push(@{$sqlargs{IRUN}{2}}, $object->{ID});
-	push(@{$sqlargs{IRUN}{3}}, $run->{NAME});
-	push(@{$sqlargs{IRUN}{4}}, $run->{EVTS});
-    }
-    
-    # File information
     foreach my $file (@$files)
     {
-	&setID ($dbh, $file, "seq_dbs_file");
+	my $status = "FIXME";
+	$self->setID ("file", $file);
 	push(@{$sqlargs{IFILE}{1}}, $file->{ID});
 	push(@{$sqlargs{IFILE}{2}}, $file->{GUID});
 	push(@{$sqlargs{IFILE}{3}}, $file->{LFN}[0]);
-	push(@{$sqlargs{IFILE}{4}}, $file->{PFN}[0]{TYPE});
-	push(@{$sqlargs{IFILE}{5}}, $file->{TEXT});
+	push(@{$sqlargs{IFILE}{4}}, -1); # checksum
+	push(@{$sqlargs{IFILE}{5}}, -1); # size
+	push(@{$sqlargs{IFILE}{6}}, $self->makeNamed ("file_status", $status, $person)->{ID});
+	push(@{$sqlargs{IFILE}{7}}, $self->makeNamed ("file_type", $file->{PFN}[0]{TYPE}, $person)->{ID});
+	push(@{$sqlargs{IFILE}{8}}, $object->{BLOCKS}{$file->{INBLOCK}}{ID});
+	push(@{$sqlargs{IFILE}{9}}, &mytimeofday());
+	push(@{$sqlargs{IFILE}{10}}, $person->{ID});
 
-    	foreach my $m (sort keys %{$file->{META}})
-	{
-	    push(@{$sqlargs{IFATTR}{1}}, $file->{ID});
-	    push(@{$sqlargs{IFATTR}{2}}, "POOL_$m");
-	    push(@{$sqlargs{IFATTR}{3}}, $file->{META}{$m});
-	}
-
-	push(@{$sqlargs{IFMAP}{1}}, $file->{ID});
-	push(@{$sqlargs{IFMAP}{2}}, $object->{ID});
-	push(@{$sqlargs{IFMAP}{3}}, $object->{BLOCKS}{$file->{INBLOCK}}{ID});
-	push(@{$sqlargs{IFMAP}{4}}, $object->{RUNS}{$file->{INRUN}}{ID});
+	my $x = $self->setID ("evcoll_file", {});
+	push(@{$sqlargs{IEVCOLLFILE}{1}}, $x->{ID});
+	push(@{$sqlargs{IEVCOLLFILE}{2}}, $object->{RUNS}{$file->{INRUN}}{ID});
+	push(@{$sqlargs{IEVCOLLFILE}{3}}, $file->{ID});
+	push(@{$sqlargs{IEVCOLLFILE}{4}}, &mytimeofday());
+	push(@{$sqlargs{IEVCOLLFILE}{5}}, $person->{ID});
     }
 
     # Grand execute everything
-    foreach my $stmtname (qw(IFILE IFATTR IDS IBLOCK IRUN IFMAP IDLS))
+    foreach my $stmtname (qw(IPROCDS IEVCOLL IEVCOLLINFO IBLOCK
+			     IFILE IEVCOLLFILE IEVCOLLPROV))
     {
 	next if ! keys %{$sqlargs{$stmtname}};
 	my $stmt = $stmtcache->{$stmtname};
@@ -987,12 +1224,46 @@ sub updateDataset
     $dbh->commit();
 }
 
-sub setID 
+sub newObject
 {
-    my ($dbh, $object, $seq) = @_;
-    ($object->{ID}) = &dbexec ($dbh, qq{select $seq.nextval from dual})
-    		      ->fetchrow()
-	if ! defined $object->{ID};
+    my ($self, $kind, $object, @other) = @_;
+
+    # If the object does not yet have an ID, allocate a new one,
+    # create the object, and update our internal tables.
+    if (! defined $object->{ID})
+    {
+	# Allocate new ID for this object
+	($object->{ID}) = &dbexec ($self->{DBH},
+	    qq{select seq_$kind.nextval from dual})->fetchrow();
+	map { $object->{$_} = $object->{ID} } @other;
+
+	# Execute SQL to create the object in the table
+	my $createsql = "insert into t_$kind ("
+	    . join (", ", map { lc($_) } sort keys %$object)
+	    . ") values ("
+	    . join (", ", map { ":" . lc($_) } sort keys %$object)
+	    . ")";
+	my %params = map { ":" . lc($_) => $object->{$_} } sort keys %$object;
+	&dbexec ($self->{DBH}, $createsql, %params);
+
+	# Memoize it
+	push (@{$self->{uc($kind)}}, $object);
+    }
+
+    return $object;
+}
+
+sub setID
+{
+    my ($self, $kind, $object, @other) = @_;
+    if (! defined $object->{ID})
+    {
+	($object->{ID}) = &dbexec ($self->{DBH},
+	    qq{select seq_$kind.nextval from dual})->fetchrow();
+	map { $object->{$_} = $object->{ID} } @other;
+    }
+
+    return $object;
 }
 
 1;
