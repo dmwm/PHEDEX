@@ -906,7 +906,7 @@ sub makePerson
     my $name = (getpwuid($<))[6]; $name =~ s/,.*//;
     do { chomp($certemail); $email = $certemail }  if $certemail;
     do { chomp($dn); $dn =~ s/^subject\s*=\s*// } if $dn;
-    do { $name = $1 } if ($dn && $dn =~ m!/CN=(.*)( \d+)?(/.*)?$!);
+    do { $name = $1 } if ($dn && $dn =~ m!/CN=(.*?)( \d+)?(/.*)?$!);
 
     my $p = (grep ($_->{NAME} eq $name, @{$self->{PERSON}}))[0];
     return $p if $p;
@@ -932,11 +932,19 @@ sub makePhysicsGroup
 
 sub makeAppInfo
 {
-    my ($self, $object, $person, $pgroup) = @_;
+    my ($self, $context, $object, $person, $pgroup) = @_;
     my $intype = $object->{ProdStepType};
     my $appname = $object->{ApplicationName};
     my $appvers = $object->{ApplicationVersion};
     my $exe = $object->{ExecutableName};
+
+    # FIXME: Currently hack re-processing step into parameter set.
+    my $pset = $context->{OWNER};
+    $pset =~ s/-C-.*//;
+    $pset =~ s/_(OSC|CMS|CERN)$//;
+    $pset =~ s/_g\d+$//;
+    $pset =~ s/.*?_(\d+(_\d+)*)$/$1/;
+    $pset = "Default" if $pset !~ /^[_\d]+$/;
 
     # FIXME: Figure out output collection stuff
     # FIXME: Input/output collection types are not part of t_application key!?
@@ -968,10 +976,12 @@ sub makeAppInfo
     	    CREATED_AT => &mytimeofday (),
     	    CREATED_BY => $person->{ID} });
     my $appconfobj = (grep($_->{APPLICATION} eq $appobj->{ID}
-		           && $_->{CONDITIONS_VERSION} eq 'None',
+		           && $_->{PARAMETER_SET} eq $pset
+		           && $_->{CONDITIONS_VERSION} eq "None",
 			   @{$self->{APP_CONFIG}}))[0]
 	|| $self->newObject ("app_config", {
 	    APPLICATION => $appobj->{ID},
+	    PARAMETER_SET => $pset,
 	    CONDITIONS_VERSION => "None",
 	    CREATED_AT => &mytimeofday (),
 	    CREATED_BY => $person->{ID} });
@@ -1013,12 +1023,33 @@ sub makePrimaryDataset
 sub makeProcessingPath
 {
     my ($self, $object, $appinfo, $person) = @_;
+
+    # If we have an input owner, use its processing path as a parent
+    # to this one.  Otherwise start from null parent.
+    my $parent = undef;
+    if ($object->{DSINFO}{InputOwner})
+    {
+	($parent) = &dbexec($self->{DBH}, qq{
+	    select procds.processing_path
+	    from t_processed_dataset procds
+	    join t_primary_dataset primds
+	      on primds.id = procds.primary_dataset
+	    where procds.name = :owner
+	      and primds.name = :dataset},
+            ":owner" => $object->{DSINFO}{InputOwner},
+	    ":dataset" => $object->{DATASET})
+    	    ->fetchrow();
+    }
+
     my $tier = (grep($_->{NAME} eq $object->{DSINFO}{InputProdStepType},
 		     @{$self->{DATA_TIER}}))[0];
     my $ppath = (grep($_->{APP_CONFIG} eq $appinfo->{ID}
+		      && ((defined $_->{PARENT} ? $_->{PARENT} : 'undef')
+			   eq (defined $parent ? $parent : 'undef'))
 		      && $_->{DATA_TIER} eq $tier->{ID},
 		      @{$self->{PROCESSING_PATH}}))[0]
 	|| $self->newObject ("processing_path", {
+	    PARENT => $parent,
 	    APP_CONFIG => $appinfo->{ID},
 	    FULL_PATH => "FIXME",
 	    DATA_TIER => $tier->{ID},
@@ -1065,7 +1096,7 @@ sub updateDataset
     # Initialise basic meta data (FIXME: take person etc. as input!)
     my $person = $self->makePerson ($object);
     my $pgroup = $self->makePhysicsGroup ($object, $person);
-    my $appinfo = $self->makeAppInfo ($object->{APPINFO}, $person, $pgroup);
+    my $appinfo = $self->makeAppInfo ($object, $object->{APPINFO}, $person, $pgroup);
 
     # Now go for the core data
     my $datatier = $self->makeNamed ("data_tier", $object->{DSINFO}{InputProdStepType}, $person);
