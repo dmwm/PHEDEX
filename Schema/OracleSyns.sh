@@ -21,6 +21,12 @@ fi
 
 master="$1" master_connect="$2" target_connect="$3"
 
+scan_objects() {
+  (echo "set lines 1000 pages 0;"; echo ${1+"$@"}) |
+  sqlplus -S "$master_connect" |
+  awk '/^(T|SEQ|IX|FK|PK|UQ)_[A-Z0-9_]+/ {print $1, $2} {}'
+}
+
 # First drop all existing synonyms
 (echo "set lines 1000;";
  echo "set pages 0;";
@@ -33,13 +39,10 @@ master="$1" master_connect="$2" target_connect="$3"
  sqlplus -S "$target_connect"
 
 # Now recreate synonyms from master tables
-(echo "set lines 1000;";
- echo "set pages 0;";
- echo "select * from tab;") |
- sqlplus -S "$master_connect" |
- awk '/^T_[A-Z0-9_]+/ {print $1} {}' |
- grep -v T_AUTH |
- while read tab; do
-    echo "create synonym $tab for $master.$tab;"
- done |
+scan_objects "select table_name from user_tables;" |
+ while read t; do echo "create synonym $t for $master.$t;"; done |
+ sqlplus -S "$target_connect"
+
+scan_objects "select sequence_name from user_sequences;" |
+ while read t; do echo "create synonym $t for $master.$t;"; done |
  sqlplus -S "$target_connect"
