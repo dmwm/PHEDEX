@@ -168,6 +168,7 @@ sub listDatasetHistory
 	if (/ID=(\d+), Name=(\S+), Type=(\S+), Owner=(\S+), Dataset=(\S+)$/)
 	{
 	    # Type = DST/Digi/Hit/PU
+	    next if ($3 eq 'InitHit' || $3 eq 'InitDigi');
 	    push (@result, {
 		COLLECTION => $1,
 		TYPE => $3,
