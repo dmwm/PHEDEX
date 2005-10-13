@@ -28,7 +28,7 @@ for t in \
 done | sqlplus -S "$connect"
 
 for t in \
-  $((echo "select table_name from user_tables;") |
+  $((echo "select sequence_name from user_sequences;") |
     sqlplus -S "$connect" | awk '/^SEQ_[A-Z0-9_]+/ { print $1 } {}'); do
-  echo "grant alter, delete, insert, select, update on $t to $other;"
+  echo "grant alter, select on $t to $other;"
 done | sqlplus -S "$connect"

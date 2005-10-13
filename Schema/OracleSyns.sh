@@ -32,7 +32,7 @@ scan_objects() {
  echo "set pages 0;";
  echo "select synonym_name from user_synonyms;") |
  sqlplus -S "$target_connect" |
- awk '/^T_[A-Z0-9_]+/ {print $1} {}' |
+ awk '/^(T|SEQ)_[A-Z0-9_]+/ {print $1} {}' |
  while read tab; do
     echo "drop synonym $tab;"
  done |
