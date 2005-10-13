@@ -178,6 +178,24 @@ sub fetchApplicationInfo
     $object->{APPINFO}{ApplicationVersion} = $ainfo->{ApplicationVersion};
     $object->{APPINFO}{ApplicationName} = $ainfo->{ApplicationName};
     $object->{APPINFO}{ExecutableName} = $ainfo->{ExecutableName};                   
+
+    # Fetch URLs: ProductionCardsURL CardsURL DetectorCardsURL PUCardsURL ParameterFileURL
+    # Append data: GeometryFile GeometryFileChecksum GeomPATHversion
+    foreach my $url (qw(ProductionCardsURL CardsURL DetectorCardsURL
+	                PUCardsURL ParameterFileURL))
+    {
+	next if ! exists $ainfo->{$url};
+	$ainfo->{$url} =~ s/^\s*(\S+)\s*$/$1/;
+	$object->{APPINFO}{PARAMETERS}{$url} = &getURL ($ainfo->{$url});
+    }
+
+    foreach my $var (qw(GeometryFile GeometryFileChecksum GeomPATHversion
+	    	        CaloDigis TrackerDigis MuonDigis
+			PUCollection PUOwnerName PUDatasetName))
+    {
+	next if ! exists $ainfo->{$var};
+	$object->{APPINFO}{PARAMETERS}{$var} = $ainfo->{$var};
+    }
 }
 
 # Get the provenance
@@ -559,6 +577,7 @@ use UtilsDB;
 use UtilsNet;
 use UtilsTiming;
 use UtilsLogging;
+use Digest::MD5 'md5_base64';
 
 # Initialise object
 sub new
@@ -906,7 +925,7 @@ sub makePerson
     my $name = (getpwuid($<))[6]; $name =~ s/,.*//;
     do { chomp($certemail); $email = $certemail }  if $certemail;
     do { chomp($dn); $dn =~ s/^subject\s*=\s*// } if $dn;
-    do { $name = $1 } if ($dn && $dn =~ m!/CN=(.*?)( \d+)?(/.*)?$!);
+    do { $name = $1 } if ($dn && $dn =~ /CN=(.*?)( \d+)?(\/.*)?$/);
 
     my $p = (grep ($_->{NAME} eq $name, @{$self->{PERSON}}))[0];
     return $p if $p;
@@ -938,13 +957,9 @@ sub makeAppInfo
     my $appvers = $object->{ApplicationVersion};
     my $exe = $object->{ExecutableName};
 
-    # FIXME: Currently hack re-processing step into parameter set.
-    my $pset = $context->{OWNER};
-    $pset =~ s/-C-.*//;
-    $pset =~ s/_(OSC|CMS|CERN)$//;
-    $pset =~ s/_g\d+$//;
-    $pset =~ s/.*?_(\d+(_\d+)*)$/$1/;
-    $pset = "Default" if $pset !~ /^[_\d]+$/;
+    # Compute parameter set identification
+    my $pset = join ("#", map { "$_=@{[md5_base64($object->{PARAMETERS}{$_})]}" }
+    		          sort keys %{$object->{PARAMETERS}});
 
     # FIXME: Figure out output collection stuff
     # FIXME: Input/output collection types are not part of t_application key!?
@@ -1027,7 +1042,7 @@ sub makeProcessingPath
     # If we have an input owner, use its processing path as a parent
     # to this one.  Otherwise start from null parent.
     my $parent = undef;
-    if ($object->{DSINFO}{InputOwner})
+    if ($object->{DSINFO}{InputOwnerName})
     {
 	($parent) = &dbexec($self->{DBH}, qq{
 	    select procds.processing_path
@@ -1036,7 +1051,7 @@ sub makeProcessingPath
 	      on primds.id = procds.primary_dataset
 	    where procds.name = :owner
 	      and primds.name = :dataset},
-            ":owner" => $object->{DSINFO}{InputOwner},
+            ":owner" => $object->{DSINFO}{InputOwnerName},
 	    ":dataset" => $object->{DATASET})
     	    ->fetchrow();
     }
