@@ -20,5 +20,11 @@ BEGIN
       dbms_output.put_line ('Dropping trigger ' || o.name);
       execute immediate 'drop trigger ' || o.name;
    END LOOP;
+
+   -- Synonyms
+   FOR o IN (SELECT synonym_name name FROM user_synonyms) LOOP
+      dbms_output.put_line ('Dropping synonym ' || o.name);
+      execute immediate 'drop synonym ' || o.name;
+   END LOOP;
 END;
 /
