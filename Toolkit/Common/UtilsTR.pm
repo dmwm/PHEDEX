@@ -162,20 +162,20 @@ sub listDatasetHistory
     my @result;
 
     foreach (split(/\n/, &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/"
-			    	  ."SQL/CollectionTreeAndPU.php?"
-				  ."dataset=$dso->{DATASET}&owner=$dso->{OWNER}")))
+			    	  ."SQL/CollectionTreeAndPU.php?cid=$dso->{COLLECTION}")))
     {
 	if (/ID=(\d+), Name=(\S+), Type=(\S+), Owner=(\S+), Dataset=(\S+)$/)
 	{
 	    # Type = DST/Digi/Hit/PU
+	    # FIXME: Pick only immediate parents?
+	    next if ($1 eq $dso->{COLLECTION});
 	    next if ($3 eq 'InitHit' || $3 eq 'InitDigi');
 	    push (@result, {
 		COLLECTION => $1,
 		TYPE => $3,
 		DATASET => $5,
 		OWNER => $4,
-		SUBCOLLECTION => $2 })
-		if ! ($5 eq $dso->{DATASET} && $4 eq $dso->{OWNER});
+		SUBCOLLECTION => $2 });
 	}
     }
 
@@ -185,13 +185,13 @@ sub listDatasetHistory
 # Generate a list of assignments for a particular dataset.owner pair
 sub listAssignments
 {
-    my ($ds, $owner) = @_;
+    my ($dso) = @_;
+    my $key = (exists $dso->{COLLECTION} ? "CollectionID=$dso->{COLLECTION}"
+	       : "DatasetName=$dso->{DATASET}&OwnerName=$dso->{OWNER}");
     my $everything = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/"
-			      ."SQL/DsOwnToAs.php?DatasetName=$ds&"
-			      ."OutputOwner=$owner&scriptstep=1");
-    die "no assignments for $ds, $owner\n" if ! $everything;
-    return map { s/.*<TD>//; ($_ =~ /(\d+)/g) }
-	   grep(/Assignments.*<TD>/, split(/\n/, $everything));
+			      ."SQL/DsOwnToAs-txt.php?$key&scriptstep=1&format=txt");
+    die "no assignments for @{[split('&', $key)]}\n" if ! $everything;
+    return map { (/(\d+)/g) } grep(/^Assignments\s*=/, split(/\n/, $everything));
 }
 
 1;
