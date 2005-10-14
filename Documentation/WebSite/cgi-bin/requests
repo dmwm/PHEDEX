@@ -537,10 +537,12 @@ sub checknew
     {
 	my $now = time();
 	my ($prefix) = ($reqname =~ m|^(\d\d\d\d-\d\d)|);
+	my $replyto = join(", ", @emails, 'cms-phedex-developers@cern.ch');
 	my $mail = ""
 	    . "Subject: TRANSFER REQUEST $reqname\n"
 	    . "From: PhEDEx Request Form <phedex.admin\@cern.ch>\n"
 	    . "To: lassi.tuura\@cern.ch, tim.barrass\@bris.ac.uk, jens.rehn\@cern.ch\n"
+	    . "Reply-To: $replyto\n"
 	    . "\n"
 	    . "Greetings.  The following transfer request has been filed.\n"
 	    . "Please notify the contact people when the request has been\n"
