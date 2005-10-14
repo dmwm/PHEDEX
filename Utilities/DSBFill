@@ -113,7 +113,7 @@ foreach my $pass (qw(Hit Digi DST))
         print " Owner              = $item->{OWNER}\n";
         print " Dataset            = $item->{DATASET}\n";
         print " Collection         = @{[$item->{COLLECTION} || '']}\n";
-        print " Datatype           = $item->{DSINFO}{InputProdStepType}\n";
+        print " Datatype           = $item->{DSINFO}{DataTier}\n";
         print " InputOwner         = @{[$item->{DSINFO}{InputOwnerName} || '']}\n";
         print " PUDataset          = @{[$item->{DSINFO}{PUDatasetName} || '']}\n";
         print " PUOwner            = @{[$item->{DSINFO}{PUOwnerName} || '']}\n";
@@ -123,7 +123,7 @@ foreach my $pass (qw(Hit Digi DST))
         print " Files              = @{[scalar @$files]}\n";
         print " Events             = $events\n";
         print " Sites              = @{[sort keys %{$item->{SITES}}]}\n";
-        print " DBSPath            = /$item->{DATASET}/$item->{DSINFO}{InputProdStepType}/$item->{OWNER} \n";
+        print " DBSPath            = /$item->{DATASET}/$item->{DSINFO}{DataTier}/$item->{OWNER} \n";
         print " Application        = $item->{APPINFO}{ApplicationName}\n";
         print " ApplicationVersion = $item->{APPINFO}{ApplicationVersion}\n";
         print " ExecutableName     = $item->{APPINFO}{ExecutableName} (from assignment $item->{APPINFO}{ASSIGNMENT})\n";
@@ -134,8 +134,8 @@ foreach my $pass (qw(Hit Digi DST))
 	    print "  ParentReason      = $parent->{TYPE}\n";
     	    print "  ParentDataset     = $parent->{DSINFO}{DatasetName}\n";
     	    print "  ParentOwner       = $parent->{DSINFO}{OwnerName}\n";
-    	    print "  ParentDatatype    = $parent->{DSINFO}{InputProdStepType}\n";
-    	    print "  DBSPath           = /$parent->{DATASET}/$parent->{DSINFO}{InputProdStepType}/$parent->{OWNER}\n";
+    	    print "  ParentDatatype    = $parent->{DSINFO}{DataTier}\n";
+    	    print "  DBSPath           = /$parent->{DATASET}/$parent->{DSINFO}{DataTier}/$parent->{OWNER}\n";
         }
         foreach my $b (values %{$item->{BLOCKS}})
         {

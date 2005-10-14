@@ -47,8 +47,7 @@ sub fetchDatasetInfo
 {
     my ($self, $object) = @_;
     my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/data/"
-	    		."AnaInfo.php?DatasetName=$object->{DATASET}&"
-			."OwnerName=$object->{OWNER}");
+	    		."AnaInfo-cid.php?CollectionID=$object->{COLLECTION}");
     die "no dataset info for $object->{OWNER}/$object->{DATASET}\n" if ! $data;
     die "bad dataset info for $object->{OWNER}/$object->{DATASET}\n"
         if $data =~ /ERROR.*SELECT.*FROM/si;
@@ -60,17 +59,15 @@ sub fetchDatasetInfo
     }
 
     $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/SQL/"
-	    	     ."GetCollectionInfo-TW.php?CollectionID=$object->{COLLECTION}"
-		     ."&scriptstep=1");
+	    	     ."GetCollectionInfo-TW-txt.php?CollectionID=$object->{COLLECTION}"
+		     ."&scriptstep=1&format=txt");
     die "no collection info for $object->{OWNER}/$object->{DATASET}\n" if ! $data;
     die "bad collection info for $object->{OWNER}/$object->{DATASET}\n"
         if $data =~ /ERROR.*SELECT.*FROM/si;
     foreach my $row (split("\n", $data))
     {
-	if ($row =~ /^\s*<TR><TD><B>Collection Status<\/B><TD>(\d+)$/)
-	{
-	    $object->{DSINFO}{CollectionStatus} = $1;
-	}
+	$object->{DSINFO}{CollectionStatus} = $1
+	    if $row =~ /^CollectionStatus=(\d+)/;
     }
 
     $object->{BLOCKS} = {};
@@ -173,7 +170,7 @@ sub fetchApplicationInfo
     my @assids = &listAssignments ($object->{DATASET}, $object->{OWNER});
     my $ainfo = &assignmentInfo ($assids[0]);
     $object->{APPINFO}{ASSIGNMENT} = $assids[0];
-    $object->{APPINFO}{ProdStepType} = $ainfo->{ProdStepType};
+    $object->{APPINFO}{DataTier} = $ainfo->{ProdStepType};
     $object->{APPINFO}{ProductionCycle} = $ainfo->{ProductionCycle};
     $object->{APPINFO}{ApplicationVersion} = $ainfo->{ApplicationVersion};
     $object->{APPINFO}{ApplicationName} = $ainfo->{ApplicationName};
@@ -213,7 +210,7 @@ sub fetchProvenanceInfo
 	    &alert ("Error extracting info for $parent->{OWNER}/$parent->{DATASET}: $@");
 	    $parent->{DSINFO}{DatasetName} = $parent->{DATASET};
 	    $parent->{DSINFO}{OwnerName} = $parent->{OWNER};
-	    $parent->{DSINFO}{InputProdStepType} = "Error";
+	    $parent->{DSINFO}{DataTier} = "Error";
 	}
     }
 }
@@ -302,7 +299,7 @@ sub fetchDatasetInfo
 	$object->{DATASET} = $dataset;
 	$object->{OWNER} = $owner;
 	$object->{COLLECTION} = $collid;
-	$object->{DSINFO}{InputProdStepType} = $datatype;
+	$object->{DSINFO}{DataTier} = $datatype;
 	$object->{DSINFO}{InputOwnerName} = $inputowner;
 	$object->{DSINFO}{PUDatasetName} = $pudataset;
 	$object->{DSINFO}{PUOwnerName} = $puowner;
@@ -490,7 +487,7 @@ sub updateDataset
     # Insert dataset information
     &setID ($dbh, $object, "seq_dbs_dataset");
     push(@{$sqlargs{IDS}{1}}, $object->{ID});
-    push(@{$sqlargs{IDS}{2}}, $object->{DSINFO}{InputProdStepType});
+    push(@{$sqlargs{IDS}{2}}, $object->{DSINFO}{DataTier});
     push(@{$sqlargs{IDS}{3}}, $object->{DATASET});
     push(@{$sqlargs{IDS}{4}}, $object->{OWNER});
     push(@{$sqlargs{IDS}{5}}, $object->{COLLECTION});
@@ -695,7 +692,7 @@ sub fetchDatasetInfo
     {
 	$object->{DATASET} = $primary;
 	$object->{OWNER} = $processed;
-	$object->{DSINFO}{InputProdStepType}
+	$object->{DSINFO}{DataTier}
 	    = (grep($_->{ID} eq $tier, @{$self->{DATA_TIER}}))[0]->{NAME};
 	$object->{DSINFO}{CollectionStatus} = $is_open eq 'y' ? 4 : 6;
 
@@ -721,7 +718,7 @@ sub fetchDatasetInfo
 		DATASET => $primary,
 		DSINFO => { OwnerName => $processed,
 		            DatasetName => $primary,
-		            InputProdStepType =>  $tier }
+		            DataTier =>  $tier }
 	    });
 	}
 
@@ -793,7 +790,7 @@ sub fetchRunInfo
 	$object->{BLOCKS_BY_ID}{$id} =
 	$object->{BLOCKS}{"$id"} = {
 	    ID => $id,
-	    NAME => "$object->{DATASET}/$object->{DSINFO}{InputProdStepType}/$object->{OWNER}/#$id",
+	    NAME => "$object->{DATASET}/$object->{DSINFO}{DataTier}/$object->{OWNER}/#$id",
 	    STATUS => $status,
 	    NFILES => $files,
 	    NBYTES => $bytes,
@@ -880,7 +877,7 @@ sub fetchApplicationInfo
     if (my ($tier, $exe, $appvers, $appname, $intype) = $qappinfo->fetchrow())
     {
 	$object->{APPINFO}{ASSIGNMENT} = 0;
-	$object->{APPINFO}{ProdStepType} = $intype;
+	$object->{APPINFO}{DataTier} = $intype;
 	$object->{APPINFO}{ProductionCycle} = 'N/A'; # FIXME
 	$object->{APPINFO}{ApplicationVersion} = $appvers;
 	$object->{APPINFO}{ApplicationName} = $appname;
@@ -952,7 +949,7 @@ sub makePhysicsGroup
 sub makeAppInfo
 {
     my ($self, $context, $object, $person, $pgroup) = @_;
-    my $intype = $object->{ProdStepType};
+    my $intype = $object->{DataTier};
     my $appname = $object->{ApplicationName};
     my $appvers = $object->{ApplicationVersion};
     my $exe = $object->{ExecutableName};
@@ -1056,7 +1053,7 @@ sub makeProcessingPath
     	    ->fetchrow();
     }
 
-    my $tier = (grep($_->{NAME} eq $object->{DSINFO}{InputProdStepType},
+    my $tier = (grep($_->{NAME} eq $object->{DSINFO}{DataTier},
 		     @{$self->{DATA_TIER}}))[0];
     my $ppath = (grep($_->{APP_CONFIG} eq $appinfo->{ID}
 		      && ((defined $_->{PARENT} ? $_->{PARENT} : 'undef')
@@ -1114,7 +1111,7 @@ sub updateDataset
     my $appinfo = $self->makeAppInfo ($object, $object->{APPINFO}, $person, $pgroup);
 
     # Now go for the core data
-    my $datatier = $self->makeNamed ("data_tier", $object->{DSINFO}{InputProdStepType}, $person);
+    my $datatier = $self->makeNamed ("data_tier", $object->{DSINFO}{DataTier}, $person);
     my $primary = $self->makePrimaryDataset ($object, $person, $pgroup);
     my $ppath = $self->makeProcessingPath ($object, $appinfo, $person);
 
