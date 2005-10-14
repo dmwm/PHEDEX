@@ -13,7 +13,7 @@ if ($ARGV[0] eq '-v') {
 
 foreach my $dso (@ARGV) {
     my ($o, $ds) = ($dso =~ /(.*)\/(.*)/);
-    my @assids = &listAssignments ($ds, $o);
+    my @assids = &listAssignments ({ DATASET => $ds, OWNER => $o });
     print "@assids", ($verbose ? " $o/$ds" : ""), "\n"
 	if @assids;
 }

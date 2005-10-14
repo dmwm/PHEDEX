@@ -81,7 +81,7 @@ sub fetchDatasetInfo
 sub fetchRunInfo
 {
     my ($self, $object) = @_;
-    foreach my $assid (&listAssignments ($object->{DATASET}, $object->{OWNER}))
+    foreach my $assid (&listAssignments ($object))
     {
 	my $context = "$object->{OWNER}/$object->{DATASET}";
 	$object->{BLOCKS}{$context} ||= { NAME => $context, FILES => [] };
@@ -167,7 +167,7 @@ sub fetchApplicationInfo
     my ($self, $object) = @_;
     # Pick application information from first assignment.  Should be
     # invariant within the same owner/dataset in any case.
-    my @assids = &listAssignments ($object->{DATASET}, $object->{OWNER});
+    my @assids = &listAssignments ($object);
     my $ainfo = &assignmentInfo ($assids[0]);
     $object->{APPINFO}{ASSIGNMENT} = $assids[0];
     $object->{APPINFO}{DataTier} = $ainfo->{ProdStepType};
