@@ -49,7 +49,7 @@ sitename_uc="$(echo $sitename | tr '[:lower:]' '[:upper:]')"
 role_dn="$(grid-cert-info -subject -file $keydir/$usercert)"
 role_email="$usercert"
 role_passwd="$($home/Utilities/WordMunger)"
-role_name="SITE_$sitename_uc"
+role_name="$(echo $section | tr '[:lower:]' '[:upper:]')_SITE_$sitename_uc"
 role_name_lc="$(echo $role_name | tr '[:upper:]' '[:lower:]')"
 
 ora_master="$($home/Schema/OracleConnectId -db $dbparam:$section/Admin)"

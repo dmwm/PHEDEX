@@ -34,7 +34,7 @@ connect="$1" reader="$2" writer="$3"
 # access to all the tables.
 for role in \
   $((echo "select granted_role from user_role_privs;") |
-    sqlplus -S "$connect" | awk '/SITE_/ { print $1 } {}'); do
+    sqlplus -S "$connect" | awk '/_SITE_/ { print $1 } {}'); do
   echo; echo; echo "-- role $role"
   echo "set feedback off;"
   echo "grant $role to $writer;"
@@ -49,11 +49,11 @@ for role in \
         ;;
 
       T_INFO_AGENT_STATUS:* | \
-      T_INFO*:SITE_CERN | \
-      T_DBS*:SITE_CERN | \
-      T_DLS*:SITE_CERN | \
-      T_REQUEST*:SITE_CERN | \
-      T_BLOCK_*:SITE_CERN )
+      T_INFO*:*_SITE_CERN | \
+      T_DBS*:*_SITE_CERN | \
+      T_DLS*:*_SITE_CERN | \
+      T_REQUEST*:*_SITE_CERN | \
+      T_BLOCK_*:*_SITE_CERN )
         # Restricted update
         echo; echo "grant select on $table to $reader;"
         echo "grant select on $table to $writer;"
