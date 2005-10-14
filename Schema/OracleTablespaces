@@ -3,10 +3,13 @@
 case ${1-Prod} in
   Prod )
     echo "$0: Switching schema to \`$1' tablespaces"
-    perl -p -i -e 's/([ ])INDX01/${1}CMS_TRANSFERMGMT_INDX01/g' Oracle*.sql ;;
+    perl -p -i -e 's/ (CMS_TRANSFERMGMT[A-Z_]*)?INDX01/ CMS_TRANSFERMGMT_INDX01/g' Oracle*.sql ;;
   Dev )
     echo "$0: Switching schema to \`$1' tablespaces"
-    perl -p -i -e 's/([ ])CMS_TRANSFERMGMT_INDX01/${1}INDX01/g' Oracle*.sql ;;
+    perl -p -i -e 's/ (CMS_TRANSFERMGMT[A-Z_]*)?INDX01/ CMS_TRANSFERMGMT_TEST_INDX01/g' Oracle*.sql ;;
+  Testbed )
+    echo "$0: Switching schema to \`$1' tablespaces"
+    perl -p -i -e 's/ (CMS_TRANSFERMGMT[A-Z_]*)?INDX01/ INDX01/g' Oracle*.sql ;;
   * )
     echo "$0: Sorry, don't know how to switch to tablespace for \`$1'" 1>&2
     exit 1;;
