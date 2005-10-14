@@ -69,13 +69,15 @@ my %guid2file   = map { $_->{GUID} => $_ } @$files;
 
 # Get all current datasets
 my $current     = $source->fetchPublishedData();
+$current        = [ sort { $a->{DATASET} cmp $b->{DATASET} ||
+		           $a->{OWNER} cmp $b->{OWNER} } @$current ];
 
 foreach my $pass (qw(Hit Digi DST))
 {
     foreach my $item (@$current)
     {
-	my $itemtype = ($item->{OWNER} =~ /Hit/ ? "Hit"
-			: $item->{OWNER} =~ /DST/ ? "DST"
+	my $itemtype = ($item->{OWNER} =~ /_Hit/ ? "Hit"
+			: $item->{OWNER} =~ /_(DST|L25)/ ? "DST"
 			: "Digi");
 	next if $itemtype ne $pass;
 
@@ -147,9 +149,11 @@ foreach my $pass (qw(Hit Digi DST))
         warn $@ if $@;
 
         # Clear out the item so we don't accumulate lots of memory
+        $item->{PARENTS} = [];
         $item->{FILES} = [];
         $item->{BLOCKS} = {};
         $item->{RUNS} = {};
+        $item->{APPINFO} = {};
     }
 }
 
