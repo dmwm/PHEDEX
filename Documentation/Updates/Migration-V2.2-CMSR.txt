@@ -1,0 +1,104 @@
+Log of migrating V2.2 databases to CMSR (Dev, Production)
+
+* DEV INSTANCE
+
+Stop all agents
+
+Reset passwords
+
+  sqlplus $(Schema/OracleConnectId -db Schema/DBParam:Dev/Admin)
+    password
+  sqlplus $(Schema/OracleConnectId -db Schema/DBParam:Dev/Reader)
+    password
+  sqlplus $(Schema/OracleConnectId -db Schema/DBParam:Dev/CERN)
+    password
+
+Load schema
+
+  cd Schema
+  ./OracleTablespaces Dev
+  sqlplus $(./OracleConnectId -db DBParam:Dev/Admin) < OracleReset.sql
+  sqlplus $(./OracleConnectId -db DBParam:Dev/Admin) < OracleInit.sql
+  sqlplus $(./OracleConnectId -db DBParam:Dev/Admin) < OracleStatsEnable.sql
+  ./OracleSyns.sh cms_transfermgmt_test \
+    $(./OracleConnectId -db DBParam:Dev/Admin) \
+    $(./OracleConnectId -db DBParam:Dev/Reader)
+  ./OracleSyns.sh cms_transfermgmt_test \
+    $(./OracleConnectId -db DBParam:Dev/Admin) \
+    $(./OracleConnectId -db DBParam:Dev/CERN)
+
+Recreate roles on lxgate10
+
+  cd /data/V2Nodes/PHEDEx
+  eval $(Utilities/Master -config Custom/CERN/Config.Prod environ)
+  cd ~/private/roles/Dev
+  mv Output Output.old
+  mv Details Details.old
+  mkdir Details Output
+  for xrole in Details.old/*; do
+    role=${xrole#Details.old/site_}
+    email=$(ls ../*/Output*/site_$role:* 2>/dev/null | head -1 | sed 's/.*://')
+    Schema/OracleInitRole.sh Schema/DBParam Dev ../Keys $email $role
+  done
+
+  for f in Output/*; do
+    /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < $f
+  done
+
+Copy data from old instance
+
+  old=$(./OracleConnectId -db DBParam:DevOld/Admin)
+  new=$(./OracleConnectId -db DBParam:Dev/Admin)
+  sqlplus -S $new << END
+    alter trigger new_transfer_state disable;
+    alter trigger update_transfer_state disable;
+
+    copy from $old to $new insert T_AUTHORISATION using select * from T_AUTHORISATION;
+
+    copy from $old to $new insert T_NODE using select * from T_NODE;
+    copy from $old to $new insert T_NODE_EXPORT using select * from T_NODE_EXPORT;
+    copy from $old to $new insert T_NODE_IMPORT using select * from T_NODE_IMPORT;
+    copy from $old to $new insert T_NODE_NEIGHBOUR using select * from T_NODE_NEIGHBOUR;
+    copy from $old to $new insert T_ROUTING using select * from T_ROUTING;
+
+    copy from $old to $new insert T_AGENT using select * from T_AGENT;
+    copy from $old to $new insert T_AGENT_MESSAGE using select * from T_AGENT_MESSAGE;
+    copy from $old to $new insert T_AGENT_STATUS using select * from T_AGENT_STATUS;
+
+    copy from $old to $new insert T_BLOCK using select * from T_BLOCK;
+    copy from $old to $new insert T_BLOCK_DESTINATION using select * from T_BLOCK_DESTINATION;
+    copy from $old to $new insert T_BLOCK_REPLICA using select * from T_BLOCK_REPLICA;
+    copy from $old to $new insert T_SUBSCRIPTION using select * from T_SUBSCRIPTION;
+
+    copy from $old to $new insert T_FILE using select * from T_FILE;
+    copy from $old to $new insert T_FILE_ATTRIBUTES using select * from T_FILE_ATTRIBUTES;
+
+    copy from $old to $new insert T_REPLICA_STATE using select * from T_REPLICA_STATE;
+    copy from $old to $new insert T_TRANSFER_STATE using select * from T_TRANSFER_STATE;
+    copy from $old to $new insert T_TRANSFER_COMPLETED using select * from T_TRANSFER_COMPLETED;
+
+    copy from $old to $new insert T_PERF_HISTOGRAM using select * from T_PERF_HISTOGRAM;
+    copy from $old to $new insert T_TRANSFER_HISTORY using select * from T_TRANSFER_HISTORY;
+
+    alter trigger new_transfer_state enable;
+    alter trigger update_transfer_state enable;
+END
+
+Refresh stats etc.
+
+  sqlplus $(./OracleConnectId -db DBParam:Dev/Admin) < OracleStatsUpdate.sql
+
+Restart agents
+  Utilities/Master -config Custom/CERN/Config.Dev start mgmt-rtab
+  Utilities/Master -config Custom/CERN/Config.Dev stop mgmt-rtab
+  Utilities/Master -config Custom/CERN/Config.Dev start
+
+Restart node router agent (mgmt-rtab)
+Stop node router agent
+Restart all agents
+
+Clear old database
+
+  sqlplus $(./OracleConnectId -db DBParam:DevOld/Admin) < OracleSave.sql
+
+* PRODUCTION INSTANCE
