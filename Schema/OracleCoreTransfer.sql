@@ -1,6 +1,4 @@
 -- PhEDEx ORACLE schema for transfer and replica data.
--- NB: s/([ ])CMS_TRANSFERMGMT_INDX01/${1}INDX01/g for devdb
--- NB: s/([ ])INDX01/${1}CMS_TRANSFERMGMT_INDX01/g for cms
 -- REQUIRES: OracleCoreTopo.sql, OracleCoreFiles.sql
 
 ----------------------------------------------------------------------
