@@ -72,9 +72,11 @@ my $dbs = UtilsDBS->connect ($args{FROM}, $args{DBCONFIG});
 
 # Get all existing datasets
 my $datasets = $dbs->fetchPublishedData();
+$datasets = [ sort { $a->{DATASET} cmp $b->{DATASET} ||
+		     $a->{OWNER} cmp $b->{OWNER} } @$datasets ];
 
 # Get all current datasets
-foreach my $item (@$datasets)
+while (my $item = shift (@$datasets))
 {
     my $token = "$item->{OWNER}/$item->{DATASET}";
     next if (@ARGV && !grep($token =~ $_, @{$args{PATS}}));
@@ -158,11 +160,6 @@ foreach my $item (@$datasets)
 	    print " File $f->{GUID} $f->{INBLOCK} $f->{LFN}[0]\n";
         }
     }
-
-    # Clear out the item so we don't accumulate lots of memory
-    $item->{FILES} = [];
-    $item->{BLOCKS} = {};
-    $item->{RUNS} = {};
 }
 
 
