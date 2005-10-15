@@ -168,6 +168,7 @@ sub fetchApplicationInfo
     # Pick application information from first assignment.  Should be
     # invariant within the same owner/dataset in any case.
     my @assids = &listAssignments ($object);
+    die "no assignments for $object->{OWNER}/$object->{DATASET}\n" if ! @assids;
     my $ainfo = &assignmentInfo ($assids[0]);
     $object->{APPINFO}{ASSIGNMENT} = $assids[0];
     $object->{APPINFO}{DataTier} = $ainfo->{ProdStepType};
