@@ -72,11 +72,12 @@ my $current     = $source->fetchPublishedData();
 $current        = [ sort { $a->{DATASET} cmp $b->{DATASET} ||
 		           $a->{OWNER} cmp $b->{OWNER} } @$current ];
 
-foreach my $pass (qw(Hit Digi DST))
+foreach my $pass (qw(Hit Digi DST DSTL25))
 {
     foreach my $item (@$current)
     {
 	my $itemtype = ($item->{OWNER} =~ /_Hit/ ? "Hit"
+			: $item->{OWNER} =~ /_DST.*_L25/ ? "DSTL25"
 			: $item->{OWNER} =~ /_(DST|L25)/ ? "DST"
 			: "Digi");
 	next if $itemtype ne $pass;
