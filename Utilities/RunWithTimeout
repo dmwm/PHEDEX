@@ -23,6 +23,8 @@ use UtilsJobManager;
 my $timeout = shift(@ARGV);
 my $job = new UtilsJobManager (NJOBS => 1);
 
+sub min { return (sort { $a <=> $b } @_)[0] }
+
 # Add job handler.  The handler itself exits with the same exit code
 # the subprocess did, either killing this process via signal or via
 # exit code.
@@ -31,7 +33,7 @@ $job->addJob (sub { my $job = shift;
 	            my $sig = $job->{STATUS_CODE} & 127;
 		    if ($sig) { kill ($sig, $$); exit ($rc); }
 		    else { exit ($rc) } },
-		    { TIMEOUT => $timeout, TIMEOUT_GRACE => $timeout/10 },
+		    { TIMEOUT => $timeout, TIMEOUT_GRACE => &min(3, $timeout/10) },
 		    @ARGV);
 
 # Wait for the job to exit.  Note that there's no need to exit here,
