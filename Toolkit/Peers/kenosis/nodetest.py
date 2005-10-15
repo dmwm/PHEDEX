@@ -14,7 +14,7 @@ from kenosis import node
 
 RealTaskList = task.TaskList
 import gc
-from ds import Queue
+import Queue
 import random
 import socket
 import tempfile
@@ -58,7 +58,7 @@ class MockXmlrpcModule:
         self.nodesCalled_ = []
         self.kenosis = MockKenosis(parent=self)
     Fault = xmlrpclib.Fault
-    def ServerProxy(self, netAddress):
+    def ServerProxy(self, netAddress, timeout):
         ret = MockServerProxy(self)
         ret.kenosis = self.kenosis
         return ret
@@ -76,7 +76,7 @@ def newRpcHeader(sourceNodeAddressObject, sourceNetHost, sourceNetPort, destNode
 
 def newNodeKernel(nodeAddress, serverProxyFactory=nullServerProxyFactory):
     return node.NodeKernel(nodeAddressObject=address.stringToAddress(nodeAddress),
-                           serverProxyFactory=serverProxyFactory)
+                           serverProxyFactory=serverProxyFactory, runThreadedFunc=None)
 
 class Test(dsunittest.TestCase):
     def setUp(self):
@@ -87,6 +87,7 @@ class Test(dsunittest.TestCase):
     def tearDown(self):
         reload(node)
         reload(node.task)
+        reload(node.zeroconf_plugin)
 
     def testBucketIndex(self):
         n = newNodeKernel(nodeAddress="0000")
@@ -190,14 +191,16 @@ class Test(dsunittest.TestCase):
 
     def testBucketAdd(self):
         mockXmlrpcModule = MockXmlrpcModule()
+        netAddress = "192.168.0.1:port"
+
         n = newNodeKernel(nodeAddress="0000", serverProxyFactory=mockXmlrpcModule.ServerProxy)
-        ni = node.NodeInfo(nodeAddressObject=address.stringToAddress("0001"), netAddress="a:b")
+        ni = node.NodeInfo(nodeAddressObject=address.stringToAddress("0001"), netAddress=netAddress)
         self._updateNodeRoutingTableWithNodeInfo(n, ni, "kenosis")
         self.assertEqual(n._bucketsFor(serviceName="kenosis")[0], [ni])
-        ni2 = node.NodeInfo(nodeAddressObject=address.stringToAddress("0010"), netAddress="a:b")
+        ni2 = node.NodeInfo(nodeAddressObject=address.stringToAddress("0010"), netAddress=netAddress)
         self._updateNodeRoutingTableWithNodeInfo(n, ni2, "kenosis")
         dstime.advanceTestingTime()
-        ni3 = node.NodeInfo(nodeAddressObject=address.stringToAddress("0011"), netAddress="a:b")
+        ni3 = node.NodeInfo(nodeAddressObject=address.stringToAddress("0011"), netAddress=netAddress)
         self._updateNodeRoutingTableWithNodeInfo(n, ni3, "kenosis")
         self.assertEqual(n._bucketsFor(serviceName="kenosis")[1], [ni3, ni2])
         dstime.advanceTestingTime()
@@ -206,7 +209,7 @@ class Test(dsunittest.TestCase):
 
         bucket = n._bucketsFor(serviceName="kenosis")[20]
         for i in range(2**20, 2**20+n.constantsK_+1):
-            ni = node.NodeInfo(nodeAddressObject=address.NodeAddressObject(numericAddress=i), netAddress="a:b")
+            ni = node.NodeInfo(nodeAddressObject=address.NodeAddressObject(numericAddress=i), netAddress=netAddress)
             self._updateNodeRoutingTableWithNodeInfo(n, ni, "kenosis")
         self.assertEqual(len(bucket), n.constantsK_)
         self.assertEqual(
@@ -230,11 +233,15 @@ class Test(dsunittest.TestCase):
         self.assertEqual(n.needPingPairs_, [])
         self.assertEqual(bucket[0], ni)
         self.assertEqual(
-            len(n.rpcFindNode(nodeAddressObject=address.NodeAddressObject(numericAddress=2**20), serviceName="kenosis")), 20)
+            len(n.rpcFindNode(nodeAddressObject=address.NodeAddressObject(numericAddress=2**20),
+                              serviceName="kenosis", includePrivateAddresses=True)), 20)
+        self.assertEqual(
+            len(n.rpcFindNode(nodeAddressObject=address.NodeAddressObject(numericAddress=2**20),
+                              serviceName="kenosis", includePrivateAddresses=False)), 0)
         
     def testFindNodeReal(self):
         contacts = {}
-        def ServerProxyMethod(netAddress, contacts=contacts):
+        def ServerProxyMethod(netAddress, timeout, contacts=contacts):
             contacts.setdefault(netAddress, 0)
             contacts[netAddress] += 1
             if netAddress == "n":
@@ -313,10 +320,10 @@ class Test(dsunittest.TestCase):
         n0configPath = tempfile.mktemp()
         n0 = node.Node(
             nodeAddress=str(address.NodeAddressObject(numericAddress=0L)), ports=[50050],
-            serve=False, bootstrapNetAddress=None)
+            serve=False, bootstrapNetAddress=None, useUpnp=False, useZeroconf=False)
         self.assertRaises(socket.error, node.Node, nodeAddress=str(address.NodeAddressObject(numericAddress=0L)), ports=[50050])
         
-        n1 = node.Node(ports=None, serve=False, bootstrapNetAddress=None)
+        n1 = node.Node(ports=None, serve=False, bootstrapNetAddress=None, useUpnp=False, useZeroconf=False)
         n1port = n1.port()
         self.assertNotEqual(n1port, None)
 
@@ -353,7 +360,7 @@ class Test(dsunittest.TestCase):
         del n0
         gc.collect()
         n0 = node.Node(ports=[50050],
-                       serve=False, configPath=n0configPath, bootstrapNetAddress=None)
+                       serve=False, configPath=n0configPath, bootstrapNetAddress=None, useUpnp=False, useZeroconf=False)
         self.assertEqual(n0.nodeAddress(), "0x0")
 
         ni1 = n0.nodeKernel_._nodeInfoForNodeAddressObject(nodeAddressObject=n1address, serviceName="kenosis")
@@ -398,11 +405,11 @@ class Test(dsunittest.TestCase):
     def testRealRpcOverTcp2(self):
         nodeAddressObject0 = str(address.NodeAddressObject(numericAddress=0L))
         nodeAddressObject1 = str(address.NodeAddressObject(numericAddress=1L))
-        n0 = node.Node(nodeAddress=nodeAddressObject0, ports=[50070], serve=False, bootstrapNetAddress=None)
+        n0 = node.Node(nodeAddress=nodeAddressObject0, ports=[50070], serve=False, bootstrapNetAddress=None, useUpnp=False, useZeroconf=False)
         self.assertEqual(n0.nodeAddress(), "0x0")
         n1 = node.Node(
             nodeAddress=nodeAddressObject1, ports=[50080], serve=False, stopEvent=threading.Event(),
-            bootstrapNetAddress=None)
+            bootstrapNetAddress=None, useUpnp=False, useZeroconf=False)
         self.assertEqual(n1.nodeAddress(), "0x1")
         taskList = RealTaskList(maxThreads=2)
         taskList.start(wait=0)
@@ -505,7 +512,7 @@ class Test(dsunittest.TestCase):
         nodeAddressObject0 = str(address.NodeAddressObject(numericAddress=0L))
         nodeAddressObject1 = str(address.NodeAddressObject(numericAddress=1L))
         n0 = node.Node(
-            nodeAddress=nodeAddressObject0, ports=[50090], serve=False, bootstrapNetAddress=None)
+            nodeAddress=nodeAddressObject0, ports=[50090], serve=False, bootstrapNetAddress=None, useUpnp=False, useZeroconf=False)
 
         taskList = RealTaskList(maxThreads=2)
         taskList.start(wait=0)
@@ -513,7 +520,8 @@ class Test(dsunittest.TestCase):
         taskList.addCallableTask(n0.serveOneRequest)
         n1 = node.Node(
             nodeAddress=nodeAddressObject1, ports=[50100],
-            serve=False, bootstrapNetAddress="127.0.0.1:50090")
+            serve=False, bootstrapNetAddress="127.0.0.1:50090", useUpnp=False, useZeroconf=False)
+        self.assertEqual(n1.nodeKernel_.serviceBuckets_, {})
         self.assertEqual(
             n1.nodeKernel_.bootstrapTuples_,
             [(n0.nodeKernel_.nodeAddressObject_, '127.0.0.1:50090')])
@@ -556,7 +564,7 @@ class Test(dsunittest.TestCase):
                     self.set_ = True
                     return False
         mockEvent = MockEvent()
-        n0 = node.Node(serve=False, bootstrapNetAddress="127.0.0.1:1234", stopEvent=mockEvent)
+        n0 = node.Node(serve=False, bootstrapNetAddress="127.0.0.1:1234", stopEvent=mockEvent, useUpnp=False, useZeroconf=False)
         for serviceName in n0.nodeKernel_.serviceBuckets_.keys():
             for bucket in n0.nodeKernel_._bucketsFor(serviceName=serviceName):
                 self.assertEqual(len(bucket), 0)
@@ -564,7 +572,7 @@ class Test(dsunittest.TestCase):
 
     def testXmlrpcFeatures(self):
         nodeAddressObject0 = str(address.NodeAddressObject(numericAddress=0L))
-        n0 = node.Node(nodeAddress=nodeAddressObject0, ports=[50110], serve=False, bootstrapNetAddress=None)
+        n0 = node.Node(nodeAddress=nodeAddressObject0, ports=[50110], serve=False, bootstrapNetAddress=None, useUpnp=False, useZeroconf=False)
         taskList = RealTaskList(maxThreads=2)
         taskList.start(wait=0)
 
@@ -629,8 +637,9 @@ class Test(dsunittest.TestCase):
         for nodeAddress in nodeAddresses:
             n = newNodeKernel(
                 nodeAddress=nodeAddress,
-                serverProxyFactory=lambda netAddress, nodeAddress=nodeAddress: ServerProxyMethod(destNetAddress=netAddress,
-                                                                        sourceNetHost="net%s" % nodeAddress))
+                serverProxyFactory=lambda netAddress, timeout, nodeAddress=nodeAddress:
+                ServerProxyMethod(destNetAddress=netAddress,
+                                  sourceNetHost="net%s" % nodeAddress))
             nodes["net%s" % nodeAddress] = n
         return [nodes["net%s" % x] for x in nodeAddresses]
         
@@ -743,36 +752,20 @@ class Test(dsunittest.TestCase):
         assert not n._nodeInfoForNodeAddressObject(nodeAddressObject=address.stringToAddress("0010"), serviceName="kenosis")
         self.assertEqual(n._findNodeNetAddress(nodeAddressObject=address.stringToAddress("0x8"), serviceName="kenosis"), "net0x8:1234")
 
-#         def hopelessLambda(serverProxy):
-#             return serverProxy.doesnt.exist()
-        
-#         found = n._findNearestNodeAddressObjectNetAddressTuples(nodeAddressObject=address.stringToAddress("1000"),
-#                                                           serverProxyFilterAndMapFunc=hopelessLambda)
-#         self.assertEqual(found, [])
-
-        #def reasonableLambda(serverProxy):
-        #    return serverProxy.kenosis.ping(n._rpcHeaderFor(nodeAddressObject=node.NodeAddressObjectUnknown))
-        #
-        #found = n._findNearestNodeAddressObjectNetAddressTuples(nodeAddressObject=address.stringToAddress("1000"),
-        #                                                  serverProxyFilterAndMapFunc=reasonableLambda)
-        #self.assertEqual(len(found), n.constantsK_)
-        #for nodeAddressObject, netAddress, pingResult in found:
-        #    self.assertEqual(nodeAddressObject, pingResult)
-
     def testNodePersistance(self):
         path = tempfile.mktemp()
-        n0 = node.Node(configPath=path, bootstrapNetAddress=None)
+        n0 = node.Node(configPath=path, bootstrapNetAddress=None, useUpnp=False, useZeroconf=False)
         n0.save()
         data = dsfile.fileObject(path=path)
         self.assertEqual(
             data,
             {"version":node.protocolVersion, "nodeAddress":n0.nodeAddress(), "routingTuples":[], "bootstrapTuples":[]})
-        n1 = node.Node(configPath=path, bootstrapNetAddress=None)
+        n1 = node.Node(configPath=path, bootstrapNetAddress=None, useUpnp=False, useZeroconf=False)
         self.assertEqual(n0.nodeAddress(), n1.nodeAddress())
 
     def testNodeAutopersistance(self):
         path = tempfile.mktemp()
-        n0 = node.Node(configPath=path, bootstrapNetAddress=None)
+        n0 = node.Node(configPath=path, bootstrapNetAddress=None, useUpnp=False, useZeroconf=False)
         saveTime = n0.lastSaveTime_
         n0.nodeKernel_._updateRoutingTableWith(
             nodeAddressObject=address.stringToAddress(nodeAddress="0xf00"),
@@ -787,16 +780,16 @@ class Test(dsunittest.TestCase):
             {"version":node.protocolVersion, "nodeAddress":n0.nodeAddress(),
              "routingTuples":[(address.stringToAddress(nodeAddress="0xf00"), "127.0.0.1:3434", "s")],
              "bootstrapTuples":[]})
-        n1 = node.Node(configPath=path, bootstrapNetAddress=None)
+        n1 = node.Node(configPath=path, bootstrapNetAddress=None, useUpnp=False, useZeroconf=False)
         self.assertEqual(n0.nodeAddress(), n1.nodeAddress())
 
     def testSelfBoostrap(self):
-        n0 = node.Node(ports=[50111], bootstrapNetAddress="127.0.0.1:50111")
+        n0 = node.Node(ports=[50111], bootstrapNetAddress="127.0.0.1:50111", useUpnp=False, useZeroconf=False)
 
     def testServices(self):
-        n0 = node.Node(ports=[50121], serve=True, bootstrapNetAddress=None)
-        n1 = node.Node(ports=[50122], serve=True, bootstrapNetAddress="127.0.0.1:50121")
-        n2 = node.Node(ports=[50123], serve=True, bootstrapNetAddress="127.0.0.1:50121")
+        n0 = node.Node(ports=[50121], serve=True, bootstrapNetAddress=None, useUpnp=False, useZeroconf=False)
+        n1 = node.Node(ports=[50122], serve=True, bootstrapNetAddress="127.0.0.1:50121", useUpnp=False, useZeroconf=False)
+        n2 = node.Node(ports=[50123], serve=True, bootstrapNetAddress="127.0.0.1:50121", useUpnp=False, useZeroconf=False)
 
         class SssHandler:
             def bob(self):
@@ -821,13 +814,13 @@ class Test(dsunittest.TestCase):
         self.assertEqual(r, [])
         n2.registerNamedHandler(name="sss", handler=SssHandler())
         n2.step()
-        dstime.advanceTestingTime(by=30)
+        dstime.advanceTestingTime(by=node.staleInfoTime)
         r = n1.findNearestNodes(nodeAddress=n1.nodeAddress(), serviceName="sss")
         self.assertEqual(r, [(n2.nodeAddress(), '127.0.0.1:50123')])
         
     def testMultithreading(self):
-        n0 = node.Node(ports=[50124], serve=True, bootstrapNetAddress=None)
-        n1 = node.Node(ports=[50125], serve=True, bootstrapNetAddress="127.0.0.1:50124")
+        n0 = node.Node(ports=[50124], serve=True, bootstrapNetAddress=None, useUpnp=False, useZeroconf=False)
+        n1 = node.Node(ports=[50125], serve=True, bootstrapNetAddress="127.0.0.1:50124", useUpnp=False, useZeroconf=False)
 
         class Handler:
             def __init__(self):
@@ -865,6 +858,79 @@ class Test(dsunittest.TestCase):
             nodeAddressObject=n2.nodeAddressObject_, serviceName="kenosis")
         self.assertEqual(results, [(n2.nodeAddressObject_, "net0x2")])
 
+    def testConcurrentFindNodes(self):
+        nodeAddressObject0 = str(address.NodeAddressObject(numericAddress=0L))
+        nodeAddressObject1 = str(address.NodeAddressObject(numericAddress=1L))
+        n0 = node.Node(
+            nodeAddress=nodeAddressObject0, ports=[50126], serve=False, bootstrapNetAddress=None, useUpnp=False, useZeroconf=False)
+
+        taskList = RealTaskList(maxThreads=3)
+        taskList.start(wait=0)
+
+        nodeTaskList = RealTaskList(maxThreads=1)
+        nodeTaskList.start(wait=0)
+
+        taskList.addCallableTask(n0.serveOneRequest)
+        n1 = node.Node(
+            nodeAddress=nodeAddressObject1, ports=[50127],
+            serve=False, bootstrapNetAddress="127.0.0.1:50126",
+            runThreadedFunc=nodeTaskList.addCallableTask, useUpnp=False, useZeroconf=False)
+
+        # This will timeout because we did not trigger the event.
+        self.assertEqual([], n1.findNearestNodes(nodeAddress=nodeAddressObject0, serviceName="kenosis"))
+
+        dstime.advanceTestingTime(by=node.staleInfoTime)
+
+        taskList.addCallableTaskWithArgs(n1.findNearestNodes, nodeAddress=nodeAddressObject0, serviceName="kenosis")
+        taskList.addCallableTaskWithArgs(n1.findNearestNodes, nodeAddress=nodeAddressObject0, serviceName="kenosis")
+
+        time.sleep(1)
+
+        # We want to prove that only one of these calls makes it to
+        # the remote client, so we only need to add one service task.
+        taskList.addCallableTask(n0.serveOneRequest)
+        taskList.waitForAllTasks()
+
+    def testUpnp(self):
+        class MockUpnpPlugin:
+            def __init__(self, node):
+                self.node_ = node
+            def onListeningOnInternalPort(self, internalPort):
+                self.internalPort_ = internalPort
+            def complete(self):
+                self.node_.setExternalPort(self.internalPort_+1)
+        class MockUpnpModule:
+            UpnpPlugin = MockUpnpPlugin
+
+        zeroconfServiceInfos = []
+        class MockZeroconf:
+            def registerService(self, serviceInfo):
+                zeroconfServiceInfos.append(serviceInfo)
+        class MockZeroconfModule:
+            Zeroconf = MockZeroconf
+            ServiceInfo = node.zeroconf_plugin.Zeroconf.ServiceInfo
+            def ServiceBrowser(self, zeroconf, junk, listener):
+                for si in zeroconfServiceInfos:
+                    class MockServer:
+                        def getServiceInfo(self, type, name):
+                            return si
+                    listener.addService(MockServer(), "type", "name")
+
+        node.upnp_plugin = MockUpnpModule()
+        node.zeroconf_plugin.Zeroconf = MockZeroconfModule()
+        n0 = node.Node(ports=[50128], serve=True, bootstrapNetAddress=None, useUpnp=False, useZeroconf=True)
+        n1 = node.Node(ports=[50129], serve=False, bootstrapNetAddress=None, useUpnp=True, useZeroconf=True)
+        
+        n1.rpc(nodeAddress=n0.nodeAddress()).kenosis.ping()
+        n1.upnpPlugin_.complete()
+        self.assertEqual(n1.port(), 50129)
+        self.assertEqual(n1.externalPort_, 50130)
+        self.assertEqual(n1.nodeKernel_.servicesToBootstrap_, ["kenosis"])
+        n1.nodeKernel_._considerServiceBootstraps()
+        nodeInfo = n0.nodeKernel_._nodeInfoForNodeAddressObject(
+            nodeAddressObject=n1.nodeKernel_.nodeAddressObject_, serviceName="kenosis")
+        nodeInfo.netAddress().endswith(":50130")
+        
 # End unit tests
 
 class BehavioralUser:
@@ -936,11 +1002,12 @@ class SimulationTest(dsunittest.TestCase):
             networkPolicy = networkPolicyFactory()
             sourceNetHost = "net%s" % nodeAddressObject.numericRepr()
             
-            serverProxyFactory=lambda netAddress, sourceNetHost=sourceNetHost: \
+            serverProxyFactory=lambda netAddress, timeout, sourceNetHost=sourceNetHost: \
                 ServerProxyMethod(destNetAddress=netAddress,
                                   sourceNetHost=sourceNetHost)
             n = node.NodeKernel(nodeAddressObject=nodeAddressObject,
-                                serverProxyFactory=serverProxyFactory)
+                                serverProxyFactory=serverProxyFactory,
+                                runThreadedFunc=None)
             n.staleInfoTime_ = 300000000L
 
             frontend = n._frontend()

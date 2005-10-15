@@ -1,5 +1,5 @@
 import bisect
-from ds import Queue
+import Queue
 
 class PriorityQueue(Queue.Queue):
     # Constructor takes maxsize, with <= 0 meaning unbounded.

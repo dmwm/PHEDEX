@@ -1,4 +1,6 @@
 from kenosis import address
+from kenosis import upnp_plugin
+from kenosis import zeroconf_plugin
 from kenosis import xmlrpclib_transport
 from ds import dsqueue
 from ds import dsthread
@@ -8,9 +10,11 @@ from ds import dsunittest
 from ds import task
 from ds import ui
 
+from ds import IPy
+
 import copy
 from sets import Set
-from ds import Queue
+import Queue
 import SimpleXMLRPCServer
 import os
 import socket
@@ -21,28 +25,46 @@ import threading
 import urllib2
 import xmlrpclib
 
-protocolVersion = 94
-version = "0.941"
+protocolVersion = 95
+version = "0.95"
 
 #defaultBootstrapNetAddress = "root.kenosisp2p.org:5005"
 #defaultBootstrapNetAddress = "192.168.0.4:5005"
-defaultBootstrapNetAddress = "67.180.57.3:5005"
+defaultBootstrapNetAddress = "69.55.229.46:5005" # john.redheron.com
 #defaultBootstrapNetAddress = "127.0.0.1:5005"
-
 defaultPorts = range(5005, 50150)
-
-
+staleInfoTime = 300
+kenosisRpcTimeout = 2
+userRpcTimeout = 20
 
 
 NetworkErrorClasses = (xmlrpclib.Fault,
                        xmlrpclib.ProtocolError,
                        xmlrpclib.expat.ExpatError,
                        urllib2.URLError,
-                       socket.error)
-NodeAddressObjectUnknown = address.NodeAddressObject(nodeAddress="1" * address.addressLengthInBits)
+                       socket.error,
+                       socket.timeout)
+NodeAddressObjectUnknown = address.NodeAddressObjectUnknown
 
 allServicesServiceName = "all"
 
+# returns None for port if no port is specified in that case, urllib2
+# controls the port number which will depend on whether the request is
+# HTTP or HTTPS
+def hostAndPortFromNetAddress(netAddress):
+    if ":" in netAddress:
+        return netAddress.split(":", 1)
+    else:
+        return netAddress, None
+
+def netAddressIsPrivate(netAddress):
+    host, port = hostAndPortFromNetAddress(netAddress=netAddress)
+    try:
+        ip = IPy.IP(host)
+    except ValueError:
+        return False
+    return ip.iptype() == 'PRIVATE'
+    
 class GrowingQueue:
     def __init__(self, iterator, realQueue):
         self.iterator_ = iterator
@@ -248,8 +270,16 @@ class RpcServerAdapter:
         nodeAddressObject = ConvertStringToAddressRecursively(data=nodeAddressObject)
 
         self._processHeader(rpcHeader=rpcHeader, validateDestNodeAddress=False)
+
+        sourceNetAddress = sourceNetAddressFrom(rpcHeader=rpcHeader)
+        if netAddressIsPrivate(netAddress=sourceNetAddress):
+            includePrivateAddresses = True
+        else:
+            includePrivateAddresses = False
+        
         resultTuples = self.nodeKernel_.rpcFindNode(
-            nodeAddressObject=nodeAddressObject, serviceName=self.serviceName_)
+            nodeAddressObject=nodeAddressObject, serviceName=self.serviceName_,
+            includePrivateAddresses=includePrivateAddresses)
         if versionClientUsesServices(rpcHeader=rpcHeader):
             ret = {"nodes":resultTuples,
                    "nodeAddress": self.nodeKernel_.nodeAddressObject_,
@@ -367,8 +397,14 @@ class NodeXMLRPCRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
         self.server.client_address = self.client_address
         return SimpleXMLRPCServer.SimpleXMLRPCRequestHandler.do_POST(self)
 
+class DsThreadingMixIn(SocketServer.ThreadingMixIn):
+    def process_request(self, request, client_address):
+        """Start a new thread to process the request."""
+        dsthread.runInThread(self.process_request_thread,
+                             request, client_address)
+
 class NodeXMLRPCServer(
-    SocketServer.ThreadingMixIn,
+    DsThreadingMixIn,
     SimpleXMLRPCServer.SimpleXMLRPCServer):
     def __init__(self, addr):
         self.allow_reuse_address = True
@@ -457,9 +493,10 @@ class RpcClientAdapter:
             raise
         return ConvertStringToAddressRecursively(data=ret)
         
-def RpcServerProxyFactory(netAddress, port):
+def RpcServerProxyFactory(netAddress, port, timeout):
     uri = "http://%s" % netAddress
-    serverProxy = xmlrpclib.ServerProxy(uri,transport=xmlrpclib_transport.HTTPTransport(uri))
+    serverProxy = xmlrpclib.ServerProxy(
+        uri,transport=xmlrpclib_transport.HTTPTransport(uri, socketTimeout=timeout))
     return RpcClientAdapter(
         serverProxy=serverProxy, rpcHeaderAdditions={"sourceNetPort": port})
 
@@ -500,7 +537,9 @@ class Node(ui.GenericUi):
         nodeAddress=None, configPath=None,
         ports=None,
         serve=True, stopEvent=None,
-        bootstrapNetAddress=defaultBootstrapNetAddress):
+        bootstrapNetAddress=defaultBootstrapNetAddress,
+        runThreadedFunc=None,
+        useUpnp=True, useZeroconf=True):
 
         """creates a Kenosis Node. all arguments are optional.
 
@@ -522,6 +561,12 @@ class Node(ui.GenericUi):
 
         - bootstrapNetAddress: the net address and port (as a string) of
         the node to bootstrap form. Pass None to avoid bootstrapping.
+
+        - runThreadedFunc: sometimes (such as when you are using
+        twisted) you want to avoid using threads. This parameter
+        defuls to None but if you provide it it should be a function
+        that accepts a callable. When provided (in addition to
+        serve=False), kenosis will not create any threads of its own.
 
         """
 
@@ -550,11 +595,28 @@ class Node(ui.GenericUi):
         # change is made
         self.lastSaveTime_ = 0
 
+        if useUpnp:
+            self.upnpPlugin_ = upnp_plugin.UpnpPlugin(node=self)
+        else:
+            self.upnpPlugin_ = None
+
+        if useZeroconf:
+            self.zeroconfPlugin_ = zeroconf_plugin.ZeroconfPlugin(node=self)
+        else:
+            self.zeroconfPlugin_ = None
+
         self.nodeKernel_ = NodeKernel(
-            nodeAddressObject=realNodeAddressObject, serverProxyFactory=self.__newServerProxy)
+            nodeAddressObject=realNodeAddressObject, serverProxyFactory=self.__newServerProxy,
+            runThreadedFunc=runThreadedFunc)
         self.nodeKernel_.bootstrapTuples_ = savedBootstrapTuples
         self.server_ = NodeServer(nodeKernel=self.nodeKernel_, ports=ports)
-        self.port_ = self.server_.port()
+        self.internalPort_ = self.server_.port()
+        self.externalPort_ = self.internalPort_
+        if self.upnpPlugin_:
+            self.upnpPlugin_.onListeningOnInternalPort(internalPort=self.internalPort_)
+        if self.zeroconfPlugin_:
+            self.zeroconfPlugin_.onListeningOnInternalPort(internalPort=self.internalPort_)
+            
         if stopEvent is not None:
             self.stopEvent_ = stopEvent
         else:
@@ -608,8 +670,8 @@ class Node(ui.GenericUi):
 
         dsfile.setFileObject(path=configPath, object=stateDict)
         
-    def __newServerProxy(self, netAddress):
-        return RpcServerProxyFactory(netAddress=netAddress, port=self.port_)
+    def __newServerProxy(self, netAddress, timeout):
+        return RpcServerProxyFactory(netAddress=netAddress, port=self.externalPort_, timeout=timeout)
 
     # setup methods
     def registerService(self, name, handler):
@@ -644,15 +706,20 @@ class Node(ui.GenericUi):
     def threadedServeUntilEvent(self, event=None):
         if event is None:
             event = self.stopEvent_
-        self.thread_ = dsthread.newThread(function=self.serveUntilEvent, params=(event,))
-        self.stepThread_ = dsthread.newThread(function=self.stepUntilEvent, params=(event,))
+        #self.thread_ = dsthread.newThread(function=self.serveUntilEvent, params=(event,))
+        #self.stepThread_ = dsthread.newThread(function=self.stepUntilEvent, params=(event,))
+        dsthread.runInThread(self.stepUntilEvent, event)
+        dsthread.runInThread(self.serveUntilEvent, event)
         
     def rpc(self, nodeAddress):
         nodeAddressObject = address.NodeAddressObject(nodeAddress=nodeAddress)
         return self.nodeKernel_.rpc(nodeAddressObject=nodeAddressObject)
 
     def port(self):
-        return self.server_.port()
+        """Return the local or internal port that the node is bound
+        to. In the case of NAT this may be different than the external
+        port."""
+        return self.internalPort_
 
     def findNearestNodes(self, nodeAddress, serviceName):
         """Returns an array of pairs of node address string and the
@@ -665,21 +732,35 @@ class Node(ui.GenericUi):
 
     def nodeAddress(self):
         return self.nodeKernel_.nodeAddressObject_.numericRepr()
+
+    def setExternalPort(self, externalPort):
+        dsunittest.trace("Changing external port from %s to %s" % (self.externalPort_, externalPort))
+        if self.externalPort_ != externalPort:
+            self.externalPort_ = externalPort
+
+            for serviceName in self.nodeKernel_.serviceBuckets_.keys():
+                self.nodeKernel_.servicesToBootstrap_.append(serviceName)
     
 class NodeKernel:
-    def __init__(self, nodeAddressObject, serverProxyFactory):
+    def __init__(self, nodeAddressObject, serverProxyFactory, runThreadedFunc):
         self.nodeAddressObject_ = nodeAddressObject
 
         self.serviceBuckets_ = {}
         self.bucketLock_ = threading.RLock()
         self.constantsK_ = 20
         self.constantsAlpha_ = 3
-        self.staleInfoTime_ = 30
+        self.staleInfoTime_ = staleInfoTime
         self.needPingPairs_ = []
         self.serverProxyFactory_ = serverProxyFactory
         self.frontend_ = NodeRpcFrontend(nodeKernel=self)
-        self.taskList_ = task.TaskList(maxThreads=2 * self.constantsAlpha_)
-        self.taskList_.start(wait=0)
+
+        if runThreadedFunc:
+            self.runThreadedFunc_ = runThreadedFunc
+        else:
+            self.taskList_ = task.TaskList(maxThreads=2 * self.constantsAlpha_)
+            self.taskList_.start(wait=0)
+            self.runThreadedFunc_ = self.taskList_.addCallableTask
+
         self.newResultsEvent_ = dsthread.MultithreadEvent()
         self.results_ = {}
         self.bootstrapTuples_ = []
@@ -698,13 +779,17 @@ class NodeKernel:
             
         return Rpc(rpcHeader=rpcHeader, toplevelRpc=None, attributeNames=[], nodeKernel=self)
 
-    def rpcFindNode(self, nodeAddressObject, serviceName):
+    def rpcFindNode(self, nodeAddressObject, serviceName, includePrivateAddresses):
         if nodeAddressObject == self.nodeAddressObject_:
             return []
         bucketI = self._bucketIndexForNodeAddressObject(nodeAddressObject=nodeAddressObject)
         ret = []
         for a, b, ni in self._nodeInfosInBucketAndSuccessors(bucketIndex=bucketI, serviceName=serviceName):
-            ret.append((ni.nodeAddressObject(), ni.netAddress()))
+            netAddress = ni.netAddress()
+            if not includePrivateAddresses:
+                if netAddressIsPrivate(netAddress=netAddress):
+                    continue
+            ret.append((ni.nodeAddressObject(), netAddress))
             if len(ret) >= self.constantsK_:
                 break
         return ret
@@ -803,7 +888,7 @@ class NodeKernel:
                 except _StaleInfo:
                     continue
                 except NetworkErrorClasses:
-                    dsunittest.traceException(text="Error while talking to node");
+                    dsunittest.traceException(text="Error while talking to node %s" % repr(calledTuple));
                     resultDict = None
                 anyCommandsCompleted = True
                 currentSet.remove((calledNodeAddressObject, calledNetAddress))
@@ -814,9 +899,10 @@ class NodeKernel:
                     # The default value is for backward compatibility with 0.93 and before.
                     responseNodeAddressObject = resultDict.get("nodeAddress", calledNodeAddressObject)
 
-                    self._updateRoutingTableWith(
-                        nodeAddressObject=responseNodeAddressObject,
-                        netAddress=calledNetAddress, serviceName=serviceName)
+                    if responseNodeAddressObject != self.nodeAddressObject_:
+                        self._updateRoutingTableWith(
+                            nodeAddressObject=responseNodeAddressObject,
+                            netAddress=calledNetAddress, serviceName=serviceName)
                     if responseNodeAddressObject == nodeAddressObject:
                         if requireExactMatch:
                             # we heard back from the right node,
@@ -907,10 +993,10 @@ class NodeKernel:
 
         netAddress = self._nextHopNetAddressForNodeAddressObject(
             nodeAddressObject=nodeAddressObject, serviceName=serviceName)
-        return self._serverProxyForNetAddress(netAddress=netAddress)
+        return self._serverProxyForNetAddress(netAddress=netAddress, timeout=userRpcTimeout)
 
-    def _serverProxyForNetAddress(self, netAddress):
-        return self.serverProxyFactory_(netAddress=netAddress)
+    def _serverProxyForNetAddress(self, netAddress, timeout):
+        return self.serverProxyFactory_(netAddress=netAddress, timeout=timeout)
 
     def _updateRoutingTableWith(self, nodeAddressObject, netAddress, serviceName):
         self.bucketLock_.acquire()
@@ -989,7 +1075,7 @@ class NodeKernel:
 
     def _pingNode(self, nodeAddressObject, netAddress, serviceName):
         self._trace(text="_pingNode >>: %s" % nodeAddressObject, prio=1)
-        sp = self._serverProxyForNetAddress(netAddress=netAddress)
+        sp = self._serverProxyForNetAddress(netAddress=netAddress, timeout=kenosisRpcTimeout)
         sp = getattr(sp, serviceName)
         resultDict = sp.ping(self._rpcHeaderFor(nodeAddressObject=nodeAddressObject))
         if nodeAddressObject != NodeAddressObjectUnknown:
@@ -1001,7 +1087,7 @@ class NodeKernel:
     def _callRemoteFindNode(
         self, nextHopNodeAddressObject, nextHopNetAddress, nodeAddressObject, serviceName):
         self._trace(text="_callRemoteFindNode >>: %s" % (repr(locals())), prio=1)
-        sp = self._serverProxyForNetAddress(netAddress=nextHopNetAddress)
+        sp = self._serverProxyForNetAddress(netAddress=nextHopNetAddress, timeout=kenosisRpcTimeout)
         sp = getattr(sp, serviceName)
         ret = sp.findNode(
             self._rpcHeaderFor(nodeAddressObject=nextHopNodeAddressObject),
@@ -1044,6 +1130,8 @@ class NodeKernel:
         except KeyError:
             pass
         else:
+            if resultInfo["pending"]:
+                raise _StaleInfo()
             if dstime.time() - resultInfo["time"] < self.staleInfoTime_:
                 try:
                     return resultInfo["result"]
@@ -1051,6 +1139,7 @@ class NodeKernel:
                     raise resultInfo["error"]
             else:
                 self._trace("resultInfo %s is stale" % resultInfo)
+        self.results_[key] =  {"pending": True}
         self._addWork(
             nodeAddressObject=nodeAddressObject, netAddress=netAddress,
             commandName=commandName, commandArgs=commandArgs)
@@ -1059,7 +1148,7 @@ class NodeKernel:
     def _setNodeCommandResult(self, nodeAddressObject, netAddress, commandName, commandArgs,
                               result=None, error=None):
         key = (nodeAddressObject, netAddress, commandName, commandArgs)
-        resultInfo = {"time":dstime.time()}
+        resultInfo = {"time":dstime.time(), "pending":False}
         if error:
             resultInfo["error"] = error
         else:
@@ -1091,7 +1180,7 @@ class NodeKernel:
                 result=result,
                 error=error)
                 
-        self.taskList_.addCallableTask(lf, id=(nodeAddressObject, netAddress, commandName, commandArgs))
+        self.runThreadedFunc_(lf)
 
     def _trace(self, text, prio=2):
         dsunittest.trace(text="%s: %s" % (self, text), prio=prio)

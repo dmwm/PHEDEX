@@ -1,6 +1,6 @@
 import copy
 import inspect
-from ds import Queue
+import Queue
 import thread
 import threading
 import traceback
@@ -61,6 +61,10 @@ def newThread(function, params=(), name=None, start=True):
         return newlyCreatedThread
     finally:
         leaveNamedSection(name="dsthread.newThread")
+
+def runInThread(function, *args, **kwargs):
+    t = newThread(function=lambda : function(*args, **kwargs))
+    # does t need to be kept around to avoid garbage-collection?
 
 def assertEnterNamedSection(name):
     lock = __lockForName(name=name)
@@ -233,8 +237,11 @@ class MultithreadEvent:
     def clear(self):
         self.__eventForThread().clear()
 
-    def wait(self):
-        self.__eventForThread().wait()
+    def wait(self, *args, **kwargs):
+        self.__eventForThread().wait(*args, **kwargs)
+
+    def isSet(self):
+        return self.__eventForThread().isSet()
 
     def __eventForThread(self):
         ct = threading.currentThread()

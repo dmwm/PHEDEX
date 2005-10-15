@@ -4,7 +4,7 @@ import kenosis
 import re
 import sha
 
-kenosisDomainString = "(0x)?(\w+)\.(node\.)?(\w+)\.kenosisp2p\.org"
+kenosisDomainString = "(0x)?([\w\.]+)\.(node\.)?(\w+)\.kenosisp2p\.org"
 kenosisDomainRe = re.compile(kenosisDomainString)
 kenosisUrlRe = re.compile("\w+://" + kenosisDomainString)
 

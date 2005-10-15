@@ -87,6 +87,11 @@ class TaskList(dsbase.Base):
         assert callable(callableObject)
         self.addTask(task=LambdaTask(lambdaFunction=callableObject, id=id))
 
+    def addCallableTaskWithArgs(self, callableObject, *args, **kwargs):
+        def lf():
+            return callableObject(*args, **kwargs)
+        self.addCallableTask(callableObject=lf)
+
     # This should only be called from the main thread.
     def addTask(self, task):
         assert not self.stopping_

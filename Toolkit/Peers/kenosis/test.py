@@ -29,9 +29,11 @@ class Test(dsunittest.TestCase):
         # nodes but most of the time our network does not have that
         # many nodes so it has to try to contact every on the network
         # before giving up.
-        nodeInfos = n.findNearestNodes(
-            nodeAddress=kenosis.randomNodeAddress(), serviceName="kenosis")
-        print("Found nodes: %s" % nodeInfos)
+        nodeAddress = kenosis.randomNodeAddress()
+        for x in range(2):
+            nodeInfos = n.findNearestNodes(
+                nodeAddress=nodeAddress, serviceName="kenosis")
+            print("Found nodes: %s" % nodeInfos)
 
         n.stopEvent_.set()
 

@@ -50,8 +50,12 @@ class ProgressMessage(Message):
     def progress(self):
         return self.progress_
     def __str__(self):
+        if self.total_:
+            progress = 100 * float(self.progress_)/ self.total_
+        else:
+            progress = 0
         return "ProgressMessage: %u/%u (%0.1f%%) %s" % (self.progress_, self.total_,
-                                                     100 * float(self.progress_)/ self.total_,
+                                                     progress,
                                                      Message.__str__(self) )
 
 class MessageSink:

@@ -25,14 +25,14 @@ zone = [
         minimum = "1H"
     ),
 
-    A('ns1.kenosisp2p.org', '67.164.12.28'),
-    A("root.kenosisp2p.org", "67.164.12.28"),
+    A('ns1.kenosisp2p.org', '69.55.229.46'),
+    A("root.kenosisp2p.org", "69.55.229.46"),
 
     #NS('kenosisp2p.org', "ns1.redheron.com"),
     #NS('kenosisp2p.org', "ns2.redheron.com"),
     #NS('bt.kenosisp2p.org', "ns1.kenosisp2p.org"),
 
-    A('kenosisp2p.org', '66.35.250.210'),
+    A('kenosisp2p.org', '69.55.229.46'),
     CNAME("www.kenosisp2p.org", "vhost.sourceforge.net"),
     CNAME("cvs.kenosisp2p.org", "cvs.sourceforge.net")
 

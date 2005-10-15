@@ -23,11 +23,13 @@ import xmlrpclib
 from xmlrpclib import ProtocolError
 from urllib import splittype, splithost
 import urllib2
+import httplib
+import socket
 import sys
 import time
 
 from ds import message
-
+from ds import dsunittest
 
 class _TransportConnection:
      pass
@@ -72,6 +74,8 @@ def _fixHandlerArrayOrder(handlers):
                del handlers[handlerIndex]
                handlers.insert(insertionPoint, aHandler)
                insertionPoint = insertionPoint + 1
+          if isinstance(aHandler, urllib2.HTTPHandler):
+               assert isinstance(aHandler, SocketTimeoutHTTPHandler)
 
 
 def _fixUpHandlers(anOpener):
@@ -84,9 +88,66 @@ def _fixUpHandlers(anOpener):
      map(lambda x: _fixHandlerArrayOrder(x), 
 anOpener.handle_open.values())
 
+class SocketTimeoutHTTPClass(httplib.HTTP):
+     def __init__(self, host='', port=None, strict=None, socketTimeout=None):
+          self._connection_class = SocketTimeoutHTTPConnection
+          httplib.HTTP.__init__(self, host=host, port=port, strict=strict)
+          self._conn.socketTimeout_ = socketTimeout
+          #dsunittest.trace("SocketTimeoutHTTPClass __init__")
+
+class SocketTimeoutHTTPConnection(httplib.HTTPConnection):
+     def connect(self):
+        """Connect to the host and port specified in __init__."""
+        #dsunittest.trace("SocketTimeoutHTTPClass::conect called")
+        msg = "getaddrinfo returns an empty list"
+        for res in socket.getaddrinfo(self.host, self.port, 0,
+                                      socket.SOCK_STREAM):
+            af, socktype, proto, canonname, sa = res
+            try:
+                self.sock = socket.socket(af, socktype, proto)
+                if self.socketTimeout_:
+                     oldTimeout = self.sock.gettimeout()
+                     if oldTimeout and oldTimeout < self.socketTimeout_:
+                          timeout = oldTimeout
+                     else:
+                          timeout = self.socketTimeout_
+                     #dsunittest.trace("changing socket %s to timeout value %s" % (self.sock, timeout))
+                     self.sock.settimeout(timeout)
+                if self.debuglevel > 0:
+                    print "connect: (%s, %s)" % (self.host, self.port)
+                self.sock.connect(sa)
+                # If we wanted to change the timeout once we have
+                # connected we would do that by calling
+                # self.sock.settimeout() here.
+            except socket.error, msg:
+                if self.debuglevel > 0:
+                    print 'connect fail:', (self.host, self.port)
+                if self.sock:
+                    self.sock.close()
+                self.sock = None
+                continue
+            break
+        if not self.sock:
+            raise socket.error, msg
+
+def SocketTimeoutHTTPClassFactory(socketTimeout):
+     #dsunittest.trace("SocketTimeoutHTTPClassFactory called")
+     def lf(host):
+          #dsunittest.trace("SocketTimeoutHTTPClass made")
+          return SocketTimeoutHTTPClass(host, socketTimeout=socketTimeout)
+     return lf
+
+class SocketTimeoutHTTPHandler(urllib2.HTTPHandler):
+     def __init__(self, socketTimeout):
+          #dsunittest.trace("SocketTimeoutHTTPHandler created")
+          self.socketTimeout_ = socketTimeout
+     def http_open(self, req):
+          #dsunittest.trace("SocketTimeoutHTTPHandler::http_open called")
+          return self.do_open(SocketTimeoutHTTPClassFactory(self.socketTimeout_), req)
+
 class HTTPTransport(xmlrpclib.Transport):
      """Handles an HTTP transaction to an XML-RPC server using urllib2 [eventually]."""
-     def __init__(self, uri, proxyUrl=None, proxyUser=None, proxyPass=None):
+     def __init__(self, uri, proxyUrl=None, proxyUser=None, proxyPass=None, socketTimeout=None):
           ### this is kind of nasty.  We need the full URI for the host/handler we are connecting to
           # to properly use urllib2 to make the request.  This does not mesh completely cleanly
           # with xmlrpclib's initialization of ServerProxy.
@@ -94,6 +155,7 @@ class HTTPTransport(xmlrpclib.Transport):
           self.proxyUrl = proxyUrl
           self.proxyUser = proxyUser
           self.proxyPass = proxyPass
+          self.socketTimeout_ = socketTimeout
 
      def request(self, host, handler, request_body, verbose=0):
           # issue XML-RPC request
@@ -162,7 +224,7 @@ class HTTPTransport(xmlrpclib.Transport):
                proxyHandler = urllib2.ProxyHandler(proxies)
 
           handler = urllib2.HTTPBasicAuthHandler()
-          opener = urllib2.build_opener(handler, proxyHandler)
+          opener = urllib2.build_opener(SocketTimeoutHTTPHandler(socketTimeout=self.socketTimeout_), handler, proxyHandler)
           _fixUpHandlers(opener)
           try:
                connection.response = opener.open(connection.request)

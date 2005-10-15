@@ -72,3 +72,5 @@ def isTextAddress(string):
 
 def stringToAddress(nodeAddress):
     return NodeAddressObject(nodeAddress=nodeAddress)
+
+NodeAddressObjectUnknown = NodeAddressObject(nodeAddress="1" * addressLengthInBits)

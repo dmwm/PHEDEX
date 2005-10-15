@@ -148,13 +148,12 @@ class KenosisWebRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         addr = kenosis.randomNodeAddress()
 
         nodes = self.node_.findNearestNodes(nodeAddress=addr, serviceName="kweb")
-        assert nodes
+        if not nodes:
+            nodes = [(self.node_.nodeAddress(), "")]
         headersToSend = dict(self.headers.items())
         for nodeAddr, netAddr in nodes:
-            if nodeAddr == self.node_.nodeAddress():
-                continue
             try:
-                response_code, headers, data = self.node_.rpc(nodeAddress=nodeAddr).kweb.fetchUrl(realUrl, headersToSend, 1)
+                response_code, headers, data = self.node_.rpc(nodeAddress=nodeAddr).kweb.fetchUrl(realUrl, headersToSend, 0)
             except kenosis.KenosisError, e:
                 dsunittest.traceException("error with nodeAddress %s, netAddress %s" % (nodeAddr, netAddr))
                 lastError = e
@@ -178,7 +177,7 @@ class KenosisWebServer(SocketServer.ThreadingMixIn,
                        BaseHTTPServer.HTTPServer):
     def __init__(self):
         BaseHTTPServer.HTTPServer.__init__(self, ('', 8091), KenosisWebRequestHandler)
-        self.node_ = kenosis.Node(bootstrapNetAddress="127.0.0.1:5555")
+        self.node_ = kenosis.Node(configPath=".kwebd")
         KenosisWebRequestHandler.node_ = self.node_
         self.handler_ = KenosisWebServiceHandler(node=self.node_)
         self.node_.registerNamedHandler(name="kweb", handler=self.handler_)
@@ -186,13 +185,12 @@ class KenosisWebServer(SocketServer.ThreadingMixIn,
 
 
 def test():
-    global hostOverride
-    hostOverride = "kenosis.sourceforge.net"
+    #global hostOverride
+    #hostOverride = "kenosis.sourceforge.net"
     if "--trace" in sys.argv:
         dsunittest.setTraceLevel(1)
-    socket.setdefaulttimeout(20)
-    n = kenosis.Node(ports=[5555], bootstrapNetAddress=None)
-    n.registerService(name="kweb", handler=KenosisWebServiceHandler(node=n))
+    #n = kenosis.Node(configPath=".kwebd2")
+    #n.registerService(name="kweb", handler=KenosisWebServiceHandler(node=n))
         
     httpd = KenosisWebServer()
 

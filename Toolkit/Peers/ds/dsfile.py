@@ -108,6 +108,18 @@ def setFileContents(data, path=None, filename=None, file=None):
 def setFileObject(object, path=None, filename=None, file=None):
     setFileContents(path=path, file=file, data=cPickle.dumps(object))
 
+def exists(path=None, file=None):
+    if file:
+        return True
+    return os.path.exists(path) or os.path.exists(tempPathForPath(path=path))
+        
+def objectMatchesFileObject(object, path=None, file=None):
+    if not exists(path=path, file=file):
+        return False
+    dumpedFileData = fileContents(path=path, file=file)
+    dumpedNewData = cPickle.dumps(object)
+    return dumpedFileData == dumpedNewData
+
 def ensureDirectoryPresent(path):
     try:
         os.makedirs(path)
