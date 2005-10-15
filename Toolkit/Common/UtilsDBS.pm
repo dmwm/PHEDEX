@@ -929,7 +929,7 @@ sub makeMediator
 	    			      CONTACT_INFO => "$user\@$host",
 				      DISTINGUISHED_NAME => "/CN=$id",
 				      CREATED_AT => &mytimeofday() };
-    return $self->newObject ('person', $p);
+    return $self->newObject ('person', $m);
 }
 
 sub makePerson
@@ -938,7 +938,7 @@ sub makePerson
     return $self->{CACHED_PERSON} if $self->{CACHED_PERSON};
 
     die "no ~/.globus/usercert.pem, cannot identify person\n"
-        if ! -f "$HOME/.globus/usercert.pem";
+        if ! -f "$ENV{HOME}/.globus/usercert.pem";
 
     my $email = scalar getpwuid($<) . '@' . &getfullhostname();
     my $certemail = qx(openssl x509 -in \$HOME/.globus/usercert.pem -noout -email 2>/dev/null);
