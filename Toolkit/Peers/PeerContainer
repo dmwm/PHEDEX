@@ -1,0 +1,65 @@
+#!/usr/bin/env python
+
+import sys, os, os.path, re
+from optparse import OptionParser
+from UtilsAgent import *
+from UtilsLogging import *
+from PeerIdentity import *
+from PeerMemory import *
+import kenosis
+
+class PeerContainer (Agent):
+  def __init__ (self, opts):
+    Agent.__init__ (self, opts)
+
+    # Boot up this node
+    self.node = kenosis.Node (bootstrapNetAddress = getattr(opts, 'bootaddr', None),
+		              configPath = opts.statedir + '/peer.cfg')
+    self.node.save ()
+
+    # Install identification service
+    PeerIdentity (self.node, opts.identity)
+    PeerMemory (self.node, opts.statedir + '/peers.txt')
+    logmsg ('Peer %s listening at port %s, id=%s'
+	    % (opts.identity, self.node.port(), self.node.nodeAddress ()))
+
+    # Install agents into this container
+    for svc, svcopts in opts.services.iteritems():
+      svcname = 'Peer' + svc
+      getattr (__import__ (svcname), svcname) (self.node, svcopts)
+
+  def stop (self):
+    self.node.stopEvent_.set ()
+
+def svcopts (option, opt_str, value, parser):
+  svcname = parser.rargs.pop(0)
+  svcopts = []
+  while parser.rargs:
+    if parser.rargs[0] == "--service": break
+    svcopts.append (parser.rargs.pop(0))
+
+  if not getattr (parser.values, 'services', None):
+    setattr(parser.values, 'services', {})
+
+  parser.values.services [svcname] = svcopts
+
+if __name__ == "__main__":
+  cmds = OptionParser(usage="usage: %prog --state STATE [--wait TIME] [--boot ADDR] --identity NAME\n"
+                      + "   --service NAME [--svcoption...] ...\n")
+  cmds.add_option ("--state", type="string", dest="statedir", help="Agent state directory")
+  cmds.add_option ("--wait", type="int", dest="waittime", help="Time to nap between operations")
+  cmds.add_option ("--identity", type="string", dest="identity", help="Peer node identity")
+  cmds.add_option ("--boot", type="string", dest="bootaddr", help="Boot from HOST:PORT")
+  cmds.add_option ("--service", action="callback", callback=svcopts, help="Host peer service")
+  opts, args = cmds.parse_args ()
+  if len (args):
+    cmds.error ("extra command line parameters")
+  if not getattr (opts, 'statedir', None):
+    cmds.error ("--state option requires a value")
+  if not getattr (opts, 'identity', None):
+    cmds.error ("--identity required")
+  if not getattr (opts, 'services', None):
+    cmds.error ("--service required")
+
+  agent = PeerContainer (opts)
+  agent.process ()
