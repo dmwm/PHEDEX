@@ -96,7 +96,7 @@ sub idle
 	    delete from t_transfer_state
 	    where to_node = :me and $keylist},
     	    ":me" => $self->{MYNODE}, %keys);
-        &logmsg ("$rc bogus transfers to $self->{MYNODE} deleted") if $rc;
+        &logmsg ("$rc bogus transfers to $self->{MYNODE} deleted") if $rc && $rc > 0;
 	$dbh->commit();
     };
     do { &alert ("database error: $@");
