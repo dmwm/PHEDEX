@@ -61,7 +61,7 @@ foreach my $item (@$datasets)
 
     # Fetch file information from RefDB
     eval { $dbs->fillDatasetInfo ($item); $dbs->fillDatasetInfo ($item); };
-    do { chomp ($@); warn ($@); next } if $@;
+    do { chomp ($@); warn ("$@\n"); next } if $@;
     my %dbsfiles = map { $_->{GUID} => 1 } @{$item->{FILES}};
 
     # Fetch file information from PhEDEx

@@ -85,7 +85,7 @@ while (my $item = shift (@$datasets))
     {
         # Get the full data
         eval { $dbs->fillDatasetInfo ($item); };
-        do { chomp ($@); warn ($@); next } if $@;
+        do { chomp ($@); warn ("$@\n"); next } if $@;
     }
 
     # Evaluate dataset information

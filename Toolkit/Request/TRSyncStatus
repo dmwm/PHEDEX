@@ -132,7 +132,7 @@ foreach my $request (@$requests)
 	if (defined $item)
 	{
             eval { $dbs->fillDatasetInfo ($item); $dbs->fillDatasetInfo ($item); };
-            do { chomp ($@); warn ($@); next } if $@;
+            do { chomp ($@); warn ("$@\n"); next } if $@;
 
 	    $blockinfo{$block}{DBS}{ISOPEN}
 	        = (($item->{DSINFO}{CollectionStatus} || 0) eq 6 ? 0 : 1);

@@ -95,7 +95,7 @@ foreach my $pass (qw(Hit Digi DST))
 
         # Get the full data
         eval { $source->fillDatasetInfo ($item); };
-        do { chomp ($@); warn ($@); next } if $@;
+        do { chomp ($@); warn ("$@\n"); next } if $@;
 
         # Match files against known files
         foreach my $file (@{$item->{FILES}})
@@ -146,7 +146,7 @@ foreach my $pass (qw(Hit Digi DST))
 
         # Update the database
         eval { $dest->updateDataset ($item) };
-        do { chomp ($@); warn $@ } if $@;
+        do { chomp ($@); warn "$@\n" } if $@;
 
         # Clear out the item so we don't accumulate lots of memory
         $item->{PARENTS} = [];
