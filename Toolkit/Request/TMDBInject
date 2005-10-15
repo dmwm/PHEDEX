@@ -220,7 +220,7 @@ foreach my $f (@$catalogue)
 		        ":filetype" => $f->{PFN}[0]{TYPE},
 		        ":filesize" => $f->{FILESIZE},
 	 	        ":checksum" => $f->{CHECKSUM}) };
-    die "$@" if ($@ && $@ !~ /unique constraint.*violated/);
+    die $@ if ($@ && $@ !~ /unique constraint.*violated/);
 
     # Insert file attributes and update block stats if we successfully
     # inserted the file.
@@ -246,7 +246,7 @@ foreach my $f (@$catalogue)
     	                    ":now" => $now,
 		            ":guid" => $f->{GUID},
 		            ":node" => $n) };
-	die "$@" if ($@ && $@ !~ /unique constraint.*violated/);
+	die $@ if ($@ && $@ !~ /unique constraint.*violated/);
     }
     $dbh->commit();
 }

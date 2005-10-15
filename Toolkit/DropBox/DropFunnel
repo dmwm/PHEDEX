@@ -387,7 +387,7 @@ sub processDrop
     do { &alert("$drop: no catalogue"); $self->markBad ($drop); return }
         if ! $xmlcat;
     my $catalogue = eval { &readXMLCatalogue ($xmlcat) };
-    do { &alert ("$drop: $@"); $self->markBad ($drop); return } if $@;
+    do { chomp ($@); &alert ("$drop: $@"); $self->markBad ($drop); return } if $@;
 
     # Merge checksum data into cache
     my $cksumfile = (<$dropdir/Checksum.*.txt>)[0];
@@ -395,7 +395,7 @@ sub processDrop
         if ! $cksumfile;
 
     my @cksums = eval { &readChecksumData ($cksumfile) };
-    do { &alert ($@); $self->markBad ($drop); return } if $@;
+    do { chomp ($@); &alert ($@); $self->markBad ($drop); return } if $@;
 
     my $bad = 0;
     foreach my $file (@$catalogue)
@@ -591,7 +591,7 @@ sub queueFetchFiles
     # Create working directories if necessary
     my $filesdir = "$q->{WORKDIR}/files";
     eval { &mkpath ($filesdir); };
-    do { &logmsg ("$@"); return 0 } if $@;
+    do { chomp ($@); &logmsg ("$@"); return 0 } if $@;
 
     # Start downloading files that have not been fetched yet
     foreach my $member (@{$q->{MEMBERS}})

@@ -209,7 +209,7 @@ sub publishBlock
 
     # For Digi, Hit/PileUp are also required.  DST is stand-alone.
     my @history = eval { &datasetRequirements($block->{OWNER}, $block->{DATASET}) };
-    do { &alert ($@); return 1 } if $@;
+    do { chomp ($@); &alert ($@); return 1 } if $@;
     foreach my $item (@history)
     {
 	next if (-e "$self->{PUBLISHED}/$item->[0].$item->[1]");

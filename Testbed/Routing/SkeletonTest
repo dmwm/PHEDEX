@@ -74,7 +74,7 @@ sub process
 	    $self->checkLogs( $dbh );  # These are automatic tests of the logs for alerts etc
 	    $self->test( $dbh );      # This is the custom, specific test
 	};
-	do { &alert ("Problem in test loop: $@") } if $@;
+	do { chomp ($@); &alert ("Problem in test loop: $@") } if $@;
 	$dbh->disconnect();
 	
 	if ( (time() - $loopStart) > $self->{PERIOD} ) {

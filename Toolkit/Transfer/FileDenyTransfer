@@ -99,7 +99,7 @@ sub idle
         &logmsg ("$rc bogus transfers to $self->{MYNODE} deleted") if $rc && $rc > 0;
 	$dbh->commit();
     };
-    do { &alert ("database error: $@");
+    do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database

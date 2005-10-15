@@ -106,7 +106,7 @@ sub fetchRunInfo
 	    # Grab XML fragment and parse it into file information
 	    my $xml = $runobj->{XML} = &expandXMLFragment ("$context/$run", $xmlfrag);
 	    my $files = eval { &parseXMLCatalogue ($xml) };
-	    do { warn "$context/$run: $@"; next } if $@;
+	    do { chomp($@); warn "$context/$run: $@"; next } if $@;
 
 	    foreach my $file (@$files)
 	    {
@@ -146,7 +146,7 @@ sub fetchRunInfo
 	# Grab XML fragment and parse it into file information
 	my $xml = $runobj->{XML} = &expandXMLFragment ($label, $xmlfrag);
 	my $files = eval { &parseXMLCatalogue ($runobj->{XML}) };
-	do { warn "$label: $@"; next } if $@;
+	do { chomp ($@); warn "$label: $@"; next } if $@;
 	foreach my $file (@$files)
 	{
 	    my $block = "$object->{OWNER}/$object->{DATASET}/$assid";
@@ -206,7 +206,7 @@ sub fetchProvenanceInfo
 	if ($@)
 	{
 	    # May fail for generation step
-	    $@ =~ s/\n/ /gs;
+	    chomp ($@);
 	    &alert ("Error extracting info for $parent->{OWNER}/$parent->{DATASET}: $@");
 	    $parent->{DSINFO}{DatasetName} = $parent->{DATASET};
 	    $parent->{DSINFO}{OwnerName} = $parent->{OWNER};
@@ -1200,8 +1200,8 @@ sub updateDataset
 	    # includes complete history, not just one level up, and as we map
 	    # them all on "EvC_META", we can end up with duplicates here.
 	    my $parentid = $self->findParentCollection ($object, $parent);
-	    do { &warn ("parent $parent->{OWNER}/$parent->{DATASET} of"
-			. " $object->{OWNER}/$object->{DATASET} not found\n"); next }
+	    die "parent $parent->{OWNER}/$parent->{DATASET} of"
+		. " $object->{OWNER}/$object->{DATASET} not found\n"
 	        if ! defined $parentid;
 	    next if $parentsdone{$parentid};
 	    $parentsdone{$parentid} = 1;

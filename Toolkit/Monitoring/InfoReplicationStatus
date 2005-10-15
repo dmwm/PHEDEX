@@ -108,7 +108,7 @@ sub idle
 	$dbh->commit();
     	&logmsg ("updated $qry1[1]/$qry2[1] replication summary rows") if $qry1[1] || $qry2[1];
     };
-    do { &alert ("database error: $@");
+    do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database

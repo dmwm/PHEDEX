@@ -204,7 +204,7 @@ sub deleteOneFile
 	return 1;
     };
 
-    do { &alert ("database error: $@");
+    do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh;
 	 $status = 0 } if $@;
     
@@ -393,7 +393,7 @@ sub idle
 
 	$dbh->commit();
     };
-    do { &alert ("database error: $@");
+    do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
 
     # Disconnect from the database

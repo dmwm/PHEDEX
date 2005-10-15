@@ -171,7 +171,7 @@ sub new
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     $self->{BACKEND} = eval ("use UtilsDownload$args{BACKEND_TYPE};"
 	    		     . " new UtilsDownload$args{BACKEND_TYPE}(\@_)");
-    die "Failed to create backend: $@\n" if $@;
+    do { chomp ($@); die "Failed to create backend: $@\n" } if $@;
     bless $self, $class;
     return $self;
 }
@@ -227,6 +227,7 @@ sub completeTransferBatch
     my $dbh = eval { &connectToDatabase ($self, 0) };
     if ($@)
     {
+	chomp ($@);
 	&alert ("failed to update transfer batch status,"
 		. " trying again later, error was: $@");
 	$self->addJob (new sub { $self->completeTransferBatch($batch) },
@@ -296,6 +297,7 @@ sub completeTransferBatch
         # just skip this file, we will re-transfer it later again.
         if ($@)
         {
+	    chomp ($@);
             &alert ("failed to update transfer batch status for $file->{GUID}: $@");
             eval { $dbh->rollback() } if $dbh;
         }
@@ -328,6 +330,7 @@ sub startFileTransfer
 
     if ($@)
     {
+	chomp ($@);
 	&alert ("failed to mark $guid in transfer: $@");
 	eval { $dbh->rollback() };
 	return undef;
@@ -425,7 +428,7 @@ sub markFilesWanted
 	$dbh->commit();
     };
 
-    do { &alert ("failed to mark files wanted: $@");
+    do { chomp ($@); &alert ("failed to mark files wanted: $@");
 	 eval { $dbh->rollback() }; } if $@;
 }
 
@@ -492,7 +495,7 @@ sub nextFiles
 			 && scalar @{$self->{NEXT_FILES}} > 50);
 	    }
         };
-        &alert ("failed to select files for transfer: $@") if $@;
+        do { chomp ($@); &alert ("failed to select files for transfer: $@") } if $@;
     }
 
     # Use cached values if we have enough of them
@@ -534,7 +537,7 @@ sub idle
         # Disconnect from the database
         &disconnectFromDatabase ($self, $dbh);
     };
-    do { &alert ("database error: $@");
+    do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Keep working, resting a bit at a time.  If we have work to do

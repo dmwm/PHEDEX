@@ -121,7 +121,7 @@ sub idle
 	    ":now" => $now, ":old" => $now - 7*86400);
 	$dbh->commit ();
     };
-    do { &alert ("database error: $@");
+    do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database

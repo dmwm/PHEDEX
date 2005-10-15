@@ -156,7 +156,7 @@ sub idle
 	&dbexec ($dbh, qq{delete from t_transfer_completed});
 	$dbh->commit();
     };
-    do { &alert ("database error: $@");
+    do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database

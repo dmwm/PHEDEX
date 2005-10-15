@@ -96,7 +96,7 @@ sub idle
 	$dbh->commit();
     	&logmsg ("updated $qry[1] subscription summary rows") if $qry[1];
     };
-    do { &alert ("database error: $@");
+    do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database

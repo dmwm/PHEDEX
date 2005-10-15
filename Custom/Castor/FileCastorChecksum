@@ -104,7 +104,7 @@ sub fileStart
     my $dir = "$self->{WORKDIR}/$guid";
     do { &alert ("$dir: exists already"); return 0 } if -d $dir;
     eval { &mkpath ($dir); };
-    do { &alert ("$dir: cannot create: $@"); return 0 } if $@;
+    do { chomp ($@); &alert ("$dir: cannot create: $@"); return 0 } if $@;
 
     my $file = {
 	GUID		=> $guid,
@@ -193,7 +193,7 @@ sub fileComplete
   	$op = "commit";
 	$dbh->commit();
     };
-    do { $@ =~ s/\n+$//s;
+    do { chomp ($@);
 	 &alert ("failed to $op for $guid ($pfn): $@");
 	 $file->{FAILURE} = $op; $success = 1;
 	 eval { $dbh->rollback() } if $dbh } if $@;
@@ -244,7 +244,7 @@ sub nextFiles
 	    push (@result, [ @$row ]);
 	}
     };
-    &alert ("failed to select next files: $@") if $@;
+    do { chomp ($@); &alert ("failed to select next files: $@") } if $@;
     return @result;
 }
 
@@ -292,7 +292,7 @@ sub idle
 	    $self->pumpJobs ();
         }
     };
-    do { &alert("database error: $@");
+    do { chomp ($@); &alert("database error: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
 
     # Disconnect from the database

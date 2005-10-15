@@ -140,7 +140,7 @@ sub idle
 	# Clear SQL statement cache
 	undef $self->{STMT_CACHE};
     };
-    do { &alert ("database error: $@");
+    do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database

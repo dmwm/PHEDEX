@@ -82,7 +82,7 @@ sub runSQL {
         $dbh->commit();
         close( SQL );
     };
-    do { &alert ("Problem running SQL from $self->{SCRIPT}.sql stage: $@");
+    do { chomp ($@); &alert ("Problem running SQL from $self->{SCRIPT}.sql stage: $@");
          eval { $dbh->rollback() } if $dbh; } if $@;
 }
 

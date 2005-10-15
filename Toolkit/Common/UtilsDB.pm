@@ -252,6 +252,7 @@ sub connectToDatabase
 
     if ($@)
     {
+	chomp ($@);
 	&alert ("failed to update agent status: $@");
 	eval { $dbh->rollback() };
 	&disconnectFromDatabase ($self, $dbh, 1);

@@ -362,7 +362,7 @@ sub idle
 
         $self->{MYNODE} = undef;
     };
-    do { &alert ("database error: $@");
+    do { chomp ($@); &alert ("database error: $@");
          eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database

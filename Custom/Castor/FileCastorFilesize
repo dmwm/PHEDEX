@@ -127,7 +127,7 @@ sub checkFileSize
 	$op = "commit";
 	$dbh->commit();
     };
-    do { &alert ("failed to $op for $guid: $@");
+    do { chomp ($@); &alert ("failed to $op for $guid: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
 
     # Log delay stats
@@ -163,7 +163,7 @@ sub nextFiles
 	    last if ! $n--;
 	}
     };
-    &alert ("failed to select next files: $@") if $@;
+    do { chomp ($@); &alert ("failed to select next files: $@") } if $@;
     return @result;
 }
 
@@ -200,7 +200,7 @@ sub idle
 	    }
 	}
     };
-    do { &alert("database error: $@");
+    do { chomp ($@); &alert("database error: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
 
     # Disconnect from the database

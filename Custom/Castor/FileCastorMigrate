@@ -165,7 +165,7 @@ sub idle
 	    last if $nowh - $start > 10*60;
 	}
     };
-    do { &alert ("database error: $@");
+    do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database

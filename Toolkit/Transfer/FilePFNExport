@@ -262,7 +262,7 @@ sub idle
 	    select (undef, undef, undef, .1);
 	}
     };
-    do { &alert ("database error: $@");
+    do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database

@@ -62,6 +62,7 @@ sub doTestTasks
 	$self->test( $dbh );
     };
     if ( $@ ) {
+	chomp ($@);
 	&alert ("Problem in test loop: $@");
     }
     $dbh->disconnect();

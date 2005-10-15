@@ -80,7 +80,7 @@ sub processDrop
     do { &alert("$drop: no catalogue"); $self->markBad ($drop); return }
         if ! $xmlcat;
     my $catalogue = eval { &readXMLCatalogue ($xmlcat) };
-    do { &alert ("$drop: $@"); $self->markBad ($drop); return } if $@;
+    do { chomp ($@); &alert ("$drop: $@"); $self->markBad ($drop); return } if $@;
 
     # Check that the files exist and get their size
     my $bad = 0;

@@ -79,7 +79,7 @@ sub processDrop
     my $dropdir = "$self->{WORKDIR}/$drop";
     my $attrsfile = "$dropdir/attrs";
     my $attrs = eval { &readAttributeCache ($attrsfile) };
-    do { &alert($@); $self->markBad ($drop); return } if $@;
+    do { chomp ($@); &alert($@); $self->markBad ($drop); return } if $@;
 
     # Check that the files exist and get their size
     my $bad = 0;
