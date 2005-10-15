@@ -230,12 +230,19 @@ sub getStagerFiles
     # pending files as negative match in the cache, then a bunch of
     # files at a time invoke stager_qry.  For the files this returns
     # status for, update the file status and the cache.
+    #
+    # Since stager_qry seems to hang every once in a while, blocking
+    # the agent from making progress, run the command using a timeout.
     map { $self->{STAGE_CACHE}{$_->{PFN}} = {TIME=>$now, VALUE=>undef} } @todo;
     while (@todo)
     {
+	my $pfx = $0;
+	$pfx =~ s|/[^/]+$||;
+	$pfx .= "/../../Utilities/RunWithTimeout 600";
+
 	my @slice = splice(@todo, 0, $self->{MAXFILES});
 	my @args = map { "-M $_->{PFN}" } @slice;
-	open (QRY, "stager_qry @args |")
+	open (QRY, "$pfx stager_qry @args |")
 	    or do { &alert ("stager_qry: cannot execute: $!"); return undef };
         while (<QRY>)
 	{
