@@ -13,6 +13,7 @@
 # The files won't be registered into a catalogue or TMDB.  You
 # need to do that separately.
 
+BEGIN { use strict; use warnings; $^W=1; }
 use File::Path;
 my ($basedir, $setname, $count, @junk) = @ARGV;
 

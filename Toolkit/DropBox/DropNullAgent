@@ -16,7 +16,7 @@
 ##H -model     read in a statisical delay model file of "TIME FREQ" lines
 
 BEGIN {
-  use strict; use warnings;
+  use strict; use warnings; $^W=1;
   our $me = $0; $me =~ s|.*/||;
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);

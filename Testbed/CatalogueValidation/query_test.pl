@@ -1,6 +1,5 @@
 #!/usr/bin/env perl
-use warnings;
-use strict;
+BEGIN { use warnings; use strict; $^W=1; }
 use Getopt::Long;
 
 my %args = ();

@@ -24,17 +24,15 @@
 ##H scripts will be installed into DESTINATION
 ##H
 
-BEGIN
-{
-    use strict;
-    use warnings;
-    use Getopt::Long;
-    use English;
-    our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
-    unshift(@INC, $home);
+BEGIN {
+  use strict; use warnings; $^W=1;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
+  unshift(@INC, $home);
 }
 
 use UtilsHelp;
+use Getopt::Long;
+use English;
 
 my $lversion = qx(cat /etc/redhat-release 2>/dev/null);
 my %args = (LVERSION => ($lversion =~ /Scientific/ ? "SLC3" : "RH73"));

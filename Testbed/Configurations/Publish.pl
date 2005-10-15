@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 
-use strict;
-use warnings;
+BEGIN { use strict; use warnings; $^W=1; }
 
 my $pool_cat = $ARGV[0];
 my $node = $ARGV[1];

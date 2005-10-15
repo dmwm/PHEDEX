@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-BEGIN { use warnings; use strict; }
+BEGIN { use warnings; use strict; $^W=1; }
 
 my $home = $0; $home =~ s|/[^/]+$||;
 my %args = (CONFIG => "$home/Config", DELAY => 0);

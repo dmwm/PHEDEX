@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-BEGIN { use strict; $^W = 1; }
+BEGIN { use strict; use warnings; $^W = 1; }
 unshift (@INC, ".");
 use NetLogger;
 use Sys::Hostname;

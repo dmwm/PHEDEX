@@ -3,6 +3,7 @@
 # Create fake catalogues and checksum information for test files
 # for the LCG Service Challenge 2.
 
+BEGIN { use strict; use warnings; $^W=1; }
 $dirbase = "srm://radiantservice.cern.ch:8443/castor/cern.ch/grid/dteam/storage/transfer-test";
 $lfnpat = "sample-file-1gig-%02d.dat";
 $nfiles = 40;

@@ -17,7 +17,7 @@
 ##H -once      run the alogrithm once, then quit -- don't go into daemon mode
 
 BEGIN {
-  use strict; use warnings;
+  use strict; use warnings; $^W=1;
   our $me = $0; $me =~ s|.*/||;
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);

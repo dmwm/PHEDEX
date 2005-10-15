@@ -1,5 +1,7 @@
 #!/usr/bin/env perl
 
+BEGIN { use strict; use warnings; $^W=1; }
+
 # Read in words
 open d,(</usr/share/dict/{words,web2}>)[0];
 @w=<d>;

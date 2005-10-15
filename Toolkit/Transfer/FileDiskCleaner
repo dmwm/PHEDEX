@@ -59,7 +59,7 @@
 
 BEGIN
 {
-  use warnings; use strict; use Getopt::Long;
+  use warnings; use strict; use Getopt::Long; $^W=1;
   our $me = $0; $me =~ s|.*/||;
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);

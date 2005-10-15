@@ -10,6 +10,7 @@
 # from the catalogue. It then removes the file. It builds a series
 # of SQL commands that allow it to remove entries from the TMDB.
 
+BEGIN { use strict; use warnings; $^W=1; }
 $db = $ARGV[0];
 $user = $ARGV[1];
 $pass = $ARGV[2];
