@@ -9,8 +9,7 @@ function makeGraph($graph, $data, $args)
   // Rendering parameters
   $patterns = array('/^T1/' => 0, '/^T2/' => PATTERN_DIAG2, '/^/' => PATTERN_DIAG4);
   for ($i = 0; $i < 20; ++$i)
-    $styles[] = ($i < 10 ? styleByValue (0, 0.5, 1, $i/10.)
-    		 : styleByValue (0.5, 0.5, .75, ($i-10)/10.));
+    $styles[] = styleByValue (0, 1, .95, .65, $i/20.);
 
   // Build X-axis labels.  Make sure there are not too many of them.
   $xrewrite = $args['xrewrite'];

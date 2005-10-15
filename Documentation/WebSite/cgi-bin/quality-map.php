@@ -53,7 +53,7 @@ function makeGraph($graph, $data, $args)
       foreach ($data as $xbin => $xdata)
       {
         $thisplot->AddArea ($i, $i+1, LP_AREA_FILLED, styleByValue
-			    (.4, -.4, 1, isset ($xdata[$node]) && $xdata[$node][0]
+			    (.4, -.4, 1, 0, isset ($xdata[$node]) && $xdata[$node][0]
 			     ? $xdata[$node][1] / $xdata[$node][0] : -1));
         ++$i;
       }
@@ -61,7 +61,7 @@ function makeGraph($graph, $data, $args)
       foreach ($data as $xbin => $xdata)
       {
         $thisplot->AddArea ($i, $i+1, LP_AREA_FILLED, styleByValue
-			    (0, .4, 1, isset ($xdata[$node]) && $xdata[$node][0]
+			    (0, .4, 1, 0, isset ($xdata[$node]) && $xdata[$node][0]
 	                     ? $xdata[$node][2] / $xdata[$node][0] : -1));
         ++$i;
       }
@@ -113,7 +113,7 @@ function makeGraph($graph, $data, $args)
 
   for ($i = 0; $i <= 100; $i += 10)
   {
-    $color = styleByValue (0, 0.4, 1, $i/100.);
+    $color = styleByValue (0, 0.4, 1, 0, $i/100.);
     $range = $i == 100 ? "100+%" : sprintf ("%d-%d%%", $i, $i+10);
     $graph->legend->Add ($range, $color);
   }
