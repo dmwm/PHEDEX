@@ -76,7 +76,7 @@ sub readConfig
     open($fhpattern, "< $file") || die "$file: cannot read: $!\n";
     while (<$fhpattern>)
     {
-	while (/^\#\#\#\s+([A-Z]+)(\s+(.*)|$)/)
+	while (defined $_ && /^\#\#\#\s+([A-Z]+)(\s+(.*)|$)/)
 	{
 	    chomp; s/\s+$//;
 	    # Here we process ENVIRON sections, defined as follows:
@@ -124,7 +124,7 @@ sub readConfig
 	    }
 	}
     }
-	       
+
     close ($fhpattern);
 
 }
