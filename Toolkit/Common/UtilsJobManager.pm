@@ -80,6 +80,7 @@ sub checkJobs
 	elsif ($job->{PID} > 0 && waitpid ($job->{PID}, WNOHANG) > 0)
 	{
 	    # Command finished executing, save exit code and mark finished
+	    $job->{STATUS_CODE} = $?;
 	    $job->{STATUS} = &runerror ($?);
 	    push (@finished, $job);
 	}
@@ -101,7 +102,7 @@ sub checkJobs
 	    # the parent time to react, and move to next signal
 	    $job->{SIGNAL} ||= 0;
 	    kill(@{$signals{$job->{SIGNAL}}});
-	    $job->{TIMEOUT} += 15;
+	    $job->{TIMEOUT} += ($job->{TIMEOUT_GRACE} || 15);
 	    if ($job->{SIGNAL} != 9) 
 	    {
 		$job->{SIGNAL} = $signals{$job->{SIGNAL}}[0];
@@ -132,7 +133,7 @@ sub killAllJobs
 	# While there are jobs to run, mark them timed out,
 	# then wait job processing to terminate all those.
 	# This allows job actions to clean up properly.
-	map { $_->{TIMEOUT} = 1 } @{$self->{JOBS}};
+	map { $_->{TIMEOUT} = $_->{TIMEOUT_GRACE} = 1 } @{$self->{JOBS}};
 	$self->pumpJobs();
 	select (undef, undef, undef, 0.1);
     }
