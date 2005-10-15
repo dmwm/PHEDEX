@@ -106,7 +106,7 @@ sub fetchRunInfo
 	    # Grab XML fragment and parse it into file information
 	    my $xml = $runobj->{XML} = &expandXMLFragment ("$context/$run", $xmlfrag);
 	    my $files = eval { &parseXMLCatalogue ($xml) };
-	    do { chomp($@); warn "$context/$run: $@"; next } if $@;
+	    do { chomp($@); warn "$context/$run: $@\n"; next } if $@;
 
 	    foreach my $file (@$files)
 	    {
@@ -146,7 +146,7 @@ sub fetchRunInfo
 	# Grab XML fragment and parse it into file information
 	my $xml = $runobj->{XML} = &expandXMLFragment ($label, $xmlfrag);
 	my $files = eval { &parseXMLCatalogue ($runobj->{XML}) };
-	do { chomp ($@); warn "$label: $@"; next } if $@;
+	do { chomp ($@); warn "$label: $@\n"; next } if $@;
 	foreach my $file (@$files)
 	{
 	    my $block = "$object->{OWNER}/$object->{DATASET}/$assid";
@@ -913,9 +913,33 @@ sub makeNamed
 	    CREATED_BY => $person->{ID} });
 }
 
+sub makeMediator
+{
+    my ($self) = @_;
+    return $self->{CACHED_MEDIATOR} if $self->{CACHED_MEDIATOR};
+
+    my $user = getpwuid($<);
+    my $host = &getfullhostname();
+    my $app = $0; $app =~ s|.*/||;
+    my $id = "host=$host#user=$user#app=$app";
+    my $m = (grep($_->{NAME} eq $id, @{$self->{PERSON}}))[0];
+    return $self->{CACHED_MEDIATOR} = $m if $m;
+
+    $self->{CACHED_MEDIATOR} = $m = { NAME => $id,
+	    			      CONTACT_INFO => "$user\@$host",
+				      DISTINGUISHED_NAME => "/CN=$id",
+				      CREATED_AT => &mytimeofday() };
+    return $self->newObject ('person', $p);
+}
+
 sub makePerson
 {
     my ($self, $object) = @_;
+    return $self->{CACHED_PERSON} if $self->{CACHED_PERSON};
+
+    die "no ~/.globus/usercert.pem, cannot identify person\n"
+        if ! -f "$HOME/.globus/usercert.pem";
+
     my $email = scalar getpwuid($<) . '@' . &getfullhostname();
     my $certemail = qx(openssl x509 -in \$HOME/.globus/usercert.pem -noout -email 2>/dev/null);
     my $dn = qx(openssl x509 -in \$HOME/.globus/usercert.pem -noout -subject 2>/dev/null);
@@ -925,12 +949,12 @@ sub makePerson
     do { $name = $1 } if ($dn && $dn =~ /CN=(.*?)( \d+)?(\/.*)?$/);
 
     my $p = (grep ($_->{NAME} eq $name, @{$self->{PERSON}}))[0];
-    return $p if $p;
+    return $self->{CACHED_PERSON} = $p if $p;
 
-    $p = { NAME => $name,
-	   CONTACT_INFO => $email,
-	   DISTINGUISHED_NAME => $dn,
-           CREATED_AT => &mytimeofday() };
+    $self->{CACHED_PERSON} = $p = { NAME => $name,
+				    CONTACT_INFO => $email,
+				    DISTINGUISHED_NAME => $dn,
+			            CREATED_AT => &mytimeofday() };
     return $self->newObject ('person', $p, 'CREATED_BY');
 }
 
