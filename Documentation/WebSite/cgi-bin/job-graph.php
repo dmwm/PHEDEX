@@ -5,7 +5,7 @@ include BASE_PATH . "/jpgraph/jpgraph.php";
 include BASE_PATH . "/jpgraph/jpgraph_bar.php";
 
 // Interpret and rearrange job data.
-function selectJobData($data)
+function selectJobData($data, $all)
 {
   // Build a map of nodes we are interested in.
   $newdata = array(); $xvals = array();
@@ -18,6 +18,9 @@ function selectJobData($data)
     if (($status == 'Done' || $status == 'Retrieved') && $data[$i][6] != '')
         $status = "{$status}, Exit {$data[$i][6]}";
     $count = $data[$i][7];
+
+    if (! isset ($all) && preg_match("/Aborted|Retrieved/", $status))
+      continue;
 
     if (! isset ($newdata[$status][$node]))
       $newdata[$status][$node] = 0;
@@ -103,6 +106,6 @@ function makeGraph($graph, $data, $args)
 
 $graph = new Graph (900, 400, "auto");
 $data = readCSV ("/afs/cern.ch/cms/aprom/phedex/SC/SC3Jobs/profile/jobstatus.csv", ",");
-makeGraph ($graph, selectJobData ($data), $args);
+makeGraph ($graph, selectJobData ($data,$GLOBALS['HTTP_GET_VARS']['all']), $args);
 
 ?>
