@@ -1,0 +1,159 @@
+#!/usr/bin/env perl
+
+##H Dump in XML dataset information from DBS database.
+##H
+##H Usage:
+##H   DBSXMLDump { -from RefDB | -from { PhEDEx | DBS } -db FILE[:SECTION] }
+##H           [-datatier] [-getDatasetProvenance] [-getDatasetContents]
+##H           [PATTERN...]
+##H
+##H -from DBS     read information from DBS
+##H -from RefDB   read information from RefDB
+##H -from PhEDEx  read information from PhEDEx pseudo-bookkeeping-system
+##H -db           database connection configuration parameter file
+##H -to           output XML file name
+##H -datatier     get the required data-tiers as a comma-separated list 
+##H -getDatasetProvenance dump the dataset provenance , use it with -datatier option         
+##H -getDatasetContents   dump EventCollection information 
+##H PATTERN       block match constraint (owner/dataset), such as "*/bt03_*"
+
+BEGIN { use strict; use warnings; $^W=1;
+  my $me = $0; $me =~ s|.*/||;
+  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+  unshift(@INC, "$home/../Toolkit/Common"); }
+use UtilsHelp;
+use UtilsDBS;
+use TextGlob 'glob_to_regex';
+use XML::Simple;
+
+my %args = (DETAILS => 0, FILES => 0);
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-h') {
+	&usage();
+    } elsif ($ARGV[0] eq '-from' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{FROM} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{DBCONFIG} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '-to' && scalar @ARGV > 1) {
+        shift (@ARGV); $args{OUTFILE} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '-datatier' && scalar @ARGV > 1) {
+        shift (@ARGV); push (@{$args{DATATIER}}, split(/,/, shift(@ARGV)));
+    } elsif ($ARGV[0] eq '-getDatasetProvenance') {
+        shift (@ARGV); $args{DATASETPROVENANCE} = 1;
+    } elsif ($ARGV[0] eq '-getDatasetContents') {
+        shift (@ARGV); $args{DATASETCONTENTS} = 1;
+    } elsif ($ARGV[0] eq '--') {
+	shift (@ARGV); last;
+    } elsif ($ARGV[0] =~ '^-') {
+	&usage ("$0: unrecognised option $ARGV[0]\n\n");
+    } else {
+	last;
+    }
+}
+
+$TextGlob::strict_wildcard_slash = 0;
+$args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
+if (!$args{FROM}
+    || !grep($args{FROM} eq $_, qw(RefDB PhEDEx DBS))
+    || !($args{FROM} ne 'PhEDEx' || $args{DBCONFIG})
+    || !($args{FROM} ne 'DBS' || $args{DBCONFIG})
+    || !($args{OUTFILE})
+    || ($args{DATASETPROVENANCE} && !$args{DATATIER})
+    )
+{
+    die "Insufficient parameters, use -h for help.\n";
+}
+# define the output xml file
+ $xmlfile=$args{OUTFILE};
+ if ( -f $xmlfile ) {
+  system( "rm $xmlfile" );
+ }
+
+
+# Create appropriate dataset bookkeeping proxy
+my $dbs = UtilsDBS->connect ($args{FROM}, $args{DBCONFIG});
+
+# Get all existing datasets
+my $datasets = $dbs->fetchPublishedData();
+$datasets = [ sort { $a->{DATASET} cmp $b->{DATASET} ||
+		     $a->{OWNER} cmp $b->{OWNER} } @$datasets ];
+
+# Get all current datasets
+while (my $item = shift (@$datasets))
+{
+    my $token = "$item->{OWNER}/$item->{DATASET}";
+    next if (@ARGV && !grep($token =~ $_, @{$args{PATS}}));
+    print "processing $token\n";
+    if ( ($args{DATASETPROVENANCE} ) || $args{DATASETCONTENTS} )
+    {
+        # Get the full data
+        eval { $dbs->fillDatasetInfo ($item); };
+        do { chomp ($@); warn ("$@\n"); next } if $@;
+    }
+
+
+# getDatasetProvenance
+
+   if ($args{DATASETPROVENANCE})
+   {
+    # Build data structure of parents 
+
+        for ($i = 0; $i < scalar @{$item->{PARENTS}}; ++$i)
+        {
+            # dump only the required data-tier
+            my $parent = $item->{PARENTS}[$i];
+            if ( grep ($_ eq $parent->{DSINFO}{DataTier}, @{$args{DATATIER}} ) ) {
+               $dbspath = "/$parent->{DATASET}/$parent->{DSINFO}{DataTier}/$parent->{OWNER}";
+               $object->{PARENT}{$dbspath}={
+                PATH => $dbspath,
+                DATATIER =>$parent->{DSINFO}{DataTier}
+               };
+            }
+
+         }
+
+   }
+
+
+# getDatasetContents
+
+   if ($args{DATASETCONTENTS})
+   {
+    # Build data structure of event collection grouped by fileblock
+
+    foreach my $block (keys %{$item->{BLOCKS}})
+    {
+      $id=$item->{BLOCKS}->{$block}->{ID};
+      $blockname=$item->{BLOCKS}->{$block}->{NAME};
+      $object->{FILEBLOCKS}{$blockname}={
+        ID => $id,
+        BLOCKNAME => $blockname,
+        EVCOLL => {}
+      };
+      foreach my $run (sort { $a->{NAME} cmp $b->{NAME} } values %{$item->{RUNS}}){
+        $collname="EvC_Run$run->{NAME}";
+        $object->{FILEBLOCKS}{$blockname}{EVCOLL}{$collname}={
+          EVCNAME => $collname,
+          EVCEVTS => $run->{EVTS}
+        };
+      }
+
+    }
+
+   }
+
+}
+
+# Dump data structure into xml
+
+my $outputxml = XMLout($object, XMLDecl => 1);
+print "writing the output data structure in  $xmlfile \n";
+open (XML, ">> $xmlfile") or die "cannot open $xmlfile : $!\n";
+print XML $outputxml;
+close (XML);
+
+
+$dbs->disconnect();
+
+exit 0;
