@@ -66,6 +66,12 @@ cms_transfermgmt_test =
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=1521))
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=1521))
     (LOAD_BALANCE=yes)
-    (CONNECT_DATA=
-     (SERVER=DEDICATED)
-     (SERVICE_NAME=cms_transfermgmt_test)))
+    (CONNECT_DATA=(SERVER=DEDICATED) (SERVICE_NAME=cms_transfermgmt_test)))
+
+cms_dashboard =
+   (DESCRIPTION =
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=1521))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=1521))
+    (LOAD_BALANCE= yes)
+    (CONNECT_DATA=(SERVER=DEDICATED) (SERVICE_NAME=cms_dashboard)))
+
