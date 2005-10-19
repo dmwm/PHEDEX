@@ -32,7 +32,7 @@ function selectJobData($data, $all)
 }
 
 
-function makeGraph($graph, $data, $args)
+function makeGraph($graph, $data)
 {
   // Rendering parameters
   $styles = array("#e66266", "#fff8a9", "#7bea81", "#8d4dff", "#ffbc71", "#a57e81",
@@ -106,6 +106,7 @@ function makeGraph($graph, $data, $args)
 
 $graph = new Graph (900, 400, "auto");
 $data = readCSV ("/afs/cern.ch/cms/aprom/phedex/SC/SC3Jobs/profile/jobstatus.csv", ",");
-makeGraph ($graph, selectJobData ($data,$GLOBALS['HTTP_GET_VARS']['all']), $args);
+$all = isset ($GLOBALS['HTTP_GET_VARS']['all'] ? 1 : 0);
+makeGraph ($graph, selectJobData ($data,$all));
 
 ?>
