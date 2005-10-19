@@ -43,7 +43,7 @@ create table t_perf_histogram
    pending_files	integer,
    pending_bytes	integer);
 
-create table t_qual_histogram
+create table t_quality_histogram
   (timebin		float		not null,
    from_node		varchar (20)	not null,
    to_node		varchar (20)	not null,
@@ -59,8 +59,8 @@ alter table t_perf_histogram
   primary key (timebin, from_node, to_node)
   using index tablespace CMS_TRANSFERMGMT_INDX01;
 
-alter table t_qual_histogram
-  add constraint pk_qual_histogram
+alter table t_quality_histogram
+  add constraint pk_quality_histogram
   primary key (timebin, from_node, to_node, old_state, new_state)
   using index tablespace CMS_TRANSFERMGMT_INDX01;
 
