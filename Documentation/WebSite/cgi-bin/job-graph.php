@@ -106,7 +106,7 @@ function makeGraph($graph, $data)
 
 $graph = new Graph (900, 400, "auto");
 $data = readCSV ("/afs/cern.ch/cms/aprom/phedex/SC/SC3Jobs/profile/jobstatus.csv", ",");
-$all = isset ($GLOBALS['HTTP_GET_VARS']['all'] ? 1 : 0);
+$all = isset ($GLOBALS['HTTP_GET_VARS']['all']) ? 1 : 0;
 makeGraph ($graph, selectJobData ($data,$all));
 
 ?>
