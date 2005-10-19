@@ -155,6 +155,55 @@ sub idle
 	}
 	&dbexec ($dbh, qq{delete from t_transfer_completed});
 	$dbh->commit();
+
+	# Part III: Update statistics on recent transfer quality.  This
+	# is another heart-beat routing to avoid gaps in the histograms.
+	# If we miss a beat there will be no data for this time bin.
+	my $qquality = &dbexec ($dbh, qq{
+	    select
+	      trunc (th.timestamp/300)*300,
+	      th.from_node,
+	      th.to_node,
+	      th.to_old_state,
+	      th.to_new_state,
+	      count (th.guid)
+	    from t_transfer_history th
+	    where th.from_old_state = 1
+	      and th.from_new_state = 1
+      	      and th.to_old_state >= 1
+      	      and th.to_old_state <= 3
+	    group by trunc (th.timestamp/300)*300,
+	      th.from_node, th.to_node,
+	      th.to_old_state, th.to_new_state});
+    	while (my ($bin, $from, $to, $old, $new, $n) = $qquality->fetchrow())
+	{
+	    eval { &dbexec ($dbh, qq{
+		insert into t_quality_histogram
+		(timebin, from_node, to_node, old_state, new_state, transitions)
+		values (:timebin, :from_node, :to_node, :old_state, :new_state, 0)},
+		":timebin" => $bin,
+		":from_node" => $from,
+		":to_node" => $to,
+		":old_state" => $old,
+		":new_state" => $new) };
+	    &dbexec ($dbh, qq{
+		update t_quality_histogram
+		set transitions = :transitions
+		where timebin = :timebin
+		  and from_node = :from_node
+		  and to_node = :to_node
+	  	  and old_state = :old_state
+	  	  and new_state = :new_state},
+		":timebin" => $bin,
+		":from_node" => $from,
+		":to_node" => $to,
+		":old_state" => $old,
+		":new_state" => $new,
+		":transitions" => $n);
+	}
+
+	$dbh->commit();
+
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
