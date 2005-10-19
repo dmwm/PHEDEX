@@ -19,7 +19,7 @@ function selectJobData($data, $all)
         $status = "{$status}, Exit {$data[$i][6]}";
     $count = $data[$i][7];
 
-    if (! isset ($all) && preg_match("/Aborted|Retrieved/", $status))
+    if (! $all && preg_match("/Aborted|Retrieved/", $status))
       continue;
 
     if (! isset ($newdata[$status][$node]))
