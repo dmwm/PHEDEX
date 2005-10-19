@@ -19,7 +19,7 @@
 ##H   TMDBInject
 ##H      -catalogue FILE -cksums FILE
 ##H      { -nodes NODE[,NODE...] | -sitemap FILE -sites SITE[,SITE...] }
-##H      -db FILE[:SECTION]
+##H      -db FILE[:SECTION] [-strict]
 ##H
 ##H -catalogue xml catalogue file
 ##H -cksums    checksum file, one entry per each LFN in XML catalogue
@@ -27,6 +27,7 @@
 ##H -sitemap   a file with "site-name = node-name" mappings
 ##H -site      comma-separated list of sites to add replicas for; requires -sitemap
 ##H -db        database connection configuration parameter file
+##H -strict    don't allow file or its replicas to already exist
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -53,6 +54,8 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{CATALOGUE} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-cksums' && scalar @ARGV > 1)
     { shift (@ARGV); $args{CKSUMS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-strict')
+    { shift (@ARGV); $args{STRICT} = 1; }
 
     elsif ($ARGV[0] eq '-verbose')
     { shift (@ARGV); $args{VERBOSE} = 1; }
@@ -137,35 +140,73 @@ foreach my $file (@$catalogue)
 }
 exit 1 if $bad;
 
-# Now update database
+# Connect to database for update
 print "Connecting to database\n" if $args{VERBOSE};
 my $dbh = &connectToDatabase (\%args, 0);
 my $now = &mytimeofday ();
 my %seen = ();
 
+# Preprocess all the blocks we are going to touch.  Find out which
+# blocks already exist, and for those that exist, which files exist.
 print "Processing @{[scalar @$catalogue]} files " if $args{VERBOSE};
+my %blockdata = ();
+foreach my $f (@$catalogue)
+{
+    my $block = "$f->{META}{owner}/$f->{META}{dataset}";
+    next if exists $blockdata{$block};
+    my $b = $blockdata{$block} = {
+	EXISTS => 0, ISOPEN => 0, GUIDS => {}, REPLICAS => {} };
+
+    do { local $| = 1; print "[B" } if $args{VERBOSE};
+    my $qblock = &dbexec ($dbh, qq{
+	select name, isopen from t_block where name = :block},
+	":block" => $block);
+    ($b->{EXISTS}, $b->{ISOPEN}) = $qblock->fetchrow();
+
+    do { local $| = 1; print "F" } if $args{VERBOSE};
+    my $qfiles = &dbexec ($dbh, qq{
+	select guid from t_file where inblock = :block},
+	":block" => $block);
+    while (my ($guid) = $qfiles->fetchrow()) {
+	$b->{GUIDS}{$guid} = 1;
+    }
+
+    do { local $| = 1; print "R" } if $args{VERBOSE};
+    my $qreplicas = &dbexec ($dbh, qq{
+	select rs.node, rs.guid
+	from t_replica_state rs
+	join t_file f on f.guid = rs.guid
+	where f.inblock = :block},
+	":block" => $block);
+    while (my ($node, $guid) = $qreplicas->fetchrow())
+    {
+	$b->{REPLICAS}{$node}{$guid} = 1;
+    }
+
+    do { local $| = 1; print "]" } if $args{VERBOSE};
+}
+
+# Get existing files and replicas
+my %sqlargs = ();
+my %blockupd = ();
 my $fstmt = &dbprep ($dbh, qq{
     insert into t_file
     (timestamp, guid, node, inblock, insubblock,
      lfn, filetype, filesize, checksum)
-    values (:now, :guid, :node, :inblock, :insubblock,
-     :lfn, :filetype, :filesize, :checksum)});
+    values (?, ?, ?, ?, ?, ?, ?, ?, ?)});
 my $rstmt = &dbprep ($dbh, qq{
     insert into t_replica_state (timestamp, guid, node, state, state_timestamp)
-    values (:now, :guid, :node, 0, :now)});
+    values (?, ?, ?, 0, ?)});
 my $mstmt = &dbprep ($dbh, qq{
     insert into t_file_attributes (guid, attribute, value)
-    values (:guid, :attr, :value)});
+    values (?, ?, ?)});
 my $blstmt = &dbprep ($dbh, qq{
     select * from t_block where name = :name for update});
-my $bqstmt = &dbprep ($dbh, qq{
-    select isopen from t_block where name = :name});
 my $bistmt = &dbprep ($dbh, qq{
     insert into t_block (timestamp, name, owner, dataset, files, bytes, isopen)
-    values (:now, :name, :owner, :dataset, 0, 0, 1)});
+    values (?, ?, ?, ?, 0, 0, 1)});
 my $bustmt = &dbprep ($dbh, qq{
-    update t_block set files = files + 1, bytes = bytes + :filesize
-    where name = :name});
+    update t_block set files = files + ?, bytes = bytes + ? where name = ?});
 
 foreach my $f (@$catalogue)
 {
@@ -175,81 +216,103 @@ foreach my $f (@$catalogue)
 	do { local $| = 1; print ":" } if $args{VERBOSE};
 	next;
     }
-    do { local $| = 1; print "." } if $args{VERBOSE};
 
-    # Insert block; ignore duplicate errors.
+    # Add block if it doesn't exist yet, otherwise lock existing one.
     my $block = "$f->{META}{owner}/$f->{META}{dataset}";
-    if (! $seen{$block})
+    if (! $blockdata{$block}{EXISTS})
     {
-	eval { &dbbindexec ($bistmt,
-			    ":now" => $now,
-		            ":name" => $block,
-		            ":owner" => $f->{META}{owner},
-		            ":dataset" => $f->{META}{dataset}) };
-	if (! $@ || $@ =~ /unique constraint.*violated/)
-	{
-	    # Block exists, lock it
-	    &dbbindexec ($blstmt, ":name" => $block);
-	    $blstmt->finish();
-
-	    # Ensure the block is open
-	    # FIXME: Avoid error if not actually adding files?
-	    # FIXME: Activate block if not open?
-	    &dbbindexec ($bqstmt, ":name" => $block);
-	    my ($isopen) = $bqstmt->fetchrow();
-	    $bqstmt->finish();
-	    die "block $block not open, cannot add files\n" if ! $isopen;
-	}
-	elsif ($@)
-	{
-	    die $@;
-	}
-        $dbh->commit();
-        $seen{$block} = 1;
+	push (@{$sqlargs{$bistmt}{1}}, $now);
+	push (@{$sqlargs{$bistmt}{2}}, $block);
+	push (@{$sqlargs{$bistmt}{3}}, $f->{META}{owner});
+	push (@{$sqlargs{$bistmt}{4}}, $f->{META}{dataset});
+        $blockdata{$block}{EXISTS} = 1;
+        $blockdata{$block}{ISOPEN} = 1;
+    }
+    else
+    {
+        # Block exists, lock it
+        &dbbindexec ($blstmt, ":name" => $block);
+        $blstmt->finish();
     }
 
-    # Insert the file; ignore duplicate errors.  We are basically
-    # taking our chances that this is the cheapest way to do it.
-    eval { &dbbindexec ($fstmt,
-	                ":now" => $now,
-		        ":guid" => $f->{GUID},
-	                ":node" => $args{NODES}[0],
-		        ":inblock" => $block,
-		        ":insubblock" => "$f->{META}{jobid}",
-		        ":lfn" => $f->{LFN}[0],
-		        ":filetype" => $f->{PFN}[0]{TYPE},
-		        ":filesize" => $f->{FILESIZE},
-	 	        ":checksum" => $f->{CHECKSUM}) };
-    die $@ if ($@ && $@ !~ /unique constraint.*violated/);
-
-    # Insert file attributes and update block stats if we successfully
-    # inserted the file.
-    if (! $@)
+    # If the file isn't yet in the block, add it.  Require the
+    # block to be open for this.  Note that this just pushes the
+    # file to the list of things to add; we commit everything in
+    # one big array operation at the end.
+    if (! exists $blockdata{$block}{GUIDS}{$f->{GUID}})
     {
-	&dbbindexec ($bustmt, ":name" => $block, ":filesize" => $f->{FILESIZE});
+	die "block $block not open, cannot add files\n"
+	    if ! $blockdata{$block}{ISOPEN};
+
+        do { local $| = 1; print "." } if $args{VERBOSE};
+	$blockupd{$block} ||= { FILES => 0, BYTES => 0 };
+	$blockupd{$block}{FILES}++;
+	$blockupd{$block}{BYTES} += $f->{FILESIZE};
+
+	push (@{$sqlargs{$fstmt}{1}}, $now);
+	push (@{$sqlargs{$fstmt}{2}}, $f->{GUID});
+	push (@{$sqlargs{$fstmt}{3}}, $args{NODES}[0]);
+	push (@{$sqlargs{$fstmt}{4}}, $block);
+	push (@{$sqlargs{$fstmt}{5}}, "$f->{META}{jobid}");
+	push (@{$sqlargs{$fstmt}{6}}, $f->{LFN}[0]);
+	push (@{$sqlargs{$fstmt}{7}}, $f->{PFN}[0]{TYPE});
+	push (@{$sqlargs{$fstmt}{8}}, $f->{FILESIZE});
+	push (@{$sqlargs{$fstmt}{9}}, $f->{CHECKSUM});
 
         my %meta = (map { "POOL_".$_ => $f->{META}{$_} } keys %{$f->{META}});
         foreach my $m (sort keys %meta)
         {
-            &dbbindexec ($mstmt,
-		         ":guid" => $f->{GUID},
-		         ":attr" => $m,
-		         ":value" => $meta{$m});
+	    push (@{$sqlargs{$mstmt}{1}}, $f->{GUID});
+	    push (@{$sqlargs{$mstmt}{2}}, $m);
+	    push (@{$sqlargs{$mstmt}{3}}, $meta{$m});
         }
     }
-    $dbh->commit();
+    else
+    {
+	die "file $f->{GUID} already exists\n" if $args{STRICT};
+        do { local $| = 1; print "/" } if $args{VERBOSE};
+    }
 
     # Insert replicas; again ignore duplicate errors.
     foreach my $n (@{$args{NODES}})
     {
-        eval { &dbbindexec ($rstmt, 
-    	                    ":now" => $now,
-		            ":guid" => $f->{GUID},
-		            ":node" => $n) };
-	die $@ if ($@ && $@ !~ /unique constraint.*violated/);
+	if (exists $blockdata{$block}{REPLICAS}{$n}{$f->{GUID}})
+	{
+	    die "file replica for $f->{GUID} at $n already exists\n"
+	        if $args{STRICT};
+	    next;
+	}
+	push (@{$sqlargs{$rstmt}{1}}, $now);
+	push (@{$sqlargs{$rstmt}{2}}, $f->{GUID});
+	push (@{$sqlargs{$rstmt}{3}}, $n);
+	push (@{$sqlargs{$rstmt}{4}}, $now);
     }
-    $dbh->commit();
 }
+
+foreach my $block (keys %blockupd)
+{
+    push (@{$sqlargs{$bustmt}{1}}, $block);
+    push (@{$sqlargs{$bustmt}{2}}, $blockupd{$block}{FILES});
+    push (@{$sqlargs{$bustmt}{3}}, $blockupd{$block}{BYTES});
+}
+
+foreach my $stmt ('B', $bistmt, 'U', $bustmt, 'F', $fstmt, 'A', $mstmt, 'R', $rstmt)
+{
+    if (! ref $stmt)
+    {
+        do { local $| = 1; print $stmt } if $args{VERBOSE};
+	next;
+    }
+
+    next if ! keys %{$sqlargs{$stmt}};
+    do { local $| = 1; print ">" } if $args{VERBOSE};
+    foreach my $k (keys %{$sqlargs{$stmt}}) {
+        $stmt->bind_param_array ($k, $sqlargs{$stmt}{$k});
+    }
+    $stmt->execute_array ({ ArrayTupleResult => []});
+}
+
+$dbh->commit();
 print "\n" if $args{VERBOSE};
 
 $dbh->disconnect ();
