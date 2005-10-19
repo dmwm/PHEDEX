@@ -16,7 +16,8 @@
 ##H
 ##H -help:    Shows this help text
 ##H -db:      DB config file plus DBname to contact to
-##H -poolcat: MySQL POOL contact string
+##H -poolcat: MySQL POOL contact string 
+##H          (example: mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat)
 ##H
 
 BEGIN {
