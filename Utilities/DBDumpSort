@@ -1,0 +1,49 @@
+#!/usr/bin/env perl
+
+##H Resort old database dumps to alphabetical column order.
+##H
+##H Usage:
+##H   DSDumpSort FILE...
+##H
+##H FILE          name of the file to load, to sort rows into column order
+
+BEGIN { use strict; use warnings; $^W=1;
+  my $me = $0; $me =~ s|.*/||;
+  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+  unshift(@INC, "$home/../Toolkit/Common"); }
+use UtilsHelp;
+
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-h') {
+	&usage();
+    } elsif ($ARGV[0] eq '--') {
+	shift (@ARGV); last;
+    } elsif ($ARGV[0] =~ '^-') {
+	&usage ("$0: unrecognised option $ARGV[0]\n\n");
+    } else {
+	last;
+    }
+}
+
+foreach my $file (@ARGV)
+{
+    open (F, "< $file") || die "$file: cannot open: $!\n";
+    while (<F>)
+    {
+	chomp;
+	my @columns;
+	my ($table, $nrow) = /^([^,]+),(\d+)/;
+	for ($_ = $'; /^,([^,]+),"([^"]*)"/; $_ = $')
+	{
+	    push (@columns, [ $1, $2 ]);
+	}
+	print "$table,$nrow";
+	foreach my $c (sort { $a->[0] cmp $b->[0] } @columns)
+	{
+	    print ",$c->[0],\"$c->[1]\"";
+	}
+	print "\n";
+    }
+    close (F);
+}
