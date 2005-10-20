@@ -39,11 +39,6 @@ cms =
     (SERVICE_NAME=pdb01)
     (FAILOVER_MODE=(TYPE=SELECT)(METHOD=BASIC))))
 
-cmssg =
-  (DESCRIPTION=
-   (ADDRESS=(PROTOCOL=TCP) (HOST=pdbcms.cern.ch) (PORT=1521))
-   (CONNECT_DATA=(SERVER=DEDICATED) (SERVICE_NAME=cmssg.cern.ch)))
-
 cmsr =
   (DESCRIPTION=
    (ADDRESS=(PROTOCOL=TCP) (HOST=itrac09-v.cern.ch) (PORT=1521))
@@ -51,15 +46,19 @@ cmsr =
    (LOAD_BALANCE=yes)
    (CONNECT_DATA=(SERVER=DEDICATED) (SERVICE_NAME=cmsr)))
 
-cms_phedex =
-  (DESCRIPTION =
-    (ADDRESS=(PROTOCOL=TCP) (HOST=itrac09-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=itrac10-v.cern.ch) (PORT=1521))
-    (LOAD_BALANCE=yes)
-    (CONNECT_DATA=
-      (SERVER=DEDICATED)
-      (SERVICE_NAME=cms_phedex)
-      (FAILOVER_MODE=(TYPE=SELECT) (METHOD=BASIC) (RETRIES=180) (DELAY=5))))
+cms_transfermgmt =
+  (DESCRIPTION=
+   (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=1521))
+   (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=1521))
+   (LOAD_BALANCE=yes)
+   (CONNECT_DATA=(SERVER=DEDICATED) (SERVICE_NAME=cms_transfermgmt)))
+
+cms_transfermgmt_sc =
+  (DESCRIPTION=
+   (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch)(PORT=1521))
+   (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch)(PORT=1521))
+   (LOAD_BALANCE=yes)
+   (CONNECT_DATA=(SERVER=DEDICATED) (SERVICE_NAME=cms_transfermgmt_sc)))
 
 cms_transfermgmt_test =
   (DESCRIPTION =
