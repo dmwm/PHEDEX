@@ -107,8 +107,8 @@ mkdir -p Output
  echo "computer which has access to your private certificate part, typically";
  echo "in ~/.globus/userkey.pem."
  echo; echo "====";
- echo "cat << "\\"END_OF_DATA | openssl smime -decrypt -in /dev/stdin -recip ~/.globus/usercert.pem -inkey ~/.globus/userkey.pem"
- openssl smime -encrypt -in Details/$role_name_lc $keydir/$usercert
+ echo "cat << "\\"END_OF_DATA | /usr/bin/openssl smime -decrypt -in /dev/stdin -recip ~/.globus/usercert.pem -inkey ~/.globus/userkey.pem"
+ /usr/bin/openssl smime -encrypt -in Details/$role_name_lc $keydir/$usercert
  echo "END_OF_DATA";
  echo "====";
  echo;
