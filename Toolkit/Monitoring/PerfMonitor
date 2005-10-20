@@ -159,6 +159,7 @@ sub idle
 	# Part III: Update statistics on recent transfer quality.  This
 	# is another heart-beat routing to avoid gaps in the histograms.
 	# If we miss a beat there will be no data for this time bin.
+	&dbexec ($dbh, qq{lock table t_transfer_tracking in exclusive mode});
 	my $qquality = &dbexec ($dbh, qq{
 	    select
 	      trunc (th.timestamp/300)*300,
@@ -167,7 +168,7 @@ sub idle
 	      th.to_old_state,
 	      th.to_new_state,
 	      count (th.guid)
-	    from t_transfer_history th
+	    from t_transfer_tracking th
 	    where th.from_old_state = 1
 	      and th.from_new_state = 1
       	      and th.to_old_state >= 1
@@ -202,6 +203,9 @@ sub idle
 		":transitions" => $n);
 	}
 
+	&dbexec ($dbh, qq{insert into t_transfer_history
+			  (select * from t_transfer_tracking)});
+	&dbexec ($dbh, qq{delete from t_transfer_tracking});
 	$dbh->commit();
 
     };
