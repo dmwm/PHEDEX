@@ -1,0 +1,61 @@
+#!/usr/bin/env perl
+
+##H Load database dump produced with DBDump.
+##H
+##H Usage:
+##H   DSBLoad -db FILE[:SECTION] } FILE...
+##H
+##H -db           database connection configuration parameter file
+##H FILE          name of the file to load, containing rows to load
+
+BEGIN { use strict; use warnings; $^W=1;
+  my $me = $0; $me =~ s|.*/||;
+  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+  unshift(@INC, "$home/../Toolkit/Common"); }
+use UtilsHelp;
+use UtilsDB;
+
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-h') {
+	&usage();
+    } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{DBCONFIG} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '--') {
+	shift (@ARGV); last;
+    } elsif ($ARGV[0] =~ '^-') {
+	&usage ("$0: unrecognised option $ARGV[0]\n\n");
+    } else {
+	last;
+    }
+}
+
+if (! $args{DBCONFIG})
+{
+    die "Insufficient parameters, use -h for help.\n";
+}
+
+my $dbh = &connectToDatabase (\%args, 0);
+foreach my $file (@ARGV)
+{
+    open (F, "< $file") || die "$file: cannot open: $!\n";
+    while (<F>)
+    {
+	chomp;
+	my @columns;
+	my ($table, $nrow) = /^([^,]+),(\d+)/;
+	for ($_ = $'; /^,([^,]+),"([^"]*)"/; $_ = $')
+	{
+	    push (@columns, [ $1, $2 ]);
+	}
+	my $sql = "insert into $table (" . join(", ", map { "$_->[0]" } @columns) . ") values ("
+	          . join(", ", map { ":$_->[0]" } @columns) . ")";
+
+	print "$table $nrow\n";
+	&dbexec($dbh, $sql, map { (":$_->[0]" => $_->[1]) } @columns);
+    }
+    close (F);
+}
+
+$dbh->commit ();
+$dbh->disconnect();
