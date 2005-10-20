@@ -43,8 +43,9 @@ foreach my $table (@ARGV)
     while (my $row = $q->fetchrow_hashref())
     {
 	print "$table,", ++$nrows;
-	while (my ($k, $v) = each %$row)
+	foreach my $k (sort keys %$row)
 	{
+	    my $v = $row->{$k};
 	    print ",$k,\"$v\"";
 	}
 	print "\n";
