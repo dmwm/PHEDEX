@@ -27,22 +27,19 @@ scan_objects() {
   awk '/^(T|SEQ|IX|FK|PK|UQ)_[A-Z0-9_]+/ {print $1, $2} {}'
 }
 
-# First drop all existing synonyms
-(echo "set lines 1000;";
- echo "set pages 0;";
- echo "select synonym_name from user_synonyms;") |
- sqlplus -S "$target_connect" |
- awk '/^(T|SEQ)_[A-Z0-9_]+/ {print $1} {}' |
- while read tab; do
-    echo "drop synonym $tab;"
- done |
- sqlplus -S "$target_connect"
+(# First drop all existing synonyms
+ (echo "set lines 1000 pages 0";
+  echo "select synonym_name from user_synonyms;") |
+  sqlplus -S "$target_connect" |
+  awk '/^(T|SEQ)_[A-Z0-9_]+/ {print $1} {}' |
+  while read t; do
+     echo "drop synonym $t;"
+  done
 
-# Now recreate synonyms from master tables
-scan_objects "select table_name from user_tables;" |
- while read t; do echo "create synonym $t for $master.$t;"; done |
- sqlplus -S "$target_connect"
+ # Now recreate synonyms from master tables
+ scan_objects "select table_name from user_tables;" |
+   while read t; do echo "create synonym $t for $master.$t;"; done
 
-scan_objects "select sequence_name from user_sequences;" |
- while read t; do echo "create synonym $t for $master.$t;"; done |
- sqlplus -S "$target_connect"
+ scan_objects "select sequence_name from user_sequences;" |
+   while read t; do echo "create synonym $t for $master.$t;"; done
+) | sqlplus -S "$target_connect"
