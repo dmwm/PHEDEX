@@ -93,12 +93,107 @@ Restart agents
   Utilities/Master -config Custom/CERN/Config.Dev stop mgmt-rtab
   Utilities/Master -config Custom/CERN/Config.Dev start
 
-Restart node router agent (mgmt-rtab)
-Stop node router agent
-Restart all agents
-
 Clear old database
 
   sqlplus $(./OracleConnectId -db DBParam:DevOld/Admin) < OracleSave.sql
 
+
+
 * PRODUCTION INSTANCE
+
+Stop all agents
+
+Reset passwords
+
+  sqlplus $(Schema/OracleConnectId -db Schema/DBParam:Production/Admin)
+    password
+  sqlplus $(Schema/OracleConnectId -db Schema/DBParam:Production/Reader)
+    password
+  sqlplus $(Schema/OracleConnectId -db Schema/DBParam:Production/CERN)
+    password
+
+Load schema
+
+  cd Schema
+  ./OracleTablespaces Prod
+  sqlplus $(./OracleConnectId -db DBParam:Production/Admin) < OracleReset.sql
+  sqlplus $(./OracleConnectId -db DBParam:Production/Admin) < OracleInit.sql
+  sqlplus $(./OracleConnectId -db DBParam:Production/Admin) < OracleStatsEnable.sql
+  ./OracleSyns.sh cms_transfermgmt \
+    $(./OracleConnectId -db DBParam:Production/Admin) \
+    $(./OracleConnectId -db DBParam:Production/Reader)
+  ./OracleSyns.sh cms_transfermgmt \
+    $(./OracleConnectId -db DBParam:Production/Admin) \
+    $(./OracleConnectId -db DBParam:Production/CERN)
+  ./OraclePrivs.sh $(./OracleConnectId -db DBParam:Production/Admin) \
+    cms_transfermgmt_reader cms_transfermgmt_writer
+
+Copy data from old instance
+
+  old=$(./OracleConnectId -db DBParam:OldProduction/Admin)
+  new=$(./OracleConnectId -db DBParam:Production/Admin)
+  sqlplus -S $new << END
+    set arraysize 5000 copycommit 10 long 10000
+
+    alter trigger new_transfer_state disable;
+    alter trigger update_transfer_state disable;
+
+    copy from $old to $new insert T_NODE using select * from T_NODE;
+    copy from $old to $new insert T_NODE_EXPORT using select * from T_NODE_EXPORT;
+    copy from $old to $new insert T_NODE_IMPORT using select * from T_NODE_IMPORT;
+    copy from $old to $new insert T_NODE_NEIGHBOUR using select * from T_NODE_NEIGHBOUR;
+    copy from $old to $new insert T_ROUTING using select * from T_ROUTING;
+
+    copy from $old to $new insert T_AGENT using select * from T_AGENT;
+    copy from $old to $new insert T_AGENT_MESSAGE using select * from T_AGENT_MESSAGE;
+    copy from $old to $new insert T_AGENT_STATUS using select * from T_AGENT_STATUS;
+
+    copy from $old to $new insert T_BLOCK using select * from T_BLOCK;
+    copy from $old to $new insert T_BLOCK_DESTINATION using select * from T_BLOCK_DESTINATION;
+    copy from $old to $new insert T_BLOCK_REPLICA using select * from T_BLOCK_REPLICA;
+    copy from $old to $new insert T_SUBSCRIPTION using select * from T_SUBSCRIPTION;
+
+    copy from $old to $new insert T_FILE using select * from T_FILE;
+    copy from $old to $new insert T_FILE_ATTRIBUTES using select * from T_FILE_ATTRIBUTES;
+
+    copy from $old to $new insert T_REPLICA_STATE using select * from T_REPLICA_STATE;
+    copy from $old to $new insert T_TRANSFER_STATE using select * from T_TRANSFER_STATE;
+    copy from $old to $new insert T_TRANSFER_COMPLETED using select * from T_TRANSFER_COMPLETED;
+
+    copy from $old to $new insert T_PERF_HISTOGRAM using select * from T_PERF_HISTOGRAM;
+    copy from $old to $new insert T_TRANSFER_HISTORY using select * from T_TRANSFER_HISTORY;
+
+    alter trigger new_transfer_state enable;
+    alter trigger update_transfer_state enable;
+END
+
+Refresh stats etc.
+
+  sqlplus $(./OracleConnectId -db DBParam:Production/Admin) < OracleStatsUpdate.sql
+
+Recreate roles on lxgate10
+
+  cd /data/V2Nodes/PHEDEx
+  eval $(Utilities/Master -config Custom/CERN/Config.Prod environ)
+  cd ~/private/roles/V2
+  mv Output Output.old
+  mv Details Details.old
+  mkdir Details Output
+  for xrole in Details.old/*; do
+    role=${xrole#Details.old/site_}
+    email=$(ls ../*/Output*/site_$role:* 2>/dev/null | head -1 | sed 's/.*://')
+    Schema/OracleInitRole.sh Schema/DBParam Production ../Keys $email $role
+  done
+
+  for f in Output/*; do
+    /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < $f
+  done
+
+Restart agents
+  Utilities/Master -config Custom/CERN/Config.Prod start mgmt-rtab
+  Utilities/Master -config Custom/CERN/Config.Prod stop mgmt-rtab
+  Utilities/Master -config Custom/CERN/Config.Prod start
+
+Clear old database
+
+  sqlplus $(./OracleConnectId -db DBParam:OldProduction/Admin) < OracleSave.sql
