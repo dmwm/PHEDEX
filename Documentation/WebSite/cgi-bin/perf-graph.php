@@ -8,8 +8,9 @@ function makeGraph($graph, $data, $args)
 {
   // Rendering parameters
   $patterns = array('/^T1/' => 0, '/^T2/' => PATTERN_DIAG2, '/^/' => PATTERN_DIAG4);
-  for ($i = 0; $i < 20; ++$i)
-    $styles[] = styleByValue (0, 1, .95, .65, $i/20.);
+  $styles = array("#e66266", "#fff8a9", "#7bea81", "#8d4dff", "#ffbc71", "#a57e81",
+                  "#baceac", "#00ccff", "#63aafe", "#ccffff", "#ccffcc", "#ffff99",
+                  "#99ccff", "#ff99cc", "#cc99ff", "#ffcc99", "#3366ff", "#33cccc");
 
   // Build X-axis labels.  Make sure there are not too many of them.
   $xrewrite = $args['xrewrite'];

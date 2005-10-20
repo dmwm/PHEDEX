@@ -122,15 +122,16 @@ function hsv2rgb($h, $s, $v)
 // to use a suitable portion of the HSV gradient range (red-green).
 //
 // FIXME: Constrain to max ten distinct colours?
-function styleByValue($base, $range, $saturation, $srange, $value)
+function styleByValue($base, $range, $saturation, $srange, $value, $modrange)
 {
   $value = min($value, 1); // ((int) (max ($value, 1) * 10)) / 10.;
   if ($value < 0.) {
     $rgb = array (1, 1, 1);
   } else {
-    $rgb = hsv2rgb ($base + $range*$value,
-    		    $saturation - $srange + $srange * (1 + sin($value*25))/2,
-    		    0.5 + sqrt($value*(1-$value)));
+    $huev = $base + $range*$value;
+    $satv = $saturation - $srange + $srange * (1 + sin($value*25))/2;
+    $modv = fmod ($value, $modrange);
+    $rgb = hsv2rgb ($huev, $satv, 0.5 + sqrt($modv*(1-$modv)));
   }
   return sprintf ("#%02x%02x%02x", $rgb[0]*255, $rgb[1]*255, $rgb[2]*255);
 }
