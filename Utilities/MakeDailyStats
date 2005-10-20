@@ -19,7 +19,7 @@
 ##H week, day and hour, then a column for each node with value in
 ##H the following format: a floating point number for total and
 ##H pending (volume in terabytes); three integers delimited by
-##H slashes for quality: counts of attempted, completed and finished
+##H slashes for quality: counts of started, completed and finished
 ##H transfer operations in that hour, respectively.
 
 BEGIN {
@@ -122,18 +122,18 @@ while (my ($timebin, $node, $pending) = $data->fetchrow())
 
 $data = &dbexec ($dbh, qq{
     select
-        trunc(timestamp/3600)*3600,
+        trunc(timebin/3600)*3600,
 	to_node,
-	sum(case when to_new_state = 2 then 1 else 0 end),
-	sum(case when to_old_state = 2 and to_new_state >= 100 then 1 else 0 end),
-	sum(case when to_new_state = 3 then 1 else 0 end)
-    from t_transfer_history
+	sum(case when new_state = 2 then transitions else 0 end),
+	sum(case when old_state = 2 and new_state >= 100 then transitions else 0 end),
+	sum(case when new_state = 3 then transitions else 0 end)
+    from t_quality_histogram
     where from_node not like '%_MSS'
-    group by trunc(timestamp/3600)*3600, to_node});
-while (my ($hour, $node, $attempted, $failed, $completed) = $data->fetchrow())
+    group by trunc(timebin/3600)*3600, to_node});
+while (my ($hour, $node, $started, $failed, $completed) = $data->fetchrow())
 {
     $first = $hour if (! $first || $first > $hour);
-    $quality{$hour}{$node}{ATTEMPTED} = $attempted;
+    $quality{$hour}{$node}{STARTED} = $started;
     $quality{$hour}{$node}{FAILED} = $failed;
     $quality{$hour}{$node}{COMPLETED} = $completed;
     $nodes{$node} = 1;
@@ -172,7 +172,7 @@ foreach my $time (&timeSeries ($first, "hour"))
     print PENDING
         join(",", @times, map { ($p->{$_}||0)/$TERABYTE } @nodenames), "\n";
     print QUALITY
-        join(",", @times, map { ($q->{$_}{ATTEMPTED} || 0) . "/" .
+        join(",", @times, map { ($q->{$_}{STARTED} || 0) . "/" .
 				($q->{$_}{FAILED} || 0) . "/" .
 				($q->{$_}{COMPLETED} || 0) } @nodenames), "\n";
 }
