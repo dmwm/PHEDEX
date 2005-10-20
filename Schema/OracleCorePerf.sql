@@ -8,6 +8,16 @@
 -- FIXME: index organised?
 -- FIXME: indexing?
 
+create table t_transfer_tracking
+  (timestamp		float		not null,
+   guid			char (36)	not null,
+   to_node		varchar (20)	not null,
+   to_old_state		integer,
+   to_new_state		integer		not null,
+   from_node		varchar (20)	not null,
+   from_old_state	integer,
+   from_new_state	integer		not null);
+
 create table t_transfer_history
   (timestamp		float		not null,
    guid			char (36)	not null,
@@ -67,6 +77,10 @@ alter table t_quality_histogram
 ----------------------------------------------------------------------
 -- Add indices
 
+create index ix_transfer_tracking
+  on t_transfer_tracking (timestamp, guid)
+  tablespace CMS_TRANSFERMGMT_INDX01;
+
 create index ix_transfer_history
   on t_transfer_history (timestamp, guid)
   tablespace CMS_TRANSFERMGMT_INDX01;
@@ -77,6 +91,10 @@ create index ix_transfer_summary
 
 ----------------------------------------------------------------------
 -- Modify storage options
+
+alter table t_transfer_tracking			enable row movement;
+alter table t_transfer_tracking			move initrans 8;
+alter index ix_transfer_tracking		rebuild initrans 8;
 
 alter table t_transfer_history			enable row movement;
 alter table t_transfer_history			move initrans 8;

@@ -3,13 +3,13 @@
 
 ----------------------------------------------------------------------
 -- Add trigger to monitor changes to t_transfer_state and log entries
--- to t_transfer_history and t_transfer_summary.
+-- to t_transfer_tracking.
 
 create or replace trigger new_transfer_state
   after insert on t_transfer_state
   for each row
   begin
-    insert into t_transfer_history
+    insert into t_transfer_tracking
       (timestamp, guid,
        from_node, from_old_state, from_new_state,
        to_node, to_old_state, to_new_state)
@@ -24,7 +24,7 @@ create or replace trigger update_transfer_state
   after update of from_state, to_state on t_transfer_state
   for each row
   begin
-    insert into t_transfer_history
+    insert into t_transfer_tracking
       (timestamp, guid,
        from_node, from_old_state, from_new_state,
        to_node, to_old_state, to_new_state)
