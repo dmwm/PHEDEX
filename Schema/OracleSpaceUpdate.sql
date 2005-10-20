@@ -12,6 +12,9 @@
 -- http://www.oracle-base.com/articles/9i/HighAvailabilityEnhancements9i.php
 
 
+alter table t_transfer_tracking shrink space compact cascade;
+alter table t_transfer_tracking history shrink space cascade;
+
 alter table t_transfer_history shrink space compact cascade;
 alter table t_transfer_history shrink space cascade;
 
