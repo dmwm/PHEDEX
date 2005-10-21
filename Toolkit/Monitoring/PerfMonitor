@@ -189,7 +189,7 @@ sub idle
 		":new_state" => $new) };
 	    &dbexec ($dbh, qq{
 		update t_quality_histogram
-		set transitions = :transitions
+		set transitions = transitions + :transitions
 		where timebin = :timebin
 		  and from_node = :from_node
 		  and to_node = :to_node
