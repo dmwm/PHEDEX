@@ -171,8 +171,8 @@ sub idle
 	    from t_transfer_tracking th
 	    where th.from_old_state = 1
 	      and th.from_new_state = 1
-      	      and th.to_old_state >= 1
       	      and th.to_old_state <= 3
+	      and th.to_new_state >= 2
 	    group by trunc (th.timestamp/300)*300,
 	      th.from_node, th.to_node,
 	      th.to_old_state, th.to_new_state});
