@@ -1,21 +1,12 @@
 # Database connection parameters for an average site.
 # *DO NOT COMMIT INTO CVS*.
 
-Section			NewProduction
-Interface		Oracle
-Database		cms_phedex
-AuthDBUsername		cms_transfermgmt
-AuthDBPassword		FILL_ME_IN
-ConnectionLife		86400
-LogConnection		on
-LogSQL			off
-
 Section			Dev/CERN
 Interface		Oracle
-Database		devdb
-AuthDBUsername		cms_transfermgmt_writer
+Database		cms_transfermgmt_test
+AuthDBUsername		cms_transfermgmt_test_writer
 AuthDBPassword		FILL_ME_IN
-AuthRole		site_cern
+AuthRole		dev_site_cern
 AuthRolePassword	FILL_ME_IN
 ConnectionLife		86400
 LogConnection		on
@@ -23,10 +14,10 @@ LogSQL			off
 
 Section			Production/CERN
 Interface		Oracle
-Database		cms
+Database		cms_transfermgmt
 AuthDBUsername		cms_transfermgmt_writer
 AuthDBPassword		FILL_ME_IN
-AuthRole		site_cern
+AuthRole		prod_site_cern
 AuthRolePassword	FILL_ME_IN
 ConnectionLife		86400
 LogConnection		on
@@ -34,10 +25,10 @@ LogSQL			off
 
 Section			SC3/CERN
 Interface		Oracle
-Database		cms_phedex
+Database		cms_transfermgmt_sc
 AuthDBUsername		cms_transfermgmt_sc_writer
 AuthDBPassword		FILL_ME_IN
-AuthRole		site_cern
+AuthRole		sc_site_cern
 AuthRolePassword	FILL_ME_IN
 ConnectionLife		86400
 LogConnection		on
