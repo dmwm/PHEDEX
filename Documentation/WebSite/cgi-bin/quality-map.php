@@ -52,17 +52,25 @@ function makeGraph($graph, $data, $args)
     if ($args['metric'] == 'failed_ratio')
       foreach ($data as $xbin => $xdata)
       {
-        $thisplot->AddArea ($i, $i+1, LP_AREA_FILLED, styleByValue
-			    (.4, -.4, 1, 0, isset ($xdata[$node]) && $xdata[$node][0]
-			     ? $xdata[$node][1] / $xdata[$node][0] : -1, 1));
+	$fraction = -1;
+	if (isset ($xdata[$node]) && $xdata[$node][0])
+	  $fraction = $xdata[$node][1] / $xdata[$node][0];
+	else if (isset ($xdata[$node]) && $xdata[$node][1])
+	  $fraction = 1;
+        $thisplot->AddArea ($i, $i+1, LP_AREA_FILLED,
+	                    styleByValue (.4, -.4, 1, 0, $fraction, 1));
         ++$i;
       }
     else if ($args['metric'] == 'completed_ratio')
       foreach ($data as $xbin => $xdata)
       {
-        $thisplot->AddArea ($i, $i+1, LP_AREA_FILLED, styleByValue
-			    (0, .4, 1, 0, isset ($xdata[$node]) && $xdata[$node][0]
-	                     ? $xdata[$node][2] / $xdata[$node][0] : -1, 1));
+	$fraction = -1;
+	if (isset ($xdata[$node]) && $xdata[$node][0])
+	  $fraction = $xdata[$node][2] / $xdata[$node][0];
+	else if (isset ($xdata[$node]) && $xdata[$node][2])
+	  $fraction = 1;
+        $thisplot->AddArea ($i, $i+1, LP_AREA_FILLED,
+	                    styleByValue (0, .4, 1, 0, $fraction, 1));
         ++$i;
       }
 
