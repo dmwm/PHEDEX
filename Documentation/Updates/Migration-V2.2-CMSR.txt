@@ -98,7 +98,8 @@ Clear old database
   sqlplus $(./OracleConnectId -db DBParam:DevOld/Admin) < OracleSave.sql
 
 
-
+**********************************************************************
+**********************************************************************
 * PRODUCTION INSTANCE
 
 Stop all agents
