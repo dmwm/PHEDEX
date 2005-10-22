@@ -1,17 +1,7 @@
 # Database connection parameters for an average site.
 # *DO NOT COMMIT INTO CVS*.
 
-Section			Dev/CERN
-Interface		Oracle
-Database		cms_transfermgmt_test
-AuthDBUsername		cms_transfermgmt_test_writer
-AuthDBPassword		FILL_ME_IN
-AuthRole		dev_site_cern
-AuthRolePassword	FILL_ME_IN
-ConnectionLife		86400
-LogConnection		on
-LogSQL			off
-
+######################################################################
 Section			Production/CERN
 Interface		Oracle
 Database		cms_transfermgmt
@@ -23,6 +13,19 @@ ConnectionLife		86400
 LogConnection		on
 LogSQL			off
 
+######################################################################
+Section			Dev/CERN
+Interface		Oracle
+Database		cms_transfermgmt_test
+AuthDBUsername		cms_transfermgmt_test_writer
+AuthDBPassword		FILL_ME_IN
+AuthRole		dev_site_cern
+AuthRolePassword	FILL_ME_IN
+ConnectionLife		86400
+LogConnection		on
+LogSQL			off
+
+######################################################################
 Section			SC3/CERN
 Interface		Oracle
 Database		cms_transfermgmt_sc
