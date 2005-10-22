@@ -39,7 +39,7 @@ function makeGraph($graph, $data, $args)
     // Suppress fully zero rows: nodes without any transfers
     $iszero = -1;
     foreach ($data as $xbin => $xdata)
-      if (isset($xdata[$node]) && ($iszero = $xdata[$node][0]) > 0)
+      if (isset($xdata[$node]) && ($iszero = max($xdata[$node])) > 0)
 	break;
     if ($iszero <= 0) continue;
 
