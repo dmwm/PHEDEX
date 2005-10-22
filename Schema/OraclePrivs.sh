@@ -34,14 +34,15 @@ connect="$1" reader="$2" writer="$3"
 # access to all the tables.
 for role in \
   $((echo "select granted_role from user_role_privs;") |
-    sqlplus -S "$connect" | awk '/SITE_/ { print $1 } {}'); do
+    sqlplus -S "$connect" | awk '/_SITE_/ { print $1 } {}'); do
   echo; echo; echo "-- role $role"
   echo "set feedback off;"
   echo "grant $role to $writer;"
 
   for table in \
-    $((echo "select table_name from user_tables;") |
-      sqlplus -S "$connect" | awk '/^T_[A-Z0-9_]+/ { print $1 } {}'); do
+    $((echo "select table_name from user_tables;"
+       echo "select sequence_name from user_sequences;") |
+      sqlplus -S "$connect" | awk '/^(T|SEQ)_[A-Z0-9_]+/ { print $1 } {}'); do
 
     case $table:$role in
       T_AUTH*:* )
@@ -59,6 +60,11 @@ for role in \
         echo "grant select on $table to $writer;"
         echo "grant alter, delete, insert, select, update on $table to $role;" ;;
 
+      SEQ_*:*_SITE_CERN )
+        echo; echo "grant select on $table to $reader;"
+        echo "grant select on $table to $writer;"
+        echo "grant select, alter on $table to $role;" ;;
+
       T_SUBSCRIPTION:* | \
       T_NODE_NEIGHBOUR:* | \
       T_NODE:* | \
@@ -66,13 +72,14 @@ for role in \
       T_DBS*:* | \
       T_DLS*:* | \
       T_REQUEST*:* | \
-      T_BLOCK_*:* )
+      T_BLOCK_*:* | \
+      SEQ_*:* )
         # Read-only (see also restricted update above)
         echo; echo "grant select on $table to $reader;"
         echo "grant select on $table to $writer;"
       	echo "grant select on $table to $role;" ;;
 
-      *:* )
+      T_*:* )
         # General update
         echo; echo "grant select on $table to $reader;"
         echo "grant select on $table to $writer;"
