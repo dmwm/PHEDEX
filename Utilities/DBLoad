@@ -3,9 +3,10 @@
 ##H Load database dump produced with DBDump.
 ##H
 ##H Usage:
-##H   DSBLoad -db FILE[:SECTION] } FILE...
+##H   DSBLoad -db FILE[:SECTION] } [-commit N] FILE...
 ##H
 ##H -db           database connection configuration parameter file
+##H -commit       set commit interval in rows, default at the end
 ##H FILE          name of the file to load, containing rows to load
 
 BEGIN { use strict; use warnings; $^W=1;
@@ -21,6 +22,8 @@ while (scalar @ARGV)
 	&usage();
     } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
 	shift (@ARGV); $args{DBCONFIG} = shift (@ARGV);
+    } elsif ($ARGV[0] eq '-commit' && scalar @ARGV > 1) {
+	shift (@ARGV); $args{COMMIT} = shift (@ARGV);
     } elsif ($ARGV[0] eq '--') {
 	shift (@ARGV); last;
     } elsif ($ARGV[0] =~ '^-') {
@@ -35,6 +38,7 @@ if (! $args{DBCONFIG})
     die "Insufficient parameters, use -h for help.\n";
 }
 
+my $row = 0;
 my $dbh = &connectToDatabase (\%args, 0);
 foreach my $file (@ARGV)
 {
@@ -53,6 +57,8 @@ foreach my $file (@ARGV)
 
 	print "$table $nrow\n";
 	&dbexec($dbh, $sql, map { (":$_->[0]" => $_->[1]) } @columns);
+
+	$dbh->commit() if ($args{COMMIT} && (++$row % $args{COMMIT}) == 0);
     }
     close (F);
 }
