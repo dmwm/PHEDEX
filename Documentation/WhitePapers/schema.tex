@@ -1,7 +1,7 @@
 \documentclass{cmspaper}
 \def\RCS$#1: #2 ${\expandafter\def\csname RCS#1\endcsname{#2}}
-\RCS$Revision: 1.13 $
-\RCS$Date: 2004/08/19 12:54:59 $
+\RCS$Revision: 1.14 $
+\RCS$Date: 2005/09/03 22:28:58 $
 
 \usepackage{graphicx}
 
@@ -144,11 +144,20 @@
     storage area; the results are eventually aggregated into the
     performance table \texttt{t\_perf\_histogram} and then deleted.
 
+  \item [\texttt{t\_transfer\_tracking}]\mbox{}
+
+    Temporary detail information about the state progression of each
+    file in \texttt{t\_transfer\_state}.  A database trigger inserts
+    a row in the tracking table for each insertion and update of the
+    transfer state table.  Source for \texttt{t\_quality\_histogram}
+    updates, then copied to \texttt{t\_transfer\_history}.
+
   \item [\texttt{t\_transfer\_history}]\mbox{}
 
     Detailed historical information about the state progression of
     each file in \texttt{t\_transfer\_state}.  The table is updated
-    automatically by a trigger; old entries are archived monthly.
+    from \texttt{t\_transfer\_tracking}; old entries are archived
+    monthly.
 
   \item [\texttt{t\_perf\_histogram}]\mbox{}
 
@@ -163,6 +172,16 @@
     Apart from the agent logs and the transfer history table, this
     is the only long-term memory kept about the transfers in the
     database.
+
+  \item [\texttt{t\_quality\_histogram}]\mbox{}
+
+    Aggregated transfer quality information.  This table records
+    for each 5-minute period and pair of nodes the count of file
+    transfer state transitions which had to do with either file
+    transfer start or end.  The information is aggregated; the
+    starts and ends are only counted, not correlated.  The table
+    is filled by processing \texttt{t\_transfer\_tracking}, after
+    which the rows are copied into \texttt{t\_transfer\_history}.
 
   \item [\texttt{t\_subscription}]\mbox{}
 
