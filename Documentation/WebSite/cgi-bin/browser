@@ -949,12 +949,20 @@ sub rateplot
 		 "aw" => [ "0:week", "Weekly Since Start" ],
 		 "am" => [ "0:month", "Monthly Since Start" ]);
     my $plot = param("plot");
+    my $graph = param("graph") || 'bar';
     my $filter = param("filter") || '';
     $plot = 'l48h' if (! $plot || ! exists $plots{$plot});
 
     print "<p><form method='GET' action='@{[&baseurl()]}'>\n",
           "<input type='hidden' name='page' value='@{[param('page')]}'>\n",
           "<input type='hidden' name='db' value='@{[param('db')]}'>\n",
+          "Graph ",
+          "<select name='graph' onchange='submit()'>",
+	  " <option ", ($graph eq 'bar' ? 'selected=selected' : ''),
+	  "  value='bar'>Bar</option>",
+	  " <option ", ($graph eq 'line' ? 'selected=selected' : ''),
+	  "  value='line'>Line</option>",
+          "</select>\n",
           "<select name='plot' onchange='submit()'>";
     foreach my $p (@plotorder)
     {
@@ -967,9 +975,11 @@ sub rateplot
     	  "<input type='submit' value='Update'></form></p>\n";
     foreach my $kind (param('page') eq 'rateplot' ? qw(rate total) : qw(pending))
     {
+	next if ($graph eq 'line' && $kind ne 'total');
 	my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
+	my $suffix = ($graph eq 'bar' ? '' : '-line');
 	print "<p><img width=900 height=400 src='",
-	      "http://cmsdoc.cern.ch/cms/aprom/phedex/WebSite/cgi-bin/perf-graph.php?",
+	      "http://cmsdoc.cern.ch/cms/aprom/phedex/WebSite/cgi-bin/perf-graph$suffix.php?",
 	      &urlencode('db' => $db, 'span' => $unit, 'kind' => $kind,
 		         'last' => $last, 'filter' => $filter),
 	      "'>";
