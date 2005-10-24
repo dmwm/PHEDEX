@@ -129,6 +129,6 @@ Fetch the old data
       truncate table xt_transfer_history drop storage;
 EOF
     done
-    rm xxloadme*
+    rm xxloadme* out.xxloadme*
   done
 
