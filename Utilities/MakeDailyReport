@@ -198,7 +198,7 @@ foreach my $prevdays (1, 7, 30)
     print "\n# $prevdays-day period from ",
           strftime ('%Y-%m-%d %H:%M:%S', gmtime(int($timelow))), " to ",
           strftime ('%Y-%m-%d %H:%M:%S', gmtime(int($timemax+300))), "\n\n";
-    print sprintf ("%20s" . " %15s" x 13 . "\n",
+    print sprintf ("%20s" . " %15s" x 17 . "\n",
 	           "DESTINATION",
 	           "XFER_MBPS_TOT", "XFER_GB_TOT", "XFER_F_TOT", "XFER_SUCC_TOT",
 		   "XFER_MBPS_HRMIN", "XFER_MBPS_HRMAX", "XFER_MBPS_HRAVG",
