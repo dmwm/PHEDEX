@@ -175,7 +175,4 @@ $data = readCSV ("/afs/cern.ch/cms/aprom/phedex/DBPerfData/{$args['instance']}-$
 $data = selectPerformanceData ($data, $args['xbin'], $entries, $args['metric'] != 'pending');
 makeGraph ($graph, $data, $args);
 
-$args['metric'] != 'pending');
-makeGraph ($graph, $data, $args);
-
 ?>
