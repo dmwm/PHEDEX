@@ -918,7 +918,7 @@ sub dbreports
 sub dbreport
 {
     my $reportdir = "/afs/cern.ch/cms/aprom/phedex/DailyReports";
-    my $report = param('reportfile');
+    my $report = param('reportfile') || (strftime('%Y%m%d', gmtime()) . ".txt");
     print "<pre align='left'>\n";
     if ($report && $report =~ m|^[-A-Za-z0-9.]+$|)
     {
