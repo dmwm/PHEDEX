@@ -245,7 +245,7 @@ sub completeTransferBatch
 	    if ($file->{FAILURE})
 	    {
 	         &alert ("failed to transfer $guid: $file->{FAILURE}");
-	         $to_state = 101 + int(rand(10)); # 1..10 min cool-off
+	         $to_state = 101 + int(rand(10))*30; # 30..300 min cool-off
 	    }
 
 	    my $now = &mytimeofday ();
