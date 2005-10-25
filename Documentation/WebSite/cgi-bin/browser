@@ -620,9 +620,9 @@ sub subs {
 	        {
 		    my ($sfiles, $stotal) = @{$sites->{$site}};
 		    my $scolor = ($sfiles == $files) ? '' : " bgcolor='$pendcolor'";
-		    print "<td$scolor align='right'>",
-		          sprintf('%0.2f&nbsp;/&nbsp;%0.2f', ($sfiles / $files), ($stotal / $total)),
-		          "</td>";
+		    my $fracfiles = ($files ? sprintf('%0.2f', $sfiles / $files) : '&#8211;');
+		    my $fractotal = ($total ? sprintf('%0.2f', $stotal / $total) : '&#8211;');
+		    print "<td$scolor align='right'>$fracfiles&nbsp;/&nbsp;$fractotal</td>";
 	        }
 	        else
 	        {
