@@ -452,7 +452,7 @@ sub nextFiles
         {
 	    my $attrq = &dbprep ($dbh, qq{
 		    select a.attribute, a.value from t_file_attributes a
-		    where a.guid = :guid and a.attribute like 'POOL%'});
+		    where a.guid = :guid and a.attribute like 'POOL%' and 1=1});
 	    my $stmt = &dbexec ($dbh, qq{
 		    select ts.guid,
 			   f.lfn,
