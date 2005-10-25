@@ -11,6 +11,7 @@ function makeGraph($graph, $data, $args)
   $xlabels = array();
   foreach (array_keys($data) as $time)
       $xlabels[] = preg_replace("/{$xrewrite[0]}/", $xrewrite[1], $time);
+  $xlabels[] = "";
 
   $xbins = count($data);
   $xunit = $args['xunit'];
@@ -45,7 +46,7 @@ function makeGraph($graph, $data, $args)
 
     // Construct an y bin (node) a line plot + areas for this node.
     $ylabels[] = $node;
-    $thisplot = new LinePlot(array_fill(0, count($data), 1));
+    $thisplot = new LinePlot(array_fill(0, count($data)+1, 1));
     $thisplot->SetColor ("#000000");
 
     $i = 0;
