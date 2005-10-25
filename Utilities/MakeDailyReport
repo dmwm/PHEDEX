@@ -206,7 +206,7 @@ foreach my $prevdays (1, 7, 30)
 	           "WAIT_GB_CHNG", "WAIT_GB_FIN", "WAIT_F_FIN",
 		   "WAIT_GB_MIN", "WAIT_GB_MAX", "WAIT_GB_AVG",
 	           "EST_DAYS_LEFT");
-    print "-" x 20, (" ", "-" x 15) x 13, "\n";
+    print "-" x 20, (" ", "-" x 15) x 17, "\n";
 
     foreach my $node (sort keys %perf)
     {
