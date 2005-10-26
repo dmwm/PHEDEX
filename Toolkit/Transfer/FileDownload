@@ -33,6 +33,7 @@
 ##H      [-delete CMD[,ARG...]] [-timeout SECS] [-jobs NJOBS]
 ##H      [-batch-files N] [-batch-size SIZE[kMGT]]
 ##H      [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]
+##H      [-backoff FACTOR]
 ##H
 ##H -state       agent state directory
 ##H -node        the node where this agent runs
@@ -53,6 +54,7 @@
 ##H -batch-size  enable batching, set maximum number of bytes per batch
 ##H -ignore      comma-separated list of nodes to ignore transfers from
 ##H -accept      comma-separated list of nodes to accept transfers from
+##H -backoff     set backoff factor for failed transfers, in minutes
 ##H -timeout     set time limit on commands to avoid e.g. hung transfers
 ##H -jobs        set the number of jobs to run in parallel (default: 1)
 
@@ -65,7 +67,7 @@ BEGIN {
 
 ######################################################################
 use UtilsHelp;
-my %args = (NJOBS => 1);
+my %args = (NJOBS => 1, BACKOFF_FACTOR => 10);
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
@@ -108,6 +110,8 @@ while (scalar @ARGV)
     { shift (@ARGV); push (@{$args{COMMAND}}, split (/,/, shift(@ARGV))); }
     elsif ($ARGV[0] eq '-timeout' && scalar @ARGV > 1)
     { shift (@ARGV); $args{TIMEOUT} = shift (@ARGV); }
+    elsif ($ARGV[0] eq '-backoff' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{BACKOFF_FACTOR} = shift (@ARGV); }
 
     elsif ($ARGV[0] eq '-h')
     { &usage(); }
@@ -156,6 +160,7 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
+		  BACKOFF_FACTOR => undef,	# Factor to cool off bad files
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
@@ -245,7 +250,7 @@ sub completeTransferBatch
 	    if ($file->{FAILURE})
 	    {
 	         &alert ("failed to transfer $guid: $file->{FAILURE}");
-	         $to_state = 101 + int(rand(10))*30; # 30..300 min cool-off
+	         $to_state = 130 + int(rand(30))*$self->{BACKOFF_FACTOR};
 	    }
 
 	    my $now = &mytimeofday ();
