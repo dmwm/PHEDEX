@@ -100,6 +100,26 @@ sub idle
 	    where bd.name is null)},
 	    ":now" => &mytimeofday());
 
+	# Propogate current suspended state to block destinations
+	# FIXME: This could probably be phrased a lot more elegantly?
+	my $ustmt = &dbprep($dbh, qq{
+	    update t_block_destination
+	    set suspended_until = :when
+	    where name = :block
+	    and node = :dest});
+	my $susstmt = &dbexec($dbh, qq{
+	    select b.name,s.destination,s.suspended_until 
+	    from t_block b 
+	    join t_subscription s 
+	      on s.owner = b.owner 
+	      and s.dataset = b.dataset});
+	while ( my ($name,$dest,$time) = $susstmt->fetchrow() ) {
+	    &dbbindexec($ustmt, 
+		       ":when" => $time,
+			":block" => $name,
+			":dest" => $dest);
+	}
+
     	$dbh->commit();
 	&logmsg ("$rows new block destinations allocated") if $rows > 0;
     };
