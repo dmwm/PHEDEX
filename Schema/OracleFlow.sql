@@ -32,12 +32,14 @@ create table t_block_destination
   (timestamp		float		not null,
    name			varchar (200)	not null,
    node			varchar (20)	not null,
-   completed		float);
+   completed		float,
+   suspended_until	float);
 
 create table t_subscription
   (owner		varchar (100)	not null,
    dataset		varchar (100)	not null,
-   destination		varchar (20)	not null);
+   destination		varchar (20)	not null,
+   suspended_until	float);
 
 ----------------------------------------------------------------------
 -- Add constraints
