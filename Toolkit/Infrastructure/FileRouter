@@ -183,10 +183,15 @@ sub pendingFiles
     my @blocklist = ();
     my $bquery = $self->{STMT_CACHE}{BDEST} ||= &dbprep ($dbh, qq{
 	select name, node from t_block_destination
-	where completed is null and node like :pattern});
+	where completed is null 
+	and node like :pattern 
+        and (suspended_until < :now
+        or suspended_until is null) });
     my $fquery = $self->{STMT_CACHE}{FDEST} ||= &dbprep ($dbh, qq{
 	select guid from t_file where inblock = :block});
-    &dbbindexec ($bquery, ":pattern" => $pattern);
+    &dbbindexec ($bquery, 
+		 ":pattern" => $pattern,
+		 ":now" => &mytimeofday());
     while (my ($block, $dest) = $bquery->fetchrow())
     {
 	my $info = undef;
