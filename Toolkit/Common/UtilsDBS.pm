@@ -5,8 +5,6 @@ sub connect
     my ($self, $type, @rest) = @_;
     if ($type eq 'RefDB') {
 	return new UtilsDBS::RefDB (@rest);
-    } elsif ($type eq 'PhEDEx') {
-	return new UtilsDBS::PhEDEx (@rest);
     } elsif ($type eq 'DBS') {
 	return new UtilsDBS::DBS (@rest);
     } else {
@@ -74,17 +72,19 @@ sub fetchDatasetInfo
     $object->{RUNS} = {};
     $object->{APPINFO} = {};
     $object->{PARENTS} = [];
-    $object->{FILES} = [];
+    $object->{FILES} = {};
 }
 
 # Fetch information about all the jobs of a dataset
 sub fetchRunInfo
 {
     my ($self, $object) = @_;
+    my $context = "$object->{OWNER}/$object->{DATASET}";
+
+    # Fetch files for the collection
     foreach my $assid (&listAssignments ($object))
     {
-	my $context = "$object->{OWNER}/$object->{DATASET}";
-	$object->{BLOCKS}{$context} ||= { NAME => $context, FILES => [] };
+	$object->{BLOCKS}{$context} ||= { NAME => $context, FILES => {} };
 
         my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/"
 			    ."data/GetAttachInfo.php?AssignmentID=${assid}");
@@ -98,7 +98,7 @@ sub fetchRunInfo
 		NAME => $run,
 		EVTS => $evts,
 		XML => undef,
-		FILES => []
+		FILES => {}
 	    };
 	    do { &warn ("$context/$run: empty xml fragment"); next }
 	    	if ($xmlfrag eq '0');
@@ -111,12 +111,79 @@ sub fetchRunInfo
 	    foreach my $file (@$files)
 	    {
 		$file->{INBLOCK} = $context;
-		$file->{INRUN} = $run;
+		$file->{INRUNS} = { $run => 1 };
 
-		push (@{$object->{FILES}}, $file);
-		push (@{$object->{BLOCKS}{$context}{FILES}}, $file);
-		push (@{$object->{RUNS}{$run}{FILES}}, $file);
+		$object->{FILES}{$file->{GUID}} = $file;
+		$object->{BLOCKS}{$context}{FILES}{$file->{GUID}} = $file;
+		$object->{RUNS}{$run}{FILES}{$file->{GUID}} = $file;
 	    }
+	}
+    }
+
+    # Now fetch zips, their files, and file size and checksum for zips and
+    # files from the ZipDB.
+    my %zips = ();
+    my %filezip = ();
+    my $baseurl = "http://cmsdoc.cern.ch/cms/production/www/ZipDB";
+    my $data = &getURL ("$baseurl/CollectionInfo.php?cid=$object->{COLLECTION}&zip=1");
+    die "no zipdb file data for $context\n" if ! $data;
+    die "bad zipdb file data for $context\n" if $data =~ /SELECT.*ERROR/si;
+    foreach my $row (split(/\n/, $data))
+    {
+	next if $row =~ /^([ES]OF$|Collection=)/;
+	my $zip = { map { /([^=]+)=(\S+)/ } split (/\s+/, $row) };
+	die "missing data for zip in $context\n"
+	    if ! $zip->{'guid'} || ! $zip->{'lfn'} || ! $zip->{'size'} || ! $zip->{'cksum'};
+	$zips{$zip->{'guid'}} = $zip;
+
+        my $zipdata = &getURL ("$baseurl/ZipInfo.php?guid=$zip->{guid}");
+	foreach my $ziprow (split(/\n/, $zipdata))
+	{
+	    next if $ziprow =~ /^[ES]OF$/;
+	    my $file = { map { /([^=]+)=(\S+)/ } split (/\s+/, $ziprow) };
+	    next if $file->{'isZip'};
+	    die "missing data for file in zip $zip->{guid} in $context\n"
+	        if ! $file->{'guid'} || ! $file->{'lfn'} || ! $file->{'size'} || ! $file->{'cksum'};
+	    $zip->{'files'}{$file->{'guid'}} = $file;
+	    $filezip{$file->{'guid'}} = $zip;
+	}
+    }
+
+    # Now update file size data in $object, and map zips back to runs based
+    # on which files are mapped to which runs: a zip always contains a full
+    # run.  Note that a single zip will be referenced by more than one run.
+    foreach my $zip (values %zips)
+    {
+	$zip->{FILE} = {
+	    GUID => $zip->{'guid'},
+	    SIZE => $zip->{'size'},
+	    CHECKSUM => $zip->{'cksum'},
+	    LFN => [ $zip->{'lfn'} ],
+	    PFN => [ { TYPE => "EVDZip" } ],
+	    INBLOCK => $context
+        };
+    }
+
+    foreach my $file (values %{$object->{FILES}})
+    {
+	my $zip = $filezip{$file->{GUID}};
+	next if ! $zip;
+
+	$file->{SIZE} = $zip->{'files'}{$file->{GUID}}{'size'};
+	$file->{CHECKSUM} = $zip->{'files'}{$file->{GUID}}{'cksum'};
+
+	$zip->{FILE}{INBLOCK} = $file->{INBLOCK};
+	map { $zip->{FILE}{INRUNS}{$_} = 1 } keys %{$file->{INRUNS}};
+    }
+
+    foreach my $zip (values %zips)
+    {
+	my $file = $zip->{FILE};
+	$object->{FILES}{$file->{GUID}} = $file;
+	$object->{BLOCKS}{$file->{INBLOCK}}{FILES}{$file->{GUID}} = $file;
+	foreach my $run (keys %{$file->{INRUNS}})
+	{
+	    $object->{RUNS}{$run}{FILES}{$file->{GUID}} = $file;
 	}
     }
 
@@ -192,342 +259,6 @@ sub fillDatasetInfo
 sub fetchKnownFiles
 {
     die "fetchKnownFiles on RefDB not supported\n";
-}
-
-1;
-
-######################################################################
-package UtilsDBS::PhEDEx; use strict; use warnings; use base 'UtilsDBS';
-use UtilsDB;
-use UtilsTR;
-use UtilsNet;
-use UtilsReaders;
-use UtilsLogging;
-
-# Initialise object
-sub new
-{
-    my $proto = shift;
-    my $class = ref($proto) || $proto;
-    return bless { DBCONFIG => shift }, $class;
-}
-
-# Get published datasets page contents
-sub fetchPublishedData
-{
-    my ($self) = @_;
-    my $dbh = &connectToDatabase ($self, 0);
-    $dbh->{FetchHashKeyName} = "NAME_uc";
-    $dbh->{LongReadLen} = 4096;
-
-    # Get all current datasets
-    my $datasets = &dbexec($dbh, qq{
-	select id, dataset, owner from t_dbs_dataset
-	order by owner, dataset})
-	->fetchall_arrayref ({});
-
-    return $datasets;
-}
-
-# Get dataset information
-sub fetchDatasetInfo
-{
-    my ($self, $object) = @_;
-    my $dbh = &connectToDatabase ($self, 0);
-    my $stmtcache = $self->{STMTS} ||= {};
-    $dbh->{FetchHashKeyName} = "NAME_uc";
-    $dbh->{LongReadLen} = 4096;
-
-    # Prepare statements
-    my $idl = $stmtcache->{IDL} ||= &dbprep ($dbh, qq{
-	select distinct location from t_dls_index where block in
-	(select id from t_dbs_block where dataset = :dataset)});
-    my $ids = $stmtcache->{IDS} ||= &dbprep ($dbh, qq{
-	select
-	    datatype,
-	    dataset,
-	    owner,
-	    collectionid,
-	    collectionstatus,
-	    inputowner,
-	    pudataset,
-	    puowner
-	from t_dbs_dataset
-	where id = :dataset});
-
-    # Get dataset info
-    &dbbindexec ($ids, ":dataset" => $object->{ID});
-    while (my ($datatype, $dataset, $owner, $collid, $collstatus,
-	       $inputowner, $pudataset, $puowner) = $ids->fetchrow())
-    {
-	$object->{DATASET} = $dataset;
-	$object->{OWNER} = $owner;
-	$object->{COLLECTION} = $collid;
-	$object->{DSINFO}{DataTier} = $datatype;
-	$object->{DSINFO}{InputOwnerName} = $inputowner;
-	$object->{DSINFO}{PUDatasetName} = $pudataset;
-	$object->{DSINFO}{PUOwnerName} = $puowner;
-	$object->{DSINFO}{CollectionStatus} = $collstatus;
-
-	$object->{BLOCKS} = {};
-	$object->{RUNS} = {};
-	$object->{FILES} = [];
-
-	$object->{BLOCKS_BY_ID} = {};
-	$object->{RUNS_BY_ID} = {};
-    }
-
-    # Get dataset locations
-    &dbbindexec ($idl, ":dataset" => $object->{ID});
-    while (my ($loc) = $idl->fetchrow()) {
-	push (@{$object->{SITES}}, $loc);
-    }
-
-    $idl->finish ();
-    $ids->finish ();
-}
-
-# Fetch information about all the jobs of a dataset
-sub fetchRunInfo
-{
-    my ($self, $object) = @_;
-    my $dbh = &connectToDatabase ($self, 0);
-    my $stmtcache = $self->{STMTS} ||= {};
-    $dbh->{FetchHashKeyName} = "NAME_uc";
-    $dbh->{LongReadLen} = 4096;
-
-    # Prepare statements
-    my $ifile = $stmtcache->{IFILE} ||= &dbprep ($dbh, qq{
-	select
-	    guid,
-	    filesize,
-	    checksum,
-	    filename,
-	    catfragment
-	from t_dbs_file
-	where id = :fileid});
-    my $ifattr = $stmtcache->{IFATTR} ||= &dbprep ($dbh, qq{
-	select attribute, value
-	from t_dbs_file_attributes
-	where fileid = :fileid});
-    my $iblock = $stmtcache->{IBLOCK} ||= &dbprep ($dbh, qq{
-	select id, name, assignment
-	from t_dbs_block
-	where dataset = :dataset});
-    my $irun = $stmtcache->{IRUN} ||= &dbprep ($dbh, qq{
-	select id, name, events
-	from t_dbs_run
-	where dataset = :dataset});
-    my $ifmap = $stmtcache->{IFMAP} ||= &dbprep ($dbh, qq{
-	select fileid, block, run
-	from t_dbs_file_map
-	where dataset = :dataset});
-
-    # Get runs and files
-    &dbbindexec ($irun, ":dataset" => $object->{ID});
-    while (my ($id, $name, $assignment) = $iblock->fetchrow ())
-    {
-	$object->{BLOCKS_BY_ID}{$id} =
-	$object->{BLOCKS}{$name} = {
-	    ID => $id,
-	    NAME => $name,
-	    ASSIGNMENT => $assignment,
-	    FILES => []
-        };
-    }
-
-    &dbbindexec ($irun, ":dataset" => $object->{ID});
-    while (my ($id, $name, $evts) = $irun->fetchrow ())
-    {
-	$object->{RUNS_BY_ID}{$id} =
-	$object->{RUNS}{$name} = {
-	    ID => $id,
-	    NAME => $name,
-	    EVTS => $evts,
-	    FILES => []
-        };
-    }
-
-    &dbbindexec ($ifmap, ":dataset" => $object->{ID});
-    while (my ($file, $block, $run) = $ifmap->fetchrow ())
-    {
-	# FIXME: File attributes!
-	my $meta = {};
-	&dbbindexec ($ifile, ":fileid" => $file);
-	&dbbindexec ($ifattr, ":fileid" => $file);
-	my ($guid, $size, $cksum, $filename, $frag) = $ifile->fetchrow();
-	while (my ($attr, $val) = $ifattr->fetchrow())
-	{
-	    $attr =~ s/^POOL_//;
-	    $meta->{$attr} = $val;
-	}
-	my $file = {
-	    ID => $file,
-	    GUID => $guid,
-	    SIZE => $size,
-	    CHECKSUM => $cksum,
-	    LFN => $filename,
-	    XML => $frag,
-	    META => $meta,
-
-	    INBLOCK => $object->{BLOCKS_BY_ID}{$block}{NAME},
-	    INRUN => $object->{RUNS_BY_ID}{$run}{NAME}
-        };
-	push (@{$object->{FILES}}, $file);
-	push (@{$object->{BLOCKS_BY_ID}{$block}{FILES}}, $file);
-	push (@{$object->{RUNS_BY_ID}{$run}{FILES}}, $file);
-    }
-
-    $ifile->finish();
-    $ifattr->finish();
-    $ifmap->finish();
-    $irun->finish();
-    $iblock->finish();
-}
-
-# Fill dataset with information for it
-sub fillDatasetInfo
-{
-    my ($self, $object) = @_;
-    $self->fetchDatasetInfo ($object);
-    $self->fetchRunInfo ($object);
-}
-
-sub fetchKnownFiles
-{
-    my ($self) = @_;
-    my $dbh = &connectToDatabase ($self, 0);
-    $dbh->{FetchHashKeyName} = "NAME_uc";
-    $dbh->{LongReadLen} = 4096;
-
-    return &dbexec ($dbh, qq{select id, guid from t_dbs_file})
-    	   ->fetchall_arrayref ({});
-}
-
-# Update dataset information in database
-sub updateDataset
-{
-    my ($self, $object) = @_;
-    my $dbh = &connectToDatabase ($self, 0);
-    my $stmtcache = $self->{STMTS} ||= {};
-    my $runs = $object->{RUNS};
-    my $blocks = $object->{BLOCKS};
-    my $files = $object->{FILES};
-    my %sqlargs = ();
-
-    # Prepare statements
-    $stmtcache->{IFILE} ||= &dbprep ($dbh, qq{
-	insert into t_dbs_file
-	(id, guid, filesize, checksum, filename, filetype, catfragment)
-	values (?, ?, null, null, ?, ?, ?)});
-    $stmtcache->{IFATTR} ||= &dbprep ($dbh, qq{
-	insert into t_dbs_file_attributes
-	(fileid, attribute, value)
-	values (?, ?, ?)});
-
-    $stmtcache->{IDS} ||= &dbprep ($dbh, qq{
-	insert into t_dbs_dataset
-	(id, datatype, dataset, owner,
-	 collectionid, collectionstatus,
-	 inputowner, pudataset, puowner)
-	values (?, ?, ?, ?,  ?, ?,  ?, ?, ?)});
-    $stmtcache->{IBLOCK} ||= &dbprep ($dbh, qq{
-	insert into t_dbs_block
-	(id, dataset, name, assignment)
-	values (?, ?, ?, ?)});
-    $stmtcache->{IRUN} ||= &dbprep ($dbh, qq{
-	insert into t_dbs_run
-	(id, dataset, name, events)
-	values (?, ?, ?, ?)});
-    $stmtcache->{IFMAP} ||= &dbprep ($dbh, qq{
-	insert into t_dbs_file_map
-	(fileid, dataset, block, run)
-	values (?, ?, ?, ?)});
-    $stmtcache->{IDLS} ||= &dbprep ($dbh, qq{
-	insert into t_dls_index
-	(block, location)
-	values (?, ?)});
-
-    # Insert dataset information
-    &setID ($dbh, $object, "seq_dbs_dataset");
-    push(@{$sqlargs{IDS}{1}}, $object->{ID});
-    push(@{$sqlargs{IDS}{2}}, $object->{DSINFO}{DataTier});
-    push(@{$sqlargs{IDS}{3}}, $object->{DATASET});
-    push(@{$sqlargs{IDS}{4}}, $object->{OWNER});
-    push(@{$sqlargs{IDS}{5}}, $object->{COLLECTION});
-    push(@{$sqlargs{IDS}{6}}, $object->{DSINFO}{CollectionStatus});
-    push(@{$sqlargs{IDS}{7}}, $object->{DSINFO}{InputOwnerName});
-    push(@{$sqlargs{IDS}{8}}, $object->{DSINFO}{PUDatasetName});
-    push(@{$sqlargs{IDS}{9}}, $object->{DSINFO}{PUOwnerName});
-
-    foreach my $block (values %$blocks)
-    {
-        &setID ($dbh, $block, "seq_dbs_block");
-	push(@{$sqlargs{IBLOCK}{1}}, $block->{ID});
-	push(@{$sqlargs{IBLOCK}{2}}, $object->{ID});
-	push(@{$sqlargs{IBLOCK}{3}}, $block->{NAME});
-	push(@{$sqlargs{IBLOCK}{4}}, $block->{ASSIGNMENT});
-
-        foreach my $loc (keys %{$object->{SITES}})
-	{
-	    push(@{$sqlargs{IDLS}{1}}, $block->{ID});
-	    push(@{$sqlargs{IDLS}{2}}, $loc);
-	}
-    }
-
-    foreach my $run (values %$runs)
-    {
-        &setID ($dbh, $run, "seq_dbs_run");
-	push(@{$sqlargs{IRUN}{1}}, $run->{ID});
-	push(@{$sqlargs{IRUN}{2}}, $object->{ID});
-	push(@{$sqlargs{IRUN}{3}}, $run->{NAME});
-	push(@{$sqlargs{IRUN}{4}}, $run->{EVTS});
-    }
-    
-    # File information
-    foreach my $file (@$files)
-    {
-	&setID ($dbh, $file, "seq_dbs_file");
-	push(@{$sqlargs{IFILE}{1}}, $file->{ID});
-	push(@{$sqlargs{IFILE}{2}}, $file->{GUID});
-	push(@{$sqlargs{IFILE}{3}}, $file->{LFN}[0]);
-	push(@{$sqlargs{IFILE}{4}}, $file->{PFN}[0]{TYPE});
-	push(@{$sqlargs{IFILE}{5}}, $file->{TEXT});
-
-    	foreach my $m (sort keys %{$file->{META}})
-	{
-	    push(@{$sqlargs{IFATTR}{1}}, $file->{ID});
-	    push(@{$sqlargs{IFATTR}{2}}, "POOL_$m");
-	    push(@{$sqlargs{IFATTR}{3}}, $file->{META}{$m});
-	}
-
-	push(@{$sqlargs{IFMAP}{1}}, $file->{ID});
-	push(@{$sqlargs{IFMAP}{2}}, $object->{ID});
-	push(@{$sqlargs{IFMAP}{3}}, $object->{BLOCKS}{$file->{INBLOCK}}{ID});
-	push(@{$sqlargs{IFMAP}{4}}, $object->{RUNS}{$file->{INRUN}}{ID});
-    }
-
-    # Grand execute everything
-    foreach my $stmtname (qw(IFILE IFATTR IDS IBLOCK IRUN IFMAP IDLS))
-    {
-	next if ! keys %{$sqlargs{$stmtname}};
-	my $stmt = $stmtcache->{$stmtname};
-	foreach my $k (keys %{$sqlargs{$stmtname}}) {
-	    $stmt->bind_param_array ($k, $sqlargs{$stmtname}{$k});
-	}
-	$stmt->execute_array ({ ArrayTupleResult => []});
-    }
-
-    # Now commit
-    $dbh->commit();
-}
-
-sub setID 
-{
-    my ($dbh, $object, $seq) = @_;
-    ($object->{ID}) = &dbexec ($dbh, qq{select $seq.nextval from dual})
-    		      ->fetchrow()
-	if ! defined $object->{ID};
 }
 
 1;
@@ -690,7 +421,7 @@ sub fetchDatasetInfo
 	$object->{RUNS} = {};
 	$object->{APPINFO} = {};
 	$object->{SITES} = {};
-	$object->{FILES} = [];
+	$object->{FILES} = {};
 
 	$object->{BLOCKS_BY_ID} = {};
 	$object->{RUNS_BY_ID} = {};
@@ -741,7 +472,7 @@ sub fetchRunInfo
 	  on evf.evcoll = evc.id
 	join t_file f
 	  on f.id = evf.fileid
-	join t_file_status fs
+	left join t_file_status fs
 	  on fs.id = f.status
 	join t_file_type ft
 	  on ft.id = f.type
@@ -758,7 +489,7 @@ sub fetchRunInfo
 	    STATUS => $status,
 	    NFILES => $files,
 	    NBYTES => $bytes,
-	    FILES => []
+	    FILES => {}
         };
     }
 
@@ -776,7 +507,7 @@ sub fetchRunInfo
 	    VALIDATION_STATUS => $vst,
 	    IS_PRIMARY => $primary,
 	    COLLECTION_INDEX => $index,
-	    FILES => []
+	    FILES => {}
         };
     }
 
@@ -785,21 +516,22 @@ sub fetchRunInfo
 	       $checksum, $size, $status, $type) = $qfile->fetchrow ())
     {
 	# FIXME: File meta attributes?
-	my $file = {
+	my $file = $object->{BLOCKS_BY_ID}{$block}{FILES}{$guid} || {
 	    ID => $id,
 	    GUID => $guid,
 	    SIZE => $size,
 	    CHECKSUM => $checksum,
 	    LFN => [ $filename ],
 	    STATUS => $status,
-	    TYPE => $type,
-
-	    INBLOCK => $object->{BLOCKS_BY_ID}{$block}{NAME},
-	    INRUN => $object->{RUNS_BY_ID}{$evcoll}{NAME}
+	    PFN => [ { TYPE => $type } ]
         };
-	push (@{$object->{FILES}}, $file);
-	push (@{$object->{BLOCKS_BY_ID}{$block}{FILES}}, $file);
-	push (@{$object->{RUNS_BY_ID}{$evcoll}{FILES}}, $file);
+
+	$object->{FILES}{$guid} = $file;
+	$object->{BLOCKS_BY_ID}{$block}{FILES}{$guid} = $file;
+	$object->{RUNS_BY_ID}{$evcoll}{FILES}{$guid} = $file;
+
+	$file->{INBLOCK} = $block;
+	$file->{INRUNS}{$evcoll} = 1;
     }
 
     $qfile->finish();
@@ -1137,26 +869,30 @@ sub updateDataset
     foreach my $block (values %$blocks)
     {
 	my $status = $object->{DSINFO}{CollectionStatus} eq 6 ? 'Closed' : 'Open';
-	my $bytes = 0; map { $bytes += $_->{SIZE} || 0; $_ } @{$block->{FILES}};
+	my $bytes = 0; map { $bytes += $_->{SIZE} || 0; $_ } values %{$block->{FILES}};
         $self->setID ("block", $block);
         $self->prepInsert ($person, \%sqlargs, "IBLOCK",
 	    $block->{ID}, $object->{ID},
 	    $self->makeNamed ($person, "block_status", $status)->{ID},
-	    scalar @{$block->{FILES}}, $bytes);
+	    scalar values %{$block->{FILES}}, $bytes);
     }
 
-    foreach my $file (@$files)
+    foreach my $file (values %$files)
     {
 	$self->setID ("file", $file);
         $self->prepInsert ($person, \%sqlargs, "IFILE",
-	    $file->{ID}, $file->{GUID}, $file->{LFN}[0], -1, -1,
+	    $file->{ID}, $file->{GUID}, $file->{LFN}[0],
+	    $file->{CHECKSUM}, $file->{SIZE},
 	    # $self->makeNamed ($person, "file_status", $status)->{ID},
 	    $self->makeNamed ($person, "file_type", $file->{PFN}[0]{TYPE})->{ID},
 	    $object->{BLOCKS}{$file->{INBLOCK}}{ID});
 
-	my $x = $self->setID ("evcoll_file", {});
-        $self->prepInsert ($person, \%sqlargs, "IEVCOLLFILE",
-	    $x->{ID}, $object->{RUNS}{$file->{INRUN}}{ID}, $file->{ID});
+	foreach my $run (keys %{$file->{INRUNS}})
+	{
+	    my $x = $self->setID ("evcoll_file", {});
+            $self->prepInsert ($person, \%sqlargs, "IEVCOLLFILE",
+	        $x->{ID}, $object->{RUNS}{$run}{ID}, $file->{ID});
+        }
     }
 
     # Grand execute everything
