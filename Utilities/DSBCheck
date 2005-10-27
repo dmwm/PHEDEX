@@ -4,11 +4,11 @@
 ##H in the node's local file catalogue.
 ##H
 ##H Usage:
-##H   DSBCheck { -from RefDB | -from PhEDEx -db FILE[:SECTION] }
+##H   DSBCheck { -from RefDB | -from DBS -db FILE[:SECTION] }
 ##H            -pfnquery CMD[,ARG...] -node NAME [PATTERN...]
 ##H
 ##H -from RefDB   read information from RefDB
-##H -from PhEDEx  read information from PhEDEx pseudo-bookkeeping-system
+##H -from DBS     read information from DBS
 ##H -db           database connection configuration parameter file
 ##H -pfnquery     the command to query local file catalogue; see agents
 ##H -node         the node for which to check replica completeness
@@ -52,16 +52,14 @@ while (scalar @ARGV)
 $TextGlob::strict_wildcard_slash = 0;
 $args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
 if (!$args{PFN_QUERY} || !$args{NODE} || !$args{FROM}
-    || !($args{FROM} eq 'RefDB' || $args{FROM} eq 'PhEDEx')
-    || !($args{FROM} ne 'PhEDEx' || $args{DBCONFIG}))
+    || !($args{FROM} eq 'RefDB' || $args{FROM} eq 'DBS')
+    || !($args{FROM} ne 'DBS' || $args{DBCONFIG}))
 {
     die "Insufficient parameters, use -h for help.\n";
 }
 
 # Create appropriate dataset bookkeeping proxy
-my $dbs = ($args{FROM} eq 'RefDB'
-	   ? new UtilsDBS::RefDB (%args)
-	   : new UtilsDBS::PhEDEx (%args));
+my $dbs = UtilsDBS->connect ($args{FROM}, $args{DBCONFIG});
 
 # Get all existing datasets
 my $datasets = $dbs->fetchPublishedData();
@@ -76,7 +74,7 @@ foreach my $item (@$datasets)
 
     # Generate drops
     $dbs->fetchDatasetInfo ($item);
-    my @dsfiles = map { @{$_->{FILES}} } @{$item->{RUNS}};
+    my @dsfiles = map { values %{$_->{FILES}} } @{$item->{RUNS}};
     my $nfiles = scalar @dsfiles;
     my $onsite = grep ($_ eq $args{NODE}, @{$item->{SITES}}) ? $nfiles : 0;
     my @guids = map { $_->{GUID} } @dsfiles;

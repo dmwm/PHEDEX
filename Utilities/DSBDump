@@ -3,13 +3,12 @@
 ##H List dataset information from DBS database.
 ##H
 ##H Usage:
-##H   DSBDump { -from RefDB | -from { PhEDEx | DBS } -db FILE[:SECTION] }
+##H   DSBDump { -from RefDB | -from DBS -db FILE[:SECTION] }
 ##H           [-details] [-files] [-evc] [-application] [-history] [-blocks]
 ##H           [PATTERN...]
 ##H
 ##H -from DBS     read information from DBS
 ##H -from RefDB   read information from RefDB
-##H -from PhEDEx  read information from PhEDEx pseudo-bookkeeping-system
 ##H -db           database connection configuration parameter file
 ##H -evc          print out EventCollection information (more costly)
 ##H -application  print out Application information (more costly)
@@ -60,8 +59,7 @@ while (scalar @ARGV)
 $TextGlob::strict_wildcard_slash = 0;
 $args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
 if (!$args{FROM}
-    || !grep($args{FROM} eq $_, qw(RefDB PhEDEx DBS))
-    || !($args{FROM} ne 'PhEDEx' || $args{DBCONFIG})
+    || !grep($args{FROM} eq $_, qw(RefDB DBS))
     || !($args{FROM} ne 'DBS' || $args{DBCONFIG}))
 {
     die "Insufficient parameters, use -h for help.\n";
@@ -106,7 +104,7 @@ while (my $item = shift (@$datasets))
         print " Status             = $item->{DSINFO}{CollectionStatus}\n";
         print " Blocks             = @{[scalar keys %$blocks]}\n";
         print " Runs               = @{[scalar keys %$runs]}\n";
-        print " Files              = @{[scalar @$files]}\n";
+        print " Files              = @{[scalar keys %$files]}\n";
         print " Events             = $events\n";
         print " Sites              = @{[sort keys %{$item->{SITES}}]}\n";
         print " DBSPath            = /$item->{DATASET}/$item->{DSINFO}{DataTier}/$item->{OWNER} \n";
@@ -146,18 +144,18 @@ while (my $item = shift (@$datasets))
 	foreach my $run (sort { $a->{NAME} cmp $b->{NAME} } values %{$item->{RUNS}})
 	{
             print " EventCollection: EvC_Run$run->{NAME} ($run->{EVTS} events)\n";
-            foreach my $f (@{$run->{FILES}})
+            foreach my $f (sort { $a->{LFN}[0] cmp $b->{LFN}[0] } values %{$run->{FILES}})
             {
-                print "  File $f->{GUID} $f->{INBLOCK} $f->{LFN}[0]\n";
+                print "  File $f->{GUID} $f->{INBLOCK} $f->{LFN}[0] $f->{PFN}[0]{TYPE} @{[$f->{SIZE} || '!size']} @{[$f->{CHECKSUM} || '!cksum']}\n";
             }
         }
     }
 
     if ($args{FILES})
     {
-        foreach my $f (sort { $a->{LFN}[0] cmp $b->{LFN}[0] } @{$item->{FILES}})
+        foreach my $f (sort { $a->{LFN}[0] cmp $b->{LFN}[0] } values %{$item->{FILES}})
         {
-	    print " File $f->{GUID} $f->{INBLOCK} $f->{LFN}[0]\n";
+	    print " File $f->{GUID} $f->{INBLOCK} $f->{LFN}[0] $f->{PFN}[0]{TYPE} @{[$f->{SIZE} || '!size']} @{[$f->{CHECKSUM} || '!cksum']}\n";
         }
     }
 }

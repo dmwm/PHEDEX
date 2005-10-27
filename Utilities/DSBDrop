@@ -3,11 +3,11 @@
 ##H Generate drops from dataset bookkeeing system.
 ##H
 ##H Usage:
-##H   DSBDrop { -from RefDB | -from PhEDEx -db FILE[:SECTION] }
+##H   DSBDrop { -from RefDB | -from DBS -db FILE[:SECTION] }
 ##H           DIRECTORY [PATTERN...]
 ##H
 ##H -from RefDB   read information from RefDB
-##H -from PhEDEx  read information from PhEDEx pseudo-bookkeeping-system
+##H -from DBS     read information from DBS
 ##H -db           database connection configuration parameter file
 ##H DIRECTORY     create drops as subdirectories here, typically some inbox
 ##H PATTERN       block match constraint (owner/dataset), such as "*/bt03_*"
@@ -44,16 +44,14 @@ $args{TODIR} = shift (@ARGV);
 $TextGlob::strict_wildcard_slash = 0;
 $args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
 if (!$args{TODIR} || !$args{FROM}
-    || !($args{FROM} eq 'RefDB' || $args{FROM} eq 'PhEDEx')
-    || !($args{FROM} ne 'PhEDEx' || $args{DBCONFIG}))
+    || !($args{FROM} eq 'RefDB' || $args{FROM} eq 'DBS')
+    || !($args{FROM} ne 'DBS' || $args{DBCONFIG}))
 {
     die "Insufficient parameters, use -h for help.\n";
 }
 
 # Create appropriate dataset bookkeeping proxy
-my $dbs = ($args{FROM} eq 'RefDB'
-	   ? new UtilsDBS::RefDB (%args)
-	   : new UtilsDBS::PhEDEx (%args));
+my $dbs = UtilsDBS->connect ($args{FROM}, $args{DBCONFIG});
 
 # Get all existing datasets
 my $datasets = $dbs->fetchPublishedData();
@@ -70,7 +68,7 @@ foreach my $item (@$datasets)
     # Generate drops
     $dbs->fetchDatasetInfo ($item);
     my $runs = $item->{RUNS};
-    my @dsfiles = map { @{$_->{FILES}} } @$runs;
+    my @dsfiles = map { values %{$_->{FILES}} } @$runs;
     foreach my $run (@{$item->{RUNS}})
     {
 	print ".";
@@ -79,11 +77,11 @@ foreach my $item (@$datasets)
 	-d $path && &rmtree ($path);
 	&mkpath ($path);
 
-	my $frag = join("", map { $_->{XML} } @{$run->{FILES}}) . "\n";
+	my $frag = join("", map { $_->{XML} } values %{$run->{FILES}}) . "\n";
 	$frag =~ s/>(.)/>\n$1/g;
 	&outputCatalog ("$path/XMLCatFragment.$label.txt", $frag);
 
-	my $cksums = join("", map { "$_->{CHECKSUM} $_->{SIZE} $_->{LFN}\n" } @{$run->{FILES}});
+	my $cksums = join("", map { "$_->{CHECKSUM} $_->{SIZE} $_->{LFN}\n" } values %{$run->{FILES}});
 	&output ("$path/Checksum.$label.txt", $cksums);
 
 	my $locs = join(" ", map { $_ . "_MSS" } @{$item->{SITES}});

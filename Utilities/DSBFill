@@ -3,16 +3,13 @@
 ##H Fill a DBS from another one.
 ##H
 ##H Usage:
-##H   DSBFill { -from RefDB | -from { PhEDEx | DBS } -fromdb FILE[:SECTION] }
-##H           -to { PhEDEx | DBS } -todb FILE[:SECTION]
-##H           [PATTERN...]
+##H   DSBFill { -from RefDB | -from DBS -fromdb FILE[:SECTION] }
+##H           -to DBS -todb FILE[:SECTION] [PATTERN...]
 ##H
 ##H -from DBS     read information from DBS
 ##H -from RefDB   read information from RefDB
-##H -from PhEDEx  read information from PhEDEx pseudo-bookkeeping-system
 ##H -fromdb       database connection configuration parameter file for source
-##H -to  DBS      store into DBS
-##H -to  PhEDEx   store into PhEDEx pseudo-bookkeeping-system
+##H -to DBS       store into DBS
 ##H -todb         database connection configuration parameter file for destination
 ##H PATTERN       block match constraint (owner/dataset), such as "*/bt03_*"
 
@@ -50,8 +47,7 @@ while (scalar @ARGV)
 $TextGlob::strict_wildcard_slash = 0;
 $args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
 if (!$args{FROM} || !$args{TO} || !$args{TO_DBCONFIG}
-    || !grep($args{FROM} eq $_, qw(RefDB PhEDEx DBS))
-    || !($args{FROM} ne 'PhEDEx' || $args{DBCONFIG})
+    || !grep($args{FROM} eq $_, qw(RefDB DBS))
     || !($args{FROM} ne 'DBS' || $args{DBCONFIG}))
 {
     die "Insufficient parameters, use -h for help.\n";
@@ -99,7 +95,7 @@ foreach my $pass (qw(Hit Digi DST DSTL25))
         do { chomp ($@); warn ("$@\n"); next } if $@;
 
         # Match files against known files
-        foreach my $file (@{$item->{FILES}})
+        foreach my $file (values %{$item->{FILES}})
         {
     	    if (my $oldfile = $guid2file{$file->{GUID}})
 	    {
@@ -123,7 +119,7 @@ foreach my $pass (qw(Hit Digi DST DSTL25))
         print " Status             = $item->{DSINFO}{CollectionStatus}\n";
         print " Blocks             = @{[scalar keys %$blocks]}\n";
         print " Runs               = @{[scalar keys %$runs]}\n";
-        print " Files              = @{[scalar @$files]}\n";
+        print " Files              = @{[scalar keys %$files]}\n";
         print " Events             = $events\n";
         print " Sites              = @{[sort keys %{$item->{SITES}}]}\n";
         print " DBSPath            = /$item->{DATASET}/$item->{DSINFO}{DataTier}/$item->{OWNER} \n";
@@ -151,7 +147,7 @@ foreach my $pass (qw(Hit Digi DST DSTL25))
 
         # Clear out the item so we don't accumulate lots of memory
         $item->{PARENTS} = [];
-        $item->{FILES} = [];
+        $item->{FILES} = {};
         $item->{BLOCKS} = {};
         $item->{RUNS} = {};
         $item->{APPINFO} = {};

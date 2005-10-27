@@ -3,10 +3,10 @@
 ##H Generate SQL for dataset blocks from DSB data.
 ##H
 ##H Usage:
-##H   DSBBlocks { -from RefDB | -from PhEDEx -db FILE[:SECTION] } [PATTERN...]
+##H   DSBBlocks { -from RefDB | -from DBS -db FILE[:SECTION] } [PATTERN...]
 ##H
 ##H -from RefDB   read information from RefDB
-##H -from PhEDEx  read information from PhEDEx pseudo-bookkeeping-system
+##H -from DBS     read information from DBS
 ##H -db           database connection configuration parameter file
 ##H PATTERN       block match constraint (owner/dataset), such as "*/bt03_*"
 
@@ -39,16 +39,14 @@ while (scalar @ARGV)
 $TextGlob::strict_wildcard_slash = 0;
 $args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
 if (!$args{FROM}
-    || !($args{FROM} eq 'RefDB' || $args{FROM} eq 'PhEDEx')
-    || !($args{FROM} ne 'PhEDEx' || $args{DBCONFIG}))
+    || !($args{FROM} eq 'RefDB' || $args{FROM} eq 'DBS')
+    || !($args{FROM} ne 'DBS' || $args{DBCONFIG}))
 {
     die "Insufficient parameters, use -h for help.\n";
 }
 
 # Create appropriate dataset bookkeeping proxy
-my $dbs = ($args{FROM} eq 'RefDB'
-	   ? new UtilsDBS::RefDB (%args)
-	   : new UtilsDBS::PhEDEx (%args));
+my $dbs = UtilsDBS->connect ($args{FROM}, $args{DBCONFIG});
 
 # Get all existing datasets
 my $datasets = $dbs->fetchPublishedData();
@@ -63,7 +61,7 @@ foreach my $item (@$datasets)
     # Get file information
     $dbs->fetchDatasetInfo ($item);
     my $runs = $item->{RUNS};
-    my @dsfiles = map { @{$_->{FILES}} } @$runs;
+    my @dsfiles = map { values %{$_->{FILES}} } @$runs;
     my $events = 0; map { $events += $_->{EVTS} } @$runs;
 
     print "insert into t_block (name, owner, dataset, files, bytes)",

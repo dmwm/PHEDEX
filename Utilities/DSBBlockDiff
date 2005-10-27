@@ -6,7 +6,7 @@
 ##H   DSBCheck -db FILE[:SECTION] [PATTERN...]
 ##H
 ##H -from RefDB   read information from RefDB
-##H -from PhEDEx  read information from PhEDEx pseudo-bookkeeping-system
+##H -from DBS     read information from DBS
 ##H -db           database connection configuration parameter file
 ##H PATTERN       block match constraint (owner/dataset), such as "*/bt03_*"
 ##H
@@ -62,7 +62,7 @@ foreach my $item (@$datasets)
     # Fetch file information from RefDB
     eval { $dbs->fillDatasetInfo ($item); $dbs->fillDatasetInfo ($item); };
     do { chomp ($@); warn ("$@\n"); next } if $@;
-    my %dbsfiles = map { $_->{GUID} => 1 } @{$item->{FILES}};
+    my %dbsfiles = map { $_->{GUID} => 1 } values %{$item->{FILES}};
 
     # Fetch file information from PhEDEx
     my %tmdbfiles = ();
@@ -104,7 +104,7 @@ foreach my $item (@$datasets)
 	  "\n";
 
     # Clear out the item so we don't accumulate lots of memory
-    $item->{FILES} = [];
+    $item->{FILES} = {};
     $item->{BLOCKS} = {};
     $item->{RUNS} = {};
 }
