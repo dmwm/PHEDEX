@@ -135,7 +135,7 @@ sub fetchRunInfo
 	{
 	    $zip = undef;
 	}
-	elsif ($row =~ /^ [ES]OLFN$/)
+	elsif ($row =~ /^\s+[ES]OLFN$/)
 	{
 	}
 	elsif ($row =~ /^[a-z]/)
