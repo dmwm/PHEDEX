@@ -92,16 +92,6 @@ foreach my $pass (qw(Hit Digi DST DSTL25))
         eval { $source->fillDatasetInfo ($item); };
         do { chomp ($@); warn ("$@\n"); next } if $@;
 
-        # Match files against known files
-        foreach my $file (values %{$item->{FILES}})
-        {
-    	    if (my $oldfile = $guid2file{$file->{GUID}})
-	    {
-		$file->{ID} = $oldfile->{ID};
-		$oldfile->{KNOWN} = 1;
-	    }
-        }
-
         my $blocks = $item->{BLOCKS};
         my $runs = $item->{RUNS};
         my $files = $item->{FILES};
