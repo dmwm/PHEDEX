@@ -123,24 +123,42 @@ sub fetchRunInfo
     # Now fetch zips, their files, and file size and checksum for zips and
     # files from the ZipDB.
     my (%zips, %file2zip) = ();
-    my $zipdb = "http://cmsdoc.cern.ch/cms/production/www/ZipDB";
-    my $data = &getURL ("$zipdb/CollectionInfo.php?cid=$object->{COLLECTION}&zip=1");
+    my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/ZipDB/"
+	    		."CollectionInfo.php?cid=$object->{COLLECTION}"
+			. "&zip=1&lfns=1");
+    my $zip = undef;
     die "no zipdb file data for $context\n" if ! $data;
     die "bad zipdb file data for $context\n" if $data =~ /SELECT.*ERROR/si;
     foreach my $row (split(/\n/, $data))
     {
-	next if $row =~ /^([ES]OF$|Collection=)/;
-	my $zip = { map { /([^=]+)=(\S+)/ } split (/\s+/, $row) };
-	my @req = grep (! exists $zip->{$_}, qw(guid lfn size cksum));
-	die "missing @req for zip in $context ($row)\n" if @req;
-	$zips{$zip->{'guid'}} = $zip;
-
-	foreach $row (split(/\n/, &getURL ("$zipdb/ZipInfo.php?guid=$zip->{guid}")))
+	if ($row =~ /^[ES]OF$/)
 	{
-	    next if $row =~ /^[ES]OF$/;
+	    $zip = undef;
+	}
+	elsif ($row =~ /^ [ES]OLFN$/)
+	{
+	}
+	elsif ($row =~ /^[a-z]/)
+	{
+	    $zip = { map { /([^=]+)=(\S+)/ } split (/\s+/, $row) };
+	    my @req = grep (! exists $zip->{$_}, qw(guid lfn size cksum));
+	    die "missing @req for zip in $context ($row)\n" if @req;
+	    $zips{$zip->{'guid'}} = $zip;
+	    $zip->{FILE} = {
+	        GUID => $zip->{'guid'},
+	        SIZE => $zip->{'size'},
+	        CHECKSUM => $zip->{'cksum'},
+	        LFN => [ $zip->{'lfn'} ],
+	        PFN => [ { TYPE => "EVDZip" } ],
+	        INBLOCK => $context
+            };
+	}
+	elsif ($row =~ /^ [a-z]/)
+	{
+	    $row =~ s/^\s+//;
 	    my $file = { map { /([^=]+)=(\S+)/ } split (/\s+/, $row) };
 	    next if $file->{'isZip'};
-	    @req = grep (! exists $file->{$_}, qw(guid lfn size cksum));
+	    my @req = grep (! exists $file->{$_}, qw(guid lfn size cksum));
 	    die "missing @req for file in zip $zip->{guid} in $context ($row)\n" if @req;
 	    $zip->{'files'}{$file->{'guid'}} = $file;
 	    $file2zip{$file->{'guid'}} = $zip;
@@ -150,18 +168,6 @@ sub fetchRunInfo
     # Now update file size data in $object, and map zips back to runs based
     # on which files are mapped to which runs: a zip always contains a full
     # run.  Note that a single zip will be referenced by more than one run.
-    foreach my $zip (values %zips)
-    {
-	$zip->{FILE} = {
-	    GUID => $zip->{'guid'},
-	    SIZE => $zip->{'size'},
-	    CHECKSUM => $zip->{'cksum'},
-	    LFN => [ $zip->{'lfn'} ],
-	    PFN => [ { TYPE => "EVDZip" } ],
-	    INBLOCK => $context
-        };
-    }
-
     foreach my $file (values %{$object->{FILES}})
     {
 	my $zip = $file2zip{$file->{GUID}};
