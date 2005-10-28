@@ -122,30 +122,28 @@ sub fetchRunInfo
 
     # Now fetch zips, their files, and file size and checksum for zips and
     # files from the ZipDB.
-    my %zips = ();
-    my %filezip = ();
-    my $baseurl = "http://cmsdoc.cern.ch/cms/production/www/ZipDB";
-    my $data = &getURL ("$baseurl/CollectionInfo.php?cid=$object->{COLLECTION}&zip=1");
+    my (%zips, %file2zip) = ();
+    my $zipdb = "http://cmsdoc.cern.ch/cms/production/www/ZipDB";
+    my $data = &getURL ("$zipdb/CollectionInfo.php?cid=$object->{COLLECTION}&zip=1");
     die "no zipdb file data for $context\n" if ! $data;
     die "bad zipdb file data for $context\n" if $data =~ /SELECT.*ERROR/si;
     foreach my $row (split(/\n/, $data))
     {
 	next if $row =~ /^([ES]OF$|Collection=)/;
 	my $zip = { map { /([^=]+)=(\S+)/ } split (/\s+/, $row) };
-	die "missing data for zip in $context\n"
-	    if ! $zip->{'guid'} || ! $zip->{'lfn'} || ! $zip->{'size'} || ! $zip->{'cksum'};
+	my @req = grep (! exists $zip->{$_}, qw(guid lfn size cksum));
+	die "missing @req for zip in $context ($row)\n" if @req;
 	$zips{$zip->{'guid'}} = $zip;
 
-        my $zipdata = &getURL ("$baseurl/ZipInfo.php?guid=$zip->{guid}");
-	foreach my $ziprow (split(/\n/, $zipdata))
+	foreach $row (split(/\n/, &getURL ("$zipdb/ZipInfo.php?guid=$zip->{guid}")))
 	{
-	    next if $ziprow =~ /^[ES]OF$/;
-	    my $file = { map { /([^=]+)=(\S+)/ } split (/\s+/, $ziprow) };
+	    next if $row =~ /^[ES]OF$/;
+	    my $file = { map { /([^=]+)=(\S+)/ } split (/\s+/, $row) };
 	    next if $file->{'isZip'};
-	    die "missing data for file in zip $zip->{guid} in $context\n"
-	        if ! $file->{'guid'} || ! $file->{'lfn'} || ! $file->{'size'} || ! $file->{'cksum'};
+	    @req = grep (! exists $file->{$_}, qw(guid lfn size cksum));
+	    die "missing @req for file in zip $zip->{guid} in $context ($row)\n" if @req;
 	    $zip->{'files'}{$file->{'guid'}} = $file;
-	    $filezip{$file->{'guid'}} = $zip;
+	    $file2zip{$file->{'guid'}} = $zip;
 	}
     }
 
@@ -166,7 +164,7 @@ sub fetchRunInfo
 
     foreach my $file (values %{$object->{FILES}})
     {
-	my $zip = $filezip{$file->{GUID}};
+	my $zip = $file2zip{$file->{GUID}};
 	next if ! $zip;
 
 	$file->{SIZE} = $zip->{'files'}{$file->{GUID}}{'size'};
