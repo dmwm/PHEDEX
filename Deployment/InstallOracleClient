@@ -42,7 +42,7 @@ zipdir="$1" destdir="$2" schemadir="$3"
 [ -d "$zipdir" ] || { echo "$zipdir: not a directory" 1>&2; exit 1; }
 [ -d "$destdir" ] || mkdir -p "$destdir" ||
   { echo "$destdir: not a directory and could not create" 1>&2; exit 1; }
-[ -z "$schemadir" ] && schemadir="$(dirname $0)/../Schema"
+[ -z "$schemadir" ] && schemadir="$(cd $(dirname $0)/../Schema; pwd)"
 [ -f "$schemadir/tnsnames.ora" ] ||
   { echo "$schemadir/tnsnames.ora: no such file" 1>&2; exit 1; }
 
@@ -50,9 +50,9 @@ zipdir="$1" destdir="$2" schemadir="$3"
 basiczip= sqlzip= sdkzip=
 for f in $zipdir/instantclient-*.zip; do
   case $f in
-    */instantclient-basic-*-10.1.*.zip ) basiczip="$f" ;;
-    */instantclient-sqlplus-*-10.1.*.zip ) sqlzip="$f" ;;
-    */instantclient-sdk-*-10.1.*.zip ) sdkzip="$f" ;;
+    */instantclient-basic-*-10.[12].*.zip ) basiczip="$f" ;;
+    */instantclient-sqlplus-*-10.[12].*.zip ) sqlzip="$f" ;;
+    */instantclient-sdk-*-10.[12].*.zip ) sdkzip="$f" ;;
   esac
 done
 
@@ -75,23 +75,25 @@ unzip -d "$tmpdir" $basiczip || exit $?
 unzip -d "$tmpdir" $sqlzip || exit $?
 unzip -d "$tmpdir" $sdkzip || exit $?
 
-[ -d "$tmpdir/instantclient10_1" ] ||
-  { echo "$tmpdir: expanding zips did not create 'instantclient10_1' subdirectory" 1>&2; exit 5; }
+clientdir="$(cd $tmpdir && ls -d instantclient* 2>/dev/null | head -1)"
+[ -z "$clientdir" -o ! -d "$tmpdir/$clientdir" ] &&
+  { echo "$tmpdir: expanding zips did not create 'instantclient*' subdirectory" 1>&2; exit 5; }
 
-(cd "$tmpdir/instantclient10_1"; ln -s libclntsh.* $(echo libclntsh.* | sed 's/[0-9.]*$//'))
+(cd "$tmpdir/$clientdir"; ln -s libclntsh.* $(echo libclntsh.* | sed 's/[0-9.]*$//'))
 mkdir -p "$destdir/bin" \
          "$destdir/lib" \
 	 "$destdir/admin" \
 	 "$destdir/java" \
 	 "$destdir/demo" \
 	 "$destdir/include" || exit $?
-mv "$tmpdir/instantclient10_1"/lib* "$destdir/lib" || exit $?
-mv "$tmpdir/instantclient10_1"/sqlplus "$destdir/bin" || exit $?
-mv "$tmpdir/instantclient10_1"/glogin.sql "$destdir/bin" || exit $?
-mv "$tmpdir/instantclient10_1"/*.jar "$destdir/java" || exit $?
-mv "$tmpdir/instantclient10_1"/sdk/demo/* "$destdir/demo" || exit $?
-mv "$tmpdir/instantclient10_1"/sdk/include/* "$destdir/include" || exit $?
-cp "$schemadir/tnsnames.ora" "$destdir/admin" || exit $?
+mv "$tmpdir/$clientdir"/lib* "$destdir/lib" || exit $?
+mv "$tmpdir/$clientdir"/sqlplus "$destdir/bin" || exit $?
+mv "$tmpdir/$clientdir"/glogin.sql "$destdir/bin" || exit $?
+mv "$tmpdir/$clientdir"/*.jar "$destdir/java" || exit $?
+mv "$tmpdir/$clientdir"/sdk/demo/* "$destdir/demo" || exit $?
+mv "$tmpdir/$clientdir"/sdk/include/* "$destdir/include" || exit $?
+rm -f "$destdir/admin/tnsnames.ora" || exit $?
+ln -s "$schemadir/tnsnames.ora" "$destdir/admin" || exit $?
 
 case $(uname) in
   Darwin ) rpath=DYLD_LIBRARY_PATH ;;
