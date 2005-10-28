@@ -131,7 +131,7 @@ sub fetchRunInfo
     die "bad zipdb file data for $context\n" if $data =~ /SELECT.*ERROR/si;
     foreach my $row (split(/\n/, $data))
     {
-	if ($row =~ /^[ES]OF$/)
+	if ($row =~ /^[ES]OF$/ || $row =~ /^Collection=/)
 	{
 	    $zip = undef;
 	}
@@ -153,7 +153,7 @@ sub fetchRunInfo
 	        INBLOCK => $context
             };
 	}
-	elsif ($row =~ /^ [a-z]/)
+	elsif ($row =~ /^\s+[a-z]/)
 	{
 	    $row =~ s/^\s+//;
 	    my $file = { map { /([^=]+)=(\S+)/ } split (/\s+/, $row) };
@@ -163,6 +163,10 @@ sub fetchRunInfo
 	    $zip->{'files'}{$file->{'guid'}} = $file;
 	    $file2zip{$file->{'guid'}} = $zip;
 	}
+	else
+	{
+	    die "unrecognised zip line for $context ($row)\n";
+        }
     }
 
     # Now update file size data in $object, and map zips back to runs based
