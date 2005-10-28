@@ -59,9 +59,7 @@ my $dest        = UtilsDBS->connect ($args{TO}, $args{TO_DBCONFIG});
 
 # Get all existing datasets
 my $datasets    = $dest->fetchPublishedData();
-my $files       = $dest->fetchKnownFiles();
 my %dso2dataset = map { join("/", $_->{OWNER}, $_->{DATASET}) => $_ } @$datasets;
-my %guid2file   = map { $_->{GUID} => $_ } @$files;
 
 # Get all current datasets
 my $current     = $source->fetchPublishedData();
@@ -156,28 +154,5 @@ foreach my $pass (qw(Hit Digi DST DSTL25))
 
 $source->disconnect();
 $dest->disconnect();
-
-exit 0;
-
-# Delete unknown datasets
-foreach my $item (@$datasets)
-{
-    last;
-
-    # Skip if this is still known
-    next if $item->{KNOWN};
-    $dest->clearDatasetFromDB ($item);
-    # FIXME: Delete transfer requests?
-}
-
-# Delete unknown files
-foreach my $item (@$files)
-{
-    last;
-
-    # Skip if this is still known
-    next if $item->{KNOWN};
-    $dest->clearFileFromDB ($item);
-}
 
 exit 0;
