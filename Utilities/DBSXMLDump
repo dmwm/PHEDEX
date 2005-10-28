@@ -3,13 +3,12 @@
 ##H Dump in XML dataset information from DBS database.
 ##H
 ##H Usage:
-##H   DBSXMLDump { -from RefDB | -from { PhEDEx | DBS } -db FILE[:SECTION] }
+##H   DBSXMLDump { -from RefDB | -from DBS -db FILE[:SECTION] }
 ##H           [-datatier] [-getDatasetProvenance] [-getDatasetContents]
 ##H           [PATTERN...]
 ##H
 ##H -from DBS     read information from DBS
 ##H -from RefDB   read information from RefDB
-##H -from PhEDEx  read information from PhEDEx pseudo-bookkeeping-system
 ##H -db           database connection configuration parameter file
 ##H -to           output XML file name
 ##H -datatier     get the required data-tiers as a comma-separated list 
@@ -26,7 +25,7 @@ use UtilsDBS;
 use TextGlob 'glob_to_regex';
 use XML::Simple;
 
-my %args = (DETAILS => 0, FILES => 0);
+my %args = (DETAILS => 0, FILES => 0, OUTFILE => "-");
 while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-h') {
@@ -55,24 +54,15 @@ while (scalar @ARGV)
 $TextGlob::strict_wildcard_slash = 0;
 $args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
 if (!$args{FROM}
-    || !grep($args{FROM} eq $_, qw(RefDB PhEDEx DBS))
-    || !($args{FROM} ne 'PhEDEx' || $args{DBCONFIG})
-    || !($args{FROM} ne 'DBS' || $args{DBCONFIG})
-    || !($args{OUTFILE})
-    || ($args{DATASETPROVENANCE} && !$args{DATATIER})
-    )
+    || !grep($args{FROM} eq $_, qw(RefDB DBS))
+    || !($args{FROM} ne 'DBS' || $args{DBCONFIG}))
 {
     die "Insufficient parameters, use -h for help.\n";
 }
-# define the output xml file
- $xmlfile=$args{OUTFILE};
- if ( -f $xmlfile ) {
-  system( "rm $xmlfile" );
- }
-
 
 # Create appropriate dataset bookkeeping proxy
 my $dbs = UtilsDBS->connect ($args{FROM}, $args{DBCONFIG});
+my $result = {};
 
 # Get all existing datasets
 my $datasets = $dbs->fetchPublishedData();
@@ -84,76 +74,64 @@ while (my $item = shift (@$datasets))
 {
     my $token = "$item->{OWNER}/$item->{DATASET}";
     next if (@ARGV && !grep($token =~ $_, @{$args{PATS}}));
-    print "processing $token\n";
-    if ( ($args{DATASETPROVENANCE} ) || $args{DATASETCONTENTS} )
+
+    # Get the full data
+    eval { $dbs->fillDatasetInfo ($item); };
+    do { chomp ($@); warn ("$@\n"); next } if $@;
+
+    # Initialise result
+    my $dbspath = "$item->{DATASET}/$item->{DSINFO}{DataTier}/$item->{OWNER}";
+    my $object = $result->{'processed-dataset'}{$dbspath} = { 'path' => $dbspath };
+
+    # Handle requested information
+    if ($args{DATASETPROVENANCE})
     {
-        # Get the full data
-        eval { $dbs->fillDatasetInfo ($item); };
-        do { chomp ($@); warn ("$@\n"); next } if $@;
-    }
-
-
-# getDatasetProvenance
-
-   if ($args{DATASETPROVENANCE})
-   {
-    # Build data structure of parents 
-
-        for ($i = 0; $i < scalar @{$item->{PARENTS}}; ++$i)
+        # Build data structure of parents 
+        foreach my $parent (@{$item->{PARENTS}})
         {
-            # dump only the required data-tier
-            my $parent = $item->{PARENTS}[$i];
-            if ( grep ($_ eq $parent->{DSINFO}{DataTier}, @{$args{DATATIER}} ) ) {
-               $dbspath = "/$parent->{DATASET}/$parent->{DSINFO}{DataTier}/$parent->{OWNER}";
-               $object->{PARENT}{$dbspath}={
-                PATH => $dbspath,
-                DATATIER =>$parent->{DSINFO}{DataTier}
-               };
-            }
-
-         }
-
-   }
-
-
-# getDatasetContents
-
-   if ($args{DATASETCONTENTS})
-   {
-    # Build data structure of event collection grouped by fileblock
-
-    foreach my $block (keys %{$item->{BLOCKS}})
-    {
-      $id=$item->{BLOCKS}->{$block}->{ID};
-      $blockname=$item->{BLOCKS}->{$block}->{NAME};
-      $object->{FILEBLOCKS}{$blockname}={
-        ID => $id,
-        BLOCKNAME => $blockname,
-        EVCOLL => {}
-      };
-      foreach my $run (sort { $a->{NAME} cmp $b->{NAME} } values %{$item->{RUNS}}){
-        $collname="EvC_Run$run->{NAME}";
-        $object->{FILEBLOCKS}{$blockname}{EVCOLL}{$collname}={
-          EVCNAME => $collname,
-          EVCEVTS => $run->{EVTS}
-        };
-      }
-
+	    next if ($args{DATATIER}
+		     && ! grep ($_ eq $parent->{DSINFO}{DataTier}, @{$args{DATATIER}}));
+            my $ppath = "/$parent->{DATASET}/$parent->{DSINFO}{DataTier}/$parent->{OWNER}";
+	    $object->{'parent'}{$ppath} = {
+                'path' => $ppath,
+                'tier' => $parent->{DSINFO}{DataTier},
+	        'type' => $parent->{TYPE}
+            };
+        }
     }
 
-   }
+    if ($args{DATASETCONTENTS})
+    {
+        # Build data structure of event collection grouped by fileblock
+        foreach my $block (values %{$item->{BLOCKS}})
+        {
+            my $blockres = $object->{'block'}{$block->{NAME}} = {
+                'id' => $block->{ID},
+                'name' => $block->{NAME},
+                'event-collection' => {}
+            };
 
+            foreach my $run (sort { $a->{NAME} cmp $b->{NAME} } values %{$item->{RUNS}})
+	    {
+                $collname  ="EvC_Run$run->{NAME}";
+                $blockres->{'event-collection'}{$collname} = {
+                  'name' => $collname,
+                  'events' => $run->{EVTS}
+                };
+            }
+        }
+    }
 }
 
 # Dump data structure into xml
-
-my $outputxml = XMLout($object, XMLDecl => 1);
-print "writing the output data structure in  $xmlfile \n";
-open (XML, ">> $xmlfile") or die "cannot open $xmlfile : $!\n";
+my $outputxml = XMLout($result, XMLDecl => 1, RootName => "dbs",
+    KeyAttr => { 'processed-dataset' => 'path',
+	         'block' => 'name',
+		 'event-collection' => 'name',
+		 'parent' => 'path' });
+open (XML, "> $args{OUTFILE}") or die "cannot open $args{OUTFILE}: $!\n";
 print XML $outputxml;
 close (XML);
 
-
 $dbs->disconnect();
-
 exit 0;
