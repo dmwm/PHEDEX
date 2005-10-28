@@ -455,9 +455,11 @@ sub nextFiles
     {
         eval
         {
+	    my $random = $self->{RANDOMIZE_SQL} ||= int(rand(100000))+1;
 	    my $attrq = &dbprep ($dbh, qq{
 		    select a.attribute, a.value from t_file_attributes a
-		    where a.guid = :guid and a.attribute like 'POOL%' and 1=1});
+		    where a.guid = :guid and a.attribute like 'POOL%'
+		    and $random = $random});
 	    my $stmt = &dbexec ($dbh, qq{
 		    select ts.guid,
 			   f.lfn,
