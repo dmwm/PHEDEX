@@ -1,13 +1,22 @@
-### AGENT LABEL=router-b PROGRAM=Toolkit/Infrastructure/NodeRouter
-    -state ${PHEDEX_STATE}/router-b
-    -infinity 20
-    -nodes Tim-B
-    -db '/home/csf/phtab/PhEDExDev/DBParam:RAC'        
-    -wait 10
+### ENVIRON Test
+export PHEDEX_BASE=/home/csf/phtab/PhEDEx/DevNodes;
+export PHEDEX_SCRIPTS=$PHEDEX_BASE/PHEDEX;
+export PHEDEX_LOGS=$PHEDEX_BASE/PHEDEX/Testbed/Routing/logs;
+export PHEDEX_STATE=$PHEDEX_BASE/PHEDEX/Testbed/Routing/incoming;
+export PHEDEX_DL_HISTORY=$PHEDEX_BASE/PHEDEX/Testbed/Routing/history;
+export PHEDEX_CUSTOM=$PHEDEX_SCRIPTS/Custom/RAL;
+export PHEDEX_TMDB="$PHEDEX_BASE/../DBParam:Dev";
 
-### AGENT LABEL=router-a PROGRAM=Toolkit/Infrastructure/NodeRouter
+### AGENT LABEL=router-b PROGRAM=Toolkit/Infrastructure/NodeRouter ENVIRON=Test
+    -state ${PHEDEX_STATE}/router-b
+    -node Tim-B
+    -nodes Tim-B
+    -db ${PHEDEX_TMDB}
+    -wait 2
+
+### AGENT LABEL=router-a PROGRAM=Toolkit/Infrastructure/NodeRouter ENVIRON=Test
     -state ${PHEDEX_STATE}/router-a
-    -infinity 20
+    -node Tim-A
     -nodes Tim-A
-    -db '/home/csf/phtab/PhEDExDev/DBParam:RAC'
-    -wait 10
+    -db ${PHEDEX_TMDB}
+    -wait 3

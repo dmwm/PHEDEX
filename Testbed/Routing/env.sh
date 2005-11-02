@@ -1,24 +1,17 @@
-# Set directories
-PHEDEX_BASE=/home/csf/phtab/PhEDExDev/
-PHEDEX_SCRIPTS=$PHEDEX_BASE/PHEDEX
-PHEDEX_TEST_BASE=$PHEDEX_SCRIPTS/Testbed
-PHEDEX_LOGS=$PHEDEX_TEST_BASE/Routing/logs;
-PHEDEX_STATE=$PHEDEX_TEST_BASE/Routing/incoming;
-PHEDEX_DL_HISTORY=$PHEDEX_TEST_BASE/Routing/history;
+### ENVIRON common
 
-# Local catalogue contact
-PHEDEX_CATALOGUE='mysqlcatalog_mysql://boss_manager:boss$db@sql.gridpp.rl.ac.uk/cms_pool_filecatalog';
+PHEDEX_CATALOGUE='mysqlcatalog_mysql://cms_manager:boss$db@sql.gridpp.rl.ac.uk/cms_pool_filecatalog';
+PHEDEX_SC3_CATALOGUE='mysqlcatalog_mysql://cms_manager:boss$db@sql.gridpp.rl.ac.uk/cms_pool_sc3';
 
-# Get tools
-PATH=/afs/cern.ch/sw/lcg/app/spi/scram/:${PATH};
-PROD04_BASE=/rutherford/cms-soft1/prod04;
-. /home/csf/cms/prod04/dar_install_dir/ORCA_8_7_1_SLC3/ORCA_8_7_1_SLC3_env.sh;
+. /rutherford/cms-soft1/PhEDEx/tools/poolenv.sh;
+. /rutherford/cms-soft1/PhEDEx/tools-ora10.1.0.4/oraenv.sh;
+. /rutherford/cms-soft1/PhEDEx/perl-modules-ora10.1.0.4/perlenv.sh;
 
-# Finally set RAL specific environment
-export PERL5LIB=${PHEDEX_BASE}/perl-modules/lib/5.8.0:${PHEDEX_BASE}/perl-modules/lib/5.8.0/i386-linux-thread-multi:${PHEDEX_BASE}/perl-modules/lib/perl5/site_perl/5.8.0/i386-linux-thread-multi::${PHEDEX_BASE}/perl-modules/lib/perl5/site_perl/5.8.0:${PHEDEX_BASE}/perl-modules/lib/perl5/5.8.0/i386-linux-thread-multi;
-export ORACLE_HOME=/rutherford/cms-soft1/oracle/app/slc3;
-export TNS_ADMIN=${PHEDEX_SCRIPTS}/Schema/;
+export PATH=/rutherford/cms-soft1/PhEDEx/tools/lcg/external/python/2.3.4/slc3_ia32_gcc323/bin/:$PATH;
 export SRM_PATH=/opt/d-cache/srm/;
 export PATH=${SRM_PATH}/bin:${PATH};
+export X509_USER_CERT=/phedex-grid-security/hostcert.pem; 
+export X509_USER_KEY=/phedex-grid-security/hostkey.pem;
+export X509_USER_PROXY=/home/csf/phtab/PhEDEx/gridcert/proxy;
 export LD_PRELOAD="/opt/d-cache/dcap/lib/libpdcap.so";
-export DCACHE_IO_TUNNEL="/opt/d-cache/dcap/lib/libgsiTunnel.so";
+#export DCACHE_IO_TUNNEL="/opt/d-cache/dcap/lib/libgsiTunnel.so";
