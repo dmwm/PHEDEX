@@ -72,7 +72,9 @@ foreach my $request (@ARGV)
   		":dest" => $dest, ":o" => $o, ":ds" => $ds)
 		->fetchrow();
 	    &dbexec ($dbh, qq{
-		insert into t_subscription values (:o, :ds, :dest)},
+		insert into t_subscription
+		(owner, dataset, destination)
+		values (:o, :ds, :dest)},
 	    	":dest" => $dest, ":o" => $o, ":ds" => $ds)
 		if ! $exists;
 	}
