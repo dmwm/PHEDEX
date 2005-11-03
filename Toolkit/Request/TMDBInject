@@ -206,7 +206,9 @@ my $bistmt = &dbprep ($dbh, qq{
     insert into t_block (timestamp, name, owner, dataset, files, bytes, isopen)
     values (?, ?, ?, ?, 0, 0, 1)});
 my $bustmt = &dbprep ($dbh, qq{
-    update t_block set files = files + ?, bytes = bytes + ? where name = ?});
+    update t_block
+    set files = files + :files, bytes = bytes + :bytes
+    where name = :block});
 
 foreach my $f (@$catalogue)
 {
@@ -289,14 +291,7 @@ foreach my $f (@$catalogue)
     }
 }
 
-foreach my $block (keys %blockupd)
-{
-    push (@{$sqlargs{$bustmt}{1}}, $block);
-    push (@{$sqlargs{$bustmt}{2}}, $blockupd{$block}{FILES});
-    push (@{$sqlargs{$bustmt}{3}}, $blockupd{$block}{BYTES});
-}
-
-foreach my $stmt ('B', $bistmt, 'U', $bustmt, 'F', $fstmt, 'A', $mstmt, 'R', $rstmt)
+foreach my $stmt ('B', $bistmt, 'F', $fstmt, 'A', $mstmt, 'R', $rstmt)
 {
     if (! ref $stmt)
     {
@@ -310,6 +305,14 @@ foreach my $stmt ('B', $bistmt, 'U', $bustmt, 'F', $fstmt, 'A', $mstmt, 'R', $rs
         $stmt->bind_param_array ($k, $sqlargs{$stmt}{$k});
     }
     $stmt->execute_array ({ ArrayTupleResult => []});
+}
+
+foreach my $block (keys %blockupd)
+{
+    &dbbindexec ($bustmt,
+	         ":block" => $block,
+	         ":files" => $blockupd{$block}{FILES},
+		 ":bytes" => $blockupd{$block}{BYTES});
 }
 
 $dbh->commit();
