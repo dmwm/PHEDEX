@@ -89,8 +89,8 @@ database instance.  The following instructions will register the
 role for all three databases.
 
    cd ~/private/roles/V2
-   source /data/V2Nodes/tools/oraenv.sh
-   source /data/V2Nodes/tools/perlenv.sh
+   source /data/tools/oraenv.sh
+   source /data/tools/perlenv.sh
    cp $USERCERT ../Keys/$EMAIL
    Schema/OracleInitRole.sh Schema/DBParam Production ../Keys "$EMAIL" $SITE
    /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < Output/prod_site_${SITE}:*
