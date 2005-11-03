@@ -46,7 +46,7 @@ foreach my $table (@ARGV)
 	foreach my $k (sort keys %$row)
 	{
 	    my $v = $row->{$k};
-	    print ",$k,\"$v\"";
+	    print defined $v ? ",$k,\"$v\"" : ",$k,";
 	}
 	print "\n";
     }
