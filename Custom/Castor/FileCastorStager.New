@@ -158,7 +158,7 @@ sub getNodeFiles
         {
 	    my $pfn = $pfns->{$guid};
 	    $self->{PFN_CACHE}{$guid} = { TIME => $now, VALUE => $pfn }; 
-	    $files{$guid}{PFN} = $pfn;
+	    $files{$guid}{PFN} = $pfn if defined $pfn;
         }
     }
 
@@ -177,7 +177,7 @@ sub getStagerFiles
 
     # First look up file inodes since stager_qry is arcane enough
     # to not actually to print out the names of the files we query.
-    my %pfn2f = map { $_->{PFN} => $_ } values %$files;
+    my %pfn2f = map { $_->{PFN} => $_ } grep (defined $_->{PFN}, values %$files);
     my %i2pfn = map { $self->{NSLS_CACHE}{$_}{VALUE} => $_ }
                 keys %{$self->{NSLS_CACHE}};
     foreach my $file (values %$files)
