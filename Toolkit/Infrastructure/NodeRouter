@@ -12,11 +12,10 @@
 ##H dependency on convergence that we see when using other iterative
 ##H algorithms.
 ##H
-##H      -state DIRECTORY -node NAME -nodes PATTERN[,PATTERN...]
+##H      -state DIRECTORY -nodes PATTERN[,PATTERN...]
 ##H      -db FILE[:SECTION] [-wait SECS]
 ##H
 ##H -state     agent state directory
-##H -node      the node where this agent runs
 ##H -nodes     comma-separated list of node name patterns to route for;
 ##H            pattern wildcards are '%' (any string) and '_' (any character)
 ##H -db        database connection configuration parameter file
@@ -40,8 +39,6 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-nodes' && scalar @ARGV > 1)
     { shift (@ARGV); push(@{$args{NODES}}, split(/,/, shift(@ARGV))); }
     elsif ($ARGV[0] eq '-h')
@@ -50,7 +47,7 @@ while (scalar @ARGV)
     { last; }
 }
 
-if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{NODES} || !$args{DBCONFIG})
+if (@ARGV || !$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG})
 {
     die "Insufficient (or unknown: @ARGV) parameters, use -h for help.\n";
 }
@@ -71,7 +68,6 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
-		  MYNODE => undef,		# My node name
 		  NODES => [],			# Nodes to route for
 		  INFINITY => 1000,		# Avoid replicas this far away
 	  	  AGENTID => "Routing");       	# Identity for activity logs
@@ -89,11 +85,16 @@ sub idle
     my $dbh = undef;
     eval
     {
-	# Connect to the database.
-	$dbh = &connectToDatabase ($self) or die "failed to connect";
-
 	foreach my $source ( @{$self->{NODES}} ) 
 	{
+	    # As this agent represents several nodes directly, we want
+	    # it to appear as if a NodeRouter for each node is up and
+	    # running in the component status page. Therefore we cycle
+	    # the value of MYNODE and connect each time-- the connect
+	    # refreshes the status for the agent at MYNODE.
+	    $self->{MYNODE} = $source;
+	    $dbh = &connectToDatabase ($self) or die "failed to connect";
+	    
 	    my %distance = ();
 	    my %precedent = ();
 	    my %seen = ();
@@ -122,10 +123,16 @@ sub idle
 
 		# Now we need to find the neighbours of the current node,
 		# Additionally, we can ignore nodes here whose
-		# NodeRouters aren't currently up--
+		# NodeRouters aren't currently up-- see limitquery
+		# defined below
 		my %neighbours = ();
 		my $now = &mytimeofday();
 		my $query = &dbexec( $dbh,
+				     qq{select n.neighbour,n.hops
+                                            from t_node_neighbour n
+					    where n.node = :node},
+                                     ":node" => $closestNode);
+		my $limitquery = &dbexec( $dbh,
                                      qq{select n.neighbour,n.hops 
 					    from t_node_neighbour n, 
 					    t_agent_status s 
@@ -145,12 +152,15 @@ sub idle
 		# Now we 'relax' our neighbours-- basically we compare
 		# currently known distance with the newly calculated one
 		# and minimise
-		foreach my $neighbour ( keys %neighbours )
+		# Effect of sorting here is that if equivalent length
+		# routes are found then one will be chosen on an
+		# alphabetic basis
+		foreach my $neighbour ( sort keys %neighbours )
 		{
 		    if ( ! exists $seen{ $neighbour } )
 		    {
 			# If $neighbour is new then it's not in
-			# %todo or %seen;  we set the distance to inf
+			# %todo or %seen; we set the distance to inf
 			if ( ! exists $todo{ $neighbour } )
 			{
 			    $distance{ $neighbour } = $infinity;
@@ -183,64 +193,38 @@ sub idle
 		    $gate = $precedent{$gate};
 		}
 		$gateway{ $node } = $gate;
-		&logmsg( "$source $node $gateway{$node} $distance{$node}" );
 	    }
 	    
-	    # FIXME: the only thing remaining to do is actually put
-	    # this into the database. Check to see if the route exists
-	    # already, and either insert or update
-	    my %established = ();
-	    my $query = &dbexec($dbh, qq{select to_node 
-					     from t_routing
-					     where from_node = :node},
-				":node" => $source);
-	    while (my ($to) = $query->fetchrow())
-	    {
-		$to =~ s/\s+//g; 
-		if ( $distance{ $to } ) {
-		    $established{ $to } = 1;
-		}
-	    }
-	    
+	    # Lock, predelete all routes from $source and then insert
+	    # new routes. This means we don't know if new routes have
+	    # been found since last time, but means that we can easily
+	    # drop dead or irrelevant routes.
 	    my $time = &mytimeofday();
+	    &dbexec($dbh, qq{ select * from t_routing
+                                      where from_node = :from_node
+                                      for update},
+		    ":from_node" => $source);
+	    &dbexec($dbh, qq{ delete from t_routing
+				  where from_node = :from_node},
+		    ":from_node" => $source);
 	    foreach my $to ( keys %distance ) 
 	    {
-		&dbexec($dbh, qq{ select * from t_routing
-				      where from_node = :from_node 
-				      for update},
-			":from_node" => $source);
-		if ( ! exists $established{$to} ) {
-		    &dbexec($dbh, qq{ insert into t_routing 
-					  (timestamp,from_node,
-					   to_node,gateway,hops) 
-					  values 
-					  (:time,:from_node,:to_node,
-					   :gate,:hops)},
+		&dbexec($dbh, qq{ insert into t_routing 
+				      (timestamp,from_node,
+				       to_node,gateway,hops) 
+				      values 
+				      (:time,:from_node,:to_node,
+				       :gate,:hops)},
 			    ":time" =>$time,
-			    ":from_node" => $source,
-			    ":to_node" => $to,
-			    ":gate" => $gateway{ $to },
-			    ":hops" => $distance{ $to });
-		} else {
-		    &dbexec($dbh, qq{ update t_routing 
-					  set timestamp = :now, 
-					  hops = :hops, 
-					  gateway = :gate
-					  where to_node = :to_node 
-					  and from_node = :from_node},
-			    ":now" => $time,
-			    ":to_node" => $to,
-			    ":from_node" => $source,
-			    ":gate" => $gateway{ $to },
-			    ":hops" => $distance{ $to });
-		    &logmsg( "Found FROM $source TO $to VIA $gateway{$to} HOPS $distance{$to}" );
-		}
-		
-#		$dbh->commit();
-	
+			":from_node" => $source,
+			":to_node" => $to,
+			":gate" => $gateway{ $to },
+			":hops" => $distance{ $to });
 	    }
+	    $dbh->commit();
+	
 	}
-
+	
         undef $self->{STMT_CACHE};
 
 	$self->maybeStop();
