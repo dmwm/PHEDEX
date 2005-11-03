@@ -925,8 +925,9 @@ sub dbreport
 	my $reportfile = "$reportdir/$dbid-$report";
 	if (-f $reportfile)
 	{
+	    local $/ = undef;
 	    open (REPORT, $reportfile =~ /.gz$/ ? "gzip -dc < $reportfile |" : "< $reportfile");
-	    print <REPORT>;
+	    print escapeHTML (<REPORT>);
 	    close (REPORT);
 	}
     }
