@@ -36,7 +36,7 @@ while (scalar @ARGV)
 
 if (@ARGV || !$args{DBCONFIG} || !$args{SCRIPT})
 {
-    die "Sorry, you're missing parameters, use -h for help.\n";
+    die "ExecuteSQL- Sorry, you're missing parameters, use -h for help.\n";
 }
 
 (new Tool (%args))->process();

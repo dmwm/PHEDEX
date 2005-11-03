@@ -10,12 +10,13 @@
 ##H Usage:
 ##H
 ##H -db       database connection configuration parameter file
-##H -test     the directory in which the test is stored
+##H -testdir  the directory in which the test is stored
 ##H -workdir  a directory to store logs, etc in
 ##H -period   the period of iteration of the test code
 ##H -duration the duration the test should run for
 ##H -delay    the delay in startup from agent to agent
 ##H -env      the env script used to setup the agent environment
+##H -scripts  the dir holding RunTest, ExecuteSQL, Master
 
 # FIXME: when things fail, make sure you shut down the agents!
 
@@ -51,13 +52,19 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{DELAY} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-period' && scalar @ARGV > 1)
     { shift (@ARGV); $args{PERIOD} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-scripts' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{SCRIPTS} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-h')
     { &usage(); }
     else 
     { last; }
 }
 
-if (@ARGV || !$args{DBCONFIG} || !$args{TEST} || !$args{ENV} || !$args{WORKDIR})
+if (@ARGV || !$args{DBCONFIG} || 
+    !$args{TEST} || 
+    !$args{ENV} || 
+    !$args{WORKDIR} ||
+    !$args{SCRIPTS})
 {
     die "RunTest- Sorry, you're missing parameters, use -h for help. Args not processed: @ARGV\n";
 }
@@ -83,7 +90,8 @@ sub new
 		  DELAY => 0,
 		  PERIOD => 1,
 		  WORKDIR => undef,
-		  ENV => undef);
+		  ENV => undef,
+		  SCRIPTS => undef);
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -104,7 +112,7 @@ sub process
     $mgr->addJob( sub { $self->collectResult($mgr,"$self->{WORKDIR}/logs/master",@_) },
 		  { },
 		  "sh","-c",
-		  "Master -config $self->{ENV},$self->{TEST}/Config start all >& $self->{WORKDIR}/logs/master 2>&1" );
+		  "$self->{SCRIPTS}/Master -config $self->{ENV},$self->{TEST}/Config start all >& $self->{WORKDIR}/logs/master 2>&1" );
     $mgr->addJob( sub{ $self->collectResult($mgr,"$self->{WORKDIR}/logs/test",@_) },
 		  { },
 		  "sh","-c",
@@ -139,14 +147,14 @@ sub collectResult
 sub runSQL {
     my ( $self, $stage ) = @_;
 
-    system( "ExecuteSQL -db $self->{DBCONFIG} -script $self->{TEST}/$stage" );
+    system( "$self->{SCRIPTS}/ExecuteSQL -db $self->{DBCONFIG} -script $self->{TEST}/$stage" );
 }
 
 sub stopAgents {
     my $self = shift;
 
     &logmsg( "Stopping agents" );
-    system( "Master -config $self->{ENV},$self->{TEST}/Config stop all");
+    system( "$self->{SCRIPTS}/Master -config $self->{ENV},$self->{TEST}/Config stop all");
 
     sleep( 5 );
 }
