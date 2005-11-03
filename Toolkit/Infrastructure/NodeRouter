@@ -99,7 +99,22 @@ sub idle
 	    my %precedent = ();
 	    my %seen = ();
 	    my %todo = ();
+	    my $neighboursHash;
 
+	    # Grab the entire node neighbour table to use as the basis
+	    # for the static routes. Could in principle check against
+	    # agent_status to see if the NodeRouter at neighbours
+	    # were active-- but don't for now
+	    my $query = &dbexec( $dbh,
+				 qq{select n.node,n.neighbour,n.hops
+					from t_node_neighbour n});
+	    while ( my @row = $query->fetchrow_array() )
+	    {
+		$neighboursHash->{ $row[0] }{ $row[1] } = $row[2];
+	    }	    
+	    
+	    # Now use Dijkstra's algorithm to compute a minimum
+	    # spanning tree
 	    $todo{ $source } = 1;
 	    $distance{ $source } = 0;
 
@@ -121,61 +136,34 @@ sub idle
 		delete $todo{ $closestNode };
 		$seen{ $closestNode } = 1;
 
-		# Now we need to find the neighbours of the current node,
-		# Additionally, we can ignore nodes here whose
-		# NodeRouters aren't currently up-- see limitquery
-		# defined below
-		my %neighbours = ();
-		my $now = &mytimeofday();
-		my $query = &dbexec( $dbh,
-				     qq{select n.neighbour,n.hops
-                                            from t_node_neighbour n
-					    where n.node = :node},
-                                     ":node" => $closestNode);
-		my $limitquery = &dbexec( $dbh,
-                                     qq{select n.neighbour,n.hops 
-					    from t_node_neighbour n, 
-					    t_agent_status s 
-					where n.node = :node
-					and n.neighbour = s.node 
-					and s.agent = 'Routing' 
-					and s.timestamp > :limit},
-				     ":node" => $closestNode,
-				     ":limit" => $now - (15 * 60) );
-
-		while ( my @row = $query->fetchrow_array() )
-		{
-		    $neighbours{ $row[0] } = $row[1];
-		}
-		my @tempNeighbours = keys %neighbours;
-
 		# Now we 'relax' our neighbours-- basically we compare
 		# currently known distance with the newly calculated one
 		# and minimise
 		# Effect of sorting here is that if equivalent length
 		# routes are found then one will be chosen on an
 		# alphabetic basis
-		foreach my $neighbour ( sort keys %neighbours )
+		my $neighbours = $neighboursHash->{$closestNode};
+		while ( my ($neighbour, $hops) = each %$neighbours )
 		{
 		    if ( ! exists $seen{ $neighbour } )
 		    {
 			# If $neighbour is new then it's not in
 			# %todo or %seen; we set the distance to inf
-			if ( ! exists $todo{ $neighbour } )
-			{
-			    $distance{ $neighbour } = $infinity;
-			}
-
-			if ( $distance{ $neighbour } > 
-			     $distance{ $closestNode } + 
-			     $neighbours{ $neighbour } )
-			{
-			    $distance{ $neighbour } =
-				$distance{ $closestNode } +
-				$neighbours{ $neighbour };
-			    $precedent{ $neighbour } = $closestNode;
-			    $todo{ $neighbour } = 1;
-			}
+                        if ( ! exists $todo{ $neighbour } )
+                        {
+                            $distance{ $neighbour } = $infinity;
+                        }			
+			
+                        if ( $distance{ $neighbour } >
+                             $distance{ $closestNode } +
+                             $hops )
+                        {
+                            $distance{ $neighbour } =
+                                $distance{ $closestNode } +
+                                $hops;
+                            $precedent{ $neighbour } = $closestNode;
+                            $todo{ $neighbour } = 1;
+                        }
 		    }
 		}
 	    }
