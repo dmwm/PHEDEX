@@ -28,13 +28,14 @@ echo "Downloading and installing srmcp"
 
 if [ ! -f $HOME/.srmconfig/config.xml ]; then
   echo "Generating a srmcp configuration"
+  mkdir -p $destdir/.srmconfig $HOME/.srmconfig
   SRM_PATH=$destdir/srmclient $destdir/srmclient/sbin/srm \
     -copy file:///dev/null file:///dev/null > /dev/null 2>&1
   [ -f $HOME/.srmconfig/config.xml ] ||
     { echo "failed to generate configuration" 1>&2; exit 1; }
 fi
 
-if [ ! -d $destdir/.srmconfig/config.xml ]; then
+if [ ! -f $destdir/.srmconfig/config.xml ]; then
   echo "Copying srmcp configuration to $destdir/.srmconfig/config.xml"
   echo "Remember to edit X509 certificate settings to be correct!"
   mkdir -p $destdir/.srmconfig
