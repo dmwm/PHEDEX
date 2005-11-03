@@ -9,84 +9,72 @@ export PHEDEX_TMDB="$PHEDEX_BASE/../DBParam:Dev";
 
 ### AGENT LABEL=router-a PROGRAM=Toolkit/Infrastructure/NodeRouter ENVIRON=Test
     -state ${PHEDEX_STATE}/router-a
-    -node Test-FCL-A
     -nodes Test-FCL-A
     -db $PHEDEX_TMDB
     -wait 1
 
 ### AGENT LABEL=router-b PROGRAM=Toolkit/Infrastructure/NodeRouter ENVIRON=Test
     -state ${PHEDEX_STATE}/router-b
-    -node Test-FCL-B
     -nodes Test-FCL-B
     -db $PHEDEX_TMDB
     -wait 1
 
 ### AGENT LABEL=router-c PROGRAM=Toolkit/Infrastructure/NodeRouter ENVIRON=Test
     -state ${PHEDEX_STATE}/router-c
-    -node Test-FCL-C
     -nodes Test-FCL-C
     -db $PHEDEX_TMDB
     -wait 1
 
 ### AGENT LABEL=router-d PROGRAM=Toolkit/Infrastructure/NodeRouter ENVIRON=Test
     -state ${PHEDEX_STATE}/router-d
-    -node Test-FCL-D
     -nodes Test-FCL-D
     -db $PHEDEX_TMDB
     -wait 1
 
 ### AGENT LABEL=router-e PROGRAM=Toolkit/Infrastructure/NodeRouter ENVIRON=Test
     -state ${PHEDEX_STATE}/router-e
-    -node Test-FCL-E
     -nodes Test-FCL-E
     -db $PHEDEX_TMDB
     -wait 1
 
 ### AGENT LABEL=router-f PROGRAM=Toolkit/Infrastructure/NodeRouter ENVIRON=Test
     -state ${PHEDEX_STATE}/router-f
-    -node Test-FCL-F
     -nodes Test-FCL-F
     -db $PHEDEX_TMDB
     -wait 1
 
 ### AGENT LABEL=router-a-mss PROGRAM=Toolkit/Infrastructure/NodeRouter ENVIRON=Test
     -state ${PHEDEX_STATE}/router-a-mss
-    -node Test-FCL-A-MSS
     -nodes Test-FCL-A-MSS
     -db $PHEDEX_TMDB
     -wait 1
 
 ### AGENT LABEL=router-b-mss PROGRAM=Toolkit/Infrastructure/NodeRouter ENVIRON=Test
     -state ${PHEDEX_STATE}/router-b-mss
-    -node Test-FCL-B-MSS
     -nodes Test-FCL-B-MSS
     -db $PHEDEX_TMDB
     -wait 1
 
 ### AGENT LABEL=router-c-mss PROGRAM=Toolkit/Infrastructure/NodeRouter ENVIRON=Test
     -state ${PHEDEX_STATE}/router-c-mss
-    -node Test-FCL-C-MSS
     -nodes Test-FCL-C-MSS
     -db $PHEDEX_TMDB
     -wait 1
 
 ### AGENT LABEL=router-d-mss PROGRAM=Toolkit/Infrastructure/NodeRouter ENVIRON=Test
     -state ${PHEDEX_STATE}/router-d-mss
-    -node Test-FCL-D-MSS
     -nodes Test-FCL-D-MSS
     -db $PHEDEX_TMDB
     -wait 1
 
 ### AGENT LABEL=router-e-mss PROGRAM=Toolkit/Infrastructure/NodeRouter ENVIRON=Test
     -state ${PHEDEX_STATE}/router-e-mss
-    -node Test-FCL-E-MSS
     -nodes Test-FCL-E-MSS
     -db $PHEDEX_TMDB
     -wait 1
 
 ### AGENT LABEL=router-f-mss PROGRAM=Toolkit/Infrastructure/NodeRouter ENVIRON=Test
     -state ${PHEDEX_STATE}/router-f-mss
-    -node Test-FCL-F-MSS
     -nodes Test-FCL-F-MSS
     -db $PHEDEX_TMDB
     -wait 1

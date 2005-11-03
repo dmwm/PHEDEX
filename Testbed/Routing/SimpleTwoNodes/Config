@@ -9,14 +9,12 @@ export PHEDEX_TMDB="$PHEDEX_BASE/../DBParam:Dev";
 
 ### AGENT LABEL=router-b PROGRAM=Toolkit/Infrastructure/NodeRouter ENVIRON=Test
     -state ${PHEDEX_STATE}/router-b
-    -node Tim-B
     -nodes Tim-B
     -db ${PHEDEX_TMDB}
     -wait 2
 
 ### AGENT LABEL=router-a PROGRAM=Toolkit/Infrastructure/NodeRouter ENVIRON=Test
     -state ${PHEDEX_STATE}/router-a
-    -node Tim-A
     -nodes Tim-A
     -db ${PHEDEX_TMDB}
     -wait 3
