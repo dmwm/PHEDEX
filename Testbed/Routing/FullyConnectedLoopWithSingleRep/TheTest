@@ -117,13 +117,14 @@ sub test {
     # Compare the routing tables
     my $tableCompFailed = 0;
     foreach my $route ( keys %actualTable ) {
-        if ( ! exists $lastTable{$route} || $actualTable{$route} ne $lastTable{$route}) {
+        if ( ! exists $lastTable{$route} || $actualTable{$route} ne $lastTable{$route}) 
+	{
             $tableCompFailed = 1;
-        }
-	$count++;
+	    $count++;
+	}
     }
     if ($tableCompFailed == 1) {
-	&logmsg( "$count routes have changed" );
+	&logmsg( "$count routes have changed or didn't match ideal table" );
     }
 
     # Store the routing table for the next iteration
