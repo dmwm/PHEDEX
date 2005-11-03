@@ -176,7 +176,7 @@ sub idle
 	    foreach my $node ( keys %distance )
 	    {
 		my $gate = $node;
-		if ( $precedent{$gate} ne $source )
+		while ( $precedent{$gate} ne $source )
 		{
 		    $gate = $precedent{$gate};
 		}
