@@ -108,13 +108,16 @@ sub processDrop
     # Log transfer delay stats
     my $delta = &mytimeofday() - $start;
     &logmsg ("xstats: $block->{OWNER}/$block->{DATASET} " . sprintf('%.2f', $delta));
-    # distinguish between successful, failed and "nothing to do" rounds
+    # distinguish between successful, failed, postponed and "nothing to do" rounds
     if ($publishreturn == 10)
     {
 	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} already tried");
     } elsif ($publishreturn == 20)
     {
 	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} failed !!");
+    } elsif ($publishreturn == 30)
+    {
+	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} postponed");
     } else
     {
 	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
@@ -218,7 +221,7 @@ sub publishBlock
     {
 	next if (-e "$self->{PUBLISHED}/$item->[0].$item->[1]");
 	&warn ("$drop: required pre-requisite $item->[0]/$item->[1] not yet published");
-	return 1;
+	return 30;
     }
 
     &logmsg("publishing $block->{OWNER}/$block->{DATASET}");
