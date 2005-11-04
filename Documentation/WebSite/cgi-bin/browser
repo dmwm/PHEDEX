@@ -231,20 +231,22 @@ sub format_num {
 }
 
 sub format_size {
-    my ($bytes, $nodash) = @_;
+    my ($bytes, $nodash, $precision, $minscale) = @_;
     my @bounds = ([ 2**10, 'k' ], [ 2**20, 'M' ], [ 2**30, 'G' ],
 		  [ 2**40, 'T' ], [ 2**50, 'P' ], [ 2**60, 'E' ]);
     my ($val, $unit, $minus) = ($bytes, '', $bytes < 0 ? "-" : "");
     do { $val = -$val; $bytes = -$bytes; } if $minus;
-    while (@bounds && $bytes >= $bounds [0][0])
+    while (@bounds && ($bytes >= $bounds [0][0] || defined $minscale))
     {
 	$val = $bytes / $bounds[0][0];
 	$unit = $bounds[0][1];
+	undef $minscale if (defined $minscale && $minscale eq $unit);
 	shift (@bounds);
     }
 
+    $precision = "1" if ! defined $precision;
     return $bytes || $nodash
-           ? sprintf('%s%.1f&nbsp;%sB', $minus, $val, $unit)
+           ? sprintf("%s%.${precision}f&nbsp;%sB", $minus, $val, $unit)
 	   : '&#8211;';
 }
 
@@ -687,11 +689,11 @@ sub stats {
 	  "</tr>\n",
 	  "<tr>\n",
 	  " <td align='right'>@{[&format_num($overview->[1])]}</td>\n",
-	  " <td align='right'>@{[&format_size($overview->[2])]}</td>\n",
-	  " <td align='right'>@{[&format_size($overview->[3])]}</td>\n",
-	  " <td align='right'>@{[&format_size($overview->[4])]}</td>\n",
-	  " <td align='right'>@{[&format_size($overview->[5])]}</td>\n",
-	  " <td align='right'>@{[&format_size($overview->[6])]}</td>\n",
+	  " <td align='right'>@{[&format_size($overview->[2], 0, 2, 'T')]}</td>\n",
+	  " <td align='right'>@{[&format_size($overview->[3], 0, 2, 'M')]}</td>\n",
+	  " <td align='right'>@{[&format_size($overview->[4], 0, 2, 'G')]}</td>\n",
+	  " <td align='right'>@{[&format_size($overview->[5], 0, 2, 'M')]}</td>\n",
+	  " <td align='right'>@{[&format_size($overview->[6], 0, 2, 'M')]}</td>\n",
 	  "</tr>\n",
 	  "</tbody>\n",
 	  "</table>\n",
@@ -711,10 +713,10 @@ sub stats {
     foreach my $row (@$histo)
     {
 	  print "<tr>\n",
-	        " <td align='right'>@{[&format_size($row->[1] * $row->[2],1)]} ..</td>\n",
-		" <td align='right'>@{[&format_size(($row->[1] + 1) * $row->[2],1)]}</td>\n",
+	        " <td align='right'>@{[&format_size($row->[1] * $row->[2],1,2,'G')]} ..</td>\n",
+		" <td align='right'>@{[&format_size(($row->[1]+1) * $row->[2],1,2,'G')]}</td>\n",
 	        " <td align='right'>@{[&format_num($row->[3])]}</td>\n",
-	        " <td align='right'>@{[&format_size($row->[4])]}</td>\n",
+	        " <td align='right'>@{[&format_size($row->[4],1,2,'T')]}</td>\n",
 	        "</tr>\n";
     }
     print "</tbody>\n",
