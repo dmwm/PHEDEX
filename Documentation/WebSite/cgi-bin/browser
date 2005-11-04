@@ -519,10 +519,10 @@ sub replicas {
 	  (map { "<th align='right'>N</th><th align='right'>Size</th>" } sort keys %sites),
 	  "</tr>\n";
 
-    foreach my $dso (sort keys %data)
+    foreach my $dso (sort { $a->[1] cmp $b->[1] || $a->[0] cmp $b->[0] } values %data)
     {
         my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
-	my ($o, $ds, $files, $total, $runs, $sites) = @{$data{$dso}};
+	my ($o, $ds, $files, $total, $runs, $sites) = @$dso;
 	next if ($nodepat && ! grep (/$nodepat/, keys %$sites));
         print "<tr valign='top'$rowcolor>",
 	      "<td>$o</td>",
@@ -581,10 +581,10 @@ sub subs {
 	my ($ow, $ds, $site, $files, $total, $sfiles, $stotal) = @$row;
 	next if ($datapat && "$ow/$ds" !~ /$datapat/);
 	next if ($nodepat && $site !~ /$nodepat/);
-	$data{$ow}{$ds} ||= [ $ow, $ds, $files, $total, {} ];
+	$data{$ds}{$ow} ||= [ $ow, $ds, $files, $total, {} ];
 	if ($site)
 	{
-	    $data{$ow}{$ds}[4]{$site} = [ $sfiles, $stotal ];
+	    $data{$ds}{$ow}[4]{$site} = [ $sfiles, $stotal ];
 	    $sites{$site} = 1;
         }
     }
@@ -601,11 +601,11 @@ sub subs {
 	  "<th align='right'>N</th><th align='right'>Size</th>",
 	  "</tr>\n";
 
-    foreach my $ow (sort keys %data)
+    foreach my $ds (sort keys %data)
     {
-        foreach my $ds (sort keys %{$data{$ow}})
+        foreach my $ow (sort keys %{$data{$ds}})
         {
-	    my ($ow, $ds, $files, $total, $sites) = @{$data{$ow}{$ds}};
+	    my ($ow, $ds, $files, $total, $sites) = @{$data{$ds}{$ow}};
             my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
 	    my $dscolor = (scalar (keys %$sites) ? '' : " bgcolor='$warncolor'");
             print "<tr valign='top'$rowcolor>",
@@ -629,8 +629,8 @@ sub subs {
 		    print "<td>&nbsp;</td>";
 	        }
             }
+	    print "</tr>\n";
 	}
-	print "</tr>\n";
     }
     print "</table>";
 }
