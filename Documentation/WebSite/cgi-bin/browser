@@ -668,7 +668,8 @@ sub stats {
 			  bin_width,
 			  n_total,
 			  sz_total
-			from t_info_file_size_histogram});
+			from t_info_file_size_histogram
+			order by bin_low asc});
 
     print "<p>",
           "<table class='striped'>\n",
