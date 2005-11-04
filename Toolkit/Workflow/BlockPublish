@@ -108,11 +108,15 @@ sub processDrop
     # Log transfer delay stats
     my $delta = &mytimeofday() - $start;
     &logmsg ("xstats: $block->{OWNER}/$block->{DATASET} " . sprintf('%.2f', $delta));
-    # distinguish between successful publication and "nothing to do" rounds
+    # distinguish between successful, failed and "nothing to do" rounds
     if ($publishreturn == 10)
     {
-	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} already done");
-    } else {
+	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} already tried");
+    } elsif ($publishreturn == 20)
+    {
+	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} failed !!");
+    } else
+    {
 	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
     }
 
@@ -223,9 +227,9 @@ sub publishBlock
     my $failed = &runcmd(@{$self->{SCRIPT}}, $block->{DATASET}, $block->{OWNER},
 		      &listAssignments($block));
     &alert("$drop: publishing failed with exit code @{[&runerror ($failed)]}") if $failed;
+    return 20 if $failed;
 
-
-    # Always return success.
+    # return success.
     return 1;
 }
 
