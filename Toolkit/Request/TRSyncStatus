@@ -136,13 +136,13 @@ foreach my $request (@$requests)
 
 	    $blockinfo{$block}{DBS}{ISOPEN}
 	        = (($item->{DSINFO}{CollectionStatus} || 0) eq 6 ? 0 : 1);
-	    foreach my $file (@{$item->{FILES}})
+	    foreach my $file (values %{$item->{FILES}})
 	    {
 	        $blockinfo{$block}{DBS}{GUIDS}{$file->{GUID}} = 1;
 	        $blockinfo{$block}{DBS}{FILES}++;
 	    }
 
-            $item->{FILES} = [];
+            $item->{FILES} = {};
             $item->{BLOCKS} = {};
             $item->{RUNS} = {};
 	}
