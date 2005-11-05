@@ -144,7 +144,7 @@ print "# Recent transfer status\n",
       "# WAIT_GB_MAX        Maximum size of pending queue during the period\n",
       "# WAIT_GB_AVG        Average size of pending queue during the period\n";
 
-foreach my $prevdays (1, 7, 30)
+foreach my $prevdays (1, 7, 14, 30, 90, 365)
 {
     my ($timelow, $timemax, %perf, %success);
     my $now = &mytimeofday();
