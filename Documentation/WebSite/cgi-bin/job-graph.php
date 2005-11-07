@@ -36,7 +36,7 @@ function makeGraph($graph, $data)
 {
   // Rendering parameters
   $styles = array("#e66266", "#fff8a9", "#7bea81", "#8d4dff", "#ffbc71", "#a57e81",
-                  "#baceac", "#00ccff", "#63aafe", "#ccffff", "#ccffcc", "#ffff99",
+                  "#baceac", "#00ccff", "#63aafe", "#ccffff", /* "#ccffcc", "#ffff99", */
                   "#99ccff", "#ff99cc", "#cc99ff", "#ffcc99", "#3366ff", "#33cccc");
 
   // Get category labels for each status and node
