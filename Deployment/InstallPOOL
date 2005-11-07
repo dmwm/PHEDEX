@@ -78,7 +78,9 @@ sub installStandalone
 {
     my ($InstallRoot, $Lversion) = @_;
     my $RPMSource='http://cmsdoc.cern.ch/cms/oo/repos_standalone/download';
-    my $versionTag='cms101';
+    my $versionTag='RPMS';
+    my $PCRE = '4.4';
+    my $UUID = '1.32';
     my $Linux_V = undef;
     my $Linux_Vshort = undef;
     my $Xerces = undef;
@@ -86,6 +88,7 @@ sub installStandalone
     my $POOL = undef;
     my $SEAL = undef;
     my $PYTHON = undef;
+    my $MYSQL = undef;
     my $MYSQLPP = undef;
 
     my @packetlist = ();
@@ -97,6 +100,7 @@ sub installStandalone
 	$POOL = 'POOL_1_8_1';
 	$SEAL = 'SEAL_1_4_3';
 	$PYTHON = '2.3.4';
+	$MYSQL = '4.0.18';
 	$MYSQLPP = '1.7.9_mysql.4.0.18';
 	@packetlist = ("LCG.POOL_1_8_1-rh73_gcc323-cms-1.i386.rpm",
 		       "LCG.SEAL_1_4_3-rh73_gcc323-cms-1.i386.rpm",
@@ -108,20 +112,20 @@ sub installStandalone
 		       "LCG.pcre-rh73_gcc32-4.4-cms-1.i386.rpm",
 		       "LCG.uuid-rh73_gcc32-1.32-cms-1.i386.rpm");
     } elsif ($Lversion eq 'SLC3') {
-	$versionTag='cms111';
 	$Linux_V = 'slc3_ia32_gcc323';
 	$Linux_Vshort = 'slc3_ia32_gcc323';
 	$Xerces = '2.3.0/slc3_ia32_gcc323';
-	$PI = 'PI_1_3_1';
-	$POOL = 'POOL_2_0_3';
-	$SEAL = 'SEAL_1_6_1';
+	$PI = 'PI_1_3_6';
+	$POOL = 'POOL_2_2_1';
+	$SEAL = 'SEAL_1_7_3';
 	$PYTHON = '2.3.4';
-	$MYSQLPP = '1.7.31_mysql.4.0.18';
-	@packetlist = ("LCG.POOL_2_0_3-slc3_ia32_gcc323-cms-1.i386.rpm",
-		       "LCG.SEAL_1_6_1-slc3_ia32_gcc323-cms-1.i386.rpm",
-		       "LCG.PI_1_3_1-slc3_ia32_gcc323-cms-1.i386.rpm",
-		       "LCG.mysql-slc3_ia32_gcc323-4.0.18-cms-1.i386.rpm",
-		       "LCG.mysqlpp-slc3_ia32_gcc323-1.7.31_mysql.4.0.18-cms-1.i386.rpm",
+	$MYSQL = '4.0.24';
+	$MYSQLPP = '1.7.31_mysql.4.0.24';
+	@packetlist = ("LCG.POOL_2_2_1-slc3_ia32_gcc323-cms-1.i386.rpm",
+		       "LCG.SEAL_1_7_3-slc3_ia32_gcc323-cms-1.i386.rpm",
+		       "LCG.PI_1_3_6-slc3_ia32_gcc323-cms-1.i386.rpm",
+		       "LCG.mysql-slc3_ia32_gcc323-4.0.24-cms-1.i386.rpm",
+		       "LCG.mysqlpp-slc3_ia32_gcc323-1.7.31_mysql.4.0.24-cms-1.i386.rpm",
 		       "LCG.xerces-c-slc3_ia32_gcc323-2.3.0-cms-1.i386.rpm",
 		       "LCG.python-slc3_ia32_gcc323-2.3.4-cms-2.i386.rpm",
 		       "LCG.pcre-slc3_ia32_gcc323-4.4-cms-1.i386.rpm",
@@ -142,19 +146,19 @@ sub installStandalone
 	.":$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/lib"
 	.":$InstallRoot/lcg/app/releases/SEAL/$SEAL/$Linux_V/lib"
 	.":$InstallRoot/lcg/external/xerces-c/$Xerces/lib"
-	.":$InstallRoot/lcg/external/mysql/4.0.18/$Linux_Vshort/lib"
+	.":$InstallRoot/lcg/external/mysql/$MYSQL/$Linux_Vshort/lib"
 	.":$InstallRoot/lcg/external/mysqlpp/$MYSQLPP/$Linux_Vshort/lib"
 	.":$InstallRoot/lcg/external/python/$PYTHON/$Linux_Vshort/lib"
-	.":$InstallRoot/lcg/external/pcre/4.4/$Linux_Vshort/lib"
-	.":$InstallRoot/lcg/external/uuid/1.32/$Linux_Vshort/lib";
+	.":$InstallRoot/lcg/external/pcre/$PCRE/$Linux_Vshort/lib"
+	.":$InstallRoot/lcg/external/uuid/$UUID/$Linux_Vshort/lib";
     my $ppath = "$InstallRoot/lcg/app/releases/PI/$PI/$Linux_V/lib/modules"
 	.":$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/lib/modules";
     my $bpath = "$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/bin"
 	.":$InstallRoot/lcg/app/releases/PI/$PI/$Linux_V/bin"
 	.":$InstallRoot/lcg/app/releases/SEAL/$SEAL/$Linux_V/bin"
 	.":$InstallRoot/lcg/external/xerces-c/$Xerces/bin"
-	.":$InstallRoot/lcg/external/mysql/4.0.18/$Linux_Vshort/bin"
-	.":$InstallRoot/lcg/external/pcre/4.4/$Linux_Vshort/bin";
+	.":$InstallRoot/lcg/external/mysql/$MYSQL/$Linux_Vshort/bin"
+	.":$InstallRoot/lcg/external/pcre/$PCRE/$Linux_Vshort/bin";
 
     my $bpath_pre = "$InstallRoot/lcg/external/python/$PYTHON/$Linux_Vshort/bin";
     my $pypath = "$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/lib"
