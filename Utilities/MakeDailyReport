@@ -131,6 +131,8 @@ print "# Recent transfer status\n",
       "# XFER_GB_TOT        Total amount in gigabytes transferred\n",
       "# XFER_F_TOT         Total number of files transferred\n",
       "# XFER_SUCC_TOT      Total percentage of successful transfers\n",
+      "# XFER_HRS           Count of hours in which transfers have completed\n",
+      "# XFER_DAYS          Count of days in which transfers have completed\n",
       "# XFER_MBPS_HRMIN    Minimum average hourly transfer rate in MB/s\n",
       "# XFER_MBPS_HRMAX    Maximum average hourly transfer rate in MB/s\n",
       "# XFER_MBPS_HRAVG    Average average hourly transfer rate in MB/s\n",
@@ -198,19 +200,21 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
     print "\n# $prevdays-day period from ",
           strftime ('%Y-%m-%d %H:%M:%S', gmtime(int($timelow))), " to ",
           strftime ('%Y-%m-%d %H:%M:%S', gmtime(int($timemax+300))), "\n\n";
-    print sprintf ("%20s" . " %15s" x 17 . "\n",
+    print sprintf ("%20s" . " %15s" x 19 . "\n",
 	           "DESTINATION",
 	           "XFER_MBPS_TOT", "XFER_GB_TOT", "XFER_F_TOT", "XFER_SUCC_TOT",
+		   "XFER_HRS", "XFER_DAYS",
 		   "XFER_MBPS_HRMIN", "XFER_MBPS_HRMAX", "XFER_MBPS_HRAVG",
 		   "XFER_SUCC_HRMIN", "XFER_SUCC_HRMAX", "XFER_SUCC_HRAVG",
 	           "WAIT_GB_CHNG", "WAIT_GB_FIN", "WAIT_F_FIN",
 		   "WAIT_GB_MIN", "WAIT_GB_MAX", "WAIT_GB_AVG",
 	           "EST_DAYS_LEFT");
-    print "-" x 20, (" ", "-" x 15) x 17, "\n";
+    print "-" x 20, (" ", "-" x 15) x 19, "\n";
 
     foreach my $node (sort keys %perf)
     {
         my %stats = (XFER_MBPS_TOT => 0, XFER_GB_TOT => 0, XFER_F_TOT => 0, XFER_SUCC_TOT => 'N/A',
+		     XFER_HRS => 0, XFER_DAYS => 0,
 		     XFER_SUCCESS => { START => 0, ERROR => 0, SUCCESS => 0, RATIO => undef },
 	             XFER_MBPS_HRMIN => 0, XFER_MBPS_HRMAX => 0, XFER_MBPS_HRAVG => 0,
 	             XFER_SUCC_HRMIN => 0, XFER_SUCC_HRMAX => 0, XFER_SUCC_HRAVG => 0,
@@ -230,10 +234,14 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
         }
 
         my @xfer_sorted = sort { $a <=> $b } values %xfer_hourly;
+	my %xfer_hours = map { (int($_/3600) => 1) } grep($xfer_hourly{$_} > 0, keys %xfer_hourly);
+	my %xfer_days = map { (int($_/86400) => 1) } grep($xfer_hourly{$_} > 0, keys %xfer_hourly);
         $stats{XFER_MBPS_HRMIN} = ($xfer_sorted[0] || 0) / (1024**2) / 3600;
         $stats{XFER_MBPS_HRMAX} = ($xfer_sorted[$#xfer_sorted] || 0) / (1024**2) / 3600;
         $stats{XFER_MBPS_HRAVG} = (&avg(@xfer_sorted) || 0) / (1024**2) / 3600;
         $stats{XFER_MBPS_TOT} = $stats{XFER_GB_TOT} * 1024 / $timespan;
+	$stats{XFER_HRS} = scalar keys %xfer_hours;
+	$stats{XFER_DAYS} = scalar keys %xfer_days;
 
 	# Bin quality hourly and calculate statistics
         my %success_hourly = ();
@@ -296,6 +304,7 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 	# Print out results
         print sprintf ("%20s"
 	               . " %15.3f %15.3f %15d %15s"
+		       . " %15d %15d"
 		       . " %15.3f %15.3f %15.3f"
 		       . " %15s %15s %15s"
 		       . " %15.3f %15.3f %15d"
@@ -303,6 +312,7 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 		       . " %s\n",
 	               $node,
 		       $stats{XFER_MBPS_TOT}, $stats{XFER_GB_TOT}, $stats{XFER_F_TOT}, $stats{XFER_SUCC_TOT},
+		       $stats{XFER_HRS}, $stats{XFER_DAYS},
 		       $stats{XFER_MBPS_HRMIN}, $stats{XFER_MBPS_HRMAX}, $stats{XFER_MBPS_HRAVG},
 		       $stats{XFER_SUCC_HRMIN}, $stats{XFER_SUCC_HRMAX}, $stats{XFER_SUCC_HRAVG},
 		       $stats{WAIT_GB_CHNG}, $stats{WAIT_GB_FIN}, $stats{WAIT_F_FIN},
