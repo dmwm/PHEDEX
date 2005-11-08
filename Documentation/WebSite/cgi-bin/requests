@@ -541,7 +541,7 @@ sub checknew
 	my $mail = ""
 	    . "Subject: TRANSFER REQUEST $reqname\n"
 	    . "From: PhEDEx Request Form <phedex.admin\@cern.ch>\n"
-	    . "To: lassi.tuura\@cern.ch, tim.barrass\@bris.ac.uk, jens.rehn\@cern.ch\n"
+	    . "To: cms-phedex-admins\@cern.ch\n"
 	    . "Reply-To: $replyto\n"
 	    . "\n"
 	    . "Greetings.  The following transfer request has been filed.\n"

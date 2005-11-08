@@ -89,8 +89,9 @@ $home/Schema/OraclePrivs.sh "$ora_master" \
 
 mkdir -p Output
 (echo "Subject: PhEDEx authentication role for $section/$sitename_uc";
+ echo "From: cms-phedex-admins@cern.ch";
+ echo "Cc: cms-phedex-admins@cern.ch";
  echo "To: $role_email";
- echo "Cc: lassi.tuura@cern.ch, tim.barrass@physics.org";
  echo;
  echo "Hello $role_email";
  echo "($role_dn),"; echo;

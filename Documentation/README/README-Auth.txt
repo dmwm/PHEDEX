@@ -93,18 +93,18 @@ role for all three databases.
    source /data/tools/perlenv.sh
    cp $USERCERT ../Keys/$EMAIL
    Schema/OracleInitRole.sh Schema/DBParam Production ../Keys "$EMAIL" $SITE
-   /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < Output/prod_site_${SITE}:*
+   /usr/sbin/sendmail -t < Output/prod_site_${SITE}:*
 
    cd ~/private/roles/Dev
    Schema/OracleInitRole.sh Schema/DBParam Dev ../Keys "$EMAIL" $SITE
-   /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < Output/dev_site_${SITE}:*
+   /usr/sbin/sendmail -t < Output/dev_site_${SITE}:*
 
    cd ~/private/roles/SC3
    Schema/OracleInitRole.sh Schema/DBParam SC3 ../Keys "$EMAIL" $SITE
-   /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < Output/sc3_site_${SITE}:*
+   /usr/sbin/sendmail -t < Output/sc3_site_${SITE}:*
 
 A rough example of the above commands:
 
    scp lat@lxplus:~/.globus/usercert.pem ~/private/roles/Keys/lassi.tuura@cern.ch
    Schema/OracleInitRole.sh Schema/DBParam SC3 ../Keys "lassi.tuura@cern.ch" cern
-   /usr/sbin/sendmail -t -f lassi.tuura@cern.ch < Output/prod_site_cern:*
+   /usr/sbin/sendmail -t < Output/prod_site_cern:*
