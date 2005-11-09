@@ -38,7 +38,7 @@ sqlplus $(Schema/OracleConnectId -db Schema/DBParam:SC3/Admin) <<EOF
   insert into t_subscription
     (select b.owner, b.dataset, n.name, 9999999999
      from t_block b, t_node n
-     where b.name like '%MBforPU%'
+     where b.name like '%Hit%MBforPU%'
      and ((n.name like 'T1_%_MSS' and n.name not like '%CERN%')
           or (n.name like 'T2%'
 	      and n.name != 'T2_DESY_Buffer'
