@@ -52,8 +52,10 @@ sub transferBatch
     }
     else
     {
-	# First time around initiate transfers all files.
-	my @copyjob = ();
+	# First time around initiate transfers all files.  The transfers
+	# jobs must be partitioned by source host such that each job has
+	# only transfers from a single host.
+	my %copyjobs = ();
         foreach my $file (@$batch)
         {
 	    next if $file->{DONE_TRANSFER};
@@ -61,16 +63,17 @@ sub transferBatch
 	    $self->startFileTiming ($file, "transfer");
 
 	    # Put this file into a transfer batch
-	    push (@copyjob, $file);
+	    my ($host) = ($file->{FROM_PFN} =~ m|^[a-z]+://([^/:]+)|);
+	    push (@{$copyjobs{$host}}, $file);
         }
 
 	# Initiate transfer
-        if (scalar @copyjob)
+        while (my ($host, $copyjob) = each %copyjobs)
         {
-	    my $batchid = $copyjob[0]{BATCHID};
+	    my $batchid = $copyjob->[0]{BATCHID} . "." . $host;
 	    $specfile = "$master->{DROPDIR}/copyjob.$batchid";
 	    $reportfile = "$master->{DROPDIR}/report.$batchid";
-	    if (! &output ($specfile, join ("", map { "$_->{FROM_PFN} $_->{TO_PFN}\n" } @copyjob)))
+	    if (! &output ($specfile, join ("", map { "$_->{FROM_PFN} $_->{TO_PFN}\n" } @$copyjob)))
 	    {
 	        &alert ("failed to create copyjob for batch $batchid");
 	        $master->addJob (sub { $self->transferBatch ($master, $batch) },
@@ -79,7 +82,7 @@ sub transferBatch
 	    else
 	    {
 	        $master->addJob (
-		    sub { $self->transferBatch ($master, $batch, \@copyjob,
+		    sub { $self->transferBatch ($master, $batch, $copyjob,
 				    	        $reportfile, $specfile, @_) },
 		    { TIMEOUT => $self->{TIMEOUT} },
 		    @{$self->{COMMAND}}, "-copyjobfile=$specfile",
