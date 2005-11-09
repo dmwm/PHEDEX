@@ -1,0 +1,51 @@
+*** 2005-11-09
+
+# Freeze all sites except CERN
+stamp=$(date +%s)
+sqlplus $(Schema/OracleConnectId -db Schema/DBParam:SC3/Admin) <<EOF
+  insert into t_agent_message
+    (select $stamp, node, agent, 'SUSPEND' from t_agent_status
+     where node not like '%CERN%' and node not like '%TEST%');
+EOF
+
+# Archive and nuke file information.
+Utilities/DBDump -db Schema/DBParam:SC3/Admin \
+  t_subscription t_file t_file_attributes t_replica_state t_block \
+  | bzip2 -z -9 -c > SC3Dump-20051109-Phase-1.csv.bz2
+rfcp SC3Dump-20051109-Phase-1.csv.bz2 /castor/cern.ch/user/p/phedex
+rm SC3Dump-20051109-Phase-1.csv.bz2
+
+sqlplus $(Schema/OracleConnectId -db Schema/DBParam:SC3/Admin) <<EOF
+  delete from t_transfer_state;
+  delete from t_replica_state;
+  delete from t_file_attributes;
+  delete from t_file;
+  delete from t_block_replica;
+  delete from t_block_destination;
+  delete from t_block;
+  delete from t_subscription;
+EOF
+
+# Reinject files according to Custom/CERN/TransferPublishedZips.txt
+
+# Close all blocks
+sqlplus $(Schema/OracleConnectId -db Schema/DBParam:SC3/Admin) <<EOF
+  update t_block set isopen = 0;
+EOF
+
+# Subscribe all sites to all pile-up samples
+sqlplus $(Schema/OracleConnectId -db Schema/DBParam:SC3/Admin) <<EOF
+  insert into t_subscription
+    (select b.owner, b.dataset, n.name, 9999999999
+     from t_block b, t_node n
+     where b.name like '%MBforPU%'
+     and ((n.name like 'T1_%_MSS' and n.name not like '%CERN%')
+          or (n.name like 'T2%'
+	      and n.name != 'T2_DESY_Buffer'
+	      and n.name != 'T2_SINP_Buffer')));
+EOF
+
+# Resume agents
+sqlplus $(Schema/OracleConnectId -db Schema/DBParam:SC3/Admin) <<EOF
+  delete from t_agent_message;
+EOF
