@@ -113,6 +113,8 @@ foreach my $node (@{$args{NODES}})
 	next if $slices{$dataset}{DEST}{$node};
 	next if defined $args{SUBSET} && ! $slices{$dataset}{DEST}{$args{SUBSET}};
 	last if ($total += $slices{$dataset}{BYTES}) > $args{AMOUNT};
+	$slices{$dataset}{SUBS}++;
+
         printf "subscribing %s (%.2f GB, %d previous subscriptions)\n",
 	       $dataset,
 	       $slices{$dataset}{BYTES}/1024**3,
