@@ -1,0 +1,134 @@
+#!/usr/bin/env perl
+
+##H Subscribe sites to data in SC3, by distributing the subscriptions
+##H semi-randomly across the sites based on data volume "slices".
+##H
+##H Usage:
+##H   SC3Subscribe -db FILE[:SECTION] -slices SMLH -amount N[kMGT]
+##H     -nodes NODE[,NODE...] [-subset NODE] [-[in]active]
+##H
+##H -db          database connection configuration parameter file
+##H -slices      data volume slices across which to load balance,
+##H               S=small, M=medium, L=large, H=huge datasets
+##H -amount      total volume of data to subscribe
+##H -nodes       destination nodes
+##H -subset      limit to existing subscriptions of NODE
+##H -[in]active  make subscriptions [in]active (suspended_until = null)
+
+BEGIN {
+  $^W = 1; use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
+use UtilsHelp;
+use UtilsTiming;
+use UtilsDB;
+use POSIX;
+
+sub sizeValue
+{
+    my ($value) = @_;
+    if ($value =~ /^(\d+)([kMGT])$/)
+    {
+        my %scale = ('k' => 1024, 'M' => 1024**2, 'G' => 1024**3, 'T' => 1024**4);
+        $value = $1 * $scale{$2};
+    }
+    return $value;
+}
+
+# Process command line arguments.
+my %args;
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-slices' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{SLICES} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-amount' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{AMOUNT} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-nodes' && scalar @ARGV > 1)
+    { shift (@ARGV); push(@{$args{NODES}}, split(/,/, shift(@ARGV))); }
+    elsif ($ARGV[0] eq '-subset' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{SUBSET} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-active')
+    { shift (@ARGV); $args{ACTIVE} = 1; }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
+    else
+    { last; }
+}
+
+$args{AMOUNT} = &sizeValue ($args{AMOUNT}) if $args{AMOUNT};
+
+# Check arguments.
+if (@ARGV || !$args{DBCONFIG} || !$args{NODES} || !$args{AMOUNT}
+    || !$args{SLICES} || $args{SLICES} !~ /^[SLMH]+$/)
+{
+    die "Insufficient parameters, use -h for help.\n";
+}
+
+# Connect up
+my $dbh = &connectToDatabase (\%args, 0);
+
+# Find available datasets in size classes and their subscriptions load.
+my %slices = ();
+my $qblocks = &dbexec($dbh, qq{
+    select dataset, sum(bytes) from t_block group by dataset});
+while (my ($dataset, $bytes) = $qblocks->fetchrow())
+{ 
+    if ($bytes <= 100 * (1024**3)) {
+	$slices{$dataset} = { CLASS => "S", BYTES => $bytes, SUBS => 0 }
+	    if $args{SLICES} =~ /S/;
+    } elsif ($bytes <= 400 * (1024**3)) {
+	$slices{$dataset} = { CLASS => "M", BYTES => $bytes, SUBS => 0 }
+	    if $args{SLICES} =~ /M/;
+    } elsif ($bytes <= 2000 * (1024**3)) {
+	$slices{$dataset} = { CLASS => "L", BYTES => $bytes, SUBS => 0 }
+	    if $args{SLICES} =~ /L/;
+    } else {
+	$slices{$dataset} = { CLASS => "H", BYTES => $bytes, SUBS => 0 }
+	    if $args{SLICES} =~ /H/;
+    }
+}
+
+my $qsubs = &dbexec($dbh, qq{
+    select dataset, destination from t_subscription});
+while (my ($dataset, $dest) = $qsubs->fetchrow())
+{
+    next if ! exists $slices{$dataset};
+    $slices{$dataset}{SUBS}++;
+    $slices{$dataset}{DEST}{$dest} = 1;
+}
+
+# Sort slices into load order.  Then keep taking datasets off the list
+# until we've reached the requested volume of data.
+foreach my $node (@{$args{NODES}})
+{
+    my $total = 0;
+    my @cheap = sort { $slices{$a}{SUBS} <=> $slices{$b}{SUBS} } keys %slices;
+    while (@cheap)
+    {
+        my $dataset = shift(@cheap);
+	next if $slices{$dataset}{DEST}{$node};
+	next if defined $args{SUBSET} && ! $slices{$dataset}{DEST}{$args{SUBSET}};
+	last if ($total += $slices{$dataset}{BYTES}) > $args{AMOUNT};
+        printf "subscribing %s (%.2f GB, %d previous subscriptions)\n",
+	       $dataset,
+	       $slices{$dataset}{BYTES}/1024**3,
+	       $slices{$dataset}{SUBS};
+
+	&dbexec($dbh, qq{
+	    insert into t_subscription
+	     (dataset, owner, destination, suspended_until)
+	     (select dataset, owner, :node, :suspended
+	      from t_block where dataset = :dataset)},
+            ":dataset" => $dataset,
+    	    ":node" => $node,
+            ":suspended" => $args{ACTIVE} ? undef : 9999999999);
+    }
+}
+
+$dbh->commit();
+$dbh->disconnect();
+exit 0;
