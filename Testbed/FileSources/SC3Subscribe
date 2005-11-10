@@ -53,6 +53,8 @@ while (scalar @ARGV)
     { shift (@ARGV); $args{SUBSET} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-active')
     { shift (@ARGV); $args{ACTIVE} = 1; }
+    elsif ($ARGV[0] eq '-inactive')
+    { shift (@ARGV); $args{ACTIVE} = 0; }
     elsif ($ARGV[0] eq '-h')
     { &usage(); }
     else
