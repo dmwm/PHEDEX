@@ -99,8 +99,9 @@ eval
 	if &runcmd (@cmda);
     @cmda = ('mysql', '-h', "$args{HOST}", '-u', 'root', "-p$args{ROOTPASS}",
 	     '-Ne',
-	     "grant $priv ON $args{DBNAME}.* TO \'$args{POOLUSER}\'\@\'$args{POOLHOST}\' ".
-	     "identified by \"$args{POOLPASS}\"");
+	     "grant $priv ON $args{DBNAME}.* TO".
+	     " \'$args{POOLUSER}\'\@\'$args{POOLHOST}\' identified by \"$args{POOLPASS}\", ".
+	     " \'$args{POOLUSER}\'\@\'localhost\' identified by \"$args{POOLPASS}\"");
     die "Creation of DB $args{DBNAME} failed using command:\n@cmda\n"
 	if &runcmd (@cmda);
     
