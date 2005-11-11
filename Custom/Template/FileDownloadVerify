@@ -1,0 +1,97 @@
+#!/bin/sh
+
+##H Usage: FileDownloadVerify [-c] [-d] [-f] STORAGE-PATH LOCAL-PATH
+##H                           ACCESS-METHOD STATUS PFN SIZE CHECKSUM
+##H
+##H customisable arguments:
+##H    STORAGE-PATH:  SURL to the storage space
+##H    LOCAL-PATH:    local path to storage space
+##H    ACCESS-METHOD: how to access files in your storage
+##H                   currently supported: posix, rfio, dcap
+##H
+##H arguments automatically provided by calling agent:
+##H    STATUS:        exit code of the transfer process
+##H    PFN:           PFN of transfered file to verify
+##H    SIZE:          reference size of transfered file
+##H    CHECKSUM:      reference chskum of transfered file
+##H
+##H Verifies that the PFN has been successfully transferred.  The exit
+##H code from the transfer program (STATUS) is ignored since the value
+##H ends to be unreliable.  Makes sure that size of the transferred
+##H file on disk is the same as the one recorded in TMDB (SIZE).  With
+##H "-c" option also validates file CHECKSUM; otherwise the checksum
+##H is ignored if the file size is correct.  Finally with "-d" option
+##H also always removes the downloaded file after all the checks have
+##H been made; this is meaningful only for transfer tests.  And as a
+##H special goodie hack, with "-f" the return value is forced to be
+##H zero (success) -- after all normal checks have been made.
+
+# Process command line arguments
+do_checksum=false do_delete=false do_force=false
+while [ $# -ge 1 ]; do
+  case $1 in
+    -c ) do_checksum=true; shift ;;
+    -d ) do_delete=true; shift ;;
+    -f ) do_force=true; shift ;;
+    -* ) echo "unrecognised option $1" 1>&2; exit 5 ;;
+    *  ) break ;;
+  esac
+done
+
+# Pick up arguments
+storage="$1"; shift;
+local="$1"; shift;
+access="$1"; shift;
+status="$1" pfn="$2" size="$3" checksum="$4"
+validity=0
+
+# Rewrite PFN to form that's useful to our commands
+pfn=$(echo "$pfn" | sed "s|^$storage|$local|");
+
+
+# Check file size and mark file invalid on mismatch.
+if [ $validity = 0 ]; then
+    case $access in
+	rfio )
+	    disksize=$(rfdir "$pfn" 2>/dev/null | awk '{print $5}');;
+	posix | dcap )
+	    disksize=$(ls -l "$pfn" 2>/dev/null | awk '{print $5}');;
+	* )
+	    echo "unrecognized file access protocoll: $access"
+	    exit 10;;
+    esac
+	    
+    [ X"$disksize" != X"$size" ] && echo "size mismatch disk=$disksize db=$size pfn=$pfn" && validity=2
+fi
+
+# Check checksum if requested, mark file invalid on mismatch
+if $do_checksum && [ $validity = 0 ]; then
+    case $access in
+	rfio )
+	    csumvals=$(rfcat "$pfn" 2>/dev/null | cksum | sed 's/[^0-9][^0-9]*/:/g');;
+	posix )
+	    csumvals=$(cat "$pfn" 2>/dev/null | cksum | sed 's/[^0-9][^0-9]*/:/g');;
+	dcap )
+	    csumvals=$(dccp "$pfn" - 2>/dev/null | cksum | sed 's/[^0-9][^0-9]*/:/g');;
+    esac
+  csum=$(echo "$csumvals" | sed 's/:.*//')
+  csize=$(echo "$csumvals" | sed 's/.*://')
+  [ X"$csize" != X"$size" ] && validity=3
+  [ X"$csum" != X"$checksum" ] && validity=4
+fi
+
+# If file deletion was requested, delete the file.
+if $do_delete; then
+    case $access in
+	rfio )
+	    rfrm "$pfn" 2>/dev/null;;
+	posix | dcap )
+	    rfrm "$pfn" 2>/dev/null;;
+    esac
+fi
+
+# If we are forcing true return value, lie about it all
+$do_force && validity=0
+
+# Return file validity
+exit $validity

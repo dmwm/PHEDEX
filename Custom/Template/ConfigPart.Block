@@ -1,0 +1,20 @@
+#### Block agents
+#### Block Notify agent, which notfies other agents about completed blocks
+### AGENT LABEL=block-notify PROGRAM=Toolkit/Workflow/BlockNotify DEFAULT=off
+ -db ${PHEDEX_CUSTOM}/DBParam:${PHEDEX_LABEL}
+ -node ${PHEDEX_NODE}_MSS
+ -next ${PHEDEX_STATE}/block-publish
+ -wait $(expr 3600 + $RANDOM % 1800)
+
+#### Block Publish agent, which gets notified by BlockNotify and triggers publication
+#### option 'published': book-keeping directory about successfully published blocks
+#### option 'lfnquery': lfnquery script with options to return the LFNs of files
+####                    used for publishing.
+####                    Alternatively a simple FClistLFN does also the job, since
+####                    the result is only used for counting (consistency check with RefDB)
+### AGENT LABEL=block-publish PROGRAM=Toolkit/Workflow/BlockPublish DEFAULT=off
+ -published ${PHEDEX_STATE}/PubHistory
+ -lfnquery "FClistLFN,-u,$PHEDEX_CATALOGUE,-q"
+ -script ${PHEDEX_CUSTOM}/Trigger_Publication.sh
+ -wait $(expr 1800 + $RANDOM % 900)
+

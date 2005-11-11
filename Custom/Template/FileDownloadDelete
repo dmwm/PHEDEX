@@ -1,0 +1,77 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+##H Delete file and clean-up site local catalogue.
+##H
+##H Usage: FileDownloadDelete POOL-CONTACT POOL-PREFIX TRANS-PREFIX
+##H                           REASON PFN
+##H
+##H Deletes a file if told to do so by calling agent. Currently
+##H thee are three usecases:
+##H 1. deletion after failed transfer attempt
+##H 2. deletion before starting transfer attempt
+##H 3. deletion during garbage collection
+##H
+##H customisable arguments:
+##H   POOL-CONTACT:  POOL contact string to access site's catalogue
+##H   POOL-PREFIX:   catalogue prefix used for POOL catalogue
+##H   TRANS-PREFIX:  prefix of the transfer URLs
+##H
+##H arguments automatically given by calling agent:
+##H   REASON:        reason for deletion ("pre", "post", "cleaner")
+##H   PFN:           PFN of file to delete
+##H
+
+
+my $POOL_CATALOG = $ARGV[0];
+my $POOL_PREFIX = $ARGV[1];
+my $TRANS_PREFIX = $ARGV[2];
+my $reason = $ARGV[3];
+my $pfn = $ARGV[4];
+
+# we also have to determin the local POOL catalogue PFN to delete;
+# it is NOT the transfer PFN we get from Phedex !!
+my $locpfn = $pfn;
+$locpfn =~ s|^$TRANS_PREFIX|$POOL_PREFIX|;
+
+if ( $reason eq 'cleaner') {
+    my $cmd = "FCdeletePFN -u $POOL_CATALOG -p $locpfn </dev/null";
+    my $exit = system($cmd);
+    if ( $exit != 0 )
+    {
+	print "WARNING: Could not delete PFN $locpfn from POOL !!\n";
+    }
+}
+
+
+if ( $reason eq 'post' ) {
+    print "Deleting file $pfn\n";
+    my $cmd = '/bin/false';
+    $cmd = "srm-advisory-delete $pfn </dev/null" if ($pfn =~ m|^srm|);
+    $cmd = "edg-gridftp-rm $pfn </dev/null" if ($pfn =~ m|^gsiftp|);
+    $cmd = "rm $pfn </dev/null" if ($pfn =~ m|^/|);
+    my $exit = system($cmd);
+    if ( $exit != 0 )
+    {
+	print "WARNING: Could not delete file $pfn !!\n";
+    }
+    
+    print "Deleting entry $locpfn from catalogue\n";
+    $cmd = "FCdeletePFN -u $POOL_CATALOG -p $locpfn </dev/null";
+    $exit = system($cmd);
+    if ( $exit != 0 )
+    {
+	print "WARNING: Could not delete PFN $locpfn from POOL !!\n";
+    }
+}
+
+if ( $reason eq 'pre' ) {
+    # just make sure, that the file doesn't yet exist
+    # we don't care about any error messages here...
+    my $cmd = '/bin/false';
+    $cmd = "srm-advisory-delete $pfn </dev/null >& /dev/null" if ($pfn =~ m|^srm|);
+    $cmd = "edg-gridftp-rm $pfn </dev/null >& /dev/null" if ($pfn =~ m|^gsiftp|);
+    $cmd = "rm $pfn </dev/null >& /dev/null" if ($pfn =~ m|^/|);
+    system($cmd);
+}

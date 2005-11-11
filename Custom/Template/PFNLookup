@@ -1,0 +1,54 @@
+#!/bin/sh
+
+# Lassi's script for Cern modified to meet FZK requirements
+##H Usage: PFNLookup -u CATALOGUE { -g | -p | -q } [-m] CATURL TRANSURL TERM...
+##H
+##H List GUID/PFN pairs for query terms.  Use -g/-p/-q to select
+##H query mode:
+##H   -g  TERMs are GUIDs
+##H   -p  TERMs are PFNs
+##H   -x  TERMs are general queries
+##H
+##H If -m is used, the terms are taken to be patterns.  This only
+##H makes sense with -g and -p.
+##H
+##H Queries the CERN EVD file catalogue (POOL MySQL / ORACLE),
+##H which has file names of the form rfio:/castor/cern.ch/...,
+##H and maps them for access using PROTO protocol and transfer
+##H to node FOR-NODE.
+##H
+##H CERN supports PROTOs "gsiftp", "srm" and "direct", where
+##H the latter means direct local access.  The TURL is not
+##H dependent on FOR-NODE in any way.
+
+
+# Pick up options
+cat= match= mode= proto= fornode= rewrite=
+while [ $# -ge 1 ]; do
+  case $1 in
+    -u )
+      cat="$2"; shift; shift ;;
+    -g | -p | -x | -q)
+      mode=$1; shift ;;
+    -m )
+      match=$1; shift ;;
+    -h )
+      grep "^##H" < $0 | sed 's/^##H\( \|\)//'; exit 1 ;;
+    -* )
+      echo "unrecognised option $1" 1>&2; exit 1 ;;
+    * )
+      break ;;
+  esac
+done
+
+caturl="$1"; shift
+transurl="$1"; shift
+
+[ -z "$cat" ] && { echo "$0: no catalogue specified" 1>&2; exit 1; }
+[ -z "$mode" ] && { echo "$0: no lookup mode specified" 1>&2; exit 1; }
+
+rewrite="s|$caturl|$transurl|"
+
+tools="$(dirname $0)/../../Utilities"
+"$tools/PFClistGuidPFN" -u "$cat" -j 10 $mode $match ${1+"$@"} |grep "$caturl" |sed "$rewrite"
+exit $?
