@@ -11,9 +11,10 @@
 ##H   - Consistency check warnings on the tables.
 ##H
 ##H Usage:
-##H   MakeDailyReport -db FILE[:SECTION]
+##H   MakeDailyReport -db FILE[:SECTION] [-upto TIME]
 ##H
 ##H -db        database connection configuration parameter file
+##H -upto      transfer report result up to TIME (unix time stamp)
 ##H
 ##H The output goes to the standard output in plain text format.
 
@@ -35,6 +36,8 @@ while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-upto' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{UPTO} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-h')
     { &usage(); }
     elsif ($ARGV[0] eq '--')
@@ -148,7 +151,7 @@ print "# Recent transfer status\n",
 foreach my $prevdays (1, 7, 14, 30, 90, 365)
 {
     my ($timelow, $timemax, %perf, %success);
-    my $now = &mytimeofday();
+    my $now = $args{UPTO} || &mytimeofday();
     my $qperf = &dbexec($dbh, qq{
 	select
 	    to_node,
@@ -159,9 +162,10 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 	    pending_bytes
 	from t_perf_histogram
 	where timebin >= :limit
+	  and timebin <= :upto
 	  and from_node not like '%MSS'
 	order by to_node, timebin},
-	":limit" => (int($now/86400)-$prevdays)*86400);
+	":limit" => (int($now/86400)-$prevdays)*86400, ":upto" => $now);
     while (my ($node, $bin, $xfiles, $xbytes, $pfiles, $pbytes) = $qperf->fetchrow())
     {
         $timemax = $bin if (! defined $timemax || $bin > $timemax);
@@ -220,28 +224,6 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 		     WAIT_GB_CHNG => 0, WAIT_GB_FIN => 0, WAIT_F_FIN => 0,
 		     WAIT_GB_MIN => 0, WAIT_GB_MAX => 0, WAIT_GB_AVG => 0);
 
-	# Bin transfers hourly and calculate statistics
-        my %xfer_hourly = ();
-        foreach my $v (@{$perf{$node}{XFERRED}})
-        {
-	    my $hour = int($v->{BIN}/3600)*3600;
-	    $xfer_hourly{$hour} ||= 0;
-	    $xfer_hourly{$hour} += $v->{BYTES};
-
-	    $stats{XFER_GB_TOT} += $v->{BYTES} / (1024**3);
-	    $stats{XFER_F_TOT} += $v->{FILES};
-        }
-
-        my @xfer_sorted = sort { $a <=> $b } values %xfer_hourly;
-	my %xfer_hours = map { (int($_/3600) => 1) } grep($xfer_hourly{$_} > 0, keys %xfer_hourly);
-	my %xfer_days = map { (int($_/86400) => 1) } grep($xfer_hourly{$_} > 0, keys %xfer_hourly);
-        $stats{XFER_MBPS_HRMIN} = ($xfer_sorted[0] || 0) / (1024**2) / 3600;
-        $stats{XFER_MBPS_HRMAX} = ($xfer_sorted[$#xfer_sorted] || 0) / (1024**2) / 3600;
-        $stats{XFER_MBPS_HRAVG} = (&avg(@xfer_sorted) || 0) / (1024**2) / 3600;
-        $stats{XFER_MBPS_TOT} = $stats{XFER_GB_TOT} * 1024 / $timespan;
-	$stats{XFER_HRS} = scalar keys %xfer_hours;
-	$stats{XFER_DAYS} = scalar keys %xfer_days;
-
 	# Bin quality hourly and calculate statistics
         my %success_hourly = ();
         foreach my $v (@{$success{$node}})
@@ -270,12 +252,39 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 
         my @success_sorted = sort { $a <=> $b }
 	                     map { $_->{RATIO} }
-	                     grep (defined $_->{RATIO},  values %success_hourly);
+	                     grep (defined $_->{RATIO}, values %success_hourly);
         $stats{XFER_SUCC_HRMIN} = &naformat($success_sorted[0], "%d%%", 100);
         $stats{XFER_SUCC_HRMAX} = scalar @success_sorted
 				  ? &naformat($success_sorted[$#success_sorted], "%d%%", 100)
 				  : 'N/A';
         $stats{XFER_SUCC_TOT} = &naformat($stats{XFER_SUCCESS}{RATIO}, "%d%%", 100);
+
+	# Bin transfers hourly and calculate statistics.  The binning is
+	# seeded from success statistics so we correctly report the hours
+	# in which transfers took place.  After this seeding we report
+	# hours in which nothing happened to avoid reporting hours with
+	# non-zero pending queue as hours of transfer.
+        my %xfer_hourly = map { ($_ => 0) } keys %success_hourly;
+        foreach my $v (@{$perf{$node}{XFERRED}})
+        {
+	    next if ! $v->{FILES};
+	    my $hour = int($v->{BIN}/3600)*3600;
+	    $xfer_hourly{$hour} ||= 0;
+	    $xfer_hourly{$hour} += $v->{BYTES};
+
+	    $stats{XFER_GB_TOT} += $v->{BYTES} / (1024**3);
+	    $stats{XFER_F_TOT} += $v->{FILES};
+        }
+
+        my @xfer_sorted = sort { $a <=> $b } values %xfer_hourly;
+	my %xfer_hours = map { (int($_/3600) => 1) } keys %xfer_hourly;
+	my %xfer_days = map { (int($_/86400) => 1) } keys %xfer_hourly;
+        $stats{XFER_MBPS_HRMIN} = ($xfer_sorted[0] || 0) / (1024**2) / 3600;
+        $stats{XFER_MBPS_HRMAX} = ($xfer_sorted[$#xfer_sorted] || 0) / (1024**2) / 3600;
+        $stats{XFER_MBPS_HRAVG} = (&avg(@xfer_sorted) || 0) / (1024**2) / 3600;
+        $stats{XFER_MBPS_TOT} = $stats{XFER_GB_TOT} * 1024 / $timespan;
+	$stats{XFER_HRS} = scalar keys %xfer_hours;
+	$stats{XFER_DAYS} = scalar keys %xfer_days;
 
 	# Bin pending queue hourly and calculate statistics
         my %pend_binned = ();
