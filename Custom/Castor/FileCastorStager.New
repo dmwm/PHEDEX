@@ -175,41 +175,11 @@ sub getStagerFiles
     my ($self, $files) = @_;
     return undef if ! $files;
 
-    # First look up file inodes since stager_qry is arcane enough
-    # to not actually to print out the names of the files we query.
-    my %pfn2f = map { $_->{PFN} => $_ } grep (defined $_->{PFN}, values %$files);
-    my %i2pfn = map { $self->{NSLS_CACHE}{$_}{VALUE} => $_ }
-                keys %{$self->{NSLS_CACHE}};
-    foreach my $file (values %$files)
-    {
-	# Check we know about this file
-	my $pfn = $file->{PFN};
-	next if ! $pfn;
-	next if defined $file->{INODE};
-	do { $file->{INODE} = $self->{NSLS_CACHE}{$pfn}{VALUE}; next }
-	    if exists $self->{NSLS_CACHE}{$pfn};
-
-	# Look up whole directory at once
-	my ($dir, $lfn) = ($pfn =~ m|(.*)/([^/]+)$|);
-	open (NSLS, "nsls -i $dir |")
-	    or do { &alert ("nsls: cannot execute: $!"); return undef };
-	while (<NSLS>)
-	{
-	    chomp;
-	    next if ! /^\s+(\d+)\s(\S+)$/;
-	    my $fname = "$dir/$2";
-	    $i2pfn{$1} = $fname;
-	    $pfn2f{$fname}{INODE} = $1 if exists $pfn2f{$fname};
-	    $self->{NSLS_CACHE}{$fname} = { TIME => time(), VALUE => $1 };
-	}
-	close (NSLS);
-    }
-
-    # Now check which files don't have a cached stager status.  If
-    # we have not cached nay status, or if the file is wanted and
-    # the file wasn't staged the last we checked, query.  Otherwise
-    # trust the cache.  This implies we'll check on unwanted files
-    # only about once an hour.
+    # First check which files don't have a cached stager status.  If
+    # we have not cached nay status, or if the file is wanted and the
+    # file wasn't staged the last we checked, query.  Otherwise trust
+    # the cache.  This implies we'll check on unwanted files no more
+    # than about once an hour.
     my @todo = ();
     my $now = time();
     foreach my $file (values %$files)
@@ -226,7 +196,7 @@ sub getStagerFiles
 	$file->{STATUS} = $c->{VALUE};
     }
 
-    # Finally, look up stager status for the files.  First mark the
+    # Now, look up stager status for the files.  First mark the
     # pending files as negative match in the cache, then a bunch of
     # files at a time invoke stager_qry.  For the files this returns
     # status for, update the file status and the cache.
@@ -241,19 +211,18 @@ sub getStagerFiles
 	$pfx .= "/../../Utilities/RunWithTimeout 600";
 
 	my @slice = splice(@todo, 0, $self->{MAXFILES});
+	my %pfn2f = map { ($_->{PFN} => $_) } @slice;
 	my @args = map { "-M $_->{PFN}" } @slice;
 	open (QRY, "$pfx stager_qry @args |")
 	    or do { &alert ("stager_qry: cannot execute: $!"); return undef };
         while (<QRY>)
 	{
 	    chomp;
-	    next if ! /^(\d+)\@\S+\s+(\S+)$/;
-	    do { &alert ("stager_qry output unrecognised inode $1"); next }
-	        if ! exists $i2pfn{$1};
-	    do { &alert ("stager_qry output unrecognised file $i2pfn{$1}"); next }
-	        if ! exists $pfn2f{$i2pfn{$1}};
-	    $pfn2f{$i2pfn{$1}}{STATUS} = $2;
-	    $self->{STAGE_CACHE}{$i2pfn{$1}} = { TIME => time(), VALUE => $2 };
+	    next if ! /^(\S+)\s+\d+\@\S+\s+(\S+)$/;
+	    do { &alert ("stager_qry output unrecognised file $1"); next }
+	        if ! exists $pfn2f{$1};
+	    $pfn2f{$1}{STATUS} = $2;
+	    $self->{STAGE_CACHE}{$1} = { TIME => time(), VALUE => $2 };
 	}
 	close (QRY);
     }
@@ -327,7 +296,7 @@ sub idle
 	    where guid = :guid and node = :node});
 	foreach my $f (values %$files)
 	{
-	    next if ! defined $f->{GUID};
+	    next if ! defined $f->{GUID} || ! defined $f->{PFN};
 	    my $isstaged = $f->{STATUS} eq 'STAGED' ? 1 : 0;
 	    my $oldstaged = $dbcache->{FILES}{$f->{GUID}} ? 1 : 0;
 	    $dbcache->{FILES}{$f->{GUID}} = $isstaged;
@@ -348,7 +317,8 @@ sub idle
 
 	# Issue stage-in requests for new files in batches.  Only consider
 	# recent enough files in wanted state.
-	my @requests = grep ($_->{STATUS} eq 'UNKNOWN'
+	my @requests = grep (defined $_->{PFN}
+			     && $_->{STATUS} eq 'UNKNOWN'
 		             && $_->{STATE} == 1
 		             && $_->{TIME} >= $timing{START} - 15*60,
 			     values %$files);
