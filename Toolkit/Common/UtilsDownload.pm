@@ -366,7 +366,7 @@ sub postClean
 	    do { $file->{DONE_POST_CLEAN} = 1; next }
 	        if (! $file->{FAILURE}
 		    || ! $self->{DELETE_COMMAND}
-		    || ! $self->{TO_PFN});
+		    || ! $file->{TO_PFN});
 
 	    $self->startFileTiming ($file, "postclean");
 	    $master->addJob (
