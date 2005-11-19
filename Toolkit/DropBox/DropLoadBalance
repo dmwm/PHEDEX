@@ -1,0 +1,116 @@
+#!/usr/bin/env perl
+
+##H This drop-box agent spreads incoming drops to a number of load
+##H balanced worker agents.  It does not touch the drops itself.
+##H
+##H The agent simply gives each drop to the currently least-loaded
+##H worker child.
+##H
+##H Usage:
+##H   DropLoadBalance
+##H      -state DIRECTORY [-next DIRECTORY] [-wait SECS]
+##H      -worker PROGRAM[,ARG...] [-workers N]
+##H
+##H -state     agent state directory, including inbox
+##H -next      next agent to pass the drops to; can be given several times
+##H -wait      time to wait in seconds between work scans
+##H -worker    worker agent and arguments
+##H -workers   number of workers to run (default: 5)
+
+BEGIN {
+  use strict; use warnings; $^W=1;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+######################################################################
+use UtilsHelp;
+my %args = (NWORKERS => 5);
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DROPDIR}= shift(@ARGV); }
+    elsif ($ARGV[0] eq '-next' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-worker' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{WORKER}}, split(',', shift(@ARGV))); }
+    elsif ($ARGV[0] eq '-workers' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{NWORKERS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
+    else
+    { last; }
+}
+	
+if (@ARGV || !$args{DROPDIR} || !$args{WORKER} || !$args{NWORKERS})
+{
+    die "Insufficient parameters, use -h for help.\n";
+}
+
+(new DropLoadBalance (%args))->process();
+
+######################################################################
+# Routines specific to this agent.
+package DropLoadBalance; use strict; use warnings; use base 'UtilsAgent';
+use File::Path;
+use UtilsCommand;
+use UtilsLogging;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (WORKER => undef);	# Subprocess spec
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Start worker agents
+sub startWorker
+{
+    my ($self, $i) = @_;
+    my $workerdir = "$self->{DROPDIR}/worker-$i";
+    &mkpath ($workerdir) if ! -d $workerdir;
+
+    my $pid = undef;
+    while (1)
+    {
+        last if defined ($pid = fork ());
+        &logmsg ("cannot fork: $!; trying again in 10 seconds");
+        sleep (10);
+    }
+
+    # Return child pid in parent;
+    return $pid if $pid;
+
+    # Child.
+    my @args = (@{$self->{WORKER}}, "-state", $workerdir,
+                (map { ("-next", $_) } @{$self->{NEXTDIR}}));
+
+    exec { $args[0] } @args;
+    die "Cannot start worker: $!\n";
+}
+
+# Actually process a drop: pass to least-loaded child.
+sub processDrop
+{
+    my ($self, $drop, $left) = @_;
+
+    # Sanity checking
+    return if (! $self->inspectDrop ($drop));
+    delete $self->{BAD}{$drop};
+
+    # Assign to worker
+    my $worker = $self->pickWorker();
+    my $dropdir = "$self->{WORKDIR}/$drop";
+    my $workerdir = "$self->{DROPDIR}/worker-$worker";
+    my $slavein = "$workerdir/inbox/$drop";
+    &alert ("$drop: failed to move to $slavein: $!")
+        if ! &mv ($dropdir, $slavein);
+}
+
+1;
