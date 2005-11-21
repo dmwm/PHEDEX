@@ -29,7 +29,7 @@ use POSIX;
 sub sizeValue
 {
     my ($value) = @_;
-    if ($value =~ /^(\d+)([kMGT])$/)
+    if ($value =~ /^([.\d]+)([kMGT])$/)
     {
         my %scale = ('k' => 1024, 'M' => 1024**2, 'G' => 1024**3, 'T' => 1024**4);
         $value = $1 * $scale{$2};
@@ -117,8 +117,8 @@ foreach my $node (@{$args{NODES}})
 	last if ($total += $slices{$dataset}{BYTES}) > $args{AMOUNT};
 	$slices{$dataset}{SUBS}++;
 
-        printf "subscribing %s (%.2f GB, %d previous subscriptions)\n",
-	       $dataset,
+        printf "subscribing %s to %s (%.2f GB, %d previous subscriptions)\n",
+	       $dataset, $node,
 	       $slices{$dataset}{BYTES}/1024**3,
 	       $slices{$dataset}{SUBS};
 
