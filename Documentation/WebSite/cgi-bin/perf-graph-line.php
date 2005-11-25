@@ -81,7 +81,7 @@ function makeGraph($graph, $data, $args)
   // $plot->SetWidth(0.65);
 
   // Compute how much the legend needs
-  $legendcols = (count($barplots) > 25 ? 2 : 1);
+  $legendcols = (count($barplots) > 30 ? 2 : 1);
 
   // Configure the graph
   $graph->SetScale("textlin");
@@ -116,6 +116,7 @@ function makeGraph($graph, $data, $args)
   $graph->legend->Pos(0.01, 0.5, "right", "center");
   $graph->legend->SetColumns($legendcols);
   $graph->legend->SetShadow(0);
+  $graph->legend->SetVColMargin(2);
   // $graph->legend->SetLayout(LEGEND_HOR);
   $graph->Add ($plot);
   $graph->Stroke();
