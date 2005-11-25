@@ -12,13 +12,20 @@ function readCSV ($file, $delimiter)
 }
 
 // Interpret and rearrange quality history data.
-function selectQualityData($data, $xbin, $tail)
+function selectQualityData($data, $xbin, $tail, $upto)
 {
   // Build a map of nodes we are interested in.
   $newdata = array(); $xvals = array();
 
+  // If "up-to" limit is set, walk back from the end of the data array
+  // until we find the specified time.  Then gather data from there.
+  $end = count($data)-1;
+  if (isset ($upto) && $upto != '')
+    while ($end > 0 && $data[$end][$xbin] != $upto)
+      --$end;
+
   // Collect all the data into correct binning.
-  for ($i = count($data)-1; $i >= 1; --$i)
+  for ($i = $end; $i >= 1; --$i)
   {
     // Select correct time for X axis, plus convert to desired format.
     // Stop when we have $tail unique X values.
@@ -46,13 +53,20 @@ function selectQualityData($data, $xbin, $tail)
 }
 
 // Interpret and rearrange performance history data.
-function selectPerformanceData($data, $xbin, $tail, $sum)
+function selectPerformanceData($data, $xbin, $tail, $sum, $upto)
 {
   // Build a map of nodes we are interested in.
   $newdata = array(); $xvals = array();
 
+  // If "up-to" limit is set, walk back from the end of the data array
+  // until we find the specified time.  Then gather data from there.
+  $end = count($data)-1;
+  if (isset ($upto) && $upto != '')
+    while ($end > 0 && $data[$end][$xbin] != $upto)
+      --$end;
+
   // Collect all the data into correct binning.
-  for ($i = count($data)-1; $i >= 1; --$i)
+  for ($i = $end; $i >= 1; --$i)
   {
     // Select correct time for X axis, plus convert to desired format.
     // Stop when we have $tail unique X values.

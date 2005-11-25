@@ -4,7 +4,7 @@ include BASE_PATH . "/phedex-utils.php";
 include BASE_PATH . "/jpgraph/jpgraph.php";
 include BASE_PATH . "/jpgraph/jpgraph_bar.php";
 
-function makeGraph($graph, $data, $args)
+function makeGraph($graph, $data, $args, $upto)
 {
   // Rendering parameters
   $patterns = array('/^T1/' => 0, '/^T2/' => PATTERN_DIAG2, '/^/' => PATTERN_DIAG4);
@@ -93,7 +93,9 @@ function makeGraph($graph, $data, $args)
   $graph->subtitle->Set("{$args['instance']} Transfers"
   	                . ((isset($args['filter']) && $args['filter'] != '')
 			   ? " Matching `{$args['filter']}'" : "")
-	                . ", $nowstamp GMT");
+			. ((isset($upto) && $upto != '')
+			   ? ", upto $upto GMT"
+			   : ", $nowstamp GMT"));
   $graph->subtitle->SetFont(FF_FONT1,FS_BOLD);
   $graph->subtitle->SetColor("black");
 
@@ -126,6 +128,7 @@ $span             = $GLOBALS['HTTP_GET_VARS']['span'];
 $kind             = $GLOBALS['HTTP_GET_VARS']['kind'];
 $entries          = $GLOBALS['HTTP_GET_VARS']['last'];
 $args['filter']   = $GLOBALS['HTTP_GET_VARS']['filter'];
+$upto             = $GLOBALS['HTTP_GET_VARS']['upto'];
 
 $suffix           = ($kind == 'pending' ? 'pending' : 'total');
 $args['metric']   = (isset ($kind_types[$kind]) ? $kind : 'rate');
@@ -169,7 +172,7 @@ else // hour
 
 $graph = new Graph (900, 400, "auto");
 $data = readCSV ("/afs/cern.ch/cms/aprom/phedex/DBPerfData/{$args['instance']}-$suffix.csv", ",");
-$data = selectPerformanceData ($data, $args['xbin'], $entries, $args['metric'] != 'pending');
-makeGraph ($graph, $data, $args);
+$data = selectPerformanceData ($data, $args['xbin'], $entries, $args['metric'] != 'pending', $upto);
+makeGraph ($graph, $data, $args, $upto);
 
 ?>

@@ -4,7 +4,7 @@ include BASE_PATH . "/phedex-utils.php";
 include BASE_PATH . "/jpgraph/jpgraph.php";
 include BASE_PATH . "/jpgraph/jpgraph_line.php";
 
-function makeGraph($graph, $data, $args)
+function makeGraph($graph, $data, $args, $upto)
 {
   // Build X-axis labels, by time.
   $xrewrite = $args['xrewrite'];
@@ -97,7 +97,9 @@ function makeGraph($graph, $data, $args)
   $graph->subtitle->Set("{$args['instance']} Transfer Quality"
   	                . ((isset($args['filter']) && $args['filter'] != '')
 			   ? " Matching `{$args['filter']}'" : "")
-	                . ", $nowstamp GMT");
+			. ((isset($upto) && $upto != '')
+			   ? ", upto $upto GMT"
+			   : ", $nowstamp GMT"));
   $graph->subtitle->SetFont(FF_FONT1,FS_BOLD);
   $graph->subtitle->SetColor("black");
 
@@ -140,6 +142,7 @@ $span             = $GLOBALS['HTTP_GET_VARS']['span'];
 $kind             = $GLOBALS['HTTP_GET_VARS']['kind'];
 $entries          = $GLOBALS['HTTP_GET_VARS']['last'];
 $args['filter']   = $GLOBALS['HTTP_GET_VARS']['filter'];
+$upto             = $GLOBALS['HTTP_GET_VARS']['upto'];
 
 $args['metric']   = (isset ($kind_types[$kind]) ? $kind : 'completed_ratio');
 $args['ytitle']   = $kind_types[$args['metric']];
@@ -182,7 +185,7 @@ else // hour
 
 $graph = new Graph (900, 400, "auto");
 $data = readCSV ("/afs/cern.ch/cms/aprom/phedex/DBPerfData/{$args['instance']}-quality.csv", ",");
-$data = selectQualityData ($data, $args['xbin'], $entries);
-makeGraph ($graph, $data, $args);
+$data = selectQualityData ($data, $args['xbin'], $entries, $upto);
+makeGraph ($graph, $data, $args, $upto);
 
 ?>
