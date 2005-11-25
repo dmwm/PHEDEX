@@ -31,6 +31,8 @@ while (scalar @ARGV)
 {
     if ($ARGV[0] eq '-state' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DROPDIR}= shift(@ARGV); }
+    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-next' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
     elsif ($ARGV[0] eq '-worker' && scalar @ARGV > 1)
