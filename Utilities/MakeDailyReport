@@ -152,6 +152,9 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 {
     my ($timelow, $timemax, %perf, %success);
     my $now = $args{UPTO} || &mytimeofday();
+    my $lowlimit = (int($now/86400)-$prevdays)*86400;
+    $now = $lowlimit + $prevdays*86400;
+
     my $qperf = &dbexec($dbh, qq{
 	select
 	    to_node,
@@ -165,7 +168,7 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 	  and timebin <= :upto
 	  and from_node not like '%MSS'
 	order by to_node, timebin},
-	":limit" => (int($now/86400)-$prevdays)*86400, ":upto" => $now);
+	":limit" => $lowlimit, ":upto" => $now);
     while (my ($node, $bin, $xfiles, $xbytes, $pfiles, $pbytes) = $qperf->fetchrow())
     {
         $timemax = $bin if (! defined $timemax || $bin > $timemax);
@@ -174,6 +177,12 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
         push (@{$perf{$node}{PENDING}}, { BIN => $bin, FILES => $pfiles, BYTES => $pbytes });
     }
 
+    # Make sure the time bounds are defined in case the period was empty
+    if (! defined $timemax)
+    {
+	$timelow = $lowlimit;
+	$timemax = $now;
+    }
     my $timespan = $timemax + 300 - $timelow;
 
     my $qsuccess = &dbexec($dbh, qq{
