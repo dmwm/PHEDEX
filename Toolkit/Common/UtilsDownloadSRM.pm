@@ -2,6 +2,7 @@ package UtilsDownloadSRM; use strict; use warnings; use base 'UtilsDownload';
 use UtilsLogging;
 use UtilsCommand;
 use UtilsTiming;
+use UtilsNet;
 
 sub new
 {
@@ -12,6 +13,9 @@ sub new
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
+
+    my $tmpdir = $args{DROPDIR};
+    unlink <$tmpdir/copyjob.*>, <$tmpdir/report.*>;
     return $self;
 }
 
@@ -34,9 +38,9 @@ sub transferBatch
 	foreach my $file (@$files)
 	{
 	    $file->{DONE_TRANSFER} = 1;
-	    if (exists $reported{$file->{FROM_PFN}}{$file->{TO_PFN}}) {
+	    if (exists $reported{$file->{REAL_FROM_PFN}}{$file->{REAL_TO_PFN}}) {
 		# This copy has a report entry.  Use that instead.
-		my $status = $reported{$file->{FROM_PFN}}{$file->{TO_PFN}};
+		my $status = $reported{$file->{REAL_FROM_PFN}}{$file->{REAL_TO_PFN}};
 		$file->{TRANSFER_STATUS}{STATUS} = $status;
 	        $file->{TRANSFER_STATUS}{REPORT}
 	            = "transfer report code $status;"
@@ -62,18 +66,43 @@ sub transferBatch
 	    do { $file->{DONE_TRANSFER} = 1; next } if $file->{FAILURE};
 	    $self->startFileTiming ($file, "transfer");
 
+	    # Temporary(?) workaround for incompatible SRMs.  If the paths are
+	    # of the form srm://host:port/path, resolve host and convert into
+            # srm://realhost:port/srm/managerv1?PFN=/path.  We only change the
+	    # source PFN for now; the syntax required for destination is under
+	    # the site's own control and they can use whatever form works.
+	    my (%realhosts, @paths) = ();
+	    $file->{REAL_FROM_PFN} = $file->{FROM_PFN};
+	    $file->{REAL_TO_PFN} = $file->{TO_PFN};
+	    foreach my $path (\$file->{REAL_FROM_PFN}, \$file->{REAL_TO_PFN})
+	    {
+		next if $$path !~ m!^srm://([^:/]+)(:\d+)?/(.*)!;
+		my ($host, $port, $suffix) = ($1, $2, $3);
+		next if $suffix =~ m!^srm/managerv1\?SFN=!;
+		$realhosts{$host} = &resolvehostname ($host)
+		    if ! defined $realhosts{$host};
+		$host = $realhosts{$host};
+		$port = "" if ! defined $port;
+		$suffix = "/$suffix" if $suffix !~ m!^/!;
+		$$path = "srm://$host$port/srm/managerv1?SFN=$suffix";
+	    }
+
 	    # Put this file into a transfer batch
-	    my ($host) = ($file->{FROM_PFN} =~ m|^[a-z]+://([^/:]+)|);
+	    my ($host) = ($file->{REAL_FROM_PFN} =~ m|^[a-z]+://([^/:]+)|);
 	    push (@{$copyjobs{$host}}, $file);
         }
 
 	# Initiate transfer
         while (my ($host, $copyjob) = each %copyjobs)
         {
+	    # Prepare copyjob and report names.
 	    my $batchid = $copyjob->[0]{BATCHID} . "." . $host;
 	    $specfile = "$master->{DROPDIR}/copyjob.$batchid";
 	    $reportfile = "$master->{DROPDIR}/report.$batchid";
-	    if (! &output ($specfile, join ("", map { "$_->{FROM_PFN} $_->{TO_PFN}\n" } @$copyjob)))
+	    my $spec = join ("", map { "$_->{REAL_FROM_PFN} $_->{REAL_TO_PFN}\n" } @$copyjob);
+
+	    # Now generate copyjob
+	    if (! &output ($specfile, $spec))
 	    {
 	        &alert ("failed to create copyjob for batch $batchid");
 	        $master->addJob (sub { $self->transferBatch ($master, $batch) },
