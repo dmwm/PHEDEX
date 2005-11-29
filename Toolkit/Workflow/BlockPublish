@@ -35,6 +35,7 @@ my %args = (WAITTIME => 3600);
 	     "lfnquery=s"       => \$args{LFN_QUERY},
 	     "script=s"         => \$args{SCRIPT},
 	     "wait=f"		=> \$args{WAITTIME},
+	     "verbose"          => \$args{VERBOSE},
      	     "help|h"		=> sub { &usage() });
 
 $args{SCRIPT} = [ split(/,/, $args{SCRIPT}) ] if $args{SCRIPT};
@@ -107,17 +108,22 @@ sub processDrop
 
     # Log transfer delay stats
     my $delta = &mytimeofday() - $start;
-    &logmsg ("xstats: $block->{OWNER}/$block->{DATASET} " . sprintf('%.2f', $delta));
-    # distinguish between successful, failed, postponed and "nothing to do" rounds
+    &logmsg ("xstats: $block->{OWNER}/$block->{DATASET} " . sprintf('%.2f', $delta))
+	if $args{VERBOSE};
+    # Distinguish between successful, failed, postponed and "nothing to do" rounds.
+    # Since the log messages will appear often, we provide an extra verbosity flag
+    # to toggle message output in case of "nothing to do" and postponed cases.
     if ($publishreturn == 10)
     {
-	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} already tried");
+	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} already tried")
+	    if $args{VERBOSE};
     } elsif ($publishreturn == 20)
     {
 	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} failed !!");
     } elsif ($publishreturn == 30)
     {
-	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} postponed");
+	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} postponed")
+	    if $args{VERBOSE};
     } else
     {
 	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
@@ -135,7 +141,7 @@ sub processDrop
 sub checkConsistency
 {
     my ($self, $drop, $block) = @_;
-    my $cmd = "@{$self->{LFN_QUERY}}"
+    my $cmd = "export POOL_OUTMSG_LEVEL=W; @{$self->{LFN_QUERY}}"
 	. " \"dataset='$block->{DATASET}' and owner='$block->{OWNER}'\"";
     my @lfns = qx($cmd);
     my $zipmembers = grep($_ =~ m|Zipped|,@lfns);
