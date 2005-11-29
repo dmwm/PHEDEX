@@ -1,17 +1,33 @@
 package UtilsNet; use strict; use warnings; use base 'Exporter';
-our @EXPORT = qw(getfullhostname getURL);
+our @EXPORT = qw(getfullhostname resolvehostname getURL);
 require Socket;
 use Net::hostent;
 
 sub getfullhostname {
-  my($hostname,$name,$aliases,$addrtype,$length,@addrs);
-  chop($hostname = `hostname`);
+  my ($hostname) = @_;
+  my ($name,$aliases,$addrtype,$length,@addrs);
+  if (! defined $hostname) {
+    chop($hostname = `hostname`);
+  }
   ($name,$aliases,$addrtype,$length,@addrs) = CORE::gethostbyname($hostname);
   my @names = ($hostname, $name, split(' ', $aliases));
   foreach my $n (@names) {
     if ($n =~ /^[^.]+\.[^.]+/) { return $n; }
   }
   return $hostname;
+}
+
+sub resolvehostname {
+  my @result = ();
+  foreach my $hostname (@_) {
+    my ($name,$aliases,$addrtype,$length,@addrs) = CORE::gethostbyname($hostname);
+    my $realname = $hostname;
+    foreach my $n ($name, split(' ', $aliases)) {
+      if ($n =~ /^[^.]+\.[^.]+/) { $realname = $n; last }
+    }
+    push (@result, $realname);
+  }
+  return scalar @_ > 1 ? @result : $result[0];
 }
 
 my $urlprog = undef;
