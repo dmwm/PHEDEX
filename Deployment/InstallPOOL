@@ -189,6 +189,7 @@ sub installScram
 {
     my ($InstallRoot, $LVERSION) = @_;
     my $SW_DIR = '/afs/cern.ch/sw';
+    my $SCRAMV = 'scramv1';
     my $POOLver = 'POOL_2_2_1';
     my $arch = 'rh73_gcc323';
     $arch = 'slc3_ia32_gcc323' if ($LVERSION eq 'SLC3');
@@ -204,6 +205,10 @@ sub installScram
 	if (! $ENV{CMS_PATH});
     
 
+    # if we use the official POOL installation on AFS, we are forced
+    # to use scram and NOT scramv1
+    $SCRAMV = 'scram' if (! $ENV{CMS_PATH});
+
     eval {
 	( -d "$SW_DIR/lcg/app/releases/POOL/$POOLver")
 	    or die "Didn't find $POOLver !\n",
@@ -214,7 +219,7 @@ sub installScram
 		or die "Failed to create $InstallRoot directory.  Please check permissions.\n";
 	    open(FH,">$InstallRoot/poolenv.$sh");
 	    print FH "eval \`cd $CMS_PATH/lcg/app/releases/POOL/$POOLver; ",
-	    "scramv1 -arch $arch runtime -$sh\` \n";
+	    "$SCRAMV -arch $arch runtime -$sh\` \n";
 	    close(FH);
 	}
     };
