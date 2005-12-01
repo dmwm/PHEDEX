@@ -188,7 +188,7 @@ sub installStandalone
 sub installScram
 {
     my ($InstallRoot, $LVERSION) = @_;
-    my $SW_DIR = '/afs/cern.ch/sw';
+    my $SW_DIR = '/afs/cern.ch/cms/external/SCRAM-v1';
     my $SCRAMV = 'scramv1';
     my $POOLver = 'POOL_2_2_1';
     my $arch = 'rh73_gcc323';
@@ -196,29 +196,25 @@ sub installScram
 
     # check for existence of CMS_PATH. If it dosn't exist we assume
     # we are at Cern and have afs available.
-    $SW_DIR = $ENV{CMS_PATH} if $ENV{CMS_PATH};
+    $SW_DIR = "$ENV{CMS_PATH}/lcg/app/releases" if $ENV{CMS_PATH};
     print "\nwarning: CMS_PATH env variable is not set....\n",
     "this is fine, if we have access to afs\n",
     "if this is not the case, please set CMS_PATH to point\n",
-    "to your CMS installation (typically $VO_CMS_SW_DIR/slc3)\n",
+    "to your CMS installation (typically \$VO_CMS_SW_DIR/slc3)\n",
     "and restart this script !!\n\n"
 	if (! $ENV{CMS_PATH});
     
 
-    # if we use the official POOL installation on AFS, we are forced
-    # to use scram and NOT scramv1
-    $SCRAMV = 'scram' if (! $ENV{CMS_PATH});
-
     eval {
-	( -d "$SW_DIR/lcg/app/releases/POOL/$POOLver")
+	( -d "$SW_DIR/POOL/$POOLver")
 	    or die "Didn't find $POOLver !\n",
-	    "Expected it in $SW_DIR/lcg/app/releases/POOL/$POOLver \n";
+	    "Expected it in $SW_DIR/POOL/$POOLver \n";
 	
 	foreach my $sh ("sh", "csh") {
 	    (! system("mkdir -p $InstallRoot"))
 		or die "Failed to create $InstallRoot directory.  Please check permissions.\n";
 	    open(FH,">$InstallRoot/poolenv.$sh");
-	    print FH "eval \`cd $CMS_PATH/lcg/app/releases/POOL/$POOLver; ",
+	    print FH "eval \`cd $SW_DIR/POOL/$POOLver; ",
 	    "$SCRAMV -arch $arch runtime -$sh\` \n";
 	    close(FH);
 	}
