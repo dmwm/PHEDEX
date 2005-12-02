@@ -11,13 +11,15 @@
 ##H Usage:
 ##H   BlockNotify
 ##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
-##H      -next DIRECTORY
+##H      -next DIRECTORY -published DIRECTORY
 ##H
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
 ##H -db        database connection configuration parameter file
 ##H -wait      time to wait in seconds between work scans
 ##H -next      state directory for the next agent; can be repeated
+##H -published history directory for already published datasets
+##H
 
 BEGIN {
   use warnings; use strict; $^W=1;
@@ -36,10 +38,11 @@ my %args = (WAITTIME => 3600, NEXTDIR => []);
 	     "node=s"		=> \$args{MYNODE},
 	     "db=s"     	=> \$args{DBCONFIG},
 	     "wait=f"		=> \$args{WAITTIME},
+	     "published=s"      => \$args{PUBLISHED},
      	     "help|h"		=> sub { &usage() });
 
 if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{NEXTDIR}
-    || !$args{DBCONFIG})
+    || !$args{DBCONFIG} || !$args{PUBLISHED})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -62,7 +65,8 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
-	  	  AGENTID => "BlockNotify");    # Identity for activity logs
+	  	  AGENTID => "BlockNotify",     # Identity for activity logs
+		  PUBLISHED  => undef);         # dir with treated owner/datasets
 
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
@@ -91,13 +95,15 @@ sub completeBlocks
  
 
     # prepare the drop and fill in all informations required
+    # in order to avoid too many drops, this only happens for
+    # yet unpublished blocks
     while (my ($dataset, $owner, $files) = $complete->fetchrow_array())
     {
 	$result->{$dataset}{$owner} = {
 	    DATASET => $dataset,
 	    OWNER => $owner,
 	    FILES => $files
-	};
+	    } if (! -e $self->{PUBLISHED}/$owner.$dataset);
     }
 
     return $result;
