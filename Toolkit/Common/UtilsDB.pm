@@ -78,6 +78,7 @@ sub connectToDatabase
     # isn't too old, otherwise create new one.
     my $dbh = $self->{DBH};
     if (! $self->{DBH}
+	|| $self->{DBH}{private_phedex_invalid}
 	|| time() - $self->{DBH_AGE} > $self->{DBH_LIFE}
 	|| (! eval { $self->{DBH}->ping() } || $@)
 	|| (! eval { $dbh->do("select 1 from dual") } || $@))
@@ -111,6 +112,7 @@ sub connectToDatabase
 	# Cache it.
 	$self->{DBH_AGE} = time();
 	$self->{DBH} = $dbh;
+	$dbh->{private_phedex_invalid} = 0;
     }
 
     # Was identification suppressed?
@@ -294,7 +296,12 @@ sub dbsql
 sub dbprep
 {
     my ($dbh, $sql) = @_;
-    return $dbh->prepare (&dbsql ($sql));
+    my $stmt = eval { return $dbh->prepare (&dbsql ($sql)) };
+    return $stmt if ! $@;
+
+    # Handle disconnected oracle handle, flag the handle bad
+    $dbh->{private_phedex_invalid} = 1 if $@ =~ /ORA-03114:/;
+    die $@;
 }
 
 # Simple utility to prepare, bind and execute a SQL statement.
@@ -323,5 +330,10 @@ sub dbbindexec
 	$stmt->bind_param ($param, $val);
     }
 
-    return $stmt->execute();
+    my $rv = eval { return $stmt->execute() };
+    return $rv if ! $@;
+
+    # Handle disconnected oracle handle, flag the handle bad
+    $stmt->{Database}{private_phedex_invalid} = 1 if $@ =~ /ORA-03114:/;
+    die $@;
 }
