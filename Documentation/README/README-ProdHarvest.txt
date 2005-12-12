@@ -97,14 +97,12 @@ typically one at every UI machine submitting production jobs to LCG.
 The configuration for the drop agents is the following:
 
 PHEDEX_STATE=/replace/by/agents/state/directory
-### AGENT LABEL=DropSmryLCG PROGRAM=Toolkit/DropBox/DropSmryLCG
- -in  ${PHEDEX_STATE}/DropSmryLCG
+### AGENT LABEL=DropSmryLCG PROGRAM=Toolkit/DropBox/DropSmryLCG STATEOPT=in
  -out ${PHEDEX_STATE}/DropTMDBPublisher
  -node TV_LCG_Production
  -wait 30
 
-### AGENT LABEL=DropTMDBPublisher PROGRAM=Toolkit/DropBox/DropTMDBPublisher
- -in ${PHEDEX_STATE}/DropTMDBPublisher
+### AGENT LABEL=DropTMDBPublisher PROGRAM=Toolkit/DropBox/DropTMDBPublisher STATEOPT=state
  -db ${PHEDEX_DBPARAM}
  -node TV_LCG_Production
  -wait 30
