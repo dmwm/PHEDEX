@@ -65,7 +65,8 @@ sub new
     my %params = (MYNODE     => undef,          # My TMDB node name
 		  SCRIPT     => undef,          # path to script for publishing
 		  LFN_QUERY  => undef,		# LFN query script
-		  PUBLISHED  => undef);         # dir with treated owner/datasets
+		  PUBLISHED  => undef,          # dir with treated owner/datasets
+		  VERBOSE    => undef);         # switch to provide more verbosity
 
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
@@ -109,21 +110,21 @@ sub processDrop
     # Log transfer delay stats
     my $delta = &mytimeofday() - $start;
     &logmsg ("xstats: $block->{OWNER}/$block->{DATASET} " . sprintf('%.2f', $delta))
-	if $args{VERBOSE};
+	if $self->{VERBOSE};
     # Distinguish between successful, failed, postponed and "nothing to do" rounds.
     # Since the log messages will appear often, we provide an extra verbosity flag
     # to toggle message output in case of "nothing to do" and postponed cases.
     if ($publishreturn == 10)
     {
 	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} already tried")
-	    if $args{VERBOSE};
+	    if $self->{VERBOSE};
     } elsif ($publishreturn == 20)
     {
 	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} failed !!");
     } elsif ($publishreturn == 30)
     {
 	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} postponed")
-	    if $args{VERBOSE};
+	    if $self->{VERBOSE};
     } else
     {
 	&logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
@@ -226,7 +227,8 @@ sub publishBlock
     foreach my $item (@history)
     {
 	next if (-e "$self->{PUBLISHED}/$item->[0].$item->[1]");
-	&warn ("$drop: required pre-requisite $item->[0]/$item->[1] not yet published");
+	&warn ("$drop: required pre-requisite $item->[0]/$item->[1] not yet published")
+	    if $self->{VERBOSE};
 	return 30;
     }
 

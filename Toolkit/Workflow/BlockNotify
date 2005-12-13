@@ -103,7 +103,7 @@ sub completeBlocks
 	    DATASET => $dataset,
 	    OWNER => $owner,
 	    FILES => $files
-	    } if (! -e $self->{PUBLISHED}/$owner.$dataset);
+	    } if (! -e "$self->{PUBLISHED}/$owner.$dataset");
     }
 
     return $result;
