@@ -72,7 +72,7 @@ publishexit=$?
 
 if [ $publishexit == 0 ]
     then
-    ${PubDBHome}/user/announce-data.sh --pubdbid $PubDBID --dataset $DATASET --owner $OWNER
+    ${PUBDBHOME}/user/announce-data.sh --pubdbid $PUBDBID --dataset $DATASET --owner $OWNER
 fi
 exit $publishexit
 
