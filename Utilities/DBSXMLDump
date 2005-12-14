@@ -80,7 +80,7 @@ while (my $item = shift (@$datasets))
     do { chomp ($@); warn ("$@\n"); next } if $@;
 
     # Initialise result
-    my $dbspath = "$item->{DATASET}/$item->{DSINFO}{DataTier}/$item->{OWNER}";
+    my $dbspath = "/$item->{DATASET}/$item->{DSINFO}{DataTier}/$item->{OWNER}";
     my $object = $result->{'processed-dataset'}{$dbspath} = { 'path' => $dbspath };
 
     # Handle requested information
