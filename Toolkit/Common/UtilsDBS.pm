@@ -493,7 +493,7 @@ sub fetchRunInfo
 	$object->{BLOCKS_BY_ID}{$id} =
 	$object->{BLOCKS}{"$id"} = {
 	    ID => $id,
-	    NAME => "$object->{DATASET}/$object->{DSINFO}{DataTier}/$object->{OWNER}/#$id",
+	    NAME => "/$object->{DATASET}/$object->{DSINFO}{DataTier}/$object->{OWNER}#$id",
 	    STATUS => $status,
 	    NFILES => $files,
 	    NBYTES => $bytes,
