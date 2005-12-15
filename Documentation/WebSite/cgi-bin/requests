@@ -369,6 +369,14 @@ sub create
 	  "  <td colspan='3'>", $cgi->textfield(-name=>'email', -size=>50), "</td>\n",
 	  " </tr>\n",
 	  " <tr valign='top'>\n",
+	  "  <td>Include dependencies</td>\n",
+	  "  <td colspan='3'>",
+	  "<input type='radio' name='dependencies' value='No' />&nbsp;",
+	  "No, only the requested datasets<br />\n",
+	  "<input type='radio' name='dependencies' value='Yes' />&nbsp;",
+	  "Yes, selected datasets and their dependencies</td>\n",
+	  " </tr>\n",
+	  " <tr valign='top'>\n",
 	  "  <td>Owner/datasets<br />(glob patterns)</td>\n",
 	  "  <td colspan='3'>", $cgi->textarea('data', '', 10, 50), "</td>\n",
 	  " </tr>\n",
@@ -401,12 +409,21 @@ sub checknew
 {
     my $reqname = param('reqname') || '';
     my $email = param('email') || '';
+    my $dependencies = param('dependencies');
     my @dests = param('dest');
     my @data = split(/\s+/, param('data') || '');
 
     my @nodes = &getnodelist();
     my @reqnames = &getrequests();
     my $errors = 0;
+
+    my %destreqs = (T2_Caltech_Buffer	=> 'T1_FNAL_MSS',
+	    	    T2_Florida_Buffer	=> 'T1_FNAL_MSS',
+		    T2_Nebraska_Buffer	=> 'T1_FNAL_MSS',
+		    T2_Purdue_Buffer	=> 'T1_FNAL_MSS',
+		    T2_UCSD_Buffer	=> 'T1_FNAL_MSS',
+		    T2_Wisconsin_Buffer	=> 'T1_FNAL_MSS',
+		    T3_UIowa_Buffer	=> 'T1_FNAL_MSS');
 
     if (! $reqname) {
 	print "<div class='alert'><p><b>Error:</b>",
@@ -417,6 +434,12 @@ sub checknew
     if (! $email) {
 	print "<div class='alert'><p><b>Error:</b>",
 	      " No requestor e-mail, please supply one.</p></div>\n";
+	$errors = 1;
+    }
+
+    if (! $dependencies) {
+	print "<div class='alert'><p><b>Error:</b>",
+	      " No selection made for dependencies, please supply one.</p></div>\n";
 	$errors = 1;
     }
 
@@ -470,6 +493,13 @@ sub checknew
 	$errors = 1;
     }
 
+    if (! grep ($dependencies eq $_, qw(Yes No))) {
+	print "<div class='alert'><p><b>Error:</b>",
+	      " &ldquo;@{[&escapeHTML($dependencies)]}&rdquo;",
+	      " is not a valid dependencies selection.</p></div>\n";
+	$errors = 1;
+    }
+
     foreach my $node (@dests) {
 	if (! grep ($_ eq $node, @nodes)) {
 	    print "<div class='alert'><p><b>Error:</b>",
@@ -493,6 +523,11 @@ sub checknew
 	return;
     }
 
+    foreach my $node (@dests) {
+	next if ! exists $destreqs{$node};
+	push (@dests, $destreqs{$node}) if (! grep ($_ eq $destreqs{$node}, @dests));
+    }
+
     if (! param('confirm'))
     {
         print "<p>",
@@ -501,6 +536,7 @@ sub checknew
 	      "<input type='hidden' name='db' value='$db' />\n",
 	      "<input type='hidden' name='reqname' value='", &escapeHTML($reqname), "' />",
 	      "<input type='hidden' name='email' value='", &escapeHTML($email), "' />",
+	      "<input type='hidden' name='dependencies' value='", &escapeHTML($dependencies), "' />",
 	      (map {("<input type='hidden' name='dest' value='", &escapeHTML($_), "' />")} @dests),
 	      "<input type='hidden' name='data' value='", &escapeHTML(join(" ", @data)), "' />",
 
@@ -514,11 +550,15 @@ sub checknew
 	      "  <td>Requestor e-mail</td>\n",
 	      "  <td colspan='3'>", (map { &escapeHTML($_) . "<br />" } @emails), "</td>\n",
 	      " </tr>\n",
-	      " <tr valign='top'>\n",
+ 	      " <tr valign='top'>\n",
+	      "  <td>Include dependencies</td>\n",
+	      "  <td colspan='3'>", &escapeHTML($dependencies), "</td>\n",
+	      " </tr>\n",
+ 	      " <tr valign='top'>\n",
 	      "  <td>Destinations</td>\n",
-	      "  <td>\n", (map { "$_<br />" } grep (/^T1_/, @dests)), "</td>\n",
-	      "  <td>\n", (map { "$_<br />" } grep (/^T2_/, @dests)), "</td>\n",
-	      "  <td>\n", (map { "$_<br />" } grep (! /^T[12]_/, @dests)), "</td>\n",
+	      "  <td>\n", (map { "$_<br />" } sort grep (/^T1_/, @dests)), "</td>\n",
+	      "  <td>\n", (map { "$_<br />" } sort grep (/^T2_/, @dests)), "</td>\n",
+	      "  <td>\n", (map { "$_<br />" } sort grep (! /^T[12]_/, @dests)), "</td>\n",
    	      " </tr>\n",
 	      " <tr valign='top'>\n",
 	      "  <td>Owner/datasets</td>\n",
@@ -537,7 +577,8 @@ sub checknew
     {
 	my $now = time();
 	my ($prefix) = ($reqname =~ m|^(\d\d\d\d-\d\d)|);
-	my $replyto = join(", ", @emails, 'cms-phedex-developers@cern.ch');
+	my $replyto = join(", ", @emails, 'cms-phedex-admins@cern.ch');
+	my $dep = ($dependencies eq 'Yes' ? "-f" : "-p");
 	my $mail = ""
 	    . "Subject: TRANSFER REQUEST $reqname\n"
 	    . "From: PhEDEx Request Form <phedex.admin\@cern.ch>\n"
@@ -568,7 +609,7 @@ sub checknew
 	    . "\$TRTOOLS/TRNewContact $prefix/$reqname \\\n  "
 	    .   join (" \\\n  ", map { "'$_'" } @emails) . "\n"
 	    . "\$TRTOOLS/TRNewLoc $prefix/$reqname \\\n  @dests\n"
-	    . "\$TRTOOLS/TRNewData -p $prefix/$reqname \\\n  "
+	    . "\$TRTOOLS/TRNewData $dep $prefix/$reqname \\\n  "
 	    .   join (" \\\n  ", map { "'$_'" } @data) . "\n"
 	    . "\n"
 	    . "Submission information:\n"
@@ -601,6 +642,10 @@ sub checknew
 	      " <tr valign='top'>\n",
 	      "  <td>Requestor e-mail</td>\n",
 	      "  <td colspan='3'>", &escapeHTML($email), "</td>\n",
+	      " </tr>\n",
+	      " <tr valign='top'>\n",
+	      "  <td>Include dependencies</td>\n",
+	      "  <td colspan='3'>", &escapeHTML($dependencies), "</td>\n",
 	      " </tr>\n",
 	      " <tr valign='top'>\n",
 	      "  <td>Destinations</td>\n",
