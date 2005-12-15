@@ -79,6 +79,7 @@ sub ProcessSmry
     my $cksum = undef;
     my $lfn   = undef;
     my $turl  = undef;
+    my $surl  = undef;
     my $dropdir = "$self->{WORKDIR}/$drop";
 
     # Parse the smry file.
@@ -90,6 +91,7 @@ sub ProcessSmry
 	$cksum = $1   if /OUT_CKSUM=(\d+)/;           # zip's cksum
 	$lfn   = $1   if /OUT_LFN=(.+)/;              # zip's LFN
 	$turl  = $1   if /OUT_TURL=(.+)/;             # zip's TURL 
+        $surl  = $1   if /OUT_SURL=(.+)/;             # zip's SURL
     }
     close (IN);
     if (!$guid || !$size || !$lfn || !$turl) {
@@ -98,7 +100,7 @@ sub ProcessSmry
 
     # create XML POOL fragment
     my $XMLCatFragment="$dropdir/XMLCatFragment.$guid.xml";
-    my $surl=$turl; $surl =~ s/^[a-z]*:/sfn:/;
+    do { $surl=$turl; $surl =~ s/gsiftp/sfn/} if !$surl; 
     my $XMLcontent = &createZipXMLfragment($guid, $lfn, $surl);
     do { &alert("$drop: failed to create XML fragment for zip archive"); return 1} if !$XMLcontent;
     do { &alert("$drop: failed to write $XMLCatFragment"); return 1}
@@ -113,7 +115,7 @@ sub ProcessSmry
 
     # execute script to publish into local phedex pool catalog
     if ($self->{PUBLISH}) {
-        &warn ("failed to publish $XMLCatFragment into local catalogue") 
+        do { &alert ("failed to publish $XMLCatFragment into local catalogue"); return 1} 
             if &runcmd (@{$self->{PUBLISH}}, "$XMLCatFragment"); 
     }
 
