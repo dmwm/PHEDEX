@@ -131,7 +131,7 @@ sub ProcessSmry
 
     # execute script to publish into local phedex pool catalog
     if ($self->{PUBLISH}) {
-	&warn ("failed to publish $XMLCatFragment into local catalogue") 
+	do { &alert ("failed to publish $XMLCatFragment into local catalogue"); return 1} 
 	    if &runcmd (@{$self->{PUBLISH}}, "$XMLCatFragment", "$EVDS_OutputPath"); 
     }
 
