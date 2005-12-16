@@ -139,7 +139,7 @@ case $METHOD in
 	    PBS)
 	        # run on PBS worker nodes
 		validation_PBS_script
-		echo "qsub /tmp/validation.qsub"
+		qsub /tmp/validation.qsub
 		exitcode=$?
 		if $exitcode; then
 		    echo "PBS submission of validation job failed"
@@ -147,8 +147,8 @@ case $METHOD in
 		fi;;
 	    local)
 	        # run locally
-		echo "cd ${BASEDIR}"
-		echo "nice perl ./drive_publish_new.pl --dataset $DATASET --owner $OWNER >& $LOGDIR/publish.$OWNER.$DATASET.log"
+		cd ${BASEDIR}
+		nice perl ./drive_publish_new.pl --dataset $DATASET --owner $OWNER >& $LOGDIR/publish.$OWNER.$DATASET.log
 		exitcode=$?
 		if $exitcode; then
 		    echo "running validation locally failed"
@@ -166,7 +166,7 @@ case $METHOD in
 	case $RUN in
 	    PBS)
 		glide_PBS_script
-		echo "qsub /tmp/glide.qsub"
+		qsub /tmp/glide.qsub
 		exitcode=$?
 		if $exitcode; then
 		    echo "PBS submission of Glide job failed"
@@ -176,8 +176,8 @@ case $METHOD in
 	    local)
                 # run locally
 	        # source the Glide environment
-		echo "source ${BASEDIR}/setup.sh"
-		echo "nice python2 PublishFromPhedex.py --Dataset=$DATASET --Owner=$OWNER >& ${LOGDIR}/publish.$OWNER.$DATASET.log"
+		source ${BASEDIR}/setup.sh
+		nice python2 PublishFromPhedex.py --Dataset=$DATASET --Owner=$OWNER >& ${LOGDIR}/publish.$OWNER.$DATASET.log
 		exitcode=$?
 		if $exitcode; then
 		    echo "running Glide locally failed"
