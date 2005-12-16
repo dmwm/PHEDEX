@@ -177,7 +177,7 @@ case $METHOD in
                 # run locally
 	        # source the Glide environment
 		echo "source ${BASEDIR}/setup.sh"
-		echo "nice python2 PublishFromPhedex.py --Dataset=$DATASET --Owner=$OWNER >& ${LOGDIR}/publish.$OWNER.$DATASET.log";;
+		echo "nice python2 PublishFromPhedex.py --Dataset=$DATASET --Owner=$OWNER >& ${LOGDIR}/publish.$OWNER.$DATASET.log"
 		exitcode=$?
 		if $exitcode; then
 		    echo "running Glide locally failed"
