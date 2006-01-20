@@ -311,6 +311,7 @@ sub new
     &connectToDatabase ($self, 0);
     $self->{DBH}{FetchHashKeyName} = "NAME_uc";
     $self->{DBH}{LongReadLen} = 4096;
+    $self->{DBH}{RowCacheSize} = 10000;
     return $self;
 }
 
@@ -515,7 +516,7 @@ sub fetchRunInfo
     }
 
     &dbbindexec ($qevcoll, ":id" => $object->{ID});
-    while (my ($id, $index, $primary, $evts, $st, $vst, $name) = $qevcoll->fetchrow ())
+    while (my ($id, $index, $evts, $name) = $qevcoll->fetchrow ())
     {
 	next if $name eq 'EvC_META';
 	my $oldname = $name; $oldname =~ s/^EvC_Run//;
@@ -570,8 +571,7 @@ sub fetchApplicationInfo
 	    dt.name,
 	    app.executable,
 	    app.app_version,
-	    af.name,
-	    ct.name
+	    af.name
 	from t_processed_dataset pd
 	join t_processing_path pp
 	  on pp.id = pd.processing_path
@@ -583,15 +583,13 @@ sub fetchApplicationInfo
 	  on app.id = ac.application
 	join t_app_family af
 	  on af.id = app.app_family
-	join t_collection_type ct
-	  on ct.id = app.input_type
 	where pd.id = :id});
 
     &dbbindexec ($qappinfo, ":id" => $object->{ID});
-    if (my ($tier, $exe, $appvers, $appname, $intype) = $qappinfo->fetchrow())
+    if (my ($tier, $exe, $appvers, $appname) = $qappinfo->fetchrow())
     {
 	$object->{APPINFO}{ASSIGNMENT} = 0;
-	$object->{APPINFO}{DataTier} = $intype;
+	$object->{APPINFO}{DataTier} = 'N/A'; # FIXME
 	$object->{APPINFO}{ProductionCycle} = 'N/A'; # FIXME
 	$object->{APPINFO}{ApplicationVersion} = $appvers;
 	$object->{APPINFO}{ApplicationName} = $appname;
@@ -677,8 +675,6 @@ sub makeAppInfo
     my $pset = join ("#", map { "$_=@{[md5_base64($object->{PARAMETERS}{$_})]}" }
     		          sort keys %{$object->{PARAMETERS}});
 
-    # my $incollobj = $self->makeNamed ($person, "collection_type", $intype);
-    # my $outcollobj = $self->makeNamed ($person, "collection_type", "Output");
     my $appfamobj = $self->makeNamed ($person, "app_family", $appname);
     my $appobj = $self->getObject ($person, "application", {
 	EXECUTABLE => $exe, APP_VERSION => $appvers, APP_FAMILY => $appfamobj->{ID} });
