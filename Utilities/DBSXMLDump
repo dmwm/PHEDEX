@@ -78,8 +78,8 @@ foreach my $tier (@{$args{DATATIER}})
 {
     if (! grep ($_->{NAME} eq $tier, @{$dbs->{PARENTAGE_TYPE}}))
     {
-	print STDERR "Unrecognised data tier $tier\n";
-	print STDERR "Valid data tiers are @{[map { $_->{NAME} } @{$dbs->{PARENTAGE_TYPE}}]}\n";
+	print STDERR "Unrecognised data tier $tier, expected one of: ",
+	             "@{[map { $_->{NAME} } @{$dbs->{PARENTAGE_TYPE}}]}.\n";
 	$badtier++;
     }
 }
