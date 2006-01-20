@@ -1,24 +1,12 @@
 package UtilsTR; use strict; use warnings; use base 'Exporter';
 our @EXPORT = qw(usage readPatterns expandPatterns
-	         assignmentData assignmentInfo assignmentFileCategory
-	         expandXMLFragment listDatasetOwners listAssignments
+	         listDatasetOwners listAssignments
 		 listDatasetHistory);
 use TextGlob 'glob_to_regex';
 use UtilsWriters;
 use UtilsReaders;
 use UtilsCommand;
 use UtilsNet;
-use MIME::Base64;
-use Compress::Zlib;
-
-sub usage
-{
-    print STDERR @_;
-    open (ME, "< $0")
-        && print(STDERR map { s/^\#\#H ?//; $_ } grep (/^\#\#H/, <ME>))
-	&& close(ME);
-    exit(1);
-}
 
 # Read the pattern files.  Reads each file, splits it at white
 # space, and returns the list of all patterns in all the files.
@@ -65,63 +53,6 @@ sub expandPatterns
     }
 
     return @pats;
-}
-
-# Get assignment data from RefDB: the result xml catalogues for each run
-sub assignmentData
-{
-    my ($assid) = @_;
-    my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/"
-			."data/GetAttachInfo.php?AssignmentID=${assid}");
-    die "$assid: no assignment data\n" if ! $data;
-    die "$assid: bad assignment data\n" if $data =~ /GetAttachInfo/;
-
-    my $result = { DATA => $data };
-    return $result;
-}
-
-# Get assignment information from RefDB.
-sub assignmentInfo
-{
-    my ($assid) = @_;
-    my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/"
-			."data/Info.php?AssignmentID=${assid}&display=1");
-    die "$assid: no info\n" if ! $data;
-
-    my $result = { DATA => $data };
-    foreach (split(/\n/, $data)) {
-	$result->{$1} = $2 if (/^(\S+)=(.*)/);
-    }
-
-    # Dataset = DatasetName
-    # owner = OutputOwnerName
-    # step = ProdStepType
-    # cycle = ProductionCycle
-    return $result;
-}
-
-# Determine the assignment file category.  This is the subdirectory into
-# which the files from the assignment will be uploaded to.
-sub assignmentFileCategory
-{
-    my ($ainfo) = @_;
-    if ($ainfo->{ProdStepType} eq 'OSCAR') {
-	return "Hit";
-    } elsif ($ainfo->{ProdStepType} eq 'Digi' && $ainfo->{ProductionCycle} =~ /^DST/) {
-	return $ainfo->{ProductionCycle} =~ /(.*)_\d+$/ ? $1 : $ainfo->{ProductionCycle};
-    } elsif ($ainfo->{ProdStepType} eq 'Digi' || $ainfo->{ProdStepType} eq 'Hit') {
-	return $ainfo->{ProdStepType};
-    } else {
-	return undef;
-    }
-}
-
-# Utility subroutine to expand a run XML fragment and to clean it up.
-sub expandXMLFragment
-{
-    my ($context, $xmlfrag) = @_;
-    my $xml = Compress::Zlib::memGunzip (decode_base64 ($xmlfrag));
-    return join("\n", grep(!/^\d+a$/ && !/^\.$/, split(/\n/, $xml)));
 }
 
 # Query RefDB for a list of dataset/owner pairs that match the

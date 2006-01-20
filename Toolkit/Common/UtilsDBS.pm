@@ -24,6 +24,8 @@ use UtilsTR;
 use UtilsNet;
 use UtilsReaders;
 use UtilsLogging;
+use MIME::Base64;
+use Compress::Zlib;
 
 # Initialise object
 sub new
@@ -87,7 +89,8 @@ sub fetchRunInfo
 	$object->{BLOCKS}{$context} ||= { NAME => $context, FILES => {} };
 
         my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/"
-			    ."data/GetAttachInfo.php?AssignmentID=${assid}");
+			    ."data/GetAttachInfo-L25s.php?AssignmentID=${assid}"
+			    ."&&OutputCollectionID=$object->{COLLECTION}");
         die "no run data for $context\n" if ! $data;
         die "bad run data for $context\n" if $data =~ /GetAttachInfo/;
         my ($junk, @rows) = split(/\n/, $data);
@@ -208,6 +211,7 @@ sub fetchApplicationInfo
     my @assids = &listAssignments ($object);
     die "no assignments for $object->{OWNER}/$object->{DATASET}\n" if ! @assids;
     my $ainfo = &assignmentInfo ($assids[0]);
+    die "no info for assignment $assids[0]\n" if ! $ainfo;
     $object->{APPINFO}{ASSIGNMENT} = $assids[0];
     $object->{APPINFO}{DataTier} = $ainfo->{ProdStepType};
     $object->{APPINFO}{ProductionCycle} = $ainfo->{ProductionCycle};
@@ -238,19 +242,10 @@ sub fetchApplicationInfo
 sub fetchProvenanceInfo
 {
     my ($self, $object) = @_;
-    $object->{PARENTS} = [ &listDatasetHistory ($object) ];
-    foreach my $parent (@{$object->{PARENTS}})
+    foreach my $parent (&listDatasetHistory ($object))
     {
-	eval { $self->fetchDatasetInfo ($parent) };
-	if ($@)
-	{
-	    # May fail for generation step
-	    chomp ($@);
-	    &alert ("Error extracting info for $parent->{OWNER}/$parent->{DATASET}: $@");
-	    $parent->{DSINFO}{DatasetName} = $parent->{DATASET};
-	    $parent->{DSINFO}{OwnerName} = $parent->{OWNER};
-	    $parent->{DSINFO}{DataTier} = "Error";
-	}
+	$self->fetchDatasetInfo ($parent);
+	push (@{$object->{PARENTS}}, $parent);
     }
 }
 
@@ -267,6 +262,34 @@ sub fillDatasetInfo
 sub fetchKnownFiles
 {
     die "fetchKnownFiles on RefDB not supported\n";
+}
+
+# Get assignment information from RefDB.
+sub assignmentInfo
+{
+    my ($assid) = @_;
+    my $data = &getURL ("http://cmsdoc.cern.ch/cms/production/www/cgi/"
+			."data/Info.php?AssignmentID=${assid}&display=1");
+    die "$assid: no info\n" if ! $data;
+
+    my $result = { DATA => $data };
+    foreach (split(/\n/, $data)) {
+	$result->{$1} = $2 if (/^(\S+?)=(.*)/);
+    }
+
+    # Dataset = DatasetName
+    # owner = OutputOwnerName
+    # step = ProdStepType
+    # cycle = ProductionCycle
+    return $result;
+}
+
+# Utility subroutine to expand a run XML fragment and to clean it up.
+sub expandXMLFragment
+{
+    my ($context, $xmlfrag) = @_;
+    my $xml = Compress::Zlib::memGunzip (decode_base64 ($xmlfrag));
+    return join("\n", grep(!/^\d+a$/ && !/^\.$/, split(/\n/, $xml)));
 }
 
 1;
@@ -314,8 +337,6 @@ sub fetchPublishedData
 
     # Get all "metadata"
     &fetchAll($self, "person");
-    &fetchAll($self, "physics_group");
-    &fetchAll($self, "collection_type");
     &fetchAll($self, "app_family");
     &fetchAll($self, "application");
     &fetchAll($self, "app_config");
@@ -323,14 +344,9 @@ sub fetchPublishedData
     &fetchAll($self, "block_status");
     &fetchAll($self, "file_status");
     &fetchAll($self, "file_type");
-    &fetchAll($self, "validation_status");
-    &fetchAll($self, "dataset_status");
-    &fetchAll($self, "evcoll_status");
     &fetchAll($self, "parentage_type");
 
     # FIXME: fetch lazily
-    &fetchAll($self, "desc_mc");
-    &fetchAll($self, "desc_primary");
     &fetchAll($self, "primary_dataset");
     &fetchAll($self, "processing_path");
 
@@ -455,10 +471,7 @@ sub fetchRunInfo
 	select
 	  evc.id,
 	  evc.collection_index,
-	  evc.is_primary,
 	  evi.events,
-	  evi.status,
-	  evi.validation_status,
 	  evi.name
 	from t_event_collection evc
 	join t_info_evcoll evi on evi.event_collection = evc.id
@@ -511,9 +524,6 @@ sub fetchRunInfo
 	    ID => $id,
 	    NAME => "$oldname",
 	    EVTS => $evts,
-	    STATUS => $st,
-	    VALIDATION_STATUS => $vst,
-	    IS_PRIMARY => $primary,
 	    COLLECTION_INDEX => $index,
 	    FILES => {}
         };
@@ -656,12 +666,6 @@ sub makePerson
     return $self->newObject ($p, 'person', $p);
 }
 
-sub makePhysicsGroup
-{
-    my ($self, $object, $person) = @_;
-    return $self->getObject ($person, "physics_group", { NAME => "FIXME" });
-}
-
 sub makeAppInfo
 {
     my ($self, $context, $object, $person) = @_;
@@ -687,15 +691,8 @@ sub makeAppInfo
 sub makePrimaryDataset
 {
     my ($self, $object, $person) = @_;
-
-    # FIXME: Do this lazily.
-    my $mcdesc = $self->getObject ($person, "desc_mc", {
-	DESCRIPTION => $object->{DATASET} });
-    my $primdesc = $self->getObject ($person, "desc_primary", {
-	MC_CHANNEL => $mcdesc->{ID}, IS_MC_DATA => 'y' });
     my $primary = $self->getObject ($person, "primary_dataset", {
-	NAME => $object->{DATASET}, DESCRIPTION => $primdesc->{ID} });
-
+	NAME => $object->{DATASET} });
     return $primary;
 }
 
@@ -847,8 +844,6 @@ sub updateDataset
 
         $self->prepInsert ($person, \%sqlargs, "IEVCOLLINFO",
 	    $run->{ID}, $run->{EVTS},
-	    # $self->makeNamed ($person, "evcoll_status", "FIXME")->{ID},
-	    # $self->makeNamed ($person, "validation_status", "FIXME")->{ID},
 	    ($run->{NAME} == 0 ? "EvC_META" : "EvC_Run$run->{NAME}"));
 
 	my %parentsdone = ();
