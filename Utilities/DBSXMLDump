@@ -69,6 +69,22 @@ my $datasets = $dbs->fetchPublishedData();
 $datasets = [ sort { $a->{DATASET} cmp $b->{DATASET} ||
 		     $a->{OWNER} cmp $b->{OWNER} } @$datasets ];
 
+# Check the data tiers are valid.  This is a bit hacky, we really
+# should not be poking into the DBS object, but easiest for now.
+# Note that this checks for the parentage type, not actual data
+# tier -- they differ for PU (which is data tier Hit, type PU).
+my $badtier = 0;
+foreach my $tier (@{$args{DATATIER}})
+{
+    if (! grep ($_->{NAME} eq $tier, @{$dbs->{PARENTAGE_TYPE}}))
+    {
+	print STDERR "Unrecognised data tier $tier\n";
+	print STDERR "Valid data tiers are @{[map { $_->{NAME} } @{$dbs->{PARENTAGE_TYPE}}]}\n";
+	$badtier++;
+    }
+}
+do { $dbs->disconnect(); exit (5) } if $badtier;
+
 # Get all current datasets
 while (my $item = shift (@$datasets))
 {
@@ -90,7 +106,7 @@ while (my $item = shift (@$datasets))
         foreach my $parent (@{$item->{PARENTS}})
         {
 	    next if ($args{DATATIER}
-		     && ! grep ($_ eq $parent->{DSINFO}{DataTier}, @{$args{DATATIER}}));
+		     && ! grep ($_ eq $parent->{TYPE}, @{$args{DATATIER}}));
             my $ppath = "/$parent->{DATASET}/$parent->{DSINFO}{DataTier}/$parent->{OWNER}";
 	    $object->{'parent'}{$ppath} = {
                 'path' => $ppath,
