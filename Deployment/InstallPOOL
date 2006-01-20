@@ -153,14 +153,14 @@ sub installStandalone
 	.":$InstallRoot/lcg/external/uuid/$UUID/$Linux_Vshort/lib";
     my $ppath = "$InstallRoot/lcg/app/releases/PI/$PI/$Linux_V/lib/modules"
 	.":$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/lib/modules";
-    my $bpath = "$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/bin"
-	.":$InstallRoot/lcg/app/releases/PI/$PI/$Linux_V/bin"
+    my $bpath = "$InstallRoot/lcg/app/releases/PI/$PI/$Linux_V/bin"
 	.":$InstallRoot/lcg/app/releases/SEAL/$SEAL/$Linux_V/bin"
 	.":$InstallRoot/lcg/external/xerces-c/$Xerces/bin"
 	.":$InstallRoot/lcg/external/mysql/$MYSQL/$Linux_Vshort/bin"
 	.":$InstallRoot/lcg/external/pcre/$PCRE/$Linux_Vshort/bin";
 
-    my $bpath_pre = "$InstallRoot/lcg/external/python/$PYTHON/$Linux_Vshort/bin";
+    my $bpath_pre = "$InstallRoot/lcg/external/python/$PYTHON/$Linux_Vshort/bin"
+        .":$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/bin";
     my $pypath = "$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/lib"
 	.":$InstallRoot/lcg/app/releases/POOL/$POOL/$Linux_V/bin"
 	.":$InstallRoot/lcg/app/releases/SEAL/$SEAL/$Linux_V/lib"
