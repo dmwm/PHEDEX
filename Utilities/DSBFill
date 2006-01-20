@@ -91,6 +91,8 @@ foreach my $pass (qw(Hit Digi DST DSTL25))
         # Get the full data
         eval { $source->fillDatasetInfo ($item); };
         do { chomp ($@); warn ("$@\n"); next } if $@;
+	do { print " skipped, not closed\n"; next }
+	    if $item->{DSINFO}{CollectionStatus} ne 6;
 
         my $blocks = $item->{BLOCKS};
         my $runs = $item->{RUNS};
