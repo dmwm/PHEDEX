@@ -103,6 +103,8 @@ sub fetchRunInfo
 		XML => undef,
 		FILES => {}
 	    };
+	    do { &warn ("$context/$run: no xml fragment"); next }
+	        if (! defined $xmlfrag);
 	    do { &warn ("$context/$run: empty xml fragment"); next }
 	    	if ($xmlfrag eq '0');
 
