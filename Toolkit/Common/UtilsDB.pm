@@ -120,146 +120,11 @@ sub connectToDatabase
 
     # Make myself known.  If this fails, the database is probably
     # so wedged that we can't do anything useful, so bail out.
-    eval
-    {
-	my $now = time();
-	my $mynode = $self->{MYNODE};
-	my $me = $self->{AGENTID} || $0; $me =~ s|.*/||;
-	my $agent = &dbexec($dbh, qq{
-	    select count(*) from t_agent where name = :me},
-	    ":me" => $me)->fetchrow_arrayref();
-	my $status = &dbexec($dbh, qq{
-	    select count(*) from t_agent_status
-	    where node = :node and agent = :me},
-    	    ":node" => $mynode, ":me" => $me)
-    	    ->fetchrow_arrayref();
-
-	&dbexec($dbh, qq{insert into t_agent values (:me)}, ":me" => $me)
-	    if ! $agent || ! $agent->[0];
-
-	&dbexec($dbh, qq{
-	    insert into t_agent_status (timestamp, node, agent, state)
-	    values (:now, :node, :me, 1)},
-	    ":now" => &mytimeofday(), ":node" => $mynode, ":me" => $me)
-	    if ! $status || ! $status->[0];
-
-	&dbexec($dbh, qq{
-	    update t_agent_status set state = 1, timestamp = :now
-	    where node = :node and agent = :me},
-	    ":now" => &mytimeofday(), ":node" => $mynode, ":me" => $me);
-	$dbh->commit();
-
-	# Now look for messages to me.  There may be many, so handle
-	# them in the order given, but only act on the final state.
-	# The possible messages are "STOP" (quit), "SUSPEND" (hold),
-	# "GOAWAY" (permanent stop), and "RESTART".  We can act on the
-	# first three commands, but not the last one, except if the
-	# latter has been superceded by a later message: if we see
-	# both STOP/SUSPEND/GOAWAY and then a RESTART, just ignore
-	# the messages before RESTART.
-	#
-	# When we see a RESTART or STOP, we "execute" it and delete all
-	# messages up to and including the message itself (a RESTART
-	# seen by the agent is likely indication that the manager did
-	# just that; it is not a message we as an agent can do anything
-	# about, an agent manager must act on it, so if we see it, it's
-	# an indicatioon the manager has done what was requested).
-	# SUSPENDs we leave in the database until we see a RESTART.
-	#
-	# Messages are only executed until my current time; there may
-	# be "scheduled intervention" messages for future.
-	while (1)
-	{
-	    my $now = &mytimeofday ();
-	    my ($time, $action, $keep) = (undef, 'CONTINUE', 0);
-	    my $messages = &dbexec($dbh, qq{
-	       select timestamp, message
-	       from t_agent_message
-	       where node = :node and agent = :me
-	       order by timestamp asc},
-	       ":node" => $mynode, ":me" => $me);
-            while (my ($t, $msg) = $messages->fetchrow())
-	    {
-		# If it's a message for a future time, stop processing.
-		last if $t > $now;
-
-	        if ($msg eq 'SUSPEND' && $action ne 'STOP')
-	        {
-		    # Hold, keep this in the database.
-		    ($time, $action, $keep) = ($t, $msg, 1);
-		    $keep = 1;
-	        }
-	        elsif ($msg eq 'STOP')
-	        {
-		    # Quit.  Something to act on, and kill this message
-		    # and anything that preceded it.
-		    ($time, $action, $keep) = ($t, $msg, 0);
-	        }
-	        elsif ($msg eq 'GOAWAY')
-	        {
-		    # Permanent quit: quit, but leave the message in
-		    # the database to prevent restarts before 'RESTART'.
-		    ($time, $action, $keep) = ($t, 'STOP', 1);
-	        }
-	        elsif ($msg eq 'RESTART')
-	        {
-		    # Restart.  This is not something we can have done,
-		    # so the agent manager must have acted on it, or we
-		    # are processing historical sequence.  We can kill
-		    # this message and everything that preceded it, and
-		    # put us back into 'CONTINUE' state to override any
-		    # previous STOP/SUSPEND/GOAWAY.
-		    ($time, $action, $keep) = (undef, 'CONTINUE', 0);
-	        }
-	        else
-	        {
-		    # Keep anything we don't understand, but no action.
-		    $keep = 1;
-	        }
-
-	        &dbexec($dbh, qq{
-		    delete from t_agent_message
-		    where node = :node and agent = :me
-		      and (timestamp < :t or (timestamp = :t and message = :msg))},
-	      	    ":node" => $mynode, ":me" => $me, ":t" => $t, ":msg" => $msg)
-	            if ! $keep;
-	    }
-
-	    # Apply our changes.
-	    $messages->finish();
-	    $dbh->commit();
-
-	    # Act on the final state.
-	    if ($action eq 'STOP')
-	    {
-	        &logmsg ("agent stopped via control message at $time");
-	        $self->doStop ();
-		exit(0); # Still running?
-	    }
-	    elsif ($action eq 'SUSPEND')
-	    {
-	        # The message doesn't actually specify for how long, take
-	        # a reasonable nap to avoid filling the log files.
-	        &logmsg ("agent suspended via control message at $time");
-	        $self->nap (90);
-	        next;
-	    }
-	    else
-	    {
-	        # Good to go.
-	        last;
-	    }
-	}
-    };
-
-    if ($@)
-    {
-	chomp ($@);
-	&alert ("failed to update agent status: $@");
-	eval { $dbh->rollback() };
-	&disconnectFromDatabase ($self, $dbh, 1);
-	return undef;
-    }
+    # The caller is in charge of committing or rolling back on
+    # any errors raised.
+    &updateAgentStatus ($self, $dbh);
+    &identifyAgent ($self, $dbh);
+    &checkAgentMessages ($self, $dbh);
 
     return $dbh;
 }
@@ -281,6 +146,262 @@ sub disconnectFromDatabase
     }
 }
 
+######################################################################
+# Utilities used during agent login.  These really belong somewhere
+# else (UtilsAgent?), not in the core database logic.
+
+# Identify the version of the code packages running in this agent.
+# Scan all the perl modules imported into this process, and identify
+# each significant piece of code.  We collect following information:
+# relative file name, file size in bytes, MD5 sum of the file contents,
+# PhEDEx distribution version, the CVS revision and tag of the file.
+sub identifyAgent
+{
+    my ($self, $dbh) = @_;
+    return if $self->{DBH_AGENT_IDENTIFIED};
+
+    # Get PhEDEx distribution version.
+    my $now = &mytimeofday();
+    my $distribution = undef;
+    if (-f $self->{DBCONFIG})
+    {
+	my $versionfile = $self->{DBCONFIG};
+	$versionfile =~ s|/[^/]+$||;
+	$versionfile .= "/VERSION";
+	if (open (DBHVERSION, "< $versionfile"))
+	{
+	    chomp ($distribution = <DBHVERSION>);
+	    close (DBHVERSION);
+	}
+    }
+
+    # Get all interesting modules loaded into this process.
+    my @files = ($0, grep (m!(^|/)(PHEDEX|Toolkit|Utilities|Custom)/!, values %INC));
+    return if ! @files;
+
+    # Get the file data for each module: size, checksum, CVS info.
+    my %fileinfo = ();
+    my %cvsinfo = ();
+    foreach my $file (@files)
+    {
+	my ($path, $fname) = ($file =~ m!(.*)/(.*)!);
+	$fname = $file if ! defined $fname;
+	next if exists $fileinfo{$fname};
+
+	if (defined $path)
+	{
+	    if (-d $path && ! exists $cvsinfo{$path} && open (DBHCVS, "< $path/CVS/Entries"))
+	    {
+		while (<DBHCVS>)
+		{
+		    chomp;
+		    my ($type, $cvsfile, $rev, $date, $flags, $sticky) = split("/", $_);
+		    $cvsinfo{$path}{$cvsfile} = {
+			REVISION => $rev,
+			REVDATE => $date,
+			FLAGS => $flags,
+			STICKY => $sticky
+		    };
+		}
+		close (DBHCVS);
+	    }
+
+	    $fileinfo{$fname} = $cvsinfo{$path}{$fname}
+	        if exists $cvsinfo{$path}{$fname};
+	}
+
+	if (-f $file)
+	{
+	    if (my $cksum = qx(md5sum $file 2>/dev/null))
+	    {
+		chomp ($cksum);
+		my ($sum, $f) = split(/\s+/, $cksum);
+		$fileinfo{$fname}{CHECKSUM} = "MD5:$sum";
+	    }
+
+	    $fileinfo{$fname}{SIZE} = -s $file;
+	    $fileinfo{$fname}{DISTRIBUTION} = $distribution;
+	}
+    }
+
+    # Update the database
+    my $mynode = $self->{MYNODE};
+    my $me = $self->{AGENTID} || $0; $me =~ s|.*/||;
+    my $stmt = &dbprep ($dbh, qq{
+	insert into t_agent_version
+	(timestamp, node, agent,
+	 filename, filesize, checksum,
+	 release, revision, tag)
+	values
+	(:now, :node, :agent,
+	 :filename, :filesize, :checksum,
+	 :release, :revision, :tag)});
+	
+    &dbexec ($dbh, qq{
+	delete from t_agent_version
+	where node = :node and agent = :me},
+	":node" => $mynode, ":me" => $me);
+
+    foreach my $fname (keys %fileinfo)
+    {
+	&dbbindexec ($stmt,
+		     ":now" => $now,
+		     ":node" => $mynode,
+		     ":agent" => $me,
+		     ":filename" => $fname,
+		     ":filesize" => $fileinfo{$fname}{SIZE},
+		     ":checksum" => $fileinfo{$fname}{CHECKSUM},
+		     ":release" => $fileinfo{$fname}{DISTRIBUTION},
+		     ":revision" => $fileinfo{$fname}{REVISION},
+		     ":tag" => $fileinfo{$fname}{STICKY});
+    }
+
+    $dbh->commit ();
+    $self->{DBH_AGENT_IDENTIFIED} = 1;
+}
+
+# Update the agent status in the database.  This identifies the
+# agent as having connected recently and alive.
+sub updateAgentStatus
+{
+    my ($self, $dbh) = @_;
+    my $mynode = $self->{MYNODE};
+    my $me = $self->{AGENTID} || $0; $me =~ s|.*/||;
+    my $agent = &dbexec($dbh, qq{
+	select count(*) from t_agent where name = :me},
+	":me" => $me)->fetchrow_arrayref();
+    my $status = &dbexec($dbh, qq{
+	select count(*) from t_agent_status
+	where node = :node and agent = :me},
+    	":node" => $mynode, ":me" => $me)
+    	->fetchrow_arrayref();
+
+    &dbexec($dbh, qq{insert into t_agent values (:me)}, ":me" => $me)
+	if ! $agent || ! $agent->[0];
+
+    &dbexec($dbh, qq{
+	insert into t_agent_status (timestamp, node, agent, state)
+	values (:now, :node, :me, 1)},
+	":now" => &mytimeofday(), ":node" => $mynode, ":me" => $me)
+	if ! $status || ! $status->[0];
+
+    &dbexec($dbh, qq{
+	update t_agent_status set state = 1, timestamp = :now
+	where node = :node and agent = :me},
+	":now" => &mytimeofday(), ":node" => $mynode, ":me" => $me);
+    $dbh->commit();
+}
+
+# Now look for messages to me.  There may be many, so handle
+# them in the order given, but only act on the final state.
+# The possible messages are "STOP" (quit), "SUSPEND" (hold),
+# "GOAWAY" (permanent stop), and "RESTART".  We can act on the
+# first three commands, but not the last one, except if the
+# latter has been superceded by a later message: if we see
+# both STOP/SUSPEND/GOAWAY and then a RESTART, just ignore
+# the messages before RESTART.
+#
+# When we see a RESTART or STOP, we "execute" it and delete all
+# messages up to and including the message itself (a RESTART
+# seen by the agent is likely indication that the manager did
+# just that; it is not a message we as an agent can do anything
+# about, an agent manager must act on it, so if we see it, it's
+# an indicatioon the manager has done what was requested).
+# SUSPENDs we leave in the database until we see a RESTART.
+#
+# Messages are only executed until my current time; there may
+# be "scheduled intervention" messages for future.
+sub checkAgentMessages
+{
+    my ($self, $dbh) = @_;
+    my $mynode = $self->{MYNODE};
+    my $me = $self->{AGENTID} || $0; $me =~ s|.*/||;
+
+    while (1)
+    {
+	my $now = &mytimeofday ();
+	my ($time, $action, $keep) = (undef, 'CONTINUE', 0);
+	my $messages = &dbexec($dbh, qq{
+	    select timestamp, message
+	    from t_agent_message
+	    where node = :node and agent = :me
+	    order by timestamp asc},
+	    ":node" => $mynode, ":me" => $me);
+        while (my ($t, $msg) = $messages->fetchrow())
+	{
+	    # If it's a message for a future time, stop processing.
+	    last if $t > $now;
+
+	    if ($msg eq 'SUSPEND' && $action ne 'STOP')
+	    {
+		# Hold, keep this in the database.
+		($time, $action, $keep) = ($t, $msg, 1);
+		$keep = 1;
+	    }
+	    elsif ($msg eq 'STOP')
+	    {
+		# Quit.  Something to act on, and kill this message
+		# and anything that preceded it.
+		($time, $action, $keep) = ($t, $msg, 0);
+	    }
+	    elsif ($msg eq 'GOAWAY')
+	    {
+		# Permanent quit: quit, but leave the message in
+		# the database to prevent restarts before 'RESTART'.
+		($time, $action, $keep) = ($t, 'STOP', 1);
+	    }
+	    elsif ($msg eq 'RESTART')
+	    {
+		# Restart.  This is not something we can have done,
+		# so the agent manager must have acted on it, or we
+		# are processing historical sequence.  We can kill
+		# this message and everything that preceded it, and
+		# put us back into 'CONTINUE' state to override any
+		# previous STOP/SUSPEND/GOAWAY.
+		($time, $action, $keep) = (undef, 'CONTINUE', 0);
+	    }
+	    else
+	    {
+		# Keep anything we don't understand, but no action.
+		$keep = 1;
+	    }
+
+	    &dbexec($dbh, qq{
+		delete from t_agent_message
+		where node = :node and agent = :me
+		  and (timestamp < :t or (timestamp = :t and message = :msg))},
+	      	":node" => $mynode, ":me" => $me, ":t" => $t, ":msg" => $msg)
+	        if ! $keep;
+	}
+
+	# Apply our changes.
+	$messages->finish();
+	$dbh->commit();
+
+	# Act on the final state.
+	if ($action eq 'STOP')
+	{
+	    &logmsg ("agent stopped via control message at $time");
+	    $self->doStop ();
+	    exit(0); # Still running?
+	}
+	elsif ($action eq 'SUSPEND')
+	{
+	    # The message doesn't actually specify for how long, take
+	    # a reasonable nap to avoid filling the log files.
+	    &logmsg ("agent suspended via control message at $time");
+	    $self->nap (90);
+	    next;
+	}
+	else
+	{
+	    # Good to go.
+	    last;
+	}
+    }
+}
+
+######################################################################
 # Tidy up SQL statement
 sub dbsql
 {
