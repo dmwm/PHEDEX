@@ -266,7 +266,8 @@ sub idle
 	if (! @{$self->{JOBS}})
 	{
 	    my $workdir = $self->{WORKDIR};
-	    &rmtree ([ <$workdir/*> ]);
+	    my @oldfiles = <$workdir/*>;
+	    &rmtree (\@oldfiles) if @oldfiles;
 	}
 
 	# Purge memory of bad files that have cooled long enough.
