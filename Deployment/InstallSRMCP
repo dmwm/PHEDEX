@@ -6,8 +6,8 @@
 ##H Usage: InstallSRMCP DESTINATION
 ##H
 ##H DESTINATION is the directory under which you want to install the
-##H perl modules.  Typically this is the same destination you give to
-##H the other "Install" deployment tools.
+##H utility and it's files.  Typically this is the same destination
+##H you give to the other "Install" deployment tools.
 
 # Check command line arguments
 if [ $# -ne 1 ]; then
