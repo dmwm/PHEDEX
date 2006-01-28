@@ -22,7 +22,7 @@ destdir="$1"
 echo "Downloading and installing srmcp"
 (set -e
  cd "$destdir"
- wget -q http://cmsdcam2.fnal.gov/dcache/srmcp_v1_20_NULL.tar
+ wget -q http://cern.ch/cms-project-phedex/Files/srmcp_v1_20_NULL.tar
  tar xf srmcp_v1_20_NULL.tar
  rm srmcp_v1_20_NULL.tar) || exit $?
 
