@@ -7,7 +7,6 @@ include BASE_PATH . "/jpgraph/jpgraph_line.php";
 function makeGraph($graph, $data, $args, $upto)
 {
   // Rendering parameters
-  $patterns = array('/^T1/' => 0, '/^T2/' => PATTERN_DIAG2, '/^/' => PATTERN_DIAG4);
   $styles = array("#e66266", "#fff8a9", "#7bea81", "#8d4dff", "#ffbc71", "#a57e81",
                   "#baceac", "#00ccff", "#63aafe", "#ccffff", /* "#ccffcc", "#ffff99", */
                   "#99ccff", "#ff99cc", "#cc99ff", "#ffcc99", "#3366ff", "#33cccc");
@@ -29,16 +28,6 @@ function makeGraph($graph, $data, $args, $upto)
     foreach ($xdata as $node => $info)
       $nodes[$node] = 1;
   sort ($nodes = array_keys ($nodes));
-
-  // Assign patterns to nodes
-  $nodepats = array();
-  foreach ($nodes as $n => $node)
-    foreach ($patterns as $pat => $patvalue)
-    {
-      if (! preg_match($pat, $node)) continue;
-      $nodepats[$node] = $patvalue;
-      break;
-    }
 
   // Build a bar plot for each node and selected transfer metric.
   $legend = array();
@@ -67,7 +56,6 @@ function makeGraph($graph, $data, $args, $upto)
 
     $barplot = new LinePlot($plotdata);
     $barplot->SetFillColor ($styles[$n % count($styles)]);
-    // if ($nodepats[$node]) $barplot->SetPattern ($nodepats[$node], 'black');
     if (! isset ($legend[$node]))
     {
       $legend[$node] = 1;
@@ -91,34 +79,37 @@ function makeGraph($graph, $data, $args, $upto)
   $graph->img->SetAntiAliasing();
 
   $graph->title->Set("PhEDEx Data Transfers {$args['title']}");
-  $graph->title->SetFont(FF_FONT2,FS_BOLD);
+  $graph->title->SetFont(FF_VERDANA,FS_BOLD,14);
   $graph->title->SetColor("black");
 
   $nowstamp = gmdate("Y-m-d H:i");
-  $graph->subtitle->Set("{$args['instance']} Transfers"
+  $graph->subtitle->Set("{$args['instance']} transfers"
   	                . ((isset($args['filter']) && $args['filter'] != '')
-			   ? " Matching `{$args['filter']}'" : "")
+			   ? " matching '{$args['filter']}'," : "")
 			. ((isset($upto) && $upto != '')
-			   ? ", upto $upto GMT"
-			   : ", $nowstamp GMT"));
-  $graph->subtitle->SetFont(FF_FONT1,FS_BOLD);
+			   ? " up to $upto GMT, as of $nowstamp GMT"
+			   : " as of $nowstamp GMT"));
+  $graph->subtitle->SetFont(FF_VERDANA,FS_NORMAL);
   $graph->subtitle->SetColor("black");
 
   $graph->xaxis->SetTitle($args['xtitle'], 'middle');
+  $graph->xaxis->title->SetFont(FF_VERDANA,FS_NORMAL,11);
+  $graph->xaxis->SetFont(FF_VERDANA,FS_NORMAL,9);
   $graph->xaxis->SetTextLabelInterval($nrowskip);
   $graph->xaxis->SetTickLabels($xlabels);
   $graph->xaxis->SetLabelAlign('center');
-  $graph->xaxis->title->SetFont(FF_FONT1,FS_BOLD);
   $graph->xscale->ticks->Set($nrowskip, $xunit);
 
-  $graph->yaxis->title->Set($args['ytitle']);
   $graph->yaxis->SetTitleMargin(35);
-  $graph->yaxis->title->SetFont(FF_FONT1,FS_BOLD);
+  $graph->yaxis->SetTitle($args['ytitle'], 'middle');
+  $graph->yaxis->title->SetFont(FF_VERDANA,FS_NORMAL,11);
+  $graph->yaxis->SetFont(FF_VERDANA,FS_NORMAL,9);
 
   $graph->legend->Pos(0.01, 0.5, "right", "center");
   $graph->legend->SetColumns($legendcols);
   $graph->legend->SetShadow(0);
   $graph->legend->SetVColMargin(2);
+  $graph->legend->SetFont(FF_VERDANA,FS_NORMAL,8);
   // $graph->legend->SetLayout(LEGEND_HOR);
   $graph->Add ($plot);
   $graph->Stroke();
@@ -174,7 +165,7 @@ else // hour
   $args['xrewrite'] = array('(....)(..)(..)Z(..)(..)', '\4:\5');
 }
 
-$graph = new Graph (900, 400, "auto");
+$graph = new Graph (900, 406, "auto");
 $data = readCSV ("/afs/cern.ch/cms/aprom/phedex/DBPerfData/{$args['instance']}-$suffix.csv", ",");
 $data = selectPerformanceData ($data, $args['xbin'], $entries, $args['metric'] != 'pending', $upto);
 makeGraph ($graph, $data, $args, $upto);

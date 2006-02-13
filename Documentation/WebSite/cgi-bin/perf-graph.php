@@ -86,35 +86,37 @@ function makeGraph($graph, $data, $args, $upto)
   $graph->img->SetAntiAliasing();
 
   $graph->title->Set("PhEDEx Data Transfers {$args['title']}");
-  $graph->title->SetFont(FF_FONT2,FS_BOLD);
+  $graph->title->SetFont(FF_VERDANA,FS_BOLD,14);
   $graph->title->SetColor("black");
 
   $nowstamp = gmdate("Y-m-d H:i");
-  $graph->subtitle->Set("{$args['instance']} Transfers"
+  $graph->subtitle->Set("{$args['instance']} transfers"
   	                . ((isset($args['filter']) && $args['filter'] != '')
-			   ? " Matching `{$args['filter']}'" : "")
+			   ? " matching '{$args['filter']}'," : "")
 			. ((isset($upto) && $upto != '')
-			   ? ", upto $upto GMT"
-			   : ", $nowstamp GMT"));
-  $graph->subtitle->SetFont(FF_FONT1,FS_BOLD);
+			   ? " up to $upto GMT, as of $nowstamp GMT"
+			   : " as of $nowstamp GMT"));
+  $graph->subtitle->SetFont(FF_VERDANA,FS_NORMAL);
   $graph->subtitle->SetColor("black");
 
   $graph->xaxis->SetTitle($args['xtitle'], 'middle');
+  $graph->xaxis->title->SetFont(FF_VERDANA,FS_NORMAL,11);
+  $graph->xaxis->SetFont(FF_VERDANA,FS_NORMAL,9);
   $graph->xaxis->SetTextLabelInterval($nrowskip);
   $graph->xaxis->SetTickLabels($xlabels);
   $graph->xaxis->SetLabelAlign('center');
-  $graph->xaxis->title->SetFont(FF_FONT1,FS_BOLD);
   $graph->xscale->ticks->Set($nrowskip, $xunit);
 
-  $graph->yaxis->title->Set($args['ytitle']);
   $graph->yaxis->SetTitleMargin(35);
-  $graph->yaxis->title->SetFont(FF_FONT1,FS_BOLD);
+  $graph->yaxis->SetTitle($args['ytitle'], 'middle');
+  $graph->yaxis->title->SetFont(FF_VERDANA,FS_NORMAL,11);
+  $graph->yaxis->SetFont(FF_VERDANA,FS_NORMAL,9);
 
   $graph->legend->Pos(0.01, 0.5, "right", "center");
   $graph->legend->SetColumns($legendcols);
   $graph->legend->SetShadow(0);
-  //$graph->legend->SetFont(FF_FONT1,FS_NORMAL,8);
   $graph->legend->SetVColMargin(2);
+  $graph->legend->SetFont(FF_VERDANA,FS_NORMAL,8);
   // $graph->legend->SetLayout(LEGEND_HOR);
   $graph->Add ($plot);
   $graph->Stroke();
@@ -170,7 +172,7 @@ else // hour
   $args['xrewrite'] = array('(....)(..)(..)Z(..)(..)', '\4:\5');
 }
 
-$graph = new Graph (900, 400, "auto");
+$graph = new Graph (900, 406, "auto");
 $data = readCSV ("/afs/cern.ch/cms/aprom/phedex/DBPerfData/{$args['instance']}-$suffix.csv", ",");
 $data = selectPerformanceData ($data, $args['xbin'], $entries, $args['metric'] != 'pending', $upto);
 makeGraph ($graph, $data, $args, $upto);

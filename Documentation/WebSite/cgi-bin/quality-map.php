@@ -90,33 +90,37 @@ function makeGraph($graph, $data, $args, $upto)
   $graph->img->SetAntiAliasing();
 
   $graph->title->Set("PhEDEx Transfer Quality {$args['title']}");
-  $graph->title->SetFont(FF_FONT2,FS_BOLD);
+  $graph->title->SetFont(FF_VERDANA,FS_BOLD,14);
   $graph->title->SetColor("black");
 
   $nowstamp = gmdate("Y-m-d H:i");
-  $graph->subtitle->Set("{$args['instance']} Transfer Quality"
+  $graph->subtitle->Set("{$args['instance']} transfer quality"
   	                . ((isset($args['filter']) && $args['filter'] != '')
-			   ? " Matching `{$args['filter']}'" : "")
+			   ? " matching '{$args['filter']}'," : "")
 			. ((isset($upto) && $upto != '')
-			   ? ", upto $upto GMT"
-			   : ", $nowstamp GMT"));
-  $graph->subtitle->SetFont(FF_FONT1,FS_BOLD);
+			   ? " up to $upto GMT, as of $nowstamp GMT"
+			   : " as of $nowstamp GMT"));
+  $graph->subtitle->SetFont(FF_VERDANA,FS_NORMAL);
   $graph->subtitle->SetColor("black");
 
   $graph->xaxis->SetTitle($args['xtitle'], 'middle');
+  $graph->xaxis->title->SetFont(FF_VERDANA,FS_NORMAL,11);
+  $graph->xaxis->SetFont(FF_VERDANA,FS_NORMAL,9);
   $graph->xaxis->SetTextLabelInterval($nrowskip);
   $graph->xaxis->SetTickLabels($xlabels);
   $graph->xaxis->SetLabelAlign('center');
-  $graph->xaxis->title->SetFont(FF_FONT1,FS_BOLD);
   $graph->xscale->ticks->Set($nrowskip, $xunit);
 
-  $graph->yaxis->title->Set($args['ytitle']);
-  $graph->yaxis->title->SetFont(FF_FONT1,FS_BOLD);
   $graph->yaxis->SetTitleMargin(35);
+  $graph->yaxis->SetTitle($args['ytitle'], 'middle');
+  $graph->yaxis->title->SetFont(FF_VERDANA,FS_NORMAL,11);
+  $graph->yaxis->SetFont(FF_VERDANA,FS_NORMAL,9);
   $graph->yaxis->HideLabels ();
   $graph->yaxis->HideTicks();
 
   $graph->y2axis->scale->ticks->Set (.5,.5);
+  $graph->y2axis->title->SetFont(FF_VERDANA,FS_NORMAL,11);
+  $graph->y2axis->SetFont(FF_VERDANA,FS_NORMAL,10);
   $graph->y2axis->SetTickLabels ($ylabels);
   $graph->y2axis->SetTextLabelInterval (2);
   $graph->y2axis->HideFirstTickLabel ();
@@ -131,12 +135,13 @@ function makeGraph($graph, $data, $args, $upto)
   $graph->legend->Pos(0.44, 0.98, "center", "bottom");
   $graph->legend->SetLayout(LEGEND_HOR);
   $graph->legend->SetShadow(0);
+  $graph->legend->SetFont(FF_VERDANA,FS_NORMAL,8);
   $graph->AddY2 ($plot);
   $graph->Stroke();
 }
 
-$kind_types       = array ('completed_ratio' => "Fraction of Completed Transfers vs. Attempted",
-		           'failed_ratio'    => "Fraction of Failed Transfers vs. Attempted");
+$kind_types       = array ('completed_ratio' => "Fraction of Successful Transfers",
+		           'failed_ratio'    => "Fraction of Failed Transfers");
 $srcdb            = $GLOBALS['HTTP_GET_VARS']['db'];
 $span             = $GLOBALS['HTTP_GET_VARS']['span'];
 $kind             = $GLOBALS['HTTP_GET_VARS']['kind'];
@@ -183,7 +188,7 @@ else // hour
   $args['xrewrite'] = array('(....)(..)(..)Z(..)(..)', '\4:\5');
 }
 
-$graph = new Graph (900, 400, "auto");
+$graph = new Graph (900, 406, "auto");
 $data = readCSV ("/afs/cern.ch/cms/aprom/phedex/DBPerfData/{$args['instance']}-quality.csv", ",");
 $data = selectQualityData ($data, $args['xbin'], $entries, $upto);
 makeGraph ($graph, $data, $args, $upto);
