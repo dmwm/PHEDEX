@@ -52,7 +52,7 @@ Begin to create the testbed directory structure:
   cd $TESTBED
 
   # Get PhEDEx code
-  export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/PHEDEX
+  export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/CMSSW
   cvs login # when prompted for password, type: 98passwd
   cvs co PHEDEX/{Toolkit,Schema,Utilities,Documentation/README,Testbed}
 

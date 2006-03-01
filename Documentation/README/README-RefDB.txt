@@ -180,6 +180,6 @@ agents (see README-Agents.txt).  Use it something like this:
 
 ** Downloading tools from CVS
 
-  setenv CVSROOT :pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/PHEDEX
+  setenv CVSROOT :pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/CMSSW
   cvs login # password is "98passwd"
   cvs co PHEDEX
