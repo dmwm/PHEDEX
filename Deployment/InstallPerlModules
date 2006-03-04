@@ -34,18 +34,11 @@ destdir="$1"
 # Create destination directory for modules.  Figure out all the places
 # where perl makefiles stuff the modules into.  This is rather complex.
 prefix="$destdir/perl-modules"
-version=$(perl -e 'use Config; print $Config{version}')
-iprefix=$(perl -e 'use Config; print $Config{installprefixexp}')
-sitearch=$(perl -e 'use Config; print $Config{installsitearch}' | sed "s!^$iprefix/*!$prefix/!")
-sitelib=$(perl -e 'use Config; print $Config{installsitelib}' | sed "s!^$iprefix/*!$prefix/!")
-perlarch=$(perl -e 'use Config; print $Config{installarchlib}' | sed "s!^$iprefix/*!$prefix/!")
-perllib=$(perl -e 'use Config; print $Config{installprivlib}' | sed "s!^$iprefix/*!$prefix/!")
-PERL5LIB="$sitearch:$sitelib:$perlarch:$perllib:$PERL5LIB"; export PERL5LIB
+archname=$(perl -e 'use Config; print $Config{archname}')
+PERL5LIB="$prefix/lib/$archname:$prefix/lib:$PERL5LIB"; export PERL5LIB
 echo "*** building perl modules for version $version into $prefix, directories are:"
-echo "***   $sitearch"
-echo "***   $sitelib"
-echo "***   $perlarch"
-echo "***   $perllib"
+echo "***   $prefix/lib/$archname"
+echo "***   $prefix/lib"
 
 mkdir -p "$prefix" || exit $?
 
@@ -58,13 +51,13 @@ for module in http://search.cpan.org/CPAN/authors/id/J/JH/JHI/Time-HiRes-1.66.ta
 	      http://search.cpan.org/CPAN/authors/id/R/RC/RCLAMP/Text-Glob-0.06.tar.gz \
 	      http://search.cpan.org/CPAN/authors/id/P/PM/PMQS/Compress-Zlib-1.34.tar.gz \
 	      http://search.cpan.org/CPAN/authors/id/M/MS/MSCHWERN/Test-Simple-0.51.tar.gz \
-	      http://search.cpan.org/CPAN/authors/id/T/TI/TIMB/DBI-1.46.tar.gz \
+	      http://search.cpan.org/CPAN/authors/id/T/TI/TIMB/DBI-1.50.tar.gz \
               http://search.cpan.org/CPAN/authors/id/G/GR/GRANTM/XML-Simple-2.14.tar.gz; do
   moduletar=$(basename $module)
   moduledir=$(basename $moduletar .tar.gz)
   echo; echo "*** building perl module $moduledir"
   (set -e; cd $tmpdir; wget -q $module; tar zxf $moduletar; cd $moduledir
-   perl Makefile.PL prefix="$prefix" || exit $?
+   perl Makefile.PL PREFIX="$prefix" LIB="$prefix/lib" || exit $?
    make; make install) || exit $?
 done
 
@@ -83,30 +76,30 @@ if perl -e 'use XML::Parser' >/dev/null 2>&1; then :; else
   moduledir=$(basename $moduletar .tar.gz)
   echo; echo "*** building perl module $moduledir"
   (set -e; cd $tmpdir; wget -q $module; tar zxf $moduletar; cd $moduledir
-   perl Makefile.PL prefix="$prefix" \
+   perl Makefile.PL PREFIX="$prefix" LIB="$prefix/lib" \
         EXPATLIBPATH=$destdir/expat/lib \
 	EXPATINCPATH=$destdir/expat/include
    make; make install) || exit $?
 fi
 
 # Build DBD::Oracle with instant client libraries
-for module in http://search.cpan.org/CPAN/authors/id/T/TI/TIMB/DBD-Oracle-1.16.tar.gz; do
+for module in http://search.cpan.org/CPAN/authors/id/P/PY/PYTHIAN/DBD-Oracle-1.17.tar.gz; do
   moduletar=$(basename $module)
   moduledir=$(basename $moduletar .tar.gz)
   echo; echo "*** building perl module $moduledir"
   (set -e; cd $tmpdir; wget -q $module; tar zxf $moduletar; cd $moduledir
    patch Makefile.PL << \EOF
 diff Makefile.PL.orig Makefile.PL
-1254a1255
+1407a1408
 >        "$OH/include", # Tim Barrass, hacked for OIC install from zips
 EOF
    [ $(uname) = Darwin ] &&
       perl -p -i -e 's/NMEDIT = nmedit/NMEDIT = true/' Makefile.PL
-   perl Makefile.PL prefix="$prefix" -l -m $ORACLE_HOME/demo/demo.mk
+   perl Makefile.PL PREFIX="$prefix" LIB="$prefix/lib" -l -m $ORACLE_HOME/demo/demo.mk
    make; make install) || exit $?
 done
 
 rm -fr "$tmpdir"
 
 # Finally, generate required environment setup
-echo "PERL5LIB=$sitearch:$sitelib:$perlarch:$perllib\${PERL5LIB+\"\$PERL5LIB\"}; export PERL5LIB;" > "$destdir/perlenv.sh" || exit $?
+echo "PERL5LIB=$prefix/lib/$archname:$prefix/lib\${PERL5LIB+\"\$PERL5LIB\"}; export PERL5LIB;" > "$destdir/perlenv.sh" || exit $?
