@@ -1,0 +1,30 @@
+#!/usr/bin/env perl
+
+use Getopt::Long;
+
+my %args = (NODES => []);
+&GetOptions("help"        => \$args{HELP},
+	    "nodenew=s"   => \$args{NODENEW},
+	    "nodes=s@"    => $args{NODES});
+# allow comma separated list of nodes
+@{$args{NODES}} = split(m|,|,join(',',@{$args{NODES}}));
+
+if ($args{HELP} || !$args{NODENEW}) {
+    print "Please give both of the following options:\n";
+    print "nodenew:  path to the NodeNew command (typically in Utilities)\n";
+    print "nodes:    a comma separated list of nodes, which should get\n";
+    print "          fully interconnected\n\n";
+    exit 0;
+}    
+
+# loop over nodes defined above, getting the first argument for NodeNew
+foreach my $node ( @{$args{NODES}} )
+{
+    my @restnodes = ();
+    # the neighbour arguments contains all other nodes
+    map {$_ !~ m|$node| && push(@restnodes, $_)} @{$args{NODES}} ;
+    my $cmd = "$args{NODENEW} $node srm srm @restnodes";
+    print "$cmd\n";
+    # execute the NodeNew commands
+    die "NodeNew execution caused an error!" if system($cmd);
+}
