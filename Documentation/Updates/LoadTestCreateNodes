@@ -24,7 +24,6 @@ foreach my $node ( @{$args{NODES}} )
     # the neighbour arguments contains all other nodes
     map {$_ !~ m|$node| && push(@restnodes, $_)} @{$args{NODES}} ;
     my $cmd = "$args{NODENEW} $node srm srm @restnodes";
-    print "$cmd\n";
     # execute the NodeNew commands
     die "NodeNew execution caused an error!" if system($cmd);
 }
