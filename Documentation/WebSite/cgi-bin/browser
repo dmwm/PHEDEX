@@ -939,7 +939,7 @@ sub dbreport
 
 sub rateplot
 {
-    my @plotorder = qw(l48h l72h l96h l132h l7d l14d l30d l90d l6w ad aw am);
+    my @plotorder = qw(l48h l72h l96h l132h l7d l14d l30d l90d l6w l26w l52w ad aw am);
     my %plots = ("l48h" => [ "48:hour", "Last 48 Hours" ],
 	         "l72h" => [ "72:hour", "Last 72 Hours" ],
 	         "l96h" => [ "96:hour", "Last 96 Hours" ],
@@ -949,6 +949,8 @@ sub rateplot
 	         "l30d" => [ "30:day", "Last 30 Days" ],
 	         "l90d" => [ "90:day", "Last 90 Days" ],
 		 "l6w" => [ "6:week", "Last 6 Weeks" ],
+		 "l26w" => [ "26:week", "Last 26 Weeks" ],
+		 "l52w" => [ "52:week", "Last 52 Weeks" ],
 	         "ad" => [ "0:day", "Daily Since Start" ],
 		 "aw" => [ "0:week", "Weekly Since Start" ],
 		 "am" => [ "0:month", "Monthly Since Start" ]);
@@ -994,7 +996,7 @@ sub rateplot
 
 sub qplot
 {
-    my @plotorder = qw(l48h l72h l96h l132h l7d l14d l30d l90d l6w ad aw am);
+    my @plotorder = qw(l48h l72h l96h l132h l7d l14d l30d l90d l6w l26w l52w ad aw am);
     my %plots = ("l48h" => [ "48:hour", "Last 48 Hours" ],
 	         "l72h" => [ "72:hour", "Last 72 Hours" ],
 	         "l96h" => [ "96:hour", "Last 96 Hours" ],
@@ -1004,6 +1006,8 @@ sub qplot
 	         "l30d" => [ "30:day", "Last 30 Days" ],
 	         "l90d" => [ "90:day", "Last 90 Days" ],
 		 "l6w" => [ "6:week", "Last 6 Weeks" ],
+		 "l26w" => [ "26:week", "Last 26 Weeks" ],
+		 "l52w" => [ "52:week", "Last 52 Weeks" ],
 	         "ad" => [ "0:day", "Daily Since Start" ],
 		 "aw" => [ "0:week", "Weekly Since Start" ],
 		 "am" => [ "0:month", "Monthly Since Start" ]);
