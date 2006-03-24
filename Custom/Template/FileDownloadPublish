@@ -45,7 +45,7 @@ fi
 FCpublish -d "$mycat" -u "file:$cat" || exit $?
 if grep "ZippedEVD" $cat >/dev/null; then
   source ${VO_CMS_SW_DIR}/cmsset_slc3_ia32_gcc323.sh
-  $(dirname $0)/../../Utilities/ZipPublishHelper "$mycat" "$locpfn" \
+  $(dirname $0)/../../../PHEDEX/Utilities/ZipPublishHelper "$mycat" "$locpfn" \
     ${VO_CMS_SW_DIR}/Releases/COBRA/COBRA_8_5_1 slc3_ia32_gcc323 scramv1 || exit $?
 fi
 
