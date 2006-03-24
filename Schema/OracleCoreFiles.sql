@@ -1,48 +1,40 @@
--- PhEDEx ORACLE schema for file information.
--- REQUIRES: OracleCoreTopo.sql
+----------------------------------------------------------------------
+-- Create sequences
+
+create sequence seq_file;
 
 ----------------------------------------------------------------------
--- Create new tables
-
--- FIXME: index organised?
--- FIXME: partitioned?
+-- Create tables
 
 create table t_file
-  (timestamp		float		not null,
-   guid			char (36)	not null,
-   node			varchar (20)	not null,
-   inblock		varchar (200)	not null,
-   insubblock		varchar (200)	not null,
-   lfn			varchar (255)	not null,
-   filetype		varchar (100)	not null,
+  (id			integer		not null,
+   node			integer		not null,
+   inblock		integer		not null,
+   logical_name		varchar (1000)	not null,
+   filetype		varchar (1000)	not null,
+   checksum		varchar (1000)	not null,
    filesize		integer		not null,
-   checksum		integer);
-
-create table t_file_attributes
-  (guid			char (36)	not null,
-   attribute		varchar (32)	not null,
-   value		varchar (1000));
+   time_create		float		not null);
 
 ----------------------------------------------------------------------
 -- Add constraints
 
 alter table t_file
   add constraint pk_file
-  primary key (guid)
+  primary key (id)
   using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_file
+  add constraint uq_file_logical_name
+  unique (logical_name);
+
+alter table t_file
   add constraint fk_file_node
-  foreign key (node) references t_node (name);
+  foreign key (node) references t_node (id);
 
-alter table t_file_attributes
-  add constraint pk_file_attributes
-  primary key (guid, attribute)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
-
-alter table t_file_attributes
-  add constraint fk_file_attributes_guid
-  foreign key (guid) references t_file (guid);
+alter table t_file
+  add constraint fk_file_inblock
+  foreign key (inblock) references t_dps_block (id);
 
 ----------------------------------------------------------------------
 -- Add indices
@@ -51,15 +43,10 @@ create index ix_file_node
   on t_file (node)
   tablespace CMS_TRANSFERMGMT_INDX01;
 
-create index ix_file_guid_filesize
-  on t_file (guid, filesize)
+create index ix_file_id_filesize
+  on t_file (id, filesize)
   tablespace CMS_TRANSFERMGMT_INDX01;
 
-create index ix_file_inblock_guid
-  on t_file (inblock, guid)
-  tablespace CMS_TRANSFERMGMT_INDX01;
-
-
-create index ix_file_attributes_attr
-  on t_file_attributes (attribute)
+create index ix_file_inblock_id
+  on t_file (inblock, id)
   tablespace CMS_TRANSFERMGMT_INDX01;

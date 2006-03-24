@@ -1,8 +1,5 @@
--- PhEDEx ORACLE schema for agent operations.
--- REQUIRES: OracleDSB.sql
-
 ----------------------------------------------------------------------
--- Create new tables
+-- Create tables
 
 create sequence seq_request_id;
 

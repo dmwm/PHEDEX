@@ -1,8 +1,5 @@
--- PhEDEx ORACLE schema for agent operations.
--- REQUIRES: OracleCoreTopo.sql
-
 ----------------------------------------------------------------------
--- Create new tables
+-- Create tables
 
 create table t_agent
   (name			varchar (20)	not null);

@@ -1,8 +1,5 @@
--- PhEDEx ORACLE schema for authorisations.
--- REQUIRES: None.
-
 ----------------------------------------------------------------------
--- Create new tables
+-- Create tables
 
 create table t_authorisation
   (timestamp		float		not null,
@@ -17,6 +14,3 @@ alter table t_authorisation
   add constraint pk_authorisation
   primary key (role_name)
   using index tablespace CMS_TRANSFERMGMT_INDX01;
-
-----------------------------------------------------------------------
--- Add indices

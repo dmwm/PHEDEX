@@ -1,100 +1,42 @@
--- PhEDEx ORACLE schema for core transfer topology.
--- REQUIRES: None.
+----------------------------------------------------------------------
+-- Create sequences
+
+create sequence seq_node;
 
 ----------------------------------------------------------------------
--- Create new tables
+-- Create tables
 
 create table t_node
-  (name			varchar (20)	not null);
+  (id			integer		not null,
+   name			varchar (20)	not null);
 
 create table t_node_neighbour
-  (node			varchar (20)	not null,
-   neighbour		varchar (20)	not null,
-   hops			integer		not null);
-
-create table t_routing
-  (timestamp		float		not null,
-   from_node		varchar (20)	not null,
-   to_node		varchar (20)	not null,
-   gateway		varchar (20)	not null,
-   hops			integer		not null);
-
-create table t_node_import
-  (node			varchar (20)	not null,
-   protocol		varchar (20)	not null,
-   priority		integer		not null);
-
-create table t_node_export
-  (node			varchar (20)	not null,
-   protocol		varchar (20)	not null);
+  (from_node		integer		not null,
+   to_node		integer		not null,
+   distance		integer		not null);
 
 ----------------------------------------------------------------------
 -- Add constraints
 
 alter table t_node
   add constraint pk_node
-  primary key (name)
+  primary key (id)
   using index tablespace CMS_TRANSFERMGMT_INDX01;
+
+alter table t_node
+  add constraint uq_node_name
+  unique (name);
 
 
 alter table t_node_neighbour
   add constraint pk_node_neighbour
-  primary key (node, neighbour)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
-
-alter table t_node_neighbour
-  add constraint fk_node_neighbour_node
-  foreign key (node) references t_node (name);
-
-alter table t_node_neighbour
-  add constraint fk_node_neighbour_neighbour
-  foreign key (neighbour) references t_node (name);
-
-
-alter table t_routing
-  add constraint pk_routing
   primary key (from_node, to_node)
   using index tablespace CMS_TRANSFERMGMT_INDX01;
 
-alter table t_routing
-  add constraint fk_routing_from_node
-  foreign key (from_node) references t_node (name);
+alter table t_node_neighbour
+  add constraint fk_node_neighbour_from
+  foreign key (from_node) references t_node (id);
 
-alter table t_routing
-  add constraint fk_routing_to_node
-  foreign key (to_node) references t_node (name);
-
-alter table t_routing
-  add constraint fk_routing_gateway
-  foreign key (gateway) references t_node (name);
-
-
-alter table t_node_import
-  add constraint pk_node_import
-  primary key (node, protocol)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
-
-alter table t_node_import
-  add constraint fk_node_import_node
-  foreign key (node) references t_node (name);
-
-
-alter table t_node_export
-  add constraint pk_node_export
-  primary key (node, protocol)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
-
-alter table t_node_export
-  add constraint fk_node_export_node
-  foreign key (node) references t_node (name);
-
-----------------------------------------------------------------------
--- Add indices
-
-create index ix_routing_gateway
-  on t_routing (gateway)
-  tablespace CMS_TRANSFERMGMT_INDX01;
-
-create index ix_routing_to_gateway
-  on t_routing (to_node, gateway)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+alter table t_node_neighbour
+  add constraint fk_node_neighbour_to
+  foreign key (to_node) references t_node (id);

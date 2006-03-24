@@ -1,13 +1,40 @@
 -- Load new tables
+set echo off feedback off sqlprompt ''
+prompt
+prompt Loading PhEDEx schema to &_user@&_connect_identifier
 
+prompt
+prompt Loading authentication
 @OracleCoreAuth.sql
+
+prompt Loading topology
 @OracleCoreTopo.sql
-@OracleCoreFiles.sql
+
+prompt Loading agents
 @OracleCoreAgents.sql
-@OracleCorePerf.sql
+
+prompt
+prompt Loading data placement
+@OracleCoreBlock.sql
+
+prompt
+prompt Loading files
+@OracleCoreFiles.sql
+
+prompt Loading transfers
 @OracleCoreTransfer.sql
+
+prompt Loading transfer triggers
 @OracleCoreTriggers.sql
-@OracleDSB.sql
-@OracleFlow.sql
-@OracleInfo.sql
-@OracleReq.sql
+
+prompt
+prompt Loading info status
+@OracleCoreInfo.sql
+
+prompt
+prompt Loading request management
+@OracleCoreReq.sql
+
+prompt
+prompt PhEDEx schema loaded
+prompt
