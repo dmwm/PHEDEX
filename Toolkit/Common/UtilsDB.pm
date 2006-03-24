@@ -196,6 +196,7 @@ sub identifyAgent
 		{
 		    chomp;
 		    my ($type, $cvsfile, $rev, $date, $flags, $sticky) = split("/", $_);
+		    next if ! $cvsfile || ! $rev;
 		    $cvsinfo{$path}{$cvsfile} = {
 			REVISION => $rev,
 			REVDATE => $date,
