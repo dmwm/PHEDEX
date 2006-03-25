@@ -9,17 +9,12 @@
 ##H the information to update site-local information (e.g. PubDB).
 ##H
 ##H Usage:
-##H   BlockNotify
-##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
-##H      -next DIRECTORY -published DIRECTORY
+##H   BlockNotify -state DIRECTORY -node NAME -db FILE[:SECTION -next DIRECTORY
 ##H
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
 ##H -db        database connection configuration parameter file
-##H -wait      time to wait in seconds between work scans
 ##H -next      state directory for the next agent; can be repeated
-##H -published history directory for already published datasets
-##H
 
 BEGIN {
   use warnings; use strict; $^W=1;
@@ -37,12 +32,10 @@ my %args = (WAITTIME => 3600, NEXTDIR => []);
 	     "next=s@"          => $args{NEXTDIR},
 	     "node=s"		=> \$args{MYNODE},
 	     "db=s"     	=> \$args{DBCONFIG},
-	     "wait=f"		=> \$args{WAITTIME},
-	     "published=s"      => \$args{PUBLISHED},
      	     "help|h"		=> sub { &usage() });
 
-if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{NEXTDIR}
-    || !$args{DBCONFIG} || !$args{PUBLISHED})
+if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !@{$args{NEXTDIR}}
+    || !$args{DBCONFIG})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -64,87 +57,58 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
-	  	  MYNODE => undef,		# My TMDB node name
-	  	  AGENTID => "BlockNotify",     # Identity for activity logs
-		  PUBLISHED  => undef);         # dir with treated owner/datasets
+	  	  MYNODE => undef);		# My TMDB node name
 
     my %args = (@_);
-    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
 }
 
-
-# Get list of all entirely transferred blocks.  This is always
-# everything; we keep no record of what has already been notified.
-# The downstream local agent must handle duplicates gracefully.
-sub completeBlocks
-{
-    my ($self, $dbh) = @_;
-    my $result = {};
-
-    my $complete = &dbexec ($dbh, qq{
-	select b.dataset, b.owner, b.files
-	from t_block_replica br
-	join t_block b on b.name = br.name
-	where br.node = :node
-	  and br.node_files = b.files
-	  and br.timestamp < :now - 30},
-	":node" => $self->{MYNODE},
-	":now" => &mytimeofday());
- 
-
-    # prepare the drop and fill in all informations required
-    # in order to avoid too many drops, this only happens for
-    # yet unpublished blocks
-    while (my ($dataset, $owner, $files) = $complete->fetchrow_array())
-    {
-	$result->{$dataset}{$owner} = {
-	    DATASET => $dataset,
-	    OWNER => $owner,
-	    FILES => $files
-	    } if (! -e "$self->{PUBLISHED}/$owner.$dataset");
-    }
-
-    return $result;
-}
-
-# Pick up ready blocks from database and send info to downstream agents.
+# Pick up ready blocks from database and inform downstream agents.
 sub idle
 {
     my ($self, @pending) = @_;
     my $dbh = undef;
-
     eval
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
-	# Get owner/dataset for all completely transferred blocks,
-	# Also get other information necessary for e.g. publishing
-	# and other local bookkeeping such as consistency checks.
-	# In particular, get the number of files, and pass down
-	# other transferred owners for the same dataset, so the
-	# site can tell whether they have Hits *and* Digis.
-	my $completed = $self->completeBlocks ($dbh);
-        foreach my $dataset (sort keys %$completed)
-        {
-	    foreach my $owner (sort keys %{$completed->{$dataset}})
-	    {
-		# Dump out a drop box packet for each block in our own
-		# outbox, for agent core to copy downstream.
-		my $block = $completed->{$dataset}{$owner};
-		my $blockid = "$block->{OWNER}.$block->{DATASET}";
-		my $drop = `mktemp -d $self->{DROPDIR}/outbox/$blockid.XXXXXXX`;
-		chomp $drop;
-		do { &alert ("failed to create drop for $blockid"); &rmtree ($drop); last; }
-    	            if (! $drop
-        		|| ! &output ("$drop/packet", Dumper ($block))
-        		|| ! &touch ("$drop/go.pending"));
+	# Get order list of blocks we have.  This is always everything,
+	# we keep no record of what has already been notified.  The
+	# downstream users of this information must handle duplicates.
+        my $completed = &dbexec ($dbh, qq{
+	    select dbs.name dbs_name,
+	           ds.name dataset_name,
+		   b.name block_name,
+		   b.files
+	    from t_dps_block_replica br
+	      join t_dps_block b on b.id = br.block
+	      join t_dps_dataset ds on ds.id = b.dataset
+	      join t_dps_dbs dbs on dbs.id = ds.dbs
+	    where br.node = :node
+  	      and b.is_open = 'n'
+	      and br.dest_files = b.files
+	      and br.node_files = b.files
+	      and br.time_update < :now - 30
+  	    order by ds.name asc, b.name asc},
+	    ":node" => $$self{ID_MYNODE},
+	    ":now" => &mytimeofday())
+	    ->fetchall_arrayref({});
 
-		# OK, kick it go
-		&warn ("failed to mark $blockid ready to go")
-		    if ! &mv ("$drop/go.pending", "$drop/go");
-	    }
+	# Pass on as one drop per dataset block.  Make sure the drop
+	# names are unique in case the downstream agents are disabled
+	# or otherwise have trouble keeping up.
+	foreach my $block (@$completed)
+        {
+	    my $blockid = "@{[time()]}.$$block{BLOCK_NAME}"; $blockid =~ s|/|_|g;
+	    my $dropdir = "$$self{WORKDIR}/$blockid";
+	    do { &alert ("failed to create drop for $blockid");
+		 &rmtree ($dropdir); last; }
+    	       if (! mkdir ($dropdir)
+                   || ! &output ("$dropdir/packet", Dumper ($block))
+        	   || ! &touch ("$dropdir/done"));
+	    $self->relayDrop ($blockid);
         }
     };
     do { chomp ($@); &alert ("database error: $@");
@@ -153,13 +117,6 @@ sub idle
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
 
-    # Explicitly pump drops we just created, otherwise they will stay
-    # in outbox until next time we wake up (usually an hour later!).
-    foreach my $drop ($self->readOutbox())
-    {
-        $self->relayDrop ($drop);
-    }
-
     # Have a little nap
-    $self->nap ($self->{WAITTIME});
+    $self->nap ($$self{WAITTIME});
 }

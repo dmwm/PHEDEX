@@ -8,15 +8,11 @@
 ##H removal of the file-level information in TMDB.
 ##H
 ##H Usage:
-##H   BlockDeactivate
-##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
-##H      [-holdoff SECS]
+##H   BlockDeactivate -state DIRECTORY -node NAME -db FILE[:SECTION]
 ##H
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
 ##H -db        database connection configuration parameter file
-##H -wait      time to wait in seconds between work scans
-##H -holdoff   time lag in seconds before deactivation (default: 3 days)
 
 BEGIN {
   use warnings; use strict; $^W=1;
@@ -28,13 +24,11 @@ BEGIN {
 ######################################################################
 use UtilsHelp;
 use Getopt::Long;
-my %args = (WAITTIME => 60);
+my %args;
 &GetOptions ("state=s"		=> \$args{DROPDIR},
 	     "node=s"           => \$args{MYNODE},
 	     "db=s"		=> \$args{DBCONFIG},
-	     "wait=f"		=> \$args{WAITTIME},
-	     "help|h"		=> sub { &usage() },
-	     "holdoff=f"        => \$args{HOLDOFF});
+	     "help|h"		=> sub { &usage() });
 
 if (@ARGV || !$args{MYNODE} || !$args{DROPDIR} || !$args{DBCONFIG})
 {
@@ -56,11 +50,11 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 		  MYNODE => undef,		# My TMDB node
-	  	  AGENTID => "BlockDeactivate", # Identity for activity logs
+		  WAITTIME => 600 + rand(100),	# Agent cycle period
 		  HOLDOFF => 3*86400);          # Hold-off time for pruning
 
     my %args = (@_);
-    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
 }
@@ -100,35 +94,35 @@ sub idle
 	# What we do here requires a great degree of transactinal
 	# consistency.  For one, we don't want someone to open blocks
 	# while we are deactiving them; this is prevented by locking
-	# the t_block row with "select .. for update" while operating
+	# the t_dps_block row with "select .. for update" while operating
 	# on it, a convention followed by all programs which modify
 	# block table.  Secondly, we need to make sure we delete the
 	# exact number of file replicas we expected to delete; if an
 	# inconsitency is detected, we roll back the transcation.
 	my $qblocks = &dbexec ($dbh, qq{
-	    select b.name
-	    from t_block b
-	    where b.isopen = 0
-	      and b.timestamp < :limit
-      	      and exists (select name from t_block_replica br
-      		          where br.name = b.name)
-	      and (b.files, b.bytes, 0, 0, 1, 1) = all
+	    select b.id, b.name
+	    from t_dps_block b
+	    where b.is_open = 'n'
+	      and b.time_create < :limit
+      	      and exists (select name from t_dps_block_replica br
+      		          where br.block = b.id)
+	      and (b.files, b.bytes, 0, 0, 1, 'y') = all
       	          (select br.node_files, br.node_bytes, br.xfer_files,
-		  	  br.expt_files, sign(:limit - br.last_update),
-			  br.isactive
-		   from t_block_replica br
-		   where br.name = b.name)
+		  	  br.expt_files, sign(:limit - br.time_update),
+			  br.is_active
+		   from t_dps_block_replica br
+		   where br.block = b.id)
 	    order by b.files desc
-	    for update of b.name},
-	    ":limit" => &mytimeofday () - $self->{HOLDOFF});
-        if (my ($name) = $qblocks->fetchrow())
+	    for update of b.id},
+	    ":limit" => &mytimeofday () - $$self{HOLDOFF});
+        if (my ($id, $name) = $qblocks->fetchrow())
 	{
 	    # Get the number of file replicas expected to delete.
 	    my ($nfr) = &dbexec ($dbh, qq{
 		select sum(node_files)
-		from t_block_replica
-		where name = :block},
-		":block" => $name)
+		from t_dps_block_replica
+		where block = :block},
+		":block" => $id)
 		->fetchrow();
 	    if (! $nfr)
 	    {
@@ -138,9 +132,9 @@ sub idle
 
 	    # Deactivate.
 	    my ($dr, $nr) = &dbexec ($dbh, qq{
-		delete from t_replica_state where guid in
-		(select guid from t_file where inblock = :block)},
-		":block" => $name);
+		delete from t_xfer_replica where fileid in
+		(select id from t_xfer_file where inblock = :block)},
+		":block" => $id);
 
 	    if ($nr != $nfr)
 	    {
@@ -151,8 +145,10 @@ sub idle
 	    else
 	    {
 	        my ($db, $nb) = &dbexec ($dbh, qq{
-		    update t_block_replica set isactive = 0 where name = :block},
-		    ":block" => $name);
+		    update t_dps_block_replica
+		    set is_active = 'n'
+		    where block = :block},
+		    ":block" => $id);
 	        &logmsg ("deactivated $name: $nr file replicas, $nb block replicas");
 	        $dbh->commit ();
 	    }
@@ -165,7 +161,7 @@ sub idle
     &disconnectFromDatabase ($self, $dbh);
 
     # Have a little nap
-    $self->nap ($self->{WAITTIME});
+    $self->nap ($$self{WAITTIME});
 }
 
 1;
