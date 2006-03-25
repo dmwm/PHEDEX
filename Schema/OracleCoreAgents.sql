@@ -1,25 +1,31 @@
 ----------------------------------------------------------------------
+-- Create sequences
+
+create sequence seq_agent;
+
+----------------------------------------------------------------------
 -- Create tables
 
 create table t_agent
-  (name			varchar (20)	not null);
+  (id			integer		not null,
+   name			varchar (100)	not null);
 
 create table t_agent_message
-  (timestamp		float		not null,
-   node			varchar (20)	not null,
-   agent		varchar (20)	not null,
-   message		varchar (20)	not null);
+  (node			integer		not null,
+   agent		integer		not null,
+   message		varchar (20)	not null,
+   time_apply		float		not null);
 
 create table t_agent_status
-  (timestamp		float		not null,
-   node			varchar (20)	not null,
-   agent		varchar (20)	not null,
-   state		char (1)	not null);
+  (node			integer		not null,
+   agent		integer		not null,
+   state		char (1)	not null,
+   time_update		float		not null);
 
 create table t_agent_version
-  (timestamp		float		not null,
-   node			varchar (20)	not null,
-   agent		varchar (20)	not null,
+  (node			integer		not null,
+   agent		integer		not null,
+   time_update		float		not null,
    filename		varchar (100)	not null,
    filesize		integer,
    checksum		varchar (100),
@@ -32,17 +38,21 @@ create table t_agent_version
 
 alter table t_agent
   add constraint pk_agent
-  primary key (name)
+  primary key (id)
   using index tablespace CMS_TRANSFERMGMT_INDX01;
+
+alter table t_agent
+  add constraint uq_agent_name
+  unique (name);
 
 
 alter table t_agent_message
   add constraint fk_agent_message_node
-  foreign key (node) references t_node (name);
+  foreign key (node) references t_node (id);
 
 alter table t_agent_message
   add constraint fk_agent_message_agent
-  foreign key (agent) references t_agent (name);
+  foreign key (agent) references t_agent (id);
 
 
 alter table t_agent_status
@@ -52,11 +62,11 @@ alter table t_agent_status
 
 alter table t_agent_status
   add constraint fk_agent_status_node
-  foreign key (node) references t_node (name);
+  foreign key (node) references t_node (id);
 
 alter table t_agent_status
   add constraint fk_agent_status_agent
-  foreign key (agent) references t_agent (name);
+  foreign key (agent) references t_agent (id);
 
 
 alter table t_agent_version
@@ -66,11 +76,11 @@ alter table t_agent_version
 
 alter table t_agent_version
   add constraint fk_agent_version_node
-  foreign key (node) references t_node (name);
+  foreign key (node) references t_node (id);
 
 alter table t_agent_version
   add constraint fk_agent_version_agent
-  foreign key (agent) references t_agent (name);
+  foreign key (agent) references t_agent (id);
 
 ----------------------------------------------------------------------
 -- Add indices
