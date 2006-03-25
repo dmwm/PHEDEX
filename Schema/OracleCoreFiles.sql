@@ -1,12 +1,12 @@
 ----------------------------------------------------------------------
 -- Create sequences
 
-create sequence seq_file;
+create sequence seq_dps_file;
 
 ----------------------------------------------------------------------
 -- Create tables
 
-create table t_file
+create table t_dps_file
   (id			integer		not null,
    node			integer		not null,
    inblock		integer		not null,
@@ -16,37 +16,72 @@ create table t_file
    filesize		integer		not null,
    time_create		float		not null);
 
+create table t_xfer_file
+  (id			integer		not null,
+   inblock		integer		not null,
+   logical_name		varchar (1000)	not null,
+   filetype		varchar (1000)	not null,
+   checksum		varchar (1000)	not null,
+   filesize		integer		not null);
+
 ----------------------------------------------------------------------
 -- Add constraints
 
-alter table t_file
-  add constraint pk_file
+alter table t_dps_file
+  add constraint pk_dps_file
   primary key (id)
   using index tablespace CMS_TRANSFERMGMT_INDX01;
 
-alter table t_file
-  add constraint uq_file_logical_name
+alter table t_dps_file
+  add constraint uq_dps_file_logical_name
   unique (logical_name);
 
-alter table t_file
-  add constraint fk_file_node
+alter table t_dps_file
+  add constraint fk_dps_file_node
   foreign key (node) references t_node (id);
 
-alter table t_file
-  add constraint fk_file_inblock
+alter table t_dps_file
+  add constraint fk_dps_file_inblock
+  foreign key (inblock) references t_dps_block (id);
+
+
+alter table t_xfer_file
+  add constraint pk_xfer_file
+  primary key (id)
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
+
+alter table t_xfer_file
+  add constraint uq_xfer_file_logical_name
+  unique (logical_name);
+
+alter table t_xfer_file
+  add constraint fk_xfer_file_id
+  foreign key (id) references t_dps_file (id);
+
+alter table t_xfer_file
+  add constraint fk_xfer_file_inblock
   foreign key (inblock) references t_dps_block (id);
 
 ----------------------------------------------------------------------
 -- Add indices
 
-create index ix_file_node
-  on t_file (node)
+create index ix_dps_file_node
+  on t_dps_file (node)
   tablespace CMS_TRANSFERMGMT_INDX01;
 
-create index ix_file_id_filesize
-  on t_file (id, filesize)
+create index ix_dps_file_id_filesize
+  on t_dps_file (id, filesize)
   tablespace CMS_TRANSFERMGMT_INDX01;
 
-create index ix_file_inblock_id
-  on t_file (inblock, id)
+create index ix_dps_file_inblock_id
+  on t_dps_file (inblock, id)
+  tablespace CMS_TRANSFERMGMT_INDX01;
+
+
+create index ix_xfer_file_id_filesize
+  on t_xfer_file (id, filesize)
+  tablespace CMS_TRANSFERMGMT_INDX01;
+
+create index ix_xfer_file_inblock_id
+  on t_xfer_file (inblock, id)
   tablespace CMS_TRANSFERMGMT_INDX01;
