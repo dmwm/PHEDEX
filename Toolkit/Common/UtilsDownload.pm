@@ -46,12 +46,14 @@ sub consumeFiles
     my ($self, $master, $dbh) = @_;
     my ($batch, $size, @files) = ([], 0);
 
+    # FIXME: Issue files for prepare.
+
     # Keep adding files to the batch until we exceed the limits given
     # or there are no more files available to copy.
     while (scalar @$batch < $self->{BATCH_FILES}
 	   && (! $self->{BATCH_SIZE} || $size < $self->{BATCH_SIZE}))
     {
-	@files = $master->nextFiles($dbh, $self->{BATCH_FILES}) if ! @files;
+	@files = $master->filesForTransfer($dbh, $self->{BATCH_FILES}) if ! @files;
 	last if ! @files;
 
 	my $file = $master->startFileTransfer ($dbh, shift (@files));
