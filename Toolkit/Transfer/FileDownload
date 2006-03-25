@@ -305,7 +305,7 @@ sub filesForPrepare
 		    xs.fileid, f.logical_name, f.filetype, f.filesize, f.checksum,
 		    xs.priority, xs.to_node to_node_id, nd.name to_node
 		from t_xfer_state xs
-		  join t_file f on f.id = xs.fileid
+		  join t_xfer_file f on f.id = xs.fileid
 		  join t_node ns on ns.id = xs.from_node
 		where xs.to_node = :node
 	          and xs.to_pfn is null
@@ -367,7 +367,7 @@ sub filesForTransfer
 		    xs.from_node from_node_id, ns.name from_node, xs.from_pfn,
 		    xs.to_pfn, xs.time_assign, xs.time_available
 		from t_xfer_state xs
-		  join t_file f on f.id = xs.fileid
+		  join t_xfer_file f on f.id = xs.fileid
 		  join t_node ns on ns.id = xs.from_node
 		where xs.to_node = :node
 		  and xs.to_state < 2
@@ -377,7 +377,7 @@ sub filesForTransfer
 	  	  and xs.errors < 5
 	          $ignore_filter
 		  $accept_filter
-		order by xs.priority asc, xs.weight asc, xs.age asc},
+		order by xs.priority asc, xs.weight asc, f.inblock, xs.age asc},
   		":node" => $$self{ID_MYNODE}, ":now" => &mytimeofday(),
 		%$ignore_args, %$accept_args);
 	    while (my $row = $stmt->fetchrow_hashref())
