@@ -15,20 +15,19 @@
 ##H pending tape mounts is high (~4000) or pending stage requests is
 ##H high (~200).
 ##H
-##H As TMDB only contains GUIDs and no PFNs, we execute a site-local
-##H script to map the GUIDs to PFNs, typically using local catalogue.
+##H As TMDB only contains LFNs and no PFNs, we execute a site-local
+##H script to map the LFNs to PFNs, typically using local catalogue.
 ##H Correspondingly, files reported by stager to be on disk are mapped
-##H back to GUIDs.
+##H back to LFNs.
 ##H
 ##H Usage:
 ##H   FileCastorFilesize
-##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
+##H      -state DIRECTORY -node NAME -db FILE[:SECTION]
 ##H      -pfnquery COMMAND[,ARGS...] -tapeusers USER[,USER]
 ##H
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
 ##H -db        database connection configuration parameter file
-##H -wait      time to wait in seconds between work scans
 ##H -pfnquery  command to query pfns and guids from catalogue
 ##H -tapeusers list of users to watch tape accesses for
 
@@ -41,12 +40,10 @@ BEGIN {
 
 ######################################################################
 use UtilsHelp;
-my %args = (WAITTIME => 120);
+my %args;
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    if ($ARGV[0] eq '-state' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
@@ -91,17 +88,18 @@ sub new
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  PFN_QUERY => undef,		# Program to query PFNs
 	  	  TAPE_USERS => undef,		# Tape users to monitor
-	  	  AGENTID => "Stager",		# Identity for activity logs
+		  WAITTIME => 550 + rand(100),	# Agent cycle time
+	  	  AGENTID => "FileStager",	# Identity for activity logs
     	    	  MAXTAPEREQS => 4000,		# Max pending tape mounts
     	    	  MAXMYTAPEREQS => 1000,	# Max pending tape mounts by myself
     	    	  MAXSTAGEREQS => 200,		# Max pending stager requests
     	    	  MAXFILES => 50,		# Max number of files in one request
-		  PFN_CACHE => {},		# GUID -> PFN cache
-		  GUID_CACHE => {},		# PFN -> GUID cache
+		  PFN_CACHE => {},		# LFN -> PFN cache
+		  LFN_CACHE => {},		# PFN -> LFN cache
 		  DB_CACHE => {},		# Cache of DB state
 		  NSLS_CACHE => {});		# Cache for nsls (file pool) lookups
     my %args = (@_);
-    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
 }
@@ -115,7 +113,7 @@ sub new
 sub fileProperties
 {
     my ($pfn, $cache) = @_;
-    if (! exists $cache->{$pfn})
+    if (! exists $$cache{$pfn})
     {
 	# Fill cache for the whole directory
 	my $dir = $pfn; $dir =~ s|/[^/]+$||;
@@ -124,12 +122,12 @@ sub fileProperties
 	{
 	    chomp;
 	    my ($tape, $pos, $size, $file) = (split (/\s+/, $_))[3,4,6,8];
-	    $cache->{"$dir/$file"} = [ $tape, $pos, $size ];
+	    $$cache{"$dir/$file"} = [ $tape, $pos, $size ];
 	}
 	close (NSLS);
     }
 
-    return (1, @{$cache->{$pfn} || []});
+    return (1, @{$$cache{$pfn} || []});
 }
 
 # Like fileProperties(), but invoked when we think the file doesn't
@@ -138,7 +136,7 @@ sub fileProperties
 sub filePropertiesForMissing
 {
     my ($pfn, $cache) = @_;
-    if (! exists $cache->{$pfn})
+    if (! exists $$cache{$pfn})
     {
 	# Like above, but without "-T" option.  This does list zero
 	# size files, but they obviously have no tape or position.
@@ -148,13 +146,13 @@ sub filePropertiesForMissing
 	{
 	    chomp;
 	    my ($size, $file) = (split(/\s+/, $_))[4,8];
-	    $cache->{"$dir/$file"} = [ undef, undef, $size ]
-	        if ! exists $cache->{"$dir/$file"};
+	    $$cache{"$dir/$file"} = [ undef, undef, $size ]
+	        if ! exists $$cache{"$dir/$file"};
 	}
 	close (NSLS);
     }
 
-    return (1, @{$cache->{$pfn} || []});
+    return (1, @{$$cache{$pfn} || []});
 }
 
 # Find out files stager knows about.  Returns a reference to a hash of
@@ -168,7 +166,7 @@ sub stagerFileList
     my $files = {};
     while (<STAGEQ>) {
 	my ($status, $file) = split(/\s+/, $_);
-	$files->{$file} = $status;
+	$$files{$file} = $status;
     }
     close(STAGEQ);
     return $files;
@@ -185,7 +183,7 @@ sub tapeMountLoad
     open(QSTAT, "showqueues -x |")
 	or do { &alert ("cannot run showqueues: $!"); return (undef, undef); };
 
-    my $tapeusers = join("|", map { quotemeta } @{$self->{TAPE_USERS}});
+    my $tapeusers = join("|", map { quotemeta } @{$$self{TAPE_USERS}});
     while (<QSTAT>)
     {
 	$total++ if /^Q/;
@@ -209,8 +207,8 @@ sub purgeCache
     # Remove entries that are too old
     foreach my $item (keys %$cache)
     {
-	my ($time, @rest) = ($cache->{$item} =~ /^(\d+):(.*)/);
-	delete $cache->{$item}
+	my ($time, @rest) = ($$cache{$item} =~ /^(\d+):(.*)/);
+	delete $$cache{$item}
 	   if ((! @rest && $time < $oldnomatch) || $time < $oldmatch);
     }
 }
@@ -224,7 +222,7 @@ sub getPendingFiles
 
     # First fetch files from database.  If we come across something
     # we haven't seen before, remember it but don't look it up yet.
-    # Otherwise just push the (GUID, PFN, TIME) tuple into result.
+    # Otherwise just push the (LFN, PFN, TIME) into result.
     #
     # "Recently wanted" == time stamp on "wanted" state is less than
     # fifteen minutes old.  Download agents expecting files will be
@@ -232,44 +230,45 @@ sub getPendingFiles
     # running and capable of downloading files.
     my %seen = ();
     my $stmt = &dbexec($dbh, qq{
-	   select guid, to_timestamp
-	   from t_transfer_state
-	   where from_node = :node
-	     and to_state = 1
-	     and to_timestamp >= :recent
-           order by to_timestamp asc},
-	   ":node" => $self->{MYNODE}, ":recent" => time() - 15*60);
-    while (my ($guid, $time) = $stmt->fetchrow())
+	   select f.logical_name, xs.time_request
+	   from t_xfer_state xs
+	     join t_xfer_file f on f.id = xs.fileid
+	   where xs.from_node = :node
+	     and xs.to_state = 1
+	     and xs.time_request >= :recent
+           order by xs.time_request desc},
+	   ":node" => $$self{ID_MYNODE}, ":recent" => time() - 15*60);
+    while (my ($lfn, $time) = $stmt->fetchrow())
     {
-	next if $seen{$guid};
-	$seen{$guid} = 1;
+	next if $seen{$lfn};
+	$seen{$lfn} = 1;
 
-	my $cache = $self->{PFN_CACHE}{$guid};
+	my $cache = $$self{PFN_CACHE}{$lfn};
 	if ($cache && $cache =~ /^\d+:(.*)/)
 	{
 	    # Known in cache.  Just push into result.
-	    push (@$result, [ $guid, $1 || undef, $time ]);
+	    push (@$result, [ $lfn, $1 || undef, $time ]);
 	}
 	else
 	{
 	    # Not seen this yet.  Remember it.
-	    $unknown{$guid} = $time;
+	    $unknown{$lfn} = $time;
 	}
     }
 
     # Now go over everything that we hadn't seen yet.  Look up all
-    # the GUID/PFN mappings in one go with a single efficient pull,
-    # and then cache the results and fill in result.
+    # the LFN/PFN mappings in one go with a single efficient
+    # pull, and then cache the results and fill in result.
     if (my @items = keys %unknown)
     {
         my $now = time();
-        my $pfns = &guidToPFN ([ @items ], "direct", "local", @{$self->{PFN_QUERY}});
-        foreach my $guid (@items)
+        my $pfns = &pfnLookup ([ @items ], "direct", "local", @{$$self{PFN_QUERY}});
+	foreach my $lfn (@items)
         {
-	    my $pfn = $pfns->{$guid};
-	    $self->{PFN_CACHE}{$guid} = "$now:@{[$pfn || '']}";
-	    $self->{GUID_CACHE}{$pfn} = "$now:$guid" if defined $pfn;
-	    push (@$result, [ $guid, $pfn, $unknown{$guid} ]);
+	    my $pfn = $$pfns{$lfn};
+	    $$self{PFN_CACHE}{$lfn} = "$now:@{[$pfn || '']}";
+	    $$self{LFN_CACHE}{$pfn} = "$now:$lfn" if defined $pfn;
+	    push (@$result, [ $lfn, $pfn, $unknown{$lfn} ]);
         }
     }
 
@@ -288,11 +287,11 @@ sub getStagerFiles
 
     # First pass.  If we come across something we haven't seen
     # before, remember it but don't look it up yet.  Otherwise
-    # just push the (GUID, PFN, TIME) tuple into result.
+    # just push the (LFN, PFN, TIME) tuple into result.
     foreach my $pfn (keys %$files)
     {
-	my $status = $files->{$pfn};
-	my $cache = $self->{GUID_CACHE}{$pfn};
+	my $status = $$files{$pfn};
+	my $cache = $$self{LFN_CACHE}{$pfn};
 	if ($cache && $cache =~ /^\d+:(.*)/)
 	{
 	    # Known in cache.  Just push into result.
@@ -306,18 +305,18 @@ sub getStagerFiles
     }
 
     # Now go over everything that we hadn't seen yet.  Look up all
-    # the GUID/PFN mappings in one go with a single efficient pull,
+    # the LFN/PFN mappings in one go with a single efficient pull,
     # and then cache the results and fill in result.
     if (my @items = keys %unknown)
     {
         my $now = time();
-        my $guids = &pfnToGUID ([ @items ], "direct", "local", @{$self->{PFN_QUERY}});
+        my $lfns = &lfnLookup ([ @items ], "direct", "local", @{$$self{PFN_QUERY}});
         foreach my $pfn (@items)
         {
-	    my $guid = $guids->{$pfn};
-	    $self->{PFN_CACHE}{$guid} = "$now:$pfn" if defined $guid;
-	    $self->{GUID_CACHE}{$pfn} = "$now:@{[$guid || '']}";
-	    push (@$result, [ $guid, $pfn, $files->{$pfn} ]);
+	    my $lfn = $$lfns{$pfn};
+	    $$self{PFN_CACHE}{$lfn} = "$now:$pfn" if defined $lfn;
+	    $$self{LFN_CACHE}{$pfn} = "$now:@{[$lfn || '']}";
+	    push (@$result, [ $lfn, $pfn, $$files{$pfn} ]);
         }
     }
 
@@ -330,43 +329,43 @@ sub buildStatus
     my ($self, $stager, $pending) = @_;
     return undef if ! $stager || ! $pending;
 
-    my $nsls = $self->{NSLS_CACHE};
-    if (($nsls->{VALIDITY} || 0) < time())
+    my $nsls = $$self{NSLS_CACHE};
+    if (($$nsls{VALIDITY} || 0) < time())
     {
-	$nsls->{VALIDITY} = time() + 4 * 3600;
-	$nsls->{FILES} = {};
+	$$nsls{VALIDITY} = time() + 4 * 3600;
+	$$nsls{FILES} = {};
     }
 
-    my $cache = $nsls->{FILES};
+    my $cache = $$nsls{FILES};
     my $files = {};
     foreach my $file (@$stager)
     {
-	my ($guid, $pfn, $status) = @$file;
-	$files->{$pfn} = { GUID => $guid, PFN => $pfn, STATUS => $status };
+	my ($lfn, $pfn, $status) = @$file;
+	$$files{$pfn} = { LFN => $lfn, PFN => $pfn, STATUS => $status };
     }
 
     foreach my $file (@$pending)
     {
-	my ($guid, $pfn, $time) = @$file;
+	my ($lfn, $pfn, $time) = @$file;
 
-	do { &warn ("ignoring unknown wanted file $guid"); next } if ! $pfn;
-	$files->{$pfn} ||= { GUID => $guid, PFN => $pfn, STATUS => "UNKNOWN" };
-	if ($files->{$pfn}{STATUS} eq 'UNKNOWN')
+	do { &warn ("ignoring unknown wanted file $lfn"); next } if ! $pfn;
+	$$files{$pfn} ||= { LFN => $lfn, PFN => $pfn, STATUS => "UNKNOWN" };
+	if ($$files{$pfn}{STATUS} eq 'UNKNOWN')
 	{
 	    my ($success, $tape, $pos, $size) = &fileProperties ($pfn, $cache);
-	    do { $files->{$pfn}{STATUS} = "RETRY"; next } if ! $success;
+	    do { $$files{$pfn}{STATUS} = "RETRY"; next } if ! $success;
 	    if (! defined $tape || ! defined $pos || ! defined $size)
 	    {
 	        ($success, $tape, $pos, $size) = &filePropertiesForMissing ($pfn, $cache);
-		do { $files->{$pfn}{STATUS} = "STAGED"; next } if defined $size;
-	        do { &alert ("non-existent file $pfn"); $files->{$pfn}{STATUS} = "RETRY"; next }
+		do { $$files{$pfn}{STATUS} = "STAGED"; next } if defined $size;
+	        do { &alert ("non-existent file $pfn"); $$files{$pfn}{STATUS} = "RETRY"; next }
 	            if (! defined $tape || ! defined $pos || ! defined $size);
 	    }
 	
-	    $files->{$pfn}{TAPE} = $tape;
-	    $files->{$pfn}{POS} = $pos;
-	    $files->{$pfn}{SIZE} = $size;
-	    $files->{$pfn}{TIME} = $time;
+	    $$files{$pfn}{TAPE} = $tape;
+	    $$files{$pfn}{POS} = $pos;
+	    $$files{$pfn}{SIZE} = $size;
+	    $$files{$pfn}{TIME} = $time;
         }
     }
 
@@ -387,8 +386,8 @@ sub idle
 
 	# Clean up caches
 	my %timing = (START => &mytimeofday());
-	&purgeCache ($self->{PFN_CACHE});
-	&purgeCache ($self->{GUID_CACHE});
+	&purgeCache ($$self{PFN_CACHE});
+	&purgeCache ($$self{LFN_CACHE});
 	$timing{PURGE} = &mytimeofday();
 
 	# Get pending and stager files
@@ -400,37 +399,39 @@ sub idle
 	# Update file status.  First mark everything not staged in,
 	# then as staged-in the files currently in stager catalogue.
 	my $now = time();
-	my $dbcache = $self->{DB_CACHE};
-	if (($dbcache->{VALIDITY} || 0) < $now)
+	my $dbcache = $$self{DB_CACHE};
+	if (($$dbcache{VALIDITY} || 0) < $now)
 	{
-	    $dbcache->{VALIDITY} = $now + 4*3600;
-	    $dbcache->{FILES} = {};
+	    $$dbcache{VALIDITY} = $now + 4*3600;
+	    $$dbcache{FILES} = {};
 	    &dbexec($dbh,qq{
-	        update t_replica_state
-	        set state = 0, state_timestamp = :now
+	        update t_xfer_replica
+	        set state = 0, time_state = :now
 	        where node = :node and state = 1},
-	        ":node" => $self->{MYNODE}, ":now" => $now);
+	        ":node" => $$self{ID_MYNODE}, ":now" => $now);
 	}
 
 	my $stmt = $dbh->prepare(qq{
-	    update t_replica_state
-	    set state = :state, state_timestamp = :now
-	    where guid = :guid and node = :node});
+	    update t_xfer_replica set state = :state, time_state = :now
+	    where fileid = (select id from t_xfer_file where logical_name = :lfn)
+	      and node = :node});
 	foreach my $f (values %$files)
 	{
-	    next if ! defined $f->{GUID};
-	    my $isstaged = $f->{STATUS} eq 'STAGED';
-	    if ($isstaged && ! $dbcache->{FILES}{$f->{GUID}})
+	    next if ! defined $$f{LFN};
+	    my $isstaged = $$f{STATUS} eq 'STAGED';
+	    if ($isstaged && ! $$dbcache{FILES}{$$f{LFN}})
 	    {
-		$dbcache->{FILES}{$f->{GUID}} = 1;
-		&dbbindexec ($stmt, ":now" => $now, ":node" => $self->{MYNODE},
-			     ":guid" => $f->{GUID}, ":state" => 1);
+		$$dbcache{FILES}{$$f{LFN}} = 1;
+		&dbbindexec ($stmt, ":now" => $now,
+			     ":node" => $$self{ID_MYNODE},
+			     ":lfn" => $$f{LFN}, ":state" => 1);
 	    }
-	    elsif (! $isstaged && $dbcache->{FILES}{$f->{GUID}})
+	    elsif (! $isstaged && $$dbcache{FILES}{$$f{LFN}})
 	    {
-		delete $dbcache->{FILES}{$f->{GUID}};
-		&dbbindexec ($stmt, ":now" => $now, ":node" => $self->{MYNODE},
-			     ":guid" => $f->{GUID}, ":state" => 0);
+		delete $$dbcache{FILES}{$$f{LFN}};
+		&dbbindexec ($stmt, ":now" => $now,
+			     ":node" => $$self{ID_MYNODE},
+			     ":lfn" => $$f{LFN}, ":state" => 0);
 	    }
 	}
 	$dbh->commit();
@@ -440,8 +441,8 @@ sub idle
 	# files into time order, oldest "wanted" first.  When we take
 	# files from this list, we take first by tape, then position.
 	my @requests =
-	    sort { $a->{TIME} <=> $b->{TIME} }
-	    grep ($_->{STATUS} eq 'UNKNOWN', values %$files);
+	    sort { $$a{TIME} <=> $$b{TIME} }
+	    grep ($$_{STATUS} eq 'UNKNOWN', values %$files);
 
 	# Now issue requests for the files in batches.
 	my $nreq = scalar @requests;
@@ -457,12 +458,12 @@ sub idle
 	    # them out.  Also makes it safer if we get stopped.
 	    my $nrequests = scalar @requests;
 	    my ($tapereqs, $mytapereqs) = $self->tapeMountLoad();
-	    my $stagereqs = scalar (grep($_->{STATUS} eq 'STAGEIN', values %$files));
+	    my $stagereqs = scalar (grep($$_{STATUS} eq 'STAGEIN', values %$files));
 	    if (! defined $tapereqs
 	        || ! defined $mytapereqs
-	        || $tapereqs > $self->{MAXTAPEREQS}
-	        || $mytapereqs > $self->{MAXMYTAPEREQS}
-	        || $stagereqs > $self->{MAXSTAGEREQS})
+	        || $tapereqs > $$self{MAXTAPEREQS}
+	        || $mytapereqs > $$self{MAXMYTAPEREQS}
+	        || $stagereqs > $$self{MAXSTAGEREQS})
 	    {
 	        $tapereqs = 'U' if ! defined $tapereqs;
 	        $mytapereqs = 'U' if ! defined $mytapereqs;
@@ -477,29 +478,29 @@ sub idle
 	    # avoid exceeding command line length limits, however do
 	    # ask for all the files on the tape without stopping for
 	    # stager limits.
-	    while (@requests && $stagereqs <= $self->{MAXSTAGEREQS})
+	    while (@requests && $stagereqs <= $$self{MAXSTAGEREQS})
 	    {
 		my $tape = $requests[0]{TAPE};
-		my @tapefiles = sort { $a->{POS} cmp $b->{POS} }
-		                grep($_->{TAPE} eq $tape, @requests);
-		@requests = grep($_->{TAPE} ne $tape, @requests);
+		my @tapefiles = sort { $$a{POS} cmp $$b{POS} }
+		                grep($$_{TAPE} eq $tape, @requests);
+		@requests = grep($$_{TAPE} ne $tape, @requests);
 		&logmsg ("stagein @{[scalar @tapefiles]} files on tape $tape,"
 			 . " @{[scalar @requests]} of $nreq left");
 
-		while (@tapefiles && $stagereqs <= 7*$self->{MAXSTAGEREQS})
+		while (@tapefiles && $stagereqs <= 7*$$self{MAXSTAGEREQS})
 		{
-		    my @slice = splice (@tapefiles, 0, $self->{MAXFILES});
+		    my @slice = splice (@tapefiles, 0, $$self{MAXFILES});
 	            my $rc = &runcmd ("stagein", "--nowait", "--rdonly",
 			              "-h", $ENV{STAGE_HOST}, "-p", $ENV{STAGE_POOL},
 			              "-A", "deferred",
-			              map { ("-M", $_->{PFN}) } @slice);
+			              map { ("-M", $$_{PFN}) } @slice);
 	            &alert ("stagein failed: @{[&runerror($rc)]}") if ($rc);
 
 	            # Sleep a bit, castor doesn't like rapid-fire request chains
 	            select (undef, undef, undef, 0.33);
 
 	            # Mark these files as pending now
-	            map { $_->{STATUS} = "STAGEIN" } @slice;
+	            map { $$_{STATUS} = "STAGEIN" } @slice;
 		    $stagereqs += scalar @slice;
 		}
 	    }
@@ -521,5 +522,5 @@ sub idle
     &disconnectFromDatabase ($self, $dbh);
 
     # Have a little nap
-    $self->nap ($self->{WAITTIME});
+    $self->nap ($$self{WAITTIME});
 }

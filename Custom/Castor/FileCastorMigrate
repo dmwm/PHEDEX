@@ -13,13 +13,12 @@
 ##H
 ##H Usage:
 ##H   FileCastorFilesize
-##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
+##H      -state DIRECTORY -node NAME -db FILE[:SECTION]
 ##H      -pfnquery COMMAND[,ARGS...]
 ##H
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
 ##H -db        database connection configuration parameter file
-##H -wait      time to wait in seconds between work scans
 ##H -pfnquery  command to query pfns from catalogue
 
 BEGIN {
@@ -34,9 +33,7 @@ use UtilsHelp;
 my %args;
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    if ($ARGV[0] eq '-state' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
@@ -75,9 +72,10 @@ sub new
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  PFN_QUERY => undef,		# Program to query PFNs
-	  	  AGENTID => "Download");	# Identity for activity logs
+		  WAITTIME => 150 + rand(50),	# Agent activity cycle
+	  	  AGENTID => "FileDownload");	# Identity for activity logs
     my %args = (@_);
-    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
 }
@@ -89,83 +87,82 @@ sub idle
     my $dbh = undef;
     eval
     {
-	my $start = &mytimeofday();
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
-        # FIXME: Pick up and process messages to me
-
-	# Mark everything available for and already in transfer for
-	# this link.  Don't mark files wanted to avoid stager going
-	# wild because of us :-)  This is to keep browser displays
-	# correct, we don't use this information ourselves and it
-	# isn't used by the "sending" side (the neighbour transfer
-	# node).  Note that there are no transfers out from this
-	# node -- they all go from the transfer node, which must
-	# always be closer to any destination that us and already
-	# has all the files we have.
-	my %args = (":node" => $self->{MYNODE}, ":now" => $start);
+	# Follow minimally the transfer handshake so all accounting
+	# infrastructure continues to report the right values.  The
+	# assumption is of course the Buffer/MSS node is shared and
+	# there are no transfers out from the MSS node.
+	#
+	# Automatically issue all files "in transfer", but do not
+	# mark them wanted at the source: we don't want the stager
+	# to activate on these files.
+	my $start = &mytimeofday();
 	&dbexec($dbh, qq{
-	    update t_transfer_state
-	    set from_state = 1, from_timestamp = :now
-	    where to_node = :node and from_state = 0},
-	    %args);
-	&dbexec($dbh, qq{
-	    update t_transfer_state
-	    set to_state = 2, to_timestamp = :now
+	    update t_xfer_state
+	    set from_state = 1, to_state = 2
+	        time_available = :now, time_xfer_start = :now
 	    where to_node = :node and to_state = 0},
-    	    %args);
+	    ":node" => $$self{ID_MYNODE}, ":now" => &mygettimeofday());
 	$dbh->commit();
 
 	# Process files pending migration.
-        my $rsstmt = $dbh->prepare(qq{
-	    insert into t_replica_state
-	    (timestamp, guid, node, state, state_timestamp)
-	    values (:now, :guid, :node, 0, :now)});
-        my $tsstmt = $dbh->prepare(qq{
-	    update t_transfer_state
-	    set to_state = 3, to_timestamp = :now
-	    where guid = :guid and to_node = :node});
-	my ($qstmt) = &dbexec($dbh, qq{
-	    select ts.guid, f.filesize, ts.from_timestamp
-	    from t_transfer_state ts
-	    join t_file f on f.guid = ts.guid
-	    where ts.to_node = :node and ts.to_state = 2},
-  	    ":node" => $self->{MYNODE});
-	while (my $row = $qstmt->fetchrow_arrayref())
+        my $xrstmt = &dbprep ($dbh, qq{
+	    insert into t_xfer_replica
+	    (id, fileid, node, state, time_create, time_state)
+	    values (seq_xfer_replica.nextval, :fileid, :node, 0, :now, :now)});
+        my $xsstmt = &dbprep ($dbh, qq{
+	    update t_xfer_state
+	    set to_state = 3, time_xfer_end = :now
+	    where to_node = :node and fileid = :fileid});
+	my $q = &dbexec($dbh, qq{
+	    select xs.fileid, f.logical_name, f.filesize, xs.time_available
+	    from t_xfer_state xs join t_xfer_file f on f.fileid = xs.fileid
+	    where xs.to_node = :node and xs.to_state = 2
+	    order by xs.time_available asc},
+  	    ":node" => $$self{ID_MYNODE});
+	while (my ($fileid, $lfn, $size, $available) = $q->fetchrow())
 	{
-	    my ($guid, $size, $time) = @$row;
-
-	    # FIXME: Do we need to actually issue commands to begin
-	    # migration?  If so, use to_state = 0 to indicate we
-	    # haven't done that, to_state = 2 to indicate migration
-	    # started, and to_state = 3 to indicate it's complete.
-	    # Now we assume it's just always automatically started.
-
 	    # Check if the file has been migrated.  If not, skip it.
-	    my $pfn = &guidToPFN ($guid, "direct", "local", @{$self->{PFN_QUERY}});
-	    do { &alert ("failed to find pfn for guid $guid"); next } if !$pfn;
+	    my $pfn = &guidToPFN ($lfn, "direct", "local", @{$$self{PFN_QUERY}});
+	    do { &alert ("failed to find pfn for file $lfn"); next } if !$pfn;
 	    open (NSLS, "nsls -l $pfn |")
-		or do { &warn ("cannot nsls $pfn ($guid): $!"); next };
+		or do { &warn ("cannot nsls $pfn: $!"); next };
 	    my $status = <NSLS>;
 	    close (NSLS)
-		or do { &warn ("cannot nsls $pfn ($guid): $?"); next };
+		or do { &warn ("cannot nsls $pfn: $?"); next };
 
 	    next if $status !~ /^m/;
 
 	    # Migrated, mark transfer completed
-	    &dbbindexec($tsstmt, %args, ":guid" => $guid);
-	    &dbbindexec($rsstmt, %args, ":guid" => $guid);
+	    my $now = &mytimeofday();
+	    my %args = (":node" => $$self{ID_MYNODE},
+			":fileid" => $fileid,
+		        ":now" => $now);
+	    &dbbindexec($xsstmt, %args);
+	    &dbbindexec($xrstmt, %args);
 	    $dbh->commit ();
 
 	    # Log delay data.
-	    my $nowh = &mytimeofday();
-    	    &logmsg ("xstats: $guid $self->{MYNODE} 3 "
-		    . sprintf('%.2f', &mytimeofday() - $time)
-		    . " $size");
+    	    &logmsg ("xstats: $$self{MYNODE} "
+		     . sprintf('%.1fs', $now - $available)
+		     . " $size $lfn");
 
 	    # Give up if we've taken too long
-	    last if $nowh - $start > 10*60;
+	    last if $now - $start > 10*60;
 	}
+
+	# Pump completed transfers out of the main table.
+        &dbexec ($dbh, qq{
+	    insert into t_xfer_completed
+	    (select * from t_xfer_state
+	     where to_node = :node and to_state = 3)},
+	    ":node" => $$self{ID_MYNODE});
+        &dbexec ($dbh, qq{
+	    delete from t_xfer_state
+	    where to_node = :node and to_state = 3)},
+	    ":node" => $$self{ID_MYNODE});
+        $dbh->commit();
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
@@ -174,5 +171,5 @@ sub idle
     &disconnectFromDatabase ($self, $dbh);
 
     # Have a little nap
-    $self->nap ($self->{WAITTIME});
+    $self->nap ($$self{WAITTIME});
 }
