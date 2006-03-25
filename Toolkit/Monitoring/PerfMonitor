@@ -5,12 +5,12 @@
 ##H performance monitoring and latency estimation.
 ##H
 ##H Usage:
-##H   PerfMonitor
-##H      -state DIRECTORY -db FILE[:SECTION] [-wait SECS]
+##H   PerfMonitor -state DIRECTORY -db FILE[:SECTION] -node NODE [-log OUT]
 ##H
 ##H -state     agent state directory
 ##H -db        database connection configuration parameter file
-##H -wait      time to wait in seconds between work scans
+##H -node      the node where this agent runs
+##H -log       where to redirect logging information
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -20,23 +20,16 @@ BEGIN {
 }
 
 ######################################################################
+my %args;
+use Getopt::Long;
 use UtilsHelp;
-my %args = (WAITTIME => 7);
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-h')
-    { &usage(); }
-    else
-    { last; }
-}
+&GetOptions ("state=s"     => \$args{DROPDIR},
+	     "log=s"       => \$args{LOGFILE},
+             "db=s"        => \$args{DBCONFIG},
+             "node=s"      => \$args{MYNODE},
+	     "help|h"      => sub { &usage() });
 
-if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
+if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{MYNODE})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -55,9 +48,10 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (DBCONFIG => undef);		# Database configuration file
+    my %params = (DBCONFIG => undef,		# Database configuration file
+	          WAITTIME => 120);		# Agent activity cycle
     my %args = (@_);
-    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
 }
@@ -86,7 +80,6 @@ sub idle
 	      sum (f.filesize)
 	    from t_transfer_state ts
 	    join t_file f on f.guid = ts.guid
-	    where ts.to_state != 3
 	    group by ts.from_node, ts.to_node});
     	while (my ($from, $to, $files, $bytes) = $qpending->fetchrow())
 	{
@@ -216,5 +209,5 @@ sub idle
     &disconnectFromDatabase ($self, $dbh);
 
     # Check children are still running and then wait
-    $self->nap ($self->{WAITTIME});
+    $self->nap ($$self{WAITTIME});
 }
