@@ -7,17 +7,16 @@
 - make nodes respect a limit to the number of threads that they use to
   handle requests.
 - write propper unit test for bootstrap persistance
-- more sophisticated timeout handling. if there are bogus entries in
-  the routing table, they currently add a lot of latency to node address
-  lookups
-- write a prog/script that runs a stand-alone node. This is needed for
-  the bootstrap node so that it will save its state to a file.
-- support upnp
 - maybe allow apps to set their own timeouts (or at least use a higher
   timeout once the connection has been established).
 - chanage license to lgpl to accomodate upnp code.
+- when a "timed out" request finally completes, we should update the
+  routing table 
 
 done:
+- more sophisticated timeout handling. if there are bogus entries in
+  the routing table, they currently add a lot of latency to node address
+  lookups
 - change node.py to set the timeout for its sockets rather than using
   setdefaulttimeout
 - increased time between identical calls to the same remote node
@@ -26,11 +25,11 @@ done:
   deadlock on linux (versus macosx).
 - changed ip addresses for servers.
 - added support for upnp
-
+- added support for Zeroconf/Rendezvous
 - make kenosis.tac actually remember routing table between runs
 
 before doing releases:
-- check node.defaultBootstrapNetAddress
+- check node.defaultBootstrapNetAddress, timeouts, etc
 - check node.version and node.protocolVersion
 - update release notes
 - check kenosis/index.html's example code for correctness

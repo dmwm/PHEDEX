@@ -15,27 +15,31 @@ from ds import IPy
 import copy
 from sets import Set
 import Queue
+import random
 import SimpleXMLRPCServer
 import os
+import random
 import socket
 import SocketServer
 import sys
 import time
 import threading
+import traceback
 import urllib2
 import xmlrpclib
 
-protocolVersion = 95
-version = "0.95"
+protocolVersion = 96
+version = "0.96"
 
 #defaultBootstrapNetAddress = "root.kenosisp2p.org:5005"
 #defaultBootstrapNetAddress = "192.168.0.4:5005"
 defaultBootstrapNetAddress = "69.55.229.46:5005" # john.redheron.com
-#defaultBootstrapNetAddress = "127.0.0.1:5005"
 defaultPorts = range(5005, 50150)
 staleInfoTime = 300
-kenosisRpcTimeout = 2
+kenosisFindNodesTimeout = 2
+kenosisRpcNetworkConnectionTimeout = 30
 userRpcTimeout = 20
+maxTimeBetweenBucketOperations = 60 * 60
 
 
 NetworkErrorClasses = (xmlrpclib.Fault,
@@ -173,16 +177,41 @@ class NodeInfo:
         self.nodeAddressObject_ = nodeAddressObject
         self.netAddress_ = netAddress
         self.updateFreshness()
+        self.failedContacts_ = 0
+
     def __repr__(self):
-        return "NodeInfo(%s, %s, %s)" % (self.nodeAddressObject_, self.netAddress_, self.freshness())
+        return "NodeInfo(%s, %s, %s)" % (self.nodeAddressObject_, self.netAddress_, self.timeSinceLastSuccessfulContact())
 
     def updateFreshness(self, newNetAddress=None):
-        self.created_ = dstime.time()
+        self.lastSuccessfulContact_ = dstime.time()
+        self.lastAttemptedContact_ = self.lastSuccessfulContact_
         if newNetAddress is not None:
             self.netAddress_ = newNetAddress
+        self.failedContacts_ = 0
 
-    def freshness(self):
-        return dstime.time() - self.created_
+    def notifyFailedContact(self):
+        self.failedContacts_ += 1
+        self.lastAttemptedContact_ = dstime.time()
+
+    def timeSinceLastAttemptedContact(self):
+        return dstime.time() - self.lastAttemptedContact_
+        
+    def timeSinceLastSuccessfulContact(self):
+        if not self.shouldCommunicateWithNode():
+            return sys.maxint
+        return dstime.time() - self.lastSuccessfulContact_
+
+    def shouldCommunicateWithNode(self):
+        if self.isStale():
+            return False
+        if self.failedContacts_ == 0:
+            return True
+        # Kademlia paper suggests exponential backoff - should we do that?
+        penaltyTime = self.failedContacts_ * kenosisRpcNetworkConnectionTimeout
+        return self.timeSinceLastAttemptedContact() > penaltyTime
+    
+    def isStale(self):
+        return self.failedContacts_ >= 5
 
     def netAddress(self):
         return self.netAddress_
@@ -324,8 +353,15 @@ class RpcServerAdapter:
         rpcHeader = args[0]
         self._processHeader(rpcHeader=rpcHeader, validateDestNodeAddress=True)
 
+        class InvocationInfo:
+            def __init__(self, rpcHeader):
+                self.sourceNodeAddr_ = sourceNodeAddressObjectFrom(rpcHeader=rpcHeader).numericRepr()
+            def sourceNodeAddr(self):
+                return self.sourceNodeAddr_
+        invocationInfo = InvocationInfo(rpcHeader=rpcHeader)
+
         otherArgs = args[1:]
-        ret = self.adaptee_(*otherArgs)
+        ret = self.adaptee_(invocationInfo, *otherArgs)
         return ConvertAddressToStringRecursively(data=ret)
 
 class NullHandler:
@@ -333,7 +369,7 @@ class NullHandler:
         self.serviceName_ = serviceName
     def __getattr__(self, name):
         raise xmlrpclib.Fault("service %s is not supported" % self.serviceName_, 11)
-    def __call__(self, name):
+    def __call__(self, *args):
         raise xmlrpclib.Fault("service %s is not supported" % self.serviceName_, 11)
 
 class NodeRpcFrontend:
@@ -379,6 +415,8 @@ class NodeRpcFrontend:
                         argNames = list(codeObject.co_varnames)
                         argCount = codeObject.co_argcount
                         if argNames[0] == "self":
+                            argNames = argNames[1:]
+                        if argNames[0] == "invocationInfo":
                             argNames = argNames[1:]
                         # add the implicit rpcHeader
                         argNames.insert(0, "rpcHeader")
@@ -459,9 +497,9 @@ class NodeXMLRPCServer(
         argNames = list(codeObject.co_varnames)
         argCount = codeObject.co_argcount
         if isMemberFunc:
-            assert argNames[0] == "self"
-            argNames = argNames[1:]
-            argCount -= 1
+            assert argNames[0] == "self" and argNames[1] == "invocationInfo"
+            argNames = argNames[2:]
+            argCount -= 2
 
         # add the implicit rpcHeader
         argNames.insert(0, "rpcHeader")
@@ -523,6 +561,8 @@ class NodeServer:
         self.xmlrpcServer_.register_introspection_functions()
         self.xmlrpcServer_.register_multicall_functions()
         self.xmlrpcServer_.register_instance(self.frontend_)
+        # This is a lame hack so that we can work with older versions of xmlrpclib.
+        self.xmlrpcServer_.allow_dotted_names=True
 
     def port(self):
         return self.port_
@@ -675,9 +715,38 @@ class Node(ui.GenericUi):
 
     # setup methods
     def registerService(self, name, handler):
+        dsunittest.trace("registerService: name=%s" % name)
         self.server_.frontend_.registerNamedHandler(name=name, handler=handler)
         self.nodeKernel_.servicesToBootstrap_.append(name)
     registerNamedHandler = registerService
+
+    def registerStreamService(self, name, streamType, streamPort, handler=None):
+        """
+        register a service that supports a TCP or UDP-based service:
+        - streamType should be one of 'TCP' or 'UDP'
+        - streamPort should be the port that the service is listening on
+        - if you don't pass the optional handler argument, we'll construct a handler for you
+          that supports a tcpPort() or udpPort() (or both) argument as necessary
+        """
+        class StreamServiceHandler:
+            def __init__(self, port):
+                self.port_ = port
+        class TCPStreamServiceHandler(StreamServiceHandler):
+            def tcpPort(self, invocationInfo):
+                return self.port_
+        class UDPStreamServiceHandler(StreamServiceHandler):
+            def udpPort(self, invocationInfo):
+                return self.port_
+        
+        assert streamType in ("TCP", "UDP")
+        if self.upnpPlugin_:
+            newPort = self.upnpPlugin_.notifyNewStreamService(name=name, streamPort=streamPort, streamType=streamType)
+            streamPort = newPort
+        if handler is None:
+            klass = locals()["%sStreamServiceHandler" % streamType]
+            handler = klass(port=streamPort)
+        self.registerService(name=name, handler=handler)
+        return streamPort
 
     def bootstrap(self, netAddress):
         return self.nodeKernel_.bootstrap(netAddress=netAddress, serviceName="kenosis")
@@ -695,6 +764,12 @@ class Node(ui.GenericUi):
             self.nodeKernel_.needToSave_ = False
             self.save()
         self.nodeKernel_.step()
+
+    def stop(self):
+        self.stopEvent_.set()
+        self.nodeKernel_.taskList_.stop(wait=True)
+        if self.zeroconfPlugin_:
+            self.zeroconfPlugin_.stop()
 
     def serveOneRequest(self):
         return self.server_.serveOneRequest()
@@ -714,6 +789,34 @@ class Node(ui.GenericUi):
     def rpc(self, nodeAddress):
         nodeAddressObject = address.NodeAddressObject(nodeAddress=nodeAddress)
         return self.nodeKernel_.rpc(nodeAddressObject=nodeAddressObject)
+
+    def findNode(self, nodeAddress, serviceName):
+        """find the netAddress ('host:port') for a given nodeAddress"""
+        nodeAddressObject = address.NodeAddressObject(nodeAddress=nodeAddress)
+        if nodeAddressObject == self.nodeKernel_.nodeAddressObject_:
+            return "127.0.0.1:%s" % self.port()
+        else:
+            return self.nodeKernel_._nextHopNetAddressForNodeAddressObject(
+                nodeAddressObject=nodeAddressObject, serviceName=serviceName)
+
+    def findNodeAsync(self, nodeAddress, serviceName, callback):
+        """find the netAddress ('host:port') for a given
+        nodeAddress. Instead of returning it call the callback,
+        passing this as 'netaddress'"""
+        def lf():
+            kwargs = dict(nodeAddress=nodeAddress, serviceName=serviceName)
+            try:
+                dsunittest.trace("Starting findNodeAsync for %s/%s" % (nodeAddress, serviceName))
+                result = self.findNode(**kwargs)
+                dsunittest.trace("Finished findNodeAsync for %s/%s" % (nodeAddress, serviceName))
+                exc_info = None
+            except:
+                dsunittest.trace("Error from findNodeAsync for %s/%s" % (nodeAddress, serviceName))
+                result = None
+                exc_info = sys.exc_info()
+            callback(kwargs=kwargs, result=result, exc_info=exc_info)
+        dsunittest.trace("Requested findNodeAsync for %s/%s" % (nodeAddress, serviceName))
+        self.nodeKernel_.runThreadedFunc_(lf)
 
     def port(self):
         """Return the local or internal port that the node is bound
@@ -757,7 +860,7 @@ class NodeKernel:
         if runThreadedFunc:
             self.runThreadedFunc_ = runThreadedFunc
         else:
-            self.taskList_ = task.TaskList(maxThreads=2 * self.constantsAlpha_)
+            self.taskList_ = task.TaskList(maxThreads=10 * self.constantsAlpha_)
             self.taskList_.start(wait=0)
             self.runThreadedFunc_ = self.taskList_.addCallableTask
 
@@ -785,6 +888,8 @@ class NodeKernel:
         bucketI = self._bucketIndexForNodeAddressObject(nodeAddressObject=nodeAddressObject)
         ret = []
         for a, b, ni in self._nodeInfosInBucketAndSuccessors(bucketIndex=bucketI, serviceName=serviceName):
+            if not ni.shouldCommunicateWithNode():
+                continue
             netAddress = ni.netAddress()
             if not includePrivateAddresses:
                 if netAddressIsPrivate(netAddress=netAddress):
@@ -848,7 +953,8 @@ class NodeKernel:
             bucketI = 0
         else:
             bucketI = self._bucketIndexForNodeAddressObject(nodeAddressObject=nodeAddressObject)
-        currentSet = Set()
+        # Maps nodeAddress, netAddress -> nodeInfo
+        currentDict = {}
         successDict = {}
         successNodeInfo = None
         errorSet = Set()
@@ -856,30 +962,39 @@ class NodeKernel:
         mergeQueue = GrowingQueue(
             realQueue=realQueue,
             iterator=self._nodeInfosInBucketAndSuccessors(bucketI, serviceName=serviceName))
+        numCurrentRequests = 0
         while len(successDict) < self.constantsK_:
-            while len(currentSet) < self.constantsAlpha_ and not mergeQueue.empty():
+            now = dstime.time()
+            numCurrentRequests = len([t for x,t in currentDict.values() if now - t <= kenosisFindNodesTimeout])
+            if numCurrentRequests < len(currentDict):
+                self._trace("numCurrentRequests %s < len(currentDict) %s" % (numCurrentRequests, len(currentDict)))
+            while numCurrentRequests < self.constantsAlpha_ and not mergeQueue.empty():
                 bucketIndex, freshness, nodeInfo = mergeQueue.get()
-                self._trace("mergeQueue get: %s" % repr(nodeInfo))
+                #self._trace("mergeQueue get: %s" % repr(nodeInfo))
+                if not nodeInfo.shouldCommunicateWithNode():
+                    #self._trace("  current node is marked not shouldCommunicateWithNode")
+                    continue
                 currentNodeAddressObject = nodeInfo.nodeAddressObject()
                 currentNetAddress = nodeInfo.netAddress()
-                del nodeInfo
                 if currentNodeAddressObject in successDict:
                     self._trace("  current node is in success dict")
                     continue
-                if (currentNodeAddressObject, currentNetAddress) in (currentSet | errorSet):
+                currentTuple = (currentNodeAddressObject, currentNetAddress)
+                if (currentTuple in currentDict) or (currentTuple in errorSet):
                     self._trace("  current node, net address is in current, error dict")
                     continue
 
-                currentTuple = (currentNodeAddressObject, currentNetAddress)
-                currentSet.add(currentTuple)
+                currentDict[currentTuple] = (nodeInfo, dstime.time())
+                numCurrentRequests += 1
+                del nodeInfo
                 
-            if len(currentSet) == 0 and mergeQueue.empty():
-                self._trace("break because currentSet is empty and mergeQueue is empty")
+            if numCurrentRequests == 0 and mergeQueue.empty():
+                #self._trace("break because currentDict is empty and mergeQueue is empty")
                 break
 
             self.newResultsEvent_.clear()
             anyCommandsCompleted = False
-            for calledTuple in tuple(currentSet):
+            for calledTuple, (calledNodeInfo, timeAdded) in currentDict.items():
                 calledNodeAddressObject, calledNetAddress = calledTuple
                 try:
                     resultDict = self._nodeCommandResult(
@@ -888,13 +1003,14 @@ class NodeKernel:
                 except _StaleInfo:
                     continue
                 except NetworkErrorClasses:
+                    calledNodeInfo.notifyFailedContact()
                     dsunittest.traceException(text="Error while talking to node %s" % repr(calledTuple));
                     resultDict = None
                 anyCommandsCompleted = True
-                currentSet.remove((calledNodeAddressObject, calledNetAddress))
-                self._trace("called %s, foundNodes=%s (desired=%s)" % (repr(calledTuple),
-                                                                            resultDict,
-                                                                            nodeAddressObject))
+                del currentDict[calledTuple]
+                #self._trace("called %s, foundNodes=%s (desired=%s)" % (repr(calledTuple),
+                #                                                            resultDict,
+                #                                                            nodeAddressObject), prio=1)
                 if resultDict is not None:
                     # The default value is for backward compatibility with 0.93 and before.
                     responseNodeAddressObject = resultDict.get("nodeAddress", calledNodeAddressObject)
@@ -916,7 +1032,7 @@ class NodeKernel:
                         resultNodeInfo = NodeInfo(
                             nodeAddressObject=foundNodeAddressObject, netAddress=netAddress)
                         resultTuple = (0, 0, resultNodeInfo)
-                        self._trace("adding resultTuple %s to realQueue %s" % (resultTuple, realQueue))
+                        #self._trace("adding resultTuple %s to realQueue %s" % (resultTuple, realQueue))
                         realQueue.put(resultTuple)
                     if responseNodeAddressObject != calledNodeAddressObject:
                         # We managed to talk to someone, but it was
@@ -940,9 +1056,9 @@ class NodeKernel:
             # do until one does complete.
             if not anyCommandsCompleted:
                 self._trace("Waiting on newResultsEvent_")
-                self.newResultsEvent_.wait()
+                self.newResultsEvent_.wait(kenosisFindNodesTimeout) # ===
                 self._trace("Finished waiting on newResultsEvent_")
-        assert len(currentSet) == 0 or len(successDict) == self.constantsK_
+        assert numCurrentRequests == 0 or len(successDict) == self.constantsK_
         if requireExactMatch:
             assert not nodeAddressObject in successDict
             raise NodeNotFound(nodeAddressObject)
@@ -973,10 +1089,10 @@ class NodeKernel:
     def _nodeInfosInBucketAndSuccessors(self, bucketIndex, serviceName):
         for i in range(bucketIndex, address.addressLengthInBits):
             for nodeInfo in self.__threadsafeCopyOfBucket(bucketIndex=i, serviceName=serviceName):
-                yield (i, nodeInfo.freshness(), nodeInfo)
+                yield (i, nodeInfo.timeSinceLastSuccessfulContact(), nodeInfo)
         for i in range(bucketIndex-1, 0-1, -1):
             for nodeInfo in self.__threadsafeCopyOfBucket(bucketIndex=i, serviceName=serviceName):
-                yield (i, nodeInfo.freshness(), nodeInfo)
+                yield (i, nodeInfo.timeSinceLastSuccessfulContact(), nodeInfo)
         
     def _nextHopNetAddressForNodeAddressObject(self, nodeAddressObject, serviceName):
         ni = self._nodeInfoForNodeAddressObject(
@@ -1006,9 +1122,7 @@ class NodeKernel:
 
             for nodeInfo in bucket:
                 if nodeInfo.nodeAddressObject() == nodeAddressObject:
-                    i = bucket.index(nodeInfo)
-                    n2 = bucket[i]
-                    n2.updateFreshness(newNetAddress=netAddress)
+                    nodeInfo.updateFreshness(newNetAddress=netAddress)
                     break
             else:
                 nodeInfo = NodeInfo(nodeAddressObject=nodeAddressObject, netAddress=netAddress)
@@ -1016,8 +1130,11 @@ class NodeKernel:
                     bucket.append(nodeInfo)
                 else:
                     toRemoveNodeInfo = bucket[-1]
-                    toInsertTuple = (nodeInfo, bucket, serviceName)
-                    self.needPingPairs_.append(toInsertTuple)
+                    if toRemoveNodeInfo.isStale():
+                        bucket[-1] = nodeInfo
+                    else:
+                        toInsertTuple = (nodeInfo, bucket, serviceName)
+                        self.needPingPairs_.append(toInsertTuple)
                     return
             self._sortBucket(bucket=bucket)
         finally:
@@ -1028,7 +1145,13 @@ class NodeKernel:
     def _considerServiceBootstraps(self):
         for serviceName in self.servicesToBootstrap_:
             for nodeAddressObject, netAddress in self.bootstrapTuples_:
-                self.bootstrap(netAddress=netAddress, serviceName=serviceName)
+                try:
+                    self.bootstrap(netAddress=netAddress, serviceName=serviceName)
+                except NetworkErrorClasses, e:
+                    dsunittest.traceException(
+                        text="Exception while considering service bootstraps for service %s on host %s" %
+                        (serviceName, netAddress))
+                    return
         self.servicesToBootstrap_ = []
             
     def _considerNeedPingPairs(self):
@@ -1054,15 +1177,39 @@ class NodeKernel:
     def _sortBucket(self, bucket):
         self.bucketLock_.acquire()
         try:
-            bucket.sort(lambda x,y:cmp(x.freshness(), y.freshness()))
+            # The goal is to sort all stale node infos to the end, and
+            # before that to put less fresh ones (higher freshness
+            # value) after more fresh ones.
+            def comparator(x, y):
+                return cmp(x.timeSinceLastSuccessfulContact(), y.timeSinceLastSuccessfulContact())
+            bucket.sort(comparator)
         finally:
             self.bucketLock_.release()
 
     def step(self):
         self._considerNeedPingPairs()
         self._considerServiceBootstraps()
-                
+        self._maybeRefreshBuckets()
+
+    def _maybeRefreshBuckets(self):
+        for serviceName, bucketList in self.serviceBuckets_.items():
+            for bucketIndex, bucket in enumerate(bucketList):
+                if len(bucket) == 0:
+                    continue
+                for nodeInfo in bucket:
+                    if nodeInfo.timeSinceLastAttemptedContact() < maxTimeBetweenBucketOperations:
+                        break
+                else:
+                    nodeInfo = random.choice(bucket)
+                    dsunittest.trace(
+                        "Perfoming findNearestNodes as part of refreshing bucket %s in service %s" %
+                        (bucketIndex, serviceName))
+                    self._findNearestNodeAddressObjectNetAddressTuples(
+                        nodeAddressObject=nodeInfo.nodeAddressObject(), serviceName=serviceName)
+                    
     def _nodeInfoForNodeAddressObject(self, nodeAddressObject, serviceName):
+        """Returns None or a NodeInfo. Does not raise NodeNotFound"""
+
         bucketIndex = self._bucketIndexForNodeAddressObject(nodeAddressObject)
         self.bucketLock_.acquire()
         try:
@@ -1074,8 +1221,10 @@ class NodeKernel:
             self.bucketLock_.release()
 
     def _pingNode(self, nodeAddressObject, netAddress, serviceName):
-        self._trace(text="_pingNode >>: %s" % nodeAddressObject, prio=1)
-        sp = self._serverProxyForNetAddress(netAddress=netAddress, timeout=kenosisRpcTimeout)
+        self._trace(
+            text="_pingNode >>: %s, %s, %s" %
+            (nodeAddressObject, netAddress, serviceName), prio=1)
+        sp = self._serverProxyForNetAddress(netAddress=netAddress, timeout=kenosisRpcNetworkConnectionTimeout)
         sp = getattr(sp, serviceName)
         resultDict = sp.ping(self._rpcHeaderFor(nodeAddressObject=nodeAddressObject))
         if nodeAddressObject != NodeAddressObjectUnknown:
@@ -1087,7 +1236,7 @@ class NodeKernel:
     def _callRemoteFindNode(
         self, nextHopNodeAddressObject, nextHopNetAddress, nodeAddressObject, serviceName):
         self._trace(text="_callRemoteFindNode >>: %s" % (repr(locals())), prio=1)
-        sp = self._serverProxyForNetAddress(netAddress=nextHopNetAddress, timeout=kenosisRpcTimeout)
+        sp = self._serverProxyForNetAddress(netAddress=nextHopNetAddress, timeout=kenosisRpcNetworkConnectionTimeout)
         sp = getattr(sp, serviceName)
         ret = sp.findNode(
             self._rpcHeaderFor(nodeAddressObject=nextHopNodeAddressObject),
@@ -1123,7 +1272,7 @@ class NodeKernel:
 
 
     def _nodeCommandResult(self, nodeAddressObject, netAddress, commandName, commandArgs=()):
-        self._trace("_nodeCommandResult(%s)" % locals())
+        #self._trace("_nodeCommandResult(%s)" % locals())
         key = (nodeAddressObject, netAddress, commandName, commandArgs)
         try:
             resultInfo = self.results_[key]
@@ -1182,6 +1331,10 @@ class NodeKernel:
                 
         self.runThreadedFunc_(lf)
 
-    def _trace(self, text, prio=2):
+    def _trace(self, text, prio=1):
         dsunittest.trace(text="%s: %s" % (self, text), prio=prio)
 
+if __name__ == "__main__":
+    n = Node(bootstrapNetAddress=None)
+    n2 = Node(bootstrapNetAddress=None)
+    n2.bootstrap("localhost:%s" % n.port())

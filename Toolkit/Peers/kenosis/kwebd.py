@@ -77,7 +77,7 @@ class KenosisWebServiceHandler:
         else:
             self.fetchUrl = self._fetchUrl
         
-    def fetchUrl(self, url, headers, htl):
+    def fetchUrl(self, invocationInfo, url, headers, htl):
         # TODO: incorporate some headers into the cache key
         cachedResult = self.cache_.get(url)
         if cachedResult:

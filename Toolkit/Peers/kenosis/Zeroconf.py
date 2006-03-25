@@ -87,6 +87,14 @@ import select
 import traceback
 
 from ds import dsunittest
+from ds import dsthread
+
+def printVerbose(text):
+        if 0:
+                print(text)
+
+# May help with encoding exceptions at startup.
+#from encodings import *
 
 __all__ = ["Zeroconf", "ServiceInfo", "ServiceBrowser"]
 
@@ -263,7 +271,8 @@ class DNSQuestion(DNSEntry):
 	
 	def __init__(self, name, type, clazz):
 		if not name.endswith(".local."):
-			raise NonLocalNameException
+			raise NonLocalNameException(name)
+                #name = name.replace("%20", " ") #===
 		DNSEntry.__init__(self, name, type, clazz)
 
 	def answeredBy(self, rec):
@@ -496,7 +505,11 @@ class DNSIncoming(object):
 			info = struct.unpack(format, self.data[self.offset:self.offset+length])
 			self.offset += length
 			
-			question = DNSQuestion(name, info[0], info[1])
+                        try:
+                                question = DNSQuestion(name, info[0], info[1])
+                        except NonLocalNameException:
+                                dsunittest.traceException(text=name)
+                                continue
 			self.questions.append(question)
 
 	def readInt(self):
@@ -576,7 +589,11 @@ class DNSIncoming(object):
 
 	def readUTF(self, offset, len):
 		"""Reads a UTF-8 string of a given length from the packet"""
-		result = self.data[offset:offset+len].decode('utf-8')
+                try:
+                        result = self.data[offset:offset+len].decode('utf-8')
+                except UnicodeDecodeError:
+                        print("error while decoding string: %s" % self.data[offset:offset+len])
+                        raise
 		return result
 		
 	def readName(self):
@@ -688,7 +705,7 @@ class DNSOutgoing(object):
 		utfstr = s.encode('utf-8')
 		length = len(utfstr)
 		if length > 64:
-			raise NamePartTooLongException
+			raise NamePartTooLongException(utfstr)
 		self.writeByte(length)
 		self.writeString(utfstr, length)
 
@@ -910,8 +927,10 @@ class Listener(object):
 	def handle_read(self):
 		data, (addr, port) = self.zeroconf.socket.recvfrom(_MAX_MSG_ABSOLUTE)
 		self.data = data
+                #print "received data %r" % data
 		msg = DNSIncoming(data)
 		if msg.isQuery():
+                        printVerbose("isQuery port %s" % port)
 			# Always multicast responses
 			#
 			if port == _MDNS_PORT:
@@ -919,10 +938,11 @@ class Listener(object):
 			# If it's not a multicast query, reply via unicast
 			# and multicast
 			#
-			elif port == _DNS_PORT:
+			elif port == _DNS_PORT or True:
 				self.zeroconf.handleQuery(msg, addr, port)
 				self.zeroconf.handleQuery(msg, _MDNS_ADDR, _MDNS_PORT)
 		else:
+                        printVerbose("handleResponse")
 			self.zeroconf.handleResponse(msg)
 
 
@@ -963,7 +983,7 @@ class ServiceBrowser(threading.Thread):
 		self.type = type
 		self.listener = listener
 		self.services = {}
-		self.nextTime = currentTimeMillis()
+		self.nextTime = 0 #currentTimeMillis()
 		self.delay = _BROWSER_TIME
 		self.list = []
 		
@@ -985,13 +1005,15 @@ class ServiceBrowser(threading.Thread):
 				else:
 					del(self.services[record.alias.lower()])
 					callback = lambda x: self.listener.removeService(x, self.type, record.alias)
-					self.list.append(callback)
+					#self.list.append(callback)
+                                        dsthread.runInThread(callback, self.zeroconf)
 					return
 			except:
 				if not expired:
 					self.services[record.alias.lower()] = record
 					callback = lambda x: self.listener.addService(x, self.type, record.alias)
-					self.list.append(callback)
+					#self.list.append(callback)
+                                        dsthread.runInThread(callback, self.zeroconf)
 
 			expires = record.getExpirationTime(75)
 			if expires < self.nextTime:
@@ -1000,33 +1022,41 @@ class ServiceBrowser(threading.Thread):
 	def cancel(self):
 		self.done = 1
 		self.zeroconf.notifyAll()
+                #print("zeroconf before join")
+                self.join()
 
 	def run(self):
 		while 1:
 			event = None
 			now = currentTimeMillis()
 			if len(self.list) == 0 and self.nextTime > now:
+                                #print("starting waiting for %s" % (self.nextTime - now))
 				self.zeroconf.wait(self.nextTime - now)
+                                #print("finished waiting")
 			if globals()['_GLOBAL_DONE'] or self.done:
 				return
 			now = currentTimeMillis()
 
 			if self.nextTime <= now:
 				out = DNSOutgoing(_FLAGS_QR_QUERY)
+                                #print "asking question for type %s" % self.type
 				out.addQuestion(DNSQuestion(self.type, _TYPE_PTR, _CLASS_IN))
 				for record in self.services.values():
 					if not record.isExpired(now):
 						out.addAnswerAtTime(record, now)
 				self.zeroconf.send(out)
 				self.nextTime = now + self.delay
-				self.delay = min(20 * 1000, self.delay * 2)
+				self.delay = min(20 * 60 * 1000, self.delay * 2)
+                                return
 
 			if len(self.list) > 0:
-				event = self.list.pop(0)
+				callback = self.list.pop(0)
 
-			if event is not None:
-				event(self.zeroconf)
-				
+			if callback is not None:
+                                #print("> event")
+				callback(self.zeroconf)
+                                #print("< event")
+		     	
 
 class ServiceInfo(object):
 	"""Service information"""
@@ -1160,21 +1190,44 @@ class ServiceInfo(object):
 
 	def updateRecord(self, zeroconf, now, record):
 		"""Updates service information from a DNS record"""
+                rejected = True
+
 		if record is not None and not record.isExpired(now):
 			if record.type == _TYPE_A:
-				if record.name == self.name:
+                                printVerbose("found an A record for %r" % record.name)
+
+                                # === I (malcolm) believe that
+                                # pyzeroconf is divergent from Apple's
+                                # implementation. Pyzeroconf sends and
+                                # expects A records that map from a
+                                # service name like
+                                # "grumpy._ssh._tcp.local" to an
+                                # address, rather than from the server
+                                # name, such as "grumpy.local."
+				if record.name == self.name or record.name == self.server:
+                                        printVerbose("found A record")
 					self.address = record.address
+                                        assert self.address
+                                        rejected = False
 			elif record.type == _TYPE_SRV:
 				if record.name == self.name:
+                                        printVerbose("found SRV record, server:%r" % record.server)
 					self.server = record.server
+                                        assert self.server
 					self.port = record.port
 					self.weight = record.weight
 					self.priority = record.priority
-					self.address = None
 					self.updateRecord(zeroconf, now, zeroconf.cache.getByDetails(self.server, _TYPE_A, _CLASS_IN))
+                                        rejected = False
 			elif record.type == _TYPE_TXT:
 				if record.name == self.name:
+                                        printVerbose("found TEXT record")
 					self.setText(record.text)
+                                        assert self.text is not None
+                                        rejected = False
+                if rejected:
+                        printVerbose("rejected record: %r" % record)
+                        pass
 
 	def request(self, zeroconf, timeout):
 		"""Returns true if the service could be discovered on the
@@ -1188,6 +1241,7 @@ class ServiceInfo(object):
 		try:
 			zeroconf.addListener(self, DNSQuestion(self.name, _TYPE_ANY, _CLASS_IN))
 			while self.server is None or self.address is None or self.text is None:
+                                printVerbose("%r %r %r" % (self.server, self.address, self.text))
 				if last <= now:
 					return 0
 				if next <= now:
@@ -1245,7 +1299,11 @@ class Zeroconf(object):
 		multicast communications, listening and reaping threads."""
 		globals()['_GLOBAL_DONE'] = 0
 		if bindaddress is None:
-			self.intf = socket.gethostbyname(socket.gethostname())
+                        #print "gethostname: %s" % socket.gethostname()
+                        try:
+                                self.intf = socket.gethostbyname(socket.gethostname())
+                        except socket.error:
+                                self.intf = "127.0.0.1"
 		else:
 			self.intf = bindaddress
 		self.group = ('', _MDNS_PORT)
@@ -1416,7 +1474,7 @@ class Zeroconf(object):
 						info.name = info.name + ".[" + info.address + ":" + info.port + "]." + info.type
 						self.checkService(info)
 						return
-					raise NonUniqueNameException
+					raise NonUniqueNameException("name: %s, other record: %s" % (info.name, record))
 			if now < nextTime:
 				self.wait(nextTime - now)
 				now = currentTimeMillis()
@@ -1453,6 +1511,7 @@ class Zeroconf(object):
 	def updateRecord(self, now, rec):
 		"""Used to notify listeners of new information that has updated
 		a record."""
+                #print("updating record: %s" % rec)
 		for listener in self.listeners:
 			listener.updateRecord(self, now, rec)
 		self.notifyAll()
@@ -1481,6 +1540,7 @@ class Zeroconf(object):
 		possible."""
 		out = None
 
+                printVerbose("handleQuery: msg %r addr %s port %s" % (msg, addr, port))
 		# Support unicast client responses
 		#
 		if port != _MDNS_PORT:
@@ -1489,11 +1549,15 @@ class Zeroconf(object):
 				out.addQuestion(question)
 		
 		for question in msg.questions:
+                        printVerbose("got question %r" % question)
 			if question.type == _TYPE_PTR:
+                                printVerbose("received _TYPE_PTR query for %r, services %r" % (question.name, self.services))
 				for service in self.services.values():
+                                        printVerbose("considering service name %r, type %r" % (service.name, service.type))
 					if question.name == service.type:
 						if out is None:
 							out = DNSOutgoing(_FLAGS_QR_RESPONSE | _FLAGS_AA)
+                                                printVerbose("sending answer")
 						out.addAnswer(msg, DNSPointer(service.type, _TYPE_PTR, _CLASS_IN, _DNS_TTL, service.name))
 			else:
 				try:
@@ -1502,12 +1566,27 @@ class Zeroconf(object):
 					
 					# Answer A record queries for any service addresses we know
 					if question.type == _TYPE_A or question.type == _TYPE_ANY:
+                                                printVerbose("received _TYPE_A query for %r" % question.name)
 						for service in self.services.values():
-							if service.server == question.name.lower():
+                                                        printVerbose("service.server %r" % service.server)
+							if service.server.lower() == question.name.lower():
+                                                                printVerbose("adding answer!")
 								out.addAnswer(msg, DNSAddress(question.name, _TYPE_A, _CLASS_IN | _CLASS_UNIQUE, _DNS_TTL, service.address))
 					
+					# Answer A record queries for any service addresses we know
+					if question.type == _TYPE_AAAA:
+                                                printVerbose("received _TYPE_AAAA query for %r" % question.name)
+						for service in self.services.values():
+                                                        printVerbose("service.server %r" % service.server)
+							if service.server.lower() == question.name.lower():
+                                                                printVerbose("adding answer!")
+								out.addAnswer(msg, DNSAddress(question.name, _TYPE_AAAA, _CLASS_IN | _CLASS_UNIQUE, _DNS_TTL, "\x00" * 15 + "\x01"))
+
+
 					service = self.services.get(question.name.lower(), None)
-					if not service: continue
+					if not service:
+                                                printVerbose("no service named %r in services %r" % (question.name.lower(), self.services))
+                                                continue
 					
 					if question.type == _TYPE_SRV or question.type == _TYPE_ANY:
 						out.addAnswer(msg, DNSService(question.name, _TYPE_SRV, _CLASS_IN | _CLASS_UNIQUE, _DNS_TTL, service.priority, service.weight, service.port, service.server))
@@ -1527,6 +1606,7 @@ class Zeroconf(object):
 		# This is a quick test to see if we can parse the packets we generate
 		#temp = DNSIncoming(out.packet())
 		try:
+                        printVerbose("sending data to %s,%s" % (addr, port))
 			bytes_sent = self.socket.sendto(out.packet(), 0, (addr, port))
 		except:
                         dsunittest.traceException("uncaught error")

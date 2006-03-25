@@ -1,4 +1,6 @@
-from kenosis.node import Node, defaultBootstrapNetAddress, defaultPorts, KenosisError, NodeNotFound, version
+from kenosis.node import \
+     Node, defaultBootstrapNetAddress, defaultPorts, KenosisError, NodeNotFound, version
+from kenosis.address import nodeAddressFromArbitraryString
 
 def randomNodeAddress():
 

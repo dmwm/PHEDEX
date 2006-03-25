@@ -9,19 +9,22 @@ def availableUiMethods(object):
 class GenericUi(dsbase.Base):
     def availableMethods(self):
         myMethods = availableUiMethods(object=self)
+        self.addChildMethodsToDict(methods=myMethods)
+        return myMethods
+    def addChildMethodsToDict(self, methods):
         nameToMethodList = {}
         for child in self.children():
             childMethods = child.availableMethods()
             for name, method in childMethods.items():
-                if not myMethods.has_key(name):
+                if not methods.has_key(name):
                     if not nameToMethodList.has_key(name): nameToMethodList[name] = []
                     nameToMethodList[name].append(method)
         for name, list in nameToMethodList.items():
             def lf(list=list):
                 for m in list:
                     m()
-            myMethods[name] = lf
-        return myMethods
+            methods[name] = lf
+
     def label(self):
         return str(self)
     def children(self):

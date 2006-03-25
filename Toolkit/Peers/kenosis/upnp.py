@@ -5,7 +5,7 @@
 #
 #
 # Copyright (C) 2004 Anthony Baxter
-# $Id: upnp.py,v 1.3 2005/03/06 02:45:23 eries Exp $
+# $Id: upnp.py,v 1.6 2005/07/29 02:44:54 eries Exp $
 #
 # UPnP support.
 
@@ -111,7 +111,6 @@ class UPnPClientServer(SocketServer.UDPServer):
 
         search = cannedUPnPSearch()
         try:
-            dsunittest.trace("sending 3 packets")
             self.socket.sendto(search, (UPNP_MCAST, UPNP_PORT))
             self.socket.sendto(search, (UPNP_MCAST, UPNP_PORT))
             self.socket.sendto(search, (UPNP_MCAST, UPNP_PORT))
@@ -137,7 +136,7 @@ class UPnPClientServer(SocketServer.UDPServer):
         dgram = handler.rfile.read()
         address = handler.client_address
 
-        log.msg("got a response from %s, dgram is %s "%(address, dgram), system='UPnP')
+        #log.msg("got a response from %s, dgram is %s "%(address, dgram), system='UPnP')
 
         if not "\r\n" in dgram:
             return
@@ -147,8 +146,8 @@ class UPnPClientServer(SocketServer.UDPServer):
             return
         if self.controlURL:
             return
-        log.msg("got a response from %s, status %s "%(address, status),
-                                        system='UPnP')
+        #slog.msg("got a response from %s, status %s "%(address, status),
+        #                               system='UPnP')
         if status == "200":
             self.gotSearchResponse = True
             self.handleSearchResponse(message)
@@ -274,7 +273,7 @@ class UPnPClientServer(SocketServer.UDPServer):
 
     def cb_failedGenericPortMappingEntry(self, failure, saved):
         err = failure.args[0]
-        if err in ("SpecifiedArrayIndexInvalid", "NoSuchEntryInArray"):
+        if err in ("SpecifiedArrayIndexInvalid", "NoSuchEntryInArray", "Invalid Args"):
             return saved
         else:
             raise UPnPError("GetGenericPortMappingEntry got %s"%(err))
@@ -333,7 +332,7 @@ class UPnPClientServer(SocketServer.UDPServer):
 
 class UPnPProtocol(SocketServer.DatagramRequestHandler):
     def handle(self):
-        dsunittest.trace("in handle()")
+        #dsunittest.trace("in handle()")
         self.server.handle(handler=self)
 
 class UPnPMapper:
@@ -390,8 +389,8 @@ class UPnPMapper:
             extport += random.randint(1,20)
         mapping = self.upnp.addPortMapping(intport=intport, extport=extport, locIP=locIP,
                                            desc=descFromPort(port=port), proto=ptype, lease=0)
-        self.upnp.getExternalIPAddress()
-        return self.cb_map_addedPortMapping(mapping, extport, port)
+        extaddr = self.upnp.getExternalIPAddress()
+        return self.cb_map_addedPortMapping(extaddr, extport, port)
 
     def cb_map_addedPortMapping(self, extaddr, extport, port):
         return  (extaddr, extport)

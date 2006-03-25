@@ -93,12 +93,12 @@ class SocketTimeoutHTTPClass(httplib.HTTP):
           self._connection_class = SocketTimeoutHTTPConnection
           httplib.HTTP.__init__(self, host=host, port=port, strict=strict)
           self._conn.socketTimeout_ = socketTimeout
-          #dsunittest.trace("SocketTimeoutHTTPClass __init__")
+          #dsunittest.trace("SocketTimeoutHTTPClass __init__ with socketTimeout %s" % socketTimeout)
 
 class SocketTimeoutHTTPConnection(httplib.HTTPConnection):
      def connect(self):
         """Connect to the host and port specified in __init__."""
-        #dsunittest.trace("SocketTimeoutHTTPClass::conect called")
+        #dsunittest.trace("SocketTimeoutHTTPClass::conect called with socketTimeout %s" % self.socketTimeout_)
         msg = "getaddrinfo returns an empty list"
         for res in socket.getaddrinfo(self.host, self.port, 0,
                                       socket.SOCK_STREAM):
@@ -107,11 +107,8 @@ class SocketTimeoutHTTPConnection(httplib.HTTPConnection):
                 self.sock = socket.socket(af, socktype, proto)
                 if self.socketTimeout_:
                      oldTimeout = self.sock.gettimeout()
-                     if oldTimeout and oldTimeout < self.socketTimeout_:
-                          timeout = oldTimeout
-                     else:
-                          timeout = self.socketTimeout_
-                     #dsunittest.trace("changing socket %s to timeout value %s" % (self.sock, timeout))
+                     timeout = self.socketTimeout_
+                     dsunittest.trace2("changing socket %s from timeout %s to %s" % (self.sock, oldTimeout, timeout))
                      self.sock.settimeout(timeout)
                 if self.debuglevel > 0:
                     print "connect: (%s, %s)" % (self.host, self.port)
@@ -133,13 +130,13 @@ class SocketTimeoutHTTPConnection(httplib.HTTPConnection):
 def SocketTimeoutHTTPClassFactory(socketTimeout):
      #dsunittest.trace("SocketTimeoutHTTPClassFactory called")
      def lf(host):
-          #dsunittest.trace("SocketTimeoutHTTPClass made")
+          #dsunittest.trace("SocketTimeoutHTTPClass made with socketTimeout %s" % socketTimeout)
           return SocketTimeoutHTTPClass(host, socketTimeout=socketTimeout)
      return lf
 
 class SocketTimeoutHTTPHandler(urllib2.HTTPHandler):
      def __init__(self, socketTimeout):
-          #dsunittest.trace("SocketTimeoutHTTPHandler created")
+          #dsunittest.trace("SocketTimeoutHTTPHandler created with timeout %s" % socketTimeout)
           self.socketTimeout_ = socketTimeout
      def http_open(self, req):
           #dsunittest.trace("SocketTimeoutHTTPHandler::http_open called")

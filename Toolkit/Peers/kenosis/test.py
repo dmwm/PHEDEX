@@ -11,7 +11,7 @@ class Test(dsunittest.TestCase):
         n2.bootstrap("localhost:%s" % n.port())
         n2.rpc(nodeAddress=n.nodeAddress()).kenosis.ping()
         class Handler:
-            def returnInt(self, arg):
+            def returnInt(self, invocationInfo, arg):
                 return int(arg)
         n.registerNamedHandler(name="test", handler=Handler())
         self.assertEqual(n2.rpc(nodeAddress=n.nodeAddress()).test.returnInt(42), 42)
@@ -44,7 +44,7 @@ class Test(dsunittest.TestCase):
         n2 = kenosis.Node(ports=[6886])
 
         class Handler:
-            def returnInt(self, arg):
+            def returnInt(self, invocationInfo, arg):
                 return int(arg)
         n.registerNamedHandler(name="test", handler=Handler())
 
@@ -56,6 +56,12 @@ class Test(dsunittest.TestCase):
 
         n.stopEvent_.set()
         n2.stopEvent_.set()
+
+    def testJunk(self):
+        import kenosis
+        n = kenosis.Node(useUpnp=False, useZeroconf=False)
+        print("node %s on port %s" % (n.nodeAddress(), n.port()))
+        print("found: %s" % n.findNearestNodes(nodeAddress=kenosis.randomNodeAddress(), serviceName="kenosis"))
 
 if __name__ == "__main__":
     dsunittest.main()

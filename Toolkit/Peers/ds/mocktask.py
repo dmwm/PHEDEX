@@ -39,7 +39,7 @@ class TaskList:
             self.runOneTask(t)
         return 'you are using MockTask'
         
-    def stop(self):
+    def stop(self, wait=False):
         pass
 
     def waitForOneTask(self):
@@ -51,8 +51,6 @@ class TaskList:
         res = self.results_
         self.results_ = []
         return res
-    def stop(self):
-        pass
 
     def numTasksCompleted(self):
         return self.numTasksCompleted_

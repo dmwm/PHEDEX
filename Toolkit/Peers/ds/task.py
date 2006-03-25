@@ -251,7 +251,7 @@ class TaskList(dsbase.Base):
         assert self.waiting_
         self.stop()
 
-    def stop(self):
+    def stop(self, wait=False):
         self.stopping_ = 1
         # This is to wake up all of the threads that are or will be
         # blocked on this, waiting for a new task.
@@ -262,6 +262,11 @@ class TaskList(dsbase.Base):
         for i in range(self.maxThreads_):
             self.tasksSemaphore_.release()
         self.allComplete_.set()
+        if wait:
+            for t in self.threads_:
+                t2 = t()
+                if t2:
+                    t2.join()
 
     def __traceFunc(self, frame, event, arg):
         t = threading.currentThread()
@@ -272,7 +277,7 @@ class TaskList(dsbase.Base):
             taskString = str(task.id())
         else:
             taskString = ""
-        dsunittest.trace2("TaskList(id=%u): %s %s (active %u, waiting %u)" %
+        dsunittest.trace("TaskList(id=%u): %s %s (active %u, waiting %u)" %
                          (id(self), status, taskString, self.activeTasks_, len(self.waitingTasks_)))
 
     def isTaskActive(self, id):

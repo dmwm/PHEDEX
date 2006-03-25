@@ -28,7 +28,7 @@ logger.addHandler(stdoutLogHandler)
 logger.setLevel(logging.INFO)
 
 def setTraceLevel(level):
-    assert level != 0
+    assert level >= 0
     global traceLevel
     traceLevel = level
 
@@ -71,13 +71,14 @@ def trace(text, prio=1):
     if prio <= traceLevel:
         logger.info(text)
 
-    t = threading.currentThread()
-    t.lastTraceBack_ = traceback.extract_stack()[:-1]
-    t.lastTraceTime_ = time.time()
-    t.lastTraceBody_ = text
+    # These calls are very expensive.
+    #t = threading.currentThread()
+    #t.lastTraceBack_ = traceback.extract_stack()[:-1]
+    #t.lastTraceTime_ = time.time()
+    #t.lastTraceBody_ = text
 
 def traceException(text, prio=1):
-    #traceback.print_exc()
+    #traceback.print_exc() #===
     if prio <= traceLevel:
         logger.exception(text)
 
@@ -145,13 +146,16 @@ def main():
 
 
 def assertEqual(a, b):
-    assert a == b, "%(a)s != %(b)s" % locals() 
+    assert a == b, "%(a)r != %(b)r" % locals() 
 
 def assertNotEqual(a, b):
-    assert a != b, "%(a)s == %(b)s" % locals() 
+    assert a != b, "%(a)r == %(b)r" % locals() 
 
 def assertLt(a, b):
-    assert a < b, "%(a)s not < %(b)s" % locals() 
+    assert a < b, "%(a)r not < %(b)r" % locals() 
 
 def assertLte(a, b):
-    assert a <= b, "%(a)s not <= %(b)s" % locals() 
+    assert a <= b, "%(a)r not <= %(b)r" % locals() 
+
+def assertIn(a, b):
+    assert a in b, "%(a)r not in %(b)r" % locals()

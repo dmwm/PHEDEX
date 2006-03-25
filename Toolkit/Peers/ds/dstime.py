@@ -24,7 +24,6 @@ def advanceTestingTime(by=1):
         origValue = eventQueue.get()
         wakeupTime, event = origValue
         if testingTime >= wakeupTime:
-            assert testingTime == wakeupTime
             event.set()
         else:
             eventQueue.put(origValue)

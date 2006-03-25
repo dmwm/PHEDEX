@@ -74,3 +74,6 @@ def stringToAddress(nodeAddress):
     return NodeAddressObject(nodeAddress=nodeAddress)
 
 NodeAddressObjectUnknown = NodeAddressObject(nodeAddress="1" * addressLengthInBits)
+
+def nodeAddressFromArbitraryString(string):
+    return "0x"+sha.sha(string).hexdigest()
