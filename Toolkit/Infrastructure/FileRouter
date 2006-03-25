@@ -203,7 +203,7 @@ sub routeForNodes
                         bd.priority, 0 state, 1 attempt,
                         :now, :now + 3600
                  from t_dps_block_dest bd
-                   join t_file f
+                   join t_xfer_file f
                      on f.inblock = bd.block
                    left join t_xfer_request xq
                      on xq.fileid = f.id
