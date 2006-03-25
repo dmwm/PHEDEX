@@ -26,37 +26,51 @@
 ##H
 ##H Usage:
 ##H   FileDownload
-##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
-##H      -wanted SIZE[kGMT] -backend TYPE -command CMD[,ARG...]
-##H      -pfndest CMD[,ARG...] [-bypass CMD[,ARG...]]
-##H      -publish CMD[,ARG...] [-validate CMD[,ARG...]]
-##H      [-delete CMD[,ARG...]] [-timeout SECS] [-jobs NJOBS]
-##H      [-batch-files N] [-batch-size SIZE[kMGT]]
+##H      -state DIRECTORY -node NAME -db FILE[:SECTION]
 ##H      [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]
-##H      [-backoff FACTOR]
+##H      -pfndest CMD[,ARG...] [-bypass CMD[,ARG...]]
+##H      [-validate CMD[,ARG...]] [-publish CMD[,ARG...]]
+##H      [-delete CMD[,ARG...]] [-timeout SECS] [-jobs NJOBS]
+##H      -backend TYPE [OPTIONS]
+##H
+##H Options to Globus backend:
+##H      [-command CMD[,ARG...]]
+##H      [-protocols NAME[,NAME...]]
+##H
+##H Options to SRM backend:
+##H      [-command CMD[,ARG...]]
+##H      [-protocols NAME[,NAME...]]
+##H      [-batch-size SIZE[kMGT]]
+##H      [-batch-files N]
+##H
+##H Options to FTS backend:
+##H      [-glite-args ARG[,ARG...]]
+##H      [-protocols NAME[,NAME...]]
+##H      [-batch-size SIZE[kMGT]]
+##H      [-batch-files N]
 ##H
 ##H -state       agent state directory
 ##H -node        the node where this agent runs
 ##H -db          database connection configuration parameter file
-##H -wait        time to wait in seconds between work scans
-##H -wanted      number of bytes to mark wanted before transfer;
-##H               suffix k = kilo, M = mega, G = giga, T = tera
-##H -backend     the transfer backend to use: Globus, SRM, DCCP
-##H -command     override the transfer command, for instance
-##H               globus-url-copy,-p,3,-tcp-bs,2097152
-##H -pfndest     command to produce destination transfer name
-##H -bypass      command to short-circuit transfers
-##H -publish     command to publish file after transfer
-##H -validate    command to verify file transfer success; if not specified
-##H               uses -command exit code, which is normally a bad idea
-##H -delete      command to delete file on failure
-##H -batch-files enable batching, set maximum number of files per batch
-##H -batch-size  enable batching, set maximum number of bytes per batch
 ##H -ignore      comma-separated list of nodes to ignore transfers from
 ##H -accept      comma-separated list of nodes to accept transfers from
-##H -backoff     set backoff factor for failed transfers, in minutes
+##H -pfndest     command to produce destination transfer name
+##H -bypass      command to short-circuit transfers
+##H -validate    command to verify file transfer success; if not specified
+##H               uses transfer command exit code, normally a bad idea
+##H -publish     command to publish file after transfer
+##H -delete      command to delete file on failure
 ##H -timeout     set time limit on commands to avoid e.g. hung transfers
-##H -jobs        set the number of jobs to run in parallel (default: 1)
+##H -jobs        set the number of jobs to run in parallel (default: 5)
+##H -backend     the transfer backend to use: Globus, SRM, DCCP; all
+##H              options that follow are passed to the backend as such
+##H
+##H -command     override the transfer command, for instance
+##H               globus-url-copy,-p,3,-tcp-bs,2097152
+##H -glite-args  additional arguments to give to gLite FTS commands
+##H -protocols   comma-separated list of storage protocols to accept
+##H -batch-size  enable batching, set maximum number of bytes per batch
+##H -batch-files enable batching, set maximum number of files per batch
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -67,51 +81,38 @@ BEGIN {
 
 ######################################################################
 use UtilsHelp;
-my %args = (NJOBS => 1, BACKOFF_FACTOR => 10);
+my %args;
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
-
+    if ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
+
     elsif ($ARGV[0] eq '-ignore' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{IGNORE_NODES}}, split(/,/, shift (@ARGV))); }
     elsif ($ARGV[0] eq '-accept' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{ACCEPT_NODES}}, split(/,/, shift (@ARGV))); }
 
-    elsif ($ARGV[0] eq '-wanted' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{WANT_LIMIT} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-jobs' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{NJOBS} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-backend' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{BACKEND_TYPE} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
-
-    elsif ($ARGV[0] eq '-batch-files' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{BATCH_FILES} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-batch-size' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{BATCH_SIZE} = shift(@ARGV); }
-
     elsif ($ARGV[0] eq '-pfndest' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{PFN_GEN_COMMAND}}, split(/,/,  shift(@ARGV))); }
     elsif ($ARGV[0] eq '-bypass' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{BYPASS_COMMAND}}, split(/,/,  shift(@ARGV))); }
-    elsif ($ARGV[0] eq '-publish' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@{$args{PUBLISH_COMMAND}}, split(/,/, shift(@ARGV))); }
     elsif ($ARGV[0] eq '-validate' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{VALIDATE_COMMAND}}, split (/,/, shift(@ARGV))); }
+    elsif ($ARGV[0] eq '-publish' && scalar @ARGV > 1)
+    { shift (@ARGV); push (@{$args{PUBLISH_COMMAND}}, split(/,/, shift(@ARGV))); }
     elsif ($ARGV[0] eq '-delete' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{DELETE_COMMAND}}, split (/,/, shift(@ARGV))); }
-    elsif ($ARGV[0] eq '-command' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@{$args{COMMAND}}, split (/,/, shift(@ARGV))); }
+
     elsif ($ARGV[0] eq '-timeout' && scalar @ARGV > 1)
     { shift (@ARGV); $args{TIMEOUT} = shift (@ARGV); }
-    elsif ($ARGV[0] eq '-backoff' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{BACKOFF_FACTOR} = shift (@ARGV); }
+    elsif ($ARGV[0] eq '-jobs' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{NJOBS} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-backend' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{BACKEND_TYPE} = shift(@ARGV); last; }
 
     elsif ($ARGV[0] eq '-h')
     { &usage(); }
@@ -119,38 +120,27 @@ while (scalar @ARGV)
     { last; }
 }
 
-$args{WANT_LIMIT} = &sizeValue ($args{WANT_LIMIT}) if $args{WANT_LIMIT};
-$args{BATCH_SIZE} = &sizeValue ($args{BATCH_SIZE}) if $args{BATCH_SIZE};
+# elsif ($ARGV[0] eq '-batch-files' && scalar @ARGV > 1)
+# { shift (@ARGV); $args{BATCH_FILES} = shift(@ARGV); }
+# elsif ($ARGV[0] eq '-batch-size' && scalar @ARGV > 1)
+# { shift (@ARGV); $args{BATCH_SIZE} = shift(@ARGV); }
+# elsif ($ARGV[0] eq '-command' && scalar @ARGV > 1)
+# { shift (@ARGV); push (@{$args{COMMAND}}, split (/,/, shift(@ARGV))); }
+# $args{BATCH_SIZE} = &sizeValue ($args{BATCH_SIZE}) if $args{BATCH_SIZE};
 
-if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG}
-    || !$args{WANT_LIMIT} || !$args{PFN_GEN_COMMAND} || !$args{PUBLISH_COMMAND}
-    || !$args{NJOBS} || !$args{BACKEND_TYPE})
+if (!$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG}
+    || !$args{PFN_GEN_COMMAND} || !$args{BACKEND_TYPE})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
 
-(new FileDownload (%args))->process();
-
-sub sizeValue
-{
-    my ($value) = @_;
-    if ($value =~ /^(\d+)([kMGT])$/)
-    {
-        my %scale = ('k' => 1024, 'M' => 1024**2, 'G' => 1024**3, 'T' => 1024**4);
-        $value = $1 * $scale{$2};
-    }
-    return $value;
-}
+(new FileDownload (%args, BACKEND_ARGS => [ @ARGV ]))->process();
 
 ######################################################################
 # Routines specific to this agent.
 package FileDownload; use strict; use warnings; use base 'UtilsAgent';
-use File::Path;
-use Data::Dumper;
-use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
-use UtilsCatalogue;
 use UtilsDB;
 use POSIX;
 
@@ -160,155 +150,249 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
-		  BACKOFF_FACTOR => undef,	# Factor to cool off bad files
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
-		  WANT_LIMIT => undef,		# Amount of data to prefetch
-		  WANT_UPDATE => 0,		# Last wanted data update
+		  # PFN_GEN_COMMAND => undef,	# Destination PFN command
+		  # BYPASS_COMMAND => undef,	# Bypass-check command
+		  # VALIDATE_COMMAND => undef,	# Post-download test command
+		  # PUBLISH_COMMAND => undef,	# Catalogue publis command
+		  # DELETE_COMMAND => undef,	# Delete bad files command
+		  # TIMEOUT => undef,		# Maximum execution time
+		  NJOBS => 5,			# Max number of parallel processes
+		  BACKOFF_FACTOR => 10,		# Factor to cool off bad files
+		  WAITTIME => 7,		# Nap lenght between cycles
+
 		  BACKEND => undef,		# Backend type
-		  NJOBS => 1,			# Max number of parallel processes
+		  BACKEND_ARGS => undef,	# Options to the backend
+		  # COMMAND
+		  # GLITE_ARGS
+		  # BATCH_SIZE
+		  # BATCH_FILES
+		  # PROTOCOLS
+
 		  JOBS => [],			# Pending jobs
-		  NEXT_FILES => [],		# Cached files for transfer
-		  LAST_RESET => 0,		# Last time we reset bad transfers
-	  	  AGENTID => "Download");	# Identity for activity logs
+		  FILES_FOR_PREPARE => [],	# Cached files for prepare
+		  FILES_FOR_TRANSFER => [],	# Cached files for transfer
+		  LAST_RESET => 0);
     my %args = (@_);
-    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
-    $self->{BACKEND} = eval ("use UtilsDownload$args{BACKEND_TYPE};"
-	    		     . " new UtilsDownload$args{BACKEND_TYPE}(\@_)");
+    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
+    $$self{BACKEND} = eval ("use UtilsDownload$args{BACKEND_TYPE};"
+	    		    . " new UtilsDownload$args{BACKEND_TYPE}(\@_)");
     do { chomp ($@); die "Failed to create backend: $@\n" } if $@;
     bless $self, $class;
     return $self;
 }
 
-# Agent initialisation.  Init randomisation of file selection.
-#
-# The purpose of the randomisation is to make different download
-# agents select files in different orders (they still *request* the
-# files in "wanted" status in the same order for efficient stage-in),
-# in reduce competition for files and to spread the download charge
-# on different files.
-#
-# We store the random keys in our state directory to maintain the same
-# ordering, so if the agent is restarted it will still download in the
-# same order it did before.
-sub init
+######################################################################
+# Construct database query parameters for ignore/accept filters.
+sub sourceNodeFilters
 {
-    my ($self) = @_;
-    my $randomness = "$self->{DROPDIR}/randomness";
-    my @random = split(/\s+/, &input ($randomness) || '');
-    @random = (int(rand(10))+3, int(rand(10))+4, int(rand(2000))+1000)
-        if (scalar (@random) != 3
-	    || int($random[0]) < 3 || int($random[0]) > 15
-	    || int($random[1]) < 3 || int($random[1]) > 15
-    	    || int($random[2]) < 1000 || int($random[2]) > 3000);
-    &output ($randomness, "@random");
-    $self->{RANDOM_FILES} = [ @random ];
-    &logmsg ("using file selection randomisation parameters @random");
+    my ($self, $prefix) = @_;
+    my ($ignore_filter, %ignore_args) = "";
+    my ($accept_filter, %accept_args) = "";
+    for (my $n = 0; $n < scalar @{$$self{IGNORE_NODES}}; ++$n)
+    {
+	$ignore_args{":ignore$n"} = $$self{IGNORE_NODES}[$n];
+	$ignore_filter .= " and ${prefix}name != :ignore$n";
+    }
+    for (my $n = 0; $n < scalar @{$$self{ACCEPT_NODES}}; ++$n)
+    {
+	$accept_args{":accept$n"} = $$self{ACCEPT_NODES}[$n];
+	$accept_filter .= " and ${prefix}name = :accept$n";
+    }
+
+    return ($ignore_filter, \%ignore_args,
+	    $accept_filter, \%accept_args);
 }
 
-######################################################################
-# Remove from the database all existing transfers we are not
-# aware of.  This may occur if we are stopped and restarted
-# forcefully when there were pending transfers.  We assume
-# we are the only live transfer agent for this node, so if
-# we don't know about it, it's stale and can be removed.
-# Same with previously failed transfers, revert them all back.
+# Remove from the database all existing transfers we are not aware of.
+# This may occur if we are stopped and restarted forcefully when there
+# were pending transfers.  We assume we are the only live transfer
+# agent for this node, so if we don't know about it, it's stale and
+# can be removed.   Idem with previously failed transfers.
 sub resetPendingTransfers
 {
     my ($self, $dbh) = @_;
-    &dbexec ($dbh, qq{
-	update t_transfer_state
-	set to_state = 1, to_timestamp = :now
-	where to_node = :node and (to_state = 2 or to_state >= 100)},
-	":now" => &mytimeofday(), ":node" => $self->{MYNODE});
-}
+    my $from_node_filter = "";
+    my ($ignore_filter, $ignore_args, $accept_filter, $accept_args)
+        = $self->sourceNodeFilters ("");
 
-# Record completion for the transfer.  Mark files either transferred
-# or send them to cool-off failure state.
-sub completeTransferBatch
-{
-    my ($self, $batch) = @_;
-    my $dbh = eval { &connectToDatabase ($self, 0) };
-    if ($@)
+    if ($ignore_filter || $accept_filter)
     {
-	chomp ($@);
-	&alert ("failed to update transfer batch status,"
-		. " trying again later, error was: $@");
-	$self->addJob (new sub { $self->completeTransferBatch($batch) },
-		       {}, "sleep", "10");
-	return;
+        $from_node_filter =
+            "and from_node in (select id from t_node"
+	    . " where id = id$ignore_filter$accept_filter)";
     }
 
-    # Have a connection to the database, now update status for all files
-    foreach my $file (@$batch)
+    &dbexec ($dbh, qq{
+	update t_xfer_state
+	set to_state = 1,
+	    to_protocols = null,
+	    to_pfn = null,
+	    from_pfn = null,
+	    time_request = :now,
+	    time_available = null,
+	    time_xfer_start = null,
+	    time_xfer_end = null,
+	    time_error_start = null,
+	    time_error_end = null
+	where to_node = :node
+	  and (to_state = 2 or to_state = 100)
+  	  and time_expire > :now
+  	  $from_node_filter},
+	":now" => &mytimeofday(), ":node" => $$self{ID_MYNODE},
+	%$ignore_args, %$accept_args);
+}
+
+# Mark my files wanted.
+sub markFilesWanted
+{
+    my ($self, $dbh) = @_;
+
+    eval
+    {
+	# Restore files that have cooled off long enough.
+	my $now = &mytimeofday();
+    	&dbexec ($dbh, qq{
+	    update t_xfer_state
+	    set to_state = 0,
+	        to_protocols = null,
+	        to_pfn = null,
+	        from_pfn = null,
+		time_available = null,
+	        time_error_start = null,
+		time_error_end = null
+	    where to_node = :node
+	      and to_state = 100
+              and time_error_end <= :now
+              and time_expire > :now},
+            ":now" => $now, ":node" => $$self{ID_MYNODE});
+
+	# Mark all my files wanted.  We want this updated regularly enough.
+	&dbexec ($dbh, qq{
+	    update t_xfer_state
+	    set to_state = 1, time_request = :now
+	    where to_node = :node
+	      and time_expire > :now
+              and to_state <= 1},
+    	    ":now" => $now, ":node" => $$self{ID_MYNODE});
+
+	$dbh->commit();
+    };
+
+    do { chomp ($@); &alert ("failed to mark files wanted: $@");
+	 eval { $dbh->rollback() }; } if $@;
+}
+
+# Return files we should prepare for transfer: give them a destination
+# PFN and tell the source node which transfer protocols we accept.
+sub filesForPrepare
+{
+    my ($self, $dbh) = @_;
+    if (! @{$$self{FILES_FOR_PREPARE}})
     {
         eval
         {
-	    my $to_state = 3;
-	    my $guid = $file->{GUID};
-	    if ($file->{FAILURE})
+	    # FIXME: Check if this file is for me?  Let the PFN script
+	    # know if this file is actually destined for me, or only
+	    # for other for pass-through traffic.
+	    my ($ignore_filter, $ignore_args, $accept_filter, $accept_args)
+	        = $self->sourceNodeFilters("ns.");
+
+	    my $stmt = &dbexec ($dbh, qq{
+		select
+		    xs.fileid, f.logical_name, f.filetype, f.filesize, f.checksum,
+		    xs.priority, xs.to_node to_node_id, nd.name to_node
+		from t_xfer_state xs
+		  join t_file f on f.id = xs.fileid
+		  join t_node ns on ns.id = xs.from_node
+		where xs.to_node = :node
+	          and xs.to_pfn is null
+	          and xs.time_expire > :now
+	          $ignore_filter
+		  $accept_filter},
+  		":node" => $$self{ID_MYNODE}, ":now" => &mytimeofday(),
+		%$ignore_args, %$accept_args);
+	    while (my $row = $stmt->fetchrow_hashref())
 	    {
-	         &alert ("failed to transfer $guid: $file->{FAILURE}");
-	         $to_state = 130 + int(rand(30))*$self->{BACKOFF_FACTOR};
+		next if grep($$_{FILEID} eq $$row{FILEID}, @{$$self{FILES_FOR_PREPARE}});
+	        push(@{$$self{FILES_FOR_PREPARE}}, $row);
+	        last if (scalar @{$$self{FILES_FOR_PREPARE}} >= 100);
 	    }
-
-	    my $now = &mytimeofday ();
-	    my $dalloc = $now - $file->{TIME_ALLOC};
-	    my $dtransfer = $now - $file->{TIME_START};
-	    &dbexec ($dbh, qq{
-		update t_transfer_state
-		set to_state = :to_state, to_timestamp = :now
-		where guid = :guid and to_node = :to_node},
-		":to_state" => $to_state, ":now" => $now,
-		":guid" => $guid, ":to_node" => $self->{MYNODE});
-
-	    if (! $file->{FAILURE})
-	    {
-		# Complete the transfer
-	        &dbexec ($dbh, qq{
-                    insert into t_replica_state
-		    (timestamp, guid, node, state, state_timestamp)
-		    values (:now, :guid, :node, 0, :now)},
-		    ":guid" => $guid, ":node" => $self->{MYNODE}, ":now" => $now);
-
-		&dbexec ($dbh, qq{
-		    insert into t_transfer_completed
-		    (select to_timestamp, guid, to_node, to_state, to_timestamp,
-			    from_node, from_state, from_timestamp
-		     from t_transfer_state
-		     where guid = :guid and to_node = :to_node)},
-		    ":guid" => $guid, ":to_node" => $self->{MYNODE});
-
-		&dbexec ($dbh, qq{
-		    delete from t_transfer_state
-		    where guid = :guid and to_node = :to_node},
-		    ":guid" => $guid, ":to_node" => $self->{MYNODE});
-	    }
-
-	    # generate timing profile data
-	    my @times = map { my ($op, $start, $end) = @$_;
-		              sprintf("%s=%.2f", $op, $end-$start) }
-		        @{$file->{TIMING}};
-
-	    # Log transfer delay stats
-	    &logmsg ("xstats: $guid $self->{MYNODE} $to_state "
-		     . sprintf('%.2f %.2f', $dalloc, $dtransfer)
-	     	     . " $file->{FILESIZE} [ @times ]");
-            $dbh->commit ();
         };
+        do { chomp ($@); &alert ("failed to select files for prepare: $@") } if $@;
+    }
 
-        # If we failed to update status, something's gone terribly bad,
-        # just skip this file, we will re-transfer it later again.
-        if ($@)
+    # Use cached values if we have enough of them
+    return shift (@{$$self{FILES_FOR_PREPARE}});
+}
+
+# Assign files destination PFN and possible transfer protocols.
+sub setFilePrepared
+{
+    my ($self, $dbh, $file) = @_;
+    my $stmt = &dbexec($dbh, qq{
+	update t_xfer_state
+	set to_pfn = :pfn, to_protocols = :protos
+	where fileid = :fileid and to_node = :node},
+	":pfn" => $$file{TO_PFN},
+	":protos" => $$file{TO_PROTOCOLS},
+	":fileid" => $$file{FILEID},
+	":node" => $$self{ID_MYNODE});
+}
+
+# Get the list of N files ready for transfer.  Returns list of file hashes.
+# Files are fetched from database in relatively large batches, at least
+# 10*$n and minimum 50 at a time, and then returned however many files at
+# a time the caller wants.  This avoids excessive roundtrip to the database.
+sub filesForTransfer
+{
+    my ($self, $dbh, $n) = @_;
+
+    if (scalar @{$$self{FILES_FOR_TRANSFER}} < $n)
+    {
+        eval
         {
-	    chomp ($@);
-            &alert ("failed to update transfer batch status for $file->{GUID}: $@");
-            eval { $dbh->rollback() } if $dbh;
-        }
-    };
+	    # FIXME: Partition downloaded files into priority
+	    # categories, and make sure we give a fair share
+	    # to each priority category.  See notes in routing.
 
-    &disconnectFromDatabase ($self, $dbh);
+	    my ($ignore_filter, $ignore_args, $accept_filter, $accept_args)
+	        = $self->sourceNodeFilters("ns.");
+
+	    my $stmt = &dbexec ($dbh, qq{
+		select
+		    xs.fileid, f.logical_name, f.filetype, f.filesize, f.checksum,
+		    xs.from_node from_node_id, ns.name from_node, xs.from_pfn,
+		    xs.to_pfn, xs.time_assign, xs.time_available
+		from t_xfer_state xs
+		  join t_file f on f.id = xs.fileid
+		  join t_node ns on ns.id = xs.from_node
+		where xs.to_node = :node
+		  and xs.to_state < 2
+	  	  and xs.from_state = 1
+	          and xs.to_pfn is not null
+	          and xs.time_expire > :now
+	  	  and xs.errors < 5
+	          $ignore_filter
+		  $accept_filter
+		order by xs.priority asc, xs.weight asc, xs.age asc},
+  		":node" => $$self{ID_MYNODE}, ":now" => &mytimeofday(),
+		%$ignore_args, %$accept_args);
+	    while (my $row = $stmt->fetchrow_hashref())
+	    {
+		next if grep($$_{FILEID} eq $$row{FILEID}, @{$$self{FILES_FOR_TRANSFER}});
+	        push(@{$$self{FILES_FOR_TRANSFER}}, $row);
+	        last if (scalar @{$$self{FILES_FOR_TRANSFER}} > 10*$n
+			 && scalar @{$$self{FILES_FOR_TRANSFER}} > 50);
+	    }
+        };
+        do { chomp ($@); &alert ("failed to select files for transfer: $@") } if $@;
+    }
+
+    # Use cached values if we have enough of them
+    return splice (@{$$self{NEXT_FILES}}, 0, $n);
 }
 
 # Begin transferring a file.  Fetches the file information and creates
@@ -318,195 +402,129 @@ sub completeTransferBatch
 # should be made at a later time to initiate the transfer.
 sub startFileTransfer
 {
-    my ($self, $dbh, $info) = @_;
-    my ($guid, $lfn, $pfntype, $size, $cksum, $from, $timestamp, $from_pfn, $attrs) = @$info;
+    my ($self, $dbh, $file) = @_;
 
     # Mark the transfer started in the database.
     eval
     {
 	&dbexec ($dbh, qq{
-	    update t_transfer_state
-	    set to_state = 2, to_timestamp = :now
-	    where guid = :guid and to_node = :to_node},
-	    ":now" => &mytimeofday (), ":guid" => $guid,
-	    ":to_node" => $self->{MYNODE});
+	    update t_xfer_state
+	    set to_state = 2, time_xfer_start = :now
+	    where fileid = :fileid and to_node = :node},
+	    ":now" => &mytimeofday (), ":filed" => $$file{FILEID},
+	    ":node" => $$self{ID_MYNODE});
 	$dbh->commit();
     };
 
     if ($@)
     {
 	chomp ($@);
-	&alert ("failed to mark $guid in transfer: $@");
+	&alert ("failed to mark $$file{LOGICAL_NAME} in transfer: $@");
 	eval { $dbh->rollback() };
 	return undef;
     }
 
     # Return a transfer object.
-    return { GUID		=> $guid,
-	     LFN		=> $lfn,
-	     PFNTYPE		=> $pfntype,
-	     FILESIZE		=> $size,
-	     CHECKSUM		=> $cksum,
-	     TIME_ALLOC		=> $timestamp,
-	     TIME_START		=> &mytimeofday(),
-	     FROM_NODE		=> $from,
-	     FROM_PFN		=> $from_pfn,
-	     ATTRS		=> $attrs};
+    return $file;
 }
 
-# Update wanted status on files in the database.
-sub markFilesWanted
+# Record completion for the transfer.  Mark files either transferred
+# or send them to cool-off failure state.
+sub completeTransfer
 {
-    my ($self, $dbh) = @_;
-
-    # Avoid executing very often, the updates below do take a fair
-    # amount of time, and there's little point running here much
-    # more than once every several minutes.
-    my $now = &mytimeofday();
-    return if $self->{WANT_UPDATE} > $now - 600;
-    $self->{WANT_UPDATE} = $now;
-    
-    eval
+    my ($self, $file) = @_;
+    my $dbh = eval { &connectToDatabase ($self, 0) };
+    if ($@)
     {
-	my $mynode = $self->{MYNODE};
-
-	# Restore files that have cooled off long enough.  Each
-	# state above 100 counts as a minute of cool-down period.
-    	&dbexec ($dbh, qq{
-	    update t_transfer_state
-	    set to_state = 0, to_timestamp = :now
-	    where to_node = :node
-	      and to_state >= 100
-              and to_state - 100 < (:now - to_timestamp)/60
-      	      and to_timestamp < :old},
-    	    ":now" => $now, ":node" => $mynode, ":old" => $now - 60);
-
-	# Keep wanted time stamp at most ten minutes old.
-	&dbexec ($dbh, qq{
-	    update t_transfer_state set to_timestamp = :now
-	    where to_node = :node and to_state = 1 and to_timestamp < :old},
-    	    ":now" => $now, ":node" => $mynode, ":old" => $now - 600);
-
-  	# Check how much we already marked wanted.  Only mark new
-	# files wanted if we drop below 75% of our limit.
-	my ($total) = &dbexec($dbh, qq{
-	    select sum(f.filesize)
-	    from t_transfer_state ts
-	    join t_file f on f.guid = ts.guid
-	    where ts.to_node = :node and ts.to_state = 1},
-    	    ":node" => $mynode)->fetchrow() || 0;
-	return if $total > .75 * $self->{WANT_LIMIT};
-
-	# Mark more files wanted.  Select the best new files, keeping
-	# track of accumulated size and stopping at our limit.  The
-	# ordering criteria here is decreasing day and the job-id
-	# (FIXME: CMS/COBRA specific!).  We pick the newest files first
-	# -- if we are moving files in streaming mode and fall behind,
-	# it's better to keep up with the stream the best we can rather
-	# than disrupt everyone else trying to slug our way through the
-	# old files.  (FIXME: Custom file priority rules?)
-	my $ustmt = &dbprep($dbh, qq{
-	    update t_transfer_state
-	    set to_state = 1, to_timestamp = :now
-	    where guid = :guid and to_node = :node});
-	my $stmt = &dbexec($dbh, qq{
-	    select ts.guid, ts.from_node, f.filesize
-	    from t_transfer_state ts
-	    join t_file f on f.guid = ts.guid
-	    where ts.to_node = :node and ts.to_state = 0
-	    order by ts.from_state desc,
-	             trunc (ts.to_timestamp/86400) desc,
-		     f.inblock, f.insubblock},
-    	    ":node" => $mynode);
-	while (my ($guid, $from, $size) = $stmt->fetchrow())
-        {
-	    next if grep($_ eq $from, @{$self->{IGNORE_NODES}});
-	    next if (@{$self->{ACCEPT_NODES}}
-		     && ! grep ($_ eq $from, @{$self->{ACCEPT_NODES}}));
-
-	    $total += $size;
-	    last if ($total > $self->{WANT_LIMIT});
-
-	    &dbbindexec($ustmt, ":guid" => $guid, ":node" => $mynode, ":now" => $now);
-  	}
-
-	$dbh->commit();
-    };
-
-    do { chomp ($@); &alert ("failed to mark files wanted: $@");
-	 eval { $dbh->rollback() }; } if $@;
-}
-
-# Get the list of N guids that should be transferred next.  Returns
-# a list of arrays of file information.
-sub nextFiles
-{
-    my ($self, $dbh, $n) = @_;
-
-    # Instead of fetching new files every time we get called, cache
-    # lots of them (at least 10*$n) one each access.  Fetch new files
-    # only when we don't have enough cached already.  Otherwise just
-    # return files from the cache.  This avoids excessive database
-    # load and delays from executing the query below, which is not
-    # very quick (need an index on state?).
-    #
-    # See &init() about the RANDOM_FILES parametrisation.
-    if (scalar @{$self->{NEXT_FILES}} < $n)
-    {
-        eval
-        {
-	    my $random = $self->{RANDOMIZE_SQL} ||= int(rand(100000))+1;
-	    my $attrq = &dbprep ($dbh, qq{
-		    select a.attribute, a.value from t_file_attributes a
-		    where a.guid = :guid and a.attribute like 'POOL%'
-		    and $random = $random});
-	    my $stmt = &dbexec ($dbh, qq{
-		    select ts.guid,
-			   f.lfn,
-			   f.filetype,
-		           f.filesize,
-		           f.checksum,
-			   ts.from_node,
-		           ts.from_timestamp,
-			   ts.from_pfn
-		    from t_transfer_state ts
-		    join t_file f on f.guid = ts.guid
-		    where ts.to_node = :node
-		      and ts.to_state < 2
-	  	      and ts.from_state = 1
-		    order by
-		      substr(f.inblock, :random_start, :random_len), f.inblock,
-		      dbms_utility.get_hash_value (f.insubblock, 0, :random_mod)},
-  		    ":node" => $self->{MYNODE},
-	    	    ":random_start" => $self->{RANDOM_FILES}[0],
-	    	    ":random_len" => $self->{RANDOM_FILES}[1],
-	    	    ":random_mod" => $self->{RANDOM_FILES}[2]);
-	    while (my @row = $stmt->fetchrow())
-	    {
-		next if grep($_->[0] eq $row[0], @{$self->{NEXT_FILES}});
-		next if grep($_ eq $row[5], @{$self->{IGNORE_NODES}});
-	        next if (@{$self->{ACCEPT_NODES}}
-		         && ! grep ($_ eq $row[5], @{$self->{ACCEPT_NODES}}));
-
-	        my $attrs = {};
-	        &dbbindexec ($attrq, ":guid" => $row[0]);
-	        foreach my $m (@{$attrq->fetchall_arrayref()})
-	        {
-		    my ($key, $value) = @$m;
-		    $key =~ s/^POOL_//;
-		    $attrs->{$key} = $value;
-	        }
-
-	        push(@{$self->{NEXT_FILES}}, [ @row, $attrs ]);
-	        last if (scalar @{$self->{NEXT_FILES}} > 10*$n
-			 && scalar @{$self->{NEXT_FILES}} > 50);
-	    }
-        };
-        do { chomp ($@); &alert ("failed to select files for transfer: $@") } if $@;
+	chomp ($@);
+	&alert ("failed to update transfer batch status,"
+		. " trying again later, error was: $@");
+	$self->addJob (new sub { $self->completeTransfer($file) },
+		       {}, "sleep", "10");
+	return;
     }
 
-    # Use cached values if we have enough of them
-    return splice (@{$self->{NEXT_FILES}}, 0, $n);
+    # Have a connection to the database, now update status for all files
+    eval
+    {
+	my $state = 3;
+	my $now = &mytimeofday ();
+	if ($$file{FAILURE})
+	{
+	    $state = 100;
+	    &alert ("failed to transfer $$file{FILEID} ($$file{LFN}): $$file{FAILURE}");
+	    &dbexec ($dbh, qq{
+		update t_xfer_state
+		set to_state = $state,
+		    errors = errors + 1,
+		    time_xfer_start = null,
+		    time_request = null,
+		    time_error_start = :error_start,
+		    time_error_end = :error_end,
+		    time_error_total = time_error_total + :error_end - :error_start
+		where fileid = :fileid and to_node = :node},
+		":error_start" => $now,
+		":error_end" => $now + 60*(30 + rand(30)*$$self{BACKOFF_FACTOR}),
+		":fileid" => $$file{FILEID},
+		":node" => $$self{ID_MYNODE});
+	}
+	else
+	{
+	    &dbexec ($dbh, qq{
+		update t_xfer_state
+		set to_state = $state, time_xfer_end = :now
+		where fileid = :fileid and to_node = :node},
+		":now" => $now,
+		":fileid" => $$file{FILEID},
+		":node" => $$self{ID_MYNODE});
+
+	    &dbexec ($dbh, qq{
+                insert into t_xfer_replica
+		(id, fileid, node, state, time_create, time_state)
+		values (seq_xfer_replica.nextval, :fileid, :node, 0, :now, :now)},
+		":fileid" => $$file{FILEID},
+		":node" => $$self{ID_MYNODE},
+		":now" => $now);
+
+	    &dbexec ($dbh, qq{
+		insert into t_xfer_completed
+		(select * from t_xfer_state
+		 where fileid = :fileid and to_node = :node)},
+		":fileid" => $$file{FILEID},
+		":node" => $$self{ID_MYNODE});
+
+	    &dbexec ($dbh, qq{
+		delete from t_xfer_state
+		where fileid = :fileid and to_node = :node},
+		":fileid" => $$file{FILEID},
+		":node" => $$self{ID_MYNODE});
+	}
+
+	# Generate timing profile data
+	my @times = map { my ($op, $start, $end) = @$_;
+		          sprintf("%s=%.2f", $op, $end-$start) }
+		    @{$$file{TIMING}};
+
+	# Log transfer delay stats
+	my $dalloc = $now - $$file{TIME_ALLOC};
+	my $dtransfer = $now - $$file{TIME_START};
+	&logmsg ("xstats: $$file{FILEID} ($$file{LFN}) "
+		 . "$$file{FROM_NODE} $$self{MYNODE} $state "
+		 . sprintf('%.2f %.2f', $dalloc, $dtransfer)
+	     	 . " $$file{FILESIZE} [ @times ]");
+        $dbh->commit ();
+    };
+
+    # If we failed to update status, something's gone terribly bad,
+    # just skip this file, we will re-transfer it later again.
+    if ($@)
+    {
+	chomp ($@);
+        &alert ("failed to update transfer batch status for $$file{FILEID}: $@");
+        eval { $dbh->rollback() } if $dbh;
+    }
+
+    &disconnectFromDatabase ($self, $dbh);
 }
 
 # Pick up files to download from the database
@@ -518,25 +536,27 @@ sub idle
     eval
     {
     	$dbh = &connectToDatabase ($self) or die "failed to connect";
-        # FIXME: Pick up and process messages to me
 
 	# If there are no pending jobs, kill database ghosts
 	my $now = &mytimeofday();
-	if (scalar @{$self->{JOBS}} == 0 && $self->{LAST_RESET} < $now - 900)
+	if (scalar @{$$self{JOBS}} == 0 && $$self{LAST_RESET} < $now - 900)
 	{
-	    my $tmpdir = $self->{DROPDIR};
+	    my $tmpdir = $$self{DROPDIR};
 	    unlink <$tmpdir/*-*-*-*>;
 	    $self->resetPendingTransfers($dbh);
-	    $self->{LAST_RESET} = $now;
+	    $$self{LAST_RESET} = $now;
         }
 
         # Request some more files
         $self->markFilesWanted ($dbh);
 
+	# FIXME: Assign PFNs for files
+	# FIXME: Throttle myself if lots of recent errors
+
 	# Initiate as many transfers as we can.
-	while (scalar @{$self->{JOBS}} < $self->{NJOBS})
+	while (scalar @{$$self{JOBS}} < $$self{NJOBS})
 	{
-	    last if ! ($more = $self->{BACKEND}->consumeFiles ($self, $dbh));
+	    last if ! ($more = $$self{BACKEND}->consumeFiles ($self, $dbh));
 	    $self->maybeStop ();
 	    $self->pumpJobs ();
 	}
@@ -551,12 +571,12 @@ sub idle
     # and can start more jobs, break out of this loop and initiate
     # new transfers.  Otherwise if we have exhausted files that can
     # be transferred, just sleep here for a moment.
-    my $target = &mytimeofday() + $self->{WAITTIME};
+    my $target = &mytimeofday() + $$self{WAITTIME};
     while (&mytimeofday() < $target)
     {
         $self->maybeStop ();
 	$self->pumpJobs ();
-	last if $more && scalar @{$self->{JOBS}} < $self->{NJOBS};
+	last if $more && scalar @{$$self{JOBS}} < $$self{NJOBS};
 	select (undef, undef, undef, .1);
     }
 }

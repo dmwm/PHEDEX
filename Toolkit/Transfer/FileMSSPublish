@@ -8,19 +8,18 @@
 ##H
 ##H This is technically a download agent, so it follows the file
 ##H routing rules.  However no real transfer ever occurs, the
-##H files jump directly to the final state.  Note that if there
+##H files jump directly to the destination node.  Note that if there
 ##H is a download agent running at the destination node, you will
 ##H want to run that with -ignore set to same as -mssnode here so
 ##H that the two won't compete over the same files.
 ##H
 ##H Usage:
 ##H   FileMSSPublish
-##H      -state DIRECTORY -db FILE[:SECTION] [-wait SECS]
+##H      -state DIRECTORY -db FILE[:SECTION]
 ##H      -node NAME -mssnode NAME
 ##H
 ##H -state     agent state directory
 ##H -db        database connection configuration parameter file
-##H -wait      time to wait in seconds between work scans
 ##H -node      the name of the destination node
 ##H -mssnode   the name of the source mass storage node
 
@@ -36,9 +35,7 @@ use UtilsHelp;
 my %args;
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    if ($ARGV[0] eq '-state' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
@@ -63,10 +60,8 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{MSSNODE}
 ######################################################################
 # Routines for this agent.
 package FileMSSPublish; use strict; use warnings; use base 'UtilsAgent';
-use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
-use UtilsCatalogue;
 use UtilsDB;
 
 sub new
@@ -77,9 +72,9 @@ sub new
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  MSSNODE => undef,		# MSS TMDB node name
-	  	  AGENTID => "MSSUpload");	# Identity for activity logs
+		  WAITTIME => 50 + rand(20));	# Default wait time
     my %args = (@_);
-    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
 }
@@ -92,43 +87,69 @@ sub idle
     eval
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
-        # FIXME: Pick up and process messages to me
 
-	# Mark everything available for and already in transfer for
-	# this link.  Don't mark files wanted to avoid stager going
-	# wild because of us :-)  This is to keep browser displays
-	# correct, we don't use this information ourselves and it
-	# isn't used by the "sending" side (the neighbour transfer
-	# node).  Note that there are no transfers out from this
-	# node -- they all go from the transfer node, which must
-	# always be closer to any destination that us and already
-	# has all the files we have.
-	my $n = 0;
-	my $now = &mytimeofday();
-	my $stmt = &dbexec ($dbh, qq{
-	    select guid, from_timestamp from t_transfer_state
-	    where from_node = :mss and to_node = :node and to_state = 0},
-	    ":node" => $self->{MYNODE}, ":mss" => $self->{MSSNODE});
-	while (my ($guid, $start) = $stmt->fetchrow())
-	{
-	    &dbexec ($dbh, qq{
-		insert into t_replica_state
-		    (timestamp, guid, node, state, state_timestamp)
-		    values (:now, :guid, :node, 0, :now)},
-		":node" => $self->{MYNODE}, ":now" => $now, ":guid" => $guid);
+	# Pseudo-transfers for shared MSS/Buffer nodes, moving files
+	# very quickly from the MSS node to the Buffer node.  This
+	# pretends to follow minimaly the normal transfer handshake
+	# so all the acocunting infrastructure continues to report
+	# the right values.  The assumption is of course there are
+	# no real transfers from the MSS node to the buffer node.
 
-	    &dbexec ($dbh, qq{
-		update t_transfer_state
-		set to_state = 3, to_timestamp = :now
-		where guid = :guid and to_node = :node},
-		":node" => $self->{MYNODE}, ":now" => $now, ":guid" => $guid);
+	# Fetch node ids for the nodes involved.
+        my $myid = $$self{ID_MYNODE};
+	my ($mssid) = &dbexec($dbh, qq{
+	    select id from t_node where name = :node},
+	    ":node" => $$self{MSSNODE})->fetchrow();
 
-	    $dbh->commit () if ++$n % 500 == 0;
+    	# Make everything available and immediately in transfer.
+	my $start = &mytimeofday ();
+	my ($stmt, $nprep, $nxfer, $nins, $ncopy, $ndel);
+	($stmt, $nprep) = &dbexec ($dbh, qq{
+	    update t_xfer_state
+	    set from_state = 1, to_state = 2,
+	        time_available = :now, time_xfer_start = :now
+	    where from_node = :mssid and to_node = :myid and to_state = 0},
+	    ":mssid" => $mssid, ":myid" => $myid, ":now" => &mytimeofday());
 
-	    my $end = &mytimeofday();
-	    &logmsg ("xstats: $guid $self->{MYNODE} 3 "
-		     . sprintf('%.2f %.2f', $end - $start, $end - $now));
-	}
+        # Now make them all transferred.
+        ($stmt, $nxfer) = &dbexec ($dbh, qq{
+	    update t_xfer_state set to_state = 3, time_xfer_end = :now
+	    where from_node = :mssid and to_node = :myid and to_state = 2},
+	    ":mssid" => $mssid, ":myid" => $myid, ":now" => &mytimeofday());
+
+        die "prepare/transfer mismatch: $nprep/$nxfer\n" if $nprep != $nxfer;
+
+        # Create destination replicas.
+	($stmt, $nins) = &dbexec ($dbh, qq{
+	    insert into t_xfer_replica
+	    (id, fileid, node, state, time_create, time_state)
+	    (select seq_xfer_replica.nextval, fileid, to_node, 0, :now, :now
+	     from t_xfer_state
+	     where from_node = :mssid and to_node = :myid and to_state = 3)},
+	    ":mssid" => $mssid, ":myid" => $myid, ":now" => &mytimeofday());
+
+        die "transfer/insert mismatch: $nxfer/$nins\n" if $nxfer != $nins;
+
+        # Move to completed transfers.
+        ($stmt, $ncopy) = &dbexec ($dbh, qq{
+	    insert into t_xfer_completed
+	    (select * from t_xfer_state
+	     where from_node = :mssid and to_node = :myid and to_state = 3)},
+            ":mssid" => $mssid, ":myid" => $myid);
+
+        die "insert/copy mismatch: $nins/$ncopy\n" if $nins != $ncopy;
+
+        # And delete the transfers.
+	($stmt, $ndel) = &dbexec ($dbh, qq{
+	    delete from t_xfer_state
+	    where from_node = :mssid and to_node = :myid and to_state = 3},
+            ":mssid" => $mssid, ":myid" => $myid);
+
+        die "copy/delete mismatch: $ncopy/$ndel\n" if $ncopy != $ndel;
+	&logmsg ("$ndel files transferred from $$self{MSSNODE}"
+		 . " to $$self{MYNODE} in "
+	         . sprintf('%.1fs', &mytimeofday()-$start))
+	    if $ndel > 0;
 
 	$dbh->commit ();
     };
@@ -139,5 +160,5 @@ sub idle
     &disconnectFromDatabase ($self, $dbh);
 
     # Check children are still running and then wait
-    $self->nap ($self->{WAITTIME});
+    $self->nap ($$self{WAITTIME});
 }

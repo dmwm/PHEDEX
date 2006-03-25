@@ -16,19 +16,17 @@
 ##H
 ##H Usage:
 ##H   FilePFNExport
-##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
-##H      -pfnquery CMD[,ARGS...] [-jobs NJOBS] [-timeout SECS]
+##H      -state DIRECTORY -node NAME -db FILE[:SECTION]
 ##H      [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]
+##H      -pfnquery CMD[,ARGS...] -protocols PROTO[,PROTO...]
 ##H
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
 ##H -db        database connection configuration parameter file
-##H -wait      time to wait in seconds between work scans
-##H -pfnquery  the command for querying export names
-##H -jobs      number of parallel -pfnquery jobs to execute (default: 20)
-##H -timeout   time after which to terminate -pfnquery jobs (default: never)
 ##H -ignore    comma-separated list of nodes to ignore transfers from
 ##H -accept    comma-separated list of nodes to accept transfers from
+##H -pfnquery  the command for querying export names
+##H -protocols comma-separated list of protocols to accept
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -39,29 +37,24 @@ BEGIN {
 
 ######################################################################
 use UtilsHelp;
-my %args = (NJOBS => 20);
+my %args = (NJOBS => 20, WAITTIME => 50 + rand(20), TIMEOUT => 600);
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    if ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
     { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
 
-    elsif ($ARGV[0] eq '-jobs' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{NJOBS} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-timeout' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{TIMEOUT} = shift (@ARGV); }
-    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
-
-    elsif ($ARGV[0] eq '-pfnquery' && scalar @ARGV > 1)
-    { shift (@ARGV); @{$args{PFN_QUERY}} = split(/,/, shift(@ARGV)); }
     elsif ($ARGV[0] eq '-ignore' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{IGNORE_NODES}}, split(/,/, shift (@ARGV))); }
     elsif ($ARGV[0] eq '-accept' && scalar @ARGV > 1)
     { shift (@ARGV); push (@{$args{ACCEPT_NODES}}, split(/,/, shift (@ARGV))); }
+    elsif ($ARGV[0] eq '-pfnquery' && scalar @ARGV > 1)
+    { shift (@ARGV); @{$args{PFN_QUERY}} = split(/,/, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-protocols' && scalar @ARGV > 1)
+    { shift (@ARGV); @{$args{PROTOCOLS}} = split(/,/, shift(@ARGV)); }
     elsif ($ARGV[0] eq '-h')
     { &usage(); }
     else
@@ -69,7 +62,7 @@ while (scalar @ARGV)
 }
 
 if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG}
-    || !$args{PFN_QUERY} || !$args{NJOBS})
+    || !$args{PFN_QUERY} || !$args{NJOBS} || !$args{PROTOCOLS})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -79,7 +72,6 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG}
 ######################################################################
 # Routines specific to this agent.
 package FilePFNExport; use strict; use warnings; use base 'UtilsAgent';
-use File::Path;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
@@ -95,9 +87,9 @@ sub new
 	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
 		  PFN_QUERY => undef,		# PFN query script
-	  	  AGENTID => "PFNExport");	# Identity for activity logs
+		  PROTOCOLS => undef);		# Protocols to accept
     my %args = (@_);
-    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
 }
@@ -106,39 +98,39 @@ sub new
 # Collect result from site query script glue
 sub reapPFNs
 {
-    my ($self, $dbh, $guids, $to, $proto, $outfile, $start, $job) = @_;
+    my ($self, $dbh, $files, $lfnfile, $outfile, $start, $job) = @_;
     my $output = &input ($outfile);
     unlink ($outfile);
+    unlink ($lfnfile);
 
-    &alert ("no output from @{$self->{PFN_QUERY}}") if ! $output;
-    my %guid2pfn = map { split(/\s+/, $_) } split('\n', $output || '');
-
-    foreach my $guid (@$guids)
+    my %lfn2pfn = map { split(/\s+/, $_) } split('\n', $output || '');
+    foreach my $file (@$files)
     {
-	my $pfn = $guid2pfn{$guid};
+	my $to = $$file{TO_NODE};
+	my $proto = $$file{PROTOCOL};
+	my $lfn = $$file{LOGICAL_NAME};
+	my $pfn = $lfn2pfn{$lfn};
 	if (! $pfn)
 	{
-	    # No output for this guid.  Whine.  Assign back-off time as a penalty.
-	    &warn ("no turl for $guid to $to with $proto (exit code $job->{STATUS})");
-	    $self->{BACKOFF}{$guid}{$to} = &mytimeofday() + 3600*(4 + rand(2));
+	    # Whine for lack of output, and put to cool as penalty.
+	    &warn ("no turl for $lfn to $to with $proto (exit code $$job{STATUS})");
+	    $$self{BACKOFF}{$lfn}{$to} = &mytimeofday() + 1200*(1 + rand(2));
 	    next;
 	}
 
 	&dbexec($dbh, qq{
-	    update t_transfer_state
+	    update t_xfer_state
 	    set from_pfn = :pfn
-	    where guid = :guid
-      	      and to_node = :tonode
-	      and from_node = :mynode
+	    where fileid = :fileid
+      	      and to_node = :toid
       	      and from_pfn is null},
       	    ":pfn" => $pfn,
-	    ":guid" => $guid,
-	    ":mynode" => $self->{MYNODE},
-	    ":tonode" => $to);
+	    ":fileid" => $$file{FILEID},
+	    ":toid" => $$file{TO_NODE_ID});
         $dbh->commit();
-	&logmsg ("xstats: $guid $self->{MYNODE} $to "
-		 . sprintf('%.2f', &mytimeofday() - $start)
-		 . " $pfn");
+	&logmsg ("xstats: $$self{MYNODE} $to $proto "
+		 . sprintf('%.2fs', &mytimeofday() - $start)
+		 . " $lfn $pfn");
     }
 }
 
@@ -150,112 +142,97 @@ sub idle
     eval
     {
     	$dbh = &connectToDatabase ($self) or die "failed to connect";
-        # FIXME: Pick up and process messages to me
+	$$dbh{FetchHashKeyName} = "NAME_uc";
 
 	# If there are no pending jobs, delete old temp files.
-	if (! @{$self->{JOBS}})
+	if (! @{$$self{JOBS}})
 	{
-	    my $tmpdir = $self->{WORKDIR};
-	    unlink <$tmpdir/*.turl>;
+	    my $tmpdir = $$self{WORKDIR};
+	    unlink <$tmpdir/*.turl>, <$tmpdir/*.lfns>;
         }
 
 	# Create jobs for computing TURLs for files.
-	my %protos = ();
-	my $nfiles = 0;
 	my $now = &mytimeofday();
-
 	my $query = &dbexec($dbh,qq{
-	    select ts.guid, ts.to_node
-	    from t_transfer_state ts
-	    join t_replica_state rs
-	      on rs.guid = ts.guid
-	     and rs.node = ts.from_node
-	    where ((ts.to_state = 1
-      	            and ts.to_timestamp > :old)
-		   or rs.state = 1)
-	      and ts.from_node = :node
-	      and ts.from_pfn is null},
-      	    ":node" => $self->{MYNODE},
-	    ":old" => $now - 15*60);
+	    select
+	      xr.fileid, f.logical_name, xs.to_node to_node_id,
+	      nd.name to_node, xs.to_protocols
+	    from t_xfer_replica xr
+	      join t_file f
+	        on f.id = xr.fileid
+	      join t_xfer_state xs
+	        on xs.from_replica = xr.id
+	      join t_node nd
+	        on nd.id = xs.to_node
+	    where xr.node = :node
+      	      and xs.errors < 5
+	      and xs.time_request >= :old
+	      and xs.time_expire > :now
+      	      and xs.to_protocols is not null
+      	      and xs.from_pfn is null},
+            ":node" => $$self{ID_MYNODE}, ":now" => $now, ":old" => $now - 15*60);
 
-        my $pquery = &dbprep($dbh,qq{
-	    select i.protocol
-	    from t_node_import i, t_node_export e
-	    where e.protocol = i.protocol
-	      and e.node = :exportnode
-	      and i.node = :importnode
-	    order by i.priority asc});
-
-    	my $n = 0;
-        my %todo = ();
-        while (my ($guid, $to) = $query->fetchrow())
+    	my ($n, %todo) = 0;
+	my %myprotos = map { $_ => 1 } @{$$self{PROTOCOLS}};
+        while (my $file = $query->fetchrow_hashref())
 	{
+	    my $lfn = $$file{LOGICAL_NAME};
+	    my $to = $$file{TO_NODE};
+	    my $protos = $$file{TO_PROTOCOLS};
+
 	    # Process only if not filtered.
-	    next if grep($_ eq $to, @{$self->{IGNORE_NODES}});
-	    next if (@{$self->{ACCEPT_NODES}}
-		     && ! grep ($_ eq $to, @{$self->{ACCEPT_NODES}}));
+	    next if grep($_ eq $to, @{$$self{IGNORE_NODES}});
+	    next if (@{$$self{ACCEPT_NODES}}
+		     && ! grep ($_ eq $to, @{$$self{ACCEPT_NODES}}));
 
 	    # If we failed to generate TURL or determine protocol for
 	    # this file recently, ignore it until back-off time passes.
-	    next if ($self->{BACKOFF}{$guid}{$to} || $now) > $now;
+	    next if ($$self{BACKOFF}{$lfn}{$to} || $now-1) > $now;
+	    delete $$self{BACKOFF}{$lfn}{$to};
 
-	    # Use cached protocol for $to, or cache one now.  We get
-	    # the first compatible protocol, sorted by importer's
-	    # priority order, as the download protocol.
-	    if (! defined $protos{$to})
+	    # Determine which protocl we can use
+	    my $proto = (grep(exists $myprotos{$_}, split(/,/, $protos)))[0];
+	    if (! defined $proto)
 	    {
-		&dbbindexec($pquery,
-			    ":exportnode" => $self->{MYNODE},
-			    ":importnode" => $to);
-		$protos{$to} = ($pquery->fetchrow())[0];
-	    }
-
-	    # If there is no protocol compatible with me and $to, warn
-	    # about this guid and punish with back-off time.
-	    if (! defined $protos{$to})
-	    {
-		&alert ("$guid: no protocol matches $self->{MYNODE} and $to");
-	    	$self->{BACKOFF}{$guid}{$to} = $now + 3600*(4 + rand(2));
+		&alert ("$lfn: no available protocol for destination $to"
+		        . " (available protocols:"
+			. " $$self{MYNODE}=" . join(',', @{$$self{PROTOCOLS}})
+			. " vs. $to=$protos)");
+	    	$$self{BACKOFF}{$lfn}{$to} = $now + 1200*(1 + rand(2));
 		next;
 	    }
-	    delete $self->{BACKOFF}{$guid}{$to};
 
 	    # Record as something we need to do
-	    push (@{$todo{$to}{$protos{$to}}}, $guid);
+	    $$file{PROTOCOL} = $proto;
+	    push (@{$todo{$to}{$proto}}, $file);
 
 	    # Give up if we are picking too much work
 	    last if ++$n >= 5000;
 	}
 
-	# Now process all the jobs
+	# Now process all the jobs.  For each destination and protocol,
+	# start batches of subprocesses to query the file paths.  The
+	# site glue script is handed the protocol, node and file list.
 	foreach my $to (sort keys %todo)
 	{
 	    foreach my $proto (sort keys %{$todo{$to}})
 	    {
-		my $guids = $todo{$to}{$proto};
+		my $files = $todo{$to}{$proto};
+		my $lfnfile = "$$self{WORKDIR}/$to.$proto.lfns";
+	        my $outfile = "$$self{WORKDIR}/$to.$proto.turl";
+		&output ($lfnfile, join("", map { "$$_{LOGICAL_NAME}\n" } @$files));
+	        $self->addJob (
+		    sub { $self->reapPFNs ($dbh, $files, $lfnfile, $outfile, $now, @_) },
+		    {}, "sh", "-c", "@{$$self{PFN_QUERY}} -g -r $lfnfile $proto $to > $outfile");
 
-		# Ok, start sub-processes to generate TURLs for the guids.
-		# We do this in batches of many guids at a time.  The site
-		# glue script gets from us the arguments protocol, node and
-	        # a guid list.  Generally the script just queries the
-		# catalogue and generates a gridftp name or alike.
-		while (@$guids)
-		{
-		    my @batch = splice (@$guids, 0, 500);
-	            my $outfile = "$self->{WORKDIR}/$batch[0].$to.turl";
-	            $self->addJob (
-			sub { $self->reapPFNs ($dbh, \@batch, $to, $proto, $outfile, $now, @_) },
-		        {}, "sh", "-c", "@{$self->{PFN_QUERY}} -g $proto $to @batch > $outfile");
-
-	    	    # Keep old jobs running while we are generating new jobs.
-	    	    $self->maybeStop ();
-	    	    $self->pumpJobs ();
-		}
-	    }
+	    	# Keep old jobs running while we are generating new jobs.
+	    	$self->maybeStop ();
+	    	$self->pumpJobs ();
+	   }
         }
 
 	# Wait till all jobs exit
-	while (@{$self->{JOBS}})
+	while (@{$$self{JOBS}})
 	{
 	    $self->maybeStop ();
 	    $self->pumpJobs ();
@@ -269,5 +246,5 @@ sub idle
     &disconnectFromDatabase ($self, $dbh);
 
     # Have a little nap
-    $self->nap ($self->{WAITTIME});
+    $self->nap ($$self{WAITTIME});
 }

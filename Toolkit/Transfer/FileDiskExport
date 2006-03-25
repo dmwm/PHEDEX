@@ -5,13 +5,11 @@
 ##H export agent to work along side it, but not any others.
 ##H
 ##H Usage:
-##H   FileDiskExport
-##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
+##H   FileDiskExport -state DIRECTORY -node NAME -db FILE[:SECTION]
 ##H
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
 ##H -db        database connection configuration parameter file
-##H -wait      time to wait in seconds between work scans
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -22,12 +20,10 @@ BEGIN {
 
 ######################################################################
 use UtilsHelp;
-my %args;
+my %args = (WAITTIME => 10 + rand(5));
 while (scalar @ARGV)
 {
-    if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    if ($ARGV[0] eq '-state' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
     elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
     { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
@@ -51,7 +47,6 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG})
 # the file transfer requests and passes the work to appropriate other
 # local export agents (stage-in, checksum).
 package FileDiskExport; use strict; use warnings; use base 'UtilsAgent';
-use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
 use UtilsDB;
@@ -63,9 +58,9 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
-	  	  AGENTID => "Export");		# Identity for activity logs
+	  	  AGENTID => "FileExport");	# Identity for activity logs
     my %args = (@_);
-    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
 }
@@ -81,24 +76,23 @@ sub idle
     eval
     {
 	my $dbh = &connectToDatabase ($self) or die "failed to connect";
-        # FIXME: Pick up and process messages to me
 
 	# Mark everything available locally.
 	&dbexec($dbh, qq{
-	   update t_replica_state set state = 1
-	   where node = :node and state = 0},
-	   ":node" => $self->{MYNODE});
+	    update t_xfer_replica
+	    set state = 1, time_state = :now
+	    where node = :node and state = 0},
+   	    ":now" => &mytimeofday(), ":node" => $$self{ID_MYNODE});
 
 	# Mark all pending transfers ready to go.
 	&dbexec($dbh, qq{
-	   update t_transfer_state
-	   set from_state = 1, from_timestamp = :now
-	   where from_state = 0
-	     and from_node = :node
-	     and from_pfn is not null
-	     and to_state < 2},
-	   ":now" => &mytimeofday(),
-	   ":node" => $self->{MYNODE});
+	    update t_xfer_state
+	    set from_state = 1, time_available = :now
+            where from_node = :node
+	      and from_pfn is not null
+	      and from_state = 0
+              and to_state < 2},
+	    ":now" => &mytimeofday(), ":node" => $$self{ID_MYNODE});
 
 	$dbh->commit();
     };
@@ -109,5 +103,5 @@ sub idle
     &disconnectFromDatabase ($self, $dbh);
 
     # Check children are still running and then wait
-    $self->nap ($self->{WAITTIME});
+    $self->nap ($$self{WAITTIME});
 }
