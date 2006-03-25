@@ -158,7 +158,7 @@ sub idle
 	      xr.fileid, f.logical_name, xs.to_node to_node_id,
 	      nd.name to_node, xs.to_protocols
 	    from t_xfer_replica xr
-	      join t_file f
+	      join t_xfer_file f
 	        on f.id = xr.fileid
 	      join t_xfer_state xs
 	        on xs.from_replica = xr.id
