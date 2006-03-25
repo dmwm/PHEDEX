@@ -382,7 +382,6 @@ sub idle
     eval
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
-        # FIXME: Pick up and process messages to me
 
 	# Clean up caches
 	my %timing = (START => &mytimeofday());
@@ -448,11 +447,6 @@ sub idle
 	my $nreq = scalar @requests;
 	while (@requests)
 	{
-	    # FIXME: Throttle stage-in requests based on how much we have
-	    # already committed to transfer (t_transfer_state.from_state=1)
-	    # and how much space (free space and unpinned files) is on the
-	    # stager pool.
-
 	    # Suspend until the system load drops low enough, and then go back
 	    # to start of the loop so we reconsider staged in files and send
 	    # them out.  Also makes it safer if we get stopped.

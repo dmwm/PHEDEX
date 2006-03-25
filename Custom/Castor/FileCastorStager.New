@@ -254,7 +254,6 @@ sub idle
     eval
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
-        # FIXME: Pick up and process messages to me
 
 	# Clean up caches
 	my %timing = (START => &mytimeofday());
