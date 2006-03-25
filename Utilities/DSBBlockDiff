@@ -18,28 +18,17 @@ BEGIN { use strict; use warnings; $^W=1;
   my $me = $0; $me =~ s|.*/||;
   my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
   unshift(@INC, "$home/../Toolkit/Common"); }
+
+my %args;
+use Getopt::Long;
 use UtilsHelp;
 use UtilsDBS;
 use UtilsDB;
-use TextGlob 'glob_to_regex';
+use Text::Glob 'glob_to_regex';
+&GetOptions ("db=s"        => \$args{DBCONFIG},
+	     "help|h"      => sub { &usage() });
 
-my %args;
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-h') {
-	&usage();
-    } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
-        shift (@ARGV); $args{DBCONFIG} = shift(@ARGV);
-    } elsif ($ARGV[0] eq '--') {
-	shift (@ARGV); last;
-    } elsif ($ARGV[0] =~ '^-') {
-	&usage ("$0: unrecognised option $ARGV[0]\n\n");
-    } else {
-	last;
-    }
-}
-
-$TextGlob::strict_wildcard_slash = 0;
+$Text::Glob::strict_wildcard_slash = 0;
 $args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
 if (!$args{DBCONFIG})
 {

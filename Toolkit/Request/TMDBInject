@@ -37,34 +37,19 @@ BEGIN {
 }
 
 ######################################################################
-use UtilsHelp;
 my %args;
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
+use Getopt::Long;
+use UtilsHelp;
+&GetOptions ("db=s"        => \$args{DBCONFIG},
+	     "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
+	     "sites=s"     => sub { push(@{$args{SITES}}, split(/,/, $_[1])) },
+             "sitemap=s"   => \$args{SITEMAP},
+             "catalogue=s" => \$args{CATALOGUE},
+             "cksums=s"    => \$args{CKSUMS},
+             "strict"      => \$args{STRICT},
+             "verbose"     => \$args{VERBOSE},
+	     "help|h"      => sub { &usage() });
 
-    elsif ($ARGV[0] eq '-nodes' && scalar @ARGV > 1)
-    { shift (@ARGV); push(@{$args{NODES}}, split(',', shift(@ARGV))); }
-    elsif ($ARGV[0] eq '-sites' && scalar @ARGV > 1)
-    { shift (@ARGV); push(@{$args{SITES}}, split(/[,\s]+/, shift(@ARGV))); }
-    elsif ($ARGV[0] eq '-sitemap' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{SITEMAP} = shift (@ARGV); }
-    elsif ($ARGV[0] eq '-catalogue' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{CATALOGUE} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-cksums' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{CKSUMS} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-strict')
-    { shift (@ARGV); $args{STRICT} = 1; }
-
-    elsif ($ARGV[0] eq '-verbose')
-    { shift (@ARGV); $args{VERBOSE} = 1; }
-    elsif ($ARGV[0] eq '-h')
-    { &usage(); }
-    else
-    { last; }
-}
-	
 if (@ARGV || !$args{DBCONFIG} || !$args{CATALOGUE} || !$args{CKSUMS}
     || !($args{NODES} || ($args{SITES} && $args{SITEMAP})))
 {

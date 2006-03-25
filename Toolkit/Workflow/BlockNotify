@@ -9,12 +9,14 @@
 ##H the information to update site-local information (e.g. PubDB).
 ##H
 ##H Usage:
-##H   BlockNotify -state DIRECTORY -node NAME -db FILE[:SECTION -next DIRECTORY
+##H   BlockNotify -state DIRECTORY -node NAME -db FILE[:SECTION
+##H               -next DIRECTORY [-log OUT]
 ##H
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
 ##H -db        database connection configuration parameter file
 ##H -next      state directory for the next agent; can be repeated
+##H -log       where to redirect logging information
 
 BEGIN {
   use warnings; use strict; $^W=1;
@@ -25,14 +27,15 @@ BEGIN {
 
 
 ######################################################################
-use UtilsHelp;
+my %args;
 use Getopt::Long;
-my %args = (WAITTIME => 3600, NEXTDIR => []);
-&GetOptions ("state=s"		=> \$args{DROPDIR},
-	     "next=s@"          => $args{NEXTDIR},
-	     "node=s"		=> \$args{MYNODE},
-	     "db=s"     	=> \$args{DBCONFIG},
-     	     "help|h"		=> sub { &usage() });
+use UtilsHelp;
+&GetOptions ("state=s"     => \$args{DROPDIR},
+	     "log=s"       => \$args{LOGFILE},
+             "db=s"        => \$args{DBCONFIG},
+             "node=s"      => \$args{MYNODE},
+             "next=s@"     => $args{NEXTDIR},
+	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !@{$args{NEXTDIR}}
     || !$args{DBCONFIG})
@@ -57,7 +60,8 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
-	  	  MYNODE => undef);		# My TMDB node name
+	  	  MYNODE => undef,		# My TMDB node name
+		  WAITTIME => 3600);		# Agent activity cycle
 
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;

@@ -2,7 +2,7 @@ package UtilsTR; use strict; use warnings; use base 'Exporter';
 our @EXPORT = qw(usage readPatterns expandPatterns
 	         listDatasetOwners listAssignments
 		 listDatasetHistory);
-use TextGlob 'glob_to_regex';
+use Text::Glob 'glob_to_regex';
 use UtilsWriters;
 use UtilsReaders;
 use UtilsCommand;

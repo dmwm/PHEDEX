@@ -20,7 +20,7 @@ BEGIN { use strict; use warnings; $^W=1;
 use UtilsHelp;
 use UtilsDBS;
 use UtilsReaders;
-use TextGlob 'glob_to_regex';
+use Text::Glob 'glob_to_regex';
 
 my %args = (ONLY_NEW => 1);
 while (scalar @ARGV)
@@ -44,7 +44,7 @@ while (scalar @ARGV)
     }
 }
 
-$TextGlob::strict_wildcard_slash = 0;
+$Text::Glob::strict_wildcard_slash = 0;
 $args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
 if (!$args{FROM} || !$args{TO} || !$args{TO_DBCONFIG}
     || !grep($args{FROM} eq $_, qw(RefDB DBS))

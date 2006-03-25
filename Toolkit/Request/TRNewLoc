@@ -16,27 +16,15 @@ BEGIN {
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);
 }
-use UtilsNet;
-use File::Path;
-use Cwd;
 
 my $now = time();
 my $reset = 0;
-
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-h') {
-	&usage();
-    } elsif ($ARGV[0] eq '-r') {
-	$reset = 1; shift (@ARGV);
-    } elsif ($ARGV[0] eq '--') {
-	shift (@ARGV); last;
-    } elsif ($ARGV[0] =~ '^-') {
-	&usage ("$0: unrecognised option $ARGV[0]\n\n");
-    } else {
-	last;
-    }
-}
+use Getopt::Long;
+use UtilsHelp;
+use UtilsNet;
+use Cwd;
+&GetOptions ("r"           => \$reset,
+	     "help|h"      => sub { &usage() });
 
 my $request = shift (@ARGV);
 if (!$request || ! -f $request)

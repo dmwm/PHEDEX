@@ -13,25 +13,14 @@ BEGIN { use strict; use warnings; $^W=1;
   my $me = $0; $me =~ s|.*/||;
   my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
   unshift(@INC, "$home/../Toolkit/Common"); }
+
+my %args;
+use Getopt::Long;
 use UtilsHelp;
 use UtilsDB;
-
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-h') {
-	&usage();
-    } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
-	shift (@ARGV); $args{DBCONFIG} = shift (@ARGV);
-    } elsif ($ARGV[0] eq '-commit' && scalar @ARGV > 1) {
-	shift (@ARGV); $args{COMMIT} = shift (@ARGV);
-    } elsif ($ARGV[0] eq '--') {
-	shift (@ARGV); last;
-    } elsif ($ARGV[0] =~ '^-') {
-	&usage ("$0: unrecognised option $ARGV[0]\n\n");
-    } else {
-	last;
-    }
-}
+&GetOptions ("db=s"        => \$args{DBCONFIG},
+             "commit=i"    => \$args{COMMIT},
+	     "help|h"      => sub { &usage() });
 
 if (! $args{DBCONFIG})
 {

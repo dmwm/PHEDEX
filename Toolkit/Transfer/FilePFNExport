@@ -16,7 +16,7 @@
 ##H
 ##H Usage:
 ##H   FilePFNExport
-##H      -state DIRECTORY -node NAME -db FILE[:SECTION]
+##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
 ##H      [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]
 ##H      -pfnquery CMD[,ARGS...] -protocols PROTO[,PROTO...]
 ##H
@@ -27,6 +27,7 @@
 ##H -accept    comma-separated list of nodes to accept transfers from
 ##H -pfnquery  the command for querying export names
 ##H -protocols comma-separated list of protocols to accept
+##H -log       where to redirect logging information
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -36,30 +37,18 @@ BEGIN {
 }
 
 ######################################################################
+my %args;
+use Getopt::Long;
 use UtilsHelp;
-my %args = (NJOBS => 20, WAITTIME => 50 + rand(20), TIMEOUT => 600);
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-state' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
-
-    elsif ($ARGV[0] eq '-ignore' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@{$args{IGNORE_NODES}}, split(/,/, shift (@ARGV))); }
-    elsif ($ARGV[0] eq '-accept' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@{$args{ACCEPT_NODES}}, split(/,/, shift (@ARGV))); }
-    elsif ($ARGV[0] eq '-pfnquery' && scalar @ARGV > 1)
-    { shift (@ARGV); @{$args{PFN_QUERY}} = split(/,/, shift(@ARGV)); }
-    elsif ($ARGV[0] eq '-protocols' && scalar @ARGV > 1)
-    { shift (@ARGV); @{$args{PROTOCOLS}} = split(/,/, shift(@ARGV)); }
-    elsif ($ARGV[0] eq '-h')
-    { &usage(); }
-    else
-    { last; }
-}
+&GetOptions ("state=s"     => \$args{DROPDIR},
+	     "log=s"       => \$args{LOGFILE},
+             "db=s"        => \$args{DBCONFIG},
+             "node=s"      => \$args{MYNODE},
+             "ignore=s"    => sub { push(@{$args{IGNORE_NODES}}, split(/,/, $_[1])) },
+             "accept=s"    => sub { push(@{$args{ACCEPT_NODES}}, split(/,/, $_[1])) },
+             "pfnquery=s"  => sub { push(@{$args{PFN_QUERY}}, split(/,/, $_[1])) },
+             "protocols=s" => sub { push(@{$args{PROTOCOLS}}, split(/,/, $_[1])) },
+	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG}
     || !$args{PFN_QUERY} || !$args{NJOBS} || !$args{PROTOCOLS})
@@ -86,6 +75,9 @@ sub new
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
+		  WAITTIME => 50 + rand(20),	# Agent activity cycle
+		  NJOBS => 20,			# Number of parallel queries
+		  TIMEOUT => 600,		# Timeout for executing commands
 		  PFN_QUERY => undef,		# PFN query script
 		  PROTOCOLS => undef);		# Protocols to accept
     my %args = (@_);

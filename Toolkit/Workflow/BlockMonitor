@@ -8,6 +8,7 @@
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
 ##H -db        database connection configuration parameter file
+##H -log       where to redirect logging information
 
 BEGIN {
   use warnings; use strict; $^W=1;
@@ -18,13 +19,14 @@ BEGIN {
 
 
 ######################################################################
-use UtilsHelp;
-use Getopt::Long;
 my %args;
-&GetOptions ("state=s"		=> \$args{DROPDIR},
-	     "db=s"             => \$args{DBCONFIG},
-	     "node=s"           => \$args{MYNODE},
-     	     "help|h"		=> sub { &usage() });
+use Getopt::Long;
+use UtilsHelp;
+&GetOptions ("state=s"     => \$args{DROPDIR},
+	     "log=s"       => \$args{LOGFILE},
+             "db=s"        => \$args{DBCONFIG},
+             "node=s"      => \$args{MYNODE},
+	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$args{MYNODE} || !$args{DROPDIR} || !$args{DBCONFIG})
 {

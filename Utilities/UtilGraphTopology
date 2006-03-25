@@ -9,24 +9,13 @@ BEGIN {
   our $me = $0; $me =~ s|.*/||;
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
   unshift(@INC, $home); }
-use UtilsHelp;
-use UtilsDB;
 
 my %args;
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-h') {
-	&usage ();
-    } elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1) {
-	shift (@ARGV); $args{DBCONFIG} = shift(@ARGV);
-    } elsif ($ARGV[0] eq '--') {
-	shift (@ARGV); last;
-    } elsif ($ARGV[0] =~ '^-') {
-	&usage ("$0: unrecognised option $ARGV[0]\n\n");
-    } else {
-	last;
-    }
-}
+use Getopt::Long;
+use UtilsHelp;
+use UtilsDB;
+&GetOptions ("db=s"        => \$args{DBCONFIG},
+	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$args{DBCONFIG})
 {

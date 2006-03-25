@@ -16,7 +16,7 @@
 ##H      -catalogue-rm PROGRAM[,ARG...] -catalogue-proto PROTOCOL
 ##H      -disk-rm PROGRAM[,ARG...] [-disk-proto PROTOCOL]
 ##H      -pfnquery PROGRAM[,ARG...] [-disk-monitor PROGRAM[,ARG...]]
-##H      [-delay-purge HOURS] [-delay-routing HOURS]
+##H      [-delay-purge HOURS] [-delay-routing HOURS] [-log OUT]
 ##H
 ##H -state            agent state directory
 ##H -node             the node where this agent runs
@@ -30,6 +30,7 @@
 ##H -disk-monitor     command to check if disk is full (default: ignore disk)
 ##H -delay-purge      clear files after this period in hours (default: 48 hours)
 ##H -delay-inactive   time in hours to prevent routing after purge (default: 8 hours)
+##H -log              where to redirect logging information
 
 BEGIN
 {
@@ -39,20 +40,14 @@ BEGIN
   unshift(@INC, $home);
 }
 
-
-#---------------------------------------------
-#     Argument parsing
-#---------------------------------------------
-use UtilsHelp;
+######################################################################
+my %args;
 use Getopt::Long;
-my %args = (DELAY_PURGE => 48 * 3600,
-	    DELAY_INACTIVE => 8 * 3600,
-	    PROTO_PFN_RM => "direct",
-	    WAITTIME => 60);
-&GetOptions ("help|h"		=> sub { &usage() },
-	     "state=s"		=> \$args{DROPDIR},
-	     "node=s"		=> \$args{MYNODE},
-	     "db=s"		=> \$args{DBCONFIG},
+use UtilsHelp;
+&GetOptions ("state=s"          => \$args{DROPDIR},
+	     "log=s"            => \$args{LOGFILE},
+             "db=s"             => \$args{DBCONFIG},
+             "node=s"           => \$args{MYNODE},
 	     "wait=f"		=> \$args{WAITTIME},
 
 	     "catalogue-proto=s"=> \$args{PROTO_CAT_RM},
@@ -62,7 +57,8 @@ my %args = (DELAY_PURGE => 48 * 3600,
 	     "disk-rm=s"        => sub { push(@{$args{CMD_PFN_RM}}, split(/,/, $_[1])) },
 	     "disk-monitor=s"   => sub { push(@{$args{CMD_DISKMON}}, split(/,/, $_[1])) },
 	     "delay-purge=f"    => sub { $args{DELAY_PURGE} = $_[1] * 3600 },
-	     "delay-inactive=f" => sub { $args{DELAY_INACTIVE} = $_[1] * 3600 });
+	     "delay-inactive=f" => sub { $args{DELAY_INACTIVE} = $_[1] * 3600 },
+	     "help|h"           => sub { &usage() });
 
 if (!$args{MYNODE} || !$args{DROPDIR} || !$args{DBCONFIG}
     || !$args{PFN_QUERY} || !$args{CMD_CAT_RM} || !$args{CMD_PFN_RM}
@@ -89,15 +85,16 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
-	  	  AGENTID => "Cleaner",         # Identity for activity logs
+	  	  AGENTID => "FileCleaner",     # Identity for activity logs
+		  WAITTIME => 60 + rand(20),	# Agent activity cycle
 		  PFN_QUERY => undef,		# Program to query PFNs
 		  PROTO_CAT_RM => undef,	# Protocol for PFN lookup for catalogue remove
-		  PROTO_PFN_RM => undef,	# Protocol for PFN lookup for disk remove
+		  PROTO_PFN_RM => "direct",	# Protocol for PFN lookup for disk remove
 		  CMD_CAT_RM => undef,		# Program to remove PFN from catalogue
 		  CMD_PFN_RM => undef,		# Program to remove PFN from disk
 		  CMD_DISKMON => undef,		# Program to monitor disk free space
-		  DELAY_PURGE => undef,		# Time delay after download to purging
-		  DELAY_INACTIVE => undef);	# Time delay after purging to re-routing
+		  DELAY_PURGE => 48 * 3600,	# Time delay after download to purging
+		  DELAY_INACTIVE => 8 * 3600);	# Time delay after purging to re-routing
 
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;

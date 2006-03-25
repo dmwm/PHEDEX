@@ -50,21 +50,13 @@ BEGIN {
 }
 
 ######################################################################
+my %args;
+use Getopt::Long;
 use UtilsHelp;
-my %args = (DAEMON => 1);
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-restrict' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{RESTRICT} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-timeout' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{TIMEOUT} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-nodaemon')
-    { shift (@ARGV); $args{DAEMON} = 0; }
-    elsif ($ARGV[0] eq '-h')
-    { &usage(); }
-    else
-    { last; }
-}
+&GetOptions ("restrict=s"  => \$args{RESTRICT},
+	     "timeout=i"   => \$args{TIMEOUT},
+             "nodaemon"    => sub { $args{DAEMON} = 0 },
+	     "help|h"      => sub { &usage() });
 
 if (@ARGV)
 {
@@ -88,9 +80,9 @@ sub new
     my $self = {};
     my %params = (RESTRICT => undef,		# Connection filter
 	  	  TIMEOUT => undef,		# Idle connection counter
-	  	  DAEMON => undef);		# Control of daemon mode
+	  	  DAEMON => 1);			# Control of daemon mode
     my %args = (@_);
-    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
 }
@@ -101,36 +93,36 @@ sub run
     my ($self) = @_;
     
     # First configure the parameters.
-    if (! defined $self->{TIMEOUT})
+    if (! defined $$self{TIMEOUT})
     {
         # If no default timeout was given, set it.  In daemon mode we
 	# use 300 seconds (5 minutes), and in interactive an hour.
-	$self->{TIMEOUT} = $self->{DAEMON} ? 300 : 3600;
+	$$self{TIMEOUT} = $$self{DAEMON} ? 300 : 3600;
     }
 
     # Initialise home directory
-    $self->{FILE_HOME} = $0;
-    $self->{FILE_HOME} =~ s|/[^/]+$||;
-    $self->{FILE_HOME} ||= ".";
-    $self->{FILE_HOME} .= "/../..";
+    $$self{FILE_HOME} = $0;
+    $$self{FILE_HOME} =~ s|/[^/]+$||;
+    $$self{FILE_HOME} ||= ".";
+    $$self{FILE_HOME} .= "/../..";
 
     # Start the clock on serving requests
-    $self->{TIME_AUTO_QUIT} = time() + $self->{TIMEOUT} if $self->{TIMEOUT};
+    $$self{TIME_AUTO_QUIT} = time() + $$self{TIMEOUT} if $$self{TIMEOUT};
 
     # If we have a restrict host, convert it to an address.
-    if (defined $self->{RESTRICT})
+    if (defined $$self{RESTRICT})
     {
-	my $peer = inet_aton($self->{RESTRICT});
-	die "$0: failed to lookup -restrict host $self->{RESTRICT}\n" if ! defined $peer;
-	$self->{RESTRICT_PEER} = $peer;
+	my $peer = inet_aton($$self{RESTRICT});
+	die "$0: failed to lookup -restrict host $$self{RESTRICT}\n" if ! defined $peer;
+	$$self{RESTRICT_PEER} = $peer;
     }
 
     # Start the web server
-    $self->{HTTP_SERVER} = new HTTP::Daemon;
-    print $self->{HTTP_SERVER}->url, "\n";
+    $$self{HTTP_SERVER} = new HTTP::Daemon;
+    print $$self{HTTP_SERVER}->url, "\n";
 
     # If in daemon mode, daemonize.
-    $self->daemonise() if $self->{DAEMON};
+    $self->daemonise() if $$self{DAEMON};
 
     # Serve requests
     $self->runloop();
@@ -148,14 +140,14 @@ sub runloop
 	# If we have exceeded our time, quit now.  Note that
 	# TIME_AUTO_QUIT is getting updated every time we
 	# see activity.
-	my $timeleft = $self->{TIME_AUTO_QUIT} - time();
+	my $timeleft = $$self{TIME_AUTO_QUIT} - time();
 	last if $timeleft <= 0;
 
 	# Accept a new connection, but only until timeout.
 	my ($conn, $peer);
 	eval {
 	    local $SIG{ALRM} = sub { die "alarm\n" }; alarm ($timeleft);
-	    ($conn, $peer) = $self->{HTTP_SERVER}->accept();
+	    ($conn, $peer) = $$self{HTTP_SERVER}->accept();
 	    alarm (0);
 	};
 	if ($@)
@@ -167,11 +159,11 @@ sub runloop
 
 	# Check if we talk to this peer host.
 	my ($port, $host) = sockaddr_in ($peer);
-	if (! defined $self->{RESTRICT_PEER})
+	if (! defined $$self{RESTRICT_PEER})
 	{
-	    $self->{RESTRICT_PEER} = $host;
+	    $$self{RESTRICT_PEER} = $host;
 	}
-	elsif ($self->{RESTRICT_PEER} ne $host)
+	elsif ($$self{RESTRICT_PEER} ne $host)
 	{
 	    print STDERR "Rejecting connection from @{[inet_ntoa($host)]}\n";
 	    $conn->close();
@@ -183,9 +175,9 @@ sub runloop
 	# FIXME: Same alarm magic here as above?
 	while (my $request = $conn->get_request())
 	{
-	    last if $self->{TIME_AUTO_QUIT} - time() <= 0;
+	    last if $$self{TIME_AUTO_QUIT} - time() <= 0;
 	    return if ! $self->handle ($peer, $conn, $request);
-	    $self->{TIME_AUTO_QUIT} = time() + $self->{TIMEOUT} if $self->{TIMEOUT};
+	    $$self{TIME_AUTO_QUIT} = time() + $$self{TIMEOUT} if $$self{TIMEOUT};
 	}
 
 	# Finish this connection
@@ -207,7 +199,7 @@ sub handle
 	{
 	    my ($port, $host) = sockaddr_in ($peer);
 	    $session = sprintf ("S%X%X%X", $port, time(), rand(16));
-	    $self->{SESSION_DATA}{$session} = {
+	    $$self{SESSION_DATA}{$session} = {
 		SESSIONID => $session,
 		REMOTE_HOST => $host,
 		REMOTE_PORT => $port
@@ -219,14 +211,14 @@ sub handle
 
 	if (grep($rest eq $_, qw(/ /index.html /index.htm /default.htm)))
 	{
-	    my $path = "$self->{FILE_HOME}/Toolkit/Management/index.html";
+	    my $path = "$$self{FILE_HOME}/Toolkit/Management/index.html";
 	    $connection->send_file_response ($path);
 	    return 1;
 	}
 
 	elsif ($request->url->path eq '/quit')
 	{
-	    my $path = "$self->{FILE_HOME}/Toolkit/Management/quit.html";
+	    my $path = "$$self{FILE_HOME}/Toolkit/Management/quit.html";
 	    $connection->send_file_response ($path);
 	    return 0;
 	}

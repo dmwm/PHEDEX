@@ -21,23 +21,13 @@ BEGIN {
   unshift(@INC, $home);
 }
 
+my $now = time();
+my $reset = 0;
+use Getopt::Long;
 use UtilsHelp;
 use UtilsNet;
-use File::Path;
 use Cwd;
-
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-h') {
-	&usage ();
-    } elsif ($ARGV[0] eq '--') {
-	shift (@ARGV); last;
-    } elsif ($ARGV[0] =~ '^-') {
-	&usage ("$0: unrecognised option $ARGV[0]\n\n");
-    } else {
-	last;
-    }
-}
+&GetOptions ("help|h"      => sub { &usage() });
 
 my $request = shift (@ARGV);
 my $area = shift (@ARGV) || &getcwd();

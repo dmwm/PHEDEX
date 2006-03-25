@@ -12,26 +12,16 @@ BEGIN { use strict; use warnings; $^W=1;
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
   unshift(@INC, $home);
 }
-use File::Path;
-use UtilsHelp;
 
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-node' && scalar @ARGV > 1)
-    { shift (@ARGV); $g_nodename = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-base' && scalar @ARGV > 1)
-    { shift (@ARGV); $g_basepath = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-cat' && scalar @ARGV > 1)
-    { shift (@ARGV); $g_cat = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $g_dbconfig = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-management' && scalar @ARGV > 1)
-    { shift (@ARGV); $g_management = 1 }
-    elsif ($ARGV[0] eq '-h')
-    { &usage(); }
-    else
-    { last; }
-}
+use File::Path;
+use Getopt::Long;
+use UtilsHelp;
+&GetOptions ("node=s"      => \$g_nodename,
+	     "base=s"      => \$g_basepath,
+             "cat=s"       => \$g_cat,
+             "db=s"        => \$g_dbconfig,
+             "management"  => \$g_management,
+	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$g_basepath || !$g_cat || !$g_dbconfig)
 {

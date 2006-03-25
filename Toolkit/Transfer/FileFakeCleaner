@@ -10,11 +10,12 @@
 ##H
 ##H Usage:
 ##H   FileFakeCleaner
-##H      -state DIRECTORY -nodes NAME[,NAME...] -db FILE[:SECTION]
+##H      -state DIRECTORY -nodes NAME[,NAME...] -db FILE[:SECTION] [-log OUT]
 ##H
 ##H -state     agent state directory
 ##H -nodes     comma-separated list of nodes to run the agent for
 ##H -db        database connection configuration parameter file
+##H -log       where to redirect logging information
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -24,21 +25,14 @@ BEGIN {
 }
 
 ######################################################################
-use UtilsHelp;
 my %args;
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-state' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-nodes' && scalar @ARGV > 1)
-    { shift (@ARGV); push(@{$args{NODES}}, split(/,/, shift(@ARGV))); }
-    elsif ($ARGV[0] eq '-h')
-    { &usage(); }
-    else
-    { last; }
-}
+use Getopt::Long;
+use UtilsHelp;
+&GetOptions ("state=s"     => \$args{DROPDIR},
+	     "log=s"       => \$args{LOGFILE},
+             "db=s"        => \$args{DBCONFIG},
+             "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
+	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG})
 {

@@ -32,33 +32,20 @@ BEGIN {
   our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
   unshift(@INC, $home);
 }
-use UtilsTR;
-use UtilsNet;
-use File::Path;
-use Cwd;
 
 my $now = time();
 my $reset = 0;
 my $mode = undef;
 my $request = undef;
 my @files = ();
-
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-h') {
-	&usage();
-    } elsif ($ARGV[0] eq '-r') {
-	$reset = 1; shift (@ARGV);
-    } elsif ($ARGV[0] =~ '^-([pf])$') {
-	$mode = $1; shift (@ARGV);
-    } elsif ($ARGV[0] eq '--') {
-	shift (@ARGV); last;
-    } elsif ($ARGV[0] =~ '^-') {
-	&usage ("$0: unrecognised option $ARGV[0]\n\n");
-    } else {
-	last;
-    }
-}
+use Getopt::Long;
+use UtilsTR;
+use UtilsHelp;
+use UtilsNet;
+use Cwd;
+&GetOptions ("r"           => \$reset,
+	     "p|f"         => sub { $mode = $_[0] },
+	     "help|h"      => sub { &usage() });
 
 $request = shift (@ARGV);
 @files = @ARGV;

@@ -1,18 +1,21 @@
 #!/usr/bin/env perl
 
-## This drop box agent parses LCG production jobs summary files 
-## and drops a XML catalog fragment and a checksum file.
-## Those two files are used by DropTMDBPublisher to inject the data into TMDB.
-##
-## In LCG, the output EVD files are packaged in a zip archive. The zip file
-## is the one injected in TMDB. 
-##
-## Like all drop box agents, this agent periodically inspects the
-## inbox, looking for new completed drops.  Each new drop is processed
-## and passed to the next
-## drop box agent, or destroyed if there is no next agent.  If the
-## agent terminates, crashes or is otherwise stopped, it will pick
-## up in the right place when started the next time.
+##H This drop box agent parses LCG production jobs summary files 
+##H and drops a XML catalog fragment and a checksum file.
+##H Those two files are used by DropTMDBPublisher to inject the data into TMDB.
+##H
+##H In LCG, the output EVD files are packaged in a zip archive. The zip file
+##H is the one injected in TMDB. 
+##H
+##H Like all drop box agents, this agent periodically inspects the
+##H inbox, looking for new completed drops.  Each new drop is processed
+##H and passed to the next
+##H drop box agent, or destroyed if there is no next agent.  If the
+##H agent terminates, crashes or is otherwise stopped, it will pick
+##H up in the right place when started the next time.
+##H
+##H Usage: DropSmryLCG -state DIRECTORY [-next NEXT-AGENT] [-log OUT]
+##H                    -publish COMMAND[,ARGS...]
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -22,32 +25,18 @@ BEGIN {
 }
 
 ######################################################################
-
 my %args;
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-in' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-out' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
-    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-publish' && scalar @ARGV > 1)
-    { shift (@ARGV); @{$args{PUBLISH}} = split(/,/, shift(@ARGV)); }
-    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
-    else
-    { last; }
-}
+use Getopt::Long;
+use UtilsHelp;
+&GetOptions ("state=s"     => \$args{DROPDIR},
+	     "log=s"       => \$args{LOGFILE},
+             "next=s@"     => $args{NEXTDIR},
+	     "publish=s"   => sub { push(@{$args{PUBLISH}}, split(/,/, $_[1])) },
+	     "help|h"      => sub { &usage() });
 
-if (scalar @ARGV || !$args{DROPDIR} || !$args{MYNODE})
+if (scalar @ARGV || !$args{DROPDIR})
 {
-    print STDERR
-	"usage: $me -in IN-DROP-BOX -out NEXT-DROP-BOX\n",
-	"           -node NODE-NAME\n",
-        "           [-publish PUBLISH-SCRIPT[,ARGS]]\n",
-	"           [-wait SECS-TO-WAIT]\n";
-    exit (1);
+    die "Insufficient parameters, use -h for help.\n";
 }
 
 (new DropSmryLCG (%args))->process();
@@ -66,7 +55,7 @@ sub new
     my %params = (MYNODE => undef,     # My TMDB node name
 		  PUBLISH => undef);   # glue script to publish files into local phedex pool catalog 
     my %args = (@_);
-    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
 }
@@ -80,7 +69,7 @@ sub ProcessSmry
     my $lfn   = undef;
     my $turl  = undef;
     my $surl  = undef;
-    my $dropdir = "$self->{WORKDIR}/$drop";
+    my $dropdir = "$$self{WORKDIR}/$drop";
 
     # Parse the smry file.
     do {&alert ("cannot open summary file $smryfile: $!"); return 1;} if !open (IN, "< $smryfile");
@@ -114,9 +103,9 @@ sub ProcessSmry
       if  ! &output ($ChecksumFile, $cksumContent);
 
     # execute script to publish into local phedex pool catalog
-    if ($self->{PUBLISH}) {
+    if ($$self{PUBLISH}) {
         do { &alert ("failed to publish $XMLCatFragment into local catalogue"); return 1} 
-            if &runcmd (@{$self->{PUBLISH}}, "$XMLCatFragment"); 
+            if &runcmd (@{$$self{PUBLISH}}, "$XMLCatFragment"); 
     }
 
     # OK, we are done
@@ -162,11 +151,11 @@ sub processDrop
 
     # Sanity checking
     return if (! $self->inspectDrop ($drop));
-    delete $self->{BAD}{$drop};
-    &timeStart($self->{STARTTIME});
+    delete $$self{BAD}{$drop};
+    &timeStart($$self{STARTTIME});
 
     # Find the Smry file.
-    my $dropdir = "$self->{WORKDIR}/$drop";
+    my $dropdir = "$$self{WORKDIR}/$drop";
     my $smryfile = (<$dropdir/*.smry>)[0];
     do { &alert("$drop: no summary file"); $self->markBad ($drop); return }
       if ! $smryfile;
@@ -176,5 +165,5 @@ sub processDrop
       if $self->ProcessSmry ($drop, $smryfile);
 
     $self->relayDrop ($drop);
-    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
+    &logmsg("stats: $drop @{[&formatElapsedTime($$self{STARTTIME})]} success");
 }

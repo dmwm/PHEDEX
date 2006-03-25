@@ -12,14 +12,14 @@
 ##H Usage:
 ##H   FileRouter
 ##H      -state DIRECTORY -node NAME -nodes PATTERN[,PATTERN...]
-##H      -db FILE[:SECTION] [-wait SECS]
+##H      -db FILE[:SECTION] [-log OUT]
 ##H
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
 ##H -nodes     comma-separated list of node name patterns to route for;
 ##H            pattern wildcards are '%' (any string) and '_' (any character)
 ##H -db        database connection configuration parameter file
-##H -wait      time to wait in seconds between work scans
+##H -log       where to redirect logging information
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -29,25 +29,15 @@ BEGIN {
 }
 
 ######################################################################
-use UtilsHelp;
 my %args;
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-nodes' && scalar @ARGV > 1)
-    { shift (@ARGV); push(@{$args{NODES}}, split(/,/, shift(@ARGV))); }
-    elsif ($ARGV[0] eq '-h')
-    { &usage(); }
-    else
-    { last; }
-}
+use Getopt::Long;
+use UtilsHelp;
+&GetOptions ("state=s"     => \$args{DROPDIR},
+	     "log=s"       => \$args{LOGFILE},
+             "db=s"        => \$args{DBCONFIG},
+             "node=s"      => \$args{MYNODE},
+             "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
+	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{NODES} || !$args{DBCONFIG})
 {

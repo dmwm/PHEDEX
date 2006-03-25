@@ -19,7 +19,7 @@ BEGIN { use strict; use warnings; $^W=1;
 use UtilsHelp;
 use UtilsDBS;
 use UtilsWriters;
-use TextGlob 'glob_to_regex';
+use Text::Glob 'glob_to_regex';
 use File::Path;
 
 my %args;
@@ -41,7 +41,7 @@ while (scalar @ARGV)
 }
 
 $args{TODIR} = shift (@ARGV);
-$TextGlob::strict_wildcard_slash = 0;
+$Text::Glob::strict_wildcard_slash = 0;
 $args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
 if (!$args{TODIR} || !$args{FROM}
     || !($args{FROM} eq 'RefDB' || $args{FROM} eq 'DBS')

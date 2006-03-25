@@ -18,21 +18,13 @@ BEGIN {
 $SIG{INT} = sub { print "Caught sig INT\n"; exit 2 };
 
 ######################################################################
-
+my %args;
+use Getopt::Long;
 use UtilsHelp;
+&GetOptions ("db=s"        => \$args{DBCONFIG},
+             "script=s"    => \$args{SCRIPT},
+	     "help|h"      => sub { &usage() });
 
-my %args = ();
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-script' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{SCRIPT} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-h')
-    { &usage(); }
-    else 
-    { last; }
-}
 
 if (@ARGV || !$args{DBCONFIG} || !$args{SCRIPT})
 {

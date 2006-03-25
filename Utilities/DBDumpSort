@@ -11,20 +11,11 @@ BEGIN { use strict; use warnings; $^W=1;
   my $me = $0; $me =~ s|.*/||;
   my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
   unshift(@INC, "$home/../Toolkit/Common"); }
-use UtilsHelp;
 
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-h') {
-	&usage();
-    } elsif ($ARGV[0] eq '--') {
-	shift (@ARGV); last;
-    } elsif ($ARGV[0] =~ '^-') {
-	&usage ("$0: unrecognised option $ARGV[0]\n\n");
-    } else {
-	last;
-    }
-}
+my %args;
+use Getopt::Long;
+use UtilsHelp;
+&GetOptions ("help|h"      => sub { &usage() });
 
 foreach my $file (@ARGV)
 {

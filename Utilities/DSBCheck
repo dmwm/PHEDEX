@@ -25,7 +25,7 @@ BEGIN { use strict; use warnings; $^W=1;
   unshift(@INC, "$home/../Toolkit/Common"); }
 use UtilsHelp;
 use UtilsDBS;
-use TextGlob 'glob_to_regex';
+use Text::Glob 'glob_to_regex';
 
 my %args;
 while (scalar @ARGV)
@@ -49,7 +49,7 @@ while (scalar @ARGV)
     }
 }
 
-$TextGlob::strict_wildcard_slash = 0;
+$Text::Glob::strict_wildcard_slash = 0;
 $args{PATS} = [ map { &glob_to_regex($_) } @ARGV ];
 if (!$args{PFN_QUERY} || !$args{NODE} || !$args{FROM}
     || !($args{FROM} eq 'RefDB' || $args{FROM} eq 'DBS')

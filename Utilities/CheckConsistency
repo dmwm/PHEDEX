@@ -26,36 +26,21 @@ BEGIN {
   unshift(@INC, $home);
 }
 
+my %args = (NJOBS => 10);
+use Getopt::Long;
 use UtilsHelp;
 use File::Copy;
-my %args = (NJOBS => 10);
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-catalogue' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{CATALOGUE} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-match' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{HOST_KEY} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-jobs' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{NJOBS} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-domains' && scalar @ARGV > 1)
-    { shift (@ARGV); map { $args{DOMAINS}{$_} = 1 } split(/,/, shift(@ARGV)); }
-    elsif ($ARGV[0] eq '-locallister' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{LOCALLS} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-surlroot' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{SURLROOT} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-localroots' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{LOCALROOTS} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-guessfromcat' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{GUESS} = shift(@ARGV) }
-    elsif ($ARGV[0] eq '-h')
-    { &usage(); }
-    else
-    { last; }
-}
+&GetOptions ("db=s"           => \$args{DBCONFIG},
+             "node=s"         => \$args{MYNODE},
+             "catalogue=s"    => \$args{CATALOGUE},
+             "match=s"        => \$args{HOST_KEY},
+             "jobs=i"         => \$args{NJOBS},
+	     "domains=s"      => sub { map { $args{DOMAINS}{$_} = 1 } split(/,/, $_[1])) },
+	     "locallisteer=s" => \$args{LOCALLS},
+	     "surlroot=s"     => \$args{SURLROOT},
+	     "localroots=s"   => \$args{LOCALROOTS},
+	     "guessfromcat=s" => \$args{GUESS},
+	     "help|h"         => sub { &usage() });
 
 # FIXME: would be good to check for known fstypes: castor or mount
 if (@ARGV || !$args{MYNODE} || !$args{HOST_KEY} || !$args{DBCONFIG}

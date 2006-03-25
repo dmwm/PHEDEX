@@ -56,7 +56,7 @@ sub new
     }
 
     &output ($self->{PIDFILE}, "$$\n")
-	or die "$me: fatal error: cannot write to $self->{PIDFILE}: $!\n";
+	|| die "$me: fatal error: cannot write to $self->{PIDFILE}: $!\n";
 
     -d $self->{INBOX} || mkdir $self->{INBOX}
 	|| die "$me: fatal error: cannot create inbox: $!\n";
@@ -64,6 +64,15 @@ sub new
 	|| die "$me: fatal error: cannot create work directory: $!\n";
     -d $self->{OUTDIR} || mkdir $self->{OUTDIR}
 	|| die "$me: fatal error: cannot create outbox directory: $!\n";
+
+    if ($args{LOGFILE})
+    {
+        open (STDOUT, ">> $args{LOGFILE}")
+            or die "$me: cannot redirect output to $args{LOGFILE}: $!\n";
+        open (STDERR, ">&STDOUT")
+	    or die "Can't dup STDOUT: $!";
+    }
+    close (STDIN);
 
     return $self;
 }

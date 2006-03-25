@@ -8,7 +8,7 @@
 ##H
 ##H Usage:
 ##H   DropLoadBalance
-##H      -state DIRECTORY [-next DIRECTORY] [-wait SECS]
+##H      -state DIRECTORY [-next DIRECTORY] [-log OUT]
 ##H      -worker PROGRAM[,ARG...] [-workers N]
 ##H
 ##H -state     agent state directory, including inbox
@@ -16,6 +16,7 @@
 ##H -wait      time to wait in seconds between work scans
 ##H -worker    worker agent and arguments
 ##H -workers   number of workers to run (default: 5)
+##H -log       where to redirect logging information
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -25,27 +26,17 @@ BEGIN {
 }
 
 ######################################################################
+my %args;
+use Getopt::Long;
 use UtilsHelp;
-my %args = (NWORKERS => 5);
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-state' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DROPDIR}= shift(@ARGV); }
-    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-next' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
-    elsif ($ARGV[0] eq '-worker' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@{$args{WORKER}}, split(',', shift(@ARGV))); }
-    elsif ($ARGV[0] eq '-workers' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{NWORKERS} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-h')
-    { &usage(); }
-    else
-    { last; }
-}
-	
-if (@ARGV || !$args{DROPDIR} || !$args{WORKER} || !$args{NWORKERS})
+&GetOptions ("state=s"     => \$args{DROPDIR},
+	     "log=s"       => \$args{LOGFILE},
+             "next=s@"     => $args{NEXTDIR},
+             "workers=i"   => \$args{NWORKERS},
+	     "worker=s"    => sub { push(@{$args{WORKER}}, split(/,/, $_[1])) },
+	     "help|h"      => sub { &usage() });
+
+if (@ARGV || !$args{DROPDIR} || !$args{WORKER})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -64,7 +55,7 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (WORKER => undef);	# Subprocess spec
+    my %params = (NWORKERS => 5);	# Number of parallel workers
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;

@@ -26,7 +26,7 @@
 ##H
 ##H Usage:
 ##H   FileDownload
-##H      -state DIRECTORY -node NAME -db FILE[:SECTION]
+##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
 ##H      [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]
 ##H      -pfndest CMD[,ARG...] [-bypass CMD[,ARG...]]
 ##H      [-validate CMD[,ARG...]] [-publish CMD[,ARG...]]
@@ -71,6 +71,7 @@
 ##H -protocols   comma-separated list of storage protocols to accept
 ##H -batch-size  enable batching, set maximum number of bytes per batch
 ##H -batch-files enable batching, set maximum number of files per batch
+##H -log         where to redirect logging information
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -80,53 +81,32 @@ BEGIN {
 }
 
 ######################################################################
-use UtilsHelp;
 my %args;
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-state' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
+use Getopt::Long;
+use UtilsHelp;
+&GetOptions ("state=s"     => \$args{DROPDIR},
+	     "log=s"       => \$args{LOGFILE},
+             "db=s"        => \$args{DBCONFIG},
+             "node=s"      => \$args{MYNODE},
 
-    elsif ($ARGV[0] eq '-ignore' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@{$args{IGNORE_NODES}}, split(/,/, shift (@ARGV))); }
-    elsif ($ARGV[0] eq '-accept' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@{$args{ACCEPT_NODES}}, split(/,/, shift (@ARGV))); }
+             "ignore=s"    => sub { push(@{$args{IGNORE_NODES}}, split(/,/, $_[1])) },
+             "accept=s"    => sub { push(@{$args{ACCEPT_NODES}}, split(/,/, $_[1])) },
 
-    elsif ($ARGV[0] eq '-pfndest' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@{$args{PFN_GEN_COMMAND}}, split(/,/,  shift(@ARGV))); }
-    elsif ($ARGV[0] eq '-bypass' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@{$args{BYPASS_COMMAND}}, split(/,/,  shift(@ARGV))); }
-    elsif ($ARGV[0] eq '-validate' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@{$args{VALIDATE_COMMAND}}, split (/,/, shift(@ARGV))); }
-    elsif ($ARGV[0] eq '-publish' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@{$args{PUBLISH_COMMAND}}, split(/,/, shift(@ARGV))); }
-    elsif ($ARGV[0] eq '-delete' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@{$args{DELETE_COMMAND}}, split (/,/, shift(@ARGV))); }
+             "pfndest=s"   => sub { push(@{$args{PFN_GEN_COMMAND}}, split(/,/, $_[1])) },
+             "bypass=s"    => sub { push(@{$args{BYPASS_COMMAND}}, split(/,/, $_[1])) },
+             "validate=s"  => sub { push(@{$args{VALIDATE_COMMAND}}, split(/,/, $_[1])) },
+             "publish=s"   => sub { push(@{$args{PUBLISH_COMMAND}}, split(/,/, $_[1])) },
+             "delete=s"    => sub { push(@{$args{DELETE_COMMAND}}, split(/,/, $_[1])) },
 
-    elsif ($ARGV[0] eq '-timeout' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{TIMEOUT} = shift (@ARGV); }
-    elsif ($ARGV[0] eq '-jobs' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{NJOBS} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-backend' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{BACKEND_TYPE} = shift(@ARGV); last; }
+             "timeout=f"   => \$args{TIMEOUT},
+             "jobs=i"      => \$args{NJOBS},
+             "backend=i"   => sub { \$args{BACKEND_TYPE} = $_[1]; die "!FINISH"; },
+	     "help|h"      => sub { &usage() });
 
-    elsif ($ARGV[0] eq '-h')
-    { &usage(); }
-    else
-    { last; }
-}
-
-# elsif ($ARGV[0] eq '-batch-files' && scalar @ARGV > 1)
-# { shift (@ARGV); $args{BATCH_FILES} = shift(@ARGV); }
-# elsif ($ARGV[0] eq '-batch-size' && scalar @ARGV > 1)
-# { shift (@ARGV); $args{BATCH_SIZE} = shift(@ARGV); }
-# elsif ($ARGV[0] eq '-command' && scalar @ARGV > 1)
-# { shift (@ARGV); push (@{$args{COMMAND}}, split (/,/, shift(@ARGV))); }
-# $args{BATCH_SIZE} = &sizeValue ($args{BATCH_SIZE}) if $args{BATCH_SIZE};
+           # "batch-files=i"  => \$args{BATCH_FILES},
+           # "batch-size=s"   => \$args{BATCH_SIZE},
+           # "command=s"   => sub { push(@{$args{COMMAND}}, split(/,/, $_[1])) },
+           # $args{BATCH_SIZE} = &sizeValue ($args{BATCH_SIZE}) if $args{BATCH_SIZE};
 
 if (!$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG}
     || !$args{PFN_GEN_COMMAND} || !$args{BACKEND_TYPE})

@@ -6,14 +6,12 @@
 ##H a statistical model.
 ##H
 ##H Usage:
-##H   DropNullAgent
-##H      -state DIRECTORY [-next NEXT] [-wait SECS]
-##H      [-model MODEL-FILE]
+##H   DropNullAgent-state DIRECTORY [-next NEXT] [-log OUT] [-model MODEL-FILE]
 ##H
 ##H -state     agent state directory, including inbox
 ##H -next      next agent to pass the drops to; can be given several times
-##H -wait      time to wait in seconds between work scans
 ##H -model     read in a statisical delay model file of "TIME FREQ" lines
+##H -log       where to redirect logging information
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -23,24 +21,15 @@ BEGIN {
 }
 
 ######################################################################
-use UtilsHelp;
 my %args;
-while (scalar @ARGV)
-{
-    if ($ARGV[0] eq '-state' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{DROPDIR}= shift(@ARGV); }
-    elsif ($ARGV[0] eq '-next' && scalar @ARGV > 1)
-    { shift (@ARGV); push (@{$args{NEXTDIR}}, shift(@ARGV)); }
-    elsif ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-model' && scalar @ARGV > 1)
-    { shift (@ARGV); $args{MODELFILE} = shift(@ARGV); }
-    elsif ($ARGV[0] eq '-h')
-    { &usage(); }
-    else
-    { last; }
-}
-	
+use Getopt::Long;
+use UtilsHelp;
+&GetOptions ("state=s"     => \$args{DROPDIR},
+	     "log=s"       => \$args{LOGFILE},
+             "next=s@"     => $args{NEXTDIR},
+             "model="      => \$args{MODELFILE},
+	     "help|h"      => sub { &usage() });
+
 if (@ARGV || !$args{DROPDIR})
 {
     die "Insufficient parameters, use -h for help.\n";

@@ -8,11 +8,12 @@
 ##H removal of the file-level information in TMDB.
 ##H
 ##H Usage:
-##H   BlockDeactivate -state DIRECTORY -node NAME -db FILE[:SECTION]
+##H   BlockDeactivate -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
 ##H
 ##H -state     agent state directory
 ##H -node      the node where this agent runs
 ##H -db        database connection configuration parameter file
+##H -log       where to redirect logging information
 
 BEGIN {
   use warnings; use strict; $^W=1;
@@ -22,13 +23,15 @@ BEGIN {
 }
 
 ######################################################################
-use UtilsHelp;
-use Getopt::Long;
 my %args;
-&GetOptions ("state=s"		=> \$args{DROPDIR},
-	     "node=s"           => \$args{MYNODE},
-	     "db=s"		=> \$args{DBCONFIG},
-	     "help|h"		=> sub { &usage() });
+use Getopt::Long;
+use UtilsHelp;
+&GetOptions ("state=s"     => \$args{DROPDIR},
+	     "log=s"       => \$args{LOGFILE},
+             "db=s"        => \$args{DBCONFIG},
+             "node=s"      => \$args{MYNODE},
+             "once"        => \$args{ONCE},
+	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$args{MYNODE} || !$args{DROPDIR} || !$args{DBCONFIG})
 {
