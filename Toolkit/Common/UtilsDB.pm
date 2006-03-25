@@ -10,54 +10,54 @@ sub parseDatabaseInfo
 {
     my ($self) = @_;
 
-    $self->{DBH_LIFE} = 86400;
-    $self->{DBH_AGE} = 0;
-    if ($self->{DBCONFIG} =~ /(.*):(.*)/)
+    $$self{DBH_LIFE} = 86400;
+    $$self{DBH_AGE} = 0;
+    if ($$self{DBCONFIG} =~ /(.*):(.*)/)
     {
-	$self->{DBCONFIG} = $1;
-	$self->{DBSECTION} = $2;
+	$$self{DBCONFIG} = $1;
+	$$self{DBSECTION} = $2;
     }
 
-    my $insection = $self->{DBSECTION} ? 0 : 1;
-    open (DBCONF, "< $self->{DBCONFIG}")
-	or die "$self->{DBCONFIG}: $!\n";
+    my $insection = $$self{DBSECTION} ? 0 : 1;
+    open (DBCONF, "< $$self{DBCONFIG}")
+	or die "$$self{DBCONFIG}: $!\n";
 
     while (<DBCONF>)
     {
 	chomp; s/#.*//; s/^\s+//; s/\s+$//; s/\s+/ /g; next if /^$/;
 	if (/^Section (\S+)$/) {
-	    $insection = ($1 eq $self->{DBSECTION});
+	    $insection = ($1 eq $$self{DBSECTION});
 	} elsif (/^Interface (\S+)$/) {
-	    $self->{DBH_DBITYPE} = $1 if $insection;
+	    $$self{DBH_DBITYPE} = $1 if $insection;
 	} elsif (/^Database (\S+)$/) {
-	    $self->{DBH_DBNAME} = $1 if $insection;
+	    $$self{DBH_DBNAME} = $1 if $insection;
 	} elsif (/^AuthDBUsername (\S+)$/) {
-	    $self->{DBH_DBUSER} = $1 if $insection;
+	    $$self{DBH_DBUSER} = $1 if $insection;
 	} elsif (/^AuthDBPassword (\S+)$/) {
-	    $self->{DBH_DBPASS} = $1 if $insection;
+	    $$self{DBH_DBPASS} = $1 if $insection;
 	} elsif (/^AuthRole (\S+)$/) {
-	    $self->{DBH_DBROLE} = $1 if $insection;
+	    $$self{DBH_DBROLE} = $1 if $insection;
 	} elsif (/^AuthRolePassword (\S+)$/) {
-	    $self->{DBH_DBROLE_PASS} = $1 if $insection;
+	    $$self{DBH_DBROLE_PASS} = $1 if $insection;
 	} elsif (/^ConnectionLife (\d+)$/) {
-	    $self->{DBH_LIFE} = $1 if $insection;
-	    $self->{DBH_CACHE} = 0 if $insection && $1 == 0;
+	    $$self{DBH_LIFE} = $1 if $insection;
+	    $$self{DBH_CACHE} = 0 if $insection && $1 == 0;
 	} elsif (/^LogConnection (on|off)$/) {
-	    $self->{DBH_LOGGING} = ($1 eq 'on') if $insection;
+	    $$self{DBH_LOGGING} = ($1 eq 'on') if $insection;
 	} elsif (/^LogSQL (on|off)$/) {
 	    $ENV{PHEDEX_LOG_SQL} = ($1 eq 'on') if $insection;
 	} else {
-	    die "$self->{DBCONFIG}: $.: Unrecognised line\n";
+	    die "$$self{DBCONFIG}: $.: Unrecognised line\n";
 	}
     }
     close (DBCONF);
 
-    die "$self->{DBCONFIG}: database parameters not found\n"
-	if (! $self->{DBH_DBITYPE} || ! $self->{DBH_DBNAME}
-	    || ! $self->{DBH_DBUSER} || ! $self->{DBH_DBPASS});
+    die "$$self{DBCONFIG}: database parameters not found\n"
+	if (! $$self{DBH_DBITYPE} || ! $$self{DBH_DBNAME}
+	    || ! $$self{DBH_DBUSER} || ! $$self{DBH_DBPASS});
 
-    die "$self->{DBCONFIG}: role specified without username or password\n"
-	if ($self->{DBH_DBROLE} && ! $self->{DBH_DBROLE_PASS});
+    die "$$self{DBCONFIG}: role specified without username or password\n"
+	if ($$self{DBH_DBROLE} && ! $$self{DBH_DBROLE_PASS});
 }
 
 # Create a connection to the transfer database.  Updates the agent's
@@ -66,33 +66,33 @@ sub parseDatabaseInfo
 # database-related data members DBITYPE, DBNAME, DBUSER, DBPASS, and
 # the TMDB node MYNODE.  The automatic identification is suppressed
 # if a second optional argument is given and it's value is zero.
-# Database connections are cached into $self->{DBH}.
+# Database connections are cached into $$self{DBH}.
 sub connectToDatabase
 {
     my ($self, $identify) = @_;
 
     # If we have database configuration file, read it
-    &parseDatabaseInfo ($self) if ($self->{DBCONFIG} && ! $self->{DBH_DBNAME});
+    &parseDatabaseInfo ($self) if ($$self{DBCONFIG} && ! $$self{DBH_DBNAME});
 
     # Use cached connection if it's still alive and the handle
     # isn't too old, otherwise create new one.
-    my $dbh = $self->{DBH};
-    if (! $self->{DBH}
-	|| $self->{DBH}{private_phedex_invalid}
-	|| time() - $self->{DBH_AGE} > $self->{DBH_LIFE}
-	|| (! eval { $self->{DBH}->ping() } || $@)
+    my $dbh = $$self{DBH};
+    if (! $$self{DBH}
+	|| $$self{DBH}{private_phedex_invalid}
+	|| time() - $$self{DBH_AGE} > $$self{DBH_LIFE}
+	|| (! eval { $$self{DBH}->ping() } || $@)
 	|| (! eval { $dbh->do("select 1 from dual") } || $@))
     {
-	$self->{DBH_LOGGING} = 1 if $ENV{PHEDEX_LOG_DB_CONNECTIONS};
-	&logmsg ("(re)connecting to database") if $self->{DBH_LOGGING};
+	$$self{DBH_LOGGING} = 1 if $ENV{PHEDEX_LOG_DB_CONNECTIONS};
+	&logmsg ("(re)connecting to database") if $$self{DBH_LOGGING};
 
 	# Clear previous connection.
-	eval { $self->{DBH}->disconnect() } if $self->{DBH};
-	undef $self->{DBH};
+	eval { $$self{DBH}->disconnect() } if $$self{DBH};
+	undef $$self{DBH};
 
         # Start a new connection.
-        $dbh = DBI->connect ("DBI:$self->{DBH_DBITYPE}:$self->{DBH_DBNAME}",
-	    		     $self->{DBH_DBUSER}, $self->{DBH_DBPASS},
+        $dbh = DBI->connect ("DBI:$$self{DBH_DBITYPE}:$$self{DBH_DBNAME}",
+	    		     $$self{DBH_DBUSER}, $$self{DBH_DBPASS},
 			     { RaiseError => 1,
 			       AutoCommit => 0,
 			       PrintError => 0 });
@@ -100,19 +100,19 @@ sub connectToDatabase
 
 	# Acquire role if one was specified.  Do not use &dbexec() here
 	# as it will expose the password used in the logs.
-	if ($self->{DBH_DBROLE})
+	if ($$self{DBH_DBROLE})
 	{
-	    eval { $dbh->do ("set role $self->{DBH_DBROLE} identified by"
-		             . " $self->{DBH_DBROLE_PASS}") };
-	    die "failed to authenticate to $self->{DBH_DBNAME} as"
-	        . " $self->{DBH_DBUSER} using role $self->{DBH_DBROLE}\n"
+	    eval { $dbh->do ("set role $$self{DBH_DBROLE} identified by"
+		             . " $$self{DBH_DBROLE_PASS}") };
+	    die "failed to authenticate to $$self{DBH_DBNAME} as"
+	        . " $$self{DBH_DBUSER} using role $$self{DBH_DBROLE}\n"
 		if $@;
 	}
 
 	# Cache it.
-	$self->{DBH_AGE} = time();
-	$self->{DBH} = $dbh;
-	$dbh->{private_phedex_invalid} = 0;
+	$$self{DBH_AGE} = time();
+	$$self{DBH} = $dbh;
+	$$dbh{private_phedex_invalid} = 0;
     }
 
     # Was identification suppressed?
@@ -131,18 +131,18 @@ sub connectToDatabase
 
 # Disconnect from the database.  Normally this does nothing, as we
 # cache the connection and try to keep it alive as long as we can
-# without disturbing program robustness.  If $self->{DBH_CACHE} is
+# without disturbing program robustness.  If $$self{DBH_CACHE} is
 # defined and zero, connection caching is turned off.
 sub disconnectFromDatabase
 {
     my ($self, $dbh, $force) = @_;
-    if ((exists $self->{DBH_CACHE} && ! $self->{DBH_CACHE}) || $force)
+    if ((exists $$self{DBH_CACHE} && ! $$self{DBH_CACHE}) || $force)
     {
-	&logmsg ("disconnected from database") if $self->{DBH_LOGGING};
+	&logmsg ("disconnected from database") if $$self{DBH_LOGGING};
         eval { $dbh->disconnect() } if $dbh;
         undef $dbh;
-        undef $self->{DBH};
-        undef $self->{DBH_AGE};
+        undef $$self{DBH};
+        undef $$self{DBH_AGE};
     }
 }
 
@@ -158,14 +158,14 @@ sub disconnectFromDatabase
 sub identifyAgent
 {
     my ($self, $dbh) = @_;
-    return if $self->{DBH_AGENT_IDENTIFIED};
+    return if $$self{DBH_AGENT_IDENTIFIED};
 
     # Get PhEDEx distribution version.
     my $now = &mytimeofday();
     my $distribution = undef;
-    if (-f $self->{DBCONFIG})
+    if (-f $$self{DBCONFIG})
     {
-	my $versionfile = $self->{DBCONFIG};
+	my $versionfile = $$self{DBCONFIG};
 	$versionfile =~ s|/[^/]+$||;
 	$versionfile .= "/VERSION";
 	if (open (DBHVERSION, "< $versionfile"))
@@ -226,29 +226,28 @@ sub identifyAgent
     }
 
     # Update the database
-    my $mynode = $self->{MYNODE};
-    my $me = $self->{AGENTID} || $0; $me =~ s|.*/||;
     my $stmt = &dbprep ($dbh, qq{
 	insert into t_agent_version
-	(timestamp, node, agent,
+	(node, agent, time_update,
 	 filename, filesize, checksum,
 	 release, revision, tag)
 	values
-	(:now, :node, :agent,
+	(:node, :agent, :now,
 	 :filename, :filesize, :checksum,
 	 :release, :revision, :tag)});
 	
     &dbexec ($dbh, qq{
 	delete from t_agent_version
 	where node = :node and agent = :me},
-	":node" => $mynode, ":me" => $me);
+	":node" => $$self{ID_MYNODE},
+	":me" => $$self{ID_AGENT});
 
     foreach my $fname (keys %fileinfo)
     {
 	&dbbindexec ($stmt,
 		     ":now" => $now,
-		     ":node" => $mynode,
-		     ":agent" => $me,
+		     ":node" => $$self{ID_MYNODE},
+		     ":agent" => $$self{ID_AGENT},
 		     ":filename" => $fname,
 		     ":filesize" => $fileinfo{$fname}{SIZE},
 		     ":checksum" => $fileinfo{$fname}{CHECKSUM},
@@ -258,7 +257,7 @@ sub identifyAgent
     }
 
     $dbh->commit ();
-    $self->{DBH_AGENT_IDENTIFIED} = 1;
+    $$self{DBH_AGENT_IDENTIFIED} = 1;
 }
 
 # Update the agent status in the database.  This identifies the
@@ -266,31 +265,60 @@ sub identifyAgent
 sub updateAgentStatus
 {
     my ($self, $dbh) = @_;
-    my $mynode = $self->{MYNODE};
-    my $me = $self->{AGENTID} || $0; $me =~ s|.*/||;
-    my $agent = &dbexec($dbh, qq{
-	select count(*) from t_agent where name = :me},
-	":me" => $me)->fetchrow_arrayref();
-    my $status = &dbexec($dbh, qq{
-	select count(*) from t_agent_status
-	where node = :node and agent = :me},
-    	":node" => $mynode, ":me" => $me)
-    	->fetchrow_arrayref();
+    my $now = &mytimeofday();
+    return if ($$self{DBH_AGENT_UPDATE} || 0) > $now - 5*60;
 
-    &dbexec($dbh, qq{insert into t_agent values (:me)}, ":me" => $me)
-	if ! $agent || ! $agent->[0];
+    # Obtain my node id
+    my $me = $$self{AGENTID} || $0; $me =~ s|.*/||;
+    ($$self{ID_MYNODE}) = &dbexec($dbh, qq{
+	select id from t_node where name = :node},
+	":node" => $$self{MYNODE})->fetchrow();
+    die "node $$self{MYNODE} not known to the database\n"
+        if ! defined $$self{ID_MYNODE};
 
-    &dbexec($dbh, qq{
-	insert into t_agent_status (timestamp, node, agent, state)
-	values (:now, :node, :me, 1)},
-	":now" => &mytimeofday(), ":node" => $mynode, ":me" => $me)
-	if ! $status || ! $status->[0];
+    # Check whether agent and agent status rows exist already.
+    ($$self{ID_AGENT}) = &dbexec($dbh, qq{
+	select id from t_agent where name = :me},
+	":me" => $me)->fetchrow();
+    my ($state) = &dbexec($dbh, qq{
+	select state from t_agent_status
+	where node = :node and agent = :agent},
+    	":node" => $$self{ID_MYNODE}, ":agent" => $$self{ID_AGENT})
+    	->fetchrow();
 
-    &dbexec($dbh, qq{
-	update t_agent_status set state = 1, timestamp = :now
-	where node = :node and agent = :me},
-	":now" => &mytimeofday(), ":node" => $mynode, ":me" => $me);
+    # Add agent if doesn't exist yet.
+    if (! defined $$self{ID_AGENT})
+    {
+        &dbexec($dbh, qq{
+	    insert into t_agent (id, name)
+	    values (seq_agent.nextval, :me)},
+	    ":me" => $me);
+        ($$self{ID_AGENT}) = &dbexec($dbh, qq{
+	    select id from t_agent where name = :me},
+	    ":me" => $me)->fetchrow();
+    }
+
+    # Add agent status if doesn't exist yet.
+    if (! defined $state)
+    {
+        &dbexec($dbh, qq{
+	    insert into t_agent_status (node, agent, state, time_update)
+	    values (:node, :agent, 1, :now)},
+	    ":node" => $$self{ID_MYNODE},
+	    ":agent" => $$self{ID_AGENT},
+	    ":now" => $now);
+    }
+    else
+    {
+        &dbexec($dbh, qq{
+	    update t_agent_status set state = 1, time_update = :now
+	    where node = :node and agent = :agent},
+	    ":node" => $$self{ID_MYNODE},
+	    ":agent" => $$self{ID_AGENT},
+	    ":now" => $now);
+    }
     $dbh->commit();
+    $$self{DBH_AGENT_UPDATE} = $now;
 }
 
 # Now look for messages to me.  There may be many, so handle
@@ -315,19 +343,18 @@ sub updateAgentStatus
 sub checkAgentMessages
 {
     my ($self, $dbh) = @_;
-    my $mynode = $self->{MYNODE};
-    my $me = $self->{AGENTID} || $0; $me =~ s|.*/||;
 
     while (1)
     {
 	my $now = &mytimeofday ();
 	my ($time, $action, $keep) = (undef, 'CONTINUE', 0);
 	my $messages = &dbexec($dbh, qq{
-	    select timestamp, message
+	    select time_apply, message
 	    from t_agent_message
 	    where node = :node and agent = :me
-	    order by timestamp asc},
-	    ":node" => $mynode, ":me" => $me);
+	    order by time_apply asc},
+	    ":node" => $$self{ID_MYNODE},
+	    ":me" => $$self{ID_AGENT});
         while (my ($t, $msg) = $messages->fetchrow())
 	{
 	    # If it's a message for a future time, stop processing.
@@ -370,8 +397,11 @@ sub checkAgentMessages
 	    &dbexec($dbh, qq{
 		delete from t_agent_message
 		where node = :node and agent = :me
-		  and (timestamp < :t or (timestamp = :t and message = :msg))},
-	      	":node" => $mynode, ":me" => $me, ":t" => $t, ":msg" => $msg)
+		  and (time_apply < :t or (time_apply = :t and message = :msg))},
+	      	":node" => $$self{ID_MYNODE},
+		":me" => $$self{ID_AGENT},
+		":t" => $t,
+		":msg" => $msg)
 	        if ! $keep;
 	}
 
@@ -422,7 +452,7 @@ sub dbprep
     return $stmt if ! $@;
 
     # Handle disconnected oracle handle, flag the handle bad
-    $dbh->{private_phedex_invalid} = 1 if $@ =~ /ORA-03114:/;
+    $$dbh{private_phedex_invalid} = 1 if $@ =~ /ORA-03114:/;
     die $@;
 }
 
@@ -442,7 +472,7 @@ sub dbbindexec
 
     if ($ENV{PHEDEX_LOG_SQL})
     {
-        my $sql = $stmt->{Statement};
+        my $sql = $$stmt{Statement};
 	$sql =~ s/\s+/ /g; $sql =~ s/^\s+//; $sql =~ s/\s+$//;
 	my $bound = join (", ", map { "($_, $params{$_})" } sort keys %params);
         &logmsg ("executing statement `$sql' [$bound]");
@@ -456,6 +486,6 @@ sub dbbindexec
     return $rv if ! $@;
 
     # Handle disconnected oracle handle, flag the handle bad
-    $stmt->{Database}{private_phedex_invalid} = 1 if $@ =~ /ORA-03114:/;
+    $$stmt{Database}{private_phedex_invalid} = 1 if $@ =~ /ORA-03114:/;
     die $@;
 }
