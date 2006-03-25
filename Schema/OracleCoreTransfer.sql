@@ -105,6 +105,12 @@ create table t_xfer_tracking
    fileid		integer		not null,
    reason		varchar(10)	not null);
 
+create table t_xfer_delete
+  (fileid		integer		not null,  -- for which file
+   node			integer		not null,  -- at which node
+   time_request		float		not null,  -- time at request
+   time_complete	float		not null   /* time at completed */);
+
 create table t_xfer_histogram
   (timebin		float		not null,
    timewidth		float		not null,
@@ -191,7 +197,7 @@ alter table t_xfer_replica
 
 alter table t_xfer_replica
   add constraint fk_xfer_replica_fileid
-  foreign key (fileid) references t_file (id);
+  foreign key (fileid) references t_xfer_file (id);
 
 alter table t_xfer_replica
   add constraint fk_xfer_replica_node
@@ -205,7 +211,7 @@ alter table t_xfer_request
 
 alter table t_xfer_request
   add constraint fk_xfer_request_fileid
-  foreign key (fileid) references t_file (id);
+  foreign key (fileid) references t_xfer_file (id);
 
 alter table t_xfer_request
   add constraint fk_xfer_request_inblock
@@ -223,7 +229,7 @@ alter table t_xfer_offer
 
 alter table t_xfer_offer
   add constraint fk_xfer_offer_fileid
-  foreign key (fileid) references t_file (id);
+  foreign key (fileid) references t_xfer_file (id);
 
 alter table t_xfer_offer
   add constraint fk_xfer_offer_to
@@ -241,7 +247,7 @@ alter table t_xfer_offer_step
 
 alter table t_xfer_offer_step
   add constraint fk_xfer_offer_step_fileid
-  foreign key (fileid) references t_file (id);
+  foreign key (fileid) references t_xfer_file (id);
 
 alter table t_xfer_offer_step
   add constraint fk_xfer_offer_step_to
@@ -259,7 +265,7 @@ alter table t_xfer_confirmation
 
 alter table t_xfer_confirmation
   add constraint fk_xfer_confirmation_fileid
-  foreign key (fileid) references t_file (id);
+  foreign key (fileid) references t_xfer_file (id);
 
 alter table t_xfer_confirmation
   add constraint fk_xfer_confirmation_to
@@ -277,7 +283,7 @@ alter table t_xfer_expired
 
 alter table t_xfer_expired
   add constraint fk_xfer_expired_fileid
-  foreign key (fileid) references t_file (id);
+  foreign key (fileid) references t_xfer_file (id);
 
 alter table t_xfer_expired
   add constraint fk_xfer_expired_to
@@ -295,7 +301,7 @@ alter table t_xfer_state
 
 alter table t_xfer_state
   add constraint fk_xfer_state_fileid
-  foreign key (fileid) references t_file (id);
+  foreign key (fileid) references t_xfer_file (id);
 
 alter table t_xfer_state
   add constraint fk_xfer_state_replica
@@ -312,7 +318,7 @@ alter table t_xfer_state
 
 alter table t_xfer_completed
   add constraint fk_xfer_completed_fileid
-  foreign key (fileid) references t_file (id);
+  foreign key (fileid) references t_xfer_file (id);
 
 alter table t_xfer_completed
   add constraint fk_xfer_completed_replica
@@ -329,7 +335,7 @@ alter table t_xfer_completed
 
 alter table t_xfer_tracking
   add constraint fk_xfer_tracking_fileid
-  foreign key (fileid) references t_file (id);
+  foreign key (fileid) references t_xfer_file (id);
 
 alter table t_xfer_tracking
   add constraint fk_xfer_tracking_from
