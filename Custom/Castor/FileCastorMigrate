@@ -8,11 +8,8 @@
 ##H somewhat simplified in its logic.  We also short-cut the data
 ##H wanted/available protocol as this is not a real transfer.
 ##H
-##H FIXME: tape management -- what happens with files that are not
-##H destined to tape but are copied to /castor?  Do we care?
-##H
 ##H Usage:
-##H   FileCastorFilesize
+##H   FileCastorMigrate
 ##H      -state DIRECTORY -node NAME -db FILE[:SECTION]
 ##H      -pfnquery COMMAND[,ARGS...]
 ##H
@@ -124,7 +121,7 @@ sub idle
 	while (my ($fileid, $lfn, $size, $available) = $q->fetchrow())
 	{
 	    # Check if the file has been migrated.  If not, skip it.
-	    my $pfn = &guidToPFN ($lfn, "direct", "local", @{$$self{PFN_QUERY}});
+	    my $pfn = &pfnLookup ($lfn, "direct", "local", @{$$self{PFN_QUERY}});
 	    do { &alert ("failed to find pfn for file $lfn"); next } if !$pfn;
 	    open (NSLS, "nsls -l $pfn |")
 		or do { &warn ("cannot nsls $pfn: $!"); next };
