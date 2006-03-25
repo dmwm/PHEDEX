@@ -80,13 +80,10 @@ sub idle
     my $dbh = undef;
     eval
     {
-	my $now = time();
-	$dbh = &connectToDatabase ($self, 0);
-	die "failed to connect" if ! $dbh;
-
-        # FIXME: Pick up and process messages to me
+	$dbh = &connectToDatabase ($self, 0) or die "failed to connect";
 
 	# Collect statistics
+	my $now = time();
 	my %status = ();
 	my %alive = ();
 	my $site = $self->{SITEID};

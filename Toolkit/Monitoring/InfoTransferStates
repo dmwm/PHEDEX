@@ -70,7 +70,6 @@ sub idle
     eval
     {
 	$dbh = &connectToDatabase ($self, 0) or die "failed to connect";
-        # FIXME: Pick up and process messages to me
 
 	# Summarise from t_block_replica information.
 	# FIXME: Remove 0, 0 entries before V2.2 release, update schema
