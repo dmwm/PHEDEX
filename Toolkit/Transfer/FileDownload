@@ -467,13 +467,6 @@ sub completeTransfer
 		":now" => $now);
 
 	    &dbexec ($dbh, qq{
-		insert into t_xfer_completed
-		(select * from t_xfer_state
-		 where fileid = :fileid and to_node = :node)},
-		":fileid" => $$file{FILEID},
-		":node" => $$self{ID_MYNODE});
-
-	    &dbexec ($dbh, qq{
 		delete from t_xfer_state
 		where fileid = :fileid and to_node = :node},
 		":fileid" => $$file{FILEID},

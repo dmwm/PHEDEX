@@ -123,22 +123,13 @@ sub idle
 
         die "transfer/insert mismatch: $nxfer/$nins\n" if $nxfer != $nins;
 
-        # Move to completed transfers.
-        ($stmt, $ncopy) = &dbexec ($dbh, qq{
-	    insert into t_xfer_completed
-	    (select * from t_xfer_state
-	     where from_node = :mssid and to_node = :myid and to_state = 3)},
-            ":mssid" => $mssid, ":myid" => $myid);
-
-        die "insert/copy mismatch: $nins/$ncopy\n" if $nins != $ncopy;
-
         # And delete the transfers.
 	($stmt, $ndel) = &dbexec ($dbh, qq{
 	    delete from t_xfer_state
 	    where from_node = :mssid and to_node = :myid and to_state = 3},
             ":mssid" => $mssid, ":myid" => $myid);
 
-        die "copy/delete mismatch: $ncopy/$ndel\n" if $ncopy != $ndel;
+        die "insert/delete mismatch: $nins/$ndel\n" if $nins != $ndel;
 	&logmsg ("$ndel files transferred from $$self{MSSNODE}"
 		 . " to $$self{MYNODE} in "
 	         . sprintf('%.1fs', &mytimeofday()-$start))

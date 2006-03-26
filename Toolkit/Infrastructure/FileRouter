@@ -518,7 +518,6 @@ sub routeForNodes
     # update t_dest_histogram (t_xfer_{request,offer,confirmation,expired})
     # update t_xfer_histogram (t_xfer_{state,completed,tracking})
     # clean t_xfer_expired
-    # clean t_xfer_completed
     # copy t_xfer_tracking to t_xfer_history?
     # clean t_xfer_tracking
 }

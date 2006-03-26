@@ -105,6 +105,9 @@ sub idle
             update t_xfer_state
             set to_state = 3, time_xfer_end = :now
             where to_node = :node and fileid = :fileid});
+        my $xdstmt = &dbprep ($dbh, qq{
+	    delete from t_xfer_state
+	    where to_node = :node and fileid = :fileid});
         my $q = &dbexec($dbh, qq{
             select xs.fileid, f.logical_name, f.filesize, xs.time_available
             from t_xfer_state xs join t_xfer_file f on f.fileid = xs.fileid
@@ -129,11 +132,10 @@ sub idle
 
             # Migrated, mark transfer completed
             my $now = &mytimeofday();
-            my %args = (":node" => $$self{ID_MYNODE},
-                        ":fileid" => $fileid,
-                        ":now" => $now);
-            &dbbindexec($xsstmt, %args);
-            &dbbindexec($xrstmt, %args);
+	    my %args = (":node" => $$self{ID_MYNODE}, ":fileid" => $fileid);
+	    &dbbindexec($xsstmt, %args, ":now" => $now);
+	    &dbbindexec($xrstmt, %args, ":now" => $now);
+	    &dbbindexec($xdstmt, %args);
             $dbh->commit ();
 
             # Log delay data.
@@ -144,18 +146,6 @@ sub idle
             # Give up if we've taken too long
             last if $now - $start > 10*60;
         }
-
-        # Pump completed transfers out of the main table.
-        &dbexec ($dbh, qq{
-            insert into t_xfer_completed
-            (select * from t_xfer_state
-             where to_node = :node and to_state = 3)},
-            ":node" => $$self{ID_MYNODE});
-        &dbexec ($dbh, qq{
-            delete from t_xfer_state
-            where to_node = :node and to_state = 3)},
-            ":node" => $$self{ID_MYNODE});
-        $dbh->commit();
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;

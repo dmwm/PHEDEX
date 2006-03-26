@@ -94,9 +94,6 @@ create table t_xfer_state
    time_error_start	float,			  -- time last entered error
    time_error_end	float			  /* time to exit error state */);
 
-create table t_xfer_completed
-  as select * from t_xfer_state where 1=0;
-
 create table t_xfer_tracking
   (timestamp		float		not null,
    from_node		integer		not null,
@@ -130,7 +127,7 @@ create table t_xfer_histogram
    xfer_files		integer, -- in transfer
    xfer_bytes		integer,
    --
-   -- statistics for timebin period from t_xfer_completed and t_xfer_tracking
+   -- statistics for timebin period from t_xfer_tracking
    avail_files		integer, -- became available
    avail_bytes		integer,
    done_files		integer, -- successfully transferred
@@ -316,23 +313,6 @@ alter table t_xfer_state
   foreign key (to_node) references t_node (id);
 
 
-alter table t_xfer_completed
-  add constraint fk_xfer_completed_fileid
-  foreign key (fileid) references t_xfer_file (id);
-
-alter table t_xfer_completed
-  add constraint fk_xfer_completed_replica
-  foreign key (from_replica) references t_xfer_replica (id);
-
-alter table t_xfer_completed
-  add constraint fk_xfer_completed_from
-  foreign key (from_node) references t_node (id);
-
-alter table t_xfer_completed
-  add constraint fk_xfer_completed_to
-  foreign key (to_node) references t_node (id);
-
-
 alter table t_xfer_tracking
   add constraint fk_xfer_tracking_fileid
   foreign key (fileid) references t_xfer_file (id);
@@ -431,10 +411,6 @@ create index ix_xfer_state_fromto_pair
   tablespace CMS_TRANSFERMGMT_INDX01;
 
 
-create index ix_xfer_completed_fromto
-  on t_xfer_completed (from_node, to_node)
-  tablespace CMS_TRANSFERMGMT_INDX01;
-
 ----------------------------------------------------------------------
 -- Modify storage options
 
@@ -445,7 +421,6 @@ alter table t_xfer_offer_step			enable row movement;
 alter table t_xfer_confirmation			enable row movement;
 alter table t_xfer_expired			enable row movement;
 alter table t_xfer_state			enable row movement;
-alter table t_xfer_completed			enable row movement;
 alter table t_xfer_tracking			enable row movement;
 
 alter table t_xfer_replica			move initrans 8;
@@ -455,7 +430,6 @@ alter table t_xfer_offer_step			move initrans 8;
 alter table t_xfer_confirmation			move initrans 8;
 alter table t_xfer_expired			move initrans 8;
 alter table t_xfer_state			move initrans 8;
-alter table t_xfer_completed			move initrans 8;
 alter table t_xfer_tracking			move initrans 8;
 
 alter index pk_xfer_replica			rebuild initrans 8;
@@ -468,5 +442,3 @@ alter index ix_xfer_state_to_node		rebuild initrans 8;
 alter index ix_xfer_state_to_state		rebuild initrans 8;
 alter index ix_xfer_state_fromto_state		rebuild initrans 8;
 alter index ix_xfer_state_fromto_pair		rebuild initrans 8;
-
-alter index ix_xfer_completed_fromto		rebuild initrans 8;
