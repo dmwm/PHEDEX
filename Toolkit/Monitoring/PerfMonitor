@@ -65,142 +65,284 @@ sub idle
     {
 	$dbh = &connectToDatabase ($self, 0) or die "failed to connect";
 
+	# Use 5-minute binning.
+	my $timewidth = 300;
+	my $timebin = int(&mytimeofday() / $timewidth)*$timewidth;
+
+	# FIXME: Decide which periods should have "when matched" part.
+	# If we want to take the first value of each period, then we
+	# we can drop the "when matched".  If we want to have "live"
+	# values, we keep the "when matched".
+
 	# Part I
 	#
 	# Update statistics on currently pending transfer queue.  This
 	# is a heart-beat routine, we want to execute this regularly
 	# so the histogram has no gaps -- if we miss a beat, there will
 	# be no data for this time bin.
-	my $timebin = int(&mytimeofday() / 300)*300;
-	my $qpending = &dbexec ($dbh, qq{
-	    select
-	      ts.from_node,
-	      ts.to_node,
-	      count (ts.guid),
-	      sum (f.filesize)
-	    from t_transfer_state ts
-	    join t_file f on f.guid = ts.guid
-	    group by ts.from_node, ts.to_node});
-    	while (my ($from, $to, $files, $bytes) = $qpending->fetchrow())
-	{
-	    # We may run more frequently than once per time-bin.  Only
-	    # update if values for this timebin don't exist yet.
-	    eval { &dbexec ($dbh, qq{
-		insert into t_perf_histogram
-		(timebin, from_node, to_node, xferred_files, xferred_bytes)
-		values (:timebin, :from_node, :to_node, 0, 0)},
-		":timebin" => $timebin,
-		":from_node" => $from,
-		":to_node" => $to) };
-	    &dbexec ($dbh, qq{
-		update t_perf_histogram
-		set pending_files = :files, pending_bytes = :bytes
-		where timebin = :timebin
-		  and from_node = :from_node
-		  and to_node = :to_node
-	          and pending_files is null
-	          and pending_bytes is null},
-		":timebin" => $timebin,
-		":from_node" => $from,
-		":to_node" => $to,
-		":files" => $files,
-		":bytes" => $bytes);
-	}
-
+	&dbexec($dbh, qq{
+	    merge into t_xfer_histogram h
+	    using
+	      (select :timebin timebin, :timewidth timewidth,
+	      	      s.from_node, s.to_node, s.priority,
+	              count(s.fileid) pend_files,
+		      sum(f.filesize) pend_bytes,
+		      sum(case when s.to_state < 2 then 1 else 0 end) wait_files,
+		      sum(case when s.to_state < 2 then f.filesize else 0 end) wait_bytes,
+		      sum(case when s.to_state >= 100 then 1 else 0 end) cool_files,
+		      sum(case when s.to_state >= 100 then f.filesize else 0 end) cool_bytes,
+		      sum(case when s.from_state = 1 then 1 else 0 end) ready_files,
+		      sum(case when s.from_state = 1 then f.filesize else 0 end) ready_bytes,
+		      sum(case when s.to_state = 2 then 1 else 0 end) xfer_files,
+		      sum(case when s.to_state = 2 then f.filesize else 0 end) xfer_bytes
+		from t_xfer_state s join t_xfer_file f on f.id = s.fileid
+		group by :timebin, :timewidth, s.from_node, s.to_node, s.priority)
+		v
+	    on (h.timebin = v.timebin and
+	        h.from_node = v.from_node and
+		h.to_node = v.to_node and
+		h.priority = v.priority)
+	    when matched then 
+	      update set
+	        h.pend_files = v.pend_files, h.pend_bytes = v.pend_bytes,
+	        h.wait_files = v.wait_files, h.wait_bytes = v.wait_bytes,
+	        h.cool_files = v.cool_files, h.cool_bytes = v.cool_bytes,
+	        h.ready_files = v.ready_files, h.ready_bytes = v.ready_bytes,
+	        h.xfer_files = v.xfer_files, h.xfer_bytes = v.xfer_bytes
+	    when not matched then
+	      insert (timebin, timewidth, from_node, to_node, priority,
+	              pend_files, pend_bytes, wait_files, wait_bytes,
+		      cool_files, cool_bytes, ready_files, ready_bytes,
+		      xfer_files, xfer_bytes)
+	      values (v.timebin, v.timewidth, v.from_node, v.to_node, v.priority,
+	              v.pend_files, v.pend_bytes, v.wait_files, v.wait_bytes,
+		      v.cool_files, v.cool_bytes, v.ready_files, v.ready_bytes,
+		      v.xfer_files, v.xfer_bytes)},
+	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 	$dbh->commit();
 
-	# Part II: Move completed transfer information into the histogram.
-	# This is currently rather a sledge-hammer with the big lock, but
-	# is required for this agent to keep up at high throughput (and
-	# makes little difference at low throughput).
-	&dbexec ($dbh, qq{lock table t_transfer_completed in exclusive mode});
-	my $qrows = &dbexec ($dbh, qq{
-	    select
-	        trunc (tc.to_timestamp/300)*300,
-		tc.from_node,
-		tc.to_node,
-		count(tc.guid),
-		sum(f.filesize)
-	    from t_transfer_completed tc
-	    join t_file f on f.guid = tc.guid
-	    group by trunc (tc.to_timestamp/300)*300, from_node, to_node});
-	while (my ($bin, $from, $to, $files, $bytes) = $qrows->fetchrow())
-	{
-	    eval { &dbexec ($dbh, qq{
-		insert into t_perf_histogram
-		(timebin, from_node, to_node, xferred_files, xferred_bytes)
-		values (:timebin, :from_node, :to_node, 0, 0)},
-		":timebin" => $bin,
-		":from_node" => $from,
-		":to_node" => $to) };
-	    &dbexec ($dbh, qq{
-		update t_perf_histogram
-		set xferred_files = xferred_files + :new_files,
-		    xferred_bytes = xferred_bytes + :new_bytes
-		where timebin = :timebin
-		  and from_node = :from_node
-		  and to_node = :to_node},
-		":timebin" => $bin,
-		":from_node" => $from,
-		":to_node" => $to,
-	  	":new_files" => $files,
-		":new_bytes" => $bytes);
-	}
-	&dbexec ($dbh, qq{delete from t_transfer_completed});
+	# Part II: Update statistics on recent transfer activity.
+	&dbexec ($dbh, qq{lock table t_xfer_tracking in exclusive mode});
+	&dbexec($dbh, qq{
+	    merge into t_xfer_histogram h
+	    using
+	      (select trunc(xt.timestamp/300)*300 timebin, 300 timewidth,
+	              xt.from_node, xt.to_node, xt.priority,
+		      sum(case when xt.reason = 'avail' then 1 else 0 end) avail_files,
+		      sum(case when xt.reason = 'avail' then f.filesize else 0 end) avail_bytes,
+		      sum(case when xt.reason = 'try' then 1 else 0 end) try_files,
+		      sum(case when xt.reason = 'try' then f.filesize else 0 end) try_bytes,
+		      sum(case when xt.reason = 'done' then 1 else 0 end) done_files,
+		      sum(case when xt.reason = 'done' then f.filesize else 0 end) done_bytes,
+		      sum(case when xt.reason = 'fail' then 1 else 0 end) fail_files,
+		      sum(case when xt.reason = 'fail' then f.filesize else 0 end) fail_bytes
+		from t_xfer_tracking xt join t_xfer_file f on f.id = xt.fileid
+		group by trunc(xt.timestamp/300)*300, 300, xt.from_node, xt.to_node, xt.priority)
+		v
+	    on (h.timebin = v.timebin and
+	        h.from_node = v.from_node and
+		h.to_node = v.to_node and
+		h.priority = v.priority)
+	    when matched then 
+	      update set
+	        h.avail_files = v.avail_files, h.avail_bytes = v.avail_bytes,
+	        h.try_files = v.try_files, h.try_bytes = v.try_bytes,
+	        h.done_files = v.done_files, h.done_bytes = v.done_bytes,
+	        h.fail_files = v.fail_files, h.fail_bytes = v.fail_bytes
+	    when not matched then
+	      insert (timebin, timewidth, from_node, to_node, priority,
+	              avail_files, avail_bytes, try_files, try_bytes,
+		      done_files, done_bytes, fail_files, fail_bytes)
+	      values (v.timebin, v.timewidth, v.from_node, v.to_node, v.priority,
+	              v.avail_files, v.avail_bytes, v.try_files, v.try_bytes,
+		      v.done_files, v.done_bytes, v.fail_files, v.fail_bytes)});
+	&dbexec ($dbh, qq{delete from t_xfer_tracking});
 	$dbh->commit();
 
-	# Part III: Update statistics on recent transfer quality.  This
-	# is another heart-beat routing to avoid gaps in the histograms.
-	# If we miss a beat there will be no data for this time bin.
-	&dbexec ($dbh, qq{lock table t_transfer_tracking in exclusive mode});
-	my $qquality = &dbexec ($dbh, qq{
-	    select
-	      trunc (th.timestamp/300)*300,
-	      th.from_node,
-	      th.to_node,
-	      th.to_old_state,
-	      th.to_new_state,
-	      count (th.guid)
-	    from t_transfer_tracking th
-	    where th.from_old_state = 1
-	      and th.from_new_state = 1
-      	      and th.to_old_state <= 3
-	      and th.to_new_state >= 2
-	    group by trunc (th.timestamp/300)*300,
-	      th.from_node, th.to_node,
-	      th.to_old_state, th.to_new_state});
-    	while (my ($bin, $from, $to, $old, $new, $n) = $qquality->fetchrow())
-	{
-	    eval { &dbexec ($dbh, qq{
-		insert into t_quality_histogram
-		(timebin, from_node, to_node, old_state, new_state, transitions)
-		values (:timebin, :from_node, :to_node, :old_state, :new_state, 0)},
-		":timebin" => $bin,
-		":from_node" => $from,
-		":to_node" => $to,
-		":old_state" => $old,
-		":new_state" => $new) };
-	    &dbexec ($dbh, qq{
-		update t_quality_histogram
-		set transitions = transitions + :transitions
-		where timebin = :timebin
-		  and from_node = :from_node
-		  and to_node = :to_node
-	  	  and old_state = :old_state
-	  	  and new_state = :new_state},
-		":timebin" => $bin,
-		":from_node" => $from,
-		":to_node" => $to,
-		":old_state" => $old,
-		":new_state" => $new,
-		":transitions" => $n);
-	}
+	# Part III: Routing statistics.  This is a heartbeat again.
+	# FIXME: Priorities should be 4-level, for me/other.
+	&dbexec($dbh, qq{
+	    merge into t_routing_histogram h
+	    using
+	      (select :timebin timebin, :timewidth timewidth,
+	      	      s.from_node, s.to_node, 0 priority,
+	              count(s.fileid) offer_files,
+		      sum(f.filesize) offer_bytes
+		from t_xfer_offer s join t_xfer_file f on f.id = s.fileid
+		group by :timebin, :timewidth, s.from_node, s.to_node, 0)
+		v
+	    on (h.timebin = v.timebin and
+	        h.from_node = v.from_node and
+		h.to_node = v.to_node and
+		h.priority = v.priority)
+	    when matched then 
+	      update set
+	        h.offer_files = v.offer_files,
+		h.offer_bytes = v.offer_bytes
+	    when not matched then
+	      insert (h.timebin, h.timewidth,
+	      	      h.from_node, h.to_node, h.priority,
+	              h.offer_files, h.offer_bytes)
+	      values (v.timebin, v.timewidth,
+	      	      v.from_node, v.to_node, v.priority,
+	              v.offer_files, v.offer_bytes)},
+	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
-	&dbexec ($dbh, qq{insert into t_transfer_history
-			  (select * from t_transfer_tracking)});
-	&dbexec ($dbh, qq{delete from t_transfer_tracking});
+	&dbexec($dbh, qq{
+	    merge into t_routing_histogram h
+	    using
+	      (select :timebin timebin, :timewidth timewidth,
+	      	      s.from_node, s.to_node, s.priority * 2 priority,
+	              count(s.fileid) confirm_files,
+		      sum(f.filesize) confirm_bytes,
+		      sum(s.weight) confirm_weight
+		from t_xfer_confirmation s join t_xfer_file f on f.id = s.fileid
+		group by :timebin, :timewidth, s.from_node, s.to_node, s.priority*2)
+		v
+	    on (h.timebin = v.timebin and
+	        h.from_node = v.from_node and
+		h.to_node = v.to_node and
+		h.priority = v.priority)
+	    when matched then 
+	      update set
+	        h.confirm_files = v.confirm_files,
+		h.confirm_bytes = v.confirm_bytes,
+		h.confirm_weight = v.confirm_weight
+	    when not matched then
+	      insert (h.timebin, h.timewidth,
+	      	      h.from_node, h.to_node, h.priority,
+	              h.confirm_files, h.confirm_bytes, h.confirm_weight)
+	      values (v.timebin, v.timewidth,
+	      	      v.from_node, v.to_node, v.priority,
+	              v.confirm_files, v.confirm_bytes, v.confirm_weight)},
+	    ":timebin" => $timebin, ":timewidth" => $timewidth);
+
+	&dbexec($dbh, qq{
+	    merge into t_routing_histogram h
+	    using
+	      (select :timebin timebin, :timewidth timewidth,
+	      	      s.from_node, s.to_node, s.priority * 2 priority,
+	              count(s.fileid) expire_files,
+		      sum(f.filesize) expire_bytes,
+		      sum(s.weight) expire_weight
+		from t_xfer_expired s join t_xfer_file f on f.id = s.fileid
+		group by :timebin, :timewidth, s.from_node, s.to_node, s.priority*2)
+		v
+	    on (h.timebin = v.timebin and
+	        h.from_node = v.from_node and
+		h.to_node = v.to_node and
+		h.priority = v.priority)
+	    when matched then 
+	      update set
+	        h.expire_files = v.expire_files,
+		h.expire_bytes = v.expire_bytes,
+		h.expire_weight = v.expire_weight
+	    when not matched then
+	      insert (h.timebin, h.timewidth, h.from_node,
+	      	      h.to_node, h.priority,
+	              h.expire_files, h.expire_bytes, h.expire_weight)
+	      values (v.timebin, v.timewidth,
+	      	      v.from_node, v.to_node, v.priority,
+	              v.expire_files, v.expire_bytes, v.expire_weight)},
+	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 	$dbh->commit();
 
+	# Part IV: Node statistics.  This is a heartbeat again.
+	&dbexec($dbh, qq{
+	    merge into t_dest_histogram h
+	    using
+	      (select :timebin timebin, :timewidth timewidth, s.destination node,
+	              count(f.id) dest_files, sum(f.filesize) dest_bytes
+		from t_dps_block_dest s join t_xfer_file f on f.inblock = s.block
+		group by :timebin, :timewidth, s.destination) v
+	    on (h.timebin = v.timebin and h.node = v.node)
+	    when matched then 
+	      update set
+	        h.dest_files = v.dest_files, h.dest_bytes = v.dest_bytes
+	    when not matched then
+	      insert (h.timebin, h.timewidth, h.node, h.dest_files, h.dest_bytes)
+	      values (v.timebin, v.timewidth, v.node, v.dest_files, v.dest_bytes)},
+	    ":timebin" => $timebin, ":timewidth" => $timewidth);
+
+	&dbexec($dbh, qq{
+	    merge into t_dest_histogram h
+	    using
+	      (select :timebin timebin, :timewidth timewidth, s.node,
+	              count(s.fileid) node_files, sum(f.filesize) node_bytes
+		from t_xfer_replica s join t_xfer_file f on f.id = s.fileid
+		group by :timebin, :timewidth, s.node) v
+	    on (h.timebin = v.timebin and h.node = v.node)
+	    when matched then 
+	      update set
+	        h.node_files = v.node_files, h.node_bytes = v.node_bytes
+	    when not matched then
+	      insert (h.timebin, h.timewidth, h.node, h.node_files, h.node_bytes)
+	      values (v.timebin, v.timewidth, v.node, v.node_files, v.node_bytes)},
+	    ":timebin" => $timebin, ":timewidth" => $timewidth);
+
+	&dbexec($dbh, qq{
+	    merge into t_dest_histogram h
+	    using
+	      (select :timebin timebin, :timewidth timewidth, s.to_node node,
+	              count(s.fileid) xfer_files, sum(f.filesize) xfer_bytes
+		from t_xfer_state s join t_xfer_file f on f.id = s.fileid
+		group by :timebin, :timewidth, s.to_node) v
+	    on (h.timebin = v.timebin and h.node = v.node)
+	    when matched then 
+	      update set
+	        h.xfer_files = v.xfer_files, h.xfer_bytes = v.xfer_bytes
+	    when not matched then
+	      insert (h.timebin, h.timewidth, h.node, h.xfer_files, h.xfer_bytes)
+	      values (v.timebin, v.timewidth, v.node, v.xfer_files, v.xfer_bytes)},
+	    ":timebin" => $timebin, ":timewidth" => $timewidth);
+
+	&dbexec($dbh, qq{
+	    merge into t_dest_histogram h
+	    using
+	      (select :timebin timebin, :timewidth timewidth, s.from_node node,
+	              count(s.fileid) expt_files, sum(f.filesize) expt_bytes
+		from t_xfer_state s join t_xfer_file f on f.id = s.fileid
+		group by :timebin, :timewidth, s.from_node) v
+	    on (h.timebin = v.timebin and h.node = v.node)
+	    when matched then 
+	      update set
+	        h.expt_files = v.expt_files, h.expt_bytes = v.expt_bytes
+	    when not matched then
+	      insert (h.timebin, h.timewidth, h.node, h.expt_files, h.expt_bytes)
+	      values (v.timebin, v.timewidth, v.node, v.expt_files, v.expt_bytes)},
+	    ":timebin" => $timebin, ":timewidth" => $timewidth);
+
+	&dbexec($dbh, qq{
+	    merge into t_dest_histogram h
+	    using
+	      (select :timebin timebin, :timewidth timewidth, s.destination node,
+	              count(s.fileid) request_files, sum(f.filesize) request_bytes,
+		      sum(case when s.state = 0 then 1 else 0 end) open_files,
+		      sum(case when s.state = 0 then f.filesize else 0 end) open_bytes,
+		      sum(case when s.state = 1 then 1 else 0 end) active_files,
+		      sum(case when s.state = 1 then f.filesize else 0 end) active_bytes,
+		      sum(case when s.state = 2 then 1 else 0 end) idle_files,
+		      sum(case when s.state = 2 then f.filesize else 0 end) idle_bytes
+		from t_xfer_request s join t_xfer_file f on f.id = s.fileid
+		group by :timebin, :timewidth, s.destination) v
+	    on (h.timebin = v.timebin and h.node = v.node)
+	    when matched then 
+	      update set
+	        h.open_files = v.open_files, h.open_bytes = v.open_bytes,
+	        h.active_files = v.active_files, h.active_bytes = v.active_bytes,
+	        h.idle_files = v.idle_files, h.idle_bytes = v.idle_bytes
+	    when not matched then
+	      insert (h.timebin, h.timewidth, h.node,
+	              h.open_files, h.open_bytes,
+	              h.active_files, h.active_bytes,
+	              h.idle_files, h.idle_bytes)
+	      values (v.timebin, v.timewidth, v.node,
+	      	      v.open_files, v.open_bytes,
+	      	      v.active_files, v.active_bytes,
+	      	      v.idle_files, v.idle_bytes)},
+	    ":timebin" => $timebin, ":timewidth" => $timewidth);
+
+	$dbh->commit();
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
