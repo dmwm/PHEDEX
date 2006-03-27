@@ -282,7 +282,7 @@ sub filesForPrepare
 
 	    my $stmt = &dbexec ($dbh, qq{
 		select
-		    xs.fileid, f.logical_name, f.filetype, f.filesize, f.checksum,
+		    xs.fileid, f.logical_name, f.filesize, f.checksum,
 		    xs.priority, xs.to_node to_node_id, nd.name to_node
 		from t_xfer_state xs
 		  join t_xfer_file f on f.id = xs.fileid
@@ -343,7 +343,7 @@ sub filesForTransfer
 
 	    my $stmt = &dbexec ($dbh, qq{
 		select
-		    xs.fileid, f.logical_name, f.filetype, f.filesize, f.checksum,
+		    xs.fileid, f.logical_name, f.filesize, f.checksum,
 		    xs.from_node from_node_id, ns.name from_node, xs.from_pfn,
 		    xs.to_pfn, xs.time_assign, xs.time_available
 		from t_xfer_state xs
@@ -481,10 +481,9 @@ sub completeTransfer
 	# Log transfer delay stats
 	my $dalloc = $now - $$file{TIME_ALLOC};
 	my $dtransfer = $now - $$file{TIME_START};
-	&logmsg ("xstats: $$file{FILEID} ($$file{LFN}) "
-		 . "$$file{FROM_NODE} $$self{MYNODE} $state "
+	&logmsg ("xstats: $$file{FROM_NODE} $$self{MYNODE} $state "
 		 . sprintf('%.2f %.2f', $dalloc, $dtransfer)
-	     	 . " $$file{FILESIZE} [ @times ]");
+	     	 . " $$file{FILESIZE} [ @times ] $$file{FILEID} $$file{LFN}");
         $dbh->commit ();
     };
 
