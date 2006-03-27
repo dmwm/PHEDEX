@@ -5,32 +5,26 @@
 ##H This agent removes previously transferred files to make space
 ##H for new ones.  It deletes anything older than a specified age,
 ##H plus more files if running out of disk space.  Use this in
-##H challenge environment when we don't want to store the files,
-##H but just want to exercise the chain.
+##H an environment where you want to exercise the system.  Do not
+##H use if you actually want to keep your files!
 ##H
-##H Files removed from TMDB, from catalogue, and from disk.
+##H Files are removed both from TMDB and the disk.
 ##H
 ##H Usage:
 ##H   FileRecycler
-##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
-##H      -catalogue-rm PROGRAM[,ARG...] -catalogue-proto PROTOCOL
-##H      -disk-rm PROGRAM[,ARG...] [-disk-proto PROTOCOL]
-##H      -pfnquery PROGRAM[,ARG...] [-disk-monitor PROGRAM[,ARG...]]
-##H      [-delay-purge HOURS] [-delay-routing HOURS] [-log OUT]
+##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
+##H      -storagemap PATH [-protocol NAME] [-check PROGRAM[,ARG...]]
+##H      -rm PROGRAM[,ARG...] [-delay HOURS]
 ##H
-##H -state            agent state directory
-##H -node             the node where this agent runs
-##H -db               database connection configuration parameter file
-##H -wait             time to wait in seconds between work scans
-##H -pfnquery         command to query pfns from catalogue
-##H -catalogue-rm     command to remove file from file catalogue
-##H -catalogue-proto  protocol for looking up file name for catalogue removal
-##H -disk-rm          command to delete file from the disk
-##H -disk-proto       protocol for looping up file name for disk removal (default: direct)
-##H -disk-monitor     command to check if disk is full (default: ignore disk)
-##H -delay-purge      clear files after this period in hours (default: 48 hours)
-##H -delay-inactive   time in hours to prevent routing after purge (default: 8 hours)
-##H -log              where to redirect logging information
+##H -state         agent state directory
+##H -node          the node where this agent runs
+##H -db            database connection configuration parameter file
+##H -log           where to redirect logging information
+##H -storagemap    storage mapping catalogue
+##H -protocol      protocol to use with storage map, by default "direct"
+##H -check         script to check whether storage needs cleaning up
+##H -rm            command to remove files
+##H -delay         hours to wait before deleting a replica (default: 48)
 
 BEGIN
 {
@@ -44,25 +38,19 @@ BEGIN
 my %args;
 use Getopt::Long;
 use UtilsHelp;
-&GetOptions ("state=s"          => \$args{DROPDIR},
-	     "log=s"            => \$args{LOGFILE},
-             "db=s"             => \$args{DBCONFIG},
-             "node=s"           => \$args{MYNODE},
-	     "wait=f"		=> \$args{WAITTIME},
+&GetOptions ("state=s"		=> \$args{DROPDIR},
+	     "log=s"		=> \$args{LOGFILE},
+	     "db=s"		=> \$args{DBCONFIG},
+	     "node=s"		=> \$args{MYNODE},
+	     "storagemap=s"	=> \$args{STORAGEMAP},
+	     "protocol=s"	=> \$args{PROTOCOL},
+	     "check=s"		=> sub { push(@{$args{CMD_CHECK}}, split(/,/, $_[1])) },
+	     "rm=s"		=> sub { push(@{$args{CMD_RM}}, split(/,/, $_[1])) },
+	     "delay=f"		=> sub { $args{DELAY} = $_[1] * 3600 },
+	     "help|h"		=> sub { &usage() });
 
-	     "catalogue-proto=s"=> \$args{PROTO_CAT_RM},
-	     "disk-proto=s"     => \$args{PROTO_PFN_RM},
-	     "pfnquery=s"       => sub { push(@{$args{PFN_QUERY}}, split(/,/, $_[1])) },
-	     "catalogue-rm=s"   => sub { push(@{$args{CMD_CAT_RM}}, split(/,/, $_[1])) },
-	     "disk-rm=s"        => sub { push(@{$args{CMD_PFN_RM}}, split(/,/, $_[1])) },
-	     "disk-monitor=s"   => sub { push(@{$args{CMD_DISKMON}}, split(/,/, $_[1])) },
-	     "delay-purge=f"    => sub { $args{DELAY_PURGE} = $_[1] * 3600 },
-	     "delay-inactive=f" => sub { $args{DELAY_INACTIVE} = $_[1] * 3600 },
-	     "help|h"           => sub { &usage() });
-
-if (!$args{MYNODE} || !$args{DROPDIR} || !$args{DBCONFIG}
-    || !$args{PFN_QUERY} || !$args{CMD_CAT_RM} || !$args{CMD_PFN_RM}
-    || !$args{PROTO_CAT_RM} || !$args{PROTO_PFN_RM})
+if (@ARGV || !$args{MYNODE} || !$args{DROPDIR} || !$args{DBCONFIG}
+    || !$args{STORAGEMAP} || !$args{CMD_RM})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -86,18 +74,16 @@ sub new
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  AGENTID => "FileCleaner",     # Identity for activity logs
-		  WAITTIME => 60 + rand(20),	# Agent activity cycle
-		  PFN_QUERY => undef,		# Program to query PFNs
-		  PROTO_CAT_RM => undef,	# Protocol for PFN lookup for catalogue remove
-		  PROTO_PFN_RM => "direct",	# Protocol for PFN lookup for disk remove
-		  CMD_CAT_RM => undef,		# Program to remove PFN from catalogue
-		  CMD_PFN_RM => undef,		# Program to remove PFN from disk
-		  CMD_DISKMON => undef,		# Program to monitor disk free space
-		  DELAY_PURGE => 48 * 3600,	# Time delay after download to purging
-		  DELAY_INACTIVE => 8 * 3600);	# Time delay after purging to re-routing
+		  WAITTIME => 120 + rand(20),	# Agent activity cycle
+		  DELETING => undef,		# Are we deleting files now?
+		  DELAY => 48 * 3600,		# Time delay prior to purging
+		  STORAGEMAP => undef,		# Storage path mapping rules
+		  PROTOCOL => "direct",         # File access protocol
+		  CMD_CHECK => undef,           # Command to check for free space
+		  CMD_RM => undef);             # Command to remove files
 
     my %args = (@_);
-    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
 }
@@ -107,36 +93,22 @@ sub new
 # by site admins so it's unwise to error out here.
 sub deleteFile
 {
-    my ($self, $dbh, $guid, $catpfn, $diskpfn) = @_;
+    my ($self, $dbh, $fileid, $pfn) = @_;
     my $status;
 
-    # Remove file from catalogue
-    ($status = &runcmd (@{$self->{CMD_CAT_RM}}, $catpfn))
-	and &warn ("exit code @{[&runerror($status)]} from @{$self->{CMD_CAT_RM}} $catpfn");
-
     # Remove from the disk
-    ($status = &runcmd (@{$self->{CMD_PFN_RM}}, $diskpfn))
-	and &warn ("exit code @{[&runerror($status)]} from @{$self->{CMD_PFN_RM}} $diskpfn");
+    ($status = &runcmd (@{$$self{CMD_RM}}, $pfn))
+	and &warn ("exit code @{[&runerror($status)]} from @{$$self{CMD_RM}} $pfn");
+
+    # Remove outbound transfers.  We just lost the file...
+    &dbexec ($dbh, qq{
+	delete from t_xfer_state where fileid = :fileid and from_node = :node},
+	":fileid" => $fileid, ":node" => $$self{ID_MYNODE});
 
     # Remove replica
     &dbexec ($dbh, qq{
-	delete from t_replica_state
-	where guid = :guid and node = :node},
-	":guid" => $guid, ":node" => $self->{MYNODE});
-
-    # Remove outbound transfers
-    &dbexec ($dbh, qq{
-	delete from t_transfer_state
-	where guid = :guid and from_node = :node},
-	":guid" => $guid, ":node" => $self->{MYNODE});
-
-    # Create fake inbound transfer to prevent further routing
-    &dbexec ($dbh, qq{
-	insert into t_transfer_state
-	(timestamp, guid, to_node, to_state, to_timestamp,
-	 from_node, from_state, from_timestamp, from_pfn)
-	values (:now, :guid, :node, 90, :now, :node, 90, :now, null)},
-	":now" => &mytimeofday(), ":guid" => $guid, ":node" => $self->{MYNODE});
+	delete from t_xfer_replica where fileid = :fileid and node = :node},
+	":fileid" => $fileid, ":node" => $$self{ID_MYNODE});
 }
 
 # Pick up work from the database.
@@ -149,22 +121,20 @@ sub idle
     {
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
-	# Release files in inactive t_transfer_state to routing.
-	&dbexec ($dbh, qq{
-	    delete from t_transfer_state
-	    where from_node = :mynode
-	      and to_node = :mynode
-     	      and to_state = 90
-     	      and to_timestamp < :old},
-     	    ":mynode" => $self->{MYNODE},
-	    ":old" => &mytimeofday() - $self->{DELAY_INACTIVE});
-
-	# Check if the site wants to release some disk space.  Non-zero
-	# exit code means we should release some space.
-	my $diskfull = 0;
-	return if ($self->{DISKMON}
-		   && @{$self->{CMD_DISKMON}}
-		   && ! ($diskfull = &runcmd (@{$self->{CMD_DISKMON}})));
+	# Check if the site wants to release some disk space.  If we
+	# have no script to check, we always delete files.
+	if ($$self{CMD_CHECK} && @{$$self{CMD_CHECK}})
+	{
+	    if ($$self{DELETING} && ! &runcmd (@{$$self{CMD_CHECK}}, "min-free"))
+	    {
+	        undef $$self{DELETING};
+	    }
+	    elsif (! $$self{DELETING} && &runcmd (@{$$self{CMD_CHECK}}, "max-fill"))
+            {
+	        $$self{DELETING} = 1;
+	    }
+	    return if ! $$self{DELETING};
+	}
 
 	# Start a sweep cycle.  Find files good to be deleted. This is
 	# everything existing at this node longer than DELAY_PURGE, or
@@ -172,36 +142,33 @@ sub idle
 	# files at this node even for those with pending outbound
 	# transfers because this is test disk space recycling -- the
 	# main difference between this and the normal disk cleaner.
-	my $old = &mytimeofday() - $self->{DELAY_PURGE};
-        my @guids = ();
-        my $qguids = &dbexec($dbh,qq{
-	    select rs.guid, rs.timestamp
-	    from t_replica_state rs
-	    left join t_transfer_state ts
-	      on ts.guid = rs.guid
-	      and ts.from_node = rs.node
-      	      and (ts.to_state = 2 or ts.to_state = 3)
-            where rs.node = :mynode and ts.guid is null
-            order by rs.timestamp asc},
-    	    ":mynode" => $self->{MYNODE});
-        while (my ($guid, $time) = $qguids->fetchrow())
+	my $old = &mytimeofday() - $$self{DELAY};
+        my %files = ();
+        my $q = &dbexec($dbh,qq{
+	    select xr.fileid, f.logical_name, xr.time_create
+	    from t_xfer_replica xr
+	      join t_xfer_file f
+	        on f.id = xr.fileid
+	      left join t_xfer_state xs
+	        on xs.from_replica = xr.id
+      	        and xs.to_state = 2
+            where xr.node = :mynode and xs.fileid is null
+            order by xr.time_create asc},
+    	    ":mynode" => $$self{ID_MYNODE});
+        while (my ($id, $lfn, $time) = $q->fetchrow())
         {
-	    next if exists $self->{PENDING}{$guid};
-	    last if scalar @guids > 50;
-	    last if $time > $old && ! $diskfull;
-	    push(@guids, $guid);
+	    last if scalar keys %files > 100;
+	    last if $time > $old && ! $$self{DELETING};
+	    $files{$lfn} = $id;
         }
 
 	# Get PFNs and delete the files
-	my $catpfns = &guidToPFN (\@guids, $self->{PROTO_CAT_RM}, "local", @{$self->{PFN_QUERY}});
-	my $diskpfns = &guidToPFN (\@guids, $self->{PROTO_PFN_RM}, "local", @{$self->{PFN_QUERY}});
-	foreach my $guid (@guids)
-	{
-	    my $catpfn = $catpfns->{$guid};
-	    my $diskpfn = $diskpfns->{$guid};
-	    do { &logmsg ("no catalogue pfn for $guid"); next } if ! $catpfn;
-	    do { &logmsg ("no disk pfn for $guid"); next } if ! $diskpfn;
-	    $self->deleteFile ($dbh, $guid, $catpfn, $diskpfn);
+	my $pfns = &pfnLookup ([ keys %files ], $$self{PROTOCOL},
+			       "local", $$self{STORAGEMAP});
+        while (my ($lfn, $pfn) = each %$pfns)
+        {
+	    do { &alert ("no pfn for $lfn"); next } if ! $pfn;
+	    $self->deleteFile ($dbh, $files{$lfn}, $pfn);
 	}
 
 	# Done, commit
@@ -215,7 +182,7 @@ sub idle
     &disconnectFromDatabase ($self, $dbh);
 
     # Have a little nap
-    $self->nap ($self->{WAITTIME});
+    $self->nap ($$self{WAITTIME});
 }
 
 1;

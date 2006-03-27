@@ -1,60 +1,80 @@
 #! /usr/bin/env perl
 
-##H Delete replica entries, files and POOL catalogue entries for
-##H disk buffers
+##H Clear up files to make more download space in the storage.
 ##H
-##H This agent is meant as garbage collection system for sites with
-##H an MSS node for for lomg term storage plus an intermediate disk
-##H buffer. The agent continuously checks the free disk space on the
-##H disk buffer and initiates a clean-up if a certain watermark
-##H (e.g. fill level) is reached. The maximum fill level allowed can
-##H be adjusted via "-maxfillratio" and "-minfreespace". If any of
-##H the two requirements are met, a clean-up is initiated.
+##H This agent is meant for sites with an MSS node for long term
+##H storage plus an intermediate disk buffer buffer not shared with
+##H the MSS for download imports and exports.  The agent periodically
+##H checks wither the buffer reaches high-water mark in fullness, and
+##H clears oldest files until the space drops below a low-water mark.
+##H The maximum-fill high-water mark could be for example 90%, and the
+##H minimum-free low-water mark could be for example 50%.
 ##H
-##H In that case a list of expendable fils is created by checking the
-##H buffer for files which already are already safe on MSS. Those
-##H files are subject to the following clean-up procedure:
-##H 1. remove the corresponding replica in TMDB (t_replica_state)
-##H 2. remove the file physically from disk
-##H 3. remove the corresponding replica entry in the local POOL
-##H    catalogue
+##H The agent doesn't actually know anything about the storage, it
+##H invokes an external site script with "min-free" or "max-fill" as
+##H an argument, and takes non-zero exit code from the script as an
+##H indication the condition is not met, and more files should be
+##H deleteed.
 ##H
-##H In addition to the watermark setting, the user also needs to
-##H provide:
-##H 1. the path to the diskbuffer, which should be watched
-##H    "-importloc"
-##H 2. the POOL commands or scripts which should be used to query
-##H    PFNs from the catalogue "-pfnquery":
-##H    e.g. "PFNLookup.sh,-u,$PHEDEX_CATALOGUE"
-##H 3. the POOL command or script to remove PFNs from the catalogue
-##H    "-pfnrm": e.g. "FCdeletePFN,-u,$PHEDEX_CATALOGUE,-p"
-##H 4. the amount of files to purge before the next check of
-##H    available diskspace
-##H    "-purgesize": here some 1000 files is usually a good value
-##H
+##H Files on buffer without outbound transfers are candidates for
+##H clearing up.  Files are removed oldest first, first from the
+##H TMDB replica table, then physically from disk.  File removal
+##H may be a real removal, or simply ejection of the file from
+##H stager disk but not permanently removed from tape.
 ##H
 ##H Usage:
 ##H   FileDiskCleaner
 ##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
+##H      -storagemap FILE [-protocol NAME] -check COMMAND[,ARG...]
+##H      -rm COMMAND[,ARG...]
 ##H
 ##H -state         agent state directory
 ##H -node          the node where this agent runs
 ##H -db            database connection configuration parameter file
-##H -importloc     path to disk to watch (in direct mode)
-##H                path to wdsl file on SRM server in dcap mode
-##H -maxfillratio  maximum allowed disk usage in percentage
-##H                (default: 75)
-##H -minfreespace  minimum available disk free space in megabytes
-##H                (default: 100)
-##H -pfnquery      command to query pfns from catalogue
-##H -pfnrm         command to remove pfns from catalogue
-##H -purgesize     maximum number of files to purge per check-iteration
-##H -protocol      file access protocol used.
-##H                rfio: acces to Castor MSS systems
-##H                dcap: access to dCache MSS systems via PNFS
-##H                srm: access to SRM interfaced MSS systems
-##H                direct: direct file or NFS based access (default)
+##H -storagemap    storage mapping catalogue
+##H -protocol      protocol to use with storage map, by default "direct"
+##H -check         script to check whether storage needs cleaning up
+##H -rm            command to remove files
 ##H -log           where to redirect logging information
+
+# Example for clearing normal disk buffers:
+#   FileDiskCleaner -node ... -db ... -log ... -storagemap ...
+#     -check .../myscript -rm rm
+#
+#   myscript:
+#     #!/usr/bin/perl
+#     $pctused = (split(/\s+/, qx(df /da/path | tail -1)))[4];
+#     $pctused =~ s/[^\d.]//g;
+#     if ($ARGV[0] eq 'min-free') { exit (int($pctused) < 50 ? 0 : 1) }
+#     if ($ARGV[0] eq 'max-fill') { exit (int($pctused) > 90 ? 0 : 1) }
+#     exit(0);
+#
+# Example for clearing RFIO buffers:
+#   FileDiskCleaner -node ... -db ... -log ... -storagemap ...
+#     -check .../myscript -rm stageclr,-remove_from_hsm,-M
+#     (or: -rm rfrm)
+#
+#   myscript:
+#     #!/usr/bin/perl
+#     $pctfree = (split(/\s+/, qx(stageqry -s | grep FREE | head -1)))[5];
+#     $pctfree =~ s/[^\d.]//g;
+#     if ($ARGV[0] eq 'min-free') { exit (int($pctfree) >= 50 ? 0 : 1) }
+#     if ($ARGV[0] eq 'max-fill') { exit (int($pctfree) <= 10 ? 0 : 1) }
+#     exit(0);
+#
+# Example for clearing SRM buffers:
+#   FileDiskCleaner -node ... -db ... -log ... -storagemap ...
+#     -protocol srm -check .../myscript -rm srm-advisory-delete
+#
+#   myscript:
+#     #!/usr/bin/perl
+#     $storage = "https://cmssrm.fnal.gov:8443/srm/infoProvider1_0.wsdl";
+#     ($total, $used, $avail) = map { chomp; s/.*=\s*//; s/\s.*//; }
+#       grep(/Space.*=/, qx(srm-storage-element-info $storage 2>&1));
+#     $pctused = ($total ? 100.0 * $used/$total : 0);
+#     if ($ARGV[0] eq 'min-free') { exit (int($pctused) < 50 ? 0 : 1) }
+#     if ($ARGV[0] eq 'max-fill') { exit (int($pctused) > 90 ? 0 : 1) }
+#     exit(0);
 
 BEGIN
 {
@@ -66,10 +86,6 @@ BEGIN
 
 
 ######################################################################
-my %args = (MAXFILLRATIO => 75,
-	    MINFREESPACE => 100,
-	    PURGE => 1000,
-	    WAITTIME => 60);
 use Getopt::Long;
 use UtilsHelp;
 
@@ -77,27 +93,15 @@ use UtilsHelp;
 	     "log=s"		=> \$args{LOGFILE},
 	     "db=s"		=> \$args{DBCONFIG},
 	     "node=s"		=> \$args{MYNODE},
-	     "purgesize=f"      => \$args{PURGE},
-	     "help|h"		=> sub { &usage() },
+	     "storagemap=s"	=> \$args{STORAGEMAP},
+	     "protocol=s"	=> \$args{PROTOCOL},
+	     "check=s"		=> sub { push(@{$args{CMD_CHECK}}, split(/,/, $_[1])) },
+	     "rm=s"		=> sub { push(@{$args{CMD_RM}}, split(/,/, $_[1])) },
+	     "help|h"		=> sub { &usage() });
 
-	     "pfnquery=s"	=> \$args{PFN_QUERY},
-	     "pfnrm=s"		=> \$args{PFN_RM},
- 	     "maxfillratio=f"	=> \$args{MAXFILLRATIO},
-	     "minfreespace=f"	=> \$args{MINFREESPACE},
-	     "importloc=s"	=> \$args{IMPORTLOC},
-	     "protocol=s"       => \$args{PROTOCOL});
-
-$args{PFN_QUERY} = [ split(/,/, $args{PFN_QUERY}) ] if $args{PFN_QUERY};
-$args{PFN_RM} = [ split(/,/, $args{PFN_RM}) ] if $args{PFN_RM};
-
-if ($args{HELPME}
-    || !$args{MYNODE} || !$args{DROPDIR} || !$args{DBCONFIG}
-    || !$args{MAXFILLRATIO} || !$args{MINFREESPACE} || !$args{PFN_QUERY}
-    || !$args{PFN_RM})
+if (@ARGV || !$args{MYNODE} || !$args{DROPDIR} || !$args{DBCONFIG}
+    || !$args{STORAGEMAP} || !$args{CMD_CHECK} || !$args{CMD_RM})
 {
-    die "Insufficient parameters, use -h for help.\n";
-}
-if (!$args{PROTOCOL} && !$args{IMPORTLOC}) {
     die "Insufficient parameters, use -h for help.\n";
 }
 
@@ -122,14 +126,13 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
+		  WAITTIME => 120 + rand(20),	# Agent activity cycle
 	  	  AGENTID => "FileCleaner",     # Identity for activity logs
-		  MAXFILLRATIO => undef,	# Maximum disk fill percentage
-		  MINFREESPACE => undef,	# Minimum free space in MB
-		  PURGE => undef,               # amount of files to purge per run
-		  IMPORTLOC => undef,		# Disk path to watch
-		  PFN_QUERY => undef,		# Program to query PFNs
-		  PROTOCOL => undef,            # File access protocol
-		  PFN_RM => undef);		# Program to remove PFNs
+		  DELETING => undef,		# Are we deleting files now?
+		  STORAGEMAP => undef,		# Storage path mapping rules
+		  PROTOCOL => "direct",         # File access protocol
+		  CMD_CHECK => undef,           # Command to check for free space
+		  CMD_RM => undef);             # Command to remove files
 
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
@@ -152,53 +155,33 @@ sub deleteOneFile
 	# out might have been created for this file while we were not
 	# minding this particular file (sleeping or deleting things).
 	my ($npending) = &dbexec($dbh, qq{
-	    select count(guid) from t_transfer_state
-	    where from_node = :node and guid = :guid and to_state < 3},
-	    ":node" => $$self{MYNODE}, ":guid" => $$file{GUID})->fetchrow();
+	    select count(fileid) from t_xfer_state
+	    where from_node = :node and fileid = :fileid},
+	    ":node" => $$self{ID_MYNODE},
+	    ":fileid" => $$file{FILEID})
+    	    ->fetchrow();
 	if ($npending)
 	{
-	    &warn ("not removing $$file{GUID}, $npending pending transfers");
-	    return 0;
+	    &warn ("not removing $$file{LFN}, $npending pending transfers");
+	    return 1;
 	}
 
 	# Now delete the replica entry to avoid new transfer edges.
 	&dbexec($dbh, qq{
-	    delete from t_replica_state where guid = :guid and node = :node},
-	    ":guid" => $$file{GUID}, ":node" => $$self{MYNODE});
+	    delete from t_xfer_replica where fileid = :fileid and node = :node},
+	    ":fileid" => $$file{FILEID}, ":node" => $$self{ID_MYNODE});
 	$dbh->commit();
 
 	# Remove file from disk now.
-	if ($$self{PROTOCOL} eq 'rfio') {
-	    my $directPFN = $$file{PFN}; $directPFN =~ s/^[a-z]*://;
-	    if (&rfstatmode($directPFN)) {
-		&warn ("failed to remove $directPFN from castor") if 
-		    &runcmd ("stageclr", "-h", $ENV{STAGE_HOST}, "-p", 
-			     $ENV{STAGE_POOL}, "-remove_from_hsm", "-M", $directPFN);
-	    } else {
-		&warn ("$$file{GUID}: no such file $directPFN"); 
-	    }
-	} elsif ($$self{PROTOCOL} eq 'srm') {
-	    &warn ("wasn't able to delete $$file{PFN} via SRM") if
-		&runcmd ("srm-advisory-delete", $$file{PFN});
-	} else {
-	    my $directPFN = $$file{PFN}; $directPFN =~ s/^[a-z]*://;
-	    if (-e $directPFN) {
-		unlink ($directPFN);
-	    } else {
-		&warn ("$directPFN: no such file $directPFN");
-	    }
-	}
-	
-	# Delete file from catalogue
-	if (my $rc = &runcmd (@{$$self{PFN_RM}}, $$file{PFN}))
+	if (my $rc = &runcmd (@{$$self{CMD_RM}}, $$file{PFN}))
 	{
-	    &warn ("failed to remove $$file{GUID} from catalogue:"
-		   . " exit code @{[&runerror($rc)]}");
+	    &warn ("failed to remove $$file{PFN}: exit code "
+		   . &runerror($rc));
 	    return 0;
-	}
+        }
 
 	# Job done!
-	&logmsg ("$$file{GUID} $$file{PFN} deleted");
+	&logmsg ("removed file $$file{FILEID}, $$file{LFN} => $$file{PFN}");
 	return 1;
     };
 
@@ -225,7 +208,7 @@ sub processDrop
     # Read back file information
     my $dropdir = "$$self{WORKDIR}/$drop";
     my $file = do { no strict "vars"; eval &input ("$dropdir/packet") };
-    if ($@ || !$file || !$$file{GUID} || !$$file{PFN} || !$$file{TIME_START})
+    if ($@ || !$file || !$$file{FILEID} || !$$file{LFN} || !$$file{PFN} || !$$file{TIME_START})
     {
 	&alert ("corrupt packet in $drop");
 	$self->markBad ($drop);
@@ -241,52 +224,12 @@ sub processDrop
 
     # Log transfer delay stats
     my $dtransfer = &mytimeofday() - $$file{TIME_START};
-    &logmsg ("xstats: $$file{GUID} 0 " . sprintf('%.2f', $dtransfer));
+    &logmsg ("xstats: $$self{MYNODE} " . sprintf('%.2fs', $dtransfer)
+	     . " $$file{LFN} => $$file{PFN}");
 
     # OK, got far enough to nuke and log it
     $self->relayDrop ($drop);
     &logmsg("stats: $drop @{[&formatElapsedTime($$self{STARTTIME})]} success");
-}
-
-
-# Return megabytes free and percent of disk space used.
-# direct file access using regular mount points
-sub diskStats
-{
-    my ($self) = @_;
-    my @dfout = split (/\s+/, qx(df -Pm $$self{IMPORTLOC} | tail -1));
-    my ($free, $used) = @dfout[3,4];
-    $used =~ s/%$//;
-    return ($free, $used);
-}
-
-# Return megabytes free and percent of disk space used.
-# RFIO based file access
-sub diskStatsRfio
-{
-    my ($self) = @_;
-    my @out = split (/\s+/, qx(stageqry -h $ENV{STAGE_HOST} -p $ENV{STAGE_POOL} -s | grep FREE | head -1));
-    my ($free, $freepcg) = @out[4,5];
-    do {$free  =~ s/T//; $free = $free * 1024 * 1024} if $free =~ /T/;
-    do {$free  =~ s/G//; $free = $free * 1024} if $free =~ /G/;
-    $freepcg =~ s/\(//; $freepcg =~ s/%\)//;
-    return ($free, 100 - $freepcg);
-}
-
-# Return megabytes free and percent of disk space used.
-# DCAP based file access (dCache)
-sub diskStatsDCAP
-{
-    my ($self) = @_;
-    my @srmout = qx(srm-storage-element-info $$self{IMPORTLOC} 2>&1 |grep "Space");
-    map { s|.*=||; s|\s\(\d+.*|| } @srmout;
-    chomp @srmout;
-    my $total = $srmout[0];
-    my $free = $srmout[2];
-    my $used = $srmout[1];
-    my $usedpcg = undef;
-    $usedpcg = $used/$total*100.0 if ($total > 0);
-    return ($free, $usedpcg);
 }
 
 # Get a list of files to delete.
@@ -296,39 +239,35 @@ sub filesToDelete
 
     # Find all the files that we are allowed to delete: everything
     # transferred out of this node where the transfer is completed
-    # (TableCleaner removed t_transfer_state entries).
+    # (TableCleaner removed t_xfer_state entries).
     # We take the files oldest first.
-    my @guids = ();
-    my $qguids = &dbexec($dbh,qq{
-	select guid
-	from t_replica_state
-	where node = :node
-	  and guid not in
-	     (select guid from t_transfer_state
-	         where to_node = :node
-	         or from_node = :node)
-	order by state_timestamp asc},
-        ":node" => $$self{MYNODE});
-    while (my ($guid) = $qguids->fetchrow())
+    my @result;
+    my %files = ();
+    my $q = &dbexec($dbh,qq{
+	select xr.fileid, f.logical_name
+	from t_xfer_replica xr
+	  join t_xfer_file f on f.id = xr.fileid
+	  left join t_xfer_state xs on xs.from_replica = xr.id
+	where node = :node and xs.fileid is null
+	order by time_state asc},
+        ":node" => $$self{ID_MYNODE});
+    while (my ($id, $lfn) = $q->fetchrow())
     {
-	push (@guids, $guid);
-	last if scalar @guids >= $limit;
+	$files{$lfn} = $id;
+	last if scalar keys %files >= $limit;
     }
 
     # Now get PFNs for all those files.
-    my @files = ();
-    my $pfns = &guidToPFN (\@guids, $$self{PROTOCOL} ? $$self{PROTOCOL} : "direct", "local", @{$$self{PFN_QUERY}});
-    foreach my $guid (@guids)
+    my $pfns = &pfnLookup ([ keys %files ], $$self{PROTOCOL},
+	    		   "local", $$self{STORAGEMAP});
+    while (my ($lfn, $pfn) = each %$pfns)
     {
-	my $pfn = $$pfns{$guid};
-	do { &logmsg ("no pfn for $guid"); next } if ! $pfn;
-	push (@files,
-	      { GUID		=> $guid,
-		PFN		=> $pfn,
-		TIME_START	=> &mytimeofday() });
+	do { &alert ("no pfn for $lfn"); next } if ! $pfn;
+	push (@result, { LFN => $lfn, PFN => $pfn, FILEID => $files{$lfn},
+			 TIME_START => &mytimeofday() });
     }
 
-    return @files;
+    return @result;
 }
 
 # Create a drop for deleting a file.  We create a drop for ourselves,
@@ -341,15 +280,15 @@ sub startOne
     my ($self, $file) = @_;
 
     # Create a pending drop in my inbox
-    my $drop = "$$self{DROPDIR}/inbox/$$file{GUID}";
+    my $drop = "$$self{DROPDIR}/inbox/$$file{FILEID}";
     do { &alert ("$drop already exists"); return 0; } if -d $drop;
-    do { &alert ("failed to submit $$file{GUID}"); &rmtree ($drop); return 0; }
+    do { &alert ("failed to submit $$file{FILEID}"); &rmtree ($drop); return 0; }
 	if (! &mkpath ($drop)
 	    || ! &output ("$drop/packet", Dumper ($file))
 	    || ! &touch ("$drop/go.pending"));
 
     # OK, kick it go
-    &warn ("failed to mark $$file{GUID} ready to go")
+    &warn ("failed to mark $$file{FILEID} ready to go")
 	if ! &mv ("$drop/go.pending", "$drop/go");
 
     return 1;
@@ -366,24 +305,23 @@ sub idle
 	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
 	# Check whether there's enough disk space.  If yes, bail out.
-	my ($freespace, $usedpct) = undef, undef;
-	if ($$self{PROTOCOL} eq 'rfio') {
-	    ($freespace, $usedpct) = $self->diskStatsRfio ();
-	} elsif ($$self{PROTOCOL} eq 'dcap' or $$self{PROTOCOL} eq 'srm') {
-	    ($freespace, $usedpct) = $self->diskStatsDCAP ();
-	} else {
-	    ($freespace, $usedpct) = $self->diskStats ();
-        }
-	return if ! defined $freespace || ! defined $usedpct;
-	return if ($usedpct < $$self{MAXFILLRATIO}
-		   && $freespace > $$self{MINFREESPACE});
+	if ($$self{DELETING} && ! &runcmd (@{$$self{CMD_CHECK}}, "min-free"))
+	{
+	    undef $$self{DELETING};
+	}
+	elsif (! $$self{DELETING} && &runcmd (@{$$self{CMD_CHECK}}, "max-fill"))
+        {
+	    $$self{DELETING} = 1;
+	}
+
+	return if ! $$self{DELETING};
 
 	# Not enough space.  Get a list of victims to evict.
-	&logmsg ("disk $freespace/$usedpct% full, starting to clear out files");
-	foreach my $file ($self->filesToDelete ($dbh, $$self{PURGE}))
+	&logmsg ("disk is full, starting to clear files");
+	foreach my $file ($self->filesToDelete ($dbh, 100))
 	{
 	    # If we are already processing this file, ignore it
-	    next if grep ($_ eq $$file{GUID}, @pending);
+	    next if grep ($_ eq $$file{FILEID}, @pending);
 
 	    # Otherwise initiate destruction and doom
 	    $self->startOne ($file);
