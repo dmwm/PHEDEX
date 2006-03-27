@@ -5,29 +5,23 @@
 ##H This agent generates the export file name for outbound file
 ##H transfers.  It monitors the database for wanted or staged
 ##H files that do not yet have a transfer name, and generates
-##H one.
-##H
-##H A site-specific script is used to actually generate the
-##H the file name.  The script is passed a list of GUIDs and
-##H is expected to produce a list of "GUID PFN" lines.  A
-##H number of such query jobs can be executed in parallel.
-##H The arguments passed to the command are described in more
-##H detail in the manual.
+##H one.  The site storage map catalogue is used to generate
+##H the export names for the files.
 ##H
 ##H Usage:
 ##H   FilePFNExport
 ##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
 ##H      [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]
-##H      -pfnquery CMD[,ARGS...] -protocols PROTO[,PROTO...]
+##H      -protocols PROTO[,PROTO...] -storagemap PATH
 ##H
-##H -state     agent state directory
-##H -node      the node where this agent runs
-##H -db        database connection configuration parameter file
-##H -ignore    comma-separated list of nodes to ignore transfers from
-##H -accept    comma-separated list of nodes to accept transfers from
-##H -pfnquery  the command for querying export names
-##H -protocols comma-separated list of protocols to accept
-##H -log       where to redirect logging information
+##H -state       agent state directory
+##H -node        the node where this agent runs
+##H -db          database connection configuration parameter file
+##H -log         where to redirect logging information
+##H -ignore      comma-separated list of nodes to ignore transfers from
+##H -accept      comma-separated list of nodes to accept transfers from
+##H -protocols   comma-separated list of protocols to accept
+##H -storagemap  storage mapping catalogue
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -46,12 +40,12 @@ use UtilsHelp;
              "node=s"      => \$args{MYNODE},
              "ignore=s"    => sub { push(@{$args{IGNORE_NODES}}, split(/,/, $_[1])) },
              "accept=s"    => sub { push(@{$args{ACCEPT_NODES}}, split(/,/, $_[1])) },
-             "pfnquery=s"  => sub { push(@{$args{PFN_QUERY}}, split(/,/, $_[1])) },
              "protocols=s" => sub { push(@{$args{PROTOCOLS}}, split(/,/, $_[1])) },
+	     "storagemap=s"=> \$args{STORAGEMAP},
 	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG}
-    || !$args{PFN_QUERY} || !$args{NJOBS} || !$args{PROTOCOLS})
+    || !$args{STORAGEMAP} || !$args{PROTOCOLS})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -76,9 +70,7 @@ sub new
 	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
 		  WAITTIME => 50 + rand(20),	# Agent activity cycle
-		  NJOBS => 20,			# Number of parallel queries
-		  TIMEOUT => 600,		# Timeout for executing commands
-		  PFN_QUERY => undef,		# PFN query script
+	  	  STORAGEMAP => undef,		# Storage path mapping rules
 		  PROTOCOLS => undef);		# Protocols to accept
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
@@ -87,45 +79,6 @@ sub new
 }
 
 ######################################################################
-# Collect result from site query script glue
-sub reapPFNs
-{
-    my ($self, $dbh, $files, $lfnfile, $outfile, $start, $job) = @_;
-    my $output = &input ($outfile);
-    unlink ($outfile);
-    unlink ($lfnfile);
-
-    my %lfn2pfn = map { split(/\s+/, $_) } split('\n', $output || '');
-    foreach my $file (@$files)
-    {
-	my $to = $$file{TO_NODE};
-	my $proto = $$file{PROTOCOL};
-	my $lfn = $$file{LOGICAL_NAME};
-	my $pfn = $lfn2pfn{$lfn};
-	if (! $pfn)
-	{
-	    # Whine for lack of output, and put to cool as penalty.
-	    &warn ("no turl for $lfn to $to with $proto (exit code $$job{STATUS})");
-	    $$self{BACKOFF}{$lfn}{$to} = &mytimeofday() + 1200*(1 + rand(2));
-	    next;
-	}
-
-	&dbexec($dbh, qq{
-	    update t_xfer_state
-	    set from_pfn = :pfn
-	    where fileid = :fileid
-      	      and to_node = :toid
-      	      and from_pfn is null},
-      	    ":pfn" => $pfn,
-	    ":fileid" => $$file{FILEID},
-	    ":toid" => $$file{TO_NODE_ID});
-        $dbh->commit();
-	&logmsg ("xstats: $$self{MYNODE} $to $proto "
-		 . sprintf('%.2fs', &mytimeofday() - $start)
-		 . " $lfn $pfn");
-    }
-}
-
 # Pick up files that need PFN from database
 sub idle
 {
@@ -136,19 +89,12 @@ sub idle
     	$dbh = &connectToDatabase ($self) or die "failed to connect";
 	$$dbh{FetchHashKeyName} = "NAME_uc";
 
-	# If there are no pending jobs, delete old temp files.
-	if (! @{$$self{JOBS}})
-	{
-	    my $tmpdir = $$self{WORKDIR};
-	    unlink <$tmpdir/*.turl>, <$tmpdir/*.lfns>;
-        }
-
 	# Create jobs for computing TURLs for files.
 	my $now = &mytimeofday();
 	my $query = &dbexec($dbh,qq{
 	    select
 	      xr.fileid, f.logical_name, xs.to_node to_node_id,
-	      nd.name to_node, xs.to_protocols
+	      nd.name to_node, xs.to_protocols, xs.time_request
 	    from t_xfer_replica xr
 	      join t_xfer_file f
 	        on f.id = xr.fileid
@@ -202,34 +148,44 @@ sub idle
 	    last if ++$n >= 5000;
 	}
 
-	# Now process all the jobs.  For each destination and protocol,
-	# start batches of subprocesses to query the file paths.  The
-	# site glue script is handed the protocol, node and file list.
+	# Now process all the files.  For each destination and protocol,
+	# make mass translation of the paths.
 	foreach my $to (sort keys %todo)
 	{
 	    foreach my $proto (sort keys %{$todo{$to}})
 	    {
 		my $files = $todo{$to}{$proto};
-		my $lfnfile = "$$self{WORKDIR}/$to.$proto.lfns";
-	        my $outfile = "$$self{WORKDIR}/$to.$proto.turl";
-		&output ($lfnfile, join("", map { "$$_{LOGICAL_NAME}\n" } @$files));
-	        $self->addJob (
-		    sub { $self->reapPFNs ($dbh, $files, $lfnfile, $outfile, $now, @_) },
-		    {}, "sh", "-c", "@{$$self{PFN_QUERY}} -g -r $lfnfile $proto $to > $outfile");
+		my @lfns = map { $$_{LOGICAL_NAME} } @$files;
+		my $pfns = &pfnLookup(\@lfns, $proto, $to, $$self{STORAGEMAP});
+	        foreach my $file (@$files)
+		{
+		    my $to = $$file{TO_NODE};
+		    my $lfn = $$file{LOGICAL_NAME};
+		    my $pfn = $$pfns{$lfn};
+		    if (! $pfn)
+		    {
+	    	        # Whine for lack of output, and put to cool as penalty.
+	    	        &warn ("no pfn for $lfn to $to with protocol $proto");
+	    	        $$self{BACKOFF}{$lfn}{$to}
+			    = &mytimeofday() + 1200*(1 + rand(2));
+	    	        next;
+		    }
 
-	    	# Keep old jobs running while we are generating new jobs.
-	    	$self->maybeStop ();
-	    	$self->pumpJobs ();
-	   }
+		    &dbexec($dbh, qq{
+	    	        update t_xfer_state set from_pfn = :pfn
+	    	        where fileid = :fileid and to_node = :toid},
+      	    	        ":pfn" => $pfn,
+	    	        ":fileid" => $$file{FILEID},
+	    	        ":toid" => $$file{TO_NODE_ID});
+        	    $dbh->commit();
+
+		    my $dtime = &mytimeofday() - $$file{TIME_REQUEST};
+		    &logmsg ("xstats: $$self{MYNODE} $to $proto "
+		 	     . sprintf('%.2fs', $dtime)
+		 	     . " $lfn => $pfn");
+		}
+	    }
         }
-
-	# Wait till all jobs exit
-	while (@{$$self{JOBS}})
-	{
-	    $self->maybeStop ();
-	    $self->pumpJobs ();
-	    select (undef, undef, undef, .1);
-	}
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
