@@ -10,14 +10,17 @@ create sequence seq_dps_block;
 
 create table t_dps_dbs
   (id			integer		not null,
-   name			varchar (1000)	not null);
+   name			varchar (1000)	not null,
+   time_create		float		not null);
 
 create table t_dps_dataset
   (id			integer		not null,
    dbs			integer		not null,
    name			varchar (1000)	not null,
    is_open		char (1)	not null,
-   is_transient		char (1)	not null);
+   is_transient		char (1)	not null,
+   time_create		float		not null,
+   time_update		float);
 
 create table t_dps_block
   (id			integer		not null,
@@ -26,7 +29,8 @@ create table t_dps_block
    files		integer		not null,
    bytes		integer		not null,
    is_open		char (1)	not null,
-   time_create		float		not null);
+   time_create		float		not null,
+   time_update		float);
 
 create table t_dps_block_replica
   (block		integer		not null,
