@@ -126,8 +126,8 @@ sub idle
 	    # Proceed to activate.
 	    my ($stmt, $nfile) = &dbexec ($dbh, qq{
 		insert into t_xfer_file
-		(id, inblock, logical_name, filetype, checksum, filesize)
-		(select id, inblock, logical_name, filetype, checksum, filesize
+		(id, inblock, logical_name, checksum, filesize)
+		(select id, inblock, logical_name, checksum, filesize
 		 from t_dps_file where inblock = :block)},
 		":block" => $id);
 
