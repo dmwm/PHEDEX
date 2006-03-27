@@ -11,13 +11,13 @@
 ##H Usage:
 ##H   FileCastorMigrate
 ##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
-##H      -pfnquery COMMAND[,ARGS...]
+##H      -storagemap PATH
 ##H
-##H -state     agent state directory
-##H -node      the node where this agent runs
-##H -db        database connection configuration parameter file
-##H -pfnquery  command to query pfns from catalogue
-##H -log       where to redirect logging information
+##H -state         agent state directory
+##H -node          the node where this agent runs
+##H -db            database connection configuration parameter file
+##H -log           where to redirect logging information
+##H -storagemap    storage mapping catalogue
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -34,11 +34,11 @@ use UtilsHelp;
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
              "node=s"      => \$args{MYNODE},
-	     "pfnquery=s"  => sub { push(@{$args{PFN_QUERY}}, split(/,/, $_[1])) },
+	     "storagemap=s"=> \$args{STORAGEMAP},
 	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG}
-    || !$args{MYNODE} || !$args{PFN_QUERY})
+    || !$args{MYNODE} || !$args{STORAGEMAP})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -61,7 +61,7 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
-	  	  PFN_QUERY => undef,		# Program to query PFNs
+	  	  STORAGEMAP => undef,		# Program to query PFNs
 		  WAITTIME => 150 + rand(50),	# Agent activity cycle
 	  	  AGENTID => "FileDownload");	# Identity for activity logs
     my %args = (@_);
@@ -117,7 +117,7 @@ sub idle
 	while (my ($fileid, $lfn, $size, $available) = $q->fetchrow())
 	{
 	    # Check if the file has been migrated.  If not, skip it.
-	    my $pfn = &pfnLookup ($lfn, "direct", "local", @{$$self{PFN_QUERY}});
+	    my $pfn = &pfnLookup ($lfn, "direct", "local", $$self{STORAGEMAP});
 	    do { &alert ("failed to find pfn for file $lfn"); next } if !$pfn;
 	    open (NSLS, "nsls -l $pfn |")
 		or do { &warn ("cannot nsls $pfn: $!"); next };
@@ -138,7 +138,7 @@ sub idle
 	    # Log delay data.
     	    &logmsg ("xstats: $$self{MYNODE} "
 		     . sprintf('%.1fs', $now - $available)
-		     . " $size $lfn");
+		     . " $size $lfn $pfn");
 
 	    # Give up if we've taken too long
 	    last if $now - $start > 10*60;

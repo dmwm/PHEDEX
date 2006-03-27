@@ -14,13 +14,13 @@
 ##H Usage:
 ##H   FileCastorFilesize
 ##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
-##H      -pfnquery COMMAND[,ARGS...]
+##H      -storagemap PATH
 ##H
-##H -state     agent state directory
-##H -node      the node where this agent runs
-##H -db        database connection configuration parameter file
-##H -pfnquery  command to query pfns and guids from catalogue
-##H -log       where to redirect logging information
+##H -state       agent state directory
+##H -node        the node where this agent runs
+##H -db          database connection configuration parameter file
+##H -log         where to redirect logging information
+##H -storagemap  storage mapping catalogue
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -37,11 +37,11 @@ use UtilsHelp;
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
              "node=s"      => \$args{MYNODE},
-	     "pfnquery=s"  => sub { push(@{$args{PFN_QUERY}}, split(/,/, $_[1])) },
+	     "storagemap=s"=> \$args{STORAGEMAP},
 	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG}
-    || !$args{MYNODE} || !$args{PFN_QUERY})
+    || !$args{MYNODE} || !$args{STORAGEMAP})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -67,7 +67,7 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
-	  	  PFN_QUERY => undef,		# Program to query PFNs
+	  	  STORAGEMAP => undef,		# Storage path mapping rules
 		  WAITTIME => 550 + rand(100),	# Agent cycle time
 	  	  AGENTID => "FileStager",	# Identity for activity logs
     	    	  MAXFILES => 100,		# Max number of files in one request
@@ -143,10 +143,9 @@ sub getNodeFiles
     if (my @lfns = grep(! $files{$_}{PFN}, keys %files))
     {
         my $now = time();
-        my $pfns = &pfnLookup ([ @lfns ], "direct", "local", @{$$self{PFN_QUERY}});
-        foreach my $lfn (@lfns)
+        my $pfns = &pfnLookup (\@lfns, "direct", "local", $$self{STORAGEMAP});
+	while (my ($lfn, $pfn) = each %$pfns)
         {
-	    my $pfn = $$pfns{$lfn};
 	    $$self{PFN_CACHE}{$lfn} = { TIME => $now, VALUE => $pfn }; 
 	    $files{$lfn}{PFN} = $pfn if defined $pfn;
         }

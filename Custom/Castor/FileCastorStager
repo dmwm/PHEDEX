@@ -21,16 +21,16 @@
 ##H back to LFNs.
 ##H
 ##H Usage:
-##H   FileCastorFilesize
+##H   FileCastorStager
 ##H      -state DIRECTORY -node NAME -db FILE[:SECTION] -log OUT
-##H      -pfnquery COMMAND[,ARGS...] -tapeusers USER[,USER]
+##H      -storagemap PATH -tapeusers USER[,USER]
 ##H
-##H -state     agent state directory
-##H -node      the node where this agent runs
-##H -db        database connection configuration parameter file
-##H -pfnquery  command to query pfns and guids from catalogue
-##H -tapeusers list of users to watch tape accesses for
-##H -log       where to redirect logging information
+##H -state       agent state directory
+##H -node        the node where this agent runs
+##H -db          database connection configuration parameter file
+##H -log         where to redirect logging information
+##H -storagemap  storage mapping catalogue
+##H -tapeusers   list of users to watch tape accesses for
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -47,12 +47,12 @@ use UtilsHelp;
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
              "node=s"      => \$args{MYNODE},
-	     "pfnquery=s"  => sub { push(@{$args{PFN_QUERY}}, split(/,/, $_[1])) },
+	     "storagemap=s"=> \$args{STORAGEMAP},
 	     "tapeusers=s" => sub { push(@{$args{TAPE_USERS}}, split(/,/, $_[1])) },
 	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG}
-    || !$args{MYNODE} || !$args{PFN_QUERY})
+    || !$args{MYNODE} || !$args{STORAGEMAP})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -78,7 +78,7 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
-	  	  PFN_QUERY => undef,		# Program to query PFNs
+	  	  STORAGEMAP => undef,		# Storage path mapping rules
 	  	  TAPE_USERS => undef,		# Tape users to monitor
 		  WAITTIME => 550 + rand(100),	# Agent cycle time
 	  	  AGENTID => "FileStager",	# Identity for activity logs
@@ -254,10 +254,9 @@ sub getPendingFiles
     if (my @items = keys %unknown)
     {
         my $now = time();
-        my $pfns = &pfnLookup ([ @items ], "direct", "local", @{$$self{PFN_QUERY}});
-	foreach my $lfn (@items)
+        my $pfns = &pfnLookup (\@items, "direct", "local", $$self{STORAGEMAP});
+	while (my ($lfn, $pfn) = each %$pfns)
         {
-	    my $pfn = $$pfns{$lfn};
 	    $$self{PFN_CACHE}{$lfn} = "$now:@{[$pfn || '']}";
 	    $$self{LFN_CACHE}{$pfn} = "$now:$lfn" if defined $pfn;
 	    push (@$result, [ $lfn, $pfn, $unknown{$lfn} ]);
@@ -302,10 +301,9 @@ sub getStagerFiles
     if (my @items = keys %unknown)
     {
         my $now = time();
-        my $lfns = &lfnLookup ([ @items ], "direct", "local", @{$$self{PFN_QUERY}});
-        foreach my $pfn (@items)
+        my $lfns = &lfnLookup (\@items, "direct", "local", $$self{STORAGEMAP});
+	while (my ($pfn, $lfn) = each %$lfns)
         {
-	    my $lfn = $$lfns{$pfn};
 	    $$self{PFN_CACHE}{$lfn} = "$now:$pfn" if defined $lfn;
 	    $$self{LFN_CACHE}{$pfn} = "$now:@{[$lfn || '']}";
 	    push (@$result, [ $lfn, $pfn, $$files{$pfn} ]);
