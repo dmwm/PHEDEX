@@ -11,7 +11,6 @@ create table t_dps_file
    node			integer		not null,
    inblock		integer		not null,
    logical_name		varchar (1000)	not null,
-   filetype		varchar (1000)	not null,
    checksum		varchar (1000)	not null,
    filesize		integer		not null,
    time_create		float		not null);
@@ -20,7 +19,6 @@ create table t_xfer_file
   (id			integer		not null,
    inblock		integer		not null,
    logical_name		varchar (1000)	not null,
-   filetype		varchar (1000)	not null,
    checksum		varchar (1000)	not null,
    filesize		integer		not null);
 
