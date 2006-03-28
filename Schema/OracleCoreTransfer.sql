@@ -42,7 +42,8 @@ create table t_xfer_offer
    cost			float		not null,  -- cost of "from" => me
    penalty		float		not null,  -- credibility used for above
    hops			integer		not null,  -- distance from source
-   time_offer		float		not null   /* time at offer */);
+   time_offer		float		not null,   /* time at offer */
+   time_expire		float);
 
 create table t_xfer_offer_step
   (fileid		integer		not null,  -- for which file
@@ -272,11 +273,6 @@ alter table t_xfer_confirmation
   add constraint fk_xfer_confirmation_from
   foreign key (from_node) references t_node (id);
 
-
-alter table t_xfer_expired
-  add constraint pk_xfer_expired
-  primary key (fileid, to_node)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_xfer_expired
   add constraint fk_xfer_expired_fileid
