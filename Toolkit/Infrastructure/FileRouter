@@ -131,7 +131,6 @@ sub routeForNodes
     # reasonable amount of time.  This behaviour blocks routing for files
     # and sites that do not function properly, but avoids loading database
     # servers and allows other sites to make timely progress.
-
     # (Do this every five minutes or so.)
 
     # Get current transfer load parameters.  If there aren't any, wait.
@@ -164,7 +163,11 @@ sub routeForNodes
 	$confirm_bytes{$priority} = $bytes;
     }
 
-    return if ! keys %pend_bytes || ! keys %confirm_bytes;
+    if( ! keys %pend_bytes || ! keys %confirm_bytes )
+    {
+	#&alert( "No pending transfers, or no unconfirmed requests: FileRouter will just give up here, waiting for some stats to be created by someone else." );
+	#return;
+    }
 
     # FIXME: What we need is flexible bandwidth management, in proportions
     # 4:3:2:1 for P0:P1:P2:P3 (P0 = me/high, P1 = others/high, P2 = me/low,
@@ -309,6 +312,13 @@ sub routeForNodes
              and xos.fileid is null)},
 	":node" => $node, ":now" => $now);
 
+    $q = &dbexec($dbh, qq{
+	select * from t_xfer_offer_step});
+    while (my @row = $q->fetchrow())
+    {
+	&logmsg( "$node: @row" );
+    }
+
     &dbexec($dbh, qq{
         delete from t_xfer_offer_step this
          where to_node = :node and exists
@@ -321,12 +331,27 @@ sub routeForNodes
 
     &dbexec($dbh, qq{
         insert into t_xfer_offer
-          (to_node, fileid, total_cost, from_node, cost, penalty, hops, time_offer)
+          (to_node, fileid, total_cost, from_node, cost, penalty, hops, time_offer, time_expire)
           (select
              xos.to_node, xos.fileid, xos.total_cost, xos.from_node,
-             xos.cost, xos.penalty, xos.hops, :now
+             xos.cost, xos.penalty, xos.hops, :now, :now+600
            from t_xfer_offer_step xos where xos.to_node = :node)},
 	":node" => $node, ":now" => $now);
+
+    # tab: check to see if we're offering a now-non-existent replica,
+    # and if we are then poison our offer
+    &dbexec($dbh, qq{
+        update (
+          select xo.time_expire
+          from t_xfer_offer xo
+          left join t_xfer_replica xr
+             on xr.fileid = xo.fileid
+             and xr.node = xo.from_node
+          where xo.from_node = :node
+          and xo.hops = 0
+          and xr.fileid is null)
+	    set time_expire = 0},
+	":node" => $node);
 
     &dbexec($dbh, qq{
         delete from t_xfer_offer_step where to_node = :node},
@@ -352,6 +377,7 @@ sub routeForNodes
                   join t_xfer_offer xo
                     on xo.fileid = xq.fileid
                     and xo.to_node = xq.destination
+		    and xo.time_expire > :now
                 where xq.destination = :node
                   and xq.state = 0
                   and xq.time_activate is null)
@@ -386,6 +412,7 @@ sub routeForNodes
              join t_xfer_offer xo
                on xo.fileid = xq.fileid
                and xo.to_node = xq.destination
+	       and xo.time_expire > :now
            where xq.destination = :node
              and xq.state = 1
              and xo.from_node != xo.to_node)},
@@ -407,6 +434,7 @@ sub routeForNodes
                and xc.from_node = xo.to_node
                and xc.time_expire > :now
            where xo.to_node = :node and xr.fileid is null
+	   and xo.time_expire > :now
            group by xo.fileid, xo.to_node, xo.from_node)},
 	":node" => $node, ":now" => $now);
     $dbh->commit();
@@ -440,7 +468,7 @@ sub routeForNodes
            where xc.time_expire > :now
              and xc.to_node = :me
              and xs.fileid is null},
-	":node" => $node, ":now" => $now, ":mypattern" => $nodepat);
+	":me" => $node, ":now" => $now, ":mypattern" => $nodepat);
     $dbh->commit();
 
     ######################################################################
