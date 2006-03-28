@@ -279,6 +279,21 @@ sub routeForNodes
     # files we know we don't have and know our neighbour can access.
     #
     # We add 10*distance to the neighbour cost and multiply with penalty.
+    # tab: check to see if we're offering a now-non-existent replica,
+    # and if we are then poison our neighbours' offer
+    &dbexec($dbh, qq{
+        update (
+          select xo.time_expire
+          from t_xfer_offer xo
+          left join t_xfer_replica xr
+             on xr.fileid = xo.fileid
+             and xr.node = xo.from_node
+          where xo.from_node = :node
+          and xo.hops = 1
+          and xr.fileid is null)
+            set time_expire = 0},
+	    ":node" => $node);
+
     &dbexec($dbh, qq{
         insert into t_xfer_offer_step
           (to_node, fileid, total_cost, from_node, cost, penalty, hops)
@@ -309,15 +324,9 @@ sub routeForNodes
                on xos.fileid = xo.fileid
                and xos.to_node = :node
            where xo.time_offer >= :now - 15*60
+	   and xo.time_expire > :now
              and xos.fileid is null)},
 	":node" => $node, ":now" => $now);
-
-    $q = &dbexec($dbh, qq{
-	select * from t_xfer_offer_step});
-    while (my @row = $q->fetchrow())
-    {
-	&logmsg( "$node: @row" );
-    }
 
     &dbexec($dbh, qq{
         delete from t_xfer_offer_step this
@@ -337,21 +346,6 @@ sub routeForNodes
              xos.cost, xos.penalty, xos.hops, :now, :now+600
            from t_xfer_offer_step xos where xos.to_node = :node)},
 	":node" => $node, ":now" => $now);
-
-    # tab: check to see if we're offering a now-non-existent replica,
-    # and if we are then poison our offer
-    &dbexec($dbh, qq{
-        update (
-          select xo.time_expire
-          from t_xfer_offer xo
-          left join t_xfer_replica xr
-             on xr.fileid = xo.fileid
-             and xr.node = xo.from_node
-          where xo.from_node = :node
-          and xo.hops = 0
-          and xr.fileid is null)
-	    set time_expire = 0},
-	":node" => $node);
 
     &dbexec($dbh, qq{
         delete from t_xfer_offer_step where to_node = :node},
