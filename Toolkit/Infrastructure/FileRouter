@@ -165,7 +165,7 @@ sub routeForNodes
 
     if( ! keys %pend_bytes || ! keys %confirm_bytes )
     {
-	#&alert( "No pending transfers, or no unconfirmed requests: FileRouter will just give up here, waiting for some stats to be created by someone else." );
+	&alert( "No pending transfers, or no unconfirmed requests." );
 	#return;
     }
 
@@ -285,13 +285,13 @@ sub routeForNodes
         update (
           select xo.time_expire
           from t_xfer_offer xo
-          left join t_xfer_replica xr
-             on xr.fileid = xo.fileid
-             and xr.node = xo.from_node
+            left join t_xfer_replica xr
+              on xr.fileid = xo.fileid
+              and xr.node = xo.from_node
           where xo.from_node = :node
           and xo.hops = 1
           and xr.fileid is null)
-            set time_expire = 0},
+          set time_expire = 0},
 	    ":node" => $node);
 
     &dbexec($dbh, qq{
@@ -340,7 +340,8 @@ sub routeForNodes
 
     &dbexec($dbh, qq{
         insert into t_xfer_offer
-          (to_node, fileid, total_cost, from_node, cost, penalty, hops, time_offer, time_expire)
+          (to_node, fileid, total_cost, from_node, cost, penalty, 
+	   hops, time_offer, time_expire)
           (select
              xos.to_node, xos.fileid, xos.total_cost, xos.from_node,
              xos.cost, xos.penalty, xos.hops, :now, :now+600
