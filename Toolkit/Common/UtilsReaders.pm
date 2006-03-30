@@ -16,9 +16,9 @@ sub readChecksumData
 	next if /^$/;
 
 	# Process matching lines (<checksum> <size> <filename>)
-	if (/^-?\d+ -?\d+ \S+$/)
+	if (/^(-?\d+) (-?\d+) (\S+)$/)
 	{
-	    push(@result, [ split(/\s+/, $_) ]);
+	    push(@result, [ $1, $2, $3 ]);
 	}
 	else
 	{
