@@ -114,6 +114,12 @@ foreach my $file (@$catalogue)
 
     if (! $cksum)
     {
+	my $lfn2 = $lfn; $lfn2 =~ s!.*/!!;
+	$cksum = $cksums{$lfn2};
+    }
+
+    if (! $cksum)
+    {
 	print STDERR "$lfn: no checksum\n";
 	$bad = 1;
 	next;
@@ -240,9 +246,9 @@ foreach my $f (@$catalogue)
 	push (@{$sqlargs{$fstmt}{2}}, $f->{GUID});
 	push (@{$sqlargs{$fstmt}{3}}, $args{NODES}[0]);
 	push (@{$sqlargs{$fstmt}{4}}, $block);
-	push (@{$sqlargs{$fstmt}{5}}, "$f->{META}{jobid}");
+	push (@{$sqlargs{$fstmt}{5}}, $f->{META}{jobid} || 'NONE');
 	push (@{$sqlargs{$fstmt}{6}}, $f->{LFN}[0]);
-	push (@{$sqlargs{$fstmt}{7}}, $f->{PFN}[0]{TYPE});
+	push (@{$sqlargs{$fstmt}{7}}, $f->{PFN}[0]{TYPE} || 'NONE');
 	push (@{$sqlargs{$fstmt}{8}}, $f->{FILESIZE});
 	push (@{$sqlargs{$fstmt}{9}}, $f->{CHECKSUM});
 
