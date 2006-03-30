@@ -22,7 +22,7 @@ BEGIN {
 }
 
 ######################################################################
-my %args;
+my %args = (NEXTDIR => []);
 use Getopt::Long;
 use UtilsHelp;
 &GetOptions ("state=s"     => \$args{DROPDIR},
