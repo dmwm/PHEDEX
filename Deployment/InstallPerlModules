@@ -102,4 +102,4 @@ done
 rm -fr "$tmpdir"
 
 # Finally, generate required environment setup
-echo "PERL5LIB=$prefix/lib/$archname:$prefix/lib\${PERL5LIB+\"\$PERL5LIB\"}; export PERL5LIB;" > "$destdir/perlenv.sh" || exit $?
+echo "PERL5LIB=$prefix/lib/$archname:$prefix/lib\${PERL5LIB+\":\$PERL5LIB\"}; export PERL5LIB;" > "$destdir/perlenv.sh" || exit $?
