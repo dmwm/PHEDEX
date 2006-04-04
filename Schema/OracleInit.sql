@@ -5,35 +5,35 @@ prompt Loading PhEDEx schema to &_user@&_connect_identifier
 
 prompt
 prompt Loading authentication
-@OracleCoreAuth.sql
+@@OracleCoreAuth.sql
 
 prompt Loading topology
-@OracleCoreTopo.sql
+@@OracleCoreTopo.sql
 
 prompt Loading agents
-@OracleCoreAgents.sql
+@@OracleCoreAgents.sql
 
 prompt
 prompt Loading data placement
-@OracleCoreBlock.sql
+@@OracleCoreBlock.sql
 
 prompt
 prompt Loading files
-@OracleCoreFiles.sql
+@@OracleCoreFiles.sql
 
 prompt Loading transfers
-@OracleCoreTransfer.sql
+@@OracleCoreTransfer.sql
 
 prompt Loading transfer triggers
-@OracleCoreTriggers.sql
+@@OracleCoreTriggers.sql
 
 prompt
 prompt Loading info status
-@OracleCoreInfo.sql
+@@OracleCoreInfo.sql
 
 prompt
 prompt Loading request management
-@OracleCoreReq.sql
+@@OracleCoreReq.sql
 
 prompt
 prompt PhEDEx schema loaded
