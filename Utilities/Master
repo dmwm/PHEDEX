@@ -179,7 +179,7 @@ if (grep ($mode eq $_, qw(start stop show terminate)))
 	    " fi;",
 	    " nohup \${PHEDEX_SCRIPTS}/$agent->{PROGRAM}",
 	    (" -", $agent->{STATEOPT} || "state", " ", $statedir),
-	    (" -log", $logfile),
+	    (" -log ", $logfile),
 	    $agent->{OPTS},
 	    " &";
 	} elsif ($mode eq 'stop') {
