@@ -187,7 +187,7 @@ create table t_xfer_param
 alter table t_xfer_replica
   add constraint pk_xfer_replica
   primary key (id)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace INDX01;
 
 alter table t_xfer_replica
   add constraint uq_xfer_replica
@@ -205,7 +205,7 @@ alter table t_xfer_replica
 alter table t_xfer_request
   add constraint pk_xfer_request
   primary key (fileid, destination)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace INDX01;
 
 alter table t_xfer_request
   add constraint fk_xfer_request_fileid
@@ -223,7 +223,7 @@ alter table t_xfer_request
 alter table t_xfer_offer
   add constraint pk_xfer_offer
   primary key (fileid, to_node)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace INDX01;
 
 alter table t_xfer_offer
   add constraint fk_xfer_offer_fileid
@@ -240,8 +240,8 @@ alter table t_xfer_offer
 
 alter table t_xfer_offer_step
   add constraint pk_xfer_offer_step
-  primary key (fileid, to_node)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  primary key (from_node, fileid, to_node)
+  using index tablespace INDX01;
 
 alter table t_xfer_offer_step
   add constraint fk_xfer_offer_step_fileid
@@ -259,7 +259,7 @@ alter table t_xfer_offer_step
 alter table t_xfer_confirmation
   add constraint pk_xfer_confirmation
   primary key (fileid, to_node)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace INDX01;
 
 alter table t_xfer_confirmation
   add constraint fk_xfer_confirmation_fileid
@@ -290,7 +290,7 @@ alter table t_xfer_expired
 alter table t_xfer_state
   add constraint pk_xfer_state
   primary key (fileid, to_node)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace INDX01;
 
 alter table t_xfer_state
   add constraint fk_xfer_state_fileid
@@ -325,7 +325,7 @@ alter table t_xfer_tracking
 alter table t_xfer_histogram
   add constraint pk_xfer_histogram
   primary key (timebin, to_node, from_node, priority)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace INDX01;
 
 alter table t_xfer_histogram
   add constraint fk_xfer_histogram_from
@@ -339,7 +339,7 @@ alter table t_xfer_histogram
 alter table t_routing_histogram
   add constraint pk_routing_histogram
   primary key (timebin, to_node, from_node, priority)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace INDX01;
 
 alter table t_routing_histogram
   add constraint fk_routing_histogram_from
@@ -353,7 +353,7 @@ alter table t_routing_histogram
 alter table t_dest_histogram
   add constraint pk_dest_histogram
   primary key (timebin, node)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace INDX01;
 
 alter table t_dest_histogram
   add constraint fk_dest_histogram_node
@@ -363,7 +363,7 @@ alter table t_dest_histogram
 alter table t_xfer_param
   add constraint pk_xfer_param
   primary key (to_node, from_node)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  using index tablespace INDX01;
 
 alter table t_xfer_param
   add constraint fk_xfer_param_from
@@ -379,32 +379,32 @@ alter table t_xfer_param
 
 create index ix_xfer_replica_node
   on t_xfer_replica (node)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  tablespace INDX01;
 
 create index ix_xfer_replica_common
   on t_xfer_replica (node, state, fileid)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  tablespace INDX01;
 
 
 create index ix_xfer_state_from_node
   on t_xfer_state (from_node)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  tablespace INDX01;
 
 create index ix_xfer_state_to_node
   on t_xfer_state (to_node)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  tablespace INDX01;
 
 create index ix_xfer_state_to_state
   on t_xfer_state (to_state)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  tablespace INDX01;
 
 create index ix_xfer_state_fromto_state
   on t_xfer_state (from_node, fileid, to_state)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  tablespace INDX01;
 
 create index ix_xfer_state_fromto_pair
   on t_xfer_state (from_node, to_node)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  tablespace INDX01;
 
 
 ----------------------------------------------------------------------
