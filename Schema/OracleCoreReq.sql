@@ -50,7 +50,7 @@ create table t_request_status
 alter table t_request
   add constraint pk_request
   primary key (id)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_request
   add constraint uq_request_name
@@ -79,26 +79,26 @@ alter table t_request_status
 alter table t_request_status
   add constraint pk_request_status
   primary key (request, block, destination)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 ----------------------------------------------------------------------
 -- Add indices
 
 create index ix_request_operation_req
   on t_request_operation (request)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;
 
 
 create index ix_request_subscription_req
   on t_request_subscription (request)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;
 
 
 create index ix_request_dataspec_req
   on t_request_dataspec (request)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;
 
 
 create index ix_request_status_req
   on t_request_status (request)
-  tablespace INDX01;
+  tablespace CMS_TRANSFERMGMT_INDX01;

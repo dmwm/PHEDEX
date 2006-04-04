@@ -21,7 +21,7 @@ create table t_node_neighbour
 alter table t_node
   add constraint pk_node
   primary key (id)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_node
   add constraint uq_node_name
@@ -31,7 +31,7 @@ alter table t_node
 alter table t_node_neighbour
   add constraint pk_node_neighbour
   primary key (from_node, to_node)
-  using index tablespace INDX01;
+  using index tablespace CMS_TRANSFERMGMT_INDX01;
 
 alter table t_node_neighbour
   add constraint fk_node_neighbour_from
