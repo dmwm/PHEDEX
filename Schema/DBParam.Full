@@ -34,7 +34,7 @@ LogSQL			off
 ######################################################################
 Section			Testbed
 Interface		Oracle
-Database		devdb10
+Database		cms_transfermgmt_test
 AuthDBUsername		cms_transfermgmt_testbed
 AuthDBPassword		FILL_ME_IN
 ConnectionLife		86400

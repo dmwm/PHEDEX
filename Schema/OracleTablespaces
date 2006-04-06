@@ -19,7 +19,7 @@ case ${1-Prod} in
   Testbed )
     echo "$0: Switching schema to \`$1' tablespaces"
     perl -p -i -e 's|( /\*)? (tablespace [A-Z\d_]+)( \*/)?| $2|' OracleCore*.sql
-    perl -p -i -e 's/ (CMS_TRANSFERMGMT[A-Z_]*)?INDX01/ INDX01/g' OracleCore*.sql
+    perl -p -i -e 's/ (CMS_TRANSFERMGMT[A-Z_]*)?INDX01/ CMS_TRANSFERMGMT_TBD_INDX01/g' OracleCore*.sql
     ;;
   Standalone )
     echo "$0: Switching schema to \`$1' tablespaces"
