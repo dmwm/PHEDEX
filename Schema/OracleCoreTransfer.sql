@@ -44,6 +44,7 @@ create table t_xfer_path
    local_boost		integer		not null,  -- local transfer priority
    cost			float		not null,  -- hop cost
    total_cost		float		not null,  -- total path cost
+   penalty		float		not null,  -- path penalty
    time_request		float		not null,  -- request creation time
    time_confirm		float		not null,  -- last path build time
    time_expire		float		not null /*   request expiry time */);
