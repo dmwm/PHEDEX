@@ -104,7 +104,7 @@ cat > "$destdir/oraenv.sh" <<EOF
 ORACLE_HOME=$destdir;
 PATH=$destdir/bin:\$PATH;
 $rpath=$destdir/lib\${$rpath+:\$$rpath};
-SQLPATH=$destdir/bin;
-TNS_ADMIN=$destdir/admin;
+SQLPATH=$schemadir:$destdir/bin;
+TNS_ADMIN=$schemadir; # $destdir/admin
 export ORACLE_HOME PATH $rpath SQLPATH TNS_ADMIN;
 EOF
