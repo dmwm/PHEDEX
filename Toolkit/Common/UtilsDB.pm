@@ -110,6 +110,9 @@ sub connectToDatabase
 	}
 
 	# Cache it.
+	$$dbh{FetchHashKeyName} = "NAME_uc";
+	$$dbh{LongReadLen} = 4096;
+	$$dbh{RowCacheSize} = 10000;
 	$$self{DBH_AGE} = time();
 	$$self{DBH} = $dbh;
 	$$dbh{private_phedex_invalid} = 0;
