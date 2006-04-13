@@ -42,6 +42,7 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{NODES} || !$args{DBCONF
 ######################################################################
 # Routines for this agent.
 package FileRouter; use strict; use warnings; use base 'UtilsAgent';
+use List::Util qw(max);
 use UtilsLogging;
 use UtilsTiming;
 use UtilsDB;
@@ -314,13 +315,10 @@ sub routeForNodes
     }
 
     # Build optimal file paths
-    $self->routeFile($_) for values %{$$self{REQUESTS}};
+    $self->routeFile($node, $_) for values %{$$self{REQUESTS}};
 
     # Update database
-    my (%dargs, %iargs);
-    my $dstmt = &dbprep($dbh, qq{
-	delete from t_xfer_path where fileid = ? and destination = ?});
-
+    my %iargs;
     my $istmt = &dbprep($dbh, qq{
 	insert into t_xfer_path
 	(fileid, destination, hop, src_node, from_node, to_node,
@@ -333,10 +331,6 @@ sub routeForNodes
 	foreach my $hop (@{$$req{PATH}})
 	{
 	    my $n = 1;
-	    push(@{$dargs{$n++}}, $$req{FILEID});
-	    push(@{$dargs{$n++}}, $node);
-
-	    $n = 1;
 	    push(@{$iargs{$n++}}, $$req{FILEID});
 	    push(@{$iargs{$n++}}, $node);
 	    push(@{$iargs{$n++}}, $$hop{INDEX});
@@ -354,7 +348,6 @@ sub routeForNodes
 	}
     }
 
-    &dbbindexec($dstmt, %dargs) if %dargs;
     &dbbindexec($istmt, %iargs) if %iargs;
     # $dbh->commit();
 
@@ -544,7 +537,7 @@ sub routeFile
 	my $index = 0;
 	my $node = $dest;
 	my $local = 1;
-	while ($paths{$node}{FROM_NODE} != $paths{$node}{SRC_NODE})
+	while ($paths{$node}{FROM_NODE} != $paths{$node}{TO_NODE})
 	{
 	    my $from = $paths{$node}{FROM_NODE};
 	    $local *= ($$self{LINKS}{$node}{$from}{LOCAL_BOOST} || 0);
