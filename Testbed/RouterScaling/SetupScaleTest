@@ -9,7 +9,7 @@
 BEGIN { use strict; use warnings; $^W=1;
 	my $me = $0; $me =~ s|.*/||;
 	my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-	unshift(@INC, "$home/PHEDEX/Toolkit/Common"); }
+	unshift(@INC, "$home/../../Toolkit/Common"); }
 
 my %args;
 use Getopt::Long;
