@@ -31,41 +31,22 @@ create table t_xfer_request
    state		integer		not null,
    attempt		integer		not null,
    time_create		float		not null,
-   time_expire		float		not null,
-   time_activate	float);
+   time_expire		float		not null);
 
-create table t_xfer_offer
-  (to_node		integer		not null,  -- at which node
+create table t_xfer_path
+  (destination		integer		not null,  -- final destination
    fileid		integer		not null,  -- for which file
-   total_cost		float		not null,  -- estimated cost
-   from_node		integer		not null,  -- where came from
-   cost			float		not null,  -- cost of "from" => me
-   penalty		float		not null,  -- credibility used for above
-   hops			integer		not null,  -- distance from source
-   time_offer		float		not null,   /* time at offer */
-   time_expire		float);
-
-create table t_xfer_offer_step
-  (fileid		integer		not null,  -- for which file
-   to_node		integer		not null,  -- at which node
-   total_cost		float		not null,  -- estimated cost
-   from_node		integer		not null,  -- where came from
-   cost			float		not null,  -- cost of "from" => "node"
-   penalty		float		not null,  -- credibility used for above
-   hops			integer		not null /* distance from source */);
-
-create table t_xfer_confirmation
-  (fileid		integer		not null,  -- for which file
-   from_node		integer		not null,  -- at which node
-   to_node		integer		not null,  -- where came from
+   hop			integer		not null,  -- hop from destination
+   src_node		integer		not null,  -- original replica owner
+   from_node		integer		not null,  -- from which node
+   to_node		integer		not null,  -- to which node
    priority		integer		not null,  -- priority
-   weight		integer		not null,  -- count of destinations
-   time_activate	float		not null,  -- earliest time activated
-   time_confirm		float		not null,  -- most recently confirmed
-   time_expire		float		not null /* last expiring xfer_request */);
-
-create table t_xfer_expired
-  as select * from t_xfer_confirmation where 1=0;
+   local_boost		integer		not null,  -- local transfer priority
+   cost			float		not null,  -- hop cost
+   total_cost		float		not null,  -- total path cost
+   time_request		float		not null,  -- request creation time
+   time_confirm		float		not null,  -- last path build time
+   time_expire		float		not null /*   request expiry time */);
 
 create table t_xfer_state
   (fileid		integer		not null, -- file
@@ -101,7 +82,10 @@ create table t_xfer_tracking
    to_node		integer		not null,
    priority		integer		not null,
    fileid		integer		not null,
-   reason		varchar(10)	not null);
+   is_avail		integer		not null,
+   is_try		integer		not null,
+   is_done		integer		not null,
+   is_fail		integer		not null);
 
 create table t_xfer_delete
   (fileid		integer		not null,  -- for which file
@@ -109,7 +93,7 @@ create table t_xfer_delete
    time_request		float		not null,  -- time at request
    time_complete	float		not null   /* time at completed */);
 
-create table t_xfer_histogram
+create table t_link_histogram
   (timebin		float		not null,
    timewidth		float		not null,
    from_node		integer		not null,
@@ -136,20 +120,13 @@ create table t_xfer_histogram
    try_files		integer, -- attempts
    try_bytes		integer,
    fail_files		integer, -- attempts that errored out
-   fail_bytes		integer);
-
-create table t_routing_histogram
-  (timebin		float		not null,
-   timewidth		float		not null,
-   from_node		integer		not null,
-   to_node		integer		not null,
-   priority		integer		not null, -- transfer-like: for me/other
-   offer_files		integer,	-- t_xfer_offer
-   offer_bytes		integer,
-   confirm_files	integer,	-- t_xfer_confirmation
+   fail_bytes		integer,
+   --
+   -- statistics for t_xfer_path during/at end of this bin
+   confirm_files	integer, -- t_xfer_path
    confirm_bytes	integer,
    confirm_weight	integer,
-   expire_files		integer,	-- t_xfer_expired
+   expire_files		integer,
    expire_bytes		integer,
    expire_weight	integer);
 
@@ -161,24 +138,14 @@ create table t_dest_histogram
    dest_bytes		integer		not null,
    node_files		integer		not null, -- t_xfer_replica
    node_bytes		integer		not null,
-   xfer_files		integer		not null,
-   xfer_bytes		integer		not null,
-   expt_files		integer		not null,
-   expt_bytes		integer		not null,
-   --
    request_files	integer		not null, -- t_xfer_request
    request_bytes	integer		not null,
-   open_files		integer		not null,
-   open_bytes		integer		not null,
-   active_files		integer		not null,
-   active_bytes		integer		not null,
    idle_files		integer		not null,
    idle_bytes		integer		not null);
 
 -- FIXME: expand on this for everything that defines the value
-create table t_xfer_param
-  (to_node		integer		not null,
-   from_node		integer		not null,
+create table t_link_param
+  (link			integer		not null,
    penalty		float		not null);
 
 ----------------------------------------------------------------------
@@ -186,8 +153,7 @@ create table t_xfer_param
 
 alter table t_xfer_replica
   add constraint pk_xfer_replica
-  primary key (id)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  primary key (id);
 
 alter table t_xfer_replica
   add constraint uq_xfer_replica
@@ -204,8 +170,7 @@ alter table t_xfer_replica
 
 alter table t_xfer_request
   add constraint pk_xfer_request
-  primary key (fileid, destination)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  primary key (fileid, destination);
 
 alter table t_xfer_request
   add constraint fk_xfer_request_fileid
@@ -220,77 +185,34 @@ alter table t_xfer_request
   foreign key (destination) references t_node (id);
 
 
-alter table t_xfer_offer
-  add constraint pk_xfer_offer
-  primary key (fileid, to_node)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+alter table t_xfer_path
+  add constraint pk_xfer_path
+  primary key (destination, fileid, hop);
 
-alter table t_xfer_offer
-  add constraint fk_xfer_offer_fileid
+alter table t_xfer_path
+  add constraint fk_xfer_path_fileid
   foreign key (fileid) references t_xfer_file (id);
 
-alter table t_xfer_offer
-  add constraint fk_xfer_offer_to
-  foreign key (to_node) references t_node (id);
+alter table t_xfer_path
+  add constraint fk_xfer_path_dest
+  foreign key (destination) references t_node (id);
 
-alter table t_xfer_offer
-  add constraint fk_xfer_offer_from
+alter table t_xfer_path
+  add constraint fk_xfer_path_src
+  foreign key (src_node) references t_node (id);
+
+alter table t_xfer_path
+  add constraint fk_xfer_path_from
   foreign key (from_node) references t_node (id);
 
-
-alter table t_xfer_offer_step
-  add constraint pk_xfer_offer_step
-  primary key (from_node, fileid, to_node)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
-
-alter table t_xfer_offer_step
-  add constraint fk_xfer_offer_step_fileid
-  foreign key (fileid) references t_xfer_file (id);
-
-alter table t_xfer_offer_step
-  add constraint fk_xfer_offer_step_to
+alter table t_xfer_path
+  add constraint fk_xfer_path_to
   foreign key (to_node) references t_node (id);
-
-alter table t_xfer_offer_step
-  add constraint fk_xfer_offer_step_from
-  foreign key (from_node) references t_node (id);
-
-
-alter table t_xfer_confirmation
-  add constraint pk_xfer_confirmation
-  primary key (fileid, to_node)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
-
-alter table t_xfer_confirmation
-  add constraint fk_xfer_confirmation_fileid
-  foreign key (fileid) references t_xfer_file (id);
-
-alter table t_xfer_confirmation
-  add constraint fk_xfer_confirmation_to
-  foreign key (to_node) references t_node (id);
-
-alter table t_xfer_confirmation
-  add constraint fk_xfer_confirmation_from
-  foreign key (from_node) references t_node (id);
-
-
-alter table t_xfer_expired
-  add constraint fk_xfer_expired_fileid
-  foreign key (fileid) references t_xfer_file (id);
-
-alter table t_xfer_expired
-  add constraint fk_xfer_expired_to
-  foreign key (to_node) references t_node (id);
-
-alter table t_xfer_expired
-  add constraint fk_xfer_expired_from
-  foreign key (from_node) references t_node (id);
 
 
 alter table t_xfer_state
   add constraint pk_xfer_state
-  primary key (fileid, to_node)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  primary key (fileid, to_node);
 
 alter table t_xfer_state
   add constraint fk_xfer_state_fileid
@@ -322,55 +244,38 @@ alter table t_xfer_tracking
   foreign key (to_node) references t_node (id);
 
 
-alter table t_xfer_histogram
-  add constraint pk_xfer_histogram
-  primary key (timebin, to_node, from_node, priority)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+alter table t_link_histogram
+  add constraint pk_link_histogram
+  primary key (timebin, to_node, from_node, priority);
 
-alter table t_xfer_histogram
-  add constraint fk_xfer_histogram_from
+alter table t_link_histogram
+  add constraint fk_link_histogram_from
   foreign key (from_node) references t_node (id);
 
-alter table t_xfer_histogram
-  add constraint fk_xfer_histogram_to
-  foreign key (to_node) references t_node (id);
-
-
-alter table t_routing_histogram
-  add constraint pk_routing_histogram
-  primary key (timebin, to_node, from_node, priority)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
-
-alter table t_routing_histogram
-  add constraint fk_routing_histogram_from
-  foreign key (from_node) references t_node (id);
-
-alter table t_routing_histogram
-  add constraint fk_routing_histogram_to
+alter table t_link_histogram
+  add constraint fk_link_histogram_to
   foreign key (to_node) references t_node (id);
 
 
 alter table t_dest_histogram
   add constraint pk_dest_histogram
-  primary key (timebin, node)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  primary key (timebin, node);
 
 alter table t_dest_histogram
   add constraint fk_dest_histogram_node
   foreign key (node) references t_node (id);
 
 
-alter table t_xfer_param
-  add constraint pk_xfer_param
-  primary key (to_node, from_node)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+alter table t_link_param
+  add constraint pk_link_param
+  primary key (to_node, from_node);
 
-alter table t_xfer_param
-  add constraint fk_xfer_param_from
+alter table t_link_param
+  add constraint fk_link_param_from
   foreign key (from_node) references t_node (id);
 
-alter table t_xfer_param
-  add constraint fk_xfer_param_to
+alter table t_link_param
+  add constraint fk_link_param_to
   foreign key (to_node) references t_node (id);
 
 
@@ -378,33 +283,26 @@ alter table t_xfer_param
 -- Add indices
 
 create index ix_xfer_replica_node
-  on t_xfer_replica (node)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  on t_xfer_replica (node);
 
 create index ix_xfer_replica_common
-  on t_xfer_replica (node, state, fileid)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  on t_xfer_replica (node, state, fileid);
 
 
 create index ix_xfer_state_from_node
-  on t_xfer_state (from_node)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  on t_xfer_state (from_node);
 
 create index ix_xfer_state_to_node
-  on t_xfer_state (to_node)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  on t_xfer_state (to_node);
 
 create index ix_xfer_state_to_state
-  on t_xfer_state (to_state)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  on t_xfer_state (to_state);
 
 create index ix_xfer_state_fromto_state
-  on t_xfer_state (from_node, fileid, to_state)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  on t_xfer_state (from_node, fileid, to_state);
 
 create index ix_xfer_state_fromto_pair
-  on t_xfer_state (from_node, to_node)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  on t_xfer_state (from_node, to_node);
 
 
 ----------------------------------------------------------------------
