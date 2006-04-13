@@ -268,16 +268,7 @@ alter table t_dest_histogram
 
 alter table t_link_param
   add constraint pk_link_param
-  primary key (to_node, from_node);
-
-alter table t_link_param
-  add constraint fk_link_param_from
-  foreign key (from_node) references t_node (id);
-
-alter table t_link_param
-  add constraint fk_link_param_to
-  foreign key (to_node) references t_node (id);
-
+  foreign key (link); references t_link (id)
 
 ----------------------------------------------------------------------
 -- Add indices
@@ -310,19 +301,11 @@ create index ix_xfer_state_fromto_pair
 
 alter table t_xfer_replica			enable row movement;
 alter table t_xfer_request			enable row movement;
-alter table t_xfer_offer			enable row movement;
-alter table t_xfer_offer_step			enable row movement;
-alter table t_xfer_confirmation			enable row movement;
-alter table t_xfer_expired			enable row movement;
 alter table t_xfer_state			enable row movement;
 alter table t_xfer_tracking			enable row movement;
 
 alter table t_xfer_replica			move initrans 8;
 alter table t_xfer_request			move initrans 8;
-alter table t_xfer_offer			move initrans 8;
-alter table t_xfer_offer_step			move initrans 8;
-alter table t_xfer_confirmation			move initrans 8;
-alter table t_xfer_expired			move initrans 8;
 alter table t_xfer_state			move initrans 8;
 alter table t_xfer_tracking			move initrans 8;
 

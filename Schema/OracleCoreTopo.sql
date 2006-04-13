@@ -23,14 +23,14 @@ create table t_link
 create table t_link_share
   (link			integer		not null,
    priority		integer		not null,
-   share		integer		not null);
+   link_share		integer		not null);
 
 ----------------------------------------------------------------------
 -- Add constraints
 
 alter table t_node
   add constraint pk_node
-  primary key (id):
+  primary key (id);
 
 alter table t_node
   add constraint uq_node_name
