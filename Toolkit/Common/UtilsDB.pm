@@ -448,7 +448,7 @@ sub dbsql
 sub dbprep
 {
     my ($dbh, $sql) = @_;
-    my $stmt = eval { return $dbh->prepare (&dbsql ($sql)) };
+    my $stmt = eval { return $dbh->prepare_cached (&dbsql ($sql)) };
     return $stmt if ! $@;
 
     # Handle disconnected oracle handle, flag the handle bad
@@ -478,14 +478,27 @@ sub dbbindexec
         &logmsg ("executing statement `$sql' [$bound]");
     }
 
+    my $isarray = 0;
     while (my ($param, $val) = each %params) {
-	$stmt->bind_param ($param, $val);
+	if (ref $val eq 'ARRAY')
+	{
+	    $stmt->bind_param_array ($param, $val);
+	    $isarray++;
+	}
+	else
+	{
+	    $stmt->bind_param ($param, $val);
+	}
     }
 
-    my $rv = eval { return $stmt->execute() };
+    my $rv = eval {
+	return $isarray
+	    ? $stmt->execute_array({ ArrayTupleResult => [] })
+	    : $stmt->execute();
+    };
     return $rv if ! $@;
 
-    # Handle disconnected oracle handle, flag the handle bad
+    # Flag handle bad on disconnected oracle handle
     $$stmt{Database}{private_phedex_invalid} = 1 if $@ =~ /ORA-03114:/;
     die $@;
 }
