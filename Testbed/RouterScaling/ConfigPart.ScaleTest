@@ -1,0 +1,176 @@
+### AGENT LABEL=mgmt-blockmon PROGRAM=Toolkit/Workflow/BlockMonitor
+ -db        ${PHEDEX_DBPARAM}
+ -node      A
+
+### AGENT LABEL=mgmt-blockalloc PROGRAM=Toolkit/Workflow/BlockAllocator
+ -db        ${PHEDEX_DBPARAM}
+ -node      A
+
+### AGENT LABEL=mgmt-blockactiv PROGRAM=Toolkit/Workflow/BlockActivate
+ -db        ${PHEDEX_DBPARAM}
+ -node      A
+
+### AGENT LABEL=mgmt-blockdeact PROGRAM=Toolkit/Workflow/BlockDeactivate
+ -db        ${PHEDEX_DBPARAM}
+ -node      A
+
+
+#### File Routing agents
+### AGENT LABEL=router-a PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db        ${PHEDEX_DBPARAM}
+ -node      A
+ -nodes     'A,B,C,D,E,A_SPUR,B_SPUR,C_SPUR,D_SPUR,E_SPUR'
+
+#### Transfer agents
+#### Using FileMSSPublish-- mssnode = from, node = to
+#### Need one for each link direction
+
+### AGENT LABEL=xfer-ab PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node B
+ -mssnode A
+
+### AGENT LABEL=xfer-ac PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node C
+ -mssnode A
+
+### AGENT LABEL=xfer-ad PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node D
+ -mssnode A
+
+### AGENT LABEL=xfer-ae PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node E
+ -mssnode A
+
+### AGENT LABEL=xfer-ba PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node A
+ -mssnode B
+
+### AGENT LABEL=xfer-bc PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node C
+ -mssnode B
+
+### AGENT LABEL=xfer-bd PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node D
+ -mssnode B
+
+### AGENT LABEL=xfer-be PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node E
+ -mssnode B
+
+### AGENT LABEL=xfer-cb PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node B
+ -mssnode C
+
+### AGENT LABEL=xfer-ca PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node A
+ -mssnode C
+
+### AGENT LABEL=xfer-cd PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node D
+ -mssnode C
+
+### AGENT LABEL=xfer-ce PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node E
+ -mssnode C
+
+### AGENT LABEL=xfer-db PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node B
+ -mssnode D
+
+### AGENT LABEL=xfer-dc PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node C
+ -mssnode D
+
+### AGENT LABEL=xfer-da PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node A
+ -mssnode D
+
+### AGENT LABEL=xfer-de PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node E
+ -mssnode D
+
+### AGENT LABEL=xfer-eb PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node B
+ -mssnode E
+
+### AGENT LABEL=xfer-ec PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node C
+ -mssnode E
+
+### AGENT LABEL=xfer-ed PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node D
+ -mssnode E
+
+### AGENT LABEL=xfer-ea PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node A
+ -mssnode E
+
+### AGENT LABEL=xfer-aaspur PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node A_SPUR
+ -mssnode A
+
+### AGENT LABEL=xfer-aspura PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node A
+ -mssnode A_SPUR
+
+### AGENT LABEL=xfer-bbspur PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node B_SPUR
+ -mssnode B
+
+### AGENT LABEL=xfer-bspurb PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node B
+ -mssnode B_SPUR
+
+### AGENT LABEL=xfer-ccspur PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node C_SPUR
+ -mssnode C
+
+### AGENT LABEL=xfer-cspurc PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node C
+ -mssnode C_SPUR
+
+### AGENT LABEL=xfer-ddspur PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node D_SPUR
+ -mssnode D
+
+### AGENT LABEL=xfer-dspurd PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node D
+ -mssnode D_SPUR
+
+### AGENT LABEL=xfer-eespur PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node E_SPUR
+ -mssnode E
+
+### AGENT LABEL=xfer-espure PROGRAM=Toolkit/Transfer/FileMSSPublish
+ -db ${PHEDEX_DBPARAM}
+ -node E
+ -mssnode E_SPUR
