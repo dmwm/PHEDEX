@@ -337,7 +337,7 @@ sub routeForNodes
 	    push(@{$iargs{$n++}}, $$hop{SRC_NODE});
 	    push(@{$iargs{$n++}}, $$hop{FROM_NODE});
 	    push(@{$iargs{$n++}}, $$hop{TO_NODE});
-	    push(@{$iargs{$n++}}, $$hop{PRIORITY});
+	    push(@{$iargs{$n++}}, $$req{PRIORITY});
 	    push(@{$iargs{$n++}}, $$hop{LOCAL_BOOST});
 	    push(@{$iargs{$n++}}, $$hop{COST});
 	    push(@{$iargs{$n++}}, $$hop{TOTAL_COST});
@@ -353,6 +353,20 @@ sub routeForNodes
 
     ######################################################################
     # Phase 3: Confirm requests for which there are valid offers.
+
+    # Discard duplicate confirmations for me for the same file.  Keep
+    # the best alternative: local one, or least cost one, or pick one.
+    &dbexec($dbh, qq{
+	delete from t_xfer_path this
+	where to_node = :node and exists
+	  (select 1 from t_xfer_path better
+	   where this.fileid = better.fileid
+	     and this.to_node = better.to_node
+	     and ((this.local_boost = 0 and better.local_boost > 0)
+		  or this.total_cost > better.total_cost
+		  or (this.total_cost = better.total_cost
+		      and this.rowid > better.rowid)))},
+	":node" => $node);
 
     # Confirm transfers where I am the path hop destination, the
     # source replica exists and there is no transfer yet.
@@ -387,7 +401,11 @@ sub routeForNodes
            where not exists
                (select 1 from t_xfer_state xs
                 where xs.fileid = ffm.fileid
-                  and xs.to_node = ffm.to_node)},
+                  and xs.to_node = ffm.to_node)
+	     and not exists
+               (select 1 from t_xfer_replica xr
+                where xr.fileid = ffm.fileid
+                  and xr.node = ffm.to_node)},
 	":me" => $node, ":now" => $now);
     # $dbh->commit();
 
