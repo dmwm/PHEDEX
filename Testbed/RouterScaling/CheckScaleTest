@@ -8,7 +8,7 @@
 BEGIN { use strict; use warnings; $^W=1;
 	my $me = $0; $me =~ s|.*/||;
 	my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-	unshift(@INC, "$home/PHEDEX/Toolkit/Common"); }
+	unshift(@INC, "$home/../../Toolkit/Common"); }
 
 $|=1;
 
@@ -30,7 +30,7 @@ my $dbh = &connectToDatabase (\%args, 0);
 
 my $start = &mytimeofday();
 
-print "min\treps\txfers\treqs\n";
+print "min\treps\txfers\treqs\tpaths\n";
 
 while( 1 )
 {
