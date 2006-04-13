@@ -86,7 +86,7 @@ sub idle
 	# to build.  Once first offer reaches the destination, we mark
 	# the request to go active in twice the time elapsed from the
 	# opening.  Once a request is active, we confirm the path that
-	# has least total cost.
+	# Has least total cost.
         #
 	# Consider running only one instance of this agent for all
 	# nodes.  If the agent passes one loop quickly enough, this
@@ -143,8 +143,8 @@ sub routeForNodes
     my $now = &mytimeofday();
     my $q = &dbexec($dbh, qq{
 	select xs.priority, nvl(sum(f.filesize),0)
-        from t_xfer_state xs join t_file f on f.id = xs.fileid
-        where xs.to_node = :node group by xp.priority},
+        from t_xfer_state xs join t_xfer_file f on f.id = xs.fileid
+        where xs.to_node = :node group by xs.priority},
 	":node" => $node);
     while (my ($priority, $bytes) = $q->fetchrow())
     {
@@ -153,7 +153,7 @@ sub routeForNodes
 
     $q = &dbexec($dbh, qq{
 	select xp.priority, nvl(sum(f.filesize),0)
-        from t_xfer_path xp join t_file f on f.id = xp.fileid
+        from t_xfer_path xp join t_xfer_file f on f.id = xp.fileid
         where xp.to_node = :node group by xp.priority},
 	":node" => $node);
     while (my ($priority, $bytes) = $q->fetchrow())
@@ -264,8 +264,8 @@ sub routeForNodes
     # Read links and their parameters
     delete $$self{LINKS};
     $q = &dbexec($dbh, qq{
-	select l.from_node, l.to_node, l.hops, l.local_boost, nvl(xp.penalty,1)
-	from t_link l left join xfer_param xp on xp.link = l.id});
+	select l.from_node, l.to_node, l.distance, l.local_boost, nvl(lp.penalty,1)
+	from t_link l left join t_link_param lp on lp.link = l.id});
     while (my ($from, $to, $hops, $boost, $penalty) = $q->fetchrow())
     {
 	$$self{LINKS}{$from}{$to} = { HOPS => $hops,
@@ -296,8 +296,8 @@ sub routeForNodes
 	  join t_xfer_replica xr
 	    on xr.fileid = xq.fileid
 	where xr.state = 0
-	  and xr.destination = :node
-	  and xr.time_expire > :now
+	  and xq.destination = :node
+	  and xq.time_expire > :now
 	  and not exists (select 1 from t_xfer_path xp
 			  where xp.destination = xq.destination
 			    and xp.fileid = xq.fileid)},
@@ -354,8 +354,8 @@ sub routeForNodes
 	}
     }
 
-    &dbbindexec($dstmt, %dargs);
-    &dbbindexec($istmt, %iargs);
+    &dbbindexec($dstmt, %dargs) if %dargs;
+    &dbbindexec($istmt, %iargs) if %iargs;
     # $dbh->commit();
 
     ######################################################################
@@ -394,7 +394,7 @@ sub routeForNodes
            where not exists
                (select 1 from t_xfer_state xs
                 where xs.fileid = ffm.fileid
-                  and xs.to_node = ffm.to_node))},
+                  and xs.to_node = ffm.to_node)},
 	":me" => $node, ":now" => $now);
     # $dbh->commit();
 
@@ -442,7 +442,7 @@ sub routeForNodes
 
     # (This should be done by other code.)
 
-    # update t_xfer_param
+    # update t_link_param
 
     ######################################################################
     # Phase X: Update statistics.
