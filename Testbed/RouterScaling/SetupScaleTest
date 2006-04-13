@@ -1,0 +1,80 @@
+#!/usr/bin/env perl
+
+##H Seed test database (set up with separate SQL) with a number of
+##H files.
+##H
+##H Use: $0 -db <DBCONFIG> -count <number of file to insert>
+##H
+
+BEGIN { use strict; use warnings; $^W=1;
+	my $me = $0; $me =~ s|.*/||;
+	my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
+	unshift(@INC, "$home/PHEDEX/Toolkit/Common"); }
+
+my %args;
+use Getopt::Long;
+use UtilsHelp;
+use UtilsDB;
+use UtilsTiming;
+&GetOptions ("db=s"        => \$args{DBCONFIG},
+	     "blocks=i"    => \$args{BLOCKS},
+	     "count=i"     => \$args{COUNT},
+    	     "help|h"      => sub { &usage() });
+
+my $checksum = 1;
+my $size = 1000000000;
+my $node = 0;
+
+if (! $args{DBCONFIG} || ! $args{COUNT} || ! $args{COUNT})
+{
+    die "Insufficient parameters, use -h for help.\n";
+}
+
+my $count = $args{COUNT};
+my $blocks = $args{BLOCKS};
+my $now = &mytimeofday();
+
+my $dbh = &connectToDatabase (\%args, 0);
+
+for( my $bid=0; $bid<$blocks; $bid++)
+{
+    print "Creating block $bid\n";
+    &dbexec($dbh, qq{
+	insert into t_dps_block 
+	  (id,dataset,name,files,bytes,is_open,time_create)
+	  values (:bid,0,:name,10000,10000000000000,'y',:now)},
+	    ":bid" => $bid, ":now" => $now, ":name" => "block$bid");
+
+    for( my $f = 0; $f<$count; $f++)
+    {
+	my $fid = $f + $bid * $count;
+	$node = int(rand(5))+5;
+	
+	&dbexec($dbh, qq{
+	    insert into t_dps_file
+		(id,node,inblock,logical_name,checksum,
+		 filesize,time_create)
+		values (:id,:node,:bid,:filename,:cksum,:filesize,:now)},
+		":id" => $fid, ":node" => $node, ":now" => $now, ":bid" => $bid,
+		":filename" => "/my/test/file$fid", ":cksum" => 1, ":filesize" => 1);
+	
+	&dbexec($dbh, qq{
+	    insert into t_xfer_file
+		(id,inblock,logical_name,checksum,filesize)
+		values (:id,:bid,:filename,:cksum,:filesize)},
+		":id" => $fid, ":filename" => "/my/test/file$fid", 
+		":cksum" => 1, ":filesize" => 1, ":bid" => $bid);	    
+	
+	&dbexec($dbh, qq{
+	    insert into t_xfer_replica
+		(id,fileid,node,state,time_create,time_state)
+		values 
+		(seq_xfer_replica.nextval,:id,:node,0,:now,:now)},
+		":id" => $fid, ":node" => $node, ":now" => $now);
+    }
+}
+
+do { chomp ($@); &alert ("database error: $@");
+     eval { $dbh->rollback() } if $dbh; } if $@;
+
+$dbh->disconnect();
