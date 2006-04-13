@@ -448,7 +448,7 @@ sub dbsql
 sub dbprep
 {
     my ($dbh, $sql) = @_;
-    my $stmt = eval { return $dbh->prepare_cached (&dbsql ($sql)) };
+    my $stmt = eval { return $dbh->prepare (&dbsql ($sql)) };
     return $stmt if ! $@;
 
     # Handle disconnected oracle handle, flag the handle bad
