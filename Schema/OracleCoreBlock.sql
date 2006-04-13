@@ -42,8 +42,6 @@ create table t_dps_block_replica
    node_bytes		integer		not null,
    xfer_files		integer		not null,
    xfer_bytes		integer		not null,
-   expt_files		integer		not null,
-   expt_bytes		integer		not null,
    time_create		float		not null,
    time_update		float		not null);
 
@@ -86,8 +84,7 @@ create table t_dps_subscription
 
 alter table t_dps_dbs
   add constraint pk_dps_dbs
-  primary key (id)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  primary key (id);
 
 alter table t_dps_dbs
   add constraint uq_dps_dbs_name
@@ -96,8 +93,7 @@ alter table t_dps_dbs
 
 alter table t_dps_dataset
   add constraint pk_dps_dataset
-  primary key (id)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  primary key (id);
 
 alter table t_dps_dataset
   add constraint uq_dps_dataset_key
@@ -118,8 +114,7 @@ alter table t_dps_dataset
 
 alter table t_dps_block
   add constraint pk_dps_block
-  primary key (id)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  primary key (id);
 
 -- alter table t_dps_block
 --  add constraint uq_dps_block_key
@@ -140,8 +135,7 @@ alter table t_dps_block
 
 alter table t_dps_block_replica
   add constraint pk_dps_block_replica
-  primary key (block, node)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  primary key (block, node);
 
 alter table t_dps_block_replica
   add constraint fk_dps_block_replica_block
@@ -158,8 +152,7 @@ alter table t_dps_block_replica
 
 alter table t_dps_block_dest
   add constraint pk_dps_block_dest
-  primary key (block, destination)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  primary key (block, destination);
 
 alter table t_dps_block_dest
   add constraint fk_dps_block_dest_dataset
@@ -181,8 +174,7 @@ alter table t_dps_block_activate
 
 alter table t_dps_block_delete
   add constraint pk_dps_block_remove
-  primary key (block, node)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  primary key (block, node);
 
 alter table t_dps_block_delete
   add constraint fk_dps_block_remove_block
@@ -199,8 +191,7 @@ alter table t_dps_block_delete
 
 alter table t_dps_subscription
   add constraint pk_dps_subscription
-  primary key (dataset, destination)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  primary key (dataset, destination);
 
 alter table t_dps_subscription
   add constraint fk_dps_subscription_dataset
@@ -222,9 +213,7 @@ alter table t_dps_subscription
 -- Add indices
 
 create index ix_dps_subscription_stream
-  on t_dps_subscription (dataset)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  on t_dps_subscription (dataset);
 
 create index ix_dps_subscription_dest
-  on t_dps_subscription (destination)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  on t_dps_subscription (destination);

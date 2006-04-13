@@ -27,8 +27,7 @@ create table t_xfer_file
 
 alter table t_dps_file
   add constraint pk_dps_file
-  primary key (id)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  primary key (id);
 
 alter table t_dps_file
   add constraint uq_dps_file_logical_name
@@ -45,8 +44,7 @@ alter table t_dps_file
 
 alter table t_xfer_file
   add constraint pk_xfer_file
-  primary key (id)
-  using index tablespace CMS_TRANSFERMGMT_INDX01;
+  primary key (id);
 
 alter table t_xfer_file
   add constraint uq_xfer_file_logical_name
@@ -64,22 +62,17 @@ alter table t_xfer_file
 -- Add indices
 
 create index ix_dps_file_node
-  on t_dps_file (node)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  on t_dps_file (node);
 
 create index ix_dps_file_id_filesize
-  on t_dps_file (id, filesize)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  on t_dps_file (id, filesize);
 
 create index ix_dps_file_inblock_id
-  on t_dps_file (inblock, id)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  on t_dps_file (inblock, id);
 
 
 create index ix_xfer_file_id_filesize
-  on t_xfer_file (id, filesize)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  on t_xfer_file (id, filesize);
 
 create index ix_xfer_file_inblock_id
-  on t_xfer_file (inblock, id)
-  tablespace CMS_TRANSFERMGMT_INDX01;
+  on t_xfer_file (inblock, id);
