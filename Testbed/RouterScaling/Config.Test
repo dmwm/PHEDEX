@@ -28,6 +28,25 @@ PHEDEX_STORAGE_MAP=../SITECONF/CERN/PhEDEx/storage.xml;
  -db        ${PHEDEX_DBPARAM}
  -node      A
 
+### AGENT LABEL=info-fs PROGRAM=Toolkit/Monitoring/InfoFileSize
+ -db        ${PHEDEX_DBPARAM}
+ -node      A
+
+### AGENT LABEL=info-sc PROGRAM=Toolkit/Monitoring/InfoStatesClean
+ -db        ${PHEDEX_DBPARAM}
+ -node      A
+
+### AGENT LABEL=info-pm PROGRAM=Toolkit/Monitoring/PerfMonitor
+ -db        ${PHEDEX_DBPARAM}
+ -node      A
+
+#### Site info agent
+### AGENT LABEL=info-ds PROGRAM=Toolkit/Monitoring/InfoDropStatus
+ -db        ${PHEDEX_DBPARAM}
+ -node      A
+ -site      Test
+ -dir       ${PHEDEX_STATE}
+
 #### File Routing agents
 ### AGENT LABEL=router PROGRAM=Toolkit/Infrastructure/FileRouter
  -db        ${PHEDEX_DBPARAM}
