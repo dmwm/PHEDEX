@@ -1,6 +1,7 @@
 package UtilsDB; use strict; use warnings; use base 'Exporter';
 our @EXPORT = qw(parseDatabaseInfo connectToDatabase disconnectFromDatabase
-                 dbsql dbexec dbprep dbbindexec);
+		 expandNodesAndConnect myNodeFilter otherNodeFilter
+		 dbsql dbexec dbprep dbbindexec);
 use UtilsLogging;
 use UtilsTiming;
 use DBI;
@@ -96,7 +97,7 @@ sub connectToDatabase
 			     { RaiseError => 1,
 			       AutoCommit => 0,
 			       PrintError => 0 });
-        return undef if ! $dbh;
+        die "failed to connect to the database\n" if ! $dbh;
 
 	# Acquire role if one was specified.  Do not use &dbexec() here
 	# as it will expose the password used in the logs.
@@ -436,6 +437,71 @@ sub checkAgentMessages
 }
 
 ######################################################################
+# Expand a list of node patterns into node names.  This function is
+# called when we don't yet know our "node identity."  Also runs the
+# usual agent identification process against the database.
+sub expandNodesAndConnect
+{
+    my ($self) = @_;
+    my $dbh = &connectToDatabase ($self, 0);
+    my @result = ($dbh);
+
+    foreach my $pat (@{$$self{NODES}})
+    {
+	my $q = &dbexec($dbh, qq{
+	    select name from t_node where name like :pat},
+	    ":pat" => $pat);
+	while (my ($name) = $q->fetchrow())
+	{
+	    push(@result, $name);
+
+	    $$self{MYNODE} = $name;
+	    &updateAgentStatus ($self, $dbh);
+	    &identifyAgent ($self, $dbh);
+	    &checkAgentMessages ($self, $dbh);
+	    $$self{MYNODE} = undef;
+	}
+    }
+
+    return @result;
+}
+
+# Construct a database query for destination node pattern
+sub myNodeFilter
+{
+    my ($self, $prefix, $lead) = @_;
+    my (@filter, %args);
+    for (my $n = 0; $n < scalar @{$$self{NODES}}; ++$n)
+    {
+	$args{":dest$n"} = $$self{NODES}[$n];
+	push(@filter, "${prefix}name like :dest$n");
+    }
+
+    my $filter = $lead ? "$lead " : "";
+    $filter .=  "(" . join(" or ", @filter) . ")";
+    return ($filter, %args);
+}
+
+# Construct database query parameters for ignore/accept filters.
+sub otherNodeFilter
+{
+    my ($self, $prefix) = @_;
+    my ($filter, %args) = "";
+    for (my $n = 0; $n < scalar @{$$self{IGNORE_NODES}}; ++$n)
+    {
+	$args{":ignore$n"} = $$self{IGNORE_NODES}[$n];
+	$filter .= " and ${prefix}name not like :ignore$n";
+    }
+    for (my $n = 0; $n < scalar @{$$self{ACCEPT_NODES}}; ++$n)
+    {
+	$args{":accept$n"} = $$self{ACCEPT_NODES}[$n];
+	$filter .= " and ${prefix}name like :accept$n";
+    }
+
+    return ($filter, %args);
+}
+
+######################################################################
 # Tidy up SQL statement
 sub dbsql
 {
@@ -482,11 +548,16 @@ sub dbbindexec
     }
 
     my $isarray = 0;
-    while (my ($param, $val) = each %params) {
+    while (my ($param, $val) = each %params)
+    {
 	if (ref $val eq 'ARRAY')
 	{
 	    $stmt->bind_param_array ($param, $val);
 	    $isarray++;
+	}
+	elsif (ref $val)
+	{
+	    $stmt->bind_param_inout ($param, $val, 4096);
 	}
 	else
 	{
