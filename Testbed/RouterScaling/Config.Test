@@ -1,13 +1,52 @@
 ### ENVIRON common
-PHEDEX_BASE=/data/lat;
-PHEDEX_DBPARAM=${PHEDEX_BASE}/PHEDEX/Schema/DBParam:Testbed;
+PHEDEX_BASE=$PWD; # /data/lat;
+# PHEDEX_DBPARAM=${PHEDEX_BASE}/PHEDEX/Schema/DBParam:Testbed;
+PHEDEX_DBPARAM=${PHEDEX_BASE}/Schema/DBParam:Testbed;
 PHEDEX_STATE=${PHEDEX_BASE}/state;
 PHEDEX_LOGS=${PHEDEX_BASE}/logs;
-PHEDEX_SCRIPTS=${PHEDEX_BASE}/PHEDEX;
+# PHEDEX_SCRIPTS=${PHEDEX_BASE}/PHEDEX;
+PHEDEX_SCRIPTS=${PHEDEX_BASE};
+PHEDEX_STORAGE_MAP=../SITECONF/CERN/PhEDEx/storage.xml;
 
-source /data/tools/oraenv.sh;
-source /data/tools/perlenv.sh;
+# source /data/tools/oraenv.sh;
+# source /data/tools/perlenv.sh;
 
-### IMPORT ConfigPart.ScaleTest
+#### General agents
+### AGENT LABEL=mgmt-blockmon PROGRAM=Toolkit/Workflow/BlockMonitor
+ -db        ${PHEDEX_DBPARAM}
+ -node      A
 
+### AGENT LABEL=mgmt-blockalloc PROGRAM=Toolkit/Workflow/BlockAllocator
+ -db        ${PHEDEX_DBPARAM}
+ -node      A
 
+### AGENT LABEL=mgmt-blockactiv PROGRAM=Toolkit/Workflow/BlockActivate
+ -db        ${PHEDEX_DBPARAM}
+ -node      A
+
+### AGENT LABEL=mgmt-blockdeact PROGRAM=Toolkit/Workflow/BlockDeactivate
+ -db        ${PHEDEX_DBPARAM}
+ -node      A
+
+#### File Routing agents
+### AGENT LABEL=router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db        ${PHEDEX_DBPARAM}
+ -nodes     '%_SPUR,_'
+
+#### Transfer agents
+### AGENT LABEL=xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+ -verbose
+
+### AGENT LABEL=exp-master PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%'
+
+### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
