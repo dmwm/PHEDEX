@@ -135,14 +135,14 @@ create table t_dest_histogram
   (timebin		float		not null,
    timewidth		float		not null,
    node			integer		not null,
-   dest_files		integer		not null, -- t_dps_block_dest -> files
-   dest_bytes		integer		not null,
-   node_files		integer		not null, -- t_xfer_replica
-   node_bytes		integer		not null,
-   request_files	integer		not null, -- t_xfer_request
-   request_bytes	integer		not null,
-   idle_files		integer		not null,
-   idle_bytes		integer		not null);
+   dest_files		integer, -- t_dps_block_dest -> files
+   dest_bytes		integer,
+   node_files		integer, -- t_xfer_replica
+   node_bytes		integer,
+   request_files	integer, -- t_xfer_request
+   request_bytes	integer,
+   idle_files		integer,
+   idle_bytes		integer);
 
 -- FIXME: expand on this for everything that defines the value
 create table t_link_param
