@@ -129,21 +129,16 @@ sub idle
 	      	      s.from_node, s.to_node, s.priority,
 	              count(s.fileid) confirm_files,
 		      sum(s.filesize) confirm_bytes,
-		      sum(s.weight) confirm_weight,
-		      sum(s.expired) expired_files,
-		      sum(s.expired * s.filesize) expired_bytes,
-		      sum(s.expired * s.weight) expired_weight
+		      sum(s.weight) confirm_weight
 		from
 		  (select
 		       xp.from_node, xp.to_node,
 		       2 * xp.priority + xp.local_boost priority,
-		       xp.fileid, f.filesize, count(xp.fileid) weight,
-		       decode(sign(:now - xp.time_expire),1,1,0) expired
+		       xp.fileid, f.filesize, count(xp.fileid) weight
 		   from t_xfer_path xp join t_xfer_file f on f.id = xp.fileid
 		   group by xp.from_node, xp.to_node,
 			    2 * xp.priority + xp.local_boost,
-			    xp.fileid, f.filesize,
-			    decode(sign(:now - xp.time_expire),1,1,0)) s
+			    xp.fileid, f.filesize) s
 		group by :timebin, :timewidth, s.from_node, s.to_node, s.priority)
 		v
 	    on (h.timebin = v.timebin and
@@ -154,19 +149,14 @@ sub idle
 	      update set
 	        h.confirm_files = v.confirm_files,
 		h.confirm_bytes = v.confirm_bytes,
-		h.confirm_weight = v.confirm_weight,
-	        h.expire_files = v.expire_files,
-		h.expire_bytes = v.expire_bytes,
-		h.expire_weight = v.expire_weight
+		h.confirm_weight = v.confirm_weight
 	    when not matched then
 	      insert (h.timebin, h.timewidth,
 	      	      h.from_node, h.to_node, h.priority,
-	              h.confirm_files, h.confirm_bytes, h.confirm_weight,
-		      h.expire_files, h.expire_bytes, h.expire_weight)
+	              h.confirm_files, h.confirm_bytes, h.confirm_weight)
 	      values (v.timebin, v.timewidth,
 	      	      v.from_node, v.to_node, v.priority,
-	              v.confirm_files, v.confirm_bytes, v.confirm_weight,
-		      v.expire_files, v.expire_bytes, v.expire_weight)},
+	              v.confirm_files, v.confirm_bytes, v.confirm_weight)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth, ":now" => $now);
 
 	# Part III: Update statistics on recent transfer activity.
@@ -174,7 +164,8 @@ sub idle
 	&dbexec($dbh, qq{
 	    merge into t_link_histogram h
 	    using
-	      (select trunc(xt.timestamp/300)*300 timebin, 300 timewidth,
+	      (select trunc(xt.timestamp/:timewidth)*:timewidth timebin,
+		      :timewidth timewidth,
 	              xt.from_node, xt.to_node, xt.priority,
 		      sum(xt.is_avail) avail_files,
 		      sum(xt.is_avail * f.filesize) avail_bytes,
@@ -183,9 +174,11 @@ sub idle
 		      sum(xt.is_done) done_files,
 		      sum(xt.is_done * f.filesize) done_bytes,
 		      sum(xt.is_fail) fail_files,
-		      sum(xt.is_fail * f.filesize) fail_bytes
+		      sum(xt.is_fail * f.filesize) fail_bytes,
+		      sum(xt.is_expire) expire_files,
+		      sum(xt.is_expire * f.filesize) expire_bytes
 		from t_xfer_tracking xt join t_xfer_file f on f.id = xt.fileid
-		group by trunc(xt.timestamp/300)*300, 300,
+		group by trunc(xt.timestamp/:timewidth)*:timewidth, :timewidth,
  			 xt.from_node, xt.to_node, xt.priority)
 		v
 	    on (h.timebin = v.timebin and
@@ -194,17 +187,26 @@ sub idle
 		h.priority = v.priority)
 	    when matched then
 	      update set
-	        h.avail_files = v.avail_files, h.avail_bytes = v.avail_bytes,
-	        h.try_files = v.try_files, h.try_bytes = v.try_bytes,
-	        h.done_files = v.done_files, h.done_bytes = v.done_bytes,
-	        h.fail_files = v.fail_files, h.fail_bytes = v.fail_bytes
+	        h.avail_files  = h.avail_files  + v.avail_files,
+		h.avail_bytes  = h.avail_bytes  + v.avail_bytes,
+	        h.try_files    = h.try_files    + v.try_files,
+		h.try_bytes    = h.try_bytes    + v.try_bytes,
+	        h.done_files   = h.done_files   + v.done_files,
+		h.done_bytes   = h.done_bytes   + v.done_bytes,
+	        h.fail_files   = h.fail_files   + v.fail_files,
+ 		h.fail_bytes   = h.fail_bytes   + v.fail_bytes,
+	        h.expire_files = h.expire_files + v.expire_files,
+ 		h.expire_bytes = h.expire_bytes + v.expire_bytes
 	    when not matched then
 	      insert (timebin, timewidth, from_node, to_node, priority,
 	              avail_files, avail_bytes, try_files, try_bytes,
-		      done_files, done_bytes, fail_files, fail_bytes)
+		      done_files, done_bytes, fail_files, fail_bytes,
+		      expire_files, expire_bytes)
 	      values (v.timebin, v.timewidth, v.from_node, v.to_node, v.priority,
 	              v.avail_files, v.avail_bytes, v.try_files, v.try_bytes,
-		      v.done_files, v.done_bytes, v.fail_files, v.fail_bytes)});
+		      v.done_files, v.done_bytes, v.fail_files, v.fail_bytes,
+		      v.expire_files, v.expire_bytes)},
+	    ":timewidth" => $timewidth);
 	&dbexec ($dbh, qq{delete from t_xfer_tracking});
 	$dbh->commit();
 
