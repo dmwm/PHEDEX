@@ -114,8 +114,9 @@ sub idle
 		":block" => $id);
 
 	    my ($xnreplica, $xnactive) = &dbexec ($dbh, qq{
-		select count(block), sum(isactive) from t_dps_block_replica
-		where block = :block}, ":block" => $id)->fetchrow ();
+		select count(block), sum(decode(br.is_active,'y',1,0))
+		from t_dps_block_replica where block = :block},
+		":block" => $id)->fetchrow ();
 
 	    if ($xnactive != $nactive || $xnreplica != $nreplica)
 	    {

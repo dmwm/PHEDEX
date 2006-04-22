@@ -105,8 +105,7 @@ sub idle
 		   br.is_active, b.files, b.bytes, b.is_open,
 	           br.dest_files, br.dest_bytes,
 		   br.node_files, br.node_bytes,
-		   br.xfer_files, br.xfer_bytes,
-		   br.expt_files, br.expt_bytes
+		   br.xfer_files, br.xfer_bytes
 	    from t_dps_block_replica br
 	      join t_dps_block b on b.id = br.block
 	    for update of b.id});
@@ -165,23 +164,11 @@ sub idle
 	    $active{$block}{$node}{XFER_BYTES} = $bytes;
 	}
 
-        $qactive = &dbexec($dbh, qq{
-	    select f.inblock, xs.from_node, count(xs.fileid), sum(f.filesize)
-	    from t_xfer_state xs join t_xfer_file f on f.id = xs.fileid
-	    group by f.inblock, xs.from_node});
-        while (my ($block, $node, $files, $bytes) = $qactive->fetchrow())
-        {
-	    $active{$block}{$node} ||= { BLOCK => $block, NODE => $node };
-	    $active{$block}{$node}{EXPT_FILES} = $files;
-	    $active{$block}{$node}{EXPT_BYTES} = $bytes;
-	}
-
 	foreach my $b (map { values %$_ } values %active)
 	{
 	    $$b{DEST_FILES} ||= 0; $$b{DEST_BYTES} ||= 0;
 	    $$b{NODE_FILES} ||= 0; $$b{NODE_BYTES} ||= 0;
 	    $$b{XFER_FILES} ||= 0; $$b{XFER_BYTES} ||= 0;
-	    $$b{EXPT_FILES} ||= 0; $$b{EXPT_BYTES} ||= 0;
 	}
 
 	# Compare differences I: start from previous replicas.
@@ -192,15 +179,14 @@ sub idle
 	    # transfers.  Count block active if it has active
 	    # file replicas or transfers; destinations alone do
 	    # not make a block active.
-	    if ($$b{IS_ACTIVE} != 'y')
+	    if ($$b{IS_ACTIVE} ne 'y')
 	    {
 		&alert ("$$b{BLOCK} at $$b{NODE} inactive but open")
-		    if $$b{IS_OPEN} == 'y';
+		    if $$b{IS_OPEN} eq 'y';
 		&alert ("$$b{BLOCK} at $$b{NODE} inactive but active")
 		    if (exists $active{$$b{BLOCK}}{$$b{NODE}}
 			&& ($active{$$b{BLOCK}}{$$b{NODE}}{NODE_FILES}
-			    || $active{$$b{BLOCK}}{$$b{NODE}}{XFER_FILES}
-			    || $active{$$b{BLOCK}}{$$b{NODE}}{EXPT_FILES}));
+			    || $active{$$b{BLOCK}}{$$b{NODE}}{XFER_FILES}));
 		next;
 	    }
 
@@ -222,9 +208,7 @@ sub idle
 		|| $$b{NODE_FILES} != $$new{NODE_FILES}
 		|| $$b{NODE_BYTES} != $$new{NODE_BYTES}
 		|| $$b{XFER_FILES} != $$new{XFER_FILES}
-		|| $$b{XFER_BYTES} != $$new{XFER_BYTES}
-		|| $$b{EXPT_FILES} != $$new{EXPT_FILES}
-		|| $$b{EXPT_BYTES} != $$new{EXPT_BYTES})
+		|| $$b{XFER_BYTES} != $$new{XFER_BYTES})
 	    {
 		&limitCheck ("updated block", $new, $b);
 		&logmsg ("updating block $$b{BLOCK} at node $$b{NODE}");
@@ -233,8 +217,7 @@ sub idle
 		    set time_update = :now, is_active = 'y',
 		        dest_files = :dest_files, dest_bytes = :dest_bytes,
 			node_files = :node_files, node_bytes = :node_bytes,
-			xfer_files = :xfer_files, xfer_bytes = :xfer_bytes,
-			expt_files = :expt_files, expt_bytes = :expt_bytes
+			xfer_files = :xfer_files, xfer_bytes = :xfer_bytes
 		    where block = :block and node = :node},
 		    ":now" => $now,
 		    ":block" => $$b{BLOCK},
@@ -244,9 +227,7 @@ sub idle
 		    ":node_files" => $$new{NODE_FILES},
 		    ":node_bytes" => $$new{NODE_BYTES},
 		    ":xfer_files" => $$new{XFER_FILES},
-		    ":xfer_bytes" => $$new{XFER_BYTES},
-		    ":expt_files" => $$new{EXPT_FILES},
-		    ":expt_bytes" => $$new{EXPT_BYTES});
+		    ":xfer_bytes" => $$new{XFER_BYTES});
 	    }
         }
 
@@ -258,14 +239,14 @@ sub idle
 		# Already handled above
 		next;
 	    }
-	    elsif (grep ($$_{IS_ACTIVE} != 'y', values %{$replicas{$$b{BLOCK}}}))
+	    elsif (grep ($$_{IS_ACTIVE} ne 'y', values %{$replicas{$$b{BLOCK}}}))
 	    {
 		# This block has inactive replicas.  Make sure all the
 		# replicas are inactive, then make sure this new replica
 		# has nothing but destinations defined (everything else
 		# is a consistency failure), and wait for BlockActivate
 		# to reactivate the block.
-		if (grep ($$_{IS_ACTIVE} == 'y', values %{$replicas{$$b{BLOCK}}}))
+		if (grep ($$_{IS_ACTIVE} eq 'y', values %{$replicas{$$b{BLOCK}}}))
 		{
 		    &alert ("block $$b{BLOCK} has inactive and active replicas");
 		}
@@ -289,14 +270,12 @@ sub idle
 		 block, node, is_active,
 		 dest_files, dest_bytes,
 		 node_files, node_bytes,
-		 xfer_files, xfer_bytes,
-		 expt_files, expt_bytes)
+		 xfer_files, xfer_bytes)
 		values (:now, :now,
 		        :block, :node, 'y',
 		        :dest_files, :dest_bytes,
 			:node_files, :node_bytes,
-			:xfer_files, :xfer_bytes,
-			:expt_files, :expt_bytes)},
+			:xfer_files, :xfer_bytes)},
 		":now" => $now,
 		":block" => $$b{BLOCK},
 		":node" => $$b{NODE},
@@ -305,9 +284,7 @@ sub idle
 		":node_files" => $$b{NODE_FILES},
 		":node_bytes" => $$b{NODE_BYTES},
 		":xfer_files" => $$b{XFER_FILES},
-		":xfer_bytes" => $$b{XFER_BYTES},
-		":expt_files" => $$b{EXPT_FILES},
-		":expt_bytes" => $$b{EXPT_BYTES});
+		":xfer_bytes" => $$b{XFER_BYTES});
 	}
 
 	# All done.
