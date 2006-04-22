@@ -157,7 +157,7 @@ sub idle
 	      values (v.timebin, v.timewidth,
 	      	      v.from_node, v.to_node, v.priority,
 	              v.confirm_files, v.confirm_bytes, v.confirm_weight)},
-	    ":timebin" => $timebin, ":timewidth" => $timewidth, ":now" => $now);
+	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
 	# Part III: Update statistics on recent transfer activity.
 	&dbexec ($dbh, qq{lock table t_xfer_tracking in exclusive mode});
@@ -215,8 +215,8 @@ sub idle
 	    merge into t_dest_histogram h
 	    using
 	      (select :timebin timebin, :timewidth timewidth, s.destination node,
-	              count(f.id) dest_files, sum(f.filesize) dest_bytes
-		from t_dps_block_dest s join t_xfer_file f on f.inblock = s.block
+	              sum(b.files) dest_files, sum(b.bytes) dest_bytes
+		from t_dps_block_dest s join t_dps_block b on b.id = s.block
 		group by :timebin, :timewidth, s.destination) v
 	    on (h.timebin = v.timebin and h.node = v.node)
 	    when matched then
