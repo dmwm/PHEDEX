@@ -40,9 +40,10 @@ my %params;
 my $ifile = &dbprep($dbh, qq{
     insert into t_dps_file
     (id,node,inblock,logical_name,checksum,filesize,time_create)
-    values (seq_dps_file.nextval,?,?,?,?,?,?)});
+    select seq_dps_file.nextval, n.id, ?, ?, ?, ?, ?
+    from t_node n where n.name = ?});
 
-for( my $block=0; $block<$blocks; $block++)
+for( my $block=1; $block<=$blocks; $block++)
 {
     print "Creating block $block";
     my $bid = undef;
@@ -57,15 +58,15 @@ for( my $block=0; $block<$blocks; $block++)
 
     for( my $f = 0; $f<$count; $f++)
     {
-	my $node = int(rand(10));
+	my $node = (qw(A B C D E))[$f % 5];
 	my $fid = $f + $block * $count;
 	my $n = 1;
-	push(@{$params{$n++}}, $node);
 	push(@{$params{$n++}}, $bid);
 	push(@{$params{$n++}}, "/my/test/file$fid");
 	push(@{$params{$n++}}, "1");
 	push(@{$params{$n++}}, $size);
 	push(@{$params{$n++}}, $now);
+	push(@{$params{$n++}}, $node);
     }
 }
 
@@ -79,6 +80,7 @@ print "Executing SQL inserts\n";
     (id, fileid, node, state, time_create, time_state)
     (select seq_xfer_replica.nextval, id, node, 0, time_create, time_create
      from t_dps_file)});
+print "Done\n";
 
 $dbh->commit();
 $dbh->disconnect();
