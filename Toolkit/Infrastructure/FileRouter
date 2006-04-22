@@ -4,13 +4,12 @@
 ##H
 ##H Usage:
 ##H   FileRouter
-##H      -state DIRECTORY -node NAME -nodes PATTERN[,PATTERN...]
+##H      -state DIRECTORY -nodes PATTERN[,PATTERN...]
 ##H      -db FILE[:SECTION] [-log OUT]
 ##H
 ##H -state     agent state directory
-##H -node      the node where this agent runs
-##H -nodes     comma-separated list of node name patterns to route for;
-##H            pattern wildcards are '%' (any string) and '_' (any character)
+##H -nodes     comma-separated list of node name patters to route for
+##H              '%' is wildcard for any string, '_' for any character
 ##H -db        database connection configuration parameter file
 ##H -log       where to redirect logging information
 
@@ -28,11 +27,10 @@ use UtilsHelp;
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
-             "node=s"      => \$args{MYNODE},
              "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
 	     "help|h"      => sub { &usage() });
 
-if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{NODES} || !$args{DBCONFIG})
+if (@ARGV || !$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -72,39 +70,39 @@ sub idle
 {
     my ($self, @pending) = @_;
     my $dbh = undef;
+    my @nodes;
+
     eval
     {
-	# Connect to the database.
-	$dbh = &connectToDatabase ($self) or die "failed to connect";
-
-        # All of this must run in a single agent to avoid database
+	# All of this must run in a single agent to avoid database
 	# connection proliferation.  The execution order for the
 	# phases is important in that it balances progress for this
 	# node (destination) and requests by other nodes (relaying).
 	# Some of the steps feed to the next one.
-        #
-        # New requests begin in open state.  Offers will then begin
-	# to build.  Once first offer reaches the destination, we mark
+	#
+	# New requests begin in open state.  Offers will then begin to
+	# build.  Once first offer reaches the destination, we mark
 	# the request to go active in twice the time elapsed from the
 	# opening.  Once a request is active, we confirm the path that
 	# Has least total cost.
-        #
+	#
 	# Consider running only one instance of this agent for all
 	# nodes.  If the agent passes one loop quickly enough, this
 	# will reduce number of connections and database load
 	# significantly.
-	foreach my $nodepat (@{$$self{NODES}})
+
+	($dbh, @nodes) = &expandNodesAndConnect ($self);
+
+	foreach my $node (@nodes)
 	{
-	    my $stmt = &dbexec ($dbh, qq{
-		select id from t_node where name like :pat},
-		":pat" => $nodepat);
-	    while (my ($node) = $stmt->fetchrow())
-	    {
-	        $self->routeForNodes ($dbh, $node, $nodepat);
-	        $self->maybeStop();
-	    }
+	    my ($nodeid) = &dbexec ($dbh, qq{
+	        select id from t_node where name = :name},
+	        ":name" => $node)->fetchrow();
+
+	    &logmsg ("routing for $node");
+	    $self->route ($dbh, $nodeid);
+	    $self->maybeStop();
 	}
-	
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
@@ -117,9 +115,9 @@ sub idle
 }
 
 # Run the routing algorithm for one node.
-sub routeForNodes
+sub route
 {
-    my ($self, $dbh, $node, $nodepat) = @_;
+    my ($self, $dbh, $node) = @_;
 
     ######################################################################
     # Phase 1: Issue file requests for blocks pending some of their files.
@@ -296,7 +294,7 @@ sub routeForNodes
 	    on f.id = xq.fileid
 	  join t_xfer_replica xr
 	    on xr.fileid = xq.fileid
-	where xr.state = 0
+	where xq.state = 0
 	  and xq.destination = :node
 	  and xq.time_expire > :now
 	  and not exists (select 1 from t_xfer_path xp
