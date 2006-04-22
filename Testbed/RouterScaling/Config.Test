@@ -1,15 +1,13 @@
 ### ENVIRON common
-PHEDEX_BASE=$PWD; # /data/lat;
-# PHEDEX_DBPARAM=${PHEDEX_BASE}/PHEDEX/Schema/DBParam:Testbed;
-PHEDEX_DBPARAM=${PHEDEX_BASE}/Schema/DBParam:Testbed;
+PHEDEX_BASE=/data/lat;
+PHEDEX_DBPARAM=${PHEDEX_BASE}/PHEDEX/Schema/DBParam:Testbed;
 PHEDEX_STATE=${PHEDEX_BASE}/state;
 PHEDEX_LOGS=${PHEDEX_BASE}/logs;
-# PHEDEX_SCRIPTS=${PHEDEX_BASE}/PHEDEX;
-PHEDEX_SCRIPTS=${PHEDEX_BASE};
-PHEDEX_STORAGE_MAP=../SITECONF/CERN/PhEDEx/storage.xml;
+PHEDEX_SCRIPTS=${PHEDEX_BASE}/PHEDEX;
+PHEDEX_STORAGE_MAP=${PHEDEX_BASE}/SITECONF/CERN/PhEDEx/storage.xml;
 
-# source /data/tools/oraenv.sh;
-# source /data/tools/perlenv.sh;
+source /data/tools/oraenv.sh;
+source /data/tools/perlenv.sh;
 
 #### General agents
 ### AGENT LABEL=mgmt-blockmon PROGRAM=Toolkit/Workflow/BlockMonitor
@@ -50,22 +48,74 @@ PHEDEX_STORAGE_MAP=../SITECONF/CERN/PhEDEx/storage.xml;
 #### File Routing agents
 ### AGENT LABEL=router PROGRAM=Toolkit/Infrastructure/FileRouter
  -db        ${PHEDEX_DBPARAM}
- -nodes     '%_SPUR,_'
+ -nodes     '%'
 
 #### Transfer agents
-### AGENT LABEL=xfer PROGRAM=Toolkit/Transfer/FileDownload
+### AGENT LABEL=exp PROGRAM=Toolkit/Transfer/FileDiskExport
  -db ${PHEDEX_DBPARAM}
  -nodes '%'
+
+### AGENT LABEL=a-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'A%'
  -storagemap ${PHEDEX_STORAGE_MAP}
  -backend Null
  -verbose
 
-### AGENT LABEL=exp-master PROGRAM=Toolkit/Transfer/FileDiskExport
+### AGENT LABEL=b-xfer PROGRAM=Toolkit/Transfer/FileDownload
  -db ${PHEDEX_DBPARAM}
- -nodes '%'
+ -nodes 'B%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+ -verbose
 
-### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+### AGENT LABEL=c-xfer PROGRAM=Toolkit/Transfer/FileDownload
  -db ${PHEDEX_DBPARAM}
- -nodes '%'
+ -nodes 'C%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+ -verbose
+
+### AGENT LABEL=d-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'D%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+ -verbose
+
+### AGENT LABEL=e-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'E%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+ -verbose
+
+### AGENT LABEL=a-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'A%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=b-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'B%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=c-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'C%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=d-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'D%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=e-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'E%'
  -storagemap ${PHEDEX_STORAGE_MAP}
  -protocols srm
