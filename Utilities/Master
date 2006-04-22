@@ -104,7 +104,7 @@ sub readConfig
 		while (<$fhpattern>)
 		{
 		    last if /^###/; chomp; s/#.*//; s/^\s+//; s/\s+$//;
-		    $agent->{OPTS} .= " $_" if ($_ ne "");
+		    $$agent{OPTS} .= " $_" if ($_ ne "");
 		}
 	    }
 
@@ -147,41 +147,35 @@ if (grep ($mode eq $_, qw(start stop show terminate)))
 
     foreach my $agent (@agents)
     {
-	next if (@ARGV && !grep($_ eq "all" || $_ eq $agent->{LABEL}, @ARGV));
-	next if (! @ARGV && ($agent->{DEFAULT} || 'on') eq 'off');
+	next if (@ARGV && !grep($_ eq "all" || $_ eq $$agent{LABEL}, @ARGV));
+	next if (! @ARGV && ($$agent{DEFAULT} || 'on') eq 'off');
 
 	print SH "(";
-	if ($agent->{ENVIRON} && ! exists $environs{$agent->{ENVIRON}})
+	if ($$agent{ENVIRON} && ! exists $environs{$$agent{ENVIRON}})
 	{
-	    print STDERR "Agent $agent->{LABEL} requests non-existent",
-	    		 " environment $agent->{ENVIRON}\n";
+	    print STDERR "Agent $$agent{LABEL} requests non-existent",
+	    		 " environment $$agent{ENVIRON}\n";
 	}
-	elsif ($agent->{ENVIRON})
+	elsif ($$agent{ENVIRON})
 	{
-	    print SH $environs{$agent->{ENVIRON}}, "\n";
+	    print SH $environs{$$agent{ENVIRON}}, "\n";
 	}
 
 	# Now actually act on the mode, and start or show agents
 	my $logdir = "\${PHEDEX_LOGS}";
-	my $logfile = "$logdir/$agent->{LABEL}";
-	my $statedir = "\${PHEDEX_STATE}/$agent->{LABEL}";
-	if ($mode eq 'start' || $mode eq 'show') {
-	    print SH "mkdir -p $statedir &&",
-	    " mkdir -p $logdir &&",
-	    ($agent->{STATELINK}
-	     ? " ln -sf $agent->{LABEL} \${PHEDEX_STATE}/$agent->{STATELINK};" : " :;"),
-            " if [ -f $statedir/pid ]; then",
-	    "  oldpid=\$(cat $statedir/pid);",
-	    "  if [ X\$oldpid != X ] && kill -0 \$oldpid 2>/dev/null; then",
-	    "   echo \"Agent $agent->{LABEL} already running (\$oldpid)\" 1>&2;",
-	    "   exit 0;",
-	    "  fi;",
-	    " fi;",
-	    " nohup \${PHEDEX_SCRIPTS}/$agent->{PROGRAM}",
-	    (" -", $agent->{STATEOPT} || "state", " ", $statedir),
-	    (" -log ", $logfile),
-	    $agent->{OPTS},
-	    " &";
+	my $logfile = "$logdir/$$agent{LABEL}";
+	my $statedir = "\${PHEDEX_STATE}/$$agent{LABEL}";
+	if ($mode eq 'start' || $mode eq 'show')
+	{
+	    print SH
+		("mkdir -p $statedir &&",
+		 " mkdir -p $logdir &&",
+		 ($$agent{STATELINK}
+		  ? " ln -sf $$agent{LABEL} \${PHEDEX_STATE}/$$agent{STATELINK};" : " :;"),
+		 " \${PHEDEX_SCRIPTS}/$$agent{PROGRAM}",
+		 (" -", $$agent{STATEOPT} || "state", " ", $statedir),
+		 (" -log ", $logfile),
+		 $$agent{OPTS});
 	} elsif ($mode eq 'stop') {
 	    print SH "touch $statedir/stop";
 	} elsif ($mode eq 'terminate') {
