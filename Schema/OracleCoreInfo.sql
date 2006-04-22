@@ -2,7 +2,7 @@
 -- Create tables
 
 create table t_info_xfer_states
-  (timestamp		float		not null,
+  (time_update		float		not null,
    from_node		integer		not null,
    to_node		integer		not null,
    from_state		integer		not null,
@@ -11,14 +11,14 @@ create table t_info_xfer_states
    bytes		integer		not null);
 
 create table t_info_xfer_replicas
-  (timestamp		float		not null,
+  (time_update		float		not null,
    node			integer		not null,
    state		integer		not null,
    files		integer		not null,
    bytes		integer		not null);
 
 create table t_info_file_size_overview
-  (timestamp		float		not null,
+  (time_update		float		not null,
    n_files		integer		not null,
    sz_total		integer		not null,
    sz_min		integer		not null,
@@ -27,14 +27,14 @@ create table t_info_file_size_overview
    sz_median		integer		not null);
 
 create table t_info_file_size_histogram
-  (timestamp		float		not null,
+  (time_update		float		not null,
    bin_low		integer		not null,
    bin_width		integer		not null,
    n_total		integer		not null,
    sz_total		integer		not null);
 
 create table t_info_agent_status
-  (timestamp		float		not null,
+  (time_update		float		not null,
    site			varchar (20)	not null,
    host			varchar (40)	not null,
    path			varchar (255)	not null,
