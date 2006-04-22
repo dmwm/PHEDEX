@@ -10,12 +10,13 @@
 ##H
 ##H Usage:
 ##H   FilePFNExport
-##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
+##H      -state DIRECTORY -nodes PATTERN[,PATTERN...]
+##H      -db FILE[:SECTION] [-log OUT]
 ##H      [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]
 ##H      -protocols PROTO[,PROTO...] -storagemap PATH
 ##H
 ##H -state       agent state directory
-##H -node        the node where this agent runs
+##H -nodes       patterns for the node names for which this agent runs
 ##H -db          database connection configuration parameter file
 ##H -log         where to redirect logging information
 ##H -ignore      comma-separated list of nodes to ignore transfers from
@@ -37,14 +38,14 @@ use UtilsHelp;
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
-             "node=s"      => \$args{MYNODE},
+             "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
              "ignore=s"    => sub { push(@{$args{IGNORE_NODES}}, split(/,/, $_[1])) },
              "accept=s"    => sub { push(@{$args{ACCEPT_NODES}}, split(/,/, $_[1])) },
              "protocols=s" => sub { push(@{$args{PROTOCOLS}}, split(/,/, $_[1])) },
 	     "storagemap=s"=> \$args{STORAGEMAP},
 	     "help|h"      => sub { &usage() });
 
-if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG}
+if (@ARGV || !$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG}
     || !$args{STORAGEMAP} || !$args{PROTOCOLS})
 {
     die "Insufficient parameters, use -h for help.\n";
@@ -56,6 +57,7 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG}
 # Routines specific to this agent.
 package FilePFNExport; use strict; use warnings; use base 'UtilsAgent';
 use UtilsCommand;
+use UtilsCatalogue;
 use UtilsLogging;
 use UtilsTiming;
 use UtilsDB;
@@ -67,6 +69,7 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
+	  	  NODES => [],			# Patterns for nodes to run for
 	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
 		  WAITTIME => 50 + rand(20),	# Agent activity cycle
@@ -84,17 +87,21 @@ sub idle
 {
     my ($self, @pending) = @_;
     my $dbh = undef;
+    my @nodes;
     eval
     {
-    	$dbh = &connectToDatabase ($self) or die "failed to connect";
-	$$dbh{FetchHashKeyName} = "NAME_uc";
+    	($dbh, @nodes) = &expandNodesAndConnect ($self);
+	my ($nodes, %node_args) = &myNodeFilter ($self, "ns.");
+	my ($filter, %filter_args) = &otherNodeFilter ($self, "nd.");
 
 	# Create jobs for computing TURLs for files.
 	my $now = &mytimeofday();
 	my $query = &dbexec($dbh,qq{
 	    select
-	      xr.fileid, f.logical_name, xs.to_node to_node_id,
-	      nd.name to_node, xs.to_protocols, xs.time_request
+	      xr.fileid, f.logical_name,
+	      xr.node from_node_id, ns.name from_node,
+	      xs.to_node to_node_id, nd.name to_node,
+	      xs.to_protocols, xs.time_request
 	    from t_xfer_replica xr
 	      join t_xfer_file f
 	        on f.id = xr.fileid
@@ -102,13 +109,17 @@ sub idle
 	        on xs.from_replica = xr.id
 	      join t_node nd
 	        on nd.id = xs.to_node
-	    where xr.node = :node
+	      join t_node ns
+		on ns.id = xr.node
+	    where $nodes
       	      and xs.errors < 5
 	      and xs.time_request >= :old
 	      and xs.time_expire > :now
       	      and xs.to_protocols is not null
-      	      and xs.from_pfn is null},
-            ":node" => $$self{ID_MYNODE}, ":now" => $now, ":old" => $now - 15*60);
+      	      and xs.from_pfn is null
+	      $filter},
+            ":now" => $now, ":old" => $now - 15*60,
+            %node_args, %filter_args);
 
     	my ($n, %todo) = 0;
 	my %myprotos = map { $_ => 1 } @{$$self{PROTOCOLS}};
@@ -117,11 +128,6 @@ sub idle
 	    my $lfn = $$file{LOGICAL_NAME};
 	    my $to = $$file{TO_NODE};
 	    my $protos = $$file{TO_PROTOCOLS};
-
-	    # Process only if not filtered.
-	    next if grep($_ eq $to, @{$$self{IGNORE_NODES}});
-	    next if (@{$$self{ACCEPT_NODES}}
-		     && ! grep ($_ eq $to, @{$$self{ACCEPT_NODES}}));
 
 	    # If we failed to generate TURL or determine protocol for
 	    # this file recently, ignore it until back-off time passes.
@@ -134,7 +140,7 @@ sub idle
 	    {
 		&alert ("$lfn: no available protocol for destination $to"
 		        . " (available protocols:"
-			. " $$self{MYNODE}=" . join(',', @{$$self{PROTOCOLS}})
+			. " $$file{FROM_NODE}=" . join(',', @{$$self{PROTOCOLS}})
 			. " vs. $to=$protos)");
 	    	$$self{BACKOFF}{$lfn}{$to} = $now + 1200*(1 + rand(2));
 		next;
@@ -180,9 +186,14 @@ sub idle
         	    $dbh->commit();
 
 		    my $dtime = &mytimeofday() - $$file{TIME_REQUEST};
-		    &logmsg ("xstats: $$self{MYNODE} $to $proto "
-		 	     . sprintf('%.2fs', $dtime)
-		 	     . " $lfn => $pfn");
+		    &logmsg ("xstats:"
+			     . " from=$$file{FROM_NODE}"
+			     . " to=$to"
+			     . " fileid=$$file{FILEID}"
+			     . " proto=$proto "
+		 	     . sprintf('time_request=%.2fs', $dtime)
+		 	     . " lfn=$lfn"
+			     . " pfn=$pfn");
 		}
 	    }
         }
