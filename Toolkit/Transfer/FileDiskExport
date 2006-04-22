@@ -5,10 +5,12 @@
 ##H export agent to work along side it, but not any others.
 ##H
 ##H Usage:
-##H   FileDiskExport -state DIRECTORY -node NAME -db FILE[:SECTION]
+##H   FileDiskExport
+##H      -state DIRECTORY -nodes PATTERN[,PATTERN...]
+##H      -db FILE[:SECTION] [-log OUT]
 ##H
 ##H -state     agent state directory
-##H -node      the node where this agent runs
+##H -nodes     patterns for the node names for which this agent runs
 ##H -db        database connection configuration parameter file
 ##H -log       where to redirect logging information
 
@@ -26,10 +28,10 @@ use UtilsHelp;
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
-             "node=s"      => \$args{MYNODE},
+             "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
 	     "help|h"      => sub { &usage() });
 
-if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG})
+if (@ARGV || !$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -52,6 +54,7 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
+		  NODES => [],			# Patterns for nodes to run for
 		  WAITTIME => 10 + rand(5),	# Agent activity cycle
 	  	  AGENTID => "FileExport");	# Identity for activity logs
     my %args = (@_);
@@ -66,28 +69,31 @@ sub idle
 {
     my ($self, @pending) = @_;
     my $dbh = undef;
+    my @nodes;
 
     # Always mark all files ready to go immediately.
     eval
     {
-	my $dbh = &connectToDatabase ($self) or die "failed to connect";
+	($dbh, @nodes) = &expandNodesAndConnect ($self);
+	my ($nodes, %node_args) = &myNodeFilter ($self, "n.", "and");
 
 	# Mark everything available locally.
 	&dbexec($dbh, qq{
-	    update t_xfer_replica
+	    update t_xfer_replica xr
 	    set state = 1, time_state = :now
-	    where node = :node and state = 0},
-   	    ":now" => &mytimeofday(), ":node" => $$self{ID_MYNODE});
+	    where state = 0
+	      and exists (select id from t_node n where n.id = xr.node $nodes)},
+   	    ":now" => &mytimeofday(), %node_args);
 
 	# Mark all pending transfers ready to go.
 	&dbexec($dbh, qq{
-	    update t_xfer_state
+	    update t_xfer_state xs
 	    set from_state = 1, time_available = :now
-            where from_node = :node
+            where exists (select id from t_node n where n.id = xs.from_node $nodes)
 	      and from_pfn is not null
 	      and from_state = 0
               and to_state < 2},
-	    ":now" => &mytimeofday(), ":node" => $$self{ID_MYNODE});
+	    ":now" => &mytimeofday(), %node_args);
 
 	$dbh->commit();
     };
