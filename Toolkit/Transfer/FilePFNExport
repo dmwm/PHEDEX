@@ -72,7 +72,7 @@ sub new
 	  	  NODES => [],			# Patterns for nodes to run for
 	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
-		  WAITTIME => 50 + rand(20),	# Agent activity cycle
+		  WAITTIME => 20 + rand(5),	# Agent activity cycle
 	  	  STORAGEMAP => undef,		# Storage path mapping rules
 		  PROTOCOLS => undef);		# Protocols to accept
     my %args = (@_);
@@ -96,6 +96,9 @@ sub idle
 
 	# Create jobs for computing TURLs for files.
 	my $now = &mytimeofday();
+	my $update = &dbprep($dbh, qq{
+	    update t_xfer_state set from_pfn = :pfn
+	    where fileid = :fileid and to_node = :toid});
 	my $query = &dbexec($dbh,qq{
 	    select
 	      xr.fileid, f.logical_name,
@@ -146,57 +149,38 @@ sub idle
 		next;
 	    }
 
-	    # Record as something we need to do
-	    $$file{PROTOCOL} = $proto;
-	    push (@{$todo{$to}{$proto}}, $file);
+	    # Query catalogue
+	    my $pfn = &pfnLookup($lfn, $proto, $to, $$self{STORAGEMAP});
+	    if (! $pfn)
+	    {
+		# Whine for lack of output, and put to cool as penalty.
+		&warn ("no pfn for $lfn to $to with protocol $proto");
+		$$self{BACKOFF}{$lfn}{$to} = $now + 1200*(1 + rand(2));
+	    	next;
+	    }
+
+	    # Update database
+	    &dbbindexec($update,
+			":pfn" => $pfn,
+			":fileid" => $$file{FILEID},
+			":toid" => $$file{TO_NODE_ID});
+
+	    my $dtime = &mytimeofday() - $$file{TIME_REQUEST};
+	    &logmsg ("xstats:"
+		     . " from=$$file{FROM_NODE}"
+		     . " to=$to"
+		     . " fileid=$$file{FILEID}"
+		     . " proto=$proto "
+		     . sprintf('time_request=%.2fs', $dtime)
+		     . " lfn=$lfn"
+		     . " pfn=$pfn");
 
 	    # Give up if we are picking too much work
-	    last if ++$n >= 5000;
+	    $dbh->commit() if ++$n % 100 == 0;
+	    last if $n >= 5000;
 	}
 
-	# Now process all the files.  For each destination and protocol,
-	# make mass translation of the paths.
-	foreach my $to (sort keys %todo)
-	{
-	    foreach my $proto (sort keys %{$todo{$to}})
-	    {
-		my $files = $todo{$to}{$proto};
-		my @lfns = map { $$_{LOGICAL_NAME} } @$files;
-		my $pfns = &pfnLookup(\@lfns, $proto, $to, $$self{STORAGEMAP});
-	        foreach my $file (@$files)
-		{
-		    my $to = $$file{TO_NODE};
-		    my $lfn = $$file{LOGICAL_NAME};
-		    my $pfn = $$pfns{$lfn};
-		    if (! $pfn)
-		    {
-	    	        # Whine for lack of output, and put to cool as penalty.
-	    	        &warn ("no pfn for $lfn to $to with protocol $proto");
-	    	        $$self{BACKOFF}{$lfn}{$to}
-			    = &mytimeofday() + 1200*(1 + rand(2));
-	    	        next;
-		    }
-
-		    &dbexec($dbh, qq{
-	    	        update t_xfer_state set from_pfn = :pfn
-	    	        where fileid = :fileid and to_node = :toid},
-      	    	        ":pfn" => $pfn,
-	    	        ":fileid" => $$file{FILEID},
-	    	        ":toid" => $$file{TO_NODE_ID});
-        	    $dbh->commit();
-
-		    my $dtime = &mytimeofday() - $$file{TIME_REQUEST};
-		    &logmsg ("xstats:"
-			     . " from=$$file{FROM_NODE}"
-			     . " to=$to"
-			     . " fileid=$$file{FILEID}"
-			     . " proto=$proto "
-		 	     . sprintf('time_request=%.2fs', $dtime)
-		 	     . " lfn=$lfn"
-			     . " pfn=$pfn");
-		}
-	    }
-        }
+	$dbh->commit();
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
