@@ -61,14 +61,19 @@ sub idle
     my $dbh = undef;
     eval
     {
-	$dbh = &connectToDatabase ($self, 0) or die "failed to connect";
+	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
-    	# Nuke transfers that expired more than a day ago
+    	# Record, then nuke transfers that have expired
 	&dbexec($dbh, qq{
-	    delete from t_xfer_state
-	    where time_expire < :old});
-	    ":old" => $now - 86400);
-	$dbh->commit();
+	    insert into t_xfer_tracking
+            (timestamp, from_node, to_node, priority, fileid,
+             is_avail, is_try, is_done, is_fail, is_expire)
+	    (select time_expire, from_node, to_node, priority, fileid,
+		    0, 0, 0, 0, 1
+             from t_xfer_state where time_expire < :now)},
+	    ":now" => $now);
+	&dbexec($dbh, qq{delete from t_xfer_state where time_expire < :now},
+	    ":now" => $now);
 
 	# Summarise replica states
 	&dbexec($dbh, qq{delete from t_info_xfer_replicas});
@@ -79,7 +84,6 @@ sub idle
 	     from t_xfer_replica xr join t_xfer_file f on f.id = rs.fileid
 	     group by :now, xr.node, xr.state)},
 	     ":now" => &mytimeofday ());
-	$dbh->commit();
 
 	# Summarise file transfer states
 	&dbexec($dbh, qq{delete from t_info_xfer_states});
@@ -90,7 +94,6 @@ sub idle
 	     from t_xfer_state xs join t_xfer_file f on f.id = xs.fileid
 	     group by :now, xs.from_node, xs.to_node, xs.from_state, xs.to_state)},
 	     ":now" => &mytimeofday ());
-	$dbh->commit();
 
 	# Delete obsolete agent status messages (3 days)
 	my %old = (":old" => &mytimeofday() - 3*86400);
