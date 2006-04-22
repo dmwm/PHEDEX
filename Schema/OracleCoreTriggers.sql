@@ -6,10 +6,10 @@ create or replace trigger tr_xfer_state_available
     if :new.time_available is not null then
       insert into t_xfer_tracking
         (timestamp, from_node, to_node, priority, fileid,
-        is_avail, is_try, is_done, is_fail)
+        is_avail, is_try, is_done, is_fail, is_expire)
       values
         (:new.time_available, :new.from_node, :new.to_node, :new.priority,
-         :new.fileid, 1, 0, 0, 0);
+         :new.fileid, 1, 0, 0, 0, 0);
     end if;
   end;
 /
@@ -19,10 +19,10 @@ create or replace trigger tr_xfer_state_start
     if :new.time_xfer_start is not null then
       insert into t_xfer_tracking
         (timestamp, from_node, to_node, priority, fileid,
-         is_avail, is_try, is_done, is_fail)
+         is_avail, is_try, is_done, is_fail, is_expire)
       values
         (:new.time_available, :new.from_node, :new.to_node, :new.priority,
-         :new.fileid, 0, 1, 0, 0);
+         :new.fileid, 0, 1, 0, 0, 0);
     end if;
   end;
 /
@@ -32,10 +32,10 @@ create or replace trigger tr_xfer_state_end
     if :new.time_xfer_end is not null then
       insert into t_xfer_tracking
         (timestamp, from_node, to_node, priority, fileid,
-         is_avail, is_try, is_done, is_fail)
+         is_avail, is_try, is_done, is_fail, is_expire)
       values
         (:new.time_available, :new.from_node, :new.to_node, :new.priority,
-         :new.fileid, 0, 0, 1, 0);
+         :new.fileid, 0, 0, 1, 0, 0);
     end if;
   end;
 /
@@ -45,10 +45,10 @@ create or replace trigger tr_xfer_state_error
     if :new.time_error_start is not null then
       insert into t_xfer_tracking
         (timestamp, from_node, to_node, priority, fileid,
-         is_avail, is_try, is_done, is_fail)
+         is_avail, is_try, is_done, is_fail, is_expire)
       values
         (:new.time_available, :new.from_node, :new.to_node, :new.priority,
-         :new.fileid, 0, 0, 0, 1);
+         :new.fileid, 0, 0, 0, 1, 0);
     end if;
   end;
 /

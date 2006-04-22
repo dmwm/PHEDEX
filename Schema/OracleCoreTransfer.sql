@@ -86,7 +86,8 @@ create table t_xfer_tracking
    is_avail		integer		not null,
    is_try		integer		not null,
    is_done		integer		not null,
-   is_fail		integer		not null);
+   is_fail		integer		not null,
+   is_expire		integer		not null);
 
 create table t_xfer_delete
   (fileid		integer		not null,  -- for which file
@@ -122,14 +123,13 @@ create table t_link_histogram
    try_bytes		integer,
    fail_files		integer, -- attempts that errored out
    fail_bytes		integer,
+   expire_files		integer, -- attempts that expired
+   expire_bytes		integer,
    --
    -- statistics for t_xfer_path during/at end of this bin
    confirm_files	integer, -- t_xfer_path
    confirm_bytes	integer,
-   confirm_weight	integer,
-   expire_files		integer,
-   expire_bytes		integer,
-   expire_weight	integer);
+   confirm_weight	integer);
 
 create table t_dest_histogram
   (timebin		float		not null,
