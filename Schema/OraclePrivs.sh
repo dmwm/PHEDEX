@@ -34,7 +34,7 @@ connect="$1" reader="$2" writer="$3"
 # access to all the tables.
 for role in \
   $((echo "select granted_role from user_role_privs;") |
-    sqlplus -S "$connect" | awk '/SITE_/ { print $1 } {}'); do
+    sqlplus -S "$connect" | awk '/PHEDEX/ { print $1 } {}'); do
   echo; echo; echo "-- role $role"
   echo "set feedback off;"
   echo "grant $role to $writer;"
@@ -49,42 +49,47 @@ for role in \
         # Invisible to all but admin
         ;;
 
-      T_INFO_AGENT_STATUS:* | \
-      T_INFO*:*_SITE_CERN | \
-      T_DBS*:*_SITE_CERN | \
-      T_DLS*:*_SITE_CERN | \
-      T_REQUEST*:*_SITE_CERN | \
-      T_BLOCK_DESTINATION:* | \
-      T_BLOCK_*:*_SITE_CERN )
-        # Restricted update
+      T_*:*CERN* | \
+      T_*AGENT*:* | \
+      T_XFER_REPLICA:* | \
+      T_XFER_REQUEST:* | \
+      T_XFER_PATH:* | \
+      T_XFER_STATE:* | \
+      T_XFER_TRACKING:* )
+        # Select, update, insert and delete
+        echo; echo "grant select on $table to $reader;"
+	echo "grant select on $table to $writer;"
+	echo "grant delete, insert, select, update on $table to $role;" ;;
+
+      T_DPS_DBS:* | \
+      T_DPS_DATASET:* | \
+      T_DPS_BLOCK:* | \
+      T_DPS_BLOCK_ACTIVATE:* | \
+      T_DPS_BLOCK_DELETE:* | \
+      T_DPS_FILE:* | \
+      T_XFER_FILE:* | \
+      T_XFER_DELETE:* )
+        # Select, update and insert
         echo; echo "grant select on $table to $reader;"
         echo "grant select on $table to $writer;"
-        echo "grant alter, delete, insert, select, update on $table to $role;" ;;
+	echo "grant insert, select, update on $table to $role;" ;;
 
-      SEQ_*:*_SITE_CERN )
+      T_DPS_BLOCK_DEST:* )
+        # Select and update, but no insert
+        echo; echo "grant select on $table to $reader;"
+        echo "grant select on $table to $writer;"
+	echo "grant select, update on $table to $role;" ;;
+
+      T_*:* )
+        # Select only
+        echo; echo "grant select on $table to $reader;"
+        echo "grant select on $table to $writer;" ;;
+
+      SEQ_*:* )
+        # Everybody can change all sequences
         echo; echo "grant select on $table to $reader;"
         echo "grant select on $table to $writer;"
         echo "grant select, alter on $table to $role;" ;;
-
-      T_SUBSCRIPTION:* | \
-      T_NODE_NEIGHBOUR:* | \
-      T_NODE:* | \
-      T_INFO*:* | \
-      T_DBS*:* | \
-      T_DLS*:* | \
-      T_REQUEST*:* | \
-      T_BLOCK_*:* | \
-      SEQ_*:* )
-        # Read-only (see also restricted update above)
-        echo; echo "grant select on $table to $reader;"
-        echo "grant select on $table to $writer;"
-      	echo "grant select on $table to $role;" ;;
-
-      T_*:* )
-        # General update
-        echo; echo "grant select on $table to $reader;"
-        echo "grant select on $table to $writer;"
-      	echo "grant alter, delete, insert, select, update on $table to $role;" ;;
     esac
   done
 done | sqlplus -S "$connect"
