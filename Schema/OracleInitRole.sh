@@ -1,7 +1,7 @@
 #!/bin/sh
 
 ##H Usage:
-##H   ApplyRole DBPARAM SECTION KEY-DIRECTORY USERCERT-FILE SITE-NAME
+##H   ApplyRole DBPARAM:SECTION KEY-DIRECTORY/USERCERT-FILE SITE-NAME
 ##H
 ##H Where:
 ##H DBPARAM         is the database parameter file with
@@ -20,11 +20,13 @@
 ##H                   address
 ##H SITE-NAME       is the name of the site (e.g. "CERN")
 
-dbparam="$1"
-section="$2"
-keydir="$3"
-usercert="$4"
-sitename="$5"
+[ $# != 3 ] && { echo "Insufficient parameters." 1>&2; exit 1; }
+
+dbparam="$(echo $1 | sed 's/:.*//')"
+section="$(echo $1 | sed 's/.*://')"
+keydir="$(dirname $2)"
+usercert="$(basename $2)"
+sitename="$3"
 
 [ -z "$dbparam"  ] && { echo "Insufficient parameters." 1>&2; exit 1; }
 [ -z "$section"  ] && { echo "Insufficient parameters." 1>&2; exit 1; }
@@ -41,16 +43,19 @@ sitename="$5"
 case $usercert in *@* ) ;; * )
    { echo "$usercert is not an e-mail address" 1>&2; exit 1; } ;;
 esac
+case $sitename in *_* )
+   { echo "$sitename cannot contain _" 1>&2; exit 1; } ;;
+esac
 
 home=$(dirname $0)/..
 
 sitename_uc="$(echo $sitename | tr '[:lower:]' '[:upper:]')"
 
-role_dn="$(grid-cert-info -subject -file $keydir/$usercert)"
+role_dn="$(openssl x509 -in $keydir/$usercert -noout -subject | sed 's/^subject= //')"
 role_email="$usercert"
 role_passwd="$($home/Utilities/WordMunger)"
-role_prefix="$(echo $section | cut -c1-4 | tr '[:lower:]' '[:upper:]')"
-role_name="${role_prefix}_SITE_$sitename_uc"
+role_section="$(echo $section | cut -c1-4 | tr '[:lower:]' '[:upper:]')"
+role_name="PHEDEX_${sitename_uc}_${role_section}"
 role_name_lc="$(echo $role_name | tr '[:upper:]' '[:lower:]')"
 
 ora_master="$($home/Schema/OracleConnectId -db $dbparam:$section/Admin)"
