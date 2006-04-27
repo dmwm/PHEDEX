@@ -1,16 +1,18 @@
 #!/usr/bin/env perl
 
-##H Coordinate file export for castor-based transfer nodes.
+##H Coordinate file export for Castor-based transfer nodes.
 ##H
 ##H This agent manages the general export process for nodes that behave
 ##H like castor nodes.  It expects FileCastorStager and FilePFNExport
 ##H agents to be operated in parallel.
 ##H
 ##H Usage:
-##H   FileCastorExport -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
+##H   FileCastorExport
+##H      -state DIRECTORY -nodes PATTERN[,PATTERN...]
+##H      -db FILE[:SECTION] [-log OUT]
 ##H
 ##H -state     agent state directory
-##H -node      the node where this agent runs
+##H -nodes     patterns for the node names for which this agent runs
 ##H -db        database connection configuration parameter file
 ##H -log       where to redirect logging information
 
@@ -28,10 +30,10 @@ use UtilsHelp;
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
-             "node=s"      => \$args{MYNODE},
+             "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
 	     "help|h"      => sub { &usage() });
 
-if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{MYNODE})
+if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{NODES})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -54,7 +56,8 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
-		  WAITTIME => 50 + rand(20),	# Agent cycle time
+		  NODES => [],			# Patterns for nodes to run for
+		  WAITTIME => 10 + rand(5),	# Agent cycle time
 	  	  AGENTID => "FileExport");	# Identity for activity logs
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
@@ -68,9 +71,11 @@ sub idle
 {
     my ($self, @pending) = @_;
     my $dbh = undef;
+    my @nodes;
     eval
     {
-	$dbh = &connectToDatabase ($self);
+	($dbh, @nodes) = &expandNodesAndConnect ($self);
+	my ($nodes, %node_args) = &myNodeFilter ($self, "n.", "and");
 
 	# Mark files available/unavailable based on their local status.
 	# This agent reflects the stager and pfn export agents progress
@@ -89,11 +94,11 @@ sub idle
 	              join t_xfer_replica xr
 	                on xr.id = xs.from_replica
 	            where xr.state = 1
-		      and xr.node = :node
+	              and exists (select id from t_node n where n.id = xr.node $nodes)
 		      and xs.from_state = 0
 	      	      and xs.from_pfn is not null)
 	    set from_state = 1, time_available = :now},
-	    ":node" => $$self{ID_MYNODE}, ":now" => &mytimeofday());
+	    ":now" => &mytimeofday(), %node_args);
 
         # Mark unavailable files not ready for transfer.
 	&dbexec($dbh, qq{
@@ -101,12 +106,12 @@ sub idle
 		    from t_xfer_state xs
 	              join t_xfer_replica xr
 	                on xr.id = xs.from_replica
-	            where xr.node = :node
+	            where exists (select id from t_node n where n.id = xr.node $nodes)
 		      and xs.from_state = 1
 	              and xs.to_state < 2
 		      and (xr.state != 1 or xs.from_pfn is null))
 	    set from_state = 0, time_available = null},
-	    ":node" => $$self{ID_MYNODE});
+	    %node_args);
 
 	$dbh->commit();
     };
