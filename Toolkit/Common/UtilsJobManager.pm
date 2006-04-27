@@ -2,6 +2,8 @@ package UtilsJobManager; use strict; use warnings; use base 'Exporter';
 use POSIX;
 use UtilsLogging;
 use UtilsCommand;
+use IO::Pipe;
+use Fcntl;
 
 ######################################################################
 # JOB MANAGEMENT TOOLS
@@ -38,6 +40,10 @@ sub startJob
 {
     my ($self, $job) = @_;
     my $pid = undef;
+
+    $job->{PIPE} = new IO::Pipe;
+    fcntl(\*{$$job{PIPE}}, F_SETFL, O_NONBLOCK);
+    
     while (1)
     {
         last if defined ($pid = fork ());
@@ -48,13 +54,32 @@ sub startJob
     if ($pid)
     {
 	# Parent, record this child process
+	$job->{PIPE}->reader();
 	$job->{PID} = $pid;
 	$job->{STARTED} = time();
+	$job->{BEGINLINE} = 1;
+	# open log file for that child
+	$job->{CMDNAME} = $job->{CMD}[0];
+	$job->{CMDNAME} =~ s|.*/||;
+
+	if (exists $$job{LOGFILE})
+	{
+	    open($job->{LOGFH}, '>>', $job->{LOGFILE})
+		or die "Couldn't open log file $job->{LOGFILE}";
+	} 
+	else
+	{
+	    open($job->{LOGFH}, '>&', STDOUT);
+	}
     }
     else
     {
 	# Child, execute the requested program
 	setpgrp(0,$$);
+	$job->{PIPE}->writer();
+	# Redirect STDOUT and STDERR of requested program to a pipe
+	open(STDOUT, '>&', $job->{PIPE});
+	open(STDERR, '>&', $job->{PIPE});
 	exec { $job->{CMD}[0] } @{$job->{CMD}};
 	die "Cannot start @{$job->{CMD}}: $!\n";
     }
@@ -79,9 +104,15 @@ sub checkJobs
 	}
 	elsif ($job->{PID} > 0 && waitpid ($job->{PID}, WNOHANG) > 0)
 	{
-	    # Command finished executing, save exit code and mark finished
+	    # Command finished executing, save exit code and mark finished.
+	    # Read the piped log info a last time.
+	    # Finally close the file handles.
 	    $job->{STATUS_CODE} = $?;
 	    $job->{STATUS} = &runerror ($?);
+	    readPipe($job);
+	    $job->{PIPE}->close();
+	    close($$job{LOGFH});
+
 	    push (@finished, $job);
 	}
 	elsif ($job->{PID} > 0
@@ -106,10 +137,17 @@ sub checkJobs
 	    if ($job->{SIGNAL} != 9) 
 	    {
 		$job->{SIGNAL} = $signals{$job->{SIGNAL}}[0];
-	    } else {
+	    }
+	    else
+	    {
 		&alert("Job $job->{PID} not responding to requests to quit");
 	    }
 
+	    push(@pending, $job);
+	}
+	elsif ($job->{PID} > 0)
+	{
+	    readPipe($job);
 	    push(@pending, $job);
 	}
 	else
@@ -121,6 +159,50 @@ sub checkJobs
 
     $self->{JOBS} = \@pending;
     return @finished;
+}
+
+# Read log information from pipe and store it in logfile
+sub readPipe
+{   
+    my ($job) = @_;
+    
+    # Max amount of bytes to read per read attempt
+    my $maxbytes = 4096;
+
+    # Helper variables
+    my $pipefhtmp = \*{$$job{PIPE}};
+    my $logfhtmp = \*{$$job{LOGFH}};
+    my $pipestring = undef;
+    my $date = strftime ("%Y-%m-%d %H:%M:%S", gmtime);
+
+
+    my $bytesread = 0;
+    while (1)
+    {
+	# Logic to read the job output from the pipe and to deal with
+	# line breaks
+	$bytesread = sysread($pipefhtmp, $pipestring, $maxbytes);
+	last if (!defined $bytesread);
+	do { print $logfhtmp ("\n"); last } if ($bytesread == 0);
+
+	my @lines = split(m|$/|,$pipestring);
+	
+	my $lineno = 0;
+	while (@lines)
+	{
+	    my $line = shift (@lines);
+	    $lineno++;
+	    print $logfhtmp ("$date ", "$job->{CMDNAME}($job->{PID}): ")
+		if ($job->{BEGINLINE} || $lineno > 1);
+	    print $logfhtmp ("$line");
+	    print $logfhtmp ("\n")
+		if ($pipestring =~ m|\Z$/| || @lines);
+	}
+	# Typically the output stops somewhere between two line breaks...
+	$job->{BEGINLINE} = 0;
+	# but not always
+	$job->{BEGINLINE} = 1 if ($pipestring =~ m|\Z$/|);
+    }
 }
 
 # Send a signal to all generated process groups?
