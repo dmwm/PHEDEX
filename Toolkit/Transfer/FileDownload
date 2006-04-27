@@ -169,6 +169,13 @@ sub new
     return $self;
 }
 
+# If stopped, also stop backend jobs.
+sub stop
+{
+    my ($self) = @_;
+    $$self{BACKEND}->killAllJobs();
+}
+
 ######################################################################
 # Remove from the database all existing transfers we are not aware of.
 # This may occur if we are stopped and restarted forcefully when there
