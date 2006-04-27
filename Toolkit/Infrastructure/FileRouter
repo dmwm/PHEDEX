@@ -378,13 +378,13 @@ sub route
 	    (select
 		 xp.fileid, xp.from_node, xp.to_node, xr.id replica,
 		 min(xp.priority) priority,
-		 max(xp.local_boost * l.local_boost) local_boost,
+		 max(xp.local_boost * nvl(l.local_boost,0)) local_boost,
 		 count(xp.fileid) weight,
 		 min(xp.time_request) time_request,
 		 min(xp.time_confirm) time_confirm,
 		 max(xp.time_expire) time_expire
 	     from t_xfer_path xp
-	       join t_link l
+	       left join t_link l
 		 on l.to_node = xp.from_node
 		 and l.from_node = xp.to_node
                join t_xfer_replica xr
@@ -528,12 +528,12 @@ sub routeFile
 		{
 		    # No existing path or it's more expensive.
 		    $paths{$to} = { SRC_NODE => $paths{$from}{SRC_NODE},
-				     FROM_NODE => $from,
-				     TO_NODE => $to,
-				     COST => $cost,
-				     TOTAL_COST => $totcost,
-				     PENALTY => $penalty,
-				     HOPS => $paths{$from}{HOPS} + 1 };
+				    FROM_NODE => $from,
+				    TO_NODE => $to,
+				    COST => $cost,
+				    TOTAL_COST => $totcost,
+				    PENALTY => $penalty,
+				    HOPS => $paths{$from}{HOPS} + 1 };
 		    $todo{$to} = 1;
 
 		    # If cheapest solution so far, remember.
@@ -562,5 +562,23 @@ sub routeFile
 	    push(@{$$request{PATH}}, $paths{$node});
 	    $node = $from;
 	}
+	
+	delete $$self{WARNED}{$dest}{$$request{FILEID}};
+    }
+    elsif (keys %{$$request{REPLICAS}})
+    {
+	&warn ("failed to route file $$request{FILEID} to destination $$dest"
+	       . ": none of the "
+	       . (scalar keys %{$$request{REPLICAS}})
+	       . " source replicas are reachable")
+           if ! $$self{WARNED}{$dest}{$$request{FILEID}};
+	$$self{WARNED}{$dest}{$$request{FILEID}} = 1;
+    }
+    else
+    {
+	&warn ("failed to route file $$request{FILEID} to destination $$dest"
+	       . ": no source replica available")
+           if ! $$self{WARNED}{$dest}{$$request{FILEID}};
+	$$self{WARNED}{$dest}{$$request{FILEID}} = 1;
     }
 }
