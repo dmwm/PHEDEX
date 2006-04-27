@@ -58,6 +58,15 @@ sub transferBatch
 	        = "exit code $$job{STATUS} from @{$$job{CMD}}";
 	    $self->stopFileTiming ($file);
 	}
+	
+	if $$job{STATUS}
+	{
+	    &warn("Command $$job{CMDNAME} failed. Log appended to $$job{LOGFILE}");
+	}
+	else
+	{
+	    unlink ($$job{LOGFILE}) if -e $$job{LOGFILE};
+	}
     }
     else
     {
@@ -97,7 +106,7 @@ sub transferBatch
 	    my @sourcepaths = map { $$_{PATH} } @files;
 	    $self->addJob (
 		sub { $self->transferBatch ($batch, \@sourcefiles, @_) },
-	        { TIMEOUT => $$self{TIMEOUT} },
+	        { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $dest.log },
 	        @{$$self{COMMAND}}, @sourcepaths, $dest);
         }
     }
