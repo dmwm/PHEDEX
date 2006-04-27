@@ -183,9 +183,18 @@ sub preClean
     my ($self, $batch, $file, $job) = @_;
     if ($job)
     {
-	# Reap finished jobs.  We don't care about success here.
+	# Reap finished jobs
 	$$file{DONE_PRE_CLEAN} = 1;
 	$self->stopFileTiming ($file);
+
+	if $$job{STATUS}
+	{
+	    &warn("Command $$job{CMDNAME} failed. Log appended to $$job{LOGFILE}");
+	}
+	else
+	{
+	    unlink ($$job{LOGFILE}) if -e $$job{LOGFILE};
+	}
     }
     else
     {
@@ -199,9 +208,9 @@ sub preClean
 
 	    $self->startFileTiming ($file, "preclean");
 	    $$self{MASTER}->addJob (
-		sub { $self->preClean ($batch, $file, @_) },
-		{ TIMEOUT => $$self{TIMEOUT} },
-		@{$$self{MASTER}{DELETE_COMMAND}}, "pre", $$file{TO_PFN});
+		sub { $self->preClean ($$self{MASTER}, $batch, $file, @_) },
+		{ TIMEOUT => $self->{TIMEOUT}, LOGFILE => "$$self{MASTER}{DROPDIR}/$$file{FILEID}-delete.log" },
+		@{$self->{DELETE_COMMAND}}, "pre", $file->{TO_PFN});
 	}
     }
 
@@ -244,8 +253,12 @@ sub validateBatch
 		   ? "failed with $$file{TRANSFER_STATUS}{REPORT}"
 		   : "was successful")
 	        . ")";
+	    &warn("Command $$job{CMDNAME} failed. Log appended to $$job{LOGFILE}");
 	}
-
+	else
+	{
+	    unlink ($$job{LOGFILE}) if -e $$job{LOGFILE};
+	}
 	$$file{DONE_VALIDATE} = 1;
 	$self->stopFileTiming ($file);
     }
@@ -264,11 +277,11 @@ sub validateBatch
 
 	    $self->startFileTiming ($file, "validate");
 	    $$self{MASTER}->addJob (
-		sub { $self->validateBatch ($batch, $file, @_) },
-		{ TIMEOUT => $$self{TIMEOUT} },
-		@{$$self{MASTER}{VALIDATE_COMMAND}},
-		$$file{TRANSFER_STATUS}{STATUS}, $$file{TO_PFN},
-		$$file{FILESIZE}, $$file{CHECKSUM});
+		sub { $self->validateBatch ($$self{MASTER}, $batch, $file, @_) },
+		{ TIMEOUT => $self->{TIMEOUT}, LOGFILE => "$$self{MASTER}{DROPDIR}/$$file{FILEID}-validate.log" },
+		@{$self->{VALIDATE_COMMAND}},
+		$file->{TRANSFER_STATUS}{STATUS}, $file->{TO_PFN},
+		$file->{FILESIZE}, $file->{CHECKSUM});
 	}
     }
 
@@ -282,9 +295,18 @@ sub postClean
     my ($self, $batch, $file, $job) = @_;
     if ($job)
     {
-	# Reap finished jobs.  We don't care about success here.
+	# Reap finished jobs
 	$$file{DONE_POST_CLEAN} = 1;
 	$self->stopFileTiming ($file);
+
+	if $$job{STATUS}
+	{
+	    &warn("Command $$job{CMDNAME} failed. Log appended to $$job{LOGFILE}");
+	}
+	else
+	{
+	    unlink ($$job{LOGFILE}) if -e $$job{LOGFILE};
+	}
     }
     else
     {
@@ -299,9 +321,9 @@ sub postClean
 
 	    $self->startFileTiming ($file, "postclean");
 	    $$self{MASTER}->addJob (
-		sub { $self->postClean ($batch, $file, @_) },
-		{ TIMEOUT => $$self{TIMEOUT} },
-		@{$$self{MASTER}{DELETE_COMMAND}}, "post", $$file{TO_PFN});
+		sub { $self->postClean ($$self{MASTER}, $batch, $file, @_) },
+		{ TIMEOUT => $self->{TIMEOUT}, LOGFILE => "$$self{MASTER}{DROPDIR}/$$file{FILEID}-delete.log" },
+		@{$self->{DELETE_COMMAND}}, "post", $file->{TO_PFN});
 	}
     }
 
