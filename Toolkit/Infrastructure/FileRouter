@@ -99,10 +99,11 @@ sub idle
 	        select id from t_node where name = :name},
 	        ":name" => $node)->fetchrow();
 
-	    &logmsg ("routing for $node");
 	    $self->route ($dbh, $nodeid);
 	    $self->maybeStop();
 	}
+
+	&logmsg ("routed for @nodes");
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
