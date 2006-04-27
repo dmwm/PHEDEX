@@ -162,7 +162,7 @@ sub disconnectFromDatabase
 sub identifyAgent
 {
     my ($self, $dbh) = @_;
-    return if $$self{DBH_AGENT_IDENTIFIED};
+    return if $$self{DBH_AGENT_IDENTIFIED}{$$self{MYNODE}};
 
     # Get PhEDEx distribution version.
     my $now = &mytimeofday();
@@ -261,7 +261,7 @@ sub identifyAgent
     }
 
     $dbh->commit ();
-    $$self{DBH_AGENT_IDENTIFIED} = 1;
+    $$self{DBH_AGENT_IDENTIFIED}{$$self{MYNODE}} = 1;
 }
 
 # Update the agent status in the database.  This identifies the
@@ -270,7 +270,7 @@ sub updateAgentStatus
 {
     my ($self, $dbh) = @_;
     my $now = &mytimeofday();
-    return if ($$self{DBH_AGENT_UPDATE} || 0) > $now - 5*60;
+    return if ($$self{DBH_AGENT_UPDATE}{$$self{MYNODE}} || 0) > $now - 5*60;
 
     # Obtain my node id
     my $me = $$self{AGENTID} || $0; $me =~ s|.*/||;
@@ -322,7 +322,7 @@ sub updateAgentStatus
 	    ":now" => $now);
     }
     $dbh->commit();
-    $$self{DBH_AGENT_UPDATE} = $now;
+    $$self{DBH_AGENT_UPDATE}{$$self{MYNODE}} = $now;
 }
 
 # Now look for messages to me.  There may be many, so handle
