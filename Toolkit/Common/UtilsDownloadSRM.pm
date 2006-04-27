@@ -1,5 +1,6 @@
 package UtilsDownloadSRM; use strict; use warnings; use base 'UtilsDownload';
 use UtilsLogging;
+use UtilsCommand;
 use Getopt::Long;
 
 sub new
