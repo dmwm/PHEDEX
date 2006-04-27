@@ -33,8 +33,8 @@ use UtilsHelp;
              "dir=s"       => \$args{AGENTDIR},
 	     "help|h"      => sub { &usage() });
 
-if (@ARGV || !$args{DROPDIR} || !$args{AGENTDIR} || !$args{SITEID}
-    || !$args{DBCONFIG})
+if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{AGENTDIR}
+    || !$args{SITEID} || !$args{DBCONFIG})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -58,6 +58,7 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  AGENTDIR => undef,		# Directory of agent states
+		  MYNODE => undef,		# TMDB node name
 		  WAITTIME => 50 + rand(20),	# Agent activity cycle
 	  	  SITEID => undef);		# Site ID for database
     my %args = (@_);
@@ -73,7 +74,7 @@ sub idle
     my $dbh = undef;
     eval
     {
-	$dbh = &connectToDatabase ($self, 0) or die "failed to connect";
+	$dbh = &connectToDatabase ($self) or die "failed to connect";
 
 	# Collect statistics
 	my $now = time();
