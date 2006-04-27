@@ -38,7 +38,6 @@ sub addJob
 # have the process id of the subprocess.  Internal helper routine.
 sub startJob
 {
-    use IO::Pipe;
     my ($self, $job) = @_;
     my $pid = undef;
 
@@ -78,7 +77,7 @@ sub startJob
 	# Child, execute the requested program
 	setpgrp(0,$$);
 	$job->{PIPE}->writer();
-	# redirect STDOUT and STDERR of requested program to a pipe
+	# Redirect STDOUT and STDERR of requested program to a pipe
 	open(STDOUT, '>&', $job->{PIPE});
 	open(STDERR, '>&', $job->{PIPE});
 	exec { $job->{CMD}[0] } @{$job->{CMD}};
@@ -91,8 +90,6 @@ sub startJob
 # Internal helper routine.
 sub checkJobs
 {
-    use IO::Pipe;
-    use Fcntl;
     my ($self) = @_;
     my @pending = ();
     my @finished = ();
@@ -107,12 +104,11 @@ sub checkJobs
 	}
 	elsif ($job->{PID} > 0 && waitpid ($job->{PID}, WNOHANG) > 0)
 	{
-	    # Command finished executing, save exit code and mark finished
-	    # write out log of process to a dedicated logfile
+	    # Command finished executing, save exit code and mark finished.
+	    # Read the piped log info a last time.
+	    # Finally close the file handles.
 	    $job->{STATUS_CODE} = $?;
 	    $job->{STATUS} = &runerror ($?);
-	    # read the piped log info a last time
-	    # Finally close the pipe and the log file handle
 	    readPipe($job);
 	    $job->{PIPE}->close();
 	    close($$job{LOGFH});
@@ -170,39 +166,39 @@ sub readPipe
 {   
     my ($job) = @_;
     
+    # Max amount of bytes to read per read attempt
+    my $maxbytes = 4096;
+
+    # Helper variables
     my $pipefhtmp = \*{$$job{PIPE}};
     my $logfhtmp = \*{$$job{LOGFH}};
-
-    # save intermediate log from pipe to file for active jobs
     my $pipestring = undef;
-    # max amount of bytes to read per read attempt
-    my $maxbytes = 4096;
-    # get the current time in human readable format
     my $date = strftime ("%Y-%m-%d %H:%M:%S", gmtime);
 
 
-    my $bitesread = 0;
+    my $bytesread = 0;
     while (1)
     {
-	$bitesread = sysread($pipefhtmp, $pipestring, $maxbytes);
-	# bail out, if we reach end of file, or if the read fails
-	last if (!defined $bitesread);
-	do { print $logfhtmp ("\n"); last } if ($bitesread == 0);
-	
-	# break the string into lines
+	# Logic to read the job output from the pipe and to deal with
+	# line breaks
+	$bytesread = sysread($pipefhtmp, $pipestring, $maxbytes);
+	last if (!defined $bytesread);
+	do { print $logfhtmp ("\n"); last } if ($bytesread == 0);
+
 	my @lines = split(m|$/|,$pipestring);
 	
 	my $lineno = 0;
-	foreach my $line (@lines)
+	while (@lines)
 	{
-	    $lineno += 1;
+	    my $line = shift (@lines);
+	    $lineno++;
 	    print $logfhtmp ("$date ", "$job->{CMDNAME}($job->{PID}): ")
 		if ($job->{BEGINLINE} || $lineno > 1);
 	    print $logfhtmp ("$line");
 	    print $logfhtmp ("\n")
-		if ($pipestring =~ m|\Z$/| || scalar @lines != $lineno);
+		if ($pipestring =~ m|\Z$/| || @lines);
 	}
-	# typically the output stops somewhere between two line breaks...
+	# Typically the output stops somewhere between two line breaks...
 	$job->{BEGINLINE} = 0;
 	# but not always
 	$job->{BEGINLINE} = 1 if ($pipestring =~ m|\Z$/|);
