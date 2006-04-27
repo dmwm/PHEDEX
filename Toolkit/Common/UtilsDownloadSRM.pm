@@ -11,7 +11,7 @@ sub new
 
     # Parse backend-specific additional options
     local @ARGV = @{$args{BACKEND_ARGS}};
-    Getopt::Long::Configure qw(default pass_through require_order);
+    Getopt::Long::Configure qw(default pass_through norequire_order);
     &GetOptions ("command=s" => sub { push(@{$args{COMMAND}},
 					   split(/,/, $_[1])) });
 
@@ -46,6 +46,7 @@ sub transferBatch
 	unlink ($specfile, $reportfile);
 
 	# Reap finished jobs
+	my $isbad = 0;
 	foreach my $file (@$files)
 	{
 	    $$file{DONE_TRANSFER} = 1;
@@ -65,16 +66,17 @@ sub transferBatch
 	        $$file{TRANSFER_STATUS}{REPORT}
 	            = "exit code $$job{STATUS} from @{$$job{CMD}}";
 	    }
+	    $isbad = 1 if $$file{TRANSFER_STATUS}{STATUS};
 	    $self->stopFileTiming ($file);
 	}
 
-	if $$job{STATUS}
+	if ($isbad)
 	{
-	    &warn("Command $$job{CMDNAME} failed. Log appended to $$job{LOGFILE}");
+	    &warn("$$job{LOGFILE} has log of failed command @{$$job{CMD}}");
 	}
 	else
 	{
-	    unlink ($$job{LOGFILE}) if -e $$job{LOGFILE};
+	    unlink ($$job{LOGFILE});
 	}
 
     }

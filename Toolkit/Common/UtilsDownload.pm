@@ -13,8 +13,8 @@ sub new
     my %args = (@_);
 
     # Parse additional options
-    local @ARGV = @{$args{BACKEND_ARGS}};
-    Getopt::Long::Configure qw(default pass_through require_order);
+    local @ARGV = @{$args{BACKEND_ARGS} || []};
+    Getopt::Long::Configure qw(default pass_through norequire_order);
     &GetOptions ("batch-files=i"  => \$args{BATCH_FILES},
 		 "batch-size=s"   => sub { $args{BATCH_SIZE} = &sizeValue($_[1]) },
 		 "protocols=s"    => sub { push(@{$args{PROTOCOLS}},
@@ -187,13 +187,13 @@ sub preClean
 	$$file{DONE_PRE_CLEAN} = 1;
 	$self->stopFileTiming ($file);
 
-	if $$job{STATUS}
+	if ($$job{STATUS})
 	{
-	    &warn("Command $$job{CMDNAME} failed. Log appended to $$job{LOGFILE}");
+	    &warn("$$job{LOGFILE} has log of failed command @{$$job{CMD}}");
 	}
 	else
 	{
-	    unlink ($$job{LOGFILE}) if -e $$job{LOGFILE};
+	    unlink ($$job{LOGFILE});
 	}
     }
     else
@@ -207,10 +207,11 @@ sub preClean
 	        if $$file{FAILURE} || ! $$self{MASTER}{DELETE_COMMAND};
 
 	    $self->startFileTiming ($file, "preclean");
+	    my $joblog = "$$self{MASTER}{DROPDIR}/$$file{FILEID}.log";
 	    $$self{MASTER}->addJob (
-		sub { $self->preClean ($$self{MASTER}, $batch, $file, @_) },
-		{ TIMEOUT => $self->{TIMEOUT}, LOGFILE => "$$self{MASTER}{DROPDIR}/$$file{FILEID}-delete.log" },
-		@{$self->{DELETE_COMMAND}}, "pre", $file->{TO_PFN});
+		sub { $self->preClean ($batch, $file, @_) },
+		{ TIMEOUT => $self->{TIMEOUT}, LOGFILE => $joblog },
+		@{$$self{MASTER}{DELETE_COMMAND}}, "pre", $file->{TO_PFN});
 	}
     }
 
@@ -253,11 +254,11 @@ sub validateBatch
 		   ? "failed with $$file{TRANSFER_STATUS}{REPORT}"
 		   : "was successful")
 	        . ")";
-	    &warn("Command $$job{CMDNAME} failed. Log appended to $$job{LOGFILE}");
+	    &warn("$$job{LOGFILE} has log of failed command @{$$job{CMD}}");
 	}
 	else
 	{
-	    unlink ($$job{LOGFILE}) if -e $$job{LOGFILE};
+	    unlink ($$job{LOGFILE});
 	}
 	$$file{DONE_VALIDATE} = 1;
 	$self->stopFileTiming ($file);
@@ -276,10 +277,11 @@ sub validateBatch
 	        if $$file{FAILURE} || ! $$self{MASTER}{VALIDATE_COMMAND};
 
 	    $self->startFileTiming ($file, "validate");
+	    my $joblog = "$$self{MASTER}{DROPDIR}/$$file{FILEID}.log";
 	    $$self{MASTER}->addJob (
-		sub { $self->validateBatch ($$self{MASTER}, $batch, $file, @_) },
-		{ TIMEOUT => $self->{TIMEOUT}, LOGFILE => "$$self{MASTER}{DROPDIR}/$$file{FILEID}-validate.log" },
-		@{$self->{VALIDATE_COMMAND}},
+		sub { $self->validateBatch ($batch, $file, @_) },
+		{ TIMEOUT => $self->{TIMEOUT}, LOGFILE => $joblog },
+		@{$$self{MASTER}{VALIDATE_COMMAND}},
 		$file->{TRANSFER_STATUS}{STATUS}, $file->{TO_PFN},
 		$file->{FILESIZE}, $file->{CHECKSUM});
 	}
@@ -299,13 +301,13 @@ sub postClean
 	$$file{DONE_POST_CLEAN} = 1;
 	$self->stopFileTiming ($file);
 
-	if $$job{STATUS}
+	if ($$job{STATUS})
 	{
-	    &warn("Command $$job{CMDNAME} failed. Log appended to $$job{LOGFILE}");
+	    &warn("$$job{LOGFILE} has log of failed command @{$$job{CMD}}");
 	}
 	else
 	{
-	    unlink ($$job{LOGFILE}) if -e $$job{LOGFILE};
+	    unlink ($$job{LOGFILE});
 	}
     }
     else
@@ -320,10 +322,11 @@ sub postClean
 		    || ! $$file{MASTER}{TO_PFN});
 
 	    $self->startFileTiming ($file, "postclean");
+	    my $joblog = "$$self{MASTER}{DROPDIR}/$$file{FILEID}.log";
 	    $$self{MASTER}->addJob (
-		sub { $self->postClean ($$self{MASTER}, $batch, $file, @_) },
-		{ TIMEOUT => $self->{TIMEOUT}, LOGFILE => "$$self{MASTER}{DROPDIR}/$$file{FILEID}-delete.log" },
-		@{$self->{DELETE_COMMAND}}, "post", $file->{TO_PFN});
+		sub { $self->postClean ($batch, $file, @_) },
+		{ TIMEOUT => $self->{TIMEOUT}, LOGFILE => $joblog },
+		@{$$self{MASTER}{DELETE_COMMAND}}, "post", $file->{TO_PFN});
 	}
     }
 

@@ -10,7 +10,7 @@ sub new
 
     # Parse backend-specific additional options
     local @ARGV = @{$args{BACKEND_ARGS}};
-    Getopt::Long::Configure qw(default pass_through require_order);
+    Getopt::Long::Configure qw(default pass_through norequire_order);
     &GetOptions ("command=s" => sub { push(@{$args{COMMAND}},
 					   split(/,/, $_[1])) });
 
@@ -50,22 +50,24 @@ sub transferBatch
     if ($job)
     {
 	# Reap finished jobs
+	my $isbad = 0;
 	foreach my $file (@$files)
 	{
 	    $$file{DONE_TRANSFER} = 1;
 	    $$file{TRANSFER_STATUS}{STATUS} = $$job{STATUS};
 	    $$file{TRANSFER_STATUS}{REPORT}
 	        = "exit code $$job{STATUS} from @{$$job{CMD}}";
+	    $isbad = 1 if $$job{STATUS};
 	    $self->stopFileTiming ($file);
 	}
 	
-	if $$job{STATUS}
+	if ($isbad)
 	{
-	    &warn("Command $$job{CMDNAME} failed. Log appended to $$job{LOGFILE}");
+	    &warn("$$job{LOGFILE} has log of failed command @{$$job{CMD}}");
 	}
 	else
 	{
-	    unlink ($$job{LOGFILE}) if -e $$job{LOGFILE};
+	    unlink ($$job{LOGFILE});
 	}
     }
     else
@@ -104,9 +106,10 @@ sub transferBatch
 	    my @files = @{$groups{$dest}};
 	    my @sourcefiles = map { $$_{FILE} } @files;
 	    my @sourcepaths = map { $$_{PATH} } @files;
+	    my $joblog = "$$self{MASTER}{DROPDIR}/$files[0]{FILE}{FILEID}.log";
 	    $self->addJob (
 		sub { $self->transferBatch ($batch, \@sourcefiles, @_) },
-	        { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $dest.log },
+	        { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $joblog },
 	        @{$$self{COMMAND}}, @sourcepaths, $dest);
         }
     }
