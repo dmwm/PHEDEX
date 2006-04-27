@@ -2,6 +2,8 @@ package UtilsJobManager; use strict; use warnings; use base 'Exporter';
 use POSIX;
 use UtilsLogging;
 use UtilsCommand;
+use IO::Pipe;
+use Fcntl;
 
 ######################################################################
 # JOB MANAGEMENT TOOLS
@@ -41,7 +43,8 @@ sub startJob
     my $pid = undef;
 
     $job->{PIPE} = new IO::Pipe;
-
+    fcntl(\*{$$job{PIPE}}, F_SETFL, O_NONBLOCK);
+    
     while (1)
     {
         last if defined ($pid = fork ());
@@ -58,10 +61,17 @@ sub startJob
 	$job->{BEGINLINE} = 1;
 	# open log file for that child
 	$job->{CMDNAME} = $job->{CMD}[0];
-	$job->{CMDNAME} =~ s|.*/||g;
-	$job->{LOGFILE} = "$self->{DROPDIR}/$job->{CMDNAME}.$job->{PID}.log";
-	open($job->{LOGFH}, ">>$job->{LOGFILE}")
-	    or die "Couldn't open log file $job->{LOGFILE}";
+	$job->{CMDNAME} =~ s|.*/||;
+
+	if (exists $$job{LOGFILE})
+	{
+	    open($job->{LOGFH}, '>>', $job->{LOGFILE})
+		or die "Couldn't open log file $job->{LOGFILE}";
+	} 
+	else
+	{
+	    open($job->{LOGFH}, '>&', STDOUT);
+	}
     }
     else
     {
@@ -90,9 +100,6 @@ sub checkJobs
 
     foreach my $job (@{$self->{JOBS}})
     {
-	fcntl(\*{$$job{PIPE}}, F_SETFL, O_NONBLOCK);
-
-
 	if (! scalar @{$job->{CMD}})
 	{
 	    # Delayed action callback, no job associated with this one
@@ -106,14 +113,10 @@ sub checkJobs
 	    $job->{STATUS} = &runerror ($?);
 	    # read the piped log info a last time
 	    # Finally close the pipe and the log file handle
-	    ReadPipe(\*{$$job{PIPE}}, \*{$$job{LOGFH}}, $job);
+	    readPipe($job);
 	    $job->{PIPE}->close();
 	    close($$job{LOGFH});
 
-	    # remove log, if job finished successfully, otherwise warn
-	    unlink ($job->{LOGFILE}) if ($job->{STATUS_CODE} == 0);
-	    &warn("Command $job->{CMDNAME} failed. Log appended to $job->{LOGFILE}")
-		if ($job->{STATUS_CODE} != 0);
 	    push (@finished, $job);
 	}
 	elsif ($job->{PID} > 0
@@ -138,14 +141,17 @@ sub checkJobs
 	    if ($job->{SIGNAL} != 9) 
 	    {
 		$job->{SIGNAL} = $signals{$job->{SIGNAL}}[0];
-	    } else {
+	    }
+	    else
+	    {
 		&alert("Job $job->{PID} not responding to requests to quit");
 	    }
 
 	    push(@pending, $job);
 	}
-	elsif ($job->{PID} > 0) {
-	    ReadPipe(\*{$$job{PIPE}}, \*{$$job{LOGFH}}, $job);
+	elsif ($job->{PID} > 0)
+	{
+	    readPipe($job);
 	    push(@pending, $job);
 	}
 	else
@@ -160,21 +166,25 @@ sub checkJobs
 }
 
 # Read log information from pipe and store it in logfile
-sub ReadPipe
+sub readPipe
 {   
-    my ($pipetmp, $logfhtmp, $job) = @_;
+    my ($job) = @_;
     
+    my $pipefhtmp = \*{$$job{PIPE}};
+    my $logfhtmp = \*{$$job{LOGFH}};
+
     # save intermediate log from pipe to file for active jobs
     my $pipestring = undef;
     # max amount of bytes to read per read attempt
-    my $bitesmax = 128;
+    my $maxbytes = 4096;
     # get the current time in human readable format
-    my $localtime = localtime( time() );
+    my $date = strftime ("%Y-%m-%d %H:%M:%S", gmtime);
 
 
     my $bitesread = 0;
-    while (1) {
-	$bitesread = sysread($pipetmp, $pipestring, $bitesmax);
+    while (1)
+    {
+	$bitesread = sysread($pipefhtmp, $pipestring, $maxbytes);
 	# bail out, if we reach end of file, or if the read fails
 	last if (!defined $bitesread);
 	do { print $logfhtmp ("\n"); last } if ($bitesread == 0);
@@ -182,19 +192,19 @@ sub ReadPipe
 	# break the string into lines
 	my @lines = split(m|$/|,$pipestring);
 	
-	# define loop counter
-	my $loop = 0;
-	foreach my $line (@lines){
-	    $loop += 1;
-	    print $logfhtmp ("$localtime ", "$job->{CMDNAME}($job->{PID}): ")
-		if ($job->{BEGINLINE} || $loop > 1);
+	my $lineno = 0;
+	foreach my $line (@lines)
+	{
+	    $lineno += 1;
+	    print $logfhtmp ("$date ", "$job->{CMDNAME}($job->{PID}): ")
+		if ($job->{BEGINLINE} || $lineno > 1);
 	    print $logfhtmp ("$line");
 	    print $logfhtmp ("\n")
-		if ($pipestring =~ m|\Z$/| || scalar @lines != $loop);
+		if ($pipestring =~ m|\Z$/| || scalar @lines != $lineno);
 	}
-	# typically the output stops somewhere between two line breaks
+	# typically the output stops somewhere between two line breaks...
 	$job->{BEGINLINE} = 0;
-	# but not always.....
+	# but not always
 	$job->{BEGINLINE} = 1 if ($pipestring =~ m|\Z$/|);
     }
 }
