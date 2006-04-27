@@ -483,12 +483,12 @@ sub routeFile
     {
 	my $cost = $$request{REPLICAS}{$node} ? 1 : 100;
 	$paths{$node} = { SRC_NODE => $node,
-			   FROM_NODE => $node,
-			   TO_NODE => $node,
-			   COST => $cost,
-			   TOTAL_COST => $cost,
-			   PENALTY => 1,
-		           HOPS => 0 };
+			  FROM_NODE => $node,
+			  TO_NODE => $node,
+			  COST => $cost,
+			  TOTAL_COST => $cost,
+			  PENALTY => 1,
+		          HOPS => 0 };
 	$todo{$node} = 1;
     }
 
@@ -570,16 +570,16 @@ sub routeFile
     }
     elsif (keys %{$$request{REPLICAS}})
     {
-	&warn ("failed to route file $$request{FILEID} to destination $$dest"
-	       . ": none of the "
-	       . (scalar keys %{$$request{REPLICAS}})
-	       . " source replicas are reachable")
+	&warn ("failed to route file $$request{FILEID} to destination $dest"
+	       . ": none of the source replicas are reachable ("
+	       . (scalar keys %{$$request{REPLICAS}}) . " at: "
+	       . "@{[ keys %{$$request{REPLICAS}} ]})")
            if ! $$self{WARNED}{$dest}{$$request{FILEID}};
 	$$self{WARNED}{$dest}{$$request{FILEID}} = 1;
     }
     else
     {
-	&warn ("failed to route file $$request{FILEID} to destination $$dest"
+	&warn ("failed to route file $$request{FILEID} to destination $dest"
 	       . ": no source replica available")
            if ! $$self{WARNED}{$dest}{$$request{FILEID}};
 	$$self{WARNED}{$dest}{$$request{FILEID}} = 1;
