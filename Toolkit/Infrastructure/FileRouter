@@ -557,7 +557,8 @@ sub routeFile
 	while ($paths{$node}{FROM_NODE} != $paths{$node}{TO_NODE})
 	{
 	    my $from = $paths{$node}{FROM_NODE};
-	    $local *= ($$self{LINKS}{$node}{$from}{LOCAL_BOOST} || 0);
+	    $local *= (! exists $$self{LINKS}{$node}{$from} ? 0
+		       : $$self{LINKS}{$node}{$from}{LOCAL_BOOST});
 	    $paths{$node}{INDEX} = $index++;
 	    $paths{$node}{LOCAL_BOOST} = $local;
 	    push(@{$$request{PATH}}, $paths{$node});
