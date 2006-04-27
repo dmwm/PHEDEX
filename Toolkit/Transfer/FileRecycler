@@ -13,8 +13,8 @@
 ##H Usage:
 ##H   FileRecycler
 ##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
-##H      -storagemap PATH [-protocol NAME] [-check PROGRAM[,ARG...]]
-##H      -rm PROGRAM[,ARG...] [-delay HOURS]
+##H      -storagemap PATH [-protocol NAME] [-keep PATTERN] [-delay HOURS]
+##H	 [-check PROGRAM[,ARG...]] -rm PROGRAM[,ARG...]
 ##H
 ##H -state         agent state directory
 ##H -node          the node where this agent runs
@@ -22,9 +22,10 @@
 ##H -log           where to redirect logging information
 ##H -storagemap    storage mapping catalogue
 ##H -protocol      protocol to use with storage map, by default "direct"
+##H -keep          file name pattern to not delete
+##H -delay         hours to wait before deleting a replica (default: 48)
 ##H -check         script to check whether storage needs cleaning up
 ##H -rm            command to remove files
-##H -delay         hours to wait before deleting a replica (default: 48)
 
 BEGIN
 {
@@ -44,9 +45,10 @@ use UtilsHelp;
 	     "node=s"		=> \$args{MYNODE},
 	     "storagemap=s"	=> \$args{STORAGEMAP},
 	     "protocol=s"	=> \$args{PROTOCOL},
+	     "keep=s"		=> sub { push(@{$args{KEEP}}, $_[1]) },
+	     "delay=f"		=> sub { $args{DELAY} = $_[1] * 3600 },
 	     "check=s"		=> sub { push(@{$args{CMD_CHECK}}, split(/,/, $_[1])) },
 	     "rm=s"		=> sub { push(@{$args{CMD_RM}}, split(/,/, $_[1])) },
-	     "delay=f"		=> sub { $args{DELAY} = $_[1] * 3600 },
 	     "help|h"		=> sub { &usage() });
 
 if (@ARGV || !$args{MYNODE} || !$args{DROPDIR} || !$args{DBCONFIG}
@@ -74,11 +76,12 @@ sub new
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  AGENTID => "FileCleaner",     # Identity for activity logs
-		  WAITTIME => 120 + rand(20),	# Agent activity cycle
+		  WAITTIME => 50 + rand(10),	# Agent activity cycle
 		  DELETING => undef,		# Are we deleting files now?
 		  DELAY => 48 * 3600,		# Time delay prior to purging
 		  STORAGEMAP => undef,		# Storage path mapping rules
 		  PROTOCOL => "direct",         # File access protocol
+		  KEEP => [],                   # File patterns to not delete
 		  CMD_CHECK => undef,           # Command to check for free space
 		  CMD_RM => undef);             # Command to remove files
 
@@ -142,34 +145,28 @@ sub idle
 	# files at this node even for those with pending outbound
 	# transfers because this is test disk space recycling -- the
 	# main difference between this and the normal disk cleaner.
-	my $old = &mytimeofday() - $$self{DELAY};
-        my %files = ();
+	my $now = &mytimeofday();
+	my $old = $now - $$self{DELAY};
         my $q = &dbexec($dbh,qq{
 	    select xr.fileid, f.logical_name, xr.time_create
 	    from t_xfer_replica xr
-	      join t_xfer_file f
-	        on f.id = xr.fileid
-	      left join t_xfer_state xs
-	        on xs.from_replica = xr.id
-      	        and xs.to_state = 2
-            where xr.node = :mynode and xs.fileid is null
+	      join t_xfer_file f on f.id = xr.fileid
+            where xr.node = :mynode
+	      and not exists (select 1 from t_xfer_state xs
+                              where xs.from_replica = xr.id
+			        and xs.to_state = 2)
             order by xr.time_create asc},
     	    ":mynode" => $$self{ID_MYNODE});
         while (my ($id, $lfn, $time) = $q->fetchrow())
         {
-	    last if scalar keys %files > 100;
+	    next if grep($lfn =~ /$_/, @{$$self{KEEP}});
 	    last if $time > $old && ! $$self{DELETING};
-	    $files{$lfn} = $id;
-        }
-
-	# Get PFNs and delete the files
-	my $pfns = &pfnLookup ([ keys %files ], $$self{PROTOCOL},
-			       "local", $$self{STORAGEMAP});
-        while (my ($lfn, $pfn) = each %$pfns)
-        {
+	    my $pfn = &pfnLookup ($lfn, $$self{PROTOCOL}, $$self{MYNODE},
+				  $$self{STORAGEMAP});
 	    do { &alert ("no pfn for $lfn"); next } if ! $pfn;
-	    $self->deleteFile ($dbh, $files{$lfn}, $pfn);
-	}
+	    $self->deleteFile ($dbh, $id, $pfn);
+	    last if &mytimeofday() - $now > 600;
+        }
 
 	# Done, commit
 	$dbh->commit ();
