@@ -1,4 +1,5 @@
-*** 2006-04-26
+**********************************************************************
+*** 2006-04-26 Basic initialisation
 
 -- Generate three passwords (repeat until good passwords)
 sh Utilities/WordMunger
@@ -50,3 +51,23 @@ Utilities/NodeNew -db Schema/DBParam:SC4/Admin \
 Toolkit/Request/TMDBInject -db Schema/DBParam:SC4/CERN \
   -nodes T1_CERN_Load -filedata ../SITECONF/CERN/LoadTest/LoadTest_T1_CERN.xml \
   -strict -verbose
+
+**********************************************************************
+*** 2006-04-26 Further test configuration
+
+PHEDEX/Utilities/NodeNew -db SITECONF/CERN/PhEDEx/DBParam:SC4/Admin \
+  T1_CERN_MSS
+
+PHEDEX/Utilities/NodeNew -db SITECONF/CERN/PhEDEx/DBParam:SC4/Admin \
+  T1_CERN_Buffer \
+  T1_CERN_MSS:L
+
+PHEDEX/Utilities/NodeNew -db SITECONF/CERN/PhEDEx/DBParam:SC4/Admin \
+  TX_TEST_Buffer \
+  T1_CERN_Buffer \
+  T1_CERN_Load
+
+
+(cd Auth && ../Schema/OracleInitRole.sh ../Schema/DBParam:SC4 Keys/mario.kadastik@cern.ch estonia)
+
+(cd Auth && ../Schema/OracleInitRole.sh ../Schema/DBParam:SC4 Keys/yujun@fnal.gov fnal)
