@@ -250,7 +250,7 @@ sub idle
 		{
 		    &alert ("block $$b{BLOCK} has inactive and active replicas");
 		}
-		elsif ($$b{NODE_FILES} || $$b{XFER_FILES} || $$b{EXPT_FILES})
+		elsif ($$b{NODE_FILES} || $$b{XFER_FILES})
 		{
 		    &alert ("block $$b{BLOCK} at node $$b{NODE} is active but the"
 			    . " block is otherwise inactive");
