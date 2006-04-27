@@ -67,6 +67,16 @@ sub transferBatch
 	    }
 	    $self->stopFileTiming ($file);
 	}
+
+	if $$job{STATUS}
+	{
+	    &warn("Command $$job{CMDNAME} failed. Log appended to $$job{LOGFILE}");
+	}
+	else
+	{
+	    unlink ($$job{LOGFILE}) if -e $$job{LOGFILE};
+	}
+
     }
     else
     {
@@ -106,7 +116,7 @@ sub transferBatch
 	    $self->addJob (
 		sub { $self->transferBatch
 			  ($batch, $job, $reportfile, $specfile, @_) },
-		    { TIMEOUT => $$self{TIMEOUT} },
+		    { TIMEOUT => $$self{TIMEOUT}, LOGFILE => "$specfile.log" },
 		    @{$$self{COMMAND}},
 		    "-copyjobfile=$specfile",
 		    "-report=$reportfile");
@@ -117,5 +127,6 @@ sub transferBatch
     $self->validateBatch ($batch)
         if ! grep (! $$_{DONE_TRANSFER}, @$batch);
 }
+
 
 1;
