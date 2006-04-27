@@ -188,16 +188,16 @@ sub idle
 		h.priority = v.priority)
 	    when matched then
 	      update set
-	        h.avail_files  = h.avail_files  + v.avail_files,
-		h.avail_bytes  = h.avail_bytes  + v.avail_bytes,
-	        h.try_files    = h.try_files    + v.try_files,
-		h.try_bytes    = h.try_bytes    + v.try_bytes,
-	        h.done_files   = h.done_files   + v.done_files,
-		h.done_bytes   = h.done_bytes   + v.done_bytes,
-	        h.fail_files   = h.fail_files   + v.fail_files,
- 		h.fail_bytes   = h.fail_bytes   + v.fail_bytes,
-	        h.expire_files = h.expire_files + v.expire_files,
- 		h.expire_bytes = h.expire_bytes + v.expire_bytes
+	        h.avail_files  = nvl(h.avail_files,0)  + v.avail_files,
+		h.avail_bytes  = nvl(h.avail_bytes,0)  + v.avail_bytes,
+	        h.try_files    = nvl(h.try_files,0)    + v.try_files,
+		h.try_bytes    = nvl(h.try_bytes,0)    + v.try_bytes,
+	        h.done_files   = nvl(h.done_files,0)   + v.done_files,
+		h.done_bytes   = nvl(h.done_bytes,0)   + v.done_bytes,
+	        h.fail_files   = nvl(h.fail_files,0)   + v.fail_files,
+ 		h.fail_bytes   = nvl(h.fail_bytes,0)   + v.fail_bytes,
+	        h.expire_files = nvl(h.expire_files,0) + v.expire_files,
+ 		h.expire_bytes = nvl(h.expire_bytes,0) + v.expire_bytes
 	    when not matched then
 	      insert (timebin, timewidth, from_node, to_node, priority,
 	              avail_files, avail_bytes, try_files, try_bytes,
