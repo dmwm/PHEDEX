@@ -278,7 +278,7 @@ sub idle
 
 	my %oldcache = %{$$dbcache{FILES}};
 	my $stmt = $dbh->prepare(qq{
-	    update t_xfer_state set state = :state, time_state = :now
+	    update t_xfer_replica set state = :state, time_state = :now
 	    where fileid = (select id from t_xfer_file where logical_name = :lfn)
 	      and node = :node});
 	foreach my $f (values %$files)
