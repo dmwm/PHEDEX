@@ -182,7 +182,7 @@ sub init
     die "expecting RLSOracle:Database:User:Pass as contact, got $contact"
         if $contact !~ /^RLSOracle:([^:]+):([^:]+):([^:]+)$/;
     my $args = { DBITYPE => "Oracle", DBNAME => $1, DBUSER => $2, DBPASS => $3 };
-    my $dbh = $self->{DBH} = &connectToDatabase ($args, 0) or die "failed to connect to $contact";
+    my $dbh = $self->{DBH} = &connectToDatabase ($args, 0);
     my $more = !$match ? ""
         : qq{join lcg2_cms_lrc.pfn on pfn_gid = guid_id
 	     where pfn_pfn like '$match'

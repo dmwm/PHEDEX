@@ -1,13 +1,13 @@
 ### ENVIRON common
-PHEDEX_BASE=/data/lat;
+PHEDEX_BASE=$PWD/..; # /data/lat;
 PHEDEX_DBPARAM=${PHEDEX_BASE}/PHEDEX/Schema/DBParam:Testbed;
 PHEDEX_STATE=${PHEDEX_BASE}/state;
 PHEDEX_LOGS=${PHEDEX_BASE}/logs;
 PHEDEX_SCRIPTS=${PHEDEX_BASE}/PHEDEX;
 PHEDEX_STORAGE_MAP=${PHEDEX_BASE}/SITECONF/CERN/PhEDEx/storage.xml;
 
-source /data/tools/oraenv.sh;
-source /data/tools/perlenv.sh;
+# source /data/tools/oraenv.sh;
+# source /data/tools/perlenv.sh;
 
 #### General agents
 ### AGENT LABEL=mgmt-blockmon PROGRAM=Toolkit/Workflow/BlockMonitor

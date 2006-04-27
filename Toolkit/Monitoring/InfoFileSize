@@ -61,7 +61,7 @@ sub idle
     my $dbh = undef;
     eval
     {
-	$dbh = &connectToDatabase ($self, 0) or die "failed to connect";
+	$dbh = &connectToDatabase ($self);
 
 	# Recreate statistics
 	my $now = &mytimeofday();

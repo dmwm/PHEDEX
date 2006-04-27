@@ -76,7 +76,7 @@ sub idle
     my $dbh = undef;
     eval
     {
-	$dbh = &connectToDatabase ($self) or die "failed to connect";
+	$dbh = &connectToDatabase ($self);
 
 	# Get order list of blocks we have.  This is always everything,
 	# we keep no record of what has already been notified.  The

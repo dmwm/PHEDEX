@@ -79,7 +79,7 @@ sub idle
     my $dbh = undef;
     eval
     {
-	$dbh = &connectToDatabase ($self) or die "failed to connect";
+	$dbh = &connectToDatabase ($self);
 
 	# Pseudo-transfers for shared MSS/Buffer nodes, moving files
 	# very quickly from the MSS node to the Buffer node.  This

@@ -245,7 +245,7 @@ sub idle
     my $dbh = undef;
     eval
     {
-	$dbh = &connectToDatabase ($self) or die "failed to connect";
+	$dbh = &connectToDatabase ($self);
 
 	# Clean up caches
 	my %timing = (START => &mytimeofday());

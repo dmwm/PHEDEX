@@ -122,7 +122,7 @@ sub idle
 
     eval
     {
-	$dbh = &connectToDatabase ($self) or die "failed to connect";
+	$dbh = &connectToDatabase ($self);
 
 	# Check if the site wants to release some disk space.  If we
 	# have no script to check, we always delete files.

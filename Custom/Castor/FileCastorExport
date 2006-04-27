@@ -70,7 +70,7 @@ sub idle
     my $dbh = undef;
     eval
     {
-	$dbh = &connectToDatabase ($self) or die "failed to connect";
+	$dbh = &connectToDatabase ($self);
 
 	# Mark files available/unavailable based on their local status.
 	# This agent reflects the stager and pfn export agents progress

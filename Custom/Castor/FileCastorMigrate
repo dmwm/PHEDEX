@@ -77,7 +77,7 @@ sub idle
     my $dbh = undef;
     eval
     {
-	$dbh = &connectToDatabase ($self) or die "failed to connect";
+	$dbh = &connectToDatabase ($self);
 
 	# Follow minimally the transfer handshake so all accounting
 	# infrastructure continues to report the right values.  The

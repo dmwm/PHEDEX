@@ -71,7 +71,7 @@ sub idle
 
     eval
     {
-	$dbh = &connectToDatabase ($self) or die "failed to connect";
+	$dbh = &connectToDatabase ($self);
 	my ($stmt, $nrows);
 
 	# FIXME: When files are deleted for whatever reason, we need

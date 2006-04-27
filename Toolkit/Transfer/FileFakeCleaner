@@ -74,7 +74,7 @@ sub idle
 	foreach my $node (@{$$self{NODES}})
 	{
 	    $$self{MYNODE} = $node;
-	    $dbh = &connectToDatabase ($self) or die "failed to connect";
+	    $dbh = &connectToDatabase ($self);
 
 	    my $start = &mytimeofday();
 	    my ($stmt, $ndel) = &dbexec($dbh, qq{

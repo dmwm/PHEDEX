@@ -89,7 +89,7 @@ sub idle
 
     eval
     {
-	$dbh = &connectToDatabase ($self) or die "failed to connect";
+	$dbh = &connectToDatabase ($self);
 
 	# Guarantee full consistency.  We need to ensure that a) this
 	# procedure is aborted if someone goes and makes block open

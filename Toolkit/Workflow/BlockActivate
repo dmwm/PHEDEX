@@ -70,7 +70,7 @@ sub idle
 
     eval
     {
-	$dbh = &connectToDatabase ($self) or die "failed to connect";
+	$dbh = &connectToDatabase ($self);
 
 	# Reactivate blocks with incomplete destinations or which
 	# have been explicitly requested to be activated.

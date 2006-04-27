@@ -67,7 +67,7 @@ sub idle
 
     eval
     {
-	$dbh = &connectToDatabase ($self) or die "failed to connect";
+	$dbh = &connectToDatabase ($self);
 
 	# Issue file deletion requests for block replicas scheduled
 	# for deletion and for which no deletion request yet exists.

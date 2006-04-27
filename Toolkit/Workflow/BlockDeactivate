@@ -69,7 +69,7 @@ sub idle
     my $dbh = undef;
     eval
     {
-	$dbh = &connectToDatabase ($self) or die "failed to connect";
+	$dbh = &connectToDatabase ($self);
 
 	# Deactivate complete blocks.  Get all blocks whose all replicas
 	# are complete and active.  First of all, ignore blocks where

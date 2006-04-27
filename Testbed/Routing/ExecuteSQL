@@ -68,7 +68,7 @@ sub process
 {
     my $self = shift;
 
-    my $dbh = undef; $dbh = &connectToDatabase ($self,0) or die "failed to connect";
+    my $dbh = undef; $dbh = &connectToDatabase ($self,0);
     $self->runSQL( $dbh );
     &disconnectFromDatabase ($self, $dbh);
 }

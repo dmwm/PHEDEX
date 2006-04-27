@@ -149,7 +149,7 @@ sub deleteOneFile
     my ($self, $drop, $file) = @_;
     my $dbh = undef;
     my $status = eval {
-	$dbh = &connectToDatabase ($self, 0) or die "failed to connect";
+	$dbh = &connectToDatabase ($self, 0);
 	
 	# Make sure the file is still safe to delete.  More transfers
 	# out might have been created for this file while we were not
@@ -302,7 +302,7 @@ sub idle
 
     eval
     {
-	$dbh = &connectToDatabase ($self) or die "failed to connect";
+	$dbh = &connectToDatabase ($self);
 
 	# Check whether there's enough disk space.  If yes, bail out.
 	if ($$self{DELETING} && ! &runcmd (@{$$self{CMD_CHECK}}, "min-free"))

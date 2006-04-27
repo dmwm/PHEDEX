@@ -69,7 +69,7 @@ sub process
     while( time() - $start < $self->{DURATION} ) {    
 	my $loopStart = time();
 	
-	my $dbh = undef; $dbh = &connectToDatabase ($self,0) or die "failed to connect";
+	my $dbh = undef; $dbh = &connectToDatabase ($self,0);
 	eval {
 	    $self->checkLogs( $dbh );  # These are automatic tests of the logs for alerts etc
 	    $self->test( $dbh );      # This is the custom, specific test
