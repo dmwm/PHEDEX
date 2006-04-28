@@ -56,7 +56,7 @@ sub new
     my %params = (DBCONFIG => undef,		# Database configuration file
 		  MYNODE => undef,		# My TMDB node
 		  ONCE => 0,			# Quit after one run
-		  WAITTIME => 3600);		# Agent cycle time
+		  WAITTIME => 300);		# Agent cycle time
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
