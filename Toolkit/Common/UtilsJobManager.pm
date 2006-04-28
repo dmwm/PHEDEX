@@ -42,7 +42,6 @@ sub startJob
     my $pid = undef;
 
     $job->{PIPE} = new IO::Pipe;
-    fcntl(\*{$$job{PIPE}}, F_SETFL, O_NONBLOCK);
     
     while (1)
     {
@@ -55,6 +54,7 @@ sub startJob
     {
 	# Parent, record this child process
 	$job->{PIPE}->reader();
+	fcntl(\*{$$job{PIPE}}, F_SETFL, O_NONBLOCK);
 	$job->{PID} = $pid;
 	$job->{STARTED} = time();
 	$job->{BEGINLINE} = 1;
@@ -69,7 +69,7 @@ sub startJob
 	} 
 	else
 	{
-	    open($job->{LOGFH}, '>&', STDOUT);
+	    open($job->{LOGFH}, '>&', \*STDOUT);
 	}
     }
     else
@@ -78,8 +78,8 @@ sub startJob
 	setpgrp(0,$$);
 	$job->{PIPE}->writer();
 	# Redirect STDOUT and STDERR of requested program to a pipe
-	open(STDOUT, '>&', $job->{PIPE});
-	open(STDERR, '>&', $job->{PIPE});
+	open(STDOUT, '>>&', $$job{PIPE});
+	open(STDERR, '>>&', $$job{PIPE});
 	exec { $job->{CMD}[0] } @{$job->{CMD}};
 	die "Cannot start @{$job->{CMD}}: $!\n";
     }
