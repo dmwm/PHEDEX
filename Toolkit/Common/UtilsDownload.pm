@@ -210,7 +210,7 @@ sub preClean
 	    my $joblog = "$$self{MASTER}{DROPDIR}/$$file{FILEID}.log";
 	    $$self{MASTER}->addJob (
 		sub { $self->preClean ($batch, $file, @_) },
-		{ TIMEOUT => $self->{TIMEOUT}, LOGFILE => $joblog },
+		{ TIMEOUT => $$self{TIMEOUT}, LOGFILE => $joblog },
 		@{$$self{MASTER}{DELETE_COMMAND}}, "pre", $file->{TO_PFN});
 	}
     }
@@ -280,7 +280,7 @@ sub validateBatch
 	    my $joblog = "$$self{MASTER}{DROPDIR}/$$file{FILEID}.log";
 	    $$self{MASTER}->addJob (
 		sub { $self->validateBatch ($batch, $file, @_) },
-		{ TIMEOUT => $self->{TIMEOUT}, LOGFILE => $joblog },
+		{ TIMEOUT => $$self{TIMEOUT}, LOGFILE => $joblog },
 		@{$$self{MASTER}{VALIDATE_COMMAND}},
 		$file->{TRANSFER_STATUS}{STATUS}, $file->{TO_PFN},
 		$file->{FILESIZE}, $file->{CHECKSUM});
@@ -325,7 +325,7 @@ sub postClean
 	    my $joblog = "$$self{MASTER}{DROPDIR}/$$file{FILEID}.log";
 	    $$self{MASTER}->addJob (
 		sub { $self->postClean ($batch, $file, @_) },
-		{ TIMEOUT => $self->{TIMEOUT}, LOGFILE => $joblog },
+		{ TIMEOUT => $$self{TIMEOUT}, LOGFILE => $joblog },
 		@{$$self{MASTER}{DELETE_COMMAND}}, "post", $file->{TO_PFN});
 	}
     }
