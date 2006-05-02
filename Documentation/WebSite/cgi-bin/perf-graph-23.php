@@ -163,7 +163,7 @@ $args['ytitle']   = $kind_types[$args['metric']];
 $args['instance'] = ($srcdb == 'prod' ? 'Production'
 	             : ($srcdb == 'test' ? 'Dev'
 	                : ($srcdb == 'sc' ? 'SC4'
-	                   : 'SC4')));
+	                   : ($srcdb == 'tbed' ? 'Testbed' : 'SC4'))));
 if ($span == "month")
 {
   $args['title'] = ($entries ? "Last $entries Months" : "By Month");
