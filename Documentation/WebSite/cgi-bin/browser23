@@ -26,8 +26,6 @@ my ($dbtns, $dbuser, $dbpass, $dbid, $dbversion) = @{$databases{$db}};
 $dbversion ||= 'V2.2';
 $dbid ||= '';
 
-exec "${0}23", @ARGV if $dbversion eq 'V2.3';
-
 my $dbh;
 my $badcolor = '#ff9e9e';
 my $warncolor = '#ffd89e';
@@ -142,7 +140,8 @@ sub runme
 
     if ($@)
     {
-	my $message = &escapeHTML($@);
+	my $message = $@;
+	$message = &escapeHTML($message);
 	print "<div align='left'>\n",
 	      "<p>Apologies, looks like we have a server error,",
 	      " details of which below.</p>\n",
@@ -167,7 +166,11 @@ sub main
     my $active = 60*5;
     my $offline = 60*15;
     my $now = time ();
-    my $query = $dbh->prepare(q{select node,agent,timestamp from t_agent_status});
+    my $query = $dbh->prepare(qq{
+	select n.name, a.name, ast.time_update
+	from t_agent_status ast
+	  join t_node n on n.id = ast.node
+	  join t_agent a on a.id = ast.agent});
     my %agents;
     my %status;
 
@@ -180,10 +183,11 @@ sub main
     }
     $query->finish();
 
+    my @standard = grep (!/^(Block|Info(?!Drop)|Perf|Table)/, sort keys %agents);
     my @admin = grep (/^Block/, sort keys %agents);
-    my @standard = grep (!/^Block/, sort keys %agents);
+    my @support = grep (/^(?!File|Block|InfoDrop)/, sort keys %agents);
 
-    foreach my $item (([ "Administrative", @admin ], [ "Common", @standard ]))
+    foreach my $item ([ "Common", @standard ], [ "Administrative", @admin ], [ "Support", @support ])
     {
 	my ($type, @agents) = @{$item};
         print "<p><table class='striped'>\n",
@@ -257,26 +261,23 @@ sub transfer {
     my $now = time();
     my $query = $dbh->prepare(qq{
 	    select
-	      node, timestamp,
-	      dest_files, dest_bytes,
-	      node_files, node_bytes,
-	      xfer_files, xfer_bytes,
-	      expt_files, expt_bytes
-	    from t_info_transfer_status
-	    order by node});
+	      n.name, max(br.time_update),
+	      sum(br.dest_files), sum(br.dest_bytes),
+	      sum(br.node_files), sum(br.node_bytes),
+	      sum(br.xfer_files), sum(br.xfer_bytes)
+	    from t_dps_block_replica br join t_node n on n.id = br.node
+	    group by n.name order by n.name});
 
     print "<p><table class='striped'>\n",
           "<tbody>\n",
           "<tr class='selected'>\n",
-	  " <th rowspan='2'>Age</th>\n",
+	  " <th rowspan='2'>Last<br>Change</th>\n",
 	  " <th rowspan='2'>Node</th>\n",
     	  " <th colspan='2'>Destined</th>\n",
 	  " <th colspan='2'>On Site</th>\n",
 	  " <th colspan='2'>In Transfer</th>\n",
-	  " <th colspan='2'>In Export</th>\n",
           "</tr>\n",
 	  "<tr class='selected'>\n",
-	  " <th align='right'>N</th><th align='right'>Size</th>\n",
 	  " <th align='right'>N</th><th align='right'>Size</th>\n",
 	  " <th align='right'>N</th><th align='right'>Size</th>\n",
 	  " <th align='right'>N</th><th align='right'>Size</th>\n",
@@ -285,32 +286,27 @@ sub transfer {
     $query->execute();
     my ($tdest_files, $tdest_size,
 	$tnode_files, $tnode_size,
-	$txfer_files, $txfer_size,
-	$texpt_files, $texpt_size) = (0) x 8;
+	$txfer_files, $txfer_size) = (0) x 6;
 
     while (my $row = $query->fetchrow_arrayref)
     {
 	my ($n, $stamp,
 	    $dest_files, $dest_size,
 	    $node_files, $node_size,
-	    $xfer_files, $xfer_size,
-	    $expt_files, $expt_size) = @$row;
+	    $xfer_files, $xfer_size) = @$row;
 
     	$tdest_files += $dest_files; $tdest_size += $dest_size;
     	$tnode_files += $node_files; $tnode_size += $node_size;
     	$txfer_files += $xfer_files; $txfer_size += $xfer_size;
-    	$texpt_files += $expt_files; $texpt_size += $expt_size;
 
-	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
 	my $node_color = (($dest_files && $node_files < $dest_files) ? " bgcolor='$pendcolor'"
 		   	  : $xfer_files ? " bgcolor='$pendcolor'" : "");
 	my $xfer_color = (($xfer_files) ? " bgcolor='$goodcolor'"
 			  : ($xfer_files + $node_files < $dest_files) ? " bgcolor='$pendcolor'"
 			  : "");
-	my $expt_color = (($expt_files) ? " bgcolor='$goodcolor'" : "");
 
         print "<tr>\n",
-	      " <td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>\n",
+	      " <td>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>\n",
 	      " <td>$n</td>\n",
 	      " <td align='right'>@{[&format_num($dest_files)]}</td>\n",
 	      " <td align='right'>@{[&format_size($dest_size)]}</td>\n",
@@ -318,8 +314,6 @@ sub transfer {
 	      " <td align='right'$node_color>@{[&format_size($node_size)]}</td>\n",
 	      " <td align='right'$xfer_color>@{[&format_num($xfer_files)]}</td>\n",
 	      " <td align='right'$xfer_color>@{[&format_size($xfer_size)]}</td>\n",
-	      " <td align='right'$expt_color>@{[&format_num($expt_files)]}</td>\n",
-	      " <td align='right'$expt_color>@{[&format_size($expt_size)]}</td>\n",
 	      "</tr>\n";
     }
     my $node_color = (($tdest_files && $tnode_files < $tdest_files) ? " bgcolor='$pendcolor'"
@@ -327,7 +321,6 @@ sub transfer {
     my $xfer_color = (($txfer_files) ? " bgcolor='$goodcolor'"
 		      : ($txfer_files + $tnode_files < $tdest_files) ? " bgcolor='$pendcolor'"
 		      : "");
-    my $expt_color = (($texpt_files) ? " bgcolor='$goodcolor'" : "");
 
     print "<tr>\n",
 	  " <th>&nbsp;</th>\n",
@@ -338,8 +331,6 @@ sub transfer {
 	  " <th align='right'$node_color>@{[&format_size($tnode_size)]}</th>\n",
 	  " <th align='right'$xfer_color>@{[&format_num($txfer_files)]}</th>\n",
 	  " <th align='right'$xfer_color>@{[&format_size($txfer_size)]}</th>\n",
-	  " <th align='right'$expt_color>@{[&format_num($texpt_files)]}</th>\n",
-	  " <th align='right'$expt_color>@{[&format_size($texpt_size)]}</th>\n",
 	  "</tr>\n";
     $query->finish();
     print "</tbody>\n",
@@ -351,12 +342,14 @@ sub tstates {
     my $now = time();
     my $query = $dbh->prepare(qq{
 	    select
-	      timestamp,
-	      to_node, from_node,
+	      time_update,
+	      nd.name, ns.name,
 	      to_state, from_state,
 	      files, bytes
-	    from t_info_transfer_states
-	    order by to_node, from_node, to_state, from_state});
+	    from t_info_xfer_states xs
+              join t_node ns on ns.id = xs.from_node
+              join t_node nd on nd.id = xs.to_node
+	    order by nd.name, ns.name, to_state, from_state});
 
     print "<p><table class='striped'>\n",
           "<tbody>\n",
@@ -418,8 +411,9 @@ sub tstates {
 	  "</p>\n";
 
     $query = $dbh->prepare(qq{
-	    select timestamp, node, state, files, bytes
-	    from t_info_replica_states order by node, state});
+	    select xr.time_update, n.name, xr.state, xr.files, xr.bytes
+	    from t_info_xfer_replicas xr join t_node n on n.id = xr.node
+            order by n.name, state});
 
     print "<table class='striped'>\n",
           "<tbody>\n",
@@ -463,86 +457,76 @@ sub tstates {
 sub replicas {
     my $rows = 0;
     my %data = ();
-    my %sites = ();
-    my $nodepat = param('nodepat') || 'CERN_MSS';
+    my %nodes = ();
+    my $nodepat = param('nodepat') || 'CERN';
     my $datapat = param('datapat') || '';
     print "<p style='text-align: left'><form method='GET' action='@{[&baseurl()]}'>\n",
           "<input type='hidden' name='page' value='@{[param('page')]}'>\n",
           "<input type='hidden' name='db' value='@{[param('db')]}'>\n",
-          "Filter: Data ",
-	  $cgi->textfield(-name=>'datapat', -default=>$datapat, -size=>15),
-          " Nodes ",
-	  $cgi->textfield(-name=>'nodepat', -default=>$nodepat, -size=>15),
+          "<label for='datapat'>Filter: Data</label> ",
+	  $cgi->textfield(-name=>'datapat', -default=>$datapat, -size=>15,
+	  		  -title=>("Regular expression to match against dataset names. "
+		  		   ."Only datasets matching the expression will be shown.")),
+          " <label for='nodepat'>Nodes</label> ",
+	  $cgi->textfield(-name=>'nodepat', -default=>$nodepat, -size=>15,
+	  		  -title=>("Regular expression to match against node names. "
+			  	   ."Only nodes matching the expression will be shown.")),
     	  " <input type='submit' value='Update'></form></p>\n";
 
-    my $query = $dbh->prepare(qq{
-	    select
-	      owner,
-	      dataset,
-	      n_runs,
-	      n_files,
-	      sz_files
-	    from t_info_replication_overview});
+    my $query = $dbh->prepare(qq{select name, files, bytes from t_dps_block});
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
-	my ($o, $ds, $runs, $files, $total) = @$row;
-	next if ($datapat && "$o/$ds" !~ /$datapat/);
-	$data{"$o:$ds"} = [ $o, $ds, $files, $total, $runs, {} ];
+	my ($b, $files, $total) = @$row;
+	next if ($datapat && $b !~ /$datapat/);
+	$data{$b} = [ $b, $files, $total, {} ];
     }
     $query->finish();
 
     $query = $dbh->prepare (qq{
-	    select
-	      owner,
-	      dataset,
-	      node,
-	      n_files,
-	      sz_files
-	    from t_info_replication_details});
+	    select b.name, n.name, br.node_files, br.node_bytes 
+	    from t_dps_block_replica br
+              join t_dps_block b on b.id = br.block
+	      join t_node n on n.id = br.node});
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
-	my ($o, $ds, $site, $files, $total) = @$row;
-	next if ($datapat && "$o/$ds" !~ /$datapat/);
-	next if ($nodepat && $site !~ /$nodepat/);
-	$data{"$o:$ds"}[5]{$site} = [ $files, $total ];
-	$sites{$site} = 1;
+	my ($b, $node, $files, $total) = @$row;
+	next if ($datapat && $b !~ /$datapat/);
+	next if ($nodepat && $node !~ /$nodepat/);
+	$data{$b}[3]{$node} = [ $files, $total ];
+	$nodes{$node} = 1;
     }
     $query->finish();
 
     print "<table><tr bgcolor='$altcolor' valign='top'>",
-	  "<th rowspan='2'>Owner</th>",
-	  "<th rowspan='2'>Dataset</th>",
-	  "<th rowspan='2' align='right'>Runs</th>",
+	  "<th rowspan='2'>Block</th>",
 	  "<th colspan='2' align='right'>Files</th>",
-	  (map { "<th colspan='2'>$_</th>" } sort keys %sites),
+	  (map { "<th colspan='2'>$_</th>" } sort keys %nodes),
           "</tr>\n",
 	  "<tr bgcolor='$altcolor' valign='top'>",
 	  "<th align='right'>N</th><th align='right'>Size</th>",
-	  (map { "<th align='right'>N</th><th align='right'>Size</th>" } sort keys %sites),
+	  (map { "<th align='right'>N</th><th align='right'>Size</th>" } sort keys %nodes),
 	  "</tr>\n";
 
-    foreach my $dso (sort { $a->[1] cmp $b->[1] || $a->[0] cmp $b->[0] } values %data)
+    foreach my $info (sort { $$a[0] cmp $$b[0] } values %data)
     {
         my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
-	my ($o, $ds, $files, $total, $runs, $sites) = @$dso;
-	next if ($nodepat && ! grep (/$nodepat/, keys %$sites));
+	my ($b, $files, $total, $nodes) = @$info;
+	next if ($nodepat && ! grep (/$nodepat/, keys %$nodes));
         print "<tr valign='top'$rowcolor>",
-	      "<td>$o</td>",
-	      "<td>$ds</td>",
-	      "<td align='right'>$runs</td>",
+	      "<td>$b</td>",
 	      "<td align='right'>$files</td>",
 	      "<td align='right'>@{[&format_size($total)]}</td>";
 
-	foreach my $site (sort keys %sites)
+	foreach my $node (sort keys %nodes)
 	{
-	    if (exists $sites->{$site})
+	    if (exists $$nodes{$node})
 	    {
-		my ($sfiles, $stotal) = @{$sites->{$site}};
-		my $scolor = ($sfiles == $files) ? '' : " bgcolor='$pendcolor'";
-		print "<td$scolor align='right'>@{[&format_num($sfiles)]}</td>",
-		      "<td$scolor align='right'>@{[&format_size($stotal)]}</td>";
+		my ($nfiles, $ntotal) = @{$$nodes{$node}};
+		my $ncolor = ($nfiles == $files) ? '' : " bgcolor='$pendcolor'";
+		print "<td$ncolor align='right'>@{[&format_num($nfiles)]}</td>",
+		      "<td$ncolor align='right'>@{[&format_size($ntotal)]}</td>";
 	    }
 	    else
 	    {
@@ -557,49 +541,59 @@ sub replicas {
 sub subs {
     my $rows = 0;
     my %data = ();
-    my %sites = ();
-    my $nodepat = param('nodepat') || 'CERN_MSS';
+    my %nodes = ();
+    my $nodepat = param('nodepat') || 'CERN';
     my $datapat = param('datapat') || '';
     print "<p style='text-align: left'><form method='GET' action='@{[&baseurl()]}'>\n",
           "<input type='hidden' name='page' value='@{[param('page')]}'>\n",
           "<input type='hidden' name='db' value='@{[param('db')]}'>\n",
-          "Filter: Data ",
-	  $cgi->textfield(-name=>'datapat', -default=>$datapat, -size=>15),
-          " Nodes ",
-	  $cgi->textfield(-name=>'nodepat', -default=>$nodepat, -size=>15),
+          "<label for='datapat'>Filter: Data</label> ",
+	  $cgi->textfield(-name=>'datapat', -default=>$datapat, -size=>15,
+	  		  -title=>("Regular expression to match against dataset names. "
+		  		   ."Only datasets matching the expression will be shown.")),
+          " <label for='nodepat'>Nodes</label> ",
+	  $cgi->textfield(-name=>'nodepat', -default=>$nodepat, -size=>15,
+	  		  -title=>("Regular expression to match against node names. "
+			  	   ."Only nodes matching the expression will be shown.")),
     	  " <input type='submit' value='Update'></form></p>\n";
 
     my $query = $dbh->prepare(qq{
 	    select
-	      owner,
-	      dataset,
-	      destination,
-	      n_files,
-	      sz_files,
-	      n_files_at_dest,
-	      sz_files_at_dest
-	    from t_info_subscriptions});
+	      ds.name,
+	      n.name,
+	      nvl(sum(b.files),0),
+	      nvl(sum(b.bytes),0),
+	      nvl(sum(br.node_files),0),
+	      nvl(sum(br.node_bytes),0)
+	    from t_dps_dataset ds
+	      left join t_dps_subscription s
+		on s.dataset = ds.id
+	      left join t_node n
+		on n.id = s.destination
+	      left join t_dps_block b
+		on b.dataset = ds.id
+	      left join t_dps_block_replica br
+		on br.block = b.id and br.node = s.destination
+	    group by ds.name, n.name});
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
-	my ($ow, $ds, $site, $files, $total, $sfiles, $stotal) = @$row;
-	next if ($datapat && "$ow/$ds" !~ /$datapat/);
-	next if ($nodepat && $site !~ /$nodepat/);
-	$data{$ds}{$ow} ||= [ $ow, $ds, $files, $total, {} ];
-	if ($site)
+	my ($ds, $node, $files, $total, $sfiles, $stotal) = @$row;
+	next if ($datapat && $ds !~ /$datapat/);
+	next if ($nodepat && $node && $node !~ /$nodepat/);
+	$data{$ds} ||= [ $ds, $files, $total, {} ];
+	if ($node)
 	{
-	    $data{$ds}{$ow}[4]{$site} = [ $sfiles, $stotal ];
-	    $sites{$site} = 1;
+	    $data{$ds}[3]{$node} = [ $sfiles, $stotal ];
+	    $nodes{$node} = 1;
         }
     }
     $query->finish();
 
     print "<table><tr bgcolor='$altcolor' valign='top'>",
-	  "<th rowspan='2'>Owner</th>",
 	  "<th rowspan='2'>Dataset</th>",
-	  # "<th rowspan='2' align='right'>Runs</th>",
 	  "<th colspan='2' align='right'>Files</th>",
-	  (map { "<th rowspan='2'>$_</th>" } sort keys %sites),
+	  (map { "<th rowspan='2'>$_</th>" } sort keys %nodes),
           "</tr>\n",
 	  "<tr bgcolor='$altcolor' valign='top'>",
 	  "<th align='right'>N</th><th align='right'>Size</th>",
@@ -607,34 +601,30 @@ sub subs {
 
     foreach my $ds (sort keys %data)
     {
-        foreach my $ow (sort keys %{$data{$ds}})
-        {
-	    my ($ow, $ds, $files, $total, $sites) = @{$data{$ds}{$ow}};
-            my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
-	    my $dscolor = (scalar (keys %$sites) ? '' : " bgcolor='$warncolor'");
-            print "<tr valign='top'$rowcolor>",
-	          "<td$dscolor><a href='subscribe?owner=$ow&dataset=$ds&db=$db'>$ow</a></td>",
-	          "<td$dscolor><a href='subscribe?owner=$ow&dataset=$ds&db=$db'>$ds</a></td>",
-	          "<td align='right'>@{[&format_num($files)]}</td>",
-	          "<td align='right'>@{[&format_size($total)]}</td>";
+	my ($ds, $files, $total, $dsnodes) = @{$data{$ds}};
+        my $rowcolor = ($rows++ % 8 < 4) ? '' : " bgcolor='$altcolor'";
+	my $dscolor = (scalar (keys %$dsnodes) ? '' : " bgcolor='$warncolor'");
+        print "<tr valign='top'$rowcolor>",
+	      "<td$dscolor>$ds</td>",
+	      "<td align='right'>@{[&format_num($files)]}</td>",
+	      "<td align='right'>@{[&format_size($total)]}</td>";
 
-	    foreach my $site (sort keys %sites)
+	foreach my $node (sort keys %nodes)
+	{
+	    if (exists $$dsnodes{$node})
 	    {
-	        if (exists $sites->{$site})
-	        {
-		    my ($sfiles, $stotal) = @{$sites->{$site}};
-		    my $scolor = ($sfiles == $files) ? '' : " bgcolor='$pendcolor'";
-		    my $fracfiles = ($files ? sprintf('%0.2f', $sfiles / $files) : '&#8211;');
-		    my $fractotal = ($total ? sprintf('%0.2f', $stotal / $total) : '&#8211;');
-		    print "<td$scolor align='right'>$fracfiles&nbsp;/&nbsp;$fractotal</td>";
-	        }
-	        else
-	        {
-		    print "<td>&nbsp;</td>";
-	        }
-            }
-	    print "</tr>\n";
-	}
+		my ($sfiles, $stotal) = @{$$dsnodes{$node}};
+		my $scolor = ($sfiles == $files) ? '' : " bgcolor='$pendcolor'";
+		my $fracfiles = ($files ? sprintf('%0.2f', $sfiles / $files) : '&#8211;');
+		my $fractotal = ($total ? sprintf('%0.2f', $stotal / $total) : '&#8211;');
+		print "<td$scolor align='right'>$fracfiles&nbsp;/&nbsp;$fractotal</td>";
+	    }
+	    else
+	    {
+		print "<td>&nbsp;</td>";
+	    }
+        }
+	print "</tr>\n";
     }
     print "</table>";
 }
@@ -657,7 +647,7 @@ sub stats {
     my $now = time();
     my $overview = $dbh->selectrow_arrayref(qq{
 			select
-			  timestamp,
+			  time_update,
 			  n_files,
 			  sz_total,
 			  sz_min,
@@ -667,7 +657,7 @@ sub stats {
 			from t_info_file_size_overview});
     my $histo = $dbh->selectall_arrayref(qq{
 	    		select
-			  timestamp,
+			  time_update,
 			  bin_low,
 			  bin_width,
 			  n_total,
@@ -735,7 +725,7 @@ sub agents {
     my %live = ();
     foreach my $row (@{$dbh->selectall_arrayref(qq{
 				select
-				  timestamp,
+				  time_update,
 				  site,
 				  host,
 				  path,
@@ -824,59 +814,87 @@ sub format_timespan {
 sub rates {
     my $now = time();
     my %stats = ();
+    my %spans = (H => [ $now, 3600 ],
+		 D => [ $now, 86400 ],
+		 W => [ int($now/86400)*86400, 7*86400 ],
+		 M => [ int($now/86400)*86400, 30*86400 ]);
     my $q = $dbh->prepare(qq{
-			select
-			  timestamp,
-			  time_span,
-			  info_type,
-			  from_node,
-			  to_node,
-			  n_total,
-			  sz_total
-			from t_info_transfer_rate});
+	select
+	  h.timebin,
+	  f.name from_node,
+	  t.name to_node,
+	  h.done_files, h.done_bytes,
+	  h.fail_files, h.expire_files
+	from t_link_histogram h
+	  join t_node f on f.id = h.from_node
+	  join t_node t on t.id = h.to_node
+	where h.timebin > :old});
+    $q->bind_param(":old", $spans{M}[0]-$spans{M}[1]);
     $q->execute();
-    while (my $row = $q->fetchrow_hashref()) {
-	push(@{$stats{$row->{TIME_SPAN}}{$row->{INFO_TYPE}}}, $row);
+    while (my $row = $q->fetchrow_hashref())
+    {
+	foreach my $span (keys %spans)
+	{
+	    if ($$row{TIMEBIN} >= $spans{$span}[0] - $spans{$span}[1])
+	    {
+		my $key = "$$row{TO_NODE} $$row{FROM_NODE}";
+		$stats{$span}{N}{$key} ||= { FROM_NODE => $$row{FROM_NODE},
+					     TO_NODE => $$row{TO_NODE},
+					     FILES => 0, BYTES => 0,
+				     	     FAILED => 0, EXPIRED => 0 };
+		$stats{$span}{N}{$key}{FILES} += $$row{DONE_FILES} || 0;
+		$stats{$span}{N}{$key}{BYTES} += $$row{DONE_BYTES} || 0;
+		$stats{$span}{N}{$key}{FAILED} += $$row{FAIL_FILES} || 0;
+		$stats{$span}{N}{$key}{EXPIRED} += $$row{EXPIRE_FILES} || 0;
+
+		$stats{$span}{T}{1} ||= { FILES => 0, BYTES => 0, FAILED => 0, EXPIRED => 0 };
+		$stats{$span}{T}{1}{FILES} += $$row{DONE_FILES} || 0;
+		$stats{$span}{T}{1}{BYTES} += $$row{DONE_BYTES} || 0;
+		$stats{$span}{T}{1}{FAILED} += $$row{FAIL_FILES} || 0;
+		$stats{$span}{T}{1}{EXPIRED} += $$row{EXPIRE_FILES} || 0;
+	    }
+	}
     }
 
     print "<p>CERN Daily External Internet Traffic<br>\n";
     print "<a href='http://pcstats.cern.ch/misc/cern-all.html'><IMG
       VSPACE=10 WIDTH=600 HEIGHT=135 ALIGN=TOP
       SRC='http://pcstats.cern.ch/misc/cern-all-day.png' ALT='day'></a></p>\n";
-    print "<a href='http://pcstats.cern.ch/misc/openlab.html'><IMG
-      VSPACE=10 WIDTH=600 HEIGHT=135 ALIGN=TOP
-      SRC='http://pcstats.cern.ch/misc/openlab-day.png' ALT='day'></a></p>\n"
-        if $dbid =~ /SC/;
     print "<p><table class='striped'><tbody>\n";
-    foreach my $span (sort { ($a || 9999999) <=> ($b || 9999999) } keys %stats)
+    foreach my $span (qw(H D W M))
     {
     	print
 	  "<tr class='selected'>\n",
-	  " <th colspan='6'>",
-	  ($span == 0 ? "Overall" : "Last @{[&format_timespan($span)]}"),
+	  " <th colspan='7'>",
+	  "Last @{[&format_timespan($spans{$span}[1])]}",
 	  "</th>\n",
 	  "</tr>\n",
 	  "<tr class='selected'>\n",
-	  " <th>Age</th>\n",
-	  " <th>From</th>\n",
 	  " <th>To</th>\n",
+	  " <th>From</th>\n",
 	  " <th>Files</th>\n",
 	  " <th>Total Size</th>\n",
 	  " <th>Aggregate Rate</th>\n",
+	  " <th>Errors</th>\n",
+	  " <th>Expired</th>\n",
 	  "</tr>\n";
-	foreach my $row ((sort { $b->{SZ_TOTAL} <=> $a->{SZ_TOTAL} }
-			  @{$stats{$span}{'N'}}), @{$stats{$span}{'T'}})
+	foreach my $kind (qw(N T))
 	{
-	    my $bps = ($row->{TIME_SPAN} ? $row->{SZ_TOTAL} / $row->{TIME_SPAN} : -1);
-	    print "<tr>",
-		  "<td>", &age($now - $row->{TIMESTAMP}), "</td>",
-		  ($row->{FROM_NODE}
-		   ? "<td>$row->{FROM_NODE}</td><td>$row->{TO_NODE}</td>"
-		   : "<td colspan='2'>Total</td>"),
-	          "<td>$row->{N_TOTAL}</td>",
-	          "<td align='right'>@{[&format_size($row->{SZ_TOTAL})]}</td>",
-		  "<td align='right'>", ($bps >= 0 ? &format_size($bps) . '/s' : &format_num(0)), "</td>",
-	          "</tr>\n";
+	    foreach my $row (sort { $$b{BYTES} <=> $$a{BYTES} } values %{$stats{$span}{$kind}})
+	    {
+		next if $kind eq 'N' && ! $$row{FILES} && ! $$row{FAILED} && ! $$row{EXPIRED};
+	        my $bps = $$row{BYTES} / $spans{$span}[1];
+	        print "<tr>",
+		      ($$row{FROM_NODE}
+		       ? "<td>$$row{TO_NODE}</td><td>$$row{FROM_NODE}</td>"
+		       : "<td colspan='2'>Total</td>"),
+	              "<td align='right'>@{[&format_num($$row{FILES} || 0)]}</td>",
+	              "<td align='right'>@{[&format_size($$row{BYTES})]}</td>",
+		      "<td align='right'>", ($bps >= 0 ? &format_size($bps) . '/s' : &format_num(0)), "</td>",
+	              "<td align='right'>@{[&format_num($$row{FAILED} || 0)]}</td>",
+	              "<td align='right'>@{[&format_num($$row{EXPIRED} || 0)]}</td>",
+	              "</tr>\n";
+	    }
 	}
     }
     print "</tbody></table></p>\n";
@@ -958,20 +976,22 @@ sub rateplot
 		 "am" => [ "0:month", "Monthly Since Start" ]);
     my $plot = param("plot");
     my $graph = param("graph") || 'bar';
+    my $entity = param("entity") || 'link';
     my $filter = param("filter") || '';
     my $upto = param("upto") || '';
-    $plot = 'l48h' if (! $plot || ! exists $plots{$plot});
+    $plot = 'l96h' if (! $plot || ! exists $plots{$plot});
 
     print "<p><form method='GET' action='@{[&baseurl()]}'>\n",
           "<input type='hidden' name='page' value='@{[param('page')]}'>\n",
           "<input type='hidden' name='db' value='@{[param('db')]}'>\n",
-          "Graph ",
+          "<label for='graph'>Graph</label> ",
           "<select name='graph' onchange='submit()'>",
 	  " <option ", ($graph eq 'bar' ? 'selected=selected' : ''),
-	  "  value='bar'>Bar</option>",
+	  "  value='bar'>Bar graph</option>",
 	  " <option ", ($graph eq 'line' ? 'selected=selected' : ''),
-	  "  value='line'>Line</option>",
+	  "  value='line'>Cumulative</option>",
           "</select>\n",
+          "<label for='plot'>Period</label> ",
           "<select name='plot' onchange='submit()'>";
     foreach my $p (@plotorder)
     {
@@ -979,18 +999,36 @@ sub rateplot
 	      " value='$p'>$plots{$p}[1]</option>";
     }
     print "</select>\n",
-          "Filter ",
-	  $cgi->textfield(-name=>'filter', -default=>$filter, -size=>15), "\n",
-          "Up to ",
-	  $cgi->textfield(-name=>'upto', -default=>$upto, -size=>15), "\n",
+          "<label for='entity'>By</label> ",
+    	  "<select name='entity' onchange='submit()'>",
+	  " <option ", ($entity eq 'dest' ? 'selected=selected' : ''),
+	  "  value='dest'>Destination</option>",
+	  " <option ", ($entity eq 'src' ? 'selected=selected' : ''),
+	  "  value='src'>Source</option>",
+	  " <option ", ($entity eq 'link' ? 'selected=selected' : ''),
+	  "  value='link'>Link</option>",
+          "</select>\n",
+          "<label for='filter'>Filter</label> ",
+	  $cgi->textfield(-name=>'filter', -default=>$filter, -size=>15,
+	  		  -title=>("Regular expression to match against node or link names. "
+		  		   ."Only those matching the expression will be shown.")), "\n",
+          "<label for='upto'>Up to</label> ",
+	  $cgi->textfield(-name=>'upto', -default=>$upto, -size=>15,
+	  		  -title=>("Time up to and including which results will be shown. "
+				   ."Specify the time in format matching the selected plot type:\n"
+				   ."YYYYMMDDZHHMM for hourly plots;\n"
+				   ."YYYYMMDD for daily plots;\n"
+				   ."YYYYMM for monthly plots;\n"
+				   ."YYYYWW for weekly plots.")), "\n",
     	  "<input type='submit' value='Update'></form></p>\n";
     foreach my $kind (param('page') eq 'rateplot' ? qw(rate total) : qw(pending))
     {
 	next if ($graph eq 'line' && $kind ne 'total');
 	my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
 	my $suffix = ($graph eq 'bar' ? '' : '-line');
-	print "<p><img width=900 height=406 src='perf-graph$suffix.php?",
-	      &urlencode('db' => $db, 'span' => $unit, 'kind' => $kind,
+	print "<p><i>WARNING: These plots are not accurate!</p>\n" if $kind eq 'pending';
+	print "<p><img width=900 height=406 src='perf-graph$suffix-23.php?",
+	      &urlencode('db' => $db, 'span' => $unit, 'kind' => $kind, 'by' => $entity,
 		         'last' => $last, 'filter' => $filter, 'upto' => $upto),
 	      "'>";
     }
@@ -1015,12 +1053,14 @@ sub qplot
 		 "am" => [ "0:month", "Monthly Since Start" ]);
     my $plot = param("plot");
     my $filter = param("filter") || '';
+    my $entity = param("entity") || 'link';
     my $upto = param("upto") || '';
-    $plot = $plotorder[0] if (! $plot || ! exists $plots{$plot});
+    $plot = 'l96h' if (! $plot || ! exists $plots{$plot});
 
     print "<p><form method='GET' action='@{[&baseurl()]}'>\n",
           "<input type='hidden' name='page' value='@{[param('page')]}'>\n",
           "<input type='hidden' name='db' value='@{[param('db')]}'>\n",
+          "<label for='plot'>Period</label> ",
           "<select name='plot' onchange='submit()'>";
     foreach my $p (@plotorder)
     {
@@ -1028,17 +1068,34 @@ sub qplot
 	      " value='$p'>$plots{$p}[1]</option>";
     }
     print "</select>\n",
-          "Filter ",
-	  $cgi->textfield(-name=>'filter', -default=>$filter, -size=>15), "\n",
-          "Up to ",
-	  $cgi->textfield(-name=>'upto', -default=>$upto, -size=>15), "\n",
+          "<label for='entity'>By</label> ",
+    	  "<select name='entity' onchange='submit()'>",
+	  " <option ", ($entity eq 'dest' ? 'selected=selected' : ''),
+	  "  value='dest'>Destination</option>",
+	  " <option ", ($entity eq 'src' ? 'selected=selected' : ''),
+	  "  value='src'>Source</option>",
+	  " <option ", ($entity eq 'link' ? 'selected=selected' : ''),
+	  "  value='link'>Link</option>",
+          "</select>\n",
+          "<label for='filter'>Filter</label> ",
+	  $cgi->textfield(-name=>'filter', -default=>$filter, -size=>15,
+	  		  -title=>("Regular expression to match against node or link names. "
+		  		   ."Only those matching the expression will be shown.")), "\n",
+          "<label for='upto'>Up to</label> ",
+	  $cgi->textfield(-name=>'upto', -default=>$upto, -size=>15,
+	  		  -title=>("Time up to and including which results will be shown. "
+				   ."Specify the time in format matching the selected plot type:\n"
+				   ."YYYYMMDDZHHMM for hourly plots;\n"
+				   ."YYYYMMDD for daily plots;\n"
+				   ."YYYYMM for monthly plots;\n"
+				   ."YYYYWW for weekly plots.")), "\n",
     	  "<input type='submit' value='Update'></form></p>\n";
     foreach my $kind (qw(completed_ratio attempted completed failed))
     {
 	my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
-	my $php = ($kind =~ /_/ ? "quality-map.php" : "quality-graph.php");
+	my $php = ($kind =~ /_/ ? "quality-map-23.php" : "quality-graph-23.php");
 	print "<p><img width=900 height=406 src='$php?",
-	      &urlencode('db' => $db, 'span' => $unit, 'kind' => $kind,
+	      &urlencode('db' => $db, 'span' => $unit, 'kind' => $kind, by => $entity,
 		         'last' => $last, 'filter' => $filter, 'upto' => $upto),
 	      "'>";
     }
