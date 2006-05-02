@@ -34,17 +34,17 @@ my %xferred = ();
 my %pending = ();
 my %quality = ();
 my $first = undef;
-my %args = ();
+my %args = (ADDFILE => []);
 
 # Process command line arguments.
 use Getopt::Long;
 use UtilsHelp;
 use UtilsDB;
 use POSIX;
-&GetOptions ("db=s"        => \$args{DBCONFIG},
-             "add=s@"      => $args{ADDFILE},
-             "output=s"    => \$args{OUTPUTFILE},
-	     "help|h"      => sub { &usage() });
+&GetOptions ('db=s'        => \$args{DBCONFIG},
+             'add=s@'      => $args{ADDFILE},
+             'output=s'    => \$args{OUTPUTFILE},
+	     'help|h'      => sub { &usage() });
 
 # Check arguments.
 if (@ARGV || !$args{DBCONFIG} || !$args{OUTPUTFILE})
@@ -89,46 +89,40 @@ foreach my $file (@{$args{ADDFILE}})
 # and %pending.  Then the same with transfer quality into %quality.
 $dbh = &connectToDatabase (\%args, 0);
 my $data = &dbexec ($dbh, qq{
-    select trunc(timebin/3600)*3600, to_node, sum(xferred_bytes)
-    from t_perf_histogram where from_node not like '%_MSS'
-    group by trunc(timebin/3600)*3600, to_node});
-while (my ($hour, $node, $xferred) = $data->fetchrow())
-{
-    $first = $hour if (! $first || $first > $hour);
-    $xferred{$hour}{$node} ||= 0;
-    $xferred{$hour}{$node} += $xferred;
-    $nodes{$node} = 1;
-}
-
-$data = &dbexec ($dbh, qq{
-    select timebin, to_node, sum(pending_bytes)
-    from t_perf_histogram where from_node not like '%_MSS'
-    group by timebin, to_node order by timebin, to_node});
-while (my ($timebin, $node, $pending) = $data->fetchrow())
-{
-    my $hour = int($timebin/3600)*3600;
-    $first = $hour if (! $first || $first > $hour);
-    $pending{$hour}{$node} = $pending;
-    $nodes{$node} = 1;
-}
-
-$data = &dbexec ($dbh, qq{
     select
-        trunc(timebin/3600)*3600,
-	to_node,
-	sum(case when new_state = 2 then transitions else 0 end),
-	sum(case when old_state = 2 and new_state >= 100 then transitions else 0 end),
-	sum(case when new_state = 3 then transitions else 0 end)
-    from t_quality_histogram
-    where from_node not like '%_MSS'
-    group by trunc(timebin/3600)*3600, to_node});
-while (my ($hour, $node, $started, $failed, $completed) = $data->fetchrow())
+      h.timebin,
+      f.name,
+      t.name,
+      h.done_bytes,
+      h.wait_bytes,
+      h.try_files,
+      h.fail_files,
+      h.done_files
+    from t_link_histogram h
+      join t_node f on f.id = h.from_node
+      join t_node t on t.id = h.to_node});
+while (my ($bin, $from, $to, $bdone, $bwait,
+	   $tfiles, $ffiles, $dfiles) = $data->fetchrow())
 {
+    my $hour = int($bin/3600)*3600;
     $first = $hour if (! $first || $first > $hour);
-    $quality{$hour}{$node}{STARTED} = $started;
-    $quality{$hour}{$node}{FAILED} = $failed;
-    $quality{$hour}{$node}{COMPLETED} = $completed;
-    $nodes{$node} = 1;
+    if ($bdone)
+    {
+        $xferred{$hour}{$to}{$from} ||= 0;
+        $xferred{$hour}{$to}{$from} += $bdone;
+    }
+    if ($bwait)
+    {
+        $pending{$hour}{$to}{$from} = $bwait;
+    }
+    if ($tfiles || $ffiles || $dfiles)
+    {
+        $quality{$hour}{$to}{$from} ||= { STARTED => 0, FAILED => 0, COMPLETED => 0 };
+        $quality{$hour}{$to}{$from}{STARTED} += $tfiles || 0;
+        $quality{$hour}{$to}{$from}{FAILED} += $ffiles || 0;
+        $quality{$hour}{$to}{$from}{COMPLETED} += $dfiles || 0;
+    }
+    $nodes{$to} = 1;
 }
 $dbh->disconnect ();
 undef $dbh;
@@ -145,28 +139,43 @@ open (QUALITY, "> $args{OUTPUTFILE}quality.csv")
     or die "$args{OUTPUTFILE}quality.csv: $!\n";
 
 my @nodenames = sort keys %nodes;
-print XFER_TOTAL join(",", qw(Month Week Day Hour), @nodenames), "\n";
-print PENDING join(",", qw(Month Week Day Hour), @nodenames), "\n";
-print QUALITY join(",", qw(Month Week Day Hour), @nodenames), "\n";
+print XFER_TOTAL join(",", qw(Month Week Day Hour Destination), @nodenames), "\n";
+print PENDING join(",", qw(Month Week Day Hour Destination), @nodenames), "\n";
+print QUALITY join(",", qw(Month Week Day Hour Destination), @nodenames), "\n";
 
 $first ||= int(time()/86400)*86400;
 foreach my $time (&timeSeries ($first, "hour"))
 {
-    my $hour = $time->{LOW};
-    my $span = $time->{HIGH} - $time->{LOW};
+    my $hour = $$time{LOW};
     my @times = map { &formatTime ($hour, $_) } qw(month week day hour);
     my $x = $xferred{$hour};
     my $p = $pending{$hour};
     my $q = $quality{$hour};
+    my %dests = map { $_ => 1 } keys %$x, keys %$p, keys %$q;
+    $dests{$nodenames[0]} = 1 if ! keys %dests;
+    foreach my $dest (sort keys %dests)
+    {
+        print XFER_TOTAL
+            join(",", @times, $dest, map { &val($x, $dest, $_)/$TERABYTE } @nodenames), "\n";
+        print PENDING
+            join(",", @times, $dest, map { &val($p, $dest, $_)/$TERABYTE } @nodenames), "\n";
+        print QUALITY
+            join(",", @times, $dest, map { &val($q, $dest, $_, 'STARTED') . "/" .
+				           &val($q, $dest, $_, 'FAILED') . "/" .
+				           &val($q, $dest, $_, 'COMPLETED') } @nodenames), "\n";
+    }
+}
 
-    print XFER_TOTAL
-        join(",", @times, map { ($x->{$_}||0)/$TERABYTE } @nodenames), "\n";
-    print PENDING
-        join(",", @times, map { ($p->{$_}||0)/$TERABYTE } @nodenames), "\n";
-    print QUALITY
-        join(",", @times, map { ($q->{$_}{STARTED} || 0) . "/" .
-				($q->{$_}{FAILED} || 0) . "/" .
-				($q->{$_}{COMPLETED} || 0) } @nodenames), "\n";
+sub val
+{
+    my ($hash, @keys) = @_;
+    while (@keys)
+    {
+	my $key = shift(@keys);
+	return 0 if ! exists $$hash{$key};
+	return $$hash{$key} if ! @keys;
+	$hash = $$hash{$key};
+    }
 }
 
 # Done.

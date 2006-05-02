@@ -139,70 +139,74 @@ print "# Recent transfer status\n",
 
 foreach my $prevdays (1, 7, 14, 30, 90, 365)
 {
-    my ($timelow, $timemax, %perf, %success);
+    my ($timelow, $timemax, $timespan, %perf, %success);
     my $now = $args{UPTO} || &mytimeofday();
     my $lowlimit = (int($now/86400)-$prevdays)*86400;
     $now = $lowlimit + $prevdays*86400;
 
     my $qperf = &dbexec($dbh, qq{
 	select
-	    to_node,
-	    timebin,
-	    xferred_files,
-	    xferred_bytes,
-	    pending_files,
-	    pending_bytes
-	from t_perf_histogram
-	where timebin >= :limit
-	  and timebin <= :upto
-	  and from_node not like '%MSS'
-	order by to_node, timebin},
+	    f.name,
+	    t.name,
+	    h.timebin,
+	    h.timewidth,
+	    h.done_files,
+	    h.done_bytes,
+	    h.wait_files,
+	    h.wait_bytes,
+	    h.try_files,
+	    h.fail_files
+	from t_link_histogram h
+	  join t_node f on f.id = h.from_node
+	  join t_node t on t.id = h.to_node
+	where h.timebin >= :limit
+	  and h.timebin < :upto
+	  and f.name not like '%MSS'},
 	":limit" => $lowlimit, ":upto" => $now);
-    while (my ($node, $bin, $xfiles, $xbytes, $pfiles, $pbytes) = $qperf->fetchrow())
+    while (my ($from, $to, $bin, $width,
+	       $xfiles, $xbytes, $pfiles, $pbytes,
+       	       $tfiles, $ffiles) = $qperf->fetchrow())
     {
-        $timemax = $bin if (! defined $timemax || $bin > $timemax);
-        $timelow = $bin if (! defined $timelow || $bin < $timelow);
-        push (@{$perf{$node}{XFERRED}}, { BIN => $bin, FILES => $xfiles, BYTES => $xbytes });
-        push (@{$perf{$node}{PENDING}}, { BIN => $bin, FILES => $pfiles, BYTES => $pbytes });
+	if (! defined $timemax || $bin > $timemax)
+	{
+            $timemax = $bin;
+	    $timespan = $width;
+	}
+	if (! defined $timelow || $bin < $timelow)
+	{
+            $timelow = $bin;
+	}
+	my $key = "$to < $from";
+	$xfiles ||= 0; $xbytes ||= 0;
+	$pfiles ||= 0; $pbytes ||= 0;
+	$tfiles ||= 0; $ffiles ||= 0;
+	my $xfer = { BIN => $bin, FILES => $xfiles, BYTES => $xbytes };
+	my $pend = { BIN => $bin, FILES => $pfiles, BYTES => $pbytes };
+	my $succ = { BIN => $bin, START => $tfiles, ERROR => $ffiles, SUCCESS => $xfiles };
+
+        push (@{$perf{$to}{XFERRED}}, $xfer);
+        push (@{$perf{$key}{XFERRED}}, $xfer);
+        push (@{$perf{$to}{PENDING}}, $pend);
+        push (@{$perf{$key}{PENDING}}, $pend);
+        push (@{$success{$to}}, $succ);
+        push (@{$success{$key}}, $succ);
     }
 
     # Make sure the time bounds are defined in case the period was empty
     if (! defined $timemax)
     {
+	$timespan = 300;
 	$timelow = $lowlimit;
-	$timemax = $now;
+	$timemax = $now - $timespan;
     }
-    my $timespan = $timemax + 300 - $timelow;
-
-    my $qsuccess = &dbexec($dbh, qq{
-	select
-	    to_node,
-	    timebin,
-	    sum(case when new_state = 2 then transitions else 0 end),
-	    sum(case when new_state >= 100 then transitions else 0 end),
-	    sum(case when new_state = 3 then transitions else 0 end)
-	from t_quality_histogram
-	where timebin >= :minlimit
-	  and timebin < :maxlimit
-	  and from_node not like '%MSS'
-        group by to_node, timebin
-	order by to_node, timebin},
-	":minlimit" => $timelow,
-	":maxlimit" => $timemax);
-    while (my ($node, $bin, $start, $error, $success) = $qsuccess->fetchrow())
-    {
-        $timemax = $bin if (! defined $timemax || $bin > $timemax);
-        $timelow = $bin if (! defined $timelow || $bin < $timelow);
-        push (@{$success{$node}}, { BIN => $bin, START => $start,
-			            ERROR => $error, SUCCESS => $success });
-    }
+    $timespan += $timemax - $timelow;
 
     # Print out the headings
     print "\n# $prevdays-day period from ",
           strftime ('%Y-%m-%d %H:%M:%S', gmtime(int($timelow))), " to ",
-          strftime ('%Y-%m-%d %H:%M:%S', gmtime(int($timemax+300))), "\n\n";
-    print sprintf ("%20s" . " %15s" x 18 . "\n",
-	           "DESTINATION",
+          strftime ('%Y-%m-%d %H:%M:%S', gmtime(int($timelow+$timespan-1))), "\n\n";
+    print sprintf ("%-25s" . " %15s" x 18 . "\n",
+	           "DESTINATION/FROM",
 	           "XFER_MBPS_TOT", "XFER_GB_TOT", "XFER_F_TOT", "XFER_SUCC_TOT",
 		   "XFER_HRS", "XFER_DAYS",
 		   "XFER_MBPS_HRMIN", "XFER_MBPS_HRMAX", "XFER_MBPS_HRAVG",
@@ -210,9 +214,9 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 	           "WAIT_GB_CHNG", "WAIT_GB_FIN", "WAIT_F_FIN",
 		   "WAIT_GB_MIN", "WAIT_GB_MAX", "WAIT_GB_AVG",
 	           "EST_DAYS_LEFT");
-    print "-" x 20, (" ", "-" x 15) x 18, "\n";
+    print "-" x 25, (" ", "-" x 15) x 18, "\n";
 
-    foreach my $node (sort keys %perf)
+    foreach my $link (sort keys %perf)
     {
         my %stats = (XFER_MBPS_TOT => 0, XFER_GB_TOT => 0, XFER_F_TOT => 0, XFER_SUCC_TOT => 'N/A',
 		     XFER_HRS => 0, XFER_DAYS => 0,
@@ -224,7 +228,7 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 
 	# Bin quality hourly and calculate statistics
         my %success_hourly = ();
-        foreach my $v (@{$success{$node}})
+        foreach my $v (@{$success{$link}})
         {
 	    my $hour = int($v->{BIN}/3600)*3600;
 	    $success_hourly{$hour} ||= { START => 0, SUCCESS => 0, ERROR => 0, RATIO => undef };
@@ -263,7 +267,7 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 	# hours in which nothing happened to avoid reporting hours with
 	# non-zero pending queue as hours of transfer.
         my %xfer_hourly = map { ($_ => 0) } keys %success_hourly;
-        foreach my $v (@{$perf{$node}{XFERRED}})
+        foreach my $v (@{$perf{$link}{XFERRED}})
         {
 	    next if ! $v->{FILES};
 	    my $hour = int($v->{BIN}/3600)*3600;
@@ -286,7 +290,7 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 
 	# Bin pending queue hourly and calculate statistics
         my %pend_binned = ();
-        foreach my $v (@{$perf{$node}{PENDING}})
+        foreach my $v (@{$perf{$link}{PENDING}})
         {
 	    $pend_binned{$v->{BIN}} ||= { BIN => $v->{BIN}, FILES => 0, BYTES => 0 };
 	    $pend_binned{$v->{BIN}}{FILES} += $v->{FILES} || 0;
@@ -307,7 +311,8 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 			        - ($pend_binned{$pendmin}{BYTES} || 0)) / (1024**3);
 
 	# Print out results
-        print sprintf ("%20s"
+	$link =~ s/.*<\s*/. /;
+        print sprintf ("%-25s"
 	               . " %15.3f %15.3f %15d %15s"
 		       . " %15d %15d"
 		       . " %15.3f %15.3f %15.3f"
@@ -315,7 +320,7 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 		       . " %15.3f %15.3f %15d"
 		       . " %15.3f %15.3f %15.3f"
 		       . " %s\n",
-	               $node,
+	               $link,
 		       $stats{XFER_MBPS_TOT}, $stats{XFER_GB_TOT}, $stats{XFER_F_TOT}, $stats{XFER_SUCC_TOT},
 		       $stats{XFER_HRS}, $stats{XFER_DAYS},
 		       $stats{XFER_MBPS_HRMIN}, $stats{XFER_MBPS_HRMAX}, $stats{XFER_MBPS_HRAVG},
@@ -342,17 +347,18 @@ print "-" x 20, (" ", "-" x 15) x 3, "\n";
 
 my $qblocks = &dbexec($dbh, qq{
     select
-        br.node,
+        n.name,
 	count(b.name),
 	sum(b.files - br.node_files),
 	sum(b.bytes - br.node_bytes)
-    from t_block b
-    join t_block_replica br on br.name = b.name
-    where b.isopen = 0
-      and br.isactive = 1
+    from t_dps_block b
+      join t_dps_block_replica br on br.block = b.id
+      join t_node n on n.id = br.node
+    where b.is_open = 'n'
+      and br.is_active = 'y'
       and br.dest_files > 0
       and br.node_files != br.dest_files
-    group by br.node
+    group by n.name
     order by 2 desc, 4 desc});
 while (my ($node, $blocks, $files, $bytes) = $qblocks->fetchrow())
 {
@@ -370,15 +376,17 @@ print "# Consistency checks\n\n";
 
 my $errors = 0;
 my $qtrdups = &dbexec($dbh, qq{
-    select ts.to_node, ts.guid
-    from t_transfer_state ts
-    join t_replica_state rs
-      on rs.guid = ts.guid
-     and rs.node = ts.to_node
-    order by ts.to_node, ts.guid});
-while (my ($to, $guid) = $qtrdups->fetchrow ())
+    select xs.to_node, xs.fileid, f.logical_name
+    from t_xfer_state xs
+      join t_xfer_file f
+        on f.id = xs.fileid
+      join t_xfer_replica xr
+        on xr.fileid = xs.fileid
+       and xr.node = xs.to_node
+    order by xs.to_node, f.logical_name});
+while (my ($to, $id, $lfn) = $qtrdups->fetchrow ())
 {
-    print "WARNING: $to is transferring $guid, but destination replica exists\n";
+    print "WARNING: destination replica exists for transfer of $id to $to ($lfn)\n";
     ++$errors;
 }
 
