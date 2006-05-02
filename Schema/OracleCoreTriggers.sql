@@ -21,7 +21,7 @@ create or replace trigger tr_xfer_state_start
         (timestamp, from_node, to_node, priority, fileid,
          is_avail, is_try, is_done, is_fail, is_expire)
       values
-        (:new.time_available, :new.from_node, :new.to_node, :new.priority,
+        (:new.time_xfer_start, :new.from_node, :new.to_node, :new.priority,
          :new.fileid, 0, 1, 0, 0, 0);
     end if;
   end;
@@ -34,7 +34,7 @@ create or replace trigger tr_xfer_state_end
         (timestamp, from_node, to_node, priority, fileid,
          is_avail, is_try, is_done, is_fail, is_expire)
       values
-        (:new.time_available, :new.from_node, :new.to_node, :new.priority,
+        (:new.time_xfer_end, :new.from_node, :new.to_node, :new.priority,
          :new.fileid, 0, 0, 1, 0, 0);
     end if;
   end;
@@ -47,7 +47,7 @@ create or replace trigger tr_xfer_state_error
         (timestamp, from_node, to_node, priority, fileid,
          is_avail, is_try, is_done, is_fail, is_expire)
       values
-        (:new.time_available, :new.from_node, :new.to_node, :new.priority,
+        (:new.time_error_start, :new.from_node, :new.to_node, :new.priority,
          :new.fileid, 0, 0, 0, 1, 0);
     end if;
   end;
