@@ -8,7 +8,8 @@ DEFINE ('TTF_DIR', BASE_PATH . "/fonts/");
 function readCSV ($file, $delimiter)
 {
   $data_array = file($file);
-  for ( $i = 0; $i < count($data_array); $i++ )
+  $parts_array = array();
+  for ($i = 0; $i < count($data_array); $i++)
     $parts_array[$i] = explode($delimiter,trim($data_array[$i]));
   return $parts_array;
 }
