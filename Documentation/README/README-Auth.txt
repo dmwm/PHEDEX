@@ -97,19 +97,19 @@ and "site" is the site name in all lowercase.
    # source /data/tools/oraenv.sh
    # source /data/tools/perlenv.sh
    # cat > ../Keys/EMAIL (paste in the usercert.pem)
-   # Schema/OracleInitRole.sh Schema/DBParam:Production ../Keys/e@mail site
+   # Schema/OracleInitRole.sh DBParam:Production ../Keys/e@mail site
    # /usr/sbin/sendmail -t < Output/phedex_site_prod:e@mail
 
    # cd ~/private/roles/Dev
-   # Schema/OracleInitRole.sh Schema/DBParam:Dev ../Keys/e@mail site
+   # Schema/OracleInitRole.sh DBParam:Dev ../Keys/e@mail site
    # /usr/sbin/sendmail -t < Output/phedex_site_dev:e@mail
 
    cd ~/private/roles/SC4
-   Schema/OracleInitRole.sh Schema/DBParam:SC4 Keys/e@mail site
+   Schema/OracleInitRole.sh DBParam:SC4 Keys/e@mail site
    /usr/sbin/sendmail -t < Output/phedex_site_sc4:e@mail
 
 A rough example of the above commands:
 
    scp lat@lxplus:~/.globus/usercert.pem ~/private/roles/Keys/lassi.tuura@cern.ch
-   Schema/OracleInitRole.sh Schema/DBParam:SC4 ../Keys/lassi.tuura@cern.ch cern
+   Schema/OracleInitRole.sh DBParam:SC4 ../Keys/lassi.tuura@cern.ch cern
    /usr/sbin/sendmail -t < Output/phedex_cern_sc4:lassi.tuura@cern.ch
