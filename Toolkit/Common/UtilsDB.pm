@@ -167,16 +167,12 @@ sub identifyAgent
     # Get PhEDEx distribution version.
     my $now = &mytimeofday();
     my $distribution = undef;
-    if (-f $$self{DBCONFIG})
+    my $versionfile = $INC{'UtilsDB.pm'};
+    $versionfile =~ s|/Toolkit/.*|/Schema/VERSION|;
+    if (open (DBHVERSION, "< $versionfile"))
     {
-	my $versionfile = $$self{DBCONFIG};
-	$versionfile =~ s|/[^/]+$||;
-	$versionfile .= "/VERSION";
-	if (open (DBHVERSION, "< $versionfile"))
-	{
-	    chomp ($distribution = <DBHVERSION>);
-	    close (DBHVERSION);
-	}
+	chomp ($distribution = <DBHVERSION>);
+	close (DBHVERSION);
     }
 
     # Get all interesting modules loaded into this process.
