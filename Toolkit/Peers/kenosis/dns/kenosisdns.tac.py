@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # eg:  twistd -ny kenosisdns.tac.py
 
 from twisted.application import service

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #
 #             Perforce Defect Tracking Integration Project
 #              <http://www.ravenbrook.com/project/p4dti/>
@@ -599,5 +599,5 @@ if __name__ == '__main__':
 #
 #
 #
-# $Id: coverage.py,v 1.4 2004/12/22 05:44:36 eries Exp $
+# $Id: coverage.py,v 1.3 2006/03/25 22:39:07 lat Exp $
 
