@@ -122,7 +122,7 @@ while (my ($bin, $from, $to, $bdone, $bwait,
         $quality{$hour}{$to}{$from}{FAILED} += $ffiles || 0;
         $quality{$hour}{$to}{$from}{COMPLETED} += $dfiles || 0;
     }
-    $nodes{$to} = 1;
+    $nodes{$to} = $nodes{$from} = 1;
 }
 $dbh->disconnect ();
 undef $dbh;
