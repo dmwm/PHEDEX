@@ -60,18 +60,19 @@ your site is "TX_FOO_Buffer" (and possibly "TX_FOO_MSS").
 
   mkdir -p /home/phedex/{state,logs,sw,gridcert}
   chmod 700 /home/phedex/gridcert
-  PHEDEX_SW=/home/phedex/sw
+  sw=/home/phedex/sw
   cd /home/phedex
 
-*** Install software using RPMs
+*** Install the software
 
-  wget -O $PHEDEX_SW/aptinstaller.sh \
-    http://cmsdoc.cern.ch/cms/cpt/Software/download/pa12/aptinstaller.sh
-  chmod +x $PHEDEX_SW/aptinstaller.sh
-  $PHEDEX_SW/aptinstaller.sh $PHEDEX_SW
-  export APT_CONFIG=$PHEDEX_SW/etc/apt/apt.conf
+  wget -O $sw/aptinstaller.sh \
+    http://cmsdoc.cern.ch/cms/cpt/Software/download/lt1/aptinstaller.sh
+  chmod +x $sw/aptinstaller.sh
+  
+  $sw/aptinstaller.sh -setup $sw
+  eval `$sw/aptinstaller.sh -config -sh`
   apt-get update
-  apt-get install cms+PHEDEX+PHEDEX_2_3_0
+  apt-get install cms+PHEDEX+PHEDEX_2_3_0_pre1
 
 *** Get site configuration
 
@@ -86,7 +87,7 @@ your site is "TX_FOO_Buffer" (and possibly "TX_FOO_MSS").
 The RPMs include environment setup scripts you should use to prepare
 your environment.  You will invoke the scripts from your site "Config"
 as will be explained below.  If you used the commands above, use:
-  source $PHEDEX_SW/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_3_0/etc/profile.d/dependencies-setup.sh
+  source $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_3_0/etc/profile.d/dependencies-setup.sh
 
 You should verify the following environment variables are set correctly:
 
