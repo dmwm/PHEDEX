@@ -8,10 +8,7 @@ can be run anywhere by anyone.
 ** Related documents.
 
 README-Overview.txt explains where this document fits in.
-README-Operations.txt explains how things are done at CERN.
-README-RefDB.txt explains how to inject data from RefDB into transfer.
 README-Transfer.txt explains how to set up the sample transfer agents.
-README-Funnel.txt explains how to merge files prior to transfer.
 README-Schedule.txt explains how files are scheduled.
 
 ** Agent Overview
@@ -66,51 +63,34 @@ robustly to avoid any data loss.]
 
 The expected minimal drop processing chain is something like this:
 
-0) Drop source: reconstruction, simulation or RefDB tools.
-1) DropXMLUpdate: Expand XML fragment and PFNs to full paths.
-2) DropCastorFileCheck: Check the PFNs mentioned in XML exist.
-3) DropTMDBPublish: Insert the files into the transfer.
+0) Drop source: reconstruction, simulation, online system.
+1) DropTMDBPublish: Insert the files into the transfer.
 
-If you wish to merge files into larger uncompressed zip archives for
-better storage and transport efficiency, use DropFunnel between steps
-2 and 3 as described in README-Funnel.txt.
+** Installing agents
 
-** Prerequisites
-
-Setting up the data distribution agents:
-1) Get this pack of agents.
-2) Setup a machine to run the agents.
-3) Get POOL tools.  There's an environment setup script.
-4) Setup ORACLE database and accounts with the TMDB schema.
-5) Determine a catalogue contact string.
+Deploying agents described in more detail in README-Deployment.txt.
+We recommend setting up the agents in a common structure as used for
+instance at CERN.
 
 It is possible to run all the agents on one computer, or use several
 systems.  Typically one would use a single computer as the load from
-these agents is typically negligible.  You can use also bridge to
-agents on other computers with scp or rfio by giving next agent's
-directory as scp:user@host:/remote/dir or rfio:/remote/dir.
-
-** Setting up
-
-We recommend setting up the agents in a common structure as used
-for instance at CERN.  This also means creating a few scripts to
-set up the environment, start and stop the agents.  Please refer
-to README-Deployment.txt.
+these agents is negligible.  You can drop box bridge agents on other
+computers with scp or rfio by giving next agent's directory as
+scp:user@host:/remote/dir or rfio:/remote/dir.
 
 ** Starting and stopping the agents
 
-PhEDEx provides a tool named Master (PHEDEX/Utilities/Master) to make
-the startup and stopping of agents more manageable.  Master reads in
-one or more configuration files in order to start or stop one or all
-of a number of agents.  The configuration files contain information
-that allows Master to set the necessary shell environment for each
-agent, and then run each agent with desired command line parameters.
+PhEDEx provides Utilities/Master to make the startup and stopping of
+agents manageable.  Master reads in one or more configuration files in
+order to start or stop any number of agents.  The configuration files
+contain information that allows Master to set the necessary shell
+environment for each agent, and then run each agent with desired
+command line parameters.
 
-The configuration files have a defined structure. They comprise two
-sections, named ENVIRON and AGENT.  Within the ENVIRON section
-environment variables are set; other scripts can be sourced to help in
-this. Within an AGENT section the parameters necessary to run a single
-agent are set.
+The configuration files comprise two sections, named ENVIRON and
+AGENT.  Within the ENVIRON section environment variables are set;
+other scripts can be sourced to help in this. Within an AGENT section
+the parameters necessary to run a single agent are set.
 
 You may use a single configuration file with a number of ENVIRON
 sections, and a number of AGENT sections -- or you may decide to split
@@ -121,7 +101,7 @@ structure the more careful you need to be in cooridinating your use of
 environment variables.
 
 When Master runs, it executes an a number of agents in an internal
-"sh" shell.  It first executes any settings in an ENVIRON labelled
+"sh" shell.  It first executes any settings in an ENVIRON labeled
 "common".  Then it executes the settings in an ENVIRON defined for
 each specific agent (if any), followed by the actual agent itself.
 Everything is started on the background.
@@ -138,9 +118,9 @@ section is executed as an sh script before starting agents.
 
 If there are parameters that are common to a number of environments
 you may find it practical to modify them in one place rather than
-many.  In this case, you should use the special ENVIRON label "common":
-these common settings will be executed first, *BEFORE* any other
-environment settings.
+many.  In this case, you should use the special ENVIRON label
+"common": these common settings will be executed first, *BEFORE* any
+other environment settings.
 
 The content of each AGENT section is used to start a single agent
 within the same bash shell. It's syntax is as follows
@@ -154,13 +134,16 @@ As noted above, if you do not label an ENVIRON the agent will be
 started with only the "common" environment.
 
 For examples of configuration files, see files named Config under
-PHEDEX/Custom/<SiteName>.
+SITECONF/<SiteName>/PhEDEx.
 
-Once you have created your configuration file(s) you can use
-Master to do a number of things
+Once you have created your configuration file(s) you can use Master to
+do a number of things
 
    * Print environment settings to stdout
    Master -config /path/to/Configfile environ [ specific label ]
+
+   * Show what commands Master would use to start agents
+   Master -config /path/to/Configfile show [an_agent_name|all]
 
    * Start an agent or all agents
    Master -config /path/to/Configfile start [an_agent_name|all]
@@ -171,21 +154,21 @@ Master to do a number of things
    * Force termination of agents
    Master -config /path/to/Configfile terminate [an_agent_name|all]
 
-To specify multiple configuration files, create a comma separated list
+To specify multiple configuration files, separate the configuration
+file names by commas:
 
    Master -config file1,file2,file3 ...
 
+You can specify as many agent names as you want after the command:
 
-** Generating and feeding drops to the agents
-
-Please refer to README-RefDB.txt and using TRSyncFeed.
+   Master -config file start download-master exp-pfn
 
 ** Examining logs
 
 If you follow the suggested configuration, your agents will produce
-logs to the "logs" directory parallel to "PHEDEX".  You can tail
-them there.  In future we will deploy distributed logging (netlogger)
-to collect the logs.
+logs to the "logs" directory parallel to "PHEDEX".  You can tail them
+there.  In future we will deploy distributed logging (netlogger) to
+collect the logs.
 
 ** Agent descriptions
 
@@ -265,11 +248,6 @@ DropTMDBPublisher
 	adds mandatory file size data.  Checksum data is also
 	possible to add if the information is available.
 
-DropFunnel
-DropFunnelWorker
-DropFunnelStatus
-	See README-Funnel.txt.
-
 File*
 	See README-Transfer.txt.
 
@@ -286,6 +264,13 @@ Many agents take same or similar options:
 		drops should be made.  Many agents do not expect
 		outside access to their state directories.
 
+  -log		The log file into which the agent will redirect its
+                standard output and error.  If no -log option is
+                given, the agent output will be lost.  Note that an
+		agent will always daemonise itself; if you want to
+		test interactively, use "-log $TTY", but remember to
+		stop the agent after you are done with the tests.
+
   -out		The drop box directory for the next agent.  More
   		than one out link can be specified; the drops will
 		be copied to all of them.  The directory can either
@@ -293,15 +278,12 @@ Many agents take same or similar options:
 		of type scp:<user>@<host>:</path> for copies with
 		scp, or rfio:<machine>:</path> for rfio copies.
 
-  -wait		The time in seconds the agent will sleep between
-  		inbox and pending work queue checks, to avoid busy
-		looping.  Depending on what the agent does the sleep
-		time should be a small number (e.g. 7), or something
-		fairly large (a few minutes: 120-600).
-
-  -node		For the agents that work with TMDB, this option sets
+  -node, -nodes	For the agents that work with TMDB, this option sets
   		the PhEDEx node name for the agent.  The name must be
-		known in the node tables.
+		known in the node tables.  Some agents are capable of
+		working as multi-node agents, and accept list of node
+		name patterns ("%" any string, "_" any character)
+		separated by commas, and then act on all those nodes.
 
   -workers	For master/slave-type agents this option sets how
   		many worker slaves the master will start and keep
@@ -320,7 +302,6 @@ Many agents take same or similar options:
 
 ** Support
 
-If you have any questions or comments, please contact the developers
-at <cms-phedex-developers@cern.ch>.  You are welcome to file bug reports
-and support requests at our Savannah site at
-  http://savannah.cern.ch/projects/phedex
+Please contact <hn-cms-phedex@cern.ch> for support and/or check out
+the documentation at http://cern.ch/cms-project-phedex.  Please file
+bugs and feature requests at http://savannah.cern.ch/projects/phedex.

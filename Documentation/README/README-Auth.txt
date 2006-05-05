@@ -32,12 +32,12 @@ option "-db FILE:SECTION", where FILE is a name of the file with the
 database access details, and SECTION picks a specific part of it; see
 below for an example.  The actual section is sent to you when you apply
 for an authentication role as described below.
-   Section                 Production
+   Section                 Production/CERN
    Interface               Oracle
    Database                cms_transfermgmt
    AuthDBUsername          cms_transfermgmt_writer
    AuthDBPassword          FILL_ME_IN
-   AuthRole                prod_site_cern
+   AuthRole                phedex_cern_prod
    AuthRolePassword        FILL_ME_IN
    ConnectionLife          86400
    LogConnection           on
@@ -46,11 +46,11 @@ for an authentication role as described below.
 
 ** User's process for registering for a role
 
-Send the following information to the developer list
-(cms-phedex-developers@cern.ch):
+Please send the following information to cms-phedex-admins@cern.ch:
 
    - Site name: the name of your directory under "Custom", and the
-     name used in node names after T<N>_, e.g. "CERN".
+     name used in node names after T<N>_, e.g. "CERN".  See
+     README-Transfer.txt for applying a site.
    - The e-mail address of the contact person for the site.
    - The DN for that person's grid certificate.
    - The public key portion of the grid certificate:  this is
@@ -85,26 +85,31 @@ They should now be able to access the TMDB.
 
 Receive an e-mail containing the information in step 1 above.  Login
 as "phedex" to "cmsgate.cern.ch", and enter the role into each
-database instance.  The following instructions will register the
-role for all three databases.
+database instance.  The following instructions will register the role
+for all three databases.
 
-   cd ~/private/roles/V2
-   source /data/tools/oraenv.sh
-   source /data/tools/perlenv.sh
-   cp $USERCERT ../Keys/$EMAIL
-   Schema/OracleInitRole.sh Schema/DBParam Production ../Keys "$EMAIL" $SITE
-   /usr/sbin/sendmail -t < Output/prod_site_${SITE}:*
+In the instructions "e@mail" is the person's e-mail address,
+and "site" is the site name in all lowercase.
 
-   cd ~/private/roles/Dev
-   Schema/OracleInitRole.sh Schema/DBParam Dev ../Keys "$EMAIL" $SITE
-   /usr/sbin/sendmail -t < Output/dev_site_${SITE}:*
+   # SKIP THESE PARTS FOR NOW!
+   #
+   # cd ~/private/roles/V2
+   # source /data/tools/oraenv.sh
+   # source /data/tools/perlenv.sh
+   # cat > ../Keys/EMAIL (paste in the usercert.pem)
+   # Schema/OracleInitRole.sh Schema/DBParam:Production ../Keys/e@mail site
+   # /usr/sbin/sendmail -t < Output/phedex_site_prod:e@mail
 
-   cd ~/private/roles/SC3
-   Schema/OracleInitRole.sh Schema/DBParam SC3 ../Keys "$EMAIL" $SITE
-   /usr/sbin/sendmail -t < Output/sc3_site_${SITE}:*
+   # cd ~/private/roles/Dev
+   # Schema/OracleInitRole.sh Schema/DBParam:Dev ../Keys/e@mail site
+   # /usr/sbin/sendmail -t < Output/phedex_site_dev:e@mail
+
+   cd ~/private/roles/SC4
+   Schema/OracleInitRole.sh Schema/DBParam:SC4 Keys/e@mail site
+   /usr/sbin/sendmail -t < Output/phedex_site_sc4:e@mail
 
 A rough example of the above commands:
 
    scp lat@lxplus:~/.globus/usercert.pem ~/private/roles/Keys/lassi.tuura@cern.ch
-   Schema/OracleInitRole.sh Schema/DBParam SC3 ../Keys "lassi.tuura@cern.ch" cern
-   /usr/sbin/sendmail -t < Output/prod_site_cern:*
+   Schema/OracleInitRole.sh Schema/DBParam:SC4 ../Keys/lassi.tuura@cern.ch cern
+   /usr/sbin/sendmail -t < Output/phedex_cern_sc4:lassi.tuura@cern.ch

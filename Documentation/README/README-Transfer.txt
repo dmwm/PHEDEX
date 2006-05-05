@@ -1,178 +1,145 @@
 * Using the download agent
 
-This document explains briefly how to use the download agent.  It is
-a fairly capable agent that supports several data transfer backends
-such as globus-url-copy, srmcp and dccp.  It talks to site-specific
-glue scripts to talk to the file catalogue.  It is assumed that are
-you are using a catalogue local to your site, though you can also
-share one with other sites.  However do note that you should not use
-EDG RLS catalogue, these tools will most likely kill it in no time.
+This document explains briefly how to use the PhEDEx download agent.
+The agent coordinates transfers using commands such as srmcp, ftscp,
+globus-url-copy, or dccp.  Site-specific glue scripts are called to
+interact with the site, and a XML storage map guides file placement.
+In general the agent should run near the storage it operates on; this
+is not a technical requirement, the constraints are operational.
 
-This document does not explain how to deploy a node; please refer
-to relevant documentation (mainly README-Deployment.txt) for those
-details.  This document only explains how to use the FileDownload
-agent.
+Please refer to other documentation, mainly README-Deployment.txt, for
+node deployment instructions.  This document explains only how to use
+the FileDownload agent.
 
 Once your node is deployed, you will need the following for downloads:
- * A script to determine the download destination at your site
  * A script to verify the download completed successfully
  * A script to clean up failed downloads
- * A script to publish downloaded files to your local catalogue
 
-It is assumed that you already know which transfer method you wish
-to use (globus-url-copy or srmcp) and the infrastructure for using
-these exists.  You should first check that hand copies of files
-using these tools succceed.
+It is assumed you already know which transfer method you wish to use
+(globus-url-copy, srmcp or ftscp) and the infrastructure for using
+these exists and is being tested by the transfer heart beat monitor.
 
-We also assume your local catalogue is up and running.  This must be
-a relational POOL catalogue (MySQL, ORACLE), not a XML catalogue, but
-can and should be shared with PubDB.  The files in this catalogue
-should be registered with PFNs that are directly usable with your
-analysis jobs, which probably are different from transfer PFNs.  For
-example at CERN catalogue contains paths of the form
-   rfio:/castor/cern.ch/cms/PCP04/<owner>/<dataset>/<lfn>
-whereas transfers are made using PFNs of the form
-   gsiftp://castorgrid.cern.ch/castor/cern.ch/cms/PCP04/...
-   srm://www.cern.ch/castor/cern.ch/cms/PCP04/...
-
-Your site-local scripts need to perform such remappings.  If you have
-separate disk buffer and MSS nodes, in order to achieve transfers all
-the way to your MSS node you will need to run export agents for the
-disk buffer node.  Please refer to README-Export.txt for details.
-
-
+As of version 2.3, PhEDEx assumes trivial file catalogue; old-style
+POOL catalogues are no longer supported.  The trivial file catalogue
+specifies the mapping between the CMS hierarchical logical file names,
+the location of the files in your storage, and the access paths for
+different purposes.  Please refer to README-Catalogue.txt for further
+details.
 
 **********************************************************************
 ** Prepraration
 
 *** Decide the destination location for your files
 
-Let's assume you will be copying your files to the storage area
-   /data/files/<owner>/<dataset>/<lfn>
+Let's assume the following storage layout:
+  Storage: /data/files/<logical-file-name>
+  Local access: dcap:/data/files/...
+  SRM: srm://host.site.edu:8443/srm/managerv1?SFN=/data/files/...
 
-This is mapped to your analysis jobs as dcap:/data/files/... and
-to your gridftp servers as gsiftp://host.site.edu/data/files/...
+*** Write trivial file catalogue for your site
 
-*** Write a script that maps URLs to your site-local name
+Examples of trivial catalogue are available in the SITECONF
+repository, for example SITECONF/CERN/PhEDEx/storage.xml.  Given the
+above definitions, your storage.xml would look like this:
 
-Write a "DownloadDest" script that produces the TURL (transfer URL)
-name for the destination at your site.  In this case the path should
-be gsiftp://host.site.edu/data/files/<owner>/<dataset>/<lfn>.  The
-script gets all the necessary values as command line arguments, in
-the form of "argument=value", and must print out the path after
-making sure the destination directory exists.
+*NOTE*: SRM paths must include the ":8443/srm/managerv1?SFN=" part.
 
-Good examples available:
-  Custom/CERN/FileDownloadDest
-  Testbed/Standalone/NodeDownloadDest
+<storage-mapping>
+  <lfn-to-pfn protocol="direct" path-match="/+(.*)"
+    result="/data/files/$1"/>
+  <lfn-to-pfn protocol="srm" chain="direct" path-match="/+(.*)"
+    result="srm://host.site.edu:8443/srm/managerv1?SFN=/$1"/>
 
-You do also get the source file's PFN as "pfn=..." argument,
-but it's generally not wise to rely on those: various sites
-use different directory layout conventions, so you'll end up
-in chaos if you mirror their paths.  Instead always derive
-the path name from file attributes (LFN, dataset, owner, ...).
+  <pfn-to-lfn protocol="direct" path-match="/+data/files/+(.*)"
+    result="/$1"/>
+  <pfn-to-lfn protocol="srm" chain="direct" path-match=".*\?SFN=(.*)"
+    result="$1"/>
+</storage-mapping>
 
 *** Write a script to verify download success
 
-All file transfer tools are unreliable, so you shouldn't rely
-on the their exit code.  Instead provide a script to verify
-whether the file was successfully transferred.  Typically you
-should verify that the file size is correct, but not check the
-checksum (it's expensive to do so for all files, and size check
-flags the vast majority of errors).
+All file transfer tools produce unreliable exit codes.  The transfer
+verification script makes an independent check of successful file
+transfer.  Typically you should verify the size of the file in your
+storage is correct, but not check the file checksum -- the latter
+should be done only when file corruption is probable.
 
-The script gets the following arguments:
-  1: exit status from the transfer tool (ignore this!)
-  2: destination pfn as produced by your script above
-  3: file size as stored in the database
-  4: file checksum as stored in the database
+Sites using srmcp can use a slightly more complex verification model
+instead of file size check to reduce load on the storage name space.
+
+The verification script gets the following arguments:
+  1: exit status from the transfer tool
+  2: destination pfn as produced by your trivial catalogue
+  3: file size as stored in the PhEDEx database
+  4: file checksum as stored in the PhEDEx database
 
 If the script exits with non-zero exit code, the transfer is
 considered failed, otherwise sucessful.  There's no need to
 print out anything.
 
 Good examples available:
-  Custom/CERN/FileDownloadVerify
-  Testbed/Standalone/NodeDownloadVerify
+  SITECONF/CERN/PhEDEx/FileDownloadVerify
+  SITECONF/FNAL/PhEDEx/FileDownloadVerify
 
 *** Write a script to clean up failed transfers
 
-This script is invoked under two circumstance: once before all
-downloads, and once after failed transfers.  It should remove
-the destination file as most transfer tools refuse to copy over
-existing files.
+The clean-up script is invoked under two circumstances: once before
+all downloads, and once after failed transfers.  It should remove the
+destination file: most transfer tools refuse to copy over existing
+files.
 
 The script gets two arguments:
   1: reason, either "pre" or "post"
   2: destination pfn as produced by your script above
 
-Your script should forcefully remove the destination file.  The
-exit code from the script is ignored.  There is no need to print
-out anything.  In particular note that the destination file may
-not even exist, so don't be too picky.
+Your script should forcefully remove the destination file.  The exit
+code from the script is ignored and it should not print out anything.
+The destination file may not exist, so don't be too picky.
 
-*** Write a script to publish downloaded files to your local catalogue
-
-Once the file is successfully downloaded, you need to register it
-to your local catalogue.  FileDownload produces a XML catalogue
-fragment with all the file information.  In this XML file the PFN
-has been set to the destination PFN you generated, which is most
-likely not the path you want to register to your catalogue.  So
-you will want to replace it first with something else, then
-publish the file to your main catalogue.  You may also wish to
-change file permissions and ownership, or record the file for
-later processings of that kind.
-
-The script gets these arguments:
-  1: file guid
-  2: destination pfn as produced by your script above
-  3: path of the temprary XML catalogue
-
-Note that if you want to pass other arguments, for instance the
-contact string for your own catalogue, you can arrange that
-when invoking FileDownload.  Those arguments will precede the
-arguments from FileDownload.
-
-If the script exits with non-zero exit code, the download is
-considered failed, otherwise a success.
+When using Castor-2, do not use "srm-advisory-delete", it only deletes
+the file on the stager, but does not remove a tape copy or Castor name
+space entry.  Instead, convert the SRM path into a /castor path, then
+issue "stager_rm -M $pfn" followed by "rfrm $pfn".  This resets any
+lingering SRM state from interrupted transfers before the file is
+deleted.
 
 Good examples available:
-  Custom/CERN/FileDownloadPublish
-  Testbed/Standalone/NodeDownloadPub
+  SITECONF/CERN/PhEDEx/FileDownloadDelete
+  SITECONF/FNAL/PhEDEx/FileDownloadDelete
 
 **********************************************************************
 ** Running the agent
 
 *** Make sure you have certificate
 
-Normally you will use globus-url-copy or some other tool that requires
-a grid certificate to copy files.  CMS at CERN uses castorgrid.cern.ch
-service, so you need to set up things so you can access the files.  As
-the site exporting data to you determines where you connect to, you
-don't need to worry abut that -- just make sure you are in the correct
-(CMS) VO, and thus in everybody's gridmap files.
+Normally a grid certificate is required for transfers.  You need to
+use a certificate that is allowed to read and write to your storage.
+In particular make sure you use a certificate in the CMS VO and have
+registered yourself to the VORMS.
 
-Note that if you use proxy certificates, you need to set X509_USER_PROXY
-and unset X509_USER_CERT and X509_USER_KEY.  If you don't use proxies,
-you probably want to do exactly the opposite.  These and other settings
-should be part of your node's "### ENVIRON" configuration block.
+You manage all aspects of access to your storage, and don't need to
+worry about paths anybody else will use.  Sites exporting data to you
+will determine where your downloads come from.
+
+Typically you will want to set up a long-lived proxy in myproxy, then
+extract short-lived proxies from it.  The "### ENVIRON" block in your
+agent configuration should point X509_USER_PROXY to the short-lived
+proxy and unset X509_USER_KEY and X509_USER_KEY.  You can use a cron
+job to renew the short-lived proxy once an hour; for details please
+see SITECONF/CERN/PhEDEx/ProxyRenew.
 
 *** Run the agent
 
 Typical agent configuration looks like this:
   ### AGENT LABEL=download-master PROGRAM=Toolkit/Transfer/FileDownload
-   -node ${PHEDEX_NODE}_Transfer
-   -ignore ${PHEDEX_NODE}_MSS
-   -db ${PHEDEX_DBPARAM}:Dev
-   -backend Globus
-   -command globus-url-copy,-p,3,-tcp-bs,2097152
-   -pfndest $PHEDEX_CUSTOM/FileDownloadDest
-   -delete $PHEDEX_CUSTOM/FileDownloadDelete
-   -validate $PHEDEX_CUSTOM/FileDownloadVerify
-   -publish $PHEDEX_CUSTOM/FileDownloadPublish,$PHEDEX_CATALOGUE
-   -wanted 150G
-   -jobs 7
-   -wait 7
+   -db          ${PHEDEX_DBPARAM}
+   -nodes       ${PHEDEX_NODE}_Buffer
+   -ignore      ${PHEDEX_NODE}_MSS
+   -storagemap  ${PHEDEX_CONF}/storage.xml
+   -delete      ${PHEDEX_CONF}/FileDownloadDelete
+   -validate    ${PHEDEX_CONF}/FileDownloadVerify
+   -backend     SRM
+   -command     srmcp,-x509_user_proxy=$X509_USER_PROXY
 
 You manage the agent just like the others:
   Utilities/Master -config your/config/file start [download-master]
@@ -180,14 +147,15 @@ You manage the agent just like the others:
 
 *** Monitor your agent
 
-Keep an eye on the log.  If you see lines that match "stats:.*failed",
-you have trouble.
+Keep an eye on the log.  If you see lines that match "failed", you
+have trouble.
 
 *** Get some data assigned to your node
 
-For a small scale assignment of data, send an email to 
-cms-phedex-developers@cern.ch, specifying the owner and dataset names.
-Large scale allocations of data must be sent through PRS for approval.
+The PhEDEx "Dev" instance hosts small scale data samples that are used
+to verify site configuration.  Notify cms-phedex-admins@cern.ch when
+you are ready for tests.  Large scale data transfers are made through
+PRS requests.
 
 **********************************************************************
 ** Customising the agent
@@ -201,139 +169,116 @@ option as shown above.  Arguments to the program should be separated
 with commas, as shown above.
 
 A good use of "-command" in initial testing is to say "-command echo"
-or "-command true".  The former will simply print out the file names
+or "-command true".  The former will simply print out the arguments
 instead of copying, the second does zero-cost non-transfer, allowing
 you to short-circuit transfers completely out and test the rest of
-your setup.  (You will then need to reset all file states back to
-zero or one in the database!)
+your setup.
 
-You can select a different backend with the -backend option.
-Available backends are "Globus", "SRM" and "DCCP".  SRM is the
-most efficient transfer method -- provided it's properly configured
-at your site!
+You can select a different download backend with the -backend option.
+Available backends are "Globus", "SRM" and "DCCP"; FTS is currently
+supported by using "SRM" backend with "ftscp" as the copy command, a
+proper "FTS" backend will come soon.  CMS requires you use SRM-based
+file transfers.
 
 You can also develop your own backend to the download agent.  See
 Toolkit/Common/UtilsDownload{Globus,SRM,DCCP}.pm for examples.
 
-You can get a rough idea of what various things can be achieved
-with the different site-specific scripts by looking around in the
-different Custom/<Site> and Testbed/Standalone directories.
+You can get a rough idea of what various things can be achieved with
+the different site-specific scripts by looking around in the different
+SITECONF directories.
 
 *** Targeted downloads
 
-You can use the -ignore and -accept options to specify which nodes
-downloads are ignored and accepted from.  By default nothing is
-ignored and everything is accepted.  The options are independent
-such that -ignore list is always processed first, and then if and
-only if the node passes the -accept list, the download is processed.
-Both options accept comma-separated list of node names; wildcards
-are not recognised.
+You can use the -ignore and -accept options to specify which nodes the
+agent interacts with.  By default no nodes are ignored and all are
+accepted.  The -ignore list is processed first, and then if and only
+if the node passes the -accept list, the download is processed.  Both
+options accept comma-separated list of node names; SQL wildcards are
+supported ("%" for any string, "_" for any character).
 
-Normally you would have a special "upload" agent for transfers from
-your MSS node to the disk buffer (or pseudo-buffer) node, so you
-would say "-ignore ${PHEDEX_NODE}_MSS" on your buffer downloader.
+A site with tape storage will normally have a special "upload" agent
+for transfers from the MSS node to the Buffer node, and would use
+"-ignore ${PHEDEX_NODE}_MSS" with the Buffer download agent as shown
+in the example above.  A disk-only storage node does not need to use
+such an option.
 
 *** Bypassing downloads
 
-You can use the -bypass <script> to bypass the copy of a file. This is 
-useful when the file to be transferred is already available at the site
-but not yet known to PhEDEx. With this option the actual
-copy of the file is skipped but the file is published into the catalogue
-and the corresponding replica entry is created in TMDB. 
+You can use the "-bypass <script>" option to bypass a file copy. This
+is useful when the file to be transferred is already available at the
+site but is not yet known to PhEDEx.
 
-Immediately after FileDownloadDest has been invoked, the agent runs the 
-script specified with the -bypass option with from-pfn and to-pfn as 
-arguments. If the script prints anything, the agent considers the file 
-downloaded and uses the output as the new to-pfn (local destination).
-Normally one would print either from-pfn or nothing, but any local PFN
-can be returned. Note that the bypass script output overrides the default 
-file destination from FileDownloadDest and that the post-transfer 
-validation will still run.
-
+The agent invokes the bypass script immediately before the download.
+The script gets the source and destination PFNs as arguments.  If the
+script prints out something, the agent considers the file downloaded
+and uses the printed-out value as the new destination PFN.  Normally
+the script would print out either the source PFN or nothing.  The
+post-transfer validation will use the replaced destination PFN.
 
 **********************************************************************
 ** Optimising transfer performance
 
-FileDownload should be able to reliably transfer files at your raw
-network link and disk bandwidth.  If it doesn't, optimisation is
-required.  Here are some hints to optimise the performance.
+FileDownload is capable of transferring files in excess of your
+network and disk bandwidth limits.  If your hardware is underused, you
+may need to optimise the settings.  This section includes some hints
+to optimise performance.
 
 1) Make sure you are running the latest version of the agent.  From
 time to time we fix bugs and performance issues.
 
-2) Look at the right numbers.   Your perceived transfer rate is listed
-on the "Transfer rate" monitor page at http://cern.ch/cms-project-phedex
-(follow link to "Agent State").  If your agent has been up for at least
-an hour, look under "aggregate rate".  That's how much data your agent
-ransferred in the time.  Momentary transfer rates and numbers shown by
-network monitoring tools are intersting, but much less important.
+2) Check the transfer quality.  Follow the "Transfer Quality Plots"
+link on the monitor web page (http://cern.ch/cms-project-phedex,
+follow link to "Status").  Performance tuning makes sense only if your
+site is experiencing negligible number of transfer failures.
 
-The other rates on the monitoring web page indicate how good a PhEDEx-
-citizen your agent is, showing times from when the file was marked
-available to when your agent completed the transfer.  Monitor these
-values to see what you are really getting out.  At the top of the page
-you see the data rate out from CERN, it usually correlates well with our
-transfers.  Look at similar numbers from your network monitoring.
+3) Look at the right numbers.  The transfer rate seen by PhEDEx is
+listed under "Aggregate Rate" on the "Transfer Rate" page in the
+monitor.  If your agent has been up for at least an hour, the numbers
+should be reliable.  There is also a "Transfer Rate Plots" link where
+you can see historical performance.
 
-3) Make sure your transfers aren't failing too often.  The "Other" column
-in "Transfer state" monitor page is usually files whose transfer has gone
-wrong.  If you are faced with unreliable networks, please contact the
-developers at cms-phedex-developers@cern.ch to get in touch with those who
-are working in this area.
+If the rate monitoring shows errors, your first priority should be to
+reduce errors.  If the rate monitoring page shows expired transfers to
+or from your site, your site is unable to complete its transfers in a
+reasonable time.  Possible causes are overload or transfers simply
+taking too long.  Either way, many errors or expired transfers and
+long transfer backlog will lead PhEDEx to shun or even isolate your
+site.  The agent will throttle itself down if it sees a significant
+number of errors, and this may further reduce transfer rates to and
+from your site.
 
-4) Make sure there's no undue delays with your transfer commands.  We've
-seen all kinds of misconfigurations.  A globus-url-copy made by hand on
-a file that's staged in should being immediately -- no delays of several
-seconds etc.  You can measure raw globus-url-copy bandwidth to your site
-with Testbed/Bandwidth/GUCTest; it allows you to transfer to /dev/null
-or file system, make sure to test both separately to understand possible
-discrepancies.  It may happen for instance that you can write very fast
-to /dev/null, but disk writes are slower; in this case investigate the
-disk mount options on the gridftp servers.  The bottom line is that this
-test program should be able to fill your network pipe with ease; there's
-no point in addressing performance problems in PhEDEx until this test
-produces maximum possible transfer rate for you.
+If your network is inherently unreliable, please contact the project
+at hn-cms-phedex@cern.ch for advice.
 
-5) Make sure you are batching transfers.  This should alwawys work with
-SRM interface, and should provide substantial performance improvement.
-It will work with Globus backend only if you don't modify the file name
-part in the transfer and you are using Globus toolkit 3.x or newer (we
-don't know of anybody who does!).  Use "-batch-files" and "-batch-size"
-options to select suitable batch limits, the former sets the maximum
-number of files in one transfer, the latter the maximum number of bytes.
-Batch is closed when either limit is exceeded.
+4) PhEDEx is not a network monitor.  Momentary transfer rates and
+numbers shown by network monitoring tools are interesting, but much
+less important.  What matters is transfers successfully completed.
 
-6) Make sure you are marking enough data "wanted".  We recommend 150GB
-sliding window: use "-wanted 150G" option.  If your agent regularly
-underruns data, you are probably transferring as much as the remote tape
-system is able to deliver.  In that case you may need to increase your
-sliding wanted window, but please do not increase the window beyond
-200 GB without consultation on the cms-phedex-developers@cern.ch list.
-You can see if your agent is running out of data by monitoring the
-"Transferable" column in the "Transfer state" web page.  If that drops
-to naught, your agent has run out of data to transfer.
+5) If your agents have ran for a while, check the daily reports.  They
+give an account of how good a PhEDEx citizen your agents are.  In
+particular, you'll see average hourly rates, the average size of the
+pending queue and how long PhEDEx estimates your transfers will take
+to complete.
 
-7) Make sure you are using good options to globus-url-copy.  Try something
-like shown in the example above.  Do not use excessive number of parallel
-streams, get your network configured correctly instead.  You should not
-need more than 20 parallel streams -- and that's number of jobs times
-the number of streams in each job!  2 MB TCP bufers are likely to be a
-good starting point.
+6) Make sure there are no undue delays with your transfer commands.
+Executing srmcp manually on a file that PhEDEx claims is staged should
+copy the file immediately and at reasonably good rate.  The bottom
+line is it should easy to fill your network bandwidth for days on end
+with a handful of concurrent srmcp or globus-url-copy commands, with
+no performance drops.  If that's not the case, you need to tune your
+storage systems better.  The number of parallel GridFTP streams and
+TCP buffer sizes are set in the SRM storage servers, not on the client
+side; changing the parameters for srmcp doesn't affect SRM transfers.
+Make sure the servers are properly configured, including the choice of
+appropriate file system and tuning parameters.
 
-8) If batching isn't enough or doesn't work for you, make sure you are
-transferring enough data in parallel.  We recommend 20 parallel streams
-with 2 MB buffers each, for instance 5 parallel workers with 4 parallel
-streams each.  Parallel jobs helps avoid connection overheads and to
-parallelise catalogue operations. Note however that parallel streaming
-writes to the same file system have been reported to cause serious file
-system fragmentation on certain Linux file systems (ext3, xfs should
-fare better).
+7) Make sure you are batching transfers.  This is the default with the
+SRM backend.  Use "-batch-files" and "-batch-size" options to select
+suitable batch limits, the former sets the maximum number of files in
+one transfer, the latter the maximum number of bytes.  A batch is
+closed when either limit is exceeded.
 
-9) Monitor for serialisation with "watch ps xwwf", it shows your process
-tree in real time.  You should be seeing substantial amounts of time
-spent in "globus-url-copy" or "srmcp"; if not, something else is
-serialiasing transfers, and you'll see which command it is.
-
-10) All catalogue operations are performed in parallel since PhEDEx V2.1.
-There should not be any bottlenecks here, but note that your catalogue
-may get hit very hard, especially if you are exporting data.
+8) Monitor your agents using "watch ps xwwf".  You should see
+substantial amount of time spent in "srmcp".  If that is not the case,
+something else may be forcing your transfers going serial, and you
+should see which command that is.

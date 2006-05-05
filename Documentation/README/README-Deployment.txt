@@ -1,13 +1,12 @@
 * Setting up for using PhEDEx
 
-This document describes how to set up your site for CMS data movement.
+This document describes how to set up a site for CMS data transfers.
 The intended audience are site data managers that need to import or
 export CMS data.
 
 ** Related documents
 
 README-Overview.txt explains where this document fits in.
-README-Operations.txt explains how things are done at CERN.
 README-Transfer.txt explains how to set up transfer agents.
 README-Export.txt explains how to set up export agents.
 
@@ -21,14 +20,10 @@ To use PhEDEx to transfer files you need:
   HW.3) Machine for file catalogue
 
   Software:
-  SW.1) PhEDEx itself
-  SW.2) LCG POOL tools
-  SW.3) ORACLE client libraries
-  SW.4) Prerequisite perl modules
-  SW.5) Transfer utilities: globus, srm, lcg-rep or similar
+  SW.1) PhEDEx RPMs
 
   Services:
-  SV.1) A site-local file catalogue
+  SV.1) A site-local file (trivial) catalogue
   SV.2) Certificate management
 
   Configuration:
@@ -40,144 +35,58 @@ To use PhEDEx to transfer files you need:
 To act as a transfer node in the PhEDEx network, you obvioulsy need a
 storage system.  This can be either local or mounted disks, a managed
 pool (Castor, dCache, ...), and may or may not be backed up by a tape
-mass storage system.
-
-Some commonly used configurations:
-  - Castor pools with automatic/configurable migration to tape,
-    accessed for transfers via gridftp servers, but also directly
-    with rf* commands
-  - dCache pools, both stand-alone and linked to mass store,
-    accessed for transfers either directly or via gridftp servers
-  - NFS-mounted GPFS disk pools
-  - Other directly mounted disk pools
+mass storage system.  CMS requires SRM storage.
 
 It is important that you have high-speed network connection to your
 disk pool.  It is advisable there to be a gridftp network access path
 that bypasses firewalls.
 
 You will also need a computer on which you will run the agents.  This
-needs to be either CERN RedHat 7.3.x or SLC3/IA32 system.  You must
-have access to local or mounted disk space on the machine; AFS will
-not do.  You do not need large amounts of memory, disk space, network
-bandwidth or CPU capacity on this machine.  You do need to have all
-the prerequisite software installed on this machine.
-
-You can choose to install your site-local file catalogue on the same
-machine on which you run the agents, in which case it needs a little
-more horsepower, and obvioulsy needs proper backup etc. services.
-On the other hand, if you have central database support, you will
-probably want to have them run your file catalogue.  Most CMS sites
-use a MySQL file catalogue; CERN is about to switch to ORACLE one.
+needs to be either SL3/IA32 system, though with a little creativity
+other platforms can be supported as well.  You must have access to
+local or mounted disk space on the machine; AFS will not do.  You do
+not need large amounts of memory, disk space, network bandwidth or CPU
+capacity on this machine.  You do need to have all the prerequisite
+software installed on this machine.
 
 **********************************************************************
 ** Getting the software
 
 This document assumes you will install the software on "agenthost"
 in directory "/home/phedex".  We assume the PhEDEx node name for
-your site is "FOO_Transfer" (and possibly "FOO_MSS").
+your site is "TX_FOO_Buffer" (and possibly "TX_FOO_MSS").
 
 *** Set up directories
 
-  mkdir -p /home/phedex/{state,logs,tools,gridcert}
+  mkdir -p /home/phedex/{state,logs,sw,gridcert}
   chmod 700 /home/phedex/gridcert
+  PHEDEX_SW=/home/phedex/sw
+  cd /home/phedex
 
-*** PhEDEx
+*** Install software using RPMs
+
+  wget -O $PHEDEX_SW/aptinstaller.sh \
+    http://cmsdoc.cern.ch/cms/cpt/Software/download/pa12/aptinstaller.sh
+  chmod +x $PHEDEX_SW/aptinstaller.sh
+  $PHEDEX_SW/aptinstaller.sh $PHEDEX_SW
+  export APT_CONFIG=$PHEDEX_SW/etc/apt/apt.conf
+  apt-get update
+  apt-get install cms+PHEDEX+PHEDEX_2_3_0
+
+*** Get site configuration
 
   cd /home/phedex
   export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/CMSSW
   cvs login # password is "98passwd"
-  cvs co PHEDEX
+  cvs co SITECONF/CERN
+  cvs co SITECONF/FOO
 
-*** LCG POOL tools
+*** Post-installation verification
 
-The POOL tools are required for CMS transfers, but not by core PhEDEx.
-Skip this section if you don't intend to participate in CMS transfers.
-
-You can either use an existing POOL installation on your system, or
-make a standalone installation from RPMs.  We assume you use a tool
-provided in PHEDEx to set things up for the sake of simplicity.  You
-should use POOL version 2.0.x tools; we recommend 2.0.3 or 2.0.7.
-
-If you have CMS software installed such that "scram" command can be used
-to choose among OSCAR and/or ORCA releases, set up PhEDEx like this:
-  PHEDEX/Deployment/InstallPOOL --cms /home/phedex/tools
-
-If CMS software is not available on the node where you will run the
-agents, or you don't want to use it for any other reason, make a local
-standalone installation like this:
-  PHEDEX/Deployment/InstallPOOL --standalone /home/phedex/tools
-
-The script automatically detects whether you run on RedHat 7.x or
-Scientic Linux 3.x and sets things up appropriately.
-
-*** ORACLE client libraries
-
-You need to install Oracle client: the libraries and "sqlplus" utility.
-CERN license covers CMS use LCG-wide.  For the sake of simplicity we
-suggest you download Oracle Instant Client kits and set them up using
-a script provided in PhEDEX, even if you already have a local Oracle
-installation.  You must use Oracle 10g client libraries.
-
-To install everything required, go to http://otn.oracle.com, select
-"DOWNLOAD", select "Oracle Instant Client", select "Instant client for
-Linux x86", read and agree to the license if you can, and select each
-of the three zips listed below.  The zip links to a page that will sign
-into OTN; create yourself an account if you don't have one yet.  Save
-the zips to some directory TMP (does not have to be a new one, e.g.
-"/tmp" will do).  Then:
-  PHEDEX/Deployment/InstallOracleClient TMP /home/phedex/tools
-
-The zips you should download are:
-  instantclient-basic-linux32-10.1.0.3.zip
-  instantclient-sqlplus-linux32-10.1.0.3.zip
-  instantclient-sdk-linux32-10.1.0.3.zip
-
-You can delete the zips you downloaded after you've ran the script.
-
-*** Perl modules
-
-You need certain perl modules to use PhEDEx.  Many of these may be
-installed on your system, but quite probably are versions with bugs
-that really need to be corrected.  We recommend you simply install
-all modules with the following command; it requires you already
-installed the Instant Client kits as explained above:
-   PHEDEX/Deployment/InstallPerlModules /home/phedex/tools
-
-*** Transfer utilities
-
-Finally install the software for the transfer tools you will use.
-For most sites this is either globus-url-copy or srmcp.  You will
-probably need to install also myproxy-related packages.  You need
-to arrange the relevant setup scripts to run; normally this would
-be done automatically for all users via /etc/profile.d/UI.sh or
-alike.
-
-We provide no instructions on how to install this component; we
-do not even know which packages you need to install.  Try making
-"UI" installation or whatever corresponds to that in your grid.
-
-Ensure the following commands exist and work:
-  Either:
-    globus-url-copy
-    edg-gridftp-ls     (optional)
-    edg-gridftp-mkdir  (optional)
-  or:
-    srmcp
-
-  grid-proxy-init
-  grid-proxy-info
-  myproxy-init
-  myproxy-get-delegation
-
-*** Configuring environment
-
-The Deployment/Install* tools leave behind "env.sh" scripts you use
-to prepare your environment.  You will invoke them from your site
-"Config" as explained below.  If you used the commands listed
-above, you would:
-   source /home/phedex/tools/poolenv.sh
-   source /home/phedex/tools/oraenv.sh
-   source /home/phedex/tools/perlenv.sh
+The RPMs include environment setup scripts you should use to prepare
+your environment.  You will invoke the scripts from your site "Config"
+as will be explained below.  If you used the commands above, use:
+  source $PHEDEX_SW/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_3_0/etc/profile.d/dependencies-setup.sh
 
 You should verify the following environment variables are set correctly:
 
@@ -190,42 +99,33 @@ You should verify the following environment variables are set correctly:
   X509_USER_PROXY
   ORACLE_HOME
 
+Ensure the following commands exist and work:
+
+  srmcp
+  grid-proxy-init
+  grid-proxy-info
+  myproxy-init
+  myproxy-get-delegation
+
+Of these, only srmcp comes with the RPMs.  The rest you need to make
+available by installing appropriate grid middleware on the host.  For
+LCG, this means installing the "UI" (user interface) environment.
+  
 **********************************************************************
 ** Installing services
 
-*** File catalogue
-
-You need a POOL file catalogue for your site.  The same catalogue
-should be shared for EVD files (and only EVD files) for both PubDB
-if you have one, and PhEDEx.  It should be RDBMS-based, MySQL or
-ORACLE, not EDG RLS, XML or EGEE catalogue.
-
-The file catalogue does not need to be accessible from outside your
-site.  Only programs from within your own site will ever access the
-catalogue.  Do note that PhEDEx may under certain circumstances hit
-your file catalogue *very hard*.
-
-You need to create a database and at least one database account for
-the catalogue.  To set up a MySQL catalogue on host "cathost":
-
- 1) Create user phedex (password: phedex), and database phedexcat
- 2) Load the schema and seed data from PHEDEX/Schema/FC-MySQL.sql
-
-Alternatively you can also try to automize the above steps by using
-"SetupPOOLFileCatalogue", which can be found in PHEDEX/Deployment.
-Just execute it without options or using -help to get usage
-informations. Beware, that although care was taken to not accidentally
-delete/destroy already existing databases, this tool should be use
-with caution !
-
-
 *** Certificate management
 
-To run the transfer agents, you need to have a grid certficate and
-be registered to the CMS VO.  All transfers will take place using
-your own personal certificate.  However if you like to, you can
-obtain a service certificate and use that to renew a personal
-proxy certificate.
+To run the transfer agents, you need to have a grid certficate and be
+registered to the CMS VO, including in VORMS.  All transfers will take
+place using your own personal certificate.
+
+We recommend obtaining a service or host certificate, loading a
+long-lived personal proxy into myproxy, then using the service
+certificate to renew a short-lived proxy which is then used by the
+transfers.  This is not easy to get right, mainly because myproxy
+generally gives useless error messages if anything happens to go
+wrong, but it does reduce operational burden considerably.
 
 If there will be only one person administering the agents at your
 site, it's simplest to use your personal certificate.  We recommend
@@ -249,11 +149,11 @@ gridcert/proxy.cert):
 For using a service certificate the instructions are similar, but
 slightly more complicated because the certificates must be properly
 protected.  First of all, you need to obtain a service certificate,
-e.g. for "phedex/agenthost.your.site.edu".   Then obtain a unix
-group with all service administrators as members.  Change directory
-/home/phedex/gridcert to this group and make it group-writeable.
-Copy the service "hostcert.pem" and "hostkey.pem" certificate files
-into this directory.
+e.g. for "phedex/agenthost.your.site.edu".  Then obtain a unix group
+with all service administrators as members.  Change directory
+/home/phedex/gridcert to this group and make it group-writeable.  Copy
+the service "hostcert.pem" and "hostkey.pem" certificate files into
+this directory.
 
 Then the administrator starting the service should:
 
@@ -262,111 +162,89 @@ Then the administrator starting the service should:
         myproxy-init -l phedex -R "phedex/agenthost.your.site.edu" -c 720
 
   2) As yourself, extract the proxy into the certificate directory
-        cp /tmp/x509up_u$(id -u) /home/phedex/gridcert/proxy.cert.$(id -u)
-        chmod g+r /home/phedex/gridcert/proxy.cert.$(id -u)
+        mv /tmp/x509up_u$(id -u) /home/phedex/gridcert/
+        chmod 660 /home/phedex/gridcert/x509*
 
-The "phedex" admin account should:
-
-  3) Copy the certificate
-       cp /home/phedex/gridcert/proxy.cert.* /home/phedex/gridcert/proxy.cert
-       rm /home/phedex/gridcert/proxy.cert.*
-
-  4) For transfers agents make sure $X509_USER_CERT and $X509_USER_KEY
-     are *not* set, and $X509_USER_PROXY is set to /home/phedex/gridcert
-     /proxy.cert.
-
-  5) Periodically, say hourly, refresh the proxy; this time make sure
-     $X509_USER_CERT and $X509_USER_KEY are set to the host certificate:
-       myproxy-get-delegation -l phedex -a $X509_USER_PROXY -o $X509_USER_PROXY
-
-     See ProxyRenew and AFSCrontab in Custom/CERN for details.
+The "phedex" admin account should run something like
+SITECONF/CERN/PhEDEx/ProxyRenew once an hour as a cron job.
 
 **********************************************************************
 ** Configuration
-
-*** Testing your installation
-
-Verify that everything installed so far works correctly:
-   PHEDEX/Deployment/TestInstallation -db DBParam:Dev -poolcat <catalogue>
-
-(Please refer to README-Auth.txt on "DBParam" file.)
 
 *** Registering your node to the topology
 
 To be able to transfer any files in our out, your site must become
 part of the CMS transfer topology.  Please send an e-mail to
-   cms-phedex-developers@cern.ch
+   cms-phedex-admins@cern.ch
 
 In your mail, please include the following information -- or ask
 for suggestions giving as many details as you can:
 
   1) Type of your site (Tier-1, Tier-2, Tier-3)
 
-  2) Where you would be preferred to be attached; for Tier-N
-     where N > 1, you should be attached to a Tier above you.
-     If there is no Tier-1 that can serve you right now, we
-     may exceptionally let you attach to CERN, but this will
-     be granted only on temporary basis.
+  2) Where you would be preferred to be attached; for Tier-N where
+     N>1, you should be attached to a Tier above you.  If there is no
+     Tier-1 that can serve you right now, we may exceptionally let you
+     attach to CERN, but this will be granted only on temporary basis.
+     Note that the tier attachment is something you need to negotiate
+     yourself, PhEDEx just records the CMS policy.
 
-  3) The topology you plan to have at your site: disk buffers, MSS etc.
+  3) The kind of storage you have: disk buffers, MSS, etc.
 
-  4) The name(s) by which you would like your node(s) to be known.
-     The names are a descriptive name for your site (e.g. CNAF, or
-     geographical name such as "Wisconsin"), plus underscore, plus
-     node type (Buffer / MSS / ...).
+  4) The name of your site.  PhEDEx uses node names that are a
+     combination of site name and type of storage node, such as
+     "T1_FNAL_Buffer", "T2_DESY_MSS", "T2_Spain_Buffer".  The site
+     name is usually institution name, or a geographical name as in
+     T2_Spain (a federated pseudo-site).
 
-*** Setting up agent master scripts
+*** Setting up agent configuration
 
-You should create a directory "Custom/FOO" for your site "FOO"
-in the "PHEDEX" checkout area.  Then create site configuration
-file; you can use Custom/CERN/Config as a guide.  Typically you
-will have an environment section followed by agent sections.
-The environment section applies to all agents and should include
-everything that it takes for them to run at your site.
+CMS encourages all sites to keep the configurations of their CMS
+services in the SITECONF area in the CVS repository (CMSSW CVS
+repository, COMP/SITECONF).  If you do not have a SITECONF directory
+for your site, please request one from cms-phedex-admins@cern.ch.
 
-To import data, you must run at least the following agents:
-  1) FileDownload
-  2) FileRouter
-  3) NodeRouter
-  4) InfoDropStatus
+PhEDEx uses a simple text configuration file that describes the agents
+that should run for your site.  The purpose of the configuration file
+is to make the agent management easy, and to capture a self-contained
+environment including everything required to run the agents.  The file
+typically begins with an environment section, followed by agents to
+run.  It is possible to split the configuration file into multiple
+parts.  This allows you to share large portions of the configuration
+across multiple PhEDEx instances: tests, production, and so on.
 
-If you have a separate MSS node, you must also run some kind
-of MSS migration agent.  You may be able to use some of the
-existing agents (FileCastorMigrate, FileDownload with DCCP
-backend, ...), or you'll have to write your own.  Depending
-on your setup you may also want to run a cleaner agent (see
-FileDiskCleaner, FileFakeCleaner).
+For downloads, run "FileDownload" and "InfoDropStatus".  In an
+integration challenge environment, you may need to add "FileRecycler";
+you would never run that agent in a production environment.
 
-To export data from your site for others to download, you
-need a separate set of agents.  This is described in more
-detail in README-Export.txt.
+If you have a MSS node, you must run a MSS migration agent.  Migration
+agents exist for Castor and dCache (File{Castor,DCache}Migrate).  If
+your disk and tape storages are separate, you can use FileDownload
+with a suitable backend to copy between storage systems.  You should
+also run a cleaner agent for the buffer node, FileFakeCleaner for a
+shared disk/tape storage node, and FileDiskCleaner for a separate disk
+buffer backed up by a tape node.
+
+Exporting data to other sites requires export agents, which are
+described in more detail in README-Export.txt.
 
 *** Writing site glue scripts
 
-You also need site-specific scripts to communicate between
-your site (e.g. your file catalogue) and the agents.  You
-can use the scripts from Custom/CERN as examples.  There
-are more details about these in README-Transfer.txt.
-  1) FileDownload wants the following:
-     1.1) FileDownloadDest for download destination PFN.
-     1.2) FileDownloadVerify to validate downloaded file.
-     1.3) FileDownloadDelete to clean up failed downloads.
-     1.4) FileDownloadPublish to import downloaded files
-          to your site-local catalogue.
+More details about the site glue scripts are in README-Transfer.txt.
+You would normally have:
 
-  2) Various agents will want to invoke a script to look up
-     files either by GUID or PFN.  Use Custom/CERN/PFNLookup
-     as an example.
+  1) FileDownload:
+     1.1) FileDownloadVerify to validate downloaded file.
+     1.2) FileDownloadDelete to clean up failed downloads.
 
-  3) You'll probably want to archive all your logs to a
-     safe place.  See AFSCrontab and LogArchive in
-     Custom/CERN.
+  2) Archive all your logs to a safe place.  See AFSCrontab and
+     LogArchive in SITECONF/CERN/PhEDEx.
+
+  3) Renew your proxy.  See ProxyRenew in SITECONF/CERN/PhEDEx.
 
 **********************************************************************
 ** Support
 
-If you have any questions or comments, please contact the developers
-at <cms-phedex-developers@cern.ch> and/or check out the documentation
-at http://cern.ch/cms-project-phedex.  You are welcome to file bug
-reports and support requests at our Savannah site at
-  http://savannah.cern.ch/projects/phedex
+Please contact <hn-cms-phedex@cern.ch> for support and/or check out
+the documentation at http://cern.ch/cms-project-phedex.  Please file
+bugs and feature requests at http://savannah.cern.ch/projects/phedex.
