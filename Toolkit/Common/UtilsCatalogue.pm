@@ -2,6 +2,10 @@ package UtilsCatalogue; use strict; use warnings; use base 'Exporter';
 our @EXPORT = qw(pfnLookup lfnLookup storageRules applyStorageRules);
 use XML::Parser;
 
+# Cache of already parsed storage rules.  Keyed by rule type, then by
+# file name, and stores as value the file time stamp and parsed result.
+my %cache;
+
 # Map a LFN to a PFN using a storage mapping catalogue.  The first
 # argument is either a single scalar LFN, or a reference to an array
 # of LFNs.  The second and third arguments are desired protocol and
@@ -87,6 +91,14 @@ sub storageRules
 {
     my ($file, $kind) = @_;
 
+    # Check if we have a valid cached result
+    if (exists $cache{$kind}{$file})
+    {
+	my $modtime = (stat($file))[9];
+	return $cache{$kind}{$file}{RULES}
+	    if $cache{$kind}{$file}{MODTIME} == $modtime;
+    }
+
     # Parse the catalogue and remove top-level white space
     my $tree = (new XML::Parser (Style => "Tree"))->parsefile ($file);
     splice (@$tree, 0, 2) while ($$tree[0] eq "0" && $$tree[1] =~ /^\s*$/s);
@@ -107,6 +119,10 @@ sub storageRules
 	push (@{$$result{$$value[0]{protocol}}}, $$value[0]);
     }
 
+    # Cache the result
+    $cache{$kind}{$file} = { MODTIME => (stat($file))[9], RULES => $result };
+
+    # Return to the caller
     return $result;
 }
 
