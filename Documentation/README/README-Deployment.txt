@@ -58,10 +58,10 @@ your site is "TX_FOO_Buffer" (and possibly "TX_FOO_MSS").
 
 *** Set up directories
 
-  mkdir -p /home/phedex/{state,logs,sw,gridcert}
-  chmod 700 /home/phedex/gridcert
-  sw=/home/phedex/sw
   cd /home/phedex
+  mkdir -p state logs sw gridcert
+  chmod 700 gridcert
+  sw=$PWD/sw
 
 *** Install the software
 
@@ -69,8 +69,8 @@ your site is "TX_FOO_Buffer" (and possibly "TX_FOO_MSS").
     http://cmsdoc.cern.ch/cms/cpt/Software/download/lt1/aptinstaller.sh
   chmod +x $sw/aptinstaller.sh
   
-  $sw/aptinstaller.sh -setup $sw
-  eval `$sw/aptinstaller.sh -config -sh`
+  $sw/aptinstaller.sh -path $sw setup
+  eval `$sw/aptinstaller.sh -path $sw config -sh`
   apt-get update
   apt-get install cms+PHEDEX+PHEDEX_2_3_0
 
