@@ -159,6 +159,7 @@ sub idle
 	      	      v.from_node, v.to_node, v.priority,
 	              v.confirm_files, v.confirm_bytes, v.confirm_weight)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
+        $dbh->commit();
 
 	# Part III: Update statistics on recent transfer activity.
 	&dbexec ($dbh, qq{lock table t_xfer_tracking in exclusive mode});

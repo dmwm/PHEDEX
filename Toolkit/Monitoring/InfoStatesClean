@@ -76,6 +76,7 @@ sub idle
 	    ":now" => $now);
 	&dbexec($dbh, qq{delete from t_xfer_state where time_expire < :now},
 	    ":now" => $now);
+    	$dbh->commit();
 
 	# Summarise replica states
 	&dbexec($dbh, qq{delete from t_info_xfer_replicas});
@@ -96,6 +97,7 @@ sub idle
 	     from t_xfer_state xs join t_xfer_file f on f.id = xs.fileid
 	     group by :now, xs.from_node, xs.to_node, xs.from_state, xs.to_state)},
 	     ":now" => &mytimeofday ());
+        $dbh->commit();
 
 	# Delete obsolete agent status messages (3 days)
 	my %old = (":old" => &mytimeofday() - 3*86400);
