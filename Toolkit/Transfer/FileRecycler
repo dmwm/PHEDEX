@@ -99,10 +99,6 @@ sub deleteFile
     my ($self, $dbh, $fileid, $pfn) = @_;
     my $status;
 
-    # Remove from the disk
-    ($status = &runcmd (@{$$self{CMD_RM}}, $pfn))
-	and &warn ("exit code @{[&runerror($status)]} from @{$$self{CMD_RM}} $pfn");
-
     # Remove outbound transfers.  We just lost the file...
     &dbexec ($dbh, qq{
 	delete from t_xfer_state where fileid = :fileid and from_node = :node},
@@ -112,6 +108,10 @@ sub deleteFile
     &dbexec ($dbh, qq{
 	delete from t_xfer_replica where fileid = :fileid and node = :node},
 	":fileid" => $fileid, ":node" => $$self{ID_MYNODE});
+
+    # Remove from the disk
+    ($status = &runcmd (@{$$self{CMD_RM}}, $pfn))
+	and &warn ("exit code @{[&runerror($status)]} from @{$$self{CMD_RM}} $pfn");
 }
 
 # Pick up work from the database.
@@ -165,6 +165,7 @@ sub idle
 				  $$self{STORAGEMAP});
 	    do { &alert ("no pfn for $lfn"); next } if ! $pfn;
 	    $self->deleteFile ($dbh, $id, $pfn);
+	    $dbh->commit();
 	    last if &mytimeofday() - $now > 600;
         }
 
