@@ -248,6 +248,7 @@ sub markFilesWanted
 	set to_state = 1, time_request = :now
 	where exists (select id from t_node n where n.id = xs.to_node $dest)
 	  and time_expire > :now
+  	  and time_request < :now - 300
           and to_state <= 1},
     	":now" => $now, %dest_args);
 
