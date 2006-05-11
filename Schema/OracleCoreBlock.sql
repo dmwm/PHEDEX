@@ -212,6 +212,9 @@ alter table t_dps_subscription
 ----------------------------------------------------------------------
 -- Add indices
 
+create index ix_dps_block_dest_complete
+  on t_dps_block_dest (destination, time_complete);
+
 create index ix_dps_subscription_stream
   on t_dps_subscription (dataset);
 

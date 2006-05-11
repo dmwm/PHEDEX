@@ -274,6 +274,9 @@ alter table t_link_param
 ----------------------------------------------------------------------
 -- Add indices
 
+create index ix_xfer_path_to_expire
+  on t_xfer_path (to_node, time_epxire);
+
 create index ix_xfer_replica_node
   on t_xfer_replica (node);
 
