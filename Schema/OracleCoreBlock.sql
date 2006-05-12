@@ -50,8 +50,10 @@ create table t_dps_block_dest
    dataset		integer		not null,
    destination		integer		not null,
    priority		integer		not null,
+   state		integer		not null,
    time_subscription	float		not null,
    time_create		float		not null,
+   time_active		float,
    time_complete	float,
    time_suspend_until	float);
 

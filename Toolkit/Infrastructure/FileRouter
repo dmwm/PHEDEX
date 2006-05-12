@@ -188,31 +188,57 @@ sub route
 	 && $confirm_me < 1 * TERABYTE)
 	|| ($confirm_me < 0.25 * TERABYTE))
     {
-        # Issue requests for some more files.  Do at most 500 files at
-        # a time, in order of priority (highest priority = smallest
-        # priority value) and age.
-	&dbexec($dbh, qq{
-            insert into t_xfer_request
-              (fileid, inblock, destination, priority, state,
-               attempt, time_create, time_expire)
-              (select * from
-                (select f.id, bd.block, bd.destination, bd.priority,
- 		        0 state, 1 attempt, :now, :now + 8*3600
-                 from t_dps_block_dest bd
-                   join t_xfer_file f on f.inblock = bd.block
-                 where bd.destination = :node
-                   and bd.time_complete is null
-                   and (bd.time_suspend_until is null
-                        or bd.time_suspend_until < :now)
-                   and not exists
-		     (select 1 from t_xfer_replica x
-		      where x.fileid = f.id and x.node = bd.destination)
-                   and not exists
-		     (select 1 from t_xfer_request x
-		      where x.fileid = f.id and x.destination = bd.destination)
-                 order by bd.priority asc, bd.time_create asc
-                ) where rownum < 500)},
+	# Find block destinations we can activate.  The activation
+	# takes a lock on the block itself so files cannot be added
+	# while we are creating file requests; any files added after
+	# that will automatically add file requests as well.  Keep
+	# adding blocks until we've added at least 500 files; select
+	# the blocks in order of priority and age (highest priority
+	# = smallest priority value).
+	my $nfiles = 0;
+	my $i = &dbprep($dbh, qq{
+	    insert into t_xfer_request
+	      (fileid, inblock, destination, priority, state,
+	       attempt, time_create, time_expire)
+	      select
+	        id, :block inblock, :node destination, :priority priority,
+		0 state, 1 attempt, :now, :now + 8*3600
+	      from t_xfer_file
+	      where inblock = :block});
+	my $u = &dbprep($dbh, qq{
+	    update t_dps_block_dest
+	    set state = 1, time_active = :now
+	    where block = :block and destination = :node});
+	my $q = &dbexec($dbh, qq{
+	    select bd.block, bd.priority, b.files
+	    from t_dps_block_dest bd
+	      join t_dps_block b on b.id = bd.block
+	    where bd.destination = :node
+	      and bd.state = 0
+	      and bd.time_complete is null
+	      and (bd.time_suspend_until is null
+		   or bd.time_suspend_until < :now)
+	    order by bd.priority asc, bd.time_create asc
+	    for update of b.id},
 	    ":node" => $node, ":now" => $now);
+        while (my ($block, $priority, $files) = $q->fetchrow())
+	{
+	    &dbbindexec($u,
+		        ":block" => $block,
+		    	":node" => $node,
+			":now" => $now);
+
+	    &dbbindexec($i,
+		        ":block" => $block,
+		    	":node" => $node,
+			":priority" => $priority,
+			":now" => $now);
+
+	    last if ($nfiles += $files) >= 500;
+	}
+
+	# Release the locks on t_dps_block
+	$dbh->commit();
     }
 
     # Update priority on existing requests (every fifteen minutes or so.)
@@ -394,7 +420,7 @@ sub route
 	     where xp.to_node = :me and xp.time_expire > :now
 	     group by xp.fileid, xp.from_node, xp.to_node, xr.id)
           select
-             fileid, 0, 2*priority + local_boost, weight, time_request,
+             fileid, 0, 2*priority + 1-local_boost, weight, time_request,
              replica, from_node, 0, to_node, 0, time_expire, :now
            from files_for_me ffm
            where not exists

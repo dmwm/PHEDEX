@@ -114,7 +114,7 @@ sub idle
 	# Remaining block destinations are valid.  Mark complete the
 	# block destinations which have all files fully replicated.
 	($stmt, $nrows) = &dbexec ($dbh, qq{
-	    update (select bd.time_complete
+	    update (select bd.state, bd.time_complete
 	            from t_dps_block_dest bd
 		      join t_dps_block b
 		        on b.id = bd.block
@@ -124,8 +124,8 @@ sub idle
 		    where b.is_open = 'n'
 		      and br.node_files = b.files
 		      and br.dest_files = b.files
-		      and bd.time_complete is null)
-	    set time_complete = :now},
+		      and bd.state < 2)
+	    set state = 2, time_complete = :now},
 	    ":now" => &mytimeofday());
         &logmsg ("$nrows block destinations completed")
 	    if $nrows > 0;
@@ -139,25 +139,25 @@ sub idle
 		 where s.dataset = bd.dataset
 		   and s.destination = bd.destination
 	   	   and s.time_complete is null)
-	    where bd.time_complete is null});
+	    where bd.state < 2});
 
 	# Create new block destinations for subscribed datasets where
 	# the block destination doesn't exist yet and the subscription
 	# is still open.
 	($stmt, $nrows) = &dbexec($dbh, qq{
 	   insert into t_dps_block_dest
-	   (block, dataset, destination, priority,
+	   (block, dataset, destination, priority, state,
 	    time_subscription, time_create, time_suspend_until)
-	   (select b.id, s.dataset, s.destination, s.priority,
+	   (select b.id, s.dataset, s.destination, s.priority, 0,
 	           s.time_create, :now, s.time_suspend_until
 	    from t_dps_subscription s
 	      join t_dps_block b
 	        on b.dataset = s.dataset
-	      left join t_dps_block_dest bd
-	        on bd.block = b.id
-	        and bd.destination = s.destination
-	    where bd.block is null
-	      and s.time_complete is null)},
+	    where s.time_complete is null
+	      and not exists
+	        (select * from t_dps_block_dest bd
+	         where bd.block = b.id
+		   and bd.destination = s.destination))},
 	    ":now" => &mytimeofday());
 	&logmsg ("$nrows new block destinations allocated")
 	    if $nrows > 0;
@@ -176,8 +176,7 @@ sub idle
 		 where b.dataset = s.dataset)
 	      and not exists
 		(select * from t_dps_block_dest bd
-		 where bd.dataset = s.dataset
-		   and bd.time_complete is null)
+		 where bd.dataset = s.dataset and bd.state != 2)
 	      and not exists
       		(select * from t_dps_dataset ds, t_dps_block b
 	         where b.dataset = s.dataset and ds.id = s.dataset
