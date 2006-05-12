@@ -266,16 +266,25 @@ alter table t_dest_histogram
   add constraint fk_dest_histogram_node
   foreign key (node) references t_node (id);
 
-
 alter table t_link_param
   add constraint pk_link_param
-  foreign key (link); references t_link (id)
+  primary key (link);
+
+alter table t_link_param
+  add constraint fk_link_param_link
+  foreign key (link) references t_link (id);
 
 ----------------------------------------------------------------------
 -- Add indices
 
+create index ix_xfer_request_inblock
+  on t_xfer_request (inblock);
+
 create index ix_xfer_path_to_expire
   on t_xfer_path (to_node, time_epxire);
+
+create index ix_xfer_path_srcfrom
+  on t_xfer_path (src_node, from_node);
 
 create index ix_xfer_replica_node
   on t_xfer_replica (node);
@@ -299,6 +308,14 @@ create index ix_xfer_state_fromto_state
 create index ix_xfer_state_fromto_pair
   on t_xfer_state (from_node, to_node);
 
+create index ix_xfer_state_fromto_replica
+  on t_xfer_state (from_replica, to_node);
+
+create index ix_xfer_state_fromstate_replica
+  on t_xfer_state (from_replica, to_state);
+
+create index ix_xfer_tracking
+ on t_xfer_tracking (fileid, from_node, to_node);
 
 ----------------------------------------------------------------------
 -- Modify storage options

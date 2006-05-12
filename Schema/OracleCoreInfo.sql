@@ -44,3 +44,27 @@ create table t_info_agent_status
    live			char (1)	not null,
    state		varchar (20)	not null,
    value		integer		not null);
+
+----------------------------------------------------------------------
+-- Add constraints
+
+alter table t_info_xfer_states
+  add constraint pk_info_xfer_states
+  primary key (from_node, to_node, from_state, to_state);
+
+alter table t_info_xfer_states
+  add constraint fk_info_xfer_states_from
+  foreign key (from_node) references t_node (id);
+
+alter table t_info_xfer_states
+  add constraint fk_info_xfer_states_to
+  foreign key (to_node) references t_node (id);
+
+
+alter table t_info_xfer_replicas
+  add constraint pk_info_xfer_replicas
+  primary key (node, state);
+
+alter table t_info_xfer_replicas
+  add constraint fk_info_xfer_replicas_node
+  foreign key (node) references t_node (id);
