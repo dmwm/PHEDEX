@@ -106,7 +106,7 @@ sub idle
 		    from t_xfer_state xs
 	              join t_xfer_replica xr
 	                on xr.id = xs.from_replica
-	            where exists (select id from t_node n where n.id = xr.node $nodes)
+	            where $nodes
 		      and xs.from_state = 1
 	              and xs.to_state < 2
 		      and (xr.state != 1 or xs.from_pfn is null))

@@ -492,14 +492,16 @@ sub otherNodeFilter
 
         for (my $n = 0; $n < scalar @{$$self{IGNORE_NODES}}; ++$n)
         {
-	    my ($id) = &dbbindexec($q, ":pat" => $$self{IGNORE_NODES}[$n])->fetchrow();
+	    &dbbindexec($q, ":pat" => $$self{IGNORE_NODES}[$n]);
+	    my ($id) = $q->fetchrow();
 	    $$self{IGNORE_NODES_IDS}{MAP}{$n} = $id if defined $id;
 	    $q->finish();
         }
 
         for (my $n = 0; $n < scalar @{$$self{ACCEPT_NODES}}; ++$n)
         {
-	    my ($id) = &dbbindexec($q, ":pat" => $$self{ACCEPT_NODES}[$n])->fetchrow();
+	    &dbbindexec($q, ":pat" => $$self{ACCEPT_NODES}[$n]);
+	    my ($id) = $q->fetchrow();
 	    $$self{ACCEPT_NODES_IDS}{MAP}{$n} = $id if defined $id;
 	    $q->finish();
         }
