@@ -219,7 +219,7 @@ sub route
 	      and (bd.time_suspend_until is null
 		   or bd.time_suspend_until < :now)
 	    order by bd.priority asc, bd.time_create asc
-	    for update of b.id},
+	    /* for update of b.id */},
 	    ":node" => $node, ":now" => $now);
         while (my ($block, $priority, $files) = $q->fetchrow())
 	{
