@@ -516,6 +516,7 @@ sub routeFile
 			  PENALTY => 1,
 		          HOPS => 0 };
 	$todo{$node} = 1;
+	$cheapest = $cost if $node == $dest;
     }
 
     # Now use Dijkstra's algorithm to compute minimum spanning tree.
