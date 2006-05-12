@@ -281,7 +281,7 @@ create index ix_xfer_request_inblock
   on t_xfer_request (inblock);
 
 create index ix_xfer_path_to_expire
-  on t_xfer_path (to_node, time_epxire);
+  on t_xfer_path (to_node, time_expire);
 
 create index ix_xfer_path_srcfrom
   on t_xfer_path (src_node, from_node);
@@ -311,7 +311,7 @@ create index ix_xfer_state_fromto_pair
 create index ix_xfer_state_fromto_replica
   on t_xfer_state (from_replica, to_node);
 
-create index ix_xfer_state_fromstate_replica
+create index ix_xfer_state_fromst_replica
   on t_xfer_state (from_replica, to_state);
 
 create index ix_xfer_tracking
