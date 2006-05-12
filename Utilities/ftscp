@@ -18,13 +18,32 @@
 usage() { grep '^##H' < $0 | sed 's/^\(##H \|##H$\)//'; exit 1; }
 
 # Pick up options
-report=/dev/null copyjob=
-while [ $# -ge 1 ]; do
-  case $1 in
+#report=/dev/null copyjob=
+#copyjob=
+#while [ $# -ge 1 ]; do
+#echo "1= $1"
+#echo "arg= $arg"
+#echo "#= $#"
+#  case $1 in
+for arg; do
+#echo "arg= $arg"
+  case $arg in
     -copyjobfile=* )
-      copyjob="${1#-copyjob=}"
+      copyjobfile="${arg#-copyjobfile=}"
+### [FIXME] cat $copyjobfile | sed 's|grid|gridsc|' > $copyjobfile 
+      echo "copyjobfile=$copyjobfile"
+      cat $copyjobfile
+#      break;;
+     ;;
     -report=* )
-      report="${1#-report=}"
+      report="${arg#-report=}"
+      echo "report=$report"
+      ;;
+    -server=* )
+      server="${arg#-server=}"
+      echo "server=$server"
+#      break;;
+      ;;
     -h )
       usage;;
     -* )
@@ -34,41 +53,71 @@ while [ $# -ge 1 ]; do
   esac
 done
 
-[ -z "$copyjob" ] || { echo "Missing -copyjobfile, use -h for help." 1>&2; exit 1; }
-[ ! -f "$copyjob" ] || { echo "$copyjob: no such file" 1>&2; exit 2; }
-[ ! -r "$copyjob" ] || { echo "$copyjob: cannot read" 1>&2; exit 3; }
+#echo "-- $copyjob --"
+#cat $copyjob
+[ -z "$copyjobfile" ] && { echo "Missing -copyjobfile, use -h for help." 1>&2; exit 1; }
+[ -z "$server" ] && { echo "Missing -server, use -h for help." 1>&2; exit 1; }
+[ ! -f "$copyjobfile" ] && { echo "$copyjobfile: no such file" 1>&2; exit 2; }
+[ ! -r "$copyjobfile" ] && { echo "$copyjobfile: cannot read" 1>&2; exit 3; }
 
-# http://egee-jra1-dm.web.cern.ch/egee-jra1-dm/transfer/docu1.1.1/fts-cli.pdf
+#echo "copyjob: $copyjob"
 ftsjobid=
 
 # FIXME: signal handling
 # trap 1 2 15 's=$?; [ -z "$ftsjobid" ] || glite-transfer-cancel $ftsjobid; exit $s'
 
 # Create a FTS transfer request.
-ftsjob=$(glite-transfer-submit -f "$copyjob")
+echo "glite-transfer-submit -p pppppp -s $server -f $copyjobfile"
+ftsjob=$(glite-transfer-submit -p pppppp -s $server -f $copyjobfile)
+#ftsjob=$(glite-transfer-submit -p pppppp -s \"$server\" -f \"$copyjobfile\")
+#ftsjob=$(echo \"eccomi\")
+
+echo "ftsjob = $ftsjob"
+
 
 # Poll transfer status, record output into the report
 while true; do
   # FIXME: we need to be recording per-file status, not just the job!
-  ftsstatus="$(glite-transfer-status "$ftsjob")"
-  case $ftstatus in
+  sleep 10 
+  ftsstatus=$(glite-transfer-status -s $server $ftsjob)
+  case $ftsstatus in
+    Submitted )
+      # [FIXME] need to just ignore this transient state
+      echo "$ftsjob status is Submitted";;
+
     Pending )
-      # FIXME: Need something smarter here, adaptive sleep based on
+      # [FIXME] Need something smarter here, adaptive sleep based on
       # how much has been done and remains to be done.
-      sleep 5 ;;
+      echo "$ftsjob status is Pending";;
+
+    Active )
+      echo "$ftsjob status is Active";;
 
     Canceled )
-      # FIXME: Is it really "Canceled" (sic)?  Handle aborted job.
-      FIXME ;;
+      # [FIXME] how can I find it Canceled?
+      echo "$ftsjob status is Canceled";;
 
-    FIXME )
+    Hold )
+      # [FIXME] what to do in this case?
+      echo "$ftsjob status is Hold"
+      echo "glite-transfer-cancel -s $server $ftsjob"
+      glite-transfer-cancel -s $server $ftsjob
+      exitcode=1
+      ;;
+
+    Done )
+      echo "$ftsjob status is Done"
       # Job done, record report file, quit
       exitcode=0
       while read src dest; do
 	# FIXME: Get the transfer status for this pair
+        #echo "-- src $src"
+        #echo "-- dest: $dest"
+        #echo "-- status: $status"
+
 	[ X"$status" != X0 ] && exitcode=10
         echo "$src $dest $status"
-      done < "$copyjob" > "$report"
+      done < "$copyjobfile" > "$report"
       exit $exitcode
       ;;
 
@@ -76,5 +125,5 @@ while true; do
       echo "ftscp: unexpected job status $ftsstatus" 1>&2
       exit 4
       ;;
-  done
+  esac
 done
