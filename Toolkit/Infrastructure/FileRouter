@@ -241,7 +241,7 @@ sub route
           (select 1 from t_dps_block_dest b
 	   where b.destination = xq.destination and b.block = xq.inblock)},
 	":node" => $node);
-    # $dbh->commit();
+    $dbh->commit();
 
     ######################################################################
     # Phase 2: Expand file requests into transfer paths through the
@@ -348,7 +348,7 @@ sub route
     }
 
     &dbbindexec($istmt, %iargs) if %iargs;
-    # $dbh->commit();
+    $dbh->commit();
 
     ######################################################################
     # Phase 3: Confirm requests for which there are valid offers.
@@ -406,7 +406,7 @@ sub route
                 where xr.fileid = ffm.fileid
                   and xr.node = ffm.to_node)},
 	":me" => $node, ":now" => $now);
-    # $dbh->commit();
+    $dbh->commit();
 
     ######################################################################
     # Phase 4: Deactivate unsuccessful expired requests.
@@ -442,10 +442,10 @@ sub route
           and state = 1
           and :now >= time_expire},
 	":node" => $node, ":now" => $now);
-    # $dbh->commit();
+    $dbh->commit();
     
     ######################################################################
-    $dbh->commit();
+    # $dbh->commit();
 
     ######################################################################
     # Phase X: Update transfer parameters.
