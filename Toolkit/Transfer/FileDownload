@@ -185,16 +185,8 @@ sub stop
 sub resetPendingTransfers
 {
     my ($self, $dbh) = @_;
-    my $from_node_filter = "";
-    my ($dest, %dest_args) = &myNodeFilter ($self, "n.", "and");
-    my ($filter, %filter_args) = &otherNodeFilter ($self, "n.");
-    if ($filter)
-    {
-        $from_node_filter =
-            "and exists (select id from t_node n"
-	    . " where n.id = xs.from_node$filter)";
-    }
-
+    my ($dest, %dest_args) = &myNodeFilter ($self, "xs.to_node");
+    my ($filter, %filter_args) = &otherNodeFilter ($self, "xs.from_node");
     &dbexec ($dbh, qq{
 	update t_xfer_state xs
 	set xs.to_state = 0,
@@ -208,10 +200,10 @@ sub resetPendingTransfers
 	    xs.time_xfer_end = null,
 	    xs.time_error_start = null,
 	    xs.time_error_end = null
-	where exists (select id from t_node n where n.id = xs.to_node $dest)
+	where $dest
   	  and time_expire > :now
 	  and (to_state = 2 or (to_state = 100 and xs.time_error_end <= :now))
-  	  $from_node_filter},
+  	  $filter},
 	":now" => &mytimeofday(),
 	%dest_args, %filter_args);
 }
@@ -223,11 +215,11 @@ sub markFilesWanted
     my $now = &mytimeofday ();
     return if $$self{LAST_WANTED} > $now - 60;
 
-    my ($dest, %dest_args) = &myNodeFilter ($self, "n.", "and");
+    my ($dest, %dest_args) = &myNodeFilter ($self, "to_node");
 
     # Restore files from cool-off when they've done their time.
     &dbexec ($dbh, qq{
-	update t_xfer_state xs
+	update t_xfer_state
 	set to_state = 0,
 	    to_protocols = null,
 	    to_pfn = null,
@@ -236,7 +228,7 @@ sub markFilesWanted
 	    time_available = null,
 	    time_error_start = null,
 	    time_error_end = null
-	where exists (select id from t_node n where n.id = xs.to_node $dest)
+	where $dest
 	  and to_state = 100
           and time_error_end <= :now
           and time_expire > :now},
@@ -244,9 +236,9 @@ sub markFilesWanted
 
     # Mark all my files wanted.  We want this updated regularly enough.
     &dbexec ($dbh, qq{
-	update t_xfer_state xs
+	update t_xfer_state
 	set to_state = 1, time_request = :now
-	where exists (select id from t_node n where n.id = xs.to_node $dest)
+	where $dest
 	  and time_expire > :now
   	  and (time_request is null or time_request < :now - 300)
           and to_state <= 1},
@@ -267,8 +259,8 @@ sub updateLinkParameters
     # If we haven't refreshed parameters recently, update now.
     if ($$self{LAST_PARAMS} < $now - 600)
     {
-	my ($dest, %dest_args) = &myNodeFilter ($self, "nd.");
-	my ($filter, %filter_args) = &otherNodeFilter ($self, "ns.");
+	my ($dest, %dest_args) = &myNodeFilter ($self, "nd.id");
+	my ($filter, %filter_args) = &otherNodeFilter ($self, "ns.id");
 
 	# Read per-node parameters
 	my $q = &dbexec ($dbh, qq{
@@ -404,8 +396,8 @@ sub prepareFiles
     # Find files still lacking a file name, give them a name
     # and tell the other side which protocols we can accept.
     my $n = 0;
-    my ($dest, %dest_args) = &myNodeFilter ($self, "nd.");
-    my ($filter, %filter_args) = &otherNodeFilter ($self, "ns.");
+    my ($dest, %dest_args) = &myNodeFilter ($self, "xs.to_node");
+    my ($filter, %filter_args) = &otherNodeFilter ($self, "xs.from_node");
 
     my $proto = &dbprep($dbh, qq{
 	update t_xfer_state
@@ -482,8 +474,8 @@ sub refreshFiles
       for grep($$_{TO_STATE} != 2, values %{$$self{FILES}});
 
     # Fetch transfer backlog
-    my ($dest, %dest_args) = &myNodeFilter ($self, "nd.");
-    my ($filter, %filter_args) = &otherNodeFilter ($self, "ns.");
+    my ($dest, %dest_args) = &myNodeFilter ($self, "xs.to_node");
+    my ($filter, %filter_args) = &otherNodeFilter ($self, "xs.from_node");
 
     my $q = &dbexec ($dbh, qq{
 	select

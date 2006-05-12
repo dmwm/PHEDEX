@@ -75,7 +75,7 @@ sub idle
     eval
     {
 	($dbh, @nodes) = &expandNodesAndConnect ($self);
-	my ($nodes, %node_args) = &myNodeFilter ($self, "n.", "and");
+	my ($nodes, %node_args) = &myNodeFilter ($self, "xr.node");
 
 	# Mark files available/unavailable based on their local status.
 	# This agent reflects the stager and pfn export agents progress
@@ -94,7 +94,7 @@ sub idle
 	              join t_xfer_replica xr
 	                on xr.id = xs.from_replica
 	            where xr.state = 1
-	              and exists (select id from t_node n where n.id = xr.node $nodes)
+	              and $nodes
 		      and xs.from_state = 0
 	      	      and xs.from_pfn is not null)
 	    set from_state = 1, time_available = :now},

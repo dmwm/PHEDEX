@@ -75,21 +75,20 @@ sub idle
     eval
     {
 	($dbh, @nodes) = &expandNodesAndConnect ($self);
-	my ($nodes, %node_args) = &myNodeFilter ($self, "n.", "and");
+	my ($nodes, %node_args) = &myNodeFilter ($self, "xr.node");
 
 	# Mark everything available locally.
 	&dbexec($dbh, qq{
 	    update t_xfer_replica xr
 	    set state = 1, time_state = :now
-	    where state = 0
-	      and exists (select id from t_node n where n.id = xr.node $nodes)},
+	    where state = 0 and $nodes},
    	    ":now" => &mytimeofday(), %node_args);
 
 	# Mark all pending transfers ready to go.
 	&dbexec($dbh, qq{
 	    update t_xfer_state xs
 	    set from_state = 1, time_available = :now
-            where exists (select id from t_node n where n.id = xs.from_node $nodes)
+            where $nodes
 	      and from_pfn is not null
 	      and from_state = 0
               and to_state < 2},

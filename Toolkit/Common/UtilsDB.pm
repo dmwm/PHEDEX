@@ -445,10 +445,11 @@ sub expandNodesAndConnect
     foreach my $pat (@{$$self{NODES}})
     {
 	my $q = &dbexec($dbh, qq{
-	    select name from t_node where name like :pat},
+	    select id, name from t_node where name like :pat},
 	    ":pat" => $pat);
-	while (my ($name) = $q->fetchrow())
+	while (my ($id, $name) = $q->fetchrow())
 	{
+	    $$self{NODES_ID}{$name} = $id;
 	    push(@result, $name);
 
 	    $$self{MYNODE} = $name;
@@ -465,36 +466,74 @@ sub expandNodesAndConnect
 # Construct a database query for destination node pattern
 sub myNodeFilter
 {
-    my ($self, $prefix, $lead) = @_;
+    my ($self, $idfield) = @_;
     my (@filter, %args);
-    for (my $n = 0; $n < scalar @{$$self{NODES}}; ++$n)
+    my $n = 1;
+    foreach my $id (values %{$$self{NODES_ID}})
     {
-	$args{":dest$n"} = $$self{NODES}[$n];
-	push(@filter, "${prefix}name like :dest$n");
+	$args{":dest$n"} = $id;
+	push(@filter, "$idfield = :dest$n");
+	++$n;
     }
 
-    my $filter = $lead ? "$lead " : "";
-    $filter .=  "(" . join(" or ", @filter) . ")";
+    my $filter =  "(" . join(" or ", @filter) . ")";
     return ($filter, %args);
 }
 
 # Construct database query parameters for ignore/accept filters.
 sub otherNodeFilter
 {
-    my ($self, $prefix) = @_;
-    my ($filter, %args) = "";
-    for (my $n = 0; $n < scalar @{$$self{IGNORE_NODES}}; ++$n)
+    my ($self, $idfield) = @_;
+    my $now = &mytimeofday();
+    if (($$self{IGNORE_NODES_IDS}{LAST_CHECK} || 0) < $now - 300)
     {
-	$args{":ignore$n"} = $$self{IGNORE_NODES}[$n];
-	$filter .= " and ${prefix}name not like :ignore$n";
-    }
-    for (my $n = 0; $n < scalar @{$$self{ACCEPT_NODES}}; ++$n)
-    {
-	$args{":accept$n"} = $$self{ACCEPT_NODES}[$n];
-	$filter .= " and ${prefix}name like :accept$n";
+	my $q = &dbprep($$self{DBH}, qq{
+	    select id from t_node where name like :pat});
+
+        for (my $n = 0; $n < scalar @{$$self{IGNORE_NODES}}; ++$n)
+        {
+	    my ($id) = &dbbindexec($q, ":pat" => $$self{IGNORE_NODES}[$n])->fetchrow();
+	    $$self{IGNORE_NODES_IDS}{MAP}{$n} = $id if defined $id;
+	    $q->finish();
+        }
+
+        for (my $n = 0; $n < scalar @{$$self{ACCEPT_NODES}}; ++$n)
+        {
+	    my ($id) = &dbbindexec($q, ":pat" => $$self{ACCEPT_NODES}[$n])->fetchrow();
+	    $$self{ACCEPT_NODES_IDS}{MAP}{$n} = $id if defined $id;
+	    $q->finish();
+        }
+
+	$$self{IGNORE_NODES_IDS}{LAST_CHECK} = $now;
     }
 
-    return ($filter, %args);
+    my (@ifilter, @afilter, %args);
+    while (my ($n, $id) = each %{$$self{IGNORE_NODES_IDS}{MAP}})
+    {
+	$args{":ignore$n"} = $id;
+	push(@ifilter, "$idfield != :ignore$n");
+    }
+    while (my ($n, $id) = each %{$$self{ACCEPT_NODES_IDS}{MAP}})
+    {
+	$args{":accept$n"} = $id;
+	push(@afilter, "$idfield = :accept$n");
+    }
+
+    my $ifilter = (@ifilter ? join(" and ", @ifilter) : "");
+    my $afilter = (@afilter ? join(" or ", @afilter) : "");
+    if (@ifilter && @afilter)
+    {
+	return ("and ($ifilter) and ($afilter)", %args);
+    }
+    elsif (@ifilter)
+    {
+	return ("and ($ifilter)", %args);
+    }
+    elsif (@afilter)
+    {
+	return ("and ($afilter)", %args);
+    }
+    return ("", ());
 }
 
 ######################################################################
