@@ -1,0 +1,345 @@
+### ENVIRON common
+PHEDEX_BASE=/data/lat;
+PHEDEX_CONF=$PHEDEX_BASE/SITECONF/CERN/PhEDEx;
+PHEDEX_DBPARAM=$PHEDEX_CONF/DBParam:Validation;
+PHEDEX_STATE=$PHEDEX_BASE/state;
+PHEDEX_LOGS=$PHEDEX_BASE/logs;
+PHEDEX_SCRIPTS=$PHEDEX_BASE/PHEDEX;
+PHEDEX_STORAGE_MAP=$PHEDEX_SCRIPTS/Testbed/ProductionScaling/storage.xml;
+
+source /data/tim/tools/oraenv.sh;
+source /data/tim/tools/perlenv.sh;
+
+### AGENT LABEL=mgmt-blockmon PROGRAM=Toolkit/Workflow/BlockMonitor
+ -db        ${PHEDEX_DBPARAM}
+ -node      T1_CERN_Buffer
+
+### AGENT LABEL=mgmt-blockalloc PROGRAM=Toolkit/Workflow/BlockAllocator
+ -db        ${PHEDEX_DBPARAM}
+ -node      T1_CERN_Buffer
+
+### AGENT LABEL=mgmt-blockactiv PROGRAM=Toolkit/Workflow/BlockActivate
+ -db        ${PHEDEX_DBPARAM}
+ -node      T1_CERN_Buffer
+
+### AGENT LABEL=mgmt-blockdeact PROGRAM=Toolkit/Workflow/BlockDeactivate
+ -db        ${PHEDEX_DBPARAM}
+ -node      T1_CERN_Buffer
+
+### AGENT LABEL=info-pm PROGRAM=Toolkit/Monitoring/PerfMonitor
+ -db        ${PHEDEX_DBPARAM}
+ -node      T1_CERN_Buffer
+
+### AGENT LABEL=info-tc PROGRAM=Toolkit/Monitoring/InfoStatesClean
+ -db        ${PHEDEX_DBPARAM}
+ -node      T1_CERN_Buffer
+
+### AGENT LABEL=info-fs PROGRAM=Toolkit/Monitoring/InfoFileSize
+ -db        ${PHEDEX_DBPARAM}
+ -node      T1_CERN_Buffer
+
+### AGENT LABEL=info-ds PROGRAM=Toolkit/Monitoring/InfoDropStatus
+ -db          ${PHEDEX_DBPARAM}
+ -node	      T1_CERN_Buffer
+ -site        All
+ -dir         ${PHEDEX_STATE}
+
+### AGENT LABEL=oddsandends-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T3%,TX%,TV%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+
+### AGENT LABEL=oddsandends-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T3%,TX%,TV%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=oddsandends-router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db        ${PHEDEX_DBPARAM}
+ -nodes     'T3%,TX%,TV%'
+
+### AGENT LABEL=oddsandends-exporter PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T3%,TX%,TV%'
+
+### AGENT LABEL=asgc-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%ASGC%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+
+### AGENT LABEL=asgc-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%ASGC%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=asgc-router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db        ${PHEDEX_DBPARAM}
+ -nodes     '%ASGC%'
+
+### AGENT LABEL=asgc-exporter PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%ASGC%'
+
+### AGENT LABEL=cern-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%CERN%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+
+### AGENT LABEL=cern-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%CERN%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=cern-router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db        ${PHEDEX_DBPARAM}
+ -nodes     '%CERN%'
+
+### AGENT LABEL=cern-exporter PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%CERN%'
+
+### AGENT LABEL=cnaf-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%CNAF%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+
+### AGENT LABEL=cnaf-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%CNAF%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=cnaf-router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db        ${PHEDEX_DBPARAM}
+ -nodes     '%CNAF%'
+
+### AGENT LABEL=cnaf-exporter PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%CNAF%'
+
+### AGENT LABEL=fnal-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%FNAL%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+
+### AGENT LABEL=fnal-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%FNAL%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=fnal-router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db        ${PHEDEX_DBPARAM}
+ -nodes     '%FNAL%'
+
+### AGENT LABEL=fnal-exporter PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%FNAL%'
+
+### AGENT LABEL=fzk-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%FZK%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+
+### AGENT LABEL=fzk-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%FZK%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=fzk-router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db        ${PHEDEX_DBPARAM}
+ -nodes     '%FZK%'
+
+### AGENT LABEL=fzk-exporter PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%FZK%'
+
+### AGENT LABEL=in2p3-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%IN2P3%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+
+### AGENT LABEL=in2p3-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%IN2P3%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=in2p3-router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db        ${PHEDEX_DBPARAM}
+ -nodes     '%IN2P3%'
+
+### AGENT LABEL=in2p3-exporter PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%IN2P3%'
+
+### AGENT LABEL=pic-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%PIC%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+
+### AGENT LABEL=pic-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%PIC%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=pic-router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db        ${PHEDEX_DBPARAM}
+ -nodes     '%PIC%'
+
+### AGENT LABEL=pic-exporter PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%PIC%'
+
+### AGENT LABEL=ral-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%RAL%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+
+### AGENT LABEL=ral-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%RAL%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=ral-router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db        ${PHEDEX_DBPARAM}
+ -nodes     '%RAL%'
+
+### AGENT LABEL=ral-exporter PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%RAL%'
+
+### AGENT LABEL=b-t2-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T2_B%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+
+### AGENT LABEL=b-t2-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes '%T2_B%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=b-t2-router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db        ${PHEDEX_DBPARAM}
+ -nodes     'T2_B%'
+
+### AGENT LABEL=b-t2-exporter PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T2_B%'
+
+### AGENT LABEL=c-d-t2-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T2_C%,T2_D%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+
+### AGENT LABEL=c-d-t2-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T2_C%,T2_D%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=c-d-t2-router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db        ${PHEDEX_DBPARAM}
+ -nodes     'T2_C%,T2_D%'
+
+### AGENT LABEL=c-d-t2-exporter PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T2_C%,T2_D%'
+
+### AGENT LABEL=e-f-g-h-t2-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T2_E%,T2_F%,T2_G%,T2_H%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+
+### AGENT LABEL=e-f-g-h-t2-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T2_E%,T2_F%,T2_G%,T2_H%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=e-f-g-h-t2-router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db        ${PHEDEX_DBPARAM}
+ -nodes     'T2_E%,T2_F%,T2_G%,T2_H%'
+
+### AGENT LABEL=e-f-g-h-t2-exporter PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T2_E%,T2_F%,T2_G%,T2_H%'
+
+### AGENT LABEL=i-l-m-n-t2-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T2_I%,T2_L%,T2_M%,T2_N%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+
+### AGENT LABEL=i-l-m-n-t2-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T2_I%,T2_L%,T2_M%,T2_N%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=i-l-m-n-t2-router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db        ${PHEDEX_DBPARAM}
+ -nodes     'T2_I%,T2_L%,T2_M%,T2_N%'
+
+### AGENT LABEL=i-l-m-n-t2-exporter PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T2_I%,T2_L%,T2_M%,T2_N%'
+
+### AGENT LABEL=p-r-s-t-t2-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T2_P%,T2_R%,T2_S%,T2_T%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+
+### AGENT LABEL=p-r-s-t-t2-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T2_P%,T2_R%,T2_S%,T2_T%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=p-r-s-t-t2-router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db        ${PHEDEX_DBPARAM}
+ -nodes     'T2_P%,T2_R%,T2_S%,T2_T%'
+
+### AGENT LABEL=p-r-s-t-t2-exporter PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T2_P%,T2_R%,T2_S%,T2_T%'
+
+### AGENT LABEL=u-w-t2-xfer PROGRAM=Toolkit/Transfer/FileDownload
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T2_U%,T2_W%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -backend Null
+
+### AGENT LABEL=u-w-t2-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T2_U%,T2_W%'
+ -storagemap ${PHEDEX_STORAGE_MAP}
+ -protocols srm
+
+### AGENT LABEL=u-w-t2-router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db        ${PHEDEX_DBPARAM}
+ -nodes     'T2_U%,T2_W%'
+
+### AGENT LABEL=u-w-t2-exporter PROGRAM=Toolkit/Transfer/FileDiskExport
+ -db ${PHEDEX_DBPARAM}
+ -nodes 'T2_U%,T2_W%'
