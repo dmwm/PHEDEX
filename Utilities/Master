@@ -4,6 +4,7 @@
 ##H Master -config FILE[,FILE...] start     [AGENT... | all]
 ##H Master -config FILE[,FILE...] stop      [AGENT... | all]
 ##H Master -config FILE[,FILE...] terminate [AGENT... | all]
+##H Master -config FILE[,FILE...] kill      [AGENT... | all]
 ##H Master -config FILE[,FILE...] show      [AGENT... | all]
 ##H
 ##H Manage an agent configuration.  If more than one configuration file
@@ -35,6 +36,7 @@
 ##H shell commands the master would issue instead of executing them.
 ##H
 ##H The "terminate" forcefully terminates (kills) the specified agents.
+##H "kill" is the same, but even more forceful (kill -9).
 
 # First we need to parse the command line arguments
 BEGIN { use warnings; use strict; $^W=1; }
@@ -136,7 +138,7 @@ foreach my $file (@{$args{CONFIG}})
 }
 
 # And finally act on all this information
-if (grep ($mode eq $_, qw(start stop show terminate)))
+if (grep ($mode eq $_, qw(start stop show terminate kill)))
 {
     if ($mode eq 'show') {
 	open (SH, ">&STDOUT") or die "cannot open output: $!\n";
@@ -177,9 +179,11 @@ if (grep ($mode eq $_, qw(start stop show terminate)))
 		 (" -log ", $logfile),
 		 $$agent{OPTS});
 	} elsif ($mode eq 'stop') {
-	    print SH "touch $statedir/stop";
+	    print SH "[ -d $statedir ] && touch $statedir/stop";
 	} elsif ($mode eq 'terminate') {
-	    print SH "kill \$(cat $statedir/pid)";
+	    print SH "[ -f $statedir/pid ] && kill \$(cat $statedir/pid)";
+	} elsif ($mode eq 'kill') {
+	    print SH "[ -f $statedir/pid ] && kill -9 \$(cat $statedir/pid)";
 	}
 	print SH ")\n";
     }
