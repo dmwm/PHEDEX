@@ -10,19 +10,19 @@ PHEDEX_STORAGE_MAP=$PHEDEX_SCRIPTS/Testbed/ProductionScaling/storage.xml;
 source /data/tim/tools/oraenv.sh;
 source /data/tim/tools/perlenv.sh;
 
-### AGENT LABEL=mgmt-blockmon PROGRAM=Toolkit/Workflow/BlockMonitor
+### AGENT LABEL=mgmt-blockmon PROGRAM=Toolkit/Workflow/BlockMonitor NICE=+3
  -db          ${PHEDEX_DBPARAM}
  -node        T1_CERN_Buffer
 
-### AGENT LABEL=mgmt-blockalloc PROGRAM=Toolkit/Workflow/BlockAllocator
+### AGENT LABEL=mgmt-blockalloc PROGRAM=Toolkit/Workflow/BlockAllocator NICE=+3
  -db          ${PHEDEX_DBPARAM}
  -node        T1_CERN_Buffer
 
-### AGENT LABEL=mgmt-blockactiv PROGRAM=Toolkit/Workflow/BlockActivate
+### AGENT LABEL=mgmt-blockactiv PROGRAM=Toolkit/Workflow/BlockActivate NICE=+3
  -db          ${PHEDEX_DBPARAM}
  -node        T1_CERN_Buffer
 
-### AGENT LABEL=mgmt-blockdeact PROGRAM=Toolkit/Workflow/BlockDeactivate
+### AGENT LABEL=mgmt-blockdeact PROGRAM=Toolkit/Workflow/BlockDeactivate NICE=+3
  -db          ${PHEDEX_DBPARAM}
  -node        T1_CERN_Buffer
 
@@ -34,11 +34,11 @@ source /data/tim/tools/perlenv.sh;
  -db          ${PHEDEX_DBPARAM}
  -node        T1_CERN_Buffer
 
-### AGENT LABEL=info-fs PROGRAM=Toolkit/Monitoring/InfoFileSize
+### AGENT LABEL=info-fs PROGRAM=Toolkit/Monitoring/InfoFileSize NICE=+3
  -db          ${PHEDEX_DBPARAM}
  -node        T1_CERN_Buffer
 
-### AGENT LABEL=info-ds PROGRAM=Toolkit/Monitoring/InfoDropStatus
+### AGENT LABEL=info-ds PROGRAM=Toolkit/Monitoring/InfoDropStatus NICE=+3
  -db          ${PHEDEX_DBPARAM}
  -node	      T1_CERN_Buffer
  -site        All
@@ -48,17 +48,29 @@ source /data/tim/tools/perlenv.sh;
  -db          ${PHEDEX_DBPARAM}
  -nodes       '%'
 
-### AGENT LABEL=xfer PROGRAM=Toolkit/Transfer/FileDownload NICE=+3
- -db          ${PHEDEX_DBPARAM}
- -nodes       '%'
- -storagemap  ${PHEDEX_STORAGE_MAP}
- -backend     Null
-
 ### AGENT LABEL=pfn PROGRAM=Toolkit/Transfer/FilePFNExport
  -db          ${PHEDEX_DBPARAM}
  -nodes       '%'
  -storagemap  ${PHEDEX_STORAGE_MAP}
  -protocols   srm
+
+### AGENT LABEL=xfer-t1 PROGRAM=Toolkit/Transfer/FileDownload NICE=+3
+ -db          ${PHEDEX_DBPARAM}
+ -nodes       'T__A%,T__B%,T__C%,T__D%,T__E%,T__F%,T__G%,T__H%,T__I%'
+ -storagemap  ${PHEDEX_STORAGE_MAP}
+ -backend     Null
+
+### AGENT LABEL=xfer-t2 PROGRAM=Toolkit/Transfer/FileDownload NICE=+3
+ -db          ${PHEDEX_DBPARAM}
+ -nodes       'T__J%,T__K%,T__L%,T__M%,T__N%,T__P%,T__O%,T__P%,T__Q%'
+ -storagemap  ${PHEDEX_STORAGE_MAP}
+ -backend     Null
+
+### AGENT LABEL=xfer-t3 PROGRAM=Toolkit/Transfer/FileDownload NICE=+3
+ -db          ${PHEDEX_DBPARAM}
+ -nodes       'T__R%,T__S%,T__T%,T__U%,T__V%,T__W%,T__X%,T__Y%,T__Z%'
+ -storagemap  ${PHEDEX_STORAGE_MAP}
+ -backend     Null
 
 ### AGENT LABEL=export-t1 PROGRAM=Toolkit/Transfer/FileDiskExport NICE=+3
  -db          ${PHEDEX_DBPARAM}
