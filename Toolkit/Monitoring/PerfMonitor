@@ -134,11 +134,11 @@ sub idle
 		from
 		  (select
 		       xp.from_node, xp.to_node,
-		       2 * xp.priority + xp.local_boost priority,
+		       2 * xp.priority + 1-xp.local_boost priority,
 		       xp.fileid, f.filesize, count(xp.fileid) weight
 		   from t_xfer_path xp join t_xfer_file f on f.id = xp.fileid
 		   group by xp.from_node, xp.to_node,
-			    2 * xp.priority + xp.local_boost,
+			    2 * xp.priority + 1-xp.local_boost,
 			    xp.fileid, f.filesize) s
 		group by :timebin, :timewidth, s.from_node, s.to_node, s.priority)
 		v
