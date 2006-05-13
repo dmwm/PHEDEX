@@ -64,15 +64,19 @@ alter table t_xfer_file
 create index ix_dps_file_node
   on t_dps_file (node);
 
-create index ix_dps_file_id_filesize
-  on t_dps_file (id, filesize);
+-- create index ix_dps_file_id_filesize
+--   on t_dps_file (id, filesize);
 
-create index ix_dps_file_inblock_id
-  on t_dps_file (inblock, id);
+-- create index ix_dps_file_inblock_id
+--   on t_dps_file (inblock, id);
+create index ix_dps_file_inblock
+  on t_dps_file (inblock);
 
 
-create index ix_xfer_file_id_filesize
-  on t_xfer_file (id, filesize);
+-- create index ix_xfer_file_id_filesize
+--   on t_xfer_file (id, filesize);
 
-create index ix_xfer_file_inblock_id
-  on t_xfer_file (inblock, id);
+-- create index ix_xfer_file_inblock_id
+--   on t_xfer_file (inblock, id);
+create index ix_xfer_file_inblock
+  on t_xfer_file (inblock);

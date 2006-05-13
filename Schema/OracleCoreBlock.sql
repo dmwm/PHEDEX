@@ -220,8 +220,10 @@ create index ix_dps_block_dataset
 create index ix_dps_block_dest_dataset
   on t_dps_block_dest (dataset);
 
-create index ix_dps_block_dest_complete
-  on t_dps_block_dest (destination, time_complete);
+-- create index ix_dps_block_dest_complete
+--   on t_dps_block_dest (destination, time_complete);
+create index ix_dps_block_dest_dest
+  on t_dps_block_dest (destination);
 
 create index ix_dps_block_activate_b
   on t_dps_block_activate (block);
