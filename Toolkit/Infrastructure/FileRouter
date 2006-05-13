@@ -109,10 +109,7 @@ sub idle
 	my $costs = {};
 	foreach my $node (@nodes)
 	{
-	    my ($nodeid) = &dbexec ($dbh, qq{
-	        select id from t_node where name = :name},
-	        ":name" => $node)->fetchrow();
-
+	    my $nodeid = $$self{NODES_ID}{$node};
 	    $self->route ($dbh, $nodeid, $links, $costs);
 	    $self->maybeStop();
 	}
