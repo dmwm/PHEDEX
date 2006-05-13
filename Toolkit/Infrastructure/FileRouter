@@ -93,13 +93,27 @@ sub idle
 
 	($dbh, @nodes) = &expandNodesAndConnect ($self);
 
+	# Read links and their parameters
+	my $links = {};
+	my $q = &dbexec($dbh, qq{
+	    select l.from_node, l.to_node, l.distance, l.local_boost, nvl(lp.penalty,1)
+	    from t_link l left join t_link_param lp on lp.link = l.id});
+	while (my ($from, $to, $hops, $boost, $penalty) = $q->fetchrow())
+	{
+	    $$links{$from}{$to} = { HOPS => $hops,
+				    LOCAL_BOOST => $boost,
+				    PENALTY => $penalty };
+	}
+
+	# Now route for the nodes
+	my $costs = {};
 	foreach my $node (@nodes)
 	{
 	    my ($nodeid) = &dbexec ($dbh, qq{
 	        select id from t_node where name = :name},
 	        ":name" => $node)->fetchrow();
 
-	    $self->route ($dbh, $nodeid);
+	    $self->route ($dbh, $nodeid, $links, $costs);
 	    $self->maybeStop();
 	}
 
@@ -118,7 +132,7 @@ sub idle
 # Run the routing algorithm for one node.
 sub route
 {
-    my ($self, $dbh, $node) = @_;
+    my ($self, $dbh, $node, $links, $costs) = @_;
 
     ######################################################################
     # Phase 1: Issue file requests for blocks pending some of their files.
@@ -195,7 +209,7 @@ sub route
 	# adding blocks until we've added at least 500 files; select
 	# the blocks in order of priority and age (highest priority
 	# = smallest priority value).
-	my $nfiles = 0;
+	my $nbytes = 0;
 	my $i = &dbprep($dbh, qq{
 	    insert into t_xfer_request
 	      (fileid, inblock, destination, priority, state,
@@ -210,7 +224,7 @@ sub route
 	    set state = 1, time_active = :now
 	    where block = :block and destination = :node});
 	my $q = &dbexec($dbh, qq{
-	    select bd.block, bd.priority, b.files
+	    select bd.block, bd.priority, b.bytes
 	    from t_dps_block_dest bd
 	      join t_dps_block b on b.id = bd.block
 	    where bd.destination = :node
@@ -221,7 +235,7 @@ sub route
 	    order by bd.priority asc, bd.time_create asc
 	    /* for update of b.id */},
 	    ":node" => $node, ":now" => $now);
-        while (my ($block, $priority, $files) = $q->fetchrow())
+        while (my ($block, $priority, $bytes) = $q->fetchrow())
 	{
 	    &dbbindexec($u,
 		        ":block" => $block,
@@ -234,7 +248,7 @@ sub route
 			":priority" => $priority,
 			":now" => $now);
 
-	    last if ($nfiles += $files) >= 500;
+	    last if ($nbytes += $bytes) >= TERABYTE;
 	}
 
 	# Release the locks on t_dps_block
@@ -267,7 +281,7 @@ sub route
           (select 1 from t_dps_block_dest b
 	   where b.destination = xq.destination and b.block = xq.inblock)},
 	":node" => $node);
-    # $dbh->commit();
+    $dbh->commit();
 
     ######################################################################
     # Phase 2: Expand file requests into transfer paths through the
@@ -287,18 +301,6 @@ sub route
     # current network conditions.  We calculate a least-cost transfer
     # path for each file.  We then update the database.
 
-    # Read links and their parameters
-    delete $$self{LINKS};
-    $q = &dbexec($dbh, qq{
-	select l.from_node, l.to_node, l.distance, l.local_boost, nvl(lp.penalty,1)
-	from t_link l left join t_link_param lp on lp.link = l.id});
-    while (my ($from, $to, $hops, $boost, $penalty) = $q->fetchrow())
-    {
-	$$self{LINKS}{$from}{$to} = { HOPS => $hops,
-				      LOCAL_BOOST => $boost,
-				      PENALTY => $penalty };
-    }
-
     # Clear old paths and those missing a request
     &dbexec($dbh, qq{
         delete from t_xfer_path xp
@@ -310,7 +312,7 @@ sub route
 	":node" => $node, ":now" => $now);
     
     # Read requests and replicas for requests without paths
-    delete $$self{REQUESTS};
+    my $requests = {};
     $q = &dbexec($dbh, qq{
 	select
 	    xq.fileid, f.filesize,
@@ -331,16 +333,17 @@ sub route
     while (my ($file, $size, $priority, $create, $expire,
 	       $rnode, $state) = $q->fetchrow())
     {
-	$$self{REQUESTS}{$file} ||= { FILEID => $file,
-				      FILESIZE => $size,
-				      PRIORITY => $priority,
-				      TIME_CREATE => $create,
-				      TIME_EXPIRE => $expire };
-	$$self{REQUESTS}{$file}{REPLICAS}{$rnode} = $state;
+	$$requests{$file} ||= { FILEID => $file,
+				FILESIZE => $size,
+				PRIORITY => $priority,
+				TIME_CREATE => $create,
+				TIME_EXPIRE => $expire };
+	$$requests{$file}{REPLICAS}{$rnode} = $state;
+	$self->routeCost($links, $costs, $rnode, $state);
     }
 
     # Build optimal file paths
-    $self->routeFile($node, $_) for values %{$$self{REQUESTS}};
+    $self->routeFile($node, $links, $costs, $_) for values %$requests;
 
     # Update database
     my %iargs;
@@ -351,7 +354,7 @@ sub route
 	 time_request, time_confirm, time_expire)
 	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
 
-    foreach my $req (values %{$$self{REQUESTS}})
+    foreach my $req (values %$requests)
     {
 	foreach my $hop (@{$$req{PATH}})
 	{
@@ -374,7 +377,8 @@ sub route
     }
 
     &dbbindexec($istmt, %iargs) if %iargs;
-    # $dbh->commit();
+    $dbh->commit();
+    undef $requests;
 
     ######################################################################
     # Phase 3: Confirm requests for which there are valid offers.
@@ -432,7 +436,7 @@ sub route
                 where xr.fileid = ffm.fileid
                   and xr.node = ffm.to_node)},
 	":me" => $node, ":now" => $now);
-    # $dbh->commit();
+    $dbh->commit();
 
     ######################################################################
     # Phase 4: Deactivate unsuccessful expired requests.
@@ -493,61 +497,52 @@ sub route
 
 }
 
-# Computes the optimal route for the file.
-sub routeFile
+# Calculate prototype file transfer cost.  The only factor affecting
+# the cost of a file in the network is its source node and whether
+# the file is staged in; the rest is determined by link parameters.
+# So there is no reason to calculate the full minimum-spanning tree
+# algorithm for every file -- we just calculate prototype costs for
+# "staged file at node n", and propagate those costs to the entire
+# network.  The actual file routing then just picks cheapest paths.
+sub routeCost
 {
-    my ($self, $dest, $request) = @_;
+    my ($self, $links, $costs, $node, $state) = @_;
 
-    # Propagate known replicas to this node using available network
-    # links.  We use current cheapest path as the cost ceiling to
-    # cut off the path traversal as early as we can.
+    # If we already have a cost for this prototype, return immediately
+    return if exists $$costs{$node} && exists $$costs{$node}{$state};
 
-    # Initialise the starting points.  Each replica gets a cost of 1
-    # for staged in file, and cost of 100 for unstaged file.
-    my (%todo, %paths, $cheapest);
-    foreach my $node (keys %{$$request{REPLICAS}})
-    {
-	my $cost = $$request{REPLICAS}{$node} ? 1 : 100;
-	$paths{$node} = { SRC_NODE => $node,
-			  FROM_NODE => $node,
-			  TO_NODE => $node,
-			  COST => $cost,
-			  TOTAL_COST => $cost,
-			  PENALTY => 1,
-		          HOPS => 0 };
-	$todo{$node} = 1;
-	$cheapest = $cost if $node == $dest;
-    }
+    # Initialise the starting point: 1 for staged file, 100 for not staged.
+    my %todo = ($node => 1);
+    my $cost = $state ? 1 : 100;
+    my $paths = $$costs{$node}{$state} = {};
+    $$paths{$node} = {
+	SRC_NODE => $node,
+	FROM_NODE => $node,
+	TO_NODE => $node,
+	COST => $cost,
+	TOTAL_COST => $cost,
+	PENALTY => 1,
+	HOPS => 0
+    };
 
     # Now use Dijkstra's algorithm to compute minimum spanning tree.
-    # Traverse out of each replica until we find $dest, then remember
-    # that as the cheapest alternative to prune off further searches.
-    # (FIXME: Allow cheapest modulo some fraction for load balancing?)
     while (%todo)
     {
-	# sort { $paths{$a}{TOTAL_COST} <=> $paths{$b}{TOTAL_COST} }?
 	foreach my $from (keys %todo)
 	{
 	    # Remove from list of nodes to do.
 	    delete $todo{$from};
 
 	    # Compute cost at each neighbour.
-	    foreach my $to (keys %{$$self{LINKS}{$from}})
+	    foreach my $to (keys %{$$links{$from}})
 	    {
-		my $penalty = $$self{LINKS}{$from}{$to}{PENALTY};
-		my $cost = ($$self{LINKS}{$from}{$to}{HOPS}
-			    * max(1, ($$request{FILESIZE}/(10 * MEGABYTE)))
-			    * $penalty);
-		my $totcost = $paths{$from}{TOTAL_COST} + $cost;
+		my $penalty = $$links{$from}{$to}{PENALTY};
+		my $cost = ($$links{$from}{$to}{HOPS} * $penalty);
+		my $totcost = $$paths{$from}{TOTAL_COST} + $cost;
 
-		if (defined $cheapest && $cheapest < $totcost)
-		{
-		    # Already found a cheaper alternative
-		    next;
-		}
-		elsif (exists $paths{$to}
-		       && ($paths{$to}{HOPS} == 0
-			   || $paths{$to}{TOTAL_COST} <= $totcost))
+		if (exists $$paths{$to}
+		    && ($$paths{$to}{HOPS} == 0
+			|| $$paths{$to}{TOTAL_COST} <= $totcost))
 		{
 		    # Existing path is better.
 		    next;
@@ -555,41 +550,63 @@ sub routeFile
 		else
 		{
 		    # No existing path or it's more expensive.
-		    $paths{$to} = { SRC_NODE => $paths{$from}{SRC_NODE},
-				    FROM_NODE => $from,
-				    TO_NODE => $to,
-				    COST => $cost,
-				    TOTAL_COST => $totcost,
-				    PENALTY => $penalty,
-				    HOPS => $paths{$from}{HOPS} + 1 };
+		    $$paths{$to} = { SRC_NODE => $$paths{$from}{SRC_NODE},
+				     FROM_NODE => $from,
+				     TO_NODE => $to,
+				     COST => $cost,
+				     TOTAL_COST => $totcost,
+				     PENALTY => $penalty,
+				     HOPS => $$paths{$from}{HOPS} + 1 };
 		    $todo{$to} = 1;
-
-		    # If cheapest solution so far, remember.
-		    $cheapest = $totcost
-			if ($to == $dest
-			    && (! defined $cheapest
-				|| $cheapest > $totcost));
 		}
 	    }
 	}
     }
+}
+
+# Computes the optimal route for the file.
+sub routeFile
+{
+    my ($self, $dest, $links, $costs, $request) = @_;
+
+    # Use the precomupted replica path costs to pick the cheapest
+    # available file we could transfer.  The costs are scaled by the
+    # size of the file (it doesn't affect the result, but goes into
+    # the tables on output).
+    my $best = undef;
+    my $sizefactor = max(1, $$request{FILESIZE}/(100 * MEGABYTE));
+    foreach my $node (keys %{$$request{REPLICAS}})
+    {
+	my $state = $$request{REPLICAS}{$node};
+	my $this = $$costs{$node}{$state};
+	next if ! exists $$this{$dest};
+
+	$best = $this
+	    if (! defined $best
+		|| $$this{$dest}{HOPS} == 0
+		|| $$this{$dest}{TOTAL_COST} <= $$best{$dest}{TOTAL_COST});
+    }
 
     # Now record path to the cheapest replica found, if we found one.
     delete $$request{PATH};
-    if (defined $cheapest)
+    if (defined $best)
     {
 	my $index = 0;
 	my $node = $dest;
 	my $local = 1;
-	while ($paths{$node}{FROM_NODE} != $paths{$node}{TO_NODE})
+	while ($$best{$node}{FROM_NODE} != $$best{$node}{TO_NODE})
 	{
-	    my $from = $paths{$node}{FROM_NODE};
-	    $local *= ((! exists $$self{LINKS}{$node}
-			|| ! exists $$self{LINKS}{$node}{$from})
-		       ? 0 : $$self{LINKS}{$node}{$from}{LOCAL_BOOST});
-	    $paths{$node}{INDEX} = $index++;
-	    $paths{$node}{LOCAL_BOOST} = $local;
-	    push(@{$$request{PATH}}, $paths{$node});
+	    my $from = $$best{$node}{FROM_NODE};
+	    $local *= ((! exists $$links{$node}
+			|| ! exists $$links{$node}{$from})
+		       ? 0 : $$links{$node}{$from}{LOCAL_BOOST});
+
+	    my $item = { %{$$best{$node}} };
+	    $$item{INDEX} = $index++;
+	    $$item{LOCAL_BOOST} = $local;
+	    $$item{TOTAL_COST} *= $sizefactor;
+	    $$item{COST} *= $sizefactor;
+	    push(@{$$request{PATH}}, $item);
 	    $node = $from;
 	}
 	
