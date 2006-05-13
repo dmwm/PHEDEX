@@ -132,9 +132,8 @@ sub idle
 	# executed too often.
 	my %active = ();
         my $qactive = &dbexec($dbh, qq{
-	    select bd.block, bd.destination, count(f.id), sum(f.filesize)
-	    from t_dps_block_dest bd join t_xfer_file f on f.inblock = bd.block
-	    group by bd.block, bd.destination});
+	    select bd.block, bd.destination, b.files, b.bytes
+	    from t_dps_block_dest bd join t_dps_block b on b.id = bd.block});
         while (my ($block, $node, $files, $bytes) = $qactive->fetchrow())
         {
 	    $active{$block}{$node} ||= { BLOCK => $block, NODE => $node };
