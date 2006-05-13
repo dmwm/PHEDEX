@@ -178,6 +178,9 @@ if (grep ($mode eq $_, qw(start stop show terminate kill)))
 		 (" -", $$agent{STATEOPT} || "state", " ", $statedir),
 		 (" -log ", $logfile),
 		 $$agent{OPTS});
+
+	    print SH "; renice $$agent{NICE} -p \$(cat $statedir/pid)"
+	        if $$agent{NICE};
 	} elsif ($mode eq 'stop') {
 	    print SH "[ -d $statedir ] && touch $statedir/stop";
 	} elsif ($mode eq 'terminate') {
