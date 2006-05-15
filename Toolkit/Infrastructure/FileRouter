@@ -516,8 +516,10 @@ sub routeCost
 	SRC_NODE => $node,
 	FROM_NODE => $node,
 	TO_NODE => $node,
+	SRC_COST => $cost,
+	XFER_COST => 0,
 	COST => $cost,
-	TOTAL_COST => $cost,
+	LOCAL_BOOST => 1,
 	PENALTY => 1,
 	HOPS => 0
     };
@@ -535,23 +537,28 @@ sub routeCost
 	    {
 		my $penalty = $$links{$from}{$to}{PENALTY};
 		my $cost = ($$links{$from}{$to}{HOPS} * $penalty);
-		my $totcost = $$paths{$from}{TOTAL_COST} + $cost;
+		my $totcost = $$paths{$from}{XFER_COST} + $cost;
+	        my $local = ($$paths{$from}{LOCAL_BOOST}
+			     * ((! exists $$links{$to}
+			         || ! exists $$links{$to}{$from})
+		                ? 0 : $$links{$to}{$from}{LOCAL_BOOST}));
 
-		if (exists $$paths{$to}
-		    && ($$paths{$to}{HOPS} == 0
-			|| $$paths{$to}{TOTAL_COST} <= $totcost))
-		{
-		    # Existing path is better.
-		    next;
-		}
-		else
+		# Update the path if there is none yet, if we have local
+		# path and existing is not local, or if we now have a
+		# better cost without changing local attribute.
+		if (! exists $$paths{$to}
+		    || ($local && ! $$paths{$to}{LOCAL_BOOST})
+		    || ($local == $$paths{$to}{LOCAL_BOOST}
+			&& $totcost < $$paths{$to}{XFER_COST}))
 		{
 		    # No existing path or it's more expensive.
 		    $$paths{$to} = { SRC_NODE => $$paths{$from}{SRC_NODE},
 				     FROM_NODE => $from,
 				     TO_NODE => $to,
+				     SRC_COST => $$paths{$from}{SRC_COST},
+				     XFER_COST => $totcost,
 				     COST => $cost,
-				     TOTAL_COST => $totcost,
+				     LOCAL_BOOST => $local,
 				     PENALTY => $penalty,
 				     HOPS => $$paths{$from}{HOPS} + 1 };
 		    $todo{$to} = 1;
@@ -571,6 +578,7 @@ sub routeFile
     # size of the file (it doesn't affect the result, but goes into
     # the tables on output).
     my $best = undef;
+    my $bestcost = undef;
     my $sizefactor = max(1, $$request{FILESIZE}/(100 * MEGABYTE));
     foreach my $node (keys %{$$request{REPLICAS}})
     {
@@ -578,10 +586,16 @@ sub routeFile
 	my $this = $$costs{$node}{$state};
 	next if ! exists $$this{$dest};
 
-	$best = $this
-	    if (! defined $best
-		|| $$this{$dest}{HOPS} == 0
-		|| $$this{$dest}{TOTAL_COST} <= $$best{$dest}{TOTAL_COST});
+	my $thiscost
+	    = $$this{$dest}{SRC_COST} + $$this{$dest}{XFER_COST} * $sizefactor;
+	if (! defined $best
+	    || $$this{$dest}{LOCAL_BOOST} > $$best{$dest}{LOCAL_BOOST}
+	    || ($$this{$dest}{LOCAL_BOOST} == $$best{$dest}{LOCAL_BOOST}
+		&& $thiscost <= $bestcost))
+	{
+	    $best = $this;
+	    $bestcost = $thiscost;
+	}
     }
 
     # Now record path to the cheapest replica found, if we found one.
@@ -594,14 +608,9 @@ sub routeFile
 	while ($$best{$node}{FROM_NODE} != $$best{$node}{TO_NODE})
 	{
 	    my $from = $$best{$node}{FROM_NODE};
-	    $local *= ((! exists $$links{$node}
-			|| ! exists $$links{$node}{$from})
-		       ? 0 : $$links{$node}{$from}{LOCAL_BOOST});
-
 	    my $item = { %{$$best{$node}} };
 	    $$item{INDEX} = $index++;
-	    $$item{LOCAL_BOOST} = $local;
-	    $$item{TOTAL_COST} *= $sizefactor;
+	    $$item{TOTAL_COST} = $$item{SRC_COST} + $$item{XFER_COST} * $sizefactor;
 	    $$item{COST} *= $sizefactor;
 	    push(@{$$request{PATH}}, $item);
 	    $node = $from;
