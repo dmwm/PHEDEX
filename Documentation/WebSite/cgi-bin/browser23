@@ -371,6 +371,7 @@ sub tstates {
 	  " <th>Size</th>\n",
           "</tr>\n";
 
+    my %total = ();
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
@@ -379,6 +380,10 @@ sub tstates {
 	    $to_state, $from_state,
 	    $files, $bytes) = @$row;
 
+    	$total{$to_state}{$from_state} ||= { FILES => 0, BYTES => 0 };
+    	$total{$to_state}{$from_state}{FILES} += $files;
+    	$total{$to_state}{$from_state}{BYTES} += $bytes;
+        $tfiles += $files; $tbytes += $bytes;
 	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
 	my $to_state_name = ($to_state == 0 ? "assigned"
 			     : $to_state == 1 ? "wanted"
@@ -406,7 +411,35 @@ sub tstates {
 	      "</tr>\n";
     }
     $query->finish();
-    print "</tbody>\n",
+
+    my $first_total = 1;
+    my ($tfiles, $tbytes) = (0, 0);
+    foreach my $to_state (sort keys %total)
+    {
+	foreach my $from_state (sort keys %{$total{$to_state}})
+	{
+	    $tfiles += $total{$to_state}{$from_state}{FILES};
+	    $tbytes += $total{$to_state}{$from_state}{BYTES};
+	    print "<tr>\n",
+		  " <th align='left' colspan='2'>", ($first_total ? "Total" : "&nbsp;"), "</th>\n",
+		  " <th align='right'>$to_state</td>\n",
+		  " <th align='right'>&nbsp;</td>\n",
+		  " <th align='right'>$from_state</td>\n",
+		  " <th align='right'>@{[&format_num($total{$to_state}{$from_state}{FILES})]}</th>\n",
+		  " <th align='right'>@{[&format_size($total{$to_state}{$from_state}{BYTES})]}</th>\n",
+		  "</tr>\n";
+	    $first_total = 0;
+	}
+    }
+    print "<tr>\n",
+	  " <th align='left' colspan='2'>", ($first_total ? "Total" : "&nbsp;"), "</th>\n",
+	  " <th align='right'>All</td>\n",
+	  " <th align='right'>&nbsp;</td>\n",
+	  " <th align='right'>All</td>\n",
+	  " <th align='right'>@{[&format_num($tfiles)]}</th>\n",
+	  " <th align='right'>@{[&format_size($tbytes)]}</th>\n",
+	  "</tr>\n",
+	  "</tbody>\n",
           "</table>\n",
 	  "</p>\n";
 
@@ -431,10 +464,14 @@ sub tstates {
 	  " <th>Size</th>\n",
           "</tr>\n";
 
+    %total = ();
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
 	my ($stamp, $node, $state, $files, $bytes) = @$row;
+    	$total{$state} ||= { FILES => 0, BYTES => 0 };
+	$total{$state}{FILES} += $files;
+	$total{$state}{BYTES} += $bytes;
 	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
 	my $state_name = ($state == 0 ? "at node"
 			     : $state == 1 ? "on disk"
@@ -443,13 +480,34 @@ sub tstates {
         print "<tr>\n",
 	      " <td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>\n",
 	      " <td>$node</td>\n",
-	      " <td$color>$state</td>\n", # ($state_name)
+	      " <td$color align='right'>$state</td>\n", # ($state_name)
 	      " <td$color align='right'>@{[&format_num($files)]}</td>\n",
 	      " <td$color align='right'>@{[&format_size($bytes)]}</td>\n",
 	      "</tr>\n";
     }
     $query->finish();
-    print "</tbody>\n",
+
+    $first_total = 1;
+    ($tfiles, $tbytes) = (0, 0);
+    foreach my $state (sort keys %total)
+    {
+	$tfiles += $total{$state}{FILES};
+	$tbytes += $total{$state}{BYTES};
+	print "<tr>\n",
+	      " <th align='left' colspan='2'>", ($first_total ? "Total" : "&nbsp;"), "</th>\n",
+	      " <th align='right'>$state</td>\n",
+	      " <th align='right'>@{[&format_num($total{$state}{FILES})]}</th>\n",
+	      " <th align='right'>@{[&format_size($total{$state}{BYTES})]}</th>\n",
+	      "</tr>\n";
+	$first_total = 0;
+    }
+    print "<tr>\n",
+	  " <th align='left' colspan='2'>", ($first_total ? "Total" : "&nbsp;"), "</th>\n",
+	  " <th align='right'>All</td>\n",
+	  " <th align='right'>@{[&format_num($tfiles)]}</th>\n",
+	  " <th align='right'>@{[&format_size($tbytes)]}</th>\n",
+	  "</tr>\n",
+	  "</tbody>\n",
           "</table>\n",
 	  "</p>\n";
 }
@@ -857,9 +915,9 @@ sub rates {
     }
 
     print "<p>CERN Daily External Internet Traffic<br>\n";
-    print "<a href='http://pcstats.cern.ch/misc/cern-all.html'><IMG
+    print "<a href='http://pcstats2.cern.ch/misc/cern-all.html'><IMG
       VSPACE=10 WIDTH=600 HEIGHT=135 ALIGN=TOP
-      SRC='http://pcstats.cern.ch/misc/cern-all-day.png' ALT='day'></a></p>\n";
+      SRC='http://pcstats2.cern.ch/misc/cern-all-day.png' ALT='day'></a></p>\n";
     print "<p><table class='striped'><tbody>\n";
     foreach my $span (qw(H D W M))
     {
@@ -1026,7 +1084,6 @@ sub rateplot
 	next if ($graph eq 'line' && $kind ne 'total');
 	my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
 	my $suffix = ($graph eq 'bar' ? '' : '-line');
-	print "<p><i>WARNING: These plots are not accurate!</p>\n" if $kind eq 'pending';
 	print "<p><img width=900 height=406 src='perf-graph$suffix-23.php?",
 	      &urlencode('db' => $db, 'span' => $unit, 'kind' => $kind, 'by' => $entity,
 		         'last' => $last, 'filter' => $filter, 'upto' => $upto),
