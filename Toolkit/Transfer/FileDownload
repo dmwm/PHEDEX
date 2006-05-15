@@ -154,6 +154,7 @@ sub new
 		  LINKS => {},			# Per-link transfer parameters
 		  FILES => {},			# Files to transfer
 
+		  LAST_PRUNE => 0,		# Last prune of history data
 		  LAST_WANTED => 0,		# Last refresh of wanted files
 		  LAST_PARAMS => 0,		# Last refresh of link params
 		  LAST_PREPARE => 0,		# Last file preparation run
@@ -324,8 +325,8 @@ sub updateLinkParameters
 
 	    foreach my $recent (@{$$self{RECENT}{$to}{$from}})
 	    {
-		my $prio = $$recent{FILE}{PRIORITY};
-		my $size = $$recent{FILE}{FILESIZE};
+		my $prio = $$recent{PRIORITY};
+		my $size = $$recent{FILESIZE};
 		$$link{$prio} ||= { XFERS => 0, BYTES => 0 };
 
 		if ($$recent{STATE} == 3) {
@@ -777,7 +778,10 @@ sub completeTransfer
 
 	# Record in my recent history
 	push(@{$$self{RECENT}{$$file{TO_NODE}}{$$file{FROM_NODE}}},
-	     { TIME => $now, STATE => $$file{TO_STATE}, FILE => $file });
+	     { TIME => $now,
+	       STATE => $$file{TO_STATE},
+	       PRIORITY => $$file{PRIORITY},
+	       FILESIZE => $$file{FILESIZE} });
 
 	# Remove from work list.  If it errored out, we will reread eventually.
 	delete $$self{FILES}{$$file{FILEID}};
@@ -811,14 +815,18 @@ sub idle
         }
 
 	# Prune old recent transfers
-	foreach my $to (keys %{$$self{RECENT}})
+	if ($$self{LAST_PRUNE} < $now - 60)
 	{
-	    foreach my $from (keys %{$$self{RECENT}{$to}})
+	    foreach my $to (keys %{$$self{RECENT}})
 	    {
-		@{$$self{RECENT}{$to}{$from}}
-		    = grep($$_{TIME} > $now-3600,
-			   @{$$self{RECENT}{$to}{$from}});
+	        foreach my $from (keys %{$$self{RECENT}{$to}})
+	        {
+		    @{$$self{RECENT}{$to}{$from}}
+		        = grep($$_{TIME} > $now-3600,
+			       @{$$self{RECENT}{$to}{$from}});
+	        }
 	    }
+	    $$self{LAST_PRUNE} = $now;
 	}
 
         # Request some more files
