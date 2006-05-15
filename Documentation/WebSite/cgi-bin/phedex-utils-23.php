@@ -42,7 +42,7 @@ function selectQualityData($data, $xbin, $tail, $upto, $by)
     for ($n = 5; $n < count($data[$i]); ++$n)
     {
       $node = $data[0][$n];
-      if (preg_match("/MSS$/", $node)) continue;
+      //if (preg_match("/MSS$/", $node)) continue;
       $key = ($by == 'link' ? "{$dest} < {$node}" :
               ($by == 'dest' ? $dest : $node));
       if (! isset ($newdata[$time][$key]))
@@ -98,8 +98,11 @@ function selectPerformanceData($data, $xbin, $tail, $sum, $upto, $by)
         $newdata[$time][$key][0] += $data[$i][$n];
         $newdata[$time][$key][1][$data[$i][3]] = 1;
       }
-      else if (! $newdata[$time][$key][0]) // FIXME: handle different destination nodes!
-        $newdata[$time][$key][0] = $data[$i][$n];
+      else if (! isset ($newdata[$time][$key][1]["$dest:$node"]))
+      {
+        $newdata[$time][$key][0] = 1;
+        $newdata[$time][$key][1]["$dest:$node"] = $data[$i][$n];
+      }
     }
   }
 

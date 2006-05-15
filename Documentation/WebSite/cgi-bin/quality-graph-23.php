@@ -102,16 +102,20 @@ function makeGraph($graph, $data, $args, $upto, $by)
 
   // Compute how much the legend needs
   $legendcols = (count($barplots) > 25 ? 2 : 1);
-  $legendwidth = ($by == 'link' ? 200 : 122);
+  $legendwidth = ($by == 'link' ? 200 : 130);
 
   // Configure the graph
   $graph->SetScale("textlin");
   $graph->SetColor("white");
   $graph->SetMarginColor("white");
-  $graph->img->SetMargin(65,56 + $legendcols * $legendwidth,40,40);
+  $graph->img->SetMargin(90,56 + $legendcols * $legendwidth,40,40);
   $graph->img->SetAntiAliasing();
 
-  $graph->title->Set("PhEDEx Transfer Quality {$args['title']}");
+  $graph->title->Set("PhEDEx {$args['instance']} Transfer Quality By "
+  		     . ($by == 'link' ? "Link" :
+		        ($by == 'dest' ? "Destination" : "Source"))
+  	             . ((isset($args['filter']) && $args['filter'] != '')
+			? "s matching '{$args['filter']}'" : ""));
   $graph->title->SetFont(FF_VERDANA,FS_BOLD,14);
   $graph->title->SetColor("black");
 
@@ -120,15 +124,11 @@ function makeGraph($graph, $data, $args, $upto, $by)
   $xlast = preg_replace("/{$urewrite[0]}/", $urewrite[1], $xkeys[count($xkeys)-1]);
   if (isset ($upto) && $upto != '')
     $upto = preg_replace("/{$urewrite[0]}/", $urewrite[1], $upto);
-  $graph->subtitle->Set("{$args['instance']} transfer quality by "
-  	                . ($by == 'link' ? "link" :
-			   ($by == 'dest' ? "destination" : "source"))
-			. ((isset($args['filter']) && $args['filter'] != '')
-			   ? " matching '{$args['filter']}'," : "")
+  $graph->subtitle->Set($args['title']
 			. ((isset($upto) && $upto != '')
-			   ? " up to $upto GMT, as of $nowstamp GMT"
-			   : " as of $nowstamp GMT")
-		        . ", last statistic {$xlast} GMT");
+			   ? " up to $upto, at $nowstamp"
+			   : " at $nowstamp")
+		   	. ", last entry {$xlast} GMT");
   $graph->subtitle->SetFont(FF_VERDANA,FS_NORMAL);
   $graph->subtitle->SetColor("black");
 
@@ -140,7 +140,7 @@ function makeGraph($graph, $data, $args, $upto, $by)
   $graph->xaxis->SetLabelAlign('center');
   $graph->xscale->ticks->Set($nrowskip, $xunit);
 
-  $graph->yaxis->SetTitleMargin(35);
+  $graph->yaxis->SetTitleMargin(65);
   $graph->yaxis->SetTitle($args['ytitle'], 'middle');
   $graph->yaxis->title->SetFont(FF_VERDANA,FS_NORMAL,11);
   $graph->yaxis->SetFont(FF_VERDANA,FS_NORMAL,9);
@@ -174,7 +174,7 @@ $args['ytitle']   = $kind_types[$args['metric']];
 $args['instance'] = ($srcdb == 'prod' ? 'Production'
 	             : ($srcdb == 'test' ? 'Dev'
 	                : ($srcdb == 'sc' ? 'SC4'
-	                   : ($srcdb == 'tbed' ? 'Testbed' : 'SC4'))));
+	                   : ($srcdb == 'tbedi' ? 'Testbed' : 'Validation'))));
 if ($span == "month")
 {
   $args['title'] = ($entries ? "Last $entries Months" : "By Month");
