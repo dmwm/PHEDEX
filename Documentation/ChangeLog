@@ -1,0 +1,20 @@
+* Changes in PhEDEx 2.3.2
+
+General changes:
+ - Update of "ftscp".
+ - Download agent errors with -ignore/-accept options fixed.
+ - Master now supports "kill" option, and can "renice" agents.
+ - Database deadlocks with download/export agents should now be solved.
+ - Improvements and minor fixes in the file routing algorithms.
+ - Many performance optimisations and streamlining in various agents.
+   Anything involving node filters (-nodes, -ignore, -accept) was
+   reimplemented to be more database performance friendly.
+ - Minor updates to the web pages and plots.
+ - Some new tests have been included.
+
+Schema changes:
+ - Database index review.  Many indexes have been added and removed.
+ - t_dps_block_dest has a new 'state' column.
+ - New trigger tr_xfer_file_insert, which inserts files for active
+   block destinations automatically into t_xfer_request.
+ - t_info_* tables now have constraints.
