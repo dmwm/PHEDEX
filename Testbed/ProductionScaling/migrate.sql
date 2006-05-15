@@ -2,7 +2,7 @@ insert into t_node (id,name)
 	(select seq_node.nextval,name from xt_node);
 
 insert into t_link (id,from_node,to_node,distance,local_boost)
-	(select seq_link.nextval,f.id,t.id,decode(nn.hops,1,1,0),0
+	(select seq_link.nextval,f.id,t.id,decode(nn.hops,1,1,2),decode(nn.hops,1,1,0)
 		from xt_node_neighbour nn
 		join t_node f
 			on f.name = nn.node
