@@ -51,9 +51,9 @@ for role in \
 
       T_*:*CERN* | \
       T_*AGENT*:* | \
-      T_XFER_REPLICA:* | \
-      T_XFER_REQUEST:* | \
-      T_XFER_PATH:* | \
+      T_XFER_REPLICA:*CERN* | \
+      T_XFER_REQUEST:*CERN* | \
+      T_XFER_PATH:*CERN* | \
       T_XFER_STATE:* | \
       T_XFER_TRACKING:* )
         # Select, update, insert and delete
