@@ -68,7 +68,12 @@ function makeGraph($graph, $data, $args, $upto, $by)
         $plotdata[] = (isset ($xdata[$node]) && $xdata[$node][1])
 		      ? (1024*1024*$xdata[$node][0])/(count($xdata[$node][1])*3600)
 		      : 0;
-    else // total || pending
+    else if ($args['metric'] == 'total')
+      foreach ($data as $xbin => $xdata)
+      {
+        $plotdata[] = (isset ($xdata[$node]) && $xdata[$node][1]) ? $xdata[$node][0] : 0;
+      }
+    else // pending
       foreach ($data as $xbin => $xdata)
         $plotdata[] = isset ($xdata[$node]) ? array_sum($xdata[$node][1]) : 0;
 
