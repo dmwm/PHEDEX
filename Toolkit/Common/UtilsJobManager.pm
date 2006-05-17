@@ -66,6 +66,8 @@ sub startJob
 	{
 	    open($job->{LOGFH}, '>>', $job->{LOGFILE})
 		or die "Couldn't open log file $job->{LOGFILE}";
+	    print \*{$$job{LOGFH}} strftime ("%Y-%m-%d %H:%M:%S", gmtime),
+	        " $$job{CMDNAME}($$job{PID}): Executing: @{$$job{CMD}}\n\n";
 	} 
 	else
 	{
@@ -111,6 +113,9 @@ sub checkJobs
 	    $job->{STATUS} = &runerror ($?);
 	    readPipe($job);
 	    $job->{PIPE}->close();
+	    print \*{$$job{LOGFH}} "\n\n", strftime ("%Y-%m-%d %H:%M:%S", gmtime),
+	        " $$job{CMDNAME}($$job{PID}): Job exited with status code",
+		" $$job{STATUS} ($$job{STATUS_CODE})\n";
 	    close($$job{LOGFH});
 
 	    push (@finished, $job);
