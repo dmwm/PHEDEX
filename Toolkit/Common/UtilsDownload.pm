@@ -186,15 +186,6 @@ sub preClean
 	# Reap finished jobs
 	$$file{DONE_PRE_CLEAN} = 1;
 	$self->stopFileTiming ($file);
-
-	if ($$job{STATUS})
-	{
-	    &warn("$$job{LOGFILE} has log of failed command @{$$job{CMD}}");
-	}
-	else
-	{
-	    unlink ($$job{LOGFILE});
-	}
     }
     else
     {
@@ -207,10 +198,9 @@ sub preClean
 	        if $$file{FAILURE} || ! $$self{MASTER}{DELETE_COMMAND};
 
 	    $self->startFileTiming ($file, "preclean");
-	    my $joblog = "$$self{MASTER}{DROPDIR}/$$file{FILEID}.log";
 	    $$self{MASTER}->addJob (
 		sub { $self->preClean ($batch, $file, @_) },
-		{ TIMEOUT => $$self{TIMEOUT}, LOGFILE => $joblog },
+		{ TIMEOUT => $$self{TIMEOUT} },
 		@{$$self{MASTER}{DELETE_COMMAND}}, "pre", $file->{TO_PFN});
 	}
     }
@@ -254,11 +244,6 @@ sub validateBatch
 		   ? "failed with $$file{TRANSFER_STATUS}{REPORT}"
 		   : "was successful")
 	        . ")";
-	    &warn("$$job{LOGFILE} has log of failed command @{$$job{CMD}}");
-	}
-	else
-	{
-	    unlink ($$job{LOGFILE});
 	}
 	$$file{DONE_VALIDATE} = 1;
 	$self->stopFileTiming ($file);
@@ -277,10 +262,9 @@ sub validateBatch
 	        if $$file{FAILURE} || ! $$self{MASTER}{VALIDATE_COMMAND};
 
 	    $self->startFileTiming ($file, "validate");
-	    my $joblog = "$$self{MASTER}{DROPDIR}/$$file{FILEID}.log";
 	    $$self{MASTER}->addJob (
 		sub { $self->validateBatch ($batch, $file, @_) },
-		{ TIMEOUT => $$self{TIMEOUT}, LOGFILE => $joblog },
+		{ TIMEOUT => $$self{TIMEOUT} },
 		@{$$self{MASTER}{VALIDATE_COMMAND}},
 		$file->{TRANSFER_STATUS}{STATUS}, $file->{TO_PFN},
 		$file->{FILESIZE}, $file->{CHECKSUM});
@@ -300,15 +284,6 @@ sub postClean
 	# Reap finished jobs
 	$$file{DONE_POST_CLEAN} = 1;
 	$self->stopFileTiming ($file);
-
-	if ($$job{STATUS})
-	{
-	    &warn("$$job{LOGFILE} has log of failed command @{$$job{CMD}}");
-	}
-	else
-	{
-	    unlink ($$job{LOGFILE});
-	}
     }
     else
     {
@@ -325,7 +300,7 @@ sub postClean
 	    my $joblog = "$$self{MASTER}{DROPDIR}/$$file{FILEID}.log";
 	    $$self{MASTER}->addJob (
 		sub { $self->postClean ($batch, $file, @_) },
-		{ TIMEOUT => $$self{TIMEOUT}, LOGFILE => $joblog },
+		{ TIMEOUT => $$self{TIMEOUT} },
 		@{$$self{MASTER}{DELETE_COMMAND}}, "post", $file->{TO_PFN});
 	}
     }
