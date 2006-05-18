@@ -54,16 +54,14 @@ sub stopFileTiming
 }
 
 # Determine how much unused capacity we have: how many new files we
-# are willing to take into transfer right now.  We keep our job queue
-# at 1.5 times the theoretical maximum allowed by batch size limits.
-# This is to prevent the backend job slots, the real transfers, from
-# drying up if there are files available for transfer.
+# are willing to take into transfer right now.  This is the number
+# of files that could fit into the job queue right now.
 sub transferSlots
 {
     my ($self, $files) = @_;
     my $nbatch = $$self{BATCH_FILES} || 1;
     my $inxfer = scalar grep($$_{TO_STATE} == 2, values %$files);
-    my $maxjobs = ceil($nbatch * $$self{NJOBS} * 1.5);
+    my $maxjobs = $nbatch * $$self{NJOBS};
     my $available = $maxjobs - $inxfer;
     return $available >= 0 ? $available : 0;
 }
