@@ -4,7 +4,7 @@
 create or replace trigger tr_xfer_file_insert
   after insert on t_xfer_file for each row declare
     unixtime integer
-      := 24*60*60 + (sysdate - to_date('01/01/1970 00:00:00', 'DD/MM/YYYY HH24:MI:SS'));
+      := 86400 * (sysdate - to_date('01/01/1970 00:00:00', 'DD/MM/YYYY HH24:MI:SS'));
   begin
     insert into t_xfer_request
       (fileid, inblock, destination, priority,
@@ -12,6 +12,26 @@ create or replace trigger tr_xfer_file_insert
       select :new.id, :new.inblock, bd.destination, bd.priority,
              0 state, 1 attempt, unixtime, unixtime + 8*3600
       from t_dps_block_dest bd where bd.block = :new.inblock and bd.state = 1;
+  end;
+/
+
+create or replace trigger tr_xfer_replica_delete
+  after delete on t_xfer_replica for each row declare
+    unixtime integer
+      := 86400 * (sysdate - to_date('01/01/1970 00:00:00', 'DD/MM/YYYY HH24:MI:SS'));
+  begin
+    insert into t_xfer_request
+      (fileid, inblock, destination, priority,
+       state, attempt, time_create, time_expire)
+      select f.id, f.inblock, bd.destination, bd.priority,
+             0 state, 1 attempt, unixtime, unixtime + 8*3600
+      from t_xfer_file f join t_dps_block_dest bd on bd.block = f.inblock
+      where f.id = :old.fileid
+        and bd.state = 1
+	and bd.destination = :old.node
+	and not exists
+	  (select 1 from t_xfer_request xq
+	   where xq.fileid = f.id and xq.destination = bd.destination);
   end;
 /
 
