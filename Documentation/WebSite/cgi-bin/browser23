@@ -878,40 +878,40 @@ sub rates {
 		 M => [ int($now/86400)*86400, 30*86400 ]);
     my $q = $dbh->prepare(qq{
 	select
-	  h.timebin,
 	  f.name from_node,
 	  t.name to_node,
-	  h.done_files, h.done_bytes,
-	  h.fail_files, h.expire_files
+	  nvl(sum(h.done_files),0) done_files,
+	  nvl(sum(h.done_bytes),0) done_bytes,
+	  nvl(sum(h.fail_files),0) fail_files,
+	  nvl(sum(h.expire_files),0) expire_files
 	from t_link_histogram h
 	  join t_node f on f.id = h.from_node
 	  join t_node t on t.id = h.to_node
-	where h.timebin > :old});
-    $q->bind_param(":old", $spans{M}[0]-$spans{M}[1]);
-    $q->execute();
-    while (my $row = $q->fetchrow_hashref())
+	where h.timebin > :old
+	group by f.name, t.name});
+    foreach my $span (keys %spans)
     {
-	foreach my $span (keys %spans)
-	{
-	    if ($$row{TIMEBIN} >= $spans{$span}[0] - $spans{$span}[1])
-	    {
-		my $key = "$$row{TO_NODE} $$row{FROM_NODE}";
-		$stats{$span}{N}{$key} ||= { FROM_NODE => $$row{FROM_NODE},
-					     TO_NODE => $$row{TO_NODE},
-					     FILES => 0, BYTES => 0,
-				     	     FAILED => 0, EXPIRED => 0 };
-		$stats{$span}{N}{$key}{FILES} += $$row{DONE_FILES} || 0;
-		$stats{$span}{N}{$key}{BYTES} += $$row{DONE_BYTES} || 0;
-		$stats{$span}{N}{$key}{FAILED} += $$row{FAIL_FILES} || 0;
-		$stats{$span}{N}{$key}{EXPIRED} += $$row{EXPIRE_FILES} || 0;
+        $q->bind_param(":old", $spans{$span}[0]-$spans{$span}[1]);
+        $q->execute();
+        while (my $row = $q->fetchrow_hashref())
+        {
+	    my $key = "$$row{TO_NODE} $$row{FROM_NODE}";
+	    $stats{$span}{N}{$key} ||= { FROM_NODE => $$row{FROM_NODE},
+					 TO_NODE => $$row{TO_NODE},
+					 FILES => 0, BYTES => 0,
+				     	 FAILED => 0, EXPIRED => 0 };
+	    $stats{$span}{N}{$key}{FILES} += $$row{DONE_FILES};
+	    $stats{$span}{N}{$key}{BYTES} += $$row{DONE_BYTES};
+	    $stats{$span}{N}{$key}{FAILED} += $$row{FAIL_FILES};
+	    $stats{$span}{N}{$key}{EXPIRED} += $$row{EXPIRE_FILES};
 
-		$stats{$span}{T}{1} ||= { FILES => 0, BYTES => 0, FAILED => 0, EXPIRED => 0 };
-		$stats{$span}{T}{1}{FILES} += $$row{DONE_FILES} || 0;
-		$stats{$span}{T}{1}{BYTES} += $$row{DONE_BYTES} || 0;
-		$stats{$span}{T}{1}{FAILED} += $$row{FAIL_FILES} || 0;
-		$stats{$span}{T}{1}{EXPIRED} += $$row{EXPIRE_FILES} || 0;
-	    }
+	    $stats{$span}{T}{1} ||= { FILES => 0, BYTES => 0, FAILED => 0, EXPIRED => 0 };
+	    $stats{$span}{T}{1}{FILES} += $$row{DONE_FILES};
+	    $stats{$span}{T}{1}{BYTES} += $$row{DONE_BYTES};
+	    $stats{$span}{T}{1}{FAILED} += $$row{FAIL_FILES};
+	    $stats{$span}{T}{1}{EXPIRED} += $$row{EXPIRE_FILES};
 	}
+	$q->finish();
     }
 
     print "<p>CERN Daily External Internet Traffic<br>\n";
@@ -938,7 +938,12 @@ sub rates {
 	  "</tr>\n";
 	foreach my $kind (qw(N T))
 	{
-	    foreach my $row (sort { $$b{BYTES} <=> $$a{BYTES} } values %{$stats{$span}{$kind}})
+	    foreach my $row (sort { $$b{BYTES} <=> $$a{BYTES}
+				    || $$b{FAILED} <=> $$a{FAILED}
+				    || $$b{EXPIRED} <=> $$a{EXPIRED}
+				    || $$a{TO_NODE} cmp $$b{TO_NODE}
+				    || $$a{FROM_NODE} cmp $$b{FROM_NODE} }
+			     values %{$stats{$span}{$kind}})
 	    {
 		next if $kind eq 'N' && ! $$row{FILES} && ! $$row{FAILED} && ! $$row{EXPIRED};
 	        my $bps = $$row{BYTES} / $spans{$span}[1];
