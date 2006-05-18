@@ -64,10 +64,13 @@ sub startJob
 
 	if (exists $$job{LOGFILE})
 	{
-	    open($job->{LOGFH}, '>>', $job->{LOGFILE})
-		or die "Couldn't open log file $job->{LOGFILE}";
-	    print \*{$$job{LOGFH}} strftime ("%Y-%m-%d %H:%M:%S", gmtime),
-	        " $$job{CMDNAME}($$job{PID}): Executing: @{$$job{CMD}}\n\n";
+	    open($job->{LOGFH}, '>>', $$job{LOGFILE})
+		or die "Couldn't open log file $$job{LOGFILE}: $!";
+	    my $logfh = \*{$$job{LOGFH}};
+	    my $oldfh = select($logfh); local $| = 1; select($oldfh);
+	    print $logfh
+		(strftime ("%Y-%m-%d %H:%M:%S", gmtime),
+	         " $$job{CMDNAME}($$job{PID}): Executing: @{$$job{CMD}}\n\n");
 	} 
 	else
 	{
@@ -113,11 +116,16 @@ sub checkJobs
 	    $job->{STATUS} = &runerror ($?);
 	    readPipe($job);
 	    $job->{PIPE}->close();
-	    print \*{$$job{LOGFH}} "\n\n", strftime ("%Y-%m-%d %H:%M:%S", gmtime),
-	        " $$job{CMDNAME}($$job{PID}): Job exited with status code",
-		" $$job{STATUS} ($$job{STATUS_CODE})\n";
-	    close($$job{LOGFH});
 
+	    if (exists $$job{LOGFILE})
+	    {
+	        my $logfh = \*{$$job{LOGFH}};
+	        print $logfh
+		    ("\n\n", strftime ("%Y-%m-%d %H:%M:%S", gmtime),
+	             " $$job{CMDNAME}($$job{PID}): Job exited with status code",
+		     " $$job{STATUS} ($$job{STATUS_CODE})\n");
+	    }
+	    close($$job{LOGFH});
 	    push (@finished, $job);
 	}
 	elsif ($job->{PID} > 0
@@ -179,8 +187,6 @@ sub readPipe
     my $logfhtmp = \*{$$job{LOGFH}};
     my $pipestring = undef;
     my $date = strftime ("%Y-%m-%d %H:%M:%S", gmtime);
-
-
     my $bytesread = 0;
     while (1)
     {
@@ -188,10 +194,10 @@ sub readPipe
 	# line breaks
 	$bytesread = sysread($pipefhtmp, $pipestring, $maxbytes);
 	last if (!defined $bytesread);
-	do { print $logfhtmp ("\n"); last } if ($bytesread == 0);
+	do { print $logfhtmp ("\n") if ! $$job{BEGINLINE}; last }
+	    if ! $bytesread;
 
 	my @lines = split(m|$/|,$pipestring);
-	
 	my $lineno = 0;
 	while (@lines)
 	{
