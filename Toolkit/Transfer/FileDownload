@@ -174,7 +174,13 @@ sub new
 sub stop
 {
     my ($self) = @_;
-    $$self{BACKEND}->killAllJobs();
+    &logmsg ("Stopping all pending jobs...");
+    while (@{$$self{BACKEND}{JOBS}} || @{$$self{JOBS}})
+    {
+        $self->killAllJobs();
+        $$self{BACKEND}->killAllJobs();
+    }
+    &logmsg ("Stopped all pending jobs");
 }
 
 ######################################################################
