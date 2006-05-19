@@ -818,7 +818,7 @@ sub idle
 	{
 	    my $tmpdir = $$self{DROPDIR};
 	    unlink grep(! /\.log$/, <$tmpdir/[0-9]*>);
-	    unlink <$tmpdir/*.log> if $$self{LAST_RESET} < $now - 3*86400;
+	    unlink grep((stat($_))[9] < $now-3*86400, <$tmpdir/*.log>);
 	    $self->resetPendingTransfers($dbh);
 	    $$self{LAST_RESET} = $now;
         }
