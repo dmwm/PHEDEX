@@ -66,19 +66,17 @@ sub transferBatch
 	        $$file{TRANSFER_STATUS}{REPORT}
 	            = "exit code $$job{STATUS} from @{$$job{CMD}}";
 	    }
-	    $isbad = 1 if $$file{TRANSFER_STATUS}{STATUS};
+
+	    if ($$file{TRANSFER_STATUS}{STATUS})
+	    {
+		$$file{TRANSFER_STATUS}{REPORT} .= "; log output in $$job{LOGFILE}";
+	        $isbad = 1;
+	    }
 	    $self->stopFileTiming ($file);
 	}
 
-	if ($isbad)
-	{
-	    &warn("$$job{LOGFILE} has log of failed command @{$$job{CMD}}");
-	}
-	else
-	{
-	    unlink ($$job{LOGFILE});
-	}
-
+	# Remove the logfile if we didn't mention it for posterity
+	unlink ($$job{LOGFILE}) if ! $isbad;
     }
     else
     {
@@ -129,6 +127,5 @@ sub transferBatch
     $self->validateBatch ($batch)
         if ! grep (! $$_{DONE_TRANSFER}, @$batch);
 }
-
 
 1;
