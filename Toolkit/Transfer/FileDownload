@@ -409,10 +409,12 @@ sub prepareFiles
 	    xs.fileid,
 	    xs.to_node to_node_id,
 	    nd.name to_node,
+	    ns.name from_node,
 	    f.logical_name
 	from t_xfer_state xs
           join t_xfer_file f on f.id = xs.fileid
 	  join t_node nd on nd.id = xs.to_node
+	  join t_node ns on ns.id = xs.from_node
 	where $dest
 	  and xs.to_pfn is null
 	  and xs.time_expire > :now

@@ -74,7 +74,7 @@ sub fillFileRequest
     $$file{TO_PROTOCOLS} = join(",", @{$$self{PROTOCOLS}});
     $$file{TO_PFN} = &pfnLookup ($$file{LOGICAL_NAME},
 				 $$self{PROTOCOLS}[0],
-				 $$file{TO_NODE},
+				 $$file{FROM_NODE},
 				 $$self{MASTER}{STORAGEMAP});
 }
 
