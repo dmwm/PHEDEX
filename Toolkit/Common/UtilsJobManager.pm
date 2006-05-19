@@ -70,7 +70,7 @@ sub startJob
 	    my $oldfh = select($logfh); local $| = 1; select($oldfh);
 	    print $logfh
 		(strftime ("%Y-%m-%d %H:%M:%S", gmtime),
-	         " $$job{CMDNAME}($$job{PID}): Executing: @{$$job{CMD}}\n\n");
+	         " $$job{CMDNAME}($$job{PID}): Executing: @{$$job{CMD}}\n");
 	} 
 	else
 	{
@@ -121,7 +121,7 @@ sub checkJobs
 	    {
 	        my $logfh = \*{$$job{LOGFH}};
 	        print $logfh
-		    ("\n\n", strftime ("%Y-%m-%d %H:%M:%S", gmtime),
+		    (strftime ("%Y-%m-%d %H:%M:%S", gmtime),
 	             " $$job{CMDNAME}($$job{PID}): Job exited with status code",
 		     " $$job{STATUS} ($$job{STATUS_CODE})\n");
 	    }
@@ -190,29 +190,29 @@ sub readPipe
     my $bytesread = 0;
     while (1)
     {
-	# Logic to read the job output from the pipe and to deal with
-	# line breaks
+	# Read pipe output and insert our header at each line break
 	$bytesread = sysread($pipefhtmp, $pipestring, $maxbytes);
 	last if (!defined $bytesread);
 	do { print $logfhtmp ("\n") if ! $$job{BEGINLINE}; last }
 	    if ! $bytesread;
 
-	my @lines = split(m|$/|,$pipestring);
-	my $lineno = 0;
+	my $line = undef;
+	my @lines = split(/\n/, $pipestring, -1);
 	while (@lines)
 	{
-	    my $line = shift (@lines);
-	    $lineno++;
-	    print $logfhtmp ("$date ", "$job->{CMDNAME}($job->{PID}): ")
-		if ($job->{BEGINLINE} || $lineno > 1);
-	    print $logfhtmp ("$line");
-	    print $logfhtmp ("\n")
-		if ($pipestring =~ m|\Z$/| || @lines);
+	    $line = shift (@lines);
+	    if ($$job{BEGINLINE} && ($line ne "" || @lines))
+	    {
+	        print $logfhtmp ("$date $$job{CMDNAME}($$job{PID}): ");
+		$$job{BEGINLINE} = 0;
+	    }
+	    print $logfhtmp ($line);
+	    if (@lines)
+	    {
+		print $logfhtmp ("\n");
+		$$job{BEGINLINE} = 1;
+	    }
 	}
-	# Typically the output stops somewhere between two line breaks...
-	$job->{BEGINLINE} = 0;
-	# but not always
-	$job->{BEGINLINE} = 1 if ($pipestring =~ m|\Z$/|);
     }
 }
 
@@ -220,7 +220,6 @@ sub readPipe
 sub killAllJobs
 {
     my ($self) = @_;
-    &logmsg ("Stopping all pending jobs...");
     while (@{$self->{JOBS}})
     {
 	# While there are jobs to run, mark them timed out,
@@ -230,7 +229,6 @@ sub killAllJobs
 	$self->pumpJobs();
 	select (undef, undef, undef, 0.1);
     }
-    &logmsg("Stopped all pending jobs");
 }
 
 # Invoke actions on completed subprocesses and start new jobs if there
