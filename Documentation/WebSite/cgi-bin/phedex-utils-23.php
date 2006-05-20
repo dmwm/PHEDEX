@@ -1,7 +1,7 @@
 <?
 error_reporting(E_ALL);
 ini_set("max_execution_time", "120");
-ini_set("memory_limit", "64M");
+ini_set("memory_limit", "96M");
 DEFINE ('TTF_DIR', BASE_PATH . "/fonts/");
 
 // Read CSV file contents into an array of arrays.
