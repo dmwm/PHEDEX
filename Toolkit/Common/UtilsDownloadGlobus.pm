@@ -50,25 +50,18 @@ sub transferBatch
     if ($job)
     {
 	# Reap finished jobs
-	my $isbad = 0;
 	foreach my $file (@$files)
 	{
 	    $$file{DONE_TRANSFER} = 1;
 	    $$file{TRANSFER_STATUS}{STATUS} = $$job{STATUS};
 	    $$file{TRANSFER_STATUS}{REPORT}
 	        = "exit code $$job{STATUS} from @{$$job{CMD}}";
-	    $isbad = 1 if $$job{STATUS};
+	    $$file{TRANSFER_STATUS}{REPORT} .= "; log output in $$job{LOGFILE}"
+		if $$job{STATUS};
 	    $self->stopFileTiming ($file);
 	}
 	
-	if ($isbad)
-	{
-	    &warn("$$job{LOGFILE} has log of failed command @{$$job{CMD}}");
-	}
-	else
-	{
-	    unlink ($$job{LOGFILE});
-	}
+	unlink ($$job{LOGFILE}) if ! $$job{STATUS};
     }
     else
     {
@@ -106,7 +99,7 @@ sub transferBatch
 	    my @files = @{$groups{$dest}};
 	    my @sourcefiles = map { $$_{FILE} } @files;
 	    my @sourcepaths = map { $$_{PATH} } @files;
-	    my $joblog = "$$self{MASTER}{DROPDIR}/$files[0]{FILE}{FILEID}.log";
+	    my $joblog = "$$self{MASTER}{DROPDIR}/$$self{BOOTTIME}.$files[0]{FILE}{FILEID}.log";
 	    $self->addJob (
 		sub { $self->transferBatch ($batch, \@sourcefiles, @_) },
 	        { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $joblog },

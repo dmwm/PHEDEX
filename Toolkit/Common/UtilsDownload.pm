@@ -30,6 +30,7 @@ sub new
 		  TIMEOUT	=> 3600,	# Maximum execution time
 		  BATCH_FILES	=> undef,	# Max number of files per batch
 		  BATCH_SIZE	=> undef,	# Max number of bytes per batch
+		  BOOTTIME      => time(),	# "Boot" time for this agent
 		  BATCHID	=> 0);		# Running batch counter
     
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;

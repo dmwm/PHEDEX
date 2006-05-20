@@ -98,8 +98,8 @@ sub transferBatch
         {
 	    # Prepare copyjob and report names.
 	    my $batchid = $$job[0]{BATCHID} . "." . $host;
-	    $specfile = "$$self{MASTER}{DROPDIR}/$batchid.copyjob";
-	    $reportfile = "$$self{MASTER}{DROPDIR}/$batchid.report";
+	    $specfile = "$$self{MASTER}{DROPDIR}/$$self{BOOTTIME}.$batchid.copyjob";
+	    $reportfile = "$$self{MASTER}{DROPDIR}/$$self{BOOTTIME}.$batchid.report";
 	    my $spec = join ("", map { "$$_{FROM_PFN} $$_{TO_PFN}\n" } @$job);
 
 	    # Now generate copyjob
