@@ -81,7 +81,7 @@ sub idle
 	($stmt, $nrows) = &dbexec ($dbh, qq{
 	    update t_dps_subscription s
 	    set time_complete = :now, time_clear = :now, time_done = :now
-	    where exists (select * from t_dps_subscription s2
+	    where exists (select 1 from t_dps_subscription s2
 	    		  where s2.dataset = s.dataset
 			    and s2.time_create > s.time_create
 		            and s2.is_move = 'y')},
@@ -92,7 +92,7 @@ sub idle
 	# Remove block destinations we no longer have subscribed.
 	($stmt, $nrows) = &dbexec ($dbh, qq{
 	    delete from t_dps_block_dest bd where not exists
-	      (select * from t_dps_subscription s
+	      (select 1 from t_dps_subscription s
 	       where s.destination = bd.destination
 	         and s.dataset = bd.dataset)});
 	&logmsg ("$nrows block destinations withdrawn: no subscription")
@@ -104,7 +104,7 @@ sub idle
 	# destinations if they all have the same time stamp.
 	($stmt, $nrows) = &dbexec ($dbh, qq{
 	    delete from t_dps_block_dest bd where exists
-	      (select * from t_dps_subscription s
+	      (select 1 from t_dps_subscription s
 	       where s.dataset = bd.dataset
 	         and s.time_create > bd.time_subscription
 	         and s.is_move = 'y')});
@@ -124,8 +124,8 @@ sub idle
 		    where b.is_open = 'n'
 		      and br.node_files = b.files
 		      and br.dest_files = b.files
-		      and bd.state < 2)
-	    set state = 2, time_complete = :now},
+		      and bd.state != 3)
+	    set state = 3, time_complete = :now},
 	    ":now" => &mytimeofday());
         &logmsg ("$nrows block destinations completed")
 	    if $nrows > 0;
@@ -139,7 +139,18 @@ sub idle
 		 where s.dataset = bd.dataset
 		   and s.destination = bd.destination
 	   	   and s.time_complete is null)
-	    where bd.state < 2});
+	    where bd.state != 3});
+
+	# Manage routing state changes for suspended blocks
+	&dbexec ($dbh, qq{
+	    update t_dps_block_dest set state = 2
+	    where time_suspend_until > :now and state != 3},
+	    ":now" => &mytimeofday());
+
+	&dbexec ($dbh, qq{
+	    update t_dps_block_dest set state = 0
+	    where time_suspend_until <= :now and state = 2},
+	    ":now" => &mytimeofday());
 
 	# Create new block destinations for subscribed datasets where
 	# the block destination doesn't exist yet and the subscription
@@ -155,7 +166,7 @@ sub idle
 	        on b.dataset = s.dataset
 	    where s.time_complete is null
 	      and not exists
-	        (select * from t_dps_block_dest bd
+	        (select 1 from t_dps_block_dest bd
 	         where bd.block = b.id
 		   and bd.destination = s.destination))},
 	    ":now" => &mytimeofday());
@@ -175,10 +186,10 @@ sub idle
                 (select b.id from t_dps_block b
 		 where b.dataset = s.dataset)
 	      and not exists
-		(select * from t_dps_block_dest bd
-		 where bd.dataset = s.dataset and bd.state != 2)
+		(select 1 from t_dps_block_dest bd
+		 where bd.dataset = s.dataset and bd.state != 3)
 	      and not exists
-      		(select * from t_dps_dataset ds, t_dps_block b
+      		(select 1 from t_dps_dataset ds, t_dps_block b
 	         where b.dataset = s.dataset and ds.id = s.dataset
 	   	   and not (ds.is_open = 'n' and b.is_open = 'n'))},
 	    ":now" => &mytimeofday());
@@ -227,7 +238,7 @@ sub idle
 	    where is_move = 'y'
 	      and time_clear is null
 	      and time_complete is not null
-              and not exists (select * from t_dps_block_delete bd
+              and not exists (select 1 from t_dps_block_delete bd
 			      where bd.dataset = s.dataset
 			        and bd.time_complete is null)},
 	    ":now" => &mytimeofday());
@@ -251,7 +262,7 @@ sub idle
 	# Remove block destinations for subscriptions we just closed.
 	($stmt, $nrows) = &dbexec ($dbh, qq{
 	    delete from t_dps_block_dest bd where exists
-	      (select * from t_dps_subscription s
+	      (select 1 from t_dps_subscription s
 	       where s.destination = bd.destination
 	         and s.dataset = bd.dataset
 	 	 and s.time_done is not null)});
