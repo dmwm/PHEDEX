@@ -83,7 +83,7 @@ sub idle
 	    where exists (select bd.block
 	    		  from t_dps_block_dest bd
 	    		  where bd.block = b.id
-			    and bd.state != 2)
+			    and bd.state != 3)
 	       or exists (select br.block
        			  from t_dps_block_delete br
 			  where br.block = b.id)
