@@ -137,7 +137,7 @@ sub route
     # In this phase, we request files for blocks in the order of the block
     # priority.  We first check how many files are a) currently in transfer
     # to this node, and b) (un)confirmed for transfer to this node.  If
-    # these do not exceed defined limits (a: 1 TB, b: 5 TB), we issue new
+    # these do not exceed defined limits (a: 1 TB, b: 10 TB), we issue new
     # requests for files with no outstanding request.
     #
     # Note that files which cannot be routed in reasonable amount of time
@@ -148,6 +148,36 @@ sub route
     # and sites that do not function properly, but avoids loading database
     # servers and allows other sites to make timely progress.
     # (Do this every five minutes or so.)
+
+    # Update priority on existing requests
+    &dbexec ($dbh, qq{
+        update (select xq.priority req_priority, bd.priority cur_priority
+                from t_xfer_request xq
+                  join t_dps_block_dest bd
+                    on bd.block = xq.inblock
+                    and bd.destination = xq.destination
+                where xq.destination = :node)
+        set req_priority = cur_priority},
+	":node" => $node);
+
+    # Clear completed requests.
+    &dbexec($dbh, qq{
+        delete from t_xfer_request xq
+        where destination = :node and exists
+          (select 1 from t_xfer_replica xr
+	   where xr.fileid = xq.fileid and xr.node = xq.destination)},
+	":node" => $node);
+
+    # Clear requests for files no longer wanted
+    &dbexec($dbh, qq{
+        delete from t_xfer_request xq
+        where destination = :node and not exists
+          (select 1 from t_dps_block_dest bd
+	   where bd.destination = xq.destination
+	     and bd.block = xq.inblock
+	     and bd.state = 1)},
+	":node" => $node);
+    $dbh->commit();
 
     # Get current transfer load parameters.
     my (%pend_bytes, %confirm_bytes);
@@ -206,6 +236,7 @@ sub route
 	# adding blocks until we've added at least 500 files; select
 	# the blocks in order of priority and age (highest priority
 	# = smallest priority value).
+	my @blocks;
 	my $nbytes = 0;
 	my $i = &dbprep($dbh, qq{
 	    insert into t_xfer_request
@@ -224,61 +255,35 @@ sub route
 	    select bd.block, bd.priority, b.bytes
 	    from t_dps_block_dest bd
 	      join t_dps_block b on b.id = bd.block
-	    where bd.destination = :node
-	      and bd.state = 0
-	      and bd.time_complete is null
-	      and (bd.time_suspend_until is null
-		   or bd.time_suspend_until < :now)
-	    order by bd.priority asc, bd.time_create asc
-	    /* for update of b.id */},
-	    ":node" => $node, ":now" => $now);
+	    where bd.destination = :node and bd.state = 0
+	    order by bd.priority asc, bd.time_create asc},
+	    ":node" => $node);
         while (my ($block, $priority, $bytes) = $q->fetchrow())
 	{
 	    &dbbindexec($u,
 		        ":block" => $block,
 		    	":node" => $node,
 			":now" => $now);
-
-	    &dbbindexec($i,
-		        ":block" => $block,
-		    	":node" => $node,
-			":priority" => $priority,
-			":now" => $now);
-
+	    push(@blocks, [ $block, $priority ]);
 	    last if ($nbytes += $bytes) >= TERABYTE;
 	}
 
-	# Release the locks on t_dps_block
+	# Commit first phase so any concurrent modification of t_xfer_file
+	# and t_xfer_replica is handled by our triggers.
+	$dbh->commit();
+
+	foreach my $item (@blocks)
+	{
+	    &dbbindexec($i,
+		        ":block" => $$item[0],
+		    	":node" => $node,
+			":priority" => $$item[1],
+			":now" => $now);
+	}
+
+	# Now commit second phase.
 	$dbh->commit();
     }
-
-    # Update priority on existing requests (every fifteen minutes or so.)
-    &dbexec ($dbh, qq{
-        update (select xq.priority req_priority, bd.priority cur_priority
-                from t_xfer_request xq
-                  join t_dps_block_dest bd
-                    on bd.block = xq.inblock
-                    and bd.destination = xq.destination
-                where xq.destination = :node)
-        set req_priority = cur_priority},
-	":node" => $node);
-
-    # Clear completed requests.
-    &dbexec($dbh, qq{
-        delete from t_xfer_request xq
-        where destination = :node and exists
-          (select 1 from t_xfer_replica xr
-	   where xr.fileid = xq.fileid and xr.node = xq.destination)},
-	":node" => $node);
-
-    # Clear requests for files no longer wanted (do once an hour)    
-    &dbexec($dbh, qq{
-        delete from t_xfer_request xq
-        where destination = :node and not exists
-          (select 1 from t_dps_block_dest b
-	   where b.destination = xq.destination and b.block = xq.inblock)},
-	":node" => $node);
-    $dbh->commit();
 
     ######################################################################
     # Phase 2: Expand file requests into transfer paths through the
@@ -395,7 +400,21 @@ sub route
 	":node" => $node);
 
     # Confirm transfers where I am the path hop destination, the
-    # source replica exists and there is no transfer yet.
+    # source replica exists and there is no transfer yet.  However
+    # remove inactive transfers no longer requested, but in a way
+    # that avoids database contention with PFN export.
+    &dbexec($dbh, qq{
+        delete from t_xfer_state xs
+	where to_node = :me
+          and to_state != 2
+	  and (from_state = 1 or time_assign < :now - 1200)
+          and not exists
+	    (select 1 from t_xfer_path xp
+	     where xp.to_node = xs.to_node
+	       and xp.from_node = xs.from_node
+	       and xp.fileid = xs.fileid)},
+	":me" => $node, ":now" => $now);
+
     &dbexec($dbh, qq{
         insert into t_xfer_state
           (fileid, errors, priority, weight, age,
