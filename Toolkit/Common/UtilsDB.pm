@@ -438,15 +438,35 @@ sub checkAgentMessages
 # usual agent identification process against the database.
 sub expandNodesAndConnect
 {
-    my ($self) = @_;
+    my ($self, $require) = @_;
     my $dbh = &connectToDatabase ($self, 0);
+    my $now = &mytimeofday();
     my @result = ($dbh);
 
+    # Construct a query filter for required other agents to be active
+    my (@filters, %args);
+    foreach my $agent ($require ? keys %$require : ())
+    {
+	my $var = ":agent@{[scalar @filters]}";
+	push(@filters, "(a.name like ${var}n and s.time_update >= ${var}t)");
+	$args{"${var}t"} = $now - $$require{$agent};
+	$args{"${var}n"} = $agent;
+    }
+    my $filter = "";
+    $filter = ("and exists (select 1 from t_agent_status s"
+	       . " join t_agent a on a.id = s.agent"
+	       . " where s.node = n.id and ("
+	       . join(" or ", @filters) . "))")
+	if @filters;
+
+    # Now expand to the list of nodes
     foreach my $pat (@{$$self{NODES}})
     {
 	my $q = &dbexec($dbh, qq{
-	    select id, name from t_node where name like :pat},
-	    ":pat" => $pat);
+	    select id, name from t_node n
+	    where n.name like :pat $filter
+	    order by name},
+	    ":pat" => $pat, %args);
 	while (my ($id, $name) = $q->fetchrow())
 	{
 	    $$self{NODES_ID}{$name} = $id;
