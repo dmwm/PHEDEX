@@ -149,7 +149,9 @@ sub idle
 
 	&dbexec ($dbh, qq{
 	    update t_dps_block_dest set state = 0
-	    where time_suspend_until <= :now and state = 2},
+	    where state = 2
+	      and (time_suspend_until is null
+      		   or time_suspend_until <= :now)},
 	    ":now" => &mytimeofday());
 
 	# Create new block destinations for subscribed datasets where
