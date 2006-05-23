@@ -21,7 +21,10 @@ create table t_xfer_replica
    node			integer		not null,
    state		integer		not null,
    time_create		float		not null,
-   time_state		float		not null);
+   time_state		float		not null)
+  partition by list (node)
+  (partition node_dummy values (-1))
+  initrans 8;
 
 create table t_xfer_request
   (fileid		integer		not null,
@@ -31,7 +34,10 @@ create table t_xfer_request
    state		integer		not null,
    attempt		integer		not null,
    time_create		float		not null,
-   time_expire		float		not null);
+   time_expire		float		not null)
+  partition by list (destination)
+  (partition dest_dummy values (-1))
+  initrans 8;
 
 create table t_xfer_path
   (destination		integer		not null,  -- final destination
@@ -47,7 +53,8 @@ create table t_xfer_path
    penalty		float		not null,  -- path penalty
    time_request		float		not null,  -- request creation time
    time_confirm		float		not null,  -- last path build time
-   time_expire		float		not null /*   request expiry time */);
+   time_expire		float		not null)  -- request expiry time
+  initrans 8;
 
 create table t_xfer_state
   (fileid		integer		not null, -- file
@@ -75,7 +82,10 @@ create table t_xfer_state
    time_xfer_end	float,			  -- time last xfer ended
    time_error_total	float,			  -- time in error state
    time_error_start	float,			  -- time last entered error
-   time_error_end	float			  /* time to exit error state */);
+   time_error_end	float)			  -- time to exit error state
+  partition by list (from_node)
+  (partition from_dummy values (-1))
+  initrans 8;
 
 create table t_xfer_tracking
   (timestamp		float		not null,
@@ -87,7 +97,8 @@ create table t_xfer_tracking
    is_try		integer		not null,
    is_done		integer		not null,
    is_fail		integer		not null,
-   is_expire		integer		not null);
+   is_expire		integer		not null)
+  initrans 8;
 
 create table t_xfer_delete
   (fileid		integer		not null,  -- for which file
@@ -158,7 +169,7 @@ alter table t_xfer_replica
 
 alter table t_xfer_replica
   add constraint uq_xfer_replica
-  unique (fileid, node);
+  unique (node, fileid);
 
 alter table t_xfer_replica
   add constraint fk_xfer_replica_fileid
@@ -171,7 +182,7 @@ alter table t_xfer_replica
 
 alter table t_xfer_request
   add constraint pk_xfer_request
-  primary key (fileid, destination);
+  primary key (destination, fileid);
 
 alter table t_xfer_request
   add constraint fk_xfer_request_fileid
@@ -213,7 +224,7 @@ alter table t_xfer_path
 
 alter table t_xfer_state
   add constraint pk_xfer_state
-  primary key (fileid, to_node);
+  primary key (to_node, fileid);
 
 alter table t_xfer_state
   add constraint fk_xfer_state_fileid
@@ -280,8 +291,7 @@ alter table t_link_param
 create index ix_xfer_request_inblock
   on t_xfer_request (inblock);
 
--- create index ix_xfer_path_to_expire
---   on t_xfer_path (to_node, time_expire);
+--
 create index ix_xfer_path_to
   on t_xfer_path (to_node);
 
@@ -291,32 +301,17 @@ create index ix_xfer_path_tofile
 create index ix_xfer_path_srcfrom
   on t_xfer_path (src_node, from_node);
 
--- create index ix_xfer_replica_common
---   on t_xfer_replica (node, state, fileid);
-
+--
 create index ix_xfer_state_from_node
   on t_xfer_state (from_node);
 
 create index ix_xfer_state_to_node
   on t_xfer_state (to_node);
 
--- create index ix_xfer_state_to_state
---  on t_xfer_state (to_state);
-
--- create index ix_xfer_state_fromto_state
---  on t_xfer_state (from_node, fileid, to_state);
-
--- create index ix_xfer_state_fromto_pair
---  on t_xfer_state (from_node, to_node);
-
--- create index ix_xfer_state_fromto_replica
---   on t_xfer_state (from_replica, to_node);
 create index ix_xfer_state_from_replica
    on t_xfer_state (from_replica);
 
--- create index ix_xfer_state_fromst_replica
---   on t_xfer_state (from_replica, to_state);
-
+--
 create index ix_xfer_tracking
  on t_xfer_tracking (fileid, from_node, to_node);
 
@@ -329,20 +324,9 @@ alter table t_xfer_path				enable row movement;
 alter table t_xfer_state			enable row movement;
 alter table t_xfer_tracking			enable row movement;
 
-alter table t_xfer_replica			move initrans 8;
-alter table t_xfer_request			move initrans 8;
-alter table t_xfer_path				move initrans 8;
-alter table t_xfer_state			move initrans 8;
-alter table t_xfer_tracking			move initrans 8;
-
 alter index pk_xfer_replica			rebuild initrans 8;
-alter index ix_xfer_replica_node		rebuild initrans 8;
-alter index ix_xfer_replica_common		rebuild initrans 8;
 
 alter index pk_xfer_state			rebuild initrans 8;
 alter index ix_xfer_state_from_node		rebuild initrans 8;
 alter index ix_xfer_state_to_node		rebuild initrans 8;
---alter index ix_xfer_state_to_state		rebuild initrans 8;
---alter index ix_xfer_state_fromto_state		rebuild initrans 8;
---alter index ix_xfer_state_fromto_pair		rebuild initrans 8;
 alter index ix_xfer_tracking			rebuild initrans 8;
