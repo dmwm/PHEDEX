@@ -10,6 +10,7 @@
 -- oradoc.cern.ch
 -- sqlplus / l / 16 / del / &foo
 -- create trigger for transfer history
+-- insert /*+ append */ into t_xfer_replica select * from yt_xfer_replica;
 
 /*
 I have enabled the feature allowing you to manage access privileges to
