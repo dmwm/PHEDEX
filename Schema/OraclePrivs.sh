@@ -51,7 +51,7 @@ for role in \
 
       T_*:*CERN* | \
       T_*AGENT*:* | \
-      T_XFER_REPLICA:*CERN* | \
+      T_XFER_REPLICA:* | \
       T_XFER_REQUEST:*CERN* | \
       T_XFER_PATH:*CERN* | \
       T_XFER_STATE:* | \
