@@ -143,7 +143,8 @@ function makeGraph($graph, $data, $args, $upto, $by)
   $graph->legend->SetColumns($legendcols);
   $graph->legend->SetShadow(0);
   $graph->legend->SetVColMargin(2);
-  $graph->legend->SetFont(FF_VERDANA,FS_NORMAL,8);
+  $graph->legend->SetFont(FF_VERDANA,FS_NORMAL,
+  			  count($barplots) > 40 ? 7 : 8);
   // $graph->legend->SetLayout(LEGEND_HOR);
   $graph->Add ($plot);
   $graph->Stroke();

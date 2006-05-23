@@ -128,7 +128,7 @@ function makeGraph($graph, $data, $args, $upto, $by)
 
   $graph->y2axis->scale->ticks->Set (.5,.5);
   $graph->y2axis->title->SetFont(FF_VERDANA,FS_NORMAL,11);
-  $graph->y2axis->SetFont(FF_VERDANA,FS_NORMAL,9);
+  $graph->y2axis->SetFont(FF_VERDANA,FS_NORMAL,count($ylabels) > 26 ? 6 : 9);
   $graph->y2axis->SetTickLabels ($ylabels);
   $graph->y2axis->SetTextLabelInterval (2);
   $graph->y2axis->HideFirstTickLabel ();
