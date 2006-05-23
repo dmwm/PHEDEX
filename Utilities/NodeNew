@@ -47,6 +47,9 @@ my $nodeid = undef;
   returning id into :id},
   ":node" => $node,
   ":id" => \$nodeid);
+&dbexec($dbh, "alter table t_xfer_replica add partition node_@{[lc($node)]} values ($nodeid)");
+&dbexec($dbh, "alter table t_xfer_request add partition dest_@{[lc($node)]} values ($nodeid)");
+&dbexec($dbh, "alter table t_xfer_state   add partition from_@{[lc($node)]} values ($nodeid)");
 
 while (@ARGV)
 {
