@@ -3,11 +3,12 @@ insert into t_node (id,name)
 
 BEGIN
    FOR t IN (SELECT id, name FROM t_node) LOOP
-      execute immediate 'alter table t_xfer_replica add partition node_' || lower(t.name) || ' values (' || t.id || ');'
-      execute immediate 'alter table t_xfer_request add partition dest_' || lower(t.name) || ' values (' || t.id || ');'
-      execute immediate 'alter table t_xfer_state   add partition from_' || lower(t.name) || ' values (' || t.id || ');'
+      execute immediate 'alter table t_xfer_replica add partition node_' || lower(t.name) || ' values (' || t.id || ')';
+      execute immediate 'alter table t_xfer_request add partition dest_' || lower(t.name) || ' values (' || t.id || ')';
+      execute immediate 'alter table t_xfer_state   add partition from_' || lower(t.name) || ' values (' || t.id || ')';
    END LOOP;
 END;
+/
 
 insert into t_link (id,from_node,to_node,distance,local_boost)
 	(select seq_link.nextval,f.id,t.id,decode(nn.hops,1,1,2),decode(nn.hops,1,1,0)
