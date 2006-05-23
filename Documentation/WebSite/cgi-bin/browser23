@@ -920,7 +920,7 @@ sub rates {
       SRC='http://pcstats2.cern.ch/misc/cern-all-day.png' ALT='day'></a></p>\n";
     print "<a href='https://lemonweb.cern.ch/lemon-status/info.php?time=0&cluster=c2cms%25wan&detailed=&auto_update=Not+auto+update'><IMG
       VSPACE=10 WIDTH=491 HEIGHT=185 ALIGN=TOP
-      SRC='http://cern.ch/cms-project-phedex/lemon-mirror/test/images/cluster_c2cms_wan.rrd_S_NUMKBREADAVG_d.gif' ALT='day'></a></p>\n";
+      SRC='http://cmsdoc.cern.ch/cms/aprom/phedex/WebMirror/lemonweb.cern.ch/test/images/cluster_c2cms_wan.rrd_S_NUMKBREADAVG_d.gif' ALT='day'></a></p>\n";
     print "<p><table class='striped'><tbody>\n";
     foreach my $span (qw(H D W M))
     {
@@ -1042,7 +1042,7 @@ sub rateplot
 		 "am" => [ "0:month", "Monthly Since Start" ]);
     my $plot = param("plot");
     my $graph = param("graph") || 'bar';
-    my $entity = param("entity") || 'link';
+    my $entity = param("entity") || 'dest';
     my $filter = param("filter") || '';
     my $upto = param("upto") || '';
     $plot = 'l96h' if (! $plot || ! exists $plots{$plot});
@@ -1118,7 +1118,7 @@ sub qplot
 		 "am" => [ "0:month", "Monthly Since Start" ]);
     my $plot = param("plot");
     my $filter = param("filter") || '';
-    my $entity = param("entity") || 'link';
+    my $entity = param("entity") || 'dest';
     my $upto = param("upto") || '';
     $plot = 'l96h' if (! $plot || ! exists $plots{$plot});
 
