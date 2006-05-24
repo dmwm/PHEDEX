@@ -1,6 +1,24 @@
 ----------------------------------------------------------------------
 -- Log into t_xfer_tracking changes to t_xfer_state.
 
+create or replace trigger tr_node_insert
+  after insert on t_node for each row declare pragma autonomous_transaction; begin
+    execute immediate 'alter table t_xfer_replica add partition node_' || lower(:new.name) || ' values (' || :new.id || ')';
+    execute immediate 'alter table t_xfer_request add partition dest_' || lower(:new.name) || ' values (' || :new.id || ')';
+    execute immediate 'alter table t_xfer_state   add partition from_' || lower(:new.name) || ' values (' || :new.id || ')';
+    commit;
+  end;
+/
+
+create or replace trigger tr_node_delete
+  after delete on t_node for each row declare pragma autonomous_transaction; begin
+    execute immediate 'alter table t_xfer_replica drop partition node_' || lower(:old.name);
+    execute immediate 'alter table t_xfer_request drop partition dest_' || lower(:old.name);
+    execute immediate 'alter table t_xfer_state   drop partition from_' || lower(:old.name);
+    commit;
+  end;
+/
+
 create or replace trigger tr_xfer_file_insert
   after insert on t_xfer_file for each row declare
     unixtime integer
