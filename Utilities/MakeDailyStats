@@ -152,7 +152,7 @@ foreach my $time (&timeSeries ($first, "hour"))
     my $p = $pending{$hour};
     my $q = $quality{$hour};
     my %dests = map { $_ => 1 } keys %$x, keys %$p, keys %$q;
-    $dests{$nodenames[0]} = 1 if ! keys %dests;
+    $dests{$nodenames[0]} = 1 if @nodenames && ! keys %dests;
     foreach my $dest (sort keys %dests)
     {
         print XFER_TOTAL
