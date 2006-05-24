@@ -100,9 +100,9 @@ and "site" is the site name in all lowercase.
    # Schema/OracleInitRole.sh DBParam:Production ../Keys/e@mail site
    # /usr/sbin/sendmail -t < Output/phedex_site_prod:e@mail
 
-   # cd ~/private/roles/Dev
-   # Schema/OracleInitRole.sh DBParam:Dev ../Keys/e@mail site
-   # /usr/sbin/sendmail -t < Output/phedex_site_dev:e@mail
+   cd ~/private/roles/Dev
+   Schema/OracleInitRole.sh DBParam:Dev ../Keys/e@mail site
+   /usr/sbin/sendmail -t < Output/phedex_site_dev:e@mail
 
    cd ~/private/roles/SC4
    Schema/OracleInitRole.sh DBParam:SC4 Keys/e@mail site
