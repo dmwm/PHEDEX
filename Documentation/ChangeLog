@@ -1,3 +1,32 @@
+* Changes in PhEDEx 2.3.4
+
+ General changes:
+  - Download agent improvements:
+    - Log files are now prefixed by agent "boot time" so logs
+      from different runs of the agent remain separate.
+    - Globus backend got same logging improvements as SRM previously.
+
+  - Block management agents:
+    - Suspended blocks are now reactivated correctly if the suspend
+      time (time_suspend_until) is reset to null, as opposed to just
+      expiring.
+
+  - Minor improvements to the status web browser.
+    - The browser plots are now by destination by default, by link
+      was too much information for default overall situation.  By
+      link display is still recommended when filter for a site as
+      it shows in one view all incoming and outgoing transfers.
+    - Plot legend font size shrinks if many sites are included.
+    - Remove rare warnings in daily stats generation.
+
+ Schema changes:
+  - INT2R TNS entries adjusted.
+  - Further review of indexes.
+  - t_xfer_replica authorisations corrected.
+  - Certain tables are now partitioned by node.  The partitions are
+    automatically added and removed by triggers on insert to or
+    delete from t_node.
+
 * Changes in PhEDEx 2.3.3
 
  General changes:

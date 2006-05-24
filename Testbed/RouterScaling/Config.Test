@@ -7,8 +7,8 @@ PHEDEX_LOGS=${PHEDEX_BASE}/logs;
 PHEDEX_SCRIPTS=${PHEDEX_BASE}/PHEDEX;
 PHEDEX_STORAGE_MAP=${PHEDEX_CONF}/storage.xml;
 
-source /data/tools/oraenv.sh;
-source /data/tools/perlenv.sh;
+# source /data/tools/oraenv.sh;
+# source /data/tools/perlenv.sh;
 
 #### General agents
 ### AGENT LABEL=mgmt-blockmon PROGRAM=Toolkit/Workflow/BlockMonitor
