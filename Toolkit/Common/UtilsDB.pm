@@ -510,20 +510,24 @@ sub otherNodeFilter
 	my $q = &dbprep($$self{DBH}, qq{
 	    select id from t_node where name like :pat});
 
-        for (my $n = 0; $n < scalar @{$$self{IGNORE_NODES}}; ++$n)
-        {
-	    &dbbindexec($q, ":pat" => $$self{IGNORE_NODES}[$n]);
-	    my ($id) = $q->fetchrow();
-	    $$self{IGNORE_NODES_IDS}{MAP}{$n} = $id if defined $id;
-	    $q->finish();
+	my $index = 0;
+	foreach my $pat (@{$$self{IGNORE_NODES}})
+	{
+	    &dbbindexec($q, ":pat" => $pat);
+	    while (my ($id) = $q->fetchrow())
+	    {
+	        $$self{IGNORE_NODES_IDS}{MAP}{++$index} = $id;
+	    }
         }
 
-        for (my $n = 0; $n < scalar @{$$self{ACCEPT_NODES}}; ++$n)
+	$index = 0;
+	foreach my $pat (@{$$self{ACCEPT_NODES}})
         {
-	    &dbbindexec($q, ":pat" => $$self{ACCEPT_NODES}[$n]);
-	    my ($id) = $q->fetchrow();
-	    $$self{ACCEPT_NODES_IDS}{MAP}{$n} = $id if defined $id;
-	    $q->finish();
+	    &dbbindexec($q, ":pat" => $pat);
+	    while (my ($id) = $q->fetchrow())
+	    {
+	        $$self{ACCEPT_NODES_IDS}{MAP}{++$index} = $id;
+	    }
         }
 
 	$$self{IGNORE_NODES_IDS}{LAST_CHECK} = $now;
