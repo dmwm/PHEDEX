@@ -223,6 +223,7 @@ sub markFilesWanted
     return if $$self{LAST_WANTED} > $now - 60;
 
     my ($dest, %dest_args) = &myNodeFilter ($self, "to_node");
+    my ($filter, %filter_args) = &otherNodeFilter ($self, "from_node");
 
     # Restore files from cool-off when they've done their time.
     &dbexec ($dbh, qq{
@@ -238,8 +239,9 @@ sub markFilesWanted
 	where $dest
 	  and to_state = 100
           and time_error_end <= :now
-          and time_expire > :now},
-        ":now" => $now, %dest_args);
+          and time_expire > :now
+	  $filter},
+        ":now" => $now, %dest_args, %filter_args);
 
     # Mark all my files wanted.  We want this updated regularly enough.
     &dbexec ($dbh, qq{
@@ -248,8 +250,9 @@ sub markFilesWanted
 	where $dest
 	  and time_expire > :now
   	  and (time_request is null or time_request < :now - 300)
-          and to_state <= 1},
-    	":now" => $now, %dest_args);
+          and to_state <= 1
+	  $filter},
+    	":now" => $now, %dest_args, %filter_args);
 
     $$self{LAST_WANTED} = $now;
     $dbh->commit();
