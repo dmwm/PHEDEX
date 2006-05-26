@@ -1,3 +1,14 @@
+* Changes in PhEDEx 2.3.5
+
+ General changes:
+  - Correction in handling -ignore/-accept options.  If a wildcard
+    was used, not all matching nodes were filtered.
+  - Download agent applies the -ignore/-accept option also when
+    marking files wanted.  This makes no functional difference,
+    but more correct.
+
+ Schema changes: none.
+
 * Changes in PhEDEx 2.3.4
 
  General changes:
