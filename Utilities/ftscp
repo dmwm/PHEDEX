@@ -2,7 +2,8 @@
 
 ##H This is a "srmcp"-like script using FTS to transfer files.
 ##H
-##H Usage: ftscp -copyjobfile=FILE [-report=FILE]
+##H Usage: ftscp -copyjobfile=FILE [-report=FILE] -passfile=FILE
+##H              [-server=SERVER-ACCESS-POINT]
 ##H
 ##H Takes a list of source/destination file pairs and copies them
 ##H using FTS.  The files must be given through a "copyjob" file,
@@ -14,35 +15,37 @@
 ##H is written in there.  The exit code from the command is zero
 ##H if all the files have been copied successfuly, otherwise non-
 ##H zero; the details can be found in the report file.
+##H
+##H The "-passfile" specifies the file name from which to read the
+##H the password for FTS MyProxy password.  This option is required,
+##H and the file must be readable and writeable only by the user or
+##H the command will fail.
+##H
+##H The "-server" option specifies the FTS entry point.  If this
+##H option is not used, gLite service discovery is used.
 
 usage() { grep '^##H' < $0 | sed 's/^\(##H \|##H$\)//'; exit 1; }
 
 # Pick up options
-#report=/dev/null copyjob=
-#copyjob=
-#while [ $# -ge 1 ]; do
-#echo "1= $1"
-#echo "arg= $arg"
-#echo "#= $#"
-#  case $1 in
+report=/dev/null copyjob= passfile= server=
 for arg; do
-#echo "arg= $arg"
   case $arg in
     -copyjobfile=* )
       copyjobfile="${arg#-copyjobfile=}"
-### [FIXME] cat $copyjobfile | sed 's|grid|gridsc|' > $copyjobfile 
       echo "copyjobfile=$copyjobfile"
-      cat $copyjobfile
-#      break;;
+      cat $copyjobfile 2>/dev/null
      ;;
     -report=* )
       report="${arg#-report=}"
       echo "report=$report"
       ;;
+    -passfile=*)
+      passfile="${arg#-passfile=}"
+      echo "passfile=$passfile"
+      ;;
     -server=* )
       server="${arg#-server=}"
       echo "server=$server"
-#      break;;
       ;;
     -h )
       usage;;
@@ -53,72 +56,91 @@ for arg; do
   esac
 done
 
-#echo "-- $copyjob --"
-#cat $copyjob
+# Verify arguments
 [ -z "$copyjobfile" ] && { echo "Missing -copyjobfile, use -h for help." 1>&2; exit 1; }
-[ -z "$server" ] && { echo "Missing -server, use -h for help." 1>&2; exit 1; }
 [ ! -f "$copyjobfile" ] && { echo "$copyjobfile: no such file" 1>&2; exit 2; }
 [ ! -r "$copyjobfile" ] && { echo "$copyjobfile: cannot read" 1>&2; exit 3; }
+[ -z "$passfile" ] && { echo "Missing -passfile, use -h for help." 1>&2; exit 4; }
+[ ! -f "$passfile" ] && { echo "$passfile: no such file" 1>&2; exit 5; }
+[ ! -r "$passfile" ] && { echo "$passfile: cannot read" 1>&2; exit 6; }
+case $(ls -l "$passfile" 2>/dev/null | awk '{print $1}') in ????------ ) ;;
+  * ) echo "$passfile: password file has vulnerable file access permissions" 1>&2;
+      echo "$passfile: please restrict with 'chmod 600 $passfile'" 1>&2; exit 7;;
+esac
 
-#echo "copyjob: $copyjob"
-ftsjobid=
+if [ -z "$server" ]; then :; else
+  server="-s $server"
+fi
 
+# Create FTS transfer job
 # FIXME: signal handling
-# trap 1 2 15 's=$?; [ -z "$ftsjobid" ] || glite-transfer-cancel $ftsjobid; exit $s'
+ftsjob=
+# trap 1 2 15 's=$?; [ -z "$ftsjob" ] || glite-transfer-cancel $ftsjob; exit $s'
 
 # Create a FTS transfer request.
-echo "glite-transfer-submit -p pppppp -s $server -f $copyjobfile"
-ftsjob=$(glite-transfer-submit -p pppppp -s $server -f $copyjobfile)
-#ftsjob=$(glite-transfer-submit -p pppppp -s \"$server\" -f \"$copyjobfile\")
-#ftsjob=$(echo \"eccomi\")
-
-echo "ftsjob = $ftsjob"
-
+echo "+ glite-transfer-submit -p _censored_ $server -f $copyjobfile"
+ftsjob=$(glite-transfer-submit -p $(cat "$passfile") $server -f $copyjobfile)
+echo "ftsjob=$ftsjob"
 
 # Poll transfer status, record output into the report
 while true; do
   # FIXME: we need to be recording per-file status, not just the job!
+  echo "sleeping 10"
   sleep 10 
-  ftsstatus=$(glite-transfer-status -s $server $ftsjob)
+  echo "+ glite-transfer-status $server $ftsjob"
+  ftsstatus=$(glite-transfer-status $server $ftsjob)
+  echo "$ftsjob status is $ftsstatus"
   case $ftsstatus in
     Submitted )
       # [FIXME] need to just ignore this transient state
-      echo "$ftsjob status is Submitted";;
+      ;;
 
     Pending )
       # [FIXME] Need something smarter here, adaptive sleep based on
       # how much has been done and remains to be done.
-      echo "$ftsjob status is Pending";;
+      ;;
 
     Active )
-      echo "$ftsjob status is Active";;
+      ;;
 
     Canceled )
       # [FIXME] how can I find it Canceled?
-      echo "$ftsjob status is Canceled";;
+      ;;
 
     Hold )
       # [FIXME] what to do in this case?
-      echo "$ftsjob status is Hold"
-      echo "glite-transfer-cancel -s $server $ftsjob"
-      glite-transfer-cancel -s $server $ftsjob
-      exitcode=1
+      echo "+ glite-transfer-cancel $server $ftsjob"
+      glite-transfer-cancel $server $ftsjob
+      exit 8
       ;;
 
-    Done )
-      echo "$ftsjob status is Done"
+    Done | Failed )
       # Job done, record report file, quit
-      exitcode=0
-      while read src dest; do
-	# FIXME: Get the transfer status for this pair
-        #echo "-- src $src"
-        #echo "-- dest: $dest"
-        #echo "-- status: $status"
+      echo "+ glite-transfer-status -l $server $ftsjob"
+      glite-transfer-status -l $server $ftsjob |
+        while read item arg; do
+	  case $item in
+	    Source: )
+	      src="$arg" ;;
+	    Destination:)
+	      dest="$arg" ;;
+	    State: )
+	      case $arg in
+	        Done ) status="0" state="$arg" ;;
+		*    ) status="1" state="$arg" ;;
+	      esac;;
+	    Reason: )
+	      echo "$src $dest $status $state $arg" ;;
+	  esac
+	done > "$report"
 
-	[ X"$status" != X0 ] && exitcode=10
-        echo "$src $dest $status"
-      done < "$copyjobfile" > "$report"
-      exit $exitcode
+      echo "+ glite-transfer-status -l $server $ftsjob"
+      if glite-transfer-status -l $server $ftsjob | \
+	 grep State: | grep -v Done >/dev/null; then
+	exit 1
+      else
+        exit 0
+      fi
       ;;
 
     * )
