@@ -41,7 +41,7 @@ sub transferBatch
 	foreach (split (/\n/, &input($reportfile) || ''))
 	{
 	    my ($from, $to, $status, @rest) = split(/\s+/);
-	    $reported{$from}{$to} = $status;
+	    $reported{$from}{$to} = [ $status, "@rest" ];
 	}
 	unlink ($specfile, $reportfile);
 
@@ -53,11 +53,12 @@ sub transferBatch
 	    if (exists $reported{$$file{FROM_PFN}}{$$file{TO_PFN}})
 	    {
 		# This copy has a report entry.  Use that instead.
-		my $status = $reported{$$file{FROM_PFN}}{$$file{TO_PFN}};
+		my ($status, $info) = @{$reported{$$file{FROM_PFN}}{$$file{TO_PFN}}};
 		$$file{TRANSFER_STATUS}{STATUS} = $status;
 	        $$file{TRANSFER_STATUS}{REPORT}
 	            = "transfer report code $status;"
-		      . " exit code $$job{STATUS} from @{$$job{CMD}}";
+		      . " exit code $$job{STATUS} from @{$$job{CMD}}"
+		      . ($info ? "; detailed info: $info" : "");
 	    }
 	    else
 	    {
