@@ -164,7 +164,7 @@ sub checkTransferBypass
 	    my $args = "$$file{FROM_PFN} $$file{TO_PFN}";
 	    $$self{MASTER}->addJob (
 		sub { $self->checkTransferBypass ($batch, $file, $out, @_) },
-		{ TIMEOUT => $$self{TIMEOUT} },
+		{ TIMEOUT => $$self{TIMEOUT}, LOGPREFIX => 1 },
 		"sh", "-c", "@{$$self{MASTER}{BYPASS_COMMAND}} $args > $out");
 	}
     }
@@ -199,7 +199,7 @@ sub preClean
 	    $self->startFileTiming ($file, "preclean");
 	    $$self{MASTER}->addJob (
 		sub { $self->preClean ($batch, $file, @_) },
-		{ TIMEOUT => $$self{TIMEOUT} },
+		{ TIMEOUT => $$self{TIMEOUT}, LOGPREFIX => 1 },
 		@{$$self{MASTER}{DELETE_COMMAND}}, "pre", $file->{TO_PFN});
 	}
     }
@@ -263,7 +263,7 @@ sub validateBatch
 	    $self->startFileTiming ($file, "validate");
 	    $$self{MASTER}->addJob (
 		sub { $self->validateBatch ($batch, $file, @_) },
-		{ TIMEOUT => $$self{TIMEOUT} },
+		{ TIMEOUT => $$self{TIMEOUT}, LOGPREFIX => 1 },
 		@{$$self{MASTER}{VALIDATE_COMMAND}},
 		$file->{TRANSFER_STATUS}{STATUS}, $file->{TO_PFN},
 		$file->{FILESIZE}, $file->{CHECKSUM});
@@ -299,7 +299,7 @@ sub postClean
 	    my $joblog = "$$self{MASTER}{DROPDIR}/$$file{FILEID}.log";
 	    $$self{MASTER}->addJob (
 		sub { $self->postClean ($batch, $file, @_) },
-		{ TIMEOUT => $$self{TIMEOUT} },
+		{ TIMEOUT => $$self{TIMEOUT}, LOGPREFIX => 1 },
 		@{$$self{MASTER}{DELETE_COMMAND}}, "post", $file->{TO_PFN});
 	}
     }
