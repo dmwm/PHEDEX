@@ -1,0 +1,172 @@
+#!/usr/bin/env perl
+
+##H Manage downloads into a dCache MSS node, marking transfer completed
+##H when the files have been migrated to tape.
+##H
+##H Based on Jens' migration agent for FZK
+##H
+##H Usage:
+##H   FileMigrate
+##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-wait SECS]
+##H      -pfnquery COMMAND[,ARGS...]
+##H
+##H -state     agent state directory
+##H -node      the node where this agent runs
+##H -db        database connection configuration parameter file
+##H -wait      time to wait in seconds between work scans
+##H -pfnquery  command to query pfns from catalogue
+
+BEGIN {
+  use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+######################################################################
+use UtilsHelp;
+my %args;
+while (scalar @ARGV)
+{
+    if ($ARGV[0] eq '-wait' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{WAITTIME} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-state' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DROPDIR} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-db' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{DBCONFIG} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-node' && scalar @ARGV > 1)
+    { shift (@ARGV); $args{MYNODE} = shift(@ARGV); }
+    elsif ($ARGV[0] eq '-pfnquery' && scalar @ARGV > 1)
+    { shift (@ARGV); @{$args{PFN_QUERY}} = split(/,/, shift(@ARGV)); }
+    elsif ($ARGV[0] eq '-h')
+    { &usage(); }
+    else
+    { last; }
+}
+
+if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG}
+    || !$args{MYNODE} || !$args{PFN_QUERY})
+{
+    die "Insufficient parameters, use -h for help.\n";
+}
+
+(new FileMigrate (%args))->process();
+
+######################################################################
+# Routines for this agent.
+package FileMigrate; use strict; use warnings; use base 'UtilsAgent';
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsCatalogue;
+use UtilsDB;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBCONFIG => undef,            # Database configuration file
+                  MYNODE => undef,              # My TMDB node name
+                  PFN_QUERY => undef,           # Program to query PFNs
+                  AGENTID => "Download");       # Identity for activity logs
+    my %args = (@_);
+    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Called by agent main routine before sleeping.  Pick up work.
+sub idle
+{
+    my ($self, @pending) = @_;
+    my $dbh = undef;
+    eval
+    {
+        my $start = &mytimeofday();
+        $dbh = &connectToDatabase ($self) or die "failed to connect";
+
+	# We don't need to mark things wanted-- we can just progress
+	# everything to in transfer immediately. This is because this
+	# agent is designed to work in close conjunction with the
+	# download agent at the next-outward bound node-- a stage
+	# node.
+	# Note this is dangerous because we assume that if this agent
+	# is activated then there is a replica at the stage node.
+        my %args = (":node" => $self->{MYNODE}, ":now" => $start);
+        &dbexec($dbh, qq{
+            update t_transfer_state
+            set from_state = 1, from_timestamp = :now
+            where to_node = :node and from_state = 0},
+            %args);
+        &dbexec($dbh, qq{
+            update t_transfer_state
+            set to_state = 2, to_timestamp = :now
+            where to_node = :node and to_state = 0},
+            %args);
+        $dbh->commit();
+
+        # Process files pending migration.
+	# These files are the ones marked in transfer to the MSS node.
+	# We need to check the status of the file-- by parsing the out
+	# put of srm-get-metadata. If it's migrated we update the
+	# to_status to 3, and create a replica entry.. If not, we wait.
+
+        my $rsstmt = $dbh->prepare(qq{
+            insert into t_replica_state
+            (timestamp, guid, node, state, state_timestamp)
+            values (:now, :guid, :node, 0, :now)});
+        my $tsstmt = $dbh->prepare(qq{
+            update t_transfer_state
+            set to_state = 3, to_timestamp = :now
+            where guid = :guid and to_node = :node});
+        my ($qstmt) = &dbexec($dbh, qq{
+            select ts.guid, f.filesize, ts.from_timestamp
+            from t_transfer_state ts
+            join t_file f on f.guid = ts.guid
+            where ts.to_node = :node and ts.to_state = 2},
+            ":node" => $self->{MYNODE});
+        while (my $row = $qstmt->fetchrow_arrayref())
+        {
+            my ($guid, $size, $time) = @$row;
+
+            # Check if the file has been migrated.  If not, skip it.
+            my $pfn = &guidToPFN ($guid, "srm", "local", @{$self->{PFN_QUERY}});
+
+	    # Check the status of the file
+	    my $status = 0;
+	    open(INFO, "srm-get-metadata $pfn |");
+	    while(<INFO>) {
+		if (/isPermanent :true/) {
+		    $status = 1;
+		}
+	    }
+            close (INFO)
+                or &alert( "No dCache migration info for $pfn: $!" );
+            
+            next if !$status;
+
+            # Migrated, mark transfer completed
+            &dbbindexec($tsstmt, %args, ":guid" => $guid);
+            &dbbindexec($rsstmt, %args, ":guid" => $guid);
+            $dbh->commit ();
+
+            # Log delay data.
+            my $nowh = &mytimeofday();
+            &logmsg ("xstats: $guid $self->{MYNODE} 3 "
+                    . sprintf('%.2f', &mytimeofday() - $time)
+                    . " $size");
+
+            # Give up if we've taken too long
+            last if $nowh - $start > 10*60;
+        }
+    };
+    do { &alert ("database error: $@");
+         eval { $dbh->rollback() } if $dbh; } if $@;
+
+    # Disconnect from the database
+    &disconnectFromDatabase ($self, $dbh);
+
+    # Have a little nap
+    $self->nap ($self->{WAITTIME});
+}

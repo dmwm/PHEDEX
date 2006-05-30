@@ -1,0 +1,356 @@
+#!/usr/bin/env perl
+
+##H Manage Castor/dCache stage-in pool based on file download requests.
+##H
+##H This agent checks for files wanted for transfer from this node and
+##H issues stage-in requests for them.  It updates the current stage-in
+##H status of the files in TMDB based on stager disk state.
+##H
+##H As TMDB only contains LFNs and no PFNs, we execute a site-local
+##H script to map the LFNs to PFNs, typically using local catalogue.
+##H Correspondingly, files reported by stager to be on disk are mapped
+##H back to LFNs.
+##H
+##H Usage:
+##H   FileSrmStager
+##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
+##H      -storagemap PATH
+##H
+##H -state       agent state directory
+##H -node        the node where this agent runs
+##H -db          database connection configuration parameter file
+##H -log         where to redirect logging information
+##H -storagemap  storage mapping catalogue
+
+BEGIN {
+  use strict; use warnings; $^W=1;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+######################################################################
+my %args;
+use Getopt::Long;
+use UtilsHelp;
+&GetOptions ("state=s"     => \$args{DROPDIR},
+	     "log=s"       => \$args{LOGFILE},
+             "db=s"        => \$args{DBCONFIG},
+             "node=s"      => \$args{MYNODE},
+	     "storagemap=s"=> \$args{STORAGEMAP},
+	     "help|h"      => sub { &usage() });
+
+if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG}
+    || !$args{MYNODE} || !$args{STORAGEMAP})
+{
+    die "Insufficient parameters, use -h for help.\n";
+}
+
+(new FileSrmStager (%args))->process();
+
+######################################################################
+# Routines for this agent.
+package FileSrmStager; use strict; use warnings; use base 'UtilsAgent';
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsCatalogue;
+use UtilsDB;
+
+sub min { return (sort { $a <=> $b } @_)[0] }
+sub max { return (sort { $b <=> $a } @_)[0] }
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBCONFIG => undef,		# Database configuration file
+	  	  MYNODE => undef,		# My TMDB node name
+	  	  STORAGEMAP => undef,		# Storage path mapping rules
+		  WAITTIME => 550 + rand(100),	# Agent cycle time
+	  	  AGENTID => "FileStager",	# Identity for activity logs
+    	    	  MAXFILES => 100,		# Max number of files in one request
+		  PFN_CACHE => {},		# LFN -> PFN cache
+		  STAGE_CACHE => {},		# Stage status cache
+		  DB_CACHE => {});		# Cache of DB state
+    my %args = (@_);
+    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Purge old entries from our caches.
+sub purgeCache
+{
+    my ($cache, $lifetime) = @_;
+    $lifetime ||= 86400;
+
+    # Remove old positive matches after a day to avoid building up
+    # a cache over a time.  Remove negative matches after an hour.
+    my $now = time ();
+    my $oldmatch = $now - $lifetime;
+    my $oldnomatch = $now - 3600;
+
+    # Remove entries that are too old
+    foreach my $item (keys %$cache)
+    {
+	delete $$cache{$item}
+	   if ($$cache{$item}{TIME} < $oldmatch
+	       || (! $$cache{$item}{VALUE}
+		   && $$cache{$item}{TIME} < $oldnomatch));
+    }
+}
+
+# Get the list of files in transfer out of the node.
+sub getNodeFiles
+{
+    my ($self, $dbh) = @_;
+    my %files = ();
+
+    # First fetch files from database.  If we come across something
+    # we haven't seen before, remember it but don't look it up yet.
+    # We get files exported from the node, plus most recent time the
+    # file was in that state.
+    my $stmt = &dbexec($dbh, qq{
+	   select f.logical_name, xs.to_state, xs.time_request
+	   from t_xfer_state xs join t_xfer_file f on f.id = xs.fileid
+	   where xs.from_node = :node},
+	   ":node" => $$self{ID_MYNODE});
+    while (my ($lfn, $state, $time) = $stmt->fetchrow())
+    {
+	# Remap states: 1, 2 => wanted (1), others => unwanted (0)
+	$state = ($state == 1 || $state == 2) ? 1 : 0;
+
+	$files{$lfn} = { LFN => $lfn, STATE => $state, TIME => $time }
+	    if ((exists $files{$lfn}
+		 && $files{$lfn}{STATE} <= $state)
+	        || (exists $files{$lfn}
+		    && $files{$lfn}{STATE} == $state
+		    && $files{$lfn}{TIME} <= $time)
+	        || ! exists $files{$lfn});
+    }
+
+    # Now, collect PFNs for cached files.
+    foreach my $lfn (keys %files)
+    {
+	$files{$lfn}{PFN} = $$self{PFN_CACHE}{$lfn}{VALUE}
+	    if exists $$self{PFN_CACHE}{$lfn};
+    }
+
+    # Finally PFNs for files not in cache.  We do this in single
+    # efficient pull + cache results.
+    if (my @lfns = grep(! $files{$_}{PFN}, keys %files))
+    {
+        my $now = time();
+        my $pfns = &pfnLookup (\@lfns, "srm", "local", $$self{STORAGEMAP});
+	while (my ($lfn, $pfn) = each %$pfns)
+        {
+	    $$self{PFN_CACHE}{$lfn} = { TIME => $now, VALUE => $pfn }; 
+	    $files{$lfn}{PFN} = $pfn if defined $pfn;
+        }
+    }
+
+    return \%files;
+}
+
+# Append into the file list the stager status information.
+# It is not currently possible to get all files on stager.
+#
+# Returns undef if the stager can't be queried because of
+# a transient error.  Otherwise returns the input hash.
+sub getStagerFiles
+{
+    my ($self, $files) = @_;
+    return undef if ! $files;
+
+    # First check which files don't have a cached stager status.  If
+    # we have not cached any status, or if the file is wanted and the
+    # file wasn't staged the last we checked, query.  Otherwise trust
+    # the cache.  This implies we'll check on unwanted files no more
+    # than about once an hour.
+    my @todo = ();
+    my $now = time();
+    foreach my $file (values %$files)
+    {
+	my $pfn = $$file{PFN};
+	next if ! $pfn;
+	my $c = $$self{STAGE_CACHE}{$pfn};
+	do { push (@todo, $file); next }
+	    if (! $c
+		|| (($$c{VALUE} || '') ne 'STAGEIN'
+		    && $$file{STATE} == 1
+		    && $$file{TIME} >= $now-15*60));
+
+	$$file{STATUS} = $$c{VALUE};
+    }
+
+    # Now, look up stager status for the files.  First mark the
+    # pending files as negative match in the cache, then a bunch of
+    # files at a time invoke srm-get-metadata.  For the files this returns
+    # status for, update the file status and the cache.
+    #
+    # To prevent srm-get-metadata from hanging every once in a while, blocking
+    # the agent from making progress, run the command using a timeout.
+    map { $$self{STAGE_CACHE}{$$_{PFN}} = {TIME=>$now, VALUE=>undef} } @todo;
+    while (@todo)
+    {
+	my $pfx = $0;
+	$pfx =~ s|/[^/]+$||;
+	$pfx .= "/../../Utilities/RunWithTimeout 600";
+
+	my @slice = splice(@todo, 0, $$self{MAXFILES});
+	my %pfn2f = map { ($$_{PFN} => $_) } @slice;
+	my @args = map { "$$_{PFN}" } @slice;
+	
+	open (QRY, "$pfx srm-get-metadata @args |")
+	    or do { &alert ("srm-get-metadata: cannot execute: $!"); return undef };
+
+	my $pfn = undef;
+        while (<QRY>)
+	{
+	    chomp;
+	    $pfn = $2 if /^.+(SURL)\s:(\S+)$/;
+
+	    # make sure the pfn we get from srm-get-metadata conforms to new convention
+	    if ( $pfn && $pfn !~ m|.?SFN=| )
+	    {
+		$pfn =~ m|(srm://[[:print:]]+:\d+)/(.+)|;
+		my $contact = $1;
+		my $path = $2;
+		$path =~ s|^/||;
+		$pfn = "$contact/srm/managerv1".'?'."SFN=/$path";
+	    }
+
+	    next if ! /\W+(\w+)\s:(\S+)$/;
+	    do { &alert ("srm-get-metadata output unrecognised for file: $pfn"); next }
+	        if ! exists $pfn2f{$pfn};
+	    $pfn2f{$pfn}{$1} = $2;
+	    $$self{STAGE_CACHE}{$pfn} = { TIME => time(), VALUE => 'STAGEIN' }
+	        if ($pfn2f{$pfn}{isCached} || '') eq 'true';
+	}
+	close (QRY);
+    }
+
+    return $files;
+}
+
+# Build status object from stager state and pending requests.
+sub buildStatus
+{
+    my ($self, $files) = @_;
+    return undef if ! $files;
+
+    # Mark in unknown state all files without clear status.
+    foreach my $file (values %$files)
+    {
+	do { &warn ("unknown wanted file $$file{LFN}"); next }
+	    if ! $$file{PFN};
+	$$file{STATUS} ||= "UNKNOWN";
+    }
+
+    return $files;
+}
+
+# Called by agent main routine before sleeping.  Pick up stage-in
+# assignments and map current stager state back to the database.
+sub idle
+{
+    my ($self, @pending) = @_;
+
+    my $dbh = undef;
+    eval
+    {
+	$dbh = &connectToDatabase ($self) or die "failed to connect";
+
+	# Clean up caches
+	my %timing = (START => &mytimeofday());
+	&purgeCache ($$self{PFN_CACHE});
+	&purgeCache ($$self{STAGE_CACHE}, 3600);
+	$timing{PURGE} = &mytimeofday();
+
+	# Get pending and stager files
+	my $files = $self->getNodeFiles ($dbh);
+	return if ! $self->getStagerFiles ($files);
+	return if ! $self->buildStatus ($files);
+	$timing{STATUS} = &mytimeofday();
+
+	# Update file status.  First mark everything not staged in,
+	# then as staged-in the files currently in stager catalogue.
+	# However, remember the status of the files we have updated
+	# in the database in the last 4 hours, and only mark a delta.
+	my $now = time();
+	my $dbcache = $$self{DB_CACHE};
+	if (($$dbcache{VALIDITY} || 0) < $now)
+	{
+	    $$dbcache{VALIDITY} = $now + 4*3600;
+	    $$dbcache{FILES} = {};
+	    &dbexec($dbh,qq{
+	        update t_xfer_replica
+	        set state = 0, time_state = :now
+	        where node = :node and state = 1},
+	        ":node" => $$self{ID_MYNODE}, ":now" => $now);
+	}
+
+	my %oldcache = %{$$dbcache{FILES}};
+	my $stmt = $dbh->prepare(qq{
+	    update t_xfer_replica set state = :state, time_state = :now
+	    where fileid = (select id from t_xfer_file where logical_name = :lfn)
+	      and node = :node});
+	foreach my $f (values %$files)
+	{
+	    next if ! defined $$f{LFN} || ! defined $$f{PFN};
+	    my $isstaged = $$f{STATUS} eq 'STAGEIN' ? 1 : 0;
+	    my $oldstaged = $$dbcache{FILES}{$$f{LFN}} ? 1 : 0;
+	    $$dbcache{FILES}{$$f{LFN}} = $isstaged;
+	    delete $oldcache{$$f{LFN}};
+	    next if $isstaged == $oldstaged;
+
+	    &dbbindexec ($stmt, ":now" => $now, ":node" => $$self{ID_MYNODE},
+			 ":lfn" => $$f{LFN}, ":state" => $isstaged);
+	}
+	foreach my $lfn (keys %oldcache)
+	{
+	    delete $$dbcache{FILES}{$lfn};
+	    &dbbindexec ($stmt, ":now" => $now, ":node" => $$self{ID_MYNODE},
+			 ":lfn" => $lfn, ":state" => 0);
+	}
+	$dbh->commit();
+	$timing{DATABASE} = &mytimeofday();
+
+	# Issue stage-in requests for new files in batches.  Only consider
+	# recent enough files in wanted state.
+	my @requests = grep (defined $$_{PFN}
+			     && $$_{STATUS} eq 'UNKNOWN'
+		             && $$_{STATE} == 1
+		             && $$_{TIME} >= $timing{START} - 15*60,
+			     values %$files);
+	my $nreq = scalar @requests;
+	while (@requests)
+	{
+	    my @slice = splice (@requests, 0, $$self{MAXFILES});
+	    my $rc = &runcmd ("srmstage", (map { ($$_{PFN}) } @slice));
+	    &alert ("srmstage failed: @{[&runerror($rc)]}") if ($rc);
+
+	    # Mark these files as pending now
+	    map { $$_{STATUS} = "STAGEIN" } @slice;
+	}
+
+	$timing{REQUESTS} = &mytimeofday();
+	&logmsg ("timing:"
+		 . " nreq=$nreq"
+		 . " purge=@{[sprintf '%.1f', $timing{PURGE} - $timing{START}]}"
+		 . " status=@{[sprintf '%.1f', $timing{STATUS} - $timing{PURGE}]}"
+		 . " database=@{[sprintf '%.1f', $timing{DATABASE} - $timing{STATUS}]}"
+		 . " requests=@{[sprintf '%.1f', $timing{REQUESTS} - $timing{DATABASE}]}"
+		 . " all=@{[sprintf '%.1f', $timing{REQUESTS} - $timing{START}]}");
+    };
+    do { chomp ($@); &alert ("database error: $@");
+	 eval { $dbh->rollback() } if $dbh; } if $@;
+
+    # Disconnect from the database
+    &disconnectFromDatabase ($self, $dbh);
+
+    # Have a little nap
+    $self->nap ($$self{WAITTIME});
+}
