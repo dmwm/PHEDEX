@@ -1,0 +1,74 @@
+#!/usr/bin/env perl
+# Derek Feichtinger <derek.feichtinger@cern.ch>
+# Adaptation by Lassi Tuura.
+
+##H TestCatalogue -c CATALOGUE -p PROTOCOL [-d DESTINATION] { -L | -P } FILE...
+##H
+##H Looks up the file names in the trivial file CATALOGUE using PROTOCOL
+##H and optional DESTINATION node.  With "-L", FILE is assumed to be a
+##H PFN and is translated into an LFN; with "-P" FILE is assumed to be
+##H a LFN and is translated into a PFN.
+##H
+##H Prints out the destination name for each file name.
+
+BEGIN {
+  $^W = 1; use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+
+# Process command line arguments.
+my %args;
+use UtilsCatalogue;
+use Getopt::Long;
+use UtilsHelp;
+use UtilsDB;
+use POSIX;
+Getopt::Long::Configure qw(default no_ignore_case);
+&GetOptions ('c=s'        => \$args{CATALOGUE},
+             'p=s'        => \$args{PROTOCOL},
+             'd=s'        => \$args{DESTINATION},
+             'L'          => sub { $args{MODE} = $_[1] },
+             'P'          => sub { $args{MODE} = $_[1] },
+	     'help|h'      => sub { &usage() });
+
+# Check arguments.
+if (!$args{CATALOGUE} || !$args{PROTOCOL} || !$args{MODE})
+{
+    die "Insufficient parameters, use -h for help.\n";
+}
+
+$args{DESTINATION} ||= "any";
+
+# Output preamble
+die "$args{CATALOGUE}: cannot read\n" if ! -r $args{CATALOGUE};
+print "Testing file name mappings in $args{CATALOGUE} using protocol $args{PROTOCOL}\n";
+
+# Output file names
+foreach my $file (@ARGV)
+{
+    if ($args{MODE} eq 'L')
+    {
+	my $lfn = &lfnLookup($file, $args{PROTOCOL}, $args{DESTINATION}, $args{CATALOGUE});
+	print "PFN: $file\n";
+	print "LFN: $lfn\n";
+
+	my $pfn = &pfnLookup($lfn, $args{PROTOCOL}, $args{DESTINATION}, $args{CATALOGUE});
+	print "Re-PFN: $pfn";
+	print " *** ERROR: result different from $file" if $pfn ne $file;
+	print "\n\n\n";
+    }
+    else
+    {
+	my $pfn = &pfnLookup($file, $args{PROTOCOL}, $args{DESTINATION}, $args{CATALOGUE});
+	print "LFN: $file\n";
+	print "PFN: $pfn\n";
+
+	my $lfn = &lfnLookup($pfn, $args{PROTOCOL}, $args{DESTINATION}, $args{CATALOGUE});
+	print "Re-LFN: $lfn";
+	print " *** ERROR: result different from $file" if $lfn ne $file;
+	print "\n\n\n";
+    }
+}
