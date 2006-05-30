@@ -5,6 +5,7 @@
   - Preliminary SRM-only agents for stage-in and tape migration.
   - Job manager changes for Castor stager agent: subprocess output
     receives "log" prefixing now only if explicitly requested.
+  - Derek's catalogue test tool, slightly adapted.
 
  Web site change:
   - PHP scripts allowed more memory so link stats can be plotted.
