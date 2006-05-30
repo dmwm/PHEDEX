@@ -64,6 +64,7 @@ sub startJob
 
 	if (exists $$job{LOGFILE})
 	{
+	    $$job{LOGPREFIX} = 1;
 	    open($job->{LOGFH}, '>>', $$job{LOGFILE})
 		or die "Couldn't open log file $$job{LOGFILE}: $!";
 	    my $logfh = \*{$$job{LOGFH}};
@@ -203,7 +204,8 @@ sub readPipe
 	    $line = shift (@lines);
 	    if ($$job{BEGINLINE} && ($line ne "" || @lines))
 	    {
-	        print $logfhtmp ("$date $$job{CMDNAME}($$job{PID}): ");
+	        print $logfhtmp ("$date $$job{CMDNAME}($$job{PID}): ")
+		    if $$job{LOGPREFIX};
 		$$job{BEGINLINE} = 0;
 	    }
 	    print $logfhtmp ($line);
