@@ -87,6 +87,7 @@ function makeGraph($graph, $data, $args, $upto, $by)
   $graph->SetY2Scale ("lin", 0, count($ylabels)-1);
   $graph->SetColor("white");
   $graph->SetMarginColor("white");
+  $graph->SetFrame(false);
   $graph->img->SetMargin(90,56+($by == 'link' ? 200 : 130),40,70);
   $graph->img->SetAntiAliasing();
 

@@ -101,6 +101,7 @@ function makeGraph($graph, $data, $args, $upto, $by)
   $graph->SetScale("textlin");
   $graph->SetColor("white");
   $graph->SetMarginColor("white");
+  $graph->SetFrame(false);
   $graph->img->SetMargin(90,56 + $legendcols * $legendwidth,40,40);
   $graph->img->SetAntiAliasing();
 
