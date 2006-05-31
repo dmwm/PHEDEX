@@ -408,6 +408,7 @@ sub route
 	where to_node = :me
           and to_state != 2
 	  and (from_state = 1 or time_assign < :now - 1200)
+	  and time_expire >= :now
           and not exists
 	    (select 1 from t_xfer_path xp
 	     where xp.to_node = xs.to_node
