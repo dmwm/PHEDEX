@@ -32,7 +32,7 @@ for arg; do
   case $arg in
     -copyjobfile=* )
       copyjobfile="${arg#-copyjobfile=}"
-      echo "copyjobfile=$copyjobfile"
+      echo "copyjobfile=$copyjobfile (contents follow)"
       cat $copyjobfile 2>/dev/null
      ;;
     -report=* )
@@ -72,10 +72,24 @@ if [ -z "$server" ]; then :; else
   server="-s $server"
 fi
 
-# Create FTS transfer job
-# FIXME: signal handling
-ftsjob=
-# trap 1 2 15 's=$?; [ -z "$ftsjob" ] || glite-transfer-cancel $ftsjob; exit $s'
+# Install signal handler which will cancel the job.  This doesn't
+# exit, but hopefully closes the loop below to terminate.  If we
+# don't manage even that in time, we'll just get killed by a more
+# aggressive signal, and we've requested transfer cancellation, so
+# we should be fine.
+ftsjob= sleep=10 index=0 increment=1
+red_alert() {
+  echo "* received signal $(expr $1 - 128), cancelling job"
+  if [ X"$ftsjob" != X ]; then
+    echo "+ glite-transfer-cancel $server $ftsjob"
+    glite-transfer-cancel $server $ftsjob
+    sleep=5 increment=0
+  else
+    exit $1
+  fi
+}
+
+trap 'red_alert $?' 1 2 15
 
 # Create a FTS transfer request.
 echo "+ glite-transfer-submit -p _censored_ $server -f $copyjobfile"
@@ -84,9 +98,13 @@ echo "ftsjob=$ftsjob"
 
 # Poll transfer status, record output into the report
 while true; do
-  # FIXME: we need to be recording per-file status, not just the job!
-  echo "sleeping 10"
-  sleep 10 
+  # Increment loop count, and every once in a while extend the sleep time
+  index=$(expr $index + $increment)
+  [ $(expr $index % 5) = 0 ] && sleep=$(expr $sleep + $sleep / 3)
+  echo "sleeping $sleep"
+  sleep $sleep
+
+  # Get the status of the entire job
   echo "+ glite-transfer-status $server $ftsjob"
   ftsstatus=$(glite-transfer-status $server $ftsjob)
   echo "$ftsjob status is $ftsstatus"
@@ -103,8 +121,7 @@ while true; do
     Active )
       ;;
 
-    Canceled )
-      # [FIXME] how can I find it Canceled?
+    Canceling )
       ;;
 
     Hold )
@@ -114,9 +131,11 @@ while true; do
       exit 8
       ;;
 
-    Done | Failed )
+    Done | Failed | Canceled )
       # Job done, record report file, quit
       echo "+ glite-transfer-status -l $server $ftsjob"
+      glite-transfer-status -l $server $ftsjob # for log
+
       glite-transfer-status -l $server $ftsjob |
         while read item arg; do
 	  case $item in
@@ -134,7 +153,6 @@ while true; do
 	  esac
 	done > "$report"
 
-      echo "+ glite-transfer-status -l $server $ftsjob"
       if glite-transfer-status -l $server $ftsjob | \
 	 grep State: | grep -v Done >/dev/null; then
 	exit 1
