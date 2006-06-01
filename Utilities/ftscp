@@ -77,13 +77,13 @@ fi
 # don't manage even that in time, we'll just get killed by a more
 # aggressive signal, and we've requested transfer cancellation, so
 # we should be fine.
-ftsjob= sleep=10 index=0 increment=1
+ftsjob= sleep=10 index=0 increment=1 docancel=true errors=0
 red_alert() {
   echo "* received signal $(expr $1 - 128), cancelling job"
-  if [ X"$ftsjob" != X ]; then
+  if [ X"$ftsjob" != X ] && $docancel; then
     echo "+ glite-transfer-cancel $server $ftsjob"
     glite-transfer-cancel $server $ftsjob
-    sleep=5 increment=0
+    sleep=2 increment=0 docancel=false
   else
     exit $1
   fi
@@ -162,8 +162,9 @@ while true; do
       ;;
 
     * )
-      echo "ftscp: unexpected job status $ftsstatus" 1>&2
-      exit 4
+      echo "warning: unexpected job status '$ftsstatus'" 1>&2
+      errors=$(expr $errors + 1)
+      [ $errors -gt 5 ] && exit 10
       ;;
   esac
 done
