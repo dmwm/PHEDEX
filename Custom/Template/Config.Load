@@ -7,8 +7,8 @@ PHEDEX_STATE=${PHEDEX_BASE}/<purpose>_state;
 PHEDEX_LOGS=${PHEDEX_BASE}/<purpose>_logs;
 PHEDEX_SCRIPTS=${PHEDEX_BASE}/sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_<PhEDExVersion>;
 PHEDEX_MAP=${PHEDEX_CONFIG}/Storage.xml;
-PHEDEX_NODE=T<x>_<Sitename>
-PHEDEX_BUFFERNODE=${PHEDEX_NODE}_Buffer
+PHEDEX_NODE=T<x>_<site>
+PHEDEX_BUFFERNODE=${PHEDEX_NODE}_Load
 PHEDEX_MSSNODE=${PHEDEX_NODE}_MSS
 PHEDEX_PROXY=<Location of your Grid proxy file>;
 
@@ -19,4 +19,14 @@ source ${PHEDEX_SCRIPTS}/etc/profile.d/env.sh
 ### IMPORT ConfigPart.Common
 ### IMPORT ConfigPart.Export
 ### IMPORT ConfigPart.Download
-### IMPORT ConfigPart.MSS
+
+#### The recycler should ONLY be run in DEV or SC4 instances, since normally
+#### you don't want to delete your data !!
+### AGENT LABEL=lt-recycle PROGRAM=Toolkit/Transfer/FileRecycler
+ -db              ${PHEDEX_DBPARAM}
+ -node            ${PHEDEX_BUFFERNODE}
+ -keep            LoadTest_${PHEDEX_NODE} 
+ -protocol        srm
+ -rm              srm-advisory-delete
+ -storagemap      ${PHEDEX_MAP}
+ -delay           0.5

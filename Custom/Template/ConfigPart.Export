@@ -1,25 +1,13 @@
 #### Export-side agents
-### AGENT LABEL=exp-migrate PROGRAM=Custom/FZK/FiledCacheMigrate
- -db ${PHEDEX_CUSTOM}/DBParam:${PHEDEX_LABEL}
- -node ${PHEDEX_NODE}_MSS
- -pfnquery ${PHEDEX_CUSTOM}/PFNLookup.sh,-u,$PHEDEX_CATALOGUE,${PHEDEX_CATPREFIX},${PHEDEX_URLPREFIX}
- -wait $(expr 600 + $RANDOM % 300)
- 
-
 ### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
- -node ${PHEDEX_NODE}_Buffer
- -db ${PHEDEX_CUSTOM}/DBParam:${PHEDEX_LABEL}
- -pfnquery ${PHEDEX_CUSTOM}/PFNLookup.sh,-u,${PHEDEX_CATALOGUE},${PHEDEX_CATPREFIX},${PHEDEX_URLPREFIX}
- -wait $(expr 10 + $RANDOM % 10)
-
+ -db              ${PHEDEX_DBPARAM}
+ -nodes           ${PHEDEX_BUFFERNODE}
+ -ignore          ${PHEDEX_MSSNODE}
+ -storagemap      ${PHEDEX_MAP}
+ -protocols       srm
 
 ### AGENT LABEL=exp-disk PROGRAM=Toolkit/Transfer/FileDiskExport
- -db ${PHEDEX_CUSTOM}/DBParam:${PHEDEX_LABEL}
- -node ${PHEDEX_NODE}_Buffer
- -wait $(expr 10 + $RANDOM % 10)
+ -db              ${PHEDEX_DBPARAM}
+ -node            ${PHEDEX_BUFFERNODE}
 
-### AGENT LABEL=exp-mss PROGRAM=Toolkit/Transfer/FileMSSPublish
- -db ${PHEDEX_CUSTOM}/DBParam:${PHEDEX_LABEL}
- -node ${PHEDEX_NODE}_Buffer
- -mssnode ${PHEDEX_NODE}_MSS
- -wait $(expr 10 + $RANDOM % 10)
+
