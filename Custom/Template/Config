@@ -15,6 +15,11 @@ PHEDEX_PROXY=<Location of your Grid proxy file>;
 #### Source environment
 source ${PHEDEX_SCRIPTS}/etc/profile.d/env.sh
 
+### ENVIRON glite
+source <Path to your GLite environemnt>/etc/profile.d/grid_env.sh;
+export GLITE_SD_PLUGIN=bdii;
+PHEDEX_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s <Your GliteTransferEndpoint> \
+                    | grep Endpoint | awk '{print $2}');
 
 ### IMPORT ConfigPart.Common
 ### IMPORT ConfigPart.Export
