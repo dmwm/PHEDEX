@@ -226,8 +226,8 @@ sub killAllJobs
     {
 	# While there are jobs to run, mark them timed out,
 	# then wait job processing to terminate all those.
-	# This allows job actions to clean up properly.
-	map { $_->{TIMEOUT} = 1; $_->{TIMEOUT_GRACE} = 15 } @{$self->{JOBS}};
+	my $now = time();
+	map { $_->{TIMEOUT} = $now - $_->{STARTED} } @{$self->{JOBS}};
 	$self->pumpJobs();
 	select (undef, undef, undef, 0.1);
     }
