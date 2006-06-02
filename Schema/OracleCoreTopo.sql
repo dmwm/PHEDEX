@@ -10,6 +10,7 @@ create sequence seq_link;
 create table t_node
   (id			integer		not null,
    name			varchar (20)	not null,
+   kind			varchar (20)	not null,
    bandwidth_cap	integer);
 
 create table t_link

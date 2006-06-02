@@ -3,14 +3,15 @@
 ##H Create a new node with neighbours
 ##H
 ##H Usage:
-##H   NodeNew -db DBCONFIG NODE [NEIGHBOUR[:LOCAL[:SHARE...]]...]
+##H   NodeNew -db DBCONFIG NODE:KIND [NEIGHBOUR[:LOCAL[:SHARE...]]...]
 ##H
 ##H Examples:
-##H   NodeNew -db Schema/DBParam:Foo T2_Foo_Buffer T1_Bar_Buffer
-##H   NodeNew -db Schema/DBParam:Foo T1_Foo_Buffer T1_Foo_MSS:L T1_Xyzzy_Buffer
-##H   NodeNew -db Schema/DBParam:Foo T1_Foo_Buffer T1_Bar_Buffer:R:1:1:1:1
+##H   NodeNew -db Schema/DBParam:Foo T2_Foo_Buffer:Disk T1_Bar_Buffer
+##H   NodeNew -db Schema/DBParam:Foo T1_Foo_Buffer:Buffer T1_Foo_MSS:L T1_Xyzzy_Buffer
+##H   NodeNew -db Schema/DBParam:Foo T1_Foo_Buffer:Disk T1_Bar_Buffer:R:1:1:1:1
 ##H
 ##H NODE is the name of the new node.
+##H KIND is the kind of the new node: Disk, Buffer or MSS.
 ##H NEIGHBOUR is an existing neighbour node.
 ##H LOCAL is L for local links, R for remote, default is R.
 ##H SHARE is link priority share, default is 7:4:1:1
@@ -40,12 +41,19 @@ my $dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
 
 my $now = &mytimeofday();
 my $node = shift(@ARGV);
+die "$node: expected NODE:KIND\n" if $node !~ /^(\S+):(\S+)$/;
+$node = $1;
+my $kind = $2;
+die "$kind: expected 'Disk', 'Buffer' or 'MSS'\n"
+  if ! grep($kind eq $_, qw(Disk Buffer MSS));
+
 my $nodeid = undef;
 &dbexec($dbh, qq{
-  insert into t_node (id, name)
-  values (seq_node.nextval, :node)
+  insert into t_node (id, name, kind)
+  values (seq_node.nextval, :node, :kind)
   returning id into :id},
   ":node" => $node,
+  ":kind" => $kind,
   ":id" => \$nodeid);
 
 while (@ARGV)
