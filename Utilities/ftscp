@@ -80,10 +80,12 @@ fi
 ftsjob= sleep=10 index=0 increment=1 docancel=true errors=0
 red_alert() {
   echo "* received signal $(expr $1 - 128), cancelling job"
-  if [ X"$ftsjob" != X ] && $docancel; then
-    echo "+ glite-transfer-cancel $server $ftsjob"
-    glite-transfer-cancel $server $ftsjob
-    sleep=2 increment=0 docancel=false
+  if [ X"$ftsjob" != X ]; then
+    if $docancel; then
+      echo "+ glite-transfer-cancel $server $ftsjob"
+      glite-transfer-cancel $server $ftsjob
+      sleep=2 increment=0 docancel=false
+    fi
   else
     exit $1
   fi
