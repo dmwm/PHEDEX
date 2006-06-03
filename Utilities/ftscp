@@ -103,7 +103,6 @@ while true; do
   # Increment loop count, and every once in a while extend the sleep time
   index=$(expr $index + $increment)
   [ $(expr $index % 5) = 0 ] && sleep=$(expr $sleep + $sleep / 3)
-  echo "sleeping $sleep"
   sleep $sleep
 
   # Get the status of the entire job
