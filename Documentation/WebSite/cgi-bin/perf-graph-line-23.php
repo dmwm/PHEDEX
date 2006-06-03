@@ -86,11 +86,32 @@ function makeGraph($graph, $data, $args, $upto, $by)
 
   // Build an accumulated bar plot from those
   $plot = new AccLinePlot ($barplots);
-  // $plot->SetWidth(0.65);
 
   // Compute how much the legend needs
-  $legendcols = (count($barplots) > 30 ? 2 : 1);
-  $legendwidth = ($by == 'link' ? 200 : 130);
+  if (count($legend) <= 20)
+  {
+      $legendcols = 1;
+      $legendwidth = ($by == 'link' ? 200 : 130);
+      $legendsize = 8;
+  }
+  else if (count($legend) <= 30)
+  {
+      $legendcols = 1;
+      $legendwidth = ($by == 'link' ? 200 : 100);
+      $legendsize = 7;
+  }
+  else if (count($legend) <= 40)
+  {
+      $legendcols = 2;
+      $legendwidth = ($by == 'link' ? 200 : 130);
+      $legendsize = 8;
+  }
+  else
+  {
+      $legendcols = 2;
+      $legendwidth = ($by == 'link' ? 200 : 100);
+      $legendsize = 7;
+  }
 
   // Configure the graph
   $graph->SetScale("textlin");
@@ -139,8 +160,7 @@ function makeGraph($graph, $data, $args, $upto, $by)
   $graph->legend->SetColumns($legendcols);
   $graph->legend->SetShadow(0);
   $graph->legend->SetVColMargin(2);
-  $graph->legend->SetFont(FF_VERDANA,FS_NORMAL,
-  			  count($barplots) > 40 ? 7 : 8);
+  $graph->legend->SetFont(FF_VERDANA,FS_NORMAL,$legendsize);
   // $graph->legend->SetLayout(LEGEND_HOR);
   $graph->Add ($plot);
   $graph->Stroke();
