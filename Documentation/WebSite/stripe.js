@@ -3,17 +3,15 @@
 // Work around a bug in IE related to element attributes
 function hasClass(obj) {
   var result = null;
-  if (obj.getAttributeNode("class") != null) {
-    result = obj.getAttributeNode("class").value;
-  }
+  var attr = obj.getAttributeNode("class");
+  if (attr != null) { result = attr.value; }
   return result;
 }   
 
 function hasColor(obj) {
   var result = null;
-  if (obj.getAttributeNode("bgcolor") != null) {
-    result = obj.getAttributeNode("bgcolor").value;
-  }
+  var attr = obj.getAttributeNode("bgcolor");
+  if (attr != null) { result = attr.value; }
   return result;
 }   
 
