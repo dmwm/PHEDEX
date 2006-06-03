@@ -383,7 +383,6 @@ sub tstates {
     	$total{$to_state}{$from_state} ||= { FILES => 0, BYTES => 0 };
     	$total{$to_state}{$from_state}{FILES} += $files;
     	$total{$to_state}{$from_state}{BYTES} += $bytes;
-        $tfiles += $files; $tbytes += $bytes;
 	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
 	my $to_state_name = ($to_state == 0 ? "assigned"
 			     : $to_state == 1 ? "wanted"
@@ -880,50 +879,66 @@ sub rates {
 	select
 	  f.name from_node,
 	  t.name to_node,
-	  nvl(sum(h.done_files),0) done_files,
-	  nvl(sum(h.done_bytes),0) done_bytes,
-	  nvl(sum(h.fail_files),0) fail_files,
-	  nvl(sum(h.expire_files),0) expire_files
+
+	  nvl(sum(case when h.timebin > :old_h then h.done_files else 0 end),0) h_done_files,
+	  nvl(sum(case when h.timebin > :old_d then h.done_files else 0 end),0) d_done_files,
+	  nvl(sum(case when h.timebin > :old_w then h.done_files else 0 end),0) w_done_files,
+	  nvl(sum(case when h.timebin > :old_m then h.done_files else 0 end),0) m_done_files,
+
+	  nvl(sum(case when h.timebin > :old_h then h.done_bytes else 0 end),0) h_done_bytes,
+	  nvl(sum(case when h.timebin > :old_d then h.done_bytes else 0 end),0) d_done_bytes,
+	  nvl(sum(case when h.timebin > :old_w then h.done_bytes else 0 end),0) w_done_bytes,
+	  nvl(sum(case when h.timebin > :old_m then h.done_bytes else 0 end),0) m_done_bytes,
+
+	  nvl(sum(case when h.timebin > :old_h then h.fail_files else 0 end),0) h_fail_files,
+	  nvl(sum(case when h.timebin > :old_d then h.fail_files else 0 end),0) d_fail_files,
+	  nvl(sum(case when h.timebin > :old_w then h.fail_files else 0 end),0) w_fail_files,
+	  nvl(sum(case when h.timebin > :old_m then h.fail_files else 0 end),0) m_fail_files,
+
+	  nvl(sum(case when h.timebin > :old_h then h.expire_files else 0 end),0) h_expire_files,
+	  nvl(sum(case when h.timebin > :old_d then h.expire_files else 0 end),0) d_expire_files,
+	  nvl(sum(case when h.timebin > :old_w then h.expire_files else 0 end),0) w_expire_files,
+	  nvl(sum(case when h.timebin > :old_m then h.expire_files else 0 end),0) m_expire_files
 	from t_link_histogram h
 	  join t_node f on f.id = h.from_node
 	  join t_node t on t.id = h.to_node
-	where h.timebin > :old
+	where h.timebin > :old_m
 	group by f.name, t.name});
-    foreach my $span (keys %spans)
+    $q->bind_param(":old_h", $spans{H}[0]-$spans{H}[1]);
+    $q->bind_param(":old_d", $spans{D}[0]-$spans{D}[1]);
+    $q->bind_param(":old_w", $spans{W}[0]-$spans{W}[1]);
+    $q->bind_param(":old_m", $spans{M}[0]-$spans{M}[1]);
+    $q->execute();
+    while (my $row = $q->fetchrow_hashref())
     {
-        $q->bind_param(":old", $spans{$span}[0]-$spans{$span}[1]);
-        $q->execute();
-        while (my $row = $q->fetchrow_hashref())
-        {
-	    my $key = "$$row{TO_NODE} $$row{FROM_NODE}";
+	my $key = "$$row{TO_NODE} $$row{FROM_NODE}";
+	foreach my $span (qw(H D W M))
+	{
 	    $stats{$span}{N}{$key} ||= { FROM_NODE => $$row{FROM_NODE},
-					 TO_NODE => $$row{TO_NODE},
-					 FILES => 0, BYTES => 0,
-				     	 FAILED => 0, EXPIRED => 0 };
-	    $stats{$span}{N}{$key}{FILES} += $$row{DONE_FILES};
-	    $stats{$span}{N}{$key}{BYTES} += $$row{DONE_BYTES};
-	    $stats{$span}{N}{$key}{FAILED} += $$row{FAIL_FILES};
-	    $stats{$span}{N}{$key}{EXPIRED} += $$row{EXPIRE_FILES};
-
-	    $stats{$span}{T}{1} ||= { FILES => 0, BYTES => 0, FAILED => 0, EXPIRED => 0 };
-	    $stats{$span}{T}{1}{FILES} += $$row{DONE_FILES};
-	    $stats{$span}{T}{1}{BYTES} += $$row{DONE_BYTES};
-	    $stats{$span}{T}{1}{FAILED} += $$row{FAIL_FILES};
-	    $stats{$span}{T}{1}{EXPIRED} += $$row{EXPIRE_FILES};
+				         TO_NODE => $$row{TO_NODE},
+				         FILES => 0, BYTES => 0,
+				         FAILED => 0, EXPIRED => 0 };
+	    $stats{$span}{N}{$key}{FILES} += $$row{"${span}_DONE_FILES"};
+	    $stats{$span}{N}{$key}{BYTES} += $$row{"${span}_DONE_BYTES"};
+	    $stats{$span}{N}{$key}{FAILED} += $$row{"${span}_FAIL_FILES"};
+	    $stats{$span}{N}{$key}{EXPIRED} += $$row{"${span}_EXPIRE_FILES"};
 	}
-	$q->finish();
     }
 
-    print "<p>CERN Daily External Internet Traffic<br>\n";
-    print "<a href='http://pcstats2.cern.ch/misc/cern-all.html'><IMG
-      VSPACE=10 WIDTH=600 HEIGHT=135 ALIGN=TOP
-      SRC='http://pcstats2.cern.ch/misc/cern-all-day.png' ALT='day'></a></p>\n";
-    print "<a href='https://lemonweb.cern.ch/lemon-status/info.php?time=0&cluster=c2cms%25wan&detailed=&auto_update=Not+auto+update'><IMG
-      VSPACE=10 WIDTH=491 HEIGHT=185 ALIGN=TOP
-      SRC='http://cmsdoc.cern.ch/cms/aprom/phedex/WebMirror/lemonweb.cern.ch/test/images/cluster_c2cms_wan.rrd_S_NUMKBREADAVG_d.gif' ALT='day'></a></p>\n";
+    my $errors = param('errors') ? "checked='checked'" : "";
+    my $tofilter = param('tofilter') || "";
+    my $fromfilter = param('fromfilter') || "";
+    print "<form method='GET' action='@{[&baseurl()]}'><p>\n",
+          "<input type='hidden' name='page' value='@{[param('page')]}'>\n",
+          "<input type='hidden' name='db' value='@{[param('db')]}'>\n",
+          "<input type='checkbox' name='errors' $errors>\n",
+          "<label for='errors'>Show links with only errors</label> ",
+    	  "<input type='submit' value='Update'></p>\n";
     print "<p><table class='striped'><tbody>\n";
     foreach my $span (qw(H D W M))
     {
+	$stats{$span}{T}{1} = { FILES => 0, BYTES => 0, FAILED => 0, EXPIRED => 0 };
+
     	print
 	  "<tr class='selected'>\n",
 	  " <th colspan='7'>",
@@ -933,12 +948,23 @@ sub rates {
 	  "<tr class='selected'>\n",
 	  " <th>To</th>\n",
 	  " <th>From</th>\n",
-	  " <th>Files</th>\n",
-	  " <th>Total Size</th>\n",
-	  " <th>Aggregate Rate</th>\n",
-	  " <th>Errors</th>\n",
-	  " <th>Expired</th>\n",
+	  " <th rowspan='2'>Files</th>\n",
+	  " <th rowspan='2'>Total Size</th>\n",
+	  " <th rowspan='2'>Rate</th>\n",
+	  " <th rowspan='2'>Errors</th>\n",
+	  " <th rowspan='2'>Expired</th>\n",
+	  "</tr>\n",
+	  "<tr class='selected'>\n",
+	  " <th>",
+	  $cgi->textfield(-name=>'tofilter', -default=>$tofilter, -size=>15,
+	  		  -title=>("Regular expression to match against node or link names. "
+		  		   ."Only those matching the expression will be shown.")), "</th>\n",
+	  " <th>",
+	  $cgi->textfield(-name=>'fromfilter', -default=>$fromfilter, -size=>15,
+	  		  -title=>("Regular expression to match against node or link names. "
+		  		   ."Only those matching the expression will be shown.")), "</th>\n",
 	  "</tr>\n";
+
 	foreach my $kind (qw(N T))
 	{
 	    foreach my $row (sort { $$b{BYTES} <=> $$a{BYTES}
@@ -948,6 +974,9 @@ sub rates {
 				    || $$a{FROM_NODE} cmp $$b{FROM_NODE} }
 			     values %{$stats{$span}{$kind}})
 	    {
+		next if $kind eq 'N' && $fromfilter && $$row{FROM_NODE} !~ /$fromfilter/;
+		next if $kind eq 'N' && $tofilter && $$row{TO_NODE} !~ /$tofilter/;
+		next if $kind eq 'N' && ! $errors && ! $$row{FILES};
 		next if $kind eq 'N' && ! $$row{FILES} && ! $$row{FAILED} && ! $$row{EXPIRED};
 	        my $bps = $$row{BYTES} / $spans{$span}[1];
 	        print "<tr>",
@@ -960,10 +989,18 @@ sub rates {
 	              "<td align='right'>@{[&format_num($$row{FAILED} || 0)]}</td>",
 	              "<td align='right'>@{[&format_num($$row{EXPIRED} || 0)]}</td>",
 	              "</tr>\n";
+
+		if ($kind eq 'N')
+		{
+	            $stats{$span}{T}{1}{FILES} += $$row{FILES};
+	            $stats{$span}{T}{1}{BYTES} += $$row{BYTES};
+	            $stats{$span}{T}{1}{FAILED} += $$row{FAILED};
+	            $stats{$span}{T}{1}{EXPIRED} += $$row{EXPIRED};
+		}
 	    }
 	}
     }
-    print "</tbody></table></p>\n";
+    print "</tbody></table></p></form>\n";
 }
 
 sub dbreports
@@ -1050,9 +1087,9 @@ sub rateplot
     print "<p><form method='GET' action='@{[&baseurl()]}'>\n",
           "<input type='hidden' name='page' value='@{[param('page')]}'>\n",
           "<input type='hidden' name='db' value='@{[param('db')]}'>\n",
-          "<label for='graph'>Graph</label> ",
+          "<label for='graph'>Graph</label>\n",
           "<select name='graph' onchange='submit()'>",
-	  " <option ", ($graph eq 'bar' ? 'selected=selected' : ''),
+	  " <option", ($graph eq 'bar' ? " selected='selected'" : ""),
 	  "  value='bar'>Bar graph</option>",
 	  " <option ", ($graph eq 'line' ? 'selected=selected' : ''),
 	  "  value='line'>Cumulative</option>",
@@ -1061,7 +1098,7 @@ sub rateplot
           "<select name='plot' onchange='submit()'>";
     foreach my $p (@plotorder)
     {
-	print "<option ", ($plot eq $p ? 'selected=selected' : ''),
+	print "<option", ($plot eq $p ? ' selected=selected' : ''),
 	      " value='$p'>$plots{$p}[1]</option>";
     }
     print "</select>\n",
@@ -1095,7 +1132,7 @@ sub rateplot
 	print "<p><img width=900 height=406 src='perf-graph$suffix-23.php?",
 	      &urlencode('db' => $db, 'span' => $unit, 'kind' => $kind, 'by' => $entity,
 		         'last' => $last, 'filter' => $filter, 'upto' => $upto),
-	      "'>";
+	      "' /></p>";
     }
 }
 
@@ -1162,7 +1199,7 @@ sub qplot
 	print "<p><img width=900 height=406 src='$php?",
 	      &urlencode('db' => $db, 'span' => $unit, 'kind' => $kind, by => $entity,
 		         'last' => $last, 'filter' => $filter, 'upto' => $upto),
-	      "'>";
+	      "' /></p>";
     }
 }
 
