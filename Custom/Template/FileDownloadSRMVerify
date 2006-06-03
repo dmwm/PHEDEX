@@ -37,24 +37,24 @@ validity=0
 
 # Check file size and mark file invalid on mismatch.
 if [ $validity = 0 ]; then
-    disksize=$(srm-get-metadata "$pfn"| grep "size :"|cut -d: -f2)
-    [ X"$disksize" = X ] && echp "file $pfn doesn't seem to exist" && validity=1
+    disksize=$(srm-get-metadata -retry_num=1 "$pfn"| grep "size :"|cut -d: -f2)
+    [ X"$disksize" = X ] && echo "file $pfn doesn't seem to exist" && validity=1
     [ X"$disksize" != X"$size" ] && echo "size mismatch disk=$disksize db=$size pfn=$pfn" && validity=2
 fi
 
 # Check checksum if requested, mark file invalid on mismatch
 if $do_checksum && [ $validity = 0 ]; then
-    disksum=$(srm-get-metadata "$pfn"| grep "checksumValue :"|cut -d: -f2)
-    disksumtype=$(srm-get-metadata "$pfn"| grep "checksumType :"|cut -d: -f2)
+    disksum=$(srm-get-metadata -retry_num=1 "$pfn"| grep "checksumValue :"|cut -d: -f2)
+    disksumtype=$(srm-get-metadata -retry_num=1 "$pfn"| grep "checksumType :"|cut -d: -f2)
     [ X"$disksum" != X"$checksum" ] && echo "checksum mismatch disk=$disksum db=$checksum diskalgo=$disksumtype" && validity=3
 fi
 
 # Inform if exit code of transfer tool claimed status=0 and we found out something different
-[ $validity != 0 ] && [ $status = 0 ] && echo "transfer tool claimed exit code 0 although transfer failed validation!"
+[ $validity != 0 ] && [ X"$status" = X0 ] && echo "transfer tool claimed exit code 0 although transfer failed validation!"
 
 # If file deletion was requested, delete the file.
 if $do_delete; then
-    srm-advisory-delete $pfn
+    srm-advisory-delete -retry_num=1 "$pfn"
 fi
 
 # If we are forcing true return value, lie about it all
