@@ -7,7 +7,7 @@ reason="$1" pfn="$2"
 # after a failed transfer.
 case $reason in
   pre | post )
-   srm-advisory-delete "$pfn" 2>/dev/null
+   srm-advisory-delete -retry_num=1 "$pfn" 2>/dev/null
    ;;
   * ) echo "unrecognised reason to remove $pfn: $reason" 1>&2; exit 1;;
 esac
