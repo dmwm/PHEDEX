@@ -26,7 +26,7 @@ sub new
     my $self = $class->SUPER::new(%args);
     my %params = (MASTER	=> undef,	# My owner
 		  PROTOCOLS	=> undef,	# Accepted protocols
-		  NJOBS		=> 5,		# Max number of parallel transfers
+		  NJOBS		=> 30,		# Max number of parallel transfers
 		  TIMEOUT	=> 3600,	# Maximum execution time
 		  BATCH_FILES	=> undef,	# Max number of files per batch
 		  BATCH_SIZE	=> undef,	# Max number of bytes per batch
