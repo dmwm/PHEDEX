@@ -956,13 +956,17 @@ sub rates {
 	  "</tr>\n",
 	  "<tr class='selected'>\n",
 	  " <th>",
-	  $cgi->textfield(-name=>'tofilter', -default=>$tofilter, -size=>15,
-	  		  -title=>("Regular expression to match against node or link names. "
-		  		   ."Only those matching the expression will be shown.")), "</th>\n",
+	  ($span eq 'H' ?
+	   $cgi->textfield(-name=>'tofilter', -default=>$tofilter, -size=>15,
+	  		   -title=>("Regular expression to match against node or link names. "
+		  		    ."Only those matching the expression will be shown."))
+	   : &escapeHTML($tofilter ? "($tofilter)" : "")), "</th>\n",
 	  " <th>",
-	  $cgi->textfield(-name=>'fromfilter', -default=>$fromfilter, -size=>15,
-	  		  -title=>("Regular expression to match against node or link names. "
-		  		   ."Only those matching the expression will be shown.")), "</th>\n",
+	  ($span eq 'H' ?
+	   $cgi->textfield(-name=>'fromfilter', -default=>$fromfilter, -size=>15,
+	  		   -title=>("Regular expression to match against node or link names. "
+		  		    ."Only those matching the expression will be shown."))
+	   : &escapeHTML($fromfilter ? "($fromfilter)" : "")), "</th>\n",
 	  "</tr>\n";
 
 	foreach my $kind (qw(N T))
@@ -974,8 +978,10 @@ sub rates {
 				    || $$a{FROM_NODE} cmp $$b{FROM_NODE} }
 			     values %{$stats{$span}{$kind}})
 	    {
-		next if $kind eq 'N' && $fromfilter && $$row{FROM_NODE} !~ /$fromfilter/;
-		next if $kind eq 'N' && $tofilter && $$row{TO_NODE} !~ /$tofilter/;
+		next if ($kind eq 'N'
+			 && ($fromfilter || $tofilter)
+			 && ! (($fromfilter && $$row{FROM_NODE} =~ /$fromfilter/)
+			       || ($tofilter && $$row{TO_NODE} =~ /$tofilter/)));
 		next if $kind eq 'N' && ! $errors && ! $$row{FILES};
 		next if $kind eq 'N' && ! $$row{FILES} && ! $$row{FAILED} && ! $$row{EXPIRED};
 	        my $bps = $$row{BYTES} / $spans{$span}[1];
