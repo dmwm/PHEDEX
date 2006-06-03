@@ -1,3 +1,26 @@
+* Changes in PhEDEx 2.3.7
+
+ General changes:
+  - Template site configuration updated.
+  - Download agent now defaults to 30 concurrent jobs.
+  - Better handling of subprocesses on download agent exit.
+  - File router and monitoring tweaked not to slow each other down.
+  - Ftscp now handles timeout cancellation (= signal handling) and
+    sleeps longer time as the download takes time.  The final FTS
+    transfer status is now dumped to the output, i.e. PhEDEx logs.
+    Ftscp ignores up to five glite-* server side errors to avoid
+    death by intermittent glite server side database connection
+    pooling problems.
+
+ Web site change:
+  - Rate page now allows source and/or destination to be filtered.
+  - CERN network plots removed from the rate page.
+  - Minor HTML improvements here and there.
+  - Plots no longer have a black frame.
+
+ Schema changes:
+  - Nodes now have a new column 'kind' for administrative purposes.
+
 * Changes in PhEDEx 2.3.6
 
  General changes:
