@@ -50,7 +50,8 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 		  MYNODE => undef,		# My TMDB node name
-	          WAITTIME => 120);		# Agent activity cycle
+	          WAITTIME => 120,		# Agent activity cycle
+		  LAST_COMPACT => 0);		# Last we compacted old entries
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -267,6 +268,19 @@ sub idle
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
 	$dbh->commit();
+
+	# Part V: Compact old time series data to be in per-hour instead
+	# of per-5-minute bins.  We do this only rarely to avoid loading
+	# the database servers excessively.  We read the old data stats
+	# in memory, merge, and write back.  This is mainly because some
+	# of the data is accumulated, some not, and sql makes it awkward
+	# to handle both.
+	return if ($$self{LAST_COMPACT} > $timebin - 2*86400);
+        my $limit = int($timebin/86400)*86400 - 86400;
+	$self->compactLinkData($dbh, $limit);
+	$self->compactDestData($dbh, $limit);
+	$dbh->commit();
+	$$self{LAST_COMPACT} = $timebin;
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
@@ -276,4 +290,89 @@ sub idle
 
     # Check children are still running and then wait
     $self->nap ($$self{WAITTIME});
+}
+
+sub compactUpdate
+{
+    my ($self, $dbh, $limit, $table, $stats) = @_;
+    &dbexec($dbh, qq{
+	delete from $table
+	where timebin < :old and timewidth = 300},
+	":old" => $limit);
+
+    my $i = undef;
+    foreach my $data (values %$stats)
+    {
+	if (! defined $i)
+	{
+	    my @keys = keys %$data;
+	    my $sql = "insert into $table ("
+		      . join(",", @keys) . ") values ("
+		      . join(",", map { ":$_" } @keys) . ")";
+	    $i = &dbprep($dbh, $sql);
+	}
+	&dbbindexec($i, map { (":$_" => $$data{$_}) } keys %$data);
+    }
+}
+
+sub compactLinkData
+{
+    my ($self, $dbh, $limit) = @_;
+    my %stats;
+    my $q = &dbexec($dbh, qq{
+	select * from t_link_histogram
+	where timebin < :old and timewidth = 300
+	order by timebin asc, from_node, to_node, priority},
+    	":old" => $limit);
+    while (my $row = $q->fetchrow_hashref())
+    {
+	my $bin = int($$row{TIMEBIN}/3600)*3600;
+	my $key = "$bin $$row{FROM_NODE} $$row{TO_NODE} $$row{PRIORITY}";
+	$$row{TIMEBIN} = $bin;
+	$$row{TIMEWIDTH} = 3600;
+	if (! exists $stats{$key})
+	{
+	    $stats{$key} = $row;
+	}
+	else
+	{
+	    my $s = $stats{$key};
+	    $$s{$_} = ($$row{$_} || 0)
+		for grep(/^(PEND|WAIT|COOL|READY|XFER|CONFIRM)_/, keys %$row);
+	    $$s{$_} = ($$s{$_} || 0) + ($$row{$_} || 0)
+		for grep(/^(AVAIL|DONE|TRY|FAIL|EXPIRE)_/, keys %$row);
+	}
+    }
+
+    $self->compactUpdate ($dbh, $limit, "t_link_histogram", \%stats);
+}
+
+sub compactDestData
+{
+    my ($self, $dbh, $limit) = @_;
+    my %stats;
+    my $q = &dbexec($dbh, qq{
+	select * from t_dest_histogram
+	where timebin < :old and timewidth = 300
+	order by timebin asc, node},
+    	":old" => $limit);
+    while (my $row = $q->fetchrow_hashref())
+    {
+	my $bin = int($$row{TIMEBIN}/3600)*3600;
+	my $key = "$bin $$row{NODE}";
+	$$row{TIMEBIN} = $bin;
+	$$row{TIMEWIDTH} = 3600;
+	if (! exists $stats{$key})
+	{
+	    $stats{$key} = $row;
+	}
+	else
+	{
+	    my $s = $stats{$key};
+	    $$s{$_} = ($$row{$_} || 0)
+		for grep(/^(DEST|NODE|REQUEST|IDLE)_/, keys %$row);
+	}
+    }
+
+    $self->compactUpdate ($dbh, $limit, "t_dest_histogram", \%stats);
 }
