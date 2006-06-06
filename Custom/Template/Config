@@ -12,7 +12,7 @@ PHEDEX_BUFFERNODE=${PHEDEX_NODE}_Buffer
 PHEDEX_MSSNODE=${PHEDEX_NODE}_MSS
 PHEDEX_PROXY=<Location of your Grid proxy file>;
 
-#### Source environment
+# Source environment
 source ${PHEDEX_SCRIPTS}/etc/profile.d/env.sh
 
 ### ENVIRON glite
