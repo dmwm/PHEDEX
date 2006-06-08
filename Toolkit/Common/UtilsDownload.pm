@@ -200,7 +200,7 @@ sub preClean
 	    $$self{MASTER}->addJob (
 		sub { $self->preClean ($batch, $file, @_) },
 		{ TIMEOUT => $$self{TIMEOUT}, LOGPREFIX => 1 },
-		@{$$self{MASTER}{DELETE_COMMAND}}, "pre", $file->{TO_PFN});
+		@{$$self{MASTER}{DELETE_COMMAND}}, "pre", $$file{TO_PFN});
 	}
     }
 
@@ -293,14 +293,14 @@ sub postClean
 	    do { $$file{DONE_POST_CLEAN} = 1; next }
 	        if (! $$file{FAILURE}
 		    || ! $$self{MASTER}{DELETE_COMMAND}
-		    || ! $$file{MASTER}{TO_PFN});
+		    || ! $$file{TO_PFN});
 
 	    $self->startFileTiming ($file, "postclean");
 	    my $joblog = "$$self{MASTER}{DROPDIR}/$$file{FILEID}.log";
 	    $$self{MASTER}->addJob (
 		sub { $self->postClean ($batch, $file, @_) },
 		{ TIMEOUT => $$self{TIMEOUT}, LOGPREFIX => 1 },
-		@{$$self{MASTER}{DELETE_COMMAND}}, "post", $file->{TO_PFN});
+		@{$$self{MASTER}{DELETE_COMMAND}}, "post", $$file{TO_PFN});
 	}
     }
 
