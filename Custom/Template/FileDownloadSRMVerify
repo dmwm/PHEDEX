@@ -35,17 +35,20 @@ done
 status="$1" pfn="$2" size="$3" checksum="$4"
 validity=0
 
+# If status was claimed ok, accept it
+[ X"$status" = X0 ] && exit 0
+
 # Check file size and mark file invalid on mismatch.
 if [ $validity = 0 ]; then
-    disksize=$(srm-get-metadata -retry_num=1 "$pfn"| grep "size :"|cut -d: -f2)
+    disksize=$(srm-get-metadata -retry_num=0 "$pfn"| grep "size :"|cut -d: -f2)
     [ X"$disksize" = X ] && echo "file $pfn doesn't seem to exist" && validity=1
     [ X"$disksize" != X"$size" ] && echo "size mismatch disk=$disksize db=$size pfn=$pfn" && validity=2
 fi
 
 # Check checksum if requested, mark file invalid on mismatch
 if $do_checksum && [ $validity = 0 ]; then
-    disksum=$(srm-get-metadata -retry_num=1 "$pfn"| grep "checksumValue :"|cut -d: -f2)
-    disksumtype=$(srm-get-metadata -retry_num=1 "$pfn"| grep "checksumType :"|cut -d: -f2)
+    disksum=$(srm-get-metadata -retry_num=0 "$pfn"| grep "checksumValue :"|cut -d: -f2)
+    disksumtype=$(srm-get-metadata -retry_num=0 "$pfn"| grep "checksumType :"|cut -d: -f2)
     [ X"$disksum" != X"$checksum" ] && echo "checksum mismatch disk=$disksum db=$checksum diskalgo=$disksumtype" && validity=3
 fi
 
@@ -54,7 +57,7 @@ fi
 
 # If file deletion was requested, delete the file.
 if $do_delete; then
-    srm-advisory-delete -retry_num=1 "$pfn"
+    srm-advisory-delete -retry_num=0 "$pfn"
 fi
 
 # If we are forcing true return value, lie about it all
