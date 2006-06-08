@@ -27,6 +27,6 @@ source ${PHEDEX_SCRIPTS}/etc/profile.d/env.sh
  -node            ${PHEDEX_BUFFERNODE}
  -keep            LoadTest_${PHEDEX_NODE} 
  -protocol        srm
- -rm              srm-advisory-delete
+ -rm              srm-advisory-delete,-x509_user_proxy=${PHEDEX_PROXY}
  -storagemap      ${PHEDEX_MAP}
  -delay           0.5
