@@ -10,7 +10,8 @@ PHEDEX_MAP=${PHEDEX_CONFIG}/Storage.xml;
 PHEDEX_NODE=T<x>_<site>
 PHEDEX_BUFFERNODE=${PHEDEX_NODE}_Load
 PHEDEX_MSSNODE=${PHEDEX_NODE}_MSS
-PHEDEX_PROXY=<Location of your Grid proxy file>;
+
+export X509_USER_PROXY=<Location of your Grid proxy file>;
 
 # Source environment
 source ${PHEDEX_SCRIPTS}/etc/profile.d/env.sh
@@ -27,6 +28,6 @@ source ${PHEDEX_SCRIPTS}/etc/profile.d/env.sh
  -node            ${PHEDEX_BUFFERNODE}
  -keep            LoadTest_${PHEDEX_NODE} 
  -protocol        srm
- -rm              srm-advisory-delete,-x509_user_proxy=${PHEDEX_PROXY}
+ -rm              srm-advisory-delete,-x509_user_proxy=${X509_USER_PROXY}
  -storagemap      ${PHEDEX_MAP}
  -delay           0.5

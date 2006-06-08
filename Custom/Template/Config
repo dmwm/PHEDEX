@@ -10,7 +10,8 @@ PHEDEX_MAP=${PHEDEX_CONFIG}/Storage.xml;
 PHEDEX_NODE=T<x>_<Sitename>
 PHEDEX_BUFFERNODE=${PHEDEX_NODE}_Buffer
 PHEDEX_MSSNODE=${PHEDEX_NODE}_MSS
-PHEDEX_PROXY=<Location of your Grid proxy file>;
+
+export X509_USER_PROXY=<Location of your Grid proxy file>;
 
 # Source environment
 source ${PHEDEX_SCRIPTS}/etc/profile.d/env.sh
