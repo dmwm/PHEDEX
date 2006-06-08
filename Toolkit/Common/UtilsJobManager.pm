@@ -227,8 +227,11 @@ sub killAllJobs
 	# While there are jobs to run, mark them timed out,
 	# then wait job processing to terminate all those.
 	my $now = time();
-	$$_{TIMEOUT} = ($$_{STARTED} ? $now - $$_{STARTED} - 1 : 1)
-	    for @{$self->{JOBS}};
+	foreach (@{$self->{JOBS}})
+	{
+	    $$_{TIMEOUT} = ($$_{STARTED} ? $now - $$_{STARTED} - 1 : 1);
+	    $$_{TIMEOUT_GRACE} = 30;
+	}
 	$self->pumpJobs();
 	select (undef, undef, undef, 0.1);
     }
