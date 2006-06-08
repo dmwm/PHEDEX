@@ -12,7 +12,7 @@
  -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
  -validate        ${PHEDEX_CONFIG}/FileDownloadSRMVerify
  -backend         SRM
- -command         srmcp,-x509_user_proxy=${PHEDEX_PROXY}
+ -command         srmcp,-x509_user_proxy=${X509_USER_PROXY}
  -jobs            10
  -batch-files     50
 
