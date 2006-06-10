@@ -53,7 +53,10 @@ function makeGraph($graph, $data, $args, $upto, $by)
     // Check whether this node has any values
     $allzero = true;
     foreach ($data as $xbin => $xdata)
-      if (isset ($xdata[$node]) && $xdata[$node][0])
+      if (isset ($xdata[$node])
+          && ($args['metric'] == 'pending'
+	      ? array_sum($xdata[$node][1])
+	      : $xdata[$node][0]) > 0)
       {
 	$allzero = false;
 	break;
