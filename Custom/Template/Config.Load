@@ -1,32 +1,58 @@
 #### General configuration
 ### ENVIRON common
-PHEDEX_BASE=<path to your PhEDEx base dir e.g.: /home/phedex>;
-PHEDEX_CONFIG=${PHEDEX_BASE}/SITECONF/<YourSite>/PhEDEx
-PHEDEX_DBPARAM=${PHEDEX_CONFIG}/DBParam:<instance>/<site>;
-PHEDEX_STATE=${PHEDEX_BASE}/<purpose>_state;
-PHEDEX_LOGS=${PHEDEX_BASE}/<purpose>_logs;
-PHEDEX_SCRIPTS=${PHEDEX_BASE}/sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_<PhEDExVersion>;
-PHEDEX_MAP=${PHEDEX_CONFIG}/Storage.xml;
-PHEDEX_NODE=T<x>_<site>
-PHEDEX_BUFFERNODE=${PHEDEX_NODE}_Load
-PHEDEX_MSSNODE=${PHEDEX_NODE}_MSS
 
-export X509_USER_PROXY=<Location of your Grid proxy file>;
+# Set the base location of your PhEDEx agents
+# PHEDEX_BASE=/home/phedex;
 
-# Source environment
-source ${PHEDEX_SCRIPTS}/etc/profile.d/env.sh
+# PhEDEx instance; this is marked in the authentication info you received,
+# and should be either "Dev", "SC4" or "Production".
+# PHEDEX_INSTANCE=Dev;
 
+# Authentication label for DB access; this is usually your site's name and
+# can be found in the first line of the authentication info you received
+# PHEDEX_LABEL=Sirgustan;
 
+# Your site name as in $PHEDEX_BASE/SITECONFIG
+# PHEDEX_SITE=Sirgustan;
+
+# Prefix part of your node names; naming convention is T<x>_<Site name>
+# PHEDEX_NODE=TX_Sirgustan;
+
+# The PhEDEx version you are running
+# PHEDEX_VERSION=2_3_8;
+
+# Location of your Grid proxy; you want to make sure, that only the user
+# running your PhEDEx agents can read it
+# export X509_USER_PROXY=$PHEDEX_BASE/gridcert;
+
+# If using FTS, include the following:
+# GLite environment setup script
+# source <Path to your GLite environemnt>/etc/profile.d/grid_env.sh;
+
+# GLite service discovery authority
+# export GLITE_SD_PLUGIN=bdii;
+
+# GLite query to identify FTS server; T1s please fill in your FTS service
+# TIER0_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s CERN-PROD | grep Endpoint | awk '{print $2}');
+# TIER1_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s <T1-FTS-Service> | grep Endpoint | awk '{print $2}');
+
+# Load the individual configuration parts
 ### IMPORT ConfigPart.Common
 ### IMPORT ConfigPart.Export
-### IMPORT ConfigPart.Download
+### IMPORT ConfigPart.MSS
+
+# Choose one to include, remove leading '#' from the one you want
+# and enable the corresponding agent(s) in the ConfigPart file
+#### IMPORT ConfigPart.SRMDownload
+#### IMPORT ConfigPart.FTSDownload
+
 
 #### The recycler should ONLY be run in DEV or SC4 instances, since normally
 #### you don't want to delete your data !!
 ### AGENT LABEL=lt-recycle PROGRAM=Toolkit/Transfer/FileRecycler
  -db              ${PHEDEX_DBPARAM}
- -node            ${PHEDEX_BUFFERNODE}
- -keep            LoadTest_${PHEDEX_NODE} 
+ -node            ${PHEDEX_NODE}_Buffer
+ -keep            LoadTest_${PHEDEX_NODE}
  -protocol        srm
  -rm              srm-advisory-delete,-x509_user_proxy=${X509_USER_PROXY}
  -storagemap      ${PHEDEX_MAP}

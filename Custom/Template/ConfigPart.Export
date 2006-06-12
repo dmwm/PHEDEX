@@ -1,13 +1,12 @@
 #### Export-side agents
 ### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
  -db              ${PHEDEX_DBPARAM}
- -nodes           ${PHEDEX_BUFFERNODE}
- -ignore          ${PHEDEX_MSSNODE}
+ -nodes           ${PHEDEX_NODE}_Buffer
+ -ignore          ${PHEDEX_NODE}_MSS
  -storagemap      ${PHEDEX_MAP}
  -protocols       srm
 
 ### AGENT LABEL=exp-disk PROGRAM=Toolkit/Transfer/FileDiskExport
  -db              ${PHEDEX_DBPARAM}
- -node            ${PHEDEX_BUFFERNODE}
-
+ -node            ${PHEDEX_NODE}_Buffer
 

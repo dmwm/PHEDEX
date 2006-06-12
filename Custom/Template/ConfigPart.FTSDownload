@@ -1,0 +1,26 @@
+#### Download agents
+
+#### Be careful with FileDownloadDelete on Castor-2 based
+#### systems. Castor sites, please follow the suggestion in
+#### README-Transfer on CVS.
+
+
+### AGENT LABEL=download-fts-t0 PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
+ -db              ${PHEDEX_DBPARAM}
+ -nodes           ${PHEDEX_NODE}_Buffer
+ -accept          '%CERN%'
+ -storagemap      ${PHEDEX_CONFIG}/storage.xml
+ -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
+ -validate        ${PHEDEX_CONFIG}/FileDownloadVerify
+ -backend         SRM
+ -command         ${PHEDEX_SCRIPTS}/Utilities/ftscp,-passfile=${PHEDEX_CONFIG}/ftspass,-server=${TIER0_FTS_SERVER}
+
+### AGENT LABEL=download-fts-t1 PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
+ -db              ${PHEDEX_DBPARAM}
+ -nodes           ${PHEDEX_NODE}_Buffer
+ -ignore          '%CERN%'
+ -storagemap      ${PHEDEX_CONFIG}/storage.xml
+ -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
+ -validate        ${PHEDEX_CONFIG}/FileDownloadVerify
+ -backend         SRM
+ -command         ${PHEDEX_SCRIPTS}/Utilities/ftscp,-passfile=${PHEDEX_CONFIG}/ftspass,-server=${TIER1_FTS_SERVER}
