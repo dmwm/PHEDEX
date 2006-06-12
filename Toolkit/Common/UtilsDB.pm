@@ -582,7 +582,9 @@ sub dbprep
     return $stmt if ! $@;
 
     # Handle disconnected oracle handle, flag the handle bad
-    $$dbh{private_phedex_invalid} = 1 if $@ =~ /ORA-03114:/;
+    $$dbh{private_phedex_invalid} = 1
+        if ($@ =~ /ORA-(?:03114|03135|01031):/
+	    || $@ =~ /TNS:listener/);
     die $@;
 }
 
@@ -604,7 +606,7 @@ sub dbbindexec
     {
         my $sql = $$stmt{Statement};
 	$sql =~ s/\s+/ /g; $sql =~ s/^\s+//; $sql =~ s/\s+$//;
-	my $bound = join (", ", map { "($_, $params{$_})" } sort keys %params);
+	my $bound = join (", ", map { "($_, " . (defined $params{$_} ? $params{$_} : "undef") . ")" } sort keys %params);
         &logmsg ("executing statement `$sql' [$bound]");
     }
 
@@ -634,6 +636,8 @@ sub dbbindexec
     return $rv if ! $@;
 
     # Flag handle bad on disconnected oracle handle
-    $$stmt{Database}{private_phedex_invalid} = 1 if $@ =~ /ORA-03114:/;
+    $$stmt{Database}{private_phedex_invalid} = 1
+        if ($@ =~ /ORA-(?:03114|03135|01031):/
+	    || $@ =~ /TNS:listener/);
     die $@;
 }
