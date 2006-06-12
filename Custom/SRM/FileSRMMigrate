@@ -121,17 +121,17 @@ sub idle
 	    do { &alert ("failed to find pfn for file $lfn"); next } if !$pfn;
 
             # Check the status of the file
-            my $status = 0;
+            my $migrated = 0;
             open(INFO, "srm-get-metadata $pfn |");
             while(<INFO>) {
                 if (/isPermanent :true/) {
-                    $status = 1;
+                    $migrated = 1;
                 }
             }
             close (INFO)
                 or &alert( "No dCache migration info for $pfn: $!" );
 
-	    next if $status !~ /^m/;
+	    next if (! $migrated);
 
 	    # Migrated, mark transfer completed
 	    my $now = &mytimeofday();
