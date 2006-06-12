@@ -1,0 +1,126 @@
+#!/usr/bin/env perl
+
+##H Coordinate file export for MSS-based transfer nodes.
+##H
+##H This agent manages the general export process for nodes that behave
+##H like MSS nodes.  It expects FileSRMStager and FilePFNExport
+##H agents to be operated in parallel.
+##H
+##H Usage:
+##H   FileSRMExport
+##H      -state DIRECTORY -nodes PATTERN[,PATTERN...]
+##H      -db FILE[:SECTION] [-log OUT]
+##H
+##H -state     agent state directory
+##H -nodes     patterns for the node names for which this agent runs
+##H -db        database connection configuration parameter file
+##H -log       where to redirect logging information
+
+BEGIN {
+  use strict; use warnings; $^W=1;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+######################################################################
+my %args;
+use Getopt::Long;
+use UtilsHelp;
+&GetOptions ("state=s"     => \$args{DROPDIR},
+	     "log=s"       => \$args{LOGFILE},
+             "db=s"        => \$args{DBCONFIG},
+             "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
+	     "help|h"      => sub { &usage() });
+
+if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{NODES})
+{
+    die "Insufficient parameters, use -h for help.\n";
+}
+
+(new FileSRMExport (%args))->process();
+
+######################################################################
+# Routines for the master MSS export agent.  This one simply manages
+# the file transfer requests and passes the work to appropriate other
+# local export agents (stage-in, checksum).
+package FileSRMExport; use strict; use warnings; use base 'UtilsAgent';
+use UtilsLogging;
+use UtilsTiming;
+use UtilsDB;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBCONFIG => undef,		# Database configuration file
+	  	  MYNODE => undef,		# My TMDB node name
+		  NODES => [],			# Patterns for nodes to run for
+		  WAITTIME => 10 + rand(5),	# Agent cycle time
+	  	  AGENTID => "FileExport");	# Identity for activity logs
+    my %args = (@_);
+    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Called by agent main routine before sleeping.  Pick up work
+# assignments from the database here and pass them to slaves.
+sub idle
+{
+    my ($self, @pending) = @_;
+    my $dbh = undef;
+    my @nodes;
+    eval
+    {
+	($dbh, @nodes) = &expandNodesAndConnect ($self);
+	my ($nodes, %node_args) = &myNodeFilter ($self, "xr.node");
+
+	# Mark files available/unavailable based on their local status.
+	# This agent reflects the stager and pfn export agents progress
+	# into the transfer state table.  The other agents do their work
+	# autonomously.
+	#
+	# Note that we reflect status of staged-in files into transfer
+	# table regardless of whether someone wants the file or not;
+	# this way download clients can prefer immediately available
+	# files.
+
+        # Mark staged in files available for transfer.
+	&dbexec($dbh, qq{
+	    update (select xs.from_state, xs.time_available
+	            from t_xfer_state xs
+	              join t_xfer_replica xr
+	                on xr.id = xs.from_replica
+	            where xr.state = 1
+	              and $nodes
+		      and xs.from_state = 0
+	      	      and xs.from_pfn is not null)
+	    set from_state = 1, time_available = :now},
+	    ":now" => &mytimeofday(), %node_args);
+
+        # Mark unavailable files not ready for transfer.
+	&dbexec($dbh, qq{
+	    update (select xs.from_state, xs.time_available
+		    from t_xfer_state xs
+	              join t_xfer_replica xr
+	                on xr.id = xs.from_replica
+	            where $nodes
+		      and xs.from_state = 1
+	              and xs.to_state < 2
+		      and (xr.state != 1 or xs.from_pfn is null))
+	    set from_state = 0, time_available = null},
+	    %node_args);
+
+	$dbh->commit();
+    };
+    do { chomp ($@); &alert ("database error: $@");
+	 eval { $dbh->rollback() } if $dbh; } if $@;
+
+    # Disconnect from the database
+    &disconnectFromDatabase ($self, $dbh);
+
+    # Have a little nap
+    $self->nap ($$self{WAITTIME});
+}

@@ -117,19 +117,19 @@ sub idle
 	while (my ($fileid, $lfn, $size, $available) = $q->fetchrow())
 	{
 	    # Check if the file has been migrated.  If not, skip it.
-	    my $pfn = &pfnLookup ($lfn, "direct", "local", $$self{STORAGEMAP});
+	    my $pfn = &pfnLookup ($lfn, "srm", "local", $$self{STORAGEMAP});
 	    do { &alert ("failed to find pfn for file $lfn"); next } if !$pfn;
 
             # Check the status of the file
             my $migrated = 0;
-            open(INFO, "srm-get-metadata $pfn |");
+            open(INFO, "srm-get-metadata -retry_num=1 $pfn |");
             while(<INFO>) {
                 if (/isPermanent :true/) {
                     $migrated = 1;
                 }
             }
             close (INFO)
-                or &alert( "No dCache migration info for $pfn: $!" );
+                or &alert( "No SRM migration info for $pfn: $!" );
 
 	    next if (! $migrated);
 

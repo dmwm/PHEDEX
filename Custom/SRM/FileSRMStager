@@ -203,7 +203,7 @@ sub getStagerFiles
 	my %pfn2f = map { ($$_{PFN} => $_) } @slice;
 	my @args = map { "$$_{PFN}" } @slice;
 	
-	open (QRY, "$pfx srm-get-metadata @args |")
+	open (QRY, "$pfx srm-get-metadata -retry_num=1 @args |")
 	    or do { &alert ("srm-get-metadata: cannot execute: $!"); return undef };
 
 	my $pfn = undef;
