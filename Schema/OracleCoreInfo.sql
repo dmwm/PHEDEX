@@ -38,7 +38,7 @@ create table t_info_agent_status
    site			varchar (20)	not null,
    host			varchar (40)	not null,
    path			varchar (255)	not null,
-   agent		varchar (20)	not null,
+   agent		varchar (30)	not null,
    worker		varchar (20)	not null,
    pid			integer		not null,
    live			char (1)	not null,
