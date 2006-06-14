@@ -30,8 +30,8 @@ Getopt::Long::Configure qw(default no_ignore_case);
 &GetOptions ('c=s'        => \$args{CATALOGUE},
              'p=s'        => \$args{PROTOCOL},
              'd=s'        => \$args{DESTINATION},
-             'L'          => sub { $args{MODE} = $_[1] },
-             'P'          => sub { $args{MODE} = $_[1] },
+             'L'          => sub { $args{MODE} = $_[0] },
+             'P'          => sub { $args{MODE} = $_[0] },
 	     'help|h'      => sub { &usage() });
 
 # Check arguments.
@@ -49,7 +49,7 @@ print "Testing file name mappings in $args{CATALOGUE} using protocol $args{PROTO
 # Output file names
 foreach my $file (@ARGV)
 {
-    if ($args{MODE} eq 'L')
+    if ($args{MODE} eq 'P')
     {
 	my $lfn = &lfnLookup($file, $args{PROTOCOL}, $args{DESTINATION}, $args{CATALOGUE});
 	print "PFN: $file\n";
