@@ -1,14 +1,14 @@
 #!/usr/bin/env perl
 
 ##H This agent registers files into the transfer database.  Each drop
-##H must include an XML catalogue fragment and a checksum file, and
-##H may include a node list file.
+##H must include an XML file describing the files to register into the
+##H database, and may include a node list file.
 ##H
 ##H All files mentioned in the XML catalogue must be previously unknown
 ##H to the database.  If a problem occurs with any of the files in the
-##H drop, all files are rejected.  The files must already be known to
-##H the local file catalogue -- this agent ignores the PFNs, and adds
-##H the rest of the file information into the database.
+##H drop, all files are rejected.  The files must already be accessible
+##H via the local file catalogue.  The format of the XML file is fully
+##H described in Toolkit/Request/TMDBInject.
 ##H
 ##H The agent periodically inspects inbox looking for complete drops.
 ##H Once the drop is processed as described above, the drop is passed
@@ -41,7 +41,7 @@ use UtilsHelp;
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
              "node=s"      => \$args{MYNODE},
-             "next=s@"     => $args{NEXTDIR},
+             "next=s@"     => \@{$args{NEXTDIR}},
 	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG})
@@ -67,7 +67,7 @@ sub new
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef);		# My TMDB node name
     my %args = (@_);
-    map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
 }
@@ -79,30 +79,25 @@ sub processDrop
 
     # Sanity checking
     return if (! $self->inspectDrop ($drop));
-    delete $self->{BAD}{$drop};
-    &timeStart($self->{STARTTIME});
+    delete $$self{BAD}{$drop};
+    &timeStart($$self{STARTTIME});
 
     # Prepare attribute cache for this drop
-    my $dropdir = "$self->{WORKDIR}/$drop";
+    my $dropdir = "$$self{WORKDIR}/$drop";
 
-    # Locate XML catalogue and checksums, load node list
-    my @nodes = split(/\s+/, &input ("$dropdir/PhEDEx-Nodes.txt") || $self->{MYNODE});
-    my $xmlcat = (<$dropdir/XMLCatFragment.*.{txt,xml}>)[0];
+    # Locate file description XML file and load node list.
+    my @nodes = split(/\s+/, &input ("$dropdir/PhEDEx-Nodes.txt") || $$self{MYNODE});
+    my $filedata = (<$dropdir/*.{txt,xml}>)[0];
     do { &alert("$drop: no catalogue"); $self->markBad ($drop); return }
-        if ! $xmlcat;
-
-    my $cksumfile = (<$dropdir/Checksum.*.txt>)[0];
-    do { &alert ("no checksum file in $drop"); $self->markBad ($drop); return }
-        if ! $cksumfile;
+        if ! $filedata;
 
     # Run publish.  This is actually done by a helper program shared
     # with other tools, so we don't repeat the code here.
     my $toolhome = $0; $toolhome =~ s|/[^/]*$||; $toolhome .= "/../..";
     my @cmd = ("$toolhome/Toolkit/Request/TMDBInject",
-               "-db", $self->{DBCONFIG},
-	       "-strict",
-	       "-catalogue", $xmlcat,
-	       "-cksums", $cksumfile,
+               "-db", $$self{DBCONFIG},
+	       "-strict", "-verbose",
+	       "-filedata", $filedata,
 	       "-nodes", join(",", @nodes));
 
     if (my $rc = &runcmd (@cmd))
@@ -114,5 +109,5 @@ sub processDrop
 
     # Success, relay onwards
     $self->relayDrop ($drop);
-    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} success");
+    &logmsg("stats: $drop @{[&formatElapsedTime($$self{STARTTIME})]} success");
 }
