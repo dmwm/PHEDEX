@@ -267,9 +267,80 @@ sub idle
 	      	      v.idle_files, v.idle_bytes)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
+	# Part V: Update link parameters.
+	&dbexec($dbh, qq{
+	    merge into t_link_param p
+	    using (select id from t_link) v
+	    on (p.link = v.id)
+	    when matched then
+	      update set
+		p.pend_bytes = null,
+		p.done_bytes = null,
+		p.try_bytes = null,
+		p.xfer_rate = null,
+	        p.xfer_latency = null,
+		p.time_span = null,
+		p.time_update = :now
+	    when not matched then
+	      insert (p.link, p.pend_bytes, p.done_bytes, p.try_bytes,
+	      	      p.xfer_rate, p.xfer_latency, p.time_span, p.time_update)
+	      values (v.id, null, null, null, null, null, null, :now)},
+	    ":now" => $timebin);
+        foreach my $span (3600, 8*3600, 86400, 30*86400)
+	{
+	    &dbexec($dbh, qq{
+	        update t_link_param p
+	        set (pend_bytes, done_bytes, try_bytes, time_span) =
+		    (select
+		       nvl(sum(pend_bytes) keep (dense_rank last order by timebin asc),0),
+		       sum(done_bytes),
+		       sum(try_bytes),
+		       sum(case when pend_bytes > 0 or done_bytes > 0 or try_bytes > 0 then timewidth else 0 end)
+		     from t_link_histogram h
+		       join t_link l
+		         on l.from_node = h.from_node
+			 and l.to_node = h.to_node
+		     where h.timebin >= :now - :span
+		       and p.link = l.id)
+	        where time_span is null
+		  or (done_bytes is null and try_bytes is null)},
+	        ":now" => $timebin, ":span" => $span);
+	}
+
+	&dbexec($dbh, qq{
+	    update (select
+	    	      pend_bytes, xfer_rate, xfer_latency,
+		      case
+		        when nvl(try_bytes,0) > 0 or nvl(done_bytes,0) > 0
+			  then greatest(nvl(try_bytes,0),nvl(done_bytes,0))/time_span
+			else 0
+		      end rate
+	            from t_link_param
+		    where time_span is not null)
+	    set xfer_rate = rate,
+	        xfer_latency =
+		   case
+		     when pend_bytes = 0
+		       then 0
+		     when rate > 0
+		       then least(pend_bytes/rate,7*86400)
+		     else 7*86400
+		   end});
+
+        &dbexec($dbh, qq{
+	    update t_link_histogram h
+	    set (param_rate, param_latency) =
+	      (select xfer_rate, xfer_latency
+	       from t_link_param p
+	         join t_link l on l.id = p.link
+	       where l.from_node = h.from_node
+	         and l.to_node = h.to_node)
+	    where timebin = :timebin},
+ 	    ":timebin" => $timebin);
+
 	$dbh->commit();
 
-	# Part V: Compact old time series data to be in per-hour instead
+	# Part VI: Compact old time series data to be in per-hour instead
 	# of per-5-minute bins.  We do this only rarely to avoid loading
 	# the database servers excessively.  We read the old data stats
 	# in memory, merge, and write back.  This is mainly because some

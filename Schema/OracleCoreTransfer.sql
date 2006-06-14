@@ -140,7 +140,11 @@ create table t_link_histogram
    -- statistics for t_xfer_path during/at end of this bin
    confirm_files	integer, -- t_xfer_path
    confirm_bytes	integer,
-   confirm_weight	integer);
+   confirm_weight	integer
+   -- 
+   -- statistics from t_link_param calculated at the end of this cycle
+   param_rate		float,
+   param_latency	float);
 
 create table t_dest_histogram
   (timebin		float		not null,
@@ -158,7 +162,13 @@ create table t_dest_histogram
 -- FIXME: expand on this for everything that defines the value
 create table t_link_param
   (link			integer		not null,
-   penalty		float		not null);
+   time_update		float		not null,
+   time_span		integer,
+   pend_bytes		float,
+   done_bytes		float,
+   try_bytes		float,
+   xfer_rate		float,
+   xfer_latency		float);
 
 ----------------------------------------------------------------------
 -- Add constraints
