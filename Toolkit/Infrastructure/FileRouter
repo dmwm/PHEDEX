@@ -96,13 +96,13 @@ sub idle
 	# Read links and their parameters
 	my $links = {};
 	my $q = &dbexec($dbh, qq{
-	    select l.from_node, l.to_node, l.distance, l.local_boost, nvl(lp.penalty,1)
-	    from t_link l left join t_link_param lp on lp.link = l.id});
-	while (my ($from, $to, $hops, $boost, $penalty) = $q->fetchrow())
+	    select l.from_node, l.to_node, l.distance, l.local_boost
+	    from t_link l});
+	while (my ($from, $to, $hops, $boost) = $q->fetchrow())
 	{
 	    $$links{$from}{$to} = { HOPS => $hops,
 				    LOCAL_BOOST => $boost,
-				    PENALTY => $penalty };
+				    PENALTY => 1 };
 	}
 
 	# Now route for the nodes
@@ -498,8 +498,6 @@ sub route
     # Phase X: Update transfer parameters.
 
     # (This should be done by other code.)
-
-    # update t_link_param
 
     ######################################################################
     # Phase X: Update statistics.
