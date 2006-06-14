@@ -115,7 +115,7 @@ sub daemon
 	or die "$me: cannot redirect output to $$self{LOGFILE}: $!\n";
     open (STDERR, ">&STDOUT")
 	or die "Can't dup STDOUT: $!";
-    close (STDIN);
+    open (STDIN, "</dev/null");
 }
 
 # User hook
