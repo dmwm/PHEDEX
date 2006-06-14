@@ -14,8 +14,9 @@ PHEDEX_MAP=${PHEDEX_CONFIG}/storage.xml;
 
 # prepare authentication env variables
 unset X509_USER_KEY X509_USER_CERT;
+export X509_USER_PROXY;
 
-# Source environment
+# Source PhEDEx environment
 source ${PHEDEX_SCRIPTS}/etc/profile.d/env.sh;
 
 ### AGENT LABEL=info-ds PROGRAM=Toolkit/Monitoring/InfoDropStatus

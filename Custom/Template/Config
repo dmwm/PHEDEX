@@ -1,47 +1,67 @@
+                          ############################
+                          #    PhEDEx config help    #
+#####################################################################################
+# PHEDEX_BASE:		Set the base location of your PhEDEx installation	    #
+#										    #
+# PHEDEX_INSTANCE:	Choose the DB instance your agents will run against;	    #
+#			this is marked in the authentication info you received,	    #
+# 			and should be either "Dev", "SC4" or "Production".	    #
+#										    #
+# PHEDEX_LABEL:		Authentication label for DB access; this is usually your    #
+# 			site's name and can be found in the first line of the	    #
+#			authentication info you received			    #
+#										    #
+# PHEDEX_SITE:		Your site name as in $PHEDEX_BASE/SITECONF		    #
+#										    #
+# PHEDEX_NODE:		Prefix part of your node names; naming convention is	    #
+#			T<x>_<Site name>					    #
+#										    #
+# PHEDEX_VERSION:	The PhEDEx version you are running			    #
+#										    #
+# X509_USER_PROXY:	Location of your Grid proxy; you want to make sure, that    #
+#			only the user running your PhEDEx agents can read it	    #
+#                                                                                   #
+# PHEDEX_GLITE_ENV:	GLite environment setup script; please fill in path to      #
+#			your GLite installation                                     #
+#                                                                                   #
+# GLITE_SD_PLUGIN:	GLite service discovery authority; usually bdii             #
+#                                                                                   #
+# TIER1_FTS_SERVICE:	T1s please fill in your FTS service                         #
+#####################################################################################
+
+
 #### General configuration
 ### ENVIRON common
 
-# Set the base location of your PhEDEx agents
-# PHEDEX_BASE=/home/phedex;
+# Common part
+PHEDEX_BASE=/home/phedex;
+PHEDEX_INSTANCE=Dev;
+PHEDEX_LABEL=ATLANTIS;
+PHEDEX_SITE=Atlantis;
+PHEDEX_NODE=TX_Atlantis;
+PHEDEX_VERSION=2_3_8;
+X509_USER_PROXY=$PHEDEX_BASE/gridcert;
 
-# PhEDEx instance; this is marked in the authentication info you received,
-# and should be either "Dev", "SC4" or "Production".
-# PHEDEX_INSTANCE=Dev;
+# FTS specific part
+PHEDEX_GLITE_ENV=<SomePath>/etc/profile.d/grid_env.sh;
+GLITE_SD_PLUGIN=bdii;
+TIER1_FTS_SERVICE=<Atlantis-FTS>;
 
-# Authentication label for DB access; this is usually your site's name and
-# can be found in the first line of the authentication info you received
-# PHEDEX_LABEL=Sirgustan;
 
-# Your site name as in $PHEDEX_BASE/SITECONFIG
-# PHEDEX_SITE=Sirgustan;
+####################################
+# Load the sub-configuration files #
+####################################
 
-# Prefix part of your node names; naming convention is T<x>_<Site name>
-# PHEDEX_NODE=TX_Sirgustan;
+# The following 3 files should have reasonable defaults;
+# no need to touch them
 
-# The PhEDEx version you are running
-# PHEDEX_VERSION=2_3_8;
-
-# Location of your Grid proxy; you want to make sure, that only the user
-# running your PhEDEx agents can read it
-# export X509_USER_PROXY=$PHEDEX_BASE/gridcert;
-
-# If using FTS, include the following:
-# GLite environment setup script
-# source <Path to your GLite environemnt>/etc/profile.d/grid_env.sh;
-
-# GLite service discovery authority
-# export GLITE_SD_PLUGIN=bdii;
-
-# GLite query to identify FTS server; T1s please fill in your FTS service
-# TIER0_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s CERN-PROD | grep Endpoint | awk '{print $2}');
-# TIER1_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s <T1-FTS-Service> | grep Endpoint | awk '{print $2}');
-
-# Load the individual configuration parts
 ### IMPORT ConfigPart.Common
 ### IMPORT ConfigPart.Export
 ### IMPORT ConfigPart.MSS
 
-# Choose one to include, remove leading '#' from the one you want
-# and enable the corresponding agent(s) in the ConfigPart file
+# Choose one to include, remove leading '#' from the one you want.
+# Download agents default to 'off'; either start explicitly or
+# remove 'DEFAULT=off' from the corresponding ConfigPart entry
+
 #### IMPORT ConfigPart.SRMDownload
 #### IMPORT ConfigPart.FTSDownload
