@@ -1,3 +1,42 @@
+* Changes in PhEDEx 2.3.8
+
+ General changes:
+  - Considerably improved site configuration template.
+  - Database handling changes:
+    - Try harder to detect dead / unusable database connections.
+    - When LogSQL is "on", print null values nicely.
+  - Download agent changes:
+    - Post-transfer deletes on failed transfer weren't working; fixed.
+    - Timed out transfers now get 30 seconds to exit per signal sent.
+  - Improvements to a configuration using pure SRM interface:
+    - Download verification script trusts the exit code from the copy.
+      The checking of download success using SRM was too expensive.
+      Now also passes certificate proxy options to the srm-* commands.
+    - Deletion script only deletes after failed transfer, no longer
+      before every transfer as the latter was too expensive and post
+      failure handling was considered good enough.  Now also passes
+      certificate proxy options to the srm-* commands.
+    - Migration agent rewritten.
+    - Improvements to the stage-in agent.
+    - Main export agent provided.
+  - TestCatalogue did not correctly verify PFN-to-LFN, corrected.
+
+ Web site changes:
+  - Status browser updated for hosted with cmsdoc + mod_perl.  The
+    transfer rate table now shows only one time span at a time.  Fixed
+    the quoting of magic characters (<, >, etc.) in database report.
+  - Various tweaks to the plots to better lay out the legend.
+  - The legend in transfer queue page is now corrected to include only
+    the items actually included in the plot.
+  - The PHP plotting scripts are now hosted on cmsdoc.cern.ch.
+  - Instructions for hosting the web site.
+
+ Schema changes:
+  - t_authorisation.role_name and t_info_agent_status.agent extended.
+  - Performance data (t_*_histogram) older than about two days is now
+    automatically compacted to time seris in 1-hour bins; newer data
+    remains in the current 5-minute bins.
+
 * Changes in PhEDEx 2.3.7
 
  General changes:
