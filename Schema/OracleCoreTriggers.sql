@@ -33,6 +33,13 @@ create or replace trigger tr_xfer_file_insert
   end;
 /
 
+create or replace trigger tr_xfer_replica_insert
+  after insert on t_xfer_replica for each row begin
+    delete from t_xfer_request
+    where fileid = :new.fileid and destination = :new.node;
+  end;
+/
+
 create or replace trigger tr_xfer_replica_delete
   after delete on t_xfer_replica for each row declare
     unixtime integer
