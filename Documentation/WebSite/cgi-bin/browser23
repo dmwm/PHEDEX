@@ -861,7 +861,9 @@ sub rates {
 	  nvl(sum(h.done_files),0) done_files,
 	  nvl(sum(h.done_bytes),0) done_bytes,
 	  nvl(sum(h.fail_files),0) fail_files,
-	  nvl(sum(h.expire_files),0) expire_files
+	  nvl(sum(h.expire_files),0) expire_files,
+	  nvl(avg(h.param_rate),0) param_rate,
+	  nvl(avg(h.param_latency),0) param_latency
 	from t_link_histogram h
 	  join t_node f on f.id = h.from_node
 	  join t_node t on t.id = h.to_node
@@ -872,14 +874,7 @@ sub rates {
     while (my $row = $q->fetchrow_hashref())
     {
 	my $key = "$$row{TO_NODE} $$row{FROM_NODE}";
-	$stats{$span}{N}{$key} ||= { FROM_NODE => $$row{FROM_NODE},
-				     TO_NODE => $$row{TO_NODE},
-				     FILES => 0, BYTES => 0,
-				     FAILED => 0, EXPIRED => 0 };
-	$stats{$span}{N}{$key}{FILES} += $$row{DONE_FILES};
-	$stats{$span}{N}{$key}{BYTES} += $$row{DONE_BYTES};
-	$stats{$span}{N}{$key}{FAILED} += $$row{FAIL_FILES};
-	$stats{$span}{N}{$key}{EXPIRED} += $$row{EXPIRE_FILES};
+	$stats{$span}{N}{$key} = $row;
     }
 
     my $errors = param('errors') ? "checked='checked'" : "";
@@ -897,11 +892,11 @@ sub rates {
           "<label for='errors'>Include links with nothing but errors</label> ",
     	  "<input type='submit' value='Update'></p>\n";
     print OUT "<p><table class='striped'><tbody>\n";
-    $stats{$span}{T}{1} = { FILES => 0, BYTES => 0, FAILED => 0, EXPIRED => 0 };
+    $stats{$span}{T}{1} = { DONE_FILES => 0, DONE_BYTES => 0, FAIL_FILES => 0, EXPIRE_FILES => 0 };
 
     print OUT
 	  "<tr class='selected'>\n",
-	  " <th colspan='7'>",
+	  " <th colspan='9'>",
 	  "Last @{[&format_timespan($spans{$span}[2])]}",
 	  "</th>\n",
 	  "</tr>\n",
@@ -913,6 +908,8 @@ sub rates {
 	  " <th rowspan='2'>Rate</th>\n",
 	  " <th rowspan='2'>Errors</th>\n",
 	  " <th rowspan='2'>Expired</th>\n",
+	  " <th rowspan='2'>Avg. Est. Rate</th>\n",
+	  " <th rowspan='2'>Avg. Est. Latency</th>\n",
 	  "</tr>\n",
 	  "<tr class='selected'>\n",
 	  " <th>",
@@ -929,9 +926,9 @@ sub rates {
 
     foreach my $kind (qw(N T))
     {
-	foreach my $row (sort { $$b{BYTES} <=> $$a{BYTES}
-				|| $$b{FAILED} <=> $$a{FAILED}
-				|| $$b{EXPIRED} <=> $$a{EXPIRED}
+	foreach my $row (sort { $$b{DONE_BYTES} <=> $$a{DONE_BYTES}
+				|| $$b{FAIL_FILES} <=> $$a{FAIL_FILES}
+				|| $$b{EXPIRE_FILES} <=> $$a{EXPIRE_FILES}
 				|| $$a{TO_NODE} cmp $$b{TO_NODE}
 				|| $$a{FROM_NODE} cmp $$b{FROM_NODE} }
 			 values %{$stats{$span}{$kind}})
@@ -940,26 +937,28 @@ sub rates {
 		     && ($fromfilter || $tofilter)
 		     && ! (($fromfilter && $$row{FROM_NODE} =~ /$fromfilter/)
 			    || ($tofilter && $$row{TO_NODE} =~ /$tofilter/)));
-	    next if $kind eq 'N' && ! $errors && ! $$row{FILES};
-	    next if $kind eq 'N' && ! $$row{FILES} && ! $$row{FAILED} && ! $$row{EXPIRED};
-	    my $bps = $$row{BYTES} / $spans{$span}[2];
+	    next if $kind eq 'N' && ! $errors && ! $$row{DONE_FILES};
+	    next if $kind eq 'N' && ! $$row{DONE_FILES} && ! $$row{FAIL_FILES} && ! $$row{EXPIRE_FILES};
+	    my $bps = $$row{DONE_BYTES} / $spans{$span}[2];
 	    print OUT "<tr>",
 		($$row{FROM_NODE}
 		 ? "<td>$$row{TO_NODE}</td><td>$$row{FROM_NODE}</td>"
 		 : "<td colspan='2'>Total</td>"),
-	        "<td align='right'>@{[&format_num($$row{FILES} || 0)]}</td>",
-	        "<td align='right'>@{[&format_size($$row{BYTES})]}</td>",
+	        "<td align='right'>@{[&format_num($$row{DONE_FILES} || 0)]}</td>",
+	        "<td align='right'>@{[&format_size($$row{DONE_BYTES})]}</td>",
 		"<td align='right'>", ($bps >= 0 ? &format_size($bps) . '/s' : &format_num(0)), "</td>",
-	        "<td align='right'>@{[&format_num($$row{FAILED} || 0)]}</td>",
-	        "<td align='right'>@{[&format_num($$row{EXPIRED} || 0)]}</td>",
+	        "<td align='right'>@{[&format_num($$row{FAIL_FILES} || 0)]}</td>",
+	        "<td align='right'>@{[&format_num($$row{EXPIRE_FILES} || 0)]}</td>",
+	        "<td align='right'>@{[&format_size($$row{PARAM_RATE} || 0)]}/s</td>",
+	        "<td align='right'>@{[&age($$row{PARAM_LATENCY} || 0)]}</td>",
 	        "</tr>\n";
 
 	    if ($kind eq 'N')
 	    {
-	        $stats{$span}{T}{1}{FILES} += $$row{FILES};
-	        $stats{$span}{T}{1}{BYTES} += $$row{BYTES};
-	        $stats{$span}{T}{1}{FAILED} += $$row{FAILED};
-	        $stats{$span}{T}{1}{EXPIRED} += $$row{EXPIRED};
+	        $stats{$span}{T}{1}{DONE_FILES} += $$row{DONE_FILES};
+	        $stats{$span}{T}{1}{DONE_BYTES} += $$row{DONE_BYTES};
+	        $stats{$span}{T}{1}{FAIL_FILES} += $$row{FAIL_FILES};
+	        $stats{$span}{T}{1}{EXPIRE_FILES} += $$row{EXPIRE_FILES};
 	    }
 	}
     }
