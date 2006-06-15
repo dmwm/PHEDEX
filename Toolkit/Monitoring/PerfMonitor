@@ -310,11 +310,15 @@ sub idle
 	&dbexec($dbh, qq{
 	    update (select
 	    	      pend_bytes, xfer_rate, xfer_latency,
+		      nvl(done_bytes,0)/time_span rate,
 		      case
-		        when nvl(try_bytes,0) > 0 or nvl(done_bytes,0) > 0
-			  then least(nvl(try_bytes,0),nvl(done_bytes,0))/time_span
-			else 0
-		      end rate
+		        when nvl(try_bytes,0) > 0 then
+			  nvl(done_bytes,0)/try_bytes
+		        when nvl(done_bytes,0) > 0 then
+			  1
+			else
+			  0
+		      end eff
 	            from t_link_param
 		    where time_span is not null)
 	    set xfer_rate = rate,
@@ -322,8 +326,8 @@ sub idle
 		   case
 		     when pend_bytes = 0
 		       then 0
-		     when rate > 0
-		       then least(pend_bytes/rate,7*86400)
+		     when rate > 0 and eff > 0
+		       then least(pend_bytes/rate/eff,7*86400)
 		     else 7*86400
 		   end});
 
