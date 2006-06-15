@@ -407,11 +407,10 @@ sub compactLinkData
     {
 	my $bin = int($$row{TIMEBIN}/3600)*3600;
 	my $key = "$bin $$row{FROM_NODE} $$row{TO_NODE} $$row{PRIORITY}";
-	$$row{TIMEBIN} = $bin;
-	$$row{TIMEWIDTH} = 3600;
 	if (! exists $stats{$key})
 	{
 	    $stats{$key} = $row;
+	    $$row{TIMETOT} = $$row{TIMEWIDTH};
 	}
 	else
 	{
@@ -420,7 +419,27 @@ sub compactLinkData
 		for grep(/^(PEND|WAIT|COOL|READY|XFER|CONFIRM)_/, keys %$row);
 	    $$s{$_} = ($$s{$_} || 0) + ($$row{$_} || 0)
 		for grep(/^(AVAIL|DONE|TRY|FAIL|EXPIRE)_/, keys %$row);
+	    $$s{$_} = ($$s{$_} || 0) + ($$row{$_} || 0)*$$row{TIMEWIDTH}
+		for grep(/^(PARAM)_/, keys %$row);
+	    $$s{TIMETOT} += $$row{TIMEWIDTH};
 	}
+	$$row{TIMEBIN} = $bin;
+	$$row{TIMEWIDTH} = 3600;
+    }
+
+    foreach my $s (values %stats)
+    {
+	if ($$s{TIMETOT})
+	{
+	    $$s{PARAM_RATE} /= $$s{TIMETOT};
+	    $$s{PARAM_LATENCY} /= $$s{TIMETOT};
+	}
+	else
+	{
+	    $$s{PARAM_RATE} = 0;
+	    $$s{PARAM_LATENCY} = 0;
+        }
+	delete $$s{TIMETOT};
     }
 
     $self->compactUpdate ($dbh, $limit, "t_link_histogram", \%stats);
