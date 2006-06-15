@@ -286,7 +286,7 @@ sub idle
 	      	      p.xfer_rate, p.xfer_latency, p.time_span, p.time_update)
 	      values (v.id, null, null, null, null, null, null, :now)},
 	    ":now" => $timebin);
-        foreach my $span (3600, 8*3600, 86400, 30*86400)
+        foreach my $span (3600, 12*3600, 2*86400)
 	{
 	    &dbexec($dbh, qq{
 	        update t_link_param p
@@ -310,7 +310,11 @@ sub idle
 	&dbexec($dbh, qq{
 	    update (select
 	    	      pend_bytes, xfer_rate, xfer_latency,
-		      nvl(done_bytes,0)/time_span rate,
+		      case
+		        when time_span > 0 then
+		          nvl(done_bytes,0)/time_span
+			else 0
+		      end rate,
 		      case
 		        when nvl(try_bytes,0) > 0 then
 			  nvl(done_bytes,0)/try_bytes
