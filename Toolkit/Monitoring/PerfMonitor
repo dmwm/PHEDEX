@@ -325,13 +325,13 @@ sub idle
 		      end eff
 	            from t_link_param
 		    where time_span is not null)
-	    set xfer_rate = rate,
+	    set xfer_rate = rate*eff,
 	        xfer_latency =
 		   case
 		     when pend_bytes = 0
 		       then 0
 		     when rate > 0 and eff > 0
-		       then least(pend_bytes/rate/eff,7*86400)
+		       then least(pend_bytes/(rate*eff),7*86400)
 		     else 7*86400
 		   end});
 
