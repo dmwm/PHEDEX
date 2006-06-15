@@ -295,14 +295,21 @@ sub idle
 		       nvl(sum(pend_bytes) keep (dense_rank last order by timebin asc),0),
 		       sum(done_bytes),
 		       sum(try_bytes),
-		       sum(case when pend_bytes > 0 or done_bytes > 0 or try_bytes > 0 then timewidth else 0 end)
+		       count(distinct case
+		         when timewidth=300
+			    and (pend_bytes > 0 or done_bytes > 0 or try_bytes > 0)
+		  	  then timebin end)*300
+		       + count(distinct case
+		         when timewidth=3600
+			    and (pend_bytes > 0 or done_bytes > 0 or try_bytes > 0)
+		          then timebin end)*3600
 		     from t_link_histogram h
 		       join t_link l
 		         on l.from_node = h.from_node
 			 and l.to_node = h.to_node
-		     where h.timebin >= :now - :span
+		     where h.timebin > :now - :span
 		       and p.link = l.id)
-	        where time_span is null
+	        where (time_span is null or time_span = 0)
 		  or (done_bytes is null and try_bytes is null)},
 	        ":now" => $timebin, ":span" => $span);
 	}
@@ -314,24 +321,16 @@ sub idle
 		        when time_span > 0 then
 		          nvl(done_bytes,0)/time_span
 			else 0
-		      end rate,
-		      case
-		        when nvl(try_bytes,0) > 0 then
-			  nvl(done_bytes,0)/greatest(nvl(try_bytes,0),nvl(done_bytes,0))
-		        when nvl(done_bytes,0) > 0 then
-			  1
-			else
-			  0
-		      end eff
+		      end rate
 	            from t_link_param
-		    where time_span is not null)
-	    set xfer_rate = rate*eff,
+		    where time_span is not null and time_span != 0)
+	    set xfer_rate = rate,
 	        xfer_latency =
 		   case
 		     when pend_bytes = 0
 		       then 0
-		     when rate > 0 and eff > 0
-		       then least(pend_bytes/(rate*eff),7*86400)
+		     when rate > 0
+		       then least(pend_bytes/rate,7*86400)
 		     else 7*86400
 		   end});
 
