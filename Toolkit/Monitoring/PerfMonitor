@@ -317,7 +317,7 @@ sub idle
 		      end rate,
 		      case
 		        when nvl(try_bytes,0) > 0 then
-			  nvl(done_bytes,0)/try_bytes
+			  nvl(done_bytes,0)/greatest(nvl(try_bytes,0),nvl(done_bytes,0))
 		        when nvl(done_bytes,0) > 0 then
 			  1
 			else
