@@ -10,10 +10,10 @@ devdb10 =
 
 cms_transfermgmt =
   (DESCRIPTION =
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=1521))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=10121))
     (LOAD_BALANCE= yes)
     (CONNECT_DATA=
       (SERVER=DEDICATED)
@@ -22,10 +22,10 @@ cms_transfermgmt =
 
 cms_transfermgmt_sc =
   (DESCRIPTION =
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=1521))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=10121))
     (LOAD_BALANCE= yes)
     (CONNECT_DATA=
       (SERVER=DEDICATED)
@@ -34,10 +34,10 @@ cms_transfermgmt_sc =
 
 cms_transfermgmt_test =
   (DESCRIPTION =
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=1521))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=10121))
     (LOAD_BALANCE= yes)
     (CONNECT_DATA=
       (SERVER=DEDICATED)
@@ -46,10 +46,10 @@ cms_transfermgmt_test =
 
 cms_dashboard =
    (DESCRIPTION =
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=1521))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=10121))
     (LOAD_BALANCE= yes)
     (CONNECT_DATA=
       (SERVER=DEDICATED)
@@ -58,10 +58,10 @@ cms_dashboard =
 
 cms_dbs =
   (DESCRIPTION =
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=1521))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=10121))
     (LOAD_BALANCE=yes)
     (CONNECT_DATA=
       (SERVER=DEDICATED)
@@ -70,10 +70,10 @@ cms_dbs =
 
 cms_dbs_mcprod_global =
   (DESCRIPTION =
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=1521))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=10121))
     (LOAD_BALANCE=yes)
     (CONNECT_DATA=
       (SERVER=DEDICATED)
@@ -82,10 +82,10 @@ cms_dbs_mcprod_global =
 
 cms_dbs_mcprod_local =
   (DESCRIPTION =
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=1521))
-    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=1521))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=10121))
     (LOAD_BALANCE=yes)
     (CONNECT_DATA=
       (SERVER=DEDICATED)
