@@ -13,8 +13,9 @@
 #										    #
 # PHEDEX_SITE:		Your site name as in $PHEDEX_BASE/SITECONF		    #
 #										    #
-# PHEDEX_NODE:		Prefix part of your node names; naming convention is	    #
-#			T<x>_<Site name>					    #
+# PHEDEX_NODE:		Name of your Buffer node; The name for your MSS node        #
+#                       (if any) will be derived automatically. Naming convention   #
+#			T<x>_<Site name>[_Buffer]			            #
 #										    #
 # PHEDEX_VERSION:	The PhEDEx version you are running			    #
 #										    #
@@ -40,12 +41,12 @@ PHEDEX_LABEL=ATLANTIS;
 PHEDEX_SITE=Atlantis;
 PHEDEX_NODE=TX_Atlantis;
 PHEDEX_VERSION=2_3_8;
-X509_USER_PROXY=$PHEDEX_BASE/gridcert;
+X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
 # FTS specific part
-PHEDEX_GLITE_ENV=<SomePath>/etc/profile.d/grid_env.sh;
+PHEDEX_GLITE_ENV=SomePath/etc/profile.d/grid_env.sh;
 GLITE_SD_PLUGIN=bdii;
-TIER1_FTS_SERVICE=<Atlantis-FTS>;
+TIER1_FTS_SERVICE=Atlantis-FTS;
 
 
 ####################################

@@ -16,7 +16,7 @@ TIER1_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s ${TIER1_FTS_SE
 
 ### AGENT LABEL=download-fts-t0 PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
  -db              ${PHEDEX_DBPARAM}
- -nodes           ${PHEDEX_NODE}_Buffer
+ -nodes           ${PHEDEX_NODE}
  -accept          '%CERN%'
  -storagemap      ${PHEDEX_CONFIG}/storage.xml
  -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
@@ -26,7 +26,7 @@ TIER1_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s ${TIER1_FTS_SE
 
 ### AGENT LABEL=download-fts-t1 PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
  -db              ${PHEDEX_DBPARAM}
- -nodes           ${PHEDEX_NODE}_Buffer
+ -nodes           ${PHEDEX_NODE}
  -ignore          '%CERN%'
  -storagemap      ${PHEDEX_CONFIG}/storage.xml
  -delete          ${PHEDEX_CONFIG}/FileDownloadDelete

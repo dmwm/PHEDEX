@@ -13,8 +13,8 @@
 #										    #
 # PHEDEX_SITE:		Your site name as in $PHEDEX_BASE/SITECONF		    #
 #										    #
-# PHEDEX_NODE:		Prefix part of your node names; naming convention is	    #
-#			T<x>_<Site name>					    #
+# PHEDEX_NODE:		Name of your Load node; Naming convention                   #
+#                       T<x>_<Site name>_Load   			            #
 #										    #
 # PHEDEX_VERSION:	The PhEDEx version you are running			    #
 #										    #
@@ -35,29 +35,28 @@
 
 # Common part
 PHEDEX_BASE=/home/phedex;
-PHEDEX_INSTANCE=Dev;
+PHEDEX_INSTANCE=SC4;
 PHEDEX_LABEL=ATLANTIS;
 PHEDEX_SITE=Atlantis;
-PHEDEX_NODE=TX_Atlantis;
+PHEDEX_NODE=TX_Atlantis_Load;
 PHEDEX_VERSION=2_3_8;
-X509_USER_PROXY=$PHEDEX_BASE/gridcert;
+X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
 # FTS specific part
-PHEDEX_GLITE_ENV=<SomePath>/etc/profile.d/grid_env.sh;
+PHEDEX_GLITE_ENV=SomePath/etc/profile.d/grid_env.sh;
 GLITE_SD_PLUGIN=bdii;
-TIER1_FTS_SERVICE=<Atlantis-FTS>;
+TIER1_FTS_SERVICE=Atlantis-FTS;
 
 
 ####################################
 # Load the sub-configuration files #
 ####################################
 
-# The following 3 files should have reasonable defaults;
+# The following 2 files should have reasonable defaults;
 # no need to touch them
 
 ### IMPORT ConfigPart.Common
 ### IMPORT ConfigPart.Export
-### IMPORT ConfigPart.MSS
 
 # Choose one to include, remove leading '#' from the one you want.
 # Download agents default to 'off'; either start explicitly or
@@ -71,9 +70,9 @@ TIER1_FTS_SERVICE=<Atlantis-FTS>;
 #### you don't want to delete your data !!
 ### AGENT LABEL=lt-recycle PROGRAM=Toolkit/Transfer/FileRecycler
  -db              ${PHEDEX_DBPARAM}
- -node            ${PHEDEX_NODE}_Buffer
- -keep            ${PHEDEX_NODE}
+ -node            ${PHEDEX_NODE}
+ -keep            ${PHEDEX_SITE}
  -protocol        srm
- -rm              srm-advisory-delete,-x509_user_proxy=${X509_USER_PROXY}
+ -rm              srm-advisory-delete,-x509_user_proxy=${X509_USER_PROXY},-retry_num=2
  -storagemap      ${PHEDEX_MAP}
  -delay           0.5

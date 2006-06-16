@@ -11,6 +11,7 @@ PHEDEX_STATE=${PHEDEX_BASE}/${PHEDEX_INSTANCE}_${PHEDEX_SITE}/state;
 PHEDEX_LOGS=${PHEDEX_BASE}/${PHEDEX_INSTANCE}_${PHEDEX_SITE}/logs;
 PHEDEX_SCRIPTS=${PHEDEX_BASE}/sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_$PHEDEX_VERSION;
 PHEDEX_MAP=${PHEDEX_CONFIG}/storage.xml;
+PHEDEX_MSS=`echo ${PHEDEX_NODE}_MSS |sed 's|_Buffer||'`;
 
 # prepare authentication env variables
 unset X509_USER_KEY X509_USER_CERT;
@@ -21,6 +22,6 @@ source ${PHEDEX_SCRIPTS}/etc/profile.d/env.sh;
 
 ### AGENT LABEL=info-ds PROGRAM=Toolkit/Monitoring/InfoDropStatus
  -db          ${PHEDEX_DBPARAM}
- -node	      ${PHEDEX_NODE}_Buffer
+ -node	      ${PHEDEX_NODE}
  -site        ${PHEDEX_NODE}
  -dir         ${PHEDEX_STATE}

@@ -6,7 +6,7 @@
 
 ### AGENT LABEL=download-srm PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
  -db              ${PHEDEX_DBPARAM}
- -nodes           ${PHEDEX_NODE}_Buffer
+ -nodes           ${PHEDEX_NODE}
  -storagemap      ${PHEDEX_CONFIG}/storage.xml
  -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
  -validate        ${PHEDEX_CONFIG}/FileDownloadSRMVerify
