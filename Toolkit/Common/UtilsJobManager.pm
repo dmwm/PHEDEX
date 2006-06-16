@@ -229,8 +229,10 @@ sub killAllJobs
 	my $now = time();
 	foreach (@{$self->{JOBS}})
 	{
-	    $$_{TIMEOUT} = ($$_{STARTED} ? $now - $$_{STARTED} - 1 : 1);
+	    next if ! $$_{STARTED} || $$_{KILLING};
+	    $$_{TIMEOUT} = $now - $$_{STARTED} - 1;
 	    $$_{TIMEOUT_GRACE} = 30;
+	    $$_{KILLING} = 1;
 	}
 	$self->pumpJobs();
 	select (undef, undef, undef, 0.1);
