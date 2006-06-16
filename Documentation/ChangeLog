@@ -1,3 +1,32 @@
+* Changes in PhEDEx 2.3.9
+
+ General changes:
+  - Further improvements to the site configuration template.  There
+    are now better defaults and much more extensive documentation.
+  - Continued bug fixes and tuning for time-out handling.  Agents
+    now remember which subprocesses they have timed out to ensure
+    they really have the intended grace time to exit.
+  - Agents now redirect input from /dev/null instead of closing it.
+  - DropTMDBPublisher updated for TMDBInject changes.
+  - File router no longer accesses t_link_param as a part of the
+    migration to the new link performance estimates.  Previously
+    failed transfers are given slightly more time each subsequent
+    time (8-12 hours instead of previous 8 hours transfer time).
+  - FTS transfers no longer abort on "Hold" status.  Spurious status
+    will lead to cancelling the job so we don't leave behind junk.
+
+ Web site changes:
+  - Rate monitoring page now reports estimated link rate and latency.
+  - Tier-2 workshop documents added to the list of documents.
+  - PHP scripts given even more memory.
+
+ Schema changes:
+  - A trigger now removes matching file request when a new replica is
+    created.  This should avoid the race condition between router and
+    recycler where we deleted both the file request and file replica.
+  - t_link_param recreated with values for estimated link performance.
+  - t_link_histogram now records then-current link parameters.
+
 * Changes in PhEDEx 2.3.8
 
  General changes:
