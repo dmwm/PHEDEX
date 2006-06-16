@@ -142,7 +142,7 @@ sub new
 		  VALIDATE_COMMAND => undef,	# Post-download test command
 		  DELETE_COMMAND => undef,	# Delete bad files command
 		  TIMEOUT => 600,		# Maximum execution time
-		  NJOBS => 5,			# Max number of utility processes
+		  NJOBS => 10,			# Max number of utility processes
 		  WAITTIME => 7,		# Nap length between cycles
 		  VERBOSE => 0,			# Verbosity
 
@@ -833,9 +833,9 @@ sub idle
 	    {
 	        foreach my $from (keys %{$$self{RECENT}{$to}})
 	        {
-		    @{$$self{RECENT}{$to}{$from}}
-		        = grep($$_{TIME} > $now-3600,
-			       @{$$self{RECENT}{$to}{$from}});
+		    $$self{RECENT}{$to}{$from}
+		        = [ grep($$_{TIME} > $now-3600,
+			         @{$$self{RECENT}{$to}{$from}}) ];
 	        }
 	    }
 	    $$self{LAST_PRUNE} = $now;
@@ -872,7 +872,7 @@ sub idle
         $self->maybeStop ();
 	$self->pumpJobs ();
 	$$self{BACKEND}->pumpJobs ();
-	last if (keys %{$$self{FILES}}
+	last if (grep ($$_{TO_STATE} < 2, values %{$$self{FILES}})
 		 && scalar @{$$self{BACKEND}{JOBS}} < $$self{BACKEND}{NJOBS}
 		 && scalar @{$$self{JOBS}} < $$self{NJOBS});
 	select (undef, undef, undef, .1);
