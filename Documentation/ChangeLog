@@ -21,6 +21,7 @@
   - PHP scripts given even more memory.
 
  Schema changes:
+  - Updated Oracle server details.
   - A trigger now removes matching file request when a new replica is
     created.  This should avoid the race condition between router and
     recycler where we deleted both the file request and file replica.
