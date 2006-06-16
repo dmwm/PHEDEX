@@ -484,7 +484,7 @@ sub route
         update t_xfer_request
         set state = 0,
             attempt = attempt + 1,
-            time_expire = :now + 8*3600*(1+least(attempt-1,4)/2)
+            time_expire = :now + 8*3600*(1+least(attempt-1,6)/2)
         where destination = :node
           and state = 1
           and :now >= time_expire},
