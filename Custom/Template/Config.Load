@@ -43,7 +43,7 @@ PHEDEX_VERSION=2_3_8;
 X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
 # FTS specific part
-PHEDEX_GLITE_ENV=SomePath/etc/profile.d/grid_env.sh;
+PHEDEX_GLITE_ENV=EditThisPath/etc/profile.d/grid_env.sh;
 GLITE_SD_PLUGIN=bdii;
 TIER1_FTS_SERVICE=Atlantis-FTS;
 
