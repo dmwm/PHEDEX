@@ -127,9 +127,9 @@ while true; do
 
     Hold )
       # [FIXME] what to do in this case?
-      echo "+ glite-transfer-cancel $server $ftsjob"
-      glite-transfer-cancel $server $ftsjob
-      exit 8
+      # echo "+ glite-transfer-cancel $server $ftsjob"
+      # glite-transfer-cancel $server $ftsjob
+      # exit 8
       ;;
 
     Done | Failed | Canceled )
@@ -165,7 +165,11 @@ while true; do
     * )
       echo "warning: unexpected job status '$ftsstatus'" 1>&2
       errors=$(expr $errors + 1)
-      [ $errors -gt 5 ] && exit 10
+      if [ $errors -gt 10 ]; then
+        exit 10
+      elif [ $errors -gt 5 ]; then
+        glite-transfer-cancel $server $ftsjob
+      fi
       ;;
   esac
 done
