@@ -235,7 +235,7 @@ sub idle
 		   and hh.to_node = h.to_node
 		   and hh.priority = h.priority
 		   and hh.timebin > h.prevbin)},
-	    ":timebin" => $timebin);
+	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 	$dbh->commit();
 
 	# Part IV: Node statistics.  This is a heartbeat again.
