@@ -93,7 +93,7 @@ sub idle
             set from_state = 1, to_state = 2
                 time_available = :now, time_xfer_start = :now
             where to_node = :node and to_state = 0},
-            ":node" => $$self{ID_MYNODE}, ":now" => &mygettimeofday());
+            ":node" => $$self{ID_MYNODE}, ":now" => &mytimeofday());
         $dbh->commit();
 
         # Process files pending migration.
