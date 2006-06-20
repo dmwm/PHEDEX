@@ -210,6 +210,32 @@ sub idle
 		      v.expire_files, v.expire_bytes)},
 	    ":timewidth" => $timewidth);
 	&dbexec ($dbh, qq{delete from t_xfer_tracking});
+
+	# Now "close" the link statistics.  This ensures at least one
+	# row of nulls for links which have previously had stats, and
+	# makes the link parameter calculation below pick up correct
+	# "empty" final state.
+	&dbexec($dbh, qq{
+	    insert into t_link_histogram
+	    (timebin, timewidth, from_node, to_node, priority)
+	    select :timebin, :timewidth, from_node, to_node, priority
+	    from (select from_node, to_node, priority, max(timebin) prevbin
+	          from t_link_histogram where timebin < :timebin
+		  group by from_node, to_node, priority) h
+	    where exists
+		(select 1 from t_link_histogram hh
+		 where hh.from_node = h.from_node
+		   and hh.to_node = h.to_node
+		   and hh.priority = h.priority
+		   and hh.timebin = h.prevbin
+		   and hh.pend_bytes > 0)
+	      and not exists
+		(select 1 from t_link_histogram hh
+		 where hh.from_node = h.from_node
+		   and hh.to_node = h.to_node
+		   and hh.priority = h.priority
+		   and hh.timebin > h.prevbin)},
+	    ":timebin" => $timebin);
 	$dbh->commit();
 
 	# Part IV: Node statistics.  This is a heartbeat again.
