@@ -316,6 +316,9 @@ sub transfer {
 sub tstates {
     my $rows = 0;
     my $now = time();
+    my %total = ();
+    my $tofilter = param('tofilter') || "";
+    my $fromfilter = param('fromfilter') || "";
     my $query = $dbh->prepare(qq{
 	    select
 	      time_update,
@@ -327,27 +330,42 @@ sub tstates {
               join t_node nd on nd.id = xs.to_node
 	    order by nd.name, ns.name, to_state, from_state});
 
+    print OUT "<form method='GET' action='@{[&baseurl()]}'><p>\n",
+          "<input type='hidden' name='page' value='@{[param('page')]}'>\n",
+          "<input type='hidden' name='db' value='@{[param('db')]}'>\n",
+    	  "<input type='submit' value='Update'></p>\n";
     print OUT "<p><table class='striped'>\n",
           "<tbody>\n",
 	  "<tr class='selected'>\n",
 	  " <th colspan='7' align='center'>Transfer State Details</th>\n",
 	  "</tr>\n",
 	  "<tr class='selected'>\n",
-	  " <th rowspan='2'>Age</th>\n",
+	  " <th rowspan='3'>Age</th>\n",
 	  " <th colspan='2'>To</th>\n",
 	  " <th colspan='2'>From</th>\n",
 	  " <th colspan='2'>Files</th>\n",
           "</tr>\n",
 	  "<tr class='selected'>",
 	  " <th>Node</th>\n",
-	  " <th>State</th>\n",
+	  " <th rowspan='2'>State</th>\n",
 	  " <th>Node</th>\n",
-	  " <th>State</th>\n",
-	  " <th>N</th>\n",
-	  " <th>Size</th>\n",
+	  " <th rowspan='2'>State</th>\n",
+	  " <th rowspan='2'>N</th>\n",
+	  " <th rowspan='2'>Size</th>\n",
+          "</tr>\n",
+	  "<tr class='selected'>",
+	  " <th>",
+	  textfield(-name=>'tofilter', -default=>$tofilter, -size=>15,
+	  	    -title=>("Regular expression to match against node or link names. "
+		  	     ."Only those matching the expression will be shown.")),
+	  "</th>",
+	  "<th>",
+	  textfield(-name=>'fromfilter', -default=>$fromfilter, -size=>15,
+	  	    -title=>("Regular expression to match against node or link names. "
+		  	     ."Only those matching the expression will be shown.")),
+	  "</th>",
           "</tr>\n";
 
-    my %total = ();
     $query->execute();
     while (my $row = $query->fetchrow_arrayref)
     {
@@ -356,19 +374,22 @@ sub tstates {
 	    $to_state, $from_state,
 	    $files, $bytes) = @$row;
 
+	next if (($fromfilter || $tofilter)
+		 && ! (($fromfilter && $from_node =~ /$fromfilter/)
+			|| ($tofilter && $to_node =~ /$tofilter/)));
     	$total{$to_state}{$from_state} ||= { FILES => 0, BYTES => 0 };
     	$total{$to_state}{$from_state}{FILES} += $files;
     	$total{$to_state}{$from_state}{BYTES} += $bytes;
 	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
-	my $to_state_name = ($to_state == 0 ? "assigned"
-			     : $to_state == 1 ? "wanted"
-			     : $to_state == 2 ? "in transfer"
+	my $to_state_name = ($to_state == 0 ? "pending"
+			     : $to_state == 1 ? "requested"
+			     : $to_state == 2 ? "transferring"
 			     : $to_state == 3 ? "transferred"
 			     : ($to_state >= 100 && $to_state < 999)
-			     ? "error cool-off @{[$to_state-100]}"
+			     ? "error"
 			     : "unknown");
-	my $from_state_name = ($from_state == 0 ? "assigned"
-			       : $from_state == 1 ? "transferrable"
+	my $from_state_name = ($from_state == 0 ? "pending"
+			       : $from_state == 1 ? "ready"
 			       : "unknown");
 	my $to_color = (($to_state == 2) ? " bgcolor='$goodcolor'"
 		   	: ($to_state == 1) ? " bgcolor='$pendcolor'"
@@ -378,9 +399,9 @@ sub tstates {
         print OUT "<tr>\n",
 	      " <td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>\n",
 	      " <td>$to_node</td>\n",
-	      " <td align='right'$to_color>$to_state</td>\n", # ($to_state_name)
+	      " <td align='left'$to_color>$to_state_name</td>\n", # ($to_state_name)
 	      " <td>$from_node</td>\n",
-	      " <td align='right'$from_color>$from_state</td>\n", # ($from_state_name)
+	      " <td align='left'$from_color>$from_state_name</td>\n", # ($from_state_name)
 	      " <td align='right'>@{[&format_num($files)]}</td>\n",
 	      " <td align='right'>@{[&format_size($bytes)]}</td>\n",
 	      "</tr>\n";
@@ -423,7 +444,7 @@ sub tstates {
 	    from t_info_xfer_replicas xr join t_node n on n.id = xr.node
             order by n.name, state});
 
-    print OUT "<table class='striped'>\n",
+    print OUT "<p><table class='striped'>\n",
           "<tbody>\n",
 	  "<tr class='selected'>\n",
 	  " <th colspan='5' align='center'>Replica State Details</th>\n",
@@ -444,6 +465,9 @@ sub tstates {
     while (my $row = $query->fetchrow_arrayref)
     {
 	my ($stamp, $node, $state, $files, $bytes) = @$row;
+	next if (($fromfilter || $tofilter)
+		 && ! (($fromfilter && $node =~ /$fromfilter/)
+			|| ($tofilter && $node =~ /$tofilter/)));
     	$total{$state} ||= { FILES => 0, BYTES => 0 };
 	$total{$state}{FILES} += $files;
 	$total{$state}{BYTES} += $bytes;
