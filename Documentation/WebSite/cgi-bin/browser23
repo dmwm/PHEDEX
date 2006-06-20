@@ -65,7 +65,8 @@ sub runme
 		    [ 'qplot',		\&qplot,	"Transfer Quality Plots" ],
 		    [ 'agents',		\&agents,	"Agent Status" ],
 		    [ 'dbreports',	\&dbreports,	"Daily Reports" ],
-		    [ 'dbreport',	\&dbreport,	"Daily Report" ]);
+		    [ 'dbreport',	\&dbreport,	"Daily Report" ],
+		    [ 'tfiles',		\&tfiles,	undef ]);
     my %pagemap = map { $pageinfo[$_][0] => $_ } 0 .. $#pageinfo;
     my $pagename = param('page');
     my $page = ($pagename && exists $pagemap{$pagename} ? $pagemap{$pagename} : 0);
@@ -337,13 +338,14 @@ sub tstates {
     print OUT "<p><table class='striped'>\n",
           "<tbody>\n",
 	  "<tr class='selected'>\n",
-	  " <th colspan='7' align='center'>Transfer State Details</th>\n",
+	  " <th colspan='8' align='center'>Transfer State Details</th>\n",
 	  "</tr>\n",
 	  "<tr class='selected'>\n",
 	  " <th rowspan='3'>Age</th>\n",
 	  " <th colspan='2'>To</th>\n",
 	  " <th colspan='2'>From</th>\n",
 	  " <th colspan='2'>Files</th>\n",
+	  " <th rowspan='3'>Detail</th>",
           "</tr>\n",
 	  "<tr class='selected'>",
 	  " <th>Node</th>\n",
@@ -396,6 +398,11 @@ sub tstates {
 		   	: ($to_state >= 100) ? " bgcolor='$warncolor'"
 			: "");
 	my $from_color = ($from_state == 1 ? " bgcolor='$goodcolor'" : "");
+	my $url = &baseurl("page" => "tfiles",
+			   "to_node" => $to_node,
+			   "to_state" => $to_state,
+			   "from_node" => $from_node,
+			   "from_state" => $from_state);
         print OUT "<tr>\n",
 	      " <td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>\n",
 	      " <td>$to_node</td>\n",
@@ -404,6 +411,7 @@ sub tstates {
 	      " <td align='left'$from_color>$from_state_name</td>\n", # ($from_state_name)
 	      " <td align='right'>@{[&format_num($files)]}</td>\n",
 	      " <td align='right'>@{[&format_size($bytes)]}</td>\n",
+	      " <td align='center'><a href='$url'>(Files)</a></td>\n",
 	      "</tr>\n";
     }
     $query->finish();
@@ -423,6 +431,7 @@ sub tstates {
 		  " <th align='right'>$from_state</td>\n",
 		  " <th align='right'>@{[&format_num($total{$to_state}{$from_state}{FILES})]}</th>\n",
 		  " <th align='right'>@{[&format_size($total{$to_state}{$from_state}{BYTES})]}</th>\n",
+		  " <th align='right'>&nbsp;</th>\n",
 		  "</tr>\n";
 	    $first_total = 0;
 	}
@@ -434,6 +443,7 @@ sub tstates {
 	  " <th align='right'>All</td>\n",
 	  " <th align='right'>@{[&format_num($tfiles)]}</th>\n",
 	  " <th align='right'>@{[&format_size($tbytes)]}</th>\n",
+	  " <th align='right'>&nbsp;</th>\n",
 	  "</tr>\n",
 	  "</tbody>\n",
           "</table>\n",
@@ -509,6 +519,52 @@ sub tstates {
 	  "</tbody>\n",
           "</table>\n",
 	  "</p>\n";
+}
+
+sub tfiles {
+    my $to_node = param('to_node');
+    my $from_node = param('from_node');
+    my $to_state = param('to_state');
+    my $from_state = param('from_state');
+    if (! defined $to_node || $to_node eq ''
+        || ! defined $from_node || $from_node eq ''
+        || ! defined $to_state || $to_state !~ /^\d+$/
+	|| ! defined $from_state || $from_state !~ /^\d+$/)
+    {
+        print OUT "<div class='alert'><p><b>Error:</b>",
+                  " Missing arguments</p></div>\n";
+    }
+
+    my $query = $dbh->prepare(qq{
+	    select f.logical_name, f.filesize, xs.from_pfn, xs.to_pfn, xs.errors
+	    from t_xfer_state xs
+	      join t_xfer_file f on f.id = xs.fileid
+	      join t_node ns on ns.id = xs.from_node
+	      join t_node nd on nd.id = xs.to_node
+	    where ns.name = :from_node
+	      and nd.name = :to_node
+	      and xs.from_state = :from_state
+	      and xs.to_state = :to_state
+	    order by f.logical_name});
+    $query->bind_param(":from_node", $from_node);
+    $query->bind_param(":to_node", $to_node);
+    $query->bind_param(":from_state", $from_state);
+    $query->bind_param(":to_state", $to_state);
+    $query->execute();
+    print OUT "<p>Files from $from_node, state $from_state to $to_node, state $to_state.</p>\n",
+	"<ol align='left'>\n";
+    while (my $row = $query->fetchrow_arrayref)
+    {
+	my ($lfn, $size, $from_pfn, $to_pfn, $errors) = @$row;
+        print OUT "<li>lfn=$lfn<br />",
+		  "size=$size<br />",
+		  "errors=$errors<br />",
+		  "from_pfn=@{[$from_pfn || '']}<br />",
+		  "to_pfn=@{[$to_pfn || '']}<br />",
+		  "<br /></li>\n";
+    }
+    $query->finish();
+    print OUT "</ol>\n";
 }
 
 sub replicas {
