@@ -344,12 +344,9 @@ sub idle
 	    update (select
 	    	      pend_bytes, xfer_rate, xfer_latency,
 		      case
+		        when nvl(pend_bytes,0) = 0 then null
 		        when time_span > 0 then
-			  case when pend_bytes > 0 then
-		            nvl(done_bytes,0)/time_span
-			  else
-			    done_bytes/time_span
-			  end
+		          nvl(done_bytes,0)/time_span
 			else 0
 		      end rate
 	            from t_link_param
