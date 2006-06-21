@@ -345,7 +345,11 @@ sub idle
 	    	      pend_bytes, xfer_rate, xfer_latency,
 		      case
 		        when time_span > 0 then
-		          nvl(done_bytes,0)/time_span
+			  case when pend_bytes > 0 then
+		            nvl(done_bytes,0)/time_span
+			  else
+			    done_bytes/time_span
+			  end
 			else 0
 		      end rate
 	            from t_link_param
