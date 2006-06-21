@@ -96,13 +96,15 @@ sub idle
 	# Read links and their parameters
 	my $links = {};
 	my $q = &dbexec($dbh, qq{
-	    select l.from_node, l.to_node, l.distance, l.local_boost
-	    from t_link l});
-	while (my ($from, $to, $hops, $boost) = $q->fetchrow())
+	    select l.from_node, l.to_node, l.distance, l.local_boost,
+	           p.xfer_rate, p.xfer_latency
+	    from t_link l left join t_link_param p on p.link = l.id});
+	while (my ($from, $to, $hops, $boost, $rate, $latency) = $q->fetchrow())
 	{
 	    $$links{$from}{$to} = { HOPS => $hops,
 				    LOCAL_BOOST => $boost,
-				    PENALTY => 1 };
+				    XFER_RATE => $rate,
+			    	    XFER_LATENCY => $latency };
 	}
 
 	# Now route for the nodes
@@ -335,13 +337,15 @@ sub route
     while (my ($file, $size, $priority, $create, $expire,
 	       $rnode, $state) = $q->fetchrow())
     {
+	my $sizebin = (int($size / (500*MEGABYTE))+1)*(500*MEGABYTE);
 	$$requests{$file} ||= { FILEID => $file,
 				FILESIZE => $size,
+				SIZEBIN => $sizebin,
 				PRIORITY => $priority,
 				TIME_CREATE => $create,
 				TIME_EXPIRE => $expire };
 	$$requests{$file}{REPLICAS}{$rnode} = $state;
-	$self->routeCost($links, $costs, $rnode, $state);
+	$self->routeCost($links, $costs, $rnode, $state, $sizebin);
     }
 
     # Build optimal file paths
@@ -369,9 +373,9 @@ sub route
 	    push(@{$iargs{$n++}}, $$hop{TO_NODE});
 	    push(@{$iargs{$n++}}, $$req{PRIORITY});
 	    push(@{$iargs{$n++}}, $$hop{LOCAL_BOOST});
-	    push(@{$iargs{$n++}}, $$hop{COST});
-	    push(@{$iargs{$n++}}, $$hop{TOTAL_COST});
-	    push(@{$iargs{$n++}}, $$hop{PENALTY});
+	    push(@{$iargs{$n++}}, ($$hop{LINK_LATENCY} || 0) + ($$hop{XFER_LATENCY} || 0));
+	    push(@{$iargs{$n++}}, ($$hop{TOTAL_LATENCY} || 0));
+	    push(@{$iargs{$n++}}, ($$hop{LINK_RATE} || 0));
 	    push(@{$iargs{$n++}}, $$req{TIME_CREATE});
 	    push(@{$iargs{$n++}}, $now);
 	    push(@{$iargs{$n++}}, $$req{TIME_EXPIRE});
@@ -521,24 +525,31 @@ sub route
 # network.  The actual file routing then just picks cheapest paths.
 sub routeCost
 {
-    my ($self, $links, $costs, $node, $state) = @_;
+    my ($self, $links, $costs, $node, $state, $sizebin) = @_;
 
     # If we already have a cost for this prototype, return immediately
-    return if exists $$costs{$node} && exists $$costs{$node}{$state};
+    return if (exists $$costs{$node}
+	       && exists $$costs{$node}{$state}
+	       && exists $$costs{$node}{$state}{$sizebin});
 
-    # Initialise the starting point: 1 for staged file, 100 for not staged.
+    # Initialise the starting point: instant access for staged file,
+    # 0h30 for not staged.  We optimise the transfer cost as the
+    # estimated time of arrival, i.e. minimise transfer time,
+    # accounting for the link latency (existing transfer queue).
     my %todo = ($node => 1);
-    my $cost = $state ? 1 : 100;
-    my $paths = $$costs{$node}{$state} = {};
+    my $latency = $state ? 0 : 1800;
+    my $paths = $$costs{$node}{$state}{$sizebin} = {};
     $$paths{$node} = {
 	SRC_NODE => $node,
 	FROM_NODE => $node,
 	TO_NODE => $node,
-	SRC_COST => $cost,
-	XFER_COST => 0,
-	COST => $cost,
+	LINK_LATENCY => 0,
+	LINK_RATE => undef,
+	XFER_LATENCY => $latency,
+	TOTAL_LINK_LATENCY => 0,
+	TOTAL_XFER_LATENCY => $latency,
+	TOTAL_LATENCY => $latency,
 	LOCAL_BOOST => 1,
-	PENALTY => 1,
 	HOPS => 0
     };
 
@@ -553,9 +564,13 @@ sub routeCost
 	    # Compute cost at each neighbour.
 	    foreach my $to (keys %{$$links{$from}})
 	    {
-		my $penalty = $$links{$from}{$to}{PENALTY};
-		my $cost = ($$links{$from}{$to}{HOPS} * $penalty);
-		my $totcost = $$paths{$from}{XFER_COST} + $cost;
+		my $rate = $$links{$from}{$to}{XFER_RATE};
+		my $latency = $$links{$from}{$to}{XFER_LATENCY} || 0;
+		my $nominal = 0.1*MEGABYTE / $$links{$from}{$to}{HOPS};
+		my $xfer = (defined ($rate)
+			    ? ($rate ? $sizebin / $rate : 7*86400)
+			    : $sizebin / $nominal);
+		my $total = $$paths{$from}{TOTAL_LATENCY} + $latency + $xfer;
 	        my $local = ($$paths{$from}{LOCAL_BOOST}
 			     * ((! exists $$links{$to}
 			         || ! exists $$links{$to}{$from})
@@ -567,17 +582,19 @@ sub routeCost
 		if (! exists $$paths{$to}
 		    || ($local && ! $$paths{$to}{LOCAL_BOOST})
 		    || ($local == $$paths{$to}{LOCAL_BOOST}
-			&& $totcost < $$paths{$to}{XFER_COST}))
+			&& $total < $$paths{$to}{TOTAL_LATENCY}))
 		{
 		    # No existing path or it's more expensive.
 		    $$paths{$to} = { SRC_NODE => $$paths{$from}{SRC_NODE},
 				     FROM_NODE => $from,
 				     TO_NODE => $to,
-				     SRC_COST => $$paths{$from}{SRC_COST},
-				     XFER_COST => $totcost,
-				     COST => $cost,
+				     LINK_LATENCY => $latency,
+				     LINK_RATE => $rate,
+				     XFER_LATENCY => $xfer,
+				     TOTAL_LINK_LATENCY => $$paths{$from}{TOTAL_LINK_LATENCY} + $latency,
+				     TOTAL_XFER_LATENCY => $$paths{$from}{TOTAL_XFER_LATENCY} + $xfer,
+				     TOTAL_LATENCY => $total,
 				     LOCAL_BOOST => $local,
-				     PENALTY => $penalty,
 				     HOPS => $$paths{$from}{HOPS} + 1 };
 		    $todo{$to} = 1;
 		}
@@ -597,15 +614,17 @@ sub routeFile
     # the tables on output).
     my $best = undef;
     my $bestcost = undef;
-    my $sizefactor = max(1, $$request{FILESIZE}/(100 * MEGABYTE));
+    my $sizebin = $$request{SIZEBIN};
     foreach my $node (keys %{$$request{REPLICAS}})
     {
 	my $state = $$request{REPLICAS}{$node};
-	my $this = $$costs{$node}{$state};
-	next if ! exists $$this{$dest};
+	next if (! exists $$costs{$node}
+		 || ! exists $$costs{$node}{$state}
+		 || ! exists $$costs{$node}{$state}{$sizebin}
+	 	 || ! exists $$costs{$node}{$state}{$sizebin}{$dest});
+	my $this = $$costs{$node}{$state}{$sizebin};
 
-	my $thiscost
-	    = $$this{$dest}{SRC_COST} + $$this{$dest}{XFER_COST} * $sizefactor;
+	my $thiscost = $$this{$dest}{TOTAL_LATENCY};
 	if (! defined $best
 	    || $$this{$dest}{LOCAL_BOOST} > $$best{$dest}{LOCAL_BOOST}
 	    || ($$this{$dest}{LOCAL_BOOST} == $$best{$dest}{LOCAL_BOOST}
@@ -628,8 +647,6 @@ sub routeFile
 	    my $from = $$best{$node}{FROM_NODE};
 	    my $item = { %{$$best{$node}} };
 	    $$item{INDEX} = $index++;
-	    $$item{TOTAL_COST} = $$item{SRC_COST} + $$item{XFER_COST} * $sizefactor;
-	    $$item{COST} *= $sizefactor;
 	    push(@{$$request{PATH}}, $item);
 	    $node = $from;
 	}
