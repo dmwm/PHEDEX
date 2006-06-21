@@ -18,6 +18,7 @@
 ##H -db          database connection configuration parameter file
 ##H -log         where to redirect logging information
 ##H -storagemap  storage mapping catalogue
+##H -dummy       assume files migrated without checking
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -35,6 +36,7 @@ use UtilsHelp;
              "db=s"        => \$args{DBCONFIG},
              "node=s"      => \$args{MYNODE},
 	     "storagemap=s"=> \$args{STORAGEMAP},
+	     "dummy"       => \$args{DUMMY},
 	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG}
@@ -90,7 +92,7 @@ sub idle
 	my $start = &mytimeofday();
         &dbexec($dbh, qq{
             update t_xfer_state
-            set from_state = 1, to_state = 2
+            set from_state = 1, to_state = 2, 
                 time_available = :now, time_xfer_start = :now
             where to_node = :node and to_state = 0},
             ":node" => $$self{ID_MYNODE}, ":now" => &mytimeofday());
@@ -110,7 +112,7 @@ sub idle
 	    where to_node = :node and fileid = :fileid});
         my $q = &dbexec($dbh, qq{
             select xs.fileid, f.logical_name, f.filesize, xs.time_available
-            from t_xfer_state xs join t_xfer_file f on f.fileid = xs.fileid
+            from t_xfer_state xs join t_xfer_file f on f.id = xs.fileid
             where xs.to_node = :node and xs.to_state = 2
             order by xs.time_available asc},
             ":node" => $$self{ID_MYNODE});
@@ -124,11 +126,15 @@ sub idle
 	    my ($path, $filename) = ($pfn =~ m!(.*)/(.*)!);
 
 	    # Read dCache stage info
-	    open (DCACHE, "$path/.(use)(1)($filename)")
-		or die "no migration info for $pfn: $!";
-	    my $status = <DCACHE>;
-	    close (DCACHE);
-	    next if !$status;
+	    if (! $args{DUMMY}) {
+		print "Checking in dcache: $path/.(use)(1)($filename)\n";
+
+		open (DCACHE, "$path/.(use)(1)($filename)")
+		    or die "no migration info for $pfn: $!";
+		my $status = <DCACHE>;
+		close (DCACHE);
+		next if !$status;
+	    }
 
             # Migrated, mark transfer completed
             my $now = &mytimeofday();
