@@ -93,12 +93,36 @@ sub idle
 
 	($dbh, @nodes) = &expandNodesAndConnect ($self, { "FileDownload" => 900 });
 
-	# Read links and their parameters
+	# Read links and their parameters.  Only consider links which
+	# are "alive", i.e. have a live download agent at destination
+	# and an export agent at the source.
 	my $links = {};
 	my $q = &dbexec($dbh, qq{
 	    select l.from_node, l.to_node, l.distance, l.local_boost,
 	           p.xfer_rate, p.xfer_latency
-	    from t_link l left join t_link_param p on p.link = l.id});
+	    from t_link l
+	      join t_node ns on ns.id = l.from_node
+	      left join t_link_param p on p.link = l.id
+	    where (ns.name like '%MSS'
+	           and exists (select 1
+	    		       from t_agent_status ast
+	    		         join t_agent a on a.id = ast.agent
+			       where ast.node = l.to_node
+			         and a.name = 'FileMSSPublish'
+				 and ast.time_update >= :recent))
+	       or (exists (select 1
+	    		   from t_agent_status ast
+	    		     join t_agent a on a.id = ast.agent
+			   where ast.node = l.from_node
+			     and a.name = 'FileExport'
+			     and ast.time_update >= :recent)
+	           and exists (select 1
+      			       from t_agent_status ast
+			         join t_agent a on a.id = ast.agent
+			       where ast.node = l.to_node
+			         and a.name = 'FileDownload'
+				 and ast.time_update >= :recent))},
+	    ":recent" => &mytimeofday() - 900);
 	while (my ($from, $to, $hops, $boost, $rate, $latency) = $q->fetchrow())
 	{
 	    $$links{$from}{$to} = { HOPS => $hops,
