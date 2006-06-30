@@ -1,112 +1,136 @@
 <?
 error_reporting(E_ALL);
 ini_set("max_execution_time", "120");
-ini_set("memory_limit", "384M");
+ini_set("memory_limit", "128M");
 DEFINE ('TTF_DIR', BASE_PATH . "/fonts/");
 
-// Read CSV file contents into an array of arrays.
-function readCSV ($file, $delimiter)
-{
-  $data_array = file($file);
-  $parts_array = array();
-  for ($i = 0; $i < count($data_array); $i++)
-    $parts_array[$i] = explode($delimiter,trim($data_array[$i]));
-  return $parts_array;
-}
+// Hack to fill in PHP 5 function...
+function stream_get_line ($fh, $len) { return trim(fgets($fh, $len)); }
 
 // Interpret and rearrange quality history data.
-function selectQualityData($data, $xbin, $tail, $upto, $by)
+function selectQualityData($filename, $xbin, $tail, $upto, $by)
 {
   // Build a map of nodes we are interested in.
-  $newdata = array(); $xvals = array();
+  $result = array();
+  $last = null;
 
-  // If "up-to" limit is set, walk back from the end of the data array
-  // until we find the specified time.  Then gather data from there.
-  $end = count($data)-1;
-  if (isset ($upto) && $upto != '')
-    while ($end > 0 && $data[$end][$xbin] != $upto)
-      --$end;
+  // Open the CSV file for reading.  We keep reading from this file into
+  // an array ($result), either a large one ($tail is unset), or circular
+  // one ($tail is set, in which case it defines the size of the array).
+  // If $upto is given, we stop reading once we have reached the $upto
+  // label _and_ see the next label that is different.
+  $fh = fopen($filename, "r");
+  $labels = explode(",", stream_get_line($fh, 100000));
 
-  // Collect all the data into correct binning.
-  for ($i = $end; $i >= 1; --$i)
+  // Collect all the data into correct binning.  We read from start, filling
+  // a circular buffer, or until we see a label following $upto (in which
+  // case our circular buffer already contains what we need!).
+  while (! feof($fh))
   {
+    // Read this line item.
+    $data = explode(",", stream_get_line($fh, 100000));
+
     // Select correct time for X axis, plus convert to desired format.
     // Stop when we have $tail unique X values.
-    $time = $data[$i][$xbin];
-    if (! count($xvals) || $xvals[count($xvals)-1] != $time) $xvals[] = $time;
-    if (isset($tail) && $tail && count($xvals) > $tail) break;
-
-    // Append to $newdata[$time][$node]
-    $newrow = array($time);
-    $dest = $data[$i][4];
-    for ($n = 5; $n < count($data[$i]); ++$n)
+    $time = $data[$xbin];
+    if (! $last || $last != $time)
     {
-      $node = $data[0][$n];
+      if (isset ($upto) && $upto != '' && $last && $last == $upto)
+	break;
+
+      $result[$time] = array();
+      $last = $time;
+
+      if (isset($tail) && $tail && count($result) > $tail)
+	array_shift($result);
+    }
+
+    // Append to $result[$time][$node]
+    $dest = $data[4];
+    for ($n = 5; $n < count($data); ++$n)
+    {
+      $node = $labels[$n];
       //if (preg_match("/MSS$/", $node)) continue;
       $key = ($by == 'link' ? "{$dest} < {$node}" :
               ($by == 'dest' ? $dest : $node));
-      if (! isset ($newdata[$time][$key]))
-        $newdata[$time][$key] = array (0, 0, 0);
+      if (! isset ($result[$time][$key]))
+        $result[$time][$key] = array (0, 0, 0);
 
-      $values = explode ("/", $data[$i][$n]);
-      $newdata[$time][$key][0] += $values[0];
-      $newdata[$time][$key][1] += $values[1];
-      $newdata[$time][$key][2] += $values[2];
+      $values = explode ("/", $data[$n]);
+      $result[$time][$key][0] += $values[0];
+      $result[$time][$key][1] += $values[1];
+      $result[$time][$key][2] += $values[2];
     }
   }
 
-  return array_reverse($newdata, true);
+  fclose($fh);
+  return $result;
 }
 
 // Interpret and rearrange performance history data.
-function selectPerformanceData($data, $xbin, $tail, $sum, $upto, $by)
+function selectPerformanceData($filename, $xbin, $tail, $sum, $upto, $by)
 {
   // Build a map of nodes we are interested in.
-  $newdata = array(); $xvals = array();
+  $result = array();
+  $last = null;
 
-  // If "up-to" limit is set, walk back from the end of the data array
-  // until we find the specified time.  Then gather data from there.
-  $end = count($data)-1;
-  if (isset ($upto) && $upto != '')
-    while ($end > 0 && $data[$end][$xbin] != $upto)
-      --$end;
+  // Open the CSV file for reading.  We keep reading from this file into
+  // an array ($result), either a large one ($tail is unset), or circular
+  // one ($tail is set, in which case it defines the size of the array).
+  // If $upto is given, we stop reading once we have reached the $upto
+  // label _and_ see the next label that is different.
+  $fh = fopen($filename, "r");
+  $labels = explode(",", stream_get_line($fh, 100000));
 
-  // Collect all the data into correct binning.
-  for ($i = $end; $i >= 1; --$i)
+  // Collect all the data into correct binning.  We read from start, filling
+  // a circular buffer, or until we see a label following $upto (in which
+  // case our circular buffer already contains what we need!).
+  while (! feof($fh))
   {
+    // Read this line item.
+    $data = explode(",", stream_get_line($fh, 100000));
+
     // Select correct time for X axis, plus convert to desired format.
     // Stop when we have $tail unique X values.
-    $time = $data[$i][$xbin];
-    if (! count($xvals) || $xvals[count($xvals)-1] != $time) $xvals[] = $time;
-    if (isset($tail) && $tail && count($xvals) > $tail) break;
-
-    // Append to $newdata[$time][$node].  If $sum, it's additive (rate
-    // or data transferred), otherwise pick last value of period (pending)
-    $newrow = array($time);
-    $dest = $data[$i][4];
-    for ($n = 5; $n < count($data[$i]); ++$n)
+    $time = $data[$xbin];
+    if (! $last || $last != $time)
     {
-      $node = $data[0][$n];
+      if (isset ($upto) && $upto != '' && $last && $last == $upto)
+	break;
+
+      $result[$time] = array();
+      $last = $time;
+
+      if (isset($tail) && $tail && count($result) > $tail)
+	array_shift($result);
+    }
+
+    // Append to $result[$time][$node]
+    $dest = $data[4];
+    for ($n = 5; $n < count($data); ++$n)
+    {
+      $node = $labels[$n];
       if (preg_match("/MSS$/", $node)) continue;
       $key = ($by == 'link' ? "{$dest} < {$node}" :
               ($by == 'dest' ? $dest : $node));
-      if (! isset ($newdata[$time][$key]))
-        $newdata[$time][$key] = array (0, array());
+      if (! isset ($result[$time][$key]))
+        $result[$time][$key] = array (0, array());
 
       if ($sum)
       {
-        $newdata[$time][$key][0] += $data[$i][$n];
-        $newdata[$time][$key][1][$data[$i][3]] = 1;
+        $result[$time][$key][0] += $data[$n];
+        $result[$time][$key][1][$data[3]] = 1;
       }
-      else if (! isset ($newdata[$time][$key][1]["$dest:$node"]))
+      else if (! isset ($result[$time][$key][1]["$dest:$node"]))
       {
-        $newdata[$time][$key][0] = 1;
-        $newdata[$time][$key][1]["$dest:$node"] = $data[$i][$n];
+        $result[$time][$key][0] = 1;
+        $result[$time][$key][1]["$dest:$node"] = $data[$n];
       }
     }
   }
 
-  return array_reverse($newdata, true);
+  fclose($fh);
+  return $result;
 }
 
 // Convert HSV colour values to RGB.

@@ -233,8 +233,8 @@ else // hour
 }
 
 $graph = new Graph (900, 406, "auto");
-$data = readCSV ("/afs/cern.ch/cms/aprom/phedex/DBPerfData/{$args['instance']}-$suffix.csv", ",");
-$data = selectPerformanceData ($data, $args['xbin'], $entries, $args['metric'] != 'pending', $upto, $by);
+$filename = "/afs/cern.ch/cms/aprom/phedex/DBPerfData/{$args['instance']}-$suffix.csv";
+$data = selectPerformanceData ($filename, $args['xbin'], $entries, $args['metric'] != 'pending', $upto, $by);
 makeGraph ($graph, $data, $args, $upto, $by);
 
 ?>
