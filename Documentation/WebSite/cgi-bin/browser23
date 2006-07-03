@@ -1057,7 +1057,7 @@ sub rates {
 		         ? ! (($fromfilter && $$row{FROM_NODE} =~ /$fromfilter/)
 			      || ($tofilter && $$row{TO_NODE} =~ /$tofilter/))
 		         : ! (($fromfilter && $$row{FROM_NODE} =~ /$fromfilter/)
-			      && ($tofilter && $$row{TO_NDOE} =~ /$tofilter/))));
+			      && ($tofilter && $$row{TO_NODE} =~ /$tofilter/))));
 	    next if $kind eq 'N' && ! $errors && ! $$row{DONE_FILES};
 	    next if $kind eq 'N' && ! $$row{DONE_FILES} && ! $$row{FAIL_FILES} && ! $$row{EXPIRE_FILES};
 	    my $bps = $$row{DONE_BYTES} / $spans{$span}[2];
