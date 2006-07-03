@@ -29,6 +29,7 @@ function selectQualityData($filename, $xbin, $tail, $upto, $by)
   {
     // Read this line item.
     $data = explode(",", stream_get_line($fh, 100000));
+    if (count($data) < 3) break;
 
     // Select correct time for X axis, plus convert to desired format.
     // Stop when we have $tail unique X values.
@@ -89,6 +90,7 @@ function selectPerformanceData($filename, $xbin, $tail, $sum, $upto, $by)
   {
     // Read this line item.
     $data = explode(",", stream_get_line($fh, 100000));
+    if (count($data) < 3) break;
 
     // Select correct time for X axis, plus convert to desired format.
     // Stop when we have $tail unique X values.
