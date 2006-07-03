@@ -465,6 +465,7 @@ sub tstates {
 	  " <th align='left' colspan='2'>", ($first_total ? "Total" : "&nbsp;"), "</th>\n",
 	  " <th align='right'>All</td>\n",
 	  " <th align='right'>&nbsp;</td>\n",
+          " <th align='right'>&nbsp;</td>\n",
 	  " <th align='right'>All</td>\n",
 	  " <th align='right'>@{[&format_num($tfiles)]}</th>\n",
 	  " <th align='right'>@{[&format_size($tbytes)]}</th>\n",
