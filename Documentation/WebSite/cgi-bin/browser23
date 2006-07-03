@@ -1126,8 +1126,9 @@ sub rateplot
 	         "ad" => [ "0:day", "Daily Since Start" ],
 		 "aw" => [ "0:week", "Weekly Since Start" ],
 		 "am" => [ "0:month", "Monthly Since Start" ]);
+    my $page = param("page");
     my $plot = param("plot");
-    my $graph = param("graph") || 'bar';
+    my $graph = param("graph") || ($page eq 'rateplot' ? 'rate' : 'volume');
     my $entity = param("entity") || 'dest';
     my $filter = param("filter") || '';
     my $upto = param("upto") || '';
@@ -1138,10 +1139,14 @@ sub rateplot
           "<input type='hidden' name='db' value='@{[param('db')]}'>\n",
           "<label for='graph'>Graph</label>\n",
           "<select name='graph' onchange='submit()'>",
-	  " <option", ($graph eq 'bar' ? " selected='selected'" : ""),
-	  "  value='bar'>Bar graph</option>",
-	  " <option ", ($graph eq 'line' ? 'selected=selected' : ''),
-	  "  value='line'>Cumulative</option>",
+	  ($page ne 'rateplot' ? '' :
+	   (" <option", ($graph eq 'rate' ? " selected='selected'" : ""),
+	    "  value='rate'>Rate</option>")),
+	  " <option", ($graph eq 'volume' ? " selected='selected'" : ""),
+	  "  value='volume'>Volume</option>",
+	  ($page ne 'rateplot' ? '' :
+	   (" <option ", ($graph eq 'cumulative' ? 'selected=selected' : ''),
+	    "  value='cumulative'>Cumulative</option>")),
           "</select>\n",
           "<label for='plot'>Period</label> ",
           "<select name='plot' onchange='submit()'>";
@@ -1173,17 +1178,19 @@ sub rateplot
 			     ."YYYYMM for monthly plots;\n"
 			     ."YYYYWW for weekly plots.")), "\n",
     	  "<input type='submit' value='Update'></form></p>\n";
-    foreach my $kind (param('page') eq 'rateplot' ? qw(rate total) : qw(pending))
-    {
-	next if ($graph eq 'line' && $kind ne 'total');
-	my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
-	my $suffix = ($graph eq 'bar' ? '' : '-line');
-	my $home = "http://cmsdoc.cern.ch/cms/aprom/phedex/cgi-bin";
-	print OUT "<p><img width=900 height=406 src='$home/perf-graph$suffix-23.php?",
-	      &urlencode('db' => $db, 'span' => $unit, 'kind' => $kind, 'by' => $entity,
-		         'last' => $last, 'filter' => $filter, 'upto' => $upto),
-	      "' /></p>";
-    }
+
+    my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
+    my $suffix = ($graph eq 'cumulative' ? '-line' : '');
+    my $home = ""; #"http://cmsdoc.cern.ch/cms/aprom/phedex/cgi-bin/";
+    my $kind = ($page eq 'pplot' ? 'pending'
+		: $graph eq 'rate' ? 'rate'
+                : $graph eq 'volume' ? 'total'
+                : $graph eq 'cumulative' ? 'total'
+		: 'rate');
+    print OUT "<p><img width=900 height=406 src='${home}perf-graph$suffix-23.php?",
+	  &urlencode('db' => $db, 'span' => $unit, 'kind' => $kind, 'by' => $entity,
+		     'last' => $last, 'filter' => $filter, 'upto' => $upto),
+	  "' /></p>";
 }
 
 sub qplot
@@ -1204,6 +1211,7 @@ sub qplot
 		 "aw" => [ "0:week", "Weekly Since Start" ],
 		 "am" => [ "0:month", "Monthly Since Start" ]);
     my $plot = param("plot");
+    my $graph = param("graph") || 'map';
     my $filter = param("filter") || '';
     my $entity = param("entity") || 'dest';
     my $upto = param("upto") || '';
@@ -1212,6 +1220,17 @@ sub qplot
     print OUT "<p><form method='GET' action='@{[&baseurl()]}'>\n",
           "<input type='hidden' name='page' value='@{[param('page')]}'>\n",
           "<input type='hidden' name='db' value='@{[param('db')]}'>\n",
+          "<label for='graph'>Graph</label>\n",
+          "<select name='graph' onchange='submit()'>",
+	  " <option", ($graph eq 'map' ? " selected='selected'" : ""),
+	  "  value='map'>Quality Map</option>",
+	  " <option", ($graph eq 'attempts' ? " selected='selected'" : ""),
+	  "  value='attempts'>Attempts</option>",
+	  " <option", ($graph eq 'successes' ? " selected='selected'" : ""),
+	  "  value='successes'>Successes</option>",
+	  " <option", ($graph eq 'failures' ? " selected='selected'" : ""),
+	  "  value='failures'>Failures</option>",
+          "</select>\n",
           "<label for='plot'>Period</label> ",
           "<select name='plot' onchange='submit()'>";
     foreach my $p (@plotorder)
@@ -1242,16 +1261,18 @@ sub qplot
 			     ."YYYYMM for monthly plots;\n"
 			     ."YYYYWW for weekly plots.")), "\n",
     	  "<input type='submit' value='Update'></form></p>\n";
-    foreach my $kind (qw(completed_ratio attempted completed failed))
-    {
-	my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
-	my $php = ($kind =~ /_/ ? "quality-map-23.php" : "quality-graph-23.php");
-	my $home = "http://cmsdoc.cern.ch/cms/aprom/phedex/cgi-bin";
-	print OUT "<p><img width=900 height=406 src='$home/$php?",
-	      &urlencode('db' => $db, 'span' => $unit, 'kind' => $kind, by => $entity,
-		         'last' => $last, 'filter' => $filter, 'upto' => $upto),
-	      "' /></p>";
-    }
+    my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
+    my $kind = ($graph eq 'map' ? 'completed_ratio'
+		: $graph eq 'attempts' ? 'attempted'
+		: $graph eq 'successes' ? 'completed'
+		: $graph eq 'failures' ? 'failed'
+		: 'completed_ratio');
+    my $home = ""; # "http://cmsdoc.cern.ch/cms/aprom/phedex/cgi-bin/";
+    my $php = ($kind =~ /_/ ? "quality-map-23.php" : "quality-graph-23.php");
+    print OUT "<p><img width=900 height=406 src='${home}$php?",
+	  &urlencode('db' => $db, 'span' => $unit, 'kind' => $kind, by => $entity,
+		     'last' => $last, 'filter' => $filter, 'upto' => $upto),
+	  "' /></p>";
 }
 
 1;
