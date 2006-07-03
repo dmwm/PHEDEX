@@ -1065,7 +1065,7 @@ sub rates {
 	    print OUT "<tr>",
 		($$row{FROM_NODE}
 		 ? "<td>$$row{TO_NODE}</td><td>&nbsp;</td><td>$$row{FROM_NODE}</td>"
-		 : "<td colspan='2'>Total</td>"),
+		 : "<td colspan='3'>Total</td>"),
 	        "<td align='right'>@{[&format_num($$row{DONE_FILES} || 0)]}</td>",
 	        "<td align='right'>@{[&format_size($$row{DONE_BYTES})]}</td>",
 		"<td align='right'>", ($bps >= 0 ? &format_size($bps) . '/s' : &format_num(0)), "</td>",
