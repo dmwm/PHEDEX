@@ -320,6 +320,7 @@ sub tstates {
     my %total = ();
     my $tofilter = param('tofilter') || "";
     my $fromfilter = param('fromfilter') || "";
+    my $andor = param('andor') || 'or';
     my $query = $dbh->prepare(qq{
 	    select
 	      time_update,
@@ -338,11 +339,12 @@ sub tstates {
     print OUT "<p><table class='striped'>\n",
           "<tbody>\n",
 	  "<tr class='selected'>\n",
-	  " <th colspan='8' align='center'>Transfer State Details</th>\n",
+	  " <th colspan='9' align='center'>Transfer State Details</th>\n",
 	  "</tr>\n",
 	  "<tr class='selected'>\n",
 	  " <th rowspan='3'>Age</th>\n",
 	  " <th colspan='2'>To</th>\n",
+	  " <th rowspan='2'>&nbsp;</th>\n",
 	  " <th colspan='2'>From</th>\n",
 	  " <th colspan='2'>Files</th>\n",
 	  " <th rowspan='3'>Detail</th>",
@@ -362,6 +364,14 @@ sub tstates {
 		  	     ."Only those matching the expression will be shown.")),
 	  "</th>",
 	  "<th>",
+    	  "<select name='andor' onchange='submit()'>",
+	  " <option ", ($andor eq 'and' ? 'selected=selected' : ''),
+	  "  value='and'>and</option>",
+	  " <option ", ($andor eq 'or' ? 'selected=selected' : ''),
+	  "  value='or'>or</option>",
+	  "</select>",
+	  "</th>",
+	  "<th>",
 	  textfield(-name=>'fromfilter', -default=>$fromfilter, -size=>15,
 	  	    -title=>("Regular expression to match against node or link names. "
 		  	     ."Only those matching the expression will be shown.")),
@@ -377,8 +387,11 @@ sub tstates {
 	    $files, $bytes) = @$row;
 
 	next if (($fromfilter || $tofilter)
-		 && ! (($fromfilter && $from_node =~ /$fromfilter/)
-			|| ($tofilter && $to_node =~ /$tofilter/)));
+		 && ($andor eq 'or'
+		     ? ! (($fromfilter && $from_node =~ /$fromfilter/)
+			  || ($tofilter && $to_node =~ /$tofilter/))
+		     : ! (($fromfilter && $from_node =~ /$fromfilter/)
+			  && ($tofilter && $to_node =~ /$tofilter/))));
     	$total{$to_state}{$from_state} ||= { FILES => 0, BYTES => 0 };
     	$total{$to_state}{$from_state}{FILES} += $files;
     	$total{$to_state}{$from_state}{BYTES} += $bytes;
@@ -407,6 +420,7 @@ sub tstates {
 	      " <td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>\n",
 	      " <td>$to_node</td>\n",
 	      " <td align='left'$to_color>$to_state_name</td>\n", # ($to_state_name)
+	      " <td align='right'>&nbsp;</td>\n",
 	      " <td>$from_node</td>\n",
 	      " <td align='left'$from_color>$from_state_name</td>\n", # ($from_state_name)
 	      " <td align='right'>@{[&format_num($files)]}</td>\n",
@@ -424,11 +438,22 @@ sub tstates {
 	{
 	    $tfiles += $total{$to_state}{$from_state}{FILES};
 	    $tbytes += $total{$to_state}{$from_state}{BYTES};
+	    my $to_state_name = ($to_state == 0 ? "pending"
+			         : $to_state == 1 ? "requested"
+			         : $to_state == 2 ? "transferring"
+			         : $to_state == 3 ? "transferred"
+			         : ($to_state >= 100 && $to_state < 999)
+			         ? "error"
+			         : "unknown");
+	    my $from_state_name = ($from_state == 0 ? "pending"
+			           : $from_state == 1 ? "ready"
+			           : "unknown");
 	    print OUT "<tr>\n",
 		  " <th align='left' colspan='2'>", ($first_total ? "Total" : "&nbsp;"), "</th>\n",
-		  " <th align='right'>$to_state</td>\n",
+		  " <th align='right'>$to_state_name</td>\n",
 		  " <th align='right'>&nbsp;</td>\n",
-		  " <th align='right'>$from_state</td>\n",
+		  " <th align='right'>&nbsp;</td>\n",
+		  " <th align='right'>$from_state_name</td>\n",
 		  " <th align='right'>@{[&format_num($total{$to_state}{$from_state}{FILES})]}</th>\n",
 		  " <th align='right'>@{[&format_size($total{$to_state}{$from_state}{BYTES})]}</th>\n",
 		  " <th align='right'>&nbsp;</th>\n",
@@ -477,7 +502,7 @@ sub tstates {
 	my ($stamp, $node, $state, $files, $bytes) = @$row;
 	next if (($fromfilter || $tofilter)
 		 && ! (($fromfilter && $node =~ /$fromfilter/)
-			|| ($tofilter && $node =~ /$tofilter/)));
+		       || ($tofilter && $node =~ /$tofilter/)));
     	$total{$state} ||= { FILES => 0, BYTES => 0 };
 	$total{$state}{FILES} += $files;
 	$total{$state}{BYTES} += $bytes;
@@ -960,6 +985,7 @@ sub rates {
     my $errors = param('errors') ? "checked='checked'" : "";
     my $tofilter = param('tofilter') || "";
     my $fromfilter = param('fromfilter') || "";
+    my $andor = param('andor') || 'or';
     print OUT "<form method='GET' action='@{[&baseurl()]}'><p>\n",
           "<input type='hidden' name='page' value='@{[param('page')]}'>\n",
           "<input type='hidden' name='db' value='@{[param('db')]}'>\n",
@@ -976,12 +1002,13 @@ sub rates {
 
     print OUT
 	  "<tr class='selected'>\n",
-	  " <th colspan='9'>",
+	  " <th colspan='10'>",
 	  "Last @{[&format_timespan($spans{$span}[2])]}",
 	  "</th>\n",
 	  "</tr>\n",
 	  "<tr class='selected'>\n",
 	  " <th>To</th>\n",
+	  " <th>&nbsp;</th>\n",
 	  " <th>From</th>\n",
 	  " <th rowspan='2'>Files</th>\n",
 	  " <th rowspan='2'>Total Size</th>\n",
@@ -997,6 +1024,14 @@ sub rates {
 	  	    -title=>("Regular expression to match against node or link names. "
 		  	     ."Only those matching the expression will be shown.")),
 	  "</th>\n",
+	  "<th>",
+    	  "<select name='andor' onchange='submit()'>",
+	  " <option ", ($andor eq 'and' ? 'selected=selected' : ''),
+	  "  value='and'>and</option>",
+	  " <option ", ($andor eq 'or' ? 'selected=selected' : ''),
+	  "  value='or'>or</option>",
+	  "</select>",
+	  "</th>",
 	  " <th>",
 	  textfield(-name=>'fromfilter', -default=>$fromfilter, -size=>15,
 	  	    -title=>("Regular expression to match against node or link names. "
@@ -1014,15 +1049,18 @@ sub rates {
 			 values %{$stats{$span}{$kind}})
 	{
 	    next if ($kind eq 'N'
-		     && ($fromfilter || $tofilter)
-		     && ! (($fromfilter && $$row{FROM_NODE} =~ /$fromfilter/)
-			    || ($tofilter && $$row{TO_NODE} =~ /$tofilter/)));
+	             && ($fromfilter || $tofilter)
+		     && ($andor eq 'or'
+		         ? ! (($fromfilter && $$row{FROM_NODE} =~ /$fromfilter/)
+			      || ($tofilter && $$row{TO_NODE} =~ /$tofilter/))
+		         : ! (($fromfilter && $$row{FROM_NODE} =~ /$fromfilter/)
+			      && ($tofilter && $$row{TO_NDOE} =~ /$tofilter/))));
 	    next if $kind eq 'N' && ! $errors && ! $$row{DONE_FILES};
 	    next if $kind eq 'N' && ! $$row{DONE_FILES} && ! $$row{FAIL_FILES} && ! $$row{EXPIRE_FILES};
 	    my $bps = $$row{DONE_BYTES} / $spans{$span}[2];
 	    print OUT "<tr>",
 		($$row{FROM_NODE}
-		 ? "<td>$$row{TO_NODE}</td><td>$$row{FROM_NODE}</td>"
+		 ? "<td>$$row{TO_NODE}</td><td>&nbsp;</td><td>$$row{FROM_NODE}</td>"
 		 : "<td colspan='2'>Total</td>"),
 	        "<td align='right'>@{[&format_num($$row{DONE_FILES} || 0)]}</td>",
 	        "<td align='right'>@{[&format_size($$row{DONE_BYTES})]}</td>",
