@@ -201,6 +201,7 @@ sub resetPendingTransfers
 	    xs.to_pfn = null,
 	    xs.from_state = 0,
 	    xs.from_pfn = null,
+	    xs.last_error = null,
 	    xs.time_request = :now,
 	    xs.time_available = null,
 	    xs.time_xfer_start = null,
@@ -732,6 +733,7 @@ sub completeTransfer
 	        update t_xfer_state
 	        set to_state = :state,
 		    errors = errors + 1,
+		    last_error = :errmsg
 		    time_xfer_start = null,
 		    time_request = null,
 		    time_error_start = :error_start,
@@ -740,6 +742,8 @@ sub completeTransfer
 				       + :error_end - :error_start
 	        where fileid = :fileid and to_node = :node},
 	        ":state" => $$file{TO_STATE},
+		":errmsg" => (length($$file{FAILURE}) <= 4000 ? $$file{FAILURE}
+			      : (substr($$file{FAILURE}, 0, 3975) . "... (rest truncated)")),
 	        ":error_start" => $now,
 	        ":error_end" => $now + 60*(30 + rand(30)),
 	        ":fileid" => $$file{FILEID},

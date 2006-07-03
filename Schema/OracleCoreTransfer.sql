@@ -73,6 +73,7 @@ create table t_xfer_state
    to_protocols		varchar (1000),		  -- protocols accepted
    to_pfn		varchar (1000),		  -- destination pfn
    from_pfn		varchar (1000),		  -- source pfn
+   last_error		varchar (4000),		  -- last error message
    --
    time_expire		float,			  -- time when expires
    time_assign		float,			  -- time created
