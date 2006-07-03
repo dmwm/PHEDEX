@@ -102,6 +102,7 @@ sub idle
 	           p.xfer_rate, p.xfer_latency
 	    from t_link l
 	      join t_node ns on ns.id = l.from_node
+	      join t_node nd on nd.id = l.to_node
 	      left join t_link_param p on p.link = l.id
 	    where (ns.name like '%MSS'
 	           and exists (select 1
@@ -109,6 +110,13 @@ sub idle
 	    		         join t_agent a on a.id = ast.agent
 			       where ast.node = l.to_node
 			         and a.name = 'FileMSSPublish'
+				 and ast.time_update >= :recent))
+	       or (nd.name like '%MSS'
+	           and exists (select 1
+	    		       from t_agent_status ast
+	    		         join t_agent a on a.id = ast.agent
+			       where ast.node = l.to_node
+			         and a.name = 'FileDownload'
 				 and ast.time_update >= :recent))
 	       or (exists (select 1
 	    		   from t_agent_status ast
