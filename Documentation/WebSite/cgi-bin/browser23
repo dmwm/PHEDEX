@@ -514,7 +514,7 @@ sub tstates {
         print OUT "<tr>\n",
 	      " <td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>\n",
 	      " <td>$node</td>\n",
-	      " <td$color align='right'>$state</td>\n", # ($state_name)
+	      " <td$color align='right'>$state_name</td>\n",
 	      " <td$color align='right'>@{[&format_num($files)]}</td>\n",
 	      " <td$color align='right'>@{[&format_size($bytes)]}</td>\n",
 	      "</tr>\n";
@@ -527,9 +527,12 @@ sub tstates {
     {
 	$tfiles += $total{$state}{FILES};
 	$tbytes += $total{$state}{BYTES};
+	my $state_name = ($state == 0 ? "at node"
+			     : $state == 1 ? "on disk"
+			     : "unknown");
 	print OUT "<tr>\n",
 	      " <th align='left' colspan='2'>", ($first_total ? "Total" : "&nbsp;"), "</th>\n",
-	      " <th align='right'>$state</td>\n",
+	      " <th align='right'>$state_name</td>\n",
 	      " <th align='right'>@{[&format_num($total{$state}{FILES})]}</th>\n",
 	      " <th align='right'>@{[&format_size($total{$state}{BYTES})]}</th>\n",
 	      "</tr>\n";
