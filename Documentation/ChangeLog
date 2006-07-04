@@ -1,3 +1,37 @@
+* Changes in PhEDEx 2.3.10
+
+ General changes:
+  - Various bug fixes and improvements to dCache migration agent.
+  - Download agent now records the error message printed into the
+    logs ("alert:" line) to the transfer state table, so remote
+    sites can see the details of why files are in error states.
+  - File router now requires a live download agent at destination
+    and a live export agent at source to consider a link usable.
+  - File router now routes files by earliest estimated time of
+    arrival, aka "dynamic routing".  The time estimates are based
+    on recent transfer rate performance.
+  - Performance monitor now guarantees "closed" link performance
+    statistics: for links with previous non-null statistics, a
+    row of null performance data is inserted to guarantee a drop
+    to "unused" state.  Also if there are no pending traffic on
+    a link, transfer rate is reset to null (as opposed to zero).
+
+ Web site changes:
+  - State detail and transfer rate page allow node selection.
+  - The transfer states are now shown as names instead of numbers.
+  - Plot pages show one plot at a time and plot names are better.
+  - PHP scripts doing plots now consume massively less memory.
+  - Transfer state detail page now offers a link to files in each
+    state combination.  For files in transfer this shows the UTC
+    time of the transfer start, and for files in error states, up
+    to 4000 characters of the (last) full error message as printed
+    to the download agent logs at the destination site.
+
+ Schema changes:
+  - t_xfer_state adds column 'last_error' for the first 4000
+    characters of the last error message (if any).
+  - sqlplus login script sets variable substitution character to ':'.
+
 * Changes in PhEDEx 2.3.9
 
  General changes:
