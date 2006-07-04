@@ -565,7 +565,8 @@ sub tfiles {
     }
 
     my $query = $dbh->prepare(qq{
-	    select f.logical_name, f.filesize, xs.from_pfn, xs.to_pfn, xs.errors
+	    select f.logical_name, f.filesize, xs.from_pfn, xs.to_pfn,
+		   xs.errors, xs.last_error, xs.time_xfer_start
 	    from t_xfer_state xs
 	      join t_xfer_file f on f.id = xs.fileid
 	      join t_node ns on ns.id = xs.from_node
@@ -574,7 +575,7 @@ sub tfiles {
 	      and nd.name = :to_node
 	      and xs.from_state = :from_state
 	      and xs.to_state = :to_state
-	    order by f.logical_name});
+	    order by xs.time_xfer_start, f.logical_name});
     $query->bind_param(":from_node", $from_node);
     $query->bind_param(":to_node", $to_node);
     $query->bind_param(":from_state", $from_state);
@@ -584,12 +585,14 @@ sub tfiles {
 	"<ol align='left'>\n";
     while (my $row = $query->fetchrow_arrayref)
     {
-	my ($lfn, $size, $from_pfn, $to_pfn, $errors) = @$row;
-        print OUT "<li>lfn=$lfn<br />",
-		  "size=$size<br />",
-		  "errors=$errors<br />",
-		  "from_pfn=@{[$from_pfn || '']}<br />",
-		  "to_pfn=@{[$to_pfn || '']}<br />",
+	my ($lfn, $size, $from_pfn, $to_pfn, $errors, $errmsg, $start) = @$row;
+        print OUT "<li><b>lfn</b>=@{[&escapeHTML($lfn)]}<br />",
+		  "<b>size</b>=$size<br />",
+		  "<b>errors</b>=$errors<br />",
+		  ($from_pfn ? "<b>from_pfn</b>=@{[&escapeHTML($from_pfn)]}<br />" : ""),
+		  ($to_pfn ? "<b>to_pfn</b>=@{[&escapeHTML($to_pfn)]}<br />" : ""),
+		  ($errmsg ? "<b>last_error</b>=<i>@{[&escapeHTML($errmsg)]}</i><br />" : ""),
+		  ($start ? "<b>time_xfer_start</b>=@{[strftime('%Y-%m-%d %H:%M:%S', gmtime($start))]} UTC<br />" : ""),
 		  "<br /></li>\n";
     }
     $query->finish();
