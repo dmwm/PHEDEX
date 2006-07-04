@@ -733,7 +733,7 @@ sub completeTransfer
 	        update t_xfer_state
 	        set to_state = :state,
 		    errors = errors + 1,
-		    last_error = :errmsg
+		    last_error = :errmsg,
 		    time_xfer_start = null,
 		    time_request = null,
 		    time_error_start = :error_start,
