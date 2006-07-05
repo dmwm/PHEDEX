@@ -454,6 +454,22 @@ sub route
        	       and lp.xfer_rate >= 1048576)},
 	":me" => $node, ":now" => $now);
 
+    &dbexec($dbh, qq{
+	update t_xfer_request xq
+	set xq.time_expire =
+	  (select max(xp.time_expire)
+	   from t_xfer_path xp
+	   where xp.fileid = xq.fileid
+	     and xp.destination = xq.destination)
+        where xq.destination = :me
+	  and xq.state = 0
+          and exists
+	    (select 1 from t_xfer_path xp
+	     where xp.fileid = xq.fileid
+	       and xp.destination = xq.destination
+	       and xp.time_expire > xq.time_expire)},
+	":me" => $node);
+
     # Confirm transfers where I am the path hop destination, the
     # source replica exists and there is no transfer yet.  However
     # remove inactive transfers no longer requested, but in a way
