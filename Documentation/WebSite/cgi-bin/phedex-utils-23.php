@@ -10,10 +10,6 @@ function stream_get_line ($fh, $len) { return trim(fgets($fh, $len)); }
 // Interpret and rearrange quality history data.
 function selectQualityData($filename, $xbin, $tail, $upto, $by)
 {
-  // Build a map of nodes we are interested in.
-  $result = array();
-  $last = null;
-
   // Open the CSV file for reading.  We keep reading from this file into
   // an array ($result), either a large one ($tail is unset), or circular
   // one ($tail is set, in which case it defines the size of the array).
@@ -22,9 +18,12 @@ function selectQualityData($filename, $xbin, $tail, $upto, $by)
   $fh = fopen($filename, "r");
   $labels = explode(",", stream_get_line($fh, 100000));
 
-  // Collect all the data into correct binning.  We read from start, filling
-  // a circular buffer, or until we see a label following $upto (in which
-  // case our circular buffer already contains what we need!).
+  // Build a list of bins we are interested in.  Read from start, filling
+  // in a circular buffer or until we see a label following $upto in which
+  // case our circular buffer contains already all we need.
+  $bins = array();
+  $last = null;
+
   while (! feof($fh))
   {
     // Read this line item.
@@ -39,28 +38,39 @@ function selectQualityData($filename, $xbin, $tail, $upto, $by)
       if (isset ($upto) && $upto != '' && $last && $last == $upto)
 	break;
 
-      $result[$time] = array();
+      $bins[] = array($time);
       $last = $time;
 
-      if (isset($tail) && $tail && count($result) > $tail)
-	array_shift($result);
+      if (isset($tail) && $tail && count($bins) > $tail)
+	array_shift($bins);
     }
 
-    // Append to $result[$time][$node]
-    $dest = $data[4];
-    for ($n = 5; $n < count($data); ++$n)
-    {
-      $node = $labels[$n];
-      //if (preg_match("/MSS$/", $node)) continue;
-      $key = ($by == 'link' ? "{$dest} < {$node}" :
-              ($by == 'dest' ? $dest : $node));
-      if (! isset ($result[$time][$key]))
-        $result[$time][$key] = array (0, 0, 0);
+    $bins[count($bins)-1][] = $data;
+  }
+  fclose($fh);
 
-      $values = explode ("/", $data[$n]);
-      $result[$time][$key][0] += $values[0];
-      $result[$time][$key][1] += $values[1];
-      $result[$time][$key][2] += $values[2];
+  // Build final map in $result[$time][$node]
+  $result = array();
+  foreach ($bins as $rows)
+  {
+    $time = array_shift($rows);
+    foreach ($rows as $data)
+    {
+      $dest = $data[4];
+      for ($n = 5; $n < count($data); ++$n)
+      {
+        $node = $labels[$n];
+        //if (preg_match("/MSS$/", $node)) continue;
+        $key = ($by == 'link' ? "{$dest} < {$node}" :
+                ($by == 'dest' ? $dest : $node));
+        if (! isset ($result[$time][$key]))
+          $result[$time][$key] = array (0, 0, 0);
+
+        $values = explode ("/", $data[$n]);
+        $result[$time][$key][0] += $values[0];
+        $result[$time][$key][1] += $values[1];
+        $result[$time][$key][2] += $values[2];
+      }
     }
   }
 
@@ -71,10 +81,6 @@ function selectQualityData($filename, $xbin, $tail, $upto, $by)
 // Interpret and rearrange performance history data.
 function selectPerformanceData($filename, $xbin, $tail, $sum, $upto, $by)
 {
-  // Build a map of nodes we are interested in.
-  $result = array();
-  $last = null;
-
   // Open the CSV file for reading.  We keep reading from this file into
   // an array ($result), either a large one ($tail is unset), or circular
   // one ($tail is set, in which case it defines the size of the array).
@@ -83,9 +89,12 @@ function selectPerformanceData($filename, $xbin, $tail, $sum, $upto, $by)
   $fh = fopen($filename, "r");
   $labels = explode(",", stream_get_line($fh, 100000));
 
-  // Collect all the data into correct binning.  We read from start, filling
-  // a circular buffer, or until we see a label following $upto (in which
-  // case our circular buffer already contains what we need!).
+  // Build a list of bins we are interested in.  Read from start, filling
+  // in a circular buffer or until we see a label following $upto in which
+  // case our circular buffer contains already all we need.
+  $bins = array();
+  $last = null;
+
   while (! feof($fh))
   {
     // Read this line item.
@@ -100,38 +109,48 @@ function selectPerformanceData($filename, $xbin, $tail, $sum, $upto, $by)
       if (isset ($upto) && $upto != '' && $last && $last == $upto)
 	break;
 
-      $result[$time] = array();
+      $bins[] = array($time);
       $last = $time;
 
-      if (isset($tail) && $tail && count($result) > $tail)
-	array_shift($result);
+      if (isset($tail) && $tail && count($bins) > $tail)
+	array_shift($bins);
     }
 
-    // Append to $result[$time][$node]
-    $dest = $data[4];
-    for ($n = 5; $n < count($data); ++$n)
-    {
-      $node = $labels[$n];
-      if (preg_match("/MSS$/", $node)) continue;
-      $key = ($by == 'link' ? "{$dest} < {$node}" :
-              ($by == 'dest' ? $dest : $node));
-      if (! isset ($result[$time][$key]))
-        $result[$time][$key] = array (0, array());
+    $bins[count($bins)-1][] = $data;
+  }
+  fclose($fh);
 
-      if ($sum)
+  // Build final map in $result[$time][$node]
+  $result = array();
+  foreach ($bins as $rows)
+  {
+    $time = array_shift($rows);
+    foreach ($rows as $data)
+    {
+      $dest = $data[4];
+      for ($n = 5; $n < count($data); ++$n)
       {
-        $result[$time][$key][0] += $data[$n];
-        $result[$time][$key][1][$data[3]] = 1;
-      }
-      else if (! isset ($result[$time][$key][1]["$dest:$node"]))
-      {
-        $result[$time][$key][0] = 1;
-        $result[$time][$key][1]["$dest:$node"] = $data[$n];
+        $node = $labels[$n];
+        if (preg_match("/MSS$/", $node)) continue;
+        $key = ($by == 'link' ? "{$dest} < {$node}" :
+                ($by == 'dest' ? $dest : $node));
+        if (! isset ($result[$time][$key]))
+          $result[$time][$key] = array (0, array());
+
+        if ($sum)
+        {
+          $result[$time][$key][0] += $data[$n];
+          $result[$time][$key][1][$data[3]] = 1;
+        }
+        else if (! isset ($result[$time][$key][1]["$dest:$node"]))
+        {
+          $result[$time][$key][0] = 1;
+          $result[$time][$key][1]["$dest:$node"] = $data[$n];
+        }
       }
     }
   }
 
-  fclose($fh);
   return $result;
 }
 
