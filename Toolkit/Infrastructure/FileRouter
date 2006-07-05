@@ -435,6 +435,25 @@ sub route
 		      and this.rowid > better.rowid)))},
 	":node" => $node);
 
+    # If transfers path are about to expire on links which have
+    # reasonable recent transfer rate, give a bit more grace time.  We
+    # do _not_ renew transfers themselves, but allow them to expire,
+    # then get recreated.  This allows files with many errors to be
+    # flushed out and put back into transfer at original plan.
+    &dbexec($dbh, qq{
+	update t_xfer_path xp
+	set xp.time_expire = :now + 2*3600
+	where xp.to_node = :me
+	  and xp.time_expire >= :now
+	  and xp.time_expire < :now + 3600
+	  and exists
+	    (select 1 from t_link_param lp
+	     join t_link l on l.id = lp.link
+	     where l.from_node = xp.from_node
+	       and l.to_node = xp.to_node
+       	       and lp.xfer_rate >= 1048576)},
+	":me" => $node, ":now" => $now);
+
     # Confirm transfers where I am the path hop destination, the
     # source replica exists and there is no transfer yet.  However
     # remove inactive transfers no longer requested, but in a way
