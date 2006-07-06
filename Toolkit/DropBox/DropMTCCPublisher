@@ -6,13 +6,14 @@
 ##H Usage:
 ##H   DropMTCCPublisher
 ##H      -state DIRECTORY [-next DIRECTORY] -node NAME
-##H      -db FILE[:SECTION] [-log OUT]
+##H      -db FILE[:SECTION] -guidmap DIRECTORY [-log OUT]
 ##H
 ##H -state     agent state directory, including inbox
 ##H -next      next agent to pass the drops to; can be given several times
 ##H -node      default node to register files for; drops can override this
 ##H -db        database connection configuration parameter file
 ##H -log       where to redirect logging information
+##H -guidmap   where to record guid/lfn mappings
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -29,6 +30,7 @@ use UtilsHelp;
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
              "node=s"      => \$args{MYNODE},
+             "guidmap=s"   => \$args{GUIDMAP},
              "next=s@"     => $args{NEXTDIR},
 	     "help|h"      => sub { &usage() });
 
@@ -43,6 +45,7 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG})
 # Routines specific to this agent.
 package DropMTCCPublisher; use strict; use warnings; use base 'UtilsAgent';
 use File::Path;
+use UtilsReaders;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
@@ -53,7 +56,8 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
-	  	  MYNODE => undef);		# My TMDB node name
+	  	  MYNODE => undef,		# My TMDB node name
+		  GUIDMAP => undef);		# Where to record GUID/LFN pairs
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -64,6 +68,7 @@ sub new
 sub processDrop
 {
     my ($self, $drop) = @_;
+$DB::single=1;
 
     # Sanity checking
     return if (! $self->inspectDrop ($drop));
@@ -81,6 +86,12 @@ sub processDrop
     my $cksumfile = (<$dropdir/*.txt>)[0];
     do { &alert ("no checksum file in $drop"); $self->markBad ($drop); return }
         if ! $cksumfile;
+
+    # Record the LFNs into a simple file system catalogue for export.
+    foreach my $file (@{&readXMLCatalogue ($xmlcat)})
+    {
+	return if ! &output("$$self{GUIDMAP}/$$file{GUID}", "$$file{LFN}[0]\n");
+    }
 
     # Run publish.  This is actually done by a helper program shared
     # with other tools, so we don't repeat the code here.
