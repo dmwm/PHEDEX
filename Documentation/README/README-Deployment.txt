@@ -49,6 +49,12 @@ not need large amounts of memory, disk space, network bandwidth or CPU
 capacity on this machine.  You do need to have all the prerequisite
 software installed on this machine.
 
+Yuo can also try to request a formal VO Box for CMS at your site. It will 
+be configured as a LCG UI + some services specific to the VO BOX: 
+gsissh and proxy-renewal. VO BOX advantages and operations are described
+in README-VOBOX.txt
+
+
 **********************************************************************
 ** Getting the software
 
@@ -128,6 +134,12 @@ certificate to renew a short-lived proxy which is then used by the
 transfers.  This is not easy to get right, mainly because myproxy
 generally gives useless error messages if anything happens to go
 wrong, but it does reduce operational burden considerably.
+
+An alternative to this process is asking grid admins at your site 
+to set up a VO BOX. Proxy renewal will come "for free" with properly 
+installed VO BOX. Refer to the README-VOBOX.txt for details.
+
+If you are not using a VO BOX, then the following will help.
 
 If there will be only one person administering the agents at your
 site, it's simplest to use your personal certificate.  We recommend
