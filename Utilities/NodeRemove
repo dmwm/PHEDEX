@@ -1,0 +1,127 @@
+#!/usr/bin/env perl
+
+##H Remove a node, assuming it has no files.
+##H
+##H Usage:
+##H   NodeRemove -db DBCONFIG [-force] NODE...
+##H
+##H Examples:
+##H   NodeRemove -db Schema/DBParam:Foo T2_Foo_Buffer T2_Foo_Load
+##H
+##H NODE is the name of the node to delete.
+
+BEGIN {
+  $^W = 1; use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+# Process command line arguments.
+use Getopt::Long;
+use UtilsHelp;
+use UtilsDB;
+use UtilsTiming;
+&GetOptions ("db=s"        => \$args{DBCONFIG},
+             "force"	   => \$args{FORCE},
+	     "help|h"      => sub { &usage() });
+
+# Check arguments.
+if (scalar @ARGV < 1 || !$args{DBCONFIG})
+{
+  die "Insufficient parameters, use -h for help.\n";
+}
+
+my $dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
+while (@ARGV)
+{
+  my $name = shift(@ARGV);
+  print "Removing $name\n";
+
+  # Delete from "harmless" tables stuff for convenience
+  &dbexec($dbh, qq{
+    delete from t_info_xfer_states where to_node =
+      (select id from t_node where name = :name)},
+    ":name" => $name);
+  &dbexec($dbh, qq{
+    delete from t_info_xfer_states where from_node =
+      (select id from t_node where name = :name)},
+    ":name" => $name);
+  &dbexec($dbh, qq{
+    delete from t_dps_block_dest where destination =
+      (select id from t_node where name = :name)},
+    ":name" => $name);
+  &dbexec($dbh, qq{
+    delete from t_dps_block_replica where node =
+      (select id from t_node where name = :name)},
+    ":name" => $name);
+  &dbexec($dbh, qq{
+    delete from t_dps_block_delete where node =
+      (select id from t_node where name = :name)},
+    ":name" => $name);
+  &dbexec($dbh, qq{
+    delete from t_xfer_request where destination =
+      (select id from t_node where name = :name)},
+    ":name" => $name);
+  &dbexec($dbh, qq{
+    delete from t_xfer_path where destination =
+      (select id from t_node where name = :name)},
+    ":name" => $name);
+  &dbexec($dbh, qq{
+    delete from t_agent_message where node =
+      (select id from t_node where name = :name)},
+    ":name" => $name);
+  &dbexec($dbh, qq{
+    delete from t_agent_status where node =
+      (select id from t_node where name = :name)},
+    ":name" => $name);
+  &dbexec($dbh, qq{
+    delete from t_agent_version where node =
+      (select id from t_node where name = :name)},
+    ":name" => $name);
+
+  # If forced, remove some more
+  if ($args{FORCE})
+  {
+    &dbexec($dbh, qq{
+      delete from t_dps_subscription where destination =
+        (select id from t_node where name = :name)},
+      ":name" => $name);
+    &dbexec($dbh, qq{
+      delete from t_xfer_replica where node =
+        (select id from t_node where name = :name)},
+      ":name" => $name);
+    &dbexec($dbh, qq{
+      delete from t_dps_file where node =
+        (select id from t_node where name = :name)},
+      ":name" => $name);
+    &dbexec($dbh, qq{
+      delete from t_xfer_state where to_node =
+        (select id from t_node where name = :name)},
+      ":name" => $name);
+    &dbexec($dbh, qq{
+      delete from t_xfer_state where from_node =
+        (select id from t_node where name = :name)},
+      ":name" => $name);
+    &dbexec($dbh, qq{
+      delete from t_link_histogram where to_node =
+        (select id from t_node where name = :name)},
+      ":name" => $name);
+    &dbexec($dbh, qq{
+      delete from t_link_histogram where from_node =
+        (select id from t_node where name = :name)},
+      ":name" => $name);
+    &dbexec($dbh, qq{
+      delete from t_dest_histogram where node =
+        (select id from t_node where name = :name)},
+      ":name" => $name);
+  }
+
+  # Delete the actual node
+  &dbexec($dbh, qq{
+    delete from t_node where name = :name},
+    ":name" => $name);
+  $dbh->commit();
+}
+
+$dbh->disconnect();
