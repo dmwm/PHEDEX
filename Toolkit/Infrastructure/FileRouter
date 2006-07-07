@@ -260,7 +260,7 @@ sub route
     
     if (($pend_all < 5 * TERABYTE
 	 && $confirm_all < 5 * TERABYTE
-	 && $confirm_me < 1 * TERABYTE)
+	 && $confirm_me < 5 * TERABYTE)
 	|| ($confirm_me < 0.25 * TERABYTE))
     {
 	# Find block destinations we can activate.  The activation
