@@ -1092,7 +1092,7 @@ sub rates {
 
 sub dbreports
 {
-    my $dbid = $$databases{$db}[3];
+    my $dbid = $$databases{$db}[3]; $dbid =~ s/Production/Prod/;
     my $reportdir = "/afs/cern.ch/cms/aprom/phedex/DailyReports";
     my @reports = sort <$reportdir/$dbid-*.txt*>;
     print OUT "<p><table class='striped'><tbody>\n",
@@ -1131,13 +1131,13 @@ sub dbreports
 
 sub dbreport
 {
-    my $dbid = $$databases{$db}[3];
+    my $dbid = $$databases{$db}[3]; $dbid =~ s/Production/Prod/;
     my $reportdir = "/afs/cern.ch/cms/aprom/phedex/DailyReports";
     my $report = param('reportfile') || (strftime('%Y%m%d', gmtime()) . ".txt");
     print OUT "<pre align='left'>\n";
     if ($report && $report =~ m|^[-A-Za-z0-9.]+$|)
     {
-	my $reportfile = "$reportdir/$dbid-$report";
+	my $reportfile = (<$reportdir/$dbid-$report>)[0];
 	if (-f $reportfile)
 	{
 	    local $/ = undef;
