@@ -1,5 +1,5 @@
 -- Load new tables
-set echo off feedback off sqlprompt ''
+set echo off feedback off sqlprompt '' def &
 prompt
 prompt Loading PhEDEx schema to &_user@&_connect_identifier
 
