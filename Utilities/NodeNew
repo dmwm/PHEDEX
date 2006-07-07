@@ -1,20 +1,17 @@
 #!/usr/bin/env perl
 
-##H Create a new node with neighbours
+##H Create a new node
 ##H
 ##H Usage:
-##H   NodeNew -db DBCONFIG NODE:KIND [NEIGHBOUR[:LOCAL[:SHARE...]]...]
+##H   NodeNew -db DBCONFIG NODE:KIND...
 ##H
 ##H Examples:
-##H   NodeNew -db Schema/DBParam:Foo T2_Foo_Buffer:Disk T1_Bar_Buffer
-##H   NodeNew -db Schema/DBParam:Foo T1_Foo_Buffer:Buffer T1_Foo_MSS:L T1_Xyzzy_Buffer
-##H   NodeNew -db Schema/DBParam:Foo T1_Foo_Buffer:Disk T1_Bar_Buffer:R:1:1:1:1
+##H   NodeNew -db Schema/DBParam:Foo T2_Foo_Buffer:Disk
+##H   NodeNew -db Schema/DBParam:Foo T1_Foo_Buffer:Buffer
+##H   NodeNew -db Schema/DBParam:Foo T1_Foo_MSS:MSS
 ##H
 ##H NODE is the name of the new node.
 ##H KIND is the kind of the new node: Disk, Buffer or MSS.
-##H NEIGHBOUR is an existing neighbour node.
-##H LOCAL is L for local links, R for remote, default is R.
-##H SHARE is link priority share, default is 7:4:1:1
 
 BEGIN {
   $^W = 1; use strict; use warnings;
@@ -38,74 +35,22 @@ if (scalar @ARGV < 1 || !$args{DBCONFIG})
 }
 
 my $dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
-
 my $now = &mytimeofday();
-my $node = shift(@ARGV);
-die "$node: expected NODE:KIND\n" if $node !~ /^(\S+):(\S+)$/;
-$node = $1;
-my $kind = $2;
-die "$kind: expected 'Disk', 'Buffer' or 'MSS'\n"
-  if ! grep($kind eq $_, qw(Disk Buffer MSS));
-
-my $nodeid = undef;
-&dbexec($dbh, qq{
-  insert into t_node (id, name, kind)
-  values (seq_node.nextval, :node, :kind)
-  returning id into :id},
-  ":node" => $node,
-  ":kind" => $kind,
-  ":id" => \$nodeid);
-
 while (@ARGV)
 {
-  my $other = shift(@ARGV);
-  my ($name, $rest) = ($other =~ /^([^:]+)(:.*)?/);
-  my ($junk, $locality, @shares) = split(":", $rest || "");
-  $locality = "R" if ! $locality;
-  @shares = (7, 4, 1, 1) if ! @shares;
+  my $node = shift(@ARGV);
+  die "$node: expected NODE:KIND\n" if $node !~ /^(\S+):(\S+)$/;
+  $node = $1;
+  my $kind = $2;
+  die "$kind: expected 'Disk', 'Buffer' or 'MSS'\n"
+    if ! grep($kind eq $_, qw(Disk Buffer MSS));
 
-  # Check node id
-  my ($id) = &dbexec($dbh, qq{
-    select id from t_node where name = :name},
-    ":name" => $name)->fetchrow();
-  die "Node $name not known\n" if ! defined $id;
-
-  # Add link
-  my $tolinkid = undef;
+  print "Creating node $node, kind $kind\n";
   &dbexec($dbh, qq{
-    insert into t_link (id, from_node, to_node, distance, local_boost)
-    values (seq_link.nextval, :me, :other, :distance, :local)
-    returning id into :id},
-    ":id" => \$tolinkid,
-    ":me" => $nodeid,
-    ":other" => $id,
-    ":distance" => ($locality eq "R" ? 2 : 1),
-    ":local" => ($locality eq "R" ? 0 : 1));
-
-  my $fromlinkid = undef;
-  &dbexec($dbh, qq{
-    insert into t_link (id, from_node, to_node, distance, local_boost)
-    values (seq_link.nextval, :other, :me, :distance, :local)
-    returning id into :id},
-    ":id" => \$fromlinkid,
-    ":me" => $nodeid,
-    ":other" => $id,
-    ":distance" => ($locality eq "R" ? 2 : 1),
-    ":local" => ($locality eq "R" ? 0 : 1));
-
-  # Add link shares
-  for (my $priority = 0; $priority <= $#shares; ++$priority)
-  {
-    &dbexec($dbh, qq{
-      insert into t_link_share (link, priority, link_share)
-      values (:link, :priority, :link_share)},
-      ":link" => $tolinkid, ":priority" => $priority, ":link_share" => $shares[$priority]);
-    &dbexec($dbh, qq{
-      insert into t_link_share (link, priority, link_share)
-      values (:link, :priority, :link_share)},
-      ":link" => $fromlinkid, ":priority" => $priority, ":link_share" => $shares[$priority]);
-  }
+    insert into t_node (id, name, kind)
+    values (seq_node.nextval, :node, :kind)},
+    ":node" => $node, ":kind" => $kind);
+  $dbh->commit();
 }
 
-$dbh->commit();
 $dbh->disconnect();
