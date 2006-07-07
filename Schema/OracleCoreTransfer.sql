@@ -141,7 +141,7 @@ create table t_link_histogram
    -- statistics for t_xfer_path during/at end of this bin
    confirm_files	integer, -- t_xfer_path
    confirm_bytes	integer,
-   confirm_weight	integer
+   confirm_weight	integer,
    -- 
    -- statistics from t_link_param calculated at the end of this cycle
    param_rate		float,
