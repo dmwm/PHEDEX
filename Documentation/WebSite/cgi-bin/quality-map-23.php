@@ -163,7 +163,7 @@ if ($by != 'link' && $by != 'dest' && $by != 'src') $by = 'dest';
 
 $args['metric']   = (isset ($kind_types[$kind]) ? $kind : 'completed_ratio');
 $args['ytitle']   = $kind_types[$args['metric']];
-$args['instance'] = ($srcdb == 'prod' ? 'Production'
+$args['instance'] = ($srcdb == 'prod' ? 'Prod'
 	             : ($srcdb == 'test' ? 'Dev'
 	                : ($srcdb == 'sc' ? 'SC4'
 	                   : ($srcdb == 'tbedi' ? 'Testbed' : 'Validation'))));
