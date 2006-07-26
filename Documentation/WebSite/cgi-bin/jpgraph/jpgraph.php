@@ -4,7 +4,7 @@
 // Description:	PHP Graph Plotting library. Base module.
 // Created: 	2001-01-08
 // Author:	Johan Persson (johanp@aditus.nu)
-// Ver:		$Id: jpgraph.php,v 1.1 2005/07/07 10:51:41 lat Exp $
+// Ver:		$Id: jpgraph.php,v 1.2 2005/10/01 16:44:27 lat Exp $
 //
 // Copyright (c) Aditus Consulting. All rights reserved.
 //========================================================================
@@ -6084,7 +6084,7 @@ class Image {
     }
 
     function GetTTFBBox($aTxt,$aAngle=0) {
-	$bbox = @ImageTTFBBox($this->font_size,$aAngle,$this->font_file,$aTxt);
+	$bbox = @ImageTTFBBox($this->font_size,$aAngle,$this->font_file,str_replace(" ", "_", $aTxt));
 	if( $bbox === false ) {
 	    JpGraphError::Raise("There is either a configuration problem with TrueType or a problem reading font file (".$this->font_file."). Make sure file exists and is in a readable place for the HTTP process. (If 'basedir' restriction is enabled in PHP then the font file must be located in the document root.). It might also be a wrongly installed FreeType library. Try uppgrading to at least FreeType 2.1.13 and recompile GD with the correct setup so it can find the new FT library.");
 	}
@@ -6189,7 +6189,7 @@ class Image {
 			  $this->current_color,$this->font_file,$txt); 
 
 	    // Calculate and return the co-ordinates for the bounding box
-	    $box=@ImageTTFBBox($this->font_size,$dir,$this->font_file,$txt);
+	    $box=@ImageTTFBBox($this->font_size,$dir,$this->font_file,str_replace(" ", "_", $txt));
 	    $p1 = array();
 
 
@@ -6204,7 +6204,7 @@ class Image {
 	    // same
             if( $debug ) {
 		// Draw the bounding rectangle and the bounding box
-		$box=@ImageTTFBBox($this->font_size,$dir,$this->font_file,$txt);
+		$box=@ImageTTFBBox($this->font_size,$dir,$this->font_file,str_replace(" ", "_", $txt));
 		$p = array();
 		$p1 = array();
 		for($i=0; $i < 4; ++$i) {
@@ -6292,7 +6292,7 @@ class Image {
 
 		if( $debug  ) {
 		    // Draw the bounding rectangle around each line
-		    $box=@ImageTTFBBox($this->font_size,$dir,$this->font_file,$tmp[$i]);
+		    $box=@ImageTTFBBox($this->font_size,$dir,$this->font_file,str_replace(" ", "_", $tmp[$i]));
 		    $p = array();
 		    for($j=0; $j < 4; ++$j) {
 			$p[] = $bbox[$j*2]+$xl;
