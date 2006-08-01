@@ -2,6 +2,8 @@
 
 BEGIN { use strict; use warnings; $^W=1; }
 use CGI qw(param);
+require "${0}23";
+require "${0}22";
 
 # Read database access tokens
 my @dbnames = ();
@@ -18,21 +20,11 @@ while (<DBNAMES>)
 close (DBNAMES);
 my $db = param("db") || "prod";    # tnsname of the database
 $db = "prod" if ! grep ($db eq $_, @dbnames);
-my $dbversion = $databases{$db}[4] || 'V2.2';
-if ($dbversion eq 'V2.3') {
-  require "${0}23";
-} else {
-  require "${0}22";
-}
 
 param('db', 'prod') if ! param('db');
 param('page', 'main') if ! param('page');
 
-# ###############################################
-# Main loop
-# ###############################################
-
-if ($dbversion eq 'V2.3') {
+if ($databases{$db}[4] eq 'V2.3') {
   browser23::runme(\%databases, $db, @dbnames);
 } else {
   browser22::runme(\%databases, $db, @dbnames);
