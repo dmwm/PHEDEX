@@ -1,0 +1,52 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+  <meta name="keywords" content="PhEDEx, file transfer, transfer request" />
+  <link rel="stylesheet" href="../style.css" type="text/css" />
+  <link rel="shortcut icon" href="../favicon.ico" />
+  <script type="text/javascript" src="../stripe.js"></script>
+
+  <title>@DBID@ @PAGETITLE@: PhEDEx Transfer Request</title>
+</head>
+
+<body onload='stripe("#fff", "#edf3fe")'>
+<div id="page">
+<div id="header">
+  <!-- Logo and page title -->
+  <div id="logo">
+    <a href="http://cern.ch/cms-project-phedex/" title="PhEDEx Home Page"
+      ><img src="../phedex-logo.gif" alt="PhEDEx" height="120" /></a>
+  </div>
+
+  <div id="heading">
+    <h1 class="title">PhEDEx Transfer Request</h1>
+    <h2>@DBID@ @PAGETITLE@</h2>
+    <h4>@TIME@</h4>
+  </div>
+
+  <!-- Main navigation bar: public/developers/other -->
+  @DBSELECTOR@
+</div> <!-- /header -->
+
+<!-- side navigation bar -->
+<div id="sidebar">
+  <div class="sidetopic"><h2>Your identity</h2>
+    <p>@IDENTITY@</p>
+  </div>
+  <div class="sidetopic"><h2>Request Options</h2>
+    <p>@PAGESELECTOR@</p>
+  </div>
+</div> <!-- /sidebar -->
+
+<!-- main content -->
+<div id="content">
+<center>
+@CONTENT@
+<hr />
+</center>
+</div>
+</div>
+</body>
+</html>

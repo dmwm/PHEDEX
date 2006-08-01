@@ -1,0 +1,673 @@
+#!/usr/bin/env perl
+package requests23; use strict; use warnings; use base 'Exporter';
+use CGI qw(:standard);
+use CGI::Carp qw(fatalsToBrowser);
+use POSIX qw(strftime);
+use DBI;
+use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
+
+my ($databases, $dbh, $db);
+my $badcolor = '#ff9e9e';
+my $warncolor = '#ffd89e';
+my $pendcolor = '#ccccff'; # ececff
+my $goodcolor = '#ccffcc';
+my $altcolor = '#e8e8e8';
+
+sub relurl
+{
+    my %args = ('db' => $db, @_);
+    my $newcgi = new CGI (query_string());
+    map { $newcgi->param ($_, $args{$_}) } keys %args;
+    return $newcgi->self_url(-full=>0, -relative=>1);
+}
+
+sub baseurl
+{
+    my $curpage = param('page');
+    my %args = ('db' => $db, ($curpage ? ('page' => $curpage) : ()), @_);
+    my $newcgi = new CGI ("");
+    map { $newcgi->param ($_, $args{$_}) } keys %args;
+    return $newcgi->self_url(-full=>0, -relative=>1);
+}
+
+sub urlencode
+{
+    eval "use CGI '-oldstyle_urls'";
+    my %args = @_; return new CGI (\%args)->query_string();
+}
+
+sub dblink
+{
+    my ($db, $dbother) = @_;
+    my $othername = $$databases{$dbother}[3];
+    return "<a href='" . &baseurl ('db' => $dbother)
+         . ($db eq $dbother ? "' class='selected' " : "' ")
+    	 . "title='$othername Database Instance'>$othername</a>";
+}
+
+sub alert
+{
+    print OUT "<div class='alert'><p><b>Error:</b> ", @_, "</p></div>\n";
+}
+
+sub warning
+{
+    print OUT "<div class='warning'><p><b>Warning:</b> ", @_, "</p></div>\n";
+}
+
+sub note
+{
+    print OUT "<div class='note'><p>", @_, "</p></div>\n";
+}
+
+
+sub runme
+{
+    $databases = shift(@_);
+    $db = shift(@_);
+    my @dbnames = @_;
+
+    my ($dbtns, $dbuser, $dbpass, $dbid, $dbversion) = @{$$databases{$db}};
+
+    # Force redirect to https if using http
+    if (($ENV{HTTPS} || 'nope') ne 'on')
+    {
+	my $url = self_url();
+	$url =~ s/^http:/https:/;
+	print redirect(-url => $url);
+	return;
+    }
+
+    # Select page we are visiting
+    my @pageinfo = ([ 'main',		\&main,		"Request Status" ],
+                    [ 'data',		\&data,		"Request Data" ],
+                    [ 'create',		\&create,	"Create Request" ],
+                    [ 'checknew',	\&checknew,	undef ]);
+    my %pagemap = map { $pageinfo[$_][0] => $_ } 0 .. $#pageinfo;
+    my $pagename = param('page');
+    my $page = ($pagename && exists $pagemap{$pagename} ? $pagemap{$pagename} : 0);
+
+    # Initialise page template
+    my $templatef = $0; $templatef =~ s|/[^/]+$||; $templatef .= "/req-template.html";
+    my $template = do { open(T, "< $templatef"); local $/; undef $/; my $x = <T>; close(T); $x };
+
+    # Check if the user's identity has been verified, if so, make nice HTML of it
+    my $htmlidentity = $ENV{SSL_CLIENT_S_DN} || '';
+    $htmlidentity = &escapeHTML($htmlidentity);
+    $htmlidentity =~ s|/|/&#8203;|g;
+
+    my $replacements = {
+     	'CONTENT' => '',
+	'PAGETITLE' => $pageinfo[$page][2],
+	'TIME'	=> strftime ("%Y-%m-%d %H:%M:%S GMT", gmtime(time())),
+	'DBID' => $dbid,
+	'DB' => $db,
+	'DBSELECTOR' =>
+	    ("  <ul id='navmain'>\n" .
+	     "    <li class='first'>Database: " .  &dblink ($db, $dbnames[0]) .
+	     "</li>\n    " .
+	     join ("\n    ",
+		   map { "<li>" . &dblink ($db, $_) . "</li>" }
+		   @dbnames[1 .. $#dbnames]) .
+	     "\n  </ul>\n"),
+	'PAGESELECTOR' =>
+	    (join("", map { ($_ ? "<br>" : "") .
+			    "<a href='" . &baseurl ('page' => $pageinfo[$_][0]) .
+			    "'>$pageinfo[$_][2]</a>\n    " }
+		      grep (defined $pageinfo[$_][2], 0 .. $#pageinfo))),
+
+	'IDENTITY' =>
+	    (! $ENV{SSL_CLIENT_S_DN} ? "<div class='alertbox'><p>Not authenticated</p></div>"
+	     : $ENV{SSL_CLIENT_S_DN} && $ENV{SSL_CLIENT_VERIFY} eq 'SUCCESS'
+	     ? "<div class='notebox'><p>Verified, $htmlidentity</p></div>"
+	     : "<div class='warningbox'><p>Unverified, $htmlidentity</p></div>"),
+    };
+
+    # Execute the desired page.  We save old STDOUT to print to it
+    # later, then redirect the page routine's output to CONTENT.
+    my $output = "";
+    open (OUT, ">", \$output);
+    eval
+    {
+	# print OUT "<pre>\n", (map { "$_ = $ENV{$_}\n" } sort keys %ENV), "</pre>\n";
+        # Connect to the database, do the page, the disconnect
+        $dbh = DBI->connect ("DBI:Oracle:$dbtns", $dbuser, $dbpass,
+	    		     { RaiseError=>1, AutoCommit =>1 });
+	&{$pageinfo[$page][1]} ();
+	$dbh->disconnect();
+    };
+
+    if ($@)
+    {
+	my $message = $@;
+	$message = &escapeHTML($message);
+	print OUT
+	      "<div align='left'>\n",
+	      "<p>Apologies, looks like we have a server error,",
+	      " details of which below.</p>\n",
+	      "<p><i>$message</i></p>\n",
+	      "</div>\n";
+    }
+    close(OUT);
+    $replacements->{CONTENT} = join("\n", $output);
+
+    # Instantiate the template and spit it out
+    while (my ($key, $value) = each %$replacements)
+    {
+	$template =~ s/\@$key\@/$value/g;
+    }
+
+    print header(-type => 'text/html');
+    print $template;
+}
+
+sub main
+{
+    my %status = ();
+    my $rquery = $dbh->prepare(qq{
+	select
+	  r.name, s.destination,
+	  count(s.block),
+	  sum(s.dbs_files), sum(s.dbs_bytes),
+	  sum(s.tmdb_files), sum(s.tmdb_bytes),
+	  sum(s.dest_files), sum(s.dest_bytes)
+	from t_request r join t_request_status s on s.request = r.id
+	group by r.name, s.destination});
+    $rquery->execute();
+    while (my ($req, $dest, $blocks,
+	       $dbs_files, $dbs_bytes,
+	       $tmdb_files, $tmdb_bytes,
+	       $node_files, $node_bytes) = $rquery->fetchrow())
+    {
+	$status{$req}{$dest} = {
+	    BLOCKS => $blocks,
+	    DBS_FILES => $dbs_files, DBS_BYTES => $dbs_bytes,
+	    TMDB_FILES => $tmdb_files, TMDB_BYTES => $tmdb_bytes,
+	    NODE_FILES => $node_files, NODE_BYTES => $node_bytes
+	};
+    }
+
+    print OUT "<p>",
+          "<table class='striped'>\n",
+          "<tbody>\n",
+	  "<tr class='selected'>\n",
+	  " <th colspan='8'>Transfer request status</th>",
+	  "</tr>\n",
+	  "<tr class='selected'>\n",
+	  " <th rowspan='2'>Request</th>\n",
+	  " <th rowspan='2'>Destination</th>\n",
+	  " <th colspan='2'>Known Files</th>\n",
+	  " <th colspan='2'>Destination</th>\n",
+	  "</tr>\n",
+	  "<tr class='selected'>\n",
+	  " <th>Files</th>\n",
+	  " <th>Size</th>\n",
+	  " <th>Files</th>\n",
+	  " <th>Size</th>\n",
+	  "</tr>\n";
+
+    foreach my $req (sort { $b cmp $a } keys %status)
+    {
+	my @dests = sort keys %{$status{$req}};
+	for (my $i = 0; $i <= $#dests; ++$i)
+	{
+	    my $dest = $dests[$i];
+	    my $x = $status{$req}{$dest};
+	    my $tmdb_color = ($x->{TMDB_FILES} == $x->{DBS_FILES} ? "" : " bgcolor='$pendcolor'");
+	    my $node_color = ($x->{NODE_FILES} == $x->{TMDB_FILES} ? "" : " bgcolor='$pendcolor'");
+	    print OUT "<tr>\n",
+	          ($i != 0 ? "" :
+		   (" <td rowspan='@{[scalar @dests]}'><a href='" .
+		    &baseurl('page' => 'data', 'request' => quotemeta($req)) .
+		    "'>$req</a></td>\n")),
+	          " <td>$dest</td>\n",
+	          " <td align='right'$tmdb_color>", &format_num ($x->{TMDB_FILES}), "</td>\n",
+	          " <td align='right'$tmdb_color>", &format_size ($x->{TMDB_BYTES}), "</td>\n",
+	          " <td align='right'$node_color>", &format_num ($x->{NODE_FILES}), "</td>\n",
+	          " <td align='right'$node_color>", &format_size ($x->{NODE_BYTES}), "</td>\n",
+	          "</tr>\n";
+	}
+    }
+
+    print OUT "</tbody>\n",
+          "</table>\n",
+	  "</p>\n";
+}
+
+sub data
+{
+    my %status = ();
+    my $reqparam = param('request') || '';
+    my $rquery = $dbh->prepare(qq{
+	select
+	  r.name, s.block,
+	  min(s.dbs_files), min(s.dbs_bytes),
+	  min(s.tmdb_files), min(s.tmdb_bytes),
+	  min(s.common_files), min(s.dbs_only_files), min(s.tmdb_only_files)
+	from t_request r join t_request_status s on s.request = r.id
+	group by r.name, s.block});
+    $rquery->execute();
+    while (my ($req, $block,
+	       $dbs_files, $dbs_bytes,
+	       $tmdb_files, $tmdb_bytes,
+	       $common, $dbs_only, $tmdb_only) = $rquery->fetchrow())
+    {
+	$status{$req}{$block} = {
+	    DBS_FILES => $dbs_files, DBS_BYTES => $dbs_bytes,
+	    TMDB_FILES => $tmdb_files, TMDB_BYTES => $tmdb_bytes,
+	    COMMON => $common, DBS_ONLY => $dbs_only, TMDB_ONLY => $tmdb_only
+	};
+    }
+
+    print OUT "<p>",
+          "<form method='GET' action='@{[&baseurl()]}'>\n",
+          "<input type='hidden' name='page' value='@{[param('page')]}'>\n",
+          "<input type='hidden' name='db' value='$db'>\n",
+          "Filter Request: ",
+          textfield(-name=>'request', -default=>$reqparam, -size=>30),
+          " <input type='submit' value='Update'></form></p>\n",
+
+	  "<p>\n",
+          "<table class='striped'>\n",
+          "<tbody>\n",
+	  "<tr class='selected'>\n",
+	  " <th colspan='8'>Transfer request status</th>",
+	  "</tr>\n",
+	  "<tr class='selected'>\n",
+	  " <th rowspan='2'>Block</th>\n",
+	  " <th colspan='2'>DBS</th>\n",
+	  " <th colspan='2'>TMDB</th>\n",
+	  " <th colspan='3'>Difference</th>\n",
+	  "</tr>\n",
+	  "<tr class='selected'>\n",
+	  " <th>Files</th>\n",
+	  " <th>Size</th>\n",
+	  " <th>Files</th>\n",
+	  " <th>Size</th>\n",
+	  " <th>Common</th>\n",
+	  " <th>DBS</th>\n",
+	  " <th>TMDB</th>\n",
+	  "</tr>\n";
+
+    foreach my $req (sort { $b cmp $a } keys %status)
+    {
+	next if $reqparam && $req !~ /$reqparam/;
+
+	my @blocks = sort keys %{$status{$req}};
+	for (my $i = 0; $i <= $#blocks; ++$i)
+	{
+	    my $block = $blocks[$i];
+	    my $x = $status{$req}{$block};
+	    my $tmdb_color = ($x->{TMDB_FILES} == $x->{DBS_FILES} ? "" : " bgcolor='$pendcolor'");
+	    my $common_color = ($x->{COMMON} == $x->{DBS_FILES} ? "" : " bgcolor='$warncolor'");
+	    my $dbs_only_color = (!$x->{DBS_ONLY} ? "" : " bgcolor='$warncolor'");
+	    my $tmdb_only_color = (!$x->{TMDB_ONLY} ? "" : " bgcolor='$warncolor'");
+	    print OUT "<tr class='selected'>\n",
+	          " <td colspan='8'>$req</td>\n",
+		  "</tr>\n"
+		if $i == 0;
+	    print OUT "<tr>\n",
+	          " <td>$block</td>\n",
+	          " <td align='right'>", &format_num ($x->{DBS_FILES}), "</td>\n",
+	          " <td align='right'>", &format_size ($x->{DBS_BYTES}), "</td>\n",
+	          " <td align='right'$tmdb_color>", &format_num ($x->{TMDB_FILES}), "</td>\n",
+	          " <td align='right'$tmdb_color>", &format_size ($x->{TMDB_BYTES}), "</td>\n",
+	          " <td align='right'$common_color>", &format_num ($x->{COMMON}), "</td>\n",
+	          " <td align='right'$dbs_only_color>", &format_num ($x->{DBS_ONLY}), "</td>\n",
+	          " <td align='right'$tmdb_only_color>", &format_num ($x->{TMDB_ONLY}), "</td>\n",
+	          "</tr>\n";
+	}
+    }
+
+    print OUT "</tbody>\n",
+          "</table>\n",
+	  "</p>\n";
+}
+
+sub getnodelist
+{
+    my %nodes = ();
+    my $qnodes = $dbh->prepare(qq{select name from t_node});
+    $qnodes->execute();
+    while (my ($node) = $qnodes->fetchrow()) {
+	$nodes{$node} = 1;
+    }
+    foreach my $node (keys %nodes) {
+	delete $nodes{$node} if ($node =~ /(.*)_(Buffer|Stage)$/ && exists $nodes{"$1_MSS"});
+    }
+
+    return sort keys %nodes;
+}
+
+sub getrequests
+{
+    my @reqnames = ();
+    my $q = $dbh->prepare(qq{select name from t_request}); $q->execute();
+    while (my ($name) = $q->fetchrow()) {
+	push (@reqnames, $name);
+    }
+
+    return sort @reqnames;
+}
+
+sub create
+{
+    # Get list of nodes, but suppress Buffer nodes where MSS exists
+    my @nodes = &getnodelist();
+
+    # Generate page template
+    my $reqprefix = strftime("%Y-%m-%d-PURPOSE-CREATOR", gmtime(time()));
+    print OUT "<p>",
+    	  "<form method='POST' action='@{[&baseurl()]}'>\n",
+	  "<input type='hidden' name='page' value='checknew' />\n",
+	  "<input type='hidden' name='db' value='$db' />\n",
+          "<table class='striped'>\n",
+	  " <tr class='selected'><th colspan='4'>Create a new request</th></tr>\n",
+	  " <tr valign='top'>\n",
+	  "  <td>Request name</td>\n",
+	  "  <td colspan='3'>",
+	  textfield(-name=>'reqname', -default=>$reqprefix, -size=>50),
+	  "</td>\n",
+	  " </tr>\n",
+	  " <tr valign='top'>\n",
+	  "  <td>Requestor e-mail</td>\n",
+	  "  <td colspan='3'>", textfield(-name=>'email', -size=>50), "</td>\n",
+	  " </tr>\n",
+	  " <tr valign='top'>\n",
+	  "  <td>Include dependencies</td>\n",
+	  "  <td colspan='3'>",
+	  "<input type='radio' name='dependencies' value='No' />&nbsp;",
+	  "No, only the requested datasets<br />\n",
+	  "<input type='radio' name='dependencies' value='Yes' />&nbsp;",
+	  "Yes, selected datasets and their dependencies</td>\n",
+	  " </tr>\n",
+	  " <tr valign='top'>\n",
+	  "  <td>Owner/datasets<br />(glob patterns)</td>\n",
+	  "  <td colspan='3'>", textarea('data', '', 10, 50), "</td>\n",
+	  " </tr>\n",
+	  " <tr valign='top'>\n",
+	  "  <td>Destinations</td>\n",
+	  "  <td>\n",
+	  (map { "<input type='checkbox' name='dest' value='$_' />&nbsp;$_<br />" }
+	   grep (/^T1_/, @nodes)),
+   	  "  </td>\n",
+	  "  <td>\n",
+	  (map { "<input type='checkbox' name='dest' value='$_' />&nbsp;$_<br />" }
+	   grep (/^T2_/, @nodes)),
+   	  "  </td>\n",
+	  "  <td>\n",
+	  (map { "<input type='checkbox' name='dest' value='$_' />&nbsp;$_<br />" }
+	   grep (! /^T[12]_/, @nodes)),
+   	  "  </td>\n",
+   	  " </tr>\n",
+	  " <tr>\n",
+	  "  <td colspan='4' align='center'>",
+	  submit('submit', 'Submit Request'),
+	  "</td>\n",
+	  " </tr>\n",
+	  "</table>\n",
+	  "</form>\n",
+	  "</p>\n";
+}
+
+sub checknew
+{
+    my $reqname = param('reqname') || '';
+    my $email = param('email') || '';
+    my $dependencies = param('dependencies');
+    my @dests = param('dest');
+    my @data = split(/\s+/, param('data') || '');
+
+    my @nodes = &getnodelist();
+    my @reqnames = &getrequests();
+    my $errors = 0;
+
+    my %destreqs = (T2_Caltech_Buffer	=> 'T1_FNAL_MSS',
+	    	    T2_Florida_Buffer	=> 'T1_FNAL_MSS',
+		    T2_Nebraska_Buffer	=> 'T1_FNAL_MSS',
+		    T2_Purdue_Buffer	=> 'T1_FNAL_MSS',
+		    T2_UCSD_Buffer	=> 'T1_FNAL_MSS',
+		    T2_Wisconsin_Buffer	=> 'T1_FNAL_MSS',
+		    T3_UIowa_Buffer	=> 'T1_FNAL_MSS');
+
+    if (! $reqname) {
+	alert("Request has no name, please supply one.");
+	$errors = 1;
+    }
+
+    if (! $email) {
+	alert("No requestor e-mail, please supply one.");
+	$errors = 1;
+    }
+
+    if (! $dependencies) {
+	alert("No selection made for dependencies, please supply one.");
+	$errors = 1;
+    }
+
+    if (! @dests) {
+	alert("No destination selected, please select some.");
+	$errors = 1;
+    }
+
+    if (! @data) {
+	alert("No data specified.");
+	$errors = 1;
+    }
+
+    if ($reqname !~ /^\d\d\d\d-\d\d-\d\d-/) {
+	alert("Request names must begin with date prefix &ldquo;YYYY-MM-DD-&rdquo;.");
+	$errors = 1;
+    }
+
+    if ($reqname !~ /^[-0-9A-Za-z]*$/) {
+	alert("Request names may only contain digits, letters A-Z and a-z, and dash.");
+	$errors = 1;
+    }
+
+    if ($reqname =~ /-PURPOSE-/ || $reqname =~ /-CREATOR$/) {
+	alert("Request name &ldquo;@{[&escapeHTML($reqname)]}&rdquo; contains",
+	      " template material.  Please replace PURPOSE with the purpose for",
+	      " which this request is being created, and CREATOR with the initials",
+	      " of the request creator's name.");
+	$errors = 1;
+    }
+
+    if (grep ($reqname eq $_, @reqnames)) {
+	alert("The request name &ldquo;@{[&escapeHTML($reqname)]}&rdquo;",
+	      " is already in use.  Please select a different name.");
+	$errors = 1;
+    }
+
+    my ($nrvalidmails, @emails) = validlist ($email);
+    if ($email ne '' && ! $nrvalidmails) {
+	alert("Requestor e-mail &ldquo;@{[&escapeHTML($email)]}&rdquo; is",
+	      " not a valid RFC822 e-mail address or address list.");
+	$errors = 1;
+    }
+
+    if (! grep ($dependencies eq $_, qw(Yes No))) {
+	alert("&ldquo;@{[&escapeHTML($dependencies)]}&rdquo;",
+	      " is not a valid dependencies selection.");
+	$errors = 1;
+    }
+
+    foreach my $node (@dests) {
+	if (! grep ($_ eq $node, @nodes)) {
+	    alert("Node name &ldquo;@{[&escapeHTML($node)]}&rdquo;",
+	          " is not known to PhEDEx.");
+	    $errors = 1;
+	}
+    }
+
+    foreach my $data (@data) {
+	if ($data !~ m|^[^/]+/[^/]+$|) {
+	    warning("The data pattern is &ldquo;@{[&escapeHTML($data)]}&rdquo;",
+	            " does not match pattern of type OWNER/DATASET.");
+	}
+    }
+
+    if ($errors)
+    {
+	print OUT "<p>Please resubmit the form with corrected information.</p>\n";
+	return;
+    }
+
+    foreach my $node (@dests) {
+	next if ! exists $destreqs{$node};
+	push (@dests, $destreqs{$node}) if (! grep ($_ eq $destreqs{$node}, @dests));
+    }
+
+    if (! param('confirm'))
+    {
+        print OUT "<p>",
+    	      "<form method='POST' action='@{[&baseurl()]}'>\n",
+	      "<input type='hidden' name='page' value='checknew' />\n",
+	      "<input type='hidden' name='db' value='$db' />\n",
+	      "<input type='hidden' name='reqname' value='", &escapeHTML($reqname), "' />",
+	      "<input type='hidden' name='email' value='", &escapeHTML($email), "' />",
+	      "<input type='hidden' name='dependencies' value='", &escapeHTML($dependencies), "' />",
+	      (map {("<input type='hidden' name='dest' value='", &escapeHTML($_), "' />")} @dests),
+	      "<input type='hidden' name='data' value='", &escapeHTML(join(" ", @data)), "' />",
+
+              "<table class='striped'>\n",
+	      " <tr class='selected'><th colspan='4'>Confirm a new request</th></tr>\n",
+	      " <tr valign='top'>\n",
+	      "  <td>Request name</td>\n",
+	      "  <td colspan='3'>", &escapeHTML($reqname), "</td>\n",
+	      " </tr>\n",
+	      " <tr valign='top'>\n",
+	      "  <td>Requestor e-mail</td>\n",
+	      "  <td colspan='3'>", (map { &escapeHTML($_) . "<br />" } @emails), "</td>\n",
+	      " </tr>\n",
+ 	      " <tr valign='top'>\n",
+	      "  <td>Include dependencies</td>\n",
+	      "  <td colspan='3'>", &escapeHTML($dependencies), "</td>\n",
+	      " </tr>\n",
+ 	      " <tr valign='top'>\n",
+	      "  <td>Destinations</td>\n",
+	      "  <td>\n", (map { "$_<br />" } sort grep (/^T1_/, @dests)), "</td>\n",
+	      "  <td>\n", (map { "$_<br />" } sort grep (/^T2_/, @dests)), "</td>\n",
+	      "  <td>\n", (map { "$_<br />" } sort grep (! /^T[12]_/, @dests)), "</td>\n",
+   	      " </tr>\n",
+	      " <tr valign='top'>\n",
+	      "  <td>Owner/datasets</td>\n",
+	      "  <td colspan='3'>", (map { &escapeHTML($_) . "<br />" } @data), "</td>\n",
+	      " </tr>\n",
+	      " <tr>\n",
+	      "  <td colspan='4' align='center'>",
+	      submit('confirm', 'Confirm Request'),
+	      "</td>\n",
+	      " </tr>\n",
+	      "</table>\n",
+	      "</form>\n",
+	      "</p>\n";
+    }
+    else
+    {
+	my $now = time();
+	my ($prefix) = ($reqname =~ m|^(\d\d\d\d-\d\d)|);
+	my $replyto = join(", ", @emails, 'cms-phedex-admins@cern.ch');
+	my $dep = ($dependencies eq 'Yes' ? "-f" : "-p");
+	my $mail = ""
+	    . "Subject: TRANSFER REQUEST $reqname\n"
+	    . "From: PhEDEx Request Form <phedex.admin\@cern.ch>\n"
+	    . "To: cms-phedex-admins\@cern.ch\n"
+	    . "Reply-To: $replyto\n"
+	    . "\n"
+	    . "Greetings.  The following transfer request has been filed.\n"
+	    . "Please notify the contact people when the request has been\n"
+	    . "processed in full.  Thank you.\n"
+	    . "\n"
+	    . "  * Name: $reqname\n"
+	    . "  * Database: $$databases{$db}[3]\n"
+	    . "  * Contacts:\n"
+	    . join("", map { "     $_\n" } @emails)
+	    . "  * Destinations:\n"
+	    . join("", map { "     $_\n" } @dests)
+	    . "  * Data:\n"
+	    . join("", map { "     $_\n" } @data)
+	    . "\n"
+	    . "===================================================\n"
+	    . "===== Please remove everything below when replying!\n"
+	    . "\n"
+	    . "Commands to process this request:\n"
+	    . "\n"
+	    . "mkdir -p $prefix\n"
+	    . "\$TRTOOLS/TRNew $prefix/$reqname\n"
+	    . "\$TRTOOLS/TRNewDatabase $prefix/$reqname $$databases{$db}[3]\n"
+	    . "\$TRTOOLS/TRNewContact $prefix/$reqname \\\n  "
+	    .   join (" \\\n  ", map { "'$_'" } @emails) . "\n"
+	    . "\$TRTOOLS/TRNewLoc $prefix/$reqname \\\n  @dests\n"
+	    . "\$TRTOOLS/TRNewData $dep $prefix/$reqname \\\n  "
+	    .   join (" \\\n  ", map { "'$_'" } @data) . "\n"
+	    . "\n"
+	    . "Submission information:\n"
+	    . "  * User agent: @{[user_agent()]}\n"
+	    . "  * Remote host: @{[remote_host()]}\n"
+	    . "  * Referrer: @{[referer()]}\n"
+	    . "  * Server name: @{[server_name()]}\n"
+	    . "  * Virtual host: @{[virtual_host()]}\n"
+	    . "  * Server port: @{[server_port()]}\n"
+	    . "  * Server software: @{[server_software()]}\n"
+	    . "  * Request method: @{[request_method()]}\n"
+	    . "  * Content type: @{[content_type()]}\n"
+	    . "\n"
+	    . "Yours truly,\n"
+	    . "  PhEDEx data subscription web form\n";
+
+	(open (MAIL, "| /usr/sbin/sendmail -t")
+	 && (print MAIL $mail) && close (MAIL))
+	    or do { alert("Failed to send mail: $!."); return; };
+
+        print OUT "<p>",
+              "<table class='striped'>\n",
+	      " <tr class='selected'><th colspan='4'>Request sent!</th></tr>\n",
+	      " <tr valign='top'>\n",
+	      "  <td>Request name</td>\n",
+	      "  <td colspan='3'>", &escapeHTML($reqname), "</td>\n",
+	      " </tr>\n",
+	      " <tr valign='top'>\n",
+	      "  <td>Requestor e-mail</td>\n",
+	      "  <td colspan='3'>", &escapeHTML($email), "</td>\n",
+	      " </tr>\n",
+	      " <tr valign='top'>\n",
+	      "  <td>Include dependencies</td>\n",
+	      "  <td colspan='3'>", &escapeHTML($dependencies), "</td>\n",
+	      " </tr>\n",
+	      " <tr valign='top'>\n",
+	      "  <td>Destinations</td>\n",
+	      "  <td>\n", (map { "$_<br />" } grep (/^T1_/, @dests)), "</td>\n",
+	      "  <td>\n", (map { "$_<br />" } grep (/^T2_/, @dests)), "</td>\n",
+	      "  <td>\n", (map { "$_<br />" } grep (! /^T[12]_/, @dests)), "</td>\n",
+	      " </tr>\n",
+	      " <tr valign='top'>\n",
+	      "  <td>Owner/datasets</td>\n",
+	      "  <td colspan='3'>", (map { &escapeHTML($_) . "<br />" } @data), "</td>\n",
+	      " </tr>\n",
+	      "</table>\n",
+	      "</p>\n";
+    }
+}
+
+sub format_num {
+    my ($n) = @_;
+    return $n ? "$n" : '&#8211;';
+}
+
+sub format_size {
+    my ($bytes, $nodash) = @_;
+    my @bounds = ([ 2**10, 'k' ], [ 2**20, 'M' ], [ 2**30, 'G' ],
+		  [ 2**40, 'T' ], [ 2**50, 'P' ], [ 2**60, 'E' ]);
+    my ($val, $unit) = ($bytes, '');
+    while (@bounds && $bytes >= $bounds [0][0])
+    {
+	$val = $bytes / $bounds[0][0];
+	$unit = $bounds[0][1];
+	shift (@bounds);
+    }
+
+    return $bytes || $nodash ? sprintf('%.1f&nbsp;%sB', $val, $unit) : '&#8211;';
+}
+
+1;
