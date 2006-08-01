@@ -281,22 +281,52 @@ ul#navmain li a.selected {
   margin-bottom:	0;
 }
 
-div.alert {
-  margin:		1em;
-  padding:		1em;
+div.alertbox, div.alert {
   padding-bottom:	0;
   background-color:	#FFF0F5;
   border:		1px solid #DC143C;
   text-align:		left;
 }
 
-div.warning {
+div.alert {
   margin:		1em;
   padding:		1em;
+}
+
+div.alertbox {
+  padding:		.5em;
+}
+
+div.warningbox, div.warning {
   padding-bottom:	0;
   background-color:	#edf3fe;
   border:		1px solid #3d80df;
   text-align:		left;
+}
+
+div.warning {
+  margin:		1em;
+  padding:		1em;
+}
+
+div.warningbox {
+  padding:		.5em;
+}
+
+div.notebox, div.note {
+  padding-bottom:	0;
+  background-color:	#e4f1db; 
+  border:		1px solid #32a804;
+  text-align:		left;
+}
+
+div.note {
+  margin:		1em;
+  padding:		1em;
+}
+
+div.notebox {
+  padding:		.5em;
 }
 
 /**********************************************************************/
