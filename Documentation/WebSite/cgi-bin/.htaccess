@@ -1,0 +1,12 @@
+<FilesMatch "^requests$">
+  # Options +ExecCGI
+  # PerlRequire /Users/lat/Sites/test/cgisetup
+  # PerlHandler Apache::Registry
+  # SetHandler perl-script
+
+  # SSLRequireSSL
+  SSLVerifyDepth 1
+  SSLVerifyClient optional_no_ca
+  SSLOptions +StdEnvVars +StrictRequire
+  SSLRequire %{SSL_CIPHER_USEKEYSIZE} >= 128
+</FilesMatch>
