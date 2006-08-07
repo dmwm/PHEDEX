@@ -1225,6 +1225,7 @@ sub rateplot
     	  "<input type='submit' value='Update'></form></p>\n";
 
     my ($last, $unit) = $plots{$plot}[0] =~ /([^:]+)/g;
+    $last++ if ($last && $graph eq 'cumulative');
     my $suffix = ($graph eq 'cumulative' ? '-line' : '');
     my $home = ""; #"http://cmsdoc.cern.ch/cms/aprom/phedex/cgi-bin/";
     my $kind = ($page eq 'pplot' ? 'pending'
