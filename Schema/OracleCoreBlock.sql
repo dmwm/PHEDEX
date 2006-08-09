@@ -11,6 +11,7 @@ create sequence seq_dps_block;
 create table t_dps_dbs
   (id			integer		not null,
    name			varchar (1000)	not null,
+   dls			varchar (1000),
    time_create		float		not null);
 
 create table t_dps_dataset
