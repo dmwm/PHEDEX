@@ -168,12 +168,14 @@ while (@$info)
     my ($dbs) = grep ($$_{NAME} eq $$dbsattrs{'name'}, @$all_dbs);
     if (! $dbs)
     {
-	push(@$all_dbs, $dbs = { ID => undef, NAME => $$dbsattrs{'name'} });
+	push(@$all_dbs, $dbs = { ID => undef, NAME => $$dbsattrs{'name'},
+				 DLS => $$dbsattrs{'dls'}});
 	&dbexec ($dbh, qq{
-	    insert into t_dps_dbs (id, name, time_create)
-	    values (seq_dps_dbs.nextval, :name, :now)
+	    insert into t_dps_dbs (id, name, dls, time_create)
+	    values (seq_dps_dbs.nextval, :name, :dls, :now)
 	    returning id into :id},
-	    ":name" => $$dbs{NAME}, ":id" => \$$dbs{ID}, ":now" => $now);
+	    ":name" => $$dbs{NAME}, ":dls" => $$dbs{DLS},
+	    ":id" => \$$dbs{ID}, ":now" => $now);
     }
 
     # Now process all datasets inside this dbs
