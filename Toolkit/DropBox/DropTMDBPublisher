@@ -87,16 +87,47 @@ sub processDrop
 
     # Locate file description XML file and load node list.
     my @nodes = split(/\s+/, &input ("$dropdir/PhEDEx-Nodes.txt") || $$self{MYNODE});
-    my $filedata = (<$dropdir/*.{txt,xml}>)[0];
+    my @options = split(/\s+/, &input ("$dropdir/Options.txt") || "");
+    my $filedata = (<$dropdir/*.xml>)[0];
     do { &alert("$drop: no catalogue"); $self->markBad ($drop); return }
         if ! $filedata;
+
+    # Parse options.
+    my $strict = 1;
+    my $verbose = 1;
+    foreach my $opt (@options)
+    {
+	if ($opt eq '!strict')
+	{
+	    $strict = 0;
+	}
+	elsif ($opt eq 'strict')
+	{
+	    $strict = 1;
+	}
+	elsif ($opt eq '!verbose')
+	{
+	    $verbose = 0;
+	}
+	elsif ($opt eq 'verbose')
+	{
+	    $verbose = 1;
+	}
+	else
+	{
+	    &alert("$drop: unrecognised option '$opt'");
+	    $self->markBad ($drop);
+	    return;
+	}
+    }
 
     # Run publish.  This is actually done by a helper program shared
     # with other tools, so we don't repeat the code here.
     my $toolhome = $0; $toolhome =~ s|/[^/]*$||; $toolhome .= "/../..";
     my @cmd = ("$toolhome/Toolkit/Request/TMDBInject",
                "-db", $$self{DBCONFIG},
-	       "-strict", "-verbose",
+	       ($strict ? "-strict" : ()),
+	       ($verbose ? "-verbose" : ()),
 	       "-filedata", $filedata,
 	       "-nodes", join(",", @nodes));
 
