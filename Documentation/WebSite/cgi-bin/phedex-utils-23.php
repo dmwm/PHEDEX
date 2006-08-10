@@ -42,7 +42,7 @@ function readCSVData($filename, $xbin, $tail, $upto, $compact, $args)
 	break;
 
       // We are about to add a new bin, if we have too many, drop
-      if (isset($tail) && $tail && count($bins) >= $tail-1)
+      if (isset($tail) && $tail && count($bins) >= $tail)
 	array_shift($bins);
 
       // Process the last bin
