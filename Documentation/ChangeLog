@@ -1,3 +1,37 @@
+* Changes in PhEDEx 2.3.11
+
+ General changes:
+  - Added documentation to run in the LCG VOBOX environment.
+  - Obsolete DropMTCCPublisher updated from last used version.
+  - DropTMDBPublisher now takes "Options.txt" in the drop, which
+    can include "strict", "!strict", "verbose", "!verbose" options
+    to TMDBInject.  DropTMDBPublisher now requires the file data
+    file name to end in .xml (previously .xml and .txt).
+  - TMDBInject now adds the DLS attribute for a DBS.
+  - FileRouter routing threshold increased from 1 TB to 5 TB.
+    The transfer expire time is now automatically extended by two
+    hours on links performing well enough.  That is, the transfers
+    expire at the set limit only if there is no recent progress.
+  - Added a missing table name alias in BlockActivate.
+  - NodeNew now only creates new nodes.  New NodeRemove.
+  - LinkNew, LinkRemove are new tools to administer links.
+  - FileDeleteTMDB is a first adaptation of Brian Bockelman's
+    retransfer tools.  More integration will follow.
+
+ Web site changes:
+  - Preliminary work on updated transfer request handling.
+  - Infrastructure for future web site changes.
+  - Better coexistence of multiple schema versions.
+  - Cumulative transfer plots match better transfer rate page.
+  - Considerably reduced memory usage in the PHP scripts.
+  - Bugs fixed for TTF font handling for newer web servers.
+
+ Schema changes:
+  - t_dps_dbs table now includes DLS contact as well.
+  - Preliminary work on updated transfer requests (t_req_*).
+  - Preliminary work on administrative tables (t_adm_*).
+  - Various typo and interference fixes in *.sql files.
+
 * Changes in PhEDEx 2.3.10
 
  General changes:

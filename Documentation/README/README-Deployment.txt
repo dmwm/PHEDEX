@@ -78,8 +78,8 @@ your site is "TX_FOO_Buffer" (and possibly "TX_FOO_MSS").
   $sw/aptinstaller.sh -path $sw setup
   eval `$sw/aptinstaller.sh -path $sw config -sh`
   apt-get update
-  apt-get install cms+PHEDEX+PHEDEX_2_3_10
-  rm -f PHEDEX; ln -s $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_3_10 PHEDEX
+  apt-get install cms+PHEDEX+PHEDEX_2_3_11
+  rm -f PHEDEX; ln -s $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_3_11 PHEDEX
 
 *** Get site configuration
 
@@ -94,7 +94,7 @@ your site is "TX_FOO_Buffer" (and possibly "TX_FOO_MSS").
 The RPMs include environment setup scripts you should use to prepare
 your environment.  You will invoke the scripts from your site "Config"
 as will be explained below.  If you used the commands above, use:
-  source $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_3_10/etc/profile.d/env.sh
+  source $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_3_11/etc/profile.d/env.sh
 
 You should verify the following environment variables are set correctly:
 
