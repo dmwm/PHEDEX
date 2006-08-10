@@ -7,6 +7,6 @@
   # SSLRequireSSL
   SSLVerifyDepth 1
   SSLVerifyClient optional_no_ca
-  SSLOptions +StdEnvVars +StrictRequire
+  SSLOptions +StdEnvVars +StrictRequire +ExportCertData
   SSLRequire %{SSL_CIPHER_USEKEYSIZE} >= 128
 </FilesMatch>
