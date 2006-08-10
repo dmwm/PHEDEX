@@ -15,8 +15,6 @@
   - Added a missing table name alias in BlockActivate.
   - NodeNew now only creates new nodes.  New NodeRemove.
   - LinkNew, LinkRemove are new tools to administer links.
-  - FileDeleteTMDB is a first adaptation of Brian Bockelman's
-    retransfer tools.  More integration will follow.
 
  Web site changes:
   - Preliminary work on updated transfer request handling.
