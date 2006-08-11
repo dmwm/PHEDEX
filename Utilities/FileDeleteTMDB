@@ -14,6 +14,7 @@
 ##H   PFNS       is either a ASCII file containing a list of PFNs to remove or
 ##H              a comma separated list of PFNs
 ##H   NODENAME   is the name of the node for which you wish to delete files
+##H              (optional)
 ##H
 
 BEGIN {
@@ -41,11 +42,13 @@ if (!$args{DBCONFIG} || !$args{STORAGEMAP} || !$args{FILELIST})
     die "Insufficient parameters, use -h for help.\n";
 }
 
-my $dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
+our $dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
 my $now = &mytimeofday();
 my $pfnref = [];
+my @tables = &setTableList ($args{NODE});
 
-# Get PFNs, derive LFNs and issue a delete for them
+
+# Get list of files
 if ( -e $args{FILELIST} )
 {
     $pfnref = &getPFNList($args{FILELIST});
@@ -55,8 +58,10 @@ else
     $pfnref = [ $args{FILELIST} ];
 }
 
+# Derive LFN and start purging the DB
 my $lfnref = &lfnLookup ($pfnref, 'direct', 'any', $args{STORAGEMAP});
-my $stats = &deleteLFNs ($lfnref, $dbh, $args{NODE});
+&lockTables (@tables);
+my $stats = &deleteLFNs ($lfnref, $dbh, $args{NODE}, @tables);
 
 # commit and exit
 $dbh->commit();
@@ -64,12 +69,39 @@ $dbh->disconnect();
 
 # Some statistics
 print "\nSUMMARY\n";
-print "unresolvable PFNs:    $$stats{NOLFN}\n";
-print "skipped unknown LFNs: $$stats{SKIPPED}\n";
-print "deleted LFNs:         $$stats{DELETED}\n";
+print "unresolvable PFNs: $$stats{NOLFN}\n";
+print "skipped LFNs:      $$stats{SKIPPED}\n";
+print "deleted LFNs:      $$stats{DELETED}\n";
 
 exit 0;
 
+
+
+# Define the tables to delete based on whether all files
+# or just the files at a site will be deleted
+sub setTableList
+{
+    my ( $node ) = @_;
+    my @tables = ();
+    
+    if ( $node )
+    {
+	@tables = ('t_xfer_state',
+		   't_xfer_replica',
+		   't_xfer_request',
+		   't_xfer_path');
+    }
+    else
+    {
+	@tables = ('t_xfer_state',
+		   't_xfer_replica',
+		   't_xfer_request',
+		   't_xfer_path',
+		   't_xfer_file',
+		   't_dps_file');
+    }    
+    return @tables;
+}
 
 # Gets PFNs from file list
 sub getPFNList
@@ -77,7 +109,7 @@ sub getPFNList
     my ( $file, $map ) = @_;
     my @PFNList;
 
-    open(IFILE, '<', "$file");
+    open(IFILE, '<', "$file") or die "Could not open $file";
     while (<IFILE>)
     {
 	chomp $_;
@@ -91,11 +123,11 @@ sub getPFNList
 # Deletes LFNs from TMDB
 sub deleteLFNs
 {
-    my ( $lfnref, $dbh, $nodename ) = @_;
+    my ( $lfnref, $dbh, $nodename, @tables ) = @_;
     my $stats = { DELETED => 0, SKIPPED => 0, NOLFN => 0 };
+    my $node = 0;
 
-
-    my $node = &getNodeID ($nodename) if $nodename;
+    $node = &getNodeID ($nodename) if $nodename;
     foreach my $pfn (keys %$lfnref)
     {
 	my $lfnname = $$lfnref{$pfn};
@@ -103,37 +135,86 @@ sub deleteLFNs
 	# Check if we have a mapped LFN, else skip it
 	if ( !$lfnname )
 	{
-	    print "no LFN found for PFN:\n$pfn\n";
+	    print "No LFN found for PFN:\n$pfn\n";
 	    $$stats{NOLFN} += 1;
 	    next;
 	}
-	# Check if we need to deal with that file at all
-	my $q = &dbexec($dbh, qq{
-	    select count(*) from t_dps_file where logical_name = :lfn},
-			     ":lfn" => $lfnname);
-	my ( $exists ) = $q->fetchrow();
+	
+	my $exists = &checkFileExistence ($lfnname, $node, $nodename);
 	if ( !$exists )
 	{
-	    print "LFN unknown to TMDB. Skipping LFN:\n$lfnname\n";
+	    print "Skipping LFN:\n$lfnname\n";
 	    $$stats{SKIPPED} += 1;
 	    next;
 	}
 	
 	my $lfn = &getLFNID ($lfnname);
-	&deleteAllTMDBEntries ($lfn) if !$nodename;
-	&deleteSiteTMDBEntries ($lfn, $node, $nodename) if $nodename;
+	&deleteAllTMDBEntries ($lfn, $lfnname, @tables) if !$nodename;
+	&deleteSiteTMDBEntries ($lfn, $lfnname, $node, $nodename, @tables)
+	    if $nodename;
 	$$stats{DELETED} += 1;
     }
 
-    # Update block statistics
+    # Update block statistics if necessary
     &dbexec($dbh, qq{
 	update t_dps_block b set (files, bytes) =
 	    (select count(f.id), sum(f.filesize)
-	     from t_dps_file f where f.inblock = b.id)});
-
+	     from t_dps_file f where f.inblock = b.id)})
+	if $stats{DELETED};
+    
     return $stats;
 }
 
+# Maybe there is nothing to do - check for files in TMDB
+sub checkFileExistence
+{
+    my ( $lfnname, $node, $nodename ) = @_;
+    my $lfn = &getLFNID ($lfnname);
+    
+    # Check if we need to deal with that file at all
+    my $q = &dbexec($dbh, qq{
+	select count(*) from t_dps_file where logical_name = :lfn},
+		    ":lfn" => $lfnname);
+    my ( $exists_TMDB ) = $q->fetchrow();
+    if ( !$exists_TMDB )
+    {
+	print "File unknown to TMDB\n";
+	return 0; # return false
+    }
+
+    # if want to delete from node only, check that the file is actually at that node
+    # and make sure, that the block wasn't collapsed. Re-enable it in this case.
+    if ( $node )
+    {
+	$q = &dbexec($dbh, qq{
+	    select dest_files, node_files from t_dps_block_replica where
+		node = :node and block in
+		(select inblock from t_dps_file where logical_name = :lfn)},
+		     ":node" => $node, ":lfn" => $lfnname);
+	my ( $dest_files, $node_files ) = $q->fetchrow();
+	
+	$q = &dbexec($dbh, qq{
+	    select count(*) from t_xfer_replica where
+		fileid = :lfn and node = :node},
+		     ":lfn" => $lfn, ":node" => $node);
+	my ( $exists_xfer_rep ) = $q->fetchrow();
+
+	if ( !$node_files || (!$exists_xfer_rep && ($dest_files != $node_files)) )
+	{
+	    print "File not at site $nodename\n";
+	    return 0; # return false
+	}
+	elsif ( !$exists_xfer_rep && ($dest_files == $node_files) )
+	{
+	    print "File at site $nodename, but file level informations not available\n";
+	    print "Reactivating file level info.... Please rerun this script\n";
+	    &enableBlock ($lfnname, $lfn, $node, $q);
+	}
+    }
+    return 1; # return true otherwise
+}
+
+# We need the same node ID very often - get it here
 sub getNodeID
 {
     my ( $nodename ) = @_;
@@ -145,10 +226,10 @@ sub getNodeID
     return $node;
 }
 
+# We also need the LFN ID in TMDB - derive it from the LFN string
 sub getLFNID
 {
     my ( $lfnname ) = @_;
-
     my $q = &dbexec($dbh, qq{
 	select id from t_dps_file where logical_name = :lfnname},
 		    ":lfnname" => $lfnname);
@@ -156,58 +237,88 @@ sub getLFNID
     return $lfn;
 }
 
-
-sub deleteAllTMDBEntries
+# Lock the tables we are about to modify
+sub lockTables
 {
-    my ( $lfn ) = @_;
-    
-    print "deleting: $lfn\n";
-    &dbexec($dbh, qq{
-	delete from t_xfer_state where fileid = :lfn},
-	    ":lfn" => $lfn);
-    &dbexec($dbh, qq{
-	delete from t_xfer_replica where fileid = :lfn},
-	    ":lfn" => $lfn);
-    &dbexec($dbh, qq{
-	delete from t_xfer_request where fileid = :lfn},
-	    ":lfn" => $lfn);
-    &dbexec($dbh, qq{
-	delete from t_xfer_path where fileid = :lfn},
-	    ":lfn" => $lfn);
-    
-    &dbexec($dbh, qq{
-	delete from t_xfer_file where id = :lfn},
-	    ":lfn" => $lfn);
-    &dbexec($dbh, qq{
-	delete from t_dps_file where id = :lfn},	
-	    ":lfn" => $lfn);
+    my ( @tables ) = @_;
+
+    foreach my $table ( @tables )
+    {
+	&dbexec($dbh, qq{
+	    select * from $table for update});
+    }
 }
 
+# ask for block to get reactivated - this is the last thing we do and
+# we ask the user to rerun the script at a later point
+sub enableBlock
+{
+    my ( $lfnname, $lfn, $node, $q ) = @_;
+    my $now = &mytimeofday ();
+    my $end = $now + 3600*24*5;
+    
+    # rollback all changes done so far
+    $dbh->rollback();
+    $q->finish();
+
+    $q = &dbexec($dbh, qq{
+	insert into t_dps_block_activate (block, time_request, time_until)
+	    select inblock, $now, $end from t_dps_file
+	    where id = :lfnname},":lfnname" => $lfn);
+    $dbh->commit();
+    $dbh->disconnect();
+    exit 0;
+}
+
+
+# Delete complete knowledge of a file in TMDB
+sub deleteAllTMDBEntries
+{
+    my ( $lfn, $lfnname, @tables ) = @_;
+    
+    print "deleting: $lfnname\n";
+    
+    foreach my $table ( @tables )
+    {
+	if ( $table eq 't_xfer_file' || $table eq 't_dps_file' )
+	{
+	    &dbexec($dbh, qq{
+		delete from $table where id = :lfn},
+		    ":lfn" => $lfn);
+	}
+	else
+	{
+	    &dbexec($dbh, qq{
+		delete from $table where fileid = :lfn},
+		    ":lfn" => $lfn);
+	}
+    }
+}
+
+
+# Delete replica informations for a file at a specified site
 sub deleteSiteTMDBEntries
 {
-    my ( $lfn, $node, $nodename ) = @_;
+    my ( $lfn, $lfnname, $node, $nodename, @tables ) = @_;
     
-    print "deleting: $lfn\nat node: $nodename\n";
+    print "deleting: $lfnname\nat node: $nodename\n";
 
-    &dbexec($dbh, qq{
-	delete from t_xfer_state where
-	    (from_node = :node or to_node = :node) and fileid = :lfn},
-	    ":lfn" => $lfn, ":node" => $node);
-    &dbexec($dbh, qq{
-	delete from t_xfer_replica where node = :node and fileid = :lfn},
-	    ":lfn" => $lfn, ":node" => $node);
-    &dbexec($dbh, qq{
-	delete from t_xfer_request where destination = :node fileid = :lfn},
-	    ":lfn" => $lfn, ":node" => $node);
-    &dbexec($dbh, qq{
-	delete from t_xfer_path where
-	    (from_node = :node or to_node = :node) and fileid = :lfn},
-	    ":lfn" => $lfn, ":node" => $node);
-    
-##    &dbexec($dbh, qq{
-##	delete from t_xfer_file where id = :lfn},
-##	    ":lfn" => $lfn);
-    &dbexec($dbh, qq{
-	delete from t_dps_file where id = :lfn and node = :node},	
-	    ":lfn" => $lfn);
+    foreach my $table ( @tables )
+    {
+	&dbexec($dbh, qq{
+	    delete from $table where
+		(from_node = :node or to_node = :node) and fileid = :lfn},
+		":lfn" => $lfn, ":node" => $node)
+	    if ( $table eq 't_xfer_state' or $table eq 't_xfer_path' );
+	&dbexec($dbh, qq{
+	    delete from $table where
+		node = :node and fileid = :lfn},
+		":lfn" => $lfn, ":node" => $node)
+	    if ( $table eq 't_xfer_replica' );
+	&dbexec($dbh, qq{
+	    delete from $table where
+		destination = :node and fileid = :lfn},
+		":lfn" => $lfn, ":node" => $node)
+	    if ( $table eq 't_xfer_request' );
+    }
 }
