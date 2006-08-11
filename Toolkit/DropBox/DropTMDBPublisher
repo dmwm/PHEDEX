@@ -44,7 +44,7 @@ use UtilsHelp;
              "next=s@"     => \@{$args{NEXTDIR}},
 	     "help|h"      => sub { &usage() });
 
-if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG})
+if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -85,16 +85,32 @@ sub processDrop
     # Prepare attribute cache for this drop
     my $dropdir = "$$self{WORKDIR}/$drop";
 
-    # Locate file description XML file and load node list.
-    my @nodes = split(/\s+/, &input ("$dropdir/PhEDEx-Nodes.txt") || $$self{MYNODE});
-    my @options = split(/\s+/, &input ("$dropdir/Options.txt") || "");
+    # Decide which nodes this is for
+    my @nodes = ();
+    if (-f "$dropdir/PhEDEx-Nodes.txt")
+    {
+        @nodes = split(/\s+/, &input ("$dropdir/PhEDEx-Nodes.txt") || '');
+        do { &alert("$drop: PhEDEx-Nodes.txt contained no nodes");
+	     $self->markBad ($drop); return }
+            if ! @nodes;
+    }
+    else
+    {
+        do { &alert("$drop: no PhEDEx-Nodes.txt and no -node argument");
+	     $self->markBad ($drop); return }
+            if ! $$self{MYNODE};
+	push(@nodes, $$self{MYNODE});
+    }
+
+    # Locate file description XML file.
     my $filedata = (<$dropdir/*.xml>)[0];
     do { &alert("$drop: no catalogue"); $self->markBad ($drop); return }
         if ! $filedata;
 
-    # Parse options.
+    # Load and parse additional options.
     my $strict = 1;
     my $verbose = 1;
+    my @options = split(/\s+/, &input ("$dropdir/Options.txt") || "");
     foreach my $opt (@options)
     {
 	if ($opt eq '!strict')
