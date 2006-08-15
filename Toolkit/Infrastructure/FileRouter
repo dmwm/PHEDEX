@@ -91,7 +91,8 @@ sub idle
 	# will reduce number of connections and database load
 	# significantly.
 
-	($dbh, @nodes) = &expandNodesAndConnect ($self, { "FileDownload" => 900 });
+	($dbh, @nodes) = &expandNodesAndConnect ($self,
+	    { "FileDownload" => 900, "FileExport" => 900 });
 
 	# Read links and their parameters.  Only consider links which
 	# are "alive", i.e. have a live download agent at destination
