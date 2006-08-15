@@ -17,7 +17,7 @@
 ##H
 ##H Usage:
 ##H   DropTMDBPublisher
-##H      -state DIRECTORY [-next DIRECTORY] -node NAME
+##H      -state DIRECTORY [-next DIRECTORY] [-node NAME]
 ##H      -db FILE[:SECTION] [-log OUT]
 ##H
 ##H -state     agent state directory, including inbox
