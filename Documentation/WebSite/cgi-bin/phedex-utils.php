@@ -2,7 +2,7 @@
 error_reporting(E_ALL);
 ini_set("max_execution_time", "120");
 ini_set("memory_limit", "64M");
-DEFINE ('TTF_DIR', BASE_PATH . "/fonts/");
+DEFINE ('TTF_DIR', "/afs/cern.ch/cms/sw/slc3_ia32_gcc323/lcg/root/5.12.00/root/fonts/");
 
 // Read CSV file contents into an array of arrays.
 function readCSV ($file, $delimiter)

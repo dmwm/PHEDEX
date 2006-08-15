@@ -2,7 +2,7 @@
 error_reporting(E_ALL);
 ini_set("max_execution_time", "120");
 ini_set("memory_limit", "96M");
-DEFINE ('TTF_DIR', BASE_PATH . "/fonts/");
+DEFINE ('TTF_DIR', "/afs/cern.ch/cms/sw/slc3_ia32_gcc323/lcg/root/5.12.00/root/fonts/");
 
 // Hack to fill in PHP 5 function...
 function stream_get_line ($fh, $len) { return trim(fgets($fh, $len)); }
