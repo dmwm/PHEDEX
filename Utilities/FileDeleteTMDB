@@ -3,18 +3,23 @@
 ##H Delete files from TMDB
 ##H
 ##H Usage:
-##H   FileDeleteTMDB -db DBCONFIG -storage STORAGEMAP -list PFNS [-node NODENAME]
+##H   FileDeleteTMDB -db DBCONFIG -storage STORAGEMAP -list PFNS -node NODENAME
+##H                  [-protocol PROTOCOL]
 ##H
 ##H Examples:
 ##H
 ##H   FileDeleteTMDB -db <path>/DBConfig:Dev/Admin -storage <path>/storage.xml
 ##H                  -list <path>/pfns_to_delete.txt -node T1_RAL_Buffer
+##H                  -node T1_FNAL_Buffer, T1_CNAF_Buffer
 ##H
 ##H   STORAGEMAP is the TFC XML file
-##H   PFNS       is either a ASCII file containing a list of PFNs to remove or
-##H              a comma separated list of PFNs
-##H   NODENAME   is the name of the node for which you wish to delete files
-##H              (optional)
+##H   PFNS       is either a ASCII file containing a list of PFNs/LFNs to remove or
+##H              a comma separated list of PFNs/LFNs.
+##H              The syntax is: pfn:<PFN> for a PFN; lfn:<LFN> for an LFN.
+##H   NODENAMES  is a comma separated list of nodes for which you wish to delete
+##H              files. Keyword 'all' will delete the file completely
+##H              
+##H   PROTOCOL   protocol used for resolving LFN via TFC. Defaults to 'direct'.
 ##H
 
 BEGIN {
@@ -30,38 +35,32 @@ use UtilsHelp;
 use UtilsDB;
 use UtilsCatalogue;
 use UtilsTiming;
+
+my %args = ( PROTOCOL => 'direct' );
 &GetOptions ("db=s"        => \$args{DBCONFIG},
 	     "storage=s"   => \$args{STORAGEMAP},
 	     "list=s"      => \$args{FILELIST},
-	     "node=s"      => \$args{NODE},
+	     "nodes=s"     => \$args{NODES},
+	     "protocol=s"  => \$args{PROTOCOL},
              "help|h"      => sub { &usage() });
 
 # Check arguments.
-if (!$args{DBCONFIG} || !$args{STORAGEMAP} || !$args{FILELIST})
+if (!$args{DBCONFIG} || !$args{STORAGEMAP} || !$args{FILELIST} || !$args{NODES})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
 
 our $dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
 my $now = &mytimeofday();
-my $pfnref = [];
-my @tables = &setTableList ($args{NODE});
+my $nodes = [ split m|,\s*|, $args{NODES} ];
+my $files = [ split m|,\s*|, $args{FILELIST} ];
+my $tables = &setTableList ($nodes);
 
-
-# Get list of files
-if ( -e $args{FILELIST} )
-{
-    $pfnref = &getPFNList($args{FILELIST});
-}
-else
-{
-    $pfnref = [ $args{FILELIST} ];
-}
-
-# Derive LFN and start purging the DB
-my $lfnref = &lfnLookup ($pfnref, 'direct', 'any', $args{STORAGEMAP});
-&lockTables (@tables);
-my $stats = &deleteLFNs ($lfnref, $dbh, $args{NODE}, @tables);
+# Get a list of LFNs from the input provied by user
+# lock tables if there is work to do and finally delete the LFNs
+my $lfns = &getFileList ($args{STORAGEMAP}, $args{PROTOCOL}, $files);
+&lockTables ($tables) if grep { defined $_ } @$lfns;
+my $stats = &deleteLFNs ($lfns, $dbh, $nodes, $tables);
 
 # commit and exit
 $dbh->commit();
@@ -69,10 +68,14 @@ $dbh->disconnect();
 
 # Some statistics
 print "\nSUMMARY\n";
-print "unresolvable PFNs: $$stats{NOLFN}\n";
-print "skipped LFNs:      $$stats{SKIPPED}\n";
-print "deleted LFNs:      $$stats{DELETED}\n";
-
+print "problematic input files: $$stats{NOLFN}\n";
+foreach my $node ( @$nodes )
+{
+    print "skipped files at node $node:  ${$stats{SKIPPED}{$node}}\n"
+	if defined ${$stats{SKIPPED}{$node}};
+    print "deleted files at node $node:  ${$stats{DELETED}{$node}}\n"
+	if defined ${$stats{DELETED}{$node}};
+}
 exit 0;
 
 
@@ -81,17 +84,10 @@ exit 0;
 # or just the files at a site will be deleted
 sub setTableList
 {
-    my ( $node ) = @_;
+    my ( $nodes ) = @_;
     my @tables = ();
     
-    if ( $node )
-    {
-	@tables = ('t_xfer_state',
-		   't_xfer_replica',
-		   't_xfer_request',
-		   't_xfer_path');
-    }
-    else
+    if ( $$nodes[0] eq 'all')
     {
 	@tables = ('t_xfer_state',
 		   't_xfer_replica',
@@ -99,68 +95,109 @@ sub setTableList
 		   't_xfer_path',
 		   't_xfer_file',
 		   't_dps_file');
-    }    
-    return @tables;
-}
-
-# Gets PFNs from file list
-sub getPFNList
-{
-    my ( $file, $map ) = @_;
-    my @PFNList;
-
-    open(IFILE, '<', "$file") or die "Could not open $file";
-    while (<IFILE>)
-    {
-	chomp $_;
-	push ( @PFNList,  $_ );
     }
-    
-    return \@PFNList;
+    else
+    {
+	@tables = ('t_xfer_state',
+		   't_xfer_replica',
+		   't_xfer_request',
+		   't_xfer_path');
+    }    
+    return \@tables;
 }
+
+# Do LFN transformation where necessary
+sub getFileList
+{
+    my ($storage, $protocol, $files ) = @_;
+    my $fileref = [];
+
+    if ( -e ${$files}[0] )
+    {
+	my @FileList = ();
+	open(IFILE, '<', "$file") or die "Could not open $file";
+	while (<IFILE>)
+	{
+	    chomp $_;
+	    push ( @FileList,  $_ );
+	}
+	$fileref = \@FileList;
+    }
+    else
+    {
+	$fileref = $files;
+    }
+
+    my @lfns = ();
+    map
+    {
+	if ( $_ =~ m|^pfn| )
+	{
+	    $_ =~ s|^pfn:||;
+	    my $lfn = &lfnLookup ($_, $protocol, 'any', $storage) || undef;
+	    print "Couldn't resolve LFN for file $_\n"
+		if !defined $lfn;
+	    
+	    push @lfns, $lfn;
+	}
+	elsif ( $_ =~ m|^lfn| )
+	{
+	    $_ =~ s|^lfn:||;
+	    push @lfns, $_;
+	}
+	else
+	{
+	    print "Unknown protocol for file $_\n";
+	    push @lfns, undef;
+	}
+    } @$fileref;    
+    return \@lfns;
+}
+
 
 
 # Deletes LFNs from TMDB
 sub deleteLFNs
 {
-    my ( $lfnref, $dbh, $nodename, @tables ) = @_;
-    my $stats = { DELETED => 0, SKIPPED => 0, NOLFN => 0 };
-    my $node = 0;
+    my ( $lfns, $dbh, $nodenames, $tables ) = @_;
+    my $stats = { DELETED => undef, SKIPPED => undef, NOLFN => 0 };
+    my $nodes = {};
 
-    $node = &getNodeID ($nodename) if $nodename;
-    foreach my $pfn (keys %$lfnref)
+    map {$$nodes{$_} = &getNodeID ($_)} @$nodenames;
+    foreach my $lfnname ( @$lfns )
     {
-	my $lfnname = $$lfnref{$pfn};
-	
 	# Check if we have a mapped LFN, else skip it
-	if ( !$lfnname )
+	if ( !defined $lfnname )
 	{
-	    print "No LFN found for PFN:\n$pfn\n";
 	    $$stats{NOLFN} += 1;
 	    next;
 	}
 	
-	my $exists = &checkFileExistence ($lfnname, $node, $nodename);
-	if ( !$exists )
+	foreach my $nodename ( keys %$nodes )
 	{
-	    print "Skipping LFN:\n$lfnname\n";
-	    $$stats{SKIPPED} += 1;
-	    next;
-	}
+	    my $exists = &checkFileExistence ($lfnname, $$nodes{$nodename}, $nodename);
+	    if ( !$exists )
+	    {
+		print "Skipping at node $nodename file with LFN: $lfnname\n";
+		${$stats{SKIPPED}{$nodename}} += 1;
+		next;
+	    }
 	
-	my $lfn = &getLFNID ($lfnname);
-	&deleteAllTMDBEntries ($lfn, $lfnname, @tables) if !$nodename;
-	&deleteSiteTMDBEntries ($lfn, $lfnname, $node, $nodename, @tables)
-	    if $nodename;
-	$$stats{DELETED} += 1;
+	    my $lfn = &getLFNID ($lfnname);
+	    &deleteAllTMDBEntries ($lfn, $lfnname, $tables)
+		if ( $nodename eq 'all' );
+	    &deleteSiteTMDBEntries ($lfn, $lfnname, $$nodes{$nodename}, $nodename, $tables)
+		if ( $nodename ne 'all' );
+	    ${$stats{DELETED}{$nodename}} += 1;
+	}
     }
 
     # Update block statistics if necessary
     &dbexec($dbh, qq{
 	update t_dps_block b set (files, bytes) =
-	    (select count(f.id), sum(f.filesize)
+	    (select NVL(count(f.id),0), NVL(sum(f.filesize),0)
 	     from t_dps_file f where f.inblock = b.id)})
-	if $stats{DELETED};
+	if grep defined $_, ( values %{$stats{DELETED}} );
     
     return $stats;
 }
@@ -182,9 +219,9 @@ sub checkFileExistence
 	return 0; # return false
     }
 
-    # if want to delete from node only, check that the file is actually at that node
+    # if want to delete from nodes only, check that the file is actually at that node
     # and make sure, that the block wasn't collapsed. Re-enable it in this case.
-    if ( $node )
+    if ( $nodename ne 'all' )
     {
 	$q = &dbexec($dbh, qq{
 	    select dest_files, node_files from t_dps_block_replica where
@@ -206,8 +243,8 @@ sub checkFileExistence
 	}
 	elsif ( !$exists_xfer_rep && ($dest_files == $node_files) )
 	{
-	    print "File at site $nodename, but file level informations not available\n";
-	    print "Reactivating file level info.... Please rerun this script\n";
+	    print "File at node $nodename, but file level informations not available\n";
+	    print "Reactivating file level info.... Please rerun this script in a few minutes\n";
 	    &enableBlock ($lfnname, $lfn, $node, $q);
 	}
     }
@@ -219,6 +256,7 @@ sub getNodeID
 {
     my ( $nodename ) = @_;
 
+    return undef if ( $nodename eq 'all' );
     my $q = &dbexec($dbh, qq{
 	select id from t_node where name = :nodename},
 		    ":nodename" => $nodename);
@@ -240,9 +278,9 @@ sub getLFNID
 # Lock the tables we are about to modify
 sub lockTables
 {
-    my ( @tables ) = @_;
+    my ( $tablesref ) = @_;
 
-    foreach my $table ( @tables )
+    foreach my $table ( @$tablesref )
     {
 	&dbexec($dbh, qq{
 	    select * from $table for update});
@@ -274,11 +312,11 @@ sub enableBlock
 # Delete complete knowledge of a file in TMDB
 sub deleteAllTMDBEntries
 {
-    my ( $lfn, $lfnname, @tables ) = @_;
+    my ( $lfn, $lfnname, $tables ) = @_;
     
     print "deleting: $lfnname\n";
     
-    foreach my $table ( @tables )
+    foreach my $table ( @$tables )
     {
 	if ( $table eq 't_xfer_file' || $table eq 't_dps_file' )
 	{
@@ -299,11 +337,11 @@ sub deleteAllTMDBEntries
 # Delete replica informations for a file at a specified site
 sub deleteSiteTMDBEntries
 {
-    my ( $lfn, $lfnname, $node, $nodename, @tables ) = @_;
+    my ( $lfn, $lfnname, $node, $nodename, $tables ) = @_;
     
-    print "deleting: $lfnname\nat node: $nodename\n";
+    print "deleting at node: $nodename file $lfnname\n";
 
-    foreach my $table ( @tables )
+    foreach my $table ( @$tables )
     {
 	&dbexec($dbh, qq{
 	    delete from $table where
