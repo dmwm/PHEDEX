@@ -1,3 +1,20 @@
+* Changes in PhEDEx 2.3.12
+
+ General changes:
+  - DropTDMBPublisher -node option is now optional.  If the agent is
+    started without the option and default node to inject files to,
+    the drops will be required to have a non-empty PhEDEx-Nodes.txt.
+    This prevents production system malfunction from registering
+    files for a wrong node in TMDB by accident.
+  - FileRouter now routes for nodes running just export agents but no
+    download agents.  This allows site to participate as a source.
+  - New FileDeleteTMDB for removing replicas and files from TMDB.
+    Includes many features from Brian Bockelman's retransfer tools.
+
+ Web site changes:
+  - PHP scripts now hard code TTF font file path to avoid issues when
+    the AFS web site is automatically recreated from CVS.
+
 * Changes in PhEDEx 2.3.11
 
  General changes:
