@@ -137,7 +137,10 @@ sub idle
 		delete from t_xfer_replica where fileid in
 		(select id from t_xfer_file where inblock = :block)},
 		":block" => $id);
-
+	    &dbexec ($dbh, qq{
+		delete from t_xfer_file where inblock = :block},
+		     ":block" => $id);
+	    
 	    if ($nr != $nfr)
 	    {
 		&alert ("deactivating $name deleted $nr file replicas,"
