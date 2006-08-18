@@ -4,7 +4,7 @@
 ##H
 ##H Usage:
 ##H   FileDeleteTMDB -db DBCONFIG -storage STORAGEMAP -list FILES
-##H                  -node NODENAME [-protocol PROTOCOL] [-f]
+##H                  -node NODENAME [-protocol PROTOCOL] [-f] [-l]
 ##H
 ##H Examples:
 ##H
@@ -27,9 +27,10 @@
 ##H
 ##H   SWITCHES
 ##H         -h   invoke this help text
-##H         -f   delete the file also physically. This is DANGEROUS and DISENCOURAGED !
+##H         -f   delete the file also physically. This is DANGEROUS and DISCOURAGED !
 ##H              PFN is derived from the TFC using PROTOCOL and a corresponding delete
 ##H              command is issued.
+##H         -l   explicitly lock tables before modification; default is transaction
 ##H
 
 BEGIN {
@@ -54,6 +55,7 @@ my %args = ( PROTOCOL => 'direct' );
 	     "nodes=s"     => \$args{NODES},
 	     "protocol=s"  => \$args{PROTOCOL},
 	     "f"           => \$args{RMDISK},
+	     "l"           => \$args{LOCKT},
              "help|h"      => sub { &usage() });
 
 # Check arguments.
@@ -70,10 +72,9 @@ my $files = [ split m|,\s*|, $args{FILELIST} ];
 my $tables = &setTableList ($nodes);
 
 # Get a list of LFNs from the input provided by the user
-# lock tables if there is work to do and finally delete the LFNs
+# finally delete the LFNs
 my $lfns = &getFileList ($args{STORAGEMAP}, $args{PROTOCOL}, $files);
-&lockTables ($tables) if grep { defined $_ } (keys %$lfns);
-my $stats = &deleteLFNs ($lfns, $dbh, $nodes, $tables, $args{RMDISK});
+my $stats = &deleteLFNs ($lfns, $dbh, $nodes, $tables, $args{RMDISK}, $args{LOCKT});
 
 
 # commit and exit
@@ -93,10 +94,10 @@ foreach my $node (keys %nodenames )
 {
     print "skipped copies at node $node:         ${$stats{SKIPPED}{$node}}\n"
 	if defined ${$stats{SKIPPED}{$node}};
-    print "deleted copies at node $node:         ${$stats{DELETED}{$node}}\n"
-	if defined ${$stats{DELETED}{$node}};
-    print "deleted physical files at node $node: ${$stats{REMOVED}{$node}}\n"
-	if defined ${$stats{REMOVED}{$node}};
+    print "deleted copies at node $node:         ${$stats{DEL_DB}{$node}}\n"
+	if defined ${$stats{DEL_DB}{$node}};
+    print "deleted physical files at node $node: ${$stats{DEL_DISK}{$node}}\n"
+	if defined ${$stats{DEL_DISK}{$node}};
 }
 exit 0;
 
@@ -210,8 +211,8 @@ sub getLFNsFromBlock
 # Deletes LFNs from TMDB
 sub deleteLFNs
 {
-    my ( $lfns, $dbh, $nodenames, $tables, $rm ) = @_;
-    my $stats = { DELETED => undef, REMOVED => undef, SKIPPED => undef,
+    my ( $lfns, $dbh, $nodenames, $tables, $rm, $lock ) = @_;
+    my $stats = { DEL_DB => undef, DEL_DISK => undef, SKIPPED => undef,
 		  NOLFN => 0, NOTMDB => 0 };
 
     my $nodes = &getNodeID ($nodenames);
@@ -231,6 +232,7 @@ sub deleteLFNs
 	    next;
 	}
 
+	# now at node level check for file existence and start purging the tables
 	foreach my $nodename ( keys %$nodes )
 	{
 	    my $exists = &checkFileExistence ($lfnname, $$nodes{$nodename}, $nodename);
@@ -240,14 +242,16 @@ sub deleteLFNs
 		${$stats{SKIPPED}{$nodename}} += 1;
 		next;
 	    }
-	
+	    # do the locking only once - if at all
+	    &lockTables ($tables) if $lock &&
+		!( grep ${$stats{DEL_DB}{$_}}, ( keys %{$stats{DEL_DB}}) );
 	    my $lfn = &getLFNID ($lfnname);
 	    &deleteAllTMDBEntries ($lfn, $lfnname, $tables)
 		if ( $nodename eq 'all' );
 	    &deleteSiteTMDBEntries ($lfn, $lfnname, $$nodes{$nodename}, $nodename, $tables)
 		if ( $nodename ne 'all' );
-	    ${$stats{REMOVED}{$nodename}} += 1 if ( $rm && &deletePhysicalFile ($lfns) );
-	    ${$stats{DELETED}{$nodename}} += 1;
+	    ${$stats{DEL_DISK}{$nodename}} += 1 if ( $rm && &deletePhysicalFile ($lfns) );
+	    ${$stats{DEL_DB}{$nodename}} += 1;
 	}
     }
 
@@ -256,7 +260,7 @@ sub deleteLFNs
 	update t_dps_block b set (files, bytes) =
 	    (select NVL(count(f.id),0), NVL(sum(f.filesize),0)
 	     from t_dps_file f where f.inblock = b.id)})
-	if grep $_, ( values %{$stats{DELETED}} );
+	if grep $_, ( values %{$stats{DEL_DB}} );
     
     return $stats;
 }
