@@ -30,7 +30,6 @@
 ##H         -f   delete the file also physically. This is DANGEROUS and DISCOURAGED !
 ##H              PFN is derived from the TFC using PROTOCOL and a corresponding delete
 ##H              command is issued.
-##H         -l   explicitly lock tables before modification; default is transaction
 ##H
 
 BEGIN {
@@ -55,9 +54,7 @@ my %args = ( PROTOCOL => 'direct' );
 	     "nodes=s"     => \$args{NODES},
 	     "protocol=s"  => \$args{PROTOCOL},
 	     "f"           => \$args{RMDISK},
-	     "l"           => \$args{LOCKT},
              "help|h"      => sub { &usage() });
-
 # Check arguments.
 if (!$args{DBCONFIG} || !$args{STORAGEMAP} ||
     !$args{FILELIST} || !$args{NODES})
@@ -74,7 +71,7 @@ my $tables = &setTableList ($nodes);
 # Get a list of LFNs from the input provided by the user
 # finally delete the LFNs
 my $lfns = &getFileList ($args{STORAGEMAP}, $args{PROTOCOL}, $files);
-my $stats = &deleteLFNs ($lfns, $dbh, $nodes, $tables, $args{RMDISK}, $args{LOCKT});
+my $stats = &deleteLFNs ($lfns, $dbh, $nodes, $tables, $args{RMDISK});
 
 
 # commit and exit
@@ -231,8 +228,11 @@ sub deleteLFNs
 	    $$stats{NOTMDB} += 1;
 	    next;
 	}
-
-	# now at node level check for file existence and start purging the tables
+	# Get the ID for each LFN and lock the corresponding rows in the tables
+	my $lfn = &getLFNID ($lfnname);
+	&lockTables ($tables, $lfn);
+	
+	# now at node level check for file existence and start purging those tables
 	foreach my $nodename ( keys %$nodes )
 	{
 	    my $exists = &checkFileExistence ($lfnname, $$nodes{$nodename}, $nodename);
@@ -242,10 +242,7 @@ sub deleteLFNs
 		${$stats{SKIPPED}{$nodename}} += 1;
 		next;
 	    }
-	    # do the locking only once - if at all
-	    &lockTables ($tables) if $lock &&
-		!( grep ${$stats{DEL_DB}{$_}}, ( keys %{$stats{DEL_DB}}) );
-	    my $lfn = &getLFNID ($lfnname);
+
 	    &deleteAllTMDBEntries ($lfn, $lfnname, $tables)
 		if ( $nodename eq 'all' );
 	    &deleteSiteTMDBEntries ($lfn, $lfnname, $$nodes{$nodename}, $nodename, $tables)
@@ -368,12 +365,22 @@ sub getLFNID
 # Lock the tables we are about to modify
 sub lockTables
 {
-    my ( $tablesref ) = @_;
+    my ( $tablesref, $lfn ) = @_;
 
     foreach my $table ( @$tablesref )
     {
-	&dbexec($dbh, qq{
-	    select * from $table for update});
+	if ( $table eq 't_xfer_file' || $table eq 't_dps_file' )
+	{
+	    &dbexec($dbh, qq{
+		select *  from $table where id = :lfn for update},
+		    ":lfn" => $lfn);
+	}
+	else
+	{
+	    &dbexec($dbh, qq{
+		select * from $table where fileid = :lfn for update},
+		    ":lfn" => $lfn);
+	}
     }
 }
 
