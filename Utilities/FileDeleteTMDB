@@ -139,7 +139,7 @@ sub getFileList
 	while (<IFILE>)
 	{
 	    chomp $_;
-	    push ( @FileList,  $_ );
+	    push ( @FileList,  $_ ) if (length $_ > 0);
 	}
 	$fileref = \@FileList;
     }
