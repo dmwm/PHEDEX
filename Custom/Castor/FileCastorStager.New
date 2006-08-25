@@ -210,8 +210,13 @@ sub getStagerFiles
 	    next if ! /^(\S+)\s+\d+\@\S+\s+(\S+)$/;
 	    do { &alert ("stager_qry output unrecognised file $1"); next }
 	        if ! exists $pfn2f{$1};
-	    $pfn2f{$1}{STATUS} = $2;
-	    $$self{STAGE_CACHE}{$1} = { TIME => time(), VALUE => $2 };
+	    my $status = $2;
+	    if ($status && grep($status eq $_, qw(CANBEMIGR WAITINGMIGR BEINGMIGR)))
+	    {
+	        $status = "STAGED";
+	    }
+	    $pfn2f{$1}{STATUS} = $status;
+	    $$self{STAGE_CACHE}{$1} = { TIME => time(), VALUE => $status };
 	}
 	close (QRY);
     }
