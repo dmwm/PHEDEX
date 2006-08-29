@@ -1,0 +1,201 @@
+#!/usr/bin/env perl
+
+my %args = (OUTPUT => '&STDOUT', DBS => 'LoadTest');
+use Getopt::Long;
+
+&GetOptions("help|h"       => \$args{HELP},
+	    "input=s"      => \$args{INPUT},      # input dir or ASCII list with files to creat drop
+	    "dataset=s"    => \$args{DATASET},    # dataset name for the set of files
+	    "block=s"      => \$args{BLOCK},      # block name for the set of files
+            "dbsname=s"    => \$args{DBS},        # DBS identifier, default: T0-Export
+	    "output=s"     => \$args{OUTPUT},     # XMLfile or drop dir; default STDOUT
+	    );
+
+
+if ( $args{HELP} || !$args{INPUT} || !$args{DATASET} || !$args{BLOCK} )
+{
+    print "Usage information:\n";
+    print "DropGenerator [-h] -input <DIR|FILE> -dataset <DATASET> -block <BLOCK> ".
+	"[-output <OUTPUTFILE|DROPDIR>]\n\n";    
+    print "-input:         input dir with files to creat drop for or ".
+	"file containing meta informations\n";    
+    print "-dataset:       dataset name for the set of files\n";    
+    print "-block:         block name for the set of files\n";    
+    print "-dbsname:       DBS identifier (default T0-Export)\n";    
+    print "-output:        path to dropdir or path and name of XML file (default STDOUT)\n";    
+    print "-help:          this help text\n\n";
+    exit 10;
+}
+
+# Analyze the inpout dir and return the meta info for each file if we
+# are in dir mode. Use the provided file directly, if we get a file as
+# input
+
+my $error = undef;
+my $fileref = undef;
+
+if ( -d $args{INPUT})
+{
+    $fileref = &getDirMetaData($args{INPUT});
+}
+elsif ( -f $args{INPUT})
+{
+    $fileref = &getFileMetaData($args{INPUT});
+}
+else
+{
+    $fileref = &getOptionMetaData($args{INPUT});
+}
+
+# Create the dropdir, if we deal with a dir as output
+my $now = time();
+my $output = $args{OUTPUT};
+$output = "$args{OUTPUT}/drop.$now" if ( -d $args{OUTPUT} );
+
+$error = eval { mkdir $output; return $@ } if ( -d $args{OUTPUT} );
+die "Drop dir creation failed !! Reason was:\n$error" if $error;
+
+# Generate XML fragment for drop box in Output dir
+$error = &XMLFragGen($output, $args{DATASET}, $args{BLOCK}, $args{DBS}, $fileref) if $fileref;
+die "XML fragment could not be generated. Reason was:\n$error" if $error;
+
+# mark the drop ready to go in case of a dropdir
+$error = eval { system( "touch $output/go" ); return $@ } if ( -d $output && !$error );
+die "Couldn't create go flag for drop dir $output ! Reason was:\n$error" if $error;
+
+exit 0;
+
+
+###############
+# Subroutines #
+###############
+
+sub getOptionMetaData
+{
+    my ( $string ) = @_;
+    my ( $pfn, $size, $cksum ) = split( m|,|, $string);
+    my %metainfo;
+
+    # this is a hack to transform the PFN to a LFN which can be used
+    # by PhEDEx. The conversion is hardcoded !!
+
+    my $LFN = $pfn; $LFN =~ s|.*castor/cern.ch/cms/|/|;
+    $LFN =~ s|.*=||; $size =~ s|.*=||; $cksum =~ s|.*=||;
+    $size = 999999 if ( ! $size );
+    $cksum = 12345 if ( !$cksum );
+    
+    $metainfo{$LFN} = [$size, $cksum];
+
+    return \%metainfo;
+}
+
+
+sub getFileMetaData
+{
+    my ( $inputfile ) = @_;
+    my %metainfo;
+
+    open(IFILE,'<',"$inputfile");
+    while (<IFILE>)
+    {
+	chomp $_;
+	# skip comment lines
+	next if ( m|^\#+| );	
+	my ( $LFN, $size, $cksum ) = split( m|\s+|, $_ );
+	$LFN =~ s|.*=||; $size =~ s|.*=||; $cksum =~ s|.*=||;
+	# default values; skip entry, if we don't have an LFN
+	next if ( !$LFN );
+	$size = 999999 if ( ! $size );
+	$cksum = 12345 if ( !$cksum );
+	
+	$metainfo{$LFN} = [$size, $cksum];
+    }
+    close(IFILE);
+    return \%metainfo;
+}
+
+
+# scan directory and calculate cksumms; the routine returns a
+# reference to a hash containing all the files it found with a
+# reference to an array containing cksum and filesize for each file.
+
+sub getDirMetaData
+{
+    my ( $inputdir ) = @_;
+    my %metainfo;
+    
+    my $listcmd = 'ls -1';
+    my $cksumcmd = 'cat FILENAME |cksum';
+    
+    if ( $inputdir =~ m|^dcap:(.+)| )
+    {
+	$inputdir = $1;
+	$cksumcmd = 'dccp FILENAME - |cksum';
+    }
+    elsif ( $inputdir =~ m|^rfio:(.+)| )
+    {
+	$inputdir = $1;
+	$cksumcmd = 'rfcat FILENAME |cksum';
+	$listcmd = 'nsls';
+    }	
+    elsif ( $inputdir =~ m|^file:(.+)| )
+    {
+	$inputdir = $1;
+    }
+    else
+    {
+	print "Warning, unknown or missing protocoll!\n";
+	print "Assuming POSIX access to $inputdir\n";
+    }
+
+    my @filelist = `$listcmd $inputdir 2> /dev/null; echo \$?`;
+    chomp @filelist;
+    my $error = pop @filelist;
+
+    # If something went wrong; bail out
+    ( $error ) && die "problems accessing dir $inputdir\nusing command $listcmd\n";
+
+    # get cksum and filesize for all files, except for links,
+    # directories and special files. 
+
+    foreach my $file (@filelist)
+    {
+	chomp $file;
+	my $filepath = "$inputdir/$file";
+
+	$cksumcmd =~ m|(\S+)\sFILENAME\s(\S+)|;
+	my ($cksum, $size) = split " ", `$1 $filepath $2`;
+	$file =~ s|^$file|/$file| if ( $file !~ m|^/.+| ); # we want a leading '/' if there is none yet
+	$metainfo{$file} = [$size, $cksum];
+    }
+    return \%metainfo;
+}
+
+# Create the XML fragment using the informations we got from
+# subroutine getFileMetaData
+
+sub XMLFragGen
+{
+    my ( $output, $dataset, $block, $dbs, $fileref ) = @_;
+
+    $output =~ s|^$output|$output/XMLFragment.xml| if (-d $output);
+
+    eval
+    {
+	open(XMLOUT, ">$output") or die "Could not open $output for writing";
+	print XMLOUT "<dbs name=\'$dbs\'>\n";
+	print XMLOUT "  <dataset name=\'$dataset\' is-open='y' is-transient='n'>\n";
+	print XMLOUT "    <block name=\'$block\' is-open='y'>\n";
+	foreach my $lfn ( keys %{$fileref} )
+	{
+	    print XMLOUT "      <file lfn=\'$lfn\' checksum=\'cksum:$fileref->{$lfn}->[1]\' ".
+		"size =\'$fileref->{$lfn}->[0]\'/>\n";
+	}
+	print XMLOUT "    </block>\n";
+	print XMLOUT "  </dataset>\n";
+	print XMLOUT "</dbs>\n";
+	close(XMLOUT);
+    };
+    return $@;
+}
+
