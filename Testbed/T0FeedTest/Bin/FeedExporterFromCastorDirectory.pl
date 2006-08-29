@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
-use T0::Castor::Iterator;
+use T0::Iterator::Rfdir;
 use POE;
 use T0::Util;
 use Getopt::Long;
@@ -52,7 +52,7 @@ sub MakeDrop
   if ( defined($Export::Feeder{DropScript}) )
   {
     my $dataset = bin_table($Export::Feeder{T1Rates});
-    $dataset = "/IntegrationHugeSample/" . (split('','ABCDEFGHIJKLMNOPQRSTUVWXYZ'))[$dataset];
+    $dataset = "T0-Test-" . (split('','ABCDEFGHIJKLMNOPQRSTUVWXYZ'))[$dataset];
     my $c = $Export::Feeder{DropScript} . " $file $size 0 $dataset";
     open DROP, "$c |" or die "open: $c: $!\n";
     while ( <DROP> ) { }
@@ -81,7 +81,7 @@ sub Start
   return 0;
 }
 
-$iterator = T0::Castor::Iterator->new( Directory => $dir);
+$iterator = T0::Iterator::Rfdir->new( Directory => $dir);
 
 T0::Util::ReadConfig( 0 , 0 ,$config);
 POE::Session->create(
