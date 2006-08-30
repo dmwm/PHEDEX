@@ -81,7 +81,7 @@ sub Start
   return 0;
 }
 
-$iterator = T0::Iterator::Rfdir->new( Directory => $dir);
+$iterator = T0::Iterator::Rfdir->new( Directory => $dir, Config => $config);
 
 T0::Util::ReadConfig( 0 , 0 ,$config);
 POE::Session->create(

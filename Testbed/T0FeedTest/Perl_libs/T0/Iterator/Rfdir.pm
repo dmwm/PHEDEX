@@ -21,6 +21,7 @@ sub Quiet   { T0::Util::Quiet(   (shift)->{Quiet},   @_ ); }
 #   [ 1 , size ] for injected file
 my %fileList;
 
+
 sub _init
 {
   my $self = shift;
@@ -70,31 +71,39 @@ sub ReadConfig
 
 sub Next
 {
-  my $self = shift;
+    my $self = shift;
 
-  # loop over files
-  # return first uninjected
-  for ( keys(%fileList) )
+    # loop over files
+    # return first uninjected
+    for ( keys(%fileList) )
     {
-      my $filename = $_;
-      if ( 0 == $fileList{$filename}[0] )
+	my $filename = $_;
+	if ( 0 == $fileList{$filename}[0] )
 	{
-	  $fileList{$filename}[0] = 1;
-	  return ($filename,$fileList{$filename}[1]) if wantarray();
-	  return $filename;
+	    $fileList{$filename}[0] = 1;
+	    # keep track of what files we already dealt with
+	    if ( defined $Export::Feeder{HistoryFile} )
+	    {
+		open(HIST, '>>', "$Export::Feeder{HistoryFile}");
+		print HIST  "$filename\n";
+		close(HIST);
+	    }
+	    
+	    return ($filename,$fileList{$filename}[1]) if wantarray();
+	    return $filename;
 	}
     }
 
-  # reached end of loop, means all files are injected, exit
-  return;
+    # reached end of loop, means all files are injected, exit
+    return;
 
-  # as an alternative :
-  #   sleep for a while to not overload the storage system
-  #   then rerun ScanDirectory to search for new files
-  #   and call myself again
-  #sleep 3600;
-  #$self->ScanDirectory($self->{Directory});
-  #return $self->Next();
+    # as an alternative :
+    #   sleep for a while to not overload the storage system
+    #   then rerun ScanDirectory to search for new files
+    #   and call myself again
+    #sleep 3600;
+    #$self->ScanDirectory($self->{Directory});
+    #return $self->Next();
 }
 
 sub ScanDirectory
@@ -104,6 +113,18 @@ sub ScanDirectory
   my ($currentDir) = @_;
 
   my @lines = qx {rfdir $currentDir};
+
+  # read in history file
+  if ( -e $Export::Feeder{HistoryFile} )
+  {
+      open (HIST, '<', $Export::Feeder{HistoryFile});
+      foreach my $entry (<HIST>)
+      {
+	  chomp $entry;
+	  $fileList{$entry} = [ 1, 'UNKNOWN' ];
+      }
+      close (HIST);
+  }
 
   foreach my $line ( @lines )
     {
@@ -124,8 +145,7 @@ sub ScanDirectory
       elsif ( $protection =~ /^-r/ )
 	{
 	  my $filename = $currentDir . '/' . $file;
-
-	  if ( not defined($fileList{$filename}) )
+	  if ( !defined($fileList{$filename}) )
 	    {
 	      # check that fileDate is earlier than cutoffDate
 	      my $flag = -1;
