@@ -52,7 +52,7 @@ sub MakeDrop
   if ( defined($Export::Feeder{DropScript}) )
   {
     my $dataset = bin_table($Export::Feeder{T1Rates});
-    $dataset = "T1-Tape-Test-" . (split('','ABCDEFGHIJKLMNOPQRSTUVWXYZ'))[$dataset];
+    $dataset = "/T1-Tape-Test/HugeSample-" . (split('','ABCDEFGHIJKLMNOPQRSTUVWXYZ'))[$dataset];
     my $c = $Export::Feeder{DropScript} . " $file $size 0 $dataset";
     open DROP, "$c |" or die "open: $c: $!\n";
     while ( <DROP> ) { }

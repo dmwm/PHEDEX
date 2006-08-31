@@ -84,7 +84,8 @@ sub Next
 	    # keep track of what files we already dealt with
 	    if ( defined $Export::Feeder{HistoryFile} )
 	    {
-		open(HIST, '>>', "$Export::Feeder{HistoryFile}");
+		open(HIST, '>>', "$Export::Feeder{HistoryFile}") or
+		    die "Could not open history file: $Export::Feeder{HistoryFile}";
 		print HIST  "$filename\n";
 		close(HIST);
 	    }

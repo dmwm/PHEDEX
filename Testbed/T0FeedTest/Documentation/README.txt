@@ -68,5 +68,6 @@ PhEDEx drop box location
 
 6. Run the ExportFeeder if you want to create the drops for
    PhEDEx. They are automatically put in the mouth of the injection
-   drop-box agent, which needs to be defined in 'Config/env.sh'.
+   drop-box agent, which needs to be defined in 'Config/env.sh':
+   run_FeedExporterFromCastorDirectory.sh /castor/cern.ch/cms/store/test/2006/07/28/IntegrationHugeSample
 
