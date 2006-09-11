@@ -9,12 +9,12 @@
 ##H Examples:
 ##H
 ##H   FileDeleteTMDB -db <path>/DBConfig:Dev/Admin -storage <path>/storage.xml
-##H                  -list <path>/pfns_to_delete.txt -node T1_RAL_Buffer
-##H                  -node T1_FNAL_Buffer, T1_CNAF_Buffer
+##H                  -list <path>/pfns_to_delete.txt
+##H                  -node T1_FNAL_Buffer,T1_CNAF_Buffer
 ##H
 ##H   STORAGEMAP is the TFC XML file
 ##H   FILES      is either a ASCII file containing a list of PFNs/LFNs/blocks
-##H              to remove or a comma separated list of PFNs/LFNs/blocks.
+##H              to remove or a comma separated list of PFNs/LFNs/blocks (no spaces).
 ##H              The syntax is:
 ##H                       pfn:<PFN> for a PFN
 ##H                       lfn:<LFN> for an LFN
