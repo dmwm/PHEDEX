@@ -14,13 +14,14 @@
 ##H Usage:
 ##H   FileCastorFilesize
 ##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
-##H      -storagemap PATH
+##H      -storagemap PATH [-protect PROGRAM[,ARGS...]]
 ##H
 ##H -state       agent state directory
 ##H -node        the node where this agent runs
 ##H -db          database connection configuration parameter file
 ##H -log         where to redirect logging information
 ##H -storagemap  storage mapping catalogue
+##H -protect     an external program to call to check for storage overload
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -38,6 +39,8 @@ use UtilsHelp;
              "db=s"        => \$args{DBCONFIG},
              "node=s"      => \$args{MYNODE},
 	     "storagemap=s"=> \$args{STORAGEMAP},
+	     "protect=s"   => sub { push(@{$args{PROTECT_CMD}},
+			     		 split(/,/, $_[1])) },
 	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG}
@@ -68,6 +71,7 @@ sub new
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  STORAGEMAP => undef,		# Storage path mapping rules
+	  	  PROTECT_CMD => undef,		# Command to check for overload
 		  WAITTIME => 550 + rand(100),	# Agent cycle time
 	  	  AGENTID => "FileStager",	# Identity for activity logs
     	    	  MAXFILES => 100,		# Max number of files in one request
@@ -250,6 +254,14 @@ sub idle
     my $dbh = undef;
     eval
     {
+	my $rc;
+	if ($$self{PROTECT_CMD} && ($rc = &runcmd(@{$$self{PROTECT_CMD}})))
+	{
+	  &alert("storage system overloaded, backing off"
+		 . " (exit code @{[&runerror($rc)]})");
+	  return;
+	}
+
 	$dbh = &connectToDatabase ($self);
 
 	# Clean up caches
