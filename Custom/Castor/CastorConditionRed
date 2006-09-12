@@ -88,17 +88,17 @@ foreach my $entry ( keys %CastorStatus )
 # 2. more than 800 jobs in the 45 - 30 minutes time window and
 #    more than 500 jobs within the last 30 minutes
 
-my $alarm = 1; # true
+my $alarm = 0;
 
 if ( $MaxPending[1] > 800 || $MaxPending[2] > 800 )
 {
     print "More than 800 jobs in Castor pending queue during last 30 minutes !\n";
-    $alarm = 0; # false
+    $alarm = 1;
 }
 elsif ( $MaxPending[0] > 800 && $MaxPending[2] > 500 )
 {
     print "Castor recovering from heavy load, but still more than 500 jobs during last 15 minutes !\n";
-    $alarm = 0; # false
+    $alarm = 2;
 }
 
 exit $alarm;
