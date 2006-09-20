@@ -27,6 +27,7 @@ BEGIN {
 
 # Process command line arguments.
 my %args;
+use List::Util qw(reduce min max sum);
 use Getopt::Long;
 use UtilsHelp;
 use UtilsTiming;
@@ -148,20 +149,21 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 	select
 	    f.name,
 	    t.name,
-	    h.timebin,
-	    h.timewidth,
-	    h.done_files,
-	    h.done_bytes,
-	    h.wait_files,
-	    h.wait_bytes,
-	    h.try_files,
-	    h.fail_files
+	    trunc(h.timebin/3600)*3600,
+	    3600,
+	    nvl(sum(h.done_files),0),
+	    nvl(sum(h.done_bytes),0),
+	    nvl(sum(pend_files) keep (dense_rank last order by timebin asc),0),
+	    nvl(sum(pend_bytes) keep (dense_rank last order by timebin asc),0),
+	    nvl(sum(h.try_files),0),
+	    nvl(sum(h.fail_files),0)
 	from t_link_histogram h
 	  join t_node f on f.id = h.from_node
 	  join t_node t on t.id = h.to_node
 	where h.timebin >= :limit
 	  and h.timebin < :upto
-	  and f.name not like '%MSS'},
+	  and f.name not like '%MSS'
+  	group by f.name, t.name, trunc(h.timebin/3600)*3600, 3600},
 	":limit" => $lowlimit, ":upto" => $now);
     while (my ($from, $to, $bin, $width,
 	       $xfiles, $xbytes, $pfiles, $pbytes,
@@ -176,20 +178,16 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 	{
             $timelow = $bin;
 	}
-	my $key = "$to < $from";
-	$xfiles ||= 0; $xbytes ||= 0;
-	$pfiles ||= 0; $pbytes ||= 0;
-	$tfiles ||= 0; $ffiles ||= 0;
-	my $xfer = { BIN => $bin, FILES => $xfiles, BYTES => $xbytes };
-	my $pend = { BIN => $bin, FILES => $pfiles, BYTES => $pbytes };
-	my $succ = { BIN => $bin, START => $tfiles, ERROR => $ffiles, SUCCESS => $xfiles };
 
-        push (@{$perf{$to}{XFERRED}}, $xfer);
-        push (@{$perf{$key}{XFERRED}}, $xfer);
-        push (@{$perf{$to}{PENDING}}, $pend);
-        push (@{$perf{$key}{PENDING}}, $pend);
-        push (@{$success{$to}}, $succ);
-        push (@{$success{$key}}, $succ);
+	push(@{$perf{$to}{$from}}, {
+	  BIN => $bin,
+	  XFER_FILES => $xfiles,
+	  XFER_BYTES => $xbytes,
+	  PEND_FILES => $pfiles,
+	  PEND_BYTES => $pbytes,
+	  SUCC_START => $tfiles,
+	  SUCC_ERROR => $ffiles,
+	  SUCC_SUCCESS => $xfiles });
     }
 
     # Make sure the time bounds are defined in case the period was empty
@@ -216,8 +214,21 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 	           "EST_DAYS_LEFT");
     print "-" x 25, (" ", "-" x 15) x 18, "\n";
 
-    foreach my $link (sort keys %perf)
+    # Build array of link structures we want to report on.  This is first
+    # a summary row for each destination, then individual links to that
+    # destination.
+    my @links;
+    foreach my $to (sort keys %perf)
     {
+	my @from = sort keys %{$perf{$to}};
+	push (@links, [ $to, map { $perf{$to}{$_} } @from ]);
+	push (@links, [ ". $_", $perf{$to}{$_} ]) for @from;
+    }
+
+    # Now build a report for each link.
+    foreach my $link (@links)
+    {
+	my $label = shift (@$link);
         my %stats = (XFER_MBPS_TOT => 0, XFER_GB_TOT => 0, XFER_F_TOT => 0, XFER_SUCC_TOT => 'N/A',
 		     XFER_HRS => 0, XFER_DAYS => 0,
 		     XFER_SUCCESS => { START => 0, ERROR => 0, SUCCESS => 0, RATIO => undef },
@@ -227,38 +238,41 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 		     WAIT_GB_MIN => 0, WAIT_GB_MAX => 0, WAIT_GB_AVG => 0);
 
 	# Bin quality hourly and calculate statistics
-        my %success_hourly = ();
-        foreach my $v (@{$success{$link}})
+        my %hourly = ();
+        foreach my $array (@$link)
         {
-	    my $hour = int($v->{BIN}/3600)*3600;
-	    $success_hourly{$hour} ||= { START => 0, SUCCESS => 0, ERROR => 0, RATIO => undef };
-	    $success_hourly{$hour}{START} += $v->{START};
-	    $success_hourly{$hour}{ERROR} += $v->{ERROR};
-	    $success_hourly{$hour}{SUCCESS} += $v->{SUCCESS};
+            foreach my $v (@$array)
+	    {
+	        my $hour = $$v{BIN};
+	        $hourly{$hour} ||= { START => 0, SUCCESS => 0, ERROR => 0, RATIO => undef };
+	        $hourly{$hour}{START} += $$v{SUCC_START};
+	        $hourly{$hour}{ERROR} += $$v{SUCC_ERROR};
+	        $hourly{$hour}{SUCCESS} += $$v{SUCC_SUCCESS};
 
-	    $stats{XFER_SUCCESS}{START} += $v->{START};
-	    $stats{XFER_SUCCESS}{ERROR} += $v->{ERROR};
-	    $stats{XFER_SUCCESS}{SUCCESS} += $v->{SUCCESS};
+	        $stats{XFER_SUCCESS}{START} += $$v{SUCC_START};
+	        $stats{XFER_SUCCESS}{ERROR} += $$v{SUCC_ERROR};
+	        $stats{XFER_SUCCESS}{SUCCESS} += $$v{SUCC_SUCCESS};
+	    }
         }
 
-	foreach my $v ($stats{XFER_SUCCESS}, values %success_hourly)
+	foreach my $v ($stats{XFER_SUCCESS}, values %hourly)
 	{
-	    if ($v->{START}) {
-		$v->{RATIO} = $v->{SUCCESS} / $v->{START};
-	    } elsif ($v->{SUCCESS} || $v->{ERROR}) {
-		$v->{RATIO} = $v->{SUCCESS} / ($v->{SUCCESS} + $v->{ERROR});
+	    if ($$v{START}) {
+		$$v{RATIO} = $$v{SUCCESS} / $$v{START};
+	    } elsif ($$v{SUCCESS} || $$v{ERROR}) {
+		$$v{RATIO} = $$v{SUCCESS} / ($$v{SUCCESS} + $$v{ERROR});
 	    } else {
-		$v->{RATIO} = undef;
+		$$v{RATIO} = undef;
 	    }
 	}
 
-        my @success_sorted = sort { $a <=> $b }
-	                     map { $_->{RATIO} }
-	                     grep (defined $_->{RATIO}, values %success_hourly);
-        $stats{XFER_SUCC_HRMIN} = &naformat($success_sorted[0], "%d%%", 100);
-        $stats{XFER_SUCC_HRMAX} = scalar @success_sorted
-				  ? &naformat($success_sorted[$#success_sorted], "%d%%", 100)
-				  : 'N/A';
+
+	my $succ_min = reduce { $$a{RATIO} < $$b{RATIO} ? $a : $b }
+		       grep(defined $$_{RATIO}, values %hourly);
+	my $succ_max = reduce { $$a{RATIO} > $$b{RATIO} ? $a : $b }
+		       grep(defined $$_{RATIO}, values %hourly);
+        $stats{XFER_SUCC_HRMIN} = &naformat($$succ_min{RATIO}, "%d%%", 100);
+        $stats{XFER_SUCC_HRMAX} = &naformat($$succ_max{RATIO}, "%d%%", 100);
         $stats{XFER_SUCC_TOT} = &naformat($stats{XFER_SUCCESS}{RATIO}, "%d%%", 100);
 
 	# Bin transfers hourly and calculate statistics.  The binning is
@@ -266,52 +280,64 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 	# in which transfers took place.  After this seeding we report
 	# hours in which nothing happened to avoid reporting hours with
 	# non-zero pending queue as hours of transfer.
-        my %xfer_hourly = map { ($_ => 0) } keys %success_hourly;
-        foreach my $v (@{$perf{$link}{XFERRED}})
+        $hourly{$_} = 0 for keys %hourly;
+        foreach my $array (@$link)
         {
-	    next if ! $v->{FILES};
-	    my $hour = int($v->{BIN}/3600)*3600;
-	    $xfer_hourly{$hour} ||= 0;
-	    $xfer_hourly{$hour} += $v->{BYTES};
+            foreach my $v (@$array)
+	    {
+		next if ! $$v{XFER_FILES};
 
-	    $stats{XFER_GB_TOT} += $v->{BYTES} / (1024**3);
-	    $stats{XFER_F_TOT} += $v->{FILES};
-        }
+	        my $hour = $$v{BIN};
+	        $hourly{$hour} ||= 0;
+		$hourly{$hour} += $$v{XFER_BYTES};
 
-        my @xfer_sorted = sort { $a <=> $b } values %xfer_hourly;
-	my %xfer_hours = map { (int($_/3600) => 1) } keys %xfer_hourly;
-	my %xfer_days = map { (int($_/86400) => 1) } keys %xfer_hourly;
-        $stats{XFER_MBPS_HRMIN} = ($xfer_sorted[0] || 0) / (1024**2) / 3600;
-        $stats{XFER_MBPS_HRMAX} = ($xfer_sorted[$#xfer_sorted] || 0) / (1024**2) / 3600;
-        $stats{XFER_MBPS_HRAVG} = (&avg(@xfer_sorted) || 0) / (1024**2) / 3600;
+		$stats{XFER_GB_TOT} += $$v{XFER_BYTES} / (1024**3);
+		$stats{XFER_F_TOT} += $$v{XFER_FILES};
+	    }
+	}
+
+	my $xfer_min = min values %hourly;
+	my $xfer_max = max values %hourly;
+	my $xfer_avg = (%hourly
+			? (sum (values %hourly) / scalar (values %hourly))
+			: undef);
+	my %xfer_hours = map { (int($_/3600) => 1) } keys %hourly;
+	my %xfer_days = map { (int($_/86400) => 1) } keys %hourly;
+        $stats{XFER_MBPS_HRMIN} = ($xfer_min || 0) / (1024**2) / 3600;
+        $stats{XFER_MBPS_HRMAX} = ($xfer_max || 0) / (1024**2) / 3600;
+        $stats{XFER_MBPS_HRAVG} = ($xfer_avg || 0) / (1024**2) / 3600;
         $stats{XFER_MBPS_TOT} = $stats{XFER_GB_TOT} * 1024 / $timespan;
 	$stats{XFER_HRS} = scalar keys %xfer_hours;
 	$stats{XFER_DAYS} = scalar keys %xfer_days;
 
 	# Bin pending queue hourly and calculate statistics
-        my %pend_binned = ();
-        foreach my $v (@{$perf{$link}{PENDING}})
+        %hourly = ();
+        foreach my $array (@$link)
         {
-	    $pend_binned{$v->{BIN}} ||= { BIN => $v->{BIN}, FILES => 0, BYTES => 0 };
-	    $pend_binned{$v->{BIN}}{FILES} += $v->{FILES} || 0;
-	    $pend_binned{$v->{BIN}}{BYTES} += $v->{BYTES} || 0;
-        }
+            foreach my $v (@$array)
+	    {
+	        $hourly{$$v{BIN}} ||= { BIN => $$v{BIN}, FILES => 0, BYTES => 0 };
+		$hourly{$$v{BIN}}{FILES} += $$v{PEND_FILES};
+		$hourly{$$v{BIN}}{BYTES} += $$v{PEND_BYTES};
+	    }
+	}
 
-        my @pend_sorted = sort { $a <=> $b } map { $_->{BYTES} } values %pend_binned;
-        my @pendtimes = sort { $a <=> $b } keys %pend_binned;
+	my $pend_min = reduce { $$a{BYTES} < $$b{BYTES} ? $a : $b } values %hourly;
+	my $pend_max = reduce { $$a{BYTES} > $$b{BYTES} ? $a : $b } values %hourly;
+	my $pend_avg = &avg (map { $$_{BYTES} } values %hourly);
+        my @pendtimes = sort { $a <=> $b } keys %hourly;
         my $pendmin = $pendtimes[0];
         my $pendmax = $timemax;
 
-        $stats{WAIT_GB_MIN} = ($pend_sorted[0] || 0) / (1024**3);
-        $stats{WAIT_GB_MAX} = ($pend_sorted[$#pend_sorted] || 0) / (1024**3);
-        $stats{WAIT_GB_AVG} = (&avg(@pend_sorted) || 0) / (1024**3);
-        $stats{WAIT_GB_FIN} = ($pend_binned{$pendmax}{BYTES} || 0) / (1024**3);
-        $stats{WAIT_F_FIN}  = ($pend_binned{$pendmin}{FILES} || 0);
-        $stats{WAIT_GB_CHNG} = (($pend_binned{$pendmax}{BYTES} || 0)
-			        - ($pend_binned{$pendmin}{BYTES} || 0)) / (1024**3);
+        $stats{WAIT_GB_MIN} = ($$pend_min{BYTES} || 0) / (1024**3);
+        $stats{WAIT_GB_MAX} = ($$pend_max{BYTES} || 0) / (1024**3);
+        $stats{WAIT_GB_AVG} = ($pend_avg || 0) / (1024**3);
+        $stats{WAIT_GB_FIN} = ($hourly{$pendmax}{BYTES} || 0) / (1024**3);
+        $stats{WAIT_F_FIN}  = ($hourly{$pendmin}{FILES} || 0);
+        $stats{WAIT_GB_CHNG} = (($hourly{$pendmax}{BYTES} || 0)
+			        - ($hourly{$pendmin}{BYTES} || 0)) / (1024**3);
 
 	# Print out results
-	$link =~ s/.*<\s*/. /;
         print sprintf ("%-25s"
 	               . " %15.3f %15.3f %15d %15s"
 		       . " %15d %15d"
@@ -320,7 +346,7 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 		       . " %15.3f %15.3f %15d"
 		       . " %15.3f %15.3f %15.3f"
 		       . " %s\n",
-	               $link,
+	               $label,
 		       $stats{XFER_MBPS_TOT}, $stats{XFER_GB_TOT}, $stats{XFER_F_TOT}, $stats{XFER_SUCC_TOT},
 		       $stats{XFER_HRS}, $stats{XFER_DAYS},
 		       $stats{XFER_MBPS_HRMIN}, $stats{XFER_MBPS_HRMAX}, $stats{XFER_MBPS_HRAVG},
