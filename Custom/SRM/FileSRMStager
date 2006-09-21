@@ -122,7 +122,7 @@ sub getNodeFiles
 	# Remap states: 1, 2 => wanted (1), others => unwanted (0)
 	$state = ($state == 1 || $state == 2) ? 1 : 0;
 
-	$files{$lfn} = { LFN => $lfn, STATE => $state, TIME => $time }
+	$files{$lfn} = { LFN => $lfn, STATE => $state, TIME => $time || 0}
 	    if ((exists $files{$lfn}
 		 && $files{$lfn}{STATE} <= $state)
 	        || (exists $files{$lfn}
