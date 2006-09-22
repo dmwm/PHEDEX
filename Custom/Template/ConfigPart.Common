@@ -25,3 +25,8 @@ source ${PHEDEX_SCRIPTS}/etc/profile.d/env.sh;
  -node	      ${PHEDEX_NODE}
  -site        ${PHEDEX_NODE}
  -dir         ${PHEDEX_STATE}
+
+### AGENT LABEL=mgmt-blockdls PROGRAM=Toolkit/Workflow/BlockDLSUpdate DEFAULT=off
+ -db        ${PHEDEX_DBPARAM}
+ -node      ${PHEDEX_NODE}
+ -se        ${PHEDEX_SE}

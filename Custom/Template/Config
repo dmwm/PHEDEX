@@ -28,6 +28,8 @@
 # GLITE_SD_PLUGIN:	GLite service discovery authority; usually bdii             #
 #                                                                                   #
 # TIER1_FTS_SERVICE:	T1s please fill in your FTS service                         #
+#                                                                                   #
+# PHEDEX_SE:		Your storage element (e.g. srm.cern.ch)                     #
 #####################################################################################
 
 
@@ -47,6 +49,9 @@ X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 PHEDEX_GLITE_ENV=SomePath/etc/profile.d/grid_env.sh;
 GLITE_SD_PLUGIN=bdii;
 TIER1_FTS_SERVICE=Atlantis-FTS;
+
+# DLS specific part
+PHEDEX_SE=se.atlantis.underwater;
 
 
 ####################################
