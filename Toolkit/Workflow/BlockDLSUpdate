@@ -123,10 +123,8 @@ sub idle
 	    # We'll try to register the block in 24 hours anyway.
 	    my @cmd = ("dls-add", "-i", ($dlstype eq 'lfc' ? "DLS_TYPE_LFC" : "DLS_TYPE_MYSQL"),
 		       "-e", $contact, $$block{BLOCK_NAME}, $$self{SE});
-	    my @fudge = ("/bin/true");
-	    &logmsg ("Would execute following command: @cmd");
 
-	    my $rc = &runcmd (@fudge);
+	    my $rc = &runcmd (@cmd);
 	    &alert ("failed to register block, exit code @{[&runerror($rc)]} from @cmd")
 		if $rc;
         }
