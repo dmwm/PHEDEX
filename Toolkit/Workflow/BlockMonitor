@@ -132,8 +132,10 @@ sub idle
 	# executed too often.
 	my %active = ();
         my $qactive = &dbexec($dbh, qq{
-	    select bd.block, bd.destination, b.files, b.bytes
-	    from t_dps_block_dest bd join t_dps_block b on b.id = bd.block});
+	    select b.id, s.destination, b.files, b.bytes
+	    from t_dps_subscription s
+	      join t_dps_dataset ds on ds.id = s.dataset
+	      join t_dps_block b on b.dataset = ds.id});
         while (my ($block, $node, $files, $bytes) = $qactive->fetchrow())
         {
 	    $active{$block}{$node} ||= { BLOCK => $block, NODE => $node };
