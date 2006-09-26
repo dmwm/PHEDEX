@@ -9,12 +9,12 @@
 ##H Examples:
 ##H
 ##H   FileDeleteTMDB -db <path>/DBConfig:Dev/Admin -storage <path>/storage.xml
-##H                  -list <path>/pfns_to_delete.txt
-##H                  -node T1_FNAL_Buffer,T1_CNAF_Buffer
+##H                  -list <path>/pfns_to_delete.txt -node T1_RAL_Buffer
+##H                  -node T1_FNAL_Buffer, T1_CNAF_Buffer
 ##H
 ##H   STORAGEMAP is the TFC XML file
 ##H   FILES      is either a ASCII file containing a list of PFNs/LFNs/blocks
-##H              to remove or a comma separated list of PFNs/LFNs/blocks (no spaces).
+##H              to remove or a comma separated list of PFNs/LFNs/blocks.
 ##H              The syntax is:
 ##H                       pfn:<PFN> for a PFN
 ##H                       lfn:<LFN> for an LFN
@@ -277,18 +277,6 @@ sub checkFileExistence
     {
 	print "File unknown to TMDB: $lfnname\n";
 	return 0; # return false
-    }
-    
-    # Check, if we have replica infos for the particular file. If not, reactivate those
-    $q = &dbexec($dbh, qq{
-	select count(*) from t_xfer_replica where
-	    fileid = :lfn}, ":lfn" => $lfn );
-    my ( $exists_xfer_rep ) = $q->fetchrow();
-    if ( !$exists_xfer_rep )
-    {
-	print "File level informations not available\n";
-	print "Reactivating file level info.... Please rerun this script in about 15 minutes\n";
-	&enableBlock ($lfnname, $lfn, $q);
     }
     
     
