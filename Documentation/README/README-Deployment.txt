@@ -9,6 +9,7 @@ export CMS data.
 README-Overview.txt explains where this document fits in.
 README-Transfer.txt explains how to set up transfer agents.
 README-Export.txt explains how to set up export agents.
+README-DLS.txt explains how to set up automatic DLS updates.
 
 **********************************************************************
 ** Overview
@@ -72,14 +73,14 @@ your site is "TX_FOO_Buffer" (and possibly "TX_FOO_MSS").
 *** Install the software
 
   wget -O $sw/aptinstaller.sh \
-    http://cmsdoc.cern.ch/cms/cpt/Software/download/lt4/aptinstaller.sh
+    http://cmsdoc.cern.ch/cms/cpt/Software/download/aptinstaller.sh
   chmod +x $sw/aptinstaller.sh
   
   $sw/aptinstaller.sh -path $sw setup
   eval `$sw/aptinstaller.sh -path $sw config -sh`
   apt-get update
-  apt-get install cms+PHEDEX+PHEDEX_2_3_12
-  rm -f PHEDEX; ln -s $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_3_12 PHEDEX
+  apt-get install cms+PHEDEX+PHEDEX_2_4_0
+  rm -f PHEDEX; ln -s $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_4_0 PHEDEX
 
 *** Get site configuration
 
@@ -94,7 +95,7 @@ your site is "TX_FOO_Buffer" (and possibly "TX_FOO_MSS").
 The RPMs include environment setup scripts you should use to prepare
 your environment.  You will invoke the scripts from your site "Config"
 as will be explained below.  If you used the commands above, use:
-  source $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_3_12/etc/profile.d/env.sh
+  source $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_4_0/etc/profile.d/env.sh
 
 You should verify the following environment variables are set correctly:
 
@@ -241,6 +242,10 @@ buffer backed up by a tape node.
 
 Exporting data to other sites requires export agents, which are
 described in more detail in README-Export.txt.
+
+Updating DLS requires the BlockDLSUpdate agent plus tools available
+via the Glite3.0 UI.  Please refere to README-DLS.txt for more
+detailed informations.
 
 *** Writing site glue scripts
 

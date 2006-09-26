@@ -1,3 +1,26 @@
+* Changes in PhEDEx 2.4.0
+
+ General changes:
+  - New BlockDLSUpdate agent to add fully transferred blocks to DLS.
+    Please see README-Deployment.txt for configuration details.
+  - FileCastorStager.New allows an option to throttle back stage-in to
+    avoid Castor overload.  Use option "-protect" with an external
+    script to detect overload.
+  - FileDeleteTMDB updated to work also by blocks, to accept wildcards
+    for node names, to remove files from the storage and to show more
+    progress feedback.  The script now acquires required locks to
+    protect data integrity.
+  - Default site configuration templates (Custom/Template) updated.
+  - Minor bug fixes to the SRM stager agent, daily report generation
+    and block monitoring and deactivation agents.
+  - T0FeedTest testbed to generate and feed large file samples.
+
+ Web site changes: none.
+
+ Schema changes:
+  - tnsnames.ora updated to include other CMS databases.
+
+
 * Changes in PhEDEx 2.3.12
 
  General changes:

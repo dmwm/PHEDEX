@@ -72,7 +72,7 @@ sub new
 	  	  MYNODE => undef,		# My TMDB node name
 	  	  STORAGEMAP => undef,		# Storage path mapping rules
 	  	  PROTECT_CMD => undef,		# Command to check for overload
-		  WAITTIME => 550 + rand(100),	# Agent cycle time
+		  WAITTIME => 550 + rand(100),  # Agent cycle time
 	  	  AGENTID => "FileStager",	# Identity for activity logs
     	    	  MAXFILES => 100,		# Max number of files in one request
 		  PFN_CACHE => {},		# LFN -> PFN cache
