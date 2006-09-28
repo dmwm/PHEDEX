@@ -10,7 +10,6 @@ data location system DLS.
 
 The agent is part of the PhEDEx distribution and resides in
 PHEDEX/Toolkit/Workflow. It requires the following arguments:
-
 -db:   the database contact string, something like <ParthToDBParam>/DBParam:Dev/Writer
 -node: the name of your node, e.g. T1_FNAL_Buffer
 -se:   the name of your storage element, e.g. srm.cern.ch
@@ -30,9 +29,8 @@ will set up your environemnt:
 "source /home/phedex/PHEDEX/etc/profile.d/env.[c]sh"
 
 1. voms-proxy-init is installed on the machine hosting PhEDEx and you
-   can create a proxy as CMS VOMS.
+   can create a proxy as CMS VOMS. To do that, try the folowing:
    - voms-proxy-init does exists executes fine.
-
    - you have a "cms" entry in $HOME/.glite/vomses.  If not, please
      create one by issuing the following command:
 
