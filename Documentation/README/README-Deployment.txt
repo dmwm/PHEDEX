@@ -73,7 +73,7 @@ your site is "TX_FOO_Buffer" (and possibly "TX_FOO_MSS").
 *** Install the software
 
   wget -O $sw/aptinstaller.sh \
-    http://cmsdoc.cern.ch/cms/cpt/Software/download/aptinstaller.sh
+    http://cmsdoc.cern.ch/cms/cpt/Software/download/cms/aptinstaller.sh
   chmod +x $sw/aptinstaller.sh
   
   $sw/aptinstaller.sh -path $sw setup
