@@ -219,7 +219,7 @@ while (@$info)
 	}
 	else
 	{
-	    $$ds{IS_OPEN_REALLY} = $$ds{IS_OPEN};
+	    $$ds{IS_OPEN_REALLY} = $$dsattrs{'is-open'};
 	}
 
 	# Now the blocks...
@@ -259,7 +259,7 @@ while (@$info)
 	    }
 	    else
 	    {
-		$$b{IS_OPEN_REALLY} = $$b{IS_OPEN};
+		$$b{IS_OPEN_REALLY} = $$battrs{'is-open'};
 	    }
 
 	    print "  Processing block $$b{NAME} ($$b{ID})\n    :" if $verbose;
