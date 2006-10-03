@@ -119,9 +119,7 @@ sub setTableList
     else
     {
 	@tables = ('t_xfer_state',
-		   't_xfer_replica',
-		   't_xfer_request',
-		   't_xfer_path');
+		   't_xfer_replica');
     }    
     return \@tables;
 }
@@ -452,16 +450,11 @@ sub deleteSiteTMDBEntries
 	    delete from $table where
 		(from_node = :node or to_node = :node) and fileid = :lfn},
 		":lfn" => $lfn, ":node" => $node)
-	    if ( $table eq 't_xfer_state' or $table eq 't_xfer_path' );
+	    if ( $table eq 't_xfer_state' );
 	&dbexec($dbh, qq{
 	    delete from $table where
 		node = :node and fileid = :lfn},
 		":lfn" => $lfn, ":node" => $node)
 	    if ( $table eq 't_xfer_replica' );
-	&dbexec($dbh, qq{
-	    delete from $table where
-		destination = :node and fileid = :lfn},
-		":lfn" => $lfn, ":node" => $node)
-	    if ( $table eq 't_xfer_request' );
     }
 }
