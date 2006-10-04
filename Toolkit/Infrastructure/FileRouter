@@ -644,17 +644,17 @@ sub routeCost
 		$thislocal = 1 if (exists $$links{$from}
 			           && exists $$links{$from}{$to}
 			           && $$links{$from}{$to}{LOCAL_BOOST});
-		my $local = $thislocal * $$paths{$from}{LOCAL_BOOST};
+		my $local = ($thislocal && $$paths{$from}{LOCAL_BOOST} ? 1 : 0);
 
 		# If we would involve more than one WAN hop, incur penalty.
-		if ($$paths{$from}{REMOTE_HOPS} + (1-$thislocal) > 1)
+		if ($$paths{$from}{REMOTE_HOPS} && ! $thislocal)
 		{
 		    $xfer += 7*86400;
 		    $total += 7*86400;
 	  	}
 
 		# If this looks too bad to be used, cut it off.
-		next if ($total >= 3*86400);
+		# next if ($total >= 3*86400);
 
 		# Update the path if there is none yet, if we have local
 		# path and existing is not local, or if we now have a
