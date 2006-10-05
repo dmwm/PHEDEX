@@ -654,7 +654,7 @@ sub routeCost
 	  	}
 
 		# If this looks too bad to be used, cut it off.
-		# next if ($total >= 3*86400);
+		next if ($total >= 3*86400);
 
 		# Update the path if there is none yet, if we have local
 		# path and existing is not local, or if we now have a
