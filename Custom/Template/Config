@@ -18,6 +18,8 @@
 #			T<x>_<Site name>[_Buffer]			            #
 #										    #
 # PHEDEX_VERSION:	The PhEDEx version you are running			    #
+#                                                                                   #
+# PHEDEX_OS_VERSION:	OS version of machine PhEDEx runs on. Typically SL3 or SL4  #
 #										    #
 # X509_USER_PROXY:	Location of your Grid proxy; you want to make sure, that    #
 #			only the user running your PhEDEx agents can read it	    #
@@ -43,6 +45,7 @@ PHEDEX_LABEL=ATLANTIS;
 PHEDEX_SITE=Atlantis;
 PHEDEX_NODE=TX_Atlantis;
 PHEDEX_VERSION=2_4_0;
+PHEDEX_OS_VERSION=slc4_ia32_gcc345;
 X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
 # FTS specific part
