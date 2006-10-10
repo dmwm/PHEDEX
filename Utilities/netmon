@@ -10,8 +10,9 @@ sub getstats
     open (STATS, "< /proc/net/dev") or die "can't read /proc/net/dev: $!";
     while (<STATS>)
     {
-	if (/\s+(\S+):((\s*(\d+))+)/) {
-	    $stats{$1} = [ split (/\s+/, $2) ];
+	if (my ($if, $vals) = /\s+(\S+):([\s\d]+)$/) {
+	    $stats{$if} = [ ($vals =~ /(\d+)/g) ];
+	    # $stats{$1} = [ split (/\s+/, $2) ];
 	}
     }
     close (STATS);
