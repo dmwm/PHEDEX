@@ -8,7 +8,7 @@ require "${0}22";
 # Read database access tokens
 my @dbnames = ();
 my %databases = ();
-open (DBNAMES, "< /afs/cern.ch/cms/aprom/phedex/DBAccessInfo/names")
+open (DBNAMES, "< /data/PHEDEX/DBAccessInfo/names")
     || die "Failed to read database configuration\n";
 while (<DBNAMES>)
 {

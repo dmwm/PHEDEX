@@ -15,19 +15,20 @@ function makeGraph($graph, $data, $args, $upto, $by)
   // Build X-axis labels.  Make sure there are not too many of them.
   $xrewrite = $args['xrewrite'];
   $xlabels = array();
-  $xkeys = array_keys($data);
-  foreach ($xkeys as $time)
-      $xlabels[] = preg_replace("/{$xrewrite[0]}/", $xrewrite[1], $time);
+  foreach ($data as $item)
+    $xlabels[] = preg_replace("/{$xrewrite[0]}/", $xrewrite[1], $item[0]);
 
   $xbins = count($data);
   $xunit = $args['xunit'];
+  $maxunits = $args['maxunits'];
   $nxunits = round($xbins / $xunit) + ($xbins % $xunit ? 1 : 0);
-  $nrowskip = ($xbins <= 10 ? 1 : ($nxunits <= 10 ? $xunit : round($nxunits/10) * $xunit));
+  while ($nxunits > $maxunits) { $nxunits /= 2; $xunit *= 2; }
+  $nrowskip = ($xbins <= 10 ? 1 : $xunit);
 
   // Get category labels for each style, used to generate consistent style
   $nodes = array();
-  foreach ($data as $xbin => $xdata)
-    foreach ($xdata as $node => $info)
+  foreach ($data as $item)
+    foreach ($item[2] as $node => $value)
       $nodes[$node] = 1;
   sort ($nodes = array_keys ($nodes));
 
@@ -41,7 +42,7 @@ function makeGraph($graph, $data, $args, $upto, $by)
       break;
     }
 
-  // Build a bar plot for each node and selected transfer metric.
+  // Build a plot for each node and selected transfer metric.
   $legend = array();
   $barplots = array();
   $filter = $args['filter'];
@@ -50,9 +51,10 @@ function makeGraph($graph, $data, $args, $upto, $by)
     if (isset($filter) && $filter != '' && ! preg_match("/$filter/", $node))
       continue;
 
+    // Check whether this node has any values
     $allzero = true;
-    foreach ($data as $xbin => $xdata)
-      if (isset($xdata[$node]) && max($xdata[$node]) > 0)
+    foreach ($data as $item)
+      if (isset ($item[2][$node]) && max($item[2][$node]) > 0)
       {
 	$allzero = false;
 	break;
@@ -60,24 +62,25 @@ function makeGraph($graph, $data, $args, $upto, $by)
 
     if ($allzero) continue;
 
+    // Add to the plot
     $plotdata = array();
     if ($args['metric'] == 'attempted')
-      foreach ($data as $xbin => $xdata)
-        $plotdata[] = isset ($xdata[$node]) ? $xdata[$node][0] : 0;
+      foreach ($data as $item)
+        $plotdata[] = isset ($item[2][$node]) ? $item[2][$node][0] : 0;
     else if ($args['metric'] == 'failed')
-      foreach ($data as $xbin => $xdata)
-        $plotdata[] = isset ($xdata[$node]) ? $xdata[$node][1] : 0;
+      foreach ($data as $item)
+        $plotdata[] = isset ($item[2][$node]) ? $item[2][$node][1] : 0;
     else if ($args['metric'] == 'completed')
-      foreach ($data as $xbin => $xdata)
-        $plotdata[] = isset ($xdata[$node]) ? $xdata[$node][2] : 0;
+      foreach ($data as $item)
+        $plotdata[] = isset ($item[2][$node]) ? $item[2][$node][2] : 0;
     else if ($args['metric'] == 'failed_ratio')
-      foreach ($data as $xbin => $xdata)
-        $plotdata[] = isset ($xdata[$node]) && $xdata[$node][0]
-		      ? $xdata[$node][1] / $xdata[$node][0] : 0;
+      foreach ($data as $item)
+        $plotdata[] = (isset ($item[2][$node]) && $item[2][$node][0]
+		       ? $item[2][$node][1]/$item[2][$node][0] : 0);
     else if ($args['metric'] == 'completed_ratio')
-      foreach ($data as $xbin => $xdata)
-        $plotdata[] = isset ($xdata[$node]) && $xdata[$node][0]
-		      ? $xdata[$node][2] / $xdata[$node][0] : 0;
+      foreach ($data as $item)
+        $plotdata[] = (isset ($item[2][$node]) && $item[2][$node][0]
+		       ? $item[2][$node][2]/$item[2][$node][0] : 0);
 
     $barplot = new BarPlot($plotdata);
     $barplot->SetFillColor ($styles[$n % count($styles)]);
@@ -101,57 +104,32 @@ function makeGraph($graph, $data, $args, $upto, $by)
   }
 
   // Compute how much the legend needs
-  if (count($legend) <= 20)
-  {
-      $legendcols = 1;
-      $legendwidth = ($by == 'link' ? 200 : 130);
-      $legendsize = 8;
-  }
-  else if (count($legend) <= 30)
-  {
-      $legendcols = 1;
-      $legendwidth = ($by == 'link' ? 200 : 100);
-      $legendsize = 7;
-  }
-  else if (count($legend) <= 40)
-  {
-      $legendcols = 2;
-      $legendwidth = ($by == 'link' ? 200 : 130);
-      $legendsize = 8;
-  }
-  else
-  {
-      $legendcols = 2;
-      $legendwidth = ($by == 'link' ? 200 : 100);
-      $legendsize = 7;
-  }
+  $legendcols = ($by == 'link' ? 3 : 6);
+  $legendrows = round(count($legend)/$legendcols) + 1;
+  $legendsize = (($by == 'link' || $legendrows > 3) ? 7 : 8);
+  $legendmargin = ($legendsize * 1.8) * $legendrows + 10;
 
   // Configure the graph
   $graph->SetScale("textlin");
   $graph->SetColor("white");
   $graph->SetMarginColor("white");
   $graph->SetFrame(false);
-  $graph->img->SetMargin(90,56 + $legendcols * $legendwidth,40,40);
+  $graph->img->SetMargin(90,56,40,40+$legendmargin);
   $graph->img->SetAntiAliasing();
 
   $graph->title->Set("PhEDEx {$args['instance']} Transfer Quality By "
   		     . ($by == 'link' ? "Link" :
-		        ($by == 'dest' ? "Destination" : "Source"))
-  	             . ((isset($args['filter']) && $args['filter'] != '')
-			? "s matching '{$args['filter']}'" : ""));
+		        ($by == 'dest' ? "Destination" : "Source")));
   $graph->title->SetFont(FF_VERDANA,FS_BOLD,14);
   $graph->title->SetColor("black");
 
-  $nowstamp = gmdate("Y-m-d H:i");
   $urewrite = $args['urewrite'];
-  $xlast = preg_replace("/{$urewrite[0]}/", $urewrite[1], $xkeys[count($xkeys)-1]);
-  if (isset ($upto) && $upto != '')
-    $upto = preg_replace("/{$urewrite[0]}/", $urewrite[1], $upto);
+  $fromtime = preg_replace("/{$urewrite[0]}/", $urewrite[1], $data[0][0]);
+  $totime   = preg_replace("/{$urewrite[0]}/", $urewrite[1], $data[count($data)-1][0]);
   $graph->subtitle->Set($args['title']
-			. ((isset($upto) && $upto != '')
-			   ? " up to $upto, at $nowstamp"
-			   : " at $nowstamp")
-		   	. ", last entry {$xlast} GMT");
+			. " from {$fromtime} to {$totime} GMT"
+  	                . ((isset($args['filter']) && $args['filter'] != '')
+			   ? "\nNodes matching regular expression '{$args['filter']}'" : ""));
   $graph->subtitle->SetFont(FF_VERDANA,FS_NORMAL);
   $graph->subtitle->SetColor("black");
 
@@ -168,11 +146,12 @@ function makeGraph($graph, $data, $args, $upto, $by)
   $graph->yaxis->title->SetFont(FF_VERDANA,FS_NORMAL,11);
   $graph->yaxis->SetFont(FF_VERDANA,FS_NORMAL,9);
 
-  $graph->legend->Pos(0.01, 0.5, "right", "center");
+  $graph->legend->Pos(.5, .99, "center", "bottom");
+  $graph->legend->SetLayout(LEGEND_HOR);
   $graph->legend->SetColumns($legendcols);
   $graph->legend->SetShadow(0);
+  $graph->legend->SetVColMargin(2);
   $graph->legend->SetFont(FF_VERDANA,FS_NORMAL,$legendsize);
-  // $graph->legend->SetLayout(LEGEND_HOR);
   $graph->Add ($plot);
   $graph->Stroke();
 }
@@ -189,6 +168,7 @@ $entries          = $GLOBALS['HTTP_GET_VARS']['last'];
 $args['filter']   = $GLOBALS['HTTP_GET_VARS']['filter'];
 $upto             = $GLOBALS['HTTP_GET_VARS']['upto'];
 $by               = $GLOBALS['HTTP_GET_VARS']['by'];
+$dir		  = $GLOBALS['HTTP_GET_VARS']['data'];
 
 if ($by != 'link' && $by != 'dest' && $by != 'src') $by = 'dest';
 
@@ -200,44 +180,46 @@ $args['instance'] = ($srcdb == 'prod' ? 'Prod'
 	                   : ($srcdb == 'tbedi' ? 'Testbed' : 'Validation'))));
 if ($span == "month")
 {
-  $args['title'] = ($entries ? "Last $entries Months" : "By Month");
+  $args['title'] = ($entries ? "$entries Months" : "By Month");
   $args['xtitle'] = "Month";
   $args['xunit'] = 2;
-  $args['xbin'] = 0;
+  $args['maxunits'] = 10;
   $args['xrewrite'] = array('(....)(..)', '\1-\2');
   $args['urewrite'] = $args['xrewrite'];
 }
 else if ($span == "week")
 {
-  $args['title'] = ($entries ? "Last $entries Weeks" : "By Week");
+  $args['title'] = ($entries ? "$entries Weeks" : "By Week");
   $args['xtitle'] = "Week";
   $args['xunit'] = 4;
-  $args['xbin'] = 1;
+  $args['maxunits'] = 10;
   $args['xrewrite'] = array('(....)(..)', '\1/\2');
   $args['urewrite'] = $args['xrewrite'];
 }
 else if ($span == "day")
 {
-  $args['title'] = ($entries ? "Last $entries Days" : "By Day");
+  $args['title'] = ($entries ? "$entries Days" : "By Day");
   $args['xtitle'] = "Day";
   $args['xunit'] = 7;
-  $args['xbin'] = 2;
+  $args['maxunits'] = 8;
   $args['xrewrite'] = array('(....)(..)(..)', '\1-\2-\3');
   $args['urewrite'] = $args['xrewrite'];
 }
 else // hour
 {
-  $args['title'] = ($entries ? "Last $entries Hours" : "By Hour");
+  $args['title'] = ($entries ? "$entries Hours" : "By Hour");
   $args['xtitle'] = "Hour";
   $args['xunit'] = 4;
-  $args['xbin'] = 3;
+  $args['maxunits'] = 10;
   $args['xrewrite'] = array('(....)(..)(..)Z(..)(..)', '\4:\5');
   $args['urewrite'] = array('(....)(..)(..)Z(..)(..)', '\1-\2-\3 \4:\5');
 }
 
-$graph = new Graph (900, 406, "auto");
-$filename = "/afs/cern.ch/cms/aprom/phedex/DBPerfData/{$args['instance']}-quality.csv";
-$data = selectQualityData ($filename, $args['xbin'], $entries, $upto, $by);
-makeGraph ($graph, $data, $args, $upto, $by);
+if (isset($dir) && $dir != "" && preg_match("/^[A-Za-z][A-Za-z0-9.]+$/", $dir))
+{
+  $filename = "/tmp/{$dir}/quality";
+  $data = selectQualityData ($filename);
+  makeGraph (new Graph (800, 500, "auto"), $data, $args, $upto, $by);
+}
 
 ?>

@@ -1,4 +1,5 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
@@ -10,55 +11,53 @@
   <title>PhEDEx Documents</title>
 </head>
 
-<body>
+<body onload="stripe('#fff', '#edf3fe');">
 <div id="page">
 <div id="header">
-  <!-- Logo and page title -->
-  <div id="logo">
-    <a href="http://cern.ch/cms-project-phedex/" title="PhEDEx Home Page"
-      ><img src="phedex-logo.gif" alt="PhEDEx" height="120" /></a>
-  </div>
+ <!-- Logo and page title -->
+ <div id="logo">
+  <a href="http://cern.ch/cms-project-phedex/" title="PhEDEx Home Page"
+    ><img src="phedex-logo-small.gif" alt="PhEDEx" height="80" /></a>
+ </div>
 
-  <div id="heading">
-    <h1 class="title">PhEDEx</h1>
-    <h2 class="title"> &#8212; Physics Experimental Data Export</h2>
-    <h2>Documents</h2>
-  </div>
-
-  <!-- Main navigation bar: public/developers/other -->
-  <ul id="navmain">
-    <li class="first"><a class="selected" href="./"
-      title="General Information">About</a></li>
-    <li><a href="cgi-bin/browser"
-      title="Live Status Monitor">Status</a></li>
-    <li><a href="cgi-bin/requests"
-      title="Manage and Monitor Transfer Requests">Data Requests</a></li>
-
-    <li class="next"><a href="https://twiki.cern.ch/twiki/bin/view/CMS/PhEDEx"
-      title="Developer Wiki">Wiki</a></li>
-    <li><a href="http://cmsdoc.cern.ch/swdev/viewcvs/viewcvs.cgi/COMP/PHEDEX/?cvsroot=CMSSW"
-      title="Browse CVS Repository">CVS</a></li>
-    <li><a href="http://savannah.cern.ch/projects/phedex"
-      title="Bugs Reports and More">Savannah</a></li>
-  </ul>
+ <div id="heading">
+  <h1 class="title">PhEDEx &#8211; CMS Data Transfers</h1>
+  <div class='pagenav'>
+   <div class="catopt">
+    <ul>
+     <li class='selected'>Info</li>
+     <li><a href='prod/Activity::Rate' title='Show recent transfer rates in tabular form'>Activity</a></li>
+     <li><a href='prod/Data::Datasets' title='Explore datasets'>Data</a></li>
+     <li><a href='prod/Request::Main' title='Quick overview of transfer requests'>Requests</a></li>
+     <li><a href='prod/Configuration::SignUp' title='Sign up to be a transfer administrator'>Configuration</a></li>
+     <li><a href='prod/Components::Status' title='View recently active PhEDEx components'>Components</a></li>
+     <li><a href='prod/Reports::DailyReports' title='Browse all daily reports'>Reports</a></li>
+    </ul>
+   </div>
+   <div class="menuopt">
+    <ul>
+     <li><a href='.'>Overview</a></li>
+     <li><a href='about.html' title='About PhEDEx'>About</a></li>
+     <li class='selected'><span>Documentation</span></li>
+     <li><a href='presentations.html' title='PhEDEx Presentations'>Presentations</a></li>
+     <li><a href='https://hypernews.cern.ch/HyperNews/CMS/get/phedex.html' title='Mailing List and HyperNews Forum'>HyperNews Forum</a></li>
+     <li><a href='developers.html' title='Developer information'>Developers</a></li>
+    </ul>
+   </div> <!-- /menuopt -->
+  </div> <!-- /pagenav -->
+ </div> <!-- /heading -->
 </div> <!-- /header -->
 
-<!-- side navigation bar -->
-<div id="sidebar">
-  <div class="sidetopic"><h2>Links</h2>
-    <p><a href="https://hypernews.cern.ch/HyperNews/CMS/get/phedex.html"
-      title="Mailing List and HyperNews Forum">HyperNews Forum</a>
-    <br><a href="https://wwwlistbox.cern.ch/earchive/cms-phedex-developers"
-      title="Developer Mailing List Archive">Mail Archive</a>
-    <br><a href="presentations.html"
-      title="PhEDEx Presentations">Presentations</a>
-    <br><a href="documents.html"
-      title="READMEs and Other Documentation">Documents</a>
-    </p>
-  </div>
-</div> <!-- /sidebar -->
-
+<!-- main content -->
 <div id="content">
+<p>Management documentation</p>
+<ul>
+<li><strong><a href="http://cmsdoc.cern.ch/swdev/viewcvs/viewcvs.cgi/COMP/PHEDEX/Documentation/README/README-Deployment.txt?cvsroot=CMSSW&rev=HEAD">Site deployment</a> description.</strong></li>
+<li> <a href="http://cmsdoc.cern.ch/swdev/viewcvs/viewcvs.cgi/COMP/PHEDEX/Documentation/README/README-Managers.txt?cvsroot=CMSSW&rev=HEAD">Management agents</a> description.</li>
+<li> <a href="http://cmsdoc.cern.ch/swdev/viewcvs/viewcvs.cgi/COMP/PHEDEX/Documentation/README/README-DeveloperTestbed.txt?cvsroot=CMSSW&rev=HEAD">Testbed</a> setup and operation description.</li>
+<li> <a href="http://cmsdoc.cern.ch/swdev/viewcvs/viewcvs.cgi/COMP/PHEDEX/Documentation/README/README-Operations.txt?cvsroot=CMSSW&rev=HEAD">Operations</a> guide, current operations practises for CMS transfers; currently information only for CERN, but hopefully more later on.</li>
+</ul>
+
 <p>Overview publications and posters</p>
 <ul>
  <li> <a href="Documents/Overview-PPARC-Oversight-Committee.pdf">'Executive summary' presentation for UK PPARC Oversight Committee</a></li>
@@ -75,14 +74,6 @@
  <li> <a href="http://cmsdoc.cern.ch/swdev/viewcvs/viewcvs.cgi/COMP/PHEDEX/Documentation/WhitePapers/schema.tex?cvsroot=CMSSW&rev=HEAD">Schema</a>: the database schema and how transfer agents should interpret and maintain the information.</li>
 </ul>
 
-<p>Management documentation</p>
-<ul>
-<li><strong><a href="http://cmsdoc.cern.ch/swdev/viewcvs/viewcvs.cgi/COMP/PHEDEX/Documentation/README/README-Deployment.txt?cvsroot=CMSSW&rev=HEAD">Site deployment</a> description.</strong></li>
-<li> <a href="http://cmsdoc.cern.ch/swdev/viewcvs/viewcvs.cgi/COMP/PHEDEX/Documentation/README/README-Managers.txt?cvsroot=CMSSW&rev=HEAD">Management agents</a> description.</li>
-<li> <a href="http://cmsdoc.cern.ch/swdev/viewcvs/viewcvs.cgi/COMP/PHEDEX/Documentation/README/README-DeveloperTestbed.txt?cvsroot=CMSSW&rev=HEAD">Testbed</a> setup and operation description.</li>
-<li> <a href="http://cmsdoc.cern.ch/swdev/viewcvs/viewcvs.cgi/COMP/PHEDEX/Documentation/README/README-Operations.txt?cvsroot=CMSSW&rev=HEAD">Operations</a> guide, current operations practises for CMS transfers; currently information only for CERN, but hopefully more later on.</li>
-</ul>
-
 <p>Detailed documentation</p>
 <ul>
 <li> <a href="http://cmsdoc.cern.ch/swdev/viewcvs/viewcvs.cgi/COMP/PHEDEX/Documentation/README/README-RefDB.txt?cvsroot=CMSSW&rev=HEAD">Transfer request management</a> and more specifically, how to inject data from CMS RefDB into transfer.</li>
@@ -92,5 +83,11 @@
  <li> <a href="http://cmsdoc.cern.ch/swdev/viewcvs/viewcvs.cgi/COMP/PHEDEX/Testbed/RLSTest/README.txt?cvsroot=CMSSW&rev=HEAD">RLS standalone test-bed</a> setup and RLS benchmarking.</a></li>
 </ul>
 
+</div> <!-- /content -->
+
+<div class="viewnav">
+  <div>Current version: 2.3.12</div>
+</div>
+</div> <!-- /page -->
 </body>
 </html>

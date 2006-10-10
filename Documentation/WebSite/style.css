@@ -4,28 +4,25 @@
 /**********************************************************************/
 /* General elements */
 
-* {
+body {
   margin:		0;
   padding:		0;
-}
-
-body {
   margin-bottom:	1em;
 
   color:		#222;
 
   background-color:	#fff;
-  background-image:	url(phedex-header-backdrop.gif);
+  background-image:	url(PhEDEx-banner.jpg);
   background-repeat:	repeat-x;
 
   font-size:		80%;
   font-family:		'Lucida Grande', verdana, helvetica, arial, sans-serif;
   line-height:		1.6em;
-
-  text-align:		center; /* IE5.5 */
 }
 
 h1 {
+  margin:		0;
+  padding:		0;
   margin-top:		1em;
   margin-bottom:	0.5em;
   font-size:		2em;
@@ -34,6 +31,8 @@ h1 {
 }
 
 h2 {
+  margin:		0;
+  padding:		0;
   margin-top:		1em;
   margin-bottom:	0.5em;
   font-size:		1.5em;
@@ -93,6 +92,14 @@ pre {
   border:		1px solid #ccc;
 }
 
+pre.wide
+{
+  width:		100%;
+  overflow:		visible;
+  background:		none;
+  border:		none;
+}
+
 /**********************************************************************/
 /* General classes */
 
@@ -100,6 +107,7 @@ pre {
   float:		right;
   margin-left:		5px;
   margin-bottom:	5px;
+  margin-right:		10px;
 }
 
 /**********************************************************************/
@@ -107,48 +115,39 @@ pre {
 
 div#page {
   position:		relative;
-  width:		90%;
-  max-width:		720px;
 
   padding:		0;
+  padding-right:	200px;
   margin-top:		5px;
   margin-left:		20px;
-  margin-right:		20px;
 
   font-size:		1em;
   text-align:		left;
 }
 
-div#header {
-  height:		160px;
-  overflow:		hidden;
-}
-
 div#heading {
-  height:		73px;
   margin:		0;
   margin-top:		16px;
-  margin-left:		140px;
   padding:		0;
+  padding-left:		100px;
+  min-height:		100px;
 }
 
 div#heading h1.title {
-  display:		inline;
   padding:		0;
   margin:		0;
   text-align:		left;
-  color:		#fff;
-  text-shadow:		3px 3px 4px #000;
+  color:		#105000;
+  text-shadow:		3px 3px 5px #ffc;
 }
 
 div#heading h2.title {
-  display:		inline;
   padding:		0;
   margin:		0;
   margin-top:		5px;
   text-align:		left;
-  color:		#fff;
-  text-shadow:		3px 3px 3px #000;
+  color:		#105000;
+  text-shadow:		3px 3px 3px #ffc;
 }
 
 div#heading h2 {
@@ -156,136 +155,282 @@ div#heading h2 {
   margin:		0;
   margin-top:		5px;
   text-align:		left;
-  color:		#fff;
-  text-shadow:		3px 3px 3px #000;
+  color:		#105000;
+  text-shadow:		3px 3px 3px #ffc;
 }
 
 div#heading h3, div#heading h4 {
   padding:		0;
   margin:		0;
   text-align:		left;
-  color:		#fff;
-  text-shadow:		2px 2px 2px #000;
+  color:		#105000;
+  text-shadow:		2px 2px 2px #ffc;
 }
 
 div#logo {
-  float:		left;
-  width:		120px;
-  height:		140px;
-  margin-right:		25px;
+  position:		absolute;
+  width:		100px;
+  height:		100px;
 }
-
 
 div#content {
-  position:		absolute;
-  left:			139px;
-  border-left:		1px solid #b01f28;
-  padding-left:		8px;
+  border-top:		1px dashed #eee;
+  clear:		both;
 }
-
-/* Fix the IE only 3pixel jog - documented at http://www.positioniseverything.net/articles/hollyhack.html#haslayout \*/
-* html #content {
-  height: 1px;
-}
-/* End hide from IE5-mac */
 
 /**********************************************************************/
-ul#navmain {
-  height:		42px;
-  margin: 		0;
-  padding: 		5px 0 0 0;
-  list-style-type:	none;
+div.viewnav {
+  position:		absolute;
+  top:			0;
+  right:		0;
+  width:		200px;
+  font-size:		0.9em;
+  background-color:	#fffff2;
+  border-left:		1px solid #e4f1db;
+  padding:		0;
+  margin:		0;
+  padding-top:		15px;
+  height:		95%;
 }
 
-ul#navmain li {
-  display:		inline;
-  background-image:	none;
+div.viewnav>div {
+  margin-left:		2em;
+  overflow:		visible;
+}
+
+div.viewnav h3 {
+  font-size:		1em;
+  font-weight:		bold;
+  margin-bottom:	0;
+  /* margin-left:	-1em;  IE cuts the text, below works around. */
+  position:		relative;
+  left:			-1em;
+}
+
+div.viewnav p {
   margin:		0;
   padding:		0;
 }
 
-ul#navmain li {
-  border-left:		1px solid #b01f28;
-  /* Mac IE5.x, repeated from "li a" to space the vertical bar from the link.  */
-  // padding:		0 0 0 0.8em;
+div.dbopt {
+  position:		relative;
+  margin-right:		10px;
 }
 
-ul#navmain li.first { /* IE limitations. */
+div#dbopts {
+  position:		relative;
+  z-index:		1000;
+  left:			0;
+  background:		#fff;
+  border:		1px solid #bbb;
+  padding:		1ex 1.5ex;
+  margin:		-0.5ex 0;
+}
+
+div.viewopt ul {
+  list-style-type:	none;
+  display:		inline;
+  margin: 		0;
+  padding:		0;
+}
+
+div.viewopt ul li {
+  display:		inline;
+  margin:		0;
+  padding:		0;
+}
+
+/**********************************************************************/
+div.menuopt {
+  margin:		0 0 0 1em;
+  padding:		.5em 0 .5em 1em;
+  background-color:	#EBFAE5; 
+  border:		1px solid #e4f1db
+}
+
+div.menuopt ul {
+  list-style-type:	none;
+  display:		inline;
+  margin: 		0;
+  padding:		0;
+  padding-top: 		5px;
+  padding-bottom:	5px;
+}
+
+div.menuopt ul li {
+  display:		inline;
+  margin:		.5em 0;
+  padding:		.5em 0;
+}
+
+div.menuopt ul li a {
+  padding-left:		.5em;
+  color:		#32a804;
+  border-left:		1px solid #32a804;
+}
+
+div.menuopt ul li span {
+  padding-left:		.5em;
+  border-left:		1px solid #32a804;
+}
+
+div.menuopt ul li.selected {
+  font-weight:		bold;
+  /* text-transform:	uppercase; */
+}
+
+div.menuopt ul li.selected a {
+  color:		#000;
+  text-decoration:	none;
+}
+
+div.menuopt ul li:first-child a {
   border-left:		none;
   padding-left:		0;
 }
 
-ul#navmain li.first a { /* IE limitations. */
-  padding-left:		0;
+/**********************************************************************/
+div.catopt {
+  margin:		1em 0 0 0;
+  border-bottom:	1px solid #e4f1db;
 }
 
-ul#navmain li.next {
-  margin-left:		10px;
-  border-left:		2px solid #b01f28;
+div.catopt ul {
+  list-style-type:	none;
+  display:		inline;
+  margin: 		0;
+  padding: 		0;
+  padding-top: 		5px;
+  padding-bottom:	5px;
 }
 
-ul#navmain li a {
-  padding:		0.2em 0.5em 0.2em 0.8em;
-  color:		#b01f28;
+div.catopt ul li {
+  display:		inline;
+  margin:		0.5em;
+  padding:		0.5em;
+}
+
+div.catopt ul li a {
+  color:		#32a804;
+}
+
+div.catopt ul li.selected {
+  background-color:	#EBFAE5; 
+  border:		1px solid #e4f1db;
+  border-bottom:	1px solid #EBFAE5;
+  font-weight:		bold;
+  /* text-transform:	uppercase; */
+}
+
+div.catopt ul li.selected a {
+  color:		#000;
   text-decoration:	none;
 }
 
-ul#navmain li a:hover {
-  text-decoration:	underline;
-  background-color:	transparent;
+/**********************************************************************/
+div.toc {
+  float:		left;
+  padding:		0.5em;
+  width:		22%;
 }
 
-ul#navmain li a.selected {
-  font-weight:		bold;
+div.toc ul {
+  margin:		0;
+  padding: 		1em;
+  list-style-type:	none;
+  border-left:		1px solid #e4f1db;
+}
+
+div.toc ul * {
+  margin:		0;
+  padding:		0;
+  color:		#105000;
+  border:		1px solid #fff;
+  text-decoration:	none;
+}
+
+div.toc a:hover {
+  text-decoration:	underline;
+  background-color:	#e4f1db;
+  border:		1px solid #bff19d;
+}
+
+div.toc h2 {
+  margin:		0;
+  padding: 		0;
+  padding-bottom:	5px;
+  list-style-type:	none;
+  text-align:		center;
+  background-color:	#e4f1db;
 }
 
 /**********************************************************************/
 /* Site elements: highlight boxes, navigation elements, etc. */
 
 #sidebar {
-  float:		left;
-  width:		130px;
   font-size:		0.8em;
   padding:		0;
 }
 
+/*
 .sidetopic {
   margin-bottom:	1em;
 }
 
 .sidetopic h2 {
+  display:		inline;
+  float:		left;
+  margin:		0;
+  padding:		0;
+  padding-left:		4px;
+}
+
+.sidetopic ul {
+  display:		inline;
+  float:		left;
+  margin:		0;
+  padding:		0;
+  padding-left:		4px;
+}
+
+.sidetopic ul li {
+  display:		inline;
+  float:		left;
   margin:		0;
   padding:		0;
   padding-left:		4px;
   font-size:		1em;
-  color:		#b01f28;
-  background-color:	#f8e5a0;
-  border-bottom:	1px solid #b01f28;
 }
 
 .sidetopic iframe {
   width:		130px;
   height:		30%;
 }
+*/
 
 .topic {
-  margin-bottom:	1em;
-  padding:		1em;
-
-  font-size:		1.3em;
-  line-height: 		1.6em;
-  background-color:	#D6DFE8;
+  max-width:		70%;
+  margin:		0 auto;
+  padding:		0;
 }
 
 .topic p {
-  margin-bottom:	0;
+  margin:		0;
+  padding:		1em;
+  background-color:	#D6DFE8;
+  text-align:		center;
+  font-size:		1.2em;
+  line-height: 		1.6em;
 }
 
 div.alertbox, div.alert {
   padding-bottom:	0;
   background-color:	#FFF0F5;
   border:		1px solid #DC143C;
-  text-align:		left;
+  text-align:		center;
+  max-width:		50%;
+  /* margin-left:	auto; */
+  /* margin-right:	auto; */
 }
 
 div.alert {
@@ -301,7 +446,10 @@ div.warningbox, div.warning {
   padding-bottom:	0;
   background-color:	#edf3fe;
   border:		1px solid #3d80df;
-  text-align:		left;
+  text-align:		center;
+  max-width:		50%;
+  /* margin-left:	auto; */
+  /* margin-right:	auto; */
 }
 
 div.warning {
@@ -317,7 +465,10 @@ div.notebox, div.note {
   padding-bottom:	0;
   background-color:	#e4f1db; 
   border:		1px solid #32a804;
-  text-align:		left;
+  text-align:		center;
+  max-width:		50%;
+  /* margin-left:	auto; */
+  /* margin-right:	auto; */
 }
 
 div.note {
@@ -327,6 +478,39 @@ div.note {
 
 div.notebox {
   padding:		.5em;
+}
+
+/**********************************************************************/
+div.list h3 {
+  text-transform:	uppercase;
+  margin:		0 0 10px 0;
+  font-size:		1.2em;
+  line-height:		1.4em;
+  padding:		10px 0 1px 0;
+  font-weight:		normal;
+  /* color:		#630; */
+  border-bottom:	1px solid #ccc;
+}
+
+div.list h3.nocaps {
+  text-transform:	none;
+}
+
+div.list table {
+  width:		100%;
+}
+
+div.list th, div.list td {
+  vertical-align:	top;
+  padding:		0 0.5em 0 0.5em;
+}
+
+div.list thead th {
+  border-bottom:	1px dashed #ccc;
+}
+
+div.list tfoot th {
+  border-top:		1px dashed #ccc;
 }
 
 /**********************************************************************/

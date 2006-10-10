@@ -159,48 +159,48 @@ function CreateEl(x)
 
 function getElementsBySelector(selector)
 {
-  var i,selid="",selclass="",tag=selector,f,s=[],objlist=[];
-
-  if(selector.indexOf(" ")>0)
-  {  //descendant selector like "tag#id tag"
-    s=selector.split(" ");
-    var fs=s[0].split("#");
-    if(fs.length==1) return(objlist);
-    f=document.getElementById(fs[1]);
-    if(f) return(f.getElementsByTagName(s[1]));
-    return(objlist);
-  }
-
-  if(selector.indexOf("#")>0)
-  { //id selector like "tag#id"
-    s=selector.split("#");
-    tag=s[0];
-    selid=s[1];
-  }
-
-  if(selid!="")
+  var result = [];
+  var list = [document];
+  var components = selector.split(" ");
+  for (var i = 0; i < components.length; ++i)
   {
-    f=document.getElementById(selid);
-    if(f) objlist.push(f);
-    return(objlist);
+    list = getBySubSelector(list, components[i]);
   }
+  return list;
+}
 
-  if(selector.indexOf(".")>0)
-  {  //class selector like "tag.class"
-    s=selector.split(".");
-    tag=s[0];
-    selclass=s[1];
+function getBySubSelector(elements, selector)
+{
+  var result = [];
+  for (var i = 0; i < elements.length; ++i)
+  {
+    var el = elements[i];
+    var parts = selector.split("#");
+    if (parts.length > 1)
+    {
+      var elt = el.getElementsById(parts[1])
+                .getElementsByTagName(parts[0]);
+      result.push(elt);
+      continue;
+    }
+
+    parts = selector.split(".");
+    if (parts.length > 1)
+    {
+      var elts = el.getElementsByTagName(parts[0]);
+      for (var j = 0; j < elts.length; ++j)
+	if (elts[j].className == parts[1])
+	{
+	  result.push(elts[j]);
+	}
+      continue;
+    }
+
+    var elts = el.getElementsByTagName(selector);
+    for (var j = 0; j < elts.length; ++j)
+      result.push(elts[j]);
   }
-
-  var v=document.getElementsByTagName(tag);  // tag selector like "tag"
-  if(selclass=="")
-    return(v);
-
-  for(i=0;i<v.length;i++)
-    if(v[i].className.indexOf(selclass)>=0)
-      objlist.push(v[i]);
-
-  return objlist;
+  return result;
 }
 
 function Mix(c1,c2)

@@ -7,140 +7,77 @@ DEFINE ('TTF_DIR', "/afs/cern.ch/cms/sw/slc3_ia32_gcc323/lcg/root/5.12.00/root/f
 // Hack to fill in PHP 5 function...
 function stream_get_line ($fh, $len) { return trim(fgets($fh, $len)); }
 
-// Interpret and rearrange history data.
-function readCSVData($filename, $xbin, $tail, $upto, $compact, $args)
+// Interpret and rearrange quality history data.
+function selectQualityData($filename)
 {
-  // Open the CSV file for reading.  We keep reading from this file into
-  // an array ($result), either a large one ($tail is unset), or circular
-  // one ($tail is set, in which case it defines the size of the array).
-  // If $upto is given, we stop reading once we have reached the $upto
-  // label _and_ see the next label that is different.
+  // Open the CSV file for reading, then read all the rows in it.
   $fh = fopen($filename, "r");
   $labels = explode(",", stream_get_line($fh, 100000));
-  if (count($labels) < 3) return array();
+  if (count($labels) != 4) return array();
 
-  // Build a list of bins we are interested in.  Read from start, filling
-  // in a circular buffer or until we see a label following $upto in which
-  // case our circular buffer contains already all we need.
+  // Build a list of bins.  Include rows that match our key selection.
+  // Produce one row per time bin, under which there is an associative
+  // array per line item key.
   $bins = array();
-  $last = null;
-
   while (! feof($fh))
   {
     // Read this line item.
     $data = explode(",", stream_get_line($fh, 100000));
-    if (count($data) < 3) break;
+    if (count($data) != 4) break;
 
-    // Select correct time for X axis, plus convert to desired format.
-    // If we are filling up our circular buffer, throw data away from
-    // the start.  If we have completed a bin, finalise its format.
-    $time = $data[$xbin];
-    if (! $last || $last != $time)
-    {
-      // If we hit a label after $upto, stop, we have all we need
-      if (isset ($upto) && $upto != '' && $last && $last == $upto)
-	break;
+    // If this is different from the previous time stamp, add a new row.
+    $time = $data[0];
+    $span = $data[1];
+    $dest = $data[2];
+    $values = explode("/", $data[3]);
+    if (preg_match("/MSS$/", $dest)) continue;
 
-      // We are about to add a new bin, if we have too many, drop
-      if (isset($tail) && $tail && count($bins) >= $tail)
-	array_shift($bins);
+    if (! count($bins) || $bins[count($bins)-1][0] != $time)
+      // Start building new bin
+      $bins[] = array($time, $span, array());
 
-      // Process the last bin
-      if ($last) $bins[] = $compact($labels, array_pop($bins), $args);
-
-      // Start building new last bin
-      $bins[] = array($time);
-      $last = $time;
-    }
-
-    $bins[count($bins)-1][] = $data;
+    $bins[count($bins)-1][2][$dest] = $values;
   }
-
-  // Compact last bin
-  if ($last) $bins[] = $compact($labels, array_pop($bins), $args);
-
-  // Finally reorder the data
-  $result = array();
-  foreach ($bins as $data)
-    $result[$data[0]] = $data[1];
 
   // We are done
   fclose($fh);
-  return $result;
-}
-
-// Interpret and rearrange quality history data.
-function selectQualityData($filename, $xbin, $tail, $upto, $by)
-{
-  function qcompact($labels, $bin, $args)
-  {
-    $by = $args[0];
-    $result = array();
-    $time = array_shift($bin);
-    foreach ($bin as $data)
-    {
-      $dest = $data[4];
-      for ($n = 5; $n < count($data); ++$n)
-      {
-        $node = $labels[$n];
-        if ($data[$n] == "0/0/0" /* || preg_match("/MSS$/", $node) */) continue;
-        $key = ($by == 'link' ? "{$dest} < {$node}" :
-                ($by == 'dest' ? $dest : $node));
-        if (! isset ($result[$key]))
-          $result[$key] = array (0, 0, 0);
-
-        $values = explode ("/", $data[$n]);
-        $result[$key][0] += $values[0];
-        $result[$key][1] += $values[1];
-        $result[$key][2] += $values[2];
-      }
-    }
-
-    return array($time, $result);
-  }
-
-  return readCSVData($filename, $xbin, $tail, $upto, 'qcompact', array($by));
+  return $bins;
 }
 
 // Interpret and rearrange performance history data.
-function selectPerformanceData($filename, $xbin, $tail, $sum, $upto, $by)
+function selectPerformanceData($filename)
 {
-  function pcompact($labels, $bin, $args)
+  // Open the CSV file for reading, then read all the rows in it.
+  $fh = fopen($filename, "r");
+  $labels = explode(",", stream_get_line($fh, 100000));
+  if (count($labels) != 4) return array();
+
+  // Build a list of bins.  All rows are interesting, include only columns
+  // of interest.  Compact so that each time bin has exactly one row, then
+  // has underneath it rows for each line item.
+  $bins = array();
+  while (! feof($fh))
   {
-    $sum = $args[0];
-    $by = $args[1];
+    // Read this line item.
+    $data = explode(",", stream_get_line($fh, 100000));
+    if (count($data) != 4) break;
 
-    $result = array();
-    $time = array_shift($bin);
-    foreach ($bin as $data)
-    {
-      $dest = $data[4];
-      for ($n = 5; $n < count($data); ++$n)
-      {
-        $node = $labels[$n];
-        if ($data[$n] == 0 || preg_match("/MSS$/", $node)) continue;
-        $key = ($by == 'link' ? "{$dest} < {$node}" :
-                ($by == 'dest' ? $dest : $node));
-        if (! isset ($result[$key]))
-          $result[$key] = array (0, array());
+    // If this is different from the previous time stamp, add a new row.
+    $time = $data[0];
+    $span = $data[1];
+    $dest = $data[2];
+    $value = $data[3];
 
-        if ($sum)
-        {
-          $result[$key][0] += $data[$n];
-          $result[$key][1][$data[3]] = 1;
-        }
-        else if (! isset ($result[$key][1]["$dest:$node"]))
-        {
-          $result[$key][0] = 1;
-          $result[$key][1]["$dest:$node"] = $data[$n];
-        }
-      }
-    }
+    if (! count($bins) || $bins[count($bins)-1][0] != $time)
+      // Start building new bin
+      $bins[] = array($time, $span, array());
 
-    return array($time, $result);
+    $bins[count($bins)-1][2][$dest] = $value;
   }
 
-  return readCSVData($filename, $xbin, $tail, $upto, 'pcompact', array($sum, $by));
+  // We are done
+  fclose($fh);
+  return $bins;
 }
 
 // Convert HSV colour values to RGB.
