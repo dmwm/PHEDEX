@@ -7,7 +7,6 @@ create sequence seq_req_action_attr;
 
 create table t_req_request
   (id			integer		not null,
-   name			varchar (1000)	not null,
    creator		integer		not null,
    state		integer		not null);
 
@@ -22,7 +21,7 @@ create table t_req_action_attr
   (id			integer		not null,
    action		integer		not null,
    name			varchar (1000)	not null,
-   value		varchar (1000));
+   value		varchar (4000));
 
 create table t_req_task
   (id			integer		not null,
