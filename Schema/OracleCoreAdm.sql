@@ -3,6 +3,7 @@
 
 create sequence seq_adm_identity;
 create sequence seq_adm_identity_attr;
+create sequence seq_adm_client;
 create sequence seq_adm_contact;
 create sequence seq_adm_contact_attr;
 create sequence seq_adm_site;
@@ -15,7 +16,7 @@ create table t_adm_identity_attr
   (id			integer		not null,
    identity		integer		not null,
    name			varchar (1000)	not null,
-   value		varchar (1000));
+   value		varchar (4000));
 
 create table t_adm_contact
   (id			integer		not null);
@@ -26,7 +27,7 @@ create table t_adm_contact_attr
   (id			integer		not null,
    contact		integer		not null,
    name			varchar (1000)	not null,
-   value		varchar (1000));
+   value		varchar (4000));
 
 create table t_adm_client
   (id			integer		not null,
