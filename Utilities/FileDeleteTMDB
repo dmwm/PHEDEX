@@ -113,6 +113,7 @@ sub setTableList
 		   't_xfer_replica',
 		   't_xfer_request',
 		   't_xfer_path',
+		   't_xfer_tracking',
 		   't_xfer_file',
 		   't_dps_file');
     }
