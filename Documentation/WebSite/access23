@@ -2584,9 +2584,10 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(@_);
-  $$self{PLOT_ORDER} = [ qw(l48h l72h l96h l132h l7d l14d l30d l45d l90d l120d
+  $$self{PLOT_ORDER} = [ qw(l24h l48h l72h l96h l132h l7d l14d l30d l45d l90d l120d
 			    l6w l26w l52w ad aw am) ];
-  $$self{PLOTS} = { "l48h" => [ "48:hour", "Last 48 Hours" ],
+  $$self{PLOTS} = { "l24h" => [ "24:hour", "Last 24 Hours" ],
+		    "l48h" => [ "48:hour", "Last 48 Hours" ],
 	            "l72h" => [ "72:hour", "Last 72 Hours" ],
 	            "l96h" => [ "96:hour", "Last 96 Hours" ],
 	            "l132h" => [ "132:hour", "Last 132 Hours" ],
