@@ -143,6 +143,8 @@ function makeGraph($graph, $data, $args, $upto, $by)
 
 $kind_types       = array ('rate'       => "Throughput (MB/s)",
 		           'total'      => "Data Transferred (TB)",
+		           'destined'   => "Allocated Data Volume (TB)",
+		           'resident'   => "Resident Data Volume (TB)",
 		           'pending'    => "Pending Transfer Queue (TB)",
 			   'error'	=> "Suspended from Transfer (TB)",
 			   'routed'	=> "Routed to Destination (TB)",

@@ -2636,6 +2636,8 @@ sub save_data
   # Generate actual data file
   my $tmpdir = mkdtemp("/tmp/perf.graph.XXXXXX");
   open(TOT, "> $tmpdir/total") or die "Failed to save performance data: $!\n";
+  open(DST, "> $tmpdir/destined") or die "Failed to save performance data: $!\n";
+  open(RES, "> $tmpdir/resident") or die "Failed to save performance data: $!\n";
   open(PER, "> $tmpdir/pending") or die "Failed to save performance data: $!\n";
   open(ERR, "> $tmpdir/error") or die "Failed to save performance data: $!\n";
   open(ROU, "> $tmpdir/routed") or die "Failed to save performance data: $!\n";
@@ -2689,7 +2691,7 @@ sub save_data
     $items{$item} = 1;
   }
 
-  my (%routed, %cool);
+  my (%destined, %resident, %routed, %cool);
   my $sqlentity = ($entity eq 'src' ? "'Source unavailable'"
 		   : $entity eq 'link' ? "n.name"
 		   : "n.name");
@@ -2697,6 +2699,8 @@ sub save_data
     select
       trunc(h.timebin/:span)*:span,
       $sqlentity,
+      nvl(sum(dest_bytes) keep (dense_rank last order by timebin asc),0),
+      nvl(sum(node_bytes) keep (dense_rank last order by timebin asc),0),
       nvl(sum(request_bytes) keep (dense_rank last order by timebin asc),0),
       nvl(sum(idle_bytes) keep (dense_rank last order by timebin asc),0)
     from t_dest_histogram h
@@ -2708,10 +2712,12 @@ sub save_data
     ":starttime" => $start,
     ":endtime" => $end,
     ":span" => $span);
-  while (my ($bin, $item, $breq, $bidle) = $q->fetchrow())
+  while (my ($bin, $item, $bdest, $bnode, $breq, $bidle) = $q->fetchrow())
   {
     $bin = (&timeSeries($bin, $unit, $bin))[0]->{LOW};
     $first = $bin if (! $first || $first > $bin);
+    $destined{$bin}{$item} = $bdest / $TERABYTE if $bdest;
+    $resident{$bin}{$item} = $bnode / $TERABYTE if $bnode;
     $routed{$bin}{$item} = $breq / $TERABYTE if $breq;
     $cool{$bin}{$item} = $bidle / $TERABYTE if $bidle;
     $items{$item} = 1;
@@ -2723,6 +2729,7 @@ sub save_data
   # without having to understands time as real time values.
   my @itemnames = sort keys %items;
   print TOT "Time,Span,Item,Value\n";
+  print DST "Time,Span,Item,Value\n";
   print PER "Time,Span,Item,Value\n";
   print ERR "Time,Span,Item,Value\n";
   print ROU "Time,Span,Item,Value\n";
@@ -2735,16 +2742,20 @@ sub save_data
     my $bin = $$time{LOW};
     my $binfmt = &formatTime ($bin, $unit);
     my $x = $xferred{$bin};
+    my $d = $destined{$bin};
+    my $n = $resident{$bin};
     my $p = $pending{$bin};
     my $e = $error{$bin};
     my $r = $routed{$bin};
     my $c = $cool{$bin};
     my $q = $quality{$bin};
-    my %dests = map { $_ => 1 } keys %$x, keys %$p, keys %$e, keys %$r, keys %$c, keys %$q;
+    my %dests = map { $_ => 1 } map { keys %$_ } $x, $d, $n, $p, $e, $r, $c, $q;
     $dests{$itemnames[0]} = 1 if @itemnames && ! keys %dests;
     foreach my $dest (sort keys %dests)
     {
       print TOT join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$x{$dest}||0), "\n";
+      print DST join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$d{$dest}||0), "\n";
+      print RES join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$n{$dest}||0), "\n";
       print PER join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$p{$dest}||0), "\n";
       print ERR join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$e{$dest}||0), "\n";
       print ROU join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$r{$dest}||0), "\n";
@@ -2757,6 +2768,8 @@ sub save_data
   }
 
   close (TOT);
+  close (DST);
+  close (RES);
   close (PER);
   close (ERR);
   close (ROU);
@@ -2910,9 +2923,11 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(@_);
-  $$self{DEFAULT_GRAPH} = 'pending';
-  $$self{GRAPH_ORDER} = [ 'pending', 'error', 'routed', 'cooloff' ];
-  $$self{GRAPHS} = { 'pending' => "Pending volume",
+  $$self{DEFAULT_GRAPH} = 'destined';
+  $$self{GRAPH_ORDER} = [ 'destined', 'resident', 'pending', 'error', 'routed', 'cooloff' ];
+  $$self{GRAPHS} = { 'destined' => "Allocated volume",
+		     'resident' => "Resident volume",
+		     'pending' => "Transferable volume",
 		     'error' => "Transfer cool-off",
 		     'routed' => "Currently routed",
 		     'cooloff' => "Routing cool-off" };
