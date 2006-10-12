@@ -60,7 +60,7 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# My TMDB node name
-		  WAITTIME => 3600,		# Agent activity cycle
+		  WAITTIME => 600,		# Agent activity cycle
 		  SE => undef,			# Storage element name
 		  LAST_UPDATE => {});		# Cache of recent updates
 
