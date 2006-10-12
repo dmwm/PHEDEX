@@ -68,7 +68,7 @@ function makeGraph($graph, $data, $args, $upto, $by)
       foreach ($data as $item)
         $plotdata[]
           = isset ($item[2][$node]) ? (1024*1024*$item[2][$node])/$item[1] : 0;
-    else // total or pending
+    else // total, pending, error, routed or cooloff
       foreach ($data as $item)
         $plotdata[] = isset ($item[2][$node]) ? $item[2][$node] : 0;
 
@@ -143,7 +143,10 @@ function makeGraph($graph, $data, $args, $upto, $by)
 
 $kind_types       = array ('rate'       => "Throughput (MB/s)",
 		           'total'      => "Data Transferred (TB)",
-		           'pending'    => "Pending Transfer Queue (TB)");
+		           'pending'    => "Pending Transfer Queue (TB)",
+			   'error'	=> "Suspended from Transfer (TB)",
+			   'routed'	=> "Routed to Destination (TB)",
+			   'cooloff'	=> "Routing in Cool-off (TB)");
 $srcdb            = $GLOBALS['HTTP_GET_VARS']['db'];
 $span             = $GLOBALS['HTTP_GET_VARS']['span'];
 $kind             = $GLOBALS['HTTP_GET_VARS']['kind'];
@@ -155,13 +158,15 @@ $dir		  = $GLOBALS['HTTP_GET_VARS']['data'];
 
 if ($by != 'link' && $by != 'dest' && $by != 'src') $by = 'dest';
 
-$suffix           = ($kind == 'pending' ? 'pending' : 'total');
 $args['metric']   = (isset ($kind_types[$kind]) ? $kind : 'rate');
 $args['ytitle']   = $kind_types[$args['metric']];
 $args['instance'] = ($srcdb == 'prod' ? 'Prod'
 	             : ($srcdb == 'test' ? 'Dev'
 	                : ($srcdb == 'sc' ? 'SC4'
 	                   : ($srcdb == 'tbedi' ? 'Testbed' : 'Validation'))));
+$suffix           = ($args['metric'] == 'rate' || $args['metric'] == 'total'
+		     ? 'total' : $args['metric']);
+
 if ($span == "month")
 {
   $args['title'] = ($entries ? "$entries Months" : "By Month");
@@ -202,7 +207,7 @@ else // hour
 if (isset($dir) && $dir != "" && preg_match("/^[A-Za-z][A-Za-z0-9.]+$/", $dir))
 {
   $filename = "/tmp/{$dir}/$suffix";
-  $data = selectPerformanceData ($filename, $args['metric'] != 'pending');
+  $data = selectPerformanceData ($filename, $args['metric'] == 'rate' || $args['metric'] == 'total');
   makeGraph (new Graph (800, 500, "auto"), $data, $args, $upto, $by);
 }
 

@@ -2603,6 +2603,7 @@ sub new
 	            "ad" => [ "0:day", "Daily Since Start" ],
 	            "aw" => [ "0:week", "Weekly Since Start" ],
 	            "am" => [ "0:month", "Monthly Since Start" ] };
+  $$self{DEFAULT_PLOT} = 'l96h';
   $$self{DEFAULT_GRAPH} = undef;
   $$self{GRAPH_ORDER} = [];
   $$self{GRAPHS} = {};
@@ -2636,6 +2637,9 @@ sub save_data
   my $tmpdir = mkdtemp("/tmp/perf.graph.XXXXXX");
   open(TOT, "> $tmpdir/total") or die "Failed to save performance data: $!\n";
   open(PER, "> $tmpdir/pending") or die "Failed to save performance data: $!\n";
+  open(ERR, "> $tmpdir/error") or die "Failed to save performance data: $!\n";
+  open(ROU, "> $tmpdir/routed") or die "Failed to save performance data: $!\n";
+  open(COO, "> $tmpdir/cooloff") or die "Failed to save performance data: $!\n";
   open(QUA, "> $tmpdir/quality") or die "Failed to save performance data: $!\n";
 
   # Read data from the database
@@ -2648,6 +2652,7 @@ sub save_data
       $sqlentity,
       nvl(sum(h.done_bytes),0),
       nvl(sum(pend_bytes) keep (dense_rank last order by timebin asc),0),
+      nvl(sum(cool_bytes) keep (dense_rank last order by timebin asc),0),
       nvl(sum(h.try_files),0),
       nvl(sum(h.fail_files),0),
       nvl(sum(h.done_files),0)
@@ -2662,8 +2667,8 @@ sub save_data
     ":endtime" => $end,
     ":span" => $span);
 
-  my ($first, %items, %xferred, %pending, %quality);
-  while (my ($bin, $item, $bdone, $bwait, $tfiles, $ffiles, $dfiles) = $q->fetchrow())
+  my ($first, %items, %xferred, %pending, %error, %quality);
+  while (my ($bin, $item, $bdone, $bpend, $berr, $tfiles, $ffiles, $dfiles) = $q->fetchrow())
   {
     $bin = (&timeSeries($bin, $unit, $bin))[0]->{LOW};
     $first = $bin if (! $first || $first > $bin);
@@ -2672,10 +2677,8 @@ sub save_data
       $xferred{$bin}{$item} ||= 0;
       $xferred{$bin}{$item} += $bdone / $TERABYTE;
     }
-    if ($bwait)
-    {
-      $pending{$bin}{$item} = $bwait / $TERABYTE;
-    }
+    $pending{$bin}{$item} = $bpend / $TERABYTE if $bpend;
+    $error{$bin}{$item} = $berr / $TERABYTE if $berr;
     if ($tfiles || $ffiles || $dfiles)
     {
       $quality{$bin}{$item} ||= { STARTED => 0, FAILED => 0, COMPLETED => 0 };
@@ -2686,6 +2689,34 @@ sub save_data
     $items{$item} = 1;
   }
 
+  my (%routed, %cool);
+  my $sqlentity = ($entity eq 'src' ? "'Source unavailable'"
+		   : $entity eq 'link' ? "n.name"
+		   : "n.name");
+  $q = &dbexec($$self{DBH}, qq{
+    select
+      trunc(h.timebin/:span)*:span,
+      $sqlentity,
+      nvl(sum(request_bytes) keep (dense_rank last order by timebin asc),0),
+      nvl(sum(idle_bytes) keep (dense_rank last order by timebin asc),0)
+    from t_dest_histogram h
+      join t_node n on n.id = h.node
+    where timebin >= :starttime
+      and timebin < :endtime
+    group by trunc(h.timebin/:span)*:span, $sqlentity
+    order by 1 asc},
+    ":starttime" => $start,
+    ":endtime" => $end,
+    ":span" => $span);
+  while (my ($bin, $item, $breq, $bidle) = $q->fetchrow())
+  {
+    $bin = (&timeSeries($bin, $unit, $bin))[0]->{LOW};
+    $first = $bin if (! $first || $first > $bin);
+    $routed{$bin}{$item} = $breq / $TERABYTE if $breq;
+    $cool{$bin}{$item} = $bidle / $TERABYTE if $bidle;
+    $items{$item} = 1;
+  }
+
   # Print the statistics for all nodes.  Generate a continuous time
   # series so we print out values even for time spans when there
   # were no transfers to report.  This allows for correct histograms
@@ -2693,6 +2724,9 @@ sub save_data
   my @itemnames = sort keys %items;
   print TOT "Time,Span,Item,Value\n";
   print PER "Time,Span,Item,Value\n";
+  print ERR "Time,Span,Item,Value\n";
+  print ROU "Time,Span,Item,Value\n";
+  print COO "Time,Span,Item,Value\n";
   print QUA "Time,Span,Item,Value\n";
 
   $first ||= int(time()/86400)*86400;
@@ -2702,13 +2736,19 @@ sub save_data
     my $binfmt = &formatTime ($bin, $unit);
     my $x = $xferred{$bin};
     my $p = $pending{$bin};
+    my $e = $error{$bin};
+    my $r = $routed{$bin};
+    my $c = $cool{$bin};
     my $q = $quality{$bin};
-    my %dests = map { $_ => 1 } keys %$x, keys %$p, keys %$q;
+    my %dests = map { $_ => 1 } keys %$x, keys %$p, keys %$e, keys %$r, keys %$c, keys %$q;
     $dests{$itemnames[0]} = 1 if @itemnames && ! keys %dests;
     foreach my $dest (sort keys %dests)
     {
       print TOT join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$x{$dest}||0), "\n";
       print PER join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$p{$dest}||0), "\n";
+      print ERR join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$e{$dest}||0), "\n";
+      print ROU join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$r{$dest}||0), "\n";
+      print COO join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$c{$dest}||0), "\n";
       print QUA join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest,
 		     ($$q{$dest}{STARTED}||0) . "/" .
       		     ($$q{$dest}{FAILED}||0) . "/" .
@@ -2718,6 +2758,9 @@ sub save_data
 
   close (TOT);
   close (PER);
+  close (ERR);
+  close (ROU);
+  close (COO);
   close (QUA);
 
   $tmpdir =~ s,^/tmp/,,;
@@ -2730,11 +2773,13 @@ sub output
   my ($self) = @_;
   my $page = param("page");
   my $plot = param("plot");
-  my $graph = param("graph") || $$self{DEFAULT_GRAPH};
-  my $entity = param("entity") || 'dest';
+  my $graph = param("graph");
+  my $entity = param("entity");
   my $filter = param("filter") || '';
   my $upto = param("upto") || '';
-  $plot = 'l96h' if (! $plot || ! exists $$self{PLOTS}{$plot});
+  $plot = $$self{DEFAULT_PLOT} if (! $plot || ! exists $$self{PLOTS}{$plot});
+  $graph = $$self{DEFAULT_GRAPH} if (! $graph || ! exists $$self{GRAPHS}{$graph});
+  $entity = 'dest' if (! $entity || ! grep($_ eq $entity, qw(dest src link)));
 
   print { $$self{CONTENT} } "<p><form method='GET' action='@{[$self->myurl()]}'>\n",
     "<label for='graph'>Graph</label>\n",
@@ -2826,6 +2871,7 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(@_);
+  $$self{DEFAULT_GRAPH} = 'rate';
   $$self{GRAPH_ORDER} = [ 'rate', 'volume', 'cumulative' ];
   $$self{GRAPHS} = { 'rate' => "Rate", 'volume' => "Volume", 'cumulative' => "Cumulative" };
   bless $self, $class;
@@ -2864,8 +2910,12 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(@_);
-  $$self{GRAPH_ORDER} = [ 'pending' ];
-  $$self{GRAPHS} = { 'pending' => "Pending volume" };
+  $$self{DEFAULT_GRAPH} = 'pending';
+  $$self{GRAPH_ORDER} = [ 'pending', 'error', 'routed', 'cooloff' ];
+  $$self{GRAPHS} = { 'pending' => "Pending volume",
+		     'error' => "Transfer cool-off",
+		     'routed' => "Currently routed",
+		     'cooloff' => "Routing cool-off" };
   bless $self, $class;
   return $self;
 }
@@ -2873,9 +2923,9 @@ sub new
 sub output_plot
 {
   my ($self, $graph, $datadir, %args) = @_;
-  my $home = "$$self{CONFIG}{SERVICE_PATH}/cgi-bin/"; #"http://cmsdoc.cern.ch/cms/aprom/phedex/cgi-bin/";
+  my $home = "$$self{CONFIG}{SERVICE_PATH}/cgi-bin/";
   print { $$self{CONTENT} } "<p><img width=800 height=500 src='${home}perf-graph-23.php?",
-    &urlencode('db' => $$self{DBID}, 'data' => $datadir, 'kind' => 'pending', %args),
+    &urlencode('db' => $$self{DBID}, 'data' => $datadir, 'kind' => $graph, %args),
     "' /></p>";
 }
 
