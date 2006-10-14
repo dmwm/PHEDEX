@@ -455,6 +455,7 @@ our $TEMPLATE = <<'END_OF_TEMPLATE';
 
 <!-- main content -->
 <div id="content">
+@THIS_IS_A_TEST@
 @CONTENT@
 </div>
 </div>
@@ -676,9 +677,24 @@ sub generate
     exists $$scope{TOC} ? ${"${scope}TOC"} : undef
   };
 
+  # Check if this is running against a test location and warn if so
+  my $testwarn = "";
+  if ($ENV{SCRIPT_NAME} =~ m!/test/!)
+  {
+    my $prod = $self->myurl();
+    $prod =~ s!/test/!/!;
+    $testwarn =
+      "<center><div class='warning'>"
+      . "Hoy!  The production server is <a href='$prod'>over this way</a>."
+      . " This is a test server for the developers. You might wish to update"
+      . " your bookmarks."
+      . "</div></center>";
+  }
+
   # Initialise page template
   my $ndb = 0;
   my $replacements = {
+    'THIS_IS_A_TEST' => $testwarn,
     'CONTENT' => '',
     'PAGETITLE' =>
       ($cat ? $$cat{TITLE} . " &#8211; " . $$index{TITLE} : $$index{TITLE}),
@@ -690,7 +706,7 @@ sub generate
       (" <div class='dbopt'>\n" .
        "  <h3 style='margin-top:0'>Instance</h3>\n" .
        "  <i>$$config{INSTANCES}{$db}{TITLE}</i>&nbsp;" .
-       "<a href='#@{[$self->myurl('page'=>'DB')]}'" .
+       "<a href='@{[$self->myurl('page'=>'DB')]}'" .
        " onclick='return hideshow(this,\"dbopts\",0)'>&#187;&#187;</a>\n" .
        "  <div id='dbopts' style='display:none'>\n" .
        "   <a href='#' onclick='return hideshow(this,\"dbopts\",0)'><img" .
