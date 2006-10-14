@@ -200,6 +200,7 @@ have full write access to this directory.
 
   cd /data
   cvs co HEARTBEAT
+  cvs co -D2006/05/06 DBS/Servers
 
 ** Configure automatic updates
 
@@ -315,6 +316,15 @@ The files need to be owned by the service administrator, group apache
     password      = <password>			\
     version       = V2.3
 
+For DBS, you will need to create /data/DBSAccessInfo/DBParam.  It
+has a sequence of entries as follows, for each DBS instance.
+
+  Section         MCLocal_3/Writer
+  Interface       Oracle
+  Database        cms_dbs_mcprod_local
+  AuthDBUsername  cms_dbs_mcprod_local_3_writer
+  AuthDBPassword  <password>
+
 ** Configure Apache
 
 Make sure Apache is configured to run enough concurrent children.  The
@@ -339,6 +349,8 @@ shown below.  This change must be made by the system administrator.
   LogFormat "%{Referer}i -> %U" referer
   LogFormat "%{User-agent}i" agent
   CustomLog logs/access_log combined
+
+Also make sure mod_deflate is loaded, it may be commented out.
 
 Change /etc/rc.d/init.d/httpd to source the software environment for
 the web server.  This change must be done by the system administrator.
@@ -376,7 +388,7 @@ be done by the PhEDEx service administrator.
  - In dbs.conf and heartbeat.conf:
      - Adjust Alias for service URL
      - Adjust the Directory and Location paths
-     - In dbs.conf set DBS_DBPARAM path
+     - In dbs.conf set DBS_DBPARAM path to the DBParam file
 
  - In phedex.conf:
     - Check the RewriteRules to match your directories.  There are
@@ -402,3 +414,5 @@ If everything seems fine, restart apache:
 Check the logs for accesses and errors while you access the pages:
 
   sudo tail -f /var/log/httpd/{access,error}_log
+
+Verify that httpd is started on system start-up (/etc/rc.d).
