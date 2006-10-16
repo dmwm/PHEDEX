@@ -396,7 +396,7 @@ use CGI qw(:standard);
 use POSIX qw(strftime);
 import Web::Common;
 
-our $TEMPLATE = <<'END_OF_TEMPLATE';
+our $TEMPLATE_DEFAULT = <<'END_OF_TEMPLATE';
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
@@ -472,6 +472,55 @@ our $TEMPLATE = <<'END_OF_TEMPLATE';
 </html>
 END_OF_TEMPLATE
 
+our $TEMPLATE_BARE = <<'END_OF_TEMPLATE';
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+  <meta name="keywords" content="PhEDEx, file transfer, transfer request" />
+  @REFRESH@
+  <link rel="stylesheet" href="@ROOTURL@style.css" type="text/css" />
+  <link rel="stylesheet" href="@ROOTURL@nifty-screen.css" type="text/css" />
+  <link rel="stylesheet" href="@ROOTURL@nifty-print.css" type="text/css" media="print"/>
+  <link rel="shortcut icon" href="@ROOTURL@favicon.ico" />
+  <script type="text/javascript" src="@ROOTURL@stripe.js"></script>
+  <script type="text/javascript" src="@ROOTURL@nifty.js"></script>
+  <script type="text/javascript"><!--
+    function hideshow(link,item,hide) {
+      var obj = document.getElementById(item);
+      if (obj.style.display == '')
+      {
+        obj.style.display = 'none';
+	if (hide) link.style.display = '';
+      }
+      else
+      {
+        obj.style.display = '';
+	if (hide) link.style.display = 'none';
+      }
+      return false;
+    }
+   --></script>
+
+  <title>@DBTITLE@ @PAGETITLE@ - CMS PhEDEx</title>
+</head>
+
+<body onload='
+  stripe("#fff", "#edf3fe");
+  if (! NiftyCheck()) return;
+  Rounded("div.toc", "top", "transparent", "#e4f1db");
+  // Rounded("div.menuopt li", "top", "transparent", "#e4f1db");
+' style='background: none; margin: .5em'>
+
+<!-- main content -->
+<div id="content" style='border: none'>
+@CONTENT@
+</div>
+</body>
+</html>
+END_OF_TEMPLATE
+
 sub new
 {
   my $proto = shift;
@@ -542,11 +591,15 @@ sub myurl
   my $self = shift(@_);
   my $curpage = param('page');
   my $curview = param('view');
+  my $curlayout = param('layout');
+  my $currefresh = param('refresh');
   my $cursecure = (($ENV{HTTPS} || 'nope') eq 'on' ? 1 : 0);
   my %args = ('db' => $$self{DBID},
 	      ($cursecure ? ('secure' => 1) : ()),
 	      ($curview ? ('view' => $curview) : ()),
 	      ($curpage ? ('page' => $curpage) : ()),
+	      ($curlayout ? ('layout' => $curlayout) : ()),
+	      ($currefresh ? ('refresh' => $currefresh) : ()),
 	      @_);
   my $page = $args{'page'}; delete $args{'page'};
   my $db = $args{'db'}; delete $args{'db'};
@@ -829,8 +882,12 @@ sub generate
   $$replacements{CONTENT} = join("\n", $output);
   $$replacements{SIDEBAR} = join("\n", $sidebar);
 
-  # Instantiate the template and spit it out
-  my $result = $TEMPLATE;
+  # Instantiate the desired template and spit it out
+  my $template = param('layout');
+  $template = 'default'
+    if (! $template || ! grep($template eq $_, qw(default bare)));
+
+  my $result = ($template eq 'bare' ? $TEMPLATE_BARE : $TEMPLATE_DEFAULT);
   while (my ($key, $value) = each %$replacements)
   {
     $result =~ s/\@$key\@/$value/g;
