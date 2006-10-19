@@ -7,13 +7,15 @@
 ##H this agent triggers an update of the DLS.
 ##H
 ##H Usage:
-##H   BlockDLSUpdate -state DIRECTORY -node NAME -db FILE[:SECTION]
-##H                  -next DIRECTORY -se NAME [-log OUT]
+##H   BlockDLSUpdate -state DIRECTORY [-node NAME] -db FILE[:SECTION]
+##H                  -se NAME [-log OUT]
 ##H
 ##H -state     agent state directory
-##H -node      the node where this agent runs
+##H -node      single node to run this agent for (deprecated)
 ##H -db        database connection configuration parameter file
-##H -se        name of the storage element
+##H -se        name of the storage element for one site or
+##H            file containing comma separated list of nodename SE pairs
+##H            example: "T2_Atlantis_Buffer,se.atalantis.underwater"
 ##H -log       where to redirect logging information
 ##H
 
@@ -31,15 +33,23 @@ use Getopt::Long;
 use UtilsHelp;
 &GetOptions ("state=s"     => \$args{DROPDIR},
              "db=s"        => \$args{DBCONFIG},
-             "node=s"      => \$args{MYNODE},
+             "node=s"      => \$args{NODES}->[0],
 	     "log=s"       => \$args{LOGFILE},
 	     "se=s"        => \$args{SE},
 	     "help|h"      => sub { &usage() });
 
-if (@ARGV || !$args{DROPDIR} || !$args{MYNODE}
+if (@ARGV || !$args{DROPDIR}
     || !$args{DBCONFIG} || !$args{SE})
 {
     die "Insufficient parameters, use -h for help.\n";
+}
+elsif ( ( $args{node} && -e $args{SE} ) ||
+	( ( ! $args{node} || scalar $args{node} > 1 ) && ! -e $args{SE} ) )
+{
+    die "Wrong combination of -se and -node options. Possible combinations:\n".
+	"1. -node <your nodename> and -se <YourSE>\n".
+	"2. no -node and -se <file containig node-SE pairs>\n".
+	"Use -h for more help\n";
 }
 
 (new BlockDLSUpdate (%args))->process();
@@ -52,6 +62,7 @@ use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
 use UtilsDB;
+use UtilsJobManager;
 
 sub new
 {
@@ -59,7 +70,7 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
-	  	  MYNODE => undef,		# My TMDB node name
+	  	  NODES => [],	                # TMDB node names
 		  WAITTIME => 600,		# Agent activity cycle
 		  SE => undef,			# Storage element name
 		  LAST_UPDATE => {});		# Cache of recent updates
@@ -75,6 +86,8 @@ sub idle
 {
     my ($self, @pending) = @_;
     my $dbh = undef;
+    my $SEmapping = $self->getSEforNode();
+    
     eval
     {
 	# Purge recent update memory
@@ -82,9 +95,11 @@ sub idle
 	delete $$self{LAST_UPDATE}{$_}
 	    for grep($$self{LAST_UPDATE}{$_} < $old,
 		     keys %{$$self{LAST_UPDATE}});
-
+	
 	# Connect to database
-	$dbh = &connectToDatabase ($self);
+	my @nodes = ();
+	($dbh, @nodes) = &expandNodesAndConnect ($self);
+	my ($nodes, %node_args) = &myNodeFilter ($self, "node");
 
 	# Get order list of blocks we have.  This is always everything,
 	# we keep no record of what has already been notified.  The
@@ -92,25 +107,35 @@ sub idle
         my $completed = &dbexec ($dbh, qq{
 	    select dbs.name dbs_name,
 	           dbs.dls dls_name,
-		   b.name block_name
+	           b.name block_name,
+	           n.name nodename
 	    from t_dps_block_replica br
 	      join t_dps_block b on b.id = br.block
 	      join t_dps_dataset ds on ds.id = b.dataset
 	      join t_dps_dbs dbs on dbs.id = ds.dbs
-	    where br.node = :node
+	      join t_node n on n.id = br.node
+	    where $nodes
   	      and b.is_open = 'n'
 	      and br.dest_files = b.files
 	      and br.node_files = b.files},
-	    ":node" => $$self{ID_MYNODE})
+	    %node_args)
 	    ->fetchall_arrayref({});
 
 	foreach my $block (@$completed)
         {
 	    # If we've updated recently, pass this now
-	    my $cachekey = "$$block{DBS_NAME} $$block{BLOCK_NAME}";
+	    my $cachekey = "$$block{DBS_NAME} $$block{BLOCK_NAME} $$block{NODENAME}";
 	    next if $$self{LAST_UPDATE}{$cachekey};
 	    $$self{LAST_UPDATE}{$cachekey} = &mytimeofday();
 
+	    # if we didn't get an SE string containing characters, complain and skip
+	    if ( $$SEmapping{$$block{NODENAME}} !~ m|\w{3,}| )
+	    {
+		&warn ("Suspicious SE $$SEmapping{$$block{NODENAME}} defined ".
+		       "at site $$block{NODENAME}! Skipping...");
+		next;
+	    }
+	    
 	    # If this DBS has no associated DLS, ignore
 	    next if ! $$block{DLS_NAME};
 
@@ -122,11 +147,9 @@ sub idle
 	    # Now register into DLS.  If the command fails, alert but keep going.
 	    # We'll try to register the block in 24 hours anyway.
 	    my @cmd = ("dls-add", "-i", ($dlstype eq 'lfc' ? "DLS_TYPE_LFC" : "DLS_TYPE_MYSQL"),
-		       "-e", $contact, $$block{BLOCK_NAME}, $$self{SE});
+		       "-e", $contact, $$block{BLOCK_NAME}, $$SEmapping{$$block{NODENAME}});
 
-	    my $rc = &runcmd (@cmd);
-	    &alert ("failed to register block, exit code @{[&runerror($rc)]} from @cmd")
-		if $rc;
+	    $self->jobControl ( \@cmd, $block );
         }
     };
     do { chomp ($@); &alert ("database error: $@");
@@ -136,5 +159,66 @@ sub idle
     &disconnectFromDatabase ($self, $dbh);
 
     # Have a little nap
+    $self->pumpJobs();
     $self->nap ($$self{WAITTIME});
+}
+
+sub jobControl
+{
+    my ( $self, $cmd, $block, $job ) = @_;
+    my $timeout = 30;  #30s timeout for dls-add execution
+    my $now = &mytimeofday();
+    
+    my $blockname = $$block{BLOCK_NAME};
+    $blockname =~ s|^/||; $blockname =~ s|/||g; 
+    my $joblog = "$$self{DROPDIR}/$now.$blockname.log";
+
+    if ( $job )
+    {
+	if ( $$job{STATUS} )
+	{
+	    &warn ( "failed to add block $blockname for site $$block{NODENAME} to DLS. Log output in $$job{LOGFILE}" );
+	}
+	else
+	{
+	    &logmsg ( "successfully added block $blockname for site $$block{NODENAME} to DLS" );
+	    unlink ($$job{LOGFILE});
+	}
+    }
+    else
+    {
+	$self->addJob(
+		      sub { $self->jobControl ( $cmd, $block, @_ ) },
+		      { TIMEOUT => 30, LOGFILE => $joblog },
+		      @{$cmd});
+    }
+    
+}
+
+sub getSEforNode
+{
+    my ( $self ) = @_;
+    my %SEmap = ();
+
+    # If we've got a list of node SE pairs, delete what was given to us via -node option;
+    # we take the nodes and SE names from that file only
+    if ( -e $$self{SE} )
+    {
+	map { shift @{$$self{NODES}} } @{$$self{NODES}};
+	open( SEList, "<", "$$self{SE}" );
+	foreach my $pair ( <SEList> )
+	{
+	    chomp $pair;
+	    next if ! $pair =~ m|\w+|;
+	    my ( $node, $SE ) = split( /,/, $pair );
+	    $SEmap{$node} = $SE;
+	    push @{$$self{NODES}}, $node;
+	}
+	close( SEList );
+    }
+    else
+    {
+	$SEmap{$$self{NODES}[0]} = $$self{SE};
+    }
+    return \%SEmap;
 }
