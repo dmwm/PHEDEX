@@ -113,7 +113,6 @@ sub setTableList
 		   't_xfer_replica',
 		   't_xfer_request',
 		   't_xfer_path',
-		   't_xfer_tracking',
 		   't_xfer_file',
 		   't_dps_file');
     }
@@ -417,7 +416,23 @@ sub deletePhysicalFile
 sub deleteAllTMDBEntries
 {
     my ( $lfn, $lfnname, $tables ) = @_;
-    
+
+    my $exists_tracking = 1;
+    while ( $exists_tracking )
+    {
+	# check if there is tracking information for that LFN and wait
+	my $q = &dbexec($dbh, qq{
+	    select count(*) from t_xfer_tracking where fileid = :lfn},
+			":lfn" => $lfn);
+	$exists_tracking = $q->fetchrow();
+	if ( $exists_tracking )
+	{
+	    print "files are still being tracked, waiting 30s for table to be emptied\n";
+	    $dbh->commit();
+	    sleep 30;
+	}
+    }
+
     print "deleting: $lfnname\n";
     
     foreach my $table ( @$tables )
