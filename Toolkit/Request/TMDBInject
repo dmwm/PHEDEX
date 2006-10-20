@@ -131,8 +131,8 @@ sub lockone
     my ($dbh, $table, %id) = @_;
     my @names = keys %id;
     my $params = join(" and ", map { "$_ = :attr_$_" } @names);
-    my ($obj) = &dbexec($dbh, qq{select * from t_$table where $params for update},
-        map { (":attr_$_" => $id{$_} ) } @names)->fetchall_arrayref({});
+    my ($obj) = @{&dbexec($dbh, qq{select * from t_$table where $params for update},
+        map { (":attr_$_" => $id{$_} ) } @names)->fetchall_arrayref({})};
     return $obj;
 }
 
@@ -178,7 +178,7 @@ while (@$info)
     my ($dbs) = grep ($$_{NAME} eq $$dbsattrs{'name'}, @$all_dbs);
     if (! $dbs)
     {
-        ($dbs) = &lockone ($dbh, "dps_dbs", "name" => $$dbsattrs{'name'});
+        $dbs = &lockone ($dbh, "dps_dbs", "name" => $$dbsattrs{'name'});
     }
     if (! $dbs)
     {
