@@ -122,8 +122,18 @@ use UtilsDB;
 sub fetchall
 {
     my ($dbh, $table) = @_;
-    return &dbexec($dbh, qq{select * from t_$table for update})
+    return &dbexec($dbh, qq{select * from t_$table})
         ->fetchall_arrayref({});
+}
+
+sub lockone
+{
+    my ($dbh, $table, %id) = @_;
+    my @names = keys %id;
+    my $params = join(" and ", map { "$_ = :attr_$_" } @names);
+    my ($obj) = &dbexec($dbh, qq{select * from t_$table where $params for update},
+        map { (":attr_$_" => $id{$_} ) } @names)->fetchall_arrayref({});
+    return $obj;
 }
 
 # Connect to database for update
@@ -137,10 +147,10 @@ my $info = (new XML::Parser (Style => "Tree"))->parsefile ($args{FILEDATA});
 
 # Fetch known DBSes, datasets and blocks.
 my $now = &mytimeofday();
-my $all_dbs = &fetchall($dbh, "dps_dbs");
-my $all_dataset = &fetchall($dbh, "dps_dataset");
-my $all_block = &fetchall($dbh, "dps_block");
 my $all_nodes = &fetchall($dbh, "node");
+my $all_dbs = [];
+my $all_dataset = [];
+my $all_block = [];
 
 # Check all nodes are known
 foreach my $node (@{$args{NODES}})
@@ -166,6 +176,10 @@ while (@$info)
 
     # Create the dbs
     my ($dbs) = grep ($$_{NAME} eq $$dbsattrs{'name'}, @$all_dbs);
+    if (! $dbs)
+    {
+        ($dbs) = &lockone ($dbh, "dps_dbs", "name" => $$dbsattrs{'name'});
+    }
     if (! $dbs)
     {
 	push(@$all_dbs, $dbs = { ID => undef, NAME => $$dbsattrs{'name'},
@@ -199,10 +213,17 @@ while (@$info)
 	    if ! defined $$dsattrs{'is-transient'} || $$dsattrs{'is-transient'} eq '';
 
 	# Create the dataset
-	my ($ds) = grep ($$_{NAME} eq $$dsattrs{'name'}, @$all_dataset);
+	my ($ds) = grep ($$_{DBS} eq $$dbs{ID} && $$_{NAME} eq $$dsattrs{'name'}, @$all_dataset);
+	if (! $ds)
+	{
+	    $ds = &lockone($dbh, "dps_dataset",
+		    	   "dbs" => $$dbs{ID},
+		    	   "name" => $$dsattrs{'name'});
+	}
 	if (! $ds)
 	{
 	    push(@$all_dataset, $ds = { ID => undef,
+					DBS => $$dbs{ID},
 					NAME => $$dsattrs{'name'},
 					IS_OPEN => 'y',
 					IS_OPEN_REALLY => $$dsattrs{'is-open'},
@@ -241,10 +262,17 @@ while (@$info)
 		if ! defined $$battrs{'is-open'} || $$battrs{'is-open'} eq '';
 
 	    # Create the dataset
-	    my ($b) = grep ($$_{NAME} eq $$battrs{'name'}, @$all_block);
+	    my ($b) = grep ($$_{DATASET} == $$ds{ID} && $$_{NAME} eq $$battrs{'name'}, @$all_block);
+	    if (! $b)
+	    {
+	        $b = &lockone($dbh, "dps_block",
+		    	       "dataset" => $$ds{ID},
+		    	       "name" => $$battrs{'name'});
+	    }
 	    if (! $b)
 	    {
 		push(@$all_block, $b = { ID => undef,
+					 DATASET => $$ds{ID},
 					 NAME => $$battrs{'name'},
 					 IS_OPEN => 'y',
 					 IS_OPEN_REALLY => $$battrs{'is-open'} });
