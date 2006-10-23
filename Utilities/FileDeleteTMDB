@@ -4,12 +4,12 @@
 ##H
 ##H Usage:
 ##H   FileDeleteTMDB -db DBCONFIG -storage STORAGEMAP -list FILES
-##H                  -node NODENAME [-protocol PROTOCOL] [-f] [-l]
+##H                  -node NODENAME [-protocol PROTOCOL] [-f]
 ##H
 ##H Examples:
 ##H
 ##H   FileDeleteTMDB -db <path>/DBConfig:Dev/Admin -storage <path>/storage.xml
-##H                  -list <path>/pfns_to_delete.txt -node T1_RAL_Buffer
+##H                  -list <path>/pfns_to_delete.txt
 ##H                  -node T1_FNAL_Buffer, T1_CNAF_Buffer
 ##H
 ##H   STORAGEMAP is the TFC XML file
