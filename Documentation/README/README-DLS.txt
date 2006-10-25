@@ -11,8 +11,17 @@ data location system DLS.
 The agent is part of the PhEDEx distribution and resides in
 PHEDEX/Toolkit/Workflow. It requires the following arguments:
 -db:   the database contact string, something like <ParthToDBParam>/DBParam:Dev/Writer
--node: the name of your node, e.g. T1_FNAL_Buffer
--se:   the name of your storage element, e.g. srm.cern.ch
+-node: the name of your node, e.g. T1_FNAL_Buffer (single node and SE mode)
+-se:   the name of your storage element or path to ASCII list of nodes and SEs
+
+Alternatively you can give an ASCII list containing pairs of node and
+storage element names as argument to '-se'. Each line contains
+one node and storage element separated by a comma. Example for an
+ASCII txt file:
+<snip>
+T2_Atlantis_Buffer,se.atlantis.unterwater
+T2_Moon_Buffer,se.moonbase.space
+</snip>
 
 A template configuration including this agent is available from
 "PHEDEX/Custom/Template".  Have a look in particular at the files
@@ -28,6 +37,15 @@ sure, that the 3 variables needed are defined properly.
  -se        ${PHEDEX_SE}
 </snip>
 
+If you decide to provide an ASCII list with one or multiple node/SE
+pairs, your configuration should rather look like the folowing:
+
+<snip>
+### AGENT LABEL=mgmt-blockdls PROGRAM=Toolkit/Workflow/BlockDLSUpdate
+ -db        ${PHEDEX_DBPARAM}
+ -se        <Path to ASCII list>
+</snip>
+
 
 * Making sure, all prerequirements are met
 
@@ -37,6 +55,8 @@ checks.  If you followed the deployment guide, the following command
 will set up your environemnt:
 
 "source /home/phedex/PHEDEX/etc/profile.d/env.[c]sh"
+
+1. Grid proxy tools are installed (based on voms or personal certificates)
 
 1.1. voms-proxy-init is installed on the machine hosting PhEDEx and you
      can create a proxy as CMS VOMS. To do that, try the folowing:

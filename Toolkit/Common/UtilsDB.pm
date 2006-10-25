@@ -47,6 +47,8 @@ sub parseDatabaseInfo
 	    $$self{DBH_LOGGING} = ($1 eq 'on') if $insection;
 	} elsif (/^LogSQL (on|off)$/) {
 	    $ENV{PHEDEX_LOG_SQL} = ($1 eq 'on') if $insection;
+	} elsif (/^SessionSQL (.*)$/) {
+	    push(@{$$self{DBH_SESSION_SQL}}, $1);
 	} else {
 	    die "$$self{DBCONFIG}: $.: Unrecognised line\n";
 	}
@@ -109,6 +111,9 @@ sub connectToDatabase
 	        . " $$self{DBH_DBUSER} using role $$self{DBH_DBROLE}\n"
 		if $@;
 	}
+
+	# Execute session SQL statements.
+	&dbexec($dbh, $_) for @{$$self{DBH_SESSION_SQL}};
 
 	# Cache it.
 	$$dbh{FetchHashKeyName} = "NAME_uc";

@@ -208,7 +208,7 @@ sub deleteLFNs
 {
     my ( $lfns, $dbh, $nodenames, $tables, $rm, $lock ) = @_;
     my $stats = { DEL_DB => undef, DEL_DISK => undef, SKIPPED => undef,
-		  NOLFN => 0, NOTMDB => 0 };
+		  NOLFN => 0, NOTMDB => 0, DEL_DB_SUM => 0 };
 
     my $nodes = &getNodeID ($nodenames);
     foreach my $lfnname ( keys %$lfns )
@@ -248,6 +248,8 @@ sub deleteLFNs
 	    ${$stats{DEL_DISK}{$nodename}} += 1 if ( $rm && &deletePhysicalFile ($lfns) );
 	    ${$stats{DEL_DB}{$nodename}} += 1;
 	}
+	$$stats{DEL_DB_SUM} += 1;
+	$dbh->commit() if ( $$stats{DEL_DB_SUM}%20 == 0 );
     }
 
     # Update block statistics if necessary

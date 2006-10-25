@@ -1,3 +1,13 @@
+* Changes in PhEDEx 2.4.1
+
+ General changes:
+  - BlockDLSUpdate now accepts an ASCII txt list as option to '-se',
+    containing pairs of nodes and storage elements. The old form of
+    one '-node' and one '-se' ist still supported.
+  - FileDeleteTMDB is now allowing sites to delete replicas from their
+    site. Detailed instructions can be found in README-DeleteReplica.txt
+
+
 * Changes in PhEDEx 2.4.0
 
  General changes:
