@@ -26,7 +26,7 @@ BEGIN {
 }
 
 ######################################################################
-my %args;
+my %args = (NEXTDIR => []);
 use Getopt::Long;
 use UtilsHelp;
 &GetOptions ("state=s"     => \$args{DROPDIR},
@@ -55,7 +55,8 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my %params = (NWORKERS => 5);	# Number of parallel workers
+    my %params = (NWORKERS => 5,	# Number of parallel workers
+		  WORKER => undef);	# The actual worker command line
     my %args = (@_);
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -82,6 +83,7 @@ sub startWorker
 
     # Child.
     my @args = (@{$self->{WORKER}}, "-state", $workerdir,
+		"-log", "$$self{LOGFILE}.$i",
                 (map { ("-next", $_) } @{$self->{NEXTDIR}}));
 
     exec { $args[0] } @args;
