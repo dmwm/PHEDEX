@@ -2765,9 +2765,9 @@ sub save_data
   }
 
   my (%destined, %resident, %routed, %cool);
-  my $sqlentity = ($entity eq 'src' ? "'Source unavailable'"
-		   : $entity eq 'link' ? "n.name"
-		   : "n.name");
+  $sqlentity = ($entity eq 'src' ? "'Source unavailable'"
+		: $entity eq 'link' ? "n.name"
+		: "n.name");
   $q = &dbexec($$self{DBH}, qq{
     select
       trunc(h.timebin/:span)*:span,
@@ -4362,55 +4362,82 @@ sub output_page
   {
     $formatter = \&format_num;
     $quantity = sub { my ($ref, $obj) = @_;
-      return $$obj{NODE_BLOCKS} || 0, $$ref{BLOCKS}; };
+      my $value = $$obj{NODE_BLOCKS} || 0;
+      my $refvalue = $$ref{BLOCKS};
+      my $interesting = (($$obj{NODE_BLOCKS} || $$obj{DEST_BLOCKS}) ? 1 : 0);
+      return ($value, $refvalue, $interesting); };
   }
   elsif ($$self{NVALUE} eq "Destined blocks")
   {
     $formatter = \&format_num;
     $quantity = sub { my ($ref, $obj) = @_;
-      return $$obj{DEST_BLOCKS} || 0, $$ref{BLOCKS}; };
+      my $value = $$obj{DEST_BLOCKS} || 0;
+      my $refvalue = $$ref{BLOCKS};
+      my $interesting = ($$obj{DEST_BLOCKS} ? 1 : 0);
+      return ($value, $refvalue, $interesting); };
   }
   elsif ($$self{NVALUE} eq "Missing blocks")
   {
     $formatter = \&format_num;
     $quantity = sub { my ($ref, $obj) = @_;
-      return max(0, ($$obj{DEST_BLOCKS} || 0) - ($$obj{NODE_BLOCKS} || 0)), 0; };
+      my $value = max(0, ($$obj{DEST_BLOCKS} || 0) - ($$obj{NODE_BLOCKS} || 0));
+      my $refvalue = 0;
+      my $interesting = (($$obj{DEST_BLOCKS} && $value) ? 1 : 0);
+      return ($value, $refvalue, $interesting); };
   }
   elsif ($$self{NVALUE} eq "Node files")
   {
     $formatter = \&format_num;
     $quantity = sub { my ($ref, $obj) = @_;
-      return $$obj{NODE_FILES} || 0, $$ref{FILES}; };
+      my $value = $$obj{NODE_FILES} || 0;
+      my $refvalue = $$ref{FILES};
+      my $interesting = (($$obj{NODE_FILES} || $$obj{DEST_FILES}) ? 1 : 0);
+      return ($value, $refvalue, $interesting); };
   }
   elsif ($$self{NVALUE} eq "Destined files")
   {
     $formatter = \&format_num;
     $quantity = sub { my ($ref, $obj) = @_;
-      return $$obj{DEST_FILES} || 0, $$ref{FILES}; };
+      my $value = $$obj{DEST_FILES} || 0;
+      my $refvalue = $$ref{FILES};
+      my $interesting = ($$obj{DEST_FILES} ? 1 : 0);
+      return ($value, $refvalue, $interesting); };
   }
   elsif ($$self{NVALUE} eq "Missing files")
   {
     $formatter = \&format_num;
     $quantity = sub { my ($ref, $obj) = @_;
-      return max(0, ($$obj{DEST_FILES} || 0) - ($$obj{NODE_FILES} || 0)), 0; };
+      my $value = max(0, ($$obj{DEST_FILES} || 0) - ($$obj{NODE_FILES} || 0));
+      my $refvalue = 0;
+      my $interesting = (($$obj{DEST_FILES} && $value) ? 1 : 0);
+      return ($value, $refvalue, $interesting); };
   }
   elsif ($$self{NVALUE} eq "Node bytes")
   {
     $formatter = \&format_size;
     $quantity = sub { my ($ref, $obj) = @_;
-      return $$obj{NODE_BYTES} || 0, $$ref{BYTES}; };
+      my $value = $$obj{NODE_BYTES} || 0;
+      my $refvalue = $$ref{BYTES};
+      my $interesting = (($$obj{NODE_BYTES} || $$obj{DEST_BYTES}) ? 1 : 0);
+      return ($value, $refvalue, $interesting); };
   }
   elsif ($$self{NVALUE} eq "Destined bytes")
   {
     $formatter = \&format_size;
     $quantity = sub { my ($ref, $obj) = @_;
-      return $$obj{DEST_BYTES} || 0, $$ref{BLOCKS}; };
+      my $value = $$obj{DEST_BYTES} || 0;
+      my $refvalue = $$ref{BYTES};
+      my $interesting = ($$obj{DEST_BYTES} ? 1 : 0);
+      return ($value, $refvalue, $interesting); };
   }
   elsif ($$self{NVALUE} eq "Missing bytes")
   {
     $formatter = \&format_size;
     $quantity = sub { my ($ref, $obj) = @_;
-      return max(0, ($$obj{DEST_BYTES} || 0) - ($$obj{NODE_BYTES} || 0)), 0; };
+      my $value = max(0, ($$obj{DEST_BYTES} || 0) - ($$obj{NODE_BYTES} || 0));
+      my $refvalue = 0;
+      my $interesting = (($$obj{DEST_BYTES} && $value) ? 1 : 0);
+      return ($value, $refvalue, $interesting); };
   }
 
   foreach my $ds (@{$$self{DATASET_LIST}})
@@ -4419,10 +4446,10 @@ sub output_page
     my $interesting = 0;
     foreach my $node (@{$$self{NODE_SHOWN}})
     {
-      my ($value, $refvalue) = &$quantity($ds, $$ds{REPLICAS}{$$node{ID}});
+      my ($value, $refvalue, $intr) = &$quantity($ds, $$ds{REPLICAS}{$$node{ID}});
       my $attr = $value == $refvalue ? "" : " style='color:#d00'";
       $values{$$node{ID}} = { PRETTY => &$formatter($value), VALUE => $value, ATTR => $attr };
-      $interesting ||= ($refvalue || $value);
+      $interesting ||= $intr;
     }
 
     next if $$self{ROWS} eq 'interesting' && ! $interesting;
@@ -4458,10 +4485,10 @@ sub output_page
       $interesting = 0;
       foreach my $node (@{$$self{NODE_SHOWN}})
       {
-        my ($value, $refvalue) = &$quantity($block, $$block{REPLICAS}{$$node{ID}});
+        my ($value, $refvalue, $intr) = &$quantity($block, $$block{REPLICAS}{$$node{ID}});
         my $attr = $value == $refvalue ? "" : " style='color:#d00'";
         $values{$$node{ID}} = { PRETTY => &$formatter($value), VALUE => $value, ATTR => $attr };
-        $interesting ||= ($refvalue || $value);
+        $interesting ||= $intr;
       }
 
       next if $$self{ROWS} eq 'interesting' && ! $interesting;
