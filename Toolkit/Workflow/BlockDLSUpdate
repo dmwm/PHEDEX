@@ -43,8 +43,8 @@ if (@ARGV || !$args{DROPDIR}
 {
     die "Insufficient parameters, use -h for help.\n";
 }
-elsif ( ( $args{node} && -e $args{SE} ) ||
-	( ( ! $args{node} || scalar $args{node} > 1 ) && ! -e $args{SE} ) )
+elsif ( ( $args{NODES} && -e $args{SE} ) ||
+	( ( ! $args{NODES} || scalar @{$args{NODES}} > 1 ) && ! -e $args{SE} ) )
 {
     die "Wrong combination of -se and -node options. Possible combinations:\n".
 	"1. -node <your nodename> and -se <YourSE>\n".
