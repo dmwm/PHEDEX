@@ -4626,6 +4626,11 @@ sub new
 sub output_page
 {
   my ($self) = @_;
+  my $replicaurl = $self->myurl(page => "Data::Replicas");
+  print { $$self{CONTENT} }
+    "<center><div class='alert'>",
+    "Please use the <a href='$replicaurl'>replicas page</a>.",
+    "</div></center>";
 
   my ($filter, $filterform) = $self->output_filter();
   $self->output_dbses();
