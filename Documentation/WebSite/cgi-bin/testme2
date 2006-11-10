@@ -1,0 +1,8 @@
+#!/usr/bin/env perl
+
+BEGIN { use strict; use warnings; $^W=1; }
+use CGI qw(header);
+
+print header(-type=>'text/plain'),
+  "Environment:\n",
+  (map { "$_ = $ENV{$_}\n" } sort keys %ENV), "\n";
