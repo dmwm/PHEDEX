@@ -70,8 +70,8 @@ my $tables = &setTableList ($nodes);
 
 # Get a list of LFNs from the input provided by the user
 # finally delete the LFNs
-my $lfns = &getFileList ($args{STORAGEMAP}, $args{PROTOCOL}, $files);
-my $stats = &deleteLFNs ($lfns, $dbh, $nodes, $tables, $args{RMDISK});
+my $lfns = &getFileList ( $args{STORAGEMAP}, $args{PROTOCOL}, $files );
+my $stats = &deleteLFNs ( $lfns, $dbh, $nodes, $tables, $args{RMDISK} );
 
 
 # commit and exit
@@ -81,7 +81,6 @@ $dbh->disconnect();
 # Some statistics
 print "\nSUMMARY\n";
 print "cannot get LFN:         $$stats{NOLFN}\n";
-print "files unknown to TMDB:  $$stats{NOTMDB}\n";
 
 # Ugly hack to get final node names and eliminate double names
 my %nodenames = ();
@@ -206,9 +205,9 @@ sub getLFNsFromBlock
 # Deletes LFNs from TMDB
 sub deleteLFNs
 {
-    my ( $lfns, $dbh, $nodenames, $tables, $rm, $lock ) = @_;
+    my ( $lfns, $dbh, $nodenames, $tables, $rm ) = @_;
     my $stats = { DEL_DB => undef, DEL_DISK => undef, SKIPPED => undef,
-		  NOLFN => 0, NOTMDB => 0, DEL_DB_SUM => 0 };
+		  NOLFN => 0, DEL_DB_SUM => 0 };
 
     my $nodes = &getNodeID ($nodenames);
     foreach my $lfnname ( keys %$lfns )
@@ -219,13 +218,7 @@ sub deleteLFNs
 	    $$stats{NOLFN} += 1;
 	    next;
 	}
-	# check for file in TMDB
-	my $existsTMDB = &checkFileExistence ($lfnname, $$nodes{'all'}, 'all');
-	if ( !$existsTMDB )
-	{
-	    $$stats{NOTMDB} += 1;
-	    next;
-	}
+
 	# Get the ID for each LFN and lock the corresponding rows in the tables
 	my $lfn = &getLFNID ($lfnname);
 	&lockTables ($tables, $lfn);
@@ -245,7 +238,7 @@ sub deleteLFNs
 		if ( $nodename eq 'all' );
 	    &deleteSiteTMDBEntries ($lfn, $lfnname, $$nodes{$nodename}, $nodename, $tables)
 		if ( $nodename ne 'all' );
-	    ${$stats{DEL_DISK}{$nodename}} += 1 if ( $rm && &deletePhysicalFile ($lfns) );
+	    ${$stats{DEL_DISK}{$nodename}} += 1 if ( $rm && &deletePhysicalFile ($$lfns{$lfnname}) );
 	    ${$stats{DEL_DB}{$nodename}} += 1;
 	}
 	$$stats{DEL_DB_SUM} += 1;
@@ -258,7 +251,8 @@ sub deleteLFNs
 	    (select NVL(count(f.id),0), NVL(sum(f.filesize),0)
 	     from t_dps_file f where f.inblock = b.id)})
 	if grep $_, ( values %{$stats{DEL_DB}} );
-    
+
+
     return $stats;
 }
 
@@ -270,7 +264,7 @@ sub checkFileExistence
     
     # Check if we need to deal with that file at all
     my $q = &dbexec($dbh, qq{
-	select count(*) from t_dps_file where logical_name = :lfn},
+	select count(id) from t_dps_file where logical_name = :lfn},
 		    ":lfn" => $lfnname);
     my ( $exists_TMDB ) = $q->fetchrow();
     if ( !$exists_TMDB )
@@ -396,18 +390,25 @@ sub enableBlock
 # try to delete the file physically from storage or disk
 sub deletePhysicalFile
 {
-    my ( $lfns ) = @_;
+    my ( $pfn ) = @_;
     
     my $cmd = 'rm';
     my $failed = 0;
-    foreach my $pfn ( values %$lfns )
+
+    if ( $pfn =~ m|^srm| )
     {
-	$cmd = "srm-advisory-delete $pfn" if ( $pfn =~ m|^srm| );
-	$cmd = "stager_rm -M $pfn; nsrm $pfn"
-	    if ( $pfn =~ s|^rfio:|| || $pfn =~ m|^/castor/|);
-	$cmd = "rm $pfn" if ( $pfn =~ s|^dcap:|| );
-	$failed += 1 if system($cmd);
+	$cmd = "srm-advisory-delete $pfn";
     }
+    elsif ( $pfn =~ s|^rfio:|| || $pfn =~ m|^/castor/| )
+    {
+	$cmd = "stager_rm -M $pfn; nsrm $pfn";
+    }
+    else
+    {
+	$pfn =~ s|^dcap:||;
+	$cmd = "rm $pfn";
+    }
+    $failed += 1 if system($cmd);
     
     return 1 if !$failed; # success
     return 0; # failure
