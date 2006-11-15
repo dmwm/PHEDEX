@@ -177,11 +177,11 @@ sub jobControl
     {
 	if ( $$job{STATUS} )
 	{
-	    &warn ( "failed to add block $blockname for site $$block{NODENAME} to DLS. Log output in $$job{LOGFILE}" );
+	    &warn ( "failed to add block $$block{BLOCK_NAME} for site $$block{NODENAME} to DLS. Log output in $$job{LOGFILE}" );
 	}
 	else
 	{
-	    &logmsg ( "successfully added block $blockname for site $$block{NODENAME} to DLS" );
+	    &logmsg ( "successfully added block $$block{BLOCK_NAME} for site $$block{NODENAME} to DLS" );
 	    unlink ($$job{LOGFILE});
 	}
     }
