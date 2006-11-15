@@ -158,8 +158,14 @@ sub idle
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
 
+    # Wait for all jobs to finish
+    while (@{$$self{JOBS}})
+    {
+        $self->pumpJobs();
+        select (undef, undef, undef, 0.1);
+    }
+
     # Have a little nap
-    $self->pumpJobs();
     $self->nap ($$self{WAITTIME});
 }
 
