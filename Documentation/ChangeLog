@@ -1,3 +1,15 @@
+* Changes in PhEDEx 2.4.2
+
+ General changes:
+  - Some minor bug fixes in FileDeleteTMDB and DropLoadBalance.
+
+ Web site changes:
+  - Code cleanup.
+
+ Schema changes:
+  - tnsnames.ora updated to allow TCP keep-alive enabled connections.
+
+
 * Changes in PhEDEx 2.4.1
 
  General changes:
@@ -5,15 +17,15 @@
     containing pairs of nodes and storage elements. The old form of
     one '-node' and one '-se' ist still supported.
   - FileDeleteTMDB is now allowing sites to delete replicas from their
-    site. Detailed instructions can be found in README-DeleteReplica.txt
-  - FileRouter now supresses multihop transfers
+    site. Detailed instructions can be found in README-DeleteReplica.txt.
+  - FileRouter now supresses multihop transfers.
 	
  Web site changes:
-  - Website was rewritten
+  - Website was rewritten.
   - Extended documentation on how to setup the PhEDEx web service can be
-    found in Documentation/Webconfig
+    found in Documentation/Webconfig.
 
- Schema changes: none
+ Schema changes: none.
 
 
 * Changes in PhEDEx 2.4.0
