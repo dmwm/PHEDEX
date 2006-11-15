@@ -4,11 +4,11 @@ prompt
 prompt Loading PhEDEx schema to &_user@&_connect_identifier
 
 prompt
-prompt Loading authentication
-@@OracleCoreAuth.sql
-
 prompt Loading topology
 @@OracleCoreTopo.sql
+
+prompt Loading administration
+@@OracleCoreAdm.sql
 
 prompt Loading agents
 @@OracleCoreAgents.sql

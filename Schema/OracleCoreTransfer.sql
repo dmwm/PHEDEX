@@ -2,9 +2,73 @@
 -- Create sequences
 
 create sequence seq_xfer_replica;
+create sequence seq_xfer_task;
 
 ----------------------------------------------------------------------
 -- Create tables
+
+create table t_xfer_catalogue
+  (node			integer		not null,
+   rule_index		integer		not null,
+   rule_type		varchar (10)	not null,
+   protocol		varchar (20)	not null,
+   destination_match	varchar (40)	not null,
+   path_match		varchar (1000)	not null,
+   result_expr		varchar (1000)	not null,
+   --
+   constraint pk_xfer_catalogue
+     primary key (node, rule_index),
+   --
+   constraint fk_xfer_catalogue_node
+     foreign key (node) references t_adm_node (id),
+   --
+   constraint ck_xfer_catalogue_type
+     check (rule_type in ('lfn-to-pfn', 'pfn-to-lfn')));
+
+create table t_xfer_source
+  (from_node		integer		not null,
+   to_node		integer		not null,
+   time_update		float		not null,
+   --
+   constraint pk_xfer_source
+     primary key (from_node, to_node),
+   --
+   constraint fk_xfer_source_from
+     foreign key (from_node) references t_adm_node (id),
+   --
+   constraint fk_xfer_source_to
+     foreign key (to_node) references t_adm_node (id));
+
+create table t_xfer_sink
+  (from_node		integer		not null,
+   to_node		integer		not null,
+   protocols		varchar (1000)	not null,
+   time_update		float		not null,
+   --
+   constraint pk_xfer_sink
+     primary key (from_node, to_node),
+   --
+   constraint fk_xfer_sink_from
+     foreign key (from_node) references t_adm_node (id),
+   --
+   constraint fk_xfer_sink_to
+     foreign key (to_node) references t_adm_node (id));
+
+create table t_xfer_delete
+  (fileid		integer		not null,  -- for which file
+   node			integer		not null,  -- at which node
+   time_request		float		not null,  -- time at request
+   time_complete	float		not null,  -- time at completed
+   --
+   constraint pk_xfer_delete
+     primary key (fileid, node),
+   --
+   constraint fk_xfer_delete_fileid
+     foreign key (fileid) references t_xfer_file (id),
+   --
+   constraint fk_xfer_delete_node
+     foreign key (node) references t_adm_node (id))
+ enable row movement;
 
 -- priority in block destination and file request, confirmation:
 --   0 = "now", 1 = "as soon as you can", 2 = "whenever you can"
@@ -17,14 +81,27 @@ create sequence seq_xfer_replica;
 
 create table t_xfer_replica
   (id			integer		not null,
-   fileid		integer		not null,
    node			integer		not null,
+   fileid		integer		not null,
    state		integer		not null,
    time_create		float		not null,
-   time_state		float		not null)
+   time_state		float		not null,
+   --
+   constraint pk_xfer_replica
+     primary key (id),
+   --
+   constraint uq_xfer_replica_key
+     unique (node, fileid),
+   --
+   constraint fk_xfer_replica_node
+     foreign key (node) references t_adm_node (id),
+   --
+   constraint fk_xfer_replica_fileid
+     foreign key (fileid) references t_xfer_file (id))
+  --
   partition by list (node)
-  (partition node_dummy values (-1))
-  initrans 8;
+    (partition node_dummy values (-1))
+  enable row movement;
 
 create table t_xfer_request
   (fileid		integer		not null,
@@ -34,10 +111,23 @@ create table t_xfer_request
    state		integer		not null,
    attempt		integer		not null,
    time_create		float		not null,
-   time_expire		float		not null)
+   time_expire		float		not null,
+   --
+   constraint pk_xfer_request
+     primary key (destination, fileid),
+   --
+   constraint fk_xfer_request_fileid
+     foreign key (fileid) references t_xfer_file (id),
+   --
+   constraint fk_xfer_request_inblock
+     foreign key (inblock) references t_dps_block (id),
+   --
+   constraint fk_xfer_request_dest
+     foreign key (destination) references t_adm_node (id))
+  --
   partition by list (destination)
-  (partition dest_dummy values (-1))
-  initrans 8;
+    (partition dest_dummy values (-1))
+  enable row movement;
 
 create table t_xfer_path
   (destination		integer		not null,  -- final destination
@@ -53,61 +143,114 @@ create table t_xfer_path
    penalty		float		not null,  -- path penalty
    time_request		float		not null,  -- request creation time
    time_confirm		float		not null,  -- last path build time
-   time_expire		float		not null)  -- request expiry time
-  initrans 8;
-
-create table t_xfer_state
-  (fileid		integer		not null, -- file
-   errors		integer		not null, -- errors so far
-   priority		integer		not null, -- see at the top
-   weight		integer		not null, -- see t_xfer_confirmation
-   age			float		not null, -- earliest activated confirm
+   time_expire		float		not null,  -- request expiry time
    --
+   constraint pk_xfer_path
+     primary key (destination, fileid, hop),
+   --
+   constraint fk_xfer_path_dest
+     foreign key (destination) references t_adm_node (id),
+   --
+   constraint fk_xfer_path_fileid
+     foreign key (fileid) references t_xfer_file (id),
+   --
+   constraint fk_xfer_path_src
+     foreign key (src_node) references t_adm_node (id),
+   --
+   constraint fk_xfer_path_from
+     foreign key (from_node) references t_adm_node (id),
+   --
+   constraint fk_xfer_path_to
+     foreign key (to_node) references t_adm_node (id))
+  --
+  enable row movement;
+
+/* FIXME: Consider using clustered table for t_xfer_task*, see
+   Tom Kyte's Effective Oracle by Design, chapter 7. */
+create table t_xfer_task
+  (id			integer		not null, -- xfer id
+   fileid		integer		not null, -- xref t_xfer_file
    from_replica		integer		not null, -- xref t_xfer_replica
+   priority		integer		not null, -- see at the top
+   rank			integer		not null, -- current order rank
    from_node		integer		not null, -- node transfer is from
-   from_state		integer		not null, -- state at source
-   --
    to_node		integer		not null, -- node transfer is to
-   to_state		integer		not null, -- state at destination
+   from_pfn		varchar (1000)	not null, -- source pfn
+   to_pfn		varchar (1000)	not null, -- destination pfn
+   time_expire		float		not null, -- time when expires
+   time_assign		float		not null, -- time created
    --
-   to_protocols		varchar (1000),		  -- protocols accepted
-   to_pfn		varchar (1000),		  -- destination pfn
-   from_pfn		varchar (1000),		  -- source pfn
-   last_error		varchar (4000),		  -- last error message
+   constraint pk_xfer_task
+     primary key (id),
    --
-   time_expire		float,			  -- time when expires
-   time_assign		float,			  -- time created
-   time_request		float,			  -- time first wanted
-   time_available	float,			  -- time exported
-   time_xfer_start	float,			  -- time last xfer started
-   time_xfer_end	float,			  -- time last xfer ended
-   time_error_total	float,			  -- time in error state
-   time_error_start	float,			  -- time last entered error
-   time_error_end	float)			  -- time to exit error state
-  partition by list (from_node)
-  (partition from_dummy values (-1))
-  initrans 8;
+   constraint uq_xfer_task_key
+     unique (to_node, fileid),
+   --
+   constraint fk_xfer_task_fileid
+     foreign key (fileid) references t_xfer_file (id),
+   --
+   constraint fk_xfer_task_replica
+     foreign key (from_replica) references t_xfer_replica (id),
+   --
+   constraint fk_xfer_task_from
+     foreign key (from_node) references t_adm_node (id),
+   --
+   constraint fk_xfer_task_to
+     foreign key (to_node) references t_adm_node (id))
+  --
+  partition by list (to_node)
+    (partition to_dummy values (-1))
+  enable row movement;
 
-create table t_xfer_tracking
-  (timestamp		float		not null,
-   from_node		integer		not null,
-   to_node		integer		not null,
-   priority		integer		not null,
-   fileid		integer		not null,
-   is_avail		integer		not null,
-   is_try		integer		not null,
-   is_done		integer		not null,
-   is_fail		integer		not null,
-   is_expire		integer		not null)
-  initrans 8;
+create table t_xfer_task_export
+  (task			integer		not null,
+   time_update		float		not null,
+   --
+   constraint pk_xfer_task_export
+     primary key (task),
+   --
+   constraint fk_xfer_task_export_task
+     foreign key (task) references t_xfer_task (id))
+  --
+  organization index
+  /* enable row movement */;
 
-create table t_xfer_delete
-  (fileid		integer		not null,  -- for which file
-   node			integer		not null,  -- at which node
-   time_request		float		not null,  -- time at request
-   time_complete	float		not null   /* time at completed */);
+create table t_xfer_task_inxfer
+  (task			integer		not null,
+   time_update		float		not null,
+   --
+   constraint pk_xfer_task_inxfer
+     primary key (task),
+   --
+   constraint fk_xfer_task_inxfer_task
+     foreign key (task) references t_xfer_task (id))
+  --
+  organization index
+  /* enable row movement */;
 
-create table t_link_histogram
+create table t_xfer_task_done
+  (task			integer		not null,
+   report_code		integer		not null,
+   time_update		float		not null,
+   log_xfer		varchar (4000),
+   log_detail		varchar (4000),
+   log_validate		varchar (4000),
+   --
+   constraint pk_xfer_task_done
+     primary key (task),
+   --
+   constraint fk_xfer_task_done_task
+     foreign key (task) references t_xfer_task (id))
+  --
+  organization index including time_update overflow
+  /* enable row movement */;
+
+/* FIXME: Consider using compressed table here, see
+   Tom Kyte's Effective Oracle By Design, chapter 7.
+   See also the same chapter, "Compress Auditing or
+   Transaction History" for swapping partitions.
+   Also test if index-organised table is good. */
+create table t_history_link
   (timebin		float		not null,
    timewidth		float		not null,
    from_node		integer		not null,
@@ -145,9 +288,19 @@ create table t_link_histogram
    -- 
    -- statistics from t_link_param calculated at the end of this cycle
    param_rate		float,
-   param_latency	float);
+   param_latency	float,
+   --
+   constraint pk_history_link
+     primary key (timebin, to_node, from_node, priority),
+   --
+   constraint fk_history_link_from
+     foreign key (from_node) references t_adm_node (id),
+   --
+   constraint fk_history_link_to
+     foreign key (to_node) references t_adm_node (id));
 
-create table t_dest_histogram
+/* See comments above for t_history_link. */
+create table t_history_dest
   (timebin		float		not null,
    timewidth		float		not null,
    node			integer		not null,
@@ -158,143 +311,13 @@ create table t_dest_histogram
    request_files	integer, -- t_xfer_request
    request_bytes	integer,
    idle_files		integer,
-   idle_bytes		integer);
-
--- FIXME: expand on this for everything that defines the value
-create table t_link_param
-  (link			integer		not null,
-   time_update		float		not null,
-   time_span		integer,
-   pend_bytes		float,
-   done_bytes		float,
-   try_bytes		float,
-   xfer_rate		float,
-   xfer_latency		float);
-
-----------------------------------------------------------------------
--- Add constraints
-
-alter table t_xfer_replica
-  add constraint pk_xfer_replica
-  primary key (id);
-
-alter table t_xfer_replica
-  add constraint uq_xfer_replica
-  unique (node, fileid);
-
-alter table t_xfer_replica
-  add constraint fk_xfer_replica_fileid
-  foreign key (fileid) references t_xfer_file (id);
-
-alter table t_xfer_replica
-  add constraint fk_xfer_replica_node
-  foreign key (node) references t_node (id);
-
-
-alter table t_xfer_request
-  add constraint pk_xfer_request
-  primary key (destination, fileid);
-
-alter table t_xfer_request
-  add constraint fk_xfer_request_fileid
-  foreign key (fileid) references t_xfer_file (id);
-
-alter table t_xfer_request
-  add constraint fk_xfer_request_inblock
-  foreign key (inblock) references t_dps_block (id);
-
-alter table t_xfer_request
-  add constraint fk_xfer_request_dest
-  foreign key (destination) references t_node (id);
-
-
-alter table t_xfer_path
-  add constraint pk_xfer_path
-  primary key (destination, fileid, hop);
-
-alter table t_xfer_path
-  add constraint fk_xfer_path_fileid
-  foreign key (fileid) references t_xfer_file (id);
-
-alter table t_xfer_path
-  add constraint fk_xfer_path_dest
-  foreign key (destination) references t_node (id);
-
-alter table t_xfer_path
-  add constraint fk_xfer_path_src
-  foreign key (src_node) references t_node (id);
-
-alter table t_xfer_path
-  add constraint fk_xfer_path_from
-  foreign key (from_node) references t_node (id);
-
-alter table t_xfer_path
-  add constraint fk_xfer_path_to
-  foreign key (to_node) references t_node (id);
-
-
-alter table t_xfer_state
-  add constraint pk_xfer_state
-  primary key (to_node, fileid);
-
-alter table t_xfer_state
-  add constraint fk_xfer_state_fileid
-  foreign key (fileid) references t_xfer_file (id);
-
-alter table t_xfer_state
-  add constraint fk_xfer_state_replica
-  foreign key (from_replica) references t_xfer_replica (id);
-
-alter table t_xfer_state
-  add constraint fk_xfer_state_from
-  foreign key (from_node) references t_node (id);
-
-alter table t_xfer_state
-  add constraint fk_xfer_state_to
-  foreign key (to_node) references t_node (id);
-
-
-alter table t_xfer_tracking
-  add constraint fk_xfer_tracking_fileid
-  foreign key (fileid) references t_xfer_file (id);
-
-alter table t_xfer_tracking
-  add constraint fk_xfer_tracking_from
-  foreign key (from_node) references t_node (id);
-
-alter table t_xfer_tracking
-  add constraint fk_xfer_tracking_to
-  foreign key (to_node) references t_node (id);
-
-
-alter table t_link_histogram
-  add constraint pk_link_histogram
-  primary key (timebin, to_node, from_node, priority);
-
-alter table t_link_histogram
-  add constraint fk_link_histogram_from
-  foreign key (from_node) references t_node (id);
-
-alter table t_link_histogram
-  add constraint fk_link_histogram_to
-  foreign key (to_node) references t_node (id);
-
-
-alter table t_dest_histogram
-  add constraint pk_dest_histogram
-  primary key (timebin, node);
-
-alter table t_dest_histogram
-  add constraint fk_dest_histogram_node
-  foreign key (node) references t_node (id);
-
-alter table t_link_param
-  add constraint pk_link_param
-  primary key (link);
-
-alter table t_link_param
-  add constraint fk_link_param_link
-  foreign key (link) references t_link (id);
+   idle_bytes		integer,
+   --
+   constraint pk_history_dest
+     primary key (timebin, node),
+   --
+   constraint fk_history_dest_node
+     foreign key (node) references t_adm_node (id));
 
 ----------------------------------------------------------------------
 -- Add indices
@@ -313,31 +336,14 @@ create index ix_xfer_path_srcfrom
   on t_xfer_path (src_node, from_node);
 
 --
-create index ix_xfer_state_from_node
-  on t_xfer_state (from_node);
+create index ix_xfer_task_from_node
+  on t_xfer_task (from_node);
 
-create index ix_xfer_state_to_node
-  on t_xfer_state (to_node);
+create index ix_xfer_task_to_node
+  on t_xfer_task (to_node);
 
-create index ix_xfer_state_from_replica
-   on t_xfer_state (from_replica);
+create index ix_xfer_task_from_replica
+   on t_xfer_task (from_replica);
 
---
-create index ix_xfer_tracking
- on t_xfer_tracking (fileid, from_node, to_node);
-
-----------------------------------------------------------------------
--- Modify storage options
-
-alter table t_xfer_replica			enable row movement;
-alter table t_xfer_request			enable row movement;
-alter table t_xfer_path				enable row movement;
-alter table t_xfer_state			enable row movement;
-alter table t_xfer_tracking			enable row movement;
-
-alter index pk_xfer_replica			rebuild initrans 8;
-
-alter index pk_xfer_state			rebuild initrans 8;
-alter index ix_xfer_state_from_node		rebuild initrans 8;
-alter index ix_xfer_state_to_node		rebuild initrans 8;
-alter index ix_xfer_tracking			rebuild initrans 8;
+create index ix_xfer_task_fileid
+   on t_xfer_task (fileid);

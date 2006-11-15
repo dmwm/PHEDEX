@@ -1,21 +1,27 @@
-----------------------------------------------------------------------
--- Log into t_xfer_tracking changes to t_xfer_state.
+create or replace trigger tr_dps_file_block
+  after insert or update or delete on t_dps_file for each row declare
+    unixtime integer
+      := 86400 * (sysdate - to_date('01/01/1970 00:00:00', 'DD/MM/YYYY HH24:MI:SS'));
+  begin
+    if (updating and :old.inblock = :new.inblock) then
+      return; -- no change
+    end if;
 
-create or replace trigger tr_node_insert
-  after insert on t_node for each row declare pragma autonomous_transaction; begin
-    execute immediate 'alter table t_xfer_replica add partition node_' || lower(:new.name) || ' values (' || :new.id || ')';
-    execute immediate 'alter table t_xfer_request add partition dest_' || lower(:new.name) || ' values (' || :new.id || ')';
-    execute immediate 'alter table t_xfer_state   add partition from_' || lower(:new.name) || ' values (' || :new.id || ')';
-    commit;
-  end;
-/
+    if (inserting or updating) then
+      update t_dps_block
+      set files = files + 1,
+          bytes = bytes + :new.filesize,
+	  time_update = unixtime
+      where id = :new.inblock;
+    end if;
 
-create or replace trigger tr_node_delete
-  after delete on t_node for each row declare pragma autonomous_transaction; begin
-    execute immediate 'alter table t_xfer_replica drop partition node_' || lower(:old.name);
-    execute immediate 'alter table t_xfer_request drop partition dest_' || lower(:old.name);
-    execute immediate 'alter table t_xfer_state   drop partition from_' || lower(:old.name);
-    commit;
+    if (updating or deleting) then
+      update t_dps_block
+      set files = files - 1,
+          bytes = bytes - :old.filesize,
+	  time_update = unixtime
+      where id = :old.inblock;
+    end if;
   end;
 /
 
@@ -57,58 +63,6 @@ create or replace trigger tr_xfer_replica_delete
 	and not exists
 	  (select 1 from t_xfer_request xq
 	   where xq.fileid = f.id and xq.destination = bd.destination);
-  end;
-/
-
-create or replace trigger tr_xfer_state_available
-  after update of time_available on t_xfer_state for each row begin
-    if :new.time_available is not null then
-      insert into t_xfer_tracking
-        (timestamp, from_node, to_node, priority, fileid,
-        is_avail, is_try, is_done, is_fail, is_expire)
-      values
-        (:new.time_available, :new.from_node, :new.to_node, :new.priority,
-         :new.fileid, 1, 0, 0, 0, 0);
-    end if;
-  end;
-/
-
-create or replace trigger tr_xfer_state_start
-  after update of time_xfer_start on t_xfer_state for each row begin
-    if :new.time_xfer_start is not null then
-      insert into t_xfer_tracking
-        (timestamp, from_node, to_node, priority, fileid,
-         is_avail, is_try, is_done, is_fail, is_expire)
-      values
-        (:new.time_xfer_start, :new.from_node, :new.to_node, :new.priority,
-         :new.fileid, 0, 1, 0, 0, 0);
-    end if;
-  end;
-/
-
-create or replace trigger tr_xfer_state_end
-  after update of time_xfer_end on t_xfer_state for each row begin
-    if :new.time_xfer_end is not null then
-      insert into t_xfer_tracking
-        (timestamp, from_node, to_node, priority, fileid,
-         is_avail, is_try, is_done, is_fail, is_expire)
-      values
-        (:new.time_xfer_end, :new.from_node, :new.to_node, :new.priority,
-         :new.fileid, 0, 0, 1, 0, 0);
-    end if;
-  end;
-/
-
-create or replace trigger tr_xfer_state_error
-  after update of time_error_start on t_xfer_state for each row begin
-    if :new.time_error_start is not null then
-      insert into t_xfer_tracking
-        (timestamp, from_node, to_node, priority, fileid,
-         is_avail, is_try, is_done, is_fail, is_expire)
-      values
-        (:new.time_error_start, :new.from_node, :new.to_node, :new.priority,
-         :new.fileid, 0, 0, 0, 1, 0);
-    end if;
   end;
 /
 

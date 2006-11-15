@@ -8,19 +8,54 @@ create sequence seq_agent;
 
 create table t_agent
   (id			integer		not null,
-   name			varchar (100)	not null);
+   name			varchar (100)	not null,
+   --
+   constraint pk_agent
+     primary key (id),
+   --
+   constraint uq_agent_name
+     unique (name));
+
 
 create table t_agent_message
   (node			integer		not null,
    agent		integer		not null,
    message		varchar (20)	not null,
-   time_apply		float		not null);
+   time_apply		float		not null,
+   --
+   constraint fk_agent_message_node
+     foreign key (node) references t_adm_node (id),
+   --
+   constraint fk_agent_message_agent
+     foreign key (agent) references t_agent (id));
+
 
 create table t_agent_status
   (node			integer		not null,
    agent		integer		not null,
+   label		varchar (100)	not null,
+   worker_id		varchar (100)	not null,
+   host_name		varchar (100)	not null,
+   directory_path	varchar (100)	not null,
+   process_id		integer		not null,
    state		char (1)	not null,
-   time_update		float		not null);
+   queue_pending	integer		not null,
+   queue_received	integer		not null,
+   queue_work		integer		not null,
+   queue_completed	integer		not null,
+   queue_bad		integer		not null,
+   queue_outgoing	integer		not null,
+   time_update		float		not null,
+   --
+   constraint pk_agent_status
+     primary key (node, agent, label, worker_id),
+   --
+   constraint fk_agent_status_node
+     foreign key (node) references t_adm_node (id),
+   --
+   constraint fk_agent_status_agent
+     foreign key (agent) references t_agent (id));
+
 
 create table t_agent_version
   (node			integer		not null,
@@ -31,53 +66,17 @@ create table t_agent_version
    checksum		varchar (100),
    release		varchar (100),
    revision		varchar (100),
-   tag			varchar (100));
+   tag			varchar (100),
+   --
+   constraint pk_agent_version
+     primary key (node, agent, filename),
+   --
+   constraint fk_agent_version_node
+     foreign key (node) references t_adm_node (id),
+   --
+   constraint fk_agent_version_agent
+     foreign key (agent) references t_agent (id));
 
-----------------------------------------------------------------------
--- Add constraints
-
-alter table t_agent
-  add constraint pk_agent
-  primary key (id);
-
-alter table t_agent
-  add constraint uq_agent_name
-  unique (name);
-
-
-alter table t_agent_message
-  add constraint fk_agent_message_node
-  foreign key (node) references t_node (id);
-
-alter table t_agent_message
-  add constraint fk_agent_message_agent
-  foreign key (agent) references t_agent (id);
-
-
-alter table t_agent_status
-  add constraint pk_agent_status
-  primary key (node, agent);
-
-alter table t_agent_status
-  add constraint fk_agent_status_node
-  foreign key (node) references t_node (id);
-
-alter table t_agent_status
-  add constraint fk_agent_status_agent
-  foreign key (agent) references t_agent (id);
-
-
-alter table t_agent_version
-  add constraint pk_agent_version
-  primary key (node, agent, filename);
-
-alter table t_agent_version
-  add constraint fk_agent_version_node
-  foreign key (node) references t_node (id);
-
-alter table t_agent_version
-  add constraint fk_agent_version_agent
-  foreign key (agent) references t_agent (id);
 
 ----------------------------------------------------------------------
 -- Add indices
