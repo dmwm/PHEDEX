@@ -1,13 +1,18 @@
 * Changes in PhEDEx 2.4.2
 
  General changes:
-  - Some minor bug fixes in FileDeleteTMDB and DropLoadBalance.
+   - Corrected FileDeleteTMDB deletion of local files.
+   - DropLoadBalance updated; the agent did not work at all.
 
  Web site changes:
-  - Code cleanup.
+  - Corrected "interesting rows" selection on replica pages.
+  - Subscription page now points to replica page.
 
  Schema changes:
-  - tnsnames.ora updated to allow TCP keep-alive enabled connections.
+  - TNS service names updated to allow use of streaming extensions
+    required by database applications other than PhEDEx.  PhEDEx
+    service definitions enable TCP keep-alive option for improved
+    detection of lost database connections.
 
 
 * Changes in PhEDEx 2.4.1
