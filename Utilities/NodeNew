@@ -50,7 +50,7 @@ use UtilsTiming;
 	     "help|h"          => sub { &usage() });
 
 # Check arguments.
-if (scalar @ARGV < 1 || !$args{DBCONFIG} || !$args{NAME} || !$args{KIND}
+if (!$args{DBCONFIG} || !$args{NAME} || !$args{KIND}
     || !$args{TECHNOLOGY} || !$args{SE_NAME})
 {
   die "Insufficient parameters, use -h for help.\n";
@@ -62,15 +62,15 @@ print "Creating node $args{NAME}, kind $args{KIND}\n";
 
 my $id = undef;
 &dbexec($dbh, qq{
-  insert into t_node (id, name, kind, technology, se_name, capacity, bandwidth_cap)
-  values (seq_node.nextval, :node, :kind, :tech, :sename, :capacity, :cap)
+  insert into t_adm_node (id, name, kind, technology, se_name, capacity, bandwidth_cap)
+  values (seq_adm_node.nextval, :node, :kind, :tech, :sename, :capacity, :cap)
   returning id into :id},
   ":node" => $args{NAME},
   ":kind" => $args{KIND},
   ":tech" => $args{TECHNOLOGY},
   ":sename" => $args{SE_NAME},
   ":capacity" => $args{CAPACITY},
-  ":cap" => $args{RATE} * 1024*1024,
+  ":cap" => (defined $args{RATE} ? $args{RATE} * 1024*1024 : undef),
   ":id" => \$id);
 $dbh->commit();
 
