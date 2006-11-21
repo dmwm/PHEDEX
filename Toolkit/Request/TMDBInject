@@ -126,6 +126,16 @@ sub fetchall
         ->fetchall_arrayref({});
 }
 
+sub getone
+{
+    my ($dbh, $table, %id) = @_;
+    my @names = keys %id;
+    my $params = join(" and ", map { "$_ = :attr_$_" } @names);
+    my ($obj) = @{&dbexec($dbh, qq{select * from t_$table where $params},
+        map { (":attr_$_" => $id{$_} ) } @names)->fetchall_arrayref({})};
+    return $obj;
+}
+
 sub lockone
 {
     my ($dbh, $table, %id) = @_;
@@ -178,7 +188,7 @@ while (@$info)
     my ($dbs) = grep ($$_{NAME} eq $$dbsattrs{'name'}, @$all_dbs);
     if (! $dbs)
     {
-        $dbs = &lockone ($dbh, "dps_dbs", "name" => $$dbsattrs{'name'});
+        $dbs = &getone($dbh, "dps_dbs", "name" => $$dbsattrs{'name'});
     }
     if (! $dbs)
     {
@@ -216,9 +226,9 @@ while (@$info)
 	my ($ds) = grep ($$_{DBS} eq $$dbs{ID} && $$_{NAME} eq $$dsattrs{'name'}, @$all_dataset);
 	if (! $ds)
 	{
-	    $ds = &lockone($dbh, "dps_dataset",
-		    	   "dbs" => $$dbs{ID},
-		    	   "name" => $$dsattrs{'name'});
+	    $ds = &getone($dbh, "dps_dataset",
+		    	  "dbs" => $$dbs{ID},
+		    	  "name" => $$dsattrs{'name'});
 	}
 	if (! $ds)
 	{
@@ -266,8 +276,8 @@ while (@$info)
 	    if (! $b)
 	    {
 	        $b = &lockone($dbh, "dps_block",
-		    	       "dataset" => $$ds{ID},
-		    	       "name" => $$battrs{'name'});
+		    	      "dataset" => $$ds{ID},
+		    	      "name" => $$battrs{'name'});
 	    }
 	    if (! $b)
 	    {
@@ -407,16 +417,6 @@ while (@$info)
 
 		do { local $|=1; print "T" } if $verbose;
 		&dbbindexec($ixfer, %xfer);
-
-		do { local $|=1; print "B" } if $verbose;
-		&dbexec($dbh, qq{
-		    update t_dps_block
-		    set files = files + :files, bytes = bytes + :bytes, time_update = :now
-		    where id = :block},
-		    ":block" => $$b{ID},
-		    ":files" => $files,
-		    ":bytes" => $bytes,
-		    ":now" => $now);
 	    }
 
 	    if (@replicas)
