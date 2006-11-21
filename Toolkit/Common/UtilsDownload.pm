@@ -38,6 +38,38 @@ sub new
     return $self;
 }
 
+# Initialise the backend.  The previous agent execution may have left
+# behind running transfers as well as pending transfer tasks.  Try to
+# recapture the previous state.
+sub init
+{
+    my ($self) = @_;
+    &warn (ref($self) . "::init not implemented");
+    # $$self{MASTER}->setAction(0, \&FileDownload::doSyncPush);
+    # $$self{MASTER}->setAction(0, \&FileDownload::doSyncPull);
+}
+
+sub stop
+{
+    my ($self) = @_;
+    &warn (ref($self) . "::stop not implemented");
+}
+
+sub isBusy
+{
+    my ($self) = @_;
+    &warn (ref($self) . "::isBusy not implemented");
+    return 0;
+}
+
+sub protocols
+{
+    my ($self) = @_;
+    &warn (ref($self) . "::protocols not implemented");
+    return ();
+}
+
+######################################################################
 # Start timer on a file operation
 sub startFileTiming
 {
