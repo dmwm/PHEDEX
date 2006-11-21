@@ -4,6 +4,7 @@ our @EXPORT = qw(parseDatabaseInfo connectToDatabase disconnectFromDatabase
 		 dbsql dbexec dbprep dbbindexec);
 use UtilsLogging;
 use UtilsTiming;
+use UtilsNet;
 use DBI;
 
 # Parse database connection arguments.
@@ -276,7 +277,7 @@ sub updateAgentStatus
     # Obtain my node id
     my $me = $$self{AGENTID} || $0; $me =~ s|.*/||;
     ($$self{ID_MYNODE}) = &dbexec($dbh, qq{
-	select id from t_node where name = :node},
+	select id from t_adm_node where name = :node},
 	":node" => $$self{MYNODE})->fetchrow();
     die "node $$self{MYNODE} not known to the database\n"
         if ! defined $$self{ID_MYNODE};
@@ -304,24 +305,76 @@ sub updateAgentStatus
     }
 
     # Add agent status if doesn't exist yet.
-    if (! defined $state)
-    {
-        &dbexec($dbh, qq{
-	    insert into t_agent_status (node, agent, state, time_update)
-	    values (:node, :agent, 1, :now)},
-	    ":node" => $$self{ID_MYNODE},
-	    ":agent" => $$self{ID_AGENT},
-	    ":now" => $now);
+    my ($ninbox, $npending, $nreceived, $ndone, $nbad, $noutbox) = (0) x 7;
+    my $dir = $$self{DROPDIR}; $dir =~ s|/worker-\d+$||; $dir =~ s|/[^/]+$||;
+    my $label = $$self{DROPDIR}; $label =~ s|/worker-\d+$||; $label =~ s|.*/||;
+    my $wid = ($$self{DROPDIR} =~ /worker-(\d+)$/ ? "W$1" : "M");
+    my $fqdn = &getfullhostname();
+    my $pid = $$;
+
+    my $dirtmp = $$self{DROPDIR};
+    foreach my $d (<$dirtmp/inbox/*>) {
+	$ninbox++;
+	$nreceived++ if -f "$d/go";
     }
-    else
-    {
-        &dbexec($dbh, qq{
-	    update t_agent_status set state = 1, time_update = :now
-	    where node = :node and agent = :agent},
-	    ":node" => $$self{ID_MYNODE},
-	    ":agent" => $$self{ID_AGENT},
-	    ":now" => $now);
+
+    foreach my $d (<$dirtmp/work/*>) {
+	$npending++;
+	$nbad++ if -f "$d/bad";
+	$ndone++ if -f "$d/done";
     }
+
+    foreach my $d (<$dirtmp/outbox/*>) {
+	$noutbox++;
+    }
+
+    &dbexec($dbh, qq{
+	merge into t_agent_status ast
+	using (select :node node, :agent agent, :label label, :wid worker_id,
+	              :fqdn host_name, :dir directory_path, :pid process_id,
+	              1 state, :npending queue_pending, :nreceived queue_received,
+	              :nwork queue_work, :ncompleted queue_completed,
+	              :nbad queue_bad, :noutgoing queue_outgoing, :now time_update
+	       from dual) i
+	on (ast.node = i.node and
+	    ast.agent = i.agent and
+	    ast.label = i.label and
+	    ast.worker_id = i.worker_id)
+	when matched then
+	  update set
+	    ast.host_name       = i.host_name,
+	    ast.directory_path  = i.directory_path,
+	    ast.process_id      = i.process_id,
+	    ast.state           = i.state,
+	    ast.queue_pending   = i.queue_pending,
+	    ast.queue_received  = i.queue_received,
+	    ast.queue_work      = i.queue_work,
+	    ast.queue_completed = i.queue_completed,
+	    ast.queue_bad       = i.queue_bad,
+	    ast.queue_outgoing  = i.queue_outgoing,
+	    ast.time_update     = i.time_update
+	when not matched then
+          insert (node, agent, label, worker_id, host_name, directory_path,
+		  process_id, state, queue_pending, queue_received, queue_work,
+		  queue_completed, queue_bad, queue_outgoing, time_update)
+	  values (i.node, i.agent, i.label, i.worker_id, i.host_name, i.directory_path,
+		  i.process_id, i.state, i.queue_pending, i.queue_received, i.queue_work,
+		  i.queue_completed, i.queue_bad, i.queue_outgoing, i.time_update)},
+       ":node"       => $$self{ID_MYNODE},
+       ":agent"      => $$self{ID_AGENT},
+       ":label"      => $label,
+       ":wid"        => $wid,
+       ":fqdn"       => $fqdn,
+       ":dir"        => $dir,
+       ":pid"        => $pid,
+       ":npending"   => $ninbox - $nreceived,
+       ":nreceived"  => $nreceived,
+       ":nwork"      => $npending - $nbad - $ndone,
+       ":ncompleted" => $ndone,
+       ":nbad"       => $nbad,
+       ":noutgoing"  => $noutbox,
+       ":now"        => $now);
+
     $dbh->commit();
     $$self{DBH_AGENT_UPDATE}{$$self{MYNODE}} = $now;
 }
@@ -468,7 +521,7 @@ sub expandNodesAndConnect
     foreach my $pat (@{$$self{NODES}})
     {
 	my $q = &dbexec($dbh, qq{
-	    select id, name from t_node n
+	    select id, name from t_adm_node n
 	    where n.name like :pat $filter
 	    order by name},
 	    ":pat" => $pat, %args);
@@ -513,7 +566,7 @@ sub otherNodeFilter
     if (($$self{IGNORE_NODES_IDS}{LAST_CHECK} || 0) < $now - 300)
     {
 	my $q = &dbprep($$self{DBH}, qq{
-	    select id from t_node where name like :pat});
+	    select id from t_adm_node where name like :pat});
 
 	my $index = 0;
 	foreach my $pat (@{$$self{IGNORE_NODES}})
@@ -526,12 +579,12 @@ sub otherNodeFilter
         }
 
 	$index = 0;
-	foreach my $pat (@{$$self{ACCEPT_NODES}})
+	foreach my $pat (@{$$self{ACCEPT_ADM_NODES}})
         {
 	    &dbbindexec($q, ":pat" => $pat);
 	    while (my ($id) = $q->fetchrow())
 	    {
-	        $$self{ACCEPT_NODES_IDS}{MAP}{++$index} = $id;
+	        $$self{ACCEPT_ADM_NODES_IDS}{MAP}{++$index} = $id;
 	    }
         }
 
@@ -544,7 +597,7 @@ sub otherNodeFilter
 	$args{":ignore$n"} = $id;
 	push(@ifilter, "$idfield != :ignore$n");
     }
-    while (my ($n, $id) = each %{$$self{ACCEPT_NODES_IDS}{MAP}})
+    while (my ($n, $id) = each %{$$self{ACCEPT_ADM_NODES_IDS}{MAP}})
     {
 	$args{":accept$n"} = $id;
 	push(@afilter, "$idfield = :accept$n");
