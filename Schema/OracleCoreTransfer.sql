@@ -12,9 +12,10 @@ create table t_xfer_catalogue
    rule_index		integer		not null,
    rule_type		varchar (10)	not null,
    protocol		varchar (20)	not null,
-   destination_match	varchar (40)	not null,
    path_match		varchar (1000)	not null,
    result_expr		varchar (1000)	not null,
+   chain		varchar (20),
+   destination_match	varchar (40),
    --
    constraint pk_xfer_catalogue
      primary key (node, rule_index),
