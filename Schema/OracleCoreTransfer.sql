@@ -29,6 +29,7 @@ create table t_xfer_catalogue
 create table t_xfer_source
   (from_node		integer		not null,
    to_node		integer		not null,
+   protocols		varchar (1000)	not null,
    time_update		float		not null,
    --
    constraint pk_xfer_source
