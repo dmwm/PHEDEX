@@ -245,14 +245,6 @@ sub deleteLFNs
 	$dbh->commit() if ( $$stats{DEL_DB_SUM}%20 == 0 );
     }
 
-    # Update block statistics if necessary
-    &dbexec($dbh, qq{
-	update t_dps_block b set (files, bytes) =
-	    (select NVL(count(f.id),0), NVL(sum(f.filesize),0)
-	     from t_dps_file f where f.inblock = b.id)})
-	if grep $_, ( values %{$stats{DEL_DB}} );
-
-
     return $stats;
 }
 
