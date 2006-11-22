@@ -233,6 +233,7 @@ create table t_xfer_task_inxfer
 create table t_xfer_task_done
   (task			integer		not null,
    report_code		integer		not null,
+   xfer_code		integer		not null,
    time_update		float		not null,
    log_xfer		varchar (4000),
    log_detail		varchar (4000),
