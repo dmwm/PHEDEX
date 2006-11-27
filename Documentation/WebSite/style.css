@@ -178,6 +178,64 @@ div#content {
   clear:		both;
 }
 
+div#opts {
+  position:  fixed;
+  padding:  0;
+
+  top:  50%;
+  height:  400px;
+  margin-top:  -200px;
+
+  left:  50%;
+  width:  600px;
+  margin-left:  -250px;
+  background-color:  blue;
+  border:		10px solid blue;
+
+}
+
+div#optsnav {
+  height:  25px;
+  width:  100%;
+  margin:  0;
+  padding: 0;
+}
+
+div.optscontent {
+  height:  350px;
+  padding:  0;
+  padding-left:  1em;
+  padding-right:  1em;
+  overflow:  auto;
+  background-color:	#f2f2ff;
+}
+
+div#optsfoot {
+  height:  25px;
+  width:  100%;
+  background-color:  blue;
+  padding-top:  4px;
+  text-align:  right;
+}
+
+div#optsnav a,
+div#optsfoot a {
+  padding:  2px 6px 2px 6px;
+  margin-right: 4px;
+  text-decoration:  none;
+}
+
+div#optsnav a.raised {
+  background-color:  white;
+  color:  black;
+  font-weight:  bold;
+}
+
+div#optsnav a.lowered {
+  background-color:  blue;
+  color:  #aaaaaa;;
+}
+
 /**********************************************************************/
 div.viewnav {
   position:		absolute;
@@ -187,10 +245,11 @@ div.viewnav {
   font-size:		0.9em;
   background-color:	#fffff2;
   border-left:		1px solid #e4f1db;
+  border-bottom:	1px solid #e4f1db;
   padding:		0;
   margin:		0;
   padding-top:		15px;
-  height:		95%;
+  padding-bottom:       15px;
 }
 
 div.viewnav>div {
@@ -549,4 +608,29 @@ table.striped tbody tr.selected th {
   border-left:		1px solid #346DBE;
   -border-bottom:	1px solid #7DAAEA;
   vertical-align:	top;
+}
+
+
+/** A generic table with stripes **/
+table.data {
+  border:  1px solid black;
+  background:  white;
+  color:  black;
+  border-collapse:  collapse;
+}
+
+table.data td,
+table.data th {
+  border:  1px solid black;
+  padding-left:   0.5em;
+  padding-right:  0.5em;
+}
+
+table.data tr.stripe {
+  background:  #ddd;
+}
+
+table.data td.alarm {
+  font-weight:  bold;
+  background:  #fcc;
 }
