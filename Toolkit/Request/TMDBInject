@@ -157,7 +157,7 @@ my $info = (new XML::Parser (Style => "Tree"))->parsefile ($args{FILEDATA});
 
 # Fetch known DBSes, datasets and blocks.
 my $now = &mytimeofday();
-my $all_nodes = &fetchall($dbh, "node");
+my $all_nodes = &fetchall($dbh, "adm_node");
 my $all_dbs = [];
 my $all_dataset = [];
 my $all_block = [];
@@ -310,7 +310,7 @@ while (@$info)
 		select f.id, f.logical_name, n.name node
 		from t_xfer_file f
  		  join t_xfer_replica xr on xr.fileid = f.id
-		  join t_node n on n.id = xr.node
+		  join t_adm_node n on n.id = xr.node
 		where f.inblock = :block},
 		":block" => $$b{ID})->fetchall_arrayref({});
 
