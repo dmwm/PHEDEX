@@ -4,6 +4,7 @@ use UtilsTiming;
 use UtilsCatalogue;
 use UtilsMisc;
 use Getopt::Long;
+use File::Path;
 use POSIX;
 
 sub new
@@ -38,172 +39,36 @@ sub new
     return $self;
 }
 
-# Initialise the backend.  The previous agent execution may have left
-# behind running transfers as well as pending transfer tasks.  Try to
-# recapture the previous state.
-sub init
+# Check whether a job is alive.  By default do nothing.
+sub check
 {
-    my ($self) = @_;
-    &warn (ref($self) . "::init not implemented");
-    # $$self{MASTER}->setAction(0, \&FileDownload::doSyncPush);
-    # $$self{MASTER}->setAction(0, \&FileDownload::doSyncPull);
+    my ($self, $jobname, $job, $tasks) = @_;
 }
 
+# Stop the backend.  We abandon all jobs always.
 sub stop
 {
     my ($self) = @_;
-    &warn (ref($self) . "::stop not implemented");
 }
 
+# Check if the backend is busy.  By default, never.
 sub isBusy
 {
     my ($self) = @_;
-    &warn (ref($self) . "::isBusy not implemented");
     return 0;
 }
 
+# Return the list of protocols supported by this backend.
 sub protocols
 {
     my ($self) = @_;
-    &warn (ref($self) . "::protocols not implemented");
-    return ();
+    return @{$$self{PROTOCOLS}};
 }
 
-######################################################################
-# Start timer on a file operation
-sub startFileTiming
+sub startBatch
 {
-    my ($self, $file, $op) = @_;
-    push (@{$$file{TIMING}}, [ $op, &mytimeofday() ]);
-}
-
-# Stop timer on a file operation
-sub stopFileTiming
-{
-    my ($self, $file) = @_;
-    my $last = pop(@{$$file{TIMING}});
-    push (@$last, &mytimeofday());
-    push (@{$$file{TIMING}}, $last);
-}
-
-# Determine how much unused capacity we have: how many new files we
-# are willing to take into transfer right now.  This is the number
-# of files that could fit into the job queue right now.
-sub transferSlots
-{
-    my ($self, $files) = @_;
-    my $nbatch = $$self{BATCH_FILES} || 1;
-    my $inxfer = scalar grep($$_{TO_STATE} == 2, values %$files);
-    my $maxjobs = $nbatch * $$self{NJOBS};
-    my $available = $maxjobs - $inxfer;
-    return $available >= 0 ? $available : 0;
-}
-
-# Fill into a file transfer request which protocols we are willing
-# to use for download, and which download destination we will use.
-sub fillFileRequest
-{
-    my ($self, $file) = @_;
-    $$file{TO_PROTOCOLS} = join(",", @{$$self{PROTOCOLS}});
-    $$file{TO_PFN} = &pfnLookup ($$file{LOGICAL_NAME},
-				 $$self{PROTOCOLS}[0],
-				 $$file{FROM_NODE},
-				 $$self{MASTER}{STORAGEMAP});
-}
-
-# Submit files into transfer in batches desired by the backend.
-sub transfer
-{
-    my ($self, @files) = @_;
-
-    # Create transfer batches by adding files to a new batch until we
-    # exceed number of files in the batch or batch size limit.
-    my ($batch, $size) = ([], 0);
-    while (1)
-    {
-	if (! @files
-	    || (scalar @$batch
-		&& (scalar @$batch >= $$self{BATCH_FILES}
-		    || ($$self{BATCH_SIZE} && $size >= $$self{BATCH_SIZE}))))
-	{
-	    # Start moving this batch
-	    $self->checkTransferBypass ($batch);
-
-	    # Prepare for the next batch
-	    $$self{BATCHID}++;
-	    $batch = [];
-	    $size = 0;
-
-	    # If no more files, quit
-	    last if ! @files;
-	}
-
-	# Add next file to the batch
-	my $file = shift(@files);
-	$$file{BATCHID} = $$self{BATCHID};
-	push (@$batch, $file);
-	$size += $$file{FILESIZE};
-    }
-}
-
-# Check for file transfer bypass.  If a BYPASS_COMMAND is specified,
-# run it for each source / destination file pair.  If the command
-# outputs something, use it as the new destination path and skip the
-# file transfer.  This is used to short-circuit transfers between
-# "virtual" and real nodes, where the source and destination storages
-# overlap but we don't know it is so.
-sub checkTransferBypass
-{
-    my ($self, $batch, $file, $out, $job) = @_;
-    if ($job)
-    {
-	# Reap finished jobs.  Ignore status code; all we care is if
-	# the command printed out anything.
-	my $output = &input ($out);
-	unlink ($out);
-
-	if ($output)
-	{
-	    chomp ($output);
-
-	    # It printed out something, use this as destination
-	    # and pretend the file has alread been transferred.
-	    &logmsg ("transfer bypassed for $$file{LOGICAL_NAME}:"
-		     . " fileid=$$file{FILEID}"
-		     . " from_pfn=$$file{FROM_PFN}"
-		     . " to_pfn=$$file{TO_PFN}"
-		     . " new_to_pfn=$output");
-	    $$file{TO_PFN} = $output;
-	    $$file{DONE_PRE_CLEAN} = 1;
-	    $$file{DONE_TRANSFER} = 1;
-	    $$file{TRANSFER_STATUS}{STATUS} = 0;
-	    $$file{TRANSFER_STATUS}{REPORT} = "transfer was bypassed";
-	}
-
-	$$file{DONE_BYPASS} = 1;
-	$self->stopFileTiming ($file);
-    }
-    else
-    {
-	# First time around, start jobs for all files
-	foreach my $file (@$batch)
-	{
-	    do { $$file{DONE_BYPASS} = 1; next }
-	        if $$file{FAILURE} || ! $$self{MASTER}{BYPASS_COMMAND};
-
-	    $self->startFileTiming ($file, "bypass");
-	    my $out = "$$self{MASTER}{DROPDIR}/$$file{FILEID}.bypass";
-	    my $args = "$$file{FROM_PFN} $$file{TO_PFN}";
-	    $$self{MASTER}->addJob (
-		sub { $self->checkTransferBypass ($batch, $file, $out, @_) },
-		{ TIMEOUT => $$self{TIMEOUT}, LOGPREFIX => 1 },
-		"sh", "-c", "@{$$self{MASTER}{BYPASS_COMMAND}} $args > $out");
-	}
-    }
-
-    # Move to next stage when we've done everything for each file.
-    $self->preClean ($batch)
-        if ! grep (! $$_{DONE_BYPASS}, @$batch);
+    my ($self, $jobs, $tasks, $list) = @_;
+    &alert(ref($self) . "::startBatch not implemented");
 }
 
 # Remove destination PFNs before transferring.  Many transfer tools
@@ -239,71 +104,6 @@ sub preClean
     # Move to next stage when we've done everything
     $self->transferBatch ($batch)
         if ! grep (! $$_{DONE_PRE_CLEAN}, @$batch);
-}
-
-# Transfer batch of files.  Implementation defined, default fails.
-sub transferBatch
-{
-    my ($self, $batch) = @_;
-
-    # Mark everything failed if it didn't already
-    foreach my $file (@$batch) {
-	$$file{FAILURE} ||= "file transfer not implemented";
-    }
-
-    # Move to next stage
-    $self->validateBatch ($batch);
-}
-
-# After transferring a batch, check which files were successfully
-# transferred.  For batch transfers, the transfer command may fail
-# but yet successfully copy some files.  On the other hand, some
-# tools are actually broken enough to corrupt the file in transfer.
-# Defer to an external tool to determine which files ought to be
-# accepted.
-sub validateBatch
-{
-    my ($self, $batch, $file, $job) = @_;
-    if ($job)
-    {
-	if ($$job{STATUS})
-	{
-	    $$file{FAILURE} =
-	        "file failed validation: $$job{STATUS}"
-	        . " (transfer "
-		. ($$file{TRANSFER_STATUS}{STATUS}
-		   ? "failed with $$file{TRANSFER_STATUS}{REPORT}"
-		   : "was successful")
-	        . ")";
-	}
-	$$file{DONE_VALIDATE} = 1;
-	$self->stopFileTiming ($file);
-    }
-    else
-    {
-	# First time around start validation command for all files,
-	# but only if validation was requested.  If we are not doing
-	# validation, just use the status from transfer command.
-	foreach $file (@$batch)
-	{
-	    $$file{FAILURE} = $$file{TRANSFER_STATUS}{REPORT}
-	        if (! $$self{MASTER}{VALIDATE_COMMAND}
-		    && $$file{TRANSFER_STATUS}{STATUS});
-	    do { $$file{DONE_VALIDATE} = 1; next }
-	        if $$file{FAILURE} || ! $$self{MASTER}{VALIDATE_COMMAND};
-
-	    $self->startFileTiming ($file, "validate");
-	    $$self{MASTER}->addJob (
-		sub { $self->validateBatch ($batch, $file, @_) },
-		{ TIMEOUT => $$self{TIMEOUT}, LOGPREFIX => 1 },
-		@{$$self{MASTER}{VALIDATE_COMMAND}},
-		$file->{TRANSFER_STATUS}{STATUS}, $file->{TO_PFN},
-		$file->{FILESIZE}, $file->{CHECKSUM});
-	}
-    }
-
-    $self->postClean ($batch)
-        if ! grep (! $$_{DONE_VALIDATE}, @$batch);
 }
 
 # Remove destination PFNs after failed transfers.

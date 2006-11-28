@@ -27,7 +27,7 @@
 ##H      -state DIRECTORY -nodes PATTERN[,PATTERN...]
 ##H      -db FILE[:SECTION] [-log OUT] [-verbose]
 ##H      [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]
-##H      [-validate CMD[,ARG...]] [-delete CMD[,ARG...]]
+##H      -validate CMD[,ARG...] [-delete CMD[,ARG...]]
 ##H      -backend TYPE [OPTIONS]
 ##H
 ##H Options to all backends:
@@ -53,8 +53,7 @@
 ##H
 ##H -ignore      comma-separated list of nodes to ignore transfers from
 ##H -accept      comma-separated list of nodes to accept transfers from
-##H -validate    command to verify file transfer success; if not specified
-##H               uses transfer command exit code, normally a bad idea
+##H -validate    command to verify file transfer success
 ##H -delete      command to delete file on failure
 ##H
 ##H -backend     the transfer backend to use: Globus, SRM, FTS, DCCP; all
@@ -103,7 +102,7 @@ use UtilsHelp;
 
 die "Insufficient parameters, use -h for help.\n"
     if (!$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG}
-	|| !$args{BACKEND_TYPE});
+	|| !$args{VALIDATE_COMMAND} || !$args{BACKEND_TYPE});
 
 (new FileDownload (%args, BACKEND_ARGS => [ @ARGV ]))->process();
 
@@ -112,13 +111,13 @@ die "Insufficient parameters, use -h for help.\n"
 package FileDownload; use strict; use warnings; use base 'UtilsAgent';
 use List::Util qw(min max sum);
 use File::Path qw(mkpath rmtree);
+use File::Temp qw(mkdtemp);
+use Data::Dumper;
+use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
 use UtilsDB;
 use POSIX;
-
-our $TASK_CODE_SUCCESS = 0;
-our $TASK_CODE_LOST = 1;
 
 sub new
 {
@@ -147,11 +146,15 @@ sub new
 		  FIRST_ACTION => undef,	# Time of first action
 		  ACTIONS => [],		# Future actions
 
-		  TASK_DIR => "$$self{DROPDIR}/tasks", # Tasks to do
+		  TASKDIR => "$$self{DROPDIR}/tasks", # Tasks to do
+		  STATS => [],			# Historical stats.
 
-		  LAST_SYNC_PUSH => 0,		# Last time we pushed status
-		  LAST_SYNC_PULL => 0,		# Last time we pulled tasks
-		  DBH_LAST_USE => 0,		# Last time we used database
+		  NEXT_SYNC => 0,		# Next time to synchronise
+		  NEXT_PURGE => 0,		# Next time to purge bad data
+		  NEXT_DISCONNECT => 0,		# Next time to disconnect
+		  DBH_LAST_USE => 0,		# Last use of the database
+
+		  BOOTTIME => time(),		# Time this agent started
 	  	  );
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
@@ -159,8 +162,8 @@ sub new
 	    		    . " new UtilsDownload$args{BACKEND_TYPE}"
 			    . " (MASTER => \$self, \@_)");
     do { chomp ($@); die "Failed to create backend: $@\n" } if $@;
-    -d $$self{TASK_DIR} || mkdir($$self{TASK_DIR}) || -d $$self{TASK_DIR}
-        || die "$$self{TASK_DIR}: cannot create: $!\n";
+    -d $$self{TASKDIR} || mkdir($$self{TASKDIR}) || -d $$self{TASKDIR}
+        || die "$$self{TASKDIR}: cannot create: $!\n";
     bless $self, $class;
     return $self;
 }
@@ -173,10 +176,7 @@ sub stop
 {
     my ($self) = @_;
 
-    # Tell backend to stop.
-    $$self{BACKEND}->stop();
-
-    # Now wait for utility processes to finish.
+    # Wait for utility processes to finish.
     if (@{$$self{JOBS}})
     {
         &logmsg ("waiting pending jobs to finish...");
@@ -195,539 +195,13 @@ sub stop
     # Clear to exit.
 }
 
-######################################################################
-# Schedule an action to execute at some future time.  The actions are
-# added and executed in the order added, except that no action is
-# executed before the given time.  Each action carries a tag, and if
-# a new action with the same tag is added, the one with earlier time
-# is kept in the queue.
-sub setAction
+sub evalinfo
 {
-    my ($self, $time, $action) = @_;
-
-    # If this action is before our current first action, register.
-    $$self{FIRST_ACTION} = $time
-        if (! defined $$self{FIRST_ACTION} || $$self{FIRST_ACTION} > $time);
-
-    # See if we there is an existing earlier or later action.
-    for (my $i = 0; $i < scalar @{$$self{ACTIONS}}; ++$i)
-    {
-	next if $$self{ACTIONS}[$i]{ACTION} ne $action;
-	return if $$self{ACTIONS}[$i]{TIME} <= $time;
-	$$self{ACTIONS}[$i]{TIME} = $time;
-	$$self{ACTIONS}[$i]{ACTION} = $action;
-	return;
-    }
-
-    # No previous entry, add this.
-    push(@{$$self{ACTIONS}}, { ACTION => $action, TIME => $time });
+    my ($file) = @_;
+    no strict 'vars';
+    return eval (&input($file) || '');
 }
 
-# Run all actions which were scheduled to run by now.
-sub flushActions
-{
-    my ($self) = @_;
-    my $now = &mytimeofday();
-    my $old = $$self{ACTIONS};
-    my ($new, $run) = ([], []);
-
-    # Split "old" action list into "run" (run now) and "new" (to retain
-    # for a future flush time).  Keep the actions in the order they were
-    # in.
-    my $first = undef;
-    while (@$old)
-    {
-        my $a = shift(@$old);
-	if ($$a{TIME} > $now)
-	{
-	    push(@$new, $a);
-	    $first = $$a{TIME} if (! defined $first || $first > $$a{TIME});
-        }
-	else
-	{
-	    push(@$run, $a);
-        }
-    }
-
-    # Swap the new action list into place.  This guarantees that new
-    # actions added by calling those in "run" list will go to the
-    # end of the list by default.
-    $$self{ACTIONS} = $new;
-    $$self{FIRST_ACTION} = $first;
-
-    # Now execute the actions in "run" list.
-    foreach my $a (@$run)
-    {
-	&logmsg("executing action $$a{ACTION} scheduled at $$a{TIME}")
-	    if $$self{VERBOSE};
-        $$a{ACTION}->($self);
-    }
-}
-
-######################################################################
-sub fetchMoreFiles
-{
-    my ($self) = @_;
-}
-
-sub createTransferJob
-{
-}
-
-sub checkTransferJobs
-{
-}
-
-sub startFileTransfer
-{
-}
-
-sub finishFileTransfer
-{
-}
-
-sub uploadTransferStatus
-{
-}
-
-# Compare local transfer pool with database and reset everything one
-# or the other doesn't know about.  We assume this is the only agent
-# managing transfers for the links it's given.  If database has a
-# locally unknown transfer, we mark the database one lost.  If we
-# have a local transfer unknown to the database, we trash the local.
-sub purgeLostTransfers
-{
-    my ($self) = @_;
-    my (%inlocal, %indb) = ();
-
-    # Get the local transfer pool.  All we need is the task ids.
-    $inlocal{$_} = 1 for &getdir($$self{TASK_DIR});
-
-    # Get the database transfer pool.  Again, just task ids.
-    my ($dest, %dest_args) = &myNodeFilter ($self, "xt.to_node");
-    my ($filter, %filter_args) = &otherNodeFilter ($self, "xt.from_node");
-    my $qpending = &dbexec($$self{DBH}, qq{
-      select xt.id from t_xfer_task xt where $dest $filter
-        and exists (select 1 from t_xfer_task_inxfer where task = xt.id)
-        and not exists (select 1 from t_xfer_task_done where task = xt.id)},
-      %dest_args, %filter_args);
-    $indb{$_} = 1 while (($_) = $qpending->fetchrow());
-
-    # Calculate differences.
-    my @lostlocal = grep(! exists $indb{$_}, keys %inlocal);
-    my @lostdb    = grep(! exists $inlocal{$_}, keys %indb);
-
-    # Mark locally unknown tasks as lost in database.
-    my $now = &mytimeofday();
-    my $qlost = &dbprep($$self{DBH}, qq{
-      insert into t_xfer_task_done
-        (task, report_code, time_update)
-	values (:task, $TASK_CODE_LOST, :now)});
-    &dbbindexec($qlost, ":now" => $now, ":task" => $_) for @lostdb;
-
-    # Remove locally known tasks forgotten by database.
-    unlink(map { "$$self{TASK_DIR}/$_" } @lostlocal);
-}
-
-sub refreshLinks
-{
-    my ($self) = @_;
-    my $to;
-	# Disable and enable links as necessary
-	my $bytes = sum(0, map { $$_{BYTES} } values %{$$self{LINKS}{$to}});
-	foreach my $from (keys %{$$self{LINKS}{$to}})
-	{
-	    my $link = $$self{LINKS}{$to}{$from};
-	    my $linkcap = $$link{PARAMS}{BANDWIDTH_CAP};
-	    my $nodecap = $$self{NODE}{$to}{BANDWIDTH_CAP};
-
-	    if ($$link{ERRORS} > 100)
-	    {
-		&logmsg ("excessive errors in transfers on link"
-			 . " from $from to $to,"
-			 . " suspending transfers on this link")
-		    if ! $$link{DOWN};
-		$$link{DOWN} = 1;
-	    }
-	    elsif (defined $linkcap && $$link{BYTES} > $linkcap * 3600)
-	    {
-		&logmsg ("transfer rate on link from $from to $to"
-			 . " exceeded link bandwidth cap "
-			 . sprintf ("%.1f", $linkcap/(1024**2))
-			 . " MB/s, suspending transfers on this link")
-		    if ! $$link{DOWN};
-		$$link{DOWN} = 2;
-	    }
-	    elsif (defined $nodecap && $bytes > $nodecap * 3600)
-	    {
-		&logmsg ("aggregate transfer rate on all links to $to"
-			 . " exceeded node bandwidth cap "
-			 . sprintf ("%.1f", $nodecap/(1024**2))
-			 . " MB/s, suspending transfers on all links")
-		    if ! $$link{DOWN};
-		$$link{DOWN} = 3;
-	    }
-	    elsif ($$link{DOWN})
-	    {
-		&logmsg ("reactivating transfers on suspended link"
-			 . " from $from to $to");
-		$$link{DOWN} = 0;
-	    }
-	}
-}
-
-# Update file transfer work list.
-#
-# The full work list is refreshed from the database only every few
-# minutes, or if the agent is running out of work.  The agent will
-# therefore take a little time to adjust to behind-the-scenes changes
-# to the database.  Files already in transfer by the agent are not
-# refreshed from the database.
-#
-# The work queue contains all files available for transfer on active
-# links.  The lists exclude files not yet available for transfer,
-# missing either source or destination name, in error states, on
-# suspended links, expired or having experienced too many errors.
-sub refreshFiles
-{
-    my ($self, $dbh) = @_;
-    my $now = &mytimeofday ();
-
-    # Remove transfers on links that are now down
-    delete $$self{FILES}{$$_{FILEID}}
-	for grep($$_{TO_STATE} != 2
-		 && $$self{LINKS}{$$_{TO_NODE}}{$$_{FROM_NODE}}{DOWN},
-		 values %{$$self{FILES}});
-
-    # Avoid refresh if we've read recently and have enough to chew on
-    return if (($$self{LAST_FILES} > $now - 300 && scalar keys %{$$self{FILES}})
-	       || $$self{LAST_FILES} > $now - 15);
-
-    # Reset old state
-    delete $$self{FILES}{$$_{FILEID}}
-      for grep($$_{TO_STATE} != 2, values %{$$self{FILES}});
-
-    # Fetch transfer backlog
-    my ($dest, %dest_args) = &myNodeFilter ($self, "xs.to_node");
-    my ($filter, %filter_args) = &otherNodeFilter ($self, "xs.from_node");
-
-    my $q = &dbexec ($dbh, qq{
-	select
-	    xs.fileid, f.logical_name, f.filesize, f.checksum, b.name inblock,
-	    xs.priority, xs.weight, xs.age,
-	    xs.to_node to_node_id, nd.name to_node, xs.to_state, xs.to_pfn,
-	    xs.from_node from_node_id, ns.name from_node, xs.from_pfn,
-	    xs.time_assign, xs.time_available
-	from t_xfer_state xs
-	  join t_xfer_file f on f.id = xs.fileid
-	  join t_node nd on nd.id = xs.to_node
-	  join t_node ns on ns.id = xs.from_node
-          join t_dps_block b on b.id = f.inblock
-	where $dest
-	  and xs.from_state = 1
- 	  and xs.to_pfn is not null
-	  and xs.time_expire > :now
-	  and xs.errors < 5
-	  $filter},
-	":now" => $now,
-	%dest_args,
-	%filter_args);
-
-    while (my $row = $q->fetchrow_hashref())
-    {
-	# Remember the file if it's not on a link that's down
-	$$self{FILES}{$$row{FILEID}} = $row
-	    if (! exists $$self{FILES}{$$row{FILEID}}
-		&& ! $$self{LINKS}{$$row{TO_NODE}}{$$row{FROM_NODE}}{DOWN});
-    }
-
-    &logmsg ("@{[scalar keys %{$$self{FILES}}]} files in refreshed list")
-	if $$self{VERBOSE};
-    $$self{LAST_FILES} = $now;
-}
-
-# Issue file transfers.
-sub issueTransfers
-{
-    my ($self, $dbh, $to, $nxfers) = @_;
-
-    # Divide up the $nxfers transfer share by link and priority using
-    # a "corrected auto-tuning fair share algorithm" as described at
-    # http://www.psc.edu/publications/tech_reports/fairshare/fairshare.html.
-    #
-    # The essence of the algorithm is:
-    # 1. P = the total size of the pool, allocated and unallocated
-    #    D(i) = the amount of buffer space desired by connection i
-    #    B(i) = the amount of buffer space allotted to connection i so
-    #           far (zero initially).
-    # 2. U = set of all connections i for which B(i) < D(i)
-    #    N = the number of connections in U.
-    #    current share = (P - sum(B(i)) for all i) / N
-    # 3. For all i in U,
-    #      if D(i) < B(i) + current share then B(i) = D(i)
-    #      otherwise, increase B(i) by the current share
-    # 4. Repeat from step 2 until U is empty, or the current share
-    # falls to a certain threshold (which may be zero).
-    #
-    # In our implementation, each link has a share for each priority
-    # level, typically four values n:m:o:p.  We sum these up over all
-    # links for which there are transfers at that priority level into
-    # Sn:Sm:So:Sp.  To balance the distribution of shares fairly over
-    # time, both over links and priorities, we use as dead weight
-    # momentum the transfer history from the last hour.  In other
-    # words, our pool size P is ((# of transfers in last hour) +
-    # $nxfers), and initialise B to the transfers of last hour.
-    #
-    # We run the fair share algorithm to determine the fraction of
-    # $nxfers each priority level receives on this round, then
-    # distribute each priority share to the links according to
-    # their relative fraction n:Sn.
-    #
-    # The variables below have the following meanings:
-    #  @files:      files ready for transfer
-    #  @levels:     the priority levels we have transfers for
-    #  %queues:     @files divided into per-priority, per-link queues
-    #  %shares:     per-priority sum of link shares
-    #  %old:        usage of bandwidth share in last hour
-    #  %desired:    the transfers desired by priority level "i" (D(i))
-    #  %allocated:  %old + transfers allocated to priority level "i" (B(i))
-    #  %issue:      transfers to issue by priority level (%allocated - %old)
-    #  "P"           $oldbias + $nxfers
-
-    my (@files, @levels, %queues, %shares);
-    my (%old, %desired, %allocated, %issue);
-
-    # Divide files into by priority, then by source node (link).
-    @files = grep($$_{TO_NODE} eq $to && $$_{TO_STATE} <= 1,
-		  values %{$$self{FILES}});
-    push(@{$queues{$$_{PRIORITY}}{$$_{FROM_NODE}}}, $_) for @files;
-    @levels = sort { $b <=> $a } keys %queues;
-
-    # Compute total share allocation for links with transfers.
-    foreach my $prio (@levels)
-    {
-	$shares{$prio} = $desired{$prio} = $issue{$prio} = 0;
-
-	foreach my $from (keys %{$queues{$prio}})
-	{
-	    $shares{$prio} += $$self{LINKS}{$to}{$from}{SHARES}{$prio} || 1;
-	    $old{$prio} += $$self{LINKS}{$to}{$from}{XFERS};
-	    $desired{$prio} += scalar @{$queues{$prio}{$from}};
-	}
-
-	$desired{$prio} += $old{$prio};
-	$allocated{$prio} = $old{$prio};
-    }
-
-    # Run the fair share algorithm.
-    my $oldbias = sum(0, values %old);
-    while (1)
-    {
-	&logmsg ("nxfers=$nxfers"
-		 . join(" ", map { ("(level=$_"
-				    . " desired=$desired{$_}"
-				    . " allocated=$allocated{$_})") }
-			@levels))
-	    if $$self{VERBOSE};
-
-	# Select priorities which haven't reached their quota yet.
-	my @unallocated = grep($allocated{$_} < $desired{$_}, @levels);
-	last if ! @unallocated;
-
-	# Calculate current weighted share.  If too little left, give up.
-	my $n = sum(map { $shares{$_} } @unallocated);
-	my $share = ($oldbias + $nxfers - sum(0, values %allocated)) / $n;
-	last if $share < 0.01;
-
-	# Allocate the share to each priority level according to
-	# the relative weight of the level.
-	foreach (@levels)
-	{
-	    my $pshare = $share * $shares{$_};
-	    if ($desired{$_} < $allocated{$_} + $pshare)
-	    {
-		my $issue = $desired{$_} - $allocated{$_};
-		$issue{$_} += $issue;
-		$allocated{$_} += $issue;
-	    }
-	    else
-	    {
-		$issue{$_} += $pshare;
-		$allocated{$_} += $pshare;
-	    }
-	}
-    }
-
-    &logmsg ("nxfers=$nxfers"
-	     . join(" ", map { "(level=$_ issue=$issue{$_})" } @levels))
-	if $$self{VERBOSE};
-
-    # Now divide the priority slots by participating link, from the
-    # lowest priority to the highest.  Each priority level takes its
-    # integer share of the available transfers; leftovers are given
-    # to the highest remaining priority level.
-    my %xfers;
-    while (@levels)
-    {
-	# Share of this priority level from the total
-	my $prio = shift(@levels);
-	my $pshare = (@levels ? int($issue{$prio}) : $nxfers);
-	$nxfers -= $pshare;
-	next if ! $pshare;
-
-	&logmsg ("priority $prio: issuing $pshare/$nxfers transfers to $to")
-	    if $$self{VERBOSE};
-
-	# Same division as we just did with priority shares, but
-	# dividing priority-level share to links in proportion to
-	# their relative weights.
-	my @links = keys %{$queues{$prio}};
-	while (@links)
-	{
-	    # Share of this link from the priority level
-	    my $from = shift(@links);
-	    my $factor = (($$self{LINKS}{$to}{$from}{SHARES}{$prio} || 1) / $shares{$prio});
-	    my $lshare = (@links ? int($factor*$pshare) : $pshare);
-	    $pshare -= $lshare;
-	    next if ! $lshare;
-
-	    &logmsg ("priority $prio: issuing $lshare/$pshare/$nxfers"
-		     . " transfers to $to from $from")
-		if $$self{VERBOSE};
-
-	    # Rank the transfers, then pick $lshare first ones.
-	    my @new = sort { (int($$a{AGE}/3600) <=> int($$b{AGE}/3600)
-			      || $$a{WEIGHT} <=> $$b{WEIGHT}
-			      || $$a{INBLOCK} cmp $$b{INBLOCK}
-			      || $$a{LOGICAL_NAME} cmp $$b{LOGICAL_NAME}) }
-		@{$queues{$prio}{$from}};
-	    push(@{$xfers{$from}}, splice(@new, 0, $lshare));
-	}
-    }
-
-    # Finally, issue the transfers
-    $self->startTransfer ($dbh, map { @$_ } values %xfers);
-    $$self{BACKEND}->transfer(@$_) for values %xfers;
-}
-
-# Mark the files in transfer in the database.
-sub startTransfer
-{
-    my ($self, $dbh, @files) = @_;
-    my $now = &mytimeofday();
-    foreach my $file (@files)
-    {
-	&dbexec ($dbh, qq{
-	    update t_xfer_state
-	    set to_state = 2, time_xfer_start = :now
-	    where fileid = :fileid and to_node = :node},
-	    ":now" => $now, ":fileid" => $$file{FILEID},
-	    ":node" => $$file{TO_NODE_ID});
-	$$file{TIME_START} = $now;
-    }
-    $dbh->commit();
-    $$_{TO_STATE} = 2 for @files;
-}
-
-# Record completion for the transfer.  Mark files either transferred
-# or sends them to cool-off failure state.
-sub completeTransfer
-{
-    my ($self, @files) = @_;
-    my $dbh = &connectToDatabase ($self, 0);
-
-    # Have a connection to the database, update status
-    my $now = &mytimeofday ();
-    foreach my $file (@files)
-    {
-	if ($$file{FAILURE})
-	{
-	    $$file{TO_STATE} = 100;
-	    &alert ("transfer failed: $$file{FAILURE};"
-		    . " to=$$file{TO_NODE}"
-		    . " from=$$file{FROM_NODE}"
-		    . " fileid=$$file{FILEID}"
-		    . " lfn=$$file{LOGICAL_NAME}"
-		    . " from_pfn=$$file{FROM_PFN}"
-		    . " to_pfn=$$file{TO_PFN}");
-	    &dbexec ($dbh, qq{
-	        update t_xfer_state
-	        set to_state = :state,
-		    errors = errors + 1,
-		    last_error = :errmsg,
-		    time_xfer_start = null,
-		    time_request = null,
-		    time_error_start = :error_start,
-		    time_error_end = :error_end,
-		    time_error_total = nvl(time_error_total,0)
-				       + :error_end - :error_start
-	        where fileid = :fileid and to_node = :node},
-	        ":state" => $$file{TO_STATE},
-		":errmsg" => (length($$file{FAILURE}) <= 4000 ? $$file{FAILURE}
-			      : (substr($$file{FAILURE}, 0, 3975) . "... (rest truncated)")),
-	        ":error_start" => $now,
-	        ":error_end" => $now + 60*(30 + rand(30)),
-	        ":fileid" => $$file{FILEID},
-	        ":node" => $$file{TO_NODE_ID});
-	}
-	else
-	{
-	    $$file{TO_STATE} = 3;
-	    &dbexec ($dbh, qq{
-	        update t_xfer_state
-	        set to_state = :state, time_xfer_end = :now
-	        where fileid = :fileid and to_node = :node},
-	        ":now" => $now,
-	        ":state" => $$file{TO_STATE},
-	        ":fileid" => $$file{FILEID},
-	        ":node" => $$file{TO_NODE_ID});
-
-	    &dbexec ($dbh, qq{
-                insert into t_xfer_replica
-	        (id, fileid, node, state, time_create, time_state)
-	        values (seq_xfer_replica.nextval, :fileid, :node, 1, :now, :now)},
-	        ":fileid" => $$file{FILEID},
-	        ":node" => $$file{TO_NODE_ID},
-	        ":now" => $now);
-
-	    &dbexec ($dbh, qq{
-	        delete from t_xfer_state
-	        where fileid = :fileid and to_node = :node},
-	        ":fileid" => $$file{FILEID},
-	        ":node" => $$file{TO_NODE_ID});
-	}
-
-	# Log transfer stats
-	&logmsg ("xstats:"
-		 . " to=$$file{TO_NODE}"
-		 . " from=$$file{FROM_NODE}"
-		 . " fileid=$$file{FILEID}"
-		 . " state=$$file{TO_STATE}"
-		 . " size=$$file{FILESIZE}"
-		 . join("", map { sprintf(" time_%s=%.2f", $$_[0], $$_[2]-$$_[1]) }
-			[ 'assigned', $$file{TIME_ASSIGN}, $now ],
-			[ 'all', $$file{TIME_START}, $now ],
-			@{$$file{TIMING}})
-		 . " lfn=$$file{LOGICAL_NAME}"
-		 . " from_pfn=$$file{FROM_PFN}"
-		 . " to_pfn=$$file{TO_PFN}");
-
-	# Record in my recent history
-	push(@{$$self{RECENT}{$$file{TO_NODE}}{$$file{FROM_NODE}}},
-	     { TIME => $now,
-	       STATE => $$file{TO_STATE},
-	       PRIORITY => $$file{PRIORITY},
-	       FILESIZE => $$file{FILESIZE} });
-
-	# Remove from work list.  If it errored out, we will reread eventually.
-	delete $$self{FILES}{$$file{FILEID}};
-    }
-
-    $dbh->commit ();
-    &disconnectFromDatabase ($self, $dbh);
-}
-
-######################################################################
 # Reconnect the agent to the database.  If the database connection
 # has been shut, create a new connection.  Update agent status.  Set
 # $$self{DBH} to database handle and $$self{NODES_ID} to hash of the
@@ -737,9 +211,6 @@ sub reconnect
     my ($self) = @_;
     my $now = &mytimeofday();
     
-    # Schedule myself to reconnect again later to indicate liveness.
-    $self->setTask($now + 3600, \&reconnect);
-
     # Now connect.
     my ($dbh, @nodes) = &expandNodesAndConnect($self);
 
@@ -753,142 +224,635 @@ sub reconnect
 	%dest_args, %src_args);
     &dbexec($dbh, qq{
 	insert into t_xfer_sink (from_node, to_node, protocols, time_update)
-	select l.from_node, l.to_node, :protocols, :now
-	from t_xfer_link l where $dest $src},
-	":protocols" => "@protos", ":now" => $now, %dest_args, %src_args);
+	select l.from_node, l.to_node, :protos, :now from t_adm_link l
+	where $dest $src},
+	":protos" => "@protos", ":now" => $now, %dest_args, %src_args);
 
     $$self{DBH_LAST_USE} = $now;
-}
-
-# Push status of completed tasks to the database.
-sub doSyncPush
-{
-    my ($self) = @_;
-    my $now = &mytimeofday();
-
-    # Update our task status data structures.
-    my @done = $self->collectTasks("REPORT_CODE");
-
-    # Get us connected to the database if we aren't yet.
-    $self->reconnect() if ! $$self{DBH};
-
-    # Upload status of completed tasks.
-    $self->updateTaskStatus($_) for @done;
-    $$self{DBH}->commit();
-
-    # Prune recent history.
-    $$self{HISTORY} = [ grep($now - $$_{TIME} > 3600, @{$$self{HISTORY}}) ];
-
-    # Remember the time stamp we did this.
-    $$self{LAST_SYNC_PUSH} = $now;
-    $$self{DBH_LAST_USE} = $now;
-}
-
-# Pull more tasks from the database.
-sub doSyncPull
-{
-    my ($self) = @_;
-
-    # Get us connected to the database if we aren't yet.
-    $self->reconnect() if ! $$self{DBH};
-
-    # Upload status of completed tasks.
-    $self->fetchNewTasks();
-    $$self{DBH}->commit();
-
-    # Remember the time stamp we did this.
-    my $now = &mytimeofday();
-    $$self{LAST_SYNC_PULL} = $now;
-    $$self{DBH_LAST_USE} = $now;
-}
-
-# Kill ghost transfers in the database every once in a while.  This
-# action is executed first when the agent connects to the database,
-# then periodically after that.  This action opportunistically uses
-# an existing database connection: it never causes a connection to
-# be created, but instead just schedules itself to run later.
-sub doPurge
-{
-    my ($self) = @_;
-    my $now = &mytimeofday();
-
-    if (! $$self{DBH})
-    {
-	# No database connection.  Try again later.
-	$self->setAction($now + 60, \&doPurge);
-    }
-    else
-    {
-	# Ask to run again later.
-        $self->setAction($now + 3600, \&doPurge);
-
-	# Remove ghosts in the database and locally.
-        $self->purgeLostTransfers();
-	# my $tmpdir = $$self{DROPDIR};
-	# unlink grep(-f $_ && ! /\.log$/, <$tmpdir/[0-9]*>);
-	# unlink grep(-f $_ && (stat(_))[9] < $now-3*86400, <$tmpdir/*.log>);
-
-	# Remember we used the database connection.
-	$$self{DBH_LAST_USE} = $now;
-    }
-}
-
-# Disconnect action.  Check if the agent database connection has been
-# idle for some time (at least one minute), and if it looks like the
-# agent has enough work for some time, disconnect from the database.
-sub doDisconnect
-{
-    my ($self) = @_;
-    my $now = &mytimeofday();
-    $$self->setAction($now+300, \&doDisconnect);
-    $$self->disconnectFromDatabase($$self{DBH}, 1)
-        if (defined $$self{DBH}
-	    && $now - $$self{DBH_LAST_USE} > 60
-	    && $$self{BACKEND}->isBusy());
+    $$self{NEXT_DISCONNECT} = $now + 300;
 }
 
 ######################################################################
-# Initialisation hook.  Install standard actions.
+# Mark a task completed.  Brings the next synchronisation into next
+# fifteen minutes, and updates statistics for the current period.
+sub taskDone
+{
+    my ($self, $task) = @_;
+
+    # Save it.
+    return 0 if ! $self->saveTask($task);
+
+    # If next synchronisation is too far away, pull it forward.
+    my $sync = &mytimeofday() + 900;
+    $$self{NEXT_SYNC} = $sync if $sync < $$self{NEXT_SYNC};
+
+    # Update statistics for the current period.
+    my ($from, $to, $code) = @$task{"FROM_NODE", "TO_NODE", "REPORT_CODE"};
+    my $s = $$self{STATS_CURRENT}{LINKS}{$to}{$from}
+        ||= { DONE => 0, USED => 0, ERRORS => 0 };
+    $$s{$code ? "ERRORS" : "DONE"}++;
+
+    # Indicate success.
+    return 1;
+}
+
+# Save a task after change of status.
+sub saveTask
+{
+    my ($self, $task) = @_;
+    return &output("$$self{TASKDIR}/$$task{TASKID}", Dumper($task));
+}
+
+######################################################################
+# Start a new statistics period.  If we have more than the desired
+# amount of statistics periods, remove old ones.
+sub statsNewPeriod
+{
+    my ($self, $jobs, $tasks) = @_;
+    my $now = &mytimeofday();
+
+    # Prune recent history.
+    $$self{STATS} = [ grep($now - $$_{TIME} <= 3600, @{$$self{STATS}}) ];
+
+    # Add new period.
+    my $current = $$self{STATS_CURRENT} = { TIME => $now, LINKS => {} };
+    push(@{$$self{STATS}}, $current);
+
+    # Add statistics on transfer slots used.
+    foreach my $t (values %$tasks)
+    {
+	# Skip if the transfer task was completed or hasn't started.
+	next if defined $$t{REPORT_CODE};
+	next if ! grep(exists $$_{TASKS}{$$t{TASKID}}, values %$jobs);
+
+	# It's using up a transfer slot, add to time slot link stats.
+	my ($from, $to) = @$t{"FROM_NODE", "TO_NODE"};
+	$$current{LINKS}{$to}{$from} ||= { DONE => 0, USED => 0, ERRORS => 0 };
+	$$current{LINKS}{$to}{$from}{USED}++;
+    }
+}
+
+######################################################################
+# Compare local transfer pool with database and reset everything one
+# or the other doesn't know about.  We assume this is the only agent
+# managing transfers for the links it's given.  If database has a
+# locally unknown transfer, we mark the database one lost.  If we
+# have a local transfer unknown to the database, we trash the local.
+sub purgeLostTransfers
+{
+    my ($self, $jobs, $tasks) = @_;
+    my (%inlocal, %indb, %injob) = ();
+
+    # Get the local transfer pool.  All we need is the task ids.
+    $inlocal{$_} = 1 for keys %$tasks;
+
+    # Get the tasks we know are being transferred.
+    $injob{$_} = 1 for map { keys %{$$_{TASKS}} } %$jobs;
+
+    # Get the database transfer pool.  Again, just task ids.
+    my ($dest, %dest_args) = &myNodeFilter ($self, "xt.to_node");
+    my ($src, %src_args) = &otherNodeFilter ($self, "xt.from_node");
+    my $qpending = &dbexec($$self{DBH}, qq{
+      select xt.id from t_xfer_task xt where $dest $src
+        and exists (select 1 from t_xfer_task_inxfer where task = xt.id)
+        and not exists (select 1 from t_xfer_task_done where task = xt.id)},
+      %dest_args, %src_args);
+    $indb{$_} = 1 while (($_) = $qpending->fetchrow());
+
+    # Calculate differences.
+    my @lostlocal = grep(! exists $indb{$_}, keys %inlocal);
+    my @lostdb    = grep(! exists $inlocal{$_} || ! exists $injob{$_}, keys %indb);
+
+    # Mark locally unknown tasks as lost in database.
+    my $now = &mytimeofday();
+    my $qlost = &dbprep($$self{DBH}, qq{
+      insert into t_xfer_task_done
+        (task, report_code, xfer_code, time_update)
+	values (:task, 3001, 0, :now)});
+    &dbbindexec($qlost, ":now" => $now, ":task" => $_) for @lostdb;
+
+    # Remove locally known tasks forgotten by database.
+    foreach (@lostlocal)
+    {
+	delete $$tasks{$_};
+	unlink("$$self{TASKDIR}/$_");
+    }
+}
+
+# Fetch new tasks from the database.
+sub fetchNewTasks
+{
+    my ($self, $jobs, $tasks) = @_;
+    my ($dest, %dest_args) = &myNodeFilter ($self, "xt.to_node");
+    my ($src, %src_args) = &otherNodeFilter ($self, "xt.from_node");
+    my $now = &mytimeofday();
+
+    my $i = &dbprep($$self{DBH}, qq{
+	insert into t_xfer_task_inxfer (task, time_update)
+	values (:task, :now)});
+
+    my $q = &dbexec($$self{DBH}, qq{
+	select
+	    xt.id taskid, xt.fileid, xt.rank,
+	    f.logical_name, f.filesize, f.checksum,
+	    xt.from_node from_node_id, ns.name from_node,
+	    xt.to_node to_node_id, nd.name to_node,
+	    xt.from_pfn, xt.to_pfn,
+	    xt.time_assign
+	 from t_xfer_task xt
+	   join t_adm_node ns on ns.id = xt.from_node
+	   join t_adm_node nd on nd.id = xt.to_node
+	   join t_xfer_file f on f.id = xt.fileid
+	 where $dest $src
+   	   and exists
+	     (select 1 from t_xfer_task_export xte
+	      where xte.task = xt.id)
+   	   and not exists
+	     (select 1 from t_xfer_task_inxfer xti
+	      where xti.task = xt.id)
+	   and xt.time_expire < :limit},
+        ":limit" => $now + 3600, %dest_args, %src_args);
+    while (my $row = $q->fetchrow_hashref())
+    {
+	# Make sure it doesn't exist locally, just in case.
+	next if exists $$tasks{$$row{TASKID}};
+
+	# Mark used in database.
+	&dbbindexec($i, ":task" => $$row{TASKID}, ":now" => $now);
+
+	# Generate a local task descriptor.  It doesn't really matter
+	# if things go badly wrong here, we'll clean it up in purge.
+	return if ! &output("$$self{TASKDIR}/$$row{TASKID}", Dumper($row));
+	$$tasks{$$row{TASKID}} = $row;
+    }
+}
+
+# Upload final task status to the database.
+sub updateTaskStatus
+{
+    my ($self, $tasks, $task) = @_;
+    &dbexec($$self{DBH}, qq{
+	insert into t_xfer_task_done
+	(task, report_code, xfer_code, time_update,
+	 log_xfer, log_detail, log_validate)
+	values
+	(:task, :report_code, :xfer_code, :time_update,
+	 :log_xfer, :log_detail, :log_validate)},
+	":task"         => $$tasks{$task}{TASKID},
+	":report_code"  => $$tasks{$task}{REPORT_CODE},
+	":xfer_code"    => $$tasks{$task}{XFER_CODE},
+	":time_update"  => $$tasks{$task}{TIME_UPDATE},
+	":log_xfer"     => $$tasks{$task}{LOG_XFER},
+	":log_detail"   => $$tasks{$task}{LOG_DETAIL},
+	":log_validate" => $$tasks{$task}{LOG_VALIDATE});
+    unlink("$$self{TASKDIR}/$task");
+    delete $$tasks{$task};
+}
+
+# Push status of completed to the database and pull more tasks.
+sub doSync
+{
+    my ($self, $jobs, $tasks) = @_;
+
+    # Upload status for completed tasks.
+    $self->updateTaskStatus($tasks, $_)
+        for grep(exists $$tasks{$_}{REPORT_CODE}, keys %$tasks);
+
+    # Fetch new tasks where necessary.
+    $self->fetchNewTasks($jobs, $tasks);
+    $$self{DBH}->commit();
+}
+
+# Check how a copy job is doing.
+sub check
+{
+    my ($self, $jobname, $jobs, $tasks) = @_;
+
+    # First ask backend to have a look.
+    $$self{BACKEND}->check($jobname, $jobs, $tasks);
+
+    # Prepare some useful shortcuts.  "$live" indicates whether the
+    # job is still live.  If not, below we will force tasks complete.
+    my $now = &mytimeofday();
+    my $jobpath = "$$self{WORKDIR}/$jobname";
+    my $jobinfo = $$jobs{$jobname};
+
+    my $live = ($now - ((stat("$jobpath/live"))[9] || 0) > 600 ? 0 : 1);
+    my $done = 1;
+
+    # Check all the tasks in the job.
+    foreach my $task (keys %{$$jobinfo{TASKS}})
+    {
+	# Prepare useful shortcuts.
+	my $fxstatus = "$jobpath/T${task}X";
+	my $fvstatus = "$jobpath/T${task}V";
+	my $fvlog    = "$jobpath/T${task}L";
+	my $taskinfo = $$tasks{$task};
+
+	# If we lost this task, ignore the entry.
+	next if ! $taskinfo;
+
+	# Find task details.  Ignore lost tasks.
+	my ($xstatus, $vstatus);
+	if ((! -f $fxstatus && ! $live)
+	    || (-f _ && (! ($xstatus = &evalinfo($fxstatus)) || $@)))
+	{
+	    $xstatus = { START => $now, END => $now, STATUS => 2001,
+		         DETAIL => "agent lost the transfer", LOG => "" };
+	    return if ! &output($fxstatus, Dumper($xstatus));
+	}
+
+	if (-s $fvstatus && (! ($vstatus = &evalinfo($fvstatus)) || $@))
+	{
+	    $vstatus = { START => $now, END => $now, STATUS => 2001,
+		         LOG => "agent lost the file validation result" };
+	    return if ! &output($fvstatus, Dumper($vstatus));
+	}
+
+	# Start verifying if transfer completed.
+	if ($xstatus && ! $vstatus)
+	{
+	    return if ! &output($fvstatus, "");
+	    $self->addJob(sub {
+		    &output($fvstatus, Dumper ({
+		        START => $now, END => &mytimeofday(),
+		        STATUS => $_[0]{STATUS}, LOG => &input($fvlog) }));
+		    $$jobinfo{RECHECK} = 1; },
+	        { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $fvlog },
+	        @{$$self{VALIDATE_COMMAND}}, $$xstatus{STATUS},
+	        @$taskinfo{qw(TO_PFN FILESIZE CHECKSUM)});
+	    $done = 0;
+	}
+
+	# FIXME: post-clean
+
+        # Update task status for fully verified tasks.
+	elsif ($vstatus && ! exists $$taskinfo{REPORT_CODE})
+	{
+	    # FIXME: More elaborate transfer code reporting?
+	    #  - validation: successful/terminated/timed out/error + detail + log
+	    #      where detail specifies specific error (size mismatch, etc.)
+	    #  - transfer: successful/terminated/timed out/error + detail + log
+	    $$taskinfo{REPORT_CODE} =
+		($$vstatus{STATUS} =~ /^\d+$/ ? $$vstatus{STATUS}
+		 : 128 + ($$vstatus{STATUS} =~ /(\d+)/)[0]);
+	    $$taskinfo{XFER_CODE} =
+		($$xstatus{STATUS} =~ /^\d+$/ ? $$xstatus{STATUS}
+		 : 128 + ($$xstatus{STATUS} =~ /(\d+)/)[0]);
+	    $$taskinfo{LOG_DETAIL} = $$xstatus{DETAIL};
+	    $$taskinfo{LOG_XFER} = $$xstatus{LOG};
+	    $$taskinfo{LOG_VALIDATE} = $$vstatus{LOG};
+	    $$taskinfo{TIME_UPDATE} = $$vstatus{END};
+	    return if ! $self->taskDone($taskinfo);
+	    &logmsg("xstats:"
+		    . " to=$$taskinfo{TO_NODE}"
+		    . " from=$$taskinfo{FROM_NODE}"
+		    . " fileid=$$taskinfo{FILEID}"
+		    . " report_code=$$taskinfo{REPORT_CODE}"
+		    . " xfer_code=$$taskinfo{XFER_CODE}"
+		    . " size=$$taskinfo{FILESIZE}"
+		    # . join("", map { sprintf(" time_%s=%.2f", $$_[0], $$_[2]-$$_[1]) }
+		    #	   [ 'assigned', $$file{TIME_ASSIGN}, $now ],
+		    #	   [ 'all', $$file{TIME_START}, $now ],
+		    #	   @{$$file{TIMING}})
+		    . " lfn=$$taskinfo{LOGICAL_NAME}"
+		    . " from_pfn=$$taskinfo{FROM_PFN}"
+		    . " to_pfn=$$taskinfo{TO_PFN}"
+		    . " detail=($$taskinfo{LOG_DETAIL})");
+	}
+
+	# Otherwise we are still not done with this job.
+	else
+	{
+	    $done = 0;
+	}
+    }
+
+    # If we are done with the copy job, nuke it.
+    if ($done)
+    {
+        # (FIXME: archive into a directory, failed and successful?)
+	&logmsg("copy job $jobname completed") if $$self{VERBOSE};
+	&rmtree($jobpath);
+	delete $$jobs{$jobname};
+    }
+}
+
+# Fill the backend with as many transfers as it can take.
+# 
+# The files are assigned to the link on a fair share basis.  Here the
+# fairness means that we try to keep every link with transfers to its
+# maximum capacity while spreading the number of available "transfer
+# slots" as fairly as possible over the links which have transfers.
+#
+# The algorithm works by assigning each link weights as a ratio of
+# successfully completed transfers vs. number of transfer slots used
+# by the link, over the observation period (some hours).  The final
+# probability assigned to each link is the fraction of its weight
+# from the total weight over all links.  Every link always gets a
+# probability greater than a small "epsilon" value, which guarantees
+# every link eventually gets a chance to be tried.
+#
+# This algorithm tends to give more files to links which get through
+# more files, but sharing the avaiable backend job slots fairly.  The
+# weighting by consumsed transfer slots is a key factor as it permits
+# the agent to detect which links benefit from being given more files.
+sub fill
+{
+    my ($self, $jobs, $tasks) = @_;
+    my (%stats, %todo, %sorted);
+    my $nlinks = 0;
+
+    # If the backend is busy, avoid doing heavy lifting.
+    return if $$self{BACKEND}->isBusy();
+
+    # Determine links with pending transfers.
+    foreach my $t (values %$tasks)
+    {
+	my $to = $$t{TO_NODE};
+	my $from = $$t{FROM_NODE};
+	next if exists $$t{REPORT_CODE};
+	next if grep (exists $$_{TASKS}{$$t{TASKID}}, values %$jobs);
+	$nlinks++ if ! exists $todo{$to}{$from};
+	push(@{$todo{$to}{$from}}, $t);
+    }
+
+    # Another quick exit if we have nothing to do.
+    return if ! $nlinks;
+    &logmsg("balancing transfers on $nlinks links")
+        if $$self{VERBOSE};
+
+    # Determine link probability from recent usage.
+    foreach my $slot (@{$$self{STATS}})
+    {
+	foreach my $to (keys %{$$slot{LINKS}})
+	{
+	    foreach my $from (keys %{$$slot{LINKS}{$to}})
+	    {
+		my $s = $$slot{LINKS}{$to}{$from};
+		# Add statistics based on link usage.
+		$stats{$to}{$from} ||= { USED => 0, DONE => 0, ERRORS => 0 };
+		$stats{$to}{$from}{DONE} += ($$s{DONE} || 0);
+		$stats{$to}{$from}{USED} += ($$s{USED} || 0);
+		$stats{$to}{$from}{ERRORS} += ($$s{ERRORS} || 0);
+	    }
+	}
+    }
+
+    my ($W, $wmin) = (0, 0.02 * $nlinks);
+    foreach my $to (keys %todo)
+    {
+	foreach my $from (keys %{$todo{$to}})
+	{
+	    my $entry = $stats{$to}{$from} ||= {};
+
+	    # Pass links with too many errors.
+	    if (($$entry{ERRORS} || 0) > 100)
+	    {
+		&logmsg("too many ($$entry{ERRORS}) recent errors on"
+			. " link $from -> to, not allocating transfers")
+		    if $$self{VERBOSE};
+		delete $todo{$to}{$from};
+		next;
+	    }
+
+	    # Give links the weight of one if they have not been used.
+	    if (! $$entry{USED})
+	    {
+		$$entry{W} = 1.0;
+	    }
+
+	    # Otherwise the weight is DONE/USED.
+	    else
+	    {
+	        $$entry{W} = (1.0 * $$entry{DONE} / $$entry{USED});
+	    }
+
+	    # But if the weight is smaller than ~5 files/hour, clamp
+	    # to that limit to guarantee minimum probability value.
+	    $$entry{W} = $wmin if $$entry{W} < $wmin;
+
+	    # Update total weight.
+	    $W += $$entry{W};
+	}
+    }
+
+    my @P;
+    foreach my $to (sort keys %todo)
+    {
+	foreach my $from (sort keys %{$todo{$to}})
+	{
+	    # Compute final link probablity function.
+	    my $low = (@P ? $P[$#P]{HIGH} : 0);
+	    my $high = $low + $stats{$to}{$from}{W}/$W;
+	    push(@P, { LOW => $low, HIGH => $high, TO => $to, FROM => $from });
+
+            &logmsg("link parameters for $from -> $to:"
+		    . sprintf(' P=[%0.3f, %0.3f),', $P[$#P]{LOW}, $P[$#P]{HIGH})
+		    . sprintf(' W=%0.3f,', $stats{$to}{$from}{W})
+		    . " USED=@{[$stats{$to}{$from}{USED} || 0]},"
+		    . " DONE=@{[$stats{$to}{$from}{DONE} || 0]},"
+		    . " ERRORS=@{[$stats{$to}{$from}{ERRORS} || 0]}")
+                if $$self{VERBOSE};
+	}
+    }
+
+    # For each available job slot, determine which link should have
+    # the transfers based on the probability function calculated from
+    # the link statistics.  Then fill the job slot from the transfers
+    # tasks on that link, in the order of task priority.
+    my $exhausted = 0;
+    while (! $$self{BACKEND}->isBusy() && @P)
+    {
+	# Select a link that merits to get the files.
+	my ($i, $p) = (0, rand());
+	$i++ while ($i < $#P && $p >= $P[$i]{HIGH});
+	my $to = $P[$i]{TO};
+	my $from = $P[$i]{FROM};
+
+	# Get a sorted list of files for this link.
+	if (! $sorted{$to}{$from})
+	{
+	    $todo{$to}{$from} =
+	        [ sort { $$a{TIME_ASSIGN} <=> $$b{TIME_ASSIGN}
+		         || $$a{RANK} <=> $$b{RANK} }
+	          @{$todo{$to}{$from}} ];
+	    $sorted{$to}{$from} = 1;
+	}
+
+	# Send files to transfer.
+	my $dir = &mkdtemp("$$self{WORKDIR}/job.$$self{BOOTTIME}.XXXXXX");
+	my ($jobname) = ($dir =~ m|([^/]+$)|);
+	&mkpath($dir);
+
+	# FIXME: pre-clean
+	&logmsg("copy job $jobname assigned to link $from -> $to with "
+		. sprintf('p=%0.3f and ', $p)
+		. scalar(@{$todo{$to}{$from}})
+		. " transfer tasks in queue")
+	    if $$self{VERBOSE};
+	$$self{BACKEND}->startBatch ($jobs, $tasks, $dir, $jobname, $todo{$to}{$from});
+
+	# If we exhausted the files on this link, remove the link's
+	# share from P.  We have to recalculate P then also.
+	if (! @{$todo{$to}{$from}} && ! $$self{BACKEND}->isBusy())
+	{
+            &logmsg("transfers on link $from -> $to exhausted,"
+		    . " recalculating link probabilities")
+	        if $$self{VERBOSE};
+
+	    splice(@P, $i, 1);
+	    $W -= $stats{$to}{$from}{W};
+	    for ($i = 0; $i <= $#P; ++$i)
+	    {
+                my $to = $P[$i]{TO};
+                my $from = $P[$i]{FROM};
+		$P[$i]{LOW} = ($i ? $P[$i-1]{HIGH} : 0);
+		$P[$i]{HIGH} = $P[$i]{LOW} + $stats{$to}{$from}{W}/$W;
+
+                &logmsg("new link parameters for $from -> $to:"
+		        . sprintf(' P=[%0.3f, %0.3f),', @{$P[$i]{"LOW", "HIGH"}})
+		        . sprintf(' W=%0.3f,', $stats{$to}{$from}{W})
+		        . " DONE=$stats{$to}{$from}{DONE},"
+		        . " USED=$stats{$to}{$from}{USED}")
+                    if $$self{VERBOSE};
+	    }
+
+	    --$nlinks;
+	    ++$exhausted;
+        }
+    }
+
+    # If we exhausted all transfer tasks on a link, make sure the next
+    # synchronisation will occur relatively soon.  If we exhausted
+    # tasks on all links, synchronise immediately.  This applies only
+    # on transition from having tasks to not having them (only), so we
+    # are not forcing continuous unnecessary reconnects.
+    my $now = &mytimeofday();
+    if (! $nlinks && $$self{NEXT_SYNC} > $now)
+    {
+	$$self{NEXT_SYNC} = $now-1;
+	&logmsg("ran out of tasks, scheduling immediate synchronisation")
+	    if $$self{VERBOSE};
+    }
+    elsif ($exhausted && $$self{NEXT_SYNC} - $now > 300)
+    {
+	$$self{NEXT_SYNC} = $now + 300;
+	&logmsg("ran out of tasks on $exhausted links, scheduling"
+		. " next synchronisation in five minutes")
+	    if $$self{VERBOSE};
+    }
+}
+
+# Initialise agent.
 sub init
 {
     my ($self) = @_;
-    my $now = &mytimeofday();
-    $$self{BACKEND}->init ();
-    $self->setAction (0, \&doPurge);
-    $self->setAction ($now+300, \&doDisconnect);
+    $self->statsNewPeriod({}, {});
 }
 
 # Run agent main loop.
 sub idle
 {
-    # FIXME: when backend reaps transfers, it should notify front-end
-    # FIXME: when front-end notes task done, it should update link error stats
-    # FIXME: think how to handle links that are down, and how to fetch tasks
-    #   evenly for links when some links progress slower than others, together
-    #   with links being forced down when they have had too many recent errors
     my ($self, @pending) = @_;
 
-    # Run scheduled actions.
-    eval { $self->flushActions(); };
-    do { chomp ($@); &alert ($@);
+    eval
+    {
+	my (%tasks, %jobs);
+	my $now = &mytimeofday();
+
+	# Read in and verify all transfer tasks.
+	my @tasknames;
+	return if ! &getdir($$self{TASKDIR}, \@tasknames);
+
+	foreach (@tasknames)
+	{
+	    my $info = &evalinfo("$$self{TASKDIR}/$_");
+	    if (! $info || $@)
+	    {
+		&alert("garbage collecting corrupted transfer task $_ ($info, $@)");
+		unlink("$$self{TASKDIR}/$_");
+		$$self{NEXT_PURGE} = 0;
+		next;
+	    }
+	    $tasks{$_} = $info;
+	}
+
+	# Read in and verify all copy jobs.
+	foreach (@pending)
+	{
+	    my $info = &evalinfo("$$self{WORKDIR}/$_/info");
+	    if (! $info || $@)
+	    {
+		&alert("garbage collecting corrupted copy job $_");
+		&rmtree("$$self{WORKDIR}/$_");
+		$$self{NEXT_PURGE} = 0;
+		next;
+	    }
+	    $jobs{$_} = $info;
+	}
+
+	# Rescan jobs for completed tasks.  In between each round
+	# flush validation processes to finalise job completion.
+	my @check = grep (exists $jobs{$_}, @pending);
+	for (my $i = 0; @check && $i < 10; ++$i)
+	{
+	    $self->check($_, \%jobs, \%tasks) for @check;
+
+	    while (@{$$self{JOBS}})
+	    {
+	        $self->pumpJobs();
+	        select(undef, undef, undef, .1);
+	    }
+
+	    @check = grep (exists $jobs{$_} && $jobs{$_}{RECHECK}, @pending);
+    	    delete $$_{RECHECK} for values %jobs;
+        }
+
+	# Fill the backend with new jobs and flush processes.
+        $self->fill(\%jobs, \%tasks);
+	while (@{$$self{JOBS}})
+	{
+	    $self->pumpJobs();
+	    select(undef, undef, undef, .1);
+	}
+
+	# Create new time period with current statistics.
+        $self->statsNewPeriod(\%jobs, \%tasks);
+
+	# Reconnect if we are due a database sync, but use a database
+	# connection opportunistically if we happen to have one.
+	my $need_sync = ($$self{NEXT_SYNC} <= $now ? 1 : 0);
+	if ($need_sync || $$self{DBH})
+	{
+	    $self->reconnect() if ! $$self{DBH};
+	    if ($$self{NEXT_PURGE} <= $now)
+	    {
+		# Kill ghost transfers in the database and locally.
+		$self->purgeLostTransfers(\%jobs, \%tasks);
+		$$self{NEXT_PURGE} = $now + 3600;
+		$$self{DBH_LAST_USE} = $now;
+	    }
+	    $self->doSync(\%jobs, \%tasks);
+	    $$self{NEXT_SYNC} = $now + 3600;
+	    $$self{DBH_LAST_USE} = $now if $need_sync;
+	}
+
+	# Detach from the database if the connection wasn't used
+	# recently (at least one minute) and if it looks the agent
+	# has enough work for some time.
+	if (defined $$self{DBH}
+	    && $$self{NEXT_DISCONNECT} <= $now
+	    && $now - $$self{DBH_LAST_USE} > 60
+	    && (1 || $$self{BACKEND}->isBusy()))
+	{
+	    &logmsg("disconnecting from database");
+	    &disconnectFromDatabase($self, $$self{DBH}, 1);
+	}
+    };
+    do { chomp ($@); &alert ($@); $$self{NEXT_PURGE} = 0;
 	 eval { $$self{DBH}->rollback() } if $$self{DBH}; } if $@;
 
-    # Keep working, resting a bit at a time.  Break out of the loop
-    # if we have reached the time the first action should execute.
-    my $target = &mytimeofday() + $$self{WAITTIME};
-    while (1)
-    {
-	# Check if we reached our nap time limit.
-	my $now = &mytimeofday();
-	last if $now >= $target;
-
-	# Pump jobs
-        $self->maybeStop ();
-	$self->pumpJobs ();
-	$$self{BACKEND}->pumpJobs ();
-
-	# Stop if we reached time to execute the first action.
-	last if (defined $$self{FIRST_ACTION} && $now >= $$self{FIRST_ACTION});
-	select (undef, undef, undef, .1);
-    }
+    # Finally have a nap.
+    $self->nap($$self{WAITTIME});
 }

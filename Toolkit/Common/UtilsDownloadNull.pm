@@ -1,6 +1,9 @@
 package UtilsDownloadNull; use strict; use warnings; use base 'UtilsDownload';
 use UtilsLogging;
+use UtilsCommand;
+use UtilsTiming;
 use Getopt::Long;
+use Data::Dumper;
 
 sub new
 {
@@ -18,22 +21,25 @@ sub new
     return $self;
 }
 
-# Transfer a batch of files.
-sub transferBatch
+# Create one copy job.
+sub startBatch
 {
-    my ($self, $batch) = @_;
-    foreach my $file (@$batch)
-    {
-	$$file{TRANSFER_STATUS}{STATUS} = 0;
-	$$file{TRANSFER_STATUS}{REPORT} = "nothing done";
+    my ($self, $jobs, $tasks, $dir, $jobname, $list) = @_;
+    my @batch = splice(@$list, 0, $$self{BATCH_FILES});
+    my $now = &mytimeofday();
 
-	$$file{DONE_TRANSFER} = 1;
-	$self->startFileTiming ($file, "transfer");
-	$self->stopFileTiming ($file);
+    my $info = { TASKS => { map { $$_{TASKID} => 1 } @batch } };
+    &output("$dir/info", Dumper($info));
+    &touch("$dir/live");
+
+    foreach my $task (@batch)
+    {
+	# FIXME: pre-clean
+	my $info = { START => $now, END => $now, STATUS => 0,
+		     DETAIL => "nothing done", LOG => "" };
+	&output("$dir/T$$task{TASKID}X", Dumper($info));
+        $$self{MASTER}->saveTask($task);
     }
- 
-    # Move to next stage if all is done.
-    $self->validateBatch ($batch);
 }
 
 1;
