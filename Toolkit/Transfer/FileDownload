@@ -370,7 +370,10 @@ sub fetchNewTasks
    	   and not exists
 	     (select 1 from t_xfer_task_inxfer xti
 	      where xti.task = xt.id)
-	   and xt.time_expire < :limit},
+   	   and not exists
+	     (select 1 from t_xfer_task_done xtd
+	      where xtd.task = xt.id)
+	   and xt.time_expire > :limit},
         ":limit" => $now + 3600, %dest_args, %src_args);
     while (my $row = $q->fetchrow_hashref())
     {
