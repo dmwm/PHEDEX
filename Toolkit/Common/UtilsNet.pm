@@ -12,7 +12,7 @@ sub getfullhostname {
   ($name,$aliases,$addrtype,$length,@addrs) = CORE::gethostbyname($hostname);
   my @names = ($hostname, $name, split(' ', $aliases));
   foreach my $n (@names) {
-    if ($n =~ /^[^.]+\.[^.]+/) { return $n; }
+    return $n if ($n =~ /^[^.]+\.[^.]+/ && $n !~ /\.local$/);
   }
   return $hostname;
 }
