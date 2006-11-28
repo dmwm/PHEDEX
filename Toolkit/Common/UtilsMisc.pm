@@ -1,4 +1,4 @@
-package UtilsHelp; use strict; use warnings; use base 'Exporter';
+package UtilsMisc; use strict; use warnings; use base 'Exporter';
 our @EXPORT = qw(sizeValue);
 sub sizeValue
 {
