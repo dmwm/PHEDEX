@@ -156,6 +156,8 @@ sub idle
 	    ":now" => $now);
 
         $dbh->commit();
+
+	# Now pick up returned task status
 	$self->receive($dbh);
 
 	# All of this must run in a single agent to avoid database
@@ -230,9 +232,6 @@ sub idle
 	{
 	    &logmsg ("nothing to route for");
 	}
-
-	# Now pick up returned task status
-	$self->receive ($dbh);
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
@@ -248,13 +247,104 @@ sub idle
 sub receive
 {
     my ($self, $dbh) = @_;
-    my $q = &dbexec($dbh, qq{select task, report_code from t_xfer_task_done});
-    while (my ($task, $code) = $q->fetchrow())
+    my $q = &dbexec($dbh, qq{
+	select
+	    xtd.task, xt.fileid, xtd.report_code, xtd.xfer_code,
+	    xtd.log_xfer, xtd.log_detail, xtd.log_validate,
+	    xt.from_node, ns.name from_node_name,
+	    xt.to_node, nd.name to_node_name,
+	    xt.priority, f.filesize, f.logical_name,
+	    xt.time_assign time_assign,
+	    xt.time_expire time_expire,
+	    xte.time_update time_export,
+	    xti.time_update time_xfer,
+	    xtd.time_update time_done
+	from t_xfer_task_done xtd
+	  join t_xfer_task xt on xt.id = xtd.task
+	  join t_xfer_file f on f.id = xt.fileid
+	  join t_adm_node ns on ns.id = xt.from_node
+	  join t_adm_node nd on nd.id = xt.to_node
+	  left join t_xfer_task_export xte on xte.task = xtd.task
+	  left join t_xfer_task_inxfer xti on xti.task = xtd.task});
+    while (my $task = $q->fetchrow_hashref())
     {
-	&logmsg("FIXME! task=$task report_code=$code completed, do something about it!");
-    }
+	# First update the statistics.  Create a time bin for the
+	# period when the transfer ended if one doesn't exist, then
+	# update the statistics according to result.
+	my %stats = (TIME_EXPORT => "avail", TIME_XFER => "try",
+		     TIME_DONE => ($$task{REPORT_CODE} == 0 ? "done"
+				  : $$task{REPORT_CODE} == 3002 ? "expire"
+				  : "fail"));
+	while (my ($t, $stat) = each %stats)
+	{
+	    eval { &dbexec($dbh, qq{
+	        insert into t_history_link
+	        (timebin, timewidth, from_node, to_node, priority)
+	        values (:bin, :width, :from_node, :to_node, :priority)},
+	        ":bin" => int($$task{$t}/300)*300,
+	        ":width" => 300,
+	        ":from_node" => $$task{FROM_NODE},
+	        ":to_node" => $$task{TO_NODE},
+	        ":priority" => $$task{PRIORITY}) };
+	    die $@ if $@ && $@ !~ /ORA-00001:/;
 
-    $dbh->commit();
+	    &dbexec($dbh, qq(
+	        update t_history_link
+	        set ${stat}_files = nvl(${stat}_files,0) + 1,
+	            ${stat}_bytes = nvl(${stat}_bytes,0) + :filesize
+	        where timebin = :bin
+	          and from_node = :from_node
+                  and to_node = :to_node
+                  and priority = :priority),
+                ":bin" => int($$task{$t}/300)*300,
+	        ":filesize" => $$task{FILESIZE},
+	        ":from_node" => $$task{FROM_NODE},
+	        ":to_node" => $$task{TO_NODE},
+	        ":priority" => $$task{PRIORITY});
+	}
+
+	# If the transfer was successful, create destination replica.
+	if ($$task{REPORT_CODE} == 0)
+	{
+	    &dbexec($dbh, qq{
+		insert into t_xfer_replica
+		(id, node, fileid, state, time_create, time_state)
+		values
+		(seq_xfer_replica.nextval, :node, :fileid, 0, :t, :t)},
+		":node" => $$task{TO_NODE},
+		":fileid" => $$task{FILEID},
+		":t" => $$task{TIME_DONE});
+	}
+
+	# Remove the task and its paraphernalia.
+	&dbexec($dbh, qq{delete from t_xfer_task where id = :task},
+	    ":task" => $$task{TASK});
+
+        # Log the outcome.
+	$$task{LOG_XFER} =~ s/\s+/ /gs;
+	$$task{LOG_DETAIL} =~ s/\s+/ /gs;
+	$$task{LOG_VERIFY} =~ s/\s+/ /gs;
+	&logmsg("xstats:"
+		. " task=$$task{TASK}"
+		. " file=$$task{FILEID}"
+		. " from=$$task{FROM_NODE_NAME}"
+		. " to=$$task{TO_NODE_NAME}"
+		. " priority=$$task{PRIORITY}"
+		. " report-code=$$task{REPORT_CODE}"
+		. " xfer-code=$$task{XFER_CODE}"
+		. " size=$$task{FILESIZE}"
+		. ($$task{TIME_EXPIRE} ? " t-expire=$$task{TIME_EXPIRE}" : "")
+		. ($$task{TIME_ASSIGN} ? " t-assign=$$task{TIME_ASSIGN}" : "")
+		. ($$task{TIME_EXPORT} ? " t-export=$$task{TIME_EXPORT}" : "")
+		. ($$task{TIME_XFER}   ? " t-xfer=$$task{TIME_XFER}" : "")
+		. ($$task{TIME_DONE}   ? " t-done=$$task{TIME_DONE}" : "")
+		. " lfn=$$task{LOGICAL_NAME}"
+		. " xfer_detail=($$task{LOG_DETAIL})"
+		. " xfer_verify=($$task{LOG_VERIFY})"
+		. " xfer_log=($$task{LOG_XFER})");
+
+        $dbh->commit();
+    }
 }
 
 # Run the routing algorithm for one node.
