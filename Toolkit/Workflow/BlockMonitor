@@ -67,6 +67,12 @@ sub limitCheck
     &alert ("$reason block $$b{BLOCK} at node $$b{NODE} destined $$b{DEST_BYTES} bytes,"
 	    . " more than expected ($$ref{BYTES})")
 	if $$b{DEST_BYTES} > $$ref{BYTES};
+    &alert ("$reason block $$b{BLOCK} at node $$b{NODE} originated $$b{SRC_FILES} files,"
+	    . " more than expected ($$ref{FILES})")
+	if $$b{SRC_FILES} > $$ref{FILES};
+    &alert ("$reason block $$b{BLOCK} at node $$b{NODE} originated $$b{SRC_BYTES} bytes,"
+	    . " more than expected ($$ref{BYTES})")
+	if $$b{SRC_BYTES} > $$ref{BYTES};
     &alert ("$reason block $$b{BLOCK} at node $$b{NODE} has $$b{NODE_FILES} files,"
 	    . " more than expected ($$ref{FILES})")
 	if $$b{NODE_FILES} > $$ref{FILES};
@@ -144,6 +150,16 @@ sub idle
 	}
 
         $qactive = &dbexec($dbh, qq{
+	    select f.inblock, f.node, count(f.id), sum(f.filesize)
+	    from t_dps_file f group by f.inblock, f.node});
+        while (my ($block, $node, $files, $bytes) = $qactive->fetchrow())
+        {
+	    $active{$block}{$node} ||= { BLOCK => $block, NODE => $node };
+	    $active{$block}{$node}{SRC_FILES} = $files;
+	    $active{$block}{$node}{SRC_BYTES} = $bytes;
+	}
+
+        $qactive = &dbexec($dbh, qq{
 	    select f.inblock, xr.node, count(xr.fileid), sum(f.filesize)
 	    from t_xfer_replica xr join t_xfer_file f on f.id = xr.fileid
 	    group by f.inblock, xr.node});
@@ -155,9 +171,9 @@ sub idle
 	}
 
         $qactive = &dbexec($dbh, qq{
-	    select f.inblock, xs.to_node, count(xs.fileid), sum(f.filesize)
-	    from t_xfer_state xs join t_xfer_file f on f.id = xs.fileid
-	    group by f.inblock, xs.to_node});
+	    select f.inblock, xt.to_node, count(xt.fileid), sum(f.filesize)
+	    from t_xfer_task xt join t_xfer_file f on f.id = xt.fileid
+	    group by f.inblock, xt.to_node});
         while (my ($block, $node, $files, $bytes) = $qactive->fetchrow())
         {
 	    $active{$block}{$node} ||= { BLOCK => $block, NODE => $node };
@@ -168,6 +184,7 @@ sub idle
 	foreach my $b (map { values %$_ } values %active)
 	{
 	    $$b{DEST_FILES} ||= 0; $$b{DEST_BYTES} ||= 0;
+	    $$b{SRC_FILES}  ||= 0; $$b{SRC_BYTES}  ||= 0;
 	    $$b{NODE_FILES} ||= 0; $$b{NODE_BYTES} ||= 0;
 	    $$b{XFER_FILES} ||= 0; $$b{XFER_BYTES} ||= 0;
 	}
@@ -206,6 +223,8 @@ sub idle
 	    my $new = $active{$$b{BLOCK}}{$$b{NODE}};
 	    if ($$b{DEST_FILES} != $$new{DEST_FILES}
 		|| $$b{DEST_BYTES} != $$new{DEST_BYTES}
+		|| $$b{SRC_FILES}  != $$new{SRC_FILES}
+		|| $$b{SRC_BYTES}  != $$new{SRC_BYTES}
 		|| $$b{NODE_FILES} != $$new{NODE_FILES}
 		|| $$b{NODE_BYTES} != $$new{NODE_BYTES}
 		|| $$b{XFER_FILES} != $$new{XFER_FILES}
@@ -217,6 +236,7 @@ sub idle
 		    update t_dps_block_replica
 		    set time_update = :now, is_active = 'y',
 		        dest_files = :dest_files, dest_bytes = :dest_bytes,
+			src_files  = :src_files,  src_bytes  = :src_bytes,
 			node_files = :node_files, node_bytes = :node_bytes,
 			xfer_files = :xfer_files, xfer_bytes = :xfer_bytes
 		    where block = :block and node = :node},
@@ -225,6 +245,8 @@ sub idle
 		    ":node" => $$b{NODE},
 		    ":dest_files" => $$new{DEST_FILES},
 		    ":dest_bytes" => $$new{DEST_BYTES},
+		    ":src_files"  => $$new{SRC_FILES},
+		    ":src_bytes"  => $$new{SRC_BYTES},
 		    ":node_files" => $$new{NODE_FILES},
 		    ":node_bytes" => $$new{NODE_BYTES},
 		    ":xfer_files" => $$new{XFER_FILES},
@@ -270,11 +292,13 @@ sub idle
 		(time_create, time_update,
 		 block, node, is_active,
 		 dest_files, dest_bytes,
+		 src_files,  src_bytes,
 		 node_files, node_bytes,
 		 xfer_files, xfer_bytes)
 		values (:now, :now,
 		        :block, :node, 'y',
 		        :dest_files, :dest_bytes,
+			:src_files,  :src_bytes,
 			:node_files, :node_bytes,
 			:xfer_files, :xfer_bytes)},
 		":now" => $now,
@@ -282,6 +306,8 @@ sub idle
 		":node" => $$b{NODE},
 		":dest_files" => $$b{DEST_FILES},
 		":dest_bytes" => $$b{DEST_BYTES},
+		":src_files"  => $$b{SRC_FILES},
+		":src_bytes"  => $$b{SRC_BYTES},
 		":node_files" => $$b{NODE_FILES},
 		":node_bytes" => $$b{NODE_BYTES},
 		":xfer_files" => $$b{XFER_FILES},
