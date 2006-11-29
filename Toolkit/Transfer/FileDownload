@@ -157,10 +157,9 @@ sub new
 		  BOOTTIME => time(),		# Time this agent started
 	  	  );
     my %args = (@_);
-    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
+    $$self{$_} = $args{$_} || $params{$_} keys %params;
     $$self{BACKEND} = eval ("use UtilsDownload$args{BACKEND_TYPE};"
-	    		    . " new UtilsDownload$args{BACKEND_TYPE}"
-			    . " (MASTER => \$self, \@_)");
+	    		    . " new UtilsDownload$args{BACKEND_TYPE}(\$self})");
     do { chomp ($@); die "Failed to create backend: $@\n" } if $@;
     -d $$self{TASKDIR} || mkdir($$self{TASKDIR}) || -d $$self{TASKDIR}
         || die "$$self{TASKDIR}: cannot create: $!\n";
@@ -487,11 +486,16 @@ sub check
 	    $done = 0;
 	}
 
-	# FIXME: post-clean
-
         # Update task status for fully verified tasks.
 	elsif ($vstatus && ! exists $$taskinfo{REPORT_CODE})
 	{
+	    # If the transfer failed, issue clean-up action without
+	    # waiting it to return -- just go ahead with harvesting.
+	    # The caller will in any case wait before proceeding.
+	    $self->addJob(sub {}, { TIMEOUT => $$self{TIMEOUT} },
+		@{$$self{DELETE_COMMAND}}, "post", $$taskinfo{TO_PFN})
+		if $$vstatus{STATUS} && $$self{DELETE_COMMAND};
+
 	    # FIXME: More elaborate transfer code reporting?
 	    #  - validation: successful/terminated/timed out/error + detail + log
 	    #      where detail specifies specific error (size mismatch, etc.)
@@ -688,7 +692,6 @@ sub fill
 	my ($jobname) = ($dir =~ m|([^/]+$)|);
 	&mkpath($dir);
 
-	# FIXME: pre-clean
 	&logmsg("copy job $jobname assigned to link $from -> $to with "
 		. sprintf('p=%0.3f and ', $p)
 		. scalar(@{$todo{$to}{$from}})
