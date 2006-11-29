@@ -3,13 +3,9 @@
 ##H Route files toward destination nodes.
 ##H
 ##H Usage:
-##H   FileRouter
-##H      -state DIRECTORY -nodes PATTERN[,PATTERN...]
-##H      -db FILE[:SECTION] [-log OUT]
+##H   FileRouter -state DIRECTORY -db FILE[:SECTION] [-log OUT]
 ##H
 ##H -state     agent state directory
-##H -nodes     comma-separated list of node name patters to route for
-##H              '%' is wildcard for any string, '_' for any character
 ##H -db        database connection configuration parameter file
 ##H -log       where to redirect logging information
 
@@ -27,10 +23,9 @@ use UtilsHelp;
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
-             "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
 	     "help|h"      => sub { &usage() });
 
-if (@ARGV || !$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG})
+if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -56,8 +51,7 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 		  MYNODE => undef,		# My node name
-		  WAITTIME => 60 + rand(10),	# Agent activity cycle
-		  NODES => []);			# Nodes to route for
+		  WAITTIME => 60 + rand(10));	# Agent activity cycle
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -74,6 +68,96 @@ sub idle
 
     eval
     {
+	my $now = &mytimeofday();
+	$$self{NODES} = [ '%' ];
+	($dbh, @nodes) = &expandNodesAndConnect ($self,
+	    { "FileDownload" => 5400, "FileExport" => 5400 });
+
+        # Update priority on existing requests
+        &dbexec ($dbh, qq{
+            update (select xq.priority req_priority, bd.priority cur_priority
+                    from t_xfer_request xq
+                      join t_dps_block_dest bd
+                        on bd.block = xq.inblock
+                        and bd.destination = xq.destination)
+            set req_priority = cur_priority});
+
+        # Clear requests for files no longer wanted
+        &dbexec($dbh, qq{
+            delete from t_xfer_request xq where not exists
+              (select 1 from t_dps_block_dest bd
+	       where bd.destination = xq.destination
+	         and bd.block = xq.inblock
+	         and bd.state = 1)});
+
+	# Clear old paths and those missing a request
+	&dbexec($dbh, qq{
+            delete from t_xfer_path xp where not exists
+	      (select 1 from t_xfer_request xq
+	       where xq.destination = xp.destination
+		 and xq.fileid = xp.fileid)});
+    
+        # If transfers path are about to expire on links which have
+        # reasonable recent transfer rate, give a bit more grace time.
+        &dbexec($dbh, qq{
+	    update t_xfer_path xp
+	    set xp.time_expire = :now + 8*3600
+	    where xp.time_expire >= :now
+	      and xp.time_expire < :now + 3600
+	      and exists
+	        (select 1 from t_adm_link_param lp
+	         join t_adm_link l on l.id = lp.link
+	         where l.from_node = xp.from_node
+	           and l.to_node = xp.to_node
+       	           and lp.xfer_rate >= 1048576)},
+	    ":now" => $now);
+
+        &dbexec($dbh, qq{
+	    update t_xfer_task xt
+	    set xt.time_expire =
+	      (select max(xp.time_expire)
+	       from t_xfer_path xp
+	       where xp.from_node = xt.from_node
+	         and xp.to_node = xt.to_node
+                 and xp.fileid = xt.fileid)
+            where exists
+	        (select 1 from t_xfer_path xp
+	         where xp.fileid = xt.fileid
+	           and xp.from_node = xt.from_node
+                   and xp.to_node = xt.to_node
+	           and xp.time_expire > xt.time_expire)});
+
+        &dbexec($dbh, qq{
+	    update t_xfer_request xq
+	    set xq.time_expire =
+	      (select max(xp.time_expire)
+	       from t_xfer_path xp
+	       where xp.fileid = xq.fileid
+	         and xp.destination = xq.destination)
+            where xq.state = 0 and exists
+	        (select 1 from t_xfer_path xp
+	         where xp.fileid = xq.fileid
+	           and xp.destination = xq.destination
+	           and xp.time_expire > xq.time_expire)});
+
+        # Mark as expired tasks which didn't complete in time.
+	&dbexec($dbh, qq{
+	    insert into t_xfer_task_done
+	    (task, report_code, xfer_code, time_update)
+	    select id, 3002, 0, :now from t_xfer_task
+	    where time_expire >= :now},
+	    ":now" => $now);
+
+        # Deactivate requests which reached their expire time limit.
+        &dbexec($dbh, qq{
+            update t_xfer_request
+            set state = 1, time_expire = :now + 2*3600
+            where state = 0 and :now >= time_expire},
+	    ":now" => $now);
+
+        $dbh->commit();
+	$self->receive($dbh);
+
 	# All of this must run in a single agent to avoid database
 	# connection proliferation.  The execution order for the
 	# phases is important in that it balances progress for this
@@ -91,65 +175,64 @@ sub idle
 	# will reduce number of connections and database load
 	# significantly.
 
-	($dbh, @nodes) = &expandNodesAndConnect ($self,
-	    { "FileDownload" => 900, "FileExport" => 900 });
-
 	# Read links and their parameters.  Only consider links which
 	# are "alive", i.e. have a live download agent at destination
 	# and an export agent at the source.
 	my $links = {};
 	my $q = &dbexec($dbh, qq{
-	    select l.from_node, l.to_node, l.distance, l.local_boost,
-	           p.xfer_rate, p.xfer_latency
-	    from t_link l
-	      join t_node ns on ns.id = l.from_node
-	      join t_node nd on nd.id = l.to_node
-	      left join t_link_param p on p.link = l.id
-	    where (ns.name like '%MSS'
-	           and exists (select 1
-	    		       from t_agent_status ast
-	    		         join t_agent a on a.id = ast.agent
-			       where ast.node = l.to_node
-			         and a.name = 'FileMSSPublish'
-				 and ast.time_update >= :recent))
-	       or (nd.name like '%MSS'
-	           and exists (select 1
-	    		       from t_agent_status ast
-	    		         join t_agent a on a.id = ast.agent
-			       where ast.node = l.to_node
-			         and a.name = 'FileDownload'
-				 and ast.time_update >= :recent))
-	       or (exists (select 1
-	    		   from t_agent_status ast
-	    		     join t_agent a on a.id = ast.agent
-			   where ast.node = l.from_node
-			     and a.name = 'FileExport'
-			     and ast.time_update >= :recent)
-	           and exists (select 1
-      			       from t_agent_status ast
-			         join t_agent a on a.id = ast.agent
-			       where ast.node = l.to_node
-			         and a.name = 'FileDownload'
-				 and ast.time_update >= :recent))},
-	    ":recent" => &mytimeofday() - 900);
-	while (my ($from, $to, $hops, $boost, $rate, $latency) = $q->fetchrow())
+	    select l.from_node, l.to_node, l.distance, l.is_local,
+	           p.xfer_rate, p.xfer_latency,
+		   xso.protocols, xsi.protocols
+	    from t_adm_link l
+	      join t_adm_node ns on ns.id = l.from_node
+	      join t_adm_node nd on nd.id = l.to_node
+	      left join t_adm_link_param p on p.link = l.id
+	      left join t_xfer_source xso
+	        on xso.from_node = ns.id
+		and xso.to_node = nd.id
+	        and xso.time_update >= :recent
+	      left join t_xfer_sink xsi
+	        on xsi.from_node = ns.id
+		and xsi.to_node = nd.id
+	        and xsi.time_update >= :recent
+	    where (ns.kind = 'MSS' and nd.kind = 'Buffer')
+	       or (ns.kind = 'Buffer' and nd.kind = 'MSS'
+       		   and xsi.from_node is not null)
+	       or (xso.from_node is not null
+       		   and xsi.from_node is not null)},
+	    ":recent" => &mytimeofday() - 5400);
+	while (my ($from, $to, $hops, $local, $rate, $latency,
+		   $src_protos, $dest_protos) = $q->fetchrow())
 	{
 	    $$links{$from}{$to} = { HOPS => $hops,
-				    LOCAL_BOOST => $boost,
+				    IS_LOCAL => $local == 'y' ? 1 : 0,
 				    XFER_RATE => $rate,
-			    	    XFER_LATENCY => $latency };
+			    	    XFER_LATENCY => $latency,
+			    	    FROM_PROTOS => $src_protos,
+			    	    TO_PROTOS => $dest_protos };
 	}
 
 	# Now route for the nodes
 	my $costs = {};
+	my $cats = {};
 	foreach my $node (@nodes)
 	{
 	    my $nodeid = $$self{NODES_ID}{$node};
-	    $self->route ($dbh, $nodeid, $links, $costs);
+	    $self->route ($dbh, $nodeid, $links, $costs, $cats);
 	    $self->maybeStop();
 	}
 
-	&logmsg ("routed for @nodes");
+	if (@nodes)
+	{
+	    &logmsg ("routed for @nodes");
+	}
+	else
+	{
+	    &logmsg ("nothing to route for");
+	}
+
+	# Now pick up returned task status
+	$self->receive ($dbh);
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
@@ -161,10 +244,23 @@ sub idle
     $self->nap ($$self{WAITTIME});
 }
 
+# Harvest completed transfers.
+sub receive
+{
+    my ($self, $dbh) = @_;
+    my $q = &dbexec($dbh, qq{select task, report_code from t_xfer_task_done});
+    while (my ($task, $code) = $q->fetchrow())
+    {
+	&logmsg("FIXME! task=$task report_code=$code completed, do something about it!");
+    }
+
+    $dbh->commit();
+}
+
 # Run the routing algorithm for one node.
 sub route
 {
-    my ($self, $dbh, $node, $links, $costs) = @_;
+    my ($self, $dbh, $node, $links, $costs, $cats) = @_;
 
     ######################################################################
     # Phase 1: Issue file requests for blocks pending some of their files.
@@ -182,49 +278,21 @@ sub route
     # reasonable amount of time.  This behaviour blocks routing for files
     # and sites that do not function properly, but avoids loading database
     # servers and allows other sites to make timely progress.
-    # (Do this every five minutes or so.)
-
-    # Update priority on existing requests
-    &dbexec ($dbh, qq{
-        update (select xq.priority req_priority, bd.priority cur_priority
-                from t_xfer_request xq
-                  join t_dps_block_dest bd
-                    on bd.block = xq.inblock
-                    and bd.destination = xq.destination
-                where xq.destination = :node)
-        set req_priority = cur_priority},
-	":node" => $node);
-
-    # Clear completed requests.
-    &dbexec($dbh, qq{
-        delete from t_xfer_request xq
-        where destination = :node and exists
-          (select 1 from t_xfer_replica xr
-	   where xr.fileid = xq.fileid and xr.node = xq.destination)},
-	":node" => $node);
-
-    # Clear requests for files no longer wanted
-    &dbexec($dbh, qq{
-        delete from t_xfer_request xq
-        where destination = :node and not exists
-          (select 1 from t_dps_block_dest bd
-	   where bd.destination = xq.destination
-	     and bd.block = xq.inblock
-	     and bd.state = 1)},
-	":node" => $node);
-    $dbh->commit();
 
     # Get current transfer load parameters.
+    my ($pend_me, $pend_all, $confirm_me, $confirm_all) = (0) x 4;
     my (%pend_bytes, %confirm_bytes);
     my $now = &mytimeofday();
     my $q = &dbexec($dbh, qq{
-	select xs.priority, nvl(sum(f.filesize),0)
-        from t_xfer_state xs join t_xfer_file f on f.id = xs.fileid
-        where xs.to_node = :node group by xs.priority},
+	select xt.priority, nvl(sum(f.filesize),0)
+        from t_xfer_task xt join t_xfer_file f on f.id = xt.fileid
+        where xt.to_node = :node group by xt.priority},
 	":node" => $node);
     while (my ($priority, $bytes) = $q->fetchrow())
     {
 	$pend_bytes{$priority} = $bytes;
+	$pend_me += $bytes if $priority % 2 == 0;
+	$pend_all += $bytes;
     }
 
     $q = &dbexec($dbh, qq{
@@ -235,6 +303,8 @@ sub route
     while (my ($priority, $bytes) = $q->fetchrow())
     {
 	$confirm_bytes{$priority} = $bytes;
+	$confirm_me += $bytes if $priority % 2 == 0;
+	$confirm_all += $bytes;
     }
 
     # FIXME: What we need is flexible bandwidth management, in proportions
@@ -244,24 +314,9 @@ sub route
     #
     # We should limit the number of requests, confirmations and transfers
     # roughly in these proportions.
-    my ($pend_me, $pend_all, $confirm_me, $confirm_all) = (0) x 4;
-    foreach (keys %pend_bytes)
-    {
-	my $x = $pend_bytes{$_} || 0;
-	$pend_me += $x if $_ % 2 == 0;
-	$pend_all += $x;
-    }
-    foreach (keys %confirm_bytes)
-    {
-	my $x = $confirm_bytes{$_} || 0;
-	$confirm_me += $x if $_ % 2 == 0;
-	$confirm_all += $x;
-    }
-
-    
     if (($pend_all < 5 * TERABYTE
 	 && $confirm_all < 5 * TERABYTE
-	 && $confirm_me < 5 * TERABYTE)
+	 && $confirm_me < 1 * TERABYTE)
 	|| ($confirm_me < 0.25 * TERABYTE))
     {
 	# Find block destinations we can activate.  The activation
@@ -321,6 +376,15 @@ sub route
     }
 
     ######################################################################
+    # Reactivate expired file requests.
+    &dbexec($dbh, qq{
+        update t_xfer_request
+        set state = 0, attempt = attempt+1, time_expire = :now + 8*3600
+        where destination = :me and state = 1 and :now >= time_expire},
+	":me" => $node, ":now" => $now);
+    $dbh->commit();
+
+    ######################################################################
     # Phase 2: Expand file requests into transfer paths through the
     # network.  For each request we build a minimum cost path from
     # available replicas using a routing table of network links and
@@ -338,16 +402,6 @@ sub route
     # current network conditions.  We calculate a least-cost transfer
     # path for each file.  We then update the database.
 
-    # Clear old paths and those missing a request
-    &dbexec($dbh, qq{
-        delete from t_xfer_path xp
-        where destination = :node
-         and (xp.time_confirm < :now - 20*60
-	      or not exists (select 1 from t_xfer_request xq
-	                     where xq.destination = xp.destination
-			       and xq.fileid = xp.fileid))},
-	":node" => $node, ":now" => $now);
-    
     # Read requests and replicas for requests without paths
     my $requests = {};
     $q = &dbexec($dbh, qq{
@@ -389,7 +443,7 @@ sub route
     my $istmt = &dbprep($dbh, qq{
 	insert into t_xfer_path
 	(fileid, destination, hop, src_node, from_node, to_node,
-	 priority, local_boost, cost, total_cost, penalty,
+	 priority, is_local, cost, total_cost, penalty,
 	 time_request, time_confirm, time_expire)
 	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
 
@@ -405,7 +459,7 @@ sub route
 	    push(@{$iargs{$n++}}, $$hop{FROM_NODE});
 	    push(@{$iargs{$n++}}, $$hop{TO_NODE});
 	    push(@{$iargs{$n++}}, $$req{PRIORITY});
-	    push(@{$iargs{$n++}}, $$hop{LOCAL_BOOST});
+	    push(@{$iargs{$n++}}, $$hop{IS_LOCAL});
 	    push(@{$iargs{$n++}}, ($$hop{LINK_LATENCY} || 0) + ($$hop{XFER_LATENCY} || 0));
 	    push(@{$iargs{$n++}}, ($$hop{TOTAL_LATENCY} || 0));
 	    push(@{$iargs{$n++}}, ($$hop{LINK_RATE} || 0));
@@ -430,158 +484,78 @@ sub route
 	  (select 1 from t_xfer_path better
 	   where this.fileid = better.fileid
 	     and this.to_node = better.to_node
-	     and ((this.local_boost = 0 and better.local_boost > 0)
+	     and ((this.is_local = 0 and better.is_local > 0)
 		  or this.total_cost > better.total_cost
 		  or (this.total_cost = better.total_cost
 		      and this.rowid > better.rowid)))},
 	":node" => $node);
 
-    # If transfers path are about to expire on links which have
-    # reasonable recent transfer rate, give a bit more grace time.  We
-    # do _not_ renew transfers themselves, but allow them to expire,
-    # then get recreated.  This allows files with many errors to be
-    # flushed out and put back into transfer at original plan.
-    &dbexec($dbh, qq{
-	update t_xfer_path xp
-	set xp.time_expire = :now + 2*3600
-	where xp.to_node = :me
-	  and xp.time_expire >= :now
-	  and xp.time_expire < :now + 3600
-	  and exists
-	    (select 1 from t_link_param lp
-	     join t_link l on l.id = lp.link
-	     where l.from_node = xp.from_node
-	       and l.to_node = xp.to_node
-       	       and lp.xfer_rate >= 1048576)},
-	":me" => $node, ":now" => $now);
-
-    &dbexec($dbh, qq{
-	update t_xfer_request xq
-	set xq.time_expire =
-	  (select max(xp.time_expire)
-	   from t_xfer_path xp
-	   where xp.fileid = xq.fileid
-	     and xp.destination = xq.destination)
-        where xq.destination = :me
-	  and xq.state = 0
-          and exists
-	    (select 1 from t_xfer_path xp
-	     where xp.fileid = xq.fileid
-	       and xp.destination = xq.destination
-	       and xp.time_expire > xq.time_expire)},
-	":me" => $node);
-
     # Confirm transfers where I am the path hop destination, the
-    # source replica exists and there is no transfer yet.  However
-    # remove inactive transfers no longer requested, but in a way
-    # that avoids database contention with PFN export.
-    &dbexec($dbh, qq{
-        delete from t_xfer_state xs
-	where to_node = :me
-          and to_state != 2
-	  and (from_state = 1 or time_assign < :now - 1200)
-	  and time_expire >= :now
+    # source replica exists and there is no transfer yet.
+    $q = &dbexec($dbh, qq{
+	with files_for_me as
+	  (select
+	       xp.fileid, f.logical_name, xp.from_node, xp.to_node, xr.id replica,
+	       min(xp.priority) priority, max(xp.is_local) is_local,
+	       max(xp.time_expire) time_expire
+	   from t_xfer_path
+	     join t_xfer_replica xr
+	       on xr.fileid = xp.fileid
+	       and xr.node = xp.from_node
+             join t_xfer_file f
+	       on f.fileid = xp.fileid
+           where xp.to_node = :me and xp.time_expire > :now
+	   group by xp.fileid, f.logical_name, xp.from_node, xp.to_node, xr.id)
+	select
+	   fileid, logical_name, replica, from_node, to_node,
+	   2*priority + 1-is_local priority, time_expire
+	from files_for_me ffm
+	where not exists
+	   (select 1 from t_xfer_task xt
+	    where xt.fileid = ffm.fileid
+	      and xt.to_node = ffm.to_node)
           and not exists
-	    (select 1 from t_xfer_path xp
-	     where xp.to_node = xs.to_node
-	       and xp.from_node = xs.from_node
-	       and xp.fileid = xs.fileid)},
+	   (select 1 from t_xfer_replica xr
+	    where xr.fileid = ffm.fileid
+	      and xr.node = ffm.to_node)},
 	":me" => $node, ":now" => $now);
 
-    &dbexec($dbh, qq{
-        insert into t_xfer_state
-          (fileid, errors, priority, weight, age,
-           from_replica, from_node, from_state,
-           to_node, to_state, time_expire, time_assign)
+    my @tasks;
+    while (my ($task) = $q->fetchrow_hashref())
+    {
+	$self->makeTransferTask($dbh, $task, $cats, $links);
+	push(@tasks, $task);
+    }
 
-	  with files_for_me as
-	    (select
-		 xp.fileid, xp.from_node, xp.to_node, xr.id replica,
-		 min(xp.priority) priority,
-		 max(xp.local_boost * nvl(l.local_boost,0)) local_boost,
-		 count(xp.fileid) weight,
-		 min(xp.time_request) time_request,
-		 min(xp.time_confirm) time_confirm,
-		 max(xp.time_expire) time_expire
-	     from t_xfer_path xp
-	       left join t_link l
-		 on l.to_node = xp.from_node
-		 and l.from_node = xp.to_node
-               join t_xfer_replica xr
-                 on xr.fileid = xp.fileid
-                 and xr.node = xp.from_node
-	     where xp.to_node = :me and xp.time_expire > :now
-	     group by xp.fileid, xp.from_node, xp.to_node, xr.id)
-          select
-             fileid, 0, 2*priority + 1-local_boost, weight, time_request,
-             replica, from_node, 0, to_node, 0, time_expire, :now
-           from files_for_me ffm
-           where not exists
-               (select 1 from t_xfer_state xs
-                where xs.fileid = ffm.fileid
-                  and xs.to_node = ffm.to_node)
-	     and not exists
-               (select 1 from t_xfer_replica xr
-                where xr.fileid = ffm.fileid
-                  and xr.node = ffm.to_node)},
-	":me" => $node, ":now" => $now);
+    my $rank = 0;
+    %iargs = ();
+    $istmt = &dbprep($dbh, qq{
+	insert into t_xfer_task (id, fileid, from_replica, priority, rank,
+	  from_node, to_node, from_pfn, to_pfn, time_expire, time_assign)
+	values (seq_xfer_task.nextval, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
+    foreach my $task (sort { $$a{PRIORITY} <=> $$b{PRIORITY}
+		             || $$a{LOGICAL_NAME} cmp $$b{LOGICAL_NAME} }
+		      @tasks)
+    {
+	my $n = 1;
+	next if ! $$task{FROM_PFN};
+	next if ! $$task{TO_PFN};
+	push(@{$iargs{$n++}}, $$task{FILEID});
+	push(@{$iargs{$n++}}, $$task{REPLICA});
+	push(@{$iargs{$n++}}, $$task{PRIORITY});
+	push(@{$iargs{$n++}}, $rank++);
+	push(@{$iargs{$n++}}, $$task{FROM_NODE});
+	push(@{$iargs{$n++}}, $$task{TO_NODE});
+	push(@{$iargs{$n++}}, $$task{FROM_PFN});
+	push(@{$iargs{$n++}}, $$task{TO_PFN});
+	push(@{$iargs{$n++}}, $$task{TIME_EXPIRE});
+	push(@{$iargs{$n++}}, $now);
+    }
+
+    &dbbindexec($istmt, %iargs) if %iargs;
     $dbh->commit();
 
-    ######################################################################
-    # Phase 4: Deactivate unsuccessful expired requests.
-
-    # (Do this every ten minutes or so.)
-
-    # The request can fail either because the tender never completed with
-    # a successful route, or the transfers don't complete in time.  In the
-    # former case we might just as well wait for a while.  In latter, the
-    # t_xfer_expired handling picks up details and translates them to link
-    # penalties.  So all we do here is put the request to sleep.
-    
-    &dbexec($dbh, qq{
-        update t_xfer_request
-        set state = 1, time_expire = :now + 6*3600*least(attempt,8)
-        where destination = :node
-          and state = 0
-          and :now >= time_expire},
-	":node" => $node, ":now" => $now);
-    # $dbh->commit();
-
-    ######################################################################
-    # Phase 5: Wake previously failed requests from sleep.
-
-    # (Do this every ten minutes or so.)
-
-    &dbexec($dbh, qq{
-        update t_xfer_request
-        set state = 0,
-            attempt = attempt + 1,
-            time_expire = :now + 8*3600*(1+least(attempt-1,6)/2)
-        where destination = :node
-          and state = 1
-          and :now >= time_expire},
-	":node" => $node, ":now" => $now);
-    # $dbh->commit();
-    
-    ######################################################################
-    $dbh->commit();
-
-    ######################################################################
-    # Phase X: Update transfer parameters.
-
-    # (This should be done by other code.)
-
-    ######################################################################
-    # Phase X: Update statistics.
-
-    # (This should be done by other code.)
-
-    # update t_dest_histogram (t_xfer_{request,offer,confirmation,expired})
-    # update t_xfer_histogram (t_xfer_{state,completed,tracking})
-    # clean t_xfer_expired
-    # copy t_xfer_tracking to t_xfer_history?
-    # clean t_xfer_tracking
-
+    # Auto-export for sites without a stager agent.
 }
 
 # Calculate prototype file transfer cost.  The only factor affecting
@@ -617,7 +591,7 @@ sub routeCost
 	TOTAL_LINK_LATENCY => 0,
 	TOTAL_XFER_LATENCY => $latency,
 	TOTAL_LATENCY => $latency,
-	LOCAL_BOOST => 1,
+	IS_LOCAL => 1,
 	HOPS => 0,
 	REMOTE_HOPS => 0
     };
@@ -643,8 +617,8 @@ sub routeCost
 	        my $thislocal = 0;
 		$thislocal = 1 if (exists $$links{$from}
 			           && exists $$links{$from}{$to}
-			           && $$links{$from}{$to}{LOCAL_BOOST});
-		my $local = ($thislocal && $$paths{$from}{LOCAL_BOOST} ? 1 : 0);
+			           && $$links{$from}{$to}{IS_LOCAL});
+		my $local = ($thislocal && $$paths{$from}{IS_LOCAL} ? 1 : 0);
 
 		# If we would involve more than one WAN hop, incur penalty.
 		if ($$paths{$from}{REMOTE_HOPS} && ! $thislocal)
@@ -660,8 +634,8 @@ sub routeCost
 		# path and existing is not local, or if we now have a
 		# better cost without changing local attribute.
 		if (! exists $$paths{$to}
-		    || ($local && ! $$paths{$to}{LOCAL_BOOST})
-		    || ($local == $$paths{$to}{LOCAL_BOOST}
+		    || ($local && ! $$paths{$to}{IS_LOCAL})
+		    || ($local == $$paths{$to}{IS_LOCAL}
 			&& $total < $$paths{$to}{TOTAL_LATENCY}))
 		{
 		    # No existing path or it's more expensive.
@@ -674,7 +648,7 @@ sub routeCost
 				     TOTAL_LINK_LATENCY => $$paths{$from}{TOTAL_LINK_LATENCY} + $latency,
 				     TOTAL_XFER_LATENCY => $$paths{$from}{TOTAL_XFER_LATENCY} + $xfer,
 				     TOTAL_LATENCY => $total,
-				     LOCAL_BOOST => $local,
+				     IS_LOCAL => $local,
 				     HOPS => $$paths{$from}{HOPS} + 1,
 			     	     REMOTE_HOPS => $$paths{$from}{REMOTE_HOPS} + (1-$thislocal) };
 		    $todo{$to} = 1;
@@ -707,8 +681,8 @@ sub routeFile
 
 	my $thiscost = $$this{$dest}{TOTAL_LATENCY};
 	if (! defined $best
-	    || $$this{$dest}{LOCAL_BOOST} > $$best{$dest}{LOCAL_BOOST}
-	    || ($$this{$dest}{LOCAL_BOOST} == $$best{$dest}{LOCAL_BOOST}
+	    || $$this{$dest}{IS_LOCAL} > $$best{$dest}{IS_LOCAL}
+	    || ($$this{$dest}{IS_LOCAL} == $$best{$dest}{IS_LOCAL}
 		&& $thiscost <= $bestcost))
 	{
 	    $best = $this;
@@ -751,3 +725,71 @@ sub routeFile
 	$$self{WARNED}{$dest}{$$request{FILEID}} = 1;
     }
 }
+
+# Expand transfer task information and insert into the database.
+sub makeTransferTask
+{
+    my ($self, $dbh, $task, $cats, $links) = @_;
+    my ($from, $to) = @$task{"FROM_NODE", "TO_NODE"};
+    my @from_protos = split(/\s+/, $$links{$from}{$to}{FROM_PROTOS} || '');
+    my @to_protos   = split(/\s+/, $$links{$from}{$to}{TO_PROTOS} || '');
+    my $from_cat    = $self->catalogue($dbh, $cats, $from);
+    my $to_cat      = $self->catalogue($dbh, $cats, $to);
+    my $protocol    = undef;
+
+    # Find matching protocol.
+    foreach my $p (@to_protos)
+    {
+	next if ! grep($$_ eq $p, @from_protos);
+	$protocol = $p;
+	last;
+    }
+
+    # Check that we have prerequisite information to expand the file names.
+    return if (! $from_cat
+	       || ! $to_cat
+	       || ! $$links{$from}
+	       || ! $$links{$from}{$to}
+	       || ! $protocol);
+
+    # Try to expand the file name.
+    $$task{FROM_PFN} = &applyStorageRules($from_cat, $protocol, $to, 'pre');
+    $$task{TO_PFN}   = &applyStorageRules($to_cat, $protocol, $from, 'pre');
+}
+
+# Build and cache storage mapping catalogue for a node.
+sub catalogue
+{
+    my ($self, $dbh, $cats, $node) = @_;
+
+    # If we haven't yet built the catalogue, fetch from the database.
+    if (! exists $$cats{$node})
+    {
+        $$cats{$node} = {};
+
+        my $q = &dbexec($dbh, qq{
+	    select protocol, chain, destination_match, path_match, result_expr
+	    from t_xfer_catalogue
+	    where node = :node and rule_type = 'lfn-to-pfn'
+	    order by rule_index asc},
+	    ":node" => $node);
+
+        while (my ($proto, $chain, $dest, $path, $result) = $q->fetchrow())
+        {
+	    # Check the pattern is valid.  If not, abort.
+            eval { qr/$path/ };
+	    return $$cats{$node} = {} if $@;
+
+	    # Add the rule to our list.
+	    push(@{$$cats{$node}{$proto}}, {
+		    'chain' => $chain,
+		    'destination-match' => $dest,
+		    'path-match' => $path,
+		    'result-expr' => $result });
+        }
+    }
+
+    return $$cats{$node};
+}
+
+1;
