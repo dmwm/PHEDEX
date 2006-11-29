@@ -21,7 +21,8 @@ create table t_xfer_catalogue
      primary key (node, rule_index),
    --
    constraint fk_xfer_catalogue_node
-     foreign key (node) references t_adm_node (id),
+     foreign key (node) references t_adm_node (id)
+     on delete cascade,
    --
    constraint ck_xfer_catalogue_type
      check (rule_type in ('lfn-to-pfn', 'pfn-to-lfn')));
@@ -36,10 +37,12 @@ create table t_xfer_source
      primary key (from_node, to_node),
    --
    constraint fk_xfer_source_from
-     foreign key (from_node) references t_adm_node (id),
+     foreign key (from_node) references t_adm_node (id)
+     on delete cascade,
    --
    constraint fk_xfer_source_to
-     foreign key (to_node) references t_adm_node (id));
+     foreign key (to_node) references t_adm_node (id)
+     on delete cascade);
 
 create table t_xfer_sink
   (from_node		integer		not null,
@@ -51,10 +54,12 @@ create table t_xfer_sink
      primary key (from_node, to_node),
    --
    constraint fk_xfer_sink_from
-     foreign key (from_node) references t_adm_node (id),
+     foreign key (from_node) references t_adm_node (id)
+     on delete cascade,
    --
    constraint fk_xfer_sink_to
-     foreign key (to_node) references t_adm_node (id));
+     foreign key (to_node) references t_adm_node (id)
+     on delete cascade);
 
 create table t_xfer_delete
   (fileid		integer		not null,  -- for which file
@@ -66,10 +71,12 @@ create table t_xfer_delete
      primary key (fileid, node),
    --
    constraint fk_xfer_delete_fileid
-     foreign key (fileid) references t_xfer_file (id),
+     foreign key (fileid) references t_xfer_file (id)
+     on delete cascade,
    --
    constraint fk_xfer_delete_node
-     foreign key (node) references t_adm_node (id))
+     foreign key (node) references t_adm_node (id)
+     on delete cascade)
  enable row movement;
 
 -- priority in block destination and file request, confirmation:
@@ -119,13 +126,16 @@ create table t_xfer_request
      primary key (destination, fileid),
    --
    constraint fk_xfer_request_fileid
-     foreign key (fileid) references t_xfer_file (id),
+     foreign key (fileid) references t_xfer_file (id)
+     on delete cascade,
    --
    constraint fk_xfer_request_inblock
-     foreign key (inblock) references t_dps_block (id),
+     foreign key (inblock) references t_dps_block (id)
+     on delete cascade,
    --
    constraint fk_xfer_request_dest
-     foreign key (destination) references t_adm_node (id))
+     foreign key (destination) references t_adm_node (id)
+     on delete cascade)
   --
   partition by list (destination)
     (partition dest_dummy values (-1))
@@ -151,19 +161,24 @@ create table t_xfer_path
      primary key (destination, fileid, hop),
    --
    constraint fk_xfer_path_dest
-     foreign key (destination) references t_adm_node (id),
+     foreign key (destination) references t_adm_node (id)
+     on delete cascade,
    --
    constraint fk_xfer_path_fileid
-     foreign key (fileid) references t_xfer_file (id),
+     foreign key (fileid) references t_xfer_file (id)
+     on delete cascade,
    --
    constraint fk_xfer_path_src
-     foreign key (src_node) references t_adm_node (id),
+     foreign key (src_node) references t_adm_node (id)
+     on delete cascade,
    --
    constraint fk_xfer_path_from
-     foreign key (from_node) references t_adm_node (id),
+     foreign key (from_node) references t_adm_node (id)
+     on delete cascade,
    --
    constraint fk_xfer_path_to
-     foreign key (to_node) references t_adm_node (id))
+     foreign key (to_node) references t_adm_node (id)
+     on delete cascade)
   --
   enable row movement;
 
@@ -189,16 +204,19 @@ create table t_xfer_task
      unique (to_node, fileid),
    --
    constraint fk_xfer_task_fileid
-     foreign key (fileid) references t_xfer_file (id),
+     foreign key (fileid) references t_xfer_file (id)
+     on delete cascade,
    --
    constraint fk_xfer_task_replica
      foreign key (from_replica) references t_xfer_replica (id),
    --
    constraint fk_xfer_task_from
-     foreign key (from_node) references t_adm_node (id),
+     foreign key (from_node) references t_adm_node (id)
+     on delete cascade,
    --
    constraint fk_xfer_task_to
-     foreign key (to_node) references t_adm_node (id))
+     foreign key (to_node) references t_adm_node (id)
+     on delete cascade)
   --
   partition by list (to_node)
     (partition to_dummy values (-1))
@@ -212,7 +230,8 @@ create table t_xfer_task_export
      primary key (task),
    --
    constraint fk_xfer_task_export_task
-     foreign key (task) references t_xfer_task (id))
+     foreign key (task) references t_xfer_task (id)
+     on delete cascade)
   --
   organization index
   /* enable row movement */;
@@ -225,7 +244,8 @@ create table t_xfer_task_inxfer
      primary key (task),
    --
    constraint fk_xfer_task_inxfer_task
-     foreign key (task) references t_xfer_task (id))
+     foreign key (task) references t_xfer_task (id)
+     on delete cascade)
   --
   organization index
   /* enable row movement */;
@@ -243,7 +263,8 @@ create table t_xfer_task_done
      primary key (task),
    --
    constraint fk_xfer_task_done_task
-     foreign key (task) references t_xfer_task (id))
+     foreign key (task) references t_xfer_task (id)
+     on delete cascade)
   --
   organization index including time_update overflow
   /* enable row movement */;

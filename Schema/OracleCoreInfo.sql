@@ -14,10 +14,12 @@ create table t_info_xfer_tasks
      primary key (from_node, to_node, from_state, to_state),
    --
    constraint fk_info_xfer_tasks_from
-     foreign key (from_node) references t_adm_node (id),
+     foreign key (from_node) references t_adm_node (id)
+     on delete cascade,
    --
    constraint fk_info_xfer_tasks_to
-     foreign key (to_node) references t_adm_node (id));
+     foreign key (to_node) references t_adm_node (id)
+     on delete cascade);
 
 
 create table t_info_xfer_replicas
@@ -31,7 +33,8 @@ create table t_info_xfer_replicas
      primary key (node, state),
    --
    constraint fk_info_xfer_replicas_node
-     foreign key (node) references t_adm_node (id));
+     foreign key (node) references t_adm_node (id)
+     on delete cascade);
 
 create table t_info_file_size_overview
   (time_update		float		not null,

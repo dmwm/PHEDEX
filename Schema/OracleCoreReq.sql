@@ -44,7 +44,8 @@ create table t_req_action_attr
      primary key (id),
    --
    constraint fk_req_action_attr_action
-     foreign key (action) references t_req_action (id));
+     foreign key (action) references t_req_action (id)
+     on delete cascade);
 
 
 create table t_req_task
@@ -57,10 +58,12 @@ create table t_req_task
      primary key (id),
    --
    constraint fk_req_task_action
-     foreign key (action) references t_req_action (id),
+     foreign key (action) references t_req_action (id)
+     on delete cascade,
    --
    constraint fk_req_task_person
-     foreign key (person) references t_adm_identity (id));
+     foreign key (person) references t_adm_identity (id)
+     on delete cascade);
 
 
 create table t_req_info
@@ -71,7 +74,8 @@ create table t_req_info
      primary key (request),
    --
    constraint fk_req_info_request
-     foreign key (request) references t_req_request (id));
+     foreign key (request) references t_req_request (id)
+     on delete cascade);
 
 
 create table t_req_info_dest
@@ -89,7 +93,8 @@ create table t_req_info_dataset
      primary key (request, dbs, dataset),
    --
    constraint fk_req_info_dataset_req
-     foreign key (request) references t_req_request (id));
+     foreign key (request) references t_req_request (id)
+     on delete cascade);
 
 
 create table t_req_info_block
@@ -116,7 +121,8 @@ create table t_req_info_block
      primary key (request, dbs, dataset, block),
    --
    constraint fk_req_info_block_req
-     foreign key (request) references t_req_request (id));
+     foreign key (request) references t_req_request (id)
+     on delete cascade);
 
 ----------------------------------------------------------------------
 -- Add indices

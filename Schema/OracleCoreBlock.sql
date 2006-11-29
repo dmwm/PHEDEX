@@ -91,10 +91,12 @@ create table t_dps_block_replica
      primary key (block, node),
    --
    constraint fk_dps_block_replica_block
-     foreign key (block) references t_dps_block (id),
+     foreign key (block) references t_dps_block (id)
+     on delete cascade,
    --
    constraint fk_dps_block_replica_node
-     foreign key (node) references t_adm_node (id),
+     foreign key (node) references t_adm_node (id)
+     on delete cascade,
    --
    constraint ck_dps_block_replica_active
      check (is_active in ('y', 'n')));
@@ -116,13 +118,16 @@ create table t_dps_block_dest
      primary key (block, destination),
    --
    constraint fk_dps_block_dest_dataset
-     foreign key (dataset) references t_dps_dataset (id),
+     foreign key (dataset) references t_dps_dataset (id)
+     on delete cascade,
    --
    constraint fk_dps_block_dest_block
-     foreign key (block) references t_dps_block (id),
+     foreign key (block) references t_dps_block (id)
+     on delete cascade,
    --
    constraint fk_dps_block_dest_node
-     foreign key (destination) references t_adm_node (id));
+     foreign key (destination) references t_adm_node (id)
+     on delete cascade);
 
 
 create table t_dps_block_activate
@@ -131,7 +136,8 @@ create table t_dps_block_activate
    time_until		float,
    --
    constraint fk_dps_block_activate_block
-     foreign key (block) references t_dps_block (id));
+     foreign key (block) references t_dps_block (id)
+     on delete cascade);
 
 
 create table t_dps_block_delete
@@ -145,13 +151,16 @@ create table t_dps_block_delete
      primary key (block, node),
    --
    constraint fk_dps_block_delete_block
-     foreign key (block) references t_dps_block (id),
+     foreign key (block) references t_dps_block (id)
+     on delete cascade,
    --
    constraint fk_dps_block_delete_dataset
-     foreign key (dataset) references t_dps_dataset (id),
+     foreign key (dataset) references t_dps_dataset (id)
+     on delete cascade,
    --
    constraint fk_dps_block_delete_node
-     foreign key (node) references t_adm_node (id));
+     foreign key (node) references t_adm_node (id)
+     on delete cascade);
 
 
 create table t_dps_subscription

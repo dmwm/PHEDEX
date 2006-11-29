@@ -24,10 +24,12 @@ create table t_agent_message
    time_apply		float		not null,
    --
    constraint fk_agent_message_node
-     foreign key (node) references t_adm_node (id),
+     foreign key (node) references t_adm_node (id)
+     on delete cascade,
    --
    constraint fk_agent_message_agent
-     foreign key (agent) references t_agent (id));
+     foreign key (agent) references t_agent (id)
+     on delete cascade);
 
 
 create table t_agent_status
@@ -51,10 +53,12 @@ create table t_agent_status
      primary key (node, agent, label, worker_id),
    --
    constraint fk_agent_status_node
-     foreign key (node) references t_adm_node (id),
+     foreign key (node) references t_adm_node (id)
+     on delete cascade,
    --
    constraint fk_agent_status_agent
-     foreign key (agent) references t_agent (id));
+     foreign key (agent) references t_agent (id)
+     on delete cascade);
 
 
 create table t_agent_version
@@ -72,10 +76,12 @@ create table t_agent_version
      primary key (node, agent, filename),
    --
    constraint fk_agent_version_node
-     foreign key (node) references t_adm_node (id),
+     foreign key (node) references t_adm_node (id)
+     on delete cascade,
    --
    constraint fk_agent_version_agent
-     foreign key (agent) references t_agent (id));
+     foreign key (agent) references t_agent (id)
+     on delete cascade);
 
 
 ----------------------------------------------------------------------

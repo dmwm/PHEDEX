@@ -91,10 +91,12 @@ create table t_adm_site_node
      primary key (site, node),
    --
    constraint fk_adm_site_node_site
-     foreign key (site) references t_adm_site (id),
+     foreign key (site) references t_adm_site (id)
+     on delete cascade,
    --
    constraint fk_adm_site_node_node
-     foreign key (node) references t_adm_node (id));
+     foreign key (node) references t_adm_node (id)
+     on delete cascade);
 
 
 create table t_adm_site_admin
@@ -105,10 +107,12 @@ create table t_adm_site_admin
      primary key (site, identity),
    --
    constraint fk_adm_site_admin_site
-     foreign key (site) references t_adm_site (id),
+     foreign key (site) references t_adm_site (id)
+     on delete cascade,
    --
    constraint fk_adm_site_admin_identity
-     foreign key (identity) references t_adm_identity (id));
+     foreign key (identity) references t_adm_identity (id)
+     on delete cascade);
 
 
 create table t_adm_global_admin
@@ -118,4 +122,5 @@ create table t_adm_global_admin
      primary key (identity),
    --
    constraint fk_adm_global_admin_id
-     foreign key (identity) references t_adm_identity (id));
+     foreign key (identity) references t_adm_identity (id)
+     on delete cascade);

@@ -46,10 +46,12 @@ create table t_adm_link
      unique (from_node, to_node),
    --
    constraint fk_adm_link_from
-     foreign key (from_node) references t_adm_node (id),
+     foreign key (from_node) references t_adm_node (id)
+     on delete cascade,
    --
    constraint fk_adm_link_to
-     foreign key (to_node) references t_adm_node (id),
+     foreign key (to_node) references t_adm_node (id)
+     on delete cascade,
    --
    constraint ck_adm_link_local
      check (is_local in ('y', 'n')),
@@ -70,7 +72,8 @@ create table t_adm_share
      primary key (node, priority),
    --
    constraint fk_adm_share_node
-     foreign key (node) references t_adm_node (id));
+     foreign key (node) references t_adm_node (id)
+     on delete cascade);
 
 
 create table t_adm_link_param
@@ -87,6 +90,7 @@ create table t_adm_link_param
      primary key (link),
    --
    constraint fk_adm_link_param_link
-     foreign key (link) references t_adm_link (id))
+     foreign key (link) references t_adm_link (id)
+     on delete cascade)
  --
  organization index;
