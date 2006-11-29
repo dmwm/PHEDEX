@@ -1,30 +1,28 @@
-package UtilsDownloadSRM; use strict; use warnings; use base 'UtilsDownload';
+package UtilsDownloadSRM; use strict; use warnings; use base 'UtilsDownloadCommand';
 use UtilsLogging;
 use UtilsCommand;
 use Getopt::Long;
 
+# Command back end defaulting to srmcp and supporting batch transfers.
 sub new
 {
     my $proto = shift;
     my $class = ref($proto) || $proto;
-    my %args = (@_);
+    my $master = shift;
+    my %args;
 
     # Parse backend-specific additional options
-    local @ARGV = @{$args{BACKEND_ARGS}};
+    local @ARGV = @{$$master{BACKEND_ARGS}};
     Getopt::Long::Configure qw(default pass_through norequire_order);
-    &GetOptions ("command=s" => sub { push(@{$args{COMMAND}},
-					   split(/,/, $_[1])) });
+    &GetOptions ("batch-files=i" => \$args{BATCH_FILES});
 
     # Initialise myself
-    my $self = $class->SUPER::new(%args);
-    my %params = (COMMAND	=> [ "srmcp" ]); # Transfer command
+    my $self = $class->SUPER::new($master, @_);
     my %default= (PROTOCOLS	=> [ "srm" ],	# Accepted protocols
-		  BATCH_FILES	=> 10,		# Max number of files per batch
-		  BATCH_SIZE	=> 25*1024**3);	# Max number of bytes per batch
+		  COMMAND	=> [ "srmcp" ], # Transfer command
+		  BATCH_FILES	=> 10);		# Max number of files per batch
 
-    $$self{$_} = $args{$_} || $params{$_} || $$self{$_} || $default{$_}
-	for keys %params, keys %default;
-
+    $$self{$_} = $args{$_} || $$self{$_} || $default{$_} for keys %default;
     bless $self, $class;
     return $self;
 }
@@ -32,101 +30,20 @@ sub new
 # Transfer a batch of files.
 sub transferBatch
 {
-    my ($self, $batch, $files, $reportfile, $specfile, $job) = @_;
-    if ($job)
-    {
-	# If we have a report file, build {FROM}{TO}=STATUS hash of
-	# the "FROM TO STATUS" lines in the report.  Then nuke temps.
-	my %reported = ();
-	foreach (split (/\n/, &input($reportfile) || ''))
-	{
-	    my ($from, $to, $status, @rest) = split(/\s+/);
-	    $reported{$from}{$to} = [ $status, "@rest" ];
-	}
-	unlink ($specfile, $reportfile);
+    my ($self, $job, $tasks) = @_;
 
-	# Reap finished jobs
-	my $isbad = 0;
-	foreach my $file (@$files)
-	{
-	    $$file{DONE_TRANSFER} = 1;
-	    if (exists $reported{$$file{FROM_PFN}}{$$file{TO_PFN}})
-	    {
-		# This copy has a report entry.  Use that instead.
-		my ($status, $info) = @{$reported{$$file{FROM_PFN}}{$$file{TO_PFN}}};
-		$$file{TRANSFER_STATUS}{STATUS} = $status;
-	        $$file{TRANSFER_STATUS}{REPORT}
-	            = "transfer report code $status;"
-		      . " exit code $$job{STATUS} from @{$$job{CMD}}"
-		      . ($info ? "; detailed info: $info" : "");
-	    }
-	    else
-	    {
-		# No report entry, use command exit code.
-	        $$file{TRANSFER_STATUS}{STATUS} = $$job{STATUS};
-	        $$file{TRANSFER_STATUS}{REPORT}
-	            = "exit code $$job{STATUS} from @{$$job{CMD}}";
-	    }
+    # Prepare copyjob and report names.
+    my $spec = "$$job{DIR}/copyjob";
+    my $report = "$$job{DIR}/srm-report";
 
-	    if ($$file{TRANSFER_STATUS}{STATUS})
-	    {
-		$$file{TRANSFER_STATUS}{REPORT} .= "; log output in $$job{LOGFILE}";
-	        $isbad = 1;
-	    }
-	    $self->stopFileTiming ($file);
-	}
+    # Now generate copyjob
+    &output ($spec, join ("", map { "$$tasks{$_}{FROM_PFN} ".
+		                    "$$tasks{$_}{TO_PFN}\n" }
+		          keys %{$$job{TASKS}}));
 
-	# Remove the logfile if we didn't mention it for posterity
-	unlink ($$job{LOGFILE}) if ! $isbad;
-    }
-    else
-    {
-	# First time around initiate transfers all files.  The transfers
-	# jobs must be partitioned by source host such that each job has
-	# only transfers from a single host.
-	my %jobs = ();
-        foreach my $file (@$batch)
-        {
-	    next if $$file{DONE_TRANSFER};
-	    do { $$file{DONE_TRANSFER} = 1; next } if $$file{FAILURE};
-	    $self->startFileTiming ($file, "transfer");
-	    my ($host) = ($$file{FROM_PFN} =~ m|^[a-z]+://([^/:]+)|);
-	    push (@{$jobs{$host}}, $file);
-        }
-
-	# Initiate transfer
-        while (my ($host, $job) = each %jobs)
-        {
-	    # Prepare copyjob and report names.
-	    my $batchid = $$job[0]{BATCHID} . "." . $host;
-	    $specfile = "$$self{MASTER}{DROPDIR}/$$self{BOOTTIME}.$batchid.copyjob";
-	    $reportfile = "$$self{MASTER}{DROPDIR}/$$self{BOOTTIME}.$batchid.report";
-	    my $spec = join ("", map { "$$_{FROM_PFN} $$_{TO_PFN}\n" } @$job);
-
-	    # Now generate copyjob
-	    if (! &output ($specfile, $spec))
-	    {
-		foreach my $file (@$job)
-		{
-		    $$file{FAILURE} = "failed to create copyjob for batch $batchid: $!";
-		    $$file{DONE_TRANSFER} = 1;
-		}
-		next;
-	    }
-
-	    $self->addJob (
-		sub { $self->transferBatch
-			  ($batch, $job, $reportfile, $specfile, @_) },
-		    { TIMEOUT => $$self{TIMEOUT}, LOGFILE => "$specfile.log" },
-		    @{$$self{COMMAND}},
-		    "-copyjobfile=$specfile",
-		    "-report=$reportfile");
-	}
-    }
-
-    # Move to next stage if all is done.
-    $self->validateBatch ($batch)
-        if ! grep (! $$_{DONE_TRANSFER}, @$batch);
+    # Fork off the transfer wrapper
+    $self->launch ($$self{WRAPPER}, $$job{DIR}, $$self{TIMEOUT},
+	@{$$self{COMMAND}}, "-copyjobfile=$spec", "-report=$report");
 }
 
 1;

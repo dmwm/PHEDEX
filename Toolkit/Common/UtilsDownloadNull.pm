@@ -1,44 +1,36 @@
 package UtilsDownloadNull; use strict; use warnings; use base 'UtilsDownload';
-use UtilsLogging;
 use UtilsCommand;
 use UtilsTiming;
-use Getopt::Long;
 use Data::Dumper;
 
+# Special back end that bypasses transfers entirely.  Good for testing.
 sub new
 {
     my $proto = shift;
     my $class = ref($proto) || $proto;
-    my %args = (@_);
+    my $master = shift;
 
     # Initialise myself
-    my $self = $class->SUPER::new(%args);
+    my $self = $class->SUPER::new($master, @_);
     my %default= (PROTOCOLS	=> [ "srm" ],	# Accepted protocols
 		  BATCH_FILES	=> 100);	# Max number of files per batch
 
-    $$self{$_} = $$self{$_} || $default{$_} for keys %default;
+    $$self{$_} ||= $default{$_} for keys %default;
     bless $self, $class;
     return $self;
 }
 
-# Create one copy job.
-sub startBatch
+# No-op transfer batch operation.
+sub transferBatch
 {
-    my ($self, $jobs, $tasks, $dir, $jobname, $list) = @_;
-    my @batch = splice(@$list, 0, $$self{BATCH_FILES});
+    my ($self, $job, $tasks) = @_;
     my $now = &mytimeofday();
 
-    my $info = { TASKS => { map { $$_{TASKID} => 1 } @batch } };
-    &output("$dir/info", Dumper($info));
-    &touch("$dir/live");
-
-    foreach my $task (@batch)
+    foreach my $task (keys %{$$job{TASKS}})
     {
-	# FIXME: pre-clean
 	my $info = { START => $now, END => $now, STATUS => 0,
 		     DETAIL => "nothing done", LOG => "" };
-	&output("$dir/T$$task{TASKID}X", Dumper($info));
-        $$self{MASTER}->saveTask($task);
+	&output("$$job{DIR}/T${task}X", Dumper($info));
     }
 }
 
