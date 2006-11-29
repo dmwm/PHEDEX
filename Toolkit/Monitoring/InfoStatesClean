@@ -65,18 +65,6 @@ sub idle
 	$dbh = &connectToDatabase ($self);
 	my $now = &mytimeofday();
 
-    	# Record, then nuke transfers that have expired
-	&dbexec($dbh, qq{
-	    insert into t_xfer_tracking
-            (timestamp, from_node, to_node, priority, fileid,
-             is_avail, is_try, is_done, is_fail, is_expire)
-	    (select time_expire, from_node, to_node, priority, fileid,
-		    0, 0, 0, 0, 1
-             from t_xfer_state where time_expire < :now)},
-	    ":now" => $now);
-	&dbexec($dbh, qq{delete from t_xfer_state where time_expire < :now},
-	    ":now" => $now);
-
 	# Summarise replica states
 	&dbexec($dbh, qq{delete from t_info_xfer_replicas});
 	&dbexec($dbh, qq{
@@ -88,19 +76,26 @@ sub idle
 	     ":now" => &mytimeofday ());
 
 	# Summarise file transfer states
-	&dbexec($dbh, qq{delete from t_info_xfer_states});
+	&dbexec($dbh, qq{delete from t_info_xfer_tasks});
 	&dbexec($dbh, qq{
-	    insert into t_info_xfer_states
-	    (select :now, xs.from_node, xs.to_node, xs.from_state, xs.to_state,
-	            count (xs.fileid), nvl (sum (f.filesize), 0)
-	     from t_xfer_state xs join t_xfer_file f on f.id = xs.fileid
-	     group by :now, xs.from_node, xs.to_node, xs.from_state, xs.to_state)},
+	    insert into t_info_xfer_tasks
+	    (select :now, v.from_node, v.to_node, v.from_state, v.to_state,
+	            count (v.fileid), nvl (sum (f.filesize), 0)
+	     from
+	       (select
+	           xt.from_node, xt.to_node, xt.fileid,
+	           case when xti.time_update > 0 then 1 else 0 end from_state,
+		   case when xte.time_update > 0 then 2 else 1 end to_state
+		from t_xfer_task xt
+		  left join t_xfer_task_export xte on xte.task = xt.id
+		  left join t_xfer_task_inxfer xti on xti.task = xt.id) v
+	       join t_xfer_file f on f.id = v.fileid
+	     group by :now, v.from_node, v.to_node, v.from_state, v.to_state)},
 	     ":now" => &mytimeofday ());
 
 	# Delete obsolete agent status messages (3 days)
 	my %old = (":old" => &mytimeofday() - 3*86400);
 	&dbexec($dbh,qq{delete from t_agent_status where time_update < :old}, %old);
-	&dbexec($dbh,qq{delete from t_info_agent_status where time_update < :old}, %old);
 	$dbh->commit();
     };
     do { chomp ($@); &alert ("database error: $@");
