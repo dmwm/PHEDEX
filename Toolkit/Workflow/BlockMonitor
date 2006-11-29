@@ -110,6 +110,7 @@ sub idle
 	    select br.block, br.node,
 		   br.is_active, b.files, b.bytes, b.is_open,
 	           br.dest_files, br.dest_bytes,
+		   br.src_files, br.src_bytes,
 		   br.node_files, br.node_bytes,
 		   br.xfer_files, br.xfer_bytes
 	    from t_dps_block_replica br
