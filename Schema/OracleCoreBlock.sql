@@ -167,8 +167,8 @@ create table t_dps_subscription
    time_done		float,
    time_suspend_until	float,
    --
-   constraint pk_dps_subscription
-     primary key (dataset, block, destination),
+   constraint uq_dps_subscription
+     unique (dataset, block, destination),
    --
    constraint fk_dps_subscription_dataset
      foreign key (dataset) references t_dps_dataset (id),
