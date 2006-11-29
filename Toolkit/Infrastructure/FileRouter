@@ -155,6 +155,42 @@ sub idle
             where state = 0 and :now >= time_expire},
 	    ":now" => $now);
 
+        # Auto-export for sites running exports without stage-in.
+        &dbexec($dbh, qq{
+	    insert into t_xfer_task_export (task, time_update)
+	    select xt.id, :now from t_xfer_task xt
+	      join t_adm_node ns
+	        on ns.id = xt.from_node and ns.kind = 'Disk'
+	      join t_xfer_source xs
+	        on xs.from_node = xt.from_node
+		and xs.to_node = xt.to_node
+	        and xs.time_update >= :now - 5400},
+            ":now" => $now);
+
+	# Auto transfer for MSS -> Buffer transitions.
+        &dbexec($dbh, qq{
+	    insert into t_xfer_task_export (task, time_update)
+	    select xt.id, :now from t_xfer_task xt
+	      join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
+	      join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'},
+            ":now" => $now);
+
+        &dbexec($dbh, qq{
+	    insert into t_xfer_task_inxfer (task, time_update)
+	    select xt.id, :now from t_xfer_task xt
+	      join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
+	      join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'},
+            ":now" => $now);
+
+        &dbexec($dbh, qq{
+	    insert into t_xfer_task_done
+	    (task, report_code, xfer_code, time_update)
+	    select xt.id, 0, 0, :now from t_xfer_task xt
+	      join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
+	      join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'},
+            ":now" => $now);
+
+        # Commit the lot above.
         $dbh->commit();
 
 	# Now pick up returned task status
@@ -207,7 +243,7 @@ sub idle
 		   $src_protos, $dest_protos) = $q->fetchrow())
 	{
 	    $$links{$from}{$to} = { HOPS => $hops,
-				    IS_LOCAL => $local == 'y' ? 1 : 0,
+				    IS_LOCAL => $local eq 'y' ? 1 : 0,
 				    XFER_RATE => $rate,
 			    	    XFER_LATENCY => $latency,
 			    	    FROM_PROTOS => $src_protos,
@@ -588,12 +624,12 @@ sub route
 	       xp.fileid, f.logical_name, xp.from_node, xp.to_node, xr.id replica,
 	       min(xp.priority) priority, max(xp.is_local) is_local,
 	       max(xp.time_expire) time_expire
-	   from t_xfer_path
+	   from t_xfer_path xp
 	     join t_xfer_replica xr
 	       on xr.fileid = xp.fileid
 	       and xr.node = xp.from_node
              join t_xfer_file f
-	       on f.fileid = xp.fileid
+	       on f.id = xp.fileid
            where xp.to_node = :me and xp.time_expire > :now
 	   group by xp.fileid, f.logical_name, xp.from_node, xp.to_node, xr.id)
 	select
@@ -611,7 +647,7 @@ sub route
 	":me" => $node, ":now" => $now);
 
     my @tasks;
-    while (my ($task) = $q->fetchrow_hashref())
+    while (my $task = $q->fetchrow_hashref())
     {
 	$self->makeTransferTask($dbh, $task, $cats, $links);
 	push(@tasks, $task);
@@ -644,8 +680,6 @@ sub route
 
     &dbbindexec($istmt, %iargs) if %iargs;
     $dbh->commit();
-
-    # Auto-export for sites without a stager agent.
 }
 
 # Calculate prototype file transfer cost.  The only factor affecting
