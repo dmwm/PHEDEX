@@ -84,22 +84,23 @@ sub idle
 	# so the histogram has no gaps -- if we miss a beat, there will
 	# be no data for this time bin.
 	&dbexec($dbh, qq{
-	    merge into t_link_histogram h
+	    merge into t_history_link h
 	    using
 	      (select :timebin timebin, :timewidth timewidth,
-	      	      s.from_node, s.to_node, s.priority,
-	              count(s.fileid) pend_files,
+	      	      xt.from_node, xt.to_node, xt.priority,
+	              count(xt.fileid) pend_files,
 		      sum(f.filesize) pend_bytes,
-		      sum(case when s.to_state < 2 then 1 else 0 end) wait_files,
-		      sum(case when s.to_state < 2 then f.filesize else 0 end) wait_bytes,
-		      sum(case when s.to_state >= 100 then 1 else 0 end) cool_files,
-		      sum(case when s.to_state >= 100 then f.filesize else 0 end) cool_bytes,
-		      sum(case when s.from_state = 1 then 1 else 0 end) ready_files,
-		      sum(case when s.from_state = 1 then f.filesize else 0 end) ready_bytes,
-		      sum(case when s.to_state = 2 then 1 else 0 end) xfer_files,
-		      sum(case when s.to_state = 2 then f.filesize else 0 end) xfer_bytes
-		from t_xfer_state s join t_xfer_file f on f.id = s.fileid
-		group by :timebin, :timewidth, s.from_node, s.to_node, s.priority)
+		      sum(case when xti.time_update > 0 then 0 else 1 end) wait_files,
+		      sum(case when xti.time_update > 0 then 0 else f.filesize end) wait_bytes,
+		      sum(case when xte.time_update > 0 then 1 else 0 end) ready_files,
+		      sum(case when xte.time_update > 0 then f.filesize else 0 end) ready_bytes,
+		      sum(case when xti.time_update > 0 then 1 else 0 end) xfer_files,
+		      sum(case when xti.time_update > 0 then f.filesize else 0 end) xfer_bytes
+		from t_xfer_task xt
+		  join t_xfer_file f on f.id = xt.fileid
+		  left join t_xfer_task_export xte on xte.task = xt.id
+		  left join t_xfer_task_inxfer xti on xti.task = xt.id
+		group by :timebin, :timewidth, xt.from_node, xt.to_node, xt.priority)
 		v
 	    on (h.timebin = v.timebin and
 	        h.from_node = v.from_node and
@@ -109,23 +110,20 @@ sub idle
 	      update set
 	        h.pend_files = v.pend_files, h.pend_bytes = v.pend_bytes,
 	        h.wait_files = v.wait_files, h.wait_bytes = v.wait_bytes,
-	        h.cool_files = v.cool_files, h.cool_bytes = v.cool_bytes,
 	        h.ready_files = v.ready_files, h.ready_bytes = v.ready_bytes,
 	        h.xfer_files = v.xfer_files, h.xfer_bytes = v.xfer_bytes
 	    when not matched then
 	      insert (timebin, timewidth, from_node, to_node, priority,
 	              pend_files, pend_bytes, wait_files, wait_bytes,
-		      cool_files, cool_bytes, ready_files, ready_bytes,
-		      xfer_files, xfer_bytes)
+		      ready_files, ready_bytes, xfer_files, xfer_bytes)
 	      values (v.timebin, v.timewidth, v.from_node, v.to_node, v.priority,
 	              v.pend_files, v.pend_bytes, v.wait_files, v.wait_bytes,
-		      v.cool_files, v.cool_bytes, v.ready_files, v.ready_bytes,
-		      v.xfer_files, v.xfer_bytes)},
+		      v.ready_files, v.ready_bytes, v.xfer_files, v.xfer_bytes)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
 	# Part II: Routing statistics.  This is a heartbeat again.
 	&dbexec($dbh, qq{
-	    merge into t_link_histogram h
+	    merge into t_history_link h
 	    using
 	      (select :timebin timebin, :timewidth timewidth,
 	      	      s.from_node, s.to_node, s.priority,
@@ -135,11 +133,11 @@ sub idle
 		from
 		  (select
 		       xp.from_node, xp.to_node,
-		       2 * xp.priority + 1-xp.local_boost priority,
+		       2 * xp.priority + 1-xp.is_local priority,
 		       xp.fileid, f.filesize, count(xp.fileid) weight
 		   from t_xfer_path xp join t_xfer_file f on f.id = xp.fileid
 		   group by xp.from_node, xp.to_node,
-			    2 * xp.priority + 1-xp.local_boost,
+			    2 * xp.priority + 1-xp.is_local,
 			    xp.fileid, f.filesize) s
 		group by :timebin, :timewidth, s.from_node, s.to_node, s.priority)
 		v
@@ -162,75 +160,26 @@ sub idle
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
 	# Part III: Update statistics on recent transfer activity.
-	&dbexec ($dbh, qq{lock table t_xfer_tracking in exclusive mode});
-	&dbexec($dbh, qq{
-	    merge into t_link_histogram h
-	    using
-	      (select trunc(xt.timestamp/:timewidth)*:timewidth timebin,
-		      :timewidth timewidth,
-	              xt.from_node, xt.to_node, xt.priority,
-		      sum(xt.is_avail) avail_files,
-		      sum(xt.is_avail * f.filesize) avail_bytes,
-		      sum(xt.is_try) try_files,
-		      sum(xt.is_try * f.filesize) try_bytes,
-		      sum(xt.is_done) done_files,
-		      sum(xt.is_done * f.filesize) done_bytes,
-		      sum(xt.is_fail) fail_files,
-		      sum(xt.is_fail * f.filesize) fail_bytes,
-		      sum(xt.is_expire) expire_files,
-		      sum(xt.is_expire * f.filesize) expire_bytes
-		from t_xfer_tracking xt join t_xfer_file f on f.id = xt.fileid
-		group by trunc(xt.timestamp/:timewidth)*:timewidth, :timewidth,
- 			 xt.from_node, xt.to_node, xt.priority)
-		v
-	    on (h.timebin = v.timebin and
-	        h.from_node = v.from_node and
-		h.to_node = v.to_node and
-		h.priority = v.priority)
-	    when matched then
-	      update set
-	        h.avail_files  = nvl(h.avail_files,0)  + v.avail_files,
-		h.avail_bytes  = nvl(h.avail_bytes,0)  + v.avail_bytes,
-	        h.try_files    = nvl(h.try_files,0)    + v.try_files,
-		h.try_bytes    = nvl(h.try_bytes,0)    + v.try_bytes,
-	        h.done_files   = nvl(h.done_files,0)   + v.done_files,
-		h.done_bytes   = nvl(h.done_bytes,0)   + v.done_bytes,
-	        h.fail_files   = nvl(h.fail_files,0)   + v.fail_files,
- 		h.fail_bytes   = nvl(h.fail_bytes,0)   + v.fail_bytes,
-	        h.expire_files = nvl(h.expire_files,0) + v.expire_files,
- 		h.expire_bytes = nvl(h.expire_bytes,0) + v.expire_bytes
-	    when not matched then
-	      insert (timebin, timewidth, from_node, to_node, priority,
-	              avail_files, avail_bytes, try_files, try_bytes,
-		      done_files, done_bytes, fail_files, fail_bytes,
-		      expire_files, expire_bytes)
-	      values (v.timebin, v.timewidth, v.from_node, v.to_node, v.priority,
-	              v.avail_files, v.avail_bytes, v.try_files, v.try_bytes,
-		      v.done_files, v.done_bytes, v.fail_files, v.fail_bytes,
-		      v.expire_files, v.expire_bytes)},
-	    ":timewidth" => $timewidth);
-	&dbexec ($dbh, qq{delete from t_xfer_tracking});
-
 	# Now "close" the link statistics.  This ensures at least one
 	# row of nulls for links which have previously had stats, and
 	# makes the link parameter calculation below pick up correct
 	# "empty" final state.
 	&dbexec($dbh, qq{
-	    insert into t_link_histogram
+	    insert into t_history_link
 	    (timebin, timewidth, from_node, to_node, priority)
 	    select :timebin, :timewidth, from_node, to_node, priority
 	    from (select from_node, to_node, priority, max(timebin) prevbin
-	          from t_link_histogram where timebin < :timebin
+	          from t_history_link where timebin < :timebin
 		  group by from_node, to_node, priority) h
 	    where exists
-		(select 1 from t_link_histogram hh
+		(select 1 from t_history_link hh
 		 where hh.from_node = h.from_node
 		   and hh.to_node = h.to_node
 		   and hh.priority = h.priority
 		   and hh.timebin = h.prevbin
 		   and hh.pend_bytes > 0)
 	      and not exists
-		(select 1 from t_link_histogram hh
+		(select 1 from t_history_link hh
 		 where hh.from_node = h.from_node
 		   and hh.to_node = h.to_node
 		   and hh.priority = h.priority
@@ -239,8 +188,10 @@ sub idle
 	$dbh->commit();
 
 	# Part IV: Node statistics.  This is a heartbeat again.
+	# FIXME: block destination -> subscriptions!?
+	# FIXME: node file source statistics!?
 	&dbexec($dbh, qq{
-	    merge into t_dest_histogram h
+	    merge into t_history_dest h
 	    using
 	      (select :timebin timebin, :timewidth timewidth, s.destination node,
 	              sum(b.files) dest_files, sum(b.bytes) dest_bytes
@@ -256,7 +207,7 @@ sub idle
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
 	&dbexec($dbh, qq{
-	    merge into t_dest_histogram h
+	    merge into t_history_dest h
 	    using
 	      (select :timebin timebin, :timewidth timewidth, s.node,
 	              count(s.fileid) node_files, sum(f.filesize) node_bytes
@@ -272,7 +223,7 @@ sub idle
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
 	&dbexec($dbh, qq{
-	    merge into t_dest_histogram h
+	    merge into t_history_dest h
 	    using
 	      (select :timebin timebin, :timewidth timewidth, s.destination node,
 	              count(s.fileid) request_files, sum(f.filesize) request_bytes,
@@ -295,8 +246,8 @@ sub idle
 
 	# Part V: Update link parameters.
 	&dbexec($dbh, qq{
-	    merge into t_link_param p
-	    using (select id from t_link) v
+	    merge into t_adm_link_param p
+	    using (select id from t_adm_link) v
 	    on (p.link = v.id)
 	    when matched then
 	      update set
@@ -315,7 +266,7 @@ sub idle
         foreach my $span (3600, 12*3600, 2*86400)
 	{
 	    &dbexec($dbh, qq{
-	        update t_link_param p
+	        update t_adm_link_param p
 	        set (pend_bytes, done_bytes, try_bytes, time_span) =
 		    (select
 		       nvl(sum(pend_bytes) keep (dense_rank last order by timebin asc),0),
@@ -329,8 +280,8 @@ sub idle
 		         when timewidth=3600
 			    and (pend_bytes > 0 or done_bytes > 0 or try_bytes > 0)
 		          then timebin end)*3600
-		     from t_link_histogram h
-		       join t_link l
+		     from t_history_link h
+		       join t_adm_link l
 		         on l.from_node = h.from_node
 			 and l.to_node = h.to_node
 		     where h.timebin > :now - :span
@@ -349,7 +300,7 @@ sub idle
 		          nvl(done_bytes,0)/time_span
 			else 0
 		      end rate
-	            from t_link_param
+	            from t_adm_link_param
 		    where time_span is not null and time_span != 0)
 	    set xfer_rate = rate,
 	        xfer_latency =
@@ -362,11 +313,11 @@ sub idle
 		   end});
 
         &dbexec($dbh, qq{
-	    update t_link_histogram h
+	    update t_history_link h
 	    set (param_rate, param_latency) =
 	      (select xfer_rate, xfer_latency
-	       from t_link_param p
-	         join t_link l on l.id = p.link
+	       from t_adm_link_param p
+	         join t_adm_link l on l.id = p.link
 	       where l.from_node = h.from_node
 	         and l.to_node = h.to_node)
 	    where timebin = :timebin},
@@ -425,7 +376,7 @@ sub compactLinkData
     my ($self, $dbh, $limit) = @_;
     my %stats;
     my $q = &dbexec($dbh, qq{
-	select * from t_link_histogram
+	select * from t_history_link
 	where timebin < :old and timewidth = 300
 	order by timebin asc, from_node, to_node, priority},
     	":old" => $limit);
@@ -468,7 +419,7 @@ sub compactLinkData
 	delete $$s{TIMETOT};
     }
 
-    $self->compactUpdate ($dbh, $limit, "t_link_histogram", \%stats);
+    $self->compactUpdate ($dbh, $limit, "t_history_link", \%stats);
 }
 
 sub compactDestData
@@ -476,7 +427,7 @@ sub compactDestData
     my ($self, $dbh, $limit) = @_;
     my %stats;
     my $q = &dbexec($dbh, qq{
-	select * from t_dest_histogram
+	select * from t_history_dest
 	where timebin < :old and timewidth = 300
 	order by timebin asc, node},
     	":old" => $limit);
@@ -498,5 +449,5 @@ sub compactDestData
 	}
     }
 
-    $self->compactUpdate ($dbh, $limit, "t_dest_histogram", \%stats);
+    $self->compactUpdate ($dbh, $limit, "t_history_dest", \%stats);
 }
