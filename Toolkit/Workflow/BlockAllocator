@@ -82,7 +82,7 @@ sub idle
 	    update t_dps_subscription s
 	    set time_complete = :now, time_clear = :now, time_done = :now
 	    where exists (select 1 from t_dps_subscription s2
-	    		  where s2.dataset = s.dataset
+	    		  where (s2.dataset = s.dataset or s2.block = s.block)
 			    and s2.time_create > s.time_create
 		            and s2.is_move = 'y')},
 	    ":now" => &mytimeofday());
@@ -94,7 +94,7 @@ sub idle
 	    delete from t_dps_block_dest bd where not exists
 	      (select 1 from t_dps_subscription s
 	       where s.destination = bd.destination
-	         and s.dataset = bd.dataset)});
+	         and (s.dataset = bd.dataset or s.block = bd.block))});
 	&logmsg ("$nrows block destinations withdrawn: no subscription")
 	    if $nrows > 0;
 
@@ -105,7 +105,7 @@ sub idle
 	($stmt, $nrows) = &dbexec ($dbh, qq{
 	    delete from t_dps_block_dest bd where exists
 	      (select 1 from t_dps_subscription s
-	       where s.dataset = bd.dataset
+	       where (s.dataset = bd.dataset or s.block = bd.block)
 	         and s.time_create > bd.time_subscription
 	         and s.is_move = 'y')});
 	&logmsg ("$nrows block destinations removed: superceded by a move")
@@ -136,7 +136,7 @@ sub idle
 	    set (priority, time_suspend_until)
 	      = (select s.priority, s.time_suspend_until
 		 from t_dps_subscription s
-		 where s.dataset = bd.dataset
+		 where (s.dataset = bd.dataset or s.block = bd.block)
 		   and s.destination = bd.destination
 	   	   and s.time_complete is null)
 	    where bd.state != 3});
@@ -161,11 +161,11 @@ sub idle
 	   insert into t_dps_block_dest
 	   (block, dataset, destination, priority, state,
 	    time_subscription, time_create, time_suspend_until)
-	   (select b.id, s.dataset, s.destination, s.priority, 0,
+	   (select b.id, b.dataset, s.destination, s.priority, 0,
 	           s.time_create, :now, s.time_suspend_until
 	    from t_dps_subscription s
 	      join t_dps_block b
-	        on b.dataset = s.dataset
+	        on (b.dataset = s.dataset or b.id = s.block)
 	    where s.time_complete is null
 	      and not exists
 	        (select 1 from t_dps_block_dest bd
@@ -186,13 +186,15 @@ sub idle
 	    where time_complete is null
 	      and exists
                 (select b.id from t_dps_block b
-		 where b.dataset = s.dataset)
+		 where (b.dataset = s.dataset or b.id = s.block))
 	      and not exists
 		(select 1 from t_dps_block_dest bd
-		 where bd.dataset = s.dataset and bd.state != 3)
+		 where (bd.dataset = s.dataset or bd.block = s.block)
+		   and bd.state != 3)
 	      and not exists
       		(select 1 from t_dps_dataset ds, t_dps_block b
-	         where b.dataset = s.dataset and ds.id = s.dataset
+	         where (b.dataset = s.dataset or b.id = s.block)
+		   and ds.id = b.dataset
 	   	   and not (ds.is_open = 'n' and b.is_open = 'n'))},
 	    ":now" => &mytimeofday());
 	&logmsg ("$nrows subscriptions marked completed")
@@ -210,7 +212,7 @@ sub idle
 	        (select b.id block, b.dataset, s.destination
 		 from t_dps_subscription s
 		   join t_dps_block b
-		     on b.dataset = s.dataset
+		     on (b.dataset = s.dataset or b.id = s.block)
 		 where s.time_complete is not null
 		   and s.time_clear is null
 	           and s.is_move = 'y'),
@@ -240,9 +242,10 @@ sub idle
 	    where is_move = 'y'
 	      and time_clear is null
 	      and time_complete is not null
-              and not exists (select 1 from t_dps_block_delete bd
-			      where bd.dataset = s.dataset
-			        and bd.time_complete is null)},
+              and not exists
+		(select 1 from t_dps_block_delete bd
+		 where (bd.dataset = s.dataset or bd.block = s.block)
+		   and bd.time_complete is null)},
 	    ":now" => &mytimeofday());
 	&logmsg ("$nrows move subscriptions marked cleared")
 	    if $nrows > 0;
@@ -266,7 +269,7 @@ sub idle
 	    delete from t_dps_block_dest bd where exists
 	      (select 1 from t_dps_subscription s
 	       where s.destination = bd.destination
-	         and s.dataset = bd.dataset
+	         and (s.dataset = bd.dataset or s.block = bd.block)
 	 	 and s.time_done is not null)});
 	&logmsg ("$nrows block destinations withdrawn: subscription done")
 	    if $nrows > 0;
