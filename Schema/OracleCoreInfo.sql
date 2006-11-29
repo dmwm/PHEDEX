@@ -1,7 +1,7 @@
 ----------------------------------------------------------------------
 -- Create tables
 
-create table t_info_xfer_states
+create table t_info_xfer_tasks
   (time_update		float		not null,
    from_node		integer		not null,
    to_node		integer		not null,
@@ -10,13 +10,13 @@ create table t_info_xfer_states
    files		integer		not null,
    bytes		integer		not null,
    --
-   constraint pk_info_xfer_states
+   constraint pk_info_xfer_tasks
      primary key (from_node, to_node, from_state, to_state),
    --
-   constraint fk_info_xfer_states_from
+   constraint fk_info_xfer_tasks_from
      foreign key (from_node) references t_adm_node (id),
    --
-   constraint fk_info_xfer_states_to
+   constraint fk_info_xfer_tasks_to
      foreign key (to_node) references t_adm_node (id));
 
 
