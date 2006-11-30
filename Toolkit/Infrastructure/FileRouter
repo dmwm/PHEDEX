@@ -148,7 +148,7 @@ sub idle
 	&dbexec($dbh, qq{
 	    insert into t_xfer_task_done
 	    (task, report_code, xfer_code, time_update)
-	    select id, 3002, 0, :now from t_xfer_task
+	    select id, -1, -1, :now from t_xfer_task
 	    where time_expire >= :now},
 	    ":now" => $now);
 

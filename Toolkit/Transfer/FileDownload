@@ -327,7 +327,7 @@ sub purgeLostTransfers
     my $qlost = &dbprep($$self{DBH}, qq{
       insert into t_xfer_task_done
         (task, report_code, xfer_code, time_update)
-	values (:task, 3001, 0, :now)});
+	values (:task, -2, -2, :now)});
     &dbbindexec($qlost, ":now" => $now, ":task" => $_) for @lostdb;
 
     # Remove locally known tasks forgotten by database.
@@ -459,14 +459,14 @@ sub check
 	if ((! -f $fxstatus && ! $live)
 	    || (-f _ && (! ($xstatus = &evalinfo($fxstatus)) || $@)))
 	{
-	    $xstatus = { START => $now, END => $now, STATUS => 2001,
+	    $xstatus = { START => $now, END => $now, STATUS => -3,
 		         DETAIL => "agent lost the transfer", LOG => "" };
 	    return if ! &output($fxstatus, Dumper($xstatus));
 	}
 
 	if (-s $fvstatus && (! ($vstatus = &evalinfo($fvstatus)) || $@))
 	{
-	    $vstatus = { START => $now, END => $now, STATUS => 2001,
+	    $vstatus = { START => $now, END => $now, STATUS => -3,
 		         LOG => "agent lost the file validation result" };
 	    return if ! &output($fvstatus, Dumper($vstatus));
 	}
@@ -501,10 +501,10 @@ sub check
 	    #      where detail specifies specific error (size mismatch, etc.)
 	    #  - transfer: successful/terminated/timed out/error + detail + log
 	    $$taskinfo{REPORT_CODE} =
-		($$vstatus{STATUS} =~ /^\d+$/ ? $$vstatus{STATUS}
+		($$vstatus{STATUS} =~ /^-?\d+$/ ? $$vstatus{STATUS}
 		 : 128 + ($$vstatus{STATUS} =~ /(\d+)/)[0]);
 	    $$taskinfo{XFER_CODE} =
-		($$xstatus{STATUS} =~ /^\d+$/ ? $$xstatus{STATUS}
+		($$xstatus{STATUS} =~ /^-?\d+$/ ? $$xstatus{STATUS}
 		 : 128 + ($$xstatus{STATUS} =~ /(\d+)/)[0]);
 	    $$taskinfo{LOG_DETAIL} = $$xstatus{DETAIL};
 	    $$taskinfo{LOG_XFER} = $$xstatus{LOG};
