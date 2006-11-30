@@ -10,4 +10,7 @@
  -nodes           %
  -verbose
  -validate        true
- -backend         Null
+ -backend         Command
+ -protocols	  srm
+ -command	  ${PHEDEX_CONFIG}/DoNothing,30,120
+ -jobs		  30
