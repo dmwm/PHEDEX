@@ -6,6 +6,6 @@
 
 ### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload
  -db              ${PHEDEX_DBPARAM}
- -nodes           ${PHEDEX_NODE}
+ -nodes           %
  -validate        true
  -backend         Null

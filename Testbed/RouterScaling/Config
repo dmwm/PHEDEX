@@ -35,7 +35,7 @@
 ### ENVIRON common
 
 # Common part
-PHEDEX_BASE=/afs/cern.ch/user/r/rehn/scratch0/PhEDEx;
+PHEDEX_BASE=/data/v2.5-test;
 PHEDEX_INSTANCE=Prod;
 PHEDEX_LABEL=Testnode;
 PHEDEX_SITE=CERN/Testbed;
@@ -59,6 +59,7 @@ X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 ### IMPORT ConfigPart.Common
 ### IMPORT ConfigPart.Export
 #### IMPORT ConfigPart.MSS
+### IMPORT ConfigPart.Management
 
 # Choose one to include, remove leading '#' from the one you want.
 # Download agents default to 'off'; either start explicitly or
