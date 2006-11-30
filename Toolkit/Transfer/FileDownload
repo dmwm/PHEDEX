@@ -111,7 +111,6 @@ die "Insufficient parameters, use -h for help.\n"
 package FileDownload; use strict; use warnings; use base 'UtilsAgent';
 use List::Util qw(min max sum);
 use File::Path qw(mkpath rmtree);
-use File::Temp qw(mkdtemp);
 use Data::Dumper;
 use UtilsCommand;
 use UtilsLogging;
@@ -154,6 +153,7 @@ sub new
 		  NEXT_DISCONNECT => 0,		# Next time to disconnect
 		  DBH_LAST_USE => 0,		# Last use of the database
 
+		  BATCH_ID => 0,		# Number of batches created
 		  BOOTTIME => time(),		# Time this agent started
 	  	  );
     my %args = (@_);
@@ -715,8 +715,9 @@ sub fill
 	}
 
 	# Send files to transfer.
-	my $dir = &mkdtemp("$$self{WORKDIR}/job.$$self{BOOTTIME}.XXXXXX");
-	my ($jobname) = ($dir =~ m|([^/]+$)|);
+	my $id = $$self{BATCH_ID}++;
+	my $jobname = "job.$$self{BOOTTIME}.$id";
+	my $dir = "$$self{WORKDIR}/$jobname";
 	&mkpath($dir);
 
 	&logmsg("copy job $jobname assigned to link $from -> $to with "
@@ -826,12 +827,14 @@ sub idle
 	    $jobs{$_} = $info;
 	}
 
-	# Rescan jobs for completed tasks.  In between each round
-	# flush validation processes to finalise job completion.
+	# Rescan jobs for completed tasks and fill the backend a few
+        # times each.  In between each round flush validation and
+	# file removal processes to finalise job completion.
 	my @check = grep (exists $jobs{$_}, @pending);
-	for (my $i = 0; @check && $i < 10; ++$i)
+	for (my $i = 0; @check && $i < 5; ++$i)
 	{
 	    $self->check($_, \%jobs, \%tasks) for @check;
+            $self->fill(\%jobs, \%tasks);
 
 	    while (@{$$self{JOBS}})
 	    {
@@ -842,14 +845,6 @@ sub idle
 	    @check = grep (exists $jobs{$_} && $jobs{$_}{RECHECK}, @pending);
     	    delete $$_{RECHECK} for values %jobs;
         }
-
-	# Fill the backend with new jobs and flush processes.
-        $self->fill(\%jobs, \%tasks);
-	while (@{$$self{JOBS}})
-	{
-	    $self->pumpJobs();
-	    select(undef, undef, undef, .1);
-	}
 
 	# Create new time period with current statistics.
         $self->statsNewPeriod(\%jobs, \%tasks);
