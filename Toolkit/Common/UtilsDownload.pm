@@ -27,7 +27,7 @@ sub new
 		  BOOTTIME      => time(),	# "Boot" time for this agent
 		  BATCHID	=> 0);		# Running batch counter
 
-    $$self{$_} = $args{$_} || $$self{$_} || $params{$_} for keys %params;
+    $$self{$_} = $args{$_} || $params{$_} for keys %params;
     bless $self, $class;
 
     # Locate the transfer wrapper script.
