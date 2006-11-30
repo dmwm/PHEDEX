@@ -117,17 +117,26 @@ sub flush
     &dbexec($dbh, qq{
         delete from t_xfer_request xq where not exists
           (select 1 from t_dps_block_dest bd
-	       where bd.destination = xq.destination
-	         and bd.block = xq.inblock
-	         and bd.state = 1)});
+	   where bd.destination = xq.destination
+	     and bd.block = xq.inblock
+	     and bd.state = 1)});
+
+    # Clear requests where replica exists.  This is required
+    # because the request activation from block destination
+    # creates requests for files for which replica may exist.
+    &dbexec($dbh, qq{
+        delete from t_xfer_request xq where exists
+          (select 1 from t_xfer_replica xr
+	   where xr.fileid = xq.fileid
+	     and xr.node = xq.destination)});
 
     # Clear old paths and those missing an active request.
     &dbexec($dbh, qq{
         delete from t_xfer_path xp where not exists
-	      (select 1 from t_xfer_request xq
-	       where xq.destination = xp.destination
-		 and xq.fileid = xp.fileid
-		 and xq.state = 0)});
+	  (select 1 from t_xfer_request xq
+	   where xq.destination = xp.destination
+	     and xq.fileid = xp.fileid
+	     and xq.state = 0)});
 
     # Clear invalid expired paths.
     &dbexec($dbh, qq{
