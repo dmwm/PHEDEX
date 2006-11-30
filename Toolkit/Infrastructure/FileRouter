@@ -224,7 +224,7 @@ sub flush
 			          values (id, 0, 0, :now)
 	select xt.id from t_xfer_task xt
 	  join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
-	  join t_adm_node nd on nd.id = xt.to_node and nd.kind = 'Buffer'
+	  join t_adm_node nd on nd.id = xt.to_node /* FIXME! and nd.kind = 'Buffer' */
 	where not exists
 	  (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)},
         ":now" => $now);
