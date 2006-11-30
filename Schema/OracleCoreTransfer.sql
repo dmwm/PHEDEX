@@ -150,6 +150,7 @@ create table t_xfer_path
    to_node		integer		not null,  -- to which node
    priority		integer		not null,  -- priority
    is_local		integer		not null,  -- local transfer priority
+   is_valid		integer		not null,  -- route is acceptable
    cost			float		not null,  -- hop cost
    total_cost		float		not null,  -- total path cost
    penalty		float		not null,  -- path penalty
