@@ -38,7 +38,7 @@ my $dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
 my $now = &mytimeofday();
 my $node = shift(@ARGV);
 my ($nodeid) = &dbexec($dbh, qq{
-  select id from t_node where name = :node},
+  select id from t_adm_node where name = :node},
   ":node" => $node)->fetchrow();
 die "Node $node not known\n" if ! defined $nodeid;
 
@@ -48,27 +48,13 @@ while (@ARGV)
 
   # Check node id
   my ($otherid) = &dbexec($dbh, qq{
-    select id from t_node where name = :name},
+    select id from t_adm_node where name = :name},
     ":name" => $other)->fetchrow();
   die "Node $other not known\n" if ! defined $otherid;
 
   # Remove the link
   &dbexec($dbh, qq{
-    delete from t_link_param where link in
-      (select id from t_link
-       where (from_node = :node and to_node = :other)
-          or (to_node = :node and from_node = :other))},
-    ":node" => $nodeid, ":other" => $otherid);
-
-  &dbexec($dbh, qq{
-    delete from t_link_share where link in
-      (select id from t_link
-       where (from_node = :node and to_node = :other)
-          or (to_node = :node and from_node = :other))},
-    ":node" => $nodeid, ":other" => $otherid);
-
-  &dbexec($dbh, qq{
-    delete from t_link
+    delete from t_adm_link
     where (from_node = :node and to_node = :other)
        or (to_node = :node and from_node = :other)},
     ":node" => $nodeid, ":other" => $otherid);
