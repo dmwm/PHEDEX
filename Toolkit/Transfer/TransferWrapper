@@ -25,6 +25,7 @@ BEGIN {
 use UtilsJobManager;
 use UtilsCommand;
 use UtilsTiming;
+use Data::Dumper;
 
 # Handle arguments.
 my $copyjob = shift(@ARGV);
@@ -35,14 +36,19 @@ my $timeout = shift(@ARGV);
 die "$timeout: not a valid timeout\n" if $timeout !~ /^\d+$/;
 $timeout = undef if $timeout == 0;
 
+# Read the copy job information so we can prepare a report.
+my $copyinfo = do { no strict "vars"; eval(&input("$copyjob/info") || '') };
+die "$copyjob: corrupt info\n" if $@ || ! $copyinfo || ! $$copyinfo{TASKS};
+
 # Prepare job exit status holder and prepare saved info.
 my $jobstatus = undef;
 my $signalled = undef;
+my $start = &mytimeofday();
 
 unlink(<$copyjob/{command,log,time*,exit*,completed,signalled,live}>);
 &output("$copyjob/command", "@ARGV")
     or die "$copyjob/command: $!\n";
-&output("$copyjob/time-start", &mytimeofday())
+&output("$copyjob/time-start", $start)
     or die "$copyjob/time-start: $!\n";
 
 # Redirect standard input, output and error.
@@ -68,8 +74,63 @@ while (@{$$jobs{JOBS}})
 
 # Job status should now be set.
 die "$0: job status lost!\n" if ! $jobstatus;
+my $end = &mytimeofday();
 
-# Generate final report
+# If we have a SRM transfer report, read that in now.
+my %taskstatus = ();
+if (-s "$copyjob/srm-report")
+{
+    # Read in the report.
+    my %reported;
+    foreach (split (/\n/, &input("$copyjob/srm-report") || ''))
+    {
+        my ($from, $to, $status, @rest) = split(/\s+/);
+        $reported{$from}{$to} = [ $status, "@rest" ];
+    }
+
+    # Read in tasks and correlate with report.
+    foreach my $task (%{$$copyinfo{TASKS}})
+    {
+	my $file = "$copyjob/../../tasks/$task";
+	my $info = do { no strict "vars"; eval (&input($file) || '') };
+	next if ! $info;
+
+	my ($from, $to) = @$info{"TASKID", "FROM_PFN", "TO_PFN"};
+	$taskstatus{$task} = $reported{$from}{$to};
+    }
+}
+
+# Build per-task status update and write them out.
+my $log = &input("$copyjob/log");
+foreach my $task (keys %{$$copyinfo{TASKS}})
+{
+    my $status = { START => $start, END => $end,
+	           STATUS => $$jobstatus{STATUS},
+		   DETAIL => "", LOG => $log };
+
+    if ($taskstatus{$task})
+    {
+	# We have a report entry, use that.
+	($$status{STATUS}, $$status{DETAIL}) = @{$taskstatus{$task}};
+    }
+    elsif (defined $signalled)
+    {
+	# The wrapper itself got a signal.
+	$$status{STATUS} = -4;
+	$$status{DETAIL} = "transfer was terminated with signal $signalled";
+    }
+    elsif (exists $$jobstatus{SIGNAL})
+    {
+	# The transfer timed out.
+	$$status{STATUS} = -5;
+	$$status{DETAIL} = "transfer timed out with $$jobstatus{SIGNAL}";
+    }
+
+    &output("$copyjob/T${task}X", Dumper($status))
+        or die "$copyjob/T${task}X: $!\n";
+}
+
+# Generate some useful flags.
 if (defined $signalled)
 {
     &output("$copyjob/signalled", $signalled)
@@ -80,7 +141,7 @@ elsif (exists $$jobstatus{SIGNAL})
     &output("$copyjob/timed-out", $$jobstatus{SIGNAL})
         or die "$copyjob/timed-out: $!\n";
 }
-&output("$copyjob/time-end", &mytimeofday())
+&output("$copyjob/time-end", $end)
     or die "$copyjob/time-end: $!\n";
 &output("$copyjob/exit-code", $$jobstatus{STATUS})
     or die "$copyjob/exit-code: $!\n";
