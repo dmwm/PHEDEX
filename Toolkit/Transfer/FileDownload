@@ -878,7 +878,7 @@ sub idle
 	if (defined $$self{DBH}
 	    && $$self{NEXT_DISCONNECT} <= $now
 	    && $now - $$self{DBH_LAST_USE} > 60
-	    && $$self{BACKEND}->isBusy($jobs, $tasks))
+	    && $$self{BACKEND}->isBusy(\%jobs, \%tasks))
 	{
 	    &logmsg("disconnecting from database");
 	    &disconnectFromDatabase($self, $$self{DBH}, 1);
