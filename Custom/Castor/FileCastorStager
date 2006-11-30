@@ -22,11 +22,12 @@
 ##H
 ##H Usage:
 ##H   FileCastorStager
-##H      -state DIRECTORY -node NAME -db FILE[:SECTION] -log OUT
-##H      -storagemap PATH -tapeusers USER[,USER]
+##H      -state DIRECTORY -db FILE[:SECTION] [-log OUT]
+##H      -nodes PATTERN[,PATTERN...] -storagemap FILE
+##H      -tapeusers USER[,USER]
 ##H
 ##H -state       agent state directory
-##H -node        the node where this agent runs
+##H -nodes       the nodes where this agent runs
 ##H -db          database connection configuration parameter file
 ##H -log         where to redirect logging information
 ##H -storagemap  storage mapping catalogue
@@ -46,13 +47,13 @@ use UtilsHelp;
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
-             "node=s"      => \$args{MYNODE},
 	     "storagemap=s"=> \$args{STORAGEMAP},
+	     "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
 	     "tapeusers=s" => sub { push(@{$args{TAPE_USERS}}, split(/,/, $_[1])) },
 	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG}
-    || !$args{MYNODE} || !$args{STORAGEMAP})
+    || !$args{NODES} || !$args{STORAGEMAP})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -77,7 +78,7 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
-	  	  MYNODE => undef,		# My TMDB node name
+	  	  NODES => undef,		# Nodes this agent runs for
 	  	  STORAGEMAP => undef,		# Storage path mapping rules
 	  	  TAPE_USERS => undef,		# Tape users to monitor
 		  WAITTIME => 550 + rand(100),	# Agent cycle time
@@ -209,28 +210,18 @@ sub purgeCache
 sub getPendingFiles
 {
     my ($self, $dbh) = @_;
-    my %unknown = ();
+    my (%seen, %unknown) = ();
     my $result = [];
 
     # First fetch files from database.  If we come across something
     # we haven't seen before, remember it but don't look it up yet.
     # Otherwise just push the (LFN, PFN, TIME) into result.
-    #
-    # "Recently wanted" == time stamp on "wanted" state is less than
-    # fifteen minutes old.  Download agents expecting files will be
-    # refreshing the wanted status more often than that when they are
-    # running and capable of downloading files.
-    my %seen = ();
+    my ($mynodes, %myargs) = &myNodeFilter($self, "xt.from_node");
     my $stmt = &dbexec($dbh, qq{
-	   select f.logical_name, xs.time_request
-	   from t_xfer_state xs
-	     join t_xfer_file f on f.id = xs.fileid
-	   where xs.from_node = :node
-	     and xs.to_state = 1
-	     and xs.time_request >= :recent
-           order by xs.time_request desc},
-	   ":node" => $$self{ID_MYNODE}, ":recent" => time() - 15*60);
-    while (my ($lfn, $time) = $stmt->fetchrow())
+	select f.logical_name from t_xfer_task xt
+	join t_xfer_file f on f.id = xt.fileid
+        where $mynodes}, %myargs);
+    while (my ($lfn) = $stmt->fetchrow())
     {
 	next if $seen{$lfn};
 	$seen{$lfn} = 1;
@@ -239,12 +230,12 @@ sub getPendingFiles
 	if ($cache && $cache =~ /^\d+:(.*)/)
 	{
 	    # Known in cache.  Just push into result.
-	    push (@$result, [ $lfn, $1 || undef, $time ]);
+	    push (@$result, [ $lfn, $1 || undef ]);
 	}
 	else
 	{
 	    # Not seen this yet.  Remember it.
-	    $unknown{$lfn} = $time;
+	    $unknown{$lfn} = 1;
 	}
     }
 
@@ -259,7 +250,7 @@ sub getPendingFiles
         {
 	    $$self{PFN_CACHE}{$lfn} = "$now:@{[$pfn || '']}";
 	    $$self{LFN_CACHE}{$pfn} = "$now:$lfn" if defined $pfn;
-	    push (@$result, [ $lfn, $pfn, $unknown{$lfn} ]);
+	    push (@$result, [ $lfn, $pfn ]);
         }
     }
 
@@ -336,7 +327,7 @@ sub buildStatus
 
     foreach my $file (@$pending)
     {
-	my ($lfn, $pfn, $time) = @$file;
+	my ($lfn, $pfn) = @$file;
 
 	do { &warn ("ignoring unknown wanted file $lfn"); next } if ! $pfn;
 	$$files{$pfn} ||= { LFN => $lfn, PFN => $pfn, STATUS => "UNKNOWN" };
@@ -355,7 +346,6 @@ sub buildStatus
 	    $$files{$pfn}{TAPE} = $tape;
 	    $$files{$pfn}{POS} = $pos;
 	    $$files{$pfn}{SIZE} = $size;
-	    $$files{$pfn}{TIME} = $time;
         }
     }
 
@@ -371,7 +361,9 @@ sub idle
     my $dbh = undef;
     eval
     {
-	$dbh = &connectToDatabase ($self);
+	my @nodes;
+	($dbh, @nodes) = &expandNodesAndConnect ($self);
+	my ($mynode, %mynodeargs) = &myNodeFilter ($self, "xr.node");
 
 	# Clean up caches
 	my %timing = (START => &mytimeofday());
@@ -394,16 +386,16 @@ sub idle
 	    $$dbcache{VALIDITY} = $now + 4*3600;
 	    $$dbcache{FILES} = {};
 	    &dbexec($dbh,qq{
-	        update t_xfer_replica
+	        update t_xfer_replica xr
 	        set state = 0, time_state = :now
-	        where node = :node and state = 1},
-	        ":node" => $$self{ID_MYNODE}, ":now" => $now);
+	        where $mynode and state = 1},
+	        ":now" => $now, %mynodeargs);
 	}
 
-	my $stmt = $dbh->prepare(qq{
-	    update t_xfer_replica set state = :state, time_state = :now
+	my $stmt = &dbprep($dbh, qq{
+	    update t_xfer_replica xr set state = :state, time_state = :now
 	    where fileid = (select id from t_xfer_file where logical_name = :lfn)
-	      and node = :node});
+	      and $mynode});
 	foreach my $f (values %$files)
 	{
 	    next if ! defined $$f{LFN};
@@ -411,27 +403,22 @@ sub idle
 	    if ($isstaged && ! $$dbcache{FILES}{$$f{LFN}})
 	    {
 		$$dbcache{FILES}{$$f{LFN}} = 1;
-		&dbbindexec ($stmt, ":now" => $now,
-			     ":node" => $$self{ID_MYNODE},
+		&dbbindexec ($stmt, ":now" => $now, %mynodeargs,
 			     ":lfn" => $$f{LFN}, ":state" => 1);
 	    }
 	    elsif (! $isstaged && $$dbcache{FILES}{$$f{LFN}})
 	    {
 		delete $$dbcache{FILES}{$$f{LFN}};
-		&dbbindexec ($stmt, ":now" => $now,
-			     ":node" => $$self{ID_MYNODE},
+		&dbbindexec ($stmt, ":now" => $now, %mynodeargs,
 			     ":lfn" => $$f{LFN}, ":state" => 0);
 	    }
 	}
 	$dbh->commit();
 	$timing{DATABASE} = &mytimeofday();
 
-	# Organise files into stage-in order.  Here we only arrange the
-	# files into time order, oldest "wanted" first.  When we take
+	# Organise files into stage-in order.  When we take
 	# files from this list, we take first by tape, then position.
-	my @requests =
-	    sort { $$a{TIME} <=> $$b{TIME} }
-	    grep ($$_{STATUS} eq 'UNKNOWN', values %$files);
+	my @requests = grep ($$_{STATUS} eq 'UNKNOWN', values %$files);
 
 	# Now issue requests for the files in batches.
 	my $nreq = scalar @requests;
