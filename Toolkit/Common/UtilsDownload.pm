@@ -1,6 +1,7 @@
 package UtilsDownload; use strict; use warnings; use base 'UtilsJobManager';
 use UtilsCommand;
 use Getopt::Long;
+use Data::Dumper;
 
 sub new
 {
