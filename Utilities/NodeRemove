@@ -54,10 +54,6 @@ while (@ARGV)
         (select id from t_adm_node where name = :name)},
       ":name" => $name);
     &dbexec($dbh, qq{
-      delete from t_xfer_state where to_node =
-        (select id from t_adm_node where name = :name)},
-      ":name" => $name);
-    &dbexec($dbh, qq{
       delete from t_history_link where to_node =
         (select id from t_adm_node where name = :name)},
       ":name" => $name);
