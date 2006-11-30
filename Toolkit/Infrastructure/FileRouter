@@ -328,7 +328,7 @@ sub receive
         # Log the outcome.
 	($$task{LOG_XFER} ||= '') =~ s/\s+/ /gs;
 	($$task{LOG_DETAIL} ||= '') =~ s/\s+/ /gs;
-	($$task{LOG_VERIFY} ||= '') =~ s/\s+/ /gs;
+	($$task{LOG_VALIDATE} ||= '') =~ s/\s+/ /gs;
 	&logmsg("xstats:"
 		. " task=$$task{TASK}"
 		. " file=$$task{FILEID}"
@@ -345,7 +345,7 @@ sub receive
 		. ($$task{TIME_DONE}   ? " t-done=$$task{TIME_DONE}" : "")
 		. " lfn=$$task{LOGICAL_NAME}"
 		. " xfer_detail=($$task{LOG_DETAIL})"
-		. " xfer_verify=($$task{LOG_VERIFY})"
+		. " xfer_validate=($$task{LOG_VALIDATE})"
 		. " xfer_log=($$task{LOG_XFER})");
 
         $dbh->commit();
@@ -885,14 +885,14 @@ sub routeFile
 	       . ": none of the source replicas are reachable ("
 	       . (scalar keys %{$$request{REPLICAS}}) . " at: "
 	       . "@{[ keys %{$$request{REPLICAS}} ]})")
-           if ! $$self{WARNED}{$dest}{$$request{FILEID}};
+           if 0 && ! $$self{WARNED}{$dest}{$$request{FILEID}};
 	$$self{WARNED}{$dest}{$$request{FILEID}} = 1;
     }
     else
     {
 	&warn ("failed to route file $$request{FILEID} to destination $dest"
 	       . ": no source replica available")
-           if ! $$self{WARNED}{$dest}{$$request{FILEID}};
+           if 0 && ! $$self{WARNED}{$dest}{$$request{FILEID}};
 	$$self{WARNED}{$dest}{$$request{FILEID}} = 1;
     }
 }
@@ -950,14 +950,14 @@ sub catalogue
         while (my ($proto, $chain, $dest, $path, $result) = $q->fetchrow())
         {
 	    # Check the pattern is valid.  If not, abort.
-            eval { qr/$path/ };
+            my $pathrx = eval { qr/$path/ };
 	    return $$cats{$node} = {} if $@;
 
 	    # Add the rule to our list.
 	    push(@{$$cats{$node}{$proto}}, {
 		    (defined $chain ? ('chain' => $chain) : ()),
 		    (defined $dest ? ('destination-match' => $dest) : ()),
-		    'path-match' => $path,
+		    'path-match' => $pathrx,
 		    'result' => $result });
         }
     }
