@@ -157,9 +157,9 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 	    nvl(sum(pend_bytes) keep (dense_rank last order by timebin asc),0),
 	    nvl(sum(h.try_files),0),
 	    nvl(sum(h.fail_files),0)
-	from t_link_histogram h
-	  join t_node f on f.id = h.from_node
-	  join t_node t on t.id = h.to_node
+	from t_history_link h
+	  join t_adm_node f on f.id = h.from_node
+	  join t_adm_node t on t.id = h.to_node
 	where h.timebin >= :limit
 	  and h.timebin < :upto
 	  and f.name not like '%MSS'
@@ -379,7 +379,7 @@ my $qblocks = &dbexec($dbh, qq{
 	sum(b.bytes - br.node_bytes)
     from t_dps_block b
       join t_dps_block_replica br on br.block = b.id
-      join t_node n on n.id = br.node
+      join t_adm_node n on n.id = br.node
     where b.is_open = 'n'
       and br.is_active = 'y'
       and br.dest_files > 0
@@ -402,14 +402,14 @@ print "# Consistency checks\n\n";
 
 my $errors = 0;
 my $qtrdups = &dbexec($dbh, qq{
-    select xs.to_node, xs.fileid, f.logical_name
-    from t_xfer_state xs
+    select xt.to_node, xt.fileid, f.logical_name
+    from t_xfer_task xt
       join t_xfer_file f
-        on f.id = xs.fileid
+        on f.id = xt.fileid
       join t_xfer_replica xr
-        on xr.fileid = xs.fileid
-       and xr.node = xs.to_node
-    order by xs.to_node, f.logical_name});
+        on xr.fileid = xt.fileid
+       and xr.node = xt.to_node
+    order by xt.to_node, f.logical_name});
 while (my ($to, $id, $lfn) = $qtrdups->fetchrow ())
 {
     print "WARNING: destination replica exists for transfer of $id to $to ($lfn)\n";
