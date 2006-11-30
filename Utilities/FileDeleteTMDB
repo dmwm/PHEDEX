@@ -108,7 +108,7 @@ sub setTableList
     
     if ( $$nodes[0] eq 'all')
     {
-	@tables = ('t_xfer_state',
+	@tables = ('t_xfer_task',
 		   't_xfer_replica',
 		   't_xfer_request',
 		   't_xfer_path',
@@ -117,7 +117,7 @@ sub setTableList
     }
     else
     {
-	@tables = ('t_xfer_state',
+	@tables = ('t_xfer_task',
 		   't_xfer_replica');
     }    
     return \@tables;
@@ -310,13 +310,13 @@ sub getNodeID
 	if ( $nodename =~ m|%| )
 	{
 	    $q = &dbexec($dbh, qq{
-		select name, id from t_node where name like :nodename},
+		select name, id from t_adm_node where name like :nodename},
 			    ":nodename" => $nodename);
 	}
 	else
 	{
 	    $q = &dbexec($dbh, qq{
-		select name, id from t_node where name = :nodename},
+		select name, id from t_adm_node where name = :nodename},
 			    ":nodename" => $nodename);
 	}
 	map {$$node{$$_[0]} = $$_[1]} @{$q->fetchall_arrayref()};
@@ -417,12 +417,14 @@ sub deleteAllTMDBEntries
     {
 	# check if there is tracking information for that LFN and wait
 	my $q = &dbexec($dbh, qq{
-	    select count(*) from t_xfer_tracking where fileid = :lfn},
-			":lfn" => $lfn);
+	    select count(*) from t_xfer_task_done xtd
+	    join t_xfer_task xt on xt.id = xtd.task
+	    where xt.fileid = :lfn},
+	    ":lfn" => $lfn);
 	$exists_tracking = $q->fetchrow();
 	if ( $exists_tracking )
 	{
-	    print "files are still being tracked, waiting 30s for table to be emptied\n";
+	    print "files are still being harvested, waiting 30s for table to be emptied\n";
 	    $dbh->commit();
 	    sleep 30;
 	}
@@ -461,7 +463,7 @@ sub deleteSiteTMDBEntries
 	    delete from $table where
 		(from_node = :node or to_node = :node) and fileid = :lfn},
 		":lfn" => $lfn, ":node" => $node)
-	    if ( $table eq 't_xfer_state' );
+	    if ( $table eq 't_xfer_task' );
 	&dbexec($dbh, qq{
 	    delete from $table where
 		node = :node and fileid = :lfn},
