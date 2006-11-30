@@ -300,13 +300,10 @@ sub statsNewPeriod
 sub purgeLostTransfers
 {
     my ($self, $jobs, $tasks) = @_;
-    my (%inlocal, %indb, %injob) = ();
+    my (%inlocal, %indb) = ();
 
     # Get the local transfer pool.  All we need is the task ids.
     $inlocal{$_} = 1 for keys %$tasks;
-
-    # Get the tasks we know are being transferred.
-    $injob{$_} = 1 for map { keys %{$$_{TASKS}} } %$jobs;
 
     # Get the database transfer pool.  Again, just task ids.
     my ($dest, %dest_args) = &myNodeFilter ($self, "xt.to_node");
@@ -319,8 +316,15 @@ sub purgeLostTransfers
     $indb{$_} = 1 while (($_) = $qpending->fetchrow());
 
     # Calculate differences.
-    my @lostlocal = grep(! exists $indb{$_}, keys %inlocal);
-    my @lostdb    = grep(! exists $inlocal{$_} || ! exists $injob{$_}, keys %indb);
+    my @lostlocal = grep(! $indb{$_}, keys %inlocal);
+    my @lostdb    = grep(! $inlocal{$_}, keys %indb);
+
+    &alert("resetting database tasks lost locally: @{[sort @lostdb]}"
+	   . " (locally known: @{[sort keys %inlocal]})")
+	if @lostdb;
+    &alert("resetting local tasks lost in database: @{[sort @lostlocal]}"
+	   . " (database known: @{[sort keys %indb]})")
+	if @lostlocal;
 
     # Mark locally unknown tasks as lost in database.
     my $now = &mytimeofday();
@@ -393,6 +397,7 @@ sub fetchNewTasks
 sub updateTaskStatus
 {
     my ($self, $tasks, $task) = @_;
+    &logmsg("uploading status of task $task") if $$self{VERBOSE};
     &dbexec($$self{DBH}, qq{
 	insert into t_xfer_task_done
 	(task, report_code, xfer_code, time_update,
@@ -717,7 +722,7 @@ sub fill
 		$P[$i]{HIGH} = $P[$i]{LOW} + $stats{$to}{$from}{W}/$W;
 
                 &logmsg("new link parameters for $from -> $to:"
-		        . sprintf(' P=[%0.3f, %0.3f),', @{$P[$i]{"LOW", "HIGH"}})
+		        . sprintf(' P=[%0.3f, %0.3f),',$P[$i]{LOW},$P[$i]{HIGH})
 		        . sprintf(' W=%0.3f,', $stats{$to}{$from}{W})
 		        . " DONE=$stats{$to}{$from}{DONE},"
 		        . " USED=$stats{$to}{$from}{USED}")
