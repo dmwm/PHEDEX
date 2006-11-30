@@ -98,9 +98,9 @@ my $data = &dbexec ($dbh, qq{
       h.try_files,
       h.fail_files,
       h.done_files
-    from t_link_histogram h
-      join t_node f on f.id = h.from_node
-      join t_node t on t.id = h.to_node});
+    from t_history_link h
+      join t_adm_node f on f.id = h.from_node
+      join t_adm_node t on t.id = h.to_node});
 while (my ($bin, $from, $to, $bdone, $bwait,
 	   $tfiles, $ffiles, $dfiles) = $data->fetchrow())
 {
