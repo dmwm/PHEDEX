@@ -16,7 +16,6 @@
 
 ### AGENT LABEL=mgmt-blockdls PROGRAM=Toolkit/Workflow/BlockDLSUpdate
  -db        ${PHEDEX_DBPARAM}
- -node      ${PHEDEX_NODE}
 
 ### AGENT LABEL=mgmt-router PROGRAM=Toolkit/Infrastructure/FileRouter
  -db        ${PHEDEX_DBPARAM}
