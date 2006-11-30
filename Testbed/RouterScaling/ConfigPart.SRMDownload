@@ -1,0 +1,11 @@
+#### Download agents
+
+#### Be careful with FileDownloadDelete on Castor-2 based
+#### systems. Castor sites, please follow the suggestion in
+#### README-Transfer on CVS.
+
+### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload
+ -db              ${PHEDEX_DBPARAM}
+ -nodes           ${PHEDEX_NODE}
+ -validate        true
+ -backend         Null

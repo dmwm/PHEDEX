@@ -1,0 +1,11 @@
+<storage-mapping>
+  <lfn-to-pfn protocol="direct" destination-match=".*"
+    path-match="/+T0Test/(.*)" result="/castor/cern.ch/cms/T0Prototype/$1"/>
+  <lfn-to-pfn protocol="gsiftp" destination-match=".*" chain='direct'
+    path-match="(.*)" result="$1"/>
+
+  <pfn-to-lfn protocol="direct" destination-match=".*"
+    path-match="/+castor/cern.ch/cms/T0Prototype/(.*)" result="/T0Test/$1"/>
+  <pfn-to-lfn protocol="gsiftp" destination-match=".*" chain='direct'
+    path-match="(.*)" result="$1"/>
+</storage-mapping>
