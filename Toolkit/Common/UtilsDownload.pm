@@ -76,6 +76,7 @@ sub startBatch
 	         TASKS => { map { $$_{TASKID} => 1 } @batch } };
     &output("$dir/info", Dumper($info));
     &touch("$dir/live");
+    $$jobs{$jobname} = $info;
     $self->clean($info, $tasks);
 }
 
