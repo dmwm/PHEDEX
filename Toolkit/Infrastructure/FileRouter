@@ -921,10 +921,11 @@ sub catalogue
 
 	    # Add the rule to our list.
 	    push(@{$$cats{$node}{$proto}}, {
+		    'protocol' => $proto,
 		    'chain' => $chain,
 		    'destination-match' => $dest,
 		    'path-match' => $path,
-		    'result-expr' => $result });
+		    'result' => $result });
         }
     }
 
