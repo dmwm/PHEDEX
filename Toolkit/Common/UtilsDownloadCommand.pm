@@ -36,9 +36,10 @@ sub transferBatch
     my ($self, $job, $tasks) = @_;
     foreach (keys %{$$job{TASKS}})
     {
-        $self->launch ($$self{WRAPPER}, $$job{DIR}, $$self{TIMEOUT},
-		       @{$$self{COMMAND}}, $$tasks{$_}{FROM_PFN},
-		       $$tasks{$_}{TO_PFN});
+        $self->addJob(undef, { DETACHED => 1 },
+		      $$self{WRAPPER}, $$job{DIR}, $$self{TIMEOUT},
+		      @{$$self{COMMAND}}, $$tasks{$_}{FROM_PFN},
+		      $$tasks{$_}{TO_PFN});
     }
 }
 
