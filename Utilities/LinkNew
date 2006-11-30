@@ -42,7 +42,7 @@ my $dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
 my $now = &mytimeofday();
 my $node = shift(@ARGV);
 my ($nodeid) = &dbexec($dbh, qq{
-  select id from t_node where name = :node},
+  select id from t_adm_node where name = :node},
   ":node" => $node)->fetchrow();
 die "Node $node not known\n" if ! defined $nodeid;
 
@@ -67,45 +67,28 @@ while (@ARGV)
 
   # Check node id
   my ($id) = &dbexec($dbh, qq{
-    select id from t_node where name = :name},
+    select id from t_adm_node where name = :name},
     ":name" => $name)->fetchrow();
   die "Node $name not known\n" if ! defined $id;
 
   # Add link
-  my $tolinkid = undef;
   &dbexec($dbh, qq{
-    insert into t_link (id, from_node, to_node, distance, local_boost)
-    values (seq_link.nextval, :me, :other, :distance, :local)
-    returning id into :id},
-    ":id" => \$tolinkid,
+    insert into t_adm_link
+    (id, from_node, to_node, distance, is_local, is_active, is_preferred)
+    values (seq_adm_link.nextval, :me, :other, :distance, :local, 'y', 'n')},
     ":me" => $nodeid,
     ":other" => $id,
     ":distance" => $distance,
-    ":local" => ($locality eq "R" ? 0 : 1));
+    ":local" => ($locality eq "R" ? 'n' : 'y'));
 
-  my $fromlinkid = undef;
   &dbexec($dbh, qq{
-    insert into t_link (id, from_node, to_node, distance, local_boost)
-    values (seq_link.nextval, :other, :me, :distance, :local)
-    returning id into :id},
-    ":id" => \$fromlinkid,
+    insert into t_adm_link
+    (id, from_node, to_node, distance, is_local, is_active, is_preferred)
+    values (seq_adm_link.nextval, :other, :me, :distance, :local, 'y', 'n')},
     ":me" => $nodeid,
     ":other" => $id,
     ":distance" => $distance,
-    ":local" => ($locality eq "R" ? 0 : 1));
-
-  # Add link shares
-  for (my $priority = 0; $priority <= $#shares; ++$priority)
-  {
-    &dbexec($dbh, qq{
-      insert into t_link_share (link, priority, link_share)
-      values (:link, :priority, :link_share)},
-      ":link" => $tolinkid, ":priority" => $priority, ":link_share" => $shares[$priority]);
-    &dbexec($dbh, qq{
-      insert into t_link_share (link, priority, link_share)
-      values (:link, :priority, :link_share)},
-      ":link" => $fromlinkid, ":priority" => $priority, ":link_share" => $shares[$priority]);
-  }
+    ":local" => ($locality eq "R" ? 'n' : 'y'));
 }
 
 $dbh->commit();
