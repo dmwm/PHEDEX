@@ -829,7 +829,8 @@ sub idle
 
 	# Rescan jobs for completed tasks and fill the backend a few
         # times each.  In between each round flush validation and
-	# file removal processes to finalise job completion.
+	# file removal processes to finalise job completion.  Fill
+	# once more at the end in case @check is empty.
 	my @check = grep (exists $jobs{$_}, @pending);
 	for (my $i = 0; @check && $i < 5; ++$i)
 	{
@@ -845,6 +846,13 @@ sub idle
 	    @check = grep (exists $jobs{$_} && $jobs{$_}{RECHECK}, @pending);
     	    delete $$_{RECHECK} for values %jobs;
         }
+
+        $self->fill(\%jobs, \%tasks);
+	while (@{$$self{JOBS}})
+	{
+	    $self->pumpJobs();
+	    select(undef, undef, undef, .1);
+	}
 
 	# Create new time period with current statistics.
         $self->statsNewPeriod(\%jobs, \%tasks);
