@@ -38,49 +38,7 @@ while (@ARGV)
   my $name = shift(@ARGV);
   print "Removing $name\n";
 
-  # Delete from "harmless" tables stuff for convenience
-  &dbexec($dbh, qq{
-    delete from t_info_xfer_states where to_node =
-      (select id from t_adm_node where name = :name)},
-    ":name" => $name);
-  &dbexec($dbh, qq{
-    delete from t_info_xfer_states where from_node =
-      (select id from t_adm_node where name = :name)},
-    ":name" => $name);
-  &dbexec($dbh, qq{
-    delete from t_dps_block_dest where destination =
-      (select id from t_adm_node where name = :name)},
-    ":name" => $name);
-  &dbexec($dbh, qq{
-    delete from t_dps_block_replica where node =
-      (select id from t_adm_node where name = :name)},
-    ":name" => $name);
-  &dbexec($dbh, qq{
-    delete from t_dps_block_delete where node =
-      (select id from t_adm_node where name = :name)},
-    ":name" => $name);
-  &dbexec($dbh, qq{
-    delete from t_xfer_request where destination =
-      (select id from t_adm_node where name = :name)},
-    ":name" => $name);
-  &dbexec($dbh, qq{
-    delete from t_xfer_path where destination =
-      (select id from t_adm_node where name = :name)},
-    ":name" => $name);
-  &dbexec($dbh, qq{
-    delete from t_agent_message where node =
-      (select id from t_adm_node where name = :name)},
-    ":name" => $name);
-  &dbexec($dbh, qq{
-    delete from t_agent_status where node =
-      (select id from t_adm_node where name = :name)},
-    ":name" => $name);
-  &dbexec($dbh, qq{
-    delete from t_agent_version where node =
-      (select id from t_adm_node where name = :name)},
-    ":name" => $name);
-
-  # If forced, remove some more
+  # If forced, remove sensitive data.
   if ($args{FORCE})
   {
     &dbexec($dbh, qq{
@@ -100,19 +58,15 @@ while (@ARGV)
         (select id from t_adm_node where name = :name)},
       ":name" => $name);
     &dbexec($dbh, qq{
-      delete from t_xfer_state where from_node =
+      delete from t_history_link where to_node =
         (select id from t_adm_node where name = :name)},
       ":name" => $name);
     &dbexec($dbh, qq{
-      delete from t_link_histogram where to_node =
+      delete from t_history_link where from_node =
         (select id from t_adm_node where name = :name)},
       ":name" => $name);
     &dbexec($dbh, qq{
-      delete from t_link_histogram where from_node =
-        (select id from t_adm_node where name = :name)},
-      ":name" => $name);
-    &dbexec($dbh, qq{
-      delete from t_dest_histogram where node =
+      delete from t_history_dest where node =
         (select id from t_adm_node where name = :name)},
       ":name" => $name);
   }
