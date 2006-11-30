@@ -131,13 +131,15 @@ eval
     {
 	print "Creating block $block";
 	my $bid = undef;
+	# We populate the t_dps_block, but don't update the number of files and total size,
+	# since Oracle triggers will take care about that.
 	&dbexec($dbh, qq{
 	    insert into t_dps_block 
 	    (id,dataset,name,files,bytes,is_open,time_create,time_update)
 	    values (seq_dps_block.nextval,1,:name,:nfiles,:nbytes,'y',:now, null)
 	    returning id into :id},
 	    ":id" => \$bid, ":now" => $now, ":name" => "block$block",
-	    ":nfiles" => $count, ":nbytes" => $count * $size);
+	    ":nfiles" => 0, ":nbytes" => 0);
 	print ", id=$bid\n";
 	
 	for( my $f = 0; $f<$count; $f++)
