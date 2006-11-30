@@ -69,7 +69,6 @@ sub idle
 
     eval
     {
-	my $now = &mytimeofday();
 	$$self{NODES} = [ '%' ];
 	($dbh, @nodes) = &expandNodesAndConnect ($self,
 	    { "FileDownload" => 5400, "FileExport" => 5400 });
@@ -77,207 +76,17 @@ sub idle
 	# First pick up returned task status.
 	$self->receive($dbh);
 
-        # Update priority on existing requests.
-        &dbexec ($dbh, qq{
-            update (select xq.priority req_priority, bd.priority cur_priority
-                    from t_xfer_request xq
-                      join t_dps_block_dest bd
-                        on bd.block = xq.inblock
-                        and bd.destination = xq.destination)
-            set req_priority = cur_priority});
+        # Run general flush.
+	$self->flush($dbh);
 
-        # Clear requests for files no longer wanted.
-        &dbexec($dbh, qq{
-            delete from t_xfer_request xq where not exists
-              (select 1 from t_dps_block_dest bd
-	       where bd.destination = xq.destination
-	         and bd.block = xq.inblock
-	         and bd.state = 1)});
+	# Route files.
+	$self->route($dbh, @nodes);
 
-	# Clear old paths and those missing an active request.
-	&dbexec($dbh, qq{
-            delete from t_xfer_path xp where not exists
-	      (select 1 from t_xfer_request xq
-	       where xq.destination = xp.destination
-		 and xq.fileid = xp.fileid
-		 and xq.state = 0)});
-    
-        # If transfers path are about to expire on links which have
-        # reasonable recent transfer rate, give a bit more grace time.
-        &dbexec($dbh, qq{
-	    update t_xfer_path xp
-	    set xp.time_expire = :now + 8*3600
-	    where xp.time_expire >= :now
-	      and xp.time_expire < :now + 3600
-	      and exists
-	        (select 1 from t_adm_link_param lp
-	         join t_adm_link l on l.id = lp.link
-	         where l.from_node = xp.from_node
-	           and l.to_node = xp.to_node
-       	           and lp.xfer_rate >= 1048576)},
-	    ":now" => $now);
+	# Flush again for quick paths.
+	$self->flush($dbh);
 
-        &dbexec($dbh, qq{
-	    update t_xfer_task xt
-	    set xt.time_expire =
-	      (select max(xp.time_expire)
-	       from t_xfer_path xp
-	       where xp.from_node = xt.from_node
-	         and xp.to_node = xt.to_node
-                 and xp.fileid = xt.fileid)
-            where exists
-	        (select 1 from t_xfer_path xp
-	         where xp.fileid = xt.fileid
-	           and xp.from_node = xt.from_node
-                   and xp.to_node = xt.to_node
-	           and xp.time_expire > xt.time_expire)});
-
-        &dbexec($dbh, qq{
-	    update t_xfer_request xq
-	    set xq.time_expire =
-	      (select max(xp.time_expire)
-	       from t_xfer_path xp
-	       where xp.fileid = xq.fileid
-	         and xp.destination = xq.destination)
-            where xq.state = 0 and exists
-	        (select 1 from t_xfer_path xp
-	         where xp.fileid = xq.fileid
-	           and xp.destination = xq.destination
-	           and xp.time_expire > xq.time_expire)});
-
-        # Mark as expired tasks which didn't complete in time.
-	&dbexec($dbh, qq{
-	    insert into t_xfer_task_done
-	    (task, report_code, xfer_code, time_update)
-	    select id, -1, -1, :now from t_xfer_task
-	    where :now >= time_expire},
-	    ":now" => $now);
-
-        # Deactivate requests which reached their expire time limit.
-        &dbexec($dbh, qq{
-            update t_xfer_request
-            set state = 1, time_expire = :now + 2*3600
-            where state = 0 and :now >= time_expire},
-	    ":now" => $now);
-
-        # Auto-export for sites running exports without stage-in.
-        &dbexec($dbh, qq{
-	    insert into t_xfer_task_export (task, time_update)
-	    select xt.id, :now from t_xfer_task xt
-	      join t_adm_node ns
-	        on ns.id = xt.from_node and ns.kind = 'Disk'
-	      join t_xfer_source xs
-	        on xs.from_node = xt.from_node
-		and xs.to_node = xt.to_node
-	        and xs.time_update >= :now - 5400
-	    where not exists
-	      (select 1 from t_xfer_task_export xte where xte.task = xt.id)},
-            ":now" => $now);
-
-	# Auto transfer for MSS -> Buffer transitions.
-        &dbexec($dbh, qq{
-	    insert into t_xfer_task_export (task, time_update)
-	    select xt.id, :now from t_xfer_task xt
-	      join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
-	      join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'
-	    where not exists
-	      (select 1 from t_xfer_task_export xte where xte.task = xt.id)},
-            ":now" => $now);
-
-        &dbexec($dbh, qq{
-	    insert into t_xfer_task_inxfer (task, time_update)
-	    select xt.id, :now from t_xfer_task xt
-	      join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
-	      join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'
-	    where not exists
-	      (select 1 from t_xfer_task_inxfer xti where xti.task = xt.id)},
-            ":now" => $now);
-
-        &dbexec($dbh, qq{
-	    insert into t_xfer_task_done
-	    (task, report_code, xfer_code, time_update)
-	    select xt.id, 0, 0, :now from t_xfer_task xt
-	      join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
-	      join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'
-	    where not exists
-	      (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)},
-            ":now" => $now);
-
-        # Commit the lot above.
-        $dbh->commit();
-
-	# All of this must run in a single agent to avoid database
-	# connection proliferation.  The execution order for the
-	# phases is important in that it balances progress for this
-	# node (destination) and requests by other nodes (relaying).
-	# Some of the steps feed to the next one.
-	#
-	# New requests begin in open state.  Offers will then begin to
-	# build.  Once first offer reaches the destination, we mark
-	# the request to go active in twice the time elapsed from the
-	# opening.  Once a request is active, we confirm the path that
-	# Has least total cost.
-	#
-	# Consider running only one instance of this agent for all
-	# nodes.  If the agent passes one loop quickly enough, this
-	# will reduce number of connections and database load
-	# significantly.
-
-	# Read links and their parameters.  Only consider links which
-	# are "alive", i.e. have a live download agent at destination
-	# and an export agent at the source.
-	my $links = {};
-	my $q = &dbexec($dbh, qq{
-	    select l.from_node, l.to_node, l.distance, l.is_local,
-	           p.xfer_rate, p.xfer_latency,
-		   xso.protocols, xsi.protocols
-	    from t_adm_link l
-	      join t_adm_node ns on ns.id = l.from_node
-	      join t_adm_node nd on nd.id = l.to_node
-	      left join t_adm_link_param p on p.link = l.id
-	      left join t_xfer_source xso
-	        on xso.from_node = ns.id
-		and xso.to_node = nd.id
-	        and xso.time_update >= :recent
-	      left join t_xfer_sink xsi
-	        on xsi.from_node = ns.id
-		and xsi.to_node = nd.id
-	        and xsi.time_update >= :recent
-	    where (ns.kind = 'MSS' and nd.kind = 'Buffer')
-	       or (ns.kind = 'Buffer' and nd.kind = 'MSS'
-       		   and xsi.from_node is not null)
-	       or (xso.from_node is not null
-       		   and xsi.from_node is not null)},
-	    ":recent" => &mytimeofday() - 5400);
-	while (my ($from, $to, $hops, $local, $rate, $latency,
-		   $src_protos, $dest_protos) = $q->fetchrow())
-	{
-	    $$links{$from}{$to} = { HOPS => $hops,
-				    IS_LOCAL => $local eq 'y' ? 1 : 0,
-				    XFER_RATE => $rate,
-			    	    XFER_LATENCY => $latency,
-			    	    FROM_PROTOS => $src_protos,
-			    	    TO_PROTOS => $dest_protos };
-	}
-
-	# Now route for the nodes
-	my $costs = {};
-	my $cats = {};
-	foreach my $node (@nodes)
-	{
-	    my $nodeid = $$self{NODES_ID}{$node};
-	    $self->route ($dbh, $nodeid, $links, $costs, $cats);
-	    $self->maybeStop();
-	}
-
-	if (@nodes)
-	{
-	    &logmsg ("routed for @nodes");
-	}
-	else
-	{
-	    &logmsg ("nothing to route for");
-	}
+	# And receive the files we completed.
+	$self->receive($dbh);
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
@@ -287,6 +96,142 @@ sub idle
 
     # Have a little rest
     $self->nap ($$self{WAITTIME});
+}
+
+# Run general system flush.
+sub flush
+{
+    my ($self, $dbh) = @_;
+    my $now = &mytimeofday();
+
+    # Update priority on existing requests.
+    &dbexec ($dbh, qq{
+        update (select xq.priority req_priority, bd.priority cur_priority
+                from t_xfer_request xq
+                  join t_dps_block_dest bd
+                    on bd.block = xq.inblock
+                    and bd.destination = xq.destination)
+        set req_priority = cur_priority});
+
+    # Clear requests for files no longer wanted.
+    &dbexec($dbh, qq{
+        delete from t_xfer_request xq where not exists
+          (select 1 from t_dps_block_dest bd
+	       where bd.destination = xq.destination
+	         and bd.block = xq.inblock
+	         and bd.state = 1)});
+
+    # Clear old paths and those missing an active request.
+    &dbexec($dbh, qq{
+        delete from t_xfer_path xp where not exists
+	      (select 1 from t_xfer_request xq
+	       where xq.destination = xp.destination
+		 and xq.fileid = xp.fileid
+		 and xq.state = 0)});
+
+    # If transfers path are about to expire on links which have
+    # reasonable recent transfer rate, give a bit more grace time.
+    &dbexec($dbh, qq{
+	update t_xfer_path xp
+	set xp.time_expire = :now + 8*3600
+	where xp.time_expire >= :now
+	  and xp.time_expire < :now + 3600
+	  and exists
+	    (select 1 from t_adm_link_param lp
+	     join t_adm_link l on l.id = lp.link
+	     where l.from_node = xp.from_node
+	       and l.to_node = xp.to_node
+   	       and lp.xfer_rate >= 1048576)},
+	":now" => $now);
+
+    &dbexec($dbh, qq{
+	update t_xfer_task xt
+	set xt.time_expire =
+	  (select max(xp.time_expire)
+	   from t_xfer_path xp
+	   where xp.from_node = xt.from_node
+	     and xp.to_node = xt.to_node
+             and xp.fileid = xt.fileid)
+        where exists
+	  (select 1 from t_xfer_path xp
+	   where xp.fileid = xt.fileid
+	     and xp.from_node = xt.from_node
+             and xp.to_node = xt.to_node
+	     and xp.time_expire > xt.time_expire)});
+
+    &dbexec($dbh, qq{
+	update t_xfer_request xq
+	set xq.time_expire =
+	  (select max(xp.time_expire)
+	   from t_xfer_path xp
+	   where xp.fileid = xq.fileid
+	     and xp.destination = xq.destination)
+        where xq.state = 0 and exists
+	  (select 1 from t_xfer_path xp
+	   where xp.fileid = xq.fileid
+	     and xp.destination = xq.destination
+	     and xp.time_expire > xq.time_expire)});
+
+    # Mark as expired tasks which didn't complete in time.
+    &dbexec($dbh, qq{
+	insert into t_xfer_task_done
+	(task, report_code, xfer_code, time_update)
+	select id, -1, -1, :now from t_xfer_task
+	where :now >= time_expire},
+	":now" => $now);
+
+    # Deactivate requests which reached their expire time limit.
+    &dbexec($dbh, qq{
+        update t_xfer_request
+        set state = 1, time_expire = :now + 2*3600
+        where state = 0 and :now >= time_expire},
+	":now" => $now);
+
+    # Auto-export for sites running exports without stage-in.
+    &dbexec($dbh, qq{
+	insert into t_xfer_task_export (task, time_update)
+	select xt.id, :now from t_xfer_task xt
+	  join t_adm_node ns
+	    on ns.id = xt.from_node and ns.kind = 'Disk'
+	  join t_xfer_source xs
+	    on xs.from_node = xt.from_node
+	    and xs.to_node = xt.to_node
+	    and xs.time_update >= :now - 5400
+	where not exists
+	  (select 1 from t_xfer_task_export xte where xte.task = xt.id)},
+        ":now" => $now);
+
+	# Auto transfer for MSS -> Buffer transitions.
+    &dbexec($dbh, qq{
+	insert into t_xfer_task_export (task, time_update)
+	select xt.id, :now from t_xfer_task xt
+	  join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
+	  join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'
+	where not exists
+	  (select 1 from t_xfer_task_export xte where xte.task = xt.id)},
+        ":now" => $now);
+
+    &dbexec($dbh, qq{
+	insert into t_xfer_task_inxfer (task, time_update)
+	select xt.id, :now from t_xfer_task xt
+	  join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
+	  join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'
+	where not exists
+	  (select 1 from t_xfer_task_inxfer xti where xti.task = xt.id)},
+        ":now" => $now);
+
+    &dbexec($dbh, qq{
+	insert into t_xfer_task_done
+	(task, report_code, xfer_code, time_update)
+	select xt.id, 0, 0, :now from t_xfer_task xt
+	  join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
+	  join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'
+	where not exists
+	  (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)},
+        ":now" => $now);
+
+    # Commit the lot above.
+    $dbh->commit();
 }
 
 # Harvest completed transfers.
@@ -407,8 +352,86 @@ sub receive
     }
 }
 
-# Run the routing algorithm for one node.
 sub route
+{
+    my ($self, $dbh, @nodes) = @_;
+
+    # All of this must run in a single agent to avoid database
+    # connection proliferation.  The execution order for the
+    # phases is important in that it balances progress for this
+    # node (destination) and requests by other nodes (relaying).
+    # Some of the steps feed to the next one.
+    #
+    # New requests begin in open state.  Offers will then begin to
+    # build.  Once first offer reaches the destination, we mark
+    # the request to go active in twice the time elapsed from the
+    # opening.  Once a request is active, we confirm the path that
+    # Has least total cost.
+    #
+    # Consider running only one instance of this agent for all
+    # nodes.  If the agent passes one loop quickly enough, this
+    # will reduce number of connections and database load
+    # significantly.
+
+    # Read links and their parameters.  Only consider links which
+    # are "alive", i.e. have a live download agent at destination
+    # and an export agent at the source.
+    my $links = {};
+    my $q = &dbexec($dbh, qq{
+	select l.from_node, l.to_node, l.distance, l.is_local,
+	       p.xfer_rate, p.xfer_latency,
+	       xso.protocols, xsi.protocols
+	from t_adm_link l
+	  join t_adm_node ns on ns.id = l.from_node
+	  join t_adm_node nd on nd.id = l.to_node
+	  left join t_adm_link_param p on p.link = l.id
+	  left join t_xfer_source xso
+	    on xso.from_node = ns.id
+	    and xso.to_node = nd.id
+	    and xso.time_update >= :recent
+	  left join t_xfer_sink xsi
+	    on xsi.from_node = ns.id
+	    and xsi.to_node = nd.id
+	    and xsi.time_update >= :recent
+	where (ns.kind = 'MSS' and nd.kind = 'Buffer')
+	   or (ns.kind = 'Buffer' and nd.kind = 'MSS'
+       	       and xsi.from_node is not null)
+	   or (xso.from_node is not null
+       	       and xsi.from_node is not null)},
+	":recent" => &mytimeofday() - 5400);
+    while (my ($from, $to, $hops, $local, $rate, $latency,
+	       $src_protos, $dest_protos) = $q->fetchrow())
+    {
+	$$links{$from}{$to} = { HOPS => $hops,
+				IS_LOCAL => $local eq 'y' ? 1 : 0,
+				XFER_RATE => $rate,
+			    	XFER_LATENCY => $latency,
+			    	FROM_PROTOS => $src_protos,
+			    	TO_PROTOS => $dest_protos };
+    }
+
+    # Now route for the nodes
+    my $costs = {};
+    my $cats = {};
+    foreach my $node (@nodes)
+    {
+	my $nodeid = $$self{NODES_ID}{$node};
+	$self->routeNode ($dbh, $nodeid, $links, $costs, $cats);
+	$self->maybeStop();
+    }
+
+    if (@nodes)
+    {
+	&logmsg ("routed for @nodes");
+    }
+    else
+    {
+	&logmsg ("nothing to route for");
+    }
+}
+
+# Run the routing algorithm for one node.
+sub routeNode
 {
     my ($self, $dbh, $node, $links, $costs, $cats) = @_;
 
