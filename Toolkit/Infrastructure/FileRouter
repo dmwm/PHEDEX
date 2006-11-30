@@ -150,7 +150,7 @@ sub idle
 	    insert into t_xfer_task_done
 	    (task, report_code, xfer_code, time_update)
 	    select id, -1, -1, :now from t_xfer_task
-	    where time_expire >= :now},
+	    where :now >= time_expire},
 	    ":now" => $now);
 
         # Deactivate requests which reached their expire time limit.
@@ -169,7 +169,9 @@ sub idle
 	      join t_xfer_source xs
 	        on xs.from_node = xt.from_node
 		and xs.to_node = xt.to_node
-	        and xs.time_update >= :now - 5400},
+	        and xs.time_update >= :now - 5400
+	    where not exists
+	      (select 1 from t_xfer_task_export xte where xte.task = xt.id)},
             ":now" => $now);
 
 	# Auto transfer for MSS -> Buffer transitions.
@@ -177,14 +179,18 @@ sub idle
 	    insert into t_xfer_task_export (task, time_update)
 	    select xt.id, :now from t_xfer_task xt
 	      join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
-	      join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'},
+	      join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'
+	    where not exists
+	      (select 1 from t_xfer_task_export xte where xte.task = xt.id)},
             ":now" => $now);
 
         &dbexec($dbh, qq{
 	    insert into t_xfer_task_inxfer (task, time_update)
 	    select xt.id, :now from t_xfer_task xt
 	      join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
-	      join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'},
+	      join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'
+	    where not exists
+	      (select 1 from t_xfer_task_inxfer xti where xti.task = xt.id)},
             ":now" => $now);
 
         &dbexec($dbh, qq{
@@ -192,7 +198,9 @@ sub idle
 	    (task, report_code, xfer_code, time_update)
 	    select xt.id, 0, 0, :now from t_xfer_task xt
 	      join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
-	      join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'},
+	      join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'
+	    where not exists
+	      (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)},
             ":now" => $now);
 
         # Commit the lot above.
@@ -285,6 +293,7 @@ sub idle
 sub receive
 {
     my ($self, $dbh) = @_;
+    my $now = &mytimeofday();
     my $q = &dbexec($dbh, qq{
 	select
 	    xtd.task, xt.fileid, xtd.report_code, xtd.xfer_code,
@@ -315,6 +324,7 @@ sub receive
 				  : "fail"));
 	while (my ($t, $stat) = each %stats)
 	{
+	    next if ! defined $$task{$t};
 	    eval { &dbexec($dbh, qq{
 	        insert into t_history_link
 	        (timebin, timewidth, from_node, to_node, priority)
@@ -362,7 +372,8 @@ sub receive
 		set state = 1, time_expire = :now + 3600
 		where fileid = :fileid and destination = :node},
 		":fileid" => $$task{FILEID},
-		":node" => $$task{TO_NODE});
+		":node" => $$task{TO_NODE},
+		":now" => $now);
 	}
 
 	# Remove the task and its paraphernalia.
@@ -370,9 +381,9 @@ sub receive
 	    ":task" => $$task{TASK});
 
         # Log the outcome.
-	$$task{LOG_XFER} =~ s/\s+/ /gs;
-	$$task{LOG_DETAIL} =~ s/\s+/ /gs;
-	$$task{LOG_VERIFY} =~ s/\s+/ /gs;
+	($$task{LOG_XFER} ||= '') =~ s/\s+/ /gs;
+	($$task{LOG_DETAIL} ||= '') =~ s/\s+/ /gs;
+	($$task{LOG_VERIFY} ||= '') =~ s/\s+/ /gs;
 	&logmsg("xstats:"
 		. " task=$$task{TASK}"
 		. " file=$$task{FILEID}"
@@ -892,8 +903,8 @@ sub makeTransferTask
 	       || ! $$to_cat{$protocol});
 
     # Try to expand the file name.
-    $$task{FROM_PFN} = &applyStorageRules($from_cat, $protocol, $to, 'pre');
-    $$task{TO_PFN}   = &applyStorageRules($to_cat, $protocol, $from, 'pre');
+    $$task{FROM_PFN} = &applyStorageRules($from_cat, $protocol, $to, 'pre', $$task{LOGICAL_NAME});
+    $$task{TO_PFN}   = &applyStorageRules($to_cat, $protocol, $from, 'pre', $$task{LOGICAL_NAME});
 }
 
 # Build and cache storage mapping catalogue for a node.
@@ -921,9 +932,8 @@ sub catalogue
 
 	    # Add the rule to our list.
 	    push(@{$$cats{$node}{$proto}}, {
-		    'protocol' => $proto,
-		    'chain' => $chain,
-		    'destination-match' => $dest,
+		    (defined $chain ? ('chain' => $chain) : ()),
+		    (defined $dest ? ('destination-match' => $dest) : ()),
 		    'path-match' => $path,
 		    'result' => $result });
         }
