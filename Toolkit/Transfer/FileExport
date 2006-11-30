@@ -189,7 +189,7 @@ sub idle
 
 		# Remove source status on links we manage.
 		&dbexec($dbh, qq{
-		    delete from t_xfer_source xs where xs.to_node = :me $filter},
+		    delete from t_xfer_source xs where xs.from_node = :me $filter},
 		    ":me" => $$self{NODES_ID}{$node}, %filter_args);
 
 		# Mark current set of managed links as live.
@@ -224,7 +224,7 @@ sub idle
 	 eval { $dbh->rollback() } if $dbh; } if $@;
     
     # Disconnect from the database
-    &disconnectFromDatabase ($self, $dbh) if $dbh;
+    &disconnectFromDatabase ($self, $dbh, 1) if $dbh;
     
     # Have a little nap
     $self->nap ($$self{WAITTIME});
