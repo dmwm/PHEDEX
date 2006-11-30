@@ -10,14 +10,14 @@
 ##H
 ##H Usage:
 ##H   FileCastorMigrate
-##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
-##H      -storagemap PATH
+##H      -state DIRECTORY -db FILE[:SECTION] [-log OUT]
+##H      -nodes PATTERN[,PATTERN...] [-protocols PROTOCOL[,PROTOCOL...]]
 ##H
 ##H -state         agent state directory
-##H -node          the node where this agent runs
 ##H -db            database connection configuration parameter file
 ##H -log           where to redirect logging information
-##H -storagemap    storage mapping catalogue
+##H -nodes         the nodes for which this agent runs
+##H -protocols     the protocols accepted by this agent (default: 'direct')
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -33,12 +33,13 @@ use UtilsHelp;
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
-             "node=s"      => \$args{MYNODE},
-	     "storagemap=s"=> \$args{STORAGEMAP},
+             "nodes=s"     => sub { push(@{$args{NODES}},
+                                         split(/,/, $_[1])) },
+             "protocols=s" => sub { push(@{$args{PROTOCOLS}},
+                                         split(/,/, $_[1])) },
 	     "help|h"      => sub { &usage() });
 
-if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG}
-    || !$args{MYNODE} || !$args{STORAGEMAP})
+if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{NODES})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -60,8 +61,8 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
-	  	  MYNODE => undef,		# My TMDB node name
-	  	  STORAGEMAP => undef,		# Program to query PFNs
+	  	  NODES => undef,		# Nodes to operate for
+		  PROTOCOLS => [ 'direct' ],	# Protocols to accept
 		  WAITTIME => 150 + rand(50),	# Agent activity cycle
 	  	  AGENTID => "FileDownload");	# Identity for activity logs
     my %args = (@_);
@@ -77,48 +78,56 @@ sub idle
     my $dbh = undef;
     eval
     {
-	$dbh = &connectToDatabase ($self);
+	# Automate portions of the hand shake so accounting reports
+	# the right values.  The Buffer/MSS nodes are expected to be
+	# shared in reality and this agent to be the only one making
+	# transfers to the MSS.
 
-	# Follow minimally the transfer handshake so all accounting
-	# infrastructure continues to report the right values.  The
-	# assumption is of course the Buffer/MSS node is shared and
-	# there are no transfers out from the MSS node.
-	#
-	# Automatically issue all files "in transfer", but do not
-	# mark them wanted at the source: we don't want the stager
-	# to activate on these files.
+	my @nodes;
+	($dbh, @nodes) = &expandNodesAndConnect ($self);
+	my ($mynode, %myargs) = &myNodeFilter($self, "xt.to_node");
 	my $start = &mytimeofday();
+
+	# Advertise myself available so file routing kicks in.
+        &dbexec($dbh, qq{delete from t_xfer_sink xt where $mynode}, %myargs);
+        &dbexec($dbh, qq{
+            insert into t_xfer_sink (from_node, to_node, protocols, time_update)
+            select xt.from_node, xt.to_node, :protos, :now from t_adm_link xt
+            where $mynode},
+            ":protos" => "@{$$self{PROTOCOLS}}", ":now" => $start, %myargs);
+
+	# Auto-export from buffer to me and put them into transfer.
 	&dbexec($dbh, qq{
-	    update t_xfer_state
-	    set from_state = 1, to_state = 2,
-	        time_available = :now, time_xfer_start = :now
-	    where to_node = :node and to_state = 0},
-	    ":node" => $$self{ID_MYNODE}, ":now" => &mytimeofday());
+	    insert all
+	       into t_xfer_task_export values (id, :now)
+	       into t_xfer_task_inxfer values (id, :now)
+	    select xt.id from t_xfer_task xt
+	    where $mynode
+	      and not exists
+	        (select 1 from t_xfer_task_export xte where xte.task = xt.id)},
+	    ":now" => $start, %myargs);
+
 	$dbh->commit();
 
-	# Process files pending migration.
-        my $xrstmt = &dbprep ($dbh, qq{
-	    insert into t_xfer_replica
-	    (id, fileid, node, state, time_create, time_state)
-	    values (seq_xfer_replica.nextval, :fileid, :node, 0, :now, :now)});
-        my $xsstmt = &dbprep ($dbh, qq{
-	    update t_xfer_state
-	    set to_state = 3, time_xfer_end = :now
-	    where to_node = :node and fileid = :fileid});
-        my $xdstmt = &dbprep ($dbh, qq{
-	    delete from t_xfer_state
-	    where to_node = :node and fileid = :fileid});
+	# Pick up work and process it.
+        my $done = &dbprep ($dbh, qq{
+	    insert into t_xfer_task_done
+	    (task, report_code, xfer_code, time_update)
+	    values (:task, 0, 0, :now});
 	my $q = &dbexec($dbh, qq{
-	    select xs.fileid, f.logical_name, f.filesize, xs.time_available
-	    from t_xfer_state xs join t_xfer_file f on f.id = xs.fileid
-	    where xs.to_node = :node and xs.to_state = 2
-	    order by xs.time_available asc},
-  	    ":node" => $$self{ID_MYNODE});
-	while (my ($fileid, $lfn, $size, $available) = $q->fetchrow())
+	    select
+	      xt.id, n.name, f.filesize, f.logical_name,
+	      xt.to_pfn, xt.time_assign
+	    from t_xfer_task xt
+	      join t_xfer_file f on f.id = xt.fileid
+	      join t_adm_node n on n.id = xt.to_node
+	    where $mynode
+	      and not exists
+	        (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)
+	    order by xt.time_assign asc, xt.rank asc}, %myargs);
+	while (my ($task, $dest, $size, $lfn, $pfn, $available) = $q->fetchrow())
 	{
 	    # Check if the file has been migrated.  If not, skip it.
-	    my $pfn = &pfnLookup ($lfn, "direct", "local", $$self{STORAGEMAP});
-	    do { &alert ("failed to find pfn for file $lfn"); next } if !$pfn;
 	    open (NSLS, "nsls -l $pfn |")
 		or do { &warn ("cannot nsls $pfn: $!"); next };
 	    my $status = <NSLS>;
@@ -129,16 +138,13 @@ sub idle
 
 	    # Migrated, mark transfer completed
 	    my $now = &mytimeofday();
-	    my %args = (":node" => $$self{ID_MYNODE}, ":fileid" => $fileid);
-	    &dbbindexec($xsstmt, %args, ":now" => $now);
-	    &dbbindexec($xrstmt, %args, ":now" => $now);
-	    &dbbindexec($xdstmt, %args);
+	    &dbbindexec($done, ":task" => $task, ":now" => $now);
 	    $dbh->commit ();
 
 	    # Log delay data.
-    	    &logmsg ("xstats: $$self{MYNODE} "
+    	    &logmsg ("xstats: to_node=$dest time="
 		     . sprintf('%.1fs', $now - $available)
-		     . " $size $lfn $pfn");
+		     . " size=$size lfn=$lfn pfn=$pfn");
 
 	    # Give up if we've taken too long
 	    last if $now - $start > 10*60;
