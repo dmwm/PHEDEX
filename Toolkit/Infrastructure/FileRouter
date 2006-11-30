@@ -129,6 +129,13 @@ sub flush
 		 and xq.fileid = xp.fileid
 		 and xq.state = 0)});
 
+    # Clear invalid expired paths.
+    &dbexec($dbh, qq{
+        delete from t_xfer_path xp
+	where xp.is_valid = 0
+	  and :now >= xp.time_expire},
+	":now" => $now);
+
     # If transfers path are about to expire on links which have
     # reasonable recent transfer rate, give a bit more grace time.
     &dbexec($dbh, qq{
@@ -136,6 +143,7 @@ sub flush
 	set xp.time_expire = :now + 8*3600
 	where xp.time_expire >= :now
 	  and xp.time_expire < :now + 3600
+	  and xp.is_valid = 1
 	  and exists
 	    (select 1 from t_adm_link_param lp
 	     join t_adm_link l on l.id = lp.link
@@ -151,13 +159,15 @@ sub flush
 	   from t_xfer_path xp
 	   where xp.from_node = xt.from_node
 	     and xp.to_node = xt.to_node
-             and xp.fileid = xt.fileid)
+             and xp.fileid = xt.fileid
+	     and xp.is_valid = 1)
         where exists
 	  (select 1 from t_xfer_path xp
 	   where xp.fileid = xt.fileid
 	     and xp.from_node = xt.from_node
              and xp.to_node = xt.to_node
-	     and xp.time_expire > xt.time_expire)});
+	     and xp.time_expire > xt.time_expire
+	     and xp.is_valid = 1)});
 
     &dbexec($dbh, qq{
 	update t_xfer_request xq
@@ -165,12 +175,14 @@ sub flush
 	  (select max(xp.time_expire)
 	   from t_xfer_path xp
 	   where xp.fileid = xq.fileid
-	     and xp.destination = xq.destination)
+	     and xp.destination = xq.destination
+	     and xp.is_valid = 1)
         where xq.state = 0 and exists
 	  (select 1 from t_xfer_path xp
 	   where xp.fileid = xq.fileid
 	     and xp.destination = xq.destination
-	     and xp.time_expire > xq.time_expire)});
+	     and xp.time_expire > xq.time_expire
+	     and xp.is_valid = 1)});
 
     # Mark as expired tasks which didn't complete in time.
     &dbexec($dbh, qq{
@@ -192,40 +204,27 @@ sub flush
 	insert into t_xfer_task_export (task, time_update)
 	select xt.id, :now from t_xfer_task xt
 	  join t_adm_node ns
-	    on ns.id = xt.from_node and ns.kind = 'Disk'
+	    on ns.id = xt.from_node
+	    and ns.kind = 'Disk'
 	  join t_xfer_source xs
 	    on xs.from_node = xt.from_node
 	    and xs.to_node = xt.to_node
 	    and xs.time_update >= :now - 5400
 	where not exists
-	  (select 1 from t_xfer_task_export xte where xte.task = xt.id)},
+	  (select 1 from t_xfer_task_export xte
+	   where xte.task = xt.id)},
         ":now" => $now);
 
-	# Auto transfer for MSS -> Buffer transitions.
+    # Auto transfer for MSS -> Buffer transitions.
     &dbexec($dbh, qq{
-	insert into t_xfer_task_export (task, time_update)
-	select xt.id, :now from t_xfer_task xt
+	insert all
+	  into t_xfer_task_export (task, time_update) values (id, :now)
+	  into t_xfer_task_inxfer (task, time_update) values (id, :now)
+	  into t_xfer_task_done   (task, report_code, xfer_code, time_update)
+			          values (id, 0, 0, :now)
+	select xt.id from t_xfer_task xt
 	  join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
-	  join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'
-	where not exists
-	  (select 1 from t_xfer_task_export xte where xte.task = xt.id)},
-        ":now" => $now);
-
-    &dbexec($dbh, qq{
-	insert into t_xfer_task_inxfer (task, time_update)
-	select xt.id, :now from t_xfer_task xt
-	  join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
-	  join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'
-	where not exists
-	  (select 1 from t_xfer_task_inxfer xti where xti.task = xt.id)},
-        ":now" => $now);
-
-    &dbexec($dbh, qq{
-	insert into t_xfer_task_done
-	(task, report_code, xfer_code, time_update)
-	select xt.id, 0, 0, :now from t_xfer_task xt
-	  join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
-	  join t_adm_node nd on ns.id = xt.to_node and nd.kind = 'Buffer'
+	  join t_adm_node nd on nd.id = xt.to_node and nd.kind = 'Buffer'
 	where not exists
 	  (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)},
         ":now" => $now);
@@ -471,7 +470,7 @@ sub routeNode
     $q = &dbexec($dbh, qq{
 	select xp.priority, nvl(sum(f.filesize),0)
         from t_xfer_path xp join t_xfer_file f on f.id = xp.fileid
-        where xp.to_node = :node group by xp.priority},
+        where xp.to_node = :node and xp.is_valid = 1 group by xp.priority},
 	":node" => $node);
     while (my ($priority, $bytes) = $q->fetchrow())
     {
@@ -616,9 +615,9 @@ sub routeNode
     my $istmt = &dbprep($dbh, qq{
 	insert into t_xfer_path
 	(fileid, destination, hop, src_node, from_node, to_node,
-	 priority, is_local, cost, total_cost, penalty,
+	 priority, is_local, is_valid, cost, total_cost, penalty,
 	 time_request, time_confirm, time_expire)
-	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
+	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
 
     foreach my $req (values %$requests)
     {
@@ -633,12 +632,13 @@ sub routeNode
 	    push(@{$iargs{$n++}}, $$hop{TO_NODE});
 	    push(@{$iargs{$n++}}, $$req{PRIORITY});
 	    push(@{$iargs{$n++}}, $$hop{IS_LOCAL});
+	    push(@{$iargs{$n++}}, $$hop{IS_VALID});
 	    push(@{$iargs{$n++}}, ($$hop{LINK_LATENCY} || 0) + ($$hop{XFER_LATENCY} || 0));
 	    push(@{$iargs{$n++}}, ($$hop{TOTAL_LATENCY} || 0));
 	    push(@{$iargs{$n++}}, ($$hop{LINK_RATE} || 0));
 	    push(@{$iargs{$n++}}, $$req{TIME_CREATE});
 	    push(@{$iargs{$n++}}, $now);
-	    push(@{$iargs{$n++}}, $$req{TIME_EXPIRE});
+	    push(@{$iargs{$n++}}, ($$hop{IS_VALID} ? $$req{TIME_EXPIRE} : $now+3600));
 	}
     }
 
@@ -657,6 +657,7 @@ sub routeNode
 	  (select 1 from t_xfer_path better
 	   where this.fileid = better.fileid
 	     and this.to_node = better.to_node
+	     and (this.is_valid = 1 and better.is_valid = 1)
 	     and ((this.is_local = 0 and better.is_local > 0)
 		  or this.total_cost > better.total_cost
 		  or (this.total_cost = better.total_cost
@@ -677,7 +678,9 @@ sub routeNode
 	       and xr.node = xp.from_node
              join t_xfer_file f
 	       on f.id = xp.fileid
-           where xp.to_node = :me and xp.time_expire > :now
+           where xp.to_node = :me
+	     and xp.is_valid = 1
+	     and xp.time_expire > :now
 	   group by xp.fileid, f.logical_name, xp.from_node, xp.to_node, xr.id)
 	select
 	   fileid, logical_name, replica, from_node, to_node,
@@ -798,9 +801,6 @@ sub routeCost
 		    $total += 7*86400;
 	  	}
 
-		# If this looks too bad to be used, cut it off.
-		next if ($total >= 3*86400);
-
 		# Update the path if there is none yet, if we have local
 		# path and existing is not local, or if we now have a
 		# better cost without changing local attribute.
@@ -867,12 +867,13 @@ sub routeFile
     {
 	my $index = 0;
 	my $node = $dest;
-	my $local = 1;
+	my $valid = $bestcost < 3*86400 ? 1 : 0;
 	while ($$best{$node}{FROM_NODE} != $$best{$node}{TO_NODE})
 	{
 	    my $from = $$best{$node}{FROM_NODE};
 	    my $item = { %{$$best{$node}} };
 	    $$item{INDEX} = $index++;
+	    $$item{IS_VALID} = $valid;
 	    push(@{$$request{PATH}}, $item);
 	    $node = $from;
 	}
@@ -885,14 +886,14 @@ sub routeFile
 	       . ": none of the source replicas are reachable ("
 	       . (scalar keys %{$$request{REPLICAS}}) . " at: "
 	       . "@{[ keys %{$$request{REPLICAS}} ]})")
-           if 0 && ! $$self{WARNED}{$dest}{$$request{FILEID}};
+           if ! $$self{WARNED}{$dest}{$$request{FILEID}};
 	$$self{WARNED}{$dest}{$$request{FILEID}} = 1;
     }
     else
     {
 	&warn ("failed to route file $$request{FILEID} to destination $dest"
 	       . ": no source replica available")
-           if 0 && ! $$self{WARNED}{$dest}{$$request{FILEID}};
+           if ! $$self{WARNED}{$dest}{$$request{FILEID}};
 	$$self{WARNED}{$dest}{$$request{FILEID}} = 1;
     }
 }
