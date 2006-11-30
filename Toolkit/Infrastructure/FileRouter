@@ -37,6 +37,7 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
 package FileRouter; use strict; use warnings; use base 'UtilsAgent';
 use List::Util qw(max);
 use UtilsLogging;
+use UtilsCatalogue;
 use UtilsTiming;
 use UtilsDB;
 
@@ -876,7 +877,7 @@ sub makeTransferTask
     # Find matching protocol.
     foreach my $p (@to_protos)
     {
-	next if ! grep($$_ eq $p, @from_protos);
+	next if ! grep($_ eq $p, @from_protos);
 	$protocol = $p;
 	last;
     }
@@ -886,7 +887,9 @@ sub makeTransferTask
 	       || ! $to_cat
 	       || ! $$links{$from}
 	       || ! $$links{$from}{$to}
-	       || ! $protocol);
+	       || ! $protocol
+	       || ! $$from_cat{$protocol}
+	       || ! $$to_cat{$protocol});
 
     # Try to expand the file name.
     $$task{FROM_PFN} = &applyStorageRules($from_cat, $protocol, $to, 'pre');
