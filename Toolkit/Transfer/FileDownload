@@ -720,7 +720,7 @@ sub fill
 	&mkpath($dir);
 
 	&logmsg("copy job $jobname assigned to link $from -> $to with "
-		. sprintf('p=%0.3f and ', $p)
+		. sprintf('p=%0.3f and W=%0.3f and ', $p, $stats{$to}{$from}{W})
 		. scalar(@{$todo{$to}{$from}})
 		. " transfer tasks in queue")
 	    if $$self{VERBOSE};
@@ -886,6 +886,9 @@ sub idle
     };
     do { chomp ($@); &alert ($@); $$self{NEXT_PURGE} = 0;
 	 eval { $$self{DBH}->rollback() } if $$self{DBH}; } if $@;
+
+    # Clear zombie detached processes in the backend.
+    $$self{BACKEND}->pumpJobs();
 
     # Finally have a nap.
     $self->nap($$self{WAITTIME});
