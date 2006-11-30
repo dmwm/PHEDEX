@@ -7,7 +7,7 @@
 ### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload
  -db              ${PHEDEX_DBPARAM}
  -accept	  %_Buffer,%_Disk
- -nodes           %_Buffer,%_Disk
+ -nodes           %
  -verbose
  -validate        true
  -backend         Null
