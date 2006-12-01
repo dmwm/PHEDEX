@@ -48,7 +48,7 @@ create table t_xfer_file
      foreign key (inblock) references t_dps_block (id));
 
 ----------------------------------------------------------------------
--- Add indices
+-- Create indices
 
 create index ix_dps_file_node
   on t_dps_file (node);

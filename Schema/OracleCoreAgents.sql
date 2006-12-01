@@ -85,7 +85,16 @@ create table t_agent_version
 
 
 ----------------------------------------------------------------------
--- Add indices
+-- Create indices
 
 create index ix_agent_message
   on t_agent_message (node, agent);
+
+create index ix_agent_message_agent
+  on t_agent_message (agent);
+
+create index ix_agent_status_agent
+  on t_agent_status (agent);
+
+create index ix_agent_version_agent
+  on t_agent_version (agent);

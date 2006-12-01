@@ -345,14 +345,39 @@ create table t_history_dest
      foreign key (node) references t_adm_node (id));
 
 ----------------------------------------------------------------------
--- Add indices
+-- Create indices
 
+create index ix_xfer_source_to
+  on t_xfer_source (to_node);
+
+--
+create index ix_xfer_sink_to
+  on t_xfer_sink (to_node);
+
+--
+create index ix_xfer_delete_node
+  on t_xfer_delete (node);
+
+--
+create index ix_xfer_replica_fileid
+  on t_xfer_replica (fileid);
+
+--
 create index ix_xfer_request_inblock
   on t_xfer_request (inblock);
 
+create index ix_xfer_request_fileid
+  on t_xfer_request (fileid);
+
 --
+create index ix_xfer_path_fileid
+  on t_xfer_path (fileid);
+
 create index ix_xfer_path_to
   on t_xfer_path (to_node);
+
+create index ix_xfer_path_from
+  on t_xfer_path (from_node);
 
 create index ix_xfer_path_tofile
   on t_xfer_path (to_node, fileid);
@@ -372,3 +397,14 @@ create index ix_xfer_task_from_replica
 
 create index ix_xfer_task_fileid
    on t_xfer_task (fileid);
+
+--
+create index ix_history_link_from
+  on t_history_link (from_node);
+
+create index ix_history_link_to
+  on t_history_link (to_node);
+
+--
+create index ix_history_dest_node
+  on t_history_dest (node);

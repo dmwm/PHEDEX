@@ -124,3 +124,15 @@ create table t_adm_global_admin
    constraint fk_adm_global_admin_id
      foreign key (identity) references t_adm_identity (id)
      on delete cascade);
+
+----------------------------------------------------------------------
+-- Create indices
+
+create index ix_adm_client_contact
+  on t_adm_client (contact);
+
+create index ix_adm_site_admin_identity
+  on t_adm_site_admin (identity);
+
+create index ix_adm_site_node_node
+  on t_adm_site_node (node);

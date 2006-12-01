@@ -199,10 +199,14 @@ create table t_dps_subscription
      check (is_transient in ('y', 'n')));
 
 ----------------------------------------------------------------------
--- Add indices
+-- Create indices
 
 create index ix_dps_block_dataset
   on t_dps_block (dataset);
+
+--
+create index ix_dps_block_replica_node
+  on t_dps_block_replica (node);
 
 --
 create index ix_dps_block_dest_dataset
@@ -219,6 +223,9 @@ create index ix_dps_block_activate_b
 create index ix_dps_block_delete_ds
   on t_dps_block_delete (dataset);
 
+create index ix_dps_block_delete_node
+  on t_dps_block_delete (node);
+
 --
 create index ix_dps_subscription_dataset
   on t_dps_subscription (dataset);
@@ -228,3 +235,4 @@ create index ix_dps_subscription_block
 
 create index ix_dps_subscription_dest
   on t_dps_subscription (destination);
+

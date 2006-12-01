@@ -51,3 +51,9 @@ create table t_info_file_size_histogram
    bin_width		integer		not null,
    n_total		integer		not null,
    sz_total		integer		not null);
+
+----------------------------------------------------------------------
+-- Create indices
+
+create index ix_info_xfer_tasks_to
+  on t_info_xfer_tasks (to_node);

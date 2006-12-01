@@ -125,7 +125,7 @@ create table t_req_info_block
      on delete cascade);
 
 ----------------------------------------------------------------------
--- Add indices
+-- Create indices
 
 create index ix_req_request_creator
   on t_req_request (creator);

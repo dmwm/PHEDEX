@@ -94,3 +94,9 @@ create table t_adm_link_param
      on delete cascade)
  --
  organization index;
+
+----------------------------------------------------------------------
+-- Create indices
+
+create index ix_adm_link_to
+  on t_adm_link (to_node);
