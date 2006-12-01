@@ -2,7 +2,8 @@
 -- index/hash organised table (iot) for t_routing, t_replica_state?
 -- www.cern.ch/it-db -> Oracle @ CERN -> Sessions -> pdb01/cms -> login
 -- explain plan for ...
--- @?/rdbms/admin/utilxpls.sql
+-- @?/rdbms/admin/utlxpls.sql
+--   @/afs/cern.ch/project/oracle/linux/10201/rdbms/admin/utlxpls.sql
 -- select plan_table_output from table(dbms_xplan.display('plan_table',null,'serial'))
 -- desc dbms_stats (in oradoc)
 -- analyze
