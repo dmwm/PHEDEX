@@ -13,14 +13,15 @@
 ##H
 ##H Usage:
 ##H   FileSrmStager
-##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
-##H      -storagemap PATH
+##H      -state DIRECTORY -db FILE[:SECTION] [-log OUT]
+##H      -nodes PATTERN[,PATTERN...] -storagemap PATH
 ##H
 ##H -state       agent state directory
-##H -node        the node where this agent runs
+##H -nodes       the nodes where this agent runs
 ##H -db          database connection configuration parameter file
 ##H -log         where to redirect logging information
 ##H -storagemap  storage mapping catalogue
+
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -36,12 +37,13 @@ use UtilsHelp;
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
-             "node=s"      => \$args{MYNODE},
+             "nodes=s"     => sub { push(@{$args{NODES}},
+			     		 split(/,/, $_[1])) },
 	     "storagemap=s"=> \$args{STORAGEMAP},
 	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG}
-    || !$args{MYNODE} || !$args{STORAGEMAP})
+    || !$args{NODES} || !$args{STORAGEMAP})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -66,7 +68,7 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
-	  	  MYNODE => undef,		# My TMDB node name
+	  	  NODES => undef,		# Nodes this agent runs for
 	  	  STORAGEMAP => undef,		# Storage path mapping rules
 		  WAITTIME => 550 + rand(100),	# Agent cycle time
 	  	  AGENTID => "FileStager",	# Identity for activity logs
@@ -112,24 +114,13 @@ sub getNodeFiles
     # we haven't seen before, remember it but don't look it up yet.
     # We get files exported from the node, plus most recent time the
     # file was in that state.
+    my ($mynodes, %myargs) = &myNodeFilter ($self, "xt.from_node");
     my $stmt = &dbexec($dbh, qq{
-	   select f.logical_name, xs.to_state, xs.time_request
-	   from t_xfer_state xs join t_xfer_file f on f.id = xs.fileid
-	   where xs.from_node = :node},
-	   ":node" => $$self{ID_MYNODE});
-    while (my ($lfn, $state, $time) = $stmt->fetchrow())
-    {
-	# Remap states: 1, 2 => wanted (1), others => unwanted (0)
-	$state = ($state == 1 || $state == 2) ? 1 : 0;
-
-	$files{$lfn} = { LFN => $lfn, STATE => $state, TIME => $time || 0}
-	    if ((exists $files{$lfn}
-		 && $files{$lfn}{STATE} <= $state)
-	        || (exists $files{$lfn}
-		    && $files{$lfn}{STATE} == $state
-		    && $files{$lfn}{TIME} <= $time)
-	        || ! exists $files{$lfn});
-    }
+	select f.logical_name from t_xfer_task xt
+	join t_xfer_file f on f.id = xt.fileid
+	where $mynodes}, %myargs);
+    $files{$_} = { LFN => $_, PFN => undef, TIME => 0 }
+	while (($_) = $stmt->fetchrow());
 
     # Now, collect PFNs for cached files.
     foreach my $lfn (keys %files)
@@ -143,7 +134,7 @@ sub getNodeFiles
     if (my @lfns = grep(! $files{$_}{PFN}, keys %files))
     {
         my $now = time();
-        my $pfns = &pfnLookup (\@lfns, "srm", "local", $$self{STORAGEMAP});
+        my $pfns = &pfnLookup (\@lfns, "direct", "local", $$self{STORAGEMAP});
 	while (my ($lfn, $pfn) = each %$pfns)
         {
 	    $$self{PFN_CACHE}{$lfn} = { TIME => $now, VALUE => $pfn }; 
@@ -177,11 +168,7 @@ sub getStagerFiles
 	next if ! $pfn;
 	my $c = $$self{STAGE_CACHE}{$pfn};
 	do { push (@todo, $file); next }
-	    if (! $c
-		|| (($$c{VALUE} || '') ne 'STAGEIN'
-		    && $$file{STATE} == 1
-		    && $$file{TIME} >= $now-15*60));
-
+	if ($c && $$c{VALUE} || '') ne 'STAGEIN';
 	$$file{STATUS} = $$c{VALUE};
     }
 
@@ -261,7 +248,9 @@ sub idle
     my $dbh = undef;
     eval
     {
-	$dbh = &connectToDatabase ($self) or die "failed to connect";
+	my @nodes;
+	($dbh, @nodes) = &expandNodesAndConnect ($self);
+	my ($mynodes, %myargs) = &myNodeFilter ($self, "node");
 
 	# Clean up caches
 	my %timing = (START => &mytimeofday());
@@ -288,15 +277,15 @@ sub idle
 	    &dbexec($dbh,qq{
 	        update t_xfer_replica
 	        set state = 0, time_state = :now
-	        where node = :node and state = 1},
-	        ":node" => $$self{ID_MYNODE}, ":now" => $now);
+	        where $mynodes and state = 1},
+	        ":now" => $now, %myargs);
 	}
 
 	my %oldcache = %{$$dbcache{FILES}};
-	my $stmt = $dbh->prepare(qq{
+	my $stmt = &dbprep($dbh, qq{
 	    update t_xfer_replica set state = :state, time_state = :now
 	    where fileid = (select id from t_xfer_file where logical_name = :lfn)
-	      and node = :node});
+	    and $mynodes});
 	foreach my $f (values %$files)
 	{
 	    next if ! defined $$f{LFN} || ! defined $$f{PFN};
@@ -306,13 +295,13 @@ sub idle
 	    delete $oldcache{$$f{LFN}};
 	    next if $isstaged == $oldstaged;
 
-	    &dbbindexec ($stmt, ":now" => $now, ":node" => $$self{ID_MYNODE},
+	    &dbbindexec ($stmt, ":now" => $now, %myargs,
 			 ":lfn" => $$f{LFN}, ":state" => $isstaged);
 	}
 	foreach my $lfn (keys %oldcache)
 	{
 	    delete $$dbcache{FILES}{$lfn};
-	    &dbbindexec ($stmt, ":now" => $now, ":node" => $$self{ID_MYNODE},
+	    &dbbindexec ($stmt, ":now" => $now, %myargs,
 			 ":lfn" => $lfn, ":state" => 0);
 	}
 	$dbh->commit();
@@ -321,9 +310,7 @@ sub idle
 	# Issue stage-in requests for new files in batches.  Only consider
 	# recent enough files in wanted state.
 	my @requests = grep (defined $$_{PFN}
-			     && $$_{STATUS} eq 'UNKNOWN'
-		             && $$_{STATE} == 1
-		             && $$_{TIME} >= $timing{START} - 15*60,
+			     && $$_{STATUS} eq 'UNKNOWN',
 			     values %$files);
 	my $nreq = scalar @requests;
 	while (@requests)
