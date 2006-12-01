@@ -1,0 +1,81 @@
+
+# Source environment
+source ../sw/slc*/cms/PHEDEX/PHEDEX_*/etc/profile.d/env.sh
+
+# Reset and load new DB schema
+export ${PHEDEX_DBINSTANCE}='Testbed/CMSR';
+
+sqlplus -S $(Schema/OracleConnectId  -db ../SITECONF/CERN/PhEDEx/DBParam:${PHEDEX_DBINSTANCE}) @Schema/OracleReset.sql </dev/null
+sqlplus -S $(Schema/OracleConnectId  -db ../SITECONF/CERN/PhEDEx/DBParam:${PHEDEX_DBINSTANCE}) @Schema/OracleInit.sql </dev/null
+sqlplus -S $(Schema/OracleConnectId  -db ../SITECONF/CERN/PhEDEx/DBParam:${PHEDEX_DBINSTANCE}) @Schema/OracleStatsEnable.sql </dev/null
+
+# Save all old tables to xt
+sqlplus -S $(Schema/OracleConnectId  -db ../SITECONF/CERN/PhEDEx/DBParam:${PHEDEX_DBINSTANCE}) @Schema/OracleSave.sql </dev/null
+
+
+# Connect to DB using SQLPlus
+sqlplus -S $(Schema/OracleConnectId  -db ../SITECONF/CERN/PhEDEx/DBParam:${PHEDEX_DBINSTANCE})
+
+# Disable all triggers
+begin
+  for o in (select trigger_name from user_triggers) loop
+    execute immediate 'alter trigger ' || o.trigger_name || ' disable';
+  end loop;
+end;
+
+# Migrate old table content
+insert into t_adm_node id, name, kind, technology, se_name, bandwidth_cap
+   (select on.id, on.name, on.kind, 'FixMe', 'FixMe', on.bandwidth_cap
+   from xt_node on);
+
+insert into t_adm_link id, from_node, to_node, distance, is_local, bandwidth_cap
+   (select ol.id,
+       (select nn.id from t_adm_node nn left join xt_node on on nn.name = on.name where on.id = ol.from_node ),
+       (select nn.id from t_adm_node nn left join xt_node on on nn.name = on.name where on.id = ol.to_node ),
+   ol.distance, ol.local_boost, ol.bandwidth_cap
+   from xt_link ol);
+
+insert into t_dps_dbs id, name, dls, time
+   (select odbs.id, odbs.name, odbs.dls, odbs.time
+   from xt_dps_dbs odbs);
+
+insert into t_dps_dataset id, dbs, name, is_open, is_transient, time_create
+   (select od.id,
+       (select ndbs.id from t_dps_dbs ndbs left join xt_dps_dbs odbs on ndbs.name = odbs.name where odbs.id = od.dbs ),
+   od.name, od.is_open, od.is_transient, od.time_create
+   from xt_dps_dataset od);
+
+insert into t_dps_block id, dataset, name, files, bytes, is_open, time_create
+   (select ob.id,
+       (select nd.id from t_dps_dataset nd left join xt_dps_dataset od on nd.name = od.name where od.id = ob.dataset ),
+   ob.name, ob.files, ob.is_open, ob.time_create
+   from xt_dps_block ob);
+
+insert into t_dps_file id, node, inblock, logical_name, checksum, filesize, time_create
+   (select of.id,
+       (select nn.id from t_adm_node nn left join xt_node on on nn.name = on.name where on.id = of.node ),
+       (select nb.id from t_dps_block nb left join xt_dps_block ob on nb.name = ob.name where ob.id = of.inblock ),
+   of.ckecksum, of.filesize, of.time_create
+   from xt_dps_file of);
+
+insert into t_dps_subscription dataset, block, destination, priority, is_move, is_transient, time_create, time_complete,
+time_clear, time_done, time_supend_until
+   (select
+       (select nd.id from t_dps_dataset nd left join xt_dps_dataset od on nd.name = od.name where od.id = os.dataset ),
+       (select nb.id from t_dps_block nb left join xt_dps_block ob on nb.name = ob.name where ob.id = os.block ),
+       (select nn.id from t_adm_node nn left join xt_node on on nn.name = on.name where on.id = os.destination ),
+   os.priority, os.is_move, os.is_transient, os.time_create, os_time_complete);
+
+# Save history info (TO BE DONE)
+
+
+# Re-enable all triggers
+begin
+  for o in (select trigger_name from user_triggers) loop
+    execute immediate 'alter trigger ' || o.trigger_name || ' enable';
+  end loop;
+end;
+
+
+# Update statistics
+sqlplus -S $(Schema/OracleConnectId  -db ../SITECONF/CERN/PhEDEx/DBParam:${PHEDEX_DBINSTANCE}) @Schema/OracleStatsUpdate.sql </dev/null
