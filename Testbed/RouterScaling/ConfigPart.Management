@@ -20,6 +20,12 @@
 ### AGENT LABEL=mgmt-router PROGRAM=Toolkit/Infrastructure/FileRouter
  -db        ${PHEDEX_DBPARAM}
 
+### AGENT LABEL=mgmt-pump PROGRAM=Toolkit/Infrastructure/FilePump
+ -db        ${PHEDEX_DBPARAM}
+
+### AGENT LABEL=mgmt-issue PROGRAM=Toolkit/Infrastructure/FileIssue
+ -db        ${PHEDEX_DBPARAM}
+
 ### AGENT LABEL=info-pm PROGRAM=Toolkit/Monitoring/PerfMonitor
  -db        ${PHEDEX_DBPARAM}
  -node      ${PHEDEX_NODE}
