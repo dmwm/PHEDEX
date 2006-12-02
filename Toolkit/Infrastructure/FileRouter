@@ -37,7 +37,6 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
 package FileRouter; use strict; use warnings; use base 'UtilsAgent';
 use List::Util qw(max);
 use UtilsLogging;
-use UtilsCatalogue;
 use UtilsTiming;
 use UtilsDB;
 
@@ -52,7 +51,8 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 		  MYNODE => undef,		# My node name
-		  WAITTIME => 60 + rand(10));	# Agent activity cycle
+		  WAITTIME => 60 + rand(10),	# Agent activity cycle
+		  NEXT_SLOW_FLUSH => 0);	# Next time to flush
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -73,20 +73,11 @@ sub idle
 	($dbh, @nodes) = &expandNodesAndConnect ($self,
 	    { "FileDownload" => 5400, "FileExport" => 5400 });
 
-	# First pick up returned task status.
-	$self->receive($dbh);
-
         # Run general flush.
 	$self->flush($dbh);
 
 	# Route files.
 	$self->route($dbh, @nodes);
-
-	# Flush again for quick paths.
-	$self->flush($dbh);
-
-	# And receive the files we completed.
-	$self->receive($dbh);
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
@@ -104,6 +95,9 @@ sub flush
     my ($self, $dbh) = @_;
     my $now = &mytimeofday();
 
+    return if $now < $$self{NEXT_SLOW_FLUSH};
+    $$self{NEXT_SLOW_FLUSH} = $now + 1800;
+ 
     # Update priority on existing requests.
     &dbexec ($dbh, qq{
         update (select xq.priority req_priority, bd.priority cur_priority
@@ -176,7 +170,8 @@ sub flush
 	     and xp.from_node = xt.from_node
              and xp.to_node = xt.to_node
 	     and xp.time_expire > xt.time_expire
-	     and xp.is_valid = 1)});
+	     and xp.is_valid = 1)})
+	if 0;  # FIXME: Too expensive!
 
     &dbexec($dbh, qq{
 	update t_xfer_request xq
@@ -208,156 +203,8 @@ sub flush
         where state = 0 and :now >= time_expire},
 	":now" => $now);
 
-    # Auto-export for sites running exports without stage-in.
-    &dbexec($dbh, qq{
-	insert into t_xfer_task_export (task, time_update)
-	select xt.id, :now from t_xfer_task xt
-	  join t_adm_node ns
-	    on ns.id = xt.from_node
-	    and ns.kind = 'Disk'
-	  join t_xfer_source xs
-	    on xs.from_node = xt.from_node
-	    and xs.to_node = xt.to_node
-	    and xs.time_update >= :now - 5400
-	where not exists
-	  (select 1 from t_xfer_task_export xte
-	   where xte.task = xt.id)},
-        ":now" => $now);
-
-    # Auto transfer for MSS -> Buffer transitions.
-    &dbexec($dbh, qq{
-	insert all
-	  into t_xfer_task_export (task, time_update) values (id, :now)
-	  into t_xfer_task_inxfer (task, time_update) values (id, :now)
-	  into t_xfer_task_done   (task, report_code, xfer_code, time_update)
-			          values (id, 0, 0, :now)
-	select xt.id from t_xfer_task xt
-	  join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
-	  join t_adm_node nd on nd.id = xt.to_node /* FIXME! and nd.kind = 'Buffer' */
-	where not exists
-	  (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)},
-        ":now" => $now);
-
     # Commit the lot above.
     $dbh->commit();
-}
-
-# Harvest completed transfers.
-sub receive
-{
-    my ($self, $dbh) = @_;
-    my $now = &mytimeofday();
-    my $q = &dbexec($dbh, qq{
-	select
-	    xtd.task, xt.fileid, xtd.report_code, xtd.xfer_code,
-	    xtd.log_xfer, xtd.log_detail, xtd.log_validate,
-	    xt.from_node, ns.name from_node_name,
-	    xt.to_node, nd.name to_node_name,
-	    xt.priority, f.filesize, f.logical_name,
-	    xt.time_assign time_assign,
-	    xt.time_expire time_expire,
-	    xte.time_update time_export,
-	    xti.time_update time_xfer,
-	    xtd.time_update time_done
-	from t_xfer_task_done xtd
-	  join t_xfer_task xt on xt.id = xtd.task
-	  join t_xfer_file f on f.id = xt.fileid
-	  join t_adm_node ns on ns.id = xt.from_node
-	  join t_adm_node nd on nd.id = xt.to_node
-	  left join t_xfer_task_export xte on xte.task = xtd.task
-	  left join t_xfer_task_inxfer xti on xti.task = xtd.task});
-    while (my $task = $q->fetchrow_hashref())
-    {
-	# First update the statistics.  Create a time bin for the
-	# period when the transfer ended if one doesn't exist, then
-	# update the statistics according to result.
-	my %stats = (TIME_EXPORT => "avail", TIME_XFER => "try",
-		     TIME_DONE => ($$task{REPORT_CODE} == 0 ? "done"
-				  : $$task{REPORT_CODE} == 3002 ? "expire"
-				  : "fail"));
-	while (my ($t, $stat) = each %stats)
-	{
-	    next if ! defined $$task{$t};
-	    eval { &dbexec($dbh, qq{
-	        insert into t_history_link
-	        (timebin, timewidth, from_node, to_node, priority)
-	        values (:bin, :width, :from_node, :to_node, :priority)},
-	        ":bin" => int($$task{$t}/300)*300,
-	        ":width" => 300,
-	        ":from_node" => $$task{FROM_NODE},
-	        ":to_node" => $$task{TO_NODE},
-	        ":priority" => $$task{PRIORITY}) };
-	    die $@ if $@ && $@ !~ /ORA-00001:/;
-
-	    &dbexec($dbh, qq(
-	        update t_history_link
-	        set ${stat}_files = nvl(${stat}_files,0) + 1,
-	            ${stat}_bytes = nvl(${stat}_bytes,0) + :filesize
-	        where timebin = :bin
-	          and from_node = :from_node
-                  and to_node = :to_node
-                  and priority = :priority),
-                ":bin" => int($$task{$t}/300)*300,
-	        ":filesize" => $$task{FILESIZE},
-	        ":from_node" => $$task{FROM_NODE},
-	        ":to_node" => $$task{TO_NODE},
-	        ":priority" => $$task{PRIORITY});
-	}
-
-	# If the transfer was successful, create destination replica.
-	# Otherwise if this was a transfer to the destination, put the
-	# request into cool-off.
-	if ($$task{REPORT_CODE} == 0)
-	{
-	    &dbexec($dbh, qq{
-		insert into t_xfer_replica
-		(id, node, fileid, state, time_create, time_state)
-		values
-		(seq_xfer_replica.nextval, :node, :fileid, 0, :t, :t)},
-		":node" => $$task{TO_NODE},
-		":fileid" => $$task{FILEID},
-		":t" => $$task{TIME_DONE});
-	}
-	else
-	{
-	    &dbexec($dbh, qq{
-		update t_xfer_request
-		set state = 1, time_expire = :now + 3600
-		where fileid = :fileid and destination = :node},
-		":fileid" => $$task{FILEID},
-		":node" => $$task{TO_NODE},
-		":now" => $now);
-	}
-
-	# Remove the task and its paraphernalia.
-	&dbexec($dbh, qq{delete from t_xfer_task where id = :task},
-	    ":task" => $$task{TASK});
-
-        # Log the outcome.
-	($$task{LOG_XFER} ||= '') =~ s/\s+/ /gs;
-	($$task{LOG_DETAIL} ||= '') =~ s/\s+/ /gs;
-	($$task{LOG_VALIDATE} ||= '') =~ s/\s+/ /gs;
-	&logmsg("xstats:"
-		. " task=$$task{TASK}"
-		. " file=$$task{FILEID}"
-		. " from=$$task{FROM_NODE_NAME}"
-		. " to=$$task{TO_NODE_NAME}"
-		. " priority=$$task{PRIORITY}"
-		. " report-code=$$task{REPORT_CODE}"
-		. " xfer-code=$$task{XFER_CODE}"
-		. " size=$$task{FILESIZE}"
-		. ($$task{TIME_EXPIRE} ? " t-expire=$$task{TIME_EXPIRE}" : "")
-		. ($$task{TIME_ASSIGN} ? " t-assign=$$task{TIME_ASSIGN}" : "")
-		. ($$task{TIME_EXPORT} ? " t-export=$$task{TIME_EXPORT}" : "")
-		. ($$task{TIME_XFER}   ? " t-xfer=$$task{TIME_XFER}" : "")
-		. ($$task{TIME_DONE}   ? " t-done=$$task{TIME_DONE}" : "")
-		. " lfn=$$task{LOGICAL_NAME}"
-		. " xfer_detail=($$task{LOG_DETAIL})"
-		. " xfer_validate=($$task{LOG_VALIDATE})"
-		. " xfer_log=($$task{LOG_XFER})");
-
-        $dbh->commit();
-    }
 }
 
 sub route
@@ -652,8 +499,6 @@ sub routeNode
     }
 
     &dbbindexec($istmt, %iargs) if %iargs;
-    $dbh->commit();
-    undef $requests;
 
     ######################################################################
     # Phase 3: Confirm requests for which there are valid offers.
@@ -673,71 +518,6 @@ sub routeNode
 		      and this.rowid > better.rowid)))},
 	":node" => $node);
 
-    # Confirm transfers where I am the path hop destination, the
-    # source replica exists and there is no transfer yet.
-    $q = &dbexec($dbh, qq{
-	with files_for_me as
-	  (select
-	       xp.fileid, f.logical_name, xp.from_node, xp.to_node, xr.id replica,
-	       min(xp.priority) priority, max(xp.is_local) is_local,
-	       max(xp.time_expire) time_expire
-	   from t_xfer_path xp
-	     join t_xfer_replica xr
-	       on xr.fileid = xp.fileid
-	       and xr.node = xp.from_node
-             join t_xfer_file f
-	       on f.id = xp.fileid
-           where xp.to_node = :me
-	     and xp.is_valid = 1
-	     and xp.time_expire > :now
-	   group by xp.fileid, f.logical_name, xp.from_node, xp.to_node, xr.id)
-	select
-	   fileid, logical_name, replica, from_node, to_node,
-	   2*priority + 1-is_local priority, time_expire
-	from files_for_me ffm
-	where not exists
-	   (select 1 from t_xfer_task xt
-	    where xt.fileid = ffm.fileid
-	      and xt.to_node = ffm.to_node)
-          and not exists
-	   (select 1 from t_xfer_replica xr
-	    where xr.fileid = ffm.fileid
-	      and xr.node = ffm.to_node)},
-	":me" => $node, ":now" => $now);
-
-    my @tasks;
-    while (my $task = $q->fetchrow_hashref())
-    {
-	$self->makeTransferTask($dbh, $task, $cats, $links);
-	push(@tasks, $task);
-    }
-
-    my $rank = 0;
-    %iargs = ();
-    $istmt = &dbprep($dbh, qq{
-	insert into t_xfer_task (id, fileid, from_replica, priority, rank,
-	  from_node, to_node, from_pfn, to_pfn, time_expire, time_assign)
-	values (seq_xfer_task.nextval, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
-    foreach my $task (sort { $$a{PRIORITY} <=> $$b{PRIORITY}
-		             || $$a{LOGICAL_NAME} cmp $$b{LOGICAL_NAME} }
-		      @tasks)
-    {
-	my $n = 1;
-	next if ! $$task{FROM_PFN};
-	next if ! $$task{TO_PFN};
-	push(@{$iargs{$n++}}, $$task{FILEID});
-	push(@{$iargs{$n++}}, $$task{REPLICA});
-	push(@{$iargs{$n++}}, $$task{PRIORITY});
-	push(@{$iargs{$n++}}, $rank++);
-	push(@{$iargs{$n++}}, $$task{FROM_NODE});
-	push(@{$iargs{$n++}}, $$task{TO_NODE});
-	push(@{$iargs{$n++}}, $$task{FROM_PFN});
-	push(@{$iargs{$n++}}, $$task{TO_PFN});
-	push(@{$iargs{$n++}}, $$task{TIME_EXPIRE});
-	push(@{$iargs{$n++}}, $now);
-    }
-
-    &dbbindexec($istmt, %iargs) if %iargs;
     $dbh->commit();
 }
 
@@ -905,74 +685,6 @@ sub routeFile
            if ! $$self{WARNED}{$dest}{$$request{FILEID}};
 	$$self{WARNED}{$dest}{$$request{FILEID}} = 1;
     }
-}
-
-# Expand transfer task information and insert into the database.
-sub makeTransferTask
-{
-    my ($self, $dbh, $task, $cats, $links) = @_;
-    my ($from, $to) = @$task{"FROM_NODE", "TO_NODE"};
-    my @from_protos = split(/\s+/, $$links{$from}{$to}{FROM_PROTOS} || '');
-    my @to_protos   = split(/\s+/, $$links{$from}{$to}{TO_PROTOS} || '');
-    my $from_cat    = $self->catalogue($dbh, $cats, $from);
-    my $to_cat      = $self->catalogue($dbh, $cats, $to);
-    my $protocol    = undef;
-
-    # Find matching protocol.
-    foreach my $p (@to_protos)
-    {
-	next if ! grep($_ eq $p, @from_protos);
-	$protocol = $p;
-	last;
-    }
-
-    # Check that we have prerequisite information to expand the file names.
-    return if (! $from_cat
-	       || ! $to_cat
-	       || ! $$links{$from}
-	       || ! $$links{$from}{$to}
-	       || ! $protocol
-	       || ! $$from_cat{$protocol}
-	       || ! $$to_cat{$protocol});
-
-    # Try to expand the file name.
-    $$task{FROM_PFN} = &applyStorageRules($from_cat, $protocol, $to, 'pre', $$task{LOGICAL_NAME});
-    $$task{TO_PFN}   = &applyStorageRules($to_cat, $protocol, $from, 'pre', $$task{LOGICAL_NAME});
-}
-
-# Build and cache storage mapping catalogue for a node.
-sub catalogue
-{
-    my ($self, $dbh, $cats, $node) = @_;
-
-    # If we haven't yet built the catalogue, fetch from the database.
-    if (! exists $$cats{$node})
-    {
-        $$cats{$node} = {};
-
-        my $q = &dbexec($dbh, qq{
-	    select protocol, chain, destination_match, path_match, result_expr
-	    from t_xfer_catalogue
-	    where node = :node and rule_type = 'lfn-to-pfn'
-	    order by rule_index asc},
-	    ":node" => $node);
-
-        while (my ($proto, $chain, $dest, $path, $result) = $q->fetchrow())
-        {
-	    # Check the pattern is valid.  If not, abort.
-            my $pathrx = eval { qr/$path/ };
-	    return $$cats{$node} = {} if $@;
-
-	    # Add the rule to our list.
-	    push(@{$$cats{$node}{$proto}}, {
-		    (defined $chain ? ('chain' => $chain) : ()),
-		    (defined $dest ? ('destination-match' => $dest) : ()),
-		    'path-match' => $pathrx,
-		    'result' => $result });
-        }
-    }
-
-    return $$cats{$node};
 }
 
 1;
