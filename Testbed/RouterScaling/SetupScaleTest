@@ -120,7 +120,6 @@ eval
     }
     
     # Prepare file and block injections into TMDB
-    my %params;
     my $ifile = &dbprep($dbh, qq{
 	insert into t_dps_file
 	(id,node,inblock,logical_name,checksum,filesize,time_create)
@@ -131,6 +130,7 @@ eval
     {
 	print "Creating block $block";
 	my $bid = undef;
+        my %params;
 	# We populate the t_dps_block, but don't update the number of files and total size,
 	# since Oracle triggers will take care about that.
 	&dbexec($dbh, qq{
@@ -154,24 +154,27 @@ eval
 	    push(@{$params{$n++}}, $now);
 	    push(@{$params{$n++}}, $node);
 	}
+
+        print "Executing SQL inserts\n";
+        &dbbindexec($ifile, %params);
+        &dbexec($dbh, qq{
+	    insert into t_xfer_file (id, inblock, logical_name, checksum, filesize)
+	    (select id, inblock, logical_name, checksum, filesize from t_dps_file
+	     where inblock = :block)}, ":block" => $bid);
+        &dbexec($dbh, qq{
+	    insert into t_xfer_replica
+	    (id, node, fileid, state, time_create, time_state)
+	    select seq_xfer_replica.nextval, node, id, 0, time_create, time_create
+	    from t_dps_file where inblock = :block}, ":block" => $bid);
+        $dbh->commit();
     }
 
-    print "Executing SQL inserts\n";
-    &dbbindexec($ifile, %params);
-    &dbexec($dbh, qq{
-	insert into t_xfer_file (id, inblock, logical_name, checksum, filesize)
-	(select id, inblock, logical_name, checksum, filesize from t_dps_file)});
-    &dbexec($dbh, qq{
-	insert into t_xfer_replica
-	(id, node, fileid, state, time_create, time_state)
-	select seq_xfer_replica.nextval, node, id, 0, time_create, time_create
-	from t_dps_file});
     print "Doing subscriptions\n";
     &dbexec($dbh, qq{
 	insert into t_dps_subscription
 	(dataset, destination, priority, is_move, is_transient, time_create)
 	select ds.id, n.id, 1, 'n', 'n', 0 from t_dps_dataset ds, t_adm_node n});
-
+    $dbh->commit();
     print "Done\n";
 };
 if ( $@ )
@@ -180,9 +183,5 @@ if ( $@ )
     print "$@\n";
     print "Rolling back\n";
     $dbh->rollback();
-}
-else
-{
-    $dbh->commit();
 }
 $dbh->disconnect();
