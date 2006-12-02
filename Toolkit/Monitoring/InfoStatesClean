@@ -48,7 +48,7 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	    	  MYNODE => undef,		# TMDB node name
-	          WAITTIME => 45 + rand(15));	# Agent activity cycle
+	          WAITTIME => 120);		# Agent activity cycle
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
