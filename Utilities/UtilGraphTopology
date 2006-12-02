@@ -24,7 +24,7 @@ if (@ARGV || !$args{DBCONFIG})
 
 my $dbh = &connectToDatabase (\%args, 0);
 my $nodes = $dbh->selectall_arrayref(qq{select node, neighbour, hops from t_node_neighbour});
-$dbh->disconnect();
+&disconnectFromDatabase(\%args, $dbh, 1);
 my %nodenames = map { $_->[0] => 1 } @$nodes;
 
 print "digraph routing {\n",

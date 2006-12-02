@@ -53,4 +53,4 @@ foreach my $file (@ARGV)
 }
 
 $dbh->commit ();
-$dbh->disconnect();
+&disconnectFromDatabase(\%args, $dbh, 1);

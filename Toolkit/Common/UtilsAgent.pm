@@ -1,11 +1,11 @@
 package UtilsAgent; use strict; use warnings; use base 'UtilsJobManager';
 use POSIX;
-use DBI;
 use File::Path;
 use UtilsCommand;
 use UtilsLogging;
 use UtilsTiming;
 use UtilsRFIO;
+use UtilsDB;
 
 sub new
 {
@@ -209,7 +209,7 @@ sub doStop
 
     # Force database off
     eval { $$self{DBH}->rollback() } if $$self{DBH};
-    eval { $$self{DBH}->disconnect() } if $$self{DBH};
+    eval { &disconnectFromDatabase($self, $$self{DBH}, 1) } if $$self{DBH};
 
     # Remove stop flag and pidfile
     unlink($$self{PIDFILE});

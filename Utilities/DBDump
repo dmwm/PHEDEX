@@ -42,4 +42,4 @@ foreach my $table (@ARGV)
     }
 }
 
-$dbh->disconnect();
+&disconnectFromDatabase(\%args, $dbh, 1);

@@ -56,7 +56,8 @@ if (!$args{DBCONFIG} || !$args{NAME} || !$args{KIND}
   die "Insufficient parameters, use -h for help.\n";
 }
 
-my $dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
+my $self = { DBCONFIG => $args{DBCONFIG} };
+my $dbh = &connectToDatabase ($self, 0);
 my $now = &mytimeofday();
 print "Creating node $args{NAME}, kind $args{KIND}\n";
 
@@ -82,4 +83,4 @@ my $suffix = lc($args{NAME});
 &dbexec($dbh, qq{
   alter table t_xfer_task    add partition to_$suffix   values ($id)});
 $dbh->commit();
-$dbh->disconnect();
+&disconnectFromDatabase($self, $dbh, 1);

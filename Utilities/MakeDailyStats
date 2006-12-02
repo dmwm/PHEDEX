@@ -124,7 +124,7 @@ while (my ($bin, $from, $to, $bdone, $bwait,
     }
     $nodes{$to} = $nodes{$from} = 1;
 }
-$dbh->disconnect ();
+&disconnectFromDatabase(\%args, $dbh, 1);
 undef $dbh;
 
 # Print the statistics for all nodes.  Generate a continuous time

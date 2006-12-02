@@ -62,7 +62,8 @@ if (!$args{DBCONFIG} || !$args{STORAGEMAP} ||
     die "Insufficient parameters, use -h for help.\n";
 }
 
-our $dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
+my $self = { DBCONFIG => $args{DBCONFIG} };
+our $dbh = &connectToDatabase ($self, 0);
 my $now = &mytimeofday();
 my $nodes = [ split m|,\s*|, $args{NODES} ];
 my $files = [ split m|,\s*|, $args{FILELIST} ];
@@ -76,7 +77,7 @@ my $stats = &deleteLFNs ( $lfns, $dbh, $nodes, $tables, $args{RMDISK} );
 
 # commit and exit
 $dbh->commit();
-$dbh->disconnect();
+&disconnectFromDatabase($self, $dbh, 1);
 
 # Some statistics
 print "\nSUMMARY\n";
@@ -375,7 +376,7 @@ sub enableBlock
 	    select inblock, $now, $end from t_dps_file
 	    where id = :lfnname},":lfnname" => $lfn);
     $dbh->commit();
-    $dbh->disconnect();
+    &disconnectFromDatabase($self, $dbh, 1);
     exit 0;
 }
 

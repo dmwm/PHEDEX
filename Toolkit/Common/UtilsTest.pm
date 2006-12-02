@@ -65,7 +65,7 @@ sub doTestTasks
 	chomp ($@);
 	&alert ("Problem in test loop: $@");
     }
-    $dbh->disconnect();
+    &disconnectFromDatabase($self, $dbh, 1);
 }
 
 sub checkLogs {

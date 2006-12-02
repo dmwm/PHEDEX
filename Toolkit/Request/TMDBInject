@@ -460,6 +460,6 @@ while (@$info)
 }
 
 $dbh->commit();
-$dbh->disconnect ();
+&disconnectFromDatabase($self, $dbh, 1);
 undef $dbh;
 exit 0;

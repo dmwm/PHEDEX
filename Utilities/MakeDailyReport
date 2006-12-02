@@ -421,7 +421,7 @@ print "(Nothing to report)\n" if ! $errors;
 print "\n\n";
 
 ######################################################################
-$dbh->disconnect();
+&disconnectFromDatabase(\%args, $dbh, 1);
 exit 0;
 
 sub avg

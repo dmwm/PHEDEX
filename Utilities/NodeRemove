@@ -32,7 +32,8 @@ if (scalar @ARGV < 1 || !$args{DBCONFIG})
   die "Insufficient parameters, use -h for help.\n";
 }
 
-my $dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
+my $self = { DBCONFIG => $args{DBCONFIG} };
+my $dbh = &connectToDatabase ($self, 0);
 while (@ARGV)
 {
   my $name = shift(@ARGV);
@@ -81,4 +82,4 @@ while (@ARGV)
   $dbh->commit();
 }
 
-$dbh->disconnect();
+&disconnectFromDatabase($self, $dbh, 1);

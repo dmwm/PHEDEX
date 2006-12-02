@@ -91,7 +91,7 @@ sub connectToDatabase
 	&logmsg ("(re)connecting to database") if $$self{DBH_LOGGING};
 
 	# Clear previous connection.
-	eval { $$self{DBH}->disconnect() } if $$self{DBH};
+	eval { &disconnectFromDatabase ($self, $$self{DBH}, 1) } if $$self{DBH};
 	undef $$self{DBH};
 
         # Start a new connection.
@@ -125,6 +125,9 @@ sub connectToDatabase
 	$$dbh{private_phedex_invalid} = 0;
     }
 
+    # Reset statement cache
+    $$dbh{private_phedex_stmtcache} = {};
+
     # Was identification suppressed?
     return $dbh if defined $identify && $identify == 0;
 
@@ -146,6 +149,12 @@ sub connectToDatabase
 sub disconnectFromDatabase
 {
     my ($self, $dbh, $force) = @_;
+
+    # Finish statements in the cache.
+    $_->finish() for values %{$$dbh{private_phedex_stmtcache}};
+    $$dbh{private_phedex_stmtcache} = {};
+
+    # Actually disconnect if required.
     if ((exists $$self{DBH_CACHE} && ! $$self{DBH_CACHE}) || $force)
     {
 	&logmsg ("disconnected from database") if $$self{DBH_LOGGING};
@@ -636,7 +645,14 @@ sub dbsql
 sub dbprep
 {
     my ($dbh, $sql) = @_;
-    my $stmt = eval { return $dbh->prepare (&dbsql ($sql)) };
+    if (my $stmt = $$dbh{private_phedex_stmtcache}{$sql})
+    {
+	$stmt->finish();
+	return $stmt;
+    }
+
+    my $stmt = eval { return ($$dbh{private_phedex_stmtcache}{$sql}
+			      = $dbh->prepare (&dbsql ($sql))) };
     return $stmt if ! $@;
 
     # Handle disconnected oracle handle, flag the handle bad
