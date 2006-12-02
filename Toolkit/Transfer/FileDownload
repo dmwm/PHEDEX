@@ -27,7 +27,7 @@
 ##H      -state DIRECTORY -nodes PATTERN[,PATTERN...]
 ##H      -db FILE[:SECTION] [-log OUT] [-verbose]
 ##H      [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]
-##H      -validate CMD[,ARG...] [-delete CMD[,ARG...]]
+##H      [-validate CMD[,ARG...]] [-delete CMD[,ARG...]]
 ##H      -backend TYPE [OPTIONS]
 ##H
 ##H Options to all backends:
@@ -102,7 +102,7 @@ use UtilsHelp;
 
 die "Insufficient parameters, use -h for help.\n"
     if (!$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG}
-	|| !$args{VALIDATE_COMMAND} || !$args{BACKEND_TYPE});
+	|| !$args{BACKEND_TYPE});
 
 (new FileDownload (%args, BACKEND_ARGS => [ @ARGV ]))->process();
 
@@ -148,6 +148,7 @@ sub new
 		  TASKDIR => "$$self{DROPDIR}/tasks", # Tasks to do
 		  STATS => [],			# Historical stats.
 
+		  LAST_SYNC => 0,		# Last time to synchronise
 		  NEXT_SYNC => 0,		# Next time to synchronise
 		  NEXT_PURGE => 0,		# Next time to purge bad data
 		  NEXT_DISCONNECT => 0,		# Next time to disconnect
@@ -499,15 +500,26 @@ sub check
 	# Start verifying if transfer completed.
 	if ($xstatus && ! $vstatus)
 	{
-	    return if ! &output($fvstatus, "");
-	    $self->addJob(sub {
-		    &output($fvstatus, Dumper ({
-		        START => $now, END => &mytimeofday(),
-		        STATUS => $_[0]{STATUS}, LOG => &input($fvlog) }));
-		    $$jobinfo{RECHECK} = 1; },
-	        { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $fvlog },
-	        @{$$self{VALIDATE_COMMAND}}, $$xstatus{STATUS},
-	        @$taskinfo{qw(TO_PFN FILESIZE CHECKSUM)});
+	    if ($$self{VALIDATE_COMMAND})
+	    {
+		return if ! &output($fvstatus, "");
+		$self->addJob(sub {
+		        &output($fvstatus, Dumper ({
+		            START => $now, END => &mytimeofday(),
+		            STATUS => $_[0]{STATUS}, LOG => &input($fvlog) }));
+		        $$jobinfo{RECHECK} = 1; },
+	            { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $fvlog },
+	            @{$$self{VALIDATE_COMMAND}}, $$xstatus{STATUS},
+	            @$taskinfo{qw(TO_PFN FILESIZE CHECKSUM)});
+	    }
+	    else
+	    {
+	        &output($fvstatus, Dumper({
+		    START => $now, END => &mytimeofday(),
+		    STATUS => $$xstatus{STATUS},
+		    LOG => "validation bypassed" }));
+		$$jobinfo{RECHECK} = 1;
+	    }
 	    $done = 0;
 	}
 
@@ -860,7 +872,8 @@ sub idle
 	# Reconnect if we are due a database sync, but use a database
 	# connection opportunistically if we happen to have one.
 	my $need_sync = ($$self{NEXT_SYNC} <= $now ? 1 : 0);
-	if ($need_sync || $$self{DBH})
+	my $recent_sync = ($$self{LAST_SYNC} >= $now - 120 ? 1 : 0);
+	if (($need_sync || $$self{DBH}) && ! $recent_sync)
 	{
 	    $self->reconnect() if ! $$self{DBH};
 	    if ($$self{NEXT_PURGE} <= $now)
@@ -871,6 +884,7 @@ sub idle
 		$$self{DBH_LAST_USE} = $now;
 	    }
 	    $self->doSync(\%jobs, \%tasks);
+	    $$self{LAST_SYNC} = $now;
 	    $$self{NEXT_SYNC} = $now + 1800;
 	    $$self{DBH_LAST_USE} = $now if $need_sync;
 	}
