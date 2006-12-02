@@ -4,13 +4,35 @@
 #### systems. Castor sites, please follow the suggestion in
 #### README-Transfer on CVS.
 
-### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload
+### AGENT LABEL=download-cmd PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
  -db              ${PHEDEX_DBPARAM}
  -accept	  %_Buffer,%_Disk
- -nodes           %
- -verbose
- -validate        true
- -backend         Command
+ -nodes           TX_TEST_1_%
+ -backend	  Command
  -protocols	  srm
  -command	  ${PHEDEX_CONFIG}/DoNothing,30,120
  -jobs		  30
+
+### AGENT LABEL=download-1 PROGRAM=Toolkit/Transfer/FileDownload
+ -db              ${PHEDEX_DBPARAM}
+ -accept	  %_Buffer,%_Disk
+ -nodes           TX_TEST_1_%
+ -backend         Null
+
+### AGENT LABEL=download-2 PROGRAM=Toolkit/Transfer/FileDownload
+ -db              ${PHEDEX_DBPARAM}
+ -accept	  %_Buffer,%_Disk
+ -nodes           TX_TEST_2_%
+ -backend         Null
+
+### AGENT LABEL=download-3 PROGRAM=Toolkit/Transfer/FileDownload
+ -db              ${PHEDEX_DBPARAM}
+ -accept	  %_Buffer,%_Disk
+ -nodes           TX_TEST_3_%
+ -backend         Null
+
+### AGENT LABEL=download-4 PROGRAM=Toolkit/Transfer/FileDownload
+ -db              ${PHEDEX_DBPARAM}
+ -accept	  %_Buffer,%_Disk
+ -nodes           TX_TEST_4_%
+ -backend         Null
