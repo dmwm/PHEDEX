@@ -39,12 +39,17 @@ create or replace trigger tr_xfer_file_insert
   end;
 /
 
+/* FIXME: Analyse if this trigger is really needed.  At present
+   FileRouter in any cases removes requests for which replica
+   exists because it may create requests for files a node is
+   a source for and therefore this trigger would not delete.
 create or replace trigger tr_xfer_replica_insert
   after insert on t_xfer_replica for each row begin
     delete from t_xfer_request
     where fileid = :new.fileid and destination = :new.node;
   end;
 /
+*/
 
 create or replace trigger tr_xfer_replica_delete
   after delete on t_xfer_replica for each row declare
