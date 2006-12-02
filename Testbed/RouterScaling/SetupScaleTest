@@ -3,18 +3,16 @@
 ##H Seed test database (set up with separate SQL) with a number of
 ##H files.
 ##H
-##H Use: $0 -db <DBCONFIG> -count N_FILES -blocks N_BLOCKS
+##H Use: $0 -db <DBCONFIG> -datasets N_DS -blocks N_BLOCKS -files N_FILES
 ##H         -nodes <amount and type of nodes>
 ##H
 ##H Parameters:
 ##H
-##H      db:     path to DB Config file
-##H      count:  amount of files you wish to make known to the DB
-##H      blocks: amount of blocks you wish to make known to the DB
-##H      nodes:  pairs of amount and kind of nodes separated by commas
-##H              Example: 4:Buffer,2:MSS,10:Disk
-##H              Buffer nodes must be grater or equal to MSS nodes !!
-##H
+##H      db:       path to DB Config file
+##H      datasets: amount of datasets you wish to make known to the DB
+##H      blocks:   amount of blocks you wish to make known to the DB
+##H      count:    amount of files you wish to make known to the DB
+##H      nodes:    comma-separated list of nodes to create: 4:T1,10:T2
 
 BEGIN { use strict; use warnings; $^W=1;
 	my $me = $0; $me =~ s|.*/||;
@@ -27,12 +25,14 @@ use UtilsHelp;
 use UtilsDB;
 use UtilsTiming;
 &GetOptions ("db=s"        => \$args{DBCONFIG},
+	     "datasets=i"  => \$args{DATASETS},
 	     "blocks=i"    => \$args{BLOCKS},
-	     "count=i"     => \$args{COUNT},
+	     "files=i"     => \$args{FILES},
 	     "nodes=s"     => sub { push @{$args{NODES}},
 				    split m|,|, $_[1] },
     	     "help|h"      => sub { &usage() });
 
+$|=1;
 my %nodes = ();
 foreach ( @{$args{NODES}} )
 {
@@ -43,13 +43,15 @@ foreach ( @{$args{NODES}} )
 my $checksum = 1;
 my $size = 1000000000;
 
-if (! $args{DBCONFIG} || ! $args{COUNT} || ! $args{BLOCKS} || ! $args{NODES})
+if (! $args{DBCONFIG} || ! $args{DATASETS} || ! $args{BLOCKS}
+    || ! $args{FILES} || ! $args{NODES})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
 
-my $count = $args{COUNT};
+my $files = $args{FILES};
 my $blocks = $args{BLOCKS};
+my $datasets = $args{DATASETS};
 my $now = &mytimeofday();
 
 my $dbh = &connectToDatabase (\%args, 0);
@@ -57,119 +59,138 @@ my $dbh = &connectToDatabase (\%args, 0);
 eval
 {
     # Create nodes and links
-    my %nodenames = ();
-
+    my $index = 1;
+    my (@allnodes, @allnames, %connections);
     foreach my $kind (keys %nodes)
     {
-	my $index = 1;
-	while ( $index <= $nodes{$kind} )
-	{
-	    push @{$nodenames{$kind}}, "TX_TEST_${index}_${kind}";
-	    $index++;
-	}
-    }
-    
-    my $index = 1;
-    foreach my $kind ( keys %nodenames )
-    {
-	foreach my $node ( @{$nodenames{$kind}} )
-	{
-	    my $cmd = "$home/../../Utilities/NodeNew ".
-		"-db $args{DBCONFIG}:$args{DBSECTION} ".
-		"-name $node ".
-		"-kind $kind ".
-		"-technology Other ".
-		"-se-name se.testuniverse.$index";
-	    my $msg = `$cmd`;
-	    $index++;
-	    die "Creation of nodes failed:\n$msg" if $?;
-	}
+        for (my $i = 1; $i <= $nodes{$kind}; ++$i, ++$index)
+        {
+	    push(@allnodes, "${kind}_${index}");
+        }
     }
 
-    # Create a list of non-MSS nodes to link to.
-    my %connections;
-    my @nodelist = (map @{$_}, (values %nodenames));
-    map {$connections{$_} = $_ if $_ !~ m|MSS|} (map @{$_}, (values %nodenames));
-    
-    foreach $kind (keys %nodenames)
+    # Create Tier-1 Buffer/MSS nodes
+    print "Creating nodes:";
+    foreach my $node (grep(/^T1/, @allnodes))
     {
-	foreach my $node ( @{$nodenames{$kind}} )
-	{
-	    if ($kind =~ m|MSS|)
-	    {
-		my $buffer = $node;
-		$buffer =~ s|MSS|Buffer|;
-		$cmd = "$home/../../Utilities/LinkNew ".
-		    "-db $args{DBCONFIG}:$args{DBSECTION} ".
-		    "$node ".
-		    "${buffer}:L";
-	    }
-	    else
-	    {
-		delete $connections{$node};
-		next if !keys %connections;
-		my $connectionsstring = join " ", (values %connections);
-		$cmd = "$home/../../Utilities/LinkNew ".
-		    "-db $args{DBCONFIG}:$args{DBSECTION} ".
-		    "$node ".
-		    "$connectionsstring";
-	    }
-	    $msg = `$cmd`;
-	    die "Creation of links failed:\n$msg" if $?;
-	}
+	my $buffer = "${node}_Buffer";
+	my $mss = "${node}_MSS";
+	my $msg;
+
+        print " $buffer";
+	$msg = qx($home/../../Utilities/NodeNew \\
+		  -db $args{DBCONFIG}:$args{DBSECTION} \\
+		  -name $buffer -kind Buffer -technology Other \\
+		  -se-name $node.test 2>&1);
+	die "\nFailed to create node $buffer:\n$msg" if $?;
+
+        print " $mss";
+	$msg = qx($home/../../Utilities/NodeNew \\
+		  -db $args{DBCONFIG}:$args{DBSECTION} \\
+		  -name $mss -kind MSS -technology Other \\
+		  -se-name $node.test 2>&1);
+	die "\nFailed to create node $mss:\n$msg" if $?;
+
+	$connections{$buffer} = [
+	    "$mss:L/1",
+	    ($node eq 'T1_1' ? (map { "${_}_Buffer:R/2" } grep(/^T1/ && $_ ne $node, @allnodes)) : ()),
+	    map { "${_}_Disk:R/3" } grep(/^T2/, @allnodes) ];
+	push(@allnames, $buffer, $mss);
     }
+
+    # Now Tier-2 disk nodes
+    foreach my $node (grep(/^T2/, @allnodes))
+    {
+	my $disk = "${node}_Disk";
+        print " $disk";
+	my $msg = qx($home/../../Utilities/NodeNew \\
+		     -db $args{DBCONFIG}:$args{DBSECTION} \\
+		     -name $disk -kind Disk -technology Other \\
+		     -se-name $node.test 2>&1);
+	die "\nFailed to create node $disk:\n$msg" if $?;
+	push(@allnames, $disk);
+    }
+
+    # Finally links
+    print "\nCreating links:";
+    foreach my $node (sort keys %connections)
+    {
+        print " $node";
+	my $msg = qx($home/../../Utilities/LinkNew \\
+		     -db $args{DBCONFIG}:$args{DBSECTION} \\
+		     $node @{$connections{$node}} 2>&1);
+	die "\nFailed to create links for $node:\n$msg" if $?;
+    }
+    print "\n";
     
     # Prepare file and block injections into TMDB
     my $ifile = &dbprep($dbh, qq{
-	insert into t_dps_file
+	insert /*+ append */ into t_dps_file
 	(id,node,inblock,logical_name,checksum,filesize,time_create)
-	select seq_dps_file.nextval, n.id, ?, ?, ?, ?, ?
-	from t_adm_node n where n.name = ?});
+	values (seq_dps_file.nextval, ?, ?, ?, ?, ?, ?)});
 
-    for( my $block=1; $block<=$blocks; $block++)
+    my $fid = 1;
+    for( my $ds=1; $ds<=$datasets; $ds++)
     {
-	print "Creating block $block";
-	my $bid = undef;
-        my %params;
-	# We populate the t_dps_block, but don't update the number of files and total size,
-	# since Oracle triggers will take care about that.
+	my $dsid = undef;
+        print "Dataset $ds, ";
 	&dbexec($dbh, qq{
-	    insert into t_dps_block 
-	    (id,dataset,name,files,bytes,is_open,time_create,time_update)
-	    values (seq_dps_block.nextval,1,:name,:nfiles,:nbytes,'y',:now, null)
-	    returning id into :id},
-	    ":id" => \$bid, ":now" => $now, ":name" => "block$block",
-	    ":nfiles" => 0, ":nbytes" => 0);
-	print ", id=$bid\n";
+	   insert into t_dps_dataset
+	   (id,dbs,name,is_open,is_transient,time_create)
+	   values (seq_dps_dataset.nextval,1,:name,'n','y',:now)
+	   returning id into :id},
+	   ":id" => \$dsid, ":now" => $now, ":name" => "test.$ds");
+	print "ID $dsid: ";
+
+        my %params;
+        for( my $block=1; $block<=$blocks; $block++)
+        {
+	    my ($node) = &dbexec($dbh,
+		qq{select id from t_adm_node where name = :name},
+		":name" => $allnames[($ds*$datasets+$block) % scalar @allnames])
+		->fetchrow();
+
+	    my $bid = undef;
+	    print ".";
+	    &dbexec($dbh, qq{
+	        insert into t_dps_block 
+	        (id,dataset,name,files,bytes,is_open,time_create)
+	        values (seq_dps_block.nextval,:ds,:name,0,0,'y',:now)
+	        returning id into :id},
+	        ":id" => \$bid, ":now" => $now, ":ds" => $dsid,
+		":name" => "test.$ds.$block");
+	    print "$bid";
 	
-	for( my $f = 0; $f<$count; $f++)
-	{
-	    my $node = $nodelist[$f % scalar @nodelist];
-	    my $fid = $f + $block * $count;
-	    my $n = 1;
-	    push(@{$params{$n++}}, $bid);
-	    push(@{$params{$n++}}, "/my/test/file$fid");
-	    push(@{$params{$n++}}, "1");
-	    push(@{$params{$n++}}, $size);
-	    push(@{$params{$n++}}, $now);
-	    push(@{$params{$n++}}, $node);
+	    for( my $f = 0; $f<$files; $f++)
+	    {
+	        my $n = 1;
+	        push(@{$params{$n++}}, $node);
+	        push(@{$params{$n++}}, $bid);
+	        push(@{$params{$n++}}, "/my/test/file$fid");
+	        push(@{$params{$n++}}, "1");
+	        push(@{$params{$n++}}, $size);
+	        push(@{$params{$n++}}, $now);
+		$fid++;
+	    }
 	}
 
-        print "Executing SQL inserts\n";
+        print " inserting files\n";
         &dbbindexec($ifile, %params);
         &dbexec($dbh, qq{
 	    insert into t_xfer_file (id, inblock, logical_name, checksum, filesize)
-	    (select id, inblock, logical_name, checksum, filesize from t_dps_file
-	     where inblock = :block)}, ":block" => $bid);
+	    (select f.id, f.inblock, f.logical_name, f.checksum, f.filesize
+	     from t_dps_file f join t_dps_block b on b.id = f.inblock
+	     where b.dataset = :ds)}, ":ds" => $dsid);
         &dbexec($dbh, qq{
 	    insert into t_xfer_replica
 	    (id, node, fileid, state, time_create, time_state)
-	    select seq_xfer_replica.nextval, node, id, 0, time_create, time_create
-	    from t_dps_file where inblock = :block}, ":block" => $bid);
+	    (select seq_xfer_replica.nextval, f.node, f.id, 0, f.time_create, f.time_create
+	     from t_dps_file f join t_dps_block b on b.id = f.inblock
+	     where b.dataset = :ds)}, ":ds" => $dsid);
         $dbh->commit();
     }
 
-    print "Doing subscriptions\n";
+    print "Inserting subscriptions\n";
     &dbexec($dbh, qq{
 	insert into t_dps_subscription
 	(dataset, destination, priority, is_move, is_transient, time_create)
@@ -184,4 +205,4 @@ if ( $@ )
     print "Rolling back\n";
     $dbh->rollback();
 }
-$dbh->disconnect();
+&disconnectFromDatabase(\%args, $dbh, 1);
