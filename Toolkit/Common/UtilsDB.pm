@@ -95,11 +95,17 @@ sub connectToDatabase
 	undef $$self{DBH};
 
         # Start a new connection.
+	$$self{DBH_ID_HOST} = &getfullhostname();
+	$$self{DBH_ID_MODULE} = $0; $$self{DBH_ID_MODULE} =~ s!.*/!!;
+	$$self{DBH_ID_LABEL} = $$self{LOGFILE} || ""; $$self{DBH_ID_LABEL} =~ s!.*/!!;
+	$$self{DBH_ID_LABEL} = " ($$self{DBH_ID_LABEL})" if $$self{DBH_ID_LABEL};
+	$$self{DBH_ID} = "$$self{DBH_ID_MODULE}\@$$self{DBH_ID_HOST}$$self{DBH_ID_LABEL}";
         $dbh = DBI->connect ("DBI:$$self{DBH_DBITYPE}:$$self{DBH_DBNAME}",
 	    		     $$self{DBH_DBUSER}, $$self{DBH_DBPASS},
 			     { RaiseError => 1,
 			       AutoCommit => 0,
-			       PrintError => 0 });
+			       PrintError => 0,
+			       ora_module_name => $$self{DBH_ID} });
         die "failed to connect to the database\n" if ! $dbh;
 
 	# Acquire role if one was specified.  Do not use &dbexec() here
@@ -318,7 +324,7 @@ sub updateAgentStatus
     my $dir = $$self{DROPDIR}; $dir =~ s|/worker-\d+$||; $dir =~ s|/[^/]+$||;
     my $label = $$self{DROPDIR}; $label =~ s|/worker-\d+$||; $label =~ s|.*/||;
     my $wid = ($$self{DROPDIR} =~ /worker-(\d+)$/ ? "W$1" : "M");
-    my $fqdn = &getfullhostname();
+    my $fqdn = $$self{DBH_ID_HOST};
     my $pid = $$;
 
     my $dirtmp = $$self{DROPDIR};
