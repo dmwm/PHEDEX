@@ -14,25 +14,32 @@
  -jobs		  30
 
 ### AGENT LABEL=download-1 PROGRAM=Toolkit/Transfer/FileDownload
+ -verbose
  -db              ${PHEDEX_DBPARAM}
- -accept	  %_Buffer,%_Disk
- -nodes           TX_TEST_1_%
+ -ignore          %MSS
+ -nodes           T1%
  -backend         Null
 
 ### AGENT LABEL=download-2 PROGRAM=Toolkit/Transfer/FileDownload
+ -verbose
  -db              ${PHEDEX_DBPARAM}
- -accept	  %_Buffer,%_Disk
- -nodes           TX_TEST_2_%
+ -nodes           T2_1%,T2_9%
  -backend         Null
 
 ### AGENT LABEL=download-3 PROGRAM=Toolkit/Transfer/FileDownload
+ -verbose
  -db              ${PHEDEX_DBPARAM}
- -accept	  %_Buffer,%_Disk
- -nodes           TX_TEST_3_%
+ -nodes           T2_2%
  -backend         Null
 
 ### AGENT LABEL=download-4 PROGRAM=Toolkit/Transfer/FileDownload
+ -verbose
  -db              ${PHEDEX_DBPARAM}
- -accept	  %_Buffer,%_Disk
- -nodes           TX_TEST_4_%
+ -nodes           T2_3%
+ -backend         Null
+
+### AGENT LABEL=download-5 PROGRAM=Toolkit/Transfer/FileDownload
+ -verbose
+ -db              ${PHEDEX_DBPARAM}
+ -nodes           T2_4%
  -backend         Null
