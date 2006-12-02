@@ -116,6 +116,8 @@ sub storageRules
     {
 	my ($element, $value) = splice(@rules, 0, 2);
 	next if $element ne $kind;
+	# $$value[0]{'path-match'} = do { my $z = $$value[0]{'path-match'}; qr/$z/ };
+	# $$value[0]{'result'} = do { my $z = $$value[0]{'result'}; eval "sub { \$_[0] =~ s!\$_[1]!$z! }" };
 	push (@{$$result{$$value[0]{protocol}}}, $$value[0]);
     }
 
@@ -138,7 +140,14 @@ sub applyStorageRules
 	{
 	    $name = &applyStorageRules($rules, $$rule{'chain'}, $dest, $chain, $name)
 	        if (exists $$rule{'chain'} && $chain eq 'pre');
-	    eval "\$name =~ s!\$\$rule{'path-match'}!$$rule{'result'}!";
+	    if (ref $$rule{'result'} eq 'CODE')
+	    {
+		&{$$rule{'result'}} ($name, $$rule{'path-match'});
+	    }
+	    else
+	    {
+		eval "\$name =~ s!\$\$rule{'path-match'}!$$rule{'result'}!";
+	    }
 	    $name = &applyStorageRules($rules, $$rule{'chain'}, $dest, $chain, $name)
 	        if (exists $$rule{'chain'} && $chain eq 'post');
 	    return $name;
