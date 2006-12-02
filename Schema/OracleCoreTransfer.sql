@@ -385,6 +385,9 @@ create index ix_xfer_path_tofile
 create index ix_xfer_path_srcfrom
   on t_xfer_path (src_node, from_node);
 
+create index ix_xfer_path_valid
+  on t_xfer_path (is_valid);
+
 --
 create index ix_xfer_task_from_node
   on t_xfer_task (from_node);
