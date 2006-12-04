@@ -414,24 +414,42 @@ sub fetchNewTasks
 # Upload final task status to the database.
 sub updateTaskStatus
 {
-    my ($self, $tasks, $task) = @_;
-    &logmsg("uploading status of task $task") if $$self{VERBOSE};
-    &dbexec($$self{DBH}, qq{
+    my ($self, $tasks) = @_;
+    my $rows = 0;
+    my %args;
+    my $stmt = &dbprep($$self{DBH}, qq{
 	insert into t_xfer_task_done
 	(task, report_code, xfer_code, time_update,
 	 log_xfer, log_detail, log_validate)
-	values
-	(:task, :report_code, :xfer_code, :time_update,
-	 :log_xfer, :log_detail, :log_validate)},
-	":task"         => $$tasks{$task}{TASKID},
-	":report_code"  => $$tasks{$task}{REPORT_CODE},
-	":xfer_code"    => $$tasks{$task}{XFER_CODE},
-	":time_update"  => $$tasks{$task}{TIME_UPDATE},
-	":log_xfer"     => $$tasks{$task}{LOG_XFER},
-	":log_detail"   => $$tasks{$task}{LOG_DETAIL},
-	":log_validate" => $$tasks{$task}{LOG_VALIDATE});
-    unlink("$$self{TASKDIR}/$task");
-    delete $$tasks{$task};
+	values (?, ?, ?, ?, ?, ?, ?)});
+    foreach my $task (keys %$tasks)
+    {
+	next if ! exists $$tasks{$task}{REPORT_CODE};
+
+        &logmsg("uploading status of task $task") if $$self{VERBOSE};
+	my $arg = 1;
+	push(@{$args{$arg++}}, $$tasks{$task}{TASKID});
+	push(@{$args{$arg++}}, $$tasks{$task}{REPORT_CODE});
+	push(@{$args{$arg++}}, $$tasks{$task}{XFER_CODE});
+	push(@{$args{$arg++}}, $$tasks{$task}{TIME_UPDATE});
+	push(@{$args{$arg++}}, $$tasks{$task}{LOG_XFER});
+	push(@{$args{$arg++}}, $$tasks{$task}{LOG_DETAIL});
+	push(@{$args{$arg++}}, $$tasks{$task}{LOG_VALIDATE});
+        unlink("$$self{TASKDIR}/$task");
+        delete $$tasks{$task};
+	if ((++$rows % 100) == 0)
+	{
+	    &dbbindexec($stmt, %args);
+	    $$self{DBH}->commit();
+	    %args = ();
+	}
+    }
+
+    if (%args)
+    {
+	&dbbindexec($stmt, %args);
+        $$self{DBH}->commit();
+    }
 }
 
 # Push status of completed to the database and pull more tasks.
@@ -440,8 +458,7 @@ sub doSync
     my ($self, $jobs, $tasks) = @_;
 
     # Upload status for completed tasks.
-    $self->updateTaskStatus($tasks, $_)
-        for grep(exists $$tasks{$_}{REPORT_CODE}, keys %$tasks);
+    $self->updateTaskStatus($tasks);
 
     # Fetch new tasks where necessary.
     $self->fetchNewTasks($jobs, $tasks);
