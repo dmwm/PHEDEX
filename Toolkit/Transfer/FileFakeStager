@@ -1,0 +1,94 @@
+#!/usr/bin/env perl
+
+##H Minimal fake stager agent for simulations.
+##H
+##H Usage:
+##H   FileFakeStager
+##H      -state DIRECTORY -db FILE[:SECTION] [-log OUT]
+##H      -nodes PATTERN[,PATTERN...]
+##H
+##H -state       agent state directory
+##H -nodes       the nodes where this agent runs
+##H -db          database connection configuration parameter file
+##H -log         where to redirect logging information
+
+BEGIN {
+  use strict; use warnings; $^W=1;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+######################################################################
+my %args;
+use Getopt::Long;
+use UtilsHelp;
+&GetOptions ("state=s"     => \$args{DROPDIR},
+	     "log=s"       => \$args{LOGFILE},
+             "db=s"        => \$args{DBCONFIG},
+	     "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
+	     "help|h"      => sub { &usage() });
+
+if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{NODES})
+{
+    die "Insufficient parameters, use -h for help.\n";
+}
+
+(new FileFakeStager (%args))->process();
+
+######################################################################
+# Routines for this agent.
+package FileFakeStager; use strict; use warnings; use base 'UtilsAgent';
+use UtilsLogging;
+use UtilsTiming;
+use UtilsDB;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBCONFIG => undef,		# Database configuration file
+	  	  NODES => undef,		# Nodes this agent runs for
+		  WAITTIME => 60 + rand(15),	# Agent cycle time
+		  AGENTID => "FileStager");	# Identity for activity logs
+    my %args = (@_);
+    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Called by agent main routine before sleeping.  Pick up stage-in
+# assignments and map current stager state back to the database.
+sub idle
+{
+    my ($self, @pending) = @_;
+
+    my $dbh = undef;
+    eval
+    {
+	my @nodes;
+	($dbh, @nodes) = &expandNodesAndConnect ($self);
+        my ($mynodes, %myargs) = &myNodeFilter($self, "xr.node");
+
+        # Mark as staged everything requiring export.
+        my $stmt = &dbexec($dbh, qq{
+	    update t_xfer_replica xr
+	    set state = 1, time_state = :now
+	    where $mynodes and exists
+	      (select 1 from t_xfer_task xt
+	       where xt.from_node = xr.node
+		 and xt.fileid = xr.fileid)},
+	    ":now" => &mytimeofday(), %myargs);
+
+	$dbh->commit();
+    };
+    do { chomp ($@); &alert ("database error: $@");
+	 eval { $dbh->rollback() } if $dbh; } if $@;
+
+    # Disconnect from the database
+    &disconnectFromDatabase ($self, $dbh);
+
+    # Have a little nap
+    $self->nap ($$self{WAITTIME});
+}
