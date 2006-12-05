@@ -106,6 +106,27 @@ sub transfer
 	   where xte.task = xt.id)},
         ":now" => $now);
 
+    # Export staged files for sites with stage-in.
+    &dbexec($dbh, qq{
+	insert into t_xfer_task_export (task, time_update)
+	select xt.id, :now from t_xfer_task xt
+	  join t_adm_node ns
+	    on ns.id = xt.from_node
+	    and ns.kind = 'Buffer'
+	  join t_xfer_source xs
+	    on xs.from_node = xt.from_node
+	    and xs.to_node = xt.to_node
+	    and xs.time_update >= :now - 5400
+	where exists
+            (select 1 from t_xfer_replica xr
+	     where xr.node = xt.from_node
+	       and xr.fileid = xt.fileid
+	       and xr.state = 1)
+          and not exists
+	    (select 1 from t_xfer_task_export xte
+	     where xte.task = xt.id)},
+        ":now" => $now);
+
     # Auto transfer for MSS -> Buffer transitions.
     &dbexec($dbh, qq{
 	insert all
@@ -115,7 +136,7 @@ sub transfer
 			          values (id, 0, 0, :now)
 	select xt.id from t_xfer_task xt
 	  join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
-	  join t_adm_node nd on nd.id = xt.to_node /* FIXME! and nd.kind = 'Buffer' */
+	  join t_adm_node nd on nd.id = xt.to_node and nd.kind = 'Buffer'
 	where not exists
 	  (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)},
         ":now" => $now);
@@ -137,6 +158,7 @@ sub receive
 	    xt.from_node, ns.name from_node_name, xt.from_pfn,
 	    xt.to_node, nd.name to_node_name, xt.to_pfn,
 	    xt.priority, f.filesize, f.logical_name,
+	    xr.id dest_replica,
 	    xt.time_assign time_assign,
 	    xt.time_expire time_expire,
 	    xte.time_update time_export,
@@ -148,7 +170,9 @@ sub receive
 	  join t_adm_node ns on ns.id = xt.from_node
 	  join t_adm_node nd on nd.id = xt.to_node
 	  left join t_xfer_task_export xte on xte.task = xtd.task
-	  left join t_xfer_task_inxfer xti on xti.task = xtd.task});
+	  left join t_xfer_task_inxfer xti on xti.task = xtd.task
+	  left join t_xfer_replica xr
+	    on xr.node = xt.to_node and xr.fileid = xt.fileid});
     while (my $task = $q->fetchrow_hashref())
     {
 	# First update the statistics.  Create a time bin for the
@@ -183,31 +207,50 @@ sub receive
 		die "failed to update t_history_link even on second time!"
 		    if $i && $nrows == 0;
 
-		&dbexec($dbh, qq{
-	            insert into t_history_link
-	            (timebin, timewidth, from_node, to_node, priority)
-	            values (:bin, :width, :from_node, :to_node, :priority)},
-	            ":bin" => int($$task{$t}/300)*300,
-	            ":width" => 300,
-	            ":from_node" => $$task{FROM_NODE},
-	            ":to_node" => $$task{TO_NODE},
-	            ":priority" => $$task{PRIORITY});
+		# Try create the link record but try to avoid conflicts
+		# with the performance monitoring agent.
+		eval
+		{
+		    $dbh->commit();
+		    &dbexec($dbh, qq{
+	                insert into t_history_link
+	                (timebin, timewidth, from_node, to_node, priority)
+	                values (:bin, :width, :from_node, :to_node, :priority)},
+	                ":bin" => int($$task{$t}/300)*300,
+	                ":width" => 300,
+	                ":from_node" => $$task{FROM_NODE},
+	                ":to_node" => $$task{TO_NODE},
+	                ":priority" => $$task{PRIORITY});
+		    $dbh->commit();
+		};
+		die $@ if $@ && $@ !~ /ORA-00001:/;
 	    }
 	}
 
 	# If the transfer was successful, create destination replica.
 	# Otherwise if this was a transfer to the destination, put the
 	# request into cool-off.
+	my $msg = "xstats:";
 	if ($$task{REPORT_CODE} == 0)
 	{
-	    &dbexec($dbh, qq{
-		insert into t_xfer_replica
-		(id, node, fileid, state, time_create, time_state)
-		values
-		(seq_xfer_replica.nextval, :node, :fileid, 0, :t, :t)},
-		":node" => $$task{TO_NODE},
-		":fileid" => $$task{FILEID},
-		":t" => $$task{TIME_DONE});
+	    if (! $$task{DEST_REPLICA})
+	    {
+	        # Destination doesn't exist, insert replica.
+		&dbexec($dbh, qq{
+		    insert into t_xfer_replica
+		    (id, node, fileid, state, time_create, time_state)
+		    values
+		    (seq_xfer_replica.nextval, :node, :fileid, 0, :t, :t)},
+		    ":node" => $$task{TO_NODE},
+		    ":fileid" => $$task{FILEID},
+		    ":t" => $$task{TIME_DONE})
+	    }
+	    else
+	    {
+	        # Destination replica exists, discard transfer.
+		# Keep the stats since the agent thought it did.
+		$msg = "warning: destination replica exists, discarding:";
+	    }
 	}
 	else
 	{
@@ -228,7 +271,7 @@ sub receive
 	($$task{LOG_XFER} ||= '') =~ s/\s+/ /gs;
 	($$task{LOG_DETAIL} ||= '') =~ s/\s+/ /gs;
 	($$task{LOG_VALIDATE} ||= '') =~ s/\s+/ /gs;
-	&logmsg("xstats:"
+	&logmsg($msg
 		. " task=$$task{TASK}"
 		. " file=$$task{FILEID}"
 		. " from=$$task{FROM_NODE_NAME}"
