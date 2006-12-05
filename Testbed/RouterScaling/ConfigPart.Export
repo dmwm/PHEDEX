@@ -4,3 +4,7 @@
  -nodes           %
  -storagemap      ${PHEDEX_MAP}
  -protocols       srm
+
+### AGENT LABEL=exp-stage PROGRAM=Toolkit/Transfer/FileFakeStager
+ -db              ${PHEDEX_DBPARAM}
+ -nodes           T1%Buffer

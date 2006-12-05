@@ -7,39 +7,33 @@
 ### AGENT LABEL=download-cmd PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
  -db              ${PHEDEX_DBPARAM}
  -accept	  %_Buffer,%_Disk
- -nodes           TX_TEST_1_%
+ -nodes           %TEST_001%
  -backend	  Command
  -protocols	  srm
  -command	  ${PHEDEX_CONFIG}/DoNothing,30,120
  -jobs		  30
 
-### AGENT LABEL=download-1 PROGRAM=Toolkit/Transfer/FileDownload
+### AGENT LABEL=download-1 PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
  -verbose
  -db              ${PHEDEX_DBPARAM}
  -ignore          %MSS
  -nodes           T1%
  -backend         Null
 
-### AGENT LABEL=download-2 PROGRAM=Toolkit/Transfer/FileDownload
+### AGENT LABEL=download-2 PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
  -verbose
  -db              ${PHEDEX_DBPARAM}
- -nodes           T2_1%,T2_9%
+ -nodes           T2_00%,T2_01%
  -backend         Null
 
-### AGENT LABEL=download-3 PROGRAM=Toolkit/Transfer/FileDownload
+### AGENT LABEL=download-3 PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
  -verbose
  -db              ${PHEDEX_DBPARAM}
- -nodes           T2_2%
+ -nodes           T2_02%,T2_03%
  -backend         Null
 
-### AGENT LABEL=download-4 PROGRAM=Toolkit/Transfer/FileDownload
+### AGENT LABEL=download-4 PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
  -verbose
  -db              ${PHEDEX_DBPARAM}
- -nodes           T2_3%
- -backend         Null
-
-### AGENT LABEL=download-5 PROGRAM=Toolkit/Transfer/FileDownload
- -verbose
- -db              ${PHEDEX_DBPARAM}
- -nodes           T2_4%
+ -nodes           T2_04%,T2_05%
  -backend         Null
