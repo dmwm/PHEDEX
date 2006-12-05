@@ -4,15 +4,12 @@
 ##H files.
 ##H
 ##H Use: $0 -db <DBCONFIG> -datasets N_DS -blocks N_BLOCKS -files N_FILES
-##H         -nodes <amount and type of nodes>
 ##H
 ##H Parameters:
-##H
 ##H      db:       path to DB Config file
 ##H      datasets: amount of datasets you wish to make known to the DB
 ##H      blocks:   amount of blocks you wish to make known to the DB
 ##H      count:    amount of files you wish to make known to the DB
-##H      nodes:    comma-separated list of nodes to create: 4:T1,10:T2
 
 BEGIN { use strict; use warnings; $^W=1;
 	my $me = $0; $me =~ s|.*/||;
@@ -33,18 +30,10 @@ use UtilsTiming;
     	     "help|h"      => sub { &usage() });
 
 $|=1;
-my %nodes = ();
-foreach ( @{$args{NODES}} )
-{
-    my ($amount, $kind) = split m|:|, $_;
-    $nodes{$kind} = $amount;
-}
-
 my $checksum = 1;
 my $size = 1000000000;
 
-if (! $args{DBCONFIG} || ! $args{DATASETS} || ! $args{BLOCKS}
-    || ! $args{FILES} || ! $args{NODES})
+if (! $args{DBCONFIG} || ! $args{DATASETS} || ! $args{BLOCKS} || ! $args{FILES})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -53,76 +42,14 @@ my $files = $args{FILES};
 my $blocks = $args{BLOCKS};
 my $datasets = $args{DATASETS};
 my $now = &mytimeofday();
-
 my $dbh = &connectToDatabase (\%args, 0);
 
 eval
 {
-    # Create nodes and links
-    my $index = 1;
-    my (@allnodes, @allnames, %connections);
-    foreach my $kind (keys %nodes)
-    {
-        for (my $i = 1; $i <= $nodes{$kind}; ++$i, ++$index)
-        {
-	    push(@allnodes, "${kind}_${index}");
-        }
-    }
+    # Get list of nodes
+    my @nodes = @{&dbexec($dbh, qq{select id, name from t_adm_node})
+                  ->fetchall_arrayref({})};
 
-    # Create Tier-1 Buffer/MSS nodes
-    print "Creating nodes:";
-    foreach my $node (grep(/^T1/, @allnodes))
-    {
-	my $buffer = "${node}_Buffer";
-	my $mss = "${node}_MSS";
-	my $msg;
-
-        print " $buffer";
-	$msg = qx($home/../../Utilities/NodeNew \\
-		  -db $args{DBCONFIG}:$args{DBSECTION} \\
-		  -name $buffer -kind Buffer -technology Other \\
-		  -se-name $node.test 2>&1);
-	die "\nFailed to create node $buffer:\n$msg" if $?;
-
-        print " $mss";
-	$msg = qx($home/../../Utilities/NodeNew \\
-		  -db $args{DBCONFIG}:$args{DBSECTION} \\
-		  -name $mss -kind MSS -technology Other \\
-		  -se-name $node.test 2>&1);
-	die "\nFailed to create node $mss:\n$msg" if $?;
-
-	$connections{$buffer} = [
-	    "$mss:L/1",
-	    ($node eq 'T1_1' ? (map { "${_}_Buffer:R/2" } grep(/^T1/ && $_ ne $node, @allnodes)) : ()),
-	    map { "${_}_Disk:R/3" } grep(/^T2/, @allnodes) ];
-	push(@allnames, $buffer, $mss);
-    }
-
-    # Now Tier-2 disk nodes
-    foreach my $node (grep(/^T2/, @allnodes))
-    {
-	my $disk = "${node}_Disk";
-        print " $disk";
-	my $msg = qx($home/../../Utilities/NodeNew \\
-		     -db $args{DBCONFIG}:$args{DBSECTION} \\
-		     -name $disk -kind Disk -technology Other \\
-		     -se-name $node.test 2>&1);
-	die "\nFailed to create node $disk:\n$msg" if $?;
-	push(@allnames, $disk);
-    }
-
-    # Finally links
-    print "\nCreating links:";
-    foreach my $node (sort keys %connections)
-    {
-        print " $node";
-	my $msg = qx($home/../../Utilities/LinkNew \\
-		     -db $args{DBCONFIG}:$args{DBSECTION} \\
-		     $node @{$connections{$node}} 2>&1);
-	die "\nFailed to create links for $node:\n$msg" if $?;
-    }
-    print "\n";
-    
     # Prepare file and block injections into TMDB
     my $ifile = &dbprep($dbh, qq{
 	insert /*+ append */ into t_dps_file
@@ -145,11 +72,7 @@ eval
         my %params;
         for( my $block=1; $block<=$blocks; $block++)
         {
-	    my ($node) = &dbexec($dbh,
-		qq{select id from t_adm_node where name = :name},
-		":name" => $allnames[($ds*$datasets+$block) % scalar @allnames])
-		->fetchrow();
-
+	    my $node = $nodes[($ds*$datasets+$block) % scalar @nodes]{ID};
 	    my $bid = undef;
 	    print ".";
 	    &dbexec($dbh, qq{
@@ -161,16 +84,15 @@ eval
 		":name" => "test.$ds.$block");
 	    print "$bid";
 	
-	    for( my $f = 0; $f<$files; $f++)
+	    for( my $f = 0; $f<$files; ++$f, ++$fid)
 	    {
 	        my $n = 1;
 	        push(@{$params{$n++}}, $node);
 	        push(@{$params{$n++}}, $bid);
-	        push(@{$params{$n++}}, "/my/test/file$fid");
-	        push(@{$params{$n++}}, "1");
+	        push(@{$params{$n++}}, "/my/test/file/$fid");
+	        push(@{$params{$n++}}, "cksum:1");
 	        push(@{$params{$n++}}, $size);
 	        push(@{$params{$n++}}, $now);
-		$fid++;
 	    }
 	}
 
