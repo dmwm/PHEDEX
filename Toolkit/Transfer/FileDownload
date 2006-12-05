@@ -892,7 +892,8 @@ sub idle
 	my $recent_sync = ($$self{LAST_SYNC} >= $now - 120 ? 1 : 0);
 	if (($need_sync || $$self{DBH}) && ! $recent_sync)
 	{
-	    $self->reconnect() if ! $$self{DBH};
+	    $self->reconnect()
+		if (! $$self{DBH} || $now - $$self{DBH_AGE} > 3600);
 	    if ($$self{NEXT_PURGE} <= $now)
 	    {
 		# Kill ghost transfers in the database and locally.
