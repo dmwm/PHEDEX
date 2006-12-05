@@ -141,52 +141,42 @@ sub flush
 
     # If transfers path are about to expire on links which have
     # reasonable recent transfer rate, give a bit more grace time.
-    &dbexec($dbh, qq{
-	update t_xfer_path xp
-	set xp.time_expire = :now + 8*3600
+    my (%pextend, %rextend);
+    my $qextend = &dbexec($dbh, qq{
+        select xp.fileid, xp.destination, xp.from_node, xp.to_node
+        from t_xfer_path xp
 	where xp.time_expire >= :now
-	  and xp.time_expire < :now + 3600
+	  and xp.time_expire < :now + 2*3600
 	  and xp.is_valid = 1
 	  and exists
 	    (select 1 from t_adm_link_param lp
 	     join t_adm_link l on l.id = lp.link
 	     where l.from_node = xp.from_node
 	       and l.to_node = xp.to_node
-   	       and lp.xfer_rate >= 1048576)},
+	       and lp.xfer_rate >= 1048576)},
 	":now" => $now);
+    while (my ($file, $dest, $from, $to) = $qextend->fetchrow())
+    {
+	push(@{$pextend{1}}, $now + 8*3600);
+	push(@{$pextend{2}}, $from);
+	push(@{$pextend{3}}, $to);
+	push(@{$pextend{4}}, $file);
+
+	push(@{$rextend{1}}, $now + 8*3600);
+	push(@{$rextend{2}}, $dest);
+	push(@{$rextend{3}}, $file);
+    }
 
     &dbexec($dbh, qq{
-	update t_xfer_task xt
-	set xt.time_expire =
-	  (select max(xp.time_expire)
-	   from t_xfer_path xp
-	   where xp.from_node = xt.from_node
-	     and xp.to_node = xt.to_node
-             and xp.fileid = xt.fileid
-	     and xp.is_valid = 1)
-        where exists
-	  (select 1 from t_xfer_path xp
-	   where xp.fileid = xt.fileid
-	     and xp.from_node = xt.from_node
-             and xp.to_node = xt.to_node
-	     and xp.time_expire > xt.time_expire
-	     and xp.is_valid = 1)})
-	if 0;  # FIXME: Too expensive!
-
+	update t_xfer_task set time_expire = greatest(time_expire, ?)
+	where from_node = ? and to_node = ? and fileid = ?},
+	%pextend)
+	if %pextend;
     &dbexec($dbh, qq{
-	update t_xfer_request xq
-	set xq.time_expire =
-	  (select max(xp.time_expire)
-	   from t_xfer_path xp
-	   where xp.fileid = xq.fileid
-	     and xp.destination = xq.destination
-	     and xp.is_valid = 1)
-        where xq.state = 0 and exists
-	  (select 1 from t_xfer_path xp
-	   where xp.fileid = xq.fileid
-	     and xp.destination = xq.destination
-	     and xp.time_expire > xq.time_expire
-	     and xp.is_valid = 1)});
+	update t_xfer_request set time_expire = greatest(time_expire, ?)
+	where destination = ? and fileid = ?},
+	%rextend)
+	if %rextend;
 
     # Mark as expired tasks which didn't complete in time.
     &dbexec($dbh, qq{
@@ -494,7 +484,7 @@ sub routeNode
 	    push(@{$iargs{$n++}}, ($$hop{LINK_RATE} || 0));
 	    push(@{$iargs{$n++}}, $$req{TIME_CREATE});
 	    push(@{$iargs{$n++}}, $now);
-	    push(@{$iargs{$n++}}, ($$hop{IS_VALID} ? $$req{TIME_EXPIRE} : $now+3600));
+	    push(@{$iargs{$n++}}, ($$hop{IS_VALID} ? $$req{TIME_EXPIRE} : $now+4*3600));
 	}
     }
 
@@ -511,7 +501,7 @@ sub routeNode
 	  (select 1 from t_xfer_path better
 	   where this.fileid = better.fileid
 	     and this.to_node = better.to_node
-	     and (this.is_valid = 1 and better.is_valid = 1)
+	     and this.is_valid <= better.is_valid
 	     and ((this.is_local = 0 and better.is_local > 0)
 		  or this.total_cost > better.total_cost
 		  or (this.total_cost = better.total_cost
