@@ -82,7 +82,8 @@ sub idle
 	# Update statistics on currently pending transfer queue.  This
 	# is a heart-beat routine, we want to execute this regularly
 	# so the histogram has no gaps -- if we miss a beat, there will
-	# be no data for this time bin.
+	# be no data for this time bin.  This conflicts with updates
+	# from transfer pump agent.
 	&dbexec($dbh, qq{
 	    merge into t_history_link h
 	    using
