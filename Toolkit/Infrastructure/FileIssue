@@ -69,7 +69,7 @@ sub idle
 	($dbh, @nodes) = &expandNodesAndConnect ($self, { "FileDownload" => 5400 });
 
 	# Route files.
-	$self->confirm($dbh, @nodes);
+	$self->confirm($dbh);
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
@@ -83,14 +83,17 @@ sub idle
 
 sub confirm
 {
-    my ($self, $dbh, @nodes) = @_;
+    my ($self, $dbh) = @_;
 
     # Read links and their parameters.  Only consider links which
     # are "alive", i.e. have a live download agent at destination
     # and an export agent at the source.
+    my %nodes;
     my $links = {};
     my $q = &dbexec($dbh, qq{
-	select l.from_node, l.to_node, l.distance, l.is_local,
+	select l.from_node, ns.name from_node_name,
+	       l.to_node, nd.name to_node_name,
+	       l.distance, l.is_local,
 	       p.xfer_rate, p.xfer_latency,
 	       xso.protocols, xsi.protocols
 	from t_adm_link l
@@ -111,9 +114,10 @@ sub confirm
 	   or (xso.from_node is not null
        	       and xsi.from_node is not null)},
 	":recent" => &mytimeofday() - 5400);
-    while (my ($from, $to, $hops, $local, $rate, $latency,
+    while (my ($from, $fromname, $to, $toname, $hops, $local, $rate, $latency,
 	       $src_protos, $dest_protos) = $q->fetchrow())
     {
+	$nodes{$to} = $toname;
 	$$links{$from}{$to} = { HOPS => $hops,
 				IS_LOCAL => $local eq 'y' ? 1 : 0,
 				XFER_RATE => $rate,
@@ -124,16 +128,15 @@ sub confirm
 
     # Now route for the nodes
     my $cats = {};
-    foreach my $node (@nodes)
+    foreach my $nodeid (sort keys %nodes)
     {
-	my $nodeid = $$self{NODES_ID}{$node};
 	$self->confirmNode($dbh, $nodeid, $links, $cats);
 	$self->maybeStop();
     }
 
-    if (@nodes)
+    if (%nodes)
     {
-	&logmsg ("issued for @nodes");
+	&logmsg ("issued for @{[sort values %nodes]}");
     }
     else
     {
