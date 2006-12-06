@@ -256,6 +256,7 @@ create table t_xfer_task_done
    report_code		integer		not null,
    xfer_code		integer		not null,
    time_update		float		not null,
+   is_done		char(1)		not null,
    log_xfer		varchar (4000),
    log_detail		varchar (4000),
    log_validate		varchar (4000),
@@ -267,7 +268,7 @@ create table t_xfer_task_done
      foreign key (task) references t_xfer_task (id)
      on delete cascade)
   --
-  organization index including time_update overflow
+  organization index including is_done overflow
   /* enable row movement */;
 
 /* FIXME: Consider using compressed table here, see
