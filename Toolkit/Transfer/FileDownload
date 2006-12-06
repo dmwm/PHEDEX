@@ -461,7 +461,8 @@ sub doSync
     $self->updateTaskStatus($tasks);
 
     # Fetch new tasks where necessary.
-    $self->fetchNewTasks($jobs, $tasks);
+    $self->fetchNewTasks($jobs, $tasks)
+	if ! -f "$$self{DROPDIR}/drain";
     $$self{DBH}->commit();
 }
 
