@@ -168,12 +168,15 @@ sub flush
     }
 
     &dbexec($dbh, qq{
-	update t_xfer_task set time_expire = greatest(time_expire, ?)
-	where from_node = ? and to_node = ? and fileid = ?},
+	update t_xfer_task xt
+	set time_expire = greatest(time_expire, ?)
+	where from_node = ? and to_node = ? and fileid = ? and not exists
+	  (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)},
 	%pextend)
 	if %pextend;
     &dbexec($dbh, qq{
-	update t_xfer_request set time_expire = greatest(time_expire, ?)
+	update t_xfer_request
+	set time_expire = greatest(time_expire, ?)
 	where destination = ? and fileid = ?},
 	%rextend)
 	if %rextend;
@@ -182,8 +185,9 @@ sub flush
     &dbexec($dbh, qq{
 	insert into t_xfer_task_done
 	(task, report_code, xfer_code, time_update)
-	select id, -1, -1, :now from t_xfer_task
-	where :now >= time_expire},
+	select id, -1, -1, :now from t_xfer_task xt
+	where :now >= time_expire and not exists
+	  (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)},
 	":now" => $now);
 
     # Deactivate requests which reached their expire time limit.
