@@ -184,8 +184,8 @@ sub flush
     # Mark as expired tasks which didn't complete in time.
     &dbexec($dbh, qq{
 	insert into t_xfer_task_done
-	(task, report_code, xfer_code, time_update)
-	select id, -1, -1, :now from t_xfer_task xt
+	(task, report_code, xfer_code, time_update, is_done)
+	select id, -1, -1, :now, 0 from t_xfer_task xt
 	where :now >= time_expire and not exists
 	  (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)},
 	":now" => $now);
@@ -260,14 +260,35 @@ sub route
     }
 
     # Now route for the nodes
+    my $start = &mytimeofday();
     my $costs = {};
     my $cats = {};
+    my $clean = 0;
+    foreach my $node (@nodes)
+    {
+	my $nodeid = $$self{NODES_ID}{$node};
+	$self->preRouteNode ($dbh, $nodeid, $links, $costs, $cats);
+	$self->maybeStop();
+    }
     foreach my $node (@nodes)
     {
 	my $nodeid = $$self{NODES_ID}{$node};
 	$self->routeNode ($dbh, $nodeid, $links, $costs, $cats);
-	$self->maybeStop();
+	$clean++;
+
+	my $current = &mytimeofday();
+	if ($current - $start > 600)
+	{
+	    $self->postRoute($dbh);
+	    $dbh->commit();
+	    $self->maybeStop();
+	    $clean = 0;
+	    $start = $current;
+	}
     }
+
+    $self->postRoute($dbh) if $clean;
+    $dbh->commit();
 
     if (@nodes)
     {
@@ -280,7 +301,7 @@ sub route
 }
 
 # Run the routing algorithm for one node.
-sub routeNode
+sub preRouteNode
 {
     my ($self, $dbh, $node, $links, $costs, $cats) = @_;
 
@@ -405,6 +426,12 @@ sub routeNode
         where destination = :me and state = 1 and :now >= time_expire},
 	":me" => $node, ":now" => $now);
     $dbh->commit();
+}
+
+sub routeNode
+{
+    my ($self, $dbh, $node, $links, $costs, $cats) = @_;
+    my $now = &mytimeofday();
 
     ######################################################################
     # Phase 2: Expand file requests into transfer paths through the
@@ -426,7 +453,7 @@ sub routeNode
 
     # Read requests and replicas for requests without paths
     my $requests = {};
-    $q = &dbexec($dbh, qq{
+    my $q = &dbexec($dbh, qq{
 	select
 	    xq.fileid, f.filesize,
 	    xq.priority, xq.time_create, xq.time_expire,
@@ -493,15 +520,18 @@ sub routeNode
     }
 
     &dbbindexec($istmt, %iargs) if %iargs;
+    # Do not commit until after postRoute!
+}
 
-    ######################################################################
-    # Phase 3: Confirm requests for which there are valid offers.
+# Post-routing clean-up of unnecessary paths.
+sub postRoute
+{
+    my ($self, $dbh) = @_;
 
-    # Discard duplicate confirmations for me for the same file.  Keep
-    # the best alternative: local one, or least cost one, or pick one.
+    # Discard duplicate confirmations for the same file.  Keep the
+    # best alternative: local one, or least cost one, or pick one.
     &dbexec($dbh, qq{
-	delete from t_xfer_path this
-	where to_node = :node and exists
+	delete from t_xfer_path this where exists
 	  (select 1 from t_xfer_path better
 	   where this.fileid = better.fileid
 	     and this.to_node = better.to_node
@@ -509,10 +539,7 @@ sub routeNode
 	     and ((this.is_local = 0 and better.is_local > 0)
 		  or this.total_cost > better.total_cost
 		  or (this.total_cost = better.total_cost
-		      and this.rowid > better.rowid)))},
-	":node" => $node);
-
-    $dbh->commit();
+		      and this.rowid > better.rowid)))});
 }
 
 # Calculate prototype file transfer cost.  The only factor affecting
