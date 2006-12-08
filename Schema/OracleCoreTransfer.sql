@@ -259,7 +259,6 @@ create table t_xfer_task_done
    report_code		integer		not null,
    xfer_code		integer		not null,
    time_update		float		not null,
-   is_done		char(1)		not null,
    --
    constraint pk_xfer_task_done
      primary key (task),
