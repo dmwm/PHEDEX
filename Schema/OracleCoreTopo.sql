@@ -77,7 +77,8 @@ create table t_adm_share
 
 
 create table t_adm_link_param
-  (link			integer		not null,
+  (from_node		integer		not null,
+   to_node		integer		not null,
    time_update		float		not null,
    time_span		integer,
    pend_bytes		float,
@@ -87,10 +88,14 @@ create table t_adm_link_param
    xfer_latency		float,
    --
    constraint pk_adm_link_param
-     primary key (link),
+     primary key (from_node, to_node),
    --
-   constraint fk_adm_link_param_link
-     foreign key (link) references t_adm_link (id)
+   constraint fk_adm_link_param_from
+     foreign key (from_node) references t_adm_node (id)
+     on delete cascade,
+   --
+   constraint fk_adm_link_param_to
+     foreign key (to_node) references t_adm_node (id)
      on delete cascade)
  --
  organization index;
