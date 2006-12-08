@@ -54,14 +54,17 @@ while (@ARGV)
       delete from t_dps_file where node =
         (select id from t_adm_node where name = :name)},
       ":name" => $name);
-    &dbexec($dbh, qq{
-      delete from t_history_link where to_node =
-        (select id from t_adm_node where name = :name)},
-      ":name" => $name);
-    &dbexec($dbh, qq{
-      delete from t_history_link where from_node =
-        (select id from t_adm_node where name = :name)},
-      ":name" => $name);
+    foreach my $kind (qw(stats events))
+    {
+        &dbexec($dbh, qq{
+          delete from t_history_link_$kind where to_node =
+            (select id from t_adm_node where name = :name)},
+          ":name" => $name);
+        &dbexec($dbh, qq{
+          delete from t_history_link_$kind where from_node =
+            (select id from t_adm_node where name = :name)},
+          ":name" => $name);
+    }
     &dbexec($dbh, qq{
       delete from t_history_dest where node =
         (select id from t_adm_node where name = :name)},
@@ -78,7 +81,9 @@ while (@ARGV)
   my $suffix = lc($name);
   &dbexec($dbh, qq{alter table t_xfer_replica drop partition node_$suffix});
   &dbexec($dbh, qq{alter table t_xfer_request drop partition dest_$suffix});
+  &dbexec($dbh, qq{alter table t_xfer_path    drop partition to_$suffix});
   &dbexec($dbh, qq{alter table t_xfer_task    drop partition to_$suffix});
+  &dbexec($dbh, qq{alter table t_xfer_error   drop partition to_$suffix});
   $dbh->commit();
 }
 
