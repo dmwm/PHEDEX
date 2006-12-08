@@ -146,17 +146,19 @@ sub new
 		  ACTIONS => [],		# Future actions
 
 		  TASKDIR => "$$self{DROPDIR}/tasks", # Tasks to do
+		  ARCHIVEDIR => "$$self{DROPDIR}/archive", # Jobs done
 		  STATS => [],			# Historical stats.
 
 		  LAST_SYNC => 0,		# Last time to synchronise
+		  LAST_WORK => 0,		# Last time we saw work
+		  NEXT_CLEAR => 0,		# Next time to clear job archive
 		  NEXT_SYNC => 0,		# Next time to synchronise
 		  NEXT_PURGE => 0,		# Next time to purge bad data
 		  NEXT_DISCONNECT => 0,		# Next time to disconnect
 		  DBH_LAST_USE => 0,		# Last use of the database
 
 		  BATCH_ID => 0,		# Number of batches created
-		  BOOTTIME => time(),		# Time this agent started
-	  	  );
+		  BOOTTIME => time());		# Time this agent started
     my %args = (@_);
     $$self{$_} = $args{$_} || $params{$_} for keys %params;
     $$self{BACKEND} = eval ("use UtilsDownload$args{BACKEND_TYPE};"
@@ -164,6 +166,8 @@ sub new
     do { chomp ($@); die "Failed to create backend: $@\n" } if $@;
     -d $$self{TASKDIR} || mkdir($$self{TASKDIR}) || -d $$self{TASKDIR}
         || die "$$self{TASKDIR}: cannot create: $!\n";
+    -d $$self{ARCHIVEDIR} || mkdir($$self{ARCHIVEDIR}) || -d $$self{ARCHIVEDIR}
+        || die "$$self{ARCHIVEDIR}: cannot create: $!\n";
     bless $self, $class;
     return $self;
 }
@@ -331,8 +335,8 @@ sub purgeLostTransfers
     my $now = &mytimeofday();
     my $qlost = &dbprep($$self{DBH}, qq{
       insert into t_xfer_task_done
-        (task, report_code, xfer_code, time_update, is_done)
-	values (:task, -2, -2, :now, 0)});
+        (task, report_code, xfer_code, time_update)
+	values (:task, -2, -2, :now)});
     &dbbindexec($qlost, ":now" => $now, ":task" => $_) for @lostdb;
 
     # Remove locally known tasks forgotten by database.
@@ -363,20 +367,19 @@ sub fetchNewTasks
 
     my $q = &dbexec($$self{DBH}, qq{
 	select
-	    xt.id taskid, xt.fileid, xt.rank,
+	    xt.id taskid, xt.fileid, xt.rank, xt.priority,
 	    f.logical_name, f.filesize, f.checksum,
 	    xt.from_node from_node_id, ns.name from_node,
 	    xt.to_node to_node_id, nd.name to_node,
 	    xt.from_pfn, xt.to_pfn,
-	    xt.time_assign
+	    xt.time_assign, xt.time_expire,
+	    xte.time_update time_export
 	 from t_xfer_task xt
+	   join t_xfer_task_export xte on xte.task = xt.id
 	   join t_adm_node ns on ns.id = xt.from_node
 	   join t_adm_node nd on nd.id = xt.to_node
 	   join t_xfer_file f on f.id = xt.fileid
 	 where $dest $src
-   	   and exists
-	     (select 1 from t_xfer_task_export xte
-	      where xte.task = xt.id)
    	   and not exists
 	     (select 1 from t_xfer_task_inxfer xti
 	      where xti.task = xt.id)
@@ -403,6 +406,7 @@ sub fetchNewTasks
 
 	# Mark used in database.
 	&dbbindexec($i, ":task" => $$row{TASKID}, ":now" => $now);
+	$$row{TIME_INXFER} = $now;
 
 	# Generate a local task descriptor.  It doesn't really matter
 	# if things go badly wrong here, we'll clean it up in purge.
@@ -416,38 +420,66 @@ sub updateTaskStatus
 {
     my ($self, $tasks) = @_;
     my $rows = 0;
-    my %args;
-    my $stmt = &dbprep($$self{DBH}, qq{
+    my (%dargs, %eargs);
+    my $dstmt = &dbprep($$self{DBH}, qq{
 	insert into t_xfer_task_done
-	(task, report_code, xfer_code, time_update,
-	 is_done, log_xfer, log_detail, log_validate)
-	values (?, ?, ?, ?, 0, ?, ?, ?)});
+	(task, report_code, xfer_code, time_update)
+	values (?, ?, ?, ?)});
+    my $estmt = &dbprep($$self{DBH}, qq{
+	insert into t_xfer_error
+	(to_node, from_node, fileid, priority,
+	 time_assign, time_expire, time_inxfer, time_done,
+	 report_code, xfer_code, from_pfn, to_pfn,
+	 log_xfer, log_detail, log_validate)
+	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
     foreach my $task (keys %$tasks)
     {
 	next if ! exists $$tasks{$task}{REPORT_CODE};
 
         &logmsg("uploading status of task $task") if $$self{VERBOSE};
+
 	my $arg = 1;
-	push(@{$args{$arg++}}, $$tasks{$task}{TASKID});
-	push(@{$args{$arg++}}, $$tasks{$task}{REPORT_CODE});
-	push(@{$args{$arg++}}, $$tasks{$task}{XFER_CODE});
-	push(@{$args{$arg++}}, $$tasks{$task}{TIME_UPDATE});
-	push(@{$args{$arg++}}, $$tasks{$task}{LOG_XFER});
-	push(@{$args{$arg++}}, $$tasks{$task}{LOG_DETAIL});
-	push(@{$args{$arg++}}, $$tasks{$task}{LOG_VALIDATE});
+	push(@{$dargs{$arg++}}, $$tasks{$task}{TASKID});
+	push(@{$dargs{$arg++}}, $$tasks{$task}{REPORT_CODE});
+	push(@{$dargs{$arg++}}, $$tasks{$task}{XFER_CODE});
+	push(@{$dargs{$arg++}}, $$tasks{$task}{TIME_UPDATE});
+
+	if ($$tasks{$task}{REPORT_CODE} != 0)
+	{
+	    my $arg = 1;
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{TO_NODE});
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{FROM_NODE});
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{FILEID});
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{PRIORITY});
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_ASSIGN});
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_EXPIRE});
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_INXFER});
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_UPDATE});
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{REPORT_CODE});
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{XFER_CODE});
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{FROM_PFN});
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{TO_PFN});
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_XFER});
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_DETAIL});
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_VALIDATE});
+	}
+
         unlink("$$self{TASKDIR}/$task");
         delete $$tasks{$task};
 	if ((++$rows % 100) == 0)
 	{
-	    &dbbindexec($stmt, %args);
+	    &dbbindexec($dstmt, %dargs);
+	    &dbbindexec($estmt, %eargs) if %eargs;
 	    $$self{DBH}->commit();
-	    %args = ();
+	    %dargs = ();
+	    %eargs = ();
 	}
     }
 
-    if (%args)
+    if (%dargs)
     {
-	&dbbindexec($stmt, %args);
+	&dbbindexec($dstmt, %dargs);
+	&dbbindexec($estmt, %eargs) if %eargs;
         $$self{DBH}->commit();
     }
 }
@@ -566,21 +598,26 @@ sub check
 	    $$taskinfo{LOG_VALIDATE} = $$vstatus{LOG};
 	    $$taskinfo{TIME_UPDATE} = $$vstatus{END};
 	    return if ! $self->taskDone($taskinfo);
+	    my $detail = $$taskinfo{LOG_DETAIL};
+	    $detail =~ s/\s+/ /gs if $detail;
 	    &logmsg("xstats:"
-		    . " to=$$taskinfo{TO_NODE}"
+		    . " task=$task"
+		    . " file=$$taskinfo{FILEID}"
 		    . " from=$$taskinfo{FROM_NODE}"
-		    . " fileid=$$taskinfo{FILEID}"
-		    . " report_code=$$taskinfo{REPORT_CODE}"
-		    . " xfer_code=$$taskinfo{XFER_CODE}"
+		    . " to=$$taskinfo{TO_NODE}"
+		    . " priority=$$taskinfo{PRIORITY}"
+		    . " report-code=$$taskinfo{REPORT_CODE}"
+		    . " xfer-code=$$taskinfo{XFER_CODE}"
 		    . " size=$$taskinfo{FILESIZE}"
-		    # . join("", map { sprintf(" time_%s=%.2f", $$_[0], $$_[2]-$$_[1]) }
-		    #	   [ 'assigned', $$file{TIME_ASSIGN}, $now ],
-		    #	   [ 'all', $$file{TIME_START}, $now ],
-		    #	   @{$$file{TIMING}})
+		    . " t-expire=$$taskinfo{TIME_EXPIRE}"
+		    . " t-assign=$$taskinfo{TIME_ASSIGN}"
+		    . " t-export=$$taskinfo{TIME_EXPORT}"
+		    . " t-xfer=$$taskinfo{TIME_INXFER}"
+		    . " t-done=$$taskinfo{TIME_UPDATE}"
 		    . " lfn=$$taskinfo{LOGICAL_NAME}"
 		    . " from_pfn=$$taskinfo{FROM_PFN}"
 		    . " to_pfn=$$taskinfo{TO_PFN}"
-		    . " detail=($$taskinfo{LOG_DETAIL})");
+		    . " detail=($detail)");
 	}
 
 	# Otherwise we are still not done with this job.
@@ -593,9 +630,8 @@ sub check
     # If we are done with the copy job, nuke it.
     if ($done)
     {
-        # (FIXME: archive into a directory, failed and successful?)
 	&logmsg("copy job $jobname completed") if $$self{VERBOSE};
-	&rmtree($jobpath);
+	&mv($jobpath, "$$self{ARCHIVEDIR}/$jobname");
 	delete $$jobs{$jobname};
     }
 }
@@ -908,16 +944,29 @@ sub idle
 	    $$self{DBH_LAST_USE} = $now if $need_sync;
 	}
 
+	# Remember current time if we are seeing work.
+	$$self{LAST_WORK} = $now if %tasks;
+
 	# Detach from the database if the connection wasn't used
 	# recently (at least one minute) and if it looks the agent
 	# has enough work for some time.
 	if (defined $$self{DBH}
+	    && $$self{NEXT_SYNC} - $now > 300
 	    && $$self{NEXT_DISCONNECT} <= $now
 	    && $now - $$self{DBH_LAST_USE} > 60
-	    && $$self{BACKEND}->isBusy(\%jobs, \%tasks))
+	    && ($$self{BACKEND}->isBusy(\%jobs, \%tasks)
+		|| $now - $$self{LAST_WORK} > 1800))
 	{
 	    &logmsg("disconnecting from database");
 	    &disconnectFromDatabase($self, $$self{DBH}, 1);
+	}
+
+	# Purge info about old jobs.
+	if ($$self{NEXT_CLEAR} <= $now)
+	{
+	    my $archivedir = $$self{ARCHIVEDIR};
+	    &rmtree($_) for grep((stat($_))[9] < $now - 86400, <$archivedir/*>);
+	    $$self{NEXT_CLEAR} = $now + 86400;
 	}
     };
     do { chomp ($@); &alert ($@); $$self{NEXT_PURGE} = 0;
