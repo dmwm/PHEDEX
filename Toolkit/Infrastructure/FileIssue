@@ -99,7 +99,9 @@ sub confirm
 	from t_adm_link l
 	  join t_adm_node ns on ns.id = l.from_node
 	  join t_adm_node nd on nd.id = l.to_node
-	  left join t_adm_link_param p on p.link = l.id
+	  left join t_adm_link_param p
+	    on p.from_node = l.from_node
+	    and p.to_node = l.to_node
 	  left join t_xfer_source xso
 	    on xso.from_node = ns.id
 	    and xso.to_node = nd.id
@@ -155,7 +157,9 @@ sub confirmNode
     my $q = &dbexec($dbh, qq{
 	with files_for_me as
 	  (select
-	       xp.fileid, f.logical_name, xp.from_node, xp.to_node, xr.id replica,
+	       xp.fileid, f.logical_name,
+	       xp.from_node, ns.kind from_kind,
+	       xp.to_node, xr.id replica,
 	       min(xp.priority) priority, max(xp.is_local) is_local,
 	       max(xp.time_expire) time_expire
 	   from t_xfer_path xp
@@ -164,12 +168,16 @@ sub confirmNode
 	       and xr.node = xp.from_node
              join t_xfer_file f
 	       on f.id = xp.fileid
+	     join t_adm_node ns
+	       on ns.id = xp.from_node
            where xp.to_node = :me
 	     and xp.is_valid = 1
 	     and xp.time_expire > :now
-	   group by xp.fileid, f.logical_name, xp.from_node, xp.to_node, xr.id)
+	   group by xp.fileid, f.logical_name,
+		    xp.from_node, ns.kind,
+		    xp.to_node, xr.id)
 	select
-	   fileid, logical_name, replica, from_node, to_node,
+	   fileid, logical_name, replica, from_node, from_kind, to_node,
 	   2*priority + 1-is_local priority, time_expire
 	from files_for_me ffm
 	where not exists
@@ -236,6 +244,9 @@ sub makeTransferTask
 	$protocol = $p;
 	last;
     }
+
+    # If this is MSS->Buffer transition, pretend we have a protocol.
+    $protocol = 'srm' if ! $protocol && $$task{FROM_KIND} eq 'MSS';
 
     # Check that we have prerequisite information to expand the file names.
     return if (! $from_cat
