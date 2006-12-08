@@ -78,7 +78,7 @@ eval
 
 	$connections{$buffer} = [
 	    "$mss:L/1",
-	    ($node eq 'T1_1' ? (map { "${_}_Buffer:R/2" } grep(/^T1/ && $_ ne $node, @allnodes)) : ()),
+	    (map { "${_}_Buffer:R/2" } grep(/^T1/ && $_ gt $node, @allnodes)),
 	    map { "${_}_Disk:R/3" } grep(/^T2/, @allnodes) ];
 	push(@allnames, $buffer, $mss);
     }
