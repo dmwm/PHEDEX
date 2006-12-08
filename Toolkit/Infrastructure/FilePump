@@ -92,39 +92,42 @@ sub transfer
 
     # Auto-export for sites running exports without stage-in.
     &dbexec($dbh, qq{
-	insert into t_xfer_task_export (task, time_update)
-	select xt.id, :now from t_xfer_task xt
-	  join t_adm_node ns
-	    on ns.id = xt.from_node
-	    and ns.kind = 'Disk'
-	  join t_xfer_source xs
-	    on xs.from_node = xt.from_node
-	    and xs.to_node = xt.to_node
-	    and xs.time_update >= :now - 5400
-	where not exists
-	  (select 1 from t_xfer_task_export xte
-	   where xte.task = xt.id)},
+	merge into t_xfer_task_export xte using
+	  (select xt.id
+	   from t_xfer_task xt
+	     join t_adm_node ns
+	       on ns.id = xt.from_node
+	     join t_xfer_source xs
+	       on xs.from_node = xt.from_node
+	       and xs.to_node = xt.to_node
+	   where ns.kind = 'Disk'
+	     and xs.time_update >= :now - 5400) xt
+	on (xte.task = xt.id)
+	when not matched then
+	  insert (task, time_update)
+	  values (xt.id, :now)},
         ":now" => $now);
 
     # Export staged files for sites with stage-in.
     &dbexec($dbh, qq{
-	insert into t_xfer_task_export (task, time_update)
-	select xt.id, :now from t_xfer_task xt
-	  join t_adm_node ns
-	    on ns.id = xt.from_node
-	    and ns.kind = 'Buffer'
-	  join t_xfer_source xs
-	    on xs.from_node = xt.from_node
-	    and xs.to_node = xt.to_node
-	    and xs.time_update >= :now - 5400
-	where exists
-            (select 1 from t_xfer_replica xr
-	     where xr.node = xt.from_node
+	merge into t_xfer_task_export xte using
+	  (select xt.id
+	   from t_xfer_task xt
+	     join t_adm_node ns
+	       on ns.id = xt.from_node
+	     join t_xfer_source xs
+	       on xs.from_node = xt.from_node
+	       and xs.to_node = xt.to_node
+	     join t_xfer_replica xr
+	       on xr.node = xt.from_node
 	       and xr.fileid = xt.fileid
-	       and xr.state = 1)
-          and not exists
-	    (select 1 from t_xfer_task_export xte
-	     where xte.task = xt.id)},
+	   where ns.kind = 'Buffer'
+	     and xr.state = 1
+	     and xs.time_update >= :now - 5400) xt
+	on (xte.task = xt.id)
+	when not matched then
+	  insert (task, time_update)
+	  values (xt.id, :now)},
         ":now" => $now);
 
     # Auto transfer for MSS -> Buffer transitions.
@@ -132,9 +135,8 @@ sub transfer
 	insert all
 	  into t_xfer_task_export (task, time_update) values (id, :now)
 	  into t_xfer_task_inxfer (task, time_update) values (id, :now)
-	  into t_xfer_task_done   (task, report_code, xfer_code,
-				   time_update, is_done)
-			          values (id, 0, 0, :now, 0)
+	  into t_xfer_task_done   (task, report_code, xfer_code, time_update)
+			          values (id, 0, 0, :now)
 	select xt.id from t_xfer_task xt
 	  join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
 	  join t_adm_node nd on nd.id = xt.to_node and nd.kind = 'Buffer'
@@ -152,26 +154,24 @@ sub receive
     my ($self, $dbh) = @_;
     my $now = &mytimeofday();
 
-    # First mark the rows we are going to read back later.  This
-    # comes before the stats update below to guarantee that when
-    # we below read back the tasks, we will not read more than
-    # we inserted into the stats due to phantom reads.
+    # First select rows we want to read in.  Use a temporary
+    # index table to mark what we saw so that we will not see
+    # phantom new rows while calculating statistics to update.
     &dbexec($dbh, qq{
-	update t_xfer_task_done
-	set is_done = 1
-	where is_done = 0});
-    $dbh->commit();
+	merge into t_xfer_task_harvest xth using
+	  (select task from t_xfer_task_done) xtd
+	on (xth.task = xtd.task)
+	when not matched then insert (task) values (xtd.task)});
 
-    # Now create history bins for time values we care about.  Do
-    # be minimal here as this conflicts with monitoring agents.
-    # We don't care that phantom reads may introduce more rows
-    # here than we will eventually read back below: what we need
-    # is that at least the rows we read are covered.
+    # Now create history bins for time values we care about.  We
+    # don't care that phantom reads may introduce more rows here
+    # than we will eventually read back below, all we need is rows
+    # we do read are covered.
     foreach my $table (qw(export inxfer done))
     {
 	my $bin = 300;
         &dbexec($dbh, qq{
-	    merge into t_history_link h using
+	    merge into t_history_link_events h using
               (select distinct
 	         trunc(xtx.time_update/$bin)*$bin timebin,
 	         xt.from_node, xt.to_node, xt.priority
@@ -184,7 +184,6 @@ sub receive
 	    when not matched then
 	      insert (timebin, timewidth, from_node, to_node, priority)
 	      values (v.timebin, $bin, v.from_node, v.to_node, v.priority)});
-	$dbh->commit();
     }
 
     # Now read in rows and create various update bundles.
@@ -193,9 +192,7 @@ sub receive
     my %done = ();
     my $q = &dbexec($dbh, qq{
 	select
-	    xtd.task, xtd.is_done,
-	    xt.fileid, xtd.report_code, xtd.xfer_code,
-	    xtd.log_xfer, xtd.log_detail, xtd.log_validate,
+	    xth.task, xt.fileid, xtd.report_code, xtd.xfer_code,
 	    xt.from_node, ns.name from_node_name, xt.from_pfn,
 	    xt.to_node, nd.name to_node_name, xt.to_pfn,
 	    xt.priority, f.filesize, f.logical_name,
@@ -205,28 +202,24 @@ sub receive
 	    xte.time_update time_export,
 	    xti.time_update time_xfer,
 	    xtd.time_update time_done
-	from t_xfer_task_done xtd
-	  join t_xfer_task xt on xt.id = xtd.task
+	from t_xfer_task_harvest xth
+	  join t_xfer_task xt on xt.id = xth.task
 	  join t_xfer_file f on f.id = xt.fileid
 	  join t_adm_node ns on ns.id = xt.from_node
 	  join t_adm_node nd on nd.id = xt.to_node
-	  left join t_xfer_task_export xte on xte.task = xtd.task
-	  left join t_xfer_task_inxfer xti on xti.task = xtd.task
+	  join t_xfer_task_done xtd on xtd.task = xth.task
+	  left join t_xfer_task_export xte on xte.task = xth.task
+	  left join t_xfer_task_inxfer xti on xti.task = xth.task
 	  left join t_xfer_replica xr
 	    on xr.node = xt.to_node and xr.fileid = xt.fileid});
     while (my $task = $q->fetchrow_hashref())
     {
-	# If we didn't select it before, skip it.  We don't want to
-        # use this in the query 'where' clause as it should be rare
-	# and seems to send the query plan bonkers.
-	next if ! $$task{IS_DONE};
-
 	# First update the statistics.  Create a time bin for the
 	# period when the transfer ended if one doesn't exist, then
 	# update the statistics according to result.
 	my %stats = (TIME_EXPORT => "avail", TIME_XFER => "try",
 		     TIME_DONE => ($$task{REPORT_CODE} == 0 ? "done"
-				  : $$task{REPORT_CODE} == 3002 ? "expire"
+				  : $$task{REPORT_CODE} == -1 ? "expire"
 				  : "fail"));
 	while (my ($t, $stat) = each %stats)
 	{
@@ -257,9 +250,6 @@ sub receive
 	push(@{$done{1}}, $$task{TASK});
 
         # Log the outcome.
-	($$task{LOG_XFER} ||= '') =~ s/\s+/ /gs;
-	($$task{LOG_DETAIL} ||= '') =~ s/\s+/ /gs;
-	($$task{LOG_VALIDATE} ||= '') =~ s/\s+/ /gs;
 	&logmsg($msg
 		. " task=$$task{TASK}"
 		. " file=$$task{FILEID}"
@@ -274,31 +264,21 @@ sub receive
 		. ($$task{TIME_EXPORT} ? " t-export=$$task{TIME_EXPORT}" : "")
 		. ($$task{TIME_XFER}   ? " t-xfer=$$task{TIME_XFER}" : "")
 		. ($$task{TIME_DONE}   ? " t-done=$$task{TIME_DONE}" : "")
+		. " t-harvest=$now"
 		. " lfn=$$task{LOGICAL_NAME}"
 		. " from_pfn=$$task{FROM_PFN}"
-		. " to_pfn=$$task{TO_PFN}"
-		. " xfer_detail=($$task{LOG_DETAIL})"
-		. " xfer_validate=($$task{LOG_VALIDATE})"
-		. " xfer_log=($$task{LOG_XFER})");
+		. " to_pfn=$$task{TO_PFN}");
 
 	# If we are doing too many, quit.
 	last if ++$n >= 50_000;
     }
 
-    # Mark the above tasks processed.  We want to do this first so
-    # when we come to updating the stats, we can go quickly to avoid
-    # competing with the performance monitoring agents for rows.
-    &dbexec($dbh, qq{
-	update t_xfer_task_done
-	set is_done = 2
-	where task = ?}, %done) if %done;
-
-    # Update link history.  See comment just above.
+    # Update link history.
     foreach my $key (keys %history)
     {
 	my ($bin, $from, $to, $priority) = split(/\s+/, $key);
 	my $join = "";
-	my $sql = "update t_history_link set";
+	my $sql = "update t_history_link_events set";
 	foreach my $stat (qw(avail try done fail expire))
 	{
 	    next if ! exists $history{$key}{"${stat}_files"};
@@ -322,40 +302,37 @@ sub receive
 	die "link history updated $rows, expected to update 1\n" if $rows != 1;
     }
 
-    # Commit now to minimise region of conflict.
-    $dbh->commit();
-
-    # OK, we can proceed now with the slow phase: everything we've
-    # processed is now marked in is_done=2 state, so just create
-    # destination replicas or mark the request in cool-off.
+    # Create destination replicas or put request into cool-off
+    # depending on the transfer outcome.
     &dbexec($dbh, qq{
-	insert into t_xfer_replica
-	(id, node, fileid, state, time_create, time_state)
-	select
-          seq_xfer_replica.nextval, xt.to_node, xt.fileid, 1 state,
-	  xtd.time_update time_create, xtd.time_update time_state
-        from t_xfer_task_done xtd
-	  join t_xfer_task xt on xt.id = xtd.task
-	where xtd.is_done = 2
-	  and xtd.report_code = 0});
+	merge into t_xfer_replica xr using
+	  (select xt.to_node, xt.fileid, xtd.time_update
+           from t_xfer_task_harvest xth
+	     join t_xfer_task xt on xt.id = xth.task
+	     join t_xfer_task_done xtd on xtd.task = xth.task
+	   where xtd.report_code = 0) new
+	on (xr.node = new.to_node and xr.fileid = new.fileid)
+	when not matched then
+	  insert (id, node, fileid, state, time_create, time_state)
+	  values (seq_xfer_replica.nextval, new.to_node, new.fileid,
+		  1, new.time_update, new.time_update)});
 
     &dbexec($dbh, qq{
-	update t_xfer_request xq
-	set state = 1, time_expire = :now + 3600
-	where exists
-	  (select 1 from t_xfer_task_done xtd
-	   join t_xfer_task xt on xt.id = xtd.task
-	   where xt.fileid = xq.fileid
-	     and xt.to_node = xq.destination
-	     and xtd.report_code != 0
-	     and xtd.is_done = 2)},
+	update (select xq.state, xq.time_expire
+		from t_xfer_task_harvest xth
+		  join t_xfer_task xt on xt.id = xth.task
+		  join t_xfer_task_done xtd on xtd.task = xth.task
+		  join t_xfer_request xq
+		    on xq.fileid = xt.fileid
+		    and xq.destination = xt.to_node
+		where xtd.report_code != 0)
+	set state = 1, time_expire = :now + 3600},
 	":now" => $now);
 
     # Finally remove all we've processed.
     &dbexec($dbh, qq{
-	delete from t_xfer_task xt where exists
-	  (select 1 from t_xfer_task_done xtd
-	   where xtd.task = xt.id and xtd.is_done = 2)});
+	delete from t_xfer_task xt where id in
+	  (select task from t_xfer_task_harvest)});
 
     # Presto, we are done.
     $dbh->commit();
