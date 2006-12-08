@@ -48,7 +48,7 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	    	  MYNODE => undef,		# TMDB node name
-	          WAITTIME => 120);		# Agent activity cycle
+	          WAITTIME => 300);		# Agent activity cycle
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -97,6 +97,15 @@ sub idle
 	my %old = (":old" => &mytimeofday() - 3*86400);
 	&dbexec($dbh,qq{delete from t_agent_status where time_update < :old}, %old);
 	$dbh->commit();
+
+	# Keep 100 most recent errors for every destination.
+	&dbexec($dbh, qq{
+	   delete from t_xfer_error xe where rowid not in
+	     (select rowid from
+	      (select rowid, row_number()
+		over (partition by to_node order by time_done desc) rank
+	       from t_xfer_error)
+	      where rank <= 100)});
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
