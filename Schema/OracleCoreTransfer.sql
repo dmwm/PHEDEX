@@ -181,7 +181,11 @@ create table t_xfer_path
      foreign key (to_node) references t_adm_node (id)
      on delete cascade)
   --
+  partition by list (to_node)
+    (partition to_dummy values (-1))
   enable row movement;
+
+create table t_xfer_newpath as select * from t_xfer_path where 1=0;
 
 /* FIXME: Consider using clustered table for t_xfer_task*, see
    Tom Kyte's Effective Oracle by Design, chapter 7. */
@@ -234,8 +238,7 @@ create table t_xfer_task_export
      foreign key (task) references t_xfer_task (id)
      on delete cascade)
   --
-  organization index
-  /* enable row movement */;
+  organization index;
 
 create table t_xfer_task_inxfer
   (task			integer		not null,
@@ -257,9 +260,6 @@ create table t_xfer_task_done
    xfer_code		integer		not null,
    time_update		float		not null,
    is_done		char(1)		not null,
-   log_xfer		varchar (4000),
-   log_detail		varchar (4000),
-   log_validate		varchar (4000),
    --
    constraint pk_xfer_task_done
      primary key (task),
@@ -268,15 +268,93 @@ create table t_xfer_task_done
      foreign key (task) references t_xfer_task (id)
      on delete cascade)
   --
-  organization index including is_done overflow
-  /* enable row movement */;
+  organization index;
+
+create table t_xfer_task_harvest
+  (task			integer		not null,
+   --
+   constraint pk_xfer_task_harvest
+     primary key (task),
+   --
+   constraint fk_xfer_task_harvest_task
+     foreign key (task) references t_xfer_task (id)
+     on delete cascade)
+  --
+  organization index;
+
+create table t_xfer_error
+  (to_node		integer		not null, -- node transfer is to
+   from_node		integer		not null, -- node transfer is from
+   fileid		integer		not null, -- xref t_xfer_file
+   priority		integer		not null, -- see at the top
+   time_assign		float		not null, -- time created
+   time_expire		float		not null, -- time will expire
+   time_export		float		not null, -- time exported
+   time_inxfer		float		not null, -- time taken into transfer
+   time_done		float		not null, -- time completed
+   report_code		integer		not null, -- final report code
+   xfer_code		integer		not null, -- transfer report code
+   from_pfn		varchar (1000)	not null, -- source pfn
+   to_pfn		varchar (1000)	not null, -- destination pfn
+   log_xfer		clob,
+   log_detail		clob,
+   log_validate		clob,
+   --
+   constraint fk_xfer_export_fileid
+     foreign key (fileid) references t_xfer_file (id)
+     on delete cascade,
+   --
+   constraint fk_xfer_export_from
+     foreign key (from_node) references t_adm_node (id)
+     on delete cascade,
+   --
+   constraint fk_xfer_export_to
+     foreign key (to_node) references t_adm_node (id)
+     on delete cascade)
+  --
+  partition by list (to_node)
+    (partition to_dummy values (-1))
+  enable row movement;
 
 /* FIXME: Consider using compressed table here, see
    Tom Kyte's Effective Oracle By Design, chapter 7.
    See also the same chapter, "Compress Auditing or
    Transaction History" for swapping partitions.
    Also test if index-organised table is good. */
-create table t_history_link
+create table t_history_link_events
+  (timebin		float		not null,
+   timewidth		float		not null,
+   from_node		integer		not null,
+   to_node		integer		not null,
+   priority		integer		not null,
+   -- statistics for timebin period from t_xfer_task
+   avail_files		integer, -- became available
+   avail_bytes		integer,
+   done_files		integer, -- successfully transferred
+   done_bytes		integer,
+   try_files		integer, -- attempts
+   try_bytes		integer,
+   fail_files		integer, -- attempts that errored out
+   fail_bytes		integer,
+   expire_files		integer, -- attempts that expired
+   expire_bytes		integer,
+   --
+   constraint pk_history_link_events
+     primary key (timebin, to_node, from_node, priority),
+   --
+   constraint fk_history_link_events_from
+     foreign key (from_node) references t_adm_node (id),
+   --
+   constraint fk_history_link_events_to
+     foreign key (to_node) references t_adm_node (id));
+
+
+/* FIXME: Consider using compressed table here, see
+   Tom Kyte's Effective Oracle By Design, chapter 7.
+   See also the same chapter, "Compress Auditing or
+   Transaction History" for swapping partitions.
+   Also test if index-organised table is good. */
+create table t_history_link_stats
   (timebin		float		not null,
    timewidth		float		not null,
    from_node		integer		not null,
@@ -295,18 +373,6 @@ create table t_history_link
    xfer_files		integer, -- in transfer
    xfer_bytes		integer,
    --
-   -- statistics for timebin period from t_xfer_tracking
-   avail_files		integer, -- became available
-   avail_bytes		integer,
-   done_files		integer, -- successfully transferred
-   done_bytes		integer,
-   try_files		integer, -- attempts
-   try_bytes		integer,
-   fail_files		integer, -- attempts that errored out
-   fail_bytes		integer,
-   expire_files		integer, -- attempts that expired
-   expire_bytes		integer,
-   --
    -- statistics for t_xfer_path during/at end of this bin
    confirm_files	integer, -- t_xfer_path
    confirm_bytes	integer,
@@ -316,16 +382,16 @@ create table t_history_link
    param_rate		float,
    param_latency	float,
    --
-   constraint pk_history_link
+   constraint pk_history_link_stats
      primary key (timebin, to_node, from_node, priority),
    --
-   constraint fk_history_link_from
+   constraint fk_history_link_stats_from
      foreign key (from_node) references t_adm_node (id),
    --
-   constraint fk_history_link_to
+   constraint fk_history_link_stats_to
      foreign key (to_node) references t_adm_node (id));
 
-/* See comments above for t_history_link. */
+/* See comments above for t_history_link_*. */
 create table t_history_dest
   (timebin		float		not null,
    timewidth		float		not null,
@@ -375,19 +441,26 @@ create index ix_xfer_path_fileid
   on t_xfer_path (fileid);
 
 create index ix_xfer_path_to
-  on t_xfer_path (to_node);
+  on t_xfer_path (to_node)
+  local;
+
+create index ix_xfer_path_src
+  on t_xfer_path (src_node);
 
 create index ix_xfer_path_from
   on t_xfer_path (from_node);
 
 create index ix_xfer_path_tofile
-  on t_xfer_path (to_node, fileid);
+  on t_xfer_path (to_node, fileid)
+  local;
 
+/*
 create index ix_xfer_path_srcfrom
   on t_xfer_path (src_node, from_node);
 
 create index ix_xfer_path_valid
   on t_xfer_path (is_valid);
+*/
 
 --
 create index ix_xfer_task_from_node
@@ -397,17 +470,35 @@ create index ix_xfer_task_to_node
   on t_xfer_task (to_node);
 
 create index ix_xfer_task_from_replica
-   on t_xfer_task (from_replica);
+  on t_xfer_task (from_replica);
 
 create index ix_xfer_task_fileid
-   on t_xfer_task (fileid);
+  on t_xfer_task (fileid);
 
 --
-create index ix_history_link_from
-  on t_history_link (from_node);
+create index ix_xfer_error_from_node
+  on t_xfer_error (from_node);
 
-create index ix_history_link_to
-  on t_history_link (to_node);
+create index ix_xfer_error_to_node
+  on t_xfer_error (to_node)
+  local;
+
+create index ix_xfer_error_fileid
+  on t_xfer_error (fileid);
+
+--
+create index ix_history_link_events_from
+  on t_history_link_events (from_node);
+
+create index ix_history_link_events_to
+  on t_history_link_events (to_node);
+
+--
+create index ix_history_link_stats_from
+  on t_history_link_stats (from_node);
+
+create index ix_history_link_stats_to
+  on t_history_link_stats (to_node);
 
 --
 create index ix_history_dest_node
