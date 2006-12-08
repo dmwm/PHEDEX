@@ -150,9 +150,8 @@ sub flush
 	  and xp.is_valid = 1
 	  and exists
 	    (select 1 from t_adm_link_param lp
-	     join t_adm_link l on l.id = lp.link
-	     where l.from_node = xp.from_node
-	       and l.to_node = xp.to_node
+	     where lp.from_node = xp.from_node
+	       and lp.to_node = xp.to_node
 	       and lp.xfer_rate >= 1048576)},
 	":now" => $now);
     while (my ($file, $dest, $from, $to) = $qextend->fetchrow())
@@ -184,8 +183,8 @@ sub flush
     # Mark as expired tasks which didn't complete in time.
     &dbexec($dbh, qq{
 	insert into t_xfer_task_done
-	(task, report_code, xfer_code, time_update, is_done)
-	select id, -1, -1, :now, 0 from t_xfer_task xt
+	(task, report_code, xfer_code, time_update)
+	select id, -1, -1, :now from t_xfer_task xt
 	where :now >= time_expire and not exists
 	  (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)},
 	":now" => $now);
@@ -233,7 +232,9 @@ sub route
 	from t_adm_link l
 	  join t_adm_node ns on ns.id = l.from_node
 	  join t_adm_node nd on nd.id = l.to_node
-	  left join t_adm_link_param p on p.link = l.id
+	  left join t_adm_link_param p
+	    on p.from_node = l.from_node
+	    and p.to_node = l.to_node
 	  left join t_xfer_source xso
 	    on xso.from_node = ns.id
 	    and xso.to_node = nd.id
@@ -260,35 +261,13 @@ sub route
     }
 
     # Now route for the nodes
-    my $start = &mytimeofday();
     my $costs = {};
     my $cats = {};
-    my $clean = 0;
-    foreach my $node (@nodes)
-    {
-	my $nodeid = $$self{NODES_ID}{$node};
-	$self->preRouteNode ($dbh, $nodeid, $links, $costs, $cats);
-	$self->maybeStop();
-    }
     foreach my $node (@nodes)
     {
 	my $nodeid = $$self{NODES_ID}{$node};
 	$self->routeNode ($dbh, $nodeid, $links, $costs, $cats);
-	$clean++;
-
-	my $current = &mytimeofday();
-	if ($current - $start > 600)
-	{
-	    $self->postRoute($dbh);
-	    $dbh->commit();
-	    $self->maybeStop();
-	    $clean = 0;
-	    $start = $current;
-	}
     }
-
-    $self->postRoute($dbh) if $clean;
-    $dbh->commit();
 
     if (@nodes)
     {
@@ -301,7 +280,7 @@ sub route
 }
 
 # Run the routing algorithm for one node.
-sub preRouteNode
+sub routeNode
 {
     my ($self, $dbh, $node, $links, $costs, $cats) = @_;
 
@@ -309,58 +288,50 @@ sub preRouteNode
     # Phase 1: Issue file requests for blocks pending some of their files.
     #
     # In this phase, we request files for blocks in the order of the block
-    # priority.  We first check how many files are a) currently in transfer
-    # to this node, and b) (un)confirmed for transfer to this node.  If
-    # these do not exceed defined limits (a: 1 TB, b: 10 TB), we issue new
-    # requests for files with no outstanding request.
-    #
-    # Note that files which cannot be routed in reasonable amount of time
-    # leave requests in "inactive" state for some time.  This deliberately
-    # prevents this phase from issuing a request for that file again, thus
-    # preventing database churn when routing requests fail to complete in
-    # reasonable amount of time.  This behaviour blocks routing for files
-    # and sites that do not function properly, but avoids loading database
-    # servers and allows other sites to make timely progress.
+    # priority.  We first check how much transfers we have confirmed.  If
+    # a certain level has been reached, we won't activate new files.
 
     # Get current transfer load parameters.
-    my ($pend_me, $pend_all, $confirm_me, $confirm_all) = (0) x 4;
-    my (%pend_bytes, %confirm_bytes);
     my $now = &mytimeofday();
+    my $confirm_valid_high = 0;
+    my $confirm_valid_low = 0;
+    my $confirm_invalid = 0;
     my $q = &dbexec($dbh, qq{
-	select xt.priority, nvl(sum(f.filesize),0)
-        from t_xfer_task xt join t_xfer_file f on f.id = xt.fileid
-        where xt.to_node = :node group by xt.priority},
+	select nvl(xq.priority,-1), xp.is_valid, nvl(sum(f.filesize),0)
+	from t_xfer_path xp
+	  join t_xfer_file f
+	    on f.id = xp.fileid
+	  left join t_xfer_request xq
+	    on xq.fileid = xp.fileid
+	    and xq.destination = xp.to_node
+	where xp.to_node = :node
+	group by nvl(xq.priority,-1), xp.is_valid},
 	":node" => $node);
-    while (my ($priority, $bytes) = $q->fetchrow())
+    while (my ($priority, $valid, $bytes) = $q->fetchrow())
     {
-	$pend_bytes{$priority} = $bytes;
-	$pend_me += $bytes if $priority % 2 == 0;
-	$pend_all += $bytes;
+	if ($priority < 0)
+	{
+	    $confirm_invalid += $bytes;
+	}
+	elsif ($priority == 0)
+	{
+	    $confirm_valid_high += $bytes;
+	}
+	else
+	{
+	    $confirm_valid_low += $bytes;
+	}
     }
 
-    $q = &dbexec($dbh, qq{
-	select xp.priority, nvl(sum(f.filesize),0)
-        from t_xfer_path xp join t_xfer_file f on f.id = xp.fileid
-        where xp.to_node = :node and xp.is_valid = 1 group by xp.priority},
-	":node" => $node);
-    while (my ($priority, $bytes) = $q->fetchrow())
+    # Now check which priorities we pass.
+    my @priorities;
+    if ($confirm_invalid <= 12 * TERABYTE)
     {
-	$confirm_bytes{$priority} = $bytes;
-	$confirm_me += $bytes if $priority % 2 == 0;
-	$confirm_all += $bytes;
+        push(@priorities, [ 0, 0 ]) if $confirm_valid_high < 5 * TERABYTE;
+	push(@priorities, [ 1, 100 ]) if $confirm_valid_low < 10 * TERABYTE;
     }
 
-    # FIXME: What we need is flexible bandwidth management, in proportions
-    # 4:3:2:1 for P0:P1:P2:P3 (P0 = me/high, P1 = others/high, P2 = me/low,
-    # P3 = others/low).  (If less actual priority levels needed, just
-    # chop proportions from left, e.g. 2:1 for P1:P3 actual need.)
-    #
-    # We should limit the number of requests, confirmations and transfers
-    # roughly in these proportions.
-    if (($pend_all < 5 * TERABYTE
-	 && $confirm_all < 5 * TERABYTE
-	 && $confirm_me < 1 * TERABYTE)
-	|| ($confirm_me < 0.25 * TERABYTE))
+    foreach my $priority (@priorities)
     {
 	# Find block destinations we can activate.  The activation
 	# takes a lock on the block itself so files cannot be added
@@ -375,11 +346,11 @@ sub preRouteNode
 	    insert into t_xfer_request
 	      (fileid, inblock, destination, priority, state,
 	       attempt, time_create, time_expire)
-	      select
-	        id, :block inblock, :node destination, :priority priority,
-		0 state, 1 attempt, :now, :now + 8*3600
-	      from t_xfer_file
-	      where inblock = :block});
+	    select
+	      id, :block inblock, :node destination, :priority priority,
+	      0 state, 1 attempt, :now, :now + 8*3600
+	    from t_xfer_file
+	    where inblock = :block});
 	my $u = &dbprep($dbh, qq{
 	    update t_dps_block_dest
 	    set state = 1, time_active = :now
@@ -388,9 +359,14 @@ sub preRouteNode
 	    select bd.block, bd.priority, b.bytes
 	    from t_dps_block_dest bd
 	      join t_dps_block b on b.id = bd.block
-	    where bd.destination = :node and bd.state = 0
+	    where bd.destination = :node
+	      and bd.state = 0
+	      and bd.priority >= :plow
+	      and bd.priority <= :phigh
 	    order by bd.priority asc, bd.time_create asc},
-	    ":node" => $node);
+	    ":node" => $node,
+	    ":plow" => $$priority[0],
+	    ":phigh" => $$priority[1]);
         while (my ($block, $priority, $bytes) = $q->fetchrow())
 	{
 	    &dbbindexec($u,
@@ -398,7 +374,7 @@ sub preRouteNode
 		    	":node" => $node,
 			":now" => $now);
 	    push(@blocks, [ $block, $priority ]);
-	    last if ($nbytes += $bytes) >= TERABYTE;
+	    last if ($nbytes += $bytes) >= 5 * TERABYTE;
 	}
 
 	# Commit first phase so any concurrent modification of t_xfer_file
@@ -426,12 +402,6 @@ sub preRouteNode
         where destination = :me and state = 1 and :now >= time_expire},
 	":me" => $node, ":now" => $now);
     $dbh->commit();
-}
-
-sub routeNode
-{
-    my ($self, $dbh, $node, $links, $costs, $cats) = @_;
-    my $now = &mytimeofday();
 
     ######################################################################
     # Phase 2: Expand file requests into transfer paths through the
@@ -453,7 +423,7 @@ sub routeNode
 
     # Read requests and replicas for requests without paths
     my $requests = {};
-    my $q = &dbexec($dbh, qq{
+    $q = &dbexec($dbh, qq{
 	select
 	    xq.fileid, f.filesize,
 	    xq.priority, xq.time_create, xq.time_expire,
@@ -489,17 +459,18 @@ sub routeNode
 
     # Update database
     my %iargs;
-    my $istmt = &dbprep($dbh, qq{
-	insert into t_xfer_path
-	(fileid, destination, hop, src_node, from_node, to_node,
-	 priority, is_local, is_valid, cost, total_cost, penalty,
-	 time_request, time_confirm, time_expire)
-	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
-
     foreach my $req (values %$requests)
     {
 	foreach my $hop (@{$$req{PATH}})
 	{
+	    &note("found fileid=$$req{FILEID} destination=$node hop=$$hop{INDEX}"
+		  ." src_node=$$hop{SRC_NODE} from_node=$$hop{FROM_NODE} to_node=$$hop{TO_NODE}"
+		  ." priority=$$req{PRIORITY} is_local=$$hop{IS_LOCAL} is_valid=$$hop{IS_VALID}"
+		  ." cost=@{[($$hop{LINK_LATENCY} || 0) + ($$hop{XFER_LATENCY} || 0)]}"
+		  ." total_cost=@{[($$hop{TOTAL_LATENCY} || 0)]}"
+		  ." penalty=@{[($$hop{LINK_RATE} || 0)]}"
+		  ." time_request=$$req{TIME_CREATE} time_confirm=$now"
+		  ." time_expire=@{[($$hop{IS_VALID} ? $$req{TIME_EXPIRE} : $now+4*3600)]}") if 0;
 	    my $n = 1;
 	    push(@{$iargs{$n++}}, $$req{FILEID});
 	    push(@{$iargs{$n++}}, $node);
@@ -519,27 +490,53 @@ sub routeNode
 	}
     }
 
-    &dbbindexec($istmt, %iargs) if %iargs;
-    # Do not commit until after postRoute!
-}
-
-# Post-routing clean-up of unnecessary paths.
-sub postRoute
-{
-    my ($self, $dbh) = @_;
-
-    # Discard duplicate confirmations for the same file.  Keep the
-    # best alternative: local one, or least cost one, or pick one.
+    # First dump all the routes into a temporary table.
     &dbexec($dbh, qq{
-	delete from t_xfer_path this where exists
-	  (select 1 from t_xfer_path better
-	   where this.fileid = better.fileid
-	     and this.to_node = better.to_node
-	     and this.is_valid <= better.is_valid
-	     and ((this.is_local = 0 and better.is_local > 0)
-		  or this.total_cost > better.total_cost
-		  or (this.total_cost = better.total_cost
-		      and this.rowid > better.rowid)))});
+	insert into t_xfer_newpath
+	(fileid, destination, hop, src_node, from_node, to_node,
+	 priority, is_local, is_valid, cost, total_cost, penalty,
+	 time_request, time_confirm, time_expire)
+	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)},
+	%iargs) if %iargs;
+
+    # Then merge new and best paths to the main table.  If one of the
+    # the paths is local, or valid and the other isn't, or it's lesser
+    # cost, then it's better.  But note the order of the checks.
+    # (FIXME: Could this result in a non-local valid path winning local?
+    # I guess no because the routing algorithm never produces one?)
+    &dbexec($dbh, qq{
+	merge into t_xfer_path p using (select * from t_xfer_newpath) np
+	on (p.fileid = np.fileid and p.to_node = np.to_node)
+	when matched then
+	  update set
+	    p.destination  = np.destination,
+	    p.hop	   = np.hop,
+	    p.src_node	   = np.src_node,
+	    p.from_node	   = np.from_node,
+	    p.priority	   = np.priority,
+	    p.is_local     = np.is_local,
+	    p.is_valid     = np.is_valid,
+	    p.cost         = np.cost,
+            p.total_cost   = np.total_cost,
+	    p.penalty      = np.penalty,
+            p.time_request = np.time_request,
+            p.time_confirm = np.time_confirm,
+            p.time_expire  = greatest(p.time_expire, np.time_expire)
+	  where p.is_valid <= np.is_valid
+	    and ((p.is_local = 0 and np.is_local > 0)
+		 or p.total_cost > np.total_cost)
+	when not matched then
+	  insert (fileid, destination, hop, src_node, from_node, to_node,
+	          priority, is_local, is_valid, cost, total_cost, penalty,
+	          time_request, time_confirm, time_expire)
+	  values (np.fileid, np.destination, np.hop, np.src_node, np.from_node,
+		  np.to_node, np.priority, np.is_local, np.is_valid, np.cost,
+		  np.total_cost, np.penalty, np.time_request, np.time_confirm,
+		  np.time_expire)});
+
+    # Then nuke the temporary table.
+    &dbexec($dbh, qq{truncate table t_xfer_newpath});
+    $dbh->commit();
 }
 
 # Calculate prototype file transfer cost.  The only factor affecting
