@@ -81,6 +81,10 @@ my $suffix = lc($args{NAME});
 &dbexec($dbh, qq{
   alter table t_xfer_request add partition dest_$suffix values ($id)});
 &dbexec($dbh, qq{
+  alter table t_xfer_path    add partition to_$suffix   values ($id)});
+&dbexec($dbh, qq{
   alter table t_xfer_task    add partition to_$suffix   values ($id)});
+&dbexec($dbh, qq{
+  alter table t_xfer_error   add partition to_$suffix   values ($id)});
 $dbh->commit();
 &disconnectFromDatabase($self, $dbh, 1);
