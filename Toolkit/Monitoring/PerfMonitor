@@ -85,7 +85,7 @@ sub idle
 	# be no data for this time bin.  This conflicts with updates
 	# from transfer pump agent.
 	&dbexec($dbh, qq{
-	    merge into t_history_link h
+	    merge into t_history_link_stats h
 	    using
 	      (select :timebin timebin, :timewidth timewidth,
 	      	      xt.from_node, xt.to_node, xt.priority,
@@ -124,7 +124,7 @@ sub idle
 
 	# Part II: Routing statistics.  This is a heartbeat again.
 	&dbexec($dbh, qq{
-	    merge into t_history_link h
+	    merge into t_history_link_stats h
 	    using
 	      (select :timebin timebin, :timewidth timewidth,
 	      	      s.from_node, s.to_node, s.priority,
@@ -166,27 +166,26 @@ sub idle
 	# makes the link parameter calculation below pick up correct
 	# "empty" final state.
 	&dbexec($dbh, qq{
-	    insert into t_history_link
+	    insert into t_history_link_stats
 	    (timebin, timewidth, from_node, to_node, priority)
 	    select :timebin, :timewidth, from_node, to_node, priority
 	    from (select from_node, to_node, priority, max(timebin) prevbin
-	          from t_history_link where timebin < :timebin
+	          from t_history_link_stats where timebin < :timebin
 		  group by from_node, to_node, priority) h
 	    where exists
-		(select 1 from t_history_link hh
+		(select 1 from t_history_link_stats hh
 		 where hh.from_node = h.from_node
 		   and hh.to_node = h.to_node
 		   and hh.priority = h.priority
 		   and hh.timebin = h.prevbin
 		   and hh.pend_bytes > 0)
 	      and not exists
-		(select 1 from t_history_link hh
+		(select 1 from t_history_link_stats hh
 		 where hh.from_node = h.from_node
 		   and hh.to_node = h.to_node
 		   and hh.priority = h.priority
 		   and hh.timebin > h.prevbin)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
-	$dbh->commit();
 
 	# Part IV: Node statistics.  This is a heartbeat again.
 	# FIXME: block destination -> subscriptions!?
@@ -246,51 +245,63 @@ sub idle
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
 	# Part V: Update link parameters.
-	&dbexec($dbh, qq{
-	    merge into t_adm_link_param p
-	    using (select id from t_adm_link) v
-	    on (p.link = v.id)
-	    when matched then
-	      update set
-		p.pend_bytes = null,
-		p.done_bytes = null,
-		p.try_bytes = null,
-		p.xfer_rate = null,
-	        p.xfer_latency = null,
-		p.time_span = null,
-		p.time_update = :now
-	    when not matched then
-	      insert (p.link, p.pend_bytes, p.done_bytes, p.try_bytes,
-	      	      p.xfer_rate, p.xfer_latency, p.time_span, p.time_update)
-	      values (v.id, null, null, null, null, null, null, :now)},
-	    ":now" => $timebin);
+	&dbexec($dbh, qq{delete from t_adm_link_param});
         foreach my $span (3600, 12*3600, 2*86400)
 	{
 	    &dbexec($dbh, qq{
-	        update t_adm_link_param p
-	        set (pend_bytes, done_bytes, try_bytes, time_span) =
-		    (select
-		       nvl(sum(pend_bytes) keep (dense_rank last order by timebin asc),0),
-		       sum(done_bytes),
-		       sum(try_bytes),
-		       count(distinct case
-		         when timewidth=300
-			    and (pend_bytes > 0 or done_bytes > 0 or try_bytes > 0)
-		  	  then timebin end)*300
-		       + count(distinct case
-		         when timewidth=3600
-			    and (pend_bytes > 0 or done_bytes > 0 or try_bytes > 0)
-		          then timebin end)*3600
-		     from t_history_link h
-		       join t_adm_link l
-		         on l.from_node = h.from_node
-			 and l.to_node = h.to_node
-		     where h.timebin > :now - :span
-		       and p.link = l.id)
-	        where (time_span is null or time_span = 0)
-		  or (done_bytes is null and try_bytes is null)},
-	        ":now" => $timebin, ":span" => $span);
+                merge into t_adm_link_param p using
+		  (select
+                       from_node, to_node,
+                       nvl(sum(pend_bytes) keep (dense_rank last order by timebin asc),0) pend_bytes,
+                       sum(done_bytes) done_bytes,
+                       sum(try_bytes) try_bytes,
+                       count(distinct case
+                             when timewidth=300
+                               and (pend_bytes > 0 or done_bytes > 0 or try_bytes > 0)
+                             then timebin end)*300
+                       + count(distinct case
+                               when timewidth=3600
+                                 and (pend_bytes > 0 or done_bytes > 0 or try_bytes > 0)
+                               then timebin end)*3600 time_span
+                   from (select nvl(hs.from_node,he.from_node) from_node,
+                                nvl(hs.to_node,he.to_node) to_node,
+                                nvl(hs.timebin,he.timebin) timebin,
+                                nvl(hs.timewidth,he.timewidth) timewidth,
+                                hs.pend_bytes, he.done_bytes, he.try_bytes
+                         from t_history_link_stats hs
+                           full join t_history_link_events he
+                             on he.timebin = hs.timebin
+                             and he.from_node = hs.from_node
+                             and he.to_node = hs.to_node
+                             and he.priority = hs.priority
+                         where hs.timebin > :period
+                           and he.timebin > :period)
+                   group by from_node, to_node) n
+                on (p.from_node = n.from_node and p.to_node = n.to_node)
+		when matched then
+		  update set p.pend_bytes = n.pend_bytes,
+                             p.done_bytes = n.done_bytes,
+                             p.try_bytes = n.try_bytes,
+                             p.time_span = n.time_span,
+			     p.time_update = :now
+                  where (p.time_span is null or p.time_span = 0)
+                     or (p.done_bytes is null or p.try_bytes is null)
+                when not matched then
+                  insert (p.from_node, p.to_node, p.pend_bytes, p.done_bytes,
+			  p.try_bytes, p.time_span, p.time_update)
+		  values (n.from_node, n.to_node, n.pend_bytes, n.done_bytes,
+			  n.try_bytes, n.time_span, :now)},
+	        ":period" => $timebin - $span, ":now" => $timebin);
 	}
+
+	&dbexec($dbh, qq{
+	    merge into t_adm_link_param p using
+	      (select from_node, to_node from t_adm_link) n
+	    on (p.from_node = n.from_node and p.to_node = n.to_node)
+	    when not matched then
+	      insert (from_node, to_node, time_update)
+	      values (n.from_node, n.to_node, :now)},
+	    ":now" => $timebin);
 
 	&dbexec($dbh, qq{
 	    update (select
@@ -314,13 +325,12 @@ sub idle
 		   end});
 
         &dbexec($dbh, qq{
-	    update t_history_link h
+	    update t_history_link_stats h
 	    set (param_rate, param_latency) =
 	      (select xfer_rate, xfer_latency
 	       from t_adm_link_param p
-	         join t_adm_link l on l.id = p.link
-	       where l.from_node = h.from_node
-	         and l.to_node = h.to_node)
+	       where p.from_node = h.from_node
+	         and p.to_node = h.to_node)
 	    where timebin = :timebin},
  	    ":timebin" => $timebin);
 
@@ -334,7 +344,8 @@ sub idle
 	# to handle both.
 	return if ($$self{LAST_COMPACT} > $timebin - 2*86400);
         my $limit = int($timebin/86400)*86400 - 86400;
-	$self->compactLinkData($dbh, $limit);
+	$self->compactLinkData($dbh, $limit, "events");
+	$self->compactLinkData($dbh, $limit, "stats");
 	$self->compactDestData($dbh, $limit);
 	$dbh->commit();
 	$$self{LAST_COMPACT} = $timebin;
@@ -374,10 +385,10 @@ sub compactUpdate
 
 sub compactLinkData
 {
-    my ($self, $dbh, $limit) = @_;
+    my ($self, $dbh, $limit, $suffix) = @_;
     my %stats;
     my $q = &dbexec($dbh, qq{
-	select * from t_history_link
+	select * from t_history_link_$suffix
 	where timebin < :old and timewidth = 300
 	order by timebin asc, from_node, to_node, priority},
     	":old" => $limit);
@@ -420,7 +431,7 @@ sub compactLinkData
 	delete $$s{TIMETOT};
     }
 
-    $self->compactUpdate ($dbh, $limit, "t_history_link", \%stats);
+    $self->compactUpdate ($dbh, $limit, "t_history_link_$suffix", \%stats);
 }
 
 sub compactDestData
