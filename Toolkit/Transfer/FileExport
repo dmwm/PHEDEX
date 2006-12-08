@@ -130,8 +130,9 @@ sub idle
 	
 	if ($changed || $liveness)
 	{
+	    my @nodes;
 	    my $now = &mytimeofday ();
-	    my ($dbh, @nodes) = &expandNodesAndConnect ($self);
+	    ($dbh, @nodes) = &expandNodesAndConnect ($self);
 	    my ($filter, %filter_args) = &otherNodeFilter ($self, "xs.from_node");
 
 	    # Statement to upload rules.
