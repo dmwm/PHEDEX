@@ -92,7 +92,7 @@ sub startJob
 	do {
 	   print STDERR "Cannot start @{$$job{CMD}}: $!\n";
 	   exit(255);
-	} if ! exec { $$job{CMD}[0] } @{$$job{CMD}});
+	} if ! exec { $$job{CMD}[0] } @{$$job{CMD}};
     }
 }
 
