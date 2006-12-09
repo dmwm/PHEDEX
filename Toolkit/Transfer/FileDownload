@@ -314,9 +314,11 @@ sub purgeLostTransfers
     my ($dest, %dest_args) = &myNodeFilter ($self, "xt.to_node");
     my ($src, %src_args) = &otherNodeFilter ($self, "xt.from_node");
     my $qpending = &dbexec($$self{DBH}, qq{
-      select xt.id from t_xfer_task xt where $dest $src
-        and exists (select 1 from t_xfer_task_inxfer where task = xt.id)
-        and not exists (select 1 from t_xfer_task_done where task = xt.id)},
+      select xt.id
+      from t_xfer_task xt
+        join t_xfer_task_inxfer xti on xti.task = xt.id
+        left join t_xfer_task_done xtd on xtd.task = xt.id
+      where xtd.task is null and $dest $src},
       %dest_args, %src_args);
     $indb{$_} = 1 while (($_) = $qpending->fetchrow());
 
@@ -376,17 +378,15 @@ sub fetchNewTasks
 	    xte.time_update time_export
 	 from t_xfer_task xt
 	   join t_xfer_task_export xte on xte.task = xt.id
+	   left join t_xfer_task_inxfer xti on xti.task = xt.id
+	   left join t_xfer_task_done xtd on xtd.task = xt.id
 	   join t_adm_node ns on ns.id = xt.from_node
 	   join t_adm_node nd on nd.id = xt.to_node
 	   join t_xfer_file f on f.id = xt.fileid
-	 where $dest $src
-   	   and not exists
-	     (select 1 from t_xfer_task_inxfer xti
-	      where xti.task = xt.id)
-   	   and not exists
-	     (select 1 from t_xfer_task_done xtd
-	      where xtd.task = xt.id)
-	   and xt.time_expire > :limit},
+	 where xti.task is null
+	   and xtd.task is null
+	   and xt.time_expire > :limit
+	   and $dest $src},
         ":limit" => $now + 3600, %dest_args, %src_args);
     while (my $row = $q->fetchrow_hashref())
     {
