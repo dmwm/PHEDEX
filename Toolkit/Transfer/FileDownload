@@ -150,8 +150,8 @@ sub new
 		  STATS => [],			# Historical stats.
 
 		  LAST_SYNC => 0,		# Last time to synchronise
-		  LAST_WORK => 0,		# Last time we saw work
-		  NEXT_CLEAR => 0,		# Next time to clear job archive
+		  LAST_WORK => time(),		# Last time we saw work
+		  NEXT_CLEAR => time(),		# Next time to clear job archive
 		  NEXT_SYNC => 0,		# Next time to synchronise
 		  NEXT_PURGE => 0,		# Next time to purge bad data
 		  NEXT_DISCONNECT => 0,		# Next time to disconnect
