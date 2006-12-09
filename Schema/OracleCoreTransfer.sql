@@ -159,7 +159,7 @@ create table t_xfer_path
    time_expire		float		not null,  -- request expiry time
    --
    constraint pk_xfer_path
-     primary key (to_node, fileid)
+     primary key (to_node, fileid),
    --
    constraint uq_xfer_path_desthop
      unique (destination, fileid, hop),
@@ -460,8 +460,7 @@ create index ix_xfer_error_from_node
   on t_xfer_error (from_node);
 
 create index ix_xfer_error_to_node
-  on t_xfer_error (to_node)
-  local;
+  on t_xfer_error (to_node);
 
 create index ix_xfer_error_fileid
   on t_xfer_error (fileid);
