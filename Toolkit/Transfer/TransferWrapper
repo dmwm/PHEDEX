@@ -123,7 +123,8 @@ foreach my $task (keys %{$$copyinfo{TASKS}})
     {
 	# The transfer timed out.
 	$$status{STATUS} = -5;
-	$$status{DETAIL} = "transfer timed out with $$jobstatus{SIGNAL}";
+	$$status{DETAIL} = "transfer timed out after $$jobstatus{TIMEOUT}"
+			   . " seconds with signal $$jobstatus{SIGNAL}";
     }
 
     &output("$copyjob/T${task}X", Dumper($status))
