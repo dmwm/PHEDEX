@@ -104,7 +104,8 @@ sub flush
                 from t_xfer_request xq
                   join t_dps_block_dest bd
                     on bd.block = xq.inblock
-                    and bd.destination = xq.destination)
+                    and bd.destination = xq.destination
+		where xq.priority != bd.priority)
         set req_priority = cur_priority});
 
     # Clear requests for files no longer wanted.
@@ -141,7 +142,7 @@ sub flush
 
     # If transfers path are about to expire on links which have
     # reasonable recent transfer rate, give a bit more grace time.
-    my (%pextend, %rextend);
+    my %extend;
     my $qextend = &dbexec($dbh, qq{
         select xp.fileid, xp.destination, xp.from_node, xp.to_node
         from t_xfer_path xp
@@ -156,37 +157,34 @@ sub flush
 	":now" => $now);
     while (my ($file, $dest, $from, $to) = $qextend->fetchrow())
     {
-	push(@{$pextend{1}}, $now + 8*3600);
-	push(@{$pextend{2}}, $from);
-	push(@{$pextend{3}}, $to);
-	push(@{$pextend{4}}, $file);
-
-	push(@{$rextend{1}}, $now + 8*3600);
-	push(@{$rextend{2}}, $dest);
-	push(@{$rextend{3}}, $file);
+	push(@{$extend{1}}, $now + 8*3600);
+	push(@{$extend{2}}, $to);
+	push(@{$extend{3}}, $file);
     }
 
-    &dbexec($dbh, qq{
-	update t_xfer_task xt
-	set time_expire = greatest(time_expire, ?)
-	where from_node = ? and to_node = ? and fileid = ? and not exists
-	  (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)},
-	%pextend)
-	if %pextend;
-    &dbexec($dbh, qq{
-	update t_xfer_request
-	set time_expire = greatest(time_expire, ?)
-	where destination = ? and fileid = ?},
-	%rextend)
-	if %rextend;
+    if (%extend)
+    {
+        &dbexec($dbh, qq{
+	    update t_xfer_path set time_expire = ?
+	    where to_node = ? and fileid = ?},
+	    %extend);
+        &dbexec($dbh, qq{
+	    update t_xfer_task set time_expire = ?
+	    where to_node = ? and fileid = ?},
+	    %extend);
+        &dbexec($dbh, qq{
+	    update t_xfer_request set time_expire = ?
+	    where destination = ? and fileid = ?},
+	    %extend);
+    }
 
     # Mark as expired tasks which didn't complete in time.
     &dbexec($dbh, qq{
-	insert into t_xfer_task_done
-	(task, report_code, xfer_code, time_update)
-	select id, -1, -1, :now from t_xfer_task xt
-	where :now >= time_expire and not exists
-	  (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)},
+	merge into t_xfer_task_done xtd using
+	  (select id from t_xfer_task where :now >= time_expire) xt
+	on (xtd.task = xt.id) when not matched then
+          insert (task, report_code, xfer_code, time_update)
+	  values (xt.id, -1, -1, :now)},
 	":now" => $now);
 
     # Deactivate requests which reached their expire time limit.
@@ -263,26 +261,20 @@ sub route
     # Now route for the nodes
     my $costs = {};
     my $cats = {};
+    my $done = 0;
     foreach my $node (@nodes)
     {
 	my $nodeid = $$self{NODES_ID}{$node};
-	$self->routeNode ($dbh, $nodeid, $links, $costs, $cats);
+	$done += $self->routeNode ($dbh, $node, $nodeid, $links, $costs, $cats);
     }
 
-    if (@nodes)
-    {
-	&logmsg ("routed for @nodes");
-    }
-    else
-    {
-	&logmsg ("nothing to route for");
-    }
+    &logmsg ("nothing to route") if ! $done;
 }
 
 # Run the routing algorithm for one node.
 sub routeNode
 {
-    my ($self, $dbh, $node, $links, $costs, $cats) = @_;
+    my ($self, $dbh, $nodename, $node, $links, $costs, $cats) = @_;
 
     ######################################################################
     # Phase 1: Issue file requests for blocks pending some of their files.
@@ -437,7 +429,7 @@ sub routeNode
 	  and xq.destination = :node
 	  and xq.time_expire > :now
 	  and not exists (select 1 from t_xfer_path xp
-			  where xp.destination = xq.destination
+			  where xp.to_node = xq.destination
 			    and xp.fileid = xq.fileid)},
 	":node" => $node, ":now" => $now);
     while (my ($file, $size, $priority, $create, $expire,
@@ -458,11 +450,14 @@ sub routeNode
     $self->routeFile($node, $links, $costs, $_) for values %$requests;
 
     # Update database
-    my %iargs;
+    my (%iargs, %seen);
     foreach my $req (values %$requests)
     {
 	foreach my $hop (@{$$req{PATH}})
 	{
+	    next if $seen{$$hop{TO_NODE}}{$$req{FILEID}};
+	    $seen{$$hop{TO_NODE}}{$$req{FILEID}} = 1;
+
 	    &note("found fileid=$$req{FILEID} destination=$node hop=$$hop{INDEX}"
 		  ." src_node=$$hop{SRC_NODE} from_node=$$hop{FROM_NODE} to_node=$$hop{TO_NODE}"
 		  ." priority=$$req{PRIORITY} is_local=$$hop{IS_LOCAL} is_valid=$$hop{IS_VALID}"
@@ -490,7 +485,10 @@ sub routeNode
 	}
     }
 
+    my $nvariants = %iargs ? scalar @{$iargs{1}} : 0;
+
     # First dump all the routes into a temporary table.
+    &dbexec($dbh, qq{delete from t_xfer_newpath});
     &dbexec($dbh, qq{
 	insert into t_xfer_newpath
 	(fileid, destination, hop, src_node, from_node, to_node,
@@ -502,9 +500,7 @@ sub routeNode
     # Then merge new and best paths to the main table.  If one of the
     # the paths is local, or valid and the other isn't, or it's lesser
     # cost, then it's better.  But note the order of the checks.
-    # (FIXME: Could this result in a non-local valid path winning local?
-    # I guess no because the routing algorithm never produces one?)
-    &dbexec($dbh, qq{
+    my ($stmt, $nmerged) = &dbexec($dbh, qq{
 	merge into t_xfer_path p using (select * from t_xfer_newpath) np
 	on (p.fileid = np.fileid and p.to_node = np.to_node)
 	when matched then
@@ -522,9 +518,12 @@ sub routeNode
             p.time_request = np.time_request,
             p.time_confirm = np.time_confirm,
             p.time_expire  = greatest(p.time_expire, np.time_expire)
-	  where p.is_valid <= np.is_valid
-	    and ((p.is_local = 0 and np.is_local > 0)
-		 or p.total_cost > np.total_cost)
+	  where np.is_local > p.is_local
+	    or (np.is_local = p.is_local
+	        and (np.is_valid > p.is_valid))
+		     /* FIXME: Don't update paths just to change the cost.
+		     or (np.is_valid = p.is_valid
+		         and np.total_cost < p.total_cost))) */
 	when not matched then
 	  insert (fileid, destination, hop, src_node, from_node, to_node,
 	          priority, is_local, is_valid, cost, total_cost, penalty,
@@ -535,8 +534,17 @@ sub routeNode
 		  np.time_expire)});
 
     # Then nuke the temporary table.
-    &dbexec($dbh, qq{truncate table t_xfer_newpath});
+    &dbexec($dbh, qq{delete from t_xfer_newpath});
     $dbh->commit();
+
+    # Report routing statistics.
+    &logmsg("$nmerged new or updated paths from $nvariants considered"
+	    . " for the destination $nodename")
+        if ($nvariants > 0 || $nmerged > 0);
+
+    # This would be a great time to go on a long holiday. :-)
+    $self->maybeStop();
+    return $nmerged;
 }
 
 # Calculate prototype file transfer cost.  The only factor affecting
