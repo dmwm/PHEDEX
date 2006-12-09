@@ -81,9 +81,7 @@ while (@ARGV)
   my $suffix = lc($name);
   &dbexec($dbh, qq{alter table t_xfer_replica drop partition node_$suffix});
   &dbexec($dbh, qq{alter table t_xfer_request drop partition dest_$suffix});
-  &dbexec($dbh, qq{alter table t_xfer_path    drop partition to_$suffix});
   &dbexec($dbh, qq{alter table t_xfer_task    drop partition to_$suffix});
-  &dbexec($dbh, qq{alter table t_xfer_error   drop partition to_$suffix});
   $dbh->commit();
 }
 

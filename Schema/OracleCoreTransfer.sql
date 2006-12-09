@@ -184,13 +184,7 @@ create table t_xfer_path
      foreign key (to_node) references t_adm_node (id)
      on delete cascade)
   --
-  partition by list (to_node)
-    (partition to_dummy values (-1))
   enable row movement;
-
-create table t_xfer_newpath as select * from t_xfer_path where 1=0;
-alter table t_xfer_newpath add constraint pk_xfer_newpath
-  primary key (to_node, fileid);
 
 /* FIXME: Consider using clustered table for t_xfer_task*, see
    Tom Kyte's Effective Oracle by Design, chapter 7. */
@@ -316,8 +310,6 @@ create table t_xfer_error
      foreign key (to_node) references t_adm_node (id)
      on delete cascade)
   --
-  partition by list (to_node)
-    (partition to_dummy values (-1))
   enable row movement;
 
 /* FIXME: Consider using compressed table here, see
@@ -444,27 +436,11 @@ create index ix_xfer_request_fileid
 create index ix_xfer_path_fileid
   on t_xfer_path (fileid);
 
-create index ix_xfer_path_to
-  on t_xfer_path (to_node)
-  local;
-
 create index ix_xfer_path_src
   on t_xfer_path (src_node);
 
 create index ix_xfer_path_from
   on t_xfer_path (from_node);
-
-create index ix_xfer_path_tofile
-  on t_xfer_path (to_node, fileid)
-  local;
-
-/*
-create index ix_xfer_path_srcfrom
-  on t_xfer_path (src_node, from_node);
-
-create index ix_xfer_path_valid
-  on t_xfer_path (is_valid);
-*/
 
 --
 create index ix_xfer_task_from_node
