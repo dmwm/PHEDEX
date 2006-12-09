@@ -663,7 +663,7 @@ sub dbprep
 
     # Handle disconnected oracle handle, flag the handle bad
     $$dbh{private_phedex_invalid} = 1
-        if ($@ =~ /ORA-(?:03114|03135|01031):/
+        if ($@ =~ /ORA-(?:03114|03135|01031|01012):/
 	    || $@ =~ /TNS:listener/);
     die $@;
 }
