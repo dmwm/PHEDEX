@@ -159,7 +159,10 @@ create table t_xfer_path
    time_expire		float		not null,  -- request expiry time
    --
    constraint pk_xfer_path
-     primary key (destination, fileid, hop),
+     primary key (to_node, fileid)
+   --
+   constraint uq_xfer_path_desthop
+     unique (destination, fileid, hop),
    --
    constraint fk_xfer_path_dest
      foreign key (destination) references t_adm_node (id)
@@ -186,6 +189,8 @@ create table t_xfer_path
   enable row movement;
 
 create table t_xfer_newpath as select * from t_xfer_path where 1=0;
+alter table t_xfer_newpath add constraint pk_xfer_newpath
+  primary key (to_node, fileid);
 
 /* FIXME: Consider using clustered table for t_xfer_task*, see
    Tom Kyte's Effective Oracle by Design, chapter 7. */
