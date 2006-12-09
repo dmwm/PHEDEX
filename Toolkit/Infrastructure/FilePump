@@ -189,7 +189,6 @@ sub receive
     # Now read in rows and create various update bundles.
     my $n = 0;
     my %history = ();
-    my %done = ();
     my $q = &dbexec($dbh, qq{
 	select
 	    xth.task, xt.fileid, xtd.report_code, xtd.xfer_code,
@@ -246,9 +245,6 @@ sub receive
 	    }
 	}
 
-	# Mark this task processed.
-	push(@{$done{1}}, $$task{TASK});
-
         # Log the outcome.
 	&logmsg($msg
 		. " task=$$task{TASK}"
@@ -268,9 +264,6 @@ sub receive
 		. " lfn=$$task{LOGICAL_NAME}"
 		. " from_pfn=$$task{FROM_PFN}"
 		. " to_pfn=$$task{TO_PFN}");
-
-	# If we are doing too many, quit.
-	last if ++$n >= 50_000;
     }
 
     # Update link history.
