@@ -260,8 +260,8 @@ sub route
 
     # Now route for the nodes
     $self->prepare ($dbh, $$self{NODES_ID}{$_}) for @nodes;
-    $self->routeFiles ($dbh, $links, @nodes)
-	|| &logmsg ("no files to route to @{[sort @nodes]}");
+    $self->routeFiles ($dbh, $links, sort @nodes)
+        || &logmsg ("no files to route to @{[sort @nodes]}");
 }
 
 # Run the routing algorithm for one node.
@@ -414,9 +414,9 @@ sub routeFiles
     # Read requests and replicas for requests without paths
     my $now = &mytimeofday();
     my %mynodes = map { ($$self{NODES_ID}{$_} => $_) } @nodes;
-    my $requests = {};
     my $costs = {};
-    my $nreqs = 0;
+    my $ndone = 0;
+    my $finished = 0;
     my $q = &dbexec($dbh, qq{
 	select
 	    xq.destination, xq.fileid, f.filesize,
@@ -433,138 +433,148 @@ sub routeFiles
 			  where xp.to_node = xq.destination
 			    and xp.fileid = xq.fileid)},
 	":now" => $now);
-    while (my ($dest, $file, $size, $priority, $create, $expire,
-	       $rnode, $state) = $q->fetchrow())
+    while (! $finished)
     {
-	next if ! exists $mynodes{$dest};
+	$finished = 1;
+        my %requests;
+        my $nreqs = 0;
+        my ($discarded, $existing) = (0, 0);
+        my ($nhops, $nvalid) = (0, 0);
+        my ($inserted, $updated) = (0, 0);
+        while (my ($dest, $file, $size, $priority, $create, $expire,
+	           $rnode, $state) = $q->fetchrow())
+        {
+	    next if ! exists $mynodes{$dest};
 
-	my $sizebin = (int($size / (500*MEGABYTE))+1)*(500*MEGABYTE);
-	$$requests{$dest}{$file} ||= { DESTINATION => $dest,
-				       FILEID => $file,
-				       FILESIZE => $size,
-				       SIZEBIN => $sizebin,
-				       PRIORITY => $priority,
-				       TIME_CREATE => $create,
-				       TIME_EXPIRE => $expire };
-	$$requests{$dest}{$file}{REPLICAS}{$rnode} = $state;
-	$self->routeCost($links, $costs, $rnode, $state, $sizebin);
+	    my $sizebin = (int($size / (500*MEGABYTE))+1)*(500*MEGABYTE);
+	    $requests{$dest}{$file} ||= { DESTINATION => $dest,
+				          FILEID => $file,
+				          FILESIZE => $size,
+				          SIZEBIN => $sizebin,
+				          PRIORITY => $priority,
+				          TIME_CREATE => $create,
+				          TIME_EXPIRE => $expire };
+	    $requests{$dest}{$file}{REPLICAS}{$rnode} = $state;
+	    $self->routeCost($links, $costs, $rnode, $state, $sizebin);
 
-	last if ++$nreqs >= 70_000;
-    }
+	    do { $finished = 0; last } if ++$nreqs >= 70_000;
+        }
 
-    # Build optimal file paths.
-    my @allreqs = map { values %$_ } values %$requests;
-    $self->routeFile($now, $links, $costs, $_) for @allreqs;
+        # Build optimal file paths.
+        my @allreqs = map { values %$_ } values %requests;
+        $self->routeFile($now, $links, $costs, $_) for @allreqs;
 
-    # Build collection of all the hops.
-    my %allhops;
-    foreach my $req (@allreqs)
-    {
-	foreach my $hop (@{$$req{PATH}})
-	{
-	    $allhops{$$hop{TO_NODE}}{$$req{FILEID}} ||= $hop;
-	}
-    }
+        # Build collection of all the hops.
+        my %allhops;
+        foreach my $req (@allreqs)
+        {
+	    foreach my $hop (@{$$req{PATH}})
+	    {
+	        $allhops{$$hop{TO_NODE}}{$$req{FILEID}} ||= $hop;
+	    }
+        }
 
-    # Compare with what is already in the database.  Keep new and better.
-    my ($discarded, $existing) = (0, 0);
-    $q = &dbexec($dbh, qq{
-	select to_node, fileid, is_valid, is_local, total_cost
-	from t_xfer_path});
-    while (my ($to, $file, $valid, $local, $cost) = $q->fetchrow())
-    {
-	$existing++;
+        # Compare with what is already in the database.  Keep new and better.
+        my $qpath = &dbexec($dbh, qq{
+	    select to_node, fileid, is_valid, is_local, total_cost
+	    from t_xfer_path});
+        while (my ($to, $file, $valid, $local, $cost) = $qpath->fetchrow())
+        {
+	    $existing++;
 
-	# If we are not considering replacement, skip this.
-	next if ! exists $allhops{$to}{$file};
+	    # If we are not considering replacement, skip this.
+	    next if ! exists $allhops{$to}{$file};
 
-	# If the replacement is not better, skip this.
-	my $p = $allhops{$to}{$file};
-	if (! ($$p{IS_LOCAL} > $local
-	       || ($$p{IS_LOCAL} = $local
-		   && ($$p{IS_VALID} > $valid
-		       || ($$p{IS_VALID} == $valid
-			   && ($$p{TOTAL_LATENCY} || 0) < $cost)))))
-	{
-	    $$p{UPDATE} = 0;
-	    $discarded++;
-	    next;
-	}
+	    # If the replacement is not better, skip this.
+	    my $p = $allhops{$to}{$file};
+	    if (! ($$p{IS_LOCAL} > $local
+	           || ($$p{IS_LOCAL} = $local
+		       && ($$p{IS_VALID} > $valid
+		           || ($$p{IS_VALID} == $valid
+			       && ($$p{TOTAL_LATENCY} || 0) < $cost)))))
+	    {
+	        $$p{UPDATE} = 0;
+	        $discarded++;
+	        next;
+	    }
 
-	# The replacement is better, replace this one.
-	$$p{UPDATE} = 1;
-    }
+	    # The replacement is better, replace this one.
+	    $$p{UPDATE} = 1;
+        }
 
-    # Build arrays for database operation.
-    my ($nhops, $nvalid) = (0, 0);
-    my (%iargs, %uargs, %destnodes);
-    foreach my $to (keys %allhops)
-    {
-	foreach my $file (keys %{$allhops{$to}})
-	{
-	    my $hop = $allhops{$to}{$file};
-	    $nhops++;
+        # Build arrays for database operation.
+        my (%iargs, %uargs, %destnodes);
+        foreach my $to (keys %allhops)
+        {
+	    foreach my $file (keys %{$allhops{$to}})
+	    {
+	        my $hop = $allhops{$to}{$file};
+	        $nhops++;
 
-	    # Skip if we decided this wasn't worth looking at.
-	    next if exists $$hop{UPDATE} && ! $$hop{UPDATE};
+	        # Skip if we decided this wasn't worth looking at.
+	        next if exists $$hop{UPDATE} && ! $$hop{UPDATE};
 
-	    # Fill insert or update structure as appropriate.
-	    my $n = 1;
-	    my $args = $$hop{UPDATE} ? \%uargs : \%iargs;
-	    push(@{$$args{$n++}}, $$hop{DESTINATION});
-	    push(@{$$args{$n++}}, $$hop{INDEX});
-	    push(@{$$args{$n++}}, $$hop{SRC_NODE});
-	    push(@{$$args{$n++}}, $$hop{FROM_NODE});
-	    push(@{$$args{$n++}}, $$hop{PRIORITY});
-	    push(@{$$args{$n++}}, $$hop{IS_LOCAL});
-	    push(@{$$args{$n++}}, $$hop{IS_VALID});
-	    push(@{$$args{$n++}}, ($$hop{LINK_LATENCY} || 0) + ($$hop{XFER_LATENCY} || 0));
-	    push(@{$$args{$n++}}, ($$hop{TOTAL_LATENCY} || 0));
-	    push(@{$$args{$n++}}, ($$hop{LINK_RATE} || 0));
-	    push(@{$$args{$n++}}, $$hop{TIME_REQUEST});
-	    push(@{$$args{$n++}}, $now);
-	    push(@{$$args{$n++}}, $$hop{TIME_EXPIRE});
-	    push(@{$$args{$n++}}, $file);
-	    push(@{$$args{$n++}}, $to);
-	    $destnodes{$mynodes{$$hop{DESTINATION}}} = 1;
-	    $nvalid++ if $$hop{IS_VALID};
-	}
-    }
+	        # Fill insert or update structure as appropriate.
+	        my $n = 1;
+	        my $args = $$hop{UPDATE} ? \%uargs : \%iargs;
+	        push(@{$$args{$n++}}, $$hop{DESTINATION});
+	        push(@{$$args{$n++}}, $$hop{INDEX});
+	        push(@{$$args{$n++}}, $$hop{SRC_NODE});
+	        push(@{$$args{$n++}}, $$hop{FROM_NODE});
+	        push(@{$$args{$n++}}, $$hop{PRIORITY});
+	        push(@{$$args{$n++}}, $$hop{IS_LOCAL});
+	        push(@{$$args{$n++}}, $$hop{IS_VALID});
+	        push(@{$$args{$n++}}, ($$hop{LINK_LATENCY} || 0) + ($$hop{XFER_LATENCY} || 0));
+	        push(@{$$args{$n++}}, ($$hop{TOTAL_LATENCY} || 0));
+	        push(@{$$args{$n++}}, ($$hop{LINK_RATE} || 0));
+	        push(@{$$args{$n++}}, $$hop{TIME_REQUEST});
+	        push(@{$$args{$n++}}, $now);
+	        push(@{$$args{$n++}}, $$hop{TIME_EXPIRE});
+	        push(@{$$args{$n++}}, $file);
+	        push(@{$$args{$n++}}, $to);
+	        $destnodes{$mynodes{$$hop{DESTINATION}}} = 1;
+	        $nvalid++ if $$hop{IS_VALID};
+	    }
+        }
 
-    # Insert and update paths as appropriate.
-    &dbexec($dbh, qq{
-	insert into t_xfer_path
-	(destination, hop, src_node, from_node, priority, is_local,
-	 is_valid, cost, total_cost, penalty, time_request,
-	 time_confirm, time_expire, fileid, to_node)
-	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)},
-	%iargs) if %iargs;
+        # Insert and update paths as appropriate.
+        &dbexec($dbh, qq{
+	    insert into t_xfer_path
+	    (destination, hop, src_node, from_node, priority, is_local,
+	     is_valid, cost, total_cost, penalty, time_request,
+	     time_confirm, time_expire, fileid, to_node)
+	    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)},
+	    %iargs) if %iargs;
 
-    &dbexec($dbh, qq{
-	update t_xfer_path
-	set destination = ?, hop = ?, src_node = ?, from_node = ?,
-	    priority = ?, is_local = ?, is_valid = ?, cost = ?,
-            total_cost = ?, penalty = ?, time_request = ?,
-            time_confirm = ?, time_expire = ?
-	where fileid = ? and to_node = ?},
-	%uargs) if %uargs;
+        &dbexec($dbh, qq{
+	    update t_xfer_path
+	    set destination = ?, hop = ?, src_node = ?, from_node = ?,
+	        priority = ?, is_local = ?, is_valid = ?, cost = ?,
+                total_cost = ?, penalty = ?, time_request = ?,
+                time_confirm = ?, time_expire = ?
+	    where fileid = ? and to_node = ?},
+	    %uargs) if %uargs;
 
-    $dbh->commit();
+        $dbh->commit();
 
-    # Report routing statistics.
-    my $inserted = %iargs ? scalar @{$iargs{1}} : 0;
-    my $updated = %uargs ? scalar @{$uargs{1}} : 0;
+        # Report routing statistics.
+        $inserted = %iargs ? scalar @{$iargs{1}} : 0;
+        $updated = %uargs ? scalar @{$uargs{1}} : 0;
+	$ndone += $inserted + $updated;
     
-    &logmsg("$inserted new paths, $updated updated paths"
-	    . " ($nvalid new/updated valid, $existing existed already),"
-	    . " $discarded discarded from $nhops paths considered"
-	    . " from $nreqs requests generated for the"
-	    . " destinations @{[sort keys %destnodes]}")
-        if $inserted || $updated || $discarded;
+        &logmsg("$inserted new paths, $updated updated paths"
+	        . " ($nvalid new/updated valid, $existing existed already),"
+	        . " $discarded discarded from $nhops paths considered"
+	        . " from $nreqs requests generated for the"
+	        . " destinations @{[sort keys %destnodes]}")
+            if $inserted || $updated || $discarded;
 
-    # This would be a great time to go on a long holiday. :-)
-    $self->maybeStop();
-    return $inserted + $updated;
+	# Now would be a great time to go for a long holiday :-)
+	$self->maybeStop();
+    }
+
+    # Return how much we did.
+    return $ndone;
 }
 
 # Calculate prototype file transfer cost.  The only factor affecting
