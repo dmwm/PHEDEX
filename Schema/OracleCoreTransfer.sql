@@ -237,7 +237,7 @@ create table t_xfer_task_export
      foreign key (task) references t_xfer_task (id)
      on delete cascade)
   --
-  organization index;
+  enable row movement;
 
 create table t_xfer_task_inxfer
   (task			integer		not null,
@@ -250,8 +250,7 @@ create table t_xfer_task_inxfer
      foreign key (task) references t_xfer_task (id)
      on delete cascade)
   --
-  organization index
-  /* enable row movement */;
+  enable row movement;
 
 create table t_xfer_task_done
   (task			integer		not null,
@@ -266,7 +265,7 @@ create table t_xfer_task_done
      foreign key (task) references t_xfer_task (id)
      on delete cascade)
   --
-  organization index;
+  enable row movement;
 
 create table t_xfer_task_harvest
   (task			integer		not null,
@@ -278,7 +277,7 @@ create table t_xfer_task_harvest
      foreign key (task) references t_xfer_task (id)
      on delete cascade)
   --
-  organization index;
+  enable row movement;
 
 create table t_xfer_error
   (to_node		integer		not null, -- node transfer is to
