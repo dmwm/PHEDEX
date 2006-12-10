@@ -358,6 +358,9 @@ sub fetchNewTasks
     my $now = &mytimeofday();
     my (%pending, %busy);
 
+    # If we have just too much work, leave.
+    return if scalar keys %$tasks >= 1_000;
+
     # Find out how many we have pending per link so we can throttle.
     ($pending{"$$_{FROM_NODE} -> $$_{TO_NODE}"} ||= 0)++
 	for grep(! exists $$_{REPORT_CODE}, values %$tasks);
@@ -390,6 +393,9 @@ sub fetchNewTasks
         ":limit" => $now + 3600, %dest_args, %src_args);
     while (my $row = $q->fetchrow_hashref())
     {
+	# If we have just too much work, leave.
+	last if scalar keys %$tasks >= 5_000;
+
 	# Make sure it doesn't exist locally, just in case.
 	next if exists $$tasks{$$row{TASKID}};
 
@@ -965,8 +971,10 @@ sub idle
 	if ($$self{NEXT_CLEAR} <= $now)
 	{
 	    my $archivedir = $$self{ARCHIVEDIR};
-	    &rmtree($_) for grep((stat($_))[9] < $now - 86400, <$archivedir/*>);
-	    $$self{NEXT_CLEAR} = $now + 86400;
+	    my @old = <$archivedir/*>;
+	    &rmtree($_) for (scalar @old > 5000 ? @old 
+			     : grep((stat($_))[9] < $now - 86400, @old));
+	    $$self{NEXT_CLEAR} = $now + 3600;
 	}
     };
     do { chomp ($@); &alert ($@); $$self{NEXT_PURGE} = 0;
