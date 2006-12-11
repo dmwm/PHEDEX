@@ -254,7 +254,40 @@ sub taskDone
     my ($from, $to, $code) = @$task{"FROM_NODE", "TO_NODE", "REPORT_CODE"};
     my $s = $$self{STATS_CURRENT}{LINKS}{$to}{$from}
         ||= { DONE => 0, USED => 0, ERRORS => 0 };
-    $$s{$code ? "ERRORS" : "DONE"}++;
+    $$s{ERRORS}++ if $code > 0;
+    $$s{DONE}++ if $code == 0;
+
+    # Report but simplify download detail/validate logs.
+    my $detail = $$task{LOG_DETAIL} || '';
+    my $validate = $$task{LOG_VALIDATE} || '';
+    foreach my $log (\$detail, \$validate)
+    {
+	$$log =~ s/^[-\d: ]*//gm;
+	$$log =~ s/^[A-Za-z]+\[\d+\]: //gm;
+	$$log =~ s/\n/ ~~ /gs;
+	$$log =~ s/\s+/ /gs
+    }
+
+    &logmsg("xstats:"
+	    . " task=$$task{TASKID}"
+	    . " file=$$task{FILEID}"
+	    . " from=$$task{FROM_NODE}"
+	    . " to=$$task{TO_NODE}"
+	    . " priority=$$task{PRIORITY}"
+	    . " report-code=$$task{REPORT_CODE}"
+	    . " xfer-code=$$task{XFER_CODE}"
+	    . " size=$$task{FILESIZE}"
+	    . " t-expire=$$task{TIME_EXPIRE}"
+	    . " t-assign=$$task{TIME_ASSIGN}"
+	    . " t-export=$$task{TIME_EXPORT}"
+	    . " t-inxfer=$$task{TIME_INXFER}"
+	    . " t-xfer=$$task{TIME_XFER}"
+	    . " t-done=$$task{TIME_UPDATE}"
+	    . " lfn=$$task{LOGICAL_NAME}"
+	    . " from_pfn=$$task{FROM_PFN}"
+	    . " to_pfn=$$task{TO_PFN}"
+	    . " detail=($detail)"
+	    . " validate=($validate)");
 
     # Indicate success.
     return 1;
@@ -314,10 +347,10 @@ sub purgeLostTransfers
     my ($dest, %dest_args) = &myNodeFilter ($self, "xt.to_node");
     my ($src, %src_args) = &otherNodeFilter ($self, "xt.from_node");
     my $qpending = &dbexec($$self{DBH}, qq{
-      select xt.id
-      from t_xfer_task xt
-        join t_xfer_task_inxfer xti on xti.task = xt.id
-        left join t_xfer_task_done xtd on xtd.task = xt.id
+      select xti.task
+      from t_xfer_task_inxfer xti
+        join t_xfer_task xt on xt.id = xti.task
+        left join t_xfer_task_done xtd on xtd.task = xti.task
       where xtd.task is null and $dest $src},
       %dest_args, %src_args);
     $indb{$_} = 1 while (($_) = $qpending->fetchrow());
@@ -359,7 +392,7 @@ sub fetchNewTasks
     my (%pending, %busy);
 
     # If we have just too much work, leave.
-    return if scalar keys %$tasks >= 1_000;
+    return if scalar keys %$tasks >= 5_000;
 
     # Find out how many we have pending per link so we can throttle.
     ($pending{"$$_{FROM_NODE} -> $$_{TO_NODE}"} ||= 0)++
@@ -389,19 +422,20 @@ sub fetchNewTasks
 	 where xti.task is null
 	   and xtd.task is null
 	   and xt.time_expire > :limit
-	   and $dest $src},
+	   and $dest $src
+	order by time_assign asc, rank asc},
         ":limit" => $now + 3600, %dest_args, %src_args);
     while (my $row = $q->fetchrow_hashref())
     {
 	# If we have just too much work, leave.
-	last if scalar keys %$tasks >= 5_000;
+	last if scalar keys %$tasks >= 15_000;
 
 	# Make sure it doesn't exist locally, just in case.
 	next if exists $$tasks{$$row{TASKID}};
 
 	# If we have too many on this link, skip.
 	my $linkkey = "$$row{FROM_NODE} -> $$row{TO_NODE}";
-	if ($pending{$linkkey}++ >= 1000)
+	if (($pending{$linkkey} || 0) >= 1000)
 	{
             &logmsg("link $linkkey already has $pending{$linkkey} pending"
 		    . " tasks, not fetching more from the database")
@@ -413,6 +447,7 @@ sub fetchNewTasks
 	# Mark used in database.
 	&dbbindexec($i, ":task" => $$row{TASKID}, ":now" => $now);
 	$$row{TIME_INXFER} = $now;
+        ($pending{$linkkey} ||= 0)++;
 
 	# Generate a local task descriptor.  It doesn't really matter
 	# if things go badly wrong here, we'll clean it up in purge.
@@ -429,12 +464,12 @@ sub updateTaskStatus
     my (%dargs, %eargs);
     my $dstmt = &dbprep($$self{DBH}, qq{
 	insert into t_xfer_task_done
-	(task, report_code, xfer_code, time_update)
-	values (?, ?, ?, ?)});
+	(task, report_code, xfer_code, time_xfer, time_update)
+	values (?, ?, ?, ?, ?)});
     my $estmt = &dbprep($$self{DBH}, qq{
 	insert into t_xfer_error
 	(to_node, from_node, fileid, priority,
-	 time_assign, time_expire, time_inxfer, time_done,
+	 time_assign, time_expire, time_inxfer, time_xfer, time_done,
 	 report_code, xfer_code, from_pfn, to_pfn,
 	 log_xfer, log_detail, log_validate)
 	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
@@ -448,6 +483,7 @@ sub updateTaskStatus
 	push(@{$dargs{$arg++}}, $$tasks{$task}{TASKID});
 	push(@{$dargs{$arg++}}, $$tasks{$task}{REPORT_CODE});
 	push(@{$dargs{$arg++}}, $$tasks{$task}{XFER_CODE});
+	push(@{$dargs{$arg++}}, $$tasks{$task}{TIME_XFER});
 	push(@{$dargs{$arg++}}, $$tasks{$task}{TIME_UPDATE});
 
 	if ($$tasks{$task}{REPORT_CODE} != 0)
@@ -460,6 +496,7 @@ sub updateTaskStatus
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_ASSIGN});
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_EXPIRE});
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_INXFER});
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_XFER});
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_UPDATE});
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{REPORT_CODE});
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{XFER_CODE});
@@ -603,27 +640,8 @@ sub check
 	    $$taskinfo{LOG_XFER} = $$xstatus{LOG};
 	    $$taskinfo{LOG_VALIDATE} = $$vstatus{LOG};
 	    $$taskinfo{TIME_UPDATE} = $$vstatus{END};
+	    $$taskinfo{TIME_XFER} = $$xstatus{START};
 	    return if ! $self->taskDone($taskinfo);
-	    my $detail = $$taskinfo{LOG_DETAIL};
-	    $detail =~ s/\s+/ /gs if $detail;
-	    &logmsg("xstats:"
-		    . " task=$task"
-		    . " file=$$taskinfo{FILEID}"
-		    . " from=$$taskinfo{FROM_NODE}"
-		    . " to=$$taskinfo{TO_NODE}"
-		    . " priority=$$taskinfo{PRIORITY}"
-		    . " report-code=$$taskinfo{REPORT_CODE}"
-		    . " xfer-code=$$taskinfo{XFER_CODE}"
-		    . " size=$$taskinfo{FILESIZE}"
-		    . " t-expire=$$taskinfo{TIME_EXPIRE}"
-		    . " t-assign=$$taskinfo{TIME_ASSIGN}"
-		    . " t-export=$$taskinfo{TIME_EXPORT}"
-		    . " t-xfer=$$taskinfo{TIME_INXFER}"
-		    . " t-done=$$taskinfo{TIME_UPDATE}"
-		    . " lfn=$$taskinfo{LOGICAL_NAME}"
-		    . " from_pfn=$$taskinfo{FROM_PFN}"
-		    . " to_pfn=$$taskinfo{TO_PFN}"
-		    . " detail=($detail)");
 	}
 
 	# Otherwise we are still not done with this job.
@@ -665,6 +683,7 @@ sub fill
 {
     my ($self, $jobs, $tasks) = @_;
     my (%stats, %todo, %sorted);
+    my $now = &mytimeofday();
     my $nlinks = 0;
 
     # If the backend is busy, avoid doing heavy lifting.
@@ -677,6 +696,28 @@ sub fill
 	my $from = $$t{FROM_NODE};
 	next if exists $$t{REPORT_CODE};
 	next if grep (exists $$_{TASKS}{$$t{TASKID}}, values %$jobs);
+
+	# If the task is too near expiration, just mark it failed.
+        # If it has already expired, just remove it.
+	if ($now >= $$t{TIME_EXPIRE})
+	{
+	    &logmsg("transfer task $$t{TASKID} has expired, discarding");
+	    unlink("$$self{TASKDIR}/$$t{TASKID}");
+	    delete $$tasks{$$t{TASKID}};
+	}
+	elsif ($now >= $$t{TIME_EXPIRE} - 1200)
+	{
+	    $$t{XFER_CODE} = -1;
+	    $$t{REPORT_CODE} = -1;
+	    $$t{LOG_DETAIL} = "transfer expired in the download agent queue";
+	    $$t{LOG_XFER} = "no transfer was attempted";
+	    $$t{LOG_VALIDATE} = "no validation was attempted";
+	    $$t{TIME_UPDATE} = $now;
+	    $$t{TIME_XFER} = -1;
+	    return if ! $self->taskDone($t);
+	}
+
+	# Consider this task.
 	$nlinks++ if ! exists $todo{$to}{$from};
 	push(@{$todo{$to}{$from}}, $t);
     }
@@ -835,7 +876,6 @@ sub fill
     # tasks on all links, synchronise immediately.  This applies only
     # on transition from having tasks to not having them (only), so we
     # are not forcing continuous unnecessary reconnects.
-    my $now = &mytimeofday();
     if (! $nlinks && $$self{NEXT_SYNC} > $now)
     {
 	$$self{NEXT_SYNC} = $now-1;
@@ -972,7 +1012,7 @@ sub idle
 	{
 	    my $archivedir = $$self{ARCHIVEDIR};
 	    my @old = <$archivedir/*>;
-	    &rmtree($_) for (scalar @old > 5000 ? @old 
+	    &rmtree($_) for (scalar @old > 500 ? @old 
 			     : grep((stat($_))[9] < $now - 86400, @old));
 	    $$self{NEXT_CLEAR} = $now + 3600;
 	}
