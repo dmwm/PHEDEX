@@ -183,8 +183,8 @@ sub flush
 	merge into t_xfer_task_done xtd using
 	  (select id from t_xfer_task where :now >= time_expire) xt
 	on (xtd.task = xt.id) when not matched then
-          insert (task, report_code, xfer_code, time_update)
-	  values (xt.id, -1, -1, :now)},
+          insert (task, report_code, xfer_code, time_xfer, time_update)
+	  values (xt.id, -1, -1, -1, :now)},
 	":now" => $now);
 
     # Deactivate requests which reached their expire time limit.
@@ -312,11 +312,13 @@ sub prepare
     my @priorities;
     if ($confirm_invalid <= 12 * TERABYTE)
     {
-        push(@priorities, [ 0, 0 ]) if $confirm_valid_high < 5 * TERABYTE;
-	push(@priorities, [ 1, 100 ]) if $confirm_valid_low < 10 * TERABYTE;
+        push(@priorities, [ 0, 0, 5 * TERABYTE ])
+	    if $confirm_valid_high < 5 * TERABYTE;
+	push(@priorities, [ 1, 100, 10 * TERABYTE ])
+	    if $confirm_valid_low < 10 * TERABYTE;
     }
 
-    foreach my $priority (@priorities)
+    foreach my $prio (@priorities)
     {
 	# Find block destinations we can activate.  The activation
 	# takes a lock on the block itself so files cannot be added
@@ -350,8 +352,8 @@ sub prepare
 	      and bd.priority <= :phigh
 	    order by bd.priority asc, bd.time_create asc},
 	    ":node" => $node,
-	    ":plow" => $$priority[0],
-	    ":phigh" => $$priority[1]);
+	    ":plow" => $$prio[0],
+	    ":phigh" => $$prio[1]);
         while (my ($block, $priority, $bytes) = $q->fetchrow())
 	{
 	    &dbbindexec($u,
@@ -359,7 +361,7 @@ sub prepare
 		    	":node" => $node,
 			":now" => $now);
 	    push(@blocks, [ $block, $priority ]);
-	    last if ($nbytes += $bytes) >= 5 * TERABYTE;
+	    last if ($nbytes += $bytes) >= $$prio[2];
 	}
 
 	# Commit first phase so any concurrent modification of t_xfer_file
@@ -417,6 +419,7 @@ sub routeFiles
     my $costs = {};
     my $ndone = 0;
     my $finished = 0;
+    my $saved = undef;
     my $q = &dbexec($dbh, qq{
 	select
 	    xq.destination, xq.fileid, f.filesize,
@@ -431,7 +434,8 @@ sub routeFiles
 	  and xq.time_expire > :now
 	  and not exists (select 1 from t_xfer_path xp
 			  where xp.to_node = xq.destination
-			    and xp.fileid = xq.fileid)},
+			    and xp.fileid = xq.fileid)
+	order by destination, fileid},
 	":now" => $now);
     while (! $finished)
     {
@@ -441,23 +445,36 @@ sub routeFiles
         my ($discarded, $existing) = (0, 0);
         my ($nhops, $nvalid) = (0, 0);
         my ($inserted, $updated) = (0, 0);
-        while (my ($dest, $file, $size, $priority, $create, $expire,
-	           $rnode, $state) = $q->fetchrow())
+        while (my $row = $saved || $q->fetchrow_hashref())
         {
+	    $saved = undef;
+	    my $dest = $$row{DESTINATION};
 	    next if ! exists $mynodes{$dest};
 
+	    my $file = $$row{FILEID};
+	    my $size = $$row{FILESIZE};
 	    my $sizebin = (int($size / (500*MEGABYTE))+1)*(500*MEGABYTE);
+
+	    if (! exists $requests{$dest}{$file})
+	    {
+		if ($nreqs >= 50_000)
+		{
+		    $finished = 0;
+		    $saved = $row;
+		    last;
+		}
+		$nreqs++;
+	    }
+
 	    $requests{$dest}{$file} ||= { DESTINATION => $dest,
 				          FILEID => $file,
 				          FILESIZE => $size,
 				          SIZEBIN => $sizebin,
-				          PRIORITY => $priority,
-				          TIME_CREATE => $create,
-				          TIME_EXPIRE => $expire };
-	    $requests{$dest}{$file}{REPLICAS}{$rnode} = $state;
-	    $self->routeCost($links, $costs, $rnode, $state, $sizebin);
-
-	    do { $finished = 0; last } if ++$nreqs >= 70_000;
+				          PRIORITY => $$row{PRIORITY},
+				          TIME_CREATE => $$row{TIME_CREATE},
+				          TIME_EXPIRE => $$row{TIME_EXPIRE} };
+	    $requests{$dest}{$file}{REPLICAS}{$$row{NODE}} = $$row{STATE};
+	    $self->routeCost($links, $costs, $$row{NODE}, $$row{STATE}, $sizebin);
         }
 
         # Build optimal file paths.
@@ -562,12 +579,11 @@ sub routeFiles
         $updated = %uargs ? scalar @{$uargs{1}} : 0;
 	$ndone += $inserted + $updated;
     
-        &logmsg("$inserted new paths, $updated updated paths"
-	        . " ($nvalid new/updated valid, $existing existed already),"
-	        . " $discarded discarded from $nhops paths considered"
-	        . " from $nreqs requests generated for the"
-	        . " destinations @{[sort keys %destnodes]}")
-            if $inserted || $updated || $discarded;
+        &logmsg("$existing existed, $updated updated, $inserted new,"
+	        . " $nvalid valid, $discarded discarded of $nhops paths"
+	        . " computed for $nreqs requests for the destinations"
+	        . " @{[sort keys %destnodes]}")
+            if $nreqs;
 
 	# Now would be a great time to go for a long holiday :-)
 	$self->maybeStop();
