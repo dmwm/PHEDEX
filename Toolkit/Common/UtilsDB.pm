@@ -85,7 +85,7 @@ sub connectToDatabase
 	|| $$self{DBH}{private_phedex_invalid}
 	|| time() - $$self{DBH_AGE} > $$self{DBH_LIFE}
 	|| (! eval { $$self{DBH}->ping() } || $@)
-	|| (! eval { $dbh->do("select 1 from dual") } || $@))
+	|| (! eval { $dbh->do("select sysdate from dual") } || $@))
     {
 	$$self{DBH_LOGGING} = 1 if $ENV{PHEDEX_LOG_DB_CONNECTIONS};
 	&logmsg ("(re)connecting to database") if $$self{DBH_LOGGING};
@@ -310,10 +310,14 @@ sub updateAgentStatus
     # Add agent if doesn't exist yet.
     if (! defined $$self{ID_AGENT})
     {
-        &dbexec($dbh, qq{
-	    insert into t_agent (id, name)
-	    values (seq_agent.nextval, :me)},
-	    ":me" => $me);
+        eval
+	{
+	    &dbexec($dbh, qq{
+	        insert into t_agent (id, name)
+	        values (seq_agent.nextval, :me)},
+	        ":me" => $me);
+	};
+	die $@ if $@ && $@ !~ /ORA-00001:/;
         ($$self{ID_AGENT}) = &dbexec($dbh, qq{
 	    select id from t_agent where name = :me},
 	    ":me" => $me)->fetchrow();
