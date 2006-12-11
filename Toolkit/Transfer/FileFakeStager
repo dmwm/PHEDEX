@@ -75,7 +75,7 @@ sub idle
         my $stmt = &dbexec($dbh, qq{
 	    update t_xfer_replica xr
 	    set state = 1, time_state = :now
-	    where $mynodes and exists
+	    where state = 0 and $mynodes and exists
 	      (select 1 from t_xfer_task xt
 	       where xt.from_node = xr.node
 		 and xt.fileid = xr.fileid)},
