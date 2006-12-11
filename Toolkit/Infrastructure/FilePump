@@ -168,13 +168,14 @@ sub receive
     # don't care that phantom reads may introduce more rows here
     # than we will eventually read back below, all we need is rows
     # we do read are covered.
-    foreach my $table (qw(export inxfer done))
+    foreach my $t (qw(export:update inxfer:update done:xfer done:update))
     {
+	my ($table, $column) = split(':', $t);
 	my $bin = 300;
         &dbexec($dbh, qq{
 	    merge into t_history_link_events h using
               (select distinct
-	         trunc(xtx.time_update/$bin)*$bin timebin,
+	         trunc(xtx.time_$column/$bin)*$bin timebin,
 	         xt.from_node, xt.to_node, xt.priority
 	       from t_xfer_task_$table xtx
 	         join t_xfer_task xt on xt.id = xtx.task) v
