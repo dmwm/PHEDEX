@@ -256,6 +256,7 @@ create table t_xfer_task_done
   (task			integer		not null,
    report_code		integer		not null,
    xfer_code		integer		not null,
+   time_xfer		float		not null,
    time_update		float		not null,
    --
    constraint pk_xfer_task_done
@@ -288,6 +289,7 @@ create table t_xfer_error
    time_expire		float		not null, -- time will expire
    time_export		float		not null, -- time exported
    time_inxfer		float		not null, -- time taken into transfer
+   time_xfer		float		not null, -- time transfer started or -1
    time_done		float		not null, -- time completed
    report_code		integer		not null, -- final report code
    xfer_code		integer		not null, -- transfer report code
