@@ -135,8 +135,9 @@ sub transfer
 	insert all
 	  into t_xfer_task_export (task, time_update) values (id, :now)
 	  into t_xfer_task_inxfer (task, time_update) values (id, :now)
-	  into t_xfer_task_done   (task, report_code, xfer_code, time_update)
-			          values (id, 0, 0, :now)
+	  into t_xfer_task_done   (task, report_code, xfer_code,
+				   time_xfer, time_update)
+			          values (id, 0, 0, :now, :now)
 	select xt.id from t_xfer_task xt
 	  join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
 	  join t_adm_node nd on nd.id = xt.to_node and nd.kind = 'Buffer'
@@ -187,8 +188,8 @@ sub receive
     }
 
     # Now read in rows and create various update bundles.
-    my $n = 0;
     my %history = ();
+    my ($n, $ngood, $nbad) = (0) x 3;
     my $q = &dbexec($dbh, qq{
 	select
 	    xth.task, xt.fileid, xtd.report_code, xtd.xfer_code,
@@ -199,7 +200,8 @@ sub receive
 	    xt.time_assign time_assign,
 	    xt.time_expire time_expire,
 	    xte.time_update time_export,
-	    xti.time_update time_xfer,
+	    xti.time_update time_inxfer,
+	    xtd.time_xfer   time_xfer,
 	    xtd.time_update time_done
 	from t_xfer_task_harvest xth
 	  join t_xfer_task xt on xt.id = xth.task
@@ -213,6 +215,8 @@ sub receive
 	    on xr.node = xt.to_node and xr.fileid = xt.fileid});
     while (my $task = $q->fetchrow_hashref())
     {
+	$n++;
+
 	# First update the statistics.  Create a time bin for the
 	# period when the transfer ended if one doesn't exist, then
 	# update the statistics according to result.
@@ -222,7 +226,7 @@ sub receive
 				  : "fail"));
 	while (my ($t, $stat) = each %stats)
 	{
-	    next if ! defined $$task{$t};
+	    next if ! defined $$task{$t} || $$task{$t} <= 0;
 	    my $statbin = int($$task{$t}/300)*300;
             my $key = "$statbin $$task{FROM_NODE} $$task{TO_NODE} $$task{PRIORITY}";
 	    $history{$key}{"${stat}_files"} ||= 0;
@@ -237,12 +241,17 @@ sub receive
 	my $msg = "xstats:";
 	if ($$task{REPORT_CODE} == 0)
 	{
+	    $ngood++;
 	    if ($$task{DEST_REPLICA})
 	    {
 	        # Destination replica exists, discard transfer.
 		# Keep the stats since the agent thought it did.
 		$msg = "warning: destination replica exists, discarding:";
 	    }
+	}
+	elsif ($$task{REPORT_CODE} > 0)
+	{
+	    $nbad++;
 	}
 
         # Log the outcome.
@@ -258,6 +267,7 @@ sub receive
 		. ($$task{TIME_EXPIRE} ? " t-expire=$$task{TIME_EXPIRE}" : "")
 		. ($$task{TIME_ASSIGN} ? " t-assign=$$task{TIME_ASSIGN}" : "")
 		. ($$task{TIME_EXPORT} ? " t-export=$$task{TIME_EXPORT}" : "")
+		. ($$task{TIME_INXFER} ? " t-inxfer=$$task{TIME_INXFER}" : "")
 		. ($$task{TIME_XFER}   ? " t-xfer=$$task{TIME_XFER}" : "")
 		. ($$task{TIME_DONE}   ? " t-done=$$task{TIME_DONE}" : "")
 		. " t-harvest=$now"
@@ -329,6 +339,11 @@ sub receive
 
     # Presto, we are done.
     $dbh->commit();
+
+    # Tell summary of what happened.
+    &logmsg("$n transfer tasks received, $ngood successful,"
+	    . " $nbad failed, @{[$n - $ngood - $nbad]} other")
+	if $n;
 }
 
 1;
