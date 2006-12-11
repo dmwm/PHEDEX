@@ -447,6 +447,9 @@ create index ix_xfer_path_from
 create index ix_xfer_task_from_node
   on t_xfer_task (from_node);
 
+create index ix_xfer_task_from_file
+  on t_xfer_task (from_node, fileid);
+
 create index ix_xfer_task_to_node
   on t_xfer_task (to_node);
 
