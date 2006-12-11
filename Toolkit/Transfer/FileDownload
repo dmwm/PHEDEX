@@ -370,8 +370,8 @@ sub purgeLostTransfers
     my $now = &mytimeofday();
     my $qlost = &dbprep($$self{DBH}, qq{
       insert into t_xfer_task_done
-        (task, report_code, xfer_code, time_update)
-	values (:task, -2, -2, :now)});
+        (task, report_code, xfer_code, time_xfer, time_update)
+	values (:task, -2, -2, -1, :now)});
     &dbbindexec($qlost, ":now" => $now, ":task" => $_) for @lostdb;
 
     # Remove locally known tasks forgotten by database.
