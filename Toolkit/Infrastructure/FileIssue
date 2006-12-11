@@ -87,7 +87,9 @@ sub confirm
     my ($self, $dbh) = @_;
     my $now = &mytimeofday();
     my $cats = {};
-    my @tasks;
+    my $finished = 0;
+    my $alldone = 0;
+    my $rank = 0;
 
     # Confirm transfers on valid hop destinations where the source
     # replica exists, but not the destination nor is there transfer.
@@ -99,10 +101,9 @@ sub confirm
 	select
           xp.fileid, f.logical_name,
           xp.from_node, ns.name from_node_name, ns.kind from_kind,
-          xp.to_node, nd.name to_node_name, xr.id replica,
+          xr.id replica, xp.to_node, nd.name to_node_name,
 	  xso.protocols from_protos, xsi.protocols to_protos,
-          min(xp.priority) priority, max(xp.is_local) is_local,
-          max(xp.time_expire) time_expire
+          xp.priority, xp.is_local, xp.time_expire
         from t_xfer_path xp
           join t_xfer_replica xr
             on xr.fileid = xp.fileid
@@ -139,56 +140,58 @@ sub confirm
        	           and xsi.from_node is not null)
 	       or (xso.from_node is not null
        	           and xsi.from_node is not null))
-        group by xp.fileid, f.logical_name,
-                 xp.from_node, ns.name, ns.kind,
-                 xp.to_node, nd.name, xr.id,
-		 xso.protocols, xsi.protocols},
+	order by priority asc, time_expire asc},
 	":now" => $now, ":recent" => $now - 5400);
-    while (my $task = $q->fetchrow_hashref())
+
+    while (! $finished)
     {
-	$$task{PRIORITY} = 2*$$task{PRIORITY} + (1-$$task{IS_LOCAL});
-	$self->makeTransferTask($dbh, $task, $cats);
-	push(@tasks, $task);
+	$finished = 1;
+        my @tasks;
+        while (my $task = $q->fetchrow_hashref())
+        {
+	    $$task{PRIORITY} = 2*$$task{PRIORITY} + (1-$$task{IS_LOCAL});
+	    $self->makeTransferTask($dbh, $task, $cats);
+	    push(@tasks, $task);
+	    do { $finished = 0; last } if scalar @tasks >= 10_000;
+        }
+
+        my ($done, %did, %iargs) = 0;
+        my $istmt = &dbprep($dbh, qq{
+	    insert into t_xfer_task (id, fileid, from_replica, priority, rank,
+	      from_node, to_node, from_pfn, to_pfn, time_expire, time_assign)
+	    values (seq_xfer_task.nextval, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
+        foreach my $task (sort { $$a{PRIORITY} <=> $$b{PRIORITY}
+		                 || $$a{LOGICAL_NAME} cmp $$b{LOGICAL_NAME} }
+		          @tasks)
+        {
+	    my $n = 1;
+	    next if ! $$task{FROM_PFN};
+	    next if ! $$task{TO_PFN};
+	    push(@{$iargs{$n++}}, $$task{FILEID});
+	    push(@{$iargs{$n++}}, $$task{REPLICA});
+	    push(@{$iargs{$n++}}, $$task{PRIORITY});
+	    push(@{$iargs{$n++}}, $rank++);
+	    push(@{$iargs{$n++}}, $$task{FROM_NODE});
+	    push(@{$iargs{$n++}}, $$task{TO_NODE});
+	    push(@{$iargs{$n++}}, $$task{FROM_PFN});
+	    push(@{$iargs{$n++}}, $$task{TO_PFN});
+	    push(@{$iargs{$n++}}, $$task{TIME_EXPIRE});
+	    push(@{$iargs{$n++}}, $now);
+	    $did{$$task{TO_NODE_NAME}} = 1;
+	    $done++;
+        }
+
+        &dbbindexec($istmt, %iargs) if %iargs;
+        $dbh->commit();
+
+	&logmsg ("issued $done transfers to the destinations"
+		 . " @{[sort keys %did]}") if $done;
+	$alldone += $done;
+
+	$self->maybeStop();
     }
 
-    my $rank = 0;
-    my ($done, %did, %iargs) = 0;
-    my $istmt = &dbprep($dbh, qq{
-	insert into t_xfer_task (id, fileid, from_replica, priority, rank,
-	  from_node, to_node, from_pfn, to_pfn, time_expire, time_assign)
-	values (seq_xfer_task.nextval, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
-    foreach my $task (sort { $$a{PRIORITY} <=> $$b{PRIORITY}
-		             || $$a{LOGICAL_NAME} cmp $$b{LOGICAL_NAME} }
-		      @tasks)
-    {
-	my $n = 1;
-	next if ! $$task{FROM_PFN};
-	next if ! $$task{TO_PFN};
-	push(@{$iargs{$n++}}, $$task{FILEID});
-	push(@{$iargs{$n++}}, $$task{REPLICA});
-	push(@{$iargs{$n++}}, $$task{PRIORITY});
-	push(@{$iargs{$n++}}, $rank++);
-	push(@{$iargs{$n++}}, $$task{FROM_NODE});
-	push(@{$iargs{$n++}}, $$task{TO_NODE});
-	push(@{$iargs{$n++}}, $$task{FROM_PFN});
-	push(@{$iargs{$n++}}, $$task{TO_PFN});
-	push(@{$iargs{$n++}}, $$task{TIME_EXPIRE});
-	push(@{$iargs{$n++}}, $now);
-	$did{$$task{TO_NODE_NAME}} = 1;
-	$done++;
-    }
-
-    &dbbindexec($istmt, %iargs) if %iargs;
-    $dbh->commit();
-
-    if ($done)
-    {
-	&logmsg ("issued $done transfers for @{[sort keys %did]}");
-    }
-    else
-    {
-	&logmsg ("nothing to issue for");
-    }
+    &logmsg ("no transfer tasks to issue") if ! $alldone;
 }
 
 # Expand transfer task information and insert into the database.
