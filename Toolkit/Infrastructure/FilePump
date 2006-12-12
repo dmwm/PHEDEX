@@ -91,23 +91,6 @@ sub transfer
     my $now = &mytimeofday();
 
     # Auto-export for sites running exports without stage-in.
-    &dbexec($dbh, qq{
-	merge into t_xfer_task_export xte using
-	  (select xt.id
-	   from t_xfer_task xt
-	     join t_adm_node ns
-	       on ns.id = xt.from_node
-	     join t_xfer_source xs
-	       on xs.from_node = xt.from_node
-	       and xs.to_node = xt.to_node
-	   where ns.kind = 'Disk'
-	     and xs.time_update >= :now - 5400) xt
-	on (xte.task = xt.id)
-	when not matched then
-	  insert (task, time_update)
-	  values (xt.id, :now)},
-        ":now" => $now);
-
     # Export staged files for sites with stage-in.
     &dbexec($dbh, qq{
 	merge into t_xfer_task_export xte using
@@ -119,10 +102,9 @@ sub transfer
 	       on xs.from_node = xt.from_node
 	       and xs.to_node = xt.to_node
 	     join t_xfer_replica xr
-	       on xr.node = xt.from_node
-	       and xr.fileid = xt.fileid
-	   where ns.kind = 'Buffer'
-	     and xr.state = 1
+	       on xr.id = xt.from_replica
+	   where ((ns.kind = 'Buffer' and xr.state = 1)
+		  or ns.kind = 'Disk')
 	     and xs.time_update >= :now - 5400) xt
 	on (xte.task = xt.id)
 	when not matched then
@@ -337,6 +319,12 @@ sub receive
     &dbexec($dbh, qq{
 	delete from t_xfer_task xt where id in
 	  (select task from t_xfer_task_harvest)});
+
+    # Give file router a signal to proceed with request clean-up
+    # if we completed transfers.  This will allow an idle router
+    # to bring forward the 'close out' transfers quicker.
+    &dbexec($dbh, qq{select seq_xfer_done.nextval from dual})->fetchrow()
+	if $ngood;
 
     # Presto, we are done.
     $dbh->commit();
