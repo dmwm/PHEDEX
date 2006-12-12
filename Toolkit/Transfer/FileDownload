@@ -150,12 +150,12 @@ sub new
 		  STATS => [],			# Historical stats.
 
 		  LAST_SYNC => 0,		# Last time to synchronise
+		  LAST_CONNECT => 0,		# Last time connected and made known
 		  LAST_WORK => time(),		# Last time we saw work
 		  LAST_COMPLETED => 0,		# Last completed a task
 		  NEXT_CLEAR => time(),		# Next time to clear job archive
 		  NEXT_SYNC => 0,		# Next time to synchronise
 		  NEXT_PURGE => 0,		# Next time to purge bad data
-		  NEXT_DISCONNECT => 0,		# Next time to disconnect
 		  DBH_LAST_USE => 0,		# Last use of the database
 
 		  BATCH_ID => 0,		# Number of batches created
@@ -234,7 +234,7 @@ sub reconnect
 	":protos" => "@protos", ":now" => $now, %dest_args, %src_args);
 
     $$self{DBH_LAST_USE} = $now;
-    $$self{NEXT_DISCONNECT} = $now + 300;
+    $$self{LAST_CONNECT} = $now;
 }
 
 ######################################################################
@@ -976,12 +976,13 @@ sub idle
 	# connection opportunistically if we happen to have one.
 	$now = &mytimeofday();
 	my $need_sync = ($$self{NEXT_SYNC} <= $now ? 1 : 0);
+	my $need_advert = ($$self{LAST_CONNECT} <= $now - 2400 ? 1 : 0);
 	my $report_sync = ($$self{LAST_COMPLETED} > $$self{LAST_SYNC} ? 1 : 0);
 	my $recent_sync = ($$self{LAST_SYNC} >= $now - 120 ? 1 : 0);
-	if (($need_sync || $$self{DBH}) && ($report_sync || ! $recent_sync))
+	if (($need_sync || $need_advert || $$self{DBH})
+	    && ($report_sync || ! $recent_sync))
 	{
-	    $self->reconnect()
-		if (! $$self{DBH} || $now - $$self{DBH_AGE} > 3600);
+	    $self->reconnect() if ! $$self{DBH} || $need_advert;
 	    if ($$self{NEXT_PURGE} <= $now)
 	    {
 		# Kill ghost transfers in the database and locally.
@@ -1005,9 +1006,8 @@ sub idle
 	if (defined $$self{DBH}
 	    && $$self{NEXT_SYNC} - $now > 600
 	    && $now - $$self{DBH_LAST_USE} > 60
-	    && $$self{NEXT_DISCONNECT} <= $now
 	    && ($$self{BACKEND}->isBusy(\%jobs, \%tasks)
-		|| $now - $$self{LAST_WORK} > 1800))
+		|| $now - $$self{LAST_WORK} > 4*3600))
 	{
 	    &logmsg("disconnecting from database");
 	    &disconnectFromDatabase($self, $$self{DBH}, 1);
