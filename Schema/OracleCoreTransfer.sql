@@ -3,6 +3,7 @@
 
 create sequence seq_xfer_replica;
 create sequence seq_xfer_task;
+create sequence seq_xfer_done;
 
 ----------------------------------------------------------------------
 -- Create tables
@@ -442,6 +443,9 @@ create index ix_xfer_path_src
 
 create index ix_xfer_path_from
   on t_xfer_path (from_node);
+
+create index ix_xfer_path_to
+  on t_xfer_path (to_node);
 
 --
 create index ix_xfer_task_from_node
