@@ -52,6 +52,8 @@ sub new
     my %params = (DBCONFIG => undef,		# Database configuration file
 		  MYNODE => undef,		# My node name
 		  WAITTIME => 60 + rand(10),	# Agent activity cycle
+		  FLUSH_MARKER => undef,	# Current slow flush marker
+		  FLUSH_PERIOD => 1800,		# Frequency of slow flush
 		  NEXT_SLOW_FLUSH => 0);	# Next time to flush
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
@@ -96,8 +98,14 @@ sub flush
     my $now = &mytimeofday();
 
     return if $now < $$self{NEXT_SLOW_FLUSH};
-    $$self{NEXT_SLOW_FLUSH} = $now + 1800;
+    $$self{NEXT_SLOW_FLUSH} = $now + $$self{FLUSH_PERIOD};
  
+    # Get the current value of marker from file pump.
+    my $markerval = (defined $$self{FLUSH_MARKER} ? "currval" : "nextval");
+    ($$self{FLUSH_MARKER}) = &dbexec($dbh, qq{
+	select seq_xfer_done.$markerval from dual})
+	->fetchrow();
+
     # Update priority on existing requests.
     &dbexec ($dbh, qq{
         update (select xq.priority req_priority, bd.priority cur_priority
@@ -587,6 +595,22 @@ sub routeFiles
 
 	# Now would be a great time to go for a long holiday :-)
 	$self->maybeStop();
+    }
+
+    # Bring next slow synchornisation forward if we didn't route any
+    # files and the file pump agent has given us a hint to restart
+    # and next slow flush would be relatively far away.
+    if (! $ndone)
+    {
+	my ($marker) = &dbexec($dbh, qq{
+	    select seq_xfer_done.currval from dual})
+	    ->fetchrow();
+
+	$$self{NEXT_SLOW_FLUSH} = $now
+	    if ($marker > $$self{FLUSH_MARKER}
+		&& $$self{NEXT_SLOW_FLUSH} > $now + $$self{FLUSH_PERIOD}/4);
+
+	$dbh->commit();
     }
 
     # Return how much we did.
