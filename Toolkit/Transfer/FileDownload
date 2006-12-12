@@ -151,6 +151,7 @@ sub new
 
 		  LAST_SYNC => 0,		# Last time to synchronise
 		  LAST_WORK => time(),		# Last time we saw work
+		  LAST_COMPLETED => 0,		# Last completed a task
 		  NEXT_CLEAR => time(),		# Next time to clear job archive
 		  NEXT_SYNC => 0,		# Next time to synchronise
 		  NEXT_PURGE => 0,		# Next time to purge bad data
@@ -247,8 +248,10 @@ sub taskDone
     return 0 if ! $self->saveTask($task);
 
     # If next synchronisation is too far away, pull it forward.
-    my $sync = &mytimeofday() + 900;
+    my $now = &mytimeofday();
+    my $sync = $now + 900;
     $$self{NEXT_SYNC} = $sync if $sync < $$self{NEXT_SYNC};
+    $$self{LAST_COMPLETED} = $now;
 
     # Update statistics for the current period.
     my ($from, $to, $code) = @$task{"FROM_NODE", "TO_NODE", "REPORT_CODE"};
@@ -971,9 +974,11 @@ sub idle
 
 	# Reconnect if we are due a database sync, but use a database
 	# connection opportunistically if we happen to have one.
+	$now = &mytimeofday();
 	my $need_sync = ($$self{NEXT_SYNC} <= $now ? 1 : 0);
+	my $report_sync = ($$self{LAST_COMPLETED} > $$self{LAST_SYNC} ? 1 : 0);
 	my $recent_sync = ($$self{LAST_SYNC} >= $now - 120 ? 1 : 0);
-	if (($need_sync || $$self{DBH}) && ! $recent_sync)
+	if (($need_sync || $$self{DBH}) && ($report_sync || ! $recent_sync))
 	{
 	    $self->reconnect()
 		if (! $$self{DBH} || $now - $$self{DBH_AGE} > 3600);
@@ -995,11 +1000,12 @@ sub idle
 
 	# Detach from the database if the connection wasn't used
 	# recently (at least one minute) and if it looks the agent
-	# has enough work for some time.
+	# has enough work for some time and next synchronisation
+	# is not imminent.
 	if (defined $$self{DBH}
-	    && $$self{NEXT_SYNC} - $now > 300
-	    && $$self{NEXT_DISCONNECT} <= $now
+	    && $$self{NEXT_SYNC} - $now > 600
 	    && $now - $$self{DBH_LAST_USE} > 60
+	    && $$self{NEXT_DISCONNECT} <= $now
 	    && ($$self{BACKEND}->isBusy(\%jobs, \%tasks)
 		|| $now - $$self{LAST_WORK} > 1800))
 	{
