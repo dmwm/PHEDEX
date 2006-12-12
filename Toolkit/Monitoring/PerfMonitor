@@ -418,16 +418,19 @@ sub compactLinkData
 
     foreach my $s (values %stats)
     {
-	if ($$s{TIMETOT})
+	if ($suffix ne 'events')
 	{
-	    $$s{PARAM_RATE} /= $$s{TIMETOT};
-	    $$s{PARAM_LATENCY} /= $$s{TIMETOT};
+	    if ($$s{TIMETOT})
+	    {
+	        $$s{PARAM_RATE} /= $$s{TIMETOT};
+	        $$s{PARAM_LATENCY} /= $$s{TIMETOT};
+	    }
+	    else
+	    {
+	        $$s{PARAM_RATE} = 0;
+	        $$s{PARAM_LATENCY} = 0;
+            }
 	}
-	else
-	{
-	    $$s{PARAM_RATE} = 0;
-	    $$s{PARAM_LATENCY} = 0;
-        }
 	delete $$s{TIMETOT};
     }
 
