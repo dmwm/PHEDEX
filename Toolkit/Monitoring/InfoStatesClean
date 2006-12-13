@@ -65,34 +65,6 @@ sub idle
 	$dbh = &connectToDatabase ($self);
 	my $now = &mytimeofday();
 
-	# Summarise replica states
-	&dbexec($dbh, qq{delete from t_info_xfer_replicas});
-	&dbexec($dbh, qq{
-	    insert into t_info_xfer_replicas
-	    (select :now, xr.node, xr.state,
-	            count (xr.fileid), nvl (sum (f.filesize), 0)
-	     from t_xfer_replica xr join t_xfer_file f on f.id = xr.fileid
-	     group by :now, xr.node, xr.state)},
-	     ":now" => &mytimeofday ());
-
-	# Summarise file transfer states
-	&dbexec($dbh, qq{delete from t_info_xfer_tasks});
-	&dbexec($dbh, qq{
-	    insert into t_info_xfer_tasks
-	    (select :now, v.from_node, v.to_node, v.from_state, v.to_state,
-	            count (v.fileid), nvl (sum (f.filesize), 0)
-	     from
-	       (select
-	           xt.from_node, xt.to_node, xt.fileid,
-	           case when xti.time_update > 0 then 1 else 0 end from_state,
-		   case when xte.time_update > 0 then 2 else 1 end to_state
-		from t_xfer_task xt
-		  left join t_xfer_task_export xte on xte.task = xt.id
-		  left join t_xfer_task_inxfer xti on xti.task = xt.id) v
-	       join t_xfer_file f on f.id = v.fileid
-	     group by :now, v.from_node, v.to_node, v.from_state, v.to_state)},
-	     ":now" => &mytimeofday ());
-
 	# Delete obsolete agent status messages (3 days)
 	my %old = (":old" => &mytimeofday() - 3*86400);
 	&dbexec($dbh,qq{delete from t_agent_status where time_update < :old}, %old);

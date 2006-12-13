@@ -50,7 +50,8 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 		  MYNODE => undef,		# My TMDB node name
-	          WAITTIME => 120,		# Agent activity cycle
+	          WAITTIME => 60,		# Agent activity cycle
+		  NEXT_RUN => 0,		# Next time to run
 		  LAST_COMPACT => 0);		# Last we compacted old entries
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
@@ -72,37 +73,79 @@ sub idle
 	my $timewidth = 300;
 	my $timebin = int($now/$timewidth)*$timewidth;
 
-	# FIXME: Decide which periods should have "when matched" part.
-	# If we want to take the first value of each period, then we
-	# we can drop the "when matched".  If we want to have "live"
-	# values, we keep the "when matched".
+	# Don't run until we need to.
+	return if $now < $$self{NEXT_RUN};
+	$$self{NEXT_RUN} = $timebin + $timewidth + 60;
 
-	# Part I
-	#
-	# Update statistics on currently pending transfer queue.  This
-	# is a heart-beat routine, we want to execute this regularly
-	# so the histogram has no gaps -- if we miss a beat, there will
-	# be no data for this time bin.  This conflicts with updates
-	# from transfer pump agent.
+	# PART I
+
+	# Summarise various system aspects into stats tables.  This
+	# covers only elements not already maintained by some other
+	# agent: to avoid data trashing we usually have the agent
+	# in charge of the data also maintaining the stats.
+	#   - FilePump updates t_status_task
+	#   - FileRouter updates t_status_request and t_status_path
+	#   - This agent maintains the rest, but could rationalise
+	#     in particular with BlockMonitor and BlockAllocate
+
+	# Summarise block destination status.
+	# FIXME: block destination -> subscriptions!?
+	&dbexec($dbh, qq{delete from t_status_block_dest});
 	&dbexec($dbh, qq{
-	    merge into t_history_link_stats h
-	    using
+	    insert into t_status_block_dest
+	    (time_update, destination, state, files, bytes)
+	    select :now, bd.destination, bd.state,
+	           count(f.id), nvl(sum(f.filesize),0)
+	    from t_dps_block_dest bd
+	      join t_dps_file f on f.inblock = bd.block
+	    group by :now, bd.destination, bd.state},
+	    ":now" => $now);
+
+	# Summarise file origins.
+	&dbexec($dbh, qq{delete from t_status_file});
+	&dbexec($dbh, qq{
+	    insert into t_status_file
+	    (time_update, node, files, bytes)
+	    select :now, br.node,
+	           nvl(sum(br.src_files),0),
+	           nvl(sum(br.src_bytes),0)
+	    from t_dps_block_replica br
+	    group by :now, br.node},
+	    ":now" => $now);
+
+	# Summarise replica states (FIXME: merge this stats with
+        # t_dps_block_replica which lacks 'state' to avoid excessive
+	# table scanning just for stats).
+	&dbexec($dbh, qq{delete from t_status_replica});
+	&dbexec($dbh, qq{
+	    insert into t_status_replica
+	    (time_update, node, state, files, bytes)
+	    select :now, xr.node, xr.state,
+	           count (xr.fileid), nvl (sum (f.filesize), 0)
+	    from t_xfer_replica xr
+	      join t_xfer_file f on f.id = xr.fileid
+	    group by :now, xr.node, xr.state},
+	    ":now" => $now);
+
+	# PART II
+
+	# Update statistics from the stats tables into the history.
+	# These are heart beat routines where we don't want to miss
+	# a bin in the time series histogram.
+	&dbexec($dbh, qq{
+	    merge into t_history_link_stats h using
 	      (select :timebin timebin, :timewidth timewidth,
-	      	      xt.from_node, xt.to_node, xt.priority,
-	              count(xt.fileid) pend_files,
-		      sum(f.filesize) pend_bytes,
-		      sum(case when xti.time_update > 0 then 0 else 1 end) wait_files,
-		      sum(case when xti.time_update > 0 then 0 else f.filesize end) wait_bytes,
-		      sum(case when xte.time_update > 0 then 1 else 0 end) ready_files,
-		      sum(case when xte.time_update > 0 then f.filesize else 0 end) ready_bytes,
-		      sum(case when xti.time_update > 0 then 1 else 0 end) xfer_files,
-		      sum(case when xti.time_update > 0 then f.filesize else 0 end) xfer_bytes
-		from t_xfer_task xt
-		  join t_xfer_file f on f.id = xt.fileid
-		  left join t_xfer_task_export xte on xte.task = xt.id
-		  left join t_xfer_task_inxfer xti on xti.task = xt.id
-		group by :timebin, :timewidth, xt.from_node, xt.to_node, xt.priority)
-		v
+	      	      from_node, to_node, priority,
+	              sum(files) pend_files,
+		      sum(bytes) pend_bytes,
+	              sum(decode(state,0,files)) wait_files,
+	              sum(decode(state,0,bytes)) wait_bytes,
+	              sum(decode(state,1,files)) ready_files,
+	              sum(decode(state,1,bytes)) ready_bytes,
+	              sum(decode(state,2,files)) xfer_files,
+	              sum(decode(state,2,bytes)) xfer_bytes
+		from t_status_task
+		group by :timebin, :timewidth, from_node, to_node, priority) v
 	    on (h.timebin = v.timebin and
 	        h.from_node = v.from_node and
 		h.to_node = v.to_node and
@@ -122,45 +165,27 @@ sub idle
 		      v.ready_files, v.ready_bytes, v.xfer_files, v.xfer_bytes)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
-	# Part II: Routing statistics.  This is a heartbeat again.
+	# Routing statistics.
 	&dbexec($dbh, qq{
-	    merge into t_history_link_stats h
-	    using
+	    merge into t_history_link_stats h using
 	      (select :timebin timebin, :timewidth timewidth,
-	      	      s.from_node, s.to_node, s.priority,
-	              count(s.fileid) confirm_files,
-		      sum(s.filesize) confirm_bytes,
-		      sum(s.weight) confirm_weight
-		from
-		  (select
-		       xp.from_node, xp.to_node,
-		       2 * xp.priority + 1-xp.is_local priority,
-		       xp.fileid, f.filesize, count(xp.fileid) weight
-		   from t_xfer_path xp join t_xfer_file f on f.id = xp.fileid
-		   group by xp.from_node, xp.to_node,
-			    2 * xp.priority + 1-xp.is_local,
-			    xp.fileid, f.filesize) s
-		group by :timebin, :timewidth, s.from_node, s.to_node, s.priority)
-		v
+	      	      from_node, to_node, priority, files, bytes
+		from t_status_path) v
 	    on (h.timebin = v.timebin and
 	        h.from_node = v.from_node and
 		h.to_node = v.to_node and
 		h.priority = v.priority)
 	    when matched then
 	      update set
-	        h.confirm_files = v.confirm_files,
-		h.confirm_bytes = v.confirm_bytes,
-		h.confirm_weight = v.confirm_weight
+	        h.confirm_files = v.files,
+		h.confirm_bytes = v.bytes
 	    when not matched then
-	      insert (h.timebin, h.timewidth,
-	      	      h.from_node, h.to_node, h.priority,
-	              h.confirm_files, h.confirm_bytes, h.confirm_weight)
-	      values (v.timebin, v.timewidth,
-	      	      v.from_node, v.to_node, v.priority,
-	              v.confirm_files, v.confirm_bytes, v.confirm_weight)},
+	      insert (h.timebin, h.timewidth, h.from_node, h.to_node,
+		      h.priority, h.confirm_files, h.confirm_bytes)
+	      values (v.timebin, v.timewidth, v.from_node, v.to_node,
+		      v.priority, v.files, v.bytes)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
-	# Part III: Update statistics on recent transfer activity.
 	# Now "close" the link statistics.  This ensures at least one
 	# row of nulls for links which have previously had stats, and
 	# makes the link parameter calculation below pick up correct
@@ -187,50 +212,58 @@ sub idle
 		   and hh.timebin > h.prevbin)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
-	# Part IV: Node statistics.  This is a heartbeat again.
-	# FIXME: block destination -> subscriptions!?
-	# FIXME: node file source statistics!?
+	# PART III: Node statistics.
 	&dbexec($dbh, qq{
-	    merge into t_history_dest h
-	    using
-	      (select :timebin timebin, :timewidth timewidth, s.destination node,
-	              sum(b.files) dest_files, sum(b.bytes) dest_bytes
-		from t_dps_block_dest s join t_dps_block b on b.id = s.block
-		group by :timebin, :timewidth, s.destination) v
-	    on (h.timebin = v.timebin and h.node = v.node)
+	    merge into t_history_dest h using
+	      (select :timebin timebin, :timewidth timewidth, destination,
+	              sum(files) files, sum(bytes) bytes
+	       from t_status_block_dest
+	       group by :timebin, :timewidth, destination) v
+	    on (h.timebin = v.timebin and h.node = v.destination)
 	    when matched then
-	      update set
-	        h.dest_files = v.dest_files, h.dest_bytes = v.dest_bytes
+	      update set h.dest_files = v.files, h.dest_bytes = v.bytes
 	    when not matched then
 	      insert (h.timebin, h.timewidth, h.node, h.dest_files, h.dest_bytes)
-	      values (v.timebin, v.timewidth, v.node, v.dest_files, v.dest_bytes)},
+	      values (v.timebin, v.timewidth, v.destination, v.files, v.bytes)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
 	&dbexec($dbh, qq{
-	    merge into t_history_dest h
-	    using
-	      (select :timebin timebin, :timewidth timewidth, s.node,
-	              count(s.fileid) node_files, sum(f.filesize) node_bytes
-		from t_xfer_replica s join t_xfer_file f on f.id = s.fileid
-		group by :timebin, :timewidth, s.node) v
+	    merge into t_history_dest h using
+	      (select :timebin timebin, :timewidth timewidth, node, files, bytes
+	       from t_status_file) v
+	    on (h.timebin = v.timebin and h.node = v.node)
+	    when matched then
+	      update set h.src_files = v.files, h.src_bytes = v.bytes
+	    when not matched then
+	      insert (h.timebin, h.timewidth, h.node, h.src_files, h.src_bytes)
+	      values (v.timebin, v.timewidth, v.node, v.files, v.bytes)},
+	    ":timebin" => $timebin, ":timewidth" => $timewidth);
+
+	&dbexec($dbh, qq{
+	    merge into t_history_dest h using
+	      (select :timebin timebin, :timewidth timewidth, node,
+	              sum(files) files, sum(bytes) bytes
+	       from t_status_replica
+	       group by :timebin, :timewidth, node) v
 	    on (h.timebin = v.timebin and h.node = v.node)
 	    when matched then
 	      update set
-	        h.node_files = v.node_files, h.node_bytes = v.node_bytes
+	        h.node_files = v.files, h.node_bytes = v.bytes
 	    when not matched then
 	      insert (h.timebin, h.timewidth, h.node, h.node_files, h.node_bytes)
-	      values (v.timebin, v.timewidth, v.node, v.node_files, v.node_bytes)},
+	      values (v.timebin, v.timewidth, v.node, v.files, v.bytes)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
 	&dbexec($dbh, qq{
 	    merge into t_history_dest h
 	    using
-	      (select :timebin timebin, :timewidth timewidth, s.destination node,
-	              count(s.fileid) request_files, sum(f.filesize) request_bytes,
-		      sum(s.state) idle_files, sum(s.state * f.filesize) idle_bytes
-		from t_xfer_request s join t_xfer_file f on f.id = s.fileid
-		group by :timebin, :timewidth, s.destination) v
-	    on (h.timebin = v.timebin and h.node = v.node)
+	      (select :timebin timebin, :timewidth timewidth, destination,
+	              sum(files) request_files, sum(bytes) request_bytes,
+		      sum(decode(state,1,files)) idle_files,
+	              sum(decode(state,1,bytes)) idle_bytes
+		from t_status_request
+		group by :timebin, :timewidth, destination) v
+	    on (h.timebin = v.timebin and h.node = v.destination)
 	    when matched then
 	      update set
 	        h.request_files = v.request_files, h.request_bytes = v.request_bytes,
@@ -239,7 +272,7 @@ sub idle
 	      insert (h.timebin, h.timewidth, h.node,
 	              h.request_files, h.request_bytes,
 	              h.idle_files, h.idle_bytes)
-	      values (v.timebin, v.timewidth, v.node,
+	      values (v.timebin, v.timewidth, v.destination,
 	      	      v.request_files, v.request_bytes,
 	      	      v.idle_files, v.idle_bytes)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);

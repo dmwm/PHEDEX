@@ -66,9 +66,9 @@ sub idle
 
 	# Recreate statistics
 	my $now = &mytimeofday();
-	&dbexec($dbh, qq{delete from t_info_file_size_overview});
-	&dbexec($dbh, qq{delete from t_info_file_size_histogram});
-	&dbexec($dbh, qq{insert into t_info_file_size_overview
+	&dbexec($dbh, qq{delete from t_status_file_size_overview});
+	&dbexec($dbh, qq{delete from t_status_file_size_histogram});
+	&dbexec($dbh, qq{insert into t_status_file_size_overview
 			(select
 			   :now,
 			   nvl(count(filesize),0),
@@ -79,7 +79,7 @@ sub idle
 		           nvl(percentile_disc(.5) within group (order by filesize),0)
 			 from t_dps_file)},
 	        ":now" => $now);
-	&dbexec($dbh, qq{insert into t_info_file_size_histogram
+	&dbexec($dbh, qq{insert into t_status_file_size_histogram
 			(select
 			   :now,
 			   binsize,
