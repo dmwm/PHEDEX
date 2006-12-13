@@ -128,29 +128,43 @@ sub flush
 	     and bd.block = xq.inblock
 	     and bd.state = 1)});
 
-    # Clear requests where replica exists.  This is required
-    # because the request activation from block destination
-    # creates requests for files for which replica may exist.
-    &dbexec($dbh, qq{
-        delete from t_xfer_request xq where exists
-          (select 1 from t_xfer_replica xr
-	   where xr.fileid = xq.fileid
-	     and xr.node = xq.destination)});
+    my $ndel = 0;
+    my @nodes;
+    my $qnode = &dbexec($dbh, qq{select id from t_adm_node});
+    while (my ($node) = $qnode->fetchrow())
+    {
+	push(@nodes, $node);
 
-    # Clear old paths and those missing an active request.
-    &dbexec($dbh, qq{
-        delete from t_xfer_path xp where not exists
-	  (select 1 from t_xfer_request xq
-	   where xq.destination = xp.destination
-	     and xq.fileid = xp.fileid
-	     and xq.state = 0)});
+        # Clear requests where replica exists.  This is required
+        # because the request activation from block destination
+        # creates requests for files for which replica may exist.
+        my ($stmt, $rows) = &dbexec($dbh, qq{
+            delete from t_xfer_request xq
+	    where destination = :node and exists
+              (select 1 from t_xfer_replica xr
+	       where xr.fileid = xq.fileid
+	         and xr.node = xq.destination)},
+	    ":node" => $node);
+	do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
+   }
 
-    # Clear invalid expired paths.
-    &dbexec($dbh, qq{
-        delete from t_xfer_path xp
-	where xp.is_valid = 0
-	  and :now >= xp.time_expire},
-	":now" => $now);
+    foreach my $node (@nodes)
+    {
+        # Clear old paths and those missing an active request.
+        # Clear invalid expired paths.
+        my ($stmt, $rows) = &dbexec($dbh, qq{
+            delete from t_xfer_path xp
+	    where to_node = :node
+	      and (not exists (select 1 from t_xfer_request xq
+	                       where xq.destination = xp.destination
+	                         and xq.fileid = xp.fileid
+	                         and xq.state = 0)
+	           or (xp.is_valid = 0 and :now >= xp.time_expire))},
+	    ":node" => $node, ":now" => $now);
+	do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
+    }
+
+    $dbh->commit() if $ndel;
 
     # If transfers path are about to expire on links which have
     # reasonable recent transfer rate, give a bit more grace time.
