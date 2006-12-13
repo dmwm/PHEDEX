@@ -98,14 +98,26 @@ insert into t_dps_block_replica (block, node, is_active, src_files, src_bytes, d
     (select
        (select newb.id from t_dps_block newb left join xt_dps_block oldb on newb.name = oldb.name where oldb.id = oldbr.block ),
        (select newn.id from t_adm_node newn left join xt_node oldn on newn.name = oldn.name where oldn.id = oldbr.node ),
-       oldbr.is_active,
-       (select count(id) from t_xfer_replica where node in
-            (select newn.id from t_adm_node newn left join xt_node oldn on newn.name = oldn.name where oldn.id = oldbr.node )),
-       (select nvl(sum(df.filesize),0) from t_xfer_replica xfr left join t_dps_file df on xfr.fileid=df.id where xfr.node in
-            (select newn.id from t_adm_node newn left join xt_node oldn on newn.name = oldn.name where oldn.id = oldbr.node )),
+       oldbr.is_active, 0, 0,
        oldbr.dest_files, oldbr.dest_bytes, oldbr.node_files, oldbr.node_bytes, oldbr.xfer_files, oldbr.xfer_bytes,
        oldbr.time_create, oldbr.time_update
        from xt_dps_block_replica oldbr);
+
+merge into t_dps_block_replica br using
+    (select inblock, node,
+       max(time_create) ctime,
+       count(id) files,
+       sum(filesize) bytes
+    from t_dps_file
+    group by inblock, node) f
+on (br.node = f.node and br.block = f.inblock)
+when matched then
+    update set
+    br.src_files = f.files, br.src_bytes = f.bytes
+when not matched then
+    insert (br.block, br.node, br.is_active, br.src_files, br.src_bytes, br.dest_files, br.dest_bytes,
+            br.node_files, br.node_bytes, br.xfer_files, br.xfer_bytes, br.time_create, br.time_update)
+    values (f.inblock, f.node, 'n', f.files, f.bytes, 0, 0, 0, 0, 0, 0, f.ctime, f.ctime);
 
 insert into t_dps_subscription (dataset, block, destination, priority, is_move, is_transient, time_create, time_complete, time_suspend_until)
    (select 
