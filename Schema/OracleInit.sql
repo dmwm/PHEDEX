@@ -28,8 +28,8 @@ prompt Loading transfer triggers
 @@OracleCoreTriggers.sql
 
 prompt
-prompt Loading info status
-@@OracleCoreInfo.sql
+prompt Loading status
+@@OracleCoreStatus.sql
 
 prompt
 prompt Loading request management
