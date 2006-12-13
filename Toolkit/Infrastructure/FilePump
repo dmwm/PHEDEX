@@ -47,7 +47,8 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 		  MYNODE => undef,		# My node name
-		  WAITTIME => 15 + rand(5));	# Agent activity cycle
+		  WAITTIME => 15 + rand(5),	# Agent activity cycle
+		  NEXT_STATS => 0);		# Next time to run stats
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -73,6 +74,9 @@ sub idle
 
 	# First pick up returned task status.
 	$self->receive($dbh);
+
+	# Update stats if necessary.
+	$self->stats($dbh);
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
@@ -82,6 +86,48 @@ sub idle
 
     # Have a little rest
     $self->nap ($$self{WAITTIME});
+}
+
+# Update transfer task statistics.
+sub stats
+{
+    my ($self, $dbh) = @_;
+    
+    # If we updated stats recently, skip it.
+    my $now = &mytimeofday();
+    return if $now < $$self{NEXT_STATS};
+    $$self{NEXT_STATS} = int($now/300) + 300;
+
+    # Remove previous stats.
+    &dbexec($dbh, qq{delete from t_status_task});
+
+    # Insert new ones.
+    &dbexec($dbh, qq{
+	insert into t_status_task
+	(time_update, from_node, to_node, priority, state, files, bytes)
+	select :now, xt.from_node, xt.to_node, xt.priority,
+	       (case
+		  when xtd.task is not null then 3
+		  when xti.task is not null then 2
+		  when xte.task is not null then 1
+		  else 0
+		end) state,
+	       count(xt.fileid), sum(f.filesize)
+	from t_xfer_task xt
+	  join t_xfer_file f on f.id = xt.fileid
+	  left join t_xfer_task_export xte on xte.task = xt.id
+	  left join t_xfer_task_inxfer xti on xti.task = xt.id
+	  left join t_xfer_task_done   xtd on xtd.task = xt.id
+        group by :now, xt.from_node, xt.to_node, xt.priority,
+	       (case
+		  when xtd.task is not null then 3
+		  when xti.task is not null then 2
+		  when xte.task is not null then 1
+		  else 0
+		end)},
+	":now" => $now);
+
+    $dbh->commit();
 }
 
 # Auto-export/-transfer files for nodes.

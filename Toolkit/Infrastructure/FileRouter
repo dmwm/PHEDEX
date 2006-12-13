@@ -54,6 +54,7 @@ sub new
 		  WAITTIME => 60 + rand(10),	# Agent activity cycle
 		  FLUSH_MARKER => undef,	# Current slow flush marker
 		  FLUSH_PERIOD => 1800,		# Frequency of slow flush
+		  NEXT_STATS => 0,		# Next time to refresh stats
 		  NEXT_SLOW_FLUSH => 0);	# Next time to flush
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
@@ -80,6 +81,9 @@ sub idle
 
 	# Route files.
 	$self->route($dbh, @nodes);
+
+	# Perhaps update statistics.
+	$self->stats($dbh);
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
@@ -595,6 +599,9 @@ sub routeFiles
 
 	# Now would be a great time to go for a long holiday :-)
 	$self->maybeStop();
+
+	# Perhaps update statistics if we run for a long time.
+	$self->stats($dbh);
     }
 
     # Bring next slow synchornisation forward if we didn't route any
@@ -786,6 +793,40 @@ sub routeFile
            if ! $$self{WARNED}{$dest}{$$request{FILEID}};
 	$$self{WARNED}{$dest}{$$request{FILEID}} = 1;
     }
+}
+
+# Update transfer request and path statistics.
+sub stats
+{
+    my ($self, $dbh, $pathinfo) = @_;
+    my $now = &mytimeofday();
+
+    # Check if we need to update statistics.
+    return if $now < $$self{NEXT_STATS};
+    $$self{NEXT_STATS} = int($now/300) + 300;
+
+    # Remove previous data and add new information.
+    &dbexec($dbh, qq{delete from t_status_path});
+    &dbexec($dbh, qq{
+	insert into t_status_path
+	(time_update, from_node, to_node, priority, is_valid, files, bytes)
+	select :now, xp.from_node, xp.to_node, xp.priority, xp.is_valid,
+	       count(xp.fileid), nvl(sum(f.filesize),0)
+	from t_xfer_path xp join t_xfer_file f on f.id = xp.fileid
+	group by :now, xp.from_node, xp.to_node, xp.priority, xp.is_valid},
+	":now" => $now);
+
+    &dbexec($dbh, qq{delete from t_status_request});
+    &dbexec($dbh, qq{
+	insert into t_status_request
+	(time_update, destination, state, files, bytes)
+	select :now, xq.destination, xq.state,
+	       count(xq.fileid), nvl(sum(f.filesize),0)
+	from t_xfer_request xq join t_xfer_file f on f.id = xq.fileid
+        group by :now, xq.destination, xq.state},
+	":now" => $now);
+
+    $dbh->commit();
 }
 
 1;
