@@ -81,6 +81,17 @@ create table t_req_info
 create table t_req_info_dest
   (request		integer		not null,
    destination		integer		not null,
+   --
+   constraint pk_req_info_dest
+     primary key (request, destination),
+   --
+   constraint fk_req_info_dest_request
+     foreign key (request) references t_req_request (id)
+     on delete cascade,
+   constraint fk_req_info_dest_destination
+     foreign key (destination) references t_adm_node (id)
+     on delete cascade);
+
 
 create table t_req_info_dataset
   (request		integer		not null,
