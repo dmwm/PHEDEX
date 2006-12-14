@@ -95,7 +95,7 @@ if (-s "$copyjob/srm-report")
 	my $info = do { no strict "vars"; eval (&input($file) || '') };
 	next if ! $info;
 
-	my ($from, $to) = @$info{"TASKID", "FROM_PFN", "TO_PFN"};
+	my ($from, $to) = @$info{"FROM_PFN", "TO_PFN"};
 	$taskstatus{$task} = $reported{$from}{$to};
     }
 }
