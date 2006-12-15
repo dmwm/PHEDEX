@@ -1,0 +1,87 @@
+#!/usr/bin/perl
+
+##H    This scrip creates job submision files
+##H
+##H    Usage:
+##H
+##H       MonarcFileCreator.pl
+##H
+##H       Start it from somewhere on your afs area where you can submit jobs.
+##H       
+##H       Creates a jobs/ directory and stores all job files in it. Also creates SubmitAllJobs.sh file 
+##H       to submit all job files to lxbatch. Each job file creates file around 2.6 GB, calculates 
+##H       a cksum, gives file size in stdout and copies file to castor.
+##H
+##H       File creation is done in two steps. First there is a creation of a seed (23KB) file filled
+##H       with random characters. Seed file is then automaticaly copied copied to lxbatch machine 
+##H       from afs area along with the CreateFile script (created with this script). CreateFile script 
+##H       and creates the resulting around 2.6 GB file which is then copied to castor and removed 
+##H       from lxbatch.
+##H
+
+BEGIN {
+    $^W = 1; use strict; use warnings;
+    our $me = $0; $me =~ s|.*/||;
+    our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
+    unshift(@INC, $home);
+}
+                                                                                                                
+use Getopt::Long;
+use UtilsHelp;
+use UtilsCatalogue;
+use UtilsTiming;
+
+
+&GetOptions ( "help|h"      => sub { &usage() });
+
+my $i = 0;
+
+my $command_file = "SubmitAllJobs.sh";
+my $create_file = "CreateFile";
+
+open DATA, ">>$command_file" or die "can't open $command_file $!";
+print DATA 'cd jobs'."\n";
+close (DATA);
+print "  Creating seed file... this could take a few minutes... "."\n";
+`dd if=/dev/random of=seed count=625`;
+open DATA, ">>$create_file" or die "can't open $create_file $!";
+
+print DATA '#!/usr/bin/perl '."\n";
+print DATA 'while($i<$ARGV[0]) { '."\n";
+print DATA '    `cat seed >> MonarcTest`; '."\n";
+print DATA '    $i++;   '."\n";
+print DATA '}  '."\n";
+close (DATA);
+
+while( $i < 256) {
+$hex = sprintf("%0.2X", $i);
+my $size = 3*$i+56375;
+if($i==1) {print "File with lowest size to be created : "; print 0.043*$size."M \n";}
+if($i==255) {print "File with highest size to be created : "; print 0.043*$size."M \n";}
+my $data_file = "MonarcTest_".$hex.".job";
+open DATA, ">$data_file" or die "can't open $data_file $!";
+open DATA, ">$data_file" or die "can't open $data_file $!";
+print DATA '#!/bin/sh'."\n";
+print DATA 'export STAGE_HOST=castorcms'."\n";
+print DATA 'export STAGE_SVCCLASS=default'."\n";
+print DATA 'export RFIO_USE_CASTOR_V2=yes'."\n";
+print DATA 'cp '.$ENV{PWD}.'/jobs/seed .'."\n";
+print DATA 'cp '.$ENV{PWD}.'/jobs/CreateFile .'."\n";
+print DATA './CreateFile '.$size."\n";
+#print DATA 'dd if=/dev/random of=MonarcTest_'.$hex.' count='.$size."\n";
+#print DATA 'cksum MonarcTest_'.$hex.' | sed \'s/[^0-9][^0-9]*/:/g\' '."\n";
+#print DATA 'cksum MonarcTest_'.$hex.' | sed \'s/[^0-9][^0-9]*/:/g\' | sed \'s/:.*//\' '."\n";
+print DATA 'cksum MonarcTest | sed \'s/[^0-9][^0-9]*/:/g\' '."\n";
+print DATA 'ls -al MonarcTest'."\n";
+print DATA 'rfcp MonarcTest /castor/cern.ch/cms/store/phedex_monarctest/MonarcTest_'.$hex."\n";
+print DATA 'nsls -l /castor/cern.ch/cms/store/phedex_monarctest/MonarcTest_'.$hex."\n";
+print DATA 'rm -f seed CreateFile MonarcTest_'.$hex."\n";
+close (DATA);
+open DATA, ">>$command_file" or die "can't open $command_file $!";
+print DATA 'bsub -q 8nm -u dmaletic@cern.ch MonarcTest_'.$hex.".job\n";
+close (DATA);
+$i++;
+}
+system 'chmod a+x *';
+mkdir("jobs", 0755) || die "Cannot mkdir jobs: $!";
+system 'mv *.job seed CreateFile jobs/';
