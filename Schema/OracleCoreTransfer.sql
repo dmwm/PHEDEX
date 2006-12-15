@@ -66,7 +66,7 @@ create table t_xfer_delete
   (fileid		integer		not null,  -- for which file
    node			integer		not null,  -- at which node
    time_request		float		not null,  -- time at request
-   time_complete	float		not null,  -- time at completed
+   time_complete	float,			   -- time at completed
    --
    constraint pk_xfer_delete
      primary key (fileid, node),
