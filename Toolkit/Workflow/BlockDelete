@@ -99,6 +99,9 @@ sub idle
 	         and xd.node = bd.node
 	         and f.inblock = bd.block)},
 	    ":now" => &mytimeofday());
+
+    	$dbh->commit();
+
         &logmsg ("$nrow blocks marked deleted") if $nrow > 0;
     };
     do { chomp ($@); &alert ("database error: $@");
