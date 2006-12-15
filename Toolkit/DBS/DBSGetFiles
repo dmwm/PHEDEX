@@ -1,0 +1,65 @@
+#!/usr/bin/env python
+"""
+_DBSInjectReport_
+                                                                                
+Command line tool to list file from DBS given a block.
+
+"""
+import dbsCgiApi
+from dbsException import DbsException
+
+import string,sys,os,getopt,time
+
+#usage="\n Usage: DBSInvalidateFile.py <options> \n Options: \n --DBSAddress=<MCLocal/Writer> \t\t DBS database instance \n --DBSURL=<URL> \t\t DBS URL \n --block=<BLOCK> \t\t DBS Block Name \n "
+valid = ['DBSAddress=','DBSURL=','BLOCK=']
+try:
+    opts, args = getopt.getopt(sys.argv[1:], "", valid)
+except getopt.GetoptError, ex:
+#   print usage
+    print str(ex)
+    sys.exit(1)
+
+url = "http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/prodquery"
+dbinstance = None
+blockName = None
+
+our_List_of_File = []
+our_List = ""
+
+for opt, arg in opts:
+    if opt == "--DBSAddress":
+        dbinstance = arg
+    if opt == "--DBSURL":
+        url = arg
+    if opt == "--BLOCK":
+        blockName = arg
+
+if dbinstance == None:
+#    print "--DBSAddress option not provided. For example : --DBSAddress MCLocal/Writer"
+#    print usage
+    sys.exit(1)
+
+
+#print ">>>>> DBS URL : %s DBS Address : %s"%(url,dbinstance)
+#  //
+# // Get API to DBS
+#//
+## database instance
+args = {'instance' : dbinstance}
+dbsapi = dbsCgiApi.DbsCgiApi(url, args)
+
+#  //
+# // Getting LFNs
+#//
+
+def getLFNstatus(blockName):
+
+#    print "Geting LFNs  from block/dataset "
+    return dbsapi.getLFNs (blockName) 
+
+if (blockName != None) :
+  our_List_of_File = getLFNstatus(blockName)
+  for name in our_List_of_File:
+     our_List+=name[0]+":"+str(name[1])+","  
+  our_List = our_List[:-1]
+  print our_List
