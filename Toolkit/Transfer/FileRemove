@@ -23,22 +23,23 @@
 ##H stager disk but not permanently removed from tape.
 ##H
 ##H Usage:
-##H   FileDiskCleaner
+##H   FileRemove
 ##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
 ##H      -storagemap FILE [-protocol NAME] -check COMMAND[,ARG...]
 ##H      -rm COMMAND[,ARG...]
 ##H
-##H -state         agent state directory
-##H -node          the node where this agent runs
-##H -db            database connection configuration parameter file
-##H -storagemap    storage mapping catalogue
-##H -protocol      protocol to use with storage map, by default "direct"
-##H -check         script to check whether storage needs cleaning up
-##H -rm            command to remove files
-##H -log           where to redirect logging information
+##H -state         agent state directory.
+##H -nodes         nodes to run and clean files for.
+##H -ignore      comma-separated list of nodes to ignore transfers from
+##H -accept      comma-separated list of nodes to accept transfers from
+##H -db            database connection configuration parameter file.
+##H -storagemap    storage mapping catalogue.
+##H -protocol      protocol to use with storage map, by default "direct".
+##H -command       command to remove physical copy.
+##H -log           where to redirect logging information.
 
 # Example for clearing normal disk buffers:
-#   FileDiskCleaner -node ... -db ... -log ... -storagemap ...
+#   FileRemove -node ... -db ... -log ... -storagemap ...
 #     -check .../myscript -rm rm
 #
 #   myscript:
@@ -50,7 +51,7 @@
 #     exit(0);
 #
 # Example for clearing RFIO buffers:
-#   FileDiskCleaner -node ... -db ... -log ... -storagemap ...
+#   FileRemove -node ... -db ... -log ... -storagemap ...
 #     -check .../myscript -rm stageclr,-remove_from_hsm,-M
 #     (or: -rm rfrm)
 #
@@ -63,7 +64,7 @@
 #     exit(0);
 #
 # Example for clearing SRM buffers:
-#   FileDiskCleaner -node ... -db ... -log ... -storagemap ...
+#   FileRemove -node ... -db ... -log ... -storagemap ...
 #     -protocol srm -check .../myscript -rm srm-advisory-delete
 #
 #   myscript:
@@ -89,26 +90,27 @@ BEGIN
 use Getopt::Long;
 use UtilsHelp;
 
-&GetOptions ("state=s"		=> \$args{DROPDIR},
-	     "log=s"		=> \$args{LOGFILE},
-	     "db=s"		=> \$args{DBCONFIG},
-	     "node=s"		=> \$args{MYNODE},
-	     "storagemap=s"	=> \$args{STORAGEMAP},
-	     "protocol=s"	=> \$args{PROTOCOL},
-	     "check=s"		=> sub { push(@{$args{CMD_CHECK}}, split(/,/, $_[1])) },
-	     "rm=s"		=> sub { push(@{$args{CMD_RM}}, split(/,/, $_[1])) },
-	     "help|h"		=> sub { &usage() });
+&GetOptions ("state=s"     => \$args{DROPDIR},
+	     "log=s"       => \$args{LOGFILE},
+	     "db=s"        => \$args{DBCONFIG},
+             "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
+             "ignore=s"    => sub { push(@{$args{IGNORE_NODES}}, split(/,/, $_[1])) },
+             "accept=s"    => sub { push(@{$args{ACCEPT_NODES}}, split(/,/, $_[1])) },
+             "command=s"   => sub { push(@{$args{CMD_RM}}, split(/,/, $_[1])) },
+	     "storagemap=s"=> \$args{STORAGEMAP},
+	     "protocol=s"  => \$args{PROTOCOL},
+	     "help|h"	   => sub { &usage() });
 
-if (@ARGV || !$args{MYNODE} || !$args{DROPDIR} || !$args{DBCONFIG}
-    || !$args{STORAGEMAP} || !$args{CMD_CHECK} || !$args{CMD_RM})
+if (@ARGV || !$args{NODES} || !$args{DROPDIR} || !$args{DBCONFIG}
+    || !$args{CMD_RM})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
 
-(new FileDiskCleaner (%args))->process();
+(new FileRemove (%args))->process();
 
 ################################################
-package FileDiskCleaner; use strict; use warnings; use base 'UtilsAgent';
+package FileRemove; use strict; use warnings; use base 'UtilsAgent';
 use File::Path;
 use Data::Dumper;
 use UtilsCommand;
@@ -125,15 +127,17 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
-	  	  MYNODE => undef,		# My TMDB node name
-		  WAITTIME => 120 + rand(20),	# Agent activity cycle
-	  	  AGENTID => "FileCleaner",     # Identity for activity logs
+	  	  NODES    => undef,		# Node names to run this agent for
+	  	  IGNORE_NODES => ['%MSS'],	# TMDB nodes to ignore
+	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
+		  WAITTIME => 12 + rand(20),	# Agent activity cycle
+	  	  AGENTID  => "FileCleaner",    # Identity for activity logs
 		  DELETING => undef,		# Are we deleting files now?
-		  STORAGEMAP => undef,		# Storage path mapping rules
-		  PROTOCOL => "direct",         # File access protocol
-		  CMD_CHECK => undef,           # Command to check for free space
-		  CMD_RM => undef);             # Command to remove files
-
+		  CMD_RM   => undef,            # cmd to remove physical files
+		  PROTOCOL => 'direct',         # File access protocol
+	  	  STORAGEMAP => undef		# Storage path mapping rules
+		  );
+    
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -155,9 +159,13 @@ sub deleteOneFile
 	# out might have been created for this file while we were not
 	# minding this particular file (sleeping or deleting things).
 	my ($npending) = &dbexec($dbh, qq{
-	    select count(fileid) from t_xfer_state
-	    where from_node = :node and fileid = :fileid},
-	    ":node" => $$self{ID_MYNODE},
+	    select count(fileid) from t_xfer_task xt
+	       left join t_xfer_task_done xtd
+               on xt.id=xtd.task
+	    where xt.from_node = :node
+	    and xt.fileid = :fileid
+	    and xtd.task is null},
+	    ":node" => $$file{NODEID},
 	    ":fileid" => $$file{FILEID})
     	    ->fetchrow();
 	if ($npending)
@@ -169,19 +177,23 @@ sub deleteOneFile
 	# Now delete the replica entry to avoid new transfer edges.
 	&dbexec($dbh, qq{
 	    delete from t_xfer_replica where fileid = :fileid and node = :node},
-	    ":fileid" => $$file{FILEID}, ":node" => $$self{ID_MYNODE});
-	$dbh->commit();
+	    ":fileid" => $$file{FILEID}, ":node" => $$file{NODEID});
 
-	# Remove file from disk now.
-	if (my $rc = &runcmd (@{$$self{CMD_RM}}, $$file{PFN}))
-	{
-	    &warn ("failed to remove $$file{PFN}: exit code "
-		   . &runerror($rc));
-	    return 0;
-        }
+	# Issue file removal from disk now.
+	my $log = "$$self{DROPDIR}/@{[time()]}.$$file{NODEID}.$$file{FILEID}.log";
+	$self->addJob( sub { $self->deleteJob ($file, @_) },
+		      { TIMEOUT => 30, LOGFILE => $log, DB => $dbh },
+		      (@{$$self{CMD_RM}}, $$file{PFN}) );
 
-	# Job done!
-	&logmsg ("removed file $$file{FILEID}, $$file{LFN} => $$file{PFN}");
+
+	# Report completition time to DB. If the physicval deletion fails,
+        # we will roll back.
+	my $now = &mytimeofday();
+	&dbexec($dbh, qq{
+	    update t_xfer_delete set time_complete = :now
+		where fileid = :fileid and node = :node},
+	    ":fileid" => $$file{FILEID}, ":node" => $$file{NODEID}, ":now" => $now);
+	
 	return 1;
     };
 
@@ -189,12 +201,26 @@ sub deleteOneFile
 	 eval { $dbh->rollback() } if $dbh;
 	 $status = 0 } if $@;
     
-    # Disconnect from the database
-    &disconnectFromDatabase ($self, $dbh);
-
     # Return status code to caller
     return $status;
 }
+
+
+sub deleteJob
+{
+    my ($self, $file, $job) = @_;
+    if ($$job{STATUS})
+    {
+	&warn("failed to delete file $$file{PFN} at node "
+	      ."$$file{NODE}, log in $$job{LOGFILE}");
+    }
+    else
+    {
+	&logmsg("deleted file $$file{FILE} at node $$file{NODE}");
+	unlink ($$job{LOGFILE});
+    }
+}
+
 
 sub processDrop
 {
@@ -224,33 +250,32 @@ sub processDrop
 
     # Log transfer delay stats
     my $dtransfer = &mytimeofday() - $$file{TIME_START};
-    &logmsg ("xstats: $$self{MYNODE} " . sprintf('%.2fs', $dtransfer)
+    &logmsg ("xstats: $$file{NODE} " . sprintf('%.2fs', $dtransfer)
 	     . " $$file{LFN} => $$file{PFN}");
 
     # OK, got far enough to nuke and log it
     $self->relayDrop ($drop);
-    &logmsg("stats: $drop @{[&formatElapsedTime($$self{STARTTIME})]} success");
 }
 
 # Get a list of files to delete.
 sub filesToDelete
 {
-    my ($self, $dbh, $limit) = @_;
+    my ($self, $dbh, $limit, $node, $filter, $filter_args) = @_;
 
-    # Find all the files that we are allowed to delete: everything
-    # transferred out of this node where the transfer is completed
-    # (TableCleaner removed t_xfer_state entries).
+    # Find all the files that we are allowed to delete: 
+    # Get the list of files from t_xfer_delete
     # We take the files oldest first.
     my @result;
     my %files = ();
     my $q = &dbexec($dbh,qq{
-	select xr.fileid, f.logical_name
-	from t_xfer_replica xr
-	  join t_xfer_file f on f.id = xr.fileid
-	  left join t_xfer_state xs on xs.from_replica = xr.id
-	where node = :node and xs.fileid is null
-	order by time_state asc},
-        ":node" => $$self{ID_MYNODE});
+	select xd.fileid, xf.logical_name
+	from t_xfer_delete xd
+	left join t_xfer_file xf
+	   on xd.fileid = xf.id
+	where xd.time_complete is null and xd.node = :node
+	${$filter}
+	order by xd.time_request asc},
+        ":node" => $$self{NODES_ID}{$node}, %{$filter_args});
     while (my ($id, $lfn) = $q->fetchrow())
     {
 	$files{$lfn} = $id;
@@ -264,6 +289,7 @@ sub filesToDelete
     {
 	do { &alert ("no pfn for $lfn"); next } if ! $pfn;
 	push (@result, { LFN => $lfn, PFN => $pfn, FILEID => $files{$lfn},
+			 NODEID => $$self{NODES_ID}{$node}, NODE => $node,
 			 TIME_START => &mytimeofday() });
     }
 
@@ -302,35 +328,34 @@ sub idle
 
     eval
     {
-	$dbh = &connectToDatabase ($self);
+	my ($dbh, @nodes) = &expandNodesAndConnect ($self);
+	my ($filter, %filter_args) = &otherNodeFilter ($self, "xd.node");
 
-	# Check whether there's enough disk space.  If yes, bail out.
-	if ($$self{DELETING} && ! &runcmd (@{$$self{CMD_CHECK}}, "min-free"))
+	# Get a list of victims to evict.
+	foreach my $node (@nodes)
 	{
-	    undef $$self{DELETING};
+	    foreach my $file ($self->filesToDelete ($dbh, 100, $node, \$filter, \%filter_args))
+	    {
+		# If we are already processing this file, ignore it
+		next if grep ($_ eq $$file{FILEID}, @pending);
+		
+		# Otherwise initiate destruction and doom
+		$self->startOne ($file);
+	    }
+	    # Intermediate commit after having dalt with all files at a node
+	    $dbh->commit();
 	}
-	elsif (! $$self{DELETING} && &runcmd (@{$$self{CMD_CHECK}}, "max-fill"))
-        {
-	    $$self{DELETING} = 1;
-	}
-
-	return if ! $$self{DELETING};
-
-	# Not enough space.  Get a list of victims to evict.
-	&logmsg ("disk is full, starting to clear files");
-	foreach my $file ($self->filesToDelete ($dbh, 100))
-	{
-	    # If we are already processing this file, ignore it
-	    next if grep ($_ eq $$file{FILEID}, @pending);
-
-	    # Otherwise initiate destruction and doom
-	    $self->startOne ($file);
-	}
-
-	$dbh->commit();
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
+
+    # Wait for all jobs to finish
+    while (@{$$self{JOBS}})
+    {
+        $self->pumpJobs();
+        select (undef, undef, undef, 0.1);
+    }
+
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
