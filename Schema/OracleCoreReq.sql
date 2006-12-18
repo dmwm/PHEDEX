@@ -4,6 +4,7 @@
 create sequence seq_req_request;
 create sequence seq_req_action;
 create sequence seq_req_action_attr;
+create sequence seq_req_task;
 
 create table t_req_request
   (id			integer		not null,
