@@ -71,7 +71,7 @@ use UtilsHelp;
              "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
              "ignore=s"    => sub { push(@{$args{IGNORE_NODES}}, split(/,/, $_[1])) },
              "accept=s"    => sub { push(@{$args{ACCEPT_NODES}}, split(/,/, $_[1])) },
-             "command=s"   => sub { push(@{$args{CMD_RM}}, split(/,/, $_[1])) },
+             "rm=s"        => sub { push(@{$args{CMD_RM}}, split(/,/, $_[1])) },
 	     "storagemap=s"=> \$args{STORAGEMAP},
 	     "protocol=s"  => \$args{PROTOCOL},
 	     "help|h"	   => sub { &usage() });
@@ -191,7 +191,7 @@ sub deleteJob
     }
     else
     {
-	&logmsg("deleted file $$file{FILE} at node $$file{NODE}");
+	&logmsg("deleted file $$file{PFN} at node $$file{NODE}");
 	unlink ($$job{LOGFILE});
     }
 }
