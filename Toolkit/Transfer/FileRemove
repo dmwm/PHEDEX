@@ -24,58 +24,33 @@
 ##H
 ##H Usage:
 ##H   FileRemove
-##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
-##H      -storagemap FILE [-protocol NAME] -check COMMAND[,ARG...]
-##H      -rm COMMAND[,ARG...]
+##H      -state DIRECTORY -nodes NAME [-ignode NAME] [-accept NAME]
+##H      -db FILE[:SECTION] [-log OUT]
+##H      -storagemap FILE [-protocol NAME] -rm COMMAND[,ARG...]
 ##H
 ##H -state         agent state directory.
 ##H -nodes         nodes to run and clean files for.
-##H -ignore      comma-separated list of nodes to ignore transfers from
-##H -accept      comma-separated list of nodes to accept transfers from
+##H -ignore        comma-separated list of nodes to ignore transfers from
+##H -accept        comma-separated list of nodes to accept transfers from
 ##H -db            database connection configuration parameter file.
 ##H -storagemap    storage mapping catalogue.
 ##H -protocol      protocol to use with storage map, by default "direct".
-##H -command       command to remove physical copy.
+##H -rm            command to remove physical copy.
 ##H -log           where to redirect logging information.
 
 # Example for clearing normal disk buffers:
-#   FileRemove -node ... -db ... -log ... -storagemap ...
-#     -check .../myscript -rm rm
-#
-#   myscript:
-#     #!/usr/bin/perl
-#     $pctused = (split(/\s+/, qx(df /da/path | tail -1)))[4];
-#     $pctused =~ s/[^\d.]//g;
-#     if ($ARGV[0] eq 'min-free') { exit (int($pctused) < 50 ? 0 : 1) }
-#     if ($ARGV[0] eq 'max-fill') { exit (int($pctused) > 90 ? 0 : 1) }
-#     exit(0);
+#   FileRemove -nodes ... -db ... -storagemap ...
+#              -rm rm
 #
 # Example for clearing RFIO buffers:
-#   FileRemove -node ... -db ... -log ... -storagemap ...
-#     -check .../myscript -rm stageclr,-remove_from_hsm,-M
+#   FileRemove -nodes ... -db ... -storagemap ...
+#     -rm stageclr,-remove_from_hsm,-M
 #     (or: -rm rfrm)
 #
-#   myscript:
-#     #!/usr/bin/perl
-#     $pctfree = (split(/\s+/, qx(stageqry -s | grep FREE | head -1)))[5];
-#     $pctfree =~ s/[^\d.]//g;
-#     if ($ARGV[0] eq 'min-free') { exit (int($pctfree) >= 50 ? 0 : 1) }
-#     if ($ARGV[0] eq 'max-fill') { exit (int($pctfree) <= 10 ? 0 : 1) }
-#     exit(0);
-#
 # Example for clearing SRM buffers:
-#   FileRemove -node ... -db ... -log ... -storagemap ...
-#     -protocol srm -check .../myscript -rm srm-advisory-delete
+#   FileRemove -nodes ... -db ... -storagemap ...
+#     -protocol srm -rm srm-advisory-delete
 #
-#   myscript:
-#     #!/usr/bin/perl
-#     $storage = "https://cmssrm.fnal.gov:8443/srm/infoProvider1_0.wsdl";
-#     ($total, $used, $avail) = map { chomp; s/.*=\s*//; s/\s.*//; }
-#       grep(/Space.*=/, qx(srm-storage-element-info $storage 2>&1));
-#     $pctused = ($total ? 100.0 * $used/$total : 0);
-#     if ($ARGV[0] eq 'min-free') { exit (int($pctused) < 50 ? 0 : 1) }
-#     if ($ARGV[0] eq 'max-fill') { exit (int($pctused) > 90 ? 0 : 1) }
-#     exit(0);
 
 BEGIN
 {
@@ -130,7 +105,7 @@ sub new
 	  	  NODES    => undef,		# Node names to run this agent for
 	  	  IGNORE_NODES => ['%MSS'],	# TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
-		  WAITTIME => 12 + rand(20),	# Agent activity cycle
+		  WAITTIME => 60 + rand(15),	# Agent activity cycle
 	  	  AGENTID  => "FileCleaner",    # Identity for activity logs
 		  DELETING => undef,		# Are we deleting files now?
 		  CMD_RM   => undef,            # cmd to remove physical files
@@ -262,6 +237,15 @@ sub filesToDelete
 {
     my ($self, $dbh, $limit, $node, $filter, $filter_args) = @_;
 
+    # Activate file level infos for files belonging to already
+    # collapsed blocks
+    my $now = &mytimeofday();
+    &dbexec($dbh, qq{
+	insert into t_dps_block_activate (BLOCK, TIME_REQUEST, TIME_UNTIL)
+	select id, $now, $now+24*3600*3 from t_dps_block where id in
+        (select xd.fileid from t_xfer_delete xd left join t_xfer_file xf on xf.id = xd.fileid
+	where xf.id is null)});
+
     # Find all the files that we are allowed to delete: 
     # Get the list of files from t_xfer_delete
     # We take the files oldest first.
@@ -273,7 +257,7 @@ sub filesToDelete
 	left join t_xfer_file xf
 	   on xd.fileid = xf.id
 	where xd.time_complete is null and xd.node = :node
-	${$filter}
+	and xf.logical_name is not null ${$filter}
 	order by xd.time_request asc},
         ":node" => $$self{NODES_ID}{$node}, %{$filter_args});
     while (my ($id, $lfn) = $q->fetchrow())
