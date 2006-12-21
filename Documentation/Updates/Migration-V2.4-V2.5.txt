@@ -63,9 +63,7 @@ begin
     -- alter table t_x add partition node_t1_foo_buffer values (1);
     execute immediate 'alter table t_xfer_replica add partition node_' || lower(o.name) || ' values (' || o.id || ')';
     execute immediate 'alter table t_xfer_request add partition dest_' || lower(o.name) || ' values (' || o.id || ')';
-    execute immediate 'alter table t_xfer_path    add partition to_'   || lower(o.name) || ' values (' || o.id || ')';
     execute immediate 'alter table t_xfer_task    add partition to_'   || lower(o.name) || ' values (' || o.id || ')';
-    execute immediate 'alter table t_xfer_error   add partition to_'   || lower(o.name) || ' values (' || o.id || ')';
   end loop;
 end;
 /
@@ -103,22 +101,6 @@ insert into t_dps_block_replica (block, node, is_active, src_files, src_bytes, d
        oldbr.time_create, oldbr.time_update
        from xt_dps_block_replica oldbr);
 
-merge into t_dps_block_replica br using
-    (select inblock, node,
-       max(time_create) ctime,
-       count(id) files,
-       sum(filesize) bytes
-    from t_dps_file
-    group by inblock, node) f
-on (br.node = f.node and br.block = f.inblock)
-when matched then
-    update set
-    br.src_files = f.files, br.src_bytes = f.bytes
-when not matched then
-    insert (br.block, br.node, br.is_active, br.src_files, br.src_bytes, br.dest_files, br.dest_bytes,
-            br.node_files, br.node_bytes, br.xfer_files, br.xfer_bytes, br.time_create, br.time_update)
-    values (f.inblock, f.node, 'n', f.files, f.bytes, 0, 0, 0, 0, 0, 0, f.ctime, f.ctime);
-
 insert into t_dps_subscription (dataset, block, destination, priority, is_move, is_transient, time_create, time_complete, time_suspend_until)
    (select 
        (select newd.id from t_dps_dataset newd left join xt_dps_dataset oldd on newd.name = oldd.name where oldd.id = olds.dataset ),
@@ -154,6 +136,30 @@ insert /*+ append */ into t_xfer_replica (id, node, fileid, state, time_create, 
     from xt_xfer_replica oldr);
 
 commit;
+
+insert /*+ append */ into t_xfer_replica (id, node, fileid, state, time_create, time_state)
+    (select seq_xfer_replica.nextval, br.node, f.id, 0, br.time_update, br.time_update
+     from t_dps_block_replica br join t_dps_file f on f.inblock = br.block
+     where br.is_active = 'n' and br.node_files > 0);
+
+update t_dps_block_replica set is_active = 'y' where is_active = 'n';
+
+merge into t_dps_block_replica br using
+    (select inblock, node,
+       max(time_create) ctime,
+       count(id) files,
+       sum(filesize) bytes
+    from t_dps_file
+    group by inblock, node) f
+on (br.node = f.node and br.block = f.inblock)
+when matched then
+    update set
+    br.src_files = f.files, br.src_bytes = f.bytes
+when not matched then
+    insert (br.block, br.node, br.is_active, br.src_files, br.src_bytes, br.dest_files, br.dest_bytes,
+            br.node_files, br.node_bytes, br.xfer_files, br.xfer_bytes, br.time_create, br.time_update)
+    values (f.inblock, f.node, 'y', f.files, f.bytes, 0, 0, 0, 0, 0, 0, f.ctime, f.ctime);
+
 
 -- copy authorisations
 -- remap roles / site names? => t_adm_site_admin, etc.
