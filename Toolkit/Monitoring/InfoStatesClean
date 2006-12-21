@@ -70,6 +70,11 @@ sub idle
 	&dbexec($dbh,qq{delete from t_agent_status where time_update < :old}, %old);
 	$dbh->commit();
 
+	# Delete requests for file and block deletion after 3 days
+	&dbexec($dbh,qq{delete from t_xfer_delete where time_complete < :old}, %old);
+	&dbexec($dbh,qq{delete from t_dps_block_delete where time_complete < :old}, %old);
+	$dbh->commit();
+
 	# Keep 100 most recent errors for every destination.
 	&dbexec($dbh, qq{
 	   delete from t_xfer_error xe where rowid not in
