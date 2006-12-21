@@ -127,8 +127,10 @@ sub deleteOneFile
 {
     my ($self, $drop, $file) = @_;
     my $dbh = undef;
+    my @nodes = ();
+
     my $status = eval {
-	$dbh = &connectToDatabase ($self, 0);
+	($dbh, @nodes) = &expandNodesAndConnect ($self);
 	
 	# Make sure the file is still safe to delete.  More transfers
 	# out might have been created for this file while we were not
@@ -136,24 +138,24 @@ sub deleteOneFile
 	my ($npending) = &dbexec($dbh, qq{
 	    select count(fileid) from t_xfer_task xt
 	       left join t_xfer_task_done xtd
-               on xt.id=xtd.task
+	       on xt.id=xtd.task
 	    where xt.from_node = :node
 	    and xt.fileid = :fileid
 	    and xtd.task is null},
 	    ":node" => $$file{NODEID},
 	    ":fileid" => $$file{FILEID})
-    	    ->fetchrow();
+	    ->fetchrow();
 	if ($npending)
 	{
 	    &warn ("not removing $$file{LFN}, $npending pending transfers");
 	    return 1;
 	}
-
+	
 	# Now delete the replica entry to avoid new transfer edges.
 	&dbexec($dbh, qq{
 	    delete from t_xfer_replica where fileid = :fileid and node = :node},
 	    ":fileid" => $$file{FILEID}, ":node" => $$file{NODEID});
-
+	    
 	# Issue file removal from disk now.
 	my $log = "$$self{DROPDIR}/@{[time()]}.$$file{NODEID}.$$file{FILEID}.log";
 	$self->addJob( sub { $self->deleteJob ($file, @_) },
@@ -162,13 +164,12 @@ sub deleteOneFile
 
 
 	# Report completition time to DB. If the physicval deletion fails,
-        # we will roll back.
+	# we will roll back.
 	my $now = &mytimeofday();
 	&dbexec($dbh, qq{
 	    update t_xfer_delete set time_complete = :now
 		where fileid = :fileid and node = :node},
-	    ":fileid" => $$file{FILEID}, ":node" => $$file{NODEID}, ":now" => $now);
-	
+		":fileid" => $$file{FILEID}, ":node" => $$file{NODEID}, ":now" => $now);
 	return 1;
     };
 
@@ -309,10 +310,11 @@ sub idle
 {
     my ($self, @pending) = @_;
     my $dbh = undef;
+    my @nodes = ();
 
     eval
     {
-	my ($dbh, @nodes) = &expandNodesAndConnect ($self);
+	($dbh, @nodes) = &expandNodesAndConnect ($self);
 	my ($filter, %filter_args) = &otherNodeFilter ($self, "xd.node");
 
 	# Get a list of victims to evict.
