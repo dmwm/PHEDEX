@@ -1,3 +1,18 @@
+* Changes in PhEDEx 2.5.0
+
+ General changes:
+
+   - Transfer workflow optimized, so that sites need to run less agents.
+     Most sites will only need three agents:
+     FileDownload, FileRemove and FileExport
+   - Individual agents can run for multiple sites
+   - 
+
+ Web site changes:
+
+ Schema changes:
+
+
 * Changes in PhEDEx 2.4.2
 
  General changes:
