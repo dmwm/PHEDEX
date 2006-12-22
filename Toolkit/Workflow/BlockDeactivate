@@ -129,7 +129,12 @@ sub idle
 	    if (! $nfr)
 	    {
 		&alert ("refusing to deactivate block $name with no files");
-		next;
+		&dbexec ($dbh, qq{
+		    update t_dps_block set is_open = 'y'
+		    where id = :block},
+		    ":block" => $id);
+		$dbh->commit();
+		return 0;
 	    }
 
 	    # Deactivate.
