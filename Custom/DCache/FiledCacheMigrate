@@ -11,7 +11,7 @@
 ##H Usage:
 ##H   FileDCacheMigrate
 ##H      -state DIRECTORY -node NAME -db FILE[:SECTION] [-log OUT]
-##H      -storagemap PATH
+##H      -pfnquery COMMAND[,ARGS...]
 ##H
 ##H -state       agent state directory
 ##H -node        the node where this agent runs

@@ -36,13 +36,13 @@ status="$1" pfn="$2" size="$3" checksum="$4"
 validity=0
 
 # If status was claimed ok, accept it
-#[ X"$status" = X0 ] && exit 0
+[ X"$status" = X0 ] && exit 0
 
 # Check file size and mark file invalid on mismatch.
 if [ $validity = 0 ]; then
     disksize=$(srm-get-metadata -x509_user_proxy=${X509_USER_PROXY} -retry_num=0 "$pfn"| grep "size :"|cut -d: -f2)
     [ X"$disksize" = X ] && echo "file $pfn doesn't seem to exist" && validity=1
-    [ $validity = 0 ] && [ X"$disksize" != X"$size" ] && echo "size mismatch disk=$disksize db=$size pfn=$pfn" && validity=2
+    [ X"$disksize" != X"$size" ] && echo "size mismatch disk=$disksize db=$size pfn=$pfn" && validity=2
 fi
 
 # Check checksum if requested, mark file invalid on mismatch

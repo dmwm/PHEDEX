@@ -1,32 +1,25 @@
 #!/usr/bin/env perl
 
 BEGIN { use strict; use warnings; $^W=1; }
-use CGI qw(param);
-require "${0}23";
-require "${0}22";
+use CGI qw(param redirect);
 
-# Read database access tokens
-my @dbnames = ();
-my %databases = ();
-open (DBNAMES, "< /data/PHEDEX/DBAccessInfo/names")
-    || die "Failed to read database configuration\n";
-while (<DBNAMES>)
-{
-    chomp;
-    my ($db, @args) = split(/\s+/);
-    $databases{$db} = [ @args ];
-    push (@dbnames, $db);
-}
-close (DBNAMES);
-my $db = param("db") || "prod";    # tnsname of the database
-$db = "prod" if ! grep ($db eq $_, @dbnames);
+my $db = param('db') || "prod";
+my $oldpage = param('page') || "";
+my %mapping = ("main" => "Components::Status",
+	       "transfer" => "Activity::TransferState",
+	       "tstates" => "Activity::TransferStates",
+	       "replicas" => "Data::Replicas",
+	       "subs" => "Data::Subscriptions",
+	       "stats" => "Reports::Size",
+	       "rates" => "Activity::Rate",
+	       "rateplot" => "Activity::RatePlots",
+	       "pplot" => "Activity::QueuePlots",
+	       "qplot" => "Activity::QualityPlots",
+	       "agents" => "Components::Agents",
+	       "dbreports" => "Reports::DailyReports",
+	       "dbreport" => "Reports::DailyReport",
+	       "tfiles" => "Activity::FileInfo");
+my $newpage = "";
+$newpage = $mapping{$oldpage} if exists $mapping{$oldpage};
 
-param('db', 'prod') if ! param('db');
-param('page', 'main') if ! param('page');
-
-if ($databases{$db}[4] eq 'V2.3') {
-  browser23::runme(\%databases, $db, @dbnames);
-} else {
-  browser22::runme(\%databases, $db, @dbnames);
-}
-exit(0);
+print redirect(-url => "http://cmsdoc.cern.ch/cms/aprom/phedex/$db/$newpage");

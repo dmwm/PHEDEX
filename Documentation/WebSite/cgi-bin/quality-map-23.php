@@ -58,11 +58,11 @@ function makeGraph($graph, $data, $args, $upto, $by)
     if ($args['metric'] == 'failed_ratio')
       foreach ($data as $item)
       {
-	$fraction = -1;
-	if (isset ($item[2][$node]) && $item[2][$node][0])
-	  $fraction = $item[2][$node][1] / $item[2][$node][0];
-	else if (isset ($item[2][$node]) && $item[2][$node][1])
-	  $fraction = 1;
+	$started = (isset ($item[2][$node]) ? $item[2][$node][0] : 0);
+	$failed = (isset ($item[2][$node]) ? $item[2][$node][1] : 0);
+	$success = (isset ($item[2][$node]) ? $item[2][$node][2] : 0);
+	$finished = $failed + $success;
+	$fraction = $finished ? $failed / $finished : -1;
         $thisplot->AddArea ($i, $i+1, LP_AREA_FILLED,
 	                    styleByValue (.4, -.4, 1, 0, $fraction, 1));
         ++$i;
@@ -70,11 +70,11 @@ function makeGraph($graph, $data, $args, $upto, $by)
     else if ($args['metric'] == 'completed_ratio')
       foreach ($data as $item)
       {
-	$fraction = -1;
-	if (isset ($item[2][$node]) && $item[2][$node][0])
-	  $fraction = $item[2][$node][2] / $item[2][$node][0];
-	else if (isset ($item[2][$node]) && $item[2][$node][2])
-	  $fraction = 1;
+	$started = (isset ($item[2][$node]) ? $item[2][$node][0] : 0);
+	$failed = (isset ($item[2][$node]) ? $item[2][$node][1] : 0);
+	$success = (isset ($item[2][$node]) ? $item[2][$node][2] : 0);
+	$finished = $failed + $success;
+	$fraction = $finished ? $success / $finished : -1;
         $thisplot->AddArea ($i, $i+1, LP_AREA_FILLED,
 	                    styleByValue (0, .4, 1, 0, $fraction, 1));
         ++$i;

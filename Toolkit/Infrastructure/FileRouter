@@ -640,21 +640,27 @@ sub routeCost
 			    ? ($rate ? $sizebin / $rate : 7*86400)
 			    : $sizebin / $nominal);
 		my $total = $$paths{$from}{TOTAL_LATENCY} + $latency + $xfer;
-	        my $thislocal = 0;
-		$thislocal = 1 if (exists $$links{$from}
-			           && exists $$links{$from}{$to}
-			           && $$links{$from}{$to}{LOCAL_BOOST});
-		my $local = ($thislocal && $$paths{$from}{LOCAL_BOOST} ? 1 : 0);
+	        my $local = ($$paths{$from}{LOCAL_BOOST}
+			     * ((! exists $$links{$to}
+			         || ! exists $$links{$to}{$from})
+		                ? 0 : $$links{$to}{$from}{LOCAL_BOOST}));
 
 		# If we would involve more than one WAN hop, incur penalty.
-		if ($$paths{$from}{REMOTE_HOPS} && ! $thislocal)
+		if ($$paths{$from}{REMOTE_HOPS} + (1-$local) > 1)
 		{
+		    &logmsg ("route from $from to $to has more than 1 remote"
+			     . " hop, penalising");
 		    $xfer += 7*86400;
 		    $total += 7*86400;
 	  	}
 
 		# If this looks too bad to be used, cut it off.
-		next if ($total >= 3*86400);
+		if ($total >= 3*86400)
+		{
+		    &logmsg("route from $from to $to for $sizebin is too"
+			    . " expensive ($total), cutting it off");
+		    next;
+	        }
 
 		# Update the path if there is none yet, if we have local
 		# path and existing is not local, or if we now have a
@@ -676,7 +682,7 @@ sub routeCost
 				     TOTAL_LATENCY => $total,
 				     LOCAL_BOOST => $local,
 				     HOPS => $$paths{$from}{HOPS} + 1,
-			     	     REMOTE_HOPS => $$paths{$from}{REMOTE_HOPS} + (1-$thislocal) };
+			     	     REMOTE_HOPS => $$paths{$from}{REMOTE_HOPS} + (1-$local) };
 		    $todo{$to} = 1;
 		}
 	    }

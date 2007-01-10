@@ -121,7 +121,7 @@ function hsv2rgb($h, $s, $v)
 // FIXME: Constrain to max ten distinct colours?
 function styleByValue($base, $range, $saturation, $srange, $value, $modrange)
 {
-  $value = min($value, 1); // ((int) (max ($value, 1) * 10)) / 10.;
+  $value = min($value, 1); // ((int) (min ($value, 1) * 10)) / 10.;
   if ($value < 0.) {
     $rgb = array (1, 1, 1);
   } else {
