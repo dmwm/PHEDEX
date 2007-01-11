@@ -29,7 +29,8 @@ create table t_req_action
      primary key (id),
    --
    constraint fk_req_action_request
-     foreign key (request) references t_req_request (id),
+     foreign key (request) references t_req_request (id)
+     on delete cascade,
    --
    constraint fk_req_action_client
      foreign key (client) references t_adm_client (id));
