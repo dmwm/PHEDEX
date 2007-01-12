@@ -14,13 +14,17 @@
 ##H
 ##H Usage:
 ##H   TMDBInject -db FILE[:SECTION] [-strict] [-verbose]
-##H      -nodes NODE[,NODE...] -filedata XMLFILE
+##H     { -nodes NODE[,NODE...] | -storage-elements SE[,SE...] }
+##H     -filedata XMLFILE
 ##H
-##H -db        database connection configuration parameter file
-##H -strict    don't allow file or its replicas to already exist
-##H -verbose   print progress indicators for various injection stages
-##H -nodes     comma-separated list of nodes to add replicas for
-##H -filedata  description of files to add
+##H -db                database connection configuration parameter file
+##H -strict            don't allow file or its replicas to already exist
+##H -verbose           print progress indicators for injection stages
+##H -nodes             comma-separated list of nodes to add replicas for
+##H -storage-elements  comma-separated list of storage-elements to add
+##H                      replicas for; each element will be mapped to
+##H                      nodes as recorded in the database
+##H -filedata          description of files to add
 ##H
 ##H The argument to "-filedata" must be an XML file.  It must contain
 ##H a top-level "<dbs>" element, which should contain any number of
@@ -99,14 +103,16 @@ BEGIN {
 my ($verbose, $strict, %args);
 use Getopt::Long;
 use UtilsHelp;
-&GetOptions ("db=s"        => \$args{DBCONFIG},
-             "strict"      => \$strict,
-             "verbose"     => \$verbose,
-             "filedata=s"  => \$args{FILEDATA},
-	     "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
-	     "help|h"      => sub { &usage() });
+&GetOptions ("db=s"                => \$args{DBCONFIG},
+             "strict"              => \$strict,
+             "verbose"             => \$verbose,
+             "filedata=s"          => \$args{FILEDATA},
+	     "nodes=s"             => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
+	     "storage-elements=s"  => sub { push(@{$args{SES}}, split(/,/, $_[1])) },
+	     "help|h"              => sub { &usage() });
 
-if (@ARGV || !$args{DBCONFIG} || !$args{FILEDATA} || !$args{NODES})
+if (@ARGV || !$args{DBCONFIG} || !$args{FILEDATA}
+    || (!$args{NODES} && !$args{SES}))
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -162,11 +168,39 @@ my $all_dbs = [];
 my $all_dataset = [];
 my $all_block = [];
 
-# Check all nodes are known
-foreach my $node (@{$args{NODES}})
+# Produce a node list.
+my @nodes;
+
+if ($args{SES})
 {
-    die "Node $node not known\n"
-	if ! grep($$_{NAME} eq $node, @$all_nodes);
+    # Map storage elements to nodes.  If we have a choice of more than
+    # one, discard tape nodes, but only if that leaves at least one
+    # node.  If we have only tape nodes to match, keep them.
+    foreach my $name (@{$args{SES}})
+    {
+        my @match = grep($$_{SE_NAME} eq $name, @$all_nodes);
+	die "storage element $name not known to the database\n"
+	    if ! @match;
+	if (scalar @match > 1)
+	{
+	    my @notape = grep($$_{KIND} ne 'MSS', @match);
+	    @match = @notape if @notape;
+	}
+
+	push(@nodes, @match);
+	print "storage element $name mapped to @{[ map { $$_{NAME} } @match ]}\n"
+	     if $verbose;
+    }
+}
+else
+{
+    # Check all nodes are known
+    foreach my $node (@{$args{NODES}})
+    {
+	my @match = grep($$_{NAME} eq $node, @$all_nodes);
+        die "Node $node not known\n" if ! @match;
+	push(@nodes, @match);
+    }
 }
 
 # Process the file data content.
@@ -307,10 +341,9 @@ while (@$info)
 		select id, logical_name from t_dps_file where inblock = :block},
 		":block" => $$b{ID})->fetchall_arrayref({});
 	    my $dbreplicas = &dbexec($dbh, qq{
-		select f.id, f.logical_name, n.name node
+		select f.id, f.logical_name, xr.node
 		from t_xfer_file f
  		  join t_xfer_replica xr on xr.fileid = f.id
-		  join t_adm_node n on n.id = xr.node
 		where f.inblock = :block},
 		":block" => $$b{ID})->fetchall_arrayref({});
 
@@ -352,10 +385,10 @@ while (@$info)
 		    push(@files, $fattrs);
 		}
 
-		foreach my $node (@{$args{NODES}})
+		foreach my $node (@nodes)
 		{
 		    next if grep($$_{LOGICAL_NAME} eq $$fattrs{'lfn'}
-				 && $$_{NODE} eq $node, @$dbreplicas);
+				 && $$_{NODE} eq $$node{ID}, @$dbreplicas);
 		    do { local $|=1; print "/" } if $verbose;
 		    push(@replicas, [ $fattrs, $node ]);
 		}
@@ -380,14 +413,13 @@ while (@$info)
 
 	    my (%dps, %xfer, %xr);
 	    my ($bytes, $files) = (0, 0);
-	    my $node = (grep($$_{NAME} eq $args{NODES}[0], @$all_nodes))[0];
 	    foreach my $file (@files)
 	    {
 		$bytes += $$file{'size'};
 		$files++;
 
 		my $n = 1;
-		push(@{$dps{$n++}}, $$node{ID});
+		push(@{$dps{$n++}}, $nodes[0]{ID});
 		push(@{$dps{$n++}}, $$b{ID});
 		push(@{$dps{$n++}}, $$file{'lfn'});
 		push(@{$dps{$n++}}, $$file{'checksum'});
@@ -400,9 +432,7 @@ while (@$info)
 
 	    foreach my $replica (@replicas)
 	    {
-		my ($file, $nodename) = @$replica;
-		($node) = grep($$_{NAME} eq $nodename, @$all_nodes);
-
+		my ($file, $node) = @$replica;
 		$n = 1;
 		push(@{$xr{$n++}}, $$node{ID});
 		push(@{$xr{$n++}}, $now);
@@ -460,6 +490,6 @@ while (@$info)
 }
 
 $dbh->commit();
-&disconnectFromDatabase($self, $dbh, 1);
+&disconnectFromDatabase(\%args, $dbh, 1);
 undef $dbh;
 exit 0;
