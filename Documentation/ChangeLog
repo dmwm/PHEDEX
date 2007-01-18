@@ -1,18 +1,56 @@
 * Changes in PhEDEx 2.5.0
 
+The changes for this release are too numerous to list them in great
+detail. Hence, what follows is a brief overview of the main features
+and improvements.
+
  General changes:
 
    - Transfer workflow optimized, so that sites need to run less agents.
      Most sites will only need three agents:
-     FileDownload, FileRemove and FileExport
-   - Individual agents can run for multiple sites
-   - 
-
+     FileDownload, FileRemove and FileExport.
+   - Individual agents can run and complete tasks for multiple sites.
+   - New agent work scheduling leading to:
+        - Reduced DB load.
+	- Reduced amount of parallel DB connections.
+	- Agent shutdown doesn't interrupt running transfers and allows
+	  draining of task queue.
+   - Improved fair share taking into account link performance and
+     preventing starving of slower links.
+   - Logs of failed transfers accessible via web page.
+   - Transfer prioritization.
+   - Only one cool-off with reduced cycle time. No resetting needed
+     anymore.
+   - PhEDEx now keeps record of the SE names for each node.
+   - BlockDLSUpdate can run centrally for multiple sites.
+   - Subscriptions now possible for full datasets and individual blocks.
+   - Improved robustness of agent communication with TMDB preventing
+     agents from blocking each other.
+   - PhEDEx now benefits from running on a DB cluster.
+   - Tools for automatic synchronization with DBS.
+	
  Web site changes:
 
+   - Subscription allocation, modification and deletion via web page
+     for site administrators authenticated by grid certificates.
+   - Improved status and summary web pages, including better plotting.
+   - New sites can now sign up via the web site.
+   - Various improvements concerning the layout of the web interface
+     (e.g positioning of scroll-bars, etc).
+	
  Schema changes:
 
-
+   - General performance improvements by adding indexes and partitioning
+     tables.
+   - Improved data consistency by adding constraints to most of the columns.
+   - t_xfer_* tables changed to reflect new transfer status tracking by
+     avoiding updating of tables in order to prevent DB locks.
+   - Re-organized status tables t_history_* and t_status_* and put
+     them in a separate module.
+   - Improved performance of OracleStatsUpdate.
+   - Rename administrative tables t_node and t_link* to t_adm_*.
+	
+	
 * Changes in PhEDEx 2.4.2
 
  General changes:
