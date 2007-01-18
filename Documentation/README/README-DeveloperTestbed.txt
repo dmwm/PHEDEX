@@ -1,3 +1,6 @@
+THIS DOCUMENT IS OBSOLETE AND NEEDS TO BE UPDATED.  PLEASE IGNORE
+THE INSTRUCTIONS BELOW FOR NOW.
+
 * Setting up PhEDEx testbed
 
 This document describes how to set up a local, stand-alone PhEDEx

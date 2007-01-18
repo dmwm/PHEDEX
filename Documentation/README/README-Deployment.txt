@@ -9,7 +9,6 @@ export CMS data.
 README-Overview.txt explains where this document fits in.
 README-Transfer.txt explains how to set up transfer agents.
 README-Export.txt explains how to set up export agents.
-README-DLS.txt explains how to set up automatic DLS updates.
 
 **********************************************************************
 ** Overview
@@ -43,18 +42,15 @@ disk pool.  It is advisable there to be a gridftp network access path
 that bypasses firewalls.
 
 You will also need a computer on which you will run the agents.  This
-needs to be either SL3/IA32 system, though with a little creativity
-other platforms can be supported as well.  You must have access to
+needs to be either SL3/IA32 or SL4/IA32 system.  You need access to
 local or mounted disk space on the machine; AFS will not do.  You do
 not need large amounts of memory, disk space, network bandwidth or CPU
 capacity on this machine.  You do need to have all the prerequisite
 software installed on this machine.
 
-Yuo can also try to request a formal VO Box for CMS at your site. It will 
-be configured as a LCG UI + some services specific to the VO BOX: 
-gsissh and proxy-renewal. VO BOX advantages and operations are described
-in README-VOBOX.txt
-
+Yuo can also try to request a formal VO box for CMS at your site. It
+will  be configured as a LCG UI plus VO box specific services: gsissh
+and proxy-renewal.  Please read README-VOBOX.txt for more details.
 
 **********************************************************************
 ** Getting the software
@@ -72,29 +68,41 @@ your site is "TX_FOO_Buffer" (and possibly "TX_FOO_MSS").
 
 *** Install the software
 
+On Scientific Linux 4 replace "slc3_ia32_gcc323" with "slc4_ia32_gcc345".
+
   wget -O $sw/aptinstaller.sh \
     http://cmsdoc.cern.ch/cms/cpt/Software/download/cms/aptinstaller.sh
   chmod +x $sw/aptinstaller.sh
   
   $sw/aptinstaller.sh -path $sw setup
-  eval `$sw/aptinstaller.sh -path $sw config -sh`
+  eval `$sw/aptinstaller.sh -path $sw -arch slc3_ia32_gcc323 config -sh`
   apt-get update
   apt-get install cms+PHEDEX+PHEDEX_2_4_2
   rm -f PHEDEX; ln -s $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_4_2 PHEDEX
 
 *** Get site configuration
 
+We very strongly recommend that all site configurations are kept in
+the CMS CVS repository, in COMP/SITECONF.  If your site already has
+a CVS module, proceed to check it as shown below.  Otherwise please
+ask cms-phedex-admins@cern.ch for a SITECONF module for your site;
+we recommend the site name is the same as in the node name (in our
+example: FOO).  You may also check out SITECONF/CERN or other sites
+for an example.  PhEDEx provides a site configuration templates in
+Custom/Template.
+
   cd /home/phedex
   export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/CMSSW
   cvs login # password is "98passwd"
-  cvs co SITECONF/CERN
   cvs co SITECONF/FOO
 
 *** Post-installation verification
 
 The RPMs include environment setup scripts you should use to prepare
 your environment.  You will invoke the scripts from your site "Config"
-as will be explained below.  If you used the commands above, use:
+as will be explained below.  If you used the commands above, use the
+following command, but substitute "slc4_ia32_gcc345" if applicable:
+
   source $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_4_2/etc/profile.d/env.sh
 
 You should verify the following environment variables are set correctly:
@@ -115,6 +123,8 @@ Ensure the following commands exist and work:
   grid-proxy-info
   myproxy-init
   myproxy-get-delegation
+  glite-transfer-submit
+  glite-sd-query
 
 Of these, only srmcp comes with the RPMs.  The rest you need to make
 available by installing appropriate grid middleware on the host.  For
@@ -129,6 +139,11 @@ To run the transfer agents, you need to have a grid certficate and be
 registered to the CMS VO, including in VORMS.  All transfers will take
 place using your own personal certificate.
 
+(If you are in a hurry to set things up or to try things out, you may
+wish to skip this section and come back to the certificate management
+once you have all the rest running fine.  Just create a normal grid
+proxy certificate and off you go.)
+
 We recommend obtaining a service or host certificate, loading a
 long-lived personal proxy into myproxy, then using the service
 certificate to renew a short-lived proxy which is then used by the
@@ -137,10 +152,9 @@ generally gives useless error messages if anything happens to go
 wrong, but it does reduce operational burden considerably.
 
 An alternative to this process is asking grid admins at your site 
-to set up a VO BOX. Proxy renewal will come "for free" with properly 
-installed VO BOX. Refer to the README-VOBOX.txt for details.
-
-If you are not using a VO BOX, then the following will help.
+to set up a VO box.  Proxy renewal will come "for free" with properly 
+installed VO box.  More details in README-VOBOX.txt.  If you are not
+using a VO box, then the following will help.
 
 If there will be only one person administering the agents at your
 site, it's simplest to use your personal certificate.  We recommend
@@ -174,7 +188,7 @@ Then the administrator starting the service should:
 
   1) Once a week, load a proxy certificate to myproxy service
         grid-proxy-init
-        myproxy-init -l phedex -R "phedex/agenthost.your.site.edu" -c 720
+        myproxy-init -l foo_phedex -R "phedex/agenthost.your.site.edu" -c 720
 
   2) As yourself, extract the proxy into the certificate directory
         mv /tmp/x509up_u$(id -u) /home/phedex/gridcert/
@@ -193,24 +207,26 @@ part of the CMS transfer topology.  Please send an e-mail to
    cms-phedex-admins@cern.ch
 
 In your mail, please include the following information -- or ask
-for suggestions giving as many details as you can:
+for suggestions giving as many details as you can.
 
-  1) Type of your site (Tier-1, Tier-2, Tier-3)
+  1) Type of your site (Tier-1, Tier-2, Tier-3).  If you are a
+     part of a federated site, please mention which other sites
+     belong to the same federation.
 
-  2) Where you would be preferred to be attached; for Tier-N where
-     N>1, you should be attached to a Tier above you.  If there is no
-     Tier-1 that can serve you right now, we may exceptionally let you
-     attach to CERN, but this will be granted only on temporary basis.
-     Note that the tier attachment is something you need to negotiate
-     yourself, PhEDEx just records the CMS policy.
+  2) The kind of storage you have: disk buffers, MSS, etc.
+     Please mention the kind of technology used such as "dCache"
+     or "Castor" or "DPM", and whether you have tape or just disk.
 
-  3) The kind of storage you have: disk buffers, MSS, etc.
-
-  4) The name of your site.  PhEDEx uses node names that are a
+  3) The name of your site.  PhEDEx uses node names that are a
      combination of site name and type of storage node, such as
-     "T1_FNAL_Buffer", "T2_DESY_MSS", "T2_Spain_Buffer".  The site
-     name is usually institution name, or a geographical name as in
-     T2_Spain (a federated pseudo-site).
+     "T1_FNAL_Buffer", "T2_DESY_MSS", "T2_Spain_CIEMAT".  The site
+     name is usually institution name, or a geographical name with
+     institute names specifying specific federation locations as
+     with T2_Spain.
+
+  4) The grid storage element (SE) name of your storage system.
+
+  5) The details mentioned in REAMDE-Auth.txt.
 
 *** Setting up agent configuration
 
@@ -228,24 +244,17 @@ run.  It is possible to split the configuration file into multiple
 parts.  This allows you to share large portions of the configuration
 across multiple PhEDEx instances: tests, production, and so on.
 
-For downloads, run "FileDownload" and "InfoDropStatus".  In an
-integration challenge environment, you may need to add "FileRecycler";
-you would never run that agent in a production environment.
+All nodes should run three agents: "FileDownload", "FileExport" and
+"FileRemove".  Sites with a tape storage (PhEDEx MSS node) also need
+to run tape migration agents such as "File{Castor,DCache}Migrate"
+and a stager agent such as "File{Castor,DCache}Stager".  You can use
+"FileDownload" with suitable options to copy between local storage
+nodes, for example if you have separate disk and tape storage systems.
 
-If you have a MSS node, you must run a MSS migration agent.  Migration
-agents exist for Castor and dCache (File{Castor,DCache}Migrate).  If
-your disk and tape storages are separate, you can use FileDownload
-with a suitable backend to copy between storage systems.  You should
-also run a cleaner agent for the buffer node, FileFakeCleaner for a
-shared disk/tape storage node, and FileDiskCleaner for a separate disk
-buffer backed up by a tape node.
-
-Exporting data to other sites requires export agents, which are
-described in more detail in README-Export.txt.
-
-Updating DLS requires the BlockDLSUpdate agent plus tools available
-via the Glite3.0 UI.  Please refere to README-DLS.txt for more
-detailed informations.
+Details on exporting files to the other sites is covered separately
+in README-Export.txt, and download side in README-Transfer.txt.  The
+central agents take care of the rest, including synchronisation with
+DBS and DLS.
 
 *** Writing site glue scripts
 
@@ -264,6 +273,6 @@ You would normally have:
 **********************************************************************
 ** Support
 
-Please contact <hn-cms-phedex@cern.ch> for support and/or check out
-the documentation at http://cern.ch/cms-project-phedex.  Please file
+Please contact <hn-cms-phedex@cern.ch> for support and check out the
+documentation at http://cmsdoc.cern.ch/cms/aprom/phedex.  Please file
 bugs and feature requests at http://savannah.cern.ch/projects/phedex.

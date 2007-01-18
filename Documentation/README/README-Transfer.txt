@@ -23,8 +23,7 @@ As of version 2.3, PhEDEx assumes trivial file catalogue; old-style
 POOL catalogues are no longer supported.  The trivial file catalogue
 specifies the mapping between the CMS hierarchical logical file names,
 the location of the files in your storage, and the access paths for
-different purposes.  Please refer to README-Catalogue.txt for further
-details.
+different purposes.
 
 **********************************************************************
 ** Prepraration

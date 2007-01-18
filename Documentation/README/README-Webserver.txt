@@ -1,3 +1,7 @@
+*** PLEASE REFER TO Documentation/WebConfig/README.txt FOR NOW.
+THIS DOCUMENT NEEDS TO BE MERGED THERE.  ***
+
+
 This document explains how to host the PhEDEx web browser.  Usually
 there is only one web browser for the entire experiment; an average
 site deploying PhEDEx most definitely isn't expected to host the web
