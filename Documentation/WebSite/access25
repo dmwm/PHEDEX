@@ -6,13 +6,21 @@ use CGI qw(:standard unescape);
 use Net::hostent;
 require Socket;
 use POSIX qw(strftime mktime);
+BEGIN { my $__scriptdir = $ENV{SCRIPT_FILENAME} || "./"; $__scriptdir =~ s,[^/]+$,,; unshift(@INC, $__scriptdir . "/cgi-bin"); };
+use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
+
 
 our @EXPORT = qw(urlencode dblink toclink pagelink
 		 alert warning breakAtSlash note
 		 age format_num format_size format_timespan
 		 badcolor warncolor pendcolor goodcolor altcolor
-		 dbexec dbprep dbbindexec makeObjWithAttrs
-		 timeSeries formatTime timegm sizeValue);
+		 dbexec dbprep dbbindexec makeObjWithAttrs dbsafe
+		 timeSeries formatTime timegm sizeValue
+		 alert_auth
+                 fetch_identity_id set_auth_vars fetch_authorized_nodes
+                 create_default_email send_email dn_to_human_name
+		 dump_params
+);
 
 # Various useful colours
 our $badcolor = '#ff9e9e';
@@ -254,6 +262,7 @@ sub makeObjWithAttrs
   my ($tname, $sname) = ("t_$kind", "seq_$kind");
   my @objfields = keys %$obj;
   my %objattrs = map { (":attr_$_" => $$obj{$_}) } @objfields;
+
   my $objsql =
     "insert into $tname ("
     . join(", ", "id", @objfields)
@@ -269,11 +278,200 @@ sub makeObjWithAttrs
     my ($name, $value) = splice(@attrs, 0, 2);
     &dbexec($dbh, qq{
       insert into $tname (id, $link, name, value)
-      values ($sname.nextval, :id, :name, :value)},
+      values ($sname.nextval, :Id, :name, :value)},
       ":id" => $id, ":name" => $name, ":value" => $value);
   }
 
   return $id;
+}
+
+
+sub alert_auth 
+{
+    my ($self, %args) = @_;
+    my $need = $args{need};
+    my $power = $args{power};
+    unless (grep $need eq $_, qw(anycert gridcert registered siteadmin globaladmin)) { 
+	die "Bad requirement '$need' to auth function", $!; 
+    }
+
+    my $login_url = $self->myurl("secure" => 1);
+    my $reg_url = $self->myurl(page => "Configuration::SignUp");
+    my $gridcert_help_url = 'http://lcg.web.cern.ch/LCG/users/registration/load-cert.html';
+
+    if ($need eq 'anycert' && !$$self{SSL_IDENTITY}) {
+	$self->alert("You are not <a href='$gridcert_help_url'>authenticated in with a certificate</a>.  ",
+		     "If you are authenticated ",
+		     "it is possible to $power from this page.");
+	return 0;
+    } elsif ($need eq 'gridcert' && (!$$self{SSL_IDENTITY} && !$$self{SSL_VERIFIED})) {
+	$self->alert("You are not <a href='$gridcert_help_url'>authenticated with a valid grid certificate</a>.  ",
+		    "If you are logged in ",
+		    "it is possible to $power from this page.");
+	return 0;
+    } elsif ($need eq 'registered' && (!$$self{SSL_IDENTITY} && !$$self{SSL_VERIFIED})) {
+	$self->alert("You are not <a href='$gridcert_help_url'>authenticated with a valid grid certificate</a>.  ",
+		    "If you are logged in and <a href='$reg_url'>registered</a> ",
+		    "it is possible to $power from this page.");
+	return 0;
+    } elsif ($need eq 'registered' && !$$self{DB_IDENTITY_ID} ) {
+	$self->alert("You are authenticated with a valid grid certificate but are not ",
+		    "<a href='$reg_url'>registered</a>.  If you are registered ",
+		    " it is possible to $power from this page.");
+	return 0;
+    } elsif (($need eq 'siteadmin' || $need eq 'globaladmin') && (!$$self{SSL_IDENTITY} && !$$self{SSL_VERIFIED})) {
+	$self->alert("You are not <a href='$gridcert_help_url'>authenticated with a valid grid certificate</a>.  ",
+		    "If you are authenticated and <a href='$reg_url'>registered as an admin</a> ",
+		    "it is possible to $power from this page.");
+	return 0;
+    } elsif ($need eq 'siteadmin' && (!$$self{AUTH_SITE_ADMIN} && !$$self{AUTH_GLOBAL_ADMIN})) {
+	$self->alert("You are authenticated with a valid grid certificate but are not ",
+		     "authorized as a site admin.  If you are an authorized site admin ",
+		     " it is possible to $power from this page.");
+	return 0;
+    } elsif ($need eq 'globaladmin' && !$$self{AUTH_GLOBAL_ADMIN} ) {
+	$self->alert("You are not authorized as a global admin. ",
+		     "Only the global admins may $power from this page");
+	return 0;
+    } else {
+	return 1;
+    }
+}
+
+
+# returns the ID number given a distinguished name
+sub fetch_identity_id
+{
+    my ($self, $client_dn) = @_;
+    return undef if (!$client_dn);
+
+     my ($id) = &dbexec($$self{DBH}, 
+			qq{ select identity
+				from t_adm_identity_attr ia
+				where ia.name  = 'Distinguished name'
+				and ia.value = :client_dn},
+			":client_dn" => $client_dn)->fetchrow_array();
+    return $id;
+}
+
+# sets AUTH_SITE_ADMIN and AUTH_GLOBAL_ADMIN
+sub set_auth_vars
+{
+    my ($self) = @_;
+
+    $$self{AUTH_SITE_ADMIN} = 0;
+    $$self{AUTH_GLOBAL_ADMIN} = 0;
+
+    if (!$$self{DB_IDENTITY_ID}) { return; }
+
+    $$self{AUTH_SITE_ADMIN} = 1
+	if &dbexec($$self{DBH},
+		   qq{ select 1 from t_adm_site_admin where identity = :id },
+		   ':id' => $$self{DB_IDENTITY_ID})->fetchrow_array();
+    
+    $$self{AUTH_GLOBAL_ADMIN} = 1
+	if &dbexec($$self{DBH},
+		   qq{ select 1 from t_adm_global_admin where identity = :id },
+		   ':id' => $$self{DB_IDENTITY_ID})->fetchrow_array();
+
+    return undef;
+}
+
+
+# returns a list of node ids for which a given identity has permission to change
+sub fetch_authorized_nodes
+{
+    my ($self, $identity) = @_;
+    if (!defined $identity) { return undef; }
+    my @nodes = &dbexec($$self{DBH},
+			qq{ select t_adm_site_node.node
+			      from t_adm_site_admin sa
+                              join t_adm_site s on s.id = sa.site
+                              join t_adm_site_node sn on sn.site = s.id
+			     where sa.identity = :adm_id },
+			":adm_id" => $identity, )->fetchrow_array();
+    # to enable global admin, add 
+#           union
+#           select t_adm_site.id
+#            from t_adm_site
+#           where exists (select id from t_adm_gloabl_admin
+#                         where id = :glb_id)
+    return @nodes;
+}
+
+
+
+sub create_default_email
+{
+  my ($self) = @_;
+  return undef if ! $ENV{SSL_CLIENT_CERT};
+  my $email = "";
+
+  use File::Temp ':mktemp';
+  if (my ($fh, $file) = mkstemp ('/tmp/certXXXXXXXXXX'))
+  {
+    if ((print $fh $ENV{SSL_CLIENT_CERT}) && close($fh))
+    {
+      chomp($email = qx(openssl x509 -in $file -noout -email));
+    }
+    unlink ($file);
+  }
+  return $email;
+}
+
+
+
+sub send_email
+{
+    my (%args) = @_;
+
+    foreach (qw(subject from to message)) {
+	return 0 unless exists $args{$_};
+    }
+
+    foreach (qw(from to cc)) {
+	if (exists $args{$_} && ref $args{$_} eq 'ARRAY') {
+	    $args{$_} = join(', ', @{$args{$_}});
+	} elsif ( exists $args{$_} && ! $args{$_} ) {
+	    $args{$_} = '';
+	}
+    }
+    
+    foreach (qw(from to cc)) {
+	next unless exists $args{$_};
+	return 0 unless &validlist($args{$_});
+    }
+
+    (open (MAIL, "| /usr/sbin/sendmail -t")
+     && (print MAIL
+	 "Subject: $args{subject}\n",
+	 "From: $args{from}\n",
+	 "To: $args{to}\n",
+	 (exists $args{cc} ? "Cc: $args{cc}\n" : ''),
+	 "\n",
+	 $args{message},
+	 "\n" )
+     && close(MAIL))
+	or do { return 0; };
+    return 1;
+}
+
+
+sub dn_to_human_name
+{
+    my $dn = shift @_;
+    my ($name) = ($dn =~ m:/CN=([^/]+?)[\s\d]*(/|$):);
+    return $name;
+}
+
+
+
+sub dump_params
+{
+    my $fh = shift @_;
+    use Data::Dumper;
+    print { $fh } "<pre>$_:\n", Dumper(param($_)), "</pre>" foreach param();
+
 }
 
 # Generate time series from FIRST to now using RANGE as unit.
@@ -355,6 +553,7 @@ sub formatTime
   elsif ($range eq 'day') { return strftime ('%Y%m%d', gmtime(int($time))); }
   elsif ($range eq 'week') { return strftime ('%Y%V', gmtime(int($time))); }
   elsif ($range eq 'month') { return strftime ('%Y%m', gmtime(int($time))); }
+  elsif ($range eq 'stamp') { return strftime ('%Y-%m-%d %H:%M:%S UTC', gmtime(int($time))); }
 }
 
 # Stolen from SEAL Time.cpp.  Convert broken down time (mktime format)
@@ -390,10 +589,18 @@ sub sizeValue
 
 
 ######################################################################
-# A simple tool to spool a HTML table out to a given filehandle
-# with some basic options like striped rows
+# A tool to print an html table
+# many options for formatting cell data, row style and cell style
+# based on given subrefs
+
+# TODO Make TableSpool able to filter rows given a subref
+# TODO Make TableSpool able to compute and display sums of columns
+
 package Web25::TableSpool;
 use strict; use warnings;
+use CGI qw(param);
+
+
 
 sub new
 {
@@ -404,6 +611,16 @@ sub new
   $$self{FH} = *STDOUT;
   $$self{STRIPE} = undef;
   $$self{ROWCNT} = 0;
+  $$self{COLCNT} = 0;
+  $$self{TABLECOLS}   = undef;
+  $$self{TABLEHEAD}   = undef;
+  $$self{TABLECLASS}  = undef;
+  $$self{STRIPECLASS} = undef;
+  $$self{DATAFORMATS} = undef;
+  $$self{ROWFORMATS}  = undef;
+  $$self{CELLFORMATS} = undef;
+  $$self{PSEUDOCOLS}  = undef;
+  $$self{QUERYCOLS}   = undef;
 
   bless $self, $class;
   return $self;
@@ -416,107 +633,39 @@ sub set_filehandle
     $$self{FH} = $fh;
 }
 
-# $class is the CSS class of the table, $stripe is the class of striped <tr>'s
-sub start
-{
-    my ($self, $class, $stripe) = @_;
-    $$self{STRIPE} = $stripe;
-    print { $$self{FH} }
-    "<table ", $class ? "class='$class'" : '', ">\n";
-}
-
-# Print the title columns
-sub head
-{
-    my ($self, @headers) = @_;
-    print { $$self{FH} } "<tr>";
-    foreach (@headers) {
-	print { $$self{FH} } "<th>$_</th>";
-    }
-    print { $$self{FH} } "</tr>\n";
-}
-
-# Print a row
-sub row
-{
-    my ($self, $row, $rowclass, $cellclass_ary) = @_;
-
-    $rowclass = '' if !defined $rowclass;
-    if ($$self{STRIPE} && $$self{ROWCNT}%2 == 0) {
-	$rowclass .= ' '.$$self{STRIPE};
-    }
-
-    if ($rowclass) { $rowclass = " class='$rowclass'"; }
-  
-    print { $$self{FH} } "<tr$rowclass>";
-
-    if (!$cellclass_ary) {    
-	foreach my $val (@{$row}) {
-	    print { $$self{FH} } "<td>$val</td>";
-	}
-    } else {
-	foreach my $i (0..$#{$row}) {
-	    my $cellclass = '';
-	    if ($cellclass_ary->[$i]) {
-		$cellclass = " class='$cellclass_ary->[$i]'";
-	    }
-	    print { $$self{FH} } "<td$cellclass>$$row[$i]</td>";
-	}
-    }
-    print { $$self{FH} } "</tr>\n";
-    $$self{ROWCNT}++;
-}
-
-# Finish, returns number of rows printed
-sub finish
-{
-    my ($self) = @_;
-    print { $$self{FH} } "</table>";
-    return $$self{ROWCNT};
-}
-
-1;
-
-
-
-######################################################################
-# A simple class to print an HTML table of a DB query
-package Web25::DBTable;
-use strict; use warnings;
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = {};
-
-  $$self{TABLESPOOL}  = new Web25::TableSpool;
-  $$self{TABLECOLS}   = undef;
-  $$self{TABLEHEAD}   = undef;
-  $$self{TABLECLASS}  = undef;
-  $$self{STRIPECLASS} = undef;
-  $$self{DATAFORMATS} = undef;
-  $$self{ROWFORMATS}  = undef;
-  $$self{CELLFORMATS} = undef;
-  $$self{PSEUDOCOLS}  = undef;
-
-  bless $self, $class;
-  return $self;
-}
-
-# Sets the filehandle to print to
-sub set_filehandle
-{
-    my ($self, $fh) = @_;
-    $$self{TABLESPOOL}->set_filehandle($fh);
-}
-
 # $cols: array ref of DB_column_names to output (others are ignored)
 sub set_tablecols
 {
     my ($self, $cols) = @_;
     $$self{TABLECOLS} = $cols;
 }
+
+# Sets columns to display based on CGI query parameters
+# takes a list of column descriptions of the form
+# (label, querykey, columnkeys, is_default)
+# If no specified query variables are found, the 'is_default' columns are shown
+sub set_querycols
+{
+    my ($self, @column_descriptions) = @_;
+    $$self{QUERYCOLS} = [@column_descriptions];
+    my %checked_querykeys;
+    my @foundcols;
+    my @defaultcols;
+    foreach my $desc (@{$$self{QUERYCOLS}}) {
+	my ($label, $querykey, $columnkeys, $is_default) = @{$desc};
+	unless (exists $checked_querykeys{$querykey}) {
+	    foreach my $param_columnkeys (param($querykey)) {
+		push @foundcols, split( /:/, $param_columnkeys);
+	    }
+	}
+	$checked_querykeys{$querykey} = 1;
+	push @defaultcols, split( /:/, $columnkeys ) if $is_default;
+    }
+
+    if (@foundcols) { $self->set_tablecols([ @foundcols ]); }
+    else { $self->set_tablecols([ @defaultcols ]); }
+}
+
 
 # $th : hash of DB_column_name=>Pretty_column_name for table headers
 sub set_tablehead
@@ -538,30 +687,36 @@ sub set_stripeclass
     my ($self, $class) = @_;
     $$self{STRIPECLASS} = $class;
 }
-# $dataformats : hash of DB_column_name=>formatting_subroutine($data) for formatting data
+# $dataformats : hash of DB_column_name=>formatting_subroutine($data, $rowref) for formatting data
+# $data is the data of DB_column_name
+# $rowref is a reference to the current row data
 sub set_dataformats
 {
     my ($self, $df) = @_;
     $$self{DATAFORMATS} = $df;
 }
 
-# $cellformats : hash of DB_column_name=>class_subroutine($data) for formatting the cell (<td>)
+# $cellformats : hash of DB_column_name=>class_subroutine($data, $rowref) for formatting the cell (<td>)
+# $data is the data of DB_column_name
+# $rowref is a reference to the current row data
 sub set_cellformats
 {
     my ($self, $cf) = @_;
     $$self{CELLFORMATS} = $cf;
 }
 
-# $rowformats : hash of DB_column_name=>class_subroutine($data) for formatting the row (<tr>)
+# $rowformats : hash of DB_column_name=>class_subroutine($data, $rowref) for formatting the row (<tr>)
+# $data is the data of DB_column_name
+# $rowref is a reference to the current row data
 sub set_rowformats
 {
     my ($self, $rf) = @_;
     $$self{rowformats} = $rf;
 }
 
-# $pseudocols : hash with key 'name' (column name) and value 'generator' (HTML string)
+# $pseudocols : hash with key 'name' (column name) and value 'generator' (sub ref)
 # for generating a pseudocolumn in the table.  Requires 'name' to be in TABLEHEAD for output.
-# string replaces @DB_column_name@ with value from dataset row
+# 'generator' is passed the hash of the current row data, before any processing
 sub add_pseudocolumn
 {
     my ($self, $name, $generator) = @_;
@@ -570,83 +725,215 @@ sub add_pseudocolumn
 }
 
 
+
+# $class is the CSS class of the table, $stripe is the class of striped <tr>'s
+sub start
+{
+    my ($self) = @_;
+    print { $$self{FH} }
+    "<table ", $$self{TABLECLASS} ? "class='$$self{TABLECLASS}'" : '', ">\n";
+}
+
+# Print the title columns
+sub head
+{
+    my ($self, @headers) = @_;
+
+    if ($$self{TABLECOLS} && $$self{TABLEHEAD}) {
+	@headers = @{$$self{TABLEHEAD}}{@{$$self{TABLECOLS}}};
+    }
+
+    if (!@headers) {
+	die "TableSpool::head called without any column information\n";
+    }
+
+    print { $$self{FH} } "<tr>";
+    print { $$self{FH} } "<th>$_</th>" foreach (@headers);
+    print { $$self{FH} } "</tr>\n";
+
+    $$self{COLCNT} = scalar @headers;
+}
+
+# Prints a row, taking either an array of data
+# or a hashref of labled data (name=>val)
+sub row
+{
+    my ($self, @row) = @_;
+    if (ref $row[0] eq 'HASH') {
+	$self->hash_row($row[0]);
+    } else {
+	if (ref $row[0] eq 'ARRAY') {
+	    @row = @{$row[0]};
+	}
+
+	my $rowclass = '';
+	if ($$self{STRIPECLASS} && $$self{ROWCNT}%2 != 0) {
+	    $rowclass = " class='$$self{STRIPECLASS}'";
+	}
+	
+	print { $$self{FH} } "<tr$rowclass>";
+	print { $$self{FH} } "<td>$_</td>" foreach (@row);
+	print { $$self{FH} } "</tr>";
+    }
+    $$self{ROWCNT}++;
+    return $$self{ROWCNT};
+}
+
+sub rows
+{
+    my ($self, $row_ary) = @_;
+    foreach my $row (@{$row_ary}) {
+	$self->row($row);
+    }
+}
+
+# Print a row from a hash applying all features
+sub hash_row
+{
+    my ($self, $row, $rowclass) = @_;
+    $rowclass = '' if !defined $rowclass;
+
+    # Copy the row
+    my $myrow = {%{$row}};
+
+    # Add the pseudocolumns to the row
+    if ($$self{PSEUDOCOLS}) {
+	foreach my $name (keys %{$$self{PSEUDOCOLS}}) {
+	    $myrow->{$name} = &{$$self{PSEUDOCOLS}->{$name}}(undef, $myrow);
+	}
+    }
+
+    # Format data row if format sub provided   
+    if ($$self{ROWFORMATS}) {
+	my $rowclass_ary = [];
+	foreach my $name (keys %{$$self{ROWFORMATS}}) {
+	    push @{$rowclass_ary}, &{$$self{ROWFORMATS}->{$name}}($row->{$name}, $myrow);
+	}
+	$rowclass = join(' ', $rowclass, @{$rowclass_ary});
+    }
+
+    # Format data cell if format sub provided
+    my $cellclass_hash = {};
+    if ($$self{CELLFORMATS}) {
+	foreach my $name (keys %{$$self{CELLFORMATS}}) {
+	    $cellclass_hash->{$name} = &{$$self{CELLFORMATS}->{$name}}($myrow->{$name}, $myrow);
+	}
+    }
+
+    # Format data columns if format sub provided
+    if ($$self{DATAFORMATS}) {
+	foreach my $name (keys %{$$self{DATAFORMATS}}) {
+	    $myrow->{$name} = &{$$self{DATAFORMATS}->{$name}}($myrow->{$name}, $myrow);
+	}
+    }
+
+    # Print out the row with the appropriate classes
+    if ($$self{STRIPECLASS} && $$self{ROWCNT}%2 != 0) {
+	$rowclass .= ' '.$$self{STRIPECLASS};
+    }
+
+    if ($rowclass) { $rowclass = " class='$rowclass'"; }
+  
+    print { $$self{FH} } "<tr$rowclass>";
+
+    foreach my $name (@{$$self{TABLECOLS}}) {
+	my $cellclass = '';
+	if (exists $cellclass_hash->{$name}) {
+	    $cellclass = " class='".$cellclass_hash->{$name}."'";
+	}
+	my $val = defined $myrow->{$name} ? $myrow->{$name} : '';
+	print { $$self{FH} } "<td$cellclass>$val</td>";
+    }
+    print { $$self{FH} } "</tr>\n";
+}
+
+# Finish, returns number of rows printed
+sub finish
+{
+    my ($self) = @_;
+    print { $$self{FH} } "</table>";
+    return $$self{ROWCNT};
+}
+
+# Returns form inputs for column selection
+# requires set_querycols
+sub columns_form
+{
+    my ($self) = @_;
+
+    my @checked;
+    my @defaults;
+    foreach my $desc (@{$$self{QUERYCOLS}}) {
+	my ($label, $querykey, $columnkeys, $is_default) = @{$desc};
+	foreach my $param_columnkeys (param($querykey)) {
+	    push @checked, $label if ($param_columnkeys eq $columnkeys);
+	}
+	push @defaults, $label if ($is_default);
+    }
+
+    unless (@checked) {
+	@checked = @defaults;
+    }
+
+
+    my $form = "";
+    $form .= "<p><i>Display Columns</i></p>\n";
+    foreach my $desc (@{$$self{QUERYCOLS}})
+    {
+	my ($label, $querykey, $columnkeys, $is_default) = @{$desc};
+	$form .= "<input type='checkbox' name='$querykey' value='$columnkeys'";
+	$form .= (grep $_ eq $label, @checked) ? " checked='checked'" : "";
+	$form .= " />&nbsp;$label<br/>\n";
+    }
+    
+    return $form;
+}
+
+
+1;
+
+
+
+######################################################################
+# A simple class to print an HTML table of a DB query
+package Web25::DBTable;
+use strict; use warnings;
+use base "Web25::TableSpool";
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+
+  bless $self, $class;
+  return $self;
+}
+
+
+
 # Output a table given a statement handle $sth,
 # $sth : database handle to iterate on
 sub output
 {
     my ($self, $sth) = @_;
 
-    my $tablecols = $$self{TABLECOLS};
-    my $th = $$self{TABLEHEAD};
-    my $class = $$self{TABLECLASS};
-    my $stripe = $$self{STRIPECLASS};
-    my $dataformats = $$self{DATAFORMATS};
-    my $cellformats = $$self{CELLFORMATS};
-    my $rowformats = $$self{ROWFORMATS};
-    my $pseudocols = $$self{PSEUDOCOLS};
-
-    my $table = $$self{TABLESPOOL};
-    $table->start($class, $stripe);
-
-    my @cols;
-    if (! $tablecols) {
-	@cols = @{$sth->{NAME}};
-	$table->head(@cols);
-    } else {
-	@cols = @{$tablecols};
-	$table->head( @{$th}{ @cols } );
+    if (! $$self{TABLECOLS}) {
+	$self->set_tablecols($sth->{NAME});
     }
-    
+
+    if (! $$self{TABLEHEAD}) {
+	my $th = {};
+	$th->{$_} = $_ foreach (@{$sth->{NAME}});
+	$self->set_tablehead($th);
+    }
+
+    $self->start();    
+    $self->head();
     while (my $row = $sth->fetchrow_hashref()) {
-	# Add the pseudocolumns to the row
-	if ($pseudocols) {
-	    foreach my $name (keys %{$pseudocols}) {
-		$row->{$name} = $pseudocols->{$name};
-		# fill in any template keys with DB data
-		foreach (@{$sth->{NAME}}) {
-		    $row->{$name} =~ s/\@$_\@/$row->{$_}/g;
-		}
-	    }
-	}
-
-	# Format data row if format sub provided
-	my $rowclass = undef;
-	if ($rowformats) {
-	    my $rowclass_ary = [];
-	    foreach my $name (keys %{$rowformats}) {
-		push @{$rowclass_ary}, &{$rowformats->{$name}}($row->{$name});
-	    }
-	    $rowclass = join(' ', @{$rowclass_ary});
-	}
-
-	# Format data cell if format sub provided
-	my $cellclass_ary = undef;
-	if ($cellformats) {
-	    $cellclass_ary = [];
-	    foreach my $name (@cols) {
-		my $cellclass = '';
-		if (exists $cellformats->{$name}) {
-		    $cellclass = &{$cellformats->{$name}}($row->{$name});
-		}
-		push @{$cellclass_ary}, $cellclass;
-	    }
-	}
-
-	# Format data columns if format sub provided
-	if ($dataformats) {
-	    foreach my $name (keys %{$dataformats}) {
-		$row->{$name} = &{$dataformats->{$name}}($row->{$name});
-	    }
-	}
-
-	#Prepare row array
-	my @output_row = @{$row}{@cols};
-	# Define nulls as empty string
-	@output_row = map { defined $_? $_ : '' } @output_row;
-
-	$table->row(\@output_row, $rowclass, $cellclass_ary);
+	$self->row($row);
     }
-    return $table->finish();
+    return $self->finish();
 }
 
 1;
@@ -696,32 +983,32 @@ sub output
 
     my $html = "";
 
-    $html .= "<form method='GET' href='$$self{TARGET}'>";
+    $html .= "<form method='get' action='$$self{TARGET}'>\n";
 
-    $html .= "<div id='optsnav'>";
+    $html .= "<div id='optsnav'>\n";
     foreach my $tab (@{$$self{TABS}}) {
 	my $class = $tab->{id} == 0 ? 'raised' : 'lowered';
-	$html .= "<a href='#' class='$class' onclick='return showtab($tab->{id})' id='optstab$tab->{id}'>$tab->{name}</a>";
+	$html .= "<div class='$class' onclick='return showtab($tab->{id})' id='optstab$tab->{id}'><a href='#'>$tab->{name}</a></div>\n";
     }
-    $html .= "</div>";
+    $html .= "</div>\n";
 
 
     foreach my $tab (@{$$self{TABS}}) {
-	my $display = $tab->{id} == 0 ? '' : 'none';
-	$html .= "<div class='optscontent' style='display:$display;' id='optspane$tab->{id}'>";
+	my $display = $tab->{id} == 0 ? '' : 'style=\'display:none;\'';
+	$html .= "<div class='optscontent' $display id='optspane$tab->{id}'>\n";
 	$html .= $tab->{form};
-	$html .= "</div>";
+	$html .= "</div>\n";
     }
     foreach my $hidden (@{$$self{HIDDEN}}) {
 	$html .= $hidden;
     }
 
-    $html .= "<div id='optsfoot'>";
-    $html .= "<input type='submit' value='Cancel' onclick='return hideshow(this,\"opts\",0)'/>&nbsp;";
-    $html .= "<input type='submit' value='Apply' />";
-    $html .= "</div>";
+    $html .= "<div id='optsfoot'>\n";
+    $html .= "<input type='submit' value='Cancel' onclick='return hideshow(this,\"opts\",0)'/>&nbsp;\n";
+    $html .= "<input type='submit' value='Apply' />\n";
+    $html .= "</div>\n";
 
-    $html .= "</form>";
+    $html .= "</form>\n";
 
 
     return $html;
@@ -732,6 +1019,8 @@ sub link
     my ($self, $linkname) = @_;
     "<a href='#' onclick='return hideshow(this,\"opts\",0)'>$linkname</a><br/>\n";
 }
+
+
 
 1;
 
@@ -792,7 +1081,22 @@ our $TEMPLATE_DEFAULT = <<'END_OF_TEMPLATE';
         }
 	return false;
     }
-   --></script>
+
+function select_all(form_id, name, value) {
+    var formblock= document.getElementById(form_id);
+    var forminputs = formblock.getElementsByTagName('input');
+    for (i = 0; i < forminputs.length; i++) {
+	if (forminputs[i].getAttribute('name') == name) {
+	    if (value == '1') {
+		forminputs[i].checked = true;
+	    } else {
+		forminputs[i].checked = false;
+	    }
+	}
+    }
+}
+
+--></script>
 
   <title>@DBTITLE@ @PAGETITLE@ - CMS PhEDEx</title>
 </head>
@@ -989,10 +1293,7 @@ sub myurl
   $url .= "/$page" if $page;
   $url .= "?$q" if $q;
   
-#  warn "XXX Previous result:  ", $url, "\n";
-  
   my $url2 = self_url();
-#  warn "XXX New result:       ", $url2, "\n";
   
   return $url;
 }
@@ -1048,9 +1349,9 @@ sub generate
     $$self{SSL_VERIFIED} = 1;
     $$self{SSL_IDENTITY} = $ENV{SSL_CLIENT_S_DN};
     $$self{SSL_CERT} = $ENV{SSL_CLIENT_CERT};
-    my ($login) = ($$self{SSL_IDENTITY} =~ m,/CN=([^/]+?)[\s\d]*(/|$),); #/
+    ($$self{USER_NAME}) = &dn_to_human_name($$self{SSL_IDENTITY});
     $$self{SSL_MSG_STATUS} =
-      "<p><a href='$idurl'>" . &escapeHTML($login) . "</a>";
+      "<p><a href='$idurl'>" . &escapeHTML($$self{USER_NAME}) . "</a>";
     $$self{SSL_MSG_CHANGE} =
       " | <a href='" . $self->myurl("secure" => 0) . "'>Sign out</a></p>";
   }
@@ -1058,6 +1359,7 @@ sub generate
   {
     $$self{SSL_VERIFIED} = 0;
     $$self{SSL_IDENTITY} = undef;
+    $$self{DB_IDENTITY_ID} = undef;
     $$self{SSL_CERT} = undef;
     if (($ENV{HTTPS} || "nope") eq 'on')
     {
@@ -1078,18 +1380,21 @@ sub generate
   # Check whether we are looking at our vs. global view
   if (! $$self{SSL_VERIFIED})
   {
-    param('view', $$self{MY_VIEW} = 'global');
-    $$self{VIEW_MESSAGE} = "<h3 style='color:#666'>Global view</h3><p style='color:#666'>(Sign in to change)</p>";
+      $$self{MY_VIEW} = 0;
+      param('view', 'global');
+      $$self{VIEW_MESSAGE} = "<h3 style='color:#666'>Global view</h3><p style='color:#666'>(Sign in to change)</p>";
   }
-  elsif ($$self{MY_VIEW} = ((param('view') || 'none') eq 'my'))
+    elsif ((param('view') || 'none') eq 'my')
   {
-    my $otherurl = $self->myurl('view' => 'global');
-    $$self{VIEW_MESSAGE} = "<h3>Your view</h3><p>Switch to <a href='$otherurl'>global view</a></p>";
+      $$self{MY_VIEW} = 1;
+      my $otherurl = $self->myurl('view' => 'global');
+      $$self{VIEW_MESSAGE} = "<h3>Your view</h3><p>Switch to <a href='$otherurl'>global view</a></p>";
   }
   else
   {
-    my $otherurl = $self->myurl('view' => 'my');
-    $$self{VIEW_MESSAGE} = "<h3>Global view</h3><p>Switch to <a href='$otherurl'>your view</a></p>";
+      $$self{MY_VIEW} = 0;
+      my $otherurl = $self->myurl('view' => 'my');
+      $$self{VIEW_MESSAGE} = "<h3>Global view</h3><p>Switch to <a href='$otherurl'>your view</a></p>";
   }
 
   # Select page we are visiting
@@ -1200,9 +1505,13 @@ sub generate
         my $dbuser = $$config{INSTANCES}{$db}{USER_NAME};
         my $dbpass = $$config{INSTANCES}{$db}{PASSWORD};
 	$$self{DBH} = DBI->connect ("DBI:Oracle:$dbtns", $dbuser, $dbpass,
-	    		            { RaiseError=>1, AutoCommit =>1 });
+	    		            { RaiseError=>1, AutoCommit =>0 });
         $$self{DBH}{FetchHashKeyName} = "NAME_uc";
         $$self{DBH}{private_self} = $self;
+	# Fetch the user ID from the DB, if we can
+	$$self{DB_IDENTITY_ID} = $self->fetch_identity_id($$self{SSL_IDENTITY});
+	# Set other PhEDEx authorization variables
+	$self->set_auth_vars();
       };
       if ($@)
       {
@@ -1279,6 +1588,7 @@ sub generate
   print header(-type => 'text/html'), $result;
 }
 
+
 1;
 
 ######################################################################
@@ -1301,6 +1611,7 @@ sub new
 sub output
 {
   my ($self) = @_;
+
   no strict "refs";
   foreach my $toc ($self->toc())
   {
@@ -1407,6 +1718,8 @@ our @reqstates = (
     { STATE => 7, RANK => 7, LABEL => "Completed" },
     { STATE => 8, RANK => 8, LABEL => "Disabled" } );
 
+our %reqstatenames = map { ($$_{STATE} => $$_{LABEL}) } @reqstates;
+
 sub new
 {
   my $proto = shift;
@@ -1414,6 +1727,160 @@ sub new
   my $self = $class->SUPER::new(@_);
   bless $self, $class;
   return $self;
+}
+
+
+sub logClientInfo
+{
+    my ($self) = @_;
+
+    # Is there a case for logging anonymous access?
+    # If so we will want to change this function...
+    if (!$$self{SSL_IDENTITY}) { return undef; }
+
+    my $identity = $$self{DB_IDENTITY_ID};
+    if (!$identity) {
+	$identity = &makeObjWithAttrs
+	    ($$self{DBH}, "adm_identity", "identity", {},
+	     "Distinguished name" => $$self{SSL_IDENTITY},
+	     "E-mail" => &create_default_email(),
+	     "Certificate" => $$self{SSL_CERT});
+    }
+
+    my $cid = &makeObjWithAttrs
+	($$self{DBH}, "adm_contact", "contact", {},
+	 "Remote host" => $ENV{HTTP_X_FORWARDED_FOR},
+	 "User agent" => user_agent());
+    
+    my $client = &makeObjWithAttrs
+	($$self{DBH}, "adm_client", undef,
+	 { "identity" => $identity, "contact" => $cid });
+    
+    return $client;
+}
+
+
+sub getClientData 
+{
+    my ($self, $clientid) = @_;
+    my $contactsql = qq{ select name, value 
+                             from t_adm_contact_attr con_attr 
+                             join t_adm_contact con on con.id = con_attr.contact
+                             join t_adm_client cli on cli.contact = con.id
+			     where cli.id = :id order by con_attr.id};
+    my $identsql  = qq{ select ident_attr.name, ident_attr.value 
+                            from t_adm_identity_attr ident_attr
+                            join t_adm_identity ident on ident_attr.identity = ident.id
+                            join t_adm_client cli on cli.identity = ident.id
+			    where cli.id = :id order by ident_attr.id};
+    my $sitesql  = qq{ select site.name, node.name
+			   from t_adm_site_admin site_admin 
+			   join t_adm_site site on site.id = site_admin.site
+			   join t_adm_site_node site_node on site_node.site = site_admin.site
+			   join t_adm_node node on node.id = site_node.node
+			   join t_adm_identity ident on ident.id = site_admin.identity
+			   join t_adm_client cli on cli.identity = ident.id
+			   where cli.id = :id order by site.name, node.name };
+    my $globalsql = qq{ select 1 
+			    from t_adm_global_admin global_admin
+			    join t_adm_identity ident on global_admin.identity = ident.id
+                            join t_adm_client cli on cli.identity = ident.id
+			    where cli.id = :id };
+    
+    
+    my %types = ('CONTACT_ATTR'  => $contactsql, 
+		 'IDENTITY_ATTR' => $identsql, 
+		 'SITE_ADMIN'    => $sitesql,
+		 'GLOBAL_ADMIN'  => $globalsql);
+    
+    my $result = {};
+    
+    while (my ($type, $sql) = each %types) {
+	my $q = &dbexec($$self{DBH}, $sql, ':id' => $clientid);
+	if ($type eq 'CONTACT_ATTR' || $type eq 'IDENTITY_ATTR') {
+	    $result->{$type} = {};
+	    while (my ($name, $value) = $q->fetchrow_array()) {
+		$result->{$type}->{$name} = $value;
+	    }
+	} elsif ($type eq 'SITE_ADMIN') {
+	    $result->{$type} = {};
+	    while (my ($site, $node) = $q->fetchrow_array()) {
+		if (!exists $result->{$type}->{$site}) {
+		    $result->{$type}->{$site} = [];
+		}
+		push @{$result->{$type}->{$site}}, $node;
+	    }
+	} elsif ($type eq 'GLOBAL_ADMIN') {
+	    if ($q->fetchrow_array()) { $result->{$type} = 1; }
+	    else                      { $result->{$type} = 0; }
+	}
+    }
+    return $result;
+}
+
+sub formatClientData
+{
+    my ($self, $data) = @_;
+    my @html;
+    
+    foreach my $name (sort keys %{$data->{IDENTITY_ATTR}}) {
+	if ($name ne 'Certificate') {
+	    push @html, "<label>$name:</label><span class='labeled'>", 
+	    ($data->{IDENTITY_ATTR}->{$name} or 'Unknown'), "</span><br/>";
+	} else {
+	    push @html, 
+	    "<label>$name:</label>",
+	    "<div class='labeled' style='height:100px;overflow:scroll;'><pre>", 
+	    ($data->{IDENTITY_ATTR}->{$name} or 'Unavailable'),
+	    "</pre></div><br/>";
+	}
+    }
+    
+    foreach my $name (sort keys %{$data->{CONTACT_ATTR}}) {
+	push @html, "<label>$name:</label><span class='labeled'>", 
+	($data->{CONTACT_ATTR}->{$name} or 'Unknown'), "</span><br/>";
+    }
+    
+    my $sites = join(', ', sort keys %{$data->{SITE_ADMIN}});
+    push @html, 
+    "<label>Site admin privs:</label><span class='labeled'>",
+    ($sites ? $sites : 'None'),
+    "</span><br/>";
+    
+    push @html,
+    "<label>Global admin:</label><span class='labeled'>",
+    ($data->{GLOBAL_ADMIN} ? 'Yes' : 'No'),
+    "</span><br/>";
+    
+    return @html;
+}
+
+
+sub formatAction
+{
+    my ($self, $aid, $action) = @_;
+    my @html;
+
+    push @html,
+    "<h1><a href='#' onclick='return hideshow(this,\"action$aid\",0)'>",
+    $$action{ACTION_NAME}, "</a></h1>",
+    "<div id='action$aid' style='display:none;'>",
+    "<label>Time:</label>", "<span class='labeled'>", &formatTime($$action{ACTION_TIME}, 'stamp'), "</span><br/>",
+    "<label>Client:</label>", "<span class='labeled'>",
+    "<a href='#' onclick='return hideshow(this, \"actionclient$aid\", 0)'>",
+    (&dn_to_human_name($$action{ACTION_CREATOR}{IDENTITY_ATTR}{'Distinguished name'}) or 'Unknown'), "</a></span><br/>",
+    "<div id='actionclient$aid' class='hideaway' style='display:none;'>",
+    $self->formatClientData($$action{ACTION_CREATOR}),
+    "</div>";
+    
+    foreach my $attr (@{ $$action{ATTR} } ) {
+	my $commentclass = $$attr{NAME} eq 'Comment' ? ' comment' : '';
+	push @html, "<label>$$attr{NAME}:</label><span class='labeled$commentclass'>$$attr{VALUE}</span><br/>";
+    }
+    
+    push @html, "</div>";
+
+    return @html;
 }
 
 1;
@@ -1502,11 +1969,11 @@ sub output
   my $your = $$self{MY_VIEW} ? "Your" : "All";
   print { $$self{CONTENT} }
     "<div align='left'>",
-    "<p><a href='@{[$self->myurl('page' => 'Tasks')]}'>$your pending tasks</a></p>\n",
+    "<p><a href='@{[$self->myurl('page' => 'Request::Tasks')]}'>$your pending tasks</a></p>\n",
     "<ul>\n",
     " <li> ", ($tasks ? "$tasks Tasks" : "None"), "</li>\n",
     "</ul>\n",
-    "<p><a href='@{[$self->myurl('page' => 'Requests')]}'>$your transfer requests</a></p>\n",
+    "<p><a href='@{[$self->myurl('page' => 'Request::Requests')]}'>$your transfer requests</a></p>\n",
     "<ul>\n";
 
   my $n = 0;
@@ -1527,7 +1994,7 @@ sub output
   print { $$self{CONTENT} }
     " <li> ", ($n ? "$n Total" : "None"), "</li>\n",
     "</ul>\n",
-    "<p><a href='@{[$self->myurl('page' => 'Site')]}'>Site activity for @{[lc($your)]} sites</a></p>\n",
+    "<p>Site activity for @{[lc($your)]} sites</p>\n",
     "<ul>\n";
 
   $n = 0;
@@ -1575,51 +2042,112 @@ sub new
 sub output
 {
   my ($self) = @_;
-  my $qtask;
-  if ($$self{MY_VIEW})
-  {
-    $qtask = &dbexec($$self{DBH}, qq{
-      select t.id, t.time_create, r.id, r.state, a.action
-      from t_adm_identity_attr ia
-	join t_req_task t on t.person = ia.identity
-	join t_req_action a on a.id = t.action
-	join t_req_request r on r.id = a.request
-      where ia.name = 'Distinguished name'
-	and ia.value = :client_dn
-      order by a.action, t.time_create asc, r.id asc},
-      ":client_dn" => $$self{SSL_IDENTITY});
+
+  my ($where, $identity);
+  if ($$self{MY_VIEW}) {
+      $where = qq{ t.person = :identity };
+      $identity = $$self{DB_IDENTITY_ID};
+  } else {
+      # A short cut to the global view;
+      # Use a condition that is always true
+      $where = '1 = :identity';
+      $identity = 1;
   }
-  else
-  {
-    $qtask = &dbexec($$self{DBH}, qq{
-      select t.id, t.time_create, r.id, r.state, a.action
+
+  my $qtask = &dbexec($$self{DBH}, qq{
+      select t.id, a.id, r.id, t.time_create, r.state, r.creator, a.action, a.time_apply, a.client, a_attr.name, a_attr.value
       from t_req_task t
-	join t_req_action a on a.id = t.action
-	join t_req_request r on r.id = a.request
-      order by a.action, t.time_create asc, r.id asc});
-  }
+      join t_req_action a on a.id = t.action
+      join t_req_request r on r.id = a.request
+      left join t_req_action_attr a_attr on a_attr.action = a.id
+      where $where
+      order by t.id desc, a.time_apply, a_attr.id},
+      ":identity" => $identity);
 
   my $n = 0;
-  while (my ($tid, $tcreate, $rid, $rstate, $action) = $qtask->fetchrow())
-  {
-    print { $$self{CONTENT} } "<pre>$action #$rid ($tid $tcreate $rstate)</pre>";
-    ++$n;
+  my $oldtid = -1;
+  my $oldaid = -1;
+  my %task;
+  while (my ($tid, $aid, $rid, $tcreate, $rstate, $rcreator, $action, $atime, $aclient, $name, $value) = $qtask->fetchrow()) {
+      if ($oldtid != $tid) {
+	  $task{$tid}{TASK_CREATED}  = $tcreate;
+	  $task{$tid}{REQUEST_ID} = $rid;
+	  $task{$tid}{REQUEST_STATE} = $rstate;
+	  $task{$tid}{REQUEST_CREATOR} = $self->getClientData($rcreator);
+      }
+      if ($oldaid != $aid) {
+	  $task{$tid}{ACTIONS}{$aid}{ACTION_NAME} = $action;
+	  $task{$tid}{ACTIONS}{$aid}{ACTION_TIME} = $atime;
+	  $task{$tid}{ACTIONS}{$aid}{ACTION_CREATOR} = $self->getClientData($aclient);
+	  $task{$tid}{ACTIONS}{$aid}{ATTR} = [];
+      }
+      push @{$task{$tid}{ACTIONS}{$aid}{ATTR}}, {NAME=> $name, VALUE=> $value};
+      $oldtid = $tid;
+      $oldaid = $aid;
+      ++$n;
   }
 
-  if (! $n)
-  {
-    print { $$self{CONTENT} } "<p>No pending tasks to show.</p>";
+  if (! $n) {
+      print { $$self{CONTENT} } "<p>No pending tasks to show.</p>";
+      return;
   }
+
+  foreach my $tid (reverse sort keys %task) {
+      my $details_url = $self->myurl(page => 'Request::Detail', 'request' => $task{$tid}{REQUEST_ID});
+
+      print { $$self{CONTENT} } 
+      "<div class='nice paramblock lev1'>",
+      "<h1>Task $tid</h1>",
+      "<label>Task Created:</label>", "<span class='labeled'>", &formatTime($task{$tid}{TASK_CREATED}, 'stamp' ), "</span><br/>",
+      "<label>Request #:</label><span class='labeled'>", $task{$tid}{REQUEST_ID}, "<a href='$details_url'>(details)</a></span><br/>",
+      "<label>Requestor:</label>", "<span class='labeled'>",
+      "<a href='#' onclick='return hideshow(this, \"creator$tid\", 0)'>",
+      (&dn_to_human_name($task{$tid}{REQUEST_CREATOR}{IDENTITY_ATTR}{'Distinguished name'}) or 'Unknown'), "</a></span><br/>",
+      "<div id='creator$tid' class='hideaway' style='display:none;'>",
+      $self->formatClientData($task{$tid}{REQUEST_CREATOR}),
+      "</div>",
+      "<label>Request State:</label>", "<span class='labeled'>", $reqstatenames{$task{$tid}{REQUEST_STATE}}, "</span><br/>";
+
+      foreach my $aid (keys %{$task{$tid}{ACTIONS}}) {
+	  print { $$self{CONTENT} }
+	  "<div class='paramblock lev2'>",
+	  $self->formatAction($aid, $task{$tid}{ACTIONS}{$aid}),
+	  "</div>";
+      }
+      
+      if ($$self{MY_VIEW}) {
+	  my $formurl = $self->myurl(page=>'Request::NewAction');
+	  print { $$self{CONTENT} }
+	  "<form method='get' action='$formurl'>",
+	  hidden(-name=>'request', -value=>$task{$tid}{REQUEST_ID}),
+	  hidden(-name=>'task', -value=>$tid),
+	  "<label>Next Action:</label>",
+	  "<span class='labeled'>",
+	  popup_menu(-name=>'newaction', 
+		     -values=>['subscribe', 'disapprove'],
+		     -labels=>{'subscribe' => 'Subscribe',
+			       'disapprove' => 'Disapprove'}
+		     ),
+	  " (Optional) Comment: ",
+	  textfield(-name=>'comment'),"&nbsp;",
+	  submit(-value=>'Submit'), "</span><br/>",
+	  "</form>";
+      }
+
+      print { $$self{CONTENT} } "</div>";
+  }
+
+
 }
 
 1;
 
 ######################################################################
-package Web25::Request::Site;
+package Web25::Request::NewAction;
 use strict; use warnings;
 use base "Web25::Request::Page";
-our $INDEX = { LIST => 1, ORDER => 2, TITLE => "Site Status",
-	       LINK_TITLE => "Browse request status by site",
+our $INDEX = { LIST => 0, ORDER => 2, TITLE => "New Action",
+	       LINK_TITLE => "Create a new action on a task",
 	       SECURE => 1 };
 use CGI qw(:standard);
 import Web25::Common;
@@ -1635,16 +2163,104 @@ sub new
 
 sub output
 {
-  my ($self) = @_;
+    my ($self) = @_;
+    
+    my $action = param('newaction');
+    my $request = param('request');
+    my $task = param('task');
+
+    if (!$action || !$request || !$task) {
+	alert('Missing parameters');
+	return;
+    }
+
+    if (!$self->alert_auth('need' => 'globaladmin', 'power' => 'add a new action to a request')) {
+	return;
+    }
+
+    my %action_attr;
+    my $actionname;
+    my $newstate;
+    my $now = time();
+
+    if (param('comment')) {
+	%action_attr = ('Comment' => param('comment'));
+    }
+
+    if ($action eq 'subscribe') {
+	$actionname = 'Subscribed';
+	unless (&subscribe_request($$self{DBH}, $request, $now)) {
+	    &alert("Subscription failed.  Please notify the developers.");
+	}
+	$newstate = 5;
+    } elsif ($action eq 'disapprove') {
+	$actionname = 'Disapproved';
+	$newstate = 4;
+    } else { &alert("Unknown action type '$action'"); return; }
+    
+    my $client = $self->logClientInfo();
+
+    my $aid = &makeObjWithAttrs
+	($$self{DBH}, "req_action", "action",
+	 { "request" => $request,
+	   "action" => $actionname,
+	   "client" => $client,
+	   "time_apply" => $now },
+	 %action_attr
+	 );
+
+    &dbexec($$self{DBH}, qq{update t_req_request set state = :newstate where id = :req_id},
+	    ':newstate' => $newstate, ':req_id' => $request);
+    
+    &dbexec($$self{DBH}, qq{delete from t_req_task where id = :task},
+	    ':task' => $task);
+
+    $$self{DBH}->commit();
+    
+    $self->note('Action added!');
 }
 
+
+sub subscribe_request
+{
+    my ($dbh, $request, $now) = @_;
+    my ($sth, $rv) = &dbexec($dbh,
+	    qq[ insert into t_dps_subscription 
+		  (dataset, block, destination, priority, is_move, is_transient, time_create)
+		select ds.id, NULL, dest.destination, 1, 'n', 'y', :now
+		  from t_req_info_dest dest
+		  join t_req_info_dataset req_ds on dest.request = req_ds.request
+		  join t_dps_dataset ds on req_ds.dataset = ds.name
+                  join t_dps_dbs dbs on ds.dbs = dbs.id
+		 where dest.request = :rid and dbs.name = req_ds.dbs
+                   and req_ds.dps_isknown = 'y' and req_ds.dbs_isknown = 'y'
+                union
+                select b.dataset, b.id, destination, 1, 'n', 'y', :now
+                  from t_req_info_dest dest
+		  join t_req_info_block req_b on dest.request = req_b.request
+                  join t_dps_block b on req_b.block = b.name
+		  join t_dps_dataset ds on b.dataset = ds.id
+                  join t_dps_dbs dbs on ds.dbs = dbs.id
+		 where dest.request = :rid and dbs.name = req_b.dbs
+                   and req_b.dps_isknown = 'y' and req_b.dbs_isknown = 'y' ],
+	    ':now' => $now,
+	    ':rid' => $request,
+	    ':now' => $now,
+	    ':rid' => $request);
+
+    return $rv;
+}
+
+
 1;
+
+
 
 ######################################################################
 package Web25::Request::Requests;
 use strict; use warnings;
 use base "Web25::Request::Page";
-our $INDEX = { LIST => 1, ORDER => 3, TITLE => "Requests",
+our $INDEX = { LIST => 1, ORDER => 2, TITLE => "Requests",
 	       LINK_TITLE => "Browse requests",
 	       SECURE => 1 };
 use CGI qw(:standard);
@@ -1661,146 +2277,79 @@ sub new
 
 sub output
 {
-  my ($self) = @_;
-  my $rquery;
-  my $dquery = &dbprep($$self{DBH}, qq{
-    select
-      ri.time_update, n.name,
-
-      count(rid.dataset),
-      sum(case when rid.dbs_isknown = 'y' then 1 else 0 end),
-      sum(case when rid.dps_isknown = 'y' then 1 else 0 end),
-
-      count(rib.block),
-      sum(case when rib.dbs_isknown = 'y' then 1 else 0 end),
-      sum(rib.dbs_files), sum(rib.dbs_bytes),
-      sum(rib.dbs_only_files), sum(rib.dbs_only_bytes),
-      sum(case when rib.dps_isknown = 'y' then 1 else 0 end),
-      sum(rib.dps_files), sum(rib.dps_bytes),
-      sum(rib.dps_only_files), sum(rib.dps_only_bytes),
-
-      sum(dbr.node_files), sum(dbr.node_bytes)
-    from t_req_info ri
-      left join t_req_info_dest rin
-        on rin.request = ri.request
-      left join t_adm_node n
-        on n.id = rin.destination
-      left join t_req_info_dataset rid
-        on rid.request = ri.request
-      left join t_req_info_block rib
-        on rib.request = ri.request
-        and rib.dbs = rid.dbs
-        and rib.dataset = rid.dataset
-      left join t_dps_dbs ddbs
-        on ddbs.name = rid.dbs
-      left join t_dps_dataset dds
-        on dds.dbs = ddbs.id
-        and dds.name = rid.dataset
-      left join t_dps_block db
-        on db.dataset = dds.id
-        and db.name = rib.block
-      left join t_dps_block_replica dbr
-        on dbr.block = db.id
-        and dbr.node = rin.destination
-    where ri.request = :request
-    group by ri.time_update, n.name});
-
-  if ($$self{MY_VIEW})
-  {
-    $rquery = &dbexec($$self{DBH}, qq{
-      select req.id, req.state, ranew.time_apply
-      from t_adm_identity_attr aia
-        join t_adm_client acl
-          on acl.identity = aia.identity
-        join t_req_request req
-          on req.creator = acl.id
-        left join t_req_action ranew
-          on ranew.request = req.id
-          and ranew.action = 'Create'
-      where aia.name = 'Distinguished name'
-        and aia.value = :client_dn},
-      ":client_dn" => $$self{SSL_IDENTITY});
-  }
-  else
-  {
-    $rquery = &dbexec($$self{DBH}, qq{
-      select req.id, req.status, ranew.time_apply
-      from t_req_request req
-        left join t_req_action ranew
-          on ranew.request = req.id
-          and ranew.action = 'Create'});
-  }
-
-  my %status = ();
-  while (my ($req, $state, $created) = $rquery->fetchrow())
-  {
-    $status{$req} = {
-      ID => $req,
-      NAME => undef,
-      STATE => $state,
-      CREATED => $created
-    };
-
-    
-    &dbbindexec($dquery, ":request" => $req);
-    while (my @row = $dquery->fetchrow())
-    {
-      $status{$req}{STATS}{$row[1]} = [ @row ];
+    my ($self) = @_;
+    my ($where, $identity);
+    if ($$self{MY_VIEW}) {
+	$where = qq{ ident.id = :identity };
+	$identity = $$self{DB_IDENTITY_ID};
+    } else {
+	# A short cut to the global view;
+	# Use a condition that is always true
+	$where = '1 = :identity';
+	$identity = 1;
     }
+
+    my $qreq = &dbexec($$self{DBH}, qq{
+      select r.id, r.state, r.creator, a.id, a.action, a.time_apply, a.client, a_attr.name, a_attr.value
+      from t_req_request r
+      join t_req_action a on a.request = r.id
+      join t_adm_client client on client.id = r.creator
+      join t_adm_identity ident on ident.id = client.identity
+      left join t_req_action_attr a_attr on a_attr.action = a.id
+      where $where
+      order by r.id desc, a.time_apply, a_attr.id},
+      ":identity" => $identity);
+
+  my $n = 0;
+  my $oldrid = -1;
+  my $oldaid = -1;
+  my %req;
+  while (my ($rid, $rstate, $rcreator, $aid, $action, $atime, $aclient, $name, $value) = $qreq->fetchrow()) {
+      if ($oldrid != $rid) {
+	  $req{$rid}{REQUEST_STATE} = $rstate;
+	  $req{$rid}{REQUEST_CREATOR} = $self->getClientData($rcreator);
+      }
+      if ($oldaid != $aid) {
+	  $req{$rid}{ACTIONS}{$aid}{ACTION_NAME} = $action;
+	  $req{$rid}{ACTIONS}{$aid}{ACTION_TIME} = $atime;
+	  $req{$rid}{ACTIONS}{$aid}{ACTION_CREATOR} = $self->getClientData($aclient);
+	  $req{$rid}{ACTIONS}{$aid}{ATTR} = [];
+      }
+      push @{$req{$rid}{ACTIONS}{$aid}{ATTR}}, {NAME=> $name, VALUE=> $value};
+      $oldrid = $rid;
+      $oldaid = $aid;
+      ++$n;
   }
 
-  use Data::Dumper;
-  print { $$self{CONTENT} } "<pre>\n",
-    &escapeHTML(Dumper(\%status)),
-    "</pre>\n";
-  return;
-
-  print { $$self{CONTENT} }
-    "<table class='striped'>\n",
-    "<tbody>\n",
-    "<tr class='selected'>\n",
-    " <th colspan='8'>Transfer request status</th>",
-    "</tr>\n",
-    "<tr class='selected'>\n",
-    " <th rowspan='2'>Request</th>\n",
-    " <th rowspan='2'>Destination</th>\n",
-    " <th colspan='2'>Known Files</th>\n",
-    " <th colspan='2'>Destination</th>\n",
-    "</tr>\n",
-    "<tr class='selected'>\n",
-    " <th>Files</th>\n",
-    " <th>Size</th>\n",
-    " <th>Files</th>\n",
-    " <th>Size</th>\n",
-    "</tr>\n";
-
-  foreach my $req (sort { $b cmp $a } keys %status)
-  {
-    my @dest = sort keys %{$status{$req}};
-    for (my $i = 0; $i <= $#dest; ++$i)
-    {
-      my $dest = $dest[$i];
-      my $x = $status{$req}{$dest};
-      my $tmdb_color = ($x->{TMDB_FILES} == $x->{DBS_FILES} ? "" : " bgcolor='$pendcolor'");
-      my $node_color = ($x->{NODE_FILES} == $x->{TMDB_FILES} ? "" : " bgcolor='$pendcolor'");
-      print { $$self{CONTENT} } "<tr>\n",
-	($i != 0 ? "" :
-	(" <td rowspan='@{[scalar @dest]}'><a href='" .
-	$self->myurl('page' => 'Detail', 'request' => quotemeta($req)) .
-	"'>$req</a></td>\n")),
-	" <td>$dest</td>\n",
-	" <td align='right'$tmdb_color>", &format_num ($x->{TMDB_FILES}), "</td>\n",
-	" <td align='right'$tmdb_color>", &format_size ($x->{TMDB_BYTES}), "</td>\n",
-	" <td align='right'$node_color>", &format_num ($x->{NODE_FILES}), "</td>\n",
-	" <td align='right'$node_color>", &format_size ($x->{NODE_BYTES}), "</td>\n",
-	"</tr>\n";
-    }
+  if (! $n) {
+      print { $$self{CONTENT} } "<p>No requests to show.</p>";
+      return;
   }
 
-  print { $$self{CONTENT} } "</tbody>\n",
-    "</table>\n",
-    "</p>\n";
+  foreach my $rid (reverse sort keys %req) {
+      my $details_url = $self->myurl(page => 'Request::Detail', 'request' => $rid);
+      print { $$self{CONTENT} } 
+      "<div class='nice paramblock lev1'>",
+      "<h1>Request $rid <a href='$details_url'>(details)</a></h1>",
+      "<label>Requestor:</label>", "<span class='labeled'>",
+      "<a href='#' onclick='return hideshow(this, \"creator$rid\", 0)'>",
+      (&dn_to_human_name($req{$rid}{REQUEST_CREATOR}{IDENTITY_ATTR}{'Distinguished name'}) or 'Unknown'), "</a></span><br/>",
+      "<div id='creator$rid' class='hideaway' style='display:none;'>",
+      $self->formatClientData($req{$rid}{REQUEST_CREATOR}),
+      "</div>",
+      "<label>Request State:</label>", "<span class='labeled'>", $reqstatenames{$req{$rid}{REQUEST_STATE}}, "</span><br/>";
+
+      foreach my $aid (sort keys %{$req{$rid}{ACTIONS}}) {
+	  print { $$self{CONTENT} }
+	  "<div class='paramblock lev2'>",
+	  $self->formatAction($aid, $req{$rid}{ACTIONS}{$aid}),
+	  "</div>";
+      }
+
+      print { $$self{CONTENT} } "</div>";
+  }
 }
+
 
 1;
 
@@ -1808,9 +2357,9 @@ sub output
 package Web25::Request::Detail;
 use strict; use warnings;
 use base "Web25::Request::Page";
-our $INDEX = { LIST => 1, ORDER => 4, TITLE => "Request Details",
+our $INDEX = { LIST => 1, ORDER => 3, TITLE => "Request Details",
 	       LINK_TITLE => "Explore request details",
-	       SECURE => 1 };
+	       SECURE => 0 };
 use CGI qw(:standard);
 import Web25::Common;
 
@@ -1826,90 +2375,140 @@ sub new
 sub output
 {
   my ($self) = @_;
-  my %status = ();
-  my $reqparam = param('request') || '';
-  my $rquery = &dbexec($$self{DBH}, qq{
-    select
-      r.name, s.block,
-      min(s.dbs_files), min(s.dbs_bytes),
-      min(s.tmdb_files), min(s.tmdb_bytes),
-      min(s.common_files), min(s.dbs_only_files), min(s.tmdb_only_files)
-    from t_request r join t_request_status s on s.request = r.id
-    group by r.name, s.block});
-  while (my ($req, $block,
-             $dbs_files, $dbs_bytes,
-             $tmdb_files, $tmdb_bytes,
-             $common, $dbs_only, $tmdb_only) = $rquery->fetchrow())
-  {
-    $status{$req}{$block} = {
-      DBS_FILES => $dbs_files, DBS_BYTES => $dbs_bytes,
-      TMDB_FILES => $tmdb_files, TMDB_BYTES => $tmdb_bytes,
-      COMMON => $common, DBS_ONLY => $dbs_only, TMDB_ONLY => $tmdb_only
-    };
+  my $request = param('request');
+
+  print { $$self{CONTENT} } (new Web25::OptsPane)->link("Show Options");
+
+  my $req_info = {};
+  my $q = &dbexec($$self{DBH},
+		  qq[ select req.id req_id, req.creator creator_id, req.state req_state,
+                             creator_name.value requestor,
+		             req_info.time_update updated
+		        from t_req_request req
+                        join t_adm_client client on client.id = req.creator
+                        join t_adm_identity ident on ident.id = client.identity
+                        join t_adm_identity_attr creator_name on creator_name.identity = ident.id and creator_name.name = 'Distinguished name'
+		        join t_req_info req_info on req_info.request = req.id
+		      ]);
+
+  while (my $row = $q->fetchrow_hashref()) {
+      $$req_info{$$row{REQ_ID}} = $row;
   }
 
-  print { $$self{CONTENT} } "<p>",
-    "<form method='GET' action='@{[$self->myurl()]}'>\n",
-    "Filter Request: ",
-    textfield(-name=>'request', -default=>$reqparam, -size=>30),
-    " <input type='submit' value='Update'></form></p>\n",
+  my $req_dest = {};
+  $q = &dbexec($$self{DBH},
+		  qq[ select req.id req_id, node.name dest_name
+		        from t_req_request req
+		        join t_req_info_dest req_dest on req_dest.request = req.id
+		        join t_adm_node node on node.id = req_dest.destination
+		      ]);
 
-    "<p>\n",
-    "<table class='striped'>\n",
-    "<tbody>\n",
-    "<tr class='selected'>\n",
-    " <th colspan='8'>Transfer request status</th>",
-    "</tr>\n",
-    "<tr class='selected'>\n",
-    " <th rowspan='2'>Block</th>\n",
-    " <th colspan='2'>DBS</th>\n",
-    " <th colspan='2'>TMDB</th>\n",
-    " <th colspan='3'>Difference</th>\n",
-    "</tr>\n",
-    "<tr class='selected'>\n",
-    " <th>Files</th>\n",
-    " <th>Size</th>\n",
-    " <th>Files</th>\n",
-    " <th>Size</th>\n",
-    " <th>Common</th>\n",
-    " <th>DBS</th>\n",
-    " <th>TMDB</th>\n",
-    "</tr>\n";
-
-  foreach my $req (sort { $b cmp $a } keys %status)
-  {
-    next if $reqparam && $req !~ /$reqparam/;
-
-    my @blocks = sort keys %{$status{$req}};
-    for (my $i = 0; $i <= $#blocks; ++$i)
-    {
-      my $block = $blocks[$i];
-      my $x = $status{$req}{$block};
-      my $tmdb_color = ($x->{TMDB_FILES} == $x->{DBS_FILES} ? "" : " bgcolor='$pendcolor'");
-      my $common_color = ($x->{COMMON} == $x->{DBS_FILES} ? "" : " bgcolor='$warncolor'");
-      my $dbs_only_color = (!$x->{DBS_ONLY} ? "" : " bgcolor='$warncolor'");
-      my $tmdb_only_color = (!$x->{TMDB_ONLY} ? "" : " bgcolor='$warncolor'");
-      print { $$self{CONTENT} } "<tr class='selected'>\n",
-        " <td colspan='8'>$req</td>\n",
-        "</tr>\n"
-        if $i == 0;
-      print { $$self{CONTENT} } "<tr>\n",
-        " <td>$block</td>\n",
-        " <td align='right'>", &format_num ($x->{DBS_FILES}), "</td>\n",
-        " <td align='right'>", &format_size ($x->{DBS_BYTES}), "</td>\n",
-        " <td align='right'$tmdb_color>", &format_num ($x->{TMDB_FILES}), "</td>\n",
-        " <td align='right'$tmdb_color>", &format_size ($x->{TMDB_BYTES}), "</td>\n",
-        " <td align='right'$common_color>", &format_num ($x->{COMMON}), "</td>\n",
-        " <td align='right'$dbs_only_color>", &format_num ($x->{DBS_ONLY}), "</td>\n",
-        " <td align='right'$tmdb_only_color>", &format_num ($x->{TMDB_ONLY}), "</td>\n",
-        "</tr>\n";
-    }
+  while (my ($rid, $node) = $q->fetchrow()) {
+      if (!exists $$req_dest{$rid}) {
+	  $$req_dest{$rid} = [];
+      }
+      push @{$$req_dest{$rid}}, $node;
   }
 
-  print { $$self{CONTENT} } "</tbody>\n",
-    "</table>\n",
-    "</p>\n";
+  my $req_datasets = {};
+  $q = &dbexec($$self{DBH},
+		  qq[ select req.id req_id,
+		             req_ds.dbs req_dbs, req_ds.dataset, req_ds.dbs_isknown, req_ds.dps_isknown
+		        from t_req_request req
+		        join t_req_info_dataset req_ds on req_ds.request = req.id
+		      ]);
+
+  while (my ($rid, $dbs, $dataset, $dbs_isknown, $dps_isknown) = $q->fetchrow()) {
+      $$req_datasets{$rid}{$dataset} = { DBS => $dbs,
+					 DBS_ISKNOWN => $dbs_isknown,
+					 DPS_ISKNOWN => $dps_isknown };
+  }
+
+  my $req_blocks = {};
+  $q = &dbexec($$self{DBH},
+		  qq[ select req.id req_id,
+		             req_b.dbs req_dbs, req_b.block, req_b.dbs_isknown, req_b.dps_isknown
+		        from t_req_request req
+		        join t_req_info_block req_b on req_b.request = req.id
+		      ]);
+
+  while (my ($rid, $dbs, $block, $dbs_isknown, $dps_isknown) = $q->fetchrow()) {
+      $$req_blocks{$rid}{$block} = { DBS => $dbs,
+				     DBS_ISKNOWN => $dbs_isknown,
+				     DPS_ISKNOWN => $dps_isknown };
+  }
+
+  my $table = new Web25::TableSpool;
+  $table->set_filehandle( $$self{ CONTENT } );
+
+  $table->set_querycols( [('Request #', 'col', 'REQUEST', 1)],
+			 [('DBS', 'col', 'DBS', 1)],
+			 [('Data Item', 'col', 'DATA_ITEM', 1)],
+			 [('Destinations', 'col', 'DESTINATIONS', 1)],
+			 [('Requestor', 'col', 'REQUESTOR', 1)],
+			 [('Updated', 'col', 'UPDATED', 1)],
+			 [('Known to DBS?', 'col', 'DBS_ISKNOWN', 1)],
+			 [('Known to PhEDEx?', 'col', 'DPS_ISKNOWN', 1)]
+			 );
+
+  $table->set_tablehead({ REQUEST => 'Request #',
+			      DBS => 'DBS',
+			      DATA_ITEM => 'Data Item',
+			      DESTINATIONS => 'Destinations',
+			      REQUESTOR => 'Requestor',
+			      UPDATED => 'Request Updated',
+			      DBS_ISKNOWN => 'Known to DBS?',
+			      DPS_ISKNOWN => 'Known to PhEDEx?' });
+
+
+  $table->set_tableclass('data');
+  $table->set_stripeclass('stripe');
+
+  $table->set_dataformats({ REQUESTOR => \&dn_to_human_name,
+			    UPDATED   => sub { &formatTime($_[0], 'stamp') }
+			});
+
+  $table->set_cellformats({DPS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''},
+			   DBS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''}});
+
+  $table->start();
+  $table->head();
+
+  foreach my $rid (sort keys %{$req_datasets}) {
+      next if ($request && $request != $rid); # XXX improve later...
+      my $dests = join ', ', @{$$req_dest{$rid}};
+      my $row = { REQUEST => $rid, DESTINATIONS => $dests };
+      $$row{$_} = $$req_info{$rid}{$_} foreach (qw(REQUESTOR UPDATED));
+      
+      foreach my $dataset (sort keys %{$$req_datasets{$rid}}) {
+	  $$row{DATA_ITEM} = $dataset;
+	  $$row{$_} = $$req_datasets{$rid}{$dataset}{$_} foreach(qw(DBS DBS_ISKNOWN DPS_ISKNOWN));
+	  $table->row($row);
+      }
+
+      foreach my $block (sort keys %{$$req_blocks{$rid}}) {
+	  $$row{DATA_ITEM} = $block;
+	  $$row{$_} = $$req_blocks{$rid}{$block}{$_} foreach(qw(DBS DBS_ISKNOWN DPS_ISKNOWN));
+	  $table->row($row);
+      }
+  }
+
+  $table->finish();
+
+  #  Options form
+  my $optspane = new Web25::OptsPane;
+  $optspane->add_hidden( hidden('request', $request) );
+  my $target = $self->myurl();
+  $optspane->set_form_target($target);
+  
+  my $form = $table->columns_form();
+  $optspane->add_tab('Columns', $form);
+  
+  print { $$self{OPTIONS} } $optspane->output();
+
 }
+
+
 
 1;
 
@@ -1919,11 +2518,12 @@ use strict; use warnings;
 use base "Exporter";
 import Web25::Common;
 use CGI qw(:standard);
+use Text::Glob 'glob_to_regex';
 BEGIN { my $__scriptdir = $ENV{SCRIPT_FILENAME} || "./"; $__scriptdir =~ s,[^/]+$,,; unshift(@INC, $__scriptdir . "/cgi-bin"); };
 use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
 
 our @EXPORT = qw(getdbslist getnodelist
-		 create_default_email
+		 getglobaladmins
 		 create_check_access
 		 create_check_identity
 		 create_check_email
@@ -1932,7 +2532,9 @@ our @EXPORT = qw(getdbslist getnodelist
 		 create_check_deps
 		 create_check_data
 		 create_check_dest
-		 create_check_bad);
+		 create_check_bad
+		 resolve_data
+);
 
 sub getdbslist
 {
@@ -1960,23 +2562,22 @@ sub getnodelist
   return sort keys %nodes;
 }
 
-sub create_default_email
-{
-  my ($self) = @_;
-  return undef if ! $ENV{SSL_CLIENT_CERT};
-  my $email = "";
 
-  use File::Temp ':mktemp';
-  if (my ($fh, $file) = mkstemp ('/tmp/certXXXXXXXXXX'))
-  {
-    if ((print $fh $ENV{SSL_CLIENT_CERT}) && close($fh))
-    {
-      chomp($email = qx(openssl x509 -in $file -noout -email));
+sub getglobaladmins
+{
+    my ($dbh) = @_;
+    my $q = &dbexec($dbh, qq{select i.id, ia.value
+				 from t_adm_global_admin ga
+				 join t_adm_identity i on ga.identity = i.id
+				 join t_adm_identity_attr ia on ia.identity = i.id
+				 where ia.name = 'E-mail'});
+    my @admins;
+    while (my ($id, $email) = $q->fetchrow_array()) {
+	push @admins, {ID => $id, EMAIL => $email};
     }
-    unlink ($file);
-  }
-  return $email;
+    return @admins;
 }
+
 
 sub create_check_access
 {
@@ -1994,18 +2595,10 @@ sub create_check_identity
 {
   my ($self, $bad) = @_;
   return if $$bad;
-  return;
 
   # Make sure this page can be used
-  if (! $$self{SSL_IDENTITY})
+  if (! $self->alert_auth('need' => 'anycert', 'power' => 'create a transfer request'))
   {
-    alert($self,
-	  "You have not been authenticated and cannot create requests.</p>",
-	  "<p>Please make sure you are accessing this service using",
-	  " https protocol signed with your grid certificate.  You",
-	  " may need to load your grid certificate into your browser",
-	  " to achieve that.  The little box on the left will automatically",
-	  " indicate when your identity has been successfully verified.");
     $$bad = 1;
     return;
   }
@@ -2140,16 +2733,17 @@ sub create_check_data
   {
     alert($self, "No data specified.");
     $$bad = 1;
-    return undef;
   }
 
   foreach my $data (@data)
   {
-    if ($data !~ m|^/[^/]+/[^/]+/[^/]+$|)
+    if ($data !~ m<^/[^/]+/[^/]+(/[^/]+|\#[^\#])$>)
     {
-      warning($self, "The data pattern is &ldquo;@{[&escapeHTML($data)]}&rdquo;",
-	      " does not match pattern of type /PRIMARY/TIER/DATASET.");
+      alert($self, "The data pattern is &ldquo;@{[&escapeHTML($data)]}&rdquo;",
+	      " does not match pattern of type /PRIMARY/TIER/DATASET or /PRIMARY/DATASET#BLOCK.");
+      $$bad = 1;
     }
+
   }
 
   return $$bad ? undef : @data;
@@ -2204,6 +2798,126 @@ sub create_check_bad
   return $bad;
 }
 
+sub dbs_lookup
+{
+    my ($dbs, $pattern) = @_;
+
+    ### Security:  Strict list of characters allowed to go to shell
+#      my $allowed = qr/\w\d\*\/\#\-_\:\?\=/;
+#      if ($dbs =~ /[^$allowed]/ || $pattern =~ /[^$allowed]/) {
+#  	die "Invalid character in sub dbs_lookup $allowed";
+#      }
+        
+    my $dbscmd = "wget -qO- '$dbs;api=listDatasets;pattern=$pattern'";
+    my $dbsresults = `$dbscmd`;
+    if ($dbsresults) { 
+	my @paths = ($dbsresults =~ /path='([^'\'']*)'/g);
+	return @paths;
+    }
+}
+
+
+# Resolve user datasets;  Search DPS and DBS for glob patterns
+# Fill data object with results:
+# $$resolved{$userglob} = [ { DBS => $, LEVEL => $, ITEM => $, DPS_ISKNOWN => $, DBS_ISKNOWN => $}, ... ]
+# Where:
+#   DBS = dbs the data was found in PhEDEx, not necessarily the one the user specified
+#   LEVEL = 'BLOCK' or  'DATASET'
+#   DATASET = Dataset name
+#   BLOCK = Block name.  undef if LEVEL = DATASET
+#   ID = The dps unique id for item
+#   DPS_ISKNOWN = 'y' or 'n'
+#   DBS_ISKNOWN = 'y' or 'n'
+sub resolve_data
+{
+    my ($dbh, $userdbs, @userdata) = @_;
+
+    my $resolved = {};
+    my $userdupes = {};
+    my $dbsdupes = {};
+    my $all = {};
+
+    foreach my $level (qw(DATASET BLOCK)) {
+	$$all{$level} = [];
+    }
+
+    foreach my $userglob (@userdata) {
+	$$resolved{$userglob} = [];
+	my $level = ($userglob =~ m|/.+\#\d+$| ? 'BLOCK' : 'DATASET');
+
+	# Search the DPS for the user's glob
+	my $sql;
+	if ($level eq 'DATASET') {
+	    $sql = qq{select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset
+		        from t_dps_dataset ds
+			join t_dps_dbs dbs on dbs.id = ds.dbs
+		       order by ds.id };
+	} else {
+	    $sql = qq{select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset, b.id block_id, b.name block
+			from t_dps_block b
+			join t_dps_dataset ds on b.dataset = ds.id
+			join t_dps_dbs dbs on ds.dbs = dbs.id
+		       order by b.id};
+	}
+
+	my $q = &dbexec($dbh, $sql);
+
+	my $pattern = glob_to_regex($userglob);
+	my $lastid = -1;
+	while (my $row = $q->fetchrow_hashref()) {
+	    my $name = $$row{$level};
+	    my $id = $$row{$level.'_ID'};
+	    next unless $name =~ /$pattern/;
+
+	    # Redundancy checking
+	    if ($id == $lastid) {
+		$$dbsdupes{$level}{$id} = 1;
+	    }
+	    $lastid = $id;
+	    push @{$$all{$level}}, $id;
+
+	    push @{$$resolved{$userglob}},  { DBS => $$row{DBS},
+					      LEVEL => $level,
+					      DATASET => $$row{DATASET},
+					      BLOCK   => $$row{BLOCK},
+					      DPS_ISKNOWN => 'y',
+					      DBS_ISKNOWN => 'y', # XXX This is assuming DPS and DBS are in sync
+					      ID => $id };
+	}
+	
+	# User's glob not found in DPS, check their DBS
+	if (! @{$$resolved{$userglob}}) {
+	    my @dbsdata = dbs_lookup($userdbs, $userglob);
+	    foreach my $name (@dbsdata) {
+		push @{$$resolved{$userglob}}, { DBS => $userdbs,
+						 LEVEL => $level,
+						 DATASET => ($level eq 'DATASET' ? $name : undef),
+						 DATASET => ($level eq 'BLOCK' ? $name : undef),
+						 DPS_ISKNOWN => 'n',
+						 DBS_ISKNOWN => 'y',
+						 ID => undef };
+	    }
+	}
+    }
+
+    my $lastid = -1;
+    foreach my $level (qw(DATASET BLOCK)) {
+	foreach my $id (sort @{$$all{$level}}) {
+	    if ($id == $lastid) {
+		$$userdupes{$level}{$id} = 1;
+	    }
+	    $lastid = $id;
+	}
+    }
+
+    if (wantarray) {
+	return ($resolved, $userdupes, $dbsdupes);
+    } else {
+	return $resolved;
+    }
+}
+
+
 1;
 
 ######################################################################
@@ -2214,7 +2928,7 @@ import Web25::Request::CreateTools;
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 1, ORDER => 5, TITLE => "Create Request",
+our $INDEX = { LIST => 1, ORDER => 4, TITLE => "Create Request",
 	       LINK_TITLE => "Create a new transfer request",
 	       SECURE => 1 };
 
@@ -2250,225 +2964,69 @@ sub output
     ':client_dn' => $$self{SSL_IDENTITY})->fetchrow();
   $email_contact = &create_default_email() if ! $email_contact;
 
-  print { $$self{CONTENT} }
-    "<p>",
-    "<form method='POST' action='@{[$self->myurl('page' => 'Request::CreateDBS')]}'>\n",
-    "<table class='striped'>\n",
-    " <tr class='selected'><th colspan='2'>Create a new request</th></tr>\n",
-    " <tr valign='top'>\n",
-    "  <td>Requestor e-mail</td>\n",
-    "  <td>", textfield(-name=>'email', -default=>$email_contact, -size=>50), "</td>\n",
-    " </tr>\n",
-    " <tr valign='top'>\n",
-    "  <td>Describe this request</td>\n",
-    "  <td>", textarea('comment', '', 10, 50), "</td>\n",
-    " </tr>\n",
-    " <tr valign='top'>\n",
-    "  <td colspan='2' align='center'>", submit('submit', 'Next'), "</td>\n",
-    " </tr>\n",
-    "</table>\n",
-    "</p>\n";
-}
-
-1;
-
-######################################################################
-package Web25::Request::CreateDBS;
-use strict; use warnings;
-use base "Web25::Request::Page";
-import Web25::Request::CreateTools;
-import Web25::Common;
-use CGI qw(:standard);
-
-our $INDEX = { LIST => 0, ORDER => 6, TITLE => "Select DBS for Request",
-	       SECURE => 1 };
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub output
-{
-  my ($self) = @_;
-  my $bad = 0;
-  &create_check_identity($self, \$bad);
-  my $email = &create_check_email($self, \$bad, param('email'));
-  my $comment = &create_check_comment($self, \$bad, param('comment'));
-  return if &create_check_bad($self, $bad);
-
   my %dbses = &getdbslist($$self{DBH});
   my @dbsnames = sort keys %dbses;
-  print { $$self{CONTENT} }
-    "<p>",
-    "<form method='POST' action='@{[$self->myurl('page' => 'Request::CreateData')]}'>\n",
-    "<input type='hidden' name='email' value='@{[&escapeHTML($email)]}' />\n",
-    "<input type='hidden' name='comment' value='@{[&escapeHTML($comment)]}' />\n",
-    "<table class='striped'>\n",
-    " <tr class='selected'><th colspan='2'>Create a new request</th></tr>\n",
-    " <tr valign='top'>\n",
-    "  <td>DBS instance</td>\n",
-    "  <td>",
-    (map { "   <input type='radio' name='dbs' value='@{[&escapeHTML($_)]}' />&nbsp;" .
-           &escapeHTML($_) . "<br />\n" } @dbsnames),
-    "   <input type='radio' name='dbs' value='NEW' />&nbsp;Other:&nbsp;",
-    textfield(-name=>'newdbs', -default=>'http://path?instance=value', -size=>50),
-    "  </td>\n",
-    " </tr>\n",
-    " <tr valign='top'>\n",
-    "  <td colspan='2' align='center'>", submit('submit', 'Next'), "</td>\n",
-    " </tr>\n",
-    "</table>\n",
-    "</form>\n",
-    "</p>\n";
-}
-
-1;
-
-######################################################################
-package Web25::Request::CreateData;
-use strict; use warnings;
-use base "Web25::Request::Page";
-import Web25::Request::CreateTools;
-import Web25::Common;
-use CGI qw(:standard);
-
-our $INDEX = { LIST => 0, ORDER => 7, TITLE => "Select Datasets for Request",
-	       SECURE => 1 };
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub output
-{
-  my ($self) = @_;
-  my $bad = 0;
-  &create_check_identity($self, \$bad);
-  my $email = &create_check_email($self, \$bad, param('email'));
-  my $comment = &create_check_comment($self, \$bad, param('comment'));
-  my $dbs = param('dbs');
-  $dbs = param('newdbs') if $dbs && $dbs eq 'NEW';
-  $dbs = &create_check_dbs($self, \$bad, $dbs);
-  return if &create_check_bad($self, $bad);
-
-  print { $$self{CONTENT} }
-    "<p>",
-    "<form method='POST' action='@{[$self->myurl('page' => 'Request::CreateDest')]}'>\n",
-    "<input type='hidden' name='email' value='@{[&escapeHTML($email)]}' />\n",
-    "<input type='hidden' name='comment' value='@{[&escapeHTML($comment)]}' />\n",
-    "<input type='hidden' name='dbs' value='@{[&escapeHTML($dbs)]}' />\n",
-    "<table class='striped'>\n",
-    " <tr class='selected'><th colspan='2'>Create a new request</th></tr>\n",
-    " <tr valign='top'>\n",
-    "  <td>Include dependencies</td>\n",
-    "  <td>",
-    "<input type='radio' name='dependencies' value='No' />&nbsp;",
-    "No, only the requested datasets<br />\n",
-    "<input type='radio' name='dependencies' value='Yes' />&nbsp;",
-    "Yes, selected datasets and their dependencies</td>\n",
-    " </tr>\n",
-    " <tr valign='top'>\n",
-    "  <td>/Primary/Tier/Dataset names<br />(glob patterns)</td>\n",
-    "  <td>", textarea('data', '', 10, 50), "</td>\n",
-    " </tr>\n",
-    " <tr valign='top'>\n",
-    "  <td colspan='2' align='center'>", submit('submit', 'Next'), "</td>\n",
-    " </tr>\n",
-    "</table>\n",
-    "</form>\n",
-    "</p>\n";
-}
-
-1;
-
-######################################################################
-package Web25::Request::CreateDest;
-use strict; use warnings;
-use base "Web25::Request::Page";
-import Web25::Request::CreateTools;
-import Web25::Common;
-use CGI qw(:standard);
-
-our $INDEX = { LIST => 0, ORDER => 8, TITLE => "Select Destinations for Request",
-	       SECURE => 1 };
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub output
-{
-  my ($self) = @_;
-  my $bad = 0;
-  &create_check_identity($self, \$bad);
-  my $email = &create_check_email($self, \$bad, param('email'));
-  my $comment = &create_check_comment($self, \$bad, param('comment'));
-  my $dbs = &create_check_dbs($self, \$bad, param('dbs'));
-  my $deps = &create_check_deps($self, \$bad, param('dependencies'));
-  my @data = &create_check_data($self, \$bad, param('data'));
-  return if &create_check_bad($self, $bad);
-
-  # Get list of nodes, but suppress Buffer nodes where MSS exists
+  my $defaultdbs = 'http://cmsdbs.cern.ch/cms/prod/comp/DBS/CGIServer/prodquery?instance=MCGlobal/Writer';
   my @nodes = &getnodelist($$self{DBH});
+
   print { $$self{CONTENT} }
-    "<p>",
-    "<form method='POST' action='@{[$self->myurl('page' => 'Request::CreateConfirm')]}'>\n",
-    "<input type='hidden' name='email' value='@{[&escapeHTML($email)]}' />\n",
-    "<input type='hidden' name='comment' value='@{[&escapeHTML($comment)]}' />\n",
-    "<input type='hidden' name='dbs' value='@{[&escapeHTML($dbs)]}' />\n",
-    "<input type='hidden' name='dependencies' value='@{[&escapeHTML($deps)]}' />\n",
-    "<input type='hidden' name='data' value='@{[&escapeHTML(join(' ', @data))]}' />\n",
-    "<table class='striped'>\n",
-    " <tr class='selected'><th colspan='4'>Create a new request</th></tr>\n",
-    " <tr valign='top'>\n",
-    "  <td>Destinations</td>\n",
-    "  <td>\n",
-    (map { "<input type='checkbox' name='dest' value='$_' />&nbsp;$_<br />" }
-     grep (/^T1_/, @nodes)),
-    "  </td>\n",
-    "  <td>\n",
-    (map { "<input type='checkbox' name='dest' value='$_' />&nbsp;$_<br />" }
-     grep (/^T2_/, @nodes)),
-    "  </td>\n",
-    "  <td>\n",
-    (map { "<input type='checkbox' name='dest' value='$_' />&nbsp;$_<br />" }
-     grep (! /^T[12]_/, @nodes)),
-    "  </td>\n",
-    " </tr>\n",
-    " <tr>\n",
-    "  <td colspan='4' align='center'>", submit('submit', 'Next'), "</td>\n",
-    " </tr>\n",
-    "</table>\n",
-    "</form>\n",
-    "</p>\n";
+  "<form class='nice' method='post' action='@{[$self->myurl('page' => 'Request::CreateCheck')]}'>\n",
+  "<label>E-mail:</label>", textfield(-name=>'email', -default=>$email_contact, -class=>'labeled', -style=>'width:450px'), "<br/>\n",
+
+  "<label>DBS:</label>",  "<input class='labeled' type='radio' name='dbschoice' value='known' checked='checked'/><label style='width:5em'>Known</label> ", 
+  popup_menu(-name=>'dbs', -values=>[ map { &escapeHTML($_) } @dbsnames ], -default=>&escapeHTML($defaultdbs) ), "<br/>\n",
+  "<label>&nbsp;</label>", "<input class='labeled' type='radio' name='dbschoice' value='user' /><label style='width:5em'>Other</label>",
+  textfield(-name=>'userdbs', -default=>'http://path?instance=value', -size=>50), "<br/>\n",
+  
+  "<label>Datasets:<br/><br/>",
+  "<span class='note'>/Primary/Tier/Dataset<br/>or<br/>",
+  "/Primary/Dataset#Block<br/>(Use * as wildcard)</span></label>\n",
+  textarea(-name=>'data', -value=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), "<br/>\n",
+
+  # XXX Disable dependencies for now (2007-01-16)
+
+  #"<label>Dependencies?:</label>\n",
+  #"<span class='labeled'><input type='radio' name='dependencies' value='No' checked='checked'/>&nbsp;",
+  #"No, only the requested datasets<br />\n",
+  #"<input type='radio' name='dependencies' value='Yes' />&nbsp;",
+  #"Yes, selected datasets and their dependencies</span><br />\n",
+
+  "<label>Destinations</label>",
+  "<div class='labeled'  style='font-size:8pt;width:450px;height:150px;;overflow:scroll;border:thin solid black;' >",
+  "<table><tr valign='top'>",
+  "  <td>\n",
+  (map { "<input type='checkbox' name='dest' value='$_' />&nbsp;$_<br />" }
+   sort grep (/^T1_|T0_/, @nodes)),
+  "  </td>\n",
+  "  <td>\n",
+  (map { "<input type='checkbox' name='dest' value='$_' />&nbsp;$_<br />" }
+   grep (/^T2_/, @nodes)),
+  "  </td>\n",
+  "  <td>\n",
+  (map { "<input type='checkbox' name='dest' value='$_' />&nbsp;$_<br />" }
+   grep (! /^T[012]_/, @nodes)),
+  "  </td>\n",
+  " </tr></table></div><br/>\n",
+
+  "<label>Comment:</label>", textarea(-name=>'comment', -default=>'', -style=>'width:450px;height:150px;;', -class=>'labeled'), "<br/>\n",
+
+  "<label>&nbsp;</label>", submit(-name=>'submit', -value=>'Submit Request', -class=>'labeled'),
+  "</form>";
 }
 
 1;
 
+
+
 ######################################################################
-package Web25::Request::CreateConfirm;
+package Web25::Request::CreateCheck;
 use strict; use warnings;
 use base "Web25::Request::Page";
 import Web25::Request::CreateTools;
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 0, ORDER => 9, TITLE => "Confirm Request",
+our $INDEX = { LIST => 0, ORDER => 6, TITLE => "Submit Request",
 	       SECURE => 1 };
 
 sub new
@@ -2486,67 +3044,139 @@ sub output
   my @emails;
   my $bad = 0;
   &create_check_identity($self, \$bad);
+  &create_check_access($self, \$bad);
   my $email = &create_check_email($self, \$bad, param('email'), \@emails);
   my $comment = &create_check_comment($self, \$bad, param('comment'));
-  my $dbs = &create_check_dbs($self, \$bad, param('dbs'));
-  my $deps = &create_check_deps($self, \$bad, param('dependencies'));
+  my $dbs;
+  if (param('dbschoice') eq 'known') { $dbs = param('dbs') }
+  elsif (param('dbschoice') eq 'user') { $dbs = param('userdbs') } 
+  else { alert("Missing or unknown DBS parameters"); return; }
+  $dbs = &create_check_dbs($self, \$bad, $dbs);
+#  my $deps = &create_check_deps($self, \$bad, param('dependencies'));
   my @data = &create_check_data($self, \$bad, param('data'));
   my @dest = &create_check_dest($self, \$bad, param('dest'));
-  return if &create_check_bad($self, $bad);
+  if ($bad)
+  {
+    print { $$self{CONTENT} } "<p>Please resubmit the form with corrected information.</p>\n";
+    return;
+  }
+
+  print { $$self{CONTENT} } "<p>Please review these request details and confirm below.  If you would like to ",
+  "change your request, use the back button in your browser.</p>",
+  "<h1>Request Information</h1>",
+  "<div class='nice'>",
+  "<label>Requestor:</label><span class='labeled'>$$self{SSL_IDENTITY}</span><br/>",
+  "<label>email:</label><span class='labeled'>$email</span><br/>",
+  "<label>DBS:</label><span class='labeled'>$dbs</span><br/>",
+#  "<label>Dependencies?:</label><span class='labeled'>$deps</span><br/>",
+  "<label>Data:</label><span class='labeled'>", join('<br/>', @data), "</span><br/>",
+  "<label>Destination:</label><span class='labeled'>", join('<br/>', @dest), "</span><br/>",
+  "</div>";
+  
+
+  print { $$self{CONTENT} } "<h1>Data Item Lookup</h1>",
+  "<p>The following table summarizes an attempt to look for your requested data items in PhEDEx.  ",
+  "Items in red may be problematic and require extra consideration by the PhEDEx admins.</p>";
+  
+  # Pull all subscriptions into a hash organized by node for subscription duplication checking
+  my $subscriptions = {};
+  my $q = &dbexec($$self{DBH}, qq{ select NVL2(s.block, 'BLOCK', 'DATASET') lvl,
+				          NVL2(s.block, s.block, s.dataset) id,
+				          n.name node
+                                   from t_dps_subscription s
+                                   join t_adm_node n on s.destination = n.id });
+  
+  while (my ($level, $id, $node) = $q->fetchrow_array()) {
+      $$subscriptions{$node}{$level}{$id} = 1;
+  }
+
+  my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, $dbs, @data);
+#    use Data::Dumper;
+#    print { $$self{CONTENT} } "<pre>", Dumper($resolved), "</pre>";
+#    print { $$self{CONTENT} } "<pre>", Dumper($userdupes), "</pre>";
+#    print { $$self{CONTENT} } "<pre>", Dumper($dbsdupes), "</pre>";
+
+  my $table = new Web25::TableSpool;
+  $table->set_filehandle( $$self{CONTENT} );
+  $table->set_tableclass('data');
+  $table->set_stripeclass('stripe');
+  $table->set_tablecols([qw(LEVEL ITEM DPS_ISKNOWN DBS_ISKNOWN COMMENT)]);
+  $table->set_tablehead({LEVEL => 'Data Level', 
+			 ITEM => 'Data Item', 
+			 DPS_ISKNOWN => 'Known to PhEDEx', 
+			 DBS_ISKNOWN => 'Known to DBS', 
+			 COMMENT => 'Comment'});
+  $table->set_cellformats({COMMENT     => sub { $_[1]->{WARN} ? 'alarm' : '' },
+			   DPS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''},
+			   DBS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''}});
+
+  $table->start();
+  $table->head();
+
+  foreach my $userglob (sort @data) {
+      if (! @{$$resolved{$userglob}} ) {
+	  $table->row({LEVEL => 'User Search',
+		       ITEM  => $userglob,
+		       DPS_ISKNOWN => 'n',
+		       DBS_ISKNOWN => 'n',
+		       COMMENT => 'Data item not found anywhere',
+		       WARN => 1});
+      } else {
+	  foreach my $res (@{$$resolved{$userglob}}) {
+	      my @comments;
+	      my $warn = 0;
+	      
+	      if ($$res{DBS} ne $dbs)  { push @comments, "Known to PhEDEx in another DBS ($$res{DBS})"; $warn = 1; }
+	      if ($$userdupes{$$res{LEVEL}}{$$res{ID}}) { push @comments, "User duplicated requests"; $warn = 1; }
+	      if ($$dbsdupes{$$res{LEVEL}}{$$res{ID}})  { 
+		  push @comments, "Data item known to PhEDEx in multiple DBSes";
+		  $warn = 1; 
+	      }
+	      
+	      foreach my $node (@dest) {
+		  if ($$subscriptions{$node}{$$res{LEVEL}}{$$res{ID}}) {
+		      push @comments, "Already subscribed to $node";
+		      $warn = 1;
+		  }
+	      }
+
+	      $$res{ITEM} = $$res{$$res{LEVEL}}; # Name of dataset or block, depending on which it is for
+	      $$res{LEVEL} = ucfirst lc $$res{LEVEL}; # Just to make it pretty
+	      $$res{COMMENT} = join('<br/>', @comments);
+	      $$res{WARN} = $warn;
+	      
+	      $table->row($res);
+	  }
+      }
+  }
+
+  $table->finish();
 
   print { $$self{CONTENT} }
-    "<p>",
-    "<form method='POST' action='@{[$self->myurl('page' => 'Request::CreateCheck')]}'>\n",
-    "<input type='hidden' name='email' value='@{[&escapeHTML($email)]}' />\n",
-    "<input type='hidden' name='comment' value='@{[&escapeHTML($comment)]}' />\n",
-    "<input type='hidden' name='dbs' value='@{[&escapeHTML($dbs)]}' />\n",
-    "<input type='hidden' name='dependencies' value='@{[&escapeHTML($deps)]}' />\n",
-    "<input type='hidden' name='data' value='@{[&escapeHTML(join(' ', @data))]}' />\n",
-    (map { "<input type='hidden' name='dest' value='@{[&escapeHTML($_)]}' />\n" } @dest),
-    "<table class='striped'>\n",
-    " <tr valign='top'>\n",
-    "  <td>Requestor e-mail</td>\n",
-    "  <td>", (map { &escapeHTML($_) . "<br />" } @emails), "</td>\n",
-    " </tr>\n",
-    " <tr valign='top'>\n",
-    "  <td>Comments</td>\n",
-    "  <td>@{[&escapeHTML($comment)]}</td>\n",
-    " </tr>\n",
-    " <tr valign='top'>\n",
-    "  <td>DBS instance</td>\n",
-    "  <td>@{[&escapeHTML($dbs)]}</td>\n",
-    " </tr>\n",
-    " <tr valign='top'>\n",
-    "  <td>Include dependencies</td>\n",
-    "  <td>@{[&escapeHTML($deps)]}</td>\n",
-    " </tr>\n",
-    " <tr valign='top'>\n",
-    "  <td>/Primary/Tier/Dataset names</td>\n",
-    "  <td>", (map { &escapeHTML($_) . "<br />" } @data), "</td>\n",
-    " </tr>\n",
-    " <tr valign='top'>\n",
-    "  <td>Destinations</td>\n",
-    "  <td>", (map { &escapeHTML($_) . "<br />" } @dest), "</td>\n",
-    " </tr>\n",
-    " <tr>\n",
-    "  <td colspan='2' align='center'>", submit('submit', 'Confirm'), "</td>\n",
-    " </tr>\n",
-    "</table>\n",
-    "</form>\n",
-    "</p>\n";
+  "<form method='POST' action='@{[$self->myurl('page' => 'Request::CreateWrite')]}'>\n",
+  "<input type='hidden' name='email' value='@{[&escapeHTML($email)]}' />\n",
+  "<input type='hidden' name='comment' value='@{[&escapeHTML($comment)]}' />\n",
+  "<input type='hidden' name='dbs' value='@{[&escapeHTML($dbs)]}' />\n",
+#  "<input type='hidden' name='dependencies' value='@{[&escapeHTML($deps)]}' />\n",
+  "<input type='hidden' name='data' value='@{[&escapeHTML(join(' ', @data))]}' />\n",
+  (map { "<input type='hidden' name='dest' value='@{[&escapeHTML($_)]}' />\n" } @dest),
+  "<br/><center><input type='submit' value='Confirm'></center>",
+  "</form>";
+
 }
 
 1;
 
+
 ######################################################################
-package Web25::Request::CreateCheck;
+package Web25::Request::CreateWrite;
 use strict; use warnings;
 use base "Web25::Request::Page";
 import Web25::Request::CreateTools;
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 0, ORDER => 10, TITLE => "Submit Request",
+our $INDEX = { LIST => 0, ORDER => 7, TITLE => "Submit Request",
 	       SECURE => 1 };
 
 sub new
@@ -2568,110 +3198,141 @@ sub output
   my $email = &create_check_email($self, \$bad, param('email'), \@emails);
   my $comment = &create_check_comment($self, \$bad, param('comment'));
   my $dbs = &create_check_dbs($self, \$bad, param('dbs'));
-  my $deps = &create_check_deps($self, \$bad, param('dependencies'));
+#  my $deps = &create_check_deps($self, \$bad, param('dependencies'));
   my @data = &create_check_data($self, \$bad, param('data'));
   my @dest = &create_check_dest($self, \$bad, param('dest'));
   if ($bad)
   {
-    print { $$self{CONTENT} } "<p>Please resubmit the form with corrected information.</p>\n";
+    print { $$self{CONTENT} } "<p>Invalid or insufficient parameters.",
+    "Please resubmit the form with corrected information.</p>\n";
     return;
   }
 
-  (open (MAIL, "| /usr/sbin/sendmail -t")
-   && (print MAIL
-         "Subject: PhEDEx request\n",
-         "From: PhEDEx Request Form <cms-phedex-admins\@cern.ch>\n",
-         # "To: cms-phedex-admins\@cern.ch\n",
-         # "Cc:", join(", ", @emails), "\n",
-        "To: lassi.tuura\@cern.ch\n",
-	"\n",
-	"Greetings.  You may wish to take note of the following new\n",
-	"transfer request which is now being processed.  At this time\n",
-	"you need not take any action.  Have a nice day!\n",
-	"\n",
-	"* Requestor:\n",
-	"   Identity: $$self{SSL_IDENTITY}\n",
-	"   Host: @{[remote_host()]}\n",
-	"   Agent: @{[user_agent()]}\n",
-	"\n",
-	"* Request:\n",
-	"   Database:\n",
-	"     $$self{CONFIG}{INSTANCES}{$$self{DBID}}{TITLE}\n",
-	"   Contacts:\n",
-	(map { "     $_\n" } @emails),
-	"   DBS:\n",
-	"     $dbs\n",
-	"   Dependencies:\n",
-	"     $deps\n",
-	"   Data:\n",
-	(map { "     $_\n" } @data),
-	"   Destinations:\n",
-	(map { "     $_\n" } @dest),
-	"\n",
-	"Yours truly,\n",
-	"  PhEDEx transfer request web form\n")
-   && close(MAIL))
-    or do { alert($self, "Cannot send mail: $!."); return };
-
   my $now = time();
-  my $id = &makeObjWithAttrs
-    ($$self{DBH}, "adm_identity", "identity", {},
-     "Distinguished name" => $$self{SSL_IDENTITY},
-     "E-mail" => &create_default_email(),
-     "Certificate" => $$self{SSL_CERT});
 
-  my $cid = &makeObjWithAttrs
-    ($$self{DBH}, "adm_contact", "contact", {},
-     "Remote host" => remote_host(),
-     "User agent" => user_agent(),
-     "Server" => new CGI ('')->self_url(-full=>1));
-
-  my $client = &makeObjWithAttrs
-    ($$self{DBH}, "adm_client", undef,
-     { "identity" => $id, "contact" => $cid });
+  my $client = $self->logClientInfo();
 
   my $rid = &makeObjWithAttrs
     ($$self{DBH}, "req_request", undef,
      { "creator" => $client, "state" => 0 });
 
-  &makeObjWithAttrs
-    ($$self{DBH}, "req_action", "action",
-     { "request" => $rid,
-       "action" => "Create",
-       "client" => $client,
-       "time_apply" => $now },
-     "Comment" => $comment);
-  &makeObjWithAttrs
-    ($$self{DBH}, "req_action", "action",
-     { "request" => $rid,
-       "action" => "Contact",
-       "client" => $client,
-       "time_apply" => $now },
-     map { ("E-mail" => $_) } @emails);
-  &makeObjWithAttrs
-    ($$self{DBH}, "req_action", "action",
-     { "request" => $rid,
-       "action" => "DBS",
-       "client" => $client,
-       "time_apply" => $now },
-     "URL" => $dbs);
-  &makeObjWithAttrs
-    ($$self{DBH}, "req_action", "action",
-     { "request" => $rid,
-       "action" => "Destination",
-       "client" => $client,
-       "time_apply" => $now },
-     map { ("Node" => $_) } @dest);
-  &makeObjWithAttrs
-    ($$self{DBH}, "req_action", "action",
-     { "request" => $rid,
-       "action" => "Data",
-       "client" => $client,
-       "time_apply" => $now },
-     "Dependencies" => $deps,
-     map { ("Pattern" => $_) } @data);
+  my $aid = &makeObjWithAttrs
+      ($$self{DBH}, "req_action", "action",
+       { "request" => $rid,
+	 "action" => "Created",
+	 "client" => $client,
+	 "time_apply" => $now },
+       "Comment" => $comment,
+       map({ ("E-mail" => $_) } @emails),
+       "DBSURL" => $dbs,
+       map( { ("Destination Node" => $_) } @dest),
+#       "Dependencies" => $deps,
+       map( { ("Data" => $_) } @data)
+       );
 
-  note($self, "Request confirmed!");
+  my @admins = &getglobaladmins($$self{DBH});
+  if (!@admins) {
+      alert("Sorry, the request cannot be created.",
+	    "The database does not contain any global admins.",
+	    "Please contact the PhEDEx group about this!"); 
+      return;
+  }
+
+  my @adminmails;
+  foreach my $admin (@admins) {
+      &makeObjWithAttrs
+	  ($$self{DBH}, "req_task", undef,
+	   { "action" => $aid,
+	     "person" => $$admin{ID},
+	     "time_create" => $now
+	     }
+	   );
+      push @adminmails, $$admin{EMAIL};
+  }
+
+  &dbexec($$self{DBH}, qq[ insert into t_req_info (request, time_update)
+			   values ( :rid, :time_update ) ],
+	  ':rid' => $rid,
+	  ':time_update' => $now);
+
+  my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, $dbs, @data);
+
+  foreach my $userglob (sort @data) {
+      foreach my $res (@{$$resolved{$userglob}}) {
+	  if ($$res{LEVEL} eq 'DATASET') {
+	      &dbexec($$self{DBH}, 
+		      qq[ insert into t_req_info_dataset (request, dbs, dataset, dbs_isknown, dps_isknown)
+			  values ( :rid, :dbs, :dataset, :dbs_isknown, :dps_isknown ) ],
+		      ':rid' => $rid,
+		      ':dbs' => $$res{DBS},
+		      ':dataset' => $$res{DATASET},
+		      ':dbs_isknown' => $$res{DBS_ISKNOWN},
+		      ':dps_isknown' => $$res{DPS_ISKNOWN});
+	  } elsif ($$res{level} eq 'BLOCK') {
+	      &dbexec($$self{DBH},
+		      qq[ insert into t_req_info_block ( request, dbs, dataset, block,
+							 dbs_isknown, dps_isknown)
+			  values ( :rid, :dbs, :dataset, :block, :dbs_isknown, :dps_isknown ) ],
+		      ':rid' => $rid,
+		      ':dbs' => $$res{DBS},
+		      ':dataset' => $$res{DATASET},
+		      ':block' => $$res{BLOCK},
+		      ':dbs_isknown' => $$res{DBS_ISKNOWN},
+		      ':dps_isknown' => $$res{DPS_ISKNOWN});
+	  }
+      }
+  }
+	
+  foreach my $node (@dest) {
+      &dbexec($$self{DBH},
+	      qq[ insert into t_req_info_dest (request, destination)
+		  select :rid, id node_id from t_adm_node where name = :node ],
+	      ':rid' => $rid, ':node' => $node);
+  }
+
+
+  $$self{DBH}->commit();
+
+  send_email(subject => "PhEDEx request",
+	     to => [ @adminmails ],
+	     from => "PhEDEx Request Form <cms-phedex-admins\@cern.ch>",
+	     message => 
+	     "Greetings PhEDEx Global Admin,\n".
+	     "\n".
+	     "You may wish to take note of the following new\n".
+	     "transfer request which is now being processed.  At this time\n".
+	     "you need not take any action.  Have a nice day!\n".
+	     "\n".
+	     "* Requestor:\n".
+	     "   Identity: $$self{SSL_IDENTITY}\n".
+	     "   Host: $ENV{HTTP_X_FORWARDED_FOR}\n".
+	     "   Agent: @{[user_agent()]}\n".
+	     "\n".
+	     "* Request:\n".
+	     "   Database:\n".
+	     "     $$self{CONFIG}{INSTANCES}{$$self{DBID}}{TITLE}\n".
+	     "   Contacts:\n".
+	     join('', map( { "     $_\n" } @emails)).
+	     "   DBS:\n".
+	     "     $dbs\n".
+#	     "   Dependencies:\n".
+#	     "     $deps\n".
+	     "   Data:\n".
+	     join('', map( { "     $_\n" } @data)).
+	     "   Destinations:\n".
+	     join('', map( { "     $_\n" } @dest)).
+	     "   Comments:\n".
+	     "     $comment\n".
+	     "\n".
+	     "Yours truly,\n".
+	     "  PhEDEx transfer request web form\n")
+      or alert("Sending request email to admins failed, sorry");
+  
+  print { $$self{ CONTENT } }
+  "<h1>Request Confirmed</h1>",
+  "<p>Your request has been logged to the database and the admins have been notified.  ",
+  "You will receive updates about this request via e-mail.</p>";;
+
 }
 
 1;
@@ -2785,76 +3446,120 @@ sub new
 
 sub output
 {
-  my ($self) = @_;
-  my $now = time();
-  my %info = ();
-  my @states = qw(pending received work completed bad outgoing);
-  my %states = ();
-  my %age = ();
-  my %live = ();
-  foreach my $row (@{$$self{DBH}->selectall_arrayref(qq{
-		     select time_update, site, host, path, agent, worker,
-			    pid, live, state, value
-		     from t_info_agent_status})})
-  {
-    my ($stamp, $site, $host, $path, $agent, $worker, $pid, $live, $state, $value) = @$row;
-    $age{$site}{$host}{$path} = $stamp;
-    $live{$site}{$host}{$path}{$agent}{$worker} = { PID => $pid, LIVE => $live };
-    $info{$site}{$host}{$path}{$agent}{$worker}{$state} = $value;
-    $states{$state} = 1 if ! grep ($_ eq $state, @states);
-  }
+    my ($self) = @_;
 
-  print { $$self{CONTENT} }
-    "<p><table class='striped'><tbody>\n",
-    "<tr class='selected'>",
-    " <th>Age</th>",
-    " <th>Site</th>",
-    " <th>Agent</th>",
-    " <th>Process</th>",
-    " <th>Host</th>",
-    " <th>Worker</th>",
-    (map { " <th>$_</th>\n" } @states, sort keys %states),
-    " <th>Path</th>",
-    "</tr>\n";
+    print { $$self{CONTENT} } (new Web25::OptsPane)->link("Show Options");
 
-  foreach my $site (sort keys %info)
-  {
-    foreach my $host (sort keys %{$info{$site}})
-    {
-      foreach my $path (sort keys %{$info{$site}{$host}})
-      {
-        foreach my $agent (sort keys %{$info{$site}{$host}{$path}})
-        {
-	  foreach my $worker (sort keys %{$info{$site}{$host}{$path}{$agent}})
-	  {
-	    my $pid = $live{$site}{$host}{$path}{$agent}{$worker}{PID};
-	    my $live = $live{$site}{$host}{$path}{$agent}{$worker}{LIVE};
-	    my $agecolor = $now - $age{$site}{$host}{$path} <= 120 ? "" : " bgcolor='$warncolor'";
-	    my $pidcolor = $live ? "" : " bgcolor='$warncolor'";
-	    my $agentname = $agent;
-	    $agentname =~ s/-/&#8209;/g;
-	    print { $$self{CONTENT} }
-	      "<tr>\n",
-	      " <td$agecolor>", &age($now - $age{$site}{$host}{$path}), "</td>\n",
-	      " <td>$site</td>\n",
-	      " <td>$agentname</td>\n",
-	      " <td$pidcolor>$pid</td>\n",
-	      " <td>$host</td>\n",
-	      " <td>$worker</td>\n";
-	    foreach my $state (@states, sort keys %states)
-	    {
-	      my $value = $info{$site}{$host}{$path}{$agent}{$worker}{$state};
-	      my $color = $value ? " bgcolor='$pendcolor'" : '';
-	      print { $$self{CONTENT} } " <td$color>$value</td>\n";
-	    }
-	    print { $$self{CONTENT} } " <td>$path</td>\n", "</tr>\n";
-	  }
-	}
-      }
+    my $now = time();
+
+    # Group by host, 
+    my $sql = qq[ select s.time_update time_update,
+                         n.name node_name, 
+                         s.host_name,
+                         s.directory_path,
+                         a.name agent_name,
+                         v.filename,
+                         v.release,
+                         v.revision,
+                         v.tag,
+                         s.label agent_label,
+                         s.process_id pid,
+                         s.worker_id, 
+                         s.queue_pending q_pend,
+                         s.queue_received q_recv,
+                         s.queue_work q_work,
+                         s.queue_completed q_comp,
+                         s.queue_bad q_bad,
+                         s.queue_outgoing q_out,
+                         s.state state
+ 		    from t_agent_status s
+                    join (select host_name, agent, label, min(node) node
+			         from t_agent_status group by host_name, agent, label) s_sub
+                      on s_sub.host_name = s.host_name and s_sub.agent = s.agent 
+                     and s_sub.label = s.label and s_sub.node = s.node
+		    join t_adm_node n on s.node = n.id
+                    join t_agent a on s.agent = a.id
+                    left join t_agent_version v on v.agent = a.id and v.node = n.id and v.filename = a.name
+		   order by n.name, s.host_name, s.directory_path, s.label, s.worker_id ];
+    my $q = &dbexec($$self{DBH}, $sql);
+
+    my $dbtable = new Web25::DBTable;
+    $dbtable->set_filehandle($$self{ CONTENT });
+    
+    $dbtable->set_querycols( [('Age', 'pcolumn', 'TIME_UPDATE', 1)],
+			     [('Node', 'pcolumn', 'NODE_NAME', 1)],
+			     [('Host', 'pcolumn', 'HOST_NAME', 1)],
+			     [('Path', 'pcolumn', 'DIRECTORY_PATH', 1)],
+			     [('Agent Name', 'pcolumn', 'AGENT_NAME', 1)],
+			     [('File and Version Columns', 'pcolumn', 'FILENAME:RELEASE:REVISION:TAG', 0)],
+			     [('Agent Label', 'pcolumn', 'AGENT_LABEL', 1)],
+			     [('Process', 'pcolumn', 'PID', 1)],
+			     [('Worker', 'pcolumn', 'WORKER_ID', 1)],
+			     [('Queue State Columns', 'pcolumn', 'Q_PEND:Q_RECV:Q_WORK:Q_BAD:Q_OUT', 1)] 
+			     );
+    $dbtable->set_tablehead({
+	TIME_UPDATE => 'Age',
+	NODE_NAME => 'Node',
+	AGENT_NAME => 'Agent Name',
+	AGENT_LABEL => 'Agent Label',
+	PID => 'Process',
+	HOST_NAME => 'Host',
+	WORKER_ID => 'Worker',
+	Q_PEND => 'Pending',
+	Q_RECV => 'Received',
+	Q_WORK => 'Work',
+	Q_COMP => 'Completed',
+	Q_BAD => 'Bad',
+	Q_OUT => 'Outgoing',
+	FILENAME => 'Filename',
+	DIRECTORY_PATH => 'Path',
+	RELEASE => 'Version Release',
+	REVISION => 'Version Revision',
+	TAG => 'Version Tag'
+	});
+
+    $dbtable->set_tableclass('data');
+    $dbtable->set_stripeclass('stripe');
+
+    my $binsub = sub { $_[0] ? "1" : "0" };
+    $dbtable->set_dataformats({
+	TIME_UPDATE => sub { &age($now - $_[0]) },
+	Q_PEND => $binsub,
+	Q_RECV => $binsub,
+	Q_WORK => $binsub,
+	Q_COMP => $binsub,
+	Q_BAD  => $binsub,
+	Q_OUT  => $binsub
+    });
+
+    my $nullsub = sub { $_[0] ? 'alarm' : '' };
+    $dbtable->set_cellformats({
+	TIME_UPDATE => sub { $now - $_[0] <= (1.5)*3600 ? '' : 'alarm' },
+	P_ID => sub { $_[1]->{STATE} ? '' : 'alarm' },
+	Q_PEND => $nullsub,
+	Q_RECV => $nullsub,
+	Q_WORK => $nullsub,
+	Q_COMP => $nullsub,
+	Q_BAD => $nullsub,
+	Q_OUT => $nullsub
+    });
+
+    my $nrows = $dbtable->output($q);
+    if ($nrows == 0) {
+	$self->alert("No process data available.");
     }
-  }
-  print { $$self{CONTENT} } "</tbody></table></p>\n";
+
+    #  Options form
+    my $optspane = new Web25::OptsPane;
+    my $target = $self->myurl();
+    $optspane->set_form_target($target);
+
+    my $form = $dbtable->columns_form();
+    $optspane->add_tab('Columns', $form);
+
+    print { $$self{OPTIONS} } $optspane->output();
 }
+
 
 1;
 
@@ -2910,10 +3615,8 @@ sub output
       nvl(sum(h.done_files),0) done_files,
       nvl(sum(h.done_bytes),0) done_bytes,
       nvl(sum(h.fail_files),0) fail_files,
-      nvl(sum(h.expire_files),0) expire_files,
-      nvl(avg(h.param_rate),0) param_rate,
-      nvl(avg(h.param_latency),0) param_latency
-    from t_link_histogram h
+      nvl(sum(h.expire_files),0) expire_files
+    from t_history_link_events h
       join t_adm_node f on f.id = h.from_node
       join t_adm_node t on t.id = h.to_node
     where h.timebin > :old
@@ -2925,13 +3628,33 @@ sub output
     $stats{$span}{N}{$key} = $row;
   }
 
+  $q = &dbexec($$self{DBH}, qq{
+    select
+      f.name from_node,
+      t.name to_node,
+      nvl(avg(h.param_rate),0) param_rate,
+      nvl(avg(h.param_latency),0) param_latency
+    from t_history_link_stats h
+      join t_adm_node f on f.id = h.from_node
+      join t_adm_node t on t.id = h.to_node
+    where h.timebin > :old
+    group by f.name, t.name},
+    ":old" => $spans{$span}[1]-$spans{$span}[2]);
+  while (my $row = $q->fetchrow_hashref())
+  {
+    my $key = "$$row{TO_NODE} $$row{FROM_NODE}";
+    next if ! exists $stats{$span};
+    $stats{$span}{N}{$key}{PARAM_RATE} = $$row{PARAM_RATE};
+    $stats{$span}{N}{$key}{PARAM_LATENCY} = $$row{PARAM_LATENCY};
+  }
+
   $stats{$span}{T}{1} = { DONE_FILES => 0, DONE_BYTES => 0, FAIL_FILES => 0, EXPIRE_FILES => 0 };
   my $errors = param('errors') ? "checked='checked'" : "";
   my $tofilter = param('tofilter') || "";
   my $fromfilter = param('fromfilter') || "";
   my $andor = param('andor') || 'or';
   print { $$self{CONTENT} }
-    "<form method='GET' action='@{[$self->myurl()]}'><p>\n",
+    "<form method='get' action='@{[$self->myurl()]}'><p>\n",
     "<label for='span'>Time span</label>\n",
     "<select name='span' onchange='submit()'>",
     (map { (" <option", ($span eq $_ ? " selected='selected'" : ""),
@@ -3109,12 +3832,12 @@ sub save_data
       trunc(h.timebin/:span)*:span,
       $sqlentity,
       nvl(sum(h.done_bytes),0),
-      nvl(sum(pend_bytes) keep (dense_rank last order by timebin asc),0),
-      nvl(sum(cool_bytes) keep (dense_rank last order by timebin asc),0),
+      0, -- nvl(sum(pend_bytes) keep (dense_rank last order by timebin asc),0),
+      0, -- nvl(sum(cool_bytes) keep (dense_rank last order by timebin asc),0),
       nvl(sum(h.try_files),0),
       nvl(sum(h.fail_files),0),
       nvl(sum(h.done_files),0)
-    from t_link_histogram h
+    from t_history_link_events h
       join t_adm_node f on f.id = h.from_node
       join t_adm_node t on t.id = h.to_node
     where timebin >= :starttime
@@ -3159,7 +3882,7 @@ sub save_data
       nvl(sum(node_bytes) keep (dense_rank last order by timebin asc),0),
       nvl(sum(request_bytes) keep (dense_rank last order by timebin asc),0),
       nvl(sum(idle_bytes) keep (dense_rank last order by timebin asc),0)
-    from t_dest_histogram h
+    from t_history_dest h
       join t_adm_node n on n.id = h.node
     where timebin >= :starttime
       and timebin < :endtime
@@ -3250,7 +3973,7 @@ sub output
   $graph = $$self{DEFAULT_GRAPH} if (! $graph || ! exists $$self{GRAPHS}{$graph});
   $entity = 'dest' if (! $entity || ! grep($_ eq $entity, qw(dest src link)));
 
-  print { $$self{CONTENT} } "<p><form method='GET' action='@{[$self->myurl()]}'>\n",
+  print { $$self{CONTENT} } "<p><form method='get' action='@{[$self->myurl()]}'>\n",
     "<label for='graph'>Graph</label>\n",
     "<select name='graph' onchange='submit()'>\n",
     (map { (" <option", ($graph eq $_ ? " selected='selected'" : ""),
@@ -3549,7 +4272,7 @@ sub output
 1;
 
 ######################################################################
-package Web25::Activity::TransferStates;
+package Web25::Activity::TransferDetails;
 use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
@@ -3574,162 +4297,140 @@ sub myurl
 
   # Return bare link if we are switching pages
   return $self->SUPER::myurl(%args)
-    if ($args{"page"} && $args{"page"} ne "Activity::TransferStates");
+    if ($args{"page"} && $args{"page"} ne "Activity::TransferDetails");
 
   # Keep my if remaining on the same page (but e.g. different instance)
   return $self->SUPER::myurl($self->urlparams(@save), %args);
 }
 
+
 sub output
 {
-  my ($self) = @_;
-  my $rows = 0;
-  my $now = time();
-  my %total = ();
-  my $tofilter = param('tofilter') || "";
-  my $fromfilter = param('fromfilter') || "";
-  my $andor = param('andor') || 'or';
-  my $query = &dbexec($$self{DBH}, qq{
+    my ($self) = @_;
+    my $rows = 0;
+    my $now = time();
+    my %total = ();
+    my $tofilter = param('tofilter') || "";
+    my $fromfilter = param('fromfilter') || "";
+    my $andor = param('andor') || 'or';
+    my $query = &dbexec($$self{DBH}, qq{
     select
       time_update,
       nd.name, ns.name,
-      to_state, from_state,
+      state,
       files, bytes
-    from t_info_xfer_states xs
+    from t_status_task xs
       join t_adm_node ns on ns.id = xs.from_node
       join t_adm_node nd on nd.id = xs.to_node
-    order by nd.name, ns.name, to_state, from_state});
+    order by nd.name, ns.name, state});
 
-  print { $$self{CONTENT} }
-    "<form method='GET' action='@{[$self->myurl()]}'><p>\n",
+    print { $$self{CONTENT} }
+    "<form method='get' action='@{[$self->myurl()]}'><p>\n",
     "<input type='submit' value='Update'></p>\n",
     "<p><table class='striped'>\n",
     "<tbody>\n",
     "<tr class='selected'>\n",
-    " <th colspan='9' align='center'>Transfer State Details</th>\n",
-    "</tr>\n",
-    "<tr class='selected'>\n",
-    " <th rowspan='3'>Age</th>\n",
-    " <th colspan='2'>To</th>\n",
-    " <th rowspan='2'>&nbsp;</th>\n",
-    " <th colspan='2'>From</th>\n",
-    " <th colspan='2'>Files</th>\n",
-    " <th rowspan='3'>Detail</th>",
+    " <th colspan='8' align='center'>Transfer State Details</th>\n",
     "</tr>\n",
     "<tr class='selected'>",
-    " <th>Node</th>\n",
+    " <th rowspan='2'>Age</th>\n",
+    " <th>To Node</th>\n",
+    " <th>&nbsp;</th>\n",
+    " <th>From Node</th>\n",
     " <th rowspan='2'>State</th>\n",
-    " <th>Node</th>\n",
-    " <th rowspan='2'>State</th>\n",
-    " <th rowspan='2'>N</th>\n",
+    " <th rowspan='2'>N Files</th>\n",
     " <th rowspan='2'>Size</th>\n",
+    " <th rowspan='2'>Detail</th>\n",
     "</tr>\n",
     "<tr class='selected'>",
-    " <th>",
+    " <th>\n",
     textfield(-name=>'tofilter', -default=>$tofilter, -size=>15,
               -title=>("Regular expression to match against node or link names. "
-                       ."Only those matching the expression will be shown.")),
-    "</th>",
-    "<th>",
-    "<select name='andor' onchange='submit()'>",
-    " <option ", ($andor eq 'and' ? 'selected=selected' : ''),
-    "  value='and'>and</option>",
-    " <option ", ($andor eq 'or' ? 'selected=selected' : ''),
-    "  value='or'>or</option>",
-    "</select>",
-    "</th>",
-    "<th>",
-    textfield(-name=>'fromfilter', -default=>$fromfilter, -size=>15,
-              -title=>("Regular expression to match against node or link names. "
-                       ."Only those matching the expression will be shown.")),
-    "</th>",
-    "</tr>\n";
-
-  while (my $row = $query->fetchrow_arrayref)
-  {
-    my ($stamp,
-	$to_node, $from_node,
-	$to_state, $from_state,
-	$files, $bytes) = @$row;
-
-    next if (($fromfilter || $tofilter)
-	     && ($andor eq 'or'
-		 ? ! (($fromfilter && $from_node =~ /$fromfilter/)
-		      || ($tofilter && $to_node =~ /$tofilter/))
-		 : ! (($fromfilter && $from_node =~ /$fromfilter/)
-		      && ($tofilter && $to_node =~ /$tofilter/))));
-    $total{$to_state}{$from_state} ||= { FILES => 0, BYTES => 0 };
-    $total{$to_state}{$from_state}{FILES} += $files;
-    $total{$to_state}{$from_state}{BYTES} += $bytes;
-    my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
-    my $to_state_name = ($to_state == 0 ? "pending"
-			 : $to_state == 1 ? "requested"
-			 : $to_state == 2 ? "transferring"
-			 : $to_state == 3 ? "transferred"
-			 : ($to_state >= 100 && $to_state < 999) ? "error"
-			 : "unknown");
-    my $from_state_name = ($from_state == 0 ? "pending"
-			   : $from_state == 1 ? "ready"
-			   : "unknown");
-    my $to_color = (($to_state == 2) ? " bgcolor='$goodcolor'"
-		    : ($to_state == 1) ? " bgcolor='$pendcolor'"
-		    : ($to_state >= 100) ? " bgcolor='$warncolor'"
-		    : "");
-    my $from_color = ($from_state == 1 ? " bgcolor='$goodcolor'" : "");
-    my $url = $self->myurl("page" => "Activity::FileInfo",
-			   "to_node" => $to_node,
-			   "to_state" => $to_state,
-			   "from_node" => $from_node,
-			   "from_state" => $from_state);
-    print { $$self{CONTENT} }
-      "<tr>\n",
-      " <td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>\n",
-      " <td>$to_node</td>\n",
-      " <td align='left'$to_color>$to_state_name</td>\n", # ($to_state_name)
-      " <td align='right'>&nbsp;</td>\n",
-      " <td>$from_node</td>\n",
-      " <td align='left'$from_color>$from_state_name</td>\n", # ($from_state_name)
-      " <td align='right'>@{[&format_num($files)]}</td>\n",
-      " <td align='right'>@{[&format_size($bytes)]}</td>\n",
-      " <td align='center'><a href='$url'>(Files)</a></td>\n",
-      "</tr>\n";
-  }
-
-  my $first_total = 1;
-  my ($tfiles, $tbytes) = (0, 0);
-  foreach my $to_state (sort keys %total)
-  {
-    foreach my $from_state (sort keys %{$total{$to_state}})
+                       ."Only those matching the expression will be shown.")
+	      ),
+     "</th>",
+     "<th>",
+     "<select name='andor' onchange='submit()'>",
+     " <option ", ($andor eq 'and' ? 'selected=selected' : ''),
+     "  value='and'>and</option>",
+     " <option ", ($andor eq 'or' ? 'selected=selected' : ''),
+     "  value='or'>or</option>",
+     "</select>",
+     "</th>",
+     "<th>",
+     textfield(-name=>'fromfilter', -default=>$fromfilter, -size=>15,
+	       -title=>("Regular expression to match against node or link names. "
+			."Only those matching the expression will be shown.")),
+     "</th>",
+     "</tr>\n";
+    
+    while (my $row = $query->fetchrow_arrayref)
     {
-      $tfiles += $total{$to_state}{$from_state}{FILES};
-      $tbytes += $total{$to_state}{$from_state}{BYTES};
-      my $to_state_name = ($to_state == 0 ? "pending"
-			   : $to_state == 1 ? "requested"
-			   : $to_state == 2 ? "transferring"
-			   : $to_state == 3 ? "transferred"
-			   : ($to_state >= 100 && $to_state < 999) ? "error"
-			   : "unknown");
-      my $from_state_name = ($from_state == 0 ? "pending"
-			     : $from_state == 1 ? "ready"
-			     : "unknown");
-      print { $$self{CONTENT} }
+	my ($stamp,
+	    $to_node, $from_node,
+	    $state,
+	    $files, $bytes) = @$row;
+
+	next if (($fromfilter || $tofilter)
+		 && ($andor eq 'or'
+		     ? ! (($fromfilter && $from_node =~ /$fromfilter/)
+			  || ($tofilter && $to_node =~ /$tofilter/))
+		     : ! (($fromfilter && $from_node =~ /$fromfilter/)
+			  && ($tofilter && $to_node =~ /$tofilter/))));
+	$total{$state} ||= { FILES => 0, BYTES => 0 };
+	$total{$state}{FILES} += $files;
+	$total{$state}{BYTES} += $bytes;
+	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
+	my $state_name = ($state == 0 ? "assigned"
+			  : $state == 1 ? "exported"
+			  : $state == 2 ? "transferring"
+			  : $state == 3 ? "transferred"
+			  : "unknown");
+	my $url = $self->myurl("page" => "Activity::FileInfo",
+			       "to_node" => $to_node,
+			       "from_node" => $from_node
+			       );
+	print { $$self{CONTENT} }
+	"<tr>\n",
+	" <td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>\n",
+	" <td>$to_node</td>\n",
+	" <td align='right'>&nbsp;</td>\n",
+	" <td>$from_node</td>\n",
+	" <td align='left'>$state_name</td>\n", # ($from_state_name)
+	" <td align='right'>@{[&format_num($files)]}</td>\n",
+	" <td align='right'>@{[&format_size($bytes)]}</td>\n",
+	" <td align='center'><a href='$url'>(Files)</a></td>\n",
+	"</tr>\n";
+    }
+    
+    my $first_total = 1;
+    my ($tfiles, $tbytes) = (0, 0);
+    foreach my $state (sort keys %total)
+    {
+	$tfiles += $total{$state}{FILES};
+	$tbytes += $total{$state}{BYTES};
+	my $state_name = ($state == 0 ? "assigned"
+			  : $state == 1 ? "exported"
+			  : $state == 2 ? "transferring"
+			  : $state == 3 ? "transferred"
+			  : "unknown");
+	
+	print { $$self{CONTENT} }
         "<tr>\n",
         " <th align='left' colspan='2'>", ($first_total ? "Total" : "&nbsp;"), "</th>\n",
-        " <th align='right'>$to_state_name</td>\n",
         " <th align='right'>&nbsp;</td>\n",
 	" <th align='right'>&nbsp;</td>\n",
-	" <th align='right'>$from_state_name</td>\n",
-	" <th align='right'>@{[&format_num($total{$to_state}{$from_state}{FILES})]}</th>\n",
-	" <th align='right'>@{[&format_size($total{$to_state}{$from_state}{BYTES})]}</th>\n",
+	" <th align='right'>$state_name</td>\n",
+	" <th align='right'>@{[&format_num($total{$state}{FILES})]}</th>\n",
+	" <th align='right'>@{[&format_size($total{$state}{BYTES})]}</th>\n",
 	" <th align='right'>&nbsp;</th>\n",
 	"</tr>\n";
-      $first_total = 0;
+	$first_total = 0;
     }
-  }
-  print { $$self{CONTENT} }
+
+    print { $$self{CONTENT} }
     "<tr>\n",
     " <th align='left' colspan='2'>", ($first_total ? "Total" : "&nbsp;"), "</th>\n",
-    " <th align='right'>All</td>\n",
     " <th align='right'>&nbsp;</td>\n",
     " <th align='right'>&nbsp;</td>\n",
     " <th align='right'>All</td>\n",
@@ -3741,9 +4442,10 @@ sub output
     "</table>\n",
     "</p>\n";
 
+
   $query = &dbexec($$self{DBH}, qq{
     select xr.time_update, n.name, xr.state, xr.files, xr.bytes
-    from t_info_xfer_replicas xr join t_adm_node n on n.id = xr.node
+    from t_status_replica xr join t_adm_node n on n.id = xr.node
     order by n.name, state});
 
   print { $$self{CONTENT} }
@@ -3858,12 +4560,9 @@ sub output
   my ($self) = @_;
   my $to_node = param('to_node');
   my $from_node = param('from_node');
-  my $to_state = param('to_state');
-  my $from_state = param('from_state');
   if (! defined $to_node || $to_node eq ''
       || ! defined $from_node || $from_node eq ''
-      || ! defined $to_state || $to_state !~ /^\d+$/
-      || ! defined $from_state || $from_state !~ /^\d+$/)
+      )
   {
     print { $$self{CONTENT} }
       "<div class='alert'><p><b>Error:</b>",
@@ -3871,35 +4570,38 @@ sub output
   }
 
   my $query = &dbexec($$self{DBH}, qq{
-    select f.logical_name, f.filesize, xs.from_pfn, xs.to_pfn,
-	   xs.errors, xs.last_error, xs.time_xfer_start
-    from t_xfer_state xs
-      join t_xfer_file f on f.id = xs.fileid
-      join t_adm_node ns on ns.id = xs.from_node
-      join t_adm_node nd on nd.id = xs.to_node
+    select f.logical_name, f.filesize, xt.from_pfn, xt.to_pfn,
+	   xt.time_assign, err.cnt num_errors
+    from t_xfer_task xt
+      join t_xfer_file f on f.id = xt.fileid
+      join t_adm_node ns on ns.id = xt.from_node
+      join t_adm_node nd on nd.id = xt.to_node
+      left join (select xe.fileid, xe.from_node, xe.to_node, count(*) cnt 
+                   from t_xfer_error xe
+                  group by xe.fileid, xe.from_node, xe.to_node
+                 ) err 
+           on     err.fileid = xt.fileid 
+              and err.from_node= xt.from_node 
+              and err.to_node = xt.to_node
     where ns.name = :from_node
       and nd.name = :to_node
-      and xs.from_state = :from_state
-      and xs.to_state = :to_state
-    order by xs.time_xfer_start, f.logical_name},
+    order by xt.time_assign, f.logical_name},
     ":from_node" => $from_node,
-    ":to_node" => $to_node,
-    ":from_state" => $from_state,
-    ":to_state" => $to_state);
+    ":to_node" => $to_node
+     );
   print { $$self{CONTENT} }
-    "<p>Files from $from_node, state $from_state to $to_node, state $to_state.</p>\n",
+    "<p>Files from $from_node to $to_node.</p>\n",
     "<ol align='left'>\n";
   while (my $row = $query->fetchrow_arrayref)
   {
-    my ($lfn, $size, $from_pfn, $to_pfn, $errors, $errmsg, $start) = @$row;
+    my ($lfn, $size, $from_pfn, $to_pfn, $assigned, $nerrors) = @$row;
     print { $$self{CONTENT} }
       "<li><b>lfn</b>=@{[&escapeHTML($lfn)]}<br />",
       "<b>size</b>=$size<br />",
-      "<b>errors</b>=$errors<br />",
       ($from_pfn ? "<b>from_pfn</b>=@{[&escapeHTML($from_pfn)]}<br />" : ""),
       ($to_pfn ? "<b>to_pfn</b>=@{[&escapeHTML($to_pfn)]}<br />" : ""),
-      ($errmsg ? "<b>last_error</b>=<i>@{[&escapeHTML($errmsg)]}</i><br />" : ""),
-      ($start ? "<b>time_xfer_start</b>=@{[strftime('%Y-%m-%d %H:%M:%S', gmtime($start))]} UTC<br />" : ""),
+      ($nerrors ? "<b>errors</b>=$nerrors<br />"  : ""),
+      ($assigned ? "<b>time_assign</b>=@{[strftime('%Y-%m-%d %H:%M:%S', gmtime($assigned))]} UTC<br />" : ""),
       "<br /></li>\n";
   }
   print { $$self{CONTENT} } "</ol></p>\n";
@@ -4419,7 +5121,11 @@ sub node_form
   my ($self) = @_;
 
   my $form = "";
+
   $form .= "<div id='nodechoice'>\n";
+  $form .= "<input type='submit' value='Select all' onclick=\"select_all('nodechoice', 'node', '1')\"/>\n",
+  $form .= "<input type='submit' value='Select none' onclick=\"select_all('nodechoice', 'node', '0')\"/>\n",
+
   my (@all, @columns) = @{$$self{NODE_LIST}};
   my $percolumn = int(scalar(@all)/4 + 0.5);
   $percolumn = 4 if ! $percolumn;
@@ -4472,7 +5178,7 @@ sub output_filter
   my ($self) = @_;
   my $filter = param('filter');
   my $filterform = "" .
-    "<form style='display:inline' method='GET' href='@{[$self->myurl()]}'>" .
+    "<form style='display:inline' method='get' action='@{[$self->myurl()]}'>" .
     $self->saveform('filter') .
     textfield(-name=>'filter', -default=>$filter, -size=>15,
 	      -title=>("Regular expression to match against the name column. "
@@ -4505,7 +5211,7 @@ import Web25::Common;
 use CGI qw(:standard);
 use List::Util qw(max);
 
-our $INDEX = { LIST => 1, ORDER => 2, TITLE => "Replicas",
+our $INDEX = { LIST => 1, ORDER => 1, TITLE => "Replicas",
 	       LINK_TITLE => "Explore replicas" };
 
 sub new
@@ -4789,15 +5495,7 @@ sub output_options_form
     $form = $self->saveform(qw(dcolumn rcolumn node nvalue dbs rows));
     $optspane->add_hidden($form);
 
-    # DBS Source tab
-    $form = $self->dbs_form();
-    $optspane->add_tab('DBS Sources', $form);
-
-    # Node Selection tab
-    $form = $self->node_form();
-    $optspane->add_tab('Nodes Shown', $form);
-    
-    # Columns Tab
+   # Columns Tab
     my @display_columns;
     push @display_columns, 
     [('rcolumn', 'DBS')], 
@@ -4809,8 +5507,17 @@ sub output_options_form
     [('dcolumn', 'Open')], 
     [('dcolumn', 'Transient')];
 
+    $form = $self->columns_form(@display_columns);
     $optspane->add_tab('Columns', $form);
 
+    # DBS Source tab
+    $form = $self->dbs_form();
+    $optspane->add_tab('DBS Sources', $form);
+
+    # Node Selection tab
+    $form = $self->node_form();
+    $optspane->add_tab('Nodes Shown', $form);
+    
     # Node Values tab
     $form = "";
     $form .= "   <p style='margin-top:1ex'><i>Node Values</i></p>\n";
@@ -4844,7 +5551,7 @@ import Web25::Common;
 use CGI qw(:standard);
 use List::Util qw(max);
 
-our $INDEX = { LIST => 1, ORDER => 3, TITLE => "Subscriptions",
+our $INDEX = { LIST => 1, ORDER => 2, TITLE => "Subscriptions",
 	       LINK_TITLE => "Explore subscriptions" };
 
 sub new
@@ -4859,11 +5566,13 @@ sub new
 sub output_page
 {
   my ($self) = @_;
-  my $replicaurl = $self->myurl(page => "Data::Replicas");
 
-  if (!$$self{SSL_IDENTITY}) {
-      $self->note("You are not logged in.  If you log in it is ",
-		  "possible to change the subscription and priority from this page.");
+  my $adminok = $self->alert_auth(need => 'siteadmin', power => 'update suspensions and priorities');
+  $adminok = 1;  # XXX temp for test
+
+  if (param('subsaction')) {
+      $self->update_subscriptions();
+      return;
   }
 
   print { $$self{CONTENT} } (new Web25::OptsPane)->link("Show Options");
@@ -4881,15 +5590,20 @@ sub output_page
     IS_TRANSIENT => 'Transient?',
     TIME_SUSPEND_UNTIL => 'Suspended?' };
   
-  
   # Special data fromats
+  my $testvar = 0;  # XXX temp for test
   my $df = 
   { 
       PRIORITY => sub { if ($_[0] == 0) { return 'High'; }
 			if ($_[0] == 1) { return 'Normal'; }
 			if ($_[0] == 2) { return 'Low'; } },
       IS_MOVE => sub { return $_[0] eq 'y' ? 'Move' : 'Replica'; },
-      TIME_SUSPEND_UNTIL => sub { return defined $_[0] ? "y" : "n"; }
+      TIME_SUSPEND_UNTIL => sub { return defined $_[0] ? "y" : "n"; },
+      SELECT => sub { my ($str, $rowdata) = @_; 
+		      if ($testvar) {
+			  $str =~s/input /input disabled=\'true\' /; 
+		      }
+		      return $str }
   };
 
   # Special cell formats
@@ -4901,9 +5615,16 @@ sub output_page
   # Pseudo columns
   my %pseudo =
       (
-       'SELECT'  => "<input name='subsc' type='checkbox' value='\@ID\@'/>"
+       'SELECT'  => sub { "<input type='checkbox' name='s_id' value='$_[1]->{DATASET_ID}:$_[1]->{NODE_ID}'/>" }
        );
   
+  if (!$adminok) {
+      delete $pseudo{SELECT};
+      delete $df->{SELECT};
+      delete $th->{SELECT};
+      @cols = grep !/SELECT/, @cols;
+  }
+
   my $dbtable = new Web25::DBTable;
   $dbtable->set_filehandle($$self{CONTENT});
   $dbtable->set_tablecols(\@cols);
@@ -4914,7 +5635,104 @@ sub output_page
   $dbtable->set_cellformats($cf);
   $dbtable->add_pseudocolumn($_, $pseudo{$_}) foreach (keys %pseudo);
 
-  $dbtable->output($q);
+  if ($adminok) {
+      print { $$self{CONTENT} }
+      "<p><b>Selections:</b>\n",
+      "<input type='submit' value='Select all' onclick=\"select_all('subsform', 's_id', '1')\"/>\n",
+      "<input type='submit' value='Select none' onclick=\"select_all('subsform', 's_id', '0')\"/>\n",
+      "</p>\n";
+
+      my $target = $self->myurl();
+      print { $$self{CONTENT} } "<form id='subsform' method='post' action='$target'>",
+      $self->saveform(),
+      "<p><b>Actions:</b>\n",
+      "<select name='subsaction'>\n",
+      "<option value='suspend'>Suspend subscriptions</option>\n",
+      "<option value='unsuspend'>Remove suspensions</option>\n",
+      "<option value='priorityhi'>Make high priority</option>\n",
+      "<option value='prioritymd'>Make normal priority</option>\n",
+      "<option value='prioritylo'>Make low priority</option>\n",
+      "</select>\n",
+      "<input type='submit' value='Update'/>\n",
+      "</p>\n";
+  }
+
+  my $nrows = $dbtable->output($q);
+
+  if ($adminok) {
+      print { $$self{CONTENT} } "</form>\n";
+  }
+
+  if ($nrows == 0) {
+      $self->alert("No data exists for your selected nodes.");
+  }
+}
+
+sub update_subscriptions
+{
+    my ($self) = @_;
+
+    dump_params($$self{CONTENT}); # XXX temp test
+
+    my $where_list = join(' or ', map { my ($ds, $dest) = split /:/; 
+					"(s.dataset = $ds and s.destination = $dest)" } param('s_id'));
+    my $sel_names = qq[ select s.dataset dataset_id, 
+                               ds.name dataset_name,
+			       n.id node_id,
+			       n.name node_name
+			from t_dps_subscription s
+			     join t_dps_dataset ds on ds.id = s.dataset
+			     join t_adm_node n on n.id = s.destination
+			where $where_list
+			order by n.name, ds.id ];
+
+    my $upd_suspend = qq[ update t_dps_subscription set time_suspend_until = ?
+			  where dataset = ? and destination = ? ];
+    my $upd_priority = qq[ update t_dps_subscription set priority = ?
+			   where dataset = ? and destination = ?];
+
+    my $action_list = 
+    {
+	suspend => { desc => ' suspended',
+		     sql  => $upd_suspend,
+		     val  => 999999999 },
+    	unsuspend => { desc => ' unsuspended',
+		       sql  => $upd_suspend,
+		       val  => undef },
+	priorityhi => { desc => ' set to high priority',
+			sql => $upd_priority,
+			val => 0 },
+	prioritymd => { desc => ' set to medium priority',
+			sql => $upd_priority,
+			val => 1 },
+	prioritylo => { desc => ' set to low priority',
+			sql => $upd_priority,
+			val => 2 }
+    };
+
+    # Execute the update
+    my $action = $action_list->{param('subsaction')};
+    my $result = 1;
+    foreach (param('s_id')) {
+	my ($dataset, $destination) = split /:/;
+	print { $$self{CONTENT} } "<pre>Executing $action->{sql} ",
+	"with parameters ($action->{val}, $dataset, $destination)</pre>";
+	$result ||= 1;
+    }
+
+    # Report the changes
+    my $myurl = $self->myurl();
+    print { $$self{CONTENT} } "<p><a href='$myurl'>Return to subscription display</a></p>";
+    if ($result) {
+	print { $$self{CONTENT} } "<h1>The following datasets were $action->{desc}:</h1>";
+	my $q = &dbexec($$self{DBH}, $sel_names);
+	my $dbtable = new Web25::DBTable;
+	$dbtable->set_filehandle($$self{CONTENT});
+	$dbtable->output($q);
+    } else {
+	$self->alert("Nothing was changed");
+    }
+
 }
 
 # Produce content to the options panel
@@ -4943,13 +5761,16 @@ sub output_options_form
 sub data_subscriptions
 {
   my ($self) = @_;
+  # XXX FIXME There is some problem with these node lists...
   my @node_ids = map { $$_{IS_SHOWN} ? $$_{ID} : '' } @{$$self{NODE_LIST}};
+#  my @node_ids = map { $$_{ID} } @{$$self{NODE_LIST}};
   @node_ids = grep /\d+/, @node_ids;
   my ($where_list) = join(' or ', map { "n.id=$_"} @node_ids );
 
   my $q = &dbexec($$self{DBH}, qq{
-    select s.dataset id, 
+    select s.dataset dataset_id, 
 	   ds.name dataset_name,
+           n.id node_id,
            n.name node_name,
            s.priority,
            s.is_move,
@@ -4965,6 +5786,7 @@ sub data_subscriptions
   return $q;
 }
 
+
 1;
 
 ######################################################################
@@ -4974,7 +5796,7 @@ use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 1, ORDER => 5, TITLE => "Remove Datasets",
+our $INDEX = { LIST => 1, ORDER => 3, TITLE => "Remove Datasets",
 	       LINK_TITLE => "Remove datasets from PhEDEx database",
                SECURE => 1 };
 
@@ -5002,7 +5824,7 @@ use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 1, ORDER => 6, TITLE => "Remove Files",
+our $INDEX = { LIST => 1, ORDER => 4, TITLE => "Remove Files",
 	       LINK_TITLE => "Remove files from PhEDEx database",
                SECURE => 1 };
 
@@ -5254,7 +6076,98 @@ sub new
 sub output
 {
   my ($self) = @_;
-  print { $$self{CONTENT} } "<p>This page not yet implemented.  Help is welcome!</p>";
+
+  # Check if user has certificate loaded
+  my $adminok = $self->alert_auth(need => 'gridcert', power => 'sign up to be a transfer administrator');
+  unless ($adminok) { return; }
+
+  # Check if user is already registered
+  if ($$self{DB_IDENTITY_ID}) {
+      # TODO What if the user wants to request admin rights for more sites?
+      $self->note("Hello $$self{USER_NAME}, you are already registered to PhEDEx.");
+      # return;  
+  }
+
+  # Display the apporpriate part of this page
+  if (!param('signup')) {
+      $self->signup_form();
+  } else {
+      $self->send_request();
+  }
+}
+
+
+sub signup_form
+{
+    my ($self) = @_;
+    
+    my $name = $$self{USER_NAME};
+    my $client_dn = $$self{SSL_IDENTITY};
+    my $email = create_default_email();
+    
+    my $actionurl = $self->myurl();
+    print { $$self{CONTENT} } "<form class='nice' method='get' action='$actionurl'>";
+    print { $$self{CONTENT} } "<h1>Admin Registration</h1>",
+    "<p>Fill in the requested information and choose the sites for wish ",
+    "you would like to be authorized to administer.  Your request will be ",
+    "emailed to existing site administrators and PhEDEx global admins for ",
+    "approval.</p>";
+    
+    print { $$self{CONTENT} } 
+    "<fieldset><legend>Certificate Parameters</legend>",
+    "<label>Name:</label><span class='labeled'>$name</span><br/>",
+    "<label>Distinguished Name:</label><span class='labeled'>$client_dn</span><br/>",
+    "<label>Certificate email:</label><span class='labeled'>$email</span><br/>",
+    "</fieldset>";
+    
+    print { $$self{CONTENT} } 
+    "<fieldset><legend>Registration Information</legend>",
+    "<label>Preferred email:</label><input class='labeled' type='text' name='pref_email' value='$email' /><br/>",
+    "</fieldset>";
+    
+    print { $$self{CONTENT} } "<h2>Sites:</h2>";
+    my $sql = qq[ select s.id, s.name, s.role_name, n.name
+		  from t_adm_site s join t_adm_site_node sn on s.id = sn.site
+		  join t_adm_node n on n.id = sn.node ];
+    
+    my $q = &dbexec($$self{DBH}, $sql);
+    my $sites = {};
+    while (my ($id, $site, $role, $node) = $q->fetchrow_array) {
+	if (!exists $sites->{$site}) {
+	    $sites->{$site} = {site => $site, id => $id, role => $role, nodes => $node };
+	} else {
+	    $sites->{$site}->{nodes} = join ', ', $sites->{$site}->{nodes}, $node;
+	}
+    }
+    my $table = new Web25::TableSpool;
+    $table->set_filehandle( $$self{CONTENT} );
+    $table->set_tablecols([qw(select site role nodes)]);
+    $table->set_tablehead({
+	select => 'Select',
+	site => 'Site Name',
+	role => 'Role',
+	nodes => 'Nodes'
+	});
+    $table->set_tableclass('data');
+    $table->add_pseudocolumn('select', sub { "<input type='checkbox' name='sites' value='$_[1]->{id}'/>" });
+    $table->start();
+    $table->head();
+    foreach(sort keys %{$sites}) {
+	$table->row($sites->{$_});
+    }
+    $table->finish();
+    
+    print { $$self{CONTENT} } "<br/><input type='submit' name='signup' value='Submit'/>";
+    print { $$self{CONTENT} } "</form>";
+}
+
+
+sub send_request
+{
+    my ($self) = @_;
+    dump_params($$self{CONTENT});
+
+    print { $$self{CONTENT} } "<h1>OK, working on it</h1>";
 }
 
 1;

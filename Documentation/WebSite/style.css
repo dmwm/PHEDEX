@@ -117,7 +117,6 @@ div#page {
   position:		relative;
 
   padding:		0;
-  padding-right:	200px;
   margin-top:		5px;
   margin-left:		20px;
 
@@ -189,16 +188,28 @@ div#opts {
   left:  50%;
   width:  600px;
   margin-left:  -250px;
-  background-color:  blue;
   border:		10px solid blue;
 
 }
+
+div.optscontent,
+div#optsnav div.raised {
+  background-color:	#f2f2ff;
+}
+
+div#opts,
+div#optsnav,
+div#optsnav div.lowered {
+  background-color:  blue;
+}
+
 
 div#optsnav {
   height:  25px;
   width:  100%;
   margin:  0;
   padding: 0;
+  border:  none;
 }
 
 div.optscontent {
@@ -207,7 +218,6 @@ div.optscontent {
   padding-left:  1em;
   padding-right:  1em;
   overflow:  auto;
-  background-color:	#f2f2ff;
 }
 
 div#optsfoot {
@@ -218,22 +228,24 @@ div#optsfoot {
   text-align:  right;
 }
 
-div#optsnav a,
-div#optsfoot a {
+div#optsnav div.raised,
+div#optsnav div.lowered {
+  text-decoration:  none;
   padding:  2px 6px 2px 6px;
-  margin-right: 4px;
+  margin: 0;
+  display:  inline;
+  height:  100%;
+}
+
+div.raised a {
+  color:  black;
+  font-weight:  bold;
   text-decoration:  none;
 }
 
-div#optsnav a.raised {
-  background-color:  white;
-  color:  black;
-  font-weight:  bold;
-}
-
-div#optsnav a.lowered {
-  background-color:  blue;
-  color:  #aaaaaa;;
+div.lowered a {
+  color:  #aaaaaa;
+  text-decoration:  none;
 }
 
 /**********************************************************************/
@@ -596,7 +608,7 @@ table.striped tbody tr th {
   font-size:		0.9em;
   padding:		2px 2px;
   border-left:		1px dotted #D9D9D9;
-  -border-bottom:	1px dotted #D9D9D9;
+/**  border-bottom:	1px dotted #D9D9D9; **/
   vertical-align:	top;
 }
   
@@ -606,7 +618,7 @@ table.striped tbody tr.selected th {
   color:		#ffffff;
   font-weight:		bold;
   border-left:		1px solid #346DBE;
-  -border-bottom:	1px solid #7DAAEA;
+/**  border-bottom:	1px solid #7DAAEA; **/
   vertical-align:	top;
 }
 
@@ -614,9 +626,9 @@ table.striped tbody tr.selected th {
 /** A generic table with stripes **/
 table.data {
   border:  1px solid black;
-  background:  white;
-  color:  black;
   border-collapse:  collapse;
+  background-color:  white;
+  color:  black;
 }
 
 table.data td,
@@ -626,11 +638,92 @@ table.data th {
   padding-right:  0.5em;
 }
 
+table.data th {
+  background-color:	#3d80df;
+  color:		#white;
+}
+
 table.data tr.stripe {
-  background:  #ddd;
+  background:  #ddf;
 }
 
 table.data td.alarm {
   font-weight:  bold;
   background:  #fcc;
+}
+
+.nice fieldset,
+.nice p {
+  width:  50em;
+}
+
+.nice label,
+.nice .labeled {
+  position:  relative;
+  display: block;
+  float: left;
+  margin-bottom: 0.5em;
+}
+
+.nice label {
+  width:  12em;
+  padding-right:  1em;
+  font-weight:  bold;
+  text-align:  right;
+}
+
+.nice label .note {
+  color:  #55a;
+  font-size:  8pt;
+  font-weight:  normal;
+}
+
+.nice .labeled {
+}
+
+.nice br { clear:  left; }
+
+form.nice input,
+form.nice select,
+form.nice textarea { border:  thin solid black; }
+
+.outline { border:  thin solid black; }
+.padded { margin:  1em; padding:  1em; }
+
+div.paramblock {
+  border-left:  thick solid black;
+  margin-left:  1em;
+  margin-bottom:  1em;
+  padding-bottom:  1em;
+  margin-right:  1em;
+}
+
+div.paramblock h1 { 
+  margin-left:  0;
+  padding-left:  1em;
+  border: thin dotted black;
+  font-weight:  bold;
+  font-style:  italic;
+  letter-spacing:  0.1em;
+}
+
+.lev1    { background-color:  #d9d9ff;}
+.lev1 h1 { background-color:  #c9c9ff;  font-size:  14pt; }
+
+.lev2    { background-color:  #d9ffd9;}
+.lev2 h1 { background-color:  #c9ffc9;  font-size:  12pt; }
+
+.lev3    { background-color:  #ffd9d9;}
+.lev3 h1 { background-color:  #ffc9c9;  font-size:  10pt; }
+
+div.paramblock .hideaway { 
+  border-top:  thin dotted black;
+  border-bottom:  thin dotted black;
+}
+
+div.paramblock .comment {
+  background-color:  white;
+  width:  25em;
+  border:  thin solid #aaa;
+  padding:  0.5em;
 }
