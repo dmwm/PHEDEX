@@ -378,24 +378,28 @@ sub set_auth_vars
 }
 
 
-# returns a list of node ids for which a given identity has permission to change
+# returns a list of node ids for which current user has permission to change
 sub fetch_authorized_nodes
 {
-    my ($self, $identity) = @_;
-    if (!defined $identity) { return undef; }
-    my @nodes = &dbexec($$self{DBH},
-			qq{ select t_adm_site_node.node
+    my ($self) = @_;
+    
+    my @nodes;
+    my $q = &dbexec($$self{DBH},
+			qq{ select sn.node
 			      from t_adm_site_admin sa
                               join t_adm_site s on s.id = sa.site
                               join t_adm_site_node sn on sn.site = s.id
-			     where sa.identity = :adm_id },
-			":adm_id" => $identity, )->fetchrow_array();
-    # to enable global admin, add 
-#           union
-#           select t_adm_site.id
-#            from t_adm_site
-#           where exists (select id from t_adm_gloabl_admin
-#                         where id = :glb_id)
+			     where sa.identity = :adm_id 
+                             union
+                             select id from t_adm_node
+                             where exists (select identity from t_adm_global_admin
+                                           where identity = :glb_id) },
+			":adm_id" => $$self{DB_IDENTITY_ID},
+		    ":glb_id" => $$self{DB_IDENTITY_ID});
+    while (my ($node) = $q->fetchrow()) {
+	push @nodes, $node;
+    }
+			
     return @nodes;
 }
 
@@ -2227,7 +2231,7 @@ sub subscribe_request
     my ($sth, $rv) = &dbexec($dbh,
 	    qq[ insert into t_dps_subscription 
 		  (dataset, block, destination, priority, is_move, is_transient, time_create)
-		select ds.id, NULL, dest.destination, 1, 'n', 'y', :now
+		select ds.id, NULL, dest.destination, 1, 'n', 'n', :now
 		  from t_req_info_dest dest
 		  join t_req_info_dataset req_ds on dest.request = req_ds.request
 		  join t_dps_dataset ds on req_ds.dataset = ds.name
@@ -2235,7 +2239,7 @@ sub subscribe_request
 		 where dest.request = :rid and dbs.name = req_ds.dbs
                    and req_ds.dps_isknown = 'y' and req_ds.dbs_isknown = 'y'
                 union
-                select b.dataset, b.id, destination, 1, 'n', 'y', :now
+                select NULL, b.id, destination, 1, 'n', 'n', :now
                   from t_req_info_dest dest
 		  join t_req_info_block req_b on dest.request = req_b.request
                   join t_dps_block b on req_b.block = b.name
@@ -2474,7 +2478,7 @@ sub output
   $table->start();
   $table->head();
 
-  foreach my $rid (sort keys %{$req_datasets}) {
+  foreach my $rid (sort keys %{$req_info}) {
       next if ($request && $request != $rid); # XXX improve later...
       my $dests = join ', ', @{$$req_dest{$rid}};
       my $row = { REQUEST => $rid, DESTINATIONS => $dests };
@@ -2803,10 +2807,12 @@ sub dbs_lookup
     my ($dbs, $pattern) = @_;
 
     ### Security:  Strict list of characters allowed to go to shell
-#      my $allowed = qr/\w\d\*\/\#\-_\:\?\=/;
-#      if ($dbs =~ /[^$allowed]/ || $pattern =~ /[^$allowed]/) {
-#  	die "Invalid character in sub dbs_lookup $allowed";
-#      }
+    my $reg = qr/[^\w\.\*\-\#\/\?=:\+\&]/;
+    foreach (@_) {
+	if (/$reg/) {
+	    die "Invalid string '$_' given to dbs_lookup()";
+	}
+    }
         
     my $dbscmd = "wget -qO- '$dbs;api=listDatasets;pattern=$pattern'";
     my $dbsresults = `$dbscmd`;
@@ -2819,8 +2825,8 @@ sub dbs_lookup
 
 # Resolve user datasets;  Search DPS and DBS for glob patterns
 # Fill data object with results:
-# $$resolved{$userglob} = [ { DBS => $, LEVEL => $, ITEM => $, DPS_ISKNOWN => $, DBS_ISKNOWN => $}, ... ]
-# Where:
+# $$resolved{$userglob} = [ { params }, ... ]
+# Where { params } contains:
 #   DBS = dbs the data was found in PhEDEx, not necessarily the one the user specified
 #   LEVEL = 'BLOCK' or  'DATASET'
 #   DATASET = Dataset name
@@ -2892,7 +2898,7 @@ sub resolve_data
 		push @{$$resolved{$userglob}}, { DBS => $userdbs,
 						 LEVEL => $level,
 						 DATASET => ($level eq 'DATASET' ? $name : undef),
-						 DATASET => ($level eq 'BLOCK' ? $name : undef),
+						 BLOCK   => ($level eq 'BLOCK' ? $name : undef),
 						 DPS_ISKNOWN => 'n',
 						 DBS_ISKNOWN => 'y',
 						 ID => undef };
@@ -3257,10 +3263,11 @@ sub output
 
   my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, $dbs, @data);
 
+  my @rv;
   foreach my $userglob (sort @data) {
       foreach my $res (@{$$resolved{$userglob}}) {
 	  if ($$res{LEVEL} eq 'DATASET') {
-	      &dbexec($$self{DBH}, 
+	      @rv = &dbexec($$self{DBH}, 
 		      qq[ insert into t_req_info_dataset (request, dbs, dataset, dbs_isknown, dps_isknown)
 			  values ( :rid, :dbs, :dataset, :dbs_isknown, :dps_isknown ) ],
 		      ':rid' => $rid,
@@ -3268,8 +3275,8 @@ sub output
 		      ':dataset' => $$res{DATASET},
 		      ':dbs_isknown' => $$res{DBS_ISKNOWN},
 		      ':dps_isknown' => $$res{DPS_ISKNOWN});
-	  } elsif ($$res{level} eq 'BLOCK') {
-	      &dbexec($$self{DBH},
+	  } elsif ($$res{LEVEL} eq 'BLOCK') {
+	      @rv = &dbexec($$self{DBH},
 		      qq[ insert into t_req_info_block ( request, dbs, dataset, block,
 							 dbs_isknown, dps_isknown)
 			  values ( :rid, :dbs, :dataset, :block, :dbs_isknown, :dps_isknown ) ],
@@ -3279,6 +3286,10 @@ sub output
 		      ':block' => $$res{BLOCK},
 		      ':dbs_isknown' => $$res{DBS_ISKNOWN},
 		      ':dps_isknown' => $$res{DPS_ISKNOWN});
+	  }
+	  unless ($rv[1]) {
+	      $$self{DBH}->rollback();
+	      &alert("Request creation failed");
 	  }
       }
   }
@@ -5132,7 +5143,7 @@ sub node_form
   push (@columns, [ splice(@all, 0, $percolumn) ]) while @all;
 
   $form .= "  <div id='nodemenu' style='font-size:0.9em'>\n";
-  $form .= "    <table>\n";
+  $form .= "    <table style='white-space:  nowrap;'>\n";
   $form .= "     <tbody>\n";
   $form .= "      <tr>\n";
 
@@ -5568,22 +5579,21 @@ sub output_page
   my ($self) = @_;
 
   my $adminok = $self->alert_auth(need => 'siteadmin', power => 'update suspensions and priorities');
-  $adminok = 1;  # XXX temp for test
 
   if (param('subsaction')) {
       $self->update_subscriptions();
-      return;
   }
 
   print { $$self{CONTENT} } (new Web25::OptsPane)->link("Show Options");
 
   my $q =$self->data_subscriptions();
   
-  my @cols = qw(SELECT DATASET_NAME NODE_NAME PRIORITY 
+  my @cols = qw(SELECT ITEM_LEVEL ITEM_NAME NODE_NAME PRIORITY 
 		IS_MOVE IS_TRANSIENT TIME_SUSPEND_UNTIL);
   my $th =
   { SELECT => 'Select',
-    DATASET_NAME => 'Dataset',
+    ITEM_LEVEL => 'Data Level',
+    ITEM_NAME => 'Data Item',
     NODE_NAME => 'Node',
     PRIORITY => 'Priority',
     IS_MOVE => 'Kind',
@@ -5591,19 +5601,13 @@ sub output_page
     TIME_SUSPEND_UNTIL => 'Suspended?' };
   
   # Special data fromats
-  my $testvar = 0;  # XXX temp for test
   my $df = 
   { 
       PRIORITY => sub { if ($_[0] == 0) { return 'High'; }
 			if ($_[0] == 1) { return 'Normal'; }
 			if ($_[0] == 2) { return 'Low'; } },
       IS_MOVE => sub { return $_[0] eq 'y' ? 'Move' : 'Replica'; },
-      TIME_SUSPEND_UNTIL => sub { return defined $_[0] ? "y" : "n"; },
-      SELECT => sub { my ($str, $rowdata) = @_; 
-		      if ($testvar) {
-			  $str =~s/input /input disabled=\'true\' /; 
-		      }
-		      return $str }
+      TIME_SUSPEND_UNTIL => sub { return defined $_[0] ? "y" : "n"; }
   };
 
   # Special cell formats
@@ -5615,7 +5619,7 @@ sub output_page
   # Pseudo columns
   my %pseudo =
       (
-       'SELECT'  => sub { "<input type='checkbox' name='s_id' value='$_[1]->{DATASET_ID}:$_[1]->{NODE_ID}'/>" }
+       'SELECT'  => sub { "<input type='checkbox' name='s_id' value='$_[1]->{ITEM_LEVEL}:$_[1]->{ITEM_ID}:$_[1]->{NODE_ID}'/>" }
        );
   
   if (!$adminok) {
@@ -5637,7 +5641,7 @@ sub output_page
 
   if ($adminok) {
       print { $$self{CONTENT} }
-      "<p><b>Selections:</b>\n",
+      "<p><label>Selections:</label>\n",
       "<input type='submit' value='Select all' onclick=\"select_all('subsform', 's_id', '1')\"/>\n",
       "<input type='submit' value='Select none' onclick=\"select_all('subsform', 's_id', '0')\"/>\n",
       "</p>\n";
@@ -5645,8 +5649,9 @@ sub output_page
       my $target = $self->myurl();
       print { $$self{CONTENT} } "<form id='subsform' method='post' action='$target'>",
       $self->saveform(),
-      "<p><b>Actions:</b>\n",
-      "<select name='subsaction'>\n",
+      "<p>\n",
+      "<label>Actions:</label>\n",
+      "<select class='labeled' name='subsaction'>\n",
       "<option value='suspend'>Suspend subscriptions</option>\n",
       "<option value='unsuspend'>Remove suspensions</option>\n",
       "<option value='priorityhi'>Make high priority</option>\n",
@@ -5655,6 +5660,7 @@ sub output_page
       "</select>\n",
       "<input type='submit' value='Update'/>\n",
       "</p>\n";
+
   }
 
   my $nrows = $dbtable->output($q);
@@ -5671,25 +5677,13 @@ sub output_page
 sub update_subscriptions
 {
     my ($self) = @_;
+    my @auth_nodes = $self->fetch_authorized_nodes();
+    my $nodes = { map { $$_{ID} = $$_{NAME} } $self->node_list() }; # just a hash of id => name
 
-    dump_params($$self{CONTENT}); # XXX temp test
-
-    my $where_list = join(' or ', map { my ($ds, $dest) = split /:/; 
-					"(s.dataset = $ds and s.destination = $dest)" } param('s_id'));
-    my $sel_names = qq[ select s.dataset dataset_id, 
-                               ds.name dataset_name,
-			       n.id node_id,
-			       n.name node_name
-			from t_dps_subscription s
-			     join t_dps_dataset ds on ds.id = s.dataset
-			     join t_adm_node n on n.id = s.destination
-			where $where_list
-			order by n.name, ds.id ];
-
-    my $upd_suspend = qq[ update t_dps_subscription set time_suspend_until = ?
-			  where dataset = ? and destination = ? ];
-    my $upd_priority = qq[ update t_dps_subscription set priority = ?
-			   where dataset = ? and destination = ?];
+    my $upd_suspend = qq[ update t_dps_subscription set time_suspend_until = :val
+			  where _ITEM_ = :id and destination = :dest ];
+    my $upd_priority = qq[ update t_dps_subscription set priority = :val
+			   where _ITEM_ = :id and destination = :dest];
 
     my $action_list = 
     {
@@ -5712,27 +5706,35 @@ sub update_subscriptions
 
     # Execute the update
     my $action = $action_list->{param('subsaction')};
-    my $result = 1;
+
+    my $n_changed = 0;
+    my %warn_hash;  # to keep unique warnings
     foreach (param('s_id')) {
-	my ($dataset, $destination) = split /:/;
-	print { $$self{CONTENT} } "<pre>Executing $action->{sql} ",
-	"with parameters ($action->{val}, $dataset, $destination)</pre>";
-	$result ||= 1;
+	my ($level, $id, $destination) = split /:/;
+
+	if (grep $destination, @auth_nodes) {
+	    my $sql = $$action{sql};
+	    $sql =~ s/_ITEM_/$level/;
+	    my @rv = &dbexec($$self{DBH}, $sql, 
+			     ':val' => $$action{val},
+			     ':id'  => $id,
+			     ':dest' => $destination);
+	    $n_changed += $rv[1];
+	} else {
+	    my $warn = "<p class='alarm'>Sorry, you don't have permission to update $$nodes{$destination} subscriptions!</p>";
+	    $warn_hash{$warn} = 1;
+	}
     }
+
+    # Print scoldings
+    print { $$self{CONTENT} } keys %warn_hash;
 
     # Report the changes
-    my $myurl = $self->myurl();
-    print { $$self{CONTENT} } "<p><a href='$myurl'>Return to subscription display</a></p>";
-    if ($result) {
-	print { $$self{CONTENT} } "<h1>The following datasets were $action->{desc}:</h1>";
-	my $q = &dbexec($$self{DBH}, $sel_names);
-	my $dbtable = new Web25::DBTable;
-	$dbtable->set_filehandle($$self{CONTENT});
-	$dbtable->output($q);
+    if ($n_changed) {
+	print { $$self{CONTENT} } "<p class='note'>$n_changed data items $action->{desc}!</p>";
     } else {
-	$self->alert("Nothing was changed");
+	print { $$self{CONTENT} } "<p class='alarm'>Nothing was changed!<p>";
     }
-
 }
 
 # Produce content to the options panel
@@ -5761,15 +5763,14 @@ sub output_options_form
 sub data_subscriptions
 {
   my ($self) = @_;
-  # XXX FIXME There is some problem with these node lists...
   my @node_ids = map { $$_{IS_SHOWN} ? $$_{ID} : '' } @{$$self{NODE_LIST}};
-#  my @node_ids = map { $$_{ID} } @{$$self{NODE_LIST}};
   @node_ids = grep /\d+/, @node_ids;
   my ($where_list) = join(' or ', map { "n.id=$_"} @node_ids );
 
   my $q = &dbexec($$self{DBH}, qq{
-    select s.dataset dataset_id, 
-	   ds.name dataset_name,
+    select NVL2(s.block, 'BLOCK', 'DATASET') item_level,
+           NVL2(s.block, s.block, s.dataset) item_id,
+           NVL2(s.block, b.name, ds.name) item_name,
            n.id node_id,
            n.name node_name,
            s.priority,
@@ -5777,10 +5778,11 @@ sub data_subscriptions
            s.is_transient,
            s.time_suspend_until
       from t_dps_subscription s
-      join t_dps_dataset ds on ds.id = s.dataset
       join t_adm_node n on n.id = s.destination
+      left join t_dps_dataset ds on ds.id = s.dataset
+      left join t_dps_block b on b.id = s.block
      where $where_list
-      order by n.name, ds.id
+      order by n.name, ds.id, b.id
   });
 
   return $q;

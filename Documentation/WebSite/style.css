@@ -636,11 +636,12 @@ table.data th {
   border:  1px solid black;
   padding-left:   0.5em;
   padding-right:  0.5em;
+  white-space:  nowrap;
 }
 
 table.data th {
   background-color:	#3d80df;
-  color:		#white;
+  color:		white;
 }
 
 table.data tr.stripe {
@@ -649,7 +650,8 @@ table.data tr.stripe {
 
 table.data td.alarm {
   font-weight:  bold;
-  background:  #fcc;
+  color:  white;
+  background:  red;
 }
 
 .nice fieldset,
@@ -727,3 +729,6 @@ div.paramblock .comment {
   border:  thin solid #aaa;
   padding:  0.5em;
 }
+
+p.alarm { color:  red; }
+p.note  { color:  blue; }
