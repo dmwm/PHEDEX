@@ -10,11 +10,11 @@
 
 source $PHEDEX_GLITE_ENV;
 export GLITE_SD_PLUGIN;
-TIER0_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s CERN-PROD | grep Endpoint | awk '{print $2}');
-TIER1_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s ${TIER1_FTS_SERVICE} | grep Endpoint | awk '{print $2}');
+TIER0_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s CERN-PROD);
+TIER1_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s ${TIER1_FTS_SERVICE});
 
 
-### AGENT LABEL=download-fts-t0 PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
+### AGENT LABEL=download-fts-cern PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE}
  -accept          '%CERN%'
@@ -24,7 +24,7 @@ TIER1_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s ${TIER1_FTS_SE
  -backend         SRM
  -command         ${PHEDEX_SCRIPTS}/Utilities/ftscp,-passfile=${PHEDEX_CONFIG}/ftspass,-server=${TIER0_FTS_SERVER}
 
-### AGENT LABEL=download-fts-t1 PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
+### AGENT LABEL=download-fts-rest PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE}
  -ignore          '%CERN%'

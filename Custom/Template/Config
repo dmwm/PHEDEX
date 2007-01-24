@@ -29,9 +29,7 @@
 #                                                                                   #
 # GLITE_SD_PLUGIN:	GLite service discovery authority; usually bdii             #
 #                                                                                   #
-# TIER1_FTS_SERVICE:	T1s please fill in your FTS service                         #
-#                                                                                   #
-# PHEDEX_SE:		Your storage element (e.g. srm.cern.ch)                     #
+# TIER1_FTS_SERVICE:	T2s please fill in your T1s FTS service                     #
 #####################################################################################
 
 
@@ -43,8 +41,8 @@ PHEDEX_BASE=/home/phedex;
 PHEDEX_INSTANCE=Dev;
 PHEDEX_LABEL=ATLANTIS;
 PHEDEX_SITE=Atlantis;
-PHEDEX_NODE=TX_Atlantis;
-PHEDEX_VERSION=2_4_0;
+PHEDEX_NODE=TX_${PHEDEX_SITE};
+PHEDEX_VERSION=2_5_0;
 PHEDEX_OS_VERSION=slc4_ia32_gcc345;
 X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
@@ -53,24 +51,31 @@ PHEDEX_GLITE_ENV=SomePath/etc/profile.d/grid_env.sh;
 GLITE_SD_PLUGIN=bdii;
 TIER1_FTS_SERVICE=Atlantis-FTS;
 
-# DLS specific part
-PHEDEX_SE=se.atlantis.underwater;
-
 
 ####################################
 # Load the sub-configuration files #
 ####################################
 
-# The following 3 files should have reasonable defaults;
-# no need to touch them
+# The following 4 files steer, which PhEDEx services will be
+# running at your site. They are all active by default and
+# can be deactivated by adding another '#' sign.
+# 
+# Common: loads PhEDEx environemt and starts monitoring agent
+# Export: needed for exporting files to other sites
+# MSS:    needed for storage systems with tape backend
+# Inject: allows to inject locally produced files into PhEDEx
+#
+# T1 typically run all of them.
+# T2 and smaller sites typically don't need MSS.
+# CERN should run: CERN only (includes everything needed)
 
 ### IMPORT ConfigPart.Common
 ### IMPORT ConfigPart.Export
 ### IMPORT ConfigPart.MSS
+### IMPORT ConfigPart.Inject
 
-# Choose one to include, remove leading '#' from the one you want.
 # Download agents default to 'off'; either start explicitly or
-# remove 'DEFAULT=off' from the corresponding ConfigPart entry
+# remove 'DEFAULT=off' from the ConfigPart file listed below.
 
-#### IMPORT ConfigPart.SRMDownload
-#### IMPORT ConfigPart.FTSDownload
+### IMPORT ConfigPart.FTSDownload
+
