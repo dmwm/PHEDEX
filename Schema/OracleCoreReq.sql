@@ -101,13 +101,23 @@ create table t_req_info_dataset
    dataset		varchar (1000)	not null,
    dbs_isknown		char (1)	not null,
    dps_isknown		char (1)	not null,
+   priority		integer		not null,
+   is_move		char (1)	not null,
+   is_transient		char (1)	not null,
    --
    constraint pk_req_info_dataset
      primary key (request, dbs, dataset),
    --
    constraint fk_req_info_dataset_req
      foreign key (request) references t_req_request (id)
-     on delete cascade);
+     on delete cascade,
+   --
+   constraint ck_req_info_dataset_move
+     check (is_move in ('y', 'n')),
+   --
+   constraint ck_req_info_dataset_transient
+     check (is_transient in ('y', 'n')));
+
 
 
 create table t_req_info_block
@@ -117,6 +127,9 @@ create table t_req_info_block
    block		varchar (1000)	not null,
    dbs_isknown		char (1)	not null,
    dps_isknown		char (1)	not null,
+   priority		integer		not null,
+   is_move		char (1)	not null,
+   is_transient		char (1)	not null,
    --
    dbs_isopen		char (1),
    dbs_files		integer,
@@ -135,7 +148,14 @@ create table t_req_info_block
    --
    constraint fk_req_info_block_req
      foreign key (request) references t_req_request (id)
-     on delete cascade);
+     on delete cascade,
+   --
+   constraint ck_req_info_block_move
+     check (is_move in ('y', 'n')),
+   --
+   constraint ck_req_info_block_transient
+     check (is_transient in ('y', 'n')));
+
 
 ----------------------------------------------------------------------
 -- Create indices
