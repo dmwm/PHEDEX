@@ -2172,6 +2172,7 @@ sub output
     my $action = param('newaction');
     my $request = param('request');
     my $task = param('task');
+    my $comment = param('comment');
 
     if (!$action || !$request || !$task) {
 	alert('Missing parameters');
@@ -2186,18 +2187,21 @@ sub output
     my $actionname;
     my $newstate;
     my $now = time();
-
-    if (param('comment')) {
-	%action_attr = ('Comment' => param('comment'));
+    
+    if ($comment) {
+	%action_attr = ('Comment' => $comment);
     }
-
+    
     if ($action eq 'subscribe') {
 	$actionname = 'Subscribed';
 	unless (&subscribe_request($$self{DBH}, $request, $now)) {
-	    &alert("Subscription failed.  Please notify the developers.");
+	    $self->alert("Subscription failed.  Please notify the developers.");
 	}
 	$newstate = 5;
     } elsif ($action eq 'disapprove') {
+	unless (&disapprove_request($$self{DBH}, $request, $now)) {
+	    $self->alert("Disapproval failed.  Please notify the developers.");
+	}
 	$actionname = 'Disapproved';
 	$newstate = 4;
     } else { &alert("Unknown action type '$action'"); return; }
@@ -2221,7 +2225,21 @@ sub output
 
     $$self{DBH}->commit();
     
-    $self->note('Action added!');
+    print { $$self{CONTENT} }
+    "<h1>Task Completed</h1>",
+    "<p>You have $actionname request #$request.</p>";
+	
+	my $requestor = '';
+	my $requestor_email = '';
+
+#     my $message
+
+#     send_email(subject => "PhEDEx Request Update",
+# 	       to => [ $requestor_email ],
+# 	       from => "PhEDEx Web Requests <cms-phedex-admins\@cern.ch>",
+# 	       message => 
+# 	       );
+	
 }
 
 
@@ -2255,6 +2273,11 @@ sub subscribe_request
     return $rv;
 }
 
+
+sub disapprove_request
+{
+    return 1;
+}
 
 1;
 
@@ -2533,7 +2556,6 @@ our @EXPORT = qw(getdbslist getnodelist
 		 create_check_email
 		 create_check_comment
 		 create_check_dbs
-		 create_check_deps
 		 create_check_data
 		 create_check_dest
 		 create_check_options
@@ -2705,27 +2727,7 @@ sub create_check_dbs
   return $$bad ? undef : $dbs;
 }
 
-sub create_check_deps
-{
-  my ($self, $bad, $deps) = @_;
-  return undef if $$bad;
 
-  if (! $deps)
-  {
-    alert($self, "No selection made for dependencies, please supply one.");
-    $$bad = 1;
-    return undef;
-  }
-
-  if (! grep ($deps eq $_, qw(Yes No)))
-  {
-    alert($self, "&ldquo;@{[&escapeHTML($deps)]}&rdquo;",
-	  " is not a valid dependencies selection.");
-    $$bad = 1;
-  }
-
-  return $$bad ? undef : $deps;
-}
 
 sub create_check_data
 {
@@ -2998,27 +3000,26 @@ sub output
   my $defaultdbs = 'http://cmsdbs.cern.ch/cms/prod/comp/DBS/CGIServer/prodquery?instance=MCGlobal/Writer';
   my @nodes = &getnodelist($$self{DBH});
 
+  my @dbs_selection = radio_group(-name=>'dbschoice', -values=>['known', 'user'], -default=>'known', 
+				  -labels=>{ known => '', user => '' }, -class=>'labeled');
+  $dbs_selection[0] .= "<label style='width:5em'>Known</label>".
+      popup_menu(-name=>'dbs', -values=>[ map { &escapeHTML($_) } @dbsnames ], -default=>&escapeHTML($defaultdbs) ).
+      "<br/>\n";
+
+  $dbs_selection[1] .= "<label style='width:5em'>Other</label>".
+      textfield(-name=>'userdbs', -default=>'http://path?instance=value', -size=>50).
+      "<br/>\n";
+
   print { $$self{CONTENT} }
   "<form class='nice' method='post' action='@{[$self->myurl('page' => 'Request::CreateCheck')]}'>\n",
   "<label>E-mail:</label>", textfield(-name=>'email', -default=>$email_contact, -class=>'labeled', -style=>'width:450px'), "<br/>\n",
 
-  "<label>DBS:</label>",  "<input class='labeled' type='radio' name='dbschoice' value='known' checked='checked'/><label style='width:5em'>Known</label> ", 
-  popup_menu(-name=>'dbs', -values=>[ map { &escapeHTML($_) } @dbsnames ], -default=>&escapeHTML($defaultdbs) ), "<br/>\n",
-  "<label>&nbsp;</label>", "<input class='labeled' type='radio' name='dbschoice' value='user' /><label style='width:5em'>Other</label>",
-  textfield(-name=>'userdbs', -default=>'http://path?instance=value', -size=>50), "<br/>\n",
-  
+  "<label>DBS:</label>",  "<div class='labeled'>",@dbs_selection, "</div><br/>",
+
   "<label>Datasets:<br/><br/>",
   "<span class='note'>/Primary/Tier/Dataset<br/>or<br/>",
   "/Primary/Dataset#Block<br/>(Use * as wildcard)</span></label>\n",
   textarea(-name=>'data', -value=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), "<br/>\n",
-
-  # XXX Disable dependencies for now (2007-01-16)
-
-  #"<label>Dependencies?:</label>\n",
-  #"<span class='labeled'><input type='radio' name='dependencies' value='No' checked='checked'/>&nbsp;",
-  #"No, only the requested datasets<br />\n",
-  #"<input type='radio' name='dependencies' value='Yes' />&nbsp;",
-  #"Yes, selected datasets and their dependencies</span><br />\n",
 
   "<label>Destinations</label>",
   "<div class='labeled'  style='font-size:8pt;width:450px;height:150px;;overflow:scroll;border:thin solid black;' >",
@@ -5730,7 +5731,7 @@ sub output_page
       "<label>Actions:</label>\n",
       "<select class='labeled' name='subsaction'>\n",
       "<option value='suspend'>Suspend subscriptions</option>\n",
-      "<option value='unsuspend'>Remove suspensions</option>\n",
+      "<option value='unsuspend'>Unsuspend subscriptions</option>\n",
       "<option value='priorityhi'>Make high priority</option>\n",
       "<option value='prioritymd'>Make normal priority</option>\n",
       "<option value='prioritylo'>Make low priority</option>\n",
@@ -5875,7 +5876,7 @@ use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 1, ORDER => 3, TITLE => "Remove Datasets",
+our $INDEX = { LIST => 0, ORDER => 3, TITLE => "Remove Datasets",
 	       LINK_TITLE => "Remove datasets from PhEDEx database",
                SECURE => 1 };
 
@@ -5903,7 +5904,7 @@ use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 1, ORDER => 4, TITLE => "Remove Files",
+our $INDEX = { LIST => 0, ORDER => 4, TITLE => "Remove Files",
 	       LINK_TITLE => "Remove files from PhEDEx database",
                SECURE => 1 };
 
@@ -6389,7 +6390,7 @@ use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 1, ORDER => 3, TITLE => "Administrators",
+our $INDEX = { LIST => 0, ORDER => 3, TITLE => "Administrators",
 	       LINK_TITLE => "Manage administrator privileges" };
 
 sub new
@@ -6416,7 +6417,7 @@ use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 1, ORDER => 4, TITLE => "Sites",
+our $INDEX = { LIST => 0, ORDER => 4, TITLE => "Sites",
 	       LINK_TITLE => "Manage sites" };
 
 sub new
@@ -6443,7 +6444,7 @@ use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 1, ORDER => 5, TITLE => "Nodes",
+our $INDEX = { LIST => 0, ORDER => 5, TITLE => "Nodes",
 	       LINK_TITLE => "Administer nodes" };
 
 sub new
@@ -6470,7 +6471,7 @@ use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 1, ORDER => 6, TITLE => "Links",
+our $INDEX = { LIST => 0, ORDER => 6, TITLE => "Links",
 	       LINK_TITLE => "Administer links between nodes" };
 
 sub new
