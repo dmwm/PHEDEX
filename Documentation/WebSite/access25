@@ -2231,7 +2231,7 @@ sub subscribe_request
     my ($sth, $rv) = &dbexec($dbh,
 	    qq[ insert into t_dps_subscription 
 		  (dataset, block, destination, priority, is_move, is_transient, time_create)
-		select ds.id, NULL, dest.destination, 1, 'n', 'n', :now
+		select ds.id, NULL, dest.destination, priority, is_move, is_transient, :now
 		  from t_req_info_dest dest
 		  join t_req_info_dataset req_ds on dest.request = req_ds.request
 		  join t_dps_dataset ds on req_ds.dataset = ds.name
@@ -2239,7 +2239,7 @@ sub subscribe_request
 		 where dest.request = :rid and dbs.name = req_ds.dbs
                    and req_ds.dps_isknown = 'y' and req_ds.dbs_isknown = 'y'
                 union
-                select NULL, b.id, destination, 1, 'n', 'n', :now
+                select NULL, b.id, destination, priority, is_move, is_transient, :now
                   from t_req_info_dest dest
 		  join t_req_info_block req_b on dest.request = req_b.request
                   join t_dps_block b on req_b.block = b.name
@@ -2536,6 +2536,7 @@ our @EXPORT = qw(getdbslist getnodelist
 		 create_check_deps
 		 create_check_data
 		 create_check_dest
+		 create_check_options
 		 create_check_bad
 		 resolve_data
 );
@@ -2619,7 +2620,7 @@ sub create_check_identity
 
 sub create_check_email
 {
-  my ($self, $bad, $email, $email_list) = @_;
+  my ($self, $bad, $email) = @_;
   return undef if $$bad;
 
   if (! $email)
@@ -2637,8 +2638,7 @@ sub create_check_email
     $$bad = 1;
   }
 
-  @$email_list = @emails if $email_list && ! $$bad;
-  return $$bad ? undef : $email;
+    return $$bad ? undef : $email;
 }
 
 sub create_check_comment
@@ -2793,6 +2793,29 @@ sub create_check_dest
   }
 
   return $$bad ? undef : sort @dests;
+}
+
+sub create_check_options
+{
+  my ($self, $bad) = @_;
+  return undef if $$bad;
+
+  my $opts = {};
+
+  foreach ('is_move', 'is_transient') {
+      if (!param($_) && param($_) !~ /^[yn]$/) {
+	  $self->alert("Option '$_' missing or illegal value");
+	  $$bad = 0;
+	  return undef;
+      }
+  }
+  
+  if (!param('priority') && param('priority') !~ /^[012]$/) {
+      $self->alert("Option 'priority' missing or illegal value");
+      $$bad = 0;
+      return undef;
+  }
+  return (param('is_move'), param('is_transient'), param('priority'));
 }
 
 sub create_check_bad
@@ -3001,19 +3024,35 @@ sub output
   "<div class='labeled'  style='font-size:8pt;width:450px;height:150px;;overflow:scroll;border:thin solid black;' >",
   "<table><tr valign='top'>",
   "  <td>\n",
-  (map { "<input type='checkbox' name='dest' value='$_' />&nbsp;$_<br />" }
+  (map { checkbox(-name=>'dest', label=>$_, -value=>$_)."<br/>" }
    sort grep (/^T1_|T0_/, @nodes)),
   "  </td>\n",
   "  <td>\n",
-  (map { "<input type='checkbox' name='dest' value='$_' />&nbsp;$_<br />" }
+  (map { checkbox(-name=>'dest', label=>$_, -value=>$_)."<br/>" }
    grep (/^T2_/, @nodes)),
   "  </td>\n",
   "  <td>\n",
-  (map { "<input type='checkbox' name='dest' value='$_' />&nbsp;$_<br />" }
+  (map { checkbox(-name=>'dest', label=>$_, -value=>$_)."<br/>" }
    grep (! /^T[012]_/, @nodes)),
   "  </td>\n",
   " </tr></table></div><br/>\n",
-
+  "<label>Replica or Move:</label>", popup_menu(-name=>'is_move', 
+						-values=>['y', 'n'],
+						-default=>'n',
+						-labels=>{'y' => 'Move', 'n' => 'Replica'},
+						-class=>'labeled'), "<br/>",
+  "<label>Open or Closed:</label>", popup_menu(-name=>'is_transient', 
+					       -values=>['y', 'n'],
+					       -default=>'y',
+					       -labels=>{'y' => 'Closed', 'n' => 'Open'},
+					       -class=>'labeled'), "<br/>",
+  "<label>Priority:</label>", popup_menu(-name=>'priority', 
+					 -values=>[0, 1, 2], 
+					 -default=>1,
+					 -labels=>{ 0 => 'High',
+						    1 => 'Normal',
+						    2 => 'Low' },
+					 -class=>'labeled'), "<br/>",
   "<label>Comment:</label>", textarea(-name=>'comment', -default=>'', -style=>'width:450px;height:150px;;', -class=>'labeled'), "<br/>\n",
 
   "<label>&nbsp;</label>", submit(-name=>'submit', -value=>'Submit Request', -class=>'labeled'),
@@ -3047,37 +3086,79 @@ sub new
 sub output
 {
   my ($self) = @_;
-  my @emails;
+
   my $bad = 0;
   &create_check_identity($self, \$bad);
   &create_check_access($self, \$bad);
-  my $email = &create_check_email($self, \$bad, param('email'), \@emails);
+  my $email = &create_check_email($self, \$bad, param('email'));
   my $comment = &create_check_comment($self, \$bad, param('comment'));
   my $dbs;
   if (param('dbschoice') eq 'known') { $dbs = param('dbs') }
   elsif (param('dbschoice') eq 'user') { $dbs = param('userdbs') } 
-  else { alert("Missing or unknown DBS parameters"); return; }
+  else { $self->alert("Missing or unknown DBS parameters"); return; }
   $dbs = &create_check_dbs($self, \$bad, $dbs);
-#  my $deps = &create_check_deps($self, \$bad, param('dependencies'));
   my @data = &create_check_data($self, \$bad, param('data'));
   my @dest = &create_check_dest($self, \$bad, param('dest'));
+  my ($is_move, $is_transient, $priority) = &create_check_options($self, \$bad);
   if ($bad)
   {
     print { $$self{CONTENT} } "<p>Please resubmit the form with corrected information.</p>\n";
     return;
   }
 
-  print { $$self{CONTENT} } "<p>Please review these request details and confirm below.  If you would like to ",
+  my $confirmok = 1;
+        
+  if ($is_move eq 'y' && param('move_confirm') ne 'y') {
+      $confirmok = 0;
+  }
+
+  if ($confirmok && param('go_ahead') eq 'y') {
+      $self->write_request('email' => $email,
+			   'comment' => $comment,
+			   'dbs' => $dbs,
+			   'data' => [@data],
+			   'destinations' => [@dest],
+			   'is_move' => $is_move,
+			   'is_transient' => $is_transient,
+			   'priority' => $priority);
+      return;
+  }
+
+  my $subscription_type = &subscription_type($priority, $is_transient, $is_move);
+
+  print { $$self{CONTENT} } 
+  "<form method='POST' action='@{[$self->myurl()]}'>\n",
+  "<p>Please review these request details and confirm below.  If you would like to ",
   "change your request, use the back button in your browser.</p>",
   "<h1>Request Information</h1>",
   "<div class='nice'>",
   "<label>Requestor:</label><span class='labeled'>$$self{SSL_IDENTITY}</span><br/>",
   "<label>email:</label><span class='labeled'>$email</span><br/>",
   "<label>DBS:</label><span class='labeled'>$dbs</span><br/>",
-#  "<label>Dependencies?:</label><span class='labeled'>$deps</span><br/>",
   "<label>Data:</label><span class='labeled'>", join('<br/>', @data), "</span><br/>",
   "<label>Destination:</label><span class='labeled'>", join('<br/>', @dest), "</span><br/>",
+  "<label>Subscription Type:</label><span class='labeled'>$subscription_type</span><br/>",
   "</div>";
+
+  # Warnings
+  if ($is_move eq 'y' && grep($_ !~ /^T1_\w*_MSS$/, @dest)) {
+      $self->alert("You have requested a move to an unsupported destination (e.g. not a Mass Storage System ",
+		   "at a T1 centre).  Please change the destination, or choose to trigger a replication ",
+		   "instead of a move");
+      return;
+  } elsif ($is_move eq 'y' && grep(/^T1_\w*_MSS$/, @dest)) {
+      $self->note("You have chosen to move data to ", join(', ', @dest), ". Once the transfer is complete this will ",
+		  "remove the data at the source site.  Please confirm that this is what you want to do by checking ",
+		  "the box.<br/><br/>",
+		  ( param('go_ahead') ? "<p class='alarm'><b>You must confirm!</b></p>" : ''),
+		  checkbox(-name=>'move_confirm', -value=>'y', -label=>'Yes, I understand'));
+  }
+
+  if ($is_transient eq 'n') {
+      $self->note("You are requesting an open subscription.  The nodes selected will continue to ",
+		  "receive files from open blocks if they are made available.  Please carefully monitor ",
+		  "your disks, as the size of this subscription could grow significantly.");
+  }
   
 
   print { $$self{CONTENT} } "<h1>Data Item Lookup</h1>",
@@ -3097,10 +3178,6 @@ sub output
   }
 
   my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, $dbs, @data);
-#    use Data::Dumper;
-#    print { $$self{CONTENT} } "<pre>", Dumper($resolved), "</pre>";
-#    print { $$self{CONTENT} } "<pre>", Dumper($userdupes), "</pre>";
-#    print { $$self{CONTENT} } "<pre>", Dumper($dbsdupes), "</pre>";
 
   my $table = new Web25::TableSpool;
   $table->set_filehandle( $$self{CONTENT} );
@@ -3158,195 +3235,195 @@ sub output
 
   $table->finish();
 
+  # Save the previous state
+  foreach (qw(email comment dbschoice dbs userdbs is_move is_transient priority data dest)) {
+      print { $$self{CONTENT} } hidden($_);
+  }
+
   print { $$self{CONTENT} }
-  "<form method='POST' action='@{[$self->myurl('page' => 'Request::CreateWrite')]}'>\n",
-  "<input type='hidden' name='email' value='@{[&escapeHTML($email)]}' />\n",
-  "<input type='hidden' name='comment' value='@{[&escapeHTML($comment)]}' />\n",
-  "<input type='hidden' name='dbs' value='@{[&escapeHTML($dbs)]}' />\n",
-#  "<input type='hidden' name='dependencies' value='@{[&escapeHTML($deps)]}' />\n",
-  "<input type='hidden' name='data' value='@{[&escapeHTML(join(' ', @data))]}' />\n",
-  (map { "<input type='hidden' name='dest' value='@{[&escapeHTML($_)]}' />\n" } @dest),
-  "<br/><center><input type='submit' value='Confirm'></center>",
+  hidden(-name=>'go_ahead', -default=>'y'),
+  "<p><center>", submit(-value=>'Confirm'), "</p>",
   "</form>";
-
 }
-
-1;
-
-
-######################################################################
-package Web25::Request::CreateWrite;
-use strict; use warnings;
-use base "Web25::Request::Page";
-import Web25::Request::CreateTools;
-import Web25::Common;
-use CGI qw(:standard);
-
-our $INDEX = { LIST => 0, ORDER => 7, TITLE => "Submit Request",
-	       SECURE => 1 };
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub output
-{
-  my ($self) = @_;
-  my @emails;
-  my $bad = 0;
-  &create_check_identity($self, \$bad);
-  &create_check_access($self, \$bad);
-  my $email = &create_check_email($self, \$bad, param('email'), \@emails);
-  my $comment = &create_check_comment($self, \$bad, param('comment'));
-  my $dbs = &create_check_dbs($self, \$bad, param('dbs'));
-#  my $deps = &create_check_deps($self, \$bad, param('dependencies'));
-  my @data = &create_check_data($self, \$bad, param('data'));
-  my @dest = &create_check_dest($self, \$bad, param('dest'));
-  if ($bad)
-  {
-    print { $$self{CONTENT} } "<p>Invalid or insufficient parameters.",
-    "Please resubmit the form with corrected information.</p>\n";
-    return;
-  }
-
-  my $now = time();
-
-  my $client = $self->logClientInfo();
-
-  my $rid = &makeObjWithAttrs
-    ($$self{DBH}, "req_request", undef,
-     { "creator" => $client, "state" => 0 });
-
-  my $aid = &makeObjWithAttrs
-      ($$self{DBH}, "req_action", "action",
-       { "request" => $rid,
-	 "action" => "Created",
-	 "client" => $client,
-	 "time_apply" => $now },
-       "Comment" => $comment,
-       map({ ("E-mail" => $_) } @emails),
-       "DBSURL" => $dbs,
-       map( { ("Destination Node" => $_) } @dest),
-#       "Dependencies" => $deps,
-       map( { ("Data" => $_) } @data)
-       );
-
-  my @admins = &getglobaladmins($$self{DBH});
-  if (!@admins) {
-      alert("Sorry, the request cannot be created.",
-	    "The database does not contain any global admins.",
-	    "Please contact the PhEDEx group about this!"); 
-      return;
-  }
-
-  my @adminmails;
-  foreach my $admin (@admins) {
-      &makeObjWithAttrs
-	  ($$self{DBH}, "req_task", undef,
-	   { "action" => $aid,
-	     "person" => $$admin{ID},
-	     "time_create" => $now
-	     }
-	   );
-      push @adminmails, $$admin{EMAIL};
-  }
-
-  &dbexec($$self{DBH}, qq[ insert into t_req_info (request, time_update)
-			   values ( :rid, :time_update ) ],
-	  ':rid' => $rid,
-	  ':time_update' => $now);
-
-  my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, $dbs, @data);
-
-  my @rv;
-  foreach my $userglob (sort @data) {
-      foreach my $res (@{$$resolved{$userglob}}) {
-	  if ($$res{LEVEL} eq 'DATASET') {
-	      @rv = &dbexec($$self{DBH}, 
-		      qq[ insert into t_req_info_dataset (request, dbs, dataset, dbs_isknown, dps_isknown)
-			  values ( :rid, :dbs, :dataset, :dbs_isknown, :dps_isknown ) ],
-		      ':rid' => $rid,
-		      ':dbs' => $$res{DBS},
-		      ':dataset' => $$res{DATASET},
-		      ':dbs_isknown' => $$res{DBS_ISKNOWN},
-		      ':dps_isknown' => $$res{DPS_ISKNOWN});
-	  } elsif ($$res{LEVEL} eq 'BLOCK') {
-	      @rv = &dbexec($$self{DBH},
-		      qq[ insert into t_req_info_block ( request, dbs, dataset, block,
-							 dbs_isknown, dps_isknown)
-			  values ( :rid, :dbs, :dataset, :block, :dbs_isknown, :dps_isknown ) ],
-		      ':rid' => $rid,
-		      ':dbs' => $$res{DBS},
-		      ':dataset' => $$res{DATASET},
-		      ':block' => $$res{BLOCK},
-		      ':dbs_isknown' => $$res{DBS_ISKNOWN},
-		      ':dps_isknown' => $$res{DPS_ISKNOWN});
-	  }
-	  unless ($rv[1]) {
-	      $$self{DBH}->rollback();
-	      &alert("Request creation failed");
-	  }
-      }
-  }
-	
-  foreach my $node (@dest) {
-      &dbexec($$self{DBH},
-	      qq[ insert into t_req_info_dest (request, destination)
-		  select :rid, id node_id from t_adm_node where name = :node ],
-	      ':rid' => $rid, ':node' => $node);
-  }
-
-
-  $$self{DBH}->commit();
-
-  send_email(subject => "PhEDEx request",
-	     to => [ @adminmails ],
-	     from => "PhEDEx Request Form <cms-phedex-admins\@cern.ch>",
-	     message => 
-	     "Greetings PhEDEx Global Admin,\n".
-	     "\n".
-	     "You may wish to take note of the following new\n".
-	     "transfer request which is now being processed.  At this time\n".
-	     "you need not take any action.  Have a nice day!\n".
-	     "\n".
-	     "* Requestor:\n".
-	     "   Identity: $$self{SSL_IDENTITY}\n".
-	     "   Host: $ENV{HTTP_X_FORWARDED_FOR}\n".
-	     "   Agent: @{[user_agent()]}\n".
-	     "\n".
-	     "* Request:\n".
-	     "   Database:\n".
-	     "     $$self{CONFIG}{INSTANCES}{$$self{DBID}}{TITLE}\n".
-	     "   Contacts:\n".
-	     join('', map( { "     $_\n" } @emails)).
-	     "   DBS:\n".
-	     "     $dbs\n".
-#	     "   Dependencies:\n".
-#	     "     $deps\n".
-	     "   Data:\n".
-	     join('', map( { "     $_\n" } @data)).
-	     "   Destinations:\n".
-	     join('', map( { "     $_\n" } @dest)).
-	     "   Comments:\n".
-	     "     $comment\n".
-	     "\n".
-	     "Yours truly,\n".
-	     "  PhEDEx transfer request web form\n")
-      or alert("Sending request email to admins failed, sorry");
   
-  print { $$self{ CONTENT } }
-  "<h1>Request Confirmed</h1>",
-  "<p>Your request has been logged to the database and the admins have been notified.  ",
-  "You will receive updates about this request via e-mail.</p>";;
 
+
+sub write_request
+{
+    my ($self, %params) = @_;
+
+    foreach (qw(email comment dbs data destinations is_move is_transient priority)) {
+	if (!exists $params{$_}) { die "write_request() insufficient parameters"; }
+    }
+    
+    my $now = time();
+
+    # Write information about the Client
+    my $client = $self->logClientInfo();
+    
+    # Write the request
+    my $rid = &makeObjWithAttrs
+	($$self{DBH}, "req_request", undef,
+	 { "creator" => $client, "state" => 0 });
+
+    my $aid = &makeObjWithAttrs
+	($$self{DBH}, "req_action", "action",
+	 { "request" => $rid,
+	   "action" => "Created",
+	   "client" => $client,
+	   "time_apply" => $now },
+	 "Comment" => $params{comment},
+	 "E-mail" => $params{email},
+	 "DBSURL" => $params{dbs},
+	 map( { ("Destination Node" => $_) } @{$params{destinations}}),
+	 map( { ("Data" => $_) } @{$params{data}}),
+	 "Priority" => $params{priority},
+	 "Transient" => $params{is_transient},
+	 "Move" => $params{is_move}
+	 );
+    
+    # Get the list of Global admins
+    my @admins = &getglobaladmins($$self{DBH});
+    if (!@admins) {
+	alert("Sorry, the request cannot be created.",
+	      "The database does not contain any global admins.",
+	      "Please contact the PhEDEx group about this!"); 
+	return;
+    }
+
+    # Write a task with this request for each of the global admins
+    # While we're at it, build an array of admin emails
+    my @adminmails;
+    foreach my $admin (@admins) {
+	&makeObjWithAttrs
+	    ($$self{DBH}, "req_task", undef,
+	     { "action" => $aid,
+	       "person" => $$admin{ID},
+	       "time_create" => $now
+	       }
+	     );
+	push @adminmails, $$admin{EMAIL};
+    }
+
+    # Write the request details (resolved datasets/blocks) to the DB
+    &dbexec($$self{DBH}, qq[ insert into t_req_info (request, time_update)
+			     values ( :rid, :time_update ) ],
+	    ':rid' => $rid,
+	    ':time_update' => $now);
+
+    my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, $params{dbs}, @{$params{data}});
+
+    my @rv;
+    foreach my $userglob (sort @{$params{data}}) {
+	foreach my $res (@{$$resolved{$userglob}}) {
+	    if ($$res{LEVEL} eq 'DATASET') {
+		@rv = &dbexec($$self{DBH}, 
+			      qq[ insert into t_req_info_dataset (request, dbs, dataset, dbs_isknown, dps_isknown,
+								  is_move, is_transient, priority)
+				  values ( :rid, :dbs, :dataset, :dbs_isknown, :dps_isknown,
+					   :is_move, :is_transient, :priority) ],
+			      ':rid'          => $rid,
+			      ':dbs'          => $$res{DBS},
+			      ':dataset'      => $$res{DATASET},
+			      ':dbs_isknown'  => $$res{DBS_ISKNOWN},
+			      ':dps_isknown'  => $$res{DPS_ISKNOWN},
+			      ':is_move'      => $params{is_move},
+			      ':is_transient' => $params{is_transient},
+			      ':priority'     => $params{priority}
+			      );
+	    } elsif ($$res{LEVEL} eq 'BLOCK') {
+		@rv = &dbexec($$self{DBH},
+			      qq[ insert into t_req_info_block ( request, dbs, dataset, block,
+								 dbs_isknown, dps_isknown,
+								 is_move, is_transient, priority)
+				  values ( :rid, :dbs, :dataset, :block, :dbs_isknown, :dps_isknown,
+					   :is_move, :is_transient, :priority) ],
+			      ':rid' => $rid,
+			      ':dbs' => $$res{DBS},
+			      ':dataset' => $$res{DATASET},
+			      ':block' => $$res{BLOCK},
+			      ':dbs_isknown' => $$res{DBS_ISKNOWN},
+			      ':dps_isknown' => $$res{DPS_ISKNOWN},
+			      ':is_move'      => $params{is_move},
+			      ':is_transient' => $params{is_transient},
+			      ':priority'     => $params{priority}
+			      );
+	    }
+	    unless ($rv[1]) {
+		$$self{DBH}->rollback();
+		&alert("Request creation failed");
+	    }
+	}
+    }
+    
+    foreach my $node (@{$params{destinations}}) {
+	&dbexec($$self{DBH},
+		qq[ insert into t_req_info_dest (request, destination)
+		    select :rid, id node_id from t_adm_node where name = :node ],
+		':rid' => $rid, ':node' => $node);
+    }
+
+    $$self{DBH}->commit();
+
+    # Send an email to each of the PhEDEx global admins
+    my $subscription_type =  &subscription_type(@params{qw(priority is_transient is_move)});
+    send_email(subject => "PhEDEx request",
+	       to => [ @adminmails ],
+	       from => "PhEDEx Request Form <cms-phedex-admins\@cern.ch>",
+	       message => 
+	       "Greetings PhEDEx Global Admin,\n".
+	       "\n".
+	       "You may wish to take note of the following new\n".
+	       "transfer request which is now being processed.  At this time\n".
+	       "you need not take any action.  Have a nice day!\n".
+	       "\n".
+	       "* Requestor:\n".
+	       "   Identity: $$self{SSL_IDENTITY}\n".
+	       "   Host: $ENV{HTTP_X_FORWARDED_FOR}\n".
+	       "   Agent: @{[user_agent()]}\n".
+	       "\n".
+	       "* Request:\n".
+	       "   Type:\n".
+	       "     $subscription_type\n".
+	       "   Database:\n".
+	       "     $$self{CONFIG}{INSTANCES}{$$self{DBID}}{TITLE}\n".
+	       "   Contact:\n".
+	       "     $params{email}\n".
+	       "   DBS:\n".
+	       "     $params{dbs}\n".
+	       "   Data:\n".
+	       join('', map( { "     $_\n" } @{$params{data}})).
+	       "   Destinations:\n".
+	       join('', map( { "     $_\n" } @{$params{destinations}})).
+	       "   Comments:\n".
+	       "     $params{comment}\n".
+	       "\n".
+	       "Yours truly,\n".
+	       "  PhEDEx transfer request web form\n")
+	or alert("Sending request email to admins failed, sorry");
+    
+    print { $$self{ CONTENT } }
+    "<h1>Request Confirmed</h1>",
+    "<p>Your request has been logged to the database and the admins have been notified.  ",
+    "You will receive updates about this request via e-mail.</p>";
+}
+
+sub subscription_type
+{
+    my ($priority, $is_transient, $is_move) = @_;
+    my $nice = 
+    {
+	is_move => { y => 'move', n => 'replication' },
+	is_transient => { y => 'closed', n => 'open' },
+	priority => { 0 => 'High', 1 => 'Normal', 2 => 'Low' }
+    };
+
+    return "$$nice{priority}{$priority} priority $$nice{is_transient}{$is_transient} $$nice{is_move}{$is_move}";
 }
 
 1;
+
+
 
 ######################################################################
 package Web25::Components::Status;
@@ -6288,7 +6365,7 @@ sub output
   while (my ($id, $dn, $email) = $q->fetchrow ())
   {
     my $rowcolor = ($n++ % 2 < 1) ? '' : " bgcolor='#f8f8f8'";
-    my ($login) = ($dn =~ m,/CN=([^/]+?)[\s\d]*(/|$),); #/
+    my ($login) = ($dn =~ m,/CN=([^/]+?)[\s\d]*(/|$),);
     print { $$self{CONTENT} }
       "  <tr$rowcolor valign='top'>\n",
       "   <td align='left' style='padding-right: 1em'>", &escapeHTML($login), "</td>\n",
