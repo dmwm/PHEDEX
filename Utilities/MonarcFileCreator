@@ -4,7 +4,7 @@
 ##H
 ##H    Usage:
 ##H
-##H       MonarcFileCreator.pl
+##H       MonarcFileCreator <copy command to MSS> <batch job submit command> <queue type> <storage path> <site> [<batch job user> <user's email>]
 ##H
 ##H       Start it from somewhere on your afs area where you can submit jobs.
 ##H       
@@ -15,24 +15,16 @@
 ##H       File creation is done in two steps. First there is a creation of a seed (23KB) file filled
 ##H       with random characters. Seed file is then automaticaly copied copied to lxbatch machine 
 ##H       from afs area along with the CreateFile script (created with this script). CreateFile script 
-##H       and creates the resulting around 2.6 GB file which is then copied to castor and removed 
+##H       and creates the resulting around 2.5 GB file which is then copied to castor and removed 
 ##H       from lxbatch.
 ##H
 
-BEGIN {
-    $^W = 1; use strict; use warnings;
-    our $me = $0; $me =~ s|.*/||;
-    our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
-    unshift(@INC, $home);
-}
-                                                                                                                
-use Getopt::Long;
-use UtilsHelp;
-use UtilsCatalogue;
-use UtilsTiming;
-
-
-&GetOptions ( "help|h"      => sub { &usage() });
+if(!$ARGV[0] || !$ARGV[1]|| !$ARGV[2] || !$ARGV[3] || !$ARGV[4]) {  die "Insufficient parameters, use: \n
+MonarcFileCreator <copy command to MSS> <batch job submit command> <queue type> <storage path> <site> [<batch job user> <user's email>] \n
+Example: \n
+MonarcFileCreator rfcp bsub 8nm /castor/cern.ch/cms/store/phedex_monarctest CERN -u user_email
+MonarcFileCreator dccp qsub short /data/store/phedex_monarctest SITE -M user_email \n\n";}
+#print $ARGV[0]," ",$ARGV[1]," ",$ARGV[2]," ",$ARGV[3]," ",$ARGV[4]" \n";
 
 my $i = 0;
 
@@ -42,7 +34,7 @@ my $create_file = "CreateFile";
 open DATA, ">>$command_file" or die "can't open $command_file $!";
 print DATA 'cd jobs'."\n";
 close (DATA);
-print "  Creating seed file... this could take a few minutes... "."\n";
+print "  Creating seed (23KB) file... this could take a few minutes... "."\n";
 `dd if=/dev/random of=seed count=625`;
 open DATA, ">>$create_file" or die "can't open $create_file $!";
 
@@ -68,20 +60,26 @@ print DATA 'export RFIO_USE_CASTOR_V2=yes'."\n";
 print DATA 'cp '.$ENV{PWD}.'/jobs/seed .'."\n";
 print DATA 'cp '.$ENV{PWD}.'/jobs/CreateFile .'."\n";
 print DATA './CreateFile '.$size."\n";
-#print DATA 'dd if=/dev/random of=MonarcTest_'.$hex.' count='.$size."\n";
-#print DATA 'cksum MonarcTest_'.$hex.' | sed \'s/[^0-9][^0-9]*/:/g\' '."\n";
-#print DATA 'cksum MonarcTest_'.$hex.' | sed \'s/[^0-9][^0-9]*/:/g\' | sed \'s/:.*//\' '."\n";
-print DATA 'cksum MonarcTest | sed \'s/[^0-9][^0-9]*/:/g\' '."\n";
-print DATA 'ls -al MonarcTest'."\n";
-print DATA 'rfcp MonarcTest /castor/cern.ch/cms/store/phedex_monarctest/MonarcTest_'.$hex."\n";
-print DATA 'nsls -l /castor/cern.ch/cms/store/phedex_monarctest/MonarcTest_'.$hex."\n";
-print DATA 'rm -f seed CreateFile MonarcTest_'.$hex."\n";
+print DATA $ARGV[0].' MonarcTest '.$ARGV[3].'/MonarcTest_'.$ARGV[4].'_'.$hex."\n";
+print DATA 'cat >> '.$ENV{PWD}.'/jobs/Monarc_files_info_'.$hex.' << END_OF_DATA'."\n"; 
+print DATA $hex.','.'` cksum MonarcTest | sed \'s/[^0-9][^0-9]*/,/\' | sed \'s/MonarcTest//g\'`'."\n";
+print DATA 'END_OF_DATA'."\n";
+print DATA 'rm -f seed CreateFile MonarcTest'."\n";
 close (DATA);
 open DATA, ">>$command_file" or die "can't open $command_file $!";
-print DATA 'bsub -q 8nm -u dmaletic@cern.ch MonarcTest_'.$hex.".job\n";
+if($ARGV[5] && $ARGV[5]) {print DATA $ARGV[1].' -q '.$ARGV[2].' '.$ARGV[5].' '.$ARGV[6].' MonarcTest_'.$hex.".job\n";}
+if(!$ARGV[5] || !$ARGV[6]) {print DATA $ARGV[1].' -q '.$ARGV[2].' MonarcTest_'.$hex.".job\n";}
 close (DATA);
 $i++;
 }
-system 'chmod a+x *';
+open DATA, ">>$command_file" or die "can't open $command_file $!";
+print DATA "echo '=========================================='"."\n";
+print DATA "echo 'when all files are created do: '"."\n";
+print DATA "echo '    cat jobs/Monarc_files_info_* > monarc_files_info'"."\n";
+print DATA "echo 'and copy monarc_files_info file in folder where MonarcFileInjector is.'"."\n";
+print DATA "echo 'i.e. in SITECONF/".$ARGV[4]."/PhEDEx folder '"."\n";
+print DATA "echo '=========================================='"."\n";
+close (DATA);
+system 'chmod a+x CreateFile *.job SubmitAllJobs.sh';
 mkdir("jobs", 0755) || die "Cannot mkdir jobs: $!";
 system 'mv *.job seed CreateFile jobs/';
