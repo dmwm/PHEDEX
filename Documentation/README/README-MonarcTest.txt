@@ -2,14 +2,16 @@ Monarc Test's goal is to have a possibility of transfer of infinite
 number of files (blocks) to some site using small set of initially 
 created files.
 
+
 This document describes how you can make MonarcTest samples at
 your site, and start the MonarcTest drop-box and file injector.
+
 
 MonarcTest file creation:
 
 In PHEDEX/Utilities there is a script MonarcFileCreator.    
 You should start it from somewhere from where you can submit batch
-jobs.
+or grid jobs (an NFS or AFS mounted area or a UI machine).
 This script creates a 'jobs/' directory and stores all job files in
 it.  It also creates a SubmitAllJobs.sh file which is used to submit
 all job files to the batch system. Each job file creates a file of
@@ -17,10 +19,12 @@ approximately 2.5 GB size, calculates it's cksum, retrieves it's file
 size and copies the file to the storage system.
 File creation is done in two steps. First there is a creation of a
 seed (23KB) file filled with random characters. The seed file is then
-automaticaly copied to the batch machine from an NFS or AFS mounted
-area along with the CreateFile script (created with this
-script). CreateFile script creates the resulting ~ 2.5 GB file which
-is then copied to storage sysetem and removed from the batch machine.
+automaticaly copied or defined in InputSandbox to the batch machine 
+from an NFS or AFS mounted area along with the CreateFile script 
+(created with this script). CreateFile script creates the resulting 
+~ 2.5 GB file which is then copied to storage sysetem and removed 
+from the batch machine.
+
 
 Starting of Monarc drop-box agents and a file injector
  
