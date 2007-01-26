@@ -56,26 +56,27 @@ TIER1_FTS_SERVICE=Atlantis-FTS;
 # Load the sub-configuration files #
 ####################################
 
-# The following 4 files steer, which PhEDEx services will be
+# The following 5 files steer, which PhEDEx services will be
 # running at your site. They are all active by default and
-# can be deactivated by adding another '#' sign.
+# can be deactivated by adding another '#' sign. We distinguish
+# between the following services:
 # 
-# Common: loads PhEDEx environemt and starts monitoring agent
-# Export: needed for exporting files to other sites
-# MSS:    needed for storage systems with tape backend
-# Inject: allows to inject locally produced files into PhEDEx
+# Common:   Loads PhEDEx environemt and starts monitoring agent.
+# Export:   Needed for exporting files to other sites.
+# Inject:   Allows to inject locally produced files into PhEDEx.
+# MSS:      Needed for storage systems with tape backend
+# Download: Download agents to perform file replication.
 #
 # T1 typically run all of them.
 # T2 and smaller sites typically don't need MSS.
-# CERN should run: CERN only (includes everything needed)
+# CERN should run: ConfigPart.CERN only (includes everything needed)
 
 ### IMPORT ConfigPart.Common
 ### IMPORT ConfigPart.Export
-### IMPORT ConfigPart.MSS
 ### IMPORT ConfigPart.Inject
 
-# Download agents default to 'off'; either start explicitly or
+# Download and MSS agents default to 'off'; either start explicitly or
 # remove 'DEFAULT=off' from the ConfigPart file listed below.
 
 ### IMPORT ConfigPart.FTSDownload
-
+### IMPORT ConfigPart.MSS

@@ -33,3 +33,11 @@ TIER1_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s ${TIER1_FTS_SE
  -validate        ${PHEDEX_CONFIG}/FileDownloadVerify
  -backend         SRM
  -command         ${PHEDEX_SCRIPTS}/Utilities/ftscp,-passfile=${PHEDEX_CONFIG}/ftspass,-server=${TIER1_FTS_SERVER}
+
+### AGENT LABEL=download-remove PROGRAM=Toolkit/Transfer/FileRemove
+ -db              ${PHEDEX_DBPARAM}
+ -nodes           ${PHEDEX_NODE}
+ -ignore          ${PHEDEX_MSS}
+ -storagemap      ${PHEDEX_CONFIG}/storage.xml
+ -rm              'stager_rm'
+ -protocol        'direct'

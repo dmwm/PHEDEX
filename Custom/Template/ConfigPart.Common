@@ -20,8 +20,3 @@ export X509_USER_PROXY;
 # Source PhEDEx environment
 source ${PHEDEX_SCRIPTS}/etc/profile.d/env.sh;
 
-### AGENT LABEL=info-ds PROGRAM=Toolkit/Monitoring/InfoDropStatus
- -db          ${PHEDEX_DBPARAM}
- -node	      ${PHEDEX_NODE}
- -site        ${PHEDEX_NODE}
- -dir         ${PHEDEX_STATE}

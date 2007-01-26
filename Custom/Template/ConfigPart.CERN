@@ -8,55 +8,28 @@
 ### ENVIRON stager
 export STAGE_SVCCLASS=t0export;
 
-### AGENT LABEL=exp-upload PROGRAM=Toolkit/Transfer/FileMSSPublish
- -db          ${PHEDEX_DBPARAM}
- -node        ${PHEDEX_NODE}_Buffer
- -mssnode     ${PHEDEX_NODE}_MSS
-
-### AGENT LABEL=exp-upload-t0 PROGRAM=Toolkit/Transfer/FileMSSPublish
- -db          ${PHEDEX_DBPARAM}
- -node        T0_CERN_Export
- -mssnode     T0_CERN_MSS
-
 ### AGENT LABEL=exp-stager PROGRAM=Custom/Castor/FileCastorStager.New ENVIRON=stager
  -db          ${PHEDEX_DBPARAM}
- -node        ${PHEDEX_NODE}_Buffer
+ -nodes       ${PHEDEX_NODE},T0_CERN_Export
  -storagemap  ${PHEDEX_STORAGEMAP}
  -protect     ${PHEDEX_CONF}/CastorConditionRed
 
-### AGENT LABEL=exp-stager-t0 PROGRAM=Custom/Castor/FileCastorStager.New ENVIRON=stager
+### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FileExport
  -db          ${PHEDEX_DBPARAM}
- -node        T0_CERN_Export
- -storagemap  ${PHEDEX_STORAGEMAP}
- -protect     ${PHEDEX_CONF}/CastorConditionRed
-
-### AGENT LABEL=exp-master PROGRAM=Custom/Castor/FileCastorExport
- -db          ${PHEDEX_DBPARAM}
- -nodes       ${PHEDEX_NODE}_Buffer,T0_CERN_Export
-
-### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FilePFNExport
- -db          ${PHEDEX_DBPARAM}
- -nodes       ${PHEDEX_NODE}_Buffer,${PHEDEX_NODE}_Load,T0_CERN_Export
- -ignore      ${PHEDEX_NODE}_MSS,T0_CERN_MSS
- -storagemap  ${PHEDEX_STORAGEMAP}
- -protocols   srm
+ -nodes       ${PHEDEX_NODE},T0_CERN_Export
+ -ignore      ${PHEDEX_MSS},T0_CERN_MSS
+ -storagemap  ${PHEDEX_MAP}
 
 ### AGENT LABEL=download-migrate PROGRAM=Custom/Castor/FileCastorMigrate
  -db          ${PHEDEX_DBPARAM}
- -node        ${PHEDEX_NODE}_MSS
- -storagemap  ${PHEDEX_STORAGEMAP}
-
-### AGENT LABEL=download-migrate-t0 PROGRAM=Custom/Castor/FileCastorMigrate
- -db          ${PHEDEX_DBPARAM}
- -node        T0_CERN_MSS
- -storagemap  ${PHEDEX_STORAGEMAP}
+ -nodes       ${PHEDEX_MSS},T0_CERN_MSS
 
 ### AGENT LABEL=download-t1 PROGRAM=Toolkit/Transfer/FileDownload ENVIRON=glite
  -db              ${PHEDEX_DBPARAM}
- -nodes           ${PHEDEX_NODE}_Buffer
+ -nodes           ${PHEDEX_NODE}
  -ignore          T1_CERN_MSS
  -accept          'T1%'
- -storagemap      ${PHEDEX_STORAGEMAP}
+ -storagemap      ${PHEDEX_MAP}
  -delete          ${PHEDEX_CONF}/FileDownloadDelete
  -validate        ${PHEDEX_CONF}/FileDownloadVerify
  -backend         SRM
@@ -65,10 +38,10 @@ export STAGE_SVCCLASS=t0export;
 
 ### AGENT LABEL=download-t2 PROGRAM=Toolkit/Transfer/FileDownload ENVIRON=glite
  -db              ${PHEDEX_DBPARAM}
- -nodes           ${PHEDEX_NODE}_Buffer
+ -nodes           ${PHEDEX_NODE}
  -ignore          T1_CERN_MSS
  -accept          'T2%'
- -storagemap      ${PHEDEX_STORAGEMAP}
+ -storagemap      ${PHEDEX_MAP}
  -delete          ${PHEDEX_CONF}/FileDownloadDelete
  -validate        ${PHEDEX_CONF}/FileDownloadVerify
  -backend         SRM
@@ -77,6 +50,6 @@ export STAGE_SVCCLASS=t0export;
 
 ### AGENT LABEL=download-deny PROGRAM=Toolkit/Transfer/FileDenyTransfer DEFAULT=off
  -db              ${PHEDEX_DBPARAM}
- -nodes           ${PHEDEX_NODE}_Buffer
- -accept          "${PHEDEX_NODE}%"
+ -nodes           ${PHEDEX_NODE}
+ -accept          "T1_CERN%"
 

@@ -2,27 +2,26 @@
 
 ### AGENT LABEL=mgmt-blockmon PROGRAM=Toolkit/Workflow/BlockMonitor
  -db        ${PHEDEX_DBPARAM}
- -node      ${PHEDEX_NODE}_Buffer
+ -node      ${PHEDEX_NODE}
 
 ### AGENT LABEL=mgmt-blockalloc PROGRAM=Toolkit/Workflow/BlockAllocator
  -db        ${PHEDEX_DBPARAM}
- -node      ${PHEDEX_NODE}_Buffer
+ -node      ${PHEDEX_NODE}
 
 ### AGENT LABEL=mgmt-blockactiv PROGRAM=Toolkit/Workflow/BlockActivate
  -db        ${PHEDEX_DBPARAM}
- -node      ${PHEDEX_NODE}_Buffer
+ -node      ${PHEDEX_NODE}
 
 ### AGENT LABEL=mgmt-blockdeact PROGRAM=Toolkit/Workflow/BlockDeactivate
  -db        ${PHEDEX_DBPARAM}
- -node      ${PHEDEX_NODE}_Buffer
+ -node      ${PHEDEX_NODE}
 
 ### AGENT LABEL=mgmt-blockdls PROGRAM=Toolkit/Workflow/BlockDLSUpdate
  -db        ${PHEDEX_DBPARAM}
- -se        ${PHEDEX_CONF}/mgmt-blockdls.list
-
+ 
 ### AGENT LABEL=mgmt-router PROGRAM=Toolkit/Infrastructure/FileRouter
  -db        ${PHEDEX_DBPARAM}
- -nodes     "%" # "${PHEDEX_NODE}%"
+ -nodes     "%"
 
 ### AGENT LABEL=mgmt-pump PROGRAM=Toolkit/Infrastructure/FilePump
  -db        ${PHEDEX_DBPARAM}
@@ -32,12 +31,12 @@
 
 ### AGENT LABEL=info-pm PROGRAM=Toolkit/Monitoring/PerfMonitor
  -db        ${PHEDEX_DBPARAM}
- -node      ${PHEDEX_NODE}_Buffer
+ -node      ${PHEDEX_NODE}
 
 ### AGENT LABEL=info-tc PROGRAM=Toolkit/Monitoring/InfoStatesClean
  -db        ${PHEDEX_DBPARAM}
- -node      ${PHEDEX_NODE}_Buffer
+ -node      ${PHEDEX_NODE}
 
 ### AGENT LABEL=info-fs PROGRAM=Toolkit/Monitoring/InfoFileSize
  -db        ${PHEDEX_DBPARAM}
- -node      ${PHEDEX_NODE}_Buffer
+ -node      ${PHEDEX_NODE}
