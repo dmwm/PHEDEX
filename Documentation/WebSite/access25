@@ -1120,7 +1120,7 @@ function select_all(form_id, name, value) {
  </div> <!-- /logo -->
 
  <div id="heading">
-  <h1 class="title">PhEDEx &#8211; CMS Data Transfers</h1>
+  <h1 class="title">@PAGEHEADING@</h1>
   <div class="pagenav">
    @TOCSELECTOR@
    @PAGESELECTOR@
@@ -1419,18 +1419,30 @@ sub generate
     exists $$scope{TOC} ? ${"${scope}TOC"} : undef
   };
 
-  # Check if this is running against a test location and warn if so
+  # Check if this is running against a test location and obnoxiously warn if so
   my $testwarn = "";
-  if ($ENV{SCRIPT_NAME} =~ m!/test/!)
-  {
-    my $prod = $self->myurl();
-    $prod =~ s!/test/!/!;
-    $testwarn =
-      "<center><div class='warning'>"
-      . "Hoy!  The production server is <a href='$prod'>over this way</a>."
-      . " This is a test server for the developers. You might wish to update"
-      . " your bookmarks."
-      . "</div></center>";
+  my $pageheading = 'PhEDEx &#8211; CMS Data Transfers';
+  if ($ENV{PHEDEX_DEV}) {
+      my $prod = $self->myurl();
+      $prod =~ s!/test/!/!;
+      $prod =~ s!/dev/$ENV{PHEDEX_DEV}/!/!;
+      $testwarn =
+	  "<center><div class='warning'>"
+	  . "Hoy!  The production server is <a href='$prod'>over this way</a>."
+	  . " This is a development server for <b>$ENV{PHEDEX_DEV}</b>. You might wish to update"
+	  . " your bookmarks."
+	  . "</div></center>";
+      $pageheading .= " <blink style='color:red;'>($ENV{PHEDEX_DEV}'s Development)</blink>";
+  } elsif ($ENV{SCRIPT_NAME} =~ m!/test/!) {
+      my $prod = $self->myurl();
+      $prod =~ s!/test/!/!;
+      $testwarn =
+	  "<center><div class='warning'>"
+	  . "Hoy!  The production server is <a href='$prod'>over this way</a>."
+	  . " This is a test server for the developers. You might wish to update"
+	  . " your bookmarks."
+	  . "</div></center>";
+      $pageheading .= " <blink style='color:red;'>(TEST)</blink>";
   }
 
   # Initialise page template
@@ -1440,6 +1452,7 @@ sub generate
     'CONTENT' => '',
     'PAGETITLE' =>
       ($cat ? $$cat{TITLE} . " &#8211; " . $$index{TITLE} : $$index{TITLE}),
+    'PAGEHEADING' => $pageheading,
     'TIME'	=> strftime ("%Y-%m-%d %H:%M:%S GMT", gmtime(time())),
     'DBTITLE' => $$config{INSTANCES}{$db}{TITLE},
     'ROOTURL' => "$$self{CONFIG}{SERVICE_PATH}/",
@@ -6536,6 +6549,7 @@ sub read_config
   my $config_file = $ENV{PHEDEX_SERVER_CONFIG}
     || die "No server configuration.\n";
 
+  $config_file =~ s/DEVNAME/$ENV{PHEDEX_DEV}/;
   open (CONFIG, "< $config_file")
     || die "$config_file: cannot read server configuration: $!\n";
 
