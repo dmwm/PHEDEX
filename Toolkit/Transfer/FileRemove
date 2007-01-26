@@ -1,22 +1,13 @@
 #! /usr/bin/env perl
 
-##H Clear up files to make more download space in the storage.
+##H Clear up files marked for deletion.
 ##H
-##H This agent is meant for sites with an MSS node for long term
-##H storage plus an intermediate disk buffer buffer not shared with
-##H the MSS for download imports and exports.  The agent periodically
-##H checks wither the buffer reaches high-water mark in fullness, and
-##H clears oldest files until the space drops below a low-water mark.
-##H The maximum-fill high-water mark could be for example 90%, and the
-##H minimum-free low-water mark could be for example 50%.
+##H This agent perfoms the deletion requests entered into TMDB
+##H by an administrator or via the web page.  Each request consists
+##H of a dataset or block plus the node from where the file should
+##H be deleted.
 ##H
-##H The agent doesn't actually know anything about the storage, it
-##H invokes an external site script with "min-free" or "max-fill" as
-##H an argument, and takes non-zero exit code from the script as an
-##H indication the condition is not met, and more files should be
-##H deleteed.
-##H
-##H Files on buffer without outbound transfers are candidates for
+##H Files on nodes without pending transfers are candidates for
 ##H clearing up.  Files are removed oldest first, first from the
 ##H TMDB replica table, then physically from disk.  File removal
 ##H may be a real removal, or simply ejection of the file from
