@@ -1388,7 +1388,7 @@ sub generate
       param('view', 'global');
       $$self{VIEW_MESSAGE} = "<h3 style='color:#666'>Global view</h3><p style='color:#666'>(Sign in to change)</p>";
   }
-    elsif ((param('view') || 'none') eq 'my')
+    elsif (!param('view') || param('view') eq 'my')
   {
       $$self{MY_VIEW} = 1;
       my $otherurl = $self->myurl('view' => 'global');
@@ -2079,8 +2079,9 @@ sub output
   }
 
   my $qtask = &dbexec($$self{DBH}, qq{
-      select t.id, a.id, r.id, t.time_create, r.state, r.creator, a.action, a.time_apply, a.client, a_attr.name, a_attr.value
+      select t.id, a.id, r.id, tp.value assigned_to, t.time_create, r.state, r.creator, a.action, a.time_apply, a.client, a_attr.name, a_attr.value
       from t_req_task t
+      join t_adm_identity_attr tp on t.person = tp.identity and tp.name = 'Distinguished name'
       join t_req_action a on a.id = t.action
       join t_req_request r on r.id = a.request
       left join t_req_action_attr a_attr on a_attr.action = a.id
@@ -2092,14 +2093,15 @@ sub output
   my $oldtid = -1;
   my $oldaid = -1;
   my %task;
-  while (my ($tid, $aid, $rid, $tcreate, $rstate, $rcreator, $action, $atime, $aclient, $name, $value) = $qtask->fetchrow()) {
+  while (my ($tid, $aid, $rid, $tassigned, $tcreate, $rstate, $rcreator, $action, $atime, $aclient, $name, $value) = $qtask->fetchrow()) {
       if ($oldtid != $tid) {
+	  $task{$tid}{TASK_ASSIGNED} = $tassigned;
 	  $task{$tid}{TASK_CREATED}  = $tcreate;
 	  $task{$tid}{REQUEST_ID} = $rid;
 	  $task{$tid}{REQUEST_STATE} = $rstate;
 	  $task{$tid}{REQUEST_CREATOR} = $self->getClientData($rcreator);
       }
-      if ($oldaid != $aid) {
+      if ($oldtid != $tid || $oldaid != $aid) {
 	  $task{$tid}{ACTIONS}{$aid}{ACTION_NAME} = $action;
 	  $task{$tid}{ACTIONS}{$aid}{ACTION_TIME} = $atime;
 	  $task{$tid}{ACTIONS}{$aid}{ACTION_CREATOR} = $self->getClientData($aclient);
@@ -2116,12 +2118,18 @@ sub output
       return;
   }
 
-  foreach my $tid (reverse sort keys %task) {
+  
+
+  foreach my $tid (reverse sort { $a <=> $b } keys %task) {
+ #     use Data::Dumper;
+#      print { $$self{CONTENT} } "<pre>Task $tid:\n:", Dumper($task{$tid}), "</pre>";
+
       my $details_url = $self->myurl(page => 'Request::Detail', 'request' => $task{$tid}{REQUEST_ID});
 
       print { $$self{CONTENT} } 
       "<div class='nice paramblock lev1'>",
       "<h1>Task $tid</h1>",
+      "<label>Task Assigned to:</label>", "<span class='labeled'>", &dn_to_human_name($task{$tid}{TASK_ASSIGNED}), "</span<br/>",
       "<label>Task Created:</label>", "<span class='labeled'>", &formatTime($task{$tid}{TASK_CREATED}, 'stamp' ), "</span><br/>",
       "<label>Request #:</label><span class='labeled'>", $task{$tid}{REQUEST_ID}, "<a href='$details_url'>(details)</a></span><br/>",
       "<label>Requestor:</label>", "<span class='labeled'>",
@@ -3387,8 +3395,9 @@ sub write_request
     $$self{DBH}->commit();
 
     # Send an email to each of the PhEDEx global admins
+    my $instance = $$self{CONFIG}{INSTANCES}{$$self{DBID}}{TITLE};
     my $subscription_type =  &subscription_type(@params{qw(priority is_transient is_move)});
-    send_email(subject => "PhEDEx request",
+    send_email(subject => "PhEDEx Transfer Request ($instance instance)",
 	       to => [ @adminmails ],
 	       from => "PhEDEx Request Form <cms-phedex-admins\@cern.ch>",
 	       message => 
@@ -3407,7 +3416,7 @@ sub write_request
 	       "   Type:\n".
 	       "     $subscription_type\n".
 	       "   Database:\n".
-	       "     $$self{CONFIG}{INSTANCES}{$$self{DBID}}{TITLE}\n".
+	       "     $instance\n".
 	       "   Contact:\n".
 	       "     $params{email}\n".
 	       "   DBS:\n".
