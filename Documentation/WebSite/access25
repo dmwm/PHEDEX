@@ -404,12 +404,29 @@ sub fetch_authorized_nodes
 }
 
 
-
+# Get the client's e-mail address.  By default, use an e-mail
+# from the database if we have one.  Failing that, use the
+# address from the certificate itself.  This order allows the
+# users to change their preferred e-mail address and make the
+# choice sticky.
 sub create_default_email
 {
   my ($self) = @_;
+
+  my ($email) = &dbexec($$self{DBH}, qq{
+    select email.value
+    from t_adm_identity_attr dn
+      join t_adm_identity_attr email
+        on email.identity = dn.identity
+        and email.name = 'E-mail'
+    where dn.name = 'Distinguished name'
+    and dn.value = :client_dn},
+    ':client_dn' => $$self{SSL_IDENTITY})->fetchrow();
+
+  return $email if ($email);
+
   return undef if ! $ENV{SSL_CLIENT_CERT};
-  my $email = "";
+  $email = "";
 
   use File::Temp ':mktemp';
   if (my ($fh, $file) = mkstemp ('/tmp/certXXXXXXXXXX'))
@@ -433,7 +450,7 @@ sub send_email
 	return 0 unless exists $args{$_};
     }
 
-    foreach (qw(from to cc)) {
+    foreach (qw(from to cc replyto)) {
 	if (exists $args{$_} && ref $args{$_} eq 'ARRAY') {
 	    $args{$_} = join(', ', @{$args{$_}});
 	} elsif ( exists $args{$_} && ! $args{$_} ) {
@@ -441,7 +458,7 @@ sub send_email
 	}
     }
     
-    foreach (qw(from to cc)) {
+    foreach (qw(from to cc replyto)) {
 	next unless exists $args{$_};
 	return 0 unless &validlist($args{$_});
     }
@@ -450,6 +467,7 @@ sub send_email
      && (print MAIL
 	 "Subject: $args{subject}\n",
 	 "From: $args{from}\n",
+	 (exists $args{replyto} ? "Reply-To:  $args{replyto}\n" : ''),
 	 "To: $args{to}\n",
 	 (exists $args{cc} ? "Cc: $args{cc}\n" : ''),
 	 "\n",
@@ -1286,18 +1304,22 @@ sub myurl
   my $page = $args{'page'}; delete $args{'page'};
   my $db = $args{'db'}; delete $args{'db'};
   my $secure = $args{'secure'}; delete $args{'secure'};
+  my $fullurl = $args{'fullurl'}; delete $args{'fullurl'};
 
   my $newcgi = new CGI ("");
   $newcgi->param ($_, ref $args{$_} ? @{$args{$_}} : $args{$_}) for keys %args;
   my $url = $$self{CONFIG}{SERVICE_PATH};
   my $q = $newcgi->query_string();
-  $url = $$self{CONFIG}{$secure ? "SSL_SERVER_ROOT" : "SERVER_ROOT"} . $url
-    if ($cursecure || 0) != ($secure || 0);
+
+  if (($cursecure || 0) != ($secure || 0)) {
+      $url = $$self{CONFIG}{$secure ? "SSL_SERVER_ROOT" : "SERVER_ROOT"} . $url;
+  } elsif ($fullurl) {
+      $url = $$self{CONFIG}{"SERVER_ROOT"} . $url;
+  }
+
   $url .= "/$db";
   $url .= "/$page" if $page;
   $url .= "?$q" if $q;
-  
-  my $url2 = self_url();
   
   return $url;
 }
@@ -1767,7 +1789,7 @@ sub logClientInfo
 	$identity = &makeObjWithAttrs
 	    ($$self{DBH}, "adm_identity", "identity", {},
 	     "Distinguished name" => $$self{SSL_IDENTITY},
-	     "E-mail" => &create_default_email(),
+	     "E-mail" => $self->create_default_email(),
 	     "Certificate" => $$self{SSL_CERT});
     }
 
@@ -1882,18 +1904,25 @@ sub formatClientData
 
 sub formatAction
 {
-    my ($self, $aid, $action) = @_;
+    my ($self, $aid, $action, $tid) = @_;
     my @html;
 
+    my $actionid = "action$aid";
+    my $actionclientid = "actionclient$aid";
+    if ($tid) {
+	$actionid = "task$tid".$actionid;
+	$actionclientid = "task$tid".$actionclientid;
+    }
+
     push @html,
-    "<h1><a href='#' onclick='return hideshow(this,\"action$aid\",0)'>",
+    "<h1><a href='#' onclick='return hideshow(this,\"$actionid\",0)'>",
     $$action{ACTION_NAME}, "</a></h1>",
-    "<div id='action$aid' style='display:none;'>",
+    "<div id='$actionid' style='display:none;'>",
     "<label>Time:</label>", "<span class='labeled'>", &formatTime($$action{ACTION_TIME}, 'stamp'), "</span><br/>",
     "<label>Client:</label>", "<span class='labeled'>",
-    "<a href='#' onclick='return hideshow(this, \"actionclient$aid\", 0)'>",
+    "<a href='#' onclick='return hideshow(this, \"$actionclientid\", 0)'>",
     (&dn_to_human_name($$action{ACTION_CREATOR}{IDENTITY_ATTR}{'Distinguished name'}) or 'Unknown'), "</a></span><br/>",
-    "<div id='actionclient$aid' class='hideaway' style='display:none;'>",
+    "<div id='$actionclientid' class='hideaway' style='display:none;'>",
     $self->formatClientData($$action{ACTION_CREATOR}),
     "</div>";
     
@@ -2121,15 +2150,12 @@ sub output
   
 
   foreach my $tid (reverse sort { $a <=> $b } keys %task) {
- #     use Data::Dumper;
-#      print { $$self{CONTENT} } "<pre>Task $tid:\n:", Dumper($task{$tid}), "</pre>";
-
       my $details_url = $self->myurl(page => 'Request::Detail', 'request' => $task{$tid}{REQUEST_ID});
 
       print { $$self{CONTENT} } 
       "<div class='nice paramblock lev1'>",
       "<h1>Task $tid</h1>",
-      "<label>Task Assigned to:</label>", "<span class='labeled'>", &dn_to_human_name($task{$tid}{TASK_ASSIGNED}), "</span<br/>",
+      "<label>Task Assigned to:</label>", "<span class='labeled'>", &dn_to_human_name($task{$tid}{TASK_ASSIGNED}), "</span><br/>",
       "<label>Task Created:</label>", "<span class='labeled'>", &formatTime($task{$tid}{TASK_CREATED}, 'stamp' ), "</span><br/>",
       "<label>Request #:</label><span class='labeled'>", $task{$tid}{REQUEST_ID}, "<a href='$details_url'>(details)</a></span><br/>",
       "<label>Requestor:</label>", "<span class='labeled'>",
@@ -2143,7 +2169,7 @@ sub output
       foreach my $aid (keys %{$task{$tid}{ACTIONS}}) {
 	  print { $$self{CONTENT} }
 	  "<div class='paramblock lev2'>",
-	  $self->formatAction($aid, $task{$tid}{ACTIONS}{$aid}),
+	  $self->formatAction($aid, $task{$tid}{ACTIONS}{$aid}, $tid),
 	  "</div>";
       }
       
@@ -2255,19 +2281,42 @@ sub output
     
     print { $$self{CONTENT} }
     "<h1>Task Completed</h1>",
-    "<p>You have $actionname request #$request.</p>";
-	
-	my $requestor = '';
-	my $requestor_email = '';
+    "<p>You have $actionname request \#$request.</p>";
+    
+    my $q = &dbexec($$self{DBH}, 
+		    qq{ select creator from t_req_request where id = :id },
+		    ':id' => $request);
 
-#     my $message
+    my ($creator_id) = $q->fetchrow();
+    my $creator_data = $self->getClientData($creator_id);
+    my $creator_name = &dn_to_human_name($$creator_data{IDENTITY_ATTR}{'Distinguished name'});
+    my $creator_email = $$creator_data{IDENTITY_ATTR}{'E-mail'};
+    my $detail_url = $self->myurl(page => 'Request::Requests', request => $request, fullurl => 1);
+    my $admin_email = $self->create_default_email();
+    my $msg_comment = ($comment ? "\nThe admin who handled this had the following comment:\n\n\"$comment\"\n" : '');
 
-#     send_email(subject => "PhEDEx Request Update",
-# 	       to => [ $requestor_email ],
-# 	       from => "PhEDEx Web Requests <cms-phedex-admins\@cern.ch>",
-# 	       message => 
-# 	       );
-	
+    my $message=<<ENDEMAIL;
+Dear $creator_name,
+
+Your request \#$request has been $actionname by $$self{USER_NAME}.
+$msg_comment
+To review details of the request, please go to:
+
+$detail_url
+
+To inquire further about this request, you may reply to this email.
+
+Yours truly,
+  PhEDEx transfer request webpage
+
+ENDEMAIL
+
+    send_email(subject => "PhEDEx Request $actionname (request \#$request)",
+	       to => [ $creator_email ],
+	       from => "PhEDEx Web Requests <cms-phedex-admins\@cern.ch>",
+	       replyto => [ $admin_email ],
+	       message => $message
+	      );
 }
 
 
@@ -2317,7 +2366,7 @@ use strict; use warnings;
 use base "Web25::Request::Page";
 our $INDEX = { LIST => 1, ORDER => 2, TITLE => "Requests",
 	       LINK_TITLE => "Browse requests",
-	       SECURE => 1 };
+	       SECURE => 0 };
 use CGI qw(:standard);
 import Web25::Common;
 
@@ -2333,6 +2382,9 @@ sub new
 sub output
 {
     my ($self) = @_;
+    my $request = param('request');
+
+
     my ($where, $identity);
     if ($$self{MY_VIEW}) {
 	$where = qq{ ident.id = :identity };
@@ -2360,6 +2412,7 @@ sub output
   my $oldaid = -1;
   my %req;
   while (my ($rid, $rstate, $rcreator, $aid, $action, $atime, $aclient, $name, $value) = $qreq->fetchrow()) {
+      next if ($request && $rid != $request);  # XXX improve later...
       if ($oldrid != $rid) {
 	  $req{$rid}{REQUEST_STATE} = $rstate;
 	  $req{$rid}{REQUEST_CREATOR} = $self->getClientData($rcreator);
@@ -2381,7 +2434,7 @@ sub output
       return;
   }
 
-  foreach my $rid (reverse sort keys %req) {
+  foreach my $rid (reverse sort { $a <=> $b } keys %req) {
       my $details_url = $self->myurl(page => 'Request::Detail', 'request' => $rid);
       print { $$self{CONTENT} } 
       "<div class='nice paramblock lev1'>",
@@ -3007,22 +3060,8 @@ sub output
   &create_check_identity($self, \$bad);
   return if $bad;
 
-  # Get the client's e-mail address.  By default, use an e-mail
-  # from the database if we have one.  Failing that, use the
-  # address from the certificate itself.  This order allows the
-  # users to change their preferred e-mail address and make the
-  # choice sticky.
-  my ($email_contact) = &dbexec($$self{DBH}, qq{
-    select email.value
-    from t_adm_identity_attr dn
-      join t_adm_identity_attr email
-        on email.identity = dn.identity
-        and email.name = 'E-mail'
-    where dn.name = 'Distinguished name'
-    and dn.value = :client_dn},
-    ':client_dn' => $$self{SSL_IDENTITY})->fetchrow();
-  $email_contact = &create_default_email() if ! $email_contact;
-
+  my $email_contact = $self->create_default_email();
+  
   my %dbses = &getdbslist($$self{DBH});
   my @dbsnames = sort keys %dbses;
   my $defaultdbs = 'http://cmsdbs.cern.ch/cms/prod/comp/DBS/CGIServer/prodquery?instance=MCGlobal/Writer';
@@ -6212,7 +6251,7 @@ sub signup_form
     
     my $name = $$self{USER_NAME};
     my $client_dn = $$self{SSL_IDENTITY};
-    my $email = create_default_email();
+    my $email = $self->create_default_email();
     
     my $actionurl = $self->myurl();
     print { $$self{CONTENT} } "<form class='nice' method='get' action='$actionurl'>";
@@ -6274,10 +6313,8 @@ sub signup_form
 sub send_request
 {
     my ($self) = @_;
-    dump_params($$self{CONTENT});
 
-    print { $$self{CONTENT} } "<h1>OK, working on it</h1>";
-}
+    $self->alert("Sorry, this feature isn't ready yet.  Contact the phedex admins via email about this for the momoent");}
 
 1;
 
@@ -6324,7 +6361,7 @@ sub output
         where dn.name = 'Distinguished name'
         and dn.value = :client_dn},
         ':client_dn' => $$self{SSL_IDENTITY})->fetchrow() };
-    my $email_default = &create_default_email();
+    my $email_default = $self->create_default_email();
 
     print { $$self{CONTENT} }
       "<div class='notebox'>\n",
