@@ -231,5 +231,15 @@ begin
 end;
 /
 
+# Import users/sites
+ImportSites -db ${PHEDEX_DB} sites.txt
+
+# Add global admins
+IdentityNew -db ${PHEDEX_DB} -dn '/C=CH/O=CERN/OU=GRID/CN=Dimitrije Maletic 2991' -email 'Dimitrije.Maletic@cern.ch' -global_admin
+IdentityNew -db ${PHEDEX_DB} -dn '/C=CH/O=CERN/OU=GRID/CN=Douglas Teodoro 8147' -email 'Douglas.Teodoro@cern.ch' -global_admin
+IdentityNew -db ${PHEDEX_DB} -dn '/C=UK/O=eScience/OU=Bristol/L=IS/CN=simon metson' -email 'simon.metson@cern.ch' -global_admin
+IdentityNew -db ${PHEDEX_DB} -dn '/C=CH/O=CERN/OU=GRID/CN=Jens Rehn 1344' -email 'jens.rehn@cern.ch' -global_admin
+IdentityNew -db ${PHEDEX_DB} -dn '/DC=org/DC=doegrids/OU=People/CN=Ricky Egeland 693921' -email 'Ricky.Egeland@cern.ch' -global_admin
+
 # Update statistics
 sqlplus -S $(Schema/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleStatsUpdate.sql </dev/null
