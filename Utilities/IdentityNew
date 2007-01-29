@@ -40,14 +40,14 @@ my $self = { DBCONFIG => $args{DBCONFIG} };
 my $dbh = &connectToDatabase ($self, 0);
 
 # Insert the identity if it is not already there
-unless ( fetch_identity_id($dbh, $$args{DN}) ) {
-    print "Inserting identity $$args{DN}...";
+unless ( fetch_identity_id($dbh, $args{DN}) ) {
+    print "Inserting identity $args{DN}...";
     &dbexec($dbh,
 	    qq{insert into t_adm_identity (id) 
 		   values (seq_adm_identity.nextval) });
     
-    my %attr = ('Distinguished name' => $$args{DN}, 
-		'E-mail' => $$args{EMAIL});
+    my %attr = ('Distinguished name' => $args{DN}, 
+		'E-mail' => $args{EMAIL});
 
     foreach my $name (keys %attr) {
 	&dbexec($dbh,
@@ -59,12 +59,12 @@ unless ( fetch_identity_id($dbh, $$args{DN}) ) {
     }
     print "Done.\n";
 } else {
-    print "Identity for $$args{DN} already exists.\n";
+    print "Identity for $args{DN} already exists.\n";
 }
 
-if ($$args{GLOBAL_ADMIN}) {
+if ($args{GLOBAL_ADMIN}) {
     print "Making global admin...";
-    my $id = fetch_identity_id($dbh, $$args{DN});
+    my $id = fetch_identity_id($dbh, $args{DN});
     &dbexec($dbh,
 	    qq{insert into t_adm_global_admin (identity)
 		   values (:identity)},
