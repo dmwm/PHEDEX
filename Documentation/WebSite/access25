@@ -2423,7 +2423,7 @@ sub output
 	  $req{$rid}{ACTIONS}{$aid}{ACTION_CREATOR} = $self->getClientData($aclient);
 	  $req{$rid}{ACTIONS}{$aid}{ATTR} = [];
       }
-      push @{$req{$rid}{ACTIONS}{$aid}{ATTR}}, {NAME=> $name, VALUE=> $value};
+      push @{$req{$rid}{ACTIONS}{$aid}{ATTR}}, {NAME=> $name, VALUE=> $value} if ($name);
       $oldrid = $rid;
       $oldaid = $aid;
       ++$n;
@@ -2447,7 +2447,7 @@ sub output
       "</div>",
       "<label>Request State:</label>", "<span class='labeled'>", $reqstatenames{$req{$rid}{REQUEST_STATE}}, "</span><br/>";
 
-      foreach my $aid (sort keys %{$req{$rid}{ACTIONS}}) {
+      foreach my $aid (sort { $a <=> $b } keys %{$req{$rid}{ACTIONS}}) {
 	  print { $$self{CONTENT} }
 	  "<div class='paramblock lev2'>",
 	  $self->formatAction($aid, $req{$rid}{ACTIONS}{$aid}),
