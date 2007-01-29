@@ -2171,32 +2171,33 @@ sub output
 	  "<div class='paramblock lev2'>",
 	  $self->formatAction($aid, $task{$tid}{ACTIONS}{$aid}, $tid),
 	  "</div>";
-      }
-      
-      if ($$self{MY_VIEW}) {
-	  my $formurl = $self->myurl(page=>'Request::NewAction');
-	  print { $$self{CONTENT} }
-	  "<form method='get' action='$formurl'>",
-	  hidden(-name=>'request', -value=>$task{$tid}{REQUEST_ID}),
-	  hidden(-name=>'task', -value=>$tid),
-	  "<label>Next Action:</label>",
-	  "<span class='labeled'>",
-	  popup_menu(-name=>'newaction', 
-		     -values=>['subscribe', 'disapprove'],
-		     -labels=>{'subscribe' => 'Subscribe',
-			       'disapprove' => 'Disapprove'}
-		     ),
-	  " (Optional) Comment: ",
-	  textfield(-name=>'comment'),"&nbsp;",
-	  submit(-value=>'Submit'), "</span><br/>",
-	  "</form>";
-      }
 
-      print { $$self{CONTENT} } "</div>";
+	  if ($$self{MY_VIEW}) {
+	      my $formurl = $self->myurl(page=>'Request::NewAction');
+	      print { $$self{CONTENT} }
+	      "<form method='get' action='$formurl'>",
+	      hidden(-name=>'request', -value=>$task{$tid}{REQUEST_ID}),
+	      hidden(-name=>'task', -value=>$tid),
+	      hidden(-name=>'action', -value=>$aid),
+		     "<label>Next Action:</label>",
+		     "<span class='labeled'>",
+	      popup_menu(-name=>'newaction', 
+			 -values=>['subscribe', 'disapprove'],
+			 -labels=>{'subscribe' => 'Subscribe',
+				   'disapprove' => 'Disapprove'}
+			 ),
+	      " (Optional) Comment: ",
+	      textfield(-name=>'comment'),"&nbsp;",
+	      submit(-value=>'Submit'), "</span><br/>",
+	      "</form>";
+	  }
+      }
+      print { $$self{CONTENT} } "</div>"; # close task
   }
 
-
 }
+
+
 
 1;
 
@@ -2223,12 +2224,13 @@ sub output
 {
     my ($self) = @_;
     
-    my $action = param('newaction');
+    my $newaction = param('newaction');
+    my $oldaction = param('action');
     my $request = param('request');
     my $task = param('task');
     my $comment = param('comment');
 
-    if (!$action || !$request || !$task) {
+    if (!$newaction || !$request || !$task) {
 	alert('Missing parameters');
 	return;
     }
@@ -2238,7 +2240,7 @@ sub output
     }
 
     my %action_attr;
-    my $actionname;
+    my $newactionname;
     my $newstate;
     my $now = time();
     
@@ -2246,26 +2248,26 @@ sub output
 	%action_attr = ('Comment' => $comment);
     }
     
-    if ($action eq 'subscribe') {
-	$actionname = 'Subscribed';
+    if ($newaction eq 'subscribe') {
+	$newactionname = 'Subscribed';
 	unless (&subscribe_request($$self{DBH}, $request, $now)) {
 	    $self->alert("Subscription failed.  Please notify the developers.");
 	}
 	$newstate = 5;
-    } elsif ($action eq 'disapprove') {
+    } elsif ($newaction eq 'disapprove') {
 	unless (&disapprove_request($$self{DBH}, $request, $now)) {
 	    $self->alert("Disapproval failed.  Please notify the developers.");
 	}
-	$actionname = 'Disapproved';
+	$newactionname = 'Disapproved';
 	$newstate = 4;
-    } else { &alert("Unknown action type '$action'"); return; }
+    } else { &alert("Unknown action type '$newaction'"); return; }
     
     my $client = $self->logClientInfo();
 
     my $aid = &makeObjWithAttrs
 	($$self{DBH}, "req_action", "action",
 	 { "request" => $request,
-	   "action" => $actionname,
+	   "action" => $newactionname,
 	   "client" => $client,
 	   "time_apply" => $now },
 	 %action_attr
@@ -2274,14 +2276,14 @@ sub output
     &dbexec($$self{DBH}, qq{update t_req_request set state = :newstate where id = :req_id},
 	    ':newstate' => $newstate, ':req_id' => $request);
     
-    &dbexec($$self{DBH}, qq{delete from t_req_task where id = :task},
-	    ':task' => $task);
+    &dbexec($$self{DBH}, qq{delete from t_req_task where action = :aid},
+	    ':aid' => $oldaction);
 
     $$self{DBH}->commit();
     
     print { $$self{CONTENT} }
     "<h1>Task Completed</h1>",
-    "<p>You have $actionname request \#$request.</p>";
+    "<p>You have $newactionname request \#$request.</p>";
     
     my $q = &dbexec($$self{DBH}, 
 		    qq{ select creator from t_req_request where id = :id },
@@ -2298,7 +2300,7 @@ sub output
     my $message=<<ENDEMAIL;
 Dear $creator_name,
 
-Your request \#$request has been $actionname by $$self{USER_NAME}.
+Your request \#$request has been $newactionname by $$self{USER_NAME}.
 $msg_comment
 To review details of the request, please go to:
 
@@ -2311,7 +2313,7 @@ Yours truly,
 
 ENDEMAIL
 
-    send_email(subject => "PhEDEx Request $actionname (request \#$request)",
+    send_email(subject => "PhEDEx Request $newactionname (request \#$request)",
 	       to => [ $creator_email ],
 	       from => "PhEDEx Web Requests <cms-phedex-admins\@cern.ch>",
 	       replyto => [ $admin_email ],
