@@ -1525,6 +1525,13 @@ sub generate
 	    		            { RaiseError=>1, AutoCommit =>0 });
         $$self{DBH}{FetchHashKeyName} = "NAME_uc";
         $$self{DBH}{private_self} = $self;
+
+	if (exists $$config{INSTANCES}{$db}{ROLE_NAME}) {
+	    my $role_name = $$config{INSTANCES}{$db}{ROLE_NAME};
+	    my $role_pass = $$config{INSTANCES}{$db}{ROLE_PASS};
+	    &dbexec($$self{DBH}, qw[ set role $role_name identified by $role_pass ]);
+	}
+
 	# Fetch the user ID from the DB, if we can
 	$$self{DB_IDENTITY_ID} = $self->fetch_identity_id($$self{SSL_IDENTITY});
 	# Set other PhEDEx authorization variables
@@ -3029,7 +3036,7 @@ sub output
 
   "<label>DBS:</label>",  "<div class='labeled'>",@dbs_selection, "</div><br/>",
 
-  "<label>Datasets:<br/><br/>",
+  "<label>Datasets or Blocks:<br/><br/>",
   "<span class='note'>/Primary/Tier/Dataset<br/>or<br/>",
   "/Primary/Dataset#Block<br/>(Use * as wildcard)</span></label>\n",
   textarea(-name=>'data', -value=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), "<br/>\n",
