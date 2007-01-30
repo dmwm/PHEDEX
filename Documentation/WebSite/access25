@@ -1559,7 +1559,8 @@ sub generate
 	if (exists $$config{INSTANCES}{$db}{ROLE_NAME}) {
 	    my $role_name = $$config{INSTANCES}{$db}{ROLE_NAME};
 	    my $role_pass = $$config{INSTANCES}{$db}{ROLE_PASS};
-	    &dbexec($$self{DBH}, qw[ set role $role_name identified by $role_pass ]);
+	    &dbexec($$self{DBH}, 
+		    qq{set role $role_name identified by $role_pass });
 	}
 
 	# Fetch the user ID from the DB, if we can
