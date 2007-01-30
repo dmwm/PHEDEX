@@ -4,18 +4,32 @@
 ### IMPORT ConfigPart.Management
 ### IMPORT ConfigPart.Inject
 
+# set CERN specific environment
+export PATH=/usr/bin:$PATH;
+unset STAGE_HOST STAGE_POOL STAGE_SVCCLASS;
+export STAGE_HOST=castorcms;
+export STAGE_SVCCLASS=cmsprod;
+export RFIO_USE_CASTOR_V2=YES;
+
+### ENVIRON glite
+source $PHEDEX_GLITE_ENV;
+export GLITE_SD_PLUGIN;
+TIER0_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s CERN-PROD);
 
 ### ENVIRON stager
 export STAGE_SVCCLASS=t0export;
 
+
 ### AGENT LABEL=exp-stager PROGRAM=Custom/Castor/FileCastorStager.New ENVIRON=stager
  -db          ${PHEDEX_DBPARAM}
+ -state       ${PHEDEX_STATE}
  -nodes       ${PHEDEX_NODE},T0_CERN_Export
  -storagemap  ${PHEDEX_STORAGEMAP}
  -protect     ${PHEDEX_CONF}/CastorConditionRed
 
 ### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FileExport
  -db          ${PHEDEX_DBPARAM}
+ -state       ${PHEDEX_STATE}
  -nodes       ${PHEDEX_NODE},T0_CERN_Export
  -ignore      ${PHEDEX_MSS},T0_CERN_MSS
  -storagemap  ${PHEDEX_MAP}
@@ -26,6 +40,7 @@ export STAGE_SVCCLASS=t0export;
 
 ### AGENT LABEL=download-t1 PROGRAM=Toolkit/Transfer/FileDownload ENVIRON=glite
  -db              ${PHEDEX_DBPARAM}
+ -state           ${PHEDEX_STATE}
  -nodes           ${PHEDEX_NODE}
  -ignore          T1_CERN_MSS
  -accept          'T1%'
@@ -33,11 +48,12 @@ export STAGE_SVCCLASS=t0export;
  -delete          ${PHEDEX_CONF}/FileDownloadDelete
  -validate        ${PHEDEX_CONF}/FileDownloadVerify
  -backend         SRM
- -command         ${PHEDEX_SCRIPTS}/Utilities/ftscp,-passfile=${PHEDEX_CONF}/ftspass,-server=${PHEDEX_FTS_SERVER}
+ -command         ${PHEDEX_SCRIPTS}/Utilities/ftscp,-passfile=${PHEDEX_CONF}/ftspass,-server=${TIER0_FTS_SERVER}
  -timeout         12600 # 3h30
 
 ### AGENT LABEL=download-t2 PROGRAM=Toolkit/Transfer/FileDownload ENVIRON=glite
  -db              ${PHEDEX_DBPARAM}
+ -state           ${PHEDEX_STATE}
  -nodes           ${PHEDEX_NODE}
  -ignore          T1_CERN_MSS
  -accept          'T2%'
@@ -45,11 +61,12 @@ export STAGE_SVCCLASS=t0export;
  -delete          ${PHEDEX_CONF}/FileDownloadDelete
  -validate        ${PHEDEX_CONF}/FileDownloadVerify
  -backend         SRM
- -command         ${PHEDEX_SCRIPTS}/Utilities/ftscp,-passfile=${PHEDEX_CONF}/ftspass,-server=${PHEDEX_FTS_SERVER}
+ -command         ${PHEDEX_SCRIPTS}/Utilities/ftscp,-passfile=${PHEDEX_CONF}/ftspass,-server=${TIER0_FTS_SERVER}
  -timeout         12600 # 3h30
 
 ### AGENT LABEL=download-deny PROGRAM=Toolkit/Transfer/FileDenyTransfer DEFAULT=off
  -db              ${PHEDEX_DBPARAM}
+ -state           ${PHEDEX_STATE}
  -nodes           ${PHEDEX_NODE}
  -accept          "T1_CERN%"
 
