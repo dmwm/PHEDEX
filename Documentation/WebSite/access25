@@ -2826,7 +2826,7 @@ sub create_check_data
 
   foreach my $data (@data)
   {
-    if ($data !~ m<^/[^/]+/[^/]+(/[^/]+|\#[^\#])$>)
+    if ($data !~ m<^/[^/]+/[^/]+(/[^/]+|\#[^\#]+)$>)
     {
       alert($self, "The data pattern is &ldquo;@{[&escapeHTML($data)]}&rdquo;",
 	      " does not match pattern of type /PRIMARY/TIER/DATASET or /PRIMARY/DATASET#BLOCK.");
@@ -3262,6 +3262,9 @@ sub output
   $table->set_cellformats({COMMENT     => sub { $_[1]->{WARN} ? 'alarm' : '' },
 			   DPS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''},
 			   DBS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''}});
+  sub yesno { $_ = shift @_; s/^y$/Yes/; s/^n$/No/; return $_; }
+  $table->set_dataformats({DPS_ISKNOWN => \&yesno,
+		           DBS_ISKNOWN => \&yesno});
 
   $table->start();
   $table->head();
@@ -6143,10 +6146,10 @@ sub output
   my $now = time();
   my $overview = $$self{DBH}->selectrow_arrayref(qq{
     select time_update, n_files, sz_total, sz_min, sz_max, sz_mean, sz_median
-    from t_info_file_size_overview});
+    from t_status_file_size_overview});
   my $histo = $$self{DBH}->selectall_arrayref(qq{
     select time_update, bin_low, bin_width, n_total, sz_total
-    from t_info_file_size_histogram order by bin_low asc});
+    from t_status_file_size_histogram order by bin_low asc});
 
   print { $$self{CONTENT} }
     "<p>",
