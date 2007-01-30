@@ -69,7 +69,9 @@ TIER1_FTS_SERVICE=Atlantis-FTS;
 #
 # T1 typically run all of them.
 # T2 and smaller sites typically don't need MSS.
-# CERN should run: ConfigPart.CERN only (includes everything needed)
+# CERN should run:
+#   ConfigPart.CERN only for T0
+#   ConfigPart.CERN , ConfigPart.CERN-Download for T1
 
 ### IMPORT ConfigPart.Common
 ### IMPORT ConfigPart.Export

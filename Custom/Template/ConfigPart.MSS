@@ -2,7 +2,6 @@
 
 ### AGENT LABEL=mss-remove PROGRAM=Toolkit/Transfer/FileRemove DEFAULT=off
  -db              ${PHEDEX_DBPARAM}
- -state           ${PHEDEX_STATE}
  -nodes           ${PHEDEX_MSS}
  -ignore          ${PHEDEX_NODE}
  -storagemap      ${PHEDEX_CONFIG}/storage.xml
@@ -13,25 +12,21 @@
 #### SRM based agents
 ### AGENT LABEL=mss-stage PROGRAM=Custom/SRM/FileSRMStager DEFAULT=off
  -db          ${PHEDEX_DBPARAM}
- -state       ${PHEDEX_STATE}
  -nodes       ${PHEDEX_NODE}
  -storagemap  ${PHEDEX_MAP}
 
 ### AGENT LABEL=mss-migrate PROGRAM=Custom/SRM/FileSRMMigrate DEFAULT=off
  -db          ${PHEDEX_DBPARAM}
- -state       ${PHEDEX_STATE}
  -nodes       ${PHEDEX_MSS}
 
 #### Castor based agents
 ### AGENT LABEL=mss-stage PROGRAM=Custom/Castor/FileCastorStager.New DEFAULT=off
  -db          ${PHEDEX_DBPARAM}
- -state       ${PHEDEX_STATE}
  -nodes       ${PHEDEX_NODE}
  -storagemap  ${PHEDEX_MAP}
 
 ### AGENT LABEL=mss-migrate PROGRAM=Custom/Castor/FileCastorMigrate DEFAULT=off
  -db          ${PHEDEX_DBPARAM}
- -state       ${PHEDEX_STATE}
  -nodes       ${PHEDEX_MSS}
 
 #### dCache based agents
@@ -39,11 +34,9 @@
 #### hence a fake stager is used for now.
 ### AGENT LABEL=mss-stage PROGRAM=Toolkit/Transfer/FileFakeStager DEFAULT=off
  -db          ${PHEDEX_DBPARAM}
- -state       ${PHEDEX_STATE}
  -nodes       ${PHEDEX_NODE}
 
 ### AGENT LABEL=mss-migrate PROGRAM=Custom/DCache/FiledCacheMigrate DEFAULT=off
  -db          ${PHEDEX_DBPARAM}
- -state       ${PHEDEX_STATE}
  -nodes       ${PHEDEX_MSS}
 
