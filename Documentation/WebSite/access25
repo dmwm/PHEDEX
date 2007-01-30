@@ -19,6 +19,7 @@ our @EXPORT = qw(urlencode dblink toclink pagelink
 		 alert_auth
                  fetch_identity_id set_auth_vars fetch_authorized_nodes
                  create_default_email send_email dn_to_human_name
+		 yesno
 		 dump_params
 );
 
@@ -484,8 +485,15 @@ sub dn_to_human_name
     my $dn = shift @_;
     my ($name) = ($dn =~ m:/CN=([^/]+?)[\s\d]*(/|$):);
     return $name;
-}
+}	      
 
+    
+sub yesno 
+{ 
+    $_ = shift @_; 
+    s/^y$/Yes/; s/^n$/No/; 
+    return $_; 
+}
 
 
 sub dump_params
@@ -1926,9 +1934,21 @@ sub formatAction
     $self->formatClientData($$action{ACTION_CREATOR}),
     "</div>";
     
+    sub formatAttr
+    {
+	my $attr = shift;
+	if ($$attr{NAME} eq 'Priority') {
+	    my $fmt = { 0 => 'High', 1 => 'Normal', 2 => 'Low' };
+	    return $$fmt{$$attr{VALUE}};
+	} elsif ($$attr{NAME} eq 'Transient' or 'Move') {
+	    return &yesno($$attr{VALUE});
+	}
+	return $$attr{VALUE};
+    }
+
     foreach my $attr (@{ $$action{ATTR} } ) {
 	my $commentclass = $$attr{NAME} eq 'Comment' ? ' comment' : '';
-	push @html, "<label>$$attr{NAME}:</label><span class='labeled$commentclass'>$$attr{VALUE}</span><br/>";
+	push @html, "<label>$$attr{NAME}:</label><span class='labeled$commentclass'>",&formatAttr($attr),"</span><br/>";
     }
     
     push @html, "</div>";
@@ -2575,7 +2595,9 @@ sub output
   $table->set_stripeclass('stripe');
 
   $table->set_dataformats({ REQUESTOR => \&dn_to_human_name,
-			    UPDATED   => sub { &formatTime($_[0], 'stamp') }
+			    UPDATED   => sub { &formatTime($_[0], 'stamp') },
+			    DBS_ISKNOWN => \&yesno,
+			    DPS_ISKNOWN => \&yesno
 			});
 
   $table->set_cellformats({DPS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''},
@@ -3262,7 +3284,7 @@ sub output
   $table->set_cellformats({COMMENT     => sub { $_[1]->{WARN} ? 'alarm' : '' },
 			   DPS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''},
 			   DBS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''}});
-  sub yesno { $_ = shift @_; s/^y$/Yes/; s/^n$/No/; return $_; }
+
   $table->set_dataformats({DPS_ISKNOWN => \&yesno,
 		           DBS_ISKNOWN => \&yesno});
 
