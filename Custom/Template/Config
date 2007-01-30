@@ -41,7 +41,7 @@ PHEDEX_BASE=/home/phedex;
 PHEDEX_INSTANCE=Dev;
 PHEDEX_LABEL=ATLANTIS;
 PHEDEX_SITE=Atlantis;
-PHEDEX_NODE=TX_${PHEDEX_SITE};
+PHEDEX_NODE=TX_${PHEDEX_SITE}_Buffer;
 PHEDEX_VERSION=2_5_0;
 PHEDEX_OS_VERSION=slc4_ia32_gcc345;
 X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
@@ -70,8 +70,8 @@ TIER1_FTS_SERVICE=Atlantis-FTS;
 # T1 typically run all of them.
 # T2 and smaller sites typically don't need MSS.
 # CERN should run:
-#   ConfigPart.CERN only for T0
-#   ConfigPart.CERN , ConfigPart.CERN-Download for T1
+#   ConfigPart.CERN, ConfigPart.Management for T0
+#   ConfigPart.CERN, ConfigPart.CERN-Download for T1
 
 ### IMPORT ConfigPart.Common
 ### IMPORT ConfigPart.Export

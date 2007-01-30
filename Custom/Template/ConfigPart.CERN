@@ -1,7 +1,6 @@
 # To be used at CERN only. Don';t run any of those agents at your site !
 
 ### IMPORT ConfigPart.Common
-### IMPORT ConfigPart.Management
 ### IMPORT ConfigPart.Inject
 
 # set CERN specific environment
@@ -17,18 +16,17 @@ export STAGE_SVCCLASS=t0export;
 
 ### AGENT LABEL=exp-stager PROGRAM=Custom/Castor/FileCastorStager.New ENVIRON=stager
  -db          ${PHEDEX_DBPARAM}
- -nodes       ${PHEDEX_NODE},T0_CERN_Export
+ -nodes       ${PHEDEX_NODE}
  -storagemap  ${PHEDEX_MAP}
  -protect     ${PHEDEX_CONFIG}/CastorConditionRed
 
 ### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FileExport
  -db          ${PHEDEX_DBPARAM}
- -nodes       ${PHEDEX_NODE},T0_CERN_Export
- -ignore      ${PHEDEX_MSS},T0_CERN_MSS
+ -nodes       ${PHEDEX_NODE}
+ -ignore      ${PHEDEX_MSS}
  -storagemap  ${PHEDEX_MAP}
+ -protocols   'srm'
 
 ### AGENT LABEL=download-migrate PROGRAM=Custom/Castor/FileCastorMigrate
  -db          ${PHEDEX_DBPARAM}
- -nodes       ${PHEDEX_MSS},T0_CERN_MSS
-
-
+ -nodes       ${PHEDEX_MSS}

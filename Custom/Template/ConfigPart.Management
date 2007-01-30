@@ -21,7 +21,6 @@
  
 ### AGENT LABEL=mgmt-router PROGRAM=Toolkit/Infrastructure/FileRouter
  -db        ${PHEDEX_DBPARAM}
- -nodes     "%"
 
 ### AGENT LABEL=mgmt-pump PROGRAM=Toolkit/Infrastructure/FilePump
  -db        ${PHEDEX_DBPARAM}
