@@ -14,6 +14,10 @@
 ##H
 ##H A file of this form is output by the GrepSites script
 
+use warnings;
+use strict;
+$|++;
+
 BEGIN {
     $^W = 1; use strict; use warnings;
     our $me = $0; $me =~ s|.*/||;
@@ -52,7 +56,7 @@ while (my ($id, $name) = $q->fetchrow_array) {
 
 # Parse the files and build a hash
 my %sites;
-$currsite = '';
+my $currsite = '';
 while (<>) {
     chomp;
     next unless /^\w/;
@@ -85,6 +89,8 @@ foreach my $site (sort keys %sites) {
 	    ':role' => $sites{$site}{role});
     
     foreach my $name ( @{$sites{$site}{nodes}} ) {
+	if (!exists $nodes{$name}) { die "Node $name is not in DB:  aborting.\n"; $dbh->rollback(); }
+	print "adding $name...";
 	&dbexec($dbh,
 		qq{insert into t_adm_site_node (site, node)
 		       values (seq_adm_site.currval, :node)},
