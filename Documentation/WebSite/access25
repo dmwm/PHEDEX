@@ -11,7 +11,7 @@ use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
 
 
 our @EXPORT = qw(urlencode dblink toclink pagelink
-		 alert warning breakAtSlash note
+		 alert warning breakAtSlash note help
 		 age format_num format_size format_timespan
 		 badcolor warncolor pendcolor goodcolor altcolor
 		 dbexec dbprep dbbindexec makeObjWithAttrs dbsafe
@@ -169,6 +169,13 @@ sub note
     "<center><div class='note'>",
     "<p>", @_, "</p></div></center>\n";
 }
+
+# Generate help into the output
+sub help
+{
+    my ($self, @help);
+}
+
 
 # Format a number as a string.  Zero is converted into a dash.
 sub format_num
@@ -3114,7 +3121,7 @@ sub output
   textarea(-name=>'data', -value=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), "<br/>\n",
 
   "<label>Destinations</label>",
-  "<div class='labeled'  style='font-size:8pt;width:450px;height:150px;;overflow:scroll;border:thin solid black;' >",
+  "<div class='labeled'  style='font-size:8pt;width:450px;height:150px;overflow:scroll;border:thin solid black;' >",
   "<table><tr valign='top'>",
   "  <td>\n",
   (map { checkbox(-name=>'dest', label=>$_, -value=>$_)."<br/>" }
@@ -3132,12 +3139,12 @@ sub output
   "<label>Replica or Move:</label>", popup_menu(-name=>'is_move', 
 						-values=>['y', 'n'],
 						-default=>'n',
-						-labels=>{'y' => 'Move', 'n' => 'Replica'},
+						-labels=>{'n' => 'Replica', 'y' => 'Move'},
 						-class=>'labeled'), "<br/>",
   "<label>Open or Closed:</label>", popup_menu(-name=>'is_transient', 
 					       -values=>['y', 'n'],
-					       -default=>'y',
-					       -labels=>{'y' => 'Closed', 'n' => 'Open'},
+					       -default=>'n',
+					       -labels=>{'n' => 'Open', 'y' => 'Closed' },
 					       -class=>'labeled'), "<br/>",
   "<label>Priority:</label>", popup_menu(-name=>'priority', 
 					 -values=>[0, 1, 2], 
@@ -3747,6 +3754,8 @@ sub output
 
 
 1;
+
+
 
 ######################################################################
 package Web25::Activity::Rate;
