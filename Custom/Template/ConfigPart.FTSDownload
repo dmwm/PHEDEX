@@ -8,31 +8,31 @@
 # FTS specific setings - only needed if you use FTS #
 #####################################################
 
+### ENVIRON glite
 source $PHEDEX_GLITE_ENV;
 export GLITE_SD_PLUGIN;
 TIER0_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s CERN-PROD);
 TIER1_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s ${TIER1_FTS_SERVICE});
 
-
-### AGENT LABEL=download-fts-cern PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
+### AGENT LABEL=download-fts-cern PROGRAM=Toolkit/Transfer/FileDownload ENVIRON=glite DEFAULT=off
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE}
  -accept          '%CERN%'
  -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
- -validate        ${PHEDEX_CONFIG}/FileDownloadVerify
+ -validate        ${PHEDEX_CONFIG}/FileDownloadVerify,${PHEDEX_BASE}/PHEDEX/Utilities/GetLocalPath,${PHEDEX_MAP},'posix'
  -backend         SRM
  -command         ${PHEDEX_SCRIPTS}/Utilities/ftscp,-passfile=${PHEDEX_CONFIG}/ftspass,-server=${TIER0_FTS_SERVER}
 
-### AGENT LABEL=download-fts-rest PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
+### AGENT LABEL=download-fts-rest PROGRAM=Toolkit/Transfer/FileDownload ENVIRON=glite DEFAULT=off
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE}
  -ignore          '%CERN%'
  -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
- -validate        ${PHEDEX_CONFIG}/FileDownloadVerify
+ -validate        ${PHEDEX_CONFIG}/FileDownloadVerify,${PHEDEX_BASE}/PHEDEX/Utilities/GetLocalPath,${PHEDEX_MAP},'posix'
  -backend         SRM
  -command         ${PHEDEX_SCRIPTS}/Utilities/ftscp,-passfile=${PHEDEX_CONFIG}/ftspass,-server=${TIER1_FTS_SERVER}
 
-### AGENT LABEL=download-remove PROGRAM=Toolkit/Transfer/FileRemove
+### AGENT LABEL=download-remove PROGRAM=Toolkit/Transfer/FileRemove ENVIRON=glite
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE}
  -ignore          ${PHEDEX_MSS}
