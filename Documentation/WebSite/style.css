@@ -687,9 +687,9 @@ table.data td.alarm {
 
 form.nice input,
 form.nice select,
-form.nice textarea { border:  thin solid black; }
+form.nice textarea { border:  1px solid black; }
 
-.outline { border:  thin solid black; }
+.outline { border:  1px solid black; }
 .padded { margin:  1em; padding:  1em; }
 
 div.paramblock {
@@ -703,7 +703,7 @@ div.paramblock {
 div.paramblock h1 { 
   margin-left:  0;
   padding-left:  1em;
-  border: thin dotted black;
+  border: 1px dotted black;
   font-weight:  bold;
   font-style:  italic;
   letter-spacing:  0.1em;
@@ -719,14 +719,14 @@ div.paramblock h1 {
 .lev3 h1 { background-color:  #ffc9c9;  font-size:  10pt; }
 
 div.paramblock .hideaway { 
-  border-top:  thin dotted black;
-  border-bottom:  thin dotted black;
+  border-top:  1px dotted black;
+  border-bottom:  1px dotted black;
 }
 
 div.paramblock .comment {
   background-color:  white;
   width:  25em;
-  border:  thin solid #aaa;
+  border:  1px solid #aaa;
   padding:  0.5em;
 }
 
