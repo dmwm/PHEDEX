@@ -304,7 +304,7 @@ sub alert_auth
     }
 
     my $login_url = $self->myurl("secure" => 1);
-    my $reg_url = $self->myurl(page => "Configuration::SignUp");
+    my $reg_url = $self->myurl(page => "Administration::SignUp");
     my $gridcert_help_url = 'http://lcg.web.cern.ch/LCG/users/registration/load-cert.html';
 
     if ($need eq 'anycert' && !$$self{SSL_IDENTITY}) {
@@ -1384,7 +1384,7 @@ sub generate
   }
 
   # Check if the client's identity was verified
-  my $idurl = $self->myurl('page' => 'Configuration::Identities');
+  my $idurl = $self->myurl('page' => 'Administration::Identities');
   if ($ENV{SSL_CLIENT_S_DN} && ($ENV{SSL_CLIENT_VERIFY} || '') eq 'SUCCESS')
   {
     $$self{SSL_VERIFIED} = 1;
@@ -1718,17 +1718,15 @@ our $TOC = { LIST => 1, ORDER => 2, TITLE => "Data" }; 1;
 package Web25::Request; use strict; use warnings; use base "Exporter";
 our $TOC = { LIST => 1, ORDER => 3, TITLE => "Requests" }; 1;
 
-package Web25::Configuration; use strict; use warnings; use base "Exporter";
-our $TOC = { LIST => 1, ORDER => 4, TITLE => "Configuration" }; 1;
-
-# package Web25::Admin; use strict; use warnings; use base "Exporter";
-# our $TOC = { LIST => 1, ORDER => 6, TITLE => "Administration" }; 1;
-
 package Web25::Components; use strict; use warnings; use base "Exporter";
-our $TOC = { LIST => 1, ORDER => 5, TITLE => "Components" }; 1;
+our $TOC = { LIST => 1, ORDER => 4, TITLE => "Components" }; 1;
 
 package Web25::Reports; use strict; use warnings; use base "Exporter";
-our $TOC = { LIST => 1, ORDER => 6, TITLE => "Reports" }; 1;
+our $TOC = { LIST => 1, ORDER => 5, TITLE => "Reports" }; 1;
+
+package Web25::Administration; use strict; use warnings; use base "Exporter";
+our $TOC = { LIST => 1, ORDER => 6, TITLE => "Administration" }; 1;
+
 
 ######################################################################
 package Web25::Info::About; use strict; use warnings; use base "Exporter";
@@ -2050,7 +2048,7 @@ sub output
   my $your = $$self{MY_VIEW} ? "Your" : "All";
   print { $$self{CONTENT} }
     "<div align='left'>",
-    "<p><a href='@{[$self->myurl('page' => 'Request::Tasks')]}'>$your pending tasks</a></p>\n",
+    "<p><a href='@{[$self->myurl('page' => 'Request::Admin')]}'>$your pending tasks</a></p>\n",
     "<ul>\n",
     " <li> ", ($tasks ? "$tasks Tasks" : "None"), "</li>\n",
     "</ul>\n",
@@ -2102,10 +2100,10 @@ sub output
 1;
 
 ######################################################################
-package Web25::Request::Tasks;
+package Web25::Request::Admin;
 use strict; use warnings;
 use base "Web25::Request::Page";
-our $INDEX = { LIST => 1, ORDER => 1, TITLE => "Tasks",
+our $INDEX = { LIST => 1, ORDER => 4, TITLE => "Administer Requests",
 	       LINK_TITLE => "Browse and carry out pending tasks",
 	       SECURE => 1 };
 use CGI qw(:standard);
@@ -2233,7 +2231,7 @@ sub output
 package Web25::Request::NewAction;
 use strict; use warnings;
 use base "Web25::Request::Page";
-our $INDEX = { LIST => 0, ORDER => 2, TITLE => "New Action",
+our $INDEX = { LIST => 0, ORDER => 100, TITLE => "New Action",
 	       LINK_TITLE => "Create a new action on a task",
 	       SECURE => 1 };
 use CGI qw(:standard);
@@ -2394,7 +2392,7 @@ sub disapprove_request
 package Web25::Request::Requests;
 use strict; use warnings;
 use base "Web25::Request::Page";
-our $INDEX = { LIST => 1, ORDER => 2, TITLE => "Requests",
+our $INDEX = { LIST => 1, ORDER => 2, TITLE => "View Requests",
 	       LINK_TITLE => "Browse requests",
 	       SECURE => 0 };
 use CGI qw(:standard);
@@ -3072,7 +3070,7 @@ import Web25::Request::CreateTools;
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 1, ORDER => 4, TITLE => "Create Request",
+our $INDEX = { LIST => 1, ORDER => 1, TITLE => "Create Request",
 	       LINK_TITLE => "Create a new transfer request",
 	       SECURE => 1 };
 
@@ -3171,7 +3169,7 @@ import Web25::Request::CreateTools;
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 0, ORDER => 6, TITLE => "Submit Request",
+our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Submit Request",
 	       SECURE => 1 };
 
 sub new
@@ -4725,7 +4723,7 @@ import Web25::Common;
 use CGI qw(:standard);
 use POSIX qw(strftime);
 
-our $INDEX = { LIST => 0, ORDER => 7, TITLE => "Transfer Details" };
+our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Transfer Details" };
 
 sub new
 {
@@ -5981,7 +5979,7 @@ use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 0, ORDER => 3, TITLE => "Remove Datasets",
+our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Remove Datasets",
 	       LINK_TITLE => "Remove datasets from PhEDEx database",
                SECURE => 1 };
 
@@ -6009,7 +6007,7 @@ use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 0, ORDER => 4, TITLE => "Remove Files",
+our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Remove Files",
 	       LINK_TITLE => "Remove files from PhEDEx database",
                SECURE => 1 };
 
@@ -6239,7 +6237,7 @@ sub output
 1;
 
 ######################################################################
-package Web25::Configuration::SignUp;
+package Web25::Administration::SignUp;
 use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
@@ -6330,7 +6328,7 @@ sub signup_form
     $table->set_tablehead({
 	select => 'Select',
 	site => 'Site Name',
-	role => 'Role',
+	role => 'Database Role',
 	nodes => 'Nodes'
 	});
     $table->set_tableclass('data');
@@ -6356,7 +6354,7 @@ sub send_request
 1;
 
 ######################################################################
-package Web25::Configuration::Identities;
+package Web25::Administration::Identities;
 use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
@@ -6487,13 +6485,13 @@ sub output
 1;
 
 ######################################################################
-package Web25::Configuration::Admins;
+package Web25::Administration::Admins;
 use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 0, ORDER => 3, TITLE => "Administrators",
+our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Administrators",
 	       LINK_TITLE => "Manage administrator privileges" };
 
 sub new
@@ -6514,13 +6512,13 @@ sub output
 1;
 
 ######################################################################
-package Web25::Configuration::Sites;
+package Web25::Administration::Sites;
 use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 0, ORDER => 4, TITLE => "Sites",
+our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Sites",
 	       LINK_TITLE => "Manage sites" };
 
 sub new
@@ -6541,13 +6539,13 @@ sub output
 1;
 
 ######################################################################
-package Web25::Configuration::Nodes;
+package Web25::Administration::Nodes;
 use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 0, ORDER => 5, TITLE => "Nodes",
+our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Nodes",
 	       LINK_TITLE => "Administer nodes" };
 
 sub new
@@ -6568,13 +6566,13 @@ sub output
 1;
 
 ######################################################################
-package Web25::Configuration::Links;
+package Web25::Administration::Links;
 use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 0, ORDER => 6, TITLE => "Links",
+our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Links",
 	       LINK_TITLE => "Administer links between nodes" };
 
 sub new
