@@ -6,7 +6,7 @@
 ##H    Usage:
 ##H
 ##H       MonarcFileCreator <copy command to MSS> <batch job submit command> <queue type>  \ 
-##H       <storage path> <site> [<batch job user> <user's email>]
+##H       <storage path> <site> [<batch system mail option> <user's email>]
 ##H
 ##H       Start it from somewhere you can submit jobs. From NFS or AFS mounted area or a UI. 
 ##H       
@@ -31,8 +31,8 @@
 ##H       srm://srm.cern.ch:8443/srm/managerv1?SFN=/castor/cern.ch/cms/store/phedex_monarctest CERN 
 ##H
 
-if($ARGV[0] && $ARGV[0] ne 'srmcp' && $ARGV[0] ne 'rfcp' && $ARGV[0] ne 'dccp') 
-{die " \n Not tested for this command! \n The <copy command to MSS> not rfcp nor dccp nor srmcp! \n\n"; }
+if($ARGV[0] && $ARGV[0] ne 'srmcp' && $ARGV[0] ne 'rfcp' && $ARGV[0] ne 'dccp' && $ARGV[0] ne 'cp') 
+{die " \n Not tested for this command! \n The <copy command to MSS> not rfcp nor dccp nor srmcp nor cp! \n\n"; }
 if($ARGV[1] eq 'test' && $ARGV[0] eq 'srmcp') {
 `cat >> sample.jdl << END_OF_DATA
 Executable = "some.job"; 
@@ -54,7 +54,7 @@ edg-job-list-match sample.jdl \n\n";
 }
 if(!$ARGV[0] || !$ARGV[1]|| !$ARGV[2] || !$ARGV[3] || !$ARGV[4]) {  die " \n Insufficient parameters, use: \n
 MonarcFileCreator <copy command to MSS> <batch job submit command> <queue type> <storage path> <site>  \\
-[<batch job user> <user's email>] \n
+[<batch system mail option> <user's email>] \n
 Examples: \n
 ./MonarcFileCreator rfcp bsub 8nm /castor/cern.ch/cms/store/phedex_monarctest CERN -u user_email
 
