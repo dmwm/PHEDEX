@@ -51,34 +51,29 @@ for role in \
 
       T_*:*CERN* | \
       T_*AGENT*:* | \
+      T_XFER_CATALOGUE:* | \
+      T_XFER_DELETE:* | \
+      T_XFER_ERROR:* | \
       T_XFER_REPLICA:* | \
-      T_XFER_REQUEST:*CERN* | \
-      T_XFER_PATH:*CERN* | \
-      T_XFER_STATE:* | \
-      T_XFER_TRACKING:* )
+      T_XFER_SINK:* | \
+      T_XFER_SOURCE:* | \
+      T_XFER_TASK*:* )
         # Select, update, insert and delete
         echo; echo "grant select on $table to $reader;"
 	echo "grant select on $table to $writer;"
 	echo "grant delete, insert, select, update on $table to $role;" ;;
 
-      T_DPS_DBS:* | \
-      T_DPS_DATASET:* | \
-      T_DPS_BLOCK:* | \
-      T_DPS_BLOCK_ACTIVATE:* | \
-      T_DPS_BLOCK_DELETE:* | \
-      T_DPS_FILE:* | \
-      T_XFER_FILE:* | \
-      T_XFER_DELETE:* )
-        # Select, update and insert
-        echo; echo "grant select on $table to $reader;"
-        echo "grant select on $table to $writer;"
-	echo "grant insert, select, update on $table to $role;" ;;
-
-      T_DPS_BLOCK_DEST:* )
-        # Select and update, but no insert
-        echo; echo "grant select on $table to $reader;"
-        echo "grant select on $table to $writer;"
-	echo "grant select, update on $table to $role;" ;;
+#      T_XFER_FILE:* )
+#        # Select, update and insert
+#        echo; echo "grant select on $table to $reader;"
+#        echo "grant select on $table to $writer;"
+#	echo "grant insert, select, update on $table to $role;" ;;
+#
+#      T_DPS_BLOCK_DEST:* )
+#        # Select and update, but no insert
+#        echo; echo "grant select on $table to $reader;"
+#        echo "grant select on $table to $writer;"
+#	echo "grant select, update on $table to $role;" ;;
 
       T_*:* )
         # Select only

@@ -30,7 +30,7 @@ create table t_adm_identity_attr
      unique (name, value),
    --
    constraint fk_adm_identity_attr_identity
-     foreign key (identity) references identity (id)
+     foreign key (identity) references t_adm_identity (id)
      on delete cascade);
 
 
@@ -51,10 +51,10 @@ create table t_adm_contact_attr
      primary key (id),
    --
    constraint uq_adm_contact_attr_key
-     unique (contact, name)
+     unique (contact, name),
    --
    constraint fk_adm_contact_attr_contact
-     foreign key (contact) references contact (id)
+     foreign key (contact) references t_adm_contact (id)
      on delete cascade);
 
 

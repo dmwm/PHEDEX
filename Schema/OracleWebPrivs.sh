@@ -26,7 +26,7 @@ for table in \
     sqlplus -S "$connect" | awk '/^(T|SEQ)_[A-Z0-9_]+/ { print $1 } {}'); do
 
     case $table in
-    T_AUTH*:* )
+    T_AUTH* )
       # Invisible to all but admin
       ;;
 
