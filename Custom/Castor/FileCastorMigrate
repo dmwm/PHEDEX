@@ -112,8 +112,8 @@ sub idle
 	# Pick up work and process it.
         my $done = &dbprep ($dbh, qq{
 	    insert into t_xfer_task_done
-	    (task, report_code, xfer_code, time_update)
-	    values (:task, 0, 0, :now});
+	    (task, report_code, xfer_code, time_xfer, time_update)
+	    values (:task, 0, 0, :now, :now)});
 	my $q = &dbexec($dbh, qq{
 	    select
 	      xt.id, n.name, f.filesize, f.logical_name,

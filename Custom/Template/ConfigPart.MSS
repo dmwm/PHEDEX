@@ -1,5 +1,12 @@
 #### Agents related to mass storage operations
 
+### AGENT LABEL=exp-pfn-mss PROGRAM=Toolkit/Transfer/FileExport
+ -db          ${PHEDEX_DBPARAM}
+ -nodes       ${PHEDEX_MSS}
+ -ignore      ${PHEDEX_NODE}
+ -storagemap  ${PHEDEX_MAP}
+ -protocols   'direct'
+
 ### AGENT LABEL=mss-remove PROGRAM=Toolkit/Transfer/FileRemove DEFAULT=off
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_MSS}

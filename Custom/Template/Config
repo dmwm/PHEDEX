@@ -67,9 +67,10 @@ TIER1_FTS_SERVICE=Atlantis-FTS;
 # MSS:      Needed for storage systems with tape backend
 # Download: Download agents to perform file replication.
 #
-# T1 typically run all of them.
+# T1 typically run all of the above.
 # T2 and smaller sites typically don't need MSS.
-# CERN should run:
+#
+# CERN should run a set of special agents (only run at CERN!):
 #   ConfigPart.CERN, ConfigPart.Management for T0
 #   ConfigPart.CERN, ConfigPart.CERN-Download for T1
 
@@ -79,6 +80,8 @@ TIER1_FTS_SERVICE=Atlantis-FTS;
 
 # Download and MSS agents default to 'off'; either start explicitly or
 # remove 'DEFAULT=off' from the ConfigPart file listed below.
+# Please make sure, that the settings in those files reflect your
+# site's storage and transfer topology.
 
 ### IMPORT ConfigPart.FTSDownload
 ### IMPORT ConfigPart.MSS
