@@ -18,6 +18,7 @@ our @EXPORT = qw(urlencode dblink toclink pagelink
 		 timeSeries formatTime timegm sizeValue
 		 alert_auth
                  fetch_identity_id set_auth_vars fetch_authorized_nodes
+		 getglobaladmins
                  create_default_email send_email dn_to_human_name
 		 yesno
 		 dump_params
@@ -410,6 +411,26 @@ sub fetch_authorized_nodes
 			
     return @nodes;
 }
+
+
+
+# Get a list of global admins from the DB
+# Returns and array of hashrefs containing ID and EMAIL
+sub getglobaladmins
+{
+    my ($dbh) = @_;
+    my $q = &dbexec($dbh, qq{select i.id, ia.value
+				 from t_adm_global_admin ga
+				 join t_adm_identity i on ga.identity = i.id
+				 join t_adm_identity_attr ia on ia.identity = i.id
+				 where ia.name = 'E-mail'});
+    my @admins;
+    while (my ($id, $email) = $q->fetchrow_array()) {
+	push @admins, {ID => $id, EMAIL => $email};
+    }
+    return @admins;
+}
+
 
 
 # Get the client's e-mail address.  By default, use an e-mail
@@ -2661,7 +2682,6 @@ BEGIN { my $__scriptdir = $ENV{SCRIPT_FILENAME} || "./"; $__scriptdir =~ s,[^/]+
 use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
 
 our @EXPORT = qw(getdbslist getnodelist
-		 getglobaladmins
 		 create_check_access
 		 create_check_identity
 		 create_check_email
@@ -2699,23 +2719,6 @@ sub getnodelist
 
   return sort keys %nodes;
 }
-
-
-sub getglobaladmins
-{
-    my ($dbh) = @_;
-    my $q = &dbexec($dbh, qq{select i.id, ia.value
-				 from t_adm_global_admin ga
-				 join t_adm_identity i on ga.identity = i.id
-				 join t_adm_identity_attr ia on ia.identity = i.id
-				 where ia.name = 'E-mail'});
-    my @admins;
-    while (my ($id, $email) = $q->fetchrow_array()) {
-	push @admins, {ID => $id, EMAIL => $email};
-    }
-    return @admins;
-}
-
 
 sub create_check_access
 {
@@ -6264,13 +6267,6 @@ sub output
   my $adminok = $self->alert_auth(need => 'gridcert', power => 'sign up to be a transfer administrator');
   unless ($adminok) { return; }
 
-  # Check if user is already registered
-  if ($$self{DB_IDENTITY_ID}) {
-      # TODO What if the user wants to request admin rights for more sites?
-      $self->note("Hello $$self{USER_NAME}, you are already registered to PhEDEx.");
-      # return;  
-  }
-
   # Display the apporpriate part of this page
   if (!param('signup')) {
       $self->signup_form();
@@ -6289,7 +6285,7 @@ sub signup_form
     my $email = $self->create_default_email();
     
     my $actionurl = $self->myurl();
-    print { $$self{CONTENT} } "<form class='nice' method='get' action='$actionurl'>";
+    print { $$self{CONTENT} } "<form class='nice' method='post' action='$actionurl'>";
     print { $$self{CONTENT} } "<h1>Admin Registration</h1>",
     "<p>Fill in the requested information and choose the sites for wish ",
     "you would like to be authorized to administer.  Your request will be ",
@@ -6305,7 +6301,7 @@ sub signup_form
     
     print { $$self{CONTENT} } 
     "<fieldset><legend>Registration Information</legend>",
-    "<label>Preferred email:</label><input class='labeled' type='text' name='pref_email' value='$email' /><br/>",
+    "<label>Preferred email:</label>", textfield(-class=>'labeled',-name=>'pref_email', -value=>$email),"<br/>",
     "</fieldset>";
     
     print { $$self{CONTENT} } "<h2>Sites:</h2>";
@@ -6332,7 +6328,9 @@ sub signup_form
 	nodes => 'Nodes'
 	});
     $table->set_tableclass('data');
-    $table->add_pseudocolumn('select', sub { "<input type='checkbox' name='sites' value='$_[1]->{id}'/>" });
+    $table->add_pseudocolumn('select', sub { checkbox(-name=>'sites', 
+						      -value=>"$_[1]->{id}:$_[1]->{site}:$_[1]->{nodes}",
+						      -label=>''); });
     $table->start();
     $table->head();
     foreach(sort keys %{$sites}) {
@@ -6340,8 +6338,15 @@ sub signup_form
     }
     $table->finish();
     
-    print { $$self{CONTENT} } "<br/><input type='submit' name='signup' value='Submit'/>";
-    print { $$self{CONTENT} } "</form>";
+    print { $$self{CONTENT} } 
+    "<br/><label>(Optional) Comment:</label>", 
+    textarea(-name=>'comment',
+	     -class=>'labeled',
+	     -rows=>5,
+	     -cols=>50),
+    "<br/><br/>",
+    submit(-name=>'signup', value=>'Submit'),
+    "</form>";
 }
 
 
@@ -6349,7 +6354,71 @@ sub send_request
 {
     my ($self) = @_;
 
-    $self->alert("Sorry, this feature isn't ready yet.  Contact the phedex admins via email about this for the momoent");}
+    # Get User Info
+    my $name = $$self{USER_NAME};
+    my $client_dn = $$self{SSL_IDENTITY};
+    my $email = $self->create_default_email();
+    my $pref_email = param('pref_email');
+    my @sites = param('sites');
+    my $comment = param('comment');
+
+    # Check required params
+    unless (@sites) {
+	$self->alert("You need to choose a site from the list.  Please go back and choose a site.");
+	return;
+    }
+
+    # Get the list of Global admins
+    my @admins = &getglobaladmins($$self{DBH});
+    if (!@admins) {
+	alert("Sorry, the request cannot be created.",
+	      "The database does not contain any global admins.",
+	      "Please contact the PhEDEx developers  about this!"); 
+	return;
+    }
+
+    my @adminmails;
+    foreach my $admin (@admins) {
+	push @adminmails, $$admin{EMAIL};
+    }
+
+    my $message =<<ENDEMAIL;
+Greetings PhEDEx Global Admin,
+
+There has been a request from $name to become a site administrator.  Here are the details of the request:
+
+Name:               '$name'
+Certificate DN:     '$client_dn'
+Certificate Email:  '$email'
+Preferred Email:    '$pref_email'
+Sites ([Site Name]:  [Nodes])
+ENDEMAIL
+
+foreach (@sites) {
+    my ($id, $site, $nodes) = split /:/;
+    $message .= "  $site:  $nodes\n";
+}
+
+    if ($comment) {
+	$message .= "\n$name also had the following comment:\n\n\"$comment\"\n";
+    }
+
+    $message .=<<ENDEMAIL;
+
+Yours Truly,
+   The PhEDEx Web SignUp Form
+ENDEMAIL
+
+     send_email(subject => "PhEDEx Administration Request",
+		to => [ @adminmails ],
+		from => "PhEDEx SignUp Form <cms-phedex-admins\@cern.ch>",
+		message => $message );
+
+    print { $$self{CONTENT} } 
+    "<h1>Request Sent</h1>",
+    "<p>Your request has been emailed to the PhEDEx global admins for their consideration.</p>";
+
+}
 
 1;
 
@@ -6376,6 +6445,11 @@ sub new
 sub output
 {
   my ($self) = @_;
+
+  my $name = $$self{USER_NAME};
+  my $client_dn = $$self{SSL_IDENTITY};
+  my $email = $self->create_default_email();
+
   if ($$self{SSL_VERIFIED})
   {
     my ($known) = eval {
@@ -6446,7 +6520,7 @@ sub output
         on email.identity = dn.identity
         and email.name = 'E-mail'
     where dn.name = 'Distinguished name'
-    order by dn.value, dn.identity});
+    order by dn.identity});
 
   print { $$self{CONTENT} }
     "<p><table>\n",
