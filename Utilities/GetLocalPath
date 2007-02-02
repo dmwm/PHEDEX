@@ -33,7 +33,11 @@ if (!$args{CATALOGUE} || !$args{PFN})
 
 
 my $lfn = &lfnLookup($args{PFN}, 'srm', 'any', $args{CATALOGUE});
+die "Wasn't able to perform PFN-to-LFN operation. Please check you catalogue!"
+     if !$lfn;
 my $localfile = &pfnLookup($lfn, 'direct', 'any', $args{CATALOGUE});
+die "Wasn't able to perform LFN-to-PFN operation. Please check you catalogue!"
+     if !$localfile;
 
 print "$localfile\n";
 
