@@ -404,7 +404,7 @@ our $TEMPLATE_DEFAULT = <<'END_OF_TEMPLATE';
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
   <meta name="keywords" content="PhEDEx, file transfer, transfer request" />
   @REFRESH@
-  <link rel="stylesheet" href="@ROOTURL@style.css" type="text/css" />
+  <link rel="stylesheet" href="@ROOTURL@style23.css" type="text/css" />
   <link rel="stylesheet" href="@ROOTURL@nifty-screen.css" type="text/css" />
   <link rel="stylesheet" href="@ROOTURL@nifty-print.css" type="text/css" media="print"/>
   <link rel="shortcut icon" href="@ROOTURL@favicon.ico" />
