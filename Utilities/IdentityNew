@@ -3,10 +3,11 @@
 ##H Insert a new identity into the DB
 ##H
 ##H Usage:
-##H   ImportSites -db DBCONFIG -dn DISTINGUISHED_NAME -email EMAIL [-global_admin]
+##H   ImportSites -db DBCONFIG -dn DISTINGUISHED_NAME -email EMAIL [-site_admin SITE_LIST] [-global_admin]
 ##H  
 ##H   DISTINGUISHED_NAME is the user's certificate DN
 ##H   EMAIL is the email of the user
+##H   -site_admin takes a list of comma separated site names that this person should be a site admin for
 ##H   -global_admin is an option that makes this user a global admin
 ##H
 
@@ -26,6 +27,7 @@ use UtilsDB;
 &GetOptions ("db=s"            => \$args{DBCONFIG},
 	     "dn=s"            => \$args{DN},
 	     "email=s"         => \$args{EMAIL},
+	     "site_admin=s"    => \$args{SITE_ADMIN},
 	     "global_admin"    => \$args{GLOBAL_ADMIN},
 	     "help|h"          => sub { &usage() });
 
@@ -62,9 +64,35 @@ unless ( fetch_identity_id($dbh, $args{DN}) ) {
     print "Identity for $args{DN} already exists.\n";
 }
 
+if ($args{SITE_ADMIN}) {
+    my @sites = split /,/, $args{SITE_ADMIN};
+    unless (@sites) {
+	$dbh->rollback();
+	die "Error:  Bad site_admin argument.\n";
+    }
+
+    print "Making site admin for sites (", join(', ', @sites), ")...";
+    my $id = &fetch_identity_id($dbh, $args{DN});
+
+    foreach my $site (@sites) {
+	my ($h, $rv) = &dbexec($dbh,
+			       qq{ insert into t_adm_site_admin (site, identity)
+				       select site.id, :identity from t_adm_site site
+				       where site.name = :site
+				   },
+			       ':identity' => $id,
+			       ':site' => $site);
+	unless ($rv) { 
+	    $dbh->rollback();
+	    die "Error:  Could not promote to site admin.  Is '$site' a known site?\n"; 
+	}
+    }
+    print "Done.\n";
+}
+
 if ($args{GLOBAL_ADMIN}) {
     print "Making global admin...";
-    my $id = fetch_identity_id($dbh, $args{DN});
+    my $id = &fetch_identity_id($dbh, $args{DN});
     &dbexec($dbh,
 	    qq{insert into t_adm_global_admin (identity)
 		   values (:identity)},
@@ -77,6 +105,8 @@ $dbh->commit();
 print "Done.\n";
 
 &disconnectFromDatabase($self, $dbh, 1);
+
+exit;
 
 
 # Fetches the identity id given the distinguished name
