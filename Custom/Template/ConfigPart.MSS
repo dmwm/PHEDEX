@@ -12,7 +12,7 @@
  -nodes           ${PHEDEX_MSS}
  -ignore          ${PHEDEX_NODE}
  -storagemap      ${PHEDEX_CONFIG}/storage.xml
- -rm              'nsrm'
+ -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
  -protocol        'direct'
 
 

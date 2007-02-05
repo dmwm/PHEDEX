@@ -37,5 +37,5 @@ TIER1_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s ${TIER1_FTS_SE
  -nodes           ${PHEDEX_NODE}
  -ignore          ${PHEDEX_MSS}
  -storagemap      ${PHEDEX_CONFIG}/storage.xml
- -rm              ${PHEDEX_CONFIG}/FileDownloadDelete
+ -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
  -protocol        'direct'
