@@ -623,12 +623,14 @@ sub routeFiles
     # and next slow flush would be relatively far away.
     if (! $ndone)
     {
+	my $markerval = (defined $$self{FLUSH_MARKER}
+			 ? "currval" : "nextval");
 	my ($marker) = &dbexec($dbh, qq{
-	    select seq_xfer_done.currval from dual})
+	    select seq_xfer_done.$markerval from dual})
 	    ->fetchrow();
 
 	$$self{NEXT_SLOW_FLUSH} = $now
-	    if ($marker > $$self{FLUSH_MARKER}
+	    if ($marker > ($$self{FLUSH_MARKER} || -1)
 		&& $$self{NEXT_SLOW_FLUSH} > $now + $$self{FLUSH_PERIOD}/4);
 
 	$dbh->commit();
