@@ -77,6 +77,7 @@ print DATA 'cd jobs'."\n";
 close (DATA);
 print "  Creating seed (23KB) file... this could take a few minutes... "."\n";
 `dd if=/dev/random of=seed count=625`;
+chop($seed_info = `ls -al seed `);  $seed_infos = [ split m| \s*|, $seed_info]; $seed_size = $$seed_infos[4]; 
 open DATA, ">>$create_file" or die "can't open $create_file $!";
 print DATA '#!/usr/bin/perl '."\n";
 print DATA 'while($i<$ARGV[0]) { '."\n";
@@ -87,8 +88,8 @@ close (DATA);
 while( $i < 256) {
 $hex = sprintf("%0.2X", $i);
 my $size = 3*$i+56375;
-if($i==1) {print "File with lowest size to be created : "; print 0.043*$size."M \n";}
-if($i==255) {print "File with highest size to be created : "; print 0.043*$size."M \n";}
+if($i==1) {print "File with lowest size to be created : "; print $seed_size*$size."\n";}
+if($i==255) {print "File with highest size to be created : "; print $seed_size*$size." \n";}
 my $data_file = "MonarcTest_".$hex.".job";
 open DATA, ">$data_file" or die "can't open $data_file $!";
 print DATA '#!/bin/bash'."\n";
