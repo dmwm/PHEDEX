@@ -17,8 +17,9 @@ our @EXPORT = qw(urlencode dblink toclink pagelink
 		 dbexec dbprep dbbindexec makeObjWithAttrs dbsafe
 		 timeSeries formatTime timegm sizeValue
 		 alert_auth
-                 fetch_identity_id set_auth_vars fetch_authorized_nodes
-		 getglobaladmins
+                 fetch_identity_id set_auth_vars 
+		 fetch_authorized_nodes fetch_authorized_sites
+		 getglobaladmins getsiteadmins
                  create_default_email send_email dn_to_human_name
 		 yesno
 		 dump_params
@@ -423,9 +424,33 @@ sub fetch_authorized_nodes
 }
 
 
+# Returns a hash of sites pointing to an array of nodes (names) for which the given user has permission to change
+sub fetch_authorized_sites
+{
+    my ($self, $identity) = @_;
+    if (!$identity) { $identity = $$self{DB_IDENTITY_ID}; }
+    
+    my $q = &dbexec($$self{DBH},
+		    qq{ select site.name, node.name
+			from t_adm_site_admin site_admin 
+			join t_adm_site site on site.id = site_admin.site
+			join t_adm_site_node site_node on site_node.site = site_admin.site
+			join t_adm_node node on node.id = site_node.node
+			join t_adm_identity ident on ident.id = site_admin.identity
+			where ident.id = :id order by site.name, node.name },
+		    ':id' => $identity);
+    my %sites;
+    while (my ($site, $node) = $q->fetchrow()) {
+	$sites{$site} = [] if !exists $sites{$site};
+	push @{$sites{$site}}, $node;
+    }
+    return %sites;
+}
+
+
 
 # Get a list of global admins from the DB
-# Returns and array of hashrefs containing ID and EMAIL
+# Returns an array of hashrefs containing ID and EMAIL
 sub getglobaladmins
 {
     my ($dbh) = @_;
@@ -440,6 +465,27 @@ sub getglobaladmins
     }
     return @admins;
 }
+
+
+# Get a list of site admins from the DB
+# Returns an array of hashrefs containing SITE, ID and EMAIL
+sub getsiteadmins
+{
+    my ($dbh) = @_;
+    my $q = &dbexec($dbh, qq{select i.id, ia.value, site.name
+			      from t_adm_site_admin admin
+			      join t_adm_site site on site.id = admin.site
+			      join t_adm_identity i on admin.identity = i.id
+			      join t_adm_identity_attr ia on ia.identity = i.id
+			      where ia.name = 'E-mail'});
+    my @admins;
+    while (my ($id, $email, $site) = $q->fetchrow_array()) {
+	push @admins, {ID => $id, EMAIL => $email, SITE => $site};
+    }
+    return @admins;
+    
+}
+
 
 
 
@@ -6212,7 +6258,7 @@ sub signup_form
     my $actionurl = $self->myurl();
     print { $$self{CONTENT} } "<form class='nice' method='post' action='$actionurl'>";
     print { $$self{CONTENT} } "<h1>Admin Registration</h1>",
-    "<p>Fill in the requested information and choose the sites for wish ",
+    "<p>Fill in the requested information and choose the sites ",
     "you would like to be authorized to administer.  Your request will be ",
     "emailed to existing site administrators and PhEDEx global admins for ",
     "approval.</p>";
@@ -6306,6 +6352,16 @@ sub send_request
     foreach my $admin (@admins) {
 	push @adminmails, $$admin{EMAIL};
     }
+    
+    my @site_admins = &getsiteadmins($$self{DBH});
+    my @existing_admin_mails;
+
+    foreach (@sites) {
+	my ($id, $site, $nodes) = split /:/;
+	if (my @sa = grep $site eq $$_{SITE}, @site_admins) {
+	    push @existing_admin_mails, $$_{EMAIL} foreach @sa;
+	}
+    }
 
     my $message =<<ENDEMAIL;
 Greetings PhEDEx Global Admin,
@@ -6328,21 +6384,33 @@ foreach (@sites) {
 	$message .= "\n$name also had the following comment:\n\n\"$comment\"\n";
     }
 
+    if (@existing_admin_mails) {
+	$message .= "\nNote that the following sites already have a site admin:\n\n";
+	foreach (@sites) {
+	    my ($id, $site, $nodes) = split /:/;
+	    if (my @sa = grep $site eq $$_{SITE}, @site_admins) {
+		$message .= "  $$_{SITE}:  $$_{EMAIL}\n" foreach @sa;
+	    }
+	}
+	$message .= "\nAnd they have been CCed in this mail.\n";
+    }
+
     $message .=<<ENDEMAIL;
 
 Yours Truly,
    The PhEDEx Web SignUp Form
 ENDEMAIL
 
-     send_email(subject => "PhEDEx Administration Request",
-		to => [ @adminmails ],
-		from => "PhEDEx SignUp Form <cms-phedex-admins\@cern.ch>",
-		message => $message );
+      send_email(subject => "PhEDEx Administration Request",
+ 		to => [ @adminmails ],
+ 		cc => [ @existing_admin_mails ],
+ 		from => "PhEDEx SignUp Form <cms-phedex-admins\@cern.ch>",
+ 		message => $message );
 
     print { $$self{CONTENT} } 
     "<h1>Request Sent</h1>",
-    "<p>Your request has been emailed to the PhEDEx global admins for their consideration.</p>";
-
+    "<p>Your request has been emailed to the PhEDEx global admins and "
+	"the existing site admins for their consideration.</p>";
 }
 
 1;
@@ -6375,19 +6443,31 @@ sub output
   my $identity = $$self{DB_IDENTITY_ID};
   my $client_dn = $$self{SSL_IDENTITY};
   my $email = $self->create_default_email();
-  
+  my @globals = &getglobaladmins($$self{DBH});
   my $signupurl = $self->myurl(page=>'Administration::SignUp');
 
   print { $$self{CONTENT} } "<h1>Your Identity</h1>";
   
   if ($$self{SSL_VERIFIED} && $identity)
   {
+      my @sites;
+      
+      if (grep $$_{ID} == $identity, @globals) {
+	  push @sites, '<b>Global PhEDEx</b>';
+      }
+      
+      my %auth_sites = $self->fetch_authorized_sites();
+      push @sites, sort keys %auth_sites;
+      
+      if (!@sites) { push @sites, "Nothing"; }
+      
       print { $$self{CONTENT} }
       "<p>Hello $name, the PhEDEx website recognizes you!</p>",
       "<div class='nice'>",
       "<label>Your Certificate DN:</label><span class='labeled'>$client_dn</span><br/>",
       "<label>Your Email:</label><span class='labeled'>$email</span><br/>",
       "<label>Your Identity#:</label><span class='labeled'>$identity</span><br/>",
+      "<label>You Administer:</label><span class='labeled'>", join(', ', @sites),"</span><br/>",
       "</div>",
       "<p>You will be able to access privileged operations.</p>";
   }
@@ -6430,19 +6510,37 @@ sub output
     where dn.name = 'Distinguished name'
     order by dn.identity});
 
-  my $dbtable = new Web25::DBTable;
-  $dbtable->set_filehandle( $$self{CONTENT} );
-  $dbtable->set_tableclass('data');
-  $dbtable->set_stripeclass('stripe');
-  $dbtable->set_tablecols([qw(NAME DN EMAIL IDENTITY)]);
-  $dbtable->set_tablehead({ NAME => 'Name',
-			    DN   => 'Distinguished name',
-			    EMAIL => 'E-mail',
-			    IDENTITY => 'ID'
-			    });
+  my $table = new Web25::TableSpool;
+  $table->set_filehandle( $$self{CONTENT} );
+  $table->set_tableclass('data');
+  $table->set_stripeclass('stripe');
+  $table->set_tablecols([qw(NAME DN EMAIL SITE_ADMIN IDENTITY)]);
+  $table->set_tablehead({ NAME => 'Name',
+			  DN   => 'Distinguished name',
+			  EMAIL => 'E-mail',
+			  SITE_ADMIN => 'Admin of',
+			  IDENTITY => 'ID'
+			  });
   
-  $dbtable->add_pseudocolumn('NAME', sub { &dn_to_human_name($_[1]->{DN}); });
-  $dbtable->output($q);
+  $table->add_pseudocolumn('NAME', sub { &dn_to_human_name($_[1]->{DN}); });
+
+  $table->start();
+  $table->head();
+  while (my $row = $q->fetchrow_hashref()) {
+      my @sites;
+      
+      if (grep $$_{ID} == $$row{IDENTITY}, @globals) {
+	  push @sites, '<b>Global PhEDEx</b>';
+      }
+      
+      my %auth_sites = $self->fetch_authorized_sites($$row{IDENTITY});
+      push @sites, sort keys %auth_sites;
+
+      $$row{SITE_ADMIN} = join ', ', @sites;
+      $table->row($row);
+  }
+
+  $table->finish();
 
 }
 
