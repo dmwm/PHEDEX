@@ -229,6 +229,14 @@ Many agents take same or similar options:
 		name patterns ("%" any string, "_" any character)
 		separated by commas, and then act on all those nodes.
 
+  -accept,      In case of multi-node agents, the selection of node
+  -ignore       names can be further adjusted by the following two
+                options.
+                'accept' is applied first and acts as white-list,
+                leaving only nodes matching. The remaining
+                node names are checked against the black-list defined
+                by '-ignore' and are hence ignored if matching.
+
   -workers	For master/slave-type agents this option sets how
   		many worker slaves the master will start and keep
 		running.
@@ -243,6 +251,7 @@ Many agents take same or similar options:
 		form PATH:SECTION, where SECTION is one of the named
 		connections inside the file.  (See README-Auth.txt
 		for more information about database authentication.)
+
 
 ** Support
 

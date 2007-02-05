@@ -20,10 +20,6 @@ It is assumed that the data you are serving for transfer is already in
 your storage, has been registered as replicas in PhEDEx TMDB for your
 node.  How to get that far is documented in README-ProdHarvest.txt.
 
-To serve the data out you need a "master" export agent plus supporting
-agents.  We first explain how this is set up at CERN for CMS, and then
-what one can do on other sites.
-
 **********************************************************************
 ** CERN export configuration
 
@@ -37,10 +33,9 @@ begin.  The stage-in agent monitors file requests ("wanted" files) and
 stages in files, then marks them available for transfer.
 
 This is, all in all, the following agents:
-  1: FileCastorExport: main export agent that marks files available
-  2: FileCastorStager.New: stage-in agent, marks files staged in
+  1: FileCastorStager.New: stage-in agent, marks files staged in
      (state=1 or state=0 on t_xfer_replica) as appropriate
-  3: FilePFNExport: generate transfer names for "wanted" files
+  2: FilePFNExport: generate transfer names for "wanted" files
 
 **********************************************************************
 ** Export configurations
@@ -50,39 +45,16 @@ You must support at least "srm".
 
 Option A: Your Buffer and MSS nodes are shared
 
- 1: Pseudo-agent uploads files from mss to transfer node.  Use
-    Toolkit/Transfer/FileMSSUpload.
-
- 2: Master export agent flags files available for transfer.  You can
-    use Custom/Castor/FileCastorExport -- there's no castor-specific
-    code in it, it just assumes you are working as if you had castor.
-
- 3: Stage-in agent observes wanted files and stages them in, and
+ 1: Stage-in agent observes wanted files and stages them in, and
     reflects into TMDB which files are available for transfer.  The
-    Castor equivalent is Custom/Castor/FileCastorStager.New.  FNAL
-    has in their SITECONF another agent for dCache/Enstore.  A
-    purely SRM-based stage-in agent is also in the works.
+    Castor equivalent is Custom/Castor/FileCastorStager.New.  FNAL has
+    in their SITECONF another agent for dCache/Enstore.  A purely
+    SRM-based stage-in agent is available via
+    Custom/SRM/FileSRMStager.
 
- 4: PFN-generation agent produces TURLs for the outbound files.  Use
-    Toolkit/Transfer/FilePFNExport.  This uses the storagemap.xml
-    trivial file catalogue.
 
-Option B: Your transfer and MSS nodes are actually separate.
+Option B: You have no MSS node, only a disk node (e.g. a Tier 2 or Tier 3)
 
- MSS node:
-   1.1-3: As steps 2-4 in A above.  PFN-generation in step 4 produces
-          URLs for the internal MSS->buffer transfers.
-
- Transfer node:
-   2.1: Run separate download agent instance for MSS->buffer transfers.
-   2.2: Export agent marks files available: use Toolkit/Transfer/FileDiskExport.
-   2.3: PFN-generation agent: similar to the MSS->buffer one, except
-        generates externally usable names.
-
-  To run targeted download agents, use "-accept" and "-ignore" options
-  to restrict which nodes each agent can serve.
-
-Option C: You have no MSS node, only a disk node (e.g. a Tier 2 or Tier 3)
-
- 1: Use disk based export: Toolkit/Transfer/FileDiskExport
- 2: PFN-generation agent: Toolkit/Transfer/FilePFNExport.  See above.
+ 1: PFN-generation agent: Toolkit/Transfer/FileExport.  This agent
+    will generate the TURLs for your site using the TFC, enabling
+    other sites to retrieve data from you.

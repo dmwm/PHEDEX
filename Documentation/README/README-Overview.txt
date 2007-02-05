@@ -38,9 +38,6 @@ README/README-Managers.txt describes the management agents.
 
 ** Detailed documentation
 
-README/README-RefDB.txt describes transfer request management, and more
-specifically, how to inject data from RefDB into transfer.
-
 README/README-Agents.txt describes the drop box agents.
 
 Tesbed/RLSTest/README.txt describes a stand-alone test-bed setup for

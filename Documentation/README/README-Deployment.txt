@@ -74,7 +74,7 @@ On Scientific Linux 4 replace "slc3_ia32_gcc323" with "slc4_ia32_gcc345".
     http://cmsdoc.cern.ch/cms/cpt/Software/download/cms/aptinstaller.sh
   chmod +x $sw/aptinstaller.sh
   
-  $sw/aptinstaller.sh -path $sw setup
+  $sw/aptinstaller.sh -path $sw -arch slc3_ia32_gcc323 setup
   eval `$sw/aptinstaller.sh -path $sw -arch slc3_ia32_gcc323 config -sh`
   apt-get update
   apt-get install cms+PHEDEX+PHEDEX_2_5_0
