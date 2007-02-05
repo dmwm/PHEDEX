@@ -42,6 +42,7 @@ repository, for example SITECONF/CERN/PhEDEx/storage.xml.  Given the
 above definitions, your storage.xml would look like this:
 
 *NOTE*: SRM paths must include the ":8443/srm/managerv1?SFN=" part.
+*NOTE*: TFC contains only lower-case protocols (e.g. srm, direct, etc).
 
 <storage-mapping>
   <lfn-to-pfn protocol="direct" path-match="/+(.*)"
