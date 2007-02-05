@@ -17,7 +17,7 @@
 ##H   FileRemove
 ##H      -state DIRECTORY -nodes NAME [-ignode NAME] [-accept NAME]
 ##H      -db FILE[:SECTION] [-log OUT]
-##H      -storagemap FILE [-protocol NAME] -rm COMMAND[,ARG...]
+##H      -storagemap FILE [-protocol NAME] -delete COMMAND[,ARG...]
 ##H
 ##H -state         agent state directory.
 ##H -nodes         nodes to run and clean files for.
@@ -26,22 +26,9 @@
 ##H -db            database connection configuration parameter file.
 ##H -storagemap    storage mapping catalogue.
 ##H -protocol      protocol to use with storage map, by default "direct".
-##H -rm            command to remove physical copy.
+##H -delete        command to remove physical copy (typically FileDownloadDelete).
 ##H -log           where to redirect logging information.
 
-# Example for clearing normal disk buffers:
-#   FileRemove -nodes ... -db ... -storagemap ...
-#              -rm rm
-#
-# Example for clearing RFIO buffers:
-#   FileRemove -nodes ... -db ... -storagemap ...
-#     -rm stageclr,-remove_from_hsm,-M
-#     (or: -rm rfrm)
-#
-# Example for clearing SRM buffers:
-#   FileRemove -nodes ... -db ... -storagemap ...
-#     -protocol srm -rm srm-advisory-delete
-#
 
 BEGIN
 {
@@ -62,13 +49,13 @@ use UtilsHelp;
              "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
              "ignore=s"    => sub { push(@{$args{IGNORE_NODES}}, split(/,/, $_[1])) },
              "accept=s"    => sub { push(@{$args{ACCEPT_NODES}}, split(/,/, $_[1])) },
-             "rm=s"        => sub { push(@{$args{CMD_RM}}, split(/,/, $_[1])) },
+             "delete=s"    => sub { push(@{$args{CMD_RM}}, split(/,/, $_[1])) },
 	     "storagemap=s"=> \$args{STORAGEMAP},
 	     "protocol=s"  => \$args{PROTOCOL},
 	     "help|h"	   => sub { &usage() });
 
 if (@ARGV || !$args{NODES} || !$args{DROPDIR} || !$args{DBCONFIG}
-    || !$args{CMD_RM})
+    || !$args{CMD_RM} || !$args{STORAGEMAP})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -151,7 +138,7 @@ sub deleteOneFile
 	my $log = "$$self{DROPDIR}/@{[time()]}.$$file{NODEID}.$$file{FILEID}.log";
 	$self->addJob( sub { $self->deleteJob ($file, @_) },
 		      { TIMEOUT => 30, LOGFILE => $log, DB => $dbh },
-		      (@{$$self{CMD_RM}}, $$file{PFN}) );
+		      (@{$$self{CMD_RM}}, 'post', $$file{PFN}) );
 
 
 	# Report completition time to DB. If the physicval deletion fails,
