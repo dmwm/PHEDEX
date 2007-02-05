@@ -1,0 +1,78 @@
+                          ############################
+                          #    PhEDEx config help    #
+#####################################################################################
+# PHEDEX_BASE:		Set the base location of your PhEDEx installation	    #
+#										    #
+# PHEDEX_INSTANCE:	Choose the DB instance your agents will run against;	    #
+#			this is marked in the authentication info you received,	    #
+# 			and should be either "Dev", "SC4" or "Production".	    #
+#										    #
+# PHEDEX_LABEL:		Authentication label for DB access; this is usually your    #
+# 			site's name and can be found in the first line of the	    #
+#			authentication info you received			    #
+#										    #
+# PHEDEX_SITE:		Your site name as in $PHEDEX_BASE/SITECONF		    #
+#										    #
+# PHEDEX_NODE:		Name of your Load node; Naming convention                   #
+#                       T<x>_<Site name>_Load   			            #
+#										    #
+# PHEDEX_VERSION:	The PhEDEx version you are running			    #
+#										    #
+# X509_USER_PROXY:	Location of your Grid proxy; you want to make sure, that    #
+#			only the user running your PhEDEx agents can read it	    #
+#                                                                                   #
+# PHEDEX_GLITE_ENV:	GLite environment setup script; please fill in path to      #
+#			your GLite installation                                     #
+#                                                                                   #
+# GLITE_SD_PLUGIN:	GLite service discovery authority; usually bdii             #
+#                                                                                   #
+# TIER1_FTS_SERVICE:	T1s please fill in your FTS service                         #
+#####################################################################################
+
+
+#### General configuration
+### ENVIRON common
+
+# Common part
+PHEDEX_BASE=/home/phedex;
+PHEDEX_INSTANCE=SC4;
+PHEDEX_LABEL=ATLANTIS;
+PHEDEX_SITE=Atlantis;
+PHEDEX_NODE=TX_Atlantis_Load;
+PHEDEX_VERSION=2_3_8;
+X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
+
+# FTS specific part
+PHEDEX_GLITE_ENV=EditThisPath/etc/profile.d/grid_env.sh;
+GLITE_SD_PLUGIN=bdii;
+TIER1_FTS_SERVICE=Atlantis-FTS;
+
+
+####################################
+# Load the sub-configuration files #
+####################################
+
+# The following 2 files should have reasonable defaults;
+# no need to touch them
+
+### IMPORT ConfigPart.Common
+### IMPORT ConfigPart.Export
+
+# Choose one to include, remove leading '#' from the one you want.
+# Download agents default to 'off'; either start explicitly or
+# remove 'DEFAULT=off' from the corresponding ConfigPart entry
+
+#### IMPORT ConfigPart.SRMDownload
+#### IMPORT ConfigPart.FTSDownload
+
+
+#### The recycler should ONLY be run in DEV or SC4 instances, since normally
+#### you don't want to delete your data !!
+### AGENT LABEL=lt-recycle PROGRAM=Toolkit/Transfer/FileRecycler
+ -db              ${PHEDEX_DBPARAM}
+ -node            ${PHEDEX_NODE}
+ -keep            ${PHEDEX_SITE}
+ -protocol        srm
+ -rm              srm-advisory-delete,-x509_user_proxy=${X509_USER_PROXY},-retry_num=2
+ -storagemap      ${PHEDEX_MAP}
+ -delay           0.5
