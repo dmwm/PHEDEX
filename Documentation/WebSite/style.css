@@ -551,6 +551,47 @@ div.notebox {
   padding:		.5em;
 }
 
+div.help {
+  text-align:		left;
+  float:		none;
+  font-weight:		normal;
+  display:		inline;
+  position:		absolute;
+  z-index:		100;
+  margin-left:		1em;
+  padding:		0.5em;
+  background-color:	#aaaaff; 
+  border:		1px solid #4444ff;
+  width:		30em;
+}
+
+div.help a.closelink {
+  position:		absolute;
+  top:			0;
+  right:		0;
+  margin-right:		0.5em;
+}
+
+div.help p.title {
+  padding:		0;
+  margin:		0;
+  font-weight:		bold;
+  width:		25em;
+}
+
+div.help p.body {
+  padding:		0;
+  margin:		0;
+  margin-left:		2em;
+  width:		25em;
+  text-align:		justify;
+}
+
+a.help {
+  margin-left:		0.5em;
+  margin-right:		0.5em;
+}
+
 /**********************************************************************/
 div.list h3 {
   text-transform:	uppercase;

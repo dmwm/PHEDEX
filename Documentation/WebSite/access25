@@ -171,10 +171,20 @@ sub note
     "<p>", @_, "</p></div></center>\n";
 }
 
-# Generate help into the output
+# Generate hide/show help
 sub help
 {
-    my ($self, @help);
+    my ($linktext, $helpsubject, @help) = @_;
+    my $id = 'help'.rand();
+    return 
+	"<a class='help' href='#' onclick='return hideshow(this,\"$id\",0)'>$linktext</a>",
+	"<div id='$id' style='display:none' class='help'>",
+	"<a href='#' class='closelink' onclick='return hideshow(this, \"$id\", 0)'>[close]</a>",
+	"<p class='title'>$helpsubject</p>",
+	"<p class='body'>",
+	@help,
+	"</p>",
+	"</div>";
 }
 
 
@@ -3116,10 +3126,17 @@ sub output
 
   "<label>DBS:</label>",  "<div class='labeled'>",@dbs_selection, "</div><br/>",
 
-  "<label>Datasets or Blocks:<br/><br/>",
+  "<label>Data Items:<br/><br/>",
   "<span class='note'>/Primary/Tier/Dataset<br/>or<br/>",
-  "/Primary/Dataset#Block<br/>(Use * as wildcard)</span></label>\n",
-  textarea(-name=>'data', -value=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), "<br/>\n",
+  "/Primary/Dataset#Block<br/>(Use * as wildcard)</span><br/>",
+  &help("More Help", "Data Item List", 
+	"A whitespace separated list of the datasets or blocks you are ",
+	"requesting.  Glob-style wildcards may be used, but the data ",
+	"tier separators are required.  E.g. to subscribe to all ",
+	"datasets you would have to write '/*/*/*', not '*'."), 
+  "</label>\n",
+  textarea(-name=>'data', -value=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), 
+  "<br/>",
 
   "<label>Destinations</label>",
   "<div class='labeled'  style='font-size:8pt;width:450px;height:150px;overflow:scroll;border:thin solid black;' >",
@@ -3137,24 +3154,39 @@ sub output
    grep (! /^T[012]_/, @nodes)),
   "  </td>\n",
   " </tr></table></div><br/>\n",
-  "<label>Replica or Move:</label>", popup_menu(-name=>'is_move', 
-						-values=>['y', 'n'],
-						-default=>'n',
-						-labels=>{'n' => 'Replica', 'y' => 'Move'},
-						-class=>'labeled'), "<br/>",
-  "<label>Open or Closed:</label>", popup_menu(-name=>'is_transient', 
+  "<label>Transfer Type:</label>", popup_menu(-name=>'is_move', 
+					      -values=>['y', 'n'],
+					      -default=>'n',
+					      -labels=>{'n' => 'Replica', 'y' => 'Move'},
+					      -class=>'labeled'),
+  &help("What's this?", "Transfer Type", "A <b>replica</b> replicates ",
+	"data from the source to the destination, while a <b>move</b> ",
+	"replicates the data then deletes the data at the source.  Note that ",
+	"moves are only used for moving data from T2s to T1s."),
+  "<br/>",
+  "<label>Subscription Type:</label>", popup_menu(-name=>'is_transient', 
 					       -values=>['y', 'n'],
 					       -default=>'n',
 					       -labels=>{'n' => 'Open', 'y' => 'Closed' },
-					       -class=>'labeled'), "<br/>",
+					       -class=>'labeled'), 
+  &help("What's this?", "Subscription Type", 
+	"An <b>open</b> subscription downloads blocks/files added to open ",
+	"datasets/blocks as they become available, until the dataset/block is ",
+	"closed.  A <b>closed</b> subscription will only transfer the blocks/files ",
+	"available at the time the subscription is made.  In a sense an open ",
+	"subscription is a true \"subscription\" and a closed subscription is a snapshot."),
+  "<br/>",
   "<label>Priority:</label>", popup_menu(-name=>'priority', 
 					 -values=>[0, 1, 2], 
 					 -default=>1,
 					 -labels=>{ 0 => 'High',
 						    1 => 'Normal',
 						    2 => 'Low' },
-					 -class=>'labeled'), "<br/>",
-  "<label>Comment:</label>", textarea(-name=>'comment', -default=>'', -style=>'width:450px;height:150px;;', -class=>'labeled'), "<br/>\n",
+					 -class=>'labeled'),
+  &help("What's this?", "Priority",
+	"Priority is used to determine which data items get priority when resources are limited."),
+  "<br/>",
+  "<label>Comment:</label>", textarea(-name=>'comment', -default=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), "<br/>\n",
 
   "<label>&nbsp;</label>", submit(-name=>'submit', -value=>'Submit Request', -class=>'labeled'),
   "</form>";
@@ -4001,160 +4033,6 @@ sub myurl
   return $self->SUPER::myurl($self->urlparams(@save), %args);
 }
 
-sub save_data
-{
-  my ($self, $start, $end, $unit, $span, $entity) = @_;
-  my $TERABYTE = &sizeValue ("1T");
-  my $MEGABYTE = &sizeValue ("1M");
-
-  # Generate actual data file
-  my $tmpdir = mkdtemp("/tmp/perf.graph.XXXXXX");
-  open(TOT, "> $tmpdir/total") or die "Failed to save performance data: $!\n";
-  open(DST, "> $tmpdir/destined") or die "Failed to save performance data: $!\n";
-  open(RES, "> $tmpdir/resident") or die "Failed to save performance data: $!\n";
-  open(PER, "> $tmpdir/pending") or die "Failed to save performance data: $!\n";
-  open(ERR, "> $tmpdir/error") or die "Failed to save performance data: $!\n";
-  open(ROU, "> $tmpdir/routed") or die "Failed to save performance data: $!\n";
-  open(COO, "> $tmpdir/cooloff") or die "Failed to save performance data: $!\n";
-  open(QUA, "> $tmpdir/quality") or die "Failed to save performance data: $!\n";
-
-  # Read data from the database
-  my $sqlentity = ($entity eq 'src' ? "f.name"
-		   : $entity eq 'link' ? "t.name || ' < ' || f.name"
-		   : "t.name");
-  my $q = &dbexec($$self{DBH}, qq{
-    select
-      trunc(h.timebin/:span)*:span,
-      $sqlentity,
-      nvl(sum(h.done_bytes),0),
-      0, -- nvl(sum(pend_bytes) keep (dense_rank last order by timebin asc),0),
-      0, -- nvl(sum(cool_bytes) keep (dense_rank last order by timebin asc),0),
-      nvl(sum(h.try_files),0),
-      nvl(sum(h.fail_files),0),
-      nvl(sum(h.done_files),0)
-    from t_history_link_events h
-      join t_adm_node f on f.id = h.from_node
-      join t_adm_node t on t.id = h.to_node
-    where timebin >= :starttime
-      and timebin < :endtime
-    group by trunc(h.timebin/:span)*:span, $sqlentity
-    order by 1 asc},
-    ":starttime" => $start,
-    ":endtime" => $end,
-    ":span" => $span);
-
-  my ($first, %items, %xferred, %pending, %error, %quality);
-  while (my ($bin, $item, $bdone, $bpend, $berr, $tfiles, $ffiles, $dfiles) = $q->fetchrow())
-  {
-    $bin = (&timeSeries($bin, $unit, $bin))[0]->{LOW};
-    $first = $bin if (! $first || $first > $bin);
-    if ($bdone)
-    {
-      $xferred{$bin}{$item} ||= 0;
-      $xferred{$bin}{$item} += $bdone / $TERABYTE;
-    }
-    $pending{$bin}{$item} = $bpend / $TERABYTE if $bpend;
-    $error{$bin}{$item} = $berr / $TERABYTE if $berr;
-    if ($tfiles || $ffiles || $dfiles)
-    {
-      $quality{$bin}{$item} ||= { STARTED => 0, FAILED => 0, COMPLETED => 0 };
-      $quality{$bin}{$item}{STARTED} += $tfiles || 0;
-      $quality{$bin}{$item}{FAILED} += $ffiles || 0;
-      $quality{$bin}{$item}{COMPLETED} += $dfiles || 0;
-    }
-    $items{$item} = 1;
-  }
-
-  my (%destined, %resident, %routed, %cool);
-  $sqlentity = ($entity eq 'src' ? "'Source unavailable'"
-		: $entity eq 'link' ? "n.name"
-		: "n.name");
-  $q = &dbexec($$self{DBH}, qq{
-    select
-      trunc(h.timebin/:span)*:span,
-      $sqlentity,
-      nvl(sum(dest_bytes) keep (dense_rank last order by timebin asc),0),
-      nvl(sum(node_bytes) keep (dense_rank last order by timebin asc),0),
-      nvl(sum(request_bytes) keep (dense_rank last order by timebin asc),0),
-      nvl(sum(idle_bytes) keep (dense_rank last order by timebin asc),0)
-    from t_history_dest h
-      join t_adm_node n on n.id = h.node
-    where timebin >= :starttime
-      and timebin < :endtime
-    group by trunc(h.timebin/:span)*:span, $sqlentity
-    order by 1 asc},
-    ":starttime" => $start,
-    ":endtime" => $end,
-    ":span" => $span);
-  while (my ($bin, $item, $bdest, $bnode, $breq, $bidle) = $q->fetchrow())
-  {
-    $bin = (&timeSeries($bin, $unit, $bin))[0]->{LOW};
-    $first = $bin if (! $first || $first > $bin);
-    $destined{$bin}{$item} = $bdest / $TERABYTE if $bdest;
-    $resident{$bin}{$item} = $bnode / $TERABYTE if $bnode;
-    $routed{$bin}{$item} = $breq / $TERABYTE if $breq;
-    $cool{$bin}{$item} = $bidle / $TERABYTE if $bidle;
-    $items{$item} = 1;
-  }
-
-  # Print the statistics for all nodes.  Generate a continuous time
-  # series so we print out values even for time spans when there
-  # were no transfers to report.  This allows for correct histograms
-  # without having to understands time as real time values.
-  my @itemnames = sort keys %items;
-  print TOT "Time,Span,Item,Value\n";
-  print DST "Time,Span,Item,Value\n";
-  print PER "Time,Span,Item,Value\n";
-  print ERR "Time,Span,Item,Value\n";
-  print ROU "Time,Span,Item,Value\n";
-  print COO "Time,Span,Item,Value\n";
-  print QUA "Time,Span,Item,Value\n";
-
-  $first ||= int(time()/86400)*86400;
-  foreach my $time (&timeSeries ($first, $unit, $end-1))
-  {
-    my $bin = $$time{LOW};
-    my $binfmt = &formatTime ($bin, $unit);
-    my $x = $xferred{$bin};
-    my $d = $destined{$bin};
-    my $n = $resident{$bin};
-    my $p = $pending{$bin};
-    my $e = $error{$bin};
-    my $r = $routed{$bin};
-    my $c = $cool{$bin};
-    my $q = $quality{$bin};
-    my %dests = map { $_ => 1 } map { keys %$_ } $x, $d, $n, $p, $e, $r, $c, $q;
-    $dests{$itemnames[0]} = 1 if @itemnames && ! keys %dests;
-    foreach my $dest (sort keys %dests)
-    {
-      print TOT join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$x{$dest}||0), "\n";
-      print DST join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$d{$dest}||0), "\n";
-      print RES join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$n{$dest}||0), "\n";
-      print PER join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$p{$dest}||0), "\n";
-      print ERR join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$e{$dest}||0), "\n";
-      print ROU join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$r{$dest}||0), "\n";
-      print COO join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest, $$c{$dest}||0), "\n";
-      print QUA join(",", $binfmt, $$time{HIGH}-$$time{LOW}, $dest,
-		     ($$q{$dest}{STARTED}||0) . "/" .
-      		     ($$q{$dest}{FAILED}||0) . "/" .
-      		     ($$q{$dest}{COMPLETED}||0)), "\n";
-    }
-  }
-
-  close (TOT);
-  close (DST);
-  close (RES);
-  close (PER);
-  close (ERR);
-  close (ROU);
-  close (COO);
-  close (QUA);
-
-  $tmpdir =~ s,^/tmp/,,;
-  return $tmpdir;
-}
-
-# Done.
 sub output
 {
   my ($self) = @_;
@@ -4205,8 +4083,6 @@ sub output
     "<input type='submit' value='Update'></form></p>\n";
 
   my ($last, $unit) = $$self{PLOTS}{$plot}[0] =~ /([^:]+)/g;
-  my %args = ('span' => $unit, 'by' => $entity, 'last' => $last,
-              'filter' => $filter, 'upto' => $upto);
   my %span = ("hour" => 3600, "day" => 86400, "week" => 7*86400, "month" => 86400);
   my %round = (%span, 'week' => 86400);
   my $now = time();
@@ -4235,10 +4111,19 @@ sub output
   }
 
   my $start = ($last ? $end - $last*$span{$unit} : 0);
-  my $datadir = $self->save_data($start, $end, $unit, $round{$unit}, $entity);
-  $self->output_plot($graph, $datadir, %args);
-  # FIXME: Clean up old directories (older than a day)
-  # &rmtree([ grep((stat($_))[9] < $now-86400, </tmp/perf.graph.*>) ]);
+  # The new plot package really does set range to time 0.
+  # Need to provide a more reasonable range.  PhEDEx started taking data in 2004.
+  $start = timegm(0, 0, 0, 1, 1, 2004-1900) if $start == 0;  
+
+  my $conn = $$self{DBID};
+
+  my %args = ('conn' => $conn, 'unit' => $unit, 'span' => $span{$unit}, 'by' => $entity, 'last' => $last,
+              'filter' => $filter, 'upto' => $upto, 'starttime' => $start, 'endtime' => $end);
+
+
+#  use Data::Dumper;  print { $$self{CONTENT} } "<pre>", Dumper({%args}), "</pre>";
+  $self->output_plot($graph, %args);
+
 }
 
 1;
@@ -4258,26 +4143,41 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(@_);
-  $$self{DEFAULT_GRAPH} = 'rate';
-  $$self{GRAPH_ORDER} = [ 'rate', 'volume', 'cumulative' ];
-  $$self{GRAPHS} = { 'rate' => "Rate", 'volume' => "Volume", 'cumulative' => "Cumulative" };
+  $$self{DEFAULT_GRAPH} = 'quantity_rates';
+  $$self{GRAPH_ORDER} = [ 'quantity_rates', 'quantity', 'quantity_cumulative' ];
+  $$self{GRAPHS} = { 'quantity_rates' => "Rate", 
+		     'quantity' => "Volume", 
+		     'quantity_cumulative' => "Cumulative" };
   bless $self, $class;
   return $self;
 }
 
 sub output_plot
 {
-  my ($self, $graph, $datadir, %args) = @_;
-  my $suffix = ($graph eq 'cumulative' ? '-line' : '');
-  my $home = "$$self{CONFIG}{SERVICE_PATH}/cgi-bin/"; #"http://cmsdoc.cern.ch/cms/aprom/phedex/cgi-bin/";
-  my $kind = ($graph eq 'rate' ? 'rate'
-              : $graph eq 'volume' ? 'total'
-              : $graph eq 'cumulative' ? 'total'
-              : 'rate');
+  my ($self, $graph, %args) = @_;
 
-  print { $$self{CONTENT} } "<p><img width=800 height=500 src='${home}perf-graph$suffix-23.php?",
-    &urlencode('db' => $$self{DBID}, 'data' => $datadir, 'kind' => $kind, %args),
-    "' /></p>";
+  my $home = "$$self{CONFIG}{SERVICE_PATH}/cgi-bin/"; #"http://cmsdoc.cern.ch/cms/aprom/phedex/cgi-bin/";
+
+  my $to_node = '.*';
+  my $from_node = '.*';
+  if    ($args{by} eq 'dest' && $args{filter}) { $to_node = $args{filter}; }
+  elsif ($args{by} eq 'src' && $args{filter}) { $from_node = $args{filter}; }
+  elsif ($args{by} eq 'link' && $args{filter}) { $to_node = $from_node = $args{filter}; }
+
+  my %graphargs = ('graph' => $graph,
+		   'from_node' => $from_node,
+		   'to_node' => $to_node,
+		   'conn' => $args{conn},
+		   'link' => $args{by},
+		   'span' => $args{span},
+		   'starttime' => $args{starttime}, 
+		   'endtime' => $args{endtime});
+
+  my $imgsrc = "${home}phedex-cgi.sh?". &urlencode(%graphargs);
+
+#  XXX No way to tell if the plot has errors.  Iframe doesn't work so well...
+#  print { $$self{CONTENT} } "<p><iframe width='100%' height='100%' frameborder='1' src='$imgsrc' /></iframe></p>";
+  print { $$self{CONTENT} } "<p><img src='$imgsrc' /></p>";
 }
 
 1;
@@ -4298,24 +4198,38 @@ sub new
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(@_);
   $$self{DEFAULT_GRAPH} = 'destined';
-  $$self{GRAPH_ORDER} = [ 'destined', 'resident', 'pending', 'error', 'routed', 'cooloff' ];
+  $$self{GRAPH_ORDER} = [ 'destined', 'resident', 'pending', 'cooloff', 'request', 'idle' ];
   $$self{GRAPHS} = { 'destined' => "Allocated volume",
 		     'resident' => "Resident volume",
 		     'pending' => "Transferable volume",
-		     'error' => "Transfer cool-off",
-		     'routed' => "Currently routed",
-		     'cooloff' => "Routing cool-off" };
+		     'cooloff' => 'Transfer cool-off',
+		     'request' => "Currently routed",
+		     'idle' => "Routing cool-off" };
   bless $self, $class;
   return $self;
 }
 
 sub output_plot
 {
-  my ($self, $graph, $datadir, %args) = @_;
-  my $home = "$$self{CONFIG}{SERVICE_PATH}/cgi-bin/";
-  print { $$self{CONTENT} } "<p><img width=800 height=500 src='${home}perf-graph-23.php?",
-    &urlencode('db' => $$self{DBID}, 'data' => $datadir, 'kind' => $graph, %args),
-    "' /></p>";
+  my ($self, $graph, %args) = @_;
+
+  my $home = "$$self{CONFIG}{SERVICE_PATH}/cgi-bin/"; #"http://cmsdoc.cern.ch/cms/aprom/phedex/cgi-bin/";
+
+  my $node = '.*';
+  if    ($args{filter}) { $node = $args{filter}; }
+
+  my %graphargs = ('graph' => $graph,
+		   'node' => $node,
+		   'conn' => $args{conn},
+		   'link' => $args{by},
+		   'span' => $args{span},
+		   'starttime' => $args{starttime}, 
+		   'endtime' => $args{endtime});
+
+  my $imgsrc = "${home}phedex-cgi.sh?". &urlencode(%graphargs);
+
+  print { $$self{CONTENT} } "<p><img src='$imgsrc' /></p>";
+
 }
 
 1;
@@ -4335,28 +4249,39 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(@_);
-  $$self{GRAPH_ORDER} = [ 'map', 'attempts', 'successes', 'failures' ];
-  $$self{GRAPHS} = { 'map' => "Quality map",
-		     'attempts' => "Attempts",
-		     'successes' => "Successes",
-		     'failures' => "Failures" };
+  $$self{GRAPH_ORDER} = [ 'quality_all', 'quality_try', 'quality_done', 'quality_fail' ];
+  $$self{GRAPHS} = { 'quality_all' => "Quality map",
+		     'quality_try' => "Attempts",
+		     'quality_done' => "Successes",
+		     'quality_fail' => "Failures" };
   bless $self, $class;
   return $self;
 }
 
 sub output_plot
 {
-  my ($self, $graph, $datadir, %args) = @_;
-  my $kind = ($graph eq 'map' ? 'completed_ratio'
-	      : $graph eq 'attempts' ? 'attempted'
-	      : $graph eq 'successes' ? 'completed'
-	      : $graph eq 'failures' ? 'failed'
-	      : 'completed_ratio');
-  my $home = "$$self{CONFIG}{SERVICE_PATH}/cgi-bin/"; # "http://cmsdoc.cern.ch/cms/aprom/phedex/cgi-bin/";
-  my $php = ($kind =~ /_/ ? "quality-map-23.php" : "quality-graph-23.php");
-  print { $$self{CONTENT} } "<p><img width=800 height=500 src='${home}$php?",
-    &urlencode('db' => $$self{DBID}, 'data' => $datadir, 'kind' => $kind, %args),
-    "' /></p>";
+  my ($self, $graph, %args) = @_;
+
+  my $home = "$$self{CONFIG}{SERVICE_PATH}/cgi-bin/"; #"http://cmsdoc.cern.ch/cms/aprom/phedex/cgi-bin/";
+
+  my $to_node = '.*';
+  my $from_node = '.*';
+  if    ($args{by} eq 'dest' && $args{filter}) { $to_node = $args{filter}; }
+  elsif ($args{by} eq 'src' && $args{filter}) { $from_node = $args{filter}; }
+  elsif ($args{by} eq 'link' && $args{filter}) { $to_node = $from_node = $args{filter}; }
+
+  my %graphargs = ('graph' => $graph,
+		   'to_node' => $to_node,
+		   'from_node' => $from_node,
+		   'conn' => $args{conn},
+		   'link' => $args{by},
+		   'span' => $args{span},
+		   'starttime' => $args{starttime}, 
+		   'endtime' => $args{endtime});
+
+  my $imgsrc = "${home}phedex-cgi.sh?". &urlencode(%graphargs);
+
+  print { $$self{CONTENT} } "<p><img src='$imgsrc' /></p>";
 }
 
 1;
@@ -6431,7 +6356,7 @@ use CGI qw(:standard);
 import Web25::Request::CreateTools;
 
 our $INDEX = { LIST => 1, ORDER => 2, TITLE => "Identities",
-	       LINK_TITLE => "Manage registered users" };
+	       LINK_TITLE => "View registered users" };
 
 sub new
 {
@@ -6447,74 +6372,57 @@ sub output
   my ($self) = @_;
 
   my $name = $$self{USER_NAME};
+  my $identity = $$self{DB_IDENTITY_ID};
   my $client_dn = $$self{SSL_IDENTITY};
   my $email = $self->create_default_email();
+  
+  my $signupurl = $self->myurl(page=>'Administration::SignUp');
 
-  if ($$self{SSL_VERIFIED})
+  print { $$self{CONTENT} } "<h1>Your Identity</h1>";
+  
+  if ($$self{SSL_VERIFIED} && $identity)
   {
-    my ($known) = eval {
-      &dbexec($$self{DBH}, qq{
-        select dn.identity
-        from t_adm_identity_attr dn
-        where dn.name = 'Distinguished name'
-        and dn.value = :client_dn},
-        ':client_dn' => $$self{SSL_IDENTITY})->fetchrow() };
-
-    my ($email_contact) = eval {
-      &dbexec($$self{DBH}, qq{
-        select email.value
-        from t_adm_identity_attr dn
-          join t_adm_identity_attr email
-            on email.identity = dn.identity
-            and email.name = 'E-mail'
-        where dn.name = 'Distinguished name'
-        and dn.value = :client_dn},
-        ':client_dn' => $$self{SSL_IDENTITY})->fetchrow() };
-    my $email_default = $self->create_default_email();
-
-    print { $$self{CONTENT} }
-      "<div class='notebox'>\n",
-      " <p>Your identity has been verified as ", &escapeHTML($$self{SSL_IDENTITY}), ".</p>",
-      ($known ? " <p>You are a registered PhEDEx user.</p>" : "<p>You are not a registered user.</p>");
-
-    if ($email_contact)
-    {
       print { $$self{CONTENT} }
-	" <p>Your e-mail address is registered as @{[&escapeHTML($email_contact)]}.</p>";
-    }
-    else
-    {
+      "<p>Hello $name, the PhEDEx website recognizes you!</p>",
+      "<div class='nice'>",
+      "<label>Your Certificate DN:</label><span class='labeled'>$client_dn</span><br/>",
+      "<label>Your Email:</label><span class='labeled'>$email</span><br/>",
+      "<label>Your Identity#:</label><span class='labeled'>$identity</span><br/>",
+      "</div>",
+      "<p>You will be able to access privileged operations.</p>";
+  }
+  elsif ($$self{SSL_VERIFIED} && !$identity) 
+  {
       print { $$self{CONTENT} }
-	" <p>PhEDEx will use the default e-mail address from your certificate @{[&escapeHTML($email_default)]}.</p>";
-    }
-
-    print { $$self{CONTENT} }
-      " <p>You will be able to access <i>all operations.</i></p>\n",
-      "</div>\n";
+      "<p>Hello $name, the PhEDEx website <i>partially</i> recognizes you!</p>",
+      "<div class='nice'>",
+      "<label>Your Certificate DN:</label><span class='labeled'>$client_dn</span><br/>",
+      "<label>Your Email:</label><span class='labeled'>$email</span><br/>",
+      "</div>",
+      "<p>However, you are <b>not a registered user</b>.  You will only be able to access some privileged operations.  ",
+      "Please <a href='$signupurl'>sign up</a> if you require privileges!</p>";
   }
   elsif (($ENV{HTTPS} || "nope") eq 'on')
   {
-    print { $$self{CONTENT} }
-      "<div class='alertbox'>\n",
-      " <p>You are accessing this web site securely, but your identity\n",
-      "  could not be verified. To authenticate please <a\n",
-      "   href='http://lcg.web.cern.ch/LCG/users/registration/load-cert.html'\n",
-      "   >load your grid certificate into your browser</a> and authorise\n",
-      "  this web site to authenticate using the certificate.</p>\n",
-      " <p>You will be able to access <i>unprivileged operations.</i></p>\n",
-      "</div>\n";
+      print { $$self{CONTENT} }
+      "<p>You are accessing this web site securely, but your identity",
+      "   could not be verified. To authenticate please <a",
+      "   href='http://lcg.web.cern.ch/LCG/users/registration/load-cert.html'",
+      "   >load your grid certificate into your browser</a> and authorise",
+      "  this web site to authenticate using the certificate.</p>",
+      " <p>You will be able to access only <i>unprivileged operations.</i></p>";
   }
   else
   {
-    print { $$self{CONTENT} }
-      "<div class='warningbox'>\n",
-      " <p>You are accessing this web site insecurely and unauthenticated.</p>\n",
-      " <p>You will be able to access <i>unprivileged operations.</i></p>\n",
-      "</div>\n";
+      print { $$self{CONTENT} }
+      " <p>You are accessing this web site insecurely and unauthenticated.</p>",
+      " <p>You will be able to access only <i>unprivileged operations.</i></p>";
   }
+  
+  print { $$self{CONTENT} } "<h1>Registered Users</h1>";
 
   my $q = &dbexec($$self{DBH}, qq{
-    select dn.identity, dn.value, email.value
+    select dn.identity, dn.value dn, email.value email
     from t_adm_identity_attr dn
       left join t_adm_identity_attr email
         on email.identity = dn.identity
@@ -6522,38 +6430,20 @@ sub output
     where dn.name = 'Distinguished name'
     order by dn.identity});
 
-  print { $$self{CONTENT} }
-    "<p><table>\n",
-    " <thead>\n",
-    "  <tr bgcolor='#f8f8f8'>\n",
-    "   <th colspan='4'>Registered users</th>\n",
-    "  </tr>\n",
-    "  <tr bgcolor='#f8f8f8'>\n",
-    "   <th align='left'>Name</th>\n",
-    "   <th align='left'>Distinguished name</th>\n",
-    "   <th align='left'>E-mail</th>\n",
-    "   <th align='right'><span style='color:#666'>Id</span></th>\n",
-    "  </tr>\n",
-    " </thead>\n",
-    " <tbody>\n";
+  my $dbtable = new Web25::DBTable;
+  $dbtable->set_filehandle( $$self{CONTENT} );
+  $dbtable->set_tableclass('data');
+  $dbtable->set_stripeclass('stripe');
+  $dbtable->set_tablecols([qw(NAME DN EMAIL IDENTITY)]);
+  $dbtable->set_tablehead({ NAME => 'Name',
+			    DN   => 'Distinguished name',
+			    EMAIL => 'E-mail',
+			    IDENTITY => 'ID'
+			    });
+  
+  $dbtable->add_pseudocolumn('NAME', sub { &dn_to_human_name($_[1]->{DN}); });
+  $dbtable->output($q);
 
-  my $n = 0;
-  while (my ($id, $dn, $email) = $q->fetchrow ())
-  {
-    my $rowcolor = ($n++ % 2 < 1) ? '' : " bgcolor='#f8f8f8'";
-    my ($login) = ($dn =~ m,/CN=([^/]+?)[\s\d]*(/|$),);
-    print { $$self{CONTENT} }
-      "  <tr$rowcolor valign='top'>\n",
-      "   <td align='left' style='padding-right: 1em'>", &escapeHTML($login), "</td>\n",
-      "   <td align='left' style='padding-right: 1em'>", &escapeHTML($dn), "</td>\n",
-      "   <td align='left' style='padding-right: 1em'>", &escapeHTML($email || ''), "</td>\n",
-      "   <td align='right'><span style='color:#666'>$id</span></td>\n",
-      "  </tr>\n";
-  }
-
-  print { $$self{CONTENT} }
-    " </tbody>\n",
-    "</table></p>\n";
 }
 
 1;
@@ -6778,7 +6668,7 @@ sub input_line
   $line =~ s/#.*//;
   $line =~ s/^\s+//;
   $line =~ s/\s+$//;
-  $line =~ s/\s+/ /;;
+  $line =~ s/\s+/ /;
   return $line;
 }
 
