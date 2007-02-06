@@ -6409,7 +6409,7 @@ ENDEMAIL
 
     print { $$self{CONTENT} } 
     "<h1>Request Sent</h1>",
-    "<p>Your request has been emailed to the PhEDEx global admins and "
+    "<p>Your request has been emailed to the PhEDEx global admins and ",
 	"the existing site admins for their consideration.</p>";
 }
 
