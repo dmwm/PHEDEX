@@ -4554,7 +4554,8 @@ sub output
 			  : "unknown");
 	my $url = $self->myurl("page" => "Activity::FileInfo",
 			       "to_node" => $to_node,
-			       "from_node" => $from_node
+			       "from_node" => $from_node,
+			       "state" => $state_name
 			       );
 	print { $$self{CONTENT} }
 	"<tr>\n",
@@ -4726,19 +4727,38 @@ sub output
   my ($self) = @_;
   my $to_node = param('to_node');
   my $from_node = param('from_node');
+  my $state = param('state');
   if (! defined $to_node || $to_node eq ''
       || ! defined $from_node || $from_node eq ''
+      || ! defined $state || $state eq ''
       )
   {
     print { $$self{CONTENT} }
-      "<div class='alert'><p><b>Error:</b>",
-      " Missing arguments</p></div>\n";
+    $self->alert('Missing Arguments');
+    return;
   }
 
-  my $query = &dbexec($$self{DBH}, qq{
+  my $state_join = '';
+  my $state_where = '';
+  if    ($state eq 'exported')     { 
+      $state_join = 'join t_xfer_task_export ts on ts.task = xt.id'; 
+      $state_where = 'and xt.id not in ( select task from t_xfer_task_inxfer )';
+  } elsif ($state eq 'transferring') { 
+      $state_join = 'join t_xfer_task_inxfer ts on ts.task = xt.id'; 
+      $state_where = 'and xt.id not in ( select task from t_xfer_task_done )';
+  } elsif ($state eq 'transferred')  { 
+      $state_join = 'join t_xfer_task_done ts on ts.task = xt.id'; }
+  elsif ($state eq 'assigned') {
+      $state_where = 'and xt.id not in ( select task from t_xfer_task_export )';
+  } else {
+      $self->alert('Invalid state');
+  }
+     
+  my $sql = qq{
     select f.logical_name, f.filesize, xt.from_pfn, xt.to_pfn,
 	   xt.time_assign, err.cnt num_errors
-    from t_xfer_task xt
+      from t_xfer_task xt
+      $state_join
       join t_xfer_file f on f.id = xt.fileid
       join t_adm_node ns on ns.id = xt.from_node
       join t_adm_node nd on nd.id = xt.to_node
@@ -4751,12 +4771,14 @@ sub output
               and err.to_node = xt.to_node
     where ns.name = :from_node
       and nd.name = :to_node
-    order by xt.time_assign, f.logical_name},
-    ":from_node" => $from_node,
-    ":to_node" => $to_node
-     );
+      $state_where
+      order by xt.time_assign, f.logical_name};
+
+  my $query = &dbexec($$self{DBH}, $sql, 
+		      ':from_node' => $from_node,
+		      ':to_node' => $to_node);
   print { $$self{CONTENT} }
-    "<p>Files from $from_node to $to_node.</p>\n",
+    "<h1>Files $state from $from_node to $to_node.</h1>\n",
     "<ol align='left'>\n";
   while (my $row = $query->fetchrow_arrayref)
   {
