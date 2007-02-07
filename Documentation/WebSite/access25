@@ -100,10 +100,23 @@ sub pagelink
 # Convert a time difference into human-friendly short age string.
 sub age
 {
-  my ($diff) = @_;
+  my ($diff, $precision) = @_;
+  $precision = 'minute' if !defined $precision;
+  if (! grep ($precision eq $_, qw(second minute)) ) {
+      die "Bad args to age()\n";
+  }
+
   my $str = "";
   my $full = 0;
-  if ($diff >= 86400)
+
+  if ($precision ne 'minute' &&  abs($diff) <= 3600) {
+      $str .= sprintf("%dm", $diff / 60);
+      $diff %= 60;
+      $str .=  sprintf("%02d", $diff);
+      return $str;
+  }
+
+  if (abs($diff) >= 86400)
   {
     $str .= sprintf("%dd", $diff / 86400);
     $diff %= 86400;
@@ -3614,21 +3627,25 @@ sub new
 sub output
 {
   my ($self) = @_;
-  my $active = 60*5;
-  my $offline = 60*15;
+  my %offline_thresholds = ( 'FileDownload' => 60*30,
+			     'FileExport'   => 60*90,
+			     'InfoFileSize' => 60*30,
+			     'OTHER'        => 60*15 );
+  
+  
   my $now = time ();
   my $query = &dbexec($$self{DBH}, qq{
-    select n.name, a.name, ast.time_update
-    from t_agent_status ast
-      join t_adm_node n on n.id = ast.node
-      join t_agent a on a.id = ast.agent});
+      select n.name, a.name, ast.time_update
+	  from t_agent_status ast
+	  join t_adm_node n on n.id = ast.node
+	  join t_agent a on a.id = ast.agent});
 
   my (%agents, %status);
   while (my $row = $query->fetchrow_arrayref)
   {
-    my ($node, $agent, $contact) = @$row;
-    $status{$node}{$agent} = $contact;
-    $agents{$agent} = 1;
+      my ($node, $agent, $contact) = @$row;
+      $status{$node}{$agent} = $contact;
+      $agents{$agent} = 1;
   }
 
   my @standard = grep (!/^(Block|Info(?!Drop)|Perf|Table)/, sort keys %agents);
@@ -3637,8 +3654,8 @@ sub output
 
   foreach my $item ([ "Common", @standard ], [ "Administrative", @admin ], [ "Support", @support ])
   {
-    my ($type, @agents) = @{$item};
-    print { $$self{CONTENT} }
+      my ($type, @agents) = @{$item};
+      print { $$self{CONTENT} }
       "<p><table class='striped'>\n",
       "<tbody>\n",
       "<tr class='selected'>\n",
@@ -3649,32 +3666,35 @@ sub output
       (map { " <th>$_</th>\n" } @agents),
       "</tr>\n";
 
-    foreach my $node (sort keys %status)
-    {
-      next if ! grep (defined $status{$node}{$_}, @agents);
-
-      print { $$self{CONTENT} } "<tr>\n", " <td>$node</td>\n";
-      foreach my $agent (@agents)
+      foreach my $node (sort keys %status)
       {
-	my $contact = $status{$node}{$agent};
-	if (! defined $contact)
-	{
-	  print { $$self{CONTENT} } " <td>&nbsp;</td>\n";
-	  next;
-	}
+	  next if ! grep (defined $status{$node}{$_}, @agents);
 
-	my $ago = &age ($now - $contact);
-	if (($now - $contact) < $active) {
-	  print { $$self{CONTENT} } "<td align='center' bgcolor='$goodcolor'>UP</td>\n";
-	} elsif (($now - $contact) < $offline) {
-	  print { $$self{CONTENT} } "<td align='center' bgcolor='$goodcolor'>UP ($ago ago)</td>\n";
-	} else {
-	  print { $$self{CONTENT} } "<td align='center' bgcolor='$badcolor'>DOWN ($ago ago)</td>\n";
-	}
+	  print { $$self{CONTENT} } "<tr>\n", " <td>$node</td>\n";
+	  foreach my $agent (@agents)
+	  {
+	      my $offline = ( $offline_thresholds{$agent} || $offline_thresholds{OTHER} );
+	      my $active = $offline / 3;
+	      my $contact = $status{$node}{$agent};
+
+	      if (! defined $contact)
+	      {
+		  print { $$self{CONTENT} } " <td>&nbsp;</td>\n";
+		  next;
+	      }
+	      
+	      my $ago = &age($now - $contact);
+	      if (($now - $contact) < $active) {
+		  print { $$self{CONTENT} } "<td align='center' bgcolor='$goodcolor'>UP</td>\n";
+	      } elsif (($now - $contact) < $offline) {
+		  print { $$self{CONTENT} } "<td align='center' bgcolor='$goodcolor'>UP ($ago ago)</td>\n";
+	      } else {
+		  print { $$self{CONTENT} } "<td align='center' bgcolor='$badcolor'>DOWN ($ago ago)</td>\n";
+	      }
+	  }
+	  print { $$self{CONTENT} } "</tr>\n";
       }
-      print { $$self{CONTENT} } "</tr>\n";
-    }
-    print { $$self{CONTENT} } "</tbody>\n", "</table>\n";
+      print { $$self{CONTENT} } "</tbody>\n", "</table>\n";
   }
 }
 
@@ -4682,7 +4702,7 @@ import Web25::Common;
 use CGI qw(:standard);
 use POSIX qw(strftime);
 
-our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Transfer Details" };
+our $INDEX = { LIST => 0, ORDER => 100, TITLE => "File Info" };
 
 sub new
 {
@@ -4696,7 +4716,7 @@ sub new
 sub myurl
 {
   my ($self, %args) = @_;
-  my @save = qw(to_node from_node to_state from_state);
+  my @save = qw(to_node from_node state);
 
   # Return bare link if we are switching pages
   return $self->SUPER::myurl(%args)
@@ -4739,7 +4759,7 @@ sub output
   }
      
   my $sql = qq{
-    select f.logical_name, f.filesize, xt.from_pfn, xt.to_pfn,
+    select f.id, f.logical_name, f.filesize, xt.from_pfn, xt.to_pfn,
 	   xt.time_assign, err.cnt num_errors
       from t_xfer_task xt
       $state_join
@@ -4766,20 +4786,146 @@ sub output
     "<ol align='left'>\n";
   while (my $row = $query->fetchrow_arrayref)
   {
-    my ($lfn, $size, $from_pfn, $to_pfn, $assigned, $nerrors) = @$row;
+    my ($fileid, $lfn, $size, $from_pfn, $to_pfn, $assigned, $nerrors) = @$row;
+    my $errorurl = $self->myurl('page' => 'Activity::ErrorInfo',
+				'to_node' => $to_node,
+				'from_node' => $from_node,
+				'fileid' => $fileid);
     print { $$self{CONTENT} }
-      "<li><b>lfn</b>=@{[&escapeHTML($lfn)]}<br />",
-      "<b>size</b>=$size<br />",
-      ($from_pfn ? "<b>from_pfn</b>=@{[&escapeHTML($from_pfn)]}<br />" : ""),
-      ($to_pfn ? "<b>to_pfn</b>=@{[&escapeHTML($to_pfn)]}<br />" : ""),
-      ($nerrors ? "<b>errors</b>=$nerrors<br />"  : ""),
-      ($assigned ? "<b>time_assign</b>=@{[strftime('%Y-%m-%d %H:%M:%S', gmtime($assigned))]} UTC<br />" : ""),
-      "<br /></li>\n";
+    "<li><b>lfn</b>=@{[&escapeHTML($lfn)]}<br />",
+    "<b>size</b>=$size<br />",
+    ($from_pfn ? "<b>from_pfn</b>=@{[&escapeHTML($from_pfn)]}<br />" : ""),
+    ($to_pfn ? "<b>to_pfn</b>=@{[&escapeHTML($to_pfn)]}<br />" : ""),
+    ($nerrors ? "<span class='alarm'><b>errors</b>=$nerrors</span> <a href='$errorurl'>(View)</a><br />"  : ""),
+    ($assigned ? "<b>time_assign</b>=@{[strftime('%Y-%m-%d %H:%M:%S', gmtime($assigned))]} UTC<br />" : ""),
+    "<br /></li>\n";
   }
   print { $$self{CONTENT} } "</ol></p>\n";
 }
 
 1;
+
+
+
+######################################################################
+package Web25::Activity::ErrorInfo;
+use strict; use warnings;
+use base "Web25::Page";
+import Web25::Common;
+use CGI qw(:standard);
+use POSIX qw(strftime);
+
+our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Error Info" };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+
+sub output
+{
+    my ($self) = @_;
+
+    my $to_node = param('to_node');
+    my $from_node = param('from_node');
+    my $fileid = param('fileid');
+    if (! defined $to_node || $to_node eq ''
+	|| ! defined $from_node || $from_node eq ''
+	|| ! defined $fileid || $fileid eq ''
+	)
+    {
+	print { $$self{CONTENT} }
+	$self->alert('Missing Arguments');
+	return;
+    }
+
+
+    my $sql = qq{ select time_assign, time_expire, time_export, time_inxfer, time_xfer, time_done,
+		         report_code, xfer_code, from_pfn, to_pfn,
+		         log_xfer, log_detail, log_validate
+		    from t_xfer_error xe
+                    join t_adm_node nd on nd.id = xe.to_node
+		    join t_adm_node ns on ns.id = xe.from_node
+                   where nd.name = :to_node
+                     and ns.name = :from_node
+                     and xe.fileid = :fileid
+		order by time_assign
+		  };
+
+    my $max_log_length = 100_000;
+    $$self{DBH}->{LongReadLen} = $max_log_length;
+    $$self{DBH}->{LongTruncOk} = 1;
+    my $q = &dbexec($$self{DBH}, $sql, 
+		    ':to_node' => $to_node,
+		    ':from_node' => $from_node,
+		    ':fileid' => $fileid);
+
+    my $n = 0;
+    my $time_labels = { TIME_ASSIGN => "Time Assigned",
+			TIME_EXPORT => "Time Exported",
+			TIME_INXFER => "Time Pumped",
+			TIME_XFER   => "Time Transfer Start",
+			TIME_DONE   => "Time Transfer Done",
+			TIME_EXPIRE => "Time Transfer Expires" };
+
+    my $log_labels = { LOG_XFER => "Transfer Log",
+		       LOG_DETAIL => "Detail Log",
+		       LOG_VALIDATE => "Validate Log" };
+
+    my $now = time();
+    while (my $error = $q->fetchrow_hashref()) {
+	$n++;
+	print { $$self{CONTENT} }
+	"<div class='nice errorinfo'>",
+	"<h1>Error $n</h1>";
+
+	my $time_assign = $$error{TIME_ASSIGN};
+	my $tn = 0;
+	foreach my $time (qw(TIME_ASSIGN TIME_XFER TIME_EXPORT TIME_DONE TIME_INXFER TIME_EXPIRE)) {
+	    my $diff_assign = &age($$error{$time} - $time_assign, 'second');
+	    my $diff_now    = &age($$error{$time} - $now, 'second');
+
+	    print { $$self{CONTENT} }
+	    "<label>$$time_labels{$time}:</label><span class='labeled halfwidefield'>", 
+	    &formatTime($$error{$time}, 'stamp'), 
+	    " <span class='diff_assigned'>($diff_assign since assigned)</span> ",
+	    " <span class='diff_now'>($diff_now from now)</span>",
+	    "</span>",
+	    (++$tn % 2 == 0 ? "<br/>" : '');
+	}
+
+	print { $$self{CONTENT} }
+	"<hr/>",
+	"<label>Final Code:</label><span class='labeled halfwidefield'>$$error{REPORT_CODE}</span>",
+	"<label>Transfer Report Code:</label><span class='labeled halfwidefield'>$$error{XFER_CODE}</span><br/>",
+	"<hr/>",
+	"<label>From PFN:</label><span class='labeled'>$$error{FROM_PFN}</span><br/>",
+	"<label>To PFN:</label><span class='labeled'>$$error{TO_PFN}</span><br/>",
+	"<hr/>";
+
+	foreach my $log (qw(LOG_XFER LOG_DETAIL LOG_VALIDATE)) {
+	    if (! defined $$error{$log} ) { $$error{$log} = ''; }
+	    my $chars = length $$error{$log};
+	    my $trunc = ($chars == $max_log_length ? "<br/><span class='alarm'>Truncated</span>" : '');
+	    $$error{$log} =~ s/\s*$/\n/;
+	    my $lines = ($$error{$log} =~ tr/\n/\n/);
+	   
+	    print { $$self{CONTENT} }
+	    "<label>$$log_labels{$log}:<br/><span class='note'>($lines lines)<br/>($chars chars)$trunc</span></label>",
+	    "<div class='labeled logbox'>$$error{$log}</div><br/>";	    
+ 	}
+	print { $$self{CONTENT} } "</div>";
+    }
+
+}
+
+1;
+
 
 ######################################################################
 package Web25::Data::ExplorePage;

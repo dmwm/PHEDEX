@@ -771,5 +771,47 @@ div.paramblock .comment {
   padding:  0.5em;
 }
 
+div.errorinfo {
+  padding:		0.5em;
+  width:		100em;
+  border:		1px solid #F00;
+  background:		#faf3f3;
+  margin-bottom:	2em;
+}
+
+div.errorinfo .halfwidefield { width:  35em; }
+
+div.errorinfo h1 {
+  margin:		0;
+  margin-bottom:	1em;
+  font-size:		14pt;
+  
+}
+
+div.errorinfo hr {
+  border:		none;
+  border-bottom:	1px solid black;
+}
+
+div.errorinfo .diff_assigned { color:  blue; }
+div.errorinfo .diff_now { color:  green; }
+
+div.logbox {
+  font-family:		courier;
+  background:		white;
+  width:		80em;
+  height:		15em;
+  overflow:		scroll;
+  border:		1px solid black;
+  white-space:		pre;  
+}
+
+
+.alarm {
+  font-weight:  bold;
+  color:  white;
+  background:  red;
+}
+
 p.alarm { color:  red; }
-p.note  { color:  blue; }
+p.note { color:  blue; }
