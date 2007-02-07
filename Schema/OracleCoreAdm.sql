@@ -27,7 +27,7 @@ create table t_adm_identity_attr
      unique (identity, name),
    --
    constraint uq_adm_identity_attr_value
-     unique (name, value),
+     unique (identity, name, value),
    --
    constraint fk_adm_identity_attr_identity
      foreign key (identity) references t_adm_identity (id)
