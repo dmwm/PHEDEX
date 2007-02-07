@@ -2948,22 +2948,6 @@ sub create_check_dest
     }
   }
 
-  my %destreqs = (T2_Caltech_Buffer	=> 'T1_FNAL_MSS',
-	    	  T2_Florida_Buffer	=> 'T1_FNAL_MSS',
-		  T2_Nebraska_Buffer	=> 'T1_FNAL_MSS',
-		  T2_Purdue_Buffer	=> 'T1_FNAL_MSS',
-		  T2_UCSD_Buffer	=> 'T1_FNAL_MSS',
-		  T2_Wisconsin_Buffer	=> 'T1_FNAL_MSS',
-		  T3_UIowa_Buffer	=> 'T1_FNAL_MSS');
-
-
-  foreach my $node (@dests)
-  {
-    next if ! exists $destreqs{$node};
-    push (@dests, $destreqs{$node})
-    if (! grep ($_ eq $destreqs{$node}, @dests));
-  }
-
   return $$bad ? undef : sort @dests;
 }
 
