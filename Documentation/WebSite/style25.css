@@ -773,19 +773,18 @@ div.paramblock .comment {
 
 div.errorinfo {
   padding:		0.5em;
-  width:		100em;
+  width:		110em;
   border:		1px solid #F00;
   background:		#faf3f3;
   margin-bottom:	2em;
 }
 
-div.errorinfo .halfwidefield { width:  35em; }
+div.errorinfo .halfwidefield { width:  40em; }
 
 div.errorinfo h1 {
   margin:		0;
   margin-bottom:	1em;
   font-size:		14pt;
-  
 }
 
 div.errorinfo hr {
@@ -799,7 +798,7 @@ div.errorinfo .diff_now { color:  green; }
 div.logbox {
   font-family:		courier;
   background:		white;
-  width:		80em;
+  width:		95em;
   height:		15em;
   overflow:		scroll;
   border:		1px solid black;
