@@ -598,12 +598,12 @@ sub otherNodeFilter
         }
 
 	$index = 0;
-	foreach my $pat (@{$$self{ACCEPT_ADM_NODES}})
+	foreach my $pat (@{$$self{ACCEPT_NODES}})
         {
 	    &dbbindexec($q, ":pat" => $pat);
 	    while (my ($id) = $q->fetchrow())
 	    {
-	        $$self{ACCEPT_ADM_NODES_IDS}{MAP}{++$index} = $id;
+	        $$self{ACCEPT_NODES_IDS}{MAP}{++$index} = $id;
 	    }
         }
 
@@ -616,7 +616,7 @@ sub otherNodeFilter
 	$args{":ignore$n"} = $id;
 	push(@ifilter, "$idfield != :ignore$n");
     }
-    while (my ($n, $id) = each %{$$self{ACCEPT_ADM_NODES_IDS}{MAP}})
+    while (my ($n, $id) = each %{$$self{ACCEPT_NODES_IDS}{MAP}})
     {
 	$args{":accept$n"} = $id;
 	push(@afilter, "$idfield = :accept$n");
