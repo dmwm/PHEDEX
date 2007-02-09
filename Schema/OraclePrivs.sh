@@ -44,36 +44,55 @@ for role in \
        echo "select sequence_name from user_sequences;") |
       sqlplus -S "$connect" | awk '/^(T|SEQ)_[A-Z0-9_]+/ { print $1 } {}'); do
 
-    case $table:$role in
-      T_AUTH*:* )
-        # Invisible to all but admin
-        ;;
+    echo "revoke all on $table from $reader;"
+    echo "revoke all on $table from $writer;"
+    echo "revoke all on $table from $role;"
 
-      T_*:*CERN* | \
-      T_*AGENT*:* | \
-      T_XFER_CATALOGUE:* | \
-      T_XFER_DELETE:* | \
-      T_XFER_ERROR:* | \
-      T_XFER_REPLICA:* | \
-      T_XFER_SINK:* | \
-      T_XFER_SOURCE:* | \
-      T_XFER_TASK*:* )
+    case $table:$role in
+      T_*:*_CERN_* | \
+      T_REQ_*:*_WEBSITE_* | \
+      T_ADM_*:*_WEBSITE_* | \
+      T_DPS_SUBSCRIPTION:*_WEBSITE_* | \
+      T_AGENT*:* )
         # Select, update, insert and delete
         echo; echo "grant select on $table to $reader;"
 	echo "grant select on $table to $writer;"
 	echo "grant delete, insert, select, update on $table to $role;" ;;
 
-#      T_XFER_FILE:* )
-#        # Select, update and insert
-#        echo; echo "grant select on $table to $reader;"
-#        echo "grant select on $table to $writer;"
-#	echo "grant insert, select, update on $table to $role;" ;;
-#
-#      T_DPS_BLOCK_DEST:* )
-#        # Select and update, but no insert
-#        echo; echo "grant select on $table to $reader;"
-#        echo "grant select on $table to $writer;"
-#	echo "grant select, update on $table to $role;" ;;
+      *:*_WEBSITE_* )
+        # Select only
+        echo; echo "grant select on $table to $reader;"
+        echo "grant select on $table to $writer;" ;;
+
+      T_XFER_DELETE:* )
+        # Select and update, but no insert
+        echo; echo "grant select on $table to $reader;"
+        echo "grant select on $table to $writer;"
+	echo "grant select, update on $table to $role;" ;;
+
+      T_DPS_BLOCK_ACTIVATE:* | \
+      T_DPS_BLOCK:* | \
+      T_DPS_DATASET:* | \
+      T_DPS_FILE:* | \
+      T_XFER_FILE:* )
+        # Select, update and insert
+        echo; echo "grant select on $table to $reader;"
+        echo "grant select on $table to $writer;"
+	echo "grant insert, select, update on $table to $role;" ;;
+
+      T_XFER_PATH:* | \
+      T_XFER_REQUEST:* | \
+      T_XFER_TASK:* | \
+      T_XFER_TASK_HARVEST:* )
+        # Select only
+        echo; echo "grant select on $table to $reader;"
+        echo "grant select on $table to $writer;" ;;
+
+      T_XFER_*:* )
+        # Select, update, insert and delete
+        echo; echo "grant select on $table to $reader;"
+	echo "grant select on $table to $writer;"
+	echo "grant delete, insert, select, update on $table to $role;" ;;
 
       T_*:* )
         # Select only
