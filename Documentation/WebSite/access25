@@ -14,12 +14,13 @@ our @EXPORT = qw(urlencode dblink toclink pagelink
 		 alert warning breakAtSlash note help
 		 age format_num format_size format_timespan
 		 badcolor warncolor pendcolor goodcolor altcolor
-		 dbexec dbprep dbbindexec makeObjWithAttrs dbsafe
+		 dbexec dbprep dbbindexec dbinlist makeObjWithAttrs
 		 timeSeries formatTime timegm sizeValue
 		 alert_auth
                  fetch_identity_id set_auth_vars 
 		 fetch_authorized_nodes fetch_authorized_sites
 		 getglobaladmins getsiteadmins
+		 getsitesfornodes
                  create_default_email send_email dn_to_human_name
 		 yesno
 		 dump_params
@@ -287,6 +288,16 @@ sub dbbindexec
     : $stmt->execute();
 }
 
+# Retrun an sql fragment and a bind hash for an SQL "IN" list
+sub dbinlist
+{
+    my @binds = @_;
+    my $in_list = join(', ', map { ':in_'.($_+1) } (0..$#binds));                                                            
+    my %in_binds = map { (':in_'.($_+1) => $binds[$_]) } (0..$#binds); 
+    return $in_list, %in_binds;
+}
+
+
 # Convenience wrapper for automatically constructing an object
 # with requested set of attributes.
 sub makeObjWithAttrs
@@ -480,26 +491,57 @@ sub getglobaladmins
 }
 
 
+
 # Get a list of site admins from the DB
 # Returns an array of hashrefs containing SITE, ID and EMAIL
 sub getsiteadmins
 {
-    my ($dbh) = @_;
-    my $q = &dbexec($dbh, qq{select i.id, ia.value, site.name
+    my ($dbh, @sites) = @_;
+
+    my $wherelist = '';
+    my %wherebinds;
+    if (@sites) { 
+	my ($in_list, %in_binds) = &dbinlist(@sites);
+	$wherelist = " and site.name in ($in_list)";
+	%wherebinds = %in_binds;
+    }
+
+    my $sql = qq{ select i.id, ia.value, site.name
 			      from t_adm_site_admin admin
 			      join t_adm_site site on site.id = admin.site
 			      join t_adm_identity i on admin.identity = i.id
 			      join t_adm_identity_attr ia on ia.identity = i.id
-			      where ia.name = 'E-mail'});
+			      where ia.name = 'E-mail'$wherelist };
+
+    my $q = &dbexec($dbh, $sql, %wherebinds);
     my @admins;
     while (my ($id, $email, $site) = $q->fetchrow_array()) {
 	push @admins, {ID => $id, EMAIL => $email, SITE => $site};
     }
     return @admins;
-    
 }
 
 
+# Get a hash of node => site
+sub getsitesfornodes
+{
+    my ($dbh, @nodes) = @_;
+    
+    my ($in_list, %in_binds) = &dbinlist(@nodes);
+
+    my $sql = qq{ select node.name, site.name
+		    from t_adm_site_node sn
+		    join t_adm_site site on site.id = sn.site
+		    join t_adm_node node on node.id = sn.node
+		   where node.name in ($in_list) };
+
+    my $q = &dbexec($dbh, $sql, %in_binds);
+    my %sitenodes;
+    while (my ($node, $site) = $q->fetchrow_array()) {
+	$sitenodes{$node} = $site;
+    }
+    return %sitenodes;
+}
 
 
 # Get the client's e-mail address.  By default, use an e-mail
@@ -544,9 +586,38 @@ sub send_email
 {
     my (%args) = @_;
 
+    # Required arguments
     foreach (qw(subject from to message)) {
 	return 0 unless exists $args{$_};
     }
+
+    # Make to and cc arrays unique
+    foreach (qw(to cc)) {
+	if (exists $args{$_} && ref $args{$_} eq 'ARRAY') {
+	    my %unique;
+	    $unique{$_} = 1 foreach @{$args{$_}};
+	    $args{$_} = [keys %unique];
+	}
+    }
+
+    # Ensure names are not duplicated from to to cc
+    if (exists $args{cc} && ref $args{cc} eq 'ARRAY'
+	&& ref $args{to} eq 'ARRAY') {
+	my @uniquecc;
+	foreach my $mail (@{$args{cc}}) {
+	    push @uniquecc, $mail unless grep $_ eq $mail, @{$args{to}};	    
+	}
+	$args{cc} = [ @uniquecc ];
+    } elsif (exists $args{cc} && ref $args{cc} eq 'ARRAY'
+	     && ref $args{to} ne 'ARRAY') {
+	$args{cc} = [ grep $_ ne $args{to}, @{$args{cc}} ];
+    } elsif (exists $args{cc}
+	     && ref $args{to} eq 'ARRAY') {
+	delete $args{cc} if grep $_ eq $args{cc}, @{$args{to}};
+    } else {
+	delete $args{cc} if $args{cc} eq $args{to};
+    }
+    
 
     foreach (qw(from to cc replyto)) {
 	if (exists $args{$_} && ref $args{$_} eq 'ARRAY') {
@@ -573,7 +644,8 @@ sub send_email
 	 "\n" )
      && close(MAIL))
 	or do { return 0; };
-    return 1;
+
+    return %args;
 }
 
 
@@ -2211,6 +2283,7 @@ sub new
 sub output
 {
   my ($self) = @_;
+  my $task = param('task');
 
   my ($where, $identity);
   if ($$self{MY_VIEW}) {
@@ -2239,6 +2312,8 @@ sub output
   my $oldaid = -1;
   my %task;
   while (my ($tid, $aid, $rid, $tassigned, $tcreate, $rstate, $rcreator, $action, $atime, $aclient, $name, $value) = $qtask->fetchrow()) {
+      next if ($task && $tid != $task);  # XXX improve later...
+
       if ($oldtid != $tid) {
 	  $task{$tid}{TASK_ASSIGNED} = $tassigned;
 	  $task{$tid}{TASK_CREATED}  = $tcreate;
@@ -2295,16 +2370,17 @@ sub output
 	      hidden(-name=>'request', -value=>$task{$tid}{REQUEST_ID}),
 	      hidden(-name=>'task', -value=>$tid),
 	      hidden(-name=>'action', -value=>$aid),
-		     "<label>Next Action:</label>",
-		     "<span class='labeled'>",
+	      "<label>Next Action:</label>",
 	      popup_menu(-name=>'newaction', 
 			 -values=>['subscribe', 'disapprove'],
 			 -labels=>{'subscribe' => 'Subscribe',
-				   'disapprove' => 'Disapprove'}
+				   'disapprove' => 'Disapprove'},
+			 -class=>'labeled'
 			 ),
-	      " (Optional) Comment: ",
-	      textfield(-name=>'comment'),"&nbsp;",
-	      submit(-value=>'Submit'), "</span><br/>",
+	      "<br/><label>Comment:<br/><span class='note'>(Optional)</span></label>",
+	      textarea(-name=>'comment', -rows=>10, -cols=>60, -class=>'labeled'), "<br/>",
+			     "<label>&nbsp;</label>",
+			     submit(-value=>'Submit', -class=>'labeled'), "<br/>",
 	      "</form>";
 	  }
       }
@@ -2367,12 +2443,15 @@ sub output
     if ($newaction eq 'subscribe') {
 	$newactionname = 'Subscribed';
 	unless (&subscribe_request($$self{DBH}, $request, $now)) {
-	    $self->alert("Subscription failed.  Please notify the developers.");
+	    $self->alert("Subscription failed.  No subscription was made.  ",
+			 "Was any of the data known to this PhEDEx instance?");
+	    return;
 	}
 	$newstate = 5;
     } elsif ($newaction eq 'disapprove') {
 	unless (&disapprove_request($$self{DBH}, $request, $now)) {
 	    $self->alert("Disapproval failed.  Please notify the developers.");
+	    return;
 	}
 	$newactionname = 'Disapproved';
 	$newstate = 4;
@@ -2465,7 +2544,7 @@ sub subscribe_request
 	    ':now' => $now,
 	    ':rid' => $request);
 
-    return $rv;
+    return (!$rv || $rv == 0) ? 0 : $rv;
 }
 
 
@@ -3375,6 +3454,7 @@ sub output
   $table->start();
   $table->head();
 
+  my $problems = 0;
   foreach my $userglob (sort @data) {
       if (! @{$$resolved{$userglob}} ) {
 	  $table->row({LEVEL => 'User Search',
@@ -3383,12 +3463,13 @@ sub output
 		       DBS_ISKNOWN => 'n',
 		       COMMENT => 'Data item not found anywhere',
 		       WARN => 1});
+	  $problems = 1;
       } else {
 	  foreach my $res (@{$$resolved{$userglob}}) {
 	      my @comments;
 	      my $warn = 0;
 	      
-	      if ($$res{DBS} ne $dbs)  { push @comments, "Known to PhEDEx in another DBS ($$res{DBS})"; $warn = 1; }
+	      if ($$res{DBS} ne $dbs)  { push @comments, "Known to PhEDEx in another DBS ($$res{DBS})"; $warn = 1; $problems = 1; }
 	      if ($$userdupes{$$res{LEVEL}}{$$res{ID}}) { push @comments, "User duplicated requests"; $warn = 1; }
 	      if ($$dbsdupes{$$res{LEVEL}}{$$res{ID}})  { 
 		  push @comments, "Data item known to PhEDEx in multiple DBSes";
@@ -3407,6 +3488,8 @@ sub output
 	      $$res{COMMENT} = join('<br/>', @comments);
 	      $$res{WARN} = $warn;
 	      
+	      if ($warn) { $problems = 1; }
+	      if ($$res{DPS_ISKNOWN} eq 'n' || $$res{DBS_ISKNOWN} eq 'n') { $problems = 1; }
 	      $table->row($res);
 	  }
       }
@@ -3419,10 +3502,16 @@ sub output
       print { $$self{CONTENT} } hidden($_);
   }
 
-  print { $$self{CONTENT} }
-  hidden(-name=>'go_ahead', -default=>'y'),
-  "<p><center>", submit(-value=>'Confirm'), "</p>",
-  "</form>";
+  unless ($problems) {
+      print { $$self{CONTENT} }
+      hidden(-name=>'go_ahead', -default=>'y'),
+      "<p><center>", submit(-value=>'Confirm'), "</p>";
+  } else {
+      $self->alert("Sorry, due to the problems with your request (in red) it cannot be submitted.  ",
+		   "Please go back and resolve the problems if you can, or ",
+		   "<a href='mailto:cms-phedex-admins\@cern.ch'>mail the admins</a> if you have a question.");
+  }
+  print { $$self{CONTENT} } "</form>";
 }
   
 
@@ -3528,7 +3617,7 @@ sub write_request
 			      ':priority'     => $params{priority}
 			      );
 	    }
-	    unless ($rv[1]) {
+	    unless ($rv[1] > 0) {
 		$$self{DBH}->rollback();
 		&alert("Request creation failed");
 	    }
@@ -3547,40 +3636,63 @@ sub write_request
     # Send an email to each of the PhEDEx global admins
     my $instance = $$self{CONFIG}{INSTANCES}{$$self{DBID}}{TITLE};
     my $subscription_type =  &subscription_type(@params{qw(priority is_transient is_move)});
-    send_email(subject => "PhEDEx Transfer Request ($instance instance)",
-	       to => [ @adminmails ],
-	       from => "PhEDEx Request Form <cms-phedex-admins\@cern.ch>",
-	       message => 
-	       "Greetings PhEDEx Global Admin,\n".
-	       "\n".
-	       "You may wish to take note of the following new\n".
-	       "transfer request which is now being processed.  At this time\n".
-	       "you need not take any action.  Have a nice day!\n".
-	       "\n".
-	       "* Requestor:\n".
-	       "   Identity: $$self{SSL_IDENTITY}\n".
-	       "   Host: $ENV{HTTP_X_FORWARDED_FOR}\n".
-	       "   Agent: @{[user_agent()]}\n".
-	       "\n".
-	       "* Request:\n".
-	       "   Type:\n".
-	       "     $subscription_type\n".
-	       "   Database:\n".
-	       "     $instance\n".
-	       "   Contact:\n".
-	       "     $params{email}\n".
-	       "   DBS:\n".
-	       "     $params{dbs}\n".
-	       "   Data:\n".
-	       join('', map( { "     $_\n" } @{$params{data}})).
-	       "   Destinations:\n".
-	       join('', map( { "     $_\n" } @{$params{destinations}})).
-	       "   Comments:\n".
-	       "     $params{comment}\n".
-	       "\n".
-	       "Yours truly,\n".
-	       "  PhEDEx transfer request web form\n")
-	or alert("Sending request email to admins failed, sorry");
+    my @cc = ($params{email});
+    my %node_sites = &getsitesfornodes($$self{DBH}, @{$params{destinations}});
+    my @sites = values %node_sites;
+    if (@sites) {
+	my @siteadmins = &getsiteadmins($$self{DBH}, @sites);
+	push @cc, $$_{EMAIL} foreach @siteadmins;
+    }
+    my $admin_url = $self->myurl('fullurl' => 1, 'secure' => 1, 'page' => 'Request::Admin', 'view' => 'my');
+
+    my $message =<<ENDEMAIL;
+Greetings PhEDEx Global Admins,
+
+You may wish to take note of the following new transfer request:
+
+* Requestor:
+   Name:  $$self{USER_NAME}
+   DN: $$self{SSL_IDENTITY}
+   Host: $ENV{HTTP_X_FORWARDED_FOR}
+   Agent: @{[user_agent()]}
+
+* Request:
+   Type:
+     $subscription_type
+   Database:
+     $instance
+   Contact:
+     $params{email}
+   DBS:
+     $params{dbs}
+   Data:
+ENDEMAIL
+
+    $message .= join('', map( { "     $_\n" } @{$params{data}})).
+    "   Destination Nodes:\n".
+    join('', map( { "     $_ (Site: $node_sites{$_})\n" } @{$params{destinations}}));
+
+    $message .=<<ENDEMAIL;
+   Comments:
+     "$params{comment}"
+
+This mail has also been sent to the requestor, and to the site admins of the sites affected.
+
+Go to
+  $admin_url
+to handle this request.
+
+Yours truly,
+  PhEDEx Transfer Request Web Form
+ENDEMAIL
+    
+send_email(subject => "PhEDEx Transfer Request ($instance instance)",
+	   to => [ @adminmails ],
+	   cc => [ @cc ],
+	   from => "PhEDEx Request Form <cms-phedex-admins\@cern.ch>",
+	   message => $message)
+or $self->alert("Sending request email to admins failed, sorry");
+    
     
     print { $$self{ CONTENT } }
     "<h1>Request Confirmed</h1>",
