@@ -13,7 +13,7 @@
  -ignore          ${PHEDEX_NODE}
  -storagemap      ${PHEDEX_CONFIG}/storage.xml
  -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
- -protocol        'direct'
+ -protocol        'srm'
 
 
 #### SRM based agents

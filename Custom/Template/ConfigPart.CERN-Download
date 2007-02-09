@@ -9,7 +9,6 @@ TIER0_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s CERN-PROD);
  -nodes           ${PHEDEX_NODE}
  -ignore          T1_CERN_MSS
  -accept          'T1%'
- -storagemap      ${PHEDEX_MAP}
  -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
  -validate        ${PHEDEX_CONFIG}/FileDownloadVerify
  -backend         SRM
@@ -21,7 +20,6 @@ TIER0_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s CERN-PROD);
  -nodes           ${PHEDEX_NODE}
  -ignore          T1_CERN_MSS
  -accept          'T2%'
- -storagemap      ${PHEDEX_MAP}
  -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
  -validate        ${PHEDEX_CONFIG}/FileDownloadVerify
  -backend         SRM

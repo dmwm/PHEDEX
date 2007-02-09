@@ -16,6 +16,10 @@
  -db        ${PHEDEX_DBPARAM}
  -node      ${PHEDEX_NODE}
 
+### AGENT LABEL=mgmt-blockdelete PROGRAM=Toolkit/Workflow/BlockDelete
+ -db        ${PHEDEX_DBPARAM}
+ -node      ${PHEDEX_NODE}
+
 ### AGENT LABEL=mgmt-blockdls PROGRAM=Toolkit/Workflow/BlockDLSUpdate
  -db        ${PHEDEX_DBPARAM}
  
