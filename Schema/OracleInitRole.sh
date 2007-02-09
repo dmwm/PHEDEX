@@ -1,7 +1,7 @@
 #!/bin/sh
 
 ##H Usage:
-##H   ApplyRole DBPARAM:SECTION KEY-DIRECTORY/USERCERT-FILE SITE-NAME
+##H   ApplyRole DBPARAM:SECTION KEY-DIRECTORY/USERCERT-FILE SITE-NAME NODE[,NODE...]
 ##H
 ##H Where:
 ##H DBPARAM         is the database parameter file with
@@ -19,6 +19,7 @@
 ##H                   KEY-DIRECTORY, formed as e-mail
 ##H                   address
 ##H SITE-NAME       is the name of the site (e.g. "CERN")
+##H NODE[,NODE...]  comma-separated list of node names
 
 [ $# != 3 ] && { echo "Insufficient parameters." 1>&2; exit 1; }
 
@@ -27,12 +28,14 @@ section="$(echo $1 | sed 's/.*://')"
 keydir="$(dirname $2)"
 usercert="$(basename $2)"
 sitename="$3"
+nodes="$4"
 
 [ -z "$dbparam"  ] && { echo "Insufficient parameters." 1>&2; exit 1; }
 [ -z "$section"  ] && { echo "Insufficient parameters." 1>&2; exit 1; }
 [ -z "$keydir"   ] && { echo "Insufficient parameters." 1>&2; exit 1; }
 [ -z "$usercert" ] && { echo "Insufficient parameters." 1>&2; exit 1; }
 [ -z "$sitename" ] && { echo "Insufficient parameters." 1>&2; exit 1; }
+[ -z "$nodes"    ] && { echo "Insufficient parameters." 1>&2; exit 1; }
 
 [ -f "$dbparam"  ] ||
    { echo "$dbparam: no such file" 1>&2; exit 1; }
@@ -72,11 +75,15 @@ case $ora_writer in */*@* ) ;; * )
 esac
 
 $home/Schema/OracleNewRole.sh "$ora_master" "$role_name" "$role_passwd"
-(echo "set feedback off;"
- echo "delete from t_authorisation where role_name = '$role_name';";
- echo "insert into t_authorisation values" \
-     "(`date +%s`,'$role_name','$role_email','$role_dn');") |
-  sqlplus -S "$ora_master"
+
+$home/Utilities/ImportSites -db $dbparam:$section/Admin /dev/stdin <<EOF
+site:  '$sitename'
+email: '$role_email'
+dn:    '$role_dn'
+role:  '$role_name'
+nodes: '$nodes'
+EOF
+
 $home/Schema/OraclePrivs.sh "$ora_master" \
   "$(echo $ora_reader | sed 's|/.*||')" \
   "$(echo $ora_writer | sed 's|/.*||')"

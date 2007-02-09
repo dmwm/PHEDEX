@@ -51,6 +51,7 @@ Please send the following information to cms-phedex-admins@cern.ch:
    - Site name: the name of your directory under "Custom", and the
      name used in node names after T<N>_, e.g. "CERN".  See
      README-Transfer.txt for applying a site.
+   - The names of the PhEDEx nodes part of this site.
    - The e-mail address of the contact person for the site.
    - The DN for that person's grid certificate.
    - The public key portion of the grid certificate:  this is
@@ -89,27 +90,27 @@ database instance.  The following instructions will register the role
 for all three databases.
 
 In the instructions "e@mail" is the person's e-mail address,
-and "site" is the site name in all lowercase.
+and "site" is the site name in all lowercase and "node" the
+comma-separated list of PhEDEx node names belonging to the site.
 
-   # SKIP THESE PARTS FOR NOW!
-   #
-   # cd ~/private/roles/V2
-   # source /data/tools/oraenv.sh
-   # source /data/tools/perlenv.sh
-   # cat > ../Keys/EMAIL (paste in the usercert.pem)
-   # Schema/OracleInitRole.sh DBParam:Production ../Keys/e@mail site
-   # /usr/sbin/sendmail -t < Output/phedex_site_prod:e@mail
+   source /data/V2Nodes/sw/slc*/cms/PHEDEX/PHEDEX_*/etc/profile.d/env.sh
+
+   cd ~/private/roles/V2
+   cat > ../Keys/EMAIL (paste in the usercert.pem)
+   Schema/OracleInitRole.sh DBParam:Production ../Keys/e@mail site node
+   /usr/sbin/sendmail -t < Output/phedex_site_prod:e@mail
 
    cd ~/private/roles/Dev
-   Schema/OracleInitRole.sh DBParam:Dev ../Keys/e@mail site
+   Schema/OracleInitRole.sh DBParam:Dev ../Keys/e@mail site node
    /usr/sbin/sendmail -t < Output/phedex_site_dev:e@mail
 
    cd ~/private/roles/SC4
-   Schema/OracleInitRole.sh DBParam:SC4 Keys/e@mail site
+   Schema/OracleInitRole.sh DBParam:SC4 Keys/e@mail site node
    /usr/sbin/sendmail -t < Output/phedex_site_sc4:e@mail
 
 A rough example of the above commands:
 
    scp lat@lxplus:~/.globus/usercert.pem ~/private/roles/Keys/lassi.tuura@cern.ch
-   Schema/OracleInitRole.sh DBParam:SC4 ../Keys/lassi.tuura@cern.ch cern
+   Schema/OracleInitRole.sh DBParam:SC4 ../Keys/lassi.tuura@cern.ch \
+     cern T1_CERN_MSS,T1_CERN_Buffer,T0_CERN_Export,T0_CERN_MSS
    /usr/sbin/sendmail -t < Output/phedex_cern_sc4:lassi.tuura@cern.ch
