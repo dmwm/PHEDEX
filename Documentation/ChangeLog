@@ -1,3 +1,23 @@
+* Changes in PhEDEx 2.5.0.1
+
+ General changes:
+
+   - Correct -accept agent option handling.
+   - Stop BlockDelete from being chatty.
+   - Improvements to template config files.
+   - Removal of obsolete scripts and templates.
+
+Web site changes:
+
+   - Not released in RPMs.
+
+Schema changes:
+
+   - Combine all site registrations to a single script.
+   - Relax constraints on identities.
+   - Update table privilege settings.
+
+
 * Changes in PhEDEx 2.5.0
 
 The changes for this release are too numerous to list them in great
