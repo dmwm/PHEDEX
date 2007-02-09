@@ -1,7 +1,7 @@
 #!/bin/sh
 
 ##H Usage:
-##H   ApplyRole DBPARAM:SECTION KEY-DIRECTORY/USERCERT-FILE SITE-NAME NODE[,NODE...]
+##H   OracleInitRole.sh DBPARAM:SECTION KEY-DIRECTORY/USERCERT-FILE SITE-NAME NODE[,NODE...]
 ##H
 ##H Where:
 ##H DBPARAM         is the database parameter file with
@@ -21,7 +21,7 @@
 ##H SITE-NAME       is the name of the site (e.g. "CERN")
 ##H NODE[,NODE...]  comma-separated list of node names
 
-[ $# != 3 ] && { echo "Insufficient parameters." 1>&2; exit 1; }
+[ $# != 4 ] && { echo "Insufficient parameters." 1>&2; exit 1; }
 
 dbparam="$(echo $1 | sed 's/:.*//')"
 section="$(echo $1 | sed 's/.*://')"
