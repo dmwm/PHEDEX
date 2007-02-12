@@ -23,7 +23,7 @@ our @EXPORT = qw(urlencode dblink toclink pagelink
 		 getsitesfornodes
                  create_default_email send_email dn_to_human_name
 		 yesno
-		 dump_params
+		 dump_params dump_var
 );
 
 # Various useful colours
@@ -672,6 +672,15 @@ sub dump_params
     print { $fh } "<pre>$_:\n", Dumper(param($_)), "</pre>" foreach param();
 
 }
+
+
+sub dump_var
+{
+    my ($fh, $name, $var) = @_;
+    use Data::Dumper;
+    print { $fh } "<pre>$name:\n", Dumper($var), "</pre>";
+}
+
 
 # Generate time series from FIRST to now using RANGE as unit.
 #
@@ -3232,8 +3241,11 @@ sub output
   my $defaultdbs = 'http://cmsdbs.cern.ch/cms/prod/comp/DBS/CGIServer/prodquery?instance=MCGlobal/Writer';
   my @nodes = &getnodelist($$self{DBH});
 
-  my @dbs_selection = radio_group(-name=>'dbschoice', -values=>['known', 'user'], -default=>'known', 
-				  -labels=>{ known => '', user => '' }, -class=>'labeled');
+  sub striplabels { return map { s:<[/]*label>::g; $_; } @_; }
+
+  my @dbs_selection = &striplabels(radio_group(-name=>'dbschoice', -values=>['known', 'user'], -default=>'known', 
+					       -nolabels=>1, -class=>'labeled'));
+
   $dbs_selection[0] .= "<label style='width:5em'>Known</label>".
       popup_menu(-name=>'dbs', -values=>[ map { &escapeHTML($_) } @dbsnames ], -default=>&escapeHTML($defaultdbs) ).
       "<br/>\n";
@@ -3264,15 +3276,15 @@ sub output
   "<div class='labeled'  style='font-size:8pt;width:450px;height:150px;overflow:scroll;border:thin solid black;' >",
   "<table><tr valign='top'>",
   "  <td>\n",
-  (map { checkbox(-name=>'dest', label=>$_, -value=>$_)."<br/>" }
+  (map { &striplabels(checkbox(-name=>'dest', -label=>'', -value=>$_)."$_<br/>") }
    sort grep (/^T1_|T0_/, @nodes)),
   "  </td>\n",
   "  <td>\n",
-  (map { checkbox(-name=>'dest', label=>$_, -value=>$_)."<br/>" }
+  (map { &striplabels(checkbox(-name=>'dest', -label=>'', -value=>$_)."$_<br/>") }
    grep (/^T2_/, @nodes)),
   "  </td>\n",
   "  <td>\n",
-  (map { checkbox(-name=>'dest', label=>$_, -value=>$_)."<br/>" }
+  (map { &striplabels(checkbox(-name=>'dest', -label=>'', -value=>$_)."$_<br/>") }
    grep (! /^T[012]_/, @nodes)),
   "  </td>\n",
   " </tr></table></div><br/>\n",
@@ -6097,7 +6109,7 @@ sub update_subscriptions
 {
     my ($self) = @_;
     my @auth_nodes = $self->fetch_authorized_nodes();
-    my $nodes = { map { $$_{ID} = $$_{NAME} } $self->node_list() }; # just a hash of id => name
+    my $nodes = { map { $$_{ID} => $$_{NAME} } $self->node_list() }; # just a hash of id => name
 
     my $upd_suspend = qq[ update t_dps_subscription set time_suspend_until = :val
 			  where _ITEM_ = :id and destination = :dest ];
@@ -6128,12 +6140,14 @@ sub update_subscriptions
 
     my $n_changed = 0;
     my %warn_hash;  # to keep unique warnings
+
     foreach (param('s_id')) {
 	my ($level, $id, $destination) = split /:/;
 
-	if (grep $destination, @auth_nodes) {
+	if (grep $destination == $_, @auth_nodes) {
 	    my $sql = $$action{sql};
 	    $sql =~ s/_ITEM_/$level/;
+
 	    my @rv = &dbexec($$self{DBH}, $sql, 
 			     ':val' => $$action{val},
 			     ':id'  => $id,
@@ -6144,6 +6158,8 @@ sub update_subscriptions
 	    $warn_hash{$warn} = 1;
 	}
     }
+
+    $$self{DBH}->commit();
 
     # Print scoldings
     print { $$self{CONTENT} } keys %warn_hash;
@@ -6211,14 +6227,14 @@ sub data_subscriptions
 1;
 
 ######################################################################
-package Web25::Data::DatasetRemoval;
+package Web25::Data::Delete;
 use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Remove Datasets",
-	       LINK_TITLE => "Remove datasets from PhEDEx database",
+our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Deletions",
+	       LINK_TITLE => "Delete datasets or blocks from PhEDEx database",
                SECURE => 1 };
 
 sub new
@@ -6233,38 +6249,31 @@ sub new
 sub output
 {
   my ($self) = @_;
-  print { $$self{CONTENT} } "<p>This page not yet implemented.  Help is welcome!</p>";
+
+  my $adminok = $self->alert_auth(need => 'siteadmin', power => 'delete datasets and blocks');
+
+  print { $$self{CONTENT} }
+  "<h1>Deletion Queue</h1>";
+
+  my $q = qq{ select ds.name dataset, b.name block, n.name node, del.time_request, del.time_complete
+                from t_dps_block_delete del
+		join t_dps_block b on b.id = del.block
+		join t_dps_dataset ds on ds.id = del.dataset
+		join t_adm_node n on n.id = del.node
+ 	    order by del.time_complete desc, del.time_request desc };
+
+  
+
+  print { $$self{CONTENT} }
+  "<h1>Delete Data</h1>";
+  
+  
+
 }
 
 1;
 
-######################################################################
-package Web25::Data::FileRemoval;
-use strict; use warnings;
-use base "Web25::Page";
-import Web25::Common;
-use CGI qw(:standard);
 
-our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Remove Files",
-	       LINK_TITLE => "Remove files from PhEDEx database",
-               SECURE => 1 };
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub output
-{
-  my ($self) = @_;
-  print { $$self{CONTENT} } "<p>This page not yet implemented.  Help is welcome!</p>";
-}
-
-1;
 
 ######################################################################
 package Web25::Reports::DailyReports;
