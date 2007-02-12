@@ -146,25 +146,28 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
     $now = $lowlimit + $prevdays*86400;
 
     my $qperf = &dbexec($dbh, qq{
-	select
-	    f.name,
-	    t.name,
-	    trunc(h.timebin/3600)*3600,
-	    3600,
-	    nvl(sum(h.done_files),0),
-	    nvl(sum(h.done_bytes),0),
-	    nvl(sum(pend_files) keep (dense_rank last order by timebin asc),0),
-	    nvl(sum(pend_bytes) keep (dense_rank last order by timebin asc),0),
-	    nvl(sum(h.try_files),0),
-	    nvl(sum(h.fail_files),0)
-	from t_history_link h
-	  join t_adm_node f on f.id = h.from_node
-	  join t_adm_node t on t.id = h.to_node
-	where h.timebin >= :limit
-	  and h.timebin < :upto
-	  and f.name not like '%MSS'
-  	group by f.name, t.name, trunc(h.timebin/3600)*3600, 3600},
-	":limit" => $lowlimit, ":upto" => $now);
+        select
+           f.name,
+           t.name,
+            trunc(he.timebin/3600)*3600,
+            3600,
+            nvl(sum(he.done_files),0),
+            nvl(sum(he.done_bytes),0),
+            nvl(sum(hs.pend_files) keep (dense_rank last order by hs.timebin asc),0),
+            nvl(sum(hs.pend_bytes) keep (dense_rank last order by hs.timebin asc),0),
+            nvl(sum(he.try_files),0),
+            nvl(sum(he.fail_files),0)
+        from t_history_link_events he
+          join t_adm_node f on f.id = he.from_node
+          join t_adm_node t on t.id = he.to_node
+          join t_history_link_stats hs on hs.from_node=he.from_node and hs.to_node=he.to_node
+                                 and hs.timebin=he.timebin and hs.priority=he.priority
+          where he.timebin >= :limit
+          and he.timebin < :upto
+          and f.name not like '%MSS'
+        group by f.name, t.name, trunc(he.timebin/3600)*3600, 3600},
+        ":limit" => $lowlimit, ":upto" => $now);
+
     while (my ($from, $to, $bin, $width,
 	       $xfiles, $xbytes, $pfiles, $pbytes,
        	       $tfiles, $ffiles) = $qperf->fetchrow())

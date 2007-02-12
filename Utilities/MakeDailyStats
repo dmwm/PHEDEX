@@ -88,19 +88,22 @@ foreach my $file (@{$args{ADDFILE}})
 # Fetch all completed and pending transfers and fill into %xferred
 # and %pending.  Then the same with transfer quality into %quality.
 $dbh = &connectToDatabase (\%args, 0);
-my $data = &dbexec ($dbh, qq{
-    select
-      h.timebin,
-      f.name,
-      t.name,
-      h.done_bytes,
-      h.wait_bytes,
-      h.try_files,
-      h.fail_files,
-      h.done_files
-    from t_history_link h
-      join t_adm_node f on f.id = h.from_node
-      join t_adm_node t on t.id = h.to_node});
+
+my $data = &dbexec ($dbh,qq{select
+     he.timebin,
+     f.name,
+     t.name,
+     he.done_bytes,
+     hs.wait_bytes,
+     he.try_files,
+     he.fail_files,
+     he.done_files
+   from t_history_link_events he
+     join t_adm_node f on f.id = he.from_node
+     join t_adm_node t on t.id = he.to_node
+     join t_history_link_stats hs on hs.from_node=he.from_node
+     and hs.to_node=he.to_node and hs.timebin=he.timebin and hs.priority=he.priority});
+
 while (my ($bin, $from, $to, $bdone, $bwait,
 	   $tfiles, $ffiles, $dfiles) = $data->fetchrow())
 {
