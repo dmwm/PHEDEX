@@ -53,7 +53,7 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
-		  WAITTIME => 600,		# Agent activity cycle
+		  WAITTIME => 3600,		# Agent activity cycle
 		  NODES => [ '%' ],		# Nodes this agent runs for
 		  LAST_UPDATE => {});		# Cache of recent updates
 
@@ -91,7 +91,8 @@ sub idle
 	           b.name block_name,
 	           b.id block_id,
 	           n.name node_name,
-		   n.se_name se_name
+		   n.se_name se_name,
+	           'dls-add' command
 	    from t_dps_block_replica br
 	      join t_dps_block b on b.id = br.block
 	      join t_dps_dataset ds on ds.id = b.dataset
@@ -106,23 +107,45 @@ sub idle
 	    %my_args)
 	    ->fetchall_arrayref({});
 
-	foreach my $block (@$completed)
+
+        my $deleted = &dbexec ($dbh, qq{
+	    select dbs.name dbs_name,
+	           dbs.dls dls_name,
+	           b.name block_name,
+	           b.id block_id,
+	           n.name node_name,
+		   n.se_name se_name,
+	           'dls-delete' command
+	    from t_dps_block_delete bd
+	      join t_dps_block b on b.id = bd.block
+	      join t_dps_dataset ds on ds.id = b.dataset
+	      join t_dps_dbs dbs on dbs.id = ds.dbs
+	      join t_adm_node n on n.id = bd.node
+	    where $my_nodes
+  	      and b.is_open = 'n'
+	      and bd.time_complete is not null
+	      and dbs.dls is not null
+	      and n.se_name is not null},
+	    %my_args)
+	    ->fetchall_arrayref({});
+
+
+	foreach my $block (@$completed, @$deleted)
         {
 	    # If we've updated recently, pass this now.
 	    my $cachekey = "$$block{DBS_NAME} $$block{BLOCK_NAME} $$block{NODE_NAME}";
 	    next if $$self{LAST_UPDATE}{$cachekey};
 	    $$self{LAST_UPDATE}{$cachekey} = &mytimeofday();
 
-	    # Decompose DLS contact into arguments accepted by dls-add
+	    # Decompose DLS contact into arguments accepted by DLS API.
 	    my ($dlstype, $contact) = ($$block{DLS_NAME} =~ m|^([a-z]+)://(.*)|);
 	    do { &alert ("dls contact $$block{DLS_NAME} not understood"); next }
 	        if (! $dlstype || ($dlstype ne 'lfc' && $dlstype ne 'mysql'));
 
-	    # Now register into DLS.  If the command fails, alert but
-	    # keep going.  We'll try to register the block in 24 hours
-	    # anyway.
+	    # Now modify DLS.  If the command fails, alert but
+	    # keep going.  We'll try again in 24 hours anyway.
 	    my $log = "$$self{DROPDIR}/@{[time()]}.$$block{SE_NAME}.$$block{BLOCK_ID}.log";
-	    my @cmd = ("dls-add", "-i",
+	    my @cmd = ("$$block{COMMAND}", "-i",
 		       ($dlstype eq 'lfc' ? "DLS_TYPE_LFC" : "DLS_TYPE_MYSQL"),
 		       "-e", $contact, $$block{BLOCK_NAME}, $$block{SE_NAME});
 
@@ -155,12 +178,13 @@ sub registered
     my ($self, $block, $job) = @_;
     if ($$job{STATUS})
     {
-	&warn("failed to register block $$block{BLOCK_NAME} for"
+	&warn("failed to $$block{COMMAND} block $$block{BLOCK_NAME} for"
 	      . " $$block{NODE_NAME}, log in $$job{LOGFILE}");
     }
     else
     {
-	&logmsg("registered block $$block{BLOCK_NAME} for $$block{NODE_NAME}");
+	&logmsg("Successfully issued $$block{COMMAND}"
+		. " on block $$block{BLOCK_NAME} for $$block{NODE_NAME}");
 	unlink ($$job{LOGFILE});
     }
 }
