@@ -89,6 +89,17 @@ sub idle
         &logmsg ("$nrows subscriptions deactivated: superceded by a move")
 	    if $nrows > 0;
 
+	# Remove all block subscriptions for a site, for which we have
+        # dataset subscriptions containing those blocks already.
+	($stmt, $nrows) = &dbexec ($dbh, qq{
+	    delete from t_dps_subscription s where (s.block, s.destination) in
+		(select b.id, s.destination from t_dps_subscription s
+		 left join t_dps_block b on s.dataset=b.dataset
+		 where s.DATASET is not null)} );
+        &logmsg ("$nrows block subscriptions removed: ".
+		 "superceded by dataset subscriptions")
+	    if $nrows > 0;
+
 	# Remove block destinations we no longer have subscribed.
 	($stmt, $nrows) = &dbexec ($dbh, qq{
 	    delete from t_dps_block_dest bd where not exists
