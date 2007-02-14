@@ -1,0 +1,125 @@
+#!/usr/bin/env perl
+
+##H Remove identities from the DB
+##H
+##H Usage:
+##H   IdentityRemove -db DBCONFIG -dn DISTINGUISHED_NAME -email EMAIL [-site_admin SITE_LIST] [-global_admin] [-all_info]
+##H  
+##H   DISTINGUISHED_NAME is the user's certificate DN
+##H   EMAIL is the email of the user
+##H   -site_admin takes a list of comma separated site names that this person should be a site admin for
+##H   -global_admin is an option that makes this user a global admin
+##H   -all_info vanishes all the information about the user from the DB (should not be used!)
+##H
+
+BEGIN {
+    $^W = 1; use strict; use warnings;
+    our $me = $0; $me =~ s|.*/||;
+    our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
+    unshift(@INC, $home);
+}
+
+# Process command line arguments.
+my %args;
+use Getopt::Long;
+use UtilsHelp;
+use UtilsDB;
+
+&GetOptions ("db=s"            => \$args{DBCONFIG},
+	     "dn=s"            => \$args{DN},
+	     "email=s"         => \$args{EMAIL},
+	     "site_admin=s"    => \$args{SITE_ADMIN},
+	     "global_admin"    => \$args{GLOBAL_ADMIN},
+             "all_info"        => \$args{ALL_INFO},
+	     "help|h"          => sub { &usage() });
+
+# Check arguments.
+foreach ( qw(DBCONFIG DN EMAIL) ) {
+	if (!$args{$_}) {
+    		die "Insufficient parameters, use -h for help.\n";
+    	}
+}
+
+my $self = { DBCONFIG => $args{DBCONFIG} };
+my $dbh = &connectToDatabase ($self, 0);
+
+my $dn = $args{DN};
+my $email = $args{EMAIL};
+
+my $q = &dbexec($dbh,qq{select identity from t_adm_identity_attr where name = 'Distinguished name' and value = :value }, 
+                ':value' => $dn);
+my $dn_id = $q->fetchrow_array();
+
+if ( $dn_id ){
+	print "Identity: $dn_id\n";
+}
+else { die "Identity: $dn_id not recognized!"}
+
+$q = &dbexec($dbh,qq{select identity from t_adm_identity_attr where name = 'E-mail' and value = :value }, 
+                ':value' => $email);
+my $email_id = $q->fetchrow_array();
+
+if ( $email_id ){
+        print "E-mail: $email_id\n";
+}
+else { die "E-mail: $email_id not recognized!"}
+
+# Remove site admin given the DN and/or Email and Site
+if ($args{SITE_ADMIN}) { 
+	my @sites = split /,/, $args{SITE_ADMIN};
+
+	unless (@sites) {
+	        die "Error: Bad site_admin argument.\n";
+	}
+
+	print "Removing site admin for sites (", join(', ', @sites), ")...\n";
+	foreach my $site (@sites) {
+
+                $q = &dbexec($dbh,qq{select identity from t_adm_site_admin where identity in (:dn_id, :email_id)
+                                                       and site in (select id from t_adm_site where name = :site) },
+                        ':dn_id' => $dn_id, ':email_id' => $email_id, ':site' => $site);
+                if ($q->fetchrow_array()){
+                        print "Site: $site\n";
+                }
+                else { die "Site: $site not recognized!"}
+
+	        &dbexec($dbh,qq{delete from t_adm_site_admin where identity in (:dn_id, :email_id)
+                                                       and site in (select id from t_adm_site where name = :site) },
+                        ':dn_id' => $dn_id, ':email_id' => $email_id, ':site' => $site);
+
+		if ($args{ALL_INFO}){ &removeAllInfo($dbh, $email, $dn_id, $email_id); }
+
+	        print "Removed site admin.\n";
+	}
+}
+# Remove global admin given the DN and/or Email and Email
+elsif ($args{GLOBAL_ADMIN} ) { 
+        print "Removing global admin...\n";
+
+        &dbexec($dbh,qq{delete from t_adm_global_admin where identity in (:dn_id, :email_id) }, ':dn_id' => $dn_id, ':email_id' => $email_id);
+
+	if ($args{ALL_INFO}){ &removeAllInfo($dbh, $email, $dn_id, $email_id); }
+
+        print "Removed global admin.\n";
+}
+else {
+	$dbh->rollback();
+	die "Warning:  Admin no defined";
+}
+
+print "Committing...";
+$dbh->commit();
+print "Done.\n";
+
+&disconnectFromDatabase($self, $dbh, 1);
+
+exit;
+
+sub removeAllInfo
+{
+        my ($dbh, $email, $dn_id, $email_id) = @_;
+	print "Removing all info about $email\n";
+        &dbexec($dbh, qq{ delete from t_adm_identity where id in (:dn_id, :email_id) }, ':dn_id' => $dn_id, ':email_id' => $email_id);
+        print "All info was removed.\n";
+}
+
