@@ -88,8 +88,9 @@ sub idle
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
-    # Disconnect from the database
+    # Disconnect from the database and reset flush marker
     &disconnectFromDatabase ($self, $dbh);
+    $$self{FLUSH_MARKER} = undef;
 
     # Have a little rest
     $self->nap ($$self{WAITTIME});
