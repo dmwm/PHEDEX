@@ -53,6 +53,7 @@ for role in \
       T_REQ_*:*_WEBSITE_* | \
       T_ADM_*:*_WEBSITE_* | \
       T_DPS_SUBSCRIPTION:*_WEBSITE_* | \
+      T_DPS_BLOCK_DELETE:*_WEBSITE_* | \
       T_AGENT*:* )
         # Select, update, insert and delete
         echo; echo "grant select on $table to $reader;"
@@ -70,6 +71,7 @@ for role in \
         echo "grant select on $table to $writer;"
 	echo "grant select, update on $table to $role;" ;;
 
+      T_DPS_DBS:* | \
       T_DPS_BLOCK_ACTIVATE:* | \
       T_DPS_BLOCK:* | \
       T_DPS_DATASET:* | \
