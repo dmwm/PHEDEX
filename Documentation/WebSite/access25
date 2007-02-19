@@ -18,11 +18,9 @@ our @EXPORT = qw(urlencode dblink toclink pagelink
 		 timeSeries formatTime timegm sizeValue
 		 alert_auth
                  fetch_identity_id set_auth_vars 
-		 fetch_authorized_nodes fetch_authorized_sites
-		 getglobaladmins getsiteadmins
-		 getsitesfornodes
+		 fetch_dbses fetch_nodes fetch_sites fetch_users
                  create_default_email send_email dn_to_human_name
-		 yesno
+		 yesno striplabels
 		 dump_params dump_var
 );
 
@@ -291,9 +289,9 @@ sub dbbindexec
 # Retrun an sql fragment and a bind hash for an SQL "IN" list
 sub dbinlist
 {
-    my @binds = @_;
-    my $in_list = join(', ', map { ':in_'.($_+1) } (0..$#binds));                                                            
-    my %in_binds = map { (':in_'.($_+1) => $binds[$_]) } (0..$#binds); 
+    my ($prefix, @binds) = @_;
+    my $in_list = join(', ', map { ":${prefix}_".($_+1) } (0..$#binds));                                                            
+    my %in_binds = map { (":${prefix}_".($_+1) => $binds[$_]) } (0..$#binds); 
     return $in_list, %in_binds;
 }
 
@@ -422,126 +420,237 @@ sub set_auth_vars
 }
 
 
-# returns a list of node ids for which current user has permission to change
-sub fetch_authorized_nodes
+
+# Returns a list of nodes
+# If argument 'with_ids' is true, returns a hash of node_name => node_id
+# else it returns an array of nodes
+#
+# If either user_auth or identity is set, then it returns nodes from
+# the t_adm_site_node table for which either the current user or the given
+# identity is authorized to admin
+#
+# Otherwise it returns from t_adm_node table, which contains all nodes.
+# The default behavior is to return an array of all nodes from t_adm_node.
+sub fetch_nodes
 {
-    my ($self) = @_;
-    
-    my @nodes;
-    my $q = &dbexec($$self{DBH},
-			qq{ select sn.node
-			      from t_adm_site_admin sa
-                              join t_adm_site s on s.id = sa.site
-                              join t_adm_site_node sn on sn.site = s.id
-			     where sa.identity = :adm_id 
-                             union
-                             select id from t_adm_node
-                             where exists (select identity from t_adm_global_admin
-                                           where identity = :glb_id) },
-			":adm_id" => $$self{DB_IDENTITY_ID},
-		    ":glb_id" => $$self{DB_IDENTITY_ID});
-    while (my ($node) = $q->fetchrow()) {
-	push @nodes, $node;
+    my ($self, %args) = @_;
+
+    if (exists $args{user_auth} && $args{user_auth} ||
+	exists $args{identity_auth}) {
+	my %sites = $self->fetch_sites(%args);
+
+	if (exists $args{with_ids} && $args{with_ids}) {
+	    my %nodes;
+	    foreach my $site (keys %sites) {
+		while (my ($node, $node_id) = each %{$sites{$site}{NODES}}) {
+		    $nodes{$node} = $node_id;
+		}
+	    }
+	    return %nodes;
+	} else {
+	    my %nodes;
+	    foreach my $site (keys %sites) {
+		$nodes{$_} = 1  foreach @{$sites{$site}};
+	    }
+	    return keys %nodes;
+	}
+    } else {
+	my $sql = qq{select name, id from t_adm_node};
+	my $q = &dbexec($$self{DBH}, $sql);
+	
+	my %nodes;
+	while (my ($node, $node_id) = $q->fetchrow()) {
+	    $nodes{$node} = $node_id;
+	}
+	if (exists $args{with_ids} && $args{with_ids}) {
+	    return %nodes;
+	} else {
+	    return keys %nodes;
+	}
     }
-			
-    return @nodes;
 }
 
 
-# Returns a hash of sites pointing to an array of nodes (names) for which the given user has permission to change
-sub fetch_authorized_sites
+# Returns a hash of sites pointing to an array of nodes
+# Options are 'with_ids', 'identity_auth', 'user_auth', 'for_nodes', 'all'
+# Default behavior is to return all sites
+# if with_ids is true, the returned structure is 
+#   $sites{site_name} = { ID => site_id, NODES => { node_name => node_id } }
+# else the returned structure is $sites{site_name} = [ node_name ]
+# if 'identity_auth' is given, then only sites for which the given identity is the admin are returned
+# if 'user_auth' is true, then only sites for which the webpage user is the admin are returned
+# if for_nodes is true, then only sites containing the given list of nodes is returned
+sub fetch_sites
 {
-    my ($self, $identity) = @_;
-    if (!$identity) { $identity = $$self{DB_IDENTITY_ID}; }
+    my ($self, %args) = @_;
+    my ($with_ids, $identity, $all) = (0, undef, 1);  # Defaults
+    my @for_nodes;
+    if (exists $args{all})           { $all      = $args{all}; }
+    if (exists $args{with_ids})      { $with_ids = $args{with_ids}; }
+    if (exists $args{user_auth}
+	&& $args{user_auth})         { $identity = $$self{DB_IDENTITY_ID}; $all = 0; }
+    if (exists $args{identity_auth}) { $identity = $args{identity_auth}; $all = 0;   }
+    if (exists $args{for_nodes})     { @for_nodes = @{$args{for_nodes}}; }
+
+    my ($sql, %binds);
     
-    my $q = &dbexec($$self{DBH},
-		    qq{ select site.name, node.name
-			from t_adm_site_admin site_admin 
-			join t_adm_site site on site.id = site_admin.site
-			join t_adm_site_node site_node on site_node.site = site_admin.site
-			join t_adm_node node on node.id = site_node.node
-			join t_adm_identity ident on ident.id = site_admin.identity
-			where ident.id = :id order by site.name, node.name },
-		    ':id' => $identity);
+    my $nodes_list = '';
+    my %nodes_binds;
+    if (@for_nodes) {
+	($nodes_list, %nodes_binds) = &dbinlist('node', @for_nodes);
+    }
+
+    if ($identity && !$all) {
+	my $nodes_sql = '';
+	if (@for_nodes) { $nodes_sql = " and node.name in ($nodes_list)"; }
+	$sql = qq{ select site.name, site.id, node.name, node.id
+		     from t_adm_site_admin site_admin 
+		     join t_adm_site site on site.id = site_admin.site
+		     join t_adm_site_node site_node on site_node.site = site_admin.site
+		     join t_adm_node node on node.id = site_node.node
+		     join t_adm_identity ident on ident.id = site_admin.identity
+		    where ident.id = :adm_id $nodes_sql
+		    union
+                   select site.name, site.id, node.name, node.id
+		    from t_adm_site site
+		    join t_adm_site_node site_node on site_node.site = site.id
+		    join t_adm_node node on node.id = site_node.node
+		   where exists (select identity from t_adm_global_admin
+				 where identity = :glb_id) $nodes_sql };
+	%binds = ( ':adm_id' => $identity, ':glb_id' => $identity, %nodes_binds );
+    } elsif ($all) {
+	my $nodes_sql = '';
+	if (@for_nodes) { 
+	    $nodes_sql = "where node.name in ($nodes_list)"; 
+	    %binds = %nodes_binds;
+	}
+	$sql = qq{ select site.name, site.id, node.name, node.id
+		     from t_adm_site site
+		     join t_adm_site_node site_node on site_node.site = site.id
+		     join t_adm_node node on node.id = site_node.node $nodes_sql};
+    } else { return; }
+
+    my $q = &dbexec($$self{DBH}, $sql, %binds);
+    
     my %sites;
-    while (my ($site, $node) = $q->fetchrow()) {
-	$sites{$site} = [] if !exists $sites{$site};
-	push @{$sites{$site}}, $node;
+    if ($with_ids) {
+	while (my ($site, $site_id, $node, $node_id) = $q->fetchrow()) {
+	    if (!exists $sites{$site}) {
+		$sites{$site} = { ID => $site_id, NODES => {} };
+	    }
+	    $sites{$site}{NODES}{$node} = $node_id;
+	}
+    } else {
+	while (my ($site, $site_id, $node, $node_id) = $q->fetchrow()) {
+	    if (!exists $sites{$site}) {
+		$sites{$site} = [];
+	    }
+	    push @{$sites{$site}}, $node;
+	}
     }
     return %sites;
 }
 
 
-
-# Get a list of global admins from the DB
-# Returns an array of hashrefs containing ID and EMAIL
-sub getglobaladmins
+# Returns a list of DBSes.
+# If argument 'with_ids' is true, then return a hash of name => id
+# else return an array of DBS names
+sub fetch_dbses
 {
-    my ($dbh) = @_;
-    my $q = &dbexec($dbh, qq{select i.id, ia.value
-				 from t_adm_global_admin ga
-				 join t_adm_identity i on ga.identity = i.id
-				 join t_adm_identity_attr ia on ia.identity = i.id
-				 where ia.name = 'E-mail'});
-    my @admins;
-    while (my ($id, $email) = $q->fetchrow_array()) {
-	push @admins, {ID => $id, EMAIL => $email};
+    my ($self, %args) = @_;
+
+    my %dbses;
+    my $q = &dbexec($$self{DBH}, qq{select name, id from t_dps_dbs});
+    while (my ($dbs, $dbs_id) = $q->fetchrow()) {
+	$dbses{$dbs} = $dbs_id;
     }
-    return @admins;
-}
-
-
-
-# Get a list of site admins from the DB
-# Returns an array of hashrefs containing SITE, ID and EMAIL
-sub getsiteadmins
-{
-    my ($dbh, @sites) = @_;
-
-    my $wherelist = '';
-    my %wherebinds;
-    if (@sites) { 
-	my ($in_list, %in_binds) = &dbinlist(@sites);
-	$wherelist = " and site.name in ($in_list)";
-	%wherebinds = %in_binds;
-    }
-
-    my $sql = qq{ select i.id, ia.value, site.name
-			      from t_adm_site_admin admin
-			      join t_adm_site site on site.id = admin.site
-			      join t_adm_identity i on admin.identity = i.id
-			      join t_adm_identity_attr ia on ia.identity = i.id
-			      where ia.name = 'E-mail'$wherelist };
-
-    my $q = &dbexec($dbh, $sql, %wherebinds);
-    my @admins;
-    while (my ($id, $email, $site) = $q->fetchrow_array()) {
-	push @admins, {ID => $id, EMAIL => $email, SITE => $site};
-    }
-    return @admins;
-}
-
-
-# Get a hash of node => site
-sub getsitesfornodes
-{
-    my ($dbh, @nodes) = @_;
     
-    my ($in_list, %in_binds) = &dbinlist(@nodes);
-
-    my $sql = qq{ select node.name, site.name
-		    from t_adm_site_node sn
-		    join t_adm_site site on site.id = sn.site
-		    join t_adm_node node on node.id = sn.node
-		   where node.name in ($in_list) };
-
-    my $q = &dbexec($dbh, $sql, %in_binds);
-    my %sitenodes;
-    while (my ($node, $site) = $q->fetchrow_array()) {
-	$sitenodes{$node} = $site;
+    if (exists $args{with_ids} && $args{with_ids}) {
+	return %dbses;
+    } else {
+	return keys %dbses;
     }
-    return %sitenodes;
 }
+
+
+# Return a hash of users
+# Options are 'site_admins', 'global_admins', 'admin_of'
+# By default returns a hash like $users{$dn} = { ID => $id, EMAIL => $email, GLOBAL_ADMIN => $is_global_admin,
+#   SITE_ADMIN => $is_site_admin } for all users
+# if 'site_admins' is true, then the list is limited to users who are site admins
+# if 'global_admins' is true, then only users who are global admins are returned
+# if 'admin_of' is true and is an arrayref containing a list of sites or nodes, then only users who are 
+#   explicitly admins of those sites or nodes are returned 
+# if 'web_user' is true, then only the user for this current session is returned
+sub fetch_users
+{
+    my ($self, %args) = @_;
+    my ($site_admins, $admin_things, $global_admins, $user) = (0, undef, 0, 0); # Defaults
+    if (exists $args{site_admins} && $args{site_admins}) { $site_admins = 1; }
+    if (exists $args{admin_of} && ref $args{admin_of} eq 'ARRAY') { $site_admins = 1; $admin_things = $args{admin_of}; }
+    if (exists $args{global_admins} && $args{global_admins}) { $global_admins = 1; }
+    if (exists $args{web_user} && $args{web_user}) { $user = $$self{DB_IDENTITY_ID}; }
+
+    my %users;
+    my $sql;
+    my %binds;
+    my @where;
+
+    my $admin_where;
+    if ($global_admins) {
+	$admin_where = 'global_admin.identity is not null';
+    } elsif ($site_admins) {
+	$admin_where = 'site_admin.identity is not null';
+	if ($admin_things) {
+	    my ($sites_in, %site_binds) = &dbinlist('site', @{$admin_things});
+	    my ($nodes_in, %node_binds) = &dbinlist('node', @{$admin_things});
+	    $admin_where .= " and (site.name in ($sites_in) or node.name in ($nodes_in))";
+	    $binds{$_} = $site_binds{$_} foreach keys %site_binds;
+	    $binds{$_} = $node_binds{$_} foreach keys %node_binds;
+	}
+    }
+    push @where, $admin_where if $admin_where;
+
+    my $user_where;
+    if ($user) {
+	$user_where = 'ident.id = :id';
+	$binds{':id'} = $user;
+    }
+    push @where, $user_where if $user_where;
+
+    my $where = 'where '.join(' and ', @where);
+    
+    
+    $sql = qq{ select dn.value dn, ident.id, email.value email, 
+	              NVL2(global_admin.identity, 1, 0) is_global_admin,
+	              NVL2(site_admin.identity, 1, 0) is_site_admin,
+	              site.name site, node.name node
+	         from t_adm_identity ident 
+		 join t_adm_identity_attr dn on dn.identity = ident.id and dn.name = 'Distinguished name'
+		 join t_adm_identity_attr email on email.identity = ident.id and email.name = 'E-mail' 
+	    left join t_adm_global_admin global_admin on global_admin.identity = ident.id
+	    left join t_adm_site_admin site_admin on site_admin.identity = ident.id
+	    left join t_adm_site site on site.id = site_admin.site
+            left join t_adm_site_node site_node on site_node.site = site.id
+            left join t_adm_node node on node.id = site_node.node
+		 $where
+		order by site, node
+	     };
+
+    my $q = &dbexec($$self{DBH}, $sql, %binds);
+    while (my ($dn, $id, $email, $is_global_admin, $is_site_admin, $site, $node) = $q->fetchrow()) {
+	$users{$dn} = { ID => $id, EMAIL => $email, 
+			GLOBAL_ADMIN => $is_global_admin, SITE_ADMIN => $is_site_admin };
+	if ($is_site_admin) {
+	    $users{$dn}->{SITES} = [] unless exists $users{$dn}->{SITES};
+	    push @{$users{$dn}->{SITES}}, $site;
+	    $users{$dn}->{NODES} = [] unless exists $users{$dn}->{NODES};
+	    push @{$users{$dn}->{NODES}}, $node;
+	}
+    }
+    return %users;
+}
+
 
 
 # Get the client's e-mail address.  By default, use an e-mail
@@ -614,11 +723,10 @@ sub send_email
     } elsif (exists $args{cc}
 	     && ref $args{to} eq 'ARRAY') {
 	delete $args{cc} if grep $_ eq $args{cc}, @{$args{to}};
-    } else {
+    } elsif (exists $args{cc}) {
 	delete $args{cc} if $args{cc} eq $args{to};
     }
     
-
     foreach (qw(from to cc replyto)) {
 	if (exists $args{$_} && ref $args{$_} eq 'ARRAY') {
 	    $args{$_} = join(', ', @{$args{$_}});
@@ -632,19 +740,23 @@ sub send_email
 	return 0 unless &validlist($args{$_});
     }
 
+#     # For debugging without bothering people
+#     $args{message} .= "\n\n$args{to}\n\n"; $args{to} = 'Ricky.Egeland@cern.ch';
+#     $args{message} .= "\n\n$args{cc}\n\n"; delete $args{cc};
+
     (open (MAIL, "| /usr/sbin/sendmail -t")
      && (print MAIL
-	 "Subject: $args{subject}\n",
-	 "From: $args{from}\n",
-	 (exists $args{replyto} ? "Reply-To:  $args{replyto}\n" : ''),
-	 "To: $args{to}\n",
-	 (exists $args{cc} ? "Cc: $args{cc}\n" : ''),
-	 "\n",
-	 $args{message},
-	 "\n" )
+ 	 "Subject: $args{subject}\n",
+ 	 "From: $args{from}\n",
+ 	 (exists $args{replyto} ? "Reply-To:  $args{replyto}\n" : ''),
+ 	 "To: $args{to}\n",
+ 	 (exists $args{cc} ? "Cc: $args{cc}\n" : ''),
+ 	 "\n",
+ 	 $args{message},
+ 	 "\n" )
      && close(MAIL))
-	or do { return 0; };
-
+ 	or do { return 0; };
+    
     return %args;
 }
 
@@ -652,17 +764,29 @@ sub send_email
 sub dn_to_human_name
 {
     my $dn = shift @_;
+    return undef unless $dn;
     my ($name) = ($dn =~ m:/CN=([^/]+?)[\s\d]*(/|$):);
+    $name =~ s/\b(\w)/\U$1/g;
     return $name;
 }	      
 
     
 sub yesno 
 { 
-    $_ = shift @_; 
+    $_ = shift @_;
+    return undef unless $_;
     s/^y$/Yes/; s/^n$/No/; 
     return $_; 
 }
+
+
+
+sub striplabels 
+{ 
+    my @stripped =  map { s:<[/]*label>::g; $_; } @_; 
+    return wantarray ? @stripped : shift @stripped;
+}
+
 
 
 sub dump_params
@@ -2124,8 +2248,9 @@ sub formatAction
     }
 
     foreach my $attr (@{ $$action{ATTR} } ) {
+	next unless $$attr{VALUE};
 	my $commentclass = $$attr{NAME} eq 'Comment' ? ' comment' : '';
-	push @html, "<label>$$attr{NAME}:</label><span class='labeled$commentclass'>",&formatAttr($attr),"</span><br/>";
+	push @html, "<label>$$attr{NAME}:</label><span class='labeled$commentclass'>", &formatAttr($attr),"</span><br/>";
     }
     
     push @html, "</div>";
@@ -2654,10 +2779,10 @@ sub output
       "<label>Request State:</label>", "<span class='labeled'>", $reqstatenames{$req{$rid}{REQUEST_STATE}}, "</span><br/>";
 
       foreach my $aid (sort { $a <=> $b } keys %{$req{$rid}{ACTIONS}}) {
-	  print { $$self{CONTENT} }
-	  "<div class='paramblock lev2'>",
+ 	  print { $$self{CONTENT} }
+ 	  "<div class='paramblock lev2'>",
 	  $self->formatAction($aid, $req{$rid}{ACTIONS}{$aid}),
-	  "</div>";
+ 	  "</div>";
       }
 
       print { $$self{CONTENT} } "</div>";
@@ -2790,7 +2915,7 @@ sub output
   $table->start();
   $table->head();
 
-  foreach my $rid (sort keys %{$req_info}) {
+  foreach my $rid (reverse sort keys %{$req_info}) {
       next if ($request && $request != $rid); # XXX improve later...
       my $dests = join ', ', @{$$req_dest{$rid}};
       my $row = { REQUEST => $rid, DESTINATIONS => $dests };
@@ -2813,7 +2938,7 @@ sub output
 
   #  Options form
   my $optspane = new Web25::OptsPane;
-  $optspane->add_hidden( hidden('request', $request) );
+  $optspane->add_hidden( hidden('request', $request) ) if $request;
   my $target = $self->myurl();
   $optspane->set_form_target($target);
   
@@ -2835,10 +2960,12 @@ use base "Exporter";
 import Web25::Common;
 use CGI qw(:standard);
 use Text::Glob 'glob_to_regex';
-BEGIN { my $__scriptdir = $ENV{SCRIPT_FILENAME} || "./"; $__scriptdir =~ s,[^/]+$,,; unshift(@INC, $__scriptdir . "/cgi-bin"); };
+BEGIN { my $__scriptdir = $ENV{SCRIPT_FILENAME} 
+	|| "./"; $__scriptdir =~ s,[^/]+$,,;
+	unshift(@INC, $__scriptdir . "/cgi-bin"); };
 use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
 
-our @EXPORT = qw(getdbslist getnodelist
+our @EXPORT = qw(get_request_nodes
 		 create_check_access
 		 create_check_identity
 		 create_check_email
@@ -2851,30 +2978,14 @@ our @EXPORT = qw(getdbslist getnodelist
 		 resolve_data
 );
 
-sub getdbslist
+sub get_request_nodes
 {
-  my ($dbh) = @_;
-  my %list = ();
-  my $q = &dbexec($dbh, qq{select id, name from t_dps_dbs});
-  while (my ($id, $name) = $q->fetchrow()) {
-    $list{$name} = $id;
-  }
-  return %list;
-}
-
-sub getnodelist
-{
-  my ($dbh) = @_;
-  my %nodes = ();
-  my $qnodes = &dbexec($dbh, qq{select name from t_adm_node});
-  while (my ($node) = $qnodes->fetchrow()) {
-    $nodes{$node} = 1;
-  }
-  foreach my $node (keys %nodes) {
-    delete $nodes{$node} if ($node =~ /(.*)_(Buffer|Stage)$/ && exists $nodes{"$1_MSS"});
-  }
-
-  return sort keys %nodes;
+    my ($self) = shift @_;
+    my %nodes = $self->fetch_nodes(with_ids=>1);
+    foreach my $node (keys %nodes) {
+	delete $nodes{$node} if ($node =~ /(.*)_(Buffer|Stage)$/ && exists $nodes{"$1_MSS"});
+    }
+    return sort keys %nodes;
 }
 
 sub create_check_access
@@ -2963,8 +3074,8 @@ sub create_check_dbs
   my $SAFE_PATH = "[-A-Za-z0-9_+.:/&%;]*";
   if ($dbs !~ m,^https?://($SAFE_HOST)(:\d+)?/($SAFE_PATH)\?.*instance=$SAFE_PATH$,)
   {
-    my %dbses = &getdbslist($$self{DBH});
-    if (! grep($_ eq $dbs, keys %dbses))
+      my %dbses = $self->get_dbses();
+      if (! grep($_ eq $dbs, keys %dbses))
     {
       alert($self, "The DBS contact &ldquo;", &escapeHTML($dbs), "&rdquo;",
 	    " is not a URL for a DBS service.  Please use a URL of",
@@ -3038,7 +3149,8 @@ sub create_check_dest
     return undef;
   }
 
-  my @nodes = &getnodelist($$self{DBH});
+  my @nodes = $self->get_request_nodes();
+
   foreach my $node (@dests)
   {
     if (! grep ($_ eq $node, @nodes))
@@ -3236,12 +3348,9 @@ sub output
 
   my $email_contact = $self->create_default_email();
   
-  my %dbses = &getdbslist($$self{DBH});
-  my @dbsnames = sort keys %dbses;
+  my @dbsnames = sort $self->fetch_dbses();
   my $defaultdbs = 'http://cmsdbs.cern.ch/cms/prod/comp/DBS/CGIServer/prodquery?instance=MCGlobal/Writer';
-  my @nodes = &getnodelist($$self{DBH});
-
-  sub striplabels { return map { s:<[/]*label>::g; $_; } @_; }
+  my @nodes = $self->get_request_nodes();
 
   my @dbs_selection = &striplabels(radio_group(-name=>'dbschoice', -values=>['known', 'user'], -default=>'known', 
 					       -nolabels=>1, -class=>'labeled'));
@@ -3563,8 +3672,8 @@ sub write_request
 	 );
     
     # Get the list of Global admins
-    my @admins = &getglobaladmins($$self{DBH});
-    if (!@admins) {
+    my %admins = $self->fetch_users(global_admins => 1);
+    if (!%admins) {
 	alert("Sorry, the request cannot be created.",
 	      "The database does not contain any global admins.",
 	      "Please contact the PhEDEx group about this!"); 
@@ -3574,15 +3683,15 @@ sub write_request
     # Write a task with this request for each of the global admins
     # While we're at it, build an array of admin emails
     my @adminmails;
-    foreach my $admin (@admins) {
+    foreach my $admin (keys %admins) {
 	&makeObjWithAttrs
 	    ($$self{DBH}, "req_task", undef,
 	     { "action" => $aid,
-	       "person" => $$admin{ID},
+	       "person" => ${$admins{$admin}}{ID},
 	       "time_create" => $now
 	       }
 	     );
-	push @adminmails, $$admin{EMAIL};
+	push @adminmails, ${$admins{$admin}}{EMAIL};
     }
 
     # Write the request details (resolved datasets/blocks) to the DB
@@ -3646,15 +3755,24 @@ sub write_request
     $$self{DBH}->commit();
 
     # Send an email to each of the PhEDEx global admins
+    # and each of the site admins
     my $instance = $$self{CONFIG}{INSTANCES}{$$self{DBID}}{TITLE};
     my $subscription_type =  &subscription_type(@params{qw(priority is_transient is_move)});
     my @cc = ($params{email});
-    my %node_sites = &getsitesfornodes($$self{DBH}, @{$params{destinations}});
-    my @sites = values %node_sites;
-    if (@sites) {
-	my @siteadmins = &getsiteadmins($$self{DBH}, @sites);
-	push @cc, $$_{EMAIL} foreach @siteadmins;
+    my %siteadmins = $self->fetch_users(admin_of => $params{destinations});
+    if (%siteadmins) {
+	push @cc, $$_{EMAIL} foreach values %siteadmins;
     }
+
+    # Here we build a hash of node => site
+    my %node_sites;
+    my %site_nodes = $self->fetch_sites(for_nodes => $params{destinations});
+    foreach my $site (keys %site_nodes) {
+	foreach my $node (@{$site_nodes{$site}}) {
+	    $node_sites{$node} = $site 
+	}
+    }
+
     my $admin_url = $self->myurl('fullurl' => 1, 'secure' => 1, 'page' => 'Request::Admin', 'view' => 'my');
 
     my $message =<<ENDEMAIL;
@@ -5354,13 +5472,13 @@ sub file_replicas
 sub node_list
 {
   my ($self) = @_;
-  my $q = &dbexec($$self{DBH}, qq{select id, name from t_adm_node});
+
   my @result = ();
-  while (my ($id, $name) = $q->fetchrow()) {
+  my %nodes = $self->fetch_nodes(with_ids=>1);
+  while (my ($name, $id) = each %nodes) {
     push(@result, { ID => $id, NAME => $name });
   }
 
-  $q->finish();
   return @result;
 }
 
@@ -6027,24 +6145,31 @@ sub output_page
     ITEM_NAME => 'Data Item',
     NODE_NAME => 'Node',
     PRIORITY => 'Priority',
-    IS_MOVE => 'Kind',
-    IS_TRANSIENT => 'Transient?',
-    TIME_SUSPEND_UNTIL => 'Suspended?' };
+    IS_MOVE => 'Replica/Move',
+    IS_TRANSIENT => 'Open/Closed',
+    TIME_SUSPEND_UNTIL => 'Active/Suspended' };
   
   # Special data fromats
+  my $now = time();
   my $df = 
   { 
       PRIORITY => sub { if ($_[0] == 0) { return 'High'; }
 			if ($_[0] == 1) { return 'Normal'; }
 			if ($_[0] == 2) { return 'Low'; } },
       IS_MOVE => sub { return $_[0] eq 'y' ? 'Move' : 'Replica'; },
-      TIME_SUSPEND_UNTIL => sub { return defined $_[0] ? "y" : "n"; }
+      TIME_SUSPEND_UNTIL => sub { 
+	  my $susp_time = $_[0];
+	  if (!defined $susp_time || $susp_time <= $now) { return 'Active'; }
+	  elsif ($susp_time == 9_999_999_999)            { return 'Suspended Forever'; }
+	  else { return 'Suspended Until  '.&formatTime($susp_time, 'stamp') }
+      },
+      IS_TRANSIENT => sub { return $_[0] eq 'y' ? 'Closed' : 'Open'; }
   };
 
   # Special cell formats
   my $cf = 
   { 
-      TIME_SUSPEND_UNTIL => sub { return defined $_[0] ? 'alarm' : ''; }
+      TIME_SUSPEND_UNTIL => sub { return defined $_[0] && $_[0] >= $now ? 'alarm' : ''; }
   };
 
   # Pseudo columns
@@ -6108,8 +6233,8 @@ sub output_page
 sub update_subscriptions
 {
     my ($self) = @_;
-    my @auth_nodes = $self->fetch_authorized_nodes();
-    my $nodes = { map { $$_{ID} => $$_{NAME} } $self->node_list() }; # just a hash of id => name
+    my %auth_nodes = $self->fetch_nodes(with_ids => 1, user_auth => 1);
+    my %all_nodes = reverse $self->fetch_nodes(with_ids => 1); # just a hash of id => name
 
     my $upd_suspend = qq[ update t_dps_subscription set time_suspend_until = :val
 			  where _ITEM_ = :id and destination = :dest ];
@@ -6120,7 +6245,7 @@ sub update_subscriptions
     {
 	suspend => { desc => ' suspended',
 		     sql  => $upd_suspend,
-		     val  => 999999999 },
+		     val  => 9_999_999_999 },
     	unsuspend => { desc => ' unsuspended',
 		       sql  => $upd_suspend,
 		       val  => undef },
@@ -6143,8 +6268,7 @@ sub update_subscriptions
 
     foreach (param('s_id')) {
 	my ($level, $id, $destination) = split /:/;
-
-	if (grep $destination == $_, @auth_nodes) {
+	if (grep $destination == $_, values %auth_nodes) { # Check permission
 	    my $sql = $$action{sql};
 	    $sql =~ s/_ITEM_/$level/;
 
@@ -6154,7 +6278,8 @@ sub update_subscriptions
 			     ':dest' => $destination);
 	    $n_changed += $rv[1];
 	} else {
-	    my $warn = "<p class='alarm'>Sorry, you don't have permission to update $$nodes{$destination} subscriptions!</p>";
+	    my $warn = "<p class='alarm'>Sorry, you don't have permission to update ".
+		"$all_nodes{$destination} subscriptions!</p>";
 	    $warn_hash{$warn} = 1;
 	}
     }
@@ -6233,7 +6358,7 @@ use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Deletions",
+our $INDEX = { LIST => 0, ORDER => 3, TITLE => "Deletions",
 	       LINK_TITLE => "Delete datasets or blocks from PhEDEx database",
                SECURE => 1 };
 
@@ -6253,21 +6378,56 @@ sub output
   my $adminok = $self->alert_auth(need => 'siteadmin', power => 'delete datasets and blocks');
 
   print { $$self{CONTENT} }
-  "<h1>Deletion Queue</h1>";
-
-  my $q = qq{ select ds.name dataset, b.name block, n.name node, del.time_request, del.time_complete
-                from t_dps_block_delete del
-		join t_dps_block b on b.id = del.block
-		join t_dps_dataset ds on ds.id = del.dataset
-		join t_adm_node n on n.id = del.node
- 	    order by del.time_complete desc, del.time_request desc };
-
+  "<h1>Deletion Queue</h1>",
+  "<p>This table contains the data items which are queued for deletion.</p>";
   
+
+  my $sql = qq{ select ds.name dataset, b.name block, n.name node, del.time_request, del.time_complete
+                  from t_dps_block_delete del
+	 	  join t_dps_block b on b.id = del.block
+		  join t_dps_dataset ds on ds.id = del.dataset
+		  join t_adm_node n on n.id = del.node
+ 	      order by del.time_complete desc, del.time_request desc };
+
+  my $q = &dbexec($$self{DBH}, $sql);
+
+  my $dbtable = new Web25::DBTable;
+  $dbtable->set_filehandle($$self{CONTENT});
+  $dbtable->set_tableclass('data');
+  $dbtable->set_stripeclass('stripe');
+  $dbtable->output($q);
+
+  my $del_url = $self->myurl('page' => 'Data::DeleteConfirm');
+
+  my @nodes = $self->fetch_nodes();
 
   print { $$self{CONTENT} }
-  "<h1>Delete Data</h1>";
-  
-  
+  "<h1>Delete Data</h1>",
+  "<p>Enter the datasets you would like to delete.  Deletions are ",
+  "added to the queue and are actually deleted when the deletion agents ",
+  "get around to it.</p>",
+
+  "<form class='nice' method='post' target='$del_url'>",
+
+  "<label>Node</label>",
+  popup_menu(-name=>'node', -values=>[@nodes], -class=>'labeled'),
+  "<br/>",
+
+  "<label>Data Items:<br/><br/>",
+  "<span class='note'>/Primary/Tier/Dataset<br/>or<br/>",
+  "/Primary/Dataset#Block<br/>(Use * as wildcard)</span><br/>",
+  &help("More Help", "Data Item List", 
+	"A whitespace separated list of the datasets or blocks you are ",
+	"deleting.  Glob-style wildcards may be used, but the data ",
+	"tier separators are required.  E.g. to subscribe to all ",
+	"datasets you would have to write '/*/*/*', not '*'."), 
+  "</label>\n",
+  textarea(-name=>'data', -value=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), 
+  "<br/>",
+
+  "<label>&nbsp;</label>", 
+  submit(-class=>'labeled', -value=>'Go To Confirmation'),
+  "</form>";
 
 }
 
@@ -6572,9 +6732,9 @@ sub signup_form
 	nodes => 'Nodes'
 	});
     $table->set_tableclass('data');
-    $table->add_pseudocolumn('select', sub { checkbox(-name=>'sites', 
-						      -value=>"$_[1]->{id}:$_[1]->{site}:$_[1]->{nodes}",
-						      -label=>''); });
+    $table->add_pseudocolumn('select', sub { &striplabels(checkbox(-name=>'sites', 
+								   -value=>"$_[1]->{site}",
+								   -label=>'')) });
     $table->start();
     $table->head();
     foreach(sort keys %{$sites}) {
@@ -6612,29 +6772,24 @@ sub send_request
 	return;
     }
 
+    # Get a hash of sites => nodes
+    my %site_nodes = $self->fetch_sites();
+
     # Get the list of Global admins
-    my @admins = &getglobaladmins($$self{DBH});
-    if (!@admins) {
+    my %global_admins = $self->fetch_users(global_admins=>1);
+    if (!%global_admins) {
 	alert("Sorry, the request cannot be created.",
 	      "The database does not contain any global admins.",
 	      "Please contact the PhEDEx developers  about this!"); 
 	return;
     }
-
-    my @adminmails;
-    foreach my $admin (@admins) {
-	push @adminmails, $$admin{EMAIL};
-    }
+    my @global_admin_mails;
+    push @global_admin_mails, $$_{EMAIL} foreach values %global_admins;
     
-    my @site_admins = &getsiteadmins($$self{DBH});
-    my @existing_admin_mails;
-
-    foreach (@sites) {
-	my ($id, $site, $nodes) = split /:/;
-	if (my @sa = grep $site eq $$_{SITE}, @site_admins) {
-	    push @existing_admin_mails, $$_{EMAIL} foreach @sa;
-	}
-    }
+    # Get the list of existing site admins
+    my %site_admins = $self->fetch_users(admin_of => \@sites);
+    my @site_admin_mails;
+    push @site_admin_mails, $$_{EMAIL} foreach values %site_admins;
 
     my $message =<<ENDEMAIL;
 Greetings PhEDEx Global Admin,
@@ -6648,22 +6803,21 @@ Preferred Email:    '$pref_email'
 Sites ([Site Name]:  [Nodes])
 ENDEMAIL
 
-foreach (@sites) {
-    my ($id, $site, $nodes) = split /:/;
+foreach my $site (@sites) {
+    my $nodes = join(', ' , @{$site_nodes{$site}});
     $message .= "  $site:  $nodes\n";
 }
-
+    
     if ($comment) {
 	$message .= "\n$name also had the following comment:\n\n\"$comment\"\n";
     }
 
-    if (@existing_admin_mails) {
+    if (%site_admins) {
 	$message .= "\nNote that the following sites already have a site admin:\n\n";
-	foreach (@sites) {
-	    my ($id, $site, $nodes) = split /:/;
-	    if (my @sa = grep $site eq $$_{SITE}, @site_admins) {
-		$message .= "  $$_{SITE}:  $$_{EMAIL}\n" foreach @sa;
-	    }
+	foreach (keys %site_admins) {
+	    my $name = &dn_to_human_name($_);
+	    my @admin_sites = @{$site_admins{$_}->{SITES}};
+	    $message .= "  @admin_sites:  $name\n";
 	}
 	$message .= "\nAnd they have been CCed in this mail.\n";
     }
@@ -6675,8 +6829,8 @@ Yours Truly,
 ENDEMAIL
 
       send_email(subject => "PhEDEx Administration Request",
- 		to => [ @adminmails ],
- 		cc => [ @existing_admin_mails ],
+ 		to => [ @global_admin_mails ],
+ 		cc => [ @site_admin_mails ],
  		from => "PhEDEx SignUp Form <cms-phedex-admins\@cern.ch>",
  		message => $message );
 
@@ -6716,7 +6870,7 @@ sub output
   my $identity = $$self{DB_IDENTITY_ID};
   my $client_dn = $$self{SSL_IDENTITY};
   my $email = $self->create_default_email();
-  my @globals = &getglobaladmins($$self{DBH});
+  my %globals = $self->fetch_users(global_admins => 1);
   my $signupurl = $self->myurl(page=>'Administration::SignUp');
 
   print { $$self{CONTENT} } "<h1>Your Identity</h1>";
@@ -6725,13 +6879,13 @@ sub output
   {
       my @sites;
       
-      if (grep $$_{ID} == $identity, @globals) {
+      if (grep $$_{ID} == $identity, values %globals) {
 	  push @sites, '<b>Global PhEDEx</b>';
+      } else {
+	  my %auth_sites = $self->fetch_sites(user_auth=>1);
+	  push @sites, sort keys %auth_sites;
       }
-      
-      my %auth_sites = $self->fetch_authorized_sites();
-      push @sites, sort keys %auth_sites;
-      
+
       if (!@sites) { push @sites, "Nothing"; }
       
       print { $$self{CONTENT} }
@@ -6802,12 +6956,12 @@ sub output
   while (my $row = $q->fetchrow_hashref()) {
       my @sites;
       
-      if (grep $$_{ID} == $$row{IDENTITY}, @globals) {
+      if (grep $$_{ID} == $$row{IDENTITY}, values %globals) {
 	  push @sites, '<b>Global PhEDEx</b>';
+      } else {
+	  my %auth_sites = $self->fetch_sites(identity_auth=>$$row{IDENTITY});
+	  @sites = sort keys %auth_sites;
       }
-      
-      my %auth_sites = $self->fetch_authorized_sites($$row{IDENTITY});
-      push @sites, sort keys %auth_sites;
 
       $$row{SITE_ADMIN} = join ', ', @sites;
       $table->row($row);
@@ -6923,6 +7077,46 @@ sub output
 {
   my ($self) = @_;
   print { $$self{CONTENT} } "<p>This page not yet implemented.  Help is welcome!</p>";
+}
+
+1;
+
+
+
+######################################################################
+package Web25::Test::Test;
+use strict; use warnings;
+use base "Web25::Page";
+import Web25::Common;
+use CGI qw(:standard);
+
+our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Test Functions",
+	       LINK_TITLE => "Testing Page" };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+sub output
+{
+  my ($self) = @_;
+  
+  my %sites = $self->fetch_sites(user_auth=>1);
+  &dump_var($$self{CONTENT}, 'sites', {%sites});
+
+  my @nodes = $self->fetch_nodes(user_auth=>1);
+  &dump_var($$self{CONTENT}, 'nodes', [@nodes]);
+
+  my %dbses = $self->fetch_dbses(with_ids => 1);
+  &dump_var($$self{CONTENT}, 'dbses', {%dbses});
+
+  my %users = $self->fetch_users(global_admins => 1 );
+  &dump_var($$self{CONTENT}, 'users', {%users});
 }
 
 1;
