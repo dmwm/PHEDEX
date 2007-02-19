@@ -3074,8 +3074,8 @@ sub create_check_dbs
   my $SAFE_PATH = "[-A-Za-z0-9_+.:/&%;]*";
   if ($dbs !~ m,^https?://($SAFE_HOST)(:\d+)?/($SAFE_PATH)\?.*instance=$SAFE_PATH$,)
   {
-      my %dbses = $self->get_dbses();
-      if (! grep($_ eq $dbs, keys %dbses))
+      my @dbses = $self->fetch_dbses();
+      if (! grep($_ eq $dbs, @dbses))
     {
       alert($self, "The DBS contact &ldquo;", &escapeHTML($dbs), "&rdquo;",
 	    " is not a URL for a DBS service.  Please use a URL of",
