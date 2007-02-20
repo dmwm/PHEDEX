@@ -60,19 +60,21 @@ if(!$args{DBCONFIG} || (!$args{BLOCK} && !$args{DATASET}) || ((!$args{DBSADDRESS
 
 if ($args{DATASET}){
 	print "\nGetting datasets...";	
-	my @dataset = ();
-	my $datasets_wild = [ split m|,\s*|, $args{DATASET} ];
-	$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
-	foreach $data (@$datasets_wild){
-		my $tmp = getDatasetFromWildCard ($data);
-		for $i (@$tmp){
-			push (@datasets, $i);
+	my $datasets = [ split m|,\s*|, $args{DATASET} ];
+
+	foreach $data (@$datasets){
+		if ($data =~ '%'){
+			$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
+			my $tmp = getDatasetFromWildCard ($data);
+		        $dbh->disconnect();
+			for $i (@$tmp){
+				push (@$datasets, $i);
+			}
 		}
 	}
-	$dbh->disconnect();
 	print "\ndone!";
 
-	foreach $data (@datasets){
+	foreach $data (@$datasets){
 		print "\nGetting blocks from: $data";
 		if ($args{AUTO}){
 			$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);	
@@ -101,20 +103,29 @@ if ($args{DATASET}){
 		&checkBlock($block);
 	}
 	print "\ndone!";
+
+        foreach $block (keys %info_Blocks_DBS){
+                print "\nGetting files from: $block";
+                &checkBlock($block);
+        }
+        print "\ndone!";
+
 }
-else {
-	my $blocks_wild = [ split m|,\s*|, $args{BLOCK} ];
-	my @block_names_from_TMDB = ();
-	$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
-	foreach my $block (@$blocks_wild){
-		my $tmp = getBlocksFromWildCard ($block);
-		for $i (@$tmp){
-			push (@block_names_from_TMDB, $i);
+elsif ($args{BLOCK}) {
+
+	my $blocks = [ split m|,\s*|, $args{BLOCK} ];
+	foreach my $block (@$blocks){
+		if ($block =~ '%'){
+			$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
+			my $tmp = &getBlocksFromWildCard ($block);
+			for $i (@$tmp){
+				push (@$blocks, $i);
+			}
 		}
 	}
 	$dbh->disconnect();
 	
-	foreach my $block (@block_names_from_TMDB) {
+	foreach my $block (@$blocks) {
 		print "\nGetting files from: $block";
 		if ($args{AUTO}){
 			$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);	
