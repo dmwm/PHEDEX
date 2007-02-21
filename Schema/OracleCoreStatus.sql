@@ -216,6 +216,41 @@ create table t_status_file_size_histogram
    n_total		integer		not null,
    sz_total		integer		not null);
 
+/* Log for user actions - lifecycle of data at a node
+   actions:  0 - request data
+             1 - subscribe data
+             3 - delete data
+*/
+create table t_log_user_action
+  (time_update		float		not null,
+   action		integer		not null,
+   identity		integer		not null,
+   node			integer		not null,
+   dataset		integer,
+   block		integer,
+   --
+   constraint uk_status_user_action
+     unique (time_update, action, identity, node, dataset, block)
+   --
+   constraint fk_status_user_action_identity
+     foreign key (identity) references t_adm_identity (id),
+   --
+   constraint fk_status_user_action_node
+     foreign key (node) references t_adm_node (id),
+   --
+   constraint fk_status_user_action_dataset
+     foreign key (dataset) references t_dps_dataset (id),
+   --
+   constraint fk_status_user_action_block
+     foreign key (block) references t_dps_block (id),
+   --
+   constraint ck_status_user_action_ref
+     check (not (block is null and dataset is null)
+            and not (block is not null and dataset is not null)));
+  
+  
+   
+
 ----------------------------------------------------------------------
 -- Create indices
 
@@ -243,3 +278,16 @@ create index ix_status_task_to
 --
 create index ix_status_path_to
   on t_status_path (to_node);
+
+--
+create index ix_log_user_action_identity
+  on t_log_user_action (identity);
+
+create index ix_log_user_action_node
+  on t_log_user_action (node);
+
+create index ix_log_user_action_dataset
+  on t_log_user_action (dataset);
+
+create index ix_log_user_action_block
+  on t_log_user_action (block);
