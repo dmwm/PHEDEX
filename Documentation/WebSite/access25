@@ -6,6 +6,7 @@ use CGI qw(:standard unescape);
 use Net::hostent;
 require Socket;
 use POSIX qw(strftime mktime);
+use Text::Glob 'glob_to_regex';
 BEGIN { my $__scriptdir = $ENV{SCRIPT_FILENAME} || "./"; $__scriptdir =~ s,[^/]+$,,; unshift(@INC, $__scriptdir . "/cgi-bin"); };
 use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
 
@@ -22,6 +23,7 @@ our @EXPORT = qw(urlencode dblink toclink pagelink
                  create_default_email send_email dn_to_human_name
 		 yesno striplabels
 		 dump_params dump_var
+		 parse_userdata dbs_lookup resolve_data
 );
 
 # Various useful colours
@@ -425,7 +427,7 @@ sub set_auth_vars
 # If argument 'with_ids' is true, returns a hash of node_name => node_id
 # else it returns an array of nodes
 #
-# If either user_auth or identity is set, then it returns nodes from
+# If either web_user_auth or identity_auth is set, then it returns nodes from
 # the t_adm_site_node table for which either the current user or the given
 # identity is authorized to admin
 #
@@ -435,7 +437,7 @@ sub fetch_nodes
 {
     my ($self, %args) = @_;
 
-    if (exists $args{user_auth} && $args{user_auth} ||
+    if (exists $args{web_user_auth} && $args{web_user_auth} ||
 	exists $args{identity_auth}) {
 	my %sites = $self->fetch_sites(%args);
 
@@ -472,13 +474,13 @@ sub fetch_nodes
 
 
 # Returns a hash of sites pointing to an array of nodes
-# Options are 'with_ids', 'identity_auth', 'user_auth', 'for_nodes', 'all'
+# Options are 'with_ids', 'identity_auth', 'web_user_auth', 'for_nodes', 'all'
 # Default behavior is to return all sites
 # if with_ids is true, the returned structure is 
 #   $sites{site_name} = { ID => site_id, NODES => { node_name => node_id } }
 # else the returned structure is $sites{site_name} = [ node_name ]
 # if 'identity_auth' is given, then only sites for which the given identity is the admin are returned
-# if 'user_auth' is true, then only sites for which the webpage user is the admin are returned
+# if 'web_user_auth' is true, then only sites for which the webpage user is the admin are returned
 # if for_nodes is true, then only sites containing the given list of nodes is returned
 sub fetch_sites
 {
@@ -487,8 +489,8 @@ sub fetch_sites
     my @for_nodes;
     if (exists $args{all})           { $all      = $args{all}; }
     if (exists $args{with_ids})      { $with_ids = $args{with_ids}; }
-    if (exists $args{user_auth}
-	&& $args{user_auth})         { $identity = $$self{DB_IDENTITY_ID}; $all = 0; }
+    if (exists $args{web_user_auth}
+	&& $args{web_user_auth})     { $identity = $$self{DB_IDENTITY_ID}; $all = 0; }
     if (exists $args{identity_auth}) { $identity = $args{identity_auth}; $all = 0;   }
     if (exists $args{for_nodes})     { @for_nodes = @{$args{for_nodes}}; }
 
@@ -694,7 +696,7 @@ sub create_default_email
 sub send_email
 {
     my (%args) = @_;
-
+    return 1; # XXX testing
     # Required arguments
     foreach (qw(subject from to message)) {
 	return 0 unless exists $args{$_};
@@ -917,6 +919,150 @@ sub sizeValue
   return $value * 1.0;
 }
 
+# Takes an array of user data clobs and parses out single dataset and block globs
+# Returns a hash of key:  glob pattern value: is_valid
+sub parse_userdata
+{
+    my ($self, @userdata) = @_;
+    my %parsed;
+    foreach my $string (@userdata) {
+	$string =~ s/^\s+//;  $string =~ s/\s+$//;
+	my @data = split(/\s+/, $string);
+	foreach my $item (@data) {
+	    if ($item !~ m<^/[^/]+/[^/]+(/[^/]+|\#[^\#]+)$>) {
+		$parsed{$item} = 0;
+	    } else {
+		$parsed{$item} = 1;
+	    }
+	}
+    }
+    return %parsed;
+}
+
+sub dbs_lookup
+{
+    my ($dbs, $pattern) = @_;
+
+    ### Security:  Strict list of characters allowed to go to shell
+    my $reg = qr/[^\w\.\*\-\#\/\?=:\+\&]/;
+    foreach (@_) {
+	if (/$reg/) {
+	    die "Invalid string '$_' given to dbs_lookup()";
+	}
+    }
+        
+    my $dbscmd = "wget -qO- '$dbs;api=listDatasets;pattern=$pattern'";
+    my $dbsresults = `$dbscmd`;
+    if ($dbsresults) { 
+	my @paths = ($dbsresults =~ /path='([^'\'']*)'/g);
+	return @paths;
+    }
+}
+
+
+
+# Resolve user datasets;  Search DPS and DBS for glob patterns
+# Fill data object with results:
+# $$resolved{$userglob} = [ { params }, ... ]
+# Where { params } contains:
+#   DBS = dbs the data was found in PhEDEx, not necessarily the one the user specified
+#   LEVEL = 'BLOCK' or  'DATASET'
+#   DATASET = Dataset name
+#   BLOCK = Block name.  undef if LEVEL = DATASET
+#   ID = The dps unique id for item
+#   DPS_ISKNOWN = 'y' or 'n'
+#   DBS_ISKNOWN = 'y' or 'n'
+sub resolve_data
+{
+    my ($dbh, $userdbs, @userdata) = @_;
+
+    my $resolved = {};
+    my $userdupes = {};
+    my $dbsdupes = {};
+    my $all = {};
+
+    foreach my $level (qw(DATASET BLOCK)) {
+	$$all{$level} = [];
+    }
+
+    foreach my $userglob (@userdata) {
+	$$resolved{$userglob} = [];
+	my $level = ($userglob =~ m|/.+\#\d+$| ? 'BLOCK' : 'DATASET');
+
+	# Search the DPS for the user's glob
+	my $sql;
+	if ($level eq 'DATASET') {
+	    $sql = qq{select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset
+		        from t_dps_dataset ds
+			join t_dps_dbs dbs on dbs.id = ds.dbs
+		       order by ds.id };
+	} else {
+	    $sql = qq{select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset, b.id block_id, b.name block
+			from t_dps_block b
+			join t_dps_dataset ds on b.dataset = ds.id
+			join t_dps_dbs dbs on ds.dbs = dbs.id
+		       order by b.id};
+	}
+
+	my $q = &dbexec($dbh, $sql);
+
+	my $pattern = glob_to_regex($userglob);
+	my $lastid = -1;
+	while (my $row = $q->fetchrow_hashref()) {
+	    my $name = $$row{$level};
+	    my $id = $$row{$level.'_ID'};
+	    next unless $name =~ /$pattern/;
+
+	    # Redundancy checking
+	    if ($id == $lastid) {
+		$$dbsdupes{$level}{$id} = 1;
+	    }
+	    $lastid = $id;
+	    push @{$$all{$level}}, $id;
+
+	    push @{$$resolved{$userglob}},  { DBS => $$row{DBS},
+					      LEVEL => $level,
+					      DATASET => $$row{DATASET},
+					      BLOCK   => $$row{BLOCK},
+					      DPS_ISKNOWN => 'y',
+					      DBS_ISKNOWN => 'y', # XXX This is assuming DPS and DBS are in sync
+					      ID => $id };
+	}
+	
+	# User's glob not found in DPS, check their DBS
+	if ($userdbs && ! @{$$resolved{$userglob}}) {
+	    my @dbsdata = dbs_lookup($userdbs, $userglob);
+	    foreach my $name (@dbsdata) {
+		push @{$$resolved{$userglob}}, { DBS => $userdbs,
+						 LEVEL => $level,
+						 DATASET => ($level eq 'DATASET' ? $name : undef),
+						 BLOCK   => ($level eq 'BLOCK' ? $name : undef),
+						 DPS_ISKNOWN => 'n',
+						 DBS_ISKNOWN => 'y',
+						 ID => undef };
+	    }
+	}
+    }
+
+    my $lastid = -1;
+    foreach my $level (qw(DATASET BLOCK)) {
+	foreach my $id (sort @{$$all{$level}}) {
+	    if ($id == $lastid) {
+		$$userdupes{$level}{$id} = 1;
+	    }
+	    $lastid = $id;
+	}
+    }
+
+    if (wantarray) {
+	return ($resolved, $userdupes, $dbsdupes);
+    } else {
+	return $resolved;
+    }
+}
+
+
+
 1;
 
 
@@ -1071,8 +1217,12 @@ sub head
 {
     my ($self, @headers) = @_;
 
-    if ($$self{TABLECOLS} && $$self{TABLEHEAD}) {
+    if (@headers) {
+	# Do nothing
+    } elsif ($$self{TABLECOLS} && $$self{TABLEHEAD}) {
 	@headers = @{$$self{TABLEHEAD}}{@{$$self{TABLECOLS}}};
+    } elsif ($$self{TABLECOLS}) {
+	@headers = @{$$self{TABLECOLS}};
     }
 
     if (!@headers) {
@@ -1633,6 +1783,8 @@ sub myurl
   
   return $url;
 }
+
+
 
 sub generate
 {
@@ -2959,7 +3111,6 @@ use strict; use warnings;
 use base "Exporter";
 import Web25::Common;
 use CGI qw(:standard);
-use Text::Glob 'glob_to_regex';
 BEGIN { my $__scriptdir = $ENV{SCRIPT_FILENAME} 
 	|| "./"; $__scriptdir =~ s,[^/]+$,,;
 	unshift(@INC, $__scriptdir . "/cgi-bin"); };
@@ -3116,25 +3267,21 @@ sub create_check_data
   my ($self, $bad, $data) = @_;
   return undef if $$bad;
 
-  my @data = split(/\s+/, $data);
-  if (! @data)
-  {
+  my %userdata = $self->parse_userdata($data);
+  if (! %userdata) {
     alert($self, "No data specified.");
     $$bad = 1;
   }
 
-  foreach my $data (@data)
-  {
-    if ($data !~ m<^/[^/]+/[^/]+(/[^/]+|\#[^\#]+)$>)
-    {
-      alert($self, "The data pattern is &ldquo;@{[&escapeHTML($data)]}&rdquo;",
-	      " does not match pattern of type /PRIMARY/TIER/DATASET or /PRIMARY/DATASET#BLOCK.");
-      $$bad = 1;
-    }
-
+  foreach my $data (keys %userdata) {
+      if (! $userdata{$data} ) {
+	  $self->alert("The data pattern is &ldquo;@{[&escapeHTML($userdata{$data})]}&rdquo;",
+		       " does not match pattern of type /PRIMARY/TIER/DATASET or /PRIMARY/DATASET#BLOCK.");
+	  $$bad = 1;
+      }
   }
 
-  return $$bad ? undef : @data;
+  return $$bad ? undef : keys %userdata;
 }
 
 sub create_check_dest
@@ -3193,128 +3340,6 @@ sub create_check_bad
   print { $$self{CONTENT} } "<p>Please resubmit the form with corrected information.</p>\n" if $bad;
   return $bad;
 }
-
-sub dbs_lookup
-{
-    my ($dbs, $pattern) = @_;
-
-    ### Security:  Strict list of characters allowed to go to shell
-    my $reg = qr/[^\w\.\*\-\#\/\?=:\+\&]/;
-    foreach (@_) {
-	if (/$reg/) {
-	    die "Invalid string '$_' given to dbs_lookup()";
-	}
-    }
-        
-    my $dbscmd = "wget -qO- '$dbs;api=listDatasets;pattern=$pattern'";
-    my $dbsresults = `$dbscmd`;
-    if ($dbsresults) { 
-	my @paths = ($dbsresults =~ /path='([^'\'']*)'/g);
-	return @paths;
-    }
-}
-
-
-# Resolve user datasets;  Search DPS and DBS for glob patterns
-# Fill data object with results:
-# $$resolved{$userglob} = [ { params }, ... ]
-# Where { params } contains:
-#   DBS = dbs the data was found in PhEDEx, not necessarily the one the user specified
-#   LEVEL = 'BLOCK' or  'DATASET'
-#   DATASET = Dataset name
-#   BLOCK = Block name.  undef if LEVEL = DATASET
-#   ID = The dps unique id for item
-#   DPS_ISKNOWN = 'y' or 'n'
-#   DBS_ISKNOWN = 'y' or 'n'
-sub resolve_data
-{
-    my ($dbh, $userdbs, @userdata) = @_;
-
-    my $resolved = {};
-    my $userdupes = {};
-    my $dbsdupes = {};
-    my $all = {};
-
-    foreach my $level (qw(DATASET BLOCK)) {
-	$$all{$level} = [];
-    }
-
-    foreach my $userglob (@userdata) {
-	$$resolved{$userglob} = [];
-	my $level = ($userglob =~ m|/.+\#\d+$| ? 'BLOCK' : 'DATASET');
-
-	# Search the DPS for the user's glob
-	my $sql;
-	if ($level eq 'DATASET') {
-	    $sql = qq{select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset
-		        from t_dps_dataset ds
-			join t_dps_dbs dbs on dbs.id = ds.dbs
-		       order by ds.id };
-	} else {
-	    $sql = qq{select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset, b.id block_id, b.name block
-			from t_dps_block b
-			join t_dps_dataset ds on b.dataset = ds.id
-			join t_dps_dbs dbs on ds.dbs = dbs.id
-		       order by b.id};
-	}
-
-	my $q = &dbexec($dbh, $sql);
-
-	my $pattern = glob_to_regex($userglob);
-	my $lastid = -1;
-	while (my $row = $q->fetchrow_hashref()) {
-	    my $name = $$row{$level};
-	    my $id = $$row{$level.'_ID'};
-	    next unless $name =~ /$pattern/;
-
-	    # Redundancy checking
-	    if ($id == $lastid) {
-		$$dbsdupes{$level}{$id} = 1;
-	    }
-	    $lastid = $id;
-	    push @{$$all{$level}}, $id;
-
-	    push @{$$resolved{$userglob}},  { DBS => $$row{DBS},
-					      LEVEL => $level,
-					      DATASET => $$row{DATASET},
-					      BLOCK   => $$row{BLOCK},
-					      DPS_ISKNOWN => 'y',
-					      DBS_ISKNOWN => 'y', # XXX This is assuming DPS and DBS are in sync
-					      ID => $id };
-	}
-	
-	# User's glob not found in DPS, check their DBS
-	if (! @{$$resolved{$userglob}}) {
-	    my @dbsdata = dbs_lookup($userdbs, $userglob);
-	    foreach my $name (@dbsdata) {
-		push @{$$resolved{$userglob}}, { DBS => $userdbs,
-						 LEVEL => $level,
-						 DATASET => ($level eq 'DATASET' ? $name : undef),
-						 BLOCK   => ($level eq 'BLOCK' ? $name : undef),
-						 DPS_ISKNOWN => 'n',
-						 DBS_ISKNOWN => 'y',
-						 ID => undef };
-	    }
-	}
-    }
-
-    my $lastid = -1;
-    foreach my $level (qw(DATASET BLOCK)) {
-	foreach my $id (sort @{$$all{$level}}) {
-	    if ($id == $lastid) {
-		$$userdupes{$level}{$id} = 1;
-	    }
-	    $lastid = $id;
-	}
-    }
-
-    if (wantarray) {
-	return ($resolved, $userdupes, $dbsdupes);
-    } else {
-	return $resolved;
-    }
-}
-
 
 1;
 
@@ -6233,7 +6258,7 @@ sub output_page
 sub update_subscriptions
 {
     my ($self) = @_;
-    my %auth_nodes = $self->fetch_nodes(with_ids => 1, user_auth => 1);
+    my %auth_nodes = $self->fetch_nodes(with_ids => 1, web_user_auth => 1);
     my %all_nodes = reverse $self->fetch_nodes(with_ids => 1); # just a hash of id => name
 
     my $upd_suspend = qq[ update t_dps_subscription set time_suspend_until = :val
@@ -6342,7 +6367,7 @@ sub data_subscriptions
       left join t_dps_dataset ds on ds.id = s.dataset
       left join t_dps_block b on b.id = s.block
      where $where_list
-      order by n.name, ds.id, b.id
+     order by n.name, ds.id, b.id
   });
 
   return $q;
@@ -6358,7 +6383,7 @@ use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 0, ORDER => 3, TITLE => "Deletions",
+our $INDEX = { LIST => 1, ORDER => 3, TITLE => "Delete",
 	       LINK_TITLE => "Delete datasets or blocks from PhEDEx database",
                SECURE => 1 };
 
@@ -6381,7 +6406,6 @@ sub output
   "<h1>Deletion Queue</h1>",
   "<p>This table contains the data items which are queued for deletion.</p>";
   
-
   my $sql = qq{ select ds.name dataset, b.name block, n.name node, del.time_request, del.time_complete
                   from t_dps_block_delete del
 	 	  join t_dps_block b on b.id = del.block
@@ -6401,15 +6425,17 @@ sub output
 
   my @nodes = $self->fetch_nodes();
 
+  unless ($adminok) { return; }
+
   print { $$self{CONTENT} }
   "<h1>Delete Data</h1>",
   "<p>Enter the datasets you would like to delete.  Deletions are ",
   "added to the queue and are actually deleted when the deletion agents ",
   "get around to it.</p>",
 
-  "<form class='nice' method='post' target='$del_url'>",
+  "<form class='nice' method='post' action='$del_url'>",
 
-  "<label>Node</label>",
+  "<label>Node:</label>",
   popup_menu(-name=>'node', -values=>[@nodes], -class=>'labeled'),
   "<br/>",
 
@@ -6425,10 +6451,178 @@ sub output
   textarea(-name=>'data', -value=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), 
   "<br/>",
 
+  "<label>Remove Subscriptions?:</label>",
+  popup_menu(-name=>'rm_subscriptions', -values=>[qw(y n)], -labels=>{y => 'Yes', n => 'No'}, -class=>'labeled'),
+  "<br/>",
+
   "<label>&nbsp;</label>", 
-  submit(-class=>'labeled', -value=>'Go To Confirmation'),
+  submit(-class=>'labeled', -value=>'Go to Confirmation'),
   "</form>";
 
+}
+
+1;
+
+######################################################################
+package Web25::Data::DeleteConfirm;
+use strict; use warnings;
+use base "Web25::Page";
+import Web25::Common;
+use Text::Glob 'glob_to_regex';
+use CGI qw(:standard);
+
+our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Delete Confirmation",
+	       LINK_TITLE => "Delete datasets or blocks from PhEDEx database",
+               SECURE => 1 };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+sub output
+{
+    my ($self) = @_;
+
+    my $adminok = $self->alert_auth(need => 'siteadmin', power => 'delete datasets and blocks');
+    return unless ($adminok);
+
+    my $bad = 0;
+    unless (param('node') || param('data') || param('rm_subscriptions')) {
+	$self->alert("Insufficient parameters");
+	$bad = 1;
+    }
+
+    my $data = param('data');
+    my @nodes = param('node');
+    my $rm_subscriptions = (param('rm_subscriptions') eq 'y' ? 1 : 0);
+
+    my @auth_nodes = $self->fetch_nodes(web_user_auth => 1);
+    foreach my $node (@nodes) {
+	if (! grep $node eq $_, @auth_nodes) {
+	    $self->alert("You don't have permission to delete data from $node.");
+	    $bad = 1;
+	}
+    }
+    
+    # Parse users data field
+    my %userdata = $self->parse_userdata($data);
+    foreach (keys %userdata) {
+	if (! $userdata{$_} ) {
+	    $self->alert("The data pattern is &ldquo;@{[&escapeHTML($_)]}&rdquo;",
+			 " does not match pattern of type /PRIMARY/TIER/DATASET or /PRIMARY/DATASET#BLOCK.");
+	    $bad = 1;
+	}
+    }
+
+    return if $bad;
+
+    # Find matches in replicas tables for the given nodes
+    my ($node_list, %node_binds) = &dbinlist('node', @nodes);
+    my $sql = qq{select n.id node_id, n.name node,
+		        ds.id dataset_id, ds.name dataset,
+		        b.id block_id, b.name block, b.bytes,
+		        NVL2(dataset_subs.destination, 'y', 'n') dataset_subscribed,
+		        NVL2(block_subs.destination, 'y', 'n') block_subscribed
+   	           from t_dps_dataset ds
+		   join t_dps_block b on b.dataset = ds.id
+                   join t_dps_block_replica br on br.block = b.id
+                   join t_adm_node n on n.id = br.node
+              left join t_dps_subscription block_subs on block_subs.destination = n.id and block_subs.block = b.id
+              left join t_dps_subscription dataset_subs on dataset_subs.destination = n.id and dataset_subs.dataset = ds.id
+		  where n.name in ($node_list)
+	          order by n.name, ds.name };
+
+    my $q = &dbexec($$self{DBH}, $sql, %node_binds);
+    my @matches;
+    ITEM: while (my $row = $q->fetchrow_hashref()) {
+	foreach (keys %userdata) {
+	    my $pattern = glob_to_regex($_);
+	    if ($$row{DATASET} =~ /$pattern/ || $$row{BLOCK} =~ /$pattern/) {
+		push @matches, $row;
+		next ITEM;
+	    }
+	}
+    }
+
+    if (!param('execute')) {
+	print {$$self{CONTENT}}
+	"<h1>Confirm Deletion</h1>",
+	"<p>The following blocks matched your selection and will be deleted upon your confirmation.</p>";
+
+	# List matches for user confirmation
+	my $table = new Web25::TableSpool;
+	$table->set_filehandle($$self{CONTENT});
+	$table->set_tableclass('data');
+	$table->set_stripeclass('stripe');
+	$table->set_tablecols([qw(NODE DATASET BLOCK DATASET_SUBSCRIBED BLOCK_SUBSCRIBED BYTES)]);
+	$table->set_dataformats({ DATASET_SUBSCRIBED => \&yesno,
+				  BLOCK_SUBSCRIBED => \&yesno,
+				  BYTES => sub { &format_size($_[0]) } });
+	$table->set_cellformats({ DATASET_SUBSCRIBED => sub { $_[0] eq 'y' ? 'alarm' : '' },
+				  BLOCK_SUBSCRIBED => sub { $_[0] eq 'y' ? 'alarm' : '' } });
+	$table->start();
+	$table->head();
+	$table->row($_) foreach @matches;
+	$table->finish();
+
+	my $delete_url = $self->myurl('DeleteExec');
+	my @save = map { hidden($_, param($_)) } param();
+ 	print {$$self{CONTENT}}
+	"<form method='post' action='$delete_url'>",
+	hidden(-name=>'execute', -value=>1),
+	@save,
+	"<p>", submit(-value=>'Yes, I really want to delete all this data'), "</p>",
+	"</form>";
+    } else {
+	my $data_delete_sql = qq{ insert into t_dps_block_delete (time_request, node, dataset, block)
+				  values (:time, :node, :dataset, :block) };
+	my $subs_delete_sql = qq{ delete from t_dps_subscription where destination = :dest and THING = :id };
+
+	my $now = time();
+
+	my ($n_delete, $n_rm_subs) = (0, 0);
+	my ($sth, $rv);
+	MATCH: foreach (@matches) {
+	    ($sth, $rv) = &dbexec($$self{DBH}, $data_delete_sql,
+				     ':time' => $now,
+				     ':node' => $$_{NODE_ID},
+				     ':dataset' => $$_{DATASET_ID},
+				     ':block' => $$_{BLOCK_ID});
+	    $n_delete += $rv;
+
+	    if ($rm_subscriptions) {
+
+		my ($item, $id);
+		if ($$_{DATASET_SUBSCRIBED} eq 'y') {
+		    $item = 'dataset';
+		    $id = $$_{DATASET_ID};
+		} elsif ($$_{BLOCK_SUBSCRIBED} eq 'y') {
+		    $item = 'block';
+		    $id = $$_{BLOCK_ID};
+		} else {
+		    next MATCH;
+		}
+		my $rm_sql = $subs_delete_sql;
+		$rm_sql =~ s/THING/$item/;
+		($sth, $rv) = &dbexec($$self{DBH}, $rm_sql,
+				      ':dest' => $$_{NODE_ID},
+				      ':id' => $id);
+		$n_rm_subs += $rv;
+	    }
+	}
+	$$self{DBH}->commit();
+
+	my $n_delete = scalar @matches;
+	print {$$self{CONTENT}}
+	"<h1>Delete Confirmed</h1>",
+	"<p>$n_delete blocks queued for deletion.</p>",
+	( $rm_subscriptions ? "<p>$n_rm_subs subscriptions removed</p>" : '');
+    }
 }
 
 1;
@@ -6882,7 +7076,7 @@ sub output
       if (grep $$_{ID} == $identity, values %globals) {
 	  push @sites, '<b>Global PhEDEx</b>';
       } else {
-	  my %auth_sites = $self->fetch_sites(user_auth=>1);
+	  my %auth_sites = $self->fetch_sites(web_user_auth=>1);
 	  push @sites, sort keys %auth_sites;
       }
 
@@ -7106,10 +7300,10 @@ sub output
 {
   my ($self) = @_;
   
-  my %sites = $self->fetch_sites(user_auth=>1);
+  my %sites = $self->fetch_sites(web_user_auth=>1);
   &dump_var($$self{CONTENT}, 'sites', {%sites});
 
-  my @nodes = $self->fetch_nodes(user_auth=>1);
+  my @nodes = $self->fetch_nodes(web_user_auth=>1);
   &dump_var($$self{CONTENT}, 'nodes', [@nodes]);
 
   my %dbses = $self->fetch_dbses(with_ids => 1);
