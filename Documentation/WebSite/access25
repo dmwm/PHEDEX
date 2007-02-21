@@ -6617,7 +6617,6 @@ sub output
 	}
 	$$self{DBH}->commit();
 
-	my $n_delete = scalar @matches;
 	print {$$self{CONTENT}}
 	"<h1>Delete Confirmed</h1>",
 	"<p>$n_delete blocks queued for deletion.</p>",
