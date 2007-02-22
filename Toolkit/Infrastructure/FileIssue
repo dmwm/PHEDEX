@@ -135,7 +135,6 @@ sub confirm
 	    on xd.fileid = f.id
             and xd.node = ns.id
         where xp.is_valid = 1
-          and xp.time_expire > :now
           and xdr.id is null
           and xt.id is null
           and xd.fileid is null
