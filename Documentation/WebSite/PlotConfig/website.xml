@@ -1,0 +1,23 @@
+
+<phedex>
+
+  <import module="phedex.web"> WebHost, StaticContent, HelloWorld </import>
+  <import file="$GRAPH_ROOT/config2.5/text_queries.xml" />
+  <import file="$GRAPH_ROOT/config2.5/phedex_graphs.xml" />
+
+  <class name="static" type="StaticContent">   
+    <directory name="content"> static_content </directory>
+  </class>
+
+  <class name="test_case" type="HelloWorld" />
+
+  <class name="web" type="WebHost">
+    <mount location="/graphs" content="image/png"> <instance name="phedex_grapher"/> </mount>
+    <mount location="/xml" content="text/xml"> <instance name="query_xml" /> </mount>
+    <instance name="static" />
+    <instance name="test_case" />
+    <config>$GRAPH_ROOT/config2.5/prod.conf</config>
+  </class>
+
+</phedex>
+

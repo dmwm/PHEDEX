@@ -1,0 +1,12 @@
+<phedex>
+
+  <import file="$GRAPH_ROOT/config2.5/phedex_queries.xml" />
+  <import file="$GRAPH_ROOT/config2.5/data_queries.xml" />
+
+  <import module="phedex.graphs.phedex_graphs">*</import>
+
+  <class type="Grapher" name="phedex_grapher">
+    <queryobj> PhedexQueries </queryobj>
+  </class>
+
+</phedex>
