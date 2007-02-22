@@ -133,7 +133,7 @@ sub idle
 	    my @nodes;
 	    my $now = &mytimeofday ();
 	    ($dbh, @nodes) = &expandNodesAndConnect ($self);
-	    my ($filter, %filter_args) = &otherNodeFilter ($self, "xs.from_node");
+	    my ($filter, %filter_args) = &otherNodeFilter ($self, "xs.to_node");
 
 	    # Statement to upload rules.
 	    my $stmt = &dbprep ($dbh, qq{
