@@ -144,7 +144,7 @@ sub confirm
 	       or (xso.from_node is not null
        	           and xsi.from_node is not null))
 	/* order by priority asc, time_expire asc */},
-	":now" => $now, ":recent" => $now - 5400);
+	":recent" => $now - 5400);
 
     while (! $finished)
     {
