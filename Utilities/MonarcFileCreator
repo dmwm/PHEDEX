@@ -1,5 +1,4 @@
 #!/usr/bin/perl
-
 ##H
 ##H    This scrip creates job submision files for MonarcTest sample production  
 ##H
@@ -77,6 +76,7 @@ open DATA, ">>$command_file" or die "can't open $command_file $!";
 print DATA 'cd jobs'."\n";
 close (DATA);
 open DATA, ">>$command_cksum_file" or die "can't open $command_file $!";
+print DATA "# Use it only if you don't get output from jobs submited by SubmitAllJobs.sh \n";
 print DATA 'cd jobs'."\n";
 close (DATA);
 print "  Creating seed (23KB) file... this could take a few minutes... "."\n";
@@ -141,12 +141,13 @@ if(!$ARGV[5] || !$ARGV[6]) {print DATA $ARGV[1].' -q '.$ARGV[2].' get_cksum_'.$h
 close (DATA);
     my $cksum_file = "get_cksum_".$hex.".job";
     open DATA, ">>$cksum_file" or die "can't open $command_file $!";
+    print DATA '#!/bin/bash'."\n";
     print DATA "echo '#===='"."\n";
     print DATA 'cat >> '.$ENV{PWD}.'/jobs/Monarc_files_info_'.$hex.' << END_OF_DATA'."\n";
     print DATA $hex.','.'` rfcat '.$ARGV[3].'/MonarcTest_'.$ARGV[4].'_'.$hex.'| cksum | sed \'s/[^0-9][^0-9]*/,/\' | sed \'s/MonarcTest//g\'`'."\n";
     print DATA 'END_OF_DATA'."\n";
     print DATA "echo '#====='"."\n";
-    close (DATA);
+close (DATA);
 }
 }
 open DATA, ">>$command_file" or die "can't open $command_file $!";
@@ -158,6 +159,15 @@ print DATA "echo 'and copy monarc_files_info file in folder where MonarcFileInje
 print DATA "echo 'i.e. in SITECONF/".$ARGV[4]."/PhEDEx folder '"."\n";
 print DATA "echo '=========================================='"."\n";
 close (DATA);
+if($ARGV[0] ne 'srmcp') {
+    open DATA, ">>$command_cksum_file" or die "can't open $command_file $!";
+    print DATA "echo '=========================================='"."\n";
+    print DATA "echo 'when all files are created do: '"."\n";
+    print DATA "echo '    cat jobs/Monarc_files_info_* > monarc_files_info'"."\n";
+    print DATA "echo 'and copy monarc_files_info file in folder where MonarcFileInjector is.'"."\n";
+    print DATA "echo 'i.e. in SITECONF/".$ARGV[4]."/PhEDEx folder '"."\n";
+    print DATA "echo '=========================================='"."\n";
+}
 system 'chmod a+x CreateFile *.job SubmitAllJobs.sh GetAllCksums.sh';
 mkdir("jobs", 0755) || die "Cannot mkdir jobs: $!";
 system 'mv *.job seed CreateFile jobs/';
