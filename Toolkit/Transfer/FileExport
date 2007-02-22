@@ -168,6 +168,7 @@ sub idle
 			};
 			do { chomp ($@); $valid = 0;
 			     &alert ("error parsing storagemap $$self{STORAGEMAP}: $@");
+			     last;
 			 } if $@;
 
 			while (my ($proto, $ruleset) = each %$rules)
