@@ -71,6 +71,7 @@ my $i = 0;
 
 my $command_file = "SubmitAllJobs.sh";
 my $create_file = "CreateFile";
+my $cksum_file = "get_cksum";
 
 open DATA, ">>$command_file" or die "can't open $command_file $!";
 print DATA 'cd jobs'."\n";
@@ -129,6 +130,16 @@ if($ARGV[0] eq 'srmcp') { my $data_jdl_file = "MonarcTest_".$hex.".jdl";
 			  close (DATA);
 		      }
 $i++;
+
+if($ARGV[0] ne 'srmcp') {
+    open DATA, ">>$cksum_file" or die "can't open $command_file $!";
+    print DATA "echo '#===='"."\n";
+    print DATA 'cat >> '.$ENV{PWD}.'/jobs/Monarc_files_info_'.$hex.' << END_OF_DATA'."\n";
+    print DATA $hex.','.'` rfcat '.$ARGV[3].'/MonarcTest_'.$ARGV[4].'_'.$hex.'| cksum | sed \'s/[^0-9][^0-9]*/,/\' | sed \'s/MonarcTest//g\'`'."\n";
+    print DATA 'END_OF_DATA'."\n";
+    print DATA "echo '#====='"."\n";
+    close (DATA);
+}
 }
 open DATA, ">>$command_file" or die "can't open $command_file $!";
 print DATA "echo '=========================================='"."\n";
@@ -139,7 +150,7 @@ print DATA "echo 'and copy monarc_files_info file in folder where MonarcFileInje
 print DATA "echo 'i.e. in SITECONF/".$ARGV[4]."/PhEDEx folder '"."\n";
 print DATA "echo '=========================================='"."\n";
 close (DATA);
-system 'chmod a+x CreateFile *.job SubmitAllJobs.sh';
+system 'chmod a+x CreateFile get_cksum *.job SubmitAllJobs.sh';
 mkdir("jobs", 0755) || die "Cannot mkdir jobs: $!";
-system 'mv *.job seed CreateFile jobs/';
+system 'mv *.job seed CreateFile get_cksum jobs/';
 if($ARGV[0] eq 'srmcp') {system 'mv *.jdl jobs/';}
