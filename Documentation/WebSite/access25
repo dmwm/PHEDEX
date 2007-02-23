@@ -883,6 +883,7 @@ sub timeSeries
 sub formatTime
 {
   my ($time, $range) = @_;
+  return undef unless ($time && $range);
   if ($range eq 'hour') { return strftime ('%Y%m%dZ%H00', gmtime(int($time))); }
   elsif ($range eq 'day') { return strftime ('%Y%m%d', gmtime(int($time))); }
   elsif ($range eq 'week') { return strftime ('%Y%V', gmtime(int($time))); }
@@ -1203,6 +1204,12 @@ sub add_pseudocolumn
 }
 
 
+sub set_smallcolumns
+{
+    my ($self, $small) = @_;
+    $$self{SMALLCOLS} = $small;
+}
+
 
 # $class is the CSS class of the table, $stripe is the class of striped <tr>'s
 sub start
@@ -1229,9 +1236,11 @@ sub head
 	die "TableSpool::head called without any column information\n";
     }
 
+    print { $$self{FH} } "<thead>\n";
     print { $$self{FH} } "<tr>";
     print { $$self{FH} } "<th>$_</th>" foreach (@headers);
     print { $$self{FH} } "</tr>\n";
+    print { $$self{FH} } "</thead>\n";
 
     $$self{COLCNT} = scalar @headers;
 }
@@ -1241,6 +1250,9 @@ sub head
 sub row
 {
     my ($self, @row) = @_;
+
+    if ($$self{ROWCNT} == 0) { print { $$self{FH} } "<tbody>\n"; }
+
     if (ref $row[0] eq 'HASH') {
 	$self->hash_row($row[0]);
     } else {
@@ -1333,7 +1345,8 @@ sub hash_row
 sub finish
 {
     my ($self) = @_;
-    print { $$self{FH} } "</table>";
+    print { $$self{FH} } "</tbody>\n";
+    print { $$self{FH} } "</table>\n";
     return $$self{ROWCNT};
 }
 
@@ -4330,6 +4343,8 @@ sub new
   $$self{DEFAULT_GRAPH} = undef;
   $$self{GRAPH_ORDER} = [];
   $$self{GRAPHS} = {};
+  $$self{ENTITY_ORDER} = [qw(dest src link)];
+  $$self{ENTITIES} = {dest => 'Destination', src => 'Source', link => 'Link'};
   bless $self, $class;
   return $self;
 }
@@ -4337,7 +4352,7 @@ sub new
 sub myurl
 {
   my ($self, %args) = @_;
-  my @save = qw(plot graph entity filter upto);
+  my @save = qw(plot graph entity src_filter dest_filter upto);
 
   # Return bare link if we are switching pages
   return $self->SUPER::myurl(%args)
@@ -4357,7 +4372,8 @@ sub output
   my $plot = param("plot");
   my $graph = param("graph");
   my $entity = param("entity");
-  my $filter = param("filter") || '';
+  my $src_filter = param("src_filter") || '';
+  my $dest_filter = param("dest_filter") || '';
   my $upto = param("upto") || '';
   $plot = $$self{DEFAULT_PLOT} if (! $plot || ! exists $$self{PLOTS}{$plot});
   $graph = $$self{DEFAULT_GRAPH} if (! $graph || ! exists $$self{GRAPHS}{$graph});
@@ -4365,30 +4381,34 @@ sub output
 
   print { $$self{CONTENT} } "<p><form method='get' action='@{[$self->myurl()]}'>\n",
     "<label for='graph'>Graph</label>\n",
-    "<select name='graph' onchange='submit()'>\n",
-    (map { (" <option", ($graph eq $_ ? " selected='selected'" : ""),
-	    " value='$_'>$$self{GRAPHS}{$_}</option>\n") }
-     @{$$self{GRAPH_ORDER}}),
-    "</select>\n",
+  popup_menu(-name=>'graph', -onchange=>'submit()',
+	     -values=>$$self{GRAPH_ORDER},
+	     -labels=>$$self{GRAPHS}),
     "<label for='plot'>Period</label>\n",
-    "<select name='plot' onchange='submit()'>\n",
-    (map { (" <option", ($plot eq $_ ? " selected='selected'" : ""),
-            " value='$_'>$$self{PLOTS}{$_}[1]</option>\n") }
-     @{$$self{PLOT_ORDER}}),
-    "</select>\n",
+  popup_menu(-name=>'plot', -onchange=>'submit()',
+	     -values=>$$self{PLOT_ORDER},
+	     -labels=>{ map { $_ => $$self{PLOTS}{$_}[1] } @{$$self{PLOT_ORDER}} }),
     "<label for='entity'>By</label> ",
-    "<select name='entity' onchange='submit()'>",
-    " <option ", ($entity eq 'dest' ? "selected='selected'" : ''),
-    "  value='dest'>Destination</option>",
-    " <option ", ($entity eq 'src' ? "selected='selected'" : ''),
-    "  value='src'>Source</option>",
-    " <option ", ($entity eq 'link' ? "selected='selected'" : ''),
-    "  value='link'>Link</option>",
-    "</select>\n",
-    "<label for='filter'>Filter</label> ",
-    textfield(-name=>'filter', -default=>$filter, -size=>15,
-	      -title=>("Regular expression to match against node or link names. "
-                       ."Only those matching the expression will be shown.")), "\n",
+  popup_menu(-name=>'entity', -onchange=>'submit()', 
+	     -values=>$$self{ENTITY_ORDER},
+	     -labels=>$$self{ENTITIES}),
+  "<label for='filter'>Filter</label> ";
+  if ($entity eq 'link' || $entity eq 'src') {
+      print { $$self{CONTENT} }
+      "<label for='src_filter'>source</label> ",
+      textfield(-name=>'src_filter', -default=>$src_filter, -size=>15,
+		-title=>("Regular expression to match against node names. "
+			 ."Only those matching the expression will be shown."));
+  }
+  if ($entity eq 'link' || $entity eq 'dest') {
+      print { $$self{CONTENT} }
+      "<label for='dest_filter'>destination</label> ",
+      textfield(-name=>'dest_filter', -default=>$dest_filter, -size=>15,
+		-title=>("Regular expression to match against node names. "
+			 ."Only those matching the expression will be shown."));
+  }
+
+  print { $$self{CONTENT} }
     "<label for='upto'>Up to</label> ",
     textfield(-name=>'upto', -default=>$upto, -size=>15,
 	      -title=>("Time up to and including which results will be shown. "
@@ -4397,7 +4417,7 @@ sub output
 		       ."YYYYMMDD for daily plots;\n"
 		       ."YYYYMM for monthly plots;\n"
 		       ."YYYYWW for weekly plots.")), "\n",
-    "<input type='submit' value='Update'></form></p>\n";
+		       submit(-label=>'Update');
 
   my ($last, $unit) = $$self{PLOTS}{$plot}[0] =~ /([^:]+)/g;
   my %span = ("hour" => 3600, "day" => 86400, "week" => 7*86400, "month" => 86400);
@@ -4435,7 +4455,7 @@ sub output
   my $conn = $$self{DBID};
 
   my %args = ('conn' => $conn, 'unit' => $unit, 'span' => $span{$unit}, 'by' => $entity, 'last' => $last,
-              'filter' => $filter, 'upto' => $upto, 'starttime' => $start, 'endtime' => $end);
+              'src_filter' => $src_filter, 'dest_filter' => $dest_filter, 'upto' => $upto, 'starttime' => $start, 'endtime' => $end);
 
 
 #  use Data::Dumper;  print { $$self{CONTENT} } "<pre>", Dumper({%args}), "</pre>";
@@ -4475,11 +4495,8 @@ sub output_plot
 
   my $home = "$$self{CONFIG}{SERVICE_PATH}/cgi-bin/"; #"http://cmsdoc.cern.ch/cms/aprom/phedex/cgi-bin/";
 
-  my $to_node = '.*';
-  my $from_node = '.*';
-  if    ($args{by} eq 'dest' && $args{filter}) { $to_node = $args{filter}; }
-  elsif ($args{by} eq 'src' && $args{filter}) { $from_node = $args{filter}; }
-  elsif ($args{by} eq 'link' && $args{filter}) { $to_node = $from_node = $args{filter}; }
+  my $from_node = ($args{src_filter} ? $args{src_filter} : '.*');
+  my $to_node = ($args{dest_filter} ? $args{dest_filter} : '.*');
 
   my %graphargs = ('graph' => $graph,
 		   'from_node' => $from_node,
@@ -4492,8 +4509,6 @@ sub output_plot
 
   my $imgsrc = "${home}phedex-cgi.sh?". &urlencode(%graphargs);
 
-#  XXX No way to tell if the plot has errors.  Iframe doesn't work so well...
-#  print { $$self{CONTENT} } "<p><iframe width='100%' height='100%' frameborder='1' src='$imgsrc' /></iframe></p>";
   print { $$self{CONTENT} } "<p><img src='$imgsrc' /></p>";
 }
 
@@ -4516,12 +4531,13 @@ sub new
   my $self = $class->SUPER::new(@_);
   $$self{DEFAULT_GRAPH} = 'destined';
   $$self{GRAPH_ORDER} = [ 'destined', 'resident', 'pending', 'cooloff', 'request', 'idle' ];
-  $$self{GRAPHS} = { 'destined' => "Allocated volume",
-		     'resident' => "Resident volume",
-		     'pending' => "Transferable volume",
-		     'cooloff' => 'Transfer cool-off',
-		     'request' => "Currently routed",
-		     'idle' => "Routing cool-off" };
+  $$self{GRAPHS} = { 'destined' => "Allocated volume",    # by dest only
+		     'resident' => "Resident volume",     # by dest only
+		     'pending'  => "Transferable volume", # any
+		     'cooloff'  => 'Transfer cool-off',   # any
+		     'request'  => "Currently routed",    # by dest only
+		     'idle'     => "Routing cool-off" };  # by dest only
+  $$self{DEST_ONLY_GRAPHS} = [ qw( destined resident request idle ) ];
   bless $self, $class;
   return $self;
 }
@@ -4532,16 +4548,27 @@ sub output_plot
 
   my $home = "$$self{CONFIG}{SERVICE_PATH}/cgi-bin/"; #"http://cmsdoc.cern.ch/cms/aprom/phedex/cgi-bin/";
 
-  my $node = '.*';
-  if    ($args{filter}) { $node = $args{filter}; }
+  my $from_node = ($args{src_filter} ? $args{src_filter} : '.*');
+  my $to_node = ($args{dest_filter} ? $args{dest_filter} : '.*');
 
   my %graphargs = ('graph' => $graph,
-		   'node' => $node,
+		   'from_node' => $from_node,
+		   'to_node' => $to_node,
 		   'conn' => $args{conn},
 		   'link' => $args{by},
 		   'span' => $args{span},
 		   'starttime' => $args{starttime}, 
 		   'endtime' => $args{endtime});
+
+  my $dest_only = (grep($graph eq $_, @{$$self{DEST_ONLY_GRAPHS}}) ? 1 : 0);
+  if ($dest_only && $args{by} ne 'dest') {
+      $self->alert("The \"$$self{GRAPHS}{$graph}\" graph can only show data by destination");
+      return;
+  } elsif ($dest_only) {
+      $graphargs{node} = $to_node;
+      delete $graphargs{from_node};
+      delete $graphargs{to_node};
+  }
 
   my $imgsrc = "${home}phedex-cgi.sh?". &urlencode(%graphargs);
 
@@ -4581,11 +4608,8 @@ sub output_plot
 
   my $home = "$$self{CONFIG}{SERVICE_PATH}/cgi-bin/"; #"http://cmsdoc.cern.ch/cms/aprom/phedex/cgi-bin/";
 
-  my $to_node = '.*';
-  my $from_node = '.*';
-  if    ($args{by} eq 'dest' && $args{filter}) { $to_node = $args{filter}; }
-  elsif ($args{by} eq 'src' && $args{filter}) { $from_node = $args{filter}; }
-  elsif ($args{by} eq 'link' && $args{filter}) { $to_node = $from_node = $args{filter}; }
+  my $from_node = ($args{src_filter} ? $args{src_filter} : '.*');
+  my $to_node = ($args{dest_filter} ? $args{dest_filter} : '.*');
 
   my %graphargs = ('graph' => $graph,
 		   'to_node' => $to_node,
@@ -6419,6 +6443,14 @@ sub output
   $dbtable->set_filehandle($$self{CONTENT});
   $dbtable->set_tableclass('data');
   $dbtable->set_stripeclass('stripe');
+  $dbtable->set_tablehead({ DATASET => 'Dataset',
+			    BLOCK => 'Block',
+			    NODE => 'Node',
+			    TIME_REQUEST => 'Requested',
+			    TIME_COMPLETE => 'Completed' });
+  $dbtable->set_dataformats({ TIME_REQUEST  => sub { &formatTime($_[0], 'stamp') },
+			      TIME_COMPLETE => sub { $_[0] ? &formatTime($_[0], 'stamp') : 'Pending' } });
+  
   $dbtable->output($q);
 
   my $del_url = $self->myurl('page' => 'Data::DeleteConfirm');
