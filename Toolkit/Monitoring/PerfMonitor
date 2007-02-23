@@ -453,7 +453,7 @@ sub compactLinkData
     {
 	if ($suffix ne 'events')
 	{
-	    if ($$s{TIMETOT})
+	    if ($$s{TIMETOT} && defined $$s{PARAM_RATE} && defined $$s{PARAM_LATENCY})
 	    {
 	        $$s{PARAM_RATE} /= $$s{TIMETOT};
 	        $$s{PARAM_LATENCY} /= $$s{TIMETOT};
