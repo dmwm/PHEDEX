@@ -170,7 +170,7 @@ sub idle
 	    merge into t_history_link_stats h using
 	      (select :timebin timebin, :timewidth timewidth,
 	      	      from_node, to_node, priority, files, bytes
-		from t_status_path) v
+		from t_status_path where is_valid = 1) v
 	    on (h.timebin = v.timebin and
 	        h.from_node = v.from_node and
 		h.to_node = v.to_node and
