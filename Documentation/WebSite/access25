@@ -4379,45 +4379,53 @@ sub output
   $graph = $$self{DEFAULT_GRAPH} if (! $graph || ! exists $$self{GRAPHS}{$graph});
   $entity = 'dest' if (! $entity || ! grep($_ eq $entity, qw(dest src link)));
 
-  print { $$self{CONTENT} } "<p><form method='get' action='@{[$self->myurl()]}'>\n",
-    "<label for='graph'>Graph</label>\n",
+  print { $$self{CONTENT} } 
+  "<form method='get' action='@{[$self->myurl()]}' class='nice'>\n",
+  "<label for='graph' class='inline'>Graph</label>\n",
   popup_menu(-name=>'graph', -onchange=>'submit()',
 	     -values=>$$self{GRAPH_ORDER},
-	     -labels=>$$self{GRAPHS}),
-    "<label for='plot'>Period</label>\n",
-  popup_menu(-name=>'plot', -onchange=>'submit()',
-	     -values=>$$self{PLOT_ORDER},
-	     -labels=>{ map { $_ => $$self{PLOTS}{$_}[1] } @{$$self{PLOT_ORDER}} }),
-    "<label for='entity'>By</label> ",
+	     -labels=>$$self{GRAPHS},
+	     -class=>'labeled'),
+  "<label for='entity' class='inline'>by</label> ",
   popup_menu(-name=>'entity', -onchange=>'submit()', 
 	     -values=>$$self{ENTITY_ORDER},
-	     -labels=>$$self{ENTITIES}),
-  "<label for='filter'>Filter</label> ";
+	     -labels=>$$self{ENTITIES},
+	     -class=>'labeled'),
+  "<label class='inline'>filter</label>";
+
   if ($entity eq 'link' || $entity eq 'src') {
       print { $$self{CONTENT} }
-      "<label for='src_filter'>source</label> ",
+      ($entity eq 'link' ? "<label class='inline' for='src_filter'>source</label>" : ''),
       textfield(-name=>'src_filter', -default=>$src_filter, -size=>15,
 		-title=>("Regular expression to match against node names. "
-			 ."Only those matching the expression will be shown."));
+			 ."Only those matching the expression will be shown."),
+		-class=>'labeled');
   }
   if ($entity eq 'link' || $entity eq 'dest') {
       print { $$self{CONTENT} }
-      "<label for='dest_filter'>destination</label> ",
+      ($entity eq 'link' ? "<label class='inline' for='dest_filter'>destination</label>" : ''),
       textfield(-name=>'dest_filter', -default=>$dest_filter, -size=>15,
 		-title=>("Regular expression to match against node names. "
-			 ."Only those matching the expression will be shown."));
+			 ."Only those matching the expression will be shown."),
+		-class=>'labeled');
   }
-
   print { $$self{CONTENT} }
-    "<label for='upto'>Up to</label> ",
-    textfield(-name=>'upto', -default=>$upto, -size=>15,
-	      -title=>("Time up to and including which results will be shown. "
-		       ."Specify the time in format matching the selected plot type:\n"
-		       ."YYYYMMDDZHHMM for hourly plots;\n"
-		       ."YYYYMMDD for daily plots;\n"
-		       ."YYYYMM for monthly plots;\n"
-		       ."YYYYWW for weekly plots.")), "\n",
-		       submit(-label=>'Update');
+  "<br/>",
+  "<label for='plot' class='inline'>Period</label>\n",
+  popup_menu(-name=>'plot', -onchange=>'submit()',
+	     -values=>$$self{PLOT_ORDER},
+	     -labels=>{ map { $_ => $$self{PLOTS}{$_}[1] } @{$$self{PLOT_ORDER}} },
+	     -class=>'labeled'),
+  "<label for='upto' class='inline'>up to</label>",
+  textfield(-name=>'upto', -default=>$upto, -size=>15,
+	    -title=>("Time up to and including which results will be shown. "
+		     ."Specify the time in format matching the selected plot type:\n"
+		     ."YYYYMMDDZHHMM for hourly plots;\n"
+		     ."YYYYMMDD for daily plots;\n"
+		     ."YYYYMM for monthly plots;\n"
+		     ."YYYYWW for weekly plots."),
+	    -class=>'labeled'),
+		     submit(-label=>'Update', -class=>'labeled'), "<br/>";
 
   my ($last, $unit) = $$self{PLOTS}{$plot}[0] =~ /([^:]+)/g;
   my %span = ("hour" => 3600, "day" => 86400, "week" => 7*86400, "month" => 86400);

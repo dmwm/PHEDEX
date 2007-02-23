@@ -703,16 +703,23 @@ table.data td.alarm {
 .nice label,
 .nice .labeled {
   position:  relative;
-  display: block;
   float: left;
   margin-bottom: 0.5em;
+  margin-right: 0.5em;
 }
 
 .nice label {
+  display: block;
   width:  12em;
-  padding-right:  1em;
   font-weight:  bold;
   text-align:  right;
+  margin-right:  1em;
+}
+
+.nice label.inline {
+  width:  auto;
+  text-align:  left;
+  margin-right:  0.5em;
 }
 
 .nice label .note {
