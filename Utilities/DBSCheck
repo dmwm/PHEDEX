@@ -61,20 +61,20 @@ if(!$args{DBCONFIG} || (!$args{BLOCK} && !$args{DATASET}) || ((!$args{DBSADDRESS
 if ($args{DATASET}){
 	print "\nGetting datasets...";	
 	my $datasets = [ split m|,\s*|, $args{DATASET} ];
-
+	my @fn_datasets = ();
 	foreach $data (@$datasets){
 		if ($data =~ '%'){
 			$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
 			my $tmp = getDatasetFromWildCard ($data);
 		        $dbh->disconnect();
 			for $i (@$tmp){
-				push (@$datasets, $i);
+				push (@fn_datasets, $i);
 			}
 		}
 	}
 	print "\ndone!";
 
-	foreach $data (@$datasets){
+	foreach $data (@fn_datasets){
 		print "\nGetting blocks from: $data";
 		if ($args{AUTO}){
 			$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);	
@@ -99,13 +99,13 @@ if ($args{DATASET}){
 	&compareBlocks();
 	print "\ndone!";
 	foreach $block (keys %info_Blocks_TMDB){
-		print "\nGetting files from: $block";
+		print "\nTMDB-> getting files from: $block";
 		&checkBlock($block);
 	}
 	print "\ndone!";
 
         foreach $block (keys %info_Blocks_DBS){
-                print "\nGetting files from: $block";
+                print "\nDBS-> getting files from: $block";
                 &checkBlock($block);
         }
         print "\ndone!";
@@ -114,23 +114,22 @@ if ($args{DATASET}){
 elsif ($args{BLOCK}) {
 
 	my $blocks = [ split m|,\s*|, $args{BLOCK} ];
-	$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
+	my @fn_blocks = ();
 	foreach my $block (@$blocks){
 		if ($block =~ '%'){
 			$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
 			my $tmp = &getBlocksFromWildCard ($block);
 			for $i (@$tmp){
-				push (@$blocks, $i);
+				push (@fn_blocks, $i);
 			}
 		}
 	}
-
-
+	$dbh->disconnect();
 	
-	foreach my $block (@$blocks) {
+	foreach my $block (@fn_blocks) {
 		print "\nGetting files from: $block";
 		if ($args{AUTO}){
- #			$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);	
+			$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);	
 			my @tmp=&getURL_DBSAddress($block, "block");
 			$args{DBSURL}[0]=$tmp[0];
 			$args{DBSADDRESS}[0]=$tmp[1];
