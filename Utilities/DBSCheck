@@ -114,6 +114,7 @@ if ($args{DATASET}){
 elsif ($args{BLOCK}) {
 
 	my $blocks = [ split m|,\s*|, $args{BLOCK} ];
+	$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
 	foreach my $block (@$blocks){
 		if ($block =~ '%'){
 			$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
@@ -123,12 +124,13 @@ elsif ($args{BLOCK}) {
 			}
 		}
 	}
-	$dbh->disconnect();
+
+
 	
 	foreach my $block (@$blocks) {
 		print "\nGetting files from: $block";
 		if ($args{AUTO}){
-			$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);	
+ #			$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);	
 			my @tmp=&getURL_DBSAddress($block, "block");
 			$args{DBSURL}[0]=$tmp[0];
 			$args{DBSADDRESS}[0]=$tmp[1];
