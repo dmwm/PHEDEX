@@ -83,7 +83,7 @@ create table t_xfer_delete
 -- priority in block destination and file request, confirmation:
 --   0 = "now", 1 = "as soon as you can", 2 = "whenever you can"
 
--- priority in transfers: (priority-level) * 2 + (for-me ? 1 : 0)
+-- priority in transfers: (priority-level) * 2 + (for-me ? 0 : 1)
 --   0 = now, destined for my site
 --   1 = now, destined for someone else
 --   2 = quicky, destined for my site
