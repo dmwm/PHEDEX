@@ -2,7 +2,7 @@
 
   <import module="phedex.database.queries">SqlQueries</import>
   <import module="time"/> 
-  <import file="$GRAPH_ROOT/config2.5/DBParam.xml" />
+  <import file="$GRAPH_CONFIG_ROOT/DBParam.xml" />
 
   <class type="SqlQueries" name="GenericQuery">
 

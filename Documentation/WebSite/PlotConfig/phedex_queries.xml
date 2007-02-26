@@ -1,6 +1,6 @@
 <phedex>
 
-  <import file="$GRAPH_ROOT/config2.5/generic_queries.xml" />
+  <import file="$GRAPH_CONFIG_ROOT/generic_queries.xml" />
 
   <class type="SqlQueries" name="PhedexQueries">
 
