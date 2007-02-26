@@ -119,12 +119,12 @@ elsif ($args{BLOCK}) {
 		if ($block =~ '%'){
 			$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
 			my $tmp = &getBlocksFromWildCard ($block);
+		        $dbh->disconnect();
 			for $i (@$tmp){
 				push (@fn_blocks, $i);
 			}
 		}
 	}
-	$dbh->disconnect();
 	
 	foreach my $block (@fn_blocks) {
 		print "\nGetting files from: $block";
