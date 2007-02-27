@@ -4786,7 +4786,7 @@ sub output
     select
       time_update,
       nd.name, ns.name,
-      state,
+      state, priority,
       files, bytes
     from t_status_task xs
       join t_adm_node ns on ns.id = xs.from_node
@@ -4799,7 +4799,7 @@ sub output
     "<p><table class='striped'>\n",
     "<tbody>\n",
     "<tr class='selected'>\n",
-    " <th colspan='8' align='center'>Transfer State Details</th>\n",
+    " <th colspan='10' align='center'>Transfer State Details</th>\n",
     "</tr>\n",
     "<tr class='selected'>",
     " <th rowspan='2'>Age</th>\n",
@@ -4807,6 +4807,8 @@ sub output
     " <th>&nbsp;</th>\n",
     " <th>From Node</th>\n",
     " <th rowspan='2'>State</th>\n",
+    " <th rowspan='2'>Transfer</th>\n",
+    " <th rowspan='2'>Priority</th>\n",
     " <th rowspan='2'>N Files</th>\n",
     " <th rowspan='2'>Size</th>\n",
     " <th rowspan='2'>Detail</th>\n",
@@ -4837,7 +4839,7 @@ sub output
     {
 	my ($stamp,
 	    $to_node, $from_node,
-	    $state,
+	    $state, $priority,
 	    $files, $bytes) = @$row;
 
 	next if (($fromfilter || $tofilter)
@@ -4850,6 +4852,11 @@ sub output
 	$total{$state}{FILES} += $files;
 	$total{$state}{BYTES} += $bytes;
 	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
+	my $transfer_name = ($priority % 2 == 0 ? 'Local' : 'Remote'); # Local even, remote odd
+	my $priority_name = ($priority == 0 || $priority == 1 ? 'High'
+			     : $priority == 2 || $priority == 3 ? 'Normal'
+			     : $priority == 4 || $priority == 5 ? 'Low'
+			     : 'unknown');
 	my $state_name = ($state == 0 ? "assigned"
 			  : $state == 1 ? "exported"
 			  : $state == 2 ? "transferring"
@@ -4858,7 +4865,8 @@ sub output
 	my $url = $self->myurl("page" => "Activity::FileInfo",
 			       "to_node" => $to_node,
 			       "from_node" => $from_node,
-			       "state" => $state_name
+			       "state" => $state_name,
+			       "priority" => $priority
 			       );
 	print { $$self{CONTENT} }
 	"<tr>\n",
@@ -4866,7 +4874,9 @@ sub output
 	" <td>$to_node</td>\n",
 	" <td align='right'>&nbsp;</td>\n",
 	" <td>$from_node</td>\n",
-	" <td align='left'>$state_name</td>\n", # ($from_state_name)
+	" <td align='left'>$state_name</td>\n",
+	" <td align='left'>$transfer_name</td>\n",
+	" <td align='left'>$priority_name</td>\n",
 	" <td align='right'>@{[&format_num($files)]}</td>\n",
 	" <td align='right'>@{[&format_size($bytes)]}</td>\n",
 	" <td align='center'><a href='$url'>(Files)</a></td>\n",
@@ -4889,6 +4899,8 @@ sub output
         "<tr>\n",
         " <th align='left' colspan='2'>", ($first_total ? "Total" : "&nbsp;"), "</th>\n",
         " <th align='right'>&nbsp;</td>\n",
+	" <th align='right'>&nbsp;</td>\n",
+	" <th align='right'>&nbsp;</td>\n",
 	" <th align='right'>&nbsp;</td>\n",
 	" <th align='right'>$state_name</td>\n",
 	" <th align='right'>@{[&format_num($total{$state}{FILES})]}</th>\n",
@@ -5031,9 +5043,11 @@ sub output
   my $to_node = param('to_node');
   my $from_node = param('from_node');
   my $state = param('state');
+  my $priority = param('priority');
   if (! defined $to_node || $to_node eq ''
       || ! defined $from_node || $from_node eq ''
       || ! defined $state || $state eq ''
+      || ! defined $priority || $priority eq ''
       )
   {
     print { $$self{CONTENT} }
@@ -5074,12 +5088,14 @@ sub output
               and err.to_node = xt.to_node
     where ns.name = :from_node
       and nd.name = :to_node
+      and xt.priority = :priority
       $state_where
       order by xt.time_assign, f.logical_name};
 
   my $query = &dbexec($$self{DBH}, $sql, 
 		      ':from_node' => $from_node,
-		      ':to_node' => $to_node);
+		      ':to_node' => $to_node,
+		      ':priority' => $priority);
   print { $$self{CONTENT} }
     "<h1>Files $state from $from_node to $to_node.</h1>\n",
     "<ol align='left'>\n";
