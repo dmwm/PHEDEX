@@ -921,7 +921,7 @@ sub sizeValue
 }
 
 # Takes an array of user data clobs and parses out single dataset and block globs
-# Returns a hash of key:  glob pattern value: is_valid
+# Returns a hash of key:  glob pattern value: item type (DATASET or BLOCK)
 sub parse_userdata
 {
     my ($self, @userdata) = @_;
@@ -930,10 +930,10 @@ sub parse_userdata
 	$string =~ s/^\s+//;  $string =~ s/\s+$//;
 	my @data = split(/\s+/, $string);
 	foreach my $item (@data) {
-	    if ($item !~ m<^/[^/]+/[^/]+(/[^/]+|\#[^\#]+)$>) {
-		$parsed{$item} = 0;
+	    if ($item =~ m<^/[^/]+/[^/]+(/[^/]+|\#[^\#]+)$>) {
+		$parsed{$item} = ($1 =~ /\#/ ? 'BLOCK' : 'DATASET');
 	    } else {
-		$parsed{$item} = 1;
+		$parsed{$item} = undef;
 	    }
 	}
     }
@@ -986,10 +986,9 @@ sub resolve_data
     foreach my $level (qw(DATASET BLOCK)) {
 	$$all{$level} = [];
     }
-
     foreach my $userglob (@userdata) {
 	$$resolved{$userglob} = [];
-	my $level = ($userglob =~ m|/.+\#\d+$| ? 'BLOCK' : 'DATASET');
+	my $level = ($userglob =~ m/\#/ ? 'BLOCK' : 'DATASET');
 
 	# Search the DPS for the user's glob
 	my $sql;
@@ -1013,7 +1012,7 @@ sub resolve_data
 	while (my $row = $q->fetchrow_hashref()) {
 	    my $name = $$row{$level};
 	    my $id = $$row{$level.'_ID'};
-	    next unless $name =~ /$pattern/;
+	    next unless $name =~ $pattern;
 
 	    # Redundancy checking
 	    if ($id == $lastid) {
@@ -1191,7 +1190,7 @@ sub set_cellformats
 sub set_rowformats
 {
     my ($self, $rf) = @_;
-    $$self{rowformats} = $rf;
+    $$self{ROWFORMATS} = $rf;
 }
 
 # $pseudocols : hash with key 'name' (column name) and value 'generator' (sub ref)
@@ -1205,14 +1204,8 @@ sub add_pseudocolumn
 }
 
 
-sub set_smallcolumns
-{
-    my ($self, $small) = @_;
-    $$self{SMALLCOLS} = $small;
-}
 
-
-# $class is the CSS class of the table, $stripe is the class of striped <tr>'s
+# Print the beginning of the table
 sub start
 {
     my ($self) = @_;
@@ -1252,7 +1245,9 @@ sub row
 {
     my ($self, @row) = @_;
 
-    if ($$self{ROWCNT} == 0) { print { $$self{FH} } "<tbody>\n"; }
+    if ($$self{ROWCNT} == 0) { 
+	print { $$self{FH} } "<tbody>\n"; 
+    }
 
     if (ref $row[0] eq 'HASH') {
 	$self->hash_row($row[0]);
@@ -3526,7 +3521,7 @@ sub output
       $confirmok = 0;
   }
 
-  if ($confirmok && param('go_ahead') eq 'y') {
+  if ($confirmok && param('go_ahead') && param('go_ahead') eq 'y') {
       $self->write_request('email' => $email,
 			   'comment' => $comment,
 			   'dbs' => $dbs,
@@ -3663,7 +3658,7 @@ sub output
 
   unless ($problems) {
       print { $$self{CONTENT} }
-      hidden(-name=>'go_ahead', -default=>'y'),
+      hidden(-name=>'go_ahead', -value=>'y'),
       "<p><center>", submit(-value=>'Confirm'), "</p>";
   } else {
       $self->alert("Sorry, due to the problems with your request (in red) it cannot be submitted.  ",
@@ -5270,6 +5265,17 @@ sub new
   return $self;
 }
 
+sub init
+{
+    my $self = shift @_;
+    $$self{NODE_LIST} = [ sort_name $self->node_list() ];
+    my %nodesel = defined param('node')
+	? (map { $_ => 1 } param('node'))
+	: (map { $$_{ID} => 1 } grep($$_{NAME} =~ /CERN_MSS/, @{$$self{NODE_LIST}}));
+    $$self{NODE_SHOWN} = [ grep($nodesel{$$_{ID}}, @{$$self{NODE_LIST}}) ];
+    $$_{IS_SHOWN} = 1 for @{$$self{NODE_SHOWN}};
+}
+
 sub myurl
 {
   my ($self, %args) = @_;
@@ -5686,13 +5692,6 @@ sub fetch_data
   # Fetch per-node replicas for datasets, blocks and files in expanded view
   if (ref ($self) !~ /Datasets/)
   {
-    $$self{NODE_LIST} = [ sort_name $self->node_list() ];
-    my %nodesel = defined param('node')
-      ? (map { $_ => 1 } param('node'))
-      : (map { $$_{ID} => 1 } grep($$_{NAME} =~ /CERN_MSS/, @{$$self{NODE_LIST}}));
-    $$self{NODE_SHOWN} = [ grep($nodesel{$$_{ID}}, @{$$self{NODE_LIST}}) ];
-    $$_{IS_SHOWN} = 1 for @{$$self{NODE_SHOWN}};
-      
     $self->dataset_replicas(@{$$self{DATASET_LIST}})
       if @{$$self{DATASET_LIST}};
 
@@ -5756,8 +5755,8 @@ sub node_form
   my $form = "";
 
   $form .= "<div id='nodechoice'>\n";
-  $form .= "<input type='submit' value='Select all' onclick=\"select_all('nodechoice', 'node', '1')\"/>\n",
-  $form .= "<input type='submit' value='Select none' onclick=\"select_all('nodechoice', 'node', '0')\"/>\n",
+  $form .= "<input type='button' value='Select all' onclick=\"select_all('nodechoice', 'node', '1')\"/>\n",
+  $form .= "<input type='button' value='Select none' onclick=\"select_all('nodechoice', 'node', '0')\"/>\n",
 
   my (@all, @columns) = @{$$self{NODE_LIST}};
   my $percolumn = int(scalar(@all)/4 + 0.5);
@@ -5828,7 +5827,7 @@ sub output
 
   # Apply form options and fetch the data we show on this form
   $self->apply_options();
-  $self->fetch_data();
+  $self->init();
   $self->output_page();
   $self->output_options_form();
 }
@@ -5859,6 +5858,8 @@ sub new
 sub output_page
 {
   my ($self) = @_;
+
+  $self->fetch_data(); # puts all data into $self
 
   my ($filter, $filterform) = $self->output_filter();
 
@@ -6271,12 +6272,13 @@ sub output_page
   if ($adminok) {
       print { $$self{CONTENT} }
       "<p><label>Selections:</label>\n",
-      "<input type='submit' value='Select all' onclick=\"select_all('subsform', 's_id', '1')\"/>\n",
-      "<input type='submit' value='Select none' onclick=\"select_all('subsform', 's_id', '0')\"/>\n",
+      "<input type='button' value='Select all' onclick=\"select_all('subsform', 's_id', '1')\"/>\n",
+      "<input type='button' value='Select none' onclick=\"select_all('subsform', 's_id', '0')\"/>\n",
       "</p>\n";
 
       my $target = $self->myurl();
-      print { $$self{CONTENT} } "<form id='subsform' method='post' action='$target'>",
+      print { $$self{CONTENT} }
+      "<form id='subsform' method='post' action='$target'>",
       $self->saveform(),
       "<p>\n",
       "<label>Actions:</label>\n",
@@ -6396,6 +6398,7 @@ sub output_options_form
 sub data_subscriptions
 {
   my ($self) = @_;
+  $self->fetch_nodes();
   my @node_ids = map { $$_{IS_SHOWN} ? $$_{ID} : '' } @{$$self{NODE_LIST}};
   @node_ids = grep /\d+/, @node_ids;
   my ($where_list) = join(' or ', map { "n.id=$_"} @node_ids );
@@ -6449,72 +6452,107 @@ sub output
   my ($self) = @_;
 
   my $adminok = $self->alert_auth(need => 'siteadmin', power => 'delete datasets and blocks');
+  if ($adminok) {
+      $self->deletion_form();
+  }
+  $self->deletion_queue();
+}
 
-  print { $$self{CONTENT} }
-  "<h1>Deletion Queue</h1>",
-  "<p>This table contains the data items which are queued for deletion.</p>";
-  
-  my $sql = qq{ select ds.name dataset, b.name block, n.name node, del.time_request, del.time_complete
-                  from t_dps_block_delete del
-	 	  join t_dps_block b on b.id = del.block
-		  join t_dps_dataset ds on ds.id = del.dataset
-		  join t_adm_node n on n.id = del.node
- 	      order by del.time_complete desc, del.time_request desc };
+sub deletion_form
+{
+    my $self = shift @_;
 
-  my $q = &dbexec($$self{DBH}, $sql);
+    my $del_url = $self->myurl('page' => 'Data::DeleteConfirm');
+    my @nodes = sort $self->fetch_nodes(web_user_auth => 1);
+    
+    print { $$self{CONTENT} }
+    "<h1>Delete Data</h1>",
+    "<p>Enter the data items you would like to delete.  Deletions are ",
+    "added to the queue and are actually deleted when the deletion agents ",
+    "get around to it.</p>",
+    
+    "<form class='nice' method='post' action='$del_url'>";
 
-  my $dbtable = new Web25::DBTable;
-  $dbtable->set_filehandle($$self{CONTENT});
-  $dbtable->set_tableclass('data');
-  $dbtable->set_stripeclass('stripe');
-  $dbtable->set_tablehead({ DATASET => 'Dataset',
-			    BLOCK => 'Block',
-			    NODE => 'Node',
-			    TIME_REQUEST => 'Requested',
-			    TIME_COMPLETE => 'Completed' });
-  $dbtable->set_dataformats({ TIME_REQUEST  => sub { &formatTime($_[0], 'stamp') },
-			      TIME_COMPLETE => sub { $_[0] ? &formatTime($_[0], 'stamp') : 'Pending' } });
-  
-  $dbtable->output($q);
+    if ($$self{AUTH_GLOBAL_ADMIN}) {
+	print {$$self{CONTENT}}
+	"<label>Nodes:</label>",
+	"<div class='labeled'  style='font-size:8pt;width:450px;height:150px;overflow:scroll;border:thin solid black;' >",
+	"<table><tr valign='top'>",
+	"  <td>\n",
+	(map { &striplabels(checkbox(-name=>'node', -label=>'', -value=>$_)."$_<br/>") }
+	 sort grep (/^T1_|T0_/, @nodes)),
+	"  </td>\n",
+	"  <td>\n",
+	(map { &striplabels(checkbox(-name=>'node', -label=>'', -value=>$_)."$_<br/>") }
+	 grep (/^T2_/, @nodes)),
+	"  </td>\n",
+	"  <td>\n",
+	(map { &striplabels(checkbox(-name=>'node', -label=>'', -value=>$_)."$_<br/>") }
+	 grep (! /^T[012]_/, @nodes)),
+	"  </td>\n",
+	" </tr></table></div><br/>\n";
+    } else {
+	print {$$self{CONTENT}}
+	"<label>Node:</label>",
+	popup_menu(-name=>'node', -values=>[@nodes], -class=>'labeled'),
+	"<br/>";
+    }
+    
+    print {$$self{CONTENT}}
+    "<label>Data Items:<br/><br/>",
+    "<span class='note'>/Primary/Tier/Dataset<br/>or<br/>",
+    "/Primary/Dataset#Block<br/>(Use * as wildcard)</span><br/>",
+    &help("More Help", "Data Item List", 
+	  "A whitespace separated list of the datasets or blocks you are ",
+	  "deleting.  Glob-style wildcards may be used, but the data ",
+	  "tier separators are required.  E.g. to subscribe to all ",
+	  "datasets you would have to write '/*/*/*', not '*'."), 
+    "</label>\n",
+    textarea(-name=>'data', -value=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), 
+    "<br/>",
 
-  my $del_url = $self->myurl('page' => 'Data::DeleteConfirm');
+    "<label>Remove Subscriptions?:</label>",
+    popup_menu(-name=>'rm_subscriptions', -values=>[qw(y n)], -labels=>{y => 'Yes', n => 'No'}, -class=>'labeled'),
+    &help("[what's this?]", "Remove Subscriptions",
+	  "If you choose not to remove the subscription when deleting data PhEDEx will ",
+	  "retransfer the data to your node after the deletion is complete."),
+    "<br/>",
 
-  my @nodes = $self->fetch_nodes();
+    "<label>&nbsp;</label>", 
+    submit(-class=>'labeled', -value=>'Go to Confirmation'), "<br/>",
+    "</form>";
+}
 
-  unless ($adminok) { return; }
+sub deletion_queue
+{
+    my $self = shift @_;
 
-  print { $$self{CONTENT} }
-  "<h1>Delete Data</h1>",
-  "<p>Enter the datasets you would like to delete.  Deletions are ",
-  "added to the queue and are actually deleted when the deletion agents ",
-  "get around to it.</p>",
-
-  "<form class='nice' method='post' action='$del_url'>",
-
-  "<label>Node:</label>",
-  popup_menu(-name=>'node', -values=>[@nodes], -class=>'labeled'),
-  "<br/>",
-
-  "<label>Data Items:<br/><br/>",
-  "<span class='note'>/Primary/Tier/Dataset<br/>or<br/>",
-  "/Primary/Dataset#Block<br/>(Use * as wildcard)</span><br/>",
-  &help("More Help", "Data Item List", 
-	"A whitespace separated list of the datasets or blocks you are ",
-	"deleting.  Glob-style wildcards may be used, but the data ",
-	"tier separators are required.  E.g. to subscribe to all ",
-	"datasets you would have to write '/*/*/*', not '*'."), 
-  "</label>\n",
-  textarea(-name=>'data', -value=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), 
-  "<br/>",
-
-  "<label>Remove Subscriptions?:</label>",
-  popup_menu(-name=>'rm_subscriptions', -values=>[qw(y n)], -labels=>{y => 'Yes', n => 'No'}, -class=>'labeled'),
-  "<br/>",
-
-  "<label>&nbsp;</label>", 
-  submit(-class=>'labeled', -value=>'Go to Confirmation'),
-  "</form>";
-
+    print { $$self{CONTENT} }
+    "<h1>Deletion Queue</h1>",
+    "<p>This table contains the blocks which are queued for deletion.</p>";
+    
+    my $sql = qq{ select n.name node, ds.name dataset, b.name block, del.time_request, del.time_complete
+		      from t_dps_block_delete del
+		      join t_dps_block b on b.id = del.block
+		      join t_dps_dataset ds on ds.id = del.dataset
+		      join t_adm_node n on n.id = del.node
+		      order by del.time_complete desc, del.time_request desc };
+    
+    my $q = &dbexec($$self{DBH}, $sql);
+    
+    my $dbtable = new Web25::DBTable;
+    $dbtable->set_filehandle($$self{CONTENT});
+    $dbtable->set_tableclass('data');
+    $dbtable->set_stripeclass('stripe');
+    $dbtable->set_tablehead({ DATASET => 'Dataset',
+			      BLOCK => 'Block',
+			      NODE => 'Node',
+			      TIME_REQUEST => 'Requested',
+			      TIME_COMPLETE => 'Completed' });
+    $dbtable->set_dataformats({ TIME_REQUEST  => sub { &formatTime($_[0], 'stamp') },
+				TIME_COMPLETE => sub { $_[0] ? &formatTime($_[0], 'stamp') : 'Pending' } });
+    
+    $dbtable->output($q);
 }
 
 1;
@@ -6544,6 +6582,11 @@ sub output
 {
     my ($self) = @_;
 
+    if (request_method() ne 'POST') {
+    	alert($self, "This form can only be accessed with 'POST' method.");
+	return;
+    }
+
     my $adminok = $self->alert_auth(need => 'siteadmin', power => 'delete datasets and blocks');
     return unless ($adminok);
 
@@ -6554,7 +6597,10 @@ sub output
     }
 
     my $data = param('data');
+    unless ($data) { $self->alert("No data items given"); $bad = 1; }
     my @nodes = param('node');
+    unless (@nodes) { $self->alert("No nodes given"); $bad = 1; }
+
     my $rm_subscriptions = (param('rm_subscriptions') eq 'y' ? 1 : 0);
 
     my @auth_nodes = $self->fetch_nodes(web_user_auth => 1);
@@ -6577,6 +6623,8 @@ sub output
 
     return if $bad;
 
+#    &dump_var($$self{CONTENT}, 'userdata', {%userdata});
+
     # Find matches in replicas tables for the given nodes
     my ($node_list, %node_binds) = &dbinlist('node', @nodes);
     my $sql = qq{select n.id node_id, n.name node,
@@ -6595,36 +6643,87 @@ sub output
 
     my $q = &dbexec($$self{DBH}, $sql, %node_binds);
     my @matches;
+    my %usermatch = map { $_ => 0 } keys %userdata;
+    my $blockwarnings = 0;
     ITEM: while (my $row = $q->fetchrow_hashref()) {
 	foreach (keys %userdata) {
+	    my $kind = $userdata{$_}; # DATASET or BLOCK
 	    my $pattern = glob_to_regex($_);
-	    if ($$row{DATASET} =~ /$pattern/ || $$row{BLOCK} =~ /$pattern/) {
+	    if ($$row{$kind} =~ $pattern) {
+		if ($rm_subscriptions && $kind eq 'BLOCK' && $$row{DATASET_SUBSCRIBED} eq 'y') {
+		    $$row{BLOCKWARN} = 1;
+		    $blockwarnings++;
+		}
 		push @matches, $row;
+		$usermatch{$_}++;
 		next ITEM;
 	    }
 	}
     }
+    my @nomatch = grep $usermatch{$_} == 0, keys %usermatch;
+
+ #   &dump_var($$self{CONTENT}, 'matches', [@matches]);
 
     if (!param('execute')) {
-	print {$$self{CONTENT}}
-	"<h1>Confirm Deletion</h1>",
-	"<p>The following blocks matched your selection and will be deleted upon your confirmation.</p>";
+	if (@matches) {
+	    print {$$self{CONTENT}}
+	    "<h1>Confirm Deletion</h1>",
+	    "<p>The following blocks matched your selection and will be deleted upon your confirmation.</p>",
+	    ($rm_subscriptions ? "<p>Subscriptions, where they exist,  will also be deleted.</p>" :
+	     "<p>Subscriptions will <b>not</b> be removed, so you can expect a retransfer to be initiated</p>");
+	    
+	    # List matches for user confirmation
+	    my $table = new Web25::TableSpool;
+	    $table->set_filehandle($$self{CONTENT});
+	    $table->set_tableclass('data');
+	    $table->set_stripeclass('stripe');
+	    $table->set_tablecols([qw(NODE DATASET BLOCK SUBSCRIBED BYTES)]);
+	    $table->set_tablehead({NODE => 'Node',
+				   DATASET => 'Dataset',
+				   BLOCK => 'Block',
+				   SUBSCRIBED => 'Block Subscribed?',
+				   BYTES => 'Bytes' });
+	    $table->add_pseudocolumn( SUBSCRIBED => sub { my ($ds, $b) = ($_[1]->{DATASET_SUBSCRIBED}, 
+									  $_[1]->{BLOCK_SUBSCRIBED});
+							  if ($ds eq 'y') { return 'Yes, via dataset'; }
+							  elsif ($b eq 'y') { return 'Yes' }
+							  else { return 'No' } });
+	    $table->set_dataformats({ BYTES => sub { &format_size($_[0]) } });
+	    $table->set_rowformats({ BLOCKWARN => sub { return $_[0] ? 'alarm' : '' } });
+	    $table->start();
+	    $table->head();
+	    $table->row($_) foreach @matches;
+	    $table->finish();
+	}
 
-	# List matches for user confirmation
-	my $table = new Web25::TableSpool;
-	$table->set_filehandle($$self{CONTENT});
-	$table->set_tableclass('data');
-	$table->set_stripeclass('stripe');
-	$table->set_tablecols([qw(NODE DATASET BLOCK DATASET_SUBSCRIBED BLOCK_SUBSCRIBED BYTES)]);
-	$table->set_dataformats({ DATASET_SUBSCRIBED => \&yesno,
-				  BLOCK_SUBSCRIBED => \&yesno,
-				  BYTES => sub { &format_size($_[0]) } });
-	$table->set_cellformats({ DATASET_SUBSCRIBED => sub { $_[0] eq 'y' ? 'alarm' : '' },
-				  BLOCK_SUBSCRIBED => sub { $_[0] eq 'y' ? 'alarm' : '' } });
-	$table->start();
-	$table->head();
-	$table->row($_) foreach @matches;
-	$table->finish();
+	if (@nomatch) {
+	    print {$$self{CONTENT}}
+	    "<h1>Not Matched</h1>",
+	    "<p>These selections did not match any known replicas that PhEDEx can delete.</p>";
+	    my $table = new Web25::TableSpool;
+	    $table->set_filehandle($$self{CONTENT});
+	    $table->set_tableclass('data');
+	    $table->set_stripeclass('stripe');
+	    $table->start();
+	    $table->head('Selection');
+	    $table->row($_) foreach @nomatch;
+	    $table->finish();
+	}
+	
+	if (!@matches) {
+	    $self->alert("None of your selections matched replicas PhEDEx can delete.");
+	    return;
+	}
+
+	if ($blockwarnings) {
+	    $self->alert("You are trying to delete a <b>specific block and its subscription</b> for which a ",
+			 "<b>dataset subscription</b> exists (offending block shown in red).  This is not ",
+			 "allowed by the system.  You must go back and choose:",
+			 "<ol style='text-align:  left'><li>Not to delete subscriptions (block will be retransferred), or</li>",
+			 "    <li>Not to delete the block in question, or</li>",
+			 "    <li>To delete the dataset the block belongs to, instead of only the block</li></ul>");
+	    return;
+	}
 
 	my $delete_url = $self->myurl('DeleteExec');
 	my @save = map { hidden($_, param($_)) } param();
@@ -6652,7 +6751,6 @@ sub output
 	    $n_delete += $rv;
 
 	    if ($rm_subscriptions) {
-
 		my ($item, $id);
 		if ($$_{DATASET_SUBSCRIBED} eq 'y') {
 		    $item = 'dataset';
