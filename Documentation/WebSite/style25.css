@@ -689,7 +689,8 @@ table.data tr.stripe {
   background:  #ddf;
 }
 
-table.data td.alarm {
+table.data td.alarm,
+table.data tr.alarm {
   font-weight:  bold;
   color:  white;
   background:  red;
