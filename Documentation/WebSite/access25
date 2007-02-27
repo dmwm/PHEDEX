@@ -954,10 +954,11 @@ sub dbs_lookup
         
     my $dbscmd = "wget -qO- '$dbs;api=listDatasets;pattern=$pattern'";
     my $dbsresults = `$dbscmd`;
+    my @paths;
     if ($dbsresults) { 
-	my @paths = ($dbsresults =~ /path='([^'\'']*)'/g);
-	return @paths;
+	@paths = ($dbsresults =~ /path='([^'\'']*)'/g);
     }
+    return @paths;
 }
 
 
@@ -3139,7 +3140,6 @@ our @EXPORT = qw(get_request_nodes
 		 create_check_dest
 		 create_check_options
 		 create_check_bad
-		 resolve_data
 );
 
 sub get_request_nodes
@@ -3288,7 +3288,7 @@ sub create_check_data
 
   foreach my $data (keys %userdata) {
       if (! $userdata{$data} ) {
-	  $self->alert("The data pattern is &ldquo;@{[&escapeHTML($userdata{$data})]}&rdquo;",
+	  $self->alert("The data pattern is &ldquo;@{[&escapeHTML($data)]}&rdquo;",
 		       " does not match pattern of type /PRIMARY/TIER/DATASET or /PRIMARY/DATASET#BLOCK.");
 	  $$bad = 1;
       }
