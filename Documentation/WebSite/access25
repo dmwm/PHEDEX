@@ -4315,9 +4315,10 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(@_);
-  $$self{PLOT_ORDER} = [ qw(l24h l48h l72h l96h l132h l7d l14d l30d l45d l90d l120d
+
+  $$self{PERIOD_ORDER} = [ qw(l24h l48h l72h l96h l132h l7d l14d l30d l45d l90d l120d
 			    l6w l26w l52w ad aw am) ];
-  $$self{PLOTS} = { "l24h" => [ "24:hour", "Last 24 Hours" ],
+  $$self{PERIODS} = { "l24h" => [ "24:hour", "Last 24 Hours" ],
 		    "l48h" => [ "48:hour", "Last 48 Hours" ],
 	            "l72h" => [ "72:hour", "Last 72 Hours" ],
 	            "l96h" => [ "96:hour", "Last 96 Hours" ],
@@ -4334,7 +4335,7 @@ sub new
 	            "ad" => [ "0:day", "Daily Since Start" ],
 	            "aw" => [ "0:week", "Weekly Since Start" ],
 	            "am" => [ "0:month", "Monthly Since Start" ] };
-  $$self{DEFAULT_PLOT} = 'l96h';
+  $$self{DEFAULT_PERIOD} = 'l96h';
   $$self{DEFAULT_GRAPH} = undef;
   $$self{GRAPH_ORDER} = [];
   $$self{GRAPHS} = {};
@@ -4347,7 +4348,7 @@ sub new
 sub myurl
 {
   my ($self, %args) = @_;
-  my @save = qw(plot graph entity src_filter dest_filter upto);
+  my @save = qw(period graph entity src_filter dest_filter upto);
 
   # Return bare link if we are switching pages
   return $self->SUPER::myurl(%args)
@@ -4363,19 +4364,22 @@ sub myurl
 sub output
 {
   my ($self) = @_;
+  $$self{PLOT_SCRIPT} = "$$self{CONFIG}{SERVICE_PATH}/cgi-bin/phedex-cgi.sh";
+
   my $page = param("page");
-  my $plot = param("plot");
+  my $period = param("period");
   my $graph = param("graph");
   my $entity = param("entity");
   my $src_filter = param("src_filter") || '';
   my $dest_filter = param("dest_filter") || '';
   my $upto = param("upto") || '';
-  $plot = $$self{DEFAULT_PLOT} if (! $plot || ! exists $$self{PLOTS}{$plot});
+  $period = $$self{DEFAULT_PERIOD} if (! $period || ! exists $$self{PERIODS}{$period});
   $graph = $$self{DEFAULT_GRAPH} if (! $graph || ! exists $$self{GRAPHS}{$graph});
-  $entity = 'dest' if (! $entity || ! grep($_ eq $entity, qw(dest src link)));
+  $entity = 'dest' if (! $entity || ! grep($_ eq $entity, @{$$self{ENTITY_ORDER}} ));
+  my $formurl = $self->myurl();
 
   print { $$self{CONTENT} } 
-  "<form method='get' action='@{[$self->myurl()]}' class='nice'>\n",
+  "<form method='get' action='$formurl' class='nice'>\n",
   "<label for='graph' class='inline'>Graph</label>\n",
   popup_menu(-name=>'graph', -onchange=>'submit()',
 	     -values=>$$self{GRAPH_ORDER},
@@ -4391,38 +4395,40 @@ sub output
   if ($entity eq 'link' || $entity eq 'src') {
       print { $$self{CONTENT} }
       ($entity eq 'link' ? "<label class='inline' for='src_filter'>source</label>" : ''),
-      textfield(-name=>'src_filter', -default=>$src_filter, -size=>15,
+      textfield(-name=>'src_filter', -size=>15,
 		-title=>("Regular expression to match against node names. "
 			 ."Only those matching the expression will be shown."),
 		-class=>'labeled');
-  }
+  } else { print {$$self{CONTENT}} hidden('src_filter'); }
   if ($entity eq 'link' || $entity eq 'dest') {
       print { $$self{CONTENT} }
       ($entity eq 'link' ? "<label class='inline' for='dest_filter'>destination</label>" : ''),
-      textfield(-name=>'dest_filter', -default=>$dest_filter, -size=>15,
+      textfield(-name=>'dest_filter', -size=>15,
 		-title=>("Regular expression to match against node names. "
 			 ."Only those matching the expression will be shown."),
 		-class=>'labeled');
-  }
+  } else { print {$$self{CONTENT}} hidden('dest_filter'); }
+
   print { $$self{CONTENT} }
   "<br/>",
-  "<label for='plot' class='inline'>Period</label>\n",
-  popup_menu(-name=>'plot', -onchange=>'submit()',
-	     -values=>$$self{PLOT_ORDER},
-	     -labels=>{ map { $_ => $$self{PLOTS}{$_}[1] } @{$$self{PLOT_ORDER}} },
+  "<label for='period' class='inline'>Period</label>\n",
+  popup_menu(-name=>'period', -onchange=>'submit()',
+	     -values=>$$self{PERIOD_ORDER},
+	     -labels=>{ map { $_ => $$self{PERIODS}{$_}[1] } @{$$self{PERIOD_ORDER}} },
 	     -class=>'labeled'),
   "<label for='upto' class='inline'>up to</label>",
-  textfield(-name=>'upto', -default=>$upto, -size=>15,
+  textfield(-name=>'upto', -size=>15,
 	    -title=>("Time up to and including which results will be shown. "
-		     ."Specify the time in format matching the selected plot type:\n"
-		     ."YYYYMMDDZHHMM for hourly plots;\n"
-		     ."YYYYMMDD for daily plots;\n"
-		     ."YYYYMM for monthly plots;\n"
-		     ."YYYYWW for weekly plots."),
+		     ."Specify the time in format matching the selected period:\n"
+		     ."YYYYMMDDZHHMM for hourly periods;\n"
+		     ."YYYYMMDD for daily periods;\n"
+		     ."YYYYMM for monthly periods;\n"
+		     ."YYYYWW for weekly periods."),
 	    -class=>'labeled'),
-		     submit(-label=>'Update', -class=>'labeled'), "<br/>";
+		     submit(-label=>'Update', -class=>'labeled'), "<br/>",
+		     "</form>";
 
-  my ($last, $unit) = $$self{PLOTS}{$plot}[0] =~ /([^:]+)/g;
+  my ($last, $unit) = $$self{PERIODS}{$period}[0] =~ /([^:]+)/g;
   my %span = ("hour" => 3600, "day" => 86400, "week" => 7*86400, "month" => 86400);
   my %round = (%span, 'week' => 86400);
   my $now = time();
@@ -4457,12 +4463,26 @@ sub output
 
   my $conn = $$self{CONFIG}{INSTANCES}{$$self{DBID}}{CONNECTION};
 
+  if    ($entity eq 'src')  { $dest_filter = ''; }
+  elsif ($entity eq 'dest') { $src_filter = ''; }
+  
   my %args = ('conn' => $conn, 'unit' => $unit, 'span' => $span{$unit}, 'by' => $entity, 'last' => $last,
-              'src_filter' => $src_filter, 'dest_filter' => $dest_filter, 'upto' => $upto, 'starttime' => $start, 'endtime' => $end);
+              'src_filter' => $src_filter, 'dest_filter' => $dest_filter, 'upto' => $upto, 
+	      'starttime' => $start, 'endtime' => $end);
+  
+  my $imgsrc = $self->imgsrc($graph, %args);
+  print {$$self{CONTENT}} "<p><img src='$imgsrc' /></p>";
 
 
-#  use Data::Dumper;  print { $$self{CONTENT} } "<pre>", Dumper({%args}), "</pre>";
-  $self->output_plot($graph, %args);
+#   print {$$self{CONTENT}} "<pre>";
+#   print {$$self{CONTENT}}<<STOP;
+# dest_filter:  $dest_filter
+#  src_filter:  $src_filter
+#     formurl:  $formurl
+#      imgsrc:  $imgsrc
+# STOP
+# print {$$self{CONTENT}} "</pre>";
+#   &dump_var($$self{CONTENT}, 'args', {%args});
 
 }
 
@@ -4492,11 +4512,9 @@ sub new
   return $self;
 }
 
-sub output_plot
+sub imgsrc
 {
   my ($self, $graph, %args) = @_;
-
-  my $home = "$$self{CONFIG}{SERVICE_PATH}/cgi-bin/"; #"http://cmsdoc.cern.ch/cms/aprom/phedex/cgi-bin/";
 
   my $from_node = ($args{src_filter} ? $args{src_filter} : '.*');
   my $to_node = ($args{dest_filter} ? $args{dest_filter} : '.*');
@@ -4510,9 +4528,8 @@ sub output_plot
 		   'starttime' => $args{starttime}, 
 		   'endtime' => $args{endtime});
 
-  my $imgsrc = "${home}phedex-cgi.sh?". &urlencode(%graphargs);
-
-  print { $$self{CONTENT} } "<p><img src='$imgsrc' /></p>";
+  my $imgsrc = $$self{PLOT_SCRIPT}.'?'. &urlencode(%graphargs);
+  return $imgsrc;
 }
 
 1;
@@ -4545,11 +4562,9 @@ sub new
   return $self;
 }
 
-sub output_plot
+sub imgsrc
 {
   my ($self, $graph, %args) = @_;
-
-  my $home = "$$self{CONFIG}{SERVICE_PATH}/cgi-bin/"; #"http://cmsdoc.cern.ch/cms/aprom/phedex/cgi-bin/";
 
   my $from_node = ($args{src_filter} ? $args{src_filter} : '.*');
   my $to_node = ($args{dest_filter} ? $args{dest_filter} : '.*');
@@ -4573,10 +4588,8 @@ sub output_plot
       delete $graphargs{to_node};
   }
 
-  my $imgsrc = "${home}phedex-cgi.sh?". &urlencode(%graphargs);
-
-  print { $$self{CONTENT} } "<p><img src='$imgsrc' /></p>";
-
+  my $imgsrc = $$self{PLOT_SCRIPT}.'?'. &urlencode(%graphargs);
+  return $imgsrc;
 }
 
 1;
@@ -4596,6 +4609,7 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(@_);
+  $$self{DEFAULT_GRAPH} = [ 'quality_all' ];
   $$self{GRAPH_ORDER} = [ 'quality_all', 'quality_try', 'quality_done', 'quality_fail' ];
   $$self{GRAPHS} = { 'quality_all' => "Quality map",
 		     'quality_try' => "Attempts",
@@ -4605,11 +4619,9 @@ sub new
   return $self;
 }
 
-sub output_plot
+sub imgsrc
 {
   my ($self, $graph, %args) = @_;
-
-  my $home = "$$self{CONFIG}{SERVICE_PATH}/cgi-bin/"; #"http://cmsdoc.cern.ch/cms/aprom/phedex/cgi-bin/";
 
   my $from_node = ($args{src_filter} ? $args{src_filter} : '.*');
   my $to_node = ($args{dest_filter} ? $args{dest_filter} : '.*');
@@ -4623,9 +4635,8 @@ sub output_plot
 		   'starttime' => $args{starttime}, 
 		   'endtime' => $args{endtime});
 
-  my $imgsrc = "${home}phedex-cgi.sh?". &urlencode(%graphargs);
-
-  print { $$self{CONTENT} } "<p><img src='$imgsrc' /></p>";
+  my $imgsrc = $$self{PLOT_SCRIPT}.'?'. &urlencode(%graphargs);
+  return $imgsrc;
 }
 
 1;
@@ -4847,10 +4858,10 @@ sub output
 	$total{$state}{FILES} += $files;
 	$total{$state}{BYTES} += $bytes;
 	my $stampcolor = ($now - $stamp < 5*60) ? '' : " bgcolor='$warncolor'";
-	my $transfer_name = ($priority % 2 == 0 ? 'Local' : 'Remote'); # Local even, remote odd
-	my $priority_name = ($priority == 0 || $priority == 1 ? 'High'
-			     : $priority == 2 || $priority == 3 ? 'Normal'
-			     : $priority == 4 || $priority == 5 ? 'Low'
+	my $transfer_name = ($priority % 2 == 0 ? 'local' : 'remote'); # Local even, remote odd
+	my $priority_name = ($priority == 0 || $priority == 1 ? 'high'
+			     : $priority == 2 || $priority == 3 ? 'normal'
+			     : $priority == 4 || $priority == 5 ? 'low'
 			     : 'unknown');
 	my $state_name = ($state == 0 ? "assigned"
 			  : $state == 1 ? "exported"
@@ -4865,7 +4876,7 @@ sub output
 			       );
 	print { $$self{CONTENT} }
 	"<tr>\n",
-	" <td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>\n",
+	" <td$stampcolor>", ($now - $stamp < 5*60 ? 'current' : &age($now - $stamp)), "</td>\n",
 	" <td>$to_node</td>\n",
 	" <td align='right'>&nbsp;</td>\n",
 	" <td>$from_node</td>\n",
@@ -6631,18 +6642,21 @@ sub output
 		        ds.id dataset_id, ds.name dataset,
 		        b.id block_id, b.name block, b.bytes,
 		        NVL2(dataset_subs.destination, 'y', 'n') dataset_subscribed,
-		        NVL2(block_subs.destination, 'y', 'n') block_subscribed
+		        NVL2(block_subs.destination, 'y', 'n') block_subscribed,
+                        bd.block block_queued
    	           from t_dps_dataset ds
 		   join t_dps_block b on b.dataset = ds.id
                    join t_dps_block_replica br on br.block = b.id
                    join t_adm_node n on n.id = br.node
               left join t_dps_subscription block_subs on block_subs.destination = n.id and block_subs.block = b.id
               left join t_dps_subscription dataset_subs on dataset_subs.destination = n.id and dataset_subs.dataset = ds.id
+              left join t_dps_block_delete bd on bd.block = b.id
 		  where n.name in ($node_list)
 	          order by n.name, ds.name };
 
     my $q = &dbexec($$self{DBH}, $sql, %node_binds);
     my @matches;
+    my @dupes;
     my %usermatch = map { $_ => 0 } keys %userdata;
     my $blockwarnings = 0;
     ITEM: while (my $row = $q->fetchrow_hashref()) {
@@ -6654,7 +6668,11 @@ sub output
 		    $$row{BLOCKWARN} = 1;
 		    $blockwarnings++;
 		}
-		push @matches, $row;
+		if ($$row{BLOCK_QUEUED}) {
+		    push @dupes, $row;
+		} else {
+		    push @matches, $row;
+		}
 		$usermatch{$_}++;
 		next ITEM;
 	    }
@@ -6668,6 +6686,7 @@ sub output
 	if (@matches) {
 	    print {$$self{CONTENT}}
 	    "<h1>Confirm Deletion</h1>",
+	    "<h2>Blocks To Be Deleted</h2>",
 	    "<p>The following blocks matched your selection and will be deleted upon your confirmation.</p>",
 	    ($rm_subscriptions ? "<p>Subscriptions, where they exist,  will also be deleted.</p>" :
 	     "<p>Subscriptions will <b>not</b> be removed, so you can expect a retransfer to be initiated</p>");
@@ -6696,9 +6715,28 @@ sub output
 	    $table->finish();
 	}
 
+	if (@dupes) {
+	    print {$$self{CONTENT}}
+	    "<h2>Blocks Already Queued</h2>",
+	    "<p>Patience!  The following blocks you selected are already queued for deletion!  ",
+	    "They will not be queued again.</p>";
+	    my $table = new Web25::TableSpool;
+	    $table->set_filehandle($$self{CONTENT});
+	    $table->set_tableclass('data');
+	    $table->set_stripeclass('stripe');
+	    $table->set_tablecols([qw(NODE DATASET BLOCK)]);
+	    $table->set_tablehead({NODE => 'Node',
+				   DATASET => 'Dataset',
+				   BLOCK => 'Block'});
+	    $table->start();
+	    $table->head();
+	    $table->row($_) foreach @dupes;
+	    $table->finish();
+	}
+	
 	if (@nomatch) {
 	    print {$$self{CONTENT}}
-	    "<h1>Not Matched</h1>",
+	    "<h2>Not Matched</h2>",
 	    "<p>These selections did not match any known replicas that PhEDEx can delete.</p>";
 	    my $table = new Web25::TableSpool;
 	    $table->set_filehandle($$self{CONTENT});
