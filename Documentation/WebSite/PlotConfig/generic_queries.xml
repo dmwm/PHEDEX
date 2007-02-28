@@ -2,7 +2,7 @@
 
   <import module="phedex.database.queries">SqlQueries</import>
   <import module="time"/> 
-  <import file="$GRAPH_CONFIG_ROOT/DBParam.xml" />
+  <import file="$CONFIG_ROOT/DBParam.xml" />
 
   <class type="SqlQueries" name="GenericQuery">
 
@@ -41,7 +41,7 @@
           <input name="results"> 3 </input>
         </inputs>
       </results>
-      <attribute name="graph_type">phedex_link_bar_generic</attribute>
+      <attribute name="graph_type">PhedexStackedBar</attribute>
       <attribute name="pivot_name">Link</attribute>
       <attribute name="grouping_name">Time</attribute>
       <attribute name="title" />
@@ -80,7 +80,7 @@
           <input name="results"> 3 </input>
         </inputs>
       </results>
-      <attribute name="graph_type">phedex_link_bar_generic</attribute>
+      <attribute name="graph_type">PhedexStackedBar</attribute>
       <attribute name="pivot_name">Link</attribute>
       <attribute name="grouping_name">Time</attribute>
       <attribute name="title" />
@@ -115,7 +115,7 @@
           <input name="results"> 2 </input>
         </inputs>
       </results>
-      <attribute name="graph_type">phedex_dest_bar_generic</attribute>
+      <attribute name="graph_type">PhedexStackedBar</attribute>
       <attribute name="pivot_name">Node</attribute>
       <attribute name="grouping_name">Time</attribute>
       <attribute name="title" />

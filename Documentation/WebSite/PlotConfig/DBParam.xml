@@ -1,11 +1,11 @@
 <phedex>
 
-<import module="phedex.database.connection_manager"> ConnectionManager </import>
+  <import module="phedex.database.connection_manager"> ConnectionManager </import>
 
-<class name="PhedexConnMan" type="ConnectionManager">
+  <class name="PhedexConnMan" type="ConnectionManager">
 
-<attribute name="DBParam"> $PHEDEX_SERVER_CONFIG_DIR/DBParam </attribute>
+    <attribute name="DBParam"> $PHEDEX_SERVER_CONFIG_DIR/DBParam </attribute>
 
-</class>
+  </class>
 
 </phedex>

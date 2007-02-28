@@ -2,11 +2,11 @@
 <phedex>
 
   <import module="phedex.web"> WebHost, StaticContent, HelloWorld </import>
-  <import file="$GRAPH_CONFIG_ROOT/text_queries.xml" />
-  <import file="$GRAPH_CONFIG_ROOT/phedex_graphs.xml" />
+  <import file="$CONFIG_ROOT/text_queries.xml" />
+  <import file="$CONFIG_ROOT/phedex_graphs.xml" />
 
   <class name="static" type="StaticContent">   
-    <directory name="content"> static_content </directory>
+    <directory name="content"> $CONFIG_ROOT/static_content </directory>
   </class>
 
   <class name="test_case" type="HelloWorld" />
@@ -16,7 +16,7 @@
     <mount location="/xml" content="text/xml"> <instance name="query_xml" /> </mount>
     <instance name="static" />
     <instance name="test_case" />
-    <config>$GRAPH_CONFIG_ROOT/development.conf</config>
+    <config>$CONFIG_ROOT/development.conf</config>
   </class>
 
 </phedex>

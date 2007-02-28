@@ -1,7 +1,7 @@
 <phedex>
 
-  <import file="$GRAPH_CONFIG_ROOT/phedex_queries.xml" />
-  <import file="$GRAPH_CONFIG_ROOT/data_queries.xml" />
+  <import file="$CONFIG_ROOT/phedex_queries.xml" />
+  <import file="$CONFIG_ROOT/data_queries.xml" />
 
   <import module="phedex.tools.query_output">QueryPrinter,PhedexXmlGenerator</import>
 

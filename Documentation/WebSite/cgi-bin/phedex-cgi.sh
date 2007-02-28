@@ -1,15 +1,23 @@
 #!/bin/sh
 
+# Users edit these variables
+
 export CMS_ROOT=/opt/aptinstaller
+
 export GRAPH_ROOT=/opt/aptinstaller/BrianPlot
-export GRAPH_CONFIG_ROOT=../PlotConfig
-export MATPLOTLIBDATA=$GRAPH_ROOT/config # ??? Does not exist!  But it works...
+
+export CONFIG_ROOT=../PlotConfig
+
+
+# Don't edit the below ones unless you know what you're doing
 
 export PYTHONPATH=$GRAPH_ROOT/src
 
 export PATH=$GRAPH_ROOT/tools:$PATH
 
 export TTFPATH=$CMS_ROOT/slc4_ia32_gcc345/external/py2-matplotlib/0.87.7/lib/python2.4/site-packages/matplotlib/mpl-data
+
+export MATPLOTLIBDATA=$GRAPH_ROOT/config
 
 export HOME=/tmp
 
@@ -28,5 +36,4 @@ source $CMS_ROOT/slc4_ia32_gcc345/cms/oracle-env/1.2/etc/profile.d/init.sh
 
 fi
 
-python $GRAPH_ROOT/tools/phedex-2.5-cgi.py
-
+python $GRAPH_ROOT/tools/phedex-cgi.py

@@ -1,6 +1,6 @@
 <phedex>
 
-  <import file="$GRAPH_CONFIG_ROOT/generic_queries.xml" />
+  <import file="$CONFIG_ROOT/generic_queries.xml" />
 
   <class type="SqlQueries" name="PhedexQueries">
 
@@ -25,7 +25,7 @@
       <attribute name="column_names"> Data Transferred </attribute>
       <attribute name="column_units"> TB </attribute>
       <attribute name="title"> PhEDEx Data Transfers Cumulative </attribute>
-      <attribute name="graph_type"> phedex_link_cumulative_generic </attribute>
+      <attribute name="graph_type"> PhedexCumulative </attribute>
     </query>
 
     <query name="quantity_cumulative2" base="GenericQuery.link_query">
@@ -36,7 +36,7 @@
       <attribute name="column_names"> Data Transferred </attribute>
       <attribute name="column_units"> TB </attribute>
       <attribute name="title"> PhEDEx Data Transfers Cumulative </attribute>
-      <attribute name="graph_type"> phedex_link_cumulative_generic </attribute>
+      <attribute name="graph_type"> PhedexCumulative </attribute>
     </query>
 
     <query name="cooloff" base="GenericQuery.link_stats_query">
@@ -109,7 +109,7 @@
       <results>
         <inputs> <input name="results"> 3,4,5 </input> </inputs>
       </results>
-      <attribute name="graph_type"> phedex_quality_map </attribute>
+      <attribute name="graph_type"> PhedexQualityMap </attribute>
       <attribute name="column_units"> Files, Files, Files </attribute>
       <attribute name="column_names"> Attempted Transfers, Finished Transfers, Failed Transfers </attribute>
       <attribute name="title"> Quality Information </attribute>
