@@ -1,9 +1,13 @@
+** Migration procedure applied to Prod instance **
 
 # Source environment
 source ../sw/slc*/cms/PHEDEX/PHEDEX_*/etc/profile.d/env.sh
 
 # Set authentication for DB access
 export PHEDEX_DB='../SITECONF/CERN/PhEDEx/DBParam:Dev/Admin';
+export PHEDEX_DB_R='../SITECONF/CERN/PhEDEx/DBParam:Dev/Reader';
+export PHEDEX_DB_W='../SITECONF/CERN/PhEDEx/DBParam:Dev/CERN';
+
 
 # Save all old tables to xt
 sqlplus -S $(Schema/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleSave.sql </dev/null
@@ -51,6 +55,7 @@ insert into t_adm_node (id, name, kind, technology, se_name)
        when (name like '%CSCS%'
              or name like '%Pisa%'
 	     or name like '%Rome%'
+             or name like '%GRIF%'
 	     or name like '%Taiwan%')
 	 then 'DPM'
        else
@@ -128,12 +133,8 @@ insert /*+ append */ into t_dps_file (id, node, inblock, logical_name, checksum,
 commit;
 
 insert /*+ append */ into t_xfer_file (id, inblock, logical_name, checksum, filesize)
-   (select (select id from t_dps_file f where f.logical_name = oldf.logical_name),
-       (select newb.id from t_dps_block newb left join xt_dps_block oldb on newb.name = oldb.name
-           left join t_dps_dataset newd on newb.dataset=newd.id left join xt_dps_dataset oldd on oldb.dataset = oldd.id
-           where oldb.id = oldf.inblock and oldd.name = newd.name),
-   oldf.logical_name, oldf.checksum, oldf.filesize
-   from xt_xfer_file oldf);
+   (select id, inblock, logical_name, checksum, filesize
+    from t_dps_file);
 
 commit;
 
@@ -169,25 +170,8 @@ when not matched then
             br.node_files, br.node_bytes, br.xfer_files, br.xfer_bytes, br.time_create, br.time_update)
     values (f.inblock, f.node, 'y', f.files, f.bytes, 0, 0, 0, 0, 0, 0, f.ctime, f.ctime);
 
+commit;
 
--- copy authorisations
--- remap roles / site names? => t_adm_site_admin, etc.
-
-
-/* # Save history info
-insert into t_history_link (timebin, timewidth, from_node, to_node, priority, pend_files, pend_bytes, wait_files, wait_bytes,
-    cool_files, cool_bytes, ready_files, ready_bytes, xfer_files, xfer_bytes, avail_files, avail_bytes, done_files,
-    done_bytes, try_files, try_bytes, fail_files, fail_bytes, expire_files, expire_bytes, confirm_files, confirm_bytes,
-    confirm_weight, param_rate, param_latency)
-    (select oldhl.timebin, oldhl.timewidth,
-        (select newn.id from t_adm_node newn left join xt_node oldn on newn.name = oldn.name where oldn.id = oldhl.from_node ),
-        (select newn.id from t_adm_node newn left join xt_node oldn on newn.name = oldn.name where oldn.id = oldhl.to_node ),
-    oldhl.priority, oldhl.pend_files, oldhl.pend_bytes, oldhl.wait_files, oldhl.wait_bytes, oldhl.cool_files,
-    oldhl.cool_bytes, oldhl.ready_files, oldhl.ready_bytes, oldhl.xfer_files, oldhl.xfer_bytes, oldhl.avail_files,
-    oldhl.avail_bytes, oldhl.done_files, oldhl.done_bytes, oldhl.try_files, oldhl.try_bytes, oldhl.fail_files, oldhl.fail_bytes,
-    oldhl.expire_files, oldhl.expire_bytes, oldhl.confirm_files, oldhl.confirm_bytes, oldhl.confirm_weight, oldhl.param_rate,
-    oldhl.param_latency
-    from xt_link_histogram oldhl); */
 
 insert /*+ append */ all
   into t_history_link_stats (timebin, timewidth, from_node, to_node, priority,
@@ -240,8 +224,31 @@ begin
 end;
 /
 
+-- Drop ancient roles
+begin
+  for o in (select granted_role from user_role_privs
+	    where granted_role like 'PROD%') loop
+     dbms_output.put_line ('Dropping role ' || o.granted_role);
+     execute immediate 'drop role ' || o.granted_role;
+  end loop;
+end;
+/
+
+-- modify node 
+
+update t_adm_node set name='T2_GRIF_LLR' where name='T2_GRIF_Buffer';
+update t_adm_node set name='T2_SouthGrid_RALPPD' where name='T2_RutherfordPPD';
+update t_adm_node set name='T2_Spain_CIEMAT' where name='T2_Spain_Buffer';
+
+
+# !! Quit SQLPlus session !!
+
+# Create Web role
+./Schema/OracleNewRole.sh $(Schema/OracleConnectId  -db ${PHEDEX_DB}) PHEDEX_WEBSITE_PROD <some_new_password>
+
 # Import users/sites
-./Utilities/ImportSites -db ${PHEDEX_DB} ../Documentation/Updates/sites.txt
+./Utilities/ImportSites -db ${PHEDEX_DB} Documentation/Updates/sites.txt
+
 
 # Add global admins
 ./Utilities/IdentityNew -db ${PHEDEX_DB} -dn '/C=CH/O=CERN/OU=GRID/CN=Dimitrije Maletic 2991' -email 'Dimitrije.Maletic@cern.ch' -global_admin
@@ -252,10 +259,40 @@ end;
 ./Utilities/IdentityNew -db ${PHEDEX_DB} -dn '/C=CH/O=CERN/OU=GRID/CN=Peter Kreuzer 3091' -email 'Peter.Kreuzer@cern.ch' -global_admin
 
 # Creating synonyms for the other users
-./Schema/OracleSyns.sh 'cms_transfermgmt_test' 'cms_transfermgmt_test/<pass>@cmsr2' 'cms_transfermgmt_test_reader/<pass>@cmsr2'
+./Schema/OracleSyns.sh 'cms_transfermgmt' $(Schema/OracleConnectId  -db ${PHEDEX_DB}) $(Schema/OracleConnectId  -db ${PHEDEX_DB_R})
+./Schema/OracleSyns.sh 'cms_transfermgmt' $(Schema/OracleConnectId  -db ${PHEDEX_DB}) $(Schema/OracleConnectId  -db ${PHEDEX_DB_W})
 
 # Create privileges
-./Schema/OracleSyns.sh 'cms_transfermgmt_test/<pass>@cmsr2' 'cms_transfermgmt_test_reader' 'cms_transfermgmt_test_writer'
+./Schema/OraclePrivs.sh $(Schema/OracleConnectId  -db ${PHEDEX_DB}) 'cms_transfermgmt_reader' 'cms_transfermgmt_writer'
 
 # Update statistics
 sqlplus -S $(Schema/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleStatsUpdate.sql </dev/null
+
+
+** Migration of SC4 instance **
+
+Folowed the steps for the Prod migration. Exceptions listed below.
+
+1. Change settings
+export PHEDEX_DB='../SITECONF/CERN/PhEDEx/DBParam:SC4/Admin';
+export PHEDEX_DB_R='../SITECONF/CERN/PhEDEx/DBParam:SC4/Reader';
+export PHEDEX_DB_W='../SITECONF/CERN/PhEDEx/DBParam:SC4/CERN';
+
+2. Drop old roles
+begin
+  for o in (select granted_role from user_role_privs
+	    where granted_role like 'SC4%') loop
+     dbms_output.put_line ('Dropping role ' || o.granted_role);
+     execute immediate 'drop role ' || o.granted_role;
+  end loop;
+end;
+/
+
+3. Set pasword for website
+./Schema/OracleNewRole.sh $(Schema/OracleConnectId  -db ${PHEDEX_DB}) PHEDEX_WEBSITE_SC4 <some_new_password>
+
+4. Import sites for SC4
+./Utilities/ImportSites -db ${PHEDEX_DB} Documentation/Updates/sites_sc4.txt
+
+5. Create privilege
+./Schema/OraclePrivs.sh $(Schema/OracleConnectId  -db ${PHEDEX_DB}) 'cms_transfermgmt_sc_reader' 'cms_transfermgmt_sc_writer'
