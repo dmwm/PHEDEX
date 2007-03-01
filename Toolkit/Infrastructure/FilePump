@@ -339,16 +339,17 @@ sub receive
     # Suspend requests until filerouter had a chance to run again.
     &dbexec($dbh, qq{
 	merge into t_xfer_replica xr using
-	  (select xt.to_node, xt.fileid, xtd.time_update
+	  (select xt.to_node, xt.fileid, xtd.time_update, fn.kind
            from t_xfer_task_harvest xth
 	     join t_xfer_task xt on xt.id = xth.task
 	     join t_xfer_task_done xtd on xtd.task = xth.task
+             join t_adm_node fn on fn.id = xt.from_node
 	   where xtd.report_code = 0) new
 	on (xr.node = new.to_node and xr.fileid = new.fileid)
 	when not matched then
 	  insert (id, node, fileid, state, time_create, time_state)
 	  values (seq_xfer_replica.nextval, new.to_node, new.fileid,
-		  1, new.time_update, new.time_update)});
+		  case when new.kind = 'MSS' then 0 else 1 end, new.time_update, new.time_update)});
 
     &dbexec($dbh, qq{
 	update (select xq.state, xq.time_expire
@@ -373,7 +374,7 @@ sub receive
     # Finally remove all we've processed.
     &dbexec($dbh, qq{
 	delete from t_xfer_task xt where id in
-	  (select task from t_xfer_task_harvest)});
+	       (select task from t_xfer_task_harvest)});
 
     # Give file router a signal to proceed with request clean-up
     # if we completed transfers.  This will allow an idle router
