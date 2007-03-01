@@ -884,6 +884,7 @@ sub formatTime
 {
   my ($time, $range) = @_;
   return undef unless ($time && $range);
+  return undef if ($time <= 0);
   if ($range eq 'hour') { return strftime ('%Y%m%dZ%H00', gmtime(int($time))); }
   elsif ($range eq 'day') { return strftime ('%Y%m%d', gmtime(int($time))); }
   elsif ($range eq 'week') { return strftime ('%Y%V', gmtime(int($time))); }
@@ -1065,6 +1066,146 @@ sub resolve_data
 
 
 1;
+
+
+######################################################################
+# A tool to create paged results given an SQL query
+package Web25::QueryPager;
+use strict; use warnings;
+use CGI qw(param);
+use POSIX qw(ceil);
+import Web25::Common;
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = {};
+
+  $$self{ROWS_PER_PAGE} = 10;
+
+  bless $self, $class;
+  return $self;
+}
+
+# Initialize with the database handle, query to page, a hashref of its
+# binds, and the number of rows per page
+sub init
+{
+    my ($self, $dbh, $select, $binds, $rows_per_page) = @_;
+    $$self{DBH} = $dbh;
+    $$self{SELECT} = $select;
+    $$self{BINDS} = $binds;
+    $$self{ROWS_PER_PAGE} = $rows_per_page if $rows_per_page;
+    $$self{TOTAL_ROWS} = &count_rows($dbh, $select, $binds);
+    $$self{TOTAL_PAGES} = &total_pages($$self{TOTAL_ROWS}, $$self{ROWS_PER_PAGE});
+    $$self{CURRENT_PAGE} = param('page_num') || 1;
+    if ($$self{CURRENT_PAGE} <= 0 
+	|| $$self{CURRENT_PAGE} > $$self{TOTAL_PAGES}) {
+	$$self{CURRENT_PAGE} = 1;
+    }
+}
+
+sub get_total_rows
+{
+    my ($self) = @_;
+    return $$self{TOTAL_ROWS};
+}
+
+# Returns the pager widget
+sub pager
+{
+    my ($self) = @_;
+
+    my $current_page = $$self{CURRENT_PAGE};
+    my $total_pages = $$self{TOTAL_PAGES};
+
+    return if $total_pages == 1;
+
+    my @pager_html;
+
+    push @pager_html, "<div class='pager'>Page $current_page of $total_pages:  ";
+   
+    if ($current_page > 1) {
+	push @pager_html, &page_link(1, '[First]'), " \n";
+	push @pager_html, &page_link(($current_page-1), '[Prev]'), " \n";
+    }
+
+    for (my $i = ($current_page-5); $i <= $current_page+5; $i++) {
+	next if ($i < 1 || $i > $total_pages);
+
+	if ($i != $current_page) {
+	    push @pager_html, &page_link($i, $i), " \n";
+	} else {
+	    push @pager_html, &page_link($i, "<strong><big>$i</big></strong>"), " \n";
+	}
+    }
+
+    if ($current_page < $total_pages) {
+	push @pager_html, &page_link(($current_page+1), '[Next]'), " \n";
+	push @pager_html, &page_link($total_pages, '[Last]'), " \n";
+    }
+
+    push @pager_html, "</div>";
+    return @pager_html;
+}
+
+# Returns a query handle with 1 page's worth of results
+sub paged_result
+{
+    my ($self) = @_;
+    my $start_row = &page_to_row($$self{CURRENT_PAGE}, $$self{ROWS_PER_PAGE});
+    my $end_row = $start_row + $$self{ROWS_PER_PAGE} - 1;
+    my $sql = qq[select * from ( select r.*, rownum as row_number
+				 from ($$self{SELECT}) r 
+				 where rownum <= :end_row ) 
+		 where :start_row <= row_number ];
+    my %binds = %{$$self{BINDS}};
+    $binds{':start_row'} = $start_row;
+    $binds{':end_row'} = $end_row;
+    my $q = &dbexec($$self{DBH}, $sql, %binds);
+
+    return $q;
+}
+
+### Private functions ###
+
+# Return a link to a page
+sub page_link
+{
+    my ($page_num, $linktext) = @_;
+    my @ignore = qw(page);
+    my $cgi = new CGI;
+    $cgi->delete(@ignore);
+    $cgi->param('page_num', $page_num);
+    my $url = $cgi->self_url();
+    return "<a href='$url'>$linktext</a>";
+}
+
+sub total_pages
+{
+    my ($total_rows, $rows_per_page) = @_;
+    if ($total_rows < 1) { $total_rows = 1; }
+    return POSIX::ceil($total_rows/$rows_per_page);
+}
+
+sub page_to_row
+{
+    my ($current_page, $rows_per_page) = @_;
+    return ( ($current_page - 1 ) * $rows_per_page + 1 );
+}
+
+sub count_rows
+{
+    my ($dbh, $select, $binds) = @_;
+    my $sql = qq[select count(*) as num_rows from ($select)];
+    my $q = &dbexec($dbh, $sql, %{$binds});
+    my ($num_rows) = $q->fetchrow();
+    return $num_rows;
+}
+
+1;
+
 
 
 ######################################################################
@@ -4274,6 +4415,15 @@ sub output
       next if $kind eq 'N' && ! $errors && ! $$row{DONE_FILES};
       next if $kind eq 'N' && ! $$row{DONE_FILES} && ! $$row{FAIL_FILES} && ! $$row{EXPIRE_FILES};
       my $bps = $$row{DONE_BYTES} / $spans{$span}[2];
+
+      my $errorcolumn = &format_num($$row{FAIL_FILES});
+      if ($$row{FAIL_FILES} && $$row{FROM_NODE} && $$row{TO_NODE}) {
+	  my $errorurl = $self->myurl(page => 'Activity::ErrorInfo',
+				      from_node => $$row{FROM_NODE},
+				      to_node => $$row{TO_NODE});
+	  $errorcolumn = "<a href='$errorurl'>$errorcolumn</a>";
+      }
+
       print { $$self{CONTENT} }
 	"<tr>",
 	($$row{FROM_NODE}
@@ -4282,7 +4432,7 @@ sub output
 	"<td align='right'>@{[&format_num($$row{DONE_FILES} || 0)]}</td>",
 	"<td align='right'>@{[&format_size($$row{DONE_BYTES})]}</td>",
 	"<td align='right'>", ($bps >= 0 ? &format_size($bps) . '/s' : &format_num(0)), "</td>",
-	"<td align='right'>@{[&format_num($$row{FAIL_FILES} || 0)]}</td>",
+	"<td align='right'>$errorcolumn</a></td>",
 	"<td align='right'>@{[&format_num($$row{EXPIRE_FILES} || 0)]}</td>",
 	"<td align='right'>@{[&format_size($$row{PARAM_RATE} || 0)]}/s</td>",
 	"<td align='right'>@{[&age($$row{PARAM_LATENCY} || 0)]}</td>",
@@ -5157,14 +5307,22 @@ sub output
     my $fileid = param('fileid');
     if (! defined $to_node || $to_node eq ''
 	|| ! defined $from_node || $from_node eq ''
-	|| ! defined $fileid || $fileid eq ''
 	)
     {
 	print { $$self{CONTENT} }
 	$self->alert('Missing Arguments');
 	return;
     }
-
+    
+    my $where = qq[nd.name = :to_node
+		   and ns.name = :from_node];
+    my %args = ( ':to_node'   => $to_node,
+		 ':from_node' => $from_node );
+    
+    if ($fileid) {
+	$where .= qq[ and xe.fileid = :fileid];
+	$args{':fileid'} = $fileid;
+    }
 
     my $sql = qq{ select time_assign, time_expire, time_export, time_inxfer, time_xfer, time_done,
 		         report_code, xfer_code, from_pfn, to_pfn,
@@ -5172,21 +5330,34 @@ sub output
 		    from t_xfer_error xe
                     join t_adm_node nd on nd.id = xe.to_node
 		    join t_adm_node ns on ns.id = xe.from_node
-                   where nd.name = :to_node
-                     and ns.name = :from_node
-                     and xe.fileid = :fileid
+                   where $where
 		order by time_assign
-		  };
+	    };
 
     my $max_log_length = 100_000;
     $$self{DBH}->{LongReadLen} = $max_log_length;
     $$self{DBH}->{LongTruncOk} = 1;
-    my $q = &dbexec($$self{DBH}, $sql, 
-		    ':to_node' => $to_node,
-		    ':from_node' => $from_node,
-		    ':fileid' => $fileid);
 
-    my $n = 0;
+    my $pager = new Web25::QueryPager;
+    $pager->init($$self{DBH}, $sql, {%args}, 10);
+    my $n_errors = $pager->get_total_rows();
+
+    print {$$self{CONTENT}} "<h1>$n_errors recent errors on link from $from_node to $to_node</h1>" unless ($fileid);
+
+    if ($n_errors == 100 || $n_errors == 101) {
+	$self->note("Please note that PhEDEx only stores the last 100 link errors to the database for a short period of time.  ",
+		    "More errors may have occurred that are not visible here.");
+    }
+    
+    if (!$fileid && $n_errors == 0) {
+	$self->note("Wow!  Bravo!  Amazing!  This link has no recent errors.  If you are the site admin of ",
+		    "one of these nodes, you must be doing something right!");
+    }
+
+    print {$$self{CONTENT}} $pager->pager();
+
+    my $q = $pager->paged_result();
+
     my $time_labels = { TIME_ASSIGN => "Time Assigned",
 			TIME_EXPORT => "Time Exported",
 			TIME_INXFER => "Time Pumped",
@@ -5200,24 +5371,25 @@ sub output
 
     my $now = time();
     while (my $error = $q->fetchrow_hashref()) {
-	$n++;
 	print { $$self{CONTENT} }
 	"<div class='nice errorinfo'>",
-	"<h1>Error $n</h1>";
+	"<h1>Error $$error{ROW_NUMBER}</h1>";
 
 	my $time_assign = $$error{TIME_ASSIGN};
 	my $tn = 0;
 	foreach my $time (qw(TIME_ASSIGN TIME_XFER TIME_EXPORT TIME_DONE TIME_INXFER TIME_EXPIRE)) {
+	    my $timestamp   = &formatTime($$error{$time}, 'stamp');
 	    my $diff_assign = &age($$error{$time} - $time_assign, 'second');
 	    my $diff_now    = &age($$error{$time} - $now, 'second');
 
 	    print { $$self{CONTENT} }
 	    "<label>$$time_labels{$time}:</label><span class='labeled halfwidefield'>", 
-	    &formatTime($$error{$time}, 'stamp'), 
-	    " <span class='diff_assigned'>($diff_assign since assigned)</span> ",
-	    " <span class='diff_now'>($diff_now from now)</span>",
-	    "</span>",
-	    (++$tn % 2 == 0 ? "<br/>" : '');
+	    ($timestamp ? ($timestamp,
+			   " <span class='diff_assigned'>($diff_assign since assigned)</span> ",
+			   " <span class='diff_now'>($diff_now from now)</span>") :
+	     $$error{$time} ),
+	     "</span>",
+	     (++$tn % 2 == 0 ? "<br/>" : '');
 	}
 
 	print { $$self{CONTENT} }
@@ -5235,6 +5407,7 @@ sub output
 	    my $trunc = ($chars == $max_log_length ? "<br/><span class='alarm'>Truncated</span>" : '');
 	    $$error{$log} =~ s/\s*$/\n/;
 	    my $lines = ($$error{$log} =~ tr/\n/\n/);
+	    $lines = 0 if $chars == 0;
 	   
 	    print { $$self{CONTENT} }
 	    "<label>$$log_labels{$log}:<br/><span class='note'>($lines lines)<br/>($chars chars)$trunc</span></label>",
@@ -5242,7 +5415,7 @@ sub output
  	}
 	print { $$self{CONTENT} } "</div>";
     }
-
+    print {$$self{CONTENT}} $pager->pager();
 }
 
 1;
