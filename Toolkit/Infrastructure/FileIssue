@@ -134,10 +134,15 @@ sub confirm
 	  left join t_xfer_delete xd
 	    on xd.fileid = f.id
             and xd.node = ns.id
+          left join t_xfer_exclude xe
+            on xe.from_node = ns.id
+            and xe.to_node = nd.id
+            and xe.fileid = xp.fileid
         where xp.is_valid = 1
           and xdr.id is null
           and xt.id is null
           and xd.fileid is null
+          and xe.fileid is null
 	  and ((ns.kind = 'MSS' and nd.kind = 'Buffer')
 	       or (ns.kind = 'Buffer' and nd.kind = 'MSS'
        	           and xsi.from_node is not null)

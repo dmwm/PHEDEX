@@ -187,6 +187,18 @@ create table t_xfer_path
   --
   enable row movement;
 
+create table t_xfer_exclude
+  (from_node		integer		not null, -- xfer_path from_node
+   to_node              integer         not null, -- xfer_path to_node
+   fileid               integer         not null, -- xfer_path file id
+   time_request		float		not null, -- time when suspension was requested
+   --
+   constraint pk_xfer_exclude
+     primary key (from_node, to_node, fileid))
+  --
+  enable row movement;
+
+
 /* FIXME: Consider using clustered table for t_xfer_task*, see
    Tom Kyte's Effective Oracle by Design, chapter 7. */
 create table t_xfer_task

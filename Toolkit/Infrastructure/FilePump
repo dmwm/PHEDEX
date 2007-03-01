@@ -336,6 +336,7 @@ sub receive
 
     # Create destination replicas or put request into cool-off
     # depending on the transfer outcome.
+    # Suspend requests until filerouter had a chance to run again.
     &dbexec($dbh, qq{
 	merge into t_xfer_replica xr using
 	  (select xt.to_node, xt.fileid, xtd.time_update
@@ -359,6 +360,14 @@ sub receive
 		    and xq.destination = xt.to_node
 		where xtd.report_code != 0)
 	set state = 1, time_expire = :now + 3600},
+	":now" => $now);
+
+    &dbexec($dbh, qq{
+	insert into t_xfer_exclude (from_node, to_node, fileid, time_request)
+           select xt.to_node, xt.from_node, xt.fileid,:now
+	   from t_xfer_task_harvest xth
+	       join t_xfer_task xt on xt.id = xth.task
+	       join t_xfer_task_done xtd on xtd.task = xth.task},
 	":now" => $now);
 
     # Finally remove all we've processed.
