@@ -2,3 +2,10 @@
 ### AGENT LABEL=drop-publish PROGRAM=Toolkit/DropBox/DropTMDBPublisher
  -db          ${PHEDEX_DBPARAM}
  -node        ${PHEDEX_NODE}
+
+### AGENT LABEL=info-ds PROGRAM=Toolkit/Monitoring/InfoDropStatus
+ -db          ${PHEDEX_DBPARAM}
+ -node        ${PHEDEX_NODE}
+ -agents      'drop-publish'
+ -dir         ${PHEDEX_STATE}
+

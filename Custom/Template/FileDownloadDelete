@@ -10,8 +10,8 @@ case $reason in
   pre )
    ;; # ignore, only delete if we have a real error
   post )
-   srm-advisory-delete -x509_user_proxy=${X509_USER_PROXY} -retry_num=0 "$pfn" 2>/dev/null
-   ;;
+   exec srm-advisory-delete -x509_user_proxy=${X509_USER_PROXY} -retry_num=0 "$pfn";
+   exit 255;;
   * ) echo "unrecognised reason to remove $pfn: $reason" 1>&2; exit 1;;
 esac
 
