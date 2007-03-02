@@ -3217,7 +3217,7 @@ sub output
   $table->start();
   $table->head();
 
-  foreach my $rid (reverse sort keys %{$req_info}) {
+  foreach my $rid (reverse sort { $a <=> $b } keys %{$req_info}) {
       next if ($request && $request != $rid); # XXX improve later...
       my $dests = join ', ', @{$$req_dest{$rid}};
       my $row = { REQUEST => $rid, DESTINATIONS => $dests };
