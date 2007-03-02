@@ -2365,16 +2365,16 @@ use POSIX qw(strftime);
 import Web25::Common;
 
 our @reqstates = (
-    { STATE => 0, RANK => 0, LABEL => "In preparation" },
-    { STATE => 1, RANK => 2, LABEL => "Pending approval" },
-    { STATE => 2, RANK => 1, LABEL => "Pending feedback" },
-    { STATE => 3, RANK => 3, LABEL => "Approved" },
+    { STATE => 0, RANK => 0, LABEL => "Pending approval" },
+#    { STATE => 1, RANK => 2, LABEL => "Pending approval" },
+#    { STATE => 2, RANK => 1, LABEL => "Pending feedback" },
+#    { STATE => 3, RANK => 3, LABEL => "Approved" },
     { STATE => 4, RANK => 9, LABEL => "Disapproved" },
-    { STATE => 5, RANK => 5, LABEL => "Active" },
-    { STATE => 6, RANK => 6, LABEL => "Suspended" },
-    { STATE => 7, RANK => 7, LABEL => "Completed" },
-    { STATE => 8, RANK => 8, LABEL => "Disabled" } );
-
+    { STATE => 5, RANK => 5, LABEL => "Approved" }
+#    { STATE => 6, RANK => 6, LABEL => "Suspended" },
+#    { STATE => 7, RANK => 7, LABEL => "Completed" },
+#    { STATE => 8, RANK => 8, LABEL => "Disabled" }
+		  );
 our %reqstatenames = map { ($$_{STATE} => $$_{LABEL}) } @reqstates;
 
 sub new
