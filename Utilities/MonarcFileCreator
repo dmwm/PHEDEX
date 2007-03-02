@@ -1,10 +1,10 @@
 #!/usr/bin/perl
 ##H
-##H    This scrip creates job submision files for MonarcTest sample production  
+##H    This scrip creates job submision files for LoadTest07 sample production  
 ##H
 ##H    Usage:
 ##H
-##H       MonarcFileCreator <copy command to MSS> <batch job submit command> <queue type>  \ 
+##H       LoadTest07FileCreator <copy command to MSS> <batch job submit command> <queue type>  \ 
 ##H       <storage path> <site> [<batch system mail option> <user's email>]
 ##H
 ##H       Start it from somewhere you can submit jobs. From NFS or AFS mounted area or a UI. 
@@ -16,18 +16,18 @@
 ##H       File creation is done in two steps. First there is a creation of a seed (23KB) file filled
 ##H       with random characters. Seed file is then automaticaly copied copied to batch machine 
 ##H       from your area (or defined in outbox) along with the CreateFile script (created with this script). 
-##H       CreateFile script creates the resulting 2.5 GB file which is then copied to castor and removed 
+##H       CreateFile script creates the resulting 2.6 GB file which is then copied to castor and removed 
 ##H       from batch machine.
 ##H
-##H       ./MonarcFileCreator rfcp bsub 8nm /castor/cern.ch/cms/store/phedex_monarctest CERN -u user_email
+##H       ./LoadTest07FileCreator rfcp bsub 8nm /castor/cern.ch/cms/store/phedex_LoadTest07 CERN -u user_email
 ##H
-##H       ./MonarcFileCreator dccp qsub short /data/store/phedex_monarctest SITE -M user_email
+##H       ./LoadTest07FileCreator dccp qsub short /data/store/phedex_LoadTest07 SITE -M user_email
 ##H
-##H       ./MonarcFileCreator srmcp test # Creates sample.jdl file. To get queue match list use:
+##H       ./LoadTest07FileCreator srmcp test # Creates sample.jdl file. To get queue match list use:
 ##H       edg-job-list-match sample.jdl
 ##H
-##H       ./MonarcFileCreator srmcp edg-job-submit ce102.cern.ch:2119/jobmanager-lcglsf-grid_2nh_cms  \
-##H       srm://srm.cern.ch:8443/srm/managerv1?SFN=/castor/cern.ch/cms/store/phedex_monarctest CERN 
+##H       ./LoadTest07FileCreator srmcp edg-job-submit ce102.cern.ch:2119/jobmanager-lcglsf-grid_2nh_cms  \
+##H       srm://srm.cern.ch:8443/srm/managerv1?SFN=/castor/cern.ch/cms/store/phedex_LoadTest07 CERN 
 ##H
 
 if($ARGV[0] && $ARGV[0] ne 'srmcp' && $ARGV[0] ne 'rfcp' && $ARGV[0] ne 'dccp' && $ARGV[0] ne 'cp') 
@@ -55,15 +55,15 @@ if(!$ARGV[0] || !$ARGV[1]|| !$ARGV[2] || !$ARGV[3] || !$ARGV[4]) {  die " \n Ins
 MonarcFileCreator <copy command to MSS> <batch job submit command> <queue type> <storage path> <site>  \\
 [<batch system mail option> <user's email>] \n
 Examples: \n
-./MonarcFileCreator rfcp bsub 8nm /castor/cern.ch/cms/store/phedex_monarctest CERN -u user_email
+./MonarcFileCreator rfcp bsub 8nm /castor/cern.ch/cms/store/phedex_LoadTest07 CERN -u user_email
 
-./MonarcFileCreator dccp qsub short /data/store/phedex_monarctest SITE -M user_email 
+./MonarcFileCreator dccp qsub short /data/store/phedex_LoadTest07 SITE -M user_email 
 
 ./MonarcFileCreator srmcp test \# Creates sample.jdl file. To get queue match list use: 
 edg-job-list-match sample.jdl
 
 ./MonarcFileCreator srmcp edg-job-submit ce102.cern.ch:2119/jobmanager-lcglsf-grid_2nh_cms  \\
-srm://srm.cern.ch:8443/srm/managerv1?SFN=/castor/cern.ch/cms/store/phedex_monarctest CERN \n\n";}
+srm://srm.cern.ch:8443/srm/managerv1?SFN=/castor/cern.ch/cms/store/phedex_LoadTest07 CERN \n\n";}
 #print $ARGV[0]," ",$ARGV[1]," ",$ARGV[2]," ",$ARGV[3]," ",$ARGV[4]" \n";
 
 my $i = 0;
@@ -94,7 +94,7 @@ $hex = sprintf("%0.2X", $i);
 my $size = 3*$i+56375;
 if($i==1) {print "File with lowest size to be created : "; print $seed_size*$size."\n";}
 if($i==255) {print "File with highest size to be created : "; print $seed_size*$size." \n";}
-my $data_file = "MonarcTest_".$hex.".job";
+my $data_file = "LoadTest07_".$hex.".job";
 open DATA, ">$data_file" or die "can't open $data_file $!";
 print DATA '#!/bin/bash'."\n";
 if($ARGV[0] ne 'srmcp') {print DATA 'cp '.$ENV{PWD}.'/jobs/seed .'."\n";
@@ -107,27 +107,27 @@ print DATA './CreateFile '.$size."\n";
 if($ARGV[0] eq 'srmcp') { print DATA 'if [ -d /usr/java/j2re-1.4.2_13 ]; then'."\n";
 			  print DATA 'export JAVA_HOME=/usr/java/j2re-1.4.2_13'."\n";
 			  print DATA 'fi'."\n\n";
-			  print DATA $ARGV[0].' -debug=true -x509_user_trusted_certificates=$X509_CERT_DIR file:///`pwd`/MonarcTest '.$ARGV[3].'/MonarcTest_'.$ARGV[4].'_'.$hex."\n";}
-else {print DATA $ARGV[0].' MonarcTest '.$ARGV[3].'/MonarcTest_'.$ARGV[4].'_'.$hex."\n";}
-if($ARGV[0] eq 'srmcp') {print DATA 'cat >> Monarc_files_info_'.$hex.' << END_OF_DATA'."\n";}
-else {print DATA 'cat >> '.$ENV{PWD}.'/jobs/Monarc_files_info_'.$hex.' << END_OF_DATA'."\n";} 
-print DATA $hex.','.'` cksum MonarcTest | sed \'s/[^0-9][^0-9]*/,/\' | sed \'s/MonarcTest//g\'`'."\n";
+			  print DATA $ARGV[0].' -debug=true -x509_user_trusted_certificates=$X509_CERT_DIR file:///`pwd`/LoadTest07 '.$ARGV[3].'/LoadTest07_'.$ARGV[4].'_'.$hex."\n";}
+else {print DATA $ARGV[0].' LoadTest07 '.$ARGV[3].'/LoadTest07_'.$ARGV[4].'_'.$hex."\n";}
+if($ARGV[0] eq 'srmcp') {print DATA 'cat >> LoadTest07_files_info_'.$hex.' << END_OF_DATA'."\n";}
+else {print DATA 'cat >> '.$ENV{PWD}.'/jobs/LoadTest07_files_info_'.$hex.' << END_OF_DATA'."\n";} 
+print DATA $hex.','.'` cksum LoadTest07 | sed \'s/[^0-9][^0-9]*/,/\' | sed \'s/LoadTest07//g\'`'."\n";
 print DATA 'END_OF_DATA'."\n";
-print DATA 'rm -f seed CreateFile MonarcTest'."\n";
+print DATA 'rm -f seed CreateFile LoadTest07'."\n";
 close (DATA);
 open DATA, ">>$command_file" or die "can't open $command_file $!";
-if($ARGV[0] eq 'srmcp') {print DATA $ARGV[1].' -r '.$ARGV[2].' MonarcTest_'.$hex.".jdl\n";}
-else {if($ARGV[5] && $ARGV[5]) {print DATA $ARGV[1].' -q '.$ARGV[2].' '.$ARGV[5].' '.$ARGV[6].' MonarcTest_'.$hex.".job\n";}
-      if(!$ARGV[5] || !$ARGV[6]) {print DATA $ARGV[1].' -q '.$ARGV[2].' MonarcTest_'.$hex.".job\n";}
+if($ARGV[0] eq 'srmcp') {print DATA $ARGV[1].' -r '.$ARGV[2].' LoadTest07_'.$hex.".jdl\n";}
+else {if($ARGV[5] && $ARGV[5]) {print DATA $ARGV[1].' -q '.$ARGV[2].' '.$ARGV[5].' '.$ARGV[6].' LoadTest07_'.$hex.".job\n";}
+      if(!$ARGV[5] || !$ARGV[6]) {print DATA $ARGV[1].' -q '.$ARGV[2].' LoadTest07_'.$hex.".job\n";}
  }
 close (DATA);
-if($ARGV[0] eq 'srmcp') { my $data_jdl_file = "MonarcTest_".$hex.".jdl";
+if($ARGV[0] eq 'srmcp') { my $data_jdl_file = "LoadTest07_".$hex.".jdl";
 			  open DATA, ">$data_jdl_file" or die "can't open $data_file $!";
-			  print DATA 'Executable = "MonarcTest_'.$hex.'.job";'."\n\n\n";
-			  print DATA 'StdOutput = "MonarcTest_'.$hex.'.out";'."\n";
-			  print DATA 'StdError = "MonarcTest_'.$hex.'.err";'."\n\n";
-			  print DATA 'InputSandbox = {"./MonarcTest_'.$hex.'.job","./seed","./CreateFile"};'."\n";
-			  print DATA 'OutputSandbox = {"MonarcTest_'.$hex.'.out","MonarcTest_'.$hex.'.err","Monarc_files_info_'.$hex.'"};'."\n\n";
+			  print DATA 'Executable = "LoadTest07_'.$hex.'.job";'."\n\n\n";
+			  print DATA 'StdOutput = "LoadTest07_'.$hex.'.out";'."\n";
+			  print DATA 'StdError = "LoadTest07_'.$hex.'.err";'."\n\n";
+			  print DATA 'InputSandbox = {"./LoadTest07_'.$hex.'.job","./seed","./CreateFile"};'."\n";
+			  print DATA 'OutputSandbox = {"LoadTest07_'.$hex.'.out","LoadTest07_'.$hex.'.err","LoadTest07_files_info_'.$hex.'"};'."\n\n";
 			  print DATA 'VirtualOrganisation="cms";'."\n";
 
 			  close (DATA);
@@ -143,8 +143,8 @@ close (DATA);
     open DATA, ">>$cksum_file" or die "can't open $command_file $!";
     print DATA '#!/bin/bash'."\n";
     print DATA "echo '#===='"."\n";
-    print DATA 'cat >> '.$ENV{PWD}.'/jobs/Monarc_files_info_'.$hex.' << END_OF_DATA'."\n";
-    print DATA $hex.','.'` rfcat '.$ARGV[3].'/MonarcTest_'.$ARGV[4].'_'.$hex.'| cksum | sed \'s/[^0-9][^0-9]*/,/\' | sed \'s/MonarcTest//g\'`'."\n";
+    print DATA 'cat >> '.$ENV{PWD}.'/jobs/LoadTest07_files_info_'.$hex.' << END_OF_DATA'."\n";
+    print DATA $hex.','.'` rfcat '.$ARGV[3].'/LoadTest07_'.$ARGV[4].'_'.$hex.'| cksum | sed \'s/[^0-9][^0-9]*/,/\' | sed \'s/LoadTest07//g\'`'."\n";
     print DATA 'END_OF_DATA'."\n";
     print DATA "echo '#====='"."\n";
 close (DATA);
@@ -153,9 +153,9 @@ close (DATA);
 open DATA, ">>$command_file" or die "can't open $command_file $!";
 print DATA "echo '=========================================='"."\n";
 print DATA "echo 'when all files are created do: '"."\n";
-if($ARGV[0] eq 'srmcp') { print DATA "echo 'get all Monarc_files_info_* files from your output into jobs/ directory and do: '"."\n";}
-print DATA "echo '    cat jobs/Monarc_files_info_* > monarc_files_info'"."\n";
-print DATA "echo 'and copy monarc_files_info file in folder where MonarcFileInjector is.'"."\n";
+if($ARGV[0] eq 'srmcp') { print DATA "echo 'get all LoadTest07_files_info_* files from your output into jobs/ directory and do: '"."\n";}
+print DATA "echo '    cat jobs/LoadTest07_files_info_* > LoadTest07_files_info'"."\n";
+print DATA "echo 'and copy LoadTest07_files_info file in folder where LoadTest07FileInjector is.'"."\n";
 print DATA "echo 'i.e. in SITECONF/".$ARGV[4]."/PhEDEx folder '"."\n";
 print DATA "echo '=========================================='"."\n";
 close (DATA);
@@ -163,8 +163,8 @@ if($ARGV[0] ne 'srmcp') {
     open DATA, ">>$command_cksum_file" or die "can't open $command_file $!";
     print DATA "echo '=========================================='"."\n";
     print DATA "echo 'when all files are created do: '"."\n";
-    print DATA "echo '    cat jobs/Monarc_files_info_* > monarc_files_info'"."\n";
-    print DATA "echo 'and copy monarc_files_info file in folder where MonarcFileInjector is.'"."\n";
+    print DATA "echo '    cat jobs/LoadTest07_files_info_* > LoadTest07_files_info'"."\n";
+    print DATA "echo 'and copy LoadTest07_files_info file in folder where LoadTest07FileInjector is.'"."\n";
     print DATA "echo 'i.e. in SITECONF/".$ARGV[4]."/PhEDEx folder '"."\n";
     print DATA "echo '=========================================='"."\n";
 }
