@@ -111,6 +111,10 @@ sub confirm
           left join t_xfer_replica xdr
             on xdr.fileid = xp.fileid
             and xdr.node = xp.to_node
+          join t_adm_node ns
+            on ns.id = xp.from_node
+	  join t_adm_node nd
+	    on nd.id = xp.to_node
           left join t_xfer_exclude xe
             on xe.from_node = ns.id
             and xe.to_node = nd.id
@@ -120,10 +124,6 @@ sub confirm
             and xt.to_node = xp.to_node
           join t_xfer_file f
             on f.id = xp.fileid
-          join t_adm_node ns
-            on ns.id = xp.from_node
-	  join t_adm_node nd
-	    on nd.id = xp.to_node
 	  left join t_adm_link_param p
 	    on p.from_node = xp.from_node
 	    and p.to_node = xp.to_node
