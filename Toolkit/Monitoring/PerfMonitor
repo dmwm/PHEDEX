@@ -48,11 +48,12 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
+    my $compact = time()+3600;			# Delay compact at start-up
     my %params = (DBCONFIG => undef,		# Database configuration file
 		  MYNODE => undef,		# My TMDB node name
 	          WAITTIME => 60,		# Agent activity cycle
 		  NEXT_RUN => 0,		# Next time to run
-		  LAST_COMPACT => 0);		# Last we compacted old entries
+		  NEXT_COMPACT => $compact);	# Next time to compact old entries
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -375,13 +376,13 @@ sub idle
 	# in memory, merge, and write back.  This is mainly because some
 	# of the data is accumulated, some not, and sql makes it awkward
 	# to handle both.
-	return if ($$self{LAST_COMPACT} > $timebin - 2*86400);
+	return if ($timebin < $$self{NEXT_COMPACT});
         my $limit = int($timebin/86400)*86400 - 86400;
 	$self->compactLinkData($dbh, $limit, "events");
 	$self->compactLinkData($dbh, $limit, "stats");
 	$self->compactDestData($dbh, $limit);
 	$dbh->commit();
-	$$self{LAST_COMPACT} = $timebin;
+	$$self{NEXT_COMPACT} = $timebin + 2*86400; # Every two days
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
@@ -453,10 +454,10 @@ sub compactLinkData
     {
 	if ($suffix ne 'events')
 	{
-	    if ($$s{TIMETOT} && defined $$s{PARAM_RATE} && defined $$s{PARAM_LATENCY})
+	    if ($$s{TIMETOT})
 	    {
-	        $$s{PARAM_RATE} /= $$s{TIMETOT};
-	        $$s{PARAM_LATENCY} /= $$s{TIMETOT};
+	        $$s{PARAM_RATE} = ($$s{PARAM_RATE} || 0) / $$s{TIMETOT};
+	        $$s{PARAM_LATENCY} = ($$s{PARAM_LATENCY} || 0) / $$s{TIMETOT};
 	    }
 	    else
 	    {
