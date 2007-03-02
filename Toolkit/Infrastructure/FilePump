@@ -335,8 +335,10 @@ sub receive
     }
 
     # Create destination replicas or put request into cool-off
-    # depending on the transfer outcome.
-    # Suspend requests until filerouter had a chance to run again.
+    # depending on the transfer outcome.  For unsuccessful transfers
+    # put the file on an exclusion list to prevent file issuer from
+    # re-issuing the transfer until the file router has had a chance
+    # to do the "slow flush" and put the request into cool-off.
     &dbexec($dbh, qq{
 	merge into t_xfer_replica xr using
 	  (select xt.to_node, xt.fileid, xtd.time_update, fn.kind
@@ -349,7 +351,8 @@ sub receive
 	when not matched then
 	  insert (id, node, fileid, state, time_create, time_state)
 	  values (seq_xfer_replica.nextval, new.to_node, new.fileid,
-		  case when new.kind = 'MSS' then 0 else 1 end, new.time_update, new.time_update)});
+		  case when new.kind = 'MSS' then 0 else 1 end,
+		  new.time_update, new.time_update)});
 
     &dbexec($dbh, qq{
 	update (select xq.state, xq.time_expire
@@ -360,15 +363,16 @@ sub receive
 		    on xq.fileid = xt.fileid
 		    and xq.destination = xt.to_node
 		where xtd.report_code != 0)
-	set state = 1, time_expire = :now + 3600},
+	set state = 1, time_expire = :now + dbms_random.value(2700,5400)},
 	":now" => $now);
 
     &dbexec($dbh, qq{
 	insert into t_xfer_exclude (from_node, to_node, fileid, time_request)
-           select xt.to_node, xt.from_node, xt.fileid,:now
-	   from t_xfer_task_harvest xth
-	       join t_xfer_task xt on xt.id = xth.task
-	       join t_xfer_task_done xtd on xtd.task = xth.task},
+        select xt.to_node, xt.from_node, xt.fileid, :now
+	from t_xfer_task_harvest xth
+	  join t_xfer_task xt on xt.id = xth.task
+	  join t_xfer_task_done xtd on xtd.task = xth.task
+        where xtd.report_code != 0},
 	":now" => $now);
 
     # Finally remove all we've processed.

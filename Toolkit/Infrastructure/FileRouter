@@ -156,21 +156,20 @@ sub flush
         # Clear valid paths, that expired more than 8 hours ago.
         my ($stmt, $rows) = &dbexec($dbh, qq{
             delete from t_xfer_path xp
-	      where xp.to_node = :node
+	    where xp.to_node = :node
 	      and (not exists (select 1 from t_xfer_request xq
 	                       where xq.destination = xp.destination
 	                         and xq.fileid = xp.fileid
 	                         and xq.state = 0)
-	           or (xp.is_valid = 0 and :now >= xp.time_expire)
-		   or (xp.is_valid = 1 and :now >= xp.time_expire + 8*3600))},
+	      or (xp.is_valid = 0 and :now >= xp.time_expire)
+	      or (xp.is_valid = 1 and :now >= xp.time_expire + 8*3600))},
 	    ":node" => $node, ":now" => $now);
 	do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
 
-
-        # Set the path go again for Issuer.
+        # Set the path go again for issuer.
         &dbexec($dbh, qq{
             delete from t_xfer_exclude
-		where to_node = :node},
+	    where to_node = :node},
 	    ":node" => $node);
     }
 
@@ -194,7 +193,7 @@ sub flush
 	":now" => $now);
     while (my ($file, $dest, $from, $to) = $qextend->fetchrow())
     {
-	push(@{$extend{1}}, $now + 8*3600);
+	push(@{$extend{1}}, $now + 6*3600 + rand(6*3600));
 	push(@{$extend{2}}, $to);
 	push(@{$extend{3}}, $file);
     }
@@ -227,7 +226,7 @@ sub flush
     # Deactivate requests which reached their expire time limit.
     &dbexec($dbh, qq{
         update t_xfer_request
-        set state = 1, time_expire = :now + 2*3600
+        set state = 1, time_expire = :now + dbms_random.value(1,3)*3600
         where state = 0 and :now >= time_expire},
 	":now" => $now);
 
@@ -372,7 +371,7 @@ sub prepare
 	       attempt, time_create, time_expire)
 	    select
 	      id, :block inblock, :node destination, :priority priority,
-	      0 state, 1 attempt, :now, :now + 8*3600
+	      0 state, 1 attempt, :now, :now + dbms_random.value(7,10)*3600
 	    from t_xfer_file
 	    where inblock = :block});
 	my $u = &dbprep($dbh, qq{
@@ -422,7 +421,9 @@ sub prepare
     # Reactivate expired file requests.
     &dbexec($dbh, qq{
         update t_xfer_request
-        set state = 0, attempt = attempt+1, time_expire = :now + 8*3600
+        set state = 0,
+            attempt = attempt+1,
+            time_expire = :now + dbms_random.value(7,10)*3600
         where destination = :me and state = 1 and :now >= time_expire},
 	":me" => $node, ":now" => $now);
     $dbh->commit();
@@ -439,7 +440,8 @@ sub routeFiles
     # current traffic conditions.  The transfer paths are refreshed
     # regularly to account for changes in network conditions.
     #
-    # In other words, each destination node decides the entire path
+    # In other words, each destination node decid
+es the entire path
     # for each file, using network configuration information it
     # obtains from other nodes.  For correctness it is important that
     # the entire route is built by one node using a consistent network
@@ -700,12 +702,22 @@ sub routeCost
 	    # Compute cost at each neighbour.
 	    foreach my $to (keys %{$$links{$from}})
 	    {
-		my $rate = $$links{$from}{$to}{XFER_RATE};
+		# The rate estimate we use is the link nominal rate if
+		# we have no performance data, where the nominal rate
+		# is 0.5 MB/s divided by the database link distance.
+		# If we have rate performance data and it shows the
+		# link to be reasonably healthy, use that information.
+		# If the link is unhealthy, "probe" the link using
+		# nominal rate at 2% probability, and "infinite" time
+		# otherwise.  (In the latter case the later cut-off
+		# will mark the routed path as invalid.)
+		my $nominal = 0.5*MEGABYTE / $$links{$from}{$to}{HOPS};
 		my $latency = $$links{$from}{$to}{XFER_LATENCY} || 0;
-		my $nominal = 0.1*MEGABYTE / $$links{$from}{$to}{HOPS};
-		my $xfer = (defined ($rate)
-			    ? ($rate ? $sizebin / $rate : 7*86400)
-			    : $sizebin / $nominal);
+		my $rate = $$links{$from}{$to}{XFER_RATE};
+		$rate = $nominal
+		    if (! defined $rate || ($rate < $nominal && rand() <= 0.02));
+
+		my $xfer = ($rate ? $sizebin / $rate : 7*86400);
 		my $total = $$paths{$from}{TOTAL_LATENCY} + $latency + $xfer;
 	        my $thislocal = 0;
 		$thislocal = 1 if (exists $$links{$from}
@@ -714,6 +726,7 @@ sub routeCost
 		my $local = ($thislocal && $$paths{$from}{IS_LOCAL} ? 1 : 0);
 
 		# If we would involve more than one WAN hop, incur penalty.
+		# This value is larger than cut-off for valid paths later.
 		if ($$paths{$from}{REMOTE_HOPS} && ! $thislocal)
 		{
 		    $xfer += 7*86400;
@@ -797,7 +810,8 @@ sub routeFile
 	    $$item{DESTINATION} = $$request{DESTINATION};
 	    $$item{PRIORITY} = $$request{PRIORITY};
 	    $$item{TIME_REQUEST} = $$request{TIME_CREATE};
-	    $$item{TIME_EXPIRE} = ($valid ? $$request{TIME_EXPIRE} : $now+4*3600);
+	    $$item{TIME_EXPIRE} = ($valid ? $$request{TIME_EXPIRE}
+				   : $now+(0.5+rand(4))*3600);
 	    push(@{$$request{PATH}}, $item);
 	    $node = $from;
 	}
