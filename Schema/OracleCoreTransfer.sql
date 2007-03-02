@@ -194,7 +194,19 @@ create table t_xfer_exclude
    time_request		float		not null, -- time when suspension was requested
    --
    constraint pk_xfer_exclude
-     primary key (from_node, to_node, fileid))
+     primary key (from_node, to_node, fileid),
+   --
+   constraint fk_xfer_exclude_from
+     foreign key (from_node) references t_adm_node (id)
+     on delete cascade,
+   --
+   constraint fk_xfer_exclude_to
+     foreign key (to_node) references t_adm_node (id)
+     on delete cascade,
+   --
+   constraint fk_xfer_exclude_fileid
+     foreign key (fileid) references t_xfer_file (id)
+     on delete cascade)
   --
   enable row movement;
 
@@ -363,6 +375,13 @@ create index ix_xfer_path_from
 
 create index ix_xfer_path_to
   on t_xfer_path (to_node);
+
+--
+create index ix_xfer_exclude_to
+  on t_xfer_exclude (to_node);
+
+create index ix_xfer_exclude_fileid
+  on t_xfer_exclude (fileid);
 
 --
 create index ix_xfer_task_from_node
