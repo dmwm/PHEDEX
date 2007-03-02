@@ -440,8 +440,7 @@ sub routeFiles
     # current traffic conditions.  The transfer paths are refreshed
     # regularly to account for changes in network conditions.
     #
-    # In other words, each destination node decid
-es the entire path
+    # In other words, each destination node decides the entire path
     # for each file, using network configuration information it
     # obtains from other nodes.  For correctness it is important that
     # the entire route is built by one node using a consistent network
