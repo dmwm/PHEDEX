@@ -696,7 +696,7 @@ sub create_default_email
 sub send_email
 {
     my (%args) = @_;
-    return 1; # XXX testing
+
     # Required arguments
     foreach (qw(subject from to message)) {
 	return 0 unless exists $args{$_};
@@ -4526,6 +4526,15 @@ sub output
   $period = $$self{DEFAULT_PERIOD} if (! $period || ! exists $$self{PERIODS}{$period});
   $graph = $$self{DEFAULT_GRAPH} if (! $graph || ! exists $$self{GRAPHS}{$graph});
   $entity = 'dest' if (! $entity || ! grep($_ eq $entity, @{$$self{ENTITY_ORDER}} ));
+
+  my $dest_filter_name = 'destination';
+  if (exists $$self{DEST_ONLY_GRAPHS}
+      && grep $graph eq $_, @{$$self{DEST_ONLY_GRAPHS}}) {
+      $$self{ENTITY_ORDER} = ['dest'];
+      $$self{ENTITIES} = { dest => 'Node' };
+      $dest_filter_name = 'node';
+  }
+
   my $formurl = $self->myurl();
 
   print { $$self{CONTENT} } 
@@ -4542,23 +4551,22 @@ sub output
 	     -class=>'labeled'),
   "<label class='inline'>filter</label>";
 
-  if ($entity eq 'link' || $entity eq 'src') {
+  unless (exists $$self{DEST_ONLY_GRAPHS} && grep $graph eq $_, @{$$self{DEST_ONLY_GRAPHS}}) {
       print { $$self{CONTENT} }
-      ($entity eq 'link' ? "<label class='inline' for='src_filter'>source</label>" : ''),
+      "<label class='inline' for='src_filter'>source</label>",
       textfield(-name=>'src_filter', -size=>15,
 		-title=>("Regular expression to match against node names. "
 			 ."Only those matching the expression will be shown."),
 		-class=>'labeled');
   } else { print {$$self{CONTENT}} hidden('src_filter'); }
-  if ($entity eq 'link' || $entity eq 'dest') {
-      print { $$self{CONTENT} }
-      ($entity eq 'link' ? "<label class='inline' for='dest_filter'>destination</label>" : ''),
-      textfield(-name=>'dest_filter', -size=>15,
-		-title=>("Regular expression to match against node names. "
-			 ."Only those matching the expression will be shown."),
-		-class=>'labeled');
-  } else { print {$$self{CONTENT}} hidden('dest_filter'); }
 
+  print { $$self{CONTENT} }
+  "<label class='inline' for='dest_filter'>$dest_filter_name</label>",
+  textfield(-name=>'dest_filter', -size=>15,
+	    -title=>("Regular expression to match against node names. "
+		     ."Only those matching the expression will be shown."),
+	    -class=>'labeled');
+  
   print { $$self{CONTENT} }
   "<br/>",
   "<label for='period' class='inline'>Period</label>\n",
@@ -4613,9 +4621,6 @@ sub output
 
   my $conn = $$self{CONFIG}{INSTANCES}{$$self{DBID}}{CONNECTION};
 
-  if    ($entity eq 'src')  { $dest_filter = ''; }
-  elsif ($entity eq 'dest') { $src_filter = ''; }
-  
   my %args = ('conn' => $conn, 'unit' => $unit, 'span' => $span{$unit}, 'by' => $entity, 'last' => $last,
               'src_filter' => $src_filter, 'dest_filter' => $dest_filter, 'upto' => $upto, 
 	      'starttime' => $start, 'endtime' => $end);
@@ -4708,6 +4713,7 @@ sub new
 		     'request'  => "Currently routed",    # by dest only
 		     'idle'     => "Routing cool-off" };  # by dest only
   $$self{DEST_ONLY_GRAPHS} = [ qw( destined resident request idle ) ];
+
   bless $self, $class;
   return $self;
 }
@@ -5286,7 +5292,7 @@ import Web25::Common;
 use CGI qw(:standard);
 use POSIX qw(strftime);
 
-our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Error Info" };
+our $INDEX = { LIST => 1, ORDER => 7, TITLE => "Recent Errors" };
 
 sub new
 {
@@ -5305,23 +5311,36 @@ sub output
     my $to_node = param('to_node');
     my $from_node = param('from_node');
     my $fileid = param('fileid');
-    if (! defined $to_node || $to_node eq ''
-	|| ! defined $from_node || $from_node eq ''
-	)
-    {
-	print { $$self{CONTENT} }
-	$self->alert('Missing Arguments');
-	return;
-    }
-    
+    my @nodes = sort $self->fetch_nodes();
+
     my $where = qq[nd.name = :to_node
 		   and ns.name = :from_node];
     my %args = ( ':to_node'   => $to_node,
 		 ':from_node' => $from_node );
+
     
     if ($fileid) {
 	$where .= qq[ and xe.fileid = :fileid];
 	$args{':fileid'} = $fileid;
+    } else {
+	print {$$self{CONTENT}}
+	"<form method='get' action='#' class='nice'/>",
+	"<label class='inline'>Show link errors from </label>",
+	popup_menu(-name=>'from_node', -values=>[@nodes], -class=>'labeled'),
+	"<label class='inline'>to</label>",
+	popup_menu(-name=>'to_node', -values=>[@nodes], -class=>'labeled'),
+	submit(-name=>'Update', -class=>'labeled'), "<br/>",
+	"</form>";
+    }
+
+    if (!$to_node || !$from_node) {
+	print {$$self{CONTENT}} "<p>Please select a link and press update.</p>";
+	return;
+    }
+
+    if ($to_node eq $from_node) {
+	print {$$self{CONTENT}} "<p>Unsurprisingly, there were no errors from $from_node to $to_node</p>";
+	return;
     }
 
     my $sql = qq{ select time_assign, time_expire, time_export, time_inxfer, time_xfer, time_done,
@@ -5330,8 +5349,8 @@ sub output
 		    from t_xfer_error xe
                     join t_adm_node nd on nd.id = xe.to_node
 		    join t_adm_node ns on ns.id = xe.from_node
-                   where $where
-		order by time_assign
+                   where $where and rownum <= 100
+		order by time_done desc
 	    };
 
     my $max_log_length = 100_000;
@@ -5344,14 +5363,18 @@ sub output
 
     print {$$self{CONTENT}} "<h1>$n_errors recent errors on link from $from_node to $to_node</h1>" unless ($fileid);
 
-    if ($n_errors == 100 || $n_errors == 101) {
-	$self->note("Please note that PhEDEx only stores the last 100 link errors to the database for a short period of time.  ",
-		    "More errors may have occurred that are not visible here.");
+    if ($n_errors >= 100) {
+	print {$$self{CONTENT}} 
+	"<p>Please note that PhEDEx only stores the last 100 link errors to the database ",
+	"for a limited period of time. More errors may have occurred that are not visible here.</p>"
     }
-    
+
+
+
     if (!$fileid && $n_errors == 0) {
 	$self->note("Wow!  Bravo!  Amazing!  This link has no recent errors.  If you are the site admin of ",
-		    "one of these nodes, you must be doing something right!");
+		    "one of these nodes, you must be doing something right!  But you may want to check that ",
+		    "your agents are running...");
     }
 
     print {$$self{CONTENT}} $pager->pager();
