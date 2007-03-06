@@ -221,9 +221,11 @@ sub filesToDelete
     my $now = &mytimeofday();
     &dbexec($dbh, qq{
 	insert into t_dps_block_activate (BLOCK, TIME_REQUEST, TIME_UNTIL)
-	select id, $now, $now+24*3600*3 from t_dps_block where id in
-        (select xd.fileid from t_xfer_delete xd left join t_xfer_file xf on xf.id = xd.fileid
-	where xf.id is null)});
+	select id, :now, :until from t_dps_block where id in
+        (select xd.fileid from t_xfer_delete xd
+           left join t_xfer_file xf on xf.id = xd.fileid
+	where xf.id is null)},
+	":now" => $now, ":until" => $now+24*3600*3);
 
     # Find all the files that we are allowed to delete: 
     # Get the list of files from t_xfer_delete
