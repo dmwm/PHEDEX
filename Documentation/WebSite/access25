@@ -2002,14 +2002,14 @@ sub generate
     if (($ENV{HTTPS} || "nope") eq 'on')
     {
       $$self{SSL_MSG_STATUS} =
-       "<p><span style='color:#666'>Sign in <a href='$idurl'>failed</a>";
+       "<p><span class='dim'>Sign in</span> <a href='$idurl'>failed</a>";
       $$self{SSL_MSG_CHANGE} =
        " | <a href='" . $self->myurl("secure" => 0) . "'>Sign out</a></p>";
     }
     else
     {
       $$self{SSL_MSG_STATUS} =
-        "<p><span style='color:#666'>Not signed in</span>";
+        "<p><span class='dim'>Not signed in</span>";
       $$self{SSL_MSG_CHANGE} =
         " | <a href='" . $self->myurl("secure" => 1) . "'>Sign in</a></p>";
     }
@@ -2020,19 +2020,19 @@ sub generate
   {
       $$self{MY_VIEW} = 0;
       param('view', 'global');
-      $$self{VIEW_MESSAGE} = "<h3 style='color:#666'>Global view</h3><p style='color:#666'>(Sign in to change)</p>";
+      $$self{VIEW_MESSAGE} = "<p><label>View:</label><strong>global</strong></p>";
   }
     elsif (!param('view') || param('view') eq 'my')
   {
       $$self{MY_VIEW} = 1;
       my $otherurl = $self->myurl('view' => 'global');
-      $$self{VIEW_MESSAGE} = "<h3>Your view</h3><p>Switch to <a href='$otherurl'>global view</a></p>";
+      $$self{VIEW_MESSAGE} = "<p><label>View:</label><strong>my</strong> | <a href='$otherurl'>global</a></p>";
   }
   else
   {
       $$self{MY_VIEW} = 0;
       my $otherurl = $self->myurl('view' => 'my');
-      $$self{VIEW_MESSAGE} = "<h3>Global view</h3><p>Switch to <a href='$otherurl'>your view</a></p>";
+      $$self{VIEW_MESSAGE} = "<p><label>View:</label><a href='$otherurl'>my</a> | <strong>global</strong></p>";
   }
 
   # Select page we are visiting
@@ -2092,18 +2092,14 @@ sub generate
     'ROOTURL' => "$$self{CONFIG}{SERVICE_PATH}/",
     'REFRESH' => (param('refresh') ? "<meta http-equiv='refresh' content='600'>" : ""),
     'DBSELECTOR' =>
-      (" <div class='dbopt'>\n" .
-       "  <h3 style='margin-top:0'>Instance</h3>\n" .
-       "  <i>$$config{INSTANCES}{$db}{TITLE}</i>&nbsp;" .
+      ("<div class='dbopt'>\n" .
+       "<label>DB Instance:</label><strong>$$config{INSTANCES}{$db}{TITLE}</strong>&nbsp;" .
        "<a href='@{[$self->myurl('page'=>'DB')]}'" .
        " onclick='return hideshow(this,\"dbopts\",0)'>&#187;&#187;</a>\n" .
        "  <div id='dbopts' style='display:none'>\n" .
-       "   <a href='#' onclick='return hideshow(this,\"dbopts\",0)'><img" .
-       " border='0' src='$$self{CONFIG}{SERVICE_PATH}/x.gif'" .
-       " width='13' height='13' alt='Close menu' align='right'" .
-       " style='position:relative;margin:.5ex -.5ex .1ex 1ex' /></a>\n" .
+       "   <a class='closelink' href='#' onclick='return hideshow(this,\"dbopts\",0)'>[close]</a>\n" .
        join ("",
-             map { "   " . &dblink ($self, $db, $_) . "<br />\n" }
+             map { &dblink ($self, $db, $_) . "<br />\n" }
 	     sort { $$a{RANK} <=> $$b{RANK} }
 	     grep($$_{ID} ne $db, values %{$$config{INSTANCES}})) .
        "  </div>\n" .
@@ -2134,8 +2130,7 @@ sub generate
        "</div>" : ""),
     'IDENTITY' =>
       (" <div>\n" .
-       # "  <h3>Identity</h3>\n" .
-       "  $$self{SSL_MSG_STATUS}$$self{SSL_MSG_CHANGE}\n" .
+       "$$self{SSL_MSG_STATUS}$$self{SSL_MSG_CHANGE}\n" .
        " </div>"),
     'MYPAGE' => "<div>$$self{VIEW_MESSAGE}</div>",
   };

@@ -253,29 +253,17 @@ div.viewnav {
   position:		absolute;
   top:			0;
   right:		0;
-  width:		200px;
-  font-size:		0.9em;
-  background-color:	#fffff2;
-  border-left:		1px solid #e4f1db;
-  border-bottom:	1px solid #e4f1db;
+  width:		17em;
+  font-size:		90%;
+  line-height:		1.5em;
+  background-color:	transparent;
   padding:		0;
   margin:		0;
-  padding-top:		15px;
-  padding-bottom:       15px;
+  padding-top:		0.3em;
 }
 
 div.viewnav>div {
-  margin-left:		2em;
   overflow:		visible;
-}
-
-div.viewnav h3 {
-  font-size:		1em;
-  font-weight:		bold;
-  margin-bottom:	0;
-  /* margin-left:	-1em;  IE cuts the text, below works around. */
-  position:		relative;
-  left:			-1em;
 }
 
 div.viewnav p {
@@ -283,33 +271,46 @@ div.viewnav p {
   padding:		0;
 }
 
+div.viewnav a {
+  color:		#32a804;
+}
+
+div.viewnav label {
+  margin-right:		0.5em;
+}
+
+div.viewnav strong {
+  font-weight:		bold;
+  font-size:		110%;
+}
+
+div.viewnav .dim {
+  color:		#666;
+}
+
 div.dbopt {
-  position:		relative;
-  margin-right:		10px;
 }
 
 div#dbopts {
-  position:		relative;
+  position:		absolute;
   z-index:		1000;
+  top:			2em;
   left:			0;
+  width:		12em;
   background:		#fff;
   border:		1px solid #bbb;
-  padding:		1ex 1.5ex;
-  margin:		-0.5ex 0;
-}
-
-div.viewopt ul {
-  list-style-type:	none;
-  display:		inline;
-  margin: 		0;
-  padding:		0;
-}
-
-div.viewopt ul li {
-  display:		inline;
+  padding:		1em 1em 0.5em 1em;
   margin:		0;
-  padding:		0;
 }
+
+div#dbopts a.closelink {
+  position:		absolute;
+  top:			0;
+  right:		0;
+  margin-right:		0.5em;
+}
+
+
 
 /**********************************************************************/
 div.menuopt {
