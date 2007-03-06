@@ -5,7 +5,6 @@
 ##H 1. availability of transfer tools
 ##H 2. availability of Perl DBI modules and quick check they do work
 ##H 3. check grid certificate
-##H 4. check for POOL FC tools and make sure a MySQL DB can be accessed
 ##H
 ##H It is meant to provide a quick overview whether required tools are
 ##H available and set-up correctly.
@@ -16,8 +15,6 @@
 ##H
 ##H -help:    Shows this help text
 ##H -db:      DB config file plus DBname to contact to
-##H -poolcat: MySQL POOL contact string 
-##H          (example: mysqlcatalog_mysql://phedex:phedex@localhost/phedexcat)
 ##H
 
 BEGIN {
@@ -40,8 +37,7 @@ my $OK = 1;
 	     "db=s"       => \$args{DBConfig},
 	     "poolcat=s"  => \$args{POOLCAT});
 
-if ($args{HELP} || !$args{DBConfig}
-    || !$args{POOLCAT} )
+if ($args{HELP} || !$args{DBConfig})
 { &usage(); }
 
 # get the DB config from the DBConfig file
@@ -80,7 +76,6 @@ print "Password:  <censored>\n";
 $OK *= &testTools();
 $OK *= &testOracle(@DBParams);
 $OK *= &testGridCert();
-$OK *= &testPOOLSetup($args{POOLCAT});
 
 
 # judge whether there is a chance to run successfully
@@ -172,7 +167,7 @@ sub testOracle
 	my $DBH = DBI->connect("DBI:$DBType:$DBName",
 			       $DBUser, $DBPass,
 			       { RaiseError => 1, AutoCommit => 0 })
-	    or die "Couldn't connect to DB $DBNAME !!\n";
+	    or die "Couldn't connect to DB $DBName !!\n";
 	# disconnect
 	$DBH->disconnect() if $DBH;
     };
@@ -204,28 +199,6 @@ sub testGridCert
 	return 0} if $timeout;
     
     print "Grid certificate available and valid proxy found\n";
-    print "---------------------------------------------------------------------\n";
-    return 1; # report success
-}
-
-
-sub testPOOLSetup
-{
-    my ($cat) = @_;
-    # check availability of FC POOL tools
-    do {print "didn't find FClistPFN... probably no POOL tools installed\n";
-	print "---------------------------------------------------------------------\n";
-	return 0;} if system("which FClistPFN >& /dev/null");
-    
-    #next try to access the MySQL POOL catalogue
-    my $cmd ="FClistLFN -u $cat -q \"guid=\'123456\'\"";
-    do {print "simple dummy query didn't succeed. Please check your POOL installation\n";
-	print "command isued: $cmd\n";
-	print "----------------------------------------------------------------------\n";
-	return 0;} if system("$cmd >& /dev/null");
-
-
-    print "POOL FC tools available and successfully tested\n";
     print "---------------------------------------------------------------------\n";
     return 1; # report success
 }
