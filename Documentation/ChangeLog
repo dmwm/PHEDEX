@@ -1,3 +1,26 @@
+* Changes in PhEDEx 2.5.1
+
+ General changes:
+   - BlockDLSUpdate now supports block de-registration in DLS.
+   - Infrastructure agents now make the system more reactive to dead links
+     and sites recovering from previous errors.
+   - Corrected some issues with the template configuration files.
+       - FileDownloadDelete retruns proper exit code.
+       - Prevent the Glite environment from overwriting the proxy location.
+       - FileDownloadVerify supports now DPM via dpns-ls.
+   - TestInstallation script updated to support version 2.5.x.
+   - Bug fixes in FileExporter and PerfMonitor.
+   - Reduce DB load caused by FileRemove agents.
+
+ Web site changes:
+
+   - Not released in RPMs.
+
+ Schema changes:
+   - Prevent close loops between FilePump and FileIssue agents.
+   - Update table privilege settings.
+
+
 * Changes in PhEDEx 2.5.0.1
 
  General changes:
@@ -7,11 +30,11 @@
    - Improvements to template config files.
    - Removal of obsolete scripts and templates.
 
-Web site changes:
+ Web site changes:
 
    - Not released in RPMs.
 
-Schema changes:
+ Schema changes:
 
    - Combine all site registrations to a single script.
    - Relax constraints on identities.

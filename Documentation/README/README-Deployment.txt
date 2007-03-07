@@ -77,8 +77,8 @@ On Scientific Linux 4 replace "slc3_ia32_gcc323" with "slc4_ia32_gcc345".
   $sw/aptinstaller.sh -path $sw -arch slc3_ia32_gcc323 setup
   eval `$sw/aptinstaller.sh -path $sw -arch slc3_ia32_gcc323 config -sh`
   apt-get update
-  apt-get install cms+PHEDEX+PHEDEX_2_5_0_1
-  rm -f PHEDEX; ln -s $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_5_0_1 PHEDEX
+  apt-get install cms+PHEDEX+PHEDEX_2_5_1
+  rm -f PHEDEX; ln -s $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_5_1 PHEDEX
 
 *** Get site configuration
 
@@ -103,7 +103,7 @@ your environment.  You will invoke the scripts from your site "Config"
 as will be explained below.  If you used the commands above, use the
 following command, but substitute "slc4_ia32_gcc345" if applicable:
 
-  source $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_5_0_1/etc/profile.d/env.sh
+  source $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_5_1/etc/profile.d/env.sh
 
 You should verify the following environment variables are set correctly:
 
