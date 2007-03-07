@@ -84,7 +84,6 @@ sub new
 	  	  IGNORE_NODES => ['%MSS'],	# TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
 		  WAITTIME => 60 + rand(15),	# Agent activity cycle
-	  	  AGENTID  => "FileCleaner",    # Identity for activity logs
 		  DELETING => undef,		# Are we deleting files now?
 		  CMD_RM   => undef,            # cmd to remove physical files
 		  PROTOCOL => 'direct',         # File access protocol
@@ -221,7 +220,7 @@ sub filesToDelete
     my $now = &mytimeofday();
     &dbexec($dbh, qq{
 	insert into t_dps_block_activate (BLOCK, TIME_REQUEST, TIME_UNTIL)
-	select id, :now, :until from t_dps_block where id in
+        select id, :now, :until from t_dps_block where id in
         (select xd.fileid from t_xfer_delete xd
            left join t_xfer_file xf on xf.id = xd.fileid
 	where xf.id is null)},

@@ -10,6 +10,8 @@
 
 ### ENVIRON glite
 source $PHEDEX_GLITE_ENV;
+unset X509_USER_KEY X509_USER_CERT;
+export X509_USER_PROXY=${PHEDEX_X509_USER_PROXY};
 export GLITE_SD_PLUGIN;
 TIER0_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s CERN-PROD);
 TIER1_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s ${TIER1_FTS_SERVICE});

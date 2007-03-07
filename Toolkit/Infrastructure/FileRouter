@@ -687,7 +687,8 @@ sub routeCost
 	TOTAL_LATENCY => $latency,
 	IS_LOCAL => 1,
 	HOPS => 0,
-	REMOTE_HOPS => 0
+	REMOTE_HOPS => 0,
+	IS_PROBE => 0
     };
 
     # Now use Dijkstra's algorithm to compute minimum spanning tree.
@@ -712,10 +713,13 @@ sub routeCost
 		# will mark the routed path as invalid.)
 		my $nominal = 0.5*MEGABYTE / $$links{$from}{$to}{HOPS};
 		my $latency = $$links{$from}{$to}{XFER_LATENCY} || 0;
-		my $rate = $$links{$from}{$to}{XFER_RATE};
-		$rate = $nominal
-		    if (! defined $rate || ($rate < $nominal && rand() <= 0.02));
-
+		my $probe = ($$path{$from}{IS_PROBE}
+			     || (defined $rate
+				 && $rate < $nominal
+				 && rand() <= 0.02)
+			     ? 1 : 0);
+		my $rate = ($probe ? $nominal
+			    : $$links{$from}{$to}{XFER_RATE});
 		my $xfer = ($rate ? $sizebin / $rate : 7*86400);
 		my $total = $$paths{$from}{TOTAL_LATENCY} + $latency + $xfer;
 	        my $thislocal = 0;
@@ -752,7 +756,8 @@ sub routeCost
 				     TOTAL_LATENCY => $total,
 				     IS_LOCAL => $local,
 				     HOPS => $$paths{$from}{HOPS} + 1,
-			     	     REMOTE_HOPS => $$paths{$from}{REMOTE_HOPS} + (1-$thislocal) };
+			     	     REMOTE_HOPS => $$paths{$from}{REMOTE_HOPS} + (1-$thislocal),
+				     IS_PROBE => $probe };
 		    $todo{$to} = 1;
 		}
 	    }

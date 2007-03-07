@@ -44,7 +44,7 @@ PHEDEX_SITE=Atlantis;
 PHEDEX_NODE=TX_${PHEDEX_SITE}_Buffer;
 PHEDEX_VERSION=2_5_1;
 PHEDEX_OS_VERSION=slc4_ia32_gcc345;
-X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
+PHEDEX_X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
 # FTS specific part
 PHEDEX_GLITE_ENV=SomePath/etc/profile.d/grid_env.sh;
@@ -69,10 +69,6 @@ TIER1_FTS_SERVICE=Atlantis-FTS;
 #
 # T1 typically run all of the above.
 # T2 and smaller sites typically don't need MSS.
-#
-# CERN should run a set of special agents (only run at CERN!):
-#   ConfigPart.CERN, ConfigPart.Management for T0
-#   ConfigPart.CERN, ConfigPart.CERN-Download for T1
 
 ### IMPORT ConfigPart.Common
 ### IMPORT ConfigPart.Export
