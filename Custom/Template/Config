@@ -61,7 +61,7 @@ TIER1_FTS_SERVICE=Atlantis-FTS;
 # can be deactivated by adding another '#' sign. We distinguish
 # between the following services:
 # 
-# Common:   Loads PhEDEx environemt and starts monitoring agent.
+# Common:   Loads PhEDEx environemt.
 # Export:   Needed for exporting files to other sites.
 # Inject:   Allows to inject locally produced files into PhEDEx.
 # MSS:      Needed for storage systems with tape backend
