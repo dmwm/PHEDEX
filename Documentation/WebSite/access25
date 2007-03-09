@@ -763,14 +763,20 @@ sub send_email
 }
 
 
+
 sub dn_to_human_name
 {
     my $dn = shift @_;
     return undef unless $dn;
-    my ($name) = ($dn =~ m:/CN=([^/]+?)[\s\d]*(/|$):);
+    my @names = ($dn =~ m:/CN=([^/]+?)[\s\d]*(/|$):g);
+    my $name = $names[0];
+    foreach (@names) {
+      $name = $_ if length $_ > length $name;
+    }
     $name =~ s/\b(\w)/\U$1/g;
     return $name;
-}	      
+}
+
 
     
 sub yesno 
@@ -4277,7 +4283,9 @@ sub myurl
 
   # Return bare link if we are switching pages
   return $self->SUPER::myurl(%args)
-    if ($args{"page"} && $args{"page"} ne "Activity::Rate");
+    if ($args{"page"} && ($args{"page"} ne "Activity::TransferRate" &&
+			  $args{"page"} ne "Activity::TransferDetails" &&
+			  $args{"page"} ne "Activity::ErrorInfo"));
 
   # Keep my if remaining on the same page (but e.g. different instance)
   return $self->SUPER::myurl($self->urlparams(@save), %args);
@@ -4923,7 +4931,9 @@ sub myurl
 
   # Return bare link if we are switching pages
   return $self->SUPER::myurl(%args)
-    if ($args{"page"} && $args{"page"} ne "Activity::TransferDetails");
+    if ($args{"page"} && ($args{"page"} ne "Activity::Rate" &&
+			  $args{"page"} ne "Activity::TransferDetails" &&
+			  $args{"page"} ne "Activity::ErrorInfo"));
 
   # Keep my if remaining on the same page (but e.g. different instance)
   return $self->SUPER::myurl($self->urlparams(@save), %args);
@@ -5299,53 +5309,67 @@ sub new
 }
 
 
+sub myurl
+{
+  my ($self, %args) = @_;
+  my @save = qw(tofilter fromfilter andor);
+
+  # Return bare link if we are switching pages
+  return $self->SUPER::myurl(%args)
+    if ($args{"page"} && ($args{"page"} ne "Activity::Rate" &&
+			  $args{"page"} ne "Activity::TransferDetails" &&
+			  $args{"page"} ne "Activity::ErrorInfo"));
+
+  # Keep my if remaining on the same page (but e.g. different instance)
+  return $self->SUPER::myurl($self->urlparams(@save), %args);
+}
+
+
+
 sub output
 {
     my ($self) = @_;
 
-    my $to_node = param('to_node');
-    my $from_node = param('from_node');
+    my $tofilter = param('tofilter') || '.*';
+    my $fromfilter = param('fromfilter') || '.*';
     my $fileid = param('fileid');
     my @nodes = sort $self->fetch_nodes();
 
-    my $where = qq[nd.name = :to_node
-		   and ns.name = :from_node];
-    my %args = ( ':to_node'   => $to_node,
-		 ':from_node' => $from_node );
-
+    my @where;
+    my %args;
     
     if ($fileid) {
-	$where .= qq[ and xe.fileid = :fileid];
+	push @where, qq[xe.fileid = :fileid];
 	$args{':fileid'} = $fileid;
     } else {
 	print {$$self{CONTENT}}
 	"<form method='get' action='#' class='nice'/>",
-	"<label class='inline'>Show link errors from </label>",
-	popup_menu(-name=>'from_node', -values=>[@nodes], -class=>'labeled'),
-	"<label class='inline'>to</label>",
-	popup_menu(-name=>'to_node', -values=>[@nodes], -class=>'labeled'),
+	"<label class='inline'>Show errors on links to </label>",
+	textfield(-name=>'tofilter', -value=>$tofilter, -class=>'labeled'),
+	"<label class='inline'>from</label>",
+	textfield(-name=>'fromfilter', -value=>$fromfilter, -class=>'labeled'),
 	submit(-name=>'Update', -class=>'labeled'), "<br/>",
 	"</form>";
     }
 
-    if (!$to_node || !$from_node) {
-	print {$$self{CONTENT}} "<p>Please select a link and press update.</p>";
-	return;
-    }
+    my @from = grep /$fromfilter/, @nodes;
+    my @to = grep /$tofilter/, @nodes;
+    my ($from_list, %from_binds) = &dbinlist('from', @from);
+    my ($to_list, %to_binds) = &dbinlist('to', @to);
+    push @where, "(ns.name in ($from_list) and nd.name in ($to_list))";
+    my $where = join ' and ', @where;
+    $args{$_} = $from_binds{$_} foreach (keys %from_binds);
+    $args{$_} = $to_binds{$_} foreach (keys %to_binds);
 
-    if ($to_node eq $from_node) {
-	print {$$self{CONTENT}} "<p>Unsurprisingly, there were no errors from $from_node to $to_node</p>";
-	return;
-    }
-
-    my $sql = qq{ select time_assign, time_expire, time_export, time_inxfer, time_xfer, time_done,
+    my $sql = qq{ select ns.name from_node, nd.name to_node,
+		         time_assign, time_expire, time_export, time_inxfer, time_xfer, time_done,
 		         report_code, xfer_code, from_pfn, to_pfn,
 		         log_xfer, log_detail, log_validate
 		    from t_xfer_error xe
                     join t_adm_node nd on nd.id = xe.to_node
 		    join t_adm_node ns on ns.id = xe.from_node
-                   where $where and rownum <= 100
-		order by time_done desc
+                   where $where
+		order by ns.name asc, nd.name desc, time_done desc
 	    };
 
     my $max_log_length = 100_000;
@@ -5356,20 +5380,20 @@ sub output
     $pager->init($$self{DBH}, $sql, {%args}, 10);
     my $n_errors = $pager->get_total_rows();
 
-    print {$$self{CONTENT}} "<h1>$n_errors recent errors on link from $from_node to $to_node</h1>" unless ($fileid);
+    if ($fileid) {
+	my $alllink = $self->myurl('fromfilter' => $fromfilter, 'tofilter' => $tofilter);
+	print {$$self{CONTENT}}
+	"<p><a href='$alllink'>Show all errors for this link</a></p>";
+    } else {
+	print {$$self{CONTENT}} 
+	"<h1>$n_errors recent errors on links to ", &escapeHTML($tofilter), 
+	" from ", &escapeHTML($fromfilter), "</h1>";
+    }
 
     if ($n_errors >= 100) {
 	print {$$self{CONTENT}} 
 	"<p>Please note that PhEDEx only stores the last 100 link errors to the database ",
 	"for a limited period of time. More errors may have occurred that are not visible here.</p>"
-    }
-
-
-
-    if (!$fileid && $n_errors == 0) {
-	$self->note("Wow!  Bravo!  Amazing!  This link has no recent errors.  If you are the site admin of ",
-		    "one of these nodes, you must be doing something right!  But you may want to check that ",
-		    "your agents are running...");
     }
 
     print {$$self{CONTENT}} $pager->pager();
@@ -5392,6 +5416,10 @@ sub output
 	print { $$self{CONTENT} }
 	"<div class='nice errorinfo'>",
 	"<h1>Error $$error{ROW_NUMBER}</h1>";
+
+	print { $$self{CONTENT} }
+	"<label>To Node:</label><span class='labeled halfwidefield'>$$error{TO_NODE}</span>",
+	"<label>From Node:</label><span class='labeled halfwidefield'>$$error{FROM_NODE}</span><br/>";
 
 	my $time_assign = $$error{TIME_ASSIGN};
 	my $tn = 0;
