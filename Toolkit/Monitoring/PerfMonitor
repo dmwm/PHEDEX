@@ -408,7 +408,29 @@ sub compactUpdate
 	if (! defined $i)
 	{
 	    my @keys = keys %$data;
-	    my $sql = "insert into $table ("
+	    my $sql = "merge into $table t using "
+		      . "(select :timebin timebin, :from_node from_node, "
+                      . ":to_node to_node, :priority priority "
+		      . "from dual) e"
+		      . "on "
+		      . "t.timebin   = e.timebin and "
+		      . "t.from_node = e.from_node and "
+		      . "t.to_node   = e.to_node and "
+		      . "t.priority  = e.priority "
+		      . "when matched then "
+		      . "update set "
+		      . "t.avail_files  = t.avail_files  + :avail_files, "
+		      . "t.avail_bytes  = t.avail_bytes  + :avail_bytes, "
+		      . "t.done_files   = t.done_files   + :done_files, "
+		      . "t.done_bytes   = t.done_bytes   + :done_bytes, "
+		      . "t.try_files    = t.try_files    + :try_files, "
+		      . "t.try_bytes    = t.try_bytes    + :try_bytes, "
+		      . "t.fail_files   = t.fail_files   + :fail_files, "
+		      . "t.fail_bytes   = t.fail_bytes   + :fail_bytes, "
+		      . "t.expire_files = t.expire_files + :expire_files, "
+		      . "t.expire_bytes = t.expire_bytes + :expire_bytes "
+		      . "when not matched then "
+		      . "insert ("
 		      . join(",", @keys) . ") values ("
 		      . join(",", map { ":$_" } @keys) . ")";
 	    $i = &dbprep($dbh, $sql);
