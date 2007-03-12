@@ -6869,7 +6869,7 @@ sub output
                    join t_adm_node n on n.id = br.node
               left join t_dps_subscription block_subs on block_subs.destination = n.id and block_subs.block = b.id
               left join t_dps_subscription dataset_subs on dataset_subs.destination = n.id and dataset_subs.dataset = ds.id
-              left join t_dps_block_delete bd on bd.block = b.id
+              left join t_dps_block_delete bd on bd.block = b.id and bd.node = n.id
 		  where n.name in ($node_list)
 	          order by n.name, ds.name };
 
