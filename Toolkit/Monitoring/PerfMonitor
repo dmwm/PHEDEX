@@ -48,7 +48,7 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
-    my $compact = time()+3600;			# Delay compact at start-up
+    my $compact = time() + 3600;		# Delay compact at start-up
     my %params = (DBCONFIG => undef,		# Database configuration file
 		  MYNODE => undef,		# My TMDB node name
 	          WAITTIME => 60,		# Agent activity cycle
@@ -396,7 +396,7 @@ sub idle
 
 sub compactUpdate
 {
-    my ($self, $dbh, $limit, $table, $stats) = @_;
+    my ($self, $dbh, $limit, $table, $stats, $primary) = @_;
     &dbexec($dbh, qq{
 	delete from $table
 	where timebin < :old and timewidth = 300},
@@ -408,31 +408,18 @@ sub compactUpdate
 	if (! defined $i)
 	{
 	    my @keys = keys %$data;
+	    my %primarykeys = map { $_ => 1 } @$primary;
+	    my @valuekeys = grep(! $primarykeys{$_}, @keys);
 	    my $sql = "merge into $table t using "
-		      . "(select :timebin timebin, :from_node from_node, "
-                      . ":to_node to_node, :priority priority "
-		      . "from dual) e"
-		      . "on "
-		      . "t.timebin   = e.timebin and "
-		      . "t.from_node = e.from_node and "
-		      . "t.to_node   = e.to_node and "
-		      . "t.priority  = e.priority "
-		      . "when matched then "
-		      . "update set "
-		      . "t.avail_files  = t.avail_files  + :avail_files, "
-		      . "t.avail_bytes  = t.avail_bytes  + :avail_bytes, "
-		      . "t.done_files   = t.done_files   + :done_files, "
-		      . "t.done_bytes   = t.done_bytes   + :done_bytes, "
-		      . "t.try_files    = t.try_files    + :try_files, "
-		      . "t.try_bytes    = t.try_bytes    + :try_bytes, "
-		      . "t.fail_files   = t.fail_files   + :fail_files, "
-		      . "t.fail_bytes   = t.fail_bytes   + :fail_bytes, "
-		      . "t.expire_files = t.expire_files + :expire_files, "
-		      . "t.expire_bytes = t.expire_bytes + :expire_bytes "
-		      . "when not matched then "
-		      . "insert ("
+		      . "(select "
+		      . join(",", map { ":$_ $_" } @keys)
+		      . " from dual) e on ("
+		      . join(" and ", map { "t.$_ = e.$_" } @$primary)
+		      . ") when matched then update set "
+		      . join(", ", map { "t.$_ = nvl(t.$_, 0) + nvl(e.$_, 0)" } @valuekeys)
+		      . " when not matched then insert ("
 		      . join(",", @keys) . ") values ("
-		      . join(",", map { ":$_" } @keys) . ")";
+		      . join(",", map { "e.$_" } @keys) . ")";
 	    $i = &dbprep($dbh, $sql);
 	}
 	&dbbindexec($i, map { (":$_" => $$data{$_}) } keys %$data);
@@ -443,6 +430,7 @@ sub compactLinkData
 {
     my ($self, $dbh, $limit, $suffix) = @_;
     my %stats;
+    my @primary = ('TIMEBIN', 'TO_NODE', 'FROM_NODE', 'PRIORITY');
     my $q = &dbexec($dbh, qq{
 	select * from t_history_link_$suffix
 	where timebin < :old and timewidth = 300
@@ -490,13 +478,15 @@ sub compactLinkData
 	delete $$s{TIMETOT};
     }
 
-    $self->compactUpdate ($dbh, $limit, "t_history_link_$suffix", \%stats);
+    $self->compactUpdate ($dbh, $limit, "t_history_link_$suffix",
+			  \%stats, \@primary);
 }
 
 sub compactDestData
 {
     my ($self, $dbh, $limit) = @_;
     my %stats;
+    my @primary = ('TIMEBIN', 'NODE');
     my $q = &dbexec($dbh, qq{
 	select * from t_history_dest
 	where timebin < :old and timewidth = 300
@@ -520,5 +510,6 @@ sub compactDestData
 	}
     }
 
-    $self->compactUpdate ($dbh, $limit, "t_history_dest", \%stats);
+    $self->compactUpdate ($dbh, $limit, "t_history_dest",
+			  \%stats, \@primary);
 }
