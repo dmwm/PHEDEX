@@ -160,7 +160,7 @@ sub idle
 	 eval { $dbh->rollback() } if $dbh } if $@;
 
     # Disconnect from the database
-    &disconnectFromDatabase ($self, $dbh);
+    &disconnectFromDatabase ($self, $dbh, 1);
 
     # Wait for all jobs to finish
     while (@{$$self{JOBS}})
