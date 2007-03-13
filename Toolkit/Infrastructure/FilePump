@@ -368,7 +368,7 @@ sub receive
 
     &dbexec($dbh, qq{
 	insert into t_xfer_exclude (from_node, to_node, fileid, time_request)
-        select xt.to_node, xt.from_node, xt.fileid, :now
+        select xt.from_node, xt.to_node, xt.fileid, :now
 	from t_xfer_task_harvest xth
 	  join t_xfer_task xt on xt.id = xth.task
 	  join t_xfer_task_done xtd on xtd.task = xth.task
