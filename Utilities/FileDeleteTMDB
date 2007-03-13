@@ -18,7 +18,7 @@
 ##H              The syntax is:
 ##H                       pfn:<PFN> for a PFN
 ##H                       lfn:<LFN> for an LFN
-##H                       block:<BLOCK> for all files in a block
+##H                       block:<BLOCK> for all files in a block (wildcard %)
 ##H   NODENAMES  is a comma separated list of nodes for which you wish to delete
 ##H              files. Keyword 'all' will delete the file completely.
 ##H              Wildecard '%' is supported too.
@@ -119,7 +119,8 @@ sub setTableList
     else
     {
 	@tables = ('t_xfer_task',
-		   't_xfer_replica');
+		   't_xfer_replica',
+		   't_xfer_path');
     }    
     return \@tables;
 }
@@ -464,7 +465,7 @@ sub deleteSiteTMDBEntries
 	    delete from $table where
 		(from_node = :node or to_node = :node) and fileid = :lfn},
 		":lfn" => $lfn, ":node" => $node)
-	    if ( $table eq 't_xfer_task' );
+	    if ( $table eq 't_xfer_task' || $table eq 't_xfer_path');
 	&dbexec($dbh, qq{
 	    delete from $table where
 		node = :node and fileid = :lfn},
