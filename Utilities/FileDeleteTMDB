@@ -473,4 +473,3 @@ sub deleteSiteTMDBEntries
 	    if ( $table eq 't_xfer_replica' );
     }
 }
-
