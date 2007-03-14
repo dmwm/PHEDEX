@@ -28,17 +28,6 @@
       <attribute name="graph_type"> PhedexCumulative </attribute>
     </query>
 
-    <query name="quantity_cumulative2" base="GenericQuery.link_query">
-      <sql>
-        <filler name="column"> nvl(sum(h.done_bytes),0)/1099511627776 </filler>
-      </sql>
-      <results module="phedex.database.query_handler" function="cumulative_pivot_group_parser"/>
-      <attribute name="column_names"> Data Transferred </attribute>
-      <attribute name="column_units"> TB </attribute>
-      <attribute name="title"> PhEDEx Data Transfers Cumulative </attribute>
-      <attribute name="graph_type"> PhedexCumulative </attribute>
-    </query>
-
     <query name="cooloff" base="GenericQuery.link_stats_query">
       <sql>
         <filler name="column"> nvl(sum(cool_bytes) keep (dense_rank last order by timebin asc),0)/1099511627776 </filler>
@@ -68,7 +57,7 @@
 
     <query name="pending" base="GenericQuery.link_stats_query">
       <sql>
-        <filler name="column"> nvl(sum(h.pend_bytes),0)/1099511627776 </filler>
+        <filler name="column"> nvl(sum(h.pend_bytes) keep (dense_rank last order by timebin asc),0)/1099511627776 </filler>
       </sql>
       <attribute name="column_units"> TB </attribute>
       <attribute name="column_names"> Pending Data </attribute>
