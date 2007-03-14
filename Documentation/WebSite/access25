@@ -4279,13 +4279,18 @@ sub new
 sub myurl
 {
   my ($self, %args) = @_;
-  my @save = qw(span errors tofilter andor);
+  my @save = qw(span errors tofilter fromfilter andor);
 
   # Return bare link if we are switching pages
   return $self->SUPER::myurl(%args)
     if ($args{"page"} && ($args{"page"} ne "Activity::TransferRate" &&
 			  $args{"page"} ne "Activity::TransferDetails" &&
 			  $args{"page"} ne "Activity::ErrorInfo"));
+
+  @save = qw(andor tofilter fromfilter) 
+      if $args{"page"} && ($args{"page"} eq "Activity::TransferDetails");
+  @save = qw(tofilter fromfilter) 
+      if $args{"page"} && ($args{"page"} eq "Activity::ErrorInfo");
 
   # Keep my if remaining on the same page (but e.g. different instance)
   return $self->SUPER::myurl($self->urlparams(@save), %args);
@@ -4576,6 +4581,7 @@ sub output
   popup_menu(-name=>'period', -onchange=>'submit()',
 	     -values=>$$self{PERIOD_ORDER},
 	     -labels=>{ map { $_ => $$self{PERIODS}{$_}[1] } @{$$self{PERIOD_ORDER}} },
+	     -default=>$period,
 	     -class=>'labeled'),
   "<label for='upto' class='inline'>up to</label>",
   textfield(-name=>'upto', -size=>15,
@@ -5369,7 +5375,7 @@ sub output
                     join t_adm_node nd on nd.id = xe.to_node
 		    join t_adm_node ns on ns.id = xe.from_node
                    where $where
-		order by ns.name asc, nd.name desc, time_done desc
+		order by time_done desc
 	    };
 
     my $max_log_length = 100_000;
