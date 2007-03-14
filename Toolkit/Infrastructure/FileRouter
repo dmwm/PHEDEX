@@ -512,12 +512,13 @@ sub routeFiles
 				          TIME_CREATE => $$row{TIME_CREATE},
 				          TIME_EXPIRE => $$row{TIME_EXPIRE} };
 	    $requests{$dest}{$file}{REPLICAS}{$$row{NODE}} = $$row{STATE};
-	    $self->routeCost($links, $costs, $$row{NODE}, $$row{STATE}, $sizebin);
+	    $self->routeCost($links, $costs, $$row{NODE}, $$row{STATE}, $sizebin, 0);
         }
 
         # Build optimal file paths.
+	my $probecosts = {};
         my @allreqs = map { values %$_ } values %requests;
-        $self->routeFile($now, $links, $costs, $_) for @allreqs;
+        $self->routeFile($now, $links, $costs, $probecosts, $_) for @allreqs;
 
         # Build collection of all the hops.
         my %allhops;
@@ -661,7 +662,7 @@ sub routeFiles
 # network.  The actual file routing then just picks cheapest paths.
 sub routeCost
 {
-    my ($self, $links, $costs, $node, $state, $sizebin) = @_;
+    my ($self, $links, $costs, $node, $state, $sizebin, $probe) = @_;
 
     # If we already have a cost for this prototype, return immediately
     return if (exists $$costs{$node}
@@ -687,8 +688,7 @@ sub routeCost
 	TOTAL_LATENCY => $latency,
 	IS_LOCAL => 1,
 	HOPS => 0,
-	REMOTE_HOPS => 0,
-	IS_PROBE => 0
+	REMOTE_HOPS => 0
     };
 
     # Now use Dijkstra's algorithm to compute minimum spanning tree.
@@ -707,19 +707,15 @@ sub routeCost
 		# is 0.5 MB/s divided by the database link distance.
 		# If we have rate performance data and it shows the
 		# link to be reasonably healthy, use that information.
-		# If the link is unhealthy, "probe" the link using
-		# nominal rate at 2% probability, and "infinite" time
-		# otherwise.  (In the latter case the later cut-off
-		# will mark the routed path as invalid.)
+		# If the link is unhealthy and we are probing after
+		# failed routing, use the nominal rate.  Otherwise use
+		# an "infinite" rate that will be cut-off by later
+		# route validation.
 		my $nominal = 0.5*MEGABYTE / $$links{$from}{$to}{HOPS};
-		my $latency = $$links{$from}{$to}{XFER_LATENCY} || 0;
-		my $probe = ($$paths{$from}{IS_PROBE}
-			     || (defined $$links{$from}{$to}{XFER_RATE}
-				 && $$links{$from}{$to}{XFER_RATE} < $nominal
-				 && rand() <= 0.02)
-			     ? 1 : 0);
-		my $rate = ($probe ? $nominal
-			    : $$links{$from}{$to}{XFER_RATE});
+		my $latency = ($probe ? 0 : ($$links{$from}{$to}{XFER_LATENCY} || 0));
+		my $rate = ((! defined $$links{$from}{$to}{XFER_RATE}
+			     || ($probe && $$links{$from}{$to}{XFER_RATE} < $nominal))
+			    ? $nominal : $$links{$from}{$to}{XFER_RATE});
 		my $xfer = ($rate ? $sizebin / $rate : 7*86400);
 		my $total = $$paths{$from}{TOTAL_LATENCY} + $latency + $xfer;
 	        my $thislocal = 0;
@@ -756,8 +752,7 @@ sub routeCost
 				     TOTAL_LATENCY => $total,
 				     IS_LOCAL => $local,
 				     HOPS => $$paths{$from}{HOPS} + 1,
-			     	     REMOTE_HOPS => $$paths{$from}{REMOTE_HOPS} + (1-$thislocal),
-				     IS_PROBE => $probe };
+			     	     REMOTE_HOPS => $$paths{$from}{REMOTE_HOPS} + (1-$thislocal) };
 		    $todo{$to} = 1;
 		}
 	    }
@@ -765,10 +760,10 @@ sub routeCost
     }
 }
 
-# Computes the optimal route for the file.
-sub routeFile
+# Select best route for a file.
+sub bestRoute
 {
-    my ($self, $now, $links, $costs, $request) = @_;
+    my ($self, $costs, $request) = @_;
     my $dest = $$request{DESTINATION};
 
     # Use the precomupted replica path costs to pick the cheapest
@@ -796,6 +791,31 @@ sub routeFile
 	    $best = $this;
 	    $bestcost = $thiscost;
 	}
+    }
+
+    return ($best, $bestcost);
+}
+
+# Computes the optimal route for the file.
+sub routeFile
+{
+    my ($self, $now, $links, $costs, $probecosts, $request) = @_;
+    my $dest = $$request{DESTINATION};
+
+    # Select best route.  If it's not a valid one, force re-routing
+    # at a reasonably low (2%) probability to create routing probes.
+    my ($best, $bestcost) = $self->bestRoute ($costs, $request);
+    if (defined $best && $bestcost >= 3*86400 && rand() < 0.02)
+    {
+	$self->routeCost($links, $probecosts, $_, $$request{REPLICAS}{$_},
+			 $$request{SIZEBIN}, 1)
+	    for keys %{$$request{REPLICAS}};
+	($best, $bestcost) = $self->bestRoute ($probecosts, $request);
+	my $prettycost = int($bestcost);
+	&logmsg("probed file $$request{FILEID} to destination $dest: "
+		. ($bestcost < 3*86400
+		   ? "new cost $prettycost from $$best{$dest}{SRC_NODE}"
+		   : "did not improve the matters, cost is $prettycost"));
     }
 
     # Now record path to the cheapest replica found, if we found one.
