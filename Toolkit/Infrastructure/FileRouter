@@ -713,9 +713,9 @@ sub routeCost
 		# will mark the routed path as invalid.)
 		my $nominal = 0.5*MEGABYTE / $$links{$from}{$to}{HOPS};
 		my $latency = $$links{$from}{$to}{XFER_LATENCY} || 0;
-		my $probe = ($$path{$from}{IS_PROBE}
-			     || (defined $rate
-				 && $rate < $nominal
+		my $probe = ($$paths{$from}{IS_PROBE}
+			     || (defined $$links{$from}{$to}{XFER_RATE}
+				 && $$links{$from}{$to}{XFER_RATE} < $nominal
 				 && rand() <= 0.02)
 			     ? 1 : 0);
 		my $rate = ($probe ? $nominal
