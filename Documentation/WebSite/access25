@@ -4427,8 +4427,8 @@ sub output
       my $errorcolumn = &format_num($$row{FAIL_FILES});
       if ($$row{FAIL_FILES} && $$row{FROM_NODE} && $$row{TO_NODE}) {
 	  my $errorurl = $self->myurl(page => 'Activity::ErrorInfo',
-				      from_node => $$row{FROM_NODE},
-				      to_node => $$row{TO_NODE});
+				      fromfilter => $$row{FROM_NODE},
+				      tofilter => $$row{TO_NODE});
 	  $errorcolumn = "<a href='$errorurl'>$errorcolumn</a>";
       }
 
