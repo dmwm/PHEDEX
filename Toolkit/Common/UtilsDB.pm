@@ -189,7 +189,7 @@ sub identifyAgent
     my $now = &mytimeofday();
     my $distribution = undef;
     my $versionfile = $INC{'UtilsDB.pm'};
-    $versionfile =~ s|/Toolkit/.*|/Schema/VERSION|;
+    $versionfile =~ s|/Toolkit/.*|/VERSION|;
     if (open (DBHVERSION, "< $versionfile"))
     {
 	chomp ($distribution = <DBHVERSION>);
