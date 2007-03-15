@@ -173,7 +173,7 @@ sub idle
     $self->nap ($$self{WAITTIME});
 }
 
-# Handle finished dls-add job.
+# Handle finished jobs.
 sub registered
 {
     my ($self, $block, $job) = @_;
