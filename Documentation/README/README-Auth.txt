@@ -22,7 +22,7 @@ admins know, and your role will be regenerated.  This will not affect
 other sites.
 
 A typical session would look like this:
-  $ sqlplus `Schema/OracleConnectId -db DBParam:Dev/CERN`
+  $ sqlplus `Utilities/OracleConnectId -db DBParam:Dev/CERN`
   SQL> set role site_cern identified by secret_password;
   SQL> -- you can make changes now
 

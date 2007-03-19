@@ -61,9 +61,9 @@ role_section="$(echo $section | cut -c1-4 | tr '[:lower:]' '[:upper:]')"
 role_name="PHEDEX_${sitename_uc}_${role_section}"
 role_name_lc="$(echo $role_name | tr '[:upper:]' '[:lower:]')"
 
-ora_master="$($home/Schema/OracleConnectId -db $dbparam:$section/Admin)"
-ora_reader="$($home/Schema/OracleConnectId -db $dbparam:$section/Reader)"
-ora_writer="$($home/Schema/OracleConnectId -db $dbparam:$section/CERN)"
+ora_master="$($home/Utilities/OracleConnectId -db $dbparam:$section/Admin)"
+ora_reader="$($home/Utilities/OracleConnectId -db $dbparam:$section/Reader)"
+ora_writer="$($home/Utilities/OracleConnectId -db $dbparam:$section/CERN)"
 case $ora_master in */*@* ) ;; * )
   echo "$dbparam:$section/Admin: database contact not defined" 1>&2; exit 1;;
 esac
