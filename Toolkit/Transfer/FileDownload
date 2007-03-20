@@ -290,7 +290,8 @@ sub taskDone
 	    . " from_pfn=$$task{FROM_PFN}"
 	    . " to_pfn=$$task{TO_PFN}"
 	    . " detail=($detail)"
-	    . " validate=($validate)");
+	    . " validate=($validate)"
+	    . " jobpath=$$task{JOBPATH}");
 
     # Indicate success.
     return 1;
@@ -433,12 +434,19 @@ sub fetchNewTasks
 	# If we have just too much work, leave.
 	last if scalar keys %$tasks >= 15_000;
 
-	# Make sure it doesn't exist locally, just in case.
-	next if exists $$tasks{$$row{TASKID}};
-
+	# Make sure it doesn't exist locally, unless it is
+        # about to expire in the next 60 minutes. We want
+        # to make sure, we  propagate time extensions
+        # for tasks to the local task copies at sites.
+	my $exist = (exists $$tasks{$$row{TASKID}}) ? 1 : 0;
+	my $extension = ($exist &&
+			 ${$$tasks{$$row{TASKID}}}{TIME_EXPIRE} - 3600 > $now)
+	    ? 1 : 0;
+	next if ( $exist && !$extension);
+		 
 	# If we have too many on this link, skip.
 	my $linkkey = "$$row{FROM_NODE} -> $$row{TO_NODE}";
-	if (($pending{$linkkey} || 0) >= 1000)
+	if (($pending{$linkkey} || 0) >= 1000 && !$extension)
 	{
             &logmsg("link $linkkey already has $pending{$linkkey} pending"
 		    . " tasks, not fetching more from the database")
@@ -450,8 +458,8 @@ sub fetchNewTasks
 	# Mark used in database.
 	&dbbindexec($i, ":task" => $$row{TASKID}, ":now" => $now);
 	$$row{TIME_INXFER} = $now;
-        ($pending{$linkkey} ||= 0)++;
-
+        ($pending{$linkkey} ||= 0)++ if !$extension;
+	
 	# Generate a local task descriptor.  It doesn't really matter
 	# if things go badly wrong here, we'll clean it up in purge.
 	return if ! &output("$$self{TASKDIR}/$$row{TASKID}", Dumper($row));
@@ -645,6 +653,7 @@ sub check
 	    $$taskinfo{LOG_VALIDATE} = $$vstatus{LOG};
 	    $$taskinfo{TIME_UPDATE} = $$vstatus{END};
 	    $$taskinfo{TIME_XFER} = $$xstatus{START};
+	    $$taskinfo{JOBPATH} = $jobpath;
 	    return if ! $self->taskDone($taskinfo);
 	}
 
