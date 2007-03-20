@@ -23,14 +23,12 @@ export STAGE_SVCCLASS=t0export;
 ### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FileExport
  -db          ${PHEDEX_DBPARAM}
  -nodes       ${PHEDEX_NODE}
- -ignore      ${PHEDEX_MSS}
  -storagemap  ${PHEDEX_MAP}
  -protocols   'srm','direct'
 
 ### AGENT LABEL=exp-pfn-mss PROGRAM=Toolkit/Transfer/FileExport
  -db          ${PHEDEX_DBPARAM}
  -nodes       ${PHEDEX_MSS}
- -ignore      ${PHEDEX_NODE}
  -storagemap  ${PHEDEX_MAP}
  -protocols   'direct'
 
