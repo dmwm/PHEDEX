@@ -291,7 +291,7 @@ sub taskDone
 	    . " to_pfn=$$task{TO_PFN}"
 	    . " detail=($detail)"
 	    . " validate=($validate)"
-	    . " jobpath=$$task{JOBPATH}");
+	    . " archive_path=$$task{ARCHIVEDIR}");
 
     # Indicate success.
     return 1;
@@ -653,7 +653,7 @@ sub check
 	    $$taskinfo{LOG_VALIDATE} = $$vstatus{LOG};
 	    $$taskinfo{TIME_UPDATE} = $$vstatus{END};
 	    $$taskinfo{TIME_XFER} = $$xstatus{START};
-	    $$taskinfo{JOBPATH} = $jobpath;
+	    $$taskinfo{ARCHIVEDIR} = "$$self{ARCHIVEDIR}/$jobname";
 	    return if ! $self->taskDone($taskinfo);
 	}
 
