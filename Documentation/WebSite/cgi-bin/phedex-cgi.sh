@@ -4,7 +4,7 @@
 
 export CMS_ROOT=/opt/aptinstaller
 
-export GRAPH_ROOT=/opt/aptinstaller/BrianPlot-20070319
+export GRAPH_ROOT=/opt/aptinstaller/BrianPlot-20070321
 
 export CONFIG_ROOT=../PlotConfig
 
