@@ -4643,17 +4643,17 @@ sub output
   print {$$self{CONTENT}} "<p><img src='$imgsrc' /></p>";
 
 
-  print {$$self{CONTENT}} "<pre>";
-  print {$$self{CONTENT}}<<STOP;
-      no_mss:  $no_mss
- dest_filter:  $dest_filter
-  src_filter:  $src_filter
-     formurl:  $formurl
-      imgsrc:  $imgsrc
-STOP
-print {$$self{CONTENT}} "</pre>";
-  &dump_var($$self{CONTENT}, 'args', {%args});
-  &dump_params($$self{CONTENT});
+#   print {$$self{CONTENT}} "<pre>";
+#   print {$$self{CONTENT}}<<STOP;
+#       no_mss:  $no_mss
+#  dest_filter:  $dest_filter
+#   src_filter:  $src_filter
+#      formurl:  $formurl
+#       imgsrc:  $imgsrc
+# STOP
+# print {$$self{CONTENT}} "</pre>";
+#   &dump_var($$self{CONTENT}, 'args', {%args});
+#   &dump_params($$self{CONTENT});
 
 }
 
@@ -4676,9 +4676,9 @@ sub new
   my $self = $class->SUPER::new(@_);
   $$self{DEFAULT_GRAPH} = 'quantity_rates';
   $$self{GRAPH_ORDER} = [ 'quantity_rates', 'quantity', 'quantity_cumulative' ];
-  $$self{GRAPHS} = { 'quantity_rates' => "Rate", 
-		     'quantity' => "Volume", 
-		     'quantity_cumulative' => "Cumulative" };
+  $$self{GRAPHS} = { 'quantity_rates' => "Transfer Rate", 
+		     'quantity' => "Transfer Volume", 
+		     'quantity_cumulative' => "Cumulative Rate" };
   bless $self, $class;
   return $self;
 }
@@ -4786,7 +4786,7 @@ sub new
   my $self = $class->SUPER::new(@_);
   $$self{DEFAULT_GRAPH} = [ 'quality_all' ];
   $$self{GRAPH_ORDER} = [ 'quality_all', 'quality_try', 'quality_done', 'quality_fail' ];
-  $$self{GRAPHS} = { 'quality_all' => "Quality map",
+  $$self{GRAPHS} = { 'quality_all' => "Quality Map",
 		     'quality_try' => "Attempts",
 		     'quality_done' => "Successes",
 		     'quality_fail' => "Failures" };
