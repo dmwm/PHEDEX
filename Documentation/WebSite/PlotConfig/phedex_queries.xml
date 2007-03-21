@@ -14,7 +14,7 @@
       </sql>
       <attribute name="title"> CMS PhEDEx - Transfer Rate </attribute>
       <attribute name="column_names"> Transfer Rate </attribute>
-      <attribute name="column_units"> Transfer Rate [MB/s] </attribute>
+      <attribute name="column_units"> MB/s </attribute>
     </query>
 
     <query name="quantity" base="GenericQuery.link_query">
@@ -23,7 +23,7 @@
       </sql>
       <attribute name="title"> CMS PhEDEx - Transfer Volume</attribute>
       <attribute name="column_names"> Data Transferred </attribute>
-      <attribute name="column_units"> Data Transferred [TB] </attribute>
+      <attribute name="column_units"> TB </attribute>
     </query>
 
     <query name="quantity_cumulative" base="GenericQuery.link_query">
@@ -33,7 +33,7 @@
       <results module="phedex.database.query_handler" function="cumulative_pivot_group_parser" />
       <attribute name="title"> CMS PhEDEx - Cumulative Transfer Volume </attribute>
       <attribute name="column_names"> Data Transferred </attribute>
-      <attribute name="column_units"> Data Transferred [TB] </attribute>
+      <attribute name="column_units"> TB </attribute>
       <attribute name="graph_type"> PhedexCumulative </attribute>
     </query>
 
@@ -43,7 +43,7 @@
       </sql>
       <attribute name="title"> CMS PhEDEx - Volume of Routed Data  </attribute>
       <attribute name="column_names"> Data Routed  </attribute>
-      <attribute name="column_units"> Data Routed [TB] </attribute>
+      <attribute name="column_units"> TB </attribute>
     </query>
 
     <query name="resident" base="GenericQuery.dest_query">
@@ -52,7 +52,7 @@
       </sql>
       <attribute name="title"> CMS PhEDEx - Volume of Resident Data </attribute>
       <attribute name="column_names"> Data Resident </attribute>
-      <attribute name="column_units"> Data Resident [TB] </attribute>
+      <attribute name="column_units"> TB </attribute>
     </query>
 
     <query name="pending" base="GenericQuery.link_stats_query">
@@ -61,16 +61,7 @@
       </sql>
       <attribute name="title"> CMS PhEDEx - Volume of Queued Data </attribute>
       <attribute name="column_names"> Queued Data </attribute>
-      <attribute name="column_units"> Queued Data [TB] </attribute>
-    </query>
-
-    <query name="cooloff" base="GenericQuery.link_stats_query">
-      <sql>
-        <filler name="column"> nvl(sum(cool_bytes) keep (dense_rank last order by timebin asc),0)/1099511627776 </filler>
-      </sql>
-      <attribute name="title"> CMS PhEDEx - Volume of Data in Cool-off </attribute>
-      <attribute name="column_names"> Data in Cool-off </attribute>
-      <attribute name="column_units"> Data in Cool-off [TB] </attribute>
+      <attribute name="column_units"> TB </attribute>
     </query>
 
     <query name="request" base="GenericQuery.dest_query">
@@ -79,7 +70,7 @@
       </sql>
       <attribute name="title"> CMS PhEDEx - Volume of Requested Data </attribute>
       <attribute name="column_names"> Data Requested </attribute>
-      <attribute name="column_units"> Data Requested [TB] </attribute>
+      <attribute name="column_units"> TB </attribute>
     </query>
 
     <query name="idle" base="GenericQuery.dest_query">
@@ -88,7 +79,16 @@
       </sql>
       <attribute name="title"> CMS PhEDEx - Volume of Idle Data </attribute>
       <attribute name="column_names"> Idle Data </attribute>
-      <attribute name="column_units"> Idle Data [TB] </attribute>
+      <attribute name="column_units"> TB </attribute>
+    </query>
+
+    <query name="cooloff" base="GenericQuery.link_stats_query">
+      <sql>
+        <filler name="column"> nvl(sum(cool_bytes) keep (dense_rank last order by timebin asc),0)/1099511627776 </filler>
+      </sql>
+      <attribute name="title"> CMS PhEDEx - Volume of Data in Cool-off </attribute>
+      <attribute name="column_names"> Data in Cool-off </attribute>
+      <attribute name="column_units"> TB </attribute>
     </query>
 
     <query name="quality_all" base="GenericQuery.link_query">
@@ -110,7 +110,7 @@
       </sql>
       <attribute name="title"> CMS PhEDEx - Number of Attempted Transfers </attribute>
       <attribute name="column_names"> Attempted Transfers </attribute>
-      <attribute name="column_units"> Attempted Transfers [Files] </attribute>
+      <attribute name="column_units"> Files </attribute>
     </query>
 
     <query name="quality_done" base="GenericQuery.link_query">
@@ -119,7 +119,7 @@
       </sql>
       <attribute name="title"> CMS PhEDEx - Number of Successful Transfers </attribute>
       <attribute name="column_names"> Successful Transfers </attribute>
-      <attribute name="column_units"> Successful Transfers [Files] </attribute>
+      <attribute name="column_units"> Files </attribute>
     </query>
 
     <query name="quality_fail" base="GenericQuery.link_query">
@@ -128,7 +128,7 @@
       </sql>
       <attribute name="title"> CMS PhEDEx - Number of Failed Transfers </attribute>
       <attribute name="column_names"> Failed Transfers </attribute>
-      <attribute name="column_units"> Failed Transfers [Files] </attribute>
+      <attribute name="column_units"> Files </attribute>
     </query>
 
   </class>
