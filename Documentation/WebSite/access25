@@ -4506,7 +4506,7 @@ sub new
 sub myurl
 {
   my ($self, %args) = @_;
-  my @save = qw(period graph entity src_filter dest_filter upto);
+  my @save = qw(period graph entity src_filter dest_filter no_mss upto);
 
   # Return bare link if we are switching pages
   return $self->SUPER::myurl(%args)
@@ -4530,10 +4530,13 @@ sub output
   my $entity = param("entity");
   my $src_filter = param("src_filter") || '';
   my $dest_filter = param("dest_filter") || '';
+  my $no_mss = param("no_mss");
+  if (!defined $no_mss) { $no_mss = 'true'; } # Filter MSS by default
   my $upto = param("upto") || '';
   $period = $$self{DEFAULT_PERIOD} if (! $period || ! exists $$self{PERIODS}{$period});
   $graph = $$self{DEFAULT_GRAPH} if (! $graph || ! exists $$self{GRAPHS}{$graph});
   $entity = 'dest' if (! $entity || ! grep($_ eq $entity, @{$$self{ENTITY_ORDER}} ));
+  
 
   my $dest_filter_name = 'destination';
   if (exists $$self{DEST_ONLY_GRAPHS}
@@ -4573,10 +4576,12 @@ sub output
   textfield(-name=>'dest_filter', -size=>15,
 	    -title=>("Regular expression to match against node names. "
 		     ."Only those matching the expression will be shown."),
-	    -class=>'labeled');
+	    -class=>'labeled'),
+  popup_menu(-name=>'no_mss', -values=>['true', 'false'], -labels=>{'true' => 'hide MSS nodes', 'false' => 'show MSS nodes'},
+	     -default=>$no_mss, -onchange=>'submit()', -class=>'labeled'),
+  "<br/>";
   
   print { $$self{CONTENT} }
-  "<br/>",
   "<label for='period' class='inline'>Period</label>\n",
   popup_menu(-name=>'period', -onchange=>'submit()',
 	     -values=>$$self{PERIOD_ORDER},
@@ -4625,28 +4630,30 @@ sub output
 
   my $start = ($last ? $end - $last*$span{$unit} : 0);
   # The new plot package really does set range to time 0.
-  # Need to provide a more reasonable range.  PhEDEx started taking data in 2004.
-  $start = timegm(0, 0, 0, 1, 1, 2004-1900) if $start == 0;  
+  # Need to provide a more reasonable range.  PhEDEx started taking data in Sep 2004.
+  $start = timegm(0, 0, 0, 1, 9, 2004-1900) if $start == 0;  
 
   my $conn = $$self{CONFIG}{INSTANCES}{$$self{DBID}}{CONNECTION};
 
   my %args = ('conn' => $conn, 'unit' => $unit, 'span' => $span{$unit}, 'by' => $entity, 'last' => $last,
-              'src_filter' => $src_filter, 'dest_filter' => $dest_filter, 'upto' => $upto, 
-	      'starttime' => $start, 'endtime' => $end);
+              'src_filter' => $src_filter, 'dest_filter' => $dest_filter, 'no_mss' => $no_mss,
+	      'upto' => $upto, 'starttime' => $start, 'endtime' => $end);
   
   my $imgsrc = $self->imgsrc($graph, %args);
   print {$$self{CONTENT}} "<p><img src='$imgsrc' /></p>";
 
 
-#   print {$$self{CONTENT}} "<pre>";
-#   print {$$self{CONTENT}}<<STOP;
-# dest_filter:  $dest_filter
-#  src_filter:  $src_filter
-#     formurl:  $formurl
-#      imgsrc:  $imgsrc
-# STOP
-# print {$$self{CONTENT}} "</pre>";
-#   &dump_var($$self{CONTENT}, 'args', {%args});
+  print {$$self{CONTENT}} "<pre>";
+  print {$$self{CONTENT}}<<STOP;
+      no_mss:  $no_mss
+ dest_filter:  $dest_filter
+  src_filter:  $src_filter
+     formurl:  $formurl
+      imgsrc:  $imgsrc
+STOP
+print {$$self{CONTENT}} "</pre>";
+  &dump_var($$self{CONTENT}, 'args', {%args});
+  &dump_params($$self{CONTENT});
 
 }
 
@@ -4686,6 +4693,7 @@ sub imgsrc
   my %graphargs = ('graph' => $graph,
 		   'from_node' => $from_node,
 		   'to_node' => $to_node,
+		   'no_mss' => $args{no_mss},
 		   'conn' => $args{conn},
 		   'link' => $args{by},
 		   'span' => $args{span},
@@ -4714,13 +4722,14 @@ sub new
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(@_);
   $$self{DEFAULT_GRAPH} = 'destined';
-  $$self{GRAPH_ORDER} = [ 'destined', 'resident', 'pending', 'cooloff', 'request', 'idle' ];
-  $$self{GRAPHS} = { 'destined' => "Allocated volume",    # by dest only
-		     'resident' => "Resident volume",     # by dest only
-		     'pending'  => "Transferable volume", # any
-		     'cooloff'  => 'Transfer cool-off',   # any
-		     'request'  => "Currently routed",    # by dest only
-		     'idle'     => "Routing cool-off" };  # by dest only
+  $$self{GRAPH_ORDER} = [ 'destined', 'resident', 'pending', 'request', 'idle', 'cooloff' ];
+  $$self{GRAPHS} = { 'destined' => "Volume Routed",    # by dest only
+		     'resident' => "Volume Resident",     # by dest only
+		     'pending'  => "Volume Queued", # any
+		     'request'  => "Volume Requested",    # by dest only
+		     'idle'     => "Volume Idle",  # by dest only
+		     'cooloff'  => 'Volume Cool-off' };   # any
+
   $$self{DEST_ONLY_GRAPHS} = [ qw( destined resident request idle ) ];
 
   bless $self, $class;
@@ -4737,6 +4746,7 @@ sub imgsrc
   my %graphargs = ('graph' => $graph,
 		   'from_node' => $from_node,
 		   'to_node' => $to_node,
+		   'no_mss' => $args{no_mss},
 		   'conn' => $args{conn},
 		   'link' => $args{by},
 		   'span' => $args{span},
@@ -4794,6 +4804,7 @@ sub imgsrc
   my %graphargs = ('graph' => $graph,
 		   'to_node' => $to_node,
 		   'from_node' => $from_node,
+		   'no_mss' => $args{no_mss},
 		   'conn' => $args{conn},
 		   'link' => $args{by},
 		   'span' => $args{span},

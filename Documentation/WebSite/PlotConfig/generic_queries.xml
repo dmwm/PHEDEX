@@ -13,10 +13,12 @@
     <query name="link_query">
       <inputs>
         <input name="to_node"> .* </input>
-        <input name="span" type="eval"> 3600 </input>
+        <input kind='sql' name="span" type="eval"> 3600 </input>
         <input name="from_node" > .* </input>
-        <input name="starttime" type="eval">time.time()-3*86400</input>
-        <input name="endtime" type="eval">time.time()</input>
+        <input kind='sql' name="starttime" type="eval">time.time()-3*86400</input>
+        <input kind='sql' name="endtime" type="eval">time.time()</input>
+        <input name="no_mss"> 1 </input>
+        <input name="link">link</input>
       </inputs>
       <sql> 
         select
@@ -27,9 +29,7 @@
           join t_adm_node f on f.id = h.from_node
           join t_adm_node t on t.id = h.to_node
         where timebin &gt;= :starttime
-          and timebin &lt; :endtime and
-          regexp_like( t.name, :to_node ) and
-          regexp_like( f.name, :from_node )
+          and timebin &lt; :endtime
         group by trunc(h.timebin/:span)*:span,
           f.name, t.name order by 1 asc, 2, 3
       </sql>
@@ -52,10 +52,11 @@
     <query name="link_stats_query">
       <inputs>
         <input name="to_node"> .* </input>
-        <input name="span" type="eval"> 3600 </input>
+        <input kind='sql' name="span" type="eval"> 3600 </input>
         <input name="from_node" > .* </input>
-        <input name="starttime" type="eval">time.time()-3*86400</input>
-        <input name="endtime" type="eval">time.time()</input>
+        <input kind='sql' name="starttime" type="eval">time.time()-3*86400</input>
+        <input kind='sql' name="endtime" type="eval">time.time()</input>
+        <input name="link">link</input>
       </inputs>
       <sql>
         select
@@ -66,9 +67,7 @@
           join t_adm_node f on f.id = h.from_node
           join t_adm_node t on t.id = h.to_node
         where timebin &gt;= :starttime
-          and timebin &lt; :endtime and
-          regexp_like( t.name, :to_node ) and
-          regexp_like( f.name, :from_node )
+          and timebin &lt; :endtime
         group by trunc(h.timebin/:span)*:span,
           f.name, t.name order by 1 asc, 2, 3
       </sql>
@@ -91,9 +90,9 @@
     <query name="dest_query">
       <inputs>
         <input name="node" > .* </input>
-        <input name="span" type="eval"> 3600 </input>
-        <input name="starttime" type="eval">time.time()-86400</input>
-        <input name="endtime" type="eval">time.time()</input>
+        <input kind='sql' name="span" type="eval"> 3600 </input>
+        <input kind='sql' name="starttime" type="eval">time.time()-86400</input>
+        <input kind='sql' name="endtime" type="eval">time.time()</input>
       </inputs>
       <sql>
         select
@@ -103,8 +102,7 @@
         from t_history_dest h
           join t_adm_node t on t.id = h.node
         where timebin &gt;= :starttime
-          and timebin &lt; :endtime and
-          regexp_like( t.name, :node )
+          and timebin &lt; :endtime
         group by trunc(h.timebin/:span)*:span,
           t.name order by 1 asc, 2
       </sql>
@@ -113,6 +111,7 @@
           <input name="pivots"> 0 </input>
           <input name="grouping"> 1 </input>
           <input name="results"> 2 </input>
+          <input name="pivot_transform">phedex_node</input>
         </inputs>
       </results>
       <attribute name="graph_type">PhedexStackedBar</attribute>
