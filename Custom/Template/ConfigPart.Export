@@ -4,5 +4,4 @@
  -db          ${PHEDEX_DBPARAM}
  -nodes       ${PHEDEX_NODE}
  -storagemap  ${PHEDEX_MAP}
- -protocols   'srm','direct'
-
+ -protocols   'srm'
