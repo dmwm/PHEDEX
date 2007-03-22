@@ -5,6 +5,7 @@
 import sys
 from fnmatch import filter
 import re
+from string import lstrip
 
 def dbs1Lookup(url, instance, item):
   from DBSAPIOLD.dbsCgiApi import DbsCgiApi
@@ -52,15 +53,19 @@ def dbs2Lookup(url, item):
   parts = p.findall(item)
   if not parts: raise Exception("Bad dataset or block format")
   haswilds = item.count('*')
-  parts = parts[0]
+  
+  parts = list(parts[0])
   if parts[2].startswith('#'):
     lookingfor = 'BLOCK'
   else:
     lookingfor = 'DATASET'
 
+  parts[2] = parts[2].lstrip("/#")
+  
   if lookingfor == 'DATASET':
-    for dataset in api.listProcessedDatasets(item):
-      print dataset['Name']
+    for dataset in api.listProcessedDatasets(parts[0], parts[2], parts[1]):
+      for path in dataset['PathList']:
+        print path
   else:
     for block in api.listBlocks("", item):
       print block['Name']
