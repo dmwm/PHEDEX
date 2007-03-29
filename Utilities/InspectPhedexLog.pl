@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog.pl,v 1.11 2007/03/21 16:24:57 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog.pl,v 1.1 2007/03/29 08:16:27 dfeichti Exp $:
 ###############################################################################
 
 use strict;
@@ -17,6 +17,7 @@ use Time::Local;
 my $flag_showErrors=0;
 my $flag_rawErrors=0;
 my $flag_verbose=0;
+my $flag_debug=0;
 my $flag_checkdate=0;
 
 sub usage {
@@ -28,9 +29,10 @@ usage: InspectPhedexLog [options] logfile1 [logfile2 ...]
    options:
       -e also show error statistics (summary over error messages)
          -r do not try to regexp-process errors messages, but show raw error messages
-      -v verbose (prints summary info on every file transfer and bunches. Also prints task IDs
-                  for the collected errors)
+      -v verbose   Prints task IDs for the collected errors (useful for closer investigation)
       -s start_date   -t end_date
+
+      -d debug   Prints a summary line for every single transfer
       -h display this help
 
  examples:
@@ -66,12 +68,13 @@ EOF
 
 # OPTION PARSING
 my %option=();
-getopts("ehrs:t:v",\%option);
+getopts("dehrs:t:v",\%option);
 
 
 $flag_showErrors=1 if(defined $option{"e"});
 $flag_rawErrors=1 if(defined $option{"r"});
 $flag_verbose=1 if(defined $option{"v"});
+$flag_debug=1 if(defined $option{"d"});
 
 if (defined $option{"h"}) {
    usage();
@@ -163,10 +166,14 @@ foreach my $log (@logfiles) {
 	     # error messages ;-)
 	     my ($detail,$validate) = $line =~ m/.*detail=\((.*)\)\s*validate=\((.*)\)\s*$/;
 	     if(! $flag_rawErrors) {
+	       my $tmp;
+	       $detail =~ s/\sid=\d+\s//;
 	       if( $detail=~/^\s*$/) {$reason = "(No detail given)"}
 	       elsif( (($reason) = $detail =~ m/.*(the server sent an error response: 425 425 Can't open data connection).*/)) {}
 	       elsif( (($reason) = $detail =~ m/.*(the gridFTP transfer timed out).*/) ) {}
 	       elsif( (($reason) = $detail =~ m/.*(Failed SRM get on httpg:[^\s]+).*/) ) {}
+	       elsif( (($reason,$tmp) = $detail =~ m/.*(ERROR the server sent an error response: 553 553)\s*[^\s]+:(.*)/) )
+		 {$reason .= " <filename>: " . $tmp}
 	       else {$reason = $detail};
 	     } else {$reason = $detail};
 	     $errinfo{$from}{$reason}{num}++;
@@ -183,12 +190,12 @@ foreach my $log (@logfiles) {
 	   $MbperS=$bunchsize*8/$ttransfer/1e6;
 	   $MBperS=$bunchsize/1024/1024/$ttransfer;
 	   printf("   *** Bunch:  succ. files: $bunchfiles  size=%.2f GB  transfer_time=%.1f s (%.1f MB/s = %.1f Mb/s)\n"
-		  ,$bunchsize/1024/1024/1024,$ttransfer,$MBperS,$MbperS) if $flag_verbose;
+		  ,$bunchsize/1024/1024/1024,$ttransfer,$MBperS,$MbperS) if $flag_debug;
 
 	   $bunchfiles = 1;
 	   $bunchsize = $size;
 	 }
-	 printf("$statstr $from  $fname  size=%.2f GB $date\n",$size/1024/1024/1024)  if $flag_verbose;
+	 printf("$statstr $from  $fname  size=%.2f GB $date\n",$size/1024/1024/1024)  if $flag_debug;
       }
 
    }
