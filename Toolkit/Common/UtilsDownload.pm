@@ -8,27 +8,33 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $master = shift;
-    my %args;
+
+    # Get derived class arguments and defaults
+    my $options = shift || {};
+    my $params = shift || {};
+
+	# Set my defaults where not defined by the derived class.
+	$$params{PROTOCOLS}   ||= undef;        # Transfer command
+	$$params{NJOBS}       ||= 1;            #ÊMax number of parallel transfers
+	$$params{BATCH_FILES} ||= 1;            #ÊMax number of files per batch
+	
+	# Set argument parsing at this level.
+	$$options{'protocols=s'} = sub { push(@{$$params{PROTOCOLS}}, split(/,/, $_[1])) };
 
     # Parse additional options
     local @ARGV = @{$$master{BACKEND_ARGS}};
-    Getopt::Long::Configure qw(default pass_through norequire_order);
-    &GetOptions ("protocols=s"    => sub { push(@{$args{PROTOCOLS}},
-						split(/,/, $_[1])) });
+    Getopt::Long::Configure qw(default);
+    &GetOptions (%$options);
 
     # Initialise myself
     my $self = $class->SUPER::new();
-    my %params = (MASTER	=> $master,	# My owner
-		  PROTOCOLS	=> undef,	# Accepted protocols
-		  WRAPPER	=> undef,	# Location of wrapper script
-		  NJOBS		=> 30,		# Max number of parallel transfers
-		  TIMEOUT	=> 3600,	# Maximum execution time
-		  BATCH_FILES	=> undef,	# Max number of files per batch
-		  BOOTTIME      => time(),	# "Boot" time for this agent
-		  BATCHID	=> 0);		# Running batch counter
-
-    $$self{$_} = $args{$_} || $params{$_} for keys %params;
+    $$self{$_} = $$params{$_} for keys %$params;
     bless $self, $class;
+
+	# Remember various useful details.
+	$$self{MASTER} = $master;  #ÊMy owner
+	$$self{BOOTTIME} = time(); #Ê"Boot" time for this agent
+	$$self{BATCHID} = 0;       #ÊRunning batch counter
 
     # Locate the transfer wrapper script.
     $$self{WRAPPER} = $INC{"UtilsDownload.pm"};

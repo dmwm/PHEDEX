@@ -7,13 +7,18 @@ sub new
     my $class = ref($proto) || $proto;
     my $master = shift;
 
-    # Initialise myself
-    my $self = $class->SUPER::new($master, @_);
-    my $defcmd = [ qw(globus-url-copy -p 5 -tcp-bs 2097152) ];
-    my %default= (COMMAND	=> $defcmd,		# Transfer command
-	    	  PROTOCOLS	=> [ "gsiftp" ]);	# Accepted protocols
+    # Get derived class arguments and defaults
+    my $options = shift || {};
+    my $params = shift || {};
 
-    $$self{$_} ||= $default{$_} for keys %default;
+	# Set my defaults where not defined by the derived class.
+    my @defcmd = qw(globus-url-copy -p 5 -tcp-bs 2097152);
+	$$params{PROTOCOLS}   ||= [ 'gsiftp' ]; # Accepted protocols
+	$$params{COMMAND}     ||= [ @defcmd ];  # Transfer command
+	$$params{NJOBS}       ||= 5;            #ÊMax number of parallel transfers
+
+    # Initialise myself
+    my $self = $class->SUPER::new($master, $options, $params, @_);
     bless $self, $class;
     return $self;
 }

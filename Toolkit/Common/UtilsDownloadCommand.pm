@@ -8,23 +8,24 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $master = shift;
-    my %args;
 
-    # Parse backend-specific additional options
-    local @ARGV = @{$$master{BACKEND_ARGS}};
-    Getopt::Long::Configure qw(default pass_through norequire_order);
-    &GetOptions ("command=s" => sub { push(@{$args{COMMAND}},
-					   split(/,/, $_[1])) },
-		 "jobs=i"    => \$args{NJOBS},
-	 	 "timeout=i" => \$args{TIMEOUT});
+    # Get derived class arguments and defaults
+    my $options = shift || {};
+    my $params = shift || {};
+
+	# Set my defaults where not defined by the derived class.
+	$$params{COMMAND}     ||= undef;        # Transfer command
+	$$params{NJOBS}       ||= 1;            #ÊMax number of parallel transfers
+	$$params{BATCH_FILES} ||= 1;            #ÊMax number of files per batch
+	$$params{TIMEOUT}     ||= 3600;         # Maximum execution time
+	
+	# Set argument parsing at this level.
+	$$options{'command=s'} = sub { push(@{$$params{COMMAND}}, split(/,/, $_[1])) };
+	$$options{'jobs=i'}    = \$$params{NJOBS};
+	$$options{'timeout=i'} = \$$params{TIMEOUT};
 
     # Initialise myself
-    my $self = $class->SUPER::new($master, @_);
-    my %params = (COMMAND	=> undef,	# Transfer command.
-		  NJOBS		=> undef,	# Max number of parallel transfers
-		  TIMEOUT	=> undef,	# Maximum execution time
-	    	  BATCH_FILES	=> 1);		# One file per transfer.
-    $$self{$_} = $args{$_} || $$self{$_} || $params{$_} for keys %params;
+    my $self = $class->SUPER::new($master, $options, $params, @_);
     bless $self, $class;
     return $self;
 }

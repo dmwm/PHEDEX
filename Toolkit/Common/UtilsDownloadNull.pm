@@ -10,12 +10,19 @@ sub new
     my $class = ref($proto) || $proto;
     my $master = shift;
 
-    # Initialise myself
-    my $self = $class->SUPER::new($master, @_);
-    my %default= (PROTOCOLS	=> [ "srm" ],	# Accepted protocols
-		  BATCH_FILES	=> 100);	# Max number of files per batch
+    # Get derived class arguments and defaults
+    my $options = shift || {};
+    my $params = shift || {};
 
-    $$self{$_} ||= $default{$_} for keys %default;
+	# Set my defaults where not defined by the derived class.
+	$$params{PROTOCOLS}   ||= [ 'srm' ];    # Accepted protocols
+	$$params{BATCH_FILES} ||= 100;          #ÊMax number of files per batch
+	
+	# Set argument parsing at this level.
+	$$options{'batch-files=i'} = \$$params{BATCH_FILES};
+
+    # Initialise myself
+    my $self = $class->SUPER::new($master, $options, $params, @_);
     bless $self, $class;
     return $self;
 }

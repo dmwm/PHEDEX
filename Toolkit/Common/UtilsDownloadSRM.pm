@@ -8,20 +8,22 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $master = shift;
-    my %args;
+    
+    # Get derived class arguments and defaults
+    my $options = shift || {};
+    my $params = shift || {};
 
-    # Parse backend-specific additional options
-    local @ARGV = @{$$master{BACKEND_ARGS}};
-    Getopt::Long::Configure qw(default pass_through norequire_order);
-    &GetOptions ("batch-files=i" => \$args{BATCH_FILES});
+	# Set my defaults where not defined by the derived class.
+	$$params{PROTOCOLS}   ||= [ 'srm' ];    # Accepted protocols
+	$$params{COMMAND}     ||= [ 'srmcp' ];  # Transfer command
+	$$params{BATCH_FILES} ||= 10;           #ÊMax number of files per batch
+	$$params{NJOBS}       ||= 30;           #ÊMax number of parallel transfers
+	
+	# Set argument parsing at this level.
+	$$options{'batch-files=i'} = \$$params{BATCH_FILES};
 
     # Initialise myself
-    my $self = $class->SUPER::new($master, @_);
-    my %default= (PROTOCOLS	=> [ "srm" ],	# Accepted protocols
-		  COMMAND	=> [ "srmcp" ], # Transfer command
-		  BATCH_FILES	=> 10);		# Max number of files per batch
-
-    $$self{$_} = $args{$_} || $$self{$_} || $default{$_} for keys %default;
+    my $self = $class->SUPER::new($master, $options, $params, @_);
     bless $self, $class;
     return $self;
 }
