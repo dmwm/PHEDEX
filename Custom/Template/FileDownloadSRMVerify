@@ -26,7 +26,6 @@ while [ $# -ge 1 ]; do
     -c ) do_checksum=true; shift ;;
     -d ) do_delete=true; shift ;;
     -f ) do_force=true; shift ;;
-    -* ) echo "unrecognised option $1" 1>&2; exit 5 ;;
     *  ) break ;;
   esac
 done
