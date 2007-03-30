@@ -68,6 +68,8 @@ sub idle
 	# Delete obsolete agent status messages (3 days)
 	my %old = (":old" => &mytimeofday() - 3*86400);
 	&dbexec($dbh,qq{delete from t_agent_status where time_update < :old}, %old);
+	&dbexec($dbh,qq{delete from t_agent_log where time_update < :old},
+		":old" => &mytimeofday() - 30*86400);
 	$dbh->commit();
 
 	# Delete requests for file and block deletion after 3 days

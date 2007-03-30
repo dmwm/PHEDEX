@@ -84,6 +84,16 @@ create table t_agent_version
      on delete cascade);
 
 
+create table t_agent_log
+  (time_update		float		not null,
+   reason		varchar (100)	not null,
+   user_name		varchar (100)	not null,
+   host_name		varchar (100)	not null,
+   process_id		integer		not null,
+   working_directory	varchar (200)	not null,
+   state_directory	varchar (200)	not null,
+   message		clob		not null);
+
 ----------------------------------------------------------------------
 -- Create indices
 

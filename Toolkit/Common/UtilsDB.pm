@@ -6,6 +6,7 @@ use UtilsLogging;
 use UtilsTiming;
 use UtilsNet;
 use DBI;
+use Cwd;
 
 # Parse database connection arguments.
 sub parseDatabaseInfo
@@ -50,6 +51,8 @@ sub parseDatabaseInfo
 	    $ENV{PHEDEX_LOG_SQL} = ($1 eq 'on') if $insection;
 	} elsif (/^SessionSQL (.*)$/) {
 	    push(@{$$self{DBH_SESSION_SQL}}, $1);
+	} elsif (/^SchemaPrefix (.*)$/) {
+	    push(@{$$self{DBH_SCHEMA_PREFIX}}, $1);
 	} else {
 	    die "$$self{DBCONFIG}: $.: Unrecognised line\n";
 	}
@@ -129,6 +132,7 @@ sub connectToDatabase
 	$$self{DBH_AGE} = time();
 	$$self{DBH} = $dbh;
 	$$dbh{private_phedex_invalid} = 0;
+	$$dbh{private_phedex_prefix} = $$self{DBH_SCHEMA_PREFIX};
     }
 
     # Reset statement cache
@@ -185,8 +189,26 @@ sub identifyAgent
     my ($self, $dbh) = @_;
     return if $$self{DBH_AGENT_IDENTIFIED}{$$self{MYNODE}};
 
-    # Get PhEDEx distribution version.
+    # Identify agent start-up into the logging table.
     my $now = &mytimeofday();
+    my ($ident) = qx(ps -p $$ wwwwuh 2>/dev/null);
+    chomp($ident) if $ident;
+    &dbexec($dbh, qq{
+	insert into t_agent_log
+	(time_update, reason, host_name, user_name, process_id,
+	 working_directory, state_directory, message)
+	values
+	(:now, 'AGENT STARTED', :host_name, :user_name, :process_id,
+	 :working_dir, :state_dir, :message)},
+	":now" => $now,
+	":host_name" => $$self{DBH_ID_HOST},
+	":user_name" => scalar getpwuid($<),
+	":process_id" => $$,
+	":working_dir" => &getcwd(),
+	":state_dir" => $$self{DROPDIR},
+	":message" => $ident);
+
+    # Get PhEDEx distribution version.
     my $distribution = undef;
     my $versionfile = $INC{'UtilsDB.pm'};
     $versionfile =~ s|/Toolkit/.*|/VERSION|;
