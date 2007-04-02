@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog.pl,v 1.1 2007/03/29 08:16:27 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog.pl,v 1.2 2007/03/29 16:58:47 dfeichti Exp $:
 ###############################################################################
 
 use strict;
@@ -19,6 +19,7 @@ my $flag_rawErrors=0;
 my $flag_verbose=0;
 my $flag_debug=0;
 my $flag_checkdate=0;
+my $flag_bunchDetect=0;
 
 sub usage {
 print <<"EOF";
@@ -27,13 +28,16 @@ usage: InspectPhedexLog [options] logfile1 [logfile2 ...]
    Analyses PhEDEx download agent log files
 
    options:
-      -e also show error statistics (summary over error messages)
-         -r do not try to regexp-process errors messages, but show raw error messages
-      -v verbose   Prints task IDs for the collected errors (useful for closer investigation)
-      -s start_date   -t end_date
+      -e    also show error statistics (summary over error messages)
+         -r    do not try to regexp-process errors messages, but show raw error messages
+      -v    verbose   Prints task IDs for the collected errors (useful for closer investigation)
+      -s    start_date   -t end_date
 
-      -d debug   Prints a summary line for every single transfer
-      -h display this help
+      -b    bunch detection and rate calculation
+            (still some problems with correct bunch detection. leading to strange rates for some
+             source logs. Do not rely on this).
+      -d    debug   Prints a summary line for every single transfer
+      -h    display this help
 
  examples:
    InspectPhedexLog.pl Prod/download
@@ -68,9 +72,10 @@ EOF
 
 # OPTION PARSING
 my %option=();
-getopts("dehrs:t:v",\%option);
+getopts("bdehrs:t:v",\%option);
 
 
+$flag_bunchDetect=1 if(defined $option{"b"});
 $flag_showErrors=1 if(defined $option{"e"});
 $flag_rawErrors=1 if(defined $option{"r"});
 $flag_verbose=1 if(defined $option{"v"});
@@ -146,8 +151,7 @@ foreach my $log (@logfiles) {
 
              # the following is needed because transfer time applies not to a single file but to the bunch
 	     if($txfer == $txfer_old || $txfer_old == 0) {     # try to identify bunches
-	       printf STDERR ("WARNING: there may be a transfer time problem (delta t-done=%.4f) in line\n$line\n",$tdone-$tdone_old)
-		 if abs($tdone-$tdone_old) > 0.2 && $txfer_old != 0;
+	       printf STDERR ("WARNING: there may be a transfer time problem (delta t-done=%.4f) in line\n$line\n",$tdone-$tdone_old) if $flag_bunchDetect && abs($tdone-$tdone_old) > 0.2 && $txfer_old != 0;
 	       $bunchfiles++;
 	       $bunchsize += $size;
 	     } else {
@@ -167,13 +171,13 @@ foreach my $log (@logfiles) {
 	     my ($detail,$validate) = $line =~ m/.*detail=\((.*)\)\s*validate=\((.*)\)\s*$/;
 	     if(! $flag_rawErrors) {
 	       my $tmp;
-	       $detail =~ s/\sid=\d+\s//;
+	       $detail =~ s/\sid=\d+\s/id=\[id\]/;
 	       if( $detail=~/^\s*$/) {$reason = "(No detail given)"}
 	       elsif( (($reason) = $detail =~ m/.*(the server sent an error response: 425 425 Can't open data connection).*/)) {}
 	       elsif( (($reason) = $detail =~ m/.*(the gridFTP transfer timed out).*/) ) {}
-	       elsif( (($reason) = $detail =~ m/.*(Failed SRM get on httpg:[^\s]+).*/) ) {}
+	       elsif( (($reason) = $detail =~ m/.*(Failed SRM get on httpg:.*)/) ) {}
 	       elsif( (($reason,$tmp) = $detail =~ m/.*(ERROR the server sent an error response: 553 553)\s*[^\s]+:(.*)/) )
-		 {$reason .= " <filename>: " . $tmp}
+		 {$reason .= " [filename]: " . $tmp}
 	       else {$reason = $detail};
 	     } else {$reason = $detail};
 	     $errinfo{$from}{$reason}{num}++;
@@ -190,7 +194,7 @@ foreach my $log (@logfiles) {
 	   $MbperS=$bunchsize*8/$ttransfer/1e6;
 	   $MBperS=$bunchsize/1024/1024/$ttransfer;
 	   printf("   *** Bunch:  succ. files: $bunchfiles  size=%.2f GB  transfer_time=%.1f s (%.1f MB/s = %.1f Mb/s)\n"
-		  ,$bunchsize/1024/1024/1024,$ttransfer,$MBperS,$MbperS) if $flag_debug;
+		  ,$bunchsize/1024/1024/1024,$ttransfer,$MBperS,$MbperS) if $flag_debug && $flag_bunchDetect;
 
 	   $bunchfiles = 1;
 	   $bunchsize = $size;
@@ -242,7 +246,7 @@ foreach my $site (keys %sitestat) {
     if ($sitestat{$site}{"ttransfer"}>0) {
       $MbperS=$sitestat{$site}{"size"}*8/$sitestat{$site}{"ttransfer"}/1e6;
       $MBperS=$sitestat{$site}{"size"}/1024/1024/$sitestat{$site}{"ttransfer"};
-      printf("   avg. rate: %.1f MB/s = %.1f Mb/s",$MBperS,$MbperS);
+      printf("   avg. rate: %.1f MB/s = %.1f Mb/s",$MBperS,$MbperS) if $flag_bunchDetect;
     }
     print "\n";
 }
