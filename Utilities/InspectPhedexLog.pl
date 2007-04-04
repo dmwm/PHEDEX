@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog.pl,v 1.2 2007/03/29 16:58:47 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog.pl,v 1.3 2007/04/02 10:38:49 dfeichti Exp $:
 ###############################################################################
 
 use strict;
@@ -172,6 +172,7 @@ foreach my $log (@logfiles) {
 	     if(! $flag_rawErrors) {
 	       my $tmp;
 	       $detail =~ s/\sid=\d+\s/id=\[id\]/;
+	       $detail =~ s/srm:\/\/[^\s]+/\[srm-URL\]/;
 	       if( $detail=~/^\s*$/) {$reason = "(No detail given)"}
 	       elsif( (($reason) = $detail =~ m/.*(the server sent an error response: 425 425 Can't open data connection).*/)) {}
 	       elsif( (($reason) = $detail =~ m/.*(the gridFTP transfer timed out).*/) ) {}
