@@ -102,6 +102,14 @@ create table t_dps_block_replica
      check (is_active in ('y', 'n')));
 
 
+/* t_dps_block_dest.state states:
+     0: Assigned but not yet active (= waiting for router to activate
+        into t_xfer_request).
+     1: Active (= routed has activated into t_xfer_request).
+     2: Subscription suspended.
+     3: Block completed and not to be considered further, but the
+        entire subscription not yet completed and marked done.
+*/
 create table t_dps_block_dest
   (block		integer		not null,
    dataset		integer		not null,
