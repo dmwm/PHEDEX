@@ -400,7 +400,7 @@ sub fetchNewTasks
 
     # Propagate extended expire time to local task copies.
     my $qupdate = &dbexec($$self{DBH}, qq{
-	select xt.id, xt.time_expire
+	select xt.id taskid, xt.time_expire
 	from t_xfer_task xt
 	  join t_xfer_task_inxfer xti on xti.task = xt.id
 	  left join t_xfer_task_done xtd on xtd.task = xt.id
@@ -417,7 +417,7 @@ sub fetchNewTasks
 		       $$existing{TIME_EXPIRE}, $$row{TIME_EXPIRE}))
 	    if $$self{VERBOSE};
 	$$existing{TIME_EXPIRE} = $$row{TIME_EXPIRE};
-	&output("$$self{TASKDIR}/$$existing{TASKID}", Dumper($$existing));
+	&output("$$self{TASKDIR}/$$existing{TASKID}", Dumper($existing));
     }
 
     # If we have just too much work, leave.
