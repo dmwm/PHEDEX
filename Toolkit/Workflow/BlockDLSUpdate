@@ -140,17 +140,22 @@ sub idle
 
 	    # Decompose DLS contact into arguments accepted by DLS API.
 	    my ($dlstype, $contact) = ($$block{DLS_NAME} =~ m|^([a-z]+)://(.*)|);
-	    do { &alert ("dls contact $$block{DLS_NAME} not understood"); next }
-	        if (! $dlstype || ($dlstype ne 'lfc' && $dlstype ne 'mysql'));
+
+	    my $dls_iface;
+	    if ($dlstype eq 'lfc') { $dls_iface = 'DLS_TYPE_LFC'; }
+	    elsif ($dlstype eq 'mysql') { $dls_iface = 'DLS_TYPE_MYSQL' }
+	    elsif ($dlstype eq 'dbs') { $dls_iface = 'DLS_TYPE_DBS' }
+	    else { 
+		&alert ("dls contact $$block{DLS_NAME} not understood");
+		next;
+	    }
 
 	    # Now modify DLS.  If the command fails, alert but
 	    # keep going.  We'll try again in 24 hours anyway.
 	    my $log = "$$self{DROPDIR}/@{[time()]}.$$block{SE_NAME}.$$block{BLOCK_ID}.log";
-	    my @cmd = ("$$block{COMMAND}", "-i",
-		       ($dlstype eq 'lfc' ? "DLS_TYPE_LFC" : "DLS_TYPE_MYSQL"),
+	    my @cmd = ("$$block{COMMAND}", "-i", $dls_iface,
 		       "-e", $contact, $$block{BLOCK_NAME}, $$block{SE_NAME});
-
-
+	    
 	    $self->addJob(sub { $self->registered ($block, @_) },
 		          { TIMEOUT => 30, LOGFILE => $log },
 		          @cmd);
