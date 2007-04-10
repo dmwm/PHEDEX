@@ -139,13 +139,15 @@ sub idle
 	    $$self{LAST_UPDATE}{$cachekey} = &mytimeofday();
 
 	    # Decompose DLS contact into arguments accepted by DLS API.
-	    my ($dlstype, $contact) = ($$block{DLS_NAME} =~ m|^([a-z]+)://(.*)|);
+	    my ($dlstype, $sep, $contact) = ($$block{DLS_NAME} =~ m|^([a-z]+)(://)?(.*)|);
 
 	    my $dls_iface;
 	    if ($dlstype eq 'lfc') { $dls_iface = 'DLS_TYPE_LFC'; }
-	    elsif ($dlstype eq 'mysql') { $dls_iface = 'DLS_TYPE_MYSQL' }
-	    elsif ($dlstype eq 'dbs') { $dls_iface = 'DLS_TYPE_DBS' }
-	    else { 
+	    elsif ($dlstype eq 'mysql') { $dls_iface = 'DLS_TYPE_MYSQL'; }
+	    elsif ($dlstype eq 'dbs') { 
+		$dls_iface = 'DLS_TYPE_DBS';
+		$contact = $$block{DBS_NAME} if !defined $contact;
+	    } else {
 		&alert ("dls contact $$block{DLS_NAME} not understood");
 		next;
 	    }
