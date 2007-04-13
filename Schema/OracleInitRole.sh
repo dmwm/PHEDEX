@@ -24,7 +24,9 @@
 ##H NODE is optional.  If it is not provided no nodes or site
 ##H information will be added to the DB.  This is only for the case of
 ##H providing DB access to persons not interested in doing transfers.
-##H (e.g. for ProdAgents using the PhEDEx micro client)
+##H (e.g. for ProdAgents using the PhEDEx micro client).  In this case
+##H SITE-NAME is just some descriptive string for the purpose of the
+##H database role.
 
 [ $# != 3 ] && { echo "Insufficient parameters." 1>&2; exit 1; }
 
