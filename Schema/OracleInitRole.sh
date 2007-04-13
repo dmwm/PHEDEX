@@ -28,7 +28,7 @@
 ##H SITE-NAME is just some descriptive string for the purpose of the
 ##H database role.
 
-[ $# != 3 ] && [ $# != 4] && { echo "Insufficient parameters." 1>&2; exit 1; }
+[ $# != 3 ] && [ $# != 4 ] && { echo "Insufficient parameters." 1>&2; exit 1; }
 
 dbparam="$(echo $1 | sed 's/:.*//')"
 section="$(echo $1 | sed 's/.*://')"
