@@ -203,18 +203,25 @@ sub flush
 
     if (%extend)
     {
+	# Array binds can't handle named parameters
+	my %by_dest = (1 => $extend{':time_expire'},
+		       2 => $extend{':dest'},
+		       3 => $extend{':fileid'});
+	my %by_to   = (1 => $extend{':time_expire'},
+		       2 => $extend{':to'},
+		       3 => $extend{':fileid'});
         &dbexec($dbh, qq{
-	    update t_xfer_path set time_expire = :time_expire
-	    where destination = :dest and fileid = :fileid},
-	    %extend);
+	    update t_xfer_path set time_expire = ?
+	    where destination = ? and fileid = ?},
+	    %by_dest);
         &dbexec($dbh, qq{
 	    update t_xfer_task set time_expire = :time_expire
-	    where to_node = :to and fileid = :fileid},
-	    %extend);
+	    where to_node = ? and fileid = ?},
+	    %by_to);
         &dbexec($dbh, qq{
-	    update t_xfer_request set time_expire = :time_expire
-	    where destination = :dest and fileid = :fileid},
-	    %extend);
+	    update t_xfer_request set time_expire = ?
+	    where destination = ? and fileid = ?},
+	    %by_dest);
     }
 
     # Mark as expired tasks which didn't complete in time.
