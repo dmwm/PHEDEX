@@ -178,6 +178,8 @@ sub flush
 
     # If transfers path are about to expire on links which have
     # reasonable recent transfer rate, give a bit more grace time.
+    # Be sure to extend the entire path from src_node to destination
+    # so that paths are not broken on cleanup.
     my %extend;
     my $qextend = &dbexec($dbh, qq{
         select xp.fileid, xp.destination, xp.from_node, xp.to_node
@@ -193,24 +195,25 @@ sub flush
 	":now" => $now);
     while (my ($file, $dest, $from, $to) = $qextend->fetchrow())
     {
-	push(@{$extend{1}}, $now + 6*3600 + rand(6*3600));
-	push(@{$extend{2}}, $to);
-	push(@{$extend{3}}, $file);
+	push(@{$extend{':time_expire'}}, $now + 6*3600 + rand(6*3600));
+	push(@{$extend{':to'}}, $to);
+	push(@{$extend{':dest'}}, $dest);
+	push(@{$extend{':fileid'}}, $file);
     }
 
     if (%extend)
     {
         &dbexec($dbh, qq{
-	    update t_xfer_path set time_expire = ?
-	    where to_node = ? and fileid = ?},
+	    update t_xfer_path set time_expire = :time_expire
+	    where destination = :dest and fileid = :fileid},
 	    %extend);
         &dbexec($dbh, qq{
-	    update t_xfer_task set time_expire = ?
-	    where to_node = ? and fileid = ?},
+	    update t_xfer_task set time_expire = :time_expire
+	    where to_node = :to and fileid = :fileid},
 	    %extend);
         &dbexec($dbh, qq{
-	    update t_xfer_request set time_expire = ?
-	    where destination = ? and fileid = ?},
+	    update t_xfer_request set time_expire = :time_expire
+	    where destination = :dest and fileid = :fileid},
 	    %extend);
     }
 
