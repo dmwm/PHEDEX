@@ -215,7 +215,7 @@ sub flush
 	    where destination = ? and fileid = ?},
 	    %by_dest);
         &dbexec($dbh, qq{
-	    update t_xfer_task set time_expire = :time_expire
+	    update t_xfer_task set time_expire = ?
 	    where to_node = ? and fileid = ?},
 	    %by_to);
         &dbexec($dbh, qq{
