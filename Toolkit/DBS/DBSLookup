@@ -43,8 +43,7 @@ def dbs1Lookup(url, instance, item):
 def dbs2Lookup(url, item):
   from DBSAPI.dbsApi import DbsApi
 
-  myargs = { 'level': 'WARNING',
-             'url': url,
+  myargs = { 'url': url,
              'version': 'v00_00_06' }
 
   api = DbsApi(myargs)
