@@ -48,27 +48,34 @@ def dbs2Lookup(url, item):
 
   api = DbsApi(myargs)
 
-  p = re.compile('^/([^/]+)/([^/]+)(/[^/]+|\#[^\#]+)$')
-  parts = p.findall(item)
-  if not parts: raise Exception("Bad dataset or block format")
-  haswilds = item.count('*')
-  
-  parts = list(parts[0])
-  if parts[2].startswith('#'):
-    lookingfor = 'BLOCK'
+  if item.endswith('.root'):
+    lookingfor = 'FILE'
   else:
-    lookingfor = 'DATASET'
-
-  parts[2] = parts[2].lstrip("/#")
+    p = re.compile('^/([^/]+)/([^/]+)(/[^/]+|\#[^\#]+)$')
+    parts = p.findall(item)
+    if not parts: raise Exception("Bad dataset or block format")
+    haswilds = item.count('*')
   
+    parts = list(parts[0])
+    if parts[2].startswith('#'):
+      lookingfor = 'BLOCK'
+    else:
+      lookingfor = 'DATASET'
+    parts[2] = parts[2].lstrip("/#")
+
   if lookingfor == 'DATASET':
     for dataset in api.listProcessedDatasets(parts[0], parts[2], parts[1]):
       for path in dataset['PathList']:
         print path
-  else:
+  elif lookingfor == 'BLOCK':
     for block in api.listBlocks("", item):
       print block['Name']
-    
+  elif lookingfor == 'FILE':
+    for file in api.listFiles(patternLFN=item):
+      print file['LogicalFileName']
+  else:
+    raise Exception("Bad item format")
+      
 
 from optparse import OptionParser
 
