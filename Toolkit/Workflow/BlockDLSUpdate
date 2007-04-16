@@ -146,7 +146,7 @@ sub idle
 	    elsif ($dlstype eq 'mysql') { $dls_iface = 'DLS_TYPE_MYSQL'; }
 	    elsif ($dlstype eq 'dbs') { 
 		$dls_iface = 'DLS_TYPE_DBS';
-		$contact = $$block{DBS_NAME} if !defined $contact;
+		$contact = $$block{DBS_NAME} unless $contact;
 	    } else {
 		&alert ("dls contact $$block{DLS_NAME} not understood");
 		next;
