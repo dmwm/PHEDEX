@@ -1,0 +1,166 @@
+#!/usr/bin/env python
+#
+# List datasets or blocks from DBS1 or DBS2
+
+import sys
+from fnmatch import filter
+import re
+from string import lstrip, rstrip
+import pprint
+import datetime
+from DBSAPI.dbsApi import DbsApi
+from phedex import PhedexApi
+
+def dbsMigrateTMDB(dataset="/*/*/*"):
+  p = re.compile('^/([^/]+)/([^/]+)(/[^/]+|\#[^\#]+)$')
+  parts = p.findall(dataset)
+  if not parts: raise Exception("Bad dataset format")
+  prim, proc, tier = parts[0]
+  #tier = tier.lstrip('/')
+  tier = "*" # Specifying tier does not work in DBS API
+
+  print "Migrating %s %s %s" % (prim, proc, tier)
+
+  dbsDatasets = dbs.listProcessedDatasets(patternPrim=prim, patternProc=proc, patternDT=tier)
+  if not dbsDatasets:  raise Exception("No datasets found for %s %s %s" % (prim, proc, tier))
+                    
+  for dataset in dbsDatasets:
+    n_ds, n_b, n_br, n_f = 0, 0, 0, 0
+    n_ds += 1
+                                       
+    if not dataset['PathList']:  raise Exception("No path for dataset %s %s %s" % (prim, proc, tier))
+    path = dataset['PathList'][0] # Only the first path!  What if there are multiple?
+      
+    migrate_dataset = { 'name':path,
+                        'blocks':[] }
+
+    dbsBlocks = dbs.listBlocks(dataset=path)
+    if not dbsBlocks:  raise Exception("No blocks found in dataset %s" % path)
+    
+    print "Inserting dataset %s" % path
+    for block in dbsBlocks:
+      n_b += 1
+      migrate_block = { 'name':block['Name'],
+                        'n_files':block['NumberOfFiles'],
+                        'n_bytes':block['BlockSize'],
+                        'is_open':block['OpenForWriting'],
+                        'files':[] }
+
+      dbsFiles = dbs.listFiles(blockName=block['Name'])
+      if not dbsFiles:  raise Exception("No files found in block %s" % block['Name'])
+      
+      for file in dbsFiles:
+        n_f += 1
+        migrate_file = { 'lfn':file['LogicalFileName'],
+                         'size':file['FileSize'],
+                         'cksum':file['Checksum'] }
+        migrate_block['files'].append(migrate_file)
+
+      dbsReplicas = block['StorageElementList']
+      if not dbsReplicas:  raise Exception("No replicas for block %s" % block['Name'])
+      
+      for se in dbsReplicas:
+        n_br += 1
+      migrate_dataset['blocks'].append(migrate_block)
+    print "Inserting:  %s datasets %s blocks %s replicas %s files " % (n_ds, n_b, n_br, n_f)
+    insertDataset(migrate_dataset)
+
+def insertDataset(dataset):
+  #pprint.PrettyPrinter(indent=4).pprint(dataset)
+  #print "BR\n\n"
+  insDS = """insert into t_dps_dataset (id, dbs, name, is_open, is_transient, time_create, time_update)
+                  values (seq_dps_dataset.nextval, :dbsid, :name, :is_open, :is_transient, :time_create, :time_update)
+          """
+  insB  = """insert into t_dps_block (id, dataset, name, files, bytes, is_open, time_create, time_update)
+                  values (seq_dps_block.nextval, seq_dps_dataset.curval, :name, :files, :bytes, :is_open,
+                          :time_create, :time_update)
+          """
+  insF  = """insert into t_dps_file (id, node, inblock, logical_name, checksum, filesize, time_create)
+                  values (seq_dps_file.nextval, :node, :block, :logical_name, :checksum, :filesize, :time_create)
+          """
+
+  now = getnow()
+  cur = phedex.con.cursor()
+  cur.execute(insDS, { 'dbsid':dbsID,
+                       'name':dataset['name'],
+                       'is_open':'y',
+                       'is_transient':'n',
+                       'time_create':now,
+                       'time_update':now })
+  for block in dataset['blocks']:
+    cur.execute(insB, { 'name':block['name'],
+                        'files':block['n_files'],
+                        'bytes':block['n_bytes'],
+                        'is_open': block['is_open'],
+                        'time_create':now,
+                        'time_update':now })
+    for file in block['files']:
+      cur.execute(insF, { 'logical_name':file['lfn'],
+                          'checksum':file['checksum'],
+                          'filesize':file['size'],
+                          'time_create':now })
+
+  phedex.con.rollback()
+
+
+def initMigration():
+  now = getnow()
+  if True:  return
+  cur = phedex.con.cursor()
+  insDBS= """ insert into t_dps_dbs (id, name, dls, time_create)
+               alues (seq_dps_dbs.nextval, 'migrateDBS', 'dbs', :time_create)
+          """
+  cur.execute(insDBS, {'time_create':now})
+  getDBS ="""select id from t_dps_dbs where name='migrateDBS'"""
+  cur.execute(getDBS)
+  return cur.fetchone()[0]
+
+def getnow():
+  import time, datetime
+  return int(time.mktime(datetime.datetime.utcnow().timetuple()))
+  
+def parseDatasetNameMap(mapfile):
+  map = {}
+  f = open(mapfile)
+  for line in f:
+    if not line.startswith('/'): continue
+    a = re.split("\s+", line)
+    map[a[0]] = a[1]
+  f.close
+  return map
+  
+      
+
+from optparse import OptionParser
+
+usage =  "usage: %prog [options]\n"
+usage += "\nTakes a map file and writes TMDB block replicas to DBS"
+parser = OptionParser(usage=usage)
+parser.add_option('-f', '--mapfile', dest='mapfile', help='Old dataset to New Dataset name mapping file')
+parser.add_option('-u', '--url', dest='url', help='DBS write URL')
+parser.add_option('-c', '--phedex_connect', dest='phedex_connect', help='PhEDEx connection string')
+(opts, args) = parser.parse_args()
+
+if not opts.url or not opts.phedex_connect:
+  raise Exception('Missing arguments')
+
+dbs = DbsApi({'url':  opts.url})
+phedex = PhedexApi(opts.phedex_connect)
+
+dbsID = initMigration()
+
+if opts.mapfile:
+  map = parseDatasetNameMap(opts.mapfile)
+  for dataset, newName in map.iteritems():
+    print "Migrating dataset ", newName
+    try:
+      dbsMigrateTMDB(newName)
+    except Exception, ex:
+      print "ERROR:  ", ex
+else:
+  try:
+    dbsMigrateTMDB()
+  except Exception, ex:
+    print "ERROR:  ", ex
+  
+sys.exit(0)

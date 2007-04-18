@@ -1,0 +1,10 @@
+** Migration procedure applied to Prod instance **
+
+# Source environment
+source ../sw/slc*/cms/PHEDEX/PHEDEX_*/etc/profile.d/env.sh
+
+# Set authentication for DB access
+export PHEDEX_DB='../SITECONF/CERN/PhEDEx/DBParam:Dev/Admin';
+export PHEDEX_DB_R='../SITECONF/CERN/PhEDEx/DBParam:Dev/Reader';
+export PHEDEX_DB_W='../SITECONF/CERN/PhEDEx/DBParam:Dev/CERN';
+

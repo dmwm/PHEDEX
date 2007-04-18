@@ -1,0 +1,82 @@
+#!/usr/bin/env python
+#
+# Update DBS2 with block replica information
+
+import sys
+from fnmatch import filter
+import re
+from string import lstrip
+from DBSAPI.dbsApi import DbsApi
+from phedex import PhedexApi
+
+def mapBlocks(dataset):
+  print "Mapping dataset "+dataset
+  for block in phedex.getBlocks(dataset):
+
+    # Attempt to look up the changed block name from DBS2, keying on file name
+    newblock = dbs.listFiles(patternLFN=block['keyfile'])
+    if not newblock:
+      raise Exception("Could not map block %s using keyfile %s" % (block['name'], block['keyfile']))
+    else:
+      newblock = newblock[0]['Block']['Name']
+
+    if block['name'] != newblock:
+      print "Block Mapping %s -> %s" % (block['name'], newblock)
+      addBlockMapping(block['name'], newblock)
+    else:
+      print "Block name %s is unchanged" % (newblock)
+      addBlockMapping(block['name'], block['name'])
+
+def addDatasetMapping(old, new):
+  cur = phedex.con.cursor()
+  sql = """insert into t_migration_dataset_map (old, new)
+                 values (:old, :new)
+        """
+  cur.execute(sql, {'old':old, 'new':new})
+
+def addBlockMapping(old, new):
+  cur = phedex.con.cursor()
+  sql = """insert into t_migration_block_map (old, new)
+                 values (:old, :new)
+        """
+  cur.execute(sql, {'old':old, 'new':new})
+
+  
+def parseDatasetNameMap(mapfile):
+  map = {}
+  f = open(mapfile)
+  for line in f:
+    if not line.startswith('/'): continue
+    a = re.split("\s+", line)
+    map[a[0]] = a[1]
+  f.close
+  return map
+  
+      
+
+from optparse import OptionParser
+
+usage =  "usage: %prog [options]\n"
+usage += "\nTakes a dataset map file and fills TMDB with dataset mapping and block mappings"
+parser = OptionParser(usage=usage)
+parser.add_option('-f', '--mapfile', dest='mapfile', help='Old dataset to New Dataset name mapping file')
+parser.add_option('-u', '--url', dest='url', help='DBS write URL')
+parser.add_option('-c', '--phedex_connect', dest='phedex_connect', help='PhEDEx connection string')
+(opts, args) = parser.parse_args()
+
+if not opts.url or not opts.mapfile or not opts.phedex_connect:
+  print "Missing arguments.  Seek help.  (-h)"
+  sys.exit(0)
+
+dbs = DbsApi({'url':  opts.url})
+phedex = PhedexApi(opts.phedex_connect)
+
+map = parseDatasetNameMap(opts.mapfile)
+for dataset, newName in map.iteritems():
+  try:
+    addDatasetMapping(dataset, newName)
+    mapBlocks(dataset)
+  except Exception, ex:
+    print "ERROR:  ",ex
+
+sys.exit(0)
