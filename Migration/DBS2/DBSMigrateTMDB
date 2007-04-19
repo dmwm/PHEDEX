@@ -6,12 +6,13 @@ import sys
 from fnmatch import filter
 import re
 from string import lstrip, rstrip
+import traceback
 import pprint
 import datetime
 from DBSAPI.dbsApi import DbsApi
 from phedex import PhedexApi
 
-def dbsMigrateTMDB(dataset="/*/*/*"):
+def dbsMigrateTMDB(dbsID, dataset="/*/*/*"):
   p = re.compile('^/([^/]+)/([^/]+)(/[^/]+|\#[^\#]+)$')
   parts = p.findall(dataset)
   if not parts: raise Exception("Bad dataset format")
@@ -39,10 +40,15 @@ def dbsMigrateTMDB(dataset="/*/*/*"):
     
     for block in dbsBlocks:
       n_b += 1
+      if block['OpenForWriting']:
+        is_open = 'y'
+      else:
+        is_open = 'n'
       migrate_block = { 'name':block['Name'],
                         'n_files':block['NumberOfFiles'],
                         'n_bytes':block['BlockSize'],
-                        'is_open':block['OpenForWriting'],
+                        'is_open':is_open,
+                        'replicas':[],
                         'files':[] }
 
       dbsFiles = dbs.listFiles(blockName=block['Name'])
@@ -52,7 +58,7 @@ def dbsMigrateTMDB(dataset="/*/*/*"):
         n_f += 1
         migrate_file = { 'lfn':file['LogicalFileName'],
                          'size':file['FileSize'],
-                         'cksum':file['Checksum'] }
+                         'checksum':file['Checksum'] }
         migrate_block['files'].append(migrate_file)
 
       dbsReplicas = block['StorageElementList']
@@ -60,24 +66,31 @@ def dbsMigrateTMDB(dataset="/*/*/*"):
       
       for se in dbsReplicas:
         n_br += 1
+        migrate_block['replicas'].append(se['Name'])
+        
       migrate_dataset['blocks'].append(migrate_block)
     print "Inserting %s datasets %s blocks %s replicas %s files for dataset %s" % (n_ds, n_b, n_br, n_f, path)
-    insertDataset(migrate_dataset)
+    insertDataset(dbsID, migrate_dataset)
     return (n_ds, n_b, n_br, n_f)
   
   
-def insertDataset(dataset):
-  #pprint.PrettyPrinter(indent=4).pprint(dataset)
-  #print "BR\n\n"
+def insertDataset(dbsID, dataset):
+#  pprint.PrettyPrinter(indent=4).pprint(dataset)
+#  print "BR\n\n"
+#  print "The dbsID is ", dbsID
+  
   insDS = """insert into t_dps_dataset (id, dbs, name, is_open, is_transient, time_create, time_update)
                   values (seq_dps_dataset.nextval, :dbsid, :name, :is_open, :is_transient, :time_create, :time_update)
           """
   insB  = """insert into t_dps_block (id, dataset, name, files, bytes, is_open, time_create, time_update)
-                  values (seq_dps_block.nextval, seq_dps_dataset.curval, :name, :files, :bytes, :is_open,
+                  values (seq_dps_block.nextval, seq_dps_dataset.currval, :name, :files, :bytes, :is_open,
                           :time_create, :time_update)
           """
-  insF  = """insert into t_dps_file (id, node, inblock, logical_name, checksum, filesize, time_create)
-                  values (seq_dps_file.nextval, :node, :block, :logical_name, :checksum, :filesize, :time_create)
+  insF  = """insert into t_dps_file (id, inblock, node, logical_name, checksum, filesize, time_create)
+             select seq_dps_file.nextval, seq_dps_block.currval, f.node, f.logical_name,
+                    :checksum, :filesize, :time_create
+               from xt_dps_file f
+              where f.logical_name = :logical_name
           """
 
   now = getnow()
@@ -104,15 +117,23 @@ def insertDataset(dataset):
 
 def initMigration():
   now = getnow()
-  if True:  return
   cur = phedex.con.cursor()
   insDBS= """ insert into t_dps_dbs (id, name, dls, time_create)
-               alues (seq_dps_dbs.nextval, 'migrateDBS', 'dbs', :time_create)
+               values (seq_dps_dbs.nextval, 'migrateDBS', 'dbs', :time_create)
           """
-  cur.execute(insDBS, {'time_create':now})
   getDBS ="""select id from t_dps_dbs where name='migrateDBS'"""
+
   cur.execute(getDBS)
-  return cur.fetchone()[0]
+  dbsid = cur.fetchone()[0]
+  
+  if not dbsid:
+    cur.execute(insDBS, {'time_create':now})
+    cur.execute(getDBS)
+    dbsid = cur.fetchone()[0]
+    return dbsid
+  else:
+    return dbsid
+
 
 def getnow():
   import time, datetime
@@ -157,19 +178,21 @@ if opts.mapfile:
   for dataset, newName in map.iteritems():
     print "Migrating dataset ", newName
     try:
-      n_ds, n_b, n_br, n_f = dbsMigrateTMDB(newName)
+      n_ds, n_b, n_br, n_f = dbsMigrateTMDB(dbsID, newName)
       t_ds+=n_ds;  t_b+=n_b;  t_br+=n_br;  t_f+=n_f;
       phedex.con.commit()
     except Exception, ex:
       print "ERROR:  ", ex
+      traceback.print_exc(file=sys.stdout)
       phedex.con.rollback()
 else:
   try:
-    n_ds, n_b, n_br, n_f = dbsMigrateTMDB()
+    n_ds, n_b, n_br, n_f = dbsMigrateTMDB(dbsID)
     t_ds+=n_ds;  t_b+=n_b;  t_br+=n_br;  t_f+=n_f;
   except Exception, ex:
     print "ERROR:  ", ex
-
+    traceback.print_exc(file=sys.stdout)
+    
 print "Totals:  %s datasets %s blocks %s replicas %s files" % (t_ds, t_b, t_br, t_f)
 
 sys.exit(0)
