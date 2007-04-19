@@ -230,7 +230,7 @@ create table t_log_user_action
    block		integer,
    --
    constraint uk_status_user_action
-     unique (time_update, action, identity, node, dataset, block)
+     unique (time_update, action, identity, node, dataset, block),
    --
    constraint fk_status_user_action_identity
      foreign key (identity) references t_adm_identity (id),
