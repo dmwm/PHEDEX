@@ -64,8 +64,17 @@ grep "Could not map block" mapfill.out > vijay-whynofile.txt
 PHEDEX/Migration/DBS2/DBSReplicaSync -f $MIGRATION_FILE -u $DBS2_W -c $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 2>&1|tee replicasync.out
 
 # Migrate DBS2 datasets, blocks, files, replicas to TMDB
+# First we need the nodes
+insert into t_adm_node select * from xt_adm_node;
 
+# Now the DBS2 information
+PHEDEX/Migration/DBS2/DBSMigrateTMDB -f $MIGRATION_FILE -u $DBS2_Rt -c $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 2>&1|tee migratetmdb.tx
+
+# Now the rest...
+
+# Don't forget to ensure the sequences are current!
 
 # Cross checks
 
 # Migrate subscription data
+
