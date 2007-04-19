@@ -1,10 +1,71 @@
 ** Migration procedure applied to Prod instance **
 
+# Even if you are on an slc4 machine, you have to lie because there
+# are no slc4 DBS rpms
+export MYARCH=slc3_ia32_gcc323
+
+# Install DBS client and external python RPMs
+wget -O aptinstaller.sh http://cmsdoc.cern.ch/cms/cpt/Software/download/cms/aptinstaller.sh
+chmod +x aptinstaller.sh
+./aptinstaller.sh setup -path $PWD -arch $MYARCH
+eval `./aptinstaller.sh config -path $PWD -arch $MYARCH -sh`             
+apt-get update
+apt-get install cms+dbs-client+DBS_1_0_0
+apt-get install external+py2-cx-oracle+4.2
+cvs co PHEDEX/Migration/DBS2 PHEDEX/Toolkit/DBS PHEDEX/Toolkit/Common PHEDEX/Utilities PHEDEX/Schema
+
 # Source environment
-source ../sw/slc*/cms/PHEDEX/PHEDEX_*/etc/profile.d/env.sh
+source slc3_ia32_gcc323/external/python/2.4.3/etc/profile.d/init.sh
+source slc3_ia32_gcc323/external/py2-cx-oracle/4.2/etc/profile.d/init.sh
+source slc3_ia32_gcc323/cms/dbs-client/DBS_1_0_0/etc/profile.d/init.sh
+
+# Set up grid proxy
+source /afs/cern.ch/cms/LCG/LCG-2/UI/cms_ui_env.sh
+grid-proxy-init
 
 # Set authentication for DB access
-export PHEDEX_DB='../SITECONF/CERN/PhEDEx/DBParam:Dev/Admin';
-export PHEDEX_DB_R='../SITECONF/CERN/PhEDEx/DBParam:Dev/Reader';
-export PHEDEX_DB_W='../SITECONF/CERN/PhEDEx/DBParam:Dev/CERN';
+# first set DBPARAM to a valid DBParam file
+export PHEDEX_DB="${DBPARAM}:Prod/Admin";
+export PHEDEX_DB_R="${DBPARAM}:Prod/Reader";
+export PHEDEX_DB_W="${DBPARAM}:Prod/CERN";
+export DBS2_R="http://vocms05.cern.ch/cms_egeland_dev/servlet/DBSServlet"
+export DBS2_W="https://vocms05.cern.ch:8443/cms_egeland_dev/servlet/DBSServlet"
+export MIGRATION_FILE=PHEDEX/Migration/DBS2/DBSMappingFill
 
+# Save all old tables to xt
+sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleResetOld.sql </dev/null
+sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleSave.sql </dev/null
+
+# Load the new schema
+sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleReset.sql </dev/null
+sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleInit.sql </dev/null
+sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleStatsEnable.sql </dev/null
+
+# Connect to DB using SQLPlus
+sqlplus $(Utilities/OracleConnectId  -db ${PHEDEX_DB})
+
+-- Disable all triggers
+begin
+  for o in (select trigger_name from user_triggers) loop
+    execute immediate 'alter trigger ' || o.trigger_name || ' disable';
+  end loop;
+end;
+/
+
+# Migrate old table content (back to shell)
+
+# Create name mapping tables
+sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @PHEDEX/Migration/DBS2/OracleCreateMigrationMaps.sql
+
+PHEDEX/Migration/DBS2/DBSMappingFill -f $MIGRATION_FILE -u $DBS2_W -c $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 2>&1|tee mapfill.out
+grep "Could not map block" mapfill.out > vijay-whynofile.txt
+
+# Add replicas to DBS2
+PHEDEX/Migration/DBS2/DBSReplicaSync -f $MIGRATION_FILE -u $DBS2_W -c $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 2>&1|tee replicasync.out
+
+# Migrate DBS2 datasets, blocks, files, replicas to TMDB
+
+
+# Cross checks
+
+# Migrate subscription data
