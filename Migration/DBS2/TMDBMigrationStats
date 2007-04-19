@@ -67,7 +67,7 @@ dbs = DbsApi({'url':  opts.url})
 
 map = parseDatasetNameMap(opts.mapfile)
 t_tmdb, t_dbs = 0, 0
-print "STATS:  %s\t%s\t%s\t%s\t%s\t%s" % ("OldDSName", "NewDSName", "N_TMDB", "N_DBS", "DIFF", "FLAG")
+print "STATSHEAD:  %s\t%s\t%s\t%s\t%s\t%s" % ("OldDSName", "NewDSName", "N_TMDB", "N_DBS", "DIFF", "FLAG")
 for dataset, newName in map.iteritems():
   try:
     n_tmdb, n_dbs = getStats(dataset, newName)
@@ -86,6 +86,6 @@ for dataset, newName in map.iteritems():
   except Exception, ex:
     print "ERROR:  ",ex
 
-print "STATS:  Totals:  tmdb %s dbs %s" % (t_tmdb, t_dbs)
+print "STATSTOTALS:  tmdb %s dbs %s" % (t_tmdb, t_dbs)
 
 sys.exit(0)
