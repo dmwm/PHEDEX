@@ -1,6 +1,3 @@
---------------------------------------------------------------------------------------------------------------------------------------------------------
-Physics Group: OnSel (Online Selection)
---------------------------------------------------------------------------------------------------------------------------------------------------------
 /mc-csa06-111-minbias/GEN/CMSSW_1_1_1-GEN-SIM-1164410273				/minbias/CMSSW_1_1_1-1164410273/GEN-SIM
 /mc-onsel-121-MuEnrichType1/DIGI/CMSSW_1_2_2-NoPU-DIGI-1172072049			/MuEnrichType1/CMSSW_1_2_2-1172072049/GEN-SIM-DIGI-RECO
 /mc-onsel-121-MuEnrichType1/GEN/CMSSW_1_2_1-GEN-1171385880				/MuEnrichType1/CMSSW_1_2_1-1171385880/GEN-SIM
@@ -150,9 +147,6 @@ Physics Group: OnSel (Online Selection)
 /mc-onsel-120_qqH135_2tau/FEVT/CMSSW_1_2_0-FEVT-1166726234				/qqH135_2tau/CMSSW_1_2_0-1166726234/GEN-SIM-DIGI-RECO
 /mc-onsel-120_qqH160_WW/FEVT/CMSSW_1_2_0-FEVT-1166726234				/qqH160_WW/CMSSW_1_2_0-1166726234/GEN-SIM-DIGI-RECO
 /mc-onsel-120_qqH1_a1a1/FEVT/CMSSW_1_2_0-FEVT-1166726234				/qqH1_a1a1/CMSSW_1_2_0-1166726234/GEN-SIM-DIGI-RECO
--------------------------------------------------------------------------------------------------------------------------------------------------------
-Physics Group: PhysVal
---------------------------------------------------------------------------------------------------------------------------------------------------------
 /mc-physval-120-BBbar170to230-LowLumiPU/FEVT/CMSSW_1_2_0-FEVT-1166809258		/BBbar170to230/CMSSW_1_2_0-LowLumiPU-1166809258/GEN-SIM-DIGI-RECO
 /mc-physval-120-BBbar30to50-LowLumiPU/FEVT/CMSSW_1_2_0-FEVT-1168963361			/BBbar30to50/CMSSW_1_2_0-LowLumiPU-1168963361/GEN-SIM-DIGI-RECO
 /mc-physval-120-BBbar50to80-LowLumiPU/FEVT/CMSSW_1_2_0-FEVT-1166809258			/BBbar50to80/CMSSW_1_2_0-LowLumiPU-1166809258/GEN-SIM-DIGI-RECO
@@ -230,9 +224,6 @@ Physics Group: PhysVal
 /mc-hcal-120_Ieta1-29_Iphi1-2_E150/FEVT/CMSSW_1_2_0-FEVT-1167167829			/SinglePion-Ene150/CMSSW_1_2_0-1167167829/GEN-SIM-DIGI-RECO
 /mc-hcal-120_Ieta1-29_Iphi1-2_E225/FEVT/CMSSW_1_2_0-FEVT-1167167829			/SinglePion-Ene225/CMSSW_1_2_0-1167167829/GEN-SIM-DIGI-RECO
 /mc-hcal-120_Ieta1-29_Iphi1-2_E300/FEVT/CMSSW_1_2_0-FEVT-1167167829			/SinglePion-Ene300/CMSSW_1_2_0-1167167829/GEN-SIM-DIGI-RECO
--------------------------------------------------------------------------------------------------------------------------------------------------------
-Physics Group: RelVal
---------------------------------------------------------------------------------------------------------------------------------------------------------
 /RelValSingleGammaPt35/FEVT/CMSSW_1_2_0_g4_81-FEVT-1171960722		/RelValSingleGammaPt35/CMSSW_1_2_0_g4_81-1171960722/GEN-SIM-DIGI-RECO
 /RelVal123QCD_pt20_30/FEVT/CMSSW_1_2_3-FEVT-1172688824			/RelVal123QCD_pt20_30/CMSSW_1_2_3-1172688824/GEN-SIM
 /RelVal123QCD_pt15_20/DIGI/CMSSW_1_3_0_pre5-RECO-1173284141		/RelVal123QCD_pt15_20/CMSSW_1_3_0_pre5-1173284141/GEN-SIM-DIGI-RECO
@@ -674,4 +665,3 @@ Physics Group: RelVal
 /SVSuiteRecoEgamma-PhoPt50/FEVT/CMSSW_1_2_0-FEVT-1166286142 		/SVSuiteRecoEgamma-PhoPt50/CMSSW_1_2_0-1166286142/GEN-SIM-DIGI-RECO
 /SVSuiteRecoEGamma-Zee/FEVT/CMSSW_1_2_0-FEVT-1166286427 		/SVSuiteRecoEGamma-Zee/CMSSW_1_2_0-1166286427/GEN-SIM-DIGI-RECO
 /SVSuiteRecoTau-DiTaus/FEVT/CMSSW_1_2_0-FEVT-1166286427 		/SVSuiteRecoTau-DiTaus/CMSSW_1_2_0-1166286427/GEN-SIM-DIGI-RECO
-

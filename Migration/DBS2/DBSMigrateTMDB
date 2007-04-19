@@ -37,7 +37,6 @@ def dbsMigrateTMDB(dataset="/*/*/*"):
     dbsBlocks = dbs.listBlocks(dataset=path)
     if not dbsBlocks:  raise Exception("No blocks found in dataset %s" % path)
     
-    print "Inserting dataset %s" % path
     for block in dbsBlocks:
       n_b += 1
       migrate_block = { 'name':block['Name'],
@@ -62,9 +61,11 @@ def dbsMigrateTMDB(dataset="/*/*/*"):
       for se in dbsReplicas:
         n_br += 1
       migrate_dataset['blocks'].append(migrate_block)
-    print "Inserting:  %s datasets %s blocks %s replicas %s files " % (n_ds, n_b, n_br, n_f)
+    print "Inserting %s datasets %s blocks %s replicas %s files for dataset %s" % (n_ds, n_b, n_br, n_f, path)
     insertDataset(migrate_dataset)
-
+    return (n_ds, n_b, n_br, n_f)
+  
+  
 def insertDataset(dataset):
   #pprint.PrettyPrinter(indent=4).pprint(dataset)
   #print "BR\n\n"
@@ -99,8 +100,6 @@ def insertDataset(dataset):
                           'checksum':file['checksum'],
                           'filesize':file['size'],
                           'time_create':now })
-
-  phedex.con.rollback()
 
 
 def initMigration():
@@ -142,25 +141,35 @@ parser.add_option('-c', '--phedex_connect', dest='phedex_connect', help='PhEDEx 
 (opts, args) = parser.parse_args()
 
 if not opts.url or not opts.phedex_connect:
-  raise Exception('Missing arguments')
+  print "Missing arguments.  Seek help.  (-h)"
+  sys.exit(0)
+
 
 dbs = DbsApi({'url':  opts.url})
 phedex = PhedexApi(opts.phedex_connect)
 
 dbsID = initMigration()
 
+t_ds, t_b, t_br, t_f = 0, 0, 0, 0
+
 if opts.mapfile:
   map = parseDatasetNameMap(opts.mapfile)
   for dataset, newName in map.iteritems():
     print "Migrating dataset ", newName
     try:
-      dbsMigrateTMDB(newName)
+      n_ds, n_b, n_br, n_f = dbsMigrateTMDB(newName)
+      t_ds+=n_ds;  t_b+=n_b;  t_br+=n_br;  t_f+=n_f;
+      phedex.con.commit()
     except Exception, ex:
       print "ERROR:  ", ex
+      phedex.con.rollback()
 else:
   try:
-    dbsMigrateTMDB()
+    n_ds, n_b, n_br, n_f = dbsMigrateTMDB()
+    t_ds+=n_ds;  t_b+=n_b;  t_br+=n_br;  t_f+=n_f;
   except Exception, ex:
     print "ERROR:  ", ex
-  
+
+print "Totals:  %s datasets %s blocks %s replicas %s files" % (t_ds, t_b, t_br, t_f)
+
 sys.exit(0)

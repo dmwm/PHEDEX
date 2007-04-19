@@ -12,9 +12,9 @@ class PhedexApi:
         if not dataset: return []
         
         sql = ''' select b.name,
-                   (select logical_name from t_dps_file where inblock=b.id and rownum=1) keyfile
-                    from t_dps_dataset ds
-                         join t_dps_block b on b.dataset = ds.id
+                   (select logical_name from xt_dps_file where inblock=b.id and rownum=1) keyfile
+                    from xt_dps_dataset ds
+                         join xt_dps_block b on b.dataset = ds.id
                    where ds.name = :dataset
                    order by ds.id, b.id
               '''
@@ -35,11 +35,11 @@ class PhedexApi:
         if not dataset:  return []
         
         sql = ''' select b.name, n.name, n.se_name,
-                         (select logical_name from t_dps_file where inblock=b.id and rownum=1) keyfile
-                    from t_dps_dataset ds
-                         join t_dps_block b on b.dataset = ds.id
-                         join t_dps_block_replica br on br.block = b.id
-                         join t_adm_node n on n.id = br.node
+                         (select logical_name from xt_dps_file where inblock=b.id and rownum=1) keyfile
+                    from xt_dps_dataset ds
+                         join xt_dps_block b on b.dataset = ds.id
+                         join xt_dps_block_replica br on br.block = b.id
+                         join xt_adm_node n on n.id = br.node
                    where ds.name = :dataset
                    order by ds.id, b.id, n.name
               '''

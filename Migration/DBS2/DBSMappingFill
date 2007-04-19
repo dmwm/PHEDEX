@@ -10,6 +10,7 @@ from DBSAPI.dbsApi import DbsApi
 from phedex import PhedexApi
 
 def mapBlocks(dataset):
+  n_b = 0
   print "Mapping dataset "+dataset
   for block in phedex.getBlocks(dataset):
 
@@ -26,6 +27,8 @@ def mapBlocks(dataset):
     else:
       print "Block name %s is unchanged" % (newblock)
       addBlockMapping(block['name'], block['name'])
+    n_b += 1
+  return n_b
 
 def addDatasetMapping(old, new):
   cur = phedex.con.cursor()
@@ -72,11 +75,18 @@ dbs = DbsApi({'url':  opts.url})
 phedex = PhedexApi(opts.phedex_connect)
 
 map = parseDatasetNameMap(opts.mapfile)
+n_ds = 0
+n_b = 0
 for dataset, newName in map.iteritems():
   try:
     addDatasetMapping(dataset, newName)
-    mapBlocks(dataset)
+    phedex.con.commit()
+    n_ds += 1
+    n_b += mapBlocks(dataset)
+    phedex.con.commit()
   except Exception, ex:
     print "ERROR:  ",ex
 
+
+print "Added mapping for %s datasets and %s blocks" % (n_ds, n_b)
 sys.exit(0)

@@ -9,6 +9,7 @@ from string import lstrip
 from DBSAPI.dbsApi import DbsApi
 from phedex import PhedexApi
 
+
 def replicaSync(dataset):
   print "dataset "+dataset
   for replica in phedex.getBlockReplicas(dataset):
@@ -25,8 +26,11 @@ def replicaSync(dataset):
     else:
       print "Block name %s is unchanged" % (newblock)
 
-    print "Adding replica %s (%s) to block %s" % (replica['se'], replica['node'], replica['name']) 
-    dbs.addReplicaToBlock(replica['name'], replica['se'])
+    if not replica['se']:
+      raise Exception("TMDB has null storage element for node %s, cannot make replica " % (replica['node'], newblock))
+
+    print "Adding replica %s (%s) to block %s" % (replica['se'], replica['node'], newblock)
+    dbs.addReplicaToBlock(newblock, replica['se'])
    
 
 def parseDatasetNameMap(mapfile):

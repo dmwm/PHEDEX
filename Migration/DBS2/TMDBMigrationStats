@@ -1,0 +1,91 @@
+#!/usr/bin/env python
+#
+# Update DBS2 with block replica information
+
+import sys
+from fnmatch import filter
+import re
+from string import lstrip
+from DBSAPI.dbsApi import DbsApi
+from phedex import PhedexApi
+
+def getStats(dataset, newName):
+  sql = """select ds.name dataset, count(distinct f.id) files
+             from xt_dps_dataset ds
+                  join xt_dps_block b on b.dataset = ds.id
+                  join xt_dps_file f on f.inblock = b.id
+             where ds.name = :dataset
+             group by ds.name
+         """
+  t_files = 0
+  cur = phedex.con.cursor()
+  cur.execute(sql, {'dataset':dataset})
+  data = cur.fetchall()
+  if not data:
+    t_files += 0
+  else:
+    for dataset, n_files in data:
+      t_files += n_files
+
+  # dbs
+  n_dbs = 0
+  try:
+    n_dbs = len(dbs.listFiles(newName))
+  except Exception, ex:
+    print "DBS ERROR:  ", ex
+  
+  return (t_files, n_dbs)
+
+
+def parseDatasetNameMap(mapfile):
+  map = {}
+  f = open(mapfile)
+  for line in f:
+    if not line.startswith('/'): continue
+    a = re.split("\s+", line)
+    map[a[0]] = a[1]
+  f.close
+  return map
+     
+
+from optparse import OptionParser
+
+usage =  "usage: %prog [options]\n"
+usage += "\nCompares file counts between TMDB and DBS2"
+parser = OptionParser(usage=usage)
+parser.add_option('-f', '--mapfile', dest='mapfile', help='Old dataset to New Dataset name mapping file')
+parser.add_option('-u', '--url', dest='url', help='DBS write URL')
+parser.add_option('-c', '--phedex_connect', dest='phedex_connect', help='PhEDEx connection string')
+(opts, args) = parser.parse_args()
+
+if not opts.mapfile or not opts.phedex_connect:
+  print "Missing arguments.  Seek help.  (-h)"
+  sys.exit(0)
+
+phedex = PhedexApi(opts.phedex_connect)
+dbs = DbsApi({'url':  opts.url})
+
+map = parseDatasetNameMap(opts.mapfile)
+t_tmdb, t_dbs = 0, 0
+print "STATS:  %s\t%s\t%s\t%s\t%s\t%s" % ("OldDSName", "NewDSName", "N_TMDB", "N_DBS", "DIFF", "FLAG")
+for dataset, newName in map.iteritems():
+  try:
+    n_tmdb, n_dbs = getStats(dataset, newName)
+    flag = "OK"
+    if n_tmdb == 0 and n_dbs == 0:
+      flag = "NOTANYWHERE"
+    elif n_tmdb == 0:
+      flag = "NOTMDB"
+    elif n_dbs == 0:
+      flag = "NODBS"
+    elif (n_tmdb != n_dbs):
+      flag = "MISMATCH"
+      
+    print "STATS:  %s\t%s\t%s\t%s\t%s\t%s" % (dataset, newName, n_tmdb, n_dbs, n_tmdb-n_dbs, flag)
+    t_tmdb += n_tmdb;  t_dbs += n_dbs;
+  except Exception, ex:
+    print "ERROR:  ",ex
+
+print "STATS:  Totals:  tmdb %s dbs %s" % (t_tmdb, t_dbs)
+
+sys.exit(0)
