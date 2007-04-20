@@ -3,8 +3,10 @@
 # Update DBS2 with block replica information
 
 import sys
+import string
 from fnmatch import filter
 import re
+import traceback
 from string import lstrip
 from DBSAPI.dbsApi import DbsApi
 from phedex import PhedexApi
@@ -63,7 +65,49 @@ def fileDiff(dataset, newName):
 
   return missing_dbs, missing_tmdb
   
-                   
+
+def replicaDiff(dataset, newName):
+  sql = """select n.name, n.se_name, bm.new
+             from xt_dps_dataset ds
+                  join xt_dps_block b on b.dataset = ds.id
+                  join t_migration_block_map bm on bm.old = b.name
+                  join xt_dps_block_replica br on br.block = b.id
+                  join xt_adm_node n on n.id = br.node
+             where ds.name = :dataset and n.se_name is not null
+        """
+  cur = phedex.con.cursor()
+  cur.execute(sql, {'dataset':dataset})
+
+  tmdb_replicas = {}
+  for node, se, block in cur.fetchall():
+    if not block in tmdb_replicas:
+      tmdb_replicas[block] = set()
+    tmdb_replicas[block].add(se)
+
+  dbs_blocks = dbs.listBlocks(newName)
+  dbs_replicas = {}
+  for block in dbs_blocks:
+    dbs_selist = set()
+    for se in block['StorageElementList']:
+      if se:  dbs_selist.add(se)
+    dbs_replicas[block['Name']] = dbs_selist
+    
+  missing = {}
+  for block in set(tmdb_replicas.keys()).union(dbs_replicas.keys()):
+    if block in tmdb_replicas:  tmdb_selist = tmdb_replicas[block]
+    else:  tmdb_selist = set()
+    if block in dbs_replicas:  dbs_selist = dbs_replicas[block]
+    else:  dbs_selist = set()
+    m_dbs = tmdb_selist - dbs_selist
+    m_tmdb = dbs_selist - tmdb_selist
+    missing[block] = {}
+    if m_dbs:
+      missing[block]['missing_dbs'] = m_dbs
+    if m_tmdb:
+      missing[block]['missing_tmdb'] = m_tmdb
+
+  return missing
+
 def parseDatasetNameMap(mapfile):
   map = {}
   f = open(mapfile)
@@ -87,6 +131,7 @@ parser.add_option('-d', '--diff_mismatch', action='store_true', dest='diff_misma
                   help='Perform file diff in case of a mismatch')
 parser.add_option('-D', '--diff_all', action='store_true', dest='diff_all', default=False,
                   help='Perform a file diff for every dataset')
+parser.add_option('-R', '--diff_replicas', action='store_true', dest='diff_rep', default=False)
 (opts, args) = parser.parse_args()
 
 if not opts.mapfile or not opts.phedex_connect:
@@ -120,8 +165,20 @@ for dataset, newName in map.iteritems():
       for file in missing_dbs:  print "FILEDIFF NODBS  %s" % file
       for file in missing_tmdb: print "FILEDIFF NOTMDB %s" % file
 
+    if (opts.diff_rep):
+      missing = replicaDiff(dataset, newName)
+      if missing:
+        for block in missing:
+          if 'missing_dbs' in missing[block]:
+            print "REPDIFF NODBS  %s %s" % (block, string.join(missing[block]['missing_dbs']))
+          if 'missing_tmdb' in missing[block]:
+            print "REPDIFF NOTMDB %s %s" % (block, string.join(missing[block]['missing_tmdb']))
+          
+
   except Exception, ex:
     print "ERROR:  ",ex
+    traceback.print_exc(file=sys.stdout)
+
 
 print "STATSTOTALS:  tmdb %s dbs %s" % (t_tmdb, t_dbs)
 
