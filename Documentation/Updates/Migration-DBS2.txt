@@ -70,11 +70,76 @@ insert into t_adm_node select * from xt_adm_node;
 # Now the DBS2 information
 PHEDEX/Migration/DBS2/DBSMigrateTMDB -f $MIGRATION_FILE -u $DBS2_Rt -c $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 2>&1|tee migratetmdb.tx
 
-# Now the rest...
+
+# From the old migration plan we are missing the link informations and the history
+# Connect to DB using SQLPlus
+sqlplus $(Utilities/OracleConnectId  -db ${PHEDEX_DB})
+
+# Insert t_adm_link stuff
+insert into t_adm_link select * from xt_adm_link;
+insert into t_adm_link_param select * from xt_adm_link_param;
+
+# Inset t_history stuff
+
+insert /*+ append */
+   into t_history_link_stats select * from xt_history_link_stats;
+
+insert /*+ append */
+  into t_history_link_events select * from xt_history_link_events;
+
+insert /*+ append */ into t_history_dest select * from xt_history_dest;
+
+# Migrate block_replica informations
+insert into t_dps_block_replica (BLOCK, NODE, IS_ACTIVE, SRC_FILES, SRC_BYTES, DEST_FILES,
+DEST_BYTES, NODE_FILES, NODE_BYTES, XFER_FILES, XFER_BYTES, TIME_CREATE, TIME_UPDATE)
+   (select nb.id, br.node, br.is_active,
+   br.src_files, br.src_bytes,
+   br.dest_files, br.dest_bytes,
+   br.node_files, br.node_bytes,
+   br.xfer_files, br.xfer_bytes,
+   br.time_create, br.TIME_UPDATE
+   from xt_dps_block_replica br left join xt_dps_block ob on br.block=ob.id
+      left join t_migration_block_map bm on ob.NAME=bm.OLD
+      left join t_dps_block nb on bm.new=nb.NAME
+   where nb.id is not null);
+
+# Now the rest
+
+insert into t_adm_client select * from xt_adm_client;
+insert into t_adm_contact select * from xt_adm_contact;
+insert into t_adm_contact_attr select * from xt_adm_contact_attr;
+insert into t_adm_global_admins select * from xt_adm_global_admins;
+insert into t_adm_identity select * from xt_adm_identity;
+insert into t_adm_identity_attr select * from xt_adm_identity_attr;
+insert into t_adm_site select * from xt_adm_site;
+insert into t_adm_site_admin select * from xt_adm_site_admin;
+insert into t_adm_site_node select * from xt_adm_site_node;
+insert into t_agent select * from xt_agent;
+insert into t_agent_log select * from xt_agent_log;
+insert into t_agent_status select * from xt_agent_status;
+insert into t_agent_message select * from xt_agent_message;
+insert into t_agent_version select * from xt_agent_version;
+
 
 # Don't forget to ensure the sequences are current!
 
 # Cross checks
 
 # Migrate subscription data
+
+insert into t_dps_subscription (DATASET, BLOCK, DESTINATION, PRIORITY, IS_MOVE, IS_TRANSIENT,
+TIME_CREATE, TIME_COMPLETE, TIME_CLEAR, TIME_DONE, TIME_SUSPEND_UNTIL)
+   (select nd.id, nb.id,
+   s.destination, s.priority,
+   s.is_move, s.is_transient,
+   s.time_create, s.time_complete,
+   s.time_clear, s.time_done,
+   s. time_suspend_until
+   from XT_DPS_SUBSCRIPTION s left join xt_dps_block ob on s.block=ob.id
+      left join t_migration_block_map bm on ob.NAME=bm.OLD
+      left join t_dps_block nb on bm.new=nb.NAME
+      left join xt_dps_dataset od on s.dataset=od.id
+      left join t_migration_dataset_map dm on od.NAME=dm.OLD
+      left join t_dps_dataset nd on dm.new=nd.NAME
+   where nb.id is not null or nd.id is not null);
 
