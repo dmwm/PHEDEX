@@ -36,7 +36,34 @@ def getStats(dataset, newName):
   
   return (t_files, n_dbs)
 
+def fileDiff(dataset, newName):
+  sql = """select f.logical_name
+             from xt_dps_dataset ds
+                  join xt_dps_block b on b.dataset = ds.id
+                  join xt_dps_file f on f.inblock = b.id
+            where ds.name = :dataset
+            order by f.logical_name
+         """
+  cur = phedex.con.cursor()
+  cur.execute(sql, {'dataset':dataset})
+  
+  tmdb_files = set()
+  for file in cur.fetchall():
+    tmdb_files.add(file[0])
+    
+  dbs_files = set()
+  try:
+    for file in dbs.listFiles(newName):
+      dbs_files.add(file['LogicalFileName'])
+  except Exception, ex:
+    print "DBS ERROR:  ", ex
 
+  missing_dbs = tmdb_files - dbs_files
+  missing_tmdb = dbs_files - tmdb_files
+
+  return missing_dbs, missing_tmdb
+  
+                   
 def parseDatasetNameMap(mapfile):
   map = {}
   f = open(mapfile)
@@ -56,6 +83,10 @@ parser = OptionParser(usage=usage)
 parser.add_option('-f', '--mapfile', dest='mapfile', help='Old dataset to New Dataset name mapping file')
 parser.add_option('-u', '--url', dest='url', help='DBS write URL')
 parser.add_option('-c', '--phedex_connect', dest='phedex_connect', help='PhEDEx connection string')
+parser.add_option('-d', '--diff_mismatch', action='store_true', dest='diff_mismatch', default=False,
+                  help='Perform file diff in case of a mismatch')
+parser.add_option('-D', '--diff_all', action='store_true', dest='diff_all', default=False,
+                  help='Perform a file diff for every dataset')
 (opts, args) = parser.parse_args()
 
 if not opts.mapfile or not opts.phedex_connect:
@@ -83,6 +114,12 @@ for dataset, newName in map.iteritems():
       
     print "STATS:  %s\t%s\t%s\t%s\t%s\t%s" % (dataset, newName, n_tmdb, n_dbs, n_tmdb-n_dbs, flag)
     t_tmdb += n_tmdb;  t_dbs += n_dbs;
+
+    if (flag == 'MISMATCH' and opts.diff_mismatch) or opts.diff_all:
+      missing_dbs, missing_tmdb = fileDiff(dataset, newName)
+      for file in missing_dbs:  print "FILEDIFF NODBS  %s" % file
+      for file in missing_tmdb: print "FILEDIFF NOTMDB %s" % file
+
   except Exception, ex:
     print "ERROR:  ",ex
 
