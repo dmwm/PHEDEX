@@ -75,6 +75,17 @@ PHEDEX/Migration/DBS2/DBSMigrateTMDB -f $MIGRATION_FILE -u $DBS2_Rt -c $(PHEDEX/
 # Connect to DB using SQLPlus
 sqlplus $(Utilities/OracleConnectId  -db ${PHEDEX_DB})
 
+# Crate partitions per node
+begin
+  for o in (select id, name from t_adm_node) loop
+    execute immediate 'alter table t_xfer_replica add partition node_' || lower(o.name) || ' values (' || o.id || ')';
+    execute immediate 'alter table t_xfer_request add partition dest_' || lower(o.name) || ' values (' || o.id || ')';
+    execute immediate 'alter table t_xfer_task    add partition to_'   || lower(o.name) || ' values (' || o.id || ')';
+  end loop;
+end;
+/
+
+
 # Insert t_adm_link stuff
 insert into t_adm_link select * from xt_adm_link;
 insert into t_adm_link_param select * from xt_adm_link_param;
@@ -105,11 +116,11 @@ DEST_BYTES, NODE_FILES, NODE_BYTES, XFER_FILES, XFER_BYTES, TIME_CREATE, TIME_UP
 
 # Now the rest
 
-insert into t_adm_client select * from xt_adm_client;
 insert into t_adm_contact select * from xt_adm_contact;
-insert into t_adm_contact_attr select * from xt_adm_contact_attr;
-insert into t_adm_global_admins select * from xt_adm_global_admins;
 insert into t_adm_identity select * from xt_adm_identity;
+insert into t_adm_client select * from xt_adm_client;
+insert into t_adm_contact_attr select * from xt_adm_contact_attr;
+insert into t_adm_global_admin select * from xt_adm_global_admin;
 insert into t_adm_identity_attr select * from xt_adm_identity_attr;
 insert into t_adm_site select * from xt_adm_site;
 insert into t_adm_site_admin select * from xt_adm_site_admin;
@@ -119,11 +130,43 @@ insert into t_agent_log select * from xt_agent_log;
 insert into t_agent_status select * from xt_agent_status;
 insert into t_agent_message select * from xt_agent_message;
 insert into t_agent_version select * from xt_agent_version;
+insert into t_req_request select * from xt_req_request;
+insert into t_req_action select * from xt_req_action;
+insert into t_req_action_attr select * from xt_req_action_attr;
+insert into t_req_info select * from xt_req_info;
+insert into t_req_info_block select * from xt_req_info_block;
+insert into t_req_info_dataset select * from xt_req_info_dataset;
+insert into t_req_info_dest select * from xt_req_info_dest;
+insert into t_req_task select * from xt_req_task;
+insert into t_status_block_dest select * from xt_status_block_dest;
+insert into t_status_file select * from xt_status_file;
+insert into t_status_file_size_histogram select * from xt_status_file_size_histogram;
+insert into t_status_file_size_overview select * from xt_status_file_size_overview;
+insert into t_status_path select * from xt_status_path;
+insert into t_status_replica select * from xt_status_replica;
+insert into t_status_request select * from xt_status_request;
+insert into t_status_task select * from xt_status_task;
 
 
 # Don't forget to ensure the sequences are current!
 
+Begin
+   variable increment number;
+   FOR o IN
+      (SELECT sequence_name name FROM user_sequences
+         WHERE sequence_name LIKE 'SEQ%' and last_number=1)
+   LOOP
+      exec :increment := (select last_number-1 from user_sequences where sequence_name='X'||o.sequence_name);
+      execute immediate 'alter sequence ' || o.sequence_name || ' increment by :increment';
+      execute immediate 'select ' || o.sequence_name || '.nextval from dual';
+      execute immediate 'alter sequence ' || o.sequence_name || ' increment by 1';
+   END LOOP;
+End;
+/
+
 # Cross checks
+
+
 
 # Migrate subscription data
 
@@ -142,4 +185,33 @@ TIME_CREATE, TIME_COMPLETE, TIME_CLEAR, TIME_DONE, TIME_SUSPEND_UNTIL)
       left join t_migration_dataset_map dm on od.NAME=dm.OLD
       left join t_dps_dataset nd on dm.new=nd.NAME
    where nb.id is not null or nd.id is not null);
+
+
+# Migrate t_xfer informations for partially transfered blocks
+
+insert into t_xfer_file (id, inblock, logical_name, checksum, filesize)
+select id, inblock, logical_name, CHECKSUM, FILESIZE from t_dps_file where INBLOCK in
+   (select id from t_dps_block where dataset in
+      (select dataset from t_dps_subscription where TIME_DONE is null))
+or inblock in
+   (select block from t_dps_subscription where time_done is null);
+
+
+insert into t_xfer_replica (id, node, fileid, state, time_create, time_state)
+select ro.id, ro.node, fn.id, ro.state, ro.time_create, ro.time_state from xt_xfer_replica ro
+   left join xt_xfer_file fo on ro.FILEID=fo.id
+   left join t_xfer_file fn on fo.LOGICAL_NAME=fn.LOGICAL_NAME
+where fn.id is not null;
+
+
+
+# Re-enable all triggers
+begin
+  for o in (select trigger_name from user_triggers) loop
+    execute immediate 'alter trigger ' || o.trigger_name || ' enable';
+  end loop;
+end;
+/
+
+
 
