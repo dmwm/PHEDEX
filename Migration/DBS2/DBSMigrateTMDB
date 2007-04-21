@@ -39,7 +39,6 @@ def dbsMigrateTMDB(dbsID, dataset="/*/*/*"):
     if not dbsBlocks:  raise Exception("No blocks found in dataset %s" % path)
     
     for block in dbsBlocks:
-      n_b += 1
       if block['OpenForWriting']:
         is_open = 'y'
       else:
@@ -52,23 +51,29 @@ def dbsMigrateTMDB(dbsID, dataset="/*/*/*"):
                         'files':[] }
 
       dbsFiles = dbs.listFiles(blockName=block['Name'])
-      if not dbsFiles:  warn("No files found in block %s" % block['Name'])
-      
+      if not dbsFiles:
+        warn("No files found in block %s, skipping" % block['Name'])
+        continue
+
       for file in dbsFiles:
-        n_f += 1
         migrate_file = { 'lfn':file['LogicalFileName'],
                          'size':file['FileSize'],
                          'checksum':file['Checksum'] }
+        n_f += 1
         migrate_block['files'].append(migrate_file)
 
-#       dbsReplicas = block['StorageElementList']
-#       if not dbsReplicas:  raise Exception("No replicas for block %s" % block['Name'])
-      
-#       for se in dbsReplicas:
-#         n_br += 1
-#         migrate_block['replicas'].append(se['Name'])
-        
+        dbsReplicas = block['StorageElementList']
+        if not dbsReplicas:
+          True#warn("No replicas for block %s" % block['Name'])
+        else:
+          for se in dbsReplicas:
+            n_br += 1
+            migrate_block['replicas'].append(se['Name'])
+
+      n_b += 1
       migrate_dataset['blocks'].append(migrate_block)
+    if len(migrate_dataset['blocks']) == 0:
+      raise Exception("Dataset %s has no blocks with files")
     print "Inserting %s datasets %s blocks %s replicas %s files for dataset %s" % (n_ds, n_b, n_br, n_f, path)
     insertDataset(dbsID, migrate_dataset)
     return (n_ds, n_b, n_br, n_f)
@@ -177,7 +182,13 @@ t_ds, t_b, t_br, t_f = 0, 0, 0, 0
 
 if opts.mapfile:
   map = parseDatasetNameMap(opts.mapfile)
+  migrated = set()
   for dataset, newName in map.iteritems():
+    if newName in migrated:
+      warn("Dataset %s was already migrated" % newName)
+      continue
+    else:
+      migrated.add(newName)
     print "Migrating dataset ", newName
     try:
       n_ds, n_b, n_br, n_f = dbsMigrateTMDB(dbsID, newName)
@@ -189,6 +200,7 @@ if opts.mapfile:
       phedex.con.rollback()
 else:
   try:
+    print "Migrating all datasets available"
     n_ds, n_b, n_br, n_f = dbsMigrateTMDB(dbsID)
     t_ds+=n_ds;  t_b+=n_b;  t_br+=n_br;  t_f+=n_f;
   except Exception, ex:
