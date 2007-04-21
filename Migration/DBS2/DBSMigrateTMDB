@@ -124,15 +124,14 @@ def initMigration():
   getDBS ="""select id from t_dps_dbs where name='migrateDBS'"""
 
   cur.execute(getDBS)
-  dbsid = cur.fetchone()[0]
+  dbsid = cur.fetchone()
   
   if not dbsid:
     cur.execute(insDBS, {'time_create':now})
     cur.execute(getDBS)
-    dbsid = cur.fetchone()[0]
-    return dbsid
-  else:
-    return dbsid
+    dbsid = cur.fetchone()
+
+  return dbsid[0]
 
 
 def getnow():
