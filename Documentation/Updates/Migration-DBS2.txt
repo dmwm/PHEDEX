@@ -163,19 +163,27 @@ End;
 -- Migrate subscription data
 insert into t_dps_subscription (DATASET, BLOCK, DESTINATION, PRIORITY, IS_MOVE, IS_TRANSIENT,
 TIME_CREATE, TIME_COMPLETE, TIME_CLEAR, TIME_DONE, TIME_SUSPEND_UNTIL)
-   (select nd.id, nb.id,
-   s.destination, s.priority,
-   s.is_move, s.is_transient,
-   s.time_create, s.time_complete,
-   s.time_clear, s.time_done,
-   s. time_suspend_until
+select m.newds, m.newblock, m.destination,
+xs.priority, xs.is_move, xs.is_transient, 
+xs.time_create, xs.time_complete,
+xs.time_clear, xs.time_done, xs.time_suspend_until
+from xt_dps_subscription xs
+join
+(
+-- This groups merged datasets or blocks
+select nd.id newds, nb.id newblock, s.destination, 
+    max(s.dataset) oldds, max(s.block) oldblock
    from XT_DPS_SUBSCRIPTION s left join xt_dps_block ob on s.block=ob.id
       left join t_migration_block_map bm on ob.NAME=bm.OLD
       left join t_dps_block nb on bm.new=nb.NAME
       left join xt_dps_dataset od on s.dataset=od.id
       left join t_migration_dataset_map dm on od.NAME=dm.OLD
       left join t_dps_dataset nd on dm.new=nd.NAME
-   where nb.id is not null or nd.id is not null);
+   where (nb.id is not null or nd.id is not null)
+   group by nd.id, nb.id, s.destination
+) m on (m.oldds = xs.dataset or m.oldblock = xs.block) and m.destination=xs.destination
+;
+
 
 -- Migrate t_xfer informations for partially transfered blocks
 insert into t_xfer_file (id, inblock, logical_name, checksum, filesize)
