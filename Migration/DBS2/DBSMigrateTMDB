@@ -52,7 +52,7 @@ def dbsMigrateTMDB(dbsID, dataset="/*/*/*"):
                         'files':[] }
 
       dbsFiles = dbs.listFiles(blockName=block['Name'])
-      if not dbsFiles:  raise Exception("No files found in block %s" % block['Name'])
+      if not dbsFiles:  warn("No files found in block %s" % block['Name'])
       
       for file in dbsFiles:
         n_f += 1
@@ -61,12 +61,12 @@ def dbsMigrateTMDB(dbsID, dataset="/*/*/*"):
                          'checksum':file['Checksum'] }
         migrate_block['files'].append(migrate_file)
 
-      dbsReplicas = block['StorageElementList']
-      if not dbsReplicas:  raise Exception("No replicas for block %s" % block['Name'])
+#       dbsReplicas = block['StorageElementList']
+#       if not dbsReplicas:  raise Exception("No replicas for block %s" % block['Name'])
       
-      for se in dbsReplicas:
-        n_br += 1
-        migrate_block['replicas'].append(se['Name'])
+#       for se in dbsReplicas:
+#         n_br += 1
+#         migrate_block['replicas'].append(se['Name'])
         
       migrate_dataset['blocks'].append(migrate_block)
     print "Inserting %s datasets %s blocks %s replicas %s files for dataset %s" % (n_ds, n_b, n_br, n_f, path)
@@ -137,6 +137,9 @@ def initMigration():
 def getnow():
   import time, datetime
   return int(time.mktime(datetime.datetime.utcnow().timetuple()))
+
+def warn(str):
+  print "WARN:  ", str
   
 def parseDatasetNameMap(mapfile):
   map = {}
