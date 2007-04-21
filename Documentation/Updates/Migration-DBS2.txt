@@ -142,14 +142,18 @@ insert into t_status_request select * from xt_status_request;
 insert into t_status_task select * from xt_status_task;
 
 -- Don't forget to ensure the sequences are current!
+set serveroutput on;
+
+Declare
+  increment number;
 Begin
-   variable increment number;
-   FOR o IN
-      (SELECT sequence_name name FROM user_sequences
+    FOR o IN
+      (SELECT sequence_name FROM user_sequences
          WHERE sequence_name LIKE 'SEQ%' and last_number=1)
    LOOP
-      exec :increment := (select last_number-1 from user_sequences where sequence_name='X'||o.sequence_name);
-      execute immediate 'alter sequence ' || o.sequence_name || ' increment by :increment';
+      select last_number-1 into increment from user_sequences where sequence_name='X'||o.sequence_name;
+      dbms_output.put_line('Incrementing '|| o.sequence_name ||' by ' || increment);
+      execute immediate 'alter sequence ' || o.sequence_name || ' increment by ' || increment;
       execute immediate 'select ' || o.sequence_name || '.nextval from dual';
       execute immediate 'alter sequence ' || o.sequence_name || ' increment by 1';
    END LOOP;
