@@ -28,22 +28,22 @@ grid-proxy-init
 export PHEDEX_DB="${DBPARAM}:Prod/Admin";
 export PHEDEX_DB_R="${DBPARAM}:Prod/Reader";
 export PHEDEX_DB_W="${DBPARAM}:Prod/CERN";
+export PHEDEX=$PWD/PHEDEX
 export DBS2_R="http://vocms05.cern.ch/cms_egeland_dev/servlet/DBSServlet"
 export DBS2_W="https://vocms05.cern.ch:8443/cms_egeland_dev/servlet/DBSServlet"
-export MIGRATION_FILE=PHEDEX/Migration/DBS2/DBSMappingFill
+export MIGRATION_FILE=$PHEDEX/Migration/DBS2/MigrationFile.txt
 
 # Save all old tables to xt
-sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleResetOld.sql </dev/null
-sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleSave.sql </dev/null
+sqlplus -S $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @$PHEDEX/Schema/OracleResetOld.sql </dev/null
+sqlplus -S $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @$PHEDEX/Schema/OracleSave.sql </dev/null
 
 # Load the new schema
-sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleReset.sql </dev/null
-sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleInit.sql </dev/null
-sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleStatsEnable.sql </dev/null
+sqlplus -S $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @$PHEDEX/Schema/OracleReset.sql </dev/null
+sqlplus -S $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @$PHEDEX/Schema/OracleInit.sql </dev/null
+sqlplus -S $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @$PHEDEX/Schema/OracleStatsEnable.sql </dev/null
 
 # Connect to DB using SQLPlus
-sqlplus $(Utilities/OracleConnectId  -db ${PHEDEX_DB})
-
+sqlplus $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
 -- Disable all triggers
 begin
   for o in (select trigger_name from user_triggers) loop
@@ -51,31 +51,30 @@ begin
   end loop;
 end;
 /
+exit
 
 # Migrate old table content (back to shell)
 
 # Create name mapping tables
-sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @PHEDEX/Migration/DBS2/OracleCreateMigrationMaps.sql
-
-PHEDEX/Migration/DBS2/DBSMappingFill -f $MIGRATION_FILE -u $DBS2_W -c $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 2>&1|tee mapfill.out
+sqlplus -S $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @$PHEDEX/Migration/DBS2/OracleCreateMigrationMaps.sql
+$PHEDEX/Migration/DBS2/DBSMappingFill -f $MIGRATION_FILE -u $DBS2_W -c $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 2>&1|tee mapfill.out
 grep "Could not map block" mapfill.out > vijay-whynofile.txt
 
 # Add replicas to DBS2
-PHEDEX/Migration/DBS2/DBSReplicaSync -f $MIGRATION_FILE -u $DBS2_W -c $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 2>&1|tee replicasync.out
+$PHEDEX/Migration/DBS2/DBSReplicaSync -f $MIGRATION_FILE -u $DBS2_W -c $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 2>&1|tee replicasync.out
 
 # Migrate DBS2 datasets, blocks, files, replicas to TMDB
 # First we need the nodes
 insert into t_adm_node select * from xt_adm_node;
 
 # Now the DBS2 information
-PHEDEX/Migration/DBS2/DBSMigrateTMDB -f $MIGRATION_FILE -u $DBS2_Rt -c $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 2>&1|tee migratetmdb.tx
-
+$PHEDEX/Migration/DBS2/DBSMigrateTMDB -f $MIGRATION_FILE -u $DBS2_R -c $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 2>&1|tee migratetmdb.out
 
 # From the old migration plan we are missing the link informations and the history
 # Connect to DB using SQLPlus
-sqlplus $(Utilities/OracleConnectId  -db ${PHEDEX_DB})
+sqlplus $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
 
-# Crate partitions per node
+-- Crate partitions per node
 begin
   for o in (select id, name from t_adm_node) loop
     execute immediate 'alter table t_xfer_replica add partition node_' || lower(o.name) || ' values (' || o.id || ')';
@@ -85,22 +84,18 @@ begin
 end;
 /
 
-
-# Insert t_adm_link stuff
+-- Insert t_adm_link stuff
 insert into t_adm_link select * from xt_adm_link;
 insert into t_adm_link_param select * from xt_adm_link_param;
 
-# Inset t_history stuff
-
+-- Inset t_history stuff
 insert /*+ append */
    into t_history_link_stats select * from xt_history_link_stats;
-
 insert /*+ append */
   into t_history_link_events select * from xt_history_link_events;
-
 insert /*+ append */ into t_history_dest select * from xt_history_dest;
 
-# Migrate block_replica informations
+-- Migrate block_replica informations
 insert into t_dps_block_replica (BLOCK, NODE, IS_ACTIVE, SRC_FILES, SRC_BYTES, DEST_FILES,
 DEST_BYTES, NODE_FILES, NODE_BYTES, XFER_FILES, XFER_BYTES, TIME_CREATE, TIME_UPDATE)
    (select nb.id, br.node, br.is_active,
@@ -114,8 +109,7 @@ DEST_BYTES, NODE_FILES, NODE_BYTES, XFER_FILES, XFER_BYTES, TIME_CREATE, TIME_UP
       left join t_dps_block nb on bm.new=nb.NAME
    where nb.id is not null);
 
-# Now the rest
-
+-- Now the rest
 insert into t_adm_contact select * from xt_adm_contact;
 insert into t_adm_identity select * from xt_adm_identity;
 insert into t_adm_client select * from xt_adm_client;
@@ -147,9 +141,7 @@ insert into t_status_replica select * from xt_status_replica;
 insert into t_status_request select * from xt_status_request;
 insert into t_status_task select * from xt_status_task;
 
-
-# Don't forget to ensure the sequences are current!
-
+-- Don't forget to ensure the sequences are current!
 Begin
    variable increment number;
    FOR o IN
@@ -164,12 +156,7 @@ Begin
 End;
 /
 
-# Cross checks
-
-
-
-# Migrate subscription data
-
+-- Migrate subscription data
 insert into t_dps_subscription (DATASET, BLOCK, DESTINATION, PRIORITY, IS_MOVE, IS_TRANSIENT,
 TIME_CREATE, TIME_COMPLETE, TIME_CLEAR, TIME_DONE, TIME_SUSPEND_UNTIL)
    (select nd.id, nb.id,
@@ -186,9 +173,7 @@ TIME_CREATE, TIME_COMPLETE, TIME_CLEAR, TIME_DONE, TIME_SUSPEND_UNTIL)
       left join t_dps_dataset nd on dm.new=nd.NAME
    where nb.id is not null or nd.id is not null);
 
-
-# Migrate t_xfer informations for partially transfered blocks
-
+-- Migrate t_xfer informations for partially transfered blocks
 insert into t_xfer_file (id, inblock, logical_name, checksum, filesize)
 select id, inblock, logical_name, CHECKSUM, FILESIZE from t_dps_file where INBLOCK in
    (select id from t_dps_block where dataset in
@@ -196,22 +181,17 @@ select id, inblock, logical_name, CHECKSUM, FILESIZE from t_dps_file where INBLO
 or inblock in
    (select block from t_dps_subscription where time_done is null);
 
-
 insert into t_xfer_replica (id, node, fileid, state, time_create, time_state)
 select ro.id, ro.node, fn.id, ro.state, ro.time_create, ro.time_state from xt_xfer_replica ro
    left join xt_xfer_file fo on ro.FILEID=fo.id
    left join t_xfer_file fn on fo.LOGICAL_NAME=fn.LOGICAL_NAME
 where fn.id is not null;
 
-
-
-# Re-enable all triggers
+-- Re-enable all triggers
 begin
   for o in (select trigger_name from user_triggers) loop
     execute immediate 'alter trigger ' || o.trigger_name || ' enable';
   end loop;
 end;
 /
-
-
-
+exit;
