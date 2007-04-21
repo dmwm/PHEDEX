@@ -7,6 +7,7 @@ import string
 from fnmatch import filter
 import re
 import traceback
+import time
 from string import lstrip
 from DBSAPI.dbsApi import DbsApi
 from phedex import PhedexApi
@@ -143,6 +144,8 @@ dbs = DbsApi({'url':  opts.url})
 
 map = parseDatasetNameMap(opts.mapfile)
 t_tmdb, t_dbs = 0, 0
+
+print time.strftime('%Y-%M-%d %H:%M:%S')
 print "STATSHEAD:  %s\t%s\t%s\t%s\t%s\t%s" % ("OldDSName", "NewDSName", "N_TMDB", "N_DBS", "DIFF", "FLAG")
 for dataset, newName in map.iteritems():
   try:
