@@ -207,3 +207,6 @@ begin
 end;
 /
 exit;
+
+# Update the DBS2 name
+echo "update t_dps_dbs set name='$DBS2_W' where name='migrateDBS';" | sqlplus $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}
