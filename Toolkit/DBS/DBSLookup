@@ -51,20 +51,22 @@ def dbs2Lookup(url, item):
   if item.endswith('.root'):
     lookingfor = 'FILE'
   else:
-    p = re.compile('^/([^/]+)/([^/]+)(/[^/]+|\#[^\#]+)$')
+    p = re.compile('^/([^/]+)/([^/]+)/([^/]+)(\#[^\#]+)*$')
     parts = p.findall(item)
     if not parts: raise Exception("Bad dataset or block format")
     haswilds = item.count('*')
   
     parts = list(parts[0])
-    if parts[2].startswith('#'):
+    if parts[3].startswith('#'):
       lookingfor = 'BLOCK'
+      parts[3] = parts[3].lstrip("#")
     else:
       lookingfor = 'DATASET'
-    parts[2] = parts[2].lstrip("/#")
+
+  prim, proc, tier = parts
 
   if lookingfor == 'DATASET':
-    for dataset in api.listProcessedDatasets(parts[0], parts[2], parts[1]):
+    for dataset in api.listProcessedDatasets(prim, proc, tier):
       for path in dataset['PathList']:
         print path
   elif lookingfor == 'BLOCK':
