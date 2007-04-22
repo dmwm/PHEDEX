@@ -1,0 +1,11 @@
+delete from t_dps_file;
+delete from t_dps_block;
+delete from t_dps_dataset;
+drop sequence seq_dps_file;
+drop sequence seq_dps_block;
+drop sequence seq_dps_dataset;
+create sequence seq_dps_file start with 1 increment by 1;
+create sequence seq_dps_block start with 1 increment by 1;
+create sequence seq_dps_dataset start with 1 increment by 1;
+commit;
+exit;
