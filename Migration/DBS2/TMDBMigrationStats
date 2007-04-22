@@ -81,7 +81,7 @@ def replicaDiff(dataset, newName):
 
   tmdb_replicas = {}
   for node, se, block in cur.fetchall():
-    if not block in tmdb_replicas:
+    if block not in tmdb_replicas:
       tmdb_replicas[block] = set()
     tmdb_replicas[block].add(se)
 
@@ -90,7 +90,8 @@ def replicaDiff(dataset, newName):
   for block in dbs_blocks:
     dbs_selist = set()
     for se in block['StorageElementList']:
-      if se:  dbs_selist.add(se)
+      if se:
+        dbs_selist.add(se['Name'])
     dbs_replicas[block['Name']] = dbs_selist
     
   missing = {}
@@ -176,7 +177,8 @@ for dataset, newName in map.iteritems():
             print "REPDIFF NODBS  %s %s" % (block, string.join(missing[block]['missing_dbs']))
           if 'missing_tmdb' in missing[block]:
             print "REPDIFF NOTMDB %s %s" % (block, string.join(missing[block]['missing_tmdb']))
-          
+      else:
+        print "REPDIFF OK %s %s" % (dataset, newName)
 
   except Exception, ex:
     print "ERROR:  ",ex
