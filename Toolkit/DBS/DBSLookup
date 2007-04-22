@@ -5,7 +5,7 @@
 import sys
 from fnmatch import filter
 import re
-from string import lstrip
+from string import lstrip, join
 
 def dbs1Lookup(url, instance, item):
   from DBSAPIOLD.dbsCgiApi import DbsCgiApi
@@ -51,26 +51,25 @@ def dbs2Lookup(url, item):
   if item.endswith('.root'):
     lookingfor = 'FILE'
   else:
-    p = re.compile('^/([^/]+)/([^/]+)/([^/]+)(\#[^\#]+)*$')
+    p = re.compile('^/([^/]+)/([^/]+)/([^/#]+)\#*([^\#]+)*$')
     parts = p.findall(item)
     if not parts: raise Exception("Bad dataset or block format")
     haswilds = item.count('*')
-  
     parts = list(parts[0])
-    if parts[3].startswith('#'):
+    prim, proc, tier, blockguid = parts
+    path = "/%s/%s/%s" % (prim, proc, tier)
+    
+    if blockguid:
       lookingfor = 'BLOCK'
-      parts[3] = parts[3].lstrip("#")
     else:
       lookingfor = 'DATASET'
 
-  prim, proc, tier = parts
-
   if lookingfor == 'DATASET':
-    for dataset in api.listProcessedDatasets(prim, proc, tier):
+    for dataset in api.listProcessedDatasets(prim, proc, "*"):
       for path in dataset['PathList']:
         print path
   elif lookingfor == 'BLOCK':
-    for block in api.listBlocks("", item):
+    for block in api.listBlocks(block_name=item):
       print block['Name']
   elif lookingfor == 'FILE':
     for file in api.listFiles(patternLFN=item):
