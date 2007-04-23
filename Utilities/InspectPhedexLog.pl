@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog.pl,v 1.4 2007/04/04 09:14:15 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog.pl,v 1.5 2007/04/23 15:24:14 dfeichti Exp $:
 ###############################################################################
 
 use strict;
@@ -120,7 +120,7 @@ my ($datestart,$dateend,$date_old)=0;
 my %errinfo;
 my %dberrinfo;
 my ($date,$task,$from,$stat,$size,$txfer,$tdone,$ttransfer,$fname,$reason,$bsize,$size_sum);
-my ($bunchsize,$bunchfiles,$txfer_old,$tdone_old,$closedbunch);
+my ($bunchsize,$bunchfiles,$txfer_old,$tdone_old,$closedbunch)=0;
 my $line;
 my $statstr;
 foreach my $log (@logfiles) {
@@ -150,11 +150,10 @@ foreach my $log (@logfiles) {
              $statstr="OK    ";  ##### sprintf("OK(%4d)  ",$stat);
              $sitestat{"$from"}{"OK"}++;
              $sitestat{"$from"}{"size"}+=$size;
-             $sitestat{"$from"}{"ttransfer"}+=$ttransfer;
              delete $failedfile{"$fname"} if exists $failedfile{"$fname"};
 
              # the following is needed because transfer time applies not to a single file but to the bunch
-	     if($txfer == $txfer_old || $txfer_old == 0) {     # try to identify bunches
+	     if( ! defined $txfer_old || $txfer_old == 0  || $txfer == $txfer_old) {     # try to identify bunches
 	       printf STDERR ("WARNING: there may be a transfer time problem (delta t-done=%.4f) in line\n$line\n",$tdone-$tdone_old) if $flag_bunchDetect && abs($tdone-$tdone_old) > 0.2 && $txfer_old != 0;
 	       $bunchfiles++;
 	       $bunchsize += $size;
@@ -207,6 +206,7 @@ foreach my $log (@logfiles) {
 	 if($closedbunch) {
 	   $ttransfer = $tdone_old - $txfer_old;
 	   die "ERROR: ttransfer=0 ?????? in line:\n $line\n" if $ttransfer == 0;
+	   $sitestat{"$from"}{"ttransfer"}+=$ttransfer;
 	   $MbperS=$bunchsize*8/$ttransfer/1e6;
 	   $MBperS=$bunchsize/1024/1024/$ttransfer;
 	   printf("   *** Bunch:  succ. files: $bunchfiles  size=%.2f GB  transfer_time=%.1f s (%.1f MB/s = %.1f Mb/s)\n"
@@ -273,7 +273,7 @@ foreach my $site (sort {$a cmp $b} keys %sitestat) {
     $sitestat{$site}{"OK"}=0 if ! defined $sitestat{$site}{"OK"};
     $sitestat{$site}{"FAILED"}=0 if ! defined $sitestat{$site}{"FAILED"};
     print "site: $site (OK: " . $sitestat{$site}{"OK"} . " / Err: " . $sitestat{$site}{"FAILED"} . ")";
-    printf("\tsucc. rate: %.1f %", $sitestat{$site}{"OK"}/($sitestat{$site}{"OK"}+$sitestat{$site}{"FAILED"})*100) if ($sitestat{$site}{"OK"}+$sitestat{$site}{"FAILED"}) > 0;
+    printf("\tsucc. rate: %.1f %%", $sitestat{$site}{"OK"}/($sitestat{$site}{"OK"}+$sitestat{$site}{"FAILED"})*100) if ($sitestat{$site}{"OK"}+$sitestat{$site}{"FAILED"}) > 0;
     printf("   total: %.1f GB",$sitestat{$site}{"size"}/1e9);
 
     if ($sitestat{$site}{"ttransfer"}>0) {
