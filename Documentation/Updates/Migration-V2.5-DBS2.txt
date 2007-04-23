@@ -209,4 +209,14 @@ end;
 exit;
 
 # Update the DBS2 name
-echo "update t_dps_dbs set name='$DBS2_W' where name='migrateDBS';" | sqlplus $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}
+echo "update t_dps_dbs set name='$DBS2_W' where name='migrateDBS';" | sqlplus $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
+
+# Creating synonyms for the other users
+$PHEDEX/Schema/OracleSyns.sh 'cms_transfermgmt' $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_R})
+$PHEDEX/Schema/OracleSyns.sh 'cms_transfermgmt' $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_W})
+
+# Update statistics
+sqlplus -S $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @$PHEDEX/Schema/OracleStatsUpdate.sql </dev/null
+
+# Create privileges
+$PHEDEX/Schema/OraclePrivs.sh $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 'cms_transfermgmt_reader' 'cms_transfermgmt_writer'
