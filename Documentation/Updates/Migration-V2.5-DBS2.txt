@@ -146,6 +146,7 @@ set serveroutput on;
 
 Declare
   increment number;
+  dummy number;
 Begin
     FOR o IN
       (SELECT sequence_name FROM user_sequences
@@ -154,7 +155,7 @@ Begin
       select last_number-1 into increment from user_sequences where sequence_name='X'||o.sequence_name;
       dbms_output.put_line('Incrementing '|| o.sequence_name ||' by ' || increment);
       execute immediate 'alter sequence ' || o.sequence_name || ' increment by ' || increment;
-      execute immediate 'select ' || o.sequence_name || '.nextval from dual';
+      execute immediate 'select ' || o.sequence_name || '.nextval from dual' into dummy;
       execute immediate 'alter sequence ' || o.sequence_name || ' increment by 1';
    END LOOP;
 End;
@@ -198,6 +199,13 @@ select ro.id, ro.node, fn.id, ro.state, ro.time_create, ro.time_state from xt_xf
    left join xt_xfer_file fo on ro.FILEID=fo.id
    left join t_xfer_file fn on fo.LOGICAL_NAME=fn.LOGICAL_NAME
 where fn.id is not null;
+
+-- Close blocks, that were close in old TMDB
+update t_dps_block set IS_OPEN='n' where NAME in
+(select bm.new from xt_dps_block bo
+   join T_MIGRATION_BLOCK_MAP bm on bo.name=bm.old
+where bo.IS_OPEN='n');
+
 
 -- Re-enable all triggers
 begin
