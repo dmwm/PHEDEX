@@ -5,13 +5,13 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog.pl,v 1.3 2007/04/02 10:38:49 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog.pl,v 1.4 2007/04/04 09:14:15 dfeichti Exp $:
 ###############################################################################
 
 use strict;
 use Getopt::Std;
 use Data::Dumper;
-use Date::Manip qw(ParseDate UnixDate);
+use Date::Manip qw(ParseDate UnixDate ParseDateString);
 use Time::Local;
 
 my $flag_showErrors=0;
@@ -20,6 +20,8 @@ my $flag_verbose=0;
 my $flag_debug=0;
 my $flag_checkdate=0;
 my $flag_bunchDetect=0;
+
+my $errmsglen=165; # length of error messages to use (error will be cut)
 
 sub usage {
 print <<"EOF";
@@ -31,6 +33,7 @@ usage: InspectPhedexLog [options] logfile1 [logfile2 ...]
       -e    also show error statistics (summary over error messages)
          -r    do not try to regexp-process errors messages, but show raw error messages
       -v    verbose   Prints task IDs for the collected errors (useful for closer investigation)
+                      Also prints multiply failed files that were never transferred correctly
       -s    start_date   -t end_date
 
       -b    bunch detection and rate calculation
@@ -115,6 +118,7 @@ if ($#logfiles==-1) {
 
 my ($datestart,$dateend,$date_old)=0;
 my %errinfo;
+my %dberrinfo;
 my ($date,$task,$from,$stat,$size,$txfer,$tdone,$ttransfer,$fname,$reason,$bsize,$size_sum);
 my ($bunchsize,$bunchfiles,$txfer_old,$tdone_old,$closedbunch);
 my $line;
@@ -171,14 +175,25 @@ foreach my $log (@logfiles) {
 	     my ($detail,$validate) = $line =~ m/.*detail=\((.*)\)\s*validate=\((.*)\)\s*$/;
 	     if(! $flag_rawErrors) {
 	       my $tmp;
-	       $detail =~ s/\sid=\d+\s/id=\[id\]/;
+	       $detail = substr($detail,0,$errmsglen) . "...(error cut)" if length($detail) > $errmsglen;
+	       $detail =~ s/\sid=[\d-]+\s/id=\[id\] /;
+	       $detail =~ s/\sauthRequestID \d+\s/authRequestID \[id\] /;
+	       $detail =~ s/RequestFileStatus#[\d-]+/RequestFileStatus#\[number\]/g;
 	       $detail =~ s/srm:\/\/[^\s]+/\[srm-URL\]/;
 	       if( $detail=~/^\s*$/) {$reason = "(No detail given)"}
 	       elsif( (($reason) = $detail =~ m/.*(the server sent an error response: 425 425 Can't open data connection).*/)) {}
 	       elsif( (($reason) = $detail =~ m/.*(the gridFTP transfer timed out).*/) ) {}
 	       elsif( (($reason) = $detail =~ m/.*(Failed SRM get on httpg:.*)/) ) {}
+	       elsif( (($reason) = $detail =~ m/.*(Failed on SRM put.*)/) )
+		 { $reason =~ s!srm://[^\s]+!\[srm-url\]!; }
 	       elsif( (($reason,$tmp) = $detail =~ m/.*(ERROR the server sent an error response: 553 553)\s*[^\s]+:(.*)/) )
 		 {$reason .= " [filename]: " . $tmp}
+	       elsif( (($reason) = $detail =~ m/(.*Cannot retrieve final message from)/) )
+		 {$reason .= "[filename]"}
+	       #elsif( $detail =~ /.*RequestFileStatus.* failed with error.*state.*/)
+		# {$reason = $detail; $reason =~ s/(.*RequestFileStatus).*(failed with error:).*(state.*)/$1 [Id] $2 $3/;}
+	       elsif( $detail =~ /copy failed/ )
+		 { $reason = $detail; $reason =~ s/at (\w{3} \w{3} \d+ \d+:\d+:\d+ \w+ \d+)/at \[date\]/g}
 	       else {$reason = $detail};
 	     } else {$reason = $detail};
 	     $errinfo{$from}{$reason}{num}++;
@@ -201,9 +216,14 @@ foreach my $log (@logfiles) {
 	   $bunchsize = $size;
 	 }
 	 printf("$statstr $from  $fname  size=%.2f GB $date\n",$size/1024/1024/1024)  if $flag_debug;
-      }
 
-   }
+      }  elsif($line =~ /ORA-\d+.{40}/) {
+	my ($ora) = $line =~ m/(ORA-\d+.{40})/;
+	($date) = $line =~ m/^(\d+-\d+-\d+\s+\d+:\d+:\d+):/;
+	$dberrinfo{$ora}{num}++;
+	push @{$dberrinfo{$ora}{"date"}},UnixDate($date,"%s");
+      }
+    }
 
    close LOG;
 
@@ -214,10 +234,22 @@ if($flag_showErrors) {
    print "\n\n==============\n";
    print "ERROR ANALYSIS\n";
    print "==============\n";
-   print "\nRepeatedly failing files that never were transferred correctly:\n";
-   print   "===============================================================\n";
-   foreach my $fname (sort {$failedfile{$b} <=> $failedfile{$a}} keys %failedfile) {
-      printf("   %3d  $fname\n",$failedfile{"$fname"}) if $failedfile{"$fname"} > 1;
+
+   if($flag_verbose) {
+     print "\nRepeatedly failing files that never were transferred correctly:\n";
+     print   "===============================================================\n";
+     foreach my $fname (sort {$failedfile{$b} <=> $failedfile{$a}} keys %failedfile) {
+       printf("   %3d  $fname\n",$failedfile{"$fname"}) if $failedfile{"$fname"} > 1;
+     }
+   }
+
+
+   print "\n\nData base Errors\n";
+   print "==================\n";
+   foreach my $err (keys %dberrinfo) {
+     printf("   %3d  $err\n",$dberrinfo{$err}{num});
+     my $h=simpleHisto(\@{$dberrinfo{$err}{"date"}},10);
+     printTimeHisto($h);
    }
 
 
@@ -237,7 +269,7 @@ print "==================\n";
 print "                         first entry: $datestart      last entry: $dateend\n";
 
 my ($MbperS,$MBperS);
-foreach my $site (keys %sitestat) {
+foreach my $site (sort {$a cmp $b} keys %sitestat) {
     $sitestat{$site}{"OK"}=0 if ! defined $sitestat{$site}{"OK"};
     $sitestat{$site}{"FAILED"}=0 if ! defined $sitestat{$site}{"FAILED"};
     print "site: $site (OK: " . $sitestat{$site}{"OK"} . " / Err: " . $sitestat{$site}{"FAILED"} . ")";
@@ -250,4 +282,80 @@ foreach my $site (keys %sitestat) {
       printf("   avg. rate: %.1f MB/s = %.1f Mb/s",$MBperS,$MbperS) if $flag_bunchDetect;
     }
     print "\n";
+}
+
+
+
+
+
+
+sub simpleHisto {
+  my $data = shift; # ref to array of data values
+  my $nbins = shift; # number of desired bins
+
+  return undef if $#{@{$data}} < 0;
+
+  my %histo;  # return structure
+  my @h=();
+  my @xlabel=();
+
+  my $min=@{$data}[0];
+  my $max=@{$data}[0];
+  foreach my $x (@{$data}) {
+    if($x < $min) {
+      $min = $x;
+      next;
+    }
+    $max = $x if $x > $max;
+  }
+
+  if ($#{@{$data}}==0) {
+  }
+
+  if($max==$min) {
+    push @h,$#{@$data} + 1;
+    push @xlabel,$min;
+    %histo=( "value"=> \@h,
+	     "xlabel"=> \@xlabel,
+	     "binsize"=> undef
+	   );
+    return \%histo;
+  }
+
+  my $binsize = ($max-$min)/$nbins;
+  if ($binsize <=0) {
+    print STDERR "Error: Binsize=$binsize,  min=$min   max=$max  # datapoints:". $#{@{$data}}+1 . " nbins=$nbins\n";
+    print "DATA: " . join(", ",@{$data}) . "\n";
+    return undef;
+  }
+
+  for(my $n=0; $n<$nbins; $n++) {
+    $xlabel[$n] = $min + ($n+0.5) * $binsize;
+    $h[$n]=0;
+  }
+
+  my $bin;
+  foreach my $x (@{$data}) {
+    $bin = int(($x - $min)/$binsize);
+    $h[$bin]++;
+  }
+
+  # need to add topmost bin to bin n-1
+  $h[$nbins-1] += $h[$nbins];
+  pop @h;
+
+  $histo{value}=\@h;
+  $histo{xlabel}=\@xlabel;
+  $histo{binsize}=$binsize;
+
+  return \%histo;
+}
+
+sub printTimeHisto {
+  my $h = shift;
+
+  for(my $i=0;$i<= $#{@{$h->{value}}};$i++) {
+    printf("     %6d   %s\n",$h->{value}[$i],
+	   UnixDate(ParseDateString("epoch " . int($h->{xlabel}[$i])),"%Y-%m-%d %H:%M:%S"));
+  }
 }
