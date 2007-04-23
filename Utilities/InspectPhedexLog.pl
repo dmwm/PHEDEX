@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog.pl,v 1.5 2007/04/23 15:24:14 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog.pl,v 1.6 2007/04/23 22:37:42 dfeichti Exp $:
 ###############################################################################
 
 use strict;
@@ -274,9 +274,10 @@ foreach my $site (sort {$a cmp $b} keys %sitestat) {
     $sitestat{$site}{"FAILED"}=0 if ! defined $sitestat{$site}{"FAILED"};
     print "site: $site (OK: " . $sitestat{$site}{"OK"} . " / Err: " . $sitestat{$site}{"FAILED"} . ")";
     printf("\tsucc. rate: %.1f %%", $sitestat{$site}{"OK"}/($sitestat{$site}{"OK"}+$sitestat{$site}{"FAILED"})*100) if ($sitestat{$site}{"OK"}+$sitestat{$site}{"FAILED"}) > 0;
+    $sitestat{$site}{"size"}=0 if ! exists $sitestat{$site}{"size"};
     printf("   total: %.1f GB",$sitestat{$site}{"size"}/1e9);
 
-    if ($sitestat{$site}{"ttransfer"}>0) {
+    if ( exists $sitestat{$site}{"ttransfer"} && $sitestat{$site}{"ttransfer"}>0) {
       $MbperS=$sitestat{$site}{"size"}*8/$sitestat{$site}{"ttransfer"}/1e6;
       $MBperS=$sitestat{$site}{"size"}/1024/1024/$sitestat{$site}{"ttransfer"};
       printf("   avg. rate: %.1f MB/s = %.1f Mb/s",$MBperS,$MbperS) if $flag_bunchDetect;
