@@ -160,7 +160,7 @@ for dataset, newName in map.iteritems():
     elif (n_tmdb != n_dbs):
       flag = "MISMATCH"
       
-    print "STATS:  %s\t%s\t%s\t%s\t%s\t%s" % (newName, n_tmdb, n_dbs, n_tmdb-n_dbs, flag)
+    print "STATS:  %s\t%s\t%s\t%s\t%s\t%s" % (dataset, newName, n_tmdb, n_dbs, n_tmdb-n_dbs, flag)
     t_tmdb += n_tmdb;  t_dbs += n_dbs;
 
     if (flag == 'MISMATCH' and opts.diff_mismatch) or opts.diff_all:
@@ -177,7 +177,7 @@ for dataset, newName in map.iteritems():
           if 'missing_tmdb' in missing[block]:
             print "REPDIFF NOTMDB %s %s" % (block, string.join(missing[block]['missing_tmdb']))
       else:
-        print "REPDIFF OK %s %s" % (newName)
+        print "REPDIFF OK %s %s" % (dataset, newName)
 
   except Exception, ex:
     print "ERROR:  ",ex
