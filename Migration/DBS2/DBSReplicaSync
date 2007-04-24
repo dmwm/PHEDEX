@@ -12,7 +12,7 @@ from phedex import PhedexApi
 
 def replicaSync(dataset):
   print "dataset "+dataset
-  for replica in phedex.getBlockReplicas(dataset):
+  for replica in phedex.getOldBlockReplicas(dataset):
 
     # Attempt to look up the changed block name from DBS2, keying on file name
     newblock = dbs.listFiles(patternLFN=replica['keyfile'])

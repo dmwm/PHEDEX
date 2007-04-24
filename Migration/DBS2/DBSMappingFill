@@ -12,7 +12,7 @@ from phedex import PhedexApi
 def mapBlocks(dataset):
   n_b = 0
   print "Mapping dataset "+dataset
-  for block in phedex.getBlocks(dataset):
+  for block in phedex.getOldBlocks(dataset):
 
     # Attempt to look up the changed block name from DBS2, keying on file name
     newblock = dbs.listFiles(patternLFN=block['keyfile'])
