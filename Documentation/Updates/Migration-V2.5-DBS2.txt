@@ -53,26 +53,43 @@ end;
 /
 exit
 
-# Migrate old table content (back to shell)
-
 # Create name mapping tables
 sqlplus -S $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @$PHEDEX/Migration/DBS2/OracleCreateMigrationMaps.sql
+
 $PHEDEX/Migration/DBS2/DBSMappingFill -f $MIGRATION_FILE -u $DBS2_R -c $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 2>mapfill.err |tee mapfill.out
 grep "Could not map block" mapfill.out > vijay-whynofile.txt
 
-# Add replicas to DBS2
-$PHEDEX/Migration/DBS2/DBSReplicaSync -f $MIGRATION_FILE -u $DBS2_W -c $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 2>replicasync.err |tee replicasync.out
-
-# Migrate DBS2 datasets, blocks, files, replicas to TMDB
-# First we need the nodes
-insert into t_adm_node select * from xt_adm_node;
-
-# Now the DBS2 information
-$PHEDEX/Migration/DBS2/DBSMigrateTMDB -f $MIGRATION_FILE -u $DBS2_R -c $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 2>migratetmdb.err |tee migratetmdb.out
-
-# From the old migration plan we are missing the link informations and the history
+# Migrate renamed datasets, blocks, files, replicas to TMDB
 # Connect to DB using SQLPlus
 sqlplus $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
+
+insert into t_adm_node select * from xt_adm_node;
+
+insert into t_dps_dataset
+select seq_dps_dataset.nextval, 1, temp.new, 'y', 'n', temp.time_create, temp.time_update
+from
+(select dm.new, max(od.time_create) time_create, max(od.time_update) time_update
+   from T_MIGRATION_DATASET_MAP dm join xt_dps_dataset od
+   on dm.old=od.name group by dm.new) temp;
+
+insert into t_dps_block
+select seq_dps_block.nextval, nd.id, bm.new, ob.files, ob.bytes, ob.is_open, ob.time_create, ob.time_update from
+T_MIGRATION_BLOCK_MAP bm
+join xt_dps_block ob on bm.old=ob.name
+join xt_dps_dataset od on ob.dataset=od.id
+join T_MIGRATION_DATASET_MAP dm on dm.old=od.name
+join t_dps_dataset nd on nd.name=dm.new;
+
+insert into t_dps_file
+select seq_dps_file.nextval, f.node, nb.id, f.logical_name, f.checksum, f.filesize, f.time_create
+from t_dps_block nb 
+join t_migration_block_map bm on bm.new = nb.name
+join xt_dps_block ob on ob.name = bm.old
+join xt_dps_file f on f.inblock = ob.id;
+
+
+
+# From the old migration plan we are missing the link informations and the history
 
 -- Crate partitions per node
 begin
@@ -218,6 +235,9 @@ exit;
 
 # Update the DBS2 name
 echo "update t_dps_dbs set name='$DBS2_W' where name='migrateDBS';" | sqlplus $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
+
+# Add replicas to DBS2
+$PHEDEX/Migration/DBS2/DBSReplicaSync -f $MIGRATION_FILE -u $DBS2_W -c $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 2>replicasync.err |tee replicasync.out
 
 # Creating synonyms for the other users
 $PHEDEX/Schema/OracleSyns.sh 'cms_transfermgmt' $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_R})
