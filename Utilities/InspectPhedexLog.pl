@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog.pl,v 1.6 2007/04/23 22:37:42 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog.pl,v 1.7 2007/04/23 22:47:47 dfeichti Exp $:
 ###############################################################################
 
 use strict;
@@ -31,14 +31,16 @@ usage: InspectPhedexLog [options] logfile1 [logfile2 ...]
 
    options:
       -e    also show error statistics (summary over error messages)
-         -r    do not try to regexp-process errors messages, but show raw error messages
-      -v    verbose   Prints task IDs for the collected errors (useful for closer investigation)
-                      Also prints multiply failed files that were never transferred correctly
+         -r    do not try to regexp-process errors messages, but show raw
+               error messages (!!gigantic output)
+      -v    verbose   Prints task IDs for the collected errors (useful for
+                      closer investigation). Also prints multiply failed files
+                      that were never transferred correctly
       -s    start_date   -t end_date
-
       -b    bunch detection and rate calculation
-            (still some problems with correct bunch detection. leading to strange rates for some
-             source logs. Do not rely on this).
+            (still some problems with correct bunch detection. leading to 
+            strange rates for some source logs. Do not use this for the time
+             being).
       -d    debug   Prints a summary line for every single transfer
       -h    display this help
 
@@ -119,8 +121,8 @@ if ($#logfiles==-1) {
 my ($datestart,$dateend,$date_old)=0;
 my %errinfo;
 my %dberrinfo;
-my ($date,$task,$from,$stat,$size,$txfer,$tdone,$ttransfer,$fname,$reason,$bsize,$size_sum);
-my ($bunchsize,$bunchfiles,$txfer_old,$tdone_old,$closedbunch)=0;
+my ($date,$task,$from,$stat,$size,$txfer,$tdone,$ttransfer,$fname,$reason,$bsize,$size_sum)=(0,0,0,0,0,0,0,0,0,0,0,0);
+my ($bunchsize,$bunchfiles,$txfer_old,$tdone_old,$closedbunch)=(0,0,0,0,0);
 my $line;
 my $statstr;
 foreach my $log (@logfiles) {
@@ -150,18 +152,21 @@ foreach my $log (@logfiles) {
              $statstr="OK    ";  ##### sprintf("OK(%4d)  ",$stat);
              $sitestat{"$from"}{"OK"}++;
              $sitestat{"$from"}{"size"}+=$size;
+	     $sitestat{"$from"}{"ttransfer"}+=$ttransfer;
+	     $ttransfer=0;
              delete $failedfile{"$fname"} if exists $failedfile{"$fname"};
 
              # the following is needed because transfer time applies not to a single file but to the bunch
 	     if( ! defined $txfer_old || $txfer_old == 0  || $txfer == $txfer_old) {     # try to identify bunches
-	       printf STDERR ("WARNING: there may be a transfer time problem (delta t-done=%.4f) in line\n$line\n",$tdone-$tdone_old) if $flag_bunchDetect && abs($tdone-$tdone_old) > 0.2 && $txfer_old != 0;
+	       # all files in a bunch seem to have the same start time (xfer) and almost the same tdone
+	       printf STDERR ("WARNING: there may be a transfer time problem (delta t-done=%.4f) in line\n$line\n",$tdone-$tdone_old) if $flag_bunchDetect && abs($tdone-$tdone_old) > 1.0 && $txfer_old != 0;
 	       $bunchfiles++;
 	       $bunchsize += $size;
 	     } else {
                  $closedbunch=1;
 	     }
-	     #printf ("DEBUG: DIFF %.5f   txfer %.5f    tdone %.5f  \n",$ttransfer - $ttransfer_old,
-             #$txfer-$txfer_old, $tdone-$tdone_old);
+	     #printf("DEBUG: tdone-txfer %.5f   txfer-txfer_old %.5f    tdone-tdone_old %.5f  $from\n",$tdone - $txfer,
+		#     $txfer-$txfer_old, $tdone-$tdone_old);
 	     ($txfer_old,$tdone_old) = ($txfer,$tdone);
 
          } else {
@@ -171,7 +176,8 @@ foreach my $log (@logfiles) {
 
 	     # try to collect error information in categories. This needs to be extended for the myriad of SRM
 	     # error messages ;-)
-	     my ($detail,$validate) = $line =~ m/.*detail=\((.*)\)\s*validate=\((.*)\)\s*$/;
+	     my ($detail,$validate) = $line =~ m/.*detail=\((.*)\)\s+validate=\((.*)\).*$/;
+	     die "DEBUG: no detail,validate IN LINE: \n     $line\n" if(! $detail && ! $validate);
 	     if(! $flag_rawErrors) {
 	       my $tmp;
 	       $detail = substr($detail,0,$errmsglen) . "...(error cut)" if length($detail) > $errmsglen;
@@ -206,7 +212,6 @@ foreach my $log (@logfiles) {
 	 if($closedbunch) {
 	   $ttransfer = $tdone_old - $txfer_old;
 	   die "ERROR: ttransfer=0 ?????? in line:\n $line\n" if $ttransfer == 0;
-	   $sitestat{"$from"}{"ttransfer"}+=$ttransfer;
 	   $MbperS=$bunchsize*8/$ttransfer/1e6;
 	   $MBperS=$bunchsize/1024/1024/$ttransfer;
 	   printf("   *** Bunch:  succ. files: $bunchfiles  size=%.2f GB  transfer_time=%.1f s (%.1f MB/s = %.1f Mb/s)\n"
