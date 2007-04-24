@@ -5,30 +5,87 @@
 import sys
 from fnmatch import filter
 import re
+import traceback
 from string import lstrip
 from DBSAPI.dbsApi import DbsApi
 from phedex import PhedexApi
 
-def mapBlocks(dataset):
+def createMappings(newName):
   n_b = 0
-  print "Mapping dataset "+dataset
-  for block in phedex.getOldBlocks(dataset):
+  print "Mapping dataset with new name ", newName
+  dataset_mappings, block_mappings = findMappings(newName)
 
-    # Attempt to look up the changed block name from DBS2, keying on file name
-    newblock = dbs.listFiles(patternLFN=block['keyfile'])
-    if not newblock:
-      raise Exception("Could not map block %s using keyfile %s" % (block['name'], block['keyfile']))
-    else:
-      newblock = newblock[0]['Block']['Name']
+  if not dataset_mappings or not block_mappings:
+    raise Exception("Could not make any mappings for dataset %s" % newName)
 
-    if block['name'] != newblock:
-      print "Block Mapping %s -> %s" % (block['name'], newblock)
-      addBlockMapping(block['name'], newblock)
-    else:
-      print "Block name %s is unchanged" % (newblock)
-      addBlockMapping(block['name'], block['name'])
-    n_b += 1
-  return n_b
+  for dm in dataset_mappings:
+    old, new = dm.split(',')
+    addDatasetMapping(old, new)
+
+  for bm in block_mappings:
+    old, new = bm.split(',')
+    addBlockMapping(old, new)
+
+  return len(dataset_mappings), len(block_mappings)
+
+def findMappings(dataset):
+  p = re.compile('^/([^/]+)/([^/]+)(/[^/]+|\#[^\#]+)$')
+  parts = p.findall(dataset)
+  if not parts: raise Exception("Bad dataset format")
+  prim, proc, tier = parts[0]
+  #tier = tier.lstrip('/')
+  tier = "*" # Specifying tier does not work in DBS API
+
+  print "Looking up %s %s %s in DBS2" % (prim, proc, tier)
+
+  dataset_mappings = set()
+  block_mappings = set()
+
+  dbsDatasets = dbs.listProcessedDatasets(patternPrim=prim, patternProc=proc, patternDT=tier)
+  if not dbsDatasets:  raise Exception("No datasets found for %s %s %s" % (prim, proc, tier))
+                    
+  for dataset in dbsDatasets:
+    n_ds, n_b, n_br, n_f = 0, 0, 0, 0
+    n_ds += 1
+                                       
+    if not dataset['PathList']:  raise Exception("No path for dataset %s %s %s" % (prim, proc, tier))
+    new_dataset = dataset['PathList'][0] # Only the first path!  What if there are multiple?
+    
+    dbsBlocks = dbs.listBlocks(dataset=new_dataset)
+    if not dbsBlocks:  raise Exception("No blocks found in dataset %s" % path)
+    
+    for block in dbsBlocks:
+      new_block = block['Name']
+      dbsFiles = dbs.listFiles(blockName=new_block)
+      if not dbsFiles:
+        warn("No files found in block %s, skipping" % block['Name'])
+        continue
+
+      for file in dbsFiles:
+        filename = file['LogicalFileName']
+        row = [ getMappingByFile(filename) ]
+        
+        if not row[0]:
+          print "DBS file %s not found in TMDB" % filename
+        else:
+          old_dataset, old_block, phedex_file = row[0]
+          dataset_mappings.add(old_dataset+","+new_dataset)
+          block_mappings.add(old_block+","+new_block)
+
+  return dataset_mappings, block_mappings
+          
+
+
+def getMappingByFile(filename):
+  cur = phedex.con.cursor()
+  sql = """select ds.name, b.name, f.logical_name
+           from xt_dps_dataset ds
+             join xt_dps_block b on b.dataset = ds.id
+             join xt_dps_file f on f.inblock = b.id
+             where f.logical_name = :filename
+         """
+  cur.execute(sql, {'filename':filename})
+  return cur.fetchone() 
 
 def addDatasetMapping(old, new):
   cur = phedex.con.cursor()
@@ -75,18 +132,20 @@ dbs = DbsApi({'url':  opts.url})
 phedex = PhedexApi(opts.phedex_connect)
 
 map = parseDatasetNameMap(opts.mapfile)
-n_ds = 0
-n_b = 0
+tried = set()
+t_ds = 0
+t_b = 0
 for dataset, newName in map.iteritems():
   try:
-    addDatasetMapping(dataset, newName)
-    phedex.con.commit()
-    n_ds += 1
-    n_b += mapBlocks(dataset)
-    phedex.con.commit()
+    if newName in tried:
+      raise Exception("Already attempted this dataset mapping")
+    n_ds, n_b = createMappings(newName)
+    t_ds += n_ds;  t_b += n_b
   except Exception, ex:
     print "ERROR:  ",ex
 
+phedex.con.commit()
 
-print "Added mapping for %s datasets and %s blocks" % (n_ds, n_b)
+
+print "Added mapping for %s datasets and %s blocks" % (t_ds, t_b)
 sys.exit(0)
