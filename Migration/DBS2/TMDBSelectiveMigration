@@ -1,0 +1,281 @@
+#!/usr/bin/env perl
+
+##H Post DBS-2 Migration, selectively migrate old datasets back into production
+##H
+##H Usage:
+##H   TMDBSelectiveMigration -db [-M] DBCONFIG DATASET1 DATASET2 ...
+##H
+##H Arguments:
+##H DATASET is a dataset string, with optional SQL "LIKE" style
+##H         wildcards.  The DBS this data was associated will also be migrated, if
+##H         it does not already exist
+##H
+##H Options:
+##H   -db     The DBParam file and section
+##H   -M      Use dataset/block name mappings.  You must prepare these
+##H           mappings beforehand with DBSMappingFill.  When using this option
+##H           DATASET refers to the "new" dataset names.
+##H           (t_migration_dataset_map.new).  The DBS used in this case is
+##H           hard-coded to the global DBS URL,
+##H           https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet
+##H
+##H Examples:
+##H   TMDBSelectiveMigration -db DBParam:Prod/Admin '%TAC%'
+
+
+BEGIN {
+  $^W = 1; use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+# Process command line arguments.
+use Getopt::Long;
+use UtilsHelp;
+use UtilsDB;
+use UtilsTiming;
+my $usemappings = 0;
+&GetOptions ("db=s"        => \$args{DBCONFIG},
+	     "M"           => \$usemappings,
+	     "help|h"      => sub { &usage() });
+
+# Check arguments.
+if (scalar @ARGV < 1 || !$args{DBCONFIG})
+{
+  die "Insufficient parameters, use -h for help.\n";
+}
+
+my $self = { DBCONFIG => $args{DBCONFIG} };
+my $dbh = &connectToDatabase ($self, 0);
+
+# Go to work
+foreach my $dataset (@ARGV) {
+    my $dbs = &migrateDBS($dataset);
+    my ($n_ds, $n_b, $n_f) = &migrateFiles($dataset, $dbs);
+    my ($n_br) = &migrateReplicas($dataset);
+    &migrateSubscriptions($dataset);
+}
+
+$dbh->commit();
+
+
+
+
+
+
+
+sub migrateDBS
+{
+    my $dataset = shift @_;
+
+    # find out what the DBS is.
+    my $dbs;
+    if ($usemappings) { 
+	# Hard coded DBS-2 global URL.  We assume it has already been inserted into t_dps_dbs
+	$dbs = 'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet'; 
+    } else {
+	# Look for dbses associated with the dataset to be migrated
+	my @dbses = &dbexec($dbh, qq{select distinct name 
+					 from xt_dps_dbs dbs 
+					 join xt_dps_dataset ds on ds.dbs = dbs.id
+					 where ds.name like :dataset},
+			    { ':dataset' => $dataset })->fetchall_hashref();
+	if (!@dbses) {
+	    die "No matches for dataset $dataset\n";
+	} elsif (scalar @dbses > 1) {
+	    die "Dataset $dataset is associated with more than one DBS.  Please refine your dataset selection\n";
+	} else {
+	    $dbs = $dbses[0]->{NAME};
+	}
+	# Insert the dbs associated with the dataset if it is not already there
+	unless (&dbexec($dbh, qq{select 1 from t_dps_dbs where name = :dbs}, {':dbs'=>$dbs})->fetchrow()) {
+	    print "Inserting DBS $dbs\n";
+	    &dbexec($dbh, qq{ insert into t_dps_dbs (seq_dps_dbs.nextval, name, dls, time_create)
+				  select name, dls, time_create from xt_dps_dbs where name = :dbs },
+		    { ':dbs'=>$dbs });
+	}
+    }
+    return $dbs;
+}
+
+sub migrateFiles()
+{
+    my $dataset = shift @_;
+
+    my $migrateDatasets;
+    my $migrateBlocks;
+    my $migrateFiles;
+    if (!$usemappings) {
+	$migrateDatasets = qq{ insert into t_dps_dataset (id, dbs, name, is_open, is_transient, time_create, time_update)
+				   select t_dps_dataset.nextval, dbs.id, ds.name, ds.is_open, ds.is_transient, ds.time_create, ds.time_update
+				   from xt_dps_dataset od
+				   join xt_dps_dbs old_dbs on old_dbs.id = od.dbs
+				   join t_dps_dbs dbs on dbs.name = old_dbs.name
+				   where od.name like :dataset };
+
+	$migrateBlocks = qq{ insert into t_dps_block (id, dataset, name, files, bytes, is_open, time_create, time_update)
+				 select seq_dps_block.nextval, nd.id, ob.name, ob.files, ob.bytes, ob.is_open, ob.time_create, ob.time_update
+				 from xt_dps_dataset od
+				 join xt_dps_block ob on ob.dataset = od.id
+				 join t_dps_dataset nd on nd.name = od.name
+				 where od.name like :dataset };
+	
+	$migrateFiles =  qq{ insert into t_dps_file (id, node, inblock, logical_name, checksum, filesize, time_create)
+				 select seq_dps_file.nextval, nn.id, nb.id, of.logical_name, of.checksum, of.filesize, of.time_create
+				 from xt_dps_dataset od
+				 join xt_dps_block ob on ob.dataset = od.id
+				 join xt_dps_file of on of.inblock = ob.id
+				 join t_dps_dataset nd on nd.name = od.name
+				 join t_dps_block nb on nb.id = nb.dataset
+				 join xt_adm_node on on on.id = of.node
+				 join t_adm_node nn on nn.name = on.name
+				 where od.name like :dataset };
+    } else {
+	$migrateDatasets = qq{ insert into t_dps_dataset
+				   select seq_dps_dataset.nextval, temp.dbsid, temp.new, 'y', 'n', temp.time_create, temp.time_update
+				   from
+				   (select dm.new, dbs.id dbsid, max(od.time_create) time_create, max(od.time_update) time_update
+				    from t_migration_dataset_map dm
+				    join xt_dps_dataset od on dm.old=od.name 
+				    join xt_dps_dbs old_dbs on old_dbs.id = ds.dbs
+				    join t_dps_dbs dbs on dbs.name = old_dbs.name
+				    where dm.new like :dataset
+				    group by dm.new, dbs.id) temp };
+	
+	$migrateBlocks = qq{ insert into t_dps_block
+				 select seq_dps_block.nextval, nd.id, bm.new, ob.files, ob.bytes, ob.is_open, ob.time_create, ob.time_update from
+				 t_migration_block_map bm
+				 join xt_dps_block ob on bm.old=ob.name
+				 join xt_dps_dataset od on ob.dataset=od.id
+				 join t_migration_dataset_map dm on dm.old=od.name
+				 join t_dps_dataset nd on nd.name=dm.new
+				 where nd.name like :dataset };
+
+	$migrateFiles = qq{ insert into t_dps_file
+				select seq_dps_file.nextval, nn.node, nb.id, of.logical_name, of.checksum, of.filesize, of.time_create
+				from t_dps_block nb 
+				join t_dps_dataset nd on nd.id = nb.dataset
+				join t_migration_block_map bm on bm.new = nb.name
+				join xt_dps_block ob on ob.name = bm.old
+				join xt_dps_file of on of.inblock = ob.id
+				join xt_adm_node on on on.id = of.node
+				join t_adm_node nn on nn.name = on.name
+				where nd.name like :dataset
+			    };
+    }
+
+    my ($h1, $n_ds) = &dbexec($dbh, $migrateDatasets, {':dataset'=>$dataset});
+    my ($h2, $n_b)  = &dbexec($dbh, $migrateBlocks,   {':dataset'=>$dataset});
+    my ($h3, $n_f)  = &dbexec($dbh, $migrateFiles,    {':dataset'=>$dataset});
+
+    return ($n_ds, $n_b, $n_f);
+}
+
+sub migrateReplicas()
+{
+    my $dataset = shift @_;
+
+    my $migrateReplicas;
+
+    if (!$usemappings) {
+	$migrateReplicas = qq{ insert into t_dps_block_replica 
+				   (block, node, is_active, src_files, src_bytes, dest_files,
+				    dest_bytes, node_files, node_bytes, xfer_files, xfer_bytes, time_create, time_update)
+				   (select nb.id, nn.id, br.is_active,
+				    br.src_files, br.src_bytes,
+				    br.dest_files, br.dest_bytes,
+				    br.node_files, br.node_bytes,
+				    br.xfer_files, br.xfer_bytes,
+				    br.time_create, br.time_update
+				    from xt_dps_block_replica br 
+				    join xt_adm_node on on on.id = br.node
+				    join t_adm_node nn on nn.name = on.name
+				    left join xt_dps_block ob on br.block=ob.id
+				    left join t_dps_block nb on ob.name=nb.name
+				    left join t_dps_dataset nd on nd.id = ob.dataset
+				    where nd.name like :dataset 
+				    and nb.id is not null) };
+    } else {
+	$migrateReplicas = qq{ insert into t_dps_block_replica 
+				   (block, node, is_active, src_files, src_bytes, dest_files,
+				    dest_bytes, node_files, node_bytes, xfer_files, xfer_bytes, time_create, time_update)
+				   (select nb.id, nn.id, br.is_active,
+				    br.src_files, br.src_bytes,
+				    br.dest_files, br.dest_bytes,
+				    br.node_files, br.node_bytes,
+				    br.xfer_files, br.xfer_bytes,
+				    br.time_create, br.time_update
+				    from xt_dps_block_replica br
+				    join xt_adm_node on on on.id = br.node
+				    join t_adm_node nn on nn.name = on.name
+				    left join xt_dps_block ob on br.block=ob.id
+				    left join t_migration_block_map bm on ob.name=bm.old
+				    left join t_dps_block nb on bm.new=nb.name
+				    left join t_dps_dataset nd on nd.id = nb.dataset
+				    where nd.name like :dataset 
+				    and nb.id is not null) };
+    }
+    
+    my ($h1, $n_br) = &dbexec($dbh, $migrateReplicas, {':dataset'=>$dataset});
+    
+    return $n_br;
+
+}
+
+sub migrateSubscriptions()
+{
+    my $dataset = shift @_;
+    
+    my $migrateSubscriptions;
+    if (!$usemappings) {
+	$migrateSubscriptions =
+	    qq{ insert into t_dps_subscription 
+		    (dataset, block, destination, priority, is_move, is_transient,
+		     time_create, time_complete, time_clear, time_done, time_suspend_until)
+		    select nd.id, nb.id, nn.id, 
+		    xs.priority, xs.is_move, xs.is_transient, 
+		    xs.time_create, xs.time_complete,
+		    xs.time_clear, xs.time_done, xs.time_suspend_until
+		    from xt_dps_subscription xs
+		    join xt_adm_node on on.id = xs.destination
+		    join t_adm_node nn on nn.name = on.name
+		    left join xt_dps_dataset od on od.id = xs.dataset
+		    left join t_dps_dataset nd on nd.name = od.name
+		    left join xt_dps_block ob on ob.id = xs.block
+		    left join t_dps_block nb on nb.name = ob.name
+		    where (nb.id is not null or nd.id is not null) 
+		    and nd.name like :dataset
+		 };
+    } else {
+	$migrateSubscriptions =
+	    qq{ insert into t_dps_subscription 
+		    (dataset, block, destination, priority, is_move, is_transient,
+		     time_create, time_complete, time_clear, time_done, time_suspend_until)
+		    select m.newds, m.newblock, m.destination,
+		    xs.priority, xs.is_move, xs.is_transient, 
+		    xs.time_create, xs.time_complete,
+		    xs.time_clear, xs.time_done, xs.time_suspend_until
+		    from xt_dps_subscription xs
+		    join
+		    (
+		     -- this groups merged datasets or blocks
+		     select nd.id newds, nb.id newblock, s.destination, 
+		     max(s.dataset) oldds, max(s.block) oldblock
+		     from xt_dps_subscription s left join xt_dps_block ob on s.block=ob.id
+		     left join t_migration_block_map bm on ob.name=bm.old
+		     left join t_dps_block nb on bm.new=nb.name
+		     left join xt_dps_dataset od on s.dataset=od.id
+		     left join t_migration_dataset_map dm on od.name=dm.old
+		     left join t_dps_dataset nd on dm.new=nd.name
+		     where (nb.id is not null or nd.id is not null)
+		     and nd.name like :dataset
+		     group by nd.id, nb.id, s.destination
+		     ) m on (m.oldds = xs.dataset or m.oldblock = xs.block) 
+		           and m.destination=xs.destination
+		 };
+    }
+
+    my ($h1, $n_s) = &dbexec($dbh, $migrateSubscriptions, {':dataset'=>$dataset});
+    return $n_s;
+}
