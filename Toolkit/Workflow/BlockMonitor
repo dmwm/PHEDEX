@@ -141,8 +141,9 @@ sub idle
         my $qactive = &dbexec($dbh, qq{
 	    select b.id, s.destination, b.files, b.bytes
 	    from t_dps_subscription s
-	      join t_dps_dataset ds on ds.id = s.dataset
-	      join t_dps_block b on b.dataset = ds.id});
+	    left join t_dps_dataset ds on ds.id = s.dataset
+	    left join t_dps_block b on b.dataset = ds.id or s.block = b.id
+            where b.id is not null});
         while (my ($block, $node, $files, $bytes) = $qactive->fetchrow())
         {
 	    $active{$block}{$node} ||= { BLOCK => $block, NODE => $node };
