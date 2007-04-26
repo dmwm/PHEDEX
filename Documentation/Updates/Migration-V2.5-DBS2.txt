@@ -206,10 +206,7 @@ select nd.id newds, nb.id newblock, s.destination,
 -- Migrate t_xfer informations for partially transfered blocks
 insert into t_xfer_file (id, inblock, logical_name, checksum, filesize)
 select id, inblock, logical_name, CHECKSUM, FILESIZE from t_dps_file where INBLOCK in
-   (select id from t_dps_block where dataset in
-      (select dataset from t_dps_subscription where TIME_DONE is null))
-or inblock in
-   (select block from t_dps_subscription where time_done is null);
+   (select block from t_dps_block_replica where is_active='y');
 
 insert into t_xfer_replica (id, node, fileid, state, time_create, time_state)
 select ro.id, ro.node, fn.id, ro.state, ro.time_create, ro.time_state from xt_xfer_replica ro
@@ -223,6 +220,7 @@ update t_dps_block set IS_OPEN='n' where NAME in
    join T_MIGRATION_BLOCK_MAP bm on bo.name=bm.old
 where bo.IS_OPEN='n');
 
+commit;
 
 -- Re-enable all triggers
 begin
