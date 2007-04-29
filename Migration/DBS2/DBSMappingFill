@@ -74,7 +74,8 @@ def findMappings(dataset):
 
   return dataset_mappings, block_mappings
           
-
+def warn(message):
+  print "WARN:  ", message
 
 def getMappingByFile(filename):
   cur = phedex.con.cursor()
