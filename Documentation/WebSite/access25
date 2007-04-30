@@ -1,5 +1,10 @@
 #!/usr/bin/env perl
 
+# TODO: put in standard location
+use lib "/data/PHEDEX/Dev/egeland/WEBTOOLS/SecurityModule/perl/lib";
+use CMSWebTools::SecurityModule::Oracle;
+
+
 ######################################################################
 package Web25::Common; use strict; use warnings; use base "Exporter";
 use CGI qw(:standard unescape);
@@ -335,27 +340,17 @@ sub alert_auth
     my ($self, %args) = @_;
     my $need = $args{need};
     my $power = $args{power};
-    unless (grep $need eq $_, qw(anycert gridcert registered siteadmin globaladmin)) { 
+    unless (grep $need eq $_, qw(gridcert registered siteadmin globaladmin)) { 
 	die "Bad requirement '$need' to auth function", $!; 
     }
 
     my $login_url = $self->myurl("secure" => 1);
-    my $reg_url = $self->myurl(page => "Administration::SignUp");
+    my $reg_url = $self->myurl(page => "TODO::FixMe");
     my $gridcert_help_url = 'http://lcg.web.cern.ch/LCG/users/registration/load-cert.html';
 
-    if ($need eq 'anycert' && !$$self{SSL_IDENTITY}) {
-	$self->alert("You are not <a href='$gridcert_help_url'>authenticated in with a certificate</a>.  ",
-		     "If you are authenticated ",
-		     "it is possible to $power from this page.");
-	return 0;
-    } elsif ($need eq 'gridcert' && (!$$self{SSL_IDENTITY} && !$$self{SSL_VERIFIED})) {
+    if ($need eq 'gridcert' && (! $$self{SECMOD}->isCertAuthenticated() )) {
 	$self->alert("You are not <a href='$gridcert_help_url'>authenticated with a valid grid certificate</a>.  ",
 		    "If you are logged in ",
-		    "it is possible to $power from this page.");
-	return 0;
-    } elsif ($need eq 'registered' && (!$$self{SSL_IDENTITY} && !$$self{SSL_VERIFIED})) {
-	$self->alert("You are not <a href='$gridcert_help_url'>authenticated with a valid grid certificate</a>.  ",
-		    "If you are logged in and <a href='$reg_url'>registered</a> ",
 		    "it is possible to $power from this page.");
 	return 0;
     } elsif ($need eq 'registered' && !$$self{DB_IDENTITY_ID} ) {
@@ -363,17 +358,18 @@ sub alert_auth
 		    "<a href='$reg_url'>registered</a>.  If you are registered ",
 		    " it is possible to $power from this page.");
 	return 0;
-    } elsif (($need eq 'siteadmin' || $need eq 'globaladmin') && (!$$self{SSL_IDENTITY} && !$$self{SSL_VERIFIED})) {
+    } elsif (($need eq 'siteadmin' || $need eq 'globaladmin') && ! $$self{SECMOD}->isCertAuthenticated() ) {
 	$self->alert("You are not <a href='$gridcert_help_url'>authenticated with a valid grid certificate</a>.  ",
 		    "If you are authenticated and <a href='$reg_url'>registered as an admin</a> ",
 		    "it is possible to $power from this page.");
 	return 0;
-    } elsif ($need eq 'siteadmin' && (!$$self{AUTH_SITE_ADMIN} && !$$self{AUTH_GLOBAL_ADMIN})) {
+    } elsif ($need eq 'siteadmin' && (! $$self{SECMOD}->hasRole('Site Admin') &&
+				      ! $$self{SECMOD}->hasRole('Global Admin', 'phedex'))) {
 	$self->alert("You are authenticated with a valid grid certificate but are not ",
 		     "authorized as a site admin.  If you are an authorized site admin ",
 		     " it is possible to $power from this page.");
 	return 0;
-    } elsif ($need eq 'globaladmin' && !$$self{AUTH_GLOBAL_ADMIN} ) {
+    } elsif ($need eq 'globaladmin' && ! $$self{SECMOD}->hasRole('Global Admin', 'phedex')) {
 	$self->alert("You are not authorized as a global admin. ",
 		     "Only the global admins may $power from this page");
 	return 0;
@@ -396,29 +392,6 @@ sub fetch_identity_id
 				and ia.value = :client_dn},
 			":client_dn" => $client_dn)->fetchrow_array();
     return $id;
-}
-
-# sets AUTH_SITE_ADMIN and AUTH_GLOBAL_ADMIN
-sub set_auth_vars
-{
-    my ($self) = @_;
-
-    $$self{AUTH_SITE_ADMIN} = 0;
-    $$self{AUTH_GLOBAL_ADMIN} = 0;
-
-    if (!$$self{DB_IDENTITY_ID}) { return; }
-
-    $$self{AUTH_SITE_ADMIN} = 1
-	if &dbexec($$self{DBH},
-		   qq{ select 1 from t_adm_site_admin where identity = :id },
-		   ':id' => $$self{DB_IDENTITY_ID})->fetchrow_array();
-    
-    $$self{AUTH_GLOBAL_ADMIN} = 1
-	if &dbexec($$self{DBH},
-		   qq{ select 1 from t_adm_global_admin where identity = :id },
-		   ':id' => $$self{DB_IDENTITY_ID})->fetchrow_array();
-
-    return undef;
 }
 
 
@@ -662,33 +635,30 @@ sub fetch_users
 # choice sticky.
 sub create_default_email
 {
-  my ($self) = @_;
+    my ($self) = @_;
 
-  my ($email) = &dbexec($$self{DBH}, qq{
-    select email.value
-    from t_adm_identity_attr dn
-      join t_adm_identity_attr email
-        on email.identity = dn.identity
-        and email.name = 'E-mail'
-    where dn.name = 'Distinguished name'
-    and dn.value = :client_dn},
-    ':client_dn' => $$self{SSL_IDENTITY})->fetchrow();
+    my ($email) = &dbexec($$self{DBH},
+			  qq{ select email.value
+			        from t_adm_identity_attr dn
+				join t_adm_identity_attr email
+				  on email.identity = dn.identity
+				 and email.name = 'E-mail'
+			       where dn.name = 'Distinguished name'
+			         and dn.value = :client_dn },
+			  ':client_dn' => $$self{SECMOD}->getDN())->fetchrow();
+    return $email if ($email);
+    
+    return undef if ! $$self{SECMOD}->getCert();
+    $email = "";
 
-  return $email if ($email);
-
-  return undef if ! $ENV{SSL_CLIENT_CERT};
-  $email = "";
-
-  use File::Temp ':mktemp';
-  if (my ($fh, $file) = mkstemp ('/tmp/certXXXXXXXXXX'))
-  {
-    if ((print $fh $ENV{SSL_CLIENT_CERT}) && close($fh))
-    {
-      chomp($email = qx(openssl x509 -in $file -noout -email));
+    use File::Temp ':mktemp';
+    if (my ($fh, $file) = mkstemp ('/tmp/certXXXXXXXXXX')) {
+    	if ((print $fh $$self{SECMOD}->getCert()) && close($fh)) {
+	    chomp($email = qx(openssl x509 -in $file -noout -email));
+	}
+	unlink ($file);
     }
-    unlink ($file);
-  }
-  return $email;
+    return $email;
 }
 
 
@@ -1940,10 +1910,9 @@ sub myurl
   my $url = $$self{CONFIG}{SERVICE_PATH};
   my $q = $newcgi->query_string();
 
-  if (($cursecure || 0) != ($secure || 0)) {
+  if (($cursecure || 0) != ($secure || 0) 
+      || $fullurl) {
       $url = $$self{CONFIG}{$secure ? "SSL_SERVER_ROOT" : "SERVER_ROOT"} . $url;
-  } elsif ($fullurl) {
-      $url = $$self{CONFIG}{"SERVER_ROOT"} . $url;
   }
 
   $url .= "/$db";
@@ -1961,81 +1930,47 @@ sub generate
   $$self{CONFIG} = $config;
   $$self{DBID} = $db;
 
+  # Fire up the security module
+  $$self{SECMOD} = new CMSWebTools::SecurityModule::Oracle({
+      CALLER_URL => $self->myurl(fullurl=>1),
+      CONFIG => "/data/PHEDEX/Dev/egeland/SecModStuff/SecurityModule.conf",
+      KEYVALIDTIME => 300,
+      LOGFILE => "/data/PHEDEX/Dev/egeland/SecModStuff/SecMod.log",
+      LOGLEVEL => 5
+      });
+  $$self{SECMOD}->init();
+
   # Find the class cope index of this page instance.
   my $index = do { no strict "refs"; ${"@{[ref $self]}::INDEX"} };
 
-  # Do we have SSL login information from a secure proxy, but none
-  # direcly?  If so, grab the headers from the proxy and use them
-  # here.  *WARNING* This can potentially open up a security hole
-  # the size of an elephant!  We are taking "trusted" values from
-  # the HTTP headers, and need to be aboslutely sure nobody does
-  # e.g. "wget" with faked header values.  It's paramount to trust
-  # the proxy source.
-
-  if (! $ENV{SSL_CLIENT_VERIFY} && ! $ENV{HTTPS}
-      && grep($ENV{REMOTE_HOST} eq $_, qw(cms.cern.ch cmslcgse02.cern.ch))
-      && ($ENV{HTTP_HTTPS} || 'nope') eq 'on'
-      && $ENV{HTTP_SSL_CLIENT_VERIFY})
-  {
-    my ($pre, $data, $post);
-    $ENV{HTTPS} = "on";
-    $ENV{SSL_CLIENT_VERIFY} = $ENV{HTTP_SSL_CLIENT_VERIFY};
-    if ($ENV{HTTP_SSL_CLIENT_S_DN})
-    {
-      $ENV{SSL_CLIENT_S_DN} = $ENV{HTTP_SSL_CLIENT_S_DN};
-    }
-    if ($ENV{HTTP_SSL_CLIENT_CERT})
-    {
-      my ($pre, $data, $post)
-        = ($ENV{HTTP_SSL_CLIENT_CERT} =~ /^(-+[A-Z ]+-+) (.*) (-+[A-Z ]+-+)$/);
-      $ENV{SSL_CLIENT_CERT} = "$pre\n" . join("\n", split(" ", $data)) . "\n$post\n";
-    }
-  }
-
   # Force redirect to https if using http
-  if ($$index{SECURE} && ($ENV{HTTPS} || 'nope') ne 'on')
-  {
-    print redirect(-url => $self->myurl("secure" => 1));
-    return;
+  if ($$index{SECURE} && !$$self{SECMOD}->isSecure()) {
+      print redirect(-uri => $self->myurl("fullurl" => 1, "secure" => 1, "view" => "my"));
+      return;
   }
-
+  
   # Check if the client's identity was verified
-  my $idurl = $self->myurl('page' => 'Administration::Identities');
-  if ($ENV{SSL_CLIENT_S_DN} && ($ENV{SSL_CLIENT_VERIFY} || '') eq 'SUCCESS')
+  if ($$self{SECMOD}->isAuthenticated())
   {
-    $$self{SSL_VERIFIED} = 1;
-    $$self{SSL_IDENTITY} = $ENV{SSL_CLIENT_S_DN};
-    $$self{SSL_CERT} = $ENV{SSL_CLIENT_CERT};
-    ($$self{USER_NAME}) = &dn_to_human_name($$self{SSL_IDENTITY});
-    $$self{SSL_MSG_STATUS} =
-      "<p><a href='$idurl'>" . &escapeHTML($$self{USER_NAME}) . "</a>";
-    $$self{SSL_MSG_CHANGE} =
-      " | <a href='" . $self->myurl("secure" => 0) . "'>Sign out</a></p>";
+    $$self{USER_NAME} = $$self{SECMOD}->getForename()." ".$$self{SECMOD}->getSurname();
+    $$self{LOGIN_MESSAGE} =
+	"<p>". &escapeHTML($$self{USER_NAME}) .
+	" | <a href='" . $self->myurl("secure" => 1, "fullurl" => 1, "SecModLogout" => 1, page=>"Info::Main") . "'>Sign out</a></p>";
   }
   else
   {
-    $$self{SSL_VERIFIED} = 0;
-    $$self{SSL_IDENTITY} = undef;
-    $$self{DB_IDENTITY_ID} = undef;
-    $$self{SSL_CERT} = undef;
-    if (($ENV{HTTPS} || "nope") eq 'on')
-    {
-      $$self{SSL_MSG_STATUS} =
-       "<p><span class='dim'>Sign in</span> <a href='$idurl'>failed</a>";
-      $$self{SSL_MSG_CHANGE} =
-       " | <a href='" . $self->myurl("secure" => 0) . "'>Sign out</a></p>";
-    }
-    else
-    {
-      $$self{SSL_MSG_STATUS} =
-        "<p><span class='dim'>Not signed in</span>";
-      $$self{SSL_MSG_CHANGE} =
-        " | <a href='" . $self->myurl("secure" => 1) . "'>Sign in</a></p>";
-    }
+      $$self{DB_IDENTITY_ID} = undef;
+      $$self{LOGIN_MESSAGE} = 
+	  "<p>Sign in ".
+	  "<a href='" . $self->myurl("secure" => 1, "view" => "my") . "'>via Cert</a> or ".
+	  "<a href='" . $self->myurl("secure" => 1, "view" => "my", "SecModPwd" => 1) . "'>via Password</a>".
+	  "</p>";
   }
+  $$self{LOGIN_MESSAGE} .= "<p>Login State:  ". $$self{SECMOD}->getAuthnState()."</p>";
+
 
   # Check whether we are looking at our vs. global view
-  if (! $$self{SSL_VERIFIED})
+  if (! $$self{SECMOD}->isAuthenticated() )
   {
       $$self{MY_VIEW} = 0;
       param('view', 'global');
@@ -2149,7 +2084,7 @@ sub generate
        "</div>" : ""),
     'IDENTITY' =>
       (" <div>\n" .
-       "$$self{SSL_MSG_STATUS}$$self{SSL_MSG_CHANGE}\n" .
+       "$$self{LOGIN_MESSAGE}\n" .
        " </div>"),
     'MYPAGE' => "<div>$$self{VIEW_MESSAGE}</div>",
   };
@@ -2182,9 +2117,7 @@ sub generate
 	}
 
 	# Fetch the user ID from the DB, if we can
-	$$self{DB_IDENTITY_ID} = $self->fetch_identity_id($$self{SSL_IDENTITY});
-	# Set other PhEDEx authorization variables
-	$self->set_auth_vars();
+	$$self{DB_IDENTITY_ID} = $self->fetch_identity_id($$self{SECMOD}->getDN());
       };
       if ($@)
       {
@@ -2258,7 +2191,12 @@ sub generate
     $result =~ s/\@$key\@/$value/g;
   }
 
-  print header(-type => 'text/html'), $result;
+  # We need to set a cookie, if the security module orders us too
+  if(( my $cookie = $$self{SECMOD}->getCookie() )) {
+      print header(-type => 'text/html',-cookie => $cookie), $result;
+  } else {
+      print header(-type => 'text/html'), $result;
+  }
 }
 
 
@@ -2291,7 +2229,7 @@ sub output
     next if ! ${$$toc}{LIST};
     my $type = *{$toc}{PACKAGE};
     print { $$self{CONTENT} }
-      (${$$toc}{ORDER} % 4 ? "" : "<p style='clear: left'></p>\n"),
+      (${$$toc}{ORDER} % 3 ? "" : "<p style='clear: left'></p>\n"),
       "<div class='toc'>\n",
       " <h2>", &escapeHTML(${$$toc}{TITLE}), "</h2>\n",
       " <ul>\n";
@@ -2334,9 +2272,6 @@ our $TOC = { LIST => 1, ORDER => 4, TITLE => "Components" }; 1;
 
 package Web25::Reports; use strict; use warnings; use base "Exporter";
 our $TOC = { LIST => 1, ORDER => 5, TITLE => "Reports" }; 1;
-
-package Web25::Administration; use strict; use warnings; use base "Exporter";
-our $TOC = { LIST => 1, ORDER => 6, TITLE => "Administration" }; 1;
 
 
 ######################################################################
@@ -2407,15 +2342,15 @@ sub logClientInfo
 
     # Is there a case for logging anonymous access?
     # If so we will want to change this function...
-    if (!$$self{SSL_IDENTITY}) { return undef; }
+    if (!$$self{SECMOD}->getDN()) { return undef; }
 
     my $identity = $$self{DB_IDENTITY_ID};
     if (!$identity) {
 	$identity = &makeObjWithAttrs
 	    ($$self{DBH}, "adm_identity", "identity", {},
-	     "Distinguished name" => $$self{SSL_IDENTITY},
+	     "Distinguished name" => $$self{SECMOD}->getDN(),
 	     "E-mail" => $self->create_default_email(),
-	     "Certificate" => $$self{SSL_CERT});
+	     "Certificate" => $$self{SECMOD}->getCert());
     }
 
     my $cid = &makeObjWithAttrs
@@ -2608,7 +2543,7 @@ sub output
           on t.person = ia.identity
       where ia.name = 'Distinguished name'
         and ia.value = :client_dn},
-      ":client_dn" => $$self{SSL_IDENTITY});
+      ":client_dn" => $$self{SECMOD}->getDN());
 
     $qreq = &dbexec($$self{DBH}, qq{
       select req.state, count(req.id)
@@ -2620,7 +2555,7 @@ sub output
       where ia.name = 'Distinguished name'
         and ia.value = :client_dn
       group by req.state},
-      ":client_dn" => $$self{SSL_IDENTITY});
+      ":client_dn" => $$self{SECMOD}->getDN());
 
     $qsite = &dbexec($$self{DBH}, qq{
       select req.state, count(req.id)
@@ -2638,7 +2573,7 @@ sub output
 	   and ia.name = 'Distinguished name'
 	   and ia.value = :client_dn)
 	 group by req.state},
-	 ":client_dn" => $$self{SSL_IDENTITY});
+	 ":client_dn" => $$self{SECMOD}->getDN());
   }
   else
   {
@@ -3320,19 +3255,10 @@ sub create_check_identity
   return if $$bad;
 
   # Make sure this page can be used
-  if (! $self->alert_auth('need' => 'anycert', 'power' => 'create a transfer request'))
+  if (! $self->alert_auth('need' => 'gridcert', 'power' => 'create a transfer request'))
   {
     $$bad = 1;
     return;
-  }
-
-  if (! $$self{SSL_VERIFIED})
-  {
-    warning($self,
-	    "Your identity has not been verified.  The certificate",
-	    " presented by your web browser is not a recognised grid",
-	    " certificate.  For now you are still allowed to create",
-	    " a transfer request.");
   }
 }
 
@@ -3696,7 +3622,7 @@ sub output
   "change your request, use the back button in your browser.</p>",
   "<h1>Request Information</h1>",
   "<div class='nice'>",
-  "<label>Requestor:</label><span class='labeled'>$$self{SSL_IDENTITY}</span><br/>",
+  "<label>Requestor:</label><span class='labeled'>$$self{SECMOD}->getDN()</span><br/>",
   "<label>email:</label><span class='labeled'>$email</span><br/>",
   "<label>DBS:</label><span class='labeled'>$dbs</span><br/>",
   "<label>Data:</label><span class='labeled'>", join('<br/>', @data), "</span><br/>",
@@ -3970,7 +3896,7 @@ You may wish to take note of the following new transfer request:
 
 * Requestor:
    Name:  $$self{USER_NAME}
-   DN: $$self{SSL_IDENTITY}
+   DN: $$self{SECMOD}->getDN()
    Host: $ENV{HTTP_X_FORWARDED_FOR}
    Agent: @{[user_agent()]}
 
@@ -6733,7 +6659,7 @@ sub deletion_form
     
     "<form class='nice' method='post' action='$del_url'>";
 
-    if ($$self{AUTH_GLOBAL_ADMIN}) {
+    if ($$self{SECMOD}->hasRole('Global Admin', 'phedex')) {
 	print {$$self{CONTENT}}
 	"<label>Nodes:</label>",
 	"<div class='labeled'  style='font-size:8pt;width:450px;height:150px;overflow:scroll;border:thin solid black;' >",
@@ -7278,446 +7204,6 @@ sub output
 1;
 
 ######################################################################
-package Web25::Administration::SignUp;
-use strict; use warnings;
-use base "Web25::Page";
-import Web25::Common;
-use CGI qw(:standard);
-
-our $INDEX = { LIST => 1, ORDER => 1, TITLE => "Sign Up",
-	       LINK_TITLE => "Sign up to be a transfer administrator",
-	       SECURE => 1 };
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub output
-{
-  my ($self) = @_;
-
-  # Check if user has certificate loaded
-  my $adminok = $self->alert_auth(need => 'gridcert', power => 'sign up to be a transfer administrator');
-  unless ($adminok) { return; }
-
-  # Display the apporpriate part of this page
-  if (!param('signup')) {
-      $self->signup_form();
-  } else {
-      $self->send_request();
-  }
-}
-
-
-sub signup_form
-{
-    my ($self) = @_;
-    
-    my $name = $$self{USER_NAME};
-    my $client_dn = $$self{SSL_IDENTITY};
-    my $email = $self->create_default_email();
-    
-    my $actionurl = $self->myurl();
-    print { $$self{CONTENT} } "<form class='nice' method='post' action='$actionurl'>";
-    print { $$self{CONTENT} } "<h1>Admin Registration</h1>",
-    "<p>Fill in the requested information and choose the sites ",
-    "you would like to be authorized to administer.  Your request will be ",
-    "emailed to existing site administrators and PhEDEx global admins for ",
-    "approval.</p>";
-    
-    print { $$self{CONTENT} } 
-    "<fieldset><legend>Certificate Parameters</legend>",
-    "<label>Name:</label><span class='labeled'>$name</span><br/>",
-    "<label>Distinguished Name:</label><span class='labeled'>$client_dn</span><br/>",
-    "<label>Certificate email:</label><span class='labeled'>$email</span><br/>",
-    "</fieldset>";
-    
-    print { $$self{CONTENT} } 
-    "<fieldset><legend>Registration Information</legend>",
-    "<label>Preferred email:</label>", textfield(-class=>'labeled',-name=>'pref_email', -value=>$email),"<br/>",
-    "</fieldset>";
-    
-    print { $$self{CONTENT} } "<h2>Sites:</h2>";
-    my $sql = qq[ select s.id, s.name, s.role_name, n.name
-		  from t_adm_site s join t_adm_site_node sn on s.id = sn.site
-		  join t_adm_node n on n.id = sn.node ];
-    
-    my $q = &dbexec($$self{DBH}, $sql);
-    my $sites = {};
-    while (my ($id, $site, $role, $node) = $q->fetchrow_array) {
-	if (!exists $sites->{$site}) {
-	    $sites->{$site} = {site => $site, id => $id, role => $role, nodes => $node };
-	} else {
-	    $sites->{$site}->{nodes} = join ', ', $sites->{$site}->{nodes}, $node;
-	}
-    }
-    my $table = new Web25::TableSpool;
-    $table->set_filehandle( $$self{CONTENT} );
-    $table->set_tablecols([qw(select site role nodes)]);
-    $table->set_tablehead({
-	select => 'Select',
-	site => 'Site Name',
-	role => 'Database Role',
-	nodes => 'Nodes'
-	});
-    $table->set_tableclass('data');
-    $table->add_pseudocolumn('select', sub { &striplabels(checkbox(-name=>'sites', 
-								   -value=>"$_[1]->{site}",
-								   -label=>'')) });
-    $table->start();
-    $table->head();
-    foreach(sort keys %{$sites}) {
-	$table->row($sites->{$_});
-    }
-    $table->finish();
-    
-    print { $$self{CONTENT} } 
-    "<br/><label>(Optional) Comment:</label>", 
-    textarea(-name=>'comment',
-	     -class=>'labeled',
-	     -rows=>5,
-	     -cols=>50),
-    "<br/><br/>",
-    submit(-name=>'signup', value=>'Submit'),
-    "</form>";
-}
-
-
-sub send_request
-{
-    my ($self) = @_;
-
-    # Get User Info
-    my $name = $$self{USER_NAME};
-    my $client_dn = $$self{SSL_IDENTITY};
-    my $email = $self->create_default_email();
-    my $pref_email = param('pref_email');
-    my @sites = param('sites');
-    my $comment = param('comment');
-
-    # Check required params
-    unless (@sites) {
-	$self->alert("You need to choose a site from the list.  Please go back and choose a site.");
-	return;
-    }
-
-    # Get a hash of sites => nodes
-    my %site_nodes = $self->fetch_sites();
-
-    # Get the list of Global admins
-    my %global_admins = $self->fetch_users(global_admins=>1);
-    if (!%global_admins) {
-	alert("Sorry, the request cannot be created.",
-	      "The database does not contain any global admins.",
-	      "Please contact the PhEDEx developers  about this!"); 
-	return;
-    }
-    my @global_admin_mails;
-    push @global_admin_mails, $$_{EMAIL} foreach values %global_admins;
-    
-    # Get the list of existing site admins
-    my %site_admins = $self->fetch_users(admin_of => \@sites);
-    my @site_admin_mails;
-    push @site_admin_mails, $$_{EMAIL} foreach values %site_admins;
-
-    my $message =<<ENDEMAIL;
-Greetings PhEDEx Global Admin,
-
-There has been a request from $name to become a site administrator.  Here are the details of the request:
-
-Name:               '$name'
-Certificate DN:     '$client_dn'
-Certificate Email:  '$email'
-Preferred Email:    '$pref_email'
-Sites ([Site Name]:  [Nodes])
-ENDEMAIL
-
-foreach my $site (@sites) {
-    my $nodes = join(', ' , @{$site_nodes{$site}});
-    $message .= "  $site:  $nodes\n";
-}
-    
-    if ($comment) {
-	$message .= "\n$name also had the following comment:\n\n\"$comment\"\n";
-    }
-
-    if (%site_admins) {
-	$message .= "\nNote that the following sites already have a site admin:\n\n";
-	foreach (keys %site_admins) {
-	    my $name = &dn_to_human_name($_);
-	    my @admin_sites = @{$site_admins{$_}->{SITES}};
-	    $message .= "  @admin_sites:  $name\n";
-	}
-	$message .= "\nAnd they have been CCed in this mail.\n";
-    }
-
-    $message .=<<ENDEMAIL;
-
-Yours Truly,
-   The PhEDEx Web SignUp Form
-ENDEMAIL
-
-      send_email(subject => "PhEDEx Administration Request",
- 		to => [ @global_admin_mails ],
- 		cc => [ @site_admin_mails ],
- 		from => "PhEDEx SignUp Form <cms-phedex-admins\@cern.ch>",
- 		message => $message );
-
-    print { $$self{CONTENT} } 
-    "<h1>Request Sent</h1>",
-    "<p>Your request has been emailed to the PhEDEx global admins and ",
-	"the existing site admins for their consideration.</p>";
-}
-
-1;
-
-######################################################################
-package Web25::Administration::Identities;
-use strict; use warnings;
-use base "Web25::Page";
-import Web25::Common;
-use CGI qw(:standard);
-import Web25::Request::CreateTools;
-
-our $INDEX = { LIST => 1, ORDER => 2, TITLE => "Identities",
-	       LINK_TITLE => "View registered users" };
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub output
-{
-  my ($self) = @_;
-
-  my $name = $$self{USER_NAME};
-  my $identity = $$self{DB_IDENTITY_ID};
-  my $client_dn = $$self{SSL_IDENTITY};
-  my $email = $self->create_default_email();
-  my %globals = $self->fetch_users(global_admins => 1);
-  my $signupurl = $self->myurl(page=>'Administration::SignUp');
-
-  print { $$self{CONTENT} } "<h1>Your Identity</h1>";
-  
-  if ($$self{SSL_VERIFIED} && $identity)
-  {
-      my @sites;
-      
-      if (grep $$_{ID} == $identity, values %globals) {
-	  push @sites, '<b>Global PhEDEx</b>';
-      } else {
-	  my %auth_sites = $self->fetch_sites(web_user_auth=>1);
-	  push @sites, sort keys %auth_sites;
-      }
-
-      if (!@sites) { push @sites, "Nothing"; }
-      
-      print { $$self{CONTENT} }
-      "<p>Hello $name, the PhEDEx website recognizes you!</p>",
-      "<div class='nice'>",
-      "<label>Your Certificate DN:</label><span class='labeled'>$client_dn</span><br/>",
-      "<label>Your Email:</label><span class='labeled'>$email</span><br/>",
-      "<label>Your Identity#:</label><span class='labeled'>$identity</span><br/>",
-      "<label>You Administer:</label><span class='labeled'>", join(', ', @sites),"</span><br/>",
-      "</div>",
-      "<p>You will be able to access privileged operations.</p>";
-  }
-  elsif ($$self{SSL_VERIFIED} && !$identity) 
-  {
-      print { $$self{CONTENT} }
-      "<p>Hello $name, the PhEDEx website <i>partially</i> recognizes you!</p>",
-      "<div class='nice'>",
-      "<label>Your Certificate DN:</label><span class='labeled'>$client_dn</span><br/>",
-      "<label>Your Email:</label><span class='labeled'>$email</span><br/>",
-      "</div>",
-      "<p>However, you are <b>not a registered user</b>.  You will only be able to access some privileged operations.  ",
-      "Please <a href='$signupurl'>sign up</a> if you require privileges!</p>";
-  }
-  elsif (($ENV{HTTPS} || "nope") eq 'on')
-  {
-      print { $$self{CONTENT} }
-      "<p>You are accessing this web site securely, but your identity",
-      "   could not be verified. To authenticate please <a",
-      "   href='http://lcg.web.cern.ch/LCG/users/registration/load-cert.html'",
-      "   >load your grid certificate into your browser</a> and authorise",
-      "  this web site to authenticate using the certificate.</p>",
-      " <p>You will be able to access only <i>unprivileged operations.</i></p>";
-  }
-  else
-  {
-      print { $$self{CONTENT} }
-      " <p>You are accessing this web site insecurely and unauthenticated.</p>",
-      " <p>You will be able to access only <i>unprivileged operations.</i></p>";
-  }
-  
-  print { $$self{CONTENT} } "<h1>Registered Users</h1>";
-
-  my $q = &dbexec($$self{DBH}, qq{
-    select dn.identity, dn.value dn, email.value email
-    from t_adm_identity_attr dn
-      left join t_adm_identity_attr email
-        on email.identity = dn.identity
-        and email.name = 'E-mail'
-    where dn.name = 'Distinguished name'
-    order by dn.identity});
-
-  my $table = new Web25::TableSpool;
-  $table->set_filehandle( $$self{CONTENT} );
-  $table->set_tableclass('data');
-  $table->set_stripeclass('stripe');
-  $table->set_tablecols([qw(NAME DN EMAIL SITE_ADMIN IDENTITY)]);
-  $table->set_tablehead({ NAME => 'Name',
-			  DN   => 'Distinguished name',
-			  EMAIL => 'E-mail',
-			  SITE_ADMIN => 'Admin of',
-			  IDENTITY => 'ID'
-			  });
-  
-  $table->add_pseudocolumn('NAME', sub { &dn_to_human_name($_[1]->{DN}); });
-
-  $table->start();
-  $table->head();
-  while (my $row = $q->fetchrow_hashref()) {
-      my @sites;
-      
-      if (grep $$_{ID} == $$row{IDENTITY}, values %globals) {
-	  push @sites, '<b>Global PhEDEx</b>';
-      } else {
-	  my %auth_sites = $self->fetch_sites(identity_auth=>$$row{IDENTITY});
-	  @sites = sort keys %auth_sites;
-      }
-
-      $$row{SITE_ADMIN} = join ', ', @sites;
-      $table->row($row);
-  }
-
-  $table->finish();
-
-}
-
-1;
-
-######################################################################
-package Web25::Administration::Admins;
-use strict; use warnings;
-use base "Web25::Page";
-import Web25::Common;
-use CGI qw(:standard);
-
-our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Administrators",
-	       LINK_TITLE => "Manage administrator privileges" };
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub output
-{
-  my ($self) = @_;
-  print { $$self{CONTENT} } "<p>This page not yet implemented.  Help is welcome!</p>";
-}
-
-1;
-
-######################################################################
-package Web25::Administration::Sites;
-use strict; use warnings;
-use base "Web25::Page";
-import Web25::Common;
-use CGI qw(:standard);
-
-our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Sites",
-	       LINK_TITLE => "Manage sites" };
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub output
-{
-  my ($self) = @_;
-  print { $$self{CONTENT} } "<p>This page not yet implemented.  Help is welcome!</p>";
-}
-
-1;
-
-######################################################################
-package Web25::Administration::Nodes;
-use strict; use warnings;
-use base "Web25::Page";
-import Web25::Common;
-use CGI qw(:standard);
-
-our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Nodes",
-	       LINK_TITLE => "Administer nodes" };
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub output
-{
-  my ($self) = @_;
-  print { $$self{CONTENT} } "<p>This page not yet implemented.  Help is welcome!</p>";
-}
-
-1;
-
-######################################################################
-package Web25::Administration::Links;
-use strict; use warnings;
-use base "Web25::Page";
-import Web25::Common;
-use CGI qw(:standard);
-
-our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Links",
-	       LINK_TITLE => "Administer links between nodes" };
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub output
-{
-  my ($self) = @_;
-  print { $$self{CONTENT} } "<p>This page not yet implemented.  Help is welcome!</p>";
-}
-
-1;
-
-
-
-######################################################################
 package Web25::Test::Test;
 use strict; use warnings;
 use base "Web25::Page";
@@ -7740,17 +7226,10 @@ sub output
 {
   my ($self) = @_;
   
-#   my %sites = $self->fetch_sites(web_user_auth=>1);
-#   &dump_var($$self{CONTENT}, 'sites', {%sites});
+  &dump_var($$self{CONTENT}, 'SecMod CERT', $$self{SECMOD}->getCert());
 
-#   my @nodes = $self->fetch_nodes(web_user_auth=>1);
-#   &dump_var($$self{CONTENT}, 'nodes', [@nodes]);
-
-#   my %dbses = $self->fetch_dbses(with_ids => 1);
-#   &dump_var($$self{CONTENT}, 'dbses', {%dbses});
-
-#   my %users = $self->fetch_users(global_admins => 1 );
-#   &dump_var($$self{CONTENT}, 'users', {%users});
+  my %nodes = $self->fetch_nodes(with_ids=>1, web_user_auth=>1);
+  &dump_var($$self{CONTENT}, 'nodes', {%nodes});
 
 }
 
