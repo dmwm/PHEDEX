@@ -20,7 +20,7 @@ sub new
 	$$params{TIMEOUT}     ||= 3600;         # Maximum execution time
 	
 	# Set argument parsing at this level.
-	$$options{'command=s'} = sub { push(@{$$params{COMMAND}}, split(/,/, $_[1])) };
+	$$options{'command=s'} = sub { $$params{COMMAND} = [ split(/,/, $_[1]) ] };
 	$$options{'jobs=i'}    = \$$params{NJOBS};
 	$$options{'timeout=i'} = \$$params{TIMEOUT};
 

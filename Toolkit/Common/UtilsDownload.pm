@@ -19,10 +19,14 @@ sub new
 	$$params{BATCH_FILES} ||= 1;            #ÊMax number of files per batch
 	
 	# Set argument parsing at this level.
-	$$options{'protocols=s'} = sub { push(@{$$params{PROTOCOLS}}, split(/,/, $_[1])) };
+	$$options{'protocols=s'} = sub { $$params{PROTOCOLS} = [ split(/,/, $_[1]) ]};
 
     # Parse additional options
     local @ARGV = @{$$master{BACKEND_ARGS}};
+    use Data::Dumper;
+    print STDERR "UtilsDownload ARGV = <@ARGV>\n";
+    print STDERR "  OPTIONS = \n", Dumper($options);
+    print STDERR "  PARAMS = \n", Dumper($params);
     Getopt::Long::Configure qw(default);
     &GetOptions (%$options);
 
@@ -30,6 +34,11 @@ sub new
     my $self = $class->SUPER::new();
     $$self{$_} = $$params{$_} for keys %$params;
     bless $self, $class;
+
+    print STDERR "UtilsDownload post configure: ARGV = <@ARGV>\n";
+    print STDERR "  SELF = \n", Dumper($self);
+    print STDERR "  OPTIONS = \n", Dumper($options);
+    print STDERR "  PARAMS = \n", Dumper($params);
 
 	# Remember various useful details.
 	$$self{MASTER} = $master;  #ÊMy owner
