@@ -1,0 +1,59 @@
+DBS MIGRATION README
+
+This describes briefly the programs used in the DBS2 Migration:
+
+
+DBSMappingFill
+
+Fills mapping tables in TMDB for dataset renaming and block renaming
+(t_migration_dataset_map and t_migration_block_map respectively).
+Takes a MIGRATION_FILE as input.  Connects to DBS2 and looks up every
+file associated with the "new" dataset path in MIGRATION_FILE and
+looks for it in TMDB's XT_ tables, and makes the associated dataset
+and block name maps.
+
+DBSReplicaSync
+DBSPostReplicaSync
+
+Updates DBS2 with replica information for every new dataset name in
+the MIGRATION_FILE.  DBSReplicaSync uses the XT_ tables for replicas
+and DBSPostReplicaSync uses the T_ (migrated) tables.
+
+MigrationFile.txt
+
+The file of datasets to be migrated.  Contains a mapping of old names
+to new names.  The old name column is not really used by these
+programs anymore, because it could not be relied upon to create
+mappings.  Nevertheless this is the official list.
+
+MigrationXcheck.sql
+
+So far a useless SQL with good intentions.
+
+OracleCreateMigrationMaps.sql
+
+Creates the t_migration_dataset_map and t_migration_block_map tables.
+
+phedex.py
+
+The Phedex API for this migration.  Very minimal functionality.
+
+README
+
+You're reading it.
+
+TMDBMigrationStats
+TMDBPostMigrationStats
+
+Performs a consistency check of DBS2 vs. TMDB.  Optionally lists file
+differences and replica differences.  TMDBMigrationStats uses the XT_
+tables of TMDB while TMDBPostMigrationStats uses the T_ tables.  Uses
+the MIGRATION_FILE to determine what datasets (new name) to look for.
+
+TMDBSelectiveMigration
+
+Moves data in TMDB from the XT_ tables to the T_ tables.  'copy-as-is'
+mode can be used for moving data without renaming it, while
+'copy-rename' mode uses the t_migration_*_map tables to rename data as
+it is copied over.  Use DBSMappingFill before using 'copy-rename'
+mode.
