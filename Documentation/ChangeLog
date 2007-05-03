@@ -1,3 +1,27 @@
+* Changes in PhEDEx 2.5.2
+
+ General changes:
+   - Prevent expiration of tasks in queue, for well working links.
+   - Partial fix to the memory leak in FileDownload (reduced leakage).
+   - Fixed an issue with partial paths being left over in TMDB.
+   - Improved argument checking for backends.
+   - Preparation for proper FTS backend, that allows per file tracking.
+     Full implementation scheduled for 2.5.3.
+   - PerfMonitor now can handle already compressed data, when compressing.
+   - TMDBInject will ignore T0 when called via CERN-SE. Injection into T0
+     will be done by providing the node name explicitly.
+   - BlockDLSUpdate can now handle DBS-2.
+   - Improved FileExporter config in template files.
+   - Documenation updates for some agents.
+
+ Web site changes:
+
+   - Not released in RPMs.
+
+ Schema changes:
+   - Improved agent feed-back to TMDB.
+
+
 * Changes in PhEDEx 2.5.1
 
  General changes:
