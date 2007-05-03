@@ -29,7 +29,8 @@ sub addJob
     my $job = { PID => 0, ACTION => $action, CMD => [ @cmd ], %{$jobargs || {}} };
     my $jobs = $$self{JOBS};
 
-    push (@$jobs, $job);
+    push (@$jobs, $job)
+        if ! $$job{DETACHED};
     $self->startJob($job)
 	if ($$job{DETACHED}
 	    || (scalar @cmd
