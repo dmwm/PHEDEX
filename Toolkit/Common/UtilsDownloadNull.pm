@@ -16,7 +16,7 @@ sub new
 
 	# Set my defaults where not defined by the derived class.
 	$$params{PROTOCOLS}   ||= [ 'srm' ];    # Accepted protocols
-	$$params{BATCH_FILES} ||= 100;          #ÊMax number of files per batch
+	$$params{BATCH_FILES} ||= 100;          # Max number of files per batch
 	
 	# Set argument parsing at this level.
 	$$options{'batch-files=i'} = \$$params{BATCH_FILES};

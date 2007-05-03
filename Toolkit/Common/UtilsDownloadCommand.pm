@@ -15,8 +15,8 @@ sub new
 
 	# Set my defaults where not defined by the derived class.
 	$$params{COMMAND}     ||= undef;        # Transfer command
-	$$params{NJOBS}       ||= 1;            #ÊMax number of parallel transfers
-	$$params{BATCH_FILES} ||= 1;            #ÊMax number of files per batch
+	$$params{NJOBS}       ||= 1;            # Max number of parallel transfers
+	$$params{BATCH_FILES} ||= 1;            # Max number of files per batch
 	$$params{TIMEOUT}     ||= 3600;         # Maximum execution time
 	
 	# Set argument parsing at this level.

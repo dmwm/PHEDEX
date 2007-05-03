@@ -15,7 +15,7 @@ sub new
     my @defcmd = qw(globus-url-copy -p 5 -tcp-bs 2097152);
 	$$params{PROTOCOLS}   ||= [ 'gsiftp' ]; # Accepted protocols
 	$$params{COMMAND}     ||= [ @defcmd ];  # Transfer command
-	$$params{NJOBS}       ||= 5;            #ÊMax number of parallel transfers
+	$$params{NJOBS}       ||= 5;            # Max number of parallel transfers
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);

@@ -16,8 +16,8 @@ sub new
 	# Set my defaults where not defined by the derived class.
 	$$params{PROTOCOLS}   ||= [ 'srm' ];    # Accepted protocols
 	$$params{COMMAND}     ||= [ 'srmcp' ];  # Transfer command
-	$$params{BATCH_FILES} ||= 10;           #ÊMax number of files per batch
-	$$params{NJOBS}       ||= 30;           #ÊMax number of parallel transfers
+	$$params{BATCH_FILES} ||= 10;           # Max number of files per batch
+	$$params{NJOBS}       ||= 30;           # Max number of parallel transfers
 	
 	# Set argument parsing at this level.
 	$$options{'batch-files=i'} = \$$params{BATCH_FILES};

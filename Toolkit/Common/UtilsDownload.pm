@@ -15,8 +15,8 @@ sub new
 
 	# Set my defaults where not defined by the derived class.
 	$$params{PROTOCOLS}   ||= undef;        # Transfer command
-	$$params{NJOBS}       ||= 1;            #ÊMax number of parallel transfers
-	$$params{BATCH_FILES} ||= 1;            #ÊMax number of files per batch
+	$$params{NJOBS}       ||= 1;            # Max number of parallel transfers
+	$$params{BATCH_FILES} ||= 1;            # Max number of files per batch
 	
 	# Set argument parsing at this level.
 	$$options{'protocols=s'} = sub { $$params{PROTOCOLS} = [ split(/,/, $_[1]) ]};
@@ -41,9 +41,9 @@ sub new
     print STDERR "  PARAMS = \n", Dumper($params);
 
 	# Remember various useful details.
-	$$self{MASTER} = $master;  #ÊMy owner
-	$$self{BOOTTIME} = time(); #Ê"Boot" time for this agent
-	$$self{BATCHID} = 0;       #ÊRunning batch counter
+	$$self{MASTER} = $master;  # My owner
+	$$self{BOOTTIME} = time(); # "Boot" time for this agent
+	$$self{BATCHID} = 0;       # Running batch counter
 
     # Locate the transfer wrapper script.
     $$self{WRAPPER} = $INC{"UtilsDownload.pm"};
