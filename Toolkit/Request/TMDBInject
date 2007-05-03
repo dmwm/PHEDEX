@@ -176,14 +176,18 @@ if ($args{SES})
     # Map storage elements to nodes.  If we have a choice of more than
     # one, discard tape nodes, but only if that leaves at least one
     # node.  If we have only tape nodes to match, keep them.
+    # T0 is a special case. We only accept injection here, if we are told
+    # explicitly by supplying a node name.
     foreach my $name (@{$args{SES}})
     {
-        my @match = grep($$_{SE_NAME} eq $name, @$all_nodes);
+        my @match = grep(defined $$_{SE_NAME}
+			 && $$_{SE_NAME} eq $name, @$all_nodes);
 	die "storage element $name not known to the database\n"
 	    if ! @match;
 	if (scalar @match > 1)
 	{
-	    my @notape = grep($$_{KIND} ne 'MSS', @match);
+	    my @notape = grep($$_{KIND} ne 'MSS'
+			      && $$_{NAME} ne 'T0_CERN_Export', @match);
 	    @match = @notape if @notape;
 	}
 
