@@ -45,7 +45,7 @@ sub startJob
     my ($self, $job) = @_;
     my $pid = undef;
 
-    $$job{PIPE} = new IO::Pipe;
+    $$job{PIPE} = new IO::Pipe if ! $$job{DETACHED};
     
     while (1)
     {
@@ -57,8 +57,11 @@ sub startJob
     if ($pid)
     {
 	# Parent, record this child process
-	$$job{PIPE}->reader();
-	fcntl(\*{$$job{PIPE}}, F_SETFL, O_NONBLOCK);
+	if (! $$job{DETACHED})
+	{
+	    $$job{PIPE}->reader();
+	    fcntl(\*{$$job{PIPE}}, F_SETFL, O_NONBLOCK);
+	}
 	$$job{PID} = $pid;
 	$$job{STARTED} = time();
 	$$job{BEGINLINE} = 1;
@@ -86,10 +89,13 @@ sub startJob
     {
 	# Child, execute the requested program
 	setpgrp(0,$$);
-	$$job{PIPE}->writer();
-	# Redirect STDOUT and STDERR of requested program to a pipe
-	open(STDOUT, '>>&', $$job{PIPE});
-	open(STDERR, '>>&', $$job{PIPE});
+	if (! $$job{DETACHED})
+	{
+	    $$job{PIPE}->writer();
+	    # Redirect STDOUT and STDERR of requested program to a pipe
+	    open(STDOUT, '>>&', $$job{PIPE});
+	    open(STDERR, '>>&', $$job{PIPE});
+	}
 	do {
 	   print STDERR "Cannot start @{$$job{CMD}}: $!\n";
 	   exit(255);
@@ -136,7 +142,6 @@ sub checkJobs
 	    push (@finished, $job);
 	}
 	elsif ($$job{PID} > 0
-	       && ! $$job{DETACHED}
 	       && $$job{TIMEOUT}
 	       && ($now - $$job{STARTED}) > $$job{TIMEOUT})
 	{
@@ -236,7 +241,7 @@ sub killAllJobs
 	my $now = time();
 	foreach (@{$$self{JOBS}})
 	{
-	    next if ! $$_{STARTED} || $$_{KILLING} || $$_{DETACHED};
+	    next if ! $$_{STARTED} || $$_{KILLING};
 	    $$_{TIMEOUT} = $now - $$_{STARTED} - 1;
 	    $$_{TIMEOUT_GRACE} = 30;
 	    $$_{KILLING} = 1;
@@ -256,13 +261,12 @@ sub pumpJobs
     # Invoke actions on completed jobs
     foreach my $job ($self->checkJobs())
     {
-	next if $$job{DETACHED};
 	&{$$job{ACTION}} ($job);
     }
 
     # Start new jobs if possible
     my $jobs = $$self{JOBS};
-    my $running = grep ($$_{PID} > 0 && ! $$_{DETACHED}, @$jobs);
+    my $running = grep ($$_{PID} > 0, @$jobs);
     foreach my $job (@$jobs)
     {
 	next if ! @{$$job{CMD}};
