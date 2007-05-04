@@ -77,6 +77,7 @@ sub parseDatabaseInfo
 sub connectToDatabase
 {
     my ($self, $identify) = @_;
+    my $newconn = 0;
 
     # If we have database configuration file, read it
     &parseDatabaseInfo ($self) if ($$self{DBCONFIG} && ! $$self{DBH_DBNAME});
@@ -133,6 +134,7 @@ sub connectToDatabase
 	$$self{DBH} = $dbh;
 	$$dbh{private_phedex_invalid} = 0;
 	$$dbh{private_phedex_prefix} = $$self{DBH_SCHEMA_PREFIX};
+	$newconn = 1;
     }
 
     # Reset statement cache
@@ -146,7 +148,7 @@ sub connectToDatabase
     # The caller is in charge of committing or rolling back on
     # any errors raised.
     &updateAgentStatus ($self, $dbh);
-    &identifyAgent ($self, $dbh);
+    &identifyAgent ($self, $dbh, $newconn);
     &checkAgentMessages ($self, $dbh);
 
     return $dbh;
@@ -186,27 +188,35 @@ sub disconnectFromDatabase
 # PhEDEx distribution version, the CVS revision and tag of the file.
 sub identifyAgent
 {
-    my ($self, $dbh) = @_;
-    return if $$self{DBH_AGENT_IDENTIFIED}{$$self{MYNODE}};
+    my ($self, $dbh, $newconn) = @_;
 
-    # Identify agent start-up into the logging table.
-    my $now = &mytimeofday();
-    my ($ident) = qx(ps -p $$ wwwwuh 2>/dev/null);
-    chomp($ident) if $ident;
-    &dbexec($dbh, qq{
-	insert into t_agent_log
-	(time_update, reason, host_name, user_name, process_id,
-	 working_directory, state_directory, message)
-	values
-	(:now, 'AGENT STARTED', :host_name, :user_name, :process_id,
-	 :working_dir, :state_dir, :message)},
-	":now" => $now,
-	":host_name" => $$self{DBH_ID_HOST},
-	":user_name" => scalar getpwuid($<),
-	":process_id" => $$,
-	":working_dir" => &getcwd(),
-	":state_dir" => $$self{DROPDIR},
-	":message" => $ident);
+    # If we have a new database connection, log agent start-up and/or
+    # new database connection into the logging table.
+    if ($newconn)
+    {
+	my $now = &mytimeofday();
+	my ($ident) = qx(ps -p $$ wwwwuh 2>/dev/null);
+	chomp($ident) if $ident;
+	&dbexec($dbh, qq{
+	    insert into t_agent_log
+	    (time_update, reason, host_name, user_name, process_id,
+	     working_directory, state_directory, message)
+	    values
+	    (:now, :reason, :host_name, :user_name, :process_id,
+	     :working_dir, :state_dir, :message)},
+	    ":now" => $now,
+	    ":reason" => ($$self{DBH_AGENT_IDENTIFIED}{$$self{MYNODE}}
+			  ? "AGENT RECONNECTED" : "AGENT STARTED"),
+	    ":host_name" => $$self{DBH_ID_HOST},
+	    ":user_name" => scalar getpwuid($<),
+	    ":process_id" => $$,
+	    ":working_dir" => &getcwd(),
+	    ":state_dir" => $$self{DROPDIR},
+	    ":message" => $ident);
+    }
+
+    # Avoid re-identifying ourselves further if already done.
+    return if $$self{DBH_AGENT_IDENTIFIED}{$$self{MYNODE}};
 
     # Get PhEDEx distribution version.
     my $distribution = undef;
