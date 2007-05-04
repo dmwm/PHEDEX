@@ -13,20 +13,16 @@ sub new
     my $options = shift || {};
     my $params = shift || {};
 
-	# Set my defaults where not defined by the derived class.
-	$$params{PROTOCOLS}   ||= undef;        # Transfer command
-	$$params{NJOBS}       ||= 1;            # Max number of parallel transfers
-	$$params{BATCH_FILES} ||= 1;            # Max number of files per batch
+    # Set my defaults where not defined by the derived class.
+    $$params{PROTOCOLS}   ||= undef;        # Transfer command
+    $$params{NJOBS}       ||= 1;            # Max number of parallel transfers
+    $$params{BATCH_FILES} ||= 1;            # Max number of files per batch
 	
-	# Set argument parsing at this level.
-	$$options{'protocols=s'} = sub { $$params{PROTOCOLS} = [ split(/,/, $_[1]) ]};
+    # Set argument parsing at this level.
+    $$options{'protocols=s'} = sub { $$params{PROTOCOLS} = [ split(/,/, $_[1]) ]};
 
     # Parse additional options
     local @ARGV = @{$$master{BACKEND_ARGS}};
-    use Data::Dumper;
-    print STDERR "UtilsDownload ARGV = <@ARGV>\n";
-    print STDERR "  OPTIONS = \n", Dumper($options);
-    print STDERR "  PARAMS = \n", Dumper($params);
     Getopt::Long::Configure qw(default);
     &GetOptions (%$options);
 
@@ -35,15 +31,10 @@ sub new
     $$self{$_} = $$params{$_} for keys %$params;
     bless $self, $class;
 
-    print STDERR "UtilsDownload post configure: ARGV = <@ARGV>\n";
-    print STDERR "  SELF = \n", Dumper($self);
-    print STDERR "  OPTIONS = \n", Dumper($options);
-    print STDERR "  PARAMS = \n", Dumper($params);
-
-	# Remember various useful details.
-	$$self{MASTER} = $master;  # My owner
-	$$self{BOOTTIME} = time(); # "Boot" time for this agent
-	$$self{BATCHID} = 0;       # Running batch counter
+    # Remember various useful details.
+    $$self{MASTER} = $master;  # My owner
+    $$self{BOOTTIME} = time(); # "Boot" time for this agent
+    $$self{BATCHID} = 0;       # Running batch counter
 
     # Locate the transfer wrapper script.
     $$self{WRAPPER} = $INC{"UtilsDownload.pm"};
