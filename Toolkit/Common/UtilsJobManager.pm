@@ -13,7 +13,7 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my %args = (@_);
-    my $self = { NJOBS => $args{NJOBS} || 1, JOBS => [] };
+    my $self = { NJOBS => $args{NJOBS} || 1, JOBS => [], DJOBS => [] };
     bless $self, $class;
     return $self;
 }
@@ -28,9 +28,11 @@ sub addJob
     my ($self, $action, $jobargs, @cmd) = @_;
     my $job = { PID => 0, ACTION => $action, CMD => [ @cmd ], %{$jobargs || {}} };
     my $jobs = $$self{JOBS};
-
-    push (@$jobs, $job)
-        if ! $$job{DETACHED};
+    my $djobs = $$self{DJOBS};
+    
+    push (@$djobs, $job) if $$job{DETACHED};
+    push (@$jobs, $job) if ! $$job{DETACHED};
+    
     $self->startJob($job)
 	if ($$job{DETACHED}
 	    || (scalar @cmd
@@ -263,6 +265,15 @@ sub pumpJobs
     {
 	&{$$job{ACTION}} ($job);
     }
+    
+    # Check detached jobs and prevent Zombies
+    my @left = ();
+    foreach my $djob (@{$$self{DJOBS}})
+    {
+	push (@left, $djob) if
+	    waitpid ($$djob{PID}, WNOHANG) == 0;
+    }
+    $$self{DJOBS} = \@left;
 
     # Start new jobs if possible
     my $jobs = $$self{JOBS};
