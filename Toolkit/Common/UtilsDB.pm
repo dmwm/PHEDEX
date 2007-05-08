@@ -189,12 +189,12 @@ sub disconnectFromDatabase
 sub identifyAgent
 {
     my ($self, $dbh, $newconn) = @_;
+    my $now = &mytimeofday();
 
     # If we have a new database connection, log agent start-up and/or
     # new database connection into the logging table.
     if ($newconn)
     {
-	my $now = &mytimeofday();
 	my ($ident) = qx(ps -p $$ wwwwuh 2>/dev/null);
 	chomp($ident) if $ident;
 	&dbexec($dbh, qq{
