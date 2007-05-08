@@ -5,14 +5,14 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog.pl,v 1.8 2007/04/24 13:08:27 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.1 2007/05/04 13:51:33 metson Exp $:
 ###############################################################################
 
 use strict;
 use Getopt::Std;
 use Data::Dumper;
-use Date::Manip qw(ParseDate UnixDate ParseDateString);
 use Time::Local;
+use POSIX;
 
 my $flag_showErrors=0;
 my $flag_rawErrors=0;
@@ -93,17 +93,13 @@ if (defined $option{"h"}) {
 
 my ($dstart,$dend)=(0,1e20);
 if (defined $option{"s"}) {
-   my $tmp=ParseDate($option{"s"});
-   die "Error: Could not parse starting date: $option{s}\n" if (!$tmp);
-   $dstart=UnixDate($tmp,"%s");
-   #my ($s,$m,$h,$D,$M,$Y) = UnixDate($tmp,"%S","%M","%H","%d","%m","%Y");
-   #print "Starting Date: $Y $M $D  $h $m $s ($dstart)\n"; 
+   my $dstart=DateToUnixEpochSeconds($option{"s"});
+   die "Error: Could not parse starting date: $option{s}\n" if (!$dstart);
    $flag_checkdate=1; 
 }
 if (defined $option{"t"}) {
-   my $tmp=ParseDate($option{"t"});
-   die "Error: Could not parse end date: $option{t}\n" if (!$tmp);
-   $dend=UnixDate($tmp,"%s");
+   my $dend=DateToUnixEpochSeconds($option{"t"});
+   die "Error: Could not parse end date: $option{t}\n" if (!$dend);
    $flag_checkdate=1; 
 }
    
@@ -226,7 +222,7 @@ foreach my $log (@logfiles) {
 	my ($ora) = $line =~ m/(ORA-\d+.{40})/;
 	($date) = $line =~ m/^(\d+-\d+-\d+\s+\d+:\d+:\d+):/;
 	$dberrinfo{$ora}{num}++;
-	push @{$dberrinfo{$ora}{"date"}},UnixDate($date,"%s");
+	push @{$dberrinfo{$ora}{"date"}}, DateToUnixEpochSeconds($date,"%s");
       }
     }
 
@@ -361,7 +357,41 @@ sub printTimeHisto {
   my $h = shift;
 
   for(my $i=0;$i<= $#{@{$h->{value}}};$i++) {
-    printf("     %6d   %s\n",$h->{value}[$i],
-	   UnixDate(ParseDateString("epoch " . int($h->{xlabel}[$i])),"%Y-%m-%d %H:%M:%S"));
+    printf("     %6d   %s\n",$h->{value}[$i],    strftime("%Y-%m-%d %H:%M:%S",localtime($a));
   }
+}
+
+
+
+# This function I use to replace ParseDateString of
+# Date::Manip.
+# It can handle these formats:
+
+# my @tests= ("2007-05-08 09:28:22","1970-01-01 00:00:00",
+#	    "2007-05-08",
+# 	    "-4hours","- 1 hour",
+# 	    "-1 day", "-3days",
+# 	    "now","yesterday"
+# 	    );
+sub DateToUnixEpochSeconds {
+    my $date = shift;
+
+    my $unixs=undef;
+    my ($Y,$M,$D,$h,$m,$s)=(0,0,0,0,0,0);
+
+    if( (($Y,$M,$D,$h,$m,$s) = $date =~ m/\s*(\d+)-(\d+)-(\d+)\s*(\d+)?:?(\d+)?:?(\d+)?/) ) {
+	die "strange month number in date ($M)? Date was: $date\n"if $M < 0 or $M >12;
+	$unixs=strftime("%s",$s, $m, $h, $D, $M-1, $Y-1900, -1, -1, -1);
+    } elsif( (($D) = $date =~ m/\s*-\s*(\d+)\s*day/) ) {
+	$unixs = time() - 24*3600*$D;
+    } elsif( (($h) = $date =~ m/\s*-\s*(\d+)\s*hour/) ) {
+	$unixs = time() - 3600*$h;
+    } elsif( $date =~ /^\s*now\s*$/) {
+	$unixs = time();
+    } elsif( $date =~ /^\s*yesterday\s*$/) {
+	$unixs = time() - 24*3600;
+    } else {
+	die "Error: Unknown date format: $date\n";
+    }
+    return $unixs;
 }
