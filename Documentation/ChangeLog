@@ -2,6 +2,7 @@
 
  General changes:
    - Prevent expiration of tasks in queue, for well working links.
+     Definition of well working: More than 1 MB/s on average.
    - Partial fix to the memory leak in FileDownload (reduced leakage).
    - Fixed an issue with partial paths being left over in TMDB.
    - Improved argument checking for backends.
