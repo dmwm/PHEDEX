@@ -131,15 +131,20 @@ sub storageRules
 # Apply storage mapping rules to a file name.  See "storageRules" for details.
 sub applyStorageRules
 {
-    my ($rules, $proto, $dest, $chain, $name) = @_;
+    my ($rules, $proto, $dest, $chain, $givenname) = @_;
     foreach my $rule (@{$$rules{$proto}})
     {
+	my $name = $givenname;
+
 	next if (defined $$rule{'destination-match'}
 		 && $dest !~ m!$$rule{'destination-match'}!);
+
+	if (exists $$rule{'chain'} && $chain eq 'pre') {
+	    $name = &applyStorageRules($rules, $$rule{'chain'}, $dest, $chain, $name);
+	}
+
 	if ($name =~ m!$$rule{'path-match'}!)
 	{
-	    $name = &applyStorageRules($rules, $$rule{'chain'}, $dest, $chain, $name)
-	        if (exists $$rule{'chain'} && $chain eq 'pre');
 	    if (ref $$rule{'result'} eq 'CODE')
 	    {
 		&{$$rule{'result'}} ($name, $$rule{'path-match'});
@@ -149,9 +154,10 @@ sub applyStorageRules
 		eval "\$name =~ s!\$\$rule{'path-match'}!$$rule{'result'}!";
 	    }
 	    $name = &applyStorageRules($rules, $$rule{'chain'}, $dest, $chain, $name)
-	        if (exists $$rule{'chain'} && $chain eq 'post');
+		if (exists $$rule{'chain'} && $chain eq 'post');
 	    return $name;
 	}
+	
     }
 
     return undef;
