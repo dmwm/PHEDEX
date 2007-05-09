@@ -79,12 +79,21 @@ def warn(message):
 
 def getMappingByFile(filename):
   cur = phedex.con.cursor()
-  sql = """select ds.name, b.name, f.logical_name
+  if ( mode == 'copy-rename' or mode == 'copy-as-is' ):
+    sql = """select ds.name, b.name, f.logical_name
            from xt_dps_dataset ds
              join xt_dps_block b on b.dataset = ds.id
              join xt_dps_file f on f.inblock = b.id
              where f.logical_name = :filename
          """
+      
+  elif ( mode == 'in-place-rename' ):
+    sql = """select ds.name, b.name, f.logical_name
+           from t_dps_dataset ds
+             join t_dps_block b on b.dataset = ds.id
+             join t_dps_file f on f.inblock = b.id
+             where f.logical_name = :filename
+         """   
   cur.execute(sql, {'filename':filename})
   return cur.fetchone() 
 
@@ -123,14 +132,21 @@ parser = OptionParser(usage=usage)
 parser.add_option('-f', '--mapfile', dest='mapfile', help='Old dataset to New Dataset name mapping file')
 parser.add_option('-u', '--url', dest='url', help='DBS write URL')
 parser.add_option('-c', '--phedex_connect', dest='phedex_connect', help='PhEDEx connection string')
+parser.add_option('-m', '--migration_mode', dest='migration_mode', help='TMDB migration mode: <copy-rename> <copy-as-is> <in-place-rename>')
 (opts, args) = parser.parse_args()
 
-if not opts.url or not opts.mapfile or not opts.phedex_connect:
+if not opts.url or not opts.mapfile or not opts.phedex_connect or not opts.migration_mode:
   print "Missing arguments.  Seek help.  (-h)"
   sys.exit(0)
 
+if (opts.migration_mode != 'copy-rename' and opts.migration_mode != 'copy-as-is' and  opts.migration_mode !='in-place-rename'): 
+  print "Migration mode are: copy-rename or copy-as-is or in-place-rename"
+  sys.exit(0)
+  
 dbs = DbsApi({'url':  opts.url})
 phedex = PhedexApi(opts.phedex_connect)
+
+mode = opts.migration_mode 
 
 map = parseDatasetNameMap(opts.mapfile)
 tried = set()
