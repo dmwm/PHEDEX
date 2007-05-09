@@ -70,10 +70,6 @@ if (!$mode ||  !grep $mode eq $_, qw(copy-as-is copy-rename in-place-rename)) {
     die "Unknown mode, use -h for help.\n";
 }
 
-if ($mode eq 'in-place-rename') {
-    die "Mode in-place-rename is not finished yet";
-}
-
 if ((scalar @ARGV < 1 && !$file) || !$args{DBCONFIG})
 {
   die "Insufficient parameters, use -h for help.\n";
@@ -106,11 +102,20 @@ foreach my $dataset (@datasets) {
 	next;
     }
     print "Migrating $dataset...  ";
+    
     my ($n_ds, $n_b, $n_f) = &migrateFiles($dataset);
-    my ($n_br, $n_pb1, $n_pb2) = &migrateReplicas($dataset);
-    my ($n_s) = &migrateSubscriptions($dataset);
+    
+    if ($mode eq 'copy-as-is' || $mode eq 'copy-rename'){
+        my ($n_br, $n_pb1, $n_pb2) = &migrateReplicas($dataset);
+        my ($n_s) = &migrateSubscriptions($dataset);
+    }
+    
+    if ($mode eq 'in-place-rename'){
+        my ($n_reqds, $n_reqb) = &&migrateRequests($dataset);
+    }
+    
     if ($n_ds != 0) {
-	print "$n_ds datasets $n_b blocks $n_f files and $n_br block_replicas $n_pb2 xfer_replicas $n_s subscriptions\n";
+	print "$n_ds datasets $n_b blocks $n_f files and $n_br block_replicas $n_pb2 xfer_replicas $n_s subscriptions $n_reqds dataset request $n_reqb block requests\n";
     } else {
 	print "WARN:  Nothing to migrate";
     }
@@ -118,10 +123,11 @@ foreach my $dataset (@datasets) {
     $t_ds += $n_ds;  $t_b += $n_b;  $t_f += $n_f;
     $t_br += $n_br;  $t_pb1 += $n_pb1;  $t_pb2 += $n_pb2;
     $t_s += $n_s;
+    $t_reqds += $n_reqds; $t_reqb += $n_reqb;
 }
 
 my $msg = 
-    "$t_ds datasets $t_b blocks $t_f files and $t_br block_replicas $t_pb2 xfer_replicas $t_s subscriptions were migrated '$mode'.\n";
+    "$t_ds datasets $t_b blocks $t_f files and $t_br block_replicas $t_pb2 xfer_replicas $t_s subscriptions $t_reqds dataset request $t_reqb block requests were migrated '$mode'.\n";
 
 if ($commit_often) {
     print $msg;
@@ -219,7 +225,8 @@ sub migrateFiles()
 				 join t_dps_block nb on nb.name = ob.name
 				 join t_adm_node newn on newn.name = oldn.name
 				 where od.name = :dataset and dbs.name = :old_dbs };
-    } elsif ($mode eq 'copy-rename') {
+    } 
+    elsif ($mode eq 'copy-rename') {
 	$migrateDatasets = qq{ insert into t_dps_dataset
 				   select seq_dps_dataset.nextval, $dbs2id, temp.new, 'y', 'n', temp.time_create, temp.time_update
 				   from
@@ -253,11 +260,38 @@ sub migrateFiles()
 				join t_adm_node newn on newn.name = oldn.name
 				where nd.name = :dataset and old_dbs.name = :old_dbs
 			    };
+    }                            
+
+    elsif ($mode eq 'in-place-rename') {
+    
+       $migrateBlocks = qq{ update
+                            (select bm.new newname, ob.name oldname
+                              from t_migration_block_map bm
+                                join t_dps_block ob on bm.old=ob.name
+                                join t_dps_dataset od on ob.dataset=od.id                                  
+                                join t_migration_dataset_map dm on od.name=dm.old
+                              where dm.new = :dataset)
+                            set oldname = newname 
+                           };
+                                         
+        $migrateDatasets = qq{ update t_dps_dataset nod 
+                                set nod.name=:dataset, nod.dbs=$dbs2id
+                                where nod.name =
+                                 (select dm.old from t_migration_dataset_map dm
+                                 where dm.new = :dataset) 
+                             };
     }
 
-    my ($h1, $n_ds) = &dbexec($dbh, $migrateDatasets, ':dataset'=>$dataset, ':old_dbs' => $global_dbs1 );
-    my ($h2, $n_b)  = &dbexec($dbh, $migrateBlocks,   ':dataset'=>$dataset, ':old_dbs' => $global_dbs1 );
-    my ($h3, $n_f)  = &dbexec($dbh, $migrateFiles,    ':dataset'=>$dataset, ':old_dbs' => $global_dbs1 );
+    if ( $mode eq 'copy-as-is' || $mode eq 'copy-rename' ) {
+        my ($h1, $n_ds) = &dbexec($dbh, $migrateDatasets, ':dataset'=>$dataset, ':old_dbs' => $global_dbs1 );
+        my ($h2, $n_b)  = &dbexec($dbh, $migrateBlocks,   ':dataset'=>$dataset, ':old_dbs' => $global_dbs1 );
+        my ($h3, $n_f)  = &dbexec($dbh, $migrateFiles,    ':dataset'=>$dataset, ':old_dbs' => $global_dbs1 );
+    }
+    elsif ( $mode eq 'in-place-rename' ){
+        my ($h2, $n_b)  = &dbexec($dbh, $migrateBlocks,   ':dataset'=>$dataset );
+        my ($h1, $n_ds) = &dbexec($dbh, $migrateDatasets, ':dataset'=>$dataset );        
+        my $n_f=0;
+    }    
 
     return ($n_ds, $n_b, $n_f);
 }
@@ -399,3 +433,44 @@ sub migrateSubscriptions()
     my ($h1, $n_s) = &dbexec($dbh, $migrateSubscriptions, ':dataset'=>$dataset);
     return $n_s;
 }
+sub migrateRequests()
+{   
+    my $dataset = shift @_;
+    my $migrateReqBlocks;
+    my $migrateReqDatasets;
+    
+    if ($mode eq 'in-place-rename') {
+    
+       $migrateReqBlocks = qq{ update (select rbi.dataset olddsname, dm.new newdsname, 
+                                              rbi.block oldblockname, bm.new newblockname,
+                                              rbi.dbs
+                                        from t_req_info_block rbi
+                                        join t_dps_block nb on nb.name = rbi.block
+                                        join t_migration_block_map bm on nb.name=bm.new
+                                        join t_dps_dataset nd on nb.dataset=nd.id                                  
+                                        join t_migration_dataset_map dm on nd.name=dm.new
+                                        where dm.new = :dataset) 
+                               set 
+                                oldblockname = newblockname
+                                olddsname = newdsname
+                                rbi.dbs = $global_dbs2 
+                             };
+                                                   
+        $migrateReqDatasets = qq{ update t_req_info_dataset noreq
+                                set 
+                                 noreq.dataset = :dataset,         
+                                 noreq.dbs = $global_dbs2
+                                where noreq.dataset= 
+                                (select dm.old from t_migration_dataset_map dm
+                                 where dm.new = :dataset)               
+                                };
+    }
+
+    if ( $mode eq 'in-place-rename' ){
+        my ($h2, $n_reqb)  = &dbexec($dbh, $migrateReqBlocks, ':dataset'=>$dataset );
+        my ($h1, $n_reqds) = &dbexec($dbh, $migrateDatasets, ':dataset'=>$dataset );        
+    }    
+
+    return ($n_reqds, $n_reqb);
+}
+
