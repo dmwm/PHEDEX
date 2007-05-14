@@ -30,9 +30,31 @@ def replicaSync(dataset):
       raise Exception("TMDB has null storage element for node %s, cannot make replica " % (replica['node'], newblock))
 
     print "Adding replica %s (%s) to block %s" % (replica['se'], replica['node'], newblock)
-    dbs.addReplicaToBlock(newblock, replica['se'])
-   
+    dbs.addReplicaToBlock(newblock, replica['se'])   
 
+def removeWrongLocation(dataset):
+  print "\nRemoving block for the locations:\n"
+  print "dataset "+dataset
+  for replica in phedex.getOldMissLocation(dataset):
+
+    # Attempt to look up the changed block name from DBS2, keying on file name
+    newblock = dbs.listFiles(patternLFN=replica['keyfile'])
+    if not newblock:
+      raise Exception("Could not map block %s using keyfile %s" % (replica['name'], replica['keyfile']))
+    else:
+      newblock = newblock[0]['Block']['Name']
+
+    if replica['name'] != newblock:
+      print "Block Mapping %s -> %s" % (replica['name'], newblock)
+    else:
+      print "Block name %s is unchanged" % (newblock)
+
+    if not replica['se']:
+      raise Exception("TMDB has null storage element for node %s, cannot make replica " % (replica['node'], newblock))
+
+    print "Removing replica %s (%s) to block %s" % (replica['se'], replica['node'], newblock)
+    dbs.deleteReplicaFromBlock(newblock, replica['se'])
+    
 def parseDatasetNameMap(mapfile):
   map = {}
   f = open(mapfile)
@@ -66,6 +88,7 @@ map = parseDatasetNameMap(opts.mapfile)
 for dataset, newName in map.iteritems():
   try:
     replicaSync(dataset)
+    removeWrongLocation(dataset)
   except Exception, ex:
     print "ERROR:  ",ex
 
