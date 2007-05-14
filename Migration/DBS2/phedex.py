@@ -29,6 +29,28 @@ class PhedexApi:
                 blocks.append({'name':block})
             return blocks
         
+    def getMissLocation(self, dataset=None):
+ 	if not dataset: return []
+	
+	sql = ''' select b.name, n.name, n.se_name
+                    from t_dps_dataset ds
+                         join t_dps_block b on b.dataset = ds.id
+                         join t_dps_block_replica br on br.block = b.id
+                         join t_adm_node n on n.id = br.node
+                   where ds.name = :dataset and br.node_files < b.files
+                   order by ds.id, b.id, n.name
+              '''
+
+        cur = self.con.cursor()
+        cur.execute(sql, {'dataset': dataset})
+        data = cur.fetchall()
+        if not data:
+            raise Exception('%s Dataset replicated in all nodes' % dataset)
+        else:
+            blocks = []
+            for block, node, se in data:
+                blocks.append({'name':block, 'node':node, 'se':se})
+            return blocks
     
     def getBlockReplicas(self, dataset=None):
         if not dataset:  return []
@@ -38,7 +60,7 @@ class PhedexApi:
                          join t_dps_block b on b.dataset = ds.id
                          join t_dps_block_replica br on br.block = b.id
                          join t_adm_node n on n.id = br.node
-                   where ds.name = :dataset
+                   where ds.name = :dataset and br.node_files = b.files
                    order by ds.id, b.id, n.name
               '''
 
@@ -75,7 +97,31 @@ class PhedexApi:
             for block, keyfile in data:
                 blocks.append({'name':block, 'keyfile':keyfile})
             return blocks
-        
+
+    def getOldMissLocation(self, dataset=None):
+        if not dataset: return []
+
+        sql = ''' select b.name, n.name, n.se_name,
+			 (select logical_name from xt_dps_file where inblock=b.id and rownum=1) keyfile
+                    from xt_dps_dataset ds
+                         join xt_dps_block b on b.dataset = ds.id
+                         join xt_dps_block_replica br on br.block = b.id
+                         join xt_adm_node n on n.id = br.node
+                   where ds.name = :dataset and br.node_files < b.files
+                   order by ds.id, b.id, n.name
+              '''
+
+        cur = self.con.cursor()
+        cur.execute(sql, {'dataset': dataset})
+        data = cur.fetchall()
+        if not data:
+            raise Exception('%s Dataset replicated in all nodes' % dataset)
+        else:
+            blocks = []
+            for block, node, se, keyfile in data:
+                blocks.append({'name':block, 'node':node, 'se':se, 'keyfile':keyfile})
+            return blocks
+
     
     def getOldBlockReplicas(self, dataset=None):
         if not dataset:  return []
@@ -86,7 +132,7 @@ class PhedexApi:
                          join xt_dps_block b on b.dataset = ds.id
                          join xt_dps_block_replica br on br.block = b.id
                          join xt_adm_node n on n.id = br.node
-                   where ds.name = :dataset
+                   where ds.name = :dataset and br.node_files = b.files
                    order by ds.id, b.id, n.name
               '''
 
