@@ -37,7 +37,8 @@ class PhedexApi:
                          join t_dps_block b on b.dataset = ds.id
                          join t_dps_block_replica br on br.block = b.id
                          join t_adm_node n on n.id = br.node
-                   where ds.name = :dataset and br.node_files < b.files
+                   where ds.name = :dataset
+                     and ((br.dest_files > 0 and br.node_files < b.files) or (br.src_files > 0 and br.node_files < b.files))
                    order by ds.id, b.id, n.name
               '''
 
@@ -45,7 +46,7 @@ class PhedexApi:
         cur.execute(sql, {'dataset': dataset})
         data = cur.fetchall()
         if not data:
-            raise Exception('%s Dataset replicated in all nodes' % dataset)
+            raise Exception('Dataset replicated in all nodes: %s' % dataset)
         else:
             blocks = []
             for block, node, se in data:
@@ -107,7 +108,8 @@ class PhedexApi:
                          join xt_dps_block b on b.dataset = ds.id
                          join xt_dps_block_replica br on br.block = b.id
                          join xt_adm_node n on n.id = br.node
-                   where ds.name = :dataset and br.node_files < b.files
+                   where ds.name = :dataset 
+                         and ((br.dest_files > 0 and br.node_files < b.files) or (br.src_files > 0 and br.node_files < b.files))
                    order by ds.id, b.id, n.name
               '''
 
