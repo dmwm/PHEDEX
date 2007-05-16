@@ -17,11 +17,19 @@ def replicaSync(dataset):
     if not replica['se']:
       raise Exception("TMDB has null storage element for node %s, cannot make replica " % (replica['node'], replica['name']))
 
-    add_answer = raw_input("Do you want to add the replica %s (%s) to block %s to DBS? \nYes or No: " % (replica['se'], replica['node'], replica['name']))
+    while add_answer != 'Yes' and add_answer != 'No' and add_answer != 'Yes all' and add_answer != 'No all':
+      add_answer = raw_input("Do you want to add the replica %s (%s) to block %s to DBS? \n[ Yes | No | Yes all | No all ] : " % (replica['se'], replica['node'], replica['name']))
     if add_answer == 'Yes':
       print "Replica added %s (%s) to block %s" % (replica['se'], replica['node'], replica['name'])
-  #    dbs.addReplicaToBlock(replica['name'], replica['se'])
+      dbs.addReplicaToBlock(replica['name'], replica['se'])
+      add_answer = ''
     elif add_answer == 'No':
+      print "Replica %s (%s) to block %s not added to DBS" % (replica['se'], replica['node'], replica['name'])
+      add_answer = ''
+    elif add_answer == 'Yes all':
+      print "Replica added %s (%s) to block %s" % (replica['se'], replica['node'], replica['name'])
+      dbs.addReplicaToBlock(replica['name'], replica['se'])
+    elif add_answer == 'No all':
       print "Replica %s (%s) to block %s not added to DBS" % (replica['se'], replica['node'], replica['name'])
     else:
       print "Option not recognized"
@@ -37,14 +45,14 @@ def removeWrongLocation(dataset):
       rem_answer = raw_input("Do you want to remove replica %s (%s) to block %s from DBS? \n[ Yes | No | Yes all | No all ] : " % (replica['se'], replica['node'], replica['name'])) 
     if rem_answer == 'Yes':
       print "Removing replica %s (%s) to block %s" % (replica['se'], replica['node'], replica['name'])
-  #    dbs.deleteReplicaFromBlock(replica['name'], replica['se'])
+      dbs.deleteReplicaFromBlock(replica['name'], replica['se'])
       rem_answer = ''
     elif rem_answer == 'No':    
       print "Replica %s (%s) to block %s not removed from DBS" % (replica['se'], replica['node'], replica['name'])
       rem_answer = ''
     elif rem_answer == 'Yes all':
       print "Removing replica %s (%s) to block %s" % (replica['se'], replica['node'], replica['name'])
-  #    dbs.deleteReplicaFromBlock(replica['name'], replica['se'])
+      dbs.deleteReplicaFromBlock(replica['name'], replica['se'])
     elif rem_answer == 'No all':
       print "Replica %s (%s) to block %s not removed from DBS" % (replica['se'], replica['node'], replica['name'])
     else:
