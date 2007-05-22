@@ -145,7 +145,7 @@ dbs = DbsApi({'url':  opts.url})
 map = parseDatasetNameMap(opts.mapfile)
 t_tmdb, t_dbs = 0, 0
 
-print time.strftime('%Y-%M-%d %H:%M:%S')
+print time.strftime('%Y-%m-%d %H:%M:%S')
 print "STATSHEAD:  %s\t%s\t%s\t%s\t%s\t%s" % ("OldDSName", "NewDSName", "N_TMDB", "N_DBS", "DIFF", "FLAG")
 for dataset, newName in map.iteritems():
   try:
