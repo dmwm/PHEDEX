@@ -143,14 +143,18 @@ phedex = PhedexApi(opts.phedex_connect)
 dbs = DbsApi({'url':  opts.url})
 
 map = parseDatasetNameMap(opts.mapfile)
-t_tmdb, t_dbs = 0, 0
+flags = ('OK', 'NOTMDB', 'NODBS', 'NOTANYWHERE', 'MISMATCH', 'TOTALDBSFILES',
+         'TOTALTMDBFILES', 'MISFILETMDB', 'MISFILEDBS', 'MISREPTMDB', 'MISREPDBS')
+stats = {}
+for flag in flags:
+  stats[flag] = 0
 
 print time.strftime('%Y-%m-%d %H:%M:%S')
 print "STATSHEAD:  %s\t%s\t%s\t%s\t%s\t%s" % ("OldDSName", "NewDSName", "N_TMDB", "N_DBS", "DIFF", "FLAG")
 for dataset, newName in map.iteritems():
   try:
     n_tmdb, n_dbs = getStats(newName)
-    flag = "OK"
+    flag = ""
     if n_tmdb == 0 and n_dbs == 0:
       flag = "NOTANYWHERE"
     elif n_tmdb == 0:
@@ -159,31 +163,40 @@ for dataset, newName in map.iteritems():
       flag = "NODBS"
     elif (n_tmdb != n_dbs):
       flag = "MISMATCH"
-      
+    else:
+      flag = "OK"
+
+    stats[flag] += 1
+    stats['TOTALTMDBFILES'] += n_tmdb
+    stats['TOTALDBSFILES'] += n_dbs
+    
     print "STATS:  %s\t%s\t%s\t%s\t%s\t%s" % (dataset, newName, n_tmdb, n_dbs, n_tmdb-n_dbs, flag)
-    t_tmdb += n_tmdb;  t_dbs += n_dbs;
 
     if (flag == 'MISMATCH' and opts.diff_mismatch) or opts.diff_all:
       missing_dbs, missing_tmdb = fileDiff(newName)
       for file in missing_dbs:  print "FILEDIFF NODBS  %s" % file
       for file in missing_tmdb: print "FILEDIFF NOTMDB %s" % file
+      stats['MISFILETMDB'] += len(missing_tmdb)
+      stats['MISFILEDBS'] += len(missing_dbs)
 
-    if (opts.diff_rep):
+    if (opts.diff_rep and flag != 'NODBS' and flag != 'NOTMDB' and flag != 'NOTANYWHERE'):
       missing = replicaDiff(newName)
       if missing:
         for block in missing:
           if 'missing_dbs' in missing[block]:
             print "REPDIFF NODBS  %s %s" % (block, string.join(missing[block]['missing_dbs']))
+            stats['MISREPDBS'] += 1
           if 'missing_tmdb' in missing[block]:
             print "REPDIFF NOTMDB %s %s" % (block, string.join(missing[block]['missing_tmdb']))
+            stats['MISREPTMDB'] += 1
       else:
         print "REPDIFF OK %s %s" % (dataset, newName)
-
+        
   except Exception, ex:
     print "ERROR:  ",ex
     traceback.print_exc(file=sys.stdout)
 
-
-print "STATSTOTALS:  tmdb %s dbs %s" % (t_tmdb, t_dbs)
+for flag in flags:
+  print "TOTAL %s\t\t%i" % (flag, stats[flag])
 
 sys.exit(0)
