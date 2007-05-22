@@ -68,21 +68,14 @@ def fileDiff(dataset):
   
 
 def replicaDiff(dataset):
-  sql = """select n.name, n.se_name, b.name
-             from t_dps_dataset ds
-                  join t_dps_block b on b.dataset = ds.id
-                  join t_dps_block_replica br on br.block = b.id
-                  join t_adm_node n on n.id = br.node
-             where ds.name = :dataset and n.se_name is not null
-        """
-  cur = phedex.con.cursor()
-  cur.execute(sql, {'dataset':dataset})
-
+  
+  tmdb_blocks = phedex.getBlockReplicas(dataset)
   tmdb_replicas = {}
-  for node, se, block in cur.fetchall():
-    if block not in tmdb_replicas:
-      tmdb_replicas[block] = set()
-    tmdb_replicas[block].add(se)
+  for block in tmdb_blocks:
+    if not block['se']:  block['se'] = "NULLSE(%s)" % block['node']
+    if block['name']  not in tmdb_replicas:
+      tmdb_replicas[block['name']] = set()
+    tmdb_replicas[block['name']].add(block['se'])
 
   dbs_blocks = dbs.listBlocks(dataset)
   dbs_replicas = {}
@@ -95,13 +88,17 @@ def replicaDiff(dataset):
     
   missing = {}
   for block in set(tmdb_replicas.keys()).union(dbs_replicas.keys()):
+    missing[block] = {}
     if block in tmdb_replicas:  tmdb_selist = tmdb_replicas[block]
-    else:  tmdb_selist = set()
+    else:
+      missing[block]['missing_tmdb_block'] = 1
+      continue
     if block in dbs_replicas:  dbs_selist = dbs_replicas[block]
-    else:  dbs_selist = set()
+    else:
+      missing[block]['missing_dbs_block'] = 1
+      continue
     m_dbs = tmdb_selist - dbs_selist
     m_tmdb = dbs_selist - tmdb_selist
-    missing[block] = {}
     if m_dbs:
       missing[block]['missing_dbs'] = m_dbs
     if m_tmdb:
@@ -143,14 +140,17 @@ phedex = PhedexApi(opts.phedex_connect)
 dbs = DbsApi({'url':  opts.url})
 
 map = parseDatasetNameMap(opts.mapfile)
-flags = ('OK', 'NOTMDB', 'NODBS', 'NOTANYWHERE', 'MISMATCH', 'TOTALDBSFILES',
-         'TOTALTMDBFILES', 'MISFILETMDB', 'MISFILEDBS', 'MISREPTMDB', 'MISREPDBS')
+flags = ('OK', 'NOTMDB', 'NODBS', 'NOTANYWHERE', 'MISMATCH',
+         'TOTALDBSFILES', 'TOTALTMDBFILES',
+         'MISFILETMDB', 'MISFILEDBS',
+         'MISREPTMDB', 'MISREPDBS',
+         'MISBLOCKTMDB', 'MISBLOCKDBS')
 stats = {}
 for flag in flags:
   stats[flag] = 0
 
 print time.strftime('%Y-%m-%d %H:%M:%S')
-print "STATSHEAD:  %s\t%s\t%s\t%s\t%s\t%s" % ("OldDSName", "NewDSName", "N_TMDB", "N_DBS", "DIFF", "FLAG")
+print "HEAD:  %s\t%s\t%s\t%s\t%s\t%s" % ("FLAG", "OldDSName", "NewDSName", "N_TMDB", "N_DBS", "DIFF")
 for dataset, newName in map.iteritems():
   try:
     n_tmdb, n_dbs = getStats(newName)
@@ -170,25 +170,32 @@ for dataset, newName in map.iteritems():
     stats['TOTALTMDBFILES'] += n_tmdb
     stats['TOTALDBSFILES'] += n_dbs
     
-    print "STATS:  %s\t%s\t%s\t%s\t%s\t%s" % (dataset, newName, n_tmdb, n_dbs, n_tmdb-n_dbs, flag)
+    print "DATASET %s\t%s\t%s\t%s\t%s\t%s" % (flag, dataset, newName, n_tmdb, n_dbs, n_tmdb-n_dbs)
 
     if (flag == 'MISMATCH' and opts.diff_mismatch) or opts.diff_all:
       missing_dbs, missing_tmdb = fileDiff(newName)
-      for file in missing_dbs:  print "FILEDIFF NODBS  %s" % file
-      for file in missing_tmdb: print "FILEDIFF NOTMDB %s" % file
+      for file in missing_dbs:  print "FILE NODBS  %s" % file
+      for file in missing_tmdb: print "FILE NOTMDB %s" % file
       stats['MISFILETMDB'] += len(missing_tmdb)
       stats['MISFILEDBS'] += len(missing_dbs)
 
-    if (opts.diff_rep and flag != 'NODBS' and flag != 'NOTMDB' and flag != 'NOTANYWHERE'):
+    if (opts.diff_rep and (flag == 'OK' or flag == 'MISMATCH')):
       missing = replicaDiff(newName)
       if missing:
         for block in missing:
           if 'missing_dbs' in missing[block]:
-            print "REPDIFF NODBS  %s %s" % (block, string.join(missing[block]['missing_dbs']))
+            print "REPLICA NODBS %s %s" % (block, string.join(missing[block]['missing_dbs']))
             stats['MISREPDBS'] += 1
           if 'missing_tmdb' in missing[block]:
-            print "REPDIFF NOTMDB %s %s" % (block, string.join(missing[block]['missing_tmdb']))
+            print "REPLICA NOTMDB %s %s" % (block, string.join(missing[block]['missing_tmdb']))
             stats['MISREPTMDB'] += 1
+          if 'missing_dbs_block' in missing[block]:
+            print "BLOCK NODBS %s" % block
+            stats['MISBLOCKDBS'] += 1
+          if 'missing_tmdb_block' in missing[block]:
+            print "BLOCK NOTMDB %s" % block
+            stats['MISBLOCKTMDB'] += 1
+          
       else:
         print "REPDIFF OK %s %s" % (dataset, newName)
         
