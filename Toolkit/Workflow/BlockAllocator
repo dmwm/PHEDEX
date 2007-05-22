@@ -187,26 +187,28 @@ sub idle
 	    if $nrows > 0;
 
         # Mark fully transferred subscriptions as complete.  We consider
-	# a subscription completed if the dataset and all its blocks are
-	# known to be closed and all destinations have been fulfilled.
+	# a dataset subscription completed if the dataset and all its blocks are
+	# known to be closed and all destinations have been fulfilled
+	# and a block subscription completed if the block is known to be 
+	# closed and the destinations have been fulfilled with that block.
 	# We don't allow a subscription to be closed if no blocks have
 	# yet been registered for the dataset.  (FIXME: timelimit?)
 	($stmt, $nrows) = &dbexec ($dbh, qq{
 	    update t_dps_subscription s
 	    set time_complete = :now
-	    where time_complete is null
-	      and exists
-                (select b.id from t_dps_block b
-		 where (b.dataset = s.dataset or b.id = s.block))
-	      and not exists
-		(select 1 from t_dps_block_dest bd
-		 where (bd.dataset = s.dataset or bd.block = s.block)
-		   and bd.state != 3)
-	      and not exists
-      		(select 1 from t_dps_dataset ds, t_dps_block b
-	         where (b.dataset = s.dataset or b.id = s.block)
-		   and ds.id = b.dataset
-	   	   and not (ds.is_open = 'n' and b.is_open = 'n'))},
+             where time_complete is null
+	    and ((exists
+                  (select b.id from t_dps_block b
+                   where b.id = s.block and b.is_open='n')
+	         and not exists
+                  (select 1 from t_dps_block_dest bd
+                   where bd.block = s.block and bd.state != 3))
+	        or (exists
+		  (select 1 from t_dps_dataset ds 
+		   where ds.id = s.dataset and ds.is_open = 'n')
+                  and not exists
+                   (select 1 from t_dps_block_dest bd
+                   where bd.dataset = s.dataset and bd.state != 3)))},
 	    ":now" => &mytimeofday());
 	&logmsg ("$nrows subscriptions marked completed")
 	    if $nrows > 0;
