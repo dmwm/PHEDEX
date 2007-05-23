@@ -148,7 +148,7 @@ sub confirm
        	           and xsi.from_node is not null)
 	       or (xso.from_node is not null
        	           and xsi.from_node is not null))
-	/* order by priority asc, time_expire asc */},
+	 /* order by priority asc, time_expire asc */ },
 	":recent" => $now - 5400);
 
     while (! $finished)
@@ -213,6 +213,9 @@ sub makeTransferTask
     my $to_cat      = $self->catalogue($dbh, $cats, $to);
     my $protocol    = undef;
 
+   &logmsg ("From_Node: $from, To_Node: $to");
+
+
     # Find matching protocol.
     foreach my $p (@to_protos)
     {
@@ -220,6 +223,8 @@ sub makeTransferTask
 	$protocol = $p;
 	last;
     }
+
+    &logmsg ("Protocol: $protocol");
 
     # If this is MSS->Buffer transition, pretend we have a protocol.
     $protocol = 'srm' if ! $protocol && $$task{FROM_KIND} eq 'MSS';
