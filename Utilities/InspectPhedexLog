@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog,v 1.1 2007/05/04 13:51:33 metson Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.2 2007/05/08 13:09:30 dfeichti Exp $:
 ###############################################################################
 
 use strict;
@@ -181,6 +181,7 @@ foreach my $log (@logfiles) {
 	       $detail =~ s/\sauthRequestID \d+\s/authRequestID \[id\] /;
 	       $detail =~ s/RequestFileStatus#[\d-]+/RequestFileStatus#\[number\]/g;
 	       $detail =~ s/srm:\/\/[^\s]+/\[srm-URL\]/;
+	       $detail =~ s/at\s+\w{3}\s+\w{3}\s+\d+\s+\d+:\d+:\d+\s+CEST\s+\d+/at \[date\]/;
 	       if( $detail=~/^\s*$/) {$reason = "(No detail given)"}
 	       elsif( (($reason) = $detail =~ m/.*(the server sent an error response: 425 425 Can't open data connection).*/)) {}
 	       elsif( (($reason) = $detail =~ m/.*(the gridFTP transfer timed out).*/) ) {}
@@ -357,7 +358,7 @@ sub printTimeHisto {
   my $h = shift;
 
   for(my $i=0;$i<= $#{@{$h->{value}}};$i++) {
-    printf("     %6d   %s\n",$h->{value}[$i],    strftime("%Y-%m-%d %H:%M:%S",localtime($a));
+    printf("     %6d   %s\n",$h->{value}[$i],    strftime("%Y-%m-%d %H:%M:%S",localtime($a)));
   }
 }
 
