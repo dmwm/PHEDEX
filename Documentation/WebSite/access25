@@ -1,8 +1,11 @@
 #!/usr/bin/env perl
 
+our $TESTING = 1;
+
 # TODO: put in standard location
 use lib "/data/PHEDEX/Dev/egeland/WEBTOOLS/SecurityModule/perl/lib";
 use CMSWebTools::SecurityModule::Oracle;
+#use CMSWebTools::SecurityModule::SQLite;
 
 
 ######################################################################
@@ -22,10 +25,8 @@ our @EXPORT = qw(urlencode dblink toclink pagelink
 		 badcolor warncolor pendcolor goodcolor altcolor
 		 dbexec dbprep dbbindexec dbinlist makeObjWithAttrs
 		 timeSeries formatTime timegm sizeValue
-		 alert_auth
-                 fetch_identity_id set_auth_vars 
-		 fetch_dbses fetch_nodes fetch_sites fetch_users
-                 create_default_email send_email dn_to_human_name
+		 alert_auth fetch_nodes fetch_dbses fetch_identity
+                 send_email dn_to_human_name
 		 yesno striplabels
 		 dump_params dump_var
 		 parse_userdata dbs_lookup resolve_data
@@ -340,7 +341,7 @@ sub alert_auth
     my ($self, %args) = @_;
     my $need = $args{need};
     my $power = $args{power};
-    unless (grep $need eq $_, qw(gridcert registered siteadmin globaladmin)) { 
+    unless (grep $need eq $_, qw(gridcert siteadmin globaladmin)) { 
 	die "Bad requirement '$need' to auth function", $!; 
     }
 
@@ -352,11 +353,6 @@ sub alert_auth
 	$self->alert("You are not <a href='$gridcert_help_url'>authenticated with a valid grid certificate</a>.  ",
 		    "If you are logged in ",
 		    "it is possible to $power from this page.");
-	return 0;
-    } elsif ($need eq 'registered' && !$$self{DB_IDENTITY_ID} ) {
-	$self->alert("You are authenticated with a valid grid certificate but are not ",
-		    "<a href='$reg_url'>registered</a>.  If you are registered ",
-		    " it is possible to $power from this page.");
 	return 0;
     } elsif (($need eq 'siteadmin' || $need eq 'globaladmin') && ! $$self{SECMOD}->isCertAuthenticated() ) {
 	$self->alert("You are not <a href='$gridcert_help_url'>authenticated with a valid grid certificate</a>.  ",
@@ -379,30 +375,14 @@ sub alert_auth
 }
 
 
-# returns the ID number given a distinguished name
-sub fetch_identity_id
-{
-    my ($self, $client_dn) = @_;
-    return undef if (!$client_dn);
-
-     my ($id) = &dbexec($$self{DBH}, 
-			qq{ select identity
-				from t_adm_identity_attr ia
-				where ia.name  = 'Distinguished name'
-				and ia.value = :client_dn},
-			":client_dn" => $client_dn)->fetchrow_array();
-    return $id;
-}
-
-
 
 # Returns a list of nodes
 # If argument 'with_ids' is true, returns a hash of node_name => node_id
 # else it returns an array of nodes
 #
-# If either web_user_auth or identity_auth is set, then it returns nodes from
-# the t_adm_site_node table for which either the current user or the given
-# identity is authorized to admin
+# If either web_user_auth is set, first we check with the security
+# module to find out if the user is a Site Admin or a Global Admin of
+# phedex, then only return the nodes they are authorized for.
 #
 # Otherwise it returns from t_adm_node table, which contains all nodes.
 # The default behavior is to return an array of all nodes from t_adm_node.
@@ -410,121 +390,45 @@ sub fetch_nodes
 {
     my ($self, %args) = @_;
 
-    if (exists $args{web_user_auth} && $args{web_user_auth} ||
-	exists $args{identity_auth}) {
-	my %sites = $self->fetch_sites(%args);
-
-	if (exists $args{with_ids} && $args{with_ids}) {
-	    my %nodes;
-	    foreach my $site (keys %sites) {
-		while (my ($node, $node_id) = each %{$sites{$site}{NODES}}) {
-		    $nodes{$node} = $node_id;
-		}
-	    }
-	    return %nodes;
-	} else {
-	    my %nodes;
-	    foreach my $site (keys %sites) {
-		$nodes{$_} = 1  foreach @{$sites{$site}};
-	    }
-	    return keys %nodes;
+    my @auth_nodes;
+    if (exists $args{web_user_auth} && $args{web_user_auth}) {
+	my $roles = $$self{SECMOD}->getRoles();
+	my %node_map = $$self{SECMOD}->getPhedexNodeToSiteMap();
+	if (!$roles || (!$$roles{'Site Admin'} && !$$roles{'Global Admin'})) {
+	    &dump_var($$self{CONTENT}, 'Returning', $roles);
+	    return;
 	}
-    } else {
-	my $sql = qq{select name, id from t_adm_node};
-	my $q = &dbexec($$self{DBH}, $sql);
+
+	my $global_admin = (grep $_ = 'phedex', @{$$roles{'Global Admin'}}) || 0;
 	
-	my %nodes;
-	while (my ($node, $node_id) = $q->fetchrow()) {
+	# If the user is a site admin but not a global admin, get a
+	# list of nodes they are authorized for.  If they are a global
+	# admin we continue below where all nodes will be returned.
+	if ($$roles{'Site Admin'} && !$global_admin) {
+	    my @auth_sites = @{$$roles{'Site Admin'}};
+	    foreach my $node (keys %node_map) {
+		push @auth_nodes, $node if grep $node_map{$node} == $_, @auth_sites;
+	    }
+	}
+    }
+
+    my $sql = qq{select name, id from t_adm_node};
+    my $q = &dbexec($$self{DBH}, $sql);
+    
+    my %nodes;
+    while (my ($node, $node_id) = $q->fetchrow()) {
+	# Filter by auth_nodes if there are any
+	if (!@auth_nodes || grep $node == $_, @auth_nodes) {
 	    $nodes{$node} = $node_id;
 	}
-	if (exists $args{with_ids} && $args{with_ids}) {
-	    return %nodes;
-	} else {
-	    return keys %nodes;
-	}
     }
-}
-
-
-# Returns a hash of sites pointing to an array of nodes
-# Options are 'with_ids', 'identity_auth', 'web_user_auth', 'for_nodes', 'all'
-# Default behavior is to return all sites
-# if with_ids is true, the returned structure is 
-#   $sites{site_name} = { ID => site_id, NODES => { node_name => node_id } }
-# else the returned structure is $sites{site_name} = [ node_name ]
-# if 'identity_auth' is given, then only sites for which the given identity is the admin are returned
-# if 'web_user_auth' is true, then only sites for which the webpage user is the admin are returned
-# if for_nodes is true, then only sites containing the given list of nodes is returned
-sub fetch_sites
-{
-    my ($self, %args) = @_;
-    my ($with_ids, $identity, $all) = (0, undef, 1);  # Defaults
-    my @for_nodes;
-    if (exists $args{all})           { $all      = $args{all}; }
-    if (exists $args{with_ids})      { $with_ids = $args{with_ids}; }
-    if (exists $args{web_user_auth}
-	&& $args{web_user_auth})     { $identity = $$self{DB_IDENTITY_ID}; $all = 0; }
-    if (exists $args{identity_auth}) { $identity = $args{identity_auth}; $all = 0;   }
-    if (exists $args{for_nodes})     { @for_nodes = @{$args{for_nodes}}; }
-
-    my ($sql, %binds);
-    
-    my $nodes_list = '';
-    my %nodes_binds;
-    if (@for_nodes) {
-	($nodes_list, %nodes_binds) = &dbinlist('node', @for_nodes);
-    }
-
-    if ($identity && !$all) {
-	my $nodes_sql = '';
-	if (@for_nodes) { $nodes_sql = " and node.name in ($nodes_list)"; }
-	$sql = qq{ select site.name, site.id, node.name, node.id
-		     from t_adm_site_admin site_admin 
-		     join t_adm_site site on site.id = site_admin.site
-		     join t_adm_site_node site_node on site_node.site = site_admin.site
-		     join t_adm_node node on node.id = site_node.node
-		     join t_adm_identity ident on ident.id = site_admin.identity
-		    where ident.id = :adm_id $nodes_sql
-		    union
-                   select site.name, site.id, node.name, node.id
-		    from t_adm_site site
-		    join t_adm_site_node site_node on site_node.site = site.id
-		    join t_adm_node node on node.id = site_node.node
-		   where exists (select identity from t_adm_global_admin
-				 where identity = :glb_id) $nodes_sql };
-	%binds = ( ':adm_id' => $identity, ':glb_id' => $identity, %nodes_binds );
-    } elsif ($all) {
-	my $nodes_sql = '';
-	if (@for_nodes) { 
-	    $nodes_sql = "where node.name in ($nodes_list)"; 
-	    %binds = %nodes_binds;
-	}
-	$sql = qq{ select site.name, site.id, node.name, node.id
-		     from t_adm_site site
-		     join t_adm_site_node site_node on site_node.site = site.id
-		     join t_adm_node node on node.id = site_node.node $nodes_sql};
-    } else { return; }
-
-    my $q = &dbexec($$self{DBH}, $sql, %binds);
-    
-    my %sites;
-    if ($with_ids) {
-	while (my ($site, $site_id, $node, $node_id) = $q->fetchrow()) {
-	    if (!exists $sites{$site}) {
-		$sites{$site} = { ID => $site_id, NODES => {} };
-	    }
-	    $sites{$site}{NODES}{$node} = $node_id;
-	}
+    if (exists $args{with_ids} && $args{with_ids}) {
+	return %nodes;
     } else {
-	while (my ($site, $site_id, $node, $node_id) = $q->fetchrow()) {
-	    if (!exists $sites{$site}) {
-		$sites{$site} = [];
-	    }
-	    push @{$sites{$site}}, $node;
-	}
+	return keys %nodes;
     }
-    return %sites;
 }
+
 
 
 # Returns a list of DBSes.
@@ -548,120 +452,84 @@ sub fetch_dbses
 }
 
 
-# Return a hash of users
-# Options are 'site_admins', 'global_admins', 'admin_of'
-# By default returns a hash like $users{$dn} = { ID => $id, EMAIL => $email, GLOBAL_ADMIN => $is_global_admin,
-#   SITE_ADMIN => $is_site_admin } for all users
-# if 'site_admins' is true, then the list is limited to users who are site admins
-# if 'global_admins' is true, then only users who are global admins are returned
-# if 'admin_of' is true and is an arrayref containing a list of sites or nodes, then only users who are 
-#   explicitly admins of those sites or nodes are returned 
-# if 'web_user' is true, then only the user for this current session is returned
-sub fetch_users
+# Tries to resolve the user's identity and returns it.  Also logs the
+# identity to the t_adm_identity table, if it is not already there.
+# Note:  does not commit this logging activity, this is left to the function caller
+sub fetch_identity
 {
-    my ($self, %args) = @_;
-    my ($site_admins, $admin_things, $global_admins, $user) = (0, undef, 0, 0); # Defaults
-    if (exists $args{site_admins} && $args{site_admins}) { $site_admins = 1; }
-    if (exists $args{admin_of} && ref $args{admin_of} eq 'ARRAY') { $site_admins = 1; $admin_things = $args{admin_of}; }
-    if (exists $args{global_admins} && $args{global_admins}) { $global_admins = 1; }
-    if (exists $args{web_user} && $args{web_user}) { $user = $$self{DB_IDENTITY_ID}; }
+    my ($self, $secmodUser) = @_;
 
-    my %users;
-    my $sql;
-    my %binds;
-    my @where;
+    my $id = {};
+    my @to_sync;
 
-    my $admin_where;
-    if ($global_admins) {
-	$admin_where = 'global_admin.identity is not null';
-    } elsif ($site_admins) {
-	$admin_where = 'site_admin.identity is not null';
-	if ($admin_things) {
-	    my ($sites_in, %site_binds) = &dbinlist('site', @{$admin_things});
-	    my ($nodes_in, %node_binds) = &dbinlist('node', @{$admin_things});
-	    $admin_where .= " and (site.name in ($sites_in) or node.name in ($nodes_in))";
-	    $binds{$_} = $site_binds{$_} foreach keys %site_binds;
-	    $binds{$_} = $node_binds{$_} foreach keys %node_binds;
+    if (! $secmodUser ) {
+	if (! $$self{SECMOD}->isAuthenticated() ) { return; }
+
+	$$id{SECMOD_ID} = $$self{SECMOD}->getID();
+	$$id{NAME} = $$self{SECMOD}->getForename() .' '. $$self{SECMOD}->getSurname();
+	$$id{EMAIL} = $$self{SECMOD}->getEmail();
+
+	if ($$self{SECMOD}->isCertAuthenticated()) {
+	    @to_sync = qw(SECMOD_ID NAME EMAIL DN CERTIFICATE);
+	    $$id{DN} = $$self{SECMOD}->getDN();
+	    $$id{CERTIFICATE} = $$self{SECMOD}->getCert();
+	} elsif ($$self{SECMOD}->isPasswdAuthenticated()) {
+	    @to_sync = qw(SECMOD_ID NAME EMAIL USERNAME);
+	    $$id{USERNAME} = $$self{SECMOD}->getUsername();
 	}
+    } else {
+	$$id{SECMOD_ID} = $$secmodUser{ID};
+	$$id{NAME} = $$secmodUser{FORENAME} .' '. $$secmodUser{SURNAME};
+	$$id{EMAIL} = $$secmodUser{EMAIL};
+	$$id{DN} = $$secmodUser{DN};
+	$$id{USERNAME} = $$secmodUser{USERNAME};
+	@to_sync = qw(SECMOD_ID NAME EMAIL DN USERNAME);
     }
-    push @where, $admin_where if $admin_where;
+    my $now = time();
 
-    my $user_where;
-    if ($user) {
-	$user_where = 'ident.id = :id';
-	$binds{':id'} = $user;
+    # Look up a logged identity by either the SecurityModule ID or the DN
+    my $q = &dbexec($$self{DBH},
+		    qq{ select id, secmod_id, name, email, dn, certificate, username
+			    from t_adm_identity where secmod_id = :secmod_id or dn = :dn
+			    order by time_update desc },
+		    ':secmod_id' => $$id{SECMOD_ID},
+		    ':dn' => ($$id{DN} || 'dummy')
+		    );
+
+    my $logged_id = $q->fetchrow_hashref();
+
+    my $synced = 1;
+    foreach my $param (@to_sync) {
+	$synced &&= $$logged_id{$param} eq $$id{$param};
     }
-    push @where, $user_where if $user_where;
 
-    my $where = 'where '.join(' and ', @where);
-    
-    
-    $sql = qq{ select dn.value dn, ident.id, email.value email, 
-	              NVL2(global_admin.identity, 1, 0) is_global_admin,
-	              NVL2(site_admin.identity, 1, 0) is_site_admin,
-	              site.name site, node.name node
-	         from t_adm_identity ident 
-		 join t_adm_identity_attr dn on dn.identity = ident.id and dn.name = 'Distinguished name'
-		 join t_adm_identity_attr email on email.identity = ident.id and email.name = 'E-mail' 
-	    left join t_adm_global_admin global_admin on global_admin.identity = ident.id
-	    left join t_adm_site_admin site_admin on site_admin.identity = ident.id
-	    left join t_adm_site site on site.id = site_admin.site
-            left join t_adm_site_node site_node on site_node.site = site.id
-            left join t_adm_node node on node.id = site_node.node
-		 $where
-		order by site, node
-	     };
+    if ($logged_id && $synced) {
+	# If everything is logged and up-to-date, return the identity information
+	return $logged_id;
+    } elsif ($logged_id && !$synced) {
+	# If it is logged, but out of date, update it then return the information by recursing
+	my $sql = qq{ update t_adm_identity set };
+	my @params = map { "$_ = :$_" } (@to_sync, "TIME_UPDATE");
+	$sql .= join(', ', @params);
+	$sql .= qq{ where id = :id };
+	my %binds = map { (":$_" => $$id{$_}) } @to_sync;
+	$binds{':TIME_UPDATE'} = $now;
+	$binds{':ID'} = $$logged_id{ID};
 
-    my $q = &dbexec($$self{DBH}, $sql, %binds);
-    while (my ($dn, $id, $email, $is_global_admin, $is_site_admin, $site, $node) = $q->fetchrow()) {
-	$users{$dn} = { ID => $id, EMAIL => $email, 
-			GLOBAL_ADMIN => $is_global_admin, SITE_ADMIN => $is_site_admin };
-	if ($is_site_admin) {
-	    $users{$dn}->{SITES} = [] unless exists $users{$dn}->{SITES};
-	    push @{$users{$dn}->{SITES}}, $site;
-	    $users{$dn}->{NODES} = [] unless exists $users{$dn}->{NODES};
-	    push @{$users{$dn}->{NODES}}, $node;
-	}
+	&dbexec($$self{DBH}, $sql, %binds);
+	return $self->fetch_identity($secmodUser);
+    } else {
+	# If it is not logged, log it then recurse
+	my $sql = qq{ insert into t_adm_identity };
+	$sql .= '('.join(', ', "ID", @to_sync).') ';
+	$sql .= 'values ('.join(', ', "seq_adm_identity.nextval", map { ":$_" } @to_sync).')';
+	my %binds = map { (":$_" => $$id{$_}) } @to_sync;
+	$binds{':TIME_UPDATE'} = $now;
+
+	&dbexec($$self{DBH}, $sql, %binds);
+	return $self->fetch_identity($secmodUser);
     }
-    return %users;
 }
-
-
-
-# Get the client's e-mail address.  By default, use an e-mail
-# from the database if we have one.  Failing that, use the
-# address from the certificate itself.  This order allows the
-# users to change their preferred e-mail address and make the
-# choice sticky.
-sub create_default_email
-{
-    my ($self) = @_;
-
-    my ($email) = &dbexec($$self{DBH},
-			  qq{ select email.value
-			        from t_adm_identity_attr dn
-				join t_adm_identity_attr email
-				  on email.identity = dn.identity
-				 and email.name = 'E-mail'
-			       where dn.name = 'Distinguished name'
-			         and dn.value = :client_dn },
-			  ':client_dn' => $$self{SECMOD}->getDN())->fetchrow();
-    return $email if ($email);
-    
-    return undef if ! $$self{SECMOD}->getCert();
-    $email = "";
-
-    use File::Temp ':mktemp';
-    if (my ($fh, $file) = mkstemp ('/tmp/certXXXXXXXXXX')) {
-    	if ((print $fh $$self{SECMOD}->getCert()) && close($fh)) {
-	    chomp($email = qx(openssl x509 -in $file -noout -email));
-	}
-	unlink ($file);
-    }
-    return $email;
-}
-
-
 
 sub send_email
 {
@@ -712,9 +580,12 @@ sub send_email
 	return 0 unless &validlist($args{$_});
     }
 
-#     # For debugging without bothering people
-#     $args{message} .= "\n\n$args{to}\n\n"; $args{to} = 'Ricky.Egeland@cern.ch';
-#     $args{message} .= "\n\n$args{cc}\n\n"; delete $args{cc};
+    # For debugging without bothering people
+    if ($TESTING) {
+	$args{subject} = "TESTING:  $args{subject}";
+	$args{message} .= "\n\nTO:  $args{to}\n\n"; $args{to} = 'Ricky.Egeland@cern.ch';
+	$args{message} .= "\n\nCC:  $args{cc}\n\n"; delete $args{cc};
+    }
 
     (open (MAIL, "| /usr/sbin/sendmail -t")
      && (print MAIL
@@ -1932,6 +1803,7 @@ sub generate
 
   # Fire up the security module
   $$self{SECMOD} = new CMSWebTools::SecurityModule::Oracle({
+#  $$self{SECMOD} = new CMSWebTools::SecurityModule::SQLite({
       CALLER_URL => $self->myurl(fullurl=>1),
       CONFIG => "/data/PHEDEX/Dev/egeland/SecModStuff/SecurityModule.conf",
       KEYVALIDTIME => 300,
@@ -1959,14 +1831,17 @@ sub generate
   }
   else
   {
-      $$self{DB_IDENTITY_ID} = undef;
       $$self{LOGIN_MESSAGE} = 
 	  "<p>Sign in ".
 	  "<a href='" . $self->myurl("secure" => 1, "view" => "my") . "'>via Cert</a> or ".
 	  "<a href='" . $self->myurl("secure" => 1, "view" => "my", "SecModPwd" => 1) . "'>via Password</a>".
 	  "</p>";
   }
-  $$self{LOGIN_MESSAGE} .= "<p>Login State:  ". $$self{SECMOD}->getAuthnState()."</p>";
+  my $login_state = $$self{SECMOD}->getAuthnState();
+  if ($login_state eq 'cert') { $login_state = 'Logged in via Certificate'; }
+  elsif ($login_state eq 'passwd') { $login_state = 'Logged in via Password'; }
+  elsif ($login_state eq 'failed') { $login_state = 'Not logged in'; }
+  $$self{LOGIN_MESSAGE} .= "<p>$login_state</p>";
 
 
   # Check whether we are looking at our vs. global view
@@ -2116,8 +1991,6 @@ sub generate
 		    qq{set role $role_name identified by $role_pass });
 	}
 
-	# Fetch the user ID from the DB, if we can
-	$$self{DB_IDENTITY_ID} = $self->fetch_identity_id($$self{SECMOD}->getDN());
       };
       if ($@)
       {
@@ -2342,16 +2215,9 @@ sub logClientInfo
 
     # Is there a case for logging anonymous access?
     # If so we will want to change this function...
-    if (!$$self{SECMOD}->getDN()) { return undef; }
+    if (!$$self{SECMOD}->isAuthenticated()) { return undef; }
 
-    my $identity = $$self{DB_IDENTITY_ID};
-    if (!$identity) {
-	$identity = &makeObjWithAttrs
-	    ($$self{DBH}, "adm_identity", "identity", {},
-	     "Distinguished name" => $$self{SECMOD}->getDN(),
-	     "E-mail" => $self->create_default_email(),
-	     "Certificate" => $$self{SECMOD}->getCert());
-    }
+    my $identity = $self->fetch_identity();
 
     my $cid = &makeObjWithAttrs
 	($$self{DBH}, "adm_contact", "contact", {},
@@ -2360,7 +2226,7 @@ sub logClientInfo
     
     my $client = &makeObjWithAttrs
 	($$self{DBH}, "adm_client", undef,
-	 { "identity" => $identity, "contact" => $cid });
+	 { "identity" => $$identity{ID}, "contact" => $cid });
     
     return $client;
 }
@@ -2374,51 +2240,26 @@ sub getClientData
                              join t_adm_contact con on con.id = con_attr.contact
                              join t_adm_client cli on cli.contact = con.id
 			     where cli.id = :id order by con_attr.id};
-    my $identsql  = qq{ select ident_attr.name, ident_attr.value 
-                            from t_adm_identity_attr ident_attr
-                            join t_adm_identity ident on ident_attr.identity = ident.id
+    my $identsql  = qq{ select ident.name, ident.email, ident.dn, ident.certificate
+                            from t_adm_identity ident
                             join t_adm_client cli on cli.identity = ident.id
-			    where cli.id = :id order by ident_attr.id};
-    my $sitesql  = qq{ select site.name, node.name
-			   from t_adm_site_admin site_admin 
-			   join t_adm_site site on site.id = site_admin.site
-			   join t_adm_site_node site_node on site_node.site = site_admin.site
-			   join t_adm_node node on node.id = site_node.node
-			   join t_adm_identity ident on ident.id = site_admin.identity
-			   join t_adm_client cli on cli.identity = ident.id
-			   where cli.id = :id order by site.name, node.name };
-    my $globalsql = qq{ select 1 
-			    from t_adm_global_admin global_admin
-			    join t_adm_identity ident on global_admin.identity = ident.id
-                            join t_adm_client cli on cli.identity = ident.id
-			    where cli.id = :id };
+			    where cli.id = :id order by ident.id};
     
     
     my %types = ('CONTACT_ATTR'  => $contactsql, 
-		 'IDENTITY_ATTR' => $identsql, 
-		 'SITE_ADMIN'    => $sitesql,
-		 'GLOBAL_ADMIN'  => $globalsql);
+		 'IDENTITY' => $identsql);
     
     my $result = {};
     
     while (my ($type, $sql) = each %types) {
 	my $q = &dbexec($$self{DBH}, $sql, ':id' => $clientid);
-	if ($type eq 'CONTACT_ATTR' || $type eq 'IDENTITY_ATTR') {
+	if ($type eq 'CONTACT_ATTR') {
 	    $result->{$type} = {};
 	    while (my ($name, $value) = $q->fetchrow_array()) {
 		$result->{$type}->{$name} = $value;
 	    }
-	} elsif ($type eq 'SITE_ADMIN') {
-	    $result->{$type} = {};
-	    while (my ($site, $node) = $q->fetchrow_array()) {
-		if (!exists $result->{$type}->{$site}) {
-		    $result->{$type}->{$site} = [];
-		}
-		push @{$result->{$type}->{$site}}, $node;
-	    }
-	} elsif ($type eq 'GLOBAL_ADMIN') {
-	    if ($q->fetchrow_array()) { $result->{$type} = 1; }
-	    else                      { $result->{$type} = 0; }
+	} elsif ($type eq 'IDENTITY') {
+	    $result->{$type} = $q->fetchrow_hashref();
 	}
     }
     return $result;
@@ -2429,16 +2270,21 @@ sub formatClientData
     my ($self, $data) = @_;
     my @html;
     
-    foreach my $name (sort keys %{$data->{IDENTITY_ATTR}}) {
-	if ($name ne 'Certificate') {
-	    push @html, "<label>$name:</label><span class='labeled'>", 
-	    ($data->{IDENTITY_ATTR}->{$name} or 'Unknown'), "</span><br/>";
+    my %nice_names = ('NAME' => 'Name',
+		      'DN' => 'Distinguished name',
+		      'EMAIL' => 'E-mail');
+    foreach my $name (sort keys %{$data->{IDENTITY}}) {
+	if ($name ne 'CERTIFICATE') {
+	    push @html, "<label>$nice_names{$name}:</label><span class='labeled'>", 
+	    ($data->{IDENTITY}->{$name} or 'Unknown'), "</span><br/>";
 	} else {
-	    push @html, 
-	    "<label>$name:</label>",
-	    "<div class='labeled' style='height:100px;overflow:scroll;'><pre>", 
-	    ($data->{IDENTITY_ATTR}->{$name} or 'Unavailable'),
-	    "</pre></div><br/>";
+	    push @html, "<label>Certificate:</label>";
+	    if ($data->{IDENTITY}->{$name}) {
+		push @html, 
+		"<div class='labeled' style='height:100px;overflow:scroll;'><pre>", 
+		$data->{IDENTITY}->{$name},
+		"</pre></div><br/>";
+	    } else { push @html, "<div class='labeled'>Unavailable</div><br/>"; }
 	}
     }
     
@@ -2446,17 +2292,6 @@ sub formatClientData
 	push @html, "<label>$name:</label><span class='labeled'>", 
 	($data->{CONTACT_ATTR}->{$name} or 'Unknown'), "</span><br/>";
     }
-    
-    my $sites = join(', ', sort keys %{$data->{SITE_ADMIN}});
-    push @html, 
-    "<label>Site admin privs:</label><span class='labeled'>",
-    ($sites ? $sites : 'None'),
-    "</span><br/>";
-    
-    push @html,
-    "<label>Global admin:</label><span class='labeled'>",
-    ($data->{GLOBAL_ADMIN} ? 'Yes' : 'No'),
-    "</span><br/>";
     
     return @html;
 }
@@ -2481,7 +2316,7 @@ sub formatAction
     "<label>Time:</label>", "<span class='labeled'>", &formatTime($$action{ACTION_TIME}, 'stamp'), "</span><br/>",
     "<label>Client:</label>", "<span class='labeled'>",
     "<a href='#' onclick='return hideshow(this, \"$actionclientid\", 0)'>",
-    (&dn_to_human_name($$action{ACTION_CREATOR}{IDENTITY_ATTR}{'Distinguished name'}) or 'Unknown'), "</a></span><br/>",
+    ($$action{ACTION_CREATOR}{IDENTITY}{NAME} or 'Unknown'), "</a></span><br/>",
     "<div id='$actionclientid' class='hideaway' style='display:none;'>",
     $self->formatClientData($$action{ACTION_CREATOR}),
     "</div>";
@@ -2533,47 +2368,24 @@ sub new
 sub output
 {
   my ($self) = @_;
-  my ($qtask, $qreq, $qsite);
+  my ($qtask, $qreq);
   if ($$self{MY_VIEW})
   {
-    $qtask = &dbexec($$self{DBH}, qq{
-      select count(t.id)
-      from t_adm_identity_attr ia
-        join t_req_task t
-          on t.person = ia.identity
-      where ia.name = 'Distinguished name'
-        and ia.value = :client_dn},
-      ":client_dn" => $$self{SECMOD}->getDN());
+      my $identity = $self->fetch_identity();
+
+    $qtask = &dbexec($$self{DBH},
+		     qq{ select count(t.id)
+			     from t_req_task t
+			     where t.person = :identity },
+		     ":identity" => $$identity{ID});
 
     $qreq = &dbexec($$self{DBH}, qq{
-      select req.state, count(req.id)
-      from t_adm_identity_attr ia
-        join t_adm_client c
-          on c.identity = ia.identity
-        join t_req_request req
-          on req.creator = c.id
-      where ia.name = 'Distinguished name'
-        and ia.value = :client_dn
-      group by req.state},
-      ":client_dn" => $$self{SECMOD}->getDN());
-
-    $qsite = &dbexec($$self{DBH}, qq{
-      select req.state, count(req.id)
-      from t_req_request req
-      where exists
-        (select 1
-         from t_req_action ra
-	   join t_req_action_attr raa on raa.action = ra.id
-	   join t_adm_node n on n.name = raa.value
-	   join t_adm_site_node sn on sn.node = n.id
-	   join t_adm_site_admin sa on sa.site = sn.site
-	   join t_adm_identity_attr ia on ia.identity = sa.identity
-	 where ra.request = req.id
-	   and raa.name = 'Destination'
-	   and ia.name = 'Distinguished name'
-	   and ia.value = :client_dn)
-	 group by req.state},
-	 ":client_dn" => $$self{SECMOD}->getDN());
+	select req.state, count(req.id)
+	    from t_adm_client c
+	    join t_req_request req on req.creator = c.id
+	    where c.identity = :identity
+	    group by req.state},
+		    ":identity" => $$identity{ID});
   }
   else
   {
@@ -2581,11 +2393,6 @@ sub output
       select count(t.id) from t_req_task t});
 
     $qreq = &dbexec($$self{DBH}, qq{
-      select req.state, count(req.id)
-      from t_req_request req
-      group by req.state});
-
-    $qsite = &dbexec($$self{DBH}, qq{
       select req.state, count(req.id)
       from t_req_request req
       group by req.state});
@@ -2617,31 +2424,7 @@ sub output
     $n += $status{$s};
   }
 
-  print { $$self{CONTENT} }
-    " <li> ", ($n ? "$n Total" : "None"), "</li>\n",
-    "</ul>\n",
-    "<p>Site activity for @{[lc($your)]} sites</p>\n",
-    "<ul>\n";
-
-  $n = 0;
-  %status = ();
-  while (my ($state, $count) = $qsite->fetchrow())
-  {
-    $status{$state} = $count;
-  }
-
-  foreach my $state (sort { $$a{RANK} <=> $$b{RANK} } @reqstates)
-  {
-    my $s = $$state{STATE};
-    next if ! $status{$s};
-    print { $$self{CONTENT} } " <li> $status{$s} $$state{LABEL}</li>\n";
-    $n += $status{$s};
-  }
-
-  print { $$self{CONTENT} }
-    " <li> ", ($n ? "$n Total" : "None"), "</li>\n",
-    "</ul>\n",
-    "</div>\n";
+  print { $$self{CONTENT} } "</div>\n";
 }
 
 1;
@@ -2673,7 +2456,7 @@ sub output
   my ($where, $identity);
   if ($$self{MY_VIEW}) {
       $where = qq{ t.person = :identity };
-      $identity = $$self{DB_IDENTITY_ID};
+      $identity = $self->fetch_identity()->{ID};
   } else {
       # A short cut to the global view;
       # Use a condition that is always true
@@ -2682,9 +2465,9 @@ sub output
   }
 
   my $qtask = &dbexec($$self{DBH}, qq{
-      select t.id, a.id, r.id, tp.value assigned_to, t.time_create, r.state, r.creator, a.action, a.time_apply, a.client, a_attr.name, a_attr.value
+      select t.id, a.id, r.id, i.dn assigned_to, t.time_create, r.state, r.creator, a.action, a.time_apply, a.client, a_attr.name, a_attr.value
       from t_req_task t
-      join t_adm_identity_attr tp on t.person = tp.identity and tp.name = 'Distinguished name'
+      join t_adm_identity i on t.person = i.id
       join t_req_action a on a.id = t.action
       join t_req_request r on r.id = a.request
       left join t_req_action_attr a_attr on a_attr.action = a.id
@@ -2736,13 +2519,14 @@ sub output
       "<label>Request #:</label><span class='labeled'>", $task{$tid}{REQUEST_ID}, "<a href='$details_url'>(details)</a></span><br/>",
       "<label>Requestor:</label>", "<span class='labeled'>",
       "<a href='#' onclick='return hideshow(this, \"creator$tid\", 0)'>",
-      (&dn_to_human_name($task{$tid}{REQUEST_CREATOR}{IDENTITY_ATTR}{'Distinguished name'}) or 'Unknown'), "</a></span><br/>",
+      ($task{$tid}{REQUEST_CREATOR}{IDENTITY}{NAME} or 'Unknown'), "</a></span><br/>",
       "<div id='creator$tid' class='hideaway' style='display:none;'>",
       $self->formatClientData($task{$tid}{REQUEST_CREATOR}),
       "</div>",
       "<label>Request State:</label>", "<span class='labeled'>", $reqstatenames{$task{$tid}{REQUEST_STATE}}, "</span><br/>";
 
-      foreach my $aid (keys %{$task{$tid}{ACTIONS}}) {
+      foreach my $aid (sort { $task{$tid}{ACTIONS}{$a}{ACTION_TIME} <=>
+			      $task{$tid}{ACTIONS}{$b}{ACTION_TIME} } keys %{$task{$tid}{ACTIONS}}) {
 	  print { $$self{CONTENT} }
 	  "<div class='paramblock lev2'>",
 	  $self->formatAction($aid, $task{$tid}{ACTIONS}{$aid}, $tid),
@@ -2871,10 +2655,10 @@ sub output
 
     my ($creator_id) = $q->fetchrow();
     my $creator_data = $self->getClientData($creator_id);
-    my $creator_name = &dn_to_human_name($$creator_data{IDENTITY_ATTR}{'Distinguished name'});
-    my $creator_email = $$creator_data{IDENTITY_ATTR}{'E-mail'};
+    my $creator_name = $$creator_data{IDENTITY}{NAME};
+    my $creator_email = $$creator_data{IDENTITY}{EMAIL};
     my $detail_url = $self->myurl(page => 'Request::Requests', request => $request, fullurl => 1);
-    my $admin_email = $self->create_default_email();
+    my $admin_email = $$self{SECMOD}->getEmail();
     my $msg_comment = ($comment ? "\nThe admin who handled this had the following comment:\n\n\"$comment\"\n" : '');
 
     my $message=<<ENDEMAIL;
@@ -2970,7 +2754,7 @@ sub output
     my ($where, $identity);
     if ($$self{MY_VIEW}) {
 	$where = qq{ ident.id = :identity };
-	$identity = $$self{DB_IDENTITY_ID};
+	$identity = $self->fetch_identity()->{ID};
     } else {
 	# A short cut to the global view;
 	# Use a condition that is always true
@@ -3023,13 +2807,14 @@ sub output
       "<h1>Request $rid <a href='$details_url'>(details)</a></h1>",
       "<label>Requestor:</label>", "<span class='labeled'>",
       "<a href='#' onclick='return hideshow(this, \"creator$rid\", 0)'>",
-      (&dn_to_human_name($req{$rid}{REQUEST_CREATOR}{IDENTITY_ATTR}{'Distinguished name'}) or 'Unknown'), "</a></span><br/>",
+      ($req{$rid}{REQUEST_CREATOR}{IDENTITY}{NAME} or 'Unknown'), "</a></span><br/>",
       "<div id='creator$rid' class='hideaway' style='display:none;'>",
       $self->formatClientData($req{$rid}{REQUEST_CREATOR}),
       "</div>",
       "<label>Request State:</label>", "<span class='labeled'>", $reqstatenames{$req{$rid}{REQUEST_STATE}}, "</span><br/>";
 
-      foreach my $aid (sort { $a <=> $b } keys %{$req{$rid}{ACTIONS}}) {
+      foreach my $aid (sort { $req{$rid}{ACTIONS}{$a}{ACTION_TIME} <=>
+			      $req{$rid}{ACTIONS}{$b}{ACTION_TIME} } keys %{$req{$rid}{ACTIONS}}) {
  	  print { $$self{CONTENT} }
  	  "<div class='paramblock lev2'>",
 	  $self->formatAction($aid, $req{$rid}{ACTIONS}{$aid}),
@@ -3072,12 +2857,11 @@ sub output
   my $req_info = {};
   my $q = &dbexec($$self{DBH},
 		  qq[ select req.id req_id, req.creator creator_id, req.state req_state,
-                             creator_name.value requestor,
+                             ident.dn requestor,
 		             req_info.time_update updated
 		        from t_req_request req
                         join t_adm_client client on client.id = req.creator
                         join t_adm_identity ident on ident.id = client.identity
-                        join t_adm_identity_attr creator_name on creator_name.identity = ident.id and creator_name.name = 'Distinguished name'
 		        join t_req_info req_info on req_info.request = req.id
 		      ]);
 
@@ -3460,7 +3244,7 @@ sub output
   &create_check_identity($self, \$bad);
   return if $bad;
 
-  my $email_contact = $self->create_default_email();
+  my $email_contact = $$self{SECMOD}->getEmail();
   
   my @dbsnames = sort $self->fetch_dbses();
   my $defaultdbs = 'http://cmsdbs.cern.ch/cms/prod/comp/DBS/CGIServer/prodquery?instance=MCGlobal/Writer';
@@ -3622,7 +3406,7 @@ sub output
   "change your request, use the back button in your browser.</p>",
   "<h1>Request Information</h1>",
   "<div class='nice'>",
-  "<label>Requestor:</label><span class='labeled'>$$self{SECMOD}->getDN()</span><br/>",
+  "<label>Requestor:</label><span class='labeled'>",$$self{SECMOD}->getDN(),"</span><br/>",
   "<label>email:</label><span class='labeled'>$email</span><br/>",
   "<label>DBS:</label><span class='labeled'>$dbs</span><br/>",
   "<label>Data:</label><span class='labeled'>", join('<br/>', @data), "</span><br/>",
@@ -3786,8 +3570,8 @@ sub write_request
 	 );
     
     # Get the list of Global admins
-    my %admins = $self->fetch_users(global_admins => 1);
-    if (!%admins) {
+    my @admins = $$self{SECMOD}->getUsersWithRoleForGroup('Global Admin', 'phedex');
+    if (!@admins) {
 	alert("Sorry, the request cannot be created.",
 	      "The database does not contain any global admins.",
 	      "Please contact the PhEDEx group about this!"); 
@@ -3797,15 +3581,16 @@ sub write_request
     # Write a task with this request for each of the global admins
     # While we're at it, build an array of admin emails
     my @adminmails;
-    foreach my $admin (keys %admins) {
+    foreach my $admin (@admins) {
+	my $ident = $self->fetch_identity($admin);
 	&makeObjWithAttrs
 	    ($$self{DBH}, "req_task", undef,
 	     { "action" => $aid,
-	       "person" => ${$admins{$admin}}{ID},
+	       "person" => $$ident{ID},
 	       "time_create" => $now
 	       }
 	     );
-	push @adminmails, ${$admins{$admin}}{EMAIL};
+	push @adminmails, $$admin{EMAIL};
     }
 
     # Write the request details (resolved datasets/blocks) to the DB
@@ -3868,35 +3653,34 @@ sub write_request
 
     $$self{DBH}->commit();
 
+    my %node_sites = $$self{SECMOD}->getPhedexNodeToSiteMap();
+
     # Send an email to each of the PhEDEx global admins
     # and each of the site admins
     my $instance = $$self{CONFIG}{INSTANCES}{$$self{DBID}}{TITLE};
     my $subscription_type =  &subscription_type(@params{qw(priority is_transient is_move)});
     my @cc = ($params{email});
-    my %siteadmins = $self->fetch_users(admin_of => $params{destinations});
-    if (%siteadmins) {
-	push @cc, $$_{EMAIL} foreach values %siteadmins;
+    my @siteadmins;
+    foreach my $dest (@{$params{destinations}}) {
+	push @siteadmins, $$self{SECMOD}->getUsersWithRoleForSite('Site Admin', $node_sites{$dest});
     }
 
-    # Here we build a hash of node => site
-    my %node_sites;
-    my %site_nodes = $self->fetch_sites(for_nodes => $params{destinations});
-    foreach my $site (keys %site_nodes) {
-	foreach my $node (@{$site_nodes{$site}}) {
-	    $node_sites{$node} = $site 
-	}
+    if (@siteadmins) {
+	push @cc, $$_{EMAIL} foreach @siteadmins
     }
 
     my $admin_url = $self->myurl('fullurl' => 1, 'secure' => 1, 'page' => 'Request::Admin', 'view' => 'my');
-
+    my $name = $$self{USER_NAME};
+    my $dn = $$self{SECMOD}->getDN();
+    
     my $message =<<ENDEMAIL;
 Greetings PhEDEx Global Admins,
 
 You may wish to take note of the following new transfer request:
 
 * Requestor:
-   Name:  $$self{USER_NAME}
-   DN: $$self{SECMOD}->getDN()
+   Name:  $name
+   DN: $dn
    Host: $ENV{HTTP_X_FORWARDED_FOR}
    Agent: @{[user_agent()]}
 
@@ -6494,7 +6278,9 @@ sub output_page
 sub update_subscriptions
 {
     my ($self) = @_;
-    my %auth_nodes = $self->fetch_nodes(with_ids => 1, web_user_auth => 1);
+
+    my %auth_nodes = $self->fetch_nodes(web_user_auth => 1, with_ids => 1);
+    
     my %all_nodes = reverse $self->fetch_nodes(with_ids => 1); # just a hash of id => name
 
     my $upd_suspend = qq[ update t_dps_subscription set time_suspend_until = :val
@@ -7225,11 +7011,21 @@ sub new
 sub output
 {
   my ($self) = @_;
-  
+  &dump_var($$self{CONTENT}, 'SecMod Forename', $$self{SECMOD}->getForename());
+  &dump_var($$self{CONTENT}, 'SecMod Surname', $$self{SECMOD}->getSurname());
+  &dump_var($$self{CONTENT}, 'SecMod Username', $$self{SECMOD}->getUsername());
+  &dump_var($$self{CONTENT}, 'SecMod DN', $$self{SECMOD}->getDN());
   &dump_var($$self{CONTENT}, 'SecMod CERT', $$self{SECMOD}->getCert());
 
-  my %nodes = $self->fetch_nodes(with_ids=>1, web_user_auth=>1);
-  &dump_var($$self{CONTENT}, 'nodes', {%nodes});
+  &dump_var($$self{CONTENT}, 'SecMod Roles', $$self{SECMOD}->getRoles());
+
+  &dump_var($$self{CONTENT}, 'authorized nodes', [ $self->fetch_nodes(web_user_auth=>1) ]);
+
+  &dump_var($$self{CONTENT}, 'SecMod Node Map', {$$self{SECMOD}->getPhedexNodeToSiteMap()});
+  
+  &dump_var($$self{CONTENT}, 'SecMod CERN Site Admins', [$$self{SECMOD}->getUsersWithRoleForSite('Site Admin', 'CERN')]);
+
+  &dump_var($$self{CONTENT}, 'SecMod Global Admins', [$$self{SECMOD}->getUsersWithRoleForGroup('Global Admin', 'phedex')]);
 
 }
 
