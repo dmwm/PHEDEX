@@ -145,32 +145,6 @@ omds =
     (SERVER=DEDICATED)
     (SERVICE_NAME=OMDS.cern.ch)))
 
-cms_orcoff =
-  (DESCRIPTION=
-   (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=10121))
-   (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=10121))
-   (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=10121))
-   (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=10121))
-   (ENABLE=BROKEN)
-   (LOAD_BALANCE=yes)
-   (CONNECT_DATA=
-    (SERVER=DEDICATED)
-    (SERVICE_NAME=cms_cond.cern.ch)
-    (FAILOVER_MODE=(TYPE=SELECT) (METHOD=BASIC) (RETRIES=200) (DELAY=15))))
-
-cms_orcoff_val =
-  (DESCRIPTION=
-   (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=10121))
-   (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=10121))
-   (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=10121))
-   (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=10121))
-   (ENABLE=BROKEN)
-   (LOAD_BALANCE=yes)
-   (CONNECT_DATA=
-    (SERVER=DEDICATED)
-    (SERVICE_NAME=cms_cond_val.cern.ch)
-     (FAILOVER_MODE=(TYPE=SELECT) (METHOD=BASIC) (RETRIES=200) (DELAY=15))))
-
 cms_orcoff_int2r =
   (DESCRIPTION=
    (ADDRESS=(PROTOCOL=TCP) (HOST=int2r1-v.cern.ch) (PORT=10121))
@@ -181,3 +155,23 @@ cms_orcoff_int2r =
     (SERVER=DEDICATED)
     (SERVICE_NAME=int2r_lb.cern.ch.cern.ch)
     (FAILOVER_MODE=(TYPE=SELECT) (METHOD=BASIC) (RETRIES=180) (DELAY=5))))
+
+CMS_ORCOFF,cms_cond =
+   (DESCRIPTION =
+     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr1-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr2-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr3-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr4-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr5-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr6-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr7-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr8-v.cern.ch)(PORT = 10121))
+     (ENABLE=BROKEN)
+     (LOAD_BALANCE = yes)
+     (CONNECT_DATA =
+       (SERVER = DEDICATED)
+       (SERVICE_NAME = cms_cond.cern.ch)
+        (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES =
+ 200)(DELAY = 15))
+     )
+   )
