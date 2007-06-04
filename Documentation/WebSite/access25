@@ -25,7 +25,7 @@ our @EXPORT = qw(urlencode dblink toclink pagelink
 		 badcolor warncolor pendcolor goodcolor altcolor
 		 dbexec dbprep dbbindexec dbinlist makeObjWithAttrs
 		 timeSeries formatTime timegm sizeValue
-		 alert_auth fetch_nodes fetch_dbses fetch_identity
+		 auth_help fetch_nodes fetch_dbses fetch_identity
                  send_email dn_to_human_name
 		 yesno striplabels
 		 dump_params dump_var
@@ -335,54 +335,45 @@ sub makeObjWithAttrs
   return $id;
 }
 
-
-sub alert_auth 
+# Print a help message about authentication requirements
+# Takes a hash of $power => [@requirements]
+# The first entry of @requirements should be the authentication level,
+# the rest are the required roles for $power
+sub auth_help 
 {
-    my ($self, %args) = @_;
-    my $need = $args{need};
-    my $power = $args{power};
-    unless (grep $need eq $_, qw(gridcert siteadmin globaladmin)) { 
-	die "Bad requirement '$need' to auth function", $!; 
-    }
+    my ($self, %powers) = @_;
 
     my $login_url = $self->myurl("secure" => 1);
     my $reg_url = $self->myurl(page => "TODO::FixMe");
     my $gridcert_help_url = 'http://lcg.web.cern.ch/LCG/users/registration/load-cert.html';
 
-    if ($need eq 'gridcert' && (! $$self{SECMOD}->isCertAuthenticated() )) {
-	$self->alert("You are not <a href='$gridcert_help_url'>authenticated with a valid grid certificate</a>.  ",
-		    "If you are logged in ",
-		    "it is possible to $power from this page.");
-	return 0;
-    } elsif (($need eq 'siteadmin' || $need eq 'globaladmin') && ! $$self{SECMOD}->isCertAuthenticated() ) {
-	$self->alert("You are not <a href='$gridcert_help_url'>authenticated with a valid grid certificate</a>.  ",
-		    "If you are authenticated and <a href='$reg_url'>registered as an admin</a> ",
-		    "it is possible to $power from this page.");
-	return 0;
-    } elsif ($need eq 'siteadmin' && (! $$self{SECMOD}->hasRole('Site Admin') &&
-				      ! $$self{SECMOD}->hasRole('Global Admin', 'phedex'))) {
-	$self->alert("You are authenticated with a valid grid certificate but are not ",
-		     "authorized as a site admin.  If you are an authorized site admin ",
-		     " it is possible to $power from this page.");
-	return 0;
-    } elsif ($need eq 'globaladmin' && ! $$self{SECMOD}->hasRole('Global Admin', 'phedex')) {
-	$self->alert("You are not authorized as a global admin. ",
-		     "Only the global admins may $power from this page");
-	return 0;
-    } else {
-	return 1;
+    my $msg = '';
+    foreach my $power (keys %powers) {
+	my @requirements = @{$powers{$power}};
+	
+	$msg .= 'You need '.join(', ',@requirements).' in order to '.$power.'<br/>';
     }
+
+    $self->alert($msg);
 }
 
 
 
-# Returns a list of nodes
+# Returns a list of nodes.
 # If argument 'with_ids' is true, returns a hash of node_name => node_id
 # else it returns an array of nodes
 #
-# If either web_user_auth is set, first we check with the security
-# module to find out if the user is a Site Admin or a Global Admin of
-# phedex, then only return the nodes they are authorized for.
+# If web_user_auth is set with the name of some role (e.g. 'Data
+# Manager'), we check the security module to find out if the user has
+# that role, find out for which sites they have that role, and return
+# a list of nodes associated with those sites.
+#
+# web_user_auth can be set with multiple roles separated by '||', for
+# which all authorized nodes among those roles will be returned.
+# (e.g. web_user_auth => 'Data Manager||Site Admin')
+#
+# The role 'Global Admin' need not be specified in web_user_auth.  If
+# the user is a Global Admin then all nodes are always returned.
 #
 # Otherwise it returns from t_adm_node table, which contains all nodes.
 # The default behavior is to return an array of all nodes from t_adm_node.
@@ -393,21 +384,34 @@ sub fetch_nodes
     my @auth_nodes;
     if (exists $args{web_user_auth} && $args{web_user_auth}) {
 	my $roles = $$self{SECMOD}->getRoles();
-	my %node_map = $$self{SECMOD}->getPhedexNodeToSiteMap();
-	if (!$roles || (!$$roles{'Site Admin'} && !$$roles{'Global Admin'})) {
-	    &dump_var($$self{CONTENT}, 'Returning', $roles);
-	    return;
+	my @to_check = split /||/, $args{web_user_auth};
+	my $roles_ok = 0;
+	foreach my $role (@to_check) {
+	    if (grep $role eq $_, keys %{$roles}) {
+		$roles_ok = 1;
+	    }
 	}
 
-	my $global_admin = (grep $_ = 'phedex', @{$$roles{'Global Admin'}}) || 0;
+	my $global_admin = (exists $$roles{'Global Admin'} &&
+			    grep $_ = 'phedex', @{$$roles{'Global Admin'}}) || 0;
+
+	return unless ($roles && ($roles_ok || $global_admin));
 	
-	# If the user is a site admin but not a global admin, get a
-	# list of nodes they are authorized for.  If they are a global
-	# admin we continue below where all nodes will be returned.
-	if ($$roles{'Site Admin'} && !$global_admin) {
-	    my @auth_sites = @{$$roles{'Site Admin'}};
+	# If the user is not a global admin, make a list of sites and
+	# nodes they are authorized for.  If they are a global admin
+	# we continue below where all nodes will be returned.
+	if (!$global_admin) {
+	    my %node_map = $$self{SECMOD}->getPhedexNodeToSiteMap();
+	    my %auth_sites;
+	    foreach my $role (@to_check) {
+		if (exists $$roles{$role}) {
+		    foreach my $site (@{$$roles{$role}}) {
+			$auth_sites{$site} = 1;
+		    }
+		}
+	    }
 	    foreach my $node (keys %node_map) {
-		push @auth_nodes, $node if grep $node_map{$node} == $_, @auth_sites;
+		push @auth_nodes, $node if grep $node_map{$node} == $_, keys %auth_sites;
 	    }
 	}
     }
@@ -584,7 +588,7 @@ sub send_email
     if ($TESTING) {
 	$args{subject} = "TESTING:  $args{subject}";
 	$args{message} .= "\n\nTO:  $args{to}\n\n"; $args{to} = 'Ricky.Egeland@cern.ch';
-	$args{message} .= "\n\nCC:  $args{cc}\n\n"; delete $args{cc};
+	if ($args{cc}) {$args{message} .= "\n\nCC:  $args{cc}\n\n"; delete $args{cc};}
     }
 
     (open (MAIL, "| /usr/sbin/sendmail -t")
@@ -1828,6 +1832,11 @@ sub generate
     $$self{LOGIN_MESSAGE} =
 	"<p>". &escapeHTML($$self{USER_NAME}) .
 	" | <a href='" . $self->myurl("secure" => 1, "fullurl" => 1, "SecModLogout" => 1, page=>"Info::Main") . "'>Sign out</a></p>";
+    ## XXX Testing only
+    use Data::Dumper;
+    my $roles = Dumper($$self{SECMOD}->getRoles());
+    $$self{LOGIN_MESSAGE} .= "<p>$roles</p>", 
+    ### XXX Testing only
   }
   else
   {
@@ -2596,7 +2605,9 @@ sub output
 	return;
     }
 
-    if (!$self->alert_auth('need' => 'globaladmin', 'power' => 'add a new action to a request')) {
+    unless ($$self{SECMOD}->isCertAuthenticated() &&
+	    ($$self{SECMOD}->hasRole('Global Admin', 'phedex') || $$self{SECMOD}->hasRole('Data Manager'))) {
+	$self->auth_help('approve requests' => ['cert', 'Data Manager', 'Global Admin']);
 	return;
     }
 
@@ -3039,10 +3050,10 @@ sub create_check_identity
   return if $$bad;
 
   # Make sure this page can be used
-  if (! $self->alert_auth('need' => 'gridcert', 'power' => 'create a transfer request'))
-  {
-    $$bad = 1;
-    return;
+  if (! $$self{SECMOD}->isAuthenticated() ) {
+      $self->auth_help('create a transfer request' => ['anyauth']);
+      $$bad = 1;
+      return;
   }
 }
 
@@ -3247,7 +3258,7 @@ sub output
   my $email_contact = $$self{SECMOD}->getEmail();
   
   my @dbsnames = sort $self->fetch_dbses();
-  my $defaultdbs = 'http://cmsdbs.cern.ch/cms/prod/comp/DBS/CGIServer/prodquery?instance=MCGlobal/Writer';
+  my $defaultdbs = 'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet';
   my @nodes = $self->get_request_nodes();
 
   my @dbs_selection = &striplabels(radio_group(-name=>'dbschoice', -values=>['known', 'user'], -default=>'known', 
@@ -3268,12 +3279,12 @@ sub output
   "<label>DBS:</label>",  "<div class='labeled'>",@dbs_selection, "</div><br/>",
 
   "<label>Data Items:<br/><br/>",
-  "<span class='note'>/Primary/Tier/Dataset<br/>or<br/>",
-  "/Primary/Dataset#Block<br/>(Use * as wildcard)</span><br/>",
+  "<span class='note'>/Primary/Processed/Tier<br/>or<br/>",
+  "/Primary/Processed/Tier#Block<br/>(Use * as wildcard)</span><br/>",
   &help("More Help", "Data Item List", 
 	"A whitespace separated list of the datasets or blocks you are ",
-	"requesting.  Glob-style wildcards may be used, but the data ",
-	"tier separators are required.  E.g. to subscribe to all ",
+	"requesting.  Glob-style wildcards may be used, but the dataset ",
+	"path separators are required.  E.g. to subscribe to all ",
 	"datasets you would have to write '/*/*/*', not '*'."), 
   "</label>\n",
   textarea(-name=>'data', -value=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), 
@@ -3406,7 +3417,7 @@ sub output
   "change your request, use the back button in your browser.</p>",
   "<h1>Request Information</h1>",
   "<div class='nice'>",
-  "<label>Requestor:</label><span class='labeled'>",$$self{SECMOD}->getDN(),"</span><br/>",
+  "<label>Requestor:</label><span class='labeled'>$$self{USER_NAME}</span><br/>",
   "<label>email:</label><span class='labeled'>$email</span><br/>",
   "<label>DBS:</label><span class='labeled'>$dbs</span><br/>",
   "<label>Data:</label><span class='labeled'>", join('<br/>', @data), "</span><br/>",
@@ -3672,7 +3683,13 @@ sub write_request
     my $admin_url = $self->myurl('fullurl' => 1, 'secure' => 1, 'page' => 'Request::Admin', 'view' => 'my');
     my $name = $$self{USER_NAME};
     my $dn = $$self{SECMOD}->getDN();
-    
+    my $auth = "";
+    if ($$self{SECMOD}->isCertAuthenticated()) {
+	$auth = "DN:  ".$$self{SECMOD}->getDN();
+    } elsif ($$self{SECMOD}->isPasswdAuthenticated()) {
+	$auth = "Username:  ".$$self{SECMOD}->getUsername();
+    }
+
     my $message =<<ENDEMAIL;
 Greetings PhEDEx Global Admins,
 
@@ -3680,7 +3697,7 @@ You may wish to take note of the following new transfer request:
 
 * Requestor:
    Name:  $name
-   DN: $dn
+   Authentication $auth
    Host: $ENV{HTTP_X_FORWARDED_FOR}
    Agent: @{[user_agent()]}
 
@@ -6171,7 +6188,36 @@ sub output_page
 {
   my ($self) = @_;
 
-  my $adminok = $self->alert_auth(need => 'siteadmin', power => 'update suspensions and priorities');
+  if (!$$self{SECMOD}->isAuthenticated() &&
+      !($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+	$$self{SECMOD}->hasRole('Data Manager') ||
+	$$self{SECMOD}->hasRole('Site Admin'))) {
+      $self->auth_help('suspend/unsuspend subscriptions'
+		       => ['anyauth', 'Data Manager', 'Site Admin', 'Global Admin'],
+		       'change priorities of subscriptions'
+		       => ['cert', 'Data Manager', 'Global Admin']);
+      }
+
+  my %admin_opts = ('suspend' => 'Suspend subscriptions',
+		    'unsuspend' => 'Unsuspend subscriptions',
+		    'priorityhi' => 'Make high priority',
+		    'prioritymd' => 'Make normal priority',
+		    'prioritylo' => 'Make low priority');
+  my %admin_grps = ('suspend' => ['suspend', 'unsuspend'],
+		    'priority' => ['priorityhi', 'prioritymd', 'prioritylo']);
+  my @admin_auth;
+  if ($$self{SECMOD}->isAuthenticated() &&
+      ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+      $$self{SECMOD}->hasRole('Data Manager') ||
+      $$self{SECMOD}->hasRole('Site Admin'))) {
+      push @admin_auth, 'suspend';
+  }
+
+  if ($$self{SECMOD}->isCertAuthenticated() &&
+      ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+      $$self{SECMOD}->hasRole('Data Manager'))) {
+      push @admin_auth, 'priority';
+  }
 
   if (param('subsaction')) {
       $self->update_subscriptions();
@@ -6222,7 +6268,7 @@ sub output_page
        'SELECT'  => sub { "<input type='checkbox' name='s_id' value='$_[1]->{ITEM_LEVEL}:$_[1]->{ITEM_ID}:$_[1]->{NODE_ID}'/>" }
        );
   
-  if (!$adminok) {
+  if (!@admin_auth) {
       delete $pseudo{SELECT};
       delete $df->{SELECT};
       delete $th->{SELECT};
@@ -6239,7 +6285,7 @@ sub output_page
   $dbtable->set_cellformats($cf);
   $dbtable->add_pseudocolumn($_, $pseudo{$_}) foreach (keys %pseudo);
 
-  if ($adminok) {
+  if (@admin_auth) {
       print { $$self{CONTENT} }
       "<p><label>Selections:</label>\n",
       "<input type='button' value='Select all' onclick=\"select_all('subsform', 's_id', '1')\"/>\n",
@@ -6252,12 +6298,14 @@ sub output_page
       $self->saveform(),
       "<p>\n",
       "<label>Actions:</label>\n",
-      "<select class='labeled' name='subsaction'>\n",
-      "<option value='suspend'>Suspend subscriptions</option>\n",
-      "<option value='unsuspend'>Unsuspend subscriptions</option>\n",
-      "<option value='priorityhi'>Make high priority</option>\n",
-      "<option value='prioritymd'>Make normal priority</option>\n",
-      "<option value='prioritylo'>Make low priority</option>\n",
+      "<select class='labeled' name='subsaction'>\n";
+      foreach my $auth (@admin_auth) {
+	  foreach my $opt (@{$admin_grps{$auth}}) {
+	      print { $$self{CONTENT} } 
+	      "<option value='$opt'>$admin_opts{$opt}</option>\n";
+	  }
+      }
+      print { $$self{CONTENT} }
       "</select>\n",
       "<input type='submit' value='Update'/>\n",
       "</p>\n";
@@ -6266,7 +6314,7 @@ sub output_page
 
   my $nrows = $dbtable->output($q);
 
-  if ($adminok) {
+  if (@admin_auth) {
       print { $$self{CONTENT} } "</form>\n";
   }
 
@@ -6279,7 +6327,7 @@ sub update_subscriptions
 {
     my ($self) = @_;
 
-    my %auth_nodes = $self->fetch_nodes(web_user_auth => 1, with_ids => 1);
+    my %auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager||Site Admin', with_ids => 1);
     
     my %all_nodes = reverse $self->fetch_nodes(with_ids => 1); # just a hash of id => name
 
@@ -6423,9 +6471,12 @@ sub output
 {
   my ($self) = @_;
 
-  my $adminok = $self->alert_auth(need => 'siteadmin', power => 'delete datasets and blocks');
-  if ($adminok) {
+  if ($$self{SECMOD}->isCertAuthenticated() &&
+      ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+       $$self{SECMOD}->hasRole('Data Manager'))) {
       $self->deletion_form();
+  } else {
+      $self->auth_help('delete datasets and blocks' => ['cert', 'Data Manager', 'Global Admin']);
   }
   $self->deletion_queue();
 }
@@ -6435,7 +6486,7 @@ sub deletion_form
     my $self = shift @_;
 
     my $del_url = $self->myurl('page' => 'Data::DeleteConfirm');
-    my @nodes = sort $self->fetch_nodes(web_user_auth => 1);
+    my @nodes = sort $self->fetch_nodes(web_user_auth => 'Data Manager');
     
     print { $$self{CONTENT} }
     "<h1>Delete Data</h1>",
@@ -6472,12 +6523,12 @@ sub deletion_form
     
     print {$$self{CONTENT}}
     "<label>Data Items:<br/><br/>",
-    "<span class='note'>/Primary/Tier/Dataset<br/>or<br/>",
-    "/Primary/Dataset#Block<br/>(Use * as wildcard)</span><br/>",
+    "<span class='note'>/Primary/Processed/Dataset<br/>or<br/>",
+    "/Primary/Processed/Tier#Block<br/>(Use * as wildcard)</span><br/>",
     &help("More Help", "Data Item List", 
 	  "A whitespace separated list of the datasets or blocks you are ",
-	  "deleting.  Glob-style wildcards may be used, but the data ",
-	  "tier separators are required.  E.g. to subscribe to all ",
+	  "deleting.  Glob-style wildcards may be used, but the dataset ",
+	  "path separators are required.  E.g. to delete all ",
 	  "datasets you would have to write '/*/*/*', not '*'."), 
     "</label>\n",
     textarea(-name=>'data', -value=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), 
@@ -6559,8 +6610,12 @@ sub output
 	return;
     }
 
-    my $adminok = $self->alert_auth(need => 'siteadmin', power => 'delete datasets and blocks');
-    return unless ($adminok);
+    unless ($$self{SECMOD}->isCertAuthenticated() &&
+	    ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+	     $$self{SECMOD}->hasRole('Data Manager'))) {
+	$self->auth_help('delete datasets and blocks' => ['cert', 'Data Manager', 'Global Admin']);
+	return;
+    }
 
     my $bad = 0;
     unless (param('node') || param('data') || param('rm_subscriptions')) {
@@ -6575,7 +6630,7 @@ sub output
 
     my $rm_subscriptions = (param('rm_subscriptions') eq 'y' ? 1 : 0);
 
-    my @auth_nodes = $self->fetch_nodes(web_user_auth => 1);
+    my @auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager');
     foreach my $node (@nodes) {
 	if (! grep $node eq $_, @auth_nodes) {
 	    $self->alert("You don't have permission to delete data from $node.");
@@ -6724,7 +6779,7 @@ sub output
 	    return;
 	}
 
-	my $delete_url = $self->myurl('DeleteExec');
+	my $delete_url = $self->myurl();
 	my @save = map { hidden($_, param($_)) } param();
  	print {$$self{CONTENT}}
 	"<form method='post' action='$delete_url'>",
@@ -7011,6 +7066,8 @@ sub new
 sub output
 {
   my ($self) = @_;
+  &dump_var($$self{CONTENT}, 'SecMod CertAuth', $$self{SECMOD}->isCertAuthenticated());
+  &dump_var($$self{CONTENT}, 'SecMod PassAuth', $$self{SECMOD}->isPasswdAuthenticated());
   &dump_var($$self{CONTENT}, 'SecMod Forename', $$self{SECMOD}->getForename());
   &dump_var($$self{CONTENT}, 'SecMod Surname', $$self{SECMOD}->getSurname());
   &dump_var($$self{CONTENT}, 'SecMod Username', $$self{SECMOD}->getUsername());
@@ -7019,7 +7076,7 @@ sub output
 
   &dump_var($$self{CONTENT}, 'SecMod Roles', $$self{SECMOD}->getRoles());
 
-  &dump_var($$self{CONTENT}, 'authorized nodes', [ $self->fetch_nodes(web_user_auth=>1) ]);
+  &dump_var($$self{CONTENT}, 'authorized nodes', [ $self->fetch_nodes(web_user_auth=>'Data Manager') ]);
 
   &dump_var($$self{CONTENT}, 'SecMod Node Map', {$$self{SECMOD}->getPhedexNodeToSiteMap()});
   
