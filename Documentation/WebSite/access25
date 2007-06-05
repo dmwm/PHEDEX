@@ -384,7 +384,7 @@ sub fetch_nodes
     my @auth_nodes;
     if (exists $args{web_user_auth} && $args{web_user_auth}) {
 	my $roles = $$self{SECMOD}->getRoles();
-	my @to_check = split /||/, $args{web_user_auth};
+	my @to_check = split /\|\|/, $args{web_user_auth};
 	my $roles_ok = 0;
 	foreach my $role (@to_check) {
 	    if (grep $role eq $_, keys %{$roles}) {
@@ -411,7 +411,9 @@ sub fetch_nodes
 		}
 	    }
 	    foreach my $node (keys %node_map) {
-		push @auth_nodes, $node if grep $node_map{$node} == $_, keys %auth_sites;
+		foreach my $site (keys %auth_sites) {
+		    push @auth_nodes, $node if $node_map{$node} eq $site;
+		}
 	    }
 	}
     }
@@ -422,7 +424,7 @@ sub fetch_nodes
     my %nodes;
     while (my ($node, $node_id) = $q->fetchrow()) {
 	# Filter by auth_nodes if there are any
-	if (!@auth_nodes || grep $node == $_, @auth_nodes) {
+	if (!@auth_nodes || grep $node eq $_, @auth_nodes) {
 	    $nodes{$node} = $node_id;
 	}
     }
@@ -7076,7 +7078,7 @@ sub output
 
   &dump_var($$self{CONTENT}, 'SecMod Roles', $$self{SECMOD}->getRoles());
 
-  &dump_var($$self{CONTENT}, 'authorized nodes', [ $self->fetch_nodes(web_user_auth=>'Data Manager') ]);
+  &dump_var($$self{CONTENT}, 'authorized nodes', [ $self->fetch_nodes(web_user_auth=>'Site Admin||Data Manager') ]);
 
   &dump_var($$self{CONTENT}, 'SecMod Node Map', {$$self{SECMOD}->getPhedexNodeToSiteMap()});
   
