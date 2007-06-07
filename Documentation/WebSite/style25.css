@@ -823,3 +823,6 @@ div.logbox {
 
 p.alarm { color:  white; }
 p.note { color:  blue; }
+
+p.blocktext { width:  50em; }
+
