@@ -8,7 +8,6 @@ export GRAPH_ROOT=/opt/aptinstaller/BrianPlot-20070321
 
 export CONFIG_ROOT=../PlotConfig
 
-
 # Don't edit the below ones unless you know what you're doing
 
 export PYTHONPATH=$GRAPH_ROOT/src
@@ -32,7 +31,6 @@ source $CMS_ROOT/slc4_ia32_gcc345/external/py2-numpy/1.0.1/etc/profile.d/init.sh
 source $CMS_ROOT/slc4_ia32_gcc345/external/libjpg/6b/etc/profile.d/init.sh
 source $CMS_ROOT/slc4_ia32_gcc345/external/libtiff/3.8.2/etc/profile.d/init.sh
 source $CMS_ROOT/slc4_ia32_gcc345/external/py2-pil/1.1.6/etc/profile.d/init.sh
-source $CMS_ROOT/slc4_ia32_gcc345/cms/oracle-env/1.2/etc/profile.d/init.sh
 
 fi
 
