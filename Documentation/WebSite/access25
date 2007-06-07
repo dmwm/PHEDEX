@@ -1861,7 +1861,8 @@ sub generate
   $$self{SECMOD} = new CMSWebTools::SecurityModule::Oracle({
       CALLER_URL => $self->myurl(fullurl=>1),
       CONFIG => $$config{SECMOD_CONFIG},
-      PWDFORM_HANDLER => $self->myurl('page'=>'Security::Password')
+      PWDFORM_HANDLER => $self->myurl('page'=>'Security::Password'),
+      SIGNUP_HANDLER => $self->myurl('page'=>'Security::SignUp')
       });
   $$self{SECMOD}->init();
 
@@ -2182,6 +2183,47 @@ sub output
 1;
 
 
+
+######################################################################
+package Web25::Security::SignUp;
+use strict; use warnings;
+use base "Web25::Page";
+use CGI qw(:standard);
+import Web25::Common;
+our $INDEX = { LIST => 0, ORDER => 0, NOLOGIN => 1, TITLE => "Password Sign-In" };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+sub output
+{
+    my ($self) = @_;
+    my $caller_url = param('caller_url');
+
+    my $sitedb = "<a href='$$self{CONFIG}{SITEDB_URL}'>SiteDB</a>";
+
+    print {$$self{CONTENT}} 
+    "<h1>Have You Signed Up?</h1><br/>",
+    "<p class='blocktext'>You need to sign up with CMS Web Services in order to log in ",
+    "and use privileged features.  Signing up can be done via ",
+    "$sitedb.</p>",
+    "<p class='blocktext'>If you have already signed up with SiteDB, it ",
+    "is possible that your certificate or password information is out ",
+    "of date there.  In that case go back to $sitedb and update your ",
+    "information.</p>";
+    
+
+}
+
+1;
+
+
 ######################################################################
 package Web25::Info::Main;
 use strict; use warnings;
@@ -2233,6 +2275,8 @@ sub output
 }
 
 1;
+
+
 
 ######################################################################
 package Web25::Info; use strict; use warnings; use base "Exporter";
