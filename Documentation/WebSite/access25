@@ -1865,10 +1865,8 @@ sub generate
   $$self{SECMOD} = new CMSWebTools::SecurityModule::Oracle({
 #  $$self{SECMOD} = new CMSWebTools::SecurityModule::SQLite({
       CALLER_URL => $self->myurl(fullurl=>1),
-      CONFIG => "/data/PHEDEX/Dev/egeland/SecModStuff/SecurityModule.conf",
-      KEYVALIDTIME => 300,
-      LOGFILE => "/data/PHEDEX/Dev/egeland/SecModStuff/SecMod.log",
-      LOGLEVEL => 5
+      CONFIG => $$config{SECMOD_CONFIG},
+      PWDFORM_HANDLER => $self->myurl('page'=>'Security::Password')
       });
   $$self{SECMOD}->init();
 
@@ -1876,7 +1874,7 @@ sub generate
   my $index = do { no strict "refs"; ${"@{[ref $self]}::INDEX"} };
 
   # Force redirect to https if using http
-  if ($$index{SECURE} && !$$self{SECMOD}->isSecure()) {
+  if ($$index{SECURE} && !$$self{SECMOD}->isSecure() && !param('SecModPwd')) {
       print redirect(-uri => $self->myurl("fullurl" => 1, "secure" => 1, "view" => "my"));
       return;
   }
@@ -1888,11 +1886,11 @@ sub generate
     $$self{LOGIN_MESSAGE} =
 	"<p>". &escapeHTML($$self{USER_NAME}) .
 	" | <a href='" . $self->myurl("secure" => 1, "fullurl" => 1, "SecModLogout" => 1, page=>"Info::Main") . "'>Sign out</a></p>";
-    ## XXX Testing only
-    use Data::Dumper;
-    my $roles = Dumper($$self{SECMOD}->getRoles());
-    $$self{LOGIN_MESSAGE} .= "<p>$roles</p>", 
-    ### XXX Testing only
+    if ($TESTING) {
+	use Data::Dumper;
+	my $roles = Dumper($$self{SECMOD}->getRoles());
+	$$self{LOGIN_MESSAGE} .= "<p>$roles</p>", 
+    }
   }
   else
   {
@@ -1907,8 +1905,7 @@ sub generate
   elsif ($login_state eq 'passwd') { $login_state = 'Logged in via Password'; }
   elsif ($login_state eq 'failed') { $login_state = 'Not logged in'; }
   $$self{LOGIN_MESSAGE} .= "<p>$login_state</p>";
-
-
+  
   # Check whether we are looking at our vs. global view
   if (! $$self{SECMOD}->isAuthenticated() )
   {
@@ -2004,7 +2001,7 @@ sub generate
        "<div class='catopt'>\n" .
        " <ul>\n" .
        join("", map { "  <li"
-		      . ($$_ == $cat
+		      . ($cat && $$_ == $cat
 			 ? (" class='selected'><span>" . &escapeHTML(${$$_}{TITLE}) . "</span>")
 			 : (">" . &toclink($self, $_)))
 		      . "</li>\n" } @toc) .
@@ -2029,6 +2026,17 @@ sub generate
        " </div>"),
     'MYPAGE' => "<div>$$self{VIEW_MESSAGE}</div>",
   };
+
+  # Hide these things on the password page
+  if (param('page') eq 'Security::Password') { 
+      $$replacements{MYPAGE} = '';
+      $$replacements{IDENTITY} = '';
+      $$replacements{DBSELECTOR} = '';
+      $$replacements{PAGESELECTOR} = '';
+      $$replacements{TOCSELECTOR} = '';
+      $$replacements{THIS_IS_A_TEST} = '';
+  }
+
 
   # Execute the desired page.  We save old STDOUT to print to it
   # later, then redirect the page routine's output to CONTENT.
@@ -2140,6 +2148,44 @@ sub generate
 
 
 1;
+
+######################################################################
+package Web25::Security::Password;
+use strict; use warnings;
+use base "Web25::Page";
+use CGI qw(:standard);
+import Web25::Common;
+our $INDEX = { LIST => 0, ORDER => 0, NOLOGIN => 1, TITLE => "Password Sign-In" };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+sub output
+{
+    my ($self) = @_;
+    my $caller_url = param('caller_url');
+    $caller_url =~ s,^http://[^/]+,$$self{CONFIG}{SSL_SERVER_ROOT},;
+    my $msg = param('msg');
+
+    print {$$self{CONTENT}} 
+    "<h1>Password Sign-In</h1><br/>",
+    "<p>Sign in with your CMS SiteDB/Hypernews password</p>",
+    ($msg ? "<p style='color:red'>$msg</p>" : ''),
+    "<form class='nice' method='post' action='$caller_url'>",
+    "<label>Username</label>",textfield(-name=>'SecModLogin', -class=>'labeled'),"<br/>",
+    "<label>Password</label>",password_field(-name=>'SecModPwd', -class=>'labeled'),"<br/>",
+    "<label>&nbsp;</label>", submit(-name=>'Submit', -value=>'submit'),
+    "</form>";
+}
+
+1;
+
 
 ######################################################################
 package Web25::Info::Main;
@@ -2624,7 +2670,7 @@ sub output
 
 	      my $formurl = $self->myurl(page=>'Request::NewAction');
 	      print { $$self{CONTENT} }
-	      "<form method='get' action='$formurl'>",
+	      "<form method='post' action='$formurl'>",
 	      hidden(-name=>'request', -value=>$task{$tid}{REQUEST_ID}),
 	      hidden(-name=>'task', -value=>$tid),
 	      hidden(-name=>'action', -value=>$aid),
@@ -3581,7 +3627,7 @@ sub output
   my $subscription_type = &subscription_type($priority, $is_transient, $is_move);
 
   print { $$self{CONTENT} } 
-  "<form method='POST' action='@{[$self->myurl()]}'>\n",
+  "<form method='post' action='@{[$self->myurl()]}'>\n",
   "<p>Please review these request details and confirm below.  If you would like to ",
   "change your request, use the back button in your browser.</p>",
   "<h1>Request Information</h1>",
@@ -7250,6 +7296,7 @@ sub output
   my ($self) = @_;
   return if (!$TESTING);  # For security
   #&dump_var($$self{CONTENT}, 'Config', $$self{CONFIG});
+  #&dump_var($$self{CONTENT}, 'Env', {%ENV});
   &dump_var($$self{CONTENT}, 'SecMod CertAuth', $$self{SECMOD}->isCertAuthenticated());
   &dump_var($$self{CONTENT}, 'SecMod PassAuth', $$self{SECMOD}->isPasswdAuthenticated());
   &dump_var($$self{CONTENT}, 'SecMod Forename', $$self{SECMOD}->getForename());
