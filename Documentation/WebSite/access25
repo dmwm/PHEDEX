@@ -2,11 +2,7 @@
 
 our $TESTING = 1;
 
-# TODO: put in standard location
-use lib "/data/PHEDEX/Dev/egeland/WEBTOOLS/SecurityModule/perl/lib";
 use CMSWebTools::SecurityModule::Oracle;
-#use CMSWebTools::SecurityModule::SQLite;
-
 
 ######################################################################
 package Web25::Common; use strict; use warnings; use base "Exporter";
@@ -1863,7 +1859,6 @@ sub generate
 
   # Fire up the security module
   $$self{SECMOD} = new CMSWebTools::SecurityModule::Oracle({
-#  $$self{SECMOD} = new CMSWebTools::SecurityModule::SQLite({
       CALLER_URL => $self->myurl(fullurl=>1),
       CONFIG => $$config{SECMOD_CONFIG},
       PWDFORM_HANDLER => $self->myurl('page'=>'Security::Password')
@@ -4610,18 +4605,18 @@ sub output
   my $imgsrc = $self->imgsrc($graph, %args);
   print {$$self{CONTENT}} "<p><img src='$imgsrc' /></p>";
 
-
-#   print {$$self{CONTENT}} "<pre>";
-#   print {$$self{CONTENT}}<<STOP;
-#       no_mss:  $no_mss
-#  dest_filter:  $dest_filter
-#   src_filter:  $src_filter
-#      formurl:  $formurl
-#       imgsrc:  $imgsrc
-# STOP
-# print {$$self{CONTENT}} "</pre>";
-#   &dump_var($$self{CONTENT}, 'args', {%args});
-#   &dump_params($$self{CONTENT});
+  &dump_var($$self{CONTENT}, 'tns_admin', $ENV{TNS_ADMIN});
+  print {$$self{CONTENT}} "<pre>";
+  print {$$self{CONTENT}}<<STOP;
+      no_mss:  $no_mss
+ dest_filter:  $dest_filter
+  src_filter:  $src_filter
+     formurl:  $formurl
+      imgsrc:  $imgsrc
+STOP
+print {$$self{CONTENT}} "</pre>";
+  &dump_var($$self{CONTENT}, 'args', {%args});
+  &dump_params($$self{CONTENT});
 
 }
 
@@ -7020,6 +7015,9 @@ sub output
 				  values (:time, :node, :dataset, :block) };
 	my $subs_delete_sql = qq{ delete from t_dps_subscription where destination = :dest and THING = :id };
 
+	my $subs_update_sql = qq{ update t_dps_subscription set time_complete = NULL
+				   where destination = :dest and THING = :id };
+
 	my $now = time();
 
 	my ($n_delete, $n_rm_subs) = (0, 0);
@@ -7032,24 +7030,26 @@ sub output
 				     ':block' => $$_{BLOCK_ID});
 	    $n_delete += $rv;
 
-	    if ($rm_subscriptions) {
-		my ($item, $id);
-		if ($$_{DATASET_SUBSCRIBED} eq 'y') {
-		    $item = 'dataset';
-		    $id = $$_{DATASET_ID};
-		} elsif ($$_{BLOCK_SUBSCRIBED} eq 'y') {
-		    $item = 'block';
-		    $id = $$_{BLOCK_ID};
-		} else {
-		    next MATCH;
-		}
-		my $rm_sql = $subs_delete_sql;
-		$rm_sql =~ s/THING/$item/;
-		($sth, $rv) = &dbexec($$self{DBH}, $rm_sql,
-				      ':dest' => $$_{NODE_ID},
-				      ':id' => $id);
-		$n_rm_subs += $rv;
+	    # Delete subscriptions if the user requested it, otherwise
+	    # leave the subscription in place but set time_complete to
+	    # be null
+	    my ($item, $id);
+	    if ($$_{DATASET_SUBSCRIBED} eq 'y') {
+		$item = 'dataset';
+		$id = $$_{DATASET_ID};
+	    } elsif ($$_{BLOCK_SUBSCRIBED} eq 'y') {
+		$item = 'block';
+		$id = $$_{BLOCK_ID};
+	    } else {
+		next MATCH;
 	    }
+	    my $subs_sql = $rm_subscriptions ? $subs_delete_sql : $subs_update_sql;;
+	    $subs_sql =~ s/THING/$item/;
+	    ($sth, $rv) = &dbexec($$self{DBH}, $subs_sql,
+				  ':dest' => $$_{NODE_ID},
+				  ':id' => $id);
+	    $n_rm_subs += $rv if $rm_subscriptions;
+	    
 	}
 	$$self{DBH}->commit();
 
