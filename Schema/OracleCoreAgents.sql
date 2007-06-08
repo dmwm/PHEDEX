@@ -31,7 +31,9 @@ create table t_agent_message
      foreign key (agent) references t_agent (id)
      on delete cascade);
 
-
+/* t_agent_status.state:
+ *   1 = agent is up and running
+ */
 create table t_agent_status
   (node			integer		not null,
    agent		integer		not null,

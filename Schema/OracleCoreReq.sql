@@ -6,6 +6,9 @@ create sequence seq_req_action;
 create sequence seq_req_action_attr;
 create sequence seq_req_task;
 
+/* t_req_request.state:
+ *   defined by web page code
+ */
 create table t_req_request
   (id			integer		not null,
    creator		integer		not null,

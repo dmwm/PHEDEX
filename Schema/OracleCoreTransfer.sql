@@ -80,15 +80,19 @@ create table t_xfer_delete
      on delete cascade)
  enable row movement;
 
--- priority in block destination and file request, confirmation:
---   0 = "now", 1 = "as soon as you can", 2 = "whenever you can"
+/* priority in t_dps_block_dest, t_xfer_request, t_xfer_path
+ *   0 = "now", 1 = "as soon as you can", 2 = "whenever you can"
+ *    "high"         "normal"                   "low"
 
--- priority in transfers: (priority-level) * 2 + (for-me ? 0 : 1)
---   0 = now, destined for my site
---   1 = now, destined for someone else
---   2 = quicky, destined for my site
---   :
-
+ * priority in t_xfer_task, t_xfer_error: 
+ * formula is (priority-level) * 2 + (for-me ? 0 : 1)
+ *   0 = high, destined for my site
+ *   1 = high, destined for someone else
+ *   2 = normal, destined for my site
+ *   3 = normal, destined for someone else
+ *   4 = low, destined for my site
+ *   5 = low, destined for someone else
+ */
 create table t_xfer_replica
   (id			integer		not null,
    node			integer		not null,
@@ -113,6 +117,11 @@ create table t_xfer_replica
     (partition node_dummy values (-1))
   enable row movement;
 
+/*
+ * t_xfer_reqest.state:
+ *   0 = Active, valid transfer request
+ *   1 = Deactivated, e.g. expired
+ */
 create table t_xfer_request
   (fileid		integer		not null,
    inblock		integer		not null,

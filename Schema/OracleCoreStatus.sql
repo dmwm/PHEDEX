@@ -6,6 +6,10 @@
    See also the same chapter, "Compress Auditing or
    Transaction History" for swapping partitions.
    Also test if index-organised table is good. */
+
+/* t_history_link_events.priority:
+ *   same as t_xfer_task, see OracleCoreTransfer
+ */
 create table t_history_link_events
   (timebin		float		not null,
    timewidth		float		not null,
@@ -39,6 +43,10 @@ create table t_history_link_events
    See also the same chapter, "Compress Auditing or
    Transaction History" for swapping partitions.
    Also test if index-organised table is good. */
+
+/* t_history_link_stats.priority:
+ *   same as for t_xfer_task, see OrackeCoreTransfer
+ */
 create table t_history_link_stats
   (timebin		float		not null,
    timewidth		float		not null,
@@ -102,7 +110,7 @@ create table t_history_dest
 create table t_status_block_dest
   (time_update		float		not null,
    destination		integer		not null,
-   state		integer		not null,
+   state		integer		not null, -- see t_dps_block_request
    files		integer		not null,
    bytes		integer		not null,
    --
@@ -142,8 +150,11 @@ create table t_status_replica
      foreign key (node) references t_adm_node (id)
      on delete cascade);
 
-/* Statistics for transfer requests. */
-create table t_status_request
+/* Statistics for transfer requests. 
+ * t_status_request.state:
+ *   same as t_xfer_request, see OracleCoreTransfers
+ */
+ create table t_status_request
   (time_update		float		not null,
    destination		integer		not null,
    state		integer		not null,
@@ -157,7 +168,10 @@ create table t_status_request
      foreign key (destination) references t_adm_node (id)
      on delete cascade);
 
-/* Statistics for transfer paths. */
+/* Statistics for transfer paths.
+ * t_status_path.priority:
+ *   same as t_xfer_path, see OracleCoreTransfers
+ */
 create table t_status_path
   (time_update		float		not null,
    from_node		integer		not null,
@@ -178,7 +192,17 @@ create table t_status_path
      foreign key (to_node) references t_adm_node (id)
      on delete cascade);
 
-/* Statistics for transfer tasks. */
+/* Statistics for transfer tasks.
+ *
+ * t_status_task.priority:
+ *   same as for t_xfer_task, see OrackeCoreTransfer
+ *
+ * t_status_task.state:
+ *   0 = waiting for transfer
+ *   1 = exported
+ *   2 = in transfer
+ *   3 = finished transfer
+*/
 create table t_status_task
   (time_update		float		not null,
    from_node		integer		not null,
