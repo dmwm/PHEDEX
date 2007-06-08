@@ -3,7 +3,8 @@
 ##H This is a "srmcp"-like script using FTS to transfer files.
 ##H
 ##H Usage: ftscp -copyjobfile=FILE [-report=FILE] -passfile=FILE
-##H              [-server=SERVER-ACCESS-POINT]
+##H              [-server=SERVER-ACCESS-POINT] 
+##H              [-mode=MODE] [-mapfile=SRM2FTS_SERVER_MAP]
 ##H
 ##H Takes a list of source/destination file pairs and copies them
 ##H using FTS.  The files must be given through a "copyjob" file,
@@ -23,6 +24,25 @@
 ##H
 ##H The "-server" option specifies the FTS entry point.  If this
 ##H option is not used, gLite service discovery is used.
+##H 
+##H The "-mode" option specifies whether to run against a single FTS
+##H endpoint or to use multiple endpoints.
+##H 
+##H The "-mapfile" option specifies a map of SRM endpoint to FTS server,
+##H used in place of service discovery.
+
+##H Error codes:
+##H 1 - unrecognised option
+##H 101 - missing -copyjob option
+##H 102 - file specified with -copyjob does not exist
+##H 103 - file specified with -copyjob is unreadable
+##H 111 - missing -passfile option
+##H 112 - file specified with -passfile does not exist
+##H 113 - file specified with -passfile is unreadable
+##H 114 - file specified with -passfile is insecure, restrict with 'chmod 600 $passfile'
+##H 122 - file specified with -mapfile does not exist
+##H 123 - file specified with -mapfile is unreadable
+##H 201 - running in single server mode, without specifying a server
 
 usage() { grep '^##H' < $0 | sed 's/^\(##H \|##H$\)//'; exit 1; }
 
@@ -47,6 +67,14 @@ for arg; do
       server="${arg#-server=}"
       echo "server=$server"
       ;;
+    -mode=* )
+      mode="${arg#-mode=}"
+      echo "mode=$mode"
+      ;; 
+    -mapfile=* )
+      mapfile="${arg#-mapfile=}"
+      echo "mapfile=$mapfile"
+      ;;            
     -h )
       usage;;
     -* )
@@ -57,20 +85,54 @@ for arg; do
 done
 
 # Verify arguments
-[ -z "$copyjobfile" ] && { echo "Missing -copyjobfile, use -h for help." 1>&2; exit 1; }
-[ ! -f "$copyjobfile" ] && { echo "$copyjobfile: no such file" 1>&2; exit 2; }
-[ ! -r "$copyjobfile" ] && { echo "$copyjobfile: cannot read" 1>&2; exit 3; }
-[ -z "$passfile" ] && { echo "Missing -passfile, use -h for help." 1>&2; exit 4; }
-[ ! -f "$passfile" ] && { echo "$passfile: no such file" 1>&2; exit 5; }
-[ ! -r "$passfile" ] && { echo "$passfile: cannot read" 1>&2; exit 6; }
+[ -z "$copyjobfile" ] && { echo "Missing -copyjobfile, use -h for help." 1>&2; exit 101; }
+[ ! -f "$copyjobfile" ] && { echo "$copyjobfile: no such file" 1>&2; exit 102; }
+[ ! -r "$copyjobfile" ] && { echo "$copyjobfile: cannot read" 1>&2; exit 103; }
+[ -z "$passfile" ] && { echo "Missing -passfile, use -h for help." 1>&2; exit 111; }
+[ ! -f "$passfile" ] && { echo "$passfile: no such file" 1>&2; exit 112; }
+[ ! -r "$passfile" ] && { echo "$passfile: cannot read" 1>&2; exit 113; }
 case $(ls -l "$passfile" 2>/dev/null | awk '{print $1}') in ????------ ) ;;
   * ) echo "$passfile: password file has vulnerable file access permissions" 1>&2;
-      echo "$passfile: please restrict with 'chmod 600 $passfile'" 1>&2; exit 7;;
+      echo "$passfile: please restrict with 'chmod 600 $passfile'" 1>&2; exit 114;;
 esac
+
+if [ -z "$mapfile" ]; then :; else
+  [ ! -f "$mapfile" ] && { echo "$mapfile: no such file" 1>&2; exit 122; }
+  [ ! -r "$mapfile" ] && { echo "$mapfile: cannot read" 1>&2; exit 123; }
+fi
 
 if [ -z "$server" ]; then :; else
   server="-s $server"
+elif [ $mode = "multi" ]; then
+  echo "finding appropriate fts server from $mapfile or BDII"
+  fts_contact=""
+  if [ -z "$mapfile" ]; then
+    echo "no FTS server or FTS mapping file is given." 1>&2; exit 10;
+  elif [  ! -r "$mapfile" ]; then
+    echo "$mapfile: cannot read" 1>&2; exit 123;
+  else 
+    srm_contact=`head -1 $copyjobfile|awk '{print $1}'|awk -F? '{print $1}'|sed 's|^srm|httpg|g'`
+    fts_contact=`grep $srm_contact $mapfile|awk '{print $2}'|cut -f2 -d=|awk '{print $NF}'`
+    if [ -z "$fts_contact" ]; then
+      # [FIXME] Try service discovery here
+    else
+      fts_contact=`grep DEFAULT $mapfile|awk '{print $2}'|cut -f2 -d=|awk '{print $NF}'` 
+      echo "###WARNING: using DEFAULT FTS server:$fts_contact"
+    fi
+    if [ -n $fts_contact ]; then
+      server=`echo $fts_contact|sed 's|"||g'`
+      server="-s $server"
+    else
+      echo "No FTS server is found, exit." 1>&2; exit 1;
+    fi
+  fi
+
+else
+  echo "Running in single server mode, without specifying a server. Cannot identify FTS server in this configuration"
+  exit 201;
 fi
+
+echo "FTS server is: $server"
 
 # Install signal handler which will cancel the job.  This doesn't
 # exit, but hopefully closes the loop below to terminate.  If we
@@ -119,6 +181,10 @@ while true; do
       # how much has been done and remains to be done.
       ;;
 
+    Ready )
+      # [FIXME] ready should indicate the clock should start timing the transfer maybe
+      ;;
+      
     Active )
       ;;
 
@@ -132,31 +198,31 @@ while true; do
       # exit 8
       ;;
 
-    Done | Failed | Canceled )
+    Done | Finished | FinishedDirty | Failed | Canceled )
       # Job done, record report file, quit
       echo "+ glite-transfer-status -l $server $ftsjob"
       glite-transfer-status -l $server $ftsjob # for log
 
       glite-transfer-status -l $server $ftsjob |
         while read item arg; do
-	  case $item in
-	    Source: )
-	      src="$arg" ;;
-	    Destination:)
-	      dest="$arg" ;;
-	    State: )
-	      case $arg in
-	        Done ) status="0" state="$arg" ;;
-		*    ) status="1" state="$arg" ;;
-	      esac;;
-	    Reason: )
-	      echo "$src $dest $status $state $arg" ;;
-	  esac
-	done > "$report"
+    case $item in
+      Source: )
+        src="$arg" ;;
+      Destination:)
+        dest="$arg" ;;
+      State: )
+        case $arg in
+          Done ) status="0" state="$arg" ;;
+    *    ) status="1" state="$arg" ;;
+        esac;;
+      Reason: )
+        echo "$src $dest $status $state $arg" ;;
+    esac
+  done > "$report"
 
       if glite-transfer-status -l $server $ftsjob | \
-	 grep State: | grep -v Done >/dev/null; then
-	exit 1
+   grep State: | grep -v Done >/dev/null; then
+  exit 1
       else
         exit 0
       fi
