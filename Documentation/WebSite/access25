@@ -1754,6 +1754,12 @@ sub new
   return $self;
 }
 
+sub initSecurityModule
+{
+    my ($self, $secmod_config) = @_;
+    $$self{SECMOD} = new CMSWebTools::SecurityModule::Oracle({CONFIG => $secmod_config});
+}
+
 sub toc
 {
   my ($self) = @_;
@@ -1818,7 +1824,7 @@ sub myurl
   my $curview = param('view');
   my $curlayout = param('layout');
   my $currefresh = param('refresh');
-  my $cursecure = (($ENV{HTTPS} || 'nope') eq 'on' ? 1 : 0);
+  my $cursecure = $$self{SECMOD}->isSecure();
   my $curquery = query_string();
   my %args = ('db' => $$self{DBID},
 	      ($cursecure ? ('secure' => 1) : ()),
@@ -1858,19 +1864,17 @@ sub generate
   $$self{DBID} = $db;
 
   # Fire up the security module
-  $$self{SECMOD} = new CMSWebTools::SecurityModule::Oracle({
-      CALLER_URL => $self->myurl(fullurl=>1),
-      CONFIG => $$config{SECMOD_CONFIG},
-      PWDFORM_HANDLER => $self->myurl('page'=>'Security::Password'),
-      SIGNUP_HANDLER => $self->myurl('page'=>'Security::SignUp')
-      });
+  $$self{SECMOD}->setPwdHandler($self->myurl('fullurl' => 1, 'secure' => 1, 'page'=>'Security::Password'));
+  $$self{SECMOD}->setSignupHandler($self->myurl('fullurl' => 1, 'secure' => 0, 'page'=>'Security::SignUp'));
+  $$self{SECMOD}->setReqCertFailHandler($self->myurl('fullurl' => 1, 'secure' => 0, 'page'=>'Security::SignUp'));
+  $$self{SECMOD}->setCallerURL($self->myurl('fullurl' => 1));
   $$self{SECMOD}->init();
 
-  # Find the class cope index of this page instance.
+  # Find the class scope index of this page instance.
   my $index = do { no strict "refs"; ${"@{[ref $self]}::INDEX"} };
 
   # Force redirect to https if using http
-  if ($$index{SECURE} && !$$self{SECMOD}->isSecure() && !param('SecModPwd')) {
+  if ($$index{SECURE} && !$$self{SECMOD}->isSecure() && param('page') !~ /^Security/) {
       print redirect(-uri => $self->myurl("fullurl" => 1, "secure" => 1, "view" => "my"));
       return;
   }
@@ -7341,23 +7345,34 @@ sub output
   return if (!$TESTING);  # For security
   #&dump_var($$self{CONTENT}, 'Config', $$self{CONFIG});
   #&dump_var($$self{CONTENT}, 'Env', {%ENV});
-  &dump_var($$self{CONTENT}, 'SecMod CertAuth', $$self{SECMOD}->isCertAuthenticated());
-  &dump_var($$self{CONTENT}, 'SecMod PassAuth', $$self{SECMOD}->isPasswdAuthenticated());
-  &dump_var($$self{CONTENT}, 'SecMod Forename', $$self{SECMOD}->getForename());
-  &dump_var($$self{CONTENT}, 'SecMod Surname', $$self{SECMOD}->getSurname());
-  &dump_var($$self{CONTENT}, 'SecMod Username', $$self{SECMOD}->getUsername());
-  &dump_var($$self{CONTENT}, 'SecMod DN', $$self{SECMOD}->getDN());
-  &dump_var($$self{CONTENT}, 'SecMod CERT', $$self{SECMOD}->getCert());
-
-  &dump_var($$self{CONTENT}, 'SecMod Roles', $$self{SECMOD}->getRoles());
-
-  &dump_var($$self{CONTENT}, 'authorized nodes', [ $self->fetch_nodes(web_user_auth=>'Site Admin||Data Manager') ]);
-
-  &dump_var($$self{CONTENT}, 'SecMod Node Map', {$$self{SECMOD}->getPhedexNodeToSiteMap()});
+  print {$$self{CONTENT}} 
+  "<p>Full URL current  ",     $self->myurl('fullurl'=>1),"</p>",
+  "<p>Full URL security on  ", $self->myurl('fullurl'=>1, 'secure'=>1),"</p>",
+  "<p>Full URL security off  ",$self->myurl('fullurl'=>1, 'secure'=>0),"</p>",
+  "<p>Normal URL current ", $self->myurl(),"</p>",
+  "<p>Normal URL security on  ", $self->myurl('secure'=>1),"</p>",
+  "<p>Normal URL security off ", $self->myurl('secure'=>0),"</p>";
   
-  &dump_var($$self{CONTENT}, 'SecMod CERN Site Admins', [$$self{SECMOD}->getUsersWithRoleForSite('Site Admin', 'CERN')]);
+  &dump_var($$self{CONTENT}, 'ENV{HTTPS}', $ENV{HTTPS});
+  &dump_var($$self{CONTENT}, 'ENV{HTTP_HTTPS}', $ENV{HTTP_HTTPS});
+#   &dump_var($$self{CONTENT}, 'SecMod CertAuth', $$self{SECMOD}->isCertAuthenticated());
+#   &dump_var($$self{CONTENT}, 'SecMod PassAuth', $$self{SECMOD}->isPasswdAuthenticated());
+#   &dump_var($$self{CONTENT}, 'SecMod Forename', $$self{SECMOD}->getForename());
+#   &dump_var($$self{CONTENT}, 'SecMod Surname', $$self{SECMOD}->getSurname());
+#   &dump_var($$self{CONTENT}, 'SecMod Username', $$self{SECMOD}->getUsername());
+#   &dump_var($$self{CONTENT}, 'SecMod DN', $$self{SECMOD}->getDN());
+#   &dump_var($$self{CONTENT}, 'SecMod CERT', $$self{SECMOD}->getCert());
 
-  &dump_var($$self{CONTENT}, 'SecMod Global Admins', [$$self{SECMOD}->getUsersWithRoleForGroup('Global Admin', 'phedex')]);
+#   &dump_var($$self{CONTENT}, 'SecMod Roles', $$self{SECMOD}->getRoles());
+
+#   &dump_var($$self{CONTENT}, 'authorized nodes', [ $self->fetch_nodes(web_user_auth=>'Site Admin||Data Manager') ]);
+
+#   &dump_var($$self{CONTENT}, 'SecMod Node Map', {$$self{SECMOD}->getPhedexNodeToSiteMap()});
+  
+#   &dump_var($$self{CONTENT}, 'SecMod CERN Site Admins', [$$self{SECMOD}->getUsersWithRoleForSite('Site Admin', 'CERN')]);
+
+#   &dump_var($$self{CONTENT}, 'SecMod Global Admins', [$$self{SECMOD}->getUsersWithRoleForGroup('Global Admin', 'phedex')]);
+
 
 }
 
@@ -7375,7 +7390,11 @@ sub runme
   # Read PhEDEx web server configuration
   my $config = &read_config();
   #eval "use CGI::Carp qw(fatalsToBrowser)";
-
+  my $secmod_config = $$config{SECMOD_CONFIG};
+  if (!$secmod_config) {
+      die "ERROR:  SecurityModule config file not set";
+  }
+  
   # Interpret the trailing path suffix: /DB/PAGE?QUERY
   my $path = path_info() || "/prod";
   my ($db, $cgipage) = ("prod", "Info::Main");
@@ -7399,6 +7418,9 @@ sub runme
   $type =~ s!^Web25::!!;
   param('page', $type);
   
+  # Initialize the SecurityModule
+  $page->initSecurityModule($secmod_config);
+
   # Generate the page
   $page->generate($config, $db);
 }
