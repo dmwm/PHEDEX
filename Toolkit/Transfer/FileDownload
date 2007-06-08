@@ -30,21 +30,6 @@
 ##H      [-validate CMD[,ARG...]] [-delete CMD[,ARG...]]
 ##H      -backend TYPE [OPTIONS]
 ##H
-##H Options to all backends:
-##H      [-protocols NAME[,NAME...]] [-timeout SECS]
-##H
-##H Options to Null backend:
-##H      (none)
-##H
-##H Options to Globus backend:
-##H      [-command CMD[,ARG...]] [-jobs NJOBS]
-##H
-##H Options to SRM backend:
-##H      [-command CMD[,ARG...]] [-batch-files N] [-jobs NJOBS]
-##H
-##H Options to FTS backend:
-##H      -passfile FILE -server CONTACT [-batch-files N]
-##H
 ##H -state       agent state directory
 ##H -nodes       patterns for the node names for which this agent runs
 ##H -db          database connection configuration parameter file
@@ -59,6 +44,21 @@
 ##H -backend     the transfer backend to use: Globus, SRM, FTS, DCCP; all
 ##H               options that follow are passed to the backend as such
 ##H
+##H Options to all backends:
+##H      [-protocols NAME[,NAME...]] [-timeout SECS]
+##H
+##H Options to Null backend:
+##H      (none)
+##H
+##H Options to Globus backend:
+##H      [-command CMD[,ARG...]] [-jobs NJOBS]
+##H
+##H Options to SRM backend:
+##H      [-command CMD[,ARG...]] [-batch-files N] [-jobs NJOBS]
+##H
+##H Options to FTS backend:
+##H      -passfile FILE -server CONTACT [-batch-files N] [-mode multi] [-mapfile FILE]
+##H
 ##H -protocols   comma-separated list of storage protocols to accept
 ##H -batch-files number of files per transfer batch (SRM, FTS; default: 30)
 ##H -jobs        maximum number of concurrent transfer jobs (default: 5)
@@ -67,7 +67,10 @@
 ##H               globus-url-copy,-p,3,-tcp-bs,2097152
 ##H -passfile    file containing FTS proxy password
 ##H -server      FTS server to use
-
+##H -mode multi  Use multiple FTS endpoints depending on the file being transferred
+##H -mapfile     A map of SRM endpoint:FTS endpoint, if not specified BDII service 
+##H              discovery used instead
+     
 BEGIN {
   use strict; use warnings; $^W=1;
   our $me = $0; $me =~ s|.*/||;
