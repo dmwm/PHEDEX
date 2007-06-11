@@ -160,8 +160,8 @@ sub flush
                 from t_xfer_path ixp
                 join t_xfer_request xq 
                      on xq.fileid = ixp.fileid
-               group by ixp.fileid
-              ) where total = delete_path -- total fileid invalid only
+               group by ixp.fileid, ixp.src_node
+              ) where total = delete_path -- total fileid from src_node invalid only
             ) }, ":now" => $now, ":now" => $now);
     do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
 
