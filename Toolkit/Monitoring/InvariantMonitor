@@ -120,7 +120,7 @@ sub idle
 	# IV:  Deactivated blocks have active files
 	# Invariant:  if br.is_active = 'n' then there shall be no files of that block in t_xfer_file
 	$q = &dbexec($dbh, qq{
-           select count(distinct xf.fileid)
+           select count(distinct xf.id)
             from t_dps_block_replica br
             join t_xfer_file xf on xf.inblock = br.block
            where br.is_active = 'n'
