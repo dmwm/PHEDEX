@@ -537,6 +537,7 @@ sub fetch_identity
 
     my $synced = 1;
     foreach my $param (@to_sync) {
+	no warnings;  # we need to compare undef values too
 	$synced &&= $$logged_id{$param} eq $$id{$param};
     }
 
@@ -558,8 +559,8 @@ sub fetch_identity
     } else {
 	# If it is not logged, log it then recurse
 	my $sql = qq{ insert into t_adm_identity };
-	$sql .= '('.join(', ', "ID", @to_sync).') ';
-	$sql .= 'values ('.join(', ', "seq_adm_identity.nextval", map { ":$_" } @to_sync).')';
+	$sql .= '('.join(', ', "ID", @to_sync, "TIME_UPDATE").') ';
+	$sql .= 'values ('.join(', ', "seq_adm_identity.nextval", map { ":$_" } (@to_sync,'TIME_UPDATE')).')';
 	my %binds = map { (":$_" => $$id{$_}) } @to_sync;
 	$binds{':TIME_UPDATE'} = $now;
 
@@ -3651,7 +3652,7 @@ sub output
 
   my $confirmok = 1;
         
-  if ($is_move eq 'y' && param('move_confirm') ne 'y') {
+  if ($is_move eq 'y' && param('move_confirm') && param('move_confirm') ne 'y') {
       $confirmok = 0;
   }
 
@@ -3691,7 +3692,8 @@ sub output
       return;
   } elsif ($is_move eq 'y' && grep(/^T1_\w*_MSS$/, @dest)) {
       $self->note("You have chosen to move data to ", join(', ', @dest), ". Once the transfer is complete this will ",
-		  "remove the data at the source site.  Please confirm that this is what you want to do by checking ",
+		  "remove the data at the source sites.  Furthermore, only Global Admins may approve move requests.  ",
+		  "Please confirm that this is what you want to do by checking ",
 		  "the box.<br/><br/>",
 		  ( param('go_ahead') ? "<p class='alarm'><b>You must confirm!</b></p>" : ''),
 		  checkbox(-name=>'move_confirm', -value=>'y', -label=>'Yes, I understand'));
@@ -3866,9 +3868,17 @@ sub write_request
 	push @site_admins, $$self{SECMOD}->getUsersWithRoleForSite('Site Admin', $site);
     }
 
-    # Write a task with this request for each of the global admins and data managers
+    # Write a task with this request for each of the global admins and
+    # data managers authorized to approve this
     my %task_people;  # use a hash to ensure no duplicates
-    foreach my $admin (@global_admins, @data_managers) {
+    my @auth_admins;
+    if ($params{'is_move'} eq 'y') {
+	@auth_admins = @global_admins;
+    } else {
+	@auth_admins = (@global_admins, @data_managers);
+    }
+
+    foreach my $admin (@auth_admins) {
 	my $ident = $self->fetch_identity($admin);
 	$task_people{$$ident{ID}} = 1;
     }
@@ -3959,6 +3969,12 @@ sub write_request
     } elsif ($$self{SECMOD}->isPasswdAuthenticated()) {
 	$auth = "Username:  ".$$self{SECMOD}->getUsername();
     }
+    my $move_msg = '';
+    if ($params{'is_move'} eq 'y') {
+	$move_msg = 'Note:  This is a request for a data MOVE '.
+	    'and can only be approved by the Global Admins.';
+    }
+
 
     my $message =<<ENDEMAIL;
 Greetings PhEDEx Data Managers,
@@ -3990,6 +4006,8 @@ ENDEMAIL
     $message .=<<ENDEMAIL;
    Comments:
      "$params{comment}"
+
+$move_msg
  
 This mail has also been sent to the requestor, the PhEDEx global
 admins, and the site admins of the relevant sites.
