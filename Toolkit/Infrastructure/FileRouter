@@ -149,23 +149,32 @@ sub flush
 	do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
     }
 
+    # Clear old paths and those missing an active request.
+    # Clear invalid expired paths.
+    # Clear valid paths, that expired more than 8 hours ago.
+    # Ensure paths are not broken in the proccess.
+    my ($stmt, $rows) = &dbexec($dbh, qq{
+            delete from t_xfer_path xp where xp.fileid in (
+              select fileid from (
+                select ixp.fileid,
+                  count(*) total,
+                  sum (case
+                       when xq.state != 0 then 1 --request is invalid
+                       when ixp.is_valid = 1 
+                            and :now > ixp.time_expire + 8*3600 then 1 --valid path expired 8+ hours ago
+                       when ixp.is_valid = 0 and :now >= ixp.time_expire then 1 -- invalid path expired
+                       else 0
+                       end) delete_path
+                from t_xfer_path ixp
+                join t_xfer_request xq 
+                     on xq.fileid = ixp.fileid
+               group by ixp.fileid
+              ) where total = delete_path -- total fileid invalid only
+            ) }, ":now" => $now, ":now" => $now);
+    do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
+
     foreach my $node (@nodes)
     {
-        # Clear old paths and those missing an active request.
-        # Clear invalid expired paths.
-        # Clear valid paths, that expired more than 8 hours ago.
-        my ($stmt, $rows) = &dbexec($dbh, qq{
-            delete from t_xfer_path xp
-	    where xp.to_node = :node
-	      and (not exists (select 1 from t_xfer_request xq
-	                       where xq.destination = xp.destination
-	                         and xq.fileid = xp.fileid
-	                         and xq.state = 0)
-	      or (xp.is_valid = 0 and :now >= xp.time_expire)
-	      or (xp.is_valid = 1 and :now >= xp.time_expire + 8*3600))},
-	    ":node" => $node, ":now" => $now);
-	do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
-
         # Set the path go again for issuer.
         &dbexec($dbh, qq{
             delete from t_xfer_exclude
