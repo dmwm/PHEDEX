@@ -130,30 +130,22 @@ sub flush
 	     and bd.state = 1)});
 
     my $ndel = 0;
-    my @nodes;
-    my $qnode = &dbexec($dbh, qq{select id from t_adm_node});
-    while (my ($node) = $qnode->fetchrow())
-    {
-	push(@nodes, $node);
-
-        # Clear requests where replica exists.  This is required
-        # because the request activation from block destination
-        # creates requests for files for which replica may exist.
-        my ($stmt, $rows) = &dbexec($dbh, qq{
-            delete from t_xfer_request xq
-	    where destination = :node and exists
-              (select 1 from t_xfer_replica xr
-	       where xr.fileid = xq.fileid
-	         and xr.node = xq.destination)},
-	    ":node" => $node);
-	do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
-    }
+    # Clear requests where replica exists.  This is required
+    # because the request activation from block destination
+    # creates requests for files for which replica may exist.
+    my ($stmt, $rows) = &dbexec($dbh, qq{
+	delete from t_xfer_request xq
+	 where exists
+           (select 1 from t_xfer_replica xr
+	     where xr.fileid = xq.fileid
+	    and xr.node = xq.destination)});
+    do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
 
     # Clear old paths and those missing an active request.
     # Clear invalid expired paths.
     # Clear valid paths, that expired more than 8 hours ago.
     # Ensure paths are not broken in the proccess.
-    my ($stmt, $rows) = &dbexec($dbh, qq{
+    ($stmt, $rows) = &dbexec($dbh, qq{
             delete from t_xfer_path xp where xp.fileid in (
               select fileid from (
                 select ixp.fileid,
@@ -173,16 +165,9 @@ sub flush
             ) }, ":now" => $now, ":now" => $now);
     do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
 
-    foreach my $node (@nodes)
-    {
-        # Set the path go again for issuer.
-        &dbexec($dbh, qq{
-            delete from t_xfer_exclude
-	    where to_node = :node},
-	    ":node" => $node);
-    }
-
-
+    # Set the path go again for issuer.
+    ($stmt, $rows) = &dbexec($dbh, qq{ delete from t_xfer_exclude });
+    $ndel += $rows;
     $dbh->commit() if $ndel;
 
     # If transfers path are about to expire on links which have
