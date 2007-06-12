@@ -100,6 +100,19 @@ sub idle
 		 "superceded by dataset subscriptions")
 	    if $nrows > 0;
 
+        #Remove all susbscription from nodes which a block deletion was requested.
+        ($stmt, $nrows) = &dbexec ($dbh, qq{
+            delete from t_dps_subscription s
+               where exists
+	       (select 1 from t_dps_block_delete bd
+		where bd.time_complete is not null
+		and bd.node = s.destination
+		and (bd.block = s.block or bd.dataset = s.dataset)
+		and s.time_complete is not null)
+	   });
+        &logmsg ("$nrows subscriptions removed:  deletion requested")
+            if $nrows > 0;
+
 	# Remove block destinations we no longer have subscribed.
 	($stmt, $nrows) = &dbexec ($dbh, qq{
 	    delete from t_dps_block_dest bd where not exists
