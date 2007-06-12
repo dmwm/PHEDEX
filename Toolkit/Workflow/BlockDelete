@@ -79,7 +79,7 @@ sub idle
 	        on f.inblock = bd.block
 	      left join t_xfer_delete xd
 	        on xd.fileid = f.id and xd.node = bd.node
-	    where xd.fileid is null)});
+	    where xd.fileid is null and bd.time_complete is null)});
         &logmsg ("$nrow file deletions scheduled") if $nrow > 0;
 
         # Mark the block deletion request completed if all its file
@@ -93,7 +93,7 @@ sub idle
 	    update t_dps_block_delete bd
 	    set time_complete = :now
 	    where time_complete is null and not exists
-	      (select * from t_xfer_delete xd
+	      (select 1 from t_xfer_delete xd
 	       join t_xfer_file f on f.id = xd.fileid
 	       where xd.time_complete is null
 	         and xd.node = bd.node
