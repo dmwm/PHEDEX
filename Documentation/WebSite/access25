@@ -535,8 +535,9 @@ sub fetch_identity
 
     my $logged_id = $q->fetchrow_hashref();
 
-    my $synced = 1;
+    my $synced = ($logged_id ? 1 : 0);
     foreach my $param (@to_sync) {
+	last if !$synced;
 	no warnings;  # we need to compare undef values too
 	$synced &&= $$logged_id{$param} eq $$id{$param};
     }
