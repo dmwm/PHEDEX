@@ -2489,7 +2489,7 @@ sub formatAction
 
     foreach my $attr (@{ $$action{ATTR} } ) {
 	next unless $$attr{VALUE};
-	my $commentclass = $$attr{NAME} eq 'Comment' ? ' comment' : '';
+	my $commentclass = (grep $$attr{NAME} eq $_,  qw(Comment Message)) ? ' comment' : '';
 	push @html, "<label>$$attr{NAME}:</label><span class='labeled$commentclass'>", &formatAttr($attr),"</span><br/>";
     }
     
@@ -2820,10 +2820,13 @@ sub output
     
     if ($newaction eq 'subscribe') {
 	$newactionname = 'Subscribed';
-	unless (&subscribe_request($$self{DBH}, $request, [@nodes], $now)) {
-	    $self->alert("Subscription failed.  No subscription was made.  ",
-			 "Was any of the data known to this PhEDEx instance?");
-	    return;
+	my $n_subs = &subscribe_request($$self{DBH}, $request, [@nodes], $now);
+	if ($n_subs == 0) {
+	    my $msg = 'Warning:  Request approval did not create any new subscriptions.  Possible reasons are:  '.
+		'1. All data items requested were already subscribed via another request or '.
+		'2. The data items are no longer known to phedex.';
+	    $self->note($msg);
+	    push @action_attr, ('Message', $msg);
 	}
     } elsif ($newaction eq 'disapprove') {
 	unless (&disapprove_request($$self{DBH}, $request, [@nodes], $now)) {
@@ -2923,7 +2926,7 @@ sub subscribe_request
 		 where dest.request = :rid and dbs.name = req_ds.dbs
                    and req_ds.dps_isknown = 'y' and req_ds.dbs_isknown = 'y'
                 union
-                select NULL dataset, b.id block, destination, priority, is_move, is_transient, :now time_create
+                select NULL dataset, b.id block, dest.destination, priority, is_move, is_transient, :now time_create
                   from t_req_info_dest dest
 		  join t_req_info_block req_b on dest.request = req_b.request
                   join t_dps_block b on req_b.block = b.name
@@ -2931,8 +2934,13 @@ sub subscribe_request
                   join t_dps_dbs dbs on ds.dbs = dbs.id
 		 where dest.request = :rid and dbs.name = req_b.dbs
                    and req_b.dps_isknown = 'y' and req_b.dbs_isknown = 'y' 
-		) requests join t_adm_node n on n.id = requests.destination
-                where n.name in ($node_list) ],
+		) requests
+                join t_adm_node n on n.id = requests.destination
+                where n.name in ($node_list)
+                and not exists (select 1 from t_dps_subscription s 
+                                 where s.dataset = requests.dataset
+                                       and (s.block = requests.block
+                                            or s.destination = requests.destination)) ],
 	    ':now' => $now,
 	    ':rid' => $request,
 	    ':now' => $now,
