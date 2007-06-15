@@ -36,7 +36,7 @@ sub transferBatch
 
     # Prepare copyjob and report names.
     my $spec = "$$job{DIR}/copyjob";
-    my $report = "$$job{DIR}/srm-report";
+    my $report = "$$job{DIR}/fts-report";
 
     # Now generate copyjob
     &output ($spec, join ("", map { "$$tasks{$_}{FROM_PFN} ".
@@ -64,6 +64,11 @@ sub transferBatch
 # transfer for that task.  The front-end agent will automatically
 # reap those transfers, and once all transfers for the job have
 # completed, it will automatically clean up the whole copy job.
+#
+# If the check reveals that transfer state has transitioned from 
+# Pending to Active the timeout should be reset to 0, so as to avoid
+# cutting off active transfers while they are onging. This means a 
+# transfer will have an hour to become active, and an hour to complete.
 sub check
 {
     my ($self, $jobname, $job, $tasks) = @_;
@@ -109,6 +114,8 @@ sub check
 # to work correctly across agent start/stop, 2) not getting the agent
 # "stuck" under any circumstances (i.e., busy but doing nothing, and
 # thus no way for it to ever become "unstuck").
+
+# num_files_in_fts < LINK_FILES - BATCH_FILES
 sub isBusy
 {
     my ($self, $jobs, $tasks) = @_;
