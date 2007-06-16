@@ -111,8 +111,9 @@ sub flush
 	select seq_xfer_done.$markerval from dual})
 	->fetchrow();
 
+    my @stats;
     # Update priority on existing requests.
-    &dbexec ($dbh, qq{
+    my ($stmt, $rows) = &dbexec ($dbh, qq{
         update (select xq.priority req_priority, bd.priority cur_priority
                 from t_xfer_request xq
                   join t_dps_block_dest bd
@@ -120,26 +121,30 @@ sub flush
                     and bd.destination = xq.destination
 		where xq.priority != bd.priority)
         set req_priority = cur_priority});
+    push @stats, ['request priority updated', $rows];
 
     # Clear requests for files no longer wanted.
-    &dbexec($dbh, qq{
+    ($stmt, $rows) = &dbexec($dbh, qq{
         delete from t_xfer_request xq where not exists
           (select 1 from t_dps_block_dest bd
 	   where bd.destination = xq.destination
 	     and bd.block = xq.inblock
 	     and bd.state = 1)});
+    push @stats, ['unwanted requests deleted', $rows];
 
     my $ndel = 0;
     # Clear requests where replica exists.  This is required
     # because the request activation from block destination
     # creates requests for files for which replica may exist.
-    my ($stmt, $rows) = &dbexec($dbh, qq{
+    ($stmt, $rows) = &dbexec($dbh, qq{
 	delete from t_xfer_request xq
 	 where exists
            (select 1 from t_xfer_replica xr
 	     where xr.fileid = xq.fileid
 	    and xr.node = xq.destination)});
+    push @stats, ['deleted requests with replica', $rows];
     do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
+    
 
     # Clear old paths and those missing an active request.
     # Clear invalid expired paths.
@@ -151,22 +156,24 @@ sub flush
                 select ixp.fileid, ixp.src_node,
                        count(*) total,
                   sum (case
-                       when xq.state != 0 then 1 --request is invalid
+                       when xq.fileid is null or xq.state != 0 then 1 --request is invalid
                        when ixp.is_valid = 1 
                             and :now > ixp.time_expire + 8*3600 then 1 --valid path expired 8+ hours ago
                        when ixp.is_valid = 0 and :now >= ixp.time_expire then 1 -- invalid path expired
                        else 0
                        end) delete_path
                 from t_xfer_path ixp
-                join t_xfer_request xq 
+                left join t_xfer_request xq 
                      on xq.fileid = ixp.fileid
                group by ixp.fileid, ixp.src_node
               ) where total = delete_path -- total fileid from src_node invalid only
             ) }, ":now" => $now, ":now" => $now);
+    push @stats, ['invalid paths deleted', $rows];
     do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
 
     # Set the path go again for issuer.
     ($stmt, $rows) = &dbexec($dbh, qq{ delete from t_xfer_exclude });
+    push @stats, ['exclusions deleted', $rows];
     $ndel += $rows;
     $dbh->commit() if $ndel;
 
@@ -204,38 +211,46 @@ sub flush
 	my %by_to   = (1 => $extend{':time_expire'},
 		       2 => $extend{':to'},
 		       3 => $extend{':fileid'});
-        &dbexec($dbh, qq{
+        ($stmt, $rows) = &dbexec($dbh, qq{
 	    update t_xfer_path set time_expire = ?
 	    where destination = ? and fileid = ?},
 	    %by_dest);
-        &dbexec($dbh, qq{
+	push @stats, ['path expire extended', $rows];
+        ($stmt, $rows) = &dbexec($dbh, qq{
 	    update t_xfer_task set time_expire = ?
 	    where to_node = ? and fileid = ?},
 	    %by_to);
-        &dbexec($dbh, qq{
+	push @stats, ['task expire extended', $rows];
+        ($stmt, $rows) = &dbexec($dbh, qq{
 	    update t_xfer_request set time_expire = ?
 	    where destination = ? and fileid = ?},
 	    %by_dest);
+	push @stats, ['request expire extended', $rows];
     }
 
     # Mark as expired tasks which didn't complete in time.
-    &dbexec($dbh, qq{
+    ($stmt, $rows) = &dbexec($dbh, qq{
 	merge into t_xfer_task_done xtd using
 	  (select id from t_xfer_task where :now >= time_expire) xt
 	on (xtd.task = xt.id) when not matched then
           insert (task, report_code, xfer_code, time_xfer, time_update)
 	  values (xt.id, -1, -1, -1, :now)},
 	":now" => $now);
+    push @stats, ['tasks expired', $rows];
 
     # Deactivate requests which reached their expire time limit.
-    &dbexec($dbh, qq{
+    ($stmt, $rows) = &dbexec($dbh, qq{
         update t_xfer_request
         set state = 1, time_expire = :now + dbms_random.value(1,3)*3600
         where state = 0 and :now >= time_expire},
 	":now" => $now);
+    push @stats, ['expired requests deactivated', $rows];
 
     # Commit the lot above.
     $dbh->commit();
+
+    # Log flush statistics
+    &logmsg('Executed flush:  '.join(', ', map { $$_[1].' '.$$_[0] } @stats));
 }
 
 sub route
