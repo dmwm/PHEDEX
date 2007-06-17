@@ -1,3 +1,23 @@
+* Changes in PhEDEx 2.5.3
+
+ General changes:
+   - Updates to ftscp script to support new FTS2.0 states and to support 
+     multiple end points, currently via static map file.
+   - Updated FileDownload to reflect changes in ftscp
+   - Updated FileRemove to not activate blocks 
+   - Updated InspectPhedexLog 
+   - Added InvariantMonitor to central agents to detect problems and 
+     inconsistencies in the database 
+   - Improved reporting from UtilsDB
+   - Reduced number of database connections in DBSCheck
+   
+ Web site changes:
+   - Not released in RPMs. Added Data Manager to the site
+
+ Schema changes:
+   - Changes necessary for the updates to the website
+    - Removal of site/user information - now stored in SiteDB
+ 
 * Changes in PhEDEx 2.5.2
 
  General changes:
@@ -16,7 +36,6 @@
    - Documenation updates for some agents.
 
  Web site changes:
-
    - Not released in RPMs.
 
  Schema changes:
