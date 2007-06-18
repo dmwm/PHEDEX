@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-our $TESTING = 0;
+our $TESTING = 1;
 
 use CMSWebTools::SecurityModule::Oracle;
 
@@ -2859,6 +2859,10 @@ sub output
 	&dbexec($$self{DBH}, qq{delete from t_req_task where action = :aid and person = :person},
 		':aid' => $oldaction, ':person' => $person);
     }
+
+    # Update the state
+    &dbexec($$self{DBH}, qq{update t_req_request set state = :newstate where id = :request},
+	    ':newstate' => $reqstatevalues{$newstate}, ':request' => $request);
 
     $$self{DBH}->commit();
     
