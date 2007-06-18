@@ -4680,18 +4680,18 @@ sub output
   my $imgsrc = $self->imgsrc($graph, %args);
   print {$$self{CONTENT}} "<p><img src='$imgsrc' /></p>";
 
-  &dump_var($$self{CONTENT}, 'tns_admin', $ENV{TNS_ADMIN});
-  print {$$self{CONTENT}} "<pre>";
-  print {$$self{CONTENT}}<<STOP;
-      no_mss:  $no_mss
- dest_filter:  $dest_filter
-  src_filter:  $src_filter
-     formurl:  $formurl
-      imgsrc:  $imgsrc
-STOP
-print {$$self{CONTENT}} "</pre>";
-  &dump_var($$self{CONTENT}, 'args', {%args});
-  &dump_params($$self{CONTENT});
+#   &dump_var($$self{CONTENT}, 'tns_admin', $ENV{TNS_ADMIN});
+#   print {$$self{CONTENT}} "<pre>";
+#   print {$$self{CONTENT}}<<STOP;
+#       no_mss:  $no_mss
+#  dest_filter:  $dest_filter
+#   src_filter:  $src_filter
+#      formurl:  $formurl
+#       imgsrc:  $imgsrc
+# STOP
+# print {$$self{CONTENT}} "</pre>";
+#   &dump_var($$self{CONTENT}, 'args', {%args});
+#   &dump_params($$self{CONTENT});
 
 }
 
