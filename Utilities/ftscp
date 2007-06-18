@@ -43,6 +43,7 @@
 ##H 122 - file specified with -mapfile does not exist
 ##H 123 - file specified with -mapfile is unreadable
 ##H 201 - running in single server mode, without specifying a server
+##H 301 - too many errors from status update
 
 usage() { grep '^##H' < $0 | sed 's/^\(##H \|##H$\)//'; exit 1; }
 
@@ -101,9 +102,7 @@ if [ -z "$mapfile" ]; then :; else
   [ ! -r "$mapfile" ] && { echo "$mapfile: cannot read" 1>&2; exit 123; }
 fi
 
-if [ -z "$server" ]; then :; else
-  server="-s $server"
-elif [ $mode = "multi" ]; then
+if [ $mode == "multi" ]; then
   echo "finding appropriate fts server from $mapfile or BDII"
   fts_contact=""
   if [ -z "$mapfile" ]; then
@@ -111,25 +110,28 @@ elif [ $mode = "multi" ]; then
   elif [  ! -r "$mapfile" ]; then
     echo "$mapfile: cannot read" 1>&2; exit 123;
   else 
-    srm_contact=`head -1 $copyjobfile|awk '{print $1}'|awk -F? '{print $1}'|sed 's|^srm|httpg|g'`
-    fts_contact=`grep $srm_contact $mapfile|awk '{print $2}'|cut -f2 -d=|awk '{print $NF}'`
-    if [ -z "$fts_contact" ]; then
+    srm_contact=`head -1 $copyjobfile|awk '{print $1}'|awk -F? '{print $1}'`;
+    fts_contact=`grep $srm_contact $mapfile|awk '{print $2}'|cut -f2 -d=|awk '{print $NF}'`;
+    if [ -z "$fts_contact" ]; then :
       # [FIXME] Try service discovery here
-    else
+      #if [ -z "$discovered_fts" ]: then
       fts_contact=`grep DEFAULT $mapfile|awk '{print $2}'|cut -f2 -d=|awk '{print $NF}'` 
-      echo "###WARNING: using DEFAULT FTS server:$fts_contact"
+      echo "Using DEFAULT FTS server:$fts_contact";
+      #else
+      #fts_contact=$discovered_fts
     fi
     if [ -n $fts_contact ]; then
-      server=`echo $fts_contact|sed 's|"||g'`
-      server="-s $server"
+      server=`echo $fts_contact|sed 's|"||g'`;
+      server="-s $server";
     else
       echo "No FTS server is found, exit." 1>&2; exit 1;
     fi
   fi
-
-else
+elif [ -z "$server" ]; then 
   echo "Running in single server mode, without specifying a server. Cannot identify FTS server in this configuration"
   exit 201;
+else
+  server="-s $server";
 fi
 
 echo "FTS server is: $server"
@@ -189,6 +191,7 @@ while true; do
       ;;
 
     Canceling )
+	    # [FIXME] This state can go on for a  v e r y  l  o  n  g   t   i   m   e
       ;;
 
     Hold )
@@ -205,24 +208,24 @@ while true; do
 
       glite-transfer-status -l $server $ftsjob |
         while read item arg; do
-    case $item in
-      Source: )
-        src="$arg" ;;
-      Destination:)
-        dest="$arg" ;;
-      State: )
-        case $arg in
-          Done ) status="0" state="$arg" ;;
-    *    ) status="1" state="$arg" ;;
-        esac;;
-      Reason: )
-        echo "$src $dest $status $state $arg" ;;
-    esac
-  done > "$report"
+			    case $item in
+			      Source: )
+			        src="$arg" ;;
+			      Destination:)
+			        dest="$arg" ;;
+			      State: )
+			        case $arg in
+			          Done ) status="0" state="$arg" ;;
+			   				*    ) status="1" state="$arg" ;;
+			        esac;;
+			      Reason: )
+			        echo "$src $dest $status $state $arg" ;;
+			    esac
+			  done > "$report"
 
       if glite-transfer-status -l $server $ftsjob | \
-   grep State: | grep -v Done >/dev/null; then
-  exit 1
+			   grep State: | grep -v Done >/dev/null; then
+			  exit 1
       else
         exit 0
       fi
@@ -232,8 +235,10 @@ while true; do
       echo "warning: unexpected job status '$ftsstatus'" 1>&2
       errors=$(expr $errors + 1)
       if [ $errors -gt 10 ]; then
-        exit 10
+      	echo "Too many errors from status update, I give up!"
+        exit 301
       elif [ $errors -gt 5 ]; then
+	    	echo "Too many errors from status update, cancelling transfer"
         glite-transfer-cancel $server $ftsjob
       fi
       ;;
