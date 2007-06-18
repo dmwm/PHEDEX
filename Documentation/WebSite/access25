@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-our $TESTING = 1;
+our $TESTING = 0;
 
 use CMSWebTools::SecurityModule::Oracle;
 
