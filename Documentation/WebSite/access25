@@ -1867,7 +1867,7 @@ sub generate
 
   # Fire up the security module
   $$self{SECMOD}->setPwdHandler($self->myurl('fullurl' => 1, 'secure' => 1, 'page'=>'Security::Password'));
-  $$self{SECMOD}->setSignupHandler($self->myurl('fullurl' => 1, 'secure' => 0, 'page'=>'Security::SignUp'));
+  $$self{SECMOD}->setSignupHandler($self->myurl('fullurl' => 1, 'secure' => 1, 'page'=>'Security::SignUp'));
   $$self{SECMOD}->setReqCertFailHandler($self->myurl('fullurl' => 1, 'secure' => 0, 'page'=>'Security::SignUp'));
   $$self{SECMOD}->setCallerURL($self->myurl('fullurl' => 1));
   $$self{SECMOD}->init();
@@ -2212,7 +2212,12 @@ sub output
     my ($self) = @_;
     my $caller_url = param('caller_url');
 
-    my $sitedb = "<a href='$$self{CONFIG}{SITEDB_URL}'>SiteDB</a>";
+    my $sitedb_url = $$self{CONFIG}{SITEDB_URL} || 'blank';
+    my $sitedb = "<a href='$sitedb_url'>SiteDB</a>";
+    my $gridcert_help_url = $$self{CONFIG}{GRIDCERT_HELP_URL} || 'blank';
+
+    my $dn = $$self{SECMOD}->getBrowserDN();
+    my $dn_ok = ($dn && $dn ne '(null)') ? 1 : 0;
 
     print {$$self{CONTENT}} 
     "<h1>Have You Signed Up?</h1><br/>",
@@ -2222,9 +2227,16 @@ sub output
     "<p class='blocktext'>If you have already signed up with SiteDB, it ",
     "is possible that your certificate or password information is out ",
     "of date there.  In that case go back to $sitedb and update your ",
-    "information.</p>";
-    
+    "information.</p>",
+    "<p>For your information, the DN your browser presents is:</p>",
+    ($dn_ok ? "<p>$dn</p>" : "<p><b>No certificate presented by your browser!</b></p>");
 
+    if (!$dn_ok) {
+	print {$$self{CONTENT}}
+	"<p>For information on obtaining and loading certificates into ",
+	"your browser, please visit <a href='$gridcert_help_url'>this ",
+	"page</a>";
+    }
 }
 
 1;
