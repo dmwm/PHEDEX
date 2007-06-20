@@ -1,0 +1,99 @@
+#!/bin/sh
+
+##H Generate file download destination path.
+##H
+##H Usage: FileDownloadDest ARG=VALUE[...]
+##H
+##H Generates download destination path name for this site.  The
+##H command line arguments are the file properties plus site local
+##H extensions to customise the path handling.  Expected arguments:
+##H
+##H    From file properties:
+##H    lfn=*       Logical file name (required)
+##H    guid=*      File GUID (used only if "limit" is set)
+##H    owner=*     Owner attribute (required)
+##H    dataset=*   Dataset attribute (required)
+##H
+##H    Site customisation options:
+##H    proto=*     Define destination protocol (default: srm)
+##H    host=*      Define host portion (default: srm.cern.ch)
+##H    prefix=*    Define path prefix (default: /castor/cern.ch/cms/PCP04)
+##H    limit=*     Define maximum file name length (default: unlimited)
+##H    miniowner=* Abbreviate owner name (default: no)
+##H
+##H The file name will be roughly, but not exactly, of the form
+##H   $proto://$host/$prefix/$owner/$dataset/$lfn
+##H
+##H If "limit" is set, the file name is truncated to be at most that
+##H long.  The GUID is concatenated to the end of the file name to
+##H ensure uniqueness, and the name is then shortened to at most
+##H "limit" characters.  Note that this will quite happily strip off
+##H directory components from the name as well, so use with care.
+
+# Defaults
+proto=srm host=srm.cern.ch prefix=//castor/cern.ch/cms/PTDR
+limit= miniowner= guid= dataset= owner= lfn= zipbyguid=no allbyguid=no
+
+# Pick command line arguments
+for arg; do
+  case $arg in
+    proto=*)		proto=$(echo $arg | sed 's![^=]*=!!') ;;
+    host=*)		host=$(echo $arg | sed 's![^=]*=!!') ;;
+    prefix=*)		prefix=$(echo $arg | sed 's![^=]*=!!') ;;
+    limit=*)		limit=$(echo $arg | sed 's![^=]*=!!') ;;
+    miniowner=*)	miniowner=$(echo $arg | sed 's![^=]*=!!') ;;
+    zipbyguid=*)	zipbyguid=$(echo $arg | sed 's![^=]*=!!') ;;
+    allbyguid=*)	allbyguid=$(echo $arg | sed 's![^=]*=!!') ;;
+
+    lfn=*)		lfn=$(echo $arg | sed 's![^=]*=!!') ;;
+    guid=*)		guid=$(echo $arg | sed 's![^=]*=!!') ;;
+    owner=*)		owner=$(echo $arg | sed 's![^=]*=!!') ;;
+    dataset=*)		dataset=$(echo $arg | sed 's![^=]*=!!') ;;
+  esac
+done
+
+[ -z "$prefix" ] && { echo "no path prefix" 1>&2; exit 1; }
+[ -z "$proto" ] && { echo "no protocol" 1>&2; exit 1; }
+
+[ -z "$owner" ] && { echo "no owner" 1>&2; exit 1; }
+[ -z "$dataset" ] && { echo "no dataset" 1>&2; exit 1; }
+[ -z "$lfn" ] && { echo "no lfn" 1>&2; exit 1; }
+ 
+# Check if we need to abbreviate the owner name
+if [ X"$miniowner" != X ]; then
+  case $owner in
+    *Hit* ) owner=Hit ;;
+    *DST* ) owner=DST ;;
+    *     ) owner=Digi ;;
+  esac
+fi
+
+# Determine the local path, and make sure the directory exists
+case $zipbyguid:$allbyguid:$lfn in
+  yes:*:Zipped* | *:yes:Zipped* )
+    local=$prefix/$owner/$dataset/$guid.zip ;;
+  *:yes:* )
+    local=$prefix/$owner/$dataset/$guid ;;
+  * )
+    local=$prefix/$owner/$dataset/$lfn ;;
+esac
+
+case $local in
+  /castor/* | //castor/* | ///castor/* )
+    dir=$(dirname $local | sed 's|^//*|/|')
+    rfstat $dir >/dev/null 2>&1 ||
+      { rfmkdir -p $dir; rfchmod 775 $dir; }  ;;
+  * )
+    mkdir -p $(dirname $local) ;;
+esac
+
+# Determine full local path and make sure it's short enough
+full=$proto://$host$local
+if [ X"$limit" = X ]; then
+  echo $full
+else
+  echo $full | perl -pe '
+     $g = "'"$guid"'"; $l = '"$limit"'; chomp;
+     substr($_, $l-length($g)) = $g if length > $l;
+     $_ .= "\n"'
+fi
