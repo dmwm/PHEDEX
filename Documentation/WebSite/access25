@@ -17,11 +17,11 @@ use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
 
 our @EXPORT = qw(urlencode dblink toclink pagelink
 		 alert warning breakAtSlash note help
-		 age format_num format_size format_timespan
+		 age format_num format_size format_timespan shorten
 		 badcolor warncolor pendcolor goodcolor altcolor
 		 dbexec dbprep dbbindexec dbinlist makeObjWithAttrs
 		 timeSeries formatTime timegm sizeValue
-		 auth_help fetch_nodes fetch_dbses fetch_identity
+		 auth_help_msg auth_help_warning auth_help_popup fetch_nodes fetch_dbses fetch_identity
                  send_email dn_to_human_name
 		 yesno striplabels
 		 dump_params dump_var
@@ -176,7 +176,7 @@ sub warning
   my $self = shift(@_);
   print { $$self{CONTENT} }
     "<center><div class='warning'>",
-    "<p><b>Warning:</b> ", @_, "</p></div></center>\n";
+    "<p>", @_, "</p></div></center>\n";
 }
 
 # Generate a note into the output.
@@ -234,6 +234,16 @@ sub format_size {
   return $bytes || $nodash
     ? sprintf("%s%.${precision}f&nbsp;%sB", $minus, $val, $unit)
     : '&#8211;';
+}
+
+# Returns a clipped version of a long string with a toggle control to expand the string
+sub shorten {
+    my ($tag, $id, $width, $string) = @_;
+    return $string;  #TODO:  Actually get this working.
+    my $uniq_id = $tag.'_'.$id;
+    my $twidth = $width+2;
+    return "<div id='$uniq_id' style='width:${twidth}em' class='short'><span class='short' style='width:${width}em;'>$string</span>".
+	"<a class='shorttoggle' href='#' onclick='return shortlong(this,\"$uniq_id\",${width})'>...</a></div>";
 }
 
 # Tidy up SQL statement
@@ -335,18 +345,20 @@ sub makeObjWithAttrs
 # Takes a hash of $power => [@requirements]
 # The first entry of @requirements should be the authentication level,
 # the rest are the required roles for $power
-sub auth_help 
+sub auth_help_msg 
 {
     my ($self, %powers) = @_;
 
-    my $login_url = $self->myurl("secure" => 1);
+    my $cert_login_url = $self->myurl("secure" => 1);
+    my $passwd_login_url = $self->myurl("secure" => 1, "SecModPwd" => 1);
+
     my $sitedb_url = $$self{CONFIG}{SITEDB_URL} || 'blank';
     my $gridcert_help_url = $$self{CONFIG}{GRIDCERT_HELP_URL} || 'blank';
     my $contact_mail = "mailto:$$self{CONFIG}{FEEDBACK_MAIL}";
 
     my %auth_words = ( 'cert' => 'grid certificate authentication',
 		       'passwd' => 'password authentication',
-		       'anyauth' => 'to log in');
+		       'anyauth' => 'to log in via grid certificate or password');
     my $msg = '';
     my %help;
     sub or_list {
@@ -368,26 +380,47 @@ sub auth_help
     }
     $msg .= "<br/>";
 
-    if (exists $help{'cert'}) {
-	$msg .= "You can go <a href='$gridcert_help_url'>here</a> to find help on obtaining a grid certificate.  ";
-    }
-
     if (exists $help{'passwd'} || exists $help{'anyauth'}) {
 	$msg .= "Passwords are managed via <a href='$sitedb_url'>SiteDB</a> ".
 	    "and are synced with the CMS hypernews passwords.  ";
+    }
+
+    if (exists $help{'cert'} || exists $help{'anyauth'}) {
+	$msg .= "You can go <a href='$gridcert_help_url'>here</a> to find help on obtaining a grid certificate.  ";
     }
 
     if (exists $help{'sitedb'}) {
 	$msg .= "Authorization roles are handled by <a href='$sitedb_url'>SiteDB.</a> ";
     }
 
+    my $login_msg;
+    if (exists $help{'anyauth'} || (exists $help{'cert'} && exists $help{'passwd'})) {
+	$login_msg = "logged in <a href='$cert_login_url'>with your certificate</a> ".
+	    "or <a href='$passwd_login_url'>password</a>";
+    } elsif (exists $help{'cert'}) {
+	$login_msg = "logged in <a href='$cert_login_url'>with your certificate</a>";
+    } else {
+	$login_msg = "logged in <a href='$passwd_login_url'>with your password</a>";
+    }
+
     $msg .= "If you think you have the necessary rights in SiteDB ".
-	"and are <a href='$login_url'>logged in</a> but you are still ".
+	"and are $login_msg but you are still ".
 	"having problems with this page you may <a href='$contact_mail'>contact the PhEDEx developers</a>.  ";
 
-    print {$$self{CONTENT}} &help('Privilaged Activities Help', 'Privilaged Activities', $msg), "<br/>";
+    return $msg;
 }
 
+sub auth_help_popup 
+{
+    my ($self, %powers) = @_;
+    print {$$self{CONTENT}} &help('Privilaged Activities Help', 'Privilaged Activities', $self->auth_help_msg(%powers), "<br/>");
+}
+
+sub auth_help_warning
+{
+    my ($self, %powers) = @_;
+    $self->warning($self->auth_help_msg(%powers));
+}
 
 
 # Returns a list of nodes.
@@ -1614,6 +1647,20 @@ our $TEMPLATE_DEFAULT = <<'END_OF_TEMPLATE';
       return false;
     }
 
+function shortlong(link,item,width) {
+    var obj = document.getElementById(item);
+    if (obj.style.width != width) {
+	obj.style.width = (width+2) + "em";
+        content = obj.getElementsByTagName("span")[0];
+        content.style.width = width + "em";
+    } else {
+        obj.style.width = "auto";
+        content = obj.getElementsByTagName("span")[0];
+        content.style.width = "auto"
+    }
+    return false;
+}
+
     function showtab(tab) {
 	var i=0;
 	var tabobj;
@@ -2799,7 +2846,7 @@ sub output
     # Check that the user is authorized to approve/deny requests
     unless ($$self{SECMOD}->isCertAuthenticated() &&
 	    ($$self{SECMOD}->hasRole('Global Admin', 'phedex') || $$self{SECMOD}->hasRole('Data Manager'))) {
-	$self->auth_help('approve requests' => ['cert', 'Data Manager', 'Global Admin']);
+	$self->auth_help_popup('approve requests' => ['cert', 'Data Manager', 'Global Admin']);
 	return;
     }
 
@@ -3159,7 +3206,7 @@ sub output
   my $req_info = {};
   my $q = &dbexec($$self{DBH},
 		  qq[ select req.id req_id, req.creator creator_id, req.state req_state,
-                             ident.dn requestor,
+                             ident.name requestor,
 		             req_info.time_update updated
 		        from t_req_request req
                         join t_adm_client client on client.id = req.creator
@@ -3227,21 +3274,20 @@ sub output
 			 [('Known to PhEDEx?', 'col', 'DPS_ISKNOWN', 1)]
 			 );
 
-  $table->set_tablehead({ REQUEST => 'Request #',
-			      DBS => 'DBS',
-			      DATA_ITEM => 'Data Item',
-			      DESTINATIONS => 'Destinations',
-			      REQUESTOR => 'Requestor',
-			      UPDATED => 'Request Updated',
-			      DBS_ISKNOWN => 'Known to DBS?',
-			      DPS_ISKNOWN => 'Known to PhEDEx?' });
+  $table->set_tablehead({REQUEST => 'Request #',
+			 DBS => 'DBS',
+			 DATA_ITEM => 'Data Item',
+			 DESTINATIONS => 'Destinations',
+			 REQUESTOR => 'Requestor',
+			 UPDATED => 'Request Updated',
+			 DBS_ISKNOWN => 'Known to DBS?',
+			 DPS_ISKNOWN => 'Known to PhEDEx?' });
 
 
   $table->set_tableclass('data');
   $table->set_stripeclass('stripe');
 
-  $table->set_dataformats({ REQUESTOR => \&dn_to_human_name,
-			    UPDATED   => sub { &formatTime($_[0], 'stamp') },
+  $table->set_dataformats({ UPDATED   => sub { &formatTime($_[0], 'stamp') },
 			    DBS_ISKNOWN => \&yesno,
 			    DPS_ISKNOWN => \&yesno
 			});
@@ -3253,7 +3299,12 @@ sub output
   $table->head();
 
   foreach my $rid (reverse sort { $a <=> $b } keys %{$req_info}) {
-      my $dests = join ', ', @{$$req_dest{$rid}};
+      my $dests;
+      if (!$$req_dest{$rid}) { $dests = 'None (Node deleted?)'; }
+      else {
+	  $dests = join ', ', @{$$req_dest{$rid}};
+	  $dests = &shorten('nodes', $rid, 10, $dests) if scalar @{$$req_dest{$rid}} > 1;
+      }
       my $row = { REQUEST => $rid, DESTINATIONS => $dests };
       $$row{$_} = $$req_info{$rid}{$_} foreach (qw(REQUESTOR UPDATED));
       
@@ -3341,7 +3392,7 @@ sub create_check_identity
 
   # Make sure this page can be used
   if (! $$self{SECMOD}->isAuthenticated() ) {
-      $self->auth_help('create a transfer request' => ['anyauth']);
+      $self->auth_help_warning('create a transfer request' => ['anyauth']);
       $$bad = 1;
       return;
   }
@@ -3527,7 +3578,7 @@ use CGI qw(:standard);
 
 our $INDEX = { LIST => 1, ORDER => 1, TITLE => "Create Request",
 	       LINK_TITLE => "Create a new transfer request",
-	       SECURE => 1 };
+	       SECURE => 0 };
 
 sub new
 {
@@ -6506,7 +6557,7 @@ sub output_page
       !($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
 	$$self{SECMOD}->hasRole('Data Manager') ||
 	$$self{SECMOD}->hasRole('Site Admin'))) {
-      $self->auth_help('suspend/unsuspend subscriptions'
+      $self->auth_help_popup('suspend/unsuspend subscriptions'
 		       => ['anyauth', 'Data Manager', 'Site Admin', 'Global Admin'],
 		       'change priorities of subscriptions'
 		       => ['cert', 'Data Manager', 'Global Admin']);
@@ -6790,7 +6841,7 @@ sub output
        $$self{SECMOD}->hasRole('Data Manager'))) {
       $self->deletion_form();
   } else {
-      $self->auth_help('delete datasets and blocks' => ['cert', 'Data Manager', 'Global Admin']);
+      $self->auth_help_popup('delete datasets and blocks' => ['cert', 'Data Manager', 'Global Admin']);
   }
   $self->deletion_queue();
 }
@@ -6927,7 +6978,7 @@ sub output
     unless ($$self{SECMOD}->isCertAuthenticated() &&
 	    ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
 	     $$self{SECMOD}->hasRole('Data Manager'))) {
-	$self->auth_help('delete datasets and blocks' => ['cert', 'Data Manager', 'Global Admin']);
+	$self->auth_help_popup('delete datasets and blocks' => ['cert', 'Data Manager', 'Global Admin']);
 	return;
     }
 

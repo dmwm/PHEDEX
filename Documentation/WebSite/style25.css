@@ -826,3 +826,24 @@ p.note { color:  blue; }
 
 p.blocktext { width:  50em; }
 
+div.short {
+  background:  green;
+  white-space: nowrap;
+}
+
+span.short { 
+  background:  yellow;
+  display:  block;
+  width:  13em;
+  float:  left;
+  overflow:  hidden;
+}
+
+a.shorttoggle {
+  background:  orange;
+  display:  block;
+  float:  left;
+  width:  1.5em;
+  margin:  0;
+  text-decoration:  underline;
+}
