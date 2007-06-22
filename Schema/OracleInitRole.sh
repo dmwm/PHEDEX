@@ -83,16 +83,6 @@ esac
 
 $home/Schema/OracleNewRole.sh "$ora_master" "$role_name" "$role_passwd"
 
-if [ "$nodes" ]; then
-$home/Utilities/ImportSites -db $dbparam:$section/Admin /dev/stdin <<EOF
-site:  '$sitename'
-email: '$role_email'
-dn:    '$role_dn'
-role:  '$role_name'
-nodes: '$nodes'
-EOF
-fi
-
 $home/Schema/OraclePrivs.sh "$ora_master" \
   "$(echo $ora_reader | sed 's|/.*||')" \
   "$(echo $ora_writer | sed 's|/.*||')"
