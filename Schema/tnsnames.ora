@@ -1,13 +1,11 @@
 devdb =
   (DESCRIPTION=
    (ADDRESS=(PROTOCOL=TCP) (HOST=oradev.cern.ch) (PORT=10521))
-   (ENABLE=BROKEN)
    (CONNECT_DATA=(SID=D)))
 
 devdb10 =
   (DESCRIPTION=
    (ADDRESS=(PROTOCOL=TCP) (HOST=oradev10.cern.ch) (PORT=10520))
-   (ENABLE=BROKEN)
    (CONNECT_DATA=(SID=D10)))
 
 cms_transfermgmt =
@@ -16,11 +14,10 @@ cms_transfermgmt =
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=10121))
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=10121))
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=10121))
-    (ENABLE=BROKEN)
     (LOAD_BALANCE= yes)
     (CONNECT_DATA=
       (SERVER=DEDICATED)
-      (SERVICE_NAME=cms_transfermgmt.cern.ch)
+      (SERVICE_NAME=cms_transfermgmt)
        (FAILOVER_MODE=(TYPE=SELECT) (METHOD=BASIC) (RETRIES=200) (DELAY=15))))
 
 cms_transfermgmt_sc =
@@ -29,11 +26,10 @@ cms_transfermgmt_sc =
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=10121))
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=10121))
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=10121))
-    (ENABLE=BROKEN)
     (LOAD_BALANCE= yes)
     (CONNECT_DATA=
       (SERVER=DEDICATED)
-      (SERVICE_NAME=cms_transfermgmt_sc.cern.ch)
+      (SERVICE_NAME=cms_transfermgmt_sc)
        (FAILOVER_MODE=(TYPE=SELECT) (METHOD=BASIC) (RETRIES=200) (DELAY=15))))
 
 cms_transfermgmt_test =
@@ -42,11 +38,10 @@ cms_transfermgmt_test =
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=10121))
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=10121))
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=10121))
-    (ENABLE=BROKEN)
     (LOAD_BALANCE= yes)
     (CONNECT_DATA=
       (SERVER=DEDICATED)
-      (SERVICE_NAME=cms_transfermgmt_test.cern.ch)
+      (SERVICE_NAME=cms_transfermgmt_test)
        (FAILOVER_MODE=(TYPE=SELECT) (METHOD=BASIC) (RETRIES=200) (DELAY=15))))
 
 cms_dashboard =
@@ -55,31 +50,23 @@ cms_dashboard =
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=10121))
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=10121))
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=10121))
-    (ENABLE=BROKEN)
     (LOAD_BALANCE= yes)
     (CONNECT_DATA=
       (SERVER=DEDICATED)
-      (SERVICE_NAME=cms_dashboard.cern.ch)
+      (SERVICE_NAME=cms_dashboard)
        (FAILOVER_MODE=(TYPE=SELECT) (METHOD=BASIC) (RETRIES=200) (DELAY=15))))
 
 cms_dbs =
-(DESCRIPTION =
-  (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr1-v.cern.ch)(PORT = 10121))
-  (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr2-v.cern.ch)(PORT = 10121))
-  (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr3-v.cern.ch)(PORT = 10121))
-  (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr4-v.cern.ch)(PORT = 10121))
-  (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr5-v.cern.ch)(PORT = 10121))
-  (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr6-v.cern.ch)(PORT = 10121))
-  (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr7-v.cern.ch)(PORT = 10121))
-  (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr8-v.cern.ch)(PORT = 10121))
-  (ENABLE=BROKEN)
-  (LOAD_BALANCE = yes)
-  (CONNECT_DATA =
-    (SERVER = DEDICATED)
-    (SERVICE_NAME = cms_dbs.cern.ch)
-     (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
-  )
-)
+  (DESCRIPTION =
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr1-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=10121))
+    (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=10121))
+    (LOAD_BALANCE=yes)
+    (CONNECT_DATA=
+      (SERVER=DEDICATED)
+      (SERVICE_NAME=cms_dbs)
+       (FAILOVER_MODE=(TYPE=SELECT) (METHOD=BASIC) (RETRIES=200) (DELAY=15))))
 
 cms_dbs_mcprod_global =
   (DESCRIPTION =
@@ -87,11 +74,10 @@ cms_dbs_mcprod_global =
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=10121))
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=10121))
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=10121))
-    (ENABLE=BROKEN)
     (LOAD_BALANCE=yes)
     (CONNECT_DATA=
       (SERVER=DEDICATED)
-      (SERVICE_NAME=cms_dbs_mcprod_global.cern.ch)
+      (SERVICE_NAME=cms_dbs_mcprod_global)
        (FAILOVER_MODE=(TYPE=SELECT) (METHOD=BASIC) (RETRIES=200) (DELAY=15))))
 
 cms_dbs_mcprod_local =
@@ -100,18 +86,16 @@ cms_dbs_mcprod_local =
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr2-v.cern.ch) (PORT=10121))
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr3-v.cern.ch) (PORT=10121))
     (ADDRESS=(PROTOCOL=TCP) (HOST=cmsr4-v.cern.ch) (PORT=10121))
-    (ENABLE=BROKEN)
     (LOAD_BALANCE=yes)
     (CONNECT_DATA=
       (SERVER=DEDICATED)
-      (SERVICE_NAME=cms_dbs_mcprod_local.cern.ch)
+      (SERVICE_NAME=cms_dbs_mcprod_local)
        (FAILOVER_MODE=(TYPE=SELECT) (METHOD=BASIC) (RETRIES=200) (DELAY=15))))
 
 int2r =
   (DESCRIPTION=
    (ADDRESS=(PROTOCOL=TCP) (HOST=int2r1-v.cern.ch) (PORT=10121))
    (ADDRESS=(PROTOCOL=TCP) (HOST=int2r2-v.cern.ch) (PORT=10121))
-   (ENABLE=BROKEN)
    (LOAD_BALANCE=yes)
    (CONNECT_DATA=
     (SERVER=DEDICATED)
@@ -122,7 +106,6 @@ int2r_nolb =
   (DESCRIPTION=
    (ADDRESS=(PROTOCOL=TCP) (HOST=int2r1-v.cern.ch) (PORT=10121))
    (ADDRESS=(PROTOCOL=TCP) (HOST=int2r2-v.cern.ch) (PORT=10121))
-   (ENABLE=BROKEN)
    (LOAD_BALANCE=no)
    (CONNECT_DATA=
     (SERVER=DEDICATED)
@@ -132,28 +115,25 @@ int2r_nolb =
 orcon =
   (DESCRIPTION=
    (ADDRESS=(PROTOCOL=TCP) (HOST=oracms.cern.ch) (PORT=10121))
-   (ENABLE=BROKEN)
    (CONNECT_DATA=
     (SERVER=DEDICATED)
-    (SERVICE_NAME=ORCON.cern.ch)))
+    (SERVICE_NAME=ORCON)))
 
 omds =
   (DESCRIPTION=
    (ADDRESS=(PROTOCOL=TCP) (HOST=oracms.cern.ch) (PORT=10121))
-   (ENABLE=BROKEN)
    (CONNECT_DATA=
     (SERVER=DEDICATED)
-    (SERVICE_NAME=OMDS.cern.ch)))
+    (SERVICE_NAME=OMDS)))
 
 cms_orcoff_int2r =
   (DESCRIPTION=
    (ADDRESS=(PROTOCOL=TCP) (HOST=int2r1-v.cern.ch) (PORT=10121))
    (ADDRESS=(PROTOCOL=TCP) (HOST=int2r2-v.cern.ch) (PORT=10121))
-   (ENABLE=BROKEN)
    (LOAD_BALANCE=yes)
    (CONNECT_DATA=
     (SERVER=DEDICATED)
-    (SERVICE_NAME=int2r_lb.cern.ch.cern.ch)
+    (SERVICE_NAME=int2r_lb.cern.ch)
     (FAILOVER_MODE=(TYPE=SELECT) (METHOD=BASIC) (RETRIES=180) (DELAY=5))))
 
 CMS_ORCOFF,cms_cond =
