@@ -37,7 +37,6 @@ then
   exit 2
 fi
 
-PHEDEX_DB_R="${PHEDEX_DBPARAM}:Prod/Reader"
 DBS2_R="http://cmsdbsprod.cern.ch/cms_dbs_prod_${DBS_INSTANCE}/servlet/DBSServlet"
 
 XCHECK_TIME=`date +$TIME_FMT`
@@ -45,10 +44,10 @@ XCHECK_FILE="${OUTPUT_DIR}/xcheck-${DBS_INSTANCE}-${XCHECK_TIME}.txt"
 
 echo "Running DBS/PhEDEx cross-check"
 echo "DBS            $DBS2_R"
-echo "TMDB           $PHEDEX_DB_R"
+echo "TMDB           $PHEDEX_DBPARAM"
 echo "MIGRATION_FILE $MIGRATION_FILE"
 echo "Output file    $XCHECK_FILE"
 echo "Beginning cross-check..."
 ${PHEDEX_SCRIPTS}/Migration/DBS2/TMDBPostMigrationStats -d -R -f $MIGRATION_FILE \
-  -u "$DBS2_R" -c $(${PHEDEX_SCRIPTS}/Utilities/OracleConnectId -d $PHEDEX_DB_R) > $XCHECK_FILE
+  -u "$DBS2_R" -c $(${PHEDEX_SCRIPTS}/Utilities/OracleConnectId -d $PHEDEX_DBPARAM) > $XCHECK_FILE
 echo "Done"
