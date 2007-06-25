@@ -11,7 +11,7 @@
 ##H       
 ##H       Creates a jobs/ directory and stores all job files in it. Also creates SubmitAllJobs.sh file 
 ##H       to submit all job files to batch system/grid. Each job file creates file around 2.5 GB, calculates 
-##H       a cksum, gives a file size and copies the file to castor.
+##H       a cksum, gives a file size and copies the file to castor. 
 ##H
 ##H       File creation is done in two steps. First there is a creation of a seed (23KB) file filled
 ##H       with random characters. Seed file is then automaticaly copied copied to batch machine 
