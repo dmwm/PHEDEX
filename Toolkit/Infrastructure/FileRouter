@@ -151,7 +151,7 @@ sub flush
     # Clear valid paths, that expired more than 8 hours ago.
     # Ensure paths are not broken in the proccess.
     ($stmt, $rows) = &dbexec($dbh, qq{
-            delete from t_xfer_path xp where (xp.fileid, xp.src_node) in (
+            delete from t_xfer_path xp where (xp.fileid, xp.src_node, xp.destination) in (
               select fileid, src_node from (
                 select ixp.fileid, ixp.src_node,
                        count(*) total,
@@ -165,7 +165,7 @@ sub flush
                 from t_xfer_path ixp
                 left join t_xfer_request xq 
                      on xq.fileid = ixp.fileid
-               group by ixp.fileid, ixp.src_node
+               group by ixp.fileid, ixp.src_node, ixp.destination
               ) where total = delete_path -- total fileid from src_node invalid only
             ) }, ":now" => $now, ":now" => $now);
     push @stats, ['invalid paths deleted', $rows];
