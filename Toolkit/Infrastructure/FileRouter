@@ -166,7 +166,7 @@ sub flush
                 left join t_xfer_request xq 
                      on xq.fileid = ixp.fileid
                group by ixp.fileid, ixp.src_node, ixp.destination
-              ) where total = delete_path -- total fileid from src_node invalid only
+              ) where delete_path != 0 -- any path segment invalid, delete
             ) }, ":now" => $now, ":now" => $now);
     push @stats, ['invalid paths deleted', $rows];
     do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
