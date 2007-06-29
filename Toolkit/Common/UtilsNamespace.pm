@@ -10,7 +10,7 @@ our @EXPORT = qw(stat statmode statsize );
 
 our %pmap = ( rfio => 'rf',
 	      srm  => 'srm',
-	      Disk => 'unix',
+	      disk => 'unix',
 	    );
 our %tmap = ( Castor => 'rfio',
 	      dCache => 'unix',
@@ -73,7 +73,7 @@ sub protocol
 
   if ( $protocol )
   {
-    die "protocol '$protocol' not known\n" unless defined $pmap{$protocol};
+    die "protocol '$protocol' not known. Only know about '" . join("', '", keys %pmap) . "'\n" unless defined $pmap{$protocol};
     $self->{prefix}   = $pmap{$protocol};
     $self->{protocol} = $protocol;
     print "Using TFC protocol $protocol\n";
@@ -98,7 +98,7 @@ sub technology
 {
   my ($self,$technology) = @_;
   return $self->protocol() unless defined $technology;
-  die "technology '$technology' not known\n" unless defined $tmap{$technology};
+  die "technology '$technology' not known. Only know about '" . join("', '", keys %tmap) . "'\n" unless defined $tmap{$technology};
   print "Using MSS technology $technology\n";
   return $self->protocol($tmap{$technology});
 }
