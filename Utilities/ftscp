@@ -224,7 +224,7 @@ while true; do
 			  done > "$report"
 
       if glite-transfer-status -l $server $ftsjob | \
-			   grep State: | grep -v Done >/dev/null; then
+			   grep State: | egrep -v 'Done|Finished' >/dev/null; then
 			  exit 1
       else
         exit 0
