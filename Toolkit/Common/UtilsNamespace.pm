@@ -13,8 +13,8 @@ our %pmap = ( rfio => 'rf',
 	      disk => 'unix',
 	    );
 our %tmap = ( Castor => 'rfio',
-	      dCache => 'unix',
-	      Disk   => 'unix',
+	      dCache => 'disk',
+	      Disk   => 'disk',
 	      DPM    => 'dpns',
 	    );
 our %stat;
@@ -86,8 +86,9 @@ sub protocol
         next unless m%^(\d+)$%;
         $self->{proxy} = $1 + time();
       }
-      close VPI or die "close voms-proxy-info: $!\n";
-      die "no valid proxy, it seems?\n" unless  $self->{proxy} > 0;
+      close VPI; # or die "close voms-proxy-info: $!\n";
+      die "no valid proxy? Giving up...\n" unless 
+	( defined($self->{proxy}) and $self->{proxy} > 0 );
     }
   }
 
