@@ -131,9 +131,9 @@ merge /*+ append */ into t_history_link_stats h
 using 
 (
 selsct nvl(fn.new,ls.from_node) new_from, nvl(tn.new,ls.to_node) new_to, ls.*
-  from t_history_link_events ls
-       lsft join node_map fn on fn.old = ls.from_node
-       lsft join node_map tn on tn.old = ls.to_node
+  from t_history_link_stats ls
+       left join node_map fn on fn.old = ls.from_node
+       left join node_map tn on tn.old = ls.to_node
  where fn.new is not null or tn.new is not null
 ) v
 on (h.timebin = v.timebin
