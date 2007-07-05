@@ -314,6 +314,23 @@ select p.id prod_id, p.name prod_name, s.id sc_id, s.name sc_name
 
 commit;
 
+-- Update node-partitioned tables
+begin
+  for o in (select table_name, partition_name from user_tab_partitions
+             where table_name like 'T_XFER_%' and partition_name not like '%_DUMMY') loop
+    execute immediate 'alter table ' || o.table_name || ' drop partition ' || o.partition_name;
+  end loop;
+end;
+/
+
+begin
+  for o in (select id, name from t_adm_node) loop
+    execute immediate 'alter table t_xfer_replica add partition node_' || lower(o.name) || ' values (' || o.id || ')';
+    execute immediate 'alter table t_xfer_request add partition dest_' || lower(o.name) || ' values (' || o.id || ')';
+    execute immediate 'alter table t_xfer_task    add partition to_'   || lower(o.name) || ' values (' || o.id || ')';
+  end loop;
+end;
+/
 
 
 -- Revoke permissions
@@ -323,3 +340,9 @@ sqlplus $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB});
 
 -- Revoke access from SC4 instance
 revoke select on t_adm_node from cms_transfermgmt_sc;
+
+exit;
+
+-- Update statistics
+export PHEDEX_DB='SITECONF/CERN/PhEDEx/DBParam:SC4/Admin';
+sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db PHEDEX_DB) @PHEDEX/Schema/OracleStatsUpdate.sql </dev/null
