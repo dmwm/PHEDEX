@@ -33,9 +33,40 @@ sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @PHEDEX/Schema/
 # Connect to DB using SQLPlus
 sqlplus $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
 
--- Get some statistics to compare with later
+-- Create a node_map table
+create table node_map as
+select n1.id old, n2.id new 
+  from (select id, name, replace(name, '_Load', '_Buffer') new_name 
+          from t_adm_node) n1 
+  join t_adm_node n2 on n1.new_name = n2.name
+where n1.id != n2.id;
+
+-- Some nodes do not follow the naming convention, add these by hand
+T2_Belgium_IIHE_Load --> T2_Belgium_IIHE
+T2_GRIF_Load         --> T2_GRIF_LLR
+T2_Spain_Load        --> T2_Spain_CIEMAT
+T2_Spain_IFCA_Load   --> T2_Spain_IFCA
+
+-- merge history
+-- We need to do the from_node and to_node separately to avoid duplicate updates
+-- which trigger an ORA-00001.  We do this by setting a variable 'do_from' to 0 or 1
+-- write the following SQL to the files 'history_sums.sql' and
+-- 'merge.sql' and execute the following:
+--   sqlplus> spool history_before;
+--   sqlplus> @history_sums;
+--   sqlplus> spool off;
+--   sqlplus> var do_from number;
+--   sqlplus> exec :do_from := 1;
+--   sqlplus> @merge
+--   sqlplus> exec :do_from := 0;
+--   sqlplus> @merge
+--   sqlplus> commit;
+--   sqlplus> spool history_after;
+--   sqlplus> @history_sums;
+--   sqlplus> spool off;
+
+--		  ===== BEGIN history_sums.sql =====
 set linesize 120;
-spool history_before;
 select
   sum(nvl(h.avail_files,0)) af, sum(nvl(h.avail_bytes,0)) ab,
   sum(nvl(h.done_files,0)) df, sum(nvl(h.done_bytes,0)) db,
@@ -61,32 +92,21 @@ select
   sum(nvl(h.request_files,0)) rf, sum(nvl(h.request_bytes,0)) rb,
   sum(nvl(h.idle_files,0)) if, sum(nvl(h.idle_bytes,0)) ib
 from t_history_dest h;
-spool off;
+--		  ===== END history_sums.sql =====
 
-
--- Create a node_map table
-create table node_map as
-select n1.id old, n2.id new 
-  from (select id, name, replace(name, '_Load', '_Buffer') new_name 
-          from t_adm_node) n1 
-  join t_adm_node n2 on n1.new_name = n2.name
-where n1.id != n2.id;
-
--- Some nodes do not follow the naming convention, add these by hand
-T2_Belgium_IIHE_Load --> T2_Belgium_IIHE
-T2_GRIF_Load         --> T2_GRIF_LLR
-T2_Spain_Load        --> T2_Spain_CIEMAT
-T2_Spain_IFCA_Load   --> T2_Spain_IFCA
-
--- merge link event history
+--		  ===== BEGIN merge.sql =====
+set timing on;
 merge /*+ append */ into t_history_link_events h
 using 
 (
-select nvl(fn.new,le.from_node) new_from, nvl(tn.new,le.to_node) new_to, le.*
+select decode(:do_from, 1, fn.new, le.from_node) new_from,
+       decode(:do_from, 0, tn.new, le.to_node) new_to,
+       le.*
   from t_history_link_events le
        left join node_map fn on fn.old = le.from_node
        left join node_map tn on tn.old = le.to_node
- where fn.new is not null or tn.new is not null
+ where (:do_from = 1 and fn.new is not null)
+    or (:do_from = 0 and tn.new is not null)
 ) v
 on (h.timebin = v.timebin
     and h.priority = v.priority
@@ -122,19 +142,21 @@ when not matched then
 ;
 
 delete from t_history_link_events
- where from_node in (select old from node_map)
-       or to_node in (select old from node_map);
-commit;
+ where (:do_from = 1 and from_node in (select old from node_map))
+    or (:do_from = 0 and to_node in (select old from node_map));
 
 -- merge link stats history
 merge /*+ append */ into t_history_link_stats h
 using 
 (
-selsct nvl(fn.new,ls.from_node) new_from, nvl(tn.new,ls.to_node) new_to, ls.*
+select decode(:do_from, 1, fn.new, ls.from_node) new_from,
+       decode(:do_from, 0, tn.new, ls.to_node) new_to,
+       ls.*
   from t_history_link_stats ls
        left join node_map fn on fn.old = ls.from_node
        left join node_map tn on tn.old = ls.to_node
- where fn.new is not null or tn.new is not null
+ where (:do_from = 1 and fn.new is not null)
+    or (:do_from = 0 and tn.new is not null) 
 ) v
 on (h.timebin = v.timebin
     and h.priority = v.priority
@@ -180,11 +202,8 @@ when not matched then
 ;
 
 delete from t_history_link_stats
- where from_node in (select old from node_map)
-       or to_node in (select old from node_map);
-
-commit;
-
+ where (:do_from = 1 and from_node in (select old from node_map))
+    or (:do_from = 0 and to_node in (select old from node_map));
 
 -- merge block dest history
 merge /*+ append */ into t_history_dest h
@@ -192,7 +211,7 @@ using
 (
 select n.new new_node, d.*
 from t_history_dest d
-join node_map n on n.old = d.node
+join node_map n on n.old = d.node and :do_from = 0
 ) v
 on (h.timebin = v.timebin
     and h.timewidth = v.timewidth
@@ -226,11 +245,24 @@ when not matched then
           v.idle_files, v.idle_bytes)
 ;
 
-delete from t_history_dest where node in (select old from node_map);
+delete from t_history_dest where :do_from = 0 and node in (select old from node_map);
+--		  ===== END merge.sql =====
 
-commit;
 
--- delete the _Load nodes
+# Compare history (back to shell)
+diff history_before history_after;
+
+		       ##### Differences #####
+< 3.0803E+17  167936910 3.6015E+12 4.2351E+11
+
+---
+> 3.0803E+17  165633026 3.5949E+12 4.0105E+11
+		       #######################
+# (As expected the differences are only in the columns we didn't
+#  attempt to accurately merge)
+
+
+-- delete the _Load nodes (back to sqlplus)
 delete from t_adm_node where id in (select old from node_map);
 
 commit;
@@ -238,51 +270,15 @@ commit;
 -- remove the node map table
 drop table node_map;
 
--- get our statistics again
-set linesize 120;
-spool history_before;
-select
-  sum(nvl(h.avail_files,0)) af, sum(nvl(h.avail_bytes,0)) ab,
-  sum(nvl(h.done_files,0)) df, sum(nvl(h.done_bytes,0)) db,
-  sum(nvl(h.try_files,0)) tf, sum(nvl(h.try_bytes,0)) tb,
-  sum(nvl(h.fail_files,0)) ff, sum(nvl(h.fail_bytes,0)) fb,
-  sum(nvl(h.expire_files,0)) ef, sum(nvl(h.expire_bytes,0)) eb
-from t_history_link_events h;
-
-select
-  sum(nvl(h.pend_files,0)) pf, sum(nvl(h.pend_bytes,0)) pb,
-  sum(nvl(h.wait_files,0)) wf, sum(nvl(h.wait_bytes,0)) wb,
-  sum(nvl(h.cool_files,0)) cf, sum(nvl(h.cool_bytes,0)) cb,
-  sum(nvl(h.ready_files,0)) rf, sum(nvl(h.ready_bytes,0)) rb,
-  sum(nvl(h.xfer_files,0)) xf, sum(nvl(h.xfer_bytes,0)) xb,
-  sum(nvl(h.confirm_files,0)) cff, sum(nvl(h.confirm_bytes,0)) cfb, sum(nvl(h.confirm_weight,0)) cfw,
-  sum(nvl(h.param_rate,0)) pmf, sum(nvl(h.param_latency,0)) pmb
-from t_history_link_stats h;
-
-select
-  sum(nvl(h.dest_files,0)) df, sum(nvl(h.dest_bytes,0)) db,
-  sum(nvl(h.src_files,0)) sf, sum(nvl(h.src_bytes,0)) sb,
-  sum(nvl(h.node_files,0)) nf, sum(nvl(h.node_bytes,0)) nb,
-  sum(nvl(h.request_files,0)) rf, sum(nvl(h.request_bytes,0)) rb,
-  sum(nvl(h.idle_files,0)) if, sum(nvl(h.idle_bytes,0)) ib
-from t_history_dest h;
-spool off;
-
 exit;
 
-# Compare
-diff history_before history_after;
-
-		       ##### Differences #####
-
-		       #######################
 
 # Connect to Prod instance
 export PHEDEX_DB='SITECONF/CERN/PhEDEx/DBParam:Prod/Admin';
 sqlplus $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB});
 
 -- Grant access to SC4 instance
-grant select on t_adm_node to cms_transfermgmt_sc4;
+grant select on t_adm_node to cms_transfermgmt_sc;
 
 -- Connect back to SC4 instance
 exit;
@@ -290,9 +286,9 @@ export PHEDEX_DB='SITECONF/CERN/PhEDEx/DBParam:SC4/Admin';
 sqlplus $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB});
 
 -- Merge nodes from Prod
-merge into cms_transfermgmt_sc4.t_adm_node s
+merge into cms_transfermgmt_sc.t_adm_node s
 using
-cms_tranfermgmt.t_adm_node p
+cms_transfermgmt.t_adm_node p
 on (s.name = p.name)
 when matched then
 update set
@@ -309,10 +305,21 @@ values
  p.se_name, p.capacity, p.bandwidth_cap)
 ;
 
+-- View differences
+select p.id prod_id, p.name prod_name, s.id sc_id, s.name sc_name
+  from cms_transfermgmt.t_adm_node p
+       full outer join t_adm_node s
+         on s.name = p.name
+ where p.name is null or s.name is null;
+
+commit;
+
+
+
 -- Revoke permissions
 exit;
 export PHEDEX_DB='SITECONF/CERN/PhEDEx/DBParam:Prod/Admin';
 sqlplus $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB});
 
 -- Revoke access from SC4 instance
-revoke select on t_adm_node from cms_transfermgmt_sc4;
+revoke select on t_adm_node from cms_transfermgmt_sc;
