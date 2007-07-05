@@ -266,7 +266,7 @@ sub unixstat
     foreach ( split("\n", $stat{$lfn}{RAW}) )
     {
       chomp;
-      m%^([-dm])\S+\s+\S+\s+\S+\s+\S+\s+(\d+).*$lfn$% or next;
+      m%^\d+\s+([-dm])\S+\s+\S+\s+\S+\s+\S+\s+(\d+).*$lfn$% or next;
       $stat{$lfn}{Size} = $2;
     }
   }
