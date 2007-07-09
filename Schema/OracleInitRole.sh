@@ -20,6 +20,7 @@
 ##H                   address
 ##H SITE-NAME       is the name of the site (e.g. "CERN")
 
+[ $# != 3 ] && { echo "Insufficient parameters." 1>&2; exit 1; }
 
 dbparam="$(echo $1 | sed 's/:.*//')"
 section="$(echo $1 | sed 's/.*://')"
