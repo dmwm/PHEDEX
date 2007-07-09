@@ -1,7 +1,7 @@
 #!/bin/sh
 
 ##H Usage:
-##H   OracleInitRole.sh DBPARAM:SECTION KEY-DIRECTORY/USERCERT-FILE SITE-NAME [NODE[,NODE...]]
+##H   OracleInitRole.sh DBPARAM:SECTION KEY-DIRECTORY/USERCERT-FILE SITE-NAME
 ##H
 ##H Where:
 ##H DBPARAM         is the database parameter file with
@@ -19,23 +19,13 @@
 ##H                   KEY-DIRECTORY, formed as e-mail
 ##H                   address
 ##H SITE-NAME       is the name of the site (e.g. "CERN")
-##H NODE[,NODE...]  comma-separated list of node names
-##H
-##H NODE is optional.  If it is not provided no nodes or site
-##H information will be added to the DB.  This is only for the case of
-##H providing DB access to persons not interested in doing transfers.
-##H (e.g. for ProdAgents using the PhEDEx micro client).  In this case
-##H SITE-NAME is just some descriptive string for the purpose of the
-##H database role.
 
-[ $# != 3 ] && [ $# != 4 ] && { echo "Insufficient parameters." 1>&2; exit 1; }
 
 dbparam="$(echo $1 | sed 's/:.*//')"
 section="$(echo $1 | sed 's/.*://')"
 keydir="$(dirname $2)"
 usercert="$(basename $2)"
 sitename="$3"
-nodes="$4"
 
 [ -z "$dbparam"  ] && { echo "Insufficient parameters." 1>&2; exit 1; }
 [ -z "$section"  ] && { echo "Insufficient parameters." 1>&2; exit 1; }
