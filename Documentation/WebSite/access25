@@ -6800,17 +6800,26 @@ sub output_page
 
   my $q =$self->data_subscriptions();
   
-  my @cols = qw(SELECT ITEM_LEVEL ITEM_NAME NODE_NAME PRIORITY 
-		IS_MOVE IS_TRANSIENT TIME_SUSPEND_UNTIL);
+  my @cols = qw(SELECT ITEM_LEVEL ITEM_NAME NODE_NAME PRIORITY PCT_FILES PCT_BYTES
+		IS_MOVE IS_TRANSIENT TIME_SUSPEND_UNTIL ITEM_OPEN
+		TIME_CREATE TIME_COMPLETE TIME_DONE
+		);
   my $th =
   { SELECT => 'Select',
     ITEM_LEVEL => 'Data Level',
     ITEM_NAME => 'Data Item',
     NODE_NAME => 'Node',
     PRIORITY => 'Priority',
+    PCT_FILES => '% Files',
+    PCT_BYTES => '% Bytes',
     IS_MOVE => 'Replica/Move',
     IS_TRANSIENT => 'Open/Closed',
-    TIME_SUSPEND_UNTIL => 'Active/Suspended' };
+    TIME_SUSPEND_UNTIL => 'Active/Suspended',
+    ITEM_OPEN => 'Item Open',
+    TIME_CREATE => 'Time Create',
+    TIME_COMPLETE => 'Time Complete',
+    TIME_DONE => 'Time Done'
+    };
   
   # Special data fromats
   my $now = time();
@@ -6826,19 +6835,29 @@ sub output_page
 	  elsif ($susp_time == 9_999_999_999)            { return 'Suspended Forever'; }
 	  else { return 'Suspended Until  '.&formatTime($susp_time, 'stamp') }
       },
-      IS_TRANSIENT => sub { return $_[0] eq 'y' ? 'Closed' : 'Open'; }
+      IS_TRANSIENT => sub { return $_[0] eq 'y' ? 'Closed' : 'Open'; },
+      ITEM_OPEN => \&yesno,
+      TIME_CREATE =>   sub { &formatTime($_[0], 'stamp') || '&#8211;' },
+      TIME_COMPLETE => sub { &formatTime($_[0], 'stamp') || '&#8211;' },
+      TIME_DONE =>     sub { &formatTime($_[0], 'stamp') || '&#8211;' },
+      PCT_FILES => \&format_percent,
+      PCT_BYTES => \&format_percent
   };
 
   # Special cell formats
   my $cf = 
   { 
-      TIME_SUSPEND_UNTIL => sub { return defined $_[0] && $_[0] >= $now ? 'alarm' : ''; }
+      TIME_SUSPEND_UNTIL => sub { return defined $_[0] && $_[0] >= $now ? 'alarm' : ''; },
+      PCT_FILES => sub { return defined $_[0] && $_[0] == 1 ? '' : 'bad' },
+      PCT_BYTES => sub { return defined $_[0] && $_[0] == 1 ? '' : 'bad' }
   };
 
   # Pseudo columns
   my %pseudo =
       (
-       'SELECT'  => sub { "<input type='checkbox' name='s_id' value='$_[1]->{ITEM_LEVEL}:$_[1]->{ITEM_ID}:$_[1]->{NODE_ID}'/>" }
+       'SELECT'  => sub { "<input type='checkbox' name='s_id' value='$_[1]->{ITEM_LEVEL}:$_[1]->{ITEM_ID}:$_[1]->{NODE_ID}'/>" },
+       'PCT_FILES' => sub { ($_[1]->{NODE_FILES} || 0) / ($_[1]->{DEST_FILES} || -1); },
+       'PCT_BYTES' => sub { ($_[1]->{NODE_BYTES} || 0) / ($_[1]->{DEST_BYTES} || -1); }
        );
   
   if (!@admin_auth) {
@@ -6857,6 +6876,13 @@ sub output_page
   $dbtable->set_dataformats($df);
   $dbtable->set_cellformats($cf);
   $dbtable->add_pseudocolumn($_, $pseudo{$_}) foreach (keys %pseudo);
+  my @querycols;
+  foreach (@cols) {
+      my $default = $_ =~ /PCT_FILES|ITEM_OPEN|TIME_COMPLETE|TIME_DONE/ ? 0 : 1;
+      push @querycols, [ ($$th{$_}, 'col', $_,  $default) ];
+  }
+  $dbtable->set_querycols( @querycols );
+
 
   if (@admin_auth) {
       print { $$self{CONTENT} }
@@ -6894,7 +6920,30 @@ sub output_page
   if ($nrows == 0) {
       $self->alert("No data exists for your selected nodes.");
   }
+
+  my $optspane = new Web25::OptsPane;
+  
+  my $target = $self->myurl();
+  $optspane->set_form_target($target);
+
+  my $form = "";
+
+  # Save everything except what this form controls
+  $form = $self->saveform(qw(node));
+  $optspane->add_hidden($form);
+
+  $form = $dbtable->columns_form();
+  $optspane->add_tab('Columns', $form);
+
+  # Node Selection tab
+  $form = $self->node_form();
+  $optspane->add_tab('Nodes Shown', $form);
+
+  print { $$self{OPTIONS} } $optspane->output();
+
 }
+
+sub output_options_form { }
 
 sub update_subscriptions
 {
@@ -6965,54 +7014,42 @@ sub update_subscriptions
     }
 }
 
-# Produce content to the options panel
-sub output_options_form
-{
-    my ($self) = @_;
-
-    my $optspane = new Web25::OptsPane;
-
-    my $target = $self->myurl();
-    $optspane->set_form_target($target);
-
-    my $form = "";
-
-    # Save everything except what this form controls
-    $form = $self->saveform(qw(node));
-    $optspane->add_hidden($form);
-
-    # Node Selection tab
-    $form = $self->node_form();
-    $optspane->add_tab('Nodes Shown', $form);
-
-    print { $$self{OPTIONS} } $optspane->output();
-}
-
 sub data_subscriptions
 {
   my ($self) = @_;
   $self->fetch_nodes();
   my @node_ids = map { $$_{IS_SHOWN} ? $$_{ID} : '' } @{$$self{NODE_LIST}};
   @node_ids = grep /\d+/, @node_ids;
-  my ($where_list) = join(' or ', map { "n.id=$_"} @node_ids );
+  my ($node_list, %node_binds) = &dbinlist('node', @node_ids );
 
   my $q = &dbexec($$self{DBH}, qq{
     select NVL2(s.block, 'BLOCK', 'DATASET') item_level,
            NVL2(s.block, s.block, s.dataset) item_id,
            NVL2(s.block, b.name, ds.name) item_name,
-           n.id node_id,
-           n.name node_name,
-           s.priority,
-           s.is_move,
-           s.is_transient,
-           s.time_suspend_until
+           NVL2(s.block, b.is_open, ds.is_open) item_open,
+           n.id node_id, n.name node_name,
+           s.priority, s.is_move, s.is_transient,
+           s.time_suspend_until, s.time_create,
+           s.time_complete, s.time_done,
+           reps.node_files, reps.dest_files,
+           reps.node_bytes, reps.dest_bytes
       from t_dps_subscription s
+      join
+      (select br.node, b2.dataset, b2.id block,
+              sum(br.node_files) node_files, sum(br.dest_files) dest_files,
+              sum(br.node_bytes) node_bytes, sum(br.dest_bytes) dest_bytes
+         from t_dps_block b2
+         join t_dps_block_replica br on br.block = b2.id                                                  
+        group by br.node, rollup (b2.dataset, b2.id)
+      ) reps
+        on reps.node = s.destination
+           and ((reps.block is null and reps.dataset = s.dataset) or reps.block = s.block)
       join t_adm_node n on n.id = s.destination
       left join t_dps_dataset ds on ds.id = s.dataset
       left join t_dps_block b on b.id = s.block
-     where $where_list
-     order by n.name, ds.id, b.id
-  });
+     where n.id in ($node_list)
+     order by s.time_create desc, s.dataset desc, s.block desc, n.name
+  }, %node_binds);
 
   return $q;
 }
