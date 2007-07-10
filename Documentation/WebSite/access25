@@ -17,7 +17,7 @@ use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
 
 our @EXPORT = qw(urlencode dblink toclink pagelink
 		 alert warning breakAtSlash note help
-		 age format_num format_size format_timespan shorten
+		 age format_num format_percent format_size format_timespan shorten
 		 badcolor warncolor pendcolor goodcolor altcolor
 		 dbexec dbprep dbbindexec dbinlist makeObjWithAttrs
 		 timeSeries formatTime timegm sizeValue
@@ -211,6 +211,14 @@ sub format_num
   my ($n) = @_;
   return $n ? "$n" : '&#8211;';
 }
+
+# Format number as percent.  Zero is converted into a dash.
+sub format_percent
+{
+  my ($n) = @_;
+  return $n ? sprintf("%.1f \%", $n*100) : '&#8211;';
+}
+
 
 # Format a file size as a string.  The value is automatically
 # abbreviated with a k/M/G/T/P/E suffix, either the first that
@@ -2113,7 +2121,6 @@ sub generate
 	    &dbexec($$self{DBH}, 
 		    qq{set role $role_name identified by $role_pass });
 	}
-
       };
       if ($@)
       {
@@ -2197,6 +2204,182 @@ sub generate
 
 
 1;
+
+######################################################################
+package Web25::XML;
+use strict; use warnings;
+use base "Exporter";
+use DBI;
+use CGI qw(:standard);
+use POSIX qw(strftime);
+import Web25::Common;
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = {};
+  bless $self, $class;
+  return $self;
+}
+
+
+
+sub generate
+{
+    my ($self, $config, $db) = @_;
+    $$self{CONFIG} = $config;
+    $$self{DBID} = $db;
+    my $index = do { no strict "refs"; ${"@{[ref $self]}::INDEX"} };
+
+    my ($output) = ("");
+    open ($$self{CONTENT}, ">", \$output);
+    eval
+    {
+	my $dbtns = $$config{INSTANCES}{$db}{DBPARAM}{DBH_DBNAME};
+        my $dbuser = $$config{INSTANCES}{$db}{DBPARAM}{DBH_DBUSER};
+        my $dbpass = $$config{INSTANCES}{$db}{DBPARAM}{DBH_DBPASS};
+	$$self{DBH} = DBI->connect ("DBI:Oracle:$dbtns", $dbuser, $dbpass,
+	    		            { RaiseError=>1, AutoCommit =>0 });
+        $$self{DBH}{FetchHashKeyName} = "NAME_uc";
+        $$self{DBH}{private_self} = $self;
+	
+	if (exists $$config{INSTANCES}{$db}{DBPARAM}{DBH_DBROLE}) {
+	    my $role_name = $$config{INSTANCES}{$db}{DBPARAM}{DBH_DBROLE};
+	    my $role_pass = $$config{INSTANCES}{$db}{DBPARAM}{DBH_DBROLE_PASS};
+	    &dbexec($$self{DBH}, 
+		    qq{set role $role_name identified by $role_pass });
+	}
+
+	$self->output();
+	if ($$self{DBH})
+	{
+	    $$self{DBH}->disconnect() if $$self{DBH};
+	    delete $$self{DBH};
+	}
+	close($$self{CONTENT});
+    };
+    if ($@) {
+	my $message = $@;
+	$message = &escapeHTML($message);
+	print {$$self{CONTENT}} "<error>$message</error>";
+    }
+
+    my $root = $$index{ROOT} ? $$index{ROOT} : 'data';
+   
+    print header(-type => 'text/xml', -encoding=>'ISO-8859-1');
+    print "<?xml version='1.0' encoding='ISO-8859-1'?>\n";
+    print "<$root>";
+    print $output;
+    print "</$root>";
+}
+
+1;
+
+
+
+######################################################################
+package Web25::XML::TransferStatus;
+use strict; use warnings;
+use base "Web25::XML";
+use CGI qw(:standard);
+import Web25::Common;
+our $INDEX = { ROOT => 'ajax-response' };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+sub output
+{
+    my ($self) = @_;
+    
+    my @datasets = param('dataset');
+    my @se_names = param('se_name');
+    my $id_suffix = param('id_suffix');
+
+    if (!@datasets or !@se_names) {
+	die "Missing parameters.  'dataset' and 'se_name' are required.\n";
+    }
+
+    my $multiple_se = 0;
+    if (grep(/^\*$/, @se_names) || scalar @se_names > 1) {
+	$multiple_se = 1;
+    }
+
+    # Get the number of files at an se
+    # If the site has MSS, return the MSS rows only
+    my $sql = qq{ select n.name node, n.se_name se_name, ds.name,
+		  sum(br.node_files) node_files, sum(b.files) total_files
+		      from t_dps_block_replica br
+		      join t_adm_node n on n.id = br.node
+                 left join t_adm_node m on m.se_name = n.se_name
+                                       and m.kind = 'MSS'
+		      join t_dps_block b on b.id = br.block
+		      join t_dps_dataset ds on ds.id = b.dataset
+		      where (m.id is null or n.kind = 'MSS')
+                        and WHERE
+		      group by n.name, n.se_name, ds.name
+		      order by n.name, ds.name
+		  };
+
+    my @where;
+    my %binds;
+    if (grep /^\*$/, @se_names) {
+	push @where, "n.se_name is not null";
+    } else {
+	my ($se_list, %se_binds) = &dbinlist('se_name', @se_names);
+	push @where, "n.se_name in ($se_list)";
+	$binds{$_} = $se_binds{$_} foreach keys %se_binds;
+    }
+    my ($ds_list, %ds_binds) = &dbinlist('ds', @datasets);
+    push @where, "ds.name in ($ds_list)";
+    $binds{$_} = $ds_binds{$_} foreach keys %ds_binds;
+
+    my $where_str = join ' and ', @where;
+    $sql =~ s/WHERE/$where_str/m;
+
+    my $sth = &dbexec($$self{DBH}, $sql, %binds);
+    my $nrows = 0;
+    while (my ($node, $se_name, $dataset, $node_files, $total_files) = $sth->fetchrow()) {
+	$nrows++;
+	my $id;
+	if ($multiple_se) {
+	    $id = join ':', 'multiple', $dataset;
+	} else {
+	    $id = join ':', $se_names[0], $dataset;
+	}
+	$id .= ':'.$id_suffix if $id_suffix;
+	
+	print {$$self{CONTENT}}
+	"<response type='object' id='$id'>";
+
+	my $ratio = sprintf("%.1f", ($node_files / $total_files) * 100);
+	my $color;
+	if ($ratio == 0) { $color = 'red'; } 
+	elsif ($ratio == 100) { $color = 'green'; } 
+	else { $color = 'orange'; }
+
+	my $line = "$node ($se_name) $node_files / $total_files (${ratio}%)";
+
+        print {$$self{CONTENT}}
+	"<div name='phedex_transfer_status' style='color:$color;'>",
+	$line,
+	"</div>",
+	"</response>";
+    }
+
+    print {$$self{CONTENT}} "<response>No results</response>" unless $nrows;
+}
+
+1;
+
+
 
 ######################################################################
 package Web25::Security::Password;
@@ -5949,7 +6132,9 @@ sub apply_options
   # Determine which replica value we show (in replica mode)
   $$self{NVALUES} = [ "Node blocks", "Node files", "Node bytes",
 		      "Destined blocks", "Destined files", "Destined bytes",
-		      "Missing blocks", "Missing files", "Missing bytes" ];
+		      "Missing blocks", "Missing files", "Missing bytes",
+		      "% Complete (files)", "% Complete (bytes)"
+		      ];
   $$self{NVALUE} = param('nvalue') || "Node files";
   $$self{NVALUE} = "Node files" if !grep($$self{NVALUE} eq $_, @{$$self{NVALUES}});
 
@@ -6324,7 +6509,25 @@ sub output_page
       my $refvalue = 0;
       my $interesting = (($$obj{DEST_BYTES} && $value) ? 1 : 0);
       return ($value, $refvalue, $interesting); };
+  } 
+  elsif ($$self{NVALUE} eq "% Complete (files)")
+  {
+      $formatter = \&format_percent;
+      $quantity = sub { my ($ref, $obj) = @_;
+        my $value = max(0, ($$obj{NODE_FILES} || 0) / ($$obj{DEST_FILES} || -1));
+        my $refvalue = 1;
+        my $interesting = (($$obj{DEST_FILES} && $value) ? 1 : 0);
+  	return ($value, $refvalue, $interesting);  };
+  } elsif ($$self{NVALUE} eq "% Complete (bytes)")
+  {
+      $formatter = \&format_percent;
+      $quantity = sub { my ($ref, $obj) = @_;
+        my $value = max(0, ($$obj{NODE_BYTES} || 0) / ($$obj{DEST_BYTES} || -1));
+        my $refvalue = 1;
+        my $interesting = (($$obj{DEST_BYTES} && $value) ? 1 : 0);
+  	return ($value, $refvalue, $interesting);  };
   }
+
 
   foreach my $ds (@{$$self{DATASET_LIST}})
   {
@@ -6365,8 +6568,12 @@ sub output_page
     $total{FILES} += $$ds{FILES};
     for (@{$$self{NODE_SHOWN}})
     {
-      $total{$$_{ID}}{VALUE} += $values{$$_{ID}}{VALUE};
-      $total{$$_{ID}}{ATTR} ||= $values{$$_{ID}}{ATTR};
+	if ($$self{NVALUE} !~ /^%/) {
+	    $total{$$_{ID}}{VALUE} += $values{$$_{ID}}{VALUE};
+	} else {
+	    $total{$$_{ID}}{VALUE} = 0; # TODO:  Properly sum part/whole for percents
+	}
+	$total{$$_{ID}}{ATTR} ||= $values{$$_{ID}}{ATTR};
     }
 
     foreach my $block (@{$$ds{BLOCK_LIST}})
@@ -6432,6 +6639,7 @@ sub output_page
     }
   }
 
+  # Footer, sum totals
   print { $$self{CONTENT} }
   " </tbody>\n",
   " <tfoot>\n",
@@ -7513,7 +7721,9 @@ sub runme
   param('page', $type);
   
   # Initialize the SecurityModule
-  $page->initSecurityModule($secmod_config);
+  unless ($cgipage =~ /^XML/) {
+      $page->initSecurityModule($secmod_config);
+  }
 
   # Generate the page
   $page->generate($config, $db);
