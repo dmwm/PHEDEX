@@ -215,7 +215,7 @@ while true; do
 			        dest="$arg" ;;
 			      State: )
 			        case $arg in
-			          Done ) status="0" state="$arg" ;;
+			          Done | Finished ) status="0" state="$arg" ;;
 			   				*    ) status="1" state="$arg" ;;
 			        esac;;
 			      Reason: )
