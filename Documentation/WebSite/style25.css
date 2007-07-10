@@ -824,6 +824,10 @@ div.logbox {
 p.alarm { color:  white; }
 p.note { color:  blue; }
 
+.good { color: green; }
+.warn { color: orange; }
+.bad  { color: red; }
+
 p.blocktext { width:  50em; }
 
 div.short {
