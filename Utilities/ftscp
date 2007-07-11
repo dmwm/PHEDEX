@@ -18,7 +18,8 @@
 ##H zero; the details can be found in the report file.
 ##H
 ##H The "-passfile" specifies the file name from which to read the
-##H the password for FTS MyProxy password.  This option is required,
+##H the password for FTS MyProxy password.  This option is required 
+### for FTS 1.5 server,
 ##H and the file must be readable and writeable only by the user or
 ##H the command will fail.
 ##H
@@ -89,13 +90,17 @@ done
 [ -z "$copyjobfile" ] && { echo "Missing -copyjobfile, use -h for help." 1>&2; exit 101; }
 [ ! -f "$copyjobfile" ] && { echo "$copyjobfile: no such file" 1>&2; exit 102; }
 [ ! -r "$copyjobfile" ] && { echo "$copyjobfile: cannot read" 1>&2; exit 103; }
-[ -z "$passfile" ] && { echo "Missing -passfile, use -h for help." 1>&2; exit 111; }
-[ ! -f "$passfile" ] && { echo "$passfile: no such file" 1>&2; exit 112; }
-[ ! -r "$passfile" ] && { echo "$passfile: cannot read" 1>&2; exit 113; }
-case $(ls -l "$passfile" 2>/dev/null | awk '{print $1}') in ????------ ) ;;
-  * ) echo "$passfile: password file has vulnerable file access permissions" 1>&2;
-      echo "$passfile: please restrict with 'chmod 600 $passfile'" 1>&2; exit 114;;
-esac
+
+if [ -z "$passfile" ]; then
+    echo "Warning: missing -passfile, use -h for help unless intentional." 1>&2; 
+else
+    [ ! -f "$passfile" ] && { echo "$passfile: no such file" 1>&2; exit 112; }
+    [ ! -r "$passfile" ] && { echo "$passfile: cannot read" 1>&2; exit 113; }
+    case $(ls -l "$passfile" 2>/dev/null | awk '{print $1}') in ????------ ) ;;
+	* ) echo "$passfile: password file has vulnerable file access permissions" 1>&2;
+	echo "$passfile: please restrict with 'chmod 600 $passfile'" 1>&2; exit 114;;
+    esac
+fi
 
 if [ -z "$mapfile" ]; then :; else
   [ ! -f "$mapfile" ] && { echo "$mapfile: no such file" 1>&2; exit 122; }
@@ -158,8 +163,14 @@ red_alert() {
 trap 'red_alert $?' 1 2 15
 
 # Create a FTS transfer request.
-echo "+ glite-transfer-submit -p _censored_ $server -f $copyjobfile"
-ftsjob=$(glite-transfer-submit -p $(cat "$passfile") $server -f $copyjobfile)
+passopt=
+passoptshow=
+if [ ! -z "$passfile" ]; then
+passopt="-p $(cat "$passfile")"
+passoptshow="-p _censored_"
+fi 
+echo "+ glite-transfer-submit $passoptshow $server -f $copyjobfile"
+ftsjob=$(glite-transfer-submit $passopt $server -f $copyjobfile | grep -v Enter)
 echo "ftsjob=$ftsjob"
 
 # Poll transfer status, record output into the report
