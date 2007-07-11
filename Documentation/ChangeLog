@@ -1,8 +1,14 @@
+* Changes in PhEDEx 2.5.3.3
+   - Fix status checking in ftscp script to handle Finished FTS state
+
 * Changes in PhEDEx 2.5.3.2
 Bug fixes
    - Fix exit code of ftscp to handle Finished FTS state
    - Fixes to FileRouter to stop dead path build up
-      		
+Dependencies
+   - dbs_client 1_0_5
+   - dls 1_0_1
+	
 * Changes in PhEDEx 2.5.3
 
  General changes:
