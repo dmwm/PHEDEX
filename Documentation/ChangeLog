@@ -1,7 +1,13 @@
 * Changes in PhEDEx 2.5.3.3
+	
+Bug fixes	
    - Fix status checking in ftscp script to handle Finished FTS state
-
+New tools
+   - Utilities/StorageConsistencyCheck and
+     Utilities/BlockConsistencyCheck for comparisons against TMDB
+	
 * Changes in PhEDEx 2.5.3.2
+	
 Bug fixes
    - Fix exit code of ftscp to handle Finished FTS state
    - Fixes to FileRouter to stop dead path build up
