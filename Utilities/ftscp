@@ -107,7 +107,7 @@ if [ -z "$mapfile" ]; then :; else
   [ ! -r "$mapfile" ] && { echo "$mapfile: cannot read" 1>&2; exit 123; }
 fi
 
-if [ $mode == "multi" ]; then
+if [ "$mode" == "multi" ]; then
   echo "finding appropriate fts server from $mapfile or BDII"
   fts_contact=""
   if [ -z "$mapfile" ]; then
