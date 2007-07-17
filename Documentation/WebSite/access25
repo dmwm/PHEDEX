@@ -1321,7 +1321,15 @@ sub head
     if (@headers) {
 	# Do nothing
     } elsif ($$self{TABLECOLS} && $$self{TABLEHEAD}) {
-	@headers = @{$$self{TABLEHEAD}}{@{$$self{TABLECOLS}}};
+	foreach (@{$$self{TABLECOLS}}) {
+	    my $colhead;
+	    if (exists $$self{TABLEHEAD}{$_}) {
+		$colhead = $$self{TABLEHEAD}{$_};
+	    } else {
+		$colhead = $_;
+	    }
+	    push @headers, $colhead;
+	}
     } elsif ($$self{TABLECOLS}) {
 	@headers = @{$$self{TABLECOLS}};
     }
@@ -1704,6 +1712,10 @@ function select_all(form_id, name, value) {
 --></script>
 
   <title>@DBTITLE@ @PAGETITLE@ - CMS PhEDEx</title>
+
+  <!-- Page-specific head elements -->
+  @HEAD@
+  <!-- /head -->
 </head>
 
 <body onload='
@@ -1736,7 +1748,7 @@ function select_all(form_id, name, value) {
 </div>
 </div> <!-- /page -->
 
-<!-- side navigation panel -->
+<!-- corner navigation panel -->
 <div class="viewnav">
 @DBSELECTOR@
 @IDENTITY@
@@ -1747,7 +1759,6 @@ function select_all(form_id, name, value) {
 <div id="opts" style="display:none;">
 @OPTIONS@
 </div>
-
 
 </body>
 </html>
@@ -2030,6 +2041,7 @@ sub generate
   # Initialise page template
   my $ndb = 0;
   my $replacements = {
+    'HEAD' => '',
     'THIS_IS_A_TEST' => $testwarn,
     'CONTENT' => '',
     'PAGETITLE' =>
@@ -2097,7 +2109,8 @@ sub generate
 
   # Execute the desired page.  We save old STDOUT to print to it
   # later, then redirect the page routine's output to CONTENT.
-  my ($output, $options) = ("", "");
+  my ($output, $options, $head) = ("", "", "");
+  open ($$self{HEAD}, ">", \$head);
   open ($$self{CONTENT}, ">", \$output);
   open ($$self{OPTIONS}, ">", \$options);
   eval
@@ -2178,8 +2191,10 @@ sub generate
         "</div></center>\n";
     }
   }
+  close($$self{HEAD});
   close($$self{CONTENT});
   close($$self{OPTIONS});
+  $$replacements{HEAD} = join("\n", $head);
   $$replacements{CONTENT} = join("\n", $output);
   $$replacements{OPTIONS} = join("\n", $options);
 
@@ -2346,6 +2361,7 @@ sub output
 
     my $sth = &dbexec($$self{DBH}, $sql, %binds);
     my $nrows = 0;
+    my $responses = {};
     while (my ($node, $se_name, $dataset, $node_files, $total_files) = $sth->fetchrow()) {
 	$nrows++;
 	my $id;
@@ -2355,9 +2371,6 @@ sub output
 	    $id = join ':', $se_names[0], $dataset;
 	}
 	$id .= ':'.$id_suffix if $id_suffix;
-	
-	print {$$self{CONTENT}}
-	"<response type='object' id='$id'>";
 
 	my $ratio = sprintf("%.1f", ($node_files / $total_files) * 100);
 	my $color;
@@ -2365,16 +2378,36 @@ sub output
 	elsif ($ratio == 100) { $color = 'green'; } 
 	else { $color = 'orange'; }
 
-	my $line = "$node ($se_name) $node_files / $total_files (${ratio}%)";
+	my $line = "<div name='phedex_transfer_status' style='color:$color;'>".
+	    "$node ($se_name) $node_files / $total_files (${ratio}%)".
+	    "</div>";
 
-        print {$$self{CONTENT}}
-	"<div name='phedex_transfer_status' style='color:$color;'>",
-	$line,
-	"</div>",
-	"</response>";
+	$$responses{$id}{$line} = 1;
     }
 
-    print {$$self{CONTENT}} "<response>No results</response>" unless $nrows;
+    if ($nrows) {
+	foreach my $id (keys %{$responses}) {
+	    print {$$self{CONTENT}}	"<response type='object' id='$id'>";
+	    foreach my $line (keys %{$$responses{$id}}) {
+		print {$$self{CONTENT}} $line;
+	    }
+	    print {$$self{CONTENT}} "</response>";
+	}
+    } else {
+	# make fake result sets when there are no results
+	# so Valentin's framework doesn't choke...
+	foreach my $dataset (@datasets) {
+	    my $id;
+	    if ($multiple_se) {
+		$id = join ':', 'multiple', $dataset;
+	    } else {
+		$id = join ':', $se_names[0], $dataset;
+	    }
+	    $id .= ':'.$id_suffix if $id_suffix;
+	print {$$self{CONTENT}}	"<response id='$id'>No results</response>";
+	}
+    }
+
 }
 
 1;
@@ -4335,12 +4368,13 @@ sub output
   my %offline_thresholds = ( 'FileDownload' => 60*30,
 			     'FileExport'   => 60*90,
 			     'InfoFileSize' => 60*30,
+			     'BlockDLSUpdate' => 60*60,
 			     'OTHER'        => 60*15 );
   
   
   my $now = time ();
   my $query = &dbexec($$self{DBH}, qq{
-      select n.name, a.name, ast.time_update
+      select n.name, a.name, ast.label, ast.time_update
 	  from t_agent_status ast
 	  join t_adm_node n on n.id = ast.node
 	  join t_agent a on a.id = ast.agent});
@@ -4348,18 +4382,26 @@ sub output
   my (%agents, %status);
   while (my $row = $query->fetchrow_arrayref)
   {
-      my ($node, $agent, $contact) = @$row;
-      $status{$node}{$agent} = $contact;
+      my ($node, $agent, $label, $contact) = @$row;
+      $status{$node}{$agent}{$label} = $contact;
       $agents{$agent} = 1;
   }
 
-  my @standard = grep (!/^(Block|Info(?!Drop)|Perf|Table)/, sort keys %agents);
-  my @admin = grep (/^Block/, sort keys %agents);
+  my @standard = grep (/^File/, sort keys %agents);
+  my @admin = grep (/^(Block)/, sort keys %agents);
   my @support = grep (/^(?!File|Block|InfoDrop)/, sort keys %agents);
 
   foreach my $item ([ "Common", @standard ], [ "Administrative", @admin ], [ "Support", @support ])
   {
       my ($type, @agents) = @{$item};
+
+      my @nodes;
+      if ($type eq 'Common') {
+	  @nodes = sort keys %status;
+      } else {
+	  push @nodes, 'T0_CERN_Export';
+      }
+
       print { $$self{CONTENT} }
       "<p><table class='striped'>\n",
       "<tbody>\n",
@@ -4371,7 +4413,7 @@ sub output
       (map { " <th>$_</th>\n" } @agents),
       "</tr>\n";
 
-      foreach my $node (sort keys %status)
+      foreach my $node (@nodes)
       {
 	  next if ! grep (defined $status{$node}{$_}, @agents);
 
@@ -4380,22 +4422,46 @@ sub output
 	  {
 	      my $offline = ( $offline_thresholds{$agent} || $offline_thresholds{OTHER} );
 	      my $active = $offline / 3;
-	      my $contact = $status{$node}{$agent};
 
-	      if (! defined $contact)
+	      my @labels = keys %{$status{$node}{$agent}};
+	      if (!@labels)
 	      {
 		  print { $$self{CONTENT} } " <td>&nbsp;</td>\n";
 		  next;
+	      }	
+
+	      my $nagents = scalar @labels;
+	      my %upstatus;
+	      my $nup = 0;
+	      my $recent_contact = 0;
+	      my $recent_agent = $labels[0];
+	      foreach my $label (@labels) {
+		  my $contact = $status{$node}{$agent}{$label};
+		  my $ago = &age($now - $contact);
+		  if ($contact > $recent_contact) {
+		      $recent_contact = $contact;
+		      $recent_agent = $label;
+		  }
+		  
+		  if (($now - $contact) < $active) {
+		      $upstatus{$label} = { STATUS => 'UP', COLOR => $goodcolor};
+		      $nup++;
+		  } elsif (($now - $contact) < $offline) {
+		      $upstatus{$label} = { STATUS => "UP ($ago ago)", COLOR => $goodcolor};
+		      $nup++;
+		  } else {
+		      $upstatus{$label} = { STATUS => "DOWN ($ago ago)", COLOR => $badcolor};
+		  }
 	      }
-	      
-	      my $ago = &age($now - $contact);
-	      if (($now - $contact) < $active) {
-		  print { $$self{CONTENT} } "<td align='center' bgcolor='$goodcolor'>UP</td>\n";
-	      } elsif (($now - $contact) < $offline) {
-		  print { $$self{CONTENT} } "<td align='center' bgcolor='$goodcolor'>UP ($ago ago)</td>\n";
-	      } else {
-		  print { $$self{CONTENT} } "<td align='center' bgcolor='$badcolor'>DOWN ($ago ago)</td>\n";
+	      my $overall_status = $upstatus{$recent_agent}{STATUS};
+	      my $color = $upstatus{$recent_agent}{COLOR};
+	      my $upratio = '';
+	      if ($nagents > 1) {
+		  $upratio = "<br/>(${nup}/${nagents} agents)";
 	      }
+
+	      print { $$self{CONTENT} } "<td align='center' bgcolor='$color'>$overall_status $upratio</td>";
+
 	  }
 	  print { $$self{CONTENT} } "</tr>\n";
       }
@@ -4540,6 +4606,238 @@ sub output
     print { $$self{OPTIONS} } $optspane->output();
 }
 
+1;
+
+
+
+######################################################################
+package Web25::Components::Links;
+use strict; use warnings;
+use base "Web25::Page";
+import Web25::Common;
+use CGI qw(:standard);
+
+our $INDEX = { LIST => 1, ORDER => 3, TITLE => "Links",
+	       LINK_TITLE => "View PhEDEx Topology" };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+sub output
+{
+    my ($self) = @_;
+
+    my $from_filter = param('from_filter') || '.*';
+    my $to_filter = param('to_filter') || '.*';
+    my $andor = param('andor') || 'and';
+
+    print {$$self{CONTENT}}
+    "<form method='get' action='#' class='nice'/>",
+    "<label class='inline'>Show links matching from </label>",
+    textfield(-name=>'from_filter', -value=>$from_filter, -class=>'labeled'),
+    popup_menu(-name=>'andor',
+	       -values=>['and', 'or'],
+	       -class=>'labeled'),
+    "<label class='inline'>to</label>",    
+    textfield(-name=>'to_filter', -value=>$to_filter, -class=>'labeled'),
+    submit(-name=>'Update', -class=>'labeled'), "<br/>",
+    "</form>";
+
+    my @legend = (['Link exists and is valid', 'green'],
+		  ['Link exists, but agents are down', 'red'],
+		  ['Link exists, but is excluded', 'orange'],
+		  ['Link does not exist', 'white'],
+		  ['Self-reference', 'black']);
+    
+    print {$$self{CONTENT}} 
+    "<table style='float:left;border: 1px solid black;margin-bottom:3px;'><tr><th colspan='2' align='center'>Legend</th></tr>";
+    foreach my $pair (@legend) {
+	my ($def, $color) = @{$pair};
+	print {$$self{CONTENT}}
+	"<tr><td><div style='border:1px solid black;width:40px;background-color:$color;'>&nbsp;</div></td>",
+	"<td>$def</td></tr>";
+    }
+    print {$$self{CONTENT}} "</table>";
+
+    print {$$self{CONTENT}}
+    "<p style='float:left;width:35em;margin-left:1em;'>",
+    "This page displays links between nodes in PhEDEx.  Valid links ",
+    "are required for transfers to be possible.  ",
+    "Links are invalid when the source/destination node agents are down or they actively ",
+    "exclude the other node with the -ignore/-accept options.  ",
+    "<b>Warning:</b> Nodes that have never connected to the database are marked as excluded, which is not correct.",
+    "</p><br clear='all'/>";
+    $from_filter = qr/$from_filter/;
+    $to_filter = qr/$to_filter/;
+
+    my $sql = qq{ select fn.name from_node, tn.name to_node, fn.kind from_kind, tn.kind to_kind,
+		         xso.time_update source_update, xso.protocols source_protos,
+		         xsi.time_update sink_update,   xsi.protocols sink_protos
+		    from t_adm_link l
+		    join t_adm_node fn on fn.id = l.from_node
+		    join t_adm_node tn on tn.id = l.to_node
+		    left join t_xfer_source xso
+		      on xso.from_node = fn.id
+		     and xso.to_node = tn.id
+		    left join t_xfer_sink xsi
+		      on xsi.from_node = fn.id
+		     and xsi.to_node = tn.id
+	       };
+    my $now = time();
+    my $downtime = 5400 + 15*60;  # Hour and a half (real expiration) + 15 minutes grace time
+    my $links = &dbexec($$self{DBH}, $sql)->fetchall_arrayref();
+    my %link_params;
+
+    my (%from_nodes, %to_nodes);
+    foreach my $link (@{$links}) {
+	my ($from, $to, $from_kind, $to_kind, $xso_update, $xso_protos, $xsi_update, $xsi_protos) = @{$link};
+	my $key = $from.'-->'.$to;
+	$link_params{$key} = { EXISTS => 1,
+			       XSI_UPDATE => $xsi_update,
+			       XSO_UPDATE => $xso_update,
+			       FROM_KIND => $from_kind,
+			       TO_KIND => $to_kind,
+			       XSO_PROTOS => $xso_protos,
+			       XSI_PROTOS => $xsi_protos
+			       };
+
+	# Explain why links are valid or invalid.  For now we benefit
+	# from the fact the xfer_source/xfer_sink tables are never
+	# cleaned up.  Exclusion deletes from xfer_source, and
+	# xfer_sink, so if there is an old update we know the agent is
+	# down, if there is no entry, we know the node has been
+	# excluded.  It would be nice to do a more explicit check for
+	# this but for now the logic is ok.
+	if ($from_kind eq 'MSS' && $to_kind eq 'Buffer') { # Staging link
+	    $link_params{$key}{VALID} = 1;
+	    $link_params{$key}{REASON} = 'Staging link OK';
+	} elsif ($from_kind eq 'Buffer' && $to_kind eq 'MSS') { # Migration link
+	    if (!$xsi_update) {
+		$link_params{$key}{VALID} = 0;
+		$link_params{$key}{EXCLUDED} = 1;
+		$link_params{$key}{REASON} = 'Migration agent excluded';
+	    } elsif ($xsi_update <= ($now - $downtime)) {
+		$link_params{$key}{VALID} = 0;
+		$link_params{$key}{REASON} = 'Migration agent down';
+		$link_params{$key}{XSI_AGE} = &age($now - $xsi_update);
+	    } else {
+		$link_params{$key}{VALID} = 1;
+		$link_params{$key}{REASON} = 'Migration link OK';
+		$link_params{$key}{XSI_AGE} = &age($now - $xsi_update);
+	    }
+	} else { # WAN link
+	    if (!$xso_update) {
+		$link_params{$key}{VALID} = 0;
+		$link_params{$key}{EXCLUDED} = 1;
+		$link_params{$key}{REASON} = 'Source agent excluded';
+	    } elsif ($xso_update <= ($now - $downtime)) {
+		$link_params{$key}{VALID} = 0;
+		$link_params{$key}{REASON} = 'Source agent down';
+		$link_params{$key}{XSO_AGE} = &age($now - $xso_update);
+	    } elsif (!$xsi_update) {
+		$link_params{$key}{VALID} = 0;
+		$link_params{$key}{EXCLUDED} = 1;
+		$link_params{$key}{REASON} = 'Destination agent excluded';
+	    } elsif ($xsi_update <= ($now - $downtime)) {
+		$link_params{$key}{VALID} = 0;
+		$link_params{$key}{REASON} = 'Destination agent down';
+		$link_params{$key}{XSI_AGE} = &age($now - $xsi_update);
+	    } else {
+		$link_params{$key}{VALID} = 1;
+		$link_params{$key}{REASON} = 'WAN Link OK';
+		$link_params{$key}{XSO_AGE} = &age($now - $xso_update);
+		$link_params{$key}{XSI_AGE} = &age($now - $xsi_update);
+	    }
+	}
+	
+	# Check protocols
+	if ($link_params{$key}{VALID}) {
+	    my @from_protos = split(/\s+/, $xso_protos || '');
+	    my @to_protos   = split(/\s+/, $xso_protos || '');
+	    my $match = 0;
+	    foreach my $p (@to_protos) {
+		next if ! grep($_ eq $p, @from_protos);
+		$match = 1;
+		last;
+	    }
+	    unless ($match) {
+		$link_params{$key}{VALID} = 0;
+		$link_params{$key}{REASON} = "No matching protocol";
+	    }
+	}
+
+	my $from_match =  ($from =~ /$from_filter/);
+	my $to_match = ($to =~ /$to_filter/);
+	if (($andor eq 'and' && ($from_match && $to_match)) ||
+	    ($andor eq 'or'  && ($from_match || $to_match))) {
+	    $from_nodes{$from} = 1;
+	    $to_nodes{$to} = 1;
+	}
+    }
+    my @from_nodes = sort keys %from_nodes;
+    my @to_nodes = sort keys %to_nodes;
+
+    my $table = new Web25::TableSpool;
+    $table->set_filehandle($$self{CONTENT});
+    $table->set_tableclass('data dense rspace');
+    $table->set_tablecols(['FROM_NODE', @to_nodes]);
+    $table->set_tablehead({'FROM_NODE' => 'From Node &darr; To Node &rarr;'});
+    $table->set_cellformats({FROM_NODE => sub { 'head' }});
+    
+    $table->start();
+    $table->head();
+    
+    foreach my $from (@from_nodes) {
+	my $row = {};
+	foreach my $to (@to_nodes) {
+	    $$row{FROM_NODE} = $from;
+	    my $key = $from.'-->'.$to;
+	    my $link = $link_params{$key};
+	    my $color;
+	    if ($from eq $to) { 
+		$color = 'black';
+	    } elsif ($$link{EXISTS} 
+		     && $$link{VALID}) {
+		$color = 'green';
+	    } elsif ($$link{EXCLUDED}) {
+		$color = 'orange';
+	    } elsif ( $$link{EXISTS} ) {
+		$color = 'red';
+	    } else {
+		$color = 'white';
+	    }
+	    # Tooltips only for existing links, for performance reasons
+	    my $tooltip = $$link{EXISTS} ? $self->get_tooltip($key, $link, $now) : '';
+	    my $cell = "<div class='ttp' style='background-color:$color;'>&nbsp;$tooltip</div>"; 
+	    $$row{$to} = $cell;
+	}
+	$table->row($row);
+    }
+    
+    $table->finish();
+}
+
+sub get_tooltip
+{
+    my ($self, $key, $link, $now) = @_;
+    $key =~ s/-->/ &rarr; /;
+    my $msg = '';
+    my $color = $$link{VALID} ? 'green' : 'red';
+    if ($$link{EXISTS}) {
+	$msg .= "<p>$$link{REASON}</p>";
+	$msg .= "<p>Source update:  $$link{XSO_AGE} ago</p>" if $$link{XSO_AGE};
+	$msg .= "<p>Destination update:  $$link{XSI_AGE} ago</p>" if $$link{XSI_AGE};
+    } else {
+	$msg = $$link{COMMENT};
+    }
+    return "<div class='tt'><p><b>$key</b></p><span style='color:$color;'>$msg</span></div>";
+}
 
 1;
 
