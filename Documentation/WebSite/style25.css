@@ -110,6 +110,14 @@ pre.wide
   margin-right:		10px;
 }
 
+.nopad {
+  padding:		0;
+}
+
+.nomar {
+  margin:		0;
+}
+
 /**********************************************************************/
 /* Structure elements: header, content, sidebars etc.  */
 
@@ -681,7 +689,9 @@ table.data th {
   white-space:  nowrap;
 }
 
-table.data th {
+table.data th,
+table.data td.head {
+  text-align:		center;
   background-color:	#3d80df;
   color:		white;
 }
@@ -695,6 +705,10 @@ table.data tr.alarm {
   font-weight:  bold;
   color:  white;
   background:  red;
+}
+
+.dense tr td {
+  padding:  0;
 }
 
 .nice fieldset,
@@ -851,3 +865,48 @@ a.shorttoggle {
   margin:  0;
   text-decoration:  underline;
 }
+
+/************************************************/
+/* allows tooltips in <div> */
+div.ttp {
+  position:  relative;
+  z-index:  24;
+}
+
+div.ttp:hover {
+  z-index:  25;
+}
+
+div.ttp div.tt {
+  position: absolute;
+  top: 2em;
+  left: -10000em;
+  z-index:  25;
+
+  /* The default tooltip style */
+  border:  1px solid blue;
+  padding: 3px;
+  background-color:  white;
+  color:  black;
+  font-size:  8pt;
+}
+
+/* Tooltips are dense */
+div.ttp div.tt p {
+  padding:  0px;
+  margin:  0px;
+}
+
+div.ttp:hover div.tt {
+  left:  5px;
+}
+
+/* allows div to be inline but NOT break safari popups */
+.bl,.bc {
+  display:  block;
+  padding:  1px 1px 1px 1px;
+  margin:  0px 2px 0px 2px;
+}
+
+/* for giving space right of a table, so tooltips are visible */
+.rspace { margin-right:  10em; }
