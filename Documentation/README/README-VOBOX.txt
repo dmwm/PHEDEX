@@ -108,13 +108,14 @@ Options:
 
 -d use the user's certificate subject as username -s myproxy.cern.ch
    use this particolar MyProxy server. This is the one all VO-Boxes
-   are registered to.  -n allow retrieval of a proxy without a
+   are registered to.
+-n allow retrieval of a proxy without a
    password (this option is not documented in myproxy-init man page)
-   -c 720 Lifetime, in hours, of the MyProxy stored in the
+-c 720 Lifetime, in hours, of the MyProxy stored in the
    server. This value (one month) is a suggestion. The proxy renewal
    daemon running on the VO Box will try to warn you (by email) some
-   time before the expiration date (see below).  -t 48 The maximum
-   lifetime of derived proxies
+   time before the expiration date (see below).
+-t 48 The maximum lifetime of derived proxies
 
 
 VO-Box> vobox-proxy --vo cms --proxy-safe 3600 --myproxy-safe 259200
