@@ -801,7 +801,10 @@ sub bestRoute
 	 	 || ! exists $$costs{$node}{$state}{$sizebin}{$dest});
 	my $this = $$costs{$node}{$state}{$sizebin};
 
+	next if ($$this{$dest}{REMOTE_HOPS} > 1); # Multi-WAN-hop paths are never the best.
+
 	my $thiscost = $$this{$dest}{TOTAL_LATENCY};
+
 	if (! defined $best
 	    || $$this{$dest}{IS_LOCAL} > $$best{$dest}{IS_LOCAL}
 	    || ($$this{$dest}{IS_LOCAL} == $$best{$dest}{IS_LOCAL}
