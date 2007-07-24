@@ -36,7 +36,7 @@ BEGIN {
     if ( $home !~ m%/% ) { $home = '.'; }
     $home =~ s|/[^/]+$||;
     $home ||= ".";
-    $home .= "/../../../PHEDEX/Toolkit/Common";
+    $home .= "/../Toolkit/Common";
     unshift(@INC, $home);
 }
 
@@ -90,6 +90,7 @@ while ( <LFN> )
 {
   chomp;
   s%^.*/store%/store%;
+  s%\s.*$%%;
   $h{LFN}{$_}++;
   $_ = dirname $_;
   $_ =~ s%/\d+$%%;
