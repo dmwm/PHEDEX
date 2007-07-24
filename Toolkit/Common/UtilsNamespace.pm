@@ -2,6 +2,7 @@ package UtilsNamespace;
 use strict;
 use warnings;
 
+use File::Basename;
 use base 'Exporter';
 our @EXPORT = qw(stat statmode statsize );
 
@@ -134,7 +135,7 @@ sub _stat
   {
     die "Something wrong in _stat...\n" unless defined $lfn;
     next if exists $stat{$lfn};
-    if ( $self->verbose >= 3 ) { print "$cmd $lfn...\n"; }
+$DB::single=1;
     open STAT, "$cmd $lfn 2>&1 |" or die "$cmd $lfn: $!\n";
     while ( <STAT> ) { $stat{$lfn}{RAW} .= $_; }
     close STAT; # or die "close $cmd $lfn: $!\n";
@@ -266,7 +267,8 @@ sub unixstat
     foreach ( split("\n", $stat{$lfn}{RAW}) )
     {
       chomp;
-      m%^\d+\s+([-dm])\S+\s+\S+\s+\S+\s+\S+\s+(\d+).*$lfn$% or next;
+      my $blfn = basename $lfn;
+      m%^\s*\d+\s+([-dm])\S+\s+\S+\s+\S+\s+\S+\s+(\d+).*$blfn$% or next;
       $stat{$lfn}{Size} = $2;
     }
   }

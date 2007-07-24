@@ -60,7 +60,7 @@ BEGIN {
     if ( $home !~ m%/% ) { $home = '.'; }
     $home =~ s|/[^/]+$||;
     $home ||= ".";
-    $home .= "/../../../PHEDEX/Toolkit/Common";
+    $home .= "/../Toolkit/Common";
     unshift(@INC, $home);
 }
 
@@ -102,7 +102,7 @@ $destination = 'any';
 $callouton   = '';
 %calloutonAllowed = ( failure => 1, success => 1, all => 1);
 
-$tfc='/afs/cern.ch/user/w/wildish/public/COMP/SITECONF/CERN/PhEDEx/storage.xml';
+#$tfc='/afs/cern.ch/user/w/wildish/public/COMP/SITECONF/CERN/PhEDEx/storage.xml';
 GetOptions("db=s"           => \$DBCONFIG,
            "block=s@"       => \@BLOCK,
            "dataset=s@"     => \@DATASET,
@@ -147,7 +147,8 @@ if( !$DBCONFIG ||
     ( !@BLOCK      &&
       !@DATASET    &&
       !@LFN
-    )
+    ) ||
+    !$tfc
   )
 {
   die "Insufficient parameters, use -h for help.\n";
@@ -372,8 +373,6 @@ if ( $check{Size} || $check{Migration} )
     my $pfn = $h{LFN}{$lfn}{PFN};
     $h{SE}{$lfn} = {};
 
-$DB::single=$debug_me;
-    $h{LFN}{$lfn}{PFN} = '/afs/cern.ch/user/w/wildish/public/COMP/SITECONF/CERN/PhEDEx/StorageConsistencyCheck';
     my $sesize = $ns->statsize($h{LFN}{$lfn}{PFN});
     if ( defined($h{SE}{$lfn}{Size} = $sesize) )
     {
