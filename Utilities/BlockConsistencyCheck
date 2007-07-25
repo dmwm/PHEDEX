@@ -428,7 +428,6 @@ if ( $check{Size} )
     {
       if ( $h{LFNs}{$lfn}{Size} == $h{SE}{$lfn}{Size} ) { $field = 'OK'; }
       else { $field = 'SizeMismatch'; }
-$DB::single=$debug_me;
       $h{Checks}{Size}{Dataset}{$dataset}{Size} += $h{LFNs}{$lfn}{Size};
       $h{Checks}{Size}{Blocks} {$block}  {Size} += $h{LFNs}{$lfn}{Size};
 #      $_ = dirname $lfn;
@@ -475,7 +474,6 @@ if ( $check{Migration} )
 # Print report
 print "\n";
 my ($check,$k,$l,$m);
-$DB::single=1;
 foreach $k ( qw / LFNs Blocks Dataset / )
 {
   print "#------------------------------------------------------------------\n";
@@ -507,7 +505,7 @@ if ( ! keys %{$h{Detail}} )
 {
   print "There were no failures detected!\n";
 }
-elsif ( $verbose >= 2 )
+elsif ( $verbose )
 {
   print " Detailed list of failures:\n";
   foreach my $dataset ( sort keys %{$h{Detail}} )
@@ -520,6 +518,10 @@ elsif ( $verbose >= 2 )
       {
         print "     LFN=$lfn ";
         print join(' ', sort keys %{$h{Detail}{$dataset}{$block}{$lfn}} ),"\n";
+        if ( $verbose >= 2 )
+        {
+          print $ns->Raw($h{LFN}{$lfn}{PFN});
+        }
       }
     }
   }

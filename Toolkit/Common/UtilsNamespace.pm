@@ -110,18 +110,18 @@ sub technology
 sub stat
 {
   my $self = shift;
-  my ($cmd,$lfn,%r);
+  my ($cmd,$pfn,%r);
   $cmd = shift;
 
-  foreach my $lfn ( @_ )
+  foreach my $pfn ( @_ )
   {
-    next if exists $stat{$lfn};
-    open STAT, "$cmd $lfn 2>&1 |" or die "$cmd $lfn: $!\n";
-    while ( <STAT> ) { $stat{$lfn}{RAW} .= $_; }
-    close STAT; # or die "close $cmd $lfn: $!\n";
+    next if exists $stat{$pfn};
+    open STAT, "$cmd $pfn 2>&1 |" or die "$cmd $pfn: $!\n";
+    while ( <STAT> ) { $stat{$pfn}{RAW} .= $_; }
+    close STAT; # or die "close $cmd $pfn: $!\n";
   }
 
-  foreach $lfn ( @_ ) { $r{$lfn} = $stat{$lfn}; }
+  foreach $pfn ( @_ ) { $r{$pfn} = $stat{$pfn}; }
   return \%r;
 }
 
@@ -130,19 +130,25 @@ sub _stat
   my $self = shift;
   my $cmd = shift;
 
-  my ($lfn,%r);
-  foreach my $lfn ( @_ )
+  my ($pfn,%r);
+  foreach my $pfn ( @_ )
   {
-    die "Something wrong in _stat...\n" unless defined $lfn;
-    next if exists $stat{$lfn};
-$DB::single=1;
-    open STAT, "$cmd $lfn 2>&1 |" or die "$cmd $lfn: $!\n";
-    while ( <STAT> ) { $stat{$lfn}{RAW} .= $_; }
-    close STAT; # or die "close $cmd $lfn: $!\n";
+    die "Something wrong in _stat...\n" unless defined $pfn;
+    next if exists $stat{$pfn};
+    open STAT, "$cmd $pfn 2>&1 |" or die "$cmd $pfn: $!\n";
+    while ( <STAT> ) { $stat{$pfn}{RAW} .= $_; }
+    close STAT; # or die "close $cmd $pfn: $!\n";
   }
 
-  foreach $lfn ( @_ ) { $r{$lfn} = $stat{$lfn}; }
+  foreach $pfn ( @_ ) { $r{$pfn} = $stat{$pfn}; }
   return \%r;
+}
+
+sub Raw
+{
+  my $self = shift;
+  my $pfn  = shift;
+  return $stat{$pfn}{RAW};
 }
 
 sub stat_key
@@ -180,21 +186,21 @@ sub statmode
 sub rfstat
 {
   my $self = shift;
-  my ($lfn,$r,$cmd);
+  my ($pfn,$r,$cmd);
   $cmd = 'nsls -l';
 
   $self->_stat($cmd,@_);
-  foreach my $lfn ( @_ )
+  foreach my $pfn ( @_ )
   {
-    next if exists $stat{$lfn}{Size};
-    if ( $self->verbose >= 3 ) { print "$cmd $lfn...\n"; }
-    foreach ( split("\n", $stat{$lfn}{RAW}) )
+    next if exists $stat{$pfn}{Size};
+    if ( $self->verbose >= 3 ) { print "$cmd $pfn...\n"; }
+    foreach ( split("\n", $stat{$pfn}{RAW}) )
     {
       chomp;
-      m%^([-dm])\S+\s+\S+\s+\S+\s+\S+\s+(\d+).*$lfn$% or next;
-      $stat{$lfn}{Size} = $2;
+      m%^([-dm])\S+\s+\S+\s+\S+\s+\S+\s+(\d+).*$pfn$% or next;
+      $stat{$pfn}{Size} = $2;
       my $m = $1;
-      $stat{$lfn}{Migrated} = ( $m eq 'm' ? 1 : 0 );
+      $stat{$pfn}{Migrated} = ( $m eq 'm' ? 1 : 0 );
     }
   }
 
@@ -207,18 +213,18 @@ sub rfstat
 sub srmstat
 {
   my $self = shift;
-  my ($lfn,$r,$cmd);
+  my ($pfn,$r,$cmd);
   $cmd = 'srm-get-metadata';
 
   $self->_stat($cmd,@_);
-  foreach my $lfn ( @_ )
+  foreach my $pfn ( @_ )
   {
-    next if exists $stat{$lfn}{Size};
-    if ( $self->verbose >= 3 ) { print "$cmd $lfn...\n"; }
-    foreach ( split("\n", $stat{$lfn}{RAW}) )
+    next if exists $stat{$pfn}{Size};
+    if ( $self->verbose >= 3 ) { print "$cmd $pfn...\n"; }
+    foreach ( split("\n", $stat{$pfn}{RAW}) )
     {
       chomp;
-      if ( m%^\s+size\s*:\s*(\d+)% ) { $stat{$lfn}{Size} = $1; }
+      if ( m%^\s+size\s*:\s*(\d+)% ) { $stat{$pfn}{Size} = $1; }
     }
   }
 
@@ -231,19 +237,19 @@ sub srmstat
 sub dpmstat
 {
   my $self = shift;
-  my ($lfn,$r,$cmd);
+  my ($pfn,$r,$cmd);
   $cmd = 'dpns-ls';
 
   $self->_stat($cmd,@_);
-  foreach my $lfn ( @_ )
+  foreach my $pfn ( @_ )
   {
-    next if exists $stat{$lfn}{Size};
-    if ( $self->verbose >= 3 ) { print "$cmd $lfn...\n"; }
-    foreach ( split("\n", $stat{$lfn}{RAW}) )
+    next if exists $stat{$pfn}{Size};
+    if ( $self->verbose >= 3 ) { print "$cmd $pfn...\n"; }
+    foreach ( split("\n", $stat{$pfn}{RAW}) )
     {
       chomp;
-      m%^([-dm])\S+\s+\S+\s+\S+\s+\S+\s+(\d+).*$lfn$% or next;
-      $stat{$lfn}{Size} = $2;
+      m%^([-dm])\S+\s+\S+\s+\S+\s+\S+\s+(\d+).*$pfn$% or next;
+      $stat{$pfn}{Size} = $2;
     }
   }
 
@@ -256,20 +262,20 @@ sub dpmstat
 sub unixstat
 {
   my $self = shift;
-  my ($lfn,$r,$cmd);
+  my ($pfn,$r,$cmd);
   $cmd = 'ls -ls';
 
   $self->_stat($cmd,@_);
-  foreach my $lfn ( @_ )
+  foreach my $pfn ( @_ )
   {
-    next if exists $stat{$lfn}{Size};
-    if ( $self->verbose >= 3 ) { print "$cmd $lfn...\n"; }
-    foreach ( split("\n", $stat{$lfn}{RAW}) )
+    next if exists $stat{$pfn}{Size};
+    if ( $self->verbose >= 3 ) { print "$cmd $pfn...\n"; }
+    foreach ( split("\n", $stat{$pfn}{RAW}) )
     {
       chomp;
-      my $blfn = basename $lfn;
-      m%^\s*\d+\s+([-dm])\S+\s+\S+\s+\S+\s+\S+\s+(\d+).*$blfn$% or next;
-      $stat{$lfn}{Size} = $2;
+      my $bpfn = basename $pfn;
+      m%^\s*\d+\s+([-dm])\S+\s+\S+\s+\S+\s+\S+\s+(\d+).*$bpfn$% or next;
+      $stat{$pfn}{Size} = $2;
     }
   }
 
