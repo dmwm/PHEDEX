@@ -90,7 +90,7 @@ $not_on_tape_time = 12; # in hour(s)
 
 %check = (
 		'Size'		=> 1,
-#		'Migration'	=> 0,
+ 		'Migration'	=> 0,
 #		'Cksum'		=> 0,
 #		'DBS'		=> 0,
 	 );
