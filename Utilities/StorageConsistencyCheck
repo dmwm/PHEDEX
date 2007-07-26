@@ -81,7 +81,7 @@ if ( $lfn =~ m%.gz$% )
 { open LFN, "cat $lfn | gzip -d - |" or die "open: $lfn: $!\n"; }
 elsif ( $lfn =~ m%.bz2$% )
 { open LFN, "cat $lfn | bzip2 -d - |" or die "open: $lfn: $!\n"; }
-elsif ( $lfn =~ '-' )
+elsif ( $lfn =~ m%^-$% )
 { *LFN = *STDIN; }
 else
 { open LFN, "<$lfn" or die "open: $lfn: $!\n"; }
@@ -89,6 +89,7 @@ else
 while ( <LFN> )
 {
   chomp;
+  $debug && print "Read: $_\n";;
   s%^.*/store%/store%;
   s%\s.*$%%;
   $h{LFN}{$_}++;
