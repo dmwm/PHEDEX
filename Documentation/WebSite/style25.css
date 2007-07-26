@@ -118,6 +118,10 @@ pre.wide
   margin:		0;
 }
 
+.nowrap {
+  white-space:		nowrap;
+}
+
 /**********************************************************************/
 /* Structure elements: header, content, sidebars etc.  */
 
@@ -700,6 +704,11 @@ table.data tr.stripe {
   background:  #ddf;
 }
 
+table.data tfoot {
+  border-top:  3px solid black;
+  background:  #dfd;
+}
+
 table.data td.alarm,
 table.data tr.alarm {
   font-weight:  bold;
@@ -841,6 +850,9 @@ p.note { color:  blue; }
 .good { color: green; }
 .warn { color: orange; }
 .bad  { color: red; }
+.goodbg { color:  white;  background-color:  green; }
+.warnbg { color:  white;  background-color:  orange; }
+.badbg  { color:  white;  background-color:  red; }
 
 p.blocktext { width:  50em; }
 
