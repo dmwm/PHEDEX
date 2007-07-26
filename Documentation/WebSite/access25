@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 
 our $TESTING = 0;
+our $TESTING_MAIL = undef;
 
 use CMSWebTools::SecurityModule::Oracle;
 
@@ -226,6 +227,8 @@ sub format_percent
 # precision is one decimal point, but the caller can change this.
 sub format_size {
   my ($bytes, $nodash, $precision, $minscale) = @_;
+  return undef if (!defined $bytes && $nodash);
+
   my @bounds = ([ 2**10, 'k' ], [ 2**20, 'M' ], [ 2**30, 'G' ],
 		[ 2**40, 'T' ], [ 2**50, 'P' ], [ 2**60, 'E' ]);
   my ($val, $unit, $minus) = ($bytes, '', $bytes < 0 ? "-" : "");
@@ -240,7 +243,7 @@ sub format_size {
 
   $precision = "1" if ! defined $precision;
   return $bytes || $nodash
-    ? sprintf("%s%.${precision}f&nbsp;%sB", $minus, $val, $unit)
+    ? sprintf("%s%.${precision}f %sB", $minus, $val, $unit)
     : '&#8211;';
 }
 
@@ -663,7 +666,7 @@ sub send_email
     # For debugging without bothering people
     if ($TESTING) {
 	$args{subject} = "TESTING:  $args{subject}";
-	$args{message} .= "\n\nTO:  $args{to}\n\n"; $args{to} = 'Ricky.Egeland@cern.ch';
+	$args{message} .= "\n\nTO:  $args{to}\n\n"; $args{to} = $TESTING_MAIL;
 	if ($args{cc}) {$args{message} .= "\n\nCC:  $args{cc}\n\n"; delete $args{cc};}
     }
 
@@ -889,10 +892,11 @@ sub dbs_lookup
     }
 
     my $dbscmdsetup = 
-	"source /opt/aptinstaller/slc3_ia32_gcc323/cms/dbs-client/DBS_1_0_0/etc/profile.d/init.sh; ".
-	"source /opt/aptinstaller/slc3_ia32_gcc323/external/python/2.4.2/etc/profile.d/init.sh;";
-    my $dbscmd = "$dbscmdsetup ../../Toolkit/DBS/DBSLookup -u '$dbs' -d '$pattern'";
+	"source /opt/aptinstaller/slc4_ia32_gcc345/cms/dbs-client/DBS_1_0_5/etc/profile.d/init.sh;";
+    my $dbslookup = '/opt/aptinstaller/slc4_ia32_gcc345/cms/PHEDEX/PHEDEX_2_5_3_3/Toolkit/DBS/DBSLookup';
+    my $dbscmd = "$dbscmdsetup $dbslookup -u '$dbs' -d '$pattern'";
     my $dbsresults = `$dbscmd`;
+    
     my @paths;
     if ($dbsresults) {
 	foreach (split "\n", $dbsresults) {
@@ -913,6 +917,8 @@ sub dbs_lookup
 #   DATASET = Dataset name
 #   BLOCK = Block name.  undef if LEVEL = DATASET
 #   ID = The dps unique id for item
+#   FILES = Number of files
+#   BYTES = Data size
 #   DPS_ISKNOWN = 'y' or 'n'
 #   DBS_ISKNOWN = 'y' or 'n'
 sub resolve_data
@@ -927,32 +933,47 @@ sub resolve_data
     foreach my $level (qw(DATASET BLOCK)) {
 	$$all{$level} = [];
     }
+
+    my %has;
+    foreach my $userglob (@userdata) {
+	my $level = ($userglob =~ m/\#/ ? 'BLOCK' : 'DATASET');
+	$has{$level} = 1;
+    }
+
+    my $all_datasets = &dbexec($dbh,
+        qq{select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset, sum(b.files) files, sum(b.bytes) bytes
+	     from t_dps_dataset ds
+   	     join t_dps_dbs dbs on dbs.id = ds.dbs
+             join t_dps_block b on b.dataset = ds.id
+            group by dbs.id, dbs.name, ds.id, ds.name
+	    order by ds.id })->fetchall_hashref('DATASET_ID') if $has{DATASET};
+    
+    my $all_blocks = &dbexec($dbh,
+       qq{select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset,
+	         b.id block_id, b.name block, b.files, b.bytes
+	    from t_dps_block b
+	    join t_dps_dataset ds on b.dataset = ds.id
+	    join t_dps_dbs dbs on ds.dbs = dbs.id
+            order by b.id})->fetchall_hashref('BLOCK_ID') if $has{BLOCK};
+    
+    my $undef_id = 0;
     foreach my $userglob (@userdata) {
 	$$resolved{$userglob} = [];
 	my $level = ($userglob =~ m/\#/ ? 'BLOCK' : 'DATASET');
 
 	# Search the DPS for the user's glob
-	my $sql;
-	if ($level eq 'DATASET') {
-	    $sql = qq{select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset
-		        from t_dps_dataset ds
-			join t_dps_dbs dbs on dbs.id = ds.dbs
-		       order by ds.id };
+	my $resultset;
+	if ($level eq 'DATASET') { 
+	    $resultset = $all_datasets; 
 	} else {
-	    $sql = qq{select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset, b.id block_id, b.name block
-			from t_dps_block b
-			join t_dps_dataset ds on b.dataset = ds.id
-			join t_dps_dbs dbs on ds.dbs = dbs.id
-		       order by b.id};
+	    $resultset = $all_blocks; 
 	}
-
-	my $q = &dbexec($dbh, $sql);
 
 	my $pattern = glob_to_regex($userglob);
 	my $lastid = -1;
-	while (my $row = $q->fetchrow_hashref()) {
+	foreach my $id (sort keys %{$resultset}) {
+	    my $row = $$resultset{$id};
 	    my $name = $$row{$level};
-	    my $id = $$row{$level.'_ID'};
 	    next unless $name =~ $pattern;
 
 	    # Redundancy checking
@@ -966,6 +987,8 @@ sub resolve_data
 					      LEVEL => $level,
 					      DATASET => $$row{DATASET},
 					      BLOCK   => $$row{BLOCK},
+					      FILES   => $$row{FILES},
+					      BYTES   => $$row{BYTES},
 					      DPS_ISKNOWN => 'y',
 					      DBS_ISKNOWN => 'y', # XXX This is assuming DPS and DBS are in sync
 					      ID => $id };
@@ -975,13 +998,14 @@ sub resolve_data
 	if ($userdbs && ! @{$$resolved{$userglob}}) {
 	    my @dbsdata = dbs_lookup($userdbs, $userglob);
 	    foreach my $name (@dbsdata) {
+		$undef_id++;
 		push @{$$resolved{$userglob}}, { DBS => $userdbs,
 						 LEVEL => $level,
 						 DATASET => ($level eq 'DATASET' ? $name : undef),
 						 BLOCK   => ($level eq 'BLOCK' ? $name : undef),
 						 DPS_ISKNOWN => 'n',
 						 DBS_ISKNOWN => 'y',
-						 ID => undef };
+						 ID => 'undef'.$undef_id };
 	    }
 	}
     }
@@ -1003,6 +1027,41 @@ sub resolve_data
     }
 }
 
+# Given a list of dataset IDs and/or block IDs, calculate the number of files and bytes total
+sub calculate_size
+{
+    my ($self, %args);
+
+    my ($datasets, $blocks) = @args{qw(datasets blocks)};
+    unless (($datasets && ref $datasets =~ /^ARRAY/) ||
+	    ($blocks && ref $blocks =~ /^ARRAY/)) {
+	die "calculate size called without dataset or block arrays";
+    }
+
+    my @where;
+    my %binds;
+    if ($datasets) {
+	my ($ds_list, %ds_binds) = &dbinlist('ds', @{$datasets});
+	push @where, $ds_list;
+	$binds{$_} = $ds_binds{$_} foreach keys %ds_binds;
+    }
+
+    if ($blocks) {
+	my ($b_list, %b_binds) = &dbinlist('b', @{$blocks});
+	push @where, $b_list;
+	$binds{$_} = $b_binds{$_} foreach keys %b_binds;
+    }
+    
+    my $where_str = join ' or ', @where;
+    my $sql = qq{ select sum(b.files), sum(b.bytes)
+                    from t_dps_dataset ds
+                    join t_dps_block b on b.dataset = ds.id
+		    where $where_str };
+
+    my ($files, $bytes) = &dbexec($$self{DBH}, $sql, %binds)->fetchrow();
+
+    return ($files, $bytes);
+}
 
 
 1;
@@ -1045,6 +1104,18 @@ sub init
     if ($$self{CURRENT_PAGE} <= 0 
 	|| $$self{CURRENT_PAGE} > $$self{TOTAL_PAGES}) {
 	$$self{CURRENT_PAGE} = 1;
+    }
+
+    if (!$$self{RANK_COL}) {
+	$$self{PAGED_SQL} = qq[select * from ( select r.*, rownum as result_number
+			                         from ($$self{SELECT}) r 
+			                        where rownum <= :end_result ) 
+		                where :start_result <= result_number ];
+    } else {
+	$$self{PAGED_SQL} = qq[select * from 
+			       (select results.*, dense_rank() over (order by results.$$self{RANK_COL}) result_number
+				  from ($$self{SELECT}) results )
+			         where result_number >= :start_result and result_number <= :end_result];
     }
 }
 
@@ -1098,18 +1169,7 @@ sub paged_result
     my ($self) = @_;
     my $start_result = &page_to_result($$self{CURRENT_PAGE}, $$self{RESULTS_PER_PAGE});
     my $end_result = $start_result + $$self{RESULTS_PER_PAGE} - 1;
-    my $sql;
-    if (!$$self{RANK_COL}) {
-	$sql = qq[select * from ( select r.*, rownum as result_number
-				  from ($$self{SELECT}) r 
-				  where rownum <= :end_result ) 
-		  where :start_result <= result_number ];
-    } else {
-	$sql = qq[select * from 
-                    (select results.*, dense_rank() over (order by results.$$self{RANK_COL}) result_number
-		     from ($$self{SELECT}) results )
-                     where result_number >= :start_result and result_number <= :end_result];
-    }
+    my $sql = $$self{PAGED_SQL};
     my %binds = %{$$self{BINDS}};
     $binds{':start_result'} = $start_result;
     $binds{':end_result'} = $end_result;
@@ -1179,8 +1239,6 @@ package Web25::TableSpool;
 use strict; use warnings;
 use CGI qw(param);
 
-
-
 sub new
 {
   my $proto = shift;
@@ -1200,6 +1258,8 @@ sub new
   $$self{CELLFORMATS} = undef;
   $$self{PSEUDOCOLS}  = undef;
   $$self{QUERYCOLS}   = undef;
+  $$self{STATCOLS}    = undef;
+  $$self{STATS}       = undef;
 
   bless $self, $class;
   return $self;
@@ -1291,6 +1351,43 @@ sub set_rowformats
 {
     my ($self, $rf) = @_;
     $$self{ROWFORMATS} = $rf;
+}
+
+# $statscols : hashref of DB_column_nmae =>function name
+# function name may be SUM, COUNT or AVERAGE
+sub set_statcols
+{
+    my ($self, $sc) = @_;
+    $$self{STATCOLS} = $sc;
+    $$self{STATS} = {};
+    foreach my $name (keys %{$sc}) {
+	die "TableSpool::set_statscols:  Unknown function requested" 
+	    unless (grep $$sc{$name} eq $_, qw(SUM COUNT AVERAGE));
+	$$self{STATS}{$name}{COUNT} = 0;
+	$$self{STATS}{$name}{SUM}   = 0;
+    }
+}
+
+# Returns the earlier requested statistics
+sub get_stats
+{
+    my ($self) = @_;
+
+    my $res = {};
+    foreach my $name (keys %{$$self{STATS}}) {
+	next unless grep ($name eq $_, @{$$self{TABLECOLS}});
+	my $func = $$self{STATCOLS}{$name};
+	my $sum = $$self{STATS}{$name}{SUM};
+	my $count = $$self{STATS}{$name}{COUNT};
+	if ($func eq 'SUM') {
+	    $$res{$name} = $sum;
+	} elsif ($func eq 'COUNT') {
+	    $$res{$name} = $count;
+	} elsif ($func eq 'AVERAGE') {
+	    $$res{$name} = sprintf("%.2f", $sum/$count) unless $count == 0;
+	}
+    }
+    return keys %{$res} ? $res : undef;
 }
 
 # $pseudocols : hash with key 'name' (column name) and value 'generator' (sub ref)
@@ -1418,6 +1515,17 @@ sub hash_row
 	}
     }
 
+    # Gather statistics for columns
+    if ($$self{STATCOLS}) {
+	foreach my $name (keys %{$$self{STATCOLS}}) {
+	    # Get number
+	    next unless defined $myrow->{$name};
+	    my ($val) = ($myrow->{$name} =~ /([+-]?(\d+\.\d+|\d+\.|\.\d+|\d+)([eE][+-]?\d+)?)/);
+	    $$self{STATS}{$name}{COUNT}++ if defined $val;
+	    $$self{STATS}{$name}{SUM} += $val if defined $val;
+	}
+    }
+
     # Format data columns if format sub provided
     if ($$self{DATAFORMATS}) {
 	foreach my $name (keys %{$$self{DATAFORMATS}}) {
@@ -1445,11 +1553,41 @@ sub hash_row
     print { $$self{FH} } "</tr>\n";
 }
 
+# Prints a <tfoot> section and a single row - for stats.
+sub footrow
+{
+    my ($self, $myrow) = @_;
+
+    print { $$self{FH} } "<tfoot><tr>";
+    foreach my $name (@{$$self{TABLECOLS}}) {
+	my $val = defined $myrow->{$name} ? $myrow->{$name} : '';
+	print { $$self{FH} } "<td>$val</td>";
+    }
+    print { $$self{FH} } "</tr></tfoot>";
+}
+
+
 # Finish, returns number of rows printed
 sub finish
 {
     my ($self) = @_;
     print { $$self{FH} } "</tbody>\n";
+
+    my $results = $self->get_stats();
+
+    if ($results) {
+	my $myrow = {%{$results}};  # copy
+
+	# Format data columns if format sub provided
+	if ($$self{DATAFORMATS}) {
+	    foreach my $name (keys %{$$self{DATAFORMATS}}) {
+		$myrow->{$name} = &{$$self{DATAFORMATS}->{$name}}($myrow->{$name}, $myrow);
+	    }
+	}
+
+	$self->footrow($myrow);
+    }
+
     print { $$self{FH} } "</table>\n";
     return $$self{ROWCNT};
 }
@@ -2106,6 +2244,23 @@ sub generate
       $$replacements{THIS_IS_A_TEST} = '';
   }
 
+  # Prepare our cookies
+  my @cookies;
+  if ($$index{SESSION}) {
+      require CGI::Session;
+      require CGI::Cookie;
+      my $session = new CGI::Session("driver:File", undef, {Directory=>'/tmp/cgi-sessions'});
+      $$self{SESSION} = $session;
+      $$self{SESSIONID} = $session->id();
+      my $cookie = new CGI::Cookie(-name=>'CGISESSID', -value=>$session->id());
+      push @cookies, $cookie;
+  }
+
+  if(( my $cookie = $$self{SECMOD}->getCookie() )) {
+      push @cookies, $cookie;
+  }
+  
+
 
   # Execute the desired page.  We save old STDOUT to print to it
   # later, then redirect the page routine's output to CONTENT.
@@ -2209,12 +2364,8 @@ sub generate
     $result =~ s/\@$key\@/$value/g;
   }
 
-  # We need to set a cookie, if the security module orders us too
-  if(( my $cookie = $$self{SECMOD}->getCookie() )) {
-      print header(-type => 'text/html',-cookie => $cookie), $result;
-  } else {
-      print header(-type => 'text/html'), $result;
-  }
+  print header(-type => 'text/html', -cookie=>\@cookies), $result;
+  
 }
 
 
@@ -2878,6 +3029,8 @@ sub output
 {
   my ($self) = @_;
   my $task = param('task');
+  my $request = param('request');
+
 
   my @where;  my %binds;
   my $identity = $self->fetch_identity()->{ID};
@@ -2890,6 +3043,11 @@ sub output
   if ($task) {
       push @where, 't.id = :task';
       $binds{':task'} = $task;
+  }
+
+  if ($request) {
+      push @where, 'r.id = :request';
+      $binds{':request'} = $request;
   }
 
   my $where_bit = @where ? 'where '.join(' and ', @where) : '';
@@ -3150,6 +3308,25 @@ sub output
 		    qq{ select creator from t_req_request where id = :id },
 		    ':id' => $request);
 
+    # Get a list of the sites involved in this request
+    my %node_sites = $$self{SECMOD}->getPhedexNodeToSiteMap();
+    my %sites;  # for unique list
+    foreach my $dest (@nodes) {
+	$sites{ $node_sites{$dest} } = 1 if exists $node_sites{$dest};
+    }
+    
+    # Get the list of Data Managers affected by this request
+    my @data_managers;
+    foreach my $site (keys %sites) {
+	push @data_managers, $$self{SECMOD}->getUsersWithRoleForSite('Data Manager', $site);
+    }
+
+    # Get the list of Site Admins affected by this request
+    my @site_admins;
+    foreach my $site (keys %sites) {
+	push @site_admins, $$self{SECMOD}->getUsersWithRoleForSite('Site Admin', $site);
+    }
+
     my ($creator_id) = $q->fetchrow();
     my $creator_data = $self->getClientData($creator_id);
     my $creator_name = $$creator_data{IDENTITY}{NAME};
@@ -3158,6 +3335,9 @@ sub output
     my $admin_email = $$self{SECMOD}->getEmail();
     my $msg_comment = ($comment ? "\nThe person who handled this had the following comment:\n\n\"$comment\"\n" : '');
     my $nodes_str = join(', ', @nodes);
+
+    my @cc;
+    push @cc, $$_{EMAIL} foreach @data_managers, @site_admins;
 
     my $message=<<ENDEMAIL;
 Dear $creator_name,
@@ -3172,6 +3352,8 @@ $detail_url
 
 To inquire further about this request, you may reply to this email.
 
+This message has also been CCed to the Data Managers and Site Admins of the sites involved.
+
 Yours truly,
   PhEDEx transfer request webpage
 
@@ -3179,6 +3361,7 @@ ENDEMAIL
 
     send_email(subject => "PhEDEx Request $newactionname (request \#$request)",
 	       to => [ $creator_email ],
+	       cc => [ @cc ],
 	       from => "PhEDEx Web Requests <$$self{CONFIG}{FEEDBACK_MAIL}>",
 	       replyto => [ $admin_email ],
 	       message => $message
@@ -3327,12 +3510,16 @@ sub output
       join t_adm_identity ident on ident.id = client.identity
       left join t_req_action_attr a_attr on a_attr.action = a.id
       $where_bit
-      order by r.id desc, a.time_apply, a_attr.id};
+      order by r.id desc, a.id, a.time_apply, a_attr.id};
 
     my $pager = new Web25::QueryPager;
     $pager->init($self, $sql, {%binds}, 10, 'rid desc');
     my $n_requests = $pager->get_total_results();
 
+    &dump_var($$self{CONTENT}, 'sql', $sql);
+    &dump_var($$self{CONTENT}, 'paged_sql', $$pager{PAGED_SQL});
+    &dump_var($$self{CONTENT}, 'binds', {%binds});
+ 
     if (! $n_requests) {
 	print { $$self{CONTENT} } "<p>No requests to show.</p>";
 	return;
@@ -3345,7 +3532,9 @@ sub output
     my $oldrid = -1;
     my $oldaid = -1;
     my %req;
+    #TODO:  Sort in PERL not Oracle... bug when paging...
     while (my ($rid, $rstate, $rcreator, $aid, $action, $atime, $aclient, $name, $value) = $qreq->fetchrow()) {
+	print {$$self{CONTENT}} "<p>$rid $rstate $rcreator $aid $action $atime $aclient $name $value</p>";
 	if ($oldrid != $rid) {
 	    $req{$rid}{REQUEST_STATE} = $rstate;
 	    $req{$rid}{REQUEST_CREATOR} = $self->getClientData($rcreator);
@@ -3362,6 +3551,8 @@ sub output
 	++$n;
     }
 
+    &dump_var($$self{CONTENT}, 'req', {%req});
+
   foreach my $rid (reverse sort { $a <=> $b } keys %req) {
       my $details_url = $self->myurl(page => 'Request::Detail', 'request' => $rid);
       print { $$self{CONTENT} } 
@@ -3373,7 +3564,8 @@ sub output
       "<div id='creator$rid' class='hideaway' style='display:none;'>",
       $self->formatClientData($req{$rid}{REQUEST_CREATOR}),
       "</div>",
-      "<label>Request State:</label>", "<span class='labeled'>", $reqstatenames{$req{$rid}{REQUEST_STATE}}, "</span><br/>";
+      "<label>Request State:</label>", "<span class='labeled'>", 
+      $reqstatenames{$req{$rid}{REQUEST_STATE}}, "</span><br/>";
 
       foreach my $aid (sort { $req{$rid}{ACTIONS}{$a}{ACTION_TIME} <=>
 			      $req{$rid}{ACTIONS}{$b}{ACTION_TIME} } keys %{$req{$rid}{ACTIONS}}) {
@@ -3793,6 +3985,7 @@ import Web25::Common;
 use CGI qw(:standard);
 
 our $INDEX = { LIST => 1, ORDER => 1, TITLE => "Create Request",
+	       SESSION => 1,
 	       LINK_TITLE => "Create a new transfer request",
 	       SECURE => 0 };
 
@@ -3908,7 +4101,7 @@ import Web25::Common;
 use CGI qw(:standard);
 
 our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Submit Request",
-	       SECURE => 1 };
+	       SESSION => 1, SECURE => 1 };
 
 sub new
 {
@@ -3924,43 +4117,43 @@ sub output
   my ($self) = @_;
 
   my $bad = 0;
+  my %params;
+
   &create_check_identity($self, \$bad);
   &create_check_access($self, \$bad);
-  my $email = &create_check_email($self, \$bad, param('email'));
-  my $comment = &create_check_comment($self, \$bad, param('comment'));
-  my $dbs;
-  if (param('dbschoice') eq 'known') { $dbs = param('dbs') }
-  elsif (param('dbschoice') eq 'user') { $dbs = param('userdbs') } 
-  else { $self->alert("Missing or unknown DBS parameters"); return; }
-  $dbs = &create_check_dbs($self, \$bad, $dbs);
-  my @data = &create_check_data($self, \$bad, param('data'));
-  my @dest = &create_check_dest($self, \$bad, param('dest'));
-  my ($is_move, $is_transient, $priority) = &create_check_options($self, \$bad);
+  if (!param('go_ahead')) {
+      $params{email} = &create_check_email($self, \$bad, param('email'));
+      $params{comment} = &create_check_comment($self, \$bad, param('comment'));
+      if (param('dbschoice') eq 'known') { $params{dbs} = param('dbs') }
+      elsif (param('dbschoice') eq 'user') { $params{dbs} = param('userdbs') } 
+      else { $self->alert("Missing or unknown DBS parameters"); return; }
+      $params{dbs} = &create_check_dbs($self, \$bad, $params{dbs});
+      $params{data} = [&create_check_data($self, \$bad, param('data'))];
+      $params{dest} = [&create_check_dest($self, \$bad, param('dest'))];
+      ($params{is_move}, $params{is_transient}, $params{priority}) = &create_check_options($self, \$bad);
+  }
+
   if ($bad)
   {
     print { $$self{CONTENT} } "<p>Please resubmit the form with corrected information.</p>\n";
     return;
   }
 
-  my $confirmok = 1;
-        
-  if ($is_move eq 'y' && param('move_confirm') && param('move_confirm') ne 'y') {
-      $confirmok = 0;
-  }
-
-  if ($confirmok && param('go_ahead') && param('go_ahead') eq 'y') {
-      $self->write_request('email' => $email,
-			   'comment' => $comment,
-			   'dbs' => $dbs,
-			   'data' => [@data],
-			   'destinations' => [@dest],
-			   'is_move' => $is_move,
-			   'is_transient' => $is_transient,
-			   'priority' => $priority);
+  if (param('go_ahead') && param('is_move') && param('is_move') eq 'y' 
+      && !(param('move_confirm') && param('move_confirm') eq 'y')) {
+      $self->note('You need to really think about the move request and click the confirmation box!');
       return;
   }
 
-  my $subscription_type = &subscription_type($priority, $is_transient, $is_move);
+  if (param('go_ahead') && param('go_ahead') eq 'y') {
+      $self->write_request();
+      return;
+  }
+
+  # Clear any previous request
+  $$self{SESSION}->clear();
+
+  my $subscription_type = &subscription_type($params{priority}, $params{is_transient}, $params{is_move});
 
   print { $$self{CONTENT} } 
   "<form method='post' action='@{[$self->myurl()]}'>\n",
@@ -3969,21 +4162,21 @@ sub output
   "<h1>Request Information</h1>",
   "<div class='nice'>",
   "<label>Requestor:</label><span class='labeled'>$$self{USER_NAME}</span><br/>",
-  "<label>email:</label><span class='labeled'>$email</span><br/>",
-  "<label>DBS:</label><span class='labeled'>$dbs</span><br/>",
-  "<label>Data:</label><span class='labeled'>", join('<br/>', @data), "</span><br/>",
-  "<label>Destination:</label><span class='labeled'>", join('<br/>', @dest), "</span><br/>",
+  "<label>email:</label><span class='labeled'>$params{email}</span><br/>",
+  "<label>DBS:</label><span class='labeled'>$params{dbs}</span><br/>",
+  "<label>Data:</label><span class='labeled'>", join('<br/>', @{$params{data}}), "</span><br/>",
+  "<label>Destination:</label><span class='labeled'>", join('<br/>', @{$params{dest}}), "</span><br/>",
   "<label>Subscription Type:</label><span class='labeled'>$subscription_type</span><br/>",
   "</div>";
 
   # Warnings
-  if ($is_move eq 'y' && grep($_ !~ /^T1_\w*_MSS$/, @dest)) {
+  if ($params{is_move} eq 'y' && grep($_ !~ /^T1_\w*_MSS$/, @{$params{dest}})) {
       $self->alert("You have requested a move to an unsupported destination (e.g. not a Mass Storage System ",
 		   "at a T1 centre).  Please change the destination, or choose to trigger a replication ",
 		   "instead of a move");
       return;
-  } elsif ($is_move eq 'y' && grep(/^T1_\w*_MSS$/, @dest)) {
-      $self->note("You have chosen to move data to ", join(', ', @dest), ". Once the transfer is complete this will ",
+  } elsif ($params{is_move} eq 'y' && grep(/^T1_\w*_MSS$/, @{$params{dest}})) {
+      $self->note("You have chosen to move data to ", join(', ', @{$params{dest}}), ". Once the transfer is complete this will ",
 		  "remove the data at the source sites.  Furthermore, only Global Admins may approve move requests.  ",
 		  "Please confirm that this is what you want to do by checking ",
 		  "the box.<br/><br/>",
@@ -3991,7 +4184,7 @@ sub output
 		  checkbox(-name=>'move_confirm', -value=>'y', -label=>'Yes, I understand'));
   }
 
-  if ($is_transient eq 'n') {
+  if ($params{is_transient} eq 'n') {
       $self->note("You are requesting an open subscription.  The nodes selected will continue to ",
 		  "receive files from open blocks if they are made available.  Please carefully monitor ",
 		  "your disks, as the size of this subscription could grow significantly.");
@@ -4014,15 +4207,17 @@ sub output
       $$subscriptions{$node}{$level}{$id} = 1;
   }
 
-  my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, $dbs, @data);
+  my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, $params{dbs}, @{$params{data}});
 
   my $table = new Web25::TableSpool;
   $table->set_filehandle( $$self{CONTENT} );
   $table->set_tableclass('data');
   $table->set_stripeclass('stripe');
-  $table->set_tablecols([qw(LEVEL ITEM DPS_ISKNOWN DBS_ISKNOWN COMMENT)]);
+  $table->set_tablecols([qw(LEVEL ITEM FILES BYTES DPS_ISKNOWN DBS_ISKNOWN COMMENT)]);
   $table->set_tablehead({LEVEL => 'Data Level', 
-			 ITEM => 'Data Item', 
+			 ITEM => 'Data Item',
+			 FILES => 'Files',
+			 BYTES => 'Size',
 			 DPS_ISKNOWN => 'Known to PhEDEx', 
 			 DBS_ISKNOWN => 'Known to DBS', 
 			 COMMENT => 'Comment'});
@@ -4031,13 +4226,17 @@ sub output
 			   DBS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''}});
 
   $table->set_dataformats({DPS_ISKNOWN => \&yesno,
-		           DBS_ISKNOWN => \&yesno});
+		           DBS_ISKNOWN => \&yesno,
+			   LEVEL => sub { ucfirst lc $_[0] },
+		           BYTES => sub { &format_size($_[0], 1, 2, 'G') }});
+  $table->set_statcols({FILES => 'SUM', BYTES => 'SUM'});
 
   $table->start();
   $table->head();
 
   my $problems = 0;
-  foreach my $userglob (sort @data) {
+  my @request;
+  foreach my $userglob (sort @{$params{data}}) {
       if (! @{$$resolved{$userglob}} ) {
 	  $table->row({LEVEL => 'User Search',
 		       ITEM  => $userglob,
@@ -4051,14 +4250,14 @@ sub output
 	      my @comments;
 	      my $warn = 0;
 	      
-	      if ($$res{DBS} ne $dbs)  { push @comments, "Known to PhEDEx in another DBS ($$res{DBS})"; $warn = 1; $problems = 1; }
+	      if ($$res{DBS} ne $params{dbs})  { push @comments, "Known to PhEDEx in another DBS ($$res{DBS})"; $warn = 1; $problems = 1; }
 	      if ($$userdupes{$$res{LEVEL}}{$$res{ID}}) { push @comments, "User duplicated requests"; $warn = 1; }
 	      if ($$dbsdupes{$$res{LEVEL}}{$$res{ID}})  { 
 		  push @comments, "Data item known to PhEDEx in multiple DBSes";
 		  $warn = 1; 
 	      }
 	      
-	      foreach my $node (@dest) {
+	      foreach my $node (@{$params{dest}}) {
 		  if ($$subscriptions{$node}{$$res{LEVEL}}{$$res{ID}}) {
 		      push @comments, "Already subscribed to $node";
 		      $warn = 1;
@@ -4066,26 +4265,35 @@ sub output
 	      }
 
 	      $$res{ITEM} = $$res{$$res{LEVEL}}; # Name of dataset or block, depending on which it is for
-	      $$res{LEVEL} = ucfirst lc $$res{LEVEL}; # Just to make it pretty
 	      $$res{COMMENT} = join('<br/>', @comments);
 	      $$res{WARN} = $warn;
 	      
 	      if ($warn) { $problems = 1; }
 	      if ($$res{DPS_ISKNOWN} eq 'n' || $$res{DBS_ISKNOWN} eq 'n') { $problems = 1; }
 	      $table->row($res);
+	      
+	      # Request session storage format
+	      my @item;
+	      $$res{LEVEL} eq 'DATASET' ? push @item, $$res{DATASET} : push @item, $$res{DATASET}, $$res{BLOCK};
+	      push @request, join(',', $$res{DBS}, $$res{LEVEL}, @item) ;
 	  }
       }
   }
 
   $table->finish();
 
-  # Save the previous state
-  foreach (qw(email comment dbschoice dbs userdbs is_move is_transient priority data dest)) {
-      print { $$self{CONTENT} } hidden($_);
-  }
-
   unless ($problems) {
+      # Save the previous state
+      my $cgi = new CGI;
+      $$self{SESSION}->save_param($cgi, [qw(email comment dbschoice dbs userdbs
+					    is_move is_transient priority)]);
+      $$self{SESSION}->param($_, $params{$_}) foreach qw(data dest);
+      $$self{SESSION}->param('request', [@request]);
+      my $stats = $table->get_stats();
+      $$self{SESSION}->param('sum_files' => $$stats{FILES});
+      $$self{SESSION}->param('sum_bytes' => $$stats{BYTES});
       print { $$self{CONTENT} }
+      hidden('is_move'),
       hidden(-name=>'go_ahead', -value=>'y'),
       "<p><center>", submit(-value=>'Confirm'), "</p>";
   } else {
@@ -4100,10 +4308,17 @@ sub output
 
 sub write_request
 {
-    my ($self, %params) = @_;
+    my ($self) = @_;
+    
+    &dump_var($$self{CONTENT}, 'session', $$self{SESSION}->param_hashref());
 
-    foreach (qw(email comment dbs data destinations is_move is_transient priority)) {
-	if (!exists $params{$_}) { die "write_request() insufficient parameters"; }
+    my %params;
+    foreach (qw(email comment dbs data dest is_move is_transient priority request sum_files sum_bytes)) {
+	unless (defined $$self{SESSION}->param($_)) {
+	    $self->alert('Insuficcient parameters from session');
+	    return;
+	}
+	$params{$_} = $$self{SESSION}->param($_);
     }
     
     my $now = time();
@@ -4116,6 +4331,7 @@ sub write_request
 	($$self{DBH}, "req_request", undef,
 	 { "creator" => $client, "state" => 0 });
 
+    # Write the request attributes
     my $aid = &makeObjWithAttrs
 	($$self{DBH}, "req_action", "action",
 	 { "request" => $rid,
@@ -4125,18 +4341,20 @@ sub write_request
 	 "Comment" => $params{comment},
 	 "E-mail" => $params{email},
 	 "DBSURL" => $params{dbs},
-	 map( { ("Destination Node" => $_) } @{$params{destinations}}),
+	 map( { ("Destination Node" => $_) } @{$params{dest}}),
 	 map( { ("Data" => $_) } @{$params{data}}),
 	 "Priority" => $params{priority},
 	 "Transient" => $params{is_transient},
-	 "Move" => $params{is_move}
+	 "Move" => $params{is_move},
+	 "Files" => $params{sum_files},
+	 "Bytes" => &format_size($params{sum_bytes})
 	 );
     
     # Get a list of the sites involved in this request
     my %node_sites = $$self{SECMOD}->getPhedexNodeToSiteMap();
     my %sites;  # for unique list
-    foreach my $dest (@{$params{destinations}}) {
-	$sites{ $node_sites{$dest} } = 1;
+    foreach my $dest (@{$params{dest}}) {
+	$sites{ $node_sites{$dest} } = 1; # TODO:  Handle null Site...
     }
     
     # Get the list of Global admins
@@ -4190,52 +4408,52 @@ sub write_request
 	    ':rid' => $rid,
 	    ':time_update' => $now);
 
-    my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, $params{dbs}, @{$params{data}});
 
     my @rv;
-    foreach my $userglob (sort @{$params{data}}) {
-	foreach my $res (@{$$resolved{$userglob}}) {
-	    if ($$res{LEVEL} eq 'DATASET') {
-		@rv = &dbexec($$self{DBH}, 
-			      qq[ insert into t_req_info_dataset (request, dbs, dataset, dbs_isknown, dps_isknown,
-								  is_move, is_transient, priority)
-				  values ( :rid, :dbs, :dataset, :dbs_isknown, :dps_isknown,
-					   :is_move, :is_transient, :priority) ],
-			      ':rid'          => $rid,
-			      ':dbs'          => $$res{DBS},
-			      ':dataset'      => $$res{DATASET},
-			      ':dbs_isknown'  => $$res{DBS_ISKNOWN},
-			      ':dps_isknown'  => $$res{DPS_ISKNOWN},
-			      ':is_move'      => $params{is_move},
-			      ':is_transient' => $params{is_transient},
-			      ':priority'     => $params{priority}
-			      );
-	    } elsif ($$res{LEVEL} eq 'BLOCK') {
-		@rv = &dbexec($$self{DBH},
-			      qq[ insert into t_req_info_block ( request, dbs, dataset, block,
-								 dbs_isknown, dps_isknown,
-								 is_move, is_transient, priority)
-				  values ( :rid, :dbs, :dataset, :block, :dbs_isknown, :dps_isknown,
-					   :is_move, :is_transient, :priority) ],
-			      ':rid' => $rid,
-			      ':dbs' => $$res{DBS},
-			      ':dataset' => $$res{DATASET},
-			      ':block' => $$res{BLOCK},
-			      ':dbs_isknown' => $$res{DBS_ISKNOWN},
-			      ':dps_isknown' => $$res{DPS_ISKNOWN},
-			      ':is_move'      => $params{is_move},
-			      ':is_transient' => $params{is_transient},
-			      ':priority'     => $params{priority}
-			      );
-	    }
-	    unless ($rv[1] > 0) {
-		$$self{DBH}->rollback();
-		&alert("Request creation failed");
-	    }
+    foreach my $item (@{$params{request}}) {
+	my ($dbs, $level, $dataset, $block) = split /,/, $item;
+	if ($level eq 'DATASET') {
+	    @rv = &dbexec($$self{DBH}, 
+			  qq[ insert into t_req_info_dataset (request, dbs, dataset, dbs_isknown, dps_isknown,
+							      is_move, is_transient, priority)
+			      values ( :rid, :dbs, :dataset, :dbs_isknown, :dps_isknown,
+				       :is_move, :is_transient, :priority) ],
+			  ':rid'          => $rid,
+			  ':dbs'          => $dbs,
+			  ':dataset'      => $dataset,
+			  ':dbs_isknown'  => 'y',
+			  ':dps_isknown'  => 'y',
+			  ':is_move'      => $params{is_move},
+			  ':is_transient' => $params{is_transient},
+			  ':priority'     => $params{priority}
+			  );
+	} elsif ($level eq 'BLOCK') {
+	    @rv = &dbexec($$self{DBH},
+			  qq[ insert into t_req_info_block ( request, dbs, dataset, block,
+							     dbs_isknown, dps_isknown,
+							     is_move, is_transient, priority)
+			      values ( :rid, :dbs, :dataset, :block, :dbs_isknown, :dps_isknown,
+				       :is_move, :is_transient, :priority) ],
+			  ':rid' => $rid,
+			  ':dbs' => $dbs,
+			  ':dataset' => $dataset,
+			  ':block' => $block,
+			  ':dbs_isknown' => 'y',
+			  ':dps_isknown' => 'y',
+			  ':is_move'      => $params{is_move},
+			  ':is_transient' => $params{is_transient},
+			  ':priority'     => $params{priority}
+			  );
+	}
+	unless ($rv[1] > 0) {
+	    $$self{DBH}->rollback();
+	    $self->alert("Request creation failed");
+	    return;
 	}
     }
     
-    foreach my $node (@{$params{destinations}}) {
+    
+    foreach my $node (@{$params{dest}}) {
 	&dbexec($$self{DBH},
 		qq[ insert into t_req_info_dest (request, destination)
 		    select :rid, id node_id from t_adm_node where name = :node ],
@@ -4252,7 +4470,11 @@ sub write_request
     my @cc = ($params{email});
     push @cc, $$_{EMAIL} foreach @site_admins;
     
-    my $admin_url = $self->myurl('fullurl' => 1, 'secure' => 1, 'page' => 'Request::Admin', 'view' => 'my');
+    my $admin_url = $self->myurl('fullurl' => 1,
+				 'secure' => 1,
+				 'page' => 'Request::Admin',
+				 'view' => 'my',
+				 'request' => $rid);
     my $name = $$self{USER_NAME};
     my $dn = $$self{SECMOD}->getDN();
     my $auth = "";
@@ -4266,8 +4488,9 @@ sub write_request
 	$move_msg = 'Note:  This is a request for a data MOVE '.
 	    'and can only be approved by the Global Admins.';
     }
-
-
+    my $files = $params{sum_files};
+    my $bytes = &format_size($params{sum_bytes});
+    
     my $message =<<ENDEMAIL;
 Greetings PhEDEx Data Managers,
 
@@ -4293,9 +4516,11 @@ ENDEMAIL
 
     $message .= join('', map( { "     $_\n" } @{$params{data}})).
     "   Destination Nodes:\n".
-    join('', map( { "     $_ (Site: $node_sites{$_})\n" } @{$params{destinations}}));
+    join('', map( { "     $_ (Site: $node_sites{$_})\n" } @{$params{dest}}));
 
     $message .=<<ENDEMAIL;
+   Size:
+     $files files, $bytes
    Comments:
      "$params{comment}"
 
@@ -4324,6 +4549,9 @@ or $self->alert("Sending request email to admins failed, sorry");
     "<h1>Request Confirmed</h1>",
     "<p>Your request has been logged to the database and the admins have been notified.  ",
     "You will receive updates about this request via e-mail.</p>";
+
+    # Delete the session
+    $$self{SESSION}->delete();
 }
 
 sub subscription_type
@@ -4567,18 +4795,11 @@ sub output
     $dbtable->set_tableclass('data');
     $dbtable->set_stripeclass('stripe');
 
-    my $binsub = sub { $_[0] ? "1" : "0" };
     $dbtable->set_dataformats({
-	TIME_UPDATE => sub { &age($now - $_[0]) },
-	Q_PEND => $binsub,
-	Q_RECV => $binsub,
-	Q_WORK => $binsub,
-	Q_COMP => $binsub,
-	Q_BAD  => $binsub,
-	Q_OUT  => $binsub
+	TIME_UPDATE => sub { &age($now - $_[0]) }
     });
 
-    my $nullsub = sub { $_[0] ? 'alarm' : '' };
+    my $nullsub = sub { $_[0] ? 'goodbg' : '' };
     $dbtable->set_cellformats({
 	TIME_UPDATE => sub { $now - $_[0] <= (1.5)*3600 ? '' : 'alarm' },
 	P_ID => sub { $_[1]->{STATE} ? '' : 'alarm' },
@@ -6706,7 +6927,7 @@ sub output_page
   $node_th = ucfirst($node_th);
 
   print { $$self{CONTENT} }
-    "<table id='dataset_tbl'>\n",
+    "<table>\n",
     " <thead>\n",
     "  <tr bgcolor='#f8f8f8'>\n",
     "   <th width='1%' align='left'>&nbsp;</th>\n",
@@ -6721,7 +6942,7 @@ sub output_page
     (map { "   <th width='4%' align='center'>@{[&escapeHTML($$_{NAME})]} $node_th</th>\n" } @{$$self{NODE_SHOWN}}),
     "   </tr>\n",
     "  </thead>\n",
-    "  <tbody>\n";
+    "  <tbody class='nowrap'>\n";
 
   my $n = 0;
   my %total = (BLOCKS => 0, FILES => 0, BYTES => 0);
@@ -7963,8 +8184,10 @@ use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
+use CGI::Session;
 
 our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Test Functions",
+	       SESSION => 1,
 	       LINK_TITLE => "Testing Page" };
 
 sub new
@@ -7979,7 +8202,37 @@ sub new
 sub output
 {
   my ($self) = @_;
+
+  
+
+  &dump_var($$self{CONTENT}, 'TESTING', $TESTING);
   return if (!$TESTING);  # For security
+  &dump_var($$self{CONTENT}, '$PERL_VERSION', sprintf("v%vd", $^V));
+  &dump_var($$self{CONTENT}, 'CGI::VERSION', $CGI::VERSION);
+  &dump_var($$self{CONTENT}, 'CGI::Session::VERSION', $CGI::Session::VERSION);
+  &dump_var($$self{CONTENT}, 'DBI::VERSION', $DBI::VERSION);
+  &dump_var($$self{CONTENT}, 'DBD::Oracle::VERSION', $DBD::Oracle::VERSION);
+#  &dump_var($$self{CONTENT}, '@INC', [@INC]);
+  &dump_var($$self{CONTENT}, 'TESTING_MAIL', $TESTING_MAIL);
+  &dump_var($$self{CONTENT}, 'SESSION', $$self{SESSION} ? 'Session OK' : 'NO SESSION');
+  &dump_var($$self{CONTENT}, 'SESSIONID', $$self{SESSIONID});
+  if ($$self{SESSION} && param('data')) {
+      $$self{SESSION}->param('data', param('data'));
+      print {$$self{CONTENT}} "<p>Saved data</p>";
+  } else {
+      print {$$self{CONTENT}} "<form action='#' method='post'>",
+      textfield(-name=>'data'),
+      submit(),
+      "</form>";
+  }
+  
+  my $data = $$self{SESSION}->param('data');
+  if ($data) {
+      print {$$self{CONTENT}} "<p>Your saved data is $data</p>";
+  } else {
+      print {$$self{CONTENT}} "<p>No session data.</p>";
+  }
+
   #&dump_var($$self{CONTENT}, 'Config', $$self{CONFIG});
   #&dump_var($$self{CONTENT}, 'Env', {%ENV});
   print {$$self{CONTENT}} 
@@ -8031,7 +8284,11 @@ sub runme
   if (!$secmod_config) {
       die "ERROR:  SecurityModule config file not set";
   }
-  
+
+  # Set debug mode
+  $TESTING = $$config{TESTING_MODE} ? 1 : 0;
+  $TESTING_MAIL = $$config{TESTING_MAIL} || undef;
+
   # Interpret the trailing path suffix: /DB/PAGE?QUERY
   my $path = path_info() || "/prod";
   my ($db, $cgipage) = ("prod", "Info::Main");
