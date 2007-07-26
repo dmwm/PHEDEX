@@ -76,7 +76,7 @@ use UtilsNamespace;
 my ($dbh,$not_on_tape_time);
 my ($verbose,$debug,$terse);
 my (%h,$conn,$dumpstats,$readstats,$msscache,%msscache);
-my ($DBCONFIG,%check,@check);
+my ($DBCONFIG,%check,@check,$autoBlock);
 my (@DATASET,@BLOCK,@LFN,@BUFFER);
 my (@dataset,@block,@lfn,@buffer,@bufferIDs);
 my ($callout,$callouton,%calloutonAllowed);
@@ -95,7 +95,7 @@ $not_on_tape_time = 12; # in hour(s)
 #		'DBS'		=> 0,
 	 );
 
-$verbose = $debug = $terse = 0;
+$verbose = $debug = $terse = $autoBlock = 0;
 $tfcprotocol = 'direct';
 $mssprotocol = '';
 $destination = 'any';
@@ -116,6 +116,7 @@ GetOptions("db=s"           => \$DBCONFIG,
 
            "verbose|v+"     => \$verbose,
            "debug+"         => \$debug,
+           "autoBlock"      => \$autoBlock,
            "terse"          => \$terse,
            "readstats=s"    => \$readstats,
            "dumpstats=s"    => \$dumpstats,
@@ -262,22 +263,23 @@ if ( @block )
 
 #-------------------------------------------------------------------------------
 # Expand the LFN argument
-#@lfn = split m|[,\s*]|, "@LFN";
-#foreach my $lfn ( @lfn )
-#{
-#  $verbose >= 3 && print "Getting lfns with names like '$lfn'\n";
-#  my $tmp = getLFNsFromWildCard($lfn);
-#  map { $h{LFNs}{$_} = {} } @$tmp;
-#}
-#
-#foreach my $lfn ( keys %{$h{LFNs}} )
-#{
-#  next if exists($h{LFNs}{$lfn}{Block});
-#  my $tmp = getBlocksFromLFN($lfn);
-#  map { $h{LFNs}{$lfn}{Block} = $_   } @$tmp;
-#  map { $h{Blocks}{$_}{LFNs}{$lfn}++ } @$tmp;
-#}
-#$debug && defined($h{LFNs}) && print "done getting LFNs!\n";
+@lfn = split m|[,\s*]|, "@LFN";
+$DB::single=1;
+foreach my $lfn ( @lfn )
+{
+  $verbose >= 3 && print "Getting lfns with names like '$lfn'\n";
+  my $tmp = getLFNsFromWildCard($lfn);
+  map { $h{LFNs}{$_} = {} } @$tmp;
+}
+
+foreach my $lfn ( keys %{$h{LFNs}} )
+{
+  next if exists($h{LFNs}{$lfn}{Block});
+  my $tmp = getBlocksFromLFN($lfn);
+  map { $h{LFNs}{$lfn}{Block} = $_   } @$tmp;
+  map { $h{Blocks}{$_}{LFNs}{$lfn}++ } @$tmp;
+}
+$debug && defined($h{LFNs}) && print "done getting LFNs!\n";
 
 #-------------------------------------------------------------------------------
 # Fill in relationships between Blocks and Datasets or LFNs. Do this after
@@ -293,7 +295,7 @@ foreach my $block ( keys %{$h{Blocks}} )
     map { $h{Blocks}{$block}{Dataset} = $_   } @$tmp;
   }
 
-  if ( !defined($h{Blocks}{$block}{LFNs}) )
+  if ( $autoBlock || !defined($h{Blocks}{$block}{LFNs}) )
   {
 #   Set up Block<->LFN mapping
     my $tmp = getLFNsFromBlock($block);
