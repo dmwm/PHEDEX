@@ -55,7 +55,7 @@ sitename_uc="$(echo $sitename | tr '[:lower:]' '[:upper:]')"
 role_dn="$(openssl x509 -in $keydir/$usercert -noout -subject | sed 's/^subject= //')"
 role_email="$usercert"
 role_passwd="$($home/Utilities/WordMunger)"
-role_section="$(echo $section | cut -c1-4 | tr '[:lower:]' '[:upper:]')"
+role_section="$(echo $section | sed s/Production/prod/ | sed s/Dev/dev/ | sed s/Debug/debug/)"
 role_name="PHEDEX_${sitename_uc}_${role_section}"
 role_name_lc="$(echo $role_name | tr '[:upper:]' '[:lower:]')"
 
@@ -74,6 +74,7 @@ esac
 
 $home/Schema/OracleNewRole.sh "$ora_master" "$role_name" "$role_passwd"
 
+mkdir -p Details
 $home/Schema/OraclePrivs.sh "$ora_master" \
   "$(echo $ora_reader | sed 's|/.*||')" \
   "$(echo $ora_writer | sed 's|/.*||')"
