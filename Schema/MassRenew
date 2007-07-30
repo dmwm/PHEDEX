@@ -1,0 +1,158 @@
+#!/usr/bin/env perl
+
+##H Generate connection emails to sites based on previously used information
+##H
+##H Usage:
+##H   MassRenew COMMAND SRC_DIR KEY_DIR INSTANCE [FILTER1 FILTER2 ...]
+##H Examples:
+##H   MassRenew list ./proc_copy ../Keys Debug '!mclcg'
+##H
+##H  COMMAND One of 'list', 'output' or 'email'.
+##H    'list' gives a list of sites, emails, dns, and cert expirations that would be used in the renew.
+##H    'output' generates the role and writes an email file it to 'Output/'
+##H    'email' does the same as 'output' and also emails the result
+##H  SRC_DIR  An "Output" directory of OracleInitRole.sh.  Uses the filename only for role:email mappings.
+##H  KEY_DIR  A directory containing user certificate public keys, with the filename being their email.
+##H  INSTANCE The instance to generate connection emails for.  Usually 'Production', 'Dev', or 'Debug'
+##H  FILTER An optional list of regular expressions that the site name must match in order to proceed.
+##H         Can also have regular expressions prefixed with '!' for site names that should be excluded.
+##H
+##H Requirements:
+##H  Softlinks in $PWD:
+##H    'Schema' pointing to the PHEDEX/Schema directory and
+##H    'DBParam' pointing to a DBParam file with admin sections
+
+use warnings;
+use strict;
+$|++;
+
+use Getopt::Long;
+use File::Spec::Functions qw(rel2abs catfile);
+use Date::Manip;
+
+BEGIN {
+  $^W = 1; use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+use UtilsHelp;
+
+# Process command line arguments.
+my %args;
+&GetOptions ("help|h" => sub { &usage() });
+
+# Command-line arguments
+my $cmd = shift @ARGV;
+my $src_dir = shift @ARGV;
+my $key_dir = shift @ARGV;
+my $instance = shift @ARGV;
+my @filters = @ARGV;
+
+unless ($cmd && grep $cmd eq $_, qw(list output email)) {
+    die "Unknown command, use -h for help";
+}
+
+unless ($src_dir && $instance 
+	&& grep $instance eq $_, qw(Production Dev Debug) ) {
+    die "Insuficient parameters, use -h for help\n";
+}
+
+unless (-e 'Schema' && -e 'DBParam' && -e $src_dir && -e $key_dir) {
+    die "Directories Missing, use -h for help\n";
+}
+
+my (@match, @exclude);
+foreach (@filters) {
+    $_ =~ /^!/ ? push(@exclude, substr($_, 1)) : push(@match, $_);
+}
+
+my %sites;
+opendir DIR, $src_dir or die $!;
+FILE:  while (my $file = readdir(DIR)) {
+    next unless -f catfile($src_dir, $file);
+
+    my ($site, $email) = ($file =~ /^\w+_(\w+)_\w+:([A-Za-z0-9\.\@\-_]+)$/);
+    unless ($site && $email) {
+	warn("$file could not be parsed... skipping\n"); next;
+    }
+    
+    unless (-e catfile($key_dir, $email)) {
+	warn("$email not found in key directory... skipping.\n");  next;
+    }
+
+    if (@filters) {
+	foreach my $re (@exclude) {
+	    next FILE if $site =~ /$re/;
+	}
+
+	my $okmatch = @match ? 0 : 1;
+	foreach my $re (@match) {
+	    $okmatch = 1 if $site =~ /$re/;
+	}
+	next FILE unless $okmatch;
+    }
+
+    my $certfile = catfile($key_dir, $email);
+    unless (-e $certfile) {
+	warn "Can't find cert file for $email... skipping\n"; next;
+    }
+
+    my $uptime = (-C $certfile);
+    my $dn = `grid-cert-info -f $certfile -subject`;
+    chomp $dn;
+
+    my $certinfo = `grid-cert-info -f $certfile -all`;
+    my $expires;
+    foreach (split /\n/, $certinfo) {
+	($expires) = $1 if /Not After : (.*)$/i;
+    }
+    
+    unless ($expires) {
+	warn("Couldn't get expire time for $email... skipping\n");  next;
+    }
+
+    my ($m, $d, $y) = ($expires =~ /^(\w{3})\s+(\d+).*(\d{4}) GMT$/);
+    my $d_expires = &ParseDate("$m$d/$y");
+    my $now = &ParseDate("now");
+    if (&Date_Cmp($d_expires, $now) < 0) {
+	warn("site '$site' email '$email' certificate expired $expires...skipping\n");
+	next FILE;
+    }
+
+    my $role = "phedex_${site}_".(lc $instance);
+
+    if (not exists $sites{$site}
+	or $sites{$site}{TIME} > $uptime) {
+	$sites{$site}{TIME} = $uptime;
+	$sites{$site}{EXPIRES} = $expires;
+	$sites{$site}{ROLE} = $role;
+	$sites{$site}{EMAIL} = $email;
+	$sites{$site}{DN} = $dn;
+    }
+}
+closedir DIR;
+
+foreach my $site (sort keys %sites) {
+    my $email = $sites{$site}{EMAIL};
+    my $role = $sites{$site}{ROLE};
+    my $time = $sites{$site}{TIME};
+    my $dn = $sites{$site}{DN};
+    my $expires = $sites{$site}{EXPIRES};
+
+    if ($cmd eq 'list') {
+	printf "site '%s' email '%s' dn '%s' expires %s\n", $site, $email, $dn, $expires;
+	next;
+    } elsif ($cmd eq 'output' || $cmd eq 'email') {
+	print "Making $role for $site";
+	print ($cmd eq 'email' ? "and sending to $email...\n" : "...\n");
+	my $cmd1 = "Schema/OracleInitRole.sh DBParam:$instance $key_dir/$email $site";
+	my $output = "Output/${role}:$email";
+	my $cmd2 = "/usr/sbin/sendmail -t < $output";
+	
+	print "$cmd1\n", `$cmd1`, "\n";
+	print "$cmd2\n", `$cmd2`, "\n" if $cmd eq 'email';
+	print "...$site done.\n";
+    }
+}
