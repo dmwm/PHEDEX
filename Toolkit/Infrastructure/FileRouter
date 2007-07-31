@@ -22,7 +22,7 @@ use Getopt::Long;
 use UtilsHelp;
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
-             "db=s"        => \$args{DBCONFIG},
+	     "db=s"        => \$args{DBCONFIG},
 	     "help|h"      => sub { &usage() });
 
 if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
@@ -76,7 +76,7 @@ sub idle
 	($dbh, @nodes) = &expandNodesAndConnect ($self,
 	    { "FileDownload" => 5400, "FileExport" => 5400 });
 
-        # Run general flush.
+	# Run general flush.
 	$self->flush($dbh);
 
 	# Route files.
@@ -104,7 +104,7 @@ sub flush
 
     return if $now < $$self{NEXT_SLOW_FLUSH};
     $$self{NEXT_SLOW_FLUSH} = $now + $$self{FLUSH_PERIOD};
- 
+
     # Get the current value of marker from file pump.
     my $markerval = (defined $$self{FLUSH_MARKER} ? "currval" : "nextval");
     ($$self{FLUSH_MARKER}) = &dbexec($dbh, qq{
@@ -114,19 +114,19 @@ sub flush
     my @stats;
     # Update priority on existing requests.
     my ($stmt, $rows) = &dbexec ($dbh, qq{
-        update (select xq.priority req_priority, bd.priority cur_priority
-                from t_xfer_request xq
-                  join t_dps_block_dest bd
-                    on bd.block = xq.inblock
-                    and bd.destination = xq.destination
+	update (select xq.priority req_priority, bd.priority cur_priority
+		from t_xfer_request xq
+		  join t_dps_block_dest bd
+		    on bd.block = xq.inblock
+		    and bd.destination = xq.destination
 		where xq.priority != bd.priority)
-        set req_priority = cur_priority});
+	set req_priority = cur_priority});
     push @stats, ['request priority updated', $rows];
 
     # Clear requests for files no longer wanted.
     ($stmt, $rows) = &dbexec($dbh, qq{
-        delete from t_xfer_request xq where not exists
-          (select 1 from t_dps_block_dest bd
+	delete from t_xfer_request xq where not exists
+	  (select 1 from t_dps_block_dest bd
 	   where bd.destination = xq.destination
 	     and bd.block = xq.inblock
 	     and bd.state = 1)});
@@ -139,35 +139,35 @@ sub flush
     ($stmt, $rows) = &dbexec($dbh, qq{
 	delete from t_xfer_request xq
 	 where exists
-           (select 1 from t_xfer_replica xr
+	   (select 1 from t_xfer_replica xr
 	     where xr.fileid = xq.fileid
 	    and xr.node = xq.destination)});
     push @stats, ['deleted requests with replica', $rows];
     do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
-    
+
 
     # Clear old paths and those missing an active request.
     # Clear invalid expired paths.
     # Clear valid paths, that expired more than 8 hours ago.
     # Ensure paths are not broken in the proccess.
     ($stmt, $rows) = &dbexec($dbh, qq{
-            delete from t_xfer_path xp where (xp.fileid, xp.src_node, xp.destination) in (
-              select fileid, src_node, destination from (
-                select ixp.fileid, ixp.src_node, ixp.destination,
-                       count(*) total,
-                  sum (case
-                       when xq.fileid is null or xq.state != 0 then 1 --request is invalid
-                       when ixp.is_valid = 1 
-                            and :now > ixp.time_expire + 8*3600 then 1 --valid path expired 8+ hours ago
-                       when ixp.is_valid = 0 and :now >= ixp.time_expire then 1 -- invalid path expired
-                       else 0
-                       end) delete_path
-                from t_xfer_path ixp
-                left join t_xfer_request xq 
-                     on xq.fileid = ixp.fileid
-               group by ixp.fileid, ixp.src_node, ixp.destination
-              ) where delete_path != 0 -- any path segment invalid, delete
-            ) }, ":now" => $now, ":now" => $now);
+	    delete from t_xfer_path xp where (xp.fileid, xp.src_node, xp.destination) in (
+	      select fileid, src_node, destination from (
+		select ixp.fileid, ixp.src_node, ixp.destination,
+		       count(*) total,
+		  sum (case
+		       when xq.fileid is null or xq.state != 0 then 1 --request is invalid
+		       when ixp.is_valid = 1
+			    and :now > ixp.time_expire + 8*3600 then 1 --valid path expired 8+ hours ago
+		       when ixp.is_valid = 0 and :now >= ixp.time_expire then 1 -- invalid path expired
+		       else 0
+		       end) delete_path
+		from t_xfer_path ixp
+		left join t_xfer_request xq
+		     on xq.fileid = ixp.fileid
+	       group by ixp.fileid, ixp.src_node, ixp.destination
+	      ) where delete_path != 0 -- any path segment invalid, delete
+	    ) }, ":now" => $now, ":now" => $now);
     push @stats, ['invalid paths deleted', $rows];
     do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
 
@@ -183,8 +183,8 @@ sub flush
     # so that paths are not broken on cleanup.
     my %extend;
     my $qextend = &dbexec($dbh, qq{
-        select xp.fileid, xp.destination, xp.from_node, xp.to_node
-        from t_xfer_path xp
+	select xp.fileid, xp.destination, xp.from_node, xp.to_node
+	from t_xfer_path xp
 	where xp.time_expire >= :now
 	  and xp.time_expire < :now + 2*3600
 	  and xp.is_valid = 1
@@ -211,17 +211,17 @@ sub flush
 	my %by_to   = (1 => $extend{':time_expire'},
 		       2 => $extend{':to'},
 		       3 => $extend{':fileid'});
-        ($stmt, $rows) = &dbexec($dbh, qq{
+	($stmt, $rows) = &dbexec($dbh, qq{
 	    update t_xfer_path set time_expire = ?
 	    where destination = ? and fileid = ?},
 	    %by_dest);
 	push @stats, ['path expire extended', $rows];
-        ($stmt, $rows) = &dbexec($dbh, qq{
+	($stmt, $rows) = &dbexec($dbh, qq{
 	    update t_xfer_task set time_expire = ?
 	    where to_node = ? and fileid = ?},
 	    %by_to);
 	push @stats, ['task expire extended', $rows];
-        ($stmt, $rows) = &dbexec($dbh, qq{
+	($stmt, $rows) = &dbexec($dbh, qq{
 	    update t_xfer_request set time_expire = ?
 	    where destination = ? and fileid = ?},
 	    %by_dest);
@@ -233,16 +233,16 @@ sub flush
 	merge into t_xfer_task_done xtd using
 	  (select id from t_xfer_task where :now >= time_expire) xt
 	on (xtd.task = xt.id) when not matched then
-          insert (task, report_code, xfer_code, time_xfer, time_update)
+	  insert (task, report_code, xfer_code, time_xfer, time_update)
 	  values (xt.id, -1, -1, -1, :now)},
 	":now" => $now);
     push @stats, ['tasks expired', $rows];
 
     # Deactivate requests which reached their expire time limit.
     ($stmt, $rows) = &dbexec($dbh, qq{
-        update t_xfer_request
-        set state = 1, time_expire = :now + dbms_random.value(1,3)*3600
-        where state = 0 and :now >= time_expire},
+	update t_xfer_request
+	set state = 1, time_expire = :now + dbms_random.value(1,3)*3600
+	where state = 0 and :now >= time_expire},
 	":now" => $now);
     push @stats, ['expired requests deactivated', $rows];
 
@@ -298,9 +298,9 @@ sub route
 	    and xsi.time_update >= :recent
 	where (ns.kind = 'MSS' and nd.kind = 'Buffer')
 	   or (ns.kind = 'Buffer' and nd.kind = 'MSS'
-       	       and xsi.from_node is not null)
+	       and xsi.from_node is not null)
 	   or (xso.from_node is not null
-       	       and xsi.from_node is not null)},
+	       and xsi.from_node is not null)},
 	":recent" => &mytimeofday() - 5400);
     while (my ($from, $to, $hops, $local, $rate, $latency,
 	       $src_protos, $dest_protos) = $q->fetchrow())
@@ -308,15 +308,15 @@ sub route
 	$$links{$from}{$to} = { HOPS => $hops,
 				IS_LOCAL => $local eq 'y' ? 1 : 0,
 				XFER_RATE => $rate,
-			    	XFER_LATENCY => $latency,
-			    	FROM_PROTOS => $src_protos,
-			    	TO_PROTOS => $dest_protos };
+				XFER_LATENCY => $latency,
+				FROM_PROTOS => $src_protos,
+				TO_PROTOS => $dest_protos };
     }
 
     # Now route for the nodes
     $self->prepare ($dbh, $$self{NODES_ID}{$_}) for @nodes;
     $self->routeFiles ($dbh, $links, sort @nodes)
-        || &logmsg ("no files to route to @{[sort @nodes]}");
+	|| &logmsg ("no files to route to @{[sort @nodes]}");
 }
 
 # Run the routing algorithm for one node.
@@ -367,7 +367,7 @@ sub prepare
     my @priorities;
     if ($confirm_invalid <= 12 * TERABYTE)
     {
-        push(@priorities, [ 0, 0, 5 * TERABYTE ])
+	push(@priorities, [ 0, 0, 5 * TERABYTE ])
 	    if $confirm_valid_high < 5 * TERABYTE;
 	push(@priorities, [ 1, 100, 10 * TERABYTE ])
 	    if $confirm_valid_low < 10 * TERABYTE;
@@ -409,11 +409,11 @@ sub prepare
 	    ":node" => $node,
 	    ":plow" => $$prio[0],
 	    ":phigh" => $$prio[1]);
-        while (my ($block, $priority, $bytes) = $q->fetchrow())
+	while (my ($block, $priority, $bytes) = $q->fetchrow())
 	{
 	    &dbbindexec($u,
-		        ":block" => $block,
-		    	":node" => $node,
+			":block" => $block,
+			":node" => $node,
 			":now" => $now);
 	    push(@blocks, [ $block, $priority ]);
 	    last if ($nbytes += $bytes) >= $$prio[2];
@@ -426,8 +426,8 @@ sub prepare
 	foreach my $item (@blocks)
 	{
 	    &dbbindexec($i,
-		        ":block" => $$item[0],
-		    	":node" => $node,
+			":block" => $$item[0],
+			":node" => $node,
 			":priority" => $$item[1],
 			":now" => $now);
 	}
@@ -439,11 +439,11 @@ sub prepare
     ######################################################################
     # Reactivate expired file requests.
     &dbexec($dbh, qq{
-        update t_xfer_request
-        set state = 0,
-            attempt = attempt+1,
-            time_expire = :now + dbms_random.value(7,10)*3600
-        where destination = :me and state = 1 and :now >= time_expire},
+	update t_xfer_request
+	set state = 0,
+	    attempt = attempt+1,
+	    time_expire = :now + dbms_random.value(7,10)*3600
+	where destination = :me and state = 1 and :now >= time_expire},
 	":me" => $node, ":now" => $now);
     $dbh->commit();
 }
@@ -497,13 +497,13 @@ sub routeFiles
     while (! $finished)
     {
 	$finished = 1;
-        my %requests;
-        my $nreqs = 0;
-        my ($discarded, $existing) = (0, 0);
-        my ($nhops, $nvalid) = (0, 0);
-        my ($inserted, $updated) = (0, 0);
-        while (my $row = $saved || $q->fetchrow_hashref())
-        {
+	my %requests;
+	my $nreqs = 0;
+	my ($discarded, $existing) = (0, 0);
+	my ($nhops, $nvalid) = (0, 0);
+	my ($inserted, $updated) = (0, 0);
+	while (my $row = $saved || $q->fetchrow_hashref())
+	{
 	    $saved = undef;
 	    my $dest = $$row{DESTINATION};
 	    next if ! exists $mynodes{$dest};
@@ -524,37 +524,37 @@ sub routeFiles
 	    }
 
 	    $requests{$dest}{$file} ||= { DESTINATION => $dest,
-				          FILEID => $file,
-				          FILESIZE => $size,
-				          SIZEBIN => $sizebin,
-				          PRIORITY => $$row{PRIORITY},
-				          TIME_CREATE => $$row{TIME_CREATE},
-				          TIME_EXPIRE => $$row{TIME_EXPIRE} };
+					  FILEID => $file,
+					  FILESIZE => $size,
+					  SIZEBIN => $sizebin,
+					  PRIORITY => $$row{PRIORITY},
+					  TIME_CREATE => $$row{TIME_CREATE},
+					  TIME_EXPIRE => $$row{TIME_EXPIRE} };
 	    $requests{$dest}{$file}{REPLICAS}{$$row{NODE}} = $$row{STATE};
 	    $self->routeCost($links, $costs, $$row{NODE}, $$row{STATE}, $sizebin, 0);
-        }
+	}
 
-        # Build optimal file paths.
+	# Build optimal file paths.
 	my $probecosts = {};
-        my @allreqs = map { values %$_ } values %requests;
-        $self->routeFile($now, $links, $costs, $probecosts, $_) for @allreqs;
+	my @allreqs = map { values %$_ } values %requests;
+	$self->routeFile($now, $links, $costs, $probecosts, $_) for @allreqs;
 
-        # Build collection of all the hops.
-        my %allhops;
-        foreach my $req (@allreqs)
-        {
+	# Build collection of all the hops.
+	my %allhops;
+	foreach my $req (@allreqs)
+	{
 	    foreach my $hop (@{$$req{PATH}})
 	    {
-	        $allhops{$$hop{TO_NODE}}{$$req{FILEID}} ||= $hop;
+		$allhops{$$hop{TO_NODE}}{$$req{FILEID}} ||= $hop;
 	    }
-        }
+	}
 
-        # Compare with what is already in the database.  Keep new and better.
-        my $qpath = &dbexec($dbh, qq{
+	# Compare with what is already in the database.  Keep new and better.
+	my $qpath = &dbexec($dbh, qq{
 	    select to_node, fileid, is_valid, is_local, total_cost
 	    from t_xfer_path});
-        while (my ($to, $file, $valid, $local, $cost) = $qpath->fetchrow())
-        {
+	while (my ($to, $file, $valid, $local, $cost) = $qpath->fetchrow())
+	{
 	    $existing++;
 
 	    # If we are not considering replacement, skip this.
@@ -563,57 +563,57 @@ sub routeFiles
 	    # If the replacement is not better, skip this.
 	    my $p = $allhops{$to}{$file};
 	    if (! ($$p{IS_LOCAL} > $local
-	           || ($$p{IS_LOCAL} = $local
+		   || ($$p{IS_LOCAL} = $local
 		       && ($$p{IS_VALID} > $valid
-		           || ($$p{IS_VALID} == $valid
+			   || ($$p{IS_VALID} == $valid
 			       && ($$p{TOTAL_LATENCY} || 0) < $cost)))))
 	    {
-	        $$p{UPDATE} = 0;
-	        $discarded++;
-	        next;
+		$$p{UPDATE} = 0;
+		$discarded++;
+		next;
 	    }
 
 	    # The replacement is better, replace this one.
 	    $$p{UPDATE} = 1;
-        }
+	}
 
-        # Build arrays for database operation.
-        my (%iargs, %uargs, %destnodes);
-        foreach my $to (keys %allhops)
-        {
+	# Build arrays for database operation.
+	my (%iargs, %uargs, %destnodes);
+	foreach my $to (keys %allhops)
+	{
 	    foreach my $file (keys %{$allhops{$to}})
 	    {
-	        my $hop = $allhops{$to}{$file};
-	        $nhops++;
+		my $hop = $allhops{$to}{$file};
+		$nhops++;
 
-	        # Skip if we decided this wasn't worth looking at.
-	        next if exists $$hop{UPDATE} && ! $$hop{UPDATE};
+		# Skip if we decided this wasn't worth looking at.
+		next if exists $$hop{UPDATE} && ! $$hop{UPDATE};
 
-	        # Fill insert or update structure as appropriate.
-	        my $n = 1;
-	        my $args = $$hop{UPDATE} ? \%uargs : \%iargs;
-	        push(@{$$args{$n++}}, $$hop{DESTINATION});
-	        push(@{$$args{$n++}}, $$hop{INDEX});
-	        push(@{$$args{$n++}}, $$hop{SRC_NODE});
-	        push(@{$$args{$n++}}, $$hop{FROM_NODE});
-	        push(@{$$args{$n++}}, $$hop{PRIORITY});
-	        push(@{$$args{$n++}}, $$hop{IS_LOCAL});
-	        push(@{$$args{$n++}}, $$hop{IS_VALID});
-	        push(@{$$args{$n++}}, ($$hop{LINK_LATENCY} || 0) + ($$hop{XFER_LATENCY} || 0));
-	        push(@{$$args{$n++}}, ($$hop{TOTAL_LATENCY} || 0));
-	        push(@{$$args{$n++}}, ($$hop{LINK_RATE} || 0));
-	        push(@{$$args{$n++}}, $$hop{TIME_REQUEST});
-	        push(@{$$args{$n++}}, $now);
-	        push(@{$$args{$n++}}, $$hop{TIME_EXPIRE});
-	        push(@{$$args{$n++}}, $file);
-	        push(@{$$args{$n++}}, $to);
-	        $destnodes{$mynodes{$$hop{DESTINATION}}} = 1;
-	        $nvalid++ if $$hop{IS_VALID};
+		# Fill insert or update structure as appropriate.
+		my $n = 1;
+		my $args = $$hop{UPDATE} ? \%uargs : \%iargs;
+		push(@{$$args{$n++}}, $$hop{DESTINATION});
+		push(@{$$args{$n++}}, $$hop{INDEX});
+		push(@{$$args{$n++}}, $$hop{SRC_NODE});
+		push(@{$$args{$n++}}, $$hop{FROM_NODE});
+		push(@{$$args{$n++}}, $$hop{PRIORITY});
+		push(@{$$args{$n++}}, $$hop{IS_LOCAL});
+		push(@{$$args{$n++}}, $$hop{IS_VALID});
+		push(@{$$args{$n++}}, ($$hop{LINK_LATENCY} || 0) + ($$hop{XFER_LATENCY} || 0));
+		push(@{$$args{$n++}}, ($$hop{TOTAL_LATENCY} || 0));
+		push(@{$$args{$n++}}, ($$hop{LINK_RATE} || 0));
+		push(@{$$args{$n++}}, $$hop{TIME_REQUEST});
+		push(@{$$args{$n++}}, $now);
+		push(@{$$args{$n++}}, $$hop{TIME_EXPIRE});
+		push(@{$$args{$n++}}, $file);
+		push(@{$$args{$n++}}, $to);
+		$destnodes{$mynodes{$$hop{DESTINATION}}} = 1;
+		$nvalid++ if $$hop{IS_VALID};
 	    }
-        }
+	}
 
-        # Insert and update paths as appropriate.
-        &dbexec($dbh, qq{
+	# Insert and update paths as appropriate.
+	&dbexec($dbh, qq{
 	    insert into t_xfer_path
 	    (destination, hop, src_node, from_node, priority, is_local,
 	     is_valid, cost, total_cost, penalty, time_request,
@@ -621,27 +621,27 @@ sub routeFiles
 	    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)},
 	    %iargs) if %iargs;
 
-        &dbexec($dbh, qq{
+	&dbexec($dbh, qq{
 	    update t_xfer_path
 	    set destination = ?, hop = ?, src_node = ?, from_node = ?,
-	        priority = ?, is_local = ?, is_valid = ?, cost = ?,
-                total_cost = ?, penalty = ?, time_request = ?,
-                time_confirm = ?, time_expire = ?
+		priority = ?, is_local = ?, is_valid = ?, cost = ?,
+		total_cost = ?, penalty = ?, time_request = ?,
+		time_confirm = ?, time_expire = ?
 	    where fileid = ? and to_node = ?},
 	    %uargs) if %uargs;
 
-        $dbh->commit();
+	$dbh->commit();
 
-        # Report routing statistics.
-        $inserted = %iargs ? scalar @{$iargs{1}} : 0;
-        $updated = %uargs ? scalar @{$uargs{1}} : 0;
+	# Report routing statistics.
+	$inserted = %iargs ? scalar @{$iargs{1}} : 0;
+	$updated = %uargs ? scalar @{$uargs{1}} : 0;
 	$ndone += $inserted + $updated;
-    
-        &logmsg("$existing existed, $updated updated, $inserted new,"
-	        . " $nvalid valid, $discarded discarded of $nhops paths"
-	        . " computed for $nreqs requests for the destinations"
-	        . " @{[sort keys %destnodes]}")
-            if $nreqs;
+
+	&logmsg("$existing existed, $updated updated, $inserted new,"
+		. " $nvalid valid, $discarded discarded of $nhops paths"
+		. " computed for $nreqs requests for the destinations"
+		. " @{[sort keys %destnodes]}")
+	    if $nreqs;
 
 	# Now would be a great time to go for a long holiday :-)
 	$self->maybeStop();
@@ -737,10 +737,10 @@ sub routeCost
 			    ? $nominal : $$links{$from}{$to}{XFER_RATE});
 		my $xfer = ($rate ? $sizebin / $rate : 7*86400);
 		my $total = $$paths{$from}{TOTAL_LATENCY} + $latency + $xfer;
-	        my $thislocal = 0;
+		my $thislocal = 0;
 		$thislocal = 1 if (exists $$links{$from}
-			           && exists $$links{$from}{$to}
-			           && $$links{$from}{$to}{IS_LOCAL});
+				   && exists $$links{$from}{$to}
+				   && $$links{$from}{$to}{IS_LOCAL});
 		my $local = ($thislocal && $$paths{$from}{IS_LOCAL} ? 1 : 0);
 
 		# If we would involve more than one WAN hop, incur penalty.
@@ -749,7 +749,7 @@ sub routeCost
 		{
 		    $xfer += 7*86400;
 		    $total += 7*86400;
-	  	}
+		}
 
 		# Update the path if there is none yet, if we have local
 		# path and existing is not local, or if we now have a
@@ -771,7 +771,7 @@ sub routeCost
 				     TOTAL_LATENCY => $total,
 				     IS_LOCAL => $local,
 				     HOPS => $$paths{$from}{HOPS} + 1,
-			     	     REMOTE_HOPS => $$paths{$from}{REMOTE_HOPS} + (1-$thislocal) };
+				     REMOTE_HOPS => $$paths{$from}{REMOTE_HOPS} + (1-$thislocal) };
 		    $todo{$to} = 1;
 		}
 	    }
@@ -798,7 +798,7 @@ sub bestRoute
 	next if (! exists $$costs{$node}
 		 || ! exists $$costs{$node}{$state}
 		 || ! exists $$costs{$node}{$state}{$sizebin}
-	 	 || ! exists $$costs{$node}{$state}{$sizebin}{$dest});
+		 || ! exists $$costs{$node}{$state}{$sizebin}{$dest});
 	my $this = $$costs{$node}{$state}{$sizebin};
 
 	next if ($$this{$dest}{REMOTE_HOPS} > 1); # Multi-WAN-hop paths are never the best.
@@ -861,7 +861,7 @@ sub routeFile
 	    push(@{$$request{PATH}}, $item);
 	    $node = $from;
 	}
-	
+
 	delete $$self{WARNED}{$dest}{$$request{FILEID}};
     }
     elsif (keys %{$$request{REPLICAS}})
@@ -870,14 +870,14 @@ sub routeFile
 	       . ": none of the source replicas are reachable ("
 	       . (scalar keys %{$$request{REPLICAS}}) . " at: "
 	       . "@{[ keys %{$$request{REPLICAS}} ]})")
-           if ! $$self{WARNED}{$dest}{$$request{FILEID}};
+	   if ! $$self{WARNED}{$dest}{$$request{FILEID}};
 	$$self{WARNED}{$dest}{$$request{FILEID}} = 1;
     }
     else
     {
 	&warn ("failed to route file $$request{FILEID} to destination $dest"
 	       . ": no source replica available")
-           if ! $$self{WARNED}{$dest}{$$request{FILEID}};
+	   if ! $$self{WARNED}{$dest}{$$request{FILEID}};
 	$$self{WARNED}{$dest}{$$request{FILEID}} = 1;
     }
 }
@@ -910,8 +910,21 @@ sub stats
 	select :now, xq.destination, xq.state,
 	       count(xq.fileid), nvl(sum(f.filesize),0)
 	from t_xfer_request xq join t_xfer_file f on f.id = xq.fileid
-        group by :now, xq.destination, xq.state},
+	group by :now, xq.destination, xq.state},
 	":now" => $now);
+
+    &dbexec($dbh, qq{delete from t_status_block_path});
+    &dbexec($dbh, qq{
+	insert into t_status_block_path
+	(time_update, destination, src_node, block, priority,
+	 route_files, route_bytes, xfer_attempts, time_request)
+	select :now, xp.destination, xp.src_node, xf.inblock, xp.priority,
+	count(xf.id), sum(xf.filesize), sum(xq.attempt), min(xq.time_create)
+	from t_xfer_path xp
+	join t_xfer_file xf on xf.id = xp.fileid
+	join t_xfer_request xq on xq.fileid = xf.id and xq.destination = xp.destination
+	group by xp.destination, xp.src_node, xf.inblock, xp.priority},
+	    ":now" => $now);
 
     $dbh->commit();
 }

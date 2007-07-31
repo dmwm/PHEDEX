@@ -121,6 +121,31 @@ create table t_status_block_dest
      foreign key (destination) references t_adm_node (id)
      on delete cascade);
 
+/* Statistics for blocks being routed . */
+create table t_status_block_path
+  (time_update		float		not null,
+   destination		integer		not null,
+   src_node		integer		not null,
+   block		integer		not null,
+   priority		integer		not null, -- t_xfer_path priority
+   route_files		integer		not null, -- routed files
+   route_bytes		integer		not null, -- routed bytes
+   xfer_attempts	integer		not null, -- xfer attempts of routed
+   time_request		integer		not null, -- min (oldest) request time of routed
+   --
+   constraint pk_status_block_path
+     primary key (destination, src_node, block),
+   --
+   constraint fk_status_block_path_dest
+     foreign key (destination) references t_adm_node (id)
+     on delete cascade,
+   constraint fk_status_block_path_src
+     foreign key (src_node) references t_adm_node (id)
+     on delete cascade,
+    constraint fk_status_block_path_block
+     foreign key (block) references t_dps_block (id)
+     on delete cascade);
+
 /* Statistics for file origins. */
 create table t_status_file
   (time_update		float		not null,
@@ -315,3 +340,10 @@ create index ix_log_user_action_dataset
 
 create index ix_log_user_action_block
   on t_log_user_action (block);
+
+--
+create index ix_status_block_path_src
+  on t_status_block_path (src_node);
+
+create index ix_status_block_path_block
+  on t_status_block_path (block);
