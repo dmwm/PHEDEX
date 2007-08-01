@@ -923,7 +923,7 @@ sub stats
 	from t_xfer_path xp
 	join t_xfer_file xf on xf.id = xp.fileid
 	join t_xfer_request xq on xq.fileid = xf.id and xq.destination = xp.destination
-	group by xp.destination, xp.src_node, xf.inblock, xp.priority},
+	group by xp.destination, xp.src_node, xf.inblock, xp.priority, xp.is_valid},
 	    ":now" => $now);
 
     $dbh->commit();
