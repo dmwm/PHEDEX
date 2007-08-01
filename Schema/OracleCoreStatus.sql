@@ -128,6 +128,7 @@ create table t_status_block_path
    src_node		integer		not null,
    block		integer		not null,
    priority		integer		not null, -- t_xfer_path priority
+   is_valid		integer		not null, -- t_xfer_path is_valid
    route_files		integer		not null, -- routed files
    route_bytes		integer		not null, -- routed bytes
    xfer_attempts	integer		not null, -- xfer attempts of routed

@@ -916,9 +916,9 @@ sub stats
     &dbexec($dbh, qq{delete from t_status_block_path});
     &dbexec($dbh, qq{
 	insert into t_status_block_path
-	(time_update, destination, src_node, block, priority,
+	(time_update, destination, src_node, block, priority, is_valid,
 	 route_files, route_bytes, xfer_attempts, time_request)
-	select :now, xp.destination, xp.src_node, xf.inblock, xp.priority,
+	select :now, xp.destination, xp.src_node, xf.inblock, xp.priority, xp.is_valid,
 	count(xf.id), sum(xf.filesize), sum(xq.attempt), min(xq.time_create)
 	from t_xfer_path xp
 	join t_xfer_file xf on xf.id = xp.fileid
