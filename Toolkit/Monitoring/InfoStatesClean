@@ -77,12 +77,12 @@ sub idle
 	&dbexec($dbh,qq{delete from t_dps_block_delete where time_complete < :old}, %old);
 	$dbh->commit();
 
-	# Keep 100 most recent errors for every destination.
+	# Keep 100 most recent errors for every link
 	&dbexec($dbh, qq{
 	   delete from t_xfer_error xe where rowid not in
 	     (select rowid from
 	      (select rowid, row_number()
-		over (partition by to_node order by time_done desc) rank
+		over (partition by from_node, to_node order by time_done desc) rank
 	       from t_xfer_error)
 	      where rank <= 100)});
     };
