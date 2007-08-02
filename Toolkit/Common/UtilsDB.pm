@@ -3,6 +3,7 @@ our @EXPORT = qw(parseDatabaseInfo connectToDatabase disconnectFromDatabase
 		 expandNodesAndConnect myNodeFilter otherNodeFilter
 		 dbsql dbexec dbprep dbbindexec);
 use UtilsLogging;
+use Log::Log4perl qw(get_logger);
 use UtilsTiming;
 use UtilsNet;
 use DBI;
@@ -78,6 +79,7 @@ sub connectToDatabase
 {
     my ($self, $identify) = @_;
 
+    my $logger =  get_logger();
     # If we have database configuration file, read it
     &parseDatabaseInfo ($self) if ($$self{DBCONFIG} && ! $$self{DBH_DBNAME});
 
@@ -91,7 +93,7 @@ sub connectToDatabase
 	|| (! eval { $dbh->do("select sysdate from dual") } || $@))
     {
 	$$self{DBH_LOGGING} = 1 if $ENV{PHEDEX_LOG_DB_CONNECTIONS};
-	&logmsg ("(re)connecting to database") if $$self{DBH_LOGGING};
+	$logger->info("(re)connecting to database") if $$self{DBH_LOGGING};
 
 	# Clear previous connection.
 	eval { &disconnectFromDatabase ($self, $$self{DBH}, 1) } if $$self{DBH};
@@ -168,7 +170,8 @@ sub disconnectFromDatabase
     # Actually disconnect if required.
     if ((exists $$self{DBH_CACHE} && ! $$self{DBH_CACHE}) || $force)
     {
-	&logmsg ("disconnected from database") if $$self{DBH_LOGGING};
+	my $logger = get_logger();
+	$logger->info("disconnected from database") if $$self{DBH_LOGGING};
         eval { $dbh->disconnect() } if $dbh;
         undef $dbh;
         undef $$self{DBH};
@@ -454,6 +457,7 @@ sub checkAgentMessages
 {
     my ($self, $dbh) = @_;
 
+    my $logger = get_logger();
     while (1)
     {
 	my $now = &mytimeofday ();
@@ -522,7 +526,7 @@ sub checkAgentMessages
 	# Act on the final state.
 	if ($action eq 'STOP')
 	{
-	    &logmsg ("agent stopped via control message at $time");
+	    $logger->info("agent stopped via control message at $time");
 	    $self->doStop ();
 	    exit(0); # Still running?
 	}
@@ -530,7 +534,7 @@ sub checkAgentMessages
 	{
 	    # The message doesn't actually specify for how long, take
 	    # a reasonable nap to avoid filling the log files.
-	    &logmsg ("agent suspended via control message at $time");
+	    $logger->info("agent suspended via control message at $time");
 	    $self->nap (90);
 	    next;
 	}
@@ -718,13 +722,14 @@ sub dbexec
 sub dbbindexec
 {
     my ($stmt, %params) = @_;
+    my $logger = get_logger();
 
     if ($ENV{PHEDEX_LOG_SQL})
     {
         my $sql = $$stmt{Statement};
 	$sql =~ s/\s+/ /g; $sql =~ s/^\s+//; $sql =~ s/\s+$//;
 	my $bound = join (", ", map { "($_, " . (defined $params{$_} ? $params{$_} : "undef") . ")" } sort keys %params);
-        &logmsg ("executing statement `$sql' [$bound]");
+        $logger->info("executing statement `$sql' [$bound]");
     }
 
     my $isarray = 0;
