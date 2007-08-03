@@ -1,3 +1,29 @@
+* Changes in PhEDEx 2.5.3.4
+
+ Schema and Central agents
+   - FileRouter now keeps a status table of paths from source to
+     destination, aggregated per block.  These statistics will be
+     available via the web and can show current routing status as well
+     as the number of transfer attempts per block and the time a block
+     has been waiting to be transferred.
+   - InfoStateClean now keeps 100 recent errors by link
+
+ New Features for Site Tools
+   - ftscp: Added the ability to specify MyProxy server by adding flag
+     '-m=myproxy-fts.cern.ch'. Made -passfile optional, to adapt to
+     passwordless proxy delegation mode of FTS2.0
+   - BlockConsistencyCheck: Allow explicit Migration check, as opposed
+     to implicit check by selecting SE. Better printout. Support LFN
+     and autoBlock options.
+
+ Bug Fixes
+   - ftscp: Fixed a small bug in error message when invalid arguments
+     are given.  Fix argument parsing of -mode option
+   - StorageConsistencyCheck:  Fixed reading of STDIN
+   - InspectPhedexLogs: Fixed problem of ignored date options.  Fixed
+     bug in histogram printout.  Started parsing of validate failures
+     for errors without details.
+
 * Changes in PhEDEx 2.5.3.3
 	
 Bug fixes	
