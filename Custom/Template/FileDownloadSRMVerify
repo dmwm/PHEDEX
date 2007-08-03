@@ -19,16 +19,7 @@
 ##H special goodie hack, with "-f" the return value is forced to be
 ##H zero (success) -- after all normal checks have been made.
 
-getsize () {
-    local pfn=$1
-    case "$pfn" in
-	*managerv2*) echo $(srmls -x509_user_proxy=${X509_USER_PROXY} -retry_num=0 "$pfn"| grep "$pfn" | cut -d\  -f3);;
-	* ) echo $(srm-get-metadata -x509_user_proxy=${X509_USER_PROXY} -retry_num=0 "$pfn"| grep "size :"|cut -d: -f2);;
-    esac
-}
-
 # Process command line arguments
-
 do_checksum=false do_delete=false do_force=false
 while [ $# -ge 1 ]; do
   case $1 in
@@ -48,8 +39,7 @@ validity=0
 
 # Check file size and mark file invalid on mismatch.
 if [ $validity = 0 ]; then
-    disksize=$(getsize $pfn)
-#    disksize=$(srm-get-metadata -x509_user_proxy=${X509_USER_PROXY} -retry_num=0 "$pfn"| grep "size :"|cut -d: -f2)
+    disksize=$(srm-get-metadata -x509_user_proxy=${X509_USER_PROXY} -retry_num=0 "$pfn"| grep "size :"|cut -d: -f2)
     [ X"$disksize" = X ] && echo "file $pfn doesn't seem to exist" && validity=1
     [ $validity = 0 ] && [ X"$disksize" != X"$size" ] && echo "size mismatch disk=$disksize db=$size pfn=$pfn" && validity=2
 fi
@@ -74,4 +64,3 @@ $do_force && validity=0
 
 # Return file validity
 exit $validity
-
