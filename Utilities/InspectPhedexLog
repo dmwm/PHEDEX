@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog,v 1.3 2007/05/25 08:12:59 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.4 2007/07/25 07:43:00 dfeichti Exp $:
 ###############################################################################
 
 use strict;
@@ -358,7 +358,7 @@ sub printTimeHisto {
   my $h = shift;
 
   for(my $i=0;$i<= $#{@{$h->{value}}};$i++) {
-    printf("     %6d   %s\n",$h->{value}[$i],    strftime("%Y-%m-%d %H:%M:%S",localtime($a)));
+    printf("     %6d   %s\n",$h->{value}[$i],    strftime("%Y-%m-%d %H:%M:%S",localtime($h->{xlabel}[$i])));
   }
 }
 
