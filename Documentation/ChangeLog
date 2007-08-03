@@ -6,6 +6,7 @@
      available via the web and can show current routing status as well
      as the number of transfer attempts per block and the time a block
      has been waiting to be transferred.
+   - FileRouter no longer writes multi-WAN-hop paths to the DB.
    - InfoStateClean now keeps 100 recent errors by link
 
  New Features for Site Tools
