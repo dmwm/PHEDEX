@@ -2771,7 +2771,7 @@ our $INDEX = { LIST => 1, ORDER => 4, TITLE => "HyperNews Forum",
 	       LINK_TITLE => "Mailing List and HyperNews Forum" };
 1;
 
-package Web25::Info::HyperNews; use strict; use warnings; use base "Exporter";
+package Web25::Info::Support; use strict; use warnings; use base "Exporter";
 our $INDEX = { LIST => 1, ORDER => 5, TITLE => "Support Tracker",
 	       LINK => "http://savannah.cern.ch/projects/cmscompinfrasup/",
 	       LINK_TITLE => "Support Tracker" };
