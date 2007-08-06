@@ -6575,6 +6575,15 @@ sub dataset_list
 sub dataset_replicas
 {
   my ($self, @datasets) = @_;
+
+  # "where in" lists are limited to 1000 entries
+  my ($where, %binds) = ("", ());
+  if (scalar @datasets < 1000) {
+      my $list;
+      ($list, %binds) = &dbinlist('dataset', map { $$_{ID} } @datasets);
+      $where = " where ds.id in ($list) ";
+  }
+
   my $q = &dbexec($$self{DBH}, qq{
     select ds.id dataset, n.id node,
            nvl(sum(case when br.dest_files > 0 then 1 else 0 end),0) dest_blocks,
@@ -6583,11 +6592,12 @@ sub dataset_replicas
            nvl(sum(case when br.node_files > 0 then 1 else 0 end),0) node_blocks,
            nvl(sum(br.node_files),0) node_files,
            nvl(sum(br.node_bytes),0) node_bytes
-    from t_dps_dataset ds
+      from t_dps_dataset ds
       join t_dps_block b on b.dataset = ds.id
       join t_dps_block_replica br on br.block = b.id
       join t_adm_node n on n.id = br.node
-    group by ds.id, n.id});
+      $where
+     group by ds.id, n.id}, %binds);
 
   my %byid = map { $$_{ID} => $_ } @datasets;
   while (my $row = $q->fetchrow_hashref())
