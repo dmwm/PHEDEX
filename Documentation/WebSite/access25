@@ -6575,7 +6575,7 @@ sub dataset_list
 sub dataset_replicas
 {
   my ($self, @datasets) = @_;
-  my $list = join(" or ", map { "ds.id = $$_{ID}" } @datasets);
+  my ($list, %binds) = &dbinlist('dataset', map { $$_{ID} } @datasets);
   my $q = &dbexec($$self{DBH}, qq{
     select ds.id dataset, n.id node,
            nvl(sum(case when br.dest_files > 0 then 1 else 0 end),0) dest_blocks,
@@ -6588,8 +6588,8 @@ sub dataset_replicas
       join t_dps_block b on b.dataset = ds.id
       join t_dps_block_replica br on br.block = b.id
       join t_adm_node n on n.id = br.node
-    where $list
-    group by ds.id, n.id});
+    where ds.id in ($list)
+    group by ds.id, n.id}, %binds);
 
   my %byid = map { $$_{ID} => $_ } @datasets;
   while (my $row = $q->fetchrow_hashref())
@@ -6652,19 +6652,19 @@ sub file_list
 sub block_replicas
 {
   my ($self, @blocks) = @_;
-  my $list = join(" or ", map { "b.id = $$_{ID}" } @blocks);
-  my $q = &dbexec($$self{DBH}, qq{
-    select b.id block, br.node node,
-           nvl(sum(case when br.dest_files > 0 then 1 else 0 end),0) dest_blocks,
-           nvl(sum(br.dest_files),0) dest_files,
-           nvl(sum(br.dest_bytes),0) dest_bytes,
-           nvl(sum(case when br.node_files > 0 then 1 else 0 end),0) node_blocks,
-           nvl(sum(br.node_files),0) node_files,
-           nvl(sum(br.node_bytes),0) node_bytes
-    from t_dps_block b
-      join t_dps_block_replica br on br.block = b.id
-    where $list
-    group by b.id, br.node});
+  my ($list, %binds) = &dbinlist('block', map { $$_{ID} } @blocks);
+  my $q = &dbexec($$self{DBH}, 
+		  qq{ select b.id block, br.node node,
+                        nvl(sum(case when br.dest_files > 0 then 1 else 0 end),0) dest_blocks,
+                        nvl(sum(br.dest_files),0) dest_files,
+                        nvl(sum(br.dest_bytes),0) dest_bytes,
+                        nvl(sum(case when br.node_files > 0 then 1 else 0 end),0) node_blocks,
+                        nvl(sum(br.node_files),0) node_files,
+                        nvl(sum(br.node_bytes),0) node_bytes
+                      from t_dps_block b
+                      join t_dps_block_replica br on br.block = b.id
+                     where b.id in ($list)
+                     group by b.id, br.node}, %binds);
 
   my %byid = map { $$_{ID} => $_ } @blocks;
   while (my $row = $q->fetchrow_hashref())
@@ -6678,14 +6678,14 @@ sub block_replicas
 sub block_sources
 {
   my ($self, @blocks) = @_;
-  my $list = join(" or ", map { "b.id = $$_{ID}" } @blocks);
+  my ($list, %binds) = &dbinlist('block', map { $$_{ID} } @blocks);
   my $q = &dbexec($$self{DBH}, qq{
     select b.id, f.node, n.name
     from t_dps_block b
       join t_dps_file f on f.inblock = b.id
       join t_adm_node n on n.id = f.node
-    where $list
-    group by b.id, f.node, n.name});
+    where b.id in ($list)
+    group by b.id, f.node, n.name}, %binds);
 
   my %byid = map { $$_{ID} => $_ } @blocks;
   while (my ($block, $node, $name) = $q->fetchrow())
@@ -6700,13 +6700,13 @@ sub block_sources
 sub file_replicas
 {
   my ($self, @blocks) = @_;
-  my $list = join(" or ", map { "b.id = $$_{ID}" } @blocks);
+  my ($list, %binds) =  &dbinlist('block', map { $$_{ID} } @blocks);
   my $q = &dbexec($$self{DBH}, qq{
     select b.id block, f.id, xr.node
     from t_dps_block b
       join t_xfer_file f on f.inblock = b.id
       join t_xfer_replica xr on xr.fileid = f.id
-    where $list});
+    where b.id in ($list)}, %binds);
 
   my %byid = map { $$_{ID} => $_ } @blocks;
   while (my ($block, $file, $node) = $q->fetchrow())
