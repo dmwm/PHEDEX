@@ -6575,7 +6575,6 @@ sub dataset_list
 sub dataset_replicas
 {
   my ($self, @datasets) = @_;
-  my ($list, %binds) = &dbinlist('dataset', map { $$_{ID} } @datasets);
   my $q = &dbexec($$self{DBH}, qq{
     select ds.id dataset, n.id node,
            nvl(sum(case when br.dest_files > 0 then 1 else 0 end),0) dest_blocks,
@@ -6588,8 +6587,7 @@ sub dataset_replicas
       join t_dps_block b on b.dataset = ds.id
       join t_dps_block_replica br on br.block = b.id
       join t_adm_node n on n.id = br.node
-    where ds.id in ($list)
-    group by ds.id, n.id}, %binds);
+    group by ds.id, n.id});
 
   my %byid = map { $$_{ID} => $_ } @datasets;
   while (my $row = $q->fetchrow_hashref())
