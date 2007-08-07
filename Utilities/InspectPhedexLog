@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog,v 1.5 2007/08/03 08:09:21 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.6 2007/08/03 08:48:13 dfeichti Exp $:
 ###############################################################################
 
 use strict;
@@ -45,9 +45,9 @@ usage: InspectPhedexLog [options] logfile1 [logfile2 ...]
       -h    display this help
 
  examples:
-   InspectPhedexLog.pl Prod/download
-   InspectPhedexLog.pl -evs yesterday -t "2006-11-20 10:30:00" Prod/download
-   InspectPhedexLog.pl -es "-2 days"  Prod/download
+   InspectPhedexLog Prod/download
+   InspectPhedexLog -evs yesterday -t "2006-11-20 10:30:00" Prod/download
+   InspectPhedexLog -es "-2 days"  Prod/download
 
    without any of the special options, the script will just print
    summary statistics for all download sources.
