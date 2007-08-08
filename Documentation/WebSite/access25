@@ -6274,8 +6274,8 @@ sub output
   {
     my ($fileid, $lfn, $size, $from_pfn, $to_pfn, $assigned, $nerrors) = @$row;
     my $errorurl = $self->myurl('page' => 'Activity::ErrorInfo',
-				'to_node' => $to_node,
-				'from_node' => $from_node,
+				'tofilter' => $to_node,
+				'fromfilter' => $from_node,
 				'fileid' => $fileid);
     print { $$self{CONTENT} }
     "<li><b>lfn</b>=@{[&escapeHTML($lfn)]}<br />",
