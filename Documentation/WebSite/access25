@@ -1088,37 +1088,66 @@ sub new
   return $self;
 }
 
-# Initialize with the database handle, query to page, a hashref of its
-# binds, and the number of results per page
+# Initialize with
+#  $webself  :  A reference to a Web25 object
+#  $select   :  SQL to pageinate
+#  $binds    :  (Optional, default null)  Hashref of bind parameters for $select
+#  $results_per_page  :  (Optional, default 10)  Number of results to show per page
+#  $rank_col  :  (Optional, default null) column to group results by
+#  $filters  :  (Optional, default null)  hashref of column_name => regexp to filter to post-filter results
 sub init
 {
-    my ($self, $webself, $select, $binds, $results_per_page, $rank_col) = @_;
+    my ($self, $webself, $select, $binds, $results_per_page, $rank_col, $filters) = @_;
+    $self->process_filters($filters) if $filters;
+
     $$self{WEB} = $webself;
     $$self{DBH} = $$webself{DBH};
     $$self{SELECT} = $select;
     $$self{BINDS} = $binds if $binds;
     $$self{RESULTS_PER_PAGE} = $results_per_page if $results_per_page;
     $$self{RANK_COL} = $rank_col;
-    $$self{TOTAL_RESULTS} = &count_results($$self{DBH}, $select, $binds, $rank_col);
-    $$self{TOTAL_PAGES} = &total_pages($$self{TOTAL_RESULTS}, $$self{RESULTS_PER_PAGE});
+    $$self{FILTERS} = $filters if $filters && %{$filters};
+    $$self{TOTAL_RESULTS} = $self->count_results();
+    $$self{TOTAL_PAGES} = $self->total_pages();
     $$self{CURRENT_PAGE} = param('page_num') || 1;
     if ($$self{CURRENT_PAGE} <= 0 
 	|| $$self{CURRENT_PAGE} > $$self{TOTAL_PAGES}) {
 	$$self{CURRENT_PAGE} = 1;
     }
 
-    if (!$$self{RANK_COL}) {
-	$$self{PAGED_SQL} = qq[select * from ( select r.*, rownum as result_number
-			                         from ($$self{SELECT}) r 
-			                        where rownum <= :end_result ) 
-		                where :start_result <= result_number ];
+    if (!$$self{FILTERS}) {
+	if (!$$self{RANK_COL}) {
+	    $$self{PAGED_SQL} = qq[select * from ( select r.*, rownum as result_number
+						   from ($$self{SELECT}) r 
+						   where rownum <= :end_result ) 
+				   where :start_result <= result_number ];
+	} else {
+	    $$self{PAGED_SQL} = qq[select * from 
+				   (select results.*, dense_rank() over (order by results.$$self{RANK_COL}) result_number
+				    from ($$self{SELECT}) results )
+				   where result_number >= :start_result and result_number <= :end_result];
+	}
+	my $start_result = $self->page_to_result();
+	my $end_result = $start_result + $$self{RESULTS_PER_PAGE} - 1;
+	$$self{BINDS}{':start_result'} = $start_result;
+	$$self{BINDS}{':end_result'} = $end_result;
     } else {
-	$$self{PAGED_SQL} = qq[select * from 
-			       (select results.*, dense_rank() over (order by results.$$self{RANK_COL}) result_number
-				  from ($$self{SELECT}) results )
-			         where result_number >= :start_result and result_number <= :end_result];
+	if ($$self{FILTERED_RESULTS}) {
+	    my $start_result = $self->page_to_result();
+	    my @page_results = splice @{$$self{FILTERED_RESULTS}}, $start_result, $$self{RESULTS_PER_PAGE};
+	    my ($result_list, %result_binds) = &dbinlist('result_id', @page_results);
+	    $$self{BINDS}{$_} = $result_binds{$_} foreach keys %result_binds;
+	    $$self{PAGED_SQL} = qq[select r.*, rownum as result_number, r.rowid
+		  	             from ($$self{SELECT}) r
+			            where r.rowid in ($result_list)];
+	} else {
+	    $$self{PAGED_SQL} = qq[select r.*, rownum as result_number, r.rowid
+		  	             from ($$self{SELECT}) r
+			            where 1 = 0];
+	}
     }
 }
+
 
 sub get_total_results
 {
@@ -1168,18 +1197,27 @@ sub pager
 sub paged_result
 {
     my ($self) = @_;
-    my $start_result = &page_to_result($$self{CURRENT_PAGE}, $$self{RESULTS_PER_PAGE});
-    my $end_result = $start_result + $$self{RESULTS_PER_PAGE} - 1;
-    my $sql = $$self{PAGED_SQL};
-    my %binds = %{$$self{BINDS}};
-    $binds{':start_result'} = $start_result;
-    $binds{':end_result'} = $end_result;
-    my $q = &dbexec($$self{DBH}, $sql, %binds);
-
+    my $t1 = time();
+    my $q = &dbexec($$self{DBH}, $$self{PAGED_SQL}, %{$$self{BINDS}});
+    my $t2 = time();
+    $$self{TIME_RESULT} = $t2 - $t1;
     return $q;
 }
 
 ### Private functions ###
+
+sub process_filters
+{
+    my ($self, $filters) = @_;
+    foreach (keys %{$filters}) {
+	my $f = $$filters{$_};
+	if (!defined $f ||
+	    $f eq '' ||
+	    $f eq '.*') {
+	    delete $$filters{$_};
+	}
+    }
+}
 
 # Return a link to a page
 sub page_link
@@ -1198,29 +1236,56 @@ sub page_link
 
 sub total_pages
 {
-    my ($total_results, $results_per_page) = @_;
+    my $self = shift @_;
+    my ($total_results, $results_per_page) = ($$self{TOTAL_RESULTS}, $$self{RESULTS_PER_PAGE});
     if ($total_results < 1) { $total_results = 1; }
     return POSIX::ceil($total_results/$results_per_page);
 }
 
 sub page_to_result
 {
-    my ($current_page, $results_per_page) = @_;
+    my $self = shift @_;
+    my ($current_page, $results_per_page) = ($$self{CURRENT_PAGE}, $$self{RESULTS_PER_PAGE});
     return ( ($current_page - 1 ) * $results_per_page + 1 );
 }
 
 sub count_results
 {
-    my ($dbh, $select, $binds, $rank_col) = @_;
-    my $sql;
-    if (!$rank_col) {
-	$sql = qq[select count(*) as num_results from ($select)];
+    my $self = shift @_;
+
+    my $t1 = time();
+    my $num_results;
+    if (!$$self{FILTERS}) {
+	# No post-processing required, get results from sql query
+	my $sql;
+	if (!$$self{RANK_COL}) {
+	    $sql = qq[select count(*) as num_results from ($$self{SELECT})];
+	} else {
+	    $sql = qq[select max(rank) from 
+		      (select results.*, dense_rank() over (order by results.$$self{RANK_COL}) rank
+                       from ($$self{SELECT}) results)];
+	}
+	my $q = &dbexec($$self{DBH}, $sql, %{$$self{BINDS}});
+	($num_results) = $q->fetchrow();
     } else {
-	$sql = qq[select max(rank) from 
-                    (select results.*, dense_rank() over (order by results.$rank_col) rank from ($select) results)];
+	# Full get all results, applying filters to get count, and caching rowid
+	my $t1 = time();
+	$$self{FILTERED_RESULTS} = [];
+	my $sql = qq[select r.*, rownum as result_number, r.rowid
+		       from ($$self{SELECT}) r ];
+	my $q = &dbexec($$self{DBH}, $sql, %{$$self{BINDS}});
+	while (my $row = $q->fetchrow_hashref()) {
+	    my $keep = 1;
+	    foreach my $col (keys %{$$self{FILTERS}}) {
+		$keep &&= ($$row{$col} =~ /$$self{FILTERS}{$col}/);
+	    }
+	    push @{$$self{FILTERED_RESULTS}}, $$row{ROWID} if $keep;
+	}
+	$num_results = scalar @{$$self{FILTERED_RESULTS}};
     }
-    my $q = &dbexec($dbh, $sql, %{$binds});
-    my ($num_results) = $q->fetchrow();
+    my $t2 = time();
+    $$self{TIME_COUNT} = $t2 - $t1;
+
     return $num_results || 0;
 }
 
@@ -6251,7 +6316,8 @@ sub new
 sub myurl
 {
   my ($self, %args) = @_;
-  my @save = qw(tofilter fromfilter andor);
+  my @save = qw(tofilter fromfilter andor
+		report_code xfer_code from_pfn to_pfn log_detail log_validate);
 
   # Return bare link if we are switching pages
   return $self->SUPER::myurl(%args)
@@ -6269,36 +6335,90 @@ sub output
 {
     my ($self) = @_;
 
+    my $fileid = param('fileid');
     my $tofilter = param('tofilter') || '.*';
     my $fromfilter = param('fromfilter') || '.*';
-    my $fileid = param('fileid');
+
+    my @filter_list = qw(report_code xfer_code from_pfn to_pfn log_detail log_validate);
+    my $error_filters = {};
+    foreach (@filter_list) {
+	$$error_filters{$_} = param($_) || '.*';
+    }
+
     my @nodes = sort $self->fetch_nodes();
 
     my @where;
-    my %args;
-    
+    my %binds;
     if ($fileid) {
 	push @where, qq[xe.fileid = :fileid];
-	$args{':fileid'} = $fileid;
+	$binds{':fileid'} = $fileid;
     } else {
 	print {$$self{CONTENT}}
-	"<form method='get' action='#' class='nice'/>",
-	"<label class='inline'>Show errors on links to </label>",
+	&help("Filtering Help", "Filtering Help", 
+	      "The <b>to</b> and <b>from</b> node filters are perl regular expressions.  ",
+	      "The rest of the filters are Oracle regular expressions (regexp_like function) ",
+	      "with one special option: You may put '!' as the first ",
+	      "character in the field to only return results which do ",
+	      "NOT match the given regular expession.  For performance ",
+	      "reasons, you must filter one of <b>to</b> or <b>from</b> ",
+	      "if you wish to filter on any of the other fields.   Log</b> cannot be ",
+	      "filtered."),
+   	"<form method='get' action='#' class='nice'/>",
+	"<label>Show errors on links to </label>",
 	textfield(-name=>'tofilter', -value=>$tofilter, -class=>'labeled'),
-	"<label class='inline'>from</label>",
-	textfield(-name=>'fromfilter', -value=>$fromfilter, -class=>'labeled'),
-	submit(-name=>'Update', -class=>'labeled'), "<br/>",
+	"<label>from</label>",
+	textfield(-name=>'fromfilter', -value=>$fromfilter, -class=>'labeled'), "<br/>",
+	"<label>Report Code:</label>",
+	textfield(-name=>'report_code', -value=>$$error_filters{report_code}, -class=>'labeled'),
+	"<label>Transfer Code:</label>",
+	textfield(-name=>'xfer_code', -value=>$$error_filters{xfer_code}, -class=>'labeled'), "<br/>",
+	"<label>To PFN:</label>",
+	textfield(-name=>'to_pfn', -value=>$$error_filters{to_pfn}, -class=>'labeled'),
+	"<label>From PFN:</label>",
+	textfield(-name=>'from_pfn', -value=>$$error_filters{from_pfn}, -class=>'labeled'), "<br/>",
+	"<label>Detail Log:</label>",
+	textfield(-name=>'log_detail', -value=>$$error_filters{log_detail}, -class=>'labeled'),
+	"<label>Validate Log:</label>",
+	textfield(-name=>'log_validate', -value=>$$error_filters{log_validate}, -class=>'labeled'), "<br/>",
+	"<label>&nbsp;</label>", submit(-name=>'Update', -class=>'labeled'), "<br/>",
 	"</form>";
     }
 
     my @from = grep /$fromfilter/, @nodes;
+    if (scalar @from != scalar @nodes) {
+	my ($from_list, %from_binds) = &dbinlist('from', @from);
+	push @where, "ns.name in ($from_list)";
+	$binds{$_} = $from_binds{$_} foreach (keys %from_binds);
+    }
     my @to = grep /$tofilter/, @nodes;
-    my ($from_list, %from_binds) = &dbinlist('from', @from);
-    my ($to_list, %to_binds) = &dbinlist('to', @to);
-    push @where, "(ns.name in ($from_list) and nd.name in ($to_list))";
-    my $where = join ' and ', @where;
-    $args{$_} = $from_binds{$_} foreach (keys %from_binds);
-    $args{$_} = $to_binds{$_} foreach (keys %to_binds);
+    if (scalar @to != scalar @nodes) {
+	my ($to_list, %to_binds) = &dbinlist('to', @to);
+	push @where, "nd.name in ($to_list)";
+	$binds{$_} = $to_binds{$_} foreach (keys %to_binds);
+    }
+
+    foreach my $col (keys %{$error_filters}) {
+	my $f = $$error_filters{$col};
+	my $not = substr($f, 0, 1) eq '!' ? 'not ' : '';
+	$f = substr($f, 1) if $not;
+	next if !defined $f || $f eq '' || $f eq '.*';
+	my $bind_label = ":${col}_rxp";
+	push @where, "${not}regexp_like($col, $bind_label)";
+	$binds{$bind_label} = $f;
+    }
+
+    my $where = @where ? " where ".join(' and ', @where) : '';
+
+    # Make sure the nodes are filtered if we are filtering with regexp_like
+    # TODO:  Remove these restrictions with error pre-processing
+    if ($where =~ /regexp_like/ &&
+	($where !~ /nd.name|ns.name/ ||
+	 $where =~ /ns.name in/ && scalar @from > 5 ||
+	 $where =~ /nd.name in/ && scalar @to > 5)) {
+	$self->alert("You must reduce the number of links you search  if you wish to use the other ",
+		     "filters.  Filter also on link <b>to</b> or <b>from</b>.");
+	return;
+    }
 
     my $sql = qq{ select ns.name from_node, nd.name to_node,
 		         time_assign, time_expire, time_export, time_inxfer, time_xfer, time_done,
@@ -6307,7 +6427,7 @@ sub output
 		    from t_xfer_error xe
                     join t_adm_node nd on nd.id = xe.to_node
 		    join t_adm_node ns on ns.id = xe.from_node
-                   where $where
+                  $where
 		order by time_done desc
 	    };
 
@@ -6316,7 +6436,7 @@ sub output
     $$self{DBH}->{LongTruncOk} = 1;
 
     my $pager = new Web25::QueryPager;
-    $pager->init($self, $sql, {%args}, 10);
+    $pager->init($self, $sql, {%binds}, 10);
     my $n_errors = $pager->get_total_results();
 
     if ($fileid) {
@@ -6351,10 +6471,10 @@ sub output
 		       LOG_VALIDATE => "Validate Log" };
 
     my $now = time();
-    while (my $error = $q->fetchrow_hashref()) {
+    ERROR: while (my $error = $q->fetchrow_hashref()) {
 	print { $$self{CONTENT} }
 	"<div class='nice errorinfo'>",
-	"<h1>Error $$error{ROW_NUMBER}</h1>";
+	"<h1>Error $$error{RESULT_NUMBER}</h1>";
 
 	print { $$self{CONTENT} }
 	"<label>To Node:</label><span class='labeled halfwidefield'>$$error{TO_NODE}</span>",
@@ -6379,11 +6499,11 @@ sub output
 
 	print { $$self{CONTENT} }
 	"<hr/>",
-	"<label>Final Code:</label><span class='labeled halfwidefield'>$$error{REPORT_CODE}</span>",
-	"<label>Transfer Report Code:</label><span class='labeled halfwidefield'>$$error{XFER_CODE}</span><br/>",
+	"<label>Report Code:</label><span class='labeled halfwidefield'>$$error{REPORT_CODE}</span>",
+	"<label>Transfer Code:</label><span class='labeled halfwidefield'>$$error{XFER_CODE}</span><br/>",
 	"<hr/>",
-	"<label>From PFN:</label><span class='labeled'>$$error{FROM_PFN}</span><br/>",
 	"<label>To PFN:</label><span class='labeled'>$$error{TO_PFN}</span><br/>",
+	"<label>From PFN:</label><span class='labeled'>$$error{FROM_PFN}</span><br/>",
 	"<hr/>";
 
 	foreach my $log (qw(LOG_XFER LOG_DETAIL LOG_VALIDATE)) {
