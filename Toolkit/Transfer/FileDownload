@@ -221,7 +221,8 @@ sub reconnect
     
     # Now connect.
     my ($dbh, @nodes) = &expandNodesAndConnect($self);
-
+    unless (@nodes) { die("Cannot find nodes in database for '@{$$self{NODES}}'") };
+    
     # Indicate to file router which links are "live."
     my ($dest, %dest_args) = &myNodeFilter ($self, "l.to_node");
     my ($src, %src_args) = &otherNodeFilter ($self, "l.from_node");
