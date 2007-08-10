@@ -189,6 +189,14 @@ sub idle
 	    $$b{SRC_FILES}  ||= 0; $$b{SRC_BYTES}  ||= 0;
 	    $$b{NODE_FILES} ||= 0; $$b{NODE_BYTES} ||= 0;
 	    $$b{XFER_FILES} ||= 0; $$b{XFER_BYTES} ||= 0;
+
+	    if ($$b{NODE_FILES} == 0 &&
+		$$b{DEST_FILES} == 0 &&
+		$$b{XFER_FILES} == 0) {
+		$$b{EMPTY_SOURCE} = 1;
+	    } else {
+		$$b{EMPTY_SOURCE} = 0;
+	    }
 	}
 
 	# Compare differences I: start from previous replicas.
@@ -210,8 +218,11 @@ sub idle
 		next;
 	    }
 
-	    # Remove obsolete replicas
-	    if (! exists $active{$$b{BLOCK}}{$$b{NODE}})
+	    # Remove obsolete replicas.  This inludes replicas for
+	    # source nodes which have since deleted their files and
+	    # they are not trying to transfer them back
+	    if (! exists $active{$$b{BLOCK}}{$$b{NODE}}
+		|| $active{$$b{BLOCK}}{$$b{NODE}}{EMPTY_SOURCE} )
 	    {
 		&logmsg ("removing block $$b{BLOCK} at node $$b{NODE}");
 		&dbexec ($dbh, qq{
@@ -259,7 +270,8 @@ sub idle
 	# Compare differences II: new ones.
 	foreach my $b (map { values %$_ } values %active)
 	{
-	    if (exists $replicas{$$b{BLOCK}}{$$b{NODE}})
+	    if (exists $replicas{$$b{BLOCK}}{$$b{NODE}} 
+		|| $$b{EMPTY_SOURCE})
 	    {
 		# Already handled above
 		next;
