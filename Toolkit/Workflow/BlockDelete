@@ -69,9 +69,15 @@ sub idle
     {
 	$dbh = &connectToDatabase ($self);
 
+	# Clear block destinations for blocks we are going to delete from a node
+	my ($stmt, $nrow) = &dbexec($dbh, qq{
+	    delete from t_dps_block_dest bd where (block, destination) in
+	      (select block, node from t_dps_block_delete where time_complete is null)});
+	&logmsg ("$nrow block destinations cleared for blocks to be deleted") if $nrow > 0;
+
 	# Issue file deletion requests for block replicas scheduled
 	# for deletion and for which no deletion request yet exists.
-	my ($stmt, $nrow) = &dbexec($dbh, qq{
+	($stmt, $nrow) = &dbexec($dbh, qq{
 	   insert into t_xfer_delete (fileid, node, time_request)
 	   (select f.id, bd.node, bd.time_request
 	    from t_dps_block_delete bd
