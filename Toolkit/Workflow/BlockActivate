@@ -86,7 +86,7 @@ sub idle
 			    and bd.state != 3)
 	       or exists (select bd.block
        			  from t_dps_block_delete bd
-			  where bd.block = b.id)
+			  where bd.block = b.id and bd.time_complete is null)
 	       or exists (select ba.block
        			  from t_dps_block_activate ba
 			  where ba.block = b.id
