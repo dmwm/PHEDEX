@@ -88,24 +88,23 @@ sub idle
 	    where xd.fileid is null and bd.time_complete is null)});
         &logmsg ("$nrow file deletions scheduled") if $nrow > 0;
 
-        # Mark the block deletion request completed if all its file
-	# deletion requests have been completed.  NOTE: for now we
-	# assume block removals are issued only for blocks known to
-	# be closed, otherwise we can't know when to close the delete
-	# request, new files could appear at any time.  The allocator
-	# issues removals only for completed subscriptions, so the
-	# blocks must indeed be closed.
+        # Mark the block deletion request completed if it has file
+        # deletion requests and they are all completed.
 	($stmt, $nrow) = &dbexec ($dbh, qq{
-	    update t_dps_block_delete bd
-	    set time_complete = :now
-	    where time_complete is null and not exists
-	      (select 1 from t_xfer_delete xd
-	       join t_xfer_file f on f.id = xd.fileid
-	       where xd.time_complete is null
-	         and xd.node = bd.node
-	         and f.inblock = bd.block)},
-	    ":now" => &mytimeofday());
-
+          merge into t_dps_block_delete bd
+          using (select xd.node, xf.inblock, count(*) n_exist, sum(nvl2(xd.time_complete, 1, 0)) n_complete
+                   from t_xfer_delete xd
+	           join t_xfer_file xf on xf.id = xd.fileid
+                   join t_dps_block_delete bd on bd.block = xf.inblock
+		  where bd.time_complete is null
+	          group by xd.node, xf.inblock) d_check
+             on (d_check.node = bd.node
+                 and d_check.inblock = bd.block
+                 and d_check.n_exist != 0
+                 and d_check.n_exist = d_check.n_complete)
+          when matched then update set bd.time_complete = :now
+      },
+				  ":now" => &mytimeofday());
     	$dbh->commit();
 
         &logmsg ("$nrow blocks marked deleted") if $nrow > 0;
