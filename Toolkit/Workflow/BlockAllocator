@@ -110,8 +110,8 @@ sub idle
 	&logmsg ("$nrows block destinations withdrawn: no subscription")
 	    if $nrows > 0;
 
-	# Remaining block destinations are valid.  Mark complete the
-	# block destinations which have all files fully replicated.
+	# Remaining block destinations are valid.  Mark done the
+	# block destinations which are of closed blocks and have all files fully replicated.
 	($stmt, $nrows) = &dbexec ($dbh, qq{
 	    update (select bd.state, bd.time_complete
 	            from t_dps_block_dest bd
