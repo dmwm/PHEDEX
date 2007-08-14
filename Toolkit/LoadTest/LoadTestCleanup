@@ -69,7 +69,7 @@ sub idle
     {
 	$dbh = &connectToDatabase ($self);
 
-	my ($q, $nrow) = &dbexed($dbh,
+	my ($q, $nrow) = &dbexec($dbh,
 	  qq{ delete from t_dps_block b
                where b.is_open = 'n'
 	         and b.name like '%LoadTest%'
