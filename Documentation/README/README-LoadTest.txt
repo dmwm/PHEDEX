@@ -1,45 +1,54 @@
-This document explains how to participate in the CMS transfer load
-test: continuous 20 MB/s sustained transfer load to every site.
+Instructions on how to use the LoadTest07 sample creator.  Scripts are
+found in PHEDEX/Toolkit/LoadTest/
 
-** Creating a load test sample for your site
+The main tool here is the CreateFile script which explains itself hopefully well 
+enough when executed without arguments. It creates basically a single file of the 
+sample and the relevant info files for injection. There are other tools present 
+to help in automating the process of full sample creation as well as merging the 
+output injection files into a single file. 
 
-SITECONF/CERN/LoadTest has utilities you should use to prepare and
-copy a load test sample to your site.  You will need to replace
-"TX_Foo" with your site name, for example "T1_FNAL" or "T2_Spain".
+There are a number of copy scripts which are used in different environments to 
+stage the created file out to storage. I have provided two scripts: cp.sh and 
+srm.sh. The first one is just a basic cp of the file from local dir to the 
+target directory and should serve as a template on what people can base their 
+copy script based on their storage. Basically changing the command used from 
+cp to say rfcp and supplying the relevant arguments should be enough to make 
+it work. srm.sh is a script which will perform the srmcp command with debug 
+enabled and with 3 retries. If you need any extra options, feel free to 
+update the script. In any case you need to update the srm basename to where
+you want to copy the files.
 
-   SITECONF/CERN/LoadTest/CreateSample TX_Foo
-   SITECONF/CERN/LoadTest/CopySample TX_Foo srm://.../phedex_loadtest
-   PHEDEX/Toolkit/Request/TMDBInject -strict -verbose \
-     -db SITECONF/Foo/PhEDEx/DBParam:SC4/FOO \
-     -nodes TX_Foo_Load -filedata LoadTest_TX_Foo.xml
+Now to actually create the full sample of 256 files you have three options:
 
-The srm://.../phedex_loadtest should be the SRM directory into which
-you want to copy the load test sample files, ideally on disk-only
-storage or at the very least tape migration disabled.  There should be
-several hundred gigabytes free space.
+1. Create locally all in one go.
 
-** Setting up agents
+ To do that you can use the create_locally.sh which will take about 21 - 24
+hours based on your local machine performance. It basically creates the files
+in sequence, hence the delay. Also modify the script to suit your copy script
+as it currently uses srm.sh.
 
-You need to set up agents for TX_Foo_Load (again adjust name):
-  - FileDownload for transfers
-  - FileDiskExport for exports.
-  - FilePFNExport for PFN generation.
-  - FileRecycler to delete the downloaded files.
-  - InfoDropStatus to update agent status.
+2. Over Grid using a WMS and parametric job
 
-Of these, you may need to add just FileDownload and FileRecycler, and
-reuse the rest of the agents from your normal site configuration.
+ The supplied template jdl is present in the file create_parallel.jdl. Modify
+it again according to your need. Basically all you need to change is the
+Arguments to match the sample filename and the matching process to match to
+you local compute element. It uses srm.sh as the stageout so please fix the
+srm basename in srm.sh as well.
 
-You can examine the entire configuration CERN uses for SC4 and load
-test in particular in SITECONF/CERN/PhEDEx/Config.SC4.  Note that the
-file mentions many infrastructure agents you do not need to run; the
-"normal" agents are in the section labeled "ConfigPart.Common", and
-the agents specifically for the load test are in the section labeled
-"ConfigPart.LoadTest".
+3. In local batch system
 
-Make sure your storage.xml is able to map the load test files from the
-SRM directory you created.  See SITECONF/CERN/PhEDEx/storage.xml for
-an example.
+To be done :) Volunteers welcome. 
 
+In the end you will need to merge the injection files to one and for that I
+have provided the merge_injection_files.sh script. It searches in the current
+folder and subfolder for the relevant files and merges them together to
+LoadTest07_files_info file. As it uses subdirs as well, then the output
+directory of the parametric job will do just fine as long as it's in the
+current working directory.
 
-     
+Once you have done all of the above, you have the sample in your storage and
+the file needed for injection. Now all you have to do is send the information
+with the injection data and your LFN for the LT07 sample files to
+cms-phedex-admins@cern.ch for central injection.
+
+If you have any more questions, just ask: mario.kadastik@cern.ch
