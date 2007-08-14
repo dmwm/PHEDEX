@@ -35,11 +35,11 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG})
     die "Insufficient parameters, use -h for help.\n";
 }
 
-(new BlockDelete (%args))->process();
+(new LoadTestCleanup (%args))->process();
 
 ######################################################################
 # Routines for this agent.
-package BlockDelete; use strict; use warnings; use base 'UtilsAgent';
+package LoadTestCleanup; use strict; use warnings; use base 'UtilsAgent';
 use UtilsLogging;
 use UtilsTiming;
 use UtilsDB;
