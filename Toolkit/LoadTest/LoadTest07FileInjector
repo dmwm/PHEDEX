@@ -1,0 +1,395 @@
+#!/usr/bin/env perl
+
+##H    Usage:
+##H
+##H    LoadTest07FileInjector -site SITE -destinations [DESTINATIONS] -instance INSTANCE    \
+##H         -phedex_base PHEDEX_BASE  [-inbox INBOX]  [-injectnow NB_OF_INJECTIONS]     \ 
+##H         [-rate RATE] [-dbs DBS] [-dls DLS] [-closeblocks]
+##H
+##H    Example:
+##H
+##H    LoadTest07FileInjector -site CERN -destinations FNAL,RAL,CNAF,FZK,IN2P3,PIC       \ 
+##H       -instance dev -phedex_base /data/DevNodes  -injectnow 100                  \
+##H       -inbox /data/DevNodes/Dev_T0_CERN_Export/state/drop-publish/inbox
+##H
+##H    -destinations    put the destination as part of dataset, block and lf names 
+##H    -inbox    directory where to create xml drops
+##H    -rate     number of MB/s of data injected in each dataset 
+##H    -injectnow      number of injections to be created at once
+##H    -nocloseblocks    do not close blocks when full
+##H
+##H    Script creates a PhEDEx drop with one file in each of 20 streams (datasets) by some rate 
+##H    in MB/s per stream (dataset). Then it puts this drop into a PhEDEx drop-box.
+##H    It's required to have the "LoadTest07_files_info" file in the same directory where the 
+##H    LoadTest07FileInjector is. This file is maping LoadTest07 file names with its file size and chksum.
+##H    If you are not running the 'drop-publish' agent at your site you could use LoadTest07 drop-box.
+##H    The LoadTest07 drop-box is configured in Config.LoadTest07 file.
+##H
+
+BEGIN {
+        $^W = 1; use strict; use warnings;
+        our $me = $0; $me =~ s|.*/||;
+	our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../../PHEDEX/Toolkit/Common";
+        unshift(@INC, $home);
+}
+
+
+# Process command line arguments.
+use Getopt::Long;
+use UtilsHelp;
+use UtilsDB;
+use UtilsCatalogue;
+use UtilsTiming;
+
+my %args = ( PROTOCOL => 'direct' );
+&GetOptions ("rate=s"		=> sub { push(@{$args{RATE}}, split(/,/, $_[1]))},
+	     "site=s"		=> sub { push(@{$args{SITE}}, split(/,/, $_[1]))},
+	     "destinations=s"	=> \$args{DESTINATIONS},
+             "phedex_base=s"	=> sub { push(@{$args{PHEDEX_BASE}}, split(/,/, $_[1]))},
+             "instance=s"	=> sub { push(@{$args{INSTANCE}}, split(/,/, $_[1]))},
+             "dbs=s"		=> sub { push(@{$args{DBS}}, split(/,/, $_[1]))},
+             "dls=s"		=> sub { push(@{$args{DLS}}, split(/,/, $_[1]))},
+             "inbox=s"		=> sub { push(@{$args{INBOX}}, split(/,/, $_[1]))},
+             "injectnow=n"	=> sub { push(@{$args{MAX}}, split(/,/, $_[1]))},
+             "nocloseblocks"	=> \$args{NOCLOSEBLOCKS},
+             "help|h"		=> sub { &usage() }
+	     );
+
+if(!$args{SITE}  || !$args{PHEDEX_BASE} || !$args{INSTANCE}){
+    die ("Not all arguments are defined! Use -h for help. \n");
+}
+
+if(!$args{INBOX}){
+    print "Using default INBOX: /data/DevNodes/Dev_T0_CERN_Export/state/drop-publish/inbox ";
+    $inbox = "/data/DevNodes/Dev_T0_CERN_Export/state/drop-publish/inbox";
+}
+else{
+    $inbox = $args{INBOX}[0];
+}
+
+if(!$args{MAX}){
+    print "Using default maximum number of injections = 33 \n";
+    $MAX_NUMBER_OF_INJECTIONS = 33;
+}
+else{
+    $MAX_NUMBER_OF_INJECTIONS = $args{MAX}[0];
+}
+
+
+our $DATAFILE_PATH = $args{PHEDEX_BASE}[0]."/SITECONF/".$args{SITE}[0]."/PhEDEx/LoadTest07_stat";
+our $SIZECHKSUM_PATH = $args{PHEDEX_BASE}[0]."/SITECONF/".$args{SITE}[0]."/PhEDEx/LoadTest07_files_info";
+our $INJECTIONFILE_PATH = "injection";
+our $INJECTIONDDIRECTORYBASE_PATH = $inbox."/LoadTest07";
+our $PREFIX = "/PhEDEx_".$args{INSTANCE}[0]."/LoadTest07";
+our $NUMBER_OF_FILES_IN_A_BLOCK = 100;
+our $NUMBER_OF_DATASETS = 20;
+
+our %LastInfo = ();
+our %CurrentInfo = ();
+our %HashOfOneInjectionFile = ();
+our %NameIndexHash = ();
+our %HexSizeHash = ();
+our %HexChkSumHash = ();
+our @FileRandomNumbers = ();
+our $speed = undef;
+our $dbs = undef;
+our $dls = undef;
+our $file_size = 2500;
+our $destinations = undef;
+#`rm $injected_files_path*`;
+
+# Check arguments.
+
+if(!$args{RATE}){
+	print "Using default rate (3MB/s)\n";
+	$speed = 3;
+	print "Speed: $speed\n";
+}
+elsif($args{RATE}[0] == 0){
+	die ("No injection to do\n");
+}
+else{
+	$speed = $args{RATE}[0];
+        print "Speed: $speed\n";
+}
+
+if(!$args{SITE}){
+	die ("No -site argument defined! Use -h for help. \n");
+}
+
+if(!$args{DBS}){
+	print "Using default DBS: LoadTest07\n";
+	$dbs = "LoadTest07";
+}
+else{
+	$dbs = $args{DBS}[0];
+}
+
+if(!$args{DLS}){
+	print "Using default DLS: lfc:unknown \n";
+	$dls = "lfc:unknown";
+}
+else{
+	$dls = $args{DLS}[0];
+}
+
+if ($args{DESTINATIONS}){
+	$destinations = [ split m|,\s*|, $args{DESTINATIONS} ];
+}
+
+
+
+#Create file with the last info if it doesn't exist
+if (!-e $DATAFILE_PATH){
+	my $path = $DATAFILE_PATH;
+	my $act_time = time;
+	open (INFO, ">$path") || die ("Could not open file: ".$path."\n");
+        print INFO "Time=$act_time\n";
+        print INFO "Count=-1\n";
+        print INFO "Block=0\n";
+        print INFO "Injection=0\n";
+	close (INFO);
+}
+
+#Create the hash with the last info
+&getLastInfo;
+print "Last data retrieved\n";
+
+%CurrentInfo = %LastInfo;
+
+#Determine the number of injection's files
+&setCurrentTimeOfInjection();
+
+if(&NumberOfInjections < 1) { die ("No injection to do\n");}
+
+#Determine file size and checksum for hex index
+&setSizeChksum();
+
+&CreateInjectionFile ();
+
+&setCurrentInfo();
+#END
+#---------------------------------------------------------------------------------------------------------------------
+sub CreateInjectionFile
+{
+	my $directory_path = $INJECTIONDDIRECTORYBASE_PATH;
+	my $path = $INJECTIONFILE_PATH;
+	my $injections = int(&NumberOfInjections());
+	print "Injection file path: $path\n";
+	for (my $i=0; $i < $injections; $i++){
+		&getInjectionInfo();	
+		$k = sprintf("%08d",&setCurrentInjectionNumber());
+		print "$k\n";
+		`mkdir $directory_path$k`;
+		print "Creating injection file #$i...\n";
+		my $j = 0;
+		open (INFO, ">$directory_path$k/$path.xml") || die ("Could not open file: ".$directory_path."".$k."/".$path.".xml\n");
+		print INFO "<dbs name=\"".$dbs."\"  dls=\"".$dls."\">\n";
+		while ( my ($File, $Block) = each(%HashOfOneInjectionFile) ){
+			my $filesize = $HexSizeHash{$NameIndexHash{$File}};
+			my $chksum = $HexChkSumHash{$NameIndexHash{$File}};
+			
+			if (defined @$destinations){
+				print INFO "\t<dataset name=\"".$PREFIX."_".$args{SITE}[0]."/".@$destinations[$j]."\" is-open=\"y\" is-transient=\"y\">\n";
+				my $Time2CloseBlock = &getLastCountNumber();
+				if(($Time2CloseBlock == $NUMBER_OF_FILES_IN_A_BLOCK - 2) && !$args{NOCLOSEBLOCKS}) {print INFO "\t\t<block name=\"".$Block."_".$args{SITE}[0]."_".@$destinations[$j]."#".&getCurrentBlockNumber()."\"\ is-open=\"n\">\n"; }
+		        	else { print INFO "\t\t<block name=\"".$Block."_".$args{SITE}[0]."_".@$destinations[$j]."#".&getCurrentBlockNumber()."\" is-open=\"y\">\n";  }
+				print INFO "\t\t\t<file lfn=\"/store/PhEDEx_LoadTest07/LoadTest07_".$args{INSTANCE}[0]."_".$args{SITE}[0]."/".@$destinations[$j]."/$File\" size=\"$filesize\" checksum=\"cksum:$chksum\"/>\n";
+			
+			}
+			else{
+				print INFO "\t<dataset name=\"".$PREFIX."_".$args{SITE}[0]."/".$j."\" is-open=\"y\" is-transient=\"y\">\n";
+				my $Time2CloseBlock = &getLastCountNumber();
+				if(($Time2CloseBlock == $NUMBER_OF_FILES_IN_A_BLOCK - 2) && !$args{NOCLOSEBLOCKS}) {print INFO "\t\t<block name=\"".$Block."_".$args{SITE}[0]."_".$j."#".&getCurrentBlockNumber()."\"\ is-open=\"n\">\n"; }
+		        	else { print INFO "\t\t<block name=\"".$Block."_".$args{SITE}[0]."_".$j."#".&getCurrentBlockNumber()."\" is-open=\"y\">\n";  }
+				print INFO "\t\t\t<file lfn=\"/store/PhEDEx_LoadTest07/LoadTest07_".$args{INSTANCE}[0]."_".$args{SITE}[0]."/".$j."/$File\" size=\"$filesize\" checksum=\"cksum:$chksum\"/>\n";
+			}
+			print INFO "\t\t</block>\n";
+			print INFO "\t</dataset>\n";
+			$j++;
+		}
+		print INFO "</dbs>"; 
+		close (INFO);
+		%HashOfOneInjectionFile = ();
+		`touch $directory_path$k/go`;
+	}
+}
+
+sub getInjectionInfo
+{
+#Creating an injection info
+        my $CompleteBlockName = $PREFIX;
+        my $BlockNumber = &getCurrentBlockNumber();
+	my $number_of_datasets = 0;
+	if (defined @$destinations){
+		$no_datasets = "".@$destinations;
+	}
+	else {
+		$no_datasets = $NUMBER_OF_DATASETS;
+	}
+	
+	for (my $i = 0; $i < $no_datasets; $i++){
+		my $filesize = 0;
+		my $randomHex;
+		while ( !$filesize ) {
+        		$randomHex = &getRandomFileNumber();
+        		$filesize = $HexSizeHash{$randomHex};
+		}
+        	my $chksum = $HexChkSumHash{$randomHex};
+	       	my $CompleteFileName = $BlockNumber."/LoadTest07_".$args{SITE}[0]."_".$randomHex."_".&getRandomSufix()."_".&getCurrentBlockNumber();
+	       	$HashOfOneInjectionFile{$CompleteFileName} = $CompleteBlockName;
+	       	$NameIndexHash{$CompleteFileName} = $randomHex;
+	}
+        &setCurrentCountNumber();
+}
+
+sub NumberOfInjections
+{
+	my $TotalTime = &getCurrentTimeOfInjection() - &getLastTimeOfInjection();
+        print "Time:".$TotalTime."  actual:  ". &getCurrentTimeOfInjection()."\n";
+	my $TimerPerFile = $file_size/$speed;
+	my $number = $TotalTime/$TimerPerFile;
+	
+	if ( $number >= $MAX_NUMBER_OF_INJECTIONS ){
+		$number = $MAX_NUMBER_OF_INJECTIONS;
+	}
+	if($args{MAX}[0]) {$number = $MAX_NUMBER_OF_INJECTIONS;};
+
+	print "Number of injections: $number\n";
+	return $number;
+}
+
+sub setSizeChksum
+{
+        my $path = $SIZECHKSUM_PATH;
+        print "File size and checksum path: ".$SIZECHKSUM_PATH."\n";
+        open (INFO, "<$path") || die ("Could not open file: ".$SIZECHKSUM_PATH."\n");
+        @raw_data=<INFO>;
+        foreach $line (@raw_data){
+                chop($line);
+                my @tmp = split (/,/, $line);
+                $HexSizeHash{$tmp[0]}= &rtrim($tmp[2]);
+		$HexChkSumHash{$tmp[0]}=$tmp[1];
+        }
+        close (INFO);
+}
+
+sub getLastInfo
+{
+	my $path = $DATAFILE_PATH;
+	print "Data file path: ".$DATAFILE_PATH."\n";
+	open (INFO, "<$path") || die ("Could not open file: ".$DATAFILE_PATH."\n");
+	@raw_data=<INFO>;
+	foreach $line (@raw_data){
+		chop($line);
+		print "Data file lines: $line\n";
+		my @tmp = split (/=/, $line);
+		$LastInfo{$tmp[0]} = $tmp[1];
+	}
+	close (INFO);
+}
+
+sub getLastTimeOfInjection
+{
+    return $LastInfo{"Time"};
+}
+
+sub getLastCountNumber
+{
+	return $LastInfo{"Count"};
+}
+
+sub getLastBlockNumber
+{
+	return $LastInfo{"Block"};
+}
+
+sub getLastInjectionNumber
+{
+	return $LastInfo{"Injection"};
+}
+
+sub setCurrentInfo
+{
+	my $path = $DATAFILE_PATH;
+	open (INFO, ">$path") || die ("Could not open file: ".$DATAFILE_PATH."\n");
+	while ( my ($InfoKey, $InfoValue) = each(%CurrentInfo) ) {              
+		print INFO "$InfoKey=$InfoValue\n";
+	}
+	close (INFO);
+}
+
+sub setCurrentTimeOfInjection
+{
+	$CurrentInfo{"Time"} = time;
+}
+
+sub setCurrentCountNumber
+{
+	my $Count = $CurrentInfo{"Count"};
+        $LastInfo{"Count"} = $Count;
+	if ( $Count == $NUMBER_OF_FILES_IN_A_BLOCK-1){
+		$Count = 0;
+		$CurrentInfo{"Count"} = $Count;
+		&setCurrentBlockNumber();
+	}
+	else{
+		$Count = $Count + 1;
+		$CurrentInfo{"Count"} = $Count;
+	}
+}
+
+sub setCurrentBlockNumber
+{
+	my $Block = $CurrentInfo{"Block"};
+	$LastInfo{"Block"} = $Block;
+	$Block++;
+	$CurrentInfo{"Block"} = $Block;
+}
+
+sub getCurrentTimeOfInjection
+{
+	return $CurrentInfo{"Time"};
+}
+
+sub getCurrentCountNumber
+{
+	return $CurrentInfo{"Count"};
+}
+
+sub setCurrentInjectionNumber
+{
+	my $Injection = $CurrentInfo{"Injection"};
+	$LastInfo{"Injection"} = $Injection;
+	$Injection++;
+	$CurrentInfo{"Injection"} = $Injection;
+	return $CurrentInfo{"Injection"};
+}
+
+sub getCurrentBlockNumber
+{
+	return $CurrentInfo{"Block"};
+}
+
+sub getRandomFileNumber
+{
+	my $tmp = int (rand (256));
+	return sprintf ("%0.2X",$tmp);
+
+}
+
+sub getRandomSufix
+{
+	@chars = ( "A" .. "Z", "a" .. "z", 0 .. 9);
+	return join("", @chars[ map { rand @chars } ( 1 .. 8 )]);
+}
+
+sub rtrim($)
+{
+     my $string = shift;
+     $string =~ s/\s+$//;
+     return $string;
+}
+
+1;
+__END__
