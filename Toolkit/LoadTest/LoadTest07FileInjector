@@ -4,7 +4,7 @@
 ##H
 ##H    LoadTest07FileInjector -site SITE -destinations [DESTINATIONS] -instance INSTANCE    \
 ##H         -phedex_base PHEDEX_BASE  [-inbox INBOX]  [-injectnow NB_OF_INJECTIONS]     \ 
-##H         [-rate RATE] [-dbs DBS] [-dls DLS] [-closeblocks]
+##H         [-rate RATE] [-dbs DBS] [-dls DLS] [-blocksize BLOCKSIZE] [-datasets DATASETS] [-nocloseblocks]
 ##H
 ##H    Example:
 ##H
@@ -13,12 +13,14 @@
 ##H       -inbox /data/DevNodes/Dev_T0_CERN_Export/state/drop-publish/inbox
 ##H
 ##H    -destinations    put the destination as part of dataset, block and lf names 
-##H    -inbox    directory where to create xml drops
-##H    -rate     number of MB/s of data injected in each dataset 
-##H    -injectnow      number of injections to be created at once
-##H    -nocloseblocks    do not close blocks when full
+##H    -inbox           directory where to create xml drops
+##H    -rate            number of MB/s of data injected in each dataset 
+##H    -injectnow       number of injections to be created at once
+##H    -blocksize       number of files in a block, default 100
+##H    -datasets        number of datasets, default 20
+##H    -nocloseblocks   do not close blocks when full
 ##H
-##H    Script creates a PhEDEx drop with one file in each of 20 streams (datasets) by some rate 
+##H    Script creates a PhEDEx drop with one file in each of N streams (datasets) by some rate 
 ##H    in MB/s per stream (dataset). Then it puts this drop into a PhEDEx drop-box.
 ##H    It's required to have the "LoadTest07_files_info" file in the same directory where the 
 ##H    LoadTest07FileInjector is. This file is maping LoadTest07 file names with its file size and chksum.
@@ -51,6 +53,8 @@ my %args = ( PROTOCOL => 'direct' );
              "dls=s"		=> sub { push(@{$args{DLS}}, split(/,/, $_[1]))},
              "inbox=s"		=> sub { push(@{$args{INBOX}}, split(/,/, $_[1]))},
              "injectnow=n"	=> sub { push(@{$args{MAX}}, split(/,/, $_[1]))},
+	     "blocksize=n"      => \$args{BLOCKSIZE},
+	     "datasets=n"       => \$args{DATASETS},
              "nocloseblocks"	=> \$args{NOCLOSEBLOCKS},
              "help|h"		=> sub { &usage() }
 	     );
@@ -67,12 +71,30 @@ else{
     $inbox = $args{INBOX}[0];
 }
 
+our $MAX_NUMBER_OF_INJECTIONS = 33;
+
 if(!$args{MAX}){
-    print "Using default maximum number of injections = 33 \n";
-    $MAX_NUMBER_OF_INJECTIONS = 33;
+    print "Using default maximum number of injections $MAX_NUMBER_OF_INJECTIONS\n";
 }
 else{
     $MAX_NUMBER_OF_INJECTIONS = $args{MAX}[0];
+}
+
+our $NUMBER_OF_FILES_IN_A_BLOCK = 100;
+our $NUMBER_OF_DATASETS = 20;
+
+if (!$args{BLOCKSIZE}){
+    print "Using default block size $NUMBER_OF_FILES_IN_A_BLOCK\n";
+}
+else{
+    $NUMBER_OF_FILES_IN_A_BLOCK = $args{BLOCKSIZE};
+}
+
+if (!$args{DATASETS}){
+    print "Using default number of datasets $NUMBER_OF_DATASETS\n";
+}
+else {
+    $NUMBER_OF_DATASETS = $args{DATASETS};
 }
 
 
@@ -81,8 +103,6 @@ our $SIZECHKSUM_PATH = $args{PHEDEX_BASE}[0]."/SITECONF/".$args{SITE}[0]."/PhEDE
 our $INJECTIONFILE_PATH = "injection";
 our $INJECTIONDDIRECTORYBASE_PATH = $inbox."/LoadTest07";
 our $PREFIX = "/PhEDEx_".$args{INSTANCE}[0]."/LoadTest07";
-our $NUMBER_OF_FILES_IN_A_BLOCK = 100;
-our $NUMBER_OF_DATASETS = 20;
 
 our %LastInfo = ();
 our %CurrentInfo = ();
@@ -192,7 +212,7 @@ sub CreateInjectionFile
 			if (defined @$destinations){
 				print INFO "\t<dataset name=\"".$PREFIX."_".$args{SITE}[0]."/".@$destinations[$j]."\" is-open=\"y\" is-transient=\"y\">\n";
 				my $Time2CloseBlock = &getLastCountNumber();
-				if(($Time2CloseBlock == $NUMBER_OF_FILES_IN_A_BLOCK - 2) && !$args{NOCLOSEBLOCKS}) {print INFO "\t\t<block name=\"".$Block."_".$args{SITE}[0]."_".@$destinations[$j]."#".&getCurrentBlockNumber()."\"\ is-open=\"n\">\n"; }
+				if(($Time2CloseBlock >= $NUMBER_OF_FILES_IN_A_BLOCK - 2) && !$args{NOCLOSEBLOCKS}) {print INFO "\t\t<block name=\"".$Block."_".$args{SITE}[0]."_".@$destinations[$j]."#".&getCurrentBlockNumber()."\"\ is-open=\"n\">\n"; }
 		        	else { print INFO "\t\t<block name=\"".$Block."_".$args{SITE}[0]."_".@$destinations[$j]."#".&getCurrentBlockNumber()."\" is-open=\"y\">\n";  }
 				print INFO "\t\t\t<file lfn=\"/store/PhEDEx_LoadTest07/LoadTest07_".$args{INSTANCE}[0]."_".$args{SITE}[0]."/".@$destinations[$j]."/$File\" size=\"$filesize\" checksum=\"cksum:$chksum\"/>\n";
 			
@@ -200,7 +220,7 @@ sub CreateInjectionFile
 			else{
 				print INFO "\t<dataset name=\"".$PREFIX."_".$args{SITE}[0]."/".$j."\" is-open=\"y\" is-transient=\"y\">\n";
 				my $Time2CloseBlock = &getLastCountNumber();
-				if(($Time2CloseBlock == $NUMBER_OF_FILES_IN_A_BLOCK - 2) && !$args{NOCLOSEBLOCKS}) {print INFO "\t\t<block name=\"".$Block."_".$args{SITE}[0]."_".$j."#".&getCurrentBlockNumber()."\"\ is-open=\"n\">\n"; }
+				if(($Time2CloseBlock >= $NUMBER_OF_FILES_IN_A_BLOCK - 2) && !$args{NOCLOSEBLOCKS}) {print INFO "\t\t<block name=\"".$Block."_".$args{SITE}[0]."_".$j."#".&getCurrentBlockNumber()."\"\ is-open=\"n\">\n"; }
 		        	else { print INFO "\t\t<block name=\"".$Block."_".$args{SITE}[0]."_".$j."#".&getCurrentBlockNumber()."\" is-open=\"y\">\n";  }
 				print INFO "\t\t\t<file lfn=\"/store/PhEDEx_LoadTest07/LoadTest07_".$args{INSTANCE}[0]."_".$args{SITE}[0]."/".$j."/$File\" size=\"$filesize\" checksum=\"cksum:$chksum\"/>\n";
 			}
@@ -220,7 +240,6 @@ sub getInjectionInfo
 #Creating an injection info
         my $CompleteBlockName = $PREFIX;
         my $BlockNumber = &getCurrentBlockNumber();
-	my $number_of_datasets = 0;
 	if (defined @$destinations){
 		$no_datasets = "".@$destinations;
 	}
