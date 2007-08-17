@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog,v 1.7 2007/08/07 11:25:14 metson Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.8 2007/08/08 15:10:44 dfeichti Exp $:
 ###############################################################################
 
 use strict;
@@ -20,6 +20,7 @@ my $flag_verbose=0;
 my $flag_debug=0;
 my $flag_checkdate=0;
 my $flag_bunchDetect=0;
+my $flag_errhisto=0;
 
 my $errmsglen=165; # length of error messages to use (error will be cut)
 
@@ -32,7 +33,8 @@ usage: InspectPhedexLog [options] logfile1 [logfile2 ...]
    options:
       -e    also show error statistics (summary over error messages)
          -r    do not try to regexp-process errors messages, but show raw
-               error messages (!!gigantic output)
+                 error messages (!!gigantic output)
+         -H    print simple histograms for every error class
       -v    verbose   Prints task IDs for the collected errors (useful for
                       closer investigation). Also prints multiply failed files
                       that were never transferred correctly
@@ -77,13 +79,14 @@ EOF
 
 # OPTION PARSING
 my %option=();
-getopts("bdehrs:t:v",\%option);
+getopts("bdehHrs:t:v",\%option);
 
 
 $flag_bunchDetect=1 if(defined $option{"b"});
 $flag_showErrors=1 if(defined $option{"e"});
 $flag_rawErrors=1 if(defined $option{"r"});
 $flag_verbose=1 if(defined $option{"v"});
+$flag_errhisto=1 if(defined $option{"H"});
 $flag_debug=1 if(defined $option{"d"});
 
 if (defined $option{"h"}) {
@@ -134,10 +137,9 @@ foreach my $log (@logfiles) {
 	   die "Error: Parsing problem with line:\n$line";
 	 }
 
+	 my $epdate=DateToUnixEpochSeconds($date);
          if($flag_checkdate) {
-            my ($Y,$M,$D,$h,$m,$s) = $date =~ m/(\d+)-(\d+)-(\d+)\s+(\d+):(\d+):(\d+)/;
             #print "$line\n$date   $Y,$M,$D,$h,$m,$s\n"; #    $epdate $dstart $dend \n";
-            my $epdate=timelocal($s,$m,$h,$D,$M-1,$Y);
             next if $epdate < $dstart or $dend < $epdate;
          }
 
@@ -212,8 +214,14 @@ foreach my $log (@logfiles) {
 
 	       $reason = "no detail - validate failed: $valreason";
 	     }
+
+	     if( $reason eq "transfer expired in the download agent queue" or $reason =~ /^\s*Canceled.*/) {
+	       $sitestat{"$from"}{"EXP"}++;
+	     }
+
 	     $errinfo{$from}{$reason}{num}++;
 	     push @{$errinfo{$from}{$reason}{tasks}},$task;
+	     push @{$errinfo{$from}{$reason}{time}},$epdate if $flag_errhisto;
 
          }
 
@@ -234,8 +242,8 @@ foreach my $log (@logfiles) {
 	 }
 	 printf("$statstr $from  $fname  size=%.2f GB $date\n",$size/1024/1024/1024)  if $flag_debug;
 
-      }  elsif($line =~ /ORA-\d+.{40}/) {
-	my ($ora) = $line =~ m/(ORA-\d+.{40})/;
+      }  elsif($line =~ /ORA-\d+.{60}/) {
+	my ($ora) = $line =~ m/(ORA-\d+.{60})/;
 	($date) = $line =~ m/^(\d+-\d+-\d+\s+\d+:\d+:\d+):/;
 	$dberrinfo{$ora}{num}++;
 	push @{$dberrinfo{$ora}{"date"}}, DateToUnixEpochSeconds($date,"%s");
@@ -277,6 +285,12 @@ if($flag_showErrors) {
          foreach $reason (sort { $errinfo{$from}{$b}{num} <=> $errinfo{$from}{$a}{num} } keys %{$errinfo{$from}}) {
             printf("   %4d   $reason\n",$errinfo{$from}{$reason}{num});
 	    print "             task IDs: ", join(",",@{$errinfo{$from}{$reason}{tasks}}) . "\n\n" if $flag_verbose;
+
+	    if($flag_errhisto) {
+	      my $h=simpleHisto(\@{$errinfo{$from}{$reason}{"time"}},10);
+	      print "      simple histogram:\n";
+	      printTimeHisto($h);
+	    }
          }
       }
 
@@ -289,7 +303,10 @@ my ($MbperS,$MBperS);
 foreach my $site (sort {$a cmp $b} keys %sitestat) {
     $sitestat{$site}{"OK"}=0 if ! defined $sitestat{$site}{"OK"};
     $sitestat{$site}{"FAILED"}=0 if ! defined $sitestat{$site}{"FAILED"};
-    print "site: $site (OK: " . $sitestat{$site}{"OK"} . " / Err: " . $sitestat{$site}{"FAILED"} . ")";
+    $sitestat{$site}{"EXP"}=0 if ! defined $sitestat{$site}{"EXP"};
+
+    print "site: $site (OK: " . $sitestat{$site}{"OK"} . "   Err: " . ($sitestat{$site}{"FAILED"} - $sitestat{$site}{"EXP"})
+      . "   Exp/Canceled: " . $sitestat{$site}{"EXP"} . ")";
     printf("\tsucc. rate: %.1f %%", $sitestat{$site}{"OK"}/($sitestat{$site}{"OK"}+$sitestat{$site}{"FAILED"})*100) if ($sitestat{$site}{"OK"}+$sitestat{$site}{"FAILED"}) > 0;
     $sitestat{$site}{"size"}=0 if ! exists $sitestat{$site}{"size"};
     printf("   total: %.1f GB",$sitestat{$site}{"size"}/1e9);
@@ -306,7 +323,7 @@ foreach my $site (sort {$a cmp $b} keys %sitestat) {
 
 
 
-
+# simple 1D histo
 sub simpleHisto {
   my $data = shift; # ref to array of data values
   my $nbins = shift; # number of desired bins
