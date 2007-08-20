@@ -629,7 +629,6 @@ sub getBlocksFromWildCard
 }
 
 #-------------------------------------------------------------------------------
-# with wildcard 
 sub getDatasetFromWildCard
 {
   my $sql = qq {select name from t_dps_dataset where name like :dataset_wild };
