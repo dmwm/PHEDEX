@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-##H Deletes closed LoadTest blocks
+##H Deletes closed and deactivated LoadTest blocks
 ##H
 ##H Usage:
 ##H   LoadTestCleanup -state DIRECTORY -node NAME -db FILE[:SECTION]
@@ -69,18 +69,33 @@ sub idle
     {
 	$dbh = &connectToDatabase ($self);
 
-	my ($q, $nrow) = &dbexec($dbh,
-	  qq{ delete from t_dps_block b
-               where b.is_open = 'n'
-	         and b.name like '%LoadTest%'
-                 and not exists (select 1 from t_dps_block_replica br
-                                  where br.block = b.id
-                                   and br.is_active = 'y')
+	# Select deactivated blocks we can clean up.  Lock the block
+	# row for transactional consistency
+	my $qdel = &dbexec($dbh,
+	  qq{ select b.id, b.name from t_dps_block b
+                where b.is_open = 'n'
+	          and b.name like '%LoadTest%'
+                  and not exists (select 1 from t_dps_block_replica br
+                                   where br.block = b.id
+                                    and br.is_active = 'y')
+               for update
 	     });
 
+	# Iterate through the blocks deleting the files and blocks
+	while (my ($id, $name) = $qdel->fetchrow()) {
+	    my ($fdel, $nfiles) = &dbexec($dbh, qq{
+              delete from t_dps_file where inblock = :block
+	      }, ':block' => $id);
+
+            my ($bdel, $nblocks) = &dbexec($dbh, qq{
+              delete from t_dps_block where id = :block
+              }, ':block' => $id);
+    
+	    &logmsg("removing $name : $nfiles files");
+	}
+	
     	$dbh->commit();
 
-        &logmsg ("$nrow LoadTest blocks deleted") if $nrow > 0;
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
