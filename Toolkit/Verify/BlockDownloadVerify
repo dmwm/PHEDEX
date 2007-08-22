@@ -95,8 +95,11 @@ sub new
 sub doSizeCheck
 {
   my ($self, $drop, $request) = @_;
+  my ($n_files,$n_tested,$n_ok);
   my $dbh = undef;
   my @nodes = ();
+
+  my $dropdir = "$$self{WORKDIR}/$drop";
 
   my $bcc = UtilsBlockConsistencyCheck->new
 		(
@@ -111,6 +114,9 @@ sub doSizeCheck
   my $technology = $bcc->Buffers(@{$self->{NODES}});
   $ns->technology( $technology );
   $bcc->LFNRef($request->{LFNs});
+  print "Request ",$request->{ID},"\n";
+$DB::single=$debug_me;
+  $n_files = $request->{N_FILES};
   foreach my $r ( @{$request->{LFNs}} )
   {
     my $pfn = $bcc->lfn2pfn($r->{LOGICAL_NAME});
@@ -124,64 +130,49 @@ sub doSizeCheck
       $r->{STATUS} = 'Error';
     }
     $r->{TIME_REPORTED} = time();
-    print scalar localtime $r->{TIME_REPORTED}, " $r->{FILEID}: $r->{STATUS}\n";
+    print scalar localtime $r->{TIME_REPORTED}," $r->{FILEID}: $r->{STATUS} \r";
+    last unless --$n_files;
   }
+  print "\n";
 
-  ($dbh,@nodes) = &expandNodesAndConnect($self);
-  my ($n_files,$n_ok);
-  $n_files = $n_ok = 0;
-  foreach my $r ( @{$request->{LFNs}} )
+  eval
   {
-    $self->setFileState($request->{ID},$r);
-    $n_files++;
-    $n_ok++ if $r->{STATUS} eq 'OK';
-  }
-  $self->setRequestFilecount($request->{ID},$n_files,$n_ok);
-  if ( $n_ok == $n_files )
-  {
-    $self->setRequestState($request,'OK');
-  }
-  $dbh->commit();
-  &disconnectFromDatabase ($self, $dbh);
+    ($dbh,@nodes) = &expandNodesAndConnect($self);
+    $n_tested = $n_ok = 0;
+    $n_files = $request->{N_FILES};
+    foreach my $r ( @{$request->{LFNs}} )
+    {
+      next unless $r->{STATUS};
+      $self->setFileState($request->{ID},$r);
+      $n_tested++;
+      $n_ok++ if $r->{STATUS} eq 'OK';
+    }
+    $self->setRequestFilecount($request->{ID},$n_tested,$n_ok);
+    if ( $n_ok == $n_files )
+    {
+      $self->setRequestState($request,'OK');
+    }
+    if ( $n_tested == $n_files && $n_ok != $n_files )
+    {
+      $self->setRequestState($request,'Fail');
+      &touch ("$dropdir/done");
+      $self->relayDrop ($drop);
+    }
+    $dbh->commit();
+#   &disconnectFromDatabase ($self, $dbh);
+  };
 
 # my $result = $bcc->getOnWithItThen();
-
-  print "So far, so good...\n";
-
-return 1 unless $n_files - $n_ok;
-return 0;
-
-  my $status = eval
-  {
-    ($dbh, @nodes) = &expandNodesAndConnect ($self);
-	
-#   Issue file removal from disk now.
-#   my $log = "$$self{DROPDIR}/@{[time()]}.$$request{ID}.$$request{TEST_NAME}.log";
-#   $self->addJob( sub { $self->sizeCheckJob ($request, @_) },
-#     { TIMEOUT => 30, LOGFILE => $log, DB => $dbh },
-#     (@{$$self{CMD_RM}}, 'post', $$file{PFN}) );
-
-
-#   Report completition time to DB. If the physicval deletion fails,
-#   we will roll back.
-    my $now = &mytimeofday();
-#   &dbexec($dbh, qq{
-#     update t_xfer_delete set time_complete = :now
-#       where fileid = :fileid and node = :node},
-#       ":fileid" => $$file{FILEID}, ":node" => $$file{NODEID}, ":now" => $now);
-    return 1;
-  };
 
   do
   {
     chomp ($@);
     &alert ("database error: $@");
     eval { $dbh->rollback() } if $dbh;
-    $status = 0
+    return 0;
   } if $@;
     
-# Return status code to caller
-  return $status;
+  return $n_files == $n_ok ? 1 : 0;
 }
 
 sub sizeCheckJob
@@ -202,74 +193,87 @@ $DB::single=$debug_me;
 
 sub processDrop
 {
-    my ($self, $drop) = @_;
+  my ($self, $drop) = @_;
 
-    # Sanity checking
-    return if (! $self->inspectDrop ($drop));
-    delete $$self{BAD}{$drop};
-    &timeStart($$self{STARTTIME});
+# Sanity checking
+  return if (! $self->inspectDrop ($drop));
+  delete $$self{BAD}{$drop};
+  &timeStart($$self{STARTTIME});
 
-    # Read back file information
-    my $dropdir = "$$self{WORKDIR}/$drop";
-    my $request = do { no strict "vars"; eval &input ("$dropdir/packet") };
-    my $bad = 0;
-    $bad = 1 if ($@ || !$request );
-    foreach ( qw/ BLOCK ID LFNs N_FILES PRIORITY TEST TEST_NAME TIME_EXPIRE / )
-    {
-      $bad = 1 unless defined $request->{$_};
-    }
-    if ( $bad )
-    {
-	&alert ("corrupt packet in $drop");
-        $self->setRequestState($request,'Rejected');
-	$self->markBad ($drop);
-	return;
-    }
-
-#   I can only process size-checks for now. Reject anything else
-    if ( $request->{TEST_NAME} eq 'size' )
-    {
-      my $result = $self->doSizeCheck ($drop, $request);
-$DB::single=1;
-      return if ! $result;
-    }
-#   elsif ( $request->{TEST_NAME} eq 'migration' ) { }
-#   elsif ( $request->{TEST_NAME} eq 'cksum' ) { }
-#   elsif ( $request->{TEST_NAME} eq 'dbs' ) { }
-    else
-    {
+# Read back file information
+  my $dropdir = "$$self{WORKDIR}/$drop";
+  my $request = do { no strict "vars"; eval &input ("$dropdir/packet") };
+  my $bad = 0;
+  $bad = 1 if ($@ || !$request );
+  foreach ( qw/ BLOCK ID LFNs N_FILES PRIORITY TEST TEST_NAME TIME_EXPIRE / )
+  {
+    $bad = 1 unless defined $request->{$_};
+  }
+  if ( $bad )
+  {
+    &alert ("corrupt packet in $drop");
       $self->setRequestState($request,'Rejected');
-      $self->markBad($drop);
-      return;
-    }
-#    # Try deleting this file.  If something fails, keep this drop as
-#    # is, we'll come back to it later.
-##   return if ! $self->deleteOneFile ($drop, $file);
-#
-#   Mark drop done so it will be nuked
+    $self->markBad ($drop);
+    return;
+  }
+
+  if ( $request->{TIME_EXPIRE} <= time() )
+  {
+    $self->setRequestState($request,'Expired');
+    $self->{DBH}->commit();
     &touch ("$dropdir/done");
-#
-#    # Log transfer delay stats
-#    my $dtransfer = &mytimeofday() - $$file{TIME_START};
-#    &logmsg ("xstats: $$file{NODE} " . sprintf('%.2fs', $dtransfer)
-#	     . " $$file{LFN} => $$file{PFN}");
-#
-    # OK, got far enough to nuke and log it
-$DB::single=$debug_me;
     $self->relayDrop ($drop);
+    return;
+  }
+
+# I can only process size-checks for now. Reject anything else
+  if ( $request->{TEST_NAME} eq 'size' )
+  {
+    $self->setRequestState($request,'Active');
+    $self->{DBH}->commit();
+    my $result = $self->doSizeCheck ($drop, $request);
+    return if ! $result;
+  }
+# elsif ( $request->{TEST_NAME} eq 'migration' )
+# {
+# }
+# elsif ( $request->{TEST_NAME} eq 'cksum' )
+# {
+# }
+# elsif ( $request->{TEST_NAME} eq 'dbs' )
+# {
+# }
+  else
+  {
+    $self->setRequestState($request,'Rejected');
+    $self->{DBH}->commit();
+    $self->markBad($drop);
+    return;
+  }
+
+# Mark drop done so it will be nuked
+  &touch ("$dropdir/done");
+
+# Log transfer delay stats
+#  my $dtransfer = &mytimeofday() - $$file{TIME_START};
+#  &logmsg ("xstats: $$file{NODE} " . sprintf('%.2fs', $dtransfer)
+#    . " $$file{LFN} => $$file{PFN}");
+#
+# OK, got far enough to nuke and log it
+  $self->relayDrop ($drop);
 }
 
 # Get a list of pending requests
 sub requestQueue
 {
-    my ($self, $dbh, $limit, $node, $filter, $filter_args) = @_;
-    my (@requests,$sql,%p,$q,$q1,$n,$i);
-    my $now = &mytimeofday();
+  my ($self, $dbh, $limit, $node, $filter, $filter_args) = @_;
+  my (@requests,$sql,%p,$q,$q1,$n,$i);
+  my $now = &mytimeofday();
 
-    # Find all the files that we are expected to work on
-    $n = 0;
+# Find all the files that we are expected to work on
+  $n = 0;
 
-    $sql = qq{
+  $sql = qq{
 		select b.id, block, n_files, time_expire, priority,
 		test, t.name test_name
 		from t_dvs_block b join t_dvs_test t on b.test = t.id
@@ -277,31 +281,31 @@ sub requestQueue
 		where b.node = :node
 		and status = 0
 		${$filter}
-		order by priority desc, time_expire asc
+		order by priority asc, time_expire asc
        };
-    %p = ( ":node" => $$self{NODES_ID}{$node}, %{$filter_args} );
-    $q = &dbexec($dbh,$sql,%p);
+  %p = ( ":node" => $$self{NODES_ID}{$node}, %{$filter_args} );
+  $q = &dbexec($dbh,$sql,%p);
 
-    $sql = qq{ select logical_name, checksum, filesize, vf.fileid,
+  $sql = qq{ select logical_name, checksum, filesize, vf.fileid,
 		nvl(time_reported,0) time_reported, nvl(status,0) status
 		from t_dps_file pf join t_dvs_file vf on vf.fileid = pf.id
 		left join t_dvs_file_result vfr on vfr.fileid = vf.fileid
 		where vf.request = :request };
-    while ( my $h = $q->fetchrow_hashref() )
+  while ( my $h = $q->fetchrow_hashref() )
+  {
+    %p = ( ':request' => $h->{ID} );
+    $q1 = &dbexec($dbh,$sql,%p);
+    while ( my $g = $q1->fetchrow_hashref() )
     {
-      %p = ( ':request' => $h->{ID} );
-      $q1 = &dbexec($dbh,$sql,%p);
-      while ( my $g = $q1->fetchrow_hashref() )
-      {
-        push @{$h->{LFNs}}, $g;
-      }
-      $n += scalar @{$h->{LFNs}};
-      push @requests, $h;
-      last if ++$i >= $limit;
+      push @{$h->{LFNs}}, $g;
     }
+    $n += scalar @{$h->{LFNs}};
+    push @requests, $h;
+    last if ++$i >= $limit;
+  }
 
-    print "Got ",scalar @requests," requests, for $n files in total\n";
-    return @requests;
+  print "Got ",scalar @requests," requests, for $n files in total\n";
+  return @requests;
 }
 
 sub dropBoxName
@@ -370,7 +374,7 @@ sub idle
           $self->setRequestState($request,'Error');
         }
       }
-#       Intermediate commit after having dealt with all files at a node
+#     Intermediate commit after having dealt with all files at a node
       $dbh->commit();
     }
   };
@@ -420,7 +424,7 @@ sub setRequestFilecount
   my ($sql,%p,$q);
 
   $sql = qq{ update t_status_block_verify set n_tested = :n_tested,
-		files_ok = :n_ok where id = :id };
+		n_ok = :n_ok where id = :id };
   %p = ( ':n_tested' => $n_tested,
 	 ':n_ok'     => $n_ok,
 	 ':id'       => $id
