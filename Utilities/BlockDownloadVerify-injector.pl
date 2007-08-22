@@ -114,12 +114,13 @@ print "Preparing for $count test-insertions\n";
 $|=1;
 foreach $block ( keys %{$blocks} )
 {
+  my $n = $n_files || $blocks->{$block}{FILES};
   foreach $test ( keys %{$tests} )
   {
     $id = dvsInjectTest( node		=> $node,
 			 test		=> $test,
 			 block		=> $block,
-			 n_files	=> $n_files,
+			 n_files	=> $n,
 			 time_expire	=> time + $time_expire,
 			 priority	=> $priority,
 		       );
@@ -174,7 +175,7 @@ sub dvsInjectTest
 
 # Insert an entry into the status table...
   $sql = qq{ insert into t_status_block_verify 
-	(id,block,node,test,n_files,n_tested,files_ok,time_reported,status)
+	(id,block,node,test,n_files,n_tested,n_ok,time_reported,status)
 	values (:id,:block,:node,:test,:n_files,0,0,:time,0) };
   foreach ( qw / :time_expire :priority / ) { delete $p{$_}; }
   $p{':id'} = $id;
@@ -182,10 +183,6 @@ sub dvsInjectTest
   $q = execute_sql( $sql, %p );
 
 # Now populate the t_dvs_file table.
-  if ( $n_files )
-  {
-    print "Don't know how to support limited number of files yet!\n";
-  }
   $sql = qq{ insert into t_dvs_file (id,request,fileid,time_queued)
 	select seq_dvs_file.nextval, :request, id, :time from t_dps_file
 	where inblock = :block};
@@ -262,7 +259,7 @@ sub getNodeFromWildCard
 #-------------------------------------------------------------------------------
 sub getBlockReplicasFromWildCard
 {
-  my $sql = qq {select block, name from t_dps_block_replica br join t_dps_block b on br.block = b.id where name like :block_wild and node in };
+  my $sql = qq {select block, name, files from t_dps_block_replica br join t_dps_block b on br.block = b.id where name like :block_wild and node in };
   $sql .= '(' . join(',',keys %{$nodes}) . ')';
 
   my %p = ( ':block_wild' => @_ );

@@ -33,12 +33,14 @@ my ($dbh,$conn,$dbconfig,$r,$s);
 my ($nodes,@nodes,$help);
 my ($id,$block,$n_files,$n_tested,$n_ok,$status,$test,$time_reported);
 my ($debug_me);
+my ($detail);
 
 $debug_me = 1;
-
+$detail = 0;
 $n_files  = 0;
 GetOptions(	"db=s"		=> \$dbconfig,
 		"node=s"	=> \@nodes,
+		"detail"	=> \$detail,
 
 		"help|h"	=> sub { &usage() }
           );
@@ -52,7 +54,6 @@ $dbh = &connectToDatabase ( $conn, 0 );
 
 #-------------------------------------------------------------------------------
 $nodes = expandNodeList(@nodes);
-$DB::single=1;
 
 $r = dvsTestResults(keys %{$nodes});
 printf("%24s %6s %7s %7s %7s %10s %10s %s\n",
@@ -77,6 +78,15 @@ foreach $s ( @{$r} )
 	  $s->{STATUS},
 	  $s->{BLOCK}
 	);
+  if ( $detail && $s->{STATUS} eq 'Fail' )
+  {
+    my $f = dvsDetailedTestResults($s->{ID});
+$DB::single=1;
+    foreach ( @{$f} )
+    {
+      print "Block=$s->{BLOCK} test=$s->{TEST} LFN=$_->{LOGICAL_NAME} Status=$_->{STATUS}\n";
+    }
+  }
 }
 
 exit 0;
@@ -86,6 +96,25 @@ exit 0;
 #-------------------------------------------------------------------------------
 # Everything below here should find its way into a Perl module at some point
 #-------------------------------------------------------------------------------
+sub dvsDetailedTestResults
+{
+  my $request = shift;
+  my ($sql,$q,@r);
+
+  $sql = qq{ select logical_name, name status from t_dps_file f
+		join t_dvs_file_result r on f.id = r.fileid
+		join t_dvs_status s on r.status = s.id
+		where request = :request and status in
+		 (select id from t_dvs_status where not
+				(name = 'OK' or name = 'None' ) )
+	   };
+
+  $q = execute_sql( $sql, ( ':request' => $request ) );
+  while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
+
+  return \@r;
+}
+
 sub dvsTestResults
 {
   my ($sql,$q,$nodelist,@r);
@@ -97,7 +126,7 @@ sub dvsTestResults
 	     join t_dps_block b on v.block = b.id
 	     join t_dvs_test t on v.test = t.id
 	     where node in ($nodelist) and status > 0
-	     order by time_reported, status
+	     order by s.id, time_reported
 	   };
 
   $q = execute_sql( $sql, () );
