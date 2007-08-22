@@ -30,7 +30,7 @@ create table t_dvs_block
   test		integer not null,
   n_files	integer default 0 not null,
   time_expire	integer not null,
-  priority	integer default 0 not null,
+  priority	integer default 16384 not null,
   --
   constraint pk_dvs_block primary key(id),
   --
@@ -87,7 +87,7 @@ create table t_status_block_verify
   test		integer not null,
   n_files	integer default 0 not null,
   n_tested	integer default 0 not null,
-  files_ok	integer default 0 not null,
+  n_ok		integer default 0 not null,
   time_reported	float   default 0 not null,
   status	integer default 0 not null,
   --
