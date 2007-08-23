@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog,v 1.8 2007/08/08 15:10:44 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.9 2007/08/17 15:17:59 dfeichti Exp $:
 ###############################################################################
 
 use strict;
@@ -39,10 +39,6 @@ usage: InspectPhedexLog [options] logfile1 [logfile2 ...]
                       closer investigation). Also prints multiply failed files
                       that were never transferred correctly
       -s    start_date   -t end_date
-      -b    bunch detection and rate calculation
-            (still some problems with correct bunch detection. leading to 
-            strange rates for some source logs. Do not use this for the time
-             being).
       -d    debug   Prints a summary line for every single transfer
       -h    display this help
 
@@ -79,10 +75,10 @@ EOF
 
 # OPTION PARSING
 my %option=();
-getopts("bdehHrs:t:v",\%option);
+getopts("dehHrs:t:v",\%option);
 
 
-$flag_bunchDetect=1 if(defined $option{"b"});
+# disabled !!!! $flag_bunchDetect=1 if(defined $option{"b"});
 $flag_showErrors=1 if(defined $option{"e"});
 $flag_rawErrors=1 if(defined $option{"r"});
 $flag_verbose=1 if(defined $option{"v"});
@@ -217,6 +213,7 @@ foreach my $log (@logfiles) {
 
 	     if( $reason eq "transfer expired in the download agent queue" or $reason =~ /^\s*Canceled.*/) {
 	       $sitestat{"$from"}{"EXP"}++;
+	       $statstr="EXP/CNCL";
 	     }
 
 	     $errinfo{$from}{$reason}{num}++;
@@ -246,7 +243,7 @@ foreach my $log (@logfiles) {
 	my ($ora) = $line =~ m/(ORA-\d+.{60})/;
 	($date) = $line =~ m/^(\d+-\d+-\d+\s+\d+:\d+:\d+):/;
 	$dberrinfo{$ora}{num}++;
-	push @{$dberrinfo{$ora}{"date"}}, DateToUnixEpochSeconds($date,"%s");
+	push @{$dberrinfo{$ora}{"date"}}, DateToUnixEpochSeconds($date);
       }
     }
 
@@ -300,6 +297,7 @@ print "==================\n";
 print "                         first entry: $datestart      last entry: $dateend\n";
 
 my ($MbperS,$MBperS);
+my $totalsize=0;
 foreach my $site (sort {$a cmp $b} keys %sitestat) {
     $sitestat{$site}{"OK"}=0 if ! defined $sitestat{$site}{"OK"};
     $sitestat{$site}{"FAILED"}=0 if ! defined $sitestat{$site}{"FAILED"};
@@ -309,6 +307,7 @@ foreach my $site (sort {$a cmp $b} keys %sitestat) {
       . "   Exp/Canceled: " . $sitestat{$site}{"EXP"} . ")";
     printf("\tsucc. rate: %.1f %%", $sitestat{$site}{"OK"}/($sitestat{$site}{"OK"}+$sitestat{$site}{"FAILED"})*100) if ($sitestat{$site}{"OK"}+$sitestat{$site}{"FAILED"}) > 0;
     $sitestat{$site}{"size"}=0 if ! exists $sitestat{$site}{"size"};
+    $totalsize+=$sitestat{$site}{"size"};
     printf("   total: %.1f GB",$sitestat{$site}{"size"}/1e9);
 
     if ( exists $sitestat{$site}{"ttransfer"} && $sitestat{$site}{"ttransfer"}>0) {
@@ -319,8 +318,20 @@ foreach my $site (sort {$a cmp $b} keys %sitestat) {
     print "\n";
 }
 
-
-
+# Calculate total throughput from first to last used log entry
+my $deltat=DateToUnixEpochSeconds($dateend)-DateToUnixEpochSeconds($datestart);
+if($deltat>0) {
+    $MbperS=$totalsize/(1024*1024)*8/$deltat;
+    $MBperS=$totalsize/(1024*1024)/$deltat;
+    my $GBperDay=$MBperS/1024*3600*24;
+    
+    print "\nTOTAL SUMMARY:\n";
+    print "==================\n";
+    print "                         first entry: $datestart      last entry: $dateend\n";
+    printf("total transferred: %.1f GB  in %.1f hours\n",$totalsize/(1024*1024*1024),
+	   $deltat/3600);
+    printf("avg. total rate: %.1f MB/s = %.1f Mb/s  = %.1f GB/day\n",$MBperS,$MbperS,$GBperDay);
+}
 
 
 # simple 1D histo
