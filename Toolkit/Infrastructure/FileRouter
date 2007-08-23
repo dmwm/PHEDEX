@@ -3,11 +3,20 @@
 ##H Route files toward destination nodes.
 ##H
 ##H Usage:
-##H   FileRouter -state DIRECTORY -db FILE[:SECTION] [-log OUT]
+##H   FileRouter -state DIRECTORY -db FILE[:SECTION] [-log OUT] [-window-size N_TB] [-request-alloc METHOD]
 ##H
-##H -state     agent state directory
-##H -db        database connection configuration parameter file
-##H -log       where to redirect logging information
+##H -state           agent state directory
+##H -db              database connection configuration parameter file
+##H -log             where to redirect logging information
+##H -window-size     size in TB for priority windows.  Default 10 TB.
+##H -request-alloc   method to use when allocating file requests.  Default is BY_AGE
+##H
+##H Request Allocation methods (METHOD):
+##H
+##H   BY_AGE (the default)
+##H     Route blocks with older requests having priority.
+##H   DATASET_BALANCE
+##H     Attempt to load-balance requests to a node by dataset.
 
 BEGIN {
   use strict; use warnings; $^W=1;
@@ -20,10 +29,13 @@ BEGIN {
 my %args;
 use Getopt::Long;
 use UtilsHelp;
-&GetOptions ("state=s"     => \$args{DROPDIR},
-	     "log=s"       => \$args{LOGFILE},
-	     "db=s"        => \$args{DBCONFIG},
-	     "help|h"      => sub { &usage() });
+
+&GetOptions ("state=s"         => \$args{DROPDIR},
+	     "log=s"           => \$args{LOGFILE},
+	     "db=s"            => \$args{DBCONFIG},
+	     "window-size=n"   => \$args{WINDOW_SIZE},
+	     "request-alloc=s" => \$args{REQUEST_ALLOC},
+	     "help|h"          => sub { &usage() });
 
 if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
 {
@@ -55,9 +67,20 @@ sub new
 		  FLUSH_MARKER => undef,	# Current slow flush marker
 		  FLUSH_PERIOD => 1800,		# Frequency of slow flush
 		  NEXT_STATS => 0,		# Next time to refresh stats
-		  NEXT_SLOW_FLUSH => 0);	# Next time to flush
+		  NEXT_SLOW_FLUSH => 0,	        # Next time to flush
+		  WINDOW_SIZE => 10,            # Size of priority windows in TB
+		  REQUEST_ALLOC => 'ByAge'      # Method to use when allocating file requests
+		  );
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
+    $$self{WINDOW_SIZE} *= TERABYTE;
+    if ($$self{REQUEST_ALLOC} eq 'BY_AGE') {
+	$$self{REQUEST_ALLOC_SUBREF} = \&getDestinedBlocks_ByAge;
+    } elsif ($$self{REQUEST_ALLOC} eq 'DATASET_BALANCE') {
+	$$self{REQUEST_ALLOC_SUBREF} = \&getDestinedBlocks_DatasetBalance;
+    } else {
+	die "Request allocation method '$$self{REQUEST_ALLOC}' not known, use -h for help.\n";
+    }
     bless $self, $class;
     return $self;
 }
@@ -80,7 +103,10 @@ sub idle
 	$self->flush($dbh);
 
 	# Route files.
-	$self->route($dbh, @nodes);
+	$self->route($dbh);
+
+	# Print any warnings.
+	$self->warn_route_failures();
 
 	# Perhaps update statistics.
 	$self->stats($dbh);
@@ -250,12 +276,12 @@ sub flush
     $dbh->commit();
 
     # Log flush statistics
-    &logmsg('Executed flush:  '.join(', ', map { $$_[1].' '.$$_[0] } @stats));
+    &logmsg('executed flush:  '.join(', ', map { $$_[1] + 0 .' '.$$_[0] } @stats));
 }
 
 sub route
 {
-    my ($self, $dbh, @nodes) = @_;
+    my ($self, $dbh) = @_;
 
     # All of this must run in a single agent to avoid database
     # connection proliferation.  The execution order for the
@@ -302,9 +328,12 @@ sub route
 	   or (xso.from_node is not null
 	       and xsi.from_node is not null)},
 	":recent" => &mytimeofday() - 5400);
+
+    my %active_nodes;  # hash for uniqueness
     while (my ($from, $to, $hops, $local, $rate, $latency,
 	       $src_protos, $dest_protos) = $q->fetchrow())
     {
+	$active_nodes{$to} = 1;
 	$$links{$from}{$to} = { HOPS => $hops,
 				IS_LOCAL => $local eq 'y' ? 1 : 0,
 				XFER_RATE => $rate,
@@ -312,11 +341,14 @@ sub route
 				FROM_PROTOS => $src_protos,
 				TO_PROTOS => $dest_protos };
     }
+    my @active_nodes = sort keys %active_nodes;
 
     # Now route for the nodes
-    $self->prepare ($dbh, $$self{NODES_ID}{$_}) for @nodes;
-    $self->routeFiles ($dbh, $links, sort @nodes)
-	|| &logmsg ("no files to route to @{[sort @nodes]}");
+    my %node_names = reverse %{$$self{NODES_ID}};
+    my $active_node_list = join ' ', sort @node_names{@active_nodes};
+    $self->prepare ($dbh, $_) for (@active_nodes);
+    $self->routeFiles ($dbh, $links, @active_nodes)
+	|| &logmsg ("no files to route to $active_node_list");
 }
 
 # Run the routing algorithm for one node.
@@ -327,114 +359,110 @@ sub prepare
     ######################################################################
     # Phase 1: Issue file requests for blocks pending some of their files.
     #
-    # In this phase, we request files for blocks in the order of the block
-    # priority.  We first check how much transfers we have confirmed.  If
-    # a certain level has been reached, we won't activate new files.
+    # In this phase, we create file requests and implement the first
+    # step of the priority model.  In this model we have N windows of
+    # priority each of which can be filled up to WINDOW_SIZE bytes of
+    # requests.  The requests are allocated by block, so it is
+    # important that block sizes are typically much less than the
+    # WINDOW_SIZE.  The order in which blocks are activated into file
+    # requests is determined by a command-line argument.  See the
+    # getDestinedBlocks_* functions below to see what the options are.
 
-    # Get current transfer load parameters.
+    # Get current level of through traffic
     my $now = &mytimeofday();
-    my $confirm_valid_high = 0;
-    my $confirm_valid_low = 0;
-    my $confirm_invalid = 0;
-    my $q = &dbexec($dbh, qq{
-	select nvl(xq.priority,-1), xp.is_valid, nvl(sum(f.filesize),0)
+    my $q_not_for_me = &dbexec($dbh, qq{
+	select nvl(sum(xf.filesize),0)
 	from t_xfer_path xp
-	  join t_xfer_file f
-	    on f.id = xp.fileid
+	  join t_xfer_file xf
+	    on xf.id = xp.fileid
 	  left join t_xfer_request xq
 	    on xq.fileid = xp.fileid
 	    and xq.destination = xp.to_node
 	where xp.to_node = :node
-	group by nvl(xq.priority,-1), xp.is_valid},
-	":node" => $node);
-    while (my ($priority, $valid, $bytes) = $q->fetchrow())
+	  and xq.fileid is null },
+       ":node" => $node);
+    my ($not_for_me) = $q_not_for_me->fetchrow() || 0;
+
+    # Get current level of requests by priority
+    my %priority_windows = map { ($_ => 0) } 0..100; # 100 levels of priority available
+    my $q_current_requests = &dbexec($dbh, qq{
+	select xq.priority, sum(xf.filesize)
+          from t_xfer_request xq 
+          join t_xfer_file xf on xf.id = xq.fileid
+	 where xq.destination = :node
+         group by xq.priority },
+     ":node" => $node);
+
+    while (my ($priority, $bytes) = $q_current_requests->fetchrow())
     {
-	if ($priority < 0)
-	{
-	    $confirm_invalid += $bytes;
-	}
-	elsif ($priority == 0)
-	{
-	    $confirm_valid_high += $bytes;
-	}
-	else
-	{
-	    $confirm_valid_low += $bytes;
-	}
+	$priority_windows{$priority} += $bytes;
     }
 
-    # Now check which priorities we pass.
-    my @priorities;
-    if ($confirm_invalid <= 12 * TERABYTE)
+    # Fill priority windows up to WINDOW_SIZE each if through traffic
+    # is not more than WINDOW_SIZE
+    if ($not_for_me <= $$self{WINDOW_SIZE})
     {
-	push(@priorities, [ 0, 0, 5 * TERABYTE ])
-	    if $confirm_valid_high < 5 * TERABYTE;
-	push(@priorities, [ 1, 100, 10 * TERABYTE ])
-	    if $confirm_valid_low < 10 * TERABYTE;
-    }
+	# Find block destinations we can activate, requiring that
+	# the block fit into the priority window.  Note that open
+	# blocks can grow beyond the window limits if new files
+	# are added.  New file additions are added to the
+	# t_xfer_request table via a trigger. We keep adding blocks
+	# until the priority window is full or we are out of
+	# wanted blocks.
 
-    foreach my $prio (@priorities)
-    {
-	# Find block destinations we can activate.  The activation
-	# takes a lock on the block itself so files cannot be added
-	# while we are creating file requests; any files added after
-	# that will automatically add file requests as well.  Keep
-	# adding blocks until we've added at least 500 files; select
-	# the blocks in order of priority and age (highest priority
-	# = smallest priority value).
-	my @blocks;
-	my $nbytes = 0;
-	my $i = &dbprep($dbh, qq{
-	    insert into t_xfer_request
-	      (fileid, inblock, destination, priority, state,
-	       attempt, time_create, time_expire)
-	    select
-	      id, :block inblock, :node destination, :priority priority,
-	      0 state, 1 attempt, :now, :now + dbms_random.value(7,10)*3600
-	    from t_xfer_file
-	    where inblock = :block});
+	# Get blocks to activate according to the allocation model we are using
+	my $blocks_to_activate = &{ $$self{REQUEST_ALLOC_SUBREF} }($dbh, $node);
+
+	# Activate blocks up to the WINDOW_SIZE limit
 	my $u = &dbprep($dbh, qq{
 	    update t_dps_block_dest
-	    set state = 1, time_active = :now
-	    where block = :block and destination = :node});
-	my $q = &dbexec($dbh, qq{
-	    select bd.block, bd.priority, b.bytes
-	    from t_dps_block_dest bd
-	      join t_dps_block b on b.id = bd.block
-	    where bd.destination = :node
-	      and bd.state = 0
-	      and bd.priority >= :plow
-	      and bd.priority <= :phigh
-	    order by bd.priority asc, bd.time_create asc},
-	    ":node" => $node,
-	    ":plow" => $$prio[0],
-	    ":phigh" => $$prio[1]);
-	while (my ($block, $priority, $bytes) = $q->fetchrow())
+		set state = 1, time_active = :now
+		where block = :block and destination = :node});
+	my @activated_blocks;
+	foreach my $b (@{ $blocks_to_activate })
 	{
+	    next if ($priority_windows{$$b{PRIORITY}} += $$b{BYTES}) > $$self{WINDOW_SIZE};
 	    &dbbindexec($u,
-			":block" => $block,
+			":block" => $$b{BLOCK},
 			":node" => $node,
 			":now" => $now);
-	    push(@blocks, [ $block, $priority ]);
-	    last if ($nbytes += $bytes) >= $$prio[2];
+	    push(@activated_blocks, $b);
 	}
-
+	
 	# Commit first phase so any concurrent modification of t_xfer_file
 	# and t_xfer_replica is handled by our triggers.
 	$dbh->commit();
 
-	foreach my $item (@blocks)
+	# Create file requests for the activated blocks.  The
+	# expiration time is randomized to prevent massive loads of
+	# work in one cycle later.
+	my $i = &dbprep($dbh, qq{
+	    insert into t_xfer_request
+		(fileid, inblock, destination, priority, state,
+		 attempt, time_create, time_expire)
+		select
+		id, :block inblock, :node destination, :priority priority,
+		0 state, 1 attempt, :now, :now + dbms_random.value(7,10)*3600
+		from t_xfer_file
+		where inblock = :block});
+		    
+	foreach my $b (@activated_blocks)
 	{
 	    &dbbindexec($i,
-			":block" => $$item[0],
+			":block" => $$b{BLOCK},
+			":priority" => $$b{PRIORITY},
 			":node" => $node,
-			":priority" => $$item[1],
 			":now" => $now);
 	}
-
+	my $nblocks = scalar @activated_blocks;
+	&logmsg("activated $nblocks block destinations for node=$node") if $nblocks > 0;
+	    
 	# Now commit second phase.
 	$dbh->commit();
+    } else {
+	&warn("through-traffic limit reached for node=$node.  No new block destinations activated");
     }
+    
 
     ######################################################################
     # Reactivate expired file requests.
@@ -446,6 +474,87 @@ sub prepare
 	where destination = :me and state = 1 and :now >= time_expire},
 	":me" => $node, ":now" => $now);
     $dbh->commit();
+}
+
+# Get a list of blocks destined for a node in order of request age
+sub getDestinedBlocks_ByAge
+{
+    my ($dbh, $node) = @_;
+    my $blocks = [];
+
+    my $q = &dbexec($dbh, qq{
+	select bd.dataset, bd.block, bd.priority, b.bytes
+         from t_dps_block_dest bd
+	 join t_dps_block b on b.id = bd.block
+        where bd.destination = :node
+          and bd.state = 0
+          and exists (select 1 from t_dps_block_replica br
+   		       where br.block = bd.block and br.is_active = 'y')
+	  order by bd.time_create asc},
+		    ":node" => $node);
+
+    while (my $b = $q->fetchrow_hashref() ) {
+	push @{$blocks}, $b;
+    }
+    
+    return $blocks;
+}
+
+# Get a list of blocks destined for a node by load-balancing datasets.
+# This attempts to allocate blocks from all requested datasets evenly 
+sub getDestinedBlocks_DatasetBalance
+{
+    my ($dbh, $node) = @_;
+    my $blocks = [];
+    
+    # Get current requests by dataset
+    my $q_current = &dbexec($dbh, qq{
+	select bd.dataset, sum(nvl(xf.filesize,0)) bytes
+	  from t_dps_block_dest bd
+	  left join t_xfer_request xq on xq.inblock = bd.block and xq.destination = bd.destination
+	  left join t_xfer_file xf on xf.id = xq.fileid
+	 where bd.state in (0, 1) and bd.destination = :node
+         group by bd.dataset },
+		    ':node' => $node);
+
+    # Creates a hashref like $$allocation{ $dataset } = { BYTES => $bytes }
+    my $allocation = $q_current->fetchall_hashref('DATASET');
+    
+    # Get destined blocks (with dataset information)
+    my $q_destined = &dbexec($dbh, qq{
+	select bd.dataset, bd.block, bd.priority, b.bytes
+	  from t_dps_block_dest bd
+	  join t_dps_block b on b.id = bd.block
+         where bd.destination = :node
+           and bd.state = 0
+           and exists (select 1 from t_dps_block_replica br
+		       where br.block = bd.block and br.is_active = 'y') },
+			     ":node" => $node);
+
+    # Creates a hashref like $$destined{ $dataset }{ $block } = { PRIORITY => $priority, BYTES => $bytes }
+    my $destined = $q_destined->fetchall_hashref(['DATASET', 'BLOCK']);
+
+    # Build ordered list of blocks by load-balancing based on dataset bytes
+  DATASET:  while ( scalar keys %{$destined} ) {
+      my ($min_dataset, $next_smallest) = 
+	  sort {$$allocation{$a}{BYTES} <=> $$allocation{$b}{BYTES}} keys %{$allocation};
+      my $fill_to = $next_smallest ? $$allocation{$next_smallest}{BYTES} : 10**38;
+
+      my @min_dataset_blocks = values %{ $$destined{$min_dataset} };
+      while ( $$allocation{$min_dataset}{BYTES} <= $fill_to) {
+	  if  ( ! @min_dataset_blocks ) {
+	      # No more blocks - stop trying to fill it
+	      delete $$allocation{$min_dataset};
+	      delete $$destined{$min_dataset};
+	      next DATASET;
+	  }
+	  my $b = shift @min_dataset_blocks;
+	  push @{$blocks}, $b;
+	  $$allocation{$min_dataset}{BYTES} += $$b{BYTES};
+	  delete $$destined{$$b{DATASET}}{$$b{BLOCK}};
+      }
+  } 
+    return $blocks;
 }
 
 sub routeFiles
@@ -472,7 +581,6 @@ sub routeFiles
 
     # Read requests and replicas for requests without paths
     my $now = &mytimeofday();
-    my %mynodes = map { ($$self{NODES_ID}{$_} => $_) } @nodes;
     my $costs = {};
     my $ndone = 0;
     my $finished = 0;
@@ -506,7 +614,7 @@ sub routeFiles
 	{
 	    $saved = undef;
 	    my $dest = $$row{DESTINATION};
-	    next if ! exists $mynodes{$dest};
+	    next unless grep $dest == $_, @nodes;
 
 	    my $file = $$row{FILEID};
 	    my $size = $$row{FILESIZE};
@@ -607,7 +715,7 @@ sub routeFiles
 		push(@{$$args{$n++}}, $$hop{TIME_EXPIRE});
 		push(@{$$args{$n++}}, $file);
 		push(@{$$args{$n++}}, $to);
-		$destnodes{$mynodes{$$hop{DESTINATION}}} = 1;
+		$destnodes{$$hop{DESTINATION}} = 1;
 		$nvalid++ if $$hop{IS_VALID};
 	    }
 	}
@@ -637,17 +745,16 @@ sub routeFiles
 	$updated = %uargs ? scalar @{$uargs{1}} : 0;
 	$ndone += $inserted + $updated;
 
-	&logmsg("$existing existed, $updated updated, $inserted new,"
+	my %node_names = reverse %{$$self{NODES_ID}};
+	my $destnode_list = join ' ', sort @node_names{keys %destnodes};
+	&logmsg("routed files:  $existing existed, $updated updated, $inserted new,"
 		. " $nvalid valid, $discarded discarded of $nhops paths"
 		. " computed for $nreqs requests for the destinations"
-		. " @{[sort keys %destnodes]}")
+		. " $destnode_list")
 	    if $nreqs;
 
 	# Now would be a great time to go for a long holiday :-)
 	$self->maybeStop();
-
-	# Perhaps update statistics if we run for a long time.
-	$self->stats($dbh);
     }
 
     # Bring next slow synchornisation forward if we didn't route any
@@ -862,23 +969,11 @@ sub routeFile
 	    $node = $from;
 	}
 
-	delete $$self{WARNED}{$dest}{$$request{FILEID}};
-    }
-    elsif (keys %{$$request{REPLICAS}})
-    {
-	&warn ("failed to route file $$request{FILEID} to destination $dest"
-	       . ": none of the source replicas are reachable ("
-	       . (scalar keys %{$$request{REPLICAS}}) . " at: "
-	       . "@{[ keys %{$$request{REPLICAS}} ]})")
-	   if ! $$self{WARNED}{$dest}{$$request{FILEID}};
-	$$self{WARNED}{$dest}{$$request{FILEID}} = 1;
+	$self->mark_route_success($dest, $$request{FILEID});
     }
     else
     {
-	&warn ("failed to route file $$request{FILEID} to destination $dest"
-	       . ": no source replica available")
-	   if ! $$self{WARNED}{$dest}{$$request{FILEID}};
-	$$self{WARNED}{$dest}{$$request{FILEID}} = 1;
+	$self->mark_route_failure($dest, $$request{FILEID}, @{keys %{$$request{REPLICAS}}} );
     }
 }
 
@@ -927,6 +1022,39 @@ sub stats
 	    ":now" => $now);
 
     $dbh->commit();
+    &logmsg("updated statistics");
+}
+
+# Mark the failure of an unroutable file
+sub mark_route_failure
+{
+    my ($self, $dest, $fileid, @sources) = @_;
+
+    if (! $$self{ROUTE_FAILURES}{$dest}{$fileid} ) {
+	$$self{NEW_ROUTE_FAILURE}{$dest} = 1;
+    }
+
+    $$self{ROUTE_FAILURES}{$dest}{$fileid} = [@sources];
+}
+
+# Delete an item from the cache of unroutable files
+sub mark_route_success
+{
+    my ($self, $dest, $fileid) = @_;
+    delete $$self{ROUTE_FAILURES}{$dest}{$fileid};
+}
+
+# Warn about all failed routing attempts when there is a new failure
+# TODO:  Print saved replica information on higher verbosity levels
+sub warn_route_failures
+{
+    my ($self) = @_;
+    
+    foreach my $dest (sort keys %{$$self{NEW_ROUTE_FAILURE}}) {
+	&warn("failed to route files to node=$dest for".
+	      join(' fileid=', sort keys %{$$self{ROUTE_FAILURES}{$dest}}) );
+	delete $$self{NEW_ROUTE_FAILURE}{$dest};
+    }
 }
 
 1;
