@@ -28,9 +28,10 @@ use Getopt::Long;
 use UtilsHelp;
 use UtilsDB;
 use UtilsCatalogue;
+use UtilsBlockConsistencyCheck;
 
 my ($dbh,$conn,$dbconfig,$r,$s);
-my ($nodes,@nodes,$help);
+my ($nodes,@nodes,$help,$bcc);
 my ($id,$block,$n_files,$n_tested,$n_ok,$status,$test,$time_reported);
 my ($debug_me);
 my ($detail);
@@ -55,7 +56,8 @@ $dbh = &connectToDatabase ( $conn, 0 );
 #-------------------------------------------------------------------------------
 $nodes = expandNodeList(@nodes);
 
-$r = dvsTestResults(keys %{$nodes});
+$bcc = UtilsBlockConsistencyCheck->new( DBH => $dbh );
+$r = $bcc->getTestResults(keys %{$nodes});
 printf("%24s %6s %7s %7s %7s %10s %10s %s\n",
 	  'Time Reported',
 	  'ID',
@@ -80,8 +82,7 @@ foreach $s ( @{$r} )
 	);
   if ( $detail && $s->{STATUS} eq 'Fail' )
   {
-    my $f = dvsDetailedTestResults($s->{ID});
-$DB::single=1;
+    my $f = $bcc->getDetailedTestResults($s->{ID});
     foreach ( @{$f} )
     {
       print "Block=$s->{BLOCK} test=$s->{TEST} LFN=$_->{LOGICAL_NAME} Status=$_->{STATUS}\n";
@@ -98,6 +99,7 @@ exit 0;
 #-------------------------------------------------------------------------------
 sub dvsDetailedTestResults
 {
+die "Redundant...\n";
   my $request = shift;
   my ($sql,$q,@r);
 
@@ -117,6 +119,7 @@ sub dvsDetailedTestResults
 
 sub dvsTestResults
 {
+die "Redundant...\n";
   my ($sql,$q,$nodelist,@r);
 
   $nodelist = join(',',@_);

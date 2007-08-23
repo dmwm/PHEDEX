@@ -40,18 +40,19 @@ use Getopt::Long;
 use UtilsHelp;
 use UtilsDB;
 use UtilsCatalogue;
+use UtilsBlockConsistencyCheck;
 
 my ($dbh,$conn,$dbconfig);
 my (@nodes,$nodes,$node,@blocks,$blocks,$block,@tests,$tests,$test);
 my ($help,$verbose,$debug,$listonly,$count,$id);
-my ($n_files,$time_expire,$priority);
+my ($bcc,$n_files,$time_expire,$priority);
 my ($debug_me);
 
 $debug_me = 1;
 $verbose = $debug = $listonly = 0;
 
 $n_files  = 0;
-$priority = 100;
+$priority = 16384;
 $time_expire = 10 * 86400;
 GetOptions(	"db=s"		=> \$dbconfig,
 		"node=s"	=> \@nodes,
@@ -112,18 +113,21 @@ $node = $nodes[0];
 $count = scalar keys %{$blocks};
 print "Preparing for $count test-insertions\n";
 $|=1;
+
+$bcc = UtilsBlockConsistencyCheck->new( DBH => $dbh );
 foreach $block ( keys %{$blocks} )
 {
   my $n = $n_files || $blocks->{$block}{FILES};
   foreach $test ( keys %{$tests} )
   {
-    $id = dvsInjectTest( node		=> $node,
-			 test		=> $test,
-			 block		=> $block,
-			 n_files	=> $n,
-			 time_expire	=> time + $time_expire,
-			 priority	=> $priority,
-		       );
+    $id = $bcc->InjectTest( node	=> $node,
+			    test	=> $test,
+			    block	=> $block,
+			    n_files	=> $n,
+			    time_expire	=> time + $time_expire,
+			    priority	=> $priority,
+		          );
+    defined $id or die "InjectTest failed miserably :-(\n";
     $verbose && print "Request=$id Node=$nodes->{$node}->{NAME} test=\'$tests->{$test}->{NAME}\' block='$blocks->{$block}->{NAME}'\n";
   }
   $count--;
@@ -151,47 +155,6 @@ sub DumpTable
 
 #-------------------------------------------------------------------------------
 # Everything below here should find its way into a Perl module at some point
-#-------------------------------------------------------------------------------
-sub dvsInjectTest
-{
-  my (%h,@fields,$sql,$id,%p,$q);
-
-  %h = @_;
-  @fields = qw / block node test n_files time_expire priority /;
-
-  $sql = 'insert into t_dvs_block (id,' . join(',', @fields) . ')';
-  foreach ( @fields )
-  {
-    defined($h{$_}) or die "'$_' missing in dvsInjectTest!\n";
-  }
-
-  $sql .= ' values (seq_dvs_block.nextval, ' .
-	  join(', ', map { ':' . $_ } @fields) .
-	  ') returning id into :id';
-
-  map { $p{':' . $_} = $h{$_} } keys %h;
-  $p{':id'} = \$id;
-  $q = execute_sql( $sql, %p );
-
-# Insert an entry into the status table...
-  $sql = qq{ insert into t_status_block_verify 
-	(id,block,node,test,n_files,n_tested,n_ok,time_reported,status)
-	values (:id,:block,:node,:test,:n_files,0,0,:time,0) };
-  foreach ( qw / :time_expire :priority / ) { delete $p{$_}; }
-  $p{':id'} = $id;
-  $p{':time'} = time();
-  $q = execute_sql( $sql, %p );
-
-# Now populate the t_dvs_file table.
-  $sql = qq{ insert into t_dvs_file (id,request,fileid,time_queued)
-	select seq_dvs_file.nextval, :request, id, :time from t_dps_file
-	where inblock = :block};
-  %p = ( ':request' => $id, ':block' => $h{block}, ':time' => time() );
-  $q = execute_sql( $sql, %p );
-
-  return $id;
-}
-
 #-------------------------------------------------------------------------------
 sub expandNodeList
 {

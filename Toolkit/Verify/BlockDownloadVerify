@@ -34,7 +34,6 @@ my $debug_me = 1;
 use Getopt::Long;
 use UtilsHelp;
 
-$args{LOGFILE} = '/home/wildish/PhEDEx/log.txt';
 &GetOptions ("state=s"      => \$args{DROPDIR},
 	     "log=s"        => \$args{LOGFILE},
 	     "db=s"         => \$args{DBCONFIG},
@@ -49,6 +48,7 @@ if (!$args{NODES} || !$args{DBCONFIG} || !$args{STORAGEMAP})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
+$args{LOGFILE} = $args{DROPDIR} . '/log.txt' unless defined $args{LOGFILE};
 
 (new BlockDownloadVerify (%args))->process();
 
@@ -65,7 +65,7 @@ use DBI;
 use UtilsRFIO;
 use UtilsBlockConsistencyCheck;
 
-sub daemon() { print "Stub the daemon() call\n"; }
+#sub daemon() { print "Stub the daemon() call\n"; }
 
 sub new
 {
@@ -130,7 +130,7 @@ $DB::single=$debug_me;
       $r->{STATUS} = 'Error';
     }
     $r->{TIME_REPORTED} = time();
-    print scalar localtime $r->{TIME_REPORTED}," $r->{FILEID}: $r->{STATUS} \r";
+#   print scalar localtime $r->{TIME_REPORTED}," $r->{FILEID}: $r->{STATUS} \r";
     last unless --$n_files;
   }
   print "\n";

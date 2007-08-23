@@ -106,6 +106,89 @@ sub AUTOLOAD
   Croak "AUTOLOAD: Invalid attribute method: ->$attr()\n";
 }
 
+sub InjectTest
+{
+  my ($self,%h,@fields,$sql,$id,%p,$q);
+
+  $self = shift;
+  %h = @_;
+  @fields = qw / block node test n_files time_expire priority /;
+
+  $sql = 'insert into t_dvs_block (id,' . join(',', @fields) . ')';
+  foreach ( @fields )
+  {
+    defined($h{$_}) or die "'$_' missing in dvsInjectTest!\n";
+  }
+
+  $sql .= ' values (seq_dvs_block.nextval, ' .
+          join(', ', map { ':' . $_ } @fields) .
+          ') returning id into :id';
+
+  map { $p{':' . $_} = $h{$_} } keys %h;
+  $p{':id'} = \$id;
+  $q = execute_sql( $self->{DBH}, $sql, %p );
+  $id or return undef;
+
+# Insert an entry into the status table...
+  $sql = qq{ insert into t_status_block_verify
+        (id,block,node,test,n_files,n_tested,n_ok,time_reported,status)
+        values (:id,:block,:node,:test,:n_files,0,0,:time,0) };
+  foreach ( qw / :time_expire :priority / ) { delete $p{$_}; }
+  $p{':id'} = $id;
+  $p{':time'} = time();
+  $q = execute_sql( $self->{DBH}, $sql, %p );
+
+# Now populate the t_dvs_file table.
+  $sql = qq{ insert into t_dvs_file (id,request,fileid,time_queued)
+        select seq_dvs_file.nextval, :request, id, :time from t_dps_file
+        where inblock = :block};
+  %p = ( ':request' => $id, ':block' => $h{block}, ':time' => time() );
+  $q = execute_sql( $self->{DBH}, $sql, %p );
+
+  return $id;
+}
+
+sub getTestResults
+{
+  my $self = shift;
+  my ($sql,$q,$nodelist,@r);
+
+  $nodelist = join(',',@_);
+  $sql = qq{ select v.id, b.name block, n_files, n_tested, n_ok,
+             s.name status, t.name test, time_reported
+             from t_status_block_verify v join t_dvs_status s on v.status = s.id
+             join t_dps_block b on v.block = b.id
+             join t_dvs_test t on v.test = t.id
+             where node in ($nodelist) and status > 0
+             order by s.id, time_reported
+           };
+
+  $q = execute_sql( $self->{DBH}, $sql, () );
+  while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
+
+  return \@r;
+}
+
+sub getDetailedTestResults
+{
+  my $self = shift;
+  my $request = shift;
+  my ($sql,$q,@r);
+
+  $sql = qq{ select logical_name, name status from t_dps_file f
+                join t_dvs_file_result r on f.id = r.fileid
+                join t_dvs_status s on r.status = s.id
+                where request = :request and status in
+                 (select id from t_dvs_status where not
+                                (name = 'OK' or name = 'None' ) )
+           };
+
+  $q = execute_sql( $self->{DBH}, $sql, ( ':request' => $request ) );
+  while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
+
+  return \@r;
+}
+
 sub checkArguments
 {
   Croak "Untested, maybe unwanted...?\n";
@@ -285,220 +368,219 @@ sub getOnWithItThen
 # Fill in relationships between Blocks and Datasets or LFNs. Do this after
 # inserting LFNs because then {Blocks}{$b}{LFNs} will exist, so blocks which
 # are inserted only because they match LFNs will not be expanded!
-foreach my $block ( keys %{$h{Blocks}} )
-{
-  if ( !defined($h{Blocks}{$block}{Dataset}) )
+  foreach my $block ( keys %{$h{Blocks}} )
   {
-#   Set up Block<->Dataset mapping
-    my $tmp = getDatasetsFromBlock($block);
-    map { $h{Datasets}{$_}{Blocks}{$block}++ } @$tmp;
-    map { $h{Blocks}{$block}{Dataset} = $_   } @$tmp;
+    if ( !defined($h{Blocks}{$block}{Dataset}) )
+    {
+#     Set up Block<->Dataset mapping
+      my $tmp = getDatasetsFromBlock($block);
+      map { $h{Datasets}{$_}{Blocks}{$block}++ } @$tmp;
+      map { $h{Blocks}{$block}{Dataset} = $_   } @$tmp;
+    }
+
+    if ( $autoBlock || !defined($h{Blocks}{$block}{LFNs}) )
+    {
+#     Set up Block<->LFN mapping
+      my $tmp = getLFNsFromBlock($block);
+      map { $h{LFNs}{$_}{Block} = $block   } @$tmp;
+      map { $h{Blocks}{$block}{LFNs}{$_}++ } @$tmp;
+    }
   }
 
-  if ( $autoBlock || !defined($h{Blocks}{$block}{LFNs}) )
-  {
-#   Set up Block<->LFN mapping
-    my $tmp = getLFNsFromBlock($block);
-    map { $h{LFNs}{$_}{Block} = $block   } @$tmp;
-    map { $h{Blocks}{$block}{LFNs}{$_}++ } @$tmp;
-  }
-}
-
-$debug && print "done getting block-lfn mapping!\n\n";
-printf "Got %8d Buffers\n",  scalar keys %{$h{Buffers}{ID}};
-printf "Got %8d Datasets\n", scalar keys %{$h{Datasets}};
-printf "Got %8d Blocks\n",   scalar keys %{$h{Blocks}};
-printf "Got %8d LFNs\n",     scalar keys %{$h{LFNs}};
+  $debug && print "done getting block-lfn mapping!\n\n";
+  printf "Got %8d Buffers\n",  scalar keys %{$h{Buffers}{ID}};
+  printf "Got %8d Datasets\n", scalar keys %{$h{Datasets}};
+  printf "Got %8d Blocks\n",   scalar keys %{$h{Blocks}};
+  printf "Got %8d LFNs\n",     scalar keys %{$h{LFNs}};
 
 #-------------------------------------------------------------------------------
 # Now to start extracting information to check against the storage
-foreach my $lfn ( keys %{$h{LFNs}} )
-{
-  $debug and print "Getting TMDB stats for $lfn\n";
-  my $tmp = getTMDBFileStats($lfn);
-  map { $h{LFNs}{$lfn}{$_} = $tmp->{$_} } keys %{$tmp};
-}
+  foreach my $lfn ( keys %{$h{LFNs}} )
+  {
+    $debug and print "Getting TMDB stats for $lfn\n";
+    my $tmp = getTMDBFileStats($lfn);
+    map { $h{LFNs}{$lfn}{$_} = $tmp->{$_} } keys %{$tmp};
+  }
 
 #-------------------------------------------------------------------------------
 # All TMDB lookups are done, from here on I compare with storage
-$dbh->disconnect();
+  $dbh->disconnect();
 
-my %args = (
-             PROTOCOL    => 'direct',
-             DESTINATION => 'any',
-             CATALOGUE   => '/afs/cern.ch/user/w/wildish/public/COMP/SITECONF/CERN/PhEDEx/storage.xml'
-           );
-foreach $lfn ( keys %{$h{LFNs}} )
-{
-  my $pfn = pfnLookup($lfn, $tfcprotocol, $destination, $tfc );
-  $h{LFN}{$lfn}{PFN} = $pfn;
-}
-
-#-------------------------------------------------------------------------------
-# Get the information needed for checking...
-
-my ($t,$step,$last,$etc);
-$step = 1;
-$last = $t = 0;
-if ( $check{SIZE} || $check{MIGRATION} )
-{
-# Determine the castor size and migration status of the LFNs...
-  my ($i,$j);
-  $i = scalar keys %{$h{LFNs}};
+  my %args = (
+               PROTOCOL    => 'direct',
+               DESTINATION => 'any',
+               CATALOGUE   => '/afs/cern.ch/user/w/wildish/public/COMP/SITECONF/CERN/PhEDEx/storage.xml'
+             );
   foreach $lfn ( keys %{$h{LFNs}} )
   {
-    $j++;
-    $h{SE}{$lfn} = $msscache{$lfn} if exists($msscache{$lfn});
-    next if defined $h{SE}{$lfn};
-
-    if ( time - $t > 1 )
-    {
-      print STDERR "Getting SE stats: file $j / $i";
-      $t = time;
-      if ( $last )
-      {
-        $etc = int( 10 * $step * ($i-$j)/($j-$last) ) / 10;
-        print STDERR ". Done in $etc seconds  ";
-        my $dt = $ns->proxy();
-        if ( defined($dt) )
-        {
-          $dt -= time();
-          if ( $dt < $etc || $dt < 300 ) { print "(proxy: $dt seconds left) "; }
-          die "\nuh-oh, proxy expired. :-(\n" if $dt < 0;
-        }
-      }
-      $last = $j;
-      print STDERR "\r";
-    }
-
-    my $pfn = $h{LFN}{$lfn}{PFN};
-    $h{SE}{$lfn} = {};
-
-    my $sesize = $ns->statsize($h{LFN}{$lfn}{PFN});
-    if ( defined($h{SE}{$lfn}{SIZE} = $sesize) )
-    {
-      $h{SE}{$lfn}{MIGRATION} = $ns->statmode($h{LFN}{$lfn}{PFN});
-    }
+    my $pfn = pfnLookup($lfn, $tfcprotocol, $destination, $tfc );
+    $h{LFN}{$lfn}{PFN} = $pfn;
   }
-}
-print STDERR "\n";
 
 #-------------------------------------------------------------------------------
-# Now to start doing the checks.
-if ( $check{SIZE} )
-{
-  foreach $lfn ( keys %{$h{SE}} )
+#   Get the information needed for checking...
+
+  my ($t,$step,$last,$etc);
+  $step = 1;
+  $last = $t = 0;
+  if ( $check{SIZE} || $check{MIGRATION} )
   {
-#   Don't care about files not in TMDB
-    next unless exists $h{LFNs}{$lfn};
+#   Determine the castor size and migration status of the LFNs...
+    my ($i,$j);
+    $i = scalar keys %{$h{LFNs}};
+    foreach $lfn ( keys %{$h{LFNs}} )
+    {
+      $j++;
+      $h{SE}{$lfn} = $msscache{$lfn} if exists($msscache{$lfn});
+      next if defined $h{SE}{$lfn};
+
+      if ( time - $t > 1 )
+      {
+        print STDERR "Getting SE stats: file $j / $i";
+        $t = time;
+        if ( $last )
+        {
+          $etc = int( 10 * $step * ($i-$j)/($j-$last) ) / 10;
+          print STDERR ". Done in $etc seconds  ";
+          my $dt = $ns->proxy();
+          if ( defined($dt) )
+          {
+            $dt -= time();
+            if ( $dt < $etc || $dt < 300 ) { print "(proxy: $dt seconds left) "; }
+            die "\nuh-oh, proxy expired. :-(\n" if $dt < 0;
+          }
+        }
+        $last = $j;
+        print STDERR "\r";
+      }
+
+      my $pfn = $h{LFN}{$lfn}{PFN};
+      $h{SE}{$lfn} = {};
+
+      my $sesize = $ns->statsize($h{LFN}{$lfn}{PFN});
+      if ( defined($h{SE}{$lfn}{SIZE} = $sesize) )
+      {
+        $h{SE}{$lfn}{MIGRATION} = $ns->statmode($h{LFN}{$lfn}{PFN});
+      }
+    }
+  }
+  print STDERR "\n";
+
+#-------------------------------------------------------------------------------
+#   Now to start doing the checks.
+  if ( $check{SIZE} )
+  {
+    foreach $lfn ( keys %{$h{SE}} )
+    {
+#     Don't care about files not in TMDB
+      next unless exists $h{LFNs}{$lfn};
 
 
-    my $block   = $h{LFNs}{$lfn}{Block} or
+      my $block   = $h{LFNs}{$lfn}{Block} or
 				 die "Cannot determine block for $lfn\n";
-    my $dataset = $h{Blocks}{$block}{Dataset} or
+      my $dataset = $h{Blocks}{$block}{Dataset} or
 				 die "Cannot determine dataset for $block\n";
 
-    my ($field);
-    if ( defined($h{SE}{$lfn}{SIZE}) )
-    {
-      if ( $h{LFNs}{$lfn}{SIZE} == $h{SE}{$lfn}{SIZE} ) { $field = 'OK'; }
-      else { $field = 'SIZE_MISMATCH'; }
-      $h{Checks}{SIZE}{Dataset}{$dataset}{SIZE} += $h{LFNs}{$lfn}{SIZE};
-      $h{Checks}{SIZE}{Blocks} {$block}  {SIZE} += $h{LFNs}{$lfn}{SIZE};
+      my ($field);
+      if ( defined($h{SE}{$lfn}{SIZE}) )
+      {
+        if ( $h{LFNs}{$lfn}{SIZE} == $h{SE}{$lfn}{SIZE} ) { $field = 'OK'; }
+        else { $field = 'SIZE_MISMATCH'; }
+        $h{Checks}{SIZE}{Dataset}{$dataset}{SIZE} += $h{LFNs}{$lfn}{SIZE};
+        $h{Checks}{SIZE}{Blocks} {$block}  {SIZE} += $h{LFNs}{$lfn}{SIZE};
+      }
+      else { $field = 'Missing'; }
+      $h{Checks}{SIZE}{Dataset}{$dataset}{$field}++;
+      $h{Checks}{SIZE}{Blocks} {$block}  {$field}++;
+      $h{Checks}{SIZE}{LFNs}   {Total}   {$field}++;
+  
+      if ( $field ne 'OK' ) { $h{Detail}{$dataset}{$block}{$lfn}{$field}++; }
+      $h{LFNs}{$lfn}{$field}++;
     }
-    else { $field = 'Missing'; }
-    $h{Checks}{SIZE}{Dataset}{$dataset}{$field}++;
-    $h{Checks}{SIZE}{Blocks} {$block}  {$field}++;
-    $h{Checks}{SIZE}{LFNs}   {Total}   {$field}++;
-
-    if ( $field ne 'OK' ) { $h{Detail}{$dataset}{$block}{$lfn}{$field}++; }
-    $h{LFNs}{$lfn}{$field}++;
   }
-}
 
-if ( $check{MIGRATION} )
-{
-  foreach $lfn ( keys %{$h{SE}} )
+  if ( $check{MIGRATION} )
   {
-#   Don't care about files not in TMDB
-    next unless exists $h{LFNs}{$lfn};
+    foreach $lfn ( keys %{$h{SE}} )
+    {
+#     Don't care about files not in TMDB
+      next unless exists $h{LFNs}{$lfn};
 
 
-    my $block   = $h{LFNs}{$lfn}{Block} or
+      my $block   = $h{LFNs}{$lfn}{Block} or
 				 die "Cannot determine block for $lfn\n";
-    my $dataset = $h{Blocks}{$block}{Dataset} or
+      my $dataset = $h{Blocks}{$block}{Dataset} or
 				 die "Cannot determine dataset for $block\n";
 
-    my $field = 'Errors';
-    if ( defined($h{SE}{$lfn}{MIGRATION}) )
-    {
-      $field = $h{SE}{$lfn}{MIGRATION} ? 'OK' : 'NotOnTape';
+      my $field = 'Errors';
+      if ( defined($h{SE}{$lfn}{MIGRATION}) )
+      {
+        $field = $h{SE}{$lfn}{MIGRATION} ? 'OK' : 'NotOnTape';
+      }
+      else { $field = 'Missing'; }
+      $h{Checks}{MIGRATION}{Dataset}{$dataset}{$field}++;
+      $h{Checks}{MIGRATION}{Blocks} {$block}  {$field}++;
+      $h{Checks}{MIGRATION}{LFNs}   {Total}   {$field}++;
+
+      if ( $field ne 'OK' ) { $h{Detail}{$dataset}{$block}{$lfn}{$field}++; }
     }
-    else { $field = 'Missing'; }
-    $h{Checks}{MIGRATION}{Dataset}{$dataset}{$field}++;
-    $h{Checks}{MIGRATION}{Blocks} {$block}  {$field}++;
-    $h{Checks}{MIGRATION}{LFNs}   {Total}   {$field}++;
-
-    if ( $field ne 'OK' ) { $h{Detail}{$dataset}{$block}{$lfn}{$field}++; }
   }
-}
 
-# Print report
-print "\n";
-my ($check,$k,$l,$m);
-foreach $k ( qw / LFNs Blocks Dataset / )
-{
+#   Print report
+  print "\n";
+  my ($check,$k,$l,$m);
+  foreach $k ( qw / LFNs Blocks Dataset / )
+  {
+    print "#------------------------------------------------------------------\n";
+    print " ==> summarising $k\n";
+    foreach $check ( sort keys %{$h{Checks}} )
+    {
+      print " checking \"$check\"\n\n";
+      foreach $l ( sort keys %{$h{Checks}{$check}{$k}} )
+      {
+        print " $l\n";
+        foreach $m ( sort keys %{$h{Checks}{$check}{$k}{$l}} )
+        {
+          if ( $m eq 'SIZE' )
+          {
+            next unless $verbose;
+            my $n = $h{Checks}{$check}{$k}{$l}{$m};
+            $n = int($n*100/1024/1024/1024)/100;
+            $h{Checks}{$check}{$k}{$l}{$m} = "$n GB";
+          }
+          print " $m=",$h{Checks}{$check}{$k}{$l}{$m};
+        }
+        print "\n\n";
+      }
+    }
+  }
+
   print "#------------------------------------------------------------------\n";
-  print " ==> summarising $k\n";
-  foreach $check ( sort keys %{$h{Checks}} )
+  if ( ! keys %{$h{Detail}} )
   {
-    print " checking \"$check\"\n\n";
-    foreach $l ( sort keys %{$h{Checks}{$check}{$k}} )
-    {
-      print " $l\n";
-      foreach $m ( sort keys %{$h{Checks}{$check}{$k}{$l}} )
-      {
-        if ( $m eq 'SIZE' )
-        {
-          next unless $verbose;
-          my $n = $h{Checks}{$check}{$k}{$l}{$m};
-          $n = int($n*100/1024/1024/1024)/100;
-          $h{Checks}{$check}{$k}{$l}{$m} = "$n GB";
-        }
-        print " $m=",$h{Checks}{$check}{$k}{$l}{$m};
-      }
-      print "\n\n";
-    }
+    print "There were no failures detected!\n";
   }
-}
-
-print "#------------------------------------------------------------------\n";
-if ( ! keys %{$h{Detail}} )
-{
-  print "There were no failures detected!\n";
-}
-elsif ( $verbose )
-{
-  print " Detailed list of failures:\n";
-  foreach my $dataset ( sort keys %{$h{Detail}} )
+  elsif ( $verbose )
   {
-    print " ==> Dataset=$dataset\n";
-    foreach my $block ( sort keys %{$h{Detail}{$dataset}} )
+    print " Detailed list of failures:\n";
+    foreach my $dataset ( sort keys %{$h{Detail}} )
     {
-      print " ==> Block=$block\n";
-      foreach my $lfn ( sort keys %{$h{Detail}{$dataset}{$block}} )
+      print " ==> Dataset=$dataset\n";
+      foreach my $block ( sort keys %{$h{Detail}{$dataset}} )
       {
-        print "     LFN=$lfn ";
-        print join(' ', sort keys %{$h{Detail}{$dataset}{$block}{$lfn}} ),"\n";
-        if ( $verbose >= 2 )
+        print " ==> Block=$block\n";
+        foreach my $lfn ( sort keys %{$h{Detail}{$dataset}{$block}} )
         {
-          print $ns->Raw($h{LFN}{$lfn}{PFN});
+          print "     LFN=$lfn ";
+          print join(' ', sort keys %{$h{Detail}{$dataset}{$block}{$lfn}} ),"\n";
+          if ( $verbose >= 2 )
+          {
+            print $ns->Raw($h{LFN}{$lfn}{PFN});
+          }
         }
       }
     }
   }
-}
-
 }
 
 #-------------------------------------------------------------------------------
