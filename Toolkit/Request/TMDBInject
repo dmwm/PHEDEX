@@ -63,7 +63,7 @@
 ##H be marked closed at the end of the processing; this still allows
 ##H one to add files to new and previously open blocks, then close
 ##H the blocks.  If the block is already closed in the database, new
-##H files cannot be added to it; setting "is-open" to 'n' won't help.
+##H files cannot be added to it; setting "is-open" to 'y' won't help.
 ##H New blocks cannot be introduced to closed datasets.  If the
 ##H dataset is closed, all its blocks must be closed too.
 ##H
