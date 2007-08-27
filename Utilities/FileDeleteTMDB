@@ -374,8 +374,11 @@ sub enableBlock
 
     $q = &dbexec($dbh, qq{
 	insert into t_dps_block_activate (block, time_request, time_until)
-	    select inblock, $now, $end from t_dps_file
-	    where id = :lfnname},":lfnname" => $lfn);
+	    select inblock, :time_request, :time_until from t_dps_file
+	    where id = :lfnname},
+		 ":lfnname" => $lfn,
+		 ":time_request" => $now,
+		 ":time_until" => $end);
     $dbh->commit();
     &disconnectFromDatabase($self, $dbh, 1);
     exit 0;
