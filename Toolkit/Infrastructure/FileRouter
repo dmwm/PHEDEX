@@ -973,7 +973,7 @@ sub routeFile
     }
     else
     {
-	$self->mark_route_failure($dest, $$request{FILEID}, @{keys %{$$request{REPLICAS}}} );
+	$self->mark_route_failure($dest, $$request{FILEID}, keys %{$$request{REPLICAS}} );
     }
 }
 
