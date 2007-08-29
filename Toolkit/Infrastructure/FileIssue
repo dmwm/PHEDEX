@@ -207,6 +207,7 @@ sub makeTransferTask
 {
     my ($self, $dbh, $task, $cats) = @_;
     my ($from, $to) = @$task{"FROM_NODE", "TO_NODE"};
+    my ($from_name, $to_name) = @$task{"FROM_NODE_NAME", "TO_NODE_NAME"};
     my @from_protos = split(/\s+/, $$task{FROM_PROTOS} || '');
     my @to_protos   = split(/\s+/, $$task{TO_PROTOS} || '');
     my $from_cat    = $self->catalogue($dbh, $cats, $from);
@@ -235,8 +236,8 @@ sub makeTransferTask
 	       || ! $$to_cat{$protocol});
 
     # Try to expand the file name.
-    $$task{FROM_PFN} = &applyStorageRules($from_cat, $protocol, $to, 'pre', $$task{LOGICAL_NAME});
-    $$task{TO_PFN}   = &applyStorageRules($to_cat, $protocol, $from, 'pre', $$task{LOGICAL_NAME});
+    $$task{FROM_PFN} = &applyStorageRules($from_cat, $protocol, $to_name, 'pre', $$task{LOGICAL_NAME});
+    $$task{TO_PFN}   = &applyStorageRules($to_cat, $protocol, $from_name, 'pre', $$task{LOGICAL_NAME});
 }
 
 # Build and cache storage mapping catalogue for a node.
