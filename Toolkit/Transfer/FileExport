@@ -60,6 +60,7 @@ package FilePFNExport; use strict; use warnings; use base 'UtilsAgent';
 use UtilsCommand;
 use UtilsCatalogue;
 use UtilsLogging;
+use Log::Log4perl;
 use UtilsTiming;
 use UtilsDB;
 
@@ -91,7 +92,7 @@ sub checkCatalogueChange
     my $now = &mytimeofday ();
 
     # If we don't find a catalogue, warn.
-    &warn ("trivial catalogue $$self{STORAGEMAP} has vanished") if (!$exists);
+    $$self->{logger}->warn("trivial catalogue $$self{STORAGEMAP} has vanished") if (!$exists);
 
     # Unchanged if this is no different from our last check
     my $stamp = (stat(_))[9] if $exists;
@@ -167,7 +168,7 @@ sub idle
 			    $rules = &storageRules($$self{STORAGEMAP}, $kind);
 			};
 			do { chomp ($@); $valid = 0;
-			     &alert ("error parsing storagemap $$self{STORAGEMAP}: $@");
+			     $$self{logger}->error("error parsing storagemap $$self{STORAGEMAP}: $@");
 			     last;
 			 } if $@;
 
@@ -210,19 +211,19 @@ sub idle
 
 	if ($changed && $valid)
 	{
-	    &logmsg ("trivial file catalogue rules published");
+	    $$self{logger}->info("trivial file catalogue rules published");
 	}
 	elsif ($changed && !$valid)
 	{
-	    &logmsg ("trivial file catalogue rules removed");
+	    $$self{logger}->info("trivial file catalogue rules removed");
 	}
 	elsif ($liveness)
 	{
-	    &logmsg ("refreshed export liveness (no local changes to publish)");
+	    $$self{logger}->info("refreshed export liveness (no local changes to publish)");
 	}
     };
 
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $$self{logger}->error("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
     
     # Disconnect from the database

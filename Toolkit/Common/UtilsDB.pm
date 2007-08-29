@@ -2,7 +2,6 @@ package UtilsDB; use strict; use warnings; use base 'Exporter';
 our @EXPORT = qw(parseDatabaseInfo connectToDatabase disconnectFromDatabase
 		 expandNodesAndConnect myNodeFilter otherNodeFilter
 		 dbsql dbexec dbprep dbbindexec);
-use UtilsLogging;
 use Log::Log4perl qw(get_logger);
 use UtilsTiming;
 use UtilsNet;

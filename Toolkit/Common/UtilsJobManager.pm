@@ -1,6 +1,7 @@
 package UtilsJobManager; use strict; use warnings; use base 'Exporter';
 use POSIX;
-use UtilsLogging;
+use Log::Log4perl qw(get_logger);
+use Data::Dumper;
 use UtilsCommand;
 use IO::Pipe;
 use Fcntl;
@@ -114,6 +115,7 @@ sub checkJobs
     my @pending = ();
     my @finished = ();
     my $now = time();
+    my $logger = get_logger();
 
     foreach my $job (@{$$self{JOBS}})
     {
@@ -148,7 +150,11 @@ sub checkJobs
 	       && ($now - $$job{STARTED}) > $$job{TIMEOUT})
 	{
 	    # Command has taken too long to execute, so we need to stop it and its
-	    # children. Normally it would be polite to SIGINT the parent process first
+	    # children.
+	    if($logger->is_trace()) {
+		$logger->trace("Timeout of Job: " . Dumper(\$job));
+	    }
+            # Normally it would be polite to SIGINT the parent process first
 	    # and let it INT its children. However, this is something of a hack
 	    # because some transfer tools are badly behaved (their children ignore 
 	    # their elders). So- instead we just address the whole process group.
@@ -168,7 +174,7 @@ sub checkJobs
 	    }
 	    else
 	    {
-		&alert("Job $$job{PID} not responding to requests to quit");
+		$logger->warn("Job $$job{PID} not responding to requests to quit");
 	    }
 
 	    push(@pending, $job);
@@ -260,10 +266,13 @@ sub pumpJobs
 {
     my ($self) = @_;
     
+    my $logger = get_logger();
+
     # Invoke actions on completed jobs
     foreach my $job ($self->checkJobs())
     {
 	&{$$job{ACTION}} ($job);
+	$logger->trace("Invoking action on job " . Dumper(\$job)) if $logger->is_trace();
     }
     
     # Check detached jobs and prevent Zombies
@@ -285,6 +294,9 @@ sub pumpJobs
 	last if $running >= $$self{NJOBS};
 	$self->startJob ($job);
 	$running++;
+	if($logger->is_trace()) {
+	    $logger->trace("starting job: " . Dumper(\$job));
+	}
     }
 }
 

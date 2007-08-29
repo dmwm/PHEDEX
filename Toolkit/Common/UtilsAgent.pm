@@ -151,7 +151,7 @@ sub initLogger
 						     filename  => $$self{LOGFILE});
 
     # Define a layout
-    my $layout = Log::Log4perl::Layout::PatternLayout->new("%d [%p] - %m%n");
+    my $layout = Log::Log4perl::Layout::PatternLayout->new("%d{yyyy-MM-dd HH:mm:ss:} [%P] - %m%n");
     $file_appender->layout($layout);
 
     $log->add_appender($file_appender);
@@ -563,6 +563,7 @@ sub process
     {
 	my $drop;
 
+	$$self{logger}->debug("Entering process() loop");
 	# Check for new inputs.  Move inputs to pending work queue.
 	$self->maybeStop();
 	foreach $drop ($self->readInbox ())
