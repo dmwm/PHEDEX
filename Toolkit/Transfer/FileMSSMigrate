@@ -118,7 +118,7 @@ sub idle
 
 	# Auto-export from buffer to me and put them into transfer.
 	&dbexec($dbh, qq{
-	    insert into t_xfer_task_export (id, time_update)
+	    insert into t_xfer_task_export (task, time_update)
 	    select xt.id, :now from t_xfer_task xt
 	    where $mynode
 	      and not exists
@@ -126,7 +126,7 @@ sub idle
 	    ":now" => $start, %myargs);
 
 	&dbexec($dbh, qq{
-	    insert into t_xfer_task_inxfer (id, time_update)
+	    insert into t_xfer_task_inxfer (task, time_update)
 	    select xt.id, :now from t_xfer_task xt
 	    where $mynode
 	      and not exists
