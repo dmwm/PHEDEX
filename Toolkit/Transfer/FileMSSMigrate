@@ -12,6 +12,8 @@
 ##H   FileMSSMigrate
 ##H      -state DIRECTORY -db FILE[:SECTION] [-log OUT]
 ##H      -nodes PATTERN[,PATTERN...] [-protocols PROTOCOL[,PROTOCOL...]]
+##H      -mssbackend [srm|castor|dcache|fake] [-checkroutine CHECK_SCRIPT]
+##H      [-retransferlost !!!dCache only, developmental!!!]
 ##H
 ##H -state         agent state directory
 ##H -db            database connection configuration parameter file
@@ -21,9 +23,10 @@
 ##H -mssbackend    the type of MSS, for which standard code exists. 
 ##H                Available are: srm, castor, dcache, fake. Default is 'fake'.
 ##H                Don't forget to also specify a proper protocol from your TFC!
-##H -checkroutine  a file with perl code that actually performs the check, in case you need
-##H                a custom backend. This option has precendence over -mssbackend
-##H                No default. See example at the end this file
+##H -checkroutine  If you use a back end that isn't natively supported you can specify
+##H                a file containing a perl subroutine to perform the migration check. 
+##H                This option has precendence over -mssbackend
+##H                No default, as it's optional. See example at the end this file.
 ##H -retransferlost Mark lost files for retransfer. 
 ##H                 Curently only dcache plugin supports it. Even there it's fake. :)
 
