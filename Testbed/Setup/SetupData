@@ -142,10 +142,11 @@ eval
 	    &dbexec($dbh, qq{
 		insert into t_dps_subscription
 		    (dataset, destination, priority, is_move, is_transient, time_create)
-		    select ds.id, n.id, :priority, 'n', 'n', :create from t_dps_dataset ds cross join t_adm_node n
+		    select ds.id, n.id, :priority, 'n', 'n', :time_create 
+                      from t_dps_dataset ds cross join t_adm_node n
 		    where n.name like 'TX%' and ds.name like '/$label1/$label2/%'},
 		    ":priority" => $prio,
-		    ":create" => $now
+		    ":time_create" => $now
 		    );
 	}
 	$dbh->commit();
