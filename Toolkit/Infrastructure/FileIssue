@@ -214,9 +214,6 @@ sub makeTransferTask
     my $to_cat      = $self->catalogue($dbh, $cats, $to);
     my $protocol    = undef;
 
-    &logmsg ("From_Node: $from, To_Node: $to");
-    &logmsg ("From_Node: $from, To_Node: $to");
-
     # Find matching protocol.
     foreach my $p (@to_protos)
     {
