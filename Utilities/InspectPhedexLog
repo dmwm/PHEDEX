@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog,v 1.9 2007/08/17 15:17:59 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.10 2007/08/23 16:57:24 dfeichti Exp $:
 ###############################################################################
 
 use strict;
@@ -22,7 +22,7 @@ my $flag_checkdate=0;
 my $flag_bunchDetect=0;
 my $flag_errhisto=0;
 
-my $errmsglen=165; # length of error messages to use (error will be cut)
+my $errmsglen=200; # length of error messages to use (error will be cut)
 
 sub usage {
 print <<"EOF";
@@ -31,16 +31,19 @@ usage: InspectPhedexLog [options] logfile1 [logfile2 ...]
    Analyses PhEDEx download agent log files
 
    options:
-      -e    also show error statistics (summary over error messages)
-         -r    do not try to regexp-process errors messages, but show raw
+      -e     : also show error statistics (summary over error messages)
+         -r  :  do not try to regexp-process errors messages, but show raw
                  error messages (!!gigantic output)
-         -H    print simple histograms for every error class
-      -v    verbose   Prints task IDs for the collected errors (useful for
+         -H  :  print simple histograms for every error class
+      -v     :verbose   Prints task IDs for the collected errors (useful for
                       closer investigation). Also prints multiply failed files
                       that were never transferred correctly
-      -s    start_date   -t end_date
-      -d    debug   Prints a summary line for every single transfer
-      -h    display this help
+      -s start_date   -t end_date
+      -c number  : defines the error message cutoff (default=$errmsglen). Longer messages will 
+                   be cut down to this length at the beginning of the parser.
+                   This may lead to problems, if the significant part comes later in the message
+      -d         : debug   Prints a summary line for every single transfer
+      -h         : display this help
 
  examples:
    InspectPhedexLog Prod/download
@@ -75,7 +78,7 @@ EOF
 
 # OPTION PARSING
 my %option=();
-getopts("dehHrs:t:v",\%option);
+getopts("c:dehHrs:t:v",\%option);
 
 
 # disabled !!!! $flag_bunchDetect=1 if(defined $option{"b"});
@@ -90,18 +93,23 @@ if (defined $option{"h"}) {
    exit 0;
 }
 
+if (defined $option{"c"}) {
+  $errmsglen=$option{"c"};
+}
+
 my ($dstart,$dend)=(0,1e20);
 if (defined $option{"s"}) {
    $dstart=DateToUnixEpochSeconds($option{"s"});
    die "Error: Could not parse starting date: $option{s}\n" if (!$dstart);
-   $flag_checkdate=1; 
+   $flag_checkdate=1;
 }
 if (defined $option{"t"}) {
    $dend=DateToUnixEpochSeconds($option{"t"});
    die "Error: Could not parse end date: $option{t}\n" if (!$dend);
-   $flag_checkdate=1; 
+   $flag_checkdate=1;
 }
-   
+
+die "Error: Error message cutoff (option -c) must be > 1 (now: $errmsglen)\n" if $errmsglen <=1;
 
 my @logfiles=@ARGV;
 
@@ -112,6 +120,10 @@ if ($#logfiles==-1) {
    usage();
    die "Error: no logfile(s) specified\n";
 }
+
+
+
+
 
 my ($datestart,$dateend,$date_old)=0;
 my %errinfo;
@@ -174,12 +186,14 @@ foreach my $log (@logfiles) {
 	     die "DEBUG: no detail,validate IN LINE: \n     $line\n" if(! $detail && ! $validate);
 	     if(! $flag_rawErrors) {
 	       my $tmp;
+	       # First some general substitution patterns to remove IDs, etc.
 	       $detail = substr($detail,0,$errmsglen) . "...(error cut)" if length($detail) > $errmsglen;
 	       $detail =~ s/\sid=[\d-]+\s/id=\[id\] /;
 	       $detail =~ s/\sauthRequestID \d+\s/authRequestID \[id\] /;
 	       $detail =~ s/RequestFileStatus#[\d-]+/RequestFileStatus#\[number\]/g;
 	       $detail =~ s/srm:\/\/[^\s]+/\[srm-URL\]/;
 	       $detail =~ s/at\s+\w{3}\s+\w{3}\s+\d+\s+\d+:\d+:\d+\s+CEST\s+\d+/at \[date\]/;
+
 	       if( $detail=~/^\s*$/) {$reason = "-"}
 	       elsif( (($reason) = $detail =~ m/.*(the server sent an error response: 425 425 Can't open data connection).*/)) {}
 	       elsif( (($reason) = $detail =~ m/.*(the gridFTP transfer timed out).*/) ) {}
@@ -194,6 +208,8 @@ foreach my $log (@logfiles) {
 		# {$reason = $detail; $reason =~ s/(.*RequestFileStatus).*(failed with error:).*(state.*)/$1 [Id] $2 $3/;}
 	       elsif( $detail =~ /copy failed/ )
 		 { $reason = $detail; $reason =~ s/at (\w{3} \w{3} \d+ \d+:\d+:\d+ \w+ \d+)/at \[date\]/g}
+	       elsif( $detail =~ /state Failed : file not found/ )
+		 { $reason = "file not found"; }
 	       else {$reason = $detail};
 	     } else {$reason = $detail};
 
