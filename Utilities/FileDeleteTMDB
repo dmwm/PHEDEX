@@ -24,6 +24,11 @@
 ##H              Wildcard '%' is supported too.
 ##H              
 ##H   SWITCHES
+##H        -bulk bulk deletion for blocks and datasets.  This is a faster
+##H              method of deletion if the number of files is huge, but
+##H              to use this method you may only specify 'dataset:' or
+##H              'block:' identifiers in -list and you must be deleting
+##H              the information completely (-node all)
 ##H         -h   invoke this help text
 
 BEGIN {
@@ -33,6 +38,8 @@ BEGIN {
   unshift(@INC, $home);
 }
 
+$|++;
+
 # Process command line arguments.
 use Getopt::Long;
 use UtilsHelp;
@@ -41,11 +48,12 @@ use UtilsTiming;
 
 my %args;
 &GetOptions ("db=s"        => \$args{DBCONFIG},
-	     "list=s"      => \$args{FILELIST},
+	     "list=s"      => \$args{LIST},
 	     "nodes=s"     => \$args{NODES},
+	     "bulk"        => \$args{BULK},
              "help|h"      => sub { &usage() });
 # Check arguments.
-if (!$args{DBCONFIG} || !$args{FILELIST} || !$args{NODES})
+if (!$args{DBCONFIG} || !$args{LIST} || !$args{NODES})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -54,13 +62,19 @@ my $self = { DBCONFIG => $args{DBCONFIG} };
 our $dbh = &connectToDatabase ($self, 0);
 my $now = &mytimeofday();
 my $nodes = [ split m|,\s*|, $args{NODES} ];
-my $files = [ split m|,\s*|, $args{FILELIST} ];
+my $list = [ split m|,\s*|, $args{LIST} ];
 my $tables = &setTableList ($nodes);
 
 # Get a list of LFNs from the input provided by the user
 # finally delete the LFNs
-my $lfns = &getFileList ( $files );
-my $stats = &deleteLFNs ( $lfns, $dbh, $nodes, $tables );
+my $stats;
+if (! $args{BULK} ) {
+    my $lfns = &getItemList ( $list, 'files' );
+    $stats = &deleteLFNs ( $lfns, $dbh, $nodes, $tables );
+} else {
+    my $blocks = &getItemList ( $list, 'blocks' );
+    $stats = &bulkDelete ( $blocks, $dbh );
+}
 $dbh->commit();
 &disconnectFromDatabase($self, $dbh, 1);
 
@@ -97,10 +111,12 @@ sub setTableList
     return \@tables;
 }
 
-# Returns a hash of the form $$result{$lfn} = {LFN => $lfn, ID => $id, DATASET => $dataset, BLOCK => $block}
-sub getFileList
+# Returns a hash of the form:
+# $$result{$lfn} = {LFN => $lfn, ID => $id, DATASET => $dataset, BLOCK => $block} if $wants eq 'files'
+# or $$result{$block} = {ID => $id, DATASET => $dataset, BLOCK => $block} eq 'blocks'
+sub getItemList
 {
-    my ( $files ) = @_;
+    my ( $files, $wants ) = @_;
     my $fileref = [];
 
     if ( -e ${$files}[0] )
@@ -119,7 +135,7 @@ sub getFileList
 	$fileref = $files;
     }
 
-    my $lfns = {};
+    my $results = {};
     foreach my $f (@$fileref) {
 	my $userstring = $f;
 	$f =~ s/^([^:]+:)//;
@@ -133,14 +149,18 @@ sub getFileList
 	    print "dataset: for whole datasets\n";
 	    next;
 	}
-	my $lfninfo = &getLFNInfo ($item, $f);
-	unless (keys %$lfninfo) {
+	my $inforef = {};
+	if ($wants eq 'files')     { $inforef = &getLFNInfo ($item, $f); }
+	elsif ($wants eq 'blocks') { $inforef = &getBlockInfo($item, $f); }
+	else { die "unknown return format $wants\n"; }
+	
+	unless (keys %$inforef) {
 	    print "$userstring was not found in TMDB, skipping\n";
 	    next;
 	}
-	map { $$lfns{$_} = $$lfninfo{$_} } keys %$lfninfo;
+	map { $$results{$_} = $$inforef{$_} } keys %$inforef;
     }
-    return $lfns;
+    return $results;
 }
 
 sub getLFNInfo
@@ -165,6 +185,31 @@ sub getLFNInfo
     my $lfns = $q->fetchall_hashref('LFN');
     return $lfns;
 }
+
+sub getBlockInfo
+{
+    my ( $level, $item ) = @_;
+    my $where;
+    if    ($level eq 'dataset:')  { $where = "ds.name"; }
+    elsif ($level eq 'block:') { $where = "b.name"; }
+    elsif ($level eq 'lfn:') {
+	die "Bulk deletion by LFN is not supported, see -h for help\n";
+    } else { die "Unknown level '$level' to getBlockInfo\n"; }
+
+    if ( $item =~ m|%| ) { $where .= " like :item"; }
+    else                 { $where .= " = :item"; }
+    
+    my $q = &dbexec($dbh, qq{
+	select ds.name dataset, b.name block, b.id
+	    from t_dps_dataset ds
+	    join t_dps_block b on b.dataset = ds.id
+	    join t_dps_file f on f.inblock = b.id
+	    where $where},
+		    ":item" => $item);
+    my $blocks = $q->fetchall_hashref('BLOCK');
+    return $blocks;
+}
+
 
 # Deletes LFNs from TMDB
 sub deleteLFNs
@@ -253,6 +298,76 @@ sub deleteLFNs
     return $stats;
 }
 
+# Bulk deletes entire blocks and datasets from the DB
+sub bulkDelete
+{
+    my ( $blocks, $dbh ) = @_;
+    my $n_blocks = scalar keys %$blocks;
+    
+    if (! $n_blocks) {
+	print "Nothing to do.\n";
+	return;
+    }
+
+   
+    my $stats =  { DEL_DB_SUM => 0, DEL_DATASETS => 0, DEL_BLOCKS => 0 };
+
+    my $locktables = [qw(t_dps_block
+			 t_xfer_task
+			 t_xfer_replica
+			 t_xfer_request
+			 t_xfer_path
+			 t_xfer_file
+			 t_dps_file)];
+
+    print "Starting bulk deletion for $n_blocks blocks...\n";
+
+    # Lock the tables
+    &lockTables( $locktables );
+    
+    my ($sth, $n);
+    my $n_commit = 0;
+    my %datasets;
+    foreach my $blockinfo (values %$blocks) {
+	$datasets{$$blockinfo{DATASET}} = 1;
+	# Delete from tables by fileid and FKed to t_xfer_file
+	foreach my $table qw(t_xfer_task t_xfer_replica t_xfer_request t_xfer_path) {
+	    ($sth, $n) = &dbexec($dbh, qq{
+		delete from $table where fileid in 
+		    (select id from t_xfer_file where inblock = :block) },
+		    ":block" => $$blockinfo{ID});
+	    $n_commit += $n;
+	}
+
+	# Delete from file tables by "inblock"
+	foreach my $table qw(t_xfer_file t_dps_file) {
+	    ($sth, $n) = &dbexec($dbh, qq{ delete from $table where inblock = :block },
+				 ":block" => $$blockinfo{ID});
+	    $n_commit += $n;
+	    $$stats{DEL_DB_SUM} += $n if $table eq 't_dps_file';
+	}
+
+	# Delete the blocks
+	($sth, $n) = &dbexec($dbh, qq{ delete from t_dps_block where id = :block }, ":block" => $$blockinfo{ID});
+	$n_commit += $n;
+	$$stats{DEL_BLOCKS} += $n;
+
+	print "deleted block $$blockinfo{BLOCK}\n";
+
+	# Commit and lock again if we've deleted over a million rows
+	if ($n_commit > 1_000_000) {
+	    $dbh->commit();
+	    $n_commit = 0;
+	    &lockTables( $locktables );
+	}
+    }
+
+    # Delete empty datasets
+    ($$stats{DEL_DATASETS}) = &deleteEmptyContainers ( [keys %datasets] );
+
+    return $stats;
+}
+
 # Maybe there is nothing to do - check for files in TMDB
 sub checkFileExistence
 {
@@ -317,7 +432,7 @@ sub getNodeID
     return $node;
 }
 
-# Lock the tables we are about to modify
+# Lock rows in the tables we are about to modify
 sub lockFileTables
 {
     my ( $tablesref, $lfn ) = @_;
@@ -335,6 +450,30 @@ sub lockFileTables
 	    &dbexec($dbh, qq{
 		select * from $table where fileid = :lfn for update},
 		    ":lfn" => $lfn);
+	}
+    }
+}
+
+# Lock an entire table
+sub lockTables
+{
+    my ( $tablesref ) = @_;
+
+    my $list = join ',', @$tablesref;
+    my $nolock = 1;
+    while ( $nolock ) {
+	eval
+	{
+	    print "Locking tables (this can take awhile)...";
+	    &dbexec($dbh, "lock table $list in exclusive mode");
+	    $nolock = 0;
+	    print "Done.\n";
+	};
+	if ($@ && $@ =~ /ORA-00060/) {
+	    print "Deadlock while trying to obtain lock.  Trying again...\n";
+	    sleep 60;
+	} elsif ($@) {
+	    die "Error while trying to obtain lock:  $@\n";
 	}
     }
 }
@@ -429,8 +568,12 @@ sub deleteEmptyContainers
 {
     my ($datasets, $blocks) = @_;
 
+    $blocks = [] unless $blocks;
+    return undef unless $datasets;
+    
     my ($del_datasets, $del_blocks) = (0, 0);
     my ($sth, $n);
+
     foreach my $block (@$blocks) {
 	($sth, $n) = &dbexec($dbh, qq{
 	    delete from t_dps_block b where b.name = :block
