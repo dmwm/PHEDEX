@@ -96,8 +96,7 @@ sub idle
     eval
     {
 	$$self{NODES} = [ '%' ];
-	($dbh, @nodes) = &expandNodesAndConnect ($self,
-	    { "FileDownload" => 5400, "FileExport" => 5400 });
+	($dbh, @nodes) = &expandNodesAndConnect ($self);
 
 	# Run general flush.
 	$self->flush($dbh);
@@ -500,6 +499,8 @@ sub getDestinedBlocks_ByAge
     return $blocks;
 }
 
+
+
 # Get a list of blocks destined for a node by load-balancing datasets.
 # This attempts to allocate blocks from all requested datasets evenly 
 sub getDestinedBlocks_DatasetBalance
@@ -556,6 +557,8 @@ sub getDestinedBlocks_DatasetBalance
   } 
     return $blocks;
 }
+
+
 
 sub routeFiles
 {
@@ -1034,14 +1037,17 @@ sub mark_route_failure
 	$$self{NEW_ROUTE_FAILURE}{$dest} = 1;
     }
 
-    $$self{ROUTE_FAILURES}{$dest}{$fileid} = [@sources];
+    my $reason = @sources ? 'no path to destination' : 'no source replicas';
+    $$self{ROUTE_FAILURES}{$dest}{$reason}{$fileid} = [@sources];
 }
 
 # Delete an item from the cache of unroutable files
 sub mark_route_success
 {
     my ($self, $dest, $fileid) = @_;
-    delete $$self{ROUTE_FAILURES}{$dest}{$fileid};
+    foreach my $reason (keys %{ $$self{ROUTE_FAILURES}{$dest} }) {
+	delete $$self{ROUTE_FAILURES}{$dest}{$reason}{$fileid};
+    }
 }
 
 # Warn about all failed routing attempts when there is a new failure
@@ -1051,8 +1057,10 @@ sub warn_route_failures
     my ($self) = @_;
     
     foreach my $dest (sort keys %{$$self{NEW_ROUTE_FAILURE}}) {
-	&warn("failed to route files to node=$dest for".
-	      join(' fileid=', sort keys %{$$self{ROUTE_FAILURES}{$dest}}) );
+	foreach my $reason (keys %{$$self{ROUTE_FAILURES}{$dest}}) {
+	    &logmsg("failed to route files to node=$dest:  $reason:  ".
+		    join(' ', map { "fileid=$_" } sort keys %{$$self{ROUTE_FAILURES}{$dest}{$reason}}));
+	}
 	delete $$self{NEW_ROUTE_FAILURE}{$dest};
     }
 }
