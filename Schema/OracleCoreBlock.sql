@@ -188,13 +188,16 @@ create table t_dps_subscription
      unique (dataset, block, destination),
    --
    constraint fk_dps_subscription_dataset
-     foreign key (dataset) references t_dps_dataset (id),
+     foreign key (dataset) references t_dps_dataset (id)
+ 	on delete cascade,
    --
    constraint fk_dps_subscription_block
-     foreign key (block) references t_dps_block (id),
+     foreign key (block) references t_dps_block (id)
+	on delete cascade,
    --
    constraint fk_dps_subscription_dest
-     foreign key (destination) references t_adm_node (id),
+     foreign key (destination) references t_adm_node (id)
+	on delete cascade,
    --
    constraint ck_dps_subscription_ref
      check (not (block is null and dataset is null)
