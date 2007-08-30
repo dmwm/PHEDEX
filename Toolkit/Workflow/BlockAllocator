@@ -138,7 +138,7 @@ sub idle
 			     join t_dps_block b on b.id = br.block
                             where br.node = s.destination
 			      and (b.id = s.block or b.dataset = s.dataset)
-			      and br.node_files != b.files)
+			      and br.node_files < b.files)
 	    });
 	&logmsg ("$nrows subscriptions marked unfinished")
 	    if $nrows > 0;
@@ -153,8 +153,8 @@ sub idle
 		      join t_dps_block_replica br
 		        on br.block = bd.block
 			and br.node = bd.destination
-		    where br.node_files != b.files
-		      and br.dest_files != b.files
+		    where br.node_files < b.files
+		      and br.dest_files < b.files
 		      and bd.state = 3
 		    )
 		set state = 0, time_complete = NULL});
