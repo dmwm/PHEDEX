@@ -3,7 +3,7 @@
 ##H Delete files from TMDB
 ##H
 ##H Usage:
-##H   FileDeleteTMDB -db DBCONFIG -list FILES -node NODENAME 
+##H   FileDeleteTMDB -db DBCONFIG -list FILES -node NODENAME [ -bulk ] [ -keepempty CONTAINERS ]
 ##H
 ##H Examples:
 ##H
@@ -23,13 +23,18 @@
 ##H              files. Keyword 'all' will delete the file completely.
 ##H              Wildcard '%' is supported too.
 ##H              
+##H   CONTAINERS  a comma separated list of containers to keep even if they are empty.
+##H               'dataset' and 'block' are supported.  This is useful to maintain 
+##H               subscriptions if the containers are going to be refilled later.
+##H               Note that '-keep block' is incompatible with '-bulk'
+##H
 ##H   SWITCHES
-##H        -bulk bulk deletion for blocks and datasets.  This is a faster
-##H              method of deletion if the number of files is huge, but
-##H              to use this method you may only specify 'dataset:' or
-##H              'block:' identifiers in -list and you must be deleting
-##H              the information completely (-node all)
-##H         -h   invoke this help text
+##H         -bulk   bulk deletion for blocks and datasets.  This is a faster
+##H                 method of deletion if the number of files is huge, but
+##H                 to use this method you may only specify 'dataset:' or
+##H                 'block:' identifiers in -list and you must be deleting
+##H                 the information completely (-node all)
+##H            -h   invoke this help text
 
 BEGIN {
   $^W = 1; use strict; use warnings;
@@ -51,6 +56,7 @@ my %args;
 	     "list=s"      => \$args{LIST},
 	     "nodes=s"     => \$args{NODES},
 	     "bulk"        => \$args{BULK},
+	     "keepempty=s" => \$args{KEEP},
              "help|h"      => sub { &usage() });
 # Check arguments.
 if (!$args{DBCONFIG} || !$args{LIST} || !$args{NODES})
@@ -63,7 +69,12 @@ our $dbh = &connectToDatabase ($self, 0);
 my $now = &mytimeofday();
 my $nodes = [ split m|,\s*|, $args{NODES} ];
 my $list = [ split m|,\s*|, $args{LIST} ];
+our $keep = { map { $_ => 1 } split(m|,\s*|, $args{KEEP}) };
 my $tables = &setTableList ($nodes);
+
+if ($$keep{block} && $args{BULK}) {
+    die "Empty blocks cannot be kept when using bulk deletion mode.\n";
+}
 
 # Get a list of LFNs from the input provided by the user
 # finally delete the LFNs
@@ -574,22 +585,30 @@ sub deleteEmptyContainers
     my ($del_datasets, $del_blocks) = (0, 0);
     my ($sth, $n);
 
-    foreach my $block (@$blocks) {
-	($sth, $n) = &dbexec($dbh, qq{
-	    delete from t_dps_block b where b.name = :block
-		and not exists (select 1 from t_dps_file where inblock = b.id) },
-			     ":block" => $block);
-	print "deleted empty block $block\n" if $n > 0;
-	$del_blocks += $n;
+    unless ($$keep{block}) {
+	foreach my $block (@$blocks) {
+	    ($sth, $n) = &dbexec($dbh, qq{
+		delete from t_dps_block b where b.name = :block
+		    and not exists (select 1 from t_dps_file where inblock = b.id) },
+				 ":block" => $block);
+	    print "deleted empty block $block\n" if $n > 0;
+	    $del_blocks += $n;
+	}
+    } else {
+	print "keeping empty blocks\n";
     }
 
-    foreach my $dataset (@$datasets) {
-	($sth, $n) = &dbexec($dbh, qq{
-	    delete from t_dps_dataset ds where ds.name = :dataset
-		and not exists (select 1 from t_dps_block where dataset = ds.id) },
-			     ":dataset" => $dataset);
-	print "deleted empty dataset $dataset\n" if $n > 0;
-	$del_datasets += $n;
+    unless ($$keep{dataset}) {
+	foreach my $dataset (@$datasets) {
+	    ($sth, $n) = &dbexec($dbh, qq{
+		delete from t_dps_dataset ds where ds.name = :dataset
+		    and not exists (select 1 from t_dps_block where dataset = ds.id) },
+				 ":dataset" => $dataset);
+	    print "deleted empty dataset $dataset\n" if $n > 0;
+	    $del_datasets += $n;
+	}
+    } else {
+	print "keeping empty datasets\n";
     }
 
     return ($del_datasets, $del_blocks);
