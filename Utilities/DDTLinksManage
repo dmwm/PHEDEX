@@ -3,10 +3,10 @@
 ##H Manage links for DDT
 ##H
 ##H Usage:
-##H   LinkNew -db DBCONFIG FILENAME
+##H   DDTLinksManage -db DBCONFIG FILENAME
 ##H
 ##H Examples:
-##H   LinkNew -db Schema/DBParam:Foo /foo/bar/list.txt
+##H   DDTLinksManage -db Schema/DBParam:Foo /foo/bar/list.txt
 ##H
 ##H FILENAME is a file which consists of the links and their state after the script is done, e.g: 
 ##H T1_Foo_Buffer T2_Bar_Buffer enable
