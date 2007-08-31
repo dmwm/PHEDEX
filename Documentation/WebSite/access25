@@ -2636,7 +2636,7 @@ sub output
 		$id = join ':', $se_names[0], $dataset;
 	    }
 	    $id .= ':'.$id_suffix if $id_suffix;
-	print {$$self{CONTENT}}	"<response id='$id'>No results</response>";
+	print {$$self{CONTENT}}	"<response type='object' id='$id'>No results</response>";
 	}
     }
 
@@ -4937,6 +4937,7 @@ sub output
     my @legend = (['Link exists and is valid', 'green'],
 		  ['Link exists, but agents are down', 'red'],
 		  ['Link exists, but is excluded', 'orange'],
+		  ['Link is deactivated', 'purple'],
 		  ['Link does not exist', 'white'],
 		  ['Self-reference', 'black']);
     
@@ -4956,12 +4957,13 @@ sub output
     "are required for transfers to be possible.  ",
     "Links are invalid when the source/destination node agents are down or they actively ",
     "exclude the other node with the -ignore/-accept options.  ",
+    "Links may also be deactivated by the PhEDEx administrators.  ",
     "<b>Warning:</b> Nodes that have never connected to the database are marked as excluded, which is not correct.",
     "</p><br clear='all'/>";
     $from_filter = qr/$from_filter/;
     $to_filter = qr/$to_filter/;
 
-    my $sql = qq{ select fn.name from_node, tn.name to_node, fn.kind from_kind, tn.kind to_kind,
+    my $sql = qq{ select fn.name from_node, tn.name to_node, l.is_active, fn.kind from_kind, tn.kind to_kind,
 		         xso.time_update source_update, xso.protocols source_protos,
 		         xsi.time_update sink_update,   xsi.protocols sink_protos
 		    from t_adm_link l
@@ -4981,9 +4983,11 @@ sub output
 
     my (%from_nodes, %to_nodes);
     foreach my $link (@{$links}) {
-	my ($from, $to, $from_kind, $to_kind, $xso_update, $xso_protos, $xsi_update, $xsi_protos) = @{$link};
+	my ($from, $to, $is_active, $from_kind, $to_kind, 
+	    $xso_update, $xso_protos, $xsi_update, $xsi_protos) = @{$link};
 	my $key = $from.'-->'.$to;
 	$link_params{$key} = { EXISTS => 1,
+			       IS_ACTIVE => $is_active,
 			       XSI_UPDATE => $xsi_update,
 			       XSO_UPDATE => $xso_update,
 			       FROM_KIND => $from_kind,
@@ -5040,6 +5044,12 @@ sub output
 		$link_params{$key}{XSI_AGE} = &age($now - $xsi_update);
 	    }
 	}
+
+ 	# Check active state
+ 	if ($link_params{$key}{IS_ACTIVE} ne 'y') {
+ 	    $link_params{$key}{VALID} = 0;
+ 	    $link_params{$key}{REASON} = "Link is deactivated";
+ 	}
 	
 	# Check protocols
 	if ($link_params{$key}{VALID}) {
@@ -5087,6 +5097,9 @@ sub output
 	    my $color;
 	    if ($from eq $to) { 
 		$color = 'black';
+	    } elsif ( $$link{EXISTS} && 
+		      $$link{IS_ACTIVE} ne 'y' ) {
+		$color = 'purple';
 	    } elsif ($$link{EXISTS} 
 		     && $$link{VALID}) {
 		$color = 'green';
