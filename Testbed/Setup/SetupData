@@ -100,8 +100,8 @@ eval
 	        returning id into :id},
 	        ":id" => \$bid, ":now" => $now, ":ds" => $dsid,
 		":name" => "/$label1/$label2/dataset-$ds#block-$block",
-                ":files" => $files,
-                ":bytes" => $files*$filesize,
+                ":files" => 0,  # incremented by trigger
+                ":bytes" => 0,  # incremented by trigger
 		":open" => $open_blocks);
 	    print "$bid";
 	
