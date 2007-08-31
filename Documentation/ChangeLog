@@ -1,3 +1,46 @@
+* Changes in PhEDEx 2.5.3.5
+
+ New Features for Site Tools
+   - LoadTest07Inject now packaged with PhEDEx and with new features with 
+     respect the other versions floating around.  This version by default 
+     closes blocks once they reach the user-specified file limit (default 
+     100) and marks datasets as "transient". This allows the blocks to 
+     collapse when they are finished and another agent (LoadTestCleanup) 
+     will incrementally clean up finished blocks.    
+
+   - New LoadTest file creation scripts
+   - Addition of FileMSSMigrate agent, which combines separate backend 
+     scripts (Castor, dCache) for file migration into one agent. This is 
+     now the officially supported way of running a migration agent.
+   - Template of FileDownloadSRMVerify added code compatibility with SRM 
+     2.2 systems
+
+   - InspectPhedexLog maximum message length increased from 165 to 200 by 
+     default, tunable with a command-line argument. Some other changes in 
+     command-line arguments (bunch detection suppressed). N.B. These notes
+     may not be complete or fully correct, they were made by Tony looking
+     at the code.
+
+ Schema and Central agents
+   - FileRouter more strictly enforces transfer window limits
+   - FileRouter now fills priority windows to WINDOW_SIZE per priority 
+     level.  WINDOW_SIZE can be specified by a command-line argument
+   - FileRouter observes the 'is_active' column in the links table, 
+     allowing us to enable and disable links easily
+   - FileCastorStager.New is renamed to FileCastorStager. There is no 
+     FileCastorStager.New anymore!
+
+ Operator's Tools:
+   - FileDeleteTMDB is made more robust, with optional bulk deletion and 
+     easier to use block-expansion
+   - DDTLinkManage for enabling and disabling links
+   - BlockConsistencyCheck code cleaned up, SQL improved, some output
+     moved to STDERR to keep STDOUT cleaner, online help improved.
+
+ Bug Fixes
+   - Minor documentation updates in tools and agents
+   - FileDownload does a sanity check for node existence in the DB
+
 * Changes in PhEDEx 2.5.3.4
 
  Schema and Central agents
