@@ -304,7 +304,7 @@ sub route
     # and an export agent at the source.
     my $links = {};
     my $q = &dbexec($dbh, qq{
-	select l.from_node, l.to_node, l.distance, l.is_local,
+	select l.from_node, l.to_node, l.distance, l.is_local, l.is_active,
 	       p.xfer_rate, p.xfer_latency,
 	       xso.protocols, xsi.protocols
 	from t_adm_link l
@@ -321,19 +321,21 @@ sub route
 	    on xsi.from_node = ns.id
 	    and xsi.to_node = nd.id
 	    and xsi.time_update >= :recent
-	where (ns.kind = 'MSS' and nd.kind = 'Buffer')
+	where l.is_active = 'y'
+	  and ((ns.kind = 'MSS' and nd.kind = 'Buffer')
 	   or (ns.kind = 'Buffer' and nd.kind = 'MSS'
 	       and xsi.from_node is not null)
 	   or (xso.from_node is not null
-	       and xsi.from_node is not null)},
+	       and xsi.from_node is not null))},
 	":recent" => &mytimeofday() - 5400);
 
     my %active_nodes;  # hash for uniqueness
-    while (my ($from, $to, $hops, $local, $rate, $latency,
+    while (my ($from, $to, $hops, $local, $is_active, $rate, $latency,
 	       $src_protos, $dest_protos) = $q->fetchrow())
     {
 	$active_nodes{$to} = 1;
 	$$links{$from}{$to} = { HOPS => $hops,
+				IS_ACTIVE => $is_active,
 				IS_LOCAL => $local eq 'y' ? 1 : 0,
 				XFER_RATE => $rate,
 				XFER_LATENCY => $latency,
@@ -1058,8 +1060,9 @@ sub warn_route_failures
     
     foreach my $dest (sort keys %{$$self{NEW_ROUTE_FAILURE}}) {
 	foreach my $reason (keys %{$$self{ROUTE_FAILURES}{$dest}}) {
-	    &logmsg("failed to route files to node=$dest:  $reason:  ".
-		    join(' ', map { "fileid=$_" } sort keys %{$$self{ROUTE_FAILURES}{$dest}{$reason}}));
+	    &warn("failed to route ",
+		    scalar keys %{$$self{ROUTE_FAILURES}{$dest}{$reason}},
+		    " files to node=$dest:  $reason");
 	}
 	delete $$self{NEW_ROUTE_FAILURE}{$dest};
     }
