@@ -15,11 +15,9 @@
    - Template of FileDownloadSRMVerify added code compatibility with SRM 
      2.2 systems
 
-   - InspectPhedexLog maximum message length increased from 165 to 200 by 
-     default, tunable with a command-line argument. Some other changes in 
-     command-line arguments (bunch detection suppressed). N.B. These notes
-     may not be complete or fully correct, they were made by Tony looking
-     at the code.
+   - InspectPhedexLog
+     - Canceled/Expired files treated seperately.
+     - Simple histograms on per error class basis
 
  Schema and Central agents
    - FileRouter more strictly enforces transfer window limits
