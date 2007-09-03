@@ -47,7 +47,7 @@ GetOptions(	"db=s"		=> \$dbconfig,
           );
 
 #-------------------------------------------------------------------------------
-$dbconfig or die "'--dbconfig' argument is mandatory\n";
+$dbconfig or die "'--db' argument is mandatory\n";
 @nodes    or die "'--node' argument is mandatory\n";
 
 $conn = { DBCONFIG => $dbconfig };
@@ -141,7 +141,7 @@ die "Redundant...\n";
 #-------------------------------------------------------------------------------
 sub expandNodeList
 {
-  my ($item,%result,$sql);
+  my ($item,%result);
   foreach my $item ( @_ )
   {
     my $tmp = getNodeFromWildCard($item);

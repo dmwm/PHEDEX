@@ -18,6 +18,7 @@ use strict;
 ##H                        [-mssprotocol MSSPROTOCOL]
 ##H 
 ##H   DBCONFIG is the usual PhEDEx DB contact file.
+##H
 ##H   TFC is the path to your trivial file catalogue
 ##H
 ##H   BUFFER is the name of one or more buffers that you wish to verify.
@@ -49,11 +50,13 @@ use strict;
 ##H   BlockConsistencyCheck -db ~/private/DBParam:Prod/Reader
 ##H      -buffer T1_CERN_%
 ##H      -block '/Minbias/CMSSW_1_4_3-CSA07-1911/GEN-SIM#ff6c979f-377f-47e2-af3b-ec7841baa581'
+##H      --tfc ~/public/COMP/SITECONF/CERN/PhEDEx/storage.xml
 ##H   
 ##H   BlockConsistencyCheck -db ~/private/DBParam:Prod/Reader
 ##H      -buffer T1_CERN_%
 ##H      -block '/Minbias/CMSSW_1_4_3-CSA07-1911/GEN-SIM#ff6c979f%'
 ##H      --tfcprotocol srm
+##H      --tfc ~/public/COMP/SITECONF/CERN/PhEDEx/storage.xml
 ##H   
 ##H
 

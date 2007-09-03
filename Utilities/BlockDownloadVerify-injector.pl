@@ -158,7 +158,7 @@ sub DumpTable
 #-------------------------------------------------------------------------------
 sub expandNodeList
 {
-  my ($item,%result,$sql);
+  my ($item,%result);
   foreach my $item ( @_ )
   {
     $debug && print "Getting nodes with names like '$item'\n";
@@ -171,7 +171,7 @@ sub expandNodeList
 #-------------------------------------------------------------------------------
 sub expandBlockList
 {
-  my ($item,%result,$sql);
+  my ($item,%result);
   foreach my $item ( @_ )
   {
     $debug && print "Getting blocks with names like '$item'\n";
@@ -185,7 +185,7 @@ sub expandBlockList
 #-------------------------------------------------------------------------------
 sub expandBlockListOnNode
 {
-  my ($item,%result,$sql);
+  my ($item,%result);
   foreach my $item ( @_ )
   {
     $debug && print "Getting blocks with names like '$item'\n";
@@ -198,7 +198,7 @@ sub expandBlockListOnNode
 #-------------------------------------------------------------------------------
 sub expandTestList
 {
-  my ($item,%result,$sql);
+  my ($item,%result);
   foreach my $item ( @_ )
   {
     $debug && print "Getting tests with names like '$item'\n";
