@@ -69,7 +69,7 @@ sub new
 		  NEXT_STATS => 0,		# Next time to refresh stats
 		  NEXT_SLOW_FLUSH => 0,	        # Next time to flush
 		  WINDOW_SIZE => 10,            # Size of priority windows in TB
-		  REQUEST_ALLOC => 'ByAge'      # Method to use when allocating file requests
+		  REQUEST_ALLOC => 'BY_AGE'      # Method to use when allocating file requests
 		  );
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
