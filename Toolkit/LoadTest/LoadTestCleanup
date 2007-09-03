@@ -75,6 +75,8 @@ sub idle
 	  qq{ select b.id, b.name from t_dps_block b
                 where b.is_open = 'n'
 	          and b.name like '%LoadTest%'
+		  and exists (select 1 from t_dps_block_replica br
+			       where br.block = b.id)
                   and not exists (select 1 from t_dps_block_replica br
                                    where br.block = b.id
                                     and br.is_active = 'y')
