@@ -34,7 +34,7 @@ my ($dbh,$conn,$dbconfig,$r,$s);
 my ($nodes,@nodes,$help,$bcc);
 my ($id,$block,$n_files,$n_tested,$n_ok,$status,$test,$time_reported);
 my ($debug_me);
-my ($detail);
+my ($detail,%states,@states);
 
 $debug_me = 1;
 $detail = 0;
@@ -55,6 +55,9 @@ $dbh = &connectToDatabase ( $conn, 0 );
 
 #-------------------------------------------------------------------------------
 $nodes = expandNodeList(@nodes);
+
+$states{Total} = dvsTestsPending(keys %{$nodes});
+push @states, 'Total';
 
 $bcc = UtilsBlockConsistencyCheck->new( DBH => $dbh );
 $r = $bcc->getTestResults(keys %{$nodes});
@@ -80,6 +83,8 @@ foreach $s ( @{$r} )
 	  $s->{STATUS},
 	  $s->{BLOCK}
 	);
+
+  if ( ! $states{$s->{STATUS}}++ ) { push @states, $s->{STATUS}; }
   if ( $detail && $s->{STATUS} eq 'Fail' )
   {
     my $f = $bcc->getDetailedTestResults($s->{ID});
@@ -87,6 +92,15 @@ foreach $s ( @{$r} )
     {
       print "Block=$s->{BLOCK} test=$s->{TEST} LFN=$_->{LOGICAL_NAME} Status=$_->{STATUS}\n";
     }
+  }
+}
+
+if ( @states )
+{
+  print "State count summary:\n";
+  foreach ( @states )
+  {
+    print "State=$_ count=$states{$_}\n";
   }
 }
 
@@ -136,6 +150,21 @@ die "Redundant...\n";
   while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
 
   return \@r;
+}
+
+sub dvsTestsPending
+{
+  my ($sql,$q,$nodelist,@r);
+
+  $nodelist = join(',',@_);
+  $sql = qq{ select count(*) from t_dvs_block
+	     where node in ($nodelist)
+	   };
+
+  $q = execute_sql( $sql, () );
+  @r = $q->fetchrow_array();
+
+  return $r[0];
 }
 
 #-------------------------------------------------------------------------------
