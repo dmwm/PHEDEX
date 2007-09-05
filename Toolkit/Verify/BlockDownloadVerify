@@ -1,7 +1,7 @@
 #! /usr/bin/env perl
 
 ##H
-##H This agent perfoms the verification of downloaded blocks.
+##H This agent performs the verification of downloaded blocks.
 ##H Ask Tony how it works...
 ##H
 ##H
@@ -43,7 +43,9 @@ use UtilsHelp;
              "nodes=s"      => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
              "ignore=s"     => sub { push(@{$args{IGNORE_NODES}}, split(/,/, $_[1])) },
              "accept=s"     => sub { push(@{$args{ACCEPT_NODES}}, split(/,/, $_[1])) },
-	     "help|h"	    => sub { &usage() });
+	     "help|h"	    => sub { &usage() },
+	     "use_srm"      => \$args{USE_SRM},
+	    );
 
 #if (@ARGV || !$args{NODES} || !$args{DROPDIR} || !$args{DBCONFIG})
 if (!$args{NODES} || !$args{DBCONFIG} || !$args{STORAGEMAP})
@@ -67,7 +69,7 @@ use DBI;
 use UtilsRFIO;
 use UtilsBlockConsistencyCheck;
 
-sub daemon() { print "Stub the daemon() call\n"; }
+#sub daemon() { print "Stub the daemon() call\n"; }
 
 sub new
 {
@@ -81,7 +83,8 @@ sub new
 		  WAITTIME => 60 + rand(15),	# Agent activity cycle
 		  DELETING => undef,		# Are we deleting files now?
 		  PROTOCOL => 'direct',         # File access protocol
-	  	  STORAGEMAP => undef		# Storage path mapping rules
+	  	  STORAGEMAP => undef,		# Storage path mapping rules
+		  USE_SRM => 0,			# Use SRM or native technology?
 		  );
     
     my %args = (@_);
@@ -96,6 +99,19 @@ sub doSizeCheck
   my ($n_files,$n_tested,$n_ok);
   my $dbh = undef;
   my @nodes = ();
+
+my %Status = (
+		0 => 'None',
+		1 => 'OK',
+		2 => 'Fail',
+		3 => 'Queued',
+		4 => 'Active',
+		5 => 'Timeout',
+		6 => 'Expired',
+		7 => 'Suspended',
+		8 => 'Error',
+		9 => 'Rejected',
+	      );
 
   print scalar localtime, ": doSizeCheck: starting\n";
   my $dropdir = "$$self{WORKDIR}/$drop";
@@ -112,13 +128,26 @@ sub doSizeCheck
   $bcc->DBH($self->{DBH});
   my $technology = $bcc->Buffers(@{$self->{NODES}});
   $ns->technology( $technology );
+
+  $ns->protocol( 'srm' ) if $self->{USE_SRM};
+  $ns->TFCPROTOCOL( 'srm' ) if $self->{USE_SRM};
+  $ns->STORAGEMAP( $self->{STORAGEMAP} );
+
   $bcc->LFNRef($request->{LFNs});
   print scalar localtime, ": doSizeCheck: Request ",$request->{ID},"\n";
   $n_files = $request->{N_FILES};
+#$DB::single=$debug_me;
   foreach my $r ( @{$request->{LFNs}} )
   {
-    my $pfn = $bcc->lfn2pfn($r->{LOGICAL_NAME});
+    my $pfn = $ns->lfn2pfn($r->{LOGICAL_NAME});
     my $size = $ns->statsize($pfn);
+    if ( ! exists $Status{$r->{STATUS}} )
+    {
+$DB::single=$debug_me;
+      print "Woah, unknown status! Get me outta here...\n";
+      print Data::Dumper->Dump( [$r, $request], [qw/ r request/]);
+      die "Don't know what to do with this. Ask Tony!\n";
+    }
     if ( defined($size) && $size == $r->{FILESIZE} )
     {
       $r->{STATUS} = 'OK';
@@ -129,6 +158,8 @@ sub doSizeCheck
     }
     $r->{TIME_REPORTED} = time();
     last unless --$n_files;
+    if ( $self->{USE_SRM} )
+    { print scalar localtime,": $n_files files remaining\n"; }
   }
 
   eval
@@ -203,7 +234,6 @@ sub processDrop
   my $request = do { no strict "vars"; eval &input ("$dropdir/packet") };
   my $bad = 0;
   $bad = 1 if ($@ || !$request );
-$DB::single=$debug_me;
   foreach ( qw/ BLOCK ID LFNs N_FILES PRIORITY TEST TEST_NAME TIME_EXPIRE / )
   {
     $bad = 1 unless defined $request->{$_};
@@ -317,7 +347,7 @@ sub dropBoxName
 # Derive a dropbox name for a request. Required to be alphabetically
 # sorted to the same order that the requests should be processed in.
   my ($self,$request) = @_;
-  my $b = sprintf("%08x_%08x_%08x",
+  my $b = sprintf("%08x_%08x_%010d",
                    $request->{PRIORITY},
                    $request->{TIME_EXPIRE},
                    $request->{ID}
@@ -380,7 +410,6 @@ sub idle
           $self->setRequestState($request,'Error');
         }
       }
-#     Intermediate commit after having dealt with all files at a node
       $dbh->commit();
     }
   };
@@ -423,6 +452,7 @@ sub setFileState
          ':status_name' => $result->{STATUS},
          ':time'        => $result->{TIME_REPORTED},
        );
+#$DB::single=$debug_me;
   $q = &dbexec($self->{DBH},$sql,%p);
 }
 
@@ -449,6 +479,7 @@ sub setRequestState
   return unless defined $request->{ID};
   if ( ! defined ($dbh = $self->{DBH} ) )
   {
+print "Hmm, I have to connect...? (Request=$request->{ID}, state=$state)\n";
     ($dbh,@nodes) = &expandNodesAndConnect($self);
     $disconnect=1;
   }
