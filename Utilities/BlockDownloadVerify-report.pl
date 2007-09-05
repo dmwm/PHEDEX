@@ -56,8 +56,9 @@ $dbh = &connectToDatabase ( $conn, 0 );
 #-------------------------------------------------------------------------------
 $nodes = expandNodeList(@nodes);
 
-$states{Total} = dvsTestsPending(keys %{$nodes});
-push @states, 'Total';
+my $all_states = 'All-states';
+$states{$all_states} = dvsTestsPending(keys %{$nodes});
+push @states, $all_states;
 
 $bcc = UtilsBlockConsistencyCheck->new( DBH => $dbh );
 $r = $bcc->getTestResults(keys %{$nodes});
