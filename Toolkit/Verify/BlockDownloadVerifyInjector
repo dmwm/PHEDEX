@@ -1,0 +1,164 @@
+#! /usr/bin/env perl
+
+##H
+##H This agent looks for blocks to inject in the verification queue
+##H Ask Tony how it works...
+##H
+##H
+##H Usage:
+##H   BlockDownloadVerifyInjector
+##H      -db FILE[:SECTION] [-log OUT]
+##H
+##H -db            database connection configuration parameter file.
+##H -log           where to redirect logging information.
+##H
+
+BEGIN
+{
+  use warnings; use strict; $^W=1;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0;
+  if ( $home !~ m%/% ) { $home = '.'; }
+  $home =~ s|/[^/]+$||;
+  $home ||= ".";
+  $home .= "/../../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+my $debug_me = 1;
+
+######################################################################
+use Getopt::Long;
+use UtilsHelp;
+
+&GetOptions ("state=s"      => \$args{DROPDIR},
+	     "log=s"        => \$args{LOGFILE},
+	     "db=s"         => \$args{DBCONFIG},
+	     "interval=s"   => \$args{INTERVAL},
+	     "node=s"       => \$args{MYNODE},
+             "ignore=s"     => sub { push(@{$args{IGNORE_NODES}}, split(/,/, $_[1])) },
+             "accept=s"     => sub { push(@{$args{ACCEPT_NODES}}, split(/,/, $_[1])) },
+	     "help|h"	    => sub { &usage() },
+	    );
+
+#if (@ARGV || !$args{NODES} || !$args{DROPDIR} || !$args{DBCONFIG})
+if (!$args{DROPDIR} || !$args{DBCONFIG} || !$args{MYNODE})
+{
+    die "Insufficient parameters, use -h for help.\n";
+}
+$args{LOGFILE} = $args{DROPDIR} . '/log.txt' unless defined $args{LOGFILE};
+
+(new BlockDownloadVerifyInjector (%args))->process();
+
+################################################
+package BlockDownloadVerifyInjector;
+use strict;
+use warnings;
+use base 'UtilsAgent';
+use File::Path;
+use Data::Dumper;
+use UtilsCommand;
+use UtilsLogging;
+use UtilsTiming;
+use UtilsCatalogue;
+use UtilsDB;
+use DBI;
+use UtilsRFIO;
+use UtilsBlockConsistencyCheck;
+
+sub daemon() { print "Stub the daemon() call\n"; }
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
+    my %params = (DBCONFIG => undef,		# Database configuration file
+	  	  MYNODE => undef,		# Node names to run this agent for
+	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
+	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
+		  WAITTIME => 60 + rand(15),	# Agent activity cycle
+		  INTERVAL => 3 * 86400,	# Time to start checking...
+		  );
+    
+    my %args = (@_);
+    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
+    bless $self, $class;
+    return $self;
+}
+
+# Get a list of pending requests
+sub stuckOnWan
+{
+  my ($self, $dbh, $limit) = @_;
+  my (@requests,$sql,%p,$q,$q1,$n,$i);
+
+$DB::single=1;
+  print scalar localtime, ": find candidates stuckOnWan: starting\n";
+  my $now = &mytimeofday();
+
+# Find all the files that we are expected to work on
+  $n = 0;
+
+# Blocks stuck over a WAN link for more than 3 days (check the source)
+  my $interval = time() - $self->{INTERVAL};
+  $sql = qq { select time_request, time_update,
+                     ns.name sname, nd.name dname, bp.block block,
+                     ns.id sid, nd.id did, b.name bname
+               from t_status_block_path bp
+               join t_adm_node ns on ns.id = bp.src_node
+               join t_adm_node nd on nd.id = bp.destination
+               join t_adm_link l on l.from_node = bp.src_node
+                                and l.to_node = bp.destination
+               join t_dps_block b on b.id = bp.block
+               where bp.is_valid = 1
+                 and l.is_local = 'n'
+                 and time_request <= :interval
+		order by time_request asc
+       };
+  %p = ( ":interval" => $interval );
+  $q = &dbexec($dbh,$sql,%p);
+
+$DB::single=1;
+  while ( my $h = $q->fetchrow_hashref() )
+  {
+    print "Queue: ",join(', ',map { "$_=$h->{$_}" } sort keys %{$h}),"\n";
+    push @requests, $h;
+  }
+
+  print scalar localtime,": Found ",scalar @requests," requests in total\n";
+  return @requests;
+}
+
+# Pick up work from the database.
+sub idle
+{
+  my ($self, @pending) = @_;
+  my $dbh = undef;
+
+  print scalar localtime,": idle: starting\n";
+  eval
+  {
+    $dbh = &connectToDatabase ($self);
+
+#   Get a list of requests to process
+    foreach my $request ($self->stuckOnWan ($dbh, 5))
+    {
+    }
+    $dbh->commit();
+  };
+  do { chomp ($@);
+      &alert ("database error: $@");
+       eval { $dbh->rollback() } if $dbh
+     } if $@;
+
+  # Disconnect from the database
+  &disconnectFromDatabase ($self, $dbh);
+
+  # Have a little nap
+  print scalar localtime,": idle: take a nap\n";
+  $self->nap ($$self{WAITTIME});
+  print scalar localtime,": idle: Returning\n";
+}
+
+1;
