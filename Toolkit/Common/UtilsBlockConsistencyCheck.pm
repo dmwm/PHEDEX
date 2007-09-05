@@ -700,13 +700,6 @@ sub getBlocksOnBufferFromWildCard
   my %p = ( ":block_wild" => @_ );
   my $r = select_single( $dbh, $sql, %p );
 
-#  my $sql =
-#        qq {select node, is_active, node_files, files, is_open, b.name block
-#	from t_dps_block b join t_dps_block_replica br on br.block = b.id
-#        join t_adm_node n on n.id = br.node
-#	where n.name = :buffer };
-#  my %p = ( ":buffer" => @_ );
-#  my $r = select_hash( $sql, 'BLOCK', %p );
   return $r;
 }
 
