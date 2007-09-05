@@ -2,6 +2,7 @@ package UtilsNamespace;
 use strict;
 use warnings;
 
+use UtilsCatalogue;
 use File::Basename;
 use base 'Exporter';
 our @EXPORT = qw(stat statmode statsize );
@@ -23,6 +24,16 @@ our %stat;
 our @attrs = ( qw/ verbose debug proxy / );
 our %ok_field;
 for my $attr ( @attrs ) { $ok_field{$attr}++; }
+our (%params);
+
+%params = (
+                STORAGEMAP      => undef,
+                TFCPROTOCOL     => 'direct',
+                MSSPROTOCOL     => '',
+                DESTINATION     => 'any',
+		verbose		=> 0,
+		debug		=> 0,
+	  );
 
 sub _init
 {
@@ -30,7 +41,8 @@ sub _init
   my %h = @_;
 
   if ( $h{protocol} ) { $self->protocol( delete $h{protocol} ); }
-  map { $self->{$_} = $h{$_}; } keys %h;
+  map { $self->{$_} = $h{$_} || $params{$_}; } keys %params;
+# map { $self->{$_} = $h{$_}; } keys %h;
 
   return $self;
 }
@@ -50,16 +62,23 @@ sub AUTOLOAD
   my $self = shift;
   my $attr = our $AUTOLOAD;
   $attr =~ s/.*:://;
-  return unless $attr =~ /[^A-Z]/; # skip DESTROY and all-cap methods
 
 # Setters and getters...
-  if ( $ok_field{$attr} )
+  if ( $ok_field{$attr} || exists $params{$attr} )
   {
     $self->{$attr} = shift if @_;
     return $self->{$attr};
   }
 
-  if ( $attr =~ m%^$self->{prefix}% )
+  return unless $attr =~ /[^A-Z]/;  # skip DESTROY and all-cap methods
+
+# Check in case I got here by bad magic, or for something I don't want
+  if ( !ref($self) )
+  {
+    die "\"$self\" is not an object of class \"",__PACKAGE__,"\", cannot find \"$attr\" attribute\n";
+  }
+
+  if ( $attr !~ m%^$self->{prefix}% )
   {
     die "Unknown method: $attr\n";
   }
@@ -103,6 +122,18 @@ sub technology
   die "technology '$technology' not known. Only know about '" . join("', '", keys %tmap) . "'\n" unless defined $tmap{$technology};
   print "Using MSS technology $technology\n";
   return $self->protocol($tmap{$technology});
+}
+
+sub lfn2pfn
+{ 
+  my $self = shift;
+  my $lfn = shift;
+  my $pfn = pfnLookup(  $lfn,
+                        $self->{TFCPROTOCOL},
+                        $self->{DESTINATION},
+                        $self->{STORAGEMAP}
+                     );
+  return $pfn;
 }
 
 #-----------------------
