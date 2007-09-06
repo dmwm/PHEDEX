@@ -128,9 +128,9 @@ def read_status(source, destination, path):
     else:
         print """WARNING: Can't read status file, this could be because of an incorrect 
         command flag, because the file has been removed or because this script has not 
-        been run before (in which case don't worry)
-        Expecting to read : %s""" % '%s/%s_%s' % (path, source, "_".join(destination))
-        return 0, 0, int(time.mktime(datetime.datetime.now().timetuple()))
+        been run before for %s (in which case don't worry)
+        Expecting to read : %s""" % (destination, '%s/%s_%s' % (path, source, "_".join(destination)))
+        return 0, 500, int(time.mktime(datetime.datetime.now().timetuple()))
 
 def write_status(source, destination, status, path, stamp):
     # Write out the last file injected and the time injected
@@ -212,7 +212,8 @@ def make_drop(sites, instance, filerange, blockid, close, home, inbox):
             file.setAttribute("size",file_info['size'].strip())
             file.setAttribute("checksum","cksum:%s" % file_info['cksum'])
             block.appendChild(file)
-            if fid > options.blocksize:
+
+            if fid >= int(options.blocksize):
                 if options.verbose:
                     print "closing block"
                 if options.close:
