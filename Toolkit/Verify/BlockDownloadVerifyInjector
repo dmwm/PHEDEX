@@ -34,7 +34,7 @@ use UtilsHelp;
 &GetOptions ("state=s"      => \$args{DROPDIR},
 	     "log=s"        => \$args{LOGFILE},
 	     "db=s"         => \$args{DBCONFIG},
-	     "interval=s"   => \$args{INTERVAL},
+	     "interval=s"   => \$args{CHECK_INTERVAL},
 	     "node=s"       => \$args{MYNODE},
              "ignore=s"     => sub { push(@{$args{IGNORE_NODES}}, split(/,/, $_[1])) },
              "accept=s"     => sub { push(@{$args{ACCEPT_NODES}}, split(/,/, $_[1])) },
@@ -66,7 +66,9 @@ use DBI;
 use UtilsRFIO;
 use UtilsBlockConsistencyCheck;
 
-sub daemon() { print "Stub the daemon() call\n"; }
+our $counter;
+
+#sub daemon() { print "Stub the daemon() call\n"; }
 
 sub new
 {
@@ -77,8 +79,9 @@ sub new
 	  	  MYNODE => undef,		# Node names to run this agent for
 	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
-		  WAITTIME => 60 + rand(15),	# Agent activity cycle
-		  INTERVAL => 3 * 86400,	# Time to start checking...
+		  WAITTIME => 600 + rand(15),	# Agent activity cycle
+		  CHECK_INTERVAL => 3 * 86400,	# Age to start checking...
+		  LAST_CHECKED => 0,		# Internal lower bound
 		  );
     
     my %args = (@_);
@@ -90,21 +93,18 @@ sub new
 # Get a list of pending requests
 sub stuckOnWan
 {
-  my ($self, $dbh, $limit) = @_;
-  my (@requests,$sql,%p,$q,$q1,$n,$i);
+  my ($self, $dbh) = @_;
+  my (@requests,$sql,%p,$q);
+  my ($now,$t,$interval);
 
-$DB::single=1;
+$DB::single=$debug_me;
   print scalar localtime, ": find candidates stuckOnWan: starting\n";
-  my $now = &mytimeofday();
+  $now = &mytimeofday();
 
-# Find all the files that we are expected to work on
-  $n = 0;
-
-# Blocks stuck over a WAN link for more than 3 days (check the source)
-  my $interval = time() - $self->{INTERVAL};
+# Blocks stuck over a link for longer than $interval, but not if already seen
   $sql = qq { select time_request, time_update,
                      ns.name sname, nd.name dname, bp.block block,
-                     ns.id sid, nd.id did, b.name bname
+                     ns.id sid, nd.id did, b.name bname, l.is_local is_local
                from t_status_block_path bp
                join t_adm_node ns on ns.id = bp.src_node
                join t_adm_node nd on nd.id = bp.destination
@@ -112,20 +112,28 @@ $DB::single=1;
                                 and l.to_node = bp.destination
                join t_dps_block b on b.id = bp.block
                where bp.is_valid = 1
-                 and l.is_local = 'n'
                  and time_request <= :interval
+                 and time_request > :last_checked
 		order by time_request asc
        };
-  %p = ( ":interval" => $interval );
+  $t = time();
+  $interval = $t - $self->{CHECK_INTERVAL};
+  print 'Search between ', (scalar localtime $interval), ' and ', (scalar localtime $self->{LAST_CHECKED}), "\n";
+  %p = ( ":interval"     => $interval,
+	 ":last_checked" => $self->{LAST_CHECKED}
+       );
   $q = &dbexec($dbh,$sql,%p);
 
-$DB::single=1;
+$DB::single=$debug_me;
   while ( my $h = $q->fetchrow_hashref() )
   {
-    print "Queue: ",join(', ',map { "$_=$h->{$_}" } sort keys %{$h}),"\n";
+#   $h->{TIME_REQUEST_HR} = '"' . (scalar localtime $h->{TIME_REQUEST}) . '"';
+#   $h->{TIME_UPDATE_HR}  = '"' . (scalar localtime $h->{TIME_UPDATE})  . '"';
+#   print "Queue: ",join(', ',map { "$_=$h->{$_}" } sort keys %{$h}),"\n";
     push @requests, $h;
   }
 
+  $self->{LAST_CHECKED} = $t;
   print scalar localtime,": Found ",scalar @requests," requests in total\n";
   return @requests;
 }
@@ -141,9 +149,47 @@ sub idle
   {
     $dbh = &connectToDatabase ($self);
 
+    $counter = 0;
 #   Get a list of requests to process
     foreach my $request ($self->stuckOnWan ($dbh, 5))
     {
+# Create an injection drop for the BDV agent!
+      my %p = (
+		BLOCK		=> $request->{BLOCK},
+		N_FILES		=> 0,
+		PRIORITY	=> 1024*1024*1024, # Pretty high priority!
+		TEST_NAME	=> undef,
+		TIME_EXPIRE	=> time() + 3 * 86400,
+		NODE		=> undef,
+		INJECT_ONLY	=> 1,
+		COMMENT		=>
+		{
+		  BNAME => $request->{BNAME},
+		  SNAME => $request->{SNAME},
+		  DNAME => $request->{DNAME},
+		  TIME_REQUEST => scalar localtime $request->{TIME_REQUEST},
+		  TIME_UPDATE  => ( $request->{TIME_UPDATE} ?
+				    scalar localtime $request->{TIME_UPDATE} :
+				    undef ),
+		}
+	      );
+
+      if ( $request->{IS_LOCAL} eq 'y' )
+      {
+#       For LAN transfers, check migration at the destination.
+        $p{TEST_NAME} = 'migration';
+        $p{NODE} = $request->{DID};
+      }
+      if ( $request->{IS_LOCAL} eq 'n' )
+      {
+#       For LAN transfers, check filesize at the source
+        $p{TEST_NAME} = 'size';
+        $p{NODE} = $request->{SID};
+# Hack to use SRM for non-CERN sites!
+        if ( $request->{SNAME} !~ m%_CERN_% ) { $p{USE_SRM}=1; }
+      }
+      $request = \%p;
+      $self->startOne ($request);
     }
     $dbh->commit();
   };
@@ -156,9 +202,45 @@ sub idle
   &disconnectFromDatabase ($self, $dbh);
 
   # Have a little nap
-  print scalar localtime,": idle: take a nap\n";
+  print scalar localtime,": idle: sleep until ",scalar localtime(time+$self->{WAITTIME}),"\n";
   $self->nap ($$self{WAITTIME});
   print scalar localtime,": idle: Returning\n";
+}
+
+
+#===========================================================================
+# Stolen from BlockDownloadVerify! Needs to go into a Perl module...
+#
+
+sub dropBoxName
+{
+# Derive a dropbox name for a request. Required to be alphabetically
+# sorted to the same order that the requests should be processed in.
+  my ($self,$request) = @_;
+  my $b = sprintf("%08x_%08x_%010d",
+                   $request->{PRIORITY},
+                   $request->{TIME_EXPIRE},
+                   $counter++
+                 );
+  return $b;
+}
+
+sub startOne
+{
+  my ($self, $request) = @_;
+
+# Create a pending drop in my inbox
+  my $drop = "$$self{DROPDIR}/inbox/" . $self->dropBoxName($request);
+  do { &alert ("$drop already exists"); return 0; } if -d $drop;
+  do { &alert ("failed to submit $$request{ID}"); &rmtree ($drop); return 0; }
+        if (! &mkpath ($drop)
+          || ! &output ("$drop/packet", Dumper ($request))
+          || ! &touch ("$drop/go.pending"));
+
+# OK, kick it go
+  return 1 if &mv ("$drop/go.pending", "$drop/go");
+  &warn ("failed to mark $$request{ID} ready to go");
+  return 0;
 }
 
 1;
