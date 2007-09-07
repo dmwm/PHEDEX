@@ -237,7 +237,7 @@ sub processDrop
   my $request = do { no strict "vars"; eval &input ("$dropdir/packet") };
   my $bad = 0;
   $bad = 1 if ($@ || !$request );
-  foreach ( qw/ BLOCK ID LFNs N_FILES PRIORITY TEST TEST_NAME TIME_EXPIRE / )
+  foreach ( qw/ BLOCK ID LFNs N_FILES PRIORITY TEST_NAME TIME_EXPIRE / )
   {
     $bad = 1 unless defined $request->{$_};
   }
