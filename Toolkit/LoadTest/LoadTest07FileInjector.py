@@ -116,41 +116,45 @@ def read_info(path):
 
 def read_status(source, destination, path):
     # Read the last file and block injected and the time it was injected
-    if os.path.isfile('%s/%s_%s' % (path, source, "_".join(destination))):
-        pkl_file = open('%s/%s_%s' % (path, source, "_".join(destination)), 'rb')
-        data = pickle.load(pkl_file)
-        pkl_file.close()
-        file = data['file']
-        block = data['block']
-        if block < 500: block = 500
-        stamp = data['stamp']
-        return file, block, stamp
-    else:
-        print """WARNING: Can't read status file, this could be because of an incorrect 
-        command flag, because the file has been removed or because this script has not 
-        been run before for %s (in which case don't worry)
-        Expecting to read : %s""" % (destination, '%s/%s_%s' % (path, source, "_".join(destination)))
-        return 0, 500, int(time.mktime(datetime.datetime.now().timetuple()))
+    status = {}
+    for d in destination:
+        if os.path.isfile('%s/%s_%s' % (path, source, d)):
+            pkl_file = open('%s/%s_%s' % (path, source, d), 'rb')
+            data = pickle.load(pkl_file)
+            pkl_file.close()
+            file = data['file']
+            block = data['block']
+            if block < 600: block = 600
+            stamp = data['stamp']
+            status[d] = file, block, stamp
+        else:
+            print """WARNING: Can't read status file, this could be because of an incorrect 
+            command flag, because the file has been removed or because this script has not 
+            been run before for %s (in which case don't worry)
+            Expecting to read : %s""" % (destination, '%s/%s_%s' % (path, source, d))
+            status[d] = 0, 600, int(time.mktime(datetime.datetime.now().timetuple()))
+    return status
 
-def write_status(source, destination, status, path, stamp):
+def write_status(source, status, path):
     # Write out the last file injected and the time injected
-    if os.path.isdir('%s' % (path)):
-        output = open('%s/%s_%s' % (path, source, "_".join(destination)), 'wb')
-        file, block = status
-        data = {'source':source, 
-                'destination':destination, 
-                'file':file, 
-                'block':block,
-                'stamp':stamp,
-                'path':path}
-        # Pickle dictionary using protocol 0.
-        pickle.dump(data, output)
-            
-        output.close()
-    else:
-        print """ERROR: Can't write status file, this could be because of an incorrect 
-        command flag or because the directory has not been created or been removed.
-        Expecting to write to : %s""" % '%s/%s_%s' % (path, source, "_".join(destination))
+    for d in status.keys():
+        if os.path.isdir('%s' % (path)):
+            output = open('%s/%s_%s' % (path, source, d), 'wb')
+            file, block, stamp = status[d]
+            data = {'source':source, 
+                    'destination':d, 
+                    'file':file, 
+                    'block':block,
+                    'stamp':stamp,
+                    'path':path}
+            # Pickle dictionary using protocol 0.
+            pickle.dump(data, output)
+                
+            output.close()
+        else:
+            print """ERROR: Can't write status file, this could be because of an incorrect 
+            command flag or because the directory has not been created or been removed.
+            Expecting to write to : %s""" % '%s/%s_%s' % (path, source, d)
 
 def calculate_rate(then, rate):
     # number of files = (timediff * rate) / size
@@ -178,6 +182,9 @@ def make_drop(sites, instance, filerange, blockid, close, home, inbox):
 #        </dataset>
 #    </dbs>
     files = read_info(home)
+    infosize = len(files)
+    if options.verbose:
+        print 'Info file contains %s files' % infosize
     source = sites[0]
     for dest in sites[1]:
         doc = xml.dom.minidom.Document()
@@ -193,40 +200,42 @@ def make_drop(sites, instance, filerange, blockid, close, home, inbox):
         block = doc.createElement('block')
         block.setAttribute("name", "/PhEDEx_Debug/LoadTest07_%s_%s#%s" % (source, dest, blockid))
         
-        fid = min(filerange) % 256
+        fid = min(filerange) % infosize
         for f in filerange:
             fid += 1
             cut_f = f % 256
-
-            file_info = files['%0.2X' % cut_f]
-            if options.debug:
-                print 'cut_f, f', f, cut_f
-                print 'cut_f and f %0.2X' % cut_f, f
-                print 'file_info', file_info
-                
-            lfn = "/store/PhEDEx_LoadTest07/LoadTest07_%s_%s/%s/%s/LoadTest07_%s_%0.2X_%s_%s" % (instance, source, 
-                                                                      dest, blockid, source, cut_f, random(), blockid)
-            file = doc.createElement('file')
-            file.setAttribute("lfn", lfn)
-
-            file.setAttribute("size",file_info['size'].strip())
-            file.setAttribute("checksum","cksum:%s" % file_info['cksum'])
-            block.appendChild(file)
-
-            if fid >= int(options.blocksize):
-                if options.verbose:
-                    print "closing block"
-                if options.close:
-                    block.setAttribute("is-open", "n")
-                else:
-                    block.setAttribute("is-open", "y")
+            try:
+                file_info = files['%0.2X' % cut_f]
                 if options.debug:
-                    print "writing block"
-                dataset.appendChild(block)
-                blockid += 1
-                block = doc.createElement('block')
-                block.setAttribute("name", "/PhEDEx_Debug/LoadTest07_%s_%s#%s" % (source, dest, blockid))
-                fid = 0
+                    print 'cut_f, f', f, cut_f
+                    print 'cut_f and f %0.2X' % cut_f, f
+                    print 'file_info', file_info
+                    
+                lfn = "/store/PhEDEx_LoadTest07/LoadTest07_%s_%s/%s/%s/LoadTest07_%s_%0.2X_%s_%s" % (instance, source, 
+                                                                          dest, blockid, source, cut_f, random(), blockid)
+                file = doc.createElement('file')
+                file.setAttribute("lfn", lfn)
+    
+                file.setAttribute("size",file_info['size'].strip())
+                file.setAttribute("checksum","cksum:%s" % file_info['cksum'])
+                block.appendChild(file)
+    
+                if fid >= int(options.blocksize):
+                    if options.verbose:
+                        print "closing block"
+                    if options.close:
+                        block.setAttribute("is-open", "n")
+                    else:
+                        block.setAttribute("is-open", "y")
+                    if options.debug:
+                        print "writing block"
+                    dataset.appendChild(block)
+                    blockid += 1
+                    block = doc.createElement('block')
+                    block.setAttribute("name", "/PhEDEx_Debug/LoadTest07_%s_%s#%s" % (source, dest, blockid))
+                    fid = 0
+            except:
+                print "WARNING file %s not listed in info file, your info file is incomplete" % cut_f
         if fid:
             if options.verbose:
                 print "writing open block"
@@ -258,34 +267,39 @@ if __name__ == "__main__":
             print "Starting injector %s %s %s MB/s (blocksize %s)" % (options.site, options.dest, options.rate, options.blocksize)
         
         # Read in previous status
-        file, block, stamp = read_status(options.site, options.dest, options.inject_home)
+        status = read_status(options.site, options.dest, options.inject_home)
         
         if options.verbose:
-            print file, block, stamp
+            print status
         
-        # Decide how many files to add
-        add_files = 0
-        if options.inject: add_files = int(options.inject)   
-        elif options.rate:
-            #Calculate the rate and corresponding required number of files
-            add_files = calculate_rate(stamp, int(options.rate))
-            
-        if options.verbose:
-            print 'Adding %s files' % add_files
-            
-        # Create the drops
-        if add_files > 0:
-            block = make_drop([options.site, options.dest], options.instance, 
-                      range(file, file + add_files), block, options.close, options.inject_home, options.inbox)
-            
-            # Update status    
-            file = file + add_files           
-           
-            status = file, block
-            if options.debug:
-                print status
-            if options.rate:
-                # Don't need to record the timestamp for injectnow injections
-                stamp = int(time.mktime(datetime.datetime.now().timetuple()))
-            write_status(options.site, options.dest, status, options.inject_home, stamp)
+        for d in status.keys():
+            file, block, stamp = status[d]
+            # Decide how many files to add
+            add_files = 0
+            if options.inject: add_files = int(options.inject)   
+            elif options.rate:
+                #Calculate the rate and corresponding required number of files
+                add_files = calculate_rate(stamp, int(options.rate))
+                
+            if options.verbose:
+                print 'Adding %s files' % add_files
+                
+            # Create the drops
+            if add_files > 0:
+                block = make_drop([options.site, options.dest], options.instance, 
+                          range(file, file + add_files), block, options.close, options.inject_home, options.inbox)
+                
+                # Update status    
+                file = file + add_files           
+               
+                if options.debug:
+                    print status
+                if options.rate:
+                    # Don't need to record the timestamp for injectnow injections
+                    stamp = int(time.mktime(datetime.datetime.now().timetuple()))
+                status[d] = file, block, stamp
+                
+            write_status(options.site, status, options.inject_home)
+                
+            print "Added %s files" % add_files
             
