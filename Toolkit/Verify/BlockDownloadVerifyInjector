@@ -238,7 +238,7 @@ sub startOne
   return 1 unless $self->{DROPBOX};
 
 # Create a pending drop in the required location
-  my $drop = "$$self{DROPDIR}/$self->{DROPBOX}/" . $self->dropBoxName($request);
+  my $drop = $self->{DROPBOX} . '/' . $self->dropBoxName($request);
   do { &alert ("$drop already exists"); return 0; } if -d $drop;
   do { &alert ("failed to submit $$request{ID}"); &rmtree ($drop); return 0; }
         if (! &mkpath ($drop)
