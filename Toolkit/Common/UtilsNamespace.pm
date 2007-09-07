@@ -31,6 +31,7 @@ our (%params);
                 TFCPROTOCOL     => 'direct',
                 MSSPROTOCOL     => '',
                 DESTINATION     => 'any',
+		RFIO_USES_RFDIR => 0,
 		verbose		=> 0,
 		debug		=> 0,
 	  );
@@ -219,6 +220,7 @@ sub rfstat
   my $self = shift;
   my ($pfn,$r,$cmd);
   $cmd = 'nsls -l';
+  if ( $self->{RFIO_USES_RFDIR} ) { $cmd = 'rfdir'; }
 
   $self->_stat($cmd,@_);
   foreach my $pfn ( @_ )
