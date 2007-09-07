@@ -461,7 +461,13 @@ sub prepare
 	# Now commit second phase.
 	$dbh->commit();
     } else {
-	&warn("through-traffic limit reached for node=$node.  No new block destinations activated");
+	# Lots of through traffic - don't allocate
+	# Check how many blocks there are waiting
+	my ($nblocks) = &dbexec($dbh, qq{
+	    select count(*) from t_dps_block_dest where destination = :node and state = 0
+	    }, ":node" => $node)->fetchrow();
+	&warn("through-traffic limit reached for node=$node.  no new block destinations activated out of $nblocks")
+	    if $nblocks;
     }
     
 
@@ -536,6 +542,11 @@ sub getDestinedBlocks_DatasetBalance
 
     # Creates a hashref like $$destined{ $dataset }{ $block } = { PRIORITY => $priority, BYTES => $bytes }
     my $destined = $q_destined->fetchall_hashref(['DATASET', 'BLOCK']);
+   
+    # Initialize unallocated datasets
+    foreach my $dataset (keys %{$destined}) {
+	$$allocation{$dataset}{BYTES} ||= 0;
+    }
 
     # Build ordered list of blocks by load-balancing based on dataset bytes
   DATASET:  while ( scalar keys %{$destined} ) {
