@@ -45,6 +45,7 @@ use UtilsHelp;
              "accept=s"     => sub { push(@{$args{ACCEPT_NODES}}, split(/,/, $_[1])) },
 	     "help|h"	    => sub { &usage() },
 	     "use_srm"      => \$args{USE_SRM},
+	     "use_rfdir"    => \$args{RFIO_USES_RFDIR},
 	    );
 
 #if (@ARGV || !$args{NODES} || !$args{DROPDIR} || !$args{DBCONFIG})
@@ -85,6 +86,7 @@ sub new
 		  PROTOCOL => 'direct',         # File access protocol
 	  	  STORAGEMAP => undef,		# Storage path mapping rules
 		  USE_SRM => 0,			# Use SRM or native technology?
+		  RFIO_USES_RFDIR => 0,		# Use rfdir instead of nsls?
 		  );
     
     my %args = (@_);
@@ -132,6 +134,7 @@ my %Status = (
   $ns->protocol( 'srm' ) if $self->{USE_SRM};
   $ns->TFCPROTOCOL( 'srm' ) if $self->{USE_SRM};
   $ns->STORAGEMAP( $self->{STORAGEMAP} );
+  $ns->RFIO_USES_RFDIR( $self->{RFIO_USES_RFDIR} );
 
   $bcc->LFNRef($request->{LFNs});
   print scalar localtime, ": doSizeCheck: Request ",$request->{ID},"\n";
