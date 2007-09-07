@@ -8,9 +8,13 @@
 ##H Usage:
 ##H   BlockDownloadVerifyInjector
 ##H      -db FILE[:SECTION] [-log OUT]
+##H      -node NODE
+##H      -dropbox DROPBOX
 ##H
 ##H -db            database connection configuration parameter file.
 ##H -log           where to redirect logging information.
+##H -node          node this agent is running on
+##H -dropbox       directory for the drops
 ##H
 
 BEGIN
@@ -34,6 +38,7 @@ use UtilsHelp;
 &GetOptions ("state=s"      => \$args{DROPDIR},
 	     "log=s"        => \$args{LOGFILE},
 	     "db=s"         => \$args{DBCONFIG},
+	     "dropbox=s"    => \$args{DROPBOX},
 	     "interval=s"   => \$args{CHECK_INTERVAL},
 	     "node=s"       => \$args{MYNODE},
              "ignore=s"     => sub { push(@{$args{IGNORE_NODES}}, split(/,/, $_[1])) },
@@ -77,6 +82,7 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  MYNODE => undef,		# Node names to run this agent for
+		  DROPBOX => undef,		# Directory for drops
 	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
 		  WAITTIME => 600 + rand(15),	# Agent activity cycle
@@ -158,7 +164,7 @@ sub idle
 		BLOCK		=> $request->{BLOCK},
 		N_FILES		=> 0,
 		PRIORITY	=> 1024*1024*1024, # Pretty high priority!
-		TEST_NAME	=> undef,
+		TEST		=> undef,
 		TIME_EXPIRE	=> time() + 3 * 86400,
 		NODE		=> undef,
 		INJECT_ONLY	=> 1,
@@ -177,13 +183,13 @@ sub idle
       if ( $request->{IS_LOCAL} eq 'y' )
       {
 #       For LAN transfers, check migration at the destination.
-        $p{TEST_NAME} = 'migration';
+        $p{TEST} = 'migration';
         $p{NODE} = $request->{DID};
       }
       if ( $request->{IS_LOCAL} eq 'n' )
       {
 #       For LAN transfers, check filesize at the source
-        $p{TEST_NAME} = 'size';
+        $p{TEST} = 'size';
         $p{NODE} = $request->{SID};
 # Hack to use SRM for non-CERN sites!
         if ( $request->{SNAME} !~ m%_CERN_% ) { $p{USE_SRM}=1; }
@@ -229,8 +235,10 @@ sub startOne
 {
   my ($self, $request) = @_;
 
-# Create a pending drop in my inbox
-  my $drop = "$$self{DROPDIR}/inbox/" . $self->dropBoxName($request);
+  return 1 unless $self->{DROPBOX};
+
+# Create a pending drop in the required location
+  my $drop = "$$self{DROPDIR}/$self->{DROPBOX}/" . $self->dropBoxName($request);
   do { &alert ("$drop already exists"); return 0; } if -d $drop;
   do { &alert ("failed to submit $$request{ID}"); &rmtree ($drop); return 0; }
         if (! &mkpath ($drop)

@@ -7,7 +7,7 @@
 ##H
 ##H Usage:
 ##H   BlockDownloadVerify
-##H      -state DIRECTORY -nodes NAME
+##H      -state DIRECTORY -nodes NODE
 ##H      -db FILE[:SECTION] [-log OUT]
 ##H      -storagemap TFC.xml
 ##H
@@ -123,8 +123,8 @@ my %Status = (
 			DBCONFIG	=> $self->{DBCONFIG},
 		);
   $bcc->STORAGEMAP( $self->{STORAGEMAP} );
-  $bcc->Checks($request->{TEST_NAME}) or
-    die "Test $request->{TEST_NAME} not known to UtilsBlockConsistencyCheck!\n";
+  $bcc->Checks($request->{TEST}) or
+    die "Test $request->{TEST} not known to UtilsBlockConsistencyCheck!\n";
 
   my $ns = $bcc->NS;
   $bcc->DBH($self->{DBH});
@@ -139,7 +139,6 @@ my %Status = (
   $bcc->LFNRef($request->{LFNs});
   print scalar localtime, ": doSizeCheck: Request ",$request->{ID},"\n";
   $n_files = $request->{N_FILES};
-#$DB::single=$debug_me;
   foreach my $r ( @{$request->{LFNs}} )
   {
     my $pfn = $ns->lfn2pfn($r->{LOGICAL_NAME});
@@ -225,6 +224,7 @@ die "I should not be here...\n";
 sub processDrop
 {
   my ($self, $drop) = @_;
+  my ($dropdir,$request,$bad,$r);
 
   print scalar localtime, ": processDrop: starting\n";
 # Sanity checking
@@ -232,15 +232,65 @@ sub processDrop
   delete $$self{BAD}{$drop};
   &timeStart($$self{STARTTIME});
 
-# Read back file information
-  my $dropdir = "$$self{WORKDIR}/$drop";
-  my $request = do { no strict "vars"; eval &input ("$dropdir/packet") };
-  my $bad = 0;
-  $bad = 1 if ($@ || !$request );
-  foreach ( qw/ BLOCK ID LFNs N_FILES PRIORITY TEST_NAME TIME_EXPIRE / )
+  if ( ! defined $self->{DBH} )
   {
-    $bad = 1 unless defined $request->{$_};
+    &expandNodesAndConnect($self);
   }
+
+# Read back file information
+  $dropdir = "$$self{WORKDIR}/$drop";
+  $request = do { no strict "vars"; eval &input ("$dropdir/packet") };
+  $bad = 0;
+  $bad = 1 if ($@ || !$request );
+
+  if ( $request->{INJECT_ONLY} )
+  {
+#   This is an injection-drop.
+    foreach ( qw/ BLOCK N_FILES PRIORITY TEST TIME_EXPIRE NODE / )
+    { $bad = 1 unless defined $request->{$_}; }
+
+    if ( $bad )
+    {
+      &alert ("corrupt packet in $drop");
+      return;
+    }
+
+    $r = $self->getQueued( block   => $request->{BLOCK},
+			   test    => $request->{TEST},
+			   node    => $request->{NODE},
+			   n_files => $request->{N_FILES}
+			 );
+$DB::single=$debug_me;
+    if ( scalar(@{$r}) )
+    {
+#     I already know about this test
+      print "I already know about ", join(', ',map{"$_=>$request->{$_}"} sort keys %{$request}),"\n";
+    }
+    else
+    {
+#     Inject this test
+      my $bcc = UtilsBlockConsistencyCheck->new( DBH => $self->{DBH} );
+$DB::single=$debug_me;
+      my $test = $bcc->getTests($request->{TEST})->{ID};
+      my $id = $bcc->InjectTest(
+				 node		=> $request->{NODE},
+				 test		=> $test,
+				 block		=> $request->{BLOCK},
+				 n_files	=> $request->{N_FILES},
+				 time_expire	=> $request->{TIME_EXPIRE},
+				 priority	=> $request->{PRIORITY},
+			       );
+      print "Inject request=$id for ", join(', ',map{"$_=>$request->{$_}"} sort keys %{$request}),"\n";
+    }
+    &touch ("$dropdir/done");
+    $self->relayDrop ($drop);
+    return;
+  }
+
+# This is a normal drop
+  foreach ( qw/ BLOCK N_FILES PRIORITY TEST TIME_EXPIRE LFNs ID / )
+  { $bad = 1 unless defined $request->{$_}; }
+
   if ( $bad )
   {
     &alert ("corrupt packet in $drop for request $request->{ID}");
@@ -264,20 +314,20 @@ sub processDrop
   }
 
 # I can only process size-checks for now. Reject anything else
-  if ( $request->{TEST_NAME} eq 'size' )
+  if ( $request->{TEST} eq 'size' )
   {
     $self->setRequestState($request,'Active');
     $self->{DBH}->commit();
     my $result = $self->doSizeCheck ($drop, $request);
     return if ! $result;
   }
-# elsif ( $request->{TEST_NAME} eq 'migration' )
+# elsif ( $request->{TEST} eq 'migration' )
 # {
 # }
-# elsif ( $request->{TEST_NAME} eq 'cksum' )
+# elsif ( $request->{TEST} eq 'cksum' )
 # {
 # }
-# elsif ( $request->{TEST_NAME} eq 'dbs' )
+# elsif ( $request->{TEST} eq 'dbs' )
 # {
 # }
   else
@@ -312,7 +362,7 @@ sub requestQueue
 
   $sql = qq{
 		select b.id, block, n_files, time_expire, priority,
-		test, t.name test_name
+		test, name
 		from t_dvs_block b join t_dvs_test t on b.test = t.id
 		join t_status_block_verify v on b.id = v.id
 		where b.node = :node
@@ -431,7 +481,7 @@ sub idle
 
   # Have a little nap
   print scalar localtime,": idle: take a nap\n";
-  $self->nap (5 + 0 * $$self{WAITTIME});
+  $self->nap ($$self{WAITTIME});
   print scalar localtime,": idle: Returning\n";
 }
 
@@ -455,7 +505,6 @@ sub setFileState
          ':status_name' => $result->{STATUS},
          ':time'        => $result->{TIME_REPORTED},
        );
-#$DB::single=$debug_me;
   $q = &dbexec($self->{DBH},$sql,%p);
 }
 
@@ -515,4 +564,67 @@ sub checkResults
   die "Why am I here????\n";
 # select nvl(status,0) status, count(nvl(status,0)) status_count from t_dvs_file vf left join t_dvs_file_result vfr on vfr.fileid = vf.fileid where vf.request = 260 group by status;
 }
+
+sub getQueued
+{
+  my ($self,%h) = @_;
+  my ($sql,$q,%p,@r);
+  
+  $sql = qq{ select b.id, block, node, test, n_files, time_expire, priority,
+             use_srm, name
+             from t_dvs_block b join t_dvs_test t on b.test = t.id
+             where 1 = 1
+           };
+
+# Build on numerical matches
+  foreach ( qw /block node use_srm/ )
+  {
+    if ( defined($h{$_}) )
+    {
+      $sql .= " and $_ = :$_";
+      $p{':' . $_} = $h{$_};
+    }
+  }
+
+# Build on numerical inequalities
+  foreach ( qw /n_files time_expire/ )
+  {
+    if ( defined($h{$_}) )
+    {
+      $sql .= " and $_ >= :$_";
+      $p{':' . $_} = $h{$_};
+    }
+  }
+
+# Build on string matches
+  foreach ( qw /test/ )
+  {
+    if ( defined($h{$_}) )
+    {
+      $sql .= " and $_ like :$_";
+      $p{':' . $_} = $h{$_};
+    }
+  }
+
+  $q = execute_sql( $self->{DBH}, $sql, %p );
+  while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
+
+  return \@r;
+}
+
+sub execute_sql
+{
+  my ( $dbh, $query, %param ) = @_;
+  my ($q,$r);
+
+  if ( $query =~ m%\blike\b%i )
+  {
+    foreach ( keys %param ) { $param{$_} =~ s%_%\\_%g; }
+    $query =~ s%like\s+(:[^\)\s]+)%like $1 escape '\\' %gi;
+  }
+
+  $q = &dbexec($dbh, $query, %param);
+  return $q;
+}
+
 1;

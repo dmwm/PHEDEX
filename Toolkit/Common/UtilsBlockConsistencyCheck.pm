@@ -762,4 +762,15 @@ sub lfn2pfn
   return $pfn;
 }
 
+sub getTests
+{
+  my ($self,$test) = @_;
+
+  if ( defined($self->{TEST_NAMES}) ) { return $self->{TEST_NAMES}{$test}; }
+
+  my $sql = qq {select id, name, description from t_dvs_test};
+  $self->{TEST_NAMES} = select_hash( $self->{DBH}, $sql, 'NAME', () );
+  return $self->{TEST_NAMES}{$test};
+}
+
 1;
