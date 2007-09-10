@@ -114,15 +114,17 @@ sub getNodeFiles
     my ($self, $dbh) = @_;
     my %files = ();
 
-    # First fetch files from database.  If we come across something
-    # we haven't seen before, remember it but don't look it up yet.
-    # We get files exported from the node, plus most recent time the
-    # file was in that state.
+    # First fetch files coming out of our node from the database.  
+    # If we come across something we haven't seen before, remember it
+    # but don't look it up yet.  We get files exported from the node,
+    # plus most recent time the file was in that state.
     my ($mynodes, %myargs) = &myNodeFilter ($self, "xt.from_node");
     my $stmt = &dbexec($dbh, qq{
 	select f.logical_name from t_xfer_task xt
+        join t_dps_link l on l.from_node = xt.from_node and l.to_node = xt.to_node
 	join t_xfer_file f on f.id = xt.fileid
-	where $mynodes}, %myargs);
+	where $mynodes
+          and l.is_local = 'n'}, %myargs);
     $files{$_} = { LFN => $_, PFN => undef, TIME => 0 }
 	while (($_) = $stmt->fetchrow());
 
