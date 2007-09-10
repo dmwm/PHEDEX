@@ -4,7 +4,11 @@ create or replace trigger tr_dps_file_block
       := 86400 * (sysdate - to_date('01/01/1970 00:00:00', 'DD/MM/YYYY HH24:MI:SS'));
   begin
     if (updating and :old.inblock = :new.inblock) then
-      return; -- no change
+        update t_dps_block
+           set bytes = bytes - :old.filesize + :new.filesize
+               time_update = unixtime
+         where id = :new.inblock
+	return;
     end if;
 
     if (inserting or updating) then
