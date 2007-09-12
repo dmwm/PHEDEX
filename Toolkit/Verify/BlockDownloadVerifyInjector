@@ -8,12 +8,12 @@
 ##H Usage:
 ##H   BlockDownloadVerifyInjector
 ##H      -db FILE[:SECTION] [-log OUT]
-##H      -node NODE
+##H      -nodes NODE
 ##H      -dropbox DROPBOX
 ##H
 ##H -db            database connection configuration parameter file.
 ##H -log           where to redirect logging information.
-##H -node          node this agent is running on
+##H -nodes         node this agent is running on
 ##H -dropbox       directory for the drops
 ##H
 
@@ -39,15 +39,15 @@ use UtilsHelp;
 	     "log=s"        => \$args{LOGFILE},
 	     "db=s"         => \$args{DBCONFIG},
 	     "dropbox=s"    => \$args{DROPBOX},
+	     "use_srm"      => \$args{USE_SRM},
 	     "interval=s"   => \$args{CHECK_INTERVAL},
-	     "node=s"       => \$args{MYNODE},
+	     "nodes=s"      => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
              "ignore=s"     => sub { push(@{$args{IGNORE_NODES}}, split(/,/, $_[1])) },
              "accept=s"     => sub { push(@{$args{ACCEPT_NODES}}, split(/,/, $_[1])) },
 	     "help|h"	    => sub { &usage() },
 	    );
 
-#if (@ARGV || !$args{NODES} || !$args{DROPDIR} || !$args{DBCONFIG})
-if (!$args{DROPDIR} || !$args{DBCONFIG} || !$args{MYNODE})
+if (!$args{DROPDIR} || !$args{DBCONFIG} || !$args{NODES})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -73,7 +73,19 @@ use UtilsBlockConsistencyCheck;
 
 our $counter;
 
-#sub daemon() { print "Stub the daemon() call\n"; }
+sub daemon()
+{
+  my $self = shift;
+  if ( defined($main::Interactive) && $main::Interactive )
+  {
+    print "Stub the daemon() call\n";
+    $self->{WAITTIME} = 2;
+    return;
+  }
+
+  my $me = $0; $me =~ s|.*/||;
+  $self->SUPER::daemon($me);
+}
 
 sub new
 {
@@ -81,17 +93,18 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
-	  	  MYNODE => undef,		# Node names to run this agent for
+	  	  NODES => undef,		# Nodes to run this agent for
 		  DROPBOX => undef,		# Directory for drops
 	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
-		  WAITTIME => 600 + rand(15),	# Agent activity cycle
+		  WAITTIME => 3600 + rand(15),	# Agent activity cycle
 		  CHECK_INTERVAL => 3 * 86400,	# Age to start checking...
 		  LAST_CHECKED => 0,		# Internal lower bound
+		  USE_SRM => 0,			# Use SRM instead of direct?
 		  );
     
     my %args = (@_);
-    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
+    map { $$self{$_} = $args{$_} || $self->{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
 }
@@ -99,11 +112,10 @@ sub new
 # Get a list of pending requests
 sub stuckOnWan
 {
-  my ($self, $dbh) = @_;
+  my ($self, $dbh, $filter, $filter_args) = @_;
   my (@requests,$sql,%p,$q);
   my ($now,$t,$interval);
 
-$DB::single=$debug_me;
   print scalar localtime, ": find candidates stuckOnWan: starting\n";
   $now = &mytimeofday();
 
@@ -120,17 +132,18 @@ $DB::single=$debug_me;
                where bp.is_valid = 1
                  and time_request <= :interval
                  and time_request > :last_checked
+		 ${filter}
 		order by time_request asc
        };
   $t = time();
   $interval = $t - $self->{CHECK_INTERVAL};
   print 'Search between ', (scalar localtime $interval), ' and ', (scalar localtime $self->{LAST_CHECKED}), "\n";
   %p = ( ":interval"     => $interval,
-	 ":last_checked" => $self->{LAST_CHECKED}
+	 ":last_checked" => $self->{LAST_CHECKED},
+	 %{$filter_args}
        );
   $q = &dbexec($dbh,$sql,%p);
 
-$DB::single=$debug_me;
   while ( my $h = $q->fetchrow_hashref() )
   {
 #   $h->{TIME_REQUEST_HR} = '"' . (scalar localtime $h->{TIME_REQUEST}) . '"';
@@ -148,16 +161,16 @@ $DB::single=$debug_me;
 sub idle
 {
   my ($self, @pending) = @_;
-  my $dbh = undef;
+  my ($dbh,@nodes);
 
-  print scalar localtime,": idle: starting\n";
   eval
   {
-    $dbh = &connectToDatabase ($self);
+    ($dbh,@nodes) = &expandNodesAndConnect($self);
+    my ($filter, %filter_args) = &otherNodeFilter ($self, "nd.id");
 
     $counter = 0;
 #   Get a list of requests to process
-    foreach my $request ($self->stuckOnWan ($dbh, 5))
+    foreach my $request ($self->stuckOnWan ($dbh, $filter, \%filter_args))
     {
 # Create an injection drop for the BDV agent!
       my %p = (
@@ -167,6 +180,7 @@ sub idle
 		TEST		=> undef,
 		TIME_EXPIRE	=> time() + 3 * 86400,
 		NODE		=> undef,
+		USE_SRM		=> $self->{USE_SRM} ? 'y' : 'n',
 		INJECT_ONLY	=> 1,
 		COMMENT		=>
 		{
@@ -184,19 +198,23 @@ sub idle
       {
 #       For LAN transfers, check migration at the destination.
         $p{TEST} = 'migration';
+        $p{TEST} = 'size';
         $p{NODE} = $request->{DID};
+        $p{NODE_NAME} = $request->{DNAME};
       }
       if ( $request->{IS_LOCAL} eq 'n' )
       {
-#       For LAN transfers, check filesize at the source
+#       For WAN transfers, check filesize at the source
         $p{TEST} = 'size';
         $p{NODE} = $request->{SID};
-# Hack to use SRM for non-CERN sites!
-        if ( $request->{SNAME} !~ m%_CERN_% ) { $p{USE_SRM}=1; }
+        $p{NODE_NAME} = $request->{SNAME};
       }
+      next unless exists($self->{NODES_ID}{$p{NODE_NAME}});
+$DB::single=$debug_me;
       $request = \%p;
       $self->startOne ($request);
     }
+    print scalar localtime, ": Started $counter requests\n";
     $dbh->commit();
   };
   do { chomp ($@);
@@ -210,7 +228,6 @@ sub idle
   # Have a little nap
   print scalar localtime,": idle: sleep until ",scalar localtime(time+$self->{WAITTIME}),"\n";
   $self->nap ($$self{WAITTIME});
-  print scalar localtime,": idle: Returning\n";
 }
 
 

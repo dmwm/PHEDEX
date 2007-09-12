@@ -12,7 +12,7 @@
 ##H      -storagemap TFC.xml
 ##H
 ##H -state         agent state directory.
-##H -nodes         nodes to run and clean files for.
+##H -nodes         nodes to run and check files for.
 ##H -db            database connection configuration parameter file.
 ##H -log           where to redirect logging information.
 ##H -storagemap    path to TFC xml file
@@ -36,6 +36,7 @@ my $debug_me = 1;
 use Getopt::Long;
 use UtilsHelp;
 
+#Getopt::Long::Configure('pass_through');
 &GetOptions ("state=s"      => \$args{DROPDIR},
 	     "log=s"        => \$args{LOGFILE},
 	     "db=s"         => \$args{DBCONFIG},
@@ -48,8 +49,7 @@ use UtilsHelp;
 	     "use_rfdir"    => \$args{RFIO_USES_RFDIR},
 	    );
 
-#if (@ARGV || !$args{NODES} || !$args{DROPDIR} || !$args{DBCONFIG})
-if (!$args{NODES} || !$args{DBCONFIG} || !$args{STORAGEMAP})
+if (!$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG} || !$args{STORAGEMAP})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -70,7 +70,19 @@ use DBI;
 use UtilsRFIO;
 use UtilsBlockConsistencyCheck;
 
-#sub daemon() { print "Stub the daemon() call\n"; }
+sub daemon()
+{
+  my $self = shift;
+  if ( defined($main::Interactive) && $main::Interactive )
+  {
+    print "Stub the daemon() call\n";
+    $self->{WAITTIME} = 2;
+    return;
+  }
+
+  my $me = $0; $me =~ s|.*/||;
+  $self->SUPER::daemon($me);
+}
 
 sub new
 {
@@ -78,19 +90,19 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
-	  	  NODES    => undef,		# Node names to run this agent for
+	  	  NODES    => undef,		# Nodes to run this agent for
 	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
-		  WAITTIME => 60 + rand(15),	# Agent activity cycle
+		  WAITTIME => 900 + rand(15),	# Agent activity cycle
 		  DELETING => undef,		# Are we deleting files now?
 		  PROTOCOL => 'direct',         # File access protocol
 	  	  STORAGEMAP => undef,		# Storage path mapping rules
-		  USE_SRM => 0,			# Use SRM or native technology?
+		  USE_SRM => 'n',		# Use SRM or native technology?
 		  RFIO_USES_RFDIR => 0,		# Use rfdir instead of nsls?
 		  );
     
     my %args = (@_);
-    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
+    map { $$self{$_} = $args{$_} || $self->{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
 }
@@ -128,17 +140,24 @@ my %Status = (
 
   my $ns = $bcc->NS;
   $bcc->DBH($self->{DBH});
-  my $technology = $bcc->Buffers(@{$self->{NODES}});
-  $ns->technology( $technology );
 
-  $ns->protocol( 'srm' ) if $self->{USE_SRM};
-  $ns->TFCPROTOCOL( 'srm' ) if $self->{USE_SRM};
+  if ( $request->{USE_SRM} eq 'y' )
+  {
+    $ns->protocol( 'srm' );
+    $ns->TFCPROTOCOL( 'srm' );
+  }
+  else
+  {
+    my $technology = $bcc->Buffers(@{$self->{NODES}});
+    $ns->technology( $technology );
+  }
   $ns->STORAGEMAP( $self->{STORAGEMAP} );
   $ns->RFIO_USES_RFDIR( $self->{RFIO_USES_RFDIR} );
 
   $bcc->LFNRef($request->{LFNs});
   print scalar localtime, ": doSizeCheck: Request ",$request->{ID},"\n";
   $n_files = $request->{N_FILES};
+  my $t = time;
   foreach my $r ( @{$request->{LFNs}} )
   {
     my $pfn = $ns->lfn2pfn($r->{LOGICAL_NAME});
@@ -160,8 +179,11 @@ $DB::single=$debug_me;
     }
     $r->{TIME_REPORTED} = time();
     last unless --$n_files;
-    if ( $self->{USE_SRM} )
-    { print scalar localtime,": $n_files files remaining\n"; }
+    if ( time - $t > 60 )
+    {
+      print scalar localtime,": $n_files files remaining\n";
+      $t = time;
+    }
   }
 
   eval
@@ -201,7 +223,6 @@ $DB::single=$debug_me;
   } if $@;
     
   my $status = ( $n_files == $n_ok ) ? 1 : 0;
-  print scalar localtime, ": doSizeCheck: returning $status\n";
   return $status;
 }
 
@@ -226,7 +247,6 @@ sub processDrop
   my ($self, $drop) = @_;
   my ($dropdir,$request,$bad,$r);
 
-  print scalar localtime, ": processDrop: starting\n";
 # Sanity checking
   return if (! $self->inspectDrop ($drop));
   delete $$self{BAD}{$drop};
@@ -256,11 +276,10 @@ sub processDrop
     }
 
     $r = $self->getQueued( block   => $request->{BLOCK},
-			   test    => $request->{TEST},
+			   name    => $request->{TEST},
 			   node    => $request->{NODE},
 			   n_files => $request->{N_FILES}
 			 );
-$DB::single=$debug_me;
     if ( scalar(@{$r}) )
     {
 #     I already know about this test
@@ -270,7 +289,6 @@ $DB::single=$debug_me;
     {
 #     Inject this test
       my $bcc = UtilsBlockConsistencyCheck->new( DBH => $self->{DBH} );
-$DB::single=$debug_me;
       my $test = $bcc->getTests($request->{TEST})->{ID};
       my $id = $bcc->InjectTest(
 				 node		=> $request->{NODE},
@@ -345,7 +363,6 @@ $DB::single=$debug_me;
 
 # OK, got far enough to nuke and log it
   $self->relayDrop ($drop);
-  print scalar localtime, ": processDrop: returning\n";
 }
 
 # Get a list of pending requests
@@ -362,7 +379,7 @@ sub requestQueue
 
   $sql = qq{
 		select b.id, block, n_files, time_expire, priority,
-		test, name
+		name test, use_srm
 		from t_dvs_block b join t_dvs_test t on b.test = t.id
 		join t_status_block_verify v on b.id = v.id
 		where b.node = :node
@@ -382,6 +399,7 @@ sub requestQueue
   {
     %p = ( ':request' => $h->{ID} );
     $q1 = &dbexec($dbh,$sql,%p);
+    $h->{LFNs} = [];
     while ( my $g = $q1->fetchrow_hashref() )
     {
       push @{$h->{LFNs}}, $g;
@@ -438,7 +456,6 @@ sub idle
   my $dbh = undef;
   my @nodes = ();
 
-  print scalar localtime,": idle: starting\n";
   eval
   {
     ($dbh, @nodes) = &expandNodesAndConnect ($self);
@@ -452,7 +469,7 @@ sub idle
 #     $self->checkResults($dbh, \@nodes, \$filter, \%filter_args);
 
 #     Get a list of requests to process
-      foreach my $request ($self->requestQueue ($dbh, 5, $node, \$filter, \%filter_args))
+      foreach my $request ($self->requestQueue ($dbh, 10, $node, \$filter, \%filter_args))
       {
  	if ( $self->startOne ($request) )
         {
@@ -480,9 +497,8 @@ sub idle
   &disconnectFromDatabase ($self, $dbh);
 
   # Have a little nap
-  print scalar localtime,": idle: take a nap\n";
+  print scalar localtime,": idle: sleep until ",scalar localtime(time+$self->{WAITTIME}),"\n";
   $self->nap ($$self{WAITTIME});
-  print scalar localtime,": idle: Returning\n";
 }
 
 sub setFileState
@@ -577,7 +593,7 @@ sub getQueued
            };
 
 # Build on numerical matches
-  foreach ( qw /block node use_srm/ )
+  foreach ( qw /block node use_srm test/ )
   {
     if ( defined($h{$_}) )
     {
@@ -597,7 +613,7 @@ sub getQueued
   }
 
 # Build on string matches
-  foreach ( qw /test/ )
+  foreach ( qw /name/ )
   {
     if ( defined($h{$_}) )
     {
@@ -608,7 +624,6 @@ sub getQueued
 
   $q = execute_sql( $self->{DBH}, $sql, %p );
   while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
-
   return \@r;
 }
 
