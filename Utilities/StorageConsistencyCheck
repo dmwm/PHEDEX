@@ -45,7 +45,6 @@ use Getopt::Long;
 use File::Basename;
 use UtilsHelp;
 use UtilsDB;
-use UtilsNamespace;
 
 my ($dbh);
 my ($verbose,$debug,$terse);

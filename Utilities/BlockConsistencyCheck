@@ -78,7 +78,7 @@ use File::Basename;
 use UtilsHelp;
 use UtilsDB;
 use UtilsCatalogue;
-use UtilsNamespace;
+use PHEDEX::Namespace;
 
 my ($dbh,$not_on_tape_time);
 my ($verbose,$debug,$terse);
@@ -138,7 +138,7 @@ GetOptions("db=s"           => \$DBCONFIG,
            "help|h"         => sub { &usage() }
 	  );
 
-$ns = UtilsNamespace->new( verbose => $verbose, debug => $debug );
+$ns = PHEDEX::Namespace->new( verbose => $verbose, debug => $debug );
 $mssprotocol = 'srm' if $tfcprotocol eq 'srm';
 $ns->protocol( $mssprotocol ) if $mssprotocol;
 
