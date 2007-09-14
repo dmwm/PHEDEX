@@ -40,7 +40,7 @@ use Getopt::Long;
 use UtilsHelp;
 use UtilsDB;
 use UtilsCatalogue;
-use UtilsBlockConsistencyCheck;
+use PHEDEX::BlockConsistency::Core;
 
 my ($dbh,$conn,$dbconfig);
 my (@nodes,$nodes,$node,@blocks,$blocks,$block,@tests,$tests,$test);
@@ -114,7 +114,7 @@ $count = scalar keys %{$blocks};
 print "Preparing for $count test-insertions\n";
 $|=1;
 
-$bcc = UtilsBlockConsistencyCheck->new( DBH => $dbh );
+$bcc = PHEDEX::BlockConsistency::Core->new( DBH => $dbh );
 foreach $block ( keys %{$blocks} )
 {
   my $n = $n_files || $blocks->{$block}{FILES};

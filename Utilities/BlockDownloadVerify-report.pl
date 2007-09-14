@@ -28,7 +28,7 @@ use Getopt::Long;
 use UtilsHelp;
 use UtilsDB;
 use UtilsCatalogue;
-use UtilsBlockConsistencyCheck;
+use PHEDEX::BlockConsistency::Core;
 
 my ($dbh,$conn,$dbconfig,$r,$s);
 my ($nodes,@nodes,$help,$bcc);
@@ -39,11 +39,11 @@ my ($detail,%states,@states);
 $debug_me = 1;
 $detail = 0;
 $n_files  = 0;
-GetOptions(	"db=s"		=> \$dbconfig,
-		"node=s"	=> \@nodes,
-		"detail"	=> \$detail,
+GetOptions(	"db=s"	 => \$dbconfig,
+		"node=s" => \@nodes,
+		"detail" => \$detail,
 
-		"help|h"	=> sub { &usage() }
+		"help|h" => sub { &usage() }
           );
 
 #-------------------------------------------------------------------------------
@@ -60,7 +60,7 @@ my $all_states = 'All-states';
 $states{$all_states} = dvsTestsPending(keys %{$nodes});
 push @states, $all_states;
 
-$bcc = UtilsBlockConsistencyCheck->new( DBH => $dbh );
+$bcc = PHEDEX::BlockConsistency::Core->new( DBH => $dbh );
 $r = $bcc->getTestResults(keys %{$nodes});
 printf("%24s %6s %7s %7s %7s %10s %10s %s\n",
 	  'Time Reported',
@@ -112,46 +112,6 @@ exit 0;
 #-------------------------------------------------------------------------------
 # Everything below here should find its way into a Perl module at some point
 #-------------------------------------------------------------------------------
-sub dvsDetailedTestResults
-{
-die "Redundant...\n";
-  my $request = shift;
-  my ($sql,$q,@r);
-
-  $sql = qq{ select logical_name, name status from t_dps_file f
-		join t_dvs_file_result r on f.id = r.fileid
-		join t_dvs_status s on r.status = s.id
-		where request = :request and status in
-		 (select id from t_dvs_status where not
-				(name = 'OK' or name = 'None' ) )
-	   };
-
-  $q = execute_sql( $sql, ( ':request' => $request ) );
-  while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
-
-  return \@r;
-}
-
-sub dvsTestResults
-{
-die "Redundant...\n";
-  my ($sql,$q,$nodelist,@r);
-
-  $nodelist = join(',',@_);
-  $sql = qq{ select v.id, b.name block, n_files, n_tested, n_ok,
-	     s.name status, t.name test, time_reported
-	     from t_status_block_verify v join t_dvs_status s on v.status = s.id
-	     join t_dps_block b on v.block = b.id
-	     join t_dvs_test t on v.test = t.id
-	     where node in ($nodelist) and status > 0
-	     order by s.id, time_reported
-	   };
-
-  $q = execute_sql( $sql, () );
-  while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
-
-  return \@r;
-}
 
 sub dvsTestsPending
 {
