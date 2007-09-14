@@ -12,3 +12,4 @@ insert into t_dvs_status (id,name,description) values (6,'Expired','Not enough r
 insert into t_dvs_status (id,name,description) values (7,'Suspended','Waiting for operator intervention');
 insert into t_dvs_status (id,name,description) values (8,'Error','Some unforeseen error prevents progress');
 insert into t_dvs_status (id,name,description) values (9,'Rejected','Agent refuses to process this request, probably because it does not know how');
+insert into t_dvs_status (id,name,description) values (10,'Indeterminate','Status not known, maybe no files to test?');
