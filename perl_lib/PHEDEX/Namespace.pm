@@ -9,7 +9,6 @@ use warnings;
 use UtilsCatalogue;
 use File::Basename;
 use base 'Exporter';
-#our @EXPORT = qw(stat statmode statsize );
 our @EXPORT = ();
 
 our %pmap = ( rfio => 'rf',
@@ -24,9 +23,8 @@ our %tmap = ( Castor => 'rfio',
 our %stat;
 
 our @attrs = ( qw/ PROXY / );
-our %ro_params;
+our (%params,%ro_params);
 for my $attr ( @attrs ) { $ro_params{$attr}++; }
-our (%params);
 
 %params = (
                 STORAGEMAP      => undef,
@@ -74,12 +72,6 @@ sub AUTOLOAD
   }
 
   return unless $attr =~ /[^A-Z]/;  # skip DESTROY and all-cap methods
-
-## Check in case I got here by bad magic, or for something I don't want
-#  if ( !ref($self) )
-#  {
-#    die "\"$self\" is not an object of class \"",__PACKAGE__,"\", cannot find \"$attr\" attribute\n";
-#  }
 
   if ( $attr !~ m%^$self->{prefix}% ) { die "Unknown method: $attr\n"; }
   $_ = $self->{prefix} . $attr;

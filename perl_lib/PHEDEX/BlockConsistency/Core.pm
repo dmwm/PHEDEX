@@ -10,37 +10,6 @@ use Carp;
 our @EXPORT = qw( );
 our (%h,%check,%params);
 
-#BEGIN
-#{
-#  if ( defined $^S ) # i.e. if not simply parsing code
-#  {
-#    use Carp qw / cluck /;
-#    use Data::Dumper;
-#  }
-#
-#  return unless 0;
-#
-#  $SIG{__DIE__} = sub
-#  {
-#    return unless defined $^S && ! $^S; # i.e. executing...
-#    print "DIE Handler:\n";
-#    foreach my $x ( @_ ) { print Dumper($x) if ref($x); }
-#    confess @_ if defined &confess;
-#    die "Something wrong, but could not load Carp to give backtrace...
-#                 To see backtrace try starting Perl with -MCarp switch";
-#  };
-#
-#
-#  $SIG{__WARN__} = sub
-#  {
-#    return unless defined $^S && ! $^S; # i.e. executing...
-#    print "WARN Handler:\n";
-#    cluck @_ if defined &cluck;
-#    die "Something wrong, but could not load Carp to give backtrace...
-#                 To see backtrace try starting Perl with -MCarp switch";
-#  };
-#}
-
 %check = (
 		'SIZE'		=> 0,
  		'MIGRATION'	=> 0,
@@ -66,9 +35,7 @@ sub new
 {
   my $proto = shift;
   my $class = ref($proto) || $proto;
-
-  my $self = {};
-# my $self = $class->SUPER::new(@_);
+  my $self = $class->SUPER::new(@_);
     
   my %args = (@_);
   map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
@@ -95,8 +62,8 @@ sub AUTOLOAD
     $self->{$attr} = shift if @_;
     return $self->{$attr};
   }
-  return unless $attr =~ /[^A-Z]/;  # skip DESTROY and all-cap methods
-  croak "AUTOLOAD: Invalid attribute method: ->$attr()\n";
+  my $parent = "SUPER::" . $attr;
+  $self->$parent(@_);
 }
 
 sub InjectTest

@@ -43,12 +43,10 @@ sub daemon
     my $x = ref $self;
     no strict 'refs';
     ${$x . '::params'}{WAITTIME} = 2;
-
     return;
   }
 
-  my $me = $0; $me =~ s|.*/||;
-  $self->SUPER::daemon($me);
+  $self->SUPER::daemon(@_);
 }
 
 sub new
@@ -73,7 +71,8 @@ sub AUTOLOAD
     return $self->{$attr};
   }
   return unless $attr =~ /[^A-Z]/;  # skip DESTROY and all-cap methods
-  die "AUTOLOAD: Invalid attribute method: ->$attr()\n";
+  my $parent = "SUPER::" . $attr;
+  $self->$parent(@_);
 }
 
 sub doSizeCheck

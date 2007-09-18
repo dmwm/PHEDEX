@@ -1,79 +1,47 @@
 package PHEDEX::BlockConsistency::SQL;
 #
-# This package simply bundles the SQL statements into function calls. This
-# makes them accessible to other modules.
-#
-# This module should be inherited by things that need it. In the case of
-# multiple inheritance, make sure it's not the first item, to maintain the
-# utility of $class->SUPER:: calls...
+# This package simply bundles SQL statements into function calls.
+# It's not a true object package as such, and should be inherited from by
+# anything that needs its methods.
 #
 use strict;
 use warnings;
+use base 'PHEDEX::Core::SQL';
 
 use UtilsDB;
-use UtilsCatalogue;
 use Carp;
 
 our @EXPORT = qw( );
-our (%h,%params);
+our (%params);
+%params = (
+		DBH	=> undef,
+	  );
 
 sub new
 {
-  die "Should never 'new' me! I'm a ",__PACKAGE__,"\n";
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+
+  my %args = (@_);
+  map { $$self{$_} = $args{$_} } keys %params;
+  bless $self, $class;
 }
 
-#sub InjectTest
-#{
-#  my ($self,%h,@fields,$sql,$id,%p,$q,$r);
-#
-#  $self = shift;
-#  %h = @_;
-#  @fields = qw / block node test n_files time_expire priority /;
-#
-#  foreach ( @fields )
-#  {
-#    defined($h{$_}) or die "'$_' missing in " . __PACKAGE__ . "::InjectTest!\n";
-#  }
-#  $r = $self->getQueued( block   => $h{block},
-#			 test    => $h{test},
-#			 node    => $h{node},
-#			 n_files => $h{n_files}
-#			);
-#
-#  if ( scalar(@{$r}) )
-#  {
-##  Silently report (one of) the test(s) that already exists...
-#    return $r->[0]->{ID};
-#  }
-#
-#  $sql = 'insert into t_dvs_block (id,' . join(',', @fields) . ') ' .
-#         'values (seq_dvs_block.nextval, ' .
-#          join(', ', map { ':' . $_ } @fields) .
-#          ') returning id into :id';
-#
-#  map { $p{':' . $_} = $h{$_} } keys %h;
-#  $p{':id'} = \$id;
-#  $q = $self->execute_sql( $sql, %p );
-#  $id or return undef;
-#
-## Insert an entry into the status table...
-#  $sql = qq{ insert into t_status_block_verify
-#        (id,block,node,test,n_files,n_tested,n_ok,time_reported,status)
-#        values (:id,:block,:node,:test,:n_files,0,0,:time,0) };
-#  foreach ( qw / :time_expire :priority / ) { delete $p{$_}; }
-#  $p{':id'} = $id;
-#  $p{':time'} = time();
-#  $q = $self->execute_sql( $sql, %p );
-#
-## Now populate the t_dvs_file table.
-#  $sql = qq{ insert into t_dvs_file (id,request,fileid,time_queued)
-#        select seq_dvs_file.nextval, :request, id, :time from t_dps_file
-#        where inblock = :block};
-#  %p = ( ':request' => $id, ':block' => $h{block}, ':time' => time() );
-#  $q = $self->execute_sql( $sql, %p );
-#
-#  return $id;
-#}
+sub AUTOLOAD
+{
+  my $self = shift;
+  my $attr = our $AUTOLOAD;
+  $attr =~ s/.*:://;
+  if ( exists($params{$attr}) )
+  {
+    $self->{$attr} = shift if @_;
+    return $self->{$attr};
+  }
+  return unless $attr =~ /[^A-Z]/;  # skip DESTROY and all-cap methods
+  my $parent = "SUPER::" . $attr;
+  $self->$parent(@_);
+}
 
 sub getTestResults
 {
@@ -236,57 +204,6 @@ sub getBlocksOnBufferFromWildCard
   return $r;
 }
 
-#-------------------------------------------------------------------------------
-sub select_single
-{
-  my ( $self, $query, %param ) = @_;
-  my ($q,@r);
-
-  $q = $self->execute_sql( $query, %param );
-  @r = map {$$_[0]} @{$q->fetchall_arrayref()};
-  return \@r;
-}
-
-#-------------------------------------------------------------------------------
-sub select_hash
-{
-  my ( $self, $query, $key, %param ) = @_;
-  my ($q,$r);
-
-  $q = $self->execute_sql( $query, %param );
-  $r = $q->fetchall_hashref( $key );
-
-  my %s;
-  map { $s{$_} = $r->{$_}; delete $s{$_}{$key}; } keys %$r;
-  return \%s;
-}
-
-#-------------------------------------------------------------------------------
-sub execute_sql
-{
-  my ( $self, $query, %param ) = @_;
-  my ($dbh,$q,$r);
-
-# Try this for size: If I am an object with a DBH, assume that's the database
-# handle to use. Otherwise, assume _I_ am the database handle!
-  $dbh = $self->{DBH} ? $self->{DBH} : $self;
-
-  if ( $query =~ m%\blike\b%i )
-  {
-    foreach ( keys %param ) { $param{$_} =~ s%_%\\_%g; }
-    $query =~ s%like\s+(:[^\)\s]+)%like $1 escape '\\' %gi;
-  }
-
-  if ( $self->{DEBUG} )
-  {
-    print " ==> About to execute\n\"$query\"\nwith\n";
-    foreach ( sort keys %param ) { print "  \"$_\" = \"$param{$_}\"\n"; }
-    print "\n";
-  }
-  $q = &dbexec($self->{DBH}, $query, %param);
-  return $q;
-}
-
 sub get_TDVS_Tests
 {
   my ($self,$test) = @_;
@@ -301,17 +218,6 @@ sub get_TDVS_Status
   my $x = $self->getTable(qw/t_dvs_status NAME id name description/);
   return $x->{$status} if defined $status;
   return $x;
-}
-
-sub getTable
-{
-  my ($self,$table,$key,@fields) = @_;
-
-  $key = 'ID' unless $key;
-  @fields=('*') unless @fields;
-  if ( defined($self->{T_Cache}{$table}) ) { return $self->{T_Cache}{$table}; }
-  my $sql = "select " . join(',',@fields) . " from $table";
-  return $self->{T_Cache}{$table} = $self->select_hash( $sql, $key, () );
 }
 
 1;

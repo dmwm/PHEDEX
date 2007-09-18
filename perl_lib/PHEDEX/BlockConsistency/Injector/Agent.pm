@@ -42,12 +42,10 @@ sub daemon
     my $x = ref $self;
     no strict 'refs';
     ${$x . '::params'}{WAITTIME} = 2;
-
     return;
   }
 
-  my $me = $0; $me =~ s|.*/||;
-  $self->SUPER::daemon($me);
+  $self->SUPER::daemon(@_);
 }
 
 sub new

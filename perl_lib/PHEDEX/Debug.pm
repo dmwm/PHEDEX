@@ -4,8 +4,14 @@ package PHEDEX::Debug;
 # making warnings fatal for a start. Also adds a tweak to agent functionality
 # to reduce sleep intervals.
 #
+# If you die( { Object => $ref, Message => $@ } ); , you will get a full
+# dump of the object you are dying from.
+#
 use strict;
 use warnings;
+
+our $die_on_warn = 1;
+our $stop_on_warn = 0;
 
 BEGIN
 {
@@ -28,33 +34,21 @@ BEGIN
   $SIG{__WARN__} = sub
   { 
     return unless defined $^S && ! $^S; # i.e. executing...
-    print "WARN: -> Die...\n";
-    confess(@_) if defined &confess;
-#   cluck(@_) if defined &cluck;
-    die "Something wrong, but could not load Carp to give backtrace...
-                 To see backtrace try starting Perl with -MCarp switch";
+    die(@_) if $die_on_warn;
+
+    print "WARN Handler:\n";
+    die(@_) if ! defined(&cluck);
+
+    cluck(@_);
+    if ( $stop_on_warn )
+    {
+      $DB::single=1;
+      print "Stopping in WARN handler...\n";
+    }
   };
-}
 
-sub daemon
-{
-  my $self = shift;
-  if ( defined($main::Interactive) && $main::Interactive )
-  { 
-    print "Stub the daemon() call\n";
-
-#   Can't do this, because daemon is called from the base class, before
-#   the rest of me is initialised. Hence the messing around...
-#   $self->{WAITTIME} = 2;
-    my $x = ref $self;
-    no strict 'refs';
-    ${$x . '::params'}{WAITTIME} = 2;
-
-    return;
-  }
-  
-  my $me = $0; $me =~ s|.*/||;
-  $self->SUPER::daemon($me);
+  my $pdb = 'perldbg';
+  if ( -f $pdb ) { push @DB::typeahead, "source $pdb"; }
 }
 
 1;
