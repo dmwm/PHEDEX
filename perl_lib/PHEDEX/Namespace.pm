@@ -96,7 +96,9 @@ sub protocol
       {
         $self->{DEBUG} && print "voms-proxy-info: $_";
         next unless m%^(\d+)$%;
-        $self->{PROXY} = $1 + time();
+        $self->{PROXY} = $1;
+        $self->{PROXY_EXPIRES} = $self->{PROXY} + time();
+        $self->{PROXY_REPORTED} = 0;
       }
       close VPI; # or die "close voms-proxy-info: $!\n";
       die "no valid proxy? Giving up...\n" unless 
@@ -237,6 +239,15 @@ sub srmstat
   my $self = shift;
   my ($pfn,$r,$cmd);
   $cmd = 'srm-get-metadata';
+
+  my $expires = $self->{PROXY_EXPIRES} - time();
+  my $last = time - $self->{PROXY_REPORTED};
+  die "Proxy has expired!\n" if $expires <= 0;
+  if ( $expires < 3600 && $last > 60 )
+  {
+    $self->{PROXY_REPORTED} = time;
+    print scalar localtime," : Proxy expires in $expires seconds\n";
+  }
 
   $self->_stat($cmd,@_);
   foreach my $pfn ( @_ )
