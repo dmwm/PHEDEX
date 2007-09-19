@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog,v 1.11 2007/08/30 13:04:13 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.12 2007/09/18 16:38:00 dfeichti Exp $:
 ###############################################################################
 
 use strict;
@@ -333,7 +333,7 @@ foreach my $site (sort {$a cmp $b} keys %sitestat) {
 
     print "site: $site (OK: " . $sitestat{$site}{"OK"} . "   Err: " . ($sitestat{$site}{"FAILED"} - $sitestat{$site}{"EXP"})
       . "   Exp/Canceled: " . $sitestat{$site}{"EXP"} . ")";
-    printf("\tsucc. rate: %.1f %%", $sitestat{$site}{"OK"}/($sitestat{$site}{"OK"}+$sitestat{$site}{"FAILED"})*100) if ($sitestat{$site}{"OK"}+$sitestat{$site}{"FAILED"}) > 0;
+    printf("\tsucc. rate: %.1f %%", $sitestat{$site}{"OK"}/($sitestat{$site}{"OK"}+$sitestat{$site}{"FAILED"}-$sitestat{$site}{"EXP"})*100) if ($sitestat{$site}{"OK"}+$sitestat{$site}{"FAILED"}) > 0;
     $sitestat{$site}{"size"}=0 if ! exists $sitestat{$site}{"size"};
     $totalsize+=$sitestat{$site}{"size"};
     printf("   total: %.1f GB",$sitestat{$site}{"size"}/1e9);
