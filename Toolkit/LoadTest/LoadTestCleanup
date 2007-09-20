@@ -73,8 +73,10 @@ sub idle
 	# row for transactional consistency
 	my $qdel = &dbexec($dbh,
 	  qq{ select b.id, b.name from t_dps_block b
-                where b.is_open = 'n'
-	          and b.name like '%LoadTest%'
+                join t_dps_dataset ds on ds.id = b.dataset
+                join t_loadtest_param lp on lp.dest_dataset = ds.id
+                where ds.is_transient = 'y'
+                  and b.is_open = 'n'
 		  and exists (select 1 from t_dps_block_replica br
 			       where br.block = b.id)
                   and not exists (select 1 from t_dps_block_replica br
