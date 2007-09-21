@@ -1,4 +1,10 @@
 package UtilsBlockConsistencyCheck;
+
+BEGIN
+{
+  die "Do not use this module, use PHEDEX::BlockConsistency::* instead\n";
+}
+
 use strict;
 use warnings;
 
@@ -7,7 +13,7 @@ use File::Basename;
 use UtilsHelp;
 use UtilsDB;
 use UtilsCatalogue;
-use UtilsNamespace;
+use PHEDEX::Namespace;
 use Carp;
 
 our $hdr = __PACKAGE__ . ':: ';
@@ -83,10 +89,10 @@ sub NS
 {
   my $self = shift;
   return $self->{NS} if defined($self->{NS});
-  $self->{NS} = UtilsNamespace->new( 
-                                     verbose => $self->{VERBOSE},
-                                     debug   => $self->{DEBUG},
-                                   );
+  $self->{NS} = PHEDEX::Namespace->new( 
+                                        verbose => $self->{VERBOSE},
+                                        debug   => $self->{DEBUG},
+                                      );
   $self->{MSSPROTOCOL} = 'srm' if $self->{TFCPROTOCOL} eq 'srm';
   $self->{NS}->protocol( $self->{MSSPROTOCOL} ) if $self->{MSSPROTOCOL};
   return $self->{NS};

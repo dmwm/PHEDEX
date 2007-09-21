@@ -1,4 +1,10 @@
 package UtilsNamespace;
+
+BEGIN
+{
+  die "Do not use this module, use PHEDEX::Namespace instead\n";
+}
+
 use strict;
 use warnings;
 
