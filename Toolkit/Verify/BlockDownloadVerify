@@ -18,23 +18,23 @@
 ##H -storagemap    path to TFC xml file
 ##H
 
-BEGIN
-{
-  use warnings; use strict; $^W=1;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0;
-  if ( $home !~ m%/% ) { $home = '.'; }
-  $home =~ s|/[^/]+$||;
-  $home ||= ".";
-  $home .= "/../../Toolkit/Common";
-  unshift(@INC, $home);
-}
+#BEGIN
+#{
+#  use warnings; use strict; $^W=1;
+#  our $me = $0; $me =~ s|.*/||;
+#  our $home = $0;
+#  if ( $home !~ m%/% ) { $home = '.'; }
+#  $home =~ s|/[^/]+$||;
+#  $home ||= ".";
+#  $home .= "/../../Toolkit/Common";
+#  unshift(@INC, $home);
+#}
 
 my $debug_me = 1;
 
 ######################################################################
 use Getopt::Long;
-use UtilsHelp;
+use PHEDEX::Core::Help;
 use PHEDEX::BlockConsistency::Agent;
 
 #Getopt::Long::Configure('pass_through');

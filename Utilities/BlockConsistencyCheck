@@ -60,24 +60,24 @@ use strict;
 ##H   
 ##H
 
-BEGIN {
-    $^W = 1; use strict; use warnings;
-    our $me = $0; $me =~ s|.*/||;
-    our $home = $0;
-    if ( $home !~ m%/% ) { $home = '.'; }
-    $home =~ s|/[^/]+$||;
-    $home ||= ".";
-    $home .= "/../Toolkit/Common";
-    unshift(@INC, $home);
-}
+#BEGIN {
+#    $^W = 1; use strict; use warnings;
+#    our $me = $0; $me =~ s|.*/||;
+#    our $home = $0;
+#    if ( $home !~ m%/% ) { $home = '.'; }
+#    $home =~ s|/[^/]+$||;
+#    $home ||= ".";
+#    $home .= "/../Toolkit/Common";
+#    unshift(@INC, $home);
+#}
 
 # Process command line arguments.
 use Getopt::Long;
 use Data::Dumper;
 use File::Basename;
-use UtilsHelp;
-use UtilsDB;
-use UtilsCatalogue;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::DB;
+use PHEDEX::Core::Catalogue;
 use PHEDEX::Namespace;
 
 my ($dbh,$not_on_tape_time);
@@ -383,13 +383,6 @@ if ( $check{Size} || $check{Migration} )
       {
         $etc = int( 10 * $step * ($i-$j)/($j-$last) ) / 10;
         print STDERR ". Done in $etc seconds  ";
-        my $dt = $ns->proxy();
-        if ( defined($dt) )
-        {
-          $dt -= time();
-          if ( $dt < $etc || $dt < 300 ) { print "(proxy: $dt seconds left) "; }
-          die "\nuh-oh, proxy expired. :-(\n" if $dt < 0;
-        }
       }
       $last = $j;
       print STDERR "\r";

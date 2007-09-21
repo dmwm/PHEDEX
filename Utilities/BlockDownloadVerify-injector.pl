@@ -24,34 +24,34 @@ use strict;
 ##H  where they make sense too.
 ##H 
 
-BEGIN {
-    $^W = 1; use strict; use warnings;
-    our $me = $0; $me =~ s|.*/||;
-    our $home = $0;
-    if ( $home !~ m%/% ) { $home = '.'; }
-    $home =~ s|/[^/]+$||;
-    $home ||= ".";
-    $home .= "/../Toolkit/Common";
-    unshift(@INC, $home);
-}
+#BEGIN {
+#    $^W = 1; use strict; use warnings;
+#    our $me = $0; $me =~ s|.*/||;
+#    our $home = $0;
+#    if ( $home !~ m%/% ) { $home = '.'; }
+#    $home =~ s|/[^/]+$||;
+#    $home ||= ".";
+#    $home .= "/../Toolkit/Common";
+#    unshift(@INC, $home);
+#}
 
 # Process command line arguments.
 use Getopt::Long;
-use UtilsHelp;
-use UtilsDB;
-use UtilsCatalogue;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::DB;
+use PHEDEX::Core::Catalogue;
 use PHEDEX::BlockConsistency::Core;
 
 my ($dbh,$conn,$dbconfig);
 my (@nodes,$nodes,$node,@blocks,$blocks,$block,@tests,$tests,$test);
 my ($help,$verbose,$debug,$listonly,$count,$id);
-my ($bcc,$n_files,$time_expire,$priority);
+my ($bcc,$n_files,$time_expire,$priority,$use_srm);
 my ($debug_me);
 
 $debug_me = 1;
 $verbose = $debug = $listonly = 0;
 
-$n_files  = 0;
+$n_files = $use_srm = 0;
 $priority = 16384;
 $time_expire = 10 * 86400;
 GetOptions(	"db=s"		=> \$dbconfig,
@@ -62,6 +62,7 @@ GetOptions(	"db=s"		=> \$dbconfig,
 		"n_files=i"	=> \$n_files,
 		"expire=i"	=> \$time_expire,
 		"priority=i"	=> \$priority,
+		"use_srm"	=> \$use_srm,
 
 		"debug+"	=> \$debug,
 		"verbose+"	=> \$verbose,
@@ -75,6 +76,7 @@ $dbconfig or die "'--dbconfig' argument is mandatory\n";
 @nodes    or die "'--node' argument is mandatory\n";
 @blocks   or die "'--block' argument is mandatory\n";
 @tests    or die "'--test' argument is mandatory\n";
+$use_srm = $use_srm ? 'y' : 'n';
 
 if ( $n_files )
 {
@@ -85,10 +87,13 @@ $conn = { DBCONFIG => $dbconfig };
 $dbh = &connectToDatabase ( $conn, 0 );
 
 #-------------------------------------------------------------------------------
-$nodes = expandNodeList(@nodes);
+$bcc = PHEDEX::BlockConsistency::Core->new( DBH => $dbh );
+$nodes = $bcc->expandNodeList(@nodes);
 #$blocks  = expandBlockList(@blocks);
-$blocks  = expandBlockListOnNode(@blocks);
-$tests   = expandTestList(@tests);
+my @n = keys %{$nodes};
+$blocks  = $bcc->expandBlockListOnNodes( blocks => \@blocks,
+					 nodes  => \@n );
+$tests   = $bcc->expandTestList(@tests);
 
 if ( $listonly || $verbose > 1 )
 {
@@ -114,7 +119,6 @@ $count = scalar keys %{$blocks};
 print "Preparing for $count test-insertions\n";
 $|=1;
 
-$bcc = PHEDEX::BlockConsistency::Core->new( DBH => $dbh );
 foreach $block ( keys %{$blocks} )
 {
   my $n = $n_files || $blocks->{$block}{FILES};
@@ -126,6 +130,7 @@ foreach $block ( keys %{$blocks} )
 			    n_files	=> $n,
 			    time_expire	=> time + $time_expire,
 			    priority	=> $priority,
+			    use_srm	=> $use_srm,
 		          );
     defined $id or die "InjectTest failed miserably :-(\n";
     $verbose && print "Request=$id Node=$nodes->{$node}->{NAME} test=\'$tests->{$test}->{NAME}\' block='$blocks->{$block}->{NAME}'\n";
@@ -138,171 +143,3 @@ print "\n";
 $|=0;
 
 print "All done...\n";
-exit 0;
-
-#-------------------------------------------------------------------------------
-sub DumpTable
-{
-  my ($k,$t) = @_;
-  my $sql = 'select ' . join(', ',@{$k}) . " from $t";
-  my $r = select_all( $sql );
-  foreach ( @{$r} )
-  {
-    print "insert into $t (", join(', ', @{$k}), ") ",
-          " values( '", join("','", @{$_}), "');\n"; 
-  }
-}
-
-#-------------------------------------------------------------------------------
-# Everything below here should find its way into a Perl module at some point
-#-------------------------------------------------------------------------------
-sub expandNodeList
-{
-  my ($item,%result);
-  foreach my $item ( @_ )
-  {
-    $debug && print "Getting nodes with names like '$item'\n";
-    my $tmp = getNodeFromWildCard($item);
-    map { $result{$_} = $tmp->{$_} } keys %$tmp;
-  }
-  return \%result;
-}
-
-#-------------------------------------------------------------------------------
-sub expandBlockList
-{
-  my ($item,%result);
-  foreach my $item ( @_ )
-  {
-    $debug && print "Getting blocks with names like '$item'\n";
-    my $tmp = getBlocksFromWildCard($item);
-    map { $result{$_}++ } @{$tmp};
-  }
-  my @x = keys %result;
-  return \@x;
-}
-
-#-------------------------------------------------------------------------------
-sub expandBlockListOnNode
-{
-  my ($item,%result);
-  foreach my $item ( @_ )
-  {
-    $debug && print "Getting blocks with names like '$item'\n";
-    my $tmp = getBlockReplicasFromWildCard($item);
-    map { $result{$_} = $tmp->{$_} } keys %$tmp;
-  }
-  return \%result;
-}
-
-#-------------------------------------------------------------------------------
-sub expandTestList
-{
-  my ($item,%result);
-  foreach my $item ( @_ )
-  {
-    $debug && print "Getting tests with names like '$item'\n";
-    my $tmp = getTestsFromWildCard($item);
-    map { $result{$_} = $tmp->{$_} } keys %$tmp;
-  }
-  return \%result;
-}
-
-#-------------------------------------------------------------------------------
-sub getNodeFromWildCard
-{
-  my $sql =
-        qq {select id, name, technology from t_adm_node
-		 where upper(name) like :node };
-  my %p = ( ":node" => uc shift );
-  my $r = select_hash( $sql, 'ID', %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getBlockReplicasFromWildCard
-{
-  my $sql = qq {select block, name, files from t_dps_block_replica br join t_dps_block b on br.block = b.id where name like :block_wild and node in };
-  $sql .= '(' . join(',',keys %{$nodes}) . ')';
-
-  my %p = ( ':block_wild' => @_ );
-  my $r = select_hash( $sql, 'BLOCK', %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getBlocksFromWildCard
-{
-  my $sql = qq {select name from t_dps_block where name like :block_wild};
-  my %p = ( ":block_wild" => @_ );
-  my $r = select_single( $sql, %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getTestsFromWildCard
-{
-  my $sql = qq {select id, name from t_dvs_test
-		 where name like lower(:test_wild)};
-  my %p = ( ":test_wild" => @_ );
-  my $r = select_hash( $sql, 'ID', %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub select_single
-{
-  my ( $query, %param ) = @_;
-  my ($q,@r);
-
-  $q = execute_sql( $query, %param );
-  @r = map {$$_[0]} @{$q->fetchall_arrayref()};
-  return \@r;
-}
-
-#-------------------------------------------------------------------------------
-sub select_all
-{
-  my ( $query ) = @_;
-  my ($q,@r);
-
-  $q = execute_sql( $query, () );
-  @r = @{$q->fetchall_arrayref()};
-  return \@r;
-}
-
-#-------------------------------------------------------------------------------
-sub select_hash
-{
-  my ( $query, $key, %param ) = @_;
-  my ($q,$r);
-
-  $q = execute_sql( $query, %param );
-  $r = $q->fetchall_hashref( $key );
-
-  my %s;
-  map { $s{$_} = $r->{$_}; delete $s{$_}{$key}; } keys %$r;
-  return \%s;
-}
-
-#-------------------------------------------------------------------------------
-sub execute_sql
-{
-  my ( $query, %param ) = @_;
-  my ($q,$r);
-
-  if ( $query =~ m%\blike\b%i )
-  {
-    foreach ( keys %param ) { $param{$_} =~ s%_%\\_%g; }
-    $query =~ s%like\s+(:[^\)\s]+)%like $1 escape '\\' %gi;
-  }
-
-  if ( $debug )
-  {
-    print " ==> About to execute\n\"$query\"\nwith\n";
-    foreach ( sort keys %param ) { print "  \"$_\" = \"$param{$_}\"\n"; }
-    print "\n";
-  }
-  $q = &dbexec($dbh, $query, %param);
-  return $q;
-}
