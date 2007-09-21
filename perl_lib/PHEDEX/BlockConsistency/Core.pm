@@ -1,10 +1,26 @@
 package PHEDEX::BlockConsistency::Core;
+
+=head1 NAME
+
+PHEDEX::BlockConsistency::Core - business logic for the Block Consistency
+Checking agent.
+
+=head1 SYNOPSIS
+
+pending...
+
+=head1 DESCRIPTION
+
+pending...
+
+=cut
+
 use strict;
 use warnings;
 use base 'PHEDEX::BlockConsistency::SQL';
 
-use UtilsDB;
-use UtilsCatalogue;
+use PHEDEX::Core::DB;
+use PHEDEX::Core::Catalogue;
 use Carp;
 
 our @EXPORT = qw( );
@@ -72,7 +88,7 @@ sub InjectTest
 
   $self = shift;
   %h = @_;
-  @fields = qw / block node test n_files time_expire priority /;
+  @fields = qw / block node test n_files time_expire priority use_srm /;
 
   foreach ( @fields )
   {
@@ -104,7 +120,7 @@ sub InjectTest
   $sql = qq{ insert into t_status_block_verify
         (id,block,node,test,n_files,n_tested,n_ok,time_reported,status)
         values (:id,:block,:node,:test,:n_files,0,0,:time,0) };
-  foreach ( qw / :time_expire :priority / ) { delete $p{$_}; }
+  foreach ( qw / :time_expire :priority :use_srm / ) { delete $p{$_}; }
   $p{':id'} = $id;
   $p{':time'} = time();
   $q = $self->execute_sql( $sql, %p );

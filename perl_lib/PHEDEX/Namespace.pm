@@ -22,7 +22,7 @@ pending...
 use strict;
 use warnings;
 
-use UtilsCatalogue;
+use PHEDEX::Core::Catalogue;
 use File::Basename;
 use base 'Exporter';
 our @EXPORT = ();
@@ -38,7 +38,7 @@ our %tmap = ( Castor => 'rfio',
 	    );
 our %stat;
 
-our @attrs = ( qw/ PROXY / );
+our @attrs = ( ); # qw/ PROXY / );
 our (%params,%ro_params);
 for my $attr ( @attrs ) { $ro_params{$attr}++; }
 
@@ -107,18 +107,18 @@ sub protocol
     print "Using TFC protocol $protocol\n";
     if ( $protocol eq 'srm' )
     {
-      open VPI, "voms-proxy-info -timeleft 2>/dev/null |" or die "voms-proxy-info: $!\n";
-      while ( <VPI> )
-      {
-        $self->{DEBUG} && print "voms-proxy-info: $_";
-        next unless m%^(\d+)$%;
-        $self->{PROXY} = $1;
-        $self->{PROXY_EXPIRES} = $self->{PROXY} + time();
-        $self->{PROXY_REPORTED} = 0;
-      }
-      close VPI; # or die "close voms-proxy-info: $!\n";
-      die "no valid proxy? Giving up...\n" unless 
-	( defined($self->{PROXY}) and $self->{PROXY} > 0 );
+#      open VPI, "voms-proxy-info -timeleft 2>/dev/null |" or die "voms-proxy-info: $!\n";
+#      while ( <VPI> )
+#      {
+#        $self->{DEBUG} && print "voms-proxy-info: $_";
+#        next unless m%^(\d+)$%;
+#        $self->{PROXY} = $1;
+#        $self->{PROXY_EXPIRES} = $self->{PROXY} + time();
+#        $self->{PROXY_REPORTED} = 0;
+#      }
+#      close VPI; # or die "close voms-proxy-info: $!\n";
+#      die "no valid proxy? Giving up...\n" unless 
+#	( defined($self->{PROXY}) and $self->{PROXY} > 0 );
     }
   }
 
@@ -256,14 +256,14 @@ sub srmstat
   my ($pfn,$r,$cmd);
   $cmd = 'srm-get-metadata';
 
-  my $expires = $self->{PROXY_EXPIRES} - time();
-  my $last = time - $self->{PROXY_REPORTED};
-  die "Proxy has expired!\n" if $expires <= 0;
-  if ( $expires < 3600 && $last > 60 )
-  {
-    $self->{PROXY_REPORTED} = time;
-    print scalar localtime," : Proxy expires in $expires seconds\n";
-  }
+#  my $expires = $self->{PROXY_EXPIRES} - time();
+#  my $last = time - $self->{PROXY_REPORTED};
+#  die "Proxy has expired!\n" if $expires <= 0;
+#  if ( $expires < 3600 && $last > 60 )
+#  {
+#    $self->{PROXY_REPORTED} = time;
+#    print scalar localtime," : Proxy expires in $expires seconds\n";
+#  }
 
   $self->_stat($cmd,@_);
   foreach my $pfn ( @_ )

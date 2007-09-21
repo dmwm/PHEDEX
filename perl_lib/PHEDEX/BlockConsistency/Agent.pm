@@ -1,17 +1,35 @@
 package PHEDEX::BlockConsistency::Agent;
+
+=head1 NAME
+
+PHEDEX::BlockConsistency::Agent - the Block Consistency Checking agent.
+
+=head1 SYNOPSIS
+
+pending...
+
+=head1 DESCRIPTION
+
+pending...
+
+=head1 SEE ALSO...
+
+PHEDEX::Core::Agent (eventually...), PHEDEX::BlockConsistency::SQL.
+
+=cut
 use strict;
 use warnings;
-use base 'UtilsAgent', 'PHEDEX::BlockConsistency::SQL';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockConsistency::SQL';
 
 use File::Path;
 use Data::Dumper;
-use UtilsCommand;
-use UtilsLogging;
-use UtilsTiming;
-use UtilsCatalogue;
-use UtilsDB;
+use PHEDEX::Core::Command;
+use PHEDEX::Core::Logging;
+use PHEDEX::Core::Timing;
+use PHEDEX::Core::Catalogue;
+use PHEDEX::Core::DB;
 use DBI;
-use UtilsRFIO;
+use PHEDEX::Core::RFIO;
 use PHEDEX::BlockConsistency::Core;
 use PHEDEX::Namespace;
 
@@ -217,6 +235,7 @@ sub processDrop
 
 #   Inject this test
     my $test = $self->get_TDVS_Tests($request->{TEST})->{ID};
+    my $use_srm = $request->{USE_SRM} || 0;
     my $id = $bcc->InjectTest(
 				node		=> $request->{NODE},
 				test		=> $test,
@@ -224,6 +243,7 @@ sub processDrop
 				n_files		=> $request->{N_FILES},
 				time_expire	=> $request->{TIME_EXPIRE},
 				priority	=> $request->{PRIORITY},
+				use_srm		=> $use_srm,
 			     );
     print "Inject request=$id for ",
 	join(', ',map{"$_=>$request->{$_}"} sort keys %{$request}),"\n";

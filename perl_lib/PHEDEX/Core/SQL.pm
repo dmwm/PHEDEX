@@ -55,7 +55,7 @@ or inherit it in your agent code
 
 =head1 Function list
 
-=head2 $self->select_single( $query, %param )
+=head2 $self->select_single($query,%param)
 
 returns a reference to an array of values representing the result of the 
 query, which should select a single column from the database (e.g, 'select 
@@ -80,7 +80,7 @@ only the first column is returned.
 
 =back
 
-=head2 $self->select_hash( $query, $key, %param )
+=head2 $self->select_hash($query,$key,%param)
 
 as select_single, but returns an array of hash references instead, so more 
 complex data can be returned.
@@ -92,7 +92,7 @@ is used as the hash key for the returned data.
 
 =back
 
-=head2 $self->execute_sql( $query, %param )
+=head2 $self->execute_sql($query,%param)
 
 This will execute the sql statement $query with the bind parameters 
 %param, using PHEDEX::DB::dbexec. First, however, it checks the sql 
@@ -101,7 +101,7 @@ correctly escape the bind parameters (replace '_' with '\\_') and add the
 "escape '\\'" declaration to the sql statement. Without this, the 
 underscore is interpreted as a single-character wildcard by Oracle.
 
-=head2 $self->getTable( $table, $key, @fields )
+=head2 $self->getTable($table,$key,@fields)
 
 This utility routine will read an entire table or view, or just some specific
 columns from it, and store it as a hash of hashrefs in
@@ -136,12 +136,48 @@ The table is cached in the object calling this function. If called again
 for the same table from another object, the query is executed against the 
 database again.
 
-=head2 $self->expandNodeList( @nodes )
+=head2 $self->expandNodeList(@nodes)
 
 @nodes is an array of node-name expressions, with '%' as the wildcard. 
 This function returns a hashref with an entry for each node whose name 
 matches any of the array entries, case-insensitive. Each returned entry 
 has subkeys for the node NAME and TECHNOLOGY.
+
+=head2 $self->getLFNsFromBlock
+
+not documented yet...
+
+=head2 $self->getBlocksFromLFN
+
+not documented yet...
+
+=head2 $self->getDatasetsFromBlock
+
+not documented yet...
+
+=head2 $self->getBlocksFromDataset
+
+not documented yet...
+
+=head2 $self->getLFNsFromWildCard
+
+not documented yet...
+
+=head2 $self->getBlocksFromWildCard
+
+not documented yet...
+
+=head2 $self->getDatasetFromWildCard
+
+not documented yet...
+
+=head2 $self->getBufferFromWildCard
+
+not documented yet...
+
+=head2 $self->getBlockReplicasFromWildCard
+
+not documented yet...
 
 =head1 EXAMPLES
 
@@ -164,7 +200,7 @@ L</https://savannah.cern.ch/projects/phedex/>
 use strict;
 use warnings;
 
-use UtilsDB;
+use PHEDEX::Core::DB;
 use Carp;
 
 our @EXPORT = qw( );
@@ -286,6 +322,109 @@ sub expandNodeList
     map { $result{$_} = $r->{$_} } keys %$r;
   }
   return \%result;
+}
+
+#-------------------------------------------------------------------------------
+sub getLFNsFromBlock
+{
+  my $self = shift;
+  my $sql = qq {select logical_name from t_dps_file where inblock in
+                (select id from t_dps_block where name like :block)};
+  my %p = ( ":block" => @_ );
+  my $r = select_single( $self, $sql, %p );
+  return $r;
+}
+
+#-------------------------------------------------------------------------------
+sub getBlocksFromLFN
+{
+  my $self = shift;
+  my $sql = qq {select name from t_dps_block where id in
+      (select inblock from t_dps_file where logical_name like :lfn )};
+  my %p = ( ":lfn" => @_ );
+  my $r = select_single( $self, $sql, %p );
+  return $r;
+}
+
+#-------------------------------------------------------------------------------
+sub getDatasetsFromBlock
+{
+  my $self = shift;
+  my $sql = qq {select name from t_dps_dataset where id in
+                (select dataset from t_dps_block where name like :block ) };
+  my %p = ( ":block" => @_ );
+  my $r = select_single( $self, $sql, %p );
+  return $r;
+}
+
+#-------------------------------------------------------------------------------
+sub getBlocksFromDataset
+{
+  my $self = shift;
+  my $sql = qq {select name from t_dps_block where dataset in
+                (select id from t_dps_dataset where name like :dataset ) };
+  my %p = ( ":dataset" => @_ );
+  my $r = select_single( $self, $sql, %p );
+  return $r;
+}
+
+#-------------------------------------------------------------------------------
+sub getLFNsFromWildCard
+{
+  my $self = shift;
+  my $sql =
+        qq {select logical_name from t_dps_file where logical_name like :lfn };
+  my %p = ( ":lfn" => @_ );
+  my $r = select_single( $self, $sql, %p );
+  return $r;
+}
+
+#-------------------------------------------------------------------------------
+sub getBlocksFromWildCard
+{
+  my $self = shift;
+  my $sql = qq {select name from t_dps_block where name like :block_wild};
+  my %p = ( ":block_wild" => @_ );
+  my $r = select_single( $self, $sql, %p );
+  return $r;
+}
+
+#-------------------------------------------------------------------------------
+sub getDatasetFromWildCard
+{
+  my $self = shift;
+  my $sql = qq {select name from t_dps_dataset where name like :dataset_wild };
+  my %p = ( ":dataset_wild" => @_ );
+  my $r = select_single( $self, $sql, %p );
+  return $r;
+}
+
+#-------------------------------------------------------------------------------
+sub getBufferFromWildCard
+{
+  my $self = shift;
+  my $sql =
+        qq {select id, name, technology from t_adm_node where name like :node };
+  my %p = ( ":node" => @_ );
+  my $r = select_hash( $self, $sql, 'ID', %p );
+  return $r;
+}
+
+#-------------------------------------------------------------------------------
+sub getBlockReplicasFromWildCard
+{
+  my ($self,$block,@nodes) = @_;
+  my $sql = qq {select block, name, files from
+                t_dps_block_replica br join t_dps_block b on br.block = b.id
+                where name like :block_wild };
+  if ( @nodes )
+  {
+    $sql .= ' and node in (' . join(',', @nodes) . ')';
+  }
+
+  my %p = ( ':block_wild' => $block );
+  my $r = select_hash( $self, $sql, 'BLOCK', %p );
+  return $r;
 }
 
 1;

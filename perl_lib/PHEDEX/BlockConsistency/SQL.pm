@@ -1,14 +1,31 @@
 package PHEDEX::BlockConsistency::SQL;
-#
-# This package simply bundles SQL statements into function calls.
-# It's not a true object package as such, and should be inherited from by
-# anything that needs its methods.
-#
+
+=head1 NAME
+
+PHEDEX::BlockConsistency::SQL - encapsulated SQL for the Block Consistency
+Checking agent.
+
+=head1 SYNOPSIS
+
+This package simply bundles SQL statements into function calls.
+It's not a true object package as such, and should be inherited from by
+anything that needs its methods.
+
+=head1 DESCRIPTION
+
+pending...
+
+=head1 SEE ALSO...
+
+PHEDEX::Core::SQL, PHEDEX::BlockConsistency::Core.
+
+=cut
+
 use strict;
 use warnings;
 use base 'PHEDEX::Core::SQL';
 
-use UtilsDB;
+use PHEDEX::Core::DB;
 use Carp;
 
 our @EXPORT = qw( );
@@ -43,16 +60,17 @@ sub AUTOLOAD
   $self->$parent(@_);
 }
 
+#-------------------------------------------------------------------------------
 sub getTestResults
 {
   my $self = shift;
   my ($sql,$q,$nodelist,@r);
 
   $nodelist = join(',',@_);
-  $sql = qq{ select v.id, b.name block, n_files, n_tested, n_ok,
+  $sql = qq{ select v.id, b.name block, block blockid, n_files, n_tested, n_ok,
              s.name status, t.name test, time_reported
              from t_status_block_verify v join t_dvs_status s on v.status = s.id
-             join t_dps_block b on v.block = b.id
+             left join t_dps_block b on v.block = b.id
              join t_dvs_test t on v.test = t.id };
   if ( $nodelist ) { $sql .= " where node in ($nodelist) "; }
   $sql .= ' order by s.id, time_reported';
@@ -63,6 +81,7 @@ sub getTestResults
   return \@r;
 }
 
+#-------------------------------------------------------------------------------
 sub getDetailedTestResults
 {
   my $self = shift;
@@ -82,6 +101,23 @@ sub getDetailedTestResults
   while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
 
   return \@r;
+}
+
+#-------------------------------------------------------------------------------
+sub getTestsPendingCount
+{
+  my $self = shift;
+  my ($sql,$q,$nodelist,@r);
+
+  $nodelist = join(',',@_);
+  $sql = qq{ select count(*) from t_dvs_block
+             where node in ($nodelist)
+           };
+
+  $q = $self->execute_sql( $sql, () );
+  @r = $q->fetchrow_array();
+
+  return $r[0];
 }
 
 #-------------------------------------------------------------------------------
@@ -105,92 +141,6 @@ sub getTMDBFileStats
 }
 
 #-------------------------------------------------------------------------------
-sub getLFNsFromBlock
-{
-  my $self = shift;
-  my $sql = qq {select logical_name from t_dps_file where inblock in
-	        (select id from t_dps_block where name like :block)};
-  my %p = ( ":block" => @_ );
-  my $r = $self->select_single( $sql, %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getBlocksFromLFN
-{
-  my $self = shift;
-  my $sql = qq {select name from t_dps_block where id in
-      (select inblock from t_dps_file where logical_name like :lfn )};
-  my %p = ( ":lfn" => @_ );
-  my $r = $self->select_single( $sql, %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getDatasetsFromBlock
-{
-  my $self = shift;
-  my $sql = qq {select name from t_dps_dataset where id in
-		(select dataset from t_dps_block where name like :block ) };
-  my %p = ( ":block" => @_ );
-  my $r = $self->select_single( $sql, %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getBlocksFromDataset
-{
-  my $self = shift;
-  my $sql = qq {select name from t_dps_block where dataset in
-                (select id from t_dps_dataset where name like :dataset ) };
-  my %p = ( ":dataset" => @_ );
-  my $r = $self->select_single( $sql, %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getLFNsFromWildCard
-{
-  my $self = shift;
-  my $sql =
-	qq {select logical_name from t_dps_file where logical_name like :lfn };
-  my %p = ( ":lfn" => @_ );
-  my $r = $self->select_single( $sql, %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getBlocksFromWildCard
-{
-  my $self = shift;
-  my $sql = qq {select name from t_dps_block where name like :block_wild};
-  my %p = ( ":block_wild" => @_ );
-  my $r = $self->select_single( $sql, %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getDatasetFromWildCard
-{
-  my $self = shift;
-  my $sql = qq {select name from t_dps_dataset where name like :dataset_wild };
-  my %p = ( ":dataset_wild" => @_ );
-  my $r = $self->select_single( $sql, %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getBufferFromWildCard
-{
-  my $self = shift;
-  my $sql =
-	qq {select id, name, technology from t_adm_node where name like :node };
-  my %p = ( ":node" => @_ );
-  my $r = $self->select_hash( $sql, 'ID', %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
 sub getBlocksOnBufferFromWildCard
 {
   my $self = shift;
@@ -204,6 +154,38 @@ sub getBlocksOnBufferFromWildCard
   return $r;
 }
 
+#-------------------------------------------------------------------------------
+sub expandBlockListOnNodes
+{  
+  my $self = shift;
+  my (%h,$block,$node,$item,%result);
+  %h = @_;
+
+  foreach $block ( @{$h{blocks}} )
+  {
+    my $tmp = getBlockReplicasFromWildCard( $self, $block, @{$h{nodes}});
+    map { $result{$_} = $tmp->{$_} } keys %$tmp;
+  }
+  return \%result;
+}  
+
+#-------------------------------------------------------------------------------
+sub expandTestList
+{
+  my $self = shift;
+  my ($sql,%p,$r,$test,%result);
+
+  $sql = qq {select id, name from t_dvs_test where name like lower(:test_wild)};
+  foreach $test ( @_ )
+  {
+    %p = ( ":test_wild" => $test );
+    $r = select_hash( $self, $sql, 'ID', %p );
+    map { $result{$_} = $r->{$_} } keys %$r;
+  }
+  return \%result;
+}
+
+#-------------------------------------------------------------------------------
 sub get_TDVS_Tests
 {
   my ($self,$test) = @_;
@@ -212,6 +194,7 @@ sub get_TDVS_Tests
   return $x;
 }
 
+#-------------------------------------------------------------------------------
 sub get_TDVS_Status
 {
   my ($self,$status) = @_;
