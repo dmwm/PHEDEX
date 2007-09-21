@@ -1,8 +1,24 @@
 package PHEDEX::Namespace;
-#
-# This wraps the 'stat' commands of different MSS/storage namespaces in a
-# uniform interface. Adding a new technology should be easy!
-#
+
+=head1 NAME
+
+PHEDEX::Namespace - implement namespace (size, migration...) checks on SEs
+
+=head1 SYNOPSIS
+
+This wraps the 'stat' commands of different MSS/storage namespaces in a
+uniform interface. Adding a new technology should be easy!
+
+=head1 DESCRIPTION
+
+pending...
+
+=head1 EXAMPLES
+
+pending...
+
+=cut
+
 use strict;
 use warnings;
 
