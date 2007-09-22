@@ -870,8 +870,8 @@ sub routeCost
 		# This value is larger than cut-off for valid paths later.
 		if ($$paths{$from}{REMOTE_HOPS} && ! $thislocal)
 		{
-		    $xfer += 7*86400;
-		    $total += 7*86400;
+		    $xfer += 365*86400;
+		    $total += 365*86400;
 		}
 
 		# Update the path if there is none yet, if we have local
