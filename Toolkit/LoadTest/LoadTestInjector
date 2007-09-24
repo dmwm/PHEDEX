@@ -226,7 +226,7 @@ sub lastBlockSpace
     
     $n_left = 0 if $n_left < 0;
 
-    return wantarray ? ($n_left, $$info{ID}) : $n_left;
+    return wantarray ? ($n_left, $info) : $n_left;
 }
 
 sub throttleNodeFiles
@@ -283,47 +283,32 @@ sub injectFiles
     my ($self, $params, $n_files) = @_;
 
     my $src_lfns = $self->getSourceLFNs($params);
+    my @files;
 
-    my $n_inject = 0;
-    do {
-	# get the space left in the last block
-	my ($b_space, $block) = $self->lastBlockSpace($params, 1); # also locks block
-#	&logmsg("$n_files left to inject, block $block has room for $b_space files");  # XXX
+    # get the space left in the last block and get files to fill it
+    my ($b_space, $block) = $self->lastBlockSpace($params, 1); # also locks block
+    while ($b_space > 0 && $n_files > 0) {
+	push @files, $self->pickNewLFN($params, $src_lfns, $$block{ID});
+	$b_space--; $n_files--;
+    }
 
-	# fill the last block until full
-	my @files;
+    # create new blocks needed and fill them with files
+    # XXX datasetSpace
+    my $n_blocks = POSIX::ceil($n_files / $$params{BLOCK_SIZE});
+    my @new_blocks = $self->createNewBlocks($params, $block, $n_blocks);
+    foreach my $block (@new_blocks) {
+	last if $n_files == 0;
+	$b_space = $$params{BLOCK_SIZE};
 	while ($b_space > 0 && $n_files > 0) {
-	    my $file = $self->pickNewLFN($params, $src_lfns);
-	    $$file{BLOCK} = $block;
-	    $$file{SOURCE} = $$params{DEST_NODE};
-	    $$file{TIME_CREATE} = $$params{NOW};
-	    push @files, $file;
-	    $n_inject++; $b_space--; $n_files--;
+	    push @files, $self->pickNewLFN($params, $src_lfns, $$block{ID});
+	    $b_space--; $n_files--;
 	}
-	$self->insertFileArray(\@files);
+    }
 
-        # (maybe) close the last block
-	$self->closeBlock($block) if $b_space == 0 && $$params{BLOCK_CLOSE};
-
-	# create a new block if the dataset is not yet full
-	if (!$self->datasetFull($params)) {
-	    $self->createNewBlock($params) if $n_files > 0;
-	} else {
-	    $self->closeDataset($$params{DEST_DATASET}) if $$params{DATASET_CLOSE};
-	}
-    } while ($n_files > 0);
+    # execute a bulk injection
+    my $n_inject = $self->injectFileArray(\@files);
 
     return $n_inject;
-}
-
-sub closeBlock
-{
-    my ($self, $block) = @_;
-    return unless defined $block;
-
-    &dbexec($$self{DBH}, qq{
-	update t_dps_block set is_open = 'n' where id = :block },
-	    ':block' => $block);
 }
 
 sub closeDataset
@@ -336,36 +321,45 @@ sub closeDataset
 	    ':dataset' => $dataset);
 }
 
-sub createNewBlock
+sub createNewBlocks
 {
-    my ($self, $params) = @_;
+    my ($self, $params, $last_block, $n_blocks) = @_;
 
-    my $info = $self->getLastBlock($params);
-    my $n = exists $$info{BLOCK_NUMBER} ? $$info{BLOCK_NUMBER} + 1 : 0;
-    my $name = $$params{DEST_DATASET_NAME} . "#" . $n;
+    my @blocks;
 
-    my $block;
-    &dbexec($$self{DBH}, qq{
+    my $ins_b =	&dbprep($$self{DBH}, qq{
 	insert into t_dps_block (id, dataset, name, files, bytes, is_open, time_create)
-	values (seq_dps_block.nextval, :dataset, :name, 0, 0, 'y', :now)
-	returning id into :id },
-	    ':id' => \$block,
-	    ':dataset' => $$params{DEST_DATASET},
-	    ':name' => $name,
-	    ':now' => $$params{NOW});
+	    values (seq_dps_block.nextval, :dataset, :name, 0, 0, :is_open, :now)
+	    returning id into :id });
+
+    # get the last block's number as our starting point
+    my $n = exists $$last_block{BLOCK_NUMBER} ? $$last_block{BLOCK_NUMBER} : 0;
+
+    for (1 .. $n_blocks) {
+	$n++;
+	my $block = {};
+	$$block{NAME} = $$params{DEST_DATASET_NAME} . "#" . $n;
+	# we close all the blocks we are asked to except the last one
+	$$block{IS_OPEN} = $$params{BLOCK_CLOSE} = 'y' && $_ != $n_blocks ? 'n' : 'y';
+
+	&dbbindexec($ins_b, ':dataset' => $$params{DEST_DATASET},
+		    ':name' => $$block{NAME},
+		    ':is_open' => $$block{IS_OPEN},
+		    ':now' => $$params{NOW},
+		    ':id' => \$$block{ID});
+	push @blocks, $block;
+    }
     
-#    &logmsg("Created new block $name with id $block\n");  # XXX
-    
-    return $block;
+    return @blocks;
 }
 
-sub insertFileArray
+sub injectFileArray
 {
     my ($self, $files) = @_;
     
 #    &logmsg("received ",scalar @$files, " files to inject");  # XXX
     return unless @$files;
-    
+        
     # TODO:  Copied from TMDBInject with minor modifications.  Consolidate into a common module?
 
     my $idps = &dbprep($$self{DBH}, qq{
@@ -408,6 +402,7 @@ sub insertFileArray
     &dbbindexec($ixfer, %xfer);
     &dbbindexec($ixr, %xr);
     
+    return scalar @$files;
 }
 
 sub getSourceLFNs
@@ -448,7 +443,7 @@ sub getSourceLFNs
 
 sub pickNewLFN
 {
-    my ($self, $params, $src_lfns) = @_;
+    my ($self, $params, $src_lfns, $block) = @_;
     
     # Pick a random LFN from the source set
     my $lfn = $$src_lfns[ int(rand @$src_lfns) ];
@@ -456,6 +451,11 @@ sub pickNewLFN
 
     # Add Source and GUID to name
     $$lfn{LFN} .= join(".", ".LTgenerated", $$params{DEST_NODE_NAME}, &makeGUID());
+
+    # Associate new block and source
+    $$lfn{BLOCK} = $block;
+    $$lfn{SOURCE} = $$params{DEST_NODE};
+    $$lfn{TIME_CREATE} = $$params{NOW};
 
     return $lfn;
 }
