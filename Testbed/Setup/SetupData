@@ -1,18 +1,20 @@
 #!/usr/bin/env perl
 
 ##H Seed test database (set up with separate SQL) with a number of
-##H files.
+##H files and create subscriptions to those files.
 ##H
 ##H Use: $0 -db <DBCONFIG> -datasets N_DS -blocks N_BLOCKS -files N_FILES 
-##H                        [-label LABEL] [-no-subscribe]
+##H                        [-label LABEL] [-open-blocks] [-rotate-priority] [-no-subscribe]
 ##H
 ##H Parameters:
-##H      db:            path to DB Config file
-##H      datasets:      amount of datasets you wish to make known to the DB
-##H      blocks:        amount of blocks you wish to make known to the DB
-##H      count:         amount of files you wish to make known to the DB
-##H      label:         identifying label for the data items, default 'TEST'
-##H      no-subscribe:  don't automatically create subscriptions for the generated data
+##H      db:               path to DB Config file
+##H      datasets:         amount of datasets you wish to make known to the DB
+##H      blocks:           amount of blocks you wish to make known to the DB
+##H      count:            amount of files you wish to make known to the DB
+##H      label:            identifying label for the data items, default 'TEST'
+##H      open-blocks:      do not close blocks (default is to close blocks)
+##H      rotate-priority:  create subscriptions at all priority levels
+##H      no-subscribe:     don't automatically create subscriptions for the generated data
 
 BEGIN { use strict; use warnings; $^W=1;
 	my $me = $0; $me =~ s|.*/||;
@@ -29,7 +31,7 @@ use UtilsTiming;
 	     "blocks=i"    => \$args{BLOCKS},
 	     "files=i"     => \$args{FILES},
 	     "label=s"     => \$args{LABEL},
-	     "open_blocks" => \$args{OPEN_BLOCKS},
+	     "open-blocks" => \$args{OPEN_BLOCKS},
 	     "rotate-priority" => \$args{ROTATE_PRIORITY},
 	     "no-subscribe"   => \$args{NOSUBSCRIBE},
 	     "nodes=s"     => sub { push @{$args{NODES}},
