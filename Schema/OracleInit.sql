@@ -36,5 +36,9 @@ prompt Loading request management
 @@OracleCoreReq.sql
 
 prompt
+prompt Loading block verification
+@@OracleCoreVerify.sql
+
+prompt
 prompt PhEDEx schema loaded
 prompt
