@@ -341,16 +341,21 @@ sub requestQueue
 		nvl(time_reported,0) time_reported, nvl(status,0) status
 		from t_dps_file pf join t_dvs_file vf on vf.fileid = pf.id
 		left join t_dvs_file_result vfr on vfr.fileid = vf.fileid
-		where vf.request = :request };
+		where vf.request = :request
+		order by fileid asc, time_reported desc
+	   };
   while ( my $h = $q->fetchrow_hashref() )
   {
     %p = ( ':request' => $h->{ID} );
     $q1 = &dbexec($self->{DBH},$sql,%p);
-    $h->{LFNs} = [];
+#   $h->{LFNs} = [];
+    my %f;
     while ( my $g = $q1->fetchrow_hashref() )
     {
-      push @{$h->{LFNs}}, $g;
+#     push @{$h->{LFNs}}, $g;
+      $f{$g->{FILEID}} = $g unless exists( $f{$g->{FILEID}} );
     }
+    @{$h->{LFNs}} = values %f;
     $n += scalar @{$h->{LFNs}};
     push @requests, $h;
     last if ++$i >= $limit;
