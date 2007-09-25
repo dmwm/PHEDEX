@@ -232,9 +232,9 @@ sub makeTransferTask
 	       || ! $$from_cat{$protocol}
 	       || ! $$to_cat{$protocol});
 
-    # Try to expand the file name.
+    # Try to expand the file name. Follow destination-match instead of remote-match
     $$task{FROM_PFN} = &applyStorageRules($from_cat, $protocol, $to_name, 'pre', $$task{LOGICAL_NAME});
-    $$task{TO_PFN}   = &applyStorageRules($to_cat, $protocol, $from_name, 'pre', $$task{LOGICAL_NAME});
+    $$task{TO_PFN}   = &applyStorageRules($to_cat, $protocol, $to_name, 'pre', $$task{LOGICAL_NAME});
 }
 
 # Build and cache storage mapping catalogue for a node.
