@@ -68,10 +68,11 @@ sub getTestResults
 
   $nodelist = join(',',@_);
   $sql = qq{ select v.id, b.name block, block blockid, n_files, n_tested, n_ok,
-             s.name status, t.name test, time_reported
+             s.name status, t.name test, time_reported, n.name node
              from t_status_block_verify v join t_dvs_status s on v.status = s.id
              left join t_dps_block b on v.block = b.id
-             join t_dvs_test t on v.test = t.id };
+             join t_dvs_test t on v.test = t.id
+	     join t_adm_node n on n.id = v.node };
   if ( $nodelist ) { $sql .= " where node in ($nodelist) "; }
   $sql .= ' order by s.id, time_reported';
 

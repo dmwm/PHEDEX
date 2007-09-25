@@ -12,17 +12,6 @@ use strict;
 ##H   --node = <string>   PhEDEx node to search for replicas
 ##H 
 
-#BEGIN {
-#    $^W = 1; use strict; use warnings;
-#    our $me = $0; $me =~ s|.*/||;
-#    our $home = $0;
-#    if ( $home !~ m%/% ) { $home = '.'; }
-#    $home =~ s|/[^/]+$||;
-#    $home ||= ".";
-#    $home .= "/../Toolkit/Common";
-#    unshift(@INC, $home);
-#}
-
 # Process command line arguments.
 use Getopt::Long;
 use PHEDEX::Core::Help;
@@ -64,6 +53,7 @@ push @states, $all_states;
 $r = $bcc->getTestResults(keys %{$nodes});
 printf("%24s %6s %7s %7s %7s %10s %10s %s\n",
 	  'Time Reported',
+	  'Node',
 	  'ID',
 	  'NFiles',
 	  'NTested',
@@ -74,9 +64,10 @@ printf("%24s %6s %7s %7s %7s %10s %10s %s\n",
       );
 foreach $s ( @{$r} )
 {
-  printf("%24s %6d %7d %7d %7d %10s %10s %s\n",
+  printf("%24s %6d %15s %7d %7d %7d %10s %10s %s\n",
 	  scalar localtime $s->{TIME_REPORTED},
 	  $s->{ID},
+	  $s->{NODE},
 	  $s->{N_FILES},
 	  $s->{N_TESTED},
 	  $s->{N_OK},
