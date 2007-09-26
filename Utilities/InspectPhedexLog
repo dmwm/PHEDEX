@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog,v 1.12 2007/09/18 16:38:00 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.13 2007/09/19 09:12:46 dfeichti Exp $:
 ###############################################################################
 
 use strict;
@@ -21,8 +21,10 @@ my $flag_debug=0;
 my $flag_checkdate=0;
 my $flag_bunchDetect=0;
 my $flag_errhisto=0;
+my $flag_multiFailures=0;
 
 my $errmsglen=200; # length of error messages to use (error will be cut)
+my $multiFilePrintThresh=2;
 
 sub usage {
 print <<"EOF";
@@ -31,29 +33,34 @@ usage: InspectPhedexLog [options] logfile1 [logfile2 ...]
    Analyses PhEDEx download agent log files
 
    options:
-      -e     : also show error statistics (summary over error messages)
-         -r  :  do not try to regexp-process errors messages, but show raw
-                 error messages (!!gigantic output)
-         -H  :  print simple histograms for every error class
-      -v     :verbose   Prints task IDs for the collected errors (useful for
-                      closer investigation). Also prints multiply failed files
-                      that were never transferred correctly
       -s start_date   -t end_date
-      -c number  : defines the error message cutoff (default=$errmsglen). Longer messages will 
-                   be cut down to this length at the beginning of the parser.
-                   This may lead to problems, if the significant part comes later in the message
-      -d         : debug   Prints a summary line for every single transfer
-      -h         : display this help
+      -e     : also show error statistics (summary over error messages)
+         -r  : do not try to regexp-process errors messages, but show raw
+                 error messages (gigantic output!!)
+         -H  : print simple histograms for every error class
+         -v  : also print associated taskIDs
+      -m     : investigate files with multiple transfer failures
+         -v  : outputs per site error messages for failed files
+         -x number: sets threshold on how many failures are needed until the file
+                    will be printed (default=$multiFilePrintThresh)
+      -c number  : defines the error message cutoff (default=$errmsglen)
+                   Longer messages will be cut down to this length at the
+                   beginning of the parser.This may lead to problems, if
+                   the significant part comes later in the message
+      -v     : verbose (increases output for -e, -m options)
+      -d     : debug   Prints a summary line for every single transfer
+      -h     : display this help
 
  examples:
-   InspectPhedexLog Prod/download
+   InspectPhedexLog Prod/download Prod/download.1 Prod/download.2
    InspectPhedexLog -evs yesterday -t "2006-11-20 10:30:00" Prod/download
    InspectPhedexLog -es "-2 days"  Prod/download
 
    without any of the special options, the script will just print
    summary statistics for all download sources.
 
-   Running with the -e option is probably the most useful mode to identify site problems
+   Running with the -e option is probably the most useful mode to identify general site problems
+   The -m option is useful to look into reasons of data set "tailing"
 
 EOF
 
@@ -78,11 +85,12 @@ EOF
 
 # OPTION PARSING
 my %option=();
-getopts("c:dehHrs:t:v",\%option);
+getopts("c:dehHmrs:t:vx:",\%option);
 
 
 # disabled !!!! $flag_bunchDetect=1 if(defined $option{"b"});
 $flag_showErrors=1 if(defined $option{"e"});
+$flag_multiFailures=1 if(defined $option{"m"});
 $flag_rawErrors=1 if(defined $option{"r"});
 $flag_verbose=1 if(defined $option{"v"});
 $flag_errhisto=1 if(defined $option{"H"});
@@ -95,6 +103,10 @@ if (defined $option{"h"}) {
 
 if (defined $option{"c"}) {
   $errmsglen=$option{"c"};
+}
+
+if (defined $option{"x"}) {
+  $multiFilePrintThresh=$option{"x"};
 }
 
 my ($dstart,$dend)=(0,1e20);
@@ -114,7 +126,9 @@ die "Error: Error message cutoff (option -c) must be > 1 (now: $errmsglen)\n" if
 my @logfiles=@ARGV;
 
 my %sitestat;
-my %failedfile;
+my %failedfile; # repeatedly failing files
+my %expiredfile; # repeatedly failing files
+my %attempts; # histogram of required attempts until successful 
 
 if ($#logfiles==-1) {
    usage();
@@ -153,7 +167,7 @@ foreach my $log (@logfiles) {
             next if $epdate < $dstart or $dend < $epdate;
          }
 
-         # should be made much faster by using time from first/last entry of
+         # TODO: should be made much faster by using time from first/last entry of
          # every log file
          if($epdate > $dateend) { $dateend=$epdate; }
          if($epdate < $datestart) {$datestart=$epdate;}
@@ -165,7 +179,16 @@ foreach my $log (@logfiles) {
              $sitestat{"$from"}{"size"}+=$size;
 	     $sitestat{"$from"}{"ttransfer"}+=$ttransfer;
 	     $ttransfer=0;
-             delete $failedfile{"$fname"} if exists $failedfile{"$fname"};
+	     # we add up a histogram of the total attempts per file and one for the expired attempts
+	     if($flag_multiFailures && exists $failedfile{"$fname"}) {
+	       for my $site (keys %{$failedfile{"$fname"}}) {
+		 my $err = $failedfile{"$fname"}{$site}{"err"}+$failedfile{"$fname"}{$site}{"exp"};
+		 $attempts{"$site"}{"toterr"}{$err}++;
+		 $attempts{"$site"}{"exp"}{ $failedfile{"$fname"}{$site}{"exp"} }++
+		   if $failedfile{"$fname"}{$site}{"exp"} > 0;
+	       }
+	       delete $failedfile{"$fname"};
+	     }
 
              # the following is needed because transfer time applies not to a single file but to the bunch
 	     if( ! defined $txfer_old || $txfer_old == 0  || $txfer == $txfer_old) {     # try to identify bunches
@@ -181,7 +204,6 @@ foreach my $log (@logfiles) {
 	     ($txfer_old,$tdone_old) = ($txfer,$tdone);
 
          } else {
-             $failedfile{"$fname"}++;
              $statstr="FAILED";  #sprintf("FAILED(%4d)",$stat);
              $sitestat{"$from"}{"FAILED"}++;
 
@@ -235,8 +257,14 @@ foreach my $log (@logfiles) {
 	     if( $reason eq "transfer expired in the download agent queue" or $reason =~ /^\s*Canceled.*/) {
 	       $sitestat{"$from"}{"EXP"}++;
 	       $statstr="EXP/CNCL";
+	       $failedfile{"$fname"}{$from}{"exp"}++ if $flag_multiFailures;
+	     } else {
+	       $failedfile{"$fname"}{$from}{"err"}++ if $flag_multiFailures;
 	     }
-
+	     if($flag_multiFailures) {
+	       $failedfile{"$fname"}{$from}{"reason"}{$reason}++;
+	       ($failedfile{"$fname"}{$from}{"frompfn"}) = $line =~ m/from-pfn=([^\s]*)\s+to-pfn/;
+	     }
 	     $errinfo{$from}{$reason}{num}++;
 	     push @{$errinfo{$from}{$reason}{tasks}},$task;
 	     push @{$errinfo{$from}{$reason}{time}},$epdate if $flag_errhisto;
@@ -272,18 +300,53 @@ foreach my $log (@logfiles) {
  }
 
 
+if ($flag_multiFailures) {
+  my %total;
+  foreach my $fname (keys %failedfile) {
+    foreach my $from (keys %{$failedfile{$fname}}) {
+      $total{$fname}{"err"} += $failedfile{$fname}{$from}{"err"};
+      $total{$fname}{"exp"} += $failedfile{$fname}{$from}{"exp"};
+    }
+  }
+  print "\nRepeatedly failing files that never were transferred correctly:\n";
+  print   "===============================================================\n";
+  print(" real errors  [incl. expired/cancl]\n");
+  foreach my $fname (sort {$total{$b}{"err"} <=> $total{$a}{"err"}} keys %total) {
+    next if $multiFilePrintThresh > $total{"$fname"}{"err"}+$total{"$fname"}{"exp"};
+    printf(" %3d [%2d] $fname\n",$total{"$fname"}{"err"},
+	   $total{"$fname"}{"err"}+$total{"$fname"}{"exp"});
+    if($flag_verbose) {
+      foreach my $from (keys %{$failedfile{$fname}}) {
+	print "        from $from\n";
+	print "        pfn=$failedfile{$fname}{$from}{frompfn}\n";
+	foreach $reason (sort { $failedfile{$fname}{$from}{"reason"}{$b} <=> $failedfile{$fname}{$from}{"reason"}{$a} }
+			 keys %{$failedfile{$fname}{$from}{"reason"}}) {
+	  printf("        %4d   $reason\n",$failedfile{$fname}{$from}{"reason"}{$reason});
+	}
+      }
+    }
+    print "\n";
+  }
+
+
+  print "\nHistogram of failed attempts per file until successful transfer:\n";
+  print "--------------------------------------------------------\n";
+  print "Attempts     real errors     [incl. expired/cancl]\n\n";
+
+  foreach my $from (sort {$a cmp $b} keys %attempts) {
+    print "$from:\n";
+    $attempts{$from}{"toterr"}{"0"}=$sitestat{$from}{"OK"};
+    foreach my $n (sort {$a <=> $b} keys %{$attempts{$from}{"toterr"}}) {
+      printf("   %3d  %4d   [%4d]\n",$n,$attempts{$from}{"toterr"}{$n}-
+	     $attempts{$from}{"exp"}{$n},$attempts{$from}{"toterr"}{$n});
+    }
+  }
+}
+
 if($flag_showErrors) {
    print "\n\n==============\n";
    print "ERROR ANALYSIS\n";
    print "==============\n";
-
-   if($flag_verbose) {
-     print "\nRepeatedly failing files that never were transferred correctly:\n";
-     print   "===============================================================\n";
-     foreach my $fname (sort {$failedfile{$b} <=> $failedfile{$a}} keys %failedfile) {
-       printf("   %3d  $fname\n",$failedfile{"$fname"}) if $failedfile{"$fname"} > 1;
-     }
-   }
 
 
    print "\n\nData base Errors\n";
