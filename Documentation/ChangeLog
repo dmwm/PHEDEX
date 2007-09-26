@@ -1,3 +1,21 @@
+* Changes in PhEDEx 2.5.3.6
+ New Features for Site Tools
+   - No changes wrt. PhEDEx 2.5.3.5
+   
+ Schema and Central agents
+   - FileIssue does destination-match instead of remote-match for TFC rules
+   
+   - FileRouter random probing fixed for case where link is of the worst 
+     possible quality
+ 
+   - Centralised LoadTest injection and management added
+
+ Operator's Tools:
+   - No changes wrt. PhEDEx 2.5.3.5
+ 
+ Bug Fixes
+   - No changes wrt. PhEDEx 2.5.3.5 
+
 * Changes in PhEDEx 2.5.3.5 
 
  New Features for Site Tools
