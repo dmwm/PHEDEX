@@ -105,6 +105,7 @@ sub idle
 	    $n_files = $$params{INJECT_NOW};
 	} elsif ($$params{RATE}) {
 	    my $t_files = $self->throttleNodeFiles($params);
+	    &logmsg("throttle files = $t_files");
 	    $n_files = $self->calculateRateInjection($params);
 	    if ($n_files != 0 && $t_files >= $n_files) {
 		&dbbindexec($uparam, 
@@ -249,8 +250,8 @@ sub throttleNodeFiles
       select sum(b.files) - sum(nvl(br.node_files,0))
         from t_dps_dataset ds 
         join t_dps_block b on b.dataset = ds.id
-   left join t_dps_block_replica br on br.block = b.id
-   where ds.id = :dataset and br.node = :throttle_node },
+   left join t_dps_block_replica br on br.block = b.id and br.node = :throttle_node
+   where ds.id = :dataset },
 			    ':dataset' => $$params{DEST_DATASET},
 			    ':throttle_node' => $$params{THROTTLE_NODE})->fetchrow();
     
