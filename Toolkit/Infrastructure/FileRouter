@@ -69,7 +69,7 @@ sub new
 		  NEXT_STATS => 0,		# Next time to refresh stats
 		  NEXT_SLOW_FLUSH => 0,	        # Next time to flush
 		  WINDOW_SIZE => 10,            # Size of priority windows in TB
-		  REQUEST_ALLOC => 'ByAge'      # Method to use when allocating file requests
+		  REQUEST_ALLOC => 'BY_AGE'      # Method to use when allocating file requests
 		  );
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
@@ -461,7 +461,13 @@ sub prepare
 	# Now commit second phase.
 	$dbh->commit();
     } else {
-	&warn("through-traffic limit reached for node=$node.  No new block destinations activated");
+	# Lots of through traffic - don't allocate
+	# Check how many blocks there are waiting
+	my ($nblocks) = &dbexec($dbh, qq{
+	    select count(*) from t_dps_block_dest where destination = :node and state = 0
+	    }, ":node" => $node)->fetchrow();
+	&warn("through-traffic limit reached for node=$node.  no new block destinations activated out of $nblocks")
+	    if $nblocks;
     }
     
 
@@ -536,6 +542,11 @@ sub getDestinedBlocks_DatasetBalance
 
     # Creates a hashref like $$destined{ $dataset }{ $block } = { PRIORITY => $priority, BYTES => $bytes }
     my $destined = $q_destined->fetchall_hashref(['DATASET', 'BLOCK']);
+   
+    # Initialize unallocated datasets
+    foreach my $dataset (keys %{$destined}) {
+	$$allocation{$dataset}{BYTES} ||= 0;
+    }
 
     # Build ordered list of blocks by load-balancing based on dataset bytes
   DATASET:  while ( scalar keys %{$destined} ) {
@@ -859,8 +870,8 @@ sub routeCost
 		# This value is larger than cut-off for valid paths later.
 		if ($$paths{$from}{REMOTE_HOPS} && ! $thislocal)
 		{
-		    $xfer += 7*86400;
-		    $total += 7*86400;
+		    $xfer += 365*86400;
+		    $total += 365*86400;
 		}
 
 		# Update the path if there is none yet, if we have local
