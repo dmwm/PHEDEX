@@ -731,9 +731,10 @@ sub fill
 
 	# If the task is too near expiration, just mark it failed.
         # If it has already expired, just remove it.
+	my $prettyhours = sprintf "%0.1fh ", ($now - $$t{TIME_ASSIGN})/3600;
 	if ($now >= $$t{TIME_EXPIRE})
 	{
-	    &logmsg("transfer task $$t{TASKID} has expired, discarding");
+	    &logmsg("PhEDEx transfer task $$t{TASKID} has expired after $prettyhours, discarding");
 	    unlink("$$self{TASKDIR}/$$t{TASKID}");
 	    delete $$tasks{$$t{TASKID}};
 	}
@@ -741,7 +742,7 @@ sub fill
 	{
 	    $$t{XFER_CODE} = -1;
 	    $$t{REPORT_CODE} = -1;
-	    $$t{LOG_DETAIL} = "transfer expired in the download agent queue";
+	    $$t{LOG_DETAIL} = "transfer expired in the PhEDEx download agent queue after $prettyhours";
 	    $$t{LOG_XFER} = "no transfer was attempted";
 	    $$t{LOG_VALIDATE} = "no validation was attempted";
 	    $$t{TIME_UPDATE} = $now;
