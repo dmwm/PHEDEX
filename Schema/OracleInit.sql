@@ -36,6 +36,10 @@ prompt Loading request management
 @@OracleCoreReq.sql
 
 prompt
+prompt Loading loadtest
+@@OracleCoreLoadTest.sql
+
+prompt
 prompt Loading block verification
 @@OracleCoreVerify.sql
 

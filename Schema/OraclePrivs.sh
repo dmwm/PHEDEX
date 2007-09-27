@@ -52,6 +52,7 @@ for role in \
       T_*:*_CERN_* | \
       T_REQ_*:*_WEBSITE_* | \
       T_ADM_*:*_WEBSITE_* | \
+      T_LOADTEST_PARAM:*_WEBSITE_* | \
       T_DPS_SUBSCRIPTION:*_WEBSITE_* | \
       T_DPS_BLOCK_DELETE:*_WEBSITE_* | \
       T_AGENT*:* )
