@@ -64,14 +64,18 @@ create table t_dvs_block
   constraint fk_dvs_block_node
     foreign key (node) references t_adm_node(id)
     on delete cascade,
-  constraint fk_dvs_block_block
-    foreign key (block) references t_dps_block(id)
-    on delete cascade,
+--  constraint fk_dvs_block_block
+--    foreign key (block) references t_dps_block(id)
+--    on delete cascade,
   constraint fk_dvs_block_test
     foreign key (test) references t_dvs_test(id)
     on delete cascade,
   constraint ck_dvs_block_use_srm check (use_srm in ('y','n'))
  );
+
+alter table t_dvs_block add constraint fk_dvs_block_block
+  foreign key (block) references t_dps_block(id)
+  on delete cascade disable;
 
 create sequence seq_dvs_file;
 create table t_dvs_file
@@ -126,10 +130,24 @@ create table t_status_block_verify
   constraint fk_status_block_verify_node
     foreign key (node) references t_adm_node(id)
     on delete cascade,
-  constraint fk_status_block_verify_block
-    foreign key (block) references t_dps_block(id)
-    on delete cascade,
+--  constraint fk_status_block_verify_block
+--    foreign key (block) references t_dps_block(id)
+--    on delete cascade,
   constraint fk_status_block_verify_test
     foreign key (test) references t_dvs_test(id)
     on delete cascade
  );
+
+alter table t_status_block_verify add constraint fk_status_block_verify_block
+  foreign key (block) references t_dps_block(id)
+  on delete cascade disable;
+
+-- create indices
+create index ix_dvs_block_block on t_dvs_block(block);
+create index ix_dvs_block_node on t_dvs_block(node);
+create index ix_dvs_block_test on t_dvs_block(test);
+create index ix_dvs_file_file on t_dvs_file(fileid);
+create index ix_dvs_file_result_file on t_dvs_file_result(fileid);
+create index ix_dvs_file_result_request on t_dvs_file_result(request);
+create index ix_status_block_verify_node on t_status_block_verify(node);
+create index ix_status_block_verify_test on t_status_block_verify(test);
