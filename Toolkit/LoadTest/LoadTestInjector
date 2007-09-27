@@ -105,7 +105,6 @@ sub idle
 	    $n_files = $$params{INJECT_NOW};
 	} elsif ($$params{RATE}) {
 	    my $t_files = $self->throttleNodeFiles($params);
-	    &logmsg("throttle files = $t_files");
 	    $n_files = $self->calculateRateInjection($params);
 	    if ($n_files != 0 && $t_files >= $n_files) {
 		&dbbindexec($uparam, 
