@@ -50,5 +50,8 @@ perl Toolkit/Verify/BlockDownloadVerify --db $PHEDEX_DB  \
 Utilities/BlockDownloadVerify-injector.pl --db $PHEDEX_DB \
 	--block % --test size --node T1_CERN_%
 
+# Cheap and cheerful way of checking the results, pending a real web page
+Utilities/BlockDownloadVerify-report.pl --db $PHEDEX_DB --node % --detail
+
 # See https://twiki.cern.ch/twiki/bin/view/CMS/BlockDownloadVerify for 
 # full documentation of these agents
