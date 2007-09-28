@@ -1,0 +1,54 @@
+# This file describes the procedure for adding the Block Verification 
+# schema and tools to a PhEDEx 2.5.x installation. This is the procedure
+# used to deploy in the Dev instance. I assume you are in the root of the
+# PHEDEX installation, and that you are running on vocms20.
+
+# Setup environment
+export DBPARAM=....
+export PHEDEX_DB=$DBPARAM:Dev/Admin
+export SQLPLUS_CONNECT=$(PHEDEX/Utilities/OracleConnectId -db $PHEDEX_DB)
+export TNS_ADMIN=/afs/cern.ch/project/oracle/admin
+
+# If your PERL5LIB hasn't already been set up, do it now:
+export PERL5LIB=`pwd`/perl_lib
+
+# Update the schema with sqlplus
+#
+# N.B. This doesn't work out of the box, there are FK constraints that
+# cannot be created properly :-( Specifically, neither fk_dvs_block_block 
+# nor fk_status_block_verify_block can be created enabled. This is hacked
+# around in the sql, the constraints are created disabled. This needs to 
+# be fixed before releasing in Production, I guess.
+#
+sqlplus $SQLPLUS_CONNECT < PHEDEX/Schema/OracleCoreVerify.sql
+
+# Start the BlockDownloadVerifyInjector agent. Make sure the state
+# directories exist first!
+export node=T1_CERN_Buffer
+export base=/data/DevNodes/Dev_$node
+# (I know the agents make their own inboxes, but the -injector agent has
+# to write in the other agents inbox, so it has to exist first)
+mkdir -p $base/state/blockdownloadverify{,-injector}/inbox 2>/dev/null
+
+Toolkit/Verify/BlockDownloadVerifyInjector --db $PHEDEX_DB \
+	--log     $base/logs/blockdownloadverify-injector  \
+	--state   $base/state/blockdownloadverify-injector \
+	--dropbox $base/state/blockdownloadverify/inbox    \
+	--node    T1_CERN_%
+
+# Start the BlockDownloadVerify agent itself:
+export siteconf=/data/DevNodes/SITECONF
+perl Toolkit/Verify/BlockDownloadVerify --db $PHEDEX_DB  \
+        --log     $base/logs/blockdownloadverify    \
+        --state   $base/state/blockdownloadverify   \
+	--storage $siteconf/CERN/PhEDEx/storage.xml \
+        --node    T1_CERN_%
+
+# If you want to give it a good shakedown, manually inject a bunch of
+# tests. Replace the '%' by something that matches fewer blocks if you
+# don't want to inject everything at your site!
+Utilities/BlockDownloadVerify-injector.pl --db $PHEDEX_DB \
+	--block % --test size --node T1_CERN_%
+
+# See https://twiki.cern.ch/twiki/bin/view/CMS/BlockDownloadVerify for 
+# full documentation of these agents
