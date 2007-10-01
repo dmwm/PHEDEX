@@ -8228,6 +8228,494 @@ sub output
 
 
 ######################################################################
+package Web25::Data::LoadTestInject;
+use strict; use warnings;
+use base "Web25::Data::ExplorePage";
+import Web25::Common;
+use CGI qw(:standard);
+use List::Util qw(max);
+
+our $INDEX = { LIST => 1, ORDER => 4, TITLE => "LoadTest Injections",
+	       LINK_TITLE => "Manage/View LoadTest Injections" };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+sub output_page
+{
+  my ($self) = @_;
+
+  if (!$$self{SECMOD}->isAuthenticated() &&
+      !($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+	$$self{SECMOD}->hasRole('Data Manager') ||
+	$$self{SECMOD}->hasRole('Site Admin'))) {
+      $self->auth_help_popup('manage LoadTest injections'
+			     => ['cert', 'Data Manager', 'Site Admin', 'Global Admin']);
+  }
+  
+  my %admin_opts = ('rate'       => 'set rate (MB/s)',
+		    'inject_now' => 'one-time injection (files)',
+		    'start'      => 'start injections',
+		    'stop'       => 'stop injections',
+		    'remove'     => 'remove injection');
+  my @opts_order = qw(rate inject_now start stop remove);
+	    
+  my $admin_ok = 0;
+  if ($$self{SECMOD}->isCertAuthenticated() &&
+      ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+      $$self{SECMOD}->hasRole('Data Manager') ||
+      $$self{SECMOD}->hasRole('Site Admin'))) {
+      $admin_ok = 1;
+  }
+
+  if (param('action')) {
+      $self->update_injections();
+  }
+
+  if (param('create_source')) {
+      $self->create_injection();
+  }
+
+  print { $$self{CONTENT} } (new Web25::OptsPane)->link("Show Options");
+
+  my $q =$self->get_injections();
+  
+  my @cols = qw(SELECT DEST_NODE_NAME THROTTLE_NODE_NAME SRC_DATASET_NAME DEST_DATASET_NAME
+		IS_ACTIVE RATE INJECT_NOW TIME_INJECT);
+  my $th =
+  { SELECT => 'Select',
+    DEST_NODE_NAME => 'Injection Node',
+    SRC_DATASET_NAME => 'Source Dataset',
+    DEST_DATASET_NAME => 'Injection Dataset',
+    THROTTLE_NODE_NAME => 'Destination Node',
+    IS_ACTIVE => 'Status',
+    RATE => 'Peak Rate',
+    INJECT_NOW => 'Inject Now',
+    TIME_INJECT => 'Last Injection'
+    };
+  
+  # Special data fromats
+  my $now = time();
+  my $df = 
+  { 
+      IS_ACTIVE   => sub { return $_[0] eq 'y' ? 'Active' : 'Stopped'; },
+      RATE => sub { return &format_size($_[0]) . "/s"; },
+      TIME_INJECT => sub { &formatTime($_[0], 'stamp') || '&#8211;' }
+  };
+
+  # Special cell formats
+  my $cf = 
+  { 
+  };
+
+  # Pseudo columns
+  my %pseudo =
+      (
+       'SELECT'  => sub { "<input type='checkbox' name='lp_id' value='$_[1]->{SRC_DATASET}:$_[1]->{DEST_DATASET}:$_[1]->{DEST_NODE}'/>" }
+       );
+  
+  if (!$admin_ok) {
+      delete $pseudo{SELECT};
+      delete $df->{SELECT};
+      delete $th->{SELECT};
+      @cols = grep !/SELECT/, @cols;
+  }
+
+  my $dbtable = new Web25::DBTable;
+  $dbtable->set_filehandle($$self{CONTENT});
+  $dbtable->set_tablecols(\@cols);
+  $dbtable->set_tablehead($th);
+  $dbtable->set_tableclass('data');
+  $dbtable->set_stripeclass('stripe');
+  $dbtable->set_dataformats($df);
+  $dbtable->set_cellformats($cf);
+  $dbtable->add_pseudocolumn($_, $pseudo{$_}) foreach (keys %pseudo);
+  my @querycols;
+  foreach (@cols) {
+      my $default = 1;
+      push @querycols, [ ($$th{$_}, 'col', $_,  $default) ];
+  }
+  $dbtable->set_querycols( @querycols );
+  $dbtable->set_statcols({RATE => 'SUM', INJECT_NOW => 'SUM'});
+
+  if ($admin_ok) {
+      my $target = $self->myurl();
+  
+      print { $$self{CONTENT} }
+      "<p><label>Selections:</label>\n",
+      "<input type='button' value='Select all' onclick=\"select_all('subsform', 'lp_id', '1')\"/>\n",
+      "<input type='button' value='Select none' onclick=\"select_all('subsform', 'lp_id', '0')\"/>\n",
+      "</p>\n";
+
+      print { $$self{CONTENT} }
+      "<form id='subsform' method='post' action='$target'>",
+      $self->saveform(),
+      "<p>\n",
+      "<label>Actions:</label>\n",
+      "<select class='labeled' name='action'>\n";
+      foreach my $opt (@opts_order) {
+	  print { $$self{CONTENT} } 
+	  "<option value='$opt'>$admin_opts{$opt}</option>\n";
+      }
+      
+      print { $$self{CONTENT} }
+      "</select>\n",
+      " = ",
+      textfield(-name=>'actionvalue', -class=>'labeled', -size=>'5'),
+      "<input type='submit' value='Update'/>\n",
+      "</p>\n";
+
+  }
+
+  my $nrows = $dbtable->output($q);
+
+  if ($admin_ok) {
+      print { $$self{CONTENT} } "</form>\n";
+  }
+
+  if ($nrows == 0) {
+      $self->alert("No data exists for your selected nodes.");
+  }
+
+  my $optspane = new Web25::OptsPane;
+  
+  my $target = $self->myurl();
+  $optspane->set_form_target($target);
+
+  my $form = "";
+
+  # Save everything except what this form controls
+  $form = $self->saveform(qw(node));
+  $optspane->add_hidden($form);
+
+  $form = $dbtable->columns_form();
+  $optspane->add_tab('Columns', $form);
+
+  # Node Selection tab
+  $form = $self->node_form();
+  $optspane->add_tab('Nodes Shown', $form);
+
+  my $sources = $self->get_sources();
+
+  # Create new Injections widget
+  # List of all nodes, except MSS nodes
+  my %all_nodes = $self->fetch_nodes(with_ids => 1);
+  foreach (keys %all_nodes) {
+      delete $all_nodes{$_} if /_MSS$/;
+  }
+
+  my $create_source_form;
+  if (values %$sources) {
+      $create_source_form = join "",
+      "Create LoadTest Stream<br/>",
+      "from ",
+      popup_menu(-name=>'create_source',
+		 -values=>[ map { $$_{SRC_DATASET} } 
+			    sort {$$a{SRC_NODE_NAME} cmp $$b{SRC_NODE_NAME}}
+			    values %$sources ],
+		 -labels=>{ map { $$_{SRC_DATASET} => $$_{SRC_NODE_NAME} }
+			    values %$sources }),
+      " to ",
+      popup_menu(-name=>'create_dest',
+		 -values=>[ map { $all_nodes{$_} } sort keys %all_nodes ],
+		 -labels=>{ reverse %all_nodes }), 
+      " at ",
+      textfield(-name=>'rate',
+		-value=>5,
+		-size=>5),
+      " MB/s";
+  } else {
+      $create_source_form = join "",
+      "<p>You don't have permission to create new LoadTest streams.  ",
+      "Check that you have a LoadTestSource injected for your authorized nodes.</p>";
+  }
+
+  $optspane->add_tab('Create Injection', $create_source_form);
+
+  print { $$self{OPTIONS} } $optspane->output();
+
+}
+
+sub output_options_form { }
+
+sub update_injections
+{
+    my ($self) = @_;
+
+    my $now = time();
+    my %warn_hash;  # to keep unique warnings
+    my $action = param('action');
+    my $bad = 0;
+    unless (grep $action, qw(rate inject_now start stop remove)) {
+	$warn_hash{"Unknown action"} = 1;
+	$bad = 1;
+    }
+
+    my $actionvalue = param('actionvalue');
+    if (($action eq 'rate' || $action eq 'inject_now')
+	&& (!defined $actionvalue || ! (sprintf("%.4f", $actionvalue) > 0) )) {
+	my $desc;
+	if    ($action eq 'rate')       { $desc = 'change the rate'; }
+	elsif ($action eq 'inject_now') { $desc = 'do an immediate injection'; }
+	$warn_hash{"You must provide a value in order to $desc"} = 1;
+	$bad = 1;
+    }
+
+    if ($action eq 'rate' && $actionvalue > 100) {
+	$warn_hash{"Rate is too high.  Limit is 100 MB/s."} = 1;
+	$bad = 1;
+    }
+	
+    if ($action eq 'inject_now' && $actionvalue > 100) {
+	$warn_hash{"Injection size is too high.  Limit is 100 files."} = 1;
+	$bad = 1;
+    }
+
+    if ($bad) {
+	print { $$self{CONTENT} } "<p class='alarm'>$_</p>" for keys %warn_hash;
+	return;
+    }
+
+    my %auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager||Site Admin', with_ids => 1);
+    
+    my %all_nodes = reverse $self->fetch_nodes(with_ids => 1); # just a hash of id => name
+
+    my $u_rate = &dbprep($$self{DBH}, qq{ update t_loadtest_param set rate = :rate * power(1024, 2), time_update = :now
+					   where src_dataset = :src_dataset
+                                             and dest_dataset = :dest_dataset
+					     and dest_node = :dest_node });
+
+    my $u_inject = &dbprep($$self{DBH}, qq{ update t_loadtest_param set inject_now = :inject_now, time_update = :now
+					     where src_dataset = :src_dataset
+                                               and dest_dataset = :dest_dataset
+					       and dest_node = :dest_node });
+
+    my $u_active = &dbprep($$self{DBH}, qq{ update t_loadtest_param set is_active = :is_active, time_update = :now
+					     where src_dataset = :src_dataset
+                                               and dest_dataset = :dest_dataset
+					       and dest_node = :dest_node });
+    
+    my $del = &dbprep($$self{DBH}, qq{ delete from t_loadtest_param
+ 				        where src_dataset = :src_dataset
+                                          and dest_dataset = :dest_dataset
+					  and dest_node = :dest_node });
+
+    my $action_list = 
+    {
+	rate => { desc => 'rate changed',
+		  dml => $u_rate,
+		  values => { ':rate' => $actionvalue, ':now' => $now }
+	      },
+	inject_now => { desc => 'immediate injection set',
+			dml => $u_inject,
+			values => { ':inject_now' => $actionvalue, ':now' => $now }
+		    },
+	stop => { desc => 'injections stopped',
+		  dml => $u_active,
+		  values => { ':is_active' => 'n', ':now' => $now }
+	      },
+	start => { desc => 'injections started',
+		   dml => $u_active,
+		   values => { ':is_active' => 'y', ':now' => $now }
+	       },
+	remove => { desc => 'injections deleted',
+		    dml => $del,
+		    values => {}
+		}
+    };
+
+    # Execute the update
+    $action = $action_list->{$action};
+
+    my $n_changed = 0;
+
+    foreach (param('lp_id')) {
+	my ($src_dataset, $dest_dataset, $dest_node) = split /:/;
+	if (grep $dest_node == $_, values %auth_nodes) { # Check permission
+	    my $dml = $$action{dml};
+	    
+	    my $rv = &dbbindexec($dml, 
+				 ':src_dataset' => $src_dataset,
+				 ':dest_dataset' => $dest_dataset,
+				 ':dest_node' => $dest_node,
+				 %{$$action{values}});
+	    $n_changed += $rv;
+	} else {
+	    my $warn = "<p class='alarm'>Sorry, you don't have permission to update ".
+		"$all_nodes{$dest_node} injections!</p>";
+	    $warn_hash{$warn} = 1;
+	}
+    }
+    $$self{DBH}->commit();
+
+    # Print scoldings
+    print { $$self{CONTENT} } keys %warn_hash;
+
+    # Report the changes
+    if ($n_changed) {
+	print { $$self{CONTENT} } "<p class='note'>$action->{desc} for $n_changed injections!</p>";
+    } else {
+	print { $$self{CONTENT} } "<p class='alarm'>Nothing was changed!<p>";
+    }
+}
+
+sub get_injections
+{
+  my ($self) = @_;
+  $self->fetch_nodes();
+  my @node_ids = map { $$_{IS_SHOWN} ? $$_{ID} : '' } @{$$self{NODE_LIST}};
+  @node_ids = grep /\d+/, @node_ids;
+  my ($node_list, %node_binds) = &dbinlist('node', @node_ids );
+
+  my $q = &dbexec($$self{DBH}, qq{
+        select
+        lp.dest_node, dn.name dest_node_name,
+	lp.src_dataset, ds.name src_dataset_name,
+        lp.dest_dataset, dd.name dest_dataset_name,
+        lp.is_active, lp.dataset_size, lp.dataset_close,
+        lp.block_size, lp.block_close,
+        lp.rate, lp.inject_now,
+        lp.throttle_node, tn.name throttle_node_name,
+        lp.time_inject
+            from t_loadtest_param lp
+            join t_dps_dataset ds on ds.id = lp.src_dataset
+            join t_dps_dataset dd on dd.id = lp.dest_dataset
+            join t_adm_node dn on dn.id = lp.dest_node
+            left join t_adm_node tn on tn.id = lp.throttle_node
+	    where lp.dest_node in ($node_list)
+	    order by dn.name, ds.name, dd.name
+        }, %node_binds);                    
+
+  return $q;
+}
+
+sub create_injection
+{
+    my ($self) = @_;
+
+    my $src_dataset = param('create_source');
+    my $to_node = param('create_dest');
+    my $rate = param('rate');
+    my $now = time();
+
+    if (!$src_dataset || !$to_node || !$rate || ! (sprintf("%.4f", $rate) > 0)) {
+	print {$$self{CONTENT}} "<p class='alarm'>Missing parameters for injection creation</p>";
+	return;
+    }
+
+    if ($rate > 100) {
+	print {$$self{CONTENT}} "<p class='alarm'>Rate too high.  Injection rate is limited to 100 MB/s</p>";
+	return;
+    }
+
+    my %all_nodes = reverse $self->fetch_nodes(with_ids=>1);
+    my $sources = $self->get_sources(); # gets only authorized sources
+    my $source = $$sources{$src_dataset};
+
+    my $from = $$source{SRC_NODE_NAME};
+    my $to = $all_nodes{$to_node};
+
+    if ($from eq $to) {
+	print {$$self{CONTENT}} "<p class='alarm'>You can't create a stream from $from to $to</p>";
+	return;
+    }
+
+    foreach (\$from, \$to) {
+	$$_ =~ s/^T._//;  $$_ =~ s/_(Buffer|Disk|MSS)$//;
+    }
+    my $dest_ds_name = "/PhEDEx_Debug/LoadTest07_$from/$to";
+    my $dest_ds;
+    my @rv;
+
+    ($dest_ds) = &dbexec($$self{DBH}, qq{
+	select ds.id from t_dps_dataset ds where ds.name = :name
+	}, ':name' => $dest_ds_name)->fetchrow();
+
+    @rv = &dbexec($$self{DBH}, qq{
+	insert into t_dps_dataset
+	    (id, dbs, name, is_open, is_transient, time_create)
+	    values
+	    (seq_dps_dataset.nextval, 1, :name, 'y', 'y', :now)
+	    returning id into :dest_ds
+	},  ':name' => $dest_ds_name,
+		  ':now' => $now,
+		  ':dest_ds' => \$dest_ds) unless $dest_ds;
+    
+    my ($lt_exists) = &dbexec($$self{DBH}, qq{
+	select 1 from t_loadtest_param
+         where src_dataset = :src_ds
+           and dest_dataset = :dest_ds
+           and dest_node = :dest_node 
+       }, ':src_ds' => $$source{SRC_DATASET},
+			      ':dest_ds' => $dest_ds,
+			      ':dest_node' => $$source{SRC_NODE})->fetchrow();
+    
+    if ($lt_exists) {
+	print {$$self{CONTENT}} "<p class='alarm'>Injection from $from to $to already exists!</p>";
+    } else {
+	@rv = &dbexec($$self{DBH}, qq{
+	    insert into t_loadtest_param
+	    (src_dataset, dest_dataset, dest_node, is_active,
+	     dataset_size, dataset_close, block_size, block_close,
+	     rate, inject_now, throttle_node,
+	     time_create, time_update)
+	    values
+	    (:src_ds, :dest_ds, :dest_node, 'y',
+	     NULL, 'n', 100, 'y',
+	     :rate * power(1024,2), 0, :throttle_node,
+	     :time_create, :time_update)
+	}, ':src_ds' => $$source{SRC_DATASET},
+		      ':dest_ds' => $dest_ds,
+		      ':dest_node' => $$source{SRC_NODE},
+		      ':rate' => $rate, ':throttle_node' => $to_node,
+		      ':time_create' => $now, ':time_update' => $now);
+    }
+
+    if ($rv[1] > 0) {
+	$$self{DBH}->commit();
+	print {$$self{CONTENT}} "<p class='note'>Created LoadTest stream from $from to $to</p>";
+    }
+
+
+}
+
+sub get_sources
+{
+    my ($self) = @_;
+    my %auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager||Site Admin', with_ids => 1);
+    my ($node_list, %node_binds) = &dbinlist('node', values %auth_nodes );
+
+    # This query looks funny, but it works faster then the obvious thing
+    # The key is to not process all the rows of t_dps_file
+    my $q = &dbexec($$self{DBH}, qq{
+	select ds.id src_dataset, ds.name src_dataset_name,
+               n.id src_node, n.name src_node_name
+	  from t_dps_dataset ds
+          cross join t_adm_node n
+         where ds.name like '%LoadTest07Source%'
+           and n.id =
+           (select f.node from t_dps_file f
+              join t_dps_block b on b.id = f.inblock
+             where rownum = 1
+               and b.dataset = ds.id
+               and f.node in ($node_list))
+     }, %node_binds);
+
+    return $q->fetchall_hashref('SRC_DATASET');
+}
+
+
+1;
+
+
+
+######################################################################
 package Web25::Reports::DailyReports;
 use strict; use warnings;
 use base "Web25::Page";
