@@ -54,17 +54,23 @@ my $q = &dbexec($dbh, q{
 my $src = $q->fetchrow_hashref();
 die "ERROR:  Source dataset not found at $node\n" unless $src;
 
+# Gets destination datasets as subscribed
+# Switches MSS node to Buffer node where possible
 $q = &dbexec($dbh, q{
-  select ds.id dest_dataset, ds.name dest_dataset_name, s.destination throttle_node, dn.name throttle_node_name
+  select ds.id dest_dataset, ds.name dest_dataset_name,
+         nvl(tn.id, dn.id) throttle_node,
+         nvl(tn.name, dn.name) throttle_node_name
     from t_dps_dataset ds
     join t_dps_subscription s on s.dataset = ds.id
     join t_adm_node dn on dn.id = s.destination
+left join t_adm_link l on l.from_node = dn.id and l.is_local = 'y'
+                      and dn.kind = 'MSS'
+left join t_adm_node tn on tn.id = l.to_node
    where ds.name like '%LoadTest07%'
      and exists (select 1
                    from t_dps_file f
                    join t_dps_block b on b.id = f.inblock
-                   join t_dps_dataset ds2 on ds2.id = b.dataset
-                  where ds2.id = ds.id and f.node = :node)
+                  where b.dataset = ds.id and f.node = :node)
 }, ':node' => $nodeid);
 
 my $trans_ds = &dbprep($dbh, q{ update t_dps_dataset ds set ds.is_open = 'y', ds.is_transient = 'y'
