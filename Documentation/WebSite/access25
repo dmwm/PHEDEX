@@ -8689,6 +8689,7 @@ sub get_sources
 {
     my ($self) = @_;
     my %auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager||Site Admin', with_ids => 1);
+    return {} unless %auth_nodes;
     my ($node_list, %node_binds) = &dbinlist('node', values %auth_nodes );
 
     # This query looks funny, but it works faster then the obvious thing
