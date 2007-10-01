@@ -49,6 +49,7 @@ for role in \
     echo "revoke all on $table from $role;"
 
     case $table:$role in
+      T_DVS_BLOCK:*_WEBSITE_* | \
       T_*:*_CERN_* | \
       T_REQ_*:*_WEBSITE_* | \
       T_ADM_*:*_WEBSITE_* | \
@@ -72,6 +73,7 @@ for role in \
         echo "grant select on $table to $writer;"
 	echo "grant select, update on $table to $role;" ;;
 
+      T_DVS_*:* | \
       T_DPS_DBS:* | \
       T_DPS_BLOCK_ACTIVATE:* | \
       T_DPS_BLOCK:* | \
