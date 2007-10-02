@@ -60,17 +60,6 @@ use strict;
 ##H   
 ##H
 
-#BEGIN {
-#    $^W = 1; use strict; use warnings;
-#    our $me = $0; $me =~ s|.*/||;
-#    our $home = $0;
-#    if ( $home !~ m%/% ) { $home = '.'; }
-#    $home =~ s|/[^/]+$||;
-#    $home ||= ".";
-#    $home .= "/../Toolkit/Common";
-#    unshift(@INC, $home);
-#}
-
 # Process command line arguments.
 use Getopt::Long;
 use Data::Dumper;
@@ -78,6 +67,7 @@ use File::Basename;
 use PHEDEX::Core::Help;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::Catalogue;
+use PHEDEX::BlockConsistency::SQL;
 use PHEDEX::Namespace;
 
 my ($dbh,$not_on_tape_time);
@@ -89,8 +79,7 @@ my (@dataset,@block,@lfn,@buffer,@bufferIDs);
 my ($callout,$callouton,%calloutonAllowed);
 my ($data,$lfn,$wide);
 my ($tfcprotocol,$mssprotocol,$destination,$tfc,$ns);
-my (%info_Files_TMDB,$szcast,$to_tape);
-my ($sec_sample,$min_sample,$hour_sample,$day_sample,$month_sample,$year_sample);
+my ($SQL);
 my $debug_me = 1;
 
 $not_on_tape_time = 12; # in hour(s)
@@ -202,6 +191,7 @@ die "Woah, nothing to check!\n" unless $nchecks;
 goto CHEAT if $readstats;
 $conn = { DBCONFIG => $DBCONFIG };
 $dbh = &connectToDatabase ( $conn, 0 );
+$SQL = PHEDEX::BlockConsistency::SQL->new( DBH => $dbh );
 
 #-------------------------------------------------------------------------------
 # Buffers first...
@@ -210,7 +200,7 @@ $dbh = &connectToDatabase ( $conn, 0 );
 foreach my $buffer ( @buffer )
 {
   $debug && print "Getting buffers with names like '$buffer'\n";
-  my $tmp = getBufferFromWildCard($buffer);
+  my $tmp = $SQL->getBufferFromWildCard($buffer);
   map { $h{Buffers}{ID}{$_} = $tmp->{$_} } keys %$tmp;
 }
 $debug && exists($h{Buffers}{ID}) && print "done getting buffers!\n";
@@ -236,28 +226,6 @@ $ns->technology( (keys %t)[0] ) unless $mssprotocol;
 @dataset = split m|[,\s*]|, "@DATASET";
 @block = map { $_ . '%' } @dataset;
 
-## Expand the Dataset argument...
-#@dataset = split m|[,\s*]|, "@DATASET";
-#@block = ();
-#foreach $data ( @dataset )
-#{
-#  $debug && print "Getting datasets with names like '$data'\n";
-#  my $tmp = getDatasetFromWildCard($data);
-#  map { $h{Datasets}{$_} = {} } @$tmp;
-#}
-#
-## For all known Datasets, get the Block list...
-#foreach $data ( keys %{$h{Datasets}} )
-#{
-#  $debug && print "Getting blocks for dataset '$data'\n";
-#  my $tmp = getBlocksFromDataset($data);
-#  map { $h{Blocks}{$_}{Dataset} = $data;
-#        $h{Datasets}{$data}{Blocks}{$_}++;
-#      } @$tmp;
-#  push @block, @$tmp;
-#}
-#$debug && exists($h{Datasets}) && print "done getting datasets!\n";
-
 #-------------------------------------------------------------------------------
 # Blocks next...
 
@@ -270,7 +238,7 @@ if ( @block )
   foreach my $block ( @block )
   {
     $debug && print "Getting blocks with names like '$block'\n";
-    my $tmp = getBlocksOnBufferFromWildCard ($block);
+    my $tmp = $SQL->getBlocksOnBufferFromWildCard ($block,@bufferIDs);
     map { $g{$_}++ } @$tmp;
     map { $h{Blocks}{$_} = {} } @$tmp;
   }
@@ -291,14 +259,14 @@ if ( @block )
 foreach my $lfn ( @lfn )
 {
   $verbose >= 3 && print "Getting lfns with names like '$lfn'\n";
-  my $tmp = getLFNsFromWildCard($lfn);
+  my $tmp = $SQL->getLFNsFromWildCard($lfn);
   map { $h{LFNs}{$_} = {} } @$tmp;
 }
 
 foreach my $lfn ( keys %{$h{LFNs}} )
 {
   next if exists($h{LFNs}{$lfn}{Block});
-  my $tmp = getBlocksFromLFN($lfn);
+  my $tmp = $SQL->getBlocksFromLFN($lfn);
   map { $h{LFNs}{$lfn}{Block} = $_   } @$tmp;
   map { $h{Blocks}{$_}{LFNs}{$lfn}++ } @$tmp;
 }
@@ -313,7 +281,7 @@ foreach my $block ( keys %{$h{Blocks}} )
   if ( !defined($h{Blocks}{$block}{Dataset}) )
   {
 #   Set up Block<->Dataset mapping
-    my $tmp = getDatasetsFromBlock($block);
+    my $tmp = $SQL->getDatasetsFromBlock($block);
     map { $h{Datasets}{$_}{Blocks}{$block}++ } @$tmp;
     map { $h{Blocks}{$block}{Dataset} = $_   } @$tmp;
   }
@@ -321,7 +289,7 @@ foreach my $block ( keys %{$h{Blocks}} )
   if ( $autoBlock || !defined($h{Blocks}{$block}{LFNs}) )
   {
 #   Set up Block<->LFN mapping
-    my $tmp = getLFNsFromBlock($block);
+    my $tmp = $SQL->getLFNsFromBlock($block);
     map { $h{LFNs}{$_}{Block} = $block   } @$tmp;
     map { $h{Blocks}{$block}{LFNs}{$_}++ } @$tmp;
   }
@@ -338,11 +306,10 @@ printf "Got %8d LFNs\n",     scalar keys %{$h{LFNs}};
 foreach my $lfn ( keys %{$h{LFNs}} )
 {
   $debug and print "Getting TMDB stats for $lfn\n";
-  my $tmp = getTMDBFileStats($lfn);
+  my $tmp = $SQL->getTMDBFileStats($lfn);
   map { $h{LFNs}{$lfn}{$_} = $tmp->{$_} } keys %{$tmp};
 }
 
-#-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
 # All TMDB lookups are done, from here on I compare with storage
 $dbh->disconnect();
@@ -543,169 +510,4 @@ elsif ( $verbose )
       }
     }
   }
-}
-
-#-------------------------------------------------------------------------------
-#-------------------------------------------------------------------------------
-#return a hash with size and checksum keys for an lfn from TMDB
-sub getTMDBFileStats
-{
-  my $sql = qq {select logical_name, checksum, filesize from t_dps_file
-                where logical_name like :filename };
-  my $l = shift @_;
-  my %p = ( ":filename" => $l );
-  my $r = select_hash( $sql, 'LOGICAL_NAME', %p );
-  my $s;
-  $s->{Size} = $r->{$l}->{FILESIZE};
-  foreach ( split( '[,;#$%/\s]+', $r->{$l}->{CHECKSUM} ) )
-  {
-    my ($k,$v) = m%^\s*([^:]+):(\S+)\s*$%;
-    $s->{$k} = $v;
-  }
-  return $s;
-}
-
-#-------------------------------------------------------------------------------
-sub getLFNsFromBlock
-{
-  my $sql = qq {select logical_name from t_dps_file where inblock in
-	        (select id from t_dps_block where name like :block)};
-  my %p = ( ":block" => @_ );
-  my $r = select_single( $sql, %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getBlocksFromLFN
-{
-  my $sql = qq {select name from t_dps_block where id in
-      (select inblock from t_dps_file where logical_name like :lfn )};
-  my %p = ( ":lfn" => @_ );
-  my $r = select_single( $sql, %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getDatasetsFromBlock
-{
-  my $sql = qq {select name from t_dps_dataset where id in
-		(select dataset from t_dps_block where name like :block ) };
-  my %p = ( ":block" => @_ );
-  my $r = select_single( $sql, %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getBlocksFromDataset
-{
-  my $sql = qq {select name from t_dps_block where dataset in
-                (select id from t_dps_dataset where name like :dataset ) };
-  my %p = ( ":dataset" => @_ );
-  my $r = select_single( $sql, %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getLFNsFromWildCard
-{
-  my $sql =
-	qq {select logical_name from t_dps_file where logical_name like :lfn };
-  my %p = ( ":lfn" => @_ );
-  my $r = select_single( $sql, %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getBlocksFromWildCard
-{
-  my $sql = qq {select name from t_dps_block where name like :block_wild};
-  my %p = ( ":block_wild" => @_ );
-  my $r = select_single( $sql, %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getDatasetFromWildCard
-{
-  my $sql = qq {select name from t_dps_dataset where name like :dataset_wild };
-  my %p = ( ":dataset_wild" => @_ );
-  my $r = select_single( $sql, %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getBufferFromWildCard
-{
-  my $sql =
-	qq {select id, name, technology from t_adm_node where name like :node };
-  my %p = ( ":node" => @_ );
-  my $r = select_hash( $sql, 'ID', %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub getBlocksOnBufferFromWildCard
-{
-  my $buffers = join(',',@bufferIDs);
-  my $sql = qq {select name from t_dps_block b join t_dps_block_replica br
-                on b.id = br.block where name like :block_wild and
-                node in ($buffers)};
-  my %p = ( ":block_wild" => @_ );
-  my $r = select_single( $sql, %p );
-
-#  my $sql =
-#        qq {select node, is_active, node_files, files, is_open, b.name block
-#	from t_dps_block b join t_dps_block_replica br on br.block = b.id
-#        join t_adm_node n on n.id = br.node
-#	where n.name = :buffer };
-#  my %p = ( ":buffer" => @_ );
-#  my $r = select_hash( $sql, 'BLOCK', %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
-sub select_single
-{
-  my ( $query, %param ) = @_;
-  my ($q,@r);
-
-  $q = execute_sql( $query, %param );
-  @r = map {$$_[0]} @{$q->fetchall_arrayref()};
-  return \@r;
-}
-
-#-------------------------------------------------------------------------------
-sub select_hash
-{
-  my ( $query, $key, %param ) = @_;
-  my ($q,$r);
-
-  $q = execute_sql( $query, %param );
-  $r = $q->fetchall_hashref( $key );
-
-  my %s;
-  map { $s{$_} = $r->{$_}; delete $s{$_}{$key}; } keys %$r;
-  return \%s;
-}
-
-#-------------------------------------------------------------------------------
-sub execute_sql
-{
-  my ( $query, %param ) = @_;
-  my ($q,$r);
-
-  if ( $query =~ m%\blike\b%i )
-  {
-    foreach ( keys %param ) { $param{$_} =~ s%_%\\_%g; }
-    $query =~ s%like\s+(:[^\)\s]+)%like $1 escape '\\' %gi;
-  }
-
-  if ( $debug )
-  {
-    print " ==> About to execute\n\"$query\"\nwith\n";
-    foreach ( sort keys %param ) { print "  \"$_\" = \"$param{$_}\"\n"; }
-    print "\n";
-  }
-  $q = &dbexec($dbh, $query, %param);
-  return $q;
 }
