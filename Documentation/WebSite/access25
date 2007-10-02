@@ -1088,37 +1088,66 @@ sub new
   return $self;
 }
 
-# Initialize with the database handle, query to page, a hashref of its
-# binds, and the number of results per page
+# Initialize with
+#  $webself  :  A reference to a Web25 object
+#  $select   :  SQL to pageinate
+#  $binds    :  (Optional, default null)  Hashref of bind parameters for $select
+#  $results_per_page  :  (Optional, default 10)  Number of results to show per page
+#  $rank_col  :  (Optional, default null) column to group results by
+#  $filters  :  (Optional, default null)  hashref of column_name => regexp to filter to post-filter results
 sub init
 {
-    my ($self, $webself, $select, $binds, $results_per_page, $rank_col) = @_;
+    my ($self, $webself, $select, $binds, $results_per_page, $rank_col, $filters) = @_;
+    $self->process_filters($filters) if $filters;
+
     $$self{WEB} = $webself;
     $$self{DBH} = $$webself{DBH};
     $$self{SELECT} = $select;
     $$self{BINDS} = $binds if $binds;
     $$self{RESULTS_PER_PAGE} = $results_per_page if $results_per_page;
     $$self{RANK_COL} = $rank_col;
-    $$self{TOTAL_RESULTS} = &count_results($$self{DBH}, $select, $binds, $rank_col);
-    $$self{TOTAL_PAGES} = &total_pages($$self{TOTAL_RESULTS}, $$self{RESULTS_PER_PAGE});
+    $$self{FILTERS} = $filters if $filters && %{$filters};
+    $$self{TOTAL_RESULTS} = $self->count_results();
+    $$self{TOTAL_PAGES} = $self->total_pages();
     $$self{CURRENT_PAGE} = param('page_num') || 1;
     if ($$self{CURRENT_PAGE} <= 0 
 	|| $$self{CURRENT_PAGE} > $$self{TOTAL_PAGES}) {
 	$$self{CURRENT_PAGE} = 1;
     }
 
-    if (!$$self{RANK_COL}) {
-	$$self{PAGED_SQL} = qq[select * from ( select r.*, rownum as result_number
-			                         from ($$self{SELECT}) r 
-			                        where rownum <= :end_result ) 
-		                where :start_result <= result_number ];
+    if (!$$self{FILTERS}) {
+	if (!$$self{RANK_COL}) {
+	    $$self{PAGED_SQL} = qq[select * from ( select r.*, rownum as result_number
+						   from ($$self{SELECT}) r 
+						   where rownum <= :end_result ) 
+				   where :start_result <= result_number ];
+	} else {
+	    $$self{PAGED_SQL} = qq[select * from 
+				   (select results.*, dense_rank() over (order by results.$$self{RANK_COL}) result_number
+				    from ($$self{SELECT}) results )
+				   where result_number >= :start_result and result_number <= :end_result];
+	}
+	my $start_result = $self->page_to_result();
+	my $end_result = $start_result + $$self{RESULTS_PER_PAGE} - 1;
+	$$self{BINDS}{':start_result'} = $start_result;
+	$$self{BINDS}{':end_result'} = $end_result;
     } else {
-	$$self{PAGED_SQL} = qq[select * from 
-			       (select results.*, dense_rank() over (order by results.$$self{RANK_COL}) result_number
-				  from ($$self{SELECT}) results )
-			         where result_number >= :start_result and result_number <= :end_result];
+	if ($$self{FILTERED_RESULTS}) {
+	    my $start_result = $self->page_to_result();
+	    my @page_results = splice @{$$self{FILTERED_RESULTS}}, $start_result, $$self{RESULTS_PER_PAGE};
+	    my ($result_list, %result_binds) = &dbinlist('result_id', @page_results);
+	    $$self{BINDS}{$_} = $result_binds{$_} foreach keys %result_binds;
+	    $$self{PAGED_SQL} = qq[select r.*, rownum as result_number, r.rowid
+		  	             from ($$self{SELECT}) r
+			            where r.rowid in ($result_list)];
+	} else {
+	    $$self{PAGED_SQL} = qq[select r.*, rownum as result_number, r.rowid
+		  	             from ($$self{SELECT}) r
+			            where 1 = 0];
+	}
     }
 }
+
 
 sub get_total_results
 {
@@ -1168,18 +1197,27 @@ sub pager
 sub paged_result
 {
     my ($self) = @_;
-    my $start_result = &page_to_result($$self{CURRENT_PAGE}, $$self{RESULTS_PER_PAGE});
-    my $end_result = $start_result + $$self{RESULTS_PER_PAGE} - 1;
-    my $sql = $$self{PAGED_SQL};
-    my %binds = %{$$self{BINDS}};
-    $binds{':start_result'} = $start_result;
-    $binds{':end_result'} = $end_result;
-    my $q = &dbexec($$self{DBH}, $sql, %binds);
-
+    my $t1 = time();
+    my $q = &dbexec($$self{DBH}, $$self{PAGED_SQL}, %{$$self{BINDS}});
+    my $t2 = time();
+    $$self{TIME_RESULT} = $t2 - $t1;
     return $q;
 }
 
 ### Private functions ###
+
+sub process_filters
+{
+    my ($self, $filters) = @_;
+    foreach (keys %{$filters}) {
+	my $f = $$filters{$_};
+	if (!defined $f ||
+	    $f eq '' ||
+	    $f eq '.*') {
+	    delete $$filters{$_};
+	}
+    }
+}
 
 # Return a link to a page
 sub page_link
@@ -1198,29 +1236,56 @@ sub page_link
 
 sub total_pages
 {
-    my ($total_results, $results_per_page) = @_;
+    my $self = shift @_;
+    my ($total_results, $results_per_page) = ($$self{TOTAL_RESULTS}, $$self{RESULTS_PER_PAGE});
     if ($total_results < 1) { $total_results = 1; }
     return POSIX::ceil($total_results/$results_per_page);
 }
 
 sub page_to_result
 {
-    my ($current_page, $results_per_page) = @_;
+    my $self = shift @_;
+    my ($current_page, $results_per_page) = ($$self{CURRENT_PAGE}, $$self{RESULTS_PER_PAGE});
     return ( ($current_page - 1 ) * $results_per_page + 1 );
 }
 
 sub count_results
 {
-    my ($dbh, $select, $binds, $rank_col) = @_;
-    my $sql;
-    if (!$rank_col) {
-	$sql = qq[select count(*) as num_results from ($select)];
+    my $self = shift @_;
+
+    my $t1 = time();
+    my $num_results;
+    if (!$$self{FILTERS}) {
+	# No post-processing required, get results from sql query
+	my $sql;
+	if (!$$self{RANK_COL}) {
+	    $sql = qq[select count(*) as num_results from ($$self{SELECT})];
+	} else {
+	    $sql = qq[select max(rank) from 
+		      (select results.*, dense_rank() over (order by results.$$self{RANK_COL}) rank
+                       from ($$self{SELECT}) results)];
+	}
+	my $q = &dbexec($$self{DBH}, $sql, %{$$self{BINDS}});
+	($num_results) = $q->fetchrow();
     } else {
-	$sql = qq[select max(rank) from 
-                    (select results.*, dense_rank() over (order by results.$rank_col) rank from ($select) results)];
+	# Full get all results, applying filters to get count, and caching rowid
+	my $t1 = time();
+	$$self{FILTERED_RESULTS} = [];
+	my $sql = qq[select r.*, rownum as result_number, r.rowid
+		       from ($$self{SELECT}) r ];
+	my $q = &dbexec($$self{DBH}, $sql, %{$$self{BINDS}});
+	while (my $row = $q->fetchrow_hashref()) {
+	    my $keep = 1;
+	    foreach my $col (keys %{$$self{FILTERS}}) {
+		$keep &&= ($$row{$col} =~ /$$self{FILTERS}{$col}/);
+	    }
+	    push @{$$self{FILTERED_RESULTS}}, $$row{ROWID} if $keep;
+	}
+	$num_results = scalar @{$$self{FILTERED_RESULTS}};
     }
-    my $q = &dbexec($dbh, $sql, %{$binds});
-    my ($num_results) = $q->fetchrow();
+    my $t2 = time();
+    $$self{TIME_COUNT} = $t2 - $t1;
+
     return $num_results || 0;
 }
 
@@ -2571,7 +2636,7 @@ sub output
 		$id = join ':', $se_names[0], $dataset;
 	    }
 	    $id .= ':'.$id_suffix if $id_suffix;
-	print {$$self{CONTENT}}	"<response id='$id'>No results</response>";
+	print {$$self{CONTENT}}	"<response type='object' id='$id'>No results</response>";
 	}
     }
 
@@ -2771,7 +2836,7 @@ our $INDEX = { LIST => 1, ORDER => 4, TITLE => "HyperNews Forum",
 	       LINK_TITLE => "Mailing List and HyperNews Forum" };
 1;
 
-package Web25::Info::HyperNews; use strict; use warnings; use base "Exporter";
+package Web25::Info::Support; use strict; use warnings; use base "Exporter";
 our $INDEX = { LIST => 1, ORDER => 5, TITLE => "Support Tracker",
 	       LINK => "http://savannah.cern.ch/projects/cmscompinfrasup/",
 	       LINK_TITLE => "Support Tracker" };
@@ -4872,6 +4937,7 @@ sub output
     my @legend = (['Link exists and is valid', 'green'],
 		  ['Link exists, but agents are down', 'red'],
 		  ['Link exists, but is excluded', 'orange'],
+		  ['Link is deactivated', 'purple'],
 		  ['Link does not exist', 'white'],
 		  ['Self-reference', 'black']);
     
@@ -4891,12 +4957,13 @@ sub output
     "are required for transfers to be possible.  ",
     "Links are invalid when the source/destination node agents are down or they actively ",
     "exclude the other node with the -ignore/-accept options.  ",
+    "Links may also be deactivated by the PhEDEx administrators.  ",
     "<b>Warning:</b> Nodes that have never connected to the database are marked as excluded, which is not correct.",
     "</p><br clear='all'/>";
     $from_filter = qr/$from_filter/;
     $to_filter = qr/$to_filter/;
 
-    my $sql = qq{ select fn.name from_node, tn.name to_node, fn.kind from_kind, tn.kind to_kind,
+    my $sql = qq{ select fn.name from_node, tn.name to_node, l.is_active, fn.kind from_kind, tn.kind to_kind,
 		         xso.time_update source_update, xso.protocols source_protos,
 		         xsi.time_update sink_update,   xsi.protocols sink_protos
 		    from t_adm_link l
@@ -4916,9 +4983,11 @@ sub output
 
     my (%from_nodes, %to_nodes);
     foreach my $link (@{$links}) {
-	my ($from, $to, $from_kind, $to_kind, $xso_update, $xso_protos, $xsi_update, $xsi_protos) = @{$link};
+	my ($from, $to, $is_active, $from_kind, $to_kind, 
+	    $xso_update, $xso_protos, $xsi_update, $xsi_protos) = @{$link};
 	my $key = $from.'-->'.$to;
 	$link_params{$key} = { EXISTS => 1,
+			       IS_ACTIVE => $is_active,
 			       XSI_UPDATE => $xsi_update,
 			       XSO_UPDATE => $xso_update,
 			       FROM_KIND => $from_kind,
@@ -4975,6 +5044,12 @@ sub output
 		$link_params{$key}{XSI_AGE} = &age($now - $xsi_update);
 	    }
 	}
+
+ 	# Check active state
+ 	if ($link_params{$key}{IS_ACTIVE} ne 'y') {
+ 	    $link_params{$key}{VALID} = 0;
+ 	    $link_params{$key}{REASON} = "Link is deactivated";
+ 	}
 	
 	# Check protocols
 	if ($link_params{$key}{VALID}) {
@@ -5022,6 +5097,9 @@ sub output
 	    my $color;
 	    if ($from eq $to) { 
 		$color = 'black';
+	    } elsif ( $$link{EXISTS} && 
+		      $$link{IS_ACTIVE} ne 'y' ) {
+		$color = 'purple';
 	    } elsif ($$link{EXISTS} 
 		     && $$link{VALID}) {
 		$color = 'green';
@@ -6209,8 +6287,8 @@ sub output
   {
     my ($fileid, $lfn, $size, $from_pfn, $to_pfn, $assigned, $nerrors) = @$row;
     my $errorurl = $self->myurl('page' => 'Activity::ErrorInfo',
-				'to_node' => $to_node,
-				'from_node' => $from_node,
+				'tofilter' => $to_node,
+				'fromfilter' => $from_node,
 				'fileid' => $fileid);
     print { $$self{CONTENT} }
     "<li><b>lfn</b>=@{[&escapeHTML($lfn)]}<br />",
@@ -6251,7 +6329,8 @@ sub new
 sub myurl
 {
   my ($self, %args) = @_;
-  my @save = qw(tofilter fromfilter andor);
+  my @save = qw(tofilter fromfilter andor
+		report_code xfer_code from_pfn to_pfn log_detail log_validate);
 
   # Return bare link if we are switching pages
   return $self->SUPER::myurl(%args)
@@ -6269,36 +6348,91 @@ sub output
 {
     my ($self) = @_;
 
+    my $fileid = param('fileid');
     my $tofilter = param('tofilter') || '.*';
     my $fromfilter = param('fromfilter') || '.*';
-    my $fileid = param('fileid');
+
+    my @filter_list = qw(report_code xfer_code from_pfn to_pfn log_detail log_validate);
+    my $error_filters = {};
+    foreach (@filter_list) {
+	$$error_filters{$_} = param($_) || '.*';
+    }
+
     my @nodes = sort $self->fetch_nodes();
 
     my @where;
-    my %args;
-    
+    my %binds;
     if ($fileid) {
 	push @where, qq[xe.fileid = :fileid];
-	$args{':fileid'} = $fileid;
+	$binds{':fileid'} = $fileid;
     } else {
 	print {$$self{CONTENT}}
-	"<form method='get' action='#' class='nice'/>",
-	"<label class='inline'>Show errors on links to </label>",
+	&help("Filtering Help", "Filtering Help", 
+	      "The <b>to</b> and <b>from</b> node filters are perl regular expressions.  ",
+	      "The rest of the filters are Oracle regular expressions (regexp_like function) ",
+	      "with one special option: You may put '!' as the first ",
+	      "character in the field to only return results which do ",
+	      "NOT match the given regular expession.  For performance ",
+	      "reasons, you must filter one of <b>to</b> or <b>from</b> ",
+	      "if you wish to filter on any of the other fields.  The ",
+	      "<b>Transfer Log</b> cannot be ", "filtered due to its ",
+	      "large size."),
+   	"<form method='get' action='#' class='nice'/>",
+	"<label>Show errors on links to </label>",
 	textfield(-name=>'tofilter', -value=>$tofilter, -class=>'labeled'),
-	"<label class='inline'>from</label>",
-	textfield(-name=>'fromfilter', -value=>$fromfilter, -class=>'labeled'),
-	submit(-name=>'Update', -class=>'labeled'), "<br/>",
+	"<label>from</label>",
+	textfield(-name=>'fromfilter', -value=>$fromfilter, -class=>'labeled'), "<br/>",
+	"<label>Report Code:</label>",
+	textfield(-name=>'report_code', -value=>$$error_filters{report_code}, -class=>'labeled'),
+	"<label>Transfer Code:</label>",
+	textfield(-name=>'xfer_code', -value=>$$error_filters{xfer_code}, -class=>'labeled'), "<br/>",
+	"<label>To PFN:</label>",
+	textfield(-name=>'to_pfn', -value=>$$error_filters{to_pfn}, -class=>'labeled'),
+	"<label>From PFN:</label>",
+	textfield(-name=>'from_pfn', -value=>$$error_filters{from_pfn}, -class=>'labeled'), "<br/>",
+	"<label>Detail Log:</label>",
+	textfield(-name=>'log_detail', -value=>$$error_filters{log_detail}, -class=>'labeled'),
+	"<label>Validate Log:</label>",
+	textfield(-name=>'log_validate', -value=>$$error_filters{log_validate}, -class=>'labeled'), "<br/>",
+	"<label>&nbsp;</label>", submit(-name=>'Update', -class=>'labeled'), "<br/>",
 	"</form>";
     }
 
     my @from = grep /$fromfilter/, @nodes;
+    if (scalar @from != scalar @nodes) {
+	my ($from_list, %from_binds) = &dbinlist('from', @from);
+	push @where, "ns.name in ($from_list)";
+	$binds{$_} = $from_binds{$_} foreach (keys %from_binds);
+    }
     my @to = grep /$tofilter/, @nodes;
-    my ($from_list, %from_binds) = &dbinlist('from', @from);
-    my ($to_list, %to_binds) = &dbinlist('to', @to);
-    push @where, "(ns.name in ($from_list) and nd.name in ($to_list))";
-    my $where = join ' and ', @where;
-    $args{$_} = $from_binds{$_} foreach (keys %from_binds);
-    $args{$_} = $to_binds{$_} foreach (keys %to_binds);
+    if (scalar @to != scalar @nodes) {
+	my ($to_list, %to_binds) = &dbinlist('to', @to);
+	push @where, "nd.name in ($to_list)";
+	$binds{$_} = $to_binds{$_} foreach (keys %to_binds);
+    }
+
+    foreach my $col (keys %{$error_filters}) {
+	my $f = $$error_filters{$col};
+	my $not = substr($f, 0, 1) eq '!' ? 'not ' : '';
+	$f = substr($f, 1) if $not;
+	next if !defined $f || $f eq '' || $f eq '.*';
+	my $bind_label = ":${col}_rxp";
+	push @where, "${not}regexp_like($col, $bind_label)";
+	$binds{$bind_label} = $f;
+    }
+
+    my $where = @where ? " where ".join(' and ', @where) : '';
+
+    # Make sure the nodes are filtered if we are filtering with regexp_like
+    # TODO:  Remove these restrictions with error pre-processing
+    if ($where =~ /regexp_like/ &&
+	($where !~ /nd.name|ns.name/ ||
+	 $where =~ /ns.name in/ && scalar @from > 5 ||
+	 $where =~ /nd.name in/ && scalar @to > 5)) {
+	$self->alert("You must reduce the number of links you search  if you wish to use the other ",
+		     "filters.  Filter also on link <b>to</b> or <b>from</b>.");
+	return;
+    }
 
     my $sql = qq{ select ns.name from_node, nd.name to_node,
 		         time_assign, time_expire, time_export, time_inxfer, time_xfer, time_done,
@@ -6307,7 +6441,7 @@ sub output
 		    from t_xfer_error xe
                     join t_adm_node nd on nd.id = xe.to_node
 		    join t_adm_node ns on ns.id = xe.from_node
-                   where $where
+                  $where
 		order by time_done desc
 	    };
 
@@ -6316,7 +6450,7 @@ sub output
     $$self{DBH}->{LongTruncOk} = 1;
 
     my $pager = new Web25::QueryPager;
-    $pager->init($self, $sql, {%args}, 10);
+    $pager->init($self, $sql, {%binds}, 10);
     my $n_errors = $pager->get_total_results();
 
     if ($fileid) {
@@ -6351,10 +6485,10 @@ sub output
 		       LOG_VALIDATE => "Validate Log" };
 
     my $now = time();
-    while (my $error = $q->fetchrow_hashref()) {
+    ERROR: while (my $error = $q->fetchrow_hashref()) {
 	print { $$self{CONTENT} }
 	"<div class='nice errorinfo'>",
-	"<h1>Error $$error{ROW_NUMBER}</h1>";
+	"<h1>Error $$error{RESULT_NUMBER}</h1>";
 
 	print { $$self{CONTENT} }
 	"<label>To Node:</label><span class='labeled halfwidefield'>$$error{TO_NODE}</span>",
@@ -6379,11 +6513,11 @@ sub output
 
 	print { $$self{CONTENT} }
 	"<hr/>",
-	"<label>Final Code:</label><span class='labeled halfwidefield'>$$error{REPORT_CODE}</span>",
-	"<label>Transfer Report Code:</label><span class='labeled halfwidefield'>$$error{XFER_CODE}</span><br/>",
+	"<label>Report Code:</label><span class='labeled halfwidefield'>$$error{REPORT_CODE}</span>",
+	"<label>Transfer Code:</label><span class='labeled halfwidefield'>$$error{XFER_CODE}</span><br/>",
 	"<hr/>",
-	"<label>From PFN:</label><span class='labeled'>$$error{FROM_PFN}</span><br/>",
 	"<label>To PFN:</label><span class='labeled'>$$error{TO_PFN}</span><br/>",
+	"<label>From PFN:</label><span class='labeled'>$$error{FROM_PFN}</span><br/>",
 	"<hr/>";
 
 	foreach my $log (qw(LOG_XFER LOG_DETAIL LOG_VALIDATE)) {
@@ -6440,7 +6574,7 @@ sub init
     $$self{NODE_LIST} = [ sort_name $self->node_list() ];
     my %nodesel = defined param('node')
 	? (map { $_ => 1 } param('node'))
-	: (map { $$_{ID} => 1 } grep($$_{NAME} =~ /CERN_MSS/, @{$$self{NODE_LIST}}));
+	: (map { $$_{ID} => 1 } grep($$_{NAME} =~ /CERN/, @{$$self{NODE_LIST}}));
     $$self{NODE_SHOWN} = [ grep($nodesel{$$_{ID}}, @{$$self{NODE_LIST}}) ];
     $$_{IS_SHOWN} = 1 for @{$$self{NODE_SHOWN}};
 }
@@ -6575,7 +6709,15 @@ sub dataset_list
 sub dataset_replicas
 {
   my ($self, @datasets) = @_;
-  my $list = join(" or ", map { "ds.id = $$_{ID}" } @datasets);
+
+  # "where in" lists are limited to 1000 entries
+  my ($where, %binds) = ("", ());
+  if (scalar @datasets < 1000) {
+      my $list;
+      ($list, %binds) = &dbinlist('dataset', map { $$_{ID} } @datasets);
+      $where = " where ds.id in ($list) ";
+  }
+
   my $q = &dbexec($$self{DBH}, qq{
     select ds.id dataset, n.id node,
            nvl(sum(case when br.dest_files > 0 then 1 else 0 end),0) dest_blocks,
@@ -6584,12 +6726,12 @@ sub dataset_replicas
            nvl(sum(case when br.node_files > 0 then 1 else 0 end),0) node_blocks,
            nvl(sum(br.node_files),0) node_files,
            nvl(sum(br.node_bytes),0) node_bytes
-    from t_dps_dataset ds
+      from t_dps_dataset ds
       join t_dps_block b on b.dataset = ds.id
       join t_dps_block_replica br on br.block = b.id
       join t_adm_node n on n.id = br.node
-    where $list
-    group by ds.id, n.id});
+      $where
+     group by ds.id, n.id}, %binds);
 
   my %byid = map { $$_{ID} => $_ } @datasets;
   while (my $row = $q->fetchrow_hashref())
@@ -6652,19 +6794,19 @@ sub file_list
 sub block_replicas
 {
   my ($self, @blocks) = @_;
-  my $list = join(" or ", map { "b.id = $$_{ID}" } @blocks);
-  my $q = &dbexec($$self{DBH}, qq{
-    select b.id block, br.node node,
-           nvl(sum(case when br.dest_files > 0 then 1 else 0 end),0) dest_blocks,
-           nvl(sum(br.dest_files),0) dest_files,
-           nvl(sum(br.dest_bytes),0) dest_bytes,
-           nvl(sum(case when br.node_files > 0 then 1 else 0 end),0) node_blocks,
-           nvl(sum(br.node_files),0) node_files,
-           nvl(sum(br.node_bytes),0) node_bytes
-    from t_dps_block b
-      join t_dps_block_replica br on br.block = b.id
-    where $list
-    group by b.id, br.node});
+  my ($list, %binds) = &dbinlist('block', map { $$_{ID} } @blocks);
+  my $q = &dbexec($$self{DBH}, 
+		  qq{ select b.id block, br.node node,
+                        nvl(sum(case when br.dest_files > 0 then 1 else 0 end),0) dest_blocks,
+                        nvl(sum(br.dest_files),0) dest_files,
+                        nvl(sum(br.dest_bytes),0) dest_bytes,
+                        nvl(sum(case when br.node_files > 0 then 1 else 0 end),0) node_blocks,
+                        nvl(sum(br.node_files),0) node_files,
+                        nvl(sum(br.node_bytes),0) node_bytes
+                      from t_dps_block b
+                      join t_dps_block_replica br on br.block = b.id
+                     where b.id in ($list)
+                     group by b.id, br.node}, %binds);
 
   my %byid = map { $$_{ID} => $_ } @blocks;
   while (my $row = $q->fetchrow_hashref())
@@ -6678,14 +6820,14 @@ sub block_replicas
 sub block_sources
 {
   my ($self, @blocks) = @_;
-  my $list = join(" or ", map { "b.id = $$_{ID}" } @blocks);
+  my ($list, %binds) = &dbinlist('block', map { $$_{ID} } @blocks);
   my $q = &dbexec($$self{DBH}, qq{
     select b.id, f.node, n.name
     from t_dps_block b
       join t_dps_file f on f.inblock = b.id
       join t_adm_node n on n.id = f.node
-    where $list
-    group by b.id, f.node, n.name});
+    where b.id in ($list)
+    group by b.id, f.node, n.name}, %binds);
 
   my %byid = map { $$_{ID} => $_ } @blocks;
   while (my ($block, $node, $name) = $q->fetchrow())
@@ -6700,13 +6842,13 @@ sub block_sources
 sub file_replicas
 {
   my ($self, @blocks) = @_;
-  my $list = join(" or ", map { "b.id = $$_{ID}" } @blocks);
+  my ($list, %binds) =  &dbinlist('block', map { $$_{ID} } @blocks);
   my $q = &dbexec($$self{DBH}, qq{
     select b.id block, f.id, xr.node
     from t_dps_block b
       join t_xfer_file f on f.inblock = b.id
       join t_xfer_replica xr on xr.fileid = f.id
-    where $list});
+    where b.id in ($list)}, %binds);
 
   my %byid = map { $$_{ID} => $_ } @blocks;
   while (my ($block, $file, $node) = $q->fetchrow())
@@ -8080,6 +8222,503 @@ sub output
 	( $rm_subscriptions ? "<p>$n_rm_subs subscriptions removed</p>" : '');
     }
 }
+
+1;
+
+
+
+######################################################################
+package Web25::Data::LoadTestInject;
+use strict; use warnings;
+use base "Web25::Data::ExplorePage";
+import Web25::Common;
+use CGI qw(:standard);
+use List::Util qw(max);
+
+our $INDEX = { LIST => 1, ORDER => 4, TITLE => "LoadTest Injections",
+	       LINK_TITLE => "Manage/View LoadTest Injections" };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+sub output_page
+{
+  my ($self) = @_;
+
+  if (!$$self{SECMOD}->isAuthenticated() &&
+      !($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+	$$self{SECMOD}->hasRole('Data Manager') ||
+	$$self{SECMOD}->hasRole('Site Admin'))) {
+      $self->auth_help_popup('manage LoadTest injections'
+			     => ['cert', 'Data Manager', 'Site Admin', 'Global Admin']);
+  }
+  
+  my %admin_opts = ('rate'       => 'set rate (MB/s)',
+		    'inject_now' => 'one-time injection (files)',
+		    'start'      => 'start injections',
+		    'stop'       => 'stop injections',
+		    'remove'     => 'remove injection');
+  my @opts_order = qw(rate inject_now start stop remove);
+	    
+  my $admin_ok = 0;
+  if ($$self{SECMOD}->isCertAuthenticated() &&
+      ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+      $$self{SECMOD}->hasRole('Data Manager') ||
+      $$self{SECMOD}->hasRole('Site Admin'))) {
+      $admin_ok = 1;
+  }
+
+  if (param('action')) {
+      $self->update_injections();
+  }
+
+  if (param('create_source') && param('create_source') != -1 
+      && param ('create_dest') && param('create_dest') != -1) {
+      $self->create_injection();
+  }
+
+  print { $$self{CONTENT} } (new Web25::OptsPane)->link("Show Options");
+
+  my $q =$self->get_injections();
+  
+  my @cols = qw(SELECT DEST_NODE_NAME THROTTLE_NODE_NAME SRC_DATASET_NAME DEST_DATASET_NAME
+		IS_ACTIVE RATE INJECT_NOW TIME_INJECT);
+  my $th =
+  { SELECT => 'Select',
+    DEST_NODE_NAME => 'Injection Node',
+    SRC_DATASET_NAME => 'Source Dataset',
+    DEST_DATASET_NAME => 'Injection Dataset',
+    THROTTLE_NODE_NAME => 'Destination Node',
+    IS_ACTIVE => 'Status',
+    RATE => 'Peak Rate',
+    INJECT_NOW => 'Inject Now',
+    TIME_INJECT => 'Last Injection'
+    };
+  
+  # Special data fromats
+  my $now = time();
+  my $df = 
+  { 
+      IS_ACTIVE   => sub { return $_[0] eq 'y' ? 'Active' : 'Stopped'; },
+      RATE => sub { return &format_size($_[0]) . "/s"; },
+      TIME_INJECT => sub { &formatTime($_[0], 'stamp') || '&#8211;' }
+  };
+
+  # Special cell formats
+  my $cf = 
+  { 
+  };
+
+  # Pseudo columns
+  my %pseudo =
+      (
+       'SELECT'  => sub { "<input type='checkbox' name='lp_id' value='$_[1]->{SRC_DATASET}:$_[1]->{DEST_DATASET}:$_[1]->{DEST_NODE}'/>" }
+       );
+  
+  if (!$admin_ok) {
+      delete $pseudo{SELECT};
+      delete $df->{SELECT};
+      delete $th->{SELECT};
+      @cols = grep !/SELECT/, @cols;
+  }
+
+  my $dbtable = new Web25::DBTable;
+  $dbtable->set_filehandle($$self{CONTENT});
+  $dbtable->set_tablecols(\@cols);
+  $dbtable->set_tablehead($th);
+  $dbtable->set_tableclass('data');
+  $dbtable->set_stripeclass('stripe');
+  $dbtable->set_dataformats($df);
+  $dbtable->set_cellformats($cf);
+  $dbtable->add_pseudocolumn($_, $pseudo{$_}) foreach (keys %pseudo);
+  my @querycols;
+  foreach (@cols) {
+      my $default = 1;
+      push @querycols, [ ($$th{$_}, 'col', $_,  $default) ];
+  }
+  $dbtable->set_querycols( @querycols );
+  $dbtable->set_statcols({RATE => 'SUM', INJECT_NOW => 'SUM'});
+
+  if ($admin_ok) {
+      my $target = $self->myurl();
+  
+      print { $$self{CONTENT} }
+      "<p><label>Selections:</label>\n",
+      "<input type='button' value='Select all' onclick=\"select_all('subsform', 'lp_id', '1')\"/>\n",
+      "<input type='button' value='Select none' onclick=\"select_all('subsform', 'lp_id', '0')\"/>\n",
+      "</p>\n";
+
+      print { $$self{CONTENT} }
+      "<form id='subsform' method='post' action='$target'>",
+      $self->saveform(),
+      "<p>\n",
+      "<label>Actions:</label>\n",
+      "<select class='labeled' name='action'>\n";
+      foreach my $opt (@opts_order) {
+	  print { $$self{CONTENT} } 
+	  "<option value='$opt'>$admin_opts{$opt}</option>\n";
+      }
+      
+      print { $$self{CONTENT} }
+      "</select>\n",
+      " = ",
+      textfield(-name=>'actionvalue', -class=>'labeled', -size=>'5'),
+      "<input type='submit' value='Update'/>\n",
+      "</p>\n";
+
+  }
+
+  my $nrows = $dbtable->output($q);
+
+  if ($admin_ok) {
+      print { $$self{CONTENT} } "</form>\n";
+  }
+
+  if ($nrows == 0) {
+      $self->alert("No data exists for your selected nodes.");
+  }
+
+  my $optspane = new Web25::OptsPane;
+  
+  my $target = $self->myurl();
+  $optspane->set_form_target($target);
+
+  my $form = "";
+
+  # Save everything except what this form controls
+  $form = $self->saveform(qw(node));
+  $optspane->add_hidden($form);
+
+  $form = $dbtable->columns_form();
+  $optspane->add_tab('Columns', $form);
+
+  # Node Selection tab
+  $form = $self->node_form();
+  $optspane->add_tab('Nodes Shown', $form);
+
+  my $sources = $self->get_sources();
+
+  my $create_source_form;
+  if (values %$sources) {
+      # Create new Injections widget
+      # List of all nodes, except MSS nodes
+      my %all_nodes = $self->fetch_nodes(with_ids => 1);
+      foreach (keys %all_nodes) {
+	  delete $all_nodes{$_} if /_MSS$/;
+      }
+      my $sort_all_nodes = [ map { $all_nodes{$_} } sort keys %all_nodes ];
+      unshift @$sort_all_nodes, -1;
+      $all_nodes{'Select a Node'} = -1;
+
+      my $sort_sources = [ map { $$_{SRC_DATASET} } 
+			    sort {$$a{SRC_NODE_NAME} cmp $$b{SRC_NODE_NAME}}
+			   values %$sources ];
+      unshift @$sort_sources, -1;
+      $$sources{-1} = { SRC_DATASET => -1, SRC_NODE_NAME => 'Select a Node' };
+
+      $create_source_form = join "",
+      "Create LoadTest Stream<br/>",
+      "from ",
+      popup_menu(-name=>'create_source',
+		 -values=>$sort_sources,
+		 -labels=>{ map { $$_{SRC_DATASET} => $$_{SRC_NODE_NAME} }
+			    values %$sources }),
+      " to ",
+      popup_menu(-name=>'create_dest',
+		 -values=>[ map { $all_nodes{$_} } sort keys %all_nodes ],
+		 -labels=>{ reverse %all_nodes }), 
+      " at ",
+      textfield(-name=>'rate',
+		-value=>5,
+		-size=>5),
+      " MB/s";
+  } else {
+      $create_source_form = join "",
+      "<p>You don't have permission to create new LoadTest streams.  ",
+      "Check that you have a LoadTestSource injected for your authorized nodes.</p>";
+  }
+
+  $optspane->add_tab('Create Injection', $create_source_form);
+
+  print { $$self{OPTIONS} } $optspane->output();
+
+}
+
+sub output_options_form { }
+
+sub update_injections
+{
+    my ($self) = @_;
+
+    my $now = time();
+    my %warn_hash;  # to keep unique warnings
+    my $action = param('action');
+    my $bad = 0;
+    unless (grep $action, qw(rate inject_now start stop remove)) {
+	$warn_hash{"Unknown action"} = 1;
+	$bad = 1;
+    }
+
+    my $actionvalue = param('actionvalue');
+    if (($action eq 'rate' || $action eq 'inject_now')
+	&& (!defined $actionvalue || ! (sprintf("%.4f", $actionvalue) > 0) )) {
+	my $desc;
+	if    ($action eq 'rate')       { $desc = 'change the rate'; }
+	elsif ($action eq 'inject_now') { $desc = 'do an immediate injection'; }
+	$warn_hash{"You must provide a value in order to $desc"} = 1;
+	$bad = 1;
+    }
+
+    if ($action eq 'rate' && $actionvalue > 100) {
+	$warn_hash{"Rate is too high.  Limit is 100 MB/s."} = 1;
+	$bad = 1;
+    }
+	
+    if ($action eq 'inject_now' && $actionvalue > 100) {
+	$warn_hash{"Injection size is too high.  Limit is 100 files."} = 1;
+	$bad = 1;
+    }
+
+    if ($bad) {
+	print { $$self{CONTENT} } "<p class='alarm'>$_</p>" for keys %warn_hash;
+	return;
+    }
+
+    my %auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager||Site Admin', with_ids => 1);
+    
+    my %all_nodes = reverse $self->fetch_nodes(with_ids => 1); # just a hash of id => name
+
+    my $u_rate = &dbprep($$self{DBH}, qq{ update t_loadtest_param set rate = :rate * power(1024, 2), time_update = :now
+					   where src_dataset = :src_dataset
+                                             and dest_dataset = :dest_dataset
+					     and dest_node = :dest_node });
+
+    my $u_inject = &dbprep($$self{DBH}, qq{ update t_loadtest_param set inject_now = :inject_now, time_update = :now
+					     where src_dataset = :src_dataset
+                                               and dest_dataset = :dest_dataset
+					       and dest_node = :dest_node });
+
+    my $u_active = &dbprep($$self{DBH}, qq{ update t_loadtest_param set is_active = :is_active, time_update = :now
+					     where src_dataset = :src_dataset
+                                               and dest_dataset = :dest_dataset
+					       and dest_node = :dest_node });
+    
+    my $del = &dbprep($$self{DBH}, qq{ delete from t_loadtest_param
+ 				        where src_dataset = :src_dataset
+                                          and dest_dataset = :dest_dataset
+					  and dest_node = :dest_node });
+
+    my $action_list = 
+    {
+	rate => { desc => 'rate changed',
+		  dml => $u_rate,
+		  values => { ':rate' => $actionvalue, ':now' => $now }
+	      },
+	inject_now => { desc => 'immediate injection set',
+			dml => $u_inject,
+			values => { ':inject_now' => $actionvalue, ':now' => $now }
+		    },
+	stop => { desc => 'injections stopped',
+		  dml => $u_active,
+		  values => { ':is_active' => 'n', ':now' => $now }
+	      },
+	start => { desc => 'injections started',
+		   dml => $u_active,
+		   values => { ':is_active' => 'y', ':now' => $now }
+	       },
+	remove => { desc => 'injections deleted',
+		    dml => $del,
+		    values => {}
+		}
+    };
+
+    # Execute the update
+    $action = $action_list->{$action};
+
+    my $n_changed = 0;
+
+    foreach (param('lp_id')) {
+	my ($src_dataset, $dest_dataset, $dest_node) = split /:/;
+	if (grep $dest_node == $_, values %auth_nodes) { # Check permission
+	    my $dml = $$action{dml};
+	    
+	    my $rv = &dbbindexec($dml, 
+				 ':src_dataset' => $src_dataset,
+				 ':dest_dataset' => $dest_dataset,
+				 ':dest_node' => $dest_node,
+				 %{$$action{values}});
+	    $n_changed += $rv;
+	} else {
+	    my $warn = "<p class='alarm'>Sorry, you don't have permission to update ".
+		"$all_nodes{$dest_node} injections!</p>";
+	    $warn_hash{$warn} = 1;
+	}
+    }
+    $$self{DBH}->commit();
+
+    # Print scoldings
+    print { $$self{CONTENT} } keys %warn_hash;
+
+    # Report the changes
+    if ($n_changed) {
+	print { $$self{CONTENT} } "<p class='note'>$action->{desc} for $n_changed injections!</p>";
+    } else {
+	print { $$self{CONTENT} } "<p class='alarm'>Nothing was changed!<p>";
+    }
+}
+
+sub get_injections
+{
+  my ($self) = @_;
+  $self->fetch_nodes();
+  my @node_ids = map { $$_{IS_SHOWN} ? $$_{ID} : '' } @{$$self{NODE_LIST}};
+  @node_ids = grep /\d+/, @node_ids;
+  my ($node_list, %node_binds) = &dbinlist('node', @node_ids );
+
+  my $q = &dbexec($$self{DBH}, qq{
+        select
+        lp.dest_node, dn.name dest_node_name,
+	lp.src_dataset, ds.name src_dataset_name,
+        lp.dest_dataset, dd.name dest_dataset_name,
+        lp.is_active, lp.dataset_size, lp.dataset_close,
+        lp.block_size, lp.block_close,
+        lp.rate, lp.inject_now,
+        lp.throttle_node, tn.name throttle_node_name,
+        lp.time_inject
+            from t_loadtest_param lp
+            join t_dps_dataset ds on ds.id = lp.src_dataset
+            join t_dps_dataset dd on dd.id = lp.dest_dataset
+            join t_adm_node dn on dn.id = lp.dest_node
+            left join t_adm_node tn on tn.id = lp.throttle_node
+	    where lp.dest_node in ($node_list)
+	    order by dn.name, ds.name, dd.name
+        }, %node_binds);                    
+
+  return $q;
+}
+
+sub create_injection
+{
+    my ($self) = @_;
+
+    my $src_dataset = param('create_source');
+    my $to_node = param('create_dest');
+    my $rate = param('rate');
+    my $now = time();
+
+    if (!$src_dataset || !$to_node || !$rate || ! (sprintf("%.4f", $rate) > 0)) {
+	print {$$self{CONTENT}} "<p class='alarm'>Missing parameters for injection creation</p>";
+	return;
+    }
+
+    if ($rate > 100) {
+	print {$$self{CONTENT}} "<p class='alarm'>Rate too high.  Injection rate is limited to 100 MB/s</p>";
+	return;
+    }
+
+    my %all_nodes = reverse $self->fetch_nodes(with_ids=>1);
+    my $sources = $self->get_sources(); # gets only authorized sources
+    my $source = $$sources{$src_dataset};
+
+    my $from = $$source{SRC_NODE_NAME};
+    my $to = $all_nodes{$to_node};
+
+    if ($from eq $to) {
+	print {$$self{CONTENT}} "<p class='alarm'>You can't create a stream from $from to $to</p>";
+	return;
+    }
+
+    foreach (\$from, \$to) {
+	$$_ =~ s/^T._//;  $$_ =~ s/_(Buffer|Disk|MSS)$//;
+    }
+    my $dest_ds_name = "/PhEDEx_Debug/LoadTest07_$from/$to";
+    my $dest_ds;
+    my @rv;
+
+    ($dest_ds) = &dbexec($$self{DBH}, qq{
+	select ds.id from t_dps_dataset ds where ds.name = :name
+	}, ':name' => $dest_ds_name)->fetchrow();
+
+    @rv = &dbexec($$self{DBH}, qq{
+	insert into t_dps_dataset
+	    (id, dbs, name, is_open, is_transient, time_create)
+	    values
+	    (seq_dps_dataset.nextval, 1, :name, 'y', 'y', :now)
+	    returning id into :dest_ds
+	},  ':name' => $dest_ds_name,
+		  ':now' => $now,
+		  ':dest_ds' => \$dest_ds) unless $dest_ds;
+    
+    my ($lt_exists) = &dbexec($$self{DBH}, qq{
+	select 1 from t_loadtest_param
+         where src_dataset = :src_ds
+           and dest_dataset = :dest_ds
+           and dest_node = :dest_node 
+       }, ':src_ds' => $$source{SRC_DATASET},
+			      ':dest_ds' => $dest_ds,
+			      ':dest_node' => $$source{SRC_NODE})->fetchrow();
+    
+    if ($lt_exists) {
+	print {$$self{CONTENT}} "<p class='alarm'>Injection from $from to $to already exists!</p>";
+    } else {
+	@rv = &dbexec($$self{DBH}, qq{
+	    insert into t_loadtest_param
+	    (src_dataset, dest_dataset, dest_node, is_active,
+	     dataset_size, dataset_close, block_size, block_close,
+	     rate, inject_now, throttle_node,
+	     time_create, time_update)
+	    values
+	    (:src_ds, :dest_ds, :dest_node, 'y',
+	     NULL, 'n', 100, 'y',
+	     :rate * power(1024,2), 0, :throttle_node,
+	     :time_create, :time_update)
+	}, ':src_ds' => $$source{SRC_DATASET},
+		      ':dest_ds' => $dest_ds,
+		      ':dest_node' => $$source{SRC_NODE},
+		      ':rate' => $rate, ':throttle_node' => $to_node,
+		      ':time_create' => $now, ':time_update' => $now);
+    }
+
+    if ($rv[1] > 0) {
+	$$self{DBH}->commit();
+	print {$$self{CONTENT}} "<p class='note'>Created LoadTest stream from $from to $to</p>";
+    }
+
+
+}
+
+sub get_sources
+{
+    my ($self) = @_;
+    my %auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager||Site Admin', with_ids => 1);
+    return {} unless %auth_nodes;
+    my ($node_list, %node_binds) = &dbinlist('node', values %auth_nodes );
+
+    # This query looks funny, but it works faster then the obvious thing
+    # The key is to not process all the rows of t_dps_file
+    my $q = &dbexec($$self{DBH}, qq{
+	select ds.id src_dataset, ds.name src_dataset_name,
+               n.id src_node, n.name src_node_name
+	  from t_dps_dataset ds
+          cross join t_adm_node n
+         where ds.name like '%LoadTest07Source%'
+           and n.id =
+           (select f.node from t_dps_file f
+              join t_dps_block b on b.id = f.inblock
+             where rownum = 1
+               and b.dataset = ds.id
+               and f.node in ($node_list))
+     }, %node_binds);
+
+    return $q->fetchall_hashref('SRC_DATASET');
+}
+
 
 1;
 
