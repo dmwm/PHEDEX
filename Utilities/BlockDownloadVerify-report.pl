@@ -9,7 +9,7 @@ use strict;
 ##H  Options:
 ##H 
 ##H   --db = DBCONFIG     The usual PhEDEx db configuration file
-##H   --node = <string>   PhEDEx node to search for replicas
+##H   --node = <string>   PhEDEx nodes to limit the result-set
 ##H 
 
 # Process command line arguments.
@@ -37,7 +37,7 @@ GetOptions(	"db=s"	 => \$dbconfig,
 
 #-------------------------------------------------------------------------------
 $dbconfig or die "'--db' argument is mandatory\n";
-@nodes    or die "'--node' argument is mandatory\n";
+@nodes    or push(@nodes,'%');
 
 $conn = { DBCONFIG => $dbconfig };
 $dbh = &connectToDatabase ( $conn, 0 );
@@ -51,10 +51,10 @@ $states{$all_states} = $bcc->getTestsPendingCount(keys %{$nodes});
 push @states, $all_states;
 
 $r = $bcc->getTestResults(keys %{$nodes});
-printf("%24s %6s %7s %7s %7s %10s %10s %s\n",
+printf("%24s %6s %15s %7s %7s %7s %10s %10s %s\n",
 	  'Time Reported',
-	  'Node',
 	  'ID',
+	  'Node',
 	  'NFiles',
 	  'NTested',
 	  'NOK',
