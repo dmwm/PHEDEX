@@ -6574,7 +6574,7 @@ sub init
     $$self{NODE_LIST} = [ sort_name $self->node_list() ];
     my %nodesel = defined param('node')
 	? (map { $_ => 1 } param('node'))
-	: (map { $$_{ID} => 1 } grep($$_{NAME} =~ /CERN_MSS/, @{$$self{NODE_LIST}}));
+	: (map { $$_{ID} => 1 } grep($$_{NAME} =~ /CERN/, @{$$self{NODE_LIST}}));
     $$self{NODE_SHOWN} = [ grep($nodesel{$$_{ID}}, @{$$self{NODE_LIST}}) ];
     $$_{IS_SHOWN} = 1 for @{$$self{NODE_SHOWN}};
 }
@@ -8278,7 +8278,8 @@ sub output_page
       $self->update_injections();
   }
 
-  if (param('create_source')) {
+  if (param('create_source') && param('create_source') != -1 
+      && param ('create_dest') && param('create_dest') != -1) {
       $self->create_injection();
   }
 
@@ -8403,22 +8404,29 @@ sub output_page
 
   my $sources = $self->get_sources();
 
-  # Create new Injections widget
-  # List of all nodes, except MSS nodes
-  my %all_nodes = $self->fetch_nodes(with_ids => 1);
-  foreach (keys %all_nodes) {
-      delete $all_nodes{$_} if /_MSS$/;
-  }
-
   my $create_source_form;
   if (values %$sources) {
+      # Create new Injections widget
+      # List of all nodes, except MSS nodes
+      my %all_nodes = $self->fetch_nodes(with_ids => 1);
+      foreach (keys %all_nodes) {
+	  delete $all_nodes{$_} if /_MSS$/;
+      }
+      my $sort_all_nodes = [ map { $all_nodes{$_} } sort keys %all_nodes ];
+      unshift @$sort_all_nodes, -1;
+      $all_nodes{'Select a Node'} = -1;
+
+      my $sort_sources = [ map { $$_{SRC_DATASET} } 
+			    sort {$$a{SRC_NODE_NAME} cmp $$b{SRC_NODE_NAME}}
+			   values %$sources ];
+      unshift @$sort_sources, -1;
+      $$sources{-1} = { SRC_DATASET => -1, SRC_NODE_NAME => 'Select a Node' };
+
       $create_source_form = join "",
       "Create LoadTest Stream<br/>",
       "from ",
       popup_menu(-name=>'create_source',
-		 -values=>[ map { $$_{SRC_DATASET} } 
-			    sort {$$a{SRC_NODE_NAME} cmp $$b{SRC_NODE_NAME}}
-			    values %$sources ],
+		 -values=>$sort_sources,
 		 -labels=>{ map { $$_{SRC_DATASET} => $$_{SRC_NODE_NAME} }
 			    values %$sources }),
       " to ",
