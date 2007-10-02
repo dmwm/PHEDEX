@@ -76,7 +76,7 @@ sub getTestResults
   if ( $nodelist ) { $sql .= " where node in ($nodelist) "; }
   $sql .= ' order by s.id, time_reported';
 
-  $q = $self->execute_sql( $sql, () );
+  $q = execute_sql( $self, $sql, () );
   while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
 
   return \@r;
@@ -98,7 +98,7 @@ sub getDetailedTestResults
 		order by logical_name
            };
 
-  $q = $self->execute_sql( $sql, ( ':request' => $request ) );
+  $q = execute_sql( $self, $sql, ( ':request' => $request ) );
   while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
 
   return \@r;
@@ -115,7 +115,7 @@ sub getTestsPendingCount
              where node in ($nodelist)
            };
 
-  $q = $self->execute_sql( $sql, () );
+  $q = execute_sql( $self, $sql, () );
   @r = $q->fetchrow_array();
 
   return $r[0];
@@ -130,7 +130,7 @@ sub getTMDBFileStats
                 where logical_name like :filename };
   my $l = shift @_;
   my %p = ( ":filename" => $l );
-  my $r = $self->select_hash( $sql, 'LOGICAL_NAME', %p );
+  my $r = select_hash( $self, $sql, 'LOGICAL_NAME', %p );
   my $s;
   $s->{SIZE} = $r->{$l}->{FILESIZE};
   foreach ( split( '[,;#$%/\s]+', $r->{$l}->{CHECKSUM} ) )
@@ -145,12 +145,13 @@ sub getTMDBFileStats
 sub getBlocksOnBufferFromWildCard
 {
   my $self = shift;
-  my $buffers = join(',',@{$self->{bufferIDs}});
+  my $block = shift;
+  my $buffers = join(',',@_);
   my $sql = qq {select name from t_dps_block b join t_dps_block_replica br
                 on b.id = br.block where name like :block_wild and
                 node in ($buffers)};
-  my %p = ( ":block_wild" => @_ );
-  my $r = $self->select_single( $sql, %p );
+  my %p = ( ":block_wild" => $block );
+  my $r = select_single( $self, $sql, %p );
 
   return $r;
 }
@@ -190,7 +191,7 @@ sub expandTestList
 sub get_TDVS_Tests
 {
   my ($self,$test) = @_;
-  my $x = $self->getTable(qw/t_dvs_test NAME id name description/);
+  my $x = getTable( $self, qw/t_dvs_test NAME id name description/);
   return $x->{$test} if defined $test;
   return $x;
 }
@@ -199,7 +200,7 @@ sub get_TDVS_Tests
 sub get_TDVS_Status
 {
   my ($self,$status) = @_;
-  my $x = $self->getTable(qw/t_dvs_status NAME id name description/);
+  my $x = getTable( $self, qw/t_dvs_status NAME id name description/);
   return $x->{$status} if defined $status;
   return $x;
 }
