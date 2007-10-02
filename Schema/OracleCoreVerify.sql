@@ -73,10 +73,6 @@ create table t_dvs_block
   constraint ck_dvs_block_use_srm check (use_srm in ('y','n'))
  );
 
-alter table t_dvs_block add constraint fk_dvs_block_block
-  foreign key (block) references t_dps_block(id)
-  on delete cascade disable;
-
 create sequence seq_dvs_file;
 create table t_dvs_file
  (id		integer not null,
@@ -138,10 +134,6 @@ create table t_status_block_verify
     on delete cascade
  );
 
-alter table t_status_block_verify add constraint fk_status_block_verify_block
-  foreign key (block) references t_dps_block(id)
-  on delete cascade disable;
-
 -- create indices
 create index ix_dvs_block_block on t_dvs_block(block);
 create index ix_dvs_block_node on t_dvs_block(node);
@@ -151,3 +143,12 @@ create index ix_dvs_file_result_file on t_dvs_file_result(fileid);
 create index ix_dvs_file_result_request on t_dvs_file_result(request);
 create index ix_status_block_verify_node on t_status_block_verify(node);
 create index ix_status_block_verify_test on t_status_block_verify(test);
+
+-- You may have to stop/restart the central agents to apply these constraints
+alter table t_status_block_verify add constraint fk_status_block_verify_block
+  foreign key (block) references t_dps_block(id)
+  on delete cascade;
+
+alter table t_dvs_block add constraint fk_dvs_block_block
+  foreign key (block) references t_dps_block(id)
+  on delete cascade;
