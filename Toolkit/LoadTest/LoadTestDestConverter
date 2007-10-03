@@ -93,12 +93,12 @@ my $check_sql = q{
    select 1 from t_loadtest_param
     where src_dataset = :src_dataset
       and dest_dataset = :dest_dataset
-      and dest_node = :dest_node});
+      and dest_node = :dest_node};
 
 while (my $dest = $q->fetchrow_hashref()) {
     print "Adding injections from $$src{SRC_DATASET_NAME} to $$dest{DEST_DATASET_NAME}...";
 
-    my ($exists) = &dbexec($check_sql,
+    my ($exists) = &dbexec($dbh, $check_sql,
 			   ':src_dataset' => $$src{SRC_DATASET},
 			   ':dest_dataset' => $$dest{DEST_DATASET},
 			   ':dest_node' => $nodeid)->fetchrow();
