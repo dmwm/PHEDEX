@@ -191,7 +191,7 @@ sub expandTestList
 sub get_TDVS_Tests
 {
   my ($self,$test) = @_;
-  my $x = getTable( $self, qw/t_dvs_test NAME id name description/);
+  my $x = PHEDEX::Core::SQL::getTable( $self, qw/t_dvs_test NAME id name description/);
   return $x->{$test} if defined $test;
   return $x;
 }
@@ -200,7 +200,7 @@ sub get_TDVS_Tests
 sub get_TDVS_Status
 {
   my ($self,$status) = @_;
-  my $x = getTable( $self, qw/t_dvs_status NAME id name description/);
+  my $x = PHEDEX::Core::SQL::getTable( $self, qw/t_dvs_status NAME id name description/);
   return $x->{$status} if defined $status;
   return $x;
 }

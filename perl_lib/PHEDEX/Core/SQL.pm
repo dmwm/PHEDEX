@@ -242,7 +242,6 @@ sub select_single
   my ( $self, $query, %param ) = @_;
   my ($q,@r);
 
-# $q = $self->execute_sql( $query, %param );
   $q = execute_sql( $self, $query, %param );
   @r = map {$$_[0]} @{$q->fetchall_arrayref()};
   return \@r;
@@ -255,7 +254,6 @@ sub select_hash
   my ( $self, $query, $key, %param ) = @_;
   my ($q,$r);
 
-# $q = $self->execute_sql( $query, %param );
   $q = execute_sql( $self, $query, %param );
   $r = $q->fetchall_hashref( $key );
 
@@ -304,7 +302,7 @@ sub getTable
   @fields=('*') unless @fields;
   if ( defined($self->{T_Cache}{$table}) ) { return $self->{T_Cache}{$table}; }
   my $sql = "select " . join(',',@fields) . " from $table";
-  return $self->{T_Cache}{$table} = $self->select_hash( $sql, $key, () );
+  return $self->{T_Cache}{$table} = select_hash( $self, $sql, $key, () );
 }
 
 #-------------------------------------------------------------------------------
