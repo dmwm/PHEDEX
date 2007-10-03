@@ -10,8 +10,6 @@ use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::DB;
-#use DBI;
-#use PHEDEX::Core::RFIO;
 
 our $counter;
 our $debug_me=1;
