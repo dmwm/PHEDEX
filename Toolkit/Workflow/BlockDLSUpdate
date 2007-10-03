@@ -25,6 +25,9 @@ BEGIN {
 my %args;
 use Getopt::Long;
 use UtilsHelp;
+#use PHEDEX::Core::Help;
+use PHEDEX::BlockConsistency::Core;
+
 &GetOptions ("state=s"     => \$args{DROPDIR},
              "db=s"        => \$args{DBCONFIG},
 	     "log=s"       => \$args{LOGFILE},
@@ -46,6 +49,12 @@ use UtilsLogging;
 use UtilsTiming;
 use UtilsDB;
 use UtilsJobManager;
+#If you want to be brave, replace 'useUtils*' above with these :-)
+#use PHEDEX::Core::Command;
+#use PHEDEX::Core::Logging;
+#use PHEDEX::Core::Timing;
+#use PHEDEX::Core::DB;
+#use PHEDEX::Core::JobManager;
 
 sub new
 {
@@ -130,6 +139,8 @@ sub idle
 	    %my_args)
 	    ->fetchall_arrayref({});
 
+        # Get the ID for DBS test-requests from the t_dvs_test table.
+	my $test = PHEDEX::BlockConsistency::SQL::get_TDVS_Tests($self,'dbs')->{ID};
 
 	foreach my $block (@$completed, @$deleted)
         {
@@ -137,6 +148,21 @@ sub idle
 	    my $cachekey = "$$block{DBS_NAME} $$block{BLOCK_NAME} $$block{NODE_NAME}";
 	    next if $$self{LAST_UPDATE}{$cachekey};
 	    $$self{LAST_UPDATE}{$cachekey} = &mytimeofday();
+
+	    # Queue the block for consistency-checking. Ignore return values
+            if ( $block->{COMMAND} eq 'dls-add' )
+            {
+              PHEDEX::BlockConsistency::Core::InjectTest
+			( $dbh,
+			  block       => $block->{BLOCK_NAME},
+			  test        => $test,
+			  node        => $block->{NODE_NAME},
+			  n_files     => 0,
+			  time_expire => 10 * 86400,
+			  priority    => 1,
+			  use_srm     => 0,
+			);
+            }
 
 	    # Decompose DLS contact into arguments accepted by DLS API.
 	    my ($dlstype, $sep, $contact) = ($$block{DLS_NAME} =~ m|^([a-z]+)(://)?(.*)|);
