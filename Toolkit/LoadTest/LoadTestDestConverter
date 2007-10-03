@@ -89,8 +89,24 @@ my $ins_lt = &dbprep($dbh, q{
    :dataset_size, :dataset_close, :block_size, :block_close,
    :rate, :inject_now, :throttle_node, :time_create, :time_update)});
 
+my $check_lt = &dbprep($dbh, q{
+   select 1 from t_loadtest_param
+    where src_dataset = :src_dataset
+      and dest_dataset = :dest_dataset
+      and dest_node = :dest_node});
+
 while (my $dest = $q->fetchrow_hashref()) {
     print "Adding injections from $$src{SRC_DATASET_NAME} to $$dest{DEST_DATASET_NAME}...";
+
+    my ($exists) = &dbbindexec($check_lt,
+			       ':src_dataset' => $$src{SRC_DATASET},
+			       ':dest_dataset' => $$dest{DEST_DATASET},
+			       ':dest_node' => $nodeid)->fetchrow();
+
+    if ($exists) {
+	print "Already Exists!\n";
+	next;
+    }
 
     &dbbindexec($trans_ds, ':dataset' => $$dest{DEST_DATASET});
     &dbbindexec($close_b,  ':dataset' => $$dest{DEST_DATASET});
