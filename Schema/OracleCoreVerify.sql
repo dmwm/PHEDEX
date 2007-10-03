@@ -47,6 +47,8 @@ insert into t_dvs_test (id,name,description)
 	 values (2,'migration','migration-status check on storage namespace');
 insert into t_dvs_test (id,name,description)
 	 values (3,'cksum','checksum validation on physical file');
+insert into t_dvs_test (id,name,description)
+	 values (4,'dbs','check dbs is consistant with PhEDEx');
 
 create sequence seq_dvs_block;
 create table t_dvs_block
