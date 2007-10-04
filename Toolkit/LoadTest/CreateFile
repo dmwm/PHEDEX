@@ -5,7 +5,7 @@ cat << EOF
 Usage: CreateFile <nr> <outfile_base> <copy_script_name> (<nonhex>)
 
   <nr> - Output file number to create i.e. 00, 01, 10, 1F, DC, ...
-  <outfile_bases> - Output filename base. i.e. LoadTest07_Estonia_ or LoadTest07_RAL_ or ...
+  <outfile_bases> - Output filename base. i.e. LoadTest07_YOURSITE_ or LoadTest07_RAL_ or ...
   <copy_script_name> -  Name of the file copy script, choose which one fits your environment
 			or write your own. It is given the filename to be copied from current 
 			working directory
@@ -14,9 +14,9 @@ Usage: CreateFile <nr> <outfile_base> <copy_script_name> (<nonhex>)
 
 Example:
 
-  ./CreateFile D5 LoadTest07_Estonia_ srm.sh
-  ./CreateFile 213 LoadTest07_Estonia_ srm.sh anything
-  ./CreateFile 213 LoadTest07_Estonia_ srm.sh 0
+  ./CreateFile D5 LoadTest07_YOURSITE_ srm.sh
+  ./CreateFile 213 LoadTest07_YOURSITE_ srm.sh anything
+  ./CreateFile 213 LoadTest07_YOURSITE_ srm.sh 0
 
 The script creates the actual LoadTest file, a file which will contain the injection info and will
 try to copy the LoadTest file to storage also using the supplied copy script. The name of the injection
