@@ -54,7 +54,8 @@ sub new
     my %params = (DBCONFIG => undef,		# Database configuration file
 		  MYNODE => undef,		# My TMDB node
 		  ONCE => 0,			# Quit after one run
-		  WAITTIME => 60*20 );	        # Agent cycle time
+		  WAITTIME => 60*20,            # Agent cycle time
+		  VISION => 3600*6);            # Agent vision time (past and present)
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -99,14 +100,22 @@ sub idle
 
 	next unless $$params{IS_ACTIVE} eq 'y';
 	next unless $self->datasetSpace($params);
+
+	my $size = $self->averageFileSize($$params{SRC_DATASET});
+	unless ($size) {
+	    &alert("dataset=$$params{SRC_DATASET} has no files");
+	    next;
+	}
 	
 	my $n_files = 0;
 	if ($$params{INJECT_NOW}) {
 	    $n_files = $$params{INJECT_NOW};
 	} elsif ($$params{RATE}) {
+    	    $n_files = $self->calculateRateInjection($params, $size);
+
 	    my $t_files = $self->throttleNodeFiles($params);
-	    $n_files = $self->calculateRateInjection($params);
-	    if ($n_files != 0 && $t_files >= $n_files) {
+	    my $throttle = ($t_files * $size > $$params{RATE} * $$self{VISION}) ? 1 : 0;
+	    if ($n_files != 0 && $throttle) {
 		&dbbindexec($uparam, 
 			    ':time_inject' => $$params{NOW},
 			    ':src_dataset' => $$params{SRC_DATASET},
@@ -257,9 +266,26 @@ sub throttleNodeFiles
     return $t_files || 0;
 }
 
+sub averageFileSize
+{
+    my ($self, $dataset) = @_;
+    return unless $dataset;
+    # Get the average
+    my ($size) = &dbexec($$self{DBH}, qq{
+	select avg(f.filesize) from t_dps_file f
+	    join t_dps_block b on b.id = f.inblock
+	    join t_dps_dataset ds on ds.id = b.dataset
+	    where ds.id = :dataset },
+			 ':dataset' => $dataset)->fetchrow();
+
+    return $size;
+}
+
 sub calculateRateInjection
 {
-    my ($self, $params) = @_;
+    my ($self, $params, $size) = @_;
+
+    return 0 unless $size;
 
     # If this is the first injection, inject one file
     if (!$$params{TIME_INJECT}) {
@@ -268,25 +294,13 @@ sub calculateRateInjection
 
     my $delta_t = $$params{NOW} - $$params{TIME_INJECT};
 
-    # If it has been over 6 hours since our last injection, don't try to
+    # If it has been over the vision time since our last injection, don't try to
     # "catch-up" the rate.  Just insert one file and we'll continue
     # the rate from there
-    if ($delta_t > (6 * 3600)) {
+    if ($delta_t > $$self{VISION}) {
 	return 1;
     }
 
-    # Get the average size of the source sample
-    my ($size) = &dbexec($$self{DBH}, qq{
-	select avg(f.filesize) from t_dps_file f
-	    join t_dps_block b on b.id = f.inblock
-	    join t_dps_dataset ds on ds.id = b.dataset
-	    where ds.id = :dataset },
-			 ':dataset' => $$params{SRC_DATASET})->fetchrow();
-    unless ($size) {
-	&alert("dataset=$$params{SRC_DATASET} has no files");
-	return 0;
-    }
-    
     my $n_files = ($delta_t * $$params{RATE}) / $size;
     
     # We return a number that at least meets the target rate
