@@ -1,0 +1,60 @@
+#!/usr/bin/env perl
+
+##H Convert LoadTest_file_info file to TMDBInject XML file, using
+##H centralized injector conventions
+##H
+##H Example:
+##H    LoadTestFileInfoToInjectXML FILE SITE
+##H
+##H  FILE is the LoadTest_file_info file
+##H  SITE is the site name, e.g. CERN
+
+use warnings;
+use strict;
+
+# Check arguments.
+if (scalar @ARGV < 2)
+{
+  die "Insufficient parameters.\n";
+}
+
+my ($lt_file, $sitename) = @ARGV;
+$sitename =~ s/^T._//;  $sitename =~ s/^_(MSS|Buffer|Disk)$//;
+
+my @files;
+open FILE, "<", $lt_file or die $!;
+while (<FILE>) {
+    chomp;
+    my $file = {};
+    ($$file{ID}, $$file{CHECKSUM}, $$file{FILESIZE}) = split /\s*,\s*/;
+    unless ($$file{CHECKSUM} && $$file{FILESIZE}) {
+	warn "WARNING:  No filesize and checksum on line $.\n, skipping";
+	next;
+    }
+    unless ($$file{ID} =~ /^[0-9A-Fa-f]{2}$/) {
+	warn "WARNING:  File ID $$file{ID} is not a valid 8-bit hex on line $., skipping\n";
+	next;
+    }
+    $$file{LOGICAL_NAME} = "/store/PhEDEx_Debug/LoadTest07Source/${sitename}_$$file{ID}";
+    $$file{CHECKSUM} = "cksum:$$file{CHECKSUM}";
+    push @files, $file;
+}
+close FILE;
+
+my $dbs = "LoadTest";
+my $dls = "lfc:unknown";
+my $dataset = '/PhEDEx_Debug/LoadTest07Source/'.$sitename;
+my $block = $dataset . '#block';
+
+my $xmlfile = "LoadTest07Source_${sitename}.xml";
+open XML, '>', $xmlfile or die $!;
+print XML qq{<dbs name="$dbs"  dls="$dls">\n};
+print XML qq{\t<dataset name="$dataset" is-open="n" is-transient="n">\n};
+print XML qq{\t\t<block name="$block" is-open="n">\n};
+print XML qq{\t\t\t<file lfn="$$_{LOGICAL_NAME}" size="$$_{FILESIZE}" checksum="$$_{CHECKSUM}"/>\n} foreach @files;
+print XML qq{\t\t</block>\n};
+print XML qq{\t</dataset>\n};
+print XML qq{</dbs>\n};
+close XML;
+
+print "Wrote injection file to $xmlfile\n";
