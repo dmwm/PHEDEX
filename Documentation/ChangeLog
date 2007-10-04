@@ -1,7 +1,12 @@
 * Changes in PhEDEx 2.5.4
 
  New Features for Site Tools
-   - (Tony to write about BlockDownloadVerify)
+   - BlockDownloadVerify agent released for the first time. Only namespace
+     checks for size of files and migration at castor-sites for now, plus
+     a placeholder for DBS checking, to follow soon
+   - BlockDownloadVerify and associated tools moved to new PERL module
+     structure. PERL5LIB must be set correctly, the RPM installation 
+     should take care of this automatically
    - InspectPhedexLog expired transfers are no longer counted for
      success rate.  Added options to inspect files with multiple
      failures (-m flag) this helps to identify reasons for long
@@ -9,13 +14,18 @@
      related problems)
 
  Schema and Central agents
-   - (Tony to write about BlockDownloadVerify)
+   - BlockDLSUpdate and BlockDownloadVerifyInject now both trigger 
+     insertion of test-requests, either on block-closure (BlockDLSUpdate) 
+     or when files are not moving on the LAN or WAN 
+     (BlockDownloadVerifyInject)
    - LoadTestInject agent now only throttles injections when there is
      enough data to transfer at the rate for 6 hours
    - BlockDLSUpdate agent remembers successfully issued dls-add
      commands and does not re-execute them every cycle.  Additionally,
      log output is reduced by only saving one log file per SE name /
      block ID pair instead of one logfile per error (timestamped).
+   - BlockDLSUpdate now uses routines from the BlockDownloadVerify::Core
+     module, so it too needs PERL5LIB to be set up correctly
 
  Bug Fixes
    - InspectPhedexLog fix for start/end dates when running over multiple logs
