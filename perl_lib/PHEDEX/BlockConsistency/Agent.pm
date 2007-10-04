@@ -93,14 +93,89 @@ sub AUTOLOAD
   $self->$parent(@_);
 }
 
-sub doSizeCheck
+sub doDBSCheck
 {
   my ($self, $drop, $request) = @_;
   my ($n_files,$n_tested,$n_ok);
   my $dbh = undef;
   my @nodes = ();
 
-  print scalar localtime, ": doSizeCheck: starting\n";
+$DB::single=1;
+  print scalar localtime, ": doDBSCheck: starting\n";
+  my $dropdir = "$$self{WORKDIR}/$drop";
+
+  my $bcc = PHEDEX::BlockConsistency::Core->new ( DBH => $self->{DBH} );
+  $bcc->Checks($request->{TEST}) or
+    die "Test $request->{TEST} not known to ",ref($bcc),"!\n";
+
+  print scalar localtime, ": doDBSCheck: Request ",$request->{ID},"\n";
+  $n_files = $request->{N_FILES};
+  my $t = time;
+
+# fork the dls call and harvest the results
+  open DLS, "dls-list i DLS_TYPE_DBS $request->{BLOCK} |" or die "dls: $!\n";
+  while ( <DLS> )
+  {
+    print;
+  }
+  foreach my $r ( @{$request->{LFNs}} )
+  {
+  }
+
+  eval
+  {
+    ($dbh,@nodes) = &expandNodesAndConnect($self);
+    $n_tested = $n_ok = 0;
+    $n_files = $request->{N_FILES};
+    foreach my $r ( @{$request->{LFNs}} )
+    {
+      next unless $r->{STATUS};
+      $self->setFileState($request->{ID},$r);
+      $n_tested++;
+      $n_ok++ if $r->{STATUS} eq 'OK';
+    }
+    $self->setRequestFilecount($request->{ID},$n_tested,$n_ok);
+    if ( $n_files == 0 )
+    {
+      $self->setRequestState($request,'Indeterminate');
+    }
+    elsif ( $n_ok == $n_files )
+    {
+      $self->setRequestState($request,'OK');
+    }
+    elsif ( $n_tested == $n_files && $n_ok != $n_files )
+    {
+      $self->setRequestState($request,'Fail');
+      &touch ("$dropdir/done");
+      $self->relayDrop ($drop);
+    }
+    else
+    {
+      print "Hmm, what state should I set here? I have (n_files,n_ok,n_tested) = ($n_files,$n_ok,$n_tested) for request $request->{ID}\n";
+    }
+    $dbh->commit();
+  };
+
+  do
+  {
+    chomp ($@);
+    &alert ("database error: $@");
+    eval { $dbh->rollback() } if $dbh;
+    return 0;
+  } if $@;
+ 
+  my $status = ( $n_files == $n_ok ) ? 1 : 0;
+  return $status;
+}
+
+sub doNSCheck
+{
+  my ($self, $drop, $request) = @_;
+  my ($n_files,$n_tested,$n_ok);
+  my $dbh = undef;
+  my @nodes = ();
+
+  print scalar localtime, ": doNSCheck: starting\n";
   my $dropdir = "$$self{WORKDIR}/$drop";
 
   my $bcc = PHEDEX::BlockConsistency::Core->new ( DBH => $self->{DBH} );
@@ -125,7 +200,7 @@ sub doSizeCheck
     $ns->technology( $technology );
   }
 
-  print scalar localtime, ": doSizeCheck: Request ",$request->{ID},"\n";
+  print scalar localtime, ": doNSCheck: Request ",$request->{ID},"\n";
   $n_files = $request->{N_FILES};
   my $t = time;
   foreach my $r ( @{$request->{LFNs}} )
@@ -193,7 +268,7 @@ sub doSizeCheck
     eval { $dbh->rollback() } if $dbh;
     return 0;
   } if $@;
-    
+ 
   my $status = ( $n_files == $n_ok ) ? 1 : 0;
   return $status;
 }
@@ -276,24 +351,23 @@ sub processDrop
     return;
   }
 
-  if ( $request->{TEST} eq 'size' )
+  if ( $request->{TEST} eq 'size' ||
+       $request->{TEST} eq 'migration' )
   {
     $self->setRequestState($request,'Active');
     $self->{DBH}->commit();
-    my $result = $self->doSizeCheck ($drop, $request);
+    my $result = $self->doNSCheck ($drop, $request);
     return if ! $result;
   }
-  elsif ( $request->{TEST} eq 'migration' )
+  elsif ( $request->{TEST} eq 'dbs' )
   {
-    $self->setRequestState($request,'Active');
+#   Skip DBS tests for now...
+    $self->setRequestState($request,'Rejected');
     $self->{DBH}->commit();
-    my $result = $self->doSizeCheck ($drop, $request);
-    return if ! $result;
+#   my $result = $self->doDBSCheck ($drop, $request);
+#   return if ! $result;
   }
 # elsif ( $request->{TEST} eq 'cksum' )
-# {
-# }
-# elsif ( $request->{TEST} eq 'dbs' )
 # {
 # }
   else
