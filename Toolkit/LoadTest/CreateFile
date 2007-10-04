@@ -38,6 +38,9 @@ COPY=$3
 # Creating seed file of size 1MB
 dd if=/dev/urandom of=seed bs=1k count=1024 >/dev/null 2>&1
 
+# Just in case remove the output file first
+rm -f ${OTFBASE}{$FN};
+
 # Create the 2.5GB file
 for i in `seq 2560`; do cat seed >> ${OUTFBASE}${FN}; done
 rm -f seed;
