@@ -94,7 +94,8 @@ sub InjectTest
   {
     defined($h{$_}) or die "'$_' missing in " . __PACKAGE__ . "::InjectTest!\n";
   }
-  $r = $self->getQueued( block   => $h{block},
+  $r = getQueued ($self,
+			 block   => $h{block},
 			 test    => $h{test},
 			 node    => $h{node},
 			 n_files => $h{n_files}
@@ -113,7 +114,7 @@ sub InjectTest
 
   map { $p{':' . $_} = $h{$_} } keys %h;
   $p{':id'} = \$id;
-  $q = $self->execute_sql( $sql, %p );
+  $q = execute_sql( $self, $sql, %p );
   $id or return undef;
 
 # Insert an entry into the status table...
@@ -123,14 +124,14 @@ sub InjectTest
   foreach ( qw / :time_expire :priority :use_srm / ) { delete $p{$_}; }
   $p{':id'} = $id;
   $p{':time'} = time();
-  $q = $self->execute_sql( $sql, %p );
+  $q = execute_sql( $self, $sql, %p );
 
 # Now populate the t_dvs_file table.
   $sql = qq{ insert into t_dvs_file (id,request,fileid,time_queued)
         select seq_dvs_file.nextval, :request, id, :time from t_dps_file
         where inblock = :block};
   %p = ( ':request' => $id, ':block' => $h{block}, ':time' => time() );
-  $q = $self->execute_sql( $sql, %p );
+  $q = execute_sql( $self, $sql, %p );
 
   return $id;
 }
@@ -309,7 +310,7 @@ sub getQueued
     }
   }
 
-  $q = $self->execute_sql( $sql, %p );
+  $q = execute_sql( $self, $sql, %p );
   while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
   return \@r;
 }

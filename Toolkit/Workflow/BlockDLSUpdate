@@ -102,6 +102,7 @@ sub idle
 	           b.name block_name,
 	           b.id block_id,
 	           n.name node_name,
+	           n.id node_id,
 		   n.se_name se_name,
 	           'dls-add' command
 	    from t_dps_block_replica br
@@ -125,6 +126,7 @@ sub idle
 	           b.name block_name,
 	           b.id block_id,
 	           n.name node_name,
+	           n.id node_id,
 		   n.se_name se_name,
 	           'dls-delete' command
 	    from t_dps_block_delete bd
@@ -148,7 +150,7 @@ sub idle
         {
 	    # If we've updated already, skip this
 	    my $cachekey = "$$block{COMMAND} $$block{DBS_NAME} $$block{BLOCK_NAME} $$block{NODE_NAME}";
-	    next if $state{$cachekey} > 0;
+	    next if exists $state{$cachekey} && $state{$cachekey} > 0;
 	    $state{$cachekey} = -1;
 
 	    # Queue the block for consistency-checking. Ignore return values
@@ -156,13 +158,13 @@ sub idle
             {
               PHEDEX::BlockConsistency::Core::InjectTest
 			( $dbh,
-			  block       => $block->{BLOCK_NAME},
+			  block       => $block->{BLOCK_ID},
 			  test        => $test,
-			  node        => $block->{NODE_NAME},
+			  node        => $block->{NODE_ID},
 			  n_files     => 0,
 			  time_expire => 10 * 86400,
 			  priority    => 1,
-			  use_srm     => 0,
+			  use_srm     => 'n',
 			);
             }
 
