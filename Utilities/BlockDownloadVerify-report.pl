@@ -23,14 +23,15 @@ my ($dbh,$conn,$dbconfig,$r,$s);
 my ($nodes,@nodes,$help,$bcc);
 my ($id,$block,$n_files,$n_tested,$n_ok,$status,$test,$time_reported);
 my ($debug_me);
-my ($detail,%states,@states,$all_states);
+my ($detail,$summary,%states,@states,$all_states);
 
 $debug_me = 1;
 $detail = 0;
 $n_files  = 0;
-GetOptions(	"db=s"	 => \$dbconfig,
-		"node=s" => \@nodes,
-		"detail" => \$detail,
+GetOptions(	"db=s"	  => \$dbconfig,
+		"node=s"  => \@nodes,
+		"detail"  => \$detail,
+		"summary" => \$summary,
 
 		"help|h" => sub { &usage() }
           );
@@ -38,6 +39,7 @@ GetOptions(	"db=s"	 => \$dbconfig,
 #-------------------------------------------------------------------------------
 $dbconfig or die "'--db' argument is mandatory\n";
 @nodes    or push(@nodes,'%');
+$summary && $detail && die "Make your mind up please, summary _or_ detail!'n";
 
 $conn = { DBCONFIG => $dbconfig };
 $dbh = &connectToDatabase ( $conn, 0 );
@@ -61,7 +63,8 @@ printf("%24s %6s %15s %7s %7s %7s %10s %10s %s\n",
 	  'Test',
 	  'Status',
 	  'Block'
-      );
+      )
+  unless $summary;
 foreach $s ( @{$r} )
 {
   printf("%24s %6d %15s %7d %7d %7d %10s %10s %s\n",
@@ -74,7 +77,8 @@ foreach $s ( @{$r} )
 	  $s->{TEST},
 	  $s->{STATUS},
 	  $s->{BLOCK} || "#$s->{BLOCKID}",
-	);
+	)
+  unless $summary;
 
   if ( ! $states{$s->{STATUS}}++ ) { push @states, $s->{STATUS}; }
   if ( $detail && $s->{STATUS} eq 'Fail' )
