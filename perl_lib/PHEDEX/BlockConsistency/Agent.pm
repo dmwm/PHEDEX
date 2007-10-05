@@ -22,6 +22,8 @@ use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockConsistency::SQL';
 
 use File::Path;
+use File::Basename;
+use Cwd;
 use Data::Dumper;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Logging;
@@ -100,7 +102,6 @@ sub doDBSCheck
   my $dbh = undef;
   my @nodes = ();
 
-$DB::single=1;
   print scalar localtime, ": doDBSCheck: starting\n";
   my $dropdir = "$$self{WORKDIR}/$drop";
 
@@ -112,15 +113,21 @@ $DB::single=1;
   $n_files = $request->{N_FILES};
   my $t = time;
 
-# fork the dls call and harvest the results
-  open DLS, "dls-list i DLS_TYPE_DBS $request->{BLOCK} |" or die "dls: $!\n";
+# fork the dbs call and harvest the results
+  my $dbs = cwd() . '/' . dirname($0) . '/DBSgetLFNsFromBlock';
+  my $r = $self->getDBSFromBlockID($request->{BLOCK});
+  my $dbsurl = $r->[0] or die "Cannot get DBS url?\n";
+  my $blockname = $self->getBlockFromID($request->{BLOCK})->[0];
+  open DLS, "$dbs --url $dbsurl --block $blockname |" or die "$dbs: $!\n";
+  my %dbs;
   while ( <DLS> )
   {
-    print;
+    if ( m%^LFN=(\S+)$% )
+    {
+      $dbs{$1}++;
+    }
   }
-  foreach my $r ( @{$request->{LFNs}} )
-  {
-  }
+  close DLS or die "$dbs: $!\n";
 
   eval
   {
@@ -129,12 +136,18 @@ $DB::single=1;
     $n_files = $request->{N_FILES};
     foreach my $r ( @{$request->{LFNs}} )
     {
-      next unless $r->{STATUS};
+      if ( delete $dbs{$r->{LOGICAL_NAME}} ) { $r->{STATUS} = 'OK'; }
+      else                                   { $r->{STATUS} = 'Error'; }
       $self->setFileState($request->{ID},$r);
       $n_tested++;
       $n_ok++ if $r->{STATUS} eq 'OK';
     }
+    $n_files = $n_tested + scalar keys %dbs;
     $self->setRequestFilecount($request->{ID},$n_tested,$n_ok);
+    if ( scalar keys %dbs )
+    {
+      die "Hmm, how to handle this...? DBS has more than TMDB!\n";
+    }
     if ( $n_files == 0 )
     {
       $self->setRequestState($request,'Indeterminate');
@@ -362,10 +375,10 @@ sub processDrop
   elsif ( $request->{TEST} eq 'dbs' )
   {
 #   Skip DBS tests for now...
-    $self->setRequestState($request,'Rejected');
+    $self->setRequestState($request,'Active');
     $self->{DBH}->commit();
-#   my $result = $self->doDBSCheck ($drop, $request);
-#   return if ! $result;
+    my $result = $self->doDBSCheck ($drop, $request);
+    return if ! $result;
   }
 # elsif ( $request->{TEST} eq 'cksum' )
 # {
@@ -490,7 +503,7 @@ sub idle
     my ($ofilter, %ofilter_args) = &otherNodeFilter ($self, "b.node");
 
 #   Get a list of requests to process
-    foreach my $request ($self->requestQueue(20, \$mfilter, \%mfilter_args,
+    foreach my $request ($self->requestQueue(50, \$mfilter, \%mfilter_args,
 						 \$ofilter, \%ofilter_args))
     {
       if ( $self->startOne ($request) )

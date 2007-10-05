@@ -175,6 +175,10 @@ Return the LFNs of all files with names LIKE C<$lfn>
 
 Return the block names of all blocks with names LIKE C<$block>
 
+=head2 C<< $self->getBlockFromID($id) >>
+
+Return the name of the block with ID C<$id>
+
 =head2 C<< $self->getDatasetFromWildCard($dataset) >>
 
 Return the dataset names of all datasets with names LIKE C<$dataset>
@@ -191,6 +195,10 @@ Probably redundant with expandNodeList, need to check that...
 Return a ref to a hash of block NAME and number of FILES from
 t_dps_block_replica, keyed by block-ID, where the block name is LIKE C<$block>
 and the node is IN C<@nodes>. C<@nodes> is optional.
+
+=head2 C<< $self->getDBSFromBlockID($block) >>
+
+Return the DBS URL for the given block ID.
 
 =head1 EXAMPLES
 
@@ -401,6 +409,16 @@ sub getBlocksFromWildCard
 }
 
 #-------------------------------------------------------------------------------
+sub getBlockFromID
+{
+  my $self = shift;
+  my $sql = qq {select name from t_dps_block where id = :id};
+  my %p = ( ":id" => @_ );
+  my $r = select_single( $self, $sql, %p );
+  return $r;
+}
+
+#-------------------------------------------------------------------------------
 sub getDatasetFromWildCard
 {
   my $self = shift;
@@ -435,6 +453,20 @@ sub getBlockReplicasFromWildCard
 
   my %p = ( ':block_wild' => $block );
   my $r = select_hash( $self, $sql, 'BLOCK', %p );
+  return $r;
+}
+
+#-------------------------------------------------------------------------------
+sub getDBSFromBlockID
+{
+  my ($self,$block) = @_;
+  my $sql = qq { select unique dbs.name from t_dps_block b
+			join t_dps_dataset d on b.dataset = d.id
+			join t_dps_dbs dbs on d.dbs = dbs.id
+			where b.id = :block };
+
+  my %p = ( ':block' => $block );
+  my $r = select_single( $self, $sql, %p );
   return $r;
 }
 
