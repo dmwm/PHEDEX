@@ -20,7 +20,8 @@ that is still to be taken care of externally, however you see fit.
 
 =head1 DESCRIPTION
 
-You can use the procedural subroutine interface
+You can use the procedural subroutine interface, with a bare database 
+handle
 
   use PHEDEX::Core::SQL;
   my $dbh = # a valid database connection handle
@@ -55,76 +56,79 @@ or inherit it in your agent code
 
 =head1 Function list
 
-=head2 $self->select_single($query,%param)
+=head2 C<< $self->select_single($query,%param) >>
 
 returns a reference to an array of values representing the result of the 
-query, which should select a single column from the database (e.g, 'select 
-id from t_adm_node').
+query, which should select a single column from the database (e.g, C<'select 
+id from t_adm_node'>).
 
 =over
 
 =item *
 
-$self is (an object with a DBH member which is) a valid DBI database
-handle.
+C<$self> is an object with a DBH member which is a valid DBI database
+handle. To call the routine with a bare database handle, use the 
+procedural call method.
 
 =item *
 
-$query is any valid SQL query selecting a single column, from however many 
+C<$query> is any valid SQL query selecting a single column, from however many 
 tables with whatever clauses. If the query selects more than one column, 
 only the first column is returned.
 
 =item *
 
-%param is the bind parameters for that query.
+C<%param> is the bind parameters for that query.
 
 =back
 
-=head2 $self->select_hash($query,$key,%param)
+=head2 C<< $self->select_hash($query,$key,%param) >>
 
 as select_single, but returns an array of hash references instead, so more 
 complex data can be returned.
 
 =over
 
-$key must be the name of a column (uppercase!) returned by the query, which
+C<$key> must be the name of a column (uppercase!) returned by the query, which
 is used as the hash key for the returned data.
 
 =back
 
-=head2 $self->execute_sql($query,%param)
+=head2 C<< $self->execute_sql($query,%param) >>
 
-This will execute the sql statement $query with the bind parameters 
-%param, using PHEDEX::DB::dbexec. First, however, it checks the sql 
+This will execute the sql statement C<$query> with the bind parameters 
+C<%param>, using L<PHEDEX::DB::dbexec|PHEDEX::DB/dbexec>. First, however, it
+checks the sql 
 statement for any 'like' clauses, and if they are present it will 1) 
 correctly escape the bind parameters (replace '_' with '\\_') and add the 
 "escape '\\'" declaration to the sql statement. Without this, the 
 underscore is interpreted as a single-character wildcard by Oracle.
 
-=head2 $self->getTable($table,$key,@fields)
+=head2 C<< $self->getTable($table,$key,@fields) >>
 
 This utility routine will read an entire table or view, or just some specific
 columns from it, and store it as a hash of hashrefs in
-$self->{T_Cache}{$table}, keyed by $key.
+C<< $self->{T_Cache}{$table} >>, keyed by C<$key>.
 
 This is useful for caching tables such as t_dvs_status, which exists only to
 hold the names, descriptions, and IDs of the status fields used in the block
-consistency checking.
+consistency checking. Large tables, or tables that change rapidly, should
+not be retrieved by this method.
 
 =over
 
 =item *
 
-$table is the name of any table or view, e.g, 't_dvs_status'
+C<$table> is the name of any table or view, e.g. t_dvs_status.
 
 =item *
 
-$key is the name of a column to use as the key for the returned hash. Typically
+C<$key> is the name of a column to use as the key for the returned hash. Typically
 the tables' primary key, it defaults to 'ID'.
 
 =item *
 
-@fields is the list of fields to select from the table or view, defaulting to
+C<@fields> is the list of fields to select from the table or view, defaulting to
 all fields.
 
 =back
@@ -134,50 +138,59 @@ hashref, regardless if the field list or key differ from previous calls.
 
 The table is cached in the object calling this function. If called again 
 for the same table from another object, the query is executed against the 
-database again.
+database again. To force a refresh in a given object, simply delete
+C<< $self->{T_Cache}{$table} >> and call the function again.
 
-=head2 $self->expandNodeList(@nodes)
+=head2 C<< $self->expandNodeList(@nodes) >>
 
-@nodes is an array of node-name expressions, with '%' as the wildcard. 
+C<@nodes> is an array of node-name expressions, with '%' as the wildcard. 
 This function returns a hashref with an entry for each node whose name 
 matches any of the array entries, case-insensitive. Each returned entry 
 has subkeys for the node NAME and TECHNOLOGY.
 
-=head2 $self->getLFNsFromBlock
+=head2 C<< $self->getLFNsFromBlock($block) >>
 
-not documented yet...
+Return the LFNs of files in all blocks in t_dps_block where the block name
+is LIKE C<$block>
 
-=head2 $self->getBlocksFromLFN
+=head2 C<< $self->getBlocksFromLFN($lfn) >>
 
-not documented yet...
+Return the block IDs of all blocks containing files with names LIKE C<$lfn>
 
-=head2 $self->getDatasetsFromBlock
+=head2 C<< $self->getDatasetsFromBlock($block) >>
 
-not documented yet...
+Return the dataset names of all datasets containing blocks with names LIKE
+C<$block>
 
-=head2 $self->getBlocksFromDataset
+=head2 C<< $self->getBlocksFromDataset($dataset) >>
 
-not documented yet...
+Return the block names of all blocks contained in datasets with names LIKE
+C<$dataset>
 
-=head2 $self->getLFNsFromWildCard
+=head2 C<< $self->getLFNsFromWildCard($lfn) >>
 
-not documented yet...
+Return the LFNs of all files with names LIKE C<$lfn>
 
-=head2 $self->getBlocksFromWildCard
+=head2 C<< $self->getBlocksFromWildCard($block) >>
 
-not documented yet...
+Return the block names of all blocks with names LIKE C<$block>
 
-=head2 $self->getDatasetFromWildCard
+=head2 C<< $self->getDatasetFromWildCard($dataset) >>
 
-not documented yet...
+Return the dataset names of all datasets with names LIKE C<$dataset>
 
-=head2 $self->getBufferFromWildCard
+=head2 C<< $self->getBufferFromWildCard($buffer) >>
 
-not documented yet...
+Return a ref to a hash of NAME and TECHNOLOGY of all buffers with names
+LIKE C<$buffer>, keyed by ID
 
-=head2 $self->getBlockReplicasFromWildCard
+Probably redundant with expandNodeList, need to check that...
 
-not documented yet...
+=head2 C<< $self->getBlockReplicasFromWildCard($block,@nodes) >>
+
+Return a ref to a hash of block NAME and number of FILES from
+t_dps_block_replica, keyed by block-ID, where the block name is LIKE C<$block>
+and the node is IN C<@nodes>. C<@nodes> is optional.
 
 =head1 EXAMPLES
 
@@ -338,7 +351,7 @@ sub getBlocksFromLFN
 {
   my $self = shift;
   my $sql = qq {select name from t_dps_block where id in
-      (select inblock from t_dps_file where logical_name like :lfn )};
+      (select unique inblock from t_dps_file where logical_name like :lfn )};
   my %p = ( ":lfn" => @_ );
   my $r = select_single( $self, $sql, %p );
   return $r;
