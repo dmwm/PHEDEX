@@ -73,7 +73,7 @@ sub idle
 	$dbh = &connectToDatabase ($self);
 
 	# Reactivate blocks with incomplete destinations or which
-	# have been explicitly requested to be activated or deleted
+	# have been explicitly requested to be activated.
 	my $now = &mytimeofday ();
         my $stmt = &dbexec ($dbh, qq{
 	    select b.id, b.name, count(br.block), sum(decode(br.is_active,'y',1,0))
@@ -84,9 +84,9 @@ sub idle
 	    		  from t_dps_block_dest bd
 	    		  where bd.block = b.id
 			    and bd.state != 3)
-	       or exists (select bd.block
-       			  from t_dps_block_delete bd
-			  where bd.block = b.id and bd.time_complete is null)
+	       or exists (select br.block
+       			  from t_dps_block_delete br
+			  where br.block = b.id)
 	       or exists (select ba.block
        			  from t_dps_block_activate ba
 			  where ba.block = b.id
