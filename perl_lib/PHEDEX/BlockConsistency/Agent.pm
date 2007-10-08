@@ -14,7 +14,8 @@ pending...
 
 =head1 SEE ALSO...
 
-PHEDEX::Core::Agent (eventually...), PHEDEX::BlockConsistency::SQL.
+L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>, 
+L<PHEDEX::BlockConsistency::SQL|PHEDEX::BlockConsistency::SQL>.
 
 =cut
 use strict;

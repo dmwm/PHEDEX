@@ -1,4 +1,21 @@
 package PHEDEX::BlockConsistency::Injector::Agent;
+
+=head1 NAME
+
+PHEDEX::BlockConsistency::Injector::Agent - the Block Consistency Checking Injection agent.
+
+=head1 SYNOPSIS
+
+This implements the Injection agent for the Block Consistency Checking project.
+See L<https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjConsistency> for
+details.
+
+=head1 DESCRIPTION
+
+See the wiki, where the documentation is maintained.
+
+=cut
+
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Agent';

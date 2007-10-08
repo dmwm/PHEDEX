@@ -18,6 +18,10 @@ expects to find a valid DBI database handle in $self->{DBH}.
 This module does not provide any means of connecting to the database itself,
 that is still to be taken care of externally, however you see fit.
 
+This module is likely to undergo some considerable evolution. This
+documentation is as much an experiment into how to document with pod as it is
+a true manual for the module.
+
 =head1 DESCRIPTION
 
 You can use the procedural subroutine interface, with a bare database 
@@ -97,8 +101,8 @@ is used as the hash key for the returned data.
 =head2 C<< $self->execute_sql($query,%param) >>
 
 This will execute the sql statement C<$query> with the bind parameters 
-C<%param>, using L<PHEDEX::DB::dbexec|PHEDEX::DB/dbexec>. First, however, it
-checks the sql 
+C<%param>, using L<PHEDEX::Core::DB::dbexec|PHEDEX::Core::DB/dbexec>. First,
+however, it checks the sql 
 statement for any 'like' clauses, and if they are present it will 1) 
 correctly escape the bind parameters (replace '_' with '\\_') and add the 
 "escape '\\'" declaration to the sql statement. Without this, the 

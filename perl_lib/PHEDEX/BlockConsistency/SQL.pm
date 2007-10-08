@@ -17,7 +17,8 @@ pending...
 
 =head1 SEE ALSO...
 
-PHEDEX::Core::SQL, PHEDEX::BlockConsistency::Core.
+L<PHEDEX::Core::SQL|PHEDEX::Core::SQL>,
+L<PHEDEX::BlockConsistency::Core|PHEDEX::BlockConsistency::Core>.
 
 =cut
 

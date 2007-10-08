@@ -7,15 +7,87 @@ PHEDEX::Namespace - implement namespace (size, migration...) checks on SEs
 =head1 SYNOPSIS
 
 This wraps the 'stat' commands of different MSS/storage namespaces in a
-uniform interface. Adding a new technology should be easy!
+uniform interface. Adding a new technology should be easy, the intention 
+is that people who know the technologies can contribute the specific code 
+here and everyone can benefit from it.
 
 =head1 DESCRIPTION
 
-pending...
+PHEDEX::Namespace knows about the protocol and technology used at an SE 
+and allows you to run simple namespace checks (file-size, 
+migration-status) in a technology-independant manner. For example:
 
-=head1 EXAMPLES
+   # Create a Namespace object. Needs a DB filehandle and a TFC
+   $ns = PHEDEX::Namespace->new
+                (
+                        DBH             => $dbh,
+                        STORAGEMAP      => $path_to_TFC,
+                );
+  # Declare the technology to be RFIO
+  $ns->technology( 'Castor' );
 
-pending...
+  # Get the PFN from an LFN
+  $pfn = $ns->lfn2pfn( $lfn );
+
+  # Get the filesize of a given file
+  $size = $ns->statsize( $pfn );
+
+  # Get the tape-migration status of the file
+  $ns->statmode( $pfn );
+
+Known protocols are 'rfio', 'srm', and 'unix' (posix-style). Known 
+technologies are 'Castor', 'dCache', 'Disk', and 'DPM'. Specifying the 
+technology implicitly defines the protocol, the only sensible override to 
+this is to specify protocol 'srm'.
+
+The technology and protocol between them specify the PFN to/from LFN
+mappings to extract from the TFC. The protocol also specifies which 
+specific function is called to satisfy a given lookup. For example, 
+calling C<< $ns->statsize(...) >> when the protocol is rfio will result in 
+calling C<rfstat>, when the protocol is srm it will call C<srmstat>, etc. 
+The raw output of the protocol-specific command is cached, and the 
+relevant information extracted and returned to the calling function. 
+
+Clear? I thought not...
+
+=head1 Function list
+
+=head2 C<< $self->protocol( $protocol ) >>
+
+Set the protocol to one of the allowed values. Dies if an invalid protocol 
+is given. You would not normally call this except to switch to using srm, 
+for whatever insane reasons you might have.
+
+=head2 C<< $self->technology( $technology ) >>
+
+Set the technology to one of the allowed values. Dies if an invalid
+technology is given. Also sets the protocol to the appropriate value for 
+the given technology.
+
+=head2 C<< $self->lfn2pfn( $lfn ) >>
+
+Returns the pfn of the input lfn, given the technology and trivial file 
+catalogue in use. Uses pfnLookup from 
+L<PHEDEX::Core::Catalogue|PHEDEX::Core::Catalogue> to manage the 
+conversion.
+
+=head2 C<< $self->statmode( $pfn ) >>
+
+Returns the migration status of the given C< $pfn >. Currently only 
+implemented for Castor, pending some protocol-specific contributions for 
+other systems (feel free to volunteer!).
+
+The result is cached, so that repeated calls do not saturate the disk
+server. This may not be ideal, and may need revision in future. You can
+always cheat by deleting the contents of C< %PHEDEX::Namespace::stat > to 
+force all lookups to be repeated (or just C< 
+$PHEDEX::Namespace::stat{$pfn} >, to delete information about a single 
+file.
+
+=head2 C<< $self->statsize( $pfn ) >>
+
+Returns the size, in bytes, of the given C< $pfn >. Caches the result, so 
+that repeated calls do not saturate the disk server.
 
 =cut
 
