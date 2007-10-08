@@ -5,7 +5,6 @@
 ##H Usage: ftscp -copyjobfile=FILE [-report=FILE] -passfile=FILE
 ##H              [-server=SERVER-ACCESS-POINT] 
 ##H              [-mode=MODE] [-mapfile=SRM2FTS_SERVER_MAP]
-##H              [-m=MYPROXY_SERVER]
 ##H
 ##H Takes a list of source/destination file pairs and copies them
 ##H using FTS.  The files must be given through a "copyjob" file,
@@ -32,10 +31,6 @@
 ##H 
 ##H The "-mapfile" option specifies a map of SRM endpoint to FTS server,
 ##H used in place of service discovery.
-##H
-##H The "-m" option specifies a myproxy server to use for the transfer. 
-##H This is usually required if you are using an "out of region" FTS server.
-##H
 
 ##H Error codes:
 ##H 1 - unrecognised option
