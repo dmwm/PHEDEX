@@ -4728,10 +4728,12 @@ sub output
 	  foreach my $agent (@agents)
 	  {
 	      my $check_node;
-	      if ($node eq 'PhEDEx Central' && $agent ne 'FileIssue') {
-		  $check_node = 'T0_CERN_Export';
-	      } elsif ($node eq 'PhEDEx Central' && $agent eq 'FileIssue') {
-		  $check_node = 'T0_CERN_MSS';
+	      if ($node eq 'PhEDEx Central') {
+		  my @running_for;
+		  foreach my $n (sort keys %status) {
+		      push @running_for, $n if exists $status{$n}{$agent};
+		  }
+		  $check_node = shift @running_for;
 	      } else {
 		  $check_node = $node;
 	      }
