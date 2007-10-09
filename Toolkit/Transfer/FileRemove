@@ -125,7 +125,7 @@ sub deleteOneFile
 	if ($npending)
 	{
 	    &warn ("not removing $$file{LFN}, $npending pending transfers");
-	    return 1;
+	    return 0;
 	}
 	
 	# Now delete the replica entry to avoid new transfer edges.
@@ -196,7 +196,7 @@ sub processDrop
 
     # Try deleting this file.  If something fails, keep this drop as
     # is, we'll come back to it later.
-    return if ! $self->deleteOneFile ($drop, $file);
+    return unless $self->deleteOneFile ($drop, $file);
 
     # Mark drop done so it will be nuked
     &touch ("$dropdir/done");
