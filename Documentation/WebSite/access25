@@ -4837,10 +4837,11 @@ sub output
                          s.queue_outgoing q_out,
                          s.state state
  		    from t_agent_status s
-                    join (select host_name, agent, label, min(node) node
-			         from t_agent_status group by host_name, agent, label) s_sub
+                    join (select host_name, agent, label, process_id, min(node) node
+			         from t_agent_status group by host_name, agent, label, process_id) s_sub
                       on s_sub.host_name = s.host_name and s_sub.agent = s.agent 
                      and s_sub.label = s.label and s_sub.node = s.node
+		     and s_sub.process_id = s.process_id
 		    join t_adm_node n on s.node = n.id
                     join t_agent a on s.agent = a.id
                     left join t_agent_version v on v.agent = a.id and v.node = n.id and v.filename = a.name
