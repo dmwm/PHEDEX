@@ -4661,6 +4661,9 @@ sub output
 			     'FileExport'   => 60*90,
 			     'InfoFileSize' => 60*30,
 			     'BlockDLSUpdate' => 60*60,
+			     'LoadTestInjector' => 60*20,
+			     'LoadTestCleanup' => 60*60,
+			     'BlockDownloadVerifyInjector' => 60*60,
 			     'OTHER'        => 60*15 );
   
   
@@ -4679,19 +4682,31 @@ sub output
       $agents{$agent} = 1;
   }
 
-  my @standard = grep (/^File/, sort keys %agents);
-  my @admin = grep (/^(Block)/, sort keys %agents);
-  my @support = grep (/^(?!File|Block|InfoDrop)/, sort keys %agents);
+  my @infrastructure = grep exists $agents{$_}, qw(FileRouter FileIssue FilePump);
+  my @workflow = grep exists $agents{$_}, qw(BlockAllocator BlockMonitor BlockDelete
+					     BlockActivate BlockDeactivate BlockDLSUpdate);
+  my @support = grep exists $agents{$_}, qw(BlockDownloadVerifyInjector InfoFileSize InfoStatesClean
+					    InvariantMonitor PerfMonitor LoadTestInjector LoadTestCleanup);
+  my @site = grep exists $agents{$_}, qw(FileDownload FileExport FileStager FileRemove BlockDownloadVerify);
 
-  foreach my $item ([ "Common", @standard ], [ "Administrative", @admin ], [ "Support", @support ])
+  my @other;
+  foreach my $agent (keys %agents) {
+      push @other, $agent unless grep $agent eq $_, @infrastructure, @workflow, @support, @site;
+  }
+
+  foreach my $item ([ "Infrastructure", @infrastructure ],
+		    [ "Workflow", @workflow ], ["Support", @support],
+		    [ "Site", @site ], ["Other", @other])
   {
       my ($type, @agents) = @{$item};
 
+      next unless @agents;
+
       my @nodes;
-      if ($type eq 'Common') {
+      if ($type =~ /(Site|Other)/) {
 	  @nodes = sort keys %status;
       } else {
-	  push @nodes, 'T0_CERN_Export';
+	  push @nodes, 'PhEDEx Central';
       }
 
       print { $$self{CONTENT} }
@@ -4707,15 +4722,24 @@ sub output
 
       foreach my $node (@nodes)
       {
-	  next if ! grep (defined $status{$node}{$_}, @agents);
+	  next if $type =~ /(Site|Other)/ && ! grep (defined $status{$node}{$_}, @agents);
 
 	  print { $$self{CONTENT} } "<tr>\n", " <td>$node</td>\n";
 	  foreach my $agent (@agents)
 	  {
+	      my $check_node;
+	      if ($node eq 'PhEDEx Central' && $agent ne 'FileIssue') {
+		  $check_node = 'T0_CERN_Export';
+	      } elsif ($node eq 'PhEDEx Central' && $agent eq 'FileIssue') {
+		  $check_node = 'T0_CERN_MSS';
+	      } else {
+		  $check_node = $node;
+	      }
+
 	      my $offline = ( $offline_thresholds{$agent} || $offline_thresholds{OTHER} );
 	      my $active = $offline / 3;
 
-	      my @labels = keys %{$status{$node}{$agent}};
+	      my @labels = keys %{$status{$check_node}{$agent}};
 	      if (!@labels)
 	      {
 		  print { $$self{CONTENT} } " <td>&nbsp;</td>\n";
@@ -4728,7 +4752,7 @@ sub output
 	      my $recent_contact = 0;
 	      my $recent_agent = $labels[0];
 	      foreach my $label (@labels) {
-		  my $contact = $status{$node}{$agent}{$label};
+		  my $contact = $status{$check_node}{$agent}{$label};
 		  my $ago = &age($now - $contact);
 		  if ($contact > $recent_contact) {
 		      $recent_contact = $contact;
