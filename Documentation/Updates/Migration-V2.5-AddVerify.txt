@@ -1,7 +1,8 @@
 # This file describes the procedure for adding the Block Verification 
 # schema and tools to a PhEDEx 2.5.x installation. This is the procedure
 # used to deploy in the Dev instance. I assume you are in the root of the
-# PHEDEX installation, and that you are running on vocms20.
+# PHEDEX installation (i.e. in 'COMP' of 'COMP/PHEDEX'), and that you are
+# running on vocms20.
 
 # Setup environment
 export DBPARAM= whatever...
@@ -12,7 +13,7 @@ export SQLPLUS_CONNECT=$(PHEDEX/Utilities/OracleConnectId -db $DB_ADMIN)
 export TNS_ADMIN=/afs/cern.ch/project/oracle/admin
 
 # If your PERL5LIB hasn't already been set up, do it now:
-export PERL5LIB=`pwd`/perl_lib
+export PERL5LIB=`pwd`/PHEDEX/perl_lib
 
 # Update the schema with sqlplus
 #
