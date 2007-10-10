@@ -85,10 +85,10 @@ my $debug_me = 1;
 $not_on_tape_time = 12; # in hour(s)
 
 %check = (
-		'Size'		=> 1,
- 		'Migration'	=> 0,
-#		'Cksum'		=> 0,
-#		'DBS'		=> 0,
+		'size'		=> 1,
+ 		'migration'	=> 0,
+#		'cksum'		=> 0,
+#		'dbs'		=> 0,
 	 );
 
 $verbose = $debug = $terse = $autoBlock = 0;
@@ -157,7 +157,7 @@ foreach ( split m|[,\s*]|, "@check" )
 {
   my $v = 1;
   if ( s%^no%% ) { $v = 0; }
-  my $k = $_;
+  my $k = lc($_);
 
   if ( !defined($check{$k}) )
   {
@@ -306,8 +306,9 @@ printf "Got %8d LFNs\n",     scalar keys %{$h{LFNs}};
 foreach my $lfn ( keys %{$h{LFNs}} )
 {
   $debug and print "Getting TMDB stats for $lfn\n";
+$DB::single=1;
   my $tmp = $SQL->getTMDBFileStats($lfn);
-  map { $h{LFNs}{$lfn}{$_} = $tmp->{$_} } keys %{$tmp};
+  map { $h{LFNs}{$lfn}{lc($_)} = $tmp->{$_} } keys %{$tmp};
 }
 
 #-------------------------------------------------------------------------------
@@ -331,7 +332,7 @@ foreach $lfn ( keys %{$h{LFNs}} )
 my ($t,$step,$last,$etc);
 $step = 1;
 $last = $t = 0;
-if ( $check{Size} || $check{Migration} )
+if ( $check{size} || $check{migration} )
 {
 # Determine the castor size and migration status of the LFNs...
   my ($i,$j);
@@ -359,9 +360,9 @@ if ( $check{Size} || $check{Migration} )
     $h{SE}{$lfn} = {};
 
     my $sesize = $ns->statsize($h{LFN}{$lfn}{PFN});
-    if ( defined($h{SE}{$lfn}{Size} = $sesize) )
+    if ( defined($h{SE}{$lfn}{size} = $sesize) )
     {
-      $h{SE}{$lfn}{Migration} = $ns->statmode($h{LFN}{$lfn}{PFN});
+      $h{SE}{$lfn}{migration} = $ns->statmode($h{LFN}{$lfn}{PFN});
     }
   }
 }
@@ -395,7 +396,7 @@ if ( $readstats )
 
 #-------------------------------------------------------------------------------
 # Now to start doing the checks.
-if ( $check{Size} )
+if ( $check{size} )
 {
   foreach $lfn ( keys %{$h{SE}} )
   {
@@ -409,27 +410,27 @@ if ( $check{Size} )
 				 die "Cannot determine dataset for $block\n";
 
     my ($field);
-    if ( defined($h{SE}{$lfn}{Size}) )
+    if ( defined($h{SE}{$lfn}{size}) )
     {
-      if ( $h{LFNs}{$lfn}{Size} == $h{SE}{$lfn}{Size} ) { $field = 'OK'; }
+      if ( $h{LFNs}{$lfn}{size} == $h{SE}{$lfn}{size} ) { $field = 'OK'; }
       else { $field = 'SizeMismatch'; }
-      $h{Checks}{Size}{Dataset}{$dataset}{Size} += $h{LFNs}{$lfn}{Size};
-      $h{Checks}{Size}{Blocks} {$block}  {Size} += $h{LFNs}{$lfn}{Size};
+      $h{Checks}{size}{Dataset}{$dataset}{size} += $h{LFNs}{$lfn}{size};
+      $h{Checks}{size}{Blocks} {$block}  {size} += $h{LFNs}{$lfn}{size};
 #      $_ = dirname $lfn;
 #      $h{Checks}{Paths}{Dataset}{$dataset}{$_}++;
 #      $h{Checks}{Paths}{Blocks} {$block}  {$_}++;
     }
     else { $field = 'Missing'; }
-    $h{Checks}{Size}{Dataset}{$dataset}{$field}++;
-    $h{Checks}{Size}{Blocks} {$block}  {$field}++;
-    $h{Checks}{Size}{LFNs}   {Total}   {$field}++;
+    $h{Checks}{size}{Dataset}{$dataset}{$field}++;
+    $h{Checks}{size}{Blocks} {$block}  {$field}++;
+    $h{Checks}{size}{LFNs}   {Total}   {$field}++;
 
     if ( $field ne 'OK' ) { $h{Detail}{$dataset}{$block}{$lfn}{$field}++; }
     $h{LFNs}{$lfn}{$field}++;
   }
 }
 
-if ( $check{Migration} )
+if ( $check{migration} )
 {
   foreach $lfn ( keys %{$h{SE}} )
   {
@@ -443,14 +444,14 @@ if ( $check{Migration} )
 				 die "Cannot determine dataset for $block\n";
 
     my $field = 'Errors';
-    if ( defined($h{SE}{$lfn}{Migration}) )
+    if ( defined($h{SE}{$lfn}{migration}) )
     {
-      $field = $h{SE}{$lfn}{Migration} ? 'OK' : 'NotOnTape';
+      $field = $h{SE}{$lfn}{migration} ? 'OK' : 'NotOnTape';
     }
     else { $field = 'Missing'; }
-    $h{Checks}{Migration}{Dataset}{$dataset}{$field}++;
-    $h{Checks}{Migration}{Blocks} {$block}  {$field}++;
-    $h{Checks}{Migration}{LFNs}   {Total}   {$field}++;
+    $h{Checks}{migration}{Dataset}{$dataset}{$field}++;
+    $h{Checks}{migration}{Blocks} {$block}  {$field}++;
+    $h{Checks}{migration}{LFNs}   {Total}   {$field}++;
 
     if ( $field ne 'OK' ) { $h{Detail}{$dataset}{$block}{$lfn}{$field}++; }
   }
@@ -471,7 +472,7 @@ foreach $k ( qw / LFNs Blocks Dataset / )
       print $wide ? "check=$check $k=$l " : " $l\n";
       foreach $m ( sort keys %{$h{Checks}{$check}{$k}{$l}} )
       {
-        if ( $m eq 'Size' )
+        if ( $m eq 'size' )
         {
           next unless $verbose;
           my $n = $h{Checks}{$check}{$k}{$l}{$m};
