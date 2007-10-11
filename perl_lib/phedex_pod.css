@@ -1,0 +1,68 @@
+body
+{
+	background-color: #f0f0f0;
+}
+
+.block
+{
+	height: 100px;
+	padding-left: 100px;
+	background: #05f5a5 url(phedex-logo-small.gif) no-repeat 10px 10px;
+	border-left: 1px solid white;
+	border-top: 1px solid white;
+	border-right: 1px solid black;
+	border-bottom: 1px solid black;
+}
+
+h1
+{
+	background: #05f5a5;
+	padding-left: 10px;
+	border-left: 1px solid white;
+	border-top: 1px solid white;
+	border-right: 1px solid black;
+	border-bottom: 1px solid black;
+}
+
+h2
+{
+	background: #e5f5e5;
+	padding-left: 10px;
+	border-left: 1px solid white;
+	border-top: 1px solid white;
+	border-right: 1px solid black;
+	border-bottom: 1px solid black;
+}
+
+hr
+{
+	background: #05f5a5;
+	height: 5px;
+	border-left: 1px solid white;
+	border-top: 1px solid white;
+	border-right: 1px solid black;
+	border-bottom: 1px solid black;
+}
+
+td .block
+{
+	background: #e5f5e5;
+	padding: 20px 20px 20px 20px;
+}
+
+p
+{
+	font-size: 18px;
+}
+
+code
+{
+	font-size: 18px;
+	font-style: fixed;
+}
+
+pre
+{
+	font-size: 18px;
+	font-style: fixed;
+}
