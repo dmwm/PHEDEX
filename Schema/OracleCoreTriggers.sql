@@ -5,9 +5,9 @@ create or replace trigger tr_dps_file_block
   begin
     if (updating and :old.inblock = :new.inblock) then
         update t_dps_block
-           set bytes = bytes - :old.filesize + :new.filesize
+           set bytes = bytes - :old.filesize + :new.filesize,
                time_update = unixtime
-         where id = :new.inblock
+         where id = :new.inblock;
 	return;
     end if;
 
