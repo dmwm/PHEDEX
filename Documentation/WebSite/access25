@@ -1132,9 +1132,11 @@ sub init
 	$$self{BINDS}{':start_result'} = $start_result;
 	$$self{BINDS}{':end_result'} = $end_result;
     } else {
-	if ($$self{FILTERED_RESULTS}) {
+	if (@{$$self{FILTERED_RESULTS}}) {
 	    my $start_result = $self->page_to_result();
-	    my @page_results = splice @{$$self{FILTERED_RESULTS}}, $start_result, $$self{RESULTS_PER_PAGE};
+	    warn "ary size ", scalar @{$$self{FILTERED_RESULTS}}, " start_result ", $start_result, " rpp ",
+	    $$self{RESULTS_PER_PAGE}, "\n";
+	    my @page_results = splice @{$$self{FILTERED_RESULTS}}, $start_result - 1, $$self{RESULTS_PER_PAGE};
 	    my ($result_list, %result_binds) = &dbinlist('result_id', @page_results);
 	    $$self{BINDS}{$_} = $result_binds{$_} foreach keys %result_binds;
 	    $$self{PAGED_SQL} = qq[select r.*, rownum as result_number, r.rowid
@@ -8748,6 +8750,144 @@ sub get_sources
 
 
 1;
+
+
+######################################################################
+package Web25::Data::Verify;
+use strict; use warnings;
+use base "Web25::Page";
+import Web25::Common;
+use CGI qw(:standard);
+use List::Util qw(max);
+
+our $INDEX = { LIST => 1, ORDER => 5, TITLE => "Verification",
+	       LINK_TITLE => "Block Verification Test Results" };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+sub myurl
+{
+  my ($self, %args) = @_;
+  my @save = qw(node block test status);
+
+  # Return bare link if we are switching pages
+  return $self->SUPER::myurl(%args)
+      if ($args{"page"} && ($args{"page"} ne "Data::Verify"));
+
+  # Keep my if remaining on the same page (but e.g. different instance)
+  return $self->SUPER::myurl($self->urlparams(@save), %args);
+}
+
+
+sub output
+{
+  my ($self) = @_;
+
+  my $nodefilter = param('node') || '.*';
+  my $blockfilter = param('block') || '.*';
+  my $testchoice = param('test') || 'Any';
+  my $statuschoice = param('status') || 'Any';
+
+
+  my $q_tests = &dbexec($$self{DBH}, qq{ select name from t_dvs_test order by name });
+  my @tests;  
+  while (my $row = $q_tests->fetchrow()) {
+      push @tests, $row; 
+  }
+  unshift @tests, 'Any';
+  
+  my $q_status = &dbexec($$self{DBH}, qq{ select name from t_dvs_status order by name });
+  my @status;  
+  while (my $row = $q_status->fetchrow()) {
+      push @status, $row; 
+  }
+  unshift @status, 'Any';
+  
+
+  print {$$self{CONTENT}}
+  "<form method='get' action='#' class='nice'/>",
+  "<label class='inline'>Show</label>",
+  popup_menu(-name=>'test', values=>\@tests, -class=>'labeled'),
+  "<label class='inline'>tests on nodes </label>",
+  textfield(-name=>'node', -value=>$nodefilter, -size=>10, -class=>'labeled'),
+  "<label class='inline'>for block</label>",
+  textfield(-name=>'block', -value=>$blockfilter, -size=>20, -class=>'labeled'),
+  "<label class='inline'>with</label",
+  popup_menu(-name=>'status', values=>\@status, -class=>'labeled'),
+  "<label class='inline'>status</label",
+  submit(-name=>'Update', -class=>'labeled'), "<br/>",
+  "</form>";
+
+  my @where;
+  my %binds;
+  my %all_nodes = $self->fetch_nodes(with_ids=>1);
+  my @select_nodes = grep /$nodefilter/, keys %all_nodes;
+  if (scalar @select_nodes < scalar keys %all_nodes) {
+      my $list;
+      ($list, %binds) = &dbinlist('node', map { $all_nodes{$_} } @select_nodes);
+      push @where,"n.id in ($list)";
+  }
+
+  if ($testchoice ne 'Any') {
+      push @where, 't.name = :test';
+      $binds{':test'} = $testchoice;
+  }
+
+  if ($statuschoice ne 'Any') {
+      push @where, 's.name = :status';
+      $binds{':status'} = $statuschoice;
+  }
+
+  my $where = @where ?  "where ".join(' and ', @where) : '';
+
+  my $sql = qq{ select v.id, b.name block, block blockid, n_files, n_tested, n_ok,
+             s.name status, t.name test, time_reported, n.name node
+             from t_status_block_verify v join t_dvs_status s on v.status = s.id
+             left join t_dps_block b on v.block = b.id
+             join t_dvs_test t on v.test = t.id
+	     join t_adm_node n on n.id = v.node
+	     $where
+             order by time_reported desc };
+
+  my $pager = new Web25::QueryPager;
+  $pager->init($self, $sql, {%binds}, 1000, undef, {BLOCK => $blockfilter});
+  my $n_rows = $pager->get_total_results();
+  
+  if (! $n_rows) {
+      print { $$self{CONTENT} } "<p>No results to show.</p>";
+      return;
+  }
+
+  print {$$self{CONTENT}} $pager->pager();
+  my $q = $pager->paged_result();
+
+  my $dbtable = new Web25::DBTable;
+  $dbtable->set_filehandle($$self{CONTENT});
+  $dbtable->set_tablecols([qw(TIME_REPORTED NODE BLOCK TEST STATUS N_FILES N_TESTED N_OK)]);
+  $dbtable->set_tablehead({ TIME_REPORTED => 'Time Reported',
+			    NODE => 'Node',
+			    BLOCK => 'Block',
+			    TEST => 'Test',
+			    STATUS => 'Status',
+			    N_FILES => '# Files',
+			    N_TESTED => '# Tested',
+			    N_OK => '# OK' });
+  $dbtable->set_tableclass('data');
+  $dbtable->set_stripeclass('stripe');
+  $dbtable->set_dataformats({ TIME_REPORTED => sub { &formatTime($_[0], 'stamp') } });
+  $dbtable->set_rowformats({ STATUS => sub { return $_[0] eq 'Fail' ? 'alarm' : '' } });
+#  $dbtable->set_formats($cf);
+  $dbtable->output($q);
+  print {$$self{CONTENT}} $pager->pager();
+  
+}
 
 
 
