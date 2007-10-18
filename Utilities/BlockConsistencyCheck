@@ -266,7 +266,7 @@ foreach my $lfn ( @lfn )
 foreach my $lfn ( keys %{$h{LFNs}} )
 {
   next if exists($h{LFNs}{$lfn}{Block});
-  my $tmp = $SQL->getBlocksFromLFN($lfn);
+  my $tmp = $SQL->getBlocksFromLFNs($lfn);
   map { $h{LFNs}{$lfn}{Block} = $_   } @$tmp;
   map { $h{Blocks}{$_}{LFNs}{$lfn}++ } @$tmp;
 }
@@ -281,7 +281,7 @@ foreach my $block ( keys %{$h{Blocks}} )
   if ( !defined($h{Blocks}{$block}{Dataset}) )
   {
 #   Set up Block<->Dataset mapping
-    my $tmp = $SQL->getDatasetsFromBlock($block);
+    my $tmp = $SQL->getDatasetsFromBlocks($block);
     map { $h{Datasets}{$_}{Blocks}{$block}++ } @$tmp;
     map { $h{Blocks}{$block}{Dataset} = $_   } @$tmp;
   }
@@ -289,7 +289,7 @@ foreach my $block ( keys %{$h{Blocks}} )
   if ( $autoBlock || !defined($h{Blocks}{$block}{LFNs}) )
   {
 #   Set up Block<->LFN mapping
-    my $tmp = $SQL->getLFNsFromBlock($block);
+    my $tmp = $SQL->getLFNsFromBlocks($block);
     map { $h{LFNs}{$_}{Block} = $block   } @$tmp;
     map { $h{Blocks}{$block}{LFNs}{$_}++ } @$tmp;
   }
@@ -306,7 +306,6 @@ printf "Got %8d LFNs\n",     scalar keys %{$h{LFNs}};
 foreach my $lfn ( keys %{$h{LFNs}} )
 {
   $debug and print "Getting TMDB stats for $lfn\n";
-$DB::single=1;
   my $tmp = $SQL->getTMDBFileStats($lfn);
   map { $h{LFNs}{$lfn}{lc($_)} = $tmp->{$_} } keys %{$tmp};
 }

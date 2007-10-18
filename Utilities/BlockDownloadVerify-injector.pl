@@ -88,8 +88,7 @@ $dbh = &connectToDatabase ( $conn, 0 );
 
 #-------------------------------------------------------------------------------
 $bcc = PHEDEX::BlockConsistency::Core->new( DBH => $dbh );
-$nodes = $bcc->expandNodeList(@nodes);
-#$blocks  = expandBlockList(@blocks);
+$nodes = $bcc->getBufferFromWildCard(@nodes);
 my @n = keys %{$nodes};
 $blocks  = $bcc->expandBlockListOnNodes( blocks => \@blocks,
 					 nodes  => \@n );

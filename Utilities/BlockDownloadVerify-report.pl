@@ -46,7 +46,7 @@ $dbh = &connectToDatabase ( $conn, 0 );
 
 #-------------------------------------------------------------------------------
 $bcc   = PHEDEX::BlockConsistency::Core->new( DBH => $dbh );
-$nodes = $bcc->expandNodeList(@nodes);
+$nodes = $bcc->getBufferFromWildCard(@nodes);
 
 $all_states = 'All-states';
 $states{$all_states} = $bcc->getTestsPendingCount(keys %{$nodes});
