@@ -153,6 +153,13 @@ sub idle
 	    next if exists $state{$cachekey} && $state{$cachekey} > 0;
 	    $state{$cachekey} = -1;
 
+	    # If it is a deletion command, remove addition command from cache
+	    if ( $$block{COMMAND} eq 'dls-delete') {
+		my $addkey = $cachekey;
+		$addkey =~ s/dls-delete/dls-add/;
+		delete $state{$addkey} if exists $state{$addkey};
+	    }
+
 	    # Queue the block for consistency-checking. Ignore return values
             if ( $block->{COMMAND} eq 'dls-add' )
             {
