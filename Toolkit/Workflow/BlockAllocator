@@ -48,6 +48,9 @@ use UtilsLogging;
 use UtilsTiming;
 use UtilsDB;
 
+our $test_t = [];
+our $orig_t = [];
+
 sub new
 {
     my $proto = shift;
@@ -68,31 +71,57 @@ sub idle
 {
     my ($self, @pending) = @_;
     my $dbh = undef;
-    my $now = &mytimeofday();
 
     eval
     {
 	$dbh = &connectToDatabase ($self);
+	my $now = &mytimeofday();
 
+	$test_t = [];
+	$orig_t = [];
+	&timeStart($orig_t); # XXX
+	$self->subscriptions();
+	&logmsg("subscriptions():  ".&formatElapsedTime($orig_t)); # XXX
+	$self->allocate();
+	&logmsg("allocate():  ".&formatElapsedTime($orig_t)); # XXX
+	$self->block_destinations();
+	&logmsg("block_destinations():  ".&formatElapsedTime($orig_t)); # XXX
+	$dbh->commit();
+	&logmsg("total work cycle:  ".&formatElapsedTime($orig_t)); # XXX
+    };
+    do { chomp ($@); &alert ("database error: $@");
+	 eval { $dbh->rollback() } if $dbh; } if $@;
+    
+    # Disconnect from the database
+    &disconnectFromDatabase ($self, $dbh);
 
-	# Phase I:  Subscription-level state changes
-	#   1.  Remove block subscriptions where there is a dataset subscription
-	#   2.  Mark fully transferred subscriptions as complete/done
-	#     2a.  Trigger delete of other subscriptions where a move subscription is complete
-	#     2b.  Mark move subscriptions done when all the deletes are finished
-	#     2c.  Change finished move subscriptions into a replica subscription
-	#   3.  Mark complete/done subscriptions as incomplete if they are not complete anymore
+    # Have a nap.
+    $self->doStop() if $$self{ONCE};
+    $self->nap ($$self{WAITTIME});
+}
 
-	my $test_t = []; # XXX
-	&timeStart($test_t); # XXX
-	my $orig_t = [@$test_t]; # XXX
-	my $q_subs = &dbexec($$self{DBH}, qq{
+# Phase I:  Subscription-level state changes
+#   1.  Remove block subscriptions where there is a dataset subscription
+#   2.  Mark fully transferred subscriptions as complete/done
+#     2a.  Mark move subscriptions done when all the deletes are finished
+#     2b.  Change finished move subscriptions into a replica subscription
+#   3.  Mark complete/done subscriptions as incomplete if they are not complete anymore
+sub subscriptions
+{
+    no warnings qw(uninitialized);  # lots of undef variables expected here from empty timestamps
+
+    my ($self) = @_;
+    my $now = &mytimeofday();
+
+    &timeStart($test_t); # XXX
+    my $q_subs = &dbexec($$self{DBH}, qq{
 	    select NVL2(s.block, 'BLOCK', 'DATASET') subs_item_level,
 	      NVL2(s.block, s.block, s.dataset) subs_item_id,
 	      NVL2(s.block, b.name, ds.name) subs_item_name,
 	      NVL2(s.block, b.is_open, ds.is_open) subs_item_open,
 	      ds.id dataset_id, ds.name dataset_name,
 	      n.id destination_id, n.name destination_name,
+	      s.destination subs_destination, s.dataset subs_dataset, s.block subs_block,
 	      s.priority, s.is_move, s.is_transient,
 	      s.time_suspend_until, s.time_create,
 	      s.time_complete, s.time_done,
@@ -114,105 +143,155 @@ sub idle
 	    ) reps
 	    on reps.destination = s.destination
 	   and (reps.dataset = s.dataset or reps.block = s.block)
-      });
-	&logmsg("time phase 1 query:  ".&formatElapsedTime($test_t)); # XXX
+       });
+    &logmsg("time phase 1 query:  ".&formatElapsedTime($test_t)); # XXX
 
-	# Fetch all subscription data
-	my @all_subscriptions;
-	while (my $subscription = $q_subs->fetchrow_hashref()) {
-	    push @all_subscriptions, $subscription;
-	}
+    # Fetch all subscription data
+    my @all_subscriptions;
+    while (my $subscription = $q_subs->fetchrow_hashref()) {
+	push @all_subscriptions, $subscription;
+    }
 
-	SUBSCRIPTION: foreach my $subs (@all_subscriptions) {
-	    my $subs_identifier = "$$subs{SUBS_ITEM_NAME} to destination $$subs{DESTINATION_NAME}";
-	    
-	    # Remove all block subscriptions for a site for which we have
-	    # dataset subscriptions containing those blocks already.
-	    if ($$subs{SUBS_ITEM_LEVEL} eq 'BLOCK' && 
-		grep ($$_{SUBS_ITEM_LEVEL} eq 'DATASET' &&
-		      $$_{DESTINATION_ID} == $$subs{DESTINATION_ID} &&
-		      $$_{DATASET_ID} == $$subs{DATASET_ID}, @all_subscriptions)) {
-		&logmsg("removing subscription for $subs_identifier:  ",
-			"superceded by dataset subscription");
-		next SUBSCRIPTION;
-	    }
+    my %uargs;
 
-	    my $update = 0;
-	    my $subs_update = { 
-		TIME_COMPLETE => $$subs{TIME_COMPLETE},
-		TIME_DONE => $$subs{TIME_DONE}
-	    };
+  SUBSCRIPTION: foreach my $subs (@all_subscriptions) {
+      my $subs_identifier = "$$subs{SUBS_ITEM_NAME} to $$subs{DESTINATION_NAME}";
 
-	    # Update newly complete subscriptions
-	    if (!$$subs{TIME_COMPLETE} &&
-		$$subs{NODE_FILES} == $$subs{EXIST_FILES} &&
-		$$subs{NODE_BYTES} == $$subs{EXIST_BYTES}) {
-		$$subs_update{TIME_COMPLETE} = $now;
-		&logmsg("subscription complete for $subs_identifier");
-	    }
+      # Remove all block subscriptions for a site for which we have
+      # dataset subscriptions containing those blocks already.
+      if ($$subs{SUBS_ITEM_LEVEL} eq 'BLOCK' && 
+	  grep ($$_{SUBS_ITEM_LEVEL} eq 'DATASET' &&
+		$$_{DESTINATION_ID} == $$subs{DESTINATION_ID} &&
+		$$_{DATASET_ID} == $$subs{DATASET_ID}, @all_subscriptions)) {
+	  &logmsg("removing subscription for $subs_identifier:  ",
+		  "superceded by dataset subscription");
+	  $self->delete_subscription($subs);
+	  next SUBSCRIPTION;
+      }
+      
+      my $subs_update = { 
+	  IS_MOVE => $$subs{IS_MOVE},
+	  TIME_COMPLETE => $$subs{TIME_COMPLETE},
+	  TIME_DONE => $$subs{TIME_DONE}
+      };
 
-	    # Update newly done moves
-	    if ( !$$subs{TIME_DONE} && $$subs{IS_MOVE} eq 'y'  && $$subs{SUBS_ITEM_OPEN} eq 'n' 
-		 && ($$subs_update{COMPLETE} eq 'y' || $$subs{TIME_COMPLETE}) ) {
+      # Update newly complete subscriptions
+      if (!$$subs{TIME_COMPLETE} &&
+	  $$subs{NODE_FILES} >= $$subs{EXIST_FILES} &&
+	  $$subs{NODE_BYTES} >= $$subs{EXIST_BYTES}) {
+	  $$subs_update{TIME_COMPLETE} = $now;
+	  &logmsg("subscription complete for $subs_identifier");
+      }
+
+      # Update newly done moves
+      if ( !$$subs{TIME_DONE} && $$subs{IS_MOVE} eq 'y'  && $$subs{SUBS_ITEM_OPEN} eq 'n' 
+	   && ($$subs_update{COMPLETE} eq 'y' || $$subs{TIME_COMPLETE}) ) {
 		
-		# Get other subscriptions to this data which are not moves
-		my @other_subs = grep ($$_{IS_MOVE} eq 'n' &&
-				       $$_{SUBS_ITEM_LEVEL} eq 'DATASET' &&
-				       $$_{DATASET_ID} == $$subs{DATASET_ID} &&
-				       $$_{TIME_CLEAR}, @all_subscriptions);
-		my $n_to_delete = 0;
-		foreach my $other (@other_subs) {
-		    $n_to_delete++;
-		    if ($$other{TIME_CLEAR} < $now
-			 && $$other{NODE_FILES} != 0 && $$other{NODE_BYTES} != 0) {
-			# Queue for deletion
-			&logmsg("deletion queued for $$other{SUBS_ITEM_NAME} for $$other{DESTINATION_NAME} ",
-				"due to a move");
-		    }
-		}
-		
-		if ($n_to_delete == 0) {
-		    $$subs_update{TIME_DONE} = $now;
-		    &logmsg("move subscription is done for $subs_identifier, changed to replica subscription");
+	  # Get other subscriptions to this data which are not moves
+	  my @other_subs = grep ($$_{IS_MOVE} eq 'n' &&
+				 $$_{SUBS_ITEM_LEVEL} eq 'DATASET' &&
+				 $$_{DATASET_ID} == $$subs{DATASET_ID} &&
+				 $$_{TIME_CLEAR}, @all_subscriptions);
 
-		    foreach my $other (@other_subs) {
-			&logmsg("removing subscription for $$other{SUBS_ITEM_NAME} for $$other{DESTINATION_NAME} ",
-				"due to a move");
-		    }
-		}
-	    }
+	  my $n_to_delete = 0;
+	  foreach my $other (@other_subs) {
+	      if ($$other{TIME_CLEAR} < $now
+		  && $$other{NODE_FILES} != 0 && $$other{NODE_BYTES} != 0) {
+		  $n_to_delete++;
+		  &logmsg("waiting for $$other{SUBS_ITEM_NAME} at $$other{DESTINATION_NAME} ",
+			  "to be deleted before marking done");
+	      } elsif ($$other{TIME_CLEAR} > $now) {
+		  $n_to_delete++;
+		  &logmsg("waiting for $$other{DESTINATION_NAME} to confirm move of $$other{SUBS_ITEM_NAME}",
+			  "before marking done");
+	      }
+	  }
+	  
+	  if ($n_to_delete == 0) {
+	      $$subs_update{TIME_DONE} = $now;
+	      $$subs_update{IS_MOVE} = 'n';
+	      &logmsg("move subscription is done for $subs_identifier, changed to replica subscription");
+	      foreach my $other (@other_subs) {
+		  &logmsg("removing subscription for $$other{SUBS_ITEM_NAME} for $$other{DESTINATION_NAME} ",
+			  "due to a move");
+		  $self->delete_subscription($other);
+	      }
+	  }
+      }
 
-	    # Update newly done replications
-	    if ( !$$subs{TIME_DONE} && $$subs{IS_MOVE} eq 'n' && $$subs{SUBS_ITEM_OPEN} eq 'n' ) {
-		$$subs_update{TIME_DONE} = $now;
-		&logmsg("replication subscription is done for $subs_identifier");
-	    }
+      # Update newly done replications
+      if ( !$$subs{TIME_DONE} && $$subs{IS_MOVE} eq 'n' && $$subs{SUBS_ITEM_OPEN} eq 'n' &&
+	   $$subs{NODE_FILES} >= $$subs{EXIST_FILES} &&
+           $$subs{NODE_BYTES} >= $$subs{EXIST_BYTES}) {
+	  $$subs_update{TIME_DONE} = $now;
+	  &logmsg("replication subscription is done for $subs_identifier");
+      }
+      
+      # Update newly uncomplete/undone replications
+      if ( ($$subs{TIME_DONE} || $$subs{TIME_COMPLETE}) &&
+	   $$subs{NODE_FILES} < $$subs{EXIST_FILES} &&
+	   $$subs{NODE_BYTES} < $$subs{EXIST_BYTES} ) {
+	  $$subs_update{TIME_COMPLETE} = undef;
+	  $$subs_update{TIME_DONE} = undef;
+	  &logmsg("subscription is no longer done, updating for $subs_identifier");
+      }
 
-	    # Update newly uncomplete/undone replications
-	    if ( ($$subs{TIME_DONE} || $$subs{TIME_COMPLETE}) &&
-		 $$subs{NODE_FILES} != $$subs{EXIST_FILES} &&
-		 $$subs{NODE_BYTES} != $$subs{EXIST_BYTES} ) {
-		$$subs_update{TIME_COMPLETE} = undef;
-		$$subs_update{TIME_DONE} = undef;
-		&logmsg("subscription is no longer done, updating for $subs_identifier");
-	    }
+      # Add to bulk update arrays if there are changes
+      if (&hash_ne($subs_update, $subs)) {
+	  my $n = 1;
+	  push(@{$uargs{$n++}}, $$subs_update{TIME_COMPLETE});
+	  push(@{$uargs{$n++}}, $$subs_update{TIME_DONE});
+	  push(@{$uargs{$n++}}, $$subs{SUBS_DESTINATION});
+	  push(@{$uargs{$n++}}, $$subs{SUBS_DATASET});
+	  push(@{$uargs{$n++}}, $$subs{SUBS_BLOCK});
+      }
+  }
+
+    # Bulk update
+    &dbexec($$self{DBH}, qq{
+	update t_dps_subscription
+	   set time_complete = ?,
+	       time_done = ?
+         where destination = ?
+	   and nvl(dataset, -1) = nvl(?, -1)
+           and nvl(block, -1) = nvl(?, -1)
+       }, %uargs) if %uargs;
+}
+
+# Deletes one subscription
+sub delete_subscription
+{
+    my ($self, $subs) = @_;
+    &dbexec($$self{DBH}, qq{
+	delete from t_dps_subscription
+         where destination = :destination
+           and nvl(dataset, -1) = nvl(:dataset, -1)
+           and nvl(block, -1) = nvl(:block, -1) },
+	    ':destination' => $$subs{SUBS_DESTINATION},
+	    ':dataset' => $$subs{SUBS_DATASET},
+	    ':block' => $$subs{SUBS_BLOCK});
+}
 
 
-	    if (&hash_ne($subs_update, $subs)) {
-		# XXX do update
-	    }
-	}
-	
-	# Phase II:  Block Destination creation/deletion
-	#   1.  Create block destinations that are subscribed
-	#   2.  Remove block destinations that are:
-	#         a.  not subscribed
-	#         b.  going to be cleared because of a move
-	#         c.  queued for deletion
-	&timeStart($test_t); # XXX
-	my $q_subsNoBlock = &dbexec($dbh, qq{
+# Phase II:  Block Destination creation/deletion
+#   1.  Create block destinations that are subscribed
+#   2.  Remove block destinations that are:
+#         a.  not subscribed
+#         b.  going to be cleared because of a move
+#         c.  queued for deletion
+sub allocate
+{
+    my ($self) = @_;
+    my $now = &mytimeofday();
+
+    my @add;
+    my @rem;
+
+    &timeStart($test_t); # XXX
+    my $q_subsNoBlock = &dbexec($$self{DBH}, qq{
 	    select s.destination destination, n.name destination_name,
-                   sb.id block, sb.name block_name
+                   sb.id block, sb.name block_name,
+	           sb.dataset, s.priority, 0 state, s.time_create time_subscription
               from t_dps_subscription s
 	      join t_dps_block sb on sb.id = s.block or sb.dataset = s.dataset
 	      join t_adm_node n on n.id = s.destination
@@ -220,13 +299,17 @@ sub idle
 				 where bd.destination = s.destination
 				   and bd.block = sb.id)
 	  });
-	&logmsg("time phase 2 query 1:  ".&formatElapsedTime($test_t)); # XXX
-	while (my $block = $q_subsNoBlock->fetchrow_hashref()) {
-	    &logmsg("adding block destination for $$block{BLOCK_NAME} to $$block{DESTINATION_NAME}");
-	}
+    &logmsg("time phase 2 query 1:  ".&formatElapsedTime($test_t)); # XXX
+    while (my $block = $q_subsNoBlock->fetchrow_hashref()) {
+	&logmsg("adding block destination for $$block{BLOCK_NAME} to $$block{DESTINATION_NAME}");
+	$$block{TIME_CREATE} = $now;
+	push @add, $block;
+    }
 
-	&timeStart($test_t); # XXX
-	my $q_blockNoSubs = &dbexec($dbh, qq{
+    $self->allocateBlockDestinations(\@add);
+
+    &timeStart($test_t); # XXX
+    my $q_blockNoSubs = &dbexec($$self{DBH}, qq{
 	    select bd.destination destination, n.name destination_name,
                    b.id block, b.name block_name,
 		   case when subs.destination is null then 'no subscription'
@@ -246,24 +329,74 @@ sub idle
                 or (subs.time_clear is not null and subs.time_clear <= :now)
 		or (bdel.block is not null and bdel.time_complete is null)
 	    }, ':now' => $now);
-	&logmsg("time phase 2 query 2:  ".&formatElapsedTime($test_t)); # XXX
+    &logmsg("time phase 2 query 2:  ".&formatElapsedTime($test_t)); # XXX
 
-	while (my $block = $q_blockNoSubs->fetchrow_hashref()) {
-	    &logmsg("removing block destination for $$block{BLOCK_NAME} to $$block{DESTINATION_NAME}: ",
-		    "$$block{REASON}");
-	}
+    while (my $block = $q_blockNoSubs->fetchrow_hashref()) {
+	&logmsg("removing block destination for $$block{BLOCK_NAME} to $$block{DESTINATION_NAME}: ",
+		"$$block{REASON}");
+	push @rem, $block;
+    }
 
-	# Phase III:  Block destination state changes
-	#   1.  Propogate subscription state to block destinations
-	#   2.  Mark completed block destinations done
-	#   3.  Mark undone block destinations if incomplete
+    $self->deallocateBlockDestinations(\@rem);
 
-	# Query all subscriptions and block destinations, along with
-	# replica and block delete information.  Aquire lock on block
-	# destinations to ensure transactional consistency for the
-	# updates to come.
-	&timeStart($test_t); # XXX
-	my $q_blockdest = &dbexec($dbh, qq{
+}
+
+# Bulk insert of new block destinations
+sub allocateBlockDestinations
+{
+    my ($self, $blocks) = @_;
+    my $i = &dbprep($$self{DBH}, qq{
+	insert into t_dps_block_dest
+	(block, dataset, destination, priority, state, time_subscription, time_create)
+        values (?, ?, ?, ?, ?, ?, ?) });
+
+    my %iargs;
+    foreach my $b (@$blocks) {
+	my $n = 1;
+	foreach my $key (qw(BLOCK DATASET DESTINATION PRIORITY STATE TIME_SUBSCRIPTION TIME_CREATE)) {
+	    push(@{$iargs{$n++}}, $$b{$key});
+	}	
+    }
+
+    &dbbindexec($i, %iargs) if %iargs;
+}
+
+# Bulk delete of block destinations
+sub deallocateBlockDestinations
+{
+    my ($self, $blocks) = @_;
+    my $d = &dbprep($$self{DBH}, qq{
+	delete from t_dps_block_dest
+         where block = ?
+	 and destination = ? });
+
+    my %dargs;
+    foreach my $b (@$blocks) {
+	my $n = 1;
+	foreach my $key (qw(BLOCK DESTINATION)) {
+	    push(@{$dargs{$n++}}, $$b{$key});
+	}	
+    }
+
+    &dbbindexec($d, %dargs) if %dargs;    
+}
+
+
+# Phase III:  Block destination state changes
+#   1.  Propogate subscription state to block destinations
+#   2.  Mark completed block destinations done
+#   3.  Mark undone block destinations if incomplete
+sub block_destinations
+{
+    my ($self) = @_;
+    my $now = &mytimeofday();
+
+    # Query all subscriptions and block destinations, along with
+    # replica and block delete information.  Aquire lock on block
+    # destinations to ensure transactional consistency for the
+    # updates to come.
+    &timeStart($test_t); # XXX
+    my $q_blockdest = &dbexec($$self{DBH}, qq{
 	    select
               bd.destination, n.name destination_name,
               b.dataset dataset, b.id block, b.name block_name,
@@ -278,90 +411,98 @@ sub idle
 	      from t_dps_block_dest bd
 	      join t_adm_node n on n.id = bd.destination
 	      join t_dps_block b on b.id = bd.block
-	      join t_dps_subscription s on s.dataset = bd.dataset or s.block = bd.block
+	      join t_dps_subscription s on s.destination = bd.destination
+	                               and (s.dataset = bd.dataset or s.block = bd.block)
 	      left join t_dps_block_replica br on br.node = bd.destination and br.block = bd.block
 	  });
-	&logmsg("time phase 3 query:  ".&formatElapsedTime($test_t)); # XXX
+    &logmsg("time phase 3 query:  ".&formatElapsedTime($test_t)); # XXX
 
-	# Cache all data
-	my @all_blocks;
-	while (my $block = $q_blockdest->fetchrow_hashref()) {
-	    push @all_blocks, $block;
+    # Cache all data
+    my @all_blocks;
+    while (my $block = $q_blockdest->fetchrow_hashref()) {
+	push @all_blocks, $block;
+    }
+
+    my %uargs;
+
+  BLOCK: foreach my $block (@all_blocks) {
+      my $bd_identifier = "$$block{BLOCK_NAME} at $$block{DESTINATION_NAME}";
+      
+      # Update parameters for block destination
+      my $bd_update = { 
+	  BD_STATE => $$block{BD_STATE},
+	  BD_PRIORITY => $$block{BD_PRIORITY},
+	  BD_SUSPEND => $$block{BD_SUSPEND},
+	  BD_COMPLETE => $$block{BD_COMPLETE}
+      };
+
+      # Mark done the block destinations which are of closed blocks and have all files fully replicated.
+      if ($$block{IS_OPEN} eq 'n' &&
+	  $$block{NODE_FILES} >= $$block{EXIST_FILES} &&
+	  $$block{BD_STATE} != 3) {
+	  &logmsg("block destination done for $bd_identifier");
+	  $$bd_update{BD_STATE} = 3;
+	  $$bd_update{BD_COMPLETE} = $now;
+      }
+
+      # Reactivate block destinations which do not have all files replicated (deleted data)
+      if ($$block{NODE_FILES} < $$block{EXIST_FILES} &&
+	  $$block{BD_STATE} == 3) {
+	  &logmsg("reactivating incomplete block destination $bd_identifier");
+	  $$bd_update{BD_STATE} = 0;
+	  $$bd_update{BD_COMPLETE} = undef;
+      }
+
+      { no warnings qw(uninitialized);  # lots of undef variables expected here
+	# Update priority and suspended status on existing requests
+	if ($$block{BD_PRIORITY} != $$block{SUBS_PRIORITY}) {
+	    &logmsg("updating priority of $bd_identifier");
+	    $$bd_update{BD_PRIOROTY} = $$block{SUBS_PRIORITY};
 	}
 
-      BLOCK: foreach my $block (@all_blocks) {
-	  my $bd_identifier = "$$block{BLOCK_NAME} for node=$$block{DESTINATION_NAME}";
-
-	  # Update parameters for block destination
-	  my $bd_update = { 
-	      BD_STATE => $$block{BD_STATE},
-	      BD_PRIORITY => $$block{BD_PRIORITY},
-	      BD_SUSPEND => $$block{BD_SUSPEND},
-	      BD_COMPLETE => $$block{BD_COMPLETE }
-	  };
-
-	  # Mark done the block destinations which are of closed blocks and have all files fully replicated.
-	  if ($$block{IS_OPEN} eq 'n' &&
-	      $$block{NODE_FILES} == $$block{EXIST_FILES} &&
-	      $$block{BD_STATE} != 3) {
-	      &logmsg("block destination done for $bd_identifier");
-	      $$bd_update{BD_STATE} = 3;
-	      $$bd_update{BD_COMPLETE} = $now;
-	  }
-
-	  # Reactivate block destinations which do not have all files replicated (deleted data)
-	  if ($$block{NODE_FILES} < $$block{EXIST_FILES} &&
-	      $$block{BD_STATE} == 3) {
-	      &logmsg("reactivating incomplete block destination $bd_identifier");
-	      $$bd_update{BD_STATE} = 0;
-	      $$bd_update{BD_COMPLETE} = undef;
-	  }
-
-	  { no warnings qw(uninitialized);  # lots of undef variables expected here
-	      # Update priority and suspended status on existing requests
-	      if ($$block{BD_PRIORITY} != $$block{SUBS_PRIORITY}) {
-		  &logmsg("updating priority of $bd_identifier");
-		  $$bd_update{BD_PRIOROTY} = $$block{SUBS_PRIORITY};
-	      }
-
-	      if (POSIX::floor($$block{BD_SUSPEND}) != POSIX::floor($$block{SUBS_SUSPEND})) {
-		  &logmsg("updating suspension status of $bd_identifier");
-		  $$bd_update{BD_SUSPEND} = $$block{SUBS_SUSPEND};
-	      }
+	if ((POSIX::floor($$block{BD_SUSPEND}) || 0) != (POSIX::floor($$block{SUBS_SUSPEND}) || 0)) {
+	    &logmsg("updating suspension status of $bd_identifier");
+	    $$bd_update{BD_SUSPEND} = $$block{SUBS_SUSPEND};
+	}
 	      
-	      # Manage routing state changes for suspended blocks
-	      if ($$bd_update{BD_STATE} <= 2 &&
-		  defined $$bd_update{BD_SUSPEND} && 
-		  $$bd_update{BD_SUSPEND} > $now) {
-		  &logmsg("suspending block destination $bd_identifier");
-		  $$bd_update{BD_STATE} = 2;
-	      }
+	# Manage routing state changes for suspended blocks
+	if ($$bd_update{BD_STATE} < 2 &&
+	    defined $$bd_update{BD_SUSPEND} && 
+	    $$bd_update{BD_SUSPEND} > $now) {
+	    &logmsg("suspending block destination $bd_identifier");
+	    $$bd_update{BD_STATE} = 2;
+	}
 
-	      if ($$bd_update{BD_STATE} == 2 &&
-		  (!defined $$bd_update{BD_SUSPEND} || $$bd_update{BD_SUSPEND} <= $now)) {
-		  &logmsg("unsuspending block destination $bd_identifier");
-		  $$bd_update{BD_STATE} = 0;
-		  $$bd_update{BD_SUSPEND} = undef;
-	      }
-	  }
+	if ($$bd_update{BD_STATE} == 2 &&
+	    (!defined $$bd_update{BD_SUSPEND} || $$bd_update{BD_SUSPEND} <= $now)) {
+	    &logmsg("unsuspending block destination $bd_identifier");
+	    $$bd_update{BD_STATE} = 0;
+	    $$bd_update{BD_SUSPEND} = undef;
+	}
+    }
 
-	  if (&hash_ne($bd_update, $block)) {
-	      # XXX do update
-	  }
+      if (&hash_ne($bd_update, $block)) {
+	  my $n = 1;
+	  push(@{$uargs{$n++}}, $$bd_update{BD_STATE});
+	  push(@{$uargs{$n++}}, $$bd_update{BD_PRIORITY});
+	  push(@{$uargs{$n++}}, $$bd_update{BD_SUSPEND});
+	  push(@{$uargs{$n++}}, $$bd_update{BD_COMPLETE});
+	  push(@{$uargs{$n++}}, $$block{BLOCK});
+	  push(@{$uargs{$n++}}, $$block{DESTINATION});
       }
-	    
-	$dbh->commit();
-	&logmsg("total work cycle:  ".&formatElapsedTime($orig_t)); # XXX
-    };
-    do { chomp ($@); &alert ("database error: $@");
-	 eval { $dbh->rollback() } if $dbh; } if $@;
-    
-    # Disconnect from the database
-    &disconnectFromDatabase ($self, $dbh);
+  }
 
-    # Have a nap.
-    $self->doStop() if $$self{ONCE};
-    $self->nap ($$self{WAITTIME});
+    # Bulk update
+    &dbexec($$self{DBH}, qq{
+	update t_dps_block_dest
+	   set state = ?,
+	       priority = ?,
+	       time_suspend_until = ?,
+               time_complete = ?
+	 where block = ? and destination = ?
+     }, %uargs) if %uargs;
+
+
 }
 
 # returns 1 if the contents of the second hash do not match the
