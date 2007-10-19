@@ -77,6 +77,7 @@ sub new
   my $self = $class->SUPER::new(@_);
   my %args = (@_);
   map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
+  $self->{bcc} = PHEDEX::BlockConsistency::Core->new();
   bless $self, $class;
   return $self;
 }
@@ -106,29 +107,30 @@ sub doDBSCheck
   print scalar localtime, ": doDBSCheck: starting\n";
   my $dropdir = "$$self{WORKDIR}/$drop";
 
-  my $bcc = PHEDEX::BlockConsistency::Core->new ( DBH => $self->{DBH} );
-  $bcc->Checks($request->{TEST}) or
-    die "Test $request->{TEST} not known to ",ref($bcc),"!\n";
+  $self->{bcc}->Checks($request->{TEST}) or
+    die "Test $request->{TEST} not known to ",ref($self),"!\n";
 
   print scalar localtime, ": doDBSCheck: Request ",$request->{ID},"\n";
   $n_files = $request->{N_FILES};
   my $t = time;
 
 # fork the dbs call and harvest the results
-  my $dbs = cwd() . '/' . dirname($0) . '/DBSgetLFNsFromBlock';
-  my $r = $self->getDBSFromBlockID($request->{BLOCK});
+  my $d = dirname($0);
+  if ( $d !~ m%^/% ) { $d = cwd() . '/' . $d; }
+  my $dbs = $d . '/DBSgetLFNsFromBlock';
+  my $r = $self->getDBSFromBlockIDs($request->{BLOCK});
   my $dbsurl = $r->[0] or die "Cannot get DBS url?\n";
-  my $blockname = $self->getBlockFromID($request->{BLOCK})->[0];
-  open DLS, "$dbs --url $dbsurl --block $blockname |" or die "$dbs: $!\n";
+  my $blockname = $self->getBlocksFromIDs($request->{BLOCK})->[0];
+  open DBS, "$dbs --url $dbsurl --block $blockname |" or die "$dbs: $!\n";
   my %dbs;
-  while ( <DLS> )
+  while ( <DBS> )
   {
     if ( m%^LFN=(\S+)$% )
     {
       $dbs{$1}++;
     }
   }
-  close DLS or die "$dbs: $!\n";
+  close DBS or die "$dbs: $!\n";
 
   eval
   {
@@ -148,6 +150,7 @@ sub doDBSCheck
     if ( scalar keys %dbs )
     {
       die "Hmm, how to handle this...? DBS has more than TMDB!\n";
+      $self->setRequestState($request,'Suspended');
     }
     if ( $n_files == 0 )
     {
@@ -192,9 +195,8 @@ sub doNSCheck
   print scalar localtime, ": doNSCheck: starting\n";
   my $dropdir = "$$self{WORKDIR}/$drop";
 
-  my $bcc = PHEDEX::BlockConsistency::Core->new ( DBH => $self->{DBH} );
-  $bcc->Checks($request->{TEST}) or
-    die "Test $request->{TEST} not known to ",ref($bcc),"!\n";
+  $self->{bcc}->Checks($request->{TEST}) or
+    die "Test $request->{TEST} not known to ",ref($self),"!\n";
 
   my $ns = PHEDEX::Namespace->new
 		(
@@ -210,7 +212,7 @@ sub doNSCheck
   }
   else
   {
-    my $technology = $bcc->Buffers(@{$self->{NODES}});
+    my $technology = $self->{bcc}->Buffers(@{$self->{NODES}});
     $ns->technology( $technology );
   }
 
@@ -300,6 +302,7 @@ sub processDrop
   if ( ! defined $self->{DBH} )
   {
     &expandNodesAndConnect($self);
+    $self->{bcc}->DBH( $self->{DBH} );
   }
 
 # Read back file information
@@ -312,7 +315,6 @@ sub processDrop
   {
 #   This is an injection-drop.
 
-    my $bcc = PHEDEX::BlockConsistency::Core->new( DBH => $self->{DBH} );
     foreach ( qw/ BLOCK N_FILES PRIORITY TEST TIME_EXPIRE NODE / )
     { $bad = 1 unless defined $request->{$_}; }
 
@@ -325,7 +327,7 @@ sub processDrop
 #   Inject this test
     my $test = $self->get_TDVS_Tests($request->{TEST})->{ID};
     my $use_srm = $request->{USE_SRM} || 0;
-    my $id = $bcc->InjectTest(
+    my $id = $self->{bcc}->InjectTest(
 				node		=> $request->{NODE},
 				test		=> $test,
 				block		=> $request->{BLOCK},
@@ -355,6 +357,7 @@ sub processDrop
     return;
   }
 
+  $request->{TIME_EXPIRE} = time();
   if ( $request->{TIME_EXPIRE} <= time() )
   {
     &touch ("$dropdir/done");
@@ -375,7 +378,6 @@ sub processDrop
   }
   elsif ( $request->{TEST} eq 'dbs' )
   {
-#   Skip DBS tests for now...
     $self->setRequestState($request,'Active');
     $self->{DBH}->commit();
     my $result = $self->doDBSCheck ($drop, $request);
