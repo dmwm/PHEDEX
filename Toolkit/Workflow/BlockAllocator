@@ -80,14 +80,15 @@ sub idle
 	$test_t = [];
 	$orig_t = [];
 	&timeStart($orig_t); # XXX
-	$self->subscriptions();
+	my @stats1 = $self->subscriptions();
 	&logmsg("subscriptions():  ".&formatElapsedTime($orig_t)); # XXX
-	$self->allocate();
+	my @stats2 = $self->allocate();
 	&logmsg("allocate():  ".&formatElapsedTime($orig_t)); # XXX
-	$self->block_destinations();
+	my @stats3 = $self->blockDestinations();
 	&logmsg("block_destinations():  ".&formatElapsedTime($orig_t)); # XXX
 	$dbh->commit();
 	&logmsg("total work cycle:  ".&formatElapsedTime($orig_t)); # XXX
+	$self->printStats('allocation stats', @stats1, @stats2, @stats3);
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
@@ -112,6 +113,13 @@ sub subscriptions
 
     my ($self) = @_;
     my $now = &mytimeofday();
+
+    my %stats;
+    my @stats_order = ('subs completed', 'move subs done', 'copy subs done',
+		       'subs marked incomplete', 'subs removed',
+		       'moves pending deletion', 'moves pending confirmation',
+		       'subs updated');
+    $stats{$_} = 0 foreach @stats_order;
 
     &timeStart($test_t); # XXX
     my $q_subs = &dbexec($$self{DBH}, qq{
@@ -166,6 +174,7 @@ sub subscriptions
 	  &logmsg("removing subscription for $subs_identifier:  ",
 		  "superceded by dataset subscription");
 	  $self->delete_subscription($subs);
+	  $stats{'subs removed'}++;
 	  next SUBSCRIPTION;
       }
       
@@ -181,6 +190,7 @@ sub subscriptions
 	  $$subs{NODE_BYTES} >= $$subs{EXIST_BYTES}) {
 	  $$subs_update{TIME_COMPLETE} = $now;
 	  &logmsg("subscription complete for $subs_identifier");
+	  $stats{'subs completed'}++;
       }
 
       # Update newly done moves
@@ -200,10 +210,12 @@ sub subscriptions
 		  $n_to_delete++;
 		  &logmsg("waiting for $$other{SUBS_ITEM_NAME} at $$other{DESTINATION_NAME} ",
 			  "to be deleted before marking done");
+		  $stats{'moves pending deletion'}++;
 	      } elsif ($$other{TIME_CLEAR} > $now) {
 		  $n_to_delete++;
 		  &logmsg("waiting for $$other{DESTINATION_NAME} to confirm move of $$other{SUBS_ITEM_NAME}",
 			  "before marking done");
+		  $stats{'moves pending confirmation'}++;
 	      }
 	  }
 	  
@@ -211,10 +223,13 @@ sub subscriptions
 	      $$subs_update{TIME_DONE} = $now;
 	      $$subs_update{IS_MOVE} = 'n';
 	      &logmsg("move subscription is done for $subs_identifier, changed to replica subscription");
+	      # XXX TODO
+	      $stats{'move subs done'}++;
 	      foreach my $other (@other_subs) {
 		  &logmsg("removing subscription for $$other{SUBS_ITEM_NAME} for $$other{DESTINATION_NAME} ",
 			  "due to a move");
 		  $self->delete_subscription($other);
+		  $stats{'subs removed'}++;
 	      }
 	  }
       }
@@ -225,6 +240,7 @@ sub subscriptions
            $$subs{NODE_BYTES} >= $$subs{EXIST_BYTES}) {
 	  $$subs_update{TIME_DONE} = $now;
 	  &logmsg("replication subscription is done for $subs_identifier");
+	  $stats{'copy subs done'}++;
       }
       
       # Update newly uncomplete/undone replications
@@ -234,6 +250,7 @@ sub subscriptions
 	  $$subs_update{TIME_COMPLETE} = undef;
 	  $$subs_update{TIME_DONE} = undef;
 	  &logmsg("subscription is no longer done, updating for $subs_identifier");
+	  $stats{'subs marked incomplete'}++;
       }
 
       # Add to bulk update arrays if there are changes
@@ -248,7 +265,7 @@ sub subscriptions
   }
 
     # Bulk update
-    &dbexec($$self{DBH}, qq{
+    my @rv = &dbexec($$self{DBH}, qq{
 	update t_dps_subscription
 	   set time_complete = ?,
 	       time_done = ?
@@ -256,6 +273,11 @@ sub subscriptions
 	   and nvl(dataset, -1) = nvl(?, -1)
            and nvl(block, -1) = nvl(?, -1)
        }, %uargs) if %uargs;
+
+    $stats{'subs updated'} = $rv[1] || 0;
+    
+    # Return statistics
+    return map { [$_, $stats{$_}] } @stats_order;
 }
 
 # Deletes one subscription
@@ -284,6 +306,10 @@ sub allocate
     my ($self) = @_;
     my $now = &mytimeofday();
 
+    my %stats;
+    my @stats_order = ('blocks allocated', 'blocks deallocated');
+    $stats{$_} = 0 foreach @stats_order;
+
     my @add;
     my @rem;
 
@@ -306,7 +332,8 @@ sub allocate
 	push @add, $block;
     }
 
-    $self->allocateBlockDestinations(\@add);
+    my $n_alloc = $self->allocateBlockDestinations(\@add);
+    $stats{'blocks allocated'} = $n_alloc;
 
     &timeStart($test_t); # XXX
     my $q_blockNoSubs = &dbexec($$self{DBH}, qq{
@@ -337,8 +364,11 @@ sub allocate
 	push @rem, $block;
     }
 
-    $self->deallocateBlockDestinations(\@rem);
+    my $n_dealloc = $self->deallocateBlockDestinations(\@rem);
+    $stats{'blocks deallocated'} = $n_dealloc;
 
+    # Return statistics
+    return map { [$_, $stats{$_}] } @stats_order;
 }
 
 # Bulk insert of new block destinations
@@ -358,7 +388,8 @@ sub allocateBlockDestinations
 	}	
     }
 
-    &dbbindexec($i, %iargs) if %iargs;
+    my $rv = &dbbindexec($i, %iargs) if %iargs;
+    return $rv || 0;
 }
 
 # Bulk delete of block destinations
@@ -378,7 +409,8 @@ sub deallocateBlockDestinations
 	}	
     }
 
-    &dbbindexec($d, %dargs) if %dargs;    
+    my $rv = &dbbindexec($d, %dargs) if %dargs;
+    return $rv || 0;
 }
 
 
@@ -386,10 +418,15 @@ sub deallocateBlockDestinations
 #   1.  Propogate subscription state to block destinations
 #   2.  Mark completed block destinations done
 #   3.  Mark undone block destinations if incomplete
-sub block_destinations
+sub blockDestinations
 {
     my ($self) = @_;
     my $now = &mytimeofday();
+    my %stats;
+    my @stats_order = ('bd done', 'bd reactivated', 'bd priority changed',
+		       'bd suspended', 'bd unsuspended', 'bd updated');
+    $stats{$_} = 0 foreach @stats_order;
+
 
     # Query all subscriptions and block destinations, along with
     # replica and block delete information.  Aquire lock on block
@@ -443,6 +480,7 @@ sub block_destinations
 	  &logmsg("block destination done for $bd_identifier");
 	  $$bd_update{BD_STATE} = 3;
 	  $$bd_update{BD_COMPLETE} = $now;
+	  $stats{'bd done'}++;
       }
 
       # Reactivate block destinations which do not have all files replicated (deleted data)
@@ -451,6 +489,7 @@ sub block_destinations
 	  &logmsg("reactivating incomplete block destination $bd_identifier");
 	  $$bd_update{BD_STATE} = 0;
 	  $$bd_update{BD_COMPLETE} = undef;
+	  $stats{'bd reactivated'}++;
       }
 
       { no warnings qw(uninitialized);  # lots of undef variables expected here
@@ -458,6 +497,7 @@ sub block_destinations
 	if ($$block{BD_PRIORITY} != $$block{SUBS_PRIORITY}) {
 	    &logmsg("updating priority of $bd_identifier");
 	    $$bd_update{BD_PRIOROTY} = $$block{SUBS_PRIORITY};
+	    $stats{'bd priority changed'}++;
 	}
 
 	if ((POSIX::floor($$block{BD_SUSPEND}) || 0) != (POSIX::floor($$block{SUBS_SUSPEND}) || 0)) {
@@ -471,6 +511,7 @@ sub block_destinations
 	    $$bd_update{BD_SUSPEND} > $now) {
 	    &logmsg("suspending block destination $bd_identifier");
 	    $$bd_update{BD_STATE} = 2;
+	    $stats{'bd suspended'}++;
 	}
 
 	if ($$bd_update{BD_STATE} == 2 &&
@@ -478,6 +519,7 @@ sub block_destinations
 	    &logmsg("unsuspending block destination $bd_identifier");
 	    $$bd_update{BD_STATE} = 0;
 	    $$bd_update{BD_SUSPEND} = undef;
+	    $stats{'bd unsuspended'}++;
 	}
     }
 
@@ -493,7 +535,7 @@ sub block_destinations
   }
 
     # Bulk update
-    &dbexec($$self{DBH}, qq{
+    my @rv = &dbexec($$self{DBH}, qq{
 	update t_dps_block_dest
 	   set state = ?,
 	       priority = ?,
@@ -501,8 +543,11 @@ sub block_destinations
                time_complete = ?
 	 where block = ? and destination = ?
      }, %uargs) if %uargs;
+    
+    $stats{'bd updated'} = $rv[1] || 0;
 
-
+    # Return statistics
+    return map { [$_, $stats{$_}] } @stats_order;
 }
 
 # returns 1 if the contents of the second hash do not match the
@@ -517,4 +562,10 @@ sub hash_ne
 	return 1 if $$h1{$_} ne $$h2{$_};
     }
     return 0;
+}
+
+sub printStats
+{
+    my ($self, $title, @stats) = @_;
+    &logmsg("$title:  ".join(', ', map { $$_[1] + 0 .' '.$$_[0] } @stats));
 }
