@@ -15,12 +15,13 @@ use PHEDEX::Core::Help;
 
 my ($file,$cluster,$node,$agent,$host);
 my ($pid,$rss,$vsize,$cpu,%g);
-my (@pidfiles,$interval,$help,$verbose,$quiet);
-$interval = $quiet = $verbose = 0;
+my (@pidfiles,$detail,%pids,$interval,$help,$verbose,$quiet);
+$interval = $detail = $quiet = $verbose = 0;
 
 GetOptions(	'pidfiles=s'	=> \@pidfiles,
 		'interval=i'	=> \$interval,
 		'host=s'	=> \$host,
+		'detail'	=> \$detail,
 		'help'		=> \&usage,
 		'verbose'	=> \$verbose,
 		'quiet'		=> \$quiet,
@@ -90,6 +91,12 @@ foreach $file ( @pidfiles )
   $h{Cluster} = 'PhEDEx_Total';
   $apmon->Send( \%h );
 
+  if ( $detail && ! $pids{$pid} )
+  {
+    $pids{$pid}++;
+    $apmon->ApMon->addJobToMonitor($pid, '', 'PhEDEx_Detail', $h{Node} );
+  }
+
   my $c = delete $h{Cluster};
   my $n = delete $h{Node};
   my %f;
@@ -111,5 +118,6 @@ foreach $file ( @pidfiles )
 
 exit 0 unless $interval;
 sleep $interval;
+
 # A goto! Shame on me!
 goto LOOP;
