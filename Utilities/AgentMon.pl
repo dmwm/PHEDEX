@@ -1,6 +1,5 @@
 #!/usr/bin/perl -w
 use strict;
-
 use Getopt::Long;
 use PHEDEX::Monalisa;
 use PHEDEX::Core::Help;
@@ -17,11 +16,8 @@ use PHEDEX::Core::Help;
 my ($file,$cluster,$node,$agent,$host);
 my ($pid,$rss,$vsize,$cpu,%g);
 my (@pidfiles,$interval,$help,$verbose,$quiet);
+$interval = $quiet = $verbose = 0;
 
-@pidfiles = </data/*Nodes/*/state/*/pid>;
-$interval = $quiet = 0;
-
-$host = 'lxarda12.cern.ch:18884';
 GetOptions(	'pidfiles=s'	=> \@pidfiles,
 		'interval=i'	=> \$interval,
 		'host=s'	=> \$host,
@@ -30,6 +26,16 @@ GetOptions(	'pidfiles=s'	=> \@pidfiles,
 		'quiet'		=> \$quiet,
 	  );
 
+#
+# You will want to set these by hand, or on the command line, outside CERN!
+#
+$host = 'lxarda12.cern.ch:18884' unless $host;
+@pidfiles = </data/*Nodes/*/state/*/pid> unless @pidfiles;
+
+#
+# If you _really_ know what you are doing, you might want to play with the
+# arguments here. But you better be a Monalisa expert first!
+#
 my $apmon = PHEDEX::Monalisa->new (
 		Cluster	=> 'PhEDEx',
                 apmon	=>
@@ -41,6 +47,10 @@ my $apmon = PHEDEX::Monalisa->new (
 		Host	=> $host,
 		@ARGV,
         );
+
+#
+# No user-serviceable parts below...
+#
 
 LOOP:
 print scalar localtime,"\n" unless $quiet;
@@ -87,7 +97,7 @@ foreach $file ( @pidfiles )
   {
     if ( exists($g{$c}{$n}{$_}) )
     {
-      $f{$_} = $h{$_} - $g{$c}{$n}{$_};
+      $f{'d' . $_} = ( $h{$_} - $g{$c}{$n}{$_} ) * 100 / $interval;
     }
     $g{$c}{$n}{$_} = $h{$_};
   }
