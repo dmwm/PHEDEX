@@ -89,12 +89,20 @@ sub InjectTest
 
   $self = shift;
   %h = @_;
+  map { $h{lc($_)} = delete $h{$_} } keys %h;
   @fields = qw / block node test n_files time_expire priority use_srm /;
 
   foreach ( @fields )
   {
     defined($h{$_}) or die "'$_' missing in " . __PACKAGE__ . "::InjectTest!\n";
   }
+
+# If a named test was given, get the test-id instead
+  if ( $h{test} !~ m%^[0-9]+$% )
+  {
+    $h{test} = get_TDVS_Tests( $self, $h{test} )->{ID};
+  }
+
   $r = getQueued ($self,
 			 block   => $h{block},
 			 test    => $h{test},
@@ -262,7 +270,7 @@ sub LFN
   foreach my $lfn ( keys %{$h{LFNs}} )
   {
     next if exists($h{LFNs}{$lfn}{Block});
-    my $tmp = $self->getBlocksFromLFN($lfn);
+    my $tmp = $self->getBlocksFromLFNs($lfn);
     map { $h{LFNs}{$lfn}{Block} = $_   } @$tmp;
     map { $h{Blocks}{$_}{LFNs}{$lfn}++ } @$tmp;
   }
