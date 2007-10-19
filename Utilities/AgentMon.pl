@@ -104,7 +104,11 @@ foreach $file ( @pidfiles )
   {
     if ( exists($g{$c}{$n}{$_}) )
     {
-      $f{'d' . $_} = ( $h{$_} - $g{$c}{$n}{$_} ) * 100 / $interval;
+      $f{'d' . $_} = $h{$_} - $g{$c}{$n}{$_};
+      if ( m%time$% )
+      {
+        $f{'d' . $_} = $f{'d' . $_} * 100 / $interval;
+      }
     }
     $g{$c}{$n}{$_} = $h{$_};
   }
@@ -114,6 +118,7 @@ foreach $file ( @pidfiles )
     $f{Node} = $n;
     $apmon->Send( \%f );
   }
+  sleep 1;
 }
 
 exit 0 unless $interval;
