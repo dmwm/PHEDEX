@@ -2,32 +2,22 @@
 
 ##H
 ##H This agent looks for blocks to inject in the verification queue
-##H Ask Tony how it works...
-##H
+##H See https://twiki.cern.ch/twiki/bin/view/CMS/BlockDownloadVerify for
+##H details
 ##H
 ##H Usage:
 ##H   BlockDownloadVerifyInjector
 ##H      -db FILE[:SECTION] [-log OUT]
 ##H      -nodes NODE
 ##H      -dropbox DROPBOX
+##H      -interval SECONDS
 ##H
 ##H -db            database connection configuration parameter file.
 ##H -log           where to redirect logging information.
 ##H -nodes         node this agent is running on
-##H -dropbox       directory for the drops
+##H -dropbox       directory for the drops (optional)
+##H -interval      age of transfers to qualify for needing checking
 ##H
-
-#BEGIN
-#{
-#  use warnings; use strict; $^W=1;
-#  our $me = $0; $me =~ s|.*/||;
-#  our $home = $0;
-#  if ( $home !~ m%/% ) { $home = '.'; }
-#  $home =~ s|/[^/]+$||;
-#  $home ||= ".";
-#  $home .= "/../../Toolkit/Common";
-#  unshift(@INC, $home);
-#}
 
 my $debug_me = 1;
 
