@@ -50,28 +50,28 @@ relevant information extracted and returned to the calling function.
 
 Clear? I thought not...
 
-=head1 Function list
+=head1 METHODS
 
-=head2 C<< $self->protocol( $protocol ) >>
+=item C<< $self->protocol( $protocol ) >>
 
 Set the protocol to one of the allowed values. Dies if an invalid protocol 
 is given. You would not normally call this except to switch to using srm, 
 for whatever insane reasons you might have.
 
-=head2 C<< $self->technology( $technology ) >>
+=item C<< $self->technology( $technology ) >>
 
 Set the technology to one of the allowed values. Dies if an invalid
 technology is given. Also sets the protocol to the appropriate value for 
 the given technology.
 
-=head2 C<< $self->lfn2pfn( $lfn ) >>
+=item C<< $self->lfn2pfn( $lfn ) >>
 
 Returns the pfn of the input lfn, given the technology and trivial file 
 catalogue in use. Uses pfnLookup from 
 L<PHEDEX::Core::Catalogue|PHEDEX::Core::Catalogue> to manage the 
 conversion.
 
-=head2 C<< $self->statmode( $pfn ) >>
+=item C<< $self->statmode( $pfn ) >>
 
 Returns the migration status of the given C< $pfn >. Currently only 
 implemented for Castor, pending some protocol-specific contributions for 
@@ -84,7 +84,7 @@ force all lookups to be repeated (or just C<
 $PHEDEX::Namespace::stat{$pfn} >, to delete information about a single 
 file.
 
-=head2 C<< $self->statsize( $pfn ) >>
+=item C<< $self->statsize( $pfn ) >>
 
 Returns the size, in bytes, of the given C< $pfn >. Caches the result, so 
 that repeated calls do not saturate the disk server.
@@ -140,6 +140,8 @@ sub new
   my $proto  = shift;
   my $class  = ref($proto) || $proto;
   my $parent = ref($proto) && $proto;
+
+  %stat = ();
   my $self = {  };
   bless($self, $class);
   $self->_init(@_);
