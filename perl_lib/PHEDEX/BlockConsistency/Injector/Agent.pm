@@ -27,6 +27,7 @@ use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::DB;
+use PHEDEX::BlockConsistency::Core;
 
 our $counter;
 our $debug_me=1;
@@ -155,24 +156,12 @@ sub idle
 		TIME_EXPIRE	=> time() + 3 * 86400,
 		NODE		=> undef,
 		USE_SRM		=> $self->{USE_SRM} ? 'y' : 'n',
-		INJECT_ONLY	=> 1,
-		COMMENT		=>
-		{
-		  BNAME => $request->{BNAME},
-		  SNAME => $request->{SNAME},
-		  DNAME => $request->{DNAME},
-		  TIME_REQUEST => scalar localtime $request->{TIME_REQUEST},
-		  TIME_UPDATE  => ( $request->{TIME_UPDATE} ?
-				    scalar localtime $request->{TIME_UPDATE} :
-				    undef ),
-		}
 	      );
 
       if ( $request->{IS_LOCAL} eq 'y' )
       {
 #       For LAN transfers, check migration at the destination.
         $p{TEST} = 'migration';
-        $p{TEST} = 'size';
         $p{NODE} = $request->{DID};
         $p{NODE_NAME} = $request->{DNAME};
       }
@@ -184,8 +173,29 @@ sub idle
         $p{NODE_NAME} = $request->{SNAME};
       }
       next unless exists($self->{NODES_ID}{$p{NODE_NAME}});
-      $request = \%p;
-      $self->startOne ($request);
+
+      if ( defined($self->{DROPBOX} )
+      {
+#       If I want to create dropboxes, call startOne...
+        $p{INJECT_ONLY} = 1;
+        $p{COMMENT} =
+		{
+		  BNAME => $request->{BNAME},
+		  SNAME => $request->{SNAME},
+		  DNAME => $request->{DNAME},
+		  TIME_REQUEST => scalar localtime $request->{TIME_REQUEST},
+		  TIME_UPDATE  => ( $request->{TIME_UPDATE} ?
+				    scalar localtime $request->{TIME_UPDATE} :
+				    undef ),
+		};
+        $self->startOne ( \%p );
+      } 
+      else
+      {
+#       ...otherwise, inject the test directly:
+        delete $p{NODE_NAME};
+        PHEDEX::BlockConsistency::Core::InjectTest( $self, %p );
+      }
     }
     print scalar localtime, ": Started $counter requests\n";
     $dbh->commit();
@@ -199,7 +209,7 @@ sub idle
   &disconnectFromDatabase ($self, $dbh);
 
   # Have a little nap
-  print scalar localtime,": idle: sleep until ",scalar localtime(time+$self->{WAITTIME}),"\n";
+# print scalar localtime,": idle: sleep until ",scalar localtime(time+$self->{WAITTIME}),"\n";
   $self->nap ($$self{WAITTIME});
 }
 
