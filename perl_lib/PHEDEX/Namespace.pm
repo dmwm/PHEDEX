@@ -52,6 +52,8 @@ Clear? I thought not...
 
 =head1 METHODS
 
+=over
+
 =item C<< $self->protocol( $protocol ) >>
 
 Set the protocol to one of the allowed values. Dies if an invalid protocol 
@@ -88,6 +90,8 @@ file.
 
 Returns the size, in bytes, of the given C< $pfn >. Caches the result, so 
 that repeated calls do not saturate the disk server.
+
+=back
 
 =cut
 

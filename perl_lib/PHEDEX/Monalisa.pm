@@ -37,9 +37,9 @@ the same set every time you call the C<Send> method.
 
 =back
 
-PHEDEX::Monalisa uses the L<ApMon> package, from L<http://monalisa.cern.ch/>.
-When you create a PHEDEX::Monalisa object, you can pass arbitrary arguments to
-the ApMon constructor as a hashref keyed by 'apmon', as shown in the example
+B<PHEDEX::Monalisa> uses the B<ApMon> package, from L<http://monalisa.cern.ch/>.
+When you create a B<PHEDEX::Monalisa> object, you can pass arbitrary arguments
+to the ApMon constructor as a hashref keyed by 'apmon', as shown in the example
 below.
 
 Should you wish to call the ApMon API directly, using the contained ApMon

@@ -60,6 +60,8 @@ or inherit it in your agent code
 
 =head1 METHODS
 
+=over
+
 =item C<< $self->select_single($query,%param) >>
 
 returns a reference to an array of values representing the result of the 
@@ -197,6 +199,8 @@ and the node is IN C<@nodes>. C<@nodes> is optional.
 =item C<< $self->getDBSFromBlockID($block) >>
 
 Return the DBS URL for the given block ID.
+
+=back
 
 =head1 EXAMPLES
 
