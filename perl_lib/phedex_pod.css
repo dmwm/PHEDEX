@@ -1,13 +1,14 @@
 body
 {
-	background-color: #f0f0f0;
+	background-color: #eee;
+	font-family: Verdana, sans serif;
 }
 
 .block
 {
 	height: 100px;
 	padding-left: 100px;
-	background: #05f5a5 url(http://cern.ch/wildish/PHEDEX/phedex-logo-small.gif) no-repeat 10px 10px;
+	background: #99f url(http://cern.ch/wildish/PHEDEX/phedex-logo-small.gif) no-repeat 10px 10px;
 	border-left: 1px solid white;
 	border-top: 1px solid white;
 	border-right: 1px solid black;
@@ -16,7 +17,7 @@ body
 
 h1
 {
-	background: #05f5a5;
+	background: #ddf;
 	padding-left: 10px;
 	border-left: 1px solid white;
 	border-top: 1px solid white;
@@ -24,9 +25,9 @@ h1
 	border-bottom: 1px solid black;
 }
 
-h2
+dt
 {
-	background: #e5f5e5;
+	background: #ddf;
 	padding-left: 10px;
 	border-left: 1px solid white;
 	border-top: 1px solid white;
@@ -36,33 +37,33 @@ h2
 
 hr
 {
-	background: #05f5a5;
-	height: 5px;
+	height: 2px;
+	width: 95%;
 	border-left: 1px solid white;
 	border-top: 1px solid white;
-	border-right: 1px solid black;
-	border-bottom: 1px solid black;
+	border-right: 1px solid #66f;
+	border-bottom: 1px solid #66f;
 }
 
 td .block
 {
-	background: #e5f5e5;
+	background: #eef;
 	padding: 20px 20px 20px 20px;
 }
 
 p
 {
-	font-size: 18px;
+	font-size: normal;
 }
 
 code
 {
-	font-size: 18px;
+	font-size: 1.2em;
 	font-style: fixed;
 }
 
 pre
 {
-	font-size: 18px;
+	font-size: 1.2em;
 	font-style: fixed;
 }
