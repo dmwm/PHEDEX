@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
 use Getopt::Long;
+use Data::Dumper;
 use PHEDEX::Monalisa;
 use PHEDEX::Core::Help;
 
@@ -16,7 +17,7 @@ use PHEDEX::Core::Help;
 my ($file,$node,$agent,$host,$site);
 my ($pid,$rss,$vsize,$cpu,%g);
 my (@pidfiles,$detail,%pids,$interval,$help,$verbose,$quiet);
-my ($apmon_args,$prefix);
+my ($apmon_args,$prefix,$state);
 $interval = $detail = $quiet = $verbose = 0;
 $site='';
 $apmon_args='';
@@ -28,6 +29,7 @@ GetOptions(	'pidfiles=s'	=> \@pidfiles,
 		'host=s'	=> \$host,
 		'prefix=s'	=> \$prefix,
 		'apmon=s'	=> \$apmon_args,
+		'state=s'	=> \$state,
 		'detail'	=> \$detail,
 		'help'		=> \&usage,
 		'verbose'	=> \$verbose,
@@ -67,11 +69,26 @@ my $apmon = PHEDEX::Monalisa->new (
 $verbose = 1 if ! $interval;
 $prefix .= '_' unless $prefix =~ m%_$%;
 
+if ( $state )
+{
+  my $STATE;
+  if ( open STATE, "<$state" )
+  {
+    while ( <STATE> )
+    {
+      chomp;
+      $STATE .= $_;
+    }
+    my $g = do { no strict "vars"; eval $STATE; };
+    warn "No valid state: $@\n" if $@;
+    %g = %{$g};
+  }
+}
+
 LOOP:
 print scalar localtime,"\n" unless $quiet;
 foreach $file ( @pidfiles )
 {
-# $file =~ m%^/data/([^/]*)Nodes/([^/]+)/state/([^/]*)/pid% or next;
   $file =~ m%^.*/([^/]+)/state/([^/]*)/pid% or next;
   $node = $1;
   $agent = $2;
@@ -121,11 +138,17 @@ foreach $file ( @pidfiles )
       $f{'d' . $_} = $h{$_} - $g{$c}{$n}{$_};
       if ( m%time$% )
       {
-        $f{'d' . $_} = $f{'d' . $_} * 100 / $interval;
+        my $i = time;
+        my $j = $g{$c}{$n}{epoch};
+        if ( $i && $j && $i != $j )
+        {
+          $f{'d' . $_} = $f{'d' . $_} * 100 / ($i - $j);
+        }
       }
     }
     $g{$c}{$n}{$_} = $h{$_};
   }
+  $g{$c}{$n}{epoch} = time;
   if ( scalar keys %f )
   {
     $f{Cluster} = "$prefix${site}_Delta";
@@ -135,6 +158,12 @@ foreach $file ( @pidfiles )
   sleep 1;
 }
 
+if ( $state )
+{
+  open STATE, ">$state" or die "Cannot write to state file: $state: $!\n";
+  print STATE Dumper(\%g);
+  close STATE;
+}
 exit 0 unless $interval;
 sleep $interval;
 
