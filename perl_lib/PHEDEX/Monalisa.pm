@@ -50,7 +50,7 @@ object, you can call C<< $self->ApMon->method($args) >>.
 Using the Tier0 Monalisa server, for example:
 
   my $apmon = PHEDEX::Monalisa->new (
-                Host    => 'lxarda12.cern.ch:18884',
+                Host    => 'lxarda12.cern.ch:28884',
                 Cluster => 'PhEDEx',
                 apmon   =>
                 {
@@ -82,7 +82,7 @@ sub _init
   my $self = shift;
 
   $self->{Name} = $Monalisa::Name;
-  $self->{Host} = 'lxarda12.cern.ch:18884';
+  $self->{Host} = 'lxarda12.cern.ch:28884';
   $self->{apmon}->{sys_monitoring} = 0;
   $self->{apmon}->{general_info}   = 0;
 
