@@ -51,6 +51,8 @@ $host = 'lxarda12.cern.ch:28884' unless $host;
 
 my %apmon_args = eval $apmon_args;
 die "Error in apmon_args: $@\n" if $@;
+
+$verbose = 1 if ! $interval;
 my $apmon = PHEDEX::Monalisa->new (
 		Cluster	=> 'PhEDEx',
                 apmon	=>
@@ -66,7 +68,6 @@ my $apmon = PHEDEX::Monalisa->new (
 #
 # No user-serviceable parts below...
 #
-$verbose = 1 if ! $interval;
 $prefix .= '_' unless $prefix =~ m%_$%;
 
 if ( $state )
