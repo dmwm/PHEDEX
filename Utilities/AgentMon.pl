@@ -13,7 +13,7 @@ use PHEDEX::Core::Help;
 ##H appropriate.
 ##H
 
-my ($file,$cluster,$node,$agent,$host,$site);
+my ($file,$node,$agent,$host,$site);
 my ($pid,$rss,$vsize,$cpu,%g);
 my (@pidfiles,$detail,%pids,$interval,$help,$verbose,$quiet);
 my ($apmon_args,$prefix);
@@ -71,10 +71,10 @@ LOOP:
 print scalar localtime,"\n" unless $quiet;
 foreach $file ( @pidfiles )
 {
-  $file =~ m%^/data/([^/]*)Nodes/([^/]+)/state/([^/]*)/pid% or next;
-  $cluster = $prefix . $1;
-  $node = $2;
-  $agent = $3;
+# $file =~ m%^/data/([^/]*)Nodes/([^/]+)/state/([^/]*)/pid% or next;
+  $file =~ m%^.*/([^/]+)/state/([^/]*)/pid% or next;
+  $node = $1;
+  $agent = $2;
   my %h = (	Cluster	=> $node,
 		Node	=> $agent,
 	  );
