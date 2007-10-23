@@ -12,8 +12,9 @@ Requires a host or host:port to which to send its information, then simply
 call the C<< $self->Send() >> method to send values to a Monalisa server at that
 location.
 
-The Send function takes one argument, a hashref, which has two obligatory
-keys with string values:
+The Send function can be called with only one argument, which must be a
+hashref, or with an array, which will be interpreted as key=>value pairs in
+a hash. The hash (or hashref) has two obligatory keys with string values:
 
 =over
 
@@ -47,7 +48,7 @@ object, you can call C<< $self->ApMon->method($args) >>.
 
 =head1 EXAMPLE
 
-Using the Tier0 Monalisa server, for example:
+Using the PhEDEx Monalisa server, for example:
 
   my $apmon = PHEDEX::Monalisa->new (
                 Host    => 'lxarda12.cern.ch:28884',
@@ -57,8 +58,10 @@ Using the Tier0 Monalisa server, for example:
                   sys_monitoring => 1,
                   general_info   => 1,
                 },
-                @ARGV,
         );
+
+  %h = ( Cluster => 'PhEDEx', Node => 'Prod_RAL', CPU_Use => 10 );
+  $apmon->Send( \%h );
 
 Getting further statistics on particular processes:
 
@@ -104,13 +107,6 @@ sub new
   $self->_init(@_);
 }
 
-sub Options
-{
-  my $self = shift;
-  my %h = @_;
-  map { $self->{$_} = $h{$_}; } keys %h;
-}
-
 our @attrs = ( qw/ Host Port Name ApMon / );
 our %ok_field;
 for my $attr ( @attrs ) { $ok_field{$attr}++; }
@@ -130,6 +126,7 @@ sub Send
   my $self = shift;
   my $h;
   
+# I may be called with a hashref or an array...
   if ( scalar(@_) == 1 ) { $h = shift; }
   else
   {
@@ -137,10 +134,8 @@ sub Send
     $h = \%h;
   }
 
-  delete $h->{MonaLisa} if defined $h->{MonaLisa};
-
-  no strict 'refs';
   our ( $Cluster, $Node );
+  no strict 'refs';
   foreach ( qw / Cluster Node / )
   {
     ${$_} = $h->{$_} or do
