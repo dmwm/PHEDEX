@@ -30,7 +30,7 @@ GetOptions(	'pidfiles=s'	=> \@pidfiles,
 #
 # You will want to set these by hand, or on the command line, outside CERN!
 #
-$host = 'lxarda12.cern.ch:18884' unless $host;
+$host = 'lxarda12.cern.ch:28884' unless $host;
 @pidfiles = </data/*Nodes/*/state/*/pid> unless @pidfiles;
 
 #
