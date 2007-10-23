@@ -13,30 +13,42 @@ use PHEDEX::Core::Help;
 ##H appropriate.
 ##H
 
-my ($file,$cluster,$node,$agent,$host);
+my ($file,$cluster,$node,$agent,$host,$site);
 my ($pid,$rss,$vsize,$cpu,%g);
 my (@pidfiles,$detail,%pids,$interval,$help,$verbose,$quiet);
+my ($apmon_args,$prefix);
 $interval = $detail = $quiet = $verbose = 0;
+$site='';
+$apmon_args='';
+$prefix = 'PhEDEx_';
 
 GetOptions(	'pidfiles=s'	=> \@pidfiles,
 		'interval=i'	=> \$interval,
+		'site=s'	=> \$site,
 		'host=s'	=> \$host,
+		'prefix=s'	=> \$prefix,
+		'apmon=s'	=> \$apmon_args,
 		'detail'	=> \$detail,
 		'help'		=> \&usage,
 		'verbose'	=> \$verbose,
 		'quiet'		=> \$quiet,
 	  );
 
-#
-# You will want to set these by hand, or on the command line, outside CERN!
-#
-$host = 'lxarda12.cern.ch:28884' unless $host;
-@pidfiles = </data/*Nodes/*/state/*/pid> unless @pidfiles;
+die "Please specify your '--site' (short, acronym, e.g. FZK, RAL)\n"
+	unless $site;
 
 #
 # If you _really_ know what you are doing, you might want to play with the
 # arguments here. But you better be a Monalisa expert first!
 #
+$host = 'lxarda12.cern.ch:28884' unless $host;
+
+# You will want to set these by hand, or on the command line, outside CERN!
+@pidfiles = @ARGV if @ARGV;
+@pidfiles = </data/*Nodes/*/state/*/pid> unless @pidfiles;
+
+my %apmon_args = eval $apmon_args;
+die "Error in apmon_args: $@\n" if $@;
 my $apmon = PHEDEX::Monalisa->new (
 		Cluster	=> 'PhEDEx',
                 apmon	=>
@@ -46,19 +58,21 @@ my $apmon = PHEDEX::Monalisa->new (
                 },
 		verbose	=> $verbose,
 		Host	=> $host,
-		@ARGV,
+		%apmon_args,
         );
 
 #
 # No user-serviceable parts below...
 #
+$verbose = 1 if ! $interval;
+$prefix .= '_' unless $prefix =~ m%_$%;
 
 LOOP:
 print scalar localtime,"\n" unless $quiet;
 foreach $file ( @pidfiles )
 {
   $file =~ m%^/data/([^/]*)Nodes/([^/]+)/state/([^/]*)/pid% or next;
-  $cluster = 'PhEDEx_' . $1;
+  $cluster = $prefix . $1;
   $node = $2;
   $agent = $3;
   my %h = (	Cluster	=> $node,
@@ -88,13 +102,13 @@ foreach $file ( @pidfiles )
 
 # Do we want to do this?
   $h{Node} = $h{Cluster} . '_' . $h{Node};
-  $h{Cluster} = 'PhEDEx_Total';
+  $h{Cluster} = "$prefix${site}_Total";
   $apmon->Send( \%h );
 
   if ( $detail && ! $pids{$pid} )
   {
     $pids{$pid}++;
-    $apmon->ApMon->addJobToMonitor($pid, '', 'PhEDEx_Detail', $h{Node} );
+    $apmon->ApMon->addJobToMonitor($pid, '', $prefix . 'Detail', $h{Node} );
   }
 
   my $c = delete $h{Cluster};
@@ -114,7 +128,7 @@ foreach $file ( @pidfiles )
   }
   if ( scalar keys %f )
   {
-    $f{Cluster} = 'PhEDEx_Delta';
+    $f{Cluster} = "$prefix${site}_Delta";
     $f{Node} = $n;
     $apmon->Send( \%f );
   }
