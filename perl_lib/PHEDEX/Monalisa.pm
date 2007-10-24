@@ -67,6 +67,10 @@ Getting further statistics on particular processes:
 
   $apmon->ApMon->addJobToMonitor( $pid, $workDir, $cluster, $node );
 
+=head1 SEE ALSO
+
+The B<Apmon> package, from the L<Monalisa web site|http://monalisa.cern.ch/>
+
 =cut
 
 our (@ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS, $VERSION);
