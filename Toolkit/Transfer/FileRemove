@@ -13,11 +13,17 @@
 ##H may be a real removal, or simply ejection of the file from
 ##H stager disk but not permanently removed from tape.
 ##H
+##H By default this agent is limited to pulling 100 files per minute
+##H from the TMDB and creating deletion jobs.  This rate may be
+##H increased using the -limit option, but one should be mindful of
+##H the load the deletion command has on the storage systems
+##H
 ##H Usage:
 ##H   FileRemove
 ##H      -state DIRECTORY -nodes NAME [-ignode NAME] [-accept NAME]
 ##H      -db FILE[:SECTION] [-log OUT]
 ##H      -storagemap FILE [-protocol NAME] -delete COMMAND[,ARG...]
+##H      [-limit N]
 ##H
 ##H -state         agent state directory.
 ##H -nodes         nodes to run and clean files for.
@@ -27,6 +33,7 @@
 ##H -storagemap    storage mapping catalogue.
 ##H -protocol      protocol to use with storage map, by default "direct".
 ##H -delete        command to remove physical copy (typically FileDownloadDelete).
+##H -limit         limit on the number of files to delete per minute, default 100
 ##H -log           where to redirect logging information.
 
 
@@ -52,6 +59,7 @@ use UtilsHelp;
              "delete=s"    => sub { push(@{$args{CMD_RM}}, split(/,/, $_[1])) },
 	     "storagemap=s"=> \$args{STORAGEMAP},
 	     "protocol=s"  => \$args{PROTOCOL},
+	     "limit=i"     => \$args{LIMIT},
 	     "help|h"	   => sub { &usage() });
 
 if (@ARGV || !$args{NODES} || !$args{DROPDIR} || !$args{DBCONFIG}
@@ -87,7 +95,8 @@ sub new
 		  DELETING => undef,		# Are we deleting files now?
 		  CMD_RM   => undef,            # cmd to remove physical files
 		  PROTOCOL => 'direct',         # File access protocol
-	  	  STORAGEMAP => undef		# Storage path mapping rules
+	  	  STORAGEMAP => undef,		# Storage path mapping rules
+		  LIMIT => 100                  # Max number of files per cycle
 		  );
     
     my %args = (@_);
@@ -140,7 +149,7 @@ sub deleteOneFile
 		      (@{$$self{CMD_RM}}, 'post', $$file{PFN}) );
 
 
-	# Report completition time to DB. If the physicval deletion fails,
+	# Report completition time to DB. If the physical deletion fails,
 	# we will roll back.
 	my $now = &mytimeofday();
 	&dbexec($dbh, qq{
@@ -290,7 +299,7 @@ sub idle
 	# Get a list of victims to evict.
 	foreach my $node (@nodes)
 	{
-	    foreach my $file ($self->filesToDelete ($dbh, 100, $node, \$filter, \%filter_args))
+	    foreach my $file ($self->filesToDelete ($dbh, $$self{LIMIT}, $node, \$filter, \%filter_args))
 	    {
 		# If we are already processing this file, ignore it
 		next if grep ($_ eq $$file{FILEID}, @pending);
@@ -298,7 +307,7 @@ sub idle
 		# Otherwise initiate destruction and doom
 		$self->startOne ($file);
 	    }
-	    # Intermediate commit after having dalt with all files at a node
+	    # Intermediate commit after having dealt with all files at a node
 	    $dbh->commit();
 	}
     };
