@@ -138,6 +138,7 @@ sub confirm
 	  left join t_xfer_delete xd
 	    on xd.fileid = f.id
             and xd.node = ns.id
+            and xd.time_complete is null
         where xp.is_valid = 1
           and xdr.id is null
           and xe.fileid is null
