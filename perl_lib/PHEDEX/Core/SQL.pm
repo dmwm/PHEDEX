@@ -397,7 +397,7 @@ sub getDatasetsFromBlocks
   my %p;
   my $sql = "select name from t_dps_dataset where id in
                 (select dataset from t_dps_block where " .
-		filter_or_like( $self, undef, \%p, 'block', @_ ) . ')';
+		filter_or_like( $self, undef, \%p, 'name', @_ ) . ')';
   my $r = select_single( $self, $sql, %p );
   return $r;
 }
@@ -462,7 +462,7 @@ sub getDatasetsFromWildCard
 sub getBuffersFromWildCard
 { 
   my $self = shift;
-die "Tony has to fix this\n";
+#die "Tony has to fix this\n";
   my ($sql,$r,%p,$node,%result);
 
    $sql = qq {select id, name, technology from t_adm_node
