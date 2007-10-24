@@ -200,7 +200,7 @@ $SQL = PHEDEX::BlockConsistency::SQL->new( DBH => $dbh );
 foreach my $buffer ( @buffer )
 {
   $debug && print "Getting buffers with names like '$buffer'\n";
-  my $tmp = $SQL->getBufferFromWildCard($buffer);
+  my $tmp = $SQL->getBuffersFromWildCard($buffer);
   map { $h{Buffers}{ID}{$_} = $tmp->{$_} } keys %$tmp;
 }
 $debug && exists($h{Buffers}{ID}) && print "done getting buffers!\n";
