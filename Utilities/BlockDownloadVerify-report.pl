@@ -4,7 +4,8 @@ use strict;
 ##H
 ##H  Report block-test results from the BlockDownloadVerify agent
 ##H
-##H  This help is far from complete, ask Tony if you want to use this script.
+##H  This help is far from complete, see the wiki for more details. The URL
+##H is https://twiki.cern.ch/twiki/bin/view/CMS/BlockDownloadVerify
 ##H
 ##H  Options:
 ##H 
@@ -21,15 +22,16 @@ use PHEDEX::BlockConsistency::Core;
 
 my ($dbh,$conn,$dbconfig,$r,$s);
 my ($nodes,@nodes,$help,$bcc);
-my ($id,$block,$n_files,$n_tested,$n_ok,$status,$test,$time_reported);
-my ($debug_me);
+my ($status,$test,$time_reported);
+my ($debug_me,$age,$days,$h);
 my ($detail,$summary,%states,@states,$all_states);
 
 $debug_me = 1;
-$detail = 0;
-$n_files  = 0;
+$detail = $age = 0;
 GetOptions(	"db=s"	  => \$dbconfig,
 		"node=s"  => \@nodes,
+		"age=i"   => \$age,
+		"days=f"  => \$days,
 		"detail"  => \$detail,
 		"summary" => \$summary,
 
@@ -38,7 +40,6 @@ GetOptions(	"db=s"	  => \$dbconfig,
 
 #-------------------------------------------------------------------------------
 $dbconfig or die "'--db' argument is mandatory\n";
-@nodes    or push(@nodes,'%');
 $summary && $detail && die "Make your mind up please, summary _or_ detail!'n";
 
 $conn = { DBCONFIG => $dbconfig };
@@ -46,13 +47,28 @@ $dbh = &connectToDatabase ( $conn, 0 );
 
 #-------------------------------------------------------------------------------
 $bcc   = PHEDEX::BlockConsistency::Core->new( DBH => $dbh );
-$nodes = $bcc->getBufferFromWildCard(@nodes);
+$nodes = $bcc->getBuffersFromWildCard(@nodes) if @nodes;
 
+$age = int($days * 86400) if $days;
+if ( $age )
+{
+  print "Reporting results within the last $age seconds (";
+  printf "%.2f",(100*$age/86400)/100;
+  print " days)\n";
+}
+
+$age = time - $age;
 $all_states = 'All-states';
-$states{$all_states} = $bcc->getTestsPendingCount(keys %{$nodes});
+$states{$all_states} = $bcc->getTestsPendingCount(
+						   nodes => [keys %{$nodes}],
+						   TIME_EXPIRE => $age,
+						 );
 push @states, $all_states;
 
-$r = $bcc->getTestResults(keys %{$nodes});
+$r = $bcc->getTestResults(
+			   nodes => [keys %{$nodes}],
+			   TIME_REPORTED => $age,
+			 );
 printf("%24s %6s %15s %7s %7s %7s %10s %10s %s\n",
 	  'Time Reported',
 	  'ID',
