@@ -65,16 +65,20 @@ sub AUTOLOAD
 sub getTestResults
 {
   my $self = shift;
-  my ($sql,$q,$nodelist,@r);
+  my ($sql,$q,$nodelist,@r,%h);
 
-  $nodelist = join(',',@_);
+  %h = @_;
+  $nodelist = join(',',@{$h{nodes}});
+
   $sql = qq{ select v.id, b.name block, block blockid, n_files, n_tested, n_ok,
              s.name status, t.name test, time_reported, n.name node
              from t_status_block_verify v join t_dvs_status s on v.status = s.id
              left join t_dps_block b on v.block = b.id
              join t_dvs_test t on v.test = t.id
-	     join t_adm_node n on n.id = v.node };
-  if ( $nodelist ) { $sql .= " where node in ($nodelist) "; }
+	     join t_adm_node n on n.id = v.node where 1=1 };
+
+  $sql .= " and node in ($nodelist) " if $nodelist;
+  $sql .= ' and time_reported > ' . $h{TIME_REPORTED} if $h{TIME_REPORTED};
   $sql .= ' order by s.id, time_reported';
 
   $q = execute_sql( $self, $sql, () );
@@ -109,12 +113,14 @@ sub getDetailedTestResults
 sub getTestsPendingCount
 {
   my $self = shift;
-  my ($sql,$q,$nodelist,@r);
+  my ($sql,$q,$nodelist,@r,%h);
 
-  $nodelist = join(',',@_);
-  $sql = qq{ select count(*) from t_dvs_block
-             where node in ($nodelist)
-           };
+  %h = @_;
+  $nodelist = join(',',@{$h{nodes}});
+
+  $sql = qq{ select count(*) from t_dvs_block where 1=1 };
+  $sql .= " and node in ($nodelist)" if $nodelist;
+  $sql .= ' and time_expire > ' . $h{TIME_EXPIRE} if $h{TIME_EXPIRE};
 
   $q = execute_sql( $self, $sql, () );
   @r = $q->fetchrow_array();
