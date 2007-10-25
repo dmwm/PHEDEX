@@ -6823,7 +6823,8 @@ sub file_list
 sub block_replicas
 {
   my ($self, @blocks) = @_;
-  my ($list, %binds) = &dbinlist('block', map { $$_{ID} } @blocks);
+  my %datasets = map { $$_{DATASET}{ID} => 1 } @blocks;
+  my ($list, %binds) = &dbinlist('ds', keys %datasets);
   my $q = &dbexec($$self{DBH}, 
 		  qq{ select b.id block, br.node node,
                         nvl(sum(case when br.dest_files > 0 then 1 else 0 end),0) dest_blocks,
@@ -6834,7 +6835,7 @@ sub block_replicas
                         nvl(sum(br.node_bytes),0) node_bytes
                       from t_dps_block b
                       join t_dps_block_replica br on br.block = b.id
-                     where b.id in ($list)
+                     where b.dataset in ($list)
                      group by b.id, br.node}, %binds);
 
   my %byid = map { $$_{ID} => $_ } @blocks;
@@ -6849,13 +6850,14 @@ sub block_replicas
 sub block_sources
 {
   my ($self, @blocks) = @_;
-  my ($list, %binds) = &dbinlist('block', map { $$_{ID} } @blocks);
+  my %datasets = map { $$_{DATASET}{ID} => 1 } @blocks;
+  my ($list, %binds) = &dbinlist('ds', keys %datasets);
   my $q = &dbexec($$self{DBH}, qq{
     select b.id, f.node, n.name
     from t_dps_block b
       join t_dps_file f on f.inblock = b.id
       join t_adm_node n on n.id = f.node
-    where b.id in ($list)
+    where b.dataset in ($list)
     group by b.id, f.node, n.name}, %binds);
 
   my %byid = map { $$_{ID} => $_ } @blocks;
@@ -7607,7 +7609,7 @@ sub output_page
   
   my @cols = qw(SELECT ITEM_LEVEL ITEM_NAME NODE_NAME PRIORITY PCT_FILES PCT_BYTES
 		IS_MOVE IS_TRANSIENT TIME_SUSPEND_UNTIL ITEM_OPEN
-		TIME_CREATE TIME_COMPLETE TIME_DONE
+		TIME_CREATE TIME_COMPLETE TIME_DONE TIME_CLEAR
 		);
   my $th =
   { SELECT => 'Select',
@@ -7623,7 +7625,8 @@ sub output_page
     ITEM_OPEN => 'Item Open',
     TIME_CREATE => 'Time Create',
     TIME_COMPLETE => 'Time Complete',
-    TIME_DONE => 'Time Done'
+    TIME_DONE => 'Time Done',
+    TIME_CLEAR => 'Time Move Auth.'
     };
   
   # Special data fromats
@@ -7645,6 +7648,7 @@ sub output_page
       TIME_CREATE =>   sub { &formatTime($_[0], 'stamp') || '&#8211;' },
       TIME_COMPLETE => sub { &formatTime($_[0], 'stamp') || '&#8211;' },
       TIME_DONE =>     sub { &formatTime($_[0], 'stamp') || '&#8211;' },
+      TIME_CLEAR =>    sub { &formatTime($_[0], 'stamp') || '&#8211;' },
       PCT_FILES => \&format_percent,
       PCT_BYTES => \&format_percent
   };
@@ -7828,30 +7832,34 @@ sub data_subscriptions
   my ($node_list, %node_binds) = &dbinlist('node', @node_ids );
 
   my $q = &dbexec($$self{DBH}, qq{
-    select NVL2(s.block, 'BLOCK', 'DATASET') item_level,
-           NVL2(s.block, s.block, s.dataset) item_id,
-           NVL2(s.block, b.name, ds.name) item_name,
-           NVL2(s.block, b.is_open, ds.is_open) item_open,
-           n.id node_id, n.name node_name,
-           s.priority, s.is_move, s.is_transient,
-           s.time_suspend_until, s.time_create,
-           s.time_complete, s.time_done,
-           reps.node_files, reps.dest_files,
-           reps.node_bytes, reps.dest_bytes
-      from t_dps_subscription s
-      join
-      (select br.node, b2.dataset, b2.id block,
-              sum(br.node_files) node_files, sum(br.dest_files) dest_files,
-              sum(br.node_bytes) node_bytes, sum(br.dest_bytes) dest_bytes
-         from t_dps_block b2
-         join t_dps_block_replica br on br.block = b2.id                                                  
-        group by br.node, rollup (b2.dataset, b2.id)
-      ) reps
-        on reps.node = s.destination
-           and ((reps.block is null and reps.dataset = s.dataset) or reps.block = s.block)
-      join t_adm_node n on n.id = s.destination
-      left join t_dps_dataset ds on ds.id = s.dataset
-      left join t_dps_block b on b.id = s.block
+       select NVL2(s.block, 'BLOCK', 'DATASET') item_level,
+	      NVL2(s.block, s.block, s.dataset) item_id,
+	      NVL2(s.block, b.name, ds.name) item_name,
+	      NVL2(s.block, b.is_open, ds.is_open) item_open,
+	      ds.id dataset_id, ds.name dataset_name,
+	      n.id node_id, n.name node_name,
+	      s.destination subs_destination, s.dataset subs_dataset, s.block subs_block,
+	      s.priority, s.is_move, s.is_transient,
+	      s.time_suspend_until, s.time_create,
+	      s.time_clear, s.time_complete, s.time_done,
+	      reps.exist_files, reps.node_files, reps.dest_files,
+	      reps.exist_bytes, reps.node_bytes, reps.dest_bytes
+	    from t_dps_subscription s
+	    join t_adm_node n on n.id = s.destination
+	    left join t_dps_block b on b.id = s.block
+	    left join t_dps_dataset ds on ds.id = s.dataset or ds.id = b.dataset
+	    join
+	    (select s2.destination, s2.dataset, s2.block,
+		    sum(b2.files) exist_files, sum(b2.bytes) exist_bytes,
+		    sum(br.node_files) node_files, sum(br.dest_files) dest_files,
+		    sum(br.node_bytes) node_bytes, sum(br.dest_bytes) dest_bytes
+	       from t_dps_subscription s2
+	       left join t_dps_block b2 on b2.dataset = s2.dataset or b2.id = s2.block
+	       left join t_dps_block_replica br on br.node = s2.destination and br.block = b2.id
+	       group by s2.destination, s2.dataset, s2.block
+	    ) reps
+	    on reps.destination = s.destination
+	   and (reps.dataset = s.dataset or reps.block = s.block)
      where n.id in ($node_list)
      order by s.time_create desc, s.dataset desc, s.block desc, n.name
   }, %node_binds);
