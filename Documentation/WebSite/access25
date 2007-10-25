@@ -4381,7 +4381,7 @@ sub write_request
     my %params;
     foreach (qw(email comment dbs data dest is_move is_transient priority request sum_files sum_bytes)) {
 	unless (defined $$self{SESSION}->param($_)) {
-	    $self->alert('Insuficcient parameters from session');
+	    $self->alert("Insuficcient parameters from session $$self{SESSIONID}:  missing $_");
 	    return;
 	}
 	$params{$_} = $$self{SESSION}->param($_);
