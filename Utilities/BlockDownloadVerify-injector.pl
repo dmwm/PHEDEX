@@ -24,17 +24,6 @@ use strict;
 ##H  where they make sense too.
 ##H 
 
-#BEGIN {
-#    $^W = 1; use strict; use warnings;
-#    our $me = $0; $me =~ s|.*/||;
-#    our $home = $0;
-#    if ( $home !~ m%/% ) { $home = '.'; }
-#    $home =~ s|/[^/]+$||;
-#    $home ||= ".";
-#    $home .= "/../Toolkit/Common";
-#    unshift(@INC, $home);
-#}
-
 # Process command line arguments.
 use Getopt::Long;
 use PHEDEX::Core::Help;
@@ -88,7 +77,7 @@ $dbh = &connectToDatabase ( $conn, 0 );
 
 #-------------------------------------------------------------------------------
 $bcc = PHEDEX::BlockConsistency::Core->new( DBH => $dbh );
-$nodes = $bcc->getBufferFromWildCard(@nodes);
+$nodes = $bcc->getBuffersFromWildCard(@nodes);
 my @n = keys %{$nodes};
 $blocks  = $bcc->expandBlockListOnNodes( blocks => \@blocks,
 					 nodes  => \@n );
