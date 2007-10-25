@@ -1,5 +1,0 @@
-#!/bin/sh
-
-disksize=$(ls -l "$2" 2>/dev/null | awk '{print $5}')
-[ X"$disksize" != X"$3" ] && exit 2
-exit 0

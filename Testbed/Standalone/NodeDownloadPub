@@ -1,4 +1,0 @@
-#!/bin/sh
-POOL_OUTMSG_LEVEL=W FCpublish -d "$1" -u "file:$4"
-rm -f "$4" "$4.BAK"
-exit 0
