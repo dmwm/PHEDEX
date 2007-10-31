@@ -71,6 +71,10 @@ sub idle
 	my $now = &mytimeofday();
 
 	# Trigger deletion of finished blocks at the source end of a complete "move" subscription
+	# We trigger for blocks which:
+	#   1. Have a block replica at some potential source node
+	#   2. Do not have a subscription
+	#   3. Are not already in the deletion table (TODO:  faster cleanup of deletion table?)
 	my ($stmt, $nrow) = &dbexec($dbh, qq{
 	    insert into t_dps_block_delete
                    (block, dataset, node, time_request)
@@ -85,11 +89,10 @@ sub idle
                                           and bdel.block = br.block
          left join t_dps_subscription s2 on s2.destination = br.node
                                         and (s2.dataset = sb.dataset or s2.block = sb.id)
-                                        and s2.time_clear > :now
              where s.is_move = 'y'
 	       and bd.state = 3
 	       and bdel.block is null
-	       and s2.destination is not null
+	       and s2.destination is null
 	   }, ':now' => $now);
 
 	# Log what we just triggered
