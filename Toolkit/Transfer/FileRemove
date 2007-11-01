@@ -89,7 +89,7 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  NODES    => undef,		# Node names to run this agent for
-	  	  IGNORE_NODES => ['%MSS'],	# TMDB nodes to ignore
+	  	  IGNORE_NODES => [],	        # TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
 		  WAITTIME => 60 + rand(15),	# Agent activity cycle
 		  DELETING => undef,		# Are we deleting files now?
@@ -117,6 +117,23 @@ sub deleteOneFile
 
     my $status = eval {
 	($dbh, @nodes) = &expandNodesAndConnect ($self);
+
+	# Get Buffer Node if this is for an MSS node.  We will check
+	# transfers for the buffer node along with the MSS node, and
+	# delete replicas for the buffer node as well as the MSS node.
+	# We will only mark the deletion done for the MSS node
+	# however.
+	# TODO:  Make this feature naming-convention independent
+	my %node_binds = (':node1' => $$file{NODEID});
+	if ($$file{NODE} =~ /_MSS$/) {
+	    my $buffer = $$file{NODE};
+	    $buffer =~ s/_MSS$/_Buffer/;
+	    my ($buffer_id) = &dbexec($dbh, qq{ select id from t_adm_node where name = :buffer },
+				      ':buffer' => $buffer)->fetchrow();
+	    $node_binds{':node2'} = $buffer_id if $buffer_id;
+	}
+	my $node_list = join(',', keys %node_binds);
+
 	
 	# Make sure the file is still safe to delete.  More transfers
 	# out might have been created for this file while we were not
@@ -125,10 +142,10 @@ sub deleteOneFile
 	    select count(fileid) from t_xfer_task xt
 	       left join t_xfer_task_done xtd
 	       on xt.id=xtd.task
-	    where xt.from_node = :node
+	    where xt.from_node in ($node_list)
 	    and xt.fileid = :fileid
 	    and xtd.task is null},
-	    ":node" => $$file{NODEID},
+	    %node_binds,
 	    ":fileid" => $$file{FILEID})
 	    ->fetchrow();
 	if ($npending)
@@ -139,8 +156,8 @@ sub deleteOneFile
 	
 	# Now delete the replica entry to avoid new transfer edges.
 	&dbexec($dbh, qq{
-	    delete from t_xfer_replica where fileid = :fileid and node = :node},
-	    ":fileid" => $$file{FILEID}, ":node" => $$file{NODEID});
+	    delete from t_xfer_replica where fileid = :fileid and node in ($node_list)},
+	    ":fileid" => $$file{FILEID}, %node_binds);
 	    
 	# Issue file removal from disk now.
 	my $log = "$$self{DROPDIR}/@{[time()]}.$$file{NODEID}.$$file{FILEID}.log";
