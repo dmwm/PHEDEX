@@ -137,7 +137,7 @@ sub idle
 	    select count(distinct b.id) 
               from t_dps_block b
               join t_dps_block_replica br on br.block = b.id where br.is_active = 'y'
-               and not exists (select 1 from t_xfer_file where inblock = b.id); 
+               and not exists (select 1 from t_xfer_file where inblock = b.id) 
        });
 	
 	my ($bad_active_exp_count) = $q->fetchrow();
