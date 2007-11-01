@@ -121,7 +121,7 @@ sub getNodeFiles
     my ($mynodes, %myargs) = &myNodeFilter ($self, "xt.from_node");
     my $stmt = &dbexec($dbh, qq{
 	select f.logical_name from t_xfer_task xt
-        join t_dps_link l on l.from_node = xt.from_node and l.to_node = xt.to_node
+        join t_adm_link l on l.from_node = xt.from_node and l.to_node = xt.to_node
 	join t_xfer_file f on f.id = xt.fileid
 	where $mynodes
           and l.is_local = 'n'}, %myargs);

@@ -29,12 +29,23 @@ use strict;
 ##H   
 ##H
 
+BEGIN {
+    $^W = 1; use strict; use warnings;
+    our $me = $0; $me =~ s|.*/||;
+    our $home = $0;
+    if ( $home !~ m%/% ) { $home = '.'; }
+    $home =~ s|/[^/]+$||;
+    $home ||= ".";
+    $home .= "/../Toolkit/Common";
+    unshift(@INC, $home);
+}
+
 # Process command line arguments.
 use Getopt::Long;
 use File::Basename;
-use PHEDEX::Core::Help;
-use PHEDEX::Core::DB;
-use PHEDEX::BlockConsistency::SQL;
+use UtilsHelp;
+use UtilsDB;
+use UtilsNamespace;
 
 my ($dbh);
 my ($verbose,$debug,$terse);
@@ -104,7 +115,7 @@ printf "Got %8d LFNs in %5d directories\n",
 foreach my $dir ( keys %{$h{DIR}} )
 {
 # $verbose && print "Process $dir\n";
-  my $tmp = PHEDEX::BlockConsistency::SQL::getLFNsFromWildCard( $dbh, $dir . '%' );
+  my $tmp = getLFNsFromWildCard( $dir . '%' );
   foreach ( @{$tmp} )
   {
     delete $h{LFN}{$_};
@@ -137,3 +148,46 @@ foreach ( sort keys %{$h{DIR}} )
 }
 
 print "\nFinished...\n";
+
+#-------------------------------------------------------------------------------
+sub getLFNsFromWildCard
+{
+  my $sql =
+	qq {select logical_name from t_dps_file where logical_name like :lfn };
+  my %p = ( ":lfn" => @_ );
+  my $r = select_single( $sql, %p );
+  return $r;
+}
+
+#-------------------------------------------------------------------------------
+sub select_single
+{
+  my ( $query, %param ) = @_;
+  my ($q,@r);
+
+  $q = execute_sql( $query, %param );
+  @r = map {$$_[0]} @{$q->fetchall_arrayref()};
+  return \@r;
+}
+
+#-------------------------------------------------------------------------------
+sub execute_sql
+{
+  my ( $query, %param ) = @_;
+  my ($q,$r);
+
+  if ( $query =~ m%\blike\b%i )
+  {
+    foreach ( keys %param ) { $param{$_} =~ s%_%\\_%g; }
+    $query =~ s%like\s+(:[^\)\s]+)%like $1 escape '\\' %gi;
+  }
+
+  if ( $debug )
+  {
+    print " ==> About to execute\n\"$query\"\nwith\n";
+    foreach ( sort keys %param ) { print "  \"$_\" = \"$param{$_}\"\n"; }
+    print "\n";
+  }
+  $q = &dbexec($dbh, $query, %param);
+  return $q;
+}

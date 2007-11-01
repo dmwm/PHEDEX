@@ -13,11 +13,17 @@
 ##H may be a real removal, or simply ejection of the file from
 ##H stager disk but not permanently removed from tape.
 ##H
+##H By default this agent is limited to pulling 100 files per minute
+##H from the TMDB and creating deletion jobs.  This rate may be
+##H increased using the -limit option, but one should be mindful of
+##H the load the deletion command has on the storage systems
+##H
 ##H Usage:
 ##H   FileRemove
 ##H      -state DIRECTORY -nodes NAME [-ignode NAME] [-accept NAME]
 ##H      -db FILE[:SECTION] [-log OUT]
 ##H      -storagemap FILE [-protocol NAME] -delete COMMAND[,ARG...]
+##H      [-limit N]
 ##H
 ##H -state         agent state directory.
 ##H -nodes         nodes to run and clean files for.
@@ -27,6 +33,7 @@
 ##H -storagemap    storage mapping catalogue.
 ##H -protocol      protocol to use with storage map, by default "direct".
 ##H -delete        command to remove physical copy (typically FileDownloadDelete).
+##H -limit         limit on the number of files to delete per minute, default 100
 ##H -log           where to redirect logging information.
 
 
@@ -52,6 +59,7 @@ use UtilsHelp;
              "delete=s"    => sub { push(@{$args{CMD_RM}}, split(/,/, $_[1])) },
 	     "storagemap=s"=> \$args{STORAGEMAP},
 	     "protocol=s"  => \$args{PROTOCOL},
+	     "limit=i"     => \$args{LIMIT},
 	     "help|h"	   => sub { &usage() });
 
 if (@ARGV || !$args{NODES} || !$args{DROPDIR} || !$args{DBCONFIG}
@@ -81,13 +89,14 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  NODES    => undef,		# Node names to run this agent for
-	  	  IGNORE_NODES => ['%MSS'],	# TMDB nodes to ignore
+	  	  IGNORE_NODES => [],	        # TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
 		  WAITTIME => 60 + rand(15),	# Agent activity cycle
 		  DELETING => undef,		# Are we deleting files now?
 		  CMD_RM   => undef,            # cmd to remove physical files
 		  PROTOCOL => 'direct',         # File access protocol
-	  	  STORAGEMAP => undef		# Storage path mapping rules
+	  	  STORAGEMAP => undef,		# Storage path mapping rules
+		  LIMIT => 100                  # Max number of files per cycle
 		  );
     
     my %args = (@_);
@@ -108,6 +117,23 @@ sub deleteOneFile
 
     my $status = eval {
 	($dbh, @nodes) = &expandNodesAndConnect ($self);
+
+	# Get Buffer Node if this is for an MSS node.  We will check
+	# transfers for the buffer node along with the MSS node, and
+	# delete replicas for the buffer node as well as the MSS node.
+	# We will only mark the deletion done for the MSS node
+	# however.
+	# TODO:  Make this feature naming-convention independent
+	my %node_binds = (':node1' => $$file{NODEID});
+	if ($$file{NODE} =~ /_MSS$/) {
+	    my $buffer = $$file{NODE};
+	    $buffer =~ s/_MSS$/_Buffer/;
+	    my ($buffer_id) = &dbexec($dbh, qq{ select id from t_adm_node where name = :buffer },
+				      ':buffer' => $buffer)->fetchrow();
+	    $node_binds{':node2'} = $buffer_id if $buffer_id;
+	}
+	my $node_list = join(',', keys %node_binds);
+
 	
 	# Make sure the file is still safe to delete.  More transfers
 	# out might have been created for this file while we were not
@@ -116,22 +142,22 @@ sub deleteOneFile
 	    select count(fileid) from t_xfer_task xt
 	       left join t_xfer_task_done xtd
 	       on xt.id=xtd.task
-	    where xt.from_node = :node
+	    where xt.from_node in ($node_list)
 	    and xt.fileid = :fileid
 	    and xtd.task is null},
-	    ":node" => $$file{NODEID},
+	    %node_binds,
 	    ":fileid" => $$file{FILEID})
 	    ->fetchrow();
 	if ($npending)
 	{
 	    &warn ("not removing $$file{LFN}, $npending pending transfers");
-	    return 1;
+	    return 0;
 	}
 	
 	# Now delete the replica entry to avoid new transfer edges.
 	&dbexec($dbh, qq{
-	    delete from t_xfer_replica where fileid = :fileid and node = :node},
-	    ":fileid" => $$file{FILEID}, ":node" => $$file{NODEID});
+	    delete from t_xfer_replica where fileid = :fileid and node in ($node_list)},
+	    ":fileid" => $$file{FILEID}, %node_binds);
 	    
 	# Issue file removal from disk now.
 	my $log = "$$self{DROPDIR}/@{[time()]}.$$file{NODEID}.$$file{FILEID}.log";
@@ -140,7 +166,7 @@ sub deleteOneFile
 		      (@{$$self{CMD_RM}}, 'post', $$file{PFN}) );
 
 
-	# Report completition time to DB. If the physicval deletion fails,
+	# Report completition time to DB. If the physical deletion fails,
 	# we will roll back.
 	my $now = &mytimeofday();
 	&dbexec($dbh, qq{
@@ -196,7 +222,7 @@ sub processDrop
 
     # Try deleting this file.  If something fails, keep this drop as
     # is, we'll come back to it later.
-    return if ! $self->deleteOneFile ($drop, $file);
+    return unless $self->deleteOneFile ($drop, $file);
 
     # Mark drop done so it will be nuked
     &touch ("$dropdir/done");
@@ -290,7 +316,7 @@ sub idle
 	# Get a list of victims to evict.
 	foreach my $node (@nodes)
 	{
-	    foreach my $file ($self->filesToDelete ($dbh, 100, $node, \$filter, \%filter_args))
+	    foreach my $file ($self->filesToDelete ($dbh, $$self{LIMIT}, $node, \$filter, \%filter_args))
 	    {
 		# If we are already processing this file, ignore it
 		next if grep ($_ eq $$file{FILEID}, @pending);
@@ -298,7 +324,7 @@ sub idle
 		# Otherwise initiate destruction and doom
 		$self->startOne ($file);
 	    }
-	    # Intermediate commit after having dalt with all files at a node
+	    # Intermediate commit after having dealt with all files at a node
 	    $dbh->commit();
 	}
     };
