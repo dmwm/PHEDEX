@@ -14,24 +14,135 @@ as finding out where the state directory of a given agent is located.
 
 =head1 DESCRIPTION
 
-...pending
+The PHEDEX::Core::Config object can read a PhEDEx config file and parse its
+syntax. This syntax is not documented here, see the wiki probably (reference,
+anyone?). As it parses the file it creates
+L<PHEDEX::Core::Config::Agent|PHEDEX::Core::Config::Agent> and
+L<PHEDEX::Core::Config::Environment|PHEDEX::Core::Config::Environment> objects
+from the information.
+
+After reading the file, the Agents or their Environments can be inspected, or
+certain operations can be performed on the Agents. They can be started,
+stopped, terminated, killed... The commands can be executed directly, or just
+printed on STDOUT so you can inspect them.
+
+Agents can be acted on in groups or individually, as appropriate.
+
+Agents are stored in an array, in the order they are encountered in the config
+file. This allows them to be operated on in that same order, in case it matters
+for some reason. Environments are stored in a hash, as
+C<< $config->{ENVIRONMENTS}{environment-name} >>, and can be simply retrieved
+from there.
 
 =head1 METHODS
 
-...pending
+=over
 
-=EXAMPLES
+=item start
 
-...pending
+Takes a list of agent names, or "all", or only the default agents if no
+argument is given. Then it starts the agents with their correct
+environment settings, as determined by the configuration file.
+
+=item stop
+
+Takes a list of agent names, or "all", or only the default agents if no
+argument is given. Then it stops the required agents cleanly, by placing a
+"stop" file in their state directory.
+
+=item show
+
+Takes a list of agent names, or "all", or only the default agents if no
+argument is given. Then it shows the commands needed to set up the
+environment and start the agents.
+
+=item terminate
+
+Takes a list of agent names, or "all", or only the default agents if no
+argument is given. Then it kills the agents with a TERM signal.
+
+=item kill
+
+Takes a list of agent names, or "all", or only the default agents if no
+argument is given. Then it kills the agents with a KILL signal.
+
+=item select_agents
+
+Takes a list of agent names, or "all", or only the default agents if no
+argument is given. Returns an array of
+L<PHEDEX::Core::Config::Agent|PHEDEX::Core::Config::Agent> objects that
+match the selection criteria.
+
+If only one agent name is matched and the return-context is scalar, it
+returns a reference to the object instead of an array.
+
+If many agents are matched and the return-context is scalar, it returns a
+reference to the array of agents that match.
+
+=item dummy
+
+Sets or returns the DUMMY flag in the Config object. If set, this tells the
+Config object to print to STDOUT instead of actually executing the commands
+that follow. Useful if debugging.
+
+There is a little redundancy here, in that C<< $config->show(); >> is
+equivalent to C<< $config->dummy(1); $config->start(); >>
+
+=item readConfig
+
+Takes the name of a config file and reads it, parsing it on the way. Will die
+if any errors are found.
+
+This routine can be called several times, and existing environments are
+appended to if new data is set for them. This is how IMPORT directives are
+handled, for example.
+
+=item getEnviron
+
+Takes the name of an Environment and returns the
+L<PHEDEX::Core::Config::Environment|PHEDEX::Core::Config::Environment> with
+that name. Recursively finds the parent environments, see the
+L<PHEDEX::Core::Config::Environment|PHEDEX::Core::Config::Environment>
+documentation for details.
+
+=item getAgentEnviron
+
+Takes the name of an Agent, and returns its environment.
+
+=item command
+
+Takes a command-string and an optional list of agent names, and executes the
+command for those agents.
+
+The command-string is checked against a hash to provide convenient shorthand
+for commands like "kill", "terminate", etc, but in principle any properly
+escaped string should work. This has not been tested!
+
+The list of agent names can be "all" or empty, for all default agents.
+
+=back
+
+=head1 EXAMPLES
+
+  my $config = PHEDEX::Core::Config->new();
+  $config->readConfig($file);
+  print $config->getEnviron("common"),"\n";
+  print $config->getAgentEnviron("info-fs"),"\n";
+
+  $config->dummy(1);
+  $config->start("info-fs");
+  $config->stop("info-fs");
+  $config->kill();
 
 =cut
 
+use PHEDEX::Core::Config::Environment;
+use PHEDEX::Core::Config::Agent;
+
 our %params = (
-		CONFIG   => undef,
-		MODE     => undef,
-		AGENTS   => undef,
-		ENVIRONS => undef,
-		DUMMY	 => 0,
+		AGENTS       => undef,
+		ENVIRONMENTS => undef,
+		DUMMY	     => 0,
 	      );
 
 our %commands =
@@ -67,19 +178,20 @@ sub AUTOLOAD
     $self->{$attr} = shift if @_;
     return $self->{$attr};
   }
-  if ( exists($commands{$attr}) ) { return $self->Command($attr,@_); }
+  if ( exists($commands{$attr}) ) { return $self->command($attr,@_); }
 
   return unless $attr =~ /[^A-Z]/;  # skip DESTROY and all-cap methods
   my $parent = "SUPER::" . $attr;
   $self->$parent(@_);
 }
 
-sub Dummy
+sub dummy
 {
   my $self = shift;
   $self->{DUMMY} = shift if @_;
   return $self->{DUMMY};
 }
+
 sub readConfig
 {
   my ($self,$file, $fhpattern) = @_;
@@ -102,25 +214,50 @@ sub readConfig
 	    	     " deprecated, treating as 'common'\n"
 	    if ! $3;
 
-        my $label = $3 || "common";
+        my ($label,$env,$environment);
+        $label = $3 || "common";
+
+#       The environment may already exist, in which case append to it...
+	$env = $self->{ENVIRONMENTS}{$label} ||
+               PHEDEX::Core::Config::Environment->new
+			(
+				NAME	=> $label,
+				CONFIG	=> $self,
+			 );
+        if ( $label ne 'common' && exists $self->{ENVIRONMENTS}{common} )
+        {
+          $env->PARENT('common');
+        }
+        $environment = $env->Environment();
         while (<$fhpattern>)
         {
 	  last if /^###/; chomp; s/#.*//; s/^\s+//; s/\s+$//;
-	  $self->{ENVIRONS}{$label} .= "$_\n" if ($_ ne "");
+	  $environment .= "$_\n" if ($_ ne "");
         }
+        $env->Environment($environment);
+        $self->{ENVIRONMENTS}{$label} = $env;
       }
 
       # Here we process AGENT sections, defined as follows:
       # ### AGENT LABEL=<label> PROGRAM=<executable> [ENVIRON=<label>
       elsif ($1 eq "AGENT")
       {
-        my $agent = { map { m|([^=]+)=(\S+)|g } split(/\s+/, $3) };
-        push(@{$self->{AGENTS}}, $agent);
+        my %params = map { m|([^=]+)=(\S+)|g } split(/\s+/, $3);
+        my $opts;
         while (<$fhpattern>)
         {
           last if /^###/; chomp; s/#.*//; s/^\s+//; s/\s+$//;
-          $agent->{OPTS} .= " $_" if ($_ ne "");
+          next if m%^\s*$%;
+          $opts .= " $_";
+          next unless m%^\s*(\S+)\s+(.*)\s*$%;
+          $params{OPTIONS}{$1} = $2;
         }
+        my $agent = PHEDEX::Core::Config::Agent->new
+		(
+		  %params,
+		  OPTS	=> $opts,
+		);
+        push @{$self->{AGENTS}}, $agent;
       }
 
       # Here we process IMPORT sections, defined as follows:
@@ -145,25 +282,27 @@ sub readConfig
 
 sub getEnviron
 {
-  my ($self,$environ) = @_;
+  my ($self,$label) = @_;
 
-  return $self->{ENVIRONS}{$environ} if exists $self->{ENVIRONS}{$environ};
-  print STDERR "request for non-existent environment $environ\n";
+  return $self->{ENVIRONMENTS}{$label}->Environment()
+	if exists $self->{ENVIRONMENTS}{$label};
+  print STDERR "request for non-existent environment $label\n";
   return undef;
 }
 
 sub getAgentEnviron
 {
   my ($self,$agent) = @_;
+  my ($ename,$env);
 
-  return undef unless $agent->{ENVIRON};
+  my $ename = $agent->ENVIRON || 'common';
 
-  return $self->{ENVIRONS}{$agent->{ENVIRON}}
-	if exists $self->{ENVIRONS}{$agent->{ENVIRON}};
-
-  print STDERR "Agent $agent->{LABEL} requests non-existent",
-	" environment $agent->{ENVIRON}\n";
-  return;
+  while ( $ename )
+  {
+    $env   = $self->{ENVIRONMENTS}{$ename}->Environment . $env;
+    $ename = $self->{ENVIRONMENTS}{$ename}->PARENT;
+  }
+  return $env;
 }
 
 sub shell
@@ -190,10 +329,12 @@ sub select_agents
 
   foreach my $agent (@{$self->{AGENTS}})
   {
-    next if (@_ && !grep($_ eq "all" || $_ eq $agent->{LABEL}, @_));
-    next if (! @_ && ($agent->{DEFAULT} || 'on') eq 'off');
+    next if (@_ && !grep($_ eq "all" || $_ eq $agent->LABEL, @_));
+    next if (! @_ && ($agent->DEFAULT || 'on') eq 'off');
     push @a, $agent;
   }
+  return $a[0] if ( scalar @a == 1 && ! wantarray );
+  return \@a if ( ! wantarray );
   return @a;
 }
 
@@ -204,58 +345,49 @@ sub show
 
   foreach my $agent ( $self->select_agents(@_) )
   {
+    my $statedir = $agent->STATEDIR;
+    my $logdir   = $agent->LOGDIR;
+    my $logfile  = $agent->LOGFILE;
+
     print $FH "(",
-	$self->getEnviron('common'),
 	$self->getAgentEnviron($agent), "\n";
 
-    # Now actually act on the mode, and start or show agents
-    my $logdir = "\${PHEDEX_LOGS}";
-    my $logfile = "$logdir/$agent->{LABEL}";
-    my $statedir = "\${PHEDEX_STATE}/$agent->{LABEL}";
-
-    print $FH
-        ("mkdir -p $statedir &&",
-         " mkdir -p $logdir &&",
-         ($agent->{STATELINK}
-          ? " ln -sf $agent->{LABEL} \${PHEDEX_STATE}/$agent->{STATELINK}; " : " :;"),
-         " \${PHEDEX_SCRIPTS}/$agent->{PROGRAM}",
-         (" -", $agent->{STATEOPT} || "state", " ", $statedir),
+    print $FH "mkdir -p $statedir && mkdir -p $logdir";
+    if ( $agent->STATELINK )
+    {
+      print $FH " && ln -sf ",$agent->LABEL,"\${PHEDEX_STATE}/",$agent->STATELINK;
+    }
+    print $FH 
+         " && \${PHEDEX_SCRIPTS}/" . $agent->PROGRAM,
+         (" -", $agent->STATEOPT || "state", " ", $statedir),
          (" -log ", $logfile),
-         $agent->{OPTS});
+         $agent->{OPTS};
 
-    print $FH "; renice $agent->{NICE} -p \$(cat $statedir/pid)"
-          if $agent->{NICE};
+    print $FH "; renice ".$agent->NICE." -p \$(cat $statedir/pid)"
+          if $agent->NICE;
     print $FH ")\n";
   }
 
   close($FH);
 }
 
-sub Command
+sub command
 {
   my $self = shift;
   my $cmd = shift;
   *FH = $self->shell();
 
+  $cmd = $commands{$cmd} if defined $commands{$cmd};
   foreach my $agent ( $self->select_agents(@_) )
   {
-    my $statedir = "\${PHEDEX_STATE}/$agent->{LABEL}";
     print FH "(",
-	$self->getEnviron('common'),
 	$self->getAgentEnviron($agent),
-	"statedir=$statedir;\n",
-        $commands{$cmd}, "\n)\n";
+	"statedir=", $agent->STATEDIR, ";\n",
+	"logdir=",   $agent->LOGDIR, ";\n",
+	"logfile=",  $agent->LOGFILE, ";\n",
+        $cmd, "\n)\n";
   }
   close(FH);
-}
-
-sub environ
-{
-  my $self = shift;
-  foreach my $label (@_ ? @_ : "common")
-  {
-    print $self->{ENVIRONS}{$label}, "\n";
-  }
 }
 
 1;
