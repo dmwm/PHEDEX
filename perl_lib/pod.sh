@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Example:
+# ./pod.sh ~/www/PHEDEX/PHEDEX_X_Y_Z http://cern.ch/wildish/PHEDEX/PHEDEX_X_Y_Z
+
 cd `dirname $0`
 dest=$1
 if [ -z "$dest" ]; then
@@ -7,7 +10,13 @@ if [ -z "$dest" ]; then
   exit 1
 fi
 
-css=$2
+htmlroot=$2
+if [ -z "$htmlroot" ]; then
+  echo "Destination htmlroot is required."
+  exit 1
+fi
+
+css=$3
 if [ -z "$css" ]; then
   css=http://cern.ch/wildish/PHEDEX/phedex_pod.css
   echo "Using default CSS file: $css"
@@ -33,7 +42,6 @@ echo "<html>
   <ul>
 " | tee $index >/dev/null
 
-htmlroot=$dest
 for f in `find . -type f -name '*.pm'`; do
   echo "Podding $f..."
   g=`echo $f | sed -e 's%pm$%html%'`
