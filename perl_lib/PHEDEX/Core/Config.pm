@@ -295,7 +295,7 @@ sub getAgentEnviron
   my ($self,$agent) = @_;
   my ($ename,$env);
 
-  my $ename = $agent->ENVIRON || 'common';
+  $ename = $agent->ENVIRON || 'common';
 
   while ( $ename )
   {
