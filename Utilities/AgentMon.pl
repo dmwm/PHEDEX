@@ -16,7 +16,7 @@ use PHEDEX::Core::Config;
 ##H
 
 my ($pid,$env,$cluster,$node,$cfg,$agent,$host,$site);
-my ($rss,$vsize,$cpu,%g);
+my (@agents,$rss,$vsize,$cpu,%g);
 my ($detail,%pids,$interval,$help,$verbose,$quiet);
 my ($apmon_args,$prefix,$state,$config,@configs);
 
@@ -36,6 +36,7 @@ GetOptions(	'config=s@'	=> \@configs,
 		'help'		=> \&usage,
 		'verbose'	=> \$verbose,
 		'quiet'		=> \$quiet,
+		'agents=s@'	=> \@agents,
 	  );
 
 die "Please specify your '--site' (short, acronym, e.g. FZK, RAL)\n"
@@ -49,8 +50,6 @@ $host = 'lxarda12.cern.ch:28884' unless $host;
 my %apmon_args = eval $apmon_args;
 die "Error in apmon_args: $@\n" if $@;
 
-$verbose = 1 if ! $interval;
-$verbose = 0 if ! $quiet;
 my $apmon = PHEDEX::Monalisa->new (
 		Cluster	=> 'PhEDEx',
                 apmon	=>
@@ -90,7 +89,7 @@ foreach $config ( @configs, @ARGV )
   $cfg = PHEDEX::Core::Config->new();
   print scalar localtime," : $config\n" unless $quiet;
   $cfg->readConfig($config);
-  foreach $agent ( $cfg->select_agents('all') )
+  foreach $agent ( $cfg->select_agents(@agents) )
   {
     $env = $cfg->ENVIRONMENTS->{$agent->ENVIRON};
     $pid = $env->getExpandedString($agent->STATEDIR) . 'pid';
