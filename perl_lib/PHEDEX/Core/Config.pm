@@ -334,6 +334,7 @@ sub select_agents
 {
   my $self = shift;
   my @a;
+  undef @_ unless $_[0];
 
   foreach my $agent (@{$self->{AGENTS}})
   {
