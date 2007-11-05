@@ -46,7 +46,7 @@ Defaults to "on".
 =item ENVIRON
 
 The name of the environment that this agent needs. The "common" environment
-is used automatically, if it exists.
+is used by default.
 
 =item OPTS
 
@@ -99,8 +99,8 @@ parameter, and is not normally set in the configuration file.
 
   my $agent = PHEDEX::Core::Config::Agent->new
     (
-	LABEL => 'my-agent',
-	ENVIRONMENT => 'common',
+	LABEL   => "my-agent",
+	ENVIRON => "common",
     );
   $agent->LOGDIR("/tmp");
   print $agent->LOGFILE,"\n";
@@ -111,8 +111,8 @@ use File::Basename;
 our %params = (
 		LABEL     => undef,
 		PROGRAM   => undef,
-		DEFAULT   => undef,
-		ENVIRON   => undef,
+		DEFAULT   => 'on',
+		ENVIRON   => 'common',
 		OPTIONS   => undef,
 		STATELINK => undef,
 		STATEOPT  => undef,
