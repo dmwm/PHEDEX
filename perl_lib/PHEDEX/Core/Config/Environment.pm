@@ -130,7 +130,7 @@ sub getParameter
   my ($self,$parameter) = @_;
   if ( ! defined($self->{KEYS}) )
   {
-    foreach ( split("\n",$self->Environment) )
+    foreach ( split("\n",$self->Environment || '') )
     {
       m%^([^=]*)=(.*)$%;
       $self->{KEYS}{$1} = $2;
@@ -142,8 +142,8 @@ sub getParameter
     $_=$self->{CONFIG}{ENVIRONMENTS}{$self->{PARENT}}->getParameter($parameter);
   }
   $_ = $ENV{$parameter} unless $_;
-  s%;*$%%;
-  return $_;
+  s%;*$%% if $_;
+  return $_ || '';
 }
 
 sub getExpandedString
@@ -183,7 +183,7 @@ sub Environment
   if ( ! $environment )
   {
     my $parent;
-    $parent = $self->{PARENT}->Environment if $self->{PARENT};
+    $parent = $self->{CONFIG}{ENVIRONMENTS}{$self->{PARENT}}->Environment if $self->{PARENT};
     return $self->{ENVIRONMENT};
   }
   undef $self->{KEYS};
