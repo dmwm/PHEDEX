@@ -165,6 +165,15 @@ sub new
   my %args = (@_);
   map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
   bless $self, $class;
+
+  if ( ! exists($self->{ENVIRONMENTS}{common}) )
+  {
+    $self->{ENVIRONMENTS}{common} = PHEDEX::Core::Config::Environment->new
+			(
+				NAME	=> 'common',
+				CONFIG	=> $self,
+			 );
+  }
   return $self;
 }
 
@@ -195,7 +204,6 @@ sub dummy
 sub readConfig
 {
   my ($self,$file, $fhpattern) = @_;
-  $fh = 'fh00' unless $fh;
   -f $file || die "$file: no such file\n";
   -r $file || die "$file: not readable\n";
 
@@ -295,7 +303,7 @@ sub getAgentEnviron
   my ($self,$agent) = @_;
   my ($ename,$env);
 
-  $ename = $agent->ENVIRON || 'common';
+  $ename = $agent->ENVIRON;
 
   while ( $ename )
   {
