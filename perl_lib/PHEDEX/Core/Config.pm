@@ -38,35 +38,35 @@ from there.
 
 =over
 
-=item start
+=item start( @agent_list )
 
 Takes a list of agent names, or "all", or only the default agents if no
 argument is given. Then it starts the agents with their correct
 environment settings, as determined by the configuration file.
 
-=item stop
+=item stop( @agent_list )
 
 Takes a list of agent names, or "all", or only the default agents if no
 argument is given. Then it stops the required agents cleanly, by placing a
 "stop" file in their state directory.
 
-=item show
+=item show( @agent_list )
 
 Takes a list of agent names, or "all", or only the default agents if no
 argument is given. Then it shows the commands needed to set up the
 environment and start the agents.
 
-=item terminate
+=item terminate( @agent_list )
 
 Takes a list of agent names, or "all", or only the default agents if no
 argument is given. Then it kills the agents with a TERM signal.
 
-=item kill
+=item kill( @agent_list )
 
 Takes a list of agent names, or "all", or only the default agents if no
 argument is given. Then it kills the agents with a KILL signal.
 
-=item select_agents
+=item select_agents( @agent_list )
 
 Takes a list of agent names, or "all", or only the default agents if no
 argument is given. Returns an array of
@@ -79,16 +79,16 @@ returns a reference to the object instead of an array.
 If many agents are matched and the return-context is scalar, it returns a
 reference to the array of agents that match.
 
-=item dummy
+=item dummy( $int )
 
-Sets or returns the DUMMY flag in the Config object. If set, this tells the
-Config object to print to STDOUT instead of actually executing the commands
-that follow. Useful if debugging.
+Sets or returns the DUMMY flag in the Config object. If set to anything Perl
+considers to be true, this tells the Config object to print to STDOUT instead
+of actually executing the commands that follow. Useful if debugging.
 
 There is a little redundancy here, in that C<< $config->show(); >> is
 equivalent to C<< $config->dummy(1); $config->start(); >>
 
-=item readConfig
+=item readConfig( $file )
 
 Takes the name of a config file and reads it, parsing it on the way. Will die
 if any errors are found.
@@ -97,7 +97,7 @@ This routine can be called several times, and existing environments are
 appended to if new data is set for them. This is how IMPORT directives are
 handled, for example.
 
-=item getEnviron
+=item getEnviron( $string )
 
 Takes the name of an Environment and returns the
 L<PHEDEX::Core::Config::Environment|PHEDEX::Core::Config::Environment> with
@@ -105,11 +105,12 @@ that name. Recursively finds the parent environments, see the
 L<PHEDEX::Core::Config::Environment|PHEDEX::Core::Config::Environment>
 documentation for details.
 
-=item getAgentEnviron
+=item getAgentEnviron( $string )
 
-Takes the name of an Agent, and returns its environment.
+Takes the name of an Agent, and returns its environment. i.e. the value of the
+environment, not the environment object, and not the environment name.
 
-=item command
+=item command( $string, @agent_list )
 
 Takes a command-string and an optional list of agent names, and executes the
 command for those agents.

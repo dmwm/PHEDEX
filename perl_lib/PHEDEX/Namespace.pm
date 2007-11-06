@@ -17,24 +17,6 @@ PHEDEX::Namespace knows about the protocol and technology used at an SE
 and allows you to run simple namespace checks (file-size, 
 migration-status) in a technology-independant manner. For example:
 
-   # Create a Namespace object. Needs a DB filehandle and a TFC
-   $ns = PHEDEX::Namespace->new
-                (
-                        DBH             => $dbh,
-                        STORAGEMAP      => $path_to_TFC,
-                );
-  # Declare the technology to be RFIO
-  $ns->technology( 'Castor' );
-
-  # Get the PFN from an LFN
-  $pfn = $ns->lfn2pfn( $lfn );
-
-  # Get the filesize of a given file
-  $size = $ns->statsize( $pfn );
-
-  # Get the tape-migration status of the file
-  $ns->statmode( $pfn );
-
 Known protocols are 'rfio', 'srm', and 'unix' (posix-style). Known 
 technologies are 'Castor', 'dCache', 'Disk', and 'DPM'. Specifying the 
 technology implicitly defines the protocol, the only sensible override to 
@@ -54,26 +36,26 @@ Clear? I thought not...
 
 =over
 
-=item C<< $self->protocol( $protocol ) >>
+=item protocol( $protocol )
 
 Set the protocol to one of the allowed values. Dies if an invalid protocol 
 is given. You would not normally call this except to switch to using srm, 
 for whatever insane reasons you might have.
 
-=item C<< $self->technology( $technology ) >>
+=item technology( $technology )
 
 Set the technology to one of the allowed values. Dies if an invalid
 technology is given. Also sets the protocol to the appropriate value for 
 the given technology.
 
-=item C<< $self->lfn2pfn( $lfn ) >>
+=item lfn2pfn( $lfn )
 
 Returns the pfn of the input lfn, given the technology and trivial file 
 catalogue in use. Uses pfnLookup from 
 L<PHEDEX::Core::Catalogue|PHEDEX::Core::Catalogue> to manage the 
 conversion.
 
-=item C<< $self->statmode( $pfn ) >>
+=item statmode( $pfn )
 
 Returns the migration status of the given C< $pfn >. Currently only 
 implemented for Castor, pending some protocol-specific contributions for 
@@ -84,14 +66,35 @@ server. This may not be ideal, and may need revision in future. You can
 always cheat by deleting the contents of C< %PHEDEX::Namespace::stat > to 
 force all lookups to be repeated (or just C< 
 $PHEDEX::Namespace::stat{$pfn} >, to delete information about a single 
-file.
+file. The cache is also flushed in the constructor, so simply creating and
+throwing away a Namespace object is enough to clear the cache.
 
-=item C<< $self->statsize( $pfn ) >>
+=item statsize( $pfn )
 
 Returns the size, in bytes, of the given C< $pfn >. Caches the result, so 
 that repeated calls do not saturate the disk server.
 
 =back
+
+=head1 EXAMPLES
+
+   # Create a Namespace object. Needs a DB filehandle and a TFC
+   $ns = PHEDEX::Namespace->new
+                (
+                        DBH             => $dbh,
+                        STORAGEMAP      => $path_to_TFC,
+                );
+  # Declare the technology to be RFIO
+  $ns->technology( 'Castor' );
+
+  # Get the PFN from an LFN
+  $pfn = $ns->lfn2pfn( $lfn );
+
+  # Get the filesize of a given file
+  $size = $ns->statsize( $pfn );
+
+  # Get the tape-migration status of the file
+  $ns->statmode( $pfn );
 
 =cut
 

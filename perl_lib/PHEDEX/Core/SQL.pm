@@ -62,7 +62,7 @@ or inherit it in your agent code
 
 =over
 
-=item C<< $self->select_single($query,%param) >>
+=item select_single($query,%param)
 
 returns a reference to an array of values representing the result of the 
 query, which should select a single column from the database (e.g, C<'select 
@@ -88,7 +88,7 @@ C<%param> is the bind parameters for that query.
 
 =back
 
-=item C<< $self->select_hash($query,$key,%param) >>
+=item select_hash($query,$key,%param)
 
 as select_single, but returns an array of hash references instead, so more 
 complex data can be returned.
@@ -100,7 +100,7 @@ is used as the hash key for the returned data.
 
 =back
 
-=item C<< $self->execute_sql($query,%param) >>
+=item execute_sql($query,%param)
 
 This will execute the sql statement C<$query> with the bind parameters 
 C<%param>, using L<PHEDEX::Core::DB::dbexec|PHEDEX::Core::DB/dbexec>. First,
@@ -110,7 +110,7 @@ correctly escape the bind parameters (replace '_' with '\\_') and add the
 "escape '\\'" declaration to the sql statement. Without this, the 
 underscore is interpreted as a single-character wildcard by Oracle.
 
-=item C<< $self->getTable($table,$key,@fields) >>
+=item getTable($table,$key,@fields)
 
 This utility routine will read an entire table or view, or just some specific
 columns from it, and store it as a hash of hashrefs in
@@ -147,56 +147,56 @@ for the same table from another object, the query is executed against the
 database again. To force a refresh in a given object, simply delete
 C<< $self->{T_Cache}{$table} >> and call the function again.
 
-=item C<< $self->getBuffersFromWildCard(@nodes) >>
+=item getBuffersFromWildCard(@nodes)
 
 C<@nodes> is an array of node-name expressions, with '%' as the wildcard. 
 This function returns a hashref with an entry for each node whose name 
 matches any of the array entries, case-insensitive. Each returned entry 
 has subkeys for the node NAME and TECHNOLOGY.
 
-=item C<< $self->getLFNsFromBlocks(@block) >>
+=item getLFNsFromBlocks(@block)
 
 Return the LFNs of files in all blocks in t_dps_block where the block name
 is LIKE any of C<@block>
 
-=item C<< $self->getBlocksFromLFNs(@lfn) >>
+=item getBlocksFromLFNs(@lfn)
 
 Return the block IDs of all blocks containing files with names LIKE any of
 C<@lfn>
 
-=item C<< $self->getDatasetsFromBlocks(@block) >>
+=item getDatasetsFromBlocks(@block)
 
 Return the dataset names of all datasets containing blocks with names LIKE
 any of C<@block>
 
-=item C<< $self->getBlocksFromDatasets(@dataset) >>
+=item getBlocksFromDatasets(@dataset)
 
 Return the block names of all blocks contained in datasets with names LIKE
 any of C<@dataset>
 
-=item C<< $self->getLFNsFromWildCard($lfn) >>
+=item getLFNsFromWildCard($lfn)
 
 Return the LFNs of all files with names LIKE C<$lfn>
 
-=item C<< $self->getBlocksFromWildCard($block) >>
+=item getBlocksFromWildCard($block)
 
 Return the block names of all blocks with names LIKE C<$block>
 
-=item C<< $self->getBlocksFromIDs(@id) >>
+=item getBlocksFromIDs(@id)
 
 Return the name of the blocks with IDs in the set of C<@id>
 
-=item C<< $self->getDatasetsFromWildCard($dataset) >>
+=item getDatasetsFromWildCard($dataset)
 
 Return the dataset names of all datasets with names LIKE C<$dataset>
 
-=item C<< $self->getBlockReplicasFromWildCard($block,@nodes) >>
+=item getBlockReplicasFromWildCard($block,@nodes)
 
 Return a ref to a hash of block NAME and number of FILES from
 t_dps_block_replica, keyed by block-ID, where the block name is LIKE C<$block>
 and the node is IN C<@nodes>. C<@nodes> is optional.
 
-=item C<< $self->getDBSFromBlockID($block) >>
+=item getDBSFromBlockID($block)
 
 Return the DBS URL for the given block ID.
 

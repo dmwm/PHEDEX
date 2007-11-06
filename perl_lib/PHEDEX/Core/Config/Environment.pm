@@ -31,15 +31,15 @@ environment.
 
 =over
 
-=item Environment
+=item Environment( $string )
 
-Return a string containing the full environment definition, with parents at the
-head, but B<not> the environment of the actual script as well. I.e. it only
-returns values that were read from the configuration file, but nothing that
+Set or return a string containing the full environment definition, with parents
+at the head, but B<not> the environment of the actual script as well. I.e. it
+only returns values that were read from the configuration file, but nothing that
 already exists in the environment the process was executed in. This can be fed
 straight to the shell to execute, to actually instantiate the environment.
 
-=item getParameter
+=item getParameter( $string )
 
 Takes a string parameter-name as input, and returns the value of that parameter
 from the environment. If the parameter is not defined in the immediate
@@ -47,29 +47,29 @@ environment, it will be sought in the parent environments, until it is found.
 If it is not found anywhere in the hierarchy of environments, it is sought in
 the environment that the script is running in.
 
-=item getExpandedParameter
+=item getExpandedParameter( $string )
 
 Like C<getParameter>, but recursively expands variables used in the definition
 of the parameter. So C<$PHEDEX_PATH/file.txt> would have the C<$PHEDEX_PATH>
 expanded to its final value, etc. Recognises variables for expansion in the
 formats C<$VAR> or C<${VAR}> only.
 
-=item getExpandedString
+=item getExpandedString( $string )
 
 Like C<getExpandedParameter>, but expands the input string directly, instead of
 looking it up in the environment first. This allows you to evaluate arbitrary
 expansions using the environment variables.
 
-=item NAME
+=item NAME( $string )
 
 Name of the environment, obligatory, must be set in the constructor.
 
-=item CONFIG
+=item CONFIG( \$PHEDEX::Core::Config )
 
-Name of the Config object that creates this Environment object. This is
+The Config object that creates this Environment object. This is
 obligatory if you use hierarchies of environments, through the PARENT method.
 
-=item PARENT
+=item PARENT( $string )
 
 Set or get the name of the parent environment.
 
@@ -85,6 +85,7 @@ Set or get the name of the parent environment.
   print $env->getExpandedParameter('WWW_HOME'),"\n";
   my $a = $config->select_agents('info-fs');
   print $env->getExpandedString($a->STATEDIR),"\n";
+  print $env->getExpandedString($a->OPTIONS->{-db}),"\n";
 
 =cut
 

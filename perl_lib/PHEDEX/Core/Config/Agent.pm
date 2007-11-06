@@ -30,11 +30,11 @@ contains the actual definition of the environment contents.
 
 =over
 
-=item LABEL
+=item LABEL( $string )
 
 The agent label, obligatory.
 
-=item PROGRAM
+=item PROGRAM( $string )
 
 Path to the program file for this agent, obligatory.
 
@@ -43,12 +43,12 @@ Path to the program file for this agent, obligatory.
 "on" or "off" to denote agents that should or should not run by default.
 Defaults to "on".
 
-=item ENVIRON
+=item ENVIRON( $string )
 
 The name of the environment that this agent needs. The "common" environment
 is used by default.
 
-=item OPTS
+=item OPTS( $string )
 
 Command-line options for this agent, a single string.
 
@@ -57,36 +57,40 @@ Command-line options for this agent, a single string.
 The same as OPTS, but expanded on the first whitespace into key => value pairs,
 and stored in a hash. Use it to read individual parameters, you cannot set
 them. This routine is not guaranteed to give correct results, check what it
-gives you before using it!
+gives you before using it! This is set by the parent
+L<PHEDEX::Core::Config|PHEDEX::Core::Config> object and passed to the Agent
+constructor.
 
 In fact, best not to use it at all, just in case...
 
-=item STATELINK
+=item STATELINK( $string )
 
 For relaying drops to other agents, the STATELINK parameter is used. How, I'm
-not sure...
+not sure. It could be made obsolete, since an agent can now inspect the
+configuration of the agent it relays to, and determine the dropbox directly,
+instead of having to be told where it is.
 
-=item STATEOPT
+=item STATEOPT( $string )
 
 Some agents don't use "-state" to denote the state directory, they use another
 option instead. The STATEOPT option holds the name of the state option in this
 case.
 
-=item NICE
+=item NICE( $int )
 
 If the agent is to be re-niced, the re-nice value is given here.
 
-=item STATEDIR
+=item STATEDIR( $string )
 
 Location of the agent state files/directories. This is a derived parameter,
 and is not normally set in the configuration file.
 
-=item LOGDIR
+=item LOGDIR( $string )
 
 Directory where the agent logfile is written. This is a derived parameter,
 and is not normally set in the configuration file.
 
-=item LOGFILE
+=item LOGFILE( $string )
 
 Full path to the agent logfile. This cannot be set, only read. If you want to
 change the directory path for the logfile, set the LOGDIR, if you want to
@@ -103,7 +107,8 @@ parameter, and is not normally set in the configuration file.
 	ENVIRON => "common",
     );
   $agent->LOGDIR("/tmp");
-  print $agent->LOGFILE,"\n";
+  print "Logfile is at ",$agent->LOGFILE,"\n";
+  print "The DB parameters argument is ",$agent->OPTIONS->{-db},"\n";
 
 =cut
 

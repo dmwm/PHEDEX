@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Example:
-# ./pod.sh ~/www/PHEDEX/PHEDEX_X_Y_Z http://cern.ch/wildish/PHEDEX/PHEDEX_X_Y_Z
+# ./pod.sh ~/www/PHEDEX/PHEDEX_CVS http://cern.ch/wildish/PHEDEX/PHEDEX_CVS
 
 cd `dirname $0`
 dest=$1
@@ -42,7 +42,7 @@ echo "<html>
   <ul>
 " | tee $index >/dev/null
 
-for f in `find . -type f -name '*.pm'`; do
+for f in `find . -type f -name '*.pm' | sort`; do
   echo "Podding $f..."
   g=`echo $f | sed -e 's%pm$%html%'`
   pm=`echo $f | sed -e 's%pm$%%' -e 's%^\./%%' -e 's%/%::%g'`

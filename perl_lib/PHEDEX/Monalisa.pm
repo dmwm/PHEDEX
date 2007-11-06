@@ -6,11 +6,26 @@ use ApMon;
 
 PHEDEX::Monalisa - facilitate reporting to Monalisa
 
+=head1 SYNOPSIS
+
+Provides a simple interface to the MonaLisa ApMon package.
+
 =head1 DESCRIPTION
 
 Requires a host or host:port to which to send its information, then simply
 call the C<< $self->Send() >> method to send values to a Monalisa server at that
 location.
+
+B<PHEDEX::Monalisa> uses the B<ApMon> package, from L<http://monalisa.cern.ch/>.
+When you create a B<PHEDEX::Monalisa> object, you can pass arbitrary arguments
+to the ApMon constructor as a hashref keyed by 'apmon', as shown in the example
+below.
+
+=head1 METHODS
+
+=over
+
+=item Send( $hashref ) or Send( @array )
 
 The Send function can be called with only one argument, which must be a
 hashref, or with an array, which will be interpreted as key=>value pairs in
@@ -38,13 +53,12 @@ the same set every time you call the C<Send> method.
 
 =back
 
-B<PHEDEX::Monalisa> uses the B<ApMon> package, from L<http://monalisa.cern.ch/>.
-When you create a B<PHEDEX::Monalisa> object, you can pass arbitrary arguments
-to the ApMon constructor as a hashref keyed by 'apmon', as shown in the example
-below.
+=item Direct access to ApMon
 
 Should you wish to call the ApMon API directly, using the contained ApMon
 object, you can call C<< $self->ApMon->method($args) >>.
+
+=back
 
 =head1 EXAMPLE
 
