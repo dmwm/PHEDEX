@@ -150,9 +150,10 @@ our %commands =
 (
   terminate => "[ -f \$statedir/pid ] && kill \$(cat \$statedir/pid)",
   kill      => "[ -f \$statedir/pid ] && kill -9 \$(cat \$statedir/pid)",
+  hup       => "[ -f \$statedir/pid ] && kill -HUP \$(cat \$statedir/pid)",
   stop      => "[ -d \$statedir ] && touch \$statedir/stop",
-  dummy     => 'echo "dummy command..."',
-  printenv  => 'printenv | sort',
+  start     => '#',
+  show      => '#',
 );
 
 our $debug = 0;
@@ -304,6 +305,13 @@ sub getAgentEnviron
   my ($self,$agent) = @_;
   my ($ename,$env);
 
+  if ( ! ref($agent) )
+  {
+#   I have an agent name, instead of an agent object...
+    $_ = $self->select_agents($agent);
+    die "Couldn't identify agent '$agent'\n" if ref($_) eq 'ARRAY';
+    $agent = $_;
+  }
   $ename = $agent->ENVIRON;
 
   while ( $ename )
@@ -359,10 +367,8 @@ sub show
     my $logdir   = $agent->LOGDIR;
     my $logfile  = $agent->LOGFILE;
 
-    print $FH "(",
-	$self->getAgentEnviron($agent), "\n";
-
-    print $FH "mkdir -p $statedir && mkdir -p $logdir";
+    print $FH $self->getAgentEnviron($agent), "\n",
+              "(mkdir -p $statedir && mkdir -p $logdir";
     if ( $agent->STATELINK )
     {
       print $FH " && ln -sf ",$agent->LABEL,"\${PHEDEX_STATE}/",$agent->STATELINK;
@@ -398,6 +404,19 @@ sub command
         $cmd, "\n)\n";
   }
   close(FH);
+}
+
+sub jobcount
+{
+  my $self = shift;
+  my ($jobs,$agent);
+
+  foreach $agent ( $self->select_agents(@_) )
+  {
+    $jobs += $agent->OPTIONS->{-jobs} || 0;
+  }
+  die "No agents selected\n" unless defined($jobs);
+  return $jobs;
 }
 
 1;
