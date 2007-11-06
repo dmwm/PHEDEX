@@ -69,7 +69,7 @@ Getting further statistics on particular processes:
 
 =head1 SEE ALSO
 
-The B<Apmon> package, from the L<Monalisa web site|http://monalisa.cern.ch/>
+The B<Apmon> package, from the Monalisa web site (L<http://monalisa.cern.ch/>).
 
 =cut
 
