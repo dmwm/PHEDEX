@@ -104,10 +104,11 @@ sub InjectTest
   }
 
   $r = getQueued ($self,
-			 block   => $h{block},
-			 test    => $h{test},
-			 node    => $h{node},
-			 n_files => $h{n_files}
+			 block		=> $h{block},
+			 test		=> $h{test},
+			 node		=> $h{node},
+			 n_files	=> $h{n_files},
+			 time_expire	=> time - 10 * 86400
 			);
 
   if ( scalar(@{$r}) )
