@@ -66,6 +66,10 @@ set $PHEDEX::Debug::stop_on_warn to a non-zero value. This will then stop the
 debugger in the warn() handler, from which you can 'r' back up the stack to
 the place the warning was generated from, and continue program execution.
 
+You can use the existance, or value, of $PHEDEX::Debug::Paranoid to turn
+otherwise harmless situations into errors, useful when dealing with testing
+before releasing to a production environment.
+
 =cut
 
 use strict;
@@ -73,6 +77,7 @@ use warnings;
 
 our $die_on_warn = 1;
 our $stop_on_warn = 0;
+our $Paranoid = 1;
 
 BEGIN
 {
