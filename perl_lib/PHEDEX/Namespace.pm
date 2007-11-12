@@ -161,7 +161,7 @@ sub AUTOLOAD
   $attr =~ s/.*:://;
 
 # Setters and getters...
-  return $self->{$attr} if $ro_params{$attr};
+  return $self->{$attr} if exists $ro_params{$attr};
   if ( exists $params{$attr} )
   {
     $self->{$attr} = shift if @_;
