@@ -9,7 +9,7 @@
 ##H   BlockDownloadVerifyInjector
 ##H      -db FILE[:SECTION] [-log OUT]
 ##H      -nodes NODE
-##H      -dropbox DROPBOX
+##H      -dropbox DROPDIR
 ##H      -interval SECONDS
 ##H
 ##H -db            database connection configuration parameter file.
@@ -29,7 +29,7 @@ use PHEDEX::BlockConsistency::Injector::Agent;
 &GetOptions ("state=s"      => \$args{DROPDIR},
 	     "log=s"        => \$args{LOGFILE},
 	     "db=s"         => \$args{DBCONFIG},
-	     "dropbox=s"    => \$args{DROPBOX},
+	     "dropbox=s"    => \$args{DROPDIR},
 	     "use_srm"      => \$args{USE_SRM},
 	     "interval=s"   => \$args{CHECK_INTERVAL},
 	     "nodes=s"      => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
@@ -38,10 +38,10 @@ use PHEDEX::BlockConsistency::Injector::Agent;
 	     "help|h"	    => sub { &usage() },
 	    );
 
-if (!$args{DROPDIR} || !$args{DBCONFIG} || !$args{NODES})
+if (!$args{DROPDIR} || !$args{DBCONFIG} || !$args{NODES} || !$args{LOGFILE})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
-$args{LOGFILE} = $args{DROPDIR} . '/log.txt' unless defined $args{LOGFILE};
+#$args{LOGFILE} = $args{DROPDIR} . '/log.txt' unless defined $args{LOGFILE};
 
 (new PHEDEX::BlockConsistency::Injector::Agent (%args, @ARGV))->process();

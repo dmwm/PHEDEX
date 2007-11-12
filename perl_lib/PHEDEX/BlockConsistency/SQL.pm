@@ -88,6 +88,26 @@ sub getTestResults
 }
 
 #-------------------------------------------------------------------------------
+sub getObsoleteTests
+{
+  my $self = shift;
+  my $time_expire = shift || 10 * 86400;
+  my ($sql,%p,$r);
+
+  $time_expire = time - $time_expire;
+  %p = ( ':time_expire' => $time_expire );
+
+  $sql = qq{ select b.id, count(fileid), time_expire
+	     from t_dvs_block b join t_dvs_file f on b.id = f.request
+	     where time_expire < :time_expire
+	     group by b.id, time_expire
+             order by time_expire desc };
+
+  $r = select_single( $self, $sql, %p );
+  return $r;
+}
+
+#-------------------------------------------------------------------------------
 sub getDetailedTestResults
 {
   my $self = shift;
@@ -133,10 +153,10 @@ sub getTestsPendingCount
 sub getTMDBFileStats
 {
   my $self = shift;
+  my $l = shift;
   my $sql = qq {select logical_name, checksum, filesize from t_dps_file
                 where logical_name like :filename };
-  my $l = shift @_;
-  my %p = ( ":filename" => $l );
+  my %p = ( ':filename' => $l );
   my $r = select_hash( $self, $sql, 'LOGICAL_NAME', %p );
   my $s;
   $s->{SIZE} = $r->{$l}->{FILESIZE};
@@ -157,7 +177,7 @@ sub getBlocksOnBufferFromWildCard
   my $sql = qq {select name from t_dps_block b join t_dps_block_replica br
                 on b.id = br.block where name like :block_wild and
                 node in ($buffers)};
-  my %p = ( ":block_wild" => $block );
+  my %p = ( ':block_wild' => $block );
   my $r = select_single( $self, $sql, %p );
 
   return $r;
@@ -187,11 +207,29 @@ sub expandTestList
   $sql = qq {select id, name from t_dvs_test where name like lower(:test_wild)};
   foreach $test ( @_ )
   {
-    %p = ( ":test_wild" => $test );
+    %p = ( ':test_wild' => $test );
     $r = select_hash( $self, $sql, 'ID', %p );
     map { $result{$_} = $r->{$_} } keys %$r;
   }
   return \%result;
+}
+
+#-------------------------------------------------------------------------------
+sub clearTestDetails
+{
+  my $self = shift;
+  my ($sql1,$sql2,%p,$q);
+
+  $sql1 = qq { delete from t_dvs_file        where request = :request }; 
+  $sql2 = qq { delete from t_dvs_file_result where request = :request }; 
+  foreach ( @_ )
+  {
+    next unless defined $_;
+    %p = ( ':request' => $_ );
+    $q = execute_sql( $self, $sql1, %p );
+    $q = execute_sql( $self, $sql2, %p );
+  }
+  return;
 }
 
 #-------------------------------------------------------------------------------

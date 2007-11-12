@@ -143,6 +143,11 @@ sub idle
     ($dbh,@nodes) = &expandNodesAndConnect($self);
     my ($filter, %filter_args) = &otherNodeFilter ($self, "nd.id");
 
+#   first, some cleanup...
+    my @r = @{PHEDEX::BlockConsistency::Core::getObsoleteTests( $self )}[0..29];
+    PHEDEX::BlockConsistency::Core::clearTestDetails( $self, @r );
+    $self->{DBH}->commit;
+
     $counter = 0;
 #   Get a list of requests to process
     foreach my $request ($self->stuckOnWan ($dbh, $filter, \%filter_args))
@@ -174,7 +179,7 @@ sub idle
       }
       next unless exists($self->{NODES_ID}{$p{NODE_NAME}});
 
-      if ( defined($self->{DROPBOX} )
+      if ( defined($self->{DROPBOX}) )
       {
 #       If I want to create dropboxes, call startOne...
         $p{INJECT_ONLY} = 1;
