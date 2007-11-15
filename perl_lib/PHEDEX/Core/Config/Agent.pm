@@ -130,7 +130,8 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self = {};
-  $self = $class->SUPER::new(@_) if ref($proto);
+  my $self  = ref($proto) ? $class->SUPER::new(@_) : {};
+
   my %args = (@_);
   defined($args{LABEL}) or die "Unnamed Agents are not allowed\n";
 

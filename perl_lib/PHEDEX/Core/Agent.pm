@@ -21,7 +21,8 @@ sub new
 {
     my $proto = shift;
     my $class = ref($proto) || $proto;
-    my $self = $class->SUPER::new(@_);
+    my $self  = ref($proto) ? $class->SUPER::new(@_) : {};
+
     my %args = (@_);
     my $me = $0; $me =~ s|.*/||;
     die "$me: fatal error: no drop box directory given\n" if ! $args{DROPDIR};

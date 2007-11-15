@@ -117,10 +117,7 @@ our %tmap = ( Castor => 'rfio',
 	    );
 our %stat;
 
-our @attrs = ( ); # qw/ PROXY / );
 our (%params,%ro_params);
-for my $attr ( @attrs ) { $ro_params{$attr}++; }
-
 %params = (
                 STORAGEMAP      => undef,
                 TFCPROTOCOL     => 'direct',
@@ -130,6 +127,7 @@ for my $attr ( @attrs ) { $ro_params{$attr}++; }
 		VERBOSE		=> 0,
 		DEBUG		=> 0,
 	  );
+%ro_params = ( );
 
 sub _init
 {
@@ -140,6 +138,7 @@ sub _init
   map {
         $self->{$_} = defined($h{$_}) ? $h{$_} : $params{$_}
       } keys %params;
+  map { $self->{$_} = $ro_params{$_} } keys %ro_params;
 
   return $self;
 }

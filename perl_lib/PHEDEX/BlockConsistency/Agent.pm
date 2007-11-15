@@ -74,7 +74,8 @@ sub new
 {
   my $proto = shift;
   my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
+  my $self  = ref($proto) ? $class->SUPER::new(@_) : {};
+
   my %args = (@_);
   map {
         $self->{$_} = defined($args{$_}) ? $args{$_} : $params{$_}
