@@ -134,7 +134,9 @@ sub new
   my %args = (@_);
   defined($args{LABEL}) or die "Unnamed Agents are not allowed\n";
 
-  map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+  map {
+        $self->{$_} = defined($args{$_}) ? $args{$_} : $params{$_}
+      } keys %params;
 
   bless $self, $class;
   return $self;

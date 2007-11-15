@@ -165,7 +165,9 @@ sub new
   my $self = {};
   $self = $class->SUPER::new(@_) if ref($proto);
   my %args = (@_);
-  map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+  map {
+        $self->{$_} = defined($args{$_}) ? $args{$_} : $params{$_}
+      } keys %params;
   bless $self, $class;
 
   if ( ! exists($self->{ENVIRONMENTS}{common}) )

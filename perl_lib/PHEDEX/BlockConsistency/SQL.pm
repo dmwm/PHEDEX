@@ -42,7 +42,9 @@ sub new
   my $self = $class->SUPER::new(@_);
 
   my %args = (@_);
-  map { $$self{$_} = $args{$_} } keys %params;
+  map {
+        $self->{$_} = defined($args{$_}) ? $args{$_} : $params{$_}
+      } keys %params;
   bless $self, $class;
 }
 

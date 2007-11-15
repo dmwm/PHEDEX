@@ -105,7 +105,9 @@ sub new
   my %args = (@_);
   defined($args{NAME}) or die "Unnamed Environments are not allowed\n";
 
-  map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+  map {
+        $self->{$_} = defined($args{$_}) ? $args{$_} : $params{$_}
+      } keys %params;
   bless $self, $class;
   return $self;
 }

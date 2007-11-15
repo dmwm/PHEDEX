@@ -76,7 +76,9 @@ sub new
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(@_);
   my %args = (@_);
-  map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
+  map {
+        $self->{$_} = defined($args{$_}) ? $args{$_} : $params{$_}
+      } keys %params;
   $self->{bcc} = PHEDEX::BlockConsistency::Core->new();
   bless $self, $class;
   return $self;

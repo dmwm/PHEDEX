@@ -137,7 +137,9 @@ sub _init
   my %h = @_;
 
   if ( $h{protocol} ) { $self->protocol( delete $h{protocol} ); }
-  map { $self->{$_} = $h{$_} || $params{$_}; } keys %params;
+  map {
+        $self->{$_} = defined($h{$_}) ? $h{$_} : $params{$_}
+      } keys %params;
 
   return $self;
 }
