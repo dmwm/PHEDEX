@@ -81,6 +81,7 @@ sub getTestResults
 
   $sql .= " and node in ($nodelist) " if $nodelist;
   $sql .= ' and time_reported > ' . $h{TIME_REPORTED} if $h{TIME_REPORTED};
+  $sql .= " and b.name like '$h{BLOCK}'" if $h{BLOCK};
   $sql .= ' order by s.id, time_reported';
 
   $q = execute_sql( $self, $sql, () );

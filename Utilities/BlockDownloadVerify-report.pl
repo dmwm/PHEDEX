@@ -20,7 +20,7 @@ use PHEDEX::Core::DB;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::BlockConsistency::Core;
 
-my ($dbh,$conn,$dbconfig,$r,$s);
+my ($dbh,$conn,$dbconfig,$r,$s,$block);
 my ($nodes,@nodes,$help,$bcc);
 my ($status,$test,$time_reported);
 my ($debug_me,$age,$days,$h);
@@ -30,6 +30,7 @@ $debug_me = 1;
 $detail = $age = 0;
 GetOptions(	"db=s"	  => \$dbconfig,
 		"node=s"  => \@nodes,
+		"block=s" => \$block,
 		"age=i"   => \$age,
 		"days=f"  => \$days,
 		"detail"  => \$detail,
@@ -68,6 +69,7 @@ push @states, $all_states;
 $r = $bcc->getTestResults(
 			   nodes => [keys %{$nodes}],
 			   TIME_REPORTED => $age,
+			   BLOCK	 => $block,
 			 );
 printf("%24s %6s %15s %7s %7s %7s %10s %10s %s\n",
 	  'Time Reported',
