@@ -1,18 +1,32 @@
 ----------------------------------------------------------------------
 -- Create tables
 
+create sequence seq_req_type;
 create sequence seq_req_request;
-create sequence seq_req_action;
-create sequence seq_req_action_attr;
-create sequence seq_req_task;
 
-/* t_req_request.state:
- *   defined by web page code
- */
+/* Type of request */
+create table t_req_type
+  (id			integer		not null,
+   name			varchar(100)	not null,
+   --
+   constraint pk_req_type
+     primary key (id),
+   --
+   constraint uk_req_type_name
+     unique (name)
+);
+/* Fixed data for types */
+insert into t_req_type (id, name)
+  values (seq_req_type.nextval, 'xfer');
+insert into t_req_type (id, name)
+   values (seq_req_type.nextval, 'delete');
+
+/* Main request table */
 create table t_req_request
   (id			integer		not null,
-   creator		integer		not null,
-   state		integer		not null,
+   type			integer		not null,
+   creator		integer		not null,  -- who created the request
+   time_create		float		not null,
    --
    constraint pk_req_request
      primary key (id),
@@ -21,143 +35,167 @@ create table t_req_request
      foreign key (creator) references t_adm_client (id));
 
 
-create table t_req_action
-  (id			integer		not null,
-   request		integer		not null,
-   action		varchar (100)	not null,
-   client		integer		not null,
-   time_apply		float		not null,
+/* DBS info */
+create table t_req_dbs
+  (request		integer		not null,
+   name			varchar (1000)	not null,
+   dbs_id		integer			,
    --
-   constraint pk_req_action
-     primary key (id),
+   constraint pk_req_dbs
+     primary key (request, name),
    --
-   constraint fk_req_action_request
+   constraint fk_req_dbs_req
      foreign key (request) references t_req_request (id)
      on delete cascade,
-   --
-   constraint fk_req_action_client
-     foreign key (client) references t_adm_client (id));
+   constraint fk_req_dbs_dbs_id
+     foreign key (dbs_id) references t_dps_dbs (id)
+     on delete set null);
 
 
-create table t_req_action_attr
-  (id			integer		not null,
-   action		integer		not null,
+/* Dataset info */
+create table t_req_dataset
+  (request		integer		not null,
    name			varchar (1000)	not null,
-   value		varchar (4000),
+   dataset_id		integer			,
    --
-   constraint pk_req_action_attr
-     primary key (id),
+   constraint pk_req_dataset
+     primary key (request, name),
    --
-   constraint fk_req_action_attr_action
-     foreign key (action) references t_req_action (id)
-     on delete cascade);
+   constraint fk_req_dataset_req
+     foreign key (request) references t_req_request (id)
+     on delete cascade,
+   constraint fk_req_dataset_ds_id
+     foreign key (dataset_id) references t_dps_dataset (id)
+     on delete set null);
 
 
-create table t_req_task
-  (id			integer		not null,
-   action		integer		not null,
-   person		integer		not null,
-   time_create		float		not null,
+/* Block info */
+create table t_req_block
+  (request		integer		not null,
+   name			varchar (1000)	not null,
+   block_id		integer			,
    --
-   constraint pk_req_task
-     primary key (id),
+   constraint pk_req_block
+     primary key (request, name),
    --
-   constraint fk_req_task_action
-     foreign key (action) references t_req_action (id)
+   constraint fk_req_block_req
+     foreign key (request) references t_req_request (id)
+     on delete cascade,
+   constraint fk_req_block_b_id
+     foreign key (block_id) references t_dps_block (id)
+     on delete set null);
+
+
+/* File info */
+create table t_req_file
+  (request		integer		not null,
+   name			varchar (1000)	not null,
+   file_id		integer			,
+   --
+   constraint pk_req_file
+     primary key (request, name),
+   --
+   constraint fk_req_file_req
+     foreign key (request) references t_req_request (id)
+     on delete cascade,
+   constraint fk_req_file_f_id
+     foreign key (file_id) references t_dps_file (id)
+     on delete set null);
+
+
+/* Node info
+ *   parameters:
+ *     point: 's' for source node, 'd' for dest node, NULL for irrelevant for request
+ */
+create table t_req_node
+  (request		integer		not null,
+   node			integer		not null,
+   point		char(1)			,
+   --
+   constraint pk_req_node
+     primary key (request, node),
+   --
+   constraint fk_req_node_req
+     foreign key (request) references t_req_request (id)
+     on delete cascade,
+   constraint fk_req_node_n_id
+     foreign key (node) references t_adm_node (id),
+   --
+   constraint ck_req_node_point
+     check (point in ('s', 'd')));
+
+
+/* Request approval/disapproval */
+create table t_req_decision
+  (request		integer		not null,
+   node			integer		not null,
+   decision		char(1)		not null, -- 'y' for approved, 'n' for refused
+   decided_by		integer		not null, -- who decided
+   time_decided		float		not null,
+   --
+   constraint pk_req_decision_node
+     primary key (request, node),
+   --
+   constraint fk_req_decision_node
+     foreign key (request, node) references t_req_node (request, node)
      on delete cascade,
    --
-   constraint fk_req_task_person
-     foreign key (person) references t_adm_identity (id)
-     on delete cascade);
+   constraint ck_req_decision_decision
+     check (decision in ('y', 'n')));
 
 
-create table t_req_info
+/* Transfer request info.  type 'xfer' 
+ *    parameters:
+ *     priority:  integer 0-inf, transfer priority
+ *      is_move:   'y' for move, 'n' for replication
+ *      is_static: 'y' for fixed data size, 'n' for growing data subscription
+ *      is_distributed:  'y' for distribution among nodes, 'n' for all data to all nodes
+ *      data:  text of user's actual request (unresolved globs)
+ */
+create table t_req_xfer
   (request		integer		not null,
-   time_update		float		not null,
+   priority		integer		not null,
+   is_move		char(1)		not null,
+   is_static		char(1)		not null,
+   is_transient		char(1)		not null,
+   is_distributed	char(1)		not null,
+   data			clob			,
    --
-   constraint pk_req_info
+   constraint pk_req_xfer
      primary key (request),
    --
-   constraint fk_req_info_request
-     foreign key (request) references t_req_request (id)
-     on delete cascade);
-
-
-create table t_req_info_dest
-  (request		integer		not null,
-   destination		integer		not null,
-   --
-   constraint pk_req_info_dest
-     primary key (request, destination),
-   --
-   constraint fk_req_info_dest_request
-     foreign key (request) references t_req_request (id)
-     on delete cascade,
-   constraint fk_req_info_dest_destination
-     foreign key (destination) references t_adm_node (id)
-     on delete cascade);
-
-
-create table t_req_info_dataset
-  (request		integer		not null,
-   dbs			varchar (1000)	not null,
-   dataset		varchar (1000)	not null,
-   dbs_isknown		char (1)	not null,
-   dps_isknown		char (1)	not null,
-   priority		integer		not null,
-   is_move		char (1)	not null,
-   is_transient		char (1)	not null,
-   --
-   constraint pk_req_info_dataset
-     primary key (request, dbs, dataset),
-   --
-   constraint fk_req_info_dataset_req
+   constraint fk_req_xfer_req
      foreign key (request) references t_req_request (id)
      on delete cascade,
    --
-   constraint ck_req_info_dataset_move
+   constraint ck_req_xfer_move
      check (is_move in ('y', 'n')),
-   --
-   constraint ck_req_info_dataset_transient
-     check (is_transient in ('y', 'n')));
+   constraint ck_req_xfer_static
+     check (is_static in ('y', 'n')),
+   constraint ck_req_xfer_transient
+     check (is_transient in ('y', 'n')),
+   constraint ck_req_xfer_distributed
+     check (is_distributed in ('y', 'n')));
 
-
-
-create table t_req_info_block
+/* Delete request info.  type 'delete' 
+ *   parameters:
+ *     is_retransfer:  'y' for retransfer, 'n' for just delete
+ *     data:  text of user's actual request (unresolved globs)
+ */
+create table t_req_delete
   (request		integer		not null,
-   dbs			varchar (1000)	not null,
-   dataset		varchar (1000)	not null,
-   block		varchar (1000)	not null,
-   dbs_isknown		char (1)	not null,
-   dps_isknown		char (1)	not null,
-   priority		integer		not null,
-   is_move		char (1)	not null,
-   is_transient		char (1)	not null,
+   is_retransfer	char(1)		not null,
+   data			clob			,
    --
-   dbs_isopen		char (1),
-   dbs_files		integer,
-   dbs_bytes		integer,
-   dbs_only_files	integer,
-   dbs_only_bytes	integer,
+   constraint pk_req_delete
+     primary key (request),
    --
-   dps_isopen		char (1),
-   dps_files		integer,
-   dps_bytes		integer,
-   dps_only_files	integer,
-   dps_only_bytes	integer,
-   --
-   constraint pk_req_info_block
-     primary key (request, dbs, dataset, block),
-   --
-   constraint fk_req_info_block_req
+   constraint fk_req_delete_req
      foreign key (request) references t_req_request (id)
      on delete cascade,
    --
-   constraint ck_req_info_block_move
-     check (is_move in ('y', 'n')),
-   --
-   constraint ck_req_info_block_transient
-     check (is_transient in ('y', 'n')));
+   constraint ck_req_delete_retransfer
+     check (is_retransfer in ('y', 'n')));
 
 
 ----------------------------------------------------------------------
@@ -165,21 +203,29 @@ create table t_req_info_block
 
 create index ix_req_request_creator
   on t_req_request (creator);
-
 --
-create index ix_req_action_request
-  on t_req_action (request);
-
-create index ix_req_action_client
-  on t_req_action (client);
-
+create index ix_req_dbs_name
+  on t_req_dbs (name);
+create index ix_req_dbs_dbs
+  on t_req_dbs (dbs_id);
 --
-create index ix_req_action_attr_action
-  on t_req_action_attr (action);
-
+create index ix_req_dataset_name
+  on t_req_dataset (name);
+create index ix_req_dataset_dataset
+  on t_req_dataset (dataset_id);
 --
-create index ix_req_task_action
-  on t_req_task (action);
-
-create index ix_req_task_person
-  on t_req_task (person);
+create index ix_req_block_name
+  on t_req_block (name);
+create index ix_req_block_block
+  on t_req_block (block_id);
+--
+create index ix_req_file_name
+  on t_req_file (name);
+create index ix_req_file_file
+  on t_req_file (file_id);
+--
+create index ix_req_node_node
+  on t_req_node (node);
+--
+create index ix_req_decision_node
+  on t_req_decision (node);

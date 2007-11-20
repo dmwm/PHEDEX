@@ -1,0 +1,161 @@
+Changing schema with respect to requests.  This explains how to
+migrate old request data.
+
+/*
+ *  Back up old request data in "X" tables
+ */
+set serveroutput on size 100000
+BEGIN
+   --------------------
+   -- Tables
+   FOR o IN
+     (SELECT table_name name FROM user_tables
+      WHERE table_name LIKE 'T_REQ_%')
+   LOOP
+      dbms_output.put_line ('Renaming table ' || o.name);
+      execute immediate
+          'rename ' || o.name
+	  || ' to X' || substr (o.name, 1, 29);
+   END LOOP;
+
+   --------------------
+   -- Sequences
+   FOR o IN
+     (SELECT sequence_name name FROM user_sequences
+      WHERE sequence_name LIKE 'SEQ_REQ_%')
+   LOOP
+      dbms_output.put_line ('Renaming sequence ' || o.name);
+      execute immediate
+          'rename ' || o.name
+	  || ' to X' || substr (o.name, 1, 29);
+   END LOOP;
+
+   --------------------
+   -- Constraints
+   FOR o IN
+     (SELECT constraint_name name, table_name FROM user_constraints
+      WHERE table_name LIKE 'XT_REQ_%'
+        AND constraint_name NOT LIKE 'SYS%')
+   LOOP
+      dbms_output.put_line ('Renaming constraint ' || o.name || ' [' || o.table_name || ']');
+      execute immediate
+          'alter table ' || o.table_name
+	  || ' rename constraint ' || o.name
+	  || ' to X' || substr (o.name, 1, 29);
+   END LOOP;
+
+   --------------------
+   -- Indices
+   FOR o IN
+     (SELECT index_name name, table_name FROM user_indexes
+      WHERE table_name LIKE 'XT_REQ_%'
+        AND index_name NOT LIKE 'SYS%')
+   LOOP
+      dbms_output.put_line ('Renaming index ' || o.name || ' [' || o.table_name || ']');
+      execute immediate
+          'alter index ' || o.name
+	  || ' rename to X' || substr (o.name, 1, 29);
+   END LOOP;
+END;
+/
+
+/*
+ *  Create New Request Schema
+ */
+
+> sqlplus $(PHEDEX/Utilities/OracleConnectId -db DBParam:Testbed) @PHEDEX/Schema/OracleCoreReq.sql
+
+/*
+ *  Migrate Request Data
+ */
+insert into t_req_request
+(id, type, creator, time_create)
+select r.id, 1,
+        r.creator, min(ra.time_apply)
+  from xt_req_request r
+  join xt_req_action ra on ra.request = r.id
+ group by r.id, r.creator;
+
+insert into t_req_dbs
+(request, name, dbs_id)
+select distinct rds.request, rds.dbs, dbs.id
+  from xt_req_info_dataset rds
+left join t_dps_dbs dbs on dbs.name = rds.dbs
+union
+select distinct rb.request, rb.dbs, dbs.id
+  from xt_req_info_block rb
+left join t_dps_dbs dbs on dbs.name = rb.dbs;
+
+insert into t_req_dataset
+(request, name, dataset_id)
+select rds.request, rds.dataset, ds.id
+  from xt_req_info_dataset rds
+left join t_dps_dataset ds on ds.name = rds.dataset;
+
+insert into t_req_block
+(request, name, block_id)
+select rb.request, rb.block, b.id
+  from xt_req_info_block rb
+left join t_dps_block b on b.name = rb.block
+
+insert into t_req_node
+(request, node, point)
+select rd.request, rd.destination, 'd'
+  from xt_req_info_dest rd;
+
+insert into t_req_decision
+(request, node, decision, decided_by, time_decided)
+select ra.request, n.id node, 
+       case when ra.action = 'Subscribed' then 'y'
+            when ra.action = 'Disapproved' then 'n'
+            else null
+       end decision,
+       ra.client, ra.time_apply
+  from (select ra.request, raa.value node, max(ra.time_apply) time_apply
+          from xt_req_action ra
+          join xt_req_action_attr raa on raa.action = ra.id
+                                     and raa.name = 'For Node'
+         group by ra.request, raa.value) last_dec
+  join xt_req_action ra on ra.request = last_dec.request
+                       and ra.time_apply = last_dec.time_apply
+  join t_adm_node n on n.name = last_dec.node
+ order by ra.request, ra.time_apply
+;
+
+insert into t_req_xfer
+(request, priority, is_move, is_static, is_transient, is_distributed)
+select distinct r.id, rds.priority, rds.is_move, 'n', 'n', 'n'
+  from xt_req_request r
+  join xt_req_info_dataset rds on rds.request = r.id
+left join t_req_xfer rx on rx.request = r.id
+ where rx.request is null;
+
+insert into t_req_xfer
+(request, priority, is_move, is_static, is_transient, is_distributed)
+select distinct r.id, rb.priority, rb.is_move, 'n', 'n', 'n'
+  from xt_req_request r
+  join xt_req_info_block rb on rb.request = r.id
+left join t_req_xfer rx on rx.request = r.id
+ where rx.request is null;
+
+commit;
+
+declare
+  dataclob clob := EMPTY_CLOB;
+begin
+   for r in (select request, data from t_req_xfer)
+   loop
+      update t_req_xfer set data = empty_clob() where request = r.request returning data into dataclob;
+      for d in (select raa.value from xt_req_action ra
+                  join xt_req_action_attr raa on raa.action = ra.id
+                 where raa.name = 'Data'
+                   and ra.request = r.request)
+      loop
+        dbms_lob.append(dataclob, to_clob(d.value));
+        dbms_lob.append(dataclob, to_clob(chr(10))); -- newline
+      end loop;
+      commit;
+      dbms_output.put_line ('Copied ' || dbms_lob.getlength(dataclob) || ' bytes for request ' || r.request);
+   end loop;
+end;
+/
