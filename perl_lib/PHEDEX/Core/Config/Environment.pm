@@ -101,7 +101,7 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self = {};
-  my $self  = ref($proto) ? $class->SUPER::new(@_) : {};
+  $self  = ref($proto) ? $class->SUPER::new(@_) : {};
 
   my %args = (@_);
   defined($args{NAME}) or die "Unnamed Environments are not allowed\n";
