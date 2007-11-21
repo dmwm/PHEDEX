@@ -212,6 +212,10 @@ sub readConfig
   -f $file || die "$file: no such file\n";
   -r $file || die "$file: not readable\n";
 
+# Record initial config-files (i.e. not recursively-opened files)
+  my $depth = $fhpattern || 0;
+  push @{$self->{CONFIG_FILES}}, $file unless $depth;
+
   $fhpattern++; # Avoid stomping over recursed files
   open($fhpattern, "< $file") || die "$file: cannot read: $!\n";
   while (<$fhpattern>)
@@ -291,6 +295,17 @@ sub readConfig
   }
 
   close ($fhpattern);
+
+# Now add the config files to the common environment!
+  if ( defined $self->{ENVIRONMENTS}{common} && !$depth )
+  {
+    print "depth=$depth, fhpattern=$fhpattern\n";
+    my $e = $self->{ENVIRONMENTS}{common}->Environment();
+    $e .= "export PHEDEX_CONFIG_FILES=" .
+	   join(',',@{$self->{CONFIG_FILES}}) .
+          "\n";
+    $self->{ENVIRONMENTS}{common}->Environment($e);
+  }
 }
 
 sub getEnviron
