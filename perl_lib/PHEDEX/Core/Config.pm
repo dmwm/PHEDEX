@@ -299,7 +299,6 @@ sub readConfig
 # Now add the config files to the common environment!
   if ( defined $self->{ENVIRONMENTS}{common} && !$depth )
   {
-    print "depth=$depth, fhpattern=$fhpattern\n";
     my $e = $self->{ENVIRONMENTS}{common}->Environment();
     $e .= "export PHEDEX_CONFIG_FILES=" .
 	   join(',',@{$self->{CONFIG_FILES}}) .
