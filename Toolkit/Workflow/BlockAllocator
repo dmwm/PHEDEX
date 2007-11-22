@@ -221,6 +221,7 @@ sub subscriptions
 	   && ($$subs_update{TIME_COMPLETE} || $$subs{TIME_COMPLETE}) ) {
 
 	  # Query the deletions we are waiting for
+	  # Note:  We do not wait for T1 deletions, moves from T1s are not a use case (yet)
 	  my $q_del = &dbexec($$self{DBH}, qq{
 	    select n.name node, nvl2(s2.destination, 1, 0) subs_exists, s2.time_clear subs_clear,
 	           sum(br.node_files) n_files
@@ -231,7 +232,8 @@ sub subscriptions
               join t_adm_node n on n.id = br.node
          left join t_dps_subscription s2 on s2.destination = br.node
                                         and (s2.dataset = sb.dataset or s2.block = sb.id)
-	     where nvl(s.dataset, -1) = nvl(:dataset, -1)
+	     where n.name not like 'T1_%' 
+               and nvl(s.dataset, -1) = nvl(:dataset, -1)
                and nvl(s.block, -1) = nvl(:block, -1)
                and s.destination = :destination
                and br.node_files != 0
