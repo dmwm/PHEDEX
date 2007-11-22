@@ -75,6 +75,7 @@ sub idle
 	#   1. Have a block replica at some potential source node
 	#   2. Do not have a subscription
 	#   3. Are not already in the deletion table (TODO:  faster cleanup of deletion table?)
+        #   4. Are not the buffer node of the destination
 	my ($stmt, $nrow) = &dbexec($dbh, qq{
 	    insert into t_dps_block_delete
                    (block, dataset, node, time_request)
@@ -93,6 +94,11 @@ sub idle
 	       and bd.state = 3
 	       and bdel.block is null
 	       and s2.destination is null
+               and not exists (select 1 from t_adm_node buf
+                                 join t_adm_link loc on loc.from_node = buf.id and loc.is_local = 'y'
+                                 join t_adm_node mss on mss.id = loc.to_node
+                                where buf.kind = 'Buffer' and mss.kind = 'MSS'
+                                  and buf.id = br.node and mss.id = s.destination)
 	   }, ':now' => $now);
 
 	# Log what we just triggered
