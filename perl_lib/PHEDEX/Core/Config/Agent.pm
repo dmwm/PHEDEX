@@ -80,7 +80,7 @@ case.
 
 If the agent is to be re-niced, the re-nice value is given here.
 
-=item STATEDIR( $string )
+=item DROPDIR( $string )
 
 Location of the agent state files/directories. This is a derived parameter,
 and is not normally set in the configuration file.
@@ -159,14 +159,15 @@ sub AUTOLOAD
   $self->$parent(@_);
 }
 
-sub STATEDIR
+sub STATEDIR { die "Deprecated! Use DROPDIR instead\n"; return DROPDIR(@_); }
+sub DROPDIR
 {
   my ($self,$dir) = @_;
-  $self->{STATEDIR} = $dir ||
-		      $self->{STATEDIR} ||
+  $self->{DROPDIR} = $dir ||
+		      $self->{DROPDIR} ||
 		      "\${PHEDEX_STATE}/" . $self->{LABEL};
-  $self->{STATEDIR} .= '/' unless $self->{STATEDIR} =~ m%\/$%;
-  return $self->{STATEDIR};
+  $self->{DROPDIR} .= '/' unless $self->{DROPDIR} =~ m%\/$%;
+  return $self->{DROPDIR};
 }
 
 sub LOGDIR
@@ -185,6 +186,14 @@ sub LOGFILE
   die "Cannot set LOGFILE, can only set LOGDIR\n" if $file;
   $self->{LOGFILE} = $self->LOGDIR . $self->{LABEL};
   return $self->{LOGFILE};
+}
+
+sub PIDFILE
+{
+  my ($self,$file) = @_;
+  $self->{PIDFILE} = $$file if $file;
+  $self->{PIDFILE} = $self->DROPDIR . 'pid' unless $self->{PIDFILE};
+  return $self->{PIDFILE};
 }
 
 1;

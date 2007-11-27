@@ -84,7 +84,7 @@ Set or get the name of the parent environment.
   print $env->getExpandedParameter('PERL5LIB'),"\n";
   print $env->getExpandedParameter('WWW_HOME'),"\n";
   my $a = $config->select_agents('info-fs');
-  print $env->getExpandedString($a->STATEDIR),"\n";
+  print $env->getExpandedString($a->DROPDIR),"\n";
   print $env->getExpandedString($a->OPTIONS->{-db}),"\n";
 
 =cut
@@ -140,14 +140,14 @@ sub getParameter
       $self->{KEYS}{$1} = $2;
     }
   }
-  $_ = $self->{KEYS}{$parameter};
+  local $_ = $self->{KEYS}{$parameter};
   if ( ! $_ && $self->{PARENT} )
   {
     $_=$self->{CONFIG}{ENVIRONMENTS}{$self->{PARENT}}->getParameter($parameter);
   }
   $_ = $ENV{$parameter} unless $_;
   s%;*$%% if $_;
-  return $_ || '';
+  return $_; # || '';
 }
 
 sub getExpandedString
