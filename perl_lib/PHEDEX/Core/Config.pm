@@ -148,10 +148,10 @@ our %params = (
 
 our %commands =
 (
-  terminate => "[ -f \$statedir/pid ] && kill \$(cat \$statedir/pid)",
-  kill      => "[ -f \$statedir/pid ] && kill -9 \$(cat \$statedir/pid)",
-  hup       => "[ -f \$statedir/pid ] && kill -HUP \$(cat \$statedir/pid)",
-  stop      => "[ -d \$statedir ] && touch \$statedir/stop",
+  terminate => "[ -f \$pidfile ] && kill \$(cat \$pidfile)",
+  kill      => "[ -f \$pidfile ] && kill -9 \$(cat \$pidfile)",
+  hup       => "[ -f \$pidfile ] && kill -HUP \$(cat \$pidfile)",
+  stop      => "[ -d \$dropdir ] && touch \$dropdir/stop",
   start     => '#',
   show      => '#',
 );
@@ -300,7 +300,7 @@ sub readConfig
   if ( defined $self->{ENVIRONMENTS}{common} && !$depth )
   {
     my $e = $self->{ENVIRONMENTS}{common}->Environment();
-    $e .= "export PHEDEX_CONFIG_FILES=" .
+    $e .= "export PHEDEX_CONFIG_FILE=" .
 	   join(',',@{$self->{CONFIG_FILES}}) .
           "\n";
     $self->{ENVIRONMENTS}{common}->Environment($e);
@@ -380,23 +380,32 @@ sub show
 
   foreach my $agent ( $self->select_agents(@_) )
   {
-    my $statedir = $agent->STATEDIR;
+    my $dropdir  = $agent->DROPDIR;
     my $logdir   = $agent->LOGDIR;
     my $logfile  = $agent->LOGFILE;
+    my $pidfile  = $agent->PIDFILE;
 
     print $FH $self->getAgentEnviron($agent), "\n",
-              "(mkdir -p $statedir && mkdir -p $logdir";
+	 "export PHEDEX_AGENT_LABEL=",$agent->LABEL,"\n",
+              "(mkdir -p $dropdir && mkdir -p $logdir";
     if ( $agent->STATELINK )
     {
+warn "STATELINK can be better handled by getting the target state directory direct from the config file\n";
+#      my $linked_agent = $self->select_agents($agent->STATELINK);
+#      die "No linked agent found\n"
+#	  unless $linked_agent && ! ref($linked_agent);
+#      my $linked_env = $self->getAgentEnviron($linked_agent);
+#      die "No linked environment\n" unless $linked_env;
+#      print $FH " && ln -sf ",$agent->LABEL,"$linked_agent->DROPDIR;
       print $FH " && ln -sf ",$agent->LABEL,"\${PHEDEX_STATE}/",$agent->STATELINK;
     }
     print $FH 
          " && \${PHEDEX_SCRIPTS}/" . $agent->PROGRAM,
-         (" -", $agent->STATEOPT || "state", " ", $statedir),
+         (" -", $agent->STATEOPT || "state", " ", $dropdir),
          (" -log ", $logfile),
          $agent->{OPTS};
 
-    print $FH "; renice ".$agent->NICE." -p \$(cat $statedir/pid)"
+    print $FH "; renice ".$agent->NICE." -p \$(cat $pidfile)"
           if $agent->NICE;
     print $FH ")\n";
   }
@@ -415,9 +424,9 @@ sub command
   {
     print FH "(",
 	$self->getAgentEnviron($agent),
-	"statedir=", $agent->STATEDIR, ";\n",
-	"logdir=",   $agent->LOGDIR, ";\n",
-	"logfile=",  $agent->LOGFILE, ";\n",
+	"dropdir=", $agent->DROPDIR, ";\n",
+	"logdir=",  $agent->LOGDIR, ";\n",
+	"logfile=", $agent->LOGFILE, ";\n",
         $cmd, "\n)\n";
   }
   close(FH);
