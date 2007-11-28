@@ -38,11 +38,11 @@ use PHEDEX::Namespace;
 
 our %params =
 	(
-	  DBH => undef,			# DB handle
-	  DBCONFIG => undef,		# Database configuration file
-	  NODES    => undef,		# Nodes to run this agent for
-	  IGNORE_NODES => [],		# TMDB nodes to ignore
-	  ACCEPT_NODES => [],		# TMDB nodes to accept
+#	  DBH => undef,			# DB handle
+#	  DBCONFIG => undef,		# Database configuration file
+#	  NODES    => undef,		# Nodes to run this agent for
+#	  IGNORE_NODES => undef,		# TMDB nodes to ignore
+#	  ACCEPT_NODES => undef,		# TMDB nodes to accept
 	  WAITTIME => 900 + rand(15),	# Agent activity cycle
 	  DELETING => undef,		# Are we deleting files now?
 	  PROTOCOL => 'direct',         # File access protocol
@@ -74,14 +74,15 @@ sub new
 {
   my $proto = shift;
   my $class = ref($proto) || $proto;
-  my $self  = ref($proto) ? $class->SUPER::new(@_) : {};
 
-  my %args = (@_);
-  map {
-        $self->{$_} = defined($args{$_}) ? $args{$_} : $params{$_}
-      } keys %params;
+  my $self  = $class->SUPER::new(@_);
+  foreach ( keys %params )
+  {
+    $self->{$_} = $params{$_} unless defined $self->{$_};
+  }
   $self->{bcc} = PHEDEX::BlockConsistency::Core->new();
   bless $self, $class;
+
   return $self;
 }
 
@@ -503,6 +504,7 @@ sub idle
 
   eval
   {
+$DB::single=1;
     ($dbh, @nodes) = &expandNodesAndConnect ($self);
     @nodes or die "No node found? Typo perhaps?\n";
     my ($mfilter, %mfilter_args) =    &myNodeFilter ($self, "b.node");
@@ -613,6 +615,16 @@ print "Hmm, I have to connect...? (Request=$request->{ID}, state=$state)\n";
     $dbh->commit();
     &disconnectFromDatabase($self,$dbh);
   }
+}
+
+sub isInvalid
+{
+  my $self = shift;
+  my $errors = $self->SUPER::isInvalid
+		(
+		  REQUIRED => [ qw / DROPDIR NODES DBCONFIG STORAGEMAP / ],
+		);
+  return $errors;
 }
 
 1;

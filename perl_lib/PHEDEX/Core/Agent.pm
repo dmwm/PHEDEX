@@ -25,6 +25,7 @@ use PHEDEX::Core::Config;
 our %params =
 	(
 	  ME		=> undef,
+	  DBH		=> undef,
 	  DBCONFIG	=> undef,
 	  DROPDIR	=> undef,
 	  NEXTDIR	=> undef,
@@ -34,6 +35,9 @@ our %params =
 	  STOPFLAG	=> undef,
 	  PIDFILE	=> undef,
 	  LOGFILE	=> undef,
+	  NODES		=> undef,
+	  IGNORE_NODES	=> undef,
+	  ACCEPT_NODES	=> undef,
 	  WAITTIME	=> 7,
 	  JUNK		=> {},
 	  BAD		=> {},
@@ -46,6 +50,10 @@ our %params =
 	  AGENT		=> undef,
 	);
 
+our @array_params = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
+our @hash_params  = qw / JUNK /;
+our @required_params = qw / /;
+
 sub new
 {
     my $proto = shift;
@@ -54,15 +62,6 @@ sub new
 
     my %args = (@_);
     my $me = $0; $me =~ s|.*/||;
-    die "$me: fatal error: no drop box directory given\n" if ! $args{DROPDIR};
-    die "$me: fatal error: non-existent drop box directory\n" if ! -d $args{DROPDIR};
-    foreach my $dir (@{$args{NEXTDIR}}) {
-	if ($dir =~ /^([a-z]+):/) {
-            die "$me: fatal error: unrecognised bridge $1" if ($1 ne "scp" && $1 ne "rfio");
-	} else {
-            die "$me: fatal error: no downstream drop box\n" if ! -d $dir;
-	}
-    }
 
     $args{ME} = $me;
 
@@ -82,7 +81,7 @@ sub new
         $env = $cfg->ENVIRONMENTS->{$agent->ENVIRON};
         die "Cannot find environment for agent \"$label\" in $config\n"
 		unless $env;
-	$self->{ENVIRONMENTS} = $env;
+	$self->{ENVIRONMENT} = $env;
       }
     }
 
@@ -127,7 +126,20 @@ sub new
     $args{STOPFLAG} = $args{DROPDIR} . 'stop'   unless $args{STOPFLAG};
     $args{WORKDIR}  = $args{DROPDIR} . 'work'   unless $args{WORKDIR};
 
-    while (my ($k, $v) = each %args) { $self->{$k} = $v }
+    die "$me: fatal error: no drop box directory given\n" if ! $args{DROPDIR};
+    die "$me: fatal error: non-existent drop box directory\n" if ! -d $args{DROPDIR};
+    foreach my $dir (@{$args{NEXTDIR}}) {
+	if ($dir =~ /^([a-z]+):/) {
+            die "$me: fatal error: unrecognised bridge $1" if ($1 ne "scp" && $1 ne "rfio");
+	} else {
+            die "$me: fatal error: no downstream drop box\n" if ! -d $dir;
+	}
+    }
+
+    while (my ($k, $v) = each %args)
+    {
+      $self->{$k} = $v unless defined $self->{$k};
+    }
     bless $self, $class;
 
     if (-f $self->{PIDFILE})
@@ -155,7 +167,8 @@ sub new
     -d $self->{OUTDIR} || mkdir $self->{OUTDIR} || -d $self->{OUTDIR}
 	|| die "$me: fatal error: cannot create outbox directory: $!\n";
 
-    die "Agent failed validation\n" unless $self->Validate();
+#   Let the derived agent decide when to validate itself...
+#   die "Agent ",$self->{ME}," failed validation\n" if $self->isInvalid();
 
     # Daemonise, write pid file and redirect output.
     $self->daemon($me);
@@ -209,10 +222,54 @@ sub daemon
 
 # User hook
 sub init
-{}
+{
+  my $self = shift;
+  my %h = @_;
+  @{$h{ARRAYS}} = @array_params unless $h{ARRAYS};
+  @{$h{HASHES}} = @hash_params  unless $h{HASHES};
+  foreach ( @{$h{ARRAYS}} )
+  {
+    if ( !defined($self->{$_}) )
+    {
+      $self->{$_} = [];
+      next;
+    }
+    next if ref($self->{$_}) eq 'ARRAY';
+    my @x = split(',',$self->{$_});
+    $self->{$_} = \@x;
+  }
+
+  foreach ( @{$h{HASHES}} )
+  {
+    if ( !defined($self->{$_}) )
+    {
+      $self->{$_} = {};
+      next;
+    }
+#   Is this the right thing to do here...?
+    next if ref($self->{$_}) eq 'HASH';
+    my %x = split(',',$self->{$_});
+    $self->{$_} = \%x;
+  }
+}
 
 # User hook
-sub Validate { return 1; }
+sub isInvalid
+{
+  my $self = shift;
+  my %h = @_;
+  @{$h{REQUIRED}} = @required_params unless $h{REQUIRED};
+
+  my $errors = 0;
+  foreach ( @{$h{REQUIRED}} )
+  {
+   next if defined $self->{$_};
+    $errors++;
+    warn "Required parameter \"$_\" not defined!\n";
+  }
+
+  return $errors;
+}
 
 sub initWorkers
 {
@@ -601,54 +658,57 @@ sub processDrop
 # it, otherwise look for and process new inbox drops.
 sub process
 {
-    my $self = shift;
+  my $self = shift;
 
-    # Initialise subclass.
-    $self->init();
-    $self->initWorkers();
+  # Initialise subclass.
+  $self->init();
+  $self->initWorkers();
 
-    # Restore signals.  Oracle apparently is in habit of blocking them.
-    $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = sub { $self->doStop() };
+  # Validate the object!
+  die "Agent ",$self->{ME}," failed validation\n" if $self->isInvalid();
 
-    # Work.
-    while (1)
+  # Restore signals.  Oracle apparently is in habit of blocking them.
+  $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = sub { $self->doStop() };
+
+  # Work.
+  while (1)
+  {
+    my $drop;
+
+    # Check for new inputs.  Move inputs to pending work queue.
+    $self->maybeStop();
+    foreach $drop ($self->readInbox ())
     {
-	my $drop;
-
-	# Check for new inputs.  Move inputs to pending work queue.
-	$self->maybeStop();
-	foreach $drop ($self->readInbox ())
-	{
-	    $self->maybeStop();
-	    if (! &mv ("$self->{INBOX}/$drop", "$self->{WORKDIR}/$drop"))
-	    {
-		# Warn and ignore it, it will be returned again next time around
-		&alert("failed to move job '$drop' to pending queue: $!");
-	    }
-	}
-
-	# Check for pending work to do.
-	$self->maybeStop();
-	my @pending = $self->readPending ();
-	my $npending = scalar (@pending);
-	foreach $drop (@pending)
-	{
-	    $self->maybeStop();
-	    $self->processDrop ($drop, --$npending);
-	}
-
-	# Check for drops waiting for transfer to the next agent.
-	$self->maybeStop();
-	foreach $drop ($self->readOutbox())
-	{
-	    $self->maybeStop();
-	    $self->relayDrop ($drop);
-	}
-
-	# Wait a little while.
-	$self->maybeStop();
-	$self->idle (@pending);
+      $self->maybeStop();
+      if (! &mv ("$self->{INBOX}/$drop", "$self->{WORKDIR}/$drop"))
+      {
+	# Warn and ignore it, it will be returned again next time around
+	&alert("failed to move job '$drop' to pending queue: $!");
+      }
     }
+
+    # Check for pending work to do.
+    $self->maybeStop();
+    my @pending = $self->readPending ();
+    my $npending = scalar (@pending);
+    foreach $drop (@pending)
+    {
+      $self->maybeStop();
+      $self->processDrop ($drop, --$npending);
+    }
+
+    # Check for drops waiting for transfer to the next agent.
+    $self->maybeStop();
+    foreach $drop ($self->readOutbox())
+    {
+      $self->maybeStop();
+      $self->relayDrop ($drop);
+    }
+
+    # Wait a little while.
+    $self->maybeStop();
+    $self->idle (@pending);
+  }
 }
 
 # Wait between scans
