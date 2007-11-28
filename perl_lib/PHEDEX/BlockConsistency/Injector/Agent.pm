@@ -255,4 +255,14 @@ sub startOne
   return 0;
 }
 
+sub isInvalid
+{
+  my $self = shift;
+  my $errors = $self->SUPER::isInvalid
+		(
+		  REQUIRED => [ qw / DROPDIR NODES DBCONFIG LOGFILE / ],
+		);
+  return $errors;
+}
+
 1;
