@@ -38,13 +38,7 @@ use PHEDEX::Namespace;
 
 our %params =
 	(
-#	  DBH => undef,			# DB handle
-#	  DBCONFIG => undef,		# Database configuration file
-#	  NODES    => undef,		# Nodes to run this agent for
-#	  IGNORE_NODES => undef,		# TMDB nodes to ignore
-#	  ACCEPT_NODES => undef,		# TMDB nodes to accept
 	  WAITTIME => 900 + rand(15),	# Agent activity cycle
-	  DELETING => undef,		# Are we deleting files now?
 	  PROTOCOL => 'direct',         # File access protocol
 	  STORAGEMAP => undef,		# Storage path mapping rules
 	  USE_SRM => 'n',		# Use SRM or native technology?
@@ -504,7 +498,6 @@ sub idle
 
   eval
   {
-$DB::single=1;
     ($dbh, @nodes) = &expandNodesAndConnect ($self);
     @nodes or die "No node found? Typo perhaps?\n";
     my ($mfilter, %mfilter_args) =    &myNodeFilter ($self, "b.node");

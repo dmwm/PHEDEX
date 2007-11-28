@@ -29,6 +29,7 @@ use PHEDEX::BlockConsistency::Injector::Agent;
 &GetOptions ("state=s"      => \$args{DROPDIR},
 	     "log=s"        => \$args{LOGFILE},
 	     "db=s"         => \$args{DBCONFIG},
+	     "label=s"      => \$args{LABEL},
 	     "dropbox=s"    => \$args{DROPDIR},
 	     "use_srm"      => \$args{USE_SRM},
 	     "interval=s"   => \$args{CHECK_INTERVAL},
@@ -37,11 +38,5 @@ use PHEDEX::BlockConsistency::Injector::Agent;
              "accept=s"     => sub { push(@{$args{ACCEPT_NODES}}, split(/,/, $_[1])) },
 	     "help|h"	    => sub { &usage() },
 	    );
-
-if (!$args{DROPDIR} || !$args{DBCONFIG} || !$args{NODES} || !$args{LOGFILE})
-{
-    die "Insufficient parameters, use -h for help.\n";
-}
-#$args{LOGFILE} = $args{DROPDIR} . '/log.txt' unless defined $args{LOGFILE};
 
 (new PHEDEX::BlockConsistency::Injector::Agent (%args, @ARGV))->process();
