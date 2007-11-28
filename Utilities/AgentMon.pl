@@ -92,7 +92,7 @@ foreach $config ( @configs, @ARGV )
   foreach $agent ( $cfg->select_agents(@agents) )
   {
     $env = $cfg->ENVIRONMENTS->{$agent->ENVIRON};
-    $pid = $env->getExpandedString($agent->STATEDIR) . 'pid';
+    $pid = $env->getExpandedString($agent->DROPDIR) . 'pid';
     -f $pid or next;
   
     $cluster = $env->getExpandedString('${PHEDEX_INSTANCE}_$PHEDEX_NODE');
