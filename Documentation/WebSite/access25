@@ -26,7 +26,7 @@ our @EXPORT = qw(urlencode dblink toclink pagelink
                  send_email dn_to_human_name
 		 yesno striplabels
 		 dump_params dump_var
-		 parse_userdata dbs_lookup resolve_data
+		 parse_userdata dbs_lookup resolve_data fetch_replicas
 );
 
 # Various useful colours
@@ -733,7 +733,8 @@ sub dump_params
 sub dump_var
 {
     my ($fh, $name, $var) = @_;
-    use Data::Dumper;
+    my $out = Dumper($var);
+    $out =~ s/\n//g;
     print { $fh } "<pre>$name:\n", Dumper($var), "</pre>";
 }
 
@@ -940,22 +941,23 @@ sub resolve_data
 	$has{$level} = 1;
     }
 
-    my $all_datasets = &dbexec($dbh,
-        qq{select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset, sum(b.files) files, sum(b.bytes) bytes
+    my $all_datasets = &dbexec($dbh, qq{
+	   select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset,
+                  sum(b.files) files, sum(b.bytes) bytes
 	     from t_dps_dataset ds
    	     join t_dps_dbs dbs on dbs.id = ds.dbs
              join t_dps_block b on b.dataset = ds.id
             group by dbs.id, dbs.name, ds.id, ds.name
-	    order by ds.id })->fetchall_hashref('DATASET_ID') if $has{DATASET};
+	})->fetchall_hashref('DATASET_ID') if $has{DATASET};
     
-    my $all_blocks = &dbexec($dbh,
-       qq{select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset,
+    my $all_blocks = &dbexec($dbh, qq{
+	  select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset,
 	         b.id block_id, b.name block, b.files, b.bytes
 	    from t_dps_block b
 	    join t_dps_dataset ds on b.dataset = ds.id
 	    join t_dps_dbs dbs on ds.dbs = dbs.id
-            order by b.id})->fetchall_hashref('BLOCK_ID') if $has{BLOCK};
-    
+	})->fetchall_hashref('BLOCK_ID') if $has{BLOCK};
+
     my $undef_id = 0;
     foreach my $userglob (@userdata) {
 	$$resolved{$userglob} = [];
@@ -983,12 +985,15 @@ sub resolve_data
 	    $lastid = $id;
 	    push @{$$all{$level}}, $id;
 
+	    #my $replicas = 'blah';
+	    my $replicas = &fetch_replicas($dbh, $$row{DATASET_ID}, $$row{BLOCK_ID});
 	    push @{$$resolved{$userglob}},  { DBS => $$row{DBS},
 					      LEVEL => $level,
 					      DATASET => $$row{DATASET},
 					      BLOCK   => $$row{BLOCK},
 					      FILES   => $$row{FILES},
 					      BYTES   => $$row{BYTES},
+					      REPLICAS => $replicas,
 					      DPS_ISKNOWN => 'y',
 					      DBS_ISKNOWN => 'y', # XXX This is assuming DPS and DBS are in sync
 					      ID => $id };
@@ -1026,6 +1031,51 @@ sub resolve_data
 	return $resolved;
     }
 }
+
+sub fetch_replicas
+{
+    my ($dbh, $dataset_id, $block_id) = @_;
+    return undef unless ($dbh && $dataset_id);
+
+    my $block_select = '';
+    my $block_group_by = '';
+    my $block_where = '';
+    my %binds = (':dataset' => $dataset_id);
+    if ($block_id) {
+	$block_select = 'b.id block_id, ';
+	$block_group_by = ', b.id';
+	$block_where = 'and b.id = :block';
+	$binds{':block'} = $block_id;
+    }
+
+    my $q = &dbexec($dbh, qq{
+	select n.id node_id, n.name node_name, ds.id dataset_id,
+	       nvl2(s.destination, 1, 0) is_subscribed,
+	       nvl2(s.destination, nvl2(s.dataset, 'DATASET', 'BLOCK'), NULL) subs_level,
+               $block_select
+               nvl(sum(br.node_files),0) files, nvl(sum(br.node_bytes),0) bytes
+         from t_dps_dataset ds
+         join t_dps_block b on b.dataset = ds.id
+         join t_dps_block_replica br on br.block = b.id
+         join t_adm_node n on n.id = br.node
+    left join t_dps_subscription s on s.destination = br.node
+                                  and (s.dataset = ds.id or s.block = b.id)
+        where (br.node_files != 0 or br.dest_files != 0)
+          and ds.id = :dataset
+	  $block_where
+        group by n.id, n.name, ds.id, s.destination, s.dataset $block_group_by }, %binds);
+
+    my $replicas = [];
+    while (my @row = $q->fetchrow_array()) {
+	my %hash;
+	my $names = $q->{NAME_uc};
+	$hash{ $$names[$_] } = $row[$_] for (0..scalar @$names - 1);
+	push @$replicas, \%hash;
+    }
+
+    return $replicas;
+}
+
 
 # Given a list of dataset IDs and/or block IDs, calculate the number of files and bytes total
 sub calculate_size
@@ -2332,10 +2382,12 @@ sub generate
   if ($$index{SESSION}) {
       require CGI::Session;
       require CGI::Cookie;
+      my $session_name = 'PhEDEx';
+      CGI::Session->name($session_name);
       my $session = new CGI::Session("driver:File", undef, {Directory=>'/tmp/cgi-sessions'});
       $$self{SESSION} = $session;
       $$self{SESSIONID} = $session->id();
-      my $cookie = new CGI::Cookie(-name=>'CGISESSID', -value=>$session->id());
+      my $cookie = new CGI::Cookie(-name=>$session_name, -value=>$session->id());
       push @cookies, $cookie;
   }
 
@@ -2395,11 +2447,11 @@ sub generate
       }
     }
     $self->output();
-    if ($$self{DBH})
-    {
-      $$self{DBH}->disconnect() if $$self{DBH};
-      delete $$self{DBH};
-    }
+     if ($$self{DBH})
+     {
+       $$self{DBH}->disconnect() if $$self{DBH};
+       delete $$self{DBH};
+     }
   };
   if ($@)
   {
@@ -2861,13 +2913,20 @@ import Web25::Common;
 
 our @reqstates = (
   { STATE => 0, RANK => 0, LABEL => "Pending approval" },
-  { STATE => 2, RANK => 3, LABEL => "Partially disapproved" },
+  { STATE => 2, RANK => 3, LABEL => "Partially refused" },
   { STATE => 3, RANK => 4, LABEL => "Partially approved" },
-  { STATE => 4, RANK => 9, LABEL => "Disapproved" },
+  { STATE => 4, RANK => 9, LABEL => "Refused" },
   { STATE => 5, RANK => 5, LABEL => "Approved" }
 );
 our %reqstatenames  = map { ($$_{STATE} => $$_{LABEL}) } @reqstates;
 our %reqstatevalues = map { ($$_{LABEL} => $$_{STATE}) } @reqstates;
+our %reqactionnames = ( subscribe => 'Transfer Approved',
+			nosubscribe => 'Transfer Refused',
+			moveconfirm => 'Move Approved',
+			nomoveconfirm => 'Move Refused',
+			delete => 'Deletion Approved',
+			nodelete => 'Deletion Refused' );
+
 
 sub new
 {
@@ -2881,7 +2940,7 @@ sub new
 
 sub logClientInfo
 {
-    my ($self) = @_;
+    my ($self, $user_email) = @_;
 
     # Is there a case for logging anonymous access?
     # If so we will want to change this function...
@@ -2889,10 +2948,13 @@ sub logClientInfo
 
     my $identity = $self->fetch_identity();
 
+    my %attr = ( "Remote host" => $ENV{HTTP_X_FORWARDED_FOR},
+		 "User agent" => user_agent() );
+    $attr{'User E-mail'} = $user_email if $user_email && $user_email ne $$identity{EMAIL};
+
     my $cid = &makeObjWithAttrs
 	($$self{DBH}, "adm_contact", "contact", {},
-	 "Remote host" => $ENV{HTTP_X_FORWARDED_FOR},
-	 "User agent" => user_agent());
+	 %attr);
     
     my $client = &makeObjWithAttrs
 	($$self{DBH}, "adm_client", undef,
@@ -2901,6 +2963,21 @@ sub logClientInfo
     return $client;
 }
 
+sub writeRequestComments
+{
+    my ($self, $rid, $client, $comments, $time) = @_;
+    return undef unless ($rid && $client && $comments && $time);
+
+    my $comments_id;
+    &dbexec($$self{DBH},
+	    qq[ insert into t_req_comments (id, request, comments_by, comments, time_comments)
+		values (seq_req_comments.nextval, :rid, :client, :comments, :time_comments)
+		returning id into :comments_id],
+	    ':rid' => $rid, ':client' => $client, ':comments' => $comments, ':time_comments' => $time,
+	    ':comments_id' => \$comments_id);
+
+    return $comments_id;
+}
 
 sub getClientData 
 {
@@ -2967,53 +3044,416 @@ sub formatClientData
 }
 
 
-sub formatAction
+
+sub getRequestData
 {
-    my ($self, $aid, $action, $tid) = @_;
-    my @html;
+    my ($self, $rid) = @_;
+    $$self{DBH}->{LongReadLen} = 10_000;
+    $$self{DBH}->{LongTruncOk} = 1;
 
-    my $actionid = "action$aid";
-    my $actionclientid = "actionclient$aid";
-    if ($tid) {
-	$actionid = "task$tid".$actionid;
-	$actionclientid = "task$tid".$actionclientid;
-    }
-
-    push @html,
-    "<h1><a href='#' onclick='return hideshow(this,\"$actionid\",0)'>",
-    $$action{ACTION_NAME}, "</a></h1>",
-    "<div id='$actionid' style='display:none;'>",
-    "<label>Time:</label>", "<span class='labeled'>", &formatTime($$action{ACTION_TIME}, 'stamp'), "</span><br/>",
-    "<label>Client:</label>", "<span class='labeled'>",
-    "<a href='#' onclick='return hideshow(this, \"$actionclientid\", 0)'>",
-    ($$action{ACTION_CREATOR}{IDENTITY}{NAME} or 'Unknown'), "</a></span><br/>",
-    "<div id='$actionclientid' class='hideaway' style='display:none;'>",
-    $self->formatClientData($$action{ACTION_CREATOR}),
-    "</div>";
+    my $data = {};
+    $data = &dbexec($$self{DBH}, qq{
+	select r.id, rt.name type, r.created_by creator_id, r.time_create, rdbs.name dbs, rc.comments
+	  from t_req_request r
+          join t_req_type rt on rt.id = r.type
+          join t_req_dbs rdbs on rdbs.request = r.id
+     left join t_req_comments rc on rc.id = r.comments
+	  where r.id = :request }, ':request' => $rid)->fetchrow_hashref();
     
-    sub formatAttr
-    {
-	my $attr = shift;
-	if ($$attr{NAME} eq 'Priority') {
-	    my $fmt = { 0 => 'High', 1 => 'Normal', 2 => 'Low' };
-	    return $$fmt{$$attr{VALUE}};
-	} elsif ($$attr{NAME} eq 'Transient' or 'Move') {
-	    return &yesno($$attr{VALUE});
-	}
-	return $$attr{VALUE};
-    }
-
-    foreach my $attr (sort { $$a{ID} <=> $$b{ID} } @{ $$action{ATTR} } ) {
-	next unless $$attr{VALUE};
-	my $commentclass = (grep $$attr{NAME} eq $_,  qw(Comment Message)) ? ' comment' : '';
-	push @html, "<label>$$attr{NAME}:</label><span class='labeled$commentclass'>", 
-	&formatAttr($attr),"</span><br/>";
-    }
+    $$data{CREATOR_DATA} = $self->getClientData($$data{CREATOR_ID});
     
-    push @html, "</div>";
+    $$data{NODES} = &dbexec($$self{DBH}, qq{
+	select n.name node, n.id node_id,
+               case when rn.point = 's' then 'Source Node'
+                    when rn.point = 'd' then 'Destination Node'
+                    else 'Node' end point,
+               rd.decision, rd.decided_by, rd.time_decided, rc.comments
+          from t_req_node rn
+          join t_adm_node n on n.id = rn.node
+     left join t_req_decision rd on rd.request = rn.request and rd.node = rn.node
+     left join t_req_comments rc on rc.id = rd.comments
+	  where rn.request = :request }, ':request' => $rid)->fetchall_hashref('NODE');
 
-    return @html;
+    my ($n, $n_pend, $n_appr, $n_dis) = (0, 0, 0, 0);
+    foreach my $node (values %{$$data{NODES}}) {
+	$n++;
+	if (!$$node{DECISION}) { $n_pend++; }
+	elsif ($$node{DECISION} eq 'y') { $n_appr++; }
+	elsif ($$node{DECISION} eq 'n') { $n_dis++; }
+	$$node{DECIDER_DATA} = $self->getClientData($$node{DECIDED_BY}) if $$node{DECIDED_BY};
+    }
+
+    my ($state);
+    if    ($n == $n_appr)  { $state = 'Approved'; }
+    elsif ($n == $n_dis)   { $state = 'Disapproved'; }
+    elsif ($n == $n_pend)  { $state = 'Pending approval'; }
+    elsif ($n_appr !=0)    { $state = 'Partially approved'; }
+    elsif ($n_dis !=0)     { $state = 'Partially disapproved'; }
+    $$data{REQUEST_STATE} = $state;
+    $$data{REQUEST_NEEDS_ADMIN} = $n_pend;
+    
+    my $req_type_data_table = "t_req_$$data{TYPE}";
+    my $req_type_data_key = uc("$$data{TYPE}_DATA");
+    $$data{$req_type_data_key} = &dbexec($$self{DBH}, qq{
+	select * from $req_type_data_table where request = :request 
+	}, ':request' => $rid)->fetchrow_hashref();
+				
+    $$data{DATA} = &dbexec($$self{DBH}, qq{
+	select 'DATASET' lvl, rds.name, ds.id, sum(b.files) files, sum(b.bytes) bytes
+	  from t_req_dataset rds left join t_dps_dataset ds on ds.id = rds.dataset_id
+                                 left join t_dps_block b on b.dataset = ds.id
+         where rds.request = :request
+         group by rds.name, ds.id
+        union
+        select 'BLOCK' lvl, rb.name, b.id, b.files, b.bytes
+          from t_req_block rb left join t_dps_block b on b.id = rb.block_id
+         where rb.request = :request
+        union
+        select 'FILE' lvl, rf.name, f.id, 1 files, f.filesize bytes
+          from t_req_file rf left join t_dps_file f on f.id = rf.file_id
+         where rf.request = :request
+     }, ':request' => $rid)->fetchall_hashref([qw(LVL ID)]);
+
+     my ($total_files, $total_bytes) = (0, 0);
+     foreach my $lvl (keys %{$$data{DATA}}) {
+ 	foreach my $item (values %{$$data{DATA}{$lvl}}) {
+	    $total_files += $$item{FILES} || 0;
+ 	    $total_bytes += $$item{BYTES} || 0;
+ 	}
+     }
+     $$data{REQUEST_FILES} = $total_files;
+     $$data{REQUEST_BYTES} = $total_bytes;
+
+    return $data;
 }
+
+
+
+sub writeRequest
+{
+    my ($self) = @_;
+    
+    my %params;
+    foreach (qw(user_email comments dbs data nodes type type_params)) {
+	unless (defined $$self{SESSION}->param($_)) {
+	    $self->alert('Insuficcient parameters from session: '.$_);
+	    return;
+	}
+	$params{$_} = $$self{SESSION}->param($_);
+    }
+
+    &dump_var($$self{CONTENT}, 'params', {%params});
+    
+    my $now = time();
+    
+    # Write information about the Client
+    my $client = $self->logClientInfo($params{user_email});
+    
+    # Write the request
+    my $rid;
+    &dbexec($$self{DBH},
+	    qq[	insert into t_req_request (id, type, created_by, time_create)
+		values (seq_req_request.nextval, (select id from t_req_type where name = :type),
+			:client, :now )
+		returning id into :id ],
+	    ':id' => \$rid, ':type' => $params{type}, ':client' => $client, ':now' => $now);
+
+    # Write the (resolved) dbs/datasets/blocks to the DB
+    &dbexec($$self{DBH}, qq[ insert into t_req_dbs (request, name, dbs_id)
+			     select :rid, name, id from t_dps_dbs where name = :dbs_name ],
+	    ':rid' => $rid, ':dbs_name' => $params{dbs});
+
+
+    my @rv;
+    foreach my $userglob (keys %{$params{data}}) {
+	foreach my $item (@{ $params{data}->{$userglob} }) {
+	    if ($$item{LEVEL} eq 'DATASET') {
+		@rv = &dbexec($$self{DBH}, 
+			      qq[ insert into t_req_dataset (request, name, dataset_id)
+				  select :rid, name, id from t_dps_dataset where name = :dataset_name ],
+			      ':rid'          => $rid,
+			      ':dataset_name' => $$item{ITEM}
+			      );
+	    } elsif ($$item{LEVEL} eq 'BLOCK') {
+		@rv = &dbexec($$self{DBH},
+			      qq[ insert into t_req_block ( request, name, block_id )
+				  select :rid, name, id from t_dps_block where name = :block_name ],
+			      ':rid' => $rid,
+			      ':block_name' => $$item{ITEM}
+			      );
+	    }
+	    unless ($rv[1] > 0) {
+		$$self{DBH}->rollback();
+		$self->alert("Request creation failed");
+		return;
+	    }
+	}
+    }
+
+    # Write the nodes involved
+    my %all_nodes = $self->fetch_nodes(with_ids=>1);
+    my $i_node = &dbprep($$self{DBH},
+			 qq[ insert into t_req_node (request, node, point)
+                             values (:rid, :node, :point) ]);
+    foreach my $point ( keys %{$params{nodes}} ) {
+	my $p = undef;
+	if ($point eq 'src')     { $p = 's'; }
+	elsif ($point eq 'dest') { $p = 'd'; }
+	foreach my $node ( @{$params{nodes}->{$point}} ) {
+	    &dbbindexec($i_node,
+			':rid' => $rid,
+			':node' => $all_nodes{$node},
+			':point' => $p);
+	}
+    }
+
+    # Write the request type parameters
+    my $table = 't_req_'. $params{type};
+    my @columns = ('request', sort keys %{ $params{type_params} });
+    my $sql = "insert into $table (" . join(', ', @columns) . ")" .
+	" values (" . join(', ', map { ":$_" } @columns) . ")";
+    my %binds = ( ':request' => $rid );
+    $binds{":$_"} = $params{type_params}->{$_} foreach keys %{$params{type_params}};
+    &dump_var($$self{CONTENT}, 'sql', {sql => $sql, binds => {%binds}});
+    &dbexec($$self{DBH}, $sql, %binds);
+    
+    # Write the comment
+    if ($params{comments}) {
+	my $comments_id = $self->writeRequestComments($rid, $client, $params{comments}, $now);
+	&dbexec($$self{DBH}, qq[ update t_req_request set comments = :comments_id where id = :rid ],
+		':rid' => $rid, ':comments_id' => $comments_id);
+    }
+
+    $$self{DBH}->commit();
+    
+    # Delete the session
+    $$self{SESSION}->delete();
+    
+    return $rid;
+}
+
+
+
+sub getRequestTitle
+{
+    my ($self, $data) = @_;
+    if ($$data{TYPE} eq 'xfer') {
+	return "Transfer Request : ".$self->getRequestTypeSummary($data);
+    } elsif ($$data{TYPE} eq 'delete') {
+	return "Deletion Request";
+    } else {
+	return "Unknown Request";
+    }
+}
+
+
+
+sub getRequestTypeSummary
+{
+    my ($self, $data) = @_;
+    if ($$data{TYPE} eq 'xfer') {
+	my $kind = $$data{XFER_DATA}{IS_MOVE} eq 'y' ? 'Move' : 'Replication';
+	my %priority_names = (0 => 'High', 1 => 'Normal', 2 => 'Low');
+	my $priority = $priority_names{ $$data{XFER_DATA}{PRIORITY} };
+	return "$priority Priority $kind";
+    } elsif ($$data{TYPE} eq 'delete') {
+	return $$data{DELETE_DATA}{RM_SUBSCRIPTIONS} eq 'y' ? 'Deletion' : 'Retransfer';
+    } else {
+	return undef;
+    }
+}
+
+
+
+sub printRequest
+{
+    my ($self, $rid, @auth_nodes) = @_;
+
+    my $data = $self->getRequestData($rid);
+
+    print { $$self{CONTENT} }
+    # Request box
+    "<div class='nice paramblock lev1'>",
+    "<h1>Request $rid : ", $self->getRequestTitle($data), "</h1>",
+    # Requestor hideaway box
+    "<label>Requestor:</label>", "<div class='labeled'>",
+    "<a href='#' onclick='return hideshow(this, \"creator$rid\", 0)'>",
+    ($$data{CREATOR_DATA}{IDENTITY}{NAME} or 'Unknown'), 
+    ( $$data{COMMENTS} ? " (comments)" : ''), "</a>",
+    " at ", &formatTime($$data{TIME_CREATE}, 'stamp'), "<br/>",
+    "<div id='creator$rid' class='hideaway' style='display:none;'>";
+    
+    #Creation comments
+    if ($$data{COMMENTS}) {
+	print { $$self{CONTENT} }
+	"<label>Comments:</label>", "<div class='labeled comment'>",
+	$$data{COMMENTS}, "</div><br/>";
+    }
+
+    print { $$self{CONTENT} }
+    $self->formatClientData($$data{CREATOR_DATA}),
+    "</div></div><br/>",
+    # Request state
+    "<label>State:</label>", "<span class='labeled'>", 
+    $$data{REQUEST_STATE}, "</span><br/>";
+
+    # Data hideaway box
+    my $data_label;
+    if ($$data{REQUEST_FILES} == 0 && $$data{REQUEST_BYTES} == 0) {
+	$data_label = "No longer available in TMDB";
+    } else {
+	$data_label = "$$data{REQUEST_FILES} files, ". &format_size($$data{REQUEST_BYTES});
+    }
+
+    print { $$self{CONTENT} }
+    "<label>Data:</label>", "<div class='labeled'>",
+    "<a href='#' onclick='return hideshow(this, \"data$rid\", 0)'>",
+    $data_label, "</a><br/>",
+    # Data details (hidden at first)
+    "<div id='data$rid' class='hideaway' style='display:none;'>",
+    "<label class='inline'>DBS URL:</label>", $$data{DBS}, "<br/>";
+    $self->printDataTable($data);
+    print { $$self{CONTENT} } "</div></div><br/>";
+
+    # Nodes
+    my $nodes = {}; # point => [ array of node objects ]
+    my $admin = 0;
+    foreach my $node (sort keys %{$$data{NODES}}) {
+	my $o = $$data{NODES}{$node};
+	$admin = 1 if (!$$o{DECISION} && grep($$o{NODE} eq $_, @auth_nodes));
+	$$nodes{ $$o{POINT} } ||= [];
+	push @{ $$nodes{$$o{POINT}} }, $o;
+    }
+
+    my $approve_url = $self->myurl('page' => 'Request::Admin');
+    print { $$self{CONTENT} } "<form method='post' action='$approve_url'>" if $admin;
+    foreach my $point ( sort keys %$nodes ) {
+	print { $$self{CONTENT} }
+	"<label>${point}s:</label>", "<div class='labeled'>";
+	foreach my $o (@{$$nodes{$point}}) {
+	    my $decision_text = '';
+	    if (!$$o{DECISION} && $admin && grep($$o{NODE} eq $_, @auth_nodes)) {
+		my @controls;
+		my %labels = ('approve' => 'approve', 'disapprove' => 'disapprove', 'null' => 'do nothing');
+		foreach my $action (qw(approve disapprove null)) {
+		    my $sel = $action eq 'null' ? "checked='checked'" : '';
+		    push @controls, "<input $sel name='admin-$$o{NODE}' value='$action' type='radio'/> ".
+			$labels{$action};
+		}
+		$decision_text = "<span class='warn'><b>admin</b></span> : " . join(' ', @controls);
+	    } elsif (!$$o{DECISION}) {
+		$decision_text = "<span class='warn'>pending approval</span>";
+	    } else {
+		my $decider_ref = "nodedec$rid-".$$o{NODE_ID};
+		
+		$decision_text = 
+		    join('', ($$o{DECISION} eq 'y' ? "<span class='good'>approved</span> by " 
+			      : "<span class='bad'>disapproved</span> by "),
+			 "<a href='#' onclick='return hideshow(this, \"$decider_ref\", 0)'>",
+			 $$o{DECIDER_DATA}{IDENTITY}{NAME},
+			 ( $$o{COMMENTS} ? " (comments)" : ''),
+			 "</a></span>",
+			 ' at ', &formatTime($$o{TIME_DECIDED}, 'stamp'),
+			 "<div id='$decider_ref' class='hideaway' style='display:none;'>",
+			 #Creation comments
+			 ( $$o{COMMENTS} ? 
+			   "<label>Comments:</label><div class='labeled comment'>$$o{COMMENTS}</div><br/>" : ''),
+			 $self->formatClientData($$o{DECIDER_DATA}),
+			 "</div>");
+	    }
+	    print { $$self{CONTENT} } "$$o{NODE} : $decision_text<br/>";
+	}
+	print { $$self{CONTENT} } "</div><br/>";
+    }
+    if ($admin) {
+	print { $$self{CONTENT} }
+	"<label>Comment:<br/><span class='note'>(Optional)</span></label>",
+	textarea(-name=>'comments', -rows=>5, -cols=>60, -class=>'labeled'), "<br/>",
+	"<label>&nbsp;</label>",
+	hidden('request', $rid),
+	submit(-value=>"Submit Changes for \#$rid", -class=>'labeled'), "<br/>",
+	"</form>";
+    }
+ 
+    # Request-specific data
+    print { $$self{CONTENT} }
+    "<label>Details:</label>", "<span class='labeled'>",
+    "<a href='#' onclick='return hideshow(this, \"details$rid\", 0)'>",
+    $self->getRequestTypeSummary($data), "</a></span><br/>",
+    "<div id='details$rid' class='hideaway' style='display:none;'>";
+    $self->printRequestSpecific($data);
+    print { $$self{CONTENT} } "</div>";
+   
+#    &dump_var($$self{CONTENT}, 'request data', $data);
+    print { $$self{CONTENT} } "</div>";
+}
+
+
+sub printDataTable
+{
+    my ($self, $data) = @_;
+    my $table = new Web25::TableSpool;
+    $table->set_filehandle( $$self{CONTENT} );
+    $table->set_tableclass('data');
+    $table->set_stripeclass('stripe');
+    $table->set_tablecols([qw(LVL NAME FILES BYTES)]);
+    $table->set_tablehead({LVL => 'Data Level', 
+			   NAME => 'Data Item',
+			   FILES => 'Files',
+			   BYTES => 'Size'});
+    $table->set_dataformats({ LVL => sub { ucfirst lc $_[0] },
+			      BYTES => sub { &format_size($_[0], 1, 2, 'G') }});
+    $table->set_statcols({FILES => 'SUM', BYTES => 'SUM'});
+    $table->start();
+    $table->head();
+     foreach my $lvl (keys %{$$data{DATA}}) {
+ 	foreach my $item (values %{$$data{DATA}{$lvl}}) {
+	    $table->row($item);
+ 	}
+     }
+    $table->finish();
+}
+
+
+
+sub printRequestSpecific
+{
+    my ($self, $data) = @_;
+    if ($$data{TYPE} eq 'xfer') {
+	my $spec = $$data{XFER_DATA};
+	my %labels = ( PRIORITY => 'Priority',
+		       IS_MOVE => 'Move',
+		       IS_STATIC => 'Static',
+		       IS_TRANSIENT => 'Transient',
+		       IS_DISTRIBUTED => 'Distributed',
+		       DATA => 'Requested Data' );
+	my %priority_names = (0 => 'High', 1 => 'Normal', 2 => 'Low');
+	print { $$self{CONTENT} }
+	"<label>$labels{PRIORITY}:</label><span class='labeled'>$priority_names{$$spec{PRIORITY}}</span><br/>";
+	foreach my $key (qw(IS_MOVE)) { # TODO:  omitted keys have no function yet...
+	    print { $$self{CONTENT} }
+	    "<label>$labels{$key}:</label><span class='labeled'>", &yesno($$spec{$key}), "</span><br/>";
+	}
+	$$spec{DATA} =~ s/ +/<br\/>/g;
+	print { $$self{CONTENT} }
+	"<label>$labels{DATA}:</label><span class='labeled databox tinytext'>$$spec{DATA}</span><br/>";
+    } elsif ($$data{TYPE} eq 'delete') {
+	my $spec = $$data{DELETE_DATA};
+	my %labels = ( RM_SUBSCRIPTIONS => 'Remove Subscriptions?',
+		       DATA => 'Requested Data' );
+	foreach my $key (qw(RM_SUBSCRIPTIONS)) { # TODO:  omitted keys have no function yet...
+	    print { $$self{CONTENT} }
+	    "<label>$labels{$key}:</label><span class='labeled'>", &yesno($$spec{$key}), "</span><br/>";
+	}
+	$$spec{DATA} =~ s/ +/<br\/>/g;
+	print { $$self{CONTENT} }
+	"<label>$labels{DATA}:</label><span class='labeled databox tinytext'>$$spec{DATA}</span><br/>";
+    } else {
+	print { $$self{CONTENT} } 'N/A';
+    }
+}
+
+
 
 1;
 
@@ -3039,507 +3479,89 @@ sub new
 sub output
 {
   my ($self) = @_;
-  my ($qtask, $qreq);
-  if ($$self{MY_VIEW}) {
-      my $identity = $self->fetch_identity();
-      
-      $qtask = &dbexec($$self{DBH},
-		     qq{ select count(t.id)
-			     from t_req_task t
-			     where t.person = :identity },
-		     ":identity" => $$identity{ID});
+  my ($n_req) = &dbexec($$self{DBH}, qq{
+      select count(*) n_requests
+	from t_req_request
+    })->fetchrow();
 
-    $qreq = &dbexec($$self{DBH}, qq{
-	select req.state, count(req.id)
-	    from t_adm_client c
-	    join t_req_request req on req.creator = c.id
-	    where c.identity = :identity
-	    group by req.state},
-		    ":identity" => $$identity{ID});
-  } else {
-    $qtask = &dbexec($$self{DBH}, qq{
-      select count(t.id) from t_req_task t});
+  print {$$self{CONTENT}} "<h1>Requests Overview</h1>";
+  print {$$self{CONTENT}} "<p>There are <b>$n_req</b> Requests.</p>";
 
-    $qreq = &dbexec($$self{DBH}, qq{
-      select req.state, count(req.id)
-      from t_req_request req
-      group by req.state});
+  my $q = &dbexec($$self{DBH}, qq{
+     select n.name node, rt.name type, nvl(rd.decision,'PEND'), count(*) n_req
+       from t_req_request r
+       join t_req_type rt on rt.id = r.type
+       join t_req_node rn on rn.request = r.id
+       join t_adm_node n on n.id = rn.node
+  left join t_req_decision rd on rd.request = rn.request
+                             and rd.node = rn.node
+  group by n.name, rt.name, nvl(rd.decision,'PEND')
+  order by n.name
+});
+
+  print {$$self{CONTENT}} "<h2>Overview By Node</h2>";
+
+  my $overview = {};
+  while (my ($node, $type, $decision, $n_req) = $q->fetchrow()) {
+   #   print {$$self{CONTENT}} "<p>$node $type $decision $n_req</p>";
+      $$overview{$node}{$type}{$decision} = $n_req;
   }
 
-  my ($tasks) = $qtask->fetchrow();
-  my $your = $$self{MY_VIEW} ? "Your" : "All";
-  print { $$self{CONTENT} }
-    "<div align='left'>",
-    "<p><a href='@{[$self->myurl('page' => 'Request::Admin')]}'>$your pending tasks</a></p>\n",
-    "<ul>\n",
-    " <li> ", ($tasks ? "$tasks Tasks" : "None"), "</li>\n",
-    "</ul>\n",
-    "<p><a href='@{[$self->myurl('page' => 'Request::Requests')]}'>$your transfer requests</a></p>\n",
-    "<ul>\n";
-
-  my $n = 0;
-  my %status = ();
-  while (my ($state, $count) = $qreq->fetchrow())
-  {
-    $status{$state} = $count;
-  }
-
-  foreach my $state (sort { $$a{RANK} <=> $$b{RANK} } @reqstates)
-  {
-    my $s = $$state{STATE};
-    next if ! $status{$s};
-    print { $$self{CONTENT} } " <li> $status{$s} $$state{LABEL}</li>\n";
-    $n += $status{$s};
-  }
-
-  print { $$self{CONTENT} } "</div>\n";
-}
-
-1;
-
-######################################################################
-package Web25::Request::Admin;
-use strict; use warnings;
-use base "Web25::Request::Page";
-our $INDEX = { LIST => 1, ORDER => 4, TITLE => "Administer Requests",
-	       LINK_TITLE => "Browse and carry out pending tasks",
-	       SECURE => 1 };
-use CGI qw(:standard);
-import Web25::Common;
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub output
-{
-  my ($self) = @_;
-  my $task = param('task');
-  my $request = param('request');
-
-
-  my @where;  my %binds;
-  my $identity = $self->fetch_identity()->{ID};
-
-  if ($$self{MY_VIEW}) {
-      push @where, qq{ t.person = :identity };
-      $binds{':identity'} = $identity;
-  }
-
-  if ($task) {
-      push @where, 't.id = :task';
-      $binds{':task'} = $task;
-  }
-
-  if ($request) {
-      push @where, 'r.id = :request';
-      $binds{':request'} = $request;
-  }
-
-  my $where_bit = @where ? 'where '.join(' and ', @where) : '';
-
-  my $sql = qq{
-      select t.id tid, a.id aid, r.id rid, i.name assigned_to, i.id assigned_to_id, t.time_create, r.state, r.creator,
-             a.action, a.time_apply, a.client, a_attr.id, a_attr.name, a_attr.value
-      from t_req_task t
-      join t_adm_identity i on t.person = i.id
-      join t_req_action a on a.id = t.action
-      join t_req_request r on r.id = a.request
-      left join t_req_action_attr a_attr on a_attr.action = a.id
-      $where_bit
-  };
-
-  my $pager = new Web25::QueryPager;
-  $pager->init($self, $sql, {%binds}, 10, 'tid desc');
-  my $n_tasks = $pager->get_total_results();
-  
-  if (! $n_tasks) {
-      print { $$self{CONTENT} } "<p>No tasks to show.</p>";
-      return;
-  }
-
-  print {$$self{CONTENT}} $pager->pager();
-  my $qtask = $pager->paged_result();
-
-  my %task;
-  while (my ($tid, $aid, $rid, $tassigned, $tassigned_id, $tcreate, $rstate, $rcreator,
-	     $action, $atime, $aclient, $attrid, $name, $value) = $qtask->fetchrow()) {
-      if (not exists $task{$tid}) {
-	  $task{$tid}{TASK_ASSIGNED} = $tassigned;
-	  $task{$tid}{TASK_ASSIGNED_ID} = $tassigned_id;
-	  $task{$tid}{TASK_CREATED}  = $tcreate;
-	  $task{$tid}{REQUEST_ID} = $rid;
-	  $task{$tid}{REQUEST_STATE} = $rstate;
-	  $task{$tid}{REQUEST_CREATOR} = $self->getClientData($rcreator);
-      }
-      if (not exists $task{$tid}{ACTIONS}{$aid}) {
-	  $task{$tid}{ACTIONS}{$aid}{ACTION_NAME} = $action;
-	  $task{$tid}{ACTIONS}{$aid}{ACTION_TIME} = $atime;
-	  $task{$tid}{ACTIONS}{$aid}{ACTION_CREATOR} = $self->getClientData($aclient);
-	  $task{$tid}{ACTIONS}{$aid}{ATTR} = [];
-      }
-      push @{$task{$tid}{ACTIONS}{$aid}{ATTR}}, {ID => $attrid, NAME=> $name, VALUE=> $value};
-  }
-
-  foreach my $tid (reverse sort { $a <=> $b } keys %task) {
-      my $details_url = $self->myurl(page => 'Request::Detail', 'request' => $task{$tid}{REQUEST_ID});
-
-      print { $$self{CONTENT} } 
-      "<div class='nice paramblock lev1'>",
-      "<h1>Task $tid</h1>",
-      "<label>Task Assigned to:</label>", "<span class='labeled'>", $task{$tid}{TASK_ASSIGNED}, "</span><br/>",
-      "<label>Task Created:</label>", "<span class='labeled'>", &formatTime($task{$tid}{TASK_CREATED}, 'stamp' ), "</span><br/>",
-      "<label>Request #:</label><span class='labeled'>", $task{$tid}{REQUEST_ID}, "<a href='$details_url'>(details)</a></span><br/>",
-      "<label>Requestor:</label>", "<span class='labeled'>",
-      "<a href='#' onclick='return hideshow(this, \"creator$tid\", 0)'>",
-      ($task{$tid}{REQUEST_CREATOR}{IDENTITY}{NAME} or 'Unknown'), "</a></span><br/>",
-      "<div id='creator$tid' class='hideaway' style='display:none;'>",
-      $self->formatClientData($task{$tid}{REQUEST_CREATOR}),
-      "</div>",
-      "<label>Request State:</label>", "<span class='labeled'>", $reqstatenames{$task{$tid}{REQUEST_STATE}}, "</span><br/>";
-
-      foreach my $aid (sort { $task{$tid}{ACTIONS}{$a}{ACTION_TIME} <=>
-			      $task{$tid}{ACTIONS}{$b}{ACTION_TIME} } keys %{$task{$tid}{ACTIONS}}) {
-	  print { $$self{CONTENT} }
-	  "<div class='paramblock lev2'>",
-	  $self->formatAction($aid, $task{$tid}{ACTIONS}{$aid}, $tid),
-	  "</div>";
-
-	  if ($task{$tid}{TASK_ASSIGNED_ID} == $identity
-	      && $task{$tid}{ACTIONS}{$aid}{ACTION_NAME} eq 'Created') {
-	      my @destinations;
-	      foreach my $attr (@{$task{$tid}{ACTIONS}{$aid}{ATTR}}) {
-		  if ($$attr{NAME} eq 'Destination Node') {
-		      push @destinations, $$attr{VALUE};
-		  }
-	      }
-
-	      my @auth_nodes = sort $self->fetch_nodes(web_user_auth => 'Data Manager');
-
-	      my @auth_dests;
-	      foreach my $dest (@destinations) {
-		  push @auth_dests, $dest if grep $dest eq $_, @auth_nodes;
-	      }
-
-	      my $formurl = $self->myurl(page=>'Request::NewAction');
-	      print { $$self{CONTENT} }
-	      "<form method='post' action='$formurl'>",
-	      hidden(-name=>'request', -value=>$task{$tid}{REQUEST_ID}),
-	      hidden(-name=>'task', -value=>$tid),
-	      hidden(-name=>'action', -value=>$aid),
-	      "<label>Next Action:</label>",
-	      popup_menu(-name=>'newaction', 
-			 -values=>['subscribe', 'disapprove'],
-			 -labels=>{'subscribe' => 'Subscribe',
-				   'disapprove' => 'Disapprove'},
-			 -class=>'labeled'
-			 ),
-			     "<br/><label>For Nodes:</label>", checkbox_group(-name=>'nodes',
-									      -values=>[@auth_dests],
-									      -default=>[@auth_dests],
-									      -class=>'labeled',
-									      -columns=>3
-									      ),
-	      "<label>Comment:<br/><span class='note'>(Optional)</span></label>",
-	      textarea(-name=>'comment', -rows=>10, -cols=>60, -class=>'labeled'), "<br/>",
-			     "<label>&nbsp;</label>",
-			     submit(-value=>'Submit', -class=>'labeled'), "<br/>",
-	      "</form>";
+  my %dec_switch = ('y' => 'appr',
+		    'n' => 'dis',
+		    'PEND' => 'pend');
+  my @dec_order = qw(PEND y n);
+  my $n_cols = 4;
+  my $col = 0;
+  print {$$self{CONTENT}} "<table class='data'>";
+  foreach my $node (sort keys %{$overview}) {
+      print {$$self{CONTENT}} "<tr>" if $col == 0;
+      print {$$self{CONTENT}} "<td style='padding:1em;'><center><b>$node</b></center>";
+      foreach my $type (sort keys %{$$overview{$node}}) {
+	  my $o = $$overview{$node}{$type};
+	  print {$$self{CONTENT}} "<b>$type:</b>  ";
+	  my @decisions;
+	  foreach my $dec (@dec_order) {
+	      my $n = $$o{$dec} || 0;
+	      my $state = $dec_switch{$dec};
+	      my $url = $self->myurl('page' => 'Request::View',
+				     'node' => $node,
+				     'type' => $type,
+				     'state' => $state);
+	      my $link = "<a href='$url'>$n</a>";
+	      push @decisions, "$link $state";
 	  }
+	  print {$$self{CONTENT}} 
+	  join(', ', @decisions), "<br/>";
       }
-      print { $$self{CONTENT} } "</div>"; # close task
+      print {$$self{CONTENT}} "</td>";
+      if ($col == $n_cols-1) {
+	  print {$$self{CONTENT}} "</tr>";
+	  $col = 0;
+      } else {
+	  $col++;
+      }
   }
-  print {$$self{CONTENT}} $pager->pager();
-}
 
+  if ($col != $n_cols-1) {
+      while ($col < $n_cols-1) {
+	  print {$$self{CONTENT}} "<td>&nbsp;</td>";
+	  $col++;
+      }
+      print {$$self{CONTENT}} "</tr>";
+  }
+      
+  print {$$self{CONTENT}} "</table>";
 
+  print {$$self{CONTENT}} 
+  "<br/>",
+  "<dl><dt><b>Legend:</b></dt>",
+  "<dd>xfer = Transfer Request</dd>",
+  "<dd>del = Delete Request</dd>",
+  "<dd>pend = Pending Approval</dd>",
+  "<dd>appr = Approved</dd>",
+  "<dd>dis = Disapproved</dd></dl>";
 
-1;
-
-######################################################################
-package Web25::Request::NewAction;
-use strict; use warnings;
-use base "Web25::Request::Page";
-our $INDEX = { LIST => 0, ORDER => 100, TITLE => "New Action",
-	       LINK_TITLE => "Create a new action on a task",
-	       SECURE => 1 };
-use CGI qw(:standard);
-import Web25::Common;
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub output
-{
-    my ($self) = @_;
-    
-    my $newaction = param('newaction');
-    my $oldaction = param('action');
-    my $request = param('request');
-    my $person = $self->fetch_identity()->{ID};
-    my $task = param('task');
-    my @nodes = param('nodes');
-    my $comment = param('comment');
-
-    if (!$newaction || !$request || !$task || !$person) {
-	alert('Missing parameters');
-	return;
-    }
-
-    # Check that the user is authorized to approve/deny requests
-    unless ($$self{SECMOD}->isCertAuthenticated() &&
-	    ($$self{SECMOD}->hasRole('Global Admin', 'phedex') || $$self{SECMOD}->hasRole('Data Manager'))) {
-	$self->auth_help_popup('approve requests' => ['cert', 'Data Manager', 'Global Admin']);
-	return;
-    }
-
-    # Check that some nodes have been selected
-    unless (@nodes) {
-	$self->alert("No nodes selected for this action.  Please go back and select some nodes");
-	return;
-    }
-
-    # Check that the user is authorized to act on these nodes
-    my @auth_nodes = sort $self->fetch_nodes(web_user_auth => 'Data Manager');
-    foreach my $node (@nodes) {
-	if (! grep $node eq $_, @auth_nodes) {
-	    $self->alert("You are not authorized to approve requests for the node '$node'");
-	    return;
-	}
-    }
-
-    my @action_attr;
-    my $newactionname;
-    my $now = time();
-    
-    foreach my $node (@nodes) {
-	push @action_attr, ('For Node' => $node);
-    }
-
-    if ($comment) {
-	push @action_attr, ('Comment' => $comment);
-    }
-    
-    if ($newaction eq 'subscribe') {
-	$newactionname = 'Subscribed';
-	my $n_subs = &subscribe_request($$self{DBH}, $request, [@nodes], $now);
-	if ($n_subs == 0) {
-	    my $msg = 'Warning:  Request approval did not create any new subscriptions.  Possible reasons are:  '.
-		'1. All data items requested were already subscribed via another request or '.
-		'2. The data items are no longer known to phedex.';
-	    $self->note($msg);
-	    push @action_attr, ('Message', $msg);
-	}
-    } elsif ($newaction eq 'disapprove') {
-	unless (&disapprove_request($$self{DBH}, $request, [@nodes], $now)) {
-	    $self->alert("Disapproval failed.  Please notify the developers.");
-	    return;
-	}
-	$newactionname = 'Disapproved';
-    } else { &alert("Unknown action type '$newaction'"); return; }
-    
-    my $client = $self->logClientInfo();
-
-    my $aid = &makeObjWithAttrs
-	($$self{DBH}, "req_action", "action",
-	 { "request" => $request,
-	   "action" => $newactionname,
-	   "client" => $client,
-	   "time_apply" => $now },
-	 @action_attr
-	 );
-
-    my $newstate = &get_request_state($$self{DBH}, $request);
-
-    # If the request has been handled for all nodes, we delete all
-    # tasks associated with this request.  Otherwise, we only delete
-    # the task for the current user.
-    if ($newstate !~ /^Partially/) {
-	&dbexec($$self{DBH}, qq{delete from t_req_task where action = :aid},
-		':aid' => $oldaction);
-    } else {
-	&dbexec($$self{DBH}, qq{delete from t_req_task where action = :aid and person = :person},
-		':aid' => $oldaction, ':person' => $person);
-    }
-
-    # Update the state
-    &dbexec($$self{DBH}, qq{update t_req_request set state = :newstate where id = :request},
-	    ':newstate' => $reqstatevalues{$newstate}, ':request' => $request);
-
-    $$self{DBH}->commit();
-    
-    print { $$self{CONTENT} }
-    "<h1>Task Completed</h1>",
-    "<p>You have $newactionname request \#$request for ",
-    join(", ", @nodes),".</p>",
-    "<p><a href='",$self->myurl(page=>'Request::Admin'),"'>View tasks again</a></p>";
-   
-    my $q = &dbexec($$self{DBH}, 
-		    qq{ select creator from t_req_request where id = :id },
-		    ':id' => $request);
-
-    # Get a list of the sites involved in this request
-    my %node_sites = $$self{SECMOD}->getPhedexNodeToSiteMap();
-    my %sites;  # for unique list
-    foreach my $dest (@nodes) {
-	$sites{ $node_sites{$dest} } = 1 if exists $node_sites{$dest};
-    }
-    
-    # Get the list of Data Managers affected by this request
-    my @data_managers;
-    foreach my $site (keys %sites) {
-	push @data_managers, $$self{SECMOD}->getUsersWithRoleForSite('Data Manager', $site);
-    }
-
-    # Get the list of Site Admins affected by this request
-    my @site_admins;
-    foreach my $site (keys %sites) {
-	push @site_admins, $$self{SECMOD}->getUsersWithRoleForSite('Site Admin', $site);
-    }
-
-    my ($creator_id) = $q->fetchrow();
-    my $creator_data = $self->getClientData($creator_id);
-    my $creator_name = $$creator_data{IDENTITY}{NAME};
-    my $creator_email = $$creator_data{IDENTITY}{EMAIL};
-    my $detail_url = $self->myurl(page => 'Request::Requests', request => $request, fullurl => 1);
-    my $admin_email = $$self{SECMOD}->getEmail();
-    my $msg_comment = ($comment ? "\nThe person who handled this had the following comment:\n\n\"$comment\"\n" : '');
-    my $nodes_str = join(', ', @nodes);
-
-    my @cc;
-    push @cc, $$_{EMAIL} foreach @data_managers, @site_admins;
-
-    my $message=<<ENDEMAIL;
-Dear $creator_name,
-
-Your request \#$request has been $newactionname by $$self{USER_NAME} for $nodes_str.
-$msg_comment
-This request is now $newstate.
-
-To review details of the request, please go to:
-
-$detail_url
-
-To inquire further about this request, you may reply to this email.
-
-This message has also been CCed to the Data Managers and Site Admins of the sites involved.
-
-Yours truly,
-  PhEDEx transfer request webpage
-
-ENDEMAIL
-
-    send_email(subject => "PhEDEx Request $newactionname (request \#$request)",
-	       to => [ $creator_email ],
-	       cc => [ @cc ],
-	       from => "PhEDEx Web Requests <$$self{CONFIG}{FEEDBACK_MAIL}>",
-	       replyto => [ $admin_email ],
-	       message => $message
-	      );
-}
-
-
-sub subscribe_request
-{
-    my ($dbh, $request, $nodes, $now) = @_;
-
-    my ($node_list, %node_binds) = &dbinlist('node', @{$nodes});
-
-    my ($sth, $rv) = &dbexec($dbh,
-	    qq[ insert into t_dps_subscription 
-		  (dataset, block, destination, priority, is_move, is_transient, time_create)
-		select dataset, block, destination, priority, is_move, is_transient, time_create
-                 from (
-		select ds.id dataset, NULL block, dest.destination, priority, is_move, is_transient, :now time_create
-		  from t_req_info_dest dest
-		  join t_req_info_dataset req_ds on dest.request = req_ds.request
-		  join t_dps_dataset ds on req_ds.dataset = ds.name
-                  join t_dps_dbs dbs on ds.dbs = dbs.id
-		 where dest.request = :rid and dbs.name = req_ds.dbs
-                   and req_ds.dps_isknown = 'y' and req_ds.dbs_isknown = 'y'
-                union
-                select NULL dataset, b.id block, dest.destination, priority, is_move, is_transient, :now time_create
-                  from t_req_info_dest dest
-		  join t_req_info_block req_b on dest.request = req_b.request
-                  join t_dps_block b on req_b.block = b.name
-		  join t_dps_dataset ds on b.dataset = ds.id
-                  join t_dps_dbs dbs on ds.dbs = dbs.id
-		 where dest.request = :rid and dbs.name = req_b.dbs
-                   and req_b.dps_isknown = 'y' and req_b.dbs_isknown = 'y' 
-		) requests
-                join t_adm_node n on n.id = requests.destination
-                where n.name in ($node_list)
-                and not exists (select 1 from t_dps_subscription s 
-                                 where s.dataset = requests.dataset
-                                       and (s.block = requests.block
-                                            or s.destination = requests.destination)) ],
-	    ':now' => $now,
-	    ':rid' => $request,
-	    ':now' => $now,
-	    ':rid' => $request,
-	     %node_binds);
-
-    return (!$rv || $rv == 0) ? 0 : $rv;
-}
-
-
-sub disapprove_request
-{
-    return 1;
-}
-
-sub get_request_state
-{
-    my ($dbh, $request) = @_;
-
-    my $sql = qq{
-      select create_attr.value dest, subs_attr.value subscribed, dis_attr.value disapproved
-       from t_req_action create_act join t_req_action_attr create_attr
-              on create_attr.action = create_act.id 
-                 and create_act.action = 'Created' and create_attr.name = 'Destination Node'
-            left join (
-              t_req_action subs_act join t_req_action_attr subs_attr
-              on subs_attr.action = subs_act.id
-                 and subs_act.action = 'Subscribed' and subs_attr.name = 'For Node'
-            ) on subs_act.request = create_act.request and subs_attr.value = create_attr.value
-            left join (
-              t_req_action dis_act join t_req_action_attr dis_attr
-              on dis_attr.action = dis_act.id
-                 and dis_act.action = 'Disapproved' and dis_attr.name = 'For Node'
-            ) on dis_act.request = create_act.request and dis_attr.value = create_attr.value
-      where create_act.request = :request
-  };
-
-    my $q = &dbexec($dbh, $sql, ':request' => $request);
-    
-    my $res = {};
-    my ($n_dest, $n_subs, $n_dis) = (0) x 3;
-    while (my ($dest, $subs, $dis) = $q->fetchrow()) {
-	$$res{$dest} = { 'SUBSCRIBED' => $subs, 'DISAPPROVED' => $dis };
-	$n_dest++;
-	$n_subs++ if $subs;
-	$n_dis++ if $dis;
-    }
-
-    my $state;
-    if    ($n_dest == $n_subs)          { $state = 'Approved'; }
-    elsif ($n_dest == $n_dis)           { $state = 'Disapproved'; }
-    elsif ($n_subs == 0 && $n_dis == 0) { $state = 'Pending approval'; }
-    elsif ($n_subs !=0)                 { $state = 'Partially approved'; }
-    elsif ($n_dis !=0)                  { $state = 'Partially disapproved'; }
-
-    return wantarray ? ($state, $res) : $state;
 }
 
 1;
@@ -3547,10 +3569,10 @@ sub get_request_state
 
 
 ######################################################################
-package Web25::Request::Requests;
+package Web25::Request::View;
 use strict; use warnings;
 use base "Web25::Request::Page";
-our $INDEX = { LIST => 1, ORDER => 2, TITLE => "View Requests",
+our $INDEX = { LIST => 1, ORDER => 2, TITLE => "View/Manage Requests",
 	       LINK_TITLE => "Browse requests",
 	       SECURE => 0 };
 use CGI qw(:standard);
@@ -3568,33 +3590,17 @@ sub new
 sub output
 {
     my ($self) = @_;
-    my $request = param('request');
 
-    my @where; my %binds;
-    if ($$self{MY_VIEW}) {
-	push @where, 'ident.id = :identity';
-	$binds{':identity'} = $self->fetch_identity()->{ID};
-    }
-
-    if ($request) {
-	push @where, 'r.id = :request';
-	$binds{':request'} = $request;
-    }
-
-    my $where_bit = @where ? 'where '.join(' and ', @where) : '';
+    my @auth_nodes = sort $self->fetch_nodes(web_user_auth => 'Data Manager');
 
     my $sql = qq{
-      select r.id rid, r.state, r.creator, a.id aid, a.action, a.time_apply, a.client, a_attr.id attr_id, a_attr.name, a_attr.value
+      select r.id rid 
       from t_req_request r
-      join t_req_action a on a.request = r.id
-      join t_adm_client client on client.id = r.creator
-      join t_adm_identity ident on ident.id = client.identity
-      left join t_req_action_attr a_attr on a_attr.action = a.id
-      $where_bit
+      order by r.time_create desc
     };
 
     my $pager = new Web25::QueryPager;
-    $pager->init($self, $sql, {%binds}, 10, 'rid desc');
+    $pager->init($self, $sql, undef,  10);
     my $n_requests = $pager->get_total_results();
 
     if (! $n_requests) {
@@ -3604,217 +3610,17 @@ sub output
 
     print {$$self{CONTENT}} $pager->pager();
     my $qreq = $pager->paged_result();
-
-    my %req;
-    while (my ($rid, $rstate, $rcreator, $aid, $action, $atime,
-	       $aclient, $attrid, $name, $value) = $qreq->fetchrow()) {
-	if (not exists $req{$rid}) {
-	    $req{$rid}{REQUEST_STATE} = $rstate;
-	    $req{$rid}{REQUEST_CREATOR} = $self->getClientData($rcreator);
-	}
-	if (not exists $req{$rid}{ACTIONS}{$aid}) {
-	    $req{$rid}{ACTIONS}{$aid}{ACTION_NAME} = $action;
-	    $req{$rid}{ACTIONS}{$aid}{ACTION_TIME} = $atime;
-	    $req{$rid}{ACTIONS}{$aid}{ACTION_CREATOR} = $self->getClientData($aclient);
-	    $req{$rid}{ACTIONS}{$aid}{ATTR} = [];
-	}
-	push @{$req{$rid}{ACTIONS}{$aid}{ATTR}}, {ID => $attrid, NAME=> $name, VALUE=> $value} if ($name);
+    while (my ($rid) = $qreq->fetchrow()) {
+	$self->printRequest($rid, @auth_nodes);
     }
-
-    foreach my $rid (reverse sort { $a <=> $b } keys %req) {
-      my $details_url = $self->myurl(page => 'Request::Detail', 'request' => $rid);
-      print { $$self{CONTENT} } 
-      "<div class='nice paramblock lev1'>",
-      "<h1>Request $rid <a href='$details_url'>(details)</a></h1>",
-      "<label>Requestor:</label>", "<span class='labeled'>",
-      "<a href='#' onclick='return hideshow(this, \"creator$rid\", 0)'>",
-      ($req{$rid}{REQUEST_CREATOR}{IDENTITY}{NAME} or 'Unknown'), "</a></span><br/>",
-      "<div id='creator$rid' class='hideaway' style='display:none;'>",
-      $self->formatClientData($req{$rid}{REQUEST_CREATOR}),
-      "</div>",
-      "<label>Request State:</label>", "<span class='labeled'>", 
-      $reqstatenames{$req{$rid}{REQUEST_STATE}}, "</span><br/>";
-
-      foreach my $aid (sort { $req{$rid}{ACTIONS}{$a}{ACTION_TIME} <=>
-			      $req{$rid}{ACTIONS}{$b}{ACTION_TIME} } keys %{$req{$rid}{ACTIONS}}) {
- 	  print { $$self{CONTENT} }
- 	  "<div class='paramblock lev2'>",
-	  $self->formatAction($aid, $req{$rid}{ACTIONS}{$aid}),
- 	  "</div>";
-      }
-
-      print { $$self{CONTENT} } "</div>";
-  }
     print {$$self{CONTENT}} $pager->pager();
+
 }
 
 
 1;
 
-######################################################################
-package Web25::Request::Detail;
-use strict; use warnings;
-use base "Web25::Request::Page";
-our $INDEX = { LIST => 1, ORDER => 3, TITLE => "Request Details",
-	       LINK_TITLE => "Explore request details",
-	       SECURE => 0 };
-use CGI qw(:standard);
-import Web25::Common;
 
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub output
-{
-  my ($self) = @_;
-  my $request = param('request');
-  my $where_bit = $request ? 'where req.id = :request' : '';
-  my %binds = $request ? (':request' => $request) : ();
-
-  print { $$self{CONTENT} } (new Web25::OptsPane)->link("Show Options");
-
-  my $req_info = {};
-  my $q = &dbexec($$self{DBH},
-		  qq[ select req.id req_id, req.creator creator_id, req.state req_state,
-                             ident.name requestor,
-		             req_info.time_update updated
-		        from t_req_request req
-                        join t_adm_client client on client.id = req.creator
-                        join t_adm_identity ident on ident.id = client.identity
-		        join t_req_info req_info on req_info.request = req.id
-		        $where_bit ], %binds);
-
-  while (my $row = $q->fetchrow_hashref()) {
-      $$req_info{$$row{REQ_ID}} = $row;
-  }
-
-  my $req_dest = {};
-  $q = &dbexec($$self{DBH},
-		  qq[ select req.id req_id, node.name dest_name
-		        from t_req_request req
-		        join t_req_info_dest req_dest on req_dest.request = req.id
-		        join t_adm_node node on node.id = req_dest.destination
-		      $where_bit ], %binds);
-
-  while (my ($rid, $node) = $q->fetchrow()) {
-      if (!exists $$req_dest{$rid}) {
-	  $$req_dest{$rid} = [];
-      }
-      push @{$$req_dest{$rid}}, $node;
-  }
-
-  my $req_datasets = {};
-  $q = &dbexec($$self{DBH},
-		  qq[ select req.id req_id,
-		             req_ds.dbs req_dbs, req_ds.dataset, req_ds.dbs_isknown, req_ds.dps_isknown
-		        from t_req_request req
-		        join t_req_info_dataset req_ds on req_ds.request = req.id
-		      $where_bit ], %binds);
-
-  while (my ($rid, $dbs, $dataset, $dbs_isknown, $dps_isknown) = $q->fetchrow()) {
-      $$req_datasets{$rid}{$dataset} = { DBS => $dbs,
-					 DBS_ISKNOWN => $dbs_isknown,
-					 DPS_ISKNOWN => $dps_isknown };
-  }
-
-  my $req_blocks = {};
-  $q = &dbexec($$self{DBH},
-		  qq[ select req.id req_id,
-		             req_b.dbs req_dbs, req_b.block, req_b.dbs_isknown, req_b.dps_isknown
-		        from t_req_request req
-		        join t_req_info_block req_b on req_b.request = req.id
-		      ]);
-
-  while (my ($rid, $dbs, $block, $dbs_isknown, $dps_isknown) = $q->fetchrow()) {
-      $$req_blocks{$rid}{$block} = { DBS => $dbs,
-				     DBS_ISKNOWN => $dbs_isknown,
-				     DPS_ISKNOWN => $dps_isknown };
-  }
-
-  my $table = new Web25::TableSpool;
-  $table->set_filehandle( $$self{ CONTENT } );
-
-  $table->set_querycols( [('Request #', 'col', 'REQUEST', 1)],
-			 [('DBS', 'col', 'DBS', 1)],
-			 [('Data Item', 'col', 'DATA_ITEM', 1)],
-			 [('Destinations', 'col', 'DESTINATIONS', 1)],
-			 [('Requestor', 'col', 'REQUESTOR', 1)],
-			 [('Updated', 'col', 'UPDATED', 1)],
-			 [('Known to DBS?', 'col', 'DBS_ISKNOWN', 1)],
-			 [('Known to PhEDEx?', 'col', 'DPS_ISKNOWN', 1)]
-			 );
-
-  $table->set_tablehead({REQUEST => 'Request #',
-			 DBS => 'DBS',
-			 DATA_ITEM => 'Data Item',
-			 DESTINATIONS => 'Destinations',
-			 REQUESTOR => 'Requestor',
-			 UPDATED => 'Request Updated',
-			 DBS_ISKNOWN => 'Known to DBS?',
-			 DPS_ISKNOWN => 'Known to PhEDEx?' });
-
-
-  $table->set_tableclass('data');
-  $table->set_stripeclass('stripe');
-
-  $table->set_dataformats({ UPDATED   => sub { &formatTime($_[0], 'stamp') },
-			    DBS_ISKNOWN => \&yesno,
-			    DPS_ISKNOWN => \&yesno
-			});
-
-  $table->set_cellformats({DPS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''},
-			   DBS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''}});
-
-  $table->start();
-  $table->head();
-
-  foreach my $rid (reverse sort { $a <=> $b } keys %{$req_info}) {
-      my $dests;
-      if (!$$req_dest{$rid}) { $dests = 'None (Node deleted?)'; }
-      else {
-	  $dests = join ', ', @{$$req_dest{$rid}};
-	  $dests = &shorten('nodes', $rid, 10, $dests) if scalar @{$$req_dest{$rid}} > 1;
-      }
-      my $row = { REQUEST => $rid, DESTINATIONS => $dests };
-      $$row{$_} = $$req_info{$rid}{$_} foreach (qw(REQUESTOR UPDATED));
-      
-      foreach my $dataset (sort keys %{$$req_datasets{$rid}}) {
-	  $$row{DATA_ITEM} = $dataset;
-	  $$row{$_} = $$req_datasets{$rid}{$dataset}{$_} foreach(qw(DBS DBS_ISKNOWN DPS_ISKNOWN));
-	  $table->row($row);
-      }
-
-      foreach my $block (sort keys %{$$req_blocks{$rid}}) {
-	  $$row{DATA_ITEM} = $block;
-	  $$row{$_} = $$req_blocks{$rid}{$block}{$_} foreach(qw(DBS DBS_ISKNOWN DPS_ISKNOWN));
-	  $table->row($row);
-      }
-  }
-
-  $table->finish();
-
-  #  Options form
-  my $optspane = new Web25::OptsPane;
-  $optspane->add_hidden( hidden('request', $request) ) if $request;
-  my $target = $self->myurl();
-  $optspane->set_form_target($target);
-  
-  my $form = $table->columns_form();
-  $optspane->add_tab('Columns', $form);
-  
-  print { $$self{OPTIONS} } $optspane->output();
-
-}
-
-
-
-1;
 
 ######################################################################
 package Web25::Request::CreateTools;
@@ -3828,13 +3634,14 @@ BEGIN { my $__scriptdir = $ENV{SCRIPT_FILENAME}
 use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
 
 our @EXPORT = qw(get_request_nodes
+                 create_check_type
 		 create_check_access
 		 create_check_identity
 		 create_check_email
-		 create_check_comment
+		 create_check_comments
 		 create_check_dbs
 		 create_check_data
-		 create_check_dest
+		 create_check_nodes
 		 create_check_options
 		 create_check_bad
 );
@@ -3847,6 +3654,17 @@ sub get_request_nodes
 	delete $nodes{$node} if ($node =~ /(.*)_(Buffer|Stage)$/ && exists $nodes{"$1_MSS"});
     }
     return sort keys %nodes;
+}
+
+sub create_check_type
+{
+    my ($self, $bad, $type) = @_;
+    unless (grep $type eq $_, qw(xfer delete)) {
+	alert($self, "Invalid request type.");
+	$$bad = 1;
+	return undef;
+    }
+    return $type;
 }
 
 sub create_check_access
@@ -3897,11 +3715,11 @@ sub create_check_email
     return $$bad ? undef : $email;
 }
 
-sub create_check_comment
+sub create_check_comments
 {
-  my ($self, $bad, $comment) = @_;
+  my ($self, $bad, $comments) = @_;
   return undef if $$bad;
-  return $comment;
+  return $comments;
 }
 
 sub create_check_dbs
@@ -3985,54 +3803,69 @@ sub create_check_data
   return $$bad ? undef : keys %userdata;
 }
 
-sub create_check_dest
+sub create_check_nodes
 {
-  my ($self, $bad, @dests) = @_;
+  my ($self, $bad, @nodes) = @_;
   return undef if $$bad;
 
-  if (! @dests)
+  if (! @nodes)
   {
-    alert($self, "No destination selected, please select some.");
+    alert($self, "No nodes selected, please select some.");
     $$bad = 1;
     return undef;
   }
 
-  my @nodes = $self->get_request_nodes();
+  my @possible_nodes = $self->get_request_nodes();
 
-  foreach my $node (@dests)
+  foreach my $node (@nodes)
   {
-    if (! grep ($_ eq $node, @nodes))
+    if (! grep ($_ eq $node, @possible_nodes))
     {
       alert($self, "Node name &ldquo;@{[&escapeHTML($node)]}&rdquo;",
 	    " is not known to PhEDEx.");
       $$bad = 1;
-    }
   }
+}
 
-  return $$bad ? undef : sort @dests;
+return $$bad ? undef : sort @nodes;
 }
 
 sub create_check_options
 {
-  my ($self, $bad) = @_;
+  my ($self, $bad, $type) = @_;
   return undef if $$bad;
 
   my $opts = {};
 
-  foreach ('is_move', 'is_transient') {
-      if (!param($_) && param($_) !~ /^[yn]$/) {
-	  $self->alert("Option '$_' missing or illegal value");
-	  $$bad = 0;
-	  return undef;
+  if ($type eq 'xfer') {
+      foreach ('is_move') {
+	  if (!param($_) && param($_) !~ /^[yn]$/) {
+	      $self->alert("Option '$_' missing or illegal value");
+	      $$bad = 0;
+	      return ();
+	  }
       }
-  }
   
-  if (!param('priority') && param('priority') !~ /^[012]$/) {
-      $self->alert("Option 'priority' missing or illegal value");
-      $$bad = 0;
-      return undef;
+      if (!param('priority') && param('priority') !~ /^[012]$/) {
+	  $self->alert("Option 'priority' missing or illegal value");
+	  $$bad = 0;
+	  return ();
+      }
+      return ( 'is_move' => param('is_move'), 'priority' => param('priority') );
+  } elsif ($type eq 'delete') {
+      foreach ('rm_subscriptions') {
+	  if (!param($_) && param($_) !~ /^[yn]$/) {
+	      $self->alert("Option '$_' missing or illegal value");
+	      $$bad = 0;
+	      return ();
+	  }
+      }
+      return ('rm_subscriptions' => param('rm_subscriptions') );
+  } else {
+      $self->alert("Invalid request type '$type'");
+      $$bad = 1;
+      return ();
   }
-  return (param('is_move'), param('is_transient'), param('priority'));
 }
 
 sub create_check_bad
@@ -4054,7 +3887,7 @@ use CGI qw(:standard);
 
 our $INDEX = { LIST => 1, ORDER => 1, TITLE => "Create Request",
 	       SESSION => 1,
-	       LINK_TITLE => "Create a new transfer request",
+	       LINK_TITLE => "Create a new request",
 	       SECURE => 0 };
 
 sub new
@@ -4073,6 +3906,27 @@ sub output
   &create_check_identity($self, \$bad);
   return if $bad;
 
+  my $type = param('type');
+  my $node_label = '';
+  my $confirm_page = $self->myurl(page=>'Request::Confirm');
+
+  if (!defined $type || !grep($type eq $_, qw(xfer delete))) {
+      print { $$self{CONTENT} }
+      "<h1>Choose a request type</h1>",
+      "<ul><li><a href='", $self->myurl('type'=>'xfer'), "'>Transfer Request</a></li>",
+      "<li><a href='", $self->myurl('type'=>'delete'), "'>Deletion Request</a></li></ul>";
+      return;
+  } else {
+      my %headings = (xfer => "New Transfer Request", delete => "New Deletion Request");
+      print { $$self{CONTENT} } "<h1>$headings{$type}</h1><br/>";
+      if ($type eq 'xfer') { 
+	  $node_label = 'Destinations'; 
+      }
+      elsif ($type eq 'delete') {
+	  $node_label = 'Nodes'; 
+      }
+  }
+
   my $email_contact = $$self{SECMOD}->getEmail();
   
   my @dbsnames = $self->fetch_dbses();
@@ -4083,8 +3937,10 @@ sub output
 				  -values=>[ map { &escapeHTML($_) } @dbsnames ],
 				  -default=>&escapeHTML($defaultdbs) );
 
+
   print { $$self{CONTENT} }
-  "<form class='nice' method='post' action='@{[$self->myurl('page' => 'Request::CreateCheck')]}'>\n",
+  "<form class='nice' method='post' action='$confirm_page'>\n",
+  hidden('type', $type),
   "<label>E-mail:</label>", textfield(-name=>'email', -default=>$email_contact, -class=>'labeled', -style=>'width:450px'), "<br/>\n",
 
   &hidden(-name=>'dbschoice', 'value'=>'known'),
@@ -4102,57 +3958,73 @@ sub output
   textarea(-name=>'data', -value=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), 
   "<br/>",
 
-  "<label>Destinations</label>",
+  "<label>$node_label:</label>",
   "<div class='labeled'  style='font-size:8pt;width:450px;height:150px;overflow:scroll;border:thin solid black;' >",
   "<table><tr valign='top'>",
   "  <td>\n",
-  (map { &striplabels(checkbox(-name=>'dest', -label=>'', -value=>$_)."$_<br/>") }
+  (map { &striplabels(checkbox(-name=>'nodes', -label=>'', -value=>$_)."$_<br/>") }
    sort grep (/^T1_|T0_/, @nodes)),
   "  </td>\n",
   "  <td>\n",
-  (map { &striplabels(checkbox(-name=>'dest', -label=>'', -value=>$_)."$_<br/>") }
+  (map { &striplabels(checkbox(-name=>'nodes', -label=>'', -value=>$_)."$_<br/>") }
    grep (/^T2_/, @nodes)),
   "  </td>\n",
   "  <td>\n",
-  (map { &striplabels(checkbox(-name=>'dest', -label=>'', -value=>$_)."$_<br/>") }
+  (map { &striplabels(checkbox(-name=>'nodes', -label=>'', -value=>$_)."$_<br/>") }
    grep (! /^T[012]_/, @nodes)),
   "  </td>\n",
-  " </tr></table></div><br/>\n",
-  "<label>Transfer Type:</label>", popup_menu(-name=>'is_move', 
-					      -values=>['y', 'n'],
-					      -default=>'n',
-					      -labels=>{'n' => 'Replica', 'y' => 'Move'},
-					      -class=>'labeled'),
-  &help("What's this?", "Transfer Type", "A <b>replica</b> replicates ",
-	"data from the source to the destination, while a <b>move</b> ",
-	"replicates the data then deletes the data at the source.  Note that ",
-	"moves are only used for moving data from T2s to T1s."),
-  "<br/>",
-  "<label>Subscription Type:</label>", popup_menu(-name=>'is_transient', 
-					       -values=>['y', 'n'],
-					       -default=>'n',
-					       -labels=>{'n' => 'Open', 'y' => 'Closed' },
-					       -class=>'labeled'), 
-  &help("What's this?", "Subscription Type", 
-	"An <b>open</b> subscription downloads blocks/files added to open ",
-	"datasets/blocks as they become available, until the dataset/block is ",
-	"closed.  A <b>closed</b> subscription will only transfer the blocks/files ",
-	"available at the time the subscription is made.  In a sense an open ",
-	"subscription is a true \"subscription\" and a closed subscription is a snapshot."),
-  "<br/>",
-  "<label>Priority:</label>", popup_menu(-name=>'priority', 
-					 -values=>[0, 1, 2], 
-					 -default=>1,
-					 -labels=>{ 0 => 'High',
-						    1 => 'Normal',
-						    2 => 'Low' },
-					 -class=>'labeled'),
-  &help("What's this?", "Priority",
-	"Priority is used to determine which data items get priority when resources are limited."),
-  "<br/>",
-  "<label>Comment:</label>", textarea(-name=>'comment', -default=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), "<br/>\n",
-
-  "<label>&nbsp;</label>", submit(-name=>'submit', -value=>'Submit Request', -class=>'labeled'),
+  " </tr></table></div><br/>\n";
+  
+  if ($type eq 'xfer') {
+      print { $$self{CONTENT} }
+      "<label>Transfer Type:</label>", popup_menu(-name=>'is_move', 
+						  -values=>['y', 'n'],
+						  -default=>'n',
+						  -labels=>{'n' => 'Replica', 'y' => 'Move'},
+						  -class=>'labeled'),
+      &help("What's this?", "Transfer Type", "A <b>replica</b> replicates ",
+	    "data from the source to the destination, while a <b>move</b> ",
+	    "replicates the data then deletes the data at the source.  Note that ",
+	    "moves are only used for moving data from T2s to T1s."),
+      "<br/>",
+      # XXX TODO:  Hidden feature, reveal when PhEDEx has some behavior to back it up!
+      hidden('is_transient', 'n'),
+#       "<label>Subscription Type:</label>", popup_menu(-name=>'is_transient', 
+# 						      -values=>['y', 'n'],
+# 						      -default=>'n',
+# 						      -labels=>{'n' => 'Open', 'y' => 'Closed' },
+# 						      -class=>'labeled'), 
+#       &help("What's this?", "Subscription Type", 
+# 	    "An <b>open</b> subscription downloads blocks/files added to open ",
+# 	    "datasets/blocks as they become available, until the dataset/block is ",
+# 	    "closed.  A <b>closed</b> subscription will only transfer the blocks/files ",
+# 	    "available at the time the subscription is made.  In a sense an open ",
+# 	    "subscription is a true \"subscription\" and a closed subscription is a snapshot."),
+#       "<br/>",
+      "<label>Priority:</label>", popup_menu(-name=>'priority', 
+					     -values=>[0, 1, 2], 
+					     -default=>1,
+					     -labels=>{ 0 => 'High',
+							1 => 'Normal',
+							2 => 'Low' },
+					     -class=>'labeled'),
+      &help("What's this?", "Priority",
+	    "Priority is used to determine which data items get priority when resources are limited."),
+      "<br/>";
+  } elsif ($type eq 'delete') {
+      print { $$self{CONTENT} }
+      "<label>Remove Subscriptions?:</label>",
+      popup_menu(-name=>'rm_subscriptions', -values=>[qw(y n)], -labels=>{y => 'Yes', n => 'No'}, -class=>'labeled'),
+      &help("[what's this?]", "Remove Subscriptions",
+	    "If you choose not to remove the subscription when deleting data PhEDEx will ",
+	    "retransfer the data to your node after the deletion is complete."),
+      "<br/>";
+  }
+  print { $$self{CONTENT} }
+  "<label>Comment:</label>", textarea(-name=>'comments',
+				      -default=>'', -style=>'width:450px;height:150px;',
+				      -class=>'labeled'), "<br/>\n",
+    "<label>&nbsp;</label>", submit(-name=>'submit', -value=>'Submit Request', -class=>'labeled'),
   "</form>";
 }
 
@@ -4161,7 +4033,7 @@ sub output
 
 
 ######################################################################
-package Web25::Request::CreateCheck;
+package Web25::Request::Confirm;
 use strict; use warnings;
 use base "Web25::Request::Page";
 import Web25::Request::CreateTools;
@@ -4190,15 +4062,17 @@ sub output
   &create_check_identity($self, \$bad);
   &create_check_access($self, \$bad);
   if (!param('go_ahead')) {
+      $params{type} = &create_check_type($self, \$bad, param('type'));
       $params{email} = &create_check_email($self, \$bad, param('email'));
-      $params{comment} = &create_check_comment($self, \$bad, param('comment'));
+      $params{comments} = &create_check_comments($self, \$bad, param('comments'));
       if (param('dbschoice') eq 'known') { $params{dbs} = param('dbs') }
       elsif (param('dbschoice') eq 'user') { $params{dbs} = param('userdbs') } 
       else { $self->alert("Missing or unknown DBS parameters"); return; }
       $params{dbs} = &create_check_dbs($self, \$bad, $params{dbs});
       $params{data} = [&create_check_data($self, \$bad, param('data'))];
-      $params{dest} = [&create_check_dest($self, \$bad, param('dest'))];
-      ($params{is_move}, $params{is_transient}, $params{priority}) = &create_check_options($self, \$bad);
+      $params{nodes} = [&create_check_nodes($self, \$bad, param('nodes'))];
+      my %options = &create_check_options($self, \$bad, $params{type});
+      $params{$_} = $options{$_} foreach keys %options;
   }
 
   if ($bad)
@@ -4207,21 +4081,39 @@ sub output
     return;
   }
 
-  if (param('go_ahead') && param('is_move') && param('is_move') eq 'y' 
-      && !(param('move_confirm') && param('move_confirm') eq 'y')) {
-      $self->note('You need to really think about the move request and click the confirmation box!');
-      return;
+  if (param('go_ahead') && param('extra_confim')) {
+      unless (param('extra_confirm_value') && param('extra_confirm_value') eq 'y') {
+	  $self->note('You need to read the confirmation message and click the confirmation box!');
+	  return;
+      }
   }
 
   if (param('go_ahead') && param('go_ahead') eq 'y') {
-      $self->write_request();
+      my $rid = $self->writeRequest();
+      my $ok = $self->send_request_create_email($rid);
+
+      print { $$self{ CONTENT } }
+      "<h1>Request Confirmed</h1>",
+      "<p>Your request \#$rid has been logged to the database and the admins have been notified.  ",
+      "You will receive updates about this request via e-mail.</p>";
+
+      # Print request (user may be able to approve it immediately)
+      my @auth_nodes;
+      if ($$self{SECMOD}->isCertAuthenticated() &&
+	    ($$self{SECMOD}->hasRole('Global Admin', 'phedex') || $$self{SECMOD}->hasRole('Data Manager'))) {
+	  @auth_nodes = $self->fetch_nodes(web_user_auth => 1); 
+      }
+      $self->printRequest($rid, @auth_nodes);
+
       return;
   }
 
   # Clear any previous request
   $$self{SESSION}->clear();
 
-  my $subscription_type = &subscription_type($params{priority}, $params{is_transient}, $params{is_move});
+  my $node_label;
+  if    ($params{type} eq 'xfer')   { $node_label = 'Destinations'; }
+  else                              { $node_label = 'Nodes'; }
 
   print { $$self{CONTENT} } 
   "<form method='post' action='@{[$self->myurl()]}'>\n",
@@ -4230,138 +4122,23 @@ sub output
   "<h1>Request Information</h1>",
   "<div class='nice'>",
   "<label>Requestor:</label><span class='labeled'>$$self{USER_NAME}</span><br/>",
-  "<label>email:</label><span class='labeled'>$params{email}</span><br/>",
+  "<label>E-mail:</label><span class='labeled'>$params{email}</span><br/>",
   "<label>DBS:</label><span class='labeled'>$params{dbs}</span><br/>",
   "<label>Data:</label><span class='labeled'>", join('<br/>', @{$params{data}}), "</span><br/>",
-  "<label>Destination:</label><span class='labeled'>", join('<br/>', @{$params{dest}}), "</span><br/>",
-  "<label>Subscription Type:</label><span class='labeled'>$subscription_type</span><br/>",
+  "<label>$node_label:</label><span class='labeled'>", join(', ', @{$params{nodes}}), "</span><br/>",
+  $self->getRequestOptions(%params),
   "</div>";
 
-  # Warnings
-  if ($params{is_move} eq 'y' && grep($_ !~ /^T1_\w*_MSS$/, @{$params{dest}})) {
-      $self->alert("You have requested a move to an unsupported destination (e.g. not a Mass Storage System ",
-		   "at a T1 centre).  Please change the destination, or choose to trigger a replication ",
-		   "instead of a move");
-      return;
-  } elsif ($params{is_move} eq 'y' && grep(/^T1_\w*_MSS$/, @{$params{dest}})) {
-      $self->note("You have chosen to move data to ", join(', ', @{$params{dest}}), ". Once the transfer is complete this will ",
-		  "remove the data at the source sites.  Furthermore, only Global Admins may approve move requests.  ",
-		  "Please confirm that this is what you want to do by checking ",
-		  "the box.<br/><br/>",
-		  ( param('go_ahead') ? "<p class='alarm'><b>You must confirm!</b></p>" : ''),
-		  checkbox(-name=>'move_confirm', -value=>'y', -label=>'Yes, I understand'));
-  }
+  # Check options and print warnings/notes
+  return unless $self->checkRequestOptions(%params);
 
-  if ($params{is_transient} eq 'n') {
-      $self->note("You are requesting an open subscription.  The nodes selected will continue to ",
-		  "receive files from open blocks if they are made available.  Please carefully monitor ",
-		  "your disks, as the size of this subscription could grow significantly.");
-  }
-  
-
-  print { $$self{CONTENT} } "<h1>Data Item Lookup</h1>",
-  "<p>The following table summarizes an attempt to look for your requested data items in PhEDEx.  ",
-  "Items in red may be problematic and require extra consideration by the PhEDEx admins.</p>";
-  
-  # Pull all subscriptions into a hash organized by node for subscription duplication checking
-  my $subscriptions = {};
-  my $q = &dbexec($$self{DBH}, qq{ select NVL2(s.block, 'BLOCK', 'DATASET') lvl,
-				          NVL2(s.block, s.block, s.dataset) id,
-				          n.name node
-                                   from t_dps_subscription s
-                                   join t_adm_node n on s.destination = n.id });
-  
-  while (my ($level, $id, $node) = $q->fetchrow_array()) {
-      $$subscriptions{$node}{$level}{$id} = 1;
-  }
-
-  my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, $params{dbs}, @{$params{data}});
-
-  my $table = new Web25::TableSpool;
-  $table->set_filehandle( $$self{CONTENT} );
-  $table->set_tableclass('data');
-  $table->set_stripeclass('stripe');
-  $table->set_tablecols([qw(LEVEL ITEM FILES BYTES DPS_ISKNOWN DBS_ISKNOWN COMMENT)]);
-  $table->set_tablehead({LEVEL => 'Data Level', 
-			 ITEM => 'Data Item',
-			 FILES => 'Files',
-			 BYTES => 'Size',
-			 DPS_ISKNOWN => 'Known to PhEDEx', 
-			 DBS_ISKNOWN => 'Known to DBS', 
-			 COMMENT => 'Comment'});
-  $table->set_cellformats({COMMENT     => sub { $_[1]->{WARN} ? 'alarm' : '' },
-			   DPS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''},
-			   DBS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''}});
-
-  $table->set_dataformats({DPS_ISKNOWN => \&yesno,
-		           DBS_ISKNOWN => \&yesno,
-			   LEVEL => sub { ucfirst lc $_[0] },
-		           BYTES => sub { &format_size($_[0], 1, 2, 'G') }});
-  $table->set_statcols({FILES => 'SUM', BYTES => 'SUM'});
-
-  $table->start();
-  $table->head();
-
-  my $problems = 0;
-  my @request;
-  foreach my $userglob (sort @{$params{data}}) {
-      if (! @{$$resolved{$userglob}} ) {
-	  $table->row({LEVEL => 'User Search',
-		       ITEM  => $userglob,
-		       DPS_ISKNOWN => 'n',
-		       DBS_ISKNOWN => 'n',
-		       COMMENT => 'Data item not found anywhere',
-		       WARN => 1});
-	  $problems = 1;
-      } else {
-	  foreach my $res (@{$$resolved{$userglob}}) {
-	      my @comments;
-	      my $warn = 0;
-	      
-	      if ($$res{DBS} ne $params{dbs})  { push @comments, "Known to PhEDEx in another DBS ($$res{DBS})"; $warn = 1; $problems = 1; }
-	      if ($$userdupes{$$res{LEVEL}}{$$res{ID}}) { push @comments, "User duplicated requests"; $warn = 1; }
-	      if ($$dbsdupes{$$res{LEVEL}}{$$res{ID}})  { 
-		  push @comments, "Data item known to PhEDEx in multiple DBSes";
-		  $warn = 1; 
-	      }
-	      
-	      foreach my $node (@{$params{dest}}) {
-		  if ($$subscriptions{$node}{$$res{LEVEL}}{$$res{ID}}) {
-		      push @comments, "Already subscribed to $node";
-		      $warn = 1;
-		  }
-	      }
-
-	      $$res{ITEM} = $$res{$$res{LEVEL}}; # Name of dataset or block, depending on which it is for
-	      $$res{COMMENT} = join('<br/>', @comments);
-	      $$res{WARN} = $warn;
-	      
-	      if ($warn) { $problems = 1; }
-	      if ($$res{DPS_ISKNOWN} eq 'n' || $$res{DBS_ISKNOWN} eq 'n') { $problems = 1; }
-	      $table->row($res);
-	      
-	      # Request session storage format
-	      my @item;
-	      $$res{LEVEL} eq 'DATASET' ? push @item, $$res{DATASET} : push @item, $$res{DATASET}, $$res{BLOCK};
-	      push @request, join(',', $$res{DBS}, $$res{LEVEL}, @item) ;
-	  }
-      }
-  }
-
-  $table->finish();
+  # Check data for problems
+  my $problems = 1;
+  if    ($params{type} eq 'xfer')   { $problems = $self->checkXferRequestData(%params); }
+  elsif ($params{type} eq 'delete') { $problems = $self->checkDeleteRequestData(%params); }
 
   unless ($problems) {
-      # Save the previous state
-      my $cgi = new CGI;
-      $$self{SESSION}->save_param($cgi, [qw(email comment dbschoice dbs userdbs
-					    is_move is_transient priority)]);
-      $$self{SESSION}->param($_, $params{$_}) foreach qw(data dest);
-      $$self{SESSION}->param('request', [@request]);
-      my $stats = $table->get_stats();
-      $$self{SESSION}->param('sum_files' => $$stats{FILES});
-      $$self{SESSION}->param('sum_bytes' => $$stats{BYTES});
       print { $$self{CONTENT} }
-      hidden('is_move'),
       hidden(-name=>'go_ahead', -value=>'y'),
       "<p><center>", submit(-value=>'Confirm'), "</p>";
   } else {
@@ -4371,66 +4148,323 @@ sub output
   }
   print { $$self{CONTENT} } "</form>";
 }
-  
 
-
-sub write_request
+sub getRequestOptions
 {
-    my ($self) = @_;
-    
-    my %params;
-    foreach (qw(email comment dbs data dest is_move is_transient priority request sum_files sum_bytes)) {
-	unless (defined $$self{SESSION}->param($_)) {
-	    $self->alert("Insuficcient parameters from session $$self{SESSIONID}:  missing $_");
-	    return;
+    my ($self, %params) = @_;
+    if ($params{type} eq 'xfer') {
+	my %prio = ('0' => 'High', '1' => 'Normal', '2' => 'Low');
+	return ("<label>Is Move?:</label><span class='labeled'>", &yesno($params{is_move}), "</span><br/>",
+		"<label>Priority:</label><span class='labeled'>", $prio{$params{priority}}, "</span><br/>");
+    } elsif ($params{type} eq 'delete') {
+	return ("<label>Remove Subscriptions?:</label><span class='labeled'>", &yesno($params{rm_subscriptions}),
+		"</span><br/>");
+    } else { return (); }
+}
+
+sub checkRequestOptions
+{
+    my ($self, %params) = @_;
+    if ($params{type} eq 'xfer') {
+	# Warnings
+	if ($params{is_move} eq 'y' && grep($_ !~ /^T1_\w*_MSS$/, @{$params{nodes}})) {
+	    $self->alert("You have requested a move to an unsupported destination (e.g. not a Mass Storage System ",
+			 "at a T1 centre).  Please change the destination, or choose to trigger a replication ",
+			 "instead of a move");
+	    return 0;
+	} elsif ($params{is_move} eq 'y' && grep(/^T1_\w*_MSS$/, @{$params{nodes}})) {
+	    $self->note("You have chosen to move data to ", join(', ', @{$params{nodes}}),
+			". Source sites with subscriptions will be sent a ",
+			"notification to confirm the deletion of this data ",
+			"upon successful replication to the destination ",
+			"nodes.  Please confirm that this is what you ",
+			"want to do by checking the box.<br/><br/>",
+			hidden('extra_confirm', 1),
+			checkbox(-name=>'extra_confirm_value', -value=>'y', -label=>'Yes, I understand'));
 	}
-	$params{$_} = $$self{SESSION}->param($_);
     }
-    
-    my $now = time();
+    return 1;
+}
 
-    # Write information about the Client
-    my $client = $self->logClientInfo();
-    
-    # Write the request
-    my $rid = &makeObjWithAttrs
-	($$self{DBH}, "req_request", undef,
-	 { "creator" => $client, "state" => 0 });
+sub checkXferRequestData
+{
+    my ($self, %params) = @_;
 
-    # Write the request attributes
-    my $aid = &makeObjWithAttrs
-	($$self{DBH}, "req_action", "action",
-	 { "request" => $rid,
-	   "action" => "Created",
-	   "client" => $client,
-	   "time_apply" => $now },
-	 "Comment" => $params{comment},
-	 "E-mail" => $params{email},
-	 "DBSURL" => $params{dbs},
-	 map( { ("Destination Node" => $_) } @{$params{dest}}),
-	 map( { ("Data" => $_) } @{$params{data}}),
-	 "Priority" => $params{priority},
-	 "Transient" => $params{is_transient},
-	 "Move" => $params{is_move},
-	 "Files" => $params{sum_files},
-	 "Bytes" => &format_size($params{sum_bytes})
-	 );
+    my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, $params{dbs}, @{$params{data}});
+
+    print { $$self{CONTENT} } "<h1>Data Item Lookup</h1>",
+    "<p>The following table summarizes an attempt to look for your requested data items in PhEDEx.</p>";
+  
+    # Pull all subscriptions into a hash organized by node for subscription duplication checking
+    my $subscriptions = {};
+    my $q = &dbexec($$self{DBH}, qq{ select NVL2(s.block, 'BLOCK', 'DATASET') lvl,
+				     NVL2(s.block, s.block, s.dataset) id,
+				     n.name node
+					 from t_dps_subscription s
+					 join t_adm_node n on s.destination = n.id });
+  
+    while (my ($level, $id, $node) = $q->fetchrow_array()) {
+	$$subscriptions{$node}{$level}{$id} = 1;
+    }
+
+    my $table = new Web25::TableSpool;
+    $table->set_filehandle( $$self{CONTENT} );
+    $table->set_tableclass('data');
+    $table->set_stripeclass('stripe');
+    $table->set_tablecols([qw(LEVEL ITEM FILES BYTES DPS_ISKNOWN DBS_ISKNOWN SOURCES COMMENT)]);
+    $table->set_tablehead({LEVEL => 'Data Level', 
+			   ITEM => 'Data Item',
+			   FILES => 'Files',
+			   BYTES => 'Size',
+			   DPS_ISKNOWN => 'Known to PhEDEx', 
+			   DBS_ISKNOWN => 'Known to DBS', 
+			   SOURCES => 'Sources (current)',
+			   COMMENT => 'Comment'});
+    $table->set_cellformats({COMMENT     => sub { return 'alarm' if $_[1]->{PROBLEM}; 
+						  return 'warn'  if $_[1]->{WARN};
+						  return '';
+					      },
+			     DPS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''},
+			     DBS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''}});
     
+    $table->set_dataformats({DPS_ISKNOWN => \&yesno,
+			     DBS_ISKNOWN => \&yesno,
+			     LEVEL => sub { ucfirst lc $_[0] },
+			     BYTES => sub { &format_size($_[0], 1, 2, 'G') }});
+    $table->set_statcols({FILES => 'SUM', BYTES => 'SUM'});
+        
+    $table->start();
+    $table->head();
+
+    my $problems = 0;
+    my %subscribed_sources;
+    foreach my $userglob (sort @{$params{data}}) {
+	if (! @{$$resolved{$userglob}} ) {
+	    $table->row({LEVEL => 'User Search',
+			 ITEM  => $userglob,
+			 DPS_ISKNOWN => 'n',
+			 DBS_ISKNOWN => 'n',
+			 COMMENT => 'Data item not found anywhere',
+			 WARN => 1});
+	    $problems = 1;
+	} else {
+	    foreach my $res (@{$$resolved{$userglob}}) {
+		my @comments;
+		my $warn = 0;
+		
+		if ($$res{DBS} ne $params{dbs})  { 
+		    push @comments, "Known to PhEDEx in another DBS ($$res{DBS})";
+		    $warn = 1; $problems = 1; 
+		}
+		if ($$userdupes{$$res{LEVEL}}{$$res{ID}}) { 
+		    push @comments, "User duplicated requests";
+		    $warn = 1;
+		}
+		if ($$dbsdupes{$$res{LEVEL}}{$$res{ID}})  { 
+		    push @comments, "Data item known to PhEDEx in multiple DBSes";
+		    $warn = 1; 
+		}
+		if ($$res{LEVEL} eq 'BLOCK' && $params{is_move} eq 'y') {
+		    push @comments, "Move request includes block-level data.  Only moves of datasets are supported";
+		    $warn = 1;
+		}
+		
+		foreach my $node (@{$params{nodes}}) {
+		    if ($$subscriptions{$node}{$$res{LEVEL}}{$$res{ID}}) {
+			push @comments, "Already subscribed to $node";
+			$warn = 1;
+		    }
+		}
+		
+		if ($params{is_move} eq 'y') {
+		    my $bad_t1_move = 0;
+		    foreach my $replica (@{$$res{REPLICAS}}) {
+			if ($$replica{NODE_NAME} =~ /^T1/ && $$replica{IS_SUBSCRIBED}) {
+			    $bad_t1_move = 1;
+			}
+			$subscribed_sources{$$replica{NODE_NAME}} = 1 if $$replica{IS_SUBSCRIBED};
+		    }
+		    if ($bad_t1_move) {
+			push @comments, "Cannot move data subscribed to a T1";
+			$problems = 1;
+		    }
+		}
+		
+		$$res{SOURCES} = join(', ', sort map { "$$_{NODE_NAME} ($$_{FILES} files)" } @{$$res{REPLICAS}});
+		$$res{SOURCES} ||= 'None found';
+		$$res{ITEM} = $$res{$$res{LEVEL}}; # Name of dataset or block, depending on which it is for
+		$$res{COMMENT} = join('<br/>', @comments);
+		$$res{COMMENT} ||= 'None';
+		$$res{WARN} = $warn;
+		$$res{PROBLEM} = $problems;
+		
+		if ($$res{DPS_ISKNOWN} eq 'n' || $$res{DBS_ISKNOWN} eq 'n') { $problems = 1; }
+		$table->row($res);
+	    }
+	}
+    }
+    $table->finish();
+
+    unless ($problems) {
+	# Save the previous state
+	$$self{SESSION}->param('type', 'xfer');
+	$$self{SESSION}->param('type_params', { 'is_move' => $params{is_move},
+						'is_transient' => 'n', # XXX hardcoded
+						'is_static' => 'n', # XXX hardcoded
+						'is_distributed' => 'n', # XXX hardcoded
+						'priority' => $params{priority},
+						'data' => join(' ', @{$params{data}})
+						});
+	$$self{SESSION}->param('comments', $params{comments});
+	$$self{SESSION}->param('dbs', $params{dbs});
+	$$self{SESSION}->param('user_email', $params{email});
+	$$self{SESSION}->param('nodes', { 'dest' => $params{nodes},
+					  'src' => [sort keys %subscribed_sources] });
+	$$self{SESSION}->param('data', $resolved);
+    }
+ 
+    return $problems;
+}
+
+sub checkDeleteRequestData
+{
+    my ($self, %params) = @_;
+
+    my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, $params{dbs}, @{$params{data}});
+
+    my $del_queue = &dbexec($$self{DBH}, 
+			qq{select n.id node_id, n.name node,
+		                  ds.id dataset_id, ds.name dataset,
+		                  b.id block_id, b.name block, b.bytes,
+                                  bd.block block_queued
+                             from t_dps_block_delete bd
+		             join t_dps_block b on b.id = bd.block
+   	                     join t_dps_dataset ds on ds.id = b.dataset
+                             join t_adm_node n on n.id = bd.node
+			 })->fetchall_hashref([qw(NODE DATASET_ID BLOCK_ID)]);
+
+    my $table = new Web25::TableSpool;
+    $table->set_filehandle( $$self{CONTENT} );
+    $table->set_tableclass('data');
+    $table->set_stripeclass('stripe');
+    $table->set_tablecols([qw(LEVEL ITEM FILES BYTES DPS_ISKNOWN DBS_ISKNOWN SOURCES COMMENT)]);
+    $table->set_tablehead({LEVEL => 'Data Level', 
+			   ITEM => 'Data Item',
+			   FILES => 'Files',
+			   BYTES => 'Size',
+			   DPS_ISKNOWN => 'Known to PhEDEx', 
+			   DBS_ISKNOWN => 'Known to DBS', 
+			   SOURCES => 'Sources (current)',
+			   COMMENT => 'Comment'});
+    $table->set_cellformats({COMMENT     => sub { return 'alarm' if $_[1]->{PROBLEM}; 
+						  return 'warn'  if $_[1]->{WARN};
+						  return '';
+					      },
+			     DPS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''},
+			     DBS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''}});
+    
+    $table->set_dataformats({DPS_ISKNOWN => \&yesno,
+			     DBS_ISKNOWN => \&yesno,
+			     LEVEL => sub { ucfirst lc $_[0] },
+			     BYTES => sub { &format_size($_[0], 1, 2, 'G') }});
+    $table->set_statcols({FILES => 'SUM', BYTES => 'SUM'});
+        
+    $table->start();
+    $table->head();
+
+    my $problems = 0;
+    foreach my $userglob (sort @{$params{data}}) {
+	if (! @{$$resolved{$userglob}} ) {
+	    $table->row({LEVEL => 'User Search',
+			 ITEM  => $userglob,
+			 DPS_ISKNOWN => 'n',
+			 DBS_ISKNOWN => 'n',
+			 COMMENT => 'Data item not found anywhere',
+			 WARN => 1});
+	    $problems = 1;
+	} else {
+	    foreach my $res (@{$$resolved{$userglob}}) {
+		my @comments;
+		my $warn = 0;
+		
+		if ($$res{DBS} ne $params{dbs})  { 
+		    push @comments, "Known to PhEDEx in another DBS ($$res{DBS})";
+		    $warn = 1; $problems = 1; 
+		}
+		if ($$userdupes{$$res{LEVEL}}{$$res{ID}}) { 
+		    push @comments, "User duplicated requests";
+		    $warn = 1;
+		}
+		if ($$dbsdupes{$$res{LEVEL}}{$$res{ID}})  { 
+		    push @comments, "Data item known to PhEDEx in multiple DBSes";
+		    $warn = 1; 
+		}
+		foreach my $node (@{$params{nodes}}) {
+		    my ($replica) = grep($node eq $$_{NODE_NAME}, @{$$res{REPLICAS}});
+		    if (!$replica) {
+			push @comments, "$node has nothing to delete";
+			$warn = 1;
+		    } elsif ($$replica{SUBS_LEVEL} eq 'DATASET' && $$res{LEVEL} eq 'BLOCK'
+			     && $params{rm_subscriptions} eq 'y') {
+			push @comments, "You will remove a dataset-level subscription from $node if you delete this block";
+			$warn = 1;
+		    }
+
+		    if ($$res{LEVEL} eq 'DATASET' && exists $$del_queue{$node}{ $$res{ID} }) {
+			my $n_blocks = scalar keys %{$$del_queue{$node}{ $$res{ID} }};
+			push @comments, "$node already has $n_blocks blocks from this dataset queued for deletion";
+			$warn = 1;
+		    }
+		}
+
+		$$res{SOURCES} = join(', ', sort map { "$$_{NODE_NAME} ($$_{FILES} files)" } @{$$res{REPLICAS}});
+		$$res{SOURCES} ||= 'None found';
+		$$res{ITEM} = $$res{$$res{LEVEL}}; # Name of dataset or block, depending on which it is for
+		$$res{COMMENT} = join('<br/>', @comments);
+		$$res{COMMENT} ||= 'None';
+		$$res{WARN} = $warn;
+		$$res{PROBLEM} = $problems;
+		
+		if ($$res{DPS_ISKNOWN} eq 'n' || $$res{DBS_ISKNOWN} eq 'n') { $problems = 1; }
+		$table->row($res);
+	    }
+	}
+    }
+    $table->finish();
+
+    unless ($problems) {
+	# Save the previous state
+	$$self{SESSION}->param('type', 'delete');
+	$$self{SESSION}->param('type_params', { 'rm_subscriptions' => $params{rm_subscriptions},
+						'data' => join(' ', @{$params{data}})
+						});
+	$$self{SESSION}->param('comments', $params{comments});
+	$$self{SESSION}->param('dbs', $params{dbs});
+	$$self{SESSION}->param('user_email', $params{email});
+	$$self{SESSION}->param('nodes', { 'null' => $params{nodes} });
+	$$self{SESSION}->param('data', $resolved);
+    }
+
+    return $problems;
+}
+
+
+sub send_request_create_email
+{
+    my ($self, $rid) = @_;
+    my $data = $self->getRequestData($rid);
+
+    &dump_var($$self{CONTENT}, 'email_req_data', $data);
+
     # Get a list of the sites involved in this request
     my %node_sites = $$self{SECMOD}->getPhedexNodeToSiteMap();
-    my %sites;  # for unique list
-    foreach my $dest (@{$params{dest}}) {
-	$sites{ $node_sites{$dest} } = 1; # TODO:  Handle null Site...
+    my (%sites);  # for unique list
+    foreach my $node (keys %{$$data{NODES}}) {
+	$sites{ $node_sites{ $node } } = 1;
     }
-    
+
     # Get the list of Global admins
     my @global_admins = $$self{SECMOD}->getUsersWithRoleForGroup('Global Admin', 'phedex');
-    if (!@global_admins) {
-	alert("Sorry, the request cannot be created.",
-	      "The database does not contain any global admins.",
-	      "Please contact the PhEDEx group about this!"); 
-	return;
-    }
 
     # Get the list of Data Managers affected by this request
     my @data_managers;
@@ -4444,153 +4478,81 @@ sub write_request
 	push @site_admins, $$self{SECMOD}->getUsersWithRoleForSite('Site Admin', $site);
     }
 
-    # Write a task with this request for each of the global admins and
-    # data managers authorized to approve this
-    my %task_people;  # use a hash to ensure no duplicates
-    my @auth_admins;
-    if ($params{'is_move'} eq 'y') {
-	@auth_admins = @global_admins;
-    } else {
-	@auth_admins = (@global_admins, @data_managers);
-    }
-
-    foreach my $admin (@auth_admins) {
-	my $ident = $self->fetch_identity($admin);
-	$task_people{$$ident{ID}} = 1;
-    }
-    foreach my $person (keys %task_people) {
-	&makeObjWithAttrs
-	    ($$self{DBH}, "req_task", undef,
-	     { "action" => $aid,
-	       "person" => $person,
-	       "time_create" => $now
-	       }
-	     );
-    }
-
-    # Write the request details (resolved datasets/blocks) to the DB
-    &dbexec($$self{DBH}, qq[ insert into t_req_info (request, time_update)
-			     values ( :rid, :time_update ) ],
-	    ':rid' => $rid,
-	    ':time_update' => $now);
-
-
-    my @rv;
-    foreach my $item (@{$params{request}}) {
-	my ($dbs, $level, $dataset, $block) = split /,/, $item;
-	if ($level eq 'DATASET') {
-	    @rv = &dbexec($$self{DBH}, 
-			  qq[ insert into t_req_info_dataset (request, dbs, dataset, dbs_isknown, dps_isknown,
-							      is_move, is_transient, priority)
-			      values ( :rid, :dbs, :dataset, :dbs_isknown, :dps_isknown,
-				       :is_move, :is_transient, :priority) ],
-			  ':rid'          => $rid,
-			  ':dbs'          => $dbs,
-			  ':dataset'      => $dataset,
-			  ':dbs_isknown'  => 'y',
-			  ':dps_isknown'  => 'y',
-			  ':is_move'      => $params{is_move},
-			  ':is_transient' => $params{is_transient},
-			  ':priority'     => $params{priority}
-			  );
-	} elsif ($level eq 'BLOCK') {
-	    @rv = &dbexec($$self{DBH},
-			  qq[ insert into t_req_info_block ( request, dbs, dataset, block,
-							     dbs_isknown, dps_isknown,
-							     is_move, is_transient, priority)
-			      values ( :rid, :dbs, :dataset, :block, :dbs_isknown, :dps_isknown,
-				       :is_move, :is_transient, :priority) ],
-			  ':rid' => $rid,
-			  ':dbs' => $dbs,
-			  ':dataset' => $dataset,
-			  ':block' => $block,
-			  ':dbs_isknown' => 'y',
-			  ':dps_isknown' => 'y',
-			  ':is_move'      => $params{is_move},
-			  ':is_transient' => $params{is_transient},
-			  ':priority'     => $params{priority}
-			  );
-	}
-	unless ($rv[1] > 0) {
-	    $$self{DBH}->rollback();
-	    $self->alert("Request creation failed");
-	    return;
+    # Make a simple list of the data
+    my @datalist;
+    foreach my $lvl (qw(DATASET BLOCK FILE)) {
+	foreach my $item (values %{$$data{DATA}{$lvl}}) {
+	    push @datalist, $$item{NAME};
 	}
     }
-    
-    
-    foreach my $node (@{$params{dest}}) {
-	&dbexec($$self{DBH},
-		qq[ insert into t_req_info_dest (request, destination)
-		    select :rid, id node_id from t_adm_node where name = :node ],
-		':rid' => $rid, ':node' => $node);
-    }
-
-    $$self{DBH}->commit();
 
     # Send an email to the requestor, the global admins, the data managers, and the site admins
+    my $name = $$data{CREATOR_DATA}{IDENTITY}{NAME};
+    my $email = $$data{CREATOR_DATA}{CONTACT_ATTR}{'User E-mail'} ||
+	$$data{CREATOR_DATA}{IDENTITY}{EMAIL};
+    my $auth = "";
+    if (exists $$data{CREATOR_DATA}{IDENTITY}{DN}) {
+	$auth = "DN:  ".$$data{CREATOR_DATA}{IDENTITY}{DN};
+    } elsif (exists $$data{CREATOR_DATA}{IDENTITY}{USERNAME}) {
+	$auth = "Username:  ".$$data{CREATOR_DATA}{IDENTITY}{USERNAME};
+    }
     my $instance = $$self{CONFIG}{INSTANCES}{$$self{DBID}}{TITLE};
-    my $subscription_type =  &subscription_type(@params{qw(priority is_transient is_move)});
+    my $request_type = $self->getRequestTitle($data);
     my @to;
     push @to, $$_{EMAIL} foreach (@global_admins, @data_managers);
-    my @cc = ($params{email});
+    my @cc = ($email);
     push @cc, $$_{EMAIL} foreach @site_admins;
-    
+
     my $admin_url = $self->myurl('fullurl' => 1,
 				 'secure' => 1,
-				 'page' => 'Request::Admin',
-				 'view' => 'my',
+				 'page' => 'Request::View',
 				 'request' => $rid);
-    my $name = $$self{USER_NAME};
-    my $dn = $$self{SECMOD}->getDN();
-    my $auth = "";
-    if ($$self{SECMOD}->isCertAuthenticated()) {
-	$auth = "DN:  ".$$self{SECMOD}->getDN();
-    } elsif ($$self{SECMOD}->isPasswdAuthenticated()) {
-	$auth = "Username:  ".$$self{SECMOD}->getUsername();
-    }
-    my $move_msg = '';
-    if ($params{'is_move'} eq 'y') {
-	$move_msg = 'Note:  This is a request for a data MOVE '.
-	    'and can only be approved by the Global Admins.';
-    }
-    my $files = $params{sum_files};
-    my $bytes = &format_size($params{sum_bytes});
+    my $special_message = $self->get_special_request_message($data);
+
+    my $files = $$data{REQUEST_FILES};
+    my $bytes = &format_size($$data{REQUEST_BYTES});
     
     my $message =<<ENDEMAIL;
 Greetings PhEDEx Data Managers,
 
-You may wish to take note of the following new transfer request:
+You may wish to take note of the following new request:
 
 * Requestor:
-   Name:  $name
+   Name: $name
+   E-mail: $email
    Authentication $auth
-   Host: $ENV{HTTP_X_FORWARDED_FOR}
-   Agent: @{[user_agent()]}
+   Host: $$data{CREATOR_DATA}{CONTACT_ATTR}{'Remote host'}
+   Agent: $$data{CREATOR_DATA}{CONTACT_ATTR}{'User agent'}
 
 * Request:
    Type:
-     $subscription_type
+     $request_type
    Database:
      $instance
-   Contact:
-     $params{email}
    DBS:
-     $params{dbs}
+     $$data{DBS}
    Data:
 ENDEMAIL
+    $message .= join('', map( { "     $_\n" } @datalist));
 
-    $message .= join('', map( { "     $_\n" } @{$params{data}})).
-    "   Destination Nodes:\n".
-    join('', map( { "     $_ (Site: $node_sites{$_})\n" } @{$params{dest}}));
+    my $nodes_by_point = {};
+    foreach my $n (values %{ $$data{NODES} }) {
+	$$nodes_by_point{ $$n{POINT} } ||= [];
+	push @{ $$nodes_by_point{ $$n{POINT} } }, $$n{NODE};
+    }
+
+    foreach my $point (sort keys %$nodes_by_point) {
+	$message .= "   ${point}s:\n".
+	    join('', map( { "     $_ (Site: $node_sites{$_})\n" } sort @{$$nodes_by_point{ $point }}));
+    }
 
     $message .=<<ENDEMAIL;
    Size:
      $files files, $bytes
    Comments:
-     "$params{comment}"
+     "$$data{COMMENTS}"
 
-$move_msg
+$special_message
  
 This mail has also been sent to the requestor, the PhEDEx global
 admins, and the site admins of the relevant sites.
@@ -4603,37 +4565,434 @@ Yours truly,
   PhEDEx Transfer Request Web Form
 ENDEMAIL
     
-send_email(subject => "PhEDEx Transfer Request ($instance instance)",
+send_email(subject => "PhEDEx $request_type ($instance instance)",
 	   to => [ @to ],
 	   cc => [ @cc ],
 	   from => "PhEDEx Request Form <$$self{CONFIG}{FEEDBACK_MAIL}>",
 	   message => $message)
 or $self->alert("Sending request email to admins failed, sorry");
-    
-    
-    print { $$self{ CONTENT } }
-    "<h1>Request Confirmed</h1>",
-    "<p>Your request has been logged to the database and the admins have been notified.  ",
-    "You will receive updates about this request via e-mail.</p>";
 
-    # Delete the session
-    $$self{SESSION}->delete();
 }
 
-sub subscription_type
-{
-    my ($priority, $is_transient, $is_move) = @_;
-    my $nice = 
-    {
-	is_move => { y => 'move', n => 'replication' },
-	is_transient => { y => 'closed', n => 'open' },
-	priority => { 0 => 'High', 1 => 'Normal', 2 => 'Low' }
-    };
 
-    return "$$nice{priority}{$priority} priority $$nice{is_transient}{$is_transient} $$nice{is_move}{$is_move}";
+sub get_special_request_message
+{
+    my ($self, $data) = @_;
+
+    my $msg = '';
+    if ($$data{TYPE} eq 'xfer') {
+	if ($$data{XFER_DATA}{IS_MOVE} eq 'y') {
+	    $msg = 'Note:  This is a request for a data MOVE. '.
+		   'The Data Managers and Site Admins of the source sites have also been notified.  '.
+		   'Data Managers of the source sites with subscriptions  must approve the move before '.
+		   'data will be deleted from their node.';
+	}
+    }
+    return $msg;
 }
 
 1;
+
+
+
+######################################################################
+package Web25::Request::Admin;
+use strict; use warnings;
+use base "Web25::Request::Page";
+our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Administer Request",
+	       LINK_TITLE => "Administer Requests",
+	       SECURE => 1 };
+use CGI qw(:standard);
+import Web25::Common;
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+sub output
+{
+    my ($self) = @_;
+    
+    # Check access method
+    if (request_method() ne 'POST') {
+	$self->alert("This form can only be accessed with the POST method");
+	return;
+    }
+
+    &dump_params($$self{CONTENT});
+
+    # Check authentication and authorization
+    unless ($$self{SECMOD}->isCertAuthenticated() &&
+	    ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+	     $$self{SECMOD}->hasRole('Data Manager'))) {
+	$self->alert("This form may only be accessed by Data Managers with certificate authentication.");
+	return;
+    }
+    my %auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager', with_ids => 1);
+
+    my %node_actions;
+    foreach my $key (grep /^admin-/, param()) {
+	my $node = $key;
+	$node =~ s/^admin-//;
+	unless (grep($node eq $_, keys %auth_nodes)) {
+	    $self->alert("You don't have permission to approve requests for $node");
+	    return;
+	}
+	my $action = param($key);
+	unless (grep $action eq $_, qw(approve disapprove null)) {
+	    $self->alert("Invalid action '$action' for node '$node'");
+	    return;
+	}
+	$node_actions{$node} = $action;
+    }
+
+    # Check parameters
+    my $rid = param('request');
+    my $comments = param('comments');
+    my $now = time ();
+
+    unless ($rid && %node_actions) {
+	$self->alert("Missing parameters");
+	return;
+    }
+
+    # Go to work
+    my $data = $self->getRequestData($rid);
+    &dump_var($$self{CONTENT}, 'request', $data);
+    &dump_var($$self{CONTENT}, 'actions', {%node_actions});
+
+    # Check that the request has some data
+    unless (keys %{$$data{DATA}{DATASET}} || keys %{$$data{DATA}{BLOCK}}) {
+	$self->alert("Request has no data");
+	return;
+    }
+
+    # Check that each of the nodes is part of this request
+    foreach my $node (keys %node_actions) {
+	unless (exists $$data{NODES}{$node}) {
+	    $self->alert("Node $node isn't part of request \#$rid");
+	    return;
+	}
+    }
+
+    my $client_id = $self->logClientInfo();
+    my $comments_id = $self->writeRequestComments($rid, $client_id, $comments, $now) if $comments;
+
+    my $ok = 1;
+    foreach my $node (sort keys %node_actions) {
+	my $action = $node_actions{$node};
+	my $node_id = $auth_nodes{$node};
+	my $node_obj = $$data{NODES}{$node};
+
+	if ($action eq 'null') {
+	    print {$$self{CONTENT}} "<p>No action taken for $node</p>";
+	} elsif ($action eq 'disapprove') {
+	    $ok &&= $self->disapprove($data, $node_obj, $now);
+	    $ok &&= $self->markRequestDone($rid, $node_id, 'n', $client_id, $now, $comments_id);
+	    print {$$self{CONTENT}} "<p>Disapproved request \#$rid for $node</p>";
+	} elsif ($action eq 'approve') {
+	    $ok &&= $self->approve($data, $node_obj, $now);
+	    $ok &&= $self->markRequestDone($rid, $node_id, 'y', $client_id, $now, $comments_id);
+	    print {$$self{CONTENT}} "<p>Approved request \#$rid for $node</p>";
+	}
+    }
+
+    if ($ok) {
+       	$$self{DBH}->commit();
+	$self->send_request_update_email($rid, \%node_actions, $comments);
+	print {$$self{CONTENT}} "<p class='blocktext'>Your changes to request \#$rid ",
+	"have been applied and an update email was sent to the ",
+	"requestor as well as the Data Managers/Site Admins of the ",
+	"relevant sites.</p>";
+    } else {
+	$$self{DBH}->rollback();
+	$self->alert("Problem writing request, transaction rolled back.  ",
+		     "Please report this problem to the PhEDEx administrators");
+    }
+
+}
+
+sub disapprove
+{
+    my ($self, $data, $node_obj, $time) = @_;
+
+    if ($$data{TYPE} eq 'xfer' && $$data{XFER_DATA}{IS_MOVE} eq 'y' && $$node_obj{POINT} eq 'Source Node') {
+	$self->updateMoveSource($$data{ID}, $$node_obj{NODE_ID}, undef);
+    }
+
+    return 1;
+}
+
+sub approve
+{
+    my ($self, $data, $node_obj, $time) = @_;
+
+    if ($$data{TYPE} eq 'xfer') {
+	if ($$node_obj{POINT} eq 'Destination Node') {
+	    $self->subscribe($$data{ID}, $$node_obj{NODE_ID}, $time);
+	    if ($$data{XFER_DATA}{IS_MOVE} eq 'y') {
+		foreach my $src_obj (grep($$_{POINT} eq 'Source Node', values %{$$data{NODES}})) {
+		    my $time_clear;
+		    if (!defined $$src_obj{DECISION}) { $time_clear = 9999999999; }
+		    elsif ($$src_obj{DECISION} eq 'y') { $time_clear = $time; }
+		    else { next; }
+		    $self->updateMoveSource($$data{ID}, $$src_obj{NODE_ID}, $time_clear);
+		}
+	    }
+	} elsif ($$node_obj{POINT} eq 'Source Node' && $$data{XFER_DATA}{IS_MOVE} eq 'y'
+		 && grep(($$_{POINT} eq 'Destination Node' && $$_{DECISION} && $$_{DECISION} eq 'y'),
+			 values %{$$data{NODES}})) {
+	    $self->updateMoveSource($$data{ID}, $$node_obj{NODE_ID}, $time);
+	}
+    } elsif ($$data{TYPE} eq 'delete') {
+	if ($$data{DELETE_DATA}{RM_SUBSCRIPTIONS} eq 'y') {
+	    $self->unsubscribe($$data{ID}, $$node_obj{NODE_ID}, $time);
+	} 
+	$self->delete($$data{ID}, $$node_obj{NODE_ID}, $time);
+    }
+    
+    return 1;
+}
+
+sub subscribe
+{
+    my ($self, $rid, $node_id, $time) = @_;
+
+    # Subscribe data to destination.  This DML ignores duplicates but updates the parameters if there are duplicates
+    my ($sth, $rv) = &dbexec($$self{DBH}, 
+     qq[ merge into t_dps_subscription s
+         using
+         (select :destination destination, rdata.dataset, rdata.block, rx.priority, rx.is_move, rx.is_transient
+	    from t_req_request r
+            join t_req_xfer rx on rx.request = r.id
+            join ( select rds.request, rds.dataset_id dataset, NULL block
+                     from t_req_dataset rds
+                    where rds.dataset_id is not null
+                    union
+                   select rb.request, NULL dataset, rb.block_id block
+                     from t_req_block rb
+                    where rb.block_id is not null
+                 ) rdata on rdata.request = r.id 
+           where r.id = :request
+         ) r
+         on (r.destination = s.destination
+             and (r.dataset = s.dataset or r.block = s.block))
+         when matched then
+           update set s.is_move = r.is_move,
+                      s.priority = r.priority,
+                      s.is_transient = r.is_transient
+         when not matched then
+           insert (dataset, block, destination, priority, is_move, is_transient, time_create)
+           values (r.dataset, r.block, r.destination, r.priority, r.is_move, r.is_transient, :time_create) ],
+			     ':request' => $rid, ':destination' => $node_id, ':time_create' => $time);
+
+    return 1;
+}
+
+sub updateMoveSource
+{
+    my ($self, $rid, $node_id, $time) = @_;
+    
+    # Update the source subscriptions of a move
+    # This query's "exists" clause contains a statement which checks every possible block
+    # in the request for a match in the subscriptions table of the given node
+    # this is probably quite expensive for large requests...
+    my ($sth, $rv) = &dbexec($$self{DBH},
+    qq[ update t_dps_subscription s
+           set s.time_clear = :time_clear
+         where s.destination = :destination
+           and exists
+               (select 1
+ 	          from t_req_request r
+                  join ( select rds.request, b.dataset, b.id block
+                           from t_req_dataset rds
+                           join t_dps_block b on b.dataset = rds.dataset_id
+                           where rds.dataset_id is not null
+                           union
+                           select rb.request, b.dataset, b.id block
+                             from t_req_block rb
+                             join t_dps_block b on b.id = rb.block_id 
+                            where rb.block_id is not null
+                        ) rdata on rdata.request = r.id
+                  where r.id = :request 
+                    and (rdata.dataset = s.dataset or rdata.block = s.block)
+               ) ],
+	  ':request' => $rid, ':destination' => $node_id, ':time_clear' => $time);
+
+    return 1;
+}
+
+sub unsubscribe
+{
+    my ($self, $rid, $node_id, $time) = @_;
+
+    # Delete all subscriptions that match the request data
+    # This query's "exists" clause contains a statement which checks every possible block
+    # in the request for a match in the subscriptions table of the given node
+    # this is probably quite expensive for large requests...
+    my ($sth, $rv) = &dbexec($$self{DBH},
+    qq[ delete from t_dps_subscription s
+         where s.destination = :destination
+           and exists
+               (select 1
+ 	          from t_req_request r
+                  join ( select rds.request, b.dataset, b.id block
+                           from t_req_dataset rds
+                           join t_dps_block b on b.dataset = rds.dataset_id
+                           where rds.dataset_id is not null
+                           union
+                           select rb.request, b.dataset, b.id block
+                             from t_req_block rb
+                             join t_dps_block b on b.id = rb.block_id 
+                            where rb.block_id is not null
+                        ) rdata on rdata.request = r.id
+                  where r.id = :request 
+                    and (rdata.dataset = s.dataset or rdata.block = s.block)
+               ) ],
+	  ':request' => $rid, ':destination' => $node_id);
+
+    return 1;
+}
+
+
+sub delete
+{
+    my ($self, $rid, $node_id, $time) = @_;
+
+    # Mark all blocks in the request data for deletion
+    my ($sth, $rv) = &dbexec($$self{DBH}, 
+     qq[ merge into t_dps_block_delete bd
+         using
+         (select rdata.dataset, rdata.block, :node node 
+	    from t_req_request r
+            join ( select rds.request, b.dataset, b.id block
+                     from t_req_dataset rds
+                     join t_dps_block b on b.dataset = rds.dataset_id
+                    where rds.dataset_id is not null
+                    union
+                   select rb.request, b.dataset, b.id block
+                     from t_req_block rb
+                     join t_dps_block b on b.id = rb.block_id
+                    where rb.block_id is not null 
+                 ) rdata on rdata.request = r.id
+           where r.id = :request
+         ) r
+         on (r.node = bd.node
+             and r.dataset = bd.dataset
+             and r.block = bd.block)
+         when not matched then
+           insert (block, dataset, node, time_request)
+           values (r.block, r.dataset, r.node, :time_request) ],
+	  ':request' => $rid, ':node' => $node_id, ':time_request' => $time);
+
+}
+
+
+sub markRequestDone
+{
+    my ($self, $rid, $node_id, $decision, $client_id, $time, $comments_id) = @_;
+
+    my ($sth, $rv) = &dbexec($$self{DBH}, qq{ 
+	insert into t_req_decision (request, node, decision, decided_by, time_decided, comments)
+	    values (:rid, :node, :decision, :decided_by, :time_decided, :comments) },
+	    ':rid' => $rid, ':node' => $node_id, ':decision' => $decision, ':decided_by' => $client_id,
+	    ':time_decided' => $time, ':comments' => $comments_id);
+    
+    return $rv ? 1 : 0;
+}
+
+
+
+sub send_request_update_email
+{
+    my ($self, $rid, $node_actions, $comments) = @_;
+
+    my $data = $self->getRequestData($rid);
+
+    # Build list action descriptions
+    my $action_desc = '';
+    foreach my $node (keys %$node_actions) {
+	my $action = $$node_actions{$node};
+	if ($action eq 'null') {
+	    next;
+	} elsif ($action eq 'disapprove') {
+	    $action_desc .= "$node => Disapproved\n";
+	} elsif ($action eq 'approve') {
+	    $action_desc .= "$node => Approved\n";
+	}
+	$action_desc .= "\n";
+    }
+
+    # Get a list of the sites involved in this request
+    my @nodes = sort keys %{$$data{NODES}};
+    my %node_sites = $$self{SECMOD}->getPhedexNodeToSiteMap();
+    my %sites;  # for unique list
+    foreach my $node (@nodes) {
+	$sites{ $node_sites{$node} } = 1 if exists $node_sites{$node};
+    }
+    
+    # Get the list of Data Managers affected by this request
+    my @data_managers;
+    foreach my $site (keys %sites) {
+	push @data_managers, $$self{SECMOD}->getUsersWithRoleForSite('Data Manager', $site);
+    }
+
+    # Get the list of Site Admins affected by this request
+    my @site_admins;
+    foreach my $site (keys %sites) {
+	push @site_admins, $$self{SECMOD}->getUsersWithRoleForSite('Site Admin', $site);
+    }
+
+    my $creator_name = $$data{CREATOR_DATA}{IDENTITY}{NAME};
+    my $creator_email = $$data{CREATOR_DATA}{IDENTITY}{EMAIL};
+    my $detail_url = $self->myurl(page => 'Request::View', request => $rid, fullurl => 1);
+    my $admin_email = $$self{SECMOD}->getEmail();
+    my $msg_comments = ($comments ? "\nThe person who handled this had the following comments:\n\n\"$comments\"\n" 
+			: '');
+    my @cc = map { $$_{EMAIL} } @data_managers, @site_admins;
+    my $nodes_str = join(', ', @nodes);
+    my $newstate = $$data{REQUEST_STATE};
+
+    my $message=<<ENDEMAIL;
+Dear $creator_name,
+
+Your request \#$rid has been acted on by $$self{USER_NAME} for $nodes_str.  The actions taken were:
+
+$action_desc
+$msg_comments
+This request is now $newstate.
+
+To review details of the request, please go to:
+
+$detail_url
+
+To inquire further about this request, you may reply to this email.
+
+This message has also been CCed to the Data Managers and Site Admins of the sites involved.
+
+Yours truly,
+  PhEDEx transfer request webpage
+
+ENDEMAIL
+
+&send_email(subject => "PhEDEx Request Update (request \#$rid)",
+	    to => [ $creator_email ],
+	    cc => [ @cc ],
+	    from => "PhEDEx Web Requests <$$self{CONFIG}{FEEDBACK_MAIL}>",
+	    replyto => [ $admin_email ],
+	    message => $message
+	    ) or $self->alert("Sending request email to admins failed, sorry");;
+
+    return 1;
+}
+
+1;
+
 
 
 
@@ -7648,7 +8007,12 @@ sub output_page
       TIME_CREATE =>   sub { &formatTime($_[0], 'stamp') || '&#8211;' },
       TIME_COMPLETE => sub { &formatTime($_[0], 'stamp') || '&#8211;' },
       TIME_DONE =>     sub { &formatTime($_[0], 'stamp') || '&#8211;' },
-      TIME_CLEAR =>    sub { &formatTime($_[0], 'stamp') || '&#8211;' },
+      TIME_CLEAR => sub { 
+	  my $clear_time = $_[0];
+	  if (!defined $clear_time) { return '-'; }
+	  elsif ($clear_time == 9_999_999_999)            { return 'Pending approval'; }
+	  else { return &formatTime($clear_time, 'stamp') }
+      },
       PCT_FILES => \&format_percent,
       PCT_BYTES => \&format_percent
   };
@@ -7878,7 +8242,7 @@ import Web25::Common;
 use CGI qw(:standard);
 
 our $INDEX = { LIST => 1, ORDER => 3, TITLE => "Delete",
-	       LINK_TITLE => "Delete datasets or blocks from PhEDEx database",
+	       LINK_TITLE => "View Deletion Queue",
                SECURE => 0 };
 
 sub new
@@ -7894,79 +8258,7 @@ sub output
 {
   my ($self) = @_;
 
-  if ($$self{SECMOD}->isCertAuthenticated() &&
-      ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
-       $$self{SECMOD}->hasRole('Data Manager'))) {
-      $self->deletion_form();
-  } else {
-      $self->auth_help_popup('delete datasets and blocks' => ['cert', 'Data Manager', 'Global Admin']);
-  }
   $self->deletion_queue();
-}
-
-sub deletion_form
-{
-    my $self = shift @_;
-
-    my $del_url = $self->myurl('page' => 'Data::DeleteConfirm');
-    my @nodes = sort $self->fetch_nodes(web_user_auth => 'Data Manager');
-    
-    print { $$self{CONTENT} }
-    "<h1>Delete Data</h1>",
-    "<p>Enter the data items you would like to delete.  Deletions are ",
-    "added to the queue and are actually deleted when the deletion agents ",
-    "get around to it.</p>",
-    
-    "<form class='nice' method='post' action='$del_url'>";
-
-    if ($$self{SECMOD}->hasRole('Global Admin', 'phedex')) {
-	print {$$self{CONTENT}}
-	"<label>Nodes:</label>",
-	"<div class='labeled'  style='font-size:8pt;width:450px;height:150px;overflow:scroll;border:thin solid black;' >",
-	"<table><tr valign='top'>",
-	"  <td>\n",
-	(map { &striplabels(checkbox(-name=>'node', -label=>'', -value=>$_)."$_<br/>") }
-	 sort grep (/^T1_|T0_/, @nodes)),
-	"  </td>\n",
-	"  <td>\n",
-	(map { &striplabels(checkbox(-name=>'node', -label=>'', -value=>$_)."$_<br/>") }
-	 grep (/^T2_/, @nodes)),
-	"  </td>\n",
-	"  <td>\n",
-	(map { &striplabels(checkbox(-name=>'node', -label=>'', -value=>$_)."$_<br/>") }
-	 grep (! /^T[012]_/, @nodes)),
-	"  </td>\n",
-	" </tr></table></div><br/>\n";
-    } else {
-	print {$$self{CONTENT}}
-	"<label>Node:</label>",
-	popup_menu(-name=>'node', -values=>[@nodes], -class=>'labeled'),
-	"<br/>";
-    }
-    
-    print {$$self{CONTENT}}
-    "<label>Data Items:<br/><br/>",
-    "<span class='note'>/Primary/Processed/Dataset<br/>or<br/>",
-    "/Primary/Processed/Tier#Block<br/>(Use * as wildcard)</span><br/>",
-    &help("More Help", "Data Item List", 
-	  "A whitespace separated list of the datasets or blocks you are ",
-	  "deleting.  Glob-style wildcards may be used, but the dataset ",
-	  "path separators are required.  E.g. to delete all ",
-	  "datasets you would have to write '/*/*/*', not '*'."), 
-    "</label>\n",
-    textarea(-name=>'data', -value=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), 
-    "<br/>",
-
-    "<label>Remove Subscriptions?:</label>",
-    popup_menu(-name=>'rm_subscriptions', -values=>[qw(y n)], -labels=>{y => 'Yes', n => 'No'}, -class=>'labeled'),
-    &help("[what's this?]", "Remove Subscriptions",
-	  "If you choose not to remove the subscription when deleting data PhEDEx will ",
-	  "retransfer the data to your node after the deletion is complete."),
-    "<br/>",
-
-    "<label>&nbsp;</label>", 
-    submit(-class=>'labeled', -value=>'Go to Confirmation'), "<br/>",
-    "</form>";
 }
 
 sub deletion_queue
@@ -8002,267 +8294,6 @@ sub deletion_queue
 }
 
 1;
-
-######################################################################
-package Web25::Data::DeleteConfirm;
-use strict; use warnings;
-use base "Web25::Page";
-import Web25::Common;
-use Text::Glob 'glob_to_regex';
-use CGI qw(:standard);
-
-our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Delete Confirmation",
-	       LINK_TITLE => "Delete datasets or blocks from PhEDEx database",
-               SECURE => 1 };
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub output
-{
-    my ($self) = @_;
-
-    if (request_method() ne 'POST') {
-    	alert($self, "This form can only be accessed with 'POST' method.");
-	return;
-    }
-
-    unless ($$self{SECMOD}->isCertAuthenticated() &&
-	    ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
-	     $$self{SECMOD}->hasRole('Data Manager'))) {
-	$self->auth_help_popup('delete datasets and blocks' => ['cert', 'Data Manager', 'Global Admin']);
-	return;
-    }
-
-    my $bad = 0;
-    unless (param('node') || param('data') || param('rm_subscriptions')) {
-	$self->alert("Insufficient parameters");
-	$bad = 1;
-    }
-
-    my $data = param('data');
-    unless ($data) { $self->alert("No data items given"); $bad = 1; }
-    my @nodes = param('node');
-    unless (@nodes) { $self->alert("No nodes given"); $bad = 1; }
-
-    my $rm_subscriptions = (param('rm_subscriptions') eq 'y' ? 1 : 0);
-
-    my @auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager');
-    foreach my $node (@nodes) {
-	if (! grep $node eq $_, @auth_nodes) {
-	    $self->alert("You don't have permission to delete data from $node.");
-	    $bad = 1;
-	}
-    }
-    
-    # Parse users data field
-    my %userdata = $self->parse_userdata($data);
-    foreach (keys %userdata) {
-	if (! $userdata{$_} ) {
-	    $self->alert("The data pattern is &ldquo;@{[&escapeHTML($_)]}&rdquo;",
-			 " does not match pattern of type /PRIMARY/TIER/DATASET or /PRIMARY/DATASET#BLOCK.");
-	    $bad = 1;
-	}
-    }
-
-    return if $bad;
-
-#    &dump_var($$self{CONTENT}, 'userdata', {%userdata});
-
-    # Find matches in replicas tables for the given nodes
-    my ($node_list, %node_binds) = &dbinlist('node', @nodes);
-    my $sql = qq{select n.id node_id, n.name node,
-		        ds.id dataset_id, ds.name dataset,
-		        b.id block_id, b.name block, b.bytes,
-		        NVL2(dataset_subs.destination, 'y', 'n') dataset_subscribed,
-		        NVL2(block_subs.destination, 'y', 'n') block_subscribed,
-                        bd.block block_queued
-   	           from t_dps_dataset ds
-		   join t_dps_block b on b.dataset = ds.id
-                   join t_dps_block_replica br on br.block = b.id
-                   join t_adm_node n on n.id = br.node
-              left join t_dps_subscription block_subs on block_subs.destination = n.id and block_subs.block = b.id
-              left join t_dps_subscription dataset_subs on dataset_subs.destination = n.id and dataset_subs.dataset = ds.id
-              left join t_dps_block_delete bd on bd.block = b.id and bd.node = n.id
-		  where n.name in ($node_list)
-	          order by n.name, ds.name };
-
-    my $q = &dbexec($$self{DBH}, $sql, %node_binds);
-    my @matches;
-    my @dupes;
-    my %usermatch = map { $_ => 0 } keys %userdata;
-    my $blockwarnings = 0;
-    ITEM: while (my $row = $q->fetchrow_hashref()) {
-	foreach (keys %userdata) {
-	    my $kind = $userdata{$_}; # DATASET or BLOCK
-	    my $pattern = glob_to_regex($_);
-	    if ($$row{$kind} =~ $pattern) {
-		if ($rm_subscriptions && $kind eq 'BLOCK' && $$row{DATASET_SUBSCRIBED} eq 'y') {
-		    $$row{BLOCKWARN} = 1;
-		    $blockwarnings++;
-		}
-		if ($$row{BLOCK_QUEUED}) {
-		    push @dupes, $row;
-		} else {
-		    push @matches, $row;
-		}
-		$usermatch{$_}++;
-		next ITEM;
-	    }
-	}
-    }
-    my @nomatch = grep $usermatch{$_} == 0, keys %usermatch;
-
- #   &dump_var($$self{CONTENT}, 'matches', [@matches]);
-
-    if (!param('execute')) {
-	if (@matches) {
-	    print {$$self{CONTENT}}
-	    "<h1>Confirm Deletion</h1>",
-	    "<h2>Blocks To Be Deleted</h2>",
-	    "<p>The following blocks matched your selection and will be deleted upon your confirmation.</p>",
-	    ($rm_subscriptions ? "<p>Subscriptions, where they exist,  will also be deleted.</p>" :
-	     "<p>Subscriptions will <b>not</b> be removed, so you can expect a retransfer to be initiated</p>");
-	    
-	    # List matches for user confirmation
-	    my $table = new Web25::TableSpool;
-	    $table->set_filehandle($$self{CONTENT});
-	    $table->set_tableclass('data');
-	    $table->set_stripeclass('stripe');
-	    $table->set_tablecols([qw(NODE DATASET BLOCK SUBSCRIBED BYTES)]);
-	    $table->set_tablehead({NODE => 'Node',
-				   DATASET => 'Dataset',
-				   BLOCK => 'Block',
-				   SUBSCRIBED => 'Block Subscribed?',
-				   BYTES => 'Bytes' });
-	    $table->add_pseudocolumn( SUBSCRIBED => sub { my ($ds, $b) = ($_[1]->{DATASET_SUBSCRIBED}, 
-									  $_[1]->{BLOCK_SUBSCRIBED});
-							  if ($ds eq 'y') { return 'Yes, via dataset'; }
-							  elsif ($b eq 'y') { return 'Yes' }
-							  else { return 'No' } });
-	    $table->set_dataformats({ BYTES => sub { &format_size($_[0]) } });
-	    $table->set_rowformats({ BLOCKWARN => sub { return $_[0] ? 'alarm' : '' } });
-	    $table->start();
-	    $table->head();
-	    $table->row($_) foreach @matches;
-	    $table->finish();
-	}
-
-	if (@dupes) {
-	    print {$$self{CONTENT}}
-	    "<h2>Blocks Already Queued</h2>",
-	    "<p>Patience!  The following blocks you selected are already queued for deletion!  ",
-	    "They will not be queued again.</p>";
-	    my $table = new Web25::TableSpool;
-	    $table->set_filehandle($$self{CONTENT});
-	    $table->set_tableclass('data');
-	    $table->set_stripeclass('stripe');
-	    $table->set_tablecols([qw(NODE DATASET BLOCK)]);
-	    $table->set_tablehead({NODE => 'Node',
-				   DATASET => 'Dataset',
-				   BLOCK => 'Block'});
-	    $table->start();
-	    $table->head();
-	    $table->row($_) foreach @dupes;
-	    $table->finish();
-	}
-	
-	if (@nomatch) {
-	    print {$$self{CONTENT}}
-	    "<h2>Not Matched</h2>",
-	    "<p>These selections did not match any known replicas that PhEDEx can delete.</p>";
-	    my $table = new Web25::TableSpool;
-	    $table->set_filehandle($$self{CONTENT});
-	    $table->set_tableclass('data');
-	    $table->set_stripeclass('stripe');
-	    $table->start();
-	    $table->head('Selection');
-	    $table->row($_) foreach @nomatch;
-	    $table->finish();
-	}
-	
-	if (!@matches) {
-	    $self->alert("None of your selections matched replicas PhEDEx can delete.");
-	    return;
-	}
-
-	if ($blockwarnings) {
-	    $self->alert("You are trying to delete a <b>specific block and its subscription</b> for which a ",
-			 "<b>dataset subscription</b> exists (offending block shown in red).  This is not ",
-			 "allowed by the system.  You must go back and choose:",
-			 "<ol style='text-align:  left'><li>Not to delete subscriptions (block will be retransferred), or</li>",
-			 "    <li>Not to delete the block in question, or</li>",
-			 "    <li>To delete the dataset the block belongs to, instead of only the block</li></ul>");
-	    return;
-	}
-
-	my $delete_url = $self->myurl();
-	my @save = map { hidden($_, param($_)) } param();
- 	print {$$self{CONTENT}}
-	"<form method='post' action='$delete_url'>",
-	hidden(-name=>'execute', -value=>1),
-	@save,
-	"<p>", submit(-value=>'Yes, I really want to delete all this data'), "</p>",
-	"</form>";
-    } else {
-	my $data_delete_sql = qq{ insert into t_dps_block_delete (time_request, node, dataset, block)
-				  values (:time, :node, :dataset, :block) };
-	my $subs_delete_sql = qq{ delete from t_dps_subscription where destination = :dest and THING = :id };
-
-	my $subs_update_sql = qq{ update t_dps_subscription set time_complete = NULL
-				   where destination = :dest and THING = :id };
-
-	my $now = time();
-
-	my ($n_delete, $n_rm_subs) = (0, 0);
-	my ($sth, $rv);
-	MATCH: foreach (@matches) {
-	    ($sth, $rv) = &dbexec($$self{DBH}, $data_delete_sql,
-				     ':time' => $now,
-				     ':node' => $$_{NODE_ID},
-				     ':dataset' => $$_{DATASET_ID},
-				     ':block' => $$_{BLOCK_ID});
-	    $n_delete += $rv;
-
-	    # Delete subscriptions if the user requested it, otherwise
-	    # leave the subscription in place but set time_complete to
-	    # be null
-	    my ($item, $id);
-	    if ($$_{DATASET_SUBSCRIBED} eq 'y') {
-		$item = 'dataset';
-		$id = $$_{DATASET_ID};
-	    } elsif ($$_{BLOCK_SUBSCRIBED} eq 'y') {
-		$item = 'block';
-		$id = $$_{BLOCK_ID};
-	    } else {
-		next MATCH;
-	    }
-	    my $subs_sql = $rm_subscriptions ? $subs_delete_sql : $subs_update_sql;;
-	    $subs_sql =~ s/THING/$item/;
-	    ($sth, $rv) = &dbexec($$self{DBH}, $subs_sql,
-				  ':dest' => $$_{NODE_ID},
-				  ':id' => $id);
-	    $n_rm_subs += $rv if $rm_subscriptions;
-	    
-	}
-	$$self{DBH}->commit();
-
-	print {$$self{CONTENT}}
-	"<h1>Delete Confirmed</h1>",
-	"<p>$n_delete blocks queued for deletion.</p>",
-	( $rm_subscriptions ? "<p>$n_rm_subs subscriptions removed</p>" : '');
-    }
-}
-
-1;
-
-
 
 ######################################################################
 package Web25::Data::LoadTestInject;
@@ -9174,6 +9205,13 @@ sub output
   
   &dump_var($$self{CONTENT}, 'ENV{HTTPS}', $ENV{HTTPS});
   &dump_var($$self{CONTENT}, 'ENV{HTTP_HTTPS}', $ENV{HTTP_HTTPS});
+  my $replicas = &fetch_replicas($$self{DBH}, 1212);
+  &dump_var($$self{CONTENT}, 'replicas', $replicas);
+
+  my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, 'test', '/Simon/Simon/*-1');
+
+  &dump_var($$self{CONTENT}, 'resolved', $resolved);
+
 #   &dump_var($$self{CONTENT}, 'SecMod CertAuth', $$self{SECMOD}->isCertAuthenticated());
 #   &dump_var($$self{CONTENT}, 'SecMod PassAuth', $$self{SECMOD}->isPasswdAuthenticated());
 #   &dump_var($$self{CONTENT}, 'SecMod Forename', $$self{SECMOD}->getForename());
