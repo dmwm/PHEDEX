@@ -28,6 +28,7 @@ use PHEDEX::BlockConsistency::Agent;
 &GetOptions ("state=s"      => \$args{DROPDIR},
 	     "log=s"        => \$args{LOGFILE},
 	     "db=s"         => \$args{DBCONFIG},
+	     "label=s"      => \$args{LABEL},
 	     "storagemap=s" => \$args{STORAGEMAP},
              "nodes=s"      => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
              "ignore=s"     => sub { push(@{$args{IGNORE_NODES}}, split(/,/, $_[1])) },
@@ -36,11 +37,5 @@ use PHEDEX::BlockConsistency::Agent;
 	     "use_srm"      => \$args{USE_SRM},
 	     "use_rfdir"    => \$args{RFIO_USES_RFDIR},
 	    );
-
-if (!$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG} || !$args{STORAGEMAP})
-{
-    die "Insufficient parameters, use -h for help.\n";
-}
-$args{LOGFILE} = $args{DROPDIR} . '/log.txt' unless defined $args{LOGFILE};
 
 (new PHEDEX::BlockConsistency::Agent (%args, @ARGV))->process();
