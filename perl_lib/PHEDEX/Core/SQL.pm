@@ -311,6 +311,32 @@ sub execute_sql
 }
 
 #-------------------------------------------------------------------------------
+sub execute_rollback
+{
+  my $self  = shift;
+  my $dbh = $self;
+
+# see execute_sql to see why I do this :-(
+  if ( grep( /^DBH$/,  keys %{$self} ) ) { $dbh = $self->{DBH}; }
+
+# Do the rollback!
+  $dbh->rollback();
+}
+
+#-------------------------------------------------------------------------------
+sub execute_commit
+{
+  my $self  = shift;
+  my $dbh = $self;
+
+# see execute_sql to see why I do this :-(
+  if ( grep( /^DBH$/,  keys %{$self} ) ) { $dbh = $self->{DBH}; }
+
+# Do the rollback!
+  $dbh->commit();
+}
+
+#-------------------------------------------------------------------------------
 sub getTable
 {
 # Retrieve an entire table as a hash, keyed by 'ID' unless otherwise

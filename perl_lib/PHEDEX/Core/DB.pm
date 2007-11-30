@@ -391,14 +391,14 @@ sub updateAgentStatus
     $nreceived++ if -f "$d/go";
   }
 
-  my $dirtmp = $self->{WORKDIR};
+  $dirtmp = $self->{WORKDIR};
   foreach my $d (<$dirtmp/*>) {
     $npending++;
     $nbad++ if -f "$d/bad";
     $ndone++ if -f "$d/done";
   }
 
-  my $dirtmp = $self->{OUTDIR};
+  $dirtmp = $self->{OUTDIR};
   foreach my $d (<$dirtmp/*>) {
     $noutbox++;
   }
