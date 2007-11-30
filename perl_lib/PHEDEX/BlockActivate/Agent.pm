@@ -20,7 +20,7 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent';
+use base 'PHEDEX::Core::Agent, PHEDEX::BlockActivate::SQL';
 use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
@@ -75,28 +75,33 @@ sub idle
 	# Reactivate blocks with incomplete destinations or which
 	# have been explicitly requested to be activated or deleted
 	my $now = &mytimeofday ();
-        my $stmt = &dbexec ($dbh, qq{
-	    select b.id, b.name, count(br.block), sum(decode(br.is_active,'y',1,0))
-	    from t_dps_block b
-	      join t_dps_block_replica br
-	        on br.block = b.id
-	    where exists (select bd.block
-	    		  from t_dps_block_dest bd
-	    		  where bd.block = b.id
-			    and bd.state != 3)
-	       or exists (select bd.block
-       			  from t_dps_block_delete bd
-			  where bd.block = b.id and bd.time_complete is null)
-	       or exists (select ba.block
-       			  from t_dps_block_activate ba
-			  where ba.block = b.id
-			    and ba.time_request <= :now
-			    and (ba.time_until is null
-		    		 or ba.time_until >= :now))
-	    group by b.id, b.name},
-    	    ":now" => $now);
-	while (my ($id, $block, $nreplica, $nactive) = $stmt->fetchrow())
-	{
+#        my $stmt = &dbexec ($dbh, qq{
+#	    select b.id, b.name, count(br.block), sum(decode(br.is_active,'y',1,0))
+#	    from t_dps_block b
+#	      join t_dps_block_replica br
+#	        on br.block = b.id
+#	    where exists (select bd.block
+#	    		  from t_dps_block_dest bd
+#	    		  where bd.block = b.id
+#			    and bd.state != 3)
+#	       or exists (select bd.block
+#       			  from t_dps_block_delete bd
+#			  where bd.block = b.id and bd.time_complete is null)
+#	       or exists (select ba.block
+#       			  from t_dps_block_activate ba
+#			  where ba.block = b.id
+#			    and ba.time_request <= :now
+#			    and (ba.time_until is null
+#		    		 or ba.time_until >= :now))
+#	    group by b.id, b.name},
+#    	    ":now" => $now);
+#	while (my ($id, $block, $nreplica, $nactive) = $stmt->fetchrow())
+        my $h = $self->getBlockReactivationCandidates( NOW => $now);
+	foreach my $id ( keys %{$h} )
+        {
+	    my $block    = $h->{$id}{NAME};
+	    my $nreplica = $h->{$id}{NREPLICA};
+	    my $nactive  = $h->{$id}{NACTIVE};
 	    # Ignore active blocks
 	    if ($nactive)
 	    {
@@ -109,44 +114,54 @@ sub idle
 	    # Inactive and wanted.  Activate the file replicas.  However
 	    # before we start, lock the block and check counts again in
 	    # case something changes.
-	    &dbexec ($dbh, qq{
-		select * from t_dps_block where id = :block for update},
-		":block" => $id);
-
-	    my ($xnreplica, $xnactive) = &dbexec ($dbh, qq{
-		select count(block), sum(decode(br.is_active,'y',1,0))
-		from t_dps_block_replica br where br.block = :block},
-		":block" => $id)->fetchrow ();
-
-	    if ($xnactive != $nactive || $xnreplica != $nreplica)
+#	    &dbexec ($dbh, qq{
+#		select * from t_dps_block where id = :block for update},
+#		":block" => $id);
+#
+#	    my ($xnreplica, $xnactive) = &dbexec ($dbh, qq{
+#		select count(block), sum(decode(br.is_active,'y',1,0))
+#		from t_dps_block_replica br where br.block = :block},
+#		":block" => $id)->fetchrow ();
+#	    if ($xnactive != $nactive || $xnreplica != $nreplica)
+	    if ( ! $self->getLockForUpdateWithCheck
+			(
+			  NOW      => $now,
+			  NREPLICA => $nreplica,
+			  NACTIVE  => $nactive,
+			) )
 	    {
 		&warn ("block $id ($block) changed, skipping activation");
 		next;
 	    }
 
 	    # Proceed to activate.
-	    my ($stmt, $nfile) = &dbexec ($dbh, qq{
-		insert into t_xfer_file
-		(id, inblock, logical_name, checksum, filesize)
-		(select id, inblock, logical_name, checksum, filesize
-		 from t_dps_file where inblock = :block)},
-		":block" => $id);
-
-	    my ($stmt2, $nreplica) = &dbexec ($dbh, qq{
-		insert into t_xfer_replica
-		(id, fileid, node, state, time_create, time_state)
-		(select seq_xfer_replica.nextval, f.id, br.node,
-		        0, br.time_create, :now
-		 from t_dps_block_replica br
-		 join t_xfer_file f on f.inblock = br.block
-		 where br.block = :block)},
-	   	 ":block" => $id, ":now" => $now);
-
-	    &dbexec ($dbh, qq{
-		update t_dps_block_replica
-		set is_active = 'y', time_update = :now
-		where block = :block},
-		":block" => $id, ":now" => $now);
+#	    my ($stmt, $nfile) = &dbexec ($dbh, qq{
+#		insert into t_xfer_file
+#		(id, inblock, logical_name, checksum, filesize)
+#		(select id, inblock, logical_name, checksum, filesize
+#		 from t_dps_file where inblock = :block)},
+#		":block" => $id);
+#
+#	    my ($stmt2, $nreplica) = &dbexec ($dbh, qq{
+#		insert into t_xfer_replica
+#		(id, fileid, node, state, time_create, time_state)
+#		(select seq_xfer_replica.nextval, f.id, br.node,
+#		        0, br.time_create, :now
+#		 from t_dps_block_replica br
+#		 join t_xfer_file f on f.inblock = br.block
+#		 where br.block = :block)},
+#	   	 ":block" => $id, ":now" => $now);
+#
+#	    &dbexec ($dbh, qq{
+#		update t_dps_block_replica
+#		set is_active = 'y', time_update = :now
+#		where block = :block},
+#		":block" => $id, ":now" => $now);
+	    my ($nfile,$nreplica) = $self->activateBlock
+					(
+					  ID  => $id,
+					  NOW => $now
+					);
 
 	    &logmsg ("block $id ($block) reactivated with $nfile files"
 		     . " and $nreplica replicas");
@@ -154,12 +169,13 @@ sub idle
 	}
 
 	# Remove old activation requests
-	&dbexec ($dbh, qq{
-	    delete from t_dps_block_activate
-	    where time_request < :now
-	      and time_until is not null
-	      and time_until < :now},
-           ":now" => $now);
+#	&dbexec ($dbh, qq{
+#	    delete from t_dps_block_activate
+#	    where time_request < :now
+#	      and time_until is not null
+#	      and time_until < :now},
+#           ":now" => $now);
+        $self->removeOldActivationRequests( NOW => $now );
     };
     do { chomp ($@); &alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
