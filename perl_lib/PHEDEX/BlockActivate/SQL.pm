@@ -65,26 +65,6 @@ sub AUTOLOAD
 }
 
 #-------------------------------------------------------------------------------
-sub getObsoleteTests
-{
-  my $self = shift;
-  my $time_expire = shift || 10 * 86400;
-  my ($sql,%p,$r);
-
-  $time_expire = time - $time_expire;
-  %p = ( ':time_expire' => $time_expire );
-
-  $sql = qq{ select b.id, count(fileid), time_expire
-	     from t_dvs_block b join t_dvs_file f on b.id = f.request
-	     where time_expire < :time_expire
-	     group by b.id, time_expire
-             order by time_expire desc };
-
-  $r = select_single( $self, $sql, %p );
-  return $r;
-}
-
-#-------------------------------------------------------------------------------
 sub getBlockReactivationCandidates
 {
   my $self = shift;
@@ -141,11 +121,11 @@ sub getLockForUpdateWithCheck
 {
   my $self = shift;
   my %h = @_;
-  my $id = $h{ID};
+  my $block = $h{ID};
   my ($sql,$q,%p,@r);
 
   $sql = qq{ select * from t_dps_block where id = :block for update };
-  %p = ( ':block' => $id );
+  %p = ( ':block' => $block );
   $q = execute_sql( $self, $sql, %p );
 
 #  my ($xnreplica, $xnactive) = &dbexec ($dbh, qq{
@@ -160,9 +140,9 @@ sub getLockForUpdateWithCheck
   return ($xnreplica, $xnactive) if wantarray;
   foreach ( qw / NREPLICA NACTIVE / )
   {
-    warn "lockForUpdateWithCheck: Explicit check requested but \"$_\" not given\n" unless defined $h->{$_};
+    warn "lockForUpdateWithCheck: Explicit check requested but \"$_\" not given\n" unless defined $h{$_};
   }
-  return 1 if ( $h->{NREPLICA} == $xnreplica && $h->{NACTIVE} == $xnactive );
+  return 1 if ( $h{NREPLICA} == $xnreplica && $h{NACTIVE} == $xnactive );
 
 # I do not use $self->{DBH}->rollback() here to preserve procedural access
   execute_rollback( $self );
@@ -174,18 +154,18 @@ sub activateBlock
 {
   my $self = shift;
   my %h = @_;
-  my $id  = $h{ID};
-  my $now = $h{NOW};
+  my $block = $h{ID};
+  my $now   = $h{NOW};
   my ($sql,$q,%p,@r);
 
-  my ($stmt, $nfile) = &dbexec ($dbh, qq{
+  my ($stmt, $nfile) = execute_sql ($self, qq{
       insert into t_xfer_file
       (id, inblock, logical_name, checksum, filesize)
       (select id, inblock, logical_name, checksum, filesize
        from t_dps_file where inblock = :block)},
-      ":block" => $id);
+      ":block" => $block);
 
-  my ($stmt2, $nreplica) = &dbexec ($dbh, qq{
+  my ($stmt2, $nreplica) = execute_sql ($self, qq{
       insert into t_xfer_replica
       (id, fileid, node, state, time_create, time_state)
       (select seq_xfer_replica.nextval, f.id, br.node,
@@ -193,13 +173,13 @@ sub activateBlock
        from t_dps_block_replica br
        join t_xfer_file f on f.inblock = br.block
        where br.block = :block)},
-       ":block" => $id, ":now" => $now);
+       ":block" => $block, ":now" => $now);
 
-  &dbexec ($dbh, qq{
+  execute_sql ($self, qq{
       update t_dps_block_replica
       set is_active = 'y', time_update = :now
       where block = :block},
-      ":block" => $id, ":now" => $now);
+      ":block" => $block, ":now" => $now);
 }
 
 1;

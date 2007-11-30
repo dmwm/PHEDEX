@@ -20,7 +20,7 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent, PHEDEX::BlockActivate::SQL';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockActivate::SQL';
 use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
@@ -96,12 +96,13 @@ sub idle
 #	    group by b.id, b.name},
 #    	    ":now" => $now);
 #	while (my ($id, $block, $nreplica, $nactive) = $stmt->fetchrow())
-        my $h = $self->getBlockReactivationCandidates( NOW => $now);
-	foreach my $id ( keys %{$h} )
+        my $g = $self->getBlockReactivationCandidates( NOW => $now);
+	foreach my $h ( @{$g} )
         {
-	    my $block    = $h->{$id}{NAME};
-	    my $nreplica = $h->{$id}{NREPLICA};
-	    my $nactive  = $h->{$id}{NACTIVE};
+	    my $id       = $h->{ID};
+	    my $block    = $h->{NAME};
+	    my $nreplica = $h->{NREPLICA};
+	    my $nactive  = $h->{NACTIVE};
 	    # Ignore active blocks
 	    if ($nactive)
 	    {
@@ -125,7 +126,7 @@ sub idle
 #	    if ($xnactive != $nactive || $xnreplica != $nreplica)
 	    if ( ! $self->getLockForUpdateWithCheck
 			(
-			  NOW      => $now,
+			  ID       => $id,
 			  NREPLICA => $nreplica,
 			  NACTIVE  => $nactive,
 			) )
