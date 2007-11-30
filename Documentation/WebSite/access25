@@ -217,7 +217,7 @@ sub format_num
 sub format_percent
 {
   my ($n) = @_;
-  return $n ? sprintf("%.1f \%", $n*100) : '&#8211;';
+  return $n ? sprintf("%.1f %%", $n*100) : '&#8211;';
 }
 
 
@@ -2023,7 +2023,6 @@ function select_all(form_id, name, value) {
 <div class="viewnav">
 @DBSELECTOR@
 @IDENTITY@
-@MYPAGE@
 </div>
 
 <!-- options panel -->
@@ -2139,12 +2138,12 @@ sub index
 sub urlparams
 {
   my ($self, @names) = @_;
-  my %known = map { $_ => 1 } param();
+  my %known = map { $_ => 1 } url_param();
   my %result = ();
 
   foreach my $name (@names)
   {
-    $result{$name} = [ param($name) ]
+    $result{$name} = [ url_param($name) ]
       if exists $known{$name};
   }
   return %result;
@@ -2160,14 +2159,12 @@ sub myurl
   my $self = shift(@_);
 
   my $curpage = param('page');
-  my $curview = param('view');
   my $curlayout = param('layout');
   my $currefresh = param('refresh');
   my $cursecure = $$self{SECMOD}->isSecure();
   my $curquery = query_string();
   my %args = ('db' => $$self{DBID},
 	      ($cursecure ? ('secure' => 1) : ()),
-	      ($curview ? ('view' => $curview) : ()),
 	      ($curpage ? ('page' => $curpage) : ()),
 	      ($curlayout ? ('layout' => $curlayout) : ()),
 	      ($currefresh ? ('refresh' => $currefresh) : ()),
@@ -2214,7 +2211,7 @@ sub generate
 
   # Force redirect to https if using http
   if ($$index{SECURE} && !$$self{SECMOD}->isSecure() && param('page') !~ /^Security/) {
-      print redirect(-uri => $self->myurl("fullurl" => 1, "secure" => 1, "view" => "my"));
+      print redirect(-uri => $self->myurl("fullurl" => 1, "secure" => 1));
       return;
   }
   
@@ -2235,8 +2232,8 @@ sub generate
   {
       $$self{LOGIN_MESSAGE} = 
 	  "<p>Sign in ".
-	  "<a href='" . $self->myurl("secure" => 1, "view" => "my") . "'>via Cert</a> or ".
-	  "<a href='" . $self->myurl("secure" => 1, "view" => "my", "SecModPwd" => 1) . "'>via Password</a>".
+	  "<a href='" . $self->myurl("secure" => 1) . "'>via Cert</a> or ".
+	  "<a href='" . $self->myurl("secure" => 1, "SecModPwd" => 1) . "'>via Password</a>".
 	  "</p>";
   }
   my $login_state = $$self{SECMOD}->getAuthnState();
@@ -3142,8 +3139,6 @@ sub writeRequest
 	$params{$_} = $$self{SESSION}->param($_);
     }
 
-    &dump_var($$self{CONTENT}, 'params', {%params});
-    
     my $now = time();
     
     # Write information about the Client
@@ -3214,7 +3209,6 @@ sub writeRequest
 	" values (" . join(', ', map { ":$_" } @columns) . ")";
     my %binds = ( ':request' => $rid );
     $binds{":$_"} = $params{type_params}->{$_} foreach keys %{$params{type_params}};
-    &dump_var($$self{CONTENT}, 'sql', {sql => $sql, binds => {%binds}});
     &dbexec($$self{DBH}, $sql, %binds);
     
     # Write the comment
@@ -3370,7 +3364,7 @@ sub printRequest
 	"<label>Comment:<br/><span class='note'>(Optional)</span></label>",
 	textarea(-name=>'comments', -rows=>5, -cols=>60, -class=>'labeled'), "<br/>",
 	"<label>&nbsp;</label>",
-	hidden('request', $rid),
+	hidden('admin_request', $rid),
 	submit(-value=>"Submit Changes for \#$rid", -class=>'labeled'), "<br/>",
 	"</form>";
     }
@@ -3384,7 +3378,6 @@ sub printRequest
     $self->printRequestSpecific($data);
     print { $$self{CONTENT} } "</div>";
    
-#    &dump_var($$self{CONTENT}, 'request data', $data);
     print { $$self{CONTENT} } "</div>";
 }
 
@@ -3499,7 +3492,14 @@ sub output
   order by n.name
 });
 
-  print {$$self{CONTENT}} "<h2>Overview By Node</h2>";
+  print {$$self{CONTENT}}
+  "<h2>Overview By Node</h2>",
+  "<p><b>Legend:</b>  ", 
+  "xfer = Transfer Request, ",
+  "del = Delete Request, ",
+  "pend = Pending Approval, ",
+  "appr = Approved, ",
+  "dis = Disapproved</p>";
 
   my $overview = {};
   while (my ($node, $type, $decision, $n_req) = $q->fetchrow()) {
@@ -3525,7 +3525,7 @@ sub output
 	      my $n = $$o{$dec} || 0;
 	      my $state = $dec_switch{$dec};
 	      my $url = $self->myurl('page' => 'Request::View',
-				     'node' => $node,
+				     'nodes' => $node,
 				     'type' => $type,
 				     'state' => $state);
 	      my $link = "<a href='$url'>$n</a>";
@@ -3553,15 +3553,6 @@ sub output
       
   print {$$self{CONTENT}} "</table>";
 
-  print {$$self{CONTENT}} 
-  "<br/>",
-  "<dl><dt><b>Legend:</b></dt>",
-  "<dd>xfer = Transfer Request</dd>",
-  "<dd>del = Delete Request</dd>",
-  "<dd>pend = Pending Approval</dd>",
-  "<dd>appr = Approved</dd>",
-  "<dd>dis = Disapproved</dd></dl>";
-
 }
 
 1;
@@ -3587,20 +3578,107 @@ sub new
   return $self;
 }
 
+sub myurl
+{
+  my ($self, %args) = @_;
+  my @save = qw(request type nodes state);
+
+  # Return bare link if we are switching pages
+  return $self->SUPER::myurl(%args)
+      if ($args{"page"} && ($args{"page"} ne "Request::View" &&
+			    $args{"page"} ne "Request::Admin"));
+
+  # Keep my if remaining on the same page (but e.g. different instance)
+  return $self->SUPER::myurl($self->urlparams(@save), %args);
+}
+
+
 sub output
 {
     my ($self) = @_;
 
-    my @auth_nodes = sort $self->fetch_nodes(web_user_auth => 'Data Manager');
+    my $request = param('request');
+    my $type = param('type');
+    my $nodes = param('nodes');
+    my $state = param('state');
 
+    my $viewurl = $self->myurl();
+    print {$$self{CONTENT}}
+    "<form class='nice' method='get' action='$viewurl'>",
+    "<label class='inline'>View request \#s </label>",
+    textfield(-name=>'request', -default=>$request, -class=>'labeled'),
+    submit(-value=>'Submit', -class=>'labeled'), "</form><br clear='all'/>",
+
+    "<form class='nice' method='get' action='$viewurl'>",
+    "<label class='inline'>View </label>",
+    popup_menu(-name=>'type', -values=>[qw(any xfer delete)],
+	       -labels=>{ any => 'any type', xfer => 'transfer', delete => 'deletion' },
+	       -class=>'labeled'),
+    "<label class='inline'> requests for nodes </label>",
+    textfield(-name=>'nodes', -default=>$nodes, -class=>'labeled'),
+    popup_menu(-name=>'state', -values=>[qw(any pend appr dis)],
+	       -labels=>{ any => 'any requests', pend => 'pending approval', appr => 'approved', dis => 'disapproved'},
+	       -class=>'labeled'),
+    submit(-value=>'Submit', -class=>'labeled'), "</form><br clear='all'/>";
+
+
+    my @auth_nodes;
+    if ($$self{SECMOD}->isCertAuthenticated() &&
+	    ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+	     $$self{SECMOD}->hasRole('Data Manager'))) {
+	@auth_nodes = sort $self->fetch_nodes(web_user_auth => 'Data Manager');	
+    } elsif (!$$self{SECMOD}->isAuthenticated() ||
+	     $$self{SECMOD}->isPasswdAuthenticated()) {
+	$self->auth_help_popup('approve requests' => ['cert', 'Data Manager', 'Global Admin']);
+    }
+
+    my @where;
+    my %binds;
+
+    if ($request) {
+	my ($req_list, %req_binds) = &dbinlist('request', split /\s+/, $request);
+	$binds{$_} = $req_binds{$_} foreach keys %req_binds;
+	push @where, "r.id in ($req_list)";
+    }
+
+    if ($type && grep($type eq $_, qw(xfer delete))) {
+	push @where, 'rt.name = :type';
+	$binds{':type'} = $type;
+    }
+
+    if ($nodes) {
+	my @nodes;
+	my %all_nodes = $self->fetch_nodes(with_ids => 1);
+	foreach my $filter (split /\s+/, $nodes) {
+	    push @nodes, grep(/$filter/, keys %all_nodes);
+	}
+	my ($node_list, %node_binds) = &dbinlist('node', @all_nodes{@nodes});
+	$binds{$_} = $node_binds{$_} foreach keys %node_binds;
+	push @where, "rn.node in ($node_list)" if %node_binds;
+    }
+    
+    if ($state) {
+	if ($state eq 'pend') { push @where, "rd.decision is null"; }
+	elsif ($state eq 'appr') { push @where, "rd.decision = 'y'"; }
+	elsif ($state eq 'dis') { push @where, "rd.decision = 'n'"; }
+    }
+
+    my $where_str = '';
+    $where_str = 'where '.join(' and ', @where) if @where;
+    
     my $sql = qq{
-      select r.id rid 
+      select distinct r.id, r.time_create
       from t_req_request r
+      join t_req_type rt on rt.id = r.type
+      join t_req_node rn on rn.request = r.id
+      left join t_req_decision rd on rd.request = r.id
+                                 and rd.node = rn.node
+      $where_str
       order by r.time_create desc
     };
 
     my $pager = new Web25::QueryPager;
-    $pager->init($self, $sql, undef,  10);
+    $pager->init($self, $sql, \%binds,  10);
     my $n_requests = $pager->get_total_results();
 
     if (! $n_requests) {
@@ -4454,8 +4532,6 @@ sub send_request_create_email
     my ($self, $rid) = @_;
     my $data = $self->getRequestData($rid);
 
-    &dump_var($$self{CONTENT}, 'email_req_data', $data);
-
     # Get a list of the sites involved in this request
     my %node_sites = $$self{SECMOD}->getPhedexNodeToSiteMap();
     my (%sites);  # for unique list
@@ -4614,6 +4690,20 @@ sub new
   return $self;
 }
 
+sub myurl
+{
+  my ($self, %args) = @_;
+  my @save = qw(request type nodes state);
+
+  # Return bare link if we are switching pages
+  return $self->SUPER::myurl(%args)
+      if ($args{"page"} && ($args{"page"} ne "Request::View" &&
+			    $args{"page"} ne "Request::Admin"));
+
+  # Keep my if remaining on the same page (but e.g. different instance)
+  return $self->SUPER::myurl($self->urlparams(@save), %args);
+}
+
 sub output
 {
     my ($self) = @_;
@@ -4623,8 +4713,6 @@ sub output
 	$self->alert("This form can only be accessed with the POST method");
 	return;
     }
-
-    &dump_params($$self{CONTENT});
 
     # Check authentication and authorization
     unless ($$self{SECMOD}->isCertAuthenticated() &&
@@ -4652,7 +4740,7 @@ sub output
     }
 
     # Check parameters
-    my $rid = param('request');
+    my $rid = param('admin_request');
     my $comments = param('comments');
     my $now = time ();
 
@@ -4663,8 +4751,6 @@ sub output
 
     # Go to work
     my $data = $self->getRequestData($rid);
-    &dump_var($$self{CONTENT}, 'request', $data);
-    &dump_var($$self{CONTENT}, 'actions', {%node_actions});
 
     # Check that the request has some data
     unless (keys %{$$data{DATA}{DATASET}} || keys %{$$data{DATA}{BLOCK}}) {
@@ -4674,8 +4760,11 @@ sub output
 
     # Check that each of the nodes is part of this request
     foreach my $node (keys %node_actions) {
-	unless (exists $$data{NODES}{$node}) {
+	if (!exists $$data{NODES}{$node}) {
 	    $self->alert("Node $node isn't part of request \#$rid");
+	    return;
+	} elsif (defined $$data{NODES}{$node}{DECISION}) {
+	    $self->alert("Request \#$rid has already been adminned for ${node}!");
 	    return;
 	}
     }
@@ -4684,37 +4773,48 @@ sub output
     my $comments_id = $self->writeRequestComments($rid, $client_id, $comments, $now) if $comments;
 
     my $ok = 1;
+    my @results;
     foreach my $node (sort keys %node_actions) {
 	my $action = $node_actions{$node};
 	my $node_id = $auth_nodes{$node};
 	my $node_obj = $$data{NODES}{$node};
 
 	if ($action eq 'null') {
-	    print {$$self{CONTENT}} "<p>No action taken for $node</p>";
+	    push @results, "No action taken for $node";
 	} elsif ($action eq 'disapprove') {
 	    $ok &&= $self->disapprove($data, $node_obj, $now);
 	    $ok &&= $self->markRequestDone($rid, $node_id, 'n', $client_id, $now, $comments_id);
-	    print {$$self{CONTENT}} "<p>Disapproved request \#$rid for $node</p>";
+	    push @results, "Disapproved request \#$rid for $node";
 	} elsif ($action eq 'approve') {
 	    $ok &&= $self->approve($data, $node_obj, $now);
 	    $ok &&= $self->markRequestDone($rid, $node_id, 'y', $client_id, $now, $comments_id);
-	    print {$$self{CONTENT}} "<p>Approved request \#$rid for $node</p>";
+	    push @results, "Approved request \#$rid for $node";
 	}
     }
 
     if ($ok) {
        	$$self{DBH}->commit();
 	$self->send_request_update_email($rid, \%node_actions, $comments);
-	print {$$self{CONTENT}} "<p class='blocktext'>Your changes to request \#$rid ",
+	print {$$self{CONTENT}} 
+	"<h1>Request Updated</h1>",
+	"<p>", join('<br/>', @results), "</p>",
+	"<p class='blocktext'>Your changes to request \#$rid ",
 	"have been applied and an update email was sent to the ",
 	"requestor as well as the Data Managers/Site Admins of the ",
 	"relevant sites.</p>";
     } else {
 	$$self{DBH}->rollback();
+	print {$$self{CONTENT}} "<h1>Error</h1>";
 	$self->alert("Problem writing request, transaction rolled back.  ",
 		     "Please report this problem to the PhEDEx administrators");
     }
+    
+    $self->printRequest($rid);
 
+    &dump_params($$self{CONTENT});
+
+    my $viewurl = $self->myurl(page => "Request::View");
+    print {$$self{CONTENT}} "<p><a href='$viewurl'>View requests</a></p>";
 }
 
 sub disapprove
@@ -4921,9 +5021,9 @@ sub send_request_update_email
 	if ($action eq 'null') {
 	    next;
 	} elsif ($action eq 'disapprove') {
-	    $action_desc .= "$node => Disapproved\n";
+	    $action_desc .= "$node => Disapproved";
 	} elsif ($action eq 'approve') {
-	    $action_desc .= "$node => Approved\n";
+	    $action_desc .= "$node => Approved";
 	}
 	$action_desc .= "\n";
     }
@@ -5678,7 +5778,9 @@ sub output
 
   foreach my $kind (qw(N T))
   {
-    foreach my $row (sort { $$b{DONE_BYTES} <=> $$a{DONE_BYTES}
+      no warnings 'uninitialized'; # XXX being lazy here...
+      foreach my $row (sort { 
+	                       $$b{DONE_BYTES} <=> $$a{DONE_BYTES}
 			    || $$b{FAIL_FILES} <=> $$a{FAIL_FILES}
 			    || $$b{EXPIRE_FILES} <=> $$a{EXPIRE_FILES}
 			    || $$a{TO_NODE} cmp $$b{TO_NODE}
@@ -6577,6 +6679,70 @@ sub output
 
 1;
 
+
+######################################################################
+package Web25::Activity::Deletions;
+use strict; use warnings;
+use base "Web25::Page";
+import Web25::Common;
+use CGI qw(:standard);
+
+our $INDEX = { LIST => 1, ORDER => 7, TITLE => "Deletions",
+	       LINK_TITLE => "View Deletion Queue",
+               SECURE => 0 };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+sub output
+{
+  my ($self) = @_;
+
+  $self->deletion_queue();
+}
+
+sub deletion_queue
+{
+    my $self = shift @_;
+
+    print { $$self{CONTENT} }
+    "<h1>Deletion Queue</h1>",
+    "<p>This table contains the blocks which are queued for deletion.</p>";
+    
+    my $sql = qq{ select n.name node, ds.name dataset, b.name block, del.time_request, del.time_complete
+		      from t_dps_block_delete del
+		      join t_dps_block b on b.id = del.block
+		      join t_dps_dataset ds on ds.id = del.dataset
+		      join t_adm_node n on n.id = del.node
+		      order by del.time_complete desc, del.time_request desc };
+    
+    my $q = &dbexec($$self{DBH}, $sql);
+    
+    my $dbtable = new Web25::DBTable;
+    $dbtable->set_filehandle($$self{CONTENT});
+    $dbtable->set_tableclass('data');
+    $dbtable->set_stripeclass('stripe');
+    $dbtable->set_tablehead({ DATASET => 'Dataset',
+			      BLOCK => 'Block',
+			      NODE => 'Node',
+			      TIME_REQUEST => 'Requested',
+			      TIME_COMPLETE => 'Completed' });
+    $dbtable->set_dataformats({ TIME_REQUEST  => sub { &formatTime($_[0], 'stamp') },
+				TIME_COMPLETE => sub { $_[0] ? &formatTime($_[0], 'stamp') : 'Pending' } });
+    
+    $dbtable->output($q);
+}
+
+1;
+
+
+
 ######################################################################
 package Web25::Activity::FileInfo;
 use strict; use warnings;
@@ -6702,7 +6868,7 @@ import Web25::Common;
 use CGI qw(:standard);
 use POSIX qw(strftime);
 
-our $INDEX = { LIST => 1, ORDER => 7, TITLE => "Recent Errors" };
+our $INDEX = { LIST => 1, ORDER => 8, TITLE => "Recent Errors" };
 
 sub new
 {
@@ -7967,7 +8133,7 @@ sub output_page
   my $q =$self->data_subscriptions();
   
   my @cols = qw(SELECT ITEM_LEVEL ITEM_NAME NODE_NAME PRIORITY PCT_FILES PCT_BYTES
-		IS_MOVE IS_TRANSIENT TIME_SUSPEND_UNTIL ITEM_OPEN
+		IS_MOVE TIME_SUSPEND_UNTIL ITEM_OPEN
 		TIME_CREATE TIME_COMPLETE TIME_DONE TIME_CLEAR
 		);
   my $th =
@@ -7979,7 +8145,6 @@ sub output_page
     PCT_FILES => '% Files',
     PCT_BYTES => '% Bytes',
     IS_MOVE => 'Replica/Move',
-    IS_TRANSIENT => 'Open/Closed',
     TIME_SUSPEND_UNTIL => 'Active/Suspended',
     ITEM_OPEN => 'Item Open',
     TIME_CREATE => 'Time Create',
@@ -8002,7 +8167,6 @@ sub output_page
 	  elsif ($susp_time == 9_999_999_999)            { return 'Suspended Forever'; }
 	  else { return 'Suspended Until  '.&formatTime($susp_time, 'stamp') }
       },
-      IS_TRANSIENT => sub { return $_[0] eq 'y' ? 'Closed' : 'Open'; },
       ITEM_OPEN => \&yesno,
       TIME_CREATE =>   sub { &formatTime($_[0], 'stamp') || '&#8211;' },
       TIME_COMPLETE => sub { &formatTime($_[0], 'stamp') || '&#8211;' },
@@ -8234,66 +8398,7 @@ sub data_subscriptions
 
 1;
 
-######################################################################
-package Web25::Data::Delete;
-use strict; use warnings;
-use base "Web25::Page";
-import Web25::Common;
-use CGI qw(:standard);
 
-our $INDEX = { LIST => 1, ORDER => 3, TITLE => "Delete",
-	       LINK_TITLE => "View Deletion Queue",
-               SECURE => 0 };
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub output
-{
-  my ($self) = @_;
-
-  $self->deletion_queue();
-}
-
-sub deletion_queue
-{
-    my $self = shift @_;
-
-    print { $$self{CONTENT} }
-    "<h1>Deletion Queue</h1>",
-    "<p>This table contains the blocks which are queued for deletion.</p>";
-    
-    my $sql = qq{ select n.name node, ds.name dataset, b.name block, del.time_request, del.time_complete
-		      from t_dps_block_delete del
-		      join t_dps_block b on b.id = del.block
-		      join t_dps_dataset ds on ds.id = del.dataset
-		      join t_adm_node n on n.id = del.node
-		      order by del.time_complete desc, del.time_request desc };
-    
-    my $q = &dbexec($$self{DBH}, $sql);
-    
-    my $dbtable = new Web25::DBTable;
-    $dbtable->set_filehandle($$self{CONTENT});
-    $dbtable->set_tableclass('data');
-    $dbtable->set_stripeclass('stripe');
-    $dbtable->set_tablehead({ DATASET => 'Dataset',
-			      BLOCK => 'Block',
-			      NODE => 'Node',
-			      TIME_REQUEST => 'Requested',
-			      TIME_COMPLETE => 'Completed' });
-    $dbtable->set_dataformats({ TIME_REQUEST  => sub { &formatTime($_[0], 'stamp') },
-				TIME_COMPLETE => sub { $_[0] ? &formatTime($_[0], 'stamp') : 'Pending' } });
-    
-    $dbtable->output($q);
-}
-
-1;
 
 ######################################################################
 package Web25::Data::LoadTestInject;
@@ -9172,7 +9277,7 @@ sub output
   &dump_var($$self{CONTENT}, 'CGI::Session::VERSION', $CGI::Session::VERSION);
   &dump_var($$self{CONTENT}, 'DBI::VERSION', $DBI::VERSION);
   &dump_var($$self{CONTENT}, 'DBD::Oracle::VERSION', $DBD::Oracle::VERSION);
-#  &dump_var($$self{CONTENT}, '@INC', [@INC]);
+  &dump_var($$self{CONTENT}, '@INC', [@INC]);
   &dump_var($$self{CONTENT}, 'TESTING_MAIL', $TESTING_MAIL);
   &dump_var($$self{CONTENT}, 'SESSION', $$self{SESSION} ? 'Session OK' : 'NO SESSION');
   &dump_var($$self{CONTENT}, 'SESSIONID', $$self{SESSIONID});
