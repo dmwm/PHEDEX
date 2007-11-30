@@ -3607,7 +3607,10 @@ sub output
     "<form class='nice' method='get' action='$viewurl'>",
     "<label class='inline'>View request \#s </label>",
     textfield(-name=>'request', -default=>$request, -class=>'labeled'),
-    submit(-value=>'Submit', -class=>'labeled'), "</form><br clear='all'/>",
+    "<label class='inline'>",&help("[?]", "Request Numbers", 
+	  "Input a space separated list of request numbers to display"), "</label>",
+    submit(-value=>'Submit', -class=>'labeled'), 
+    "</form><br clear='all'/>",
 
     "<form class='nice' method='get' action='$viewurl'>",
     "<label class='inline'>View </label>",
@@ -3636,7 +3639,8 @@ sub output
     my %binds;
 
     if ($request) {
-	my ($req_list, %req_binds) = &dbinlist('request', split /\s+/, $request);
+	my @requests = grep(/^\d+$/, split(/\s*,*\s+/, $request));
+	my ($req_list, %req_binds) = &dbinlist('request', @requests);
 	$binds{$_} = $req_binds{$_} foreach keys %req_binds;
 	push @where, "r.id in ($req_list)";
     }
@@ -4479,7 +4483,7 @@ sub checkDeleteRequestData
 		}
 		foreach my $node (@{$params{nodes}}) {
 		    my ($replica) = grep($node eq $$_{NODE_NAME}, @{$$res{REPLICAS}});
-		    if (!$replica) {
+		    if (!$replica || $$replica{FILES} == 0) {
 			push @comments, "$node has nothing to delete";
 			$warn = 1;
 		    } elsif ($$replica{SUBS_LEVEL} eq 'DATASET' && $$res{LEVEL} eq 'BLOCK'
@@ -4983,6 +4987,10 @@ sub delete
          on (r.node = bd.node
              and r.dataset = bd.dataset
              and r.block = bd.block)
+         when matched then
+           update set time_request = :time_request,
+                      time_complete = NULL
+            where time_complete is not null
          when not matched then
            insert (block, dataset, node, time_request)
            values (r.block, r.dataset, r.node, :time_request) ],
