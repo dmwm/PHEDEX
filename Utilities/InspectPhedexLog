@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog,v 1.13 2007/09/19 09:12:46 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.14 2007/09/26 12:51:49 dfeichti Exp $:
 ###############################################################################
 
 use strict;
@@ -254,7 +254,7 @@ foreach my $log (@logfiles) {
 	       $reason = "no detail - validate failed: $valreason";
 	     }
 
-	     if( $reason eq "transfer expired in the download agent queue" or $reason =~ /^\s*Canceled.*/) {
+	     if( $reason eq "transfer expired in the PhEDEx download agent queue" or $reason =~ /^\s*Canceled.*/) {
 	       $sitestat{"$from"}{"EXP"}++;
 	       $statstr="EXP/CNCL";
 	       $failedfile{"$fname"}{$from}{"exp"}++ if $flag_multiFailures;
