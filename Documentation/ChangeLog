@@ -1,4 +1,38 @@
-* Changes in PhEDEx 2.5.4
+* Changes in PhEDEx 2.5.4.2
+
+New Features for Site Tools
+   - /Toolkit/Transfer/FileRemove changes
+        - New '-limit' option limits file deltion attempts per minute.  The default is 100.
+        - Delete TMDB replica information from buffer node when deleting for an MSS node.
+   - Utilities/Master: rewritten according to Consolidation project 
+     guidelines, including POD documentation.
+     The changes are fully backwards-compatible, with a few new features:
+        - use '--dummy' on the command-line to get a printout of the action, for 
+          all actions (not just 'start')
+        - use the 'jobcount' command to get the total number of jobs that will 
+          be run in a given configuration.
+   - Utilities/BlockDownloadVerify-report.pl now offers filters on age of the 
+     reported test and on block-name
+
+Schema and Central agents
+   - Toolkit/Verify/BlockDownloadVerifyInjector now cleans t_dvs_files for 
+     very old checks, to prevent the table growing too big.
+   - Toolkit/Workflow/BlockAllocator and Toolkit/Workflow/BlockDelete
+     completely rewritten:
+       - Improved logging messages about work that was done
+       - Bugs in handling of deletions/moves fixed
+       - Moves are now always done on the block level.  Moves of datasets
+         trigger deletion of the source blocks when the replication is complete.
+       - Moves now only remove source blocks for sources with no
+         subscription.  Web interface handles the request and removal
+         of the source subscription.
+       - Moves will not delete data from a T1.
+       - Moves "expire" 1 week after replication is done.  Finished or
+         expired move subscriptions automatically turn into replica
+         subscriptions.
+   - Rewritten schema for web requests
+
+* Changes in PhEDEx 2.5.4.1
 
  New Features for Site Tools
    - BlockDownloadVerify agent released for the first time. Only namespace
