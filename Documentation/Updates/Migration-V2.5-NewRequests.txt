@@ -69,7 +69,7 @@ END;
  *  Migrate Request Data
  */
 insert into t_req_request
-(id, type, creator, time_create)
+(id, type, created_by, time_create)
 select r.id, 1,
         r.creator, min(ra.time_apply)
   from xt_req_request r
@@ -96,13 +96,14 @@ insert into t_req_block
 (request, name, block_id)
 select rb.request, rb.block, b.id
   from xt_req_info_block rb
-left join t_dps_block b on b.name = rb.block
+left join t_dps_block b on b.name = rb.block;
 
 insert into t_req_node
 (request, node, point)
 select rd.request, rd.destination, 'd'
   from xt_req_info_dest rd;
 
+/* "New style" requests */
 insert into t_req_decision
 (request, node, decision, decided_by, time_decided)
 select ra.request, n.id node, 
@@ -111,7 +112,7 @@ select ra.request, n.id node,
             else null
        end decision,
        ra.client, ra.time_apply
-  from (select ra.request, raa.value node, max(ra.time_apply) time_apply
+  from (select ra.request, raa.value node, min(ra.time_apply) time_apply
           from xt_req_action ra
           join xt_req_action_attr raa on raa.action = ra.id
                                      and raa.name = 'For Node'
@@ -120,6 +121,26 @@ select ra.request, n.id node,
                        and ra.time_apply = last_dec.time_apply
   join t_adm_node n on n.name = last_dec.node
  order by ra.request, ra.time_apply
+;
+
+/* "Old sytle" requests */
+insert into t_req_decision
+(request, node, decision, decided_by, time_decided)
+select dec_act.request, n.id node, 
+       case when dec_act.action = 'Subscribed' then 'y'
+            when dec_act.action = 'Disapproved' then 'n'
+            else null
+       end decision,
+       dec_act.client, dec_act.time_apply
+  from xt_req_action c_act
+  join xt_req_action_attr c_node on c_node.action = c_act.id
+  join xt_req_action dec_act on dec_act.request = c_act.request
+  join t_adm_node n on n.name = c_node.value
+ where c_act.action = 'Created'
+   and (dec_act.action = 'Subscribed' or dec_act.action = 'Disapproved')
+   and c_node.name = 'Destination Node'
+   and c_act.request <= 3182 and c_act.request < 50
+ order by dec_act.request, dec_act.time_apply
 ;
 
 insert into t_req_xfer
@@ -138,6 +159,33 @@ select distinct r.id, rb.priority, rb.is_move, 'n', 'n', 'n'
 left join t_req_xfer rx on rx.request = r.id
  where rx.request is null;
 
+insert into t_req_comments
+(id, request, comments_by, comments, time_comments)
+select rownum, r.id, ra.client, raa.value, ra.time_apply
+  from xt_req_request r
+  join xt_req_action ra on ra.request = r.id
+  join xt_req_action_attr raa on raa.action = ra.id and raa.name = 'Comment'
+ where raa.value is not null
+ order by ra.time_apply asc;
+
+update t_req_request r
+   set r.comments = (
+select c.id 
+  from t_req_comments c
+ where c.request = r.id
+   and c.comments_by = r.created_by
+   and c.time_comments = r.time_create
+);
+
+update t_req_decision d
+   set d.comments = (
+select c.id
+  from t_req_comments c
+ where c.request = d.request
+   and c.comments_by = d.decided_by
+   and c.time_comments = d.time_decided
+);
+
 commit;
 
 declare
@@ -152,10 +200,33 @@ begin
                    and ra.request = r.request)
       loop
         dbms_lob.append(dataclob, to_clob(d.value));
-        dbms_lob.append(dataclob, to_clob(chr(10))); -- newline
+        dbms_lob.append(dataclob, to_clob(' '));
       end loop;
       commit;
       dbms_output.put_line ('Copied ' || dbms_lob.getlength(dataclob) || ' bytes for request ' || r.request);
    end loop;
 end;
+/
+
+/*
+ *  Make sequence counters current
+ */
+Declare
+  increment number;
+  dummy number;
+  seq_table varchar (32);
+Begin
+    FOR o IN
+      (SELECT sequence_name, last_number FROM user_sequences
+        WHERE sequence_name LIKE 'SEQ_REQ%')
+   LOOP
+      seq_table := regexp_replace(o.sequence_name, 'SEQ_', 'T_');
+      execute immediate 'select max(id) from ' || seq_table into increment;
+      increment := increment - o.last_number;
+      dbms_output.put_line('Incrementing '|| o.sequence_name ||' by ' || increment);
+      execute immediate 'alter sequence ' || o.sequence_name || ' increment by ' || increment;
+      execute immediate 'select ' || o.sequence_name || '.nextval from dual' into dummy;
+      execute immediate 'alter sequence ' || o.sequence_name || ' increment by 1';
+   END LOOP;
+End;
 /
