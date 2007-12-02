@@ -52,33 +52,70 @@ Yuo can also try to request a formal VO box for CMS at your site. It
 will  be configured as a LCG UI plus VO box specific services: gsissh
 and proxy-renewal.  Please read README-VOBOX.txt for more details.
 
-**********************************************************************
-** Getting the software
+** Installing the software
 
-This document assumes you will install the software on "agenthost"
-in directory "/home/phedex".  We assume the PhEDEx node name for
-your site is "TX_FOO_Buffer" (and possibly "TX_FOO_MSS").
+In this manual, we will make the following assumptions:
 
-*** Set up directories
+    * PhEDEx is installed on agenthost.site.edu.
+    * The phedex user is "phedex".
+    * The site name is TX_FOO_Buffer. 
+
+Before installing the software, you should create a few empty directories:
 
   cd /home/phedex
   mkdir -p state logs sw gridcert
   chmod 700 gridcert
-  sw=$PWD/sw
+  export sw=$PWD/sw
 
-*** Install the software
+The state directory is where agents keep their working states; logs is
+where logs are kept for each agent; sw is the software install
+directory; and gridcert is where you should keep your grid proxies.
 
-On Scientific Linux 4 replace "slc3_ia32_gcc323" with "slc4_ia32_gcc345".
+Software installation is done through the CMS aptinstaller program.
+[https://twiki.cern.ch/twiki/bin/view/CMS/CMSSW_aptinstaller]
 
-  wget -O $sw/aptinstaller.sh \
-    http://cmsdoc.cern.ch/cms/cpt/Software/download/cms/aptinstaller.sh
-  chmod +x $sw/aptinstaller.sh
-  
-  $sw/aptinstaller.sh -path $sw -arch slc3_ia32_gcc323 setup
-  eval `$sw/aptinstaller.sh -path $sw -arch slc3_ia32_gcc323 config -sh`
+First set a variable for the version of PhEDEx you are going to install:
+
+  version=2_5_4_2
+
+Next set a variable for your architecture. If you are on a 32-bit, RHEL-3 derivate:
+
+  myarch=slc3_ia32_gcc323
+
+If you are on a 32-bit, RHEL-4 derivate:
+
+  myarch=slc4_ia32_gcc345
+
+If you are using a 64-bit operating system, you may want to try
+substituting ia32 with the string amd64. (See notes below)
+
+  myarch=slc4_amd64_gcc345
+
+Now install the software with the following commands:
+
+  wget -O $sw/bootstrap-${myarch}.sh http://cmsrep.cern.ch/cmssw/bootstrap-${myarch}.sh
+  sh -x $sw/bootstrap-${myarch}.sh setup -path $sw
+  source $sw/$myarch/external/apt/0.5.15lorg3.2-CMS3/etc/profile.d/init.sh
   apt-get update
-  apt-get install cms+PHEDEX+PHEDEX_2_5_3_6
-  rm -f PHEDEX; ln -s $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_2_5_3_6 PHEDEX
+  apt-get install cms+PHEDEX+PHEDEX_$version
+  rm -f PHEDEX; ln -s $sw/$myarch/cms/PHEDEX/PHEDEX_$version PHEDEX
+
+** Software Install Notes
+
+Here are some things to note about the software install:
+
+    * Whole process should take around 30 minutes.
+    * There have been previously reported problems with apt-get and
+      64-bit machines. You might have the best luck with a 32-bit
+      operating system as of now.
+    * Make sure that the bit-endness of your system perl is the same
+      as your PhEDEx install. Make sure the 32-bit PhEDEx finds a
+      32-bit perl install by default, not a 64-bit perl.
+    * If you are trying to install 32-bit PhEDEx on a 64-bit system,
+      there have been problems reported using the 64-bit version of
+      apt-get. If apt-get claims cms+PHEDEX+PHEDEX_${version} cannot be
+      found, try uninstalling the 64-bit apt-get and replacing it with
+      the 32-bit one.
 
 *** Get site configuration
 
