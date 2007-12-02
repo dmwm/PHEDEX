@@ -3,6 +3,7 @@
 
 create sequence seq_req_type;
 create sequence seq_req_request;
+create sequence seq_req_comments;
 
 /* Type of request */
 create table t_req_type
@@ -21,18 +22,22 @@ insert into t_req_type (id, name)
 insert into t_req_type (id, name)
    values (seq_req_type.nextval, 'delete');
 
+
 /* Main request table */
 create table t_req_request
   (id			integer		not null,
    type			integer		not null,
-   creator		integer		not null,  -- who created the request
+   created_by		integer		not null,  -- who created the request
    time_create		float		not null,
+   comments		integer			,
    --
    constraint pk_req_request
      primary key (id),
    --
-   constraint fk_req_request_creator
-     foreign key (creator) references t_adm_client (id));
+   constraint fk_req_request_created_by
+     foreign key (created_by) references t_adm_client (id)
+   /* comments fk created below */
+);
 
 
 /* DBS info */
@@ -132,6 +137,7 @@ create table t_req_decision
    decision		char(1)		not null, -- 'y' for approved, 'n' for refused
    decided_by		integer		not null, -- who decided
    time_decided		float		not null,
+   comments		integer			,
    --
    constraint pk_req_decision_node
      primary key (request, node),
@@ -139,9 +145,31 @@ create table t_req_decision
    constraint fk_req_decision_node
      foreign key (request, node) references t_req_node (request, node)
      on delete cascade,
+   constraint fk_req_decision_by
+     foreign key (decided_by) references t_adm_client (id),
+   /* comments fk created below */
    --
    constraint ck_req_decision_decision
      check (decision in ('y', 'n')));
+
+
+/* Request comments */
+/* Note "comment" is an Oracle reserved word */
+create table t_req_comments
+  (id			integer		not null,
+   request		integer		not null,
+   comments_by		integer		not null,
+   comments		varchar (4000)	not null,
+   time_comments	integer		not null,
+   --
+   constraint pk_req_comments
+     primary key (id),
+   --
+   constraint fk_req_comments_request
+     foreign key (request) references t_req_request (id)
+     on delete cascade,
+   constraint fk_req_comments_by
+     foreign key (comments_by) references t_adm_client (id));
 
 
 /* Transfer request info.  type 'xfer' 
@@ -179,12 +207,12 @@ create table t_req_xfer
 
 /* Delete request info.  type 'delete' 
  *   parameters:
- *     is_retransfer:  'y' for retransfer, 'n' for just delete
+ *     rm_subscriptions:  remove subscriptions, 'y' or 'n'
  *     data:  text of user's actual request (unresolved globs)
  */
 create table t_req_delete
   (request		integer		not null,
-   is_retransfer	char(1)		not null,
+   rm_subscriptions	char(1)		not null,
    data			clob			,
    --
    constraint pk_req_delete
@@ -199,10 +227,21 @@ create table t_req_delete
 
 
 ----------------------------------------------------------------------
+-- Create extra foreign keys
+
+alter table t_req_request add constraint fk_req_rquest_comments
+     foreign key (comments) references t_req_comments (id)
+     on delete set null;
+alter table t_req_decision add constraint fk_req_decision_comments
+     foreign key (comments) references t_req_comments (id)
+      on delete set null;
+
+
+----------------------------------------------------------------------
 -- Create indices
 
-create index ix_req_request_creator
-  on t_req_request (creator);
+create index ix_req_request_by
+  on t_req_request (created_by);
 --
 create index ix_req_dbs_name
   on t_req_dbs (name);
@@ -229,3 +268,10 @@ create index ix_req_node_node
 --
 create index ix_req_decision_node
   on t_req_decision (node);
+create index ix_req_decision_by
+  on t_req_decision (decided_by);
+--
+create index ix_req_comments_request
+  on t_req_comments (request);
+create index ix_req_comments_by
+  on t_req_comments (comments_by);
