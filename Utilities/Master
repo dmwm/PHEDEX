@@ -60,11 +60,16 @@ use strict;
 ##H the script to not actually execute the commands, but only to print them to
 ##H stdout. Useful for debugging.
 
-my (%args,$config,$dummy);
+BEGIN {
+  use Cwd;
+  my $pwd = cwd() . '/../perl_lib';
+  unshift(@INC, $pwd);
+}
 
 use PHEDEX::Core::Help;
 use PHEDEX::Core::Config;
 
+my (%args,$config,$dummy);
 $config = PHEDEX::Core::Config->new();
 
 # First we need to parse the command line arguments
