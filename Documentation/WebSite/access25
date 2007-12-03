@@ -943,10 +943,10 @@ sub resolve_data
 
     my $all_datasets = &dbexec($dbh, qq{
 	   select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset,
-                  sum(b.files) files, sum(b.bytes) bytes
+                  nvl(sum(b.files),0) files, nvl(sum(b.bytes),0) bytes
 	     from t_dps_dataset ds
    	     join t_dps_dbs dbs on dbs.id = ds.dbs
-             join t_dps_block b on b.dataset = ds.id
+             left join t_dps_block b on b.dataset = ds.id
             group by dbs.id, dbs.name, ds.id, ds.name
 	})->fetchall_hashref('DATASET_ID') if $has{DATASET};
     
@@ -3096,7 +3096,7 @@ sub getRequestData
 	}, ':request' => $rid)->fetchrow_hashref();
 				
     $$data{DATA} = &dbexec($$self{DBH}, qq{
-	select 'DATASET' lvl, rds.name, ds.id, sum(b.files) files, sum(b.bytes) bytes
+	select 'DATASET' lvl, rds.name, ds.id, nvl(sum(b.files),0) files, nvl(sum(b.bytes),0) bytes
 	  from t_req_dataset rds left join t_dps_dataset ds on ds.id = rds.dataset_id
                                  left join t_dps_block b on b.dataset = ds.id
          where rds.request = :request
@@ -4333,7 +4333,12 @@ sub checkXferRequestData
 	    foreach my $res (@{$$resolved{$userglob}}) {
 		my @comments;
 		my $warn = 0;
-		
+
+		if ($$res{FILES} == 0) {
+		    my $item_level = ucfirst lc $$res{LEVEL};
+		    push @comments, "$item_level has no files";
+		    $warn = 1;
+		}
 		if ($$res{DBS} ne $params{dbs})  { 
 		    push @comments, "Known to PhEDEx in another DBS ($$res{DBS})";
 		    $warn = 1; $problems = 1; 
@@ -4350,7 +4355,7 @@ sub checkXferRequestData
 		    push @comments, "Move request includes block-level data.  Only moves of datasets are supported";
 		    $warn = 1;
 		}
-		
+
 		foreach my $node (@{$params{nodes}}) {
 		    if ($$subscriptions{$node}{$$res{LEVEL}}{$$res{ID}}) {
 			push @comments, "Already subscribed to $node";
@@ -4469,6 +4474,11 @@ sub checkDeleteRequestData
 		my @comments;
 		my $warn = 0;
 		
+		if ($$res{FILES} == 0) {
+		    my $item_level = ucfirst lc $$res{LEVEL};
+		    push @comments, "$item_level has no files";
+		    $warn = 1;
+		}
 		if ($$res{DBS} ne $params{dbs})  { 
 		    push @comments, "Known to PhEDEx in another DBS ($$res{DBS})";
 		    $warn = 1; $problems = 1; 
@@ -4943,9 +4953,9 @@ sub unsubscribe
            and exists
                (select 1
  	          from t_req_request r
-                  join ( select rds.request, b.dataset, b.id block
+                  join ( select rds.request, rds.dataset_id dataset, b.id block
                            from t_req_dataset rds
-                           join t_dps_block b on b.dataset = rds.dataset_id
+                           left join t_dps_block b on b.dataset = rds.dataset_id
                            where rds.dataset_id is not null
                            union
                            select rb.request, b.dataset, b.id block
