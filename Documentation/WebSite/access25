@@ -5061,7 +5061,7 @@ sub send_request_update_email
     my $msg_comments = ($comments ? "\nThe person who handled this had the following comments:\n\n\"$comments\"\n" 
 			: '');
     my @cc = map { $$_{EMAIL} } @data_managers, @site_admins;
-    my $nodes_str = join(', ', @nodes);
+    my $nodes_str = join(', ', sort grep($$node_actions{$_} ne 'null', keys %$node_actions));
     my $newstate = $$data{REQUEST_STATE};
 
     my $message=<<ENDEMAIL;
