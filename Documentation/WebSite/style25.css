@@ -716,6 +716,14 @@ table.data tr.alarm {
   background:  red;
 }
 
+table.data td.warn,
+table.data tr.warn {
+  font-weight:  bold;
+  color:  black;
+  background:  yellow;
+}
+
+
 .dense tr td {
   padding:  0;
 }
@@ -782,6 +790,16 @@ div.paramblock h1 {
   letter-spacing:  0.1em;
 }
 
+div.paramblock h2 { 
+  margin-left:  0;
+  padding-left:  1em;
+  border: 1px dotted black;
+  font-weight:  bold;
+  font-style:  italic;
+  letter-spacing:  0.1em;
+}
+
+
 .lev1    { background-color:  #d9d9ff;}
 .lev1 h1 { background-color:  #c9c9ff;  font-size:  14pt; }
 
@@ -791,6 +809,10 @@ div.paramblock h1 {
 .lev3    { background-color:  #ffd9d9;}
 .lev3 h1 { background-color:  #ffc9c9;  font-size:  10pt; }
 
+.admin    { background-color:  #dddddd; }
+.admin h1 { background-color:  #cccccc; }
+
+
 div.paramblock .hideaway { 
   border-top:  1px dotted black;
   border-bottom:  1px dotted black;
@@ -799,6 +821,12 @@ div.paramblock .hideaway {
 div.paramblock .comment {
   background-color:  white;
   width:  25em;
+  border:  1px solid #aaa;
+  padding:  0.5em;
+}
+
+div.paramblock .databox {
+  background-color:  white;
   border:  1px solid #aaa;
   padding:  0.5em;
 }
@@ -848,11 +876,12 @@ p.alarm { color:  white; }
 p.note { color:  blue; }
 
 .good { color: green; }
-.warn { color: orange; }
+.warn { color: #f73; }
 .bad  { color: red; }
 .goodbg { color:  white;  background-color:  green; }
-.warnbg { color:  white;  background-color:  orange; }
+.warnbg { color:  white;  background-color:  #f73; }
 .badbg  { color:  white;  background-color:  red; }
+.tinytext { font-size: 8pt; }
 
 p.blocktext { width:  50em; }
 
