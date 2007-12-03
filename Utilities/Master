@@ -2,14 +2,15 @@
 use warnings;
 use strict;
 
-##H Master -config FILE[,FILE...] environ   [ENVIRONMENT...]
-##H Master -config FILE[,FILE...] start     [AGENT... | all]
-##H Master -config FILE[,FILE...] stop      [AGENT... | all]
-##H Master -config FILE[,FILE...] terminate [AGENT... | all]
-##H Master -config FILE[,FILE...] kill      [AGENT... | all]
-##H Master -config FILE[,FILE...] show      [AGENT... | all]
+##H Master -config FILE[,FILE...] environ    [ENVIRONMENT...]
+##H Master -config FILE[,FILE...] start      [AGENT... | all]
+##H Master -config FILE[,FILE...] stop       [AGENT... | all]
+##H Master -config FILE[,FILE...] terminate  [AGENT... | all]
+##H Master -config FILE[,FILE...] kill       [AGENT... | all]
+##H Master -config FILE[,FILE...] show       [AGENT... | all]
 ##H Master -config FILE[,FILE...] getAgentEnviron [AGENT]
-##H Master -config FILE[,FILE...] jobcount  [AGENT... | all]
+##H Master -config FILE[,FILE...] jobcount   [AGENT... | all]
+##H Master -config FILE[,FILE...] listagents [AGENT... | all]
 ##H
 ##H Manage an agent configuration.  If more than one configuration file
 ##H is given, the different sections of each file are merged and the
@@ -51,6 +52,9 @@ use strict;
 ##H number of processes you might expect on your vobox! The command can be
 ##H restricted to a set of agents in the same way as the "start" and "stop"
 ##H commands.
+##H
+##H The "listagents" command will print the names of agents matching the
+##H selection, which should typically be null or 'all'.
 ##H
 ##H Adding "-dummy" to the command line before the command option will cause
 ##H the script to not actually execute the commands, but only to print them to
@@ -98,6 +102,21 @@ if ( $mode eq 'environ' )
 if ( $mode eq 'jobcount' )
 {
   print "Total of ",$config->jobcount(@ARGV)," jobs for this configuration\n";
+  exit 0;
+}
+
+if ( $mode eq 'listagents' )
+{
+  my $agents = $config->select_agents( @ARGV );
+  die "No agents found\n" unless $agents;
+  my @labels;
+  if ( ref($agents) eq 'ARRAY' )
+  {
+    @labels = sort map { $_->LABEL } @{$config->select_agents( @ARGV )};
+  }
+  else { push @labels, $agents->LABEL; }
+  print "Agents matching: '",join("','",@ARGV),"'\n";
+  print '   ',join("\n   ",@labels),"\n";
   exit 0;
 }
 
