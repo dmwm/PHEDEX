@@ -16,6 +16,7 @@ sub new
     my $me = $0; $me =~ s|.*/||;
     die "$me: fatal error: no drop box directory given\n" if ! $args{DROPDIR};
     die "$me: fatal error: non-existent drop box directory\n" if ! -d $args{DROPDIR};
+    $args{DROPDIR} =~ s|/*$||; # we expect no trailing slashes
     foreach my $dir (@{$args{NEXTDIR}}) {
 	if ($dir =~ /^([a-z]+):/) {
             die "$me: fatal error: unrecognised bridge $1" if ($1 ne "scp" && $1 ne "rfio");
