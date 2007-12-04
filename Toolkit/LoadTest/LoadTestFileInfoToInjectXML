@@ -19,7 +19,7 @@ if (scalar @ARGV < 2)
 }
 
 my ($lt_file, $sitename) = @ARGV;
-$sitename =~ s/^T._//;  $sitename =~ s/_(MSS|Buffer|Disk)$//;
+$sitename =~ s/^T._//;  $sitename =~ s/^_(MSS|Buffer|Disk)$//;
 
 my @files;
 open FILE, "<", $lt_file or die $!;

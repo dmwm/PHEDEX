@@ -223,7 +223,7 @@ create table t_req_delete
      on delete cascade,
    --
    constraint ck_req_delete_retransfer
-     check (rm_subscriptions in ('y', 'n')));
+     check (is_retransfer in ('y', 'n')));
 
 
 ----------------------------------------------------------------------
