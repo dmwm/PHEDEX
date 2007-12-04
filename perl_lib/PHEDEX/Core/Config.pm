@@ -427,6 +427,7 @@ sub command
 	"dropdir=", $agent->DROPDIR, ";\n",
 	"logdir=",  $agent->LOGDIR, ";\n",
 	"logfile=", $agent->LOGFILE, ";\n",
+	"pidfile=", $agent->PIDFILE, ";\n",
         $cmd, "\n)\n";
   }
   close(FH);
