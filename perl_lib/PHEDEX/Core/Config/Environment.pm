@@ -132,6 +132,8 @@ sub AUTOLOAD
 sub getParameter
 {
   my ($self,$parameter) = @_;
+  return undef unless defined $parameter;
+
   if ( ! defined($self->{KEYS}) )
   {
     foreach ( split("\n",$self->Environment || '') )
@@ -147,12 +149,14 @@ sub getParameter
   }
   $_ = $ENV{$parameter} unless $_;
   s%;*$%% if $_;
-  return $_; # || '';
+  return $_;
 }
 
 sub getExpandedString
 {
   my ($self,$string) = @_;
+  return undef unless defined $string;
+
   my $done = 0;
   while ( ! $done )
   {
@@ -175,7 +179,11 @@ sub getExpandedString
 sub getExpandedParameter
 {
   my ($self,$parameter) = @_;
+  return undef unless defined $parameter;
+
   my $value = $self->getParameter($parameter);
+  return undef unless defined $value;
+
   $value = $self->getExpandedString($value);
   return $value;
 }
