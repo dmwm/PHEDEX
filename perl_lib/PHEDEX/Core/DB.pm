@@ -620,7 +620,7 @@ sub expandNodesAndConnect
 sub myNodeFilter
 {
   my ($self, $idfield) = @_;
-  my (@filter, %args);
+  my ($filter, @filter, %args);
   my $n = 1;
   foreach my $id (values %{$self->{NODES_ID}})
   {
@@ -629,7 +629,8 @@ sub myNodeFilter
     ++$n;
   }
 
-  my $filter =  "(" . join(" or ", @filter) . ")";
+  if ( @filter ) { $filter =  "(" . join(" or ", @filter) . ")" }
+  else { $filter = ' 1=1 '; }
   return ($filter, %args);
 }
 
