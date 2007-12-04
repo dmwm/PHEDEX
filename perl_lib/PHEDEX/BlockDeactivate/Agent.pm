@@ -111,7 +111,6 @@ sub idle
   my $limit = &mytimeofday () - $self->{HOLDOFF};
   my $qblocks = $self->getBlockDeactivationCandidates( LIMIT => $limit );
   my ($qb,$id,$name,$nfr,$b);
-  &logmsg("Found " . scalar @{$qblocks} . " candidates");
   foreach $qb ( @{$qblocks} )
   {
     eval
@@ -162,7 +161,6 @@ DONE:
   &disconnectFromDatabase ($self, $dbh);
 
   # Have a little nap
-print "Nap for ",$self->{WAITTIME}," seconds\n";
   $self->nap ($self->{WAITTIME});
 }
 
