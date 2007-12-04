@@ -385,7 +385,7 @@ sub show
     my $logfile  = $agent->LOGFILE;
     my $pidfile  = $agent->PIDFILE;
 
-    print $FH $self->getAgentEnviron($agent), "\n",
+    print $FH "(\n", $self->getAgentEnviron($agent), "\n",
 	 "export PHEDEX_AGENT_LABEL=",$agent->LABEL,"\n",
               "(mkdir -p $dropdir && mkdir -p $logdir";
     if ( $agent->STATELINK )
@@ -407,7 +407,7 @@ warn "STATELINK can be better handled by getting the target state directory dire
 
     print $FH "; renice ".$agent->NICE." -p \$(cat $pidfile)"
           if $agent->NICE;
-    print $FH ")\n";
+    print $FH ")\n)\n";
   }
 
   close($FH);
