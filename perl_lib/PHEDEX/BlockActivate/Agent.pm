@@ -74,10 +74,11 @@ sub idle
         my $g = $self->getBlockReactivationCandidates( NOW => $now );
 	foreach my $h ( @{$g} )
         {
-	    my $id       = $h->{ID};
-	    my $block    = $h->{NAME};
-	    my $nreplica = $h->{NREPLICA};
-	    my $nactive  = $h->{NACTIVE};
+            my ($id,$block,$nreplica,$nactive,$nfile);
+	    $id       = $h->{ID};
+	    $block    = $h->{NAME};
+	    $nreplica = $h->{NREPLICA};
+	    $nactive  = $h->{NACTIVE};
 	    # Ignore active blocks
 	    if ($nactive)
 	    {
@@ -103,7 +104,7 @@ sub idle
 	    }
 
 	    # Proceed to activate.
-	    my ($nfile,$nreplica) = $self->activateBlock
+	    ($nfile,$nreplica) = $self->activateBlock
 					(
 					  ID  => $id,
 					  NOW => $now
