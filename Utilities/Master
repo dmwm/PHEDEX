@@ -62,7 +62,8 @@ use strict;
 
 BEGIN {
   use Cwd;
-  my $pwd = cwd() . '/../perl_lib';
+  use File::Basename;
+  my $pwd = cwd() . '/' . dirname($0) . '/../perl_lib';
   unshift(@INC, $pwd);
 }
 
