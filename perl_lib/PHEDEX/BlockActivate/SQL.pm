@@ -27,6 +27,7 @@ use warnings;
 use base 'PHEDEX::Core::SQL';
 
 use PHEDEX::Core::DB;
+use PHEDEX::Core::Timing qw / mytimeofday /;
 use Carp;
 
 our @EXPORT = qw( );
@@ -39,7 +40,6 @@ sub new
 {
   my $proto = shift;
   my $class = ref($proto) || $proto;
-# my $self  = ref($proto) ? $class->SUPER::new(@_) : {};
   my $self  = $class->SUPER::new(@_);
 
   my %args = (@_);
@@ -128,10 +128,6 @@ sub getLockForUpdateWithCheck
   %p = ( ':block' => $block );
   $q = execute_sql( $self, $sql, %p );
 
-#  my ($xnreplica, $xnactive) = &dbexec ($dbh, qq{
-#      select count(block), sum(decode(br.is_active,'y',1,0))
-#      from t_dps_block_replica br where br.block = :block},
-#      ":block" => $id)->fetchrow();
   $sql = qq{
       select count(block), sum(decode(br.is_active,'y',1,0))
       from t_dps_block_replica br where br.block = :block};
