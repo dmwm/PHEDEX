@@ -21,9 +21,9 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockDeactivate::SQL';
-use PHEDEX::Core::Logging;
+#use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing qw / mytimeofday /;
-use PHEDEX::Core::DB;
+#use PHEDEX::Core::DB;
 
 our %params =
 	(

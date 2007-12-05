@@ -23,7 +23,7 @@ use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockActivate::SQL';
 use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
-use PHEDEX::Core::DB;
+#use PHEDEX::Core::DB;
 
 our %params =
 	(

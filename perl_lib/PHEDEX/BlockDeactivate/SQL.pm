@@ -79,26 +79,26 @@ use strict;
 use warnings;
 use base 'PHEDEX::Core::SQL';
 
-use PHEDEX::Core::DB;
+#use PHEDEX::Core::DB;
 use PHEDEX::Core::Timing qw / mytimeofday /;
 use Carp;
 
 our @EXPORT = qw( );
 our (%params);
 %params = (
-		DBH	=> undef,
+#		DBH	=> undef,
 	  );
 
 sub new
 {
   my $proto = shift;
   my $class = ref($proto) || $proto;
-  my $self  = $class->SUPER::new(@_);
+  my $self  = $class->SUPER::new(%params,@_);
 
-  my %args = (@_);
-  map {
-        $self->{$_} = defined($args{$_}) ? $args{$_} : $params{$_}
-      } keys %params;
+#  my %args = (@_);
+#  map {
+#        $self->{$_} = defined($args{$_}) ? $args{$_} : $params{$_}
+#      } keys %params;
   bless $self, $class;
 }
 
