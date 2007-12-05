@@ -15,13 +15,6 @@
 ##H -db        database connection configuration parameter file
 ##H -log       where to redirect logging information
 
-BEGIN {
-  use warnings; use strict; $^W=1;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
-  unshift(@INC, $home);
-}
-
 ######################################################################
 my %args;
 use Getopt::Long;
@@ -36,4 +29,4 @@ use PHEDEX::BlockDeactivate::Agent;
              "once"        => \$args{ONCE},
 	     "help|h"      => sub { &usage() });
 
-(new BlockDeactivate (%args,@ARGV))->process();
+(new PHEDEX::BlockDeactivate::Agent (%args,@ARGV))->process();

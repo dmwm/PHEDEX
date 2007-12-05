@@ -13,19 +13,11 @@
 ##H -db        database connection configuration parameter file
 ##H -log       where to redirect logging information
 
-BEGIN {
-  use warnings; use strict; $^W=1;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
-  unshift(@INC, $home);
-}
-
 
 ######################################################################
 my %args;
 use Getopt::Long;
 use PHEDEX::Core::Help;
-use PHEDEX::BlockConsistency::Core;
 use PHEDEX::BlockDLSUpdate::Agent;
 
 &GetOptions ("state=s"     => \$args{DROPDIR},
@@ -34,4 +26,4 @@ use PHEDEX::BlockDLSUpdate::Agent;
 	     "log=s"       => \$args{LOGFILE},
 	     "help|h"      => sub { &usage() });
 
-(new BlockDLSUpdate (%args,@ARGV))->process();
+(new PHEDEX::BlockDLSUpdate::Agent (%args,@ARGV))->process();
