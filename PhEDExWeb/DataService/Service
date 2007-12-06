@@ -1,0 +1,55 @@
+#!/usr/bin/env perl
+
+=head1 NAME
+
+Service - Main program of the PhEDEx data service
+
+=head1 DESCRIPTION
+
+Checks configuration, parses URL path for parameters, makes API call
+
+=cut
+
+use warnings;
+use strict;
+
+use CGI qw(:standard);
+
+use CMSWebTools::SecurityModule::Oracle;
+use PHEDEX::Web::Config;
+use PHEDEX::Web::Core;
+
+our ($TESTING, $TESTING_MAIL);
+
+# Read PhEDEx web server configuration
+my $config_file = $ENV{PHEDEX_SERVER_CONFIG} ||
+    die "ERROR:  Web page config file not set";
+
+my $dev_name = $ENV{PHEDEX_DEV_NAME};
+
+my $config = PHEDEX::Web::Config->read($config_file, $dev_name);
+#eval "use CGI::Carp qw(fatalsToBrowser)";
+my $secmod_config = $$config{SECMOD_CONFIG};
+if (!$secmod_config) {
+    die "ERROR:  SecurityModule config file not set in $config_file";
+}
+my $secmod = new CMSWebTools::SecurityModule::Oracle({CONFIG => $secmod_config});
+
+# Set debug mode
+$TESTING = $$config{TESTING_MODE} ? 1 : 0;
+$TESTING_MAIL = $$config{TESTING_MAIL} || undef;
+
+# Interpret the trailing path suffix: /DB/API?QUERY
+my $path = path_info() || "/prod";
+
+my ($db, $api) = ("prod", undef);
+$db = $1 if ($path =~ m!\G/([^/]+)!g);
+$api = $1 if ($path =~ m!\G/([^/]+)!g);
+
+my $core = new PHEDEX::Web::Core(CONFIG => $config, SECMOD => $secmod, INSTANCE => $db);
+
+print header(-type => 'text/xml');
+$core->call($api); #TODO:  pass parameters, or CGI object?
+print "\n";
+
+exit(0);

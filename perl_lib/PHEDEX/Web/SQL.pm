@@ -44,15 +44,11 @@ L<PHEDEX::Core::SQL|PHEDEX::Core::SQL>,
 use strict;
 use warnings;
 use base 'PHEDEX::Core::SQL';
-
-use PHEDEX::Core::DB;
 use Carp;
 
 our @EXPORT = qw( );
 our (%params);
-%params = (
-		DBH	=> undef,
-	  );
+%params = ( DBH	=> undef );
 
 sub new
 {
@@ -88,9 +84,9 @@ sub getTransferStatus
     my $self = shift;
     my ($sql,$q,@r,%h);
     
-    my %h = @_;
+    %h = @_;
     
-    my $sql = qq{
+    $sql = qq{
     select
       time_update,
       nd.name dest_node, ns.name src_node,
