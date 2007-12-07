@@ -1,8 +1,8 @@
-package PHEDEX::template::SQL;
+package template::SQL;
 
 =head1 NAME
 
-PHEDEX::template::SQL - encapsulated SQL for the template
+template::SQL - encapsulated SQL for the template
 Checking agent.
 
 =head1 SYNOPSIS
