@@ -105,7 +105,7 @@ sub new
       next if defined $args{$key};
       if ( $env )
       {
-        $val = $env->getExpandedParameter($_);
+        $val = $env->getExpandedParameter($key);
         if ( defined($val) )
         {
           $args{$key} = $val;
@@ -658,6 +658,7 @@ sub processDrop
 # it, otherwise look for and process new inbox drops.
 sub process
 {
+
   my $self = shift;
 
   # Initialise subclass.

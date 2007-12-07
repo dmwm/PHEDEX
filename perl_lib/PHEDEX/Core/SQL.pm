@@ -306,8 +306,16 @@ sub execute_sql
     $query =~ s%\blike\b\s+(:[^\)\s]+)%like $1 escape '\\' %gi;
   }
 
-  $q = &dbexec($dbh, $query, %param);
-  return $q;
+  if ( wantarray )
+  {
+    ($q,$r) = &dbexec($dbh, $query, %param);
+    return ($q,$r);
+  }
+  else
+  {
+    $q = &dbexec($dbh, $query, %param);
+    return $q;
+  }
 }
 
 #-------------------------------------------------------------------------------
@@ -541,5 +549,39 @@ sub getDBSFromBlockIDs
   my $r = select_single( $self, $sql, %p );
   return $r;
 }
+
+#-------------------------------------------------------------------------------
+#sub setBlockInactive
+#{
+#  my $self = shift;
+#  my ($sql,%h,%p,$id,$now,$db,$nb);
+#  %h = @_;
+#  $id = $h{ID};
+#  $now = $h{NOW} || mytimeofday();
+#
+#  $sql = qq{ update t_dps_block set is_open = 'n', time_update = :now
+#                where id = :block };
+#  %p = ( ID     => $id,
+#         NOW    => $now );
+#  ($db,$nb) = execute_sql ($self, $sql, %p );
+#  return $nb;
+#}
+#
+##-------------------------------------------------------------------------------
+#sub setBlockActive
+#{
+#  my $self = shift;
+#  my ($sql,%h,%p,$id,$now,$db,$nb);
+#  %h = @_;
+#  $id = $h{ID};
+#  $now = $h{NOW} || mytimeofday();
+#
+#  $sql = qq{ update t_dps_block set is_open = 'y', time_update = :now
+#                where id = :block };
+#  %p = ( ID     => $id,
+#         NOW    => $now );
+#  ($db,$nb) = execute_sql ($self, $sql, %p );
+#  return $nb;
+#}
 
 1;
