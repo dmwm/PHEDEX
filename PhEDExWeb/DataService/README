@@ -1,0 +1,4 @@
+Example output can be found in example.json and example.xml. This is 
+a representation of the requests information displayed in the mega
+page. Subsequent calls would be made to retrieve information on 
+dataset, block, and file.

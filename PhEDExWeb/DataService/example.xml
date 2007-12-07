@@ -1,0 +1,35 @@
+<requests xmlns="http://cmsweb.cern.ch/phedex"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://cmsweb.cern.ch/phedex requests.xsd">
+	<!--  Low priority replication request -->
+	<request id="1234" last_update="1060199000.0">
+		<status>
+			<approved>T1_RAL_MSS</approved>
+			<approved>T2_London_ICHEP</approved>
+			<disapproved>T2_Southgrid_Bristol</disapproved>
+			<pending/>
+			<move_pending/>
+		</status>
+		<subscription open="1" priority="0" type="replicate">
+			<items>
+				<dataset>/PrimaryDS1/ProcessedDS1/Tier</dataset>
+				<block>/PrimaryDS2/ProcessedDS2/Tier/block</block>
+			</items>
+		</subscription>
+	</request>
+	<!--  Normal priority move request -->
+	<request id="5678" last_update="1060299000.0">
+		<status>
+			<approved>T1_FNAL_MSS</approved>
+			<disapproved/>
+			<pending/>
+			<move_pending>T2_MIT</move_pending>
+		</status>
+		<subscription open="0" priority="1" type="move">
+			<items>
+				<dataset>/PrimaryDS3/ProcessedDS3/Tier/block1</dataset>
+				<block>/PrimaryDS4/ProcessedDS4/Tier/block2</block>
+			</items>
+		</subscription>
+	</request>
+</requests>
