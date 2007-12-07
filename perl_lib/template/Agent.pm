@@ -62,6 +62,14 @@ sub idle
 
 sub isInvalid
 {
+# This method is called after the object is initialised, but before it does
+# any work. It's intended to validate the object structure/contents. You can
+# use the parent PHEDEX::Core::Agent::IsInvalid method for routine checking
+# of the existence and type-validity of members variables, and add your own
+# specific checks here. Return non-zero for failure, and the agent will die.
+#
+# This happens before the agent becomes a daemon, so death will occur before
+# leaving PID files in the system, etc.
   my $self = shift;
   my $errors = $self->SUPER::isInvalid
                 (
