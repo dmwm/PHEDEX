@@ -1,4 +1,4 @@
-<requests xmlns="http://cmsweb.cern.ch/phedex"
+<phedexData xmlns="http://cmsweb.cern.ch/phedex"
 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 xsi:schemaLocation="http://cmsweb.cern.ch/phedex requests.xsd">
 	<!--  Low priority replication request -->
@@ -32,4 +32,4 @@ xsi:schemaLocation="http://cmsweb.cern.ch/phedex requests.xsd">
 			</items>
 		</subscription>
 	</request>
-</requests>
+</phedexData>

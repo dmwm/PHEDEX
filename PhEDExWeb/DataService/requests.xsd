@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema targetNamespace="http://cmsweb.cern.ch/phedex" elementFormDefault="qualified" xmlns="http://www.w3.org/2001/XMLSchema" xmlns:pns="http://cmsweb.cern.ch/phedex">
+
+    <complexType name="status">
+    	<sequence>
+    		<element name="approved" type="string" maxOccurs="1" minOccurs="1"></element>
+    		<element name="disapproved" type="string" maxOccurs="1" minOccurs="1"></element>
+    		<element name="pending" type="string" maxOccurs="1" minOccurs="1"></element>
+    		<element name="move_pending" type="string" maxOccurs="1" minOccurs="1"></element>
+    	</sequence>
+    </complexType>
+
+    <complexType name="items">
+    	<sequence>
+    		<element name="dataset" type="string" maxOccurs="unbounded" minOccurs="0"></element>
+    		<element name="block" type="string" maxOccurs="unbounded" minOccurs="0"></element>
+    	</sequence>
+    </complexType>
+
+    <complexType name="subscription">
+    	<sequence>
+    		<element name="items" type="pns:items" maxOccurs="unbounded" minOccurs="1"></element>
+    	</sequence>
+    	<attribute name="open" type="int"></attribute>
+    	<attribute name="priority" type="int"></attribute>
+    	<attribute name="type" type="string"></attribute>
+    </complexType>
+
+    <complexType name="request">
+    	<sequence>
+    		<element name="status" type="pns:status" maxOccurs="1" minOccurs="1"></element>
+    		<element name="subscription" type="pns:subscription" maxOccurs="unbounded" minOccurs="1"></element>
+    	</sequence>
+    	<attribute name="id" type="int"></attribute>
+    	<attribute name="last_update" type="float"></attribute>
+    </complexType>
+
+
+    <element name="phedexData" type="pns:phedexData"></element>
+
+    <complexType name="phedexData">
+    	<sequence>
+    		<element name="request" type="pns:request" maxOccurs="unbounded" minOccurs="1"></element>
+    	</sequence>
+    </complexType>
+
+</schema>
