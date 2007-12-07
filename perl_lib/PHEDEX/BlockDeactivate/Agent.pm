@@ -21,9 +21,7 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockDeactivate::SQL';
-#use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing qw / mytimeofday /;
-#use PHEDEX::Core::DB;
 
 our %params =
 	(
@@ -37,11 +35,7 @@ sub new
 {
   my $proto = shift;
   my $class = ref($proto) || $proto;
-
-# Prepend my own default parameters to the arguments. This maintains the
-# correct hierarchical order
   my $self = $class->SUPER::new(%params, @_);
-
   bless $self, $class;
   return $self;
 }
