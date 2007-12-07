@@ -21,13 +21,7 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockDLSUpdate::SQL';
-#use File::Path;
-#use Data::Dumper;
-#use PHEDEX::Core::Command;
-#use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
-#use PHEDEX::Core::DB;
-#use PHEDEX::Core::JobManager;
 use PHEDEX::BlockConsistency::Core;
 use DB_File;
 
@@ -35,7 +29,7 @@ our %params =
 	(
 	  DBCONFIG => undef,		# Database configuration file
 	  WAITTIME => 3600,		# Agent activity cycle
-	  NODES => undef,			# Nodes this agent runs for
+	  NODES => undef,		# Nodes this agent runs for
 	);
 our @array_params = qw / NODES /;
 
@@ -43,9 +37,7 @@ sub new
 {
   my $proto = shift;
   my $class = ref($proto) || $proto;
-
   my $self = $class->SUPER::new(%params,@_);
-
   bless $self, $class;
   return $self;
 }
@@ -80,7 +72,6 @@ sub idle
     # Connect to database
     my @nodes = ();
     ($dbh, @nodes) = &expandNodesAndConnect ($self);
-#   my ($my_nodes, %my_args) = &myNodeFilter ($self, "br.node");
     my @nodefilter = &myNodeFilter ($self, "br.node");
 
     # Get order list of blocks we have.  This is always everything,

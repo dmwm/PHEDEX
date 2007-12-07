@@ -23,14 +23,6 @@ L<PHEDEX::Core::SQL|PHEDEX::Core::SQL>
 use strict;
 use warnings;
 use base 'PHEDEX::Core::SQL';
-#use File::Path;
-#use Data::Dumper;
-#use PHEDEX::Core::Command;
-#use PHEDEX::Core::Logging;
-#use PHEDEX::Core::Timing;
-#use PHEDEX::Core::DB;
-#use PHEDEX::Core::JobManager;
-#use DB_File;
 
 our %params =
 	(
@@ -40,9 +32,7 @@ sub new
 {
   my $proto = shift;
   my $class = ref($proto) || $proto;
-
   my $self = $class->SUPER::new(%params,@_);
-
   bless $self, $class;
   return $self;
 }
