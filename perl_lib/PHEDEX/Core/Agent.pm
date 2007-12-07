@@ -170,6 +170,7 @@ sub new
 #   existing directories, and derive other parameters from them.
     die "$me: fatal error: non-existent drop box directory \"$self->{DROPDIR}\"\n"
 	 if ! -d $self->{DROPDIR};
+    $self->{DROPDIR} .= '/' unless $self->{DROPDIR} =~ m%\/$%;
     $self->{INBOX}    = $self->{DROPDIR} . 'inbox'  unless $self->{INBOX};
     $self->{OUTDIR}   = $self->{DROPDIR} . 'outbox' unless $self->{OUTDIR};
     $self->{PIDFILE}  = $self->{DROPDIR} . 'pid'    unless $self->{PIDFILE};
