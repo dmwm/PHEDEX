@@ -2,7 +2,8 @@ package PHEDEX::Core::Agent;
 
 =head1 NAME
 
-PHEDEX::Core::Agent - a drop-in replacement for Toolkit/UtilsAgent
+PHEDEX::Core::Agent - a drop-in replacement for Toolkit/UtilsAgent, with a 
+few enhancements
 
 =cut
 
@@ -22,6 +23,41 @@ use PHEDEX::Core::Config;
 # Precedence is: command-line(%args), config-files, %params(default)
 # but %params is the definitive source of the list of legal keys, so all keys
 # for the agent should be listed here.
+
+=head1 Agent initialisation
+
+Agents can be initialised with default parameters, with parameters from 
+Config files, or with command-line arguments. That's also the order of 
+precedence, config files override defaults and command-line arguments 
+override config files.
+
+Defaults are defined in the %params hash in the agent 
+module. The PHEDEX::Core::Agent module has defaults for most of the 
+parameters you will ever need, if you have more or different default 
+values you need only define them in your own %params hash in your own 
+agent.
+
+Getting the precedence-order for setting parameters is not trivial. For
+simple scalars it's easy, you need only check if the value is defined on
+the command-line, the config file, and the %params hash, and set it from
+the first one that defines it. Note that you need to check for defined,
+not 'true', in case the default is 0 or false.
+
+For array or hash values, such as IGNORE_NODES, it's more complex. You
+can't put a Perl array or hash into a config file, or on the command-line,
+but you can put a comma-separated list there. So, the technique is to 
+leave the value of such parameters undef in the %params hash and declare 
+separately two arrays, @array_params and @hash_params, which hold the 
+key-names of the array and hash parameters. When the object is initialised 
+(via the C<< init >> method, at the beginning of the C<< process >> method)
+the default C<< init >> method will check which parameters are required to be
+arrays or 
+hashes and either set them to null arrays/hashes if they are not defined 
+or, if they have scalar values, will split the scalar on commas and set 
+them from that.
+
+=cut
+
 our %params =
 	(
 	  ME		=> undef,
@@ -39,9 +75,9 @@ our %params =
 	  IGNORE_NODES	=> undef,
 	  ACCEPT_NODES	=> undef,
 	  WAITTIME	=> 7,
-	  JUNK		=> {},
-	  BAD		=> {},
-	  STARTTIME	=> [],
+	  JUNK		=> undef,
+	  BAD		=> undef,
+	  STARTTIME	=> undef,
 	  NWORKERS	=> 0,
 	  WORKERS	=> undef,
 	  CONFIG_FILE	=> $ENV{PHEDEX_CONFIG_FILE},
@@ -51,8 +87,8 @@ our %params =
 	);
 
 our @array_params = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
-our @hash_params  = qw / JUNK /;
-our @required_params = qw / /;
+our @hash_params  = qw / BAD JUNK /;
+our @required_params = qw / DROPDIR DBCONFIG MYNODE /;
 
 sub new
 {
@@ -66,46 +102,51 @@ sub new
     $args{ME} = $me;
 
 #   Retrieve the agent environment, if I can.
-    my ($config,$cfg,$env,$label,$agent,$key,$val);
+    my ($config,$cfg,$label,$key,$val);
     $config = $args{CONFIG_FILE} || $params{CONFIG_FILE};
     $label  = $args{LABEL}       || $params{LABEL};
     if ( $config && $label )
     {
       $cfg = PHEDEX::Core::Config->new();
       foreach ( split(',',$config) ) { $cfg->readConfig($_); }
-      $agent = $cfg->select_agents($label);
-      die "Cannot find agent \"$label\" in $config\n" unless
-	$agent && ref($agent);
-      $self->{AGENT} = $agent;
+      $self->{AGENT} = $cfg->select_agents($label);
+
+#     Is it really an error to not find the agent label in the config file?
+      die "Cannot find agent \"$label\" in $config\n"
+		unless $self->{AGENT} && ref($self->{AGENT});
+      $self->{ENVIRONMENT} = $cfg->ENVIRONMENTS->{$self->{AGENT}->ENVIRON};
+      die "Cannot find environment for agent \"$label\" in $config\n"
+		unless $self->{ENVIRONMENT};
+
+#     options from the configuration file override the defaults
+      while (my ($k,$v) = each %{$self->{AGENT}->{OPTIONS}} )
       {
-        $env = $cfg->ENVIRONMENTS->{$agent->ENVIRON};
-        die "Cannot find environment for agent \"$label\" in $config\n"
-		unless $env;
-	$self->{ENVIRONMENT} = $env;
+        $k =~ s%^-+%%;
+        $k = uc $k;
+#       Historical, mapping command-line option to agent-internal representation
+        $k = 'DBCONFIG' if $k eq 'DB';
+        $v = $self->{ENVIRONMENT}->getExpandedString($v);
+        $params{$k} = $v;
       }
-    }
 
-#   options from the configuration file can override the defaults, but can
-#   not override the command-line
-    while (my ($k,$v) = each %{$agent->{OPTIONS}} )
-    {
-      $k =~ s%^-+%%;
-      $k = uc $k;
-
-#     Historical, mapping command-line option to agent-internal representation
-      $k = 'DBCONFIG' if $k eq 'DB';
-
-      $v = $env->getExpandedString($v);
-      $params{$k} = $v;
+#     Some parameters are derived from the environment
+      if ( $self->{AGENT} && $self->{ENVIRONMENT} )
+      {
+        foreach ( qw / DROPDIR LOGFILE PIDFILE / )
+        {
+          my $k = $self->{AGENT}->$_();
+          $params{$_} = $self->{ENVIRONMENT}->getExpandedString($k);
+        }
+      }
     }
 
 #   Now set the %args hash, from environment or params if not the command-line
     foreach $key ( keys %params )
     {
       next if defined $args{$key};
-      if ( $env )
+      if ( $self->{ENVIRONMENT} )
       {
-        $val = $env->getExpandedParameter($key);
+        $val = $self->{ENVIRONMENT}->getExpandedParameter($key);
         if ( defined($val) )
         {
           $args{$key} = $val;
@@ -115,32 +156,33 @@ sub new
       $args{$key} = $params{$key};
     }
 
-    $args{DROPDIR} = $env->getExpandedString($agent->DROPDIR)
-	 unless $args{DROPDIR};
-    $args{LOGFILE} = $env->getExpandedString($agent->LOGFILE)
-	 unless $args{LOGFILE};
 
-    $args{INBOX}    = $args{DROPDIR} . 'inbox'  unless $args{INBOX};
-    $args{OUTDIR}   = $args{DROPDIR} . 'outbox' unless $args{OUTDIR};
-    $args{PIDFILE}  = $args{DROPDIR} . 'pid'    unless $args{PIDFILE};
-    $args{STOPFLAG} = $args{DROPDIR} . 'stop'   unless $args{STOPFLAG};
-    $args{WORKDIR}  = $args{DROPDIR} . 'work'   unless $args{WORKDIR};
+    while (my ($k, $v) = each %args)
+    { $self->{$k} = $v unless defined $self->{$k}; }
 
-    die "$me: fatal error: no drop box directory given\n" if ! $args{DROPDIR};
-    die "$me: fatal error: non-existent drop box directory\n" if ! -d $args{DROPDIR};
-    foreach my $dir (@{$args{NEXTDIR}}) {
+#   Basic validation: Explicitly call the base method to validate only the
+#   core agent. This will be called again in the 'process' method, on the
+#   derived agent. No harm in that!
+    die "$me: Failed validation, exiting\n"
+	if PHEDEX::Core::Agent::isInvalid( $self );
+
+#   Beyond basic validation, need to check that some parameters are in fact
+#   existing directories, and derive other parameters from them.
+    die "$me: fatal error: non-existent drop box directory \"$self->{DROPDIR}\"\n"
+	 if ! -d $self->{DROPDIR};
+    $self->{INBOX}    = $self->{DROPDIR} . 'inbox'  unless $self->{INBOX};
+    $self->{OUTDIR}   = $self->{DROPDIR} . 'outbox' unless $self->{OUTDIR};
+    $self->{PIDFILE}  = $self->{DROPDIR} . 'pid'    unless $self->{PIDFILE};
+    $self->{STOPFLAG} = $self->{DROPDIR} . 'stop'   unless $self->{STOPFLAG};
+    $self->{WORKDIR}  = $self->{DROPDIR} . 'work'   unless $self->{WORKDIR};
+
+    foreach my $dir (@{$self->{NEXTDIR}}) {
 	if ($dir =~ /^([a-z]+):/) {
             die "$me: fatal error: unrecognised bridge $1" if ($1 ne "scp" && $1 ne "rfio");
 	} else {
             die "$me: fatal error: no downstream drop box\n" if ! -d $dir;
 	}
     }
-
-    while (my ($k, $v) = each %args)
-    {
-      $self->{$k} = $v unless defined $self->{$k};
-    }
-    bless $self, $class;
 
     if (-f $self->{PIDFILE})
     {
@@ -160,20 +202,27 @@ sub new
 	unlink ($self->{STOPFLAG});
     }
 
-    -d $self->{INBOX} || mkdir $self->{INBOX} || -d $self->{INBOX}
-	|| die "$me: fatal error: cannot create inbox: $!\n";
-    -d $self->{WORKDIR} || mkdir $self->{WORKDIR} || -d $self->{WORKDIR}
-	|| die "$me: fatal error: cannot create work directory: $!\n";
-    -d $self->{OUTDIR} || mkdir $self->{OUTDIR} || -d $self->{OUTDIR}
-	|| die "$me: fatal error: cannot create outbox directory: $!\n";
+    foreach ( qw / INBOX WORKDIR OUTDIR / )
+    {
+      -d $self->{$_} || mkdir $self->{$_};
+      -d $self->{$_} || die
+	    "$me: fatal error: cannot create $_ directory \"$self->{$_}\"\n";
+    }
 
-#   Let the derived agent decide when to validate itself...
-#   die "Agent ",$self->{ME}," failed validation\n" if $self->isInvalid();
-
+    bless $self, $class;
     # Daemonise, write pid file and redirect output.
     $self->daemon($me);
     return $self;
 }
+
+=head1 Running agents as daemons
+
+Agents will, be default, become daemons by forking, disconnecting from the
+terminal, and starting their own process group. If you're trying to debug
+them this can be a bit of a problem, so you can turn off this behaviour by
+passing the NODAEMON flag with a non-zero value to the agents constructor.
+
+=cut
 
 # Turn the process into a daemon.  This causes the process to lose
 # any controlling terminal by forking into background.
@@ -220,7 +269,24 @@ sub daemon
     open (STDIN, "</dev/null");
 }
 
-# User hook
+=head1 User hooks
+
+There are a number of user-hooks for overriding base-class behaviour at
+various points. If you choose to you them you should check what the base-class
+method does, and insert a call to C<< $self->SUPER::method >> somewhere
+appropriate, if needed.
+
+=head2 init
+
+Called from C<< process, >> this method makes sure that all parameters that are
+supposed to be hashes or arrays are correctly initialised. See the description
+of initialising agents, above, for details.
+
+You should not normally need to override the default init method, but if you
+do you should call this base method early in the overridden code, via
+C<< $self->SUPER::init >>.
+
+=cut
 sub init
 {
   my $self = shift;
@@ -253,7 +319,20 @@ sub init
   }
 }
 
-# User hook
+=head2 isInvalid
+
+Called from the constructor, for the base class, and again from C<< process >>
+for the derived class. This allows the basic PHEDEX::Core::Agent to be
+validated before the derived class is fully initialised, and for the derived
+class to be fully validated before it is used.
+
+You do not need to provide an override for the derived class if you don't
+want to, nothing bad will happen.
+
+If you do need to validate your derived class you can do anything you want in
+this method.
+
+=cut
 sub isInvalid
 {
   my $self = shift;
@@ -371,7 +450,12 @@ sub doStop
     exit (0);
 }
 
-# User hook
+=head2 stop
+
+I have no idea what you would want to do with this...
+
+=cut
+
 sub stop {}
 
 # Look for pending drops in inbox.
@@ -650,7 +734,12 @@ sub markBad
     &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} failed");
 }
 
-# User hook
+=head2 processDrop
+
+I have no idea what you would want to do with this either...
+
+=cut
+
 sub processDrop
 {}
 
@@ -663,10 +752,9 @@ sub process
 
   # Initialise subclass.
   $self->init();
-  $self->initWorkers();
-
   # Validate the object!
   die "Agent ",$self->{ME}," failed validation\n" if $self->isInvalid();
+  $self->initWorkers();
 
   # Restore signals.  Oracle apparently is in habit of blocking them.
   $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = sub { $self->doStop() };
@@ -715,7 +803,7 @@ sub process
 # Wait between scans
 sub idle
 {
-    my ($self, @pending) = @_;
+    my $self = shift;
     $self->nap ($self->{WAITTIME});
 }
 
