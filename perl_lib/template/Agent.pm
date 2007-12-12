@@ -61,12 +61,21 @@ sub AUTOLOAD
 
 =head1 Overriding base-class methods
 
+The methods provided here are all used in the base Agent class, and can be
+overridden to specialise the agent. You can call the base class method in your
+ovverride or, if you only need the base class behaviour, simply don't provide
+the method in your agent.
+
+These sample overrides just print their entry and exit, and call the base class
+method o provide a minimal functioning agent.
+
 =head2 init
 
 The C<< init >> method is used to fully initialise the object. This is separate
-from the constructor 
+from the constructor, and is called from the C<< process >> method. 
 
 =cut
+
 sub init
 {
   my $self = shift;
@@ -84,7 +93,11 @@ sub init
   print scalar localtime," $self->{ME}: exiting init\n";
 }
 
-# Pick up work from the database and start site specific scripts if necessary
+=head2 idle
+
+Pick up work from the database and start site specific scripts if necessary
+
+=cut
 sub idle
 {
   my $self = shift;

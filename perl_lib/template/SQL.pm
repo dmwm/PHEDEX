@@ -15,6 +15,14 @@ anything that needs its methods.
 
 pending...
 
+=head1 METHODS
+
+=over
+
+=item method1($args)
+
+=back
+
 =head1 SEE ALSO...
 
 L<PHEDEX::Core::SQL|PHEDEX::Core::SQL>,
@@ -29,9 +37,11 @@ use base 'PHEDEX::Core::SQL';
 use Carp;
 
 our @EXPORT = qw( );
-our (%params);
-%params = (
-	  );
+
+# Probably will never need parameters for this object, but anyway...
+our %params =
+	(
+	);
 
 sub new
 {
