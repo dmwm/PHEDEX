@@ -367,15 +367,15 @@ sub purgeLostTransfers
     }
 
     # Calculate differences.
-    my @lostlocal = grep(! $indb{$_}, keys %inlocal);
-    my @lostdb    = grep(! $inlocal{$_}, keys %indb);
+    my @lostdb = grep(! $indb{$_}, keys %inlocal);
+    my @lostlocal = grep(! $inlocal{$_}, keys %indb);
 
     &alert("resetting database tasks lost locally: @{[sort @lostdb]}"
 	   . " (locally known: @{[sort keys %inlocal]})")
-	if @lostdb;
+	if @lostlocal;
     &alert("resetting local tasks lost in database: @{[sort @lostlocal]}"
 	   . " (database known: @{[sort keys %indb]})")
-	if @lostlocal;
+	if @lostdb;
 
     # Mark locally unknown tasks as lost in database.
     my @now = (&mytimeofday()) x scalar @lostdb;
@@ -383,10 +383,10 @@ sub purgeLostTransfers
       insert into t_xfer_task_done
         (task, report_code, xfer_code, time_xfer, time_update)
 	values (?, -2, -2, -1, ?)});
-    &dbbindexec($qlost, 1 => \@lostdb, 2 => \@now);
+    &dbbindexec($qlost, 1 => \@lostlocal, 2 => \@now);
 
     # Remove locally known tasks forgotten by database.
-    foreach (@lostlocal)
+    foreach (@lostdb)
     {
 	delete $$tasks{$_};
 	unlink("$$self{TASKDIR}/$_");
