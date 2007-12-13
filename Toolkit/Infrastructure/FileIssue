@@ -259,10 +259,16 @@ sub catalogue
         {
 	    # Check the pattern is valid.  If not, abort.
             my $pathrx = eval { qr/$path/ };
-	    return $$cats{$node} = {} if $@;
+	    if ($@) {
+		&alert("invalid path pattern for node=$node:  $@");
+		return $$cats{$node} = {};
+	    }
 
             my $destrx = defined $dest ? eval { qr/$dest/ } : undef;
-	    return $$cats{$node} = {} if $@;
+	    if ($@) {
+		&alert("invalid dest pattern for node=$node:  $@");
+		return $$cats{$node} = {};
+	    }
 
 	    # Add the rule to our list.
 	    push(@{$$cats{$node}{$proto}}, {
