@@ -68,12 +68,7 @@ sub new
 {
   my $proto = shift;
   my $class = ref($proto) || $proto;
-
-  my $self  = $class->SUPER::new(@_);
-  foreach ( keys %params )
-  {
-    $self->{$_} = $params{$_} unless defined $self->{$_};
-  }
+  my $self  = $class->SUPER::new(%params,@_);
   $self->{bcc} = PHEDEX::BlockConsistency::Core->new();
   bless $self, $class;
 
