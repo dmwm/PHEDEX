@@ -20,15 +20,12 @@
 ##H
 ##H Usage:
 ##H   FileRemove
-##H      -state DIRECTORY -nodes NAME [-ignode NAME] [-accept NAME]
-##H      -db FILE[:SECTION] [-log OUT]
+##H      -state DIRECTORY -nodes NAME -db FILE[:SECTION] [-log OUT]
 ##H      -storagemap FILE [-protocol NAME] -delete COMMAND[,ARG...]
 ##H      [-limit N]
 ##H
 ##H -state         agent state directory.
 ##H -nodes         nodes to run and clean files for.
-##H -ignore        comma-separated list of nodes to ignore transfers from
-##H -accept        comma-separated list of nodes to accept transfers from
 ##H -db            database connection configuration parameter file.
 ##H -storagemap    storage mapping catalogue.
 ##H -protocol      protocol to use with storage map, by default "direct".
@@ -54,8 +51,6 @@ use UtilsHelp;
 	     "log=s"       => \$args{LOGFILE},
 	     "db=s"        => \$args{DBCONFIG},
              "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
-             "ignore=s"    => sub { push(@{$args{IGNORE_NODES}}, split(/,/, $_[1])) },
-             "accept=s"    => sub { push(@{$args{ACCEPT_NODES}}, split(/,/, $_[1])) },
              "delete=s"    => sub { push(@{$args{CMD_RM}}, split(/,/, $_[1])) },
 	     "storagemap=s"=> \$args{STORAGEMAP},
 	     "protocol=s"  => \$args{PROTOCOL},
@@ -89,8 +84,6 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  NODES    => undef,		# Node names to run this agent for
-	  	  IGNORE_NODES => [],	        # TMDB nodes to ignore
-	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
 		  WAITTIME => 60 + rand(15),	# Agent activity cycle
 		  DELETING => undef,		# Are we deleting files now?
 		  CMD_RM   => undef,            # cmd to remove physical files
@@ -239,7 +232,7 @@ sub processDrop
 # Get a list of files to delete.
 sub filesToDelete
 {
-    my ($self, $dbh, $limit, $node, $filter, $filter_args) = @_;
+    my ($self, $dbh, $limit, $node) = @_;
 
     my $now = &mytimeofday();
 
@@ -254,9 +247,9 @@ sub filesToDelete
 	left join t_xfer_file xf
 	   on xd.fileid = xf.id
 	where xd.time_complete is null and xd.node = :node
-	and xf.logical_name is not null ${$filter}
+	and xf.logical_name is not null
 	order by xd.time_request asc},
-        ":node" => $$self{NODES_ID}{$node}, %{$filter_args});
+        ":node" => $$self{NODES_ID}{$node});
     while (my ($id, $lfn) = $q->fetchrow())
     {
 	$files{$lfn} = $id;
@@ -311,12 +304,11 @@ sub idle
     eval
     {
 	($dbh, @nodes) = &expandNodesAndConnect ($self);
-	my ($filter, %filter_args) = &otherNodeFilter ($self, "xd.node");
 
 	# Get a list of victims to evict.
 	foreach my $node (@nodes)
 	{
-	    foreach my $file ($self->filesToDelete ($dbh, $$self{LIMIT}, $node, \$filter, \%filter_args))
+	    foreach my $file ($self->filesToDelete ($dbh, $$self{LIMIT}, $node))
 	    {
 		# If we are already processing this file, ignore it
 		next if grep ($_ eq $$file{FILEID}, @pending);
