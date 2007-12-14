@@ -973,9 +973,9 @@ sub idle
 	}
 
 	# Kill ghost transfers in the database and locally.
-	$self->reconnect() if ! $$self{DBH};
 	if ($$self{NEXT_PURGE} <= $now)
 	{
+	    $self->reconnect() if ! $$self{DBH};
 	    $self->purgeLostTransfers(\%jobs, \%tasks);
 	    $$self{NEXT_PURGE} = $now + 3600;
 	    $$self{DBH_LAST_USE} = $now;
