@@ -378,7 +378,7 @@ sub purgeLostTransfers
 	if @lostdb;
 
     # Mark locally unknown tasks as lost in database.
-    my @now = (&mytimeofday()) x scalar @lostdb;
+    my @now = (&mytimeofday()) x scalar @lostlocal;
     my $qlost = &dbprep($$self{DBH}, qq{
       insert into t_xfer_task_done
         (task, report_code, xfer_code, time_xfer, time_update)
@@ -972,6 +972,15 @@ sub idle
 	    $jobs{$_} = $info;
 	}
 
+	# Kill ghost transfers in the database and locally.
+	$self->reconnect() if ! $$self{DBH};
+	if ($$self{NEXT_PURGE} <= $now)
+	{
+	    $self->purgeLostTransfers(\%jobs, \%tasks);
+	    $$self{NEXT_PURGE} = $now + 3600;
+	    $$self{DBH_LAST_USE} = $now;
+	}
+
 	# Rescan jobs for completed tasks and fill the backend a few
         # times each.  In between each round flush validation and
 	# file removal processes to finalise job completion.  Fill
@@ -1013,13 +1022,6 @@ sub idle
 	    && ($report_sync || ! $recent_sync))
 	{
 	    $self->reconnect() if ! $$self{DBH} || $need_advert;
-	    if ($$self{NEXT_PURGE} <= $now)
-	    {
-		# Kill ghost transfers in the database and locally.
-		$self->purgeLostTransfers(\%jobs, \%tasks);
-		$$self{NEXT_PURGE} = $now + 3600;
-		$$self{DBH_LAST_USE} = $now;
-	    }
 	    $self->doSync(\%jobs, \%tasks);
 	    $$self{LAST_SYNC} = $now;
 	    $$self{NEXT_SYNC} = $now + 1800;
