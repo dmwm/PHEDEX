@@ -664,6 +664,12 @@ sub otherNodeFilter
       }
     }
 
+    # If we have some specific nodes to accept, but they aren't in the
+    # DB, then this filter eliminates everything
+    if (@{$self->{ACCEPT_NODES}} && ! $self->{ACCEPT_NODE_IDS}{MAP}) {
+	return "and 1=0";
+    }
+
     $self->{IGNORE_NODES_IDS}{LAST_CHECK} = $now;
   }
 
