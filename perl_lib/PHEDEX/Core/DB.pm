@@ -77,6 +77,8 @@ sub parseDatabaseInfo
 	if ($self->{DBH_DBROLE} && ! $self->{DBH_DBROLE_PASS});
 }
 
+
+
 # Create a connection to the transfer database.  Updates the agent's
 # last contact, inserting the agent entries if necessary.  Takes one
 # argument, the reference to the agent, which must have the standard
@@ -150,6 +152,9 @@ sub connectToDatabase
   # Reset statement cache
   $dbh->{private_phedex_stmtcache} = {};
 
+  # Check yoself before you wreck yoself
+  &checkParams($self);
+
   # Was identification suppressed?
   return $dbh if defined $identify && $identify == 0;
 
@@ -190,6 +195,32 @@ sub disconnectFromDatabase
 ######################################################################
 # Utilities used during agent login.  These really belong somewhere
 # else (PHEDEX::Core::Agent?), not in the core database logic.
+
+# Check certain conventional agent object variables and die if there are problems
+sub checkParams
+{
+    my ($self) = @_;
+
+    my $q = &dbprep($self->{DBH}, qq{
+        select count(*) from t_adm_node where name like :pat});
+
+    &dbbindexec($q, ':pat' => $self->{MYNODE});
+    die "'$self->{MYNODE}' does not match any node known to TMDB, check -node argument\n"
+	if ($self->{MYNODE} && ! $q->fetchrow());
+
+    my %params = (NODES => '-nodes', ACCEPT_NODES => '-accept', IGNORE_NODES => '-ignore');
+    while (my ($param, $arg) = each %params) {
+	foreach my $pat (@{$self->{$param}}) {
+	    warn "Checking $pat\n";
+	    &dbbindexec($q, ':pat' => $pat);
+	    die "'$pat' does not match any node known to TMDB, check $arg argument\n"
+		unless $q->fetchrow();
+	}
+    }
+
+    return 1;
+}
+
 
 # Identify the version of the code packages running in this agent.
 # Scan all the perl modules imported into this process, and identify
@@ -662,12 +693,6 @@ sub otherNodeFilter
       {
         $self->{ACCEPT_NODES_IDS}{MAP}{++$index} = $id;
       }
-    }
-
-    # If we have some specific nodes to accept, but they aren't in the
-    # DB, then this filter eliminates everything
-    if (@{$self->{ACCEPT_NODES}} && ! $self->{ACCEPT_NODE_IDS}{MAP}) {
-	return "and 1=0";
     }
 
     $self->{IGNORE_NODES_IDS}{LAST_CHECK} = $now;
