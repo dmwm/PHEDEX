@@ -370,10 +370,10 @@ sub purgeLostTransfers
     my @lostdb = grep(! $indb{$_}, keys %inlocal);
     my @lostlocal = grep(! $inlocal{$_}, keys %indb);
 
-    &alert("resetting database tasks lost locally: @{[sort @lostdb]}"
+    &alert("resetting database tasks lost locally: @{[sort @lostlocal]}"
 	   . " (locally known: @{[sort keys %inlocal]})")
 	if @lostlocal;
-    &alert("resetting local tasks lost in database: @{[sort @lostlocal]}"
+    &alert("resetting local tasks lost in database: @{[sort @lostdb]}"
 	   . " (database known: @{[sort keys %indb]})")
 	if @lostdb;
 
