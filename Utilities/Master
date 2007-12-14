@@ -130,8 +130,16 @@ if ( $mode eq 'listagents' )
   exit 0;
 }
 
-no strict 'refs';
-my $result = $config->$mode( @ARGV );
+my $result;
+if ( $config->can($mode) )
+{
+  no strict 'refs';
+  $result = $config->$mode( @ARGV );
+}
+else
+{
+  die "Don't recognise \"$mode\" as a valid command. Use \"-h\" for help.\n";
+}
 
 # If this was a preconfigured command, it will have printed all it should...
 exit 0 if exists $PHEDEX::Core::Config::commands{$mode};
