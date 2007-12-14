@@ -69,102 +69,107 @@ sub idle
     
     &logmsg("starting injections");
 
-    &connectToDatabase ($self);
+    eval {
+	&connectToDatabase ($self);
 	
-    # Get the LoadTest parameters for every link
-    my $qparam = &dbexec($$self{DBH}, qq{
-	select lp.src_dataset, ds.name src_dataset_name,
-	lp.dest_dataset, dd.name dest_dataset_name,
-	lp.dest_node, dn.name dest_node_name,
-	lp.is_active, lp.dataset_size, lp.dataset_close,
-	lp.block_size, lp.block_close,
-	lp.rate, lp.inject_now,
-	lp.throttle_node, tn.name throttle_node_name,
-	lp.time_inject
-	    from t_loadtest_param lp
-	    join t_dps_dataset ds on ds.id = lp.src_dataset
-	    join t_dps_dataset dd on dd.id = lp.dest_dataset
-	    join t_adm_node dn on dn.id = lp.dest_node
-	    left join t_adm_node tn on tn.id = lp.throttle_node
-	});
+	# Get the LoadTest parameters for every link
+	my $qparam = &dbexec($$self{DBH}, qq{
+	    select lp.src_dataset, ds.name src_dataset_name,
+	           lp.dest_dataset, dd.name dest_dataset_name,
+	           lp.dest_node, dn.name dest_node_name,
+	           lp.is_active, lp.dataset_size, lp.dataset_close,
+	           lp.block_size, lp.block_close,
+	           lp.rate, lp.inject_now,
+	           lp.throttle_node, tn.name throttle_node_name,
+	           lp.time_inject
+	      from t_loadtest_param lp
+	      join t_dps_dataset ds on ds.id = lp.src_dataset
+	      join t_dps_dataset dd on dd.id = lp.dest_dataset
+	      join t_adm_node dn on dn.id = lp.dest_node
+	 left join t_adm_node tn on tn.id = lp.throttle_node
+	    });
     
-    my $uparam = &dbprep($$self{DBH}, qq{
-       update t_loadtest_param set inject_now = 0, time_inject = :time_inject
-        where src_dataset = :src_dataset
-	  and dest_dataset = :dest_dataset
-          and dest_node = :dest_node});
+	my $uparam = &dbprep($$self{DBH}, qq{
+	    update t_loadtest_param set inject_now = 0, time_inject = :time_inject
+   	     where src_dataset = :src_dataset
+	       and dest_dataset = :dest_dataset
+	       and dest_node = :dest_node});
              
-    my $total_inject = 0;
-    while (my $params = $qparam->fetchrow_hashref()) {
-	$$params{NOW} = &mytimeofday();
+	my $total_inject = 0;
+	while (my $params = $qparam->fetchrow_hashref()) {
+	    $$params{NOW} = &mytimeofday();
 
-	next unless $$params{IS_ACTIVE} eq 'y';
-	next unless $self->datasetSpace($params);
-
-	my $size = $self->averageFileSize($$params{SRC_DATASET});
-	unless ($size) {
-	    &alert("dataset=$$params{SRC_DATASET} has no files");
-	    next;
-	}
-	
-	my $n_files = 0;
-	if ($$params{INJECT_NOW}) {
-	    $n_files = $$params{INJECT_NOW};
-	} elsif ($$params{RATE}) {
-    	    $n_files = $self->calculateRateInjection($params, $size);
-
-	    my $t_files = $self->throttleNodeFiles($params);
-	    my $throttle = ($t_files * $size > $$params{RATE} * $$self{VISION}) ? 1 : 0;
-	    if ($n_files != 0 && $throttle) {
-		&dbbindexec($uparam, 
-			    ':time_inject' => $$params{NOW},
-			    ':src_dataset' => $$params{SRC_DATASET},
-			    ':dest_dataset' => $$params{DEST_DATASET},
-			    ':dest_node' => $$params{DEST_NODE}
-			    );
-		$$self{DBH}->commit();
-		&logmsg("skipped injections to dataset $$params{DEST_DATASET_NAME} at $$params{DEST_NODE_NAME}:  ",
-			"throttle node $$params{THROTTLE_NODE_NAME} has enough to do with $t_files files");
+	    next unless $$params{IS_ACTIVE} eq 'y';
+	    next unless $self->datasetSpace($params);
+	    
+	    my $size = $self->averageFileSize($$params{SRC_DATASET});
+	    unless ($size) {
+		&alert("dataset=$$params{SRC_DATASET} has no files");
 		next;
 	    }
-	} else {
-	    next; # Nothing to do
+	    
+	    my $n_files = 0;
+	    if ($$params{INJECT_NOW}) {
+		$n_files = $$params{INJECT_NOW};
+	    } elsif ($$params{RATE}) {
+		$n_files = $self->calculateRateInjection($params, $size);
+
+		my $t_files = $self->throttleNodeFiles($params);
+		my $throttle = ($t_files * $size > $$params{RATE} * $$self{VISION}) ? 1 : 0;
+		if ($n_files != 0 && $throttle) {
+		    &dbbindexec($uparam, 
+				':time_inject' => $$params{NOW},
+				':src_dataset' => $$params{SRC_DATASET},
+				':dest_dataset' => $$params{DEST_DATASET},
+				':dest_node' => $$params{DEST_NODE}
+				);
+		    $$self{DBH}->commit();
+		    &logmsg("skipped injections to dataset $$params{DEST_DATASET_NAME} at $$params{DEST_NODE_NAME}:  ",
+			    "throttle node $$params{THROTTLE_NODE_NAME} has enough to do with $t_files files");
+		    next;
+		}
+	    } else {
+		next; # Nothing to do
+	    }
+	
+	    next unless $n_files;
+
+	    # Transaction per dataset.  Rollback and continue in case of any errors
+	    eval
+	    {
+		my $n_inject = $self->injectFiles($params, $n_files);
+		if ($n_inject) {
+		    &dbbindexec($uparam, 
+				':time_inject' => $$params{NOW},
+				':src_dataset' => $$params{SRC_DATASET},
+				':dest_dataset' => $$params{DEST_DATASET},
+				':dest_node' => $$params{DEST_NODE}
+				);
+		    
+		    $$self{DBH}->commit();
+		    &logmsg("injected $n_inject files to dataset ",
+			    "$$params{DEST_DATASET_NAME} at $$params{DEST_NODE_NAME}");
+		    $total_inject += $n_inject;
+		} else {
+		    $$self{DBH}->rollback();
+		    die "no files injected to dataset $$params{DEST_DATASET_NAME} at ",
+		    "$$params{DEST_NODE_NAME}, tried to inject $n_files\n";
+		}
+	    };
+	    if ($@) {
+		&alert($@);
+		$$self{DBH}->rollback();
+	    }
 	}
 	
-	next unless $n_files;
-
-	# Transaction per dataset.  Rollback and continue in case of any errors
-	eval
-	{
-	    my $n_inject = $self->injectFiles($params, $n_files);
-	    if ($n_inject) {
-		&dbbindexec($uparam, 
-			    ':time_inject' => $$params{NOW},
-			    ':src_dataset' => $$params{SRC_DATASET},
-			    ':dest_dataset' => $$params{DEST_DATASET},
-			    ':dest_node' => $$params{DEST_NODE}
-			    );
-
-		$$self{DBH}->commit();
-		&logmsg("injected $n_inject files to dataset ",
-			"$$params{DEST_DATASET_NAME} at $$params{DEST_NODE_NAME}");
-		$total_inject += $n_inject;
-	    } else {
-		$$self{DBH}->rollback();
-		die "no files injected to dataset $$params{DEST_DATASET_NAME} at ",
-		"$$params{DEST_NODE_NAME}, tried to inject $n_files\n";
-	    }
-	};
-	if ($@) {
-	    &alert($@);
-	    $$self{DBH}->rollback();
-	}
-    }
-
-    &logmsg("finished injections:  $total_inject files injected");
+	&logmsg("finished injections:  $total_inject files injected");
+		
+    };
+    do { chomp ($@); &alert ("database error: $@");
+	 eval { $$self{DBH}->rollback() } if $$self{DBH} } if $@;
 
     # Disconnect from the database
-    &disconnectFromDatabase ($self, $$self{DBH});
+    &disconnectFromDatabase ($self, $$self{DBH});    
 
     # Have a nap.
     $self->doStop() if $$self{ONCE};
