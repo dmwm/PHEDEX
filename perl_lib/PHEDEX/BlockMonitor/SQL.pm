@@ -230,6 +230,7 @@ sub updateBlockAtNode
   my ($self,%h) = @_;
   my ($sql,%p);
 
+  my @b = qw(now block node dest_files dest_bytes src_files src_bytes node_files node_bytes xfer_files xfer_bytes);
   $sql = qq{ update t_dps_block_replica
             set time_update = :now, is_active = 'y',
                 dest_files = :dest_files, dest_bytes = :dest_bytes,
@@ -238,7 +239,7 @@ sub updateBlockAtNode
                 xfer_files = :xfer_files, xfer_bytes = :xfer_bytes
             where block = :block and node = :node };
   $h{NOW} = mytimeofday() unless $h{NOW};
-  foreach ( keys %h ) { $p{ ':' . lc($_) } = $h{$_}; }
+  foreach ( @b ) { $p{ ':' . $_ } = $h{uc($_)}; }
 
   return if exists $self->{DUMMY} && $self->{DUMMY};
   execute_sql( $self, $sql, %p );
