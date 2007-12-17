@@ -79,6 +79,9 @@ returns a reference to the object instead of an array.
 If many agents are matched and the return-context is scalar, it returns a
 reference to the array of agents that match.
 
+If no agents match, and C<< $self->{PARANOID} >> is set, the script terminates
+with an error.
+
 =item dummy( $int )
 
 Sets or returns the DUMMY flag in the Config object. If set to anything Perl
@@ -144,6 +147,7 @@ our %params = (
 		AGENTS       => undef,
 		ENVIRONMENTS => undef,
 		DUMMY	     => 0,
+		PARANOID     => 0,
 	      );
 
 our %commands =
@@ -367,6 +371,10 @@ sub select_agents
     next if (@_ && !grep($_ eq "all" || $_ eq $agent->LABEL, @_));
     next if (! @_ && ($agent->DEFAULT || 'on') eq 'off');
     push @a, $agent;
+  }
+  if ( ! @a && $self->{PARANOID} )
+  {
+    die "No agents found matching \"",join('", "',@_),"\"\n";
   }
   return $a[0] if ( scalar @a == 1 && ! wantarray );
   return \@a if ( ! wantarray );
