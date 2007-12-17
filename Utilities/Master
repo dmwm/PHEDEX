@@ -75,7 +75,7 @@ use PHEDEX::Core::Help;
 use PHEDEX::Core::Config;
 
 my (%args,$config,$dummy);
-$config = PHEDEX::Core::Config->new();
+$config = PHEDEX::Core::Config->new( PARANOID => 1 );
 
 # First we need to parse the command line arguments
 while (@ARGV)
@@ -131,7 +131,7 @@ if ( $mode eq 'listagents' )
 }
 
 my $result;
-if ( $config->can($mode) )
+if ( $config->can($mode) || exists $PHEDEX::Core::Config::commands{$mode} )
 {
   no strict 'refs';
   $result = $config->$mode( @ARGV );
