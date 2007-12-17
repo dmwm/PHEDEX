@@ -32,6 +32,10 @@ our %params =
 	  DUMMY     => 0,		# Dummy the updates
 	  ROW_LIMIT => 10000,		# Number of blocks to process at once
 	  MIN_BLOCK => undef,		# First block to process in a pass
+
+	 VERBOSE	=> 0,
+	 DEBUG		=> 1,
+	 TERSE		=> 0
 	);
 
 sub new
@@ -98,6 +102,8 @@ sub idle
   my ($self, @pending) = @_;
   my $dbh = undef;
 
+  my $t0 = time();
+
   $self->{MIN_BLOCK} = 0;
   eval
   {
@@ -111,7 +117,7 @@ sub idle
 
     # Read existing block replica information.
     my $now = &mytimeofday ();
-$DB::single=1;
+
     my ($h,$qexisting,$row,$qactive,$q);
     do
     {
@@ -203,8 +209,6 @@ $DB::single=1;
 
 #    my (%replicas,%active);
 
-$DB::single=1;
-exit 0;
       # Compare differences I: start from previous replicas.
       foreach my $b (map { values %$_ } values %replicas)
       {
@@ -230,7 +234,6 @@ exit 0;
         if (! exists $active{$b->{BLOCK}}{$b->{NODE}}
 	    || $active{$b->{BLOCK}}{$b->{NODE}}{EMPTY_SOURCE} )
         {
-$DB::single=1;
 	  &logmsg ("removing block $b->{BLOCK} at node $b->{NODE}");
           $self->removeBlockAtNode( $b ) unless $self->{DUMMY};
 	  next;
@@ -247,7 +250,6 @@ $DB::single=1;
 	  || $b->{XFER_FILES} != $new->{XFER_FILES}
 	  || $b->{XFER_BYTES} != $new->{XFER_BYTES})
         {
-$DB::single=1;
 	  &limitCheck ("updated block", $new, $b);
 	  &logmsg ("updating block $b->{BLOCK} at node $b->{NODE}");
           $self->updateBlockAtNode( NOW => $now, %{$b} )
@@ -255,7 +257,6 @@ $DB::single=1;
         }
       }
 
-$DB::single=1;
       # Compare differences II: new ones.
       foreach my $b (map { values %$_ } values %active)
       {
@@ -290,7 +291,6 @@ $DB::single=1;
         }
 
         &logmsg ("creating block $b->{BLOCK} at node $b->{NODE}");
-$DB::single=1;
         $self->createBlockAtNode( NOW => $now, %{$b} )
 		unless $self->{DUMMY};
       }
@@ -308,7 +308,9 @@ $DB::single=1;
   # Disconnect from the database.
   &disconnectFromDatabase ($self, $dbh);
 
-$DB::single=1;
+  my $t1 = time(); 
+  $self->{DEBUG} && &logmsg ("cycle:  ".($t1-$t0));
+
   # Have a little nap.
   $self->nap ($$self{WAITTIME});
 }
