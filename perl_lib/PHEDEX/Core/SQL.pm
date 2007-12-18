@@ -186,6 +186,11 @@ Return the block names of all blocks with names LIKE C<$block>
 
 Return the name of the blocks with IDs in the set of C<@id>
 
+=item getBlockIDRange($n_blocks, $min_block)
+
+Return a range ($min, $max) of block IDs between which there will be $n_blocks.
+Useful for iterating over all blocks in order to save memory.
+
 =item getDatasetsFromWildCard($dataset)
 
 Return the dataset names of all datasets with names LIKE C<$dataset>
@@ -220,6 +225,7 @@ use warnings;
 
 use PHEDEX::Core::DB;
 use Carp;
+use POSIX;
 
 our @EXPORT = qw( );
 our (%params);
@@ -296,7 +302,7 @@ sub execute_sql
 # because the DBI module croaks if I try it.
 #
   $dbh = $self;
-  if ( grep( /^DBH$/,  keys %{$self} ) ) { $dbh = $self->{DBH}; }
+  if ( grep( $_ eq 'DBH',  keys %{$self} ) ) { $dbh = $self->{DBH}; }
 
 # Properly escape any strings with underscores if the SQL statement has a
 # 'like' clause, and add the appropriate 'escape' declaration to it.
@@ -325,7 +331,7 @@ sub execute_rollback
   my $dbh = $self;
 
 # see execute_sql to see why I do this :-(
-  if ( grep( /^DBH$/,  keys %{$self} ) ) { $dbh = $self->{DBH}; }
+  if ( grep( $_ eq 'DBH',  keys %{$self} ) ) { $dbh = $self->{DBH}; }
 
 # Do the rollback!
   $dbh->rollback();
@@ -338,9 +344,9 @@ sub execute_commit
   my $dbh = $self;
 
 # see execute_sql to see why I do this :-(
-  if ( grep( /^DBH$/,  keys %{$self} ) ) { $dbh = $self->{DBH}; }
+  if ( grep( $_ eq 'DBH',  keys %{$self} ) ) { $dbh = $self->{DBH}; }
 
-# Do the rollback!
+# Do the commit!
   $dbh->commit();
 }
 
@@ -481,6 +487,20 @@ sub getBlocksFromIDs
 		filter_or_eq( $self, undef, \%p, 'id', @_ );
   my $r = select_single( $self, $sql, %p );
   return $r;
+}
+
+#-------------------------------------------------------------------------------
+sub getBlockIDRange
+{
+  my $self = shift;
+  my ($n_blocks, $min_block_id) = @_;
+  $n_blocks ||= POSIX::INT_MAX;
+  $min_block_id ||= 0;
+  my $sql = qq{ select min(id) min_block, max(id) max_block from
+		  (select * from (select id from t_dps_block where id >= :min_block order by id)
+		   where rownum <= :n_blocks) };
+  my $q = execute_sql ( $self, $sql, ':min_block' => $min_block_id, ':n_blocks' => $n_blocks );
+  return $q->fetchrow();
 }
 
 #-------------------------------------------------------------------------------
