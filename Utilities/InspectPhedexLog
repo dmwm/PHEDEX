@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog,v 1.16 2007/12/12 09:22:05 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.17 2007/12/18 10:07:31 trunov Exp $:
 ###############################################################################
 
 use strict;
@@ -173,7 +173,7 @@ foreach my $log (@logfiles) {
            next;
        }
 
-       next unless ($line =~ /(^[\d\:\-\s]+): .*: xstats.*report-code=.*/);
+       next unless ($line =~ /(^[\d\:\-\s]+): .* xstats:.*report-code=.*/);
 #       print "got date $1\n"; die;
        next if ($flag_checkdate_start && ($1 le $sdstart) );
        next if ($flag_checkdate_end && ($1 ge $sdend) );
@@ -397,7 +397,7 @@ if($flag_showErrors) {
 	printf("   %3d  $err\n",$dberrinfo{$err}{num});
 	my $h=simpleHisto(\@{$dberrinfo{$err}{"date"}},10);
 	printTimeHisto($h);
-	print "<error n=\"$dberrinfo{$err}{num}\">\n$err\n</error>\n";
+	print XML "<error n=\"$dberrinfo{$err}{num}\">\n$err\n</error>\n";
     }
 
     print XML "</DataBaseErrors>\n";
