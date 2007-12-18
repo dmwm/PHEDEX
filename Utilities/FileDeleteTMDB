@@ -26,7 +26,7 @@
 ##H   CONTAINERS  a comma separated list of containers to keep even if they are empty.
 ##H               'dataset' and 'block' are supported.  This is useful to maintain 
 ##H               subscriptions if the containers are going to be refilled later.
-##H               Note that '-keep block' is incompatible with '-bulk'
+##H               Note that '-keepempty block' is incompatible with '-bulk'
 ##H
 ##H   SWITCHES
 ##H         -bulk   bulk deletion for blocks and datasets.  This is a faster
@@ -64,12 +64,19 @@ if (!$args{DBCONFIG} || !$args{LIST} || !$args{NODES})
     die "Insufficient parameters, use -h for help.\n";
 }
 
+if ($args{KEEP}) {
+    foreach my $k (split(m|,\s*|, $args{KEEP})) {
+	die "Invalid argument to -keepempty.  Accepts 'dataset' and/or 'block'\n"
+	    unless $k =~ /^(dataset|block)$/;
+    }
+}
+
 my $self = { DBCONFIG => $args{DBCONFIG} };
 our $dbh = &connectToDatabase ($self, 0);
 my $now = &mytimeofday();
 my $nodes = [ split m|,\s*|, $args{NODES} ];
 my $list = [ split m|,\s*|, $args{LIST} ];
-our $keep = { map { $_ => 1 } split(m|,\s*|, $args{KEEP}) };
+our $keep = { map { $_ => 1 } split(m|,\s*|, $args{KEEP}) } if $args{KEEP};
 my $tables = &setTableList ($nodes);
 
 if ($$keep{block} && $args{BULK}) {
