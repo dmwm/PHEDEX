@@ -237,7 +237,7 @@ sub idle
         {
 	  &limitCheck ("updated block", $new, $b);
 	  &logmsg ("updating block $b->{BLOCK} at node $b->{NODE}");
-          $self->updateBlockAtNode( NOW => $now, %{$b} )
+          $self->updateBlockAtNode( NOW => $now, %{$new} )
 		unless $self->{DUMMY};
         }
       }
