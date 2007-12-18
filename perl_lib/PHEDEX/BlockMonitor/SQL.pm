@@ -68,28 +68,21 @@ sub getExistingReplicaInfo
            	br.src_files, br.src_bytes,
            	br.node_files, br.node_bytes,
            	br.xfer_files, br.xfer_bytes
-      	from t_dps_block_replica br
-        	join t_dps_block b on b.id = br.block };
-  if ( $h{MIN_BLOCK} || $h{ROW_LIMIT} ) { $sql .= ' where '; }
-  if ( $h{MIN_BLOCK} )
+      	      from t_dps_block_replica br
+              join t_dps_block b on b.id = br.block };
+  if ( exists $h{MIN_BLOCK} && exists $h{MAX_BLOCK} )
   {
-    $sql .= 'br.block >= :block';
-    $p{':block'} = $h{MIN_BLOCK};
+      $sql .= 'where br.block >= :min_block and br.block <= :max_block';
+      $p{':min_block'} = $h{MIN_BLOCK};
+      $p{':max_block'} = $h{MAX_BLOCK};
   }
-  if ( $h{MIN_BLOCK} && $h{ROW_LIMIT} ) { $sql .= ' and '; }
-  if ( $h{ROW_LIMIT} )
-  {
-	  $sql .= 'rownum <= :row_num';
-    $p{':row_num'} = $h{ROW_LIMIT};
-  }
-  $sql .= ' for update of b.id order by block asc';
+  $sql .= ' for update of b.id';
   $q = execute_sql( $self, $sql, %p );
   while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
   if ( wantarray )
   {
-    $h{MAX_BLOCK} = $r[-1]->{BLOCK};
-    $h{N_BLOCKS}  = scalar @r;
-    return ( \@r, \%h );
+      $h{N_REPLICAS}  = scalar @r;
+      return ( \@r, \%h );
   }
   return \@r;
 }
@@ -104,19 +97,12 @@ sub getDestFilesNBytes
 		    b.files dest_files,
 		    b.bytes dest_bytes
       		from t_dps_subscription s
-      		left join t_dps_dataset ds on ds.id = s.dataset
-      		left join t_dps_block b on b.dataset = ds.id or s.block = b.id
-      		where };
-  if ( !$h->{MIN_BLOCK} && !$h->{MAX_BLOCK} ) { $sql .=' b.id is not null'; }
-  if ( $h->{MIN_BLOCK} )
+      		join t_dps_block b on b.dataset = s.dataset or b.id = s.block
+	    };
+  if ( exists $h->{MIN_BLOCK} && exists $h->{MAX_BLOCK})
   {
-    $sql .= ' b.id >= :min_block';
+    $sql .= ' where b.id >= :min_block and b.id <= :max_block';
     $p{':min_block'} = $h->{MIN_BLOCK};
-  }
-  if ( $h->{MIN_BLOCK} && $h->{MAX_BLOCK} ) { $sql .= ' and '; }
-  if ( $h->{MAX_BLOCK} )
-  {
-    $sql .= ' b.id < :max_block';
     $p{':max_block'} = $h->{MAX_BLOCK};
   }
 
@@ -135,16 +121,10 @@ sub getSrcFilesNBytes
 		    count(f.id)     src_files,
 		    sum(f.filesize) src_bytes
       		from t_dps_file f };
-  if ( $h->{MIN_BLOCK} || $h->{MAX_BLOCK} ) { $sql .= ' where '; }
-  if ( $h->{MIN_BLOCK} )
+  if ( exists $h->{MIN_BLOCK} && exists $h->{MAX_BLOCK})
   {
-    $sql .= 'f.inblock >= :min_block';
+    $sql .= ' where f.inblock >= :min_block and f.inblock <= :max_block';
     $p{':min_block'} = $h->{MIN_BLOCK};
-  }
-  if ( $h->{MIN_BLOCK} && $h->{MAX_BLOCK} ) { $sql .= ' and '; }
-  if ( $h->{MAX_BLOCK} )
-  {
-    $sql .= 'f.inblock < :max_block';
     $p{':max_block'} = $h->{MAX_BLOCK};
   }
   $sql .= ' group by f.inblock, f.node ';
@@ -164,16 +144,10 @@ sub getNodeFilesNBytes
 		    sum(f.filesize)  node_bytes
       		from t_xfer_replica xr
 		join t_xfer_file f on f.id = xr.fileid };
-  if ( $h->{MIN_BLOCK} || $h->{MAX_BLOCK} ) { $sql .= ' where '; }
-  if ( $h->{MIN_BLOCK} )
+  if ( exists $h->{MIN_BLOCK} && exists $h->{MAX_BLOCK})
   {
-    $sql .= 'f.inblock >= :min_block';
+    $sql .= ' where f.inblock >= :min_block and f.inblock <= :max_block';
     $p{':min_block'} = $h->{MIN_BLOCK};
-  }
-  if ( $h->{MIN_BLOCK} && $h->{MAX_BLOCK} ) { $sql .= ' and '; }
-  if ( $h->{MAX_BLOCK} )
-  {
-    $sql .= 'f.inblock < :max_block';
     $p{':max_block'} = $h->{MAX_BLOCK};
   }
   $sql .= ' group by f.inblock, xr.node';
@@ -193,16 +167,11 @@ sub getXferFilesNBytes
 		    sum(f.filesize)  xfer_bytes
       		from t_xfer_task xt
 		join t_xfer_file f on f.id = xt.fileid };
-  if ( $h->{MIN_BLOCK} || $h->{MAX_BLOCK} ) { $sql .= ' where '; }
-  if ( $h->{MIN_BLOCK} )
+
+  if ( exists $h->{MIN_BLOCK} && exists $h->{MAX_BLOCK})
   {
-    $sql .= 'f.inblock >= :min_block';
+    $sql .= ' where f.inblock >= :min_block and f.inblock <= :max_block';
     $p{':min_block'} = $h->{MIN_BLOCK};
-  }
-  if ( $h->{MIN_BLOCK} && $h->{MAX_BLOCK} ) { $sql .= ' and '; }
-  if ( $h->{MAX_BLOCK} )
-  {
-    $sql .= 'f.inblock < :max_block';
     $p{':max_block'} = $h->{MAX_BLOCK};
   }
   $sql .= ' group by f.inblock, xt.to_node';
@@ -251,6 +220,7 @@ sub createBlockAtNode
   my ($self,%h) = @_;
   my ($sql,%p);
 
+  my @b = qw(now block node dest_files dest_bytes src_files src_bytes node_files node_bytes xfer_files xfer_bytes);
   $sql = qq{ insert into t_dps_block_replica
         (time_create, time_update,
          block, node, is_active,
@@ -265,7 +235,7 @@ sub createBlockAtNode
                 :node_files, :node_bytes,
                 :xfer_files, :xfer_bytes) };
   $h{NOW} = mytimeofday() unless $h{NOW};
-  foreach ( keys %h ) { $p{ ':' . lc($_) } = $h{$_}; }
+  foreach ( @b ) { $p{ ':' . $_ } = $h{uc($_)}; }
 
   return if exists $self->{DUMMY} && $self->{DUMMY};
   execute_sql( $self, $sql, %p );

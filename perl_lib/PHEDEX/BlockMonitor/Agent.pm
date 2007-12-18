@@ -30,11 +30,10 @@ our %params =
     	  DBCONFIG  => undef,		# Database configuration file
 	  WAITTIME  => 120 + rand(30),	# Agent cycle time
 	  DUMMY     => 0,		# Dummy the updates
-	  ROW_LIMIT => 10000,		# Number of blocks to process at once
-	  MIN_BLOCK => undef,		# First block to process in a pass
+	  BLOCK_LIMIT => 5000,		# Number of blocks to process at once (memory safeguard)
 
 	 VERBOSE	=> 0,
-	 DEBUG		=> 1,
+	 DEBUG		=> 0,
 	 TERSE		=> 0
 	);
 
@@ -104,7 +103,6 @@ sub idle
 
   my $t0 = time();
 
-  $self->{MIN_BLOCK} = 0;
   eval
   {
     $dbh = &connectToDatabase ($self);
@@ -119,33 +117,26 @@ sub idle
     my $now = &mytimeofday ();
 
     my ($h,$qexisting,$row,$qactive,$q);
-    do
+    my ($min_block, $max_block) = (0, 0);
+    while ( (($min_block, $max_block) = $self->getBlockIDRange($self->{BLOCK_LIMIT}, $min_block))
+	    && defined $max_block ) 
     {
+	&logmsg ("Block ID range $min_block to $max_block has up to $self->{BLOCK_LIMIT} blocks") if $self->{DEBUG};
+	
+
       my (%replicas,%active);
       ($qexisting,$h) = $self->getExistingReplicaInfo
 		(
-		  ROW_LIMIT => $self->{ROW_LIMIT},
-		  MIN_BLOCK => $self->{MIN_BLOCK},
+		  MIN_BLOCK => $min_block,
+		  MAX_BLOCK => $max_block
 		);
-      print "Retrieved $h->{N_BLOCKS} blocks up to ID=$h->{MAX_BLOCK}\n";
+      &logmsg ("Retrieved $h->{N_REPLICAS} replicas up to block ID $h->{MAX_BLOCK}") if $self->{DEBUG};
+
       while ( $row = shift @{$qexisting} )
       {
         $replicas{$row->{BLOCK}}{$row->{NODE}} = $row;
         &limitCheck ("existing block", $row);
       }
-
-      # Deal with edge-effects. If I retrieved up to the ROW_LIMIT then
-      # I may not have all the replicas for the last block, so I eliminate
-      # it from consideration this time round. I adjust the MIN_BLOCK
-      # parameter before coming back round the loop to account for this.
-      #
-      # I could have put this in the loop above, to avoid a few limitCheck
-      # calls, but that would obfuscate the code.
-      if ( $h->{N_BLOCKS} == $self->{ROW_LIMIT} )
-      {
-        delete $replicas{$h->{MAX_BLOCK}};
-      }
-      else { $h->{MAX_BLOCK}++; } # To make sure get*FilesNBytes do their jobs
 
       # Get file counts in currently active files: those destined at
       # nodes, those at the nodes, and those in transfer to nodes.
@@ -202,12 +193,6 @@ sub idle
 	    $b->{EMPTY_SOURCE} = 0;
         }
       }
-
-#      # Move the MIN_BLOCK marker and go round again...?
-#      $self->{MIN_BLOCK} = $h->{MAX_BLOCK};
-#    } while ( $h->{N_BLOCKS} == $self->{ROW_LIMIT} );
-
-#    my (%replicas,%active);
 
       # Compare differences I: start from previous replicas.
       foreach my $b (map { values %$_ } values %replicas)
@@ -293,23 +278,22 @@ sub idle
         &logmsg ("creating block $b->{BLOCK} at node $b->{NODE}");
         $self->createBlockAtNode( NOW => $now, %{$b} )
 		unless $self->{DUMMY};
-      }
-
-      # Move the MIN_BLOCK marker and go round again...?
-      $self->{MIN_BLOCK} = $h->{MAX_BLOCK};
-    } while ( $h->{N_BLOCKS} == $self->{ROW_LIMIT} );
+    }
+      
+      $min_block = $max_block + 1; # iterate blocks
+  }
 
     # All done.
-    $dbh->commit ();
+    $self->execute_commit();
   };
   do { chomp ($@); &alert ("database error: $@");
-  eval { $dbh->rollback() } if $dbh } if $@;
+  eval { $self->execute_rollback() } if $dbh } if $@;
 
   # Disconnect from the database.
   &disconnectFromDatabase ($self, $dbh);
 
   my $t1 = time(); 
-  $self->{DEBUG} && &logmsg ("cycle:  ".($t1-$t0));
+  &logmsg ("cycle:  ".($t1-$t0)) if $self->{DEBUG};
 
   # Have a little nap.
   $self->nap ($$self{WAITTIME});
@@ -322,10 +306,10 @@ sub isInvalid
                 (
                   REQUIRED => [ qw / MYNODE DROPDIR DBCONFIG / ],
                 );
-  if ( defined($self->{ROW_LIMIT}) && $self->{ROW_LIMIT} < 1000 )
+  if ( defined($self->{BLOCK_LIMIT}) && $self->{BLOCK_LIMIT} < 1000 )
   {
     $errors++;
-    print __PACKAGE__,": ROW_LIMIT < 1000 is nuts, forget it...\n";
+    print __PACKAGE__,": BLOCK_LIMIT < 1000 is nuts, forget it...\n";
   }
   return $errors;
 }
