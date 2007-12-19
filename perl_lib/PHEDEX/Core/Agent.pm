@@ -287,6 +287,12 @@ You should not normally need to override the default init method, but if you
 do you should call this base method early in the overridden code, via
 C<< $self->SUPER::init >>.
 
+Unlike C<< isInvalid >>, C<< init >> does have side-effects, so should not be
+called at random in your code. The advantage of having an C<< init >> method,
+instead of doing everything in the constructor, is that you can defer some
+checks until you intend to use the object. This will be useful when/if we get
+round to running more than one agent in the same process, for example.
+
 =cut
 sub init
 {
@@ -331,7 +337,9 @@ You do not need to provide an override for the derived class if you don't
 want to, nothing bad will happen.
 
 If you do need to validate your derived class you can do anything you want in
-this method.
+this method. Note that the intention is that this method does not change the
+object, and can in principle be called from anywhere. Beyond that, any sort
+of checks you want are reasonable.
 
 =cut
 sub isInvalid

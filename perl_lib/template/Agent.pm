@@ -72,7 +72,22 @@ method o provide a minimal functioning agent.
 =head2 init
 
 The C<< init >> method is used to fully initialise the object. This is separate
-from the constructor, and is called from the C<< process >> method. 
+from the constructor, and is called from the C<< process >> method. This gives
+you a handle on things between construction and operation, so if we go to
+running more than one agent in a single process, we can do things between the
+two steps.
+
+One thing in particular that the C<< init >> method can handle is string values
+that need re-casting as arrays or hashes. We currently hard-code arrays such as
+C<< IGNORE_NODES >> in our agents, but that can now be passed directly to the
+agent in the constructor arguments as a string. The C<< init >> method in the
+base class takes a key-value pair of 'ARRAYS'-(ref to array of strings). The
+strings in the ref are taken as keys in the object, and, if the corresponding
+key is set, it is turned into an array by splitting it on commas. If the key
+is not set in the object, it is set to an empty array. This way,
+C<< IGNORE_NODES >> and its cousins can be passed in from a configuration file
+or from the command line. See C<< perl_lib/template/Agent.pl >> for an example
+of how to do this, commented in the code.
 
 =cut
 
@@ -114,7 +129,11 @@ for failure, and the agent will die.
 
 You can use the parent PHEDEX::Core::Agent::IsInvalid method for routine
 checking of the existence and type-validity of members variables, and add
-your own specific checks here.
+your own specific checks here. The intent is that isInvalid should be
+callable from anywhere in the code, should you wish to do such a thing, so
+it should not have side-effects, such as changing the object contents or state
+in any way. If you need to initialise an object further than you can in
+C<< new >>, use the C<< init >> method to set it up.
 
 You do not need to validate the basic PHEDEX::Core::Agent object, that will
 already have happened in the constructor.
