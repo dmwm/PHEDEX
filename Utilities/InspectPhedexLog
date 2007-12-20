@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog,v 1.18 2007/12/18 13:15:41 trunov Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.19 2007/12/18 14:20:42 trunov Exp $:
 ###############################################################################
 
 use strict;
@@ -13,6 +13,7 @@ use Getopt::Std;
 use Data::Dumper;
 use Time::Local;
 use POSIX;
+use HTML::Entities;
 
 my $flag_showErrors=0;
 my $flag_rawErrors=0;
@@ -397,6 +398,7 @@ if($flag_showErrors) {
 	printf("   %3d  $err\n",$dberrinfo{$err}{num});
 	my $h=simpleHisto(\@{$dberrinfo{$err}{"date"}},10);
 	printTimeHisto($h);
+	$err = HTML::Entities::encode($err);
 	print XML "<error n=\"$dberrinfo{$err}{num}\">\n$err\n</error>\n";
     }
 
@@ -592,6 +594,8 @@ sub DateToUnixEpochSeconds {
 	$unixs = time() - 24*3600*$D;
     } elsif( (($h) = $date =~ m/\s*-\s*(\d+)\s*hour/) ) {
 	$unixs = time() - 3600*$h;
+    } elsif( (($m) = $date =~ m/\s*-\s*(\d+)\s*min/) ) {
+	$unixs = time() - 60*$m;
     } elsif( $date =~ /^\s*now\s*$/) {
 	$unixs = time();
     } elsif( $date =~ /^\s*yesterday\s*$/) {
