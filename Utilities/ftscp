@@ -50,6 +50,7 @@
 ##H 123 - file specified with -mapfile is unreadable
 ##H 201 - running in single server mode, without specifying a server
 ##H 301 - too many errors from status update
+##H 302 - FTS submission failed
 
 usage() { grep '^##H' < $0 | sed 's/^\(##H \|##H$\)//'; exit 1; }
 
@@ -179,8 +180,24 @@ passopt="-p $(cat "$passfile")"
 passoptshow="-p _censored_"
 fi 
 echo "+ glite-transfer-submit $passoptshow $myproxy_server $server -f $copyjobfile"
-ftsjob=$(glite-transfer-submit $passopt $myproxy_server $server -f $copyjobfile | grep -v Enter)
+tmperr=$(mktemp);
+ftsjob=$(glite-transfer-submit $passopt $myproxy_server $server -f $copyjobfile 2>$tmperr | grep -v Enter )
+echo "exitcode=$?"
+cat $tmperr
+err=$(cat $tmperr| tr '\n' ' ');
+rm -f $tmperr
 echo "ftsjob=$ftsjob"
+
+# If ftsjob is empty - submission failed.
+# Produce report file with submission error and exit
+if [ "$ftsjob" = '' ]; then 
+    cat $copyjobfile | while read s t; do
+	echo $s $t "1 Failed Failed FTS submit: " ${err:-Error not captured} 
+	done > $report;
+    sleep 10;
+    exit 302;
+fi
+
 
 # Poll transfer status, record output into the report
 while true; do
