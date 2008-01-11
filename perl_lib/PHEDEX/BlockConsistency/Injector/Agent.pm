@@ -141,7 +141,7 @@ sub idle
     my ($filter, %filter_args) = &otherNodeFilter ($self, "nd.id");
 
 #   first, some cleanup...
-    my @r = @{PHEDEX::BlockConsistency::Core::getObsoleteTests( $self )}[0..29];
+    my @r = @{PHEDEX::BlockConsistency::Core::getObsoleteTests($self)}[0..1000];
     PHEDEX::BlockConsistency::Core::clearTestDetails( $self, @r );
     $self->{DBH}->commit;
 

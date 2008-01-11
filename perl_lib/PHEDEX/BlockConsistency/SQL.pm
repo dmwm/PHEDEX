@@ -98,6 +98,7 @@ sub getObsoleteTests
   $sql = qq{ select b.id, count(fileid), time_expire
 	     from t_dvs_block b join t_dvs_file f on b.id = f.request
 	     where time_expire < :time_expire
+	     and rownum < 10000
 	     group by b.id, time_expire
              order by time_expire desc };
 
