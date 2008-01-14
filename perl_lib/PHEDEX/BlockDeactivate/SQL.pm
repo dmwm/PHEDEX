@@ -51,10 +51,10 @@ t_dps_block_replica for this block.
 =item setBlockInactive( %h )
 
 Takes a hash with a BLOCK id and an optional NOW key, a unix epoch time. NOW
-defaults to the current time if not set. The block has its is_open flag set
+defaults to the current time if not set. All block replicas have their is_active flag set
 to 'n', and time_update set to NOW.
 
-=item setBlockActive( %h )
+=item setBlockOpen( %h )
 
 Takes a hash with a BLOCK id and an optional NOW key, a unix epoch time. NOW
 defaults to the current time if not set. The block has its is_open flag set
@@ -119,6 +119,7 @@ sub getBlockDeactivationCandidates
   my $limit = $h{LIMIT};
   my $block = $h{BLOCK};
   my $lock  = $h{LOCK_FOR_UPDATE};
+  my $now = $h{NOW} || mytimeofday();
   my ($sql,%p,$q,@r);
 
   warn "No LIMIT defined in getBlockDeactivationCandidates\n" unless $limit;
@@ -137,6 +138,10 @@ sub getBlockDeactivationCandidates
               and not exists (select 1 from t_dps_block_delete bd
                                where bd.block = b.id
                                  and bd.time_complete is not null)
+              and not exists (select 1 from t_dps_block_activate ba
+                               where ba.block = b.id
+                                 and (ba.time_until is null
+                                      or ba.time_until > :now))
            };
   if ( $block )
   {
@@ -147,6 +152,7 @@ sub getBlockDeactivationCandidates
   if ( $lock ) { $sql .= ' for update of b.id'; }
 
   $p{':limit'} = $limit;
+  $p{':now'} = $now;
   $q = execute_sql( $self, $sql, %p );
 
   if ( $block ) { return  $q->fetchrow_hashref(); }
@@ -179,8 +185,8 @@ sub setBlockInactive
   $id = $h{BLOCK};
   $now = $h{NOW} || mytimeofday();
 
-  $sql = qq{ update t_dps_block set is_open = 'n', time_update = :now
-		where id = :block };
+  $sql = qq{ update t_dps_block_replica set is_active = 'n', time_update = :now
+	      where block = :block};
   %p = ( ':block' => $id,
 	 ':now'   => $now );
   ($db,$nb) = execute_sql ($self, $sql, %p );
@@ -188,7 +194,7 @@ sub setBlockInactive
 }
 
 #-------------------------------------------------------------------------------
-sub setBlockActive
+sub setBlockOpen
 {
   my $self = shift;
   my ($sql,%h,%p,$id,$now,$db,$nb);
