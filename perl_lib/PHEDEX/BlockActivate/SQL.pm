@@ -168,6 +168,8 @@ sub activateBlock
       set is_active = 'y', time_update = :now
       where block = :block},
       ":block" => $block, ":now" => $now);
+
+  return ($nfile, $nreplica);
 }
 
 1;
