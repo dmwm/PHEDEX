@@ -468,7 +468,12 @@ sub fetch_nodes
 	}
 
 	my $global_admin = (exists $$roles{'Global Admin'} &&
-			    grep $_ = 'phedex', @{$$roles{'Global Admin'}}) || 0;
+			    grep $_ eq 'phedex', @{$$roles{'Global Admin'}}) || 0;
+
+	# Special "global admin" role only if explicitly specified
+	$global_admin = 1 if (grep($_ eq 'PADA Admin', @to_check) &&
+			      exists $$roles{'PADA Admin'} &&
+			      grep($_ eq 'phedex', @{$$roles{'PADA Admin'}}));
 
 	return unless ($roles && ($roles_ok || $global_admin));
 	
@@ -5864,25 +5869,27 @@ sub new
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(@_);
 
-  $$self{PERIOD_ORDER} = [ qw(l24h l48h l72h l96h l132h l7d l14d l30d l45d l90d l120d
+  $$self{PERIOD_ORDER} = [ qw(l12h l24h l48h l72h l96h l132h l7d l14d l30d l45d l90d l120d
 			    l6w l26w l52w ad aw am) ];
-  $$self{PERIODS} = { "l24h" => [ "24:hour", "Last 24 Hours" ],
-		    "l48h" => [ "48:hour", "Last 48 Hours" ],
-	            "l72h" => [ "72:hour", "Last 72 Hours" ],
-	            "l96h" => [ "96:hour", "Last 96 Hours" ],
-	            "l132h" => [ "132:hour", "Last 132 Hours" ],
-	            "l7d" => [ "7:day", "Last 7 Days" ],
-	            "l14d" => [ "14:day", "Last 14 Days" ],
-	            "l30d" => [ "30:day", "Last 30 Days" ],
-	            "l45d" => [ "45:day", "Last 45 Days" ],
-	            "l90d" => [ "90:day", "Last 90 Days" ],
-	            "l120d" => [ "120:day", "Last 120 Days" ],
-	            "l6w" => [ "6:week", "Last 6 Weeks" ],
-	            "l26w" => [ "26:week", "Last 26 Weeks" ],
-	            "l52w" => [ "52:week", "Last 52 Weeks" ],
-	            "ad" => [ "0:day", "Daily Since Start" ],
-	            "aw" => [ "0:week", "Weekly Since Start" ],
-	            "am" => [ "0:month", "Monthly Since Start" ] };
+  $$self{PERIODS} = {
+      "l12h" => [ "12:hour", "Last 12 Hours" ],
+      "l24h" => [ "24:hour", "Last 24 Hours" ],
+      "l48h" => [ "48:hour", "Last 48 Hours" ],
+      "l72h" => [ "72:hour", "Last 72 Hours" ],
+      "l96h" => [ "96:hour", "Last 96 Hours" ],
+      "l132h" => [ "132:hour", "Last 132 Hours" ],
+      "l7d" => [ "7:day", "Last 7 Days" ],
+      "l14d" => [ "14:day", "Last 14 Days" ],
+      "l30d" => [ "30:day", "Last 30 Days" ],
+      "l45d" => [ "45:day", "Last 45 Days" ],
+      "l90d" => [ "90:day", "Last 90 Days" ],
+      "l120d" => [ "120:day", "Last 120 Days" ],
+      "l6w" => [ "6:week", "Last 6 Weeks" ],
+      "l26w" => [ "26:week", "Last 26 Weeks" ],
+      "l52w" => [ "52:week", "Last 52 Weeks" ],
+      "ad" => [ "0:day", "Daily Since Start" ],
+      "aw" => [ "0:week", "Weekly Since Start" ],
+      "am" => [ "0:month", "Monthly Since Start" ] };
   $$self{DEFAULT_PERIOD} = 'l96h';
   $$self{DEFAULT_GRAPH} = undef;
   $$self{GRAPH_ORDER} = [];
@@ -8443,9 +8450,10 @@ sub output_page
   if (!$$self{SECMOD}->isAuthenticated() &&
       !($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
 	$$self{SECMOD}->hasRole('Data Manager') ||
-	$$self{SECMOD}->hasRole('Site Admin'))) {
+	$$self{SECMOD}->hasRole('Site Admin') ||
+	$$self{SECMOD}->hasRole('PADA Admin'))) {
       $self->auth_help_popup('manage LoadTest injections'
-			     => ['cert', 'Data Manager', 'Site Admin', 'Global Admin']);
+			     => ['cert', 'Data Manager', 'Site Admin', 'PADA Admin', 'Global Admin']);
   }
   
   my %admin_opts = ('rate'       => 'set rate (MB/s)',
@@ -8458,8 +8466,9 @@ sub output_page
   my $admin_ok = 0;
   if ($$self{SECMOD}->isCertAuthenticated() &&
       ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
-      $$self{SECMOD}->hasRole('Data Manager') ||
-      $$self{SECMOD}->hasRole('Site Admin'))) {
+       $$self{SECMOD}->hasRole('Data Manager') ||
+       $$self{SECMOD}->hasRole('Site Admin') ||
+       $$self{SECMOD}->hasRole('PADA Admin'))) {
       $admin_ok = 1;
   }
 
@@ -8485,7 +8494,7 @@ sub output_page
     DEST_DATASET_NAME => 'Injection Dataset',
     THROTTLE_NODE_NAME => 'Destination Node',
     IS_ACTIVE => 'Status',
-    RATE => 'Peak Rate',
+    RATE => 'Rate',
     INJECT_NOW => 'Inject Now',
     TIME_INJECT => 'Last Injection'
     };
@@ -8495,7 +8504,7 @@ sub output_page
   my $df = 
   { 
       IS_ACTIVE   => sub { return $_[0] eq 'y' ? 'Active' : 'Stopped'; },
-      RATE => sub { return &format_size($_[0]) . "/s"; },
+      RATE => sub { return &format_size($_[0], 1) . "/s"; },
       TIME_INJECT => sub { &formatTime($_[0], 'stamp') || '&#8211;' }
   };
 
@@ -8656,7 +8665,7 @@ sub update_injections
 
     my $actionvalue = param('actionvalue');
     if (($action eq 'rate' || $action eq 'inject_now')
-	&& (!defined $actionvalue || ! (sprintf("%.4f", $actionvalue) > 0) )) {
+	&& (!defined $actionvalue || ! (sprintf("%.4f", $actionvalue) >= 0) )) {
 	my $desc;
 	if    ($action eq 'rate')       { $desc = 'change the rate'; }
 	elsif ($action eq 'inject_now') { $desc = 'do an immediate injection'; }
@@ -8679,7 +8688,7 @@ sub update_injections
 	return;
     }
 
-    my %auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager||Site Admin', with_ids => 1);
+    my %auth_nodes = $self->fetch_nodes(web_user_auth => 'PADA Admin||Data Manager||Site Admin', with_ids => 1);
     
     my %all_nodes = reverse $self->fetch_nodes(with_ids => 1); # just a hash of id => name
 
@@ -8885,7 +8894,7 @@ sub create_injection
 sub get_sources
 {
     my ($self) = @_;
-    my %auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager||Site Admin', with_ids => 1);
+    my %auth_nodes = $self->fetch_nodes(web_user_auth => 'PADA Admin||Data Manager||Site Admin', with_ids => 1);
     return {} unless %auth_nodes;
     my ($node_list, %node_binds) = &dbinlist('node', values %auth_nodes );
 
