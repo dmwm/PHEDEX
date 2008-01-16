@@ -87,6 +87,7 @@ $not_on_tape_time = 12; # in hour(s)
 %check = (
 		'size'		=> 1,
  		'migration'	=> 0,
+	        'ondisk'        => 0,
 #		'cksum'		=> 0,
 #		'dbs'		=> 0,
 	 );
@@ -331,7 +332,7 @@ foreach $lfn ( keys %{$h{LFNs}} )
 my ($t,$step,$last,$etc);
 $step = 1;
 $last = $t = 0;
-if ( $check{size} || $check{migration} )
+if ( $check{size} || $check{migration} || $check{ondisk} )
 {
 # Determine the castor size and migration status of the LFNs...
   my ($i,$j);
@@ -362,6 +363,7 @@ if ( $check{size} || $check{migration} )
     if ( defined($h{SE}{$lfn}{size} = $sesize) )
     {
       $h{SE}{$lfn}{migration} = $ns->statmode($h{LFN}{$lfn}{PFN});
+      $h{SE}{$lfn}{ondisk}    = $ns->statondisk($h{LFN}{$lfn}{PFN});
     }
   }
 }
@@ -453,6 +455,33 @@ if ( $check{migration} )
     $h{Checks}{migration}{LFNs}   {Total}   {$field}++;
 
     if ( $field ne 'OK' ) { $h{Detail}{$dataset}{$block}{$lfn}{$field}++; }
+  }
+}
+
+if ( $check{ondisk} )
+{
+  foreach $lfn ( keys %{$h{SE}} )
+  {
+#   Don't care about files not in TMDB
+    next unless exists $h{LFNs}{$lfn};
+
+
+    my $block   = $h{LFNs}{$lfn}{Block} or
+				 die "Cannot determine block for $lfn\n";
+    my $dataset = $h{Blocks}{$block}{Dataset} or
+				 die "Cannot determine dataset for $block\n";
+
+    my $field = 'Errors';
+    if ( defined($h{SE}{$lfn}{ondisk}) )
+    {
+      $field = $h{SE}{$lfn}{ondisk} ? 'OnDisk' : 'NotOnDisk';
+    }
+    else { $field = 'Missing'; }
+    $h{Checks}{ondisk}{Dataset}{$dataset}{$field}++;
+    $h{Checks}{ondisk}{Blocks} {$block}  {$field}++;
+    $h{Checks}{ondisk}{LFNs}   {Total}   {$field}++;
+
+    if ( $field ne 'OnDisk' ) { $h{Detail}{$dataset}{$block}{$lfn}{$field}++; }
   }
 }
 

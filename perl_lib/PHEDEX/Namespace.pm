@@ -300,6 +300,12 @@ sub statmode
   return $self->stat_key('Migrated',@_);
 }
 
+sub statondisk
+{
+  my $self = shift;
+  return $self->stat_key('OnDisk',@_);
+}
+
 #-----------------------
 # protocol-specific bits
 
@@ -356,6 +362,7 @@ sub srmstat
     {
       chomp;
       if ( m%^\s+size\s*:\s*(\d+)% ) { $stat{$pfn}{Size} = $1; }
+      if ( m%^\s+isCached\s*:\s*(true|false)% ) { $stat{$pfn}{OnDisk} = ($1 eq 'true')?1:0; }
     }
   }
 
