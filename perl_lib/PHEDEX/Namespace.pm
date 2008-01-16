@@ -109,9 +109,10 @@ our @EXPORT = ();
 our %pmap = ( rfio => 'rf',
 	      srm  => 'srm',
 	      disk => 'unix',
+	      dcap => 'dcap',
 	    );
 our %tmap = ( Castor => 'rfio',
-	      dCache => 'disk',
+	      dCache => 'dcap',
 	      Disk   => 'disk',
 	      DPM    => 'dpns',
 	    );
@@ -396,8 +397,8 @@ sub dpmstat
 }
 
 #-----------------------
-# DCACHE / Disk
-sub unixstat
+# DCACHE
+sub dcapstat
 {
   my $self = shift;
   my ($pfn,$r,$cmd);
@@ -415,10 +416,39 @@ sub unixstat
       m%^\s*\d+\s+([-dm])\S+\s+\S+\s+\S+\s+\S+\s+(\d+).*$bpfn$% or next;
       $stat{$pfn}{Size} = $2;
     }
+
+    
+
   }
 
   map { $r->{$_} = $stat{$_} } @_;
   return $r;
+}
+
+#-----------------------
+# Disk
+sub unixstat
+{
+    my $self = shift;
+    my ($pfn,$r,$cmd);
+    $cmd = 'ls -ls';
+
+    $self->_stat($cmd,@_);
+  foreach my $pfn ( @_ )
+  {
+      next if exists $stat{$pfn}{Size};
+      if ( $self->{VERBOSE} >= 3 ) { print "$cmd $pfn...\n"; }
+      foreach ( split("\n", $stat{$pfn}{RAW}) )
+      {
+	  chomp;
+	  my $bpfn = basename $pfn;
+	  m%^\s*\d+\s+([-dm])\S+\s+\S+\s+\S+\s+\S+\s+(\d+).*$bpfn$% or next;
+	  $stat{$pfn}{Size} = $2;
+      }
+  }
+
+    map { $r->{$_} = $stat{$_} } @_;
+    return $r;
 }
 
 1;
