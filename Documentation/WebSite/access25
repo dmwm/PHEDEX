@@ -4188,7 +4188,7 @@ sub output
       my @auth_nodes;
       if ($$self{SECMOD}->isCertAuthenticated() &&
 	    ($$self{SECMOD}->hasRole('Global Admin', 'phedex') || $$self{SECMOD}->hasRole('Data Manager'))) {
-	  @auth_nodes = $self->fetch_nodes(web_user_auth => 1); 
+	  @auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager'); 
       }
       $self->printRequest($rid, @auth_nodes);
 
