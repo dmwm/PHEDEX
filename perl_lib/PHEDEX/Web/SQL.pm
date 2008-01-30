@@ -79,10 +79,11 @@ sub AUTOLOAD
   $self->$parent(@_);
 }
 
+
 sub getTransferStatus
 {
-    my $self = shift;
-    my ($sql,$q,@r,%h);
+    my ($self, %h) = @_;
+    my ($sql,$q,@r);
     
     %h = @_;
     
@@ -99,6 +100,49 @@ sub getTransferStatus
  };
 
     $q = execute_sql( $self, $sql, () );
+    while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
+
+    return \@r;
+}
+
+sub getBlockReplicas
+{
+    my ($self, %h) = @_;
+    my ($sql,$q,%p,@r);
+    
+    $sql = qq{
+        select b.name block_name,
+	       b.id block_id,
+	       n.name node_name,
+	       n.id node_id,
+	       n.se_name se_name
+          from t_dps_block_replica br
+	  join t_dps_block b on b.id = br.block
+	  join t_dps_dataset ds on ds.id = b.dataset
+	  join t_adm_node n on n.id = br.node
+	 where b.is_open = 'n'
+	   and br.node_files = b.files
+           and br.dest_files = b.files
+	   and n.se_name is not null 
+       };
+
+    # XXX Temp limit
+    $sql .= " and rownum < :limit";
+    $p{':limit'} = $h{limit} || 1000;
+
+    if (exists $h{node}) {
+	$sql .= ' and ('. filter_or_eq($self, undef, \%p, 'n.name', $h{node}) . ')';
+    }
+
+    if (exists $h{se}) {
+	$sql .= ' and ('. filter_or_eq($self, undef, \%p, 'n.se_name', $h{se}) . ')';
+    }
+
+     if (exists $h{block}) {
+ 	$sql .= ' and ('. filter_or_like($self, undef, \%p, 'b.name', $h{block}) . ')';
+     }
+
+    $q = execute_sql( $self, $sql, %p );
     while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
 
     return \@r;

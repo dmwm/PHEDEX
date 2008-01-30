@@ -304,13 +304,8 @@ sub execute_sql
   $dbh = $self;
   if ( grep( $_ eq 'DBH',  keys %{$self} ) ) { $dbh = $self->{DBH}; }
 
-# Properly escape any strings with underscores if the SQL statement has a
-# 'like' clause, and add the appropriate 'escape' declaration to it.
-  if ( $query =~ m%\blike\b%i )
-  {
-    foreach ( keys %param ) { $param{$_} =~ s%_%\\_%g; }
-    $query =~ s%\blike\b\s+(:[^\)\s]+)%like $1 escape '\\' %gi;
-  }
+  $q = &dbexec($dbh, $query, %param);
+  return $q;
 
   if ( wantarray )
   {
@@ -370,12 +365,40 @@ sub getTable
 }
 
 #-------------------------------------------------------------------------------
+# Escape any strings with underscores for literal use in a "like" condition
+# TODO:  does this belong in a more general "Utilities" package?
+sub escape_sql_like
+{
+    my %p = @_;
+    foreach ( keys %p ) { $p{$_} =~ s%_%\\_%g; };
+    return %p;
+}
+
+#-------------------------------------------------------------------------------
+# Takes an array and expands all arrayrefs in the array and expands them
+# TODO:  does this belong in a more general "Utilities" package?
+sub arrayref_expand
+{
+    my @in = @_;
+    my @out;
+    foreach (@in) {
+	if    (!ref $_)           { push @out, $_; }
+	elsif (ref $_ eq 'ARRAY') { push @out, @$_; } 
+	else { next; }
+    }
+    return @out;
+}
+
+
+#-------------------------------------------------------------------------------
 sub filter_and_like
 {
   my ($self,$s,$p,$k,@v) = @_;
+  @v = arrayref_expand(@v);
+  my $kbind = $k;  $kbind =~ s/\./_/;
   my $i = 1;
-  $$s .= join(' and ', map { $p->{':' . $k . $i} = $_; # bind parameters
-			     "$k like :$k" . $i++      # sql statement
+  $$s .= join(' and ', map { $p->{':' . $kbind . $i} = $_; # bind parameters
+			     "$k like :$kbind" . $i++      # sql statement
 			   } @v
 	   );
   return %{$p} if wantarray;
@@ -386,9 +409,11 @@ sub filter_and_like
 sub filter_or_like
 {
   my ($self,$s,$p,$k,@v) = @_;
+  @v = arrayref_expand(@v);
+  my $kbind = $k;  $kbind =~ s/\./_/;
   my $i = 1;
-  $$s .= join(' or ', map { $p->{':' . $k . $i} = $_; # bind parameters
-			    "$k like :$k" . $i++      # sql statement
+  $$s .= join(' or ', map { $p->{':' . $kbind . $i} = $_; # bind parameters
+			    "$k like :$kbind" . $i++      # sql statement
 			   } @v
 	   );
   return %{$p} if wantarray;
@@ -399,9 +424,11 @@ sub filter_or_like
 sub filter_or_eq
 {
   my ($self,$s,$p,$k,@v) = @_;
+  @v = arrayref_expand(@v);
+  my $kbind = $k;  $kbind =~ s/\./_/;
   my $i = 1;
-  $$s .= join(' or ', map { $p->{':' . $k . $i} = $_; # bind parameters
-			    "$k = :$k" . $i++      # sql statement
+  $$s .= join(' or ', map { $p->{':' . $kbind . $i} = $_; # bind parameters
+			    "$k = :$kbind" . $i++      # sql statement
 			   } @v
 	   );
   return %{$p} if wantarray;
