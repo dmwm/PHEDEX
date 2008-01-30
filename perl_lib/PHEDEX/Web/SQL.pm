@@ -54,7 +54,7 @@ sub new
 {
   my $proto = shift;
   my $class = ref($proto) || $proto;
-# my $self  = ref($proto) ? $class->SUPER::new(@_) : {};
+## my $self  = ref($proto) ? $class->SUPER::new(@_) : {};
   my $self  = $class->SUPER::new(@_);
 
   my %args = (@_);
