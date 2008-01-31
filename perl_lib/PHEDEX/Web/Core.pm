@@ -79,11 +79,7 @@ sub call
 	$obj->{request_timestamp} = $self->{REQUEST_TIME};
 	$obj->{request_date} = &formatTime($self->{REQUEST_TIME}, 'stamp');
 	$obj->{call_time} = sprintf('%.5f', $t2 - $t1);
-	$obj = { phedexData => $obj };
-
-# 	use Data::Dumper;
-#	print "<verbatim>", Dumper($obj), "</verbatim>";
-# 	return;
+	$obj = { phedex => $obj };
 
 	my $converter = new XML::XML2JSON(pretty => 0);
 	if ($args{format} eq 'text/xml') {
@@ -116,25 +112,35 @@ sub blockReplicas
     my ($self, %h) = @_;
     my $r = &PHEDEX::Web::SQL::getBlockReplicas($self, %h);
 
-    # Format into node->block hierarchy
-    my $nodes = {};
+    # Format into block->replica heirarchy
+    my $blocks = {};
     foreach my $row (@$r) {
-	my $id = $row->{node_id};
+	my $id = $row->{block_id};
 	
-	if (!exists $nodes->{ $id }) {
-	    $nodes->{ $id } = { id => $id,
-				name => $row->{node_name},
-				storage_element => $row->{se_name},
-				block => []
-				};
+	# <block> element
+	if (!exists $blocks->{ $id }) {
+	    $blocks->{ $id } = { id => $id,
+				 name => $row->{block_name},
+				 files => $row->{block_files},
+				 bytes => $row->{block_bytes},
+				 is_open => $row->{is_open},
+				 replica => []
+				 };
 	}
 	
-	push @{ $nodes->{ $id }->{block} }, { id => $row->{block_id},
-					      name => $row->{block_name} };
-	  
+	# <replica> element
+	push @{ $blocks->{ $id }->{replica} }, { id => $row->{node_id},
+						 name => $row->{node_name},
+						 storage_element => $row->{se_name},
+						 files => $row->{replica_files},
+						 bytes => $row->{replica_bytes},
+						 time_create => $row->{replica_create},
+						 time_update => $row->{replica_update},
+						 complete => $row->{replica_complete}
+					     };
     }
 
-    return { node => [values %$nodes] };
+    return { block => [values %$blocks] };
 }
 
 1;
