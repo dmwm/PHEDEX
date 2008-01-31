@@ -77,7 +77,7 @@ my ($DBCONFIG,%check,@check,$autoBlock);
 my (@DATASET,@BLOCK,@LFN,@BUFFER);
 my (@dataset,@block,@lfn,@buffer,@bufferIDs);
 my ($callout,$callouton,%calloutonAllowed);
-my ($data,$lfn,$wide);
+my ($data,$lfn,$lfnlist,$wide);
 my ($tfcprotocol,$mssprotocol,$destination,$tfc,$ns);
 my ($SQL);
 my $debug_me = 1;
@@ -104,6 +104,7 @@ GetOptions("db=s"           => \$DBCONFIG,
            "block=s@"       => \@BLOCK,
            "dataset=s@"     => \@DATASET,
            "lfn=s@"         => \@LFN,
+           "lfnlist=s"      => \$lfnlist,
 	   "buffer=s@"	    => \@BUFFER,
 	   "tfc=s"	    => \$tfc,
 	   "tfcprotocol=s"  => \$tfcprotocol,
@@ -144,12 +145,32 @@ if( !$DBCONFIG ||
     !@BUFFER   ||
     ( !@BLOCK      &&
       !@DATASET    &&
-      !@LFN
+      !@LFN	   &&
+      !$lfnlist
     ) ||
     !$tfc
   )
 {
   die "Insufficient parameters, use -h for help.\n";
+}
+
+#-------------------------------------------------------------------------------
+if ( $lfnlist =~ m%.gz$% )
+{ open LFN, "cat $lfnlist | gzip -d - |" or die "open: $lfnlist: $!\n"; }
+elsif ( $lfnlist =~ m%.bz2$% )
+{ open LFN, "cat $lfnlist | bzip2 -d - |" or die "open: $lfnlist: $!\n"; }
+elsif ( $lfnlist =~ m%^-$% )
+{ *LFN = *STDIN; }
+else
+{ open LFN, "<$lfnlist" or die "open: $lfnlist: $!\n"; }
+
+while ( <LFN> )
+{
+  chomp;
+  $debug && print "Read: $_\n";;
+  s%^.*/store%/store%;
+  s%\s.*$%%;
+  push @LFN, $_;
 }
 
 #-------------------------------------------------------------------------------

@@ -40,12 +40,12 @@ my ($dbh);
 my ($verbose,$debug,$terse);
 my (%h,$conn);
 my ($DBCONFIG,%lfn);
-my ($lfn);
+my ($lfnlist);
 my $debug_me = 1;
 
 $verbose = $debug = $terse = 0;
 GetOptions("db=s"           => \$DBCONFIG,
-           "lfnlist=s"      => \$lfn,
+           "lfnlist=s"      => \$lfnlist,
 
            "verbose|v+"     => \$verbose,
            "debug+"         => \$debug,
@@ -66,14 +66,14 @@ if( !$DBCONFIG )
 $conn = { DBCONFIG => $DBCONFIG };
 $dbh = &connectToDatabase ( $conn, 0 );
 
-if ( $lfn =~ m%.gz$% )
-{ open LFN, "cat $lfn | gzip -d - |" or die "open: $lfn: $!\n"; }
-elsif ( $lfn =~ m%.bz2$% )
-{ open LFN, "cat $lfn | bzip2 -d - |" or die "open: $lfn: $!\n"; }
-elsif ( $lfn =~ m%^-$% )
+if ( $lfnlist =~ m%.gz$% )
+{ open LFN, "cat $lfnlist | gzip -d - |" or die "open: $lfnlist: $!\n"; }
+elsif ( $lfnlist =~ m%.bz2$% )
+{ open LFN, "cat $lfnlist | bzip2 -d - |" or die "open: $lfnlist: $!\n"; }
+elsif ( $lfnlist =~ m%^-$% )
 { *LFN = *STDIN; }
 else
-{ open LFN, "<$lfn" or die "open: $lfn: $!\n"; }
+{ open LFN, "<$lfnlist" or die "open: $lfnlist: $!\n"; }
 
 while ( <LFN> )
 {
