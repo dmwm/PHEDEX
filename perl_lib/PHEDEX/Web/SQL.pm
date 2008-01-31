@@ -109,26 +109,44 @@ sub getBlockReplicas
 {
     my ($self, %h) = @_;
     my ($sql,$q,%p,@r);
-    
+
     $sql = qq{
         select b.name block_name,
 	       b.id block_id,
+               b.files block_files,
+               b.bytes block_bytes,
+               b.is_open,
 	       n.name node_name,
 	       n.id node_id,
-	       n.se_name se_name
+	       n.se_name se_name,
+               br.node_files replica_files,
+               br.node_bytes replica_bytes,
+               br.time_create replica_create,
+               br.time_update replica_update,
+	       case when b.is_open = 'n' and
+                         br.node_files = b.files
+                    then 'y'
+                    else 'n'
+               end replica_complete
           from t_dps_block_replica br
 	  join t_dps_block b on b.id = br.block
 	  join t_dps_dataset ds on ds.id = b.dataset
 	  join t_adm_node n on n.id = br.node
-	 where b.is_open = 'n'
-	   and br.node_files = b.files
-           and br.dest_files = b.files
-	   and n.se_name is not null 
+	 where br.dest_files = b.files
+	   and n.se_name is not null
        };
 
     # XXX Temp limit
     $sql .= " and rownum < :limit";
     $p{':limit'} = $h{limit} || 1000;
+
+    if (exists $h{complete}) {
+	if ($h{complete} eq 'n') {
+	    $sql .= qq{ and (br.node_files != b.files or b.is_open = 'y') };
+	} elsif ($h{complete} eq 'y') {
+	    $sql .= qq{ and br.node_files = b.files and b.is_open = 'n' };
+	}
+    }
 
     if (exists $h{node}) {
 	$sql .= ' and ('. filter_or_eq($self, undef, \%p, 'n.name', $h{node}) . ')';
@@ -141,6 +159,16 @@ sub getBlockReplicas
      if (exists $h{block}) {
  	$sql .= ' and ('. filter_or_like($self, undef, \%p, 'b.name', $h{block}) . ')';
      }
+
+    if (exists $h{create_since}) {
+	$sql .= ' and br.time_create >= :create_since';
+	$p{':create_since'} = $h{create_since};
+    }
+
+    if (exists $h{update_since}) {
+	$sql .= ' and br.time_update >= :update_since';
+	$p{':update_since'} = $h{update_since};
+    }
 
     $q = execute_sql( $self, $sql, %p );
     while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
