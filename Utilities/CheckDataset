@@ -1,0 +1,54 @@
+#!/usr/bin/env perl
+
+##H Checks dataset existence in TMDB
+##H
+##H Usage:
+##H   CheckDataset -db DBCONFIG [-noexists] file.txt
+##H
+##H By default this prints out datasets from the list that exist in TMDB.
+##H If -noexists is provided, it prints out those datasets which do not exist in TMDB.
+##H
+##H Examples:
+##H   CheckDataset -db Schema/DBParam:Foo file.txt
+##H
+
+BEGIN {
+  $^W = 1; use strict; use warnings;
+  our $me = $0; $me =~ s|.*/||;
+  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
+  unshift(@INC, $home);
+}
+
+# Process command line arguments.
+use Getopt::Long;
+use UtilsHelp;
+use UtilsDB;
+use UtilsTiming;
+&GetOptions ("noexists"    => \$args{NOEXISTS},
+	     "db=s"        => \$args{DBCONFIG},
+	     "help|h"      => sub { &usage() });
+
+unless ($args{DBCONFIG}) {
+    die "Insuficient parameters.  Seek help.\n";
+}
+
+my $printexists = !$args{NOEXISTS};
+my $self = { DBCONFIG => $args{DBCONFIG} };
+my $dbh = &connectToDatabase ($self, 0);
+
+my $sql = qq{ select 1 from t_dps_dataset where name = :dataset };
+my $q = &dbprep($dbh, $sql);
+
+while (<>)
+{
+    chomp;
+    next unless $_;
+    &dbbindexec($q, ':dataset' => $_);
+    $exists = $q->fetchrow();
+    if ( ($exists && $printexists) ||
+	 (!$exists && !$printexists) ) {
+	print $_, "\n";
+    }
+}
+
+&disconnectFromDatabase ($self, $dbh, 1);
