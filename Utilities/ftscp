@@ -192,8 +192,8 @@ passoptshow="-p _censored_"
 fi 
 
 if [ "$token" != "" ] ; then
-    echo "+ glite-transfer-submit -t $srmspacetoken $passoptshow $myproxy_server $server -f $copyjobfile"
-    ftsjob=$(glite-transfer-submit -t $srmspacetoken $passopt $myproxy_server $server -f $copyjobfile | grep -v Enter)
+    echo "+ glite-transfer-submit -t $token $passoptshow $myproxy_server $server -f $copyjobfile"
+    ftsjob=$(glite-transfer-submit -t $token $passopt $myproxy_server $server -f $copyjobfile | grep -v Enter)
 else
     echo "+ glite-transfer-submit $passoptshow $myproxy_server $server -f $copyjobfile"
     ftsjob=$(glite-transfer-submit $passopt $myproxy_server $server -f $copyjobfile | grep -v Enter)
