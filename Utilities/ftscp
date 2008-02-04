@@ -5,7 +5,7 @@
 ##H Usage: ftscp -copyjobfile=FILE [-report=FILE] -passfile=FILE
 ##H              [-server=SERVER-ACCESS-POINT] 
 ##H              [-mode=MODE] [-mapfile=SRM2FTS_SERVER_MAP]
-##H              [-m=MYPROXY_SERVER]
+##H              [-m=MYPROXY_SERVER] [-token=TOKEN]
 ##H
 ##H Takes a list of source/destination file pairs and copies them
 ##H using FTS.  The files must be given through a "copyjob" file,
@@ -36,7 +36,7 @@
 ##H The "-m" option specifies a myproxy server to use for the transfer. 
 ##H This is usually required if you are using an "out of region" FTS server.
 ##H
-##H If "-token=yes" is specified, the CMS defaul space token (SRM) will 
+##H If "-token=TOKEN" is specified, the space token (TOKEN) will 
 ##H be passed to the FTS submission. Default is *no token passed*
 ##H
 
@@ -59,7 +59,6 @@ usage() { grep '^##H' < $0 | sed 's/^\(##H \|##H$\)//'; exit 1; }
 
 # Pick up options
 report=/dev/null copyjob= passfile= server= myproxy_server=
-srmspacetoken="CMS_DEFAULT"
 token=""
 
 for arg; do
@@ -95,8 +94,8 @@ for arg; do
       ;;
     -token=* )
       token="${arg#-token=}"
-      if [ "$token" == "yes" ] ; then
-	  echo "token=yes --> passing default CMS SRM space token ($srmspacetoken) to FTS submissions"
+      if [ "$token" != "" ] ; then
+	  echo "token=$token --> passing SRM space token ($token) to FTS submissions"
       fi
       ;;
     -h )
@@ -107,11 +106,6 @@ for arg; do
       break ;;
   esac
 done
-
-if [ "$token" == "" ] || [ "$token" == "no" ]; then
-    echo "token=no --> default CMS SRM space token ($srmspacetoken) not passed to FTS submissions"
-    token="no";
-fi
 
 # Verify arguments
 [ -z "$copyjobfile" ] && { echo "Missing -copyjobfile, use -h for help." 1>&2; exit 101; }
@@ -197,7 +191,7 @@ passopt="-p $(cat "$passfile")"
 passoptshow="-p _censored_"
 fi 
 
-if [ "$token" == "yes" ] ; then
+if [ "$token" != "" ] ; then
     echo "+ glite-transfer-submit -t $srmspacetoken $passoptshow $myproxy_server $server -f $copyjobfile"
     ftsjob=$(glite-transfer-submit -t $srmspacetoken $passopt $myproxy_server $server -f $copyjobfile | grep -v Enter)
 else
