@@ -36,6 +36,10 @@
 ##H The "-m" option specifies a myproxy server to use for the transfer. 
 ##H This is usually required if you are using an "out of region" FTS server.
 ##H
+##H If "-token=yes" is specified, the CMS defaul space token (SRM) will 
+##H be passed to the FTS submission. Default is *no token passed*
+##H
+
 
 ##H Error codes:
 ##H 1 - unrecognised option
@@ -50,12 +54,14 @@
 ##H 123 - file specified with -mapfile is unreadable
 ##H 201 - running in single server mode, without specifying a server
 ##H 301 - too many errors from status update
-##H 302 - FTS submission failed
 
 usage() { grep '^##H' < $0 | sed 's/^\(##H \|##H$\)//'; exit 1; }
 
 # Pick up options
 report=/dev/null copyjob= passfile= server= myproxy_server=
+srmspacetoken="CMS_DEFAULT"
+token=""
+
 for arg; do
   case $arg in
     -copyjobfile=* )
@@ -87,6 +93,12 @@ for arg; do
       myproxy_server="-m ${arg#-m=}"
       echo "MyProxy server option=$myproxy_server"
       ;;
+    -token=* )
+      token="${arg#-token=}"
+      if [ "$token" == "yes" ] ; then
+	  echo "token=yes --> passing default CMS SRM space token ($srmspacetoken) to FTS submissions"
+      fi
+      ;;
     -h )
       usage;;
     -* )
@@ -95,6 +107,11 @@ for arg; do
       break ;;
   esac
 done
+
+if [ "$token" == "" ] || [ "$token" == "no" ]; then
+    echo "token=no --> default CMS SRM space token ($srmspacetoken) not passed to FTS submissions"
+    token="no";
+fi
 
 # Verify arguments
 [ -z "$copyjobfile" ] && { echo "Missing -copyjobfile, use -h for help." 1>&2; exit 101; }
@@ -179,25 +196,16 @@ if [ ! -z "$passfile" ]; then
 passopt="-p $(cat "$passfile")"
 passoptshow="-p _censored_"
 fi 
-echo "+ glite-transfer-submit $passoptshow $myproxy_server $server -f $copyjobfile"
-tmperr=$(mktemp);
-ftsjob=$(glite-transfer-submit $passopt $myproxy_server $server -f $copyjobfile 2>$tmperr | grep -v Enter )
-echo "exitcode=$?"
-cat $tmperr
-err=$(cat $tmperr| tr '\n' ' ');
-rm -f $tmperr
-echo "ftsjob=$ftsjob"
 
-# If ftsjob is empty - submission failed.
-# Produce report file with submission error and exit
-if [ "$ftsjob" = '' ]; then 
-    cat $copyjobfile | while read s t; do
-	echo $s $t "1 Failed Failed FTS submit: " ${err:-Error not captured} 
-	done > $report;
-    sleep 10;
-    exit 302;
+if [ "$token" == "yes" ] ; then
+    echo "+ glite-transfer-submit -t $srmspacetoken $passoptshow $myproxy_server $server -f $copyjobfile"
+    ftsjob=$(glite-transfer-submit -t $srmspacetoken $passopt $myproxy_server $server -f $copyjobfile | grep -v Enter)
+else
+    echo "+ glite-transfer-submit $passoptshow $myproxy_server $server -f $copyjobfile"
+    ftsjob=$(glite-transfer-submit $passopt $myproxy_server $server -f $copyjobfile | grep -v Enter)
 fi
 
+echo "ftsjob=$ftsjob"
 
 # Poll transfer status, record output into the report
 while true; do
