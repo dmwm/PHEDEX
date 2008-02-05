@@ -3737,8 +3737,10 @@ sub get_request_nodes
 {
     my ($self) = shift @_;
     my %nodes = $self->fetch_nodes(with_ids=>1);
-    foreach my $node (keys %nodes) {
-	delete $nodes{$node} if ($node =~ /(.*)_(Buffer|Stage)$/ && exists $nodes{"$1_MSS"});
+    if ($$self{DBID} eq 'prod') {
+	foreach my $node (keys %nodes) {
+	    delete $nodes{$node} if ($node =~ /(.*)_(Buffer|Stage)$/ && exists $nodes{"$1_MSS"});
+	}
     }
     return sort keys %nodes;
 }
