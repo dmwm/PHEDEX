@@ -143,4 +143,11 @@ sub blockReplicas
     return { block => [values %$blocks] };
 }
 
+sub nodes
+{
+    my ($self, %h) = @_;
+    my $r = &PHEDEX::Web::SQL::getNodes($self, %h);
+    return { node => $r };
+}
+
 1;

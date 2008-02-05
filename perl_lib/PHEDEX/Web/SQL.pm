@@ -105,6 +105,25 @@ sub getTransferStatus
     return \@r;
 }
 
+sub getNodes
+{
+    my ($self, %h) = @_;
+    my ($sql,$q,%p,@r);
+
+    $sql = qq{
+        select n.name node_name,
+	       n.id node_id,
+	       n.se_name se_name,
+	       n.kind, n.technology
+          from t_adm_node n
+       };
+
+    $q = execute_sql( $self, $sql, %p );
+    while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
+
+    return \@r;
+}
+
 sub getBlockReplicas
 {
     my ($self, %h) = @_;
@@ -157,7 +176,7 @@ sub getBlockReplicas
     }
 
      if (exists $h{block}) {
- 	$sql .= ' and ('. filter_or_like($self, undef, \%p, 'b.name', $h{block}) . ')';
+	 $sql .= ' and ('. filter_or_like($self, undef, \%p, 'b.name', $h{block}) . ')';
      }
 
     if (exists $h{create_since}) {
