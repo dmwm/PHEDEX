@@ -369,9 +369,14 @@ sub getTable
 # TODO:  does this belong in a more general "Utilities" package?
 sub escape_sql_like
 {
-    my %p = @_;
-    foreach ( keys %p ) { $p{$_} =~ s%_%\\_%g; };
-    return %p;
+    return map { $_ =~ s%_%\\_%g; $_; } @_;
+}
+
+#-------------------------------------------------------------------------------
+# Takes an array and switches all '*' to '%' and '?' to '_', for use in SQL "like" clause
+sub glob_to_sql_like
+{
+    return map { $_ =~ tr/*?/%_/; $_; } @_;
 }
 
 #-------------------------------------------------------------------------------
@@ -379,9 +384,8 @@ sub escape_sql_like
 # TODO:  does this belong in a more general "Utilities" package?
 sub arrayref_expand
 {
-    my @in = @_;
     my @out;
-    foreach (@in) {
+    foreach (@_) {
 	if    (!ref $_)           { push @out, $_; }
 	elsif (ref $_ eq 'ARRAY') { push @out, @$_; } 
 	else { next; }
@@ -389,12 +393,11 @@ sub arrayref_expand
     return @out;
 }
 
-
 #-------------------------------------------------------------------------------
 sub filter_and_like
 {
   my ($self,$s,$p,$k,@v) = @_;
-  @v = arrayref_expand(@v);
+  @v = glob_to_sql_like arrayref_expand @v;
   my $kbind = $k;  $kbind =~ s/\./_/;
   my $i = 1;
   $$s .= join(' and ', map { $p->{':' . $kbind . $i} = $_; # bind parameters
@@ -409,7 +412,7 @@ sub filter_and_like
 sub filter_or_like
 {
   my ($self,$s,$p,$k,@v) = @_;
-  @v = arrayref_expand(@v);
+  @v = glob_to_sql_like arrayref_expand @v;
   my $kbind = $k;  $kbind =~ s/\./_/;
   my $i = 1;
   $$s .= join(' or ', map { $p->{':' . $kbind . $i} = $_; # bind parameters
