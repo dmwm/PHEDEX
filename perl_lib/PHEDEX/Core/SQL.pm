@@ -62,6 +62,12 @@ or inherit it in your agent code
 
 =over
 
+=item select_scalar($query,%param)
+
+returns a scalar representing the result of the 
+query, which should select a single value from the database (e.g, C<'select 
+count(*) from t_dps_file'>).
+
 =item select_single($query,%param)
 
 returns a reference to an array of values representing the result of the 
@@ -260,6 +266,19 @@ sub AUTOLOAD
   my $parent = "SUPER::" . $attr;
   $self->$parent(@_);
 }
+
+#-------------------------------------------------------------------------------
+sub select_scalar
+{
+# Selection of a single value from the first column, returned as scalar.
+  my ( $self, $query, %param ) = @_;
+  my ($q,@r);
+
+  $q = execute_sql( $self, $query, %param );
+  @r = $q->fetchrow();
+  return $r[0];
+}
+
 
 #-------------------------------------------------------------------------------
 sub select_single
