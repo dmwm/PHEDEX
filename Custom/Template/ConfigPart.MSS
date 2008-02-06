@@ -3,7 +3,6 @@
 ### AGENT LABEL=mss-remove PROGRAM=Toolkit/Transfer/FileRemove DEFAULT=off
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_MSS}
- -ignore          ${PHEDEX_NODE}
  -storagemap      ${PHEDEX_CONFIG}/storage.xml
  -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
  -protocol        'srm'
@@ -27,7 +26,7 @@
  -nodes       ${PHEDEX_MSS}
 
 #### Castor based agents
-### AGENT LABEL=mss-stage PROGRAM=Custom/Castor/FileCastorStager.New DEFAULT=off
+### AGENT LABEL=mss-stage PROGRAM=Custom/Castor/FileCastorStager DEFAULT=off
  -db          ${PHEDEX_DBPARAM}
  -nodes       ${PHEDEX_NODE}
  -storagemap  ${PHEDEX_MAP}
@@ -46,4 +45,3 @@
 ### AGENT LABEL=mss-migrate PROGRAM=Custom/DCache/FiledCacheMigrate DEFAULT=off
  -db          ${PHEDEX_DBPARAM}
  -nodes       ${PHEDEX_MSS}
-

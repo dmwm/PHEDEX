@@ -25,8 +25,3 @@ TIER0_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s CERN-PROD);
  -backend         SRM
  -command         ${PHEDEX_SCRIPTS}/Utilities/ftscp,-passfile=${PHEDEX_CONFIG}/ftspass,-server=${TIER0_FTS_SERVER}
  -timeout         12600 # 3h30
-
-### AGENT LABEL=download-deny PROGRAM=Toolkit/Transfer/FileDenyTransfer DEFAULT=off
- -db              ${PHEDEX_DBPARAM}
- -nodes           ${PHEDEX_NODE}
- -accept          "T1_CERN%"
