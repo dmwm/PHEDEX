@@ -8675,13 +8675,13 @@ sub update_injections
 	$bad = 1;
     }
 
-    if ($action eq 'rate' && $actionvalue > 100) {
-	$warn_hash{"Rate is too high.  Limit is 100 MB/s."} = 1;
+    if ($action eq 'rate' && $actionvalue > 10_000) {
+	$warn_hash{"Rate is too high.  Limit is 10 GB/s."} = 1;
 	$bad = 1;
     }
 	
-    if ($action eq 'inject_now' && $actionvalue > 100) {
-	$warn_hash{"Injection size is too high.  Limit is 100 files."} = 1;
+    if ($action eq 'inject_now' && $actionvalue > 10_000) {
+	$warn_hash{"Injection size is too high.  Limit is 10000 files."} = 1;
 	$bad = 1;
     }
 
@@ -8817,11 +8817,11 @@ sub create_injection
 	return;
     }
 
-    if ($rate > 100) {
-	print {$$self{CONTENT}} "<p class='alarm'>Rate too high.  Injection rate is limited to 100 MB/s</p>";
-	return;
+    if ($rate > 10_000) {
+        print {$$self{CONTENT}} "<p class='alarm'>Rate too high.  Injection rate is limited to 10 GB/s</p>";
+        return;
     }
-
+    
     my %all_nodes = reverse $self->fetch_nodes(with_ids=>1);
     my $sources = $self->get_sources(); # gets only authorized sources
     my $source = $$sources{$src_dataset};
