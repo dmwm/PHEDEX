@@ -8121,9 +8121,10 @@ sub output_page
   if (!$$self{SECMOD}->isAuthenticated() &&
       !($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
 	$$self{SECMOD}->hasRole('Data Manager') ||
-	$$self{SECMOD}->hasRole('Site Admin'))) {
+	$$self{SECMOD}->hasRole('Site Admin') ||
+	$$self{SECMOD}->hasRole('PADA Admin'))) {
       $self->auth_help_popup('suspend/unsuspend subscriptions'
-		       => ['anyauth', 'Data Manager', 'Site Admin', 'Global Admin'],
+		       => ['anyauth', 'Data Manager', 'Site Admin', 'PADA Admin', 'Global Admin'],
 		       'change priorities of subscriptions'
 		       => ['cert', 'Data Manager', 'Global Admin']);
       }
@@ -8139,7 +8140,8 @@ sub output_page
   if ($$self{SECMOD}->isAuthenticated() &&
       ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
       $$self{SECMOD}->hasRole('Data Manager') ||
-      $$self{SECMOD}->hasRole('Site Admin'))) {
+      $$self{SECMOD}->hasRole('Site Admin') ||
+      $$self{SECMOD}->hasRole('PADA Admin'))) {
       push @admin_auth, 'suspend';
   }
 
@@ -8311,7 +8313,7 @@ sub update_subscriptions
 {
     my ($self) = @_;
 
-    my %auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager||Site Admin', with_ids => 1);
+    my %auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager||Site Admin||PADA Admin', with_ids => 1);
     
     my %all_nodes = reverse $self->fetch_nodes(with_ids => 1); # just a hash of id => name
 
