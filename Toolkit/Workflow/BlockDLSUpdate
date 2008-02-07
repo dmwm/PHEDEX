@@ -20,7 +20,8 @@ use Getopt::Long;
 use PHEDEX::Core::Help;
 use PHEDEX::BlockDLSUpdate::Agent;
 
-&GetOptions ("state=s"     => \$args{DROPDIR},
+&GetOptions ("node=s"      => \$args{MYNODE},
+	     "state=s"     => \$args{DROPDIR},
              "db=s"        => \$args{DBCONFIG},
              "label=s"     => \$args{LABEL},
 	     "log=s"       => \$args{LOGFILE},
