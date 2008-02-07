@@ -137,7 +137,7 @@ sub getBlockDeactivationCandidates
                    where br.block = b.id)
               and not exists (select 1 from t_dps_block_delete bd
                                where bd.block = b.id
-                                 and bd.time_complete is not null)
+                                 and bd.time_complete is null)
               and not exists (select 1 from t_dps_block_activate ba
                                where ba.block = b.id
                                  and (ba.time_until is null
