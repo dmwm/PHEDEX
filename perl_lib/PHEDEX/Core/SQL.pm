@@ -323,9 +323,6 @@ sub execute_sql
   $dbh = $self;
   if ( grep( $_ eq 'DBH',  keys %{$self} ) ) { $dbh = $self->{DBH}; }
 
-  $q = &dbexec($dbh, $query, %param);
-  return $q;
-
   if ( wantarray )
   {
     ($q,$r) = &dbexec($dbh, $query, %param);
