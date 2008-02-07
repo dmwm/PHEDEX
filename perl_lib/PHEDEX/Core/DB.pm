@@ -211,7 +211,6 @@ sub checkParams
     my %params = (NODES => '-nodes', ACCEPT_NODES => '-accept', IGNORE_NODES => '-ignore');
     while (my ($param, $arg) = each %params) {
 	foreach my $pat (@{$self->{$param}}) {
-	    warn "Checking $pat\n";
 	    &dbbindexec($q, ':pat' => $pat);
 	    die "'$pat' does not match any node known to TMDB, check $arg argument\n"
 		unless $q->fetchrow();
