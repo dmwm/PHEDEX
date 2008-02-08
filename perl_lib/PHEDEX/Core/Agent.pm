@@ -88,7 +88,7 @@ our %params =
 
 our @array_params = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
 our @hash_params  = qw / BAD JUNK /;
-our @required_params = qw / DROPDIR DBCONFIG MYNODE /;
+our @required_params = qw / DROPDIR DBCONFIG /;
 
 sub new
 {
