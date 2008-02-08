@@ -22,19 +22,12 @@
 
 $|=1;
 
-BEGIN {
-    use strict; use warnings; $^W=1;
-    our $me = $0; $me =~ s|.*/||;
-    our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
-    unshift(@INC, $home);
-}
-
 $SIG{INT} = sub { print "Caught sig INT\n"; exit 2 };
 
 ######################################################################
 my %args;
 use Getopt::Long;
-use UtilsHelp;
+use PHEDEX::Core::Help;
 &GetOptions ("db=s"        => \$args{DBCONFIG},
              "testdir=s"   => \$args{TEST},
              "workdir=s"   => \$args{WORKDIR},
@@ -59,8 +52,8 @@ if (@ARGV || !$args{DBCONFIG} ||
 ######################################################################
 package Tool; use strict; use warnings; use base 'Exporter';
 # Define any more 'use's here.
-use UtilsLogging;
-use UtilsJobManager;
+use PHEDEX::Core::Logging;
+use PHEDEX::Core::JobManager;
 use POSIX;
 use File::Basename;
 
@@ -92,7 +85,7 @@ sub process
     $self->runSQL( "prep" );
 
     # Here we run the test and the agent startup concurrently. 
-    my $mgr = new UtilsJobManager (NJOBS => 2);
+    my $mgr = new PHEDEX::Core::JobManager (NJOBS => 2);
     &logmsg( "Starting job queue" );
     $mgr->addJob( sub { $self->collectResult($mgr,"$self->{WORKDIR}/logs/master",@_) },
 		  { },

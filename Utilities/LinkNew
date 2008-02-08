@@ -16,18 +16,11 @@
 ##H DISTANCE is the distance from the neighbour, default is L/1, R/2.
 ##H SHARE is link priority share, default is 7:4:1:1
 
-BEGIN {
-  $^W = 1; use strict; use warnings;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
-  unshift(@INC, $home);
-}
-
 # Process command line arguments.
 use Getopt::Long;
-use UtilsHelp;
-use UtilsDB;
-use UtilsTiming;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::DB;
+use PHEDEX::Core::Timing;
 &GetOptions ("db=s"        => \$args{DBCONFIG},
 	     "help|h"      => sub { &usage() });
 

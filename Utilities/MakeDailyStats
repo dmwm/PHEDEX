@@ -22,13 +22,6 @@
 ##H slashes for quality: counts of started, completed and finished
 ##H transfer operations in that hour, respectively.
 
-BEGIN {
-  $^W = 1; use strict; use warnings;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
-  unshift(@INC, $home);
-}
-
 my %nodes = ();
 my %xferred = ();
 my %pending = ();
@@ -38,8 +31,8 @@ my %args = (ADDFILE => []);
 
 # Process command line arguments.
 use Getopt::Long;
-use UtilsHelp;
-use UtilsDB;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::DB;
 use POSIX;
 &GetOptions ('db=s'        => \$args{DBCONFIG},
              'add=s@'      => $args{ADDFILE},

@@ -1,4 +1,4 @@
-package UtilsDownloadGlobus; use strict; use warnings; use base 'UtilsDownloadCommand';
+package PHEDEX::Transfer::Globus; use strict; use warnings; use base 'PHEDEX::Transfer::Command';
 
 # Command back end defaulting to Globus tools.
 sub new
@@ -23,5 +23,4 @@ sub new
     return $self;
 }
 
-print STDERR "WARNING:  use of Common/UtilsDownloadGlobus.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

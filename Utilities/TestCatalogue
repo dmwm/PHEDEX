@@ -11,20 +11,12 @@
 ##H
 ##H Prints out the destination name for each file name.
 
-BEGIN {
-  $^W = 1; use strict; use warnings;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
-  unshift(@INC, $home);
-}
-
-
 # Process command line arguments.
 my %args;
-use UtilsCatalogue;
+use PHEDEX::Core::Catalogue;
 use Getopt::Long;
-use UtilsHelp;
-use UtilsDB;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::DB;
 use POSIX;
 Getopt::Long::Configure qw(default no_ignore_case);
 &GetOptions ('c=s'        => \$args{CATALOGUE},

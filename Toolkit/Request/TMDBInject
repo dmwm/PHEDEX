@@ -92,17 +92,10 @@
 ##H     </dataset>
 ##H   </dbs>
 
-BEGIN {
-  use strict; use warnings; $^W=1;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
-  unshift(@INC, $home);
-}
-
 ######################################################################
 my ($verbose, $strict, %args);
 use Getopt::Long;
-use UtilsHelp;
+use PHEDEX::Core::Help;
 &GetOptions ("db=s"                => \$args{DBCONFIG},
              "strict"              => \$strict,
              "verbose"             => \$verbose,
@@ -122,8 +115,8 @@ if (@ARGV || !$args{DBCONFIG} || !$args{FILEDATA}
 
 ######################################################################
 use XML::Parser;
-use UtilsTiming;
-use UtilsDB;
+use PHEDEX::Core::Timing;
+use PHEDEX::Core::DB;
 
 sub fetchall
 {

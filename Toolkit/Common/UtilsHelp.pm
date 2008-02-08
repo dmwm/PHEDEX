@@ -9,4 +9,5 @@ sub usage
     exit(1);
 }
 
+print STDERR "WARNING:  use of Common/UtilsHelp.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

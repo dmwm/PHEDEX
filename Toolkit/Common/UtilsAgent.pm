@@ -575,4 +575,5 @@ sub nap
     do { $self->maybeStop(); sleep (1); } while (&mytimeofday() < $target);
 }
 
+print STDERR "WARNING:  use of Common/UtilsAgent.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

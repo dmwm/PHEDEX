@@ -1,5 +1,5 @@
-package UtilsDownloadFTS; use strict; use warnings; use base 'UtilsDownload';
-use UtilsCommand;
+package PHEDEX::Transfer::FTS; use strict; use warnings; use base 'PHEDEX::Transfer::Core';
+use PHEDEX::Core::Command;
 use Getopt::Long;
 # DO NOT USE - UNFINISHED!!
 # Command back end defaulting to srmcp and supporting batch transfers.
@@ -183,5 +183,4 @@ sub transferBatch
 }
 
 
-print STDERR "WARNING:  use of Common/UtilsDownloadFTS.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

@@ -18,21 +18,14 @@
 ##H
 ##H The output goes to the standard output in plain text format.
 
-BEGIN {
-  use strict; use warnings; $^W=1;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
-  unshift(@INC, $home);
-}
-
 # Process command line arguments.
 my %args;
 use List::Util qw(reduce min max sum);
 use Getopt::Long;
-use UtilsHelp;
-use UtilsTiming;
-use UtilsNet;
-use UtilsDB;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::Timing;
+use PHEDEX::Core::Net;
+use PHEDEX::Core::DB;
 use POSIX;
 &GetOptions ("db=s"        => \$args{DBCONFIG},
              "upto=s"      => \$args{UPTO},

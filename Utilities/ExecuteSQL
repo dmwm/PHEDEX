@@ -8,19 +8,12 @@
 ##H -db       database connection configuration parameter file
 ##H -script   the script to execute (will append .sql)- full path
 
-BEGIN {
-    use strict; use warnings; $^W=1;
-    our $me = $0; $me =~ s|.*/||;
-    our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
-    unshift(@INC, $home);
-}
-
 $SIG{INT} = sub { print "Caught sig INT\n"; exit 2 };
 
 ######################################################################
 my %args;
 use Getopt::Long;
-use UtilsHelp;
+use PHEDEX::Core::Help;
 &GetOptions ("db=s"        => \$args{DBCONFIG},
              "script=s"    => \$args{SCRIPT},
 	     "help|h"      => sub { &usage() });
@@ -36,8 +29,8 @@ if (@ARGV || !$args{DBCONFIG} || !$args{SCRIPT})
 ######################################################################
 package Tool; use strict; use warnings; use base 'Exporter';
 # Define any more 'use's here.
-use UtilsDB;
-use UtilsLogging;
+use PHEDEX::Core::DB;
+use PHEDEX::Core::Logging;
 
 sub new
 {

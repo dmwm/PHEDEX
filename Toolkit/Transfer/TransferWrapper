@@ -15,16 +15,9 @@
 ##H
 ##H COMMAND and ARGS are the command to execute.
 
-BEGIN {
-  use strict; use warnings; $^W=1;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
-  unshift(@INC, $home);
-}
-
-use UtilsJobManager;
-use UtilsCommand;
-use UtilsTiming;
+use PHEDEX::Core::JobManager;
+use PHEDEX::Core::Command;
+use PHEDEX::Core::Timing;
 use Data::Dumper;
 
 # Handle arguments.
@@ -57,7 +50,7 @@ open(STDOUT, ">> $copyjob/wrapper-log");
 open(STDERR, ">&STDOUT");
 
 # Start the job.
-my $jobs = new UtilsJobManager (NJOBS => 1);
+my $jobs = new PHEDEX::Core::JobManager (NJOBS => 1);
 $jobs->addJob (sub { $jobstatus = $_[0] }, 
     { TIMEOUT => $timeout, LOGFILE => "$copyjob/log" },
     @ARGV);

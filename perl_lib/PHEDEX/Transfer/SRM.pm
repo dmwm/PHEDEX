@@ -1,5 +1,5 @@
-package UtilsDownloadSRM; use strict; use warnings; use base 'UtilsDownloadCommand';
-use UtilsCommand;
+package PHEDEX::Transfer::SRM; use strict; use warnings; use base 'PHEDEX::Transfer::Command';
+use PHEDEX::Core::Command;
 use Getopt::Long;
 
 # Command back end defaulting to srmcp and supporting batch transfers.
@@ -48,5 +48,4 @@ sub transferBatch
 		  @{$$self{COMMAND}}, "-copyjobfile=$spec", "-report=$report");
 }
 
-print STDERR "WARNING:  use of Common/UtilsDownloadSRM.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

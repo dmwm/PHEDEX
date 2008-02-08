@@ -27,4 +27,5 @@ sub formatElapsedTime
     return sprintf ("%.2fr %.2fu %.2fs", &elapsedTime(@_));
 }
 
+print STDERR "WARNING:  use of Common/UtilsTiming.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

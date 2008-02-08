@@ -16,6 +16,7 @@ sub disconnect
 {
 }
 
+print STDERR "WARNING:  use of Common/UtilsDBS.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;
 
 ######################################################################
@@ -294,6 +295,7 @@ sub expandXMLFragment
     return join("\n", grep(!/^\d+a$/ && !/^\.$/, split(/\n/, $xml)));
 }
 
+print STDERR "WARNING:  use of Common/UtilsDBS.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;
 
 ######################################################################
@@ -987,4 +989,5 @@ sub setID
     return $object;
 }
 
+print STDERR "WARNING:  use of Common/UtilsDBS.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

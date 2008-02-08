@@ -322,4 +322,5 @@ sub unixstat
   return $r;
 }
 
+print STDERR "WARNING:  use of Common/UtilsNamespace.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

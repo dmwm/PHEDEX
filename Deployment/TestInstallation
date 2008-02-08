@@ -17,16 +17,7 @@
 ##H -db:      DB config file plus DBname to contact to
 ##H
 
-BEGIN {
-  use strict; use warnings; $^W=1;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
-  unshift(@INC, $home);
-}
-
-#--------------------------------------------------------------------
-#--------------------------------------------------------------------
-
-use UtilsHelp;
+use PHEDEX::Core::Help;
 use Getopt::Long;
 
 # get arguments

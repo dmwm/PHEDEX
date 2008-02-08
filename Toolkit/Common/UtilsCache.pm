@@ -45,4 +45,5 @@ sub outputAttributeCache
     return &output ($file, Dumper ($attrs));
 }
 
+print STDERR "WARNING:  use of Common/UtilsCache.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

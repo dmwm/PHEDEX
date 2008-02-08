@@ -171,4 +171,5 @@ sub rfcpmany
     return %done;
 }
 
+print STDERR "WARNING:  use of Common/UtilsRFIO.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

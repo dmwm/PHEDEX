@@ -4,16 +4,10 @@
 ##H
 ##H USAGE: UtilTopologyGraph -db FILE[:SECTION]
 
-BEGIN {
-  use strict; use warnings; $^W=1;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
-  unshift(@INC, $home); }
-
 my %args;
 use Getopt::Long;
-use UtilsHelp;
-use UtilsDB;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::DB;
 &GetOptions ("db=s"        => \$args{DBCONFIG},
 	     "help|h"      => sub { &usage() });
 

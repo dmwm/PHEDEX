@@ -1,4 +1,4 @@
-package UtilsDownloadCommand; use strict; use warnings; use base 'UtilsDownload';
+package PHEDEX::Transfer::Command; use strict; use warnings; use base 'PHEDEX::Transfer::Core';
 use Getopt::Long;
 
 # General transfer back end for making file copies with a simple
@@ -44,5 +44,4 @@ sub transferBatch
     }
 }
 
-print STDERR "WARNING:  use of Common/UtilsDownloadCommand.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

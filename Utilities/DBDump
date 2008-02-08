@@ -8,15 +8,10 @@
 ##H -db           database connection configuration parameter file
 ##H TABLE         name of the table to dump
 
-BEGIN { use strict; use warnings; $^W=1;
-  my $me = $0; $me =~ s|.*/||;
-  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-  unshift(@INC, "$home/../Toolkit/Common"); }
-
 my %args;
 use Getopt::Long;
-use UtilsHelp;
-use UtilsDB;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::DB;
 &GetOptions ("db=s"        => \$args{DBCONFIG},
 	     "help|h"      => sub { &usage() });
 

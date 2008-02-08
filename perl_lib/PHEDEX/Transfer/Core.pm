@@ -1,5 +1,5 @@
-package UtilsDownload; use strict; use warnings; use base 'UtilsJobManager';
-use UtilsCommand;
+package PHEDEX::Transfer::Core; use strict; use warnings; use base 'PHEDEX::Core::JobManager';
+use PHEDEX::Core::Command;
 use Getopt::Long;
 use Data::Dumper;
 
@@ -37,8 +37,8 @@ sub new
     $$self{BATCHID} = 0;       # Running batch counter
 
     # Locate the transfer wrapper script.
-    $$self{WRAPPER} = $INC{"UtilsDownload.pm"};
-    $$self{WRAPPER} =~ s|/Common/UtilsDownload\.pm$|/Transfer/TransferWrapper|;
+    $$self{WRAPPER} = $INC{"PHEDEX/Transfer/Core.pm"};
+    $$self{WRAPPER} =~ s|/PHEDEX/Transfer/Core\.pm$|/../Toolkit/Transfer/TransferWrapper|;
     -x "$$self{WRAPPER}"
         || die "Failed to locate transfer wrapper, tried $$self{WRAPPER}\n";
 
@@ -120,5 +120,4 @@ sub clean
         if ! grep (! $$tasks{$_}{DONE_CLEAN}, keys %{$$job{TASKS}});
 }
 
-print STDERR "WARNING:  use of Common/UtilsDownload.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

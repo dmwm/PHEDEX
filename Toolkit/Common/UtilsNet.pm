@@ -70,4 +70,5 @@ sub getURL
     return $result;
 }
 
+print STDERR "WARNING:  use of Common/UtilsNet.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

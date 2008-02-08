@@ -1,6 +1,6 @@
-package UtilsDownloadNull; use strict; use warnings; use base 'UtilsDownload';
-use UtilsCommand;
-use UtilsTiming;
+package PHEDEX::Transfer::Null; use strict; use warnings; use base 'PHEDEX::Transfer::Core';
+use PHEDEX::Core::Command;
+use PHEDEX::Core::Timing;
 use Data::Dumper;
 
 # Special back end that bypasses transfers entirely.  Good for testing.
@@ -41,5 +41,4 @@ sub transferBatch
     }
 }
 
-print STDERR "WARNING:  use of Common/UtilsDownloadNull.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

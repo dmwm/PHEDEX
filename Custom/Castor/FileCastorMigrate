@@ -19,17 +19,10 @@
 ##H -nodes         the nodes for which this agent runs
 ##H -protocols     the protocols accepted by this agent (default: 'direct')
 
-BEGIN {
-  use strict; use warnings; $^W=1;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
-  unshift(@INC, $home);
-}
-
 ######################################################################
 my %args;
 use Getopt::Long;
-use UtilsHelp;
+use PHEDEX::Core::Help;
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
@@ -48,12 +41,12 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{NODES})
 
 ######################################################################
 # Routines for this agent.
-package FileCastorMigrate; use strict; use warnings; use base 'UtilsAgent';
-use UtilsCommand;
-use UtilsLogging;
-use UtilsTiming;
-use UtilsCatalogue;
-use UtilsDB;
+package FileCastorMigrate; use strict; use warnings; use base 'PHEDEX::Core::Agent';
+use PHEDEX::Core::Command;
+use PHEDEX::Core::Logging;
+use PHEDEX::Core::Timing;
+use PHEDEX::Core::Catalogue;
+use PHEDEX::Core::DB;
 
 sub new
 {

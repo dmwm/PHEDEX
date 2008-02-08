@@ -125,4 +125,5 @@ sub listAssignments
     return map { (/(\d+)/g) } grep(/^Assignments\s*=/, split(/\n/, $everything));
 }
 
+print STDERR "WARNING:  use of Common/UtilsTR.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

@@ -11,22 +11,13 @@
 ##H   GrepSites -db Schema/DBParam:Foo \
 ##H     phedex_minnesota_prod:jmmans@physics.umn.edu
 
-
-BEGIN {
-  $^W = 1; use strict; use warnings;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
-  unshift(@INC, $home);
-}
-
 # Process command line arguments.
 my %args;
 use Getopt::Long;
 use File::Basename;
-use UtilsHelp;
-use UtilsDB;
-use UtilsMisc;
-use UtilsTiming;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::DB;
+use PHEDEX::Core::Timing;
 &GetOptions ("db=s"            => \$args{DBCONFIG},
 	     "help|h"          => sub { &usage() });
 

@@ -104,4 +104,5 @@ sub checkLogs {
     }
 }
 
+print STDERR "WARNING:  use of Common/UtilsTest.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

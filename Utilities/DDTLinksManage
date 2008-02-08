@@ -12,19 +12,11 @@
 ##H T1_Foo_Buffer T2_Bar_Buffer enable
 ##H T2_Bar_Buffer T1_Foo_Buffer disable
 
-
-BEGIN {
-  $^W = 1; use strict; use warnings;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
-  unshift(@INC, $home);
-}
-
 # Process command line arguments.
 use Getopt::Long;
-use UtilsHelp;
-use UtilsDB;
-use UtilsTiming;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::DB;
+use PHEDEX::Core::Timing;
 &GetOptions ("db=s"        => \$args{DBCONFIG},
 	     "help|h"      => sub { &usage() });
 

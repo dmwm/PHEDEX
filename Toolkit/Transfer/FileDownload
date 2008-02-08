@@ -70,18 +70,11 @@
 ##H -mode multi  Use multiple FTS endpoints depending on the file being transferred
 ##H -mapfile     A map of SRM endpoint:FTS endpoint, if not specified BDII service 
 ##H              discovery used instead
-     
-BEGIN {
-  use strict; use warnings; $^W=1;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
-  unshift(@INC, $home);
-}
 
 ######################################################################
 my %args = (CMDLINE => [ @ARGV ]);
 use Getopt::Long;
-use UtilsHelp;
+use PHEDEX::Core::Help;
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
@@ -111,14 +104,14 @@ die "Insufficient parameters, use -h for help.\n"
 
 ######################################################################
 # Routines specific to this agent.
-package FileDownload; use strict; use warnings; use base 'UtilsAgent';
+package FileDownload; use strict; use warnings; use base 'PHEDEX::Core::Agent';
 use List::Util qw(min max sum);
 use File::Path qw(mkpath rmtree);
 use Data::Dumper;
-use UtilsCommand;
-use UtilsLogging;
-use UtilsTiming;
-use UtilsDB;
+use PHEDEX::Core::Command;
+use PHEDEX::Core::Logging;
+use PHEDEX::Core::Timing;
+use PHEDEX::Core::DB;
 use POSIX;
 
 sub new
@@ -165,8 +158,8 @@ sub new
 		  BOOTTIME => time());		# Time this agent started
     my %args = (@_);
     $$self{$_} = $args{$_} || $params{$_} for keys %params;
-    $$self{BACKEND} = eval ("use UtilsDownload$args{BACKEND_TYPE};"
-	    		    . " new UtilsDownload$args{BACKEND_TYPE}(\$self)");
+    $$self{BACKEND} = eval ("use PHEDEX::Transfer::$args{BACKEND_TYPE};"
+	    		    . " new PHEDEX::Transfer::$args{BACKEND_TYPE}(\$self)");
     do { chomp ($@); die "Failed to create backend: $@\n" } if $@;
     -d $$self{TASKDIR} || mkdir($$self{TASKDIR}) || -d $$self{TASKDIR}
         || die "$$self{TASKDIR}: cannot create: $!\n";

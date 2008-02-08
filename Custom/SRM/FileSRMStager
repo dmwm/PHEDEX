@@ -24,17 +24,10 @@
 ##H -storagemap  storage mapping catalogue
 ##H -protect     an external program to call to check for storage overload
 
-BEGIN {
-  use strict; use warnings; $^W=1;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
-  unshift(@INC, $home);
-}
-
 ######################################################################
 my %args;
 use Getopt::Long;
-use UtilsHelp;
+use PHEDEX::Core::Help;
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
@@ -55,12 +48,12 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG}
 
 ######################################################################
 # Routines for this agent.
-package FileSRMStager; use strict; use warnings; use base 'UtilsAgent';
-use UtilsCommand;
-use UtilsLogging;
-use UtilsTiming;
-use UtilsCatalogue;
-use UtilsDB;
+package FileSRMStager; use strict; use warnings; use base 'PHEDEX::Core::Agent';
+use PHEDEX::Core::Command;
+use PHEDEX::Core::Logging;
+use PHEDEX::Core::Timing;
+use PHEDEX::Core::Catalogue;
+use PHEDEX::Core::DB;
 
 sub min { return (sort { $a <=> $b } @_)[0] }
 sub max { return (sort { $b <=> $a } @_)[0] }

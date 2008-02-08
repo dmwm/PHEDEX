@@ -72,4 +72,5 @@ sub outputCatalog
     return &output ($file, &genXMLPreamble() . $content . &genXMLTrailer());
 }
 
+print STDERR "WARNING:  use of Common/UtilsWriters.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

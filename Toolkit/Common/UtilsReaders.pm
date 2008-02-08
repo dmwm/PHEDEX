@@ -136,4 +136,5 @@ sub parseXMLCatalogue
     return $result;
 }
 
+print STDERR "WARNING:  use of Common/UtilsReaders.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

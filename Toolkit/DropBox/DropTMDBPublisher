@@ -26,17 +26,10 @@
 ##H -db        database connection configuration parameter file
 ##H -log       where to redirect logging information
 
-BEGIN {
-  use strict; use warnings; $^W=1;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
-  unshift(@INC, $home);
-}
-
 ######################################################################
 my %args;
 use Getopt::Long;
-use UtilsHelp;
+use PHEDEX::Core::Help;
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
@@ -53,11 +46,11 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
 
 ######################################################################
 # Routines specific to this agent.
-package DropTMDBPublisher; use strict; use warnings; use base 'UtilsAgent';
+package DropTMDBPublisher; use strict; use warnings; use base 'PHEDEX::Core::Agent';
 use File::Path;
-use UtilsCommand;
-use UtilsLogging;
-use UtilsTiming;
+use PHEDEX::Core::Command;
+use PHEDEX::Core::Logging;
+use PHEDEX::Core::Timing;
 
 sub new
 {

@@ -133,4 +133,5 @@ sub diff
         ? $out : undef;
 }
 
+print STDERR "WARNING:  use of Common/UtilsCommand.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;

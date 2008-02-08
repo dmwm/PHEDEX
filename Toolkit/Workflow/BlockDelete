@@ -12,17 +12,10 @@
 ##H -once      run the alogrithm once, then quit -- don't go into daemon mode
 ##H -log       where to redirect logging information
 
-BEGIN {
-  use strict; use warnings; $^W=1;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../../Toolkit/Common";
-  unshift(@INC, $home);
-}
-
 ######################################################################
 my %args;
 use Getopt::Long;
-use UtilsHelp;
+use PHEDEX::Core::Help;
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
@@ -39,10 +32,10 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG})
 
 ######################################################################
 # Routines for this agent.
-package BlockDelete; use strict; use warnings; use base 'UtilsAgent';
-use UtilsLogging;
-use UtilsTiming;
-use UtilsDB;
+package BlockDelete; use strict; use warnings; use base 'PHEDEX::Core::Agent';
+use PHEDEX::Core::Logging;
+use PHEDEX::Core::Timing;
+use PHEDEX::Core::DB;
 
 sub new
 {

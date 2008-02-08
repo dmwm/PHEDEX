@@ -26,20 +26,13 @@
 ##H SIZE is optional storage capacity, e.g. 1T for one terabyte (suffixes: kMGTPE).
 ##H RATE is optional throttle rate to the site, in megabytes per second.
 
-BEGIN {
-  $^W = 1; use strict; use warnings;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
-  unshift(@INC, $home);
-}
-
 # Process command line arguments.
 my %args;
 use Getopt::Long;
-use UtilsHelp;
-use UtilsDB;
-use UtilsMisc;
-use UtilsTiming;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::DB;
+use PHEDEX::Core::Formats;
+use PHEDEX::Core::Timing;
 &GetOptions ("db=s"            => \$args{DBCONFIG},
 	     "name=s"          => \$args{NAME},
 	     "kind=s"          => \$args{KIND},

@@ -9,19 +9,12 @@
 ##H Uses the job-manager to execute the command so signals are delievered
 ##H to the process gracefully.  Returns the exit code of COMMAND.
 
-BEGIN {
-  use strict; use warnings; $^W=1;
-  our $me = $0; $me =~ s|.*/||;
-  our $home = $0; $home =~ s|/[^/]+$||; $home ||= "."; $home .= "/../Toolkit/Common";
-  unshift(@INC, $home);
-}
-
-use UtilsHelp;
-use UtilsJobManager;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::JobManager;
 &usage if scalar @ARGV < 2;
 
 my $timeout = shift(@ARGV);
-my $job = new UtilsJobManager (NJOBS => 1);
+my $job = new PHEDEX::Core::JobManager (NJOBS => 1);
 
 sub min { return (sort { $a <=> $b } @_)[0] }
 

@@ -9,15 +9,10 @@
 ##H -commit       set commit interval in rows, default at the end
 ##H FILE          name of the file to load, containing rows to load
 
-BEGIN { use strict; use warnings; $^W=1;
-  my $me = $0; $me =~ s|.*/||;
-  my $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-  unshift(@INC, "$home/../Toolkit/Common"); }
-
 my %args;
 use Getopt::Long;
-use UtilsHelp;
-use UtilsDB;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::DB;
 &GetOptions ("db=s"        => \$args{DBCONFIG},
              "commit=i"    => \$args{COMMIT},
 	     "help|h"      => sub { &usage() });

@@ -1,5 +1,10 @@
-package UtilsMisc; use strict; use warnings; use base 'Exporter';
+package PHEDEX::Core::Formats; use strict; use warnings; use base 'Exporter';
+
+# Replacement for UtilsMisc.  Renamed to "Formats".  This module
+# should contain string-formatting code
+
 our @EXPORT = qw(sizeValue);
+
 sub sizeValue
 {
     my ($value) = @_;
@@ -11,5 +16,4 @@ sub sizeValue
     return $value;
 }
 
-print STDERR "WARNING:  use of Common/UtilsMisc.pm is depreciated.  Update your code to use the PHEDEX perl library!\n";
 1;
