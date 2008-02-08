@@ -29,7 +29,7 @@ our %params =
 	(
 	  DBCONFIG => undef,		# Database configuration file
 	  WAITTIME => 3600,		# Agent activity cycle
-	  NODES => undef,		# Nodes this agent runs for
+	  NODES => '%',  	        # Nodes this agent runs for, default all
 	);
 our @array_params = qw / NODES /;
 

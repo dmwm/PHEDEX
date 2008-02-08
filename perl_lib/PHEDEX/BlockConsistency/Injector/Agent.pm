@@ -34,7 +34,7 @@ our $debug_me=1;
 our %params =
 	(
 	  DBCONFIG => undef,		# Database configuration file
-	  NODES => undef,		# Nodes to run this agent for
+	  NODES => '%', 		# Nodes to run this agent for
 	  DROPBOX => undef,		# Directory for drops
 	  IGNORE_NODES => [],		# TMDB nodes to ignore
 	  ACCEPT_NODES => [],		# TMDB nodes to accept
