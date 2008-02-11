@@ -1,3 +1,34 @@
+* Changes in PhEDEx 2.6.0
+
+Code Consolidation
+   - BlockActivate, BlockDeactivate, BlockMonitor, BlockAllocator,
+     BlockDLSUpdate split into perl modules
+   - Toolkit/Common code depreciated, all dependent code now uses
+     PHEDEX::Core::* library
+
+New Features for Site Tools
+   - ftscp updated for use with SRM v2.2 (-token option added)
+
+Bug Fixes for Site Tools
+   - Master can now be called from an absolute path
+   - FileDownload purges tasks before filling backend, as an
+     optimization
+   - Remove -accept and -ignore options from FileRemove, which are
+     uneccessary
+   
+Schema and Central Agents
+   - BlockMonitor works in groups of blocks, saving memory
+   - BlockDeactivate works in groups of blocks and deactivates more
+     frequently than before
+   - Fixes in BlockDeactivate mean LoadTestCleanup will be more
+     effective
+
+Dependencies
+   - Dependency on srmcp package removed, new v2 srmcp package to be
+     made available as a separate install
+
+
+
 * Changes in PhEDEx 2.5.4.2
 
 New Features for Site Tools
