@@ -8,6 +8,8 @@ Code Consolidation
 
 New Features for Site Tools
    - ftscp updated for use with SRM v2.2 (-token option added)
+   - Custom/Template/FileDownloadSRMVerify updated for use with SRM
+     v2.2 (make option -d compatible)
    - Utilities/StorageConsistencyCheck and Utilities/BlockConsistencyCheck
      work with single LFNs or lists of LFNs from the command line.
 
