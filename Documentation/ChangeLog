@@ -8,6 +8,8 @@ Code Consolidation
 
 New Features for Site Tools
    - ftscp updated for use with SRM v2.2 (-token option added)
+   - Utilities/StorageConsistencyCheck and Utilities/BlockConsistencyCheck
+     work with single LFNs or lists of LFNs from the command line.
 
 Bug Fixes for Site Tools
    - Master can now be called from an absolute path
