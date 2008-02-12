@@ -5,7 +5,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog,v 1.19 2007/12/18 14:20:42 trunov Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.20 2007/12/20 15:31:47 trunov Exp $:
 ###############################################################################
 
 use strict;
@@ -261,6 +261,8 @@ foreach my $log (@logfiles) {
 		 { $reason = $detail; $reason =~ s/at (\w{3} \w{3} \d+ \d+:\d+:\d+ \w+ \d+)/at \[date\]/g}
 	       elsif( $detail =~ /state Failed : file not found/ )
 		 { $reason = "file not found"; }
+               elsif( $detail =~ /transfer expired in the PhEDEx download agent queue after [\d.]*h/ )
+                 { $reason= "transfer expired in the PhEDEx download agent queue after [hours] h"; }
 	       else {$reason = $detail};
 	     } else {$reason = $detail};
 
