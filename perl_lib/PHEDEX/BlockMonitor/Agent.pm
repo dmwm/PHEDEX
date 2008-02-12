@@ -107,12 +107,6 @@ sub idle
     {
 	$dbh = &connectToDatabase ($self);
 
-	# Guarantee full consistency.  We need to ensure that a) this
-	# procedure is aborted if someone goes and makes block open
-	# again and adds more files, b) we delete exactly as many
-	# t_xfer_replica rows as we planned to.
-	&dbexec ($dbh, q{set transaction isolation level serializable});
-
 	# Read existing block replica information.
 	my $now = &mytimeofday ();
 
@@ -122,6 +116,12 @@ sub idle
 		&& defined $max_block ) 
 	{
 	    &logmsg ("Block ID range $min_block to $max_block has up to $self->{BLOCK_LIMIT} blocks") if $self->{DEBUG};
+
+	    # Guarantee full consistency.  We need to ensure that a) this
+	    # procedure is aborted if someone goes and makes block open
+	    # again and adds more files, b) we delete exactly as many
+	    # t_xfer_replica rows as we planned to.
+	    &dbexec ($dbh, q{set transaction isolation level serializable});
 
 	    my (%replicas,%active);
 	    ($qexisting,$h) = $self->getExistingReplicaInfo
