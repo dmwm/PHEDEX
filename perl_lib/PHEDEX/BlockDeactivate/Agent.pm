@@ -61,7 +61,7 @@ sub idle
   my ($self, @pending) = @_;
   my $dbh = undef;
 
-  $self->maybeStop;
+  $self->maybeStop();
   eval {
       $dbh = &connectToDatabase ($self);
 
@@ -123,7 +123,7 @@ sub idle
 	      # Sanity check
 	      unless ($b && ref($b) eq 'HASH' &&
 		      $b->{ID} == $id && $b->{NAME} eq $name) {
-		  $self->maybeStop;
+		  $self->maybeStop();
 		  next;
 	      }
 
@@ -152,7 +152,7 @@ sub idle
 		  }
 	      }
 
-	      $self->maybeStop;
+	      $self->maybeStop();
 	  };
 	  do { chomp ($@); &alert ("database error: $@");
 	       eval { $dbh->rollback() } if $dbh } if $@;
