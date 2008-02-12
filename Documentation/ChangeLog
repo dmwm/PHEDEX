@@ -30,6 +30,7 @@ Schema and Central Agents
 Dependencies
    - Dependency on srmcp package removed, new v2 srmcp package to be
      made available as a separate install
+   - dls 1_0_3 -> dls-client 1_0_4
 
 
 
