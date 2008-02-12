@@ -20,16 +20,40 @@ set -o nounset
 ##H special goodie hack, with "-f" the return value is forced to be
 ##H zero (success) -- after all normal checks have been made.
 ##H 8 Feb 2008 - modified to make option -d compatible with srmv2
-
+##H 11 Feb 2008 - modified to make option -c compatible with srmv2
 
 getsize () {
   local path=$1
   local protocol=${path%=*}
   local file=${path#*=}
   case "$protocol" in
-    *managerv2*) echo $(srmls            -debug=false -x509_user_proxy=${X509_USER_PROXY} -retry_num=0 "$path" 2>/dev/null| grep $file | cut -d\  -f3);;
-             * ) echo $(srm-get-metadata -debug=false -x509_user_proxy=${X509_USER_PROXY} -retry_num=0 "$path" 2>/dev/null| grep "size :"|cut -d: -f2);;
+    *managerv2* ) echo $(srmls            -debug=false -x509_user_proxy=${X509_USER_PROXY} -retry_num=0 "$path" 2>/dev/null| grep $file | cut -d\  -f3);;
+    *managerv1* ) echo $(srm-get-metadata -debug=false -x509_user_proxy=${X509_USER_PROXY} -retry_num=0 "$path" 2>/dev/null| grep "size :"|cut -d: -f2);;
+              * ) break;;
   esac
+}
+getChecksum ()
+{
+  local pfn=$1
+  local disksum=
+  local disksumtype=
+  case "$pfn" in
+    *managerv2* )
+        fields=($(srmls -l -debug=false -x509_user_proxy=${X509_USER_PROXY} -retry_num=0 "$pfn" 2>/dev/null| grep Checksum))
+        if [ $? -eq 0 ]; then
+          disksum=${fields[3]}
+          disksumtype=${fields[7]}
+        fi
+        ;;
+    *managerv1* )
+        disksum=$(srm-get-metadata -x509_user_proxy=${X509_USER_PROXY} -retry_num=0 "$pfn"| grep "checksumValue :"|cut -d: -f2)
+        disksumtype=$(srm-get-metadata -x509_user_proxy=${X509_USER_PROXY} -retry_num=0 "$pfn"| grep "checksumType :"|cut -d: -f2)
+        ;;
+              * ) break ;;
+  esac
+
+  eval "$2=$disksum"
+  eval "$3=$disksumtype"
 }
 
 # Process command line arguments
@@ -60,8 +84,8 @@ fi
 
 # Check checksum if requested, mark file invalid on mismatch
 if $do_checksum && [ $validity = 0 ]; then
-    disksum=$(srm-get-metadata -x509_user_proxy=${X509_USER_PROXY} -retry_num=0 "$pfn"| grep "checksumValue :"|cut -d: -f2)
-    disksumtype=$(srm-get-metadata -x509_user_proxy=${X509_USER_PROXY} -retry_num=0 "$pfn"| grep "checksumType :"|cut -d: -f2)
+    disksum= disksumtype=
+    getChecksum $pfn disksum disksumtype 
     [ X"$disksum" != X"$checksum" ] && echo "checksum mismatch disk=$disksum db=$checksum diskalgo=$disksumtype" && validity=3
 fi
 
