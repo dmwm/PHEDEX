@@ -73,7 +73,7 @@ sub idle
 	my ($stmt, $nrow) = &dbexec($dbh, qq{
 	    insert into t_dps_block_delete
                    (block, dataset, node, time_request)
-	    select sb.id, sb.dataset, br.node, :now
+	    select distinct sb.id, sb.dataset, br.node, :now
               from t_dps_subscription s
               join t_dps_block sb on sb.dataset = s.dataset or sb.id = s.block
               join t_dps_block_dest bd on bd.destination = s.destination
