@@ -81,6 +81,7 @@ for role in \
 	echo "grant select, update on $table to $role;" ;;
 
       T_DVS_*:* | \
+      T_STATUS_BLOCK_VERIFY*:* | \
       T_DPS_DBS:* | \
       T_DPS_BLOCK_ACTIVATE:* | \
       T_DPS_BLOCK:* | \
