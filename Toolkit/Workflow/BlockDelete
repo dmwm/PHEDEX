@@ -161,7 +161,5 @@ sub idle
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
 
-    # Have a nap.
     $self->doStop() if $$self{ONCE};
-    $self->nap ($$self{WAITTIME});
 }

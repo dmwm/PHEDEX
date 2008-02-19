@@ -122,9 +122,6 @@ sub idle
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
-
-    # Have a little nap
-    $self->nap ($self->{WAITTIME});
 }
 
 sub isInvalid

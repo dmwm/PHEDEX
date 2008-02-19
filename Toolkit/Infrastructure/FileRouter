@@ -109,9 +109,6 @@ sub idle
     # Disconnect from the database and reset flush marker
     &disconnectFromDatabase ($self, $dbh);
     $$self{FLUSH_MARKER} = undef;
-
-    # Have a little rest
-    $self->nap ($$self{WAITTIME});
 }
 
 # Run general system flush.

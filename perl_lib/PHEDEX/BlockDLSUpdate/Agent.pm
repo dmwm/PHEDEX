@@ -163,9 +163,6 @@ sub idle
 
   # untie
   untie %state;
-
-  # Have a little nap
-  $self->nap ($self->{WAITTIME});
 }
 
 # Handle finished jobs.

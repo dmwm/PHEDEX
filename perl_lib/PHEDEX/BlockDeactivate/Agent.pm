@@ -163,9 +163,6 @@ sub idle
   };
   do { chomp ($@); &alert ("database error: $@");
        eval { $dbh->rollback() } if $dbh } if $@;
-
-  # Have a little nap
-  $self->nap ($self->{WAITTIME});
 }
 
 sub isInvalid

@@ -76,9 +76,6 @@ sub idle
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
-
-    # Have a little rest
-    $self->nap ($$self{WAITTIME});
 }
 
 # Update transfer task statistics.

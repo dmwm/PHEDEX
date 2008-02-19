@@ -209,10 +209,6 @@ sub idle
 
   # Disconnect from the database
   &disconnectFromDatabase ($self, $dbh);
-
-  # Have a little nap
-# print scalar localtime,": idle: sleep until ",scalar localtime(time+$self->{WAITTIME}),"\n";
-  $self->nap ($$self{WAITTIME});
 }
 
 

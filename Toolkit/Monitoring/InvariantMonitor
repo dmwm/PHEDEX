@@ -145,7 +145,4 @@ sub idle
     
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
-    
-    # Check children are still running and then wait
-    $self->nap ($$self{WAITTIME});
 }

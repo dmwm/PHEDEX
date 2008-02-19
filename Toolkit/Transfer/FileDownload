@@ -1053,7 +1053,4 @@ sub idle
 
     # Clear zombie detached processes in the backend.
     $$self{BACKEND}->pumpJobs();
-
-    # Finally have a nap.
-    $self->nap($$self{WAITTIME});
 }
