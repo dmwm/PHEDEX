@@ -9,7 +9,7 @@ PHEDEX::Core::Timing - a drop-in replacement for Toolkit/UtilsTiming
 use strict;
 use warnings;
 use base 'Exporter';
-our @EXPORT = qw(mytimeofday formatTime timeStart elapsedTime formatElapsedTime);
+our @EXPORT = qw(mytimeofday formatTime timeStart elapsedTime formatElapsedTime timeSub);
 use Time::HiRes 'gettimeofday';
 use POSIX qw(strftime);
 
@@ -34,7 +34,6 @@ sub formatTime
   elsif ($range eq 'http') { return strftime("%a, %d %b %Y %H:%M:%S UTC", gmtime(int($time))); }
 }
 
-
 sub timeStart
 {
     my ($array) = @_;
@@ -52,6 +51,21 @@ sub elapsedTime
 sub formatElapsedTime
 {
     return sprintf ("%.2fr %.2fu %.2fs", &elapsedTime(@_));
+}
+
+sub timeSub
+{
+    my ($coderef, $label, @args) = @_;
+    my @r;
+    my $t1 = &mytimeofday();
+    if (wantarray) {
+	@r = &$coderef(@args);
+    } else {
+	$r[0] = &$coderef(@args);
+    }
+    my $t2 = &mytimeofday();
+    print STDERR "timing: $label: ", sprintf("%.6f s", $t2-$t1), "\n";
+    return wantarray ? @r : $r[0];
 }
 
 1;
