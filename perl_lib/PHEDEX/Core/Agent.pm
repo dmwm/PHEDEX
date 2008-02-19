@@ -75,6 +75,7 @@ our %params =
 	  IGNORE_NODES	=> undef,
 	  ACCEPT_NODES	=> undef,
 	  WAITTIME	=> 7,
+	  AUTO_NAP      => 1,
 	  JUNK		=> undef,
 	  BAD		=> undef,
 	  STARTTIME	=> undef,
@@ -805,7 +806,14 @@ sub process
 
     # Wait a little while.
     $self->maybeStop();
+    my $t1 = &mytimeofday();
     $self->idle (@pending);
+    my $t2 = &mytimeofday();
+    &dbgmsg(sprintf("cycle time %.5f s", $t2-$t1)) if $self->{DEBUG};
+    if ($self->{AUTO_NAP}) {
+	&dbgmsg("sleeping for $self->{WAITTIME} s") if $self->{DEBUG};
+	$self->nap ($self->{WAITTIME});
+    }
   }
 }
 
