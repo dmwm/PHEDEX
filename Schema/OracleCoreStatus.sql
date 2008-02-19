@@ -1,6 +1,11 @@
 ----------------------------------------------------------------------
 -- Create tables
 
+/* General guidelines
+   t_history_* : time ordered histogram data, should be saved forever
+   t_status_*  : transient status information, can be deleted at anytime
+   t_log_*     : time ordered non-histogram data, should be saved forever */
+
 /* FIXME: Consider using compressed table here, see
    Tom Kyte's Effective Oracle By Design, chapter 7.
    See also the same chapter, "Compress Auditing or
@@ -119,6 +124,27 @@ create table t_status_block_dest
    --
    constraint fk_status_block_dest_node
      foreign key (destination) references t_adm_node (id)
+     on delete cascade);
+
+/* A prediction of when a block will arrive at a node */
+create table t_status_block_arrive
+  (time_update		float		not null,
+   destination		integer		not null,
+   block		integer		not null,
+   priority		integer		not null, -- t_dps_block_dest priority
+   estimate_basis	char(1)		not null, -- n : nominal values, h : history values, r : routing values
+   estimate_queue	float		not null, -- queue size in bytes used in estimate
+   estimate_rate	float		not null, -- rate used in estimate
+   time_arrive		float		not null, -- time predicted this block will arrive
+   --
+   constraint pk_status_block_arrive
+     primary key (destination, block),
+   --
+   constraint fk_status_block_arrive_dest
+     foreign key (destination) references t_adm_node (id)
+     on delete cascade,
+    constraint fk_status_block_arrive_block
+     foreign key (block) references t_dps_block (id)
      on delete cascade);
 
 /* Statistics for blocks being routed . */
@@ -266,6 +292,29 @@ create table t_status_file_size_histogram
    n_total		integer		not null,
    sz_total		integer		not null);
 
+/* Log for block completion time . */
+create table t_log_block_latency
+  (time_update		float		not null,
+   destination		integer		not null,
+   block		integer			, -- block id, can be null if block remvoed
+   files		integer		not null, -- number of files
+   bytes		integer		not null, -- block size in bytes
+   priority		integer		not null, -- t_dps_block_dest priority
+   time_subscription	float		not null, -- time block was subscribed
+   block_create		float		not null, -- time the block was created
+   first_request	float			, -- time block was first routed (t_xfer_request appeared)
+   first_replica	float			, -- time the first file was replicated
+   last_replica		float			, -- time the last file was replicated
+   last_suspend		float			, -- time the block was last observed suspended
+   suspend_time		float			, -- seconds the block was suspended
+   latency		float			, -- current latency for this block
+   --
+   constraint fk_status_block_latency_dest
+     foreign key (destination) references t_adm_node (id),
+   constraint fk_status_block_latency_block
+     foreign key (block) references t_dps_block (id)
+     on delete set null);
+
 /* Log for user actions - lifecycle of data at a node
    actions:  0 - request data
              1 - subscribe data
@@ -348,3 +397,16 @@ create index ix_status_block_path_src
 
 create index ix_status_block_path_block
   on t_status_block_path (block);
+--
+/* Use compound index instead? */
+create index ix_log_block_latency_update
+  on t_log_block_latency (time_update);
+
+create index ix_log_block_latency_dest
+  on t_log_block_latency (destination);
+
+create index ix_log_block_latency_block
+  on t_log_block_latency (block);
+
+create index ix_log_block_latency_subs
+  on t_log_block_latency (time_subscription);
