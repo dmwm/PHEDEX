@@ -19,7 +19,7 @@ program to abort.
 use strict;
 use warnings;
 use base 'Exporter';
-our @EXPORT = qw(logmsg alert warn note);
+our @EXPORT = qw(logmsg alert warn dbgmsg note);
 use POSIX;
 
 # Produce an alert message
@@ -27,7 +27,6 @@ sub logmsg
 {
     my $date = strftime ("%Y-%m-%d %H:%M:%S", gmtime);
     my $me = $0; $me =~ s|.*/||;
-#   print STDERR "$date: ${me}\[$$]: ", @_, "\n";
     warn         "$date: ${me}\[$$]: ", @_, "\n";
 }
 
@@ -39,6 +38,11 @@ sub alert
 sub warn
 {
     &logmsg ("warning: ", @_);
+}
+
+sub dbgmsg
+{
+    &logmsg ("debug:  ", @_);
 }
 
 sub note
