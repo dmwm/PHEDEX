@@ -101,8 +101,6 @@ sub idle
     my ($self, @pending) = @_;
     my $dbh = undef;
 
-    my $t0 = time();
-
     eval
     {
 	$dbh = &connectToDatabase ($self);
@@ -115,7 +113,8 @@ sub idle
 	while ( (($min_block, $max_block) = $self->getBlockIDRange($self->{BLOCK_LIMIT}, $min_block))
 		&& defined $max_block ) 
 	{
-	    &logmsg ("Block ID range $min_block to $max_block has up to $self->{BLOCK_LIMIT} blocks") if $self->{DEBUG};
+	    &dbgmsg ("Block ID range $min_block to $max_block has up to ",
+		     "$self->{BLOCK_LIMIT} blocks") if $self->{DEBUG};
 
 	    # Guarantee full consistency.  We need to ensure that a) this
 	    # procedure is aborted if someone goes and makes block open
@@ -129,7 +128,7 @@ sub idle
 		 MIN_BLOCK => $min_block,
 		 MAX_BLOCK => $max_block
 		 );
-	    &logmsg ("Retrieved $h->{N_REPLICAS} replicas up to block ID $h->{MAX_BLOCK}") if $self->{DEBUG};
+	    &dbgmsg ("Retrieved $h->{N_REPLICAS} replicas up to block ID $h->{MAX_BLOCK}") if $self->{DEBUG};
 
 	    while ( $row = shift @{$qexisting} )
 	    {
@@ -289,12 +288,6 @@ sub idle
 
     # Disconnect from the database.
     &disconnectFromDatabase ($self, $dbh);
-
-    my $t1 = time(); 
-    &logmsg ("cycle:  ".($t1-$t0)) if $self->{DEBUG};
-
-    # Have a little nap.
-    $self->nap ($$self{WAITTIME});
 }
 
 sub isInvalid
