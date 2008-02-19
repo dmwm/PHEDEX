@@ -22,12 +22,12 @@ use PHEDEX::Core::Help;
              "node=s"      => \$args{MYNODE},
 	     "help|h"      => sub { &usage() });
 
-if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{MYNODE})
+if (!$args{DROPDIR} || !$args{DBCONFIG} || !$args{MYNODE})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
 
-(new PerfMonitor (%args))->process();
+(new PerfMonitor (%args,@ARGV))->process();
 
 ######################################################################
 # Routines for this agent.
@@ -382,9 +382,6 @@ sub idle
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
-
-    # Check children are still running and then wait
-    $self->nap ($$self{WAITTIME});
 }
 
 sub compactUpdate
