@@ -78,25 +78,24 @@ sub idle
     $dbh = &connectToDatabase ($self);
     my $now = &mytimeofday ();
 
-        my @stats1 = $self->subscriptions();
-        my @stats2 = $self->allocate();
-        my @stats3 = $self->blockDestinations();
-        $dbh->commit();
-        if (grep $_->[1] != 0, @stats1, @stats2, @stats3) {
-            $self->printStats('allocation stats', @stats1, @stats2, @stats3);
-        } else {
-            &logmsg('nothing to do');
-        }
-    };
+    my @stats1 = $self->subscriptions($now);
+    my @stats2 = $self->allocate($now);
+    my @stats3 = $self->blockDestinations($now);
+    $self->mergeLogBlockLatency();
+    $dbh->commit();
+    if (grep $_->[1] != 0, @stats1, @stats2, @stats3) {
+	$self->printStats('allocation stats', @stats1, @stats2, @stats3);
+    } else {
+	&logmsg('nothing to do');
+    }
+};
     do { chomp ($@); &alert ("database error: $@");
          eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database
     &disconnectFromDatabase ($self, $dbh);
 
-    # Have a nap.
     $self->doStop() if $self->{ONCE};
-    $self->nap ($self->{WAITTIME});
 }
 
 sub IsInvalid
@@ -106,11 +105,6 @@ sub IsInvalid
                 (
                   REQUIRED => [ qw / MYNODE DROPDIR DBCONFIG / ],
                 );
-#  if ( defined($self->{BLOCK_LIMIT}) && $self->{BLOCK_LIMIT} < 1000 )
-#  {
-#    $errors++;
-#    print __PACKAGE__,": BLOCK_LIMIT < 1000 is nuts, forget it...\n";
-#  }
   return $errors;
 }
 

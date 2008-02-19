@@ -20,9 +20,8 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 
 use strict;
 use warnings;
-use base 'PHEDEX::BlockAllocator::SQL';
+use base 'PHEDEX::BlockAllocator::SQL', 'PHEDEX::BlockLatency::SQL';
 use PHEDEX::Core::Logging;
-use PHEDEX::Core::Timing;
 
 our %params = (
 	      );
@@ -52,8 +51,7 @@ sub subscriptions
 {
     no warnings qw(uninitialized);  # lots of undef variables expected here from empty timestamps
 
-    my ($self) = @_;
-    my $now = &mytimeofday();
+    my ($self, $now) = @_;
 
     my %stats;
     my @stats_order = ('subs completed', 'move subs done', 'copy subs done',
@@ -293,8 +291,7 @@ sub delete_subscription
 #         c.  queued for deletion
 sub allocate
 {
-    my ($self) = @_;
-    my $now = &mytimeofday();
+    my ($self, $now) = @_;
 
     my %stats;
     my @stats_order = ('blocks allocated', 'blocks deallocated');
@@ -408,8 +405,7 @@ sub deallocateBlockDestinations
 #   3.  Mark undone block destinations if incomplete
 sub blockDestinations
 {
-    my ($self) = @_;
-    my $now = &mytimeofday();
+    my ($self, $now) = @_;
     my %stats;
     my @stats_order = ('blockdest done', 'blockdest reactivated', 'blockdest priority changed',
 		       'blockdest suspended', 'blockdest unsuspended', 'blockdest updated');
@@ -538,6 +534,7 @@ sub blockDestinations
 
 # returns 1 if the contents of the second hash do not match the
 # contents of the first
+# TODO:  put in some general library?
 sub hash_ne
 {
     no warnings;
@@ -555,5 +552,6 @@ sub printStats
     my ($self, $title, @stats) = @_;
     &logmsg("$title:  ".join(', ', map { $_->[1] + 0 .' '.$_->[0] } @stats));
 }
+
 
 1;
