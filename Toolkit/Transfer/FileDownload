@@ -377,6 +377,7 @@ sub purgeLostTransfers
         (task, report_code, xfer_code, time_xfer, time_update)
 	values (?, -2, -2, -1, ?)});
     &dbbindexec($qlost, 1 => \@lostlocal, 2 => \@now);
+    $$self{DBH}->commit();
 
     # Remove locally known tasks forgotten by database.
     foreach (@lostdb)
