@@ -14,12 +14,14 @@ that if you are using the PHEDEX::Debug module to debug your script, any call
 to the logmsg(), warn() or alert() functions in this package will cause the
 program to abort.
 
+fatal() calls exit(1) after it prints a message to the log.
+
 =cut
 
 use strict;
 use warnings;
 use base 'Exporter';
-our @EXPORT = qw(logmsg alert warn dbgmsg note);
+our @EXPORT = qw(logmsg alert warn dbgmsg fatal note);
 use POSIX;
 
 # Produce an alert message
@@ -42,7 +44,13 @@ sub warn
 
 sub dbgmsg
 {
-    &logmsg ("debug:  ", @_);
+    &logmsg ("debug: ", @_);
+}
+
+sub fatal
+{
+    &logmsg ("fatal: ", @_);
+    exit(1);
 }
 
 sub note
