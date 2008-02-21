@@ -89,18 +89,14 @@ sub getTestResults
 sub getObsoleteTests
 {
   my $self = shift;
-  my $time_expire = shift || 10 * 86400;
-  my ($sql,%p,$r);
+  my ($time_expire,$sql,%p,$r);
 
+  $time_expire = shift || 60 * 86400;
   $time_expire = time - $time_expire;
   %p = ( ':time_expire' => $time_expire );
-
-  $sql = qq{ select b.id, count(fileid), time_expire
-	     from t_dvs_block b join t_dvs_file f on b.id = f.request
+  $sql = qq{ select id from t_dvs_block 
 	     where time_expire < :time_expire
-	     and rownum < 10000
-	     group by b.id, time_expire
-             order by time_expire desc };
+	     and rownum < 10000 };
 
   $r = select_single( $self, $sql, %p );
   return $r;
@@ -217,16 +213,20 @@ sub expandTestList
 sub clearTestDetails
 {
   my $self = shift;
-  my ($sql1,$sql2,%p,$q);
+  my ($sql1,$sql2,$sql3,$sql4,%p,$q);
 
-  $sql1 = qq { delete from t_dvs_file        where request = :request }; 
-  $sql2 = qq { delete from t_dvs_file_result where request = :request }; 
+  $sql1 = qq { delete from t_dvs_file            where request = :request }; 
+  $sql2 = qq { delete from t_dvs_file_result     where request = :request }; 
+  $sql3 = qq { delete from t_status_block_verify where id = :request }; 
+  $sql4 = qq { delete from t_dvs_block           where id = :request }; 
   foreach ( @_ )
   {
     next unless defined $_;
     %p = ( ':request' => $_ );
     $q = execute_sql( $self, $sql1, %p );
     $q = execute_sql( $self, $sql2, %p );
+    $q = execute_sql( $self, $sql3, %p );
+    $q = execute_sql( $self, $sql4, %p );
   }
   return;
 }
