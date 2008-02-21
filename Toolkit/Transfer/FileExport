@@ -126,8 +126,9 @@ sub idle
 	{
 	    my @nodes;
 	    my $now = &mytimeofday ();
-	    ($dbh, @nodes) = &expandNodesAndConnect ($self);
-	    my ($filter, %filter_args) = &otherNodeFilter ($self, "xs.to_node");
+	    $dbh = $self->connectAgent();
+	    @nodes = $self->expandNodes();
+	    my ($filter, %filter_args) = $self->otherNodeFilter("xs.to_node");
 
 	    # Statement to upload rules.
 	    my $stmt = &dbprep ($dbh, qq{
@@ -220,5 +221,5 @@ sub idle
 	 eval { $dbh->rollback() } if $dbh; } if $@;
     
     # Disconnect from the database
-    &disconnectFromDatabase ($self, $dbh, 1) if $dbh;
+    $self->disconnectAgent(1) if $dbh;
 }

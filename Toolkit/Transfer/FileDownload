@@ -213,12 +213,13 @@ sub reconnect
     my $now = &mytimeofday();
     
     # Now connect.
-    my ($dbh, @nodes) = &expandNodesAndConnect($self);
+    my $dbh = $self->connectAgent();
+    my @nodes = $self->expandNodes();
     unless (@nodes) { die("Cannot find nodes in database for '@{$$self{NODES}}'") };
     
     # Indicate to file router which links are "live."
-    my ($dest, %dest_args) = &myNodeFilter ($self, "l.to_node");
-    my ($src, %src_args) = &otherNodeFilter ($self, "l.from_node");
+    my ($dest, %dest_args) = $self->myNodeFilter ("l.to_node");
+    my ($src, %src_args) = $self->otherNodeFilter ("l.from_node");
     my @protos = $$self{BACKEND}->protocols();
 
     &dbexec($dbh, qq{
@@ -345,8 +346,8 @@ sub purgeLostTransfers
     $inlocal{$_} = 1 for keys %$tasks;
 
     # Get the database transfer pool.  Again, just task ids.
-    my ($dest, %dest_args) = &myNodeFilter ($self, "xt.to_node");
-    my ($src, %src_args) = &otherNodeFilter ($self, "xt.from_node");
+    my ($dest, %dest_args) = $self->myNodeFilter ("xt.to_node");
+    my ($src, %src_args) = $self->otherNodeFilter ("xt.from_node");
     my $qpending = &dbexec($$self{DBH}, qq{
       select xti.task
       from t_xfer_task_inxfer xti
@@ -391,8 +392,8 @@ sub purgeLostTransfers
 sub fetchNewTasks
 {
     my ($self, $jobs, $tasks) = @_;
-    my ($dest, %dest_args) = &myNodeFilter ($self, "xt.to_node");
-    my ($src, %src_args) = &otherNodeFilter ($self, "xt.from_node");
+    my ($dest, %dest_args) = $self->myNodeFilter ("xt.to_node");
+    my ($src, %src_args) = $self->otherNodeFilter ("xt.from_node");
     my $now = &mytimeofday();
     my (%pending, %busy);
 
@@ -1036,7 +1037,7 @@ sub idle
 		|| $now - $$self{LAST_WORK} > 4*3600))
 	{
 	    &logmsg("disconnecting from database");
-	    &disconnectFromDatabase($self, $$self{DBH}, 1);
+	    $self->disconnectAgent(1);
 	}
 
 	# Purge info about old jobs.

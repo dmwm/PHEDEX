@@ -50,7 +50,7 @@ if (!$args{DBCONFIG} || !$args{NAME} || !$args{KIND}
 }
 
 my $self = { DBCONFIG => $args{DBCONFIG} };
-my $dbh = &connectToDatabase ($self, 0);
+my $dbh = &connectToDatabase ($self);
 my $now = &mytimeofday();
 print "Creating node $args{NAME}, kind $args{KIND}\n";
 

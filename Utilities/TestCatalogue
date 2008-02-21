@@ -16,7 +16,6 @@ my %args;
 use PHEDEX::Core::Catalogue;
 use Getopt::Long;
 use PHEDEX::Core::Help;
-use PHEDEX::Core::DB;
 use POSIX;
 Getopt::Long::Configure qw(default no_ignore_case);
 &GetOptions ('c=s'        => \$args{CATALOGUE},

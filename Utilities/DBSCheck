@@ -57,7 +57,7 @@ if(!$args{DBCONFIG} || (!$args{BLOCK} && !$args{DATASET}) || ((!$args{DBSADDRESS
 	die "Insufficient parameters, use -h for help.\n";
 }
 
-$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} }, 0);
+$dbh = &connectToDatabase ({ DBCONFIG => $args{DBCONFIG} });
 
 if ($args{DATASET}){
 	print "\nGetting datasets...";	

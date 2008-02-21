@@ -59,8 +59,8 @@ sub idle
     eval
     {
 	$$self{NODES} = [ '%' ];
-	($dbh, @nodes) = &expandNodesAndConnect ($self,
-	    { "FileDownload" => 5400, "FileExport" => 5400 });
+	$dbh = $self->connectAgent();
+	@nodes = $self->expandNodes({ "FileDownload" => 5400, "FileExport" => 5400 });
 
         # Auto-export/-transfer files for nodes.
 	$self->transfer($dbh);
@@ -75,7 +75,7 @@ sub idle
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database
-    &disconnectFromDatabase ($self, $dbh);
+    $self->disconnectAgent();
 }
 
 # Update transfer task statistics.

@@ -64,7 +64,7 @@ if( !$DBCONFIG )
 
 #-------------------------------------------------------------------------------
 $conn = { DBCONFIG => $DBCONFIG };
-$dbh = &connectToDatabase ( $conn, 0 );
+$dbh = &connectToDatabase ( $conn );
 
 if ( $lfnlist =~ m%.gz$% )
 { open LFN, "cat $lfnlist | gzip -d - |" or die "open: $lfnlist: $!\n"; }

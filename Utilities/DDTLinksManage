@@ -41,7 +41,7 @@ if ( -e $ARGV[0] )
 };
 
 my $self = { DBCONFIG => $args{DBCONFIG} };
-my $dbh = &connectToDatabase ($self, 0);
+my $dbh = &connectToDatabase ($self);
 my $now = &mytimeofday();
 
 my ($fromname, $toname, $action, $fromid, $toid, $linkid, $status, $fromtable, $totable, $isactive);

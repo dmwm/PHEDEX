@@ -80,7 +80,7 @@ foreach my $file (@{$args{ADDFILE}})
 
 # Fetch all completed and pending transfers and fill into %xferred
 # and %pending.  Then the same with transfer quality into %quality.
-$dbh = &connectToDatabase (\%args, 0);
+$dbh = &connectToDatabase (\%args);
 
 my $data = &dbexec ($dbh,qq{select
      he.timebin,

@@ -17,7 +17,7 @@ foreach ( qw(DBCONFIG) ) {
 }
 
 my $self = { DBCONFIG => $args{DBCONFIG} };
-my $dbh = &connectToDatabase ($self, 0);
+my $dbh = &connectToDatabase ($self);
 
 my $now = time();
 my $sql = qq{select dn from t_adm_identity};

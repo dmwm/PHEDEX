@@ -63,7 +63,7 @@ sub idle
 
   $self->maybeStop();
   eval {
-      $dbh = &connectToDatabase ($self);
+      $dbh = $self->connectAgent();
 
       # Deactivate complete blocks.  Get all blocks whose all replicas
       # are complete and active.  First of all, ignore blocks where
@@ -159,7 +159,7 @@ sub idle
       }
 
       # Disconnect from the database
-      &disconnectFromDatabase ($self, $dbh);
+      $self->disconnectAgent();
   };
   do { chomp ($@); &alert ("database error: $@");
        eval { $dbh->rollback() } if $dbh } if $@;

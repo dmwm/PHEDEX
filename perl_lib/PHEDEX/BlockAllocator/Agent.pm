@@ -33,10 +33,6 @@ our %params =
 	  ONCE      => 0,		# Quit after one run
 
 	  BLOCK_LIMIT => 5000,		# Number of blocks to process at once (memory safeguard)
-
-	 VERBOSE	=> 0,
-	 DEBUG		=> 0,
-	 TERSE		=> 0
 	);
 
 sub new
@@ -75,7 +71,7 @@ sub idle
 
   eval
   {
-    $dbh = &connectToDatabase ($self);
+    $dbh = $self->connectAgent();
     my $now = &mytimeofday ();
 
     my @stats1 = $self->subscriptions($now);
@@ -93,7 +89,7 @@ sub idle
          eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database
-    &disconnectFromDatabase ($self, $dbh);
+    $self->disconnectAgent();
 
     $self->doStop() if $self->{ONCE};
 }

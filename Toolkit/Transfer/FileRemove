@@ -99,7 +99,8 @@ sub deleteOneFile
     my @nodes = ();
 
     my $status = eval {
-	($dbh, @nodes) = &expandNodesAndConnect ($self);
+	$dbh = $self->connectAgent();
+	@nodes = $self->expandNodes();
 
 	# Get Buffer Node if this is for an MSS node.  We will check
 	# transfers for the buffer node along with the MSS node, and
@@ -293,7 +294,8 @@ sub idle
 
     eval
     {
-	($dbh, @nodes) = &expandNodesAndConnect ($self);
+	$dbh = $self->connectAgent();
+	@nodes = $self->expandNodes();
 
 	# Get a list of victims to evict.
 	foreach my $node (@nodes)
@@ -322,7 +324,7 @@ sub idle
 
 
     # Disconnect from the database
-    &disconnectFromDatabase ($self, $dbh);
+    $self->disconnectAgent();
 }
 
 1;

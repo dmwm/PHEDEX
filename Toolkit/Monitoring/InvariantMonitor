@@ -57,7 +57,7 @@ sub idle
     my $dbh = undef;
     eval
     {
-	$dbh = &connectToDatabase ($self);
+	$dbh = $self->connectAgent();
 	my $now = &mytimeofday();	
 	# I:  Broken paths
 	# Invaraint:  The number of paths missing hops should be zero.
@@ -144,5 +144,5 @@ sub idle
 	 eval { $dbh->rollback() } if $dbh; } if $@;
     
     # Disconnect from the database
-    &disconnectFromDatabase ($self, $dbh);
+    $self->disconnectAgent();
 }

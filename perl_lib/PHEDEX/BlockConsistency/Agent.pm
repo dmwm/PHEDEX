@@ -127,7 +127,8 @@ sub doDBSCheck
 
   eval
   {
-    ($dbh,@nodes) = &expandNodesAndConnect($self);
+    $dbh = $self->connectAgent();
+    @nodes = $self->expandNodes();
     $n_tested = $n_ok = 0;
     $n_files = $request->{N_FILES};
     foreach my $r ( @{$request->{LFNs}} )
@@ -238,7 +239,8 @@ sub doNSCheck
 
   eval
   {
-    ($dbh,@nodes) = &expandNodesAndConnect($self);
+    $dbh = $self->connectAgent();
+    @nodes = $self->expandNodes();
     $n_tested = $n_ok = 0;
     $n_files = $request->{N_FILES};
     foreach my $r ( @{$request->{LFNs}} )
@@ -294,7 +296,8 @@ sub processDrop
 
   if ( ! defined $self->{DBH} )
   {
-    &expandNodesAndConnect($self);
+    $self->connectAgent();
+    $self->expandNodes();
     $self->{bcc}->DBH( $self->{DBH} );
   }
 
@@ -493,10 +496,11 @@ sub idle
 
   eval
   {
-    ($dbh, @nodes) = &expandNodesAndConnect ($self);
+    $dbh = $self->connectAgent();
+    @nodes = $self->expandNodes();
     @nodes or die "No node found? Typo perhaps?\n";
-    my ($mfilter, %mfilter_args) =    &myNodeFilter ($self, "b.node");
-    my ($ofilter, %ofilter_args) = &otherNodeFilter ($self, "b.node");
+    my ($mfilter, %mfilter_args) =    $self->myNodeFilter ("b.node");
+    my ($ofilter, %ofilter_args) = $self->otherNodeFilter ("b.node");
 
 #   Get a list of requests to process
     foreach my $request ($self->requestQueue(50, \$mfilter, \%mfilter_args,
@@ -524,7 +528,7 @@ sub idle
   }
 
   # Disconnect from the database
-  &disconnectFromDatabase ($self, $dbh);
+  $self->disconnectAgent();
 }
 
 sub setFileState
@@ -574,7 +578,8 @@ sub setRequestState
   if ( ! defined ($dbh = $self->{DBH} ) )
   {
 print "Hmm, I have to connect...? (Request=$request->{ID}, state=$state)\n";
-    ($dbh,@nodes) = &expandNodesAndConnect($self);
+    $dbh = $self->connectAgent();
+    @nodes = $self->expandNodes();
     $disconnect=1;
   }
 
@@ -596,7 +601,7 @@ print "Hmm, I have to connect...? (Request=$request->{ID}, state=$state)\n";
   {
 #   commit and disconnect, since I was disconnected when I was called...
     $dbh->commit();
-    &disconnectFromDatabase($self,$dbh);
+    $self->disconnectAgent();
   }
 }
 

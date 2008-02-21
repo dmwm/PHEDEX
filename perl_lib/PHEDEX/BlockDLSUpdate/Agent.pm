@@ -70,9 +70,9 @@ sub idle
   eval
   {
     # Connect to database
-    my @nodes = ();
-    ($dbh, @nodes) = &expandNodesAndConnect ($self);
-    my @nodefilter = &myNodeFilter ($self, "br.node");
+    $dbh = $self->connectAgent();
+    my @nodes = $self->expandNodes();
+    my @nodefilter = $self->myNodeFilter ("br.node");
 
     # Get order list of blocks we have.  This is always everything,
     # but we keep track of what we've updated in a file.  If the
@@ -152,7 +152,7 @@ sub idle
     eval { $dbh->rollback() } if $dbh } if $@;
 
   # Disconnect from the database
-  &disconnectFromDatabase ($self, $dbh, 1);
+  $self->disconnectAgent(1);
 
   # Wait for all jobs to finish
   while (@{$self->{JOBS}})

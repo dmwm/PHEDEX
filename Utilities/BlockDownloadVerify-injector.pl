@@ -73,7 +73,7 @@ if ( $n_files )
   $n_files = 0;
 }
 $conn = { DBCONFIG => $dbconfig };
-$dbh = &connectToDatabase ( $conn, 0 );
+$dbh = &connectToDatabase ( $conn );
 
 #-------------------------------------------------------------------------------
 $bcc = PHEDEX::BlockConsistency::Core->new( DBH => $dbh );

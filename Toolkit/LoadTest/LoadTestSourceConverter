@@ -20,7 +20,7 @@ if (scalar @ARGV < 1 || !$args{DBCONFIG})
 }
 
 my $self = { DBCONFIG => $args{DBCONFIG} };
-my $dbh = &connectToDatabase ($self, 0);
+my $dbh = &connectToDatabase ($self);
 
 my $now = &mytimeofday();
 my $node = shift(@ARGV);

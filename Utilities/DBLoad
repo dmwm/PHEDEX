@@ -23,7 +23,7 @@ if (! $args{DBCONFIG})
 }
 
 my $row = 0;
-my $dbh = &connectToDatabase (\%args, 0);
+my $dbh = &connectToDatabase (\%args);
 foreach my $file (@ARGV)
 {
     open (F, "< $file") || die "$file: cannot open: $!\n";

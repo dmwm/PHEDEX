@@ -111,7 +111,7 @@ sub getNodeFiles
     # we haven't seen before, remember it but don't look it up yet.
     # We get files exported from the node, plus most recent time the
     # file was in that state.
-    my ($mynodes, %myargs) = &myNodeFilter ($self, "xt.from_node");
+    my ($mynodes, %myargs) = $self->myNodeFilter ("xt.from_node");
     my $stmt = &dbexec($dbh, qq{
 	select f.logical_name from t_xfer_task xt
 	join t_xfer_file f on f.id = xt.fileid
@@ -248,9 +248,9 @@ sub idle
 	  return;
 	}
 
-	my @nodes;
-	($dbh, @nodes) = &expandNodesAndConnect ($self);
-	my ($mynodes, %myargs) = &myNodeFilter ($self, "node");
+	$dbh = $self->connectAgent();
+	my @nodes = $self->expandNodes();
+	my ($mynodes, %myargs) = $self->myNodeFilter ("node");
 
 	# Clean up caches
 	my %timing = (START => &mytimeofday());
@@ -335,5 +335,5 @@ sub idle
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database
-    &disconnectFromDatabase ($self, $dbh);
+    $self->disconnectAgent();
 }

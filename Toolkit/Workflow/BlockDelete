@@ -60,7 +60,7 @@ sub idle
 
     eval
     {
-	$dbh = &connectToDatabase ($self);
+	$dbh = $self->connectAgent();
 	my $now = &mytimeofday();
 
 	# Trigger deletion of finished blocks at the source end of a complete "move" subscription
@@ -159,7 +159,7 @@ sub idle
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database
-    &disconnectFromDatabase ($self, $dbh);
+    $self->disconnectAgent();
 
     $self->doStop() if $$self{ONCE};
 }

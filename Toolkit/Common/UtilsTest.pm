@@ -56,7 +56,7 @@ sub doTestTasks
     my $self = shift;
     my $dbh = undef;
 
-    $dbh = &connectToDatabase ($self,0);
+    $dbh = &connectToDatabase ($self);
     eval {
 	$self->checkLogs( $dbh );
 	$self->test( $dbh );

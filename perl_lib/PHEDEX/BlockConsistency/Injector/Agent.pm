@@ -137,8 +137,9 @@ sub idle
 
   eval
   {
-    ($dbh,@nodes) = &expandNodesAndConnect($self);
-    my ($filter, %filter_args) = &otherNodeFilter ($self, "nd.id");
+    $dbh = $self->connectAgent();
+    @nodes = $self->expandNodes();
+    my ($filter, %filter_args) = $self->otherNodeFilter ("nd.id");
 
 #   first, some cleanup...
     my @r = @{PHEDEX::BlockConsistency::Core::getObsoleteTests($self)};#[0..1000];
@@ -208,7 +209,7 @@ sub idle
      } if $@;
 
   # Disconnect from the database
-  &disconnectFromDatabase ($self, $dbh);
+  $self->disconnectAgent();
 }
 
 

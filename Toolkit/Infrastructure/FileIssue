@@ -59,7 +59,8 @@ sub idle
     eval
     {
 	$$self{NODES} = [ '%' ];
-	($dbh, @nodes) = &expandNodesAndConnect ($self, { "FileDownload" => 5400 });
+	$dbh = $self->connectAgent();
+	@nodes = $self->expandNodes({ "FileDownload" => 5400 });
 
 	# Route files.
 	$self->confirm($dbh);
@@ -68,7 +69,7 @@ sub idle
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database
-    &disconnectFromDatabase ($self, $dbh);
+    $self->disconnectAgent();
 }
 
 # Confirm transfers for all nodes.

@@ -55,7 +55,7 @@ sub idle
     my $dbh = undef;
     eval
     {
-	$dbh = &connectToDatabase ($self);
+	$dbh = $self->connectAgent();
 
 	# Recreate statistics
 	my $now = &mytimeofday();
@@ -92,5 +92,5 @@ sub idle
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database
-    &disconnectFromDatabase ($self, $dbh);
+    $self->disconnectAgent();
 }

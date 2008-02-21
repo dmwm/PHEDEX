@@ -20,7 +20,7 @@ if (! $args{DBCONFIG})
     die "Insufficient parameters, use -h for help.\n";
 }
 
-my $dbh = &connectToDatabase (\%args, 0);
+my $dbh = &connectToDatabase (\%args);
 foreach my $table (@ARGV)
 {
     my $q = &dbexec ($dbh, qq{select * from $table});

@@ -65,7 +65,7 @@ if ($args{KEEP}) {
 }
 
 my $self = { DBCONFIG => $args{DBCONFIG} };
-our $dbh = &connectToDatabase ($self, 0);
+our $dbh = &connectToDatabase ($self);
 my $now = &mytimeofday();
 my $nodes = [ split m|,\s*|, $args{NODES} ];
 my $list = [ split m|,\s*|, $args{LIST} ];

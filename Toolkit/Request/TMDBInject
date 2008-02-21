@@ -147,7 +147,7 @@ sub lockone
 
 # Connect to database for update
 print "Connecting to database\n" if $verbose;
-my $dbh = &connectToDatabase (\%args, 0);
+my $dbh = &connectToDatabase (\%args);
 $$dbh{FetchHashKeyName} = "NAME_uc";
 
 # Read in the inputs

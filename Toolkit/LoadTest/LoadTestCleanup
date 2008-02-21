@@ -60,7 +60,7 @@ sub idle
 
     eval
     {
-	$dbh = &connectToDatabase ($self);
+	$dbh = $self->connectAgent();
 
 	# Select deactivated blocks we can clean up.  Lock the block
 	# row for transactional consistency
@@ -98,7 +98,7 @@ sub idle
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database
-    &disconnectFromDatabase ($self, $dbh);
+    $self->disconnectAgent();
 
     $self->doStop() if $$self{ONCE};
 }

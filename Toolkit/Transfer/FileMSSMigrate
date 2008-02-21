@@ -101,8 +101,9 @@ sub idle
 	# transfers to the MSS.
 
 	my @nodes;
-	($dbh, @nodes) = &expandNodesAndConnect ($self);
-	my ($mynode, %myargs) = &myNodeFilter($self, "xt.to_node");
+	$dbh = $self->connectAgent();
+	@nodes = $self->expandNodes();
+	my ($mynode, %myargs) = $self->myNodeFilter("xt.to_node");
 	my $start = &mytimeofday();
 
 	# Advertise myself available so file routing kicks in.
@@ -181,7 +182,7 @@ sub idle
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database
-    &disconnectFromDatabase ($self, $dbh);
+    $self->disconnectAgent();
 }
 
 sub markForRetransfer {

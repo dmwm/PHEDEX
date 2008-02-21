@@ -65,7 +65,7 @@ sub idle
 
     eval
     {
-	$dbh = &connectToDatabase ($self);
+	$dbh = $self->connectAgent();
 
 	# Reactivate blocks with incomplete destinations or which
 	# have been explicitly requested to be activated or deleted
@@ -121,7 +121,7 @@ sub idle
 	 eval { $dbh->rollback() } if $dbh } if $@;
 
     # Disconnect from the database
-    &disconnectFromDatabase ($self, $dbh);
+    $self->disconnectAgent();
 }
 
 sub isInvalid

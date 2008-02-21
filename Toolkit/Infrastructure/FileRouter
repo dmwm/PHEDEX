@@ -89,7 +89,8 @@ sub idle
     eval
     {
 	$$self{NODES} = [ '%' ];
-	($dbh, @nodes) = &expandNodesAndConnect ($self);
+	$dbh = $self->connectAgent();
+	@nodes = $self->expandNodes();
 
 	# Run general flush.
 	$self->flush($dbh);
@@ -107,7 +108,7 @@ sub idle
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database and reset flush marker
-    &disconnectFromDatabase ($self, $dbh);
+    $self->disconnectAgent();
     $$self{FLUSH_MARKER} = undef;
 }
 

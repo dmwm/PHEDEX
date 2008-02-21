@@ -62,8 +62,9 @@ sub idle
     eval
     {
 	my @nodes;
-	($dbh, @nodes) = &expandNodesAndConnect ($self);
-        my ($mynodes, %myargs) = &myNodeFilter($self, "xr.node");
+	$dbh = $self->connectAgent();
+	@nodes = $self->expandNodes();
+        my ($mynodes, %myargs) = $self->myNodeFilter("xr.node");
 
         # Mark as staged everything requiring export.
         my $stmt = &dbexec($dbh, qq{
@@ -81,5 +82,5 @@ sub idle
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database
-    &disconnectFromDatabase ($self, $dbh);
+    $self->disconnectAgent();
 }

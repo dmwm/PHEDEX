@@ -31,10 +31,6 @@ our %params =
 	  WAITTIME  => 120 + rand(30),	# Agent cycle time
 	  DUMMY     => 0,		# Dummy the updates
 	  BLOCK_LIMIT => 5000,		# Number of blocks to process at once (memory safeguard)
-
-	 VERBOSE	=> 0,
-	 DEBUG		=> 0,
-	 TERSE		=> 0
 	);
 
 sub new
@@ -103,7 +99,7 @@ sub idle
 
     eval
     {
-	$dbh = &connectToDatabase ($self);
+	$dbh = $self->connectAgent();
 
 	# Read existing block replica information.
 	my $now = &mytimeofday ();
@@ -287,7 +283,7 @@ sub idle
 	 eval { $self->execute_rollback() } if $dbh } if $@;
 
     # Disconnect from the database.
-    &disconnectFromDatabase ($self, $dbh);
+    $self->disconnectAgent();
 }
 
 sub isInvalid

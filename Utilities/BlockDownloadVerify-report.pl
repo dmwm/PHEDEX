@@ -44,7 +44,7 @@ $dbconfig or die "'--db' argument is mandatory\n";
 $summary && $detail && die "Make your mind up please, summary _or_ detail!'n";
 
 $conn = { DBCONFIG => $dbconfig };
-$dbh = &connectToDatabase ( $conn, 0 );
+$dbh = &connectToDatabase ( $conn );
 
 #-------------------------------------------------------------------------------
 $bcc   = PHEDEX::BlockConsistency::Core->new( DBH => $dbh );

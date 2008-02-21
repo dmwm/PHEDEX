@@ -42,10 +42,6 @@ our (%h,%check,%params);
 		BUFFER		=> undef,
 		CHECK		=> \%check,
 		AUTOBLOCK	=> 0,
-
-		VERBOSE		=> 0,
-		DEBUG		=> 0,
-		TERSE		=> 1,
 	  );
 
 sub new

@@ -63,7 +63,7 @@ sub idle
     &logmsg("starting injections");
 
     eval {
-	&connectToDatabase ($self);
+	$self->connectAgent();
 	
 	# Get the LoadTest parameters for every link
 	my $qparam = &dbexec($$self{DBH}, qq{
@@ -162,7 +162,7 @@ sub idle
 	 eval { $$self{DBH}->rollback() } if $$self{DBH} } if $@;
 
     # Disconnect from the database
-    &disconnectFromDatabase ($self, $$self{DBH});    
+    $self->disconnectAgent();    
 
     $self->doStop() if $$self{ONCE};
 }

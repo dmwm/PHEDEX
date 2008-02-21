@@ -212,7 +212,7 @@ die "Woah, nothing to check!\n" unless $nchecks;
 
 goto CHEAT if $readstats;
 $conn = { DBCONFIG => $DBCONFIG };
-$dbh = &connectToDatabase ( $conn, 0 );
+$dbh = &connectToDatabase ( $conn );
 $SQL = PHEDEX::BlockConsistency::SQL->new( DBH => $dbh );
 
 #-------------------------------------------------------------------------------
