@@ -12,6 +12,7 @@ use warnings;
 use base 'PHEDEX::Core::JobManager';
 use POSIX;
 use File::Path;
+use File::Basename;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
@@ -355,6 +356,40 @@ sub isInvalid
    next if defined $self->{$_};
     $errors++;
     warn "Required parameter \"$_\" not defined!\n";
+  }
+
+# DROPDIR parameter must be a writeable directory
+  $_ = $self->{DROPDIR};
+  while ( my $x = readlink($_) ) { $_ = $x; } # Follow symlinks!
+  fatal("PERL_FATAL: DROPDIR directory $_ does not exist")     unless -e;
+  fatal("PERL_FATAL: DROPDIR parameter $_ is not a directory") unless -d;
+  fatal("PERL_FATAL: DROPDIR directory $_ is not writeable")   unless -w;
+
+# LOGFILE must be writeable if it exists, or parent directory must be writeable
+  if ( defined($_=$self->{LOGFILE}) )
+  {
+    while ( my $x = readlink($_) ) { $_ = $x; } # Follow symlinks!
+    if ( -e $_ )
+    {
+#     If it exists, it better be a writeable file
+      fatal("PERL_FATAL: LOGFILE parameter $_ is not a file") unless -f;
+      fatal("PERL_FATAL: LOGFILE file $_ is not writeable")   unless -w;
+    }
+    else
+    {
+#     if it doesn't exist, the parent must be a writeable directory
+      $_ = dirname($_) unless -e $_;
+      while ( my $x = readlink($_) ) { $_ = $x; } # Follow symlinks!
+      fatal("PERL_FATAL: LOGFILE directory $_ does not exist")     unless -e;
+      fatal("PERL_FATAL: LOGFILE directory $_ is not a directory") unless -d;
+      fatal("PERL_FATAL: LOGFILE directory $_ is not writeable")   unless -w;
+    }
+  }
+  else
+  {
+#   LOGFILE not defined is fatal unless NODAEMON is set!
+    fatal("PERL_FATAL: LOGFILE not set but process will run as a daemon")
+       unless $self->{NODAEMON};
   }
 
   return $errors;
