@@ -30,7 +30,6 @@ use PHEDEX::BlockConsistency::Injector::Agent;
 	     "log=s"        => \$args{LOGFILE},
 	     "db=s"         => \$args{DBCONFIG},
 	     "label=s"      => \$args{LABEL},
-	     "dropbox=s"    => \$args{DROPDIR},
 	     "use_srm"      => \$args{USE_SRM},
 	     "interval=s"   => \$args{CHECK_INTERVAL},
 	     "nodes=s"      => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
@@ -39,4 +38,6 @@ use PHEDEX::BlockConsistency::Injector::Agent;
 	     "help|h"	    => sub { &usage() },
 	    );
 
-(new PHEDEX::BlockConsistency::Injector::Agent (%args, @ARGV))->process();
+foreach ( keys %args ) { delete $args{$_} unless defined $args{$_}; }
+my $agent = new PHEDEX::BlockConsistency::Injector::Agent(%args, @ARGV);
+$agent->process();

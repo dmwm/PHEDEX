@@ -38,4 +38,6 @@ use PHEDEX::BlockConsistency::Agent;
 	     "use_rfdir"    => \$args{RFIO_USES_RFDIR},
 	    );
 
-(new PHEDEX::BlockConsistency::Agent (%args, @ARGV))->process();
+foreach ( keys %args ) { delete $args{$_} unless defined $args{$_}; }
+my $agent = new PHEDEX::BlockConsistency::Agent(%args, @ARGV);
+$agent->process();

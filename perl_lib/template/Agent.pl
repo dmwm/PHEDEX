@@ -55,10 +55,16 @@ use Getopt::Long;
 use PHEDEX::Core::Help;
 use template::Agent;
 
-&GetOptions ("state=s"     => \$args{DROPDIR},
+&GetOptions (
+	     "state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
              "node=s"      => \$args{MYNODE},
-	     "help|h"      => sub { &usage() });
+	     "help|h"      => sub { &usage() }
+	     );
 
-(new template::Agent (%args,@ARGV))->process();
+# Eliminate undefined values from %args, so that defaults in the module
+# can take precedence. Otherwise, the undefined value wins, which is not good
+foreach ( keys %args ) { delete $args{$_} unless defined $args{$_}; }
+my $agent = new template::Agent(%args,@ARGV);
+$agent->process();
