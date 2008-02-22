@@ -344,7 +344,6 @@ sub isInvalid
   @{$h{REQUIRED}} = @required_params unless $h{REQUIRED};
   @{$h{WRITEABLE_DIRS}}  = @writeable_dirs  unless $h{WRITEABLE_DIRS};
   @{$h{WRITEABLE_FILES}} = @writeable_files unless $h{WRITEABLE_FILES};
-  my $me = $self->{ME};
 
   my $errors = 0;
   foreach ( @{$h{REQUIRED}} )
@@ -362,9 +361,9 @@ sub isInvalid
 
 #   If the directory doesn't exist, attempt to create it...
     eval { mkpath $_ } unless -e;
-    fatal("PERL_FATAL: $me: $key directory $_ does not exist")   unless -e;
-    fatal("PERL_FATAL: $me: $key exists but is not a directory") unless -d;
-    fatal("PERL_FATAL: $me: $key directory $_ is not writeable") unless -w;
+    fatal("PERL_FATAL: $key directory $_ does not exist")   unless -e;
+    fatal("PERL_FATAL: $key exists but is not a directory") unless -d;
+    fatal("PERL_FATAL: $key directory $_ is not writeable") unless -w;
   }
 
 # Some parameters must be writeable files if they exist, or the parent
@@ -377,17 +376,17 @@ sub isInvalid
       if ( -e $_ )
       {
 #       If it exists, it better be a writeable file
-        fatal("PERL_FATAL: $me: $key exists but is not a file") unless -f;
-        fatal("PERL_FATAL: $me: $key file $_ is not writeable") unless -w;
+        fatal("PERL_FATAL: $key exists but is not a file") unless -f;
+        fatal("PERL_FATAL: $key file $_ is not writeable") unless -w;
       }
       else
       {
 #       if it doesn't exist, the parent must be a writeable directory
         $_ = dirname($_) unless -e $_;
         while ( my $x = readlink($_) ) { $_ = $x; } # Follow symlinks!
-        fatal("PERL_FATAL: $me: $key directory $_ does not exist")   unless -e;
-        fatal("PERL_FATAL: $me: $key exists but is not a directory") unless -d;
-        fatal("PERL_FATAL: $me: $key directory $_ is not writeable") unless -w;
+        fatal("PERL_FATAL: $key directory $_ does not exist")   unless -e;
+        fatal("PERL_FATAL: $key exists but is not a directory") unless -d;
+        fatal("PERL_FATAL: $key directory $_ is not writeable") unless -w;
       }
     }
   }
@@ -395,7 +394,7 @@ sub isInvalid
   if ( !defined($self->{LOGFILE}) && !$self->{NODAEMON} )
   {
 #   LOGFILE not defined is fatal unless NODAEMON is set!
-    fatal("PERL_FATAL: $me: LOGFILE not set but process will run as a daemon");
+    fatal("PERL_FATAL: LOGFILE not set but process will run as a daemon");
   }
 
   return $errors;
