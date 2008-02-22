@@ -92,6 +92,8 @@ our %params =
 our @array_params = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
 our @hash_params  = qw / BAD JUNK /;
 our @required_params = qw / DROPDIR DBCONFIG /;
+our @writeable_dirs  = qw / DROPDIR INBOX WORKDIR OUTDIR /;
+our @writeable_files = qw / LOGFILE PIDFILE /;
 
 sub new
 {
@@ -163,22 +165,18 @@ sub new
     while (my ($k, $v) = each %args)
     { $self->{$k} = $v unless defined $self->{$k}; }
 
-#   Basic validation: Explicitly call the base method to validate only the
-#   core agent. This will be called again in the 'process' method, on the
-#   derived agent. No harm in that!
-    die "$me: Failed validation, exiting\n"
-	if PHEDEX::Core::Agent::isInvalid( $self );
-
-#   Beyond basic validation, need to check that some parameters are in fact
-#   existing directories, and derive other parameters from them.
-    die "$me: fatal error: non-existent drop box directory \"$self->{DROPDIR}\"\n"
-	 if ! -d $self->{DROPDIR};
+#   Before basic validation, we need to derive a few other parameters.
     $self->{DROPDIR} .= '/' unless $self->{DROPDIR} =~ m%\/$%;
     $self->{INBOX}    = $self->{DROPDIR} . 'inbox'  unless $self->{INBOX};
     $self->{OUTDIR}   = $self->{DROPDIR} . 'outbox' unless $self->{OUTDIR};
     $self->{PIDFILE}  = $self->{DROPDIR} . 'pid'    unless $self->{PIDFILE};
     $self->{STOPFLAG} = $self->{DROPDIR} . 'stop'   unless $self->{STOPFLAG};
     $self->{WORKDIR}  = $self->{DROPDIR} . 'work'   unless $self->{WORKDIR};
+#   Basic validation: Explicitly call the base method to validate only the
+#   core agent. This will be called again in the 'process' method, on the
+#   derived agent. No harm in that!
+    die "$me: Failed validation, exiting\n"
+	if PHEDEX::Core::Agent::isInvalid( $self );
 
     foreach my $dir (@{$self->{NEXTDIR}}) {
 	if ($dir =~ /^([a-z]+):/) {
@@ -204,13 +202,6 @@ sub new
     {
 	print "$me: removing old stop flag $self->{STOPFLAG}\n";
 	unlink ($self->{STOPFLAG});
-    }
-
-    foreach ( qw / INBOX WORKDIR OUTDIR / )
-    {
-      -d $self->{$_} || mkdir $self->{$_};
-      -d $self->{$_} || die
-	    "$me: fatal error: cannot create $_ directory \"$self->{$_}\"\n";
     }
 
     bless $self, $class;
@@ -351,6 +342,9 @@ sub isInvalid
   my $self = shift;
   my %h = @_;
   @{$h{REQUIRED}} = @required_params unless $h{REQUIRED};
+  @{$h{WRITEABLE_DIRS}}  = @writeable_dirs  unless $h{WRITEABLE_DIRS};
+  @{$h{WRITEABLE_FILES}} = @writeable_files unless $h{WRITEABLE_FILES};
+  my $me = $self->{ME};
 
   my $errors = 0;
   foreach ( @{$h{REQUIRED}} )
@@ -360,38 +354,48 @@ sub isInvalid
     warn "Required parameter \"$_\" not defined!\n";
   }
 
-# DROPDIR parameter must be a writeable directory
-  $_ = $self->{DROPDIR};
-  while ( my $x = readlink($_) ) { $_ = $x; } # Follow symlinks!
-  fatal("PERL_FATAL: DROPDIR directory $_ does not exist")     unless -e;
-  fatal("PERL_FATAL: DROPDIR parameter $_ is not a directory") unless -d;
-  fatal("PERL_FATAL: DROPDIR directory $_ is not writeable")   unless -w;
-
-# LOGFILE must be writeable if it exists, or parent directory must be writeable
-  if ( defined($_=$self->{LOGFILE}) )
+# Some parameters must be writeable directories
+  foreach my $key ( @{$h{WRITEABLE_DIRS}} )
   {
+    $_ = $self->{$key};
     while ( my $x = readlink($_) ) { $_ = $x; } # Follow symlinks!
-    if ( -e $_ )
+
+#   If the directory doesn't exist, attempt to create it...
+    eval { mkpath $_ } unless -e;
+    fatal("PERL_FATAL: $me: $key directory $_ does not exist")   unless -e;
+    fatal("PERL_FATAL: $me: $key exists but is not a directory") unless -d;
+    fatal("PERL_FATAL: $me: $key directory $_ is not writeable") unless -w;
+  }
+
+# Some parameters must be writeable files if they exist, or the parent
+# directory must be writeable. Non-definition is tacitly allowed
+  foreach my $key ( @{$h{WRITEABLE_FILES}} )
+  {
+    if ( defined($_=$self->{$key}) )
     {
-#     If it exists, it better be a writeable file
-      fatal("PERL_FATAL: LOGFILE parameter $_ is not a file") unless -f;
-      fatal("PERL_FATAL: LOGFILE file $_ is not writeable")   unless -w;
-    }
-    else
-    {
-#     if it doesn't exist, the parent must be a writeable directory
-      $_ = dirname($_) unless -e $_;
       while ( my $x = readlink($_) ) { $_ = $x; } # Follow symlinks!
-      fatal("PERL_FATAL: LOGFILE directory $_ does not exist")     unless -e;
-      fatal("PERL_FATAL: LOGFILE directory $_ is not a directory") unless -d;
-      fatal("PERL_FATAL: LOGFILE directory $_ is not writeable")   unless -w;
+      if ( -e $_ )
+      {
+#       If it exists, it better be a writeable file
+        fatal("PERL_FATAL: $me: $key exists but is not a file") unless -f;
+        fatal("PERL_FATAL: $me: $key file $_ is not writeable") unless -w;
+      }
+      else
+      {
+#       if it doesn't exist, the parent must be a writeable directory
+        $_ = dirname($_) unless -e $_;
+        while ( my $x = readlink($_) ) { $_ = $x; } # Follow symlinks!
+        fatal("PERL_FATAL: $me: $key directory $_ does not exist")   unless -e;
+        fatal("PERL_FATAL: $me: $key exists but is not a directory") unless -d;
+        fatal("PERL_FATAL: $me: $key directory $_ is not writeable") unless -w;
+      }
     }
   }
-  else
+
+  if ( !defined($self->{LOGFILE}) && !$self->{NODAEMON} )
   {
 #   LOGFILE not defined is fatal unless NODAEMON is set!
-    fatal("PERL_FATAL: LOGFILE not set but process will run as a daemon")
-       unless $self->{NODAEMON};
+    fatal("PERL_FATAL: $me: LOGFILE not set but process will run as a daemon");
   }
 
   return $errors;
