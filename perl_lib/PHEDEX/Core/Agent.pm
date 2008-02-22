@@ -1356,7 +1356,7 @@ sub expandNodes
 sub myNodeFilter
 {
   my ($self, $idfield) = @_;
-  my ($filter, @filter, %args);
+  my (@filter, %args);
   my $n = 1;
   foreach my $id (values %{$self->{NODES_ID}})
   {
@@ -1365,8 +1365,11 @@ sub myNodeFilter
     ++$n;
   }
 
-  if ( @filter ) { $filter =  "(" . join(" or ", @filter) . ")" }
-  else { $filter = ' 1=1 '; }
+  unless (@filter) {
+      fatal "myNodeFilter() matched no nodes";
+  }
+
+  my $filter =  "(" . join(" or ", @filter) . ")";
   return ($filter, %args);
 }
 
