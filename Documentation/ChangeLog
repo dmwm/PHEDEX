@@ -1,3 +1,30 @@
+* Changes in PhEDEx 2.6.2
+
+Bug Fixes for Site Agents
+   - Fixed the "misconfigured -accept" bug in FileDownload, which
+     caused a locking of the entire system if an -accept or -ignore
+     flag contained nodes which do not exist in the databaes.
+   - Bad -nodes, -accept, or -ignore arguments are now a fatal error,
+     killing the agent
+   - Better argument checking for state and logfile directories,
+     missing directories are now a fatal error
+
+Changes for All Agents
+   - PHEDEX_DEBUG environment variable can be switched on to turn on
+     DEBUG output for agents.  For all agents one will at least be
+     able to see the cycle time (for idle()) and sleep time printed to
+     the logs.
+   - PHEDEX_VERBOSE environment variable can be switched on, for
+     future use.  Most agents don't have special verbosity levels at
+     this time.
+
+New Features for Central Agents
+   - Block latency logging done by BlockAllocator
+
+Bug Fixes for Central Agents
+   - BlockDelete ensures distinct results from move-triggered deletions
+
+
 * Changes in PhEDEx 2.6.1
    - No changes; just a fix to the dependencies configuration
 
