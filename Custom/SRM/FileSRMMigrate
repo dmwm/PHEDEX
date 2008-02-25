@@ -124,7 +124,7 @@ sub idle
 	    my $migrated = 0;
 	    open (SRM, "srm-get-metadata -retry_num=1 $pfn |")
 		or do { &warn ("no metadata for $pfn: $!"); next };
-            while(<INFO>) {
+            while(<SRM>) {
                 if (/isPermanent :true/) {
                     $migrated = 1;
                 }
