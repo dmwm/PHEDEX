@@ -1,0 +1,72 @@
+#!/bin/bash
+
+# Pick up options
+report=/dev/null copyjob= 
+for arg; do
+  case $arg in
+    -copyjobfile=* )
+      copyjobfile="${arg#-copyjobfile=}"
+      echo "copyjobfile=$copyjobfile (contents follow)"
+      cat $copyjobfile 2>/dev/null
+     ;;
+    -report=* )
+      report="${arg#-report=}"
+      echo "report=$report"
+      ;;
+#    -throttle=* )
+#      stager_throttle="${arg#-throttle=}"
+#      echo "throttle=$stager_throttle"
+#      ;;
+  esac
+done
+
+i=0
+for pfn in $(cat $copyjobfile | sort)                   #prepare the request
+do
+        requests[$i]="-M $pfn"
+        i=$((i+1))
+done
+
+echo "Begin here"
+#check if possible to request more files
+#if `$stager_throttle -node c2cms.cmscaf`
+#or directly /usr/sbin/lemon-cli -m 6253 -n c2cms.cmscaf --server --script
+#2 and 3
+#then                                                   #stager get if no many files already requested
+`stager_get ${requests[@]}`
+echo "stager_get ${requests[@]}"
+
+# | grep @castorns | awk '{print $3}')
+#            case $stgstage in
+#                STAGED | TOBEMIGR )
+#                    echo "File on pool $STAGE_SVCCLASS";;
+#                STAGEIN)
+#                    echo "File on the queue to be staged on $STAGE_SVCCLASS" && validity=5;;
+#                STAGEOUT )
+#                        echo "File corrupted!" && validity=6;;
+#                * )
+#                        echo "unrecognized stager: $stgstage" && validity=7;;
+echo "Files requested to $STAGE_SVCCLASS"
+
+while [ "${#requests[@]}" -ne 0 ]
+do
+num_req=${#requests[@]}
+        for ((i=0; i<$num_req; i++))                    #check requests and keep only the ones that may be staged
+        do
+                req_status=`stager_qry ${requests[$i]} | grep -c STAGEIN`
+                echo "stager_qry ${requests[$i]}"
+                if [ "$req_status" -eq "0" ]
+                then
+                        unset requests[$i]
+                        echo "Removed request ${requests[$i]}"
+                fi
+        done
+        echo "finished one request go"
+        echo "number of requests still to do: ${#requests[@]}"
+        sleep 60                                        #take a little nap
+done > "$report"
+#else
+#exit -6
+#fi
+echo "End"
+
