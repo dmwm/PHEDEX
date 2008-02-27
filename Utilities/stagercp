@@ -1,7 +1,44 @@
 #!/bin/bash
 
+##H This is a "srmcp"-like script using stager_get to transfer files
+##H between CASTOR pools.
+##H
+##H Usage: stagercp -copyjobfile=FILE -cat_script=GET_LOCAL_PATH -catalogue=CATALOGUE
+##H                [-report=FILE] [-max_requests=MAX_REQUESTS_TO_CASTOR_POOL] [-h]
+##H
+##H Takes a list of source file and copies them using stager_get
+##H The files must be given through a "copyjob" file,
+##H with one "SOURCE" line per file copy, the names
+##H separated with a single space character, and no leading or
+##H trailing white space.
+##H
+##H If the "-report" option is used, the status of each file copy
+##H is written in there.  The exit code from the command is zero
+##H if all the files have been copied successfuly, otherwise non-
+##H zero; the details can be found in the report file.
+##H
+##H The "-svcclass" specifies the pool to which the files are going
+##H to be staged in.
+##H
+
+##H Error codes:
+##H 1 - unrecognised option
+##H 101 - missing -copyjob option
+##H 102 - file specified with -copyjob does not exist
+##H 103 - file specified with -copyjob is unreadable
+##H 104 - missing -cat_script option
+##H 105 - file specified with -cat_script does not exist
+##H 106 - file specified with -cat_script is unreadable
+##H 107 - missing -catalogue option
+##H 108 - file specified with -catalogue does not exist
+##H 109 - file specified with -catalogue is unreadable
+##H 110 - service class not defined
+##H 301 - too many requests for the defined service class 
+
+usage() { grep '^##H' < $0 | sed 's/^\(##H \|##H$\)//'; exit 1; }
+
 # Pick up options
-report=/dev/null copyjob= 
+report=/dev/null copyjob= catalogue= cat_script= max_requests= svcclass=$STAGE_SVCCLASS 
 for arg; do
   case $arg in
     -copyjobfile=* )
@@ -13,6 +50,24 @@ for arg; do
       report="${arg#-report=}"
       echo "report=$report"
       ;;
+    -catalogue=* )
+      catalogue="${arg#-catalogue=}"
+      echo "catalogue=$catalogue"
+      ;;
+    -cat_script=* )
+      cat_script="${arg#-cat_script=}"
+      echo "cat_script=$cat_script"
+      ;;
+    -max_requests=* )
+      max_requests="${arg#-max_requests=}"
+      echo "max_requests=$max_requests"
+      ;;
+    -h )
+      usage;;
+    -* )
+      echo "unrecognised option $arg" 1>&2; exit 1 ;;
+    * )
+      break ;;
 #    -throttle=* )
 #      stager_throttle="${arg#-throttle=}"
 #      echo "throttle=$stager_throttle"
@@ -20,53 +75,114 @@ for arg; do
   esac
 done
 
+# Verify arguments
+[ -z "$copyjobfile" ] && { echo "Missing -copyjobfile, use -h for help." 1>&2; exit 101; }
+[ ! -f "$copyjobfile" ] && { echo "$copyjobfile: no such file" 1>&2; exit 102; }
+[ ! -r "$copyjobfile" ] && { echo "$copyjobfile: cannot read" 1>&2; exit 103; }
+
+[ -z "$cat_script" ] && { echo "Missing -cat_script, use -h for help." 1>&2; exit 104; }
+[ ! -f "$cat_script" ] && { echo "$cat_script: no such file" 1>&2; exit 105; }
+[ ! -x "$cat_script" ] && { echo "$cat_script: cannot execute" 1>&2; exit 106; }
+
+[ -z "$catalogue" ] && { echo "Missing -catalogue, use -h for help." 1>&2; exit 107; }
+[ ! -f "$catalogue" ] && { echo "$catalogue: no such file" 1>&2; exit 108; }
+[ ! -r "$catalogue" ] && { echo "$catalogue: cannot read" 1>&2; exit 109; }
+
+if [ -z "$svcclass" ]; then
+  echo "CASTOR Service Class not specified. Risk of copying files to a wrong pool. Exiting..."
+  exit 110;
+fi
+
+if [ -z "$max_requests" ]; then
+  echo "Max number of requests not defined."
+  echo "Using 100"
+  max_requests=100
+fi
+
 i=0
-for pfn in $(cat $copyjobfile | sort)                   #prepare the request
+for pfn in $(cat $copyjobfile | sort)                   #prepare the get request
 do
-        requests[$i]="-M $pfn"
-        i=$((i+1))
+  #don't request anything with srm:/ or rfio:/ (you may break CASTOR)
+  if ! [[ "$pfn" =~ "^/" ]]
+  then
+    echo "Converting $pfn to local (direct) pfn"
+    #convert
+    pfn=$($cat_script -cat $catalogue -pfn $pfn)
+  fi
+  get_requests[$i]="-M $pfn"
+  qry_requests[$i]="$pfn"
+  i=$((i+1))
 done
 
 echo "Begin here"
 #check if possible to request more files
-#if `$stager_throttle -node c2cms.cmscaf`
-#or directly /usr/sbin/lemon-cli -m 6253 -n c2cms.cmscaf --server --script
+#get current_requests
+#current_requestsif=$(/usr/sbin/lemon-cli -m 6253 -n c2cms.$svcclass --server --script | awk '{$2+$3}')
+#if [ "$max_requests" -gt "$current_requests" ]
 #2 and 3
 #then                                                   #stager get if no many files already requested
-`stager_get ${requests[@]}`
-echo "stager_get ${requests[@]}"
 
-# | grep @castorns | awk '{print $3}')
-#            case $stgstage in
-#                STAGED | TOBEMIGR )
-#                    echo "File on pool $STAGE_SVCCLASS";;
-#                STAGEIN)
-#                    echo "File on the queue to be staged on $STAGE_SVCCLASS" && validity=5;;
-#                STAGEOUT )
-#                        echo "File corrupted!" && validity=6;;
-#                * )
-#                        echo "unrecognized stager: $stgstage" && validity=7;;
+stager_get ${get_requests[@]}
+echo "+ stager_get $copyjobfile"
 echo "Files requested to $STAGE_SVCCLASS"
 
-while [ "${#requests[@]}" -ne 0 ]
-do
-num_req=${#requests[@]}
-        for ((i=0; i<$num_req; i++))                    #check requests and keep only the ones that may be staged
-        do
-                req_status=`stager_qry ${requests[$i]} | grep -c STAGEIN`
-                echo "stager_qry ${requests[$i]}"
-                if [ "$req_status" -eq "0" ]
-                then
-                        unset requests[$i]
-                        echo "Removed request ${requests[$i]}"
-                fi
-        done
-        echo "finished one request go"
-        echo "number of requests still to do: ${#requests[@]}"
-        sleep 60                                        #take a little nap
-done > "$report"
-#else
-#exit -6
-#fi
-echo "End"
+unset get_requests
 
+sleep=10 index=0 increment=1
+num_req=${#qry_requests[@]}
+successes=0 transferring=0 failures=0
+
+while [ "${#qry_requests[@]}" -ne 0 ]
+do
+
+  index=$(expr $index + $increment)
+  [ $(expr $index % 5) = 0 ] && sleep=$(expr $sleep + $sleep / 3)
+  sleep $sleep						#take a little nap
+
+  for ((i=0; i<$num_req; i++))                    	#check requests and keep only the ones that may be staged
+  do
+    if [ -n "${qry_requests[$i]}" ]
+    then
+      echo "+ stager_qry -M ${qry_requests[$i]}"
+
+      stgstate=$(stager_qry -M ${qry_requests[$i]} 2>/dev/null | grep @castorns | awk '{print $3}')
+      case $stgstate in
+        STAGED | CANBEMIGR )
+          echo "File on pool $STAGE_SVCCLASS"
+          echo "Removed request ${qry_requests[$i]}"
+	  echo "Success"
+          unset qry_requests[$i]
+	  successes=$((successes+1));;
+        STAGEIN )
+          echo "File on the queue to be staged on $STAGE_SVCCLASS"
+          echo "Transferring"
+	  transferring=$((transferring+1));;
+        STAGEOUT )
+          echo "File needs a put done"
+          echo "Removed request ${qry_requests[$i]}"
+          echo "Failed"
+          unset qry_requests[$i]
+	  failures=$((failures+1));;
+        INVALID )
+          echo "File corrupted!"
+	  echo "Failed"
+          failures=$((failures+1));;
+        * )
+          echo "Unrecognized stager state: $stgstate"
+          echo "Removed request ${qry_requests[$i]}"
+	  echo "Failed"
+          unset qry_requests[$i]
+          failures=$((failures+1));;
+      esac
+    fi
+  done
+  echo "Finished one request go"
+  echo "Number of requests still to do: ${#qry_requests[@]}"
+done > "$report"
+echo "$successes/$num_req files transferred successfuly to $STAGE_SVCCLASS"
+echo "$failures/$num_req files failed to be transferred to $STAGE_SVCCLASS"
+unset qry_requests
+#else
+#exit 301 
+#fi
+exit 0
