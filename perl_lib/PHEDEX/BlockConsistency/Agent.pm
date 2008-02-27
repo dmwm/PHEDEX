@@ -353,7 +353,6 @@ sub processDrop
     return;
   }
 
-  $request->{TIME_EXPIRE} = time();
   if ( $request->{TIME_EXPIRE} <= time() )
   {
     &touch ("$dropdir/done");
