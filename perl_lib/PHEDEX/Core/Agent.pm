@@ -381,9 +381,13 @@ sub isInvalid
       }
       else
       {
-#       if it doesn't exist, the parent must be a writeable directory
-        $_ = dirname($_) unless -e $_;
-        while ( my $x = readlink($_) ) { $_ = $x; } # Follow symlinks!
+#       If it doesn't exist, the parent must be a writeable directory
+#       If that parent directory doesn't exist, attempt to create it...
+        if ( ! -e )
+        {
+          $_ = dirname($_);
+          eval { mkpath $_ } unless -e;
+        }
         fatal("PERL_FATAL: $key directory $_ does not exist")   unless -e;
         fatal("PERL_FATAL: $key exists but is not a directory") unless -d;
         fatal("PERL_FATAL: $key directory $_ is not writeable") unless -w;
