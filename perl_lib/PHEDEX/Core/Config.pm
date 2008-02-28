@@ -155,7 +155,8 @@ our %commands =
   terminate => "[ -f \$pidfile ] && kill \$(cat \$pidfile)",
   kill      => "[ -f \$pidfile ] && kill -9 \$(cat \$pidfile)",
   hup       => "[ -f \$pidfile ] && kill -HUP \$(cat \$pidfile)",
-  stop      => "[ -d \$dropdir ] && touch \$dropdir/stop",
+# stop      => "[ -d \$dropdir ] && touch \$dropdir/stop",
+  stop      => '#',
   start     => '#',
   show      => '#',
 );
@@ -379,6 +380,48 @@ sub select_agents
   return $a[0] if ( scalar @a == 1 && ! wantarray );
   return \@a if ( ! wantarray );
   return @a;
+}
+
+sub stop
+{
+  my $self = shift;
+  my ($env,%h);
+$DB::single=1;
+  foreach my $agent ( $self->select_agents(@_) )
+  {
+    $env = $self->ENVIRONMENTS->{$agent->ENVIRON};
+    my $dropdir  = $env->getExpandedString($agent->DROPDIR);
+    my $pidfile  = $env->getExpandedString($agent->PIDFILE);
+
+    open PID, "<$pidfile" or next; # Agent not running? die "Cannot read PID file $pidfile\n";
+    $_ = <PID>;
+    close PID;
+    chomp;
+    $h{$_} = $agent->{LABEL};
+
+    open STOP, ">$dropdir/stop" or die "Cannot create $dropdir/stop\n";
+    close STOP;
+  }
+
+  sleep 1;
+# loop forever waiting for agents to die
+  while ( 1 )
+  {
+    foreach ( keys %h )
+    {
+      delete $h{$_} unless (kill 0 => $_);
+    }
+    if ( keys %h )
+    {
+      print "Waiting for agents: ", join(', ',map { $h{$_} . '(' . $_ . ')' } keys %h ),"\n";
+      sleep(3);
+    }
+    else
+    {
+      print "All agents sucessfully terminated\n";
+      return 0;
+    }
+  }
 }
 
 sub show
