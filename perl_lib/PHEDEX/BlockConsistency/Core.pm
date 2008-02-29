@@ -190,7 +190,7 @@ sub Buffers
   foreach my $buffer ( @buffer )
   {
     $self->{DEBUG} && print "Getting buffers with names like '$buffer'\n";
-    my $tmp = $self->getBufferFromWildCard($buffer);
+    my $tmp = $self->getBuffersFromWildCard($buffer);
     map { $self->{result}{Buffers}{ID}{$_} = $tmp->{$_} } keys %$tmp;
   }
   $self->{DEBUG} && exists($self->{result}{Buffers}{ID}) && print "done getting buffers!\n";
