@@ -9,8 +9,13 @@ use strict;
 ##H
 ##H  Options:
 ##H 
-##H   --db = DBCONFIG     The usual PhEDEx db configuration file
-##H   --node = <string>   PhEDEx nodes to limit the result-set
+##H   --db DBCONFIG     The usual PhEDEx db configuration file
+##H   --node <string>   PhEDEx nodes to limit the result-set
+##H   --block <string>  Wildcard block string to limit the result-set
+##H   --age <integer>   Limit report to tests updated so many seconds ago
+##H   --days <integer>  Limit report to tests updated so many days ago
+##H   --summary         Obvious...
+##H   --detail          Obvious...
 ##H 
 
 # Process command line arguments.
@@ -51,12 +56,11 @@ $bcc   = PHEDEX::BlockConsistency::Core->new( DBH => $dbh );
 $nodes = $bcc->getBuffersFromWildCard(@nodes) if @nodes;
 
 $age = int($days * 86400) if $days;
-if ( $age )
-{
-  print "Reporting results within the last $age seconds (";
-  printf "%.2f",(100*$age/86400)/100;
-  print " days)\n";
-}
+$age = 86400 unless $age;
+
+print "Reporting results within the last $age seconds (";
+printf "%.2f",(100*$age/86400)/100;
+print " days)\n";
 
 $age = time - $age;
 $all_states = 'All-states';
