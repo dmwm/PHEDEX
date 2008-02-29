@@ -39,7 +39,7 @@ handle
   }
 
   my @nodes = ('t1_cern_%','t2_%');
-  my $nodes = PHEDEX::Core::SQL::getBufferFromWildCard($dbh,@nodes);
+  my $nodes = PHEDEX::Core::SQL::getBuffersFromWildCard($dbh,@nodes);
   print $nodes->{5}->{NAME};
 
 or the OO interface, creating a PHEDEX::Core::SQL object
@@ -48,7 +48,7 @@ or the OO interface, creating a PHEDEX::Core::SQL object
   my $SQL = PHEDEX::Core::SQL->new( DBH => $dbh );
   my $href $SQL->select_hash( $sql, $key, %param );
 
-  my $nodes = $SQL->getBufferFromWildCard(@nodes);
+  my $nodes = $SQL->getBuffersFromWildCard(@nodes);
 
 or inherit it in your agent code
 
@@ -56,7 +56,7 @@ or inherit it in your agent code
   my $agent = PHEDEX::Hypothetical::Agent->new( ...parameters... );
   my $href  = $agent->select_hash( $sql, $key, %param );
 
-  $nodes = $agent->getBufferFromWildCard(@nodes);
+  $nodes = $agent->getBuffersFromWildCard(@nodes);
 
 =head1 METHODS
 
