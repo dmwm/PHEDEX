@@ -125,6 +125,7 @@ our (%params,%ro_params);
                 MSSPROTOCOL     => '',
                 DESTINATION     => 'any',
 		RFIO_USES_RFDIR => 0,
+		VERBOSE		=> 0,
 	  );
 %ro_params = ( );
 
