@@ -1,4 +1,7 @@
-package PHEDEX::Transfer::Null; use strict; use warnings; use base 'PHEDEX::Transfer::Core';
+package PHEDEX::Transfer::Null;
+use strict;
+use warnings;
+use base 'PHEDEX::Transfer::Core';
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use Data::Dumper;
@@ -15,11 +18,11 @@ sub new
     my $params = shift || {};
 
 	# Set my defaults where not defined by the derived class.
-	$$params{PROTOCOLS}   ||= [ 'srm' ];    # Accepted protocols
-	$$params{BATCH_FILES} ||= 100;          # Max number of files per batch
+	$params->{PROTOCOLS}   ||= [ 'srm' ];    # Accepted protocols
+	$params->{BATCH_FILES} ||= 100;          # Max number of files per batch
 	
 	# Set argument parsing at this level.
-	$$options{'batch-files=i'} = \$$params{BATCH_FILES};
+	$options->{'batch-files=i'} = \$params->{BATCH_FILES};
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
@@ -33,11 +36,11 @@ sub transferBatch
     my ($self, $job, $tasks) = @_;
     my $now = &mytimeofday();
 
-    foreach my $task (keys %{$$job{TASKS}})
+    foreach my $task (keys %{$job->{TASKS}})
     {
 	my $info = { START => $now, END => $now, STATUS => 0,
 		     DETAIL => "nothing done", LOG => "" };
-	&output("$$job{DIR}/T${task}X", Dumper($info));
+	&output("$job->{DIR}/T${task}X", Dumper($info));
     }
 }
 

@@ -1,4 +1,7 @@
-package PHEDEX::Transfer::FTS; use strict; use warnings; use base 'PHEDEX::Transfer::Core';
+package PHEDEX::Transfer::FTS;
+use strict;
+use warnings;
+use base 'PHEDEX::Transfer::Core';
 use PHEDEX::Core::Command;
 use Getopt::Long;
 # DO NOT USE - UNFINISHED!!
@@ -14,14 +17,14 @@ sub new
     my $params = shift || {};
 
 	# Set my defaults where not defined by the derived class.
-	$$params{PROTOCOLS}   ||= [ 'srm' ];    # Accepted protocols
-	#$$params{COMMAND}     ||= [ 'srmcp' ]; # Transfer command
-	$$params{BATCH_FILES} ||= 25;           # Max number of files per batch
-	$$params{LINK_FILES}  ||= 250;          # Queue this number of files in FTS for a link 
+	$params->{PROTOCOLS}   ||= [ 'srm' ];    # Accepted protocols
+	#$params->{COMMAND}     ||= [ 'srmcp' ]; # Transfer command
+	$params->{BATCH_FILES} ||= 25;           # Max number of files per batch
+	$params->{LINK_FILES}  ||= 250;          # Queue this number of files in FTS for a link 
 	
 	# Set argument parsing at this level.
-	$$options{'batch-files=i'} = \$$params{BATCH_FILES};
-	$$options{'link-files=i'} = \$$params{LINK_FILES};
+	$options->{'batch-files=i'} = \$params->{BATCH_FILES};
+	$options->{'link-files=i'} = \$params->{LINK_FILES};
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
@@ -35,18 +38,18 @@ sub transferBatch
     my ($self, $job, $tasks) = @_;
 
     # Prepare copyjob and report names.
-    my $spec = "$$job{DIR}/copyjob";
-    my $report = "$$job{DIR}/fts-report";
+    my $spec = "$job->{DIR}/copyjob";
+    my $report = "$job->{DIR}/fts-report";
 
     # Now generate copyjob
-    &output ($spec, join ("", map { "$$tasks{$_}{FROM_PFN} ".
-		                    "$$tasks{$_}{TO_PFN}\n" }
-		          keys %{$$job{TASKS}}));
+    &output ($spec, join ("", map { "$tasks->{$_}{FROM_PFN} ".
+		                    "$tasks->{$_}{TO_PFN}\n" }
+		          keys %{$job->{TASKS}}));
 
     # Fork off the transfer wrapper
     $self->addJob(undef, { DETACHED => 1 },
-		  $$self{WRAPPER}, $$job{DIR}, $$self{TIMEOUT},
-		  @{$$self{COMMAND}}, "-copyjobfile=$spec", "-report=$report");
+		  $self->{WRAPPER}, $job->{DIR}, $self->{TIMEOUT},
+		  @{$self->{COMMAND}}, "-copyjobfile=$spec", "-report=$report");
 }
 
 # Check whether a job is alive.
@@ -78,10 +81,10 @@ sub check
     # The next-check flag is set below once we've checked the
     # FTS job status and decided the next time we should be
     # checking on this copy job.
-    return if ((stat("$$job{DIR}/next-check"))[9] >= time();
+    return if ((stat("$job->{DIR}/next-check"))[9] >= time();
     
     # Check the status of this job.
-    $$self{MASTER}->addJob (... qq{
+    $self->{MASTER}->addJob (... qq{
       something to call "RunWithTimeout" glite-transfer-status on the job,
       and to generate a srm-report similar to ftscp generates at the end.
       you'll basically want to find out which jobs have reached "end"
@@ -98,7 +101,7 @@ sub check
     # log (logs of all glite-transfer-status calls etc.
     # for this job so far).
     
-    &touch("$$job{DIR}/next-check", $now + qq{add time like ftscp does,
+    &touch("$job->{DIR}/next-check", $now + qq{add time like ftscp does,
     the tricky thing is to remember how much to add each time around,
     probably need to keep a small file in $jobdir to indicate how much
     delay to add so agent stop/start doesn't reset the check interval.});
@@ -108,7 +111,7 @@ sub check
 # when the FTS backend is "busy" -- we could always take more work
 # for currently unused FTS channels.  One possibility is to make
 # "startBatch()" detect the channel is full, then actually not take
-# any new files off the queue, and mark $$self{IS_BUSY}=1, and return
+# any new files off the queue, and mark $self->{IS_BUSY}=1, and return
 # that here.  Then in "check()" we can set that back to not busy once
 # we've reaped a job.  The dangerous aspects here are 1) getting this
 # to work correctly across agent start/stop, 2) not getting the agent
@@ -120,7 +123,7 @@ sub isBusy
 {
     my ($self, $jobs, $tasks) = @_;
     return 0 if ! %$jobs || ! %$tasks;
-    return $$self{IS_BUSY};
+    return $self->{IS_BUSY};
 }
 
 # Start off a copy job.  Nips off "BATCH_FILES" tasks to go ahead.
@@ -130,12 +133,12 @@ sub startBatch
     # transfer tasks from the queue.  Make sure the front-end
     # agent deals with this situation correctly.
     my ($self, $jobs, $tasks, $dir, $jobname, $list) = @_;
-    my @batch = splice(@$list, 0, $$self{BATCH_FILES});
+    my @batch = splice(@$list, 0, $self->{BATCH_FILES});
     my $info = { ID => $jobname, DIR => $dir,
-	         TASKS => { map { $$_{TASKID} => 1 } @batch } };
+	         TASKS => { map { $_->{TASKID} => 1 } @batch } };
     &output("$dir/info", Dumper($info));
     &touch("$dir/live");
-    $$jobs{$jobname} = $info;
+    $jobs->{$jobname} = $info;
     $self->clean($info, $tasks);
 }
 
@@ -145,13 +148,13 @@ sub transferBatch
     my ($self, $job, $tasks) = @_;
 
     # Prepare copyjob and report names.
-    my $spec = "$$job{DIR}/copyjob";
-    my $report = "$$job{DIR}/srm-report";
+    my $spec = "$job->{DIR}/copyjob";
+    my $report = "$job->{DIR}/srm-report";
 
     # Now generate copyjob for glite-transfer-submit
-    &output ($spec, join ("", map { "$$tasks{$_}{FROM_PFN} ".
-		                    "$$tasks{$_}{TO_PFN}\n" }
-		          keys %{$$job{TASKS}}));
+    &output ($spec, join ("", map { "$tasks->{$_}{FROM_PFN} ".
+		                    "$tasks->{$_}{TO_PFN}\n" }
+		          keys %{$job->{TASKS}}));
 
     # Parse source and destination host names from the SURLs.
     # The upstream guarantees every transfer pair in this
@@ -176,11 +179,10 @@ sub transferBatch
     # FIXME
     
     # Mark the next time we should be checking on this job.
-    &touch("$$job{DIR}/next-check", time() + 60);  # FIXME: save some indication how to increase this in check()?
+    &touch("$job->{DIR}/next-check", time() + 60);  # FIXME: save some indication how to increase this in check()?
     
     # FIXME: copy some meta-state state information initialisation
     # (transfer start, end time, etc.) from TransferWrapper.
 }
-
 
 1;

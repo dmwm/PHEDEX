@@ -1,4 +1,7 @@
-package PHEDEX::Transfer::SRM; use strict; use warnings; use base 'PHEDEX::Transfer::Command';
+package PHEDEX::Transfer::SRM;
+use strict;
+use warnings;
+use base 'PHEDEX::Transfer::Command';
 use PHEDEX::Core::Command;
 use Getopt::Long;
 
@@ -14,13 +17,13 @@ sub new
     my $params = shift || {};
 
 	# Set my defaults where not defined by the derived class.
-	$$params{PROTOCOLS}   ||= [ 'srm' ];    # Accepted protocols
-	$$params{COMMAND}     ||= [ 'srmcp' ];  # Transfer command
-	$$params{BATCH_FILES} ||= 10;           # Max number of files per batch
-	$$params{NJOBS}       ||= 30;           # Max number of parallel transfers
+	$params->{PROTOCOLS}   ||= [ 'srm' ];    # Accepted protocols
+	$params->{COMMAND}     ||= [ 'srmcp' ];  # Transfer command
+	$params->{BATCH_FILES} ||= 10;           # Max number of files per batch
+	$params->{NJOBS}       ||= 30;           # Max number of parallel transfers
 	
 	# Set argument parsing at this level.
-	$$options{'batch-files=i'} = \$$params{BATCH_FILES};
+	$options->{'batch-files=i'} = \$params->{BATCH_FILES};
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
@@ -34,18 +37,18 @@ sub transferBatch
     my ($self, $job, $tasks) = @_;
 
     # Prepare copyjob and report names.
-    my $spec = "$$job{DIR}/copyjob";
-    my $report = "$$job{DIR}/srm-report";
+    my $spec = "$job->{DIR}/copyjob";
+    my $report = "$job->{DIR}/srm-report";
 
     # Now generate copyjob
-    &output ($spec, join ("", map { "$$tasks{$_}{FROM_PFN} ".
-		                    "$$tasks{$_}{TO_PFN}\n" }
-		          keys %{$$job{TASKS}}));
+    &output ($spec, join ("", map { "$tasks->{$_}{FROM_PFN} ".
+		                    "$tasks->{$_}{TO_PFN}\n" }
+		          keys %{$job->{TASKS}}));
 
     # Fork off the transfer wrapper
     $self->addJob(undef, { DETACHED => 1 },
-		  $$self{WRAPPER}, $$job{DIR}, $$self{TIMEOUT},
-		  @{$$self{COMMAND}}, "-copyjobfile=$spec", "-report=$report");
+		  $self->{WRAPPER}, $job->{DIR}, $self->{TIMEOUT},
+		  @{$self->{COMMAND}}, "-copyjobfile=$spec", "-report=$report");
 }
 
 1;

@@ -1,4 +1,7 @@
-package PHEDEX::Transfer::Globus; use strict; use warnings; use base 'PHEDEX::Transfer::Command';
+package PHEDEX::Transfer::Globus;
+use strict;
+use warnings;
+use base 'PHEDEX::Transfer::Command';
 
 # Command back end defaulting to Globus tools.
 sub new
@@ -13,9 +16,9 @@ sub new
 
 	# Set my defaults where not defined by the derived class.
     my @defcmd = qw(globus-url-copy -p 5 -tcp-bs 2097152);
-	$$params{PROTOCOLS}   ||= [ 'gsiftp' ]; # Accepted protocols
-	$$params{COMMAND}     ||= [ @defcmd ];  # Transfer command
-	$$params{NJOBS}       ||= 5;            # Max number of parallel transfers
+	$params->{PROTOCOLS}   ||= [ 'gsiftp' ]; # Accepted protocols
+	$params->{COMMAND}     ||= [ @defcmd ];  # Transfer command
+	$params->{NJOBS}       ||= 5;            # Max number of parallel transfers
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
