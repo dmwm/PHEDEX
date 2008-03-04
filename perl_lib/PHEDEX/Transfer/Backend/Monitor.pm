@@ -263,11 +263,12 @@ sub poll_job
     if ( ! exists $f->EXIT_STATES->{$s->{STATE}} )
     { die "Unknown file-state: " . $s->{STATE}."\n"; }
 
+    $self->Stats('FILES', $f->DESTINATION, $f->STATE);
+
     if ( $_ = $f->STATE( $s->{STATE} ) )
     {
       $f->LOG($f->TIMESTAMP,"from $_ to ",$f->STATE);
       $job->LOG($f->TIMESTAMP,$f->SOURCE,$f->DESTINATION,$f->STATE );
-      $self->Stats('FILES', $f->DESTINATION, $f->STATE);
       if ( $f->EXIT_STATES->{$f->STATE} )
       {
 #       Log the details...
@@ -350,13 +351,13 @@ sub isBusy
   $busy = $valid = $t = $n = 0;
 
   use Data::Dumper;
-  print Dumper($self->{STATS}), "\n";
+  print 'isBusy $self->{STATS}:  ', Dumper($self->{STATS}), "\n";
 
   if ( exists($self->{STATS}) &&
-       exists($self->{STATS}{JOBS}) &&
-       exists($self->{STATS}{JOBS}{STATES}) )
+       exists($self->{STATS}{FILES}) &&
+       exists($self->{STATS}{FILES}{STATES}) )
   {
-    foreach ( values %{$self->{STATS}{JOBS}{STATES}} ) { $h{$_}++; }
+    foreach ( values %{$self->{STATS}{FILES}{STATES}} ) { $h{$_}++; }
   }
 
   foreach ( qw / Ready Pending / )
