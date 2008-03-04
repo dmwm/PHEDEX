@@ -389,6 +389,11 @@ sub file_state
   $old_state = $arg1->[1];
   $details   = $arg1->[2];
 
+  if ( ! ref($file) )
+  {
+    $DB::single=1;
+  }
+
   my $exit_states = $file->EXIT_STATES || \%PHEDEX::Transfer::Backend::File::exit_states;
   if ( $exit_states->{$file->STATE} == 2 )
   {
@@ -410,6 +415,7 @@ sub file_state
   my $aa = $a->{$file->STATE}; defined $aa or $DB::single=1;
 
 
+  return unless defined($file->STATE);
   if ( $exit_states->{$file->STATE} == 1 ||
      ( $exit_states->{$file->STATE} == 2 && !$file->RETRY ) )
   {
