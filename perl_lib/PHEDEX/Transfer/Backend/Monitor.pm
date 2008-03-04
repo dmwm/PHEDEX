@@ -347,7 +347,7 @@ sub isBusy
 {
   my $self = shift;
   my ($busy,$valid,%h,$n,$t);
-  $busy = $valid = $t = 0;
+  $busy = $valid = $t = $n = 0;
 
   if ( exists($self->{STATS}) &&
        exists($self->{STATS}{FILES}) &&
@@ -356,12 +356,15 @@ sub isBusy
     foreach ( values %{$self->{STATS}{FILES}{STATES}} ) { $h{$_}++; }
   }
 
-#  foreach ( qw / Submitted Ready Active Pending / ) { $n += $h{$_} || 0; }
-#  if ( $n >= 10 ) { $valid = 1; }
+  foreach ( qw / Ready Pending / )
+  {
+    if ( defined($h{$_}) ) { $n += $h{$_}; }
+  }
+  if ( $n >= 5 ) { $busy = 1; }
 
   if ( exists($self->{STATS}{START}) ) { $t = time - $self->{STATS}{START}; }
   if ( $t > $self->{WAIT_FOR_VALID} ) { $valid = 1; }
-  if ( exists($h{Pending}) && $h{Pending} >= 5 ) { $busy = 1; }
+# if ( exists($h{Pending}) && $h{Pending} >= 5 ) { $busy = 1; }
   return ($busy,$valid);
 }
 
