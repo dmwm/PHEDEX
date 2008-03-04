@@ -110,7 +110,7 @@ sub clean
 	    do { $tasks->{$task}{DONE_CLEAN} = 1; next }
 	        if ! $self->{MASTER}{DELETE_COMMAND};
 
-	    $$self->{MASTER}->addJob (
+	    $self->{MASTER}->addJob (
 		sub { $self->clean ($job, $tasks, $task, @_) },
 		{ TIMEOUT => $self->{MASTER}{TIMEOUT}, LOGPREFIX => 1 },
 		@{$self->{MASTER}{DELETE_COMMAND}}, "pre",
