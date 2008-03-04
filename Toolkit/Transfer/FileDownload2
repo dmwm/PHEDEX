@@ -107,7 +107,7 @@ $service = 'https://fts.pic.es:8443/glite-data-transfer-fts/services/FileTransfe
 
              "backend=s"   => sub { $args{BACKEND_TYPE} = $_[1]; die "!FINISH"; },
 
-	     "help|h"      => sub { &usage() }
+	     "help|h"      => sub { &usage() },
              "service=s"             => \$service,
              "q_interval=i"          => \$q_interval,
              "j_interval=i"          => \$j_interval,
