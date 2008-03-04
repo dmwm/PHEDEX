@@ -166,10 +166,10 @@ sub ListJob
   }
 
   $result{ETC} = 0;
-  foreach ( keys %{$result{FILE_STATES}} )
-  {
-    $result{ETC} += ( $weights{$_} || 0 ) * $result{FILE_STATES}{$_};
-  }
+# foreach ( keys %{$result{FILE_STATES}} )
+# {
+#   $result{ETC} += ( $weights{$_} || 0 ) * $result{FILE_STATES}{$_};
+# }
 
   return \%result;
 }
