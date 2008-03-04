@@ -87,6 +87,7 @@ $j_interval = 5;
 $monalisa = 'FileDownload';
 $poll_queue = 0;
 $service = 'https://fts.pic.es:8443/glite-data-transfer-fts/services/FileTransfer';
+#$service = 'https://prod-fts-ws.cern.ch:8443/glite-data-transfer-fts/services/FileTransfer';
 
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
@@ -151,6 +152,7 @@ my $q_mon = PHEDEX::Transfer::Backend::Monitor->new
                 );
 
 #$args{NODAEMON} = 1;
+$args{Q_MONITOR} = $q_mon;
 #(new FileDownload (%args, BACKEND_ARGS => [ @ARGV ]))->process();
 my $agent = new FileDownload (%args, BACKEND_ARGS => [ @ARGV ]);
 POE::Kernel->run();
@@ -206,6 +208,8 @@ sub new
 		  NEXT_SYNC => 0,		# Next time to synchronise
 		  NEXT_PURGE => 0,		# Next time to purge bad data
 		  DBH_LAST_USE => 0,		# Last use of the database
+
+		  Q_MONITOR => undef,		# Queue monitor component
 
 		  BATCH_ID => 0,		# Number of batches created
 		  BOOTTIME => time());		# Time this agent started
@@ -765,6 +769,13 @@ sub fill
     my (%stats, %todo, %sorted);
     my $now = &mytimeofday();
     my $nlinks = 0;
+
+    # Check what the Queue monitor thinks of the state of the link
+    if ( $self->{Q_MONITOR} )
+    {
+      my ($b,$v) = $self->{Q_MONITOR}->isBusy();
+      print "Q_MONITOR: busy=$b valid=$v\n";
+    }
 
     # If the backend is busy, avoid doing heavy lifting.
     return if $$self{BACKEND}->isBusy($jobs, $tasks);
