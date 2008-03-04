@@ -3,10 +3,12 @@ use strict;
 
 ##H
 ##H  Find orphan files in storage w.r.t. TMDB or DBS.
+##H  If -injected option it will compare with all the files injected into TMDB
+##H  If not, it will compare the lfnlist only with the replicas of the SE_NAME   
 ##H
 ##H   Usage:
 ##H
-##H   StorageConsistencyCheck -db DBCONFIG [-lfnlist LFNLIST] [-verbose]
+##H   StorageConsistencyCheck -db DBCONFIG [-lfnlist LFNLIST] [-se_name SE_NAME] [-injected] [-verbose]
 ##H 
 ##H   DBCONFIG is the usual PhEDEx DB contact file.
 ##H
@@ -18,15 +20,23 @@ use strict;
 ##H   allowing for compact filelists.
 ##H
 ##H   The output is a list of files known to the storage element (i.e. in the
-##H   input list) but not known to TMDB. After that the same list is
-##H   summarised by directory, where purely numerical subdirectories are
-##H   grouped (i.e. /path/001 and /path/002 are grouped as /path).
+##H   input list) but not known to TMDB if the option inject is used. 
+##H   If the option -se_name is used, the output is the difference of files in 
+##H   TMDB and at the SE_NAME specified.
+##H   After that the same list is summarised by directory, where purely numerical 
+##H   subdirectories are grouped (i.e. /path/001 and /path/002 are grouped as /path).
 ##H
 ##H   EXAMPLES:
 ##H
+##H   Compare your list of files with the files injected in TMDB
+##H
 ##H   StorageConsistencyCheck -db ~/private/DBParam:Prod/Reader
-##H      -lfnlist /afs/cern.ch/user/w/wildish/public/castor.store.merged.txt
+##H      -lfnlist /afs/cern.ch/user/w/wildish/public/castor.store.merged.txt -injected
 ##H   
+##H   Compare your list of files with the files that should be in SE_NAME
+##H
+##H   StorageConsistencyCheck -db ~/private/DBParam:Prod/Reader
+##H      -lfnlist /afs/cern.ch/user/w/wildish/public/castor.store.merged.txt -se_name 'castorsrm.cr.cnaf.infn.it'
 ##H
 
 # Process command line arguments.
@@ -37,16 +47,18 @@ use PHEDEX::Core::DB;
 use PHEDEX::BlockConsistency::SQL;
 
 my ($dbh);
-my ($verbose,$debug,$terse);
+my ($injected,$verbose,$debug,$terse);
 my (%h,$conn);
 my ($DBCONFIG,%lfn);
-my ($lfnlist);
+my ($lfnlist,$se_name);
 my $debug_me = 1;
 
 $verbose = $debug = $terse = 0;
 GetOptions("db=s"           => \$DBCONFIG,
            "lfnlist=s"      => \$lfnlist,
+           "se_name=s"      => \$se_name,
 
+           "injected|i+"     => \$injected,
            "verbose|v+"     => \$verbose,
            "debug+"         => \$debug,
            "terse"          => \$terse,
@@ -60,6 +72,16 @@ $|=1;
 if( !$DBCONFIG )
 {
   die "Insufficient parameters, use -h for help.\n";
+}
+
+if( !$injected && !$se_name )
+{
+  die "-injected or -se_name parameter not found. Use -h for help.\n";
+}
+
+if( $injected && $se_name )
+{
+  die "-injected and -se_name are mutually exclusive. Use -h for help.\n";
 }
 
 #-------------------------------------------------------------------------------
@@ -101,10 +123,24 @@ printf "Got %8d LFNs in %5d directories\n",
        scalar keys %{$h{DIR}};
 
 #-------------------------------------------------------------------------------
-foreach my $dir ( keys %{$h{DIR}} )
-{
-# $verbose && print "Process $dir\n";
-  my $tmp = PHEDEX::BlockConsistency::SQL::getLFNsFromWildCard( $dbh, $dir . '%' );
+if ( $injected ){
+  foreach my $dir ( keys %{$h{DIR}} )
+  {
+  # $verbose && print "Process $dir\n";
+    my $tmp = PHEDEX::BlockConsistency::SQL::getLFNsFromWildCard( $dbh, $dir . '%' );
+    foreach ( @{$tmp} )
+    {
+      delete $h{LFN}{$_};
+      $_ = dirname $_;
+      $_ =~ s%/\d+$%%;
+      $h{DIR}{$_}{TMDB}++;
+    }
+    $verbose && print scalar keys %{$h{LFN}}, " files left...    \r";
+  }
+}
+else {
+  my $tmp = PHEDEX::BlockConsistency::SQL::getSiteReplicas( $dbh, $se_name );
+
   foreach ( @{$tmp} )
   {
     delete $h{LFN}{$_};
@@ -112,7 +148,6 @@ foreach my $dir ( keys %{$h{DIR}} )
     $_ =~ s%/\d+$%%;
     $h{DIR}{$_}{TMDB}++;
   }
-  $verbose && print scalar keys %{$h{LFN}}, " files left...    \r";
 }
 $verbose && print "\n";
 
