@@ -85,6 +85,7 @@ sub new
 	      poll_job		=> 'poll_job',
 	      report_job	=> 'report_job',
 	      report_statistics	=> 'report_statistics',
+	      cleanup_stats    	=> 'cleanup_stats',
 	      shoot_myself	=> 'shoot_myself',
 
 	      _default	 => '_default',
@@ -264,7 +265,6 @@ sub poll_job
     { die "Unknown file-state: " . $s->{STATE}."\n"; }
 
     $self->Stats('FILES', $f->DESTINATION, $f->STATE);
-
     if ( $_ = $f->STATE( $s->{STATE} ) )
     {
       $f->LOG($f->TIMESTAMP,"from $_ to ",$f->STATE);
@@ -341,6 +341,20 @@ sub report_job
   }
 
 # Now I should take detailed action on any errors...
+  $kernel->delay_set('cleanup_stats',60,$job);
+}
+
+sub cleanup_stats
+{
+  my ( $self, $kernel, $job ) = @_[ OBJECT, KERNEL, ARG0 ];
+  my $jobid = $job->ID;
+  print $self->hdr,"Cleaning up stats for job $jobid...\n" if $self->{VERBOSE};
+  delete $self->{STATS}{JOBS}{STATES}{$job->ID};
+  foreach ( values %{$job->FILES} )
+  {
+    delete $self->{STATS}{FILES}{STATES}{$_->DESTINATION};
+  }
+
   delete $self->{JOBS}{$job->ID};
 }
 
