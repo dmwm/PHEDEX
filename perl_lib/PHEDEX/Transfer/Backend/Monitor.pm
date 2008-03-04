@@ -349,11 +349,14 @@ sub isBusy
   my ($busy,$valid,%h,$n,$t);
   $busy = $valid = $t = $n = 0;
 
+  use Data::Dumper;
+  print Dumper($self->{STATS}), "\n";
+
   if ( exists($self->{STATS}) &&
-       exists($self->{STATS}{FILES}) &&
-       exists($self->{STATS}{FILES}{STATES}) )
+       exists($self->{STATS}{JOBS}) &&
+       exists($self->{STATS}{JOBS}{STATES}) )
   {
-    foreach ( values %{$self->{STATS}{FILES}{STATES}} ) { $h{$_}++; }
+    foreach ( values %{$self->{STATS}{JOBS}{STATES}} ) { $h{$_}++; }
   }
 
   foreach ( qw / Ready Pending / )
