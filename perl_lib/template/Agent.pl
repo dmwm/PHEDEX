@@ -67,4 +67,7 @@ use template::Agent;
 # can take precedence. Otherwise, the undefined value wins, which is not good
 foreach ( keys %args ) { delete $args{$_} unless defined $args{$_}; }
 my $agent = new template::Agent(%args,@ARGV);
-$agent->process();
+#$agent->process();
+POE::Kernel->run();
+print "The POE kernel run has ended, now I shoot myself\n";
+exit 0;
