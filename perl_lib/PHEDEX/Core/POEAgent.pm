@@ -1466,8 +1466,9 @@ sub _start
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
   print $self->hdr,"is starting (session ",$session->ID,")\n";
-  $kernel->yield('_nap');
+  $self->preprocess();
   $kernel->yield('_process');
+  $kernel->yield('_nap');
 }
 
 sub _process
