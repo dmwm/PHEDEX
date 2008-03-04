@@ -44,6 +44,9 @@ our %params =
 	  POLL_QUEUE		=>  1,	  # Poll the queue or not?
 	  NAME			=> undef, # Arbitrary name for this object
 	  STATISTICS_INTERVAL	=> 60,	  # Interval for reporting statistics
+	  WAIT_FOR_VALID	=> 120,   # Queue knowledge is valid eventually
+
+	  VERBOSE		=> 0,
 	);
 our %ro_params =
 	(
@@ -218,7 +221,7 @@ sub poll_queue
 #     Queue this job for monitoring...
       $self->{QUEUE}->enqueue( $priority, $job );
       $self->{JOBS}{$id} = $job;
-      print "Queued $id at priority $priority (",$list->{$id},")\n";
+      print "Queued $id at priority $priority (",$list->{$id},")\n" if $self->{VERBOSE};
     }
   }
   $kernel->delay_set('poll_queue', $self->{Q_INTERVAL});
@@ -288,7 +291,7 @@ sub poll_job
                  );
   if ( $job->SUMMARY ne $summary )
   {
-    print $self->hdr,"$jobid: $summary\n";
+    print $self->hdr,"$jobid: $summary\n" if $self->{VERBOSE};
     $job->SUMMARY($summary);
   }
 
@@ -319,7 +322,7 @@ sub report_job
 {
   my ( $self, $kernel, $job ) = @_[ OBJECT, KERNEL, ARG0 ];
   my $jobid = $job->ID;
-  print $self->hdr,"Job $jobid has ended...\n";
+  print $self->hdr,"Job $jobid has ended...\n" if $self->{VERBOSE};
 
   $job->LOG(time,'Job has ended');
   $self->Stats('JOBS', $job->ID, $job->STATE);
@@ -333,17 +336,43 @@ sub report_job
   {
     print $self->hdr,'Log for ',$job->ID,"\n",
 		scalar $job->LOG,
-	  $self->hdr,'Log ends for ',$job->ID,"\n";
+	  $self->hdr,'Log ends for ',$job->ID,"\n" if $self->{VERBOSE};
   }
 
 # Now I should take detailed action on any errors...
   delete $self->{JOBS}{$job->ID};
 }
 
+sub isBusy
+{
+  my $self = shift;
+  my ($busy,$valid,%h,$n,$t);
+  $busy = $valid = $t = 0;
+
+  if ( exists($self->{STATS}) &&
+       exists($self->{STATS}{FILES}) &&
+       exists($self->{STATS}{FILES}{STATES}) )
+  {
+    $t = time - $self->{STATS}{START};
+    foreach ( values %{$self->{STATS}{FILES}{STATES}} ) { $h{$_}++; }
+  }
+
+#  foreach ( qw / Submitted Ready Active Pending / ) { $n += $h{$_} || 0; }
+#  if ( $n >= 10 ) { $valid = 1; }
+
+  if ( $t > $self->{WAIT_FOR_VALID} ) { $valid = 1; }
+  if ( exists($h{Pending}) && $h{Pending} >= 5 ) { $busy = 1; }
+  return ($busy,$valid);
+}
+
 sub report_statistics
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
   my ($s,$t,$key,$summary);
+
+  my ($busy,$valid) = $self->isBusy();
+  print $self->hdr," busy=$busy, valid=$valid\n";
+
   if ( ! defined($self->{STATS}{START}) )
   {
     $self->{STATS}{START} = time;
