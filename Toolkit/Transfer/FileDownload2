@@ -775,6 +775,7 @@ sub fill
     {
       my ($b,$v) = $self->{Q_MONITOR}->isBusy();
       print "Q_MONITOR: busy=$b valid=$v\n";
+      return if $b && $v;
     }
 
     # If the backend is busy, avoid doing heavy lifting.
