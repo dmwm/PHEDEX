@@ -307,6 +307,7 @@ sub poll_job
 
   $job->STATE($state->{JOB_STATE});
   $self->Stats('JOBS', $job->ID, $job->STATE);
+  $self->{JOB_CALLBACK}->($job) if $self->{JOB_CALLBACK};
   if ( $job->EXIT_STATES->{$state->{JOB_STATE}} )
   {
     $kernel->yield('report_job',$job);
@@ -337,7 +338,6 @@ sub report_job
     $self->Stats('FILES', $_->DESTINATION, $_->STATE);
   }
 
-  $self->{JOB_CALLBACK}->($job) if $self->{JOB_CALLBACK};
   if ( defined $job->JOB_CALLBACK ) { $job->JOB_CALLBACK->(); }
   else
   {
