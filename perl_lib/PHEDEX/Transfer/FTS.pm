@@ -1,4 +1,4 @@
-package PHEDEX::Transfer::FTS; use base PHEDEX::Transfer::Null;
+package PHEDEX::Transfer::FTS;
 use strict;
 use warnings;
 use Getopt::Long;
@@ -42,7 +42,7 @@ sub new
     $options->{'monalisa_node=s'} = \$params->{FTS_MONALISA_NODE};
 
     # Initialise myself
-    my $self = $class->SUPER::new($master, $options, $params, @_);
+#    my $self = $class->SUPER::new($master, $options, $params, @_);
     $self->init();
     bless $self, $class;
     use Data::Dumper; # XXX
@@ -120,11 +120,37 @@ sub startBatch
     $jobs->{$jobname} = $info;
 #    $self->clean($info, $tasks);
 
-    $self->{Q_INTERFACE}->Submit();
+    #create the copyjob file via Job->PREPARE method
+    
+    my %files = ();
+
+    foreach my $task (keys %tasks) {
+	my %args = (
+		    SOURCE=>$task{FROM_PFN},
+		    DESTINATION=>$task{TO_PFN}
+		    );
+	$files{$task{TO_PFN}} = PHEDEX::Transfer::Backend::File->new(%args);
+    }
+    
+    
+    my $job = PHEDEX::Transfer::Backend::Job->new(COPYJOB=>"$dir/copyjob",
+						  FILES=>\%files
+						  );
+    $job->PREPARE();
+
+    my $id = $self->{Q_INTERFACE}->Submit($job);
+
+    #FIX me check validity here - may be submission failed? - then report job done etc
+
+    $job->ID($id);
+
+    #register this job with queue monitor. We pass some hardcoded priority.
+    $self->{FTS_Q_MONITOR}->QueueJob(1,$job);
+
+    
 }
 
-
-
+sub check {}
 
 # sub transferBatch
 # {
