@@ -380,7 +380,7 @@ sub isBusy
     foreach ( values %{$self->{STATS}{FILES}{STATES}} ) { $h{$_}++; }
   }
 
-  if ( $self->{BUSY_ALGORITHM} == 'ReadyPending' )
+  if ( $self->{BUSY_ALGORITHM} eq 'ReadyPending' )
   {
     foreach ( qw / Ready Pending / )
     {

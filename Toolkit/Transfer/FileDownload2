@@ -76,6 +76,7 @@ my %args = (CMDLINE => [ @ARGV ]);
 use Getopt::Long;
 use PHEDEX::Core::Help;
 
+
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
@@ -102,7 +103,7 @@ die "Insufficient parameters, use -h for help.\n"
     if (!$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG}
 	|| !$args{BACKEND_TYPE});
 
-$args{NODAEMON}=1;
+#$args{NODAEMON}=1;
 my $agent = new FileDownload (%args, BACKEND_ARGS => [ @ARGV ]);
 POE::Kernel->run();
 

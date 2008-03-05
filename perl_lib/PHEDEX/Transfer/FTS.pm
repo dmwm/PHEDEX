@@ -1,4 +1,4 @@
-package PHEDEX::Transfer::FTS;
+package PHEDEX::Transfer::FTS; use base PHEDEX::Transfer::Core;
 use strict;
 use warnings;
 use Getopt::Long;
@@ -6,6 +6,7 @@ use PHEDEX::Transfer::Backend::Job;
 use PHEDEX::Transfer::Backend::File;
 use PHEDEX::Transfer::Backend::Monitor;
 use PHEDEX::Transfer::Backend::Interface::Glite;
+use PHEDEX::Core::Command;
 use PHEDEX::Monalisa;
 use POE;
 
@@ -42,9 +43,10 @@ sub new
     $options->{'monalisa_node=s'} = \$params->{FTS_MONALISA_NODE};
 
     # Initialise myself
-#    my $self = $class->SUPER::new($master, $options, $params, @_);
-    $self->init();
+    my $self = $class->SUPER::new($master, $options, $params, @_);
     bless $self, $class;
+
+    $self->init();
     use Data::Dumper; # XXX
     print 'FTS $self:  ', Dumper($self), "\n";
     return $self;
@@ -124,12 +126,13 @@ sub startBatch
     
     my %files = ();
 
-    foreach my $task (keys %tasks) {
+    foreach my $task (keys %$tasks) {
+
 	my %args = (
-		    SOURCE=>$task{FROM_PFN},
-		    DESTINATION=>$task{TO_PFN}
+		    SOURCE=>$tasks->{$task}{FROM_PFN},
+		    DESTINATION=>$tasks->{$task}{TO_PFN}
 		    );
-	$files{$task{TO_PFN}} = PHEDEX::Transfer::Backend::File->new(%args);
+	$files{$tasks->{$task}{TO_PFN}} = PHEDEX::Transfer::Backend::File->new(%args);
     }
     
     
