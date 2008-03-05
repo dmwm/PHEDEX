@@ -45,6 +45,8 @@ our %params =
 	  NAME			=> undef, # Arbitrary name for this object
 	  STATISTICS_INTERVAL	=> 60,	  # Interval for reporting statistics
 	  WAIT_FOR_VALID	=> 120,   # Queue knowledge is valid eventually
+	  BUSY_THRESHOLD	=> 5,	  # Threshold for declaring myself busy
+	  BUSY_ALGORITHM	=> 'ReadyWaiting', # How I calculate 'busy'
 
 	  VERBOSE		=> 0,
 	);
@@ -341,7 +343,7 @@ sub report_job
   }
 
 # Now I should take detailed action on any errors...
-  $kernel->delay_set('cleanup_stats',60,$job);
+  $kernel->yield('cleanup_stats',$job);
 }
 
 sub cleanup_stats
@@ -374,11 +376,14 @@ sub isBusy
     foreach ( values %{$self->{STATS}{FILES}{STATES}} ) { $h{$_}++; }
   }
 
-  foreach ( qw / Ready Pending / )
+  if ( $self->{BUSY_ALGORITHM} == 'ReadyWaiting' )
   {
-    if ( defined($h{$_}) ) { $n += $h{$_}; }
+    foreach ( qw / Ready Pending / )
+    {
+      if ( defined($h{$_}) ) { $n += $h{$_}; }
+    }
+    if ( $n >= $self->{BUSY_THRESHOLD} ) { $busy = 1; }
   }
-  if ( $n >= 5 ) { $busy = 1; }
 
   if ( exists($self->{STATS}{START}) ) { $t = time - $self->{STATS}{START}; }
   if ( $t > $self->{WAIT_FOR_VALID} ) { $valid = 1; }
