@@ -117,6 +117,7 @@ use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 use POSIX;
+use POE;
 
 sub new
 {
@@ -1061,3 +1062,11 @@ sub idle
     # Clear zombie detached processes in the backend.
     $$self{BACKEND}->pumpJobs();
 }
+
+sub _poe_init
+{   
+  my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
+  $self->{BACKEND}->setup_callbacks($kernel,$session)
+}   
+    
+1;
