@@ -319,7 +319,6 @@ sub job_state
 
   if ( $self->{FILE_TRACE_DIR} )
   {
-#$DB::single=1;
     foreach ( values %{$job->FILES} )
     {
       $_->WRITE_LOG($self->{FILE_TRACE_DIR});
