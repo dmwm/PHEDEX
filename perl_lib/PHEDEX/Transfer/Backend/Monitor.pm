@@ -48,6 +48,8 @@ our %params =
 	  BUSY_THRESHOLD	=> 5,	  # Threshold for declaring myself busy
 	  BUSY_ALGORITHM	=> 'ReadyPending', # How I calculate 'busy'
 
+	  JOB_CALLBACK		=> undef, # Callback for job state changes
+	  FILE_CALLBACK		=> undef, # Callback for file state changes
 	  VERBOSE		=> 0,
 	);
 our %ro_params =
@@ -282,6 +284,7 @@ sub poll_job
         $f->LOG  ( time, 'file transfer details',$summary,"\n" );
       }
       $job->FILE_CALLBACK->( $f, $_, $s ) if $job->FILE_CALLBACK;
+      $self->{FILE_CALLBACK}->( $f ) if $self->{FILE_CALLBACK};
     }
   }
 
@@ -334,6 +337,7 @@ sub report_job
     $self->Stats('FILES', $_->DESTINATION, $_->STATE);
   }
 
+  $self->{JOB_CALLBACK}->($job) if $self->{JOB_CALLBACK};
   if ( defined $job->JOB_CALLBACK ) { $job->JOB_CALLBACK->(); }
   else
   {
