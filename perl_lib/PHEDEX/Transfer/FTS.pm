@@ -59,6 +59,9 @@ sub init
 	 SERVICE => $self->{FTS_SERVICE},
 	 NAME    => '::GLite',
 	 );
+
+    $self->{Q_INTERFACE} = $glite;
+
     print "Using service ",$glite->SERVICE,"\n"; # XXX
 
     my $monalisa;
@@ -77,6 +80,8 @@ sub init
 	     apmon   => { sys_monitoring => 0,
 			  general_info   => 0 }
 	     );
+
+	$self->{MONALISA} = $monalisa;
     }
 
     my $q_mon = PHEDEX::Transfer::Backend::Monitor->new
@@ -104,6 +109,23 @@ sub isBusy
 
 # Transfer batch of files.  Forks off the transfer wrapper for each
 # file in the copy job (= one source, destination file pair).
+sub startBatch
+{
+    my ($self, $jobs, $tasks, $dir, $jobname, $list) = @_;
+    my @batch = splice(@$list, 0, $self->{BATCH_FILES});
+    my $info = { ID => $jobname, DIR => $dir,
+                 TASKS => { map { $_->{TASKID} => 1 } @batch } };
+    &output("$dir/info", Dumper($info));
+    &touch("$dir/live");
+    $jobs->{$jobname} = $info;
+#    $self->clean($info, $tasks);
+
+    $self->{Q_INTERFACE}->Submit();
+}
+
+
+
+
 # sub transferBatch
 # {
 #     my ($self, $job, $tasks) = @_;
