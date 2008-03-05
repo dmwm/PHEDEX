@@ -122,14 +122,14 @@ sub idle
       {
         @cmd = ($self->{DEL_COMMAND}, "-u", $self->{TARGET_DBS}, "-b", $block->{BLOCK_NAME});
       }
-      else { print "I don't know"; }
+      else { die("Command not supported: $block->{COMMAND}") }
 
       if ( defined $self->{DUMMY} )
       {
         if ( $self->{DUMMY} ) { unshift @cmd,'/bin/false'; }
         else                  { unshift @cmd,'/bin/true'; }
       }
-      $self->addJob(sub { $self->registered ($block, \$state{$cachekey}, $cachekey, @_) },
+      $self->addJob(sub { $self->registered ($block, \%state, $cachekey, @_) },
 	          { TIMEOUT => 30, LOGFILE => $log },
 	          @cmd);
     }
@@ -166,7 +166,7 @@ sub registered
         unlink ($job->{LOGFILE});
         if ( $block->{COMMAND} eq 'migrateBlock' ) { $state->{$cachekey} = &mytimeofday(); }
         elsif ( $block->{COMMAND} eq 'deleteBlock' ) { delete $state->{$cachekey} if exists $state->{$cachekey}; }
-        else { print "I don't know"; }
+        else { die("Command not supported: $block->{COMMAND}") }
     }
     else
     {
