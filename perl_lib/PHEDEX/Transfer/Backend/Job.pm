@@ -40,13 +40,13 @@ our %params =
 	  JOB_CALLBACK	=> undef,	# Callback per job state-change
 	  FILE_CALLBACK	=> undef,	# Callback per file state-change
 	  FILES		=> undef,	# A PHEDEX::Transfer::Backend::File array
+	  COPYJOB	=> undef,	# Name of copyjob file
 	  SUMMARY	=> '',		# Summary of job-status so far
 	);
 
 # These are not allowed to be set by the Autoloader...
 our %ro_params =
 	(
-	  COPYJOB	=> undef,	# Name of copyjob file
 	  TIMESTAMP	=> undef,	# Time of job status reporting
 	  TEMP_DIR	=> undef,	# Directory for temporary files
 	  STATE		=> 'undefined'	# Initial job state
@@ -112,7 +112,7 @@ sub DESTROY
   my $self = shift;
 
   return unless $self->{COPYJOB};
-  unlink $self->{COPYJOB} if -f $self->{COPYJOB};
+# unlink $self->{COPYJOB} if -f $self->{COPYJOB};
 # print $self->{ID},": Unlinked ",$self->{COPYJOB},"\n";
   $self = {};
 }
@@ -157,16 +157,26 @@ sub FILES
 sub PREPARE
 {
   my $self = shift;
-  my ($fh,$filename) = tempfile( undef ,
-				 UNLINK => 1,
-				 DIR => $self->{TEMP_DIR}
-			       );
-# print "Using temporary file $filename\n";
-  $self->{COPYJOB} = $filename;
-  foreach ( values %{$self->{FILES}} )
+  my ($fh,$file);
+
+  if ( $file = $self->{COPYJOB} )
   {
-    print $fh $_->SOURCE,' ',$_->DESTINATION,"\n";
+    open FH, ">$file" or die "Cannot open file $file: $!\n";
+    $fh = *FH;
   }
+  else
+  {
+    ($fh,$file) = tempfile( undef ,
+			    UNLINK => 1,
+			    DIR => $self->{TEMP_DIR}
+			  );
+  }
+
+# print "Using temporary file $filename\n";
+  $self->{COPYJOB} = $file;
+  foreach ( values %{$self->{FILES}} )
+  { print $fh $_->SOURCE,' ',$_->DESTINATION,"\n"; }
+
   close $fh;
 }
 
