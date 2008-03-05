@@ -1466,7 +1466,12 @@ sub _start
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
   print $self->hdr,"is starting (session ",$session->ID,")\n";
-  $self->preprocess();
+  $self->preprocess( $kernel, $session );
+  if ( $self->can('_poe_init') )
+  {
+    $kernel->state('_poe_init',$self);
+    $kernel->yield('_poe_init');
+  }
   $kernel->yield('_process');
   $kernel->yield('_nap');
 }
