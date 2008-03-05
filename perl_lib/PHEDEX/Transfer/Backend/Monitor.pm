@@ -46,7 +46,7 @@ our %params =
 	  STATISTICS_INTERVAL	=> 60,	  # Interval for reporting statistics
 	  WAIT_FOR_VALID	=> 120,   # Queue knowledge is valid eventually
 	  BUSY_THRESHOLD	=> 5,	  # Threshold for declaring myself busy
-	  BUSY_ALGORITHM	=> 'ReadyWaiting', # How I calculate 'busy'
+	  BUSY_ALGORITHM	=> 'ReadyPending', # How I calculate 'busy'
 
 	  VERBOSE		=> 0,
 	);
@@ -376,7 +376,7 @@ sub isBusy
     foreach ( values %{$self->{STATS}{FILES}{STATES}} ) { $h{$_}++; }
   }
 
-  if ( $self->{BUSY_ALGORITHM} == 'ReadyWaiting' )
+  if ( $self->{BUSY_ALGORITHM} == 'ReadyPending' )
   {
     foreach ( qw / Ready Pending / )
     {
