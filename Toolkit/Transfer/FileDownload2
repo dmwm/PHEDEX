@@ -75,19 +75,6 @@
 my %args = (CMDLINE => [ @ARGV ]);
 use Getopt::Long;
 use PHEDEX::Core::Help;
-use PHEDEX::Transfer::Backend::Job;
-use PHEDEX::Transfer::Backend::File;
-use PHEDEX::Transfer::Backend::Monitor;
-use PHEDEX::Transfer::Backend::Interface::Glite;
-use PHEDEX::Monalisa;
-
-my ($service,$q_interval,$j_interval,$monalisa,$poll_queue);
-$q_interval = 30;
-$j_interval = 5;
-$monalisa = 'FileDownload';
-$poll_queue = 0;
-$service = 'https://fts.pic.es:8443/glite-data-transfer-fts/services/FileTransfer';
-#$service = 'https://prod-fts-ws.cern.ch:8443/glite-data-transfer-fts/services/FileTransfer';
 
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
@@ -109,51 +96,12 @@ $service = 'https://fts.pic.es:8443/glite-data-transfer-fts/services/FileTransfe
              "backend=s"   => sub { $args{BACKEND_TYPE} = $_[1]; die "!FINISH"; },
 
 	     "help|h"      => sub { &usage() },
-             "service=s"             => \$service,
-             "q_interval=i"          => \$q_interval,
-             "j_interval=i"          => \$j_interval,
-             "monalisa=s"            => \$monalisa,
             );
 
 die "Insufficient parameters, use -h for help.\n"
     if (!$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG}
 	|| !$args{BACKEND_TYPE});
 
-my $glite = PHEDEX::Transfer::Backend::Interface::Glite->new
-                (
-                  SERVICE => $service,
-                  NAME    => '::GLite',
-                );
-print "Using service ",$glite->SERVICE,"\n";
-if ( $monalisa )
-{
-  $monalisa = PHEDEX::Monalisa->new
-        (
-          Host    => 'lxarda12.cern.ch:28884',
-          Cluster => 'TransferTests',
-          Node    => $monalisa,
-          apmon   =>
-          {
-            sys_monitoring => 0,
-            general_info   => 0,
-          },
-        );
-}
-
-my $poll_queue=1;
-my $q_mon = PHEDEX::Transfer::Backend::Monitor->new
-                (
-                  Q_INTERFACE   => $glite,
-                  Q_INTERVAL    => $q_interval,
-                  J_INTERVAL    => $j_interval,
-                  POLL_QUEUE    => $poll_queue,
-                  APMON         => $monalisa,
-                  NAME          => '::QMon',
-                );
-
-#$args{NODAEMON} = 1;
-$args{Q_MONITOR} = $q_mon;
-#(new FileDownload (%args, BACKEND_ARGS => [ @ARGV ]))->process();
 my $agent = new FileDownload (%args, BACKEND_ARGS => [ @ARGV ]);
 POE::Kernel->run();
 
@@ -208,8 +156,6 @@ sub new
 		  NEXT_SYNC => 0,		# Next time to synchronise
 		  NEXT_PURGE => 0,		# Next time to purge bad data
 		  DBH_LAST_USE => 0,		# Last use of the database
-
-		  Q_MONITOR => undef,		# Queue monitor component
 
 		  BATCH_ID => 0,		# Number of batches created
 		  BOOTTIME => time());		# Time this agent started
@@ -769,14 +715,6 @@ sub fill
     my (%stats, %todo, %sorted);
     my $now = &mytimeofday();
     my $nlinks = 0;
-
-    # Check what the Queue monitor thinks of the state of the link
-    if ( $self->{Q_MONITOR} )
-    {
-      my ($b,$v) = $self->{Q_MONITOR}->isBusy();
-      print "Q_MONITOR: busy=$b valid=$v\n";
-      return if $b && $v;
-    }
 
     # If the backend is busy, avoid doing heavy lifting.
     return if $$self{BACKEND}->isBusy($jobs, $tasks);
