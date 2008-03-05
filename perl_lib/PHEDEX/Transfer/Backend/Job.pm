@@ -41,6 +41,7 @@ our %params =
 	  FILE_CALLBACK	=> undef,	# Callback per file state-change
 	  FILES		=> undef,	# A PHEDEX::Transfer::Backend::File array
 	  COPYJOB	=> undef,	# Name of copyjob file
+	  WORKDIR	=> undef,	# Working directory for this job
 	  SUMMARY	=> '',		# Summary of job-status so far
 	);
 
