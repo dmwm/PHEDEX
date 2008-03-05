@@ -242,6 +242,9 @@ sub poll_job
 
   my $jobid = $job->ID;
   $state = $self->{Q_INTERFACE}->ListJob($jobid);
+
+  print "JOBID $jobid STATE $state\n";
+
   if ( $state ) { $self->{LAST_SUCCESSFULL_POLL} = time; }
   else
   {

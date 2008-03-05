@@ -24,14 +24,14 @@ sub new
 
     # Set my defaults where not defined by the derived class.
     $params->{PROTOCOLS}   ||= [ 'srm' ];  # Accepted protocols
-    $params->{FTS_BATCH_FILES} ||= 25;     # Max number of files per batch
+    $params->{BATCH_FILES} ||= 25;     # Max number of files per batch
     $params->{FTS_LINK_FILES}  ||= 250;    # Queue this number of files in FTS for a link 
     $params->{FTS_POLL_QUEUE} ||= 1;       # Whether to poll all vs. our jobs
     $params->{FTS_Q_INTERVAL} ||= 30;       # Whether to poll all vs. our jobs
     $params->{FTS_J_INTERVAL} ||= 5;       # Whether to poll all vs. our jobs
 
     # Set argument parsing at this level.
-    $options->{'batch-files=i'} = \$params->{FTS_BATCH_FILES};
+    $options->{'batch-files=i'} = \$params->{BATCH_FILES};
     $options->{'link-files=i'} = \$params->{FTS_LINK_FILES};
     $options->{'service=s'} = \$params->{FTS_SERVICE};
     $options->{'q_interval=i'} = \$params->{FTS_Q_INTERVAL};
@@ -126,18 +126,21 @@ sub startBatch
     
     my %files = ();
 
-    foreach my $task (keys %$tasks) {
+    foreach my $taskid ( keys %{$info->{TASKS}} ) {
+	my $task = $tasks->{$taskid};
 
 	my %args = (
-		    SOURCE=>$tasks->{$task}{FROM_PFN},
-		    DESTINATION=>$tasks->{$task}{TO_PFN}
+		    SOURCE=>$task->{FROM_PFN},
+		    DESTINATION=>$task->{TO_PFN},
+		    TASKID=>$taskid,
 		    );
-	$files{$tasks->{$task}{TO_PFN}} = PHEDEX::Transfer::Backend::File->new(%args);
+	$files{$task->{TO_PFN}} = PHEDEX::Transfer::Backend::File->new(%args);
     }
     
     
     my $job = PHEDEX::Transfer::Backend::Job->new(COPYJOB=>"$dir/copyjob",
-						  FILES=>\%files
+						  WORKDIR=>$dir,
+						  FILES=>\%files,
 						  );
     $job->PREPARE();
 
@@ -153,7 +156,11 @@ sub startBatch
     
 }
 
-sub check {}
+sub check {
+
+#    my ($self, $jobname, $job, $tasks) = @_;    
+
+}
 
 # sub transferBatch
 # {
@@ -184,16 +191,30 @@ sub setup_callbacks
 
 sub job_state
 {
-  my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+    my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
 #$DB::single=1;
-  print "Job-state callback, $arg0, $arg1\n";
+    print "Job-state callback", Dumper $arg0, "\n", Dumper $arg1, "\n";
+
+    my $isexited = 0;
+
+    my $job = $arg1->[0];
+
+    if ($job->EXIT_STATES->{$job->{STATE}}) {
+    }else{
+	&touch($job->{WORKDIR}."/live");
+    }
 }
 
 sub file_state
 {
   my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
 #$DB::single=1;
-  print "File-state callback, $arg0, $arg1\n";
+  print "File-state callback", Dumper $arg0, "\n", Dumper $arg1, "\n"; 
+
+  my $file = $arg1->[0];
+#make a done file
+  &output($job->{WORKDIR}."/T".$file->{ID}."X", )
+
 }
 
 
