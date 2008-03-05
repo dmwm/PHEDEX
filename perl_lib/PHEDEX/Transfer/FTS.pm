@@ -7,7 +7,7 @@ use PHEDEX::Transfer::Backend::File;
 use PHEDEX::Transfer::Backend::Monitor;
 use PHEDEX::Transfer::Backend::Interface::Glite;
 use PHEDEX::Monalisa;
-
+use POE;
 
 # DO NOT USE - UNFINISHED!!
 # Command back end defaulting to srmcp and supporting batch transfers.
@@ -138,6 +138,34 @@ sub startBatch
 #     }
 # }
 
+sub setup_callbacks
+{
+  my ($self,$kernel,$session) = @_; #[ OBJECT, KERNEL, SESSION ];
+
+  if ( $self->{FTS_Q_MONITOR} )
+  {
+    $kernel->state('job_state',$self);
+    $kernel->state('file_state',$self);
+    my $job_postback  = $session->postback( 'job_state'  );
+    my $file_postback = $session->postback( 'file_state' );
+    $self->{FTS_Q_MONITOR}->JOB_CALLBACK ( $job_postback );
+    $self->{FTS_Q_MONITOR}->FILE_CALLBACK( $file_postback );
+  }
+}
+
+sub job_state
+{
+  my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+#$DB::single=1;
+  print "Job-state callback, $arg0, $arg1\n";
+}
+
+sub file_state
+{
+  my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+#$DB::single=1;
+  print "File-state callback, $arg0, $arg1\n";
+}
 
 
 1;
