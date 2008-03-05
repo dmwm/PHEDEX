@@ -285,6 +285,8 @@ sub poll_job
 			);
         $job->LOG( time, 'file transfer details',$summary,"\n" );
         $f->LOG  ( time, 'file transfer details',$summary,"\n" );
+
+        foreach ( qw / DURATION RETRIES REASON / ) { $f->{$_} = $s->{$_}; }
       }
       $job->FILE_CALLBACK->( $f, $_, $s ) if $job->FILE_CALLBACK;
       $self->{FILE_CALLBACK}->( $f ) if $self->{FILE_CALLBACK};
