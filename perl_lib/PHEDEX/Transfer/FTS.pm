@@ -218,7 +218,9 @@ sub startBatch
 
     $job->PREPARE();
 
-    my $id = $self->{Q_INTERFACE}->Submit($job);
+    my $result = $self->{Q_INTERFACE}->Submit($job);
+    if ( exists($result{ERROR}) { }; # something went wrong...
+    my $id = $result{ID};
 
     #FIX me check validity here - may be submission failed? - then report job done etc
 
