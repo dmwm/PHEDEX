@@ -289,7 +289,7 @@ sub poll_job
         foreach ( qw / DURATION RETRIES REASON / ) { $f->{$_} = $s->{$_}; }
       }
       $job->FILE_CALLBACK->( $f, $_, $s ) if $job->FILE_CALLBACK;
-      $self->{FILE_CALLBACK}->( $f ) if $self->{FILE_CALLBACK};
+      $self->{FILE_CALLBACK}->( $f, $j ) if $self->{FILE_CALLBACK};
     }
   }
 
