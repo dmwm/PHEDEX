@@ -102,11 +102,17 @@ sub init
     $self->{FTS_Q_MONITOR} = $q_mon;
 }
 
+# FTS map parsing
+# It has the following format:
+# SRM.Endpoint="srm://cmssrm.fnal.gov:8443/srm/managerv2" FTS.Endpoint="https://cmsstor20.fnal.gov:8443/glite-data-transfer-fts/services/FileTransfer"
+# SRM.Endpoint="DEFAULT" FTS.Endpoint="https://cmsstor20.fnal.gov:8443/glite-data-transfer-fts/services/FileTransfer"
+
 sub parseFTSmap {
     my $self = shift;
 
     my $mapfile = $self->{FTS_MAPFILE};
 
+    # hash srmendpoint=>ftsendpoint;
     my $map = {};
 
     if (!open M, "$mapfile") {	
@@ -114,9 +120,13 @@ sub parseFTSmap {
     }
 
     while (<M>) {
-	
+	next unless /^SRM.Endpoint=\"(.+)\"\s+FTS.Endpoint=\"(.+)\"/;	
+	$map->{$1} = $2;
     }
+
+    $self->{FTS_MAP} = $map;
     
+    return 0;
 }
 
 sub getFTSService {

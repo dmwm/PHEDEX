@@ -236,10 +236,9 @@ sub poll_job
   ($priority,$id,$job) = $self->{QUEUE}->dequeue_next;
   goto DONE unless $id;
 
-  my $jobid = $job->ID;
-  $state = $self->{Q_INTERFACE}->ListJob($jobid);
+  $state = $self->{Q_INTERFACE}->ListJob($job);
 
-  print "JOBID $jobid STATE $state\n";
+  print "JOBID $job->{ID} STATE $state->{JOB_STATE}\n";
 
   if ( $state ) { $self->{LAST_SUCCESSFULL_POLL} = time; }
   else
@@ -299,7 +298,7 @@ sub poll_job
                  );
   if ( $job->SUMMARY ne $summary )
   {
-    print $self->hdr,"$jobid: $summary\n" if $self->{VERBOSE};
+    print $self->hdr,"$job->{ID}: $summary\n" if $self->{VERBOSE};
     $job->SUMMARY($summary);
   }
 
