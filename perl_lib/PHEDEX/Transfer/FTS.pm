@@ -201,7 +201,6 @@ sub setup_callbacks
 sub job_state
 {
     my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-#$DB::single=1;
     print "Job-state callback", Dumper $arg0, "\n", Dumper $arg1, "\n";
 
     my $isexited = 0;
@@ -210,14 +209,14 @@ sub job_state
 
     if ($job->EXIT_STATES->{$job->{STATE}}) {
     }else{
-	&touch($job->{WORKDIR}."/live");
+	&touch($job->WORKDIR."/live");
     }
 }
 
 sub file_state
 {
   my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-#$DB::single=1;
+$DB::single=1;
   print "File-state callback", Dumper $arg0, "\n", Dumper $arg1, "\n"; 
 
   my $file = $arg1->[0];
@@ -227,7 +226,7 @@ sub file_state
 	
       my $summary = {START=>$file->{START},
 		     END=>&mytimeofday(), 
-		     LOG=> scalar @{$job->RAW_OUTPUT},
+		     LOG=> "@{$job->RAW_OUTPUT}",
 		     DETAIL=>$file->{REASON}, 
 		     DURATION=>$file->{DURATION}
 		 };
