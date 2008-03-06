@@ -121,7 +121,8 @@ sub ListJob
   my ($self,$job) = @_;
   my ($cmd,$state,%result,$dst,@raw);
   my ($key,$value);
-  $cmd = "glite-transfer-status -l -s " . $self->{SERVICE} . ' ' . $job;
+
+  $cmd = "glite-transfer-status -l -s " . $job->{SERVICE} . ' ' . $job->ID;
   open GLITE, "$cmd |" or do
   {
     warn "$cmd: $!\n";
@@ -190,7 +191,7 @@ sub Submit
 
   defined $job->COPYJOB or die "No copyjob given: %h\n";
 
-  my $cmd = "glite-transfer-submit -s " . $self->{SERVICE} .
+  my $cmd = "glite-transfer-submit -s " . $job->{SERVICE} .
 				 ' -f ' . $job->COPYJOB;
 # print $self->hdr,"Execute: $cmd\n";
   open GLITE, "$cmd |" or die "$cmd: $!\n";

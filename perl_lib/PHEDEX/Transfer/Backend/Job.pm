@@ -35,6 +35,7 @@ use File::Temp qw/ tempfile tempdir /;
 our %params =
 	(
 	  ID		=> undef,	# Determined when the job is submitted
+	  SERVICE       => undef        # FTS endpoint - fix - need to make a derived class for FTS specific job?!
 	  TIMEOUT	=>    0,	# Timeout for total job transfer
 	  PRIORITY	=>    1,	# Priority for total job transfer
 	  JOB_CALLBACK	=> undef,	# Callback per job state-change

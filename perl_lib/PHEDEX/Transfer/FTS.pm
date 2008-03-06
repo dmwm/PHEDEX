@@ -35,6 +35,8 @@ sub new
     $options->{'batch-files=i'} = \$params->{BATCH_FILES};
     $options->{'link-files=i'} = \$params->{FTS_LINK_FILES};
     $options->{'service=s'} = \$params->{FTS_SERVICE};
+    $options->{'mode'} = \$params->{FTS_MODE};
+    $options->{'mapfile'} = \$params->{FTS_MAPFILE};
     $options->{'q_interval=i'} = \$params->{FTS_Q_INTERVAL};
     $options->{'j_interval=i'} = \$params->{FTS_J_INTERVAL};
     $options->{'poll_queue=i'} = \$params->{FTS_POLL_QUEUE};
@@ -98,6 +100,19 @@ sub init
 	 );
 
     $self->{FTS_Q_MONITOR} = $q_mon;
+}
+
+sub parseFTSmap {
+    my $self = shift;
+    
+}
+
+sub getFTSService {
+    my $self = shift;
+    
+    my $service = $self->{FTS_SERVICE}
+
+    return $service;
 }
 
 # If $to and $from are not given, then the question is:
@@ -170,11 +185,15 @@ sub startBatch
 	$files{$task->{TO_PFN}} = PHEDEX::Transfer::Backend::File->new(%args);
     }
     
-    
-    my $job = PHEDEX::Transfer::Backend::Job->new(COPYJOB=>"$dir/copyjob",
-						  WORKDIR=>$dir,
-						  FILES=>\%files,
-						  );
+    %args = (
+	     COPYJOB=>"$dir/copyjob",
+	     WORKDIR=>$dir,
+	     FILES=>\%files,
+	     SERVICE=>$self->getFTSService(),
+	     );
+
+    my $job = PHEDEX::Transfer::Backend::Job->new(%args);
+
     $job->PREPARE();
 
     my $id = $self->{Q_INTERFACE}->Submit($job);
@@ -251,6 +270,7 @@ $DB::single=1;
       my $summary = {START=>$file->{START},
 		     END=>&mytimeofday(), 
 		     LOG=> "@{$job->RAW_OUTPUT}",
+		     STATUS=>$file->EXIT_STATES->{$file->{STATE}},
 		     DETAIL=>$file->{REASON}, 
 		     DURATION=>$file->{DURATION}
 		 };
