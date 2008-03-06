@@ -119,7 +119,7 @@ sub ListQueue
 sub ListJob
 {
   my ($self,$job) = @_;
-  my ($cmd,$state,%result,$dst);
+  my ($cmd,$state,%result,$dst,@raw);
   my ($key,$value);
 
   $cmd = "glite-transfer-status -l -s " . $self->{SERVICE} . ' ' . $job;
@@ -136,6 +136,7 @@ sub ListJob
 
   while ( <GLITE> )
   {
+    push @raw, $_;
     if ( m%^\s+Source:\s+(.*)\s*$% )
     {
 #     A 'Source' line is the first in a group for a single src->dst transfer
@@ -145,8 +146,9 @@ sub ListJob
     if ( m%^\s+(\S+):\s+(.*)\s*$% ) { $h->{uc $1} = $2; }
   }
   close GLITE or die "close: $cmd: $!\n";
-  push @h, $h if $h;
+  $job->RAW_OUTPUT(\@raw);
 
+  push @h, $h if $h;
   foreach $h ( @h )
   {
 #  Be paranoid about the fields I read!
