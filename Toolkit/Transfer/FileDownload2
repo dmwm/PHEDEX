@@ -873,8 +873,11 @@ sub fill
 		. scalar(@{$todo{$to}{$from}})
 		. " transfer tasks in queue")
 	    if $$self{VERBOSE};
-	$$self{BACKEND}->startBatch ($jobs, $tasks, $dir, $jobname, $todo{$to}{$from});
 
+	unless ( $$self{BACKEND}->isBusy ($jobs, $tasks, $to, $from) ) {
+	    $$self{BACKEND}->startBatch ($jobs, $tasks, $dir, $jobname, $todo{$to}{$from});
+	}
+	
 	# If we exhausted the files on this link, remove the link's
 	# share from P.  We have to recalculate P then also.
 	if (! @{$todo{$to}{$from}} && ! $$self{BACKEND}->isBusy($jobs, $tasks))
