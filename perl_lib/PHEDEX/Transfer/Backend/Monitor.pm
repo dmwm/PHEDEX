@@ -369,11 +369,18 @@ sub cleanup_stats
   delete $self->{JOBS}{$job->ID};
 }
 
+
+# If $to and $from are not given, then the question is:
+# "Are you too busy to take ANY transfers?"
+# If they are provided, then the question is:
+# "Are you too busy to take transfers on linke $from -> $to?"
 sub isBusy
 {
-  my $self = shift;
+  my ($self, $to, $from)  = @_;
   my ($busy,$valid,%h,$n,$t);
   $busy = $valid = $t = $n = 0;
+
+  # TODO:  Decide busy state per link!
 
   use Data::Dumper;
   print 'isBusy $self->{STATS}:  ', Dumper($self->{STATS}), "\n";
