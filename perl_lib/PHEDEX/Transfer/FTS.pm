@@ -35,8 +35,8 @@ sub new
     $options->{'batch-files=i'} = \$params->{BATCH_FILES};
     $options->{'link-files=i'} = \$params->{FTS_LINK_FILES};
     $options->{'service=s'} = \$params->{FTS_SERVICE};
-    $options->{'mode'} = \$params->{FTS_MODE};
-    $options->{'mapfile'} = \$params->{FTS_MAPFILE};
+    $options->{'mode=s'} = \$params->{FTS_MODE};
+    $options->{'mapfile=s'} = \$params->{FTS_MAPFILE};
     $options->{'q_interval=i'} = \$params->{FTS_Q_INTERVAL};
     $options->{'j_interval=i'} = \$params->{FTS_J_INTERVAL};
     $options->{'poll_queue=i'} = \$params->{FTS_POLL_QUEUE};
@@ -52,6 +52,11 @@ sub new
     $self->init();
     use Data::Dumper; # XXX
     print 'FTS $self:  ', Dumper($self), "\n";
+    #a hack to check getFTSService
+    print "FTSmap: ", Dumper $self->{FTS_MAP};
+    print "TEST FTS endpoint-gridka ", $self->getFTSService("srm://gridka-dCache.fzk.de:8443/srm/managerv1?SFN=/pnfs/gridka.de/cms/"), "\n";
+    print "TEST FTS endpoint-ccsrm ", $self->getFTSService("srm://ccsrm.in2p3.fr:8443/srm/managerv1?SFN=/pnfs/gridka.de/cms/"), "\n";
+    print "TEST FTS endpoint-default ", $self->getFTSService("srm://somendpoint:8443/srm/managerv1?SFN=/pnfs/gridka.de/cms/"), "\n";
     return $self;
 }
 
@@ -100,10 +105,12 @@ sub init
 	 );
 
     $self->{FTS_Q_MONITOR} = $q_mon;
+
+    $self->parseFTSmap() if ($self->{FTS_MAPFILE});
 }
 
 # FTS map parsing
-# It has the following format:
+# The ftsmap file has the following format:
 # SRM.Endpoint="srm://cmssrm.fnal.gov:8443/srm/managerv2" FTS.Endpoint="https://cmsstor20.fnal.gov:8443/glite-data-transfer-fts/services/FileTransfer"
 # SRM.Endpoint="DEFAULT" FTS.Endpoint="https://cmsstor20.fnal.gov:8443/glite-data-transfer-fts/services/FileTransfer"
 
@@ -116,12 +123,25 @@ sub parseFTSmap {
     my $map = {};
 
     if (!open M, "$mapfile") {	
+	print "FTSmap: Could not open ftsmap file $mapfile\n";
 	return 1;
     }
 
     while (<M>) {
-	next unless /^SRM.Endpoint=\"(.+)\"\s+FTS.Endpoint=\"(.+)\"/;	
+	chomp; 
+	s|^\s+||; 
+	next if /^\#/;
+	unless ( /^SRM.Endpoint=\"(.+)\"\s+FTS.Endpoint=\"(.+)\"/ ) {
+	    print "FTSmap: Can not parse ftsmap line:\n$_\n";
+	    next;
+	}
+
 	$map->{$1} = $2;
+    }
+
+    unless (defined $map->{DEFAULT}) {
+	print "FTSmap: Default FTS endpoit is not defined in the ftsmap file $mapfile\n";
+	return 1;
     }
 
     $self->{FTS_MAP} = $map;
@@ -131,8 +151,25 @@ sub parseFTSmap {
 
 sub getFTSService {
     my $self = shift;
-    
-    my $service = $self->{FTS_SERVICE};
+    my $to_pfn = shift;
+
+    my $service;
+
+    my ($endpoint) = ( $to_pfn =~ /(srm.+)\?SFN=/ );
+
+    unless ($endpoint) {
+	print" FTSmap: Could not get the end point from to_pfn $to_pfn\n";
+    }
+
+    if ( exists $self->{FTS_MAP} ) {
+	my $map = $self->{FTS_MAP};
+
+	$service = $map->{ (grep { $_ eq $endpoint } keys %$map)[0] || "DEFAULT" };
+	print "FTSmap: Could not get FTS service endpoint from ftsmap file for file, even default\n" unless $service;
+    }
+
+    #fall back to command line option
+    $service ||= $self->{FTS_SERVICE};
 
     return $service;
 }
@@ -175,8 +212,6 @@ sub isBusy
 }
 
 
-# Transfer batch of files.  Forks off the transfer wrapper for each
-# file in the copy job (= one source, destination file pair).
 sub startBatch
 {
     my ($self, $jobs, $tasks, $dir, $jobname, $list) = @_;
@@ -211,18 +246,49 @@ sub startBatch
 		COPYJOB=>"$dir/copyjob",
 		WORKDIR=>$dir,
 		FILES=>\%files,
-		SERVICE=>$self->getFTSService(),
+#		SERVICE=>$service,
 		);
     
     my $job = PHEDEX::Transfer::Backend::Job->new(%args);
 
+    #this writes out a copyjob file
     $job->PREPARE();
 
-    my $result = $self->{Q_INTERFACE}->Submit($job);
-    if ( exists($result{ERROR}) { }; # something went wrong...
-    my $id = $result{ID};
 
-    #FIX me check validity here - may be submission failed? - then report job done etc
+    #now get FTS service for the job
+    #we take a first file in the job and determine
+    #the FTS endpoint based on this (using ftsmap file, if given)
+    my $service = $self->getFTSService( $batch[0]->{FROM_PFN} );
+
+    unless ($service) {
+	my $reason = "Cannot identify FTS service endpoint based on a sample source PFN $batch[0]->{FROM_PFN}";
+	print $reason, "\n";
+	$job->{LOG} = "$reason\nSee download agent log file details, grep for\ FTSmap to see problems with FTS map file";
+
+	foreach my $file ( keys %files ) {
+	    $file->{REASON} = $reason;
+	    $self->mkTransferSummary($file, $job);
+	}
+    }
+
+    $job->{SERVICE} = $service;
+
+    my $result = $self->{Q_INTERFACE}->Submit($job);
+
+    if ( exists $result->{ERROR} ) { 
+	# something went wrong...
+	my $reason = "Could not submit to FTS\n";
+	$job->{LOG} = $result->{ERROR};
+	foreach my $file ( keys %files ) {
+            $file->{REASON} = $reason;
+            $self->mkTransferSummary($file, $job);
+        }
+
+	$self->mkTranserSummary();
+	return;
+    };
+
+    my $id = $result->{ID};
 
     $job->ID($id);
 
@@ -290,20 +356,38 @@ $DB::single=1;
   my $job  = $arg1->[1];
 
   if ($file->EXIT_STATES->{$file->{STATE}}) {
-	
-      my $summary = {START=>$file->{START},
-		     END=>&mytimeofday(), 
-		     LOG=> "@{$job->RAW_OUTPUT}",
-		     STATUS=>$file->EXIT_STATES->{$file->{STATE}},
-		     DETAIL=>$file->{REASON}, 
-		     DURATION=>$file->{DURATION}
-		 };
-
-      #make a done file
-      &output($file->{WORKDIR}."/T".$file->{TASKID}."X", Dumper $summary);
+      $self->mkTransferSummary($file,$job);
   }
 
 }
 
+sub mkTransferSummary {
+    my $self = shift;
+    my $file = shift;
+    my $job = shift;
+
+    #by now we report 0 for 'Finished' and 1 for Failed or Canceled
+    #where would we do intelligent error processing 
+    #and report differrent erorr codes for different errors?
+    my $status = $file->EXIT_STATES->{$file->{STATE}};
+    $status = ($status == 1)?0:1;
+    
+    my $log = join("", @{$job->LOG},
+		   "-" x 10 . " RAWOUTPUT " . "-" x 10 . "\n",
+		   @{$job->RAW_OUTPUT});
+
+    my $summary = {START=>$file->{START},
+		   END=>&mytimeofday(), 
+		   LOG=>$log,
+		   STATUS=>$status || 1,
+		   DETAIL=>$file->{REASON} || "", 
+		   DURATION=>$file->{DURATION} || 0
+		   };
+    
+    #make a done file
+    &output($job->{WORKDIR}."/T".$file->{TASKID}."X", Dumper $summary);
+
+    
+}
 
 1;
