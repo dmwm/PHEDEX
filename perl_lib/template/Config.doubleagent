@@ -28,7 +28,7 @@ PERL5LIB=/afs/cern.ch/user/w/wildish/public/perl:${PHEDEX_BASE}/perl_lib
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/afs/cern.ch/user/w/wildish/public/bin
 rlwrap=/afs/cern.ch/user/w/wildish/public/bin/rlwrap
 
-PHEDEX_DEBUGGER=$rlwrap perl -MPHEDEX::Debug -d
+PHEDEX_DEBUGGER="$rlwrap perl -MPHEDEX::Debug -d"
 
 ### AGENT LABEL=master-agent PROGRAM=perl_lib/template/DoubleAgent.pl
  -agent  my-test-agent
