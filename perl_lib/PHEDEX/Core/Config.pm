@@ -467,8 +467,10 @@ sub show
     if ( $self->{USE_DEBUGGER} )
     {
       my $environment = $self->{ENVIRONMENTS}{$agent->ENVIRON};
-      $debugger = $environment->getParameter('PHEDEX_DEBUGGER');
-      $debugger = 'perl -MPHEDEX::Debug -d' unless $debugger;
+      $debugger = $environment->getParameter('PHEDEX_DEBUGGER') ||
+                  'perl -MPHEDEX::Debug -d';
+      $debugger =~ s%^\"%%;
+      $debugger =~ s%\"$%%;
     }
     print $FH 
          " && $debugger \${PHEDEX_SCRIPTS}/" . $agent->PROGRAM,
