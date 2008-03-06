@@ -100,11 +100,15 @@ sub init
     $self->{FTS_Q_MONITOR} = $q_mon;
 }
 
+# If $to and $from are not given, then the question is:
+# "Are you too busy to take ANY transfers?"
+# If they are provided, then the question is:
+# "Are you too busy to take transfers on linke $from -> $to?"
 sub isBusy
 {
-    my ($self) = @_;
+    my ($self, $jobs, $tasks, $to, $from) = @_;
 
-    my ($busy, $valid) = $self->{FTS_Q_MONITOR}->isBusy();
+    my ($busy, $valid) = $self->{FTS_Q_MONITOR}->isBusy($to, $from);
     print "Q_MONITOR: busy=$busy valid=$valid\n";
     return $busy && $valid ? 1 : 0;
 }
@@ -134,6 +138,8 @@ sub startBatch
 		    SOURCE=>$task->{FROM_PFN},
 		    DESTINATION=>$task->{TO_PFN},
 		    TASKID=>$taskid,
+		    TO_NODE=>$task->{TO_NODE},
+		    FROM_NODE=>$task->{FROM_NODE}
 		    WORKDIR=>$dir,
 		    START=>&mytimeofday(),
 		    );
