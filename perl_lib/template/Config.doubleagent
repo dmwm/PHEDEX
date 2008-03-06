@@ -31,15 +31,27 @@ rlwrap=/afs/cern.ch/user/w/wildish/public/bin/rlwrap
 PHEDEX_DEBUGGER="$rlwrap perl -MPHEDEX::Debug -d"
 
 ### AGENT LABEL=master-agent PROGRAM=perl_lib/template/DoubleAgent.pl
- -agent  my-test-agent
- -agent other-test-agent
+ -db     ${PHEDEX_DBPARAM}
+ -node   ${PHEDEX_NODE}
+ -config ${PHEDEX_CONFIG_FILE}
+ -agent  blockverify
+# -agent  fast-agent
+# -agent  medium-agent
+# -agent  slow-agent
 
-### AGENT LABEL=my-test-agent PROGRAM=template::Agent DEFAULT=off
- -db        ${PHEDEX_DBPARAM}
- -node      ${PHEDEX_NODE}
+### AGENT LABEL=fast-agent PROGRAM=template::Agent DEFAULT=off
  -string    agent-1
+ WAITTIME 3
 
-### AGENT LABEL=other-test-agent PROGRAM=template::Agent DEFAULT=off
- -db        ${PHEDEX_DBPARAM}
- -node      ${PHEDEX_NODE}
+### AGENT LABEL=medium-agent PROGRAM=template::Agent DEFAULT=off
  -string    agent-2
+ WAITTIME 7
+
+### AGENT LABEL=slow-agent PROGRAM=template::Agent DEFAULT=off
+ -string    agent-2
+ WAITTIME 15
+
+### AGENT LABEL=blockverify PROGRAM=PHEDEX::BlockConsistency::Agent DEFAULT=off
+  -db          ${PHEDEX_DBPARAM}
+  -nodes       ${PHEDEX_NODE}
+  -storagemap  ${PHEDEX_MAP}

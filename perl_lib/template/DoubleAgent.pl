@@ -1,4 +1,5 @@
 #! /usr/bin/env perl
+use strict;
 
 #
 # This is a template agent. All the complexity of the agent behaviour should
@@ -50,7 +51,8 @@
 ##H
 
 ######################################################################
-my ($agentset,@agents,$agent,%h,%args);
+my ($agentset,@agents,$agent,$config,%h,%m,%args);
+my ($Agent,$Config);
 use Getopt::Long;
 use PHEDEX::Core::Help;
 use PHEDEX::Core::Config;
@@ -61,14 +63,45 @@ use POE;
              "state=s"   => \$args{DROPDIR},
              "log=s"     => \$args{LOGFILE},
              "db=s"      => \$args{DBCONFIG},
+             "config=s"  => \$config,
              "node=s"    => \$args{MYNODE},
 	     "help|h"    => sub { &usage() },
-	     "agent=s@"  => \@agent,
+	     "agent=s@"  => \@agents,
 	     );
+$Config = PHEDEX::Core::Config->new( PARANOID => 1 );
+$Config->readConfig( $config );
 
-# Eliminate undefined values from %args, so that defaults in the module
-# can take precedence. Otherwise, the undefined value wins, which is not good
-foreach ( keys %args ) { delete $args{$_} unless defined $args{$_}; }
+$args{NODAEMON} = 1;
+foreach $agent ( @agents )
+{
+  print "Create agent \"$agent\"\n";
+  $Agent = $Config->select_agents( $agent );
+
+# Paranoia!
+  if ( $agent ne $Agent->LABEL )
+  {
+    die "given \"$agent\", but found \"",$Agent->LABEL,"\"\n";
+  }
+
+  my $module = $Agent->PROGRAM;
+  print "$agent is in $module\n";
+  if ( !exists($m{$module}) )
+  {
+    print "Attempt to load $module\n";
+    eval("use $module");
+    do { chomp ($@); die "Failed to load module $module: $@\n" } if $@;
+    $m{$module}++;
+  }
+  my %a = %args;
+  $a{DROPDIR} .= '/' . $agent;
+  $a{ME} = $agent;
+  my $opts = $Agent->OPTIONS;
+  map { $a{$_} = $opts->{$_} } keys %{$opts};
+$DB::single=1;
+  $h{$agent} = eval("new $module(%a,@ARGV)");
+  do { chomp ($@); die "Failed to create agent $module: $@\n" } if $@;
+}
+
 #my $agent = new template::Agent(%args,@ARGV);
 #$agent->process();
 POE::Kernel->run();
