@@ -159,6 +159,7 @@ our %params = (
 		AGENTS       => undef,
 		ENVIRONMENTS => undef,
 		DUMMY	     => 0,
+		USE_DEBUGGER => 0,
 		PARANOID     => 0,
 	      );
 
