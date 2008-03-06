@@ -44,10 +44,6 @@ our %params =
 	  POLL_QUEUE		=>  1,	  # Poll the queue or not?
 	  NAME			=> undef, # Arbitrary name for this object
 	  STATISTICS_INTERVAL	=> 60,	  # Interval for reporting statistics
-	  WAIT_FOR_VALID	=> 120,   # Queue knowledge is valid eventually
-	  BUSY_THRESHOLD	=> 5,	  # Threshold for declaring myself busy
-	  BUSY_ALGORITHM	=> 'ReadyPending', # How I calculate 'busy'
-
 	  JOB_CALLBACK		=> undef, # Callback for job state changes
 	  FILE_CALLBACK		=> undef, # Callback for file state changes
 	  VERBOSE		=> 0,
@@ -371,50 +367,11 @@ sub cleanup_stats
 }
 
 
-# If $to and $from are not given, then the question is:
-# "Are you too busy to take ANY transfers?"
-# If they are provided, then the question is:
-# "Are you too busy to take transfers on linke $from -> $to?"
-sub isBusy
-{
-  my ($self, $to, $from)  = @_;
-  my ($busy,$valid,%h,$n,$t);
-  $busy = $valid = $t = $n = 0;
-
-  # TODO:  Decide busy state per link!
-
-  use Data::Dumper;
-  print 'isBusy $self->{STATS}:  ', Dumper($self->{STATS}), "\n";
-
-  if ( exists($self->{STATS}) &&
-       exists($self->{STATS}{FILES}) &&
-       exists($self->{STATS}{FILES}{STATES}) )
-  {
-    foreach ( values %{$self->{STATS}{FILES}{STATES}} ) { $h{$_}++; }
-  }
-
-  if ( $self->{BUSY_ALGORITHM} eq 'ReadyPending' )
-  {
-    foreach ( qw / Ready Pending / )
-    {
-      if ( defined($h{$_}) ) { $n += $h{$_}; }
-    }
-    if ( $n >= $self->{BUSY_THRESHOLD} ) { $busy = 1; }
-  }
-
-  if ( exists($self->{STATS}{START}) ) { $t = time - $self->{STATS}{START}; }
-  if ( $t > $self->{WAIT_FOR_VALID} ) { $valid = 1; }
-# if ( exists($h{Pending}) && $h{Pending} >= 5 ) { $busy = 1; }
-  return ($busy,$valid);
-}
 
 sub report_statistics
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
   my ($s,$t,$key,$summary);
-
-  my ($busy,$valid) = $self->isBusy();
-  print $self->hdr," busy=$busy, valid=$valid\n";
 
   if ( ! defined($self->{STATS}{START}) )
   {
@@ -444,6 +401,9 @@ sub report_statistics
       $self->{STATS}{$key}{SUMMARY} = $summary;
     }
 
+    use Data::Dumper();
+    print "STATS DUMP: ", Data::Dumper::Dumper ($self->{STATS}), "\n"; # XXX
+
     if ( $self->{APMON} )
     {
       my $h = $s->{$key}{STATES};
@@ -466,7 +426,11 @@ sub report_statistics
 sub Stats
 {
   my ($self,$class,$key,$val) = @_;
-  if ( defined($class) )
+  if ( defined($class) && !defined($key))
+  {
+      return $self->{STATS}{$class}{STATES};
+  }
+  elsif ( defined($class) && defined($key) )
   {
     $self->{STATS}{$class}{STATES}{$key} = $val;
     return $self->{STATS}{$class};

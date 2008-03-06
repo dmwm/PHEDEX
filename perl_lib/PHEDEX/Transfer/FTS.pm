@@ -106,11 +106,35 @@ sub init
 # "Are you too busy to take transfers on linke $from -> $to?"
 sub isBusy
 {
-    my ($self, $jobs, $tasks, $to, $from) = @_;
+  my ($self, $jobs, $tasks, $to, $from)  = @_;
+  my ($busy,$valid,%h,$n,$t);
+  $busy = $valid = $t = $n = 0;
 
-    my ($busy, $valid) = $self->{FTS_Q_MONITOR}->isBusy($to, $from);
-    print "Q_MONITOR: busy=$busy valid=$valid\n";
-    return $busy && $valid ? 1 : 0;
+  # TODO:  Decide busy state per link!
+
+  my $stats = $self->{FTS_Q_MONITOR}->Stats();
+
+  if ( $stats &&
+       exists $stats->{FILES} &&
+       exists $stats->{FILES}{STATES} )
+  {
+      # Count the number of all file states
+      foreach ( values %{$stats->{FILES}{STATES}} ) { $h{$_}++; }
+  }
+
+  # Count files in the Ready or Pending state
+  foreach ( qw / Ready Pending / )
+  {
+      if ( defined($h{$_}) ) { $n += $h{$_}; }
+  }
+  # If there are 5 files in the Ready||Pending state
+  if ( $n >= 5 ) { $busy = 1; }
+
+  if ( exists($stats->{START}) ) { $t = time - $stats->{START}; }
+  if ( $t > 60 ) { $valid = 1; }
+
+  print "Transfer::FTS::isBusy: busy=$busy valid=$valid\n";
+  return ($busy,$valid);
 }
 
 
@@ -139,7 +163,7 @@ sub startBatch
 		    DESTINATION=>$task->{TO_PFN},
 		    TASKID=>$taskid,
 		    TO_NODE=>$task->{TO_NODE},
-		    FROM_NODE=>$task->{FROM_NODE}
+		    FROM_NODE=>$task->{FROM_NODE},
 		    WORKDIR=>$dir,
 		    START=>&mytimeofday(),
 		    );
@@ -209,7 +233,7 @@ sub job_state
 
     if ($job->EXIT_STATES->{$job->{STATE}}) {
     }else{
-	&touch($job->WORKDIR."/live");
+	&touch($job->{WORKDIR}."/live");
     }
 }
 
