@@ -208,7 +208,7 @@ sub isBusy
   if ( $t > 60 ) { $valid = 1; }
 
   print "Transfer::FTS::isBusy: busy=$busy valid=$valid\n";
-  return ($busy,$valid);
+  return $busy && $valid ? 1 : 0;
 }
 
 
