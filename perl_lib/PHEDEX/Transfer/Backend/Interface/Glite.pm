@@ -121,7 +121,6 @@ sub ListJob
   my ($self,$job) = @_;
   my ($cmd,$state,%result,$dst,@raw);
   my ($key,$value);
-
   $cmd = "glite-transfer-status -l -s " . $self->{SERVICE} . ' ' . $job;
   open GLITE, "$cmd |" or do
   {
@@ -146,7 +145,7 @@ sub ListJob
     if ( m%^\s+(\S+):\s+(.*)\s*$% ) { $h->{uc $1} = $2; }
   }
   close GLITE or die "close: $cmd: $!\n";
-  $job->RAW_OUTPUT(\@raw);
+  $result{RAW_OUTPUT} = \@raw;
 
   push @h, $h if $h;
   foreach $h ( @h )
