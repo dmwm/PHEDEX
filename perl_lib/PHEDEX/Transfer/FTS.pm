@@ -104,13 +104,25 @@ sub init
 
 sub parseFTSmap {
     my $self = shift;
+
+    my $mapfile = $self->{FTS_MAPFILE};
+
+    my $map = {};
+
+    if (!open M, "$mapfile") {	
+	return 1;
+    }
+
+    while (<M>) {
+	
+    }
     
 }
 
 sub getFTSService {
     my $self = shift;
     
-    my $service = $self->{FTS_SERVICE}
+    my $service = $self->{FTS_SERVICE};
 
     return $service;
 }
@@ -185,13 +197,13 @@ sub startBatch
 	$files{$task->{TO_PFN}} = PHEDEX::Transfer::Backend::File->new(%args);
     }
     
-    %args = (
-	     COPYJOB=>"$dir/copyjob",
-	     WORKDIR=>$dir,
-	     FILES=>\%files,
-	     SERVICE=>$self->getFTSService(),
-	     );
-
+    my %args = (
+		COPYJOB=>"$dir/copyjob",
+		WORKDIR=>$dir,
+		FILES=>\%files,
+		SERVICE=>$self->getFTSService(),
+		);
+    
     my $job = PHEDEX::Transfer::Backend::Job->new(%args);
 
     $job->PREPARE();
