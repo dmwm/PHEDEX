@@ -1,4 +1,4 @@
-package PHEDEX::Transfer::FTS; use base PHEDEX::Transfer::Core;
+package PHEDEX::Transfer::FTS; use base 'PHEDEX::Transfer::Core';
 use strict;
 use warnings;
 use Getopt::Long;
@@ -7,6 +7,7 @@ use PHEDEX::Transfer::Backend::File;
 use PHEDEX::Transfer::Backend::Monitor;
 use PHEDEX::Transfer::Backend::Interface::Glite;
 use PHEDEX::Core::Command;
+use PHEDEX::Core::Timing;
 use PHEDEX::Monalisa;
 use POE;
 
@@ -133,6 +134,8 @@ sub startBatch
 		    SOURCE=>$task->{FROM_PFN},
 		    DESTINATION=>$task->{TO_PFN},
 		    TASKID=>$taskid,
+		    WORKDIR=>$dir,
+		    START=>&mytimeofday(),
 		    );
 	$files{$task->{TO_PFN}} = PHEDEX::Transfer::Backend::File->new(%args);
     }
@@ -212,8 +215,19 @@ sub file_state
   print "File-state callback", Dumper $arg0, "\n", Dumper $arg1, "\n"; 
 
   my $file = $arg1->[0];
-#make a done file
-  &output($job->{WORKDIR}."/T".$file->{ID}."X", )
+
+  if ($file->EXIT_STATES->{$file->{STATE}}) {
+	
+      my $summary = {START=>$file->{START},
+		     END=>&mytimeofday(), 
+		     LOG=>"Not yet here",
+		     DETAIL=>$file->{REASON}, 
+		     DURATION=>$file->{DURATION}
+		 };
+
+      #make a done file
+      &output($file->{WORKDIR}."/T".$file->{TASKID}."X", Dumper $summary);
+  }
 
 }
 

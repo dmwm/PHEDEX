@@ -45,6 +45,7 @@ our %ro_params =
 	  SOURCE	=> undef,	# Source URL
 	  DESTINATION	=> undef,	# Destination URL
 	  TASKID        => undef,       # Task ID
+	  WORKDIR       => undef,       # workdir of a job(!)         
 	  TIMESTAMP	=> undef,	# Time of file status reporting
 	  RETRIES	=> 0,		# Number of retries so far
 	  STATE		=> 'undefined',	# Initial file state
