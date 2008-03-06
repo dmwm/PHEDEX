@@ -44,7 +44,9 @@ our %ro_params =
 	(
 	  SOURCE	=> undef,	# Source URL
 	  DESTINATION	=> undef,	# Destination URL
-	  TASKID        => undef,       # Task ID
+	  TASKID        => undef,       # PhEDEx Task ID
+ 	  FROM_NODE     => undef,       # PhEDEx source node
+ 	  TO_NODE       => undef,       # PhEDEx destination node
 	  WORKDIR       => undef,       # workdir of a job(!)         
 	  TIMESTAMP	=> undef,	# Time of file status reporting
 	  RETRIES	=> 0,		# Number of retries so far
