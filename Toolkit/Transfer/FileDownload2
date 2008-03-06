@@ -1067,7 +1067,8 @@ sub idle
 sub _poe_init
 {   
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
-  $self->{BACKEND}->setup_callbacks($kernel,$session)
+  if ( $self->{BACKEND}->can('setup_callbacks') )
+  { $self->{BACKEND}->setup_callbacks($kernel,$session) }
 }   
     
 1;
