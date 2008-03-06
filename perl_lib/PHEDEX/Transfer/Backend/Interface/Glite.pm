@@ -105,14 +105,20 @@ sub ListQueue
   open GLITE, "$cmd |" or do
   {
     warn "$cmd: $!\n";
-    return undef;
+    $result{ERROR} = $!;
+    return \%result;
   };
   while ( <GLITE> )
   {
     m%^([0-9,a-f,-]+)\s+(\S+)$% or next;
     $result{$1} = $2;
   }
-  close GLITE or die "close: $cmd: $!\n";
+  close GLITE or do
+  {
+    warn "close: $cmd: $!\n";
+    $result{ERROR} = $!;
+    return \%result;
+  };
   return \%result;
 }
 
@@ -126,7 +132,8 @@ sub ListJob
   open GLITE, "$cmd |" or do
   {
     warn "$cmd: $!\n";
-    return undef;
+    $result{ERROR} = $!;
+    return \%result;
   };
   $state = <GLITE>;
   chomp $state;
@@ -145,7 +152,12 @@ sub ListJob
     }
     if ( m%^\s+(\S+):\s+(.*)\s*$% ) { $h->{uc $1} = $2; }
   }
-  close GLITE or die "close: $cmd: $!\n";
+  close GLITE or do
+  {
+    warn "close: $cmd: $!\n";
+    $result{ERROR} = $!;
+    return \%result;
+  };
   $result{RAW_OUTPUT} = \@raw;
 
   push @h, $h if $h;
@@ -187,19 +199,29 @@ sub StatePriority
 sub Submit
 {
   my ($self,$job) = @_;
-  my $id;
+  my (%result,$id);
 
-  defined $job->COPYJOB or die "No copyjob given: %h\n";
+  defined $job->COPYJOB or do
+  {
+    $result{ERROR} = "No copyjob given: %h";
+    return \%result;
+  };
 
   my $cmd = "glite-transfer-submit -s " . $job->{SERVICE} .
 				 ' -f ' . $job->COPYJOB;
 # print $self->hdr,"Execute: $cmd\n";
   open GLITE, "$cmd |" or die "$cmd: $!\n";
   while ( <GLITE> ) { chomp; $id = $_ unless $id; }
-  close GLITE or die "close: $cmd: $!\n";
+  close GLITE or do
+  {
+    warn "close: $cmd: $!\n";
+    $result{ERROR} = $!;
+    return \%result;
+  };
   print $self->hdr,"Job $id submitted...\n";
 
-  return $id;
+  $result{ID} = $id;
+  return \%result;
 }
 
 1;
