@@ -11,6 +11,7 @@ use strict;
 ##H Master -config FILE[,FILE...] getAgentEnviron [AGENT]
 ##H Master -config FILE[,FILE...] jobcount   [AGENT... | all]
 ##H Master -config FILE[,FILE...] listagents [AGENT... | all]
+##H Master -config FILE[,FILE...] debug      [AGENT... | all]
 ##H
 ##H Manage an agent configuration.  If more than one configuration file
 ##H is given, the different sections of each file are merged and the
@@ -55,6 +56,10 @@ use strict;
 ##H
 ##H The "listagents" command will print the names of agents matching the
 ##H selection, which should typically be null or 'all'.
+##H
+##H The "debug" command will use $PHEDEX_DEBUGGER from the agent's
+##H environment, or 'perl -MPHEDEX::Debug -d' by default, and start the
+##H agent in the perl debugger accordingly.
 ##H
 ##H Adding "-dummy" to the command line before the command option will cause
 ##H the script to not actually execute the commands, but only to print them to

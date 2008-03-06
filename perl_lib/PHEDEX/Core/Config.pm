@@ -50,6 +50,18 @@ Takes a list of agent names, or "all", or only the default agents if no
 argument is given. Then it stops the required agents cleanly, by placing a
 "stop" file in their state directory.
 
+=item debug( @agent_list )
+
+Identical to 'start' except that, if 'PHEDEX_DEBUGGER' is defined in the
+environment for that agent, it prefixes the agent command. So setting
+PHEDEX_DEBUGGER to 'perl -d' will start the agent in the debugger!
+
+If you don't specify PHEDEX_DEBUGGER then a default value will be used, which
+is probably 'perl -MPHEDEX::Debug -d'.
+
+Though you can give a list of agent names, unless you really want to debug
+them one after the other, you should probably give a single agent.
+
 =item show( @agent_list )
 
 Takes a list of agent names, or "all", or only the default agents if no
@@ -159,6 +171,7 @@ our %commands =
   stop      => '#',
   start     => '#',
   show      => '#',
+  debug     => '#',
 );
 
 our $debug = 0;
@@ -354,6 +367,13 @@ sub shell
   return $self->{FH} = *SH;
 }
 
+sub debug
+{
+  my $self = shift;
+  $self->{USE_DEBUGGER}=1;
+  $self->start();
+}
+
 sub start
 {
   my $self = shift;
@@ -386,7 +406,6 @@ sub stop
 {
   my $self = shift;
   my ($env,%h);
-$DB::single=1;
   foreach my $agent ( $self->select_agents(@_) )
   {
     $env = $self->ENVIRONMENTS->{$agent->ENVIRON};
@@ -441,17 +460,17 @@ sub show
               "(mkdir -p $dropdir && mkdir -p $logdir";
     if ( $agent->STATELINK )
     {
-warn "STATELINK can be better handled by getting the target state directory direct from the config file\n";
-#      my $linked_agent = $self->select_agents($agent->STATELINK);
-#      die "No linked agent found\n"
-#	  unless $linked_agent && ! ref($linked_agent);
-#      my $linked_env = $self->getAgentEnviron($linked_agent);
-#      die "No linked environment\n" unless $linked_env;
-#      print $FH " && ln -sf ",$agent->LABEL,"$linked_agent->DROPDIR;
       print $FH " && ln -sf ",$agent->LABEL,"\${PHEDEX_STATE}/",$agent->STATELINK;
     }
+    my $debugger = '';
+    if ( $self->{USE_DEBUGGER} )
+    {
+      my $environment = $self->{ENVIRONMENTS}{$agent->ENVIRON};
+      $debugger = $environment->getParameter('PHEDEX_DEBUGGER');
+      $debugger = 'perl -MPHEDEX::Debug -d' unless $debugger;
+    }
     print $FH 
-         " && \${PHEDEX_SCRIPTS}/" . $agent->PROGRAM,
+         " && $debugger \${PHEDEX_SCRIPTS}/" . $agent->PROGRAM,
          (" -", $agent->STATEOPT || "state", " ", $dropdir),
          (" -log ", $logfile),
          $agent->{OPTS};
