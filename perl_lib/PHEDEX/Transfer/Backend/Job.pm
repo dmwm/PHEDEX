@@ -42,6 +42,7 @@ our %params =
 	  FILES		=> undef,	# A PHEDEX::Transfer::Backend::File array
 	  COPYJOB	=> undef,	# Name of copyjob file
 	  WORKDIR	=> undef,	# Working directory for this job
+	  RAW_OUTPUT	=> undef,	# Raw output of status command
 	  SUMMARY	=> '',		# Summary of job-status so far
 	);
 
