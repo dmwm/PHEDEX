@@ -215,12 +215,13 @@ sub file_state
   print "File-state callback", Dumper $arg0, "\n", Dumper $arg1, "\n"; 
 
   my $file = $arg1->[0];
+  my $job  = $arg1->[1];
 
   if ($file->EXIT_STATES->{$file->{STATE}}) {
 	
       my $summary = {START=>$file->{START},
 		     END=>&mytimeofday(), 
-		     LOG=>"Not yet here",
+		     LOG=> scalar @{$job->RAW_OUTPUT},
 		     DETAIL=>$file->{REASON}, 
 		     DURATION=>$file->{DURATION}
 		 };
