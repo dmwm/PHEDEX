@@ -104,9 +104,9 @@ sub ListQueue
   $cmd = "glite-transfer-list -s " . $self->{SERVICE};
   open GLITE, "$cmd |" or do
   {
-    warn "$cmd: $!\n";
-    $result{ERROR} = $!;
-    return \%result;
+      print "$cmd: $!\n";
+      $result{ERROR} = $!;
+      return \%result;
   };
   while ( <GLITE> )
   {
@@ -115,9 +115,9 @@ sub ListQueue
   }
   close GLITE or do
   {
-    warn "close: $cmd: $!\n";
-    $result{ERROR} = $!;
-    return \%result;
+      print "close: $cmd: $!\n";
+      $result{ERROR} = $!;
+      return \%result;
   };
   return \%result;
 }
@@ -131,12 +131,12 @@ sub ListJob
   $cmd = "glite-transfer-status -l -s " . $job->{SERVICE} . ' ' . $job->{ID};
   open GLITE, "$cmd |" or do
   {
-    warn "$cmd: $!\n";
-    $result{ERROR} = $!;
-    return \%result;
+      print "$cmd: $!\n";
+      $result{ERROR} = $!;
+      return \%result;
   };
   $state = <GLITE>;
-  chomp $state;
+  chomp $state if (defined $state);
   $result{JOB_STATE} = $state || 'undefined';
 
   my (@h,$h);
@@ -154,9 +154,9 @@ sub ListJob
   }
   close GLITE or do
   {
-    warn "close: $cmd: $!\n";
-    $result{ERROR} = $!;
-    return \%result;
+      print "close: $cmd: $!\n";
+      $result{ERROR} = $!;
+      return \%result;
   };
   $result{RAW_OUTPUT} = \@raw;
 
@@ -214,9 +214,9 @@ sub Submit
   while ( <GLITE> ) { chomp; $id = $_ unless $id; }
   close GLITE or do
   {
-    warn "close: $cmd: $!\n";
-    $result{ERROR} = $!;
-    return \%result;
+      print "close: $cmd: $!\n";
+      $result{ERROR} = $!;
+      return \%result;
   };
   print $self->hdr,"Job $id submitted...\n";
 

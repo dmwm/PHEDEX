@@ -240,16 +240,16 @@ sub poll_job
 
   $state = $self->{Q_INTERFACE}->ListJob($job);
 
-  print "JOBID $job->{ID} STATE $state->{JOB_STATE}\n";
-
-  if ( $state ) { $self->{LAST_SUCCESSFULL_POLL} = time; }
-  else
-  {
-    warn "No successfull queue- or job-poll in ",
-	 time-$self->{LAST_SUCCESSFULL_POLL},
-	 " seconds\n";
-    goto DONE;
+  if (exists $state->{ERROR}) {
+      print "Monitor: ListJob for $job->{ID} returned error: $state->{ERROR}\n";
+      print "No successfull queue- or job-poll in ",
+      time-$self->{LAST_SUCCESSFULL_POLL},
+      " seconds\n";
+      goto DONE;
   }
+
+  $self->{LAST_SUCCESSFULL_POLL} = time;
+  print "JOBID $job->{ID} STATE $state->{JOB_STATE}\n";
 
   $job->STATE($state->{JOB_STATE});
   $job->RAW_OUTPUT(@{$state->{RAW_OUTPUT}});
