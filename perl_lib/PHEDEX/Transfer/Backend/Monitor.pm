@@ -365,7 +365,7 @@ sub cleanup_stats
   foreach ( values %{$job->FILES} )
   {
     delete $self->{WORKSTATS}{FILES}{STATES}{$_->DESTINATION};
-    delete $self->{LINKSTATS}{$_};
+    delete $self->{LINKSTATS}{$_->DESTINATION};
   }
 
   delete $self->{JOBS}{$job->ID};
