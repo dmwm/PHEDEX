@@ -122,7 +122,7 @@ sub getBlockDeactivationCandidates
   my $now = $h{NOW} || mytimeofday();
   my ($sql,%p,$q,@r);
 
-  warn "No LIMIT defined in getBlockDeactivationCandidates\n" unless $limit;
+  $self->Warn("No LIMIT defined in getBlockDeactivationCandidates") unless $limit;
   $sql = qq{ 
             select b.id, b.name name
             from t_dps_block b

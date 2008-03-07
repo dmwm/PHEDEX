@@ -130,7 +130,7 @@ sub idle
 	      $nfr = $self->nExpectedDeletions( BLOCK => $id );
 	      if (! $nfr)
 	      {
-		  &alert ("refusing to deactivate block $name with no files");
+		  $self->Alert ("refusing to deactivate block $name with no files");
 		  $self->setBlockOpen( BLOCK => $id );
 		  $dbh->commit();
 	      }
@@ -140,28 +140,28 @@ sub idle
 		  my $nr = $self->deactivateReplicas( BLOCK => $id );   
 		  if ($nr != $nfr)
 		  {
-		      &alert ("deactivating $name deleted $nr file replicas,"
+		      $self->Alert ("deactivating $name deleted $nr file replicas,"
 			      . " expected to delete $nfr, undoing deactivation");
 		      $dbh->rollback();
 		  }
 		  else
 		  {
 		      my $nb = $self->setBlockInactive( BLOCK => $id );
-		      &logmsg ("deactivated $name: $nr file replicas, $nb block replicas");
+		      $self->Logmsg ("deactivated $name: $nr file replicas, $nb block replicas");
 		      $dbh->commit ();
 		  }
 	      }
 
 	      $self->maybeStop();
 	  };
-	  do { chomp ($@); &alert ("database error: $@");
+	  do { chomp ($@); $self->Alert ("database error: $@");
 	       eval { $dbh->rollback() } if $dbh } if $@;
       }
 
       # Disconnect from the database
       $self->disconnectAgent();
   };
-  do { chomp ($@); &alert ("database error: $@");
+  do { chomp ($@); $self->Alert ("database error: $@");
        eval { $dbh->rollback() } if $dbh } if $@;
 }
 
