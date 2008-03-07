@@ -92,9 +92,9 @@ our %params =
 
 our @array_params = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
 our @hash_params  = qw / BAD JUNK /;
-our @required_params = qw / /; # DROPDIR DBCONFIG /;
-our @writeable_dirs  = qw / /; # DROPDIR INBOX WORKDIR OUTDIR /;
-our @writeable_files = qw / /; # LOGFILE PIDFILE /;
+our @required_params = qw / DROPDIR DBCONFIG /;
+our @writeable_dirs  = qw / DROPDIR INBOX WORKDIR OUTDIR /;
+our @writeable_files = qw / LOGFILE PIDFILE /;
 
 sub new
 {

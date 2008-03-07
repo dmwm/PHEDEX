@@ -400,8 +400,8 @@ sub report_statistics
       $self->{STATS}{$key}{SUMMARY} = $summary;
     }
 
-    use Data::Dumper();
-    print "STATS DUMP: ", Data::Dumper::Dumper ($self->{STATS}), "\n"; # XXX
+#    use Data::Dumper();
+#    print "STATS DUMP: ", Data::Dumper::Dumper ($self->{STATS}), "\n"; # XXX
 
     if ( $self->{APMON} )
     {

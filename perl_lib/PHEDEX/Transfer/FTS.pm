@@ -52,11 +52,6 @@ sub new
     $self->init();
     use Data::Dumper; # XXX
     print 'FTS $self:  ', Dumper($self), "\n";
-    #a hack to check getFTSService
-    print "FTSmap: ", Dumper $self->{FTS_MAP};
-    print "TEST FTS endpoint-gridka ", $self->getFTSService("srm://gridka-dCache.fzk.de:8443/srm/managerv1?SFN=/pnfs/gridka.de/cms/"), "\n";
-    print "TEST FTS endpoint-ccsrm ", $self->getFTSService("srm://ccsrm.in2p3.fr:8443/srm/managerv1?SFN=/pnfs/gridka.de/cms/"), "\n";
-    print "TEST FTS endpoint-default ", $self->getFTSService("srm://somendpoint:8443/srm/managerv1?SFN=/pnfs/gridka.de/cms/"), "\n";
     return $self;
 }
 
@@ -333,9 +328,10 @@ sub setup_callbacks
 sub job_state
 {
     my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-    print "Job-state callback", Dumper $arg0, "\n", Dumper $arg1, "\n";
+#    print "Job-state callback", Dumper $arg0, "\n", Dumper $arg1, "\n";
 
     my $job = $arg1->[0];
+    print "Job-state callback ID $job->{ID}", "STATE $job->{STATE}", "\n";
 
     if ($job->EXIT_STATES->{$job->{STATE}}) {
     }else{
@@ -346,10 +342,12 @@ sub job_state
 sub file_state
 {
   my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-  print "File-state callback", Dumper $arg0, "\n", Dumper $arg1, "\n"; 
+#  print "File-state callback", Dumper $arg0, "\n", Dumper $arg1, "\n"; 
 
   my $file = $arg1->[0];
   my $job  = $arg1->[1];
+
+  print "File-state callback TASKID $file->{TASKID} JOBID $job->{ID} STATE $file->{STATE} $file->{DESTINATION}", "\n";
 
   if ($file->EXIT_STATES->{$file->{STATE}}) {
       $self->mkTransferSummary($file,$job);
@@ -366,6 +364,7 @@ sub mkTransferSummary {
     #where would we do intelligent error processing 
     #and report differrent erorr codes for different errors?
     my $status = $file->EXIT_STATES->{$file->{STATE}};
+
     $status = ($status == 1)?0:1;
     
     my $log = join("", $file->LOG,
@@ -375,7 +374,7 @@ sub mkTransferSummary {
     my $summary = {START=>$file->{START},
 		   END=>&mytimeofday(), 
 		   LOG=>$log,
-		   STATUS=>$status || 1,
+		   STATUS=>$status,
 		   DETAIL=>$file->{REASON} || "", 
 		   DURATION=>$file->{DURATION} || 0
 		   };
