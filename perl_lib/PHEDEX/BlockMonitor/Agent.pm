@@ -20,7 +20,7 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockMonitor::SQL';
+use base 'PHEDEX::Core::POEAgent', 'PHEDEX::BlockMonitor::SQL';
 use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 
