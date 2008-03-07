@@ -30,6 +30,7 @@ our %params =
     	  DBCONFIG => undef,		# Database configuration file
 	  WAITTIME => 6 + rand(3),	# Agent cycle time
 	  MYNEWPARAM => 'my value',
+	  VERBOSE    => 0,
 	);
 
 our @array_params = qw / MYARRAY /;
@@ -95,7 +96,7 @@ sub init
 {
   my $self = shift;
 
-  print scalar localtime," $self->{ME}: entering init\n";
+  print $self->Hdr,"entering init\n";
 # base initialisation
   $self->SUPER::init(@_);
 
@@ -105,7 +106,7 @@ sub init
 	  ARRAYS => [ @array_params ],
 	  HASHES => [ @hash_params ],
 	);
-  print scalar localtime," $self->{ME}: exiting init\n";
+  print $self->Hdr,"exiting init\n";
 }
 
 =head2 idle
@@ -116,9 +117,9 @@ Pick up work from the database and start site specific scripts if necessary
 sub idle
 {
   my $self = shift;
-  print scalar localtime," $self->{ME}: entering idle\n";
+  print $self->Hdr,"entering idle\n" if $self->{VERBOSE};
   $self->SUPER::idle(@_);
-  print scalar localtime," $self->{ME}: exiting idle\n";
+  print $self->Hdr,"exiting idle\n" if $self->{VERBOSE};
 }
 
 =head2 isInvalid
@@ -143,8 +144,8 @@ sub isInvalid
 {
   my $self = shift;
   my $errors = 0;
-  print scalar localtime," $self->{ME}: entering isInvalid\n";
-  print scalar localtime," $self->{ME}: exiting isInvalid\n";
+  print $self->Hdr,"entering isInvalid\n" if $self->{VERBOSE};
+  print $self->Hdr,"exiting isInvalid\n" if $self->{VERBOSE};
 
   return $errors;
 }
@@ -157,9 +158,9 @@ There's a C<< stop >> user hook, but I'm not sure who would need it...?
 sub stop
 {
   my $self = shift;
-  print scalar localtime," $self->{ME}: entering stop\n";
+  print $self->Hdr,"entering stop\n" if $self->{VERBOSE};
   $self->SUPER::stop(@_);
-  print scalar localtime," $self->{ME}: exiting stop\n";
+  print $self->Hdr,"exiting stop\n" if $self->{VERBOSE};
 }
 
 =head2 processDrop
@@ -171,9 +172,9 @@ either...
 sub processDrop
 {
   my $self = shift;
-  print scalar localtime," $self->{ME}: entering processDrop\n";
+  print $self->Hdr,"entering processDrop\n" if $self->{VERBOSE};
   $self->SUPER::processDrop(@_);
-  print scalar localtime," $self->{ME}: exiting processDrop\n";
+  print $self->Hdr,"exiting processDrop\n" if $self->{VERBOSE};
 }
 
 1;

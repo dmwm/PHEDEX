@@ -56,6 +56,7 @@ my ($Agent,$Config);
 use Getopt::Long;
 use PHEDEX::Core::Help;
 use PHEDEX::Core::Config;
+use PHEDEX::Core::Logging qw / Hdr /;
 use POE;
 #use template::Agent;
 
@@ -74,7 +75,7 @@ $Config->readConfig( $config );
 $args{NODAEMON} = 1;
 foreach $agent ( @agents )
 {
-  print "Create agent \"$agent\"\n";
+  print Hdr(),"$agent: Lookup agent\n";
   $Agent = $Config->select_agents( $agent );
 
 # Paranoia!
@@ -84,10 +85,10 @@ foreach $agent ( @agents )
   }
 
   my $module = $Agent->PROGRAM;
-  print "$agent is in $module\n";
+  print Hdr(),"$agent is in $module\n";
   if ( !exists($m{$module}) )
   {
-    print "Attempt to load $module\n";
+    print Hdr(),"Attempt to load $module\n";
     eval("use $module");
     do { chomp ($@); die "Failed to load module $module: $@\n" } if $@;
     $m{$module}++;
@@ -96,14 +97,17 @@ foreach $agent ( @agents )
   $a{DROPDIR} .= '/' . $agent;
   $a{ME} = $agent;
   my $opts = $Agent->OPTIONS;
-  map { $a{$_} = $opts->{$_} } keys %{$opts};
-$DB::single=1;
+
+  my $env = $Config->{ENVIRONMENTS}{$Agent->ENVIRON};
+  foreach ( keys %{$opts} )
+  {
+    $a{$_} = $env->getExpandedString($opts->{$_});
+  }
+
   $h{$agent} = eval("new $module(%a,@ARGV)");
   do { chomp ($@); die "Failed to create agent $module: $@\n" } if $@;
 }
 
-#my $agent = new template::Agent(%args,@ARGV);
-#$agent->process();
 POE::Kernel->run();
-print "The POE kernel run has ended, now I shoot myself\n";
+print Hdr(),"POE kernel has ended, now I shoot myself\n";
 exit 0;
