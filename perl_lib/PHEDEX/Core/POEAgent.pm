@@ -92,9 +92,9 @@ our %params =
 
 our @array_params = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
 our @hash_params  = qw / BAD JUNK /;
-our @required_params = qw / DROPDIR DBCONFIG /;
-our @writeable_dirs  = qw / DROPDIR INBOX WORKDIR OUTDIR /;
-our @writeable_files = qw / LOGFILE PIDFILE /;
+our @required_params = qw / /; # DROPDIR DBCONFIG /;
+our @writeable_dirs  = qw / /; # DROPDIR INBOX WORKDIR OUTDIR /;
+our @writeable_files = qw / /; # LOGFILE PIDFILE /;
 
 sub new
 {
@@ -104,8 +104,7 @@ sub new
 
     my %args = (@_);
     my $me = $0; $me =~ s|.*/||;
-
-    $args{ME} = $me;
+    $args{ME} = $me unless $args{ME};
 
 #   Retrieve the agent environment, if I can.
     my ($config,$cfg,$label,$key,$val);
@@ -206,7 +205,7 @@ sub new
     }
 
     bless $self, $class;
-    # Daemonise, write pid file and redirect output.
+    # If required, daemonise, write pid file and redirect output.
     $self->daemon($me);
 
 #   Start a POE session for myself
@@ -876,17 +875,17 @@ sub process
   $self->idle (@pending);
   my $t2 = &mytimeofday();
   &dbgmsg(sprintf("cycle time %.6f s", $t2-$t1)) if $self->{DEBUG};
-  if ($self->{AUTO_NAP}) {
+#  if ($self->{AUTO_NAP}) {
 #&dbgmsg("sleeping for $self->{WAITTIME} s") if $self->{DEBUG};
 #$self->nap ($self->{WAITTIME});
-  }
+#  }
 }
 
 # Wait between scans
 sub idle
 {
     my $self = shift;
-    $self->nap ($self->{WAITTIME});
+#   $self->nap ($self->{WAITTIME});
 }
 
 # Sleep for a time, checking stop flag every once in a while.
@@ -1138,8 +1137,8 @@ sub updateAgentStatus
   {
     if ( $label ne $self->{LABEL} )
     {
-      print "Using agent label \"",$self->{LABEL},
-	    "\" instead of derived label \"$label\"\n";
+#      print "Using agent label \"",$self->{LABEL},
+#	    "\" instead of derived label \"$label\"\n";
       $label = $self->{LABEL};
     }
   }
@@ -1516,7 +1515,7 @@ EOF
 sub hdr
 {
   my $self = shift;
-  my $name = $self->{NAME} || ref($self) || "(unknown object $self)";
+  my $name = $self->{ME} || ref($self) || "(unknown object $self)";
   return scalar(localtime) . ': ' . $name . ' ';
 }
 
