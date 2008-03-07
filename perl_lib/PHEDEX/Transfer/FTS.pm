@@ -175,32 +175,52 @@ sub getFTSService {
 # "Are you too busy to take transfers on linke $from -> $to?"
 sub isBusy
 {
-  my ($self, $jobs, $tasks, $to, $from)  = @_;
-  my ($busy,$valid,%h,$n,$t);
-  $busy = $valid = $t = $n = 0;
+    my ($self, $jobs, $tasks, $to, $from)  = @_;
+    my ($stats, $busy,$valid,%h,$n,$t);
+    $busy = $valid = $t = $n = 0;
 
-  # TODO:  Decide busy state per link!
+    if (defined $from && defined $to) {
+	$stats = $self->{FTS_Q_MONITOR}->{LINKSTATS};
+	
+	foreach my $file (keys %$stats) {
+	    $h{ $stats->{$file}{$from}{$to} }++;
+	}
+	# Count files in the Ready or Pending state
+	foreach ( qw / Ready Pending / )
+	{
+	    if ( defined($h{$_}) ) { $n += $h{$_}; }
+	}
+	# If there are 5 files in the Ready||Pending state
+	if ( $n >= 5 ) { $busy = 1; }
+      
+	if ( exists($stats->{START}) ) { $t = time - $stats->{START}; }
+	if ( $t > 60 ) { $valid = 1; }
 
-  my $stats = $self->{FTS_Q_MONITOR}->Stats();
+	print "Transfer::FTS::isBusy $from->$to: busy=$busy valid=$valid\n";
 
-  if ( $stats &&
-       exists $stats->{FILES} &&
-       exists $stats->{FILES}{STATES} )
-  {
-      # Count the number of all file states
-      foreach ( values %{$stats->{FILES}{STATES}} ) { $h{$_}++; }
-  }
-
-  # Count files in the Ready or Pending state
-  foreach ( qw / Ready Pending / )
-  {
-      if ( defined($h{$_}) ) { $n += $h{$_}; }
-  }
-  # If there are 5 files in the Ready||Pending state
-  if ( $n >= 5 ) { $busy = 1; }
-
-  if ( exists($stats->{START}) ) { $t = time - $stats->{START}; }
-  if ( $t > 60 ) { $valid = 1; }
+    } else {
+	$stats = $self->{FTS_Q_MONITOR}->WorkStats();
+	if ( $stats &&
+	     exists $stats->{FILES} &&
+	     exists $stats->{FILES}{STATES} )
+	{
+	    # Count the number of all file states
+	    foreach ( values %{$stats->{FILES}{STATES}} ) { $h{$_}++; }
+	}
+      
+	# Count files in the Ready or Pending state
+	foreach ( qw / Ready Pending / )
+	{
+	    if ( defined($h{$_}) ) { $n += $h{$_}; }
+	}
+	# If there are 5 files in the Ready||Pending state
+	if ( $n >= 5 ) { $busy = 1; }
+	
+	if ( exists($stats->{START}) ) { $t = time - $stats->{START}; }
+	if ( $t > 60 ) { $valid = 1; }
+	
+	print "Transfer::FTS::isBusy IN TOTAL: busy=$busy valid=$valid\n";
+    }
 
   print "Transfer::FTS::isBusy: busy=$busy valid=$valid\n";
   return $busy && $valid ? 1 : 0;
@@ -210,16 +230,15 @@ sub isBusy
 sub startBatch
 {
     my ($self, $jobs, $tasks, $dir, $jobname, $list) = @_;
+
     my @batch = splice(@$list, 0, $self->{BATCH_FILES});
     my $info = { ID => $jobname, DIR => $dir,
                  TASKS => { map { $_->{TASKID} => 1 } @batch } };
     &output("$dir/info", Dumper($info));
     &touch("$dir/live");
     $jobs->{$jobname} = $info;
-#    $self->clean($info, $tasks);
 
     #create the copyjob file via Job->PREPARE method
-    
     my %files = ();
 
     foreach my $taskid ( keys %{$info->{TASKS}} ) {
@@ -228,9 +247,9 @@ sub startBatch
 	my %args = (
 		    SOURCE=>$task->{FROM_PFN},
 		    DESTINATION=>$task->{TO_PFN},
-		    TASKID=>$taskid,
-		    TO_NODE=>$task->{TO_NODE},
 		    FROM_NODE=>$task->{FROM_NODE},
+		    TO_NODE=>$task->{TO_NODE},
+		    TASKID=>$taskid,
 		    WORKDIR=>$dir,
 		    START=>&mytimeofday(),
 		    );
@@ -292,23 +311,11 @@ sub startBatch
     
 }
 
-sub check {
-
-#    my ($self, $jobname, $job, $tasks) = @_;    
-
+sub check 
+{
 }
 
-# sub transferBatch
-# {
-#     my ($self, $job, $tasks) = @_;
-#     foreach (keys %{$job->{TASKS}})
-#     {
-#         $self->addJob(undef, { DETACHED => 1 },
-# 		      $self->{WRAPPER}, $job->{DIR}, $self->{TIMEOUT},
-# 		      @{$self->{COMMAND}}, $tasks->{$_}{FROM_PFN},
-# 		      $tasks->{$_}{TO_PFN});
-#     }
-# }
+
 
 sub setup_callbacks
 {
