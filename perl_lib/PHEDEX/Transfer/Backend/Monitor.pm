@@ -250,7 +250,7 @@ sub poll_job
   }
 
   $job->STATE($state->{JOB_STATE});
-  $job->RAW_OUTPUT($state->{RAW_OUTPUT});
+  $job->RAW_OUTPUT(@{$state->{RAW_OUTPUT}});
 
   my $files = $job->FILES;
   foreach ( keys %{$state->{FILES}} )

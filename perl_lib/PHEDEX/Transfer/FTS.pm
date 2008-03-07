@@ -263,10 +263,9 @@ sub startBatch
     unless ($service) {
 	my $reason = "Cannot identify FTS service endpoint based on a sample source PFN $batch[0]->{FROM_PFN}";
 	print $reason, "\n";
-	$job->{LOG} = "$reason\nSee download agent log file details, grep for\ FTSmap to see problems with FTS map file";
-
+	$job->LOG("$reason\nSee download agent log file details, grep for\ FTSmap to see problems with FTS map file");
 	foreach my $file ( keys %files ) {
-	    $file->{REASON} = $reason;
+	    $file->REASON($reason);
 	    $self->mkTransferSummary($file, $job);
 	}
     }
@@ -278,9 +277,9 @@ sub startBatch
     if ( exists $result->{ERROR} ) { 
 	# something went wrong...
 	my $reason = "Could not submit to FTS\n";
-	$job->{LOG} = $result->{ERROR};
+	$job->LOG( $result->{ERROR} );
 	foreach my $file ( keys %files ) {
-            $file->{REASON} = $reason;
+            $file->REASON($reason);
             $self->mkTransferSummary($file, $job);
         }
 
@@ -336,8 +335,6 @@ sub job_state
     my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
     print "Job-state callback", Dumper $arg0, "\n", Dumper $arg1, "\n";
 
-    my $isexited = 0;
-
     my $job = $arg1->[0];
 
     if ($job->EXIT_STATES->{$job->{STATE}}) {
@@ -349,7 +346,6 @@ sub job_state
 sub file_state
 {
   my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-$DB::single=1;
   print "File-state callback", Dumper $arg0, "\n", Dumper $arg1, "\n"; 
 
   my $file = $arg1->[0];
@@ -372,9 +368,9 @@ sub mkTransferSummary {
     my $status = $file->EXIT_STATES->{$file->{STATE}};
     $status = ($status == 1)?0:1;
     
-    my $log = join("", @{$job->LOG},
+    my $log = join("", $file->LOG,
 		   "-" x 10 . " RAWOUTPUT " . "-" x 10 . "\n",
-		   @{$job->RAW_OUTPUT});
+		   $job->RAW_OUTPUT);
 
     my $summary = {START=>$file->{START},
 		   END=>&mytimeofday(), 
@@ -387,7 +383,7 @@ sub mkTransferSummary {
     #make a done file
     &output($job->{WORKDIR}."/T".$file->{TASKID}."X", Dumper $summary);
 
-    
+    print "mkTransferSummary done for task: $job->{WORKDIR} $file->{TASKID}\n";
 }
 
 1;

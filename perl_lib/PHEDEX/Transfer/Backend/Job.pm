@@ -43,7 +43,8 @@ our %params =
 	  FILES		=> undef,	# A PHEDEX::Transfer::Backend::File array
 	  COPYJOB	=> undef,	# Name of copyjob file
 	  WORKDIR	=> undef,	# Working directory for this job
-	  RAW_OUTPUT	=> undef,	# Raw output of status command
+	  LOG           => [],
+	  RAW_OUTPUT	=> [],	        # Raw output of status command
 	  SUMMARY	=> '',		# Summary of job-status so far
 	);
 
@@ -87,7 +88,7 @@ sub new
   map { $self->{$_} = $args{$_} } keys %args;
 
   bless $self, $class;
-  $self->LOG(time,'created...');
+  $self->LOG(time,'createdq...');
   return $self;
 }
 
@@ -127,6 +128,15 @@ sub LOG
 
   return @{$self->{LOG}} if wantarray;
   return join('',@{$self->{LOG}});
+}
+
+sub RAW_OUTPUT
+{
+  my $self = shift;
+  $self->{RAW_OUTPUT} = [ @_ ] if @_;
+
+  return @{$self->{RAW_OUTPUT}} if wantarray;
+  return join('',@{$self->{RAW_OUTPUT}});
 }
 
 sub STATE
