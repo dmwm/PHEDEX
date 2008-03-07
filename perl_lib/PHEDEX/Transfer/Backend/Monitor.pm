@@ -51,7 +51,8 @@ our %params =
 our %ro_params =
 	(
 	  QUEUE	=> undef,	# A POE::Queue of transfer jobs...
-	  STATS	=> {},		# Statistics on the transfer states
+	  WORKSTATS	=> {},	# Statistics on the job or file states
+	  LINKSTATS     => {},  # Statistics on the link TODO:  combine with WORKSTATS
 	  APMON => undef,	# A PHEDEX::Monalisa object, if I want it!
 	  LAST_SUCCESSFULL_POLL => time,	# When I last got a job status
 	);
@@ -195,21 +196,22 @@ sub poll_queue
     goto DONE;
   }
 
-  foreach $id ( keys %{$list} )
+  foreach my $h ( values %$list )
   {
     my $job;
-    if ( ! exists($self->{JOBS}{$id}) )
+    if ( ! exists($self->{JOBS}{$h->{ID}}) )
     {
       $job = PHEDEX::Transfer::Backend::Job->new
 			(
-				ID		=> $id,
-				STATE		=> $list->{$id},
-				TIMESTAMP	=> time,
+			 ID		=> $h->{ID},
+			 STATE		=> $h->{STATE},
+			 SERVICE        => $h->{SERVICE},
+			 TIMESTAMP	=> time,
 			);
     }
-    else { $job = $self->{JOBS}{$id}; }
+    else { $job = $self->{JOBS}{$h->{ID}}; }
 
-    $priority = $self->{Q_INTERFACE}->StatePriority($list->{$id});
+    $priority = $self->{Q_INTERFACE}->StatePriority($h->{STATE});
     if ( ! $priority )
     {
 #     I can forget about this job...
@@ -217,12 +219,12 @@ sub poll_queue
       next;
     }
 
-    if ( ! exists($self->{JOBS}{$id}) )
+    if ( ! exists($self->{JOBS}{$h->{ID}}) )
     {
 #     Queue this job for monitoring...
       $self->{QUEUE}->enqueue( $priority, $job );
-      $self->{JOBS}{$id} = $job;
-      print "Queued $id at priority $priority (",$list->{$id},")\n" if $self->{VERBOSE};
+      $self->{JOBS}{$h->{ID}} = $job;
+      print "Queued $h->{ID} at priority $priority (",$h->{STATUS},")\n" if $self->{VERBOSE};
     }
   }
   $kernel->delay_set('poll_queue', $self->{Q_INTERVAL});
@@ -267,7 +269,9 @@ sub poll_job
     if ( ! exists $f->EXIT_STATES->{$s->{STATE}} )
     { die "Unknown file-state: " . $s->{STATE}."\n"; }
 
-    $self->Stats('FILES', $f->DESTINATION, $f->STATE);
+    $self->WorkStats('FILES', $f->DESTINATION, $f->STATE);
+    $self->LinkStats($f->DESTINATION, $f->FROM_NODE, $f->TO_NODE, $f->STATE);
+
     if ( $_ = $f->STATE( $s->{STATE} ) )
     {
       $f->LOG($f->TIMESTAMP,"from $_ to ",$f->STATE);
@@ -307,7 +311,7 @@ sub poll_job
   { die "Unknown job-state: " . $state->{JOB_STATE}."\n"; }
 
   $job->STATE($state->{JOB_STATE});
-  $self->Stats('JOBS', $job->ID, $job->STATE);
+  $self->WorkStats('JOBS', $job->ID, $job->STATE);
   $self->{JOB_CALLBACK}->($job) if $self->{JOB_CALLBACK};
   if ( $job->EXIT_STATES->{$state->{JOB_STATE}} )
   {
@@ -333,10 +337,11 @@ sub report_job
   print $self->hdr,"Job $jobid has ended...\n" if $self->{VERBOSE};
 
   $job->LOG(time,'Job has ended');
-  $self->Stats('JOBS', $job->ID, $job->STATE);
+  $self->WorkStats('JOBS', $job->ID, $job->STATE);
   foreach ( values %{$job->FILES} )
   {
-    $self->Stats('FILES', $_->DESTINATION, $_->STATE);
+    $self->WorkStats('FILES', $_->DESTINATION, $_->STATE);
+    $self->LinkStats($_->DESTINATION, $_->FROM_NODE, $_->TO_NODE, $_->STATE);
   }
 
   if ( defined $job->JOB_CALLBACK ) { $job->JOB_CALLBACK->(); }
@@ -356,10 +361,10 @@ sub cleanup_stats
   my ( $self, $kernel, $job ) = @_[ OBJECT, KERNEL, ARG0 ];
   my $jobid = $job->ID;
   print $self->hdr,"Cleaning up stats for job $jobid...\n" if $self->{VERBOSE};
-  delete $self->{STATS}{JOBS}{STATES}{$job->ID};
+  delete $self->{WORKSTATS}{JOBS}{STATES}{$job->ID};
   foreach ( values %{$job->FILES} )
   {
-    delete $self->{STATS}{FILES}{STATES}{$_->DESTINATION};
+    delete $self->{WORKSTATS}{FILES}{STATES}{$_->DESTINATION};
   }
 
   delete $self->{JOBS}{$job->ID};
@@ -372,32 +377,32 @@ sub report_statistics
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
   my ($s,$t,$key,$summary);
 
-  if ( ! defined($self->{STATS}{START}) )
+  if ( ! defined($self->{WORKSTATS}{START}) )
   {
-    $self->{STATS}{START} = time;
+    $self->{WORKSTATS}{START} = time;
     print $self->hdr,"STATISTICS: INTERVAL=",$self->{STATISTICS_INTERVAL},"\n";
   }
-  $t = time - $self->{STATS}{START};
+  $t = time - $self->{WORKSTATS}{START};
 
-  foreach $key ( keys %{$self->{STATS}} )
+  foreach $key ( keys %{$self->{WORKSTATS}} )
   {
-    next unless ref($self->{STATS}{$key}) eq 'HASH';
-    next unless defined $self->{STATS}{$key}{STATES};
-    $self->{STATS}{$key}{SUMMARY} = '' unless $self->{STATS}{$key}{SUMMARY};
+    next unless ref($self->{WORKSTATS}{$key}) eq 'HASH';
+    next unless defined $self->{WORKSTATS}{$key}{STATES};
+    $self->{WORKSTATS}{$key}{SUMMARY} = '' unless $self->{WORKSTATS}{$key}{SUMMARY};
 
-    foreach ( keys %{$self->{STATS}{$key}{STATES}} )
+    foreach ( keys %{$self->{WORKSTATS}{$key}{STATES}} )
     {
       $s->{$key}{TOTAL}++;
-      $s->{$key}{STATES}{$self->{STATS}{$key}{STATES}{$_} || 'undefined'}++;
+      $s->{$key}{STATES}{$self->{WORKSTATS}{$key}{STATES}{$_} || 'undefined'}++;
     }
 
     next unless defined( $s->{$key}{TOTAL} );
     $summary = join(' ', 'Total='.$s->{$key}{TOTAL},
     (map { "$_=" . $s->{$key}{STATES}{$_} } sort keys %{$s->{$key}{STATES}} ));
-    if ( $self->{STATS}{$key}{SUMMARY} ne $summary )
+    if ( $self->{WORKSTATS}{$key}{SUMMARY} ne $summary )
     {
       print $self->hdr,"STATISTICS: TIME=$t $key: $summary\n";
-      $self->{STATS}{$key}{SUMMARY} = $summary;
+      $self->{WORKSTATS}{$key}{SUMMARY} = $summary;
     }
 
 #    use Data::Dumper();
@@ -422,25 +427,34 @@ sub report_statistics
   $kernel->delay_set( 'report_statistics', $self->{STATISTICS_INTERVAL} );
 }
 
-sub Stats
+sub WorkStats
 {
   my ($self,$class,$key,$val) = @_;
   if ( defined($class) && !defined($key))
   {
-      return $self->{STATS}{$class}{STATES};
+      return $self->{WORKSTATS}{$class}{STATES};
   }
   elsif ( defined($class) && defined($key) )
   {
-    $self->{STATS}{$class}{STATES}{$key} = $val;
-    return $self->{STATS}{$class};
+    $self->{WORKSTATS}{$class}{STATES}{$key} = $val;
+    return $self->{WORKSTATS}{$class};
   }
-  return $self->{STATS};
+  return $self->{WORKSTATS};
+}
+
+
+sub LinkStats
+{
+    my ($self,$file,$from,$to,$state) = @_;
+    return undef unless defined $file && defined $from && defined $to;
+    $self->{LINKSTATS}{$file}{$from}{$to} = $state;
+    return $self->{LINKSTATS}{$file}{$from}{$to};
 }
 
 sub QueueJob
 {
   my ( $self, $priority, $job ) = @_;
-  $self->Stats('JOBS', $job->ID, $job->STATE);
+  $self->WorkStats('JOBS', $job->ID, $job->STATE);
   $self->{QUEUE}->enqueue( $priority, $job );
 }
 
