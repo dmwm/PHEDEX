@@ -273,7 +273,7 @@ sub taskDone
 	$$log =~ s/^[-\d: ]*//gm;
 	$$log =~ s/^[A-Za-z]+(\[\d+\]|\(\d+\)): //gm;
 	$$log =~ s/\n+/ ~~ /gs;
-	$$log =~ s/\s+/ /gs
+	$$log =~ s/\s+/ /gs;
     }
 
     &logmsg("xstats:"
@@ -296,7 +296,8 @@ sub taskDone
 	    . " to-pfn=$$task{TO_PFN}"
 	    . " detail=($detail)"
 	    . " validate=($validate)"
-	    . " job-log=@{[$$task{JOBLOG} || '(no job)']}");
+	    . " job-log=@{[$$task{JOBLOG} || '(no job)']}") 
+	unless ($$task{REPORT_CODE} == -1);
 
     # Indicate success.
     return 1;
@@ -742,6 +743,7 @@ sub fill
 	}
 	elsif ($now >= $$t{TIME_EXPIRE} - 1200)
 	{
+	    &logmsg("PhEDEx transfer task $$t{TASKID} was nearly expired after $prettyhours, discarding");
 	    $$t{XFER_CODE} = -1;
 	    $$t{REPORT_CODE} = -1;
 	    $$t{LOG_DETAIL} = "transfer expired in the PhEDEx download agent queue after $prettyhours";

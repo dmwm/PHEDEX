@@ -181,10 +181,15 @@ sub isBusy
 
     if (defined $from && defined $to) {
 	$stats = $self->{FTS_Q_MONITOR}->{LINKSTATS};
-	
+
 	foreach my $file (keys %$stats) {
-	    $h{ $stats->{$file}{$from}{$to} }++;
+	    if (exists $stats->{$file}{$from}{$to}) {
+		$h{ $stats->{$file}{$from}{$to} }++;
+	    }
 	}
+	print "Transfer::FTS::isBusy Link Stats $from->$to\n",
+	Dumper(\%h), "\n";
+
 	# Count files in the Ready or Pending state
 	foreach ( qw / Ready Pending / )
 	{
