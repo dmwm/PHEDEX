@@ -81,7 +81,7 @@ sub idle
 	    # Ignore active blocks
 	    if ($nactive)
 	    {
-		&alert ("block $id ($block) has $nreplica replicas"
+		$self->Alert ("block $id ($block) has $nreplica replicas"
 			. " of which only $nactive are active")
 		    if $nreplica != $nactive;
 	        next;
@@ -97,7 +97,7 @@ sub idle
 			  NACTIVE  => $nactive,
 			) )
 	    {
-		&warn ("block $id ($block) changed, skipping activation");
+		$self->Warn ("block $id ($block) changed, skipping activation");
 	        $dbh->rollback();
 		next;
 	    }
@@ -109,7 +109,7 @@ sub idle
 					  NOW => $now
 					);
 
-	    &logmsg ("block $id ($block) reactivated with $nfile files"
+	    $self->Logmsg ("block $id ($block) reactivated with $nfile files"
 		     . " and $nreplica replicas");
 	    $dbh->commit();
 	}
@@ -117,7 +117,7 @@ sub idle
 	# Remove old activation requests
         $self->removeOldActivationRequests( NOW => $now );
     };
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
 
     # Disconnect from the database

@@ -128,7 +128,7 @@ sub getLockForUpdateWithCheck
   return ($xnreplica, $xnactive) if wantarray;
   foreach ( qw / NREPLICA NACTIVE / )
   {
-    warn "lockForUpdateWithCheck: Explicit check requested but \"$_\" not given\n" unless defined $h{$_};
+    $self->Warn("lockForUpdateWithCheck: Explicit check requested but \"$_\" not given") unless defined $h{$_};
   }
   return 1 if ( $h{NREPLICA} == $xnreplica && $h{NACTIVE} == $xnactive );
 
