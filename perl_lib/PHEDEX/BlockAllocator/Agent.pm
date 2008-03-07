@@ -82,7 +82,7 @@ sub idle
     if (grep $_->[1] != 0, @stats1, @stats2, @stats3) {
 	$self->printStats('allocation stats', @stats1, @stats2, @stats3);
     } else {
-	&logmsg('nothing to do');
+	$self->Logmsg('nothing to do');
     }
 };
     do { chomp ($@); &alert ("database error: $@");

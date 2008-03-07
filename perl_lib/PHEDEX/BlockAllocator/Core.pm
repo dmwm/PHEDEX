@@ -110,7 +110,7 @@ sub subscriptions
 		$_->{DESTINATION_ID} == $subs->{DESTINATION_ID} &&
 		$_->{DATASET_ID} == $subs->{DATASET_ID}, @all_subscriptions)) {
 	  $self->delete_subscription($subs);
-	  &logmsg("removing subscription for $subs_identifier:  ",
+	  $self->Logmsg("removing subscription for $subs_identifier:  ",
 		  "superceded by dataset subscription");
 	  $stats{'subs removed'}++;
 	  next SUBSCRIPTION;
@@ -129,14 +129,14 @@ sub subscriptions
       if ($subs->{TIME_CLEAR} && $subs->{TIME_CLEAR} <= $now) {
 	  if ($subs->{IS_MOVE} eq 'n') {
 	      $self->delete_subscription($subs);
-	      &logmsg("removing subscription for $subs_identifier:  ",
+	      $self->Logmsg("removing subscription for $subs_identifier:  ",
 		      "marked for clearing");
 	      $stats{'subs removed'}++;
 	      next SUBSCRIPTION;
 	  } else {
 	      $subs_update->{IS_MOVE} = 'n';
 	      $subs_update->{TIME_CLEAR} = undef;
-	      &logmsg("move subscription for $subs_identifier aborted");
+	      $self->Logmsg("move subscription for $subs_identifier aborted");
 	      $stats{'move subs aborted'}++;
 	  }
       } elsif ($subs->{TIME_CLEAR} && $subs->{TIME_CLEAR} > $now &&
@@ -144,7 +144,7 @@ sub subscriptions
 		      $_->{DESTINATION_ID} != $subs->{DESTINATION_ID} &&
 		      $_->{DATASET_ID} == $subs->{DATASET_ID}, @all_subscriptions)) {
 	  $subs_update->{TIME_CLEAR} = undef;
-	  &logmsg("move request flag removed for $subs_identifier");
+	  $self->Logmsg("move request flag removed for $subs_identifier");
 	  $stats{'move request aborted'}++;
       }
 
@@ -153,7 +153,7 @@ sub subscriptions
 	  $subs->{NODE_FILES} >= $subs->{EXIST_FILES} &&
 	  $subs->{NODE_BYTES} >= $subs->{EXIST_BYTES}) {
 	  $subs_update->{TIME_COMPLETE} = $now;
-	  &logmsg("subscription complete for $subs_identifier");
+	  $self->Logmsg("subscription complete for $subs_identifier");
 	  $stats{'subs completed'}++;
       }
 
@@ -192,17 +192,17 @@ sub subscriptions
 	      my ($wait_delete, $wait_confirm) = (0, 0);
 	      if (!$subs_exists || ($subs_exists && $subs_clear && $subs_clear <= $now)) {
 		  $n_to_delete += $n_files;
-		  &logmsg("waiting for $n_files files at $node ",
+		  $self->Logmsg("waiting for $n_files files at $node ",
 			  "to be deleted before marking move of $subs->{SUBS_ITEM_NAME} done");
 		  $wait_delete++;
 	      } elsif ($subs_exists && $subs_clear && $subs_clear > $now) {
 		  $n_to_delete += $n_files;
-		  &logmsg("waiting for $node to confirm move of $n_files files at $subs->{SUBS_ITEM_NAME} ",
+		  $self->Logmsg("waiting for $node to confirm move of $n_files files at $subs->{SUBS_ITEM_NAME} ",
 			  "before marking done");
 		  $wait_confirm++;
 		  if (!$subs->{TIME_CLEAR}) {
 		      $subs_update->{TIME_CLEAR} = $now + 7*24*3600; # give up waiting in one week
-		      &logmsg("waiting 1 week for move confirmations of $subs_identifier");
+		      $self->Logmsg("waiting 1 week for move confirmations of $subs_identifier");
 		  }
 	      }
 	      $stats{'moves pending deletion'} += $wait_delete ? 1 : 0;
@@ -213,7 +213,7 @@ sub subscriptions
 	      $subs_update->{TIME_DONE} = $now;
 	      $subs_update->{IS_MOVE} = 'n';
 	      $subs_update->{TIME_CLEAR} = undef;
-	      &logmsg("move subscription is done for $subs_identifier, changed to replica subscription");
+	      $self->Logmsg("move subscription is done for $subs_identifier, changed to replica subscription");
 	      $stats{'move subs done'}++;
 	  }
       }
@@ -223,7 +223,7 @@ sub subscriptions
 	   $subs->{NODE_FILES} >= $subs->{EXIST_FILES} &&
            $subs->{NODE_BYTES} >= $subs->{EXIST_BYTES}) {
 	  $subs_update->{TIME_DONE} = $now;
-	  &logmsg("replication subscription is done for $subs_identifier");
+	  $self->Logmsg("replication subscription is done for $subs_identifier");
 	  $stats{'copy subs done'}++;
       }
       
@@ -233,7 +233,7 @@ sub subscriptions
 	   $subs->{NODE_BYTES} < $subs->{EXIST_BYTES} ) {
 	  $subs_update->{TIME_COMPLETE} = undef;
 	  $subs_update->{TIME_DONE} = undef;
-	  &logmsg("subscription is no longer done, updating for $subs_identifier");
+	  $self->Logmsg("subscription is no longer done, updating for $subs_identifier");
 	  $stats{'subs marked incomplete'}++;
       }
 
@@ -316,7 +316,7 @@ sub allocate
 				   and bd.block = sb.id)
 	  });
     while (my $block = $q_subsNoBlock->fetchrow_hashref()) {
-	&logmsg("adding block destination for $block->{BLOCK_NAME} to $block->{DESTINATION_NAME}");
+	$self->Logmsg("adding block destination for $block->{BLOCK_NAME} to $block->{DESTINATION_NAME}");
 	$block->{TIME_CREATE} = $now;
 	push @add, $block;
     }
@@ -344,7 +344,7 @@ sub allocate
 	    });
 
     while (my $block = $q_blockNoSubs->fetchrow_hashref()) {
-	&logmsg("removing block destination for $block->{BLOCK_NAME} to $block->{DESTINATION_NAME}: ",
+	$self->Logmsg("removing block destination for $block->{BLOCK_NAME} to $block->{DESTINATION_NAME}: ",
 		"$block->{REASON}");
 	push @rem, $block;
     }
@@ -459,7 +459,7 @@ sub blockDestinations
       if ($block->{IS_OPEN} eq 'n' &&
 	  $block->{NODE_FILES} >= $block->{EXIST_FILES} &&
 	  $block->{BD_STATE} != 3) {
-	  &logmsg("block destination done for $bd_identifier");
+	  $self->Logmsg("block destination done for $bd_identifier");
 	  $bd_update->{BD_STATE} = 3;
 	  $bd_update->{BD_COMPLETE} = $now;
 	  $stats{'blockdest done'}++;
@@ -468,7 +468,7 @@ sub blockDestinations
       # Reactivate block destinations which do not have all files replicated (deleted data)
       if ($block->{NODE_FILES} < $block->{EXIST_FILES} &&
 	  $block->{BD_STATE} == 3) {
-	  &logmsg("reactivating incomplete block destination $bd_identifier");
+	  $self->Logmsg("reactivating incomplete block destination $bd_identifier");
 	  $bd_update->{BD_STATE} = 0;
 	  $bd_update->{BD_COMPLETE} = undef;
 	  $stats{'blockdest reactivated'}++;
@@ -477,13 +477,13 @@ sub blockDestinations
       { no warnings qw(uninitialized);  # lots of undef variables expected here
 	# Update priority and suspended status on existing requests
 	if ($block->{BD_PRIORITY} != $block->{SUBS_PRIORITY}) {
-	    &logmsg("updating priority of $bd_identifier");
+	    $self->Logmsg("updating priority of $bd_identifier");
 	    $bd_update->{BD_PRIORITY} = $block->{SUBS_PRIORITY};
 	    $stats{'blockdest priority changed'}++;
 	}
 
 	if ((POSIX::floor($block->{BD_SUSPEND}) || 0) != (POSIX::floor($block->{SUBS_SUSPEND}) || 0)) {
-	    &logmsg("updating suspension status of $bd_identifier");
+	    $self->Logmsg("updating suspension status of $bd_identifier");
 	    $bd_update->{BD_SUSPEND} = $block->{SUBS_SUSPEND};
 	}
 	      
@@ -491,14 +491,14 @@ sub blockDestinations
 	if ($bd_update->{BD_STATE} < 2 &&
 	    defined $bd_update->{BD_SUSPEND} && 
 	    $bd_update->{BD_SUSPEND} > $now) {
-	    &logmsg("suspending block destination $bd_identifier");
+	    $self->Logmsg("suspending block destination $bd_identifier");
 	    $bd_update->{BD_STATE} = 2;
 	    $stats{'blockdest suspended'}++;
 	}
 
 	if ($bd_update->{BD_STATE} == 2 &&
 	    (!defined $bd_update->{BD_SUSPEND} || $bd_update->{BD_SUSPEND} <= $now)) {
-	    &logmsg("unsuspending block destination $bd_identifier");
+	    $self->Logmsg("unsuspending block destination $bd_identifier");
 	    $bd_update->{BD_STATE} = 0;
 	    $bd_update->{BD_SUSPEND} = undef;
 	    $stats{'blockdest unsuspended'}++;
@@ -550,7 +550,7 @@ sub hash_ne
 sub printStats
 {
     my ($self, $title, @stats) = @_;
-    &logmsg("$title:  ".join(', ', map { $_->[1] + 0 .' '.$_->[0] } @stats));
+    $self->Logmsg("$title:  ".join(', ', map { $_->[1] + 0 .' '.$_->[0] } @stats));
 }
 
 

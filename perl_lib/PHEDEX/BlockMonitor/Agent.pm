@@ -21,7 +21,6 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 use strict;
 use warnings;
 use base 'PHEDEX::Core::POEAgent', 'PHEDEX::BlockMonitor::SQL';
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 
 our %params =
@@ -61,32 +60,32 @@ sub AUTOLOAD
 
 sub limitCheck
 {
-  my ($reason, $b, $ref) = @_;
+  my ($self,$reason, $b, $ref) = @_;
   $ref ||= $b;
   $reason = "$reason $b->{BLOCK} at node $b->{NODE}";
 
-  &alert("$reason destined $b->{DEST_FILES} files,"
+  $self->Alert("$reason destined $b->{DEST_FILES} files,"
             . " more than expected ($ref->{FILES})")
 	if $b->{DEST_FILES} > $ref->{FILES};
-  &alert("$reason destined $b->{DEST_BYTES} bytes,"
+  $self->Alert("$reason destined $b->{DEST_BYTES} bytes,"
 	    . " more than expected ($ref->{BYTES})")
 	if $b->{DEST_BYTES} > $ref->{BYTES};
-  &alert("$reason originated $b->{SRC_FILES} files,"
+  $self->Alert("$reason originated $b->{SRC_FILES} files,"
 	    . " more than expected ($ref->{FILES})")
 	if $b->{SRC_FILES} > $ref->{FILES};
-  &alert("$reason originated $b->{SRC_BYTES} bytes,"
+  $self->Alert("$reason originated $b->{SRC_BYTES} bytes,"
 	    . " more than expected ($ref->{BYTES})")
 	if $b->{SRC_BYTES} > $ref->{BYTES};
-  &alert("$reason has $b->{NODE_FILES} files,"
+  $self->Alert("$reason has $b->{NODE_FILES} files,"
 	    . " more than expected ($ref->{FILES})")
 	if $b->{NODE_FILES} > $ref->{FILES};
-  &alert("$reason has $b->{NODE_BYTES} bytes,"
+  $self->Alert("$reason has $b->{NODE_BYTES} bytes,"
 	    . " more than expected ($ref->{BYTES})")
 	if $b->{NODE_BYTES} > $ref->{BYTES};
-  &alert("$reason transferring $b->{XFER_FILES} files,"
+  $self->Alert("$reason transferring $b->{XFER_FILES} files,"
 	    . " more than expected ($ref->{FILES})")
 	if $b->{XFER_FILES} > $ref->{FILES};
-  &alert("$reason transferring $b->{XFER_BYTES} bytes,"
+  $self->Alert("$reason transferring $b->{XFER_BYTES} bytes,"
 	    . " more than expected ($ref->{BYTES})")
 	if $b->{XFER_BYTES} > $ref->{BYTES};
 }
@@ -109,7 +108,7 @@ sub idle
 	while ( (($min_block, $max_block) = $self->getBlockIDRange($self->{BLOCK_LIMIT}, $min_block))
 		&& defined $max_block ) 
 	{
-	    &dbgmsg ("Block ID range $min_block to $max_block has up to ",
+	    $self->Dbgmsg ("Block ID range $min_block to $max_block has up to ",
 		     "$self->{BLOCK_LIMIT} blocks") if $self->{DEBUG};
 
 	    # Guarantee full consistency.  We need to ensure that a) this
@@ -124,12 +123,12 @@ sub idle
 		 MIN_BLOCK => $min_block,
 		 MAX_BLOCK => $max_block
 		 );
-	    &dbgmsg ("Retrieved $h->{N_REPLICAS} replicas up to block ID $h->{MAX_BLOCK}") if $self->{DEBUG};
+	    $self->Dbgmsg ("Retrieved $h->{N_REPLICAS} replicas up to block ID $h->{MAX_BLOCK}") if $self->{DEBUG};
 
 	    while ( $row = shift @{$qexisting} )
 	    {
 		$replicas{$row->{BLOCK}}{$row->{NODE}} = $row;
-		&limitCheck ("existing block", $row);
+		$self->limitCheck ("existing block", $row);
 	    }
 
 	    # Get file counts in currently active files: those destined at
@@ -198,9 +197,9 @@ sub idle
 		# not make a block active.
 		if ($$b{IS_ACTIVE} ne 'y')
 		{
-		    &alert ("$b->{BLOCK} at $b->{NODE} inactive but open")
+		    $self->Alert ("$b->{BLOCK} at $b->{NODE} inactive but open")
 			if $b->{IS_OPEN} eq 'y';
-		    &alert ("$b->{BLOCK} at $b->{NODE} inactive but active")
+		    $self->Alert ("$b->{BLOCK} at $b->{NODE} inactive but active")
 			if (exists $active{$b->{BLOCK}}{$b->{NODE}}
 			    && ($active{$b->{BLOCK}}{$b->{NODE}}{NODE_FILES}
 				|| $active{$b->{BLOCK}}{$b->{NODE}}{XFER_FILES}));
@@ -213,7 +212,7 @@ sub idle
 		if (! exists $active{$b->{BLOCK}}{$b->{NODE}}
 		    || $active{$b->{BLOCK}}{$b->{NODE}}{EMPTY_SOURCE} )
 		{
-		    &logmsg ("removing block $b->{BLOCK} at node $b->{NODE}");
+		    $self->Logmsg ("removing block $b->{BLOCK} at node $b->{NODE}");
 		    $self->removeBlockAtNode( $b ) unless $self->{DUMMY};
 		    next;
 		}
@@ -229,8 +228,8 @@ sub idle
 		    || $b->{XFER_FILES} != $new->{XFER_FILES}
 		    || $b->{XFER_BYTES} != $new->{XFER_BYTES})
 		{
-		    &limitCheck ("updated block", $new, $b);
-		    &logmsg ("updating block $b->{BLOCK} at node $b->{NODE}");
+		    $self->limitCheck ("updated block", $new, $b);
+		    $self->Logmsg ("updating block $b->{BLOCK} at node $b->{NODE}");
 		    $self->updateBlockAtNode( NOW => $now, %{$new} )
 			unless $self->{DUMMY};
 		}
@@ -254,22 +253,22 @@ sub idle
 		    # to reactivate the block.
 		    if (grep ($_->{IS_ACTIVE} eq 'y', values %{$replicas{$b->{BLOCK}}}))
 		    {
-			&alert ("block $b->{BLOCK} has inactive and active replicas");
+			$self->Alert ("block $b->{BLOCK} has inactive and active replicas");
 		    }
 		    elsif ($b->{NODE_FILES} || $b->{XFER_FILES})
 		    {
-			&alert ("block $b->{BLOCK} at node $b->{NODE} is active but the"
+			$self->Alert ("block $b->{BLOCK} at node $b->{NODE} is active but the"
 				. " block is otherwise inactive");
 		    }
 		    else
 		    {
-			&logmsg ("block $b->{BLOCK} is inactive with new destinations"
+			$self->Logmsg ("block $b->{BLOCK} is inactive with new destinations"
 				 . " for node $b->{NODE}, waiting for activation");
 		    }
 		    next;
 		}
 
-		&logmsg ("creating block $b->{BLOCK} at node $b->{NODE}");
+		$self->Logmsg ("creating block $b->{BLOCK} at node $b->{NODE}");
 		$self->createBlockAtNode( NOW => $now, %{$b} )
 		    unless $self->{DUMMY};
 	    }
@@ -279,7 +278,7 @@ sub idle
 	    $min_block = $max_block + 1;
 	}
     };
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $self->execute_rollback() } if $dbh } if $@;
 
     # Disconnect from the database.
