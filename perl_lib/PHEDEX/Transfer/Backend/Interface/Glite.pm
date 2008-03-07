@@ -111,7 +111,7 @@ sub ListQueue
   while ( <GLITE> )
   {
     m%^([0-9,a-f,-]+)\s+(\S+)$% or next;
-    $result{$1} = $2;
+    $result{$1} = { ID => $1, STATE => $2, SERVICE => $self->{SERVICE} };
   }
   close GLITE or do
   {
@@ -128,7 +128,7 @@ sub ListJob
   my ($cmd,$state,%result,$dst,@raw);
   my ($key,$value);
 
-  $cmd = "glite-transfer-status -l -s " . $job->{SERVICE} . ' ' . $job->ID;
+  $cmd = "glite-transfer-status -l -s " . $job->{SERVICE} . ' ' . $job->{ID};
   open GLITE, "$cmd |" or do
   {
     warn "$cmd: $!\n";

@@ -119,23 +119,23 @@ sub poll_queue
   $jobs = $self->{Q_MANAGER}->ListQueue;
 # print map { $_,': ',$jobs->{$_},"\n" } keys %{$jobs};
 
-  foreach $job ( keys %{$jobs} )
+  foreach $job ( @jobs )
   {
     $DB::single=1;
-    $priority = $self->{Q_MANAGER}->StatePriority($jobs->{$job});
+    $priority = $self->{Q_MANAGER}->StatePriority($jobs->{STATE});
     if ( ! $priority )
     {
 #     I can forget about these jobs...
-      $kernel->yield('report_job',($job));
+      $kernel->yield('report_job',($job->{ID}));
       next;
     }
-    if ( ! exists($self->{jobs}{$job}) )
+    if ( ! exists($self->{jobs}{$job->{ID}}) )
     {
 #     Queue this job for monitoring...
-      $self->{QUEUE}->enqueue($priority,$job);
+      $self->{QUEUE}->enqueue($priority,$job->{ID});
       $self->{jobs}{$job}{Queued} = time;
       $self->{jobs}{$job}{ID} = $job;
-      print "Queued $job at priority $priority(",$jobs->{$job},")\n";
+      print "Queued $job->{ID} at priority $priority(",$job->{STATE},")\n";
       next;
     }
   }
