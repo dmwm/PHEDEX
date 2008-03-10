@@ -54,6 +54,7 @@ our %params =
 	  MAX_PARALLEL_JOBS	=> 10,    # Max. # of jobs to run at a time
 	  RETRY_MIN_FILE_GROUP	=>   3,   # Don't retry a single file in a job
 	  RETRY_MAX_AGE		=> 900,   # Retry anyway after this long...
+	  SERVICE		=> undef, # Glite service for jobs
 	  NAME			=> undef, # Arbitrary name for this object
 
 	  SUSPEND_SUBMISSION	=>  0,	  # Allows me to suspend job submission
@@ -168,8 +169,8 @@ sub _start
 sub select_for_retry
 {
   my $f = $_[0];
-  return 0 unless $f->{RETRIES};
-  return 0 unless $f->{TIMESTAMP} + $f->{RETRY_MAX_AGE} > time;
+  return 0 unless $f->Retries;
+  return 0 unless $f->Timestamp + $f->RetryMaxAge > time;
   return 1;
 }
 
@@ -271,12 +272,13 @@ sub submit_job
 	$self->{JOB_COUNT},' of ',
 	$self->{MAX_PARALLEL_JOBS},"\n";
   print "Submit job for:\n",
-	map { ' ' . $_->{SOURCE} . "\n" } @{$files};
+	map { ' ' . $_->Source . "\n" } @{$files};
 
   $job = PHEDEX::Transfer::Backend::Job->new();
-  $job->FILES( @{$files} );
-  $job->PREPARE;
-  $job->ID( $self->{Q_INTERFACE}->Submit( $job ) );
+  $job->Service( $self->{SERVICE} );
+  $job->Files( @{$files} );
+  $job->Prepare;
+  $job->ID( $self->{Q_INTERFACE}->Submit( $job )->{ID} );
 
   if ( $self->{Q_MONITOR} )
   {
@@ -286,7 +288,7 @@ sub submit_job
     my $file_postback = $session->postback( 'file_state', $job );
     $job->FILE_CALLBACK( $file_postback );
 
-    $self->{Q_MONITOR}->QueueJob( $job->PRIORITY, $job );
+    $self->{Q_MONITOR}->QueueJob( $job, $job->Priority );
   }
 }
 
@@ -319,9 +321,9 @@ sub job_state
 
   if ( $self->{FILE_TRACE_DIR} )
   {
-    foreach ( values %{$job->FILES} )
+    foreach ( values %{$job->Files} )
     {
-      $_->WRITE_LOG($self->{FILE_TRACE_DIR});
+      $_->WriteLog($self->{FILE_TRACE_DIR});
     }
   }
 
@@ -329,10 +331,6 @@ sub job_state
   print $self->hdr,"Job count now: ",$self->{JOB_COUNT},
                    ' Files remaining:',$fq,
                    "\n";
-#  if ( !$fq && $self->{JOB_COUNT}<2 )
-#  {
-#$DB::single=1;
-#  }
 
   if ( !$self->{JOB_COUNT} && !$fq && $self->{EXIT_WHEN_EMPTY} )
   {
@@ -352,14 +350,6 @@ sub shoot_myself
 		$self->{JOB_COUNT}	 ||
 		$self->{FILE_QUEUE}->get_item_count
 	    );
-# Could allow a grace-period here...
-#  if ( $self->{EXIT_GRACE_PERIOD} )
-#  {
-#    $kernel->delay_set('shoot_myself',$self->{EXIT_GRACE_PERIOD});
-#    $self->{EXIT_GRACE_PERIOD} = 0;
-#  ...but this doesn't allow for resetting the grace-period to non-zero if
-#     something happens!
-#  }
 
   print $self->hdr,"shooting myself...\n";
 
@@ -393,32 +383,31 @@ sub file_state
     $DB::single=1;
   }
 
-  my $exit_states = $file->EXIT_STATES || \%PHEDEX::Transfer::Backend::File::exit_states;
-  if ( $exit_states->{$file->STATE} == 2 )
+  my $exit_states = $file->ExitStates || \%PHEDEX::Transfer::Backend::File::exit_states;
+  if ( $exit_states->{$file->State} == 2 )
   {
     if ( $file->RETRY )
     {
-      print "Requeue ",$file->SOURCE,"\n";
-      $file->RETRY_MAX_AGE($self->{RETRY_MAX_AGE});
-      $file->NICE(4);
+      print "Requeue ",$file->Source,"\n";
+      $file->RetryMaxAge($self->{RETRY_MAX_AGE});
+      $file->Nice(4);
       $self->QueueFile( $file );
     }
     else
-    { print 'Maximum retries exceeded for ',$file->{DESTINATION},"\n"; }
+    { print 'Maximum retries exceeded for ',$file->Destination,"\n"; }
   }
 
 # This is to trap a bizarre error seen once, but that shouldn't happen...
   defined $file or $DB::single=1;
-  defined $file->STATE or $DB::single=1;
-  my $a = $file->EXIT_STATES; defined $a or $DB::single=1;
-  my $aa = $a->{$file->STATE}; defined $aa or $DB::single=1;
+  defined $file->State or $DB::single=1;
+  my $a = $file->ExitStates; defined $a or $DB::single=1;
+  my $aa = $a->{$file->State}; defined $aa or $DB::single=1;
 
-
-  return unless defined($file->STATE);
-  if ( $exit_states->{$file->STATE} == 1 ||
-     ( $exit_states->{$file->STATE} == 2 && !$file->RETRY ) )
+  return unless defined($file->State);
+  if ( $exit_states->{$file->State} == 1 ||
+     ( $exit_states->{$file->State} == 2 && !$file->Retry ) )
   {
-    $file->WRITE_LOG($self->{FILE_TRACE_DIR}) if $self->{FILE_TRACE_DIR};
+    $file->WriteLog($self->{FILE_TRACE_DIR}) if $self->{FILE_TRACE_DIR};
   }
 }
 
@@ -427,15 +416,15 @@ sub QueueFile
   my $self = shift;
   my $h = shift;
 
-  $h->TIMEOUT(0)      unless $h->TIMEOUT;
-  $h->PRIORITY(1000)  unless $h->PRIORITY;
-  $h->MAX_TRIES(2)    unless $h->MAX_TRIES;
+  $h->Timeout(0)     unless $h->Timeout;
+  $h->Priority(1000) unless $h->Priority;
+  $h->MaxTries(2)    unless $h->MaxTries;
 
-  print "Queueing ",$h->SOURCE," -> ",$h->DESTINATION,"\n";
-  $self->{FILE_QUEUE}->enqueue($h->PRIORITY,$h);
+  print "Queueing ",$h->Source," -> ",$h->Destination,"\n";
+  $self->{FILE_QUEUE}->enqueue($h->Priority,$h);
   if ( $self->{Q_MONITOR} )
   {
-    $self->{Q_MONITOR}->Stats('FILES',$h->DESTINATION,'undefined');
+    $self->{Q_MONITOR}->WorkStats('FILES',$h->Destination,'undefined');
   }
 }
 
