@@ -139,6 +139,7 @@ if ( $copyjob )
 		  JOB_POLL_INTERVAL	=> $poll_interval,
 		  JOB_TRACE_DIR		=> $job_trace_dir,
 		  FILE_TRACE_DIR	=> $file_trace_dir,
+		  SERVICE		=> $service,
 		  NAME			=> '::Mgr',
 
 		  @ARGV,
