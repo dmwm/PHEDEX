@@ -277,8 +277,8 @@ sub poll_job
 
     if ( $_ = $f->State( $s->{STATE} ) )
     {
-      $f->Log($f->TIMESTAMP,"from $_ to ",$f->State);
-      $job->Log($f->TIMESTAMP,$f->Source,$f->Destination,$f->State );
+      $f->Log($f->Timestamp,"from $_ to ",$f->State);
+      $job->Log($f->Timestamp,$f->Source,$f->Destination,$f->State );
       if ( $f->ExitStates->{$f->State} )
       {
 #       Log the details...
@@ -352,7 +352,7 @@ sub report_job
   else
   {
     print $self->hdr,'Log for ',$job->ID,"\n",
-		scalar $job->Log,
+	  $job->Log,
 	  $self->hdr,'Log ends for ',$job->ID,"\n" if $self->{VERBOSE};
   }
 

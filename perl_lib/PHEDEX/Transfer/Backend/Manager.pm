@@ -314,7 +314,7 @@ sub job_state
   else { $fh = *STDOUT; }
   print $fh "#-------------------------------------------------------------\n",
              scalar localtime time, ' Log for ',$job->ID,"\n",
-             scalar $job->LOG,
+             $job->Log,
              scalar localtime time," Log ends\n",
             "#-------------------------------------------------------------\n";
   close $fh if $close_it;

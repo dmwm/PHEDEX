@@ -254,7 +254,7 @@ sub WriteLog
   $logfile = $dir . '/file-' . $logfile . '.log';
   open $fh, ">$logfile" || die "open: $logfile: $!\n";
   print $fh scalar localtime time, ' Log for ',$self->{DESTINATION},"\n",
-            scalar $self->LOG,
+            $self->Log,
             scalar localtime time," Log ends\n";
   close $fh;
 }
