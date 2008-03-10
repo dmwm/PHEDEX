@@ -46,7 +46,7 @@ our %states =
 	  Ready			=> 10,
 	  Active		=>  9,
 	  Finished		=>  0,
-	 'FinishedDirty'	=>  0,
+	  FinishedDirty		=>  0,
 	  Pending		=> 10,
 	  Default		=> 99,
 	);
@@ -128,7 +128,7 @@ sub ListJob
   my ($cmd,$state,%result,$dst,@raw);
   my ($key,$value);
 
-  $cmd = "glite-transfer-status -l -s " . $job->{SERVICE} . ' ' . $job->{ID};
+  $cmd = "glite-transfer-status -l -s " . $job->Service . ' ' . $job->ID;
   open GLITE, "$cmd |" or do
   {
       print "$cmd: $!\n";
@@ -168,8 +168,8 @@ sub ListJob
     {
       die "No \"$_\" key! : ", map { "$_=$h->{$_} " } sort keys %{$h}
         unless defined($h->{$_});
-      $result{FILES}{$h->{DESTINATION}} = $h;
     }
+    $result{FILES}{$h->{DESTINATION}} = $h;
   }
 
   my $time = time;
@@ -207,8 +207,8 @@ sub Submit
     return \%result;
   };
 
-  my $cmd = "glite-transfer-submit -s " . $job->{SERVICE} .
-				 ' -f ' . $job->COPYJOB;
+  my $cmd = "glite-transfer-submit -s " . $job->Service .
+				 ' -f ' . $job->Copyjob;
 # print $self->hdr,"Execute: $cmd\n";
   open GLITE, "$cmd |" or die "$cmd: $!\n";
   while ( <GLITE> ) { chomp; $id = $_ unless $id; }
