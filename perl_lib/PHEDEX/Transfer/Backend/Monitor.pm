@@ -269,17 +269,17 @@ sub poll_job
     }
 
 #   Paranoia!
-    if ( ! exists $f->EXIT_STATES->{$s->{STATE}} )
+    if ( ! exists $f->ExitStates->{$s->{STATE}} )
     { die "Unknown file-state: " . $s->{STATE}."\n"; }
 
-    $self->WorkStats('FILES', $f->DESTINATION, $f->STATE);
-    $self->LinkStats($f->DESTINATION, $f->FROM_NODE, $f->TO_NODE, $f->STATE);
+    $self->WorkStats('FILES', $f->Destination, $f->State);
+    $self->LinkStats($f->Destination, $f->FromNode, $f->ToNode, $f->State);
 
-    if ( $_ = $f->STATE( $s->{STATE} ) )
+    if ( $_ = $f->State( $s->{STATE} ) )
     {
-      $f->LOG($f->TIMESTAMP,"from $_ to ",$f->STATE);
-      $job->Log($f->TIMESTAMP,$f->SOURCE,$f->DESTINATION,$f->STATE );
-      if ( $f->EXIT_STATES->{$f->STATE} )
+      $f->Log($f->TIMESTAMP,"from $_ to ",$f->State);
+      $job->Log($f->TIMESTAMP,$f->Source,$f->Destination,$f->State );
+      if ( $f->ExitStates->{$f->State} )
       {
 #       Log the details...
 	$summary = join (' ',
@@ -287,9 +287,9 @@ sub poll_job
 			  qw / SOURCE DESTINATION DURATION RETRIES REASON /
 			);
         $job->Log( time, 'file transfer details',$summary,"\n" );
-        $f->LOG  ( time, 'file transfer details',$summary,"\n" );
+        $f->Log  ( time, 'file transfer details',$summary,"\n" );
 
-        foreach ( qw / DURATION RETRIES REASON / ) { $f->{$_} = $s->{$_}; }
+        foreach ( qw / DURATION RETRIES REASON / ) { $f->$_($s->{$_}); }
       }
       $job->FILE_CALLBACK->( $f, $_, $s ) if $job->FILE_CALLBACK;
       $self->{FILE_CALLBACK}->( $f, $job ) if $self->{FILE_CALLBACK};
@@ -344,8 +344,8 @@ sub report_job
   $self->WorkStats('JOBS', $job->ID, $job->State);
   foreach ( values %{$job->Files} )
   {
-    $self->WorkStats('FILES', $_->DESTINATION, $_->STATE);
-    $self->LinkStats($_->DESTINATION, $_->FROM_NODE, $_->TO_NODE, $_->STATE);
+    $self->WorkStats('FILES', $_->Destination, $_->State);
+    $self->LinkStats($_->Destination, $_->FromNode, $_->ToNode, $_->State);
   }
 
   if ( defined $job->JOB_CALLBACK ) { $job->JOB_CALLBACK->(); }
@@ -368,8 +368,8 @@ sub cleanup_stats
   delete $self->{WORKSTATS}{JOBS}{STATES}{$job->ID};
   foreach ( values %{$job->Files} )
   {
-    delete $self->{WORKSTATS}{FILES}{STATES}{$_->DESTINATION};
-    delete $self->{LINKSTATS}{$_->DESTINATION};
+    delete $self->{WORKSTATS}{FILES}{STATES}{$_->Destination};
+    delete $self->{LINKSTATS}{$_->Destination};
   }
 
   delete $self->{JOBS}{$job->ID};
@@ -418,7 +418,7 @@ sub report_statistics
       my $h = $s->{$key}{STATES};
       my $g;
       if ( $key eq 'JOBS'  ) { $g = PHEDEX::Transfer::Backend::Job::ExitStates(); }
-      if ( $key eq 'FILES' ) { $g = PHEDEX::Transfer::Backend::File::EXIT_STATES(); }
+      if ( $key eq 'FILES' ) { $g = PHEDEX::Transfer::Backend::File::ExitStates(); }
       foreach ( keys %{$g} )
       {
         $h->{$_} = 0 unless defined $h->{$_};

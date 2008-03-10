@@ -243,7 +243,7 @@ sub startBatch
     &touch("$dir/live");
     $jobs->{$jobname} = $info;
 
-    #create the copyjob file via Job->PREPARE method
+    #create the copyjob file via Job->Prepare method
     my %files = ();
 
     foreach my $taskid ( keys %{$info->{TASKS}} ) {
@@ -284,7 +284,7 @@ sub startBatch
 	print $reason, "\n";
 	$job->Log("$reason\nSee download agent log file details, grep for\ FTSmap to see problems with FTS map file");
 	foreach my $file ( keys %files ) {
-	    $file->REASON($reason);
+	    $file->Reason($reason);
 	    $self->mkTransferSummary($file, $job);
 	}
     }
@@ -298,7 +298,7 @@ sub startBatch
 	my $reason = "Could not submit to FTS\n";
 	$job->Log( $result->{ERROR} );
 	foreach my $file ( keys %files ) {
-            $file->REASON($reason);
+            $file->Reason($reason);
             $self->mkTransferSummary($file, $job);
         }
 
@@ -312,15 +312,11 @@ sub startBatch
 
     #register this job with queue monitor.
     $self->{FTS_Q_MONITOR}->QueueJob($job);
-
-    
 }
 
 sub check 
 {
 }
-
-
 
 sub setup_callbacks
 {
@@ -359,9 +355,9 @@ sub file_state
   my $file = $arg1->[0];
   my $job  = $arg1->[1];
 
-  print "File-state callback TASKID $file->{TASKID} JOBID ",$job->ID," STATE $file->{STATE} $file->{DESTINATION}", "\n";
+  print "File-state callback TASKID ",$file->TaskID," JOBID ",$job->ID," STATE ",$file->State,' ',$file->Destination,"\n";
 
-  if ($file->EXIT_STATES->{$file->{STATE}}) {
+  if ($file->ExitStates->{$file->State}) {
       $self->mkTransferSummary($file,$job);
   }
 
@@ -375,26 +371,26 @@ sub mkTransferSummary {
     #by now we report 0 for 'Finished' and 1 for Failed or Canceled
     #where would we do intelligent error processing 
     #and report differrent erorr codes for different errors?
-    my $status = $file->EXIT_STATES->{$file->{STATE}};
+    my $status = $file->ExitStates->{$file->State};
 
     $status = ($status == 1)?0:1;
     
-    my $log = join("", $file->LOG,
+    my $log = join("", $file->Log,
 		   "-" x 10 . " RAWOUTPUT " . "-" x 10 . "\n",
 		   $job->RawOutput);
 
-    my $summary = {START=>$file->{START},
+    my $summary = {START=>$file->Start,
 		   END=>&mytimeofday(), 
 		   LOG=>$log,
 		   STATUS=>$status,
-		   DETAIL=>$file->{REASON} || "", 
-		   DURATION=>$file->{DURATION} || 0
+		   DETAIL=>$file->Reason || "", 
+		   DURATION=>$file->Duration || 0
 		   };
     
     #make a done file
     &output($job->Workdir."/T".$file->{TASKID}."X", Dumper $summary);
 
-    print "mkTransferSummary done for task: ",$job->Workdir," $file->{TASKID}\n";
+    print "mkTransferSummary done for task: ",$job->Workdir,' ',$file->TaskID,"\n";
 }
 
 1;
