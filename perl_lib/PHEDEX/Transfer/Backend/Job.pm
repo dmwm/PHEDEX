@@ -17,8 +17,6 @@ of data-methods (setters and getters) but very few behavioural methods.
 
 =head1 METHODS
 
-=over
-
 =cut
 
 use strict;
@@ -198,13 +196,14 @@ sub State
 {
   my ($self,$state,$timestamp) = @_;
   return $self->{STATE} unless $state;
+  return undef unless $self->{STATE};
 
   if ( $state ne $self->{STATE} )
   {
-    my $old_state = $self->{STATE};
+    my $oldstate = $self->{STATE};
     $self->{STATE} = $state;
     $self->{TIMESTAMP} = $timestamp || time;
-    return $old_state;
+    return $oldstate;
   }
   return undef;
 }
