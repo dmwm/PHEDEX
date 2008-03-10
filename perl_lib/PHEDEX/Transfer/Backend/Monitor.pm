@@ -211,6 +211,8 @@ sub poll_queue
     }
     else { $job = $self->{JOBS}{$h->{ID}}; }
 
+# priority calculation here needs to be consistant with what is calculated
+# later
     $priority = $self->{Q_INTERFACE}->StatePriority($h->{STATE});
     if ( ! $priority )
     {
@@ -222,6 +224,7 @@ sub poll_queue
     if ( ! exists($self->{JOBS}{$h->{ID}}) )
     {
 #     Queue this job for monitoring...
+      $job->Priority($priority);
       $self->{QUEUE}->enqueue( $priority, $job );
       $self->{JOBS}{$h->{ID}} = $job;
       print "Queued $h->{ID} at priority $priority (",$h->{STATUS},")\n" if $self->{VERBOSE};
@@ -241,7 +244,7 @@ sub poll_job
   $state = $self->{Q_INTERFACE}->ListJob($job);
 
   if (exists $state->{ERROR}) {
-      print "Monitor: ListJob for $job->{ID} returned error: $state->{ERROR}\n";
+      print "Monitor: ListJob for $job->ID returned error: $state->{ERROR}\n";
       print "No successfull queue- or job-poll in ",
       time-$self->{LAST_SUCCESSFULL_POLL},
       " seconds\n";
@@ -249,12 +252,12 @@ sub poll_job
   }
 
   $self->{LAST_SUCCESSFULL_POLL} = time;
-  print "JOBID $job->{ID} STATE $state->{JOB_STATE}\n";
+  print "JOBID ",$job->ID," STATE $state->{JOB_STATE}\n";
 
-  $job->STATE($state->{JOB_STATE});
-  $job->RAW_OUTPUT(@{$state->{RAW_OUTPUT}});
+  $job->State($state->{JOB_STATE});
+  $job->RawOutput(@{$state->{RAW_OUTPUT}});
 
-  my $files = $job->FILES;
+  my $files = $job->Files;
   foreach ( keys %{$state->{FILES}} )
   {
     my $s = $state->{FILES}{$_};
@@ -262,7 +265,7 @@ sub poll_job
     if ( ! $f )
     {
       $f = PHEDEX::Transfer::Backend::File->new( %{$s} );
-      $job->FILES($f);
+      $job->Files($f);
     }
 
 #   Paranoia!
@@ -275,7 +278,7 @@ sub poll_job
     if ( $_ = $f->STATE( $s->{STATE} ) )
     {
       $f->LOG($f->TIMESTAMP,"from $_ to ",$f->STATE);
-      $job->LOG($f->TIMESTAMP,$f->SOURCE,$f->DESTINATION,$f->STATE );
+      $job->Log($f->TIMESTAMP,$f->SOURCE,$f->DESTINATION,$f->STATE );
       if ( $f->EXIT_STATES->{$f->STATE} )
       {
 #       Log the details...
@@ -283,7 +286,7 @@ sub poll_job
 			  map { "$_=\"" . $s->{$_} ."\"" }
 			  qw / SOURCE DESTINATION DURATION RETRIES REASON /
 			);
-        $job->LOG( time, 'file transfer details',$summary,"\n" );
+        $job->Log( time, 'file transfer details',$summary,"\n" );
         $f->LOG  ( time, 'file transfer details',$summary,"\n" );
 
         foreach ( qw / DURATION RETRIES REASON / ) { $f->{$_} = $s->{$_}; }
@@ -300,20 +303,20 @@ sub poll_job
               	   map { $_.'='.$state->{FILE_STATES}{$_} }
                	         sort keys %{$state->{FILE_STATES}}
                  );
-  if ( $job->SUMMARY ne $summary )
+  if ( $job->Summary ne $summary )
   {
-    print $self->hdr,"$job->{ID}: $summary\n" if $self->{VERBOSE};
-    $job->SUMMARY($summary);
+    print $self->hdr,$job->ID,": $summary\n" if $self->{VERBOSE};
+    $job->Summary($summary);
   }
 
 # Paranoia!
-  if ( ! exists $job->EXIT_STATES->{$state->{JOB_STATE}} )
+  if ( ! exists $job->ExitStates->{$state->{JOB_STATE}} )
   { die "Unknown job-state: " . $state->{JOB_STATE}."\n"; }
 
-  $job->STATE($state->{JOB_STATE});
-  $self->WorkStats('JOBS', $job->ID, $job->STATE);
+  $job->State($state->{JOB_STATE});
+  $self->WorkStats('JOBS', $job->ID, $job->State);
   $self->{JOB_CALLBACK}->($job) if $self->{JOB_CALLBACK};
-  if ( $job->EXIT_STATES->{$state->{JOB_STATE}} )
+  if ( $job->ExitStates->{$state->{JOB_STATE}} )
   {
     $kernel->yield('report_job',$job);
   }
@@ -323,6 +326,7 @@ sub poll_job
     $priority = $state->{ETC};
     $priority = int($priority/60);
     $priority = 30 if $priority < 30;
+    $job->Priority($priority);
     $self->{QUEUE}->enqueue( $priority, $job );
   }
 
@@ -336,9 +340,9 @@ sub report_job
   my $jobid = $job->ID;
   print $self->hdr,"Job $jobid has ended...\n" if $self->{VERBOSE};
 
-  $job->LOG(time,'Job has ended');
-  $self->WorkStats('JOBS', $job->ID, $job->STATE);
-  foreach ( values %{$job->FILES} )
+  $job->Log(time,'Job has ended');
+  $self->WorkStats('JOBS', $job->ID, $job->State);
+  foreach ( values %{$job->Files} )
   {
     $self->WorkStats('FILES', $_->DESTINATION, $_->STATE);
     $self->LinkStats($_->DESTINATION, $_->FROM_NODE, $_->TO_NODE, $_->STATE);
@@ -348,7 +352,7 @@ sub report_job
   else
   {
     print $self->hdr,'Log for ',$job->ID,"\n",
-		scalar $job->LOG,
+		scalar $job->Log,
 	  $self->hdr,'Log ends for ',$job->ID,"\n" if $self->{VERBOSE};
   }
 
@@ -362,7 +366,7 @@ sub cleanup_stats
   my $jobid = $job->ID;
   print $self->hdr,"Cleaning up stats for job $jobid...\n" if $self->{VERBOSE};
   delete $self->{WORKSTATS}{JOBS}{STATES}{$job->ID};
-  foreach ( values %{$job->FILES} )
+  foreach ( values %{$job->Files} )
   {
     delete $self->{WORKSTATS}{FILES}{STATES}{$_->DESTINATION};
     delete $self->{LINKSTATS}{$_->DESTINATION};
@@ -413,7 +417,7 @@ sub report_statistics
     {
       my $h = $s->{$key}{STATES};
       my $g;
-      if ( $key eq 'JOBS'  ) { $g = PHEDEX::Transfer::Backend::Job::EXIT_STATES(); }
+      if ( $key eq 'JOBS'  ) { $g = PHEDEX::Transfer::Backend::Job::ExitStates(); }
       if ( $key eq 'FILES' ) { $g = PHEDEX::Transfer::Backend::File::EXIT_STATES(); }
       foreach ( keys %{$g} )
       {
@@ -454,8 +458,11 @@ sub LinkStats
 
 sub QueueJob
 {
-  my ( $self, $priority, $job ) = @_;
-  $self->WorkStats('JOBS', $job->ID, $job->STATE);
+  my ( $self, $job, $priority ) = @_;
+
+  $priority = 1 unless $priority;
+  $self->WorkStats('JOBS', $job->ID, $job->State);
+  $job->Priority($priority);
   $self->{QUEUE}->enqueue( $priority, $job );
 }
 

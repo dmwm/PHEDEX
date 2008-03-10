@@ -27,9 +27,9 @@ sub new
     $params->{PROTOCOLS}   ||= [ 'srm' ];  # Accepted protocols
     $params->{BATCH_FILES} ||= 25;     # Max number of files per batch
     $params->{FTS_LINK_FILES}  ||= 250;    # Queue this number of files in FTS for a link 
-    $params->{FTS_POLL_QUEUE} ||= 1;       # Whether to poll all vs. our jobs
-    $params->{FTS_Q_INTERVAL} ||= 30;       # Whether to poll all vs. our jobs
-    $params->{FTS_J_INTERVAL} ||= 5;       # Whether to poll all vs. our jobs
+    $params->{FTS_POLL_QUEUE} ||= 1;   # Whether to poll all vs. our jobs
+    $params->{FTS_Q_INTERVAL} ||= 30;  # Interval for polling queue for new jobs
+    $params->{FTS_J_INTERVAL} ||= 5;   # Interval for polling individual jobs
 
     # Set argument parsing at this level.
     $options->{'batch-files=i'} = \$params->{BATCH_FILES};
@@ -271,7 +271,7 @@ sub startBatch
     my $job = PHEDEX::Transfer::Backend::Job->new(%args);
 
     #this writes out a copyjob file
-    $job->PREPARE();
+    $job->Prepare();
 
 
     #now get FTS service for the job
@@ -282,21 +282,21 @@ sub startBatch
     unless ($service) {
 	my $reason = "Cannot identify FTS service endpoint based on a sample source PFN $batch[0]->{FROM_PFN}";
 	print $reason, "\n";
-	$job->LOG("$reason\nSee download agent log file details, grep for\ FTSmap to see problems with FTS map file");
+	$job->Log("$reason\nSee download agent log file details, grep for\ FTSmap to see problems with FTS map file");
 	foreach my $file ( keys %files ) {
 	    $file->REASON($reason);
 	    $self->mkTransferSummary($file, $job);
 	}
     }
 
-    $job->{SERVICE} = $service;
+    $job->Service($service);
 
     my $result = $self->{Q_INTERFACE}->Submit($job);
 
     if ( exists $result->{ERROR} ) { 
 	# something went wrong...
 	my $reason = "Could not submit to FTS\n";
-	$job->LOG( $result->{ERROR} );
+	$job->Log( $result->{ERROR} );
 	foreach my $file ( keys %files ) {
             $file->REASON($reason);
             $self->mkTransferSummary($file, $job);
@@ -310,8 +310,8 @@ sub startBatch
 
     $job->ID($id);
 
-    #register this job with queue monitor. We pass some hardcoded priority.
-    $self->{FTS_Q_MONITOR}->QueueJob(1,$job);
+    #register this job with queue monitor.
+    $self->{FTS_Q_MONITOR}->QueueJob($job);
 
     
 }
@@ -343,11 +343,11 @@ sub job_state
 #    print "Job-state callback", Dumper $arg0, "\n", Dumper $arg1, "\n";
 
     my $job = $arg1->[0];
-    print "Job-state callback ID $job->{ID}", "STATE $job->{STATE}", "\n";
+    print "Job-state callback ID ",$job->ID,", STATE ",$job->State,"\n";
 
-    if ($job->EXIT_STATES->{$job->{STATE}}) {
+    if ($job->ExitStates->{$job->State}) {
     }else{
-	&touch($job->{WORKDIR}."/live");
+	&touch($job->Workdir."/live");
     }
 }
 
@@ -359,7 +359,7 @@ sub file_state
   my $file = $arg1->[0];
   my $job  = $arg1->[1];
 
-  print "File-state callback TASKID $file->{TASKID} JOBID $job->{ID} STATE $file->{STATE} $file->{DESTINATION}", "\n";
+  print "File-state callback TASKID $file->{TASKID} JOBID ",$job->ID," STATE $file->{STATE} $file->{DESTINATION}", "\n";
 
   if ($file->EXIT_STATES->{$file->{STATE}}) {
       $self->mkTransferSummary($file,$job);
@@ -381,7 +381,7 @@ sub mkTransferSummary {
     
     my $log = join("", $file->LOG,
 		   "-" x 10 . " RAWOUTPUT " . "-" x 10 . "\n",
-		   $job->RAW_OUTPUT);
+		   $job->RawOutput);
 
     my $summary = {START=>$file->{START},
 		   END=>&mytimeofday(), 
@@ -392,9 +392,9 @@ sub mkTransferSummary {
 		   };
     
     #make a done file
-    &output($job->{WORKDIR}."/T".$file->{TASKID}."X", Dumper $summary);
+    &output($job->Workdir."/T".$file->{TASKID}."X", Dumper $summary);
 
-    print "mkTransferSummary done for task: $job->{WORKDIR} $file->{TASKID}\n";
+    print "mkTransferSummary done for task: ",$job->Workdir," $file->{TASKID}\n";
 }
 
 1;
