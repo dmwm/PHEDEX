@@ -283,10 +283,10 @@ sub submit_job
   if ( $self->{Q_MONITOR} )
   {
     my $job_postback = $session->postback( 'job_state', $job );
-    $job->JOB_CALLBACK( $job_postback );
+    $job->JOB_POSTBACK( $job_postback );
 
     my $file_postback = $session->postback( 'file_state', $job );
-    $job->FILE_CALLBACK( $file_postback );
+    $job->FILE_POSTBACK( $file_postback );
 
     $self->{Q_MONITOR}->QueueJob( $job, $job->Priority );
   }

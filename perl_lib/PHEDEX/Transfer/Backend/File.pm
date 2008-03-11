@@ -27,7 +27,7 @@ our %params =
 	  TIMEOUT	=> 0,		# Timeout per transfer attempt
 	  PRIORITY	=> 1000,	# Priority for file transfer
 	  RETRY_MAX_AGE	=> 3600,	# Timeout for retrying after errors
-	  LOG		=> [],		# A Log array...
+	  LOG		=> undef,	# A Log array...
 	  RETRIES	=> 0,		# Number of retries so far
 	  DURATION	=> undef,	# Time taken for this transfer
 	  REASON	=> undef,	# Reason for failure, if any
@@ -77,6 +77,7 @@ sub new
         $self->{$_} = defined($args{$_}) ? delete $args{$_} : $ro_params{$_}
       } keys %ro_params;
   map { $self->{$_} = $args{$_} } keys %args;
+  $self->{LOG} = [];
 
   bless $self, $class;
   return $self;

@@ -11,7 +11,6 @@ use PHEDEX::Core::Timing;
 use PHEDEX::Monalisa;
 use POE;
 
-# DO NOT USE - UNFINISHED!!
 # Command back end defaulting to srmcp and supporting batch transfers.
 sub new
 {
@@ -304,7 +303,7 @@ sub startBatch
 
 	$self->mkTranserSummary();
 	return;
-    };
+    }
 
     my $id = $result->{ID};
 
@@ -324,16 +323,16 @@ sub setup_callbacks
 
   if ( $self->{FTS_Q_MONITOR} )
   {
-    $kernel->state('job_state',$self);
-    $kernel->state('file_state',$self);
-    my $job_postback  = $session->postback( 'job_state'  );
-    my $file_postback = $session->postback( 'file_state' );
-    $self->{FTS_Q_MONITOR}->JOB_CALLBACK ( $job_postback );
-    $self->{FTS_Q_MONITOR}->FILE_CALLBACK( $file_postback );
+    $kernel->state('job_state_change',$self);
+    $kernel->state('file_state_change',$self);
+    my $job_postback  = $session->postback( 'job_state_change'  );
+    my $file_postback = $session->postback( 'file_state_change' );
+    $self->{FTS_Q_MONITOR}->JOB_POSTBACK ( $job_postback );
+    $self->{FTS_Q_MONITOR}->FILE_POSTBACK( $file_postback );
   }
 }
 
-sub job_state
+sub job_state_change
 {
     my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
 #    print "Job-state callback", Dumper $arg0, "\n", Dumper $arg1, "\n";
@@ -347,7 +346,7 @@ sub job_state
     }
 }
 
-sub file_state
+sub file_state_change
 {
   my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
 #  print "File-state callback", Dumper $arg0, "\n", Dumper $arg1, "\n"; 
@@ -360,7 +359,6 @@ sub file_state
   if ($file->ExitStates->{$file->State}) {
       $self->mkTransferSummary($file,$job);
   }
-
 }
 
 sub mkTransferSummary {

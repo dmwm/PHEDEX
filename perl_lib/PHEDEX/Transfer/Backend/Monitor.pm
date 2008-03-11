@@ -44,8 +44,8 @@ our %params =
 	  POLL_QUEUE		=>  1,	  # Poll the queue or not?
 	  NAME			=> undef, # Arbitrary name for this object
 	  STATISTICS_INTERVAL	=> 60,	  # Interval for reporting statistics
-	  JOB_CALLBACK		=> undef, # Callback for job state changes
-	  FILE_CALLBACK		=> undef, # Callback for file state changes
+	  JOB_POSTBACK		=> undef, # Callback for job state changes
+	  FILE_POSTBACK		=> undef, # Callback for file state changes
 	  VERBOSE		=> 0,
 	);
 our %ro_params =
@@ -291,8 +291,8 @@ sub poll_job
 
         foreach ( qw / DURATION RETRIES REASON / ) { $f->$_($s->{$_}); }
       }
-      $job->FILE_CALLBACK->( $f, $_, $s ) if $job->FILE_CALLBACK;
-      $self->{FILE_CALLBACK}->( $f, $job ) if $self->{FILE_CALLBACK};
+      $job->FILE_POSTBACK->( $f, $_, $s ) if $job->FILE_POSTBACK;
+      $self->{FILE_POSTBACK}->( $f, $job ) if $self->{FILE_POSTBACK};
     }
   }
 
@@ -315,7 +315,7 @@ sub poll_job
 
   $job->State($state->{JOB_STATE});
   $self->WorkStats('JOBS', $job->ID, $job->State);
-  $self->{JOB_CALLBACK}->($job) if $self->{JOB_CALLBACK};
+  $self->{JOB_POSTBACK}->($job) if $self->{JOB_POSTBACK};
   if ( $job->ExitStates->{$state->{JOB_STATE}} )
   {
     $kernel->yield('report_job',$job);
@@ -348,7 +348,7 @@ sub report_job
     $self->LinkStats($_->Destination, $_->FromNode, $_->ToNode, $_->State);
   }
 
-  if ( defined $job->JOB_CALLBACK ) { $job->JOB_CALLBACK->(); }
+  if ( defined $job->JOB_POSTBACK ) { $job->JOB_POSTBACK->(); }
   else
   {
     print $self->hdr,'Log for ',$job->ID,"\n",

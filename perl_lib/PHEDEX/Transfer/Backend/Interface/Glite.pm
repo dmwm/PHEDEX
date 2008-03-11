@@ -219,7 +219,6 @@ sub Submit
       return \%result;
   };
   print $self->hdr,"Job $id submitted...\n";
-
   $result{ID} = $id;
   return \%result;
 }

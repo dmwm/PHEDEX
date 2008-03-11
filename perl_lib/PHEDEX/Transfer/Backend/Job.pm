@@ -26,16 +26,16 @@ use File::Temp qw/ tempfile tempdir /;
 our %params =
 	(
 	  ID		=> undef,	# Determined when the job is submitted
-	  SERVICE       => undef,       # FTS endpoint - fix - need to make a derived class for FTS specific job?!
+	  SERVICE       => undef,       # FTS endpoint - backend specific!
 	  TIMEOUT	=>    0,	# Timeout for total job transfer
 	  PRIORITY	=>    1,	# Priority for total job transfer
-	  JOB_CALLBACK	=> undef,	# Callback per job state-change
-	  FILE_CALLBACK	=> undef,	# Callback per file state-change
+	  JOB_POSTBACK	=> undef,	# Callback per job state-change
+	  FILE_POSTBACK	=> undef,	# Callback per file state-change
 	  FILES		=> undef,	# A PHEDEX::Transfer::Backend::File array
 	  COPYJOB	=> undef,	# Name of copyjob file
 	  WORKDIR	=> undef,	# Working directory for this job
-	  LOG           => [],
-	  RAW_OUTPUT	=> [],	        # Raw output of status command
+	  LOG           => undef,	# Internal log
+	  RAW_OUTPUT	=> undef,       # Raw output of status command
 	  SUMMARY	=> '',		# Summary of job-status so far
 	);
 
@@ -79,6 +79,8 @@ sub new
       } keys %ro_params;
   map { $self->{$_} = $args{$_} } keys %args;
 
+  $self->{LOG} = [];
+  $self->{RAW_OUTPUT} = [];
   bless $self, $class;
   $self->Log(time,'created...');
   return $self;
