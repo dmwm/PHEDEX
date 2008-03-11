@@ -462,6 +462,10 @@ sub QueueJob
 
   $priority = 1 unless $priority;
   $self->WorkStats('JOBS', $job->ID, $job->State);
+  foreach ( values %{$job->Files} )
+  {
+    $self->WorkStats('FILES', $_->Destination, $_->State);
+  }
   $job->Priority($priority);
   $self->{QUEUE}->enqueue( $priority, $job );
 }
