@@ -212,12 +212,12 @@ sub isBusy
 	    foreach ( values %{$stats->{FILES}{STATES}} ) { $h{$_}++; }
 	}
       
-	# Count files in the Ready or Pending state
-	foreach ( qw / Ready Pending / )
+	# Count files in the Ready, Pending, or undefined states
+	foreach ( qw / Ready Pending undefined / )
 	{
 	    if ( defined($h{$_}) ) { $n += $h{$_}; }
 	}
-	# If there are 5 files in the Ready||Pending state
+	# If there are 5 files in the Ready||Pending||undefined state
 	if ( $n >= 5 ) { $busy = 1; }
 	
 	if ( exists($stats->{START}) ) { $t = time - $stats->{START}; }
