@@ -5,7 +5,8 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: InspectPhedexLog,v 1.21 2008/02/12 22:27:59 dfeichti Exp $:
+# XML support added by Artem Trunov
+# Version info: $Id: InspectPhedexLog,v 1.22 2008/02/15 10:31:56 trunov Exp $:
 ###############################################################################
 
 use strict;
@@ -243,7 +244,7 @@ foreach my $log (@logfiles) {
 	       $detail =~ s/\sauthRequestID \d+\s/authRequestID \[id\] /;
 	       $detail =~ s/RequestFileStatus#[\d-]+/RequestFileStatus#\[number\]/g;
 	       $detail =~ s/srm:\/\/[^\s]+/\[srm-URL\]/;
-	       $detail =~ s/at\s+\w{3}\s+\w{3}\s+\d+\s+\d+:\d+:\d+\s+[A-Z]+\s+\d+/at \[date\]/;
+	       $detail =~ s/at\s+\w{3}\s+\w{3}\s+\d+\s+\d+:\d+:\d+\s+[A-Z]+\s+\d+/at \[date\]/g;
 
 	       if( $detail=~/^\s*$/) {$reason = "-"}
 	       elsif( (($reason) = $detail =~ m/.*(Failed DESTINATION error during FINALIZATION phase: \[GENERAL_FAILURE\] failed to complete PrepareToPut request.*)/) ) { $reason =~ s/request \[(-|\d)+\]/request [reqid]/ }
@@ -443,6 +444,8 @@ printf("                         first entry: %s      last entry: %s\n",
        strftime("%Y-%m-%d %H:%M:%S",localtime($datestart)),
        strftime("%Y-%m-%d %H:%M:%S",localtime($dateend)));
 
+my $deltat=$dateend-$datestart;
+
 my ($MbperS,$MBperS);
 my $totalsize=0;
 foreach my $site (sort {$a cmp $b} keys %sitestat) {
@@ -451,19 +454,21 @@ foreach my $site (sort {$a cmp $b} keys %sitestat) {
     $sitestat{$site}{"EXP"}=0 if ! defined $sitestat{$site}{"EXP"};
 
     my $err = $sitestat{$site}{"FAILED"} - $sitestat{$site}{"EXP"};
-    print "site: $site (OK: " . $sitestat{$site}{"OK"} . "   Err: " . $err
-	. "   Exp/Canceled: " . $sitestat{$site}{"EXP"} . ")";
+    #print "site: $site (OK: " . $sitestat{$site}{"OK"} . "   Err: " . $err
+	#. "   Exp/Cancl: " . $sitestat{$site}{"EXP"} . ")";
+    printf("%20s (OK: %3d  Err: %3d  Exp/Cancl: %3d )",$site,$sitestat{$site}{"OK"},$err,$sitestat{$site}{"EXP"});
+
     print XML qq{<site name="$site" ok="$sitestat{$site}{"OK"}" err="$err" exp_cancelled="$sitestat{$site}{"EXP"}"};
 
     if (($sitestat{$site}{"OK"}+$sitestat{$site}{"FAILED"}) > 0) {
         my $succ = $sitestat{$site}{"OK"}/($sitestat{$site}{"OK"}+$sitestat{$site}{"FAILED"}-$sitestat{$site}{"EXP"})*100;
-        printf("\tsucc. rate: %.1f %%", $succ);
+        printf("   succ.: %.1f %%", $succ);
         print XML sprintf(" succ_percent=\"%.1f\"", $succ);
     }
 
     $sitestat{$site}{"size"}=0 if ! exists $sitestat{$site}{"size"};
     $totalsize+=$sitestat{$site}{"size"};
-    printf("   total: %.1f GB",$sitestat{$site}{"size"}/1e9);
+    printf("   total: %6.1f GB  (%4.1f MB/s)",$sitestat{$site}{"size"}/1e9,$sitestat{$site}{"size"}/1e6/$deltat);
     print XML sprintf(" stotal_gb=\"%.1f\"",$sitestat{$site}{"size"}/1024/1024/1024);
 
     if ( exists $sitestat{$site}{"ttransfer"} && $sitestat{$site}{"ttransfer"}>0) {
@@ -479,7 +484,6 @@ foreach my $site (sort {$a cmp $b} keys %sitestat) {
 print XML "</SiteStat>\n";
 
 # Calculate total throughput from first to last used log entry
-my $deltat=$dateend-$datestart;
 if($deltat>0) {
     $MbperS=$totalsize/(1024*1024)*8/$deltat;
     $MBperS=$totalsize/(1024*1024)/$deltat;
