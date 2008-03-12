@@ -88,6 +88,7 @@ sub new
 	      report_statistics	=> 'report_statistics',
 	      cleanup_stats    	=> 'cleanup_stats',
 	      shoot_myself	=> 'shoot_myself',
+	      sanity_check	=> 'sanity_check',
 
 	      _default	 => '_default',
 	      _stop	 => '_stop',
@@ -167,6 +168,7 @@ sub _start
   $kernel->delay_set('poll_job',$self->{J_INTERVAL})
 	if $self->{Q_INTERFACE}->can('ListJob');
   $kernel->yield('report_statistics') if $self->{STATISTICS_INTERVAL};
+  $kernel->yield('sanity_check');
 }
 
 sub shoot_myself
@@ -189,9 +191,7 @@ sub poll_queue
   $list = $self->{Q_INTERFACE}->ListQueue;
   if ( $list->{ERROR} )
   {
-    warn "No successfull queue- or job-poll in ",
-	 time-$self->{LAST_SUCCESSFULL_POLL},
-	 " seconds\n";
+    warn "Monitor: Error from ListQueue: ",$list->{ERROR},"\n";
     goto PQDONE;
   }
   else
@@ -241,16 +241,16 @@ sub poll_job
   my ($state,$priority,$id,$job,$summary);
 
   ($priority,$id,$job) = $self->{QUEUE}->dequeue_next;
-  goto PJDONE unless $id; # Nothing to monitor!
+  if ( ! $id )
+  {
+    $self->{LAST_SUCCESSFUL_POLL} = time;
+    goto PJDONE;
+  }
 
   $state = $self->{Q_INTERFACE}->ListJob($job);
 
   if (exists $state->{ERROR}) {
       print "Monitor: ListJob for $job->ID returned error: $state->{ERROR}\n";
-      print "No successfull queue- or job-poll in ",
-            time-$self->{LAST_SUCCESSFULL_POLL},
-            " seconds\n";
-
 #     Put this job back in the queue before I forget about it completely!
       $self->{QUEUE}->enqueue( $priority, $job );
       goto PJDONE;
@@ -332,11 +332,61 @@ sub poll_job
     $priority = int($priority/60);
     $priority = 30 if $priority < 30;
     $job->Priority($priority);
+    if ( time%2 )
+    {
+      print "Deliberately forgetting about job ",$job->ID,"\n";
+    }
+    else {
     $self->{QUEUE}->enqueue( $priority, $job );
+    }
   }
 
 PJDONE:
   $kernel->delay_set('poll_job', $self->{J_INTERVAL});
+}
+
+sub sanity_check
+{
+  my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+  my $sanity_timeout = $self->{J_INTERVAL}*10;
+
+  if ( defined($self->{LAST_SUCCESSFULL_POLL}) )
+  {
+    my $last_poll = time-$self->{LAST_SUCCESSFULL_POLL};
+    if ( $last_poll > $sanity_timeout )
+    {
+      print "No successfull queue- or job-poll in ",
+            time-$self->{LAST_SUCCESSFULL_POLL},
+            " seconds\n";
+    }
+  }
+
+# Check consistency of queue and internal memory
+  my @qjobs = map { $_->[2] } $self->{QUEUE}->peek_items( sub{1} );
+  my @mjobs = keys %{$self->{WORKSTATS}{JOBS}{STATES}};
+  my %h;
+  foreach ( @mjobs ) { $h{$_}++; }
+  foreach ( @qjobs )
+  {
+    my $id = $_->ID;
+    delete $h{$id} if exists $h{$id};
+  }
+  foreach ( keys %h )
+  {
+    warn "Monitor: Orphaned job (in memory but not monitored): $_\n";
+    delete $self->{WORKSTATS}{JOBS}{STATES}{$_};
+    if ( my $job = $self->{JOBS}{$_} )
+    {
+      foreach ( values %{$job->Files} )
+      {
+        warn "Monitor: Orphaned file (",$_->Destination,") from job ",$job->ID,"\n";
+        delete $self->{WORKSTATS}{FILES}{STATES}{$_->Destination};
+        delete $self->{LINKSTATS}{$_->Destination};
+      }
+    }
+  }    
+
+  $kernel->delay_set('sanity_check', 600);
 }
 
 sub report_job
@@ -473,6 +523,7 @@ sub QueueJob
   }
   $job->Priority($priority);
   $self->{QUEUE}->enqueue( $priority, $job );
+  $self->{JOBS}{$job->{ID}} = $job;
 }
 
 1;
