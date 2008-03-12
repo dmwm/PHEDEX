@@ -187,14 +187,15 @@ sub poll_queue
   print $self->hdr,"poll_queue...\n";
 
   $list = $self->{Q_INTERFACE}->ListQueue;
-  if ( $list ) { $self->{LAST_SUCCESSFULL_POLL} = time; }
-  else
+  if ( $list->{ERROR} )
   {
     warn "No successfull queue- or job-poll in ",
 	 time-$self->{LAST_SUCCESSFULL_POLL},
 	 " seconds\n";
-    goto DONE;
+    goto PQDONE;
   }
+  else
+  { $self->{LAST_SUCCESSFULL_POLL} = time; }
 
   foreach my $h ( values %$list )
   {
@@ -230,6 +231,7 @@ sub poll_queue
       print "Queued $h->{ID} at priority $priority (",$h->{STATUS},")\n" if $self->{VERBOSE};
     }
   }
+PQDONE:
   $kernel->delay_set('poll_queue', $self->{Q_INTERVAL});
 }
 
@@ -239,16 +241,19 @@ sub poll_job
   my ($state,$priority,$id,$job,$summary);
 
   ($priority,$id,$job) = $self->{QUEUE}->dequeue_next;
-  goto DONE unless $id;
+  goto PJDONE unless $id; # Nothing to monitor!
 
   $state = $self->{Q_INTERFACE}->ListJob($job);
 
   if (exists $state->{ERROR}) {
       print "Monitor: ListJob for $job->ID returned error: $state->{ERROR}\n";
       print "No successfull queue- or job-poll in ",
-      time-$self->{LAST_SUCCESSFULL_POLL},
-      " seconds\n";
-      goto DONE;
+            time-$self->{LAST_SUCCESSFULL_POLL},
+            " seconds\n";
+
+#     Put this job back in the queue before I forget about it completely!
+      $self->{QUEUE}->enqueue( $priority, $job );
+      goto PJDONE;
   }
 
   $self->{LAST_SUCCESSFULL_POLL} = time;
@@ -330,7 +335,7 @@ sub poll_job
     $self->{QUEUE}->enqueue( $priority, $job );
   }
 
-DONE:
+PJDONE:
   $kernel->delay_set('poll_job', $self->{J_INTERVAL});
 }
 
