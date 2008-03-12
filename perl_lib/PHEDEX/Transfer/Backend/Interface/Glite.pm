@@ -6,23 +6,13 @@ PHEDEX::Transfer::Backend::Interface::Glite - PHEDEX::Transfer::Backend::Interfa
 
 =head1 SYNOPSIS
 
-pending...
+An interface to the glite- commands for the new PhEDEx transfer backend.
 
 =head1 DESCRIPTION
 
 pending...
 
 =head1 METHODS
-
-=over
-
-=back
-
-=head1 EXAMPLES
-
-pending...
-
-=head1 SEE ALSO...
 
 =cut
 
@@ -89,12 +79,36 @@ sub AUTOLOAD
   $self->$parent(@_);
 }
 
+=head2 hdr
+
+Simply returns a pretty-formatted string to use as the first item in printouts
+or in logfiles
+
+=cut
+
 sub hdr
 {
   my $self = shift;
   my $name = $self->{NAME} || ref($self) || "(unknown object $self)";
   return scalar(localtime) . ': ' . $name . ' ';
 }
+
+=head2 ListQueue
+
+returns a hashref with information about all the jobs currently in the transfer
+queue for the given FTS service (i.e. the one that the Glite object knows
+about). The hash is keyed on the job-ids, the value being a subhash of ID,
+STATE, and (FTS) SERVICE names.
+
+In the event of an error the hash contains a single key, 'ERROR', with the
+value being the text of the error message. Not very sophisticated but good
+enough for now. Clients need only detect that the 'ERROR' key is present to
+know something went wrong, or assume all is well if it isn't there.
+
+This function is not used by the backend in normal operation, but is useful in
+passive monitoring mode.
+
+=cut
 
 sub ListQueue
 {
@@ -121,6 +135,41 @@ sub ListQueue
   };
   return \%result;
 }
+
+=head2 ListJob
+
+Takes a single argument, a reference to a PHEDEX::Transfer::Backend::Job
+object. Then issues glite-transfer-status for that job and picks through the
+output. Returns a somewhat complex hashref with the result. As with ListQueue,
+the hash will contain an 'ERROR' key if something went wrong, or not if the
+command succeeded.
+
+The keys returned in the hash are:
+
+=over
+
+RAW_OUTPUT is the unmolested text output of the status command, returned as a
+reference to an array of lines. This is needed for debugging purposes.
+
+The FILES key contains a subkey for each file in the job, keyed by destination
+PFN. The function explicitly checks that it has keys for the DESTINATION,
+DURATION, REASON, RETRIES, SOURCE and STATE of each file, or it dies, assuming
+that something serious has gone wrong. This may not be correct behaviour. So,
+the status of a particular destination PFN will be returned as C<<
+$result->{FILES}{$destinationPFN}{STATE} >>.
+
+The FILES_STATE key contains a hash of { STATE => state-count }, i.e. the
+number of times a given file-state is encountered. Only states which are
+actually encountered are present in the hash, so the existence of a given key
+is not guaranteed.
+
+The ETC key can be ignored for now. It should be set to zero. Eventually this
+will be used as a means of estimating the time of completion of a given job,
+which will affect it's priority for monitoring.
+
+=back
+
+=cut
 
 sub ListJob
 {
@@ -188,6 +237,19 @@ sub ListJob
   return \%result;
 }
 
+=head2 StatePriority
+
+Takes a job state-name as argument, and returns an integer from a lookup
+hash. Another half-formed idea, the intention was to use this in the
+calculation of monitoring priorities too. This is not needed at the moment,
+but this routine is still needed in the passive polling mode, which is used
+in the standalone transfer prototype. Essentially the C<< %states >> hash
+should have all known states listed in it as keys, with zero for the states
+that correspond to job-exit, and any non-zero value for states which are not
+terminal.
+
+=cut
+
 sub StatePriority
 {
   my ($self,$state) = @_;
@@ -195,6 +257,15 @@ sub StatePriority
   return $states{Default} if !$self->{DEBUGGING};
   die "Unknown state \"$state\" encountered in ",__PACKAGE__,"\n";
 }
+
+=head2 Submit
+
+Take a PHEDEX::Transfer::Backend::Job object reference as input, submit the
+job, and return a hashref with the resulting job ID. Returns a hashref keyed
+on 'ERROR' if something goes wrong. The ID returned in the result is then used
+when polling for the status of this job.
+
+=cut
 
 sub Submit
 {
