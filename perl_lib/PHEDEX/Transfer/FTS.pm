@@ -282,7 +282,7 @@ sub startBatch
 	my $reason = "Cannot identify FTS service endpoint based on a sample source PFN $batch[0]->{FROM_PFN}";
 	print $reason, "\n";
 	$job->Log("$reason\nSee download agent log file details, grep for\ FTSmap to see problems with FTS map file");
-	foreach my $file ( keys %files ) {
+	foreach my $file ( values %files ) {
 	    $file->Reason($reason);
 	    $self->mkTransferSummary($file, $job);
 	}
@@ -296,12 +296,12 @@ sub startBatch
 	# something went wrong...
 	my $reason = "Could not submit to FTS\n";
 	$job->Log( $result->{ERROR} );
-	foreach my $file ( keys %files ) {
+	foreach my $file ( values %files ) {
             $file->Reason($reason);
             $self->mkTransferSummary($file, $job);
         }
 
-	$self->mkTranserSummary();
+#	$self->mkTranserSummary();
 	return;
     }
 
