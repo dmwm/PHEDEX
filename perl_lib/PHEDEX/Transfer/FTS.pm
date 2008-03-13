@@ -61,7 +61,7 @@ sub init
     my $glite = PHEDEX::Transfer::Backend::Interface::Glite->new
 	(
 	 SERVICE => $self->{FTS_SERVICE},
-	 NAME    => '::GLite',
+	 ME      => 'GLite',
 	 );
 
     $self->{Q_INTERFACE} = $glite;
@@ -95,7 +95,7 @@ sub init
 	 J_INTERVAL    => $self->{FTS_J_INTERVAL},
 	 POLL_QUEUE    => $self->{FTS_POLL_QUEUE},
 	 APMON         => $monalisa,
-	 NAME          => '::QMon',
+	 ME            => 'QMon',
 	 );
 
     $self->{FTS_Q_MONITOR} = $q_mon;
