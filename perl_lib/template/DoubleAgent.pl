@@ -52,61 +52,26 @@ use strict;
 
 ######################################################################
 my ($agentset,@agents,$agent,$config,%h,%m,%args);
-my ($Agent,$Config);
+my ($Factory,$Agent,$Config);
 use Getopt::Long;
 use PHEDEX::Core::Help;
-use PHEDEX::Core::Config;
-use PHEDEX::Core::Logging qw / Hdr /;
-use POE;
-#use template::Agent;
+use PHEDEX::Core::Config::Factory;
+#use POE;
 
 &GetOptions (
              "state=s"   => \$args{DROPDIR},
              "log=s"     => \$args{LOGFILE},
              "db=s"      => \$args{DBCONFIG},
-             "config=s"  => \$config,
+             "config=s"  => \$args{CONFIG},
              "node=s"    => \$args{MYNODE},
 	     "help|h"    => sub { &usage() },
-	     "agent=s@"  => \@agents,
+	     "agent=s@"  => sub { push(@{$args{AGENTS}}, split(/,/, $_[1])) },
 	     );
-$Config = PHEDEX::Core::Config->new( PARANOID => 1 );
-$Config->readConfig( $config );
 
-$args{NODAEMON} = 1;
-foreach $agent ( @agents )
-{
-  print Hdr(),"$agent: Lookup agent\n";
-  $Agent = $Config->select_agents( $agent );
-
-# Paranoia!
-  if ( $agent ne $Agent->LABEL )
-  {
-    die "given \"$agent\", but found \"",$Agent->LABEL,"\"\n";
-  }
-
-  my $module = $Agent->PROGRAM;
-  print Hdr(),"$agent is in $module\n";
-  if ( !exists($m{$module}) )
-  {
-    print Hdr(),"Attempt to load $module\n";
-    eval("use $module");
-    do { chomp ($@); die "Failed to load module $module: $@\n" } if $@;
-    $m{$module}++;
-  }
-  my %a = %args;
-  $a{DROPDIR} .= '/' . $agent;
-  $a{ME} = $agent;
-  my $opts = $Agent->OPTIONS;
-
-  my $env = $Config->{ENVIRONMENTS}{$Agent->ENVIRON};
-  foreach ( keys %{$opts} )
-  {
-    $a{$_} = $env->getExpandedString($opts->{$_});
-  }
-
-  $h{$agent} = eval("new $module(%a,@ARGV)");
-  do { chomp ($@); die "Failed to create agent $module: $@\n" } if $@;
-}
+#$args{VERBOSE}=1;
+$Factory = PHEDEX::Core::Config::Factory->new( %args, @ARGV );
+my $Agents = $Factory->createAgents();
+$Factory->really_daemon;
 
 POE::Kernel->run();
 print Hdr(),"POE kernel has ended, now I shoot myself\n";

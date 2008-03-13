@@ -30,7 +30,7 @@ our %params =
     	  DBCONFIG => undef,		# Database configuration file
 	  WAITTIME => 6 + rand(3),	# Agent cycle time
 	  MYNEWPARAM => 'my value',
-	  VERBOSE    => 0,
+	  VERBOSE    => $ENV{PHEDEX_VERBOSE},
 	);
 
 our @array_params = qw / MYARRAY /;

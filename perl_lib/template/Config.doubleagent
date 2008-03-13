@@ -25,6 +25,9 @@ PHEDEX_LOGS=${PHEDEX_BASE}/${PHEDEX_INSTANCE}_${PHEDEX_CONTEXT}/logs;
 PHEDEX_SCRIPTS=${PHEDEX_BASE};
 PERL5LIB=/afs/cern.ch/user/w/wildish/public/perl:${PHEDEX_BASE}/perl_lib
 
+PHEDEX_LOGS=/tmp/phedex/tony
+
+export PHEDEX_VERBOSE=1
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/afs/cern.ch/user/w/wildish/public/bin
 rlwrap=/afs/cern.ch/user/w/wildish/public/bin/rlwrap
 
@@ -34,21 +37,18 @@ PHEDEX_DEBUGGER="$rlwrap perl -MPHEDEX::Debug -d"
  -db     ${PHEDEX_DBPARAM}
  -node   ${PHEDEX_NODE}
  -config ${PHEDEX_CONFIG_FILE}
- -agent  blockverify
-# -agent  fast-agent
-# -agent  medium-agent
-# -agent  slow-agent
+ -agent  fast-agent
+ -agent  medium-agent
+ -agent  slow-agent
+# -agent  blockverify
 
 ### AGENT LABEL=fast-agent PROGRAM=template::Agent DEFAULT=off
- -string    agent-1
  WAITTIME 3
 
 ### AGENT LABEL=medium-agent PROGRAM=template::Agent DEFAULT=off
- -string    agent-2
  WAITTIME 7
 
 ### AGENT LABEL=slow-agent PROGRAM=template::Agent DEFAULT=off
- -string    agent-2
  WAITTIME 15
 
 ### AGENT LABEL=blockverify PROGRAM=PHEDEX::BlockConsistency::Agent DEFAULT=off
