@@ -32,6 +32,7 @@ L<PHEDEX::Transfer::Backend::Interface::Glite|PHEDEX::Transfer::Backend::Interfa
 
 use strict;
 use warnings;
+use base 'PHEDEX::Core::Logging';
 use POE::Session;
 use POE::Queue::Array;
 use PHEDEX::Monalisa;
@@ -42,10 +43,11 @@ our %params =
 	  Q_INTERVAL		=> 60,	  # Queue polling interval
 	  J_INTERVAL		=>  5,	  # Job polling interval
 	  POLL_QUEUE		=>  1,	  # Poll the queue or not?
-	  NAME			=> undef, # Arbitrary name for this object
+	  ME			=> 'QMon',# Arbitrary name for this object
 	  STATISTICS_INTERVAL	=> 60,	  # Interval for reporting statistics
 	  JOB_POSTBACK		=> undef, # Callback for job state changes
 	  FILE_POSTBACK		=> undef, # Callback for file state changes
+	  SANITY_INTERVAL	=> 60,	  # Interval for internal sanity-checks
 	  VERBOSE		=> 0,
 	);
 our %ro_params =
@@ -129,17 +131,10 @@ sub AUTOLOAD
   $self->$parent(@_);
 }
 
-sub hdr
-{
-  my $self = shift;
-  my $name = $self->{NAME} || ref($self) || "(unknown object $self)";
-  return scalar(localtime) . ': ' . $name . ' ';
-}
-
 sub _stop
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
-  print $self->hdr, "is ending, for lack of work...\n";
+  print $self->Hdr, "is ending, for lack of work...\n";
 }
 
 sub _default
@@ -159,7 +154,7 @@ EOF
 sub _start
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
-  print $self->hdr,"is starting (session ",$session->ID,")\n";
+  print $self->Hdr,"is starting (session ",$session->ID,")\n";
 
   $self->{SESSION_ID} = $session->ID;
   $kernel->yield('poll_queue')
@@ -176,7 +171,7 @@ sub shoot_myself
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
   $kernel->call( $session, 'report_statistics' );
   if ( $self->{APMON} ) { $self->{APMON}->ApMon->free(); }
-  print $self->hdr,"shooting myself...\n";
+  print $self->Hdr,"shooting myself...\n";
   $kernel->alarm_remove_all();
 }
 
@@ -186,7 +181,7 @@ sub poll_queue
   my ($id,$list,$priority);
 
   return unless $self->{POLL_QUEUE};
-  print $self->hdr,"poll_queue...\n";
+  print $self->Hdr,"poll_queue...\n";
 
   $list = $self->{Q_INTERFACE}->ListQueue;
   if ( $list->{ERROR} )
@@ -228,7 +223,7 @@ sub poll_queue
       $job->Priority($priority);
       $self->{QUEUE}->enqueue( $priority, $job );
       $self->{JOBS}{$h->{ID}} = $job;
-      print "Queued $h->{ID} at priority $priority (",$h->{STATUS},")\n" if $self->{VERBOSE};
+      print $self->Hdr,"Queued $h->{ID} at priority $priority (",$h->{STATUS},")\n" if $self->{VERBOSE};
     }
   }
 PQDONE:
@@ -250,14 +245,14 @@ sub poll_job
   $state = $self->{Q_INTERFACE}->ListJob($job);
 
   if (exists $state->{ERROR}) {
-      print "Monitor: ListJob for $job->ID returned error: $state->{ERROR}\n";
+      print $self->Hdr,"ListJob for $job->ID returned error: $state->{ERROR}\n";
 #     Put this job back in the queue before I forget about it completely!
       $self->{QUEUE}->enqueue( $priority, $job );
       goto PJDONE;
   }
 
   $self->{LAST_SUCCESSFULL_POLL} = time;
-  print "JOBID ",$job->ID," STATE $state->{JOB_STATE}\n";
+  print $self->Hdr,"JOBID ",$job->ID," STATE $state->{JOB_STATE}\n";
 
   $job->State($state->{JOB_STATE});
   $job->RawOutput(@{$state->{RAW_OUTPUT}});
@@ -310,7 +305,7 @@ sub poll_job
                  );
   if ( $job->Summary ne $summary )
   {
-    print $self->hdr,$job->ID,": $summary\n" if $self->{VERBOSE};
+    print $self->Hdr,$job->ID,": $summary\n" if $self->{VERBOSE};
     $job->Summary($summary);
   }
 
@@ -332,13 +327,7 @@ sub poll_job
     $priority = int($priority/60);
     $priority = 30 if $priority < 30;
     $job->Priority($priority);
-    if ( time%2 )
-    {
-      print "Deliberately forgetting about job ",$job->ID,"\n";
-    }
-    else {
     $self->{QUEUE}->enqueue( $priority, $job );
-    }
   }
 
 PJDONE:
@@ -349,17 +338,6 @@ sub sanity_check
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
   my $sanity_timeout = $self->{J_INTERVAL}*10;
-
-  if ( defined($self->{LAST_SUCCESSFULL_POLL}) )
-  {
-    my $last_poll = time-$self->{LAST_SUCCESSFULL_POLL};
-    if ( $last_poll > $sanity_timeout )
-    {
-      print "No successfull queue- or job-poll in ",
-            time-$self->{LAST_SUCCESSFULL_POLL},
-            " seconds\n";
-    }
-  }
 
 # Check consistency of queue and internal memory
   my @qjobs = map { $_->[2] } $self->{QUEUE}->peek_items( sub{1} );
@@ -373,27 +351,40 @@ sub sanity_check
   }
   foreach ( keys %h )
   {
-    warn "Monitor: Orphaned job (in memory but not monitored): $_\n";
-    delete $self->{WORKSTATS}{JOBS}{STATES}{$_};
-    if ( my $job = $self->{JOBS}{$_} )
+    $self->Warn("Orphaned job ID=$_");
+#   delete $self->{WORKSTATS}{JOBS}{STATES}{$_};
+    my $job = $self->{JOBS}{$_};
+    if ( $job )
     {
+      $job->State('lost');
       foreach ( values %{$job->Files} )
       {
-        warn "Monitor: Orphaned file (",$_->Destination,") from job ",$job->ID,"\n";
-        delete $self->{WORKSTATS}{FILES}{STATES}{$_->Destination};
-        delete $self->{LINKSTATS}{$_->Destination};
+        $self->Warn("Orphaned file: jobID=",$job->ID," TaskID=",($_->TaskID or '')," Destination=",$_->Destination);
+        $_->State('lost');
       }
+      $kernel->yield('report_job',$job);
     }
-  }    
+  }
 
-  $kernel->delay_set('sanity_check', 600);
+  if ( @qjobs && defined($self->{LAST_SUCCESSFULL_POLL}) )
+  {
+    my $last_poll = time-$self->{LAST_SUCCESSFULL_POLL};
+    if ( $last_poll > $sanity_timeout )
+    {
+      print $self->Hdr,"No successfull queue- or job-poll in ",
+            time-$self->{LAST_SUCCESSFULL_POLL},
+            " seconds\n";
+    }
+  }
+
+  $kernel->delay_set('sanity_check', $self->{SANITY_INTERVAL});
 }
 
 sub report_job
 {
   my ( $self, $kernel, $job ) = @_[ OBJECT, KERNEL, ARG0 ];
   my $jobid = $job->ID;
-  print $self->hdr,"Job $jobid has ended...\n" if $self->{VERBOSE};
+  $self->Logmsg("$jobid has ended in state ",$job->State) if $self->{VERBOSE};
 
   $job->Log(time,'Job has ended');
   $self->WorkStats('JOBS', $job->ID, $job->State);
@@ -403,12 +394,13 @@ sub report_job
     $self->LinkStats($_->Destination, $_->FromNode, $_->ToNode, $_->State);
   }
 
+  $self->{JOB_POSTBACK}->($job) if $self->{JOB_POSTBACK};
   if ( defined $job->JOB_POSTBACK ) { $job->JOB_POSTBACK->(); }
   else
   {
-    print $self->hdr,'Log for ',$job->ID,"\n",
+    print $self->Hdr,'Log for ',$job->ID,"\n",
 	  $job->Log,
-	  $self->hdr,'Log ends for ',$job->ID,"\n" if $self->{VERBOSE};
+	  $self->Hdr,'Log ends for ',$job->ID,"\n" if $self->{VERBOSE};
   }
 
 # Now I should take detailed action on any errors...
@@ -419,7 +411,7 @@ sub cleanup_stats
 {
   my ( $self, $kernel, $job ) = @_[ OBJECT, KERNEL, ARG0 ];
   my $jobid = $job->ID;
-  print $self->hdr,"Cleaning up stats for job $jobid...\n" if $self->{VERBOSE};
+  $self->Logmsg("Cleaning up stats for job $jobid...") if $self->{VERBOSE};
   delete $self->{WORKSTATS}{JOBS}{STATES}{$job->ID};
   foreach ( values %{$job->Files} )
   {
@@ -430,8 +422,6 @@ sub cleanup_stats
   delete $self->{JOBS}{$job->ID};
 }
 
-
-
 sub report_statistics
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
@@ -440,7 +430,7 @@ sub report_statistics
   if ( ! defined($self->{WORKSTATS}{START}) )
   {
     $self->{WORKSTATS}{START} = time;
-    print $self->hdr,"STATISTICS: INTERVAL=",$self->{STATISTICS_INTERVAL},"\n";
+    print $self->Hdr,"STATISTICS: INTERVAL=",$self->{STATISTICS_INTERVAL},"\n";
   }
   $t = time - $self->{WORKSTATS}{START};
 
@@ -459,9 +449,9 @@ sub report_statistics
     next unless defined( $s->{$key}{TOTAL} );
     $summary = join(' ', 'Total='.$s->{$key}{TOTAL},
     (map { "$_=" . $s->{$key}{STATES}{$_} } sort keys %{$s->{$key}{STATES}} ));
-    if ( $self->{WORKSTATS}{$key}{SUMMARY} ne $summary )
+#   if ( $self->{WORKSTATS}{$key}{SUMMARY} ne $summary )
     {
-      print $self->hdr,"STATISTICS: TIME=$t $key: $summary\n";
+      print $self->Hdr,"STATISTICS: TIME=$t $key: $summary\n";
       $self->{WORKSTATS}{$key}{SUMMARY} = $summary;
     }
 
@@ -479,7 +469,7 @@ sub report_statistics
         $h->{$_} = 0 unless defined $h->{$_};
       }
       $h->{Cluster} = $self->{APMON}{Cluster} || 'PhEDEx';
-      $h->{Node}    = ($self->{APMON}{Node} || $self->{NAME}) . '_' . $key;
+      $h->{Node}    = ($self->{APMON}{Node} || $self->{ME}) . '_' . $key;
       $self->{APMON}->Send($h);
     }
   }
