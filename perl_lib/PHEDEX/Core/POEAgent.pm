@@ -87,7 +87,7 @@ our %params =
 	  ENVIRONMENT	=> undef,
 	  AGENT		=> undef,
 	  DEBUG         => $ENV{PHEDEX_DEBUG},
- 	  VERBOSE       => $ENV{PHEDEX_VERBOSE}
+ 	  VERBOSE       => $ENV{PHEDEX_VERBOSE},
 	);
 
 our @array_params = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
@@ -245,6 +245,7 @@ sub daemon
     my $pid;
 
     return if $self->{NODAEMON};
+    $me = $self->{ME} unless $me;
     # Open the pid file.
     open(PIDFILE, "> $self->{PIDFILE}")
 	|| die "$me: fatal error: cannot write to $self->{PIDFILE}: $!\n";
@@ -1465,7 +1466,6 @@ sub otherNodeFilter
 
 sub _start
 {
-$DB::single=1;
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
   $self->Logmsg("starting (session ",$session->ID,")");
   $self->preprocess( $kernel, $session );
