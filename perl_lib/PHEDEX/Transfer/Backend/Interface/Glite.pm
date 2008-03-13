@@ -18,6 +18,7 @@ pending...
 
 use strict;
 use warnings;
+use base 'PHEDEX::Core::Logging';
 
 our %params =
 	(
@@ -27,7 +28,7 @@ our %params =
 	  VONAME	=> undef,	# Restrict to specific VO
 	  SSITE		=> undef,	# Specify source site name
 	  DSITE		=> undef,	# Specify destination site name
-	  NAME		=> undef,	# Arbitrary name for this object
+	  ME		=> 'Glite',	# Arbitrary name for this object
 	);
 
 our %states =
@@ -77,20 +78,6 @@ sub AUTOLOAD
   return unless $attr =~ /[^A-Z]/;  # skip DESTROY and all-cap methods
   my $parent = "SUPER::" . $attr;
   $self->$parent(@_);
-}
-
-=head2 hdr
-
-Simply returns a pretty-formatted string to use as the first item in printouts
-or in logfiles
-
-=cut
-
-sub hdr
-{
-  my $self = shift;
-  my $name = $self->{NAME} || ref($self) || "(unknown object $self)";
-  return scalar(localtime) . ': ' . $name . ' ';
 }
 
 =head2 ListQueue
@@ -280,7 +267,7 @@ sub Submit
 
   my $cmd = "glite-transfer-submit -s " . $job->Service .
 				 ' -f ' . $job->Copyjob;
-# print $self->hdr,"Execute: $cmd\n";
+# print $self->Hdr,"Execute: $cmd\n";
   open GLITE, "$cmd |" or die "$cmd: $!\n";
   while ( <GLITE> ) { chomp; $id = $_ unless $id; }
   close GLITE or do
@@ -289,7 +276,7 @@ sub Submit
       $result{ERROR} = $!;
       return \%result;
   };
-  print $self->hdr,"Job $id submitted...\n";
+  print $self->Hdr,"Job $id submitted...\n";
   $result{ID} = $id;
   return \%result;
 }

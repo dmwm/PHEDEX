@@ -32,6 +32,7 @@ L<PHEDEX::Transfer::Backend::Interface::Glite|PHEDEX::Transfer::Backend::Interfa
 
 use strict;
 use warnings;
+use base 'PHEDEX::Core::Logging';
 use POE::Session;
 use POE::Queue::Array;
 use PHEDEX::Transfer::Backend::Job;
@@ -55,7 +56,7 @@ our %params =
 	  RETRY_MIN_FILE_GROUP	=>   3,   # Don't retry a single file in a job
 	  RETRY_MAX_AGE		=> 900,   # Retry anyway after this long...
 	  SERVICE		=> undef, # Glite service for jobs
-	  NAME			=> undef, # Arbitrary name for this object
+	  ME			=> 'Mgr', # Arbitrary name for this object
 
 	  SUSPEND_SUBMISSION	=>  0,	  # Allows me to suspend job submission
 	);
@@ -131,17 +132,10 @@ sub AUTOLOAD
   $self->$parent(@_);
 }
 
-sub hdr
-{
-  my $self = shift;
-  my $name = $self->{NAME} || ref($self) || "(unknown object $self)";
-  return scalar(localtime) . ': ' . $name . ' ';
-}
-
 sub _stop
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
-  print $self->hdr, "is ending, for lack of work...\n";
+  print $self->Hdr, "is ending, for lack of work...\n";
 }
 
 sub _default
@@ -161,7 +155,7 @@ EOF
 sub _start
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
-  print $self->hdr,"is starting (session ",$session->ID,")\n";
+  print $self->Hdr,"is starting (session ",$session->ID,")\n";
   $kernel->yield('check_job_queue');
   $kernel->yield('check_file_queue') if $self->{FILE_POLL_INTERVAL};
 }
@@ -205,7 +199,7 @@ sub check_job_queue
       else
       {
 #       Time to flush the queue, take everything!
-        print $self->hdr,"flushing $items files from the queue\n";
+        print $self->Hdr,"flushing $items files from the queue\n";
         $nfetch = $items;
       }
 
@@ -268,10 +262,10 @@ sub submit_job
   my ( $self, $kernel, $session, $files ) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
   my $job;
 
-  print $self->hdr,'submit_job: ',
+  print $self->Hdr,'submit_job: ',
 	$self->{JOB_COUNT},' of ',
 	$self->{MAX_PARALLEL_JOBS},"\n";
-  print "Submit job for:\n",
+  print $self->Hdr,"Submit job for:\n",
 	map { ' ' . $_->Source . "\n" } @{$files};
 
   $job = PHEDEX::Transfer::Backend::Job->new();
@@ -296,7 +290,7 @@ sub job_state
 {
   my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
   my $job = $arg0->[0];
-  print $self->hdr,$job->ID," has ended\n";
+  print $self->Hdr,$job->ID," has ended\n";
   $self->{JOB_COUNT}--;
 
   my ($fh,$close_it);
@@ -328,7 +322,7 @@ sub job_state
   }
 
   my $fq = $self->{FILE_QUEUE}->get_item_count;
-  print $self->hdr,"Job count now: ",$self->{JOB_COUNT},
+  print $self->Hdr,"Job count now: ",$self->{JOB_COUNT},
                    ' Files remaining:',$fq,
                    "\n";
 
@@ -336,7 +330,7 @@ sub job_state
   {
 #   Allow other things to happen first!
     my $shoot= $self->{EXIT_GRACE_PERIOD} || 300;
-    print $self->hdr,"shoot myself in $shoot seconds\n";
+    print $self->Hdr,"shoot myself in $shoot seconds\n";
     $kernel->delay_set('shoot_myself',$shoot);
   }
 }
@@ -351,7 +345,7 @@ sub shoot_myself
 		$self->{FILE_QUEUE}->get_item_count
 	    );
 
-  print $self->hdr,"shooting myself...\n";
+  print $self->Hdr,"shooting myself...\n";
 
   if ( $self->{Q_MONITOR} )
   {
@@ -388,13 +382,15 @@ sub file_state
   {
     if ( $file->RETRY )
     {
-      print "Requeue ",$file->Source,"\n";
+      print $self->Hdr,"Requeue ",$file->Source,"\n";
       $file->RetryMaxAge($self->{RETRY_MAX_AGE});
       $file->Nice(4);
       $self->QueueFile( $file );
     }
     else
-    { print 'Maximum retries exceeded for ',$file->Destination,"\n"; }
+    {
+      print $self->Hdr,'Maximum retries exceeded for ',$file->Destination,"\n";
+    }
   }
 
 # This is to trap a bizarre error seen once, but that shouldn't happen...
@@ -420,7 +416,7 @@ sub QueueFile
   $h->Priority(1000) unless $h->Priority;
   $h->MaxTries(2)    unless $h->MaxTries;
 
-  print "Queueing ",$h->Source," -> ",$h->Destination,"\n";
+  print $self->Hdr,"Queueing ",$h->Source," -> ",$h->Destination,"\n";
   $self->{FILE_QUEUE}->enqueue($h->Priority,$h);
   if ( $self->{Q_MONITOR} )
   {
