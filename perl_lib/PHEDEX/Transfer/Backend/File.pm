@@ -45,6 +45,7 @@ our %ro_params =
 	  WORKDIR       => undef,       # workdir of a job(!)         
 	  TIMESTAMP	=> undef,	# Time of file status reporting
 	  STATE		=> 'undefined',	# Initial file state
+	  ME		=> undef,	# A name for this job. == TASKID!
 	);
 
 our %exit_states =
@@ -61,6 +62,7 @@ our %exit_states =
 	  Failed	=> 2,
 	  Hold		=> 0,
 	  undefined	=> 0,
+	  lost		=> 1,
 	);
 
 sub new
@@ -78,6 +80,7 @@ sub new
       } keys %ro_params;
   map { $self->{$_} = $args{$_} } keys %args;
   $self->{LOG} = [];
+  $self->{ME} = $self->{TASKID}; # in case it's already set
 
   bless $self, $class;
   return $self;
@@ -126,7 +129,6 @@ space, and a newline is added to the last line. e.g:
 =back
 
 =cut
-
 
 sub Log
 {
@@ -349,6 +351,7 @@ sub TaskID
 {
   my $self = shift;
   $self->{TASKID} = shift if @_;
+  $self->{ME} = $self->{TASKID};
   return $self->{TASKID};
 }
 
