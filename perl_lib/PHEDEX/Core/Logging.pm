@@ -21,7 +21,7 @@ fatal() calls exit(1) after it prints a message to the log.
 use strict;
 use warnings;
 use base 'Exporter';
-our @EXPORT = qw(logmsg alert warn dbgmsg fatal note);
+our @EXPORT = qw( Hdr logmsg alert      dbgmsg fatal note);
 use POSIX;
 
 # Produce an alert message
@@ -37,10 +37,10 @@ sub alert
     &logmsg ("alert: ", @_);
 }
 
-sub warn
-{
-    &logmsg ("warning: ", @_);
-}
+#sub warn
+#{
+#    &logmsg ("warning: ", @_);
+#}
 
 sub dbgmsg
 {
@@ -58,6 +58,54 @@ sub note
     my $date = strftime ("%Y-%m-%d %H:%M:%S", gmtime);
     my $me = $0; $me =~ s|.*/||;
     print STDERR "$date: ${me}\[$$]: note: ", @_, "\n";
+}
+
+
+# Produce an alert message
+sub Logmsg
+{   
+  my $self = shift;
+  print $self->Hdr, @_,"\n";
+}
+
+sub Alert
+{   
+  my $self = shift;
+  $self->Logmsg ("alert: ", @_);
+}
+
+sub Warn
+{   
+  my $self = shift;
+  $self->Logmsg ("warning: ", @_);
+}   
+
+sub Dbgmsg
+{
+  my $self = shift;
+  $self->Logmsg ("debug: ", @_);
+}
+
+sub Fatal
+{
+  my $self = shift;
+  $self->Logmsg ("fatal: ", @_);
+  exit(1);
+}
+
+sub Note
+{
+  my $self = shift;
+  print $self->Hdr," note: ", @_, "\n";
+}
+
+sub Hdr
+{ 
+  my $self = shift;
+  my $me   = $self->{ME} || undef;
+  if ( !$me ) { $me = $0; $me =~ s|.*/||; }
+  my $date = strftime ("%Y-%m-%d %H:%M:%S", gmtime);
+  return "$date: $me\[$$]: ";
 }
 
 1;
