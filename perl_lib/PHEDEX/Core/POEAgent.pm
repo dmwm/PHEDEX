@@ -8,7 +8,7 @@ PHEDEX::Core::POEAgent - POEAgent daemon base class
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::JobManager';
+use base 'PHEDEX::Core::JobManager', 'PHEDEX::Core::Logging';
 use POSIX;
 use File::Path;
 use File::Basename;
@@ -252,6 +252,7 @@ sub daemon
     # Fork once to go to background
     die "failed to fork into background: $!\n"
 	if ! defined ($pid = fork());
+    close STDERR if $pid; # Hack to suppress misleading POE kernel warning
     exit(0) if $pid;
 
     # Make a new session
@@ -261,6 +262,7 @@ sub daemon
     # Fork another time to avoid reacquiring a controlling terminal
     die "failed to fork into background: $!\n"
 	if ! defined ($pid = fork());
+    close STDERR if $pid; # Hack to suppress misleading POE kernel warning
     exit(0) if $pid;
 
     # Clear umask
@@ -368,7 +370,7 @@ sub isInvalid
   {
    next if defined $self->{$_};
     $errors++;
-    warn "Required parameter \"$_\" not defined!\n";
+    $self->Warn("Required parameter \"$_\" not defined!\n");
   }
 
 # Some parameters must be writeable directories
@@ -379,9 +381,9 @@ sub isInvalid
 
 #   If the directory doesn't exist, attempt to create it...
     eval { mkpath $_ } unless -e;
-    fatal("PERL_FATAL: $key directory $_ does not exist")   unless -e;
-    fatal("PERL_FATAL: $key exists but is not a directory") unless -d;
-    fatal("PERL_FATAL: $key directory $_ is not writeable") unless -w;
+    $self->Fatal("PERL_FATAL: $key directory $_ does not exist")   unless -e;
+    $self->Fatal("PERL_FATAL: $key exists but is not a directory") unless -d;
+    $self->Fatal("PERL_FATAL: $key directory $_ is not writeable") unless -w;
   }
 
 # Some parameters must be writeable files if they exist, or the parent
@@ -394,8 +396,8 @@ sub isInvalid
       if ( -e $_ )
       {
 #       If it exists, it better be a writeable file
-        fatal("PERL_FATAL: $key exists but is not a file") unless -f;
-        fatal("PERL_FATAL: $key file $_ is not writeable") unless -w;
+        $self->Fatal("PERL_FATAL: $key exists but is not a file") unless -f;
+        $self->Fatal("PERL_FATAL: $key file $_ is not writeable") unless -w;
       }
       else
       {
@@ -406,9 +408,9 @@ sub isInvalid
           $_ = dirname($_);
           eval { mkpath $_ } unless -e;
         }
-        fatal("PERL_FATAL: $key directory $_ does not exist")   unless -e;
-        fatal("PERL_FATAL: $key exists but is not a directory") unless -d;
-        fatal("PERL_FATAL: $key directory $_ is not writeable") unless -w;
+        $self->Fatal("PERL_FATAL: $key directory $_ does not exist")   unless -e;
+        $self->Fatal("PERL_FATAL: $key exists but is not a directory") unless -d;
+        $self->Fatal("PERL_FATAL: $key directory $_ is not writeable") unless -w;
       }
     }
   }
@@ -416,7 +418,7 @@ sub isInvalid
   if ( !defined($self->{LOGFILE}) && !$self->{NODAEMON} )
   {
 #   LOGFILE not defined is fatal unless NODAEMON is set!
-    fatal("PERL_FATAL: LOGFILE not set but process will run as a daemon");
+    $self->Fatal("PERL_FATAL: LOGFILE not set but process will run as a daemon");
   }
 
   return $errors;
@@ -442,9 +444,9 @@ sub checkWorkers
 	    $self->{WORKERS}[$i] = $new;
 
 	    if (! $old) {
-		&logmsg ("worker $i ($new) started");
+		$self->Logmsg ("worker $i ($new) started");
 	    } else {
-	        &logmsg ("worker $i ($old) stopped, restarted as $new");
+	        $self->Logmsg ("worker $i ($old) stopped, restarted as $new");
 	    }
 	}
     }
@@ -467,13 +469,13 @@ sub stopWorkers
     my @workers = @{$self->{WORKERS}};
     my @stopflags = map { "$self->{DROPDIR}/worker-$_/stop" }
     			0 .. ($self->{NWORKERS}-1);
-    &note ("stopping worker threads");
+    $self->Note ("stopping worker threads");
     &touch (@stopflags);
     while (scalar @workers)
     {
 	my $pid = waitpid (-1, 0);
 	@workers = grep ($pid ne $_, @workers);
-	&logmsg ("child process $pid exited, @{[scalar @workers]} workers remain") if $pid > 0;
+	$self->Logmsg ("child process $pid exited, @{[scalar @workers]} workers remain") if $pid > 0;
     }
     unlink (@stopflags);
 }
@@ -498,7 +500,7 @@ sub maybeStop
     # Check for the stop flag file.  If it exists, quit: remove the
     # pidfile and the stop flag and exit.
     return if ! -f $self->{STOPFLAG};
-    &note("exiting from stop flag");
+    $self->Note("exiting from stop flag");
     $self->doStop();
 }
 
@@ -540,7 +542,7 @@ sub readInbox
     # Scan the inbox.  If this fails, file an alert but keep going,
     # the problem might be transient (just sleep for a while).
     my @files = ();
-    &alert("cannot list inbox: $!")
+    $self->Alert("cannot list inbox: $!")
 	if (! &getdir($self->{INBOX}, \@files));
 
     # Check for junk
@@ -549,7 +551,7 @@ sub readInbox
 	# Make sure we like it.
 	if (! -d "$self->{INBOX}/$f")
 	{
-	    &alert("junk ignored in inbox: $f") if ! exists $self->{JUNK}{$f};
+	    $self->Alert("junk ignored in inbox: $f") if ! exists $self->{JUNK}{$f};
 	    $self->{JUNK}{$f} = 1;
         }
 	else
@@ -571,7 +573,7 @@ sub readPending
     # Scan the work directory.  If this fails, file an alert but keep
     # going, the problem might be transient.
     my @files = ();
-    &alert("cannot list workdir: $!")
+    $self->Alert("cannot list workdir: $!")
 	if (! getdir($self->{WORKDIR}, \@files));
 
     return @files;
@@ -586,7 +588,7 @@ sub readOutbox
     # Scan the outbox directory.  If this fails, file an alert but keep
     # going, the problem might be transient.
     my @files = ();
-    &alert("cannot list outdir: $!")
+    $self->Alert("cannot list outdir: $!")
 	if (! getdir ($self->{OUTDIR}, \@files));
 
     return @files;
@@ -597,30 +599,30 @@ sub renameDrop
 {
     my ($self, $drop, $newname) = @_;
     &mv ("$self->{WORKDIR}/$drop", "$self->{WORKDIR}/$newname")
-        || do { &alert ("can't rename $drop to $newname"); return 0; };
+        || do { $self->Alert ("can't rename $drop to $newname"); return 0; };
     return 1;
 }
 
 # Utility to undo from failed scp bridge operation
 sub scpBridgeFailed
 {
-    my ($msg, $remote) = @_;
+    my ($self,$msg, $remote) = @_;
     # &runcmd ("ssh", $host, "rm -fr $remote");
-    &alert ($msg);
+    $self->Alert ($msg);
     return 0;
 }
 
 sub scpBridgeDrop
 {
-    my ($source, $target) = @_;
+    my ($self,$source, $target) = @_;
 
-    return &scpBridgeFailed ("failed to chmod $source", $target)
+    return $self->scpBridgeFailed ("failed to chmod $source", $target)
         if ! chmod(0775, "$source");
 
-    return &scpBridgeFailed ("failed to copy $source", $target)
+    return $self->scpBridgeFailed ("failed to copy $source", $target)
         if &runcmd ("scp", "-rp", "$source", "$target");
 
-    return &scpBridgeFailed ("failed to copy /dev/null to $target/go", $target)
+    return $self->scpBridgeFailed ("failed to copy /dev/null to $target/go", $target)
         if &runcmd ("scp", "/dev/null", "$target/go"); # FIXME: go-pending?
 
     return 1;
@@ -629,28 +631,28 @@ sub scpBridgeDrop
 # Utility to undo from failed rfio bridge operation
 sub rfioBridgeFailed
 {
-    my ($msg, $remote) = @_;
+    my ($self,$msg, $remote) = @_;
     &rfrmall ($remote) if $remote;
-    &alert ($msg);
+    $self->Alert ($msg);
     return 0;
 }
 
 sub rfioBridgeDrop
 {
-    my ($source, $target) = @_;
+    my ($self,$source, $target) = @_;
     my @files = <$source/*>;
-    do { &alert ("empty $source"); return 0; } if ! scalar @files;
+    do { $self->Alert ("empty $source"); return 0; } if ! scalar @files;
 
-    return &rfioBridgeFailed ("failed to create $target")
+    return $self->rfioBridgeFailed ("failed to create $target")
         if ! &rfmkpath ($target);
 
     foreach my $file (@files)
     {
-        return &rfioBridgeFailed ("failed to copy $file to $target", $target)
+        return $self->rfioBridgeFailed ("failed to copy $file to $target", $target)
             if ! &rfcp ("$source/$file", "$target/$file");
     }
 
-    return &rfioBridgeFailed ("failed to copy /dev/null to $target", $target)
+    return $self->rfioBridgeFailed ("failed to copy /dev/null to $target", $target)
         if ! &rfcp ("/dev/null", "$target/go");  # FIXME: go-pending?
 
     return 1;
@@ -693,7 +695,7 @@ sub relayDrop
 	-d "$self->{NEXTDIR}[0]/inbox"
 	    || mkdir "$self->{NEXTDIR}[0]/inbox"
 	    || -d "$self->{NEXTDIR}[0]/inbox"
-	    || return &alert("cannot create $self->{NEXTDIR}[0]/inbox: $!");
+	    || return $self->Alert("cannot create $self->{NEXTDIR}[0]/inbox: $!");
 
 	# Make sure the destination doesn't exist yet.  If it does but
 	# looks like a failed copy, nuke it; otherwise complain and give up.
@@ -702,23 +704,23 @@ sub relayDrop
 	    && ! -f "$self->{NEXTDIR}[0]/inbox/$drop/go") {
 	    &rmtree ("$self->{NEXTDIR}[0]/inbox/$drop")
         } elsif (-d "$self->{NEXTDIR}[0]/inbox/$drop") {
-	    return &alert("$self->{NEXTDIR}[0]/inbox/$drop already exists!");
+	    return $self->Alert("$self->{NEXTDIR}[0]/inbox/$drop already exists!");
 	}
 
 	&mv ("$self->{OUTDIR}/$drop", "$self->{NEXTDIR}[0]/inbox/$drop")
-	    || return &alert("failed to copy $drop to $self->{NEXTDIR}[0]/$drop: $!");
+	    || return $self->Alert("failed to copy $drop to $self->{NEXTDIR}[0]/$drop: $!");
 	&touch ("$self->{NEXTDIR}[0]/inbox/$drop/go")
-	    || &alert ("failed to make $self->{NEXTDIR}[0]/inbox/$drop go");
+	    || $self->Alert ("failed to make $self->{NEXTDIR}[0]/inbox/$drop go");
     }
     else
     {
         foreach my $dir (@{$self->{NEXTDIR}})
         {
 	    if ($dir =~ /^scp:/) {
-		&scpBridgeDrop ("$self->{OUTDIR}/$drop", "$dir/inbox/$drop");
+		$self->scpBridgeDrop ("$self->{OUTDIR}/$drop", "$dir/inbox/$drop");
 		next;
 	    } elsif ($dir =~ /^rfio:/) {
-		&rfioBridgeDrop ("$self->{OUTDIR}/$drop", "$dir/inbox/$drop");
+		$self->rfioBridgeDrop ("$self->{OUTDIR}/$drop", "$dir/inbox/$drop");
 		next;
 	    }
 
@@ -726,7 +728,7 @@ sub relayDrop
 	    -d "$dir/inbox"
 	        || mkdir "$dir/inbox"
 	        || -d "$dir/inbox"
-	        || return &alert("cannot create $dir/inbox: $!");
+	        || return $self->Alert("cannot create $dir/inbox: $!");
 
 	    # Make sure the destination doesn't exist yet.  If it does but
 	    # looks like a failed copy, nuke it; otherwise complain and give up.
@@ -735,12 +737,12 @@ sub relayDrop
 	        && ! -f "$dir/inbox/$drop/go") {
 	        &rmtree ("$dir/inbox/$drop")
             } elsif (-d "$dir/inbox/$drop") {
-	        return &alert("$dir/inbox/$drop already exists!");
+	        return $self->Alert("$dir/inbox/$drop already exists!");
 	    }
 
 	    # Copy to the next stage, preserving everything
 	    my $status = &runcmd  ("cp", "-Rp", "$self->{OUTDIR}/$drop", "$dir/inbox/$drop");
-	    return &alert ("can't copy $drop to $dir/inbox: $status") if $status;
+	    return $self->Alert ("can't copy $drop to $dir/inbox: $status") if $status;
 
 	    # Mark it almost ready to go
 	    &touch("$dir/inbox/$drop/go-pending");
@@ -772,20 +774,20 @@ sub inspectDrop
 
     if (! -d "$self->{WORKDIR}/$drop")
     {
-	&alert("$drop is not a pending task");
+	$self->Alert("$drop is not a pending task");
 	return 0;
     }
 
     if (-f "$self->{WORKDIR}/$drop/bad")
     {
-	&alert("$drop marked bad, skipping") if ! exists $self->{BAD}{$drop};
+	$self->Alert("$drop marked bad, skipping") if ! exists $self->{BAD}{$drop};
 	$self->{BAD}{$drop} = 1;
 	return 0;
     }
 
     if (! -f "$self->{WORKDIR}/$drop/go")
     {
-	&alert("$drop is incomplete!");
+	$self->Alert("$drop is incomplete!");
 	return 0;
     }
 
@@ -803,7 +805,7 @@ sub markBad
 {
     my ($self, $drop) = @_;
     &touch("$self->{WORKDIR}/$drop/bad");
-    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} failed");
+    $self->Logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} failed");
 }
 
 =head2 processDrop
@@ -846,7 +848,7 @@ sub process
     if (! &mv ("$self->{INBOX}/$drop", "$self->{WORKDIR}/$drop"))
     {
 #     Warn and ignore it, it will be returned again next time around
-      &alert("failed to move job '$drop' to pending queue: $!");
+      $self->Alert("failed to move job '$drop' to pending queue: $!");
     }
   }
 
@@ -870,13 +872,13 @@ sub process
 
   # Wait a little while.
   $self->maybeStop();
-  &dbgmsg("starting idle()") if $self->{DEBUG};
+  $self->Dbgmsg("starting idle()") if $self->{DEBUG};
   my $t1 = &mytimeofday();
   $self->idle (@pending);
   my $t2 = &mytimeofday();
-  &dbgmsg(sprintf("cycle time %.6f s", $t2-$t1)) if $self->{DEBUG};
+  $self->Dbgmsg(sprintf("cycle time %.6f s", $t2-$t1)) if $self->{DEBUG};
 #  if ($self->{AUTO_NAP}) {
-#&dbgmsg("sleeping for $self->{WAITTIME} s") if $self->{DEBUG};
+#$self->Dbgmsg("sleeping for $self->{WAITTIME} s") if $self->{DEBUG};
 #$self->nap ($self->{WAITTIME});
 #  }
 }
@@ -935,14 +937,14 @@ sub checkNodes
         select count(*) from t_adm_node where name like :pat});
 
     &dbbindexec($q, ':pat' => $self->{MYNODE});
-    fatal "'$self->{MYNODE}' does not match any node known to TMDB, check -node argument\n"
+    $self->Fatal("'$self->{MYNODE}' does not match any node known to TMDB, check -node argument\n")
 	if ($self->{MYNODE} && ! $q->fetchrow());
 
     my %params = (NODES => '-nodes', ACCEPT_NODES => '-accept', IGNORE_NODES => '-ignore');
     while (my ($param, $arg) = each %params) {
 	foreach my $pat (@{$self->{$param}}) {
 	    &dbbindexec($q, ':pat' => $pat);
-	    fatal "'$pat' does not match any node known to TMDB, check $arg argument\n"
+	    $self->Fatal("'$pat' does not match any node known to TMDB, check $arg argument\n")
 		unless $q->fetchrow();
 	}
     }
@@ -1099,7 +1101,7 @@ sub updateAgentStatus
   ($self->{ID_MYNODE}) = &dbexec($dbh, qq{
 	select id from t_adm_node where name = :node},
 	":node" => $self->{MYNODE})->fetchrow();
-  fatal "node $self->{MYNODE} not known to the database\n"
+  $self->Fatal("node $self->{MYNODE} not known to the database\n")
         if ! defined $self->{ID_MYNODE};
 
   # Check whether agent and agent status rows exist already.
@@ -1307,7 +1309,7 @@ sub checkAgentMessages
     # Act on the final state.
     if ($action eq 'STOP')
     {
-      &logmsg ("agent stopped via control message at $time");
+      $self->Logmsg ("agent stopped via control message at $time");
       $self->doStop ();
       exit(0); # Still running?
     }
@@ -1315,7 +1317,7 @@ sub checkAgentMessages
     {
       # The message doesn't actually specify for how long, take
       # a reasonable nap to avoid filling the log files.
-      &logmsg ("agent suspended via control message at $time");
+      $self->Logmsg ("agent suspended via control message at $time");
       $self->nap (90);
       next;
     }
@@ -1392,7 +1394,7 @@ sub myNodeFilter
   }
 
   unless (@filter) {
-      fatal "myNodeFilter() matched no nodes";
+      $self->Fatal("myNodeFilter() matched no nodes");
   }
 
   my $filter =  "(" . join(" or ", @filter) . ")";
@@ -1463,8 +1465,9 @@ sub otherNodeFilter
 
 sub _start
 {
+$DB::single=1;
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
-  print $self->hdr,"is starting (session ",$session->ID,")\n";
+  $self->Logmsg("starting (session ",$session->ID,")");
   $self->preprocess( $kernel, $session );
   if ( $self->can('_poe_init') )
   {
@@ -1473,29 +1476,30 @@ sub _start
   }
   $kernel->yield('_process');
   $kernel->yield('_nap');
+  $self->Logmsg("has successfully initialised");
 }
 
 sub _process
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
-  print $self->hdr,": starting '_process'\n";
+  print $self->Hdr,"starting '_process'\n" if $self->{VERBOSE};
   $self->process();
-  print $self->hdr,": ending '_process'\n";
+  print $self->Hdr,"ending '_process'\n" if $self->{VERBOSE};
   $kernel->delay_set('_process',$self->{WAITTIME});
 }
 sub _nap
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
-# print $self->hdr,": starting '_nap'\n";
+  print $self->Hdr,"starting '_nap'\n" if $self->{VERBOSE};
   $self->maybeStop();
-# print $self->hdr,": ending '_nap'\n";
+  print $self->Hdr,"ending '_nap'\n" if $self->{VERBOSE};
   $kernel->delay_set('_nap', 1);
 }
 
 sub _stop
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
-  print $self->hdr, "is ending, for lack of work...\n";
+  print $self->Hdr, "ending, for lack of work...\n";
 }
 
 sub _default
@@ -1510,13 +1514,6 @@ sub _default
 
   (...end of dump)
 EOF
-}
-
-sub hdr
-{
-  my $self = shift;
-  my $name = $self->{ME} || ref($self) || "(unknown object $self)";
-  return scalar(localtime) . ': ' . $name . ' ';
 }
 
 1;
