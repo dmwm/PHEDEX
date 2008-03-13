@@ -77,6 +77,8 @@ $flush_interval = 600;
 $poll_interval  =  60;
 $max_jobs       =  10;
 
+$verbose = 0;
+
 GetOptions(	"service=s"		=> \$service,
 		"q_interval=i"		=> \$q_interval,
 		"j_interval=i"		=> \$j_interval,
@@ -95,7 +97,7 @@ GetOptions(	"service=s"		=> \$service,
 my $glite = PHEDEX::Transfer::Backend::Interface::Glite->new
 		(
 		  SERVICE => $service,
-		  NAME    => '::GLite',
+		  ME      => '::GLite',
 		);
 print "Using service ",$glite->SERVICE,"\n";
 
@@ -124,7 +126,8 @@ my $q_mon = PHEDEX::Transfer::Backend::Monitor->new
 		  J_INTERVAL	=> $j_interval,
 		  POLL_QUEUE	=> $poll_queue,
 		  APMON		=> $monalisa,
-		  NAME		=> '::QMon',
+		  ME  		=> '::QMon',
+		  VERBOSE	=> $verbose,
 		);
 if ( $copyjob )
 {
@@ -140,7 +143,8 @@ if ( $copyjob )
 		  JOB_TRACE_DIR		=> $job_trace_dir,
 		  FILE_TRACE_DIR	=> $file_trace_dir,
 		  SERVICE		=> $service,
-		  NAME			=> '::Mgr',
+		  ME  			=> '::Mgr',
+		  VERBOSE		=> $verbose,
 
 		  @ARGV,
 		);
