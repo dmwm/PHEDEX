@@ -18,8 +18,9 @@ my ($dataset, $blocks, $files) = @ARGV;
 
 my $dbs = "test";
 my $dls = "lfc:unknown";
+my $xmlfile = $dataset;
+$xmlfile =~ s:^/::;  $xmlfile =~ s:/:-:g; $xmlfile .= '.xml';
 
-my $xmlfile = "test.xml";
 open XML, '>', $xmlfile or die $!;
 print XML qq{<dbs name="$dbs"  dls="$dls">\n};
 print XML qq{\t<dataset name="$dataset" is-open="n" is-transient="n">\n};
