@@ -103,10 +103,10 @@ sub ListQueue
   my ($cmd,$job,$state,%result);
 
   $cmd = "glite-transfer-list -s " . $self->{SERVICE};
-  open GLITE, "$cmd |" or do
+  open GLITE, "$cmd 2>&1 |" or do
   {
       print "$cmd: $!\n";
-      $result{ERROR} = $!;
+      $result{ERROR} = 'ListQueue: ' . $self->{SERVICE} . ': ' . $!;
       return \%result;
   };
   while ( <GLITE> )
@@ -117,7 +117,7 @@ sub ListQueue
   close GLITE or do
   {
       print "close: $cmd: $!\n";
-      $result{ERROR} = $!;
+      $result{ERROR} = 'close ListQueue: ' . $self->{SERVICE} . ': ' . $!;
       return \%result;
   };
   return \%result;
@@ -165,10 +165,10 @@ sub ListJob
   my ($key,$value);
 
   $cmd = "glite-transfer-status -l -s " . $job->Service . ' ' . $job->ID;
-  open GLITE, "$cmd |" or do
+  open GLITE, "$cmd 2>&1 |" or do
   {
       print "$cmd: $!\n";
-      $result{ERROR} = $!;
+      $result{ERROR} = 'ListJob: ' . $job->ID . ': ' . $!;
       return \%result;
   };
   $state = <GLITE>;
@@ -191,7 +191,7 @@ sub ListJob
   close GLITE or do
   {
       print "close: $cmd: $!\n";
-      $result{ERROR} = $!;
+      $result{ERROR} = 'close ListJob: ' . $job->ID . ':' . $!;
       return \%result;
   };
   $result{RAW_OUTPUT} = \@raw;
@@ -261,19 +261,24 @@ sub Submit
 
   defined $job->COPYJOB or do
   {
-    $result{ERROR} = "No copyjob given: %h";
+    $result{ERROR} = 'Submit: No copyjob given for job ' . $job->ID;
     return \%result;
   };
 
   my $cmd = "glite-transfer-submit -s " . $job->Service .
 				 ' -f ' . $job->Copyjob;
 # print $self->Hdr,"Execute: $cmd\n";
-  open GLITE, "$cmd |" or die "$cmd: $!\n";
-  while ( <GLITE> ) { chomp; $id = $_ unless $id; }
+  open GLITE, "$cmd 2>&1 |" or die "$cmd: $!\n";
+  while ( <GLITE> )
+  {
+    chomp;
+    m%^([0-9,a-f,-]+)\s*$% or next;
+    $id = $_ unless $id;
+  }
   close GLITE or do
   {
       print "close: $cmd: $!\n";
-      $result{ERROR} = $!;
+      $result{ERROR} = 'close Submit: id=' ( $id || 'undefined' ) . $!;
       return \%result;
   };
   print $self->Hdr,"Job $id submitted...\n";
