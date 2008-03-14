@@ -100,7 +100,7 @@ passive monitoring mode.
 sub ListQueue
 {
   my $self = shift;
-  my ($cmd,$job,$state,%result);
+  my ($cmd,$job,$state,%result,@raw);
 
   $cmd = "glite-transfer-list -s " . $self->{SERVICE};
   open GLITE, "$cmd 2>&1 |" or do
@@ -111,6 +111,7 @@ sub ListQueue
   };
   while ( <GLITE> )
   {
+    push @raw, $_;
     m%^([0-9,a-f,-]+)\s+(\S+)$% or next;
     $result{$1} = { ID => $1, STATE => $2, SERVICE => $self->{SERVICE} };
   }
@@ -118,8 +119,8 @@ sub ListQueue
   {
       print "close: $cmd: $!\n";
       $result{ERROR} = 'close ListQueue: ' . $self->{SERVICE} . ': ' . $!;
-      return \%result;
   };
+  $result{RAW_OUTPUT} = \@raw;
   return \%result;
 }
 
@@ -188,13 +189,13 @@ sub ListJob
     }
     if ( m%^\s+(\S+):\s+(.*)\s*$% ) { $h->{uc $1} = $2; }
   }
+  $result{RAW_OUTPUT} = \@raw;
   close GLITE or do
   {
       print "close: $cmd: $!\n";
       $result{ERROR} = 'close ListJob: ' . $job->ID . ':' . $!;
       return \%result;
   };
-  $result{RAW_OUTPUT} = \@raw;
 
   push @h, $h if $h;
   foreach $h ( @h )
@@ -257,7 +258,7 @@ when polling for the status of this job.
 sub Submit
 {
   my ($self,$job) = @_;
-  my (%result,$id);
+  my (%result,@raw,$id);
 
   defined $job->COPYJOB or do
   {
@@ -271,10 +272,12 @@ sub Submit
   open GLITE, "$cmd 2>&1 |" or die "$cmd: $!\n";
   while ( <GLITE> )
   {
+    push @raw, $_;
     chomp;
     m%^([0-9,a-f,-]+)\s*$% or next;
     $id = $_ unless $id;
   }
+  $result{RAW_OUTPUT} = \@raw;
   close GLITE or do
   {
       print "close: $cmd: $!\n";
