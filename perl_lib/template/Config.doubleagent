@@ -33,7 +33,7 @@ rlwrap=/afs/cern.ch/user/w/wildish/public/bin/rlwrap
 
 PHEDEX_DEBUGGER="$rlwrap perl -MPHEDEX::Debug -d"
 
-### AGENT LABEL=master-agent PROGRAM=perl_lib/template/DoubleAgent.pl
+### AGENT LABEL=master-agent PROGRAM=Utilities/AgentFactory.pl
  -db     ${PHEDEX_DBPARAM}
  -node   ${PHEDEX_NODE}
  -config ${PHEDEX_CONFIG_FILE}
