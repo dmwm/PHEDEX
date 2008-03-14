@@ -272,7 +272,15 @@ sub submit_job
   $job->Service( $self->{SERVICE} );
   $job->Files( @{$files} );
   $job->Prepare;
-  $job->ID( $self->{Q_INTERFACE}->Submit( $job )->{ID} );
+  my $result = $self->{Q_INTERFACE}->Submit( $job );
+  if ( $result->{ERROR} )
+  {
+    $self->Warn($result->{ERROR});
+    $job->Log($result->{ERROR});
+    $job->Log("RAW_OUTPUT:\n",$result->{RAW_OUTPUT});
+    $kernel->yield('job_state',$job);
+    return;
+  }
 
   if ( $self->{Q_MONITOR} )
   {
