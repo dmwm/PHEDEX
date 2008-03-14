@@ -281,7 +281,7 @@ sub Submit
   close GLITE or do
   {
       print "close: $cmd: $!\n";
-      $result{ERROR} = 'close Submit: id=' ( $id || 'undefined' ) . $!;
+      $result{ERROR} = 'close Submit: id=' . ( $id || 'undefined' ) . $!;
       return \%result;
   };
   print $self->Hdr,"Job $id submitted...\n";
