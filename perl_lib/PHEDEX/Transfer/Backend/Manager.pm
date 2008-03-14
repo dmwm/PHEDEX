@@ -33,6 +33,7 @@ L<PHEDEX::Transfer::Backend::Interface::Glite|PHEDEX::Transfer::Backend::Interfa
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Logging';
+use Time::HiRes qw / time /;
 use POE::Session;
 use POE::Queue::Array;
 use PHEDEX::Transfer::Backend::Job;
@@ -277,8 +278,9 @@ sub submit_job
   {
     $self->Warn($result->{ERROR});
     $job->Log($result->{ERROR});
-    $job->Log("RAW_OUTPUT:\n",$result->{RAW_OUTPUT});
-    $kernel->yield('job_state',$job);
+    $job->Log("RAW_OUTPUT:\n",@{$result->{RAW_OUTPUT}});
+    $job->ID( $job->ID || 'undefined_at_' . time );
+    $kernel->yield('job_state',[ $job ]);
     return;
   }
 
