@@ -108,7 +108,14 @@ sub createAgents
 
     $Agents{$agent} = eval("new $module(%a)");
     do { chomp ($@); die "Failed to create agent $module: $@\n" } if $@;
+
+#   Enable statistics for this agent
+    $Agents{$agent}{stats}{process} = undef;
   }
+
+# Monitor myself too!
+  $Agents{$self->{ME}} = $self;
+
   return ($self->{AGENTS} = \%Agents);
 }
 
@@ -154,52 +161,83 @@ sub _poe_init
 {
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
   $kernel->state('_make_stats', $self);
-  $kernel->yield('_make_stats');
+  $self->Logmsg('STATISTICS: Reporting every ',$self->{STATISTICS_INTERVAL},' seconds, detail=',$self->{STATISTICS_DETAIL});
+  $self->{stats}{START} = time;
+  $self->{stats}{maybeStop}=0;
+  $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
 }
 
 sub _make_stats
 {
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
 
-  if ( ! defined($self->{stats}{START}) )
-  {
-    $self->Logmsg('STATISTICS: Reporting every ',$self->{STATISTICS_INTERVAL},' seconds, detail=',$self->{STATISTICS_DETAIL});
-    $self->{stats}{START} = time;
-    $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
-    return;
-  }
+#  if ( ! defined($self->{stats}{START}) )
+#  {
+#    $self->Logmsg('STATISTICS: Reporting every ',$self->{STATISTICS_INTERVAL},' seconds, detail=',$self->{STATISTICS_DETAIL});
+#    $self->{stats}{START} = time;
+#    $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
+#    return;
+#  }
 
-  my ($totalWall,$totalCPU);
-  $totalCPU = 0;
+  my ($totalWall,$totalOnCPU,$totalOffCPU);
+  $totalWall = $totalOnCPU = $totalOffCPU = 0;
   foreach my $agent ( sort keys %{$self->{AGENTS}} )
   {
-    next unless $self->{AGENTS}{$agent}{internalStats};
-    my $h = $self->{AGENTS}{$agent}{internalStats};
-    my $maybeStop = $h->{maybeStop};
-    next unless $maybeStop;
-    my $summary = "STATISTICS: $agent maybeStop=$maybeStop";
-    my $onCPU=0;
-    if ( $h->{process} )
+    next unless $self->{AGENTS}{$agent}{stats};
+    my $summary = "STATISTICS: $agent";
+    my $h = $self->{AGENTS}{$agent}{stats};
+    if ( exists($h->{maybeStop}) )
+    {
+      $summary .= ' maybeStop=' . $h->{maybeStop};
+      $self->{AGENTS}{$agent}{stats}{maybeStop}=0;
+    }
+
+    my ($onCPU,$offCPU);
+    $onCPU = $offCPU = 0;
+    if ( exists($h->{process}) )
     {
       my $count = $h->{process}{count} || 0;
-      my @a = sort { $a <=> $b } @{$h->{process}{time}};
-      foreach ( @a ) { $onCPU += $_; }
-      $totalCPU += $onCPU;
-      my $max = $a[-1];
-      my $median = $a[int($count/2)];
-      $summary .= sprintf(" process=%d total_wall=%.2f median=%.2f max=%.2f",$count,$onCPU,$median,$max);
-      if ( $self->{STATISTICS_DETAIL} > 1 )
+      $summary .= sprintf(" process_count=%d",$count);
+
+      my (@a,$max,$median);
+      if ( $h->{process}{onCPU} )
       {
-        $summary .= ' full_timing=(' . join(',',map { $_=int(1000*$_)/1000 } @a) . ')';
+        @a = sort { $a <=> $b } @{$h->{process}{onCPU}};
+        foreach ( @a ) { $onCPU += $_; }
+        $totalOnCPU += $onCPU;
+        $max = $a[-1];
+        $median = $a[int($count/2)];
+        $summary .= sprintf(" onCPU(wall=%.2f median=%.2f max=%.2f)",$onCPU,$median,$max);
+        if ( $self->{STATISTICS_DETAIL} > 1 )
+        {
+          $summary .= ' onCPU_details=(' . join(',',map { $_=int(1000*$_)/1000 } @a) . ')';
+        }
       }
+
+      if ( $h->{process}{offCPU} )
+      {
+        @a = sort { $a <=> $b } @{$h->{process}{offCPU}};
+        foreach ( @a ) { $offCPU += $_; }
+        $totalOffCPU += $offCPU;
+        $max = $a[-1];
+        $median = $a[int($count/2-0.9)];
+        if ( !defined($median) ) { print "median not defined for $agent\n"; }
+        if ( !defined($max   ) ) { print "max    not defined for $agent\n"; }
+        $summary .= sprintf(" offCPU(median=%.2f max=%.2f)",$median,$max);
+        if ( $self->{STATISTICS_DETAIL} > 1 )
+        {
+          $summary .= ' offCPU_details=(' . join(',',map { $_=int(1000*$_)/1000 } @a) . ')';
+        }
+      }
+
+      $self->{AGENTS}{$agent}{stats}{process} = undef;
     }
-    delete $self->{AGENTS}{$agent}{internalStats};
     $self->Logmsg($summary) if $self->{STATISTICS_DETAIL};
   }
 
   $totalWall = time - $self->{stats}{START};
-  my $busy= 100*$totalCPU/$totalWall;
-  my $summary=sprintf('TotalCPU=%.2f busy=%.2f%%',$totalCPU,$busy);
+  my $busy= 100*$totalOnCPU/$totalWall;
+  my $summary=sprintf('TotalCPU=%.2f busy=%.2f%%',$totalOnCPU,$busy);
   $self->Logmsg($summary);
   $self->{stats}{START} = time;
   $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
