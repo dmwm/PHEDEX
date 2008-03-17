@@ -120,6 +120,8 @@ sub really_daemon
   my $self = shift;
   $self->{NODAEMON}=0;
   $self->SUPER::daemon( $self->{ME} );
+  $self->Logmsg('I have successfully become a daemon');
+  $self->Logmsg('I am running these agents: ',join(', ',sort keys %{$self->{AGENTS}}));
 }
 
 sub idle
