@@ -907,26 +907,28 @@ sub connectAgent
     my ($self, $identify) = @_;
     my $dbh;
 
-    if ( $self->{SHARED_DBH} )
-    {
-      $self->Logmsg("Looking for a DBH to share");
-      if ( exists($Agent::Registry{DBH}) )
-      {
-        $self->{DBH} = $dbh = $Agent::Registry{DBH};
-        $self->Logmsg("using shared DBH=$dbh");
-      }
-      else
-      {
-        $self->Logmsg("Creating new DBH");
-        $Agent::Registry{DBH} = $dbh = &connectToDatabase($self) unless $dbh;
-        $self->Logmsg("Sharing DBH=$dbh");
-      }
-    }
-    else
-    {
+#    if ( $self->{SHARED_DBH} )
+#    {
+#      $self->Logmsg("Looking for a DBH to share") if $self->{DEBUG};
+#      if ( exists($Agent::Registry{DBH}) )
+#      {
+#        $self->{DBH} = $dbh = $Agent::Registry{DBH};
+#        $self->Logmsg("using shared DBH=$dbh") if $self->{DEBUG};
+#      }
+#      else
+#      {
+#        $self->Logmsg("Creating new DBH") if $self->{DEBUG};
+#        $Agent::Registry{DBH} = $dbh = &connectToDatabase($self) unless $dbh;
+#        $self->Logmsg("Sharing DBH=$dbh") if $self->{DEBUG};
+#      }
+#    }
+#    else
+#    {
+#$self->{DEBUG}++;
       $dbh = &connectToDatabase($self);
-     $self->Logmsg("Using private DBH=$dbh");
-    }
+#$self->{DEBUG}--;
+#     $self->Logmsg("Using private DBH=$dbh") if $self->{DEBUG};
+#    }
 
     $self->checkNodes();
 

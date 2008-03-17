@@ -112,12 +112,40 @@ sub connectToDatabase
     $self->{DBH_ID_LABEL} = $self->{LOGFILE} || ""; $self->{DBH_ID_LABEL} =~ s!.*/!!;
     $self->{DBH_ID_LABEL} = " ($self->{DBH_ID_LABEL})" if $self->{DBH_ID_LABEL};
     $self->{DBH_ID} = "$self->{DBH_ID_MODULE}\@$self->{DBH_ID_HOST}$self->{DBH_ID_LABEL}";
+    if ( $self->{SHARED_DBH} )
+    {
+      $self->Logmsg("Looking for a DBH to share") if $self->{DEBUG};
+      if ( exists($Agent::Registry{DBH}) )
+      {
+        $self->{DBH} = $dbh = $Agent::Registry{DBH};
+        $self->Logmsg("using shared DBH=$dbh") if $self->{DEBUG};
+      }
+      else
+      {
+        $self->Logmsg("Creating new DBH") if $self->{DEBUG};
+        $Agent::Registry{DBH} = $dbh = 
+            DBI->connect ("DBI:$self->{DBH_DBITYPE}:$self->{DBH_DBNAME}",
+	    		 $self->{DBH_DBUSER}, $self->{DBH_DBPASS},
+			 { RaiseError => 1,
+			   AutoCommit => 0,
+			   PrintError => 0,
+			   ora_module_name => $self->{DBH_ID} });
+      }
+    }
+
     $dbh = DBI->connect ("DBI:$self->{DBH_DBITYPE}:$self->{DBH_DBNAME}",
 	    		 $self->{DBH_DBUSER}, $self->{DBH_DBPASS},
 			 { RaiseError => 1,
 			   AutoCommit => 0,
 			   PrintError => 0,
 			   ora_module_name => $self->{DBH_ID} });
+
+    if ( $self->{SHARED_DBH} )
+    {
+      $Agent::Registry{DBH} = $dbh;
+      $self->Logmsg("Sharing DBH=$dbh") if $self->{DEBUG};
+    }
+
     die "failed to connect to the database\n" if ! $dbh;
 
     # Acquire role if one was specified.  Do not use &dbexec() here
