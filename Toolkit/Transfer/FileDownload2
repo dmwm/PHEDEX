@@ -57,7 +57,8 @@
 ##H      [-command CMD[,ARG...]] [-batch-files N] [-jobs NJOBS]
 ##H
 ##H Options to FTS backend:
-##H      -passfile FILE -server CONTACT [-batch-files N] [-mode multi] [-mapfile FILE]
+##H      [-service CONTACT | -mapfile FILE]
+##H      [-batch-files N] [-link-pending-files N] [-max-active-files N]
 ##H
 ##H -protocols   comma-separated list of storage protocols to accept
 ##H -batch-files number of files per transfer batch (SRM, FTS; default: 30)
@@ -65,11 +66,11 @@
 ##H -timeout     execution time limit for commands (default: 3600)
 ##H -command     override the transfer command, for instance
 ##H               globus-url-copy,-p,3,-tcp-bs,2097152
-##H -passfile    file containing FTS proxy password
-##H -server      FTS server to use
-##H -mode multi  Use multiple FTS endpoints depending on the file being transferred
+##H -service     FTS server to use
 ##H -mapfile     A map of SRM endpoint:FTS endpoint, if not specified BDII service 
 ##H              discovery used instead
+##H -link-pending-files  limit to the number of files allowed to be in the "pending" state per link
+##H -max-active-files    limit to the total number of files allowed to be in the "active" state
 
 ######################################################################
 my %args = (CMDLINE => [ @ARGV ]);
