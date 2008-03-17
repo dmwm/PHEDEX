@@ -433,7 +433,7 @@ sub stop
     }
     if ( keys %h )
     {
-      print "Waiting for agents: ", join(', ',map { $h{$_} . '(' . $_ . ')' } keys %h ),"\n";
+      print scalar(localtime), ": Waiting for agents: ", join(', ',map { $h{$_} . '(' . $_ . ')' } keys %h ),"\n";
       sleep(3);
     }
     else
