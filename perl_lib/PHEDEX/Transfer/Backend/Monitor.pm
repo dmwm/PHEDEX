@@ -48,7 +48,8 @@ our %params =
 	  JOB_POSTBACK		=> undef, # Callback for job state changes
 	  FILE_POSTBACK		=> undef, # Callback for file state changes
 	  SANITY_INTERVAL	=> 60,	  # Interval for internal sanity-checks
-	  VERBOSE		=> 0,
+	  DEBUG			=> $ENV{PHEDEX_DEBUG},
+ 	  VERBOSE		=> $ENV{PHEDEX_VERBOSE},
 	);
 our %ro_params =
 	(
