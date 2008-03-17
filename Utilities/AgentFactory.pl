@@ -10,7 +10,7 @@ use warnings;
 ##H
 
 ######################################################################
-my (%args,$Factory,$Agents,$Config);
+my (%args,$Factory,$Config);
 use Getopt::Long;
 use PHEDEX::Core::Help;
 use PHEDEX::Core::Config::Factory;
@@ -26,7 +26,9 @@ use PHEDEX::Core::Config::Factory;
 	     );
 
 $Factory = PHEDEX::Core::Config::Factory->new( %args, @ARGV );
-$Agents = $Factory->createAgents();
+my %agent_args;
+map { $agent_args{$_} = $args{$_} } qw / DBCONFIG CONFIG MYNODE /;
+$Agent::Registry{AGENTS} = $Factory->createAgents( %agent_args );
 $Factory->really_daemon;
 
 POE::Kernel->run();
