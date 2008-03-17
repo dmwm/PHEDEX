@@ -64,6 +64,7 @@ our %params =
 	(
 	  ME		=> undef,
 	  DBH		=> undef,
+	  SHARED_DBH	=> 0,
 	  DBCONFIG	=> undef,
 	  DROPDIR	=> undef,
 	  NEXTDIR	=> undef,
@@ -87,8 +88,8 @@ our %params =
 	  LABEL		=> $ENV{PHEDEX_AGENT_LABEL},
 	  ENVIRONMENT	=> undef,
 	  AGENT		=> undef,
-	  DEBUG         => $ENV{PHEDEX_DEBUG},
- 	  VERBOSE       => $ENV{PHEDEX_VERBOSE},
+	  DEBUG         => $ENV{PHEDEX_DEBUG} || 0,
+ 	  VERBOSE       => $ENV{PHEDEX_VERBOSE} || 0,
 	);
 
 our @array_params = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
@@ -904,8 +905,28 @@ sub nap
 sub connectAgent
 {
     my ($self, $identify) = @_;
+    my $dbh;
 
-    my $dbh = &connectToDatabase($self);
+    if ( $self->{SHARED_DBH} )
+    {
+      $self->Logmsg("Looking for a DBH to share");
+      if ( exists($Agent::Registry{DBH}) )
+      {
+        $self->{DBH} = $dbh = $Agent::Registry{DBH};
+        $self->Logmsg("using shared DBH=$dbh");
+      }
+      else
+      {
+        $self->Logmsg("Creating new DBH");
+        $Agent::Registry{DBH} = $dbh = &connectToDatabase($self) unless $dbh;
+        $self->Logmsg("Sharing DBH=$dbh");
+      }
+    }
+    else
+    {
+      $dbh = &connectToDatabase($self);
+     $self->Logmsg("Using private DBH=$dbh");
+    }
 
     $self->checkNodes();
 
@@ -927,6 +948,7 @@ sub connectAgent
 sub disconnectAgent
 {
     my ($self, $force) = @_;
+    return if ($self->{SHARED_DBH});
     &disconnectFromDatabase($self, $self->{DBH}, $force);
 }
 
@@ -1483,12 +1505,30 @@ sub _start
 sub _process
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+  my ($start,$t,$t1);
   print $self->Hdr,"starting '_process'\n" if $self->{VERBOSE};
-  $self->{internalStats}{process}{count}++;
-  my $count = $self->{internalStats}{process}{count};
-  my $start = time;
+
+  if ( exists($self->{stats}{process}) )
+  {
+    $t = time;
+    if ( defined($t1 = $self->{stats}{process}{_offCPU}) )
+    {
+      push @{$self->{stats}{process}{offCPU}}, $t - $t1;
+      undef $self->{stats}{process}{_offCPU};
+    }
+    $self->{stats}{process}{count}++;
+    $start = time;
+  }
+
   $self->process();
-  push @{$self->{internalStats}{process}{time}}, time - $start;
+
+  if ( exists($self->{stats}{process}) )
+  {
+    $t = time;
+    push @{$self->{stats}{process}{onCPU}}, $t - $start;
+    $self->{stats}{process}{_offCPU} = $t;
+  }
+
   print $self->Hdr,"ending '_process'\n" if $self->{VERBOSE};
   $kernel->delay_set('_process',$self->{WAITTIME});
 }
@@ -1496,8 +1536,10 @@ sub _process
 sub _maybeStop
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+
   print $self->Hdr,"starting '_maybeStop'\n" if $self->{VERBOSE} >= 3;
-  $self->{internalStats}{maybeStop}++;
+  $self->{stats}{maybeStop}++ if exists $self->{stats}{maybeStop};;
+
   $self->maybeStop();
   print $self->Hdr,"ending '_maybeStop'\n" if $self->{VERBOSE} >= 3;
   $kernel->delay_set('_maybeStop', 1);
