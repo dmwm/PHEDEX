@@ -21,6 +21,7 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 use strict;
 use warnings;
 use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
+use POE;
 use PHEDEX::Core::Timing;
 
 our %params =
@@ -31,6 +32,8 @@ our %params =
 	  AGENTS	=> undef,		# Which agents am I to start?
 	  CONFIG	=> $ENV{PHEDEX_CONFIG_FILE},
 	  NODAEMON	=> 1,			# Don't daemonise by default!
+	  STATISTICS_INTERVAL	=> 3600,	# reporting frequency
+	  STATISTICS_DETAIL	=>    1,	# reporting level: 0, 1, or 2
 	);
 
 our @array_params = qw / AGENT_NAMES /;
@@ -64,8 +67,7 @@ sub createAgents
 {
   my $self = shift;
 
-  my ($agent,%Agents,%Modules);
-  my ($Agent,$Config);
+  my ($Config,$Agent,%Agents,%Modules,$agent);
 
   $Config = PHEDEX::Core::Config->new( PARANOID => 1 );
   $Config->readConfig( $self->{CONFIG} );
@@ -107,7 +109,7 @@ sub createAgents
     $Agents{$agent} = eval("new $module(%a)");
     do { chomp ($@); die "Failed to create agent $module: $@\n" } if $@;
   }
-  return \%Agents;
+  return ($self->{AGENTS} = \%Agents);
 }
 
 sub really_daemon
@@ -144,6 +146,61 @@ sub stop
   $self->Logmsg("entering stop") if $self->{VERBOSE};
   $self->SUPER::stop(@_);
   $self->Logmsg("exiting stop") if $self->{VERBOSE};
+}
+
+sub _poe_init
+{
+  my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
+  $kernel->state('_make_stats', $self);
+  $kernel->yield('_make_stats');
+}
+
+sub _make_stats
+{
+  my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
+
+  if ( ! defined($self->{stats}{START}) )
+  {
+    $self->Logmsg('STATISTICS: Reporting every ',$self->{STATISTICS_INTERVAL},' seconds, detail=',$self->{STATISTICS_DETAIL});
+    $self->{stats}{START} = time;
+    $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
+    return;
+  }
+
+  my ($totalWall,$totalCPU);
+  $totalCPU = 0;
+  foreach my $agent ( sort keys %{$self->{AGENTS}} )
+  {
+    next unless $self->{AGENTS}{$agent}{internalStats};
+    my $h = $self->{AGENTS}{$agent}{internalStats};
+    my $maybeStop = $h->{maybeStop};
+    next unless $maybeStop;
+    my $summary = "STATISTICS: $agent maybeStop=$maybeStop";
+    my $onCPU=0;
+    if ( $h->{process} )
+    {
+      my $count = $h->{process}{count} || 0;
+      my @a = sort { $a <=> $b } @{$h->{process}{time}};
+      foreach ( @a ) { $onCPU += $_; }
+      $totalCPU += $onCPU;
+      my $max = $a[-1];
+      my $median = $a[int($count/2)];
+      $summary .= sprintf(" process=%d total_wall=%.2f median=%.2f max=%.2f",$count,$onCPU,$median,$max);
+      if ( $self->{STATISTICS_DETAIL} > 1 )
+      {
+        $summary .= ' full_timing=(' . join(',',map { $_=int(1000*$_)/1000 } @a) . ')';
+      }
+    }
+    delete $self->{AGENTS}{$agent}{internalStats};
+    $self->Logmsg($summary) if $self->{STATISTICS_DETAIL};
+  }
+
+  $totalWall = time - $self->{stats}{START};
+  my $busy= 100*$totalCPU/$totalWall;
+  my $summary=sprintf('TotalCPU=%.2f busy=%.2f%%',$totalCPU,$busy);
+  $self->Logmsg($summary);
+  $self->{stats}{START} = time;
+  $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
 }
 
 1;
