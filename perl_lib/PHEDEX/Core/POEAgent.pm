@@ -12,13 +12,14 @@ use base 'PHEDEX::Core::JobManager', 'PHEDEX::Core::Logging';
 use POSIX;
 use File::Path;
 use File::Basename;
+use Time::HiRes qw / time /;
+use POE;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::RFIO;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::Config;                                                       
-use POE;
 
 # %params, %args, config-files...?
 # Precedence is: command-line(%args), config-files, %params(default)
@@ -215,8 +216,8 @@ sub new
         [
           $self =>
           {
-            _process => '_process',
-            _nap     => '_nap',
+            _process	=> '_process',
+            _maybeStop	=> '_maybeStop',
 
             _start   => '_start',
             _stop    => '_stop',
@@ -873,13 +874,13 @@ sub process
 
   # Wait a little while.
   $self->maybeStop();
-  $self->Dbgmsg("starting idle()") if $self->{DEBUG};
+  $self->Dbgmsg("starting idle()") if $self->{VERBOSE};
   my $t1 = &mytimeofday();
   $self->idle (@pending);
   my $t2 = &mytimeofday();
-  $self->Dbgmsg(sprintf("cycle time %.6f s", $t2-$t1)) if $self->{DEBUG};
+  $self->Dbgmsg(sprintf("cycle time %.6f s", $t2-$t1)) if $self->{VERBOSE};
 #  if ($self->{AUTO_NAP}) {
-#$self->Dbgmsg("sleeping for $self->{WAITTIME} s") if $self->{DEBUG};
+#$self->Dbgmsg("sleeping for $self->{WAITTIME} s") if $self->{VERBOSE};
 #$self->nap ($self->{WAITTIME});
 #  }
 }
@@ -1475,7 +1476,7 @@ sub _start
     $kernel->yield('_poe_init');
   }
   $kernel->yield('_process');
-  $kernel->yield('_nap');
+  $kernel->yield('_maybeStop');
   $self->Logmsg("has successfully initialised");
 }
 
@@ -1483,17 +1484,23 @@ sub _process
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
   print $self->Hdr,"starting '_process'\n" if $self->{VERBOSE};
+  $self->{internalStats}{process}{count}++;
+  my $count = $self->{internalStats}{process}{count};
+  my $start = time;
   $self->process();
+  push @{$self->{internalStats}{process}{time}}, time - $start;
   print $self->Hdr,"ending '_process'\n" if $self->{VERBOSE};
   $kernel->delay_set('_process',$self->{WAITTIME});
 }
-sub _nap
+
+sub _maybeStop
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
-  print $self->Hdr,"starting '_nap'\n" if $self->{VERBOSE};
+  print $self->Hdr,"starting '_maybeStop'\n" if $self->{VERBOSE};
+  $self->{internalStats}{maybeStop}++;
   $self->maybeStop();
-  print $self->Hdr,"ending '_nap'\n" if $self->{VERBOSE};
-  $kernel->delay_set('_nap', 1);
+  print $self->Hdr,"ending '_maybeStop'\n" if $self->{VERBOSE};
+  $kernel->delay_set('_maybeStop', 1);
 }
 
 sub _stop
