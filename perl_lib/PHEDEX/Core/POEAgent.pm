@@ -1496,10 +1496,10 @@ sub _process
 sub _maybeStop
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
-  print $self->Hdr,"starting '_maybeStop'\n" if $self->{VERBOSE};
+  print $self->Hdr,"starting '_maybeStop'\n" if $self->{VERBOSE} >= 3;
   $self->{internalStats}{maybeStop}++;
   $self->maybeStop();
-  print $self->Hdr,"ending '_maybeStop'\n" if $self->{VERBOSE};
+  print $self->Hdr,"ending '_maybeStop'\n" if $self->{VERBOSE} >= 3;
   $kernel->delay_set('_maybeStop', 1);
 }
 
