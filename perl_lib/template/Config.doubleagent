@@ -25,13 +25,10 @@ PHEDEX_LOGS=${PHEDEX_BASE}/${PHEDEX_INSTANCE}_${PHEDEX_CONTEXT}/logs;
 PHEDEX_SCRIPTS=${PHEDEX_BASE};
 PERL5LIB=/afs/cern.ch/user/w/wildish/public/perl:${PHEDEX_BASE}/perl_lib
 
-PHEDEX_LOGS=/tmp/phedex/tony
+PHEDEX_LOGS=/tmp/wildish/logs
 
-export PHEDEX_VERBOSE=1
-LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/afs/cern.ch/user/w/wildish/public/bin
-rlwrap=/afs/cern.ch/user/w/wildish/public/bin/rlwrap
-
-PHEDEX_DEBUGGER="$rlwrap perl -MPHEDEX::Debug -d"
+export PHEDEX_VERBOSE=0
+PHEDEX_DEBUGGER="perl -MPHEDEX::Debug -d"
 
 ### AGENT LABEL=master-agent PROGRAM=Utilities/AgentFactory.pl
  -db     ${PHEDEX_DBPARAM}
