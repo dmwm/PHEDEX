@@ -34,6 +34,8 @@ PHEDEX_DEBUGGER="perl -MPHEDEX::Debug -d"
  -db     ${PHEDEX_DBPARAM}
  -node   ${PHEDEX_NODE}
  -config ${PHEDEX_CONFIG_FILE}
+  STATISTICS_INTERVAL 3600
+  STATISTICS_DETAIL 1
  -agent  fast-agent
  -agent  medium-agent
  -agent  slow-agent
