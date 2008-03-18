@@ -498,7 +498,7 @@ sub fetch_nodes
 	}
     }
 
-    my $sql = qq{select name, id from t_adm_node};
+    my $sql = qq{select name, id from t_adm_node where name not like 'X%'};
     my $q = &dbexec($$self{DBH}, $sql);
     
     my %nodes;
