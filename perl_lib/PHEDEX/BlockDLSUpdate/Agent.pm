@@ -72,7 +72,7 @@ sub idle
     # Connect to database
     $dbh = $self->connectAgent();
     my @nodes = $self->expandNodes();
-    my @nodefilter = $self->myNodeFilter ("br.node");
+    my @nodefilter = $self->myNodeFilter ("n.id");
 
     # Get order list of blocks we have.  This is always everything,
     # but we keep track of what we've updated in a file.  If the
