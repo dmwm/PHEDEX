@@ -99,7 +99,6 @@ sub getDeleted
 	           'dls-delete' command
 	    from t_dps_block_delete bd
 	      join t_dps_block b on b.id = bd.block
-              join t_dps_block_replica br on br.block = b.id
 	      join t_dps_dataset ds on ds.id = b.dataset
 	      join t_dps_dbs dbs on dbs.id = ds.dbs
 	      join t_adm_node n on n.id = bd.node
