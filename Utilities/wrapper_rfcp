@@ -2,17 +2,15 @@
 
 catscript="$1"; shift;
 cat="$1"; shift;
-protocol="$1"; shift;
 
 src=$1
 dest=$2
 
 echo "$catscript"
 echo "$cat"
-echo "$protocol"
 
 #get direct (no protocol)
-directory=`$catscript -catalogue $cat -pfn $dest -protocol $protocol | sed 's/^\(.*\)\/.*$/\1/'`
+directory=`$catscript -catalogue $cat -pfn $dest | sed 's/^\(.*\)\/.*$/\1/'`
 
 #check if directory exists
 rfstat $directory
