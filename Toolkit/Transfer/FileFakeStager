@@ -45,7 +45,7 @@ sub new
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  NODES => undef,		# Nodes this agent runs for
 		  WAITTIME => 60 + rand(15),	# Agent cycle time
-		  AGENTID => "FileStager");	# Identity for activity logs
+		  ME => "FileStager");	# Identity for activity logs
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;

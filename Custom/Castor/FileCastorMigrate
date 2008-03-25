@@ -57,7 +57,7 @@ sub new
 	  	  NODES => undef,		# Nodes to operate for
 		  PROTOCOLS => [ 'direct' ],	# Protocols to accept
 		  WAITTIME => 150 + rand(50),	# Agent activity cycle
-	  	  AGENTID => "FileDownload");	# Identity for activity logs
+	  	  ME => "FileDownload");	# Identity for activity logs
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;

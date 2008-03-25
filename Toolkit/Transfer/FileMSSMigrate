@@ -77,7 +77,7 @@ sub new
 		  CHECKROUTINE => '',           # check file in MSS routine
 		  RETRANSFERLOST => '',         # whether to mark lost files for re-xfer 
 		  WAITTIME => 150 + rand(50),	# Agent activity cycle
-	  	  AGENTID => "FileDownload");	# Identity for activity logs
+	  	  ME => "FileDownload");	# Identity for activity logs
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
 
