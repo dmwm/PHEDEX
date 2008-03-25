@@ -8,16 +8,42 @@ use strict;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::SQL;
 use PHEDEX::Web::SQL;
+use PHEDEX::Web::Format;
 
-use XML::XML2JSON;
+# If you're thinking of these, I've already tried them and decided against.
+#use Cache::FileCache;
+#use Cache::MemoryCache;
+#use XML::XML2JSON;
+#use XML::Writer;
 
 our (%params);
 
 %params = ( DBCONFIG => undef,
 	    INSTANCE => undef,
 	    REQUEST_URL => undef,
-	    REQUEST_TIME => undef
+	    REQUEST_TIME => undef,
+	    DEBUG => 0
 	    );
+
+# A map of API calls to data sources
+our $call_data = {
+    linkTasks       => [ qw( linkTasks ) ],
+    blockReplicas   => [ qw( blockReplicas ) ],
+    nodes           => [ qw( nodes ) ],
+    catalogue       => [ qw( catalog ) ]
+};
+
+# Data source parameters
+our $data_sources = {
+    linkTasks       => { DATASOURCE => \&PHEDEX::Web::SQL::getLinkTasks,
+			 DURATION => 10*60 },
+    blockReplicas   => { DATASOURCE => \&PHEDEX::Web::SQL::getBlockReplicas,
+			 DURATION => 5*60 },
+    nodes           => { DATASOURCE => \&PHEDEX::Web::SQL::getNodes,
+			 DURATION => 60*60 },
+    catalog         => { DATASOURCE => \&PHEDEX::Web::SQL::getCatalog,
+			 DURATION => 15*60 }
+};
 
 sub new
 {
@@ -32,7 +58,23 @@ sub new
 
     $self->{REQUEST_TIME} ||= &mytimeofday();
 
+    # Set up database connection
+    my $t1 = &mytimeofday();
+    &PHEDEX::Core::SQL::connectToDatabase($self, 0);
+    my $t2 = &mytimeofday();
+    warn "db connection time ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
+
+    $self->{DBH}->{FetchHashKeyName} = 'NAME_lc';
+
+#    $self->{CACHE} = new Cache::FileCache({cache_root => '/tmp/phedex-cache'});
+#    $self->{CACHE} = new Cache::MemoryCache;
+    
     bless $self, $class;
+
+    # on initialization fill the caches
+#    foreach my $call (grep $cacheable{$_} > 0, keys %cacheable) {
+#	$self->refreshCache($call);
+#    }
 
     return $self;
 }
@@ -66,11 +108,17 @@ sub call
 	$self->error("API call '$call' is not defined.  Check the URL");
 	return;
     } else {
-	&PHEDEX::Core::SQL::connectToDatabase($self, 0);
-	$self->{DBH}->{FetchHashKeyName} = 'NAME_lc';
 	my $t1 = &mytimeofday();
-	my $obj = &{"PHEDEX::Web::Core::$call"}($self, %args);
+	my $obj;
+	eval {
+	    $obj = &{"PHEDEX::Web::Core::$call"}($self, %args, nocache=>1);
+	};
+	if ($@) {
+	    $self->error("Error when making call '$call':  $@");
+	    return;
+	}
 	my $t2 = &mytimeofday();
+	warn "api call '$call' complete in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
 
 	# wrap the object in a phedexData element
 	$obj->{instance} = $self->{INSTANCE};
@@ -81,14 +129,14 @@ sub call
 	$obj->{call_time} = sprintf('%.5f', $t2 - $t1);
 	$obj = { phedex => $obj };
 
-	my $converter = new XML::XML2JSON(pretty => 0);
-	if ($args{format} eq 'text/xml') {
-	    print $converter->obj2xml($obj);
-	} elsif ($args{format} eq 'text/javascript') {
-	    print $converter->obj2json($obj);
+	$t1 = &mytimeofday();
+	if (grep $_ eq $args{format}, qw( xml json perl )) {
+	    &PHEDEX::Web::Format::output(*STDOUT, $args{format}, $obj);
 	} else {
 	    $self->error("return format requested is unknown or undefined");
 	}
+	$t2 = &mytimeofday();
+	warn "api call '$call' delivered in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
     }
 }
 
@@ -96,21 +144,26 @@ sub error
 {
     my $self = shift;
     my $msg = shift || "no message";
-    print "<error>Error:  $msg</error>";
+    chomp $msg;
+    print "<error>\n", encode_entities($msg),"\n</error>";
 }
 
-sub transferDetails
+
+# API Calls 
+
+sub linkTasks
 {
     my ($self, %h) = @_;
     
-    my $r = &PHEDEX::Web::SQL::getTransferStatus($self, %h);
-    return { transferDetails => { status => $r } };
+    my $r = $self->getData('linkTasks', %h);
+    return { linkTasks => { status => $r } };
 }
 
 sub blockReplicas
 {
     my ($self, %h) = @_;
-    my $r = &PHEDEX::Web::SQL::getBlockReplicas($self, %h);
+
+    my $r = $self->getData('blockReplicas', %h);
 
     # Format into block->replica heirarchy
     my $blocks = {};
@@ -146,8 +199,75 @@ sub blockReplicas
 sub nodes
 {
     my ($self, %h) = @_;
-    my $r = &PHEDEX::Web::SQL::getNodes($self, %h);
+    my $r = $self->getData('nodes', %h);
     return { node => $r };
 }
+
+sub catalogue
+{
+    my ($self, %h) = @_;
+    my $r = $self->getData('catalogue', %h);
+    return { catalog => $r };
+}
+
+# Cache controls
+
+sub refreshCache
+{
+    my ($self, $call) = @_;
+    
+    foreach my $name (@{ $call_data->{$call} }) {
+	my $datasource = $data_sources->{$name}->{DATASOURCE};
+	my $duration   = $data_sources->{$name}->{DURATION};
+	my $data = &{$datasource}($self);
+	$self->{CACHE}->set( $name, $data, $duration.' s' );
+    }
+}
+
+sub getData
+{
+    my ($self, $name, %h) = @_;
+
+    my $datasource = $data_sources->{$name}->{DATASOURCE};
+    my $duration   = $data_sources->{$name}->{DURATION};
+
+    my $t1 = &mytimeofday();
+
+    my $from_cache;
+    my $data;
+    $data = $self->{CACHE}->get( $name ) unless $h{nocache};
+    if (!defined $data) {
+	$data = &{$datasource}($self, %h);
+	$self->{CACHE}->set( $name, $data, $duration.' s') unless $h{nocache};
+	$from_cache = 0;
+    } else {
+	$from_cache = 1;
+    }
+
+    my $t2 = &mytimeofday();
+
+    warn "got '$name' from ",
+    ($from_cache ? 'cache' : 'DB'),
+    " in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
+
+    return wantarray ? ($data, $from_cache) : $data;
+}
+
+
+# Returns the cache duration for a API call.  If there are multiple
+# data sources in an API call then the one with the lowest duration is
+# returned
+sub getCacheDuration
+{
+    my ($self, $call) = @_;
+    my $min;
+    foreach my $name (@{ $call_data->{$call} }) {
+	my $duration   = $data_sources->{$name}->{DURATION};
+	$min ||= $duration;
+	$min = $duration if $duration < $min;
+    }
+    return $min;
+}
+
 
 1;
