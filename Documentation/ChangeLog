@@ -1,3 +1,36 @@
+* Changes in PhEDEx 2.6.3
+
+Bug Fixes For Central Agents
+   - BlockDLSUpdate: Fix bug in update of deleted blocks which
+     resulted in them not being reported to DLS
+
+Changes for Site Agents / Tools
+   - TMDBInject: Fix problem where some character data was injected as
+     type NCHAR, resulting in extremely slow injections
+   - InspectPhedexLog: extended date regexp, minor changes in output
+     (per site rates, better fromatting)
+   - BlockConsistency: Fix forced expiry which prevented tests from
+     being performed
+   - BlockDownloadVerify-report.pl: provide sensible default for age,
+     update help
+   - StorageConsistencyCheck: added an option to check an LFN list
+     against the replicas in a given storage element
+   - Master: on 'stop', wait for processes to be terminated before
+     exiting
+
+T0 / CAF
+   - Special code for supporting the CAF transfers added:
+     Utilities/stagercp, Utilities/wrapper_rfcp,
+     PHEDEX::Transfer::Stager
+
+Et Cetera
+   - Toolkit/DBS/DBSInvalidateFile: Added option to change the status
+     of a whole block 
+   - Toolkit/DBS/DBSMigrateDataset added: Helper script to migrate a
+     dataset between DBSes
+
+
+
 * Changes in PhEDEx 2.6.2
 
 Bug Fixes for Site Agents
