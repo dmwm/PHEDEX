@@ -122,8 +122,8 @@ sub connectToDatabase
       }
       else
       {
-        $self->Logmsg("Creating new DBH") if $self->{DEBUG};
-        $Agent::Registry{DBH} = $dbh = 
+        $self->Logmsg("Creating new shared DBH") if $self->{DEBUG};
+        $self->{DBH} = $dbh = $Agent::Registry{DBH} =
             DBI->connect ("DBI:$self->{DBH_DBITYPE}:$self->{DBH_DBNAME}",
 	    		 $self->{DBH_DBUSER}, $self->{DBH_DBPASS},
 			 { RaiseError => 1,
@@ -132,18 +132,16 @@ sub connectToDatabase
 			   ora_module_name => $self->{DBH_ID} });
       }
     }
-
-    $dbh = DBI->connect ("DBI:$self->{DBH_DBITYPE}:$self->{DBH_DBNAME}",
+    else
+    {
+        $self->Logmsg("Creating new private DBH") if $self->{DEBUG};
+        $self->{DBH} = $dbh =
+            DBI->connect ("DBI:$self->{DBH_DBITYPE}:$self->{DBH_DBNAME}",
 	    		 $self->{DBH_DBUSER}, $self->{DBH_DBPASS},
 			 { RaiseError => 1,
 			   AutoCommit => 0,
 			   PrintError => 0,
 			   ora_module_name => $self->{DBH_ID} });
-
-    if ( $self->{SHARED_DBH} )
-    {
-      $Agent::Registry{DBH} = $dbh;
-      $self->Logmsg("Sharing DBH=$dbh") if $self->{DEBUG};
     }
 
     die "failed to connect to the database\n" if ! $dbh;
