@@ -125,7 +125,8 @@ our (%params,%ro_params);
                 MSSPROTOCOL     => '',
                 DESTINATION     => 'any',
 		RFIO_USES_RFDIR => 0,
-		VERBOSE		=> 0,
+	  	DEBUG           => $ENV{PHEDEX_DEBUG},
+ 	  	VERBOSE         => $ENV{PHEDEX_VERBOSE},
 	  );
 %ro_params = ( );
 

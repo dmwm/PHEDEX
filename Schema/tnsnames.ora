@@ -247,5 +247,9 @@ cms_sstracker =
      )
    )
 
+CMS_RCMS_SSH =
+    (DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=localhost)(PORT=10121))
+    (CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=cms_rcms.cern.ch)))
+
 # END INT9R ###########################################
 

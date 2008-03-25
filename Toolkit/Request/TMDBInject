@@ -92,6 +92,23 @@
 ##H     </dataset>
 ##H   </dbs>
 
+# Developer Note:
+# All SQL bind variables referring to character data in this script
+# have been wrapped with TO_CHAR() because of an unresolved problem
+# involving Oracle forgoing the use of the table index (columns are
+# all varchar2 type) and instead doing a type conversion and
+# comparison for the insertion.  As this is done on large columns like
+# t_dps_file.logical_name the performance hit was enourmous.  It has
+# not been determined *why* this conversion was taking place; we
+# checked the following:  
+#  * XML which caused the problem had ASCII encoding 
+#  * Data inserted as a result looked fine 
+#  * No NLS_LANG environment variable set
+#
+# My understanding of the DBD::Oracle docs leads me to believe this
+# should result in the database character encoding being used for all
+# bind variables, but this was not the case.
+
 ######################################################################
 my ($verbose, $strict, %args);
 use Getopt::Long;
@@ -271,7 +288,7 @@ while (@$info)
 					IS_TRANSIENT => $$dsattrs{'is-transient'} });
 	    &dbexec ($dbh, qq{
 	        insert into t_dps_dataset (id, dbs, name, is_open, is_transient, time_create)
-	        values (seq_dps_dataset.nextval, :dbs, :name, 'y', :transient, :now)
+	        values (seq_dps_dataset.nextval, :dbs, to_char(:name), 'y', :transient, :now)
 	        returning id into :id},
 		":id" => \$$ds{ID},
 		":dbs" => $$dbs{ID},
@@ -319,7 +336,7 @@ while (@$info)
 					 IS_OPEN_REALLY => $$battrs{'is-open'} });
 		&dbexec ($dbh, qq{
 	            insert into t_dps_block (id, dataset, name, files, bytes, is_open, time_create)
-	            values (seq_dps_block.nextval, :dataset, :name, 0, 0, 'y', :now)
+	            values (seq_dps_block.nextval, :dataset, to_char(:name), 0, 0, 'y', :now)
 	            returning id into :id},
 			 ":id" => \$$b{ID},
 			 ":dataset" => $$ds{ID},
@@ -396,17 +413,17 @@ while (@$info)
 	    my $idps = &dbprep($dbh, qq{
 		insert into t_dps_file
 		(id, node, inblock, logical_name, checksum, filesize, time_create)
-		values (seq_dps_file.nextval, ?, ?, ?, ?, ?, ?)});
+		values (seq_dps_file.nextval, ?, ?, to_char(?), ?, ?, ?)});
 	    my $ixfer = &dbprep($dbh, qq{
 		insert into t_xfer_file
 		(id, inblock, logical_name, checksum, filesize)
 		(select id, inblock, logical_name, checksum, filesize
-		 from t_dps_file where logical_name = ?)});
+		 from t_dps_file where logical_name = to_char(?))});
 	    my $ixr = &dbprep($dbh, qq{
 		insert into t_xfer_replica
 		(id, fileid, node, state, time_create, time_state)
 		(select seq_xfer_replica.nextval, id, ?, 0, ?, ?
-		 from t_xfer_file where logical_name = ?)});
+		 from t_xfer_file where logical_name = to_char(?))});
 
 	    my (%dps, %xfer, %xr);
 	    my ($bytes, $files) = (0, 0);

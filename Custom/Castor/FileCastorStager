@@ -15,10 +15,13 @@
 ##H   FileCastorFilesize
 ##H      -state DIRECTORY -db FILE[:SECTION] [-log OUT]
 ##H	 -nodes PATTERN[,PATTERN...] -storagemap PATH
+##H      [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]
 ##H	 [-protect PROGRAM[,ARGS...]]
 ##H
 ##H -state       agent state directory
 ##H -nodes       the nodes where this agent runs
+##H -ignore      comma-separated list of nodes to ignore transfers from
+##H -accept      comma-separated list of nodes to accept transfers from
 ##H -db          database connection configuration parameter file
 ##H -log         where to redirect logging information
 ##H -storagemap  storage mapping catalogue
@@ -34,6 +37,10 @@ use PHEDEX::Core::Help;
 	     "storagemap=s"=> \$args{STORAGEMAP},
 	     "nodes=s"     => sub { push(@{$args{NODES}},
 			     		 split(/,/, $_[1])) },
+             "ignore=s"    => sub { push(@{$args{IGNORE_NODES}},
+                                         split(/,/, $_[1])) },
+             "accept=s"    => sub { push(@{$args{ACCEPT_NODES}},
+                                         split(/,/, $_[1])) },
 	     "protect=s"   => sub { push(@{$args{PROTECT_CMD}},
 			     		 split(/,/, $_[1])) },
 	     "help|h"      => sub { &usage() });
@@ -65,6 +72,8 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  NODES => undef,		# Nodes this agent runs for
+                  IGNORE_NODES => ['%_MSS'],    # TMDB nodes to ignore
+                  ACCEPT_NODES => [],           # TMDB nodes to accept
 	  	  STORAGEMAP => undef,		# Storage path mapping rules
 	  	  PROTECT_CMD => undef,		# Command to check for overload
 		  WAITTIME => 550 + rand(100),  # Agent cycle time
@@ -112,12 +121,12 @@ sub getNodeFiles
     # but don't look it up yet.  We get files exported from the node,
     # plus most recent time the file was in that state.
     my ($mynodes, %myargs) = $self->myNodeFilter ("xt.from_node");
+    my ($dest, %dest_args) = $self->otherNodeFilter ("xt.to_node");
     my $stmt = &dbexec($dbh, qq{
 	select f.logical_name from t_xfer_task xt
         join t_adm_link l on l.from_node = xt.from_node and l.to_node = xt.to_node
 	join t_xfer_file f on f.id = xt.fileid
-	where $mynodes
-          and l.is_local = 'n'}, %myargs);
+	where $mynodes $dest}, %myargs, %dest_args);
     $files{$_} = { LFN => $_, PFN => undef, TIME => 0 }
 	while (($_) = $stmt->fetchrow());
 

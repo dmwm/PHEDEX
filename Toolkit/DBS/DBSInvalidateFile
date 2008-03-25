@@ -9,7 +9,6 @@ from DBSAPI.dbsApi import DbsApi
 from DBSAPI.dbsOptions import DbsOptionParser
 
 import string,sys,os
-import pdb
 
 #  //
 # // Invalidate LFNs
@@ -77,24 +76,14 @@ def updateBlockStatus(url,lblock,valid):
 def main ():
   from optparse import OptionParser
 
-  usage="""\n Usage: python DBSInvalidateFile <options>
-          Options:
-          --lfn=<LFN>                 \t\t comma separated list of LFNs
-          --lfnFileList=<filewithLFNlist> \t file with the list of LFNs
-          --block=<block>	      \t\t comma separated list of blocks
-          [--valid]                   \t\t option to set files to valid status instead of invalid
-          [--DBSURL=<URL>]            \t\t DBS URL (if empty, default: https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet
-      """
+  usage="""\npython DBSInvalidateFile <options>"""
   parser = OptionParser(usage=usage)
 
-  parser.add_option('-u', '--url', dest='url',
-                     default='http://cmsdbsprod.cern.ch/cms_dbs_prod_global/servlet/DBSServlet',
-                     help='DBS URL')
+  parser.add_option('-u', '--url', dest='url', default='http://cmsdbsprod.cern.ch/cms_dbs_prod_global/servlet/DBSServlet', help='DBS URL')
   parser.add_option('-l', '--lfn', dest='lfn', default=None, help='LFN')
   parser.add_option('-s', '--lfnFileList', dest='lfnFileList', default=None, help='file with the list of LFNs')
   parser.add_option('-b', '--block', dest='block', default=None, help='Block to be deleted')
-  parser.add_option('-v', '--valid', action="store_true",
-                    default=False,dest='valid', help='Validate status instead of invalidate')
+  parser.add_option('-v', '--valid', action="store_true", default=False,dest='valid', help='Validate status instead of invalidate')
 
   (opts, args) = parser.parse_args()
 
@@ -124,6 +113,5 @@ def main ():
   sys.exit(0)
 
 if __name__ == "__main__":
-  pdb.set_trace()
   main()
 

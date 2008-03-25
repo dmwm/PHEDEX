@@ -72,7 +72,7 @@ sub idle
     # Connect to database
     $dbh = $self->connectAgent();
     my @nodes = $self->expandNodes();
-    my @nodefilter = $self->myNodeFilter ("br.node");
+    my @nodefilter = $self->myNodeFilter ("n.id");
 
     # Get order list of blocks we have.  This is always everything,
     # but we keep track of what we've updated in a file.  If the
@@ -85,7 +85,7 @@ sub idle
     # Get the ID for DBS test-requests from the t_dvs_test table.
     my $test = PHEDEX::BlockConsistency::SQL::get_TDVS_Tests($self,'dbs')->{ID};
 
-    foreach my $block (@$completed, @$deleted)
+    foreach my $block (@$deleted, @$completed)
     {
       # If we've updated already, skip this
       my $cachekey = "$block->{COMMAND} $block->{DBS_NAME} $block->{BLOCK_NAME} $block->{NODE_NAME}";

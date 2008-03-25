@@ -39,7 +39,7 @@ handle
   }
 
   my @nodes = ('t1_cern_%','t2_%');
-  my $nodes = PHEDEX::Core::SQL::getBuffersFromWildCard($dbh,@nodes);
+  my $nodes = PHEDEX::Core::SQL::getBufferFromWildCard($dbh,@nodes);
   print $nodes->{5}->{NAME};
 
 or the OO interface, creating a PHEDEX::Core::SQL object
@@ -48,7 +48,7 @@ or the OO interface, creating a PHEDEX::Core::SQL object
   my $SQL = PHEDEX::Core::SQL->new( DBH => $dbh );
   my $href $SQL->select_hash( $sql, $key, %param );
 
-  my $nodes = $SQL->getBuffersFromWildCard(@nodes);
+  my $nodes = $SQL->getBufferFromWildCard(@nodes);
 
 or inherit it in your agent code
 
@@ -56,7 +56,7 @@ or inherit it in your agent code
   my $agent = PHEDEX::Hypothetical::Agent->new( ...parameters... );
   my $href  = $agent->select_hash( $sql, $key, %param );
 
-  $nodes = $agent->getBuffersFromWildCard(@nodes);
+  $nodes = $agent->getBufferFromWildCard(@nodes);
 
 =head1 METHODS
 
@@ -164,6 +164,10 @@ has subkeys for the node NAME and TECHNOLOGY.
 
 Return the LFNs of files in all blocks in t_dps_block where the block name
 is LIKE any of C<@block>
+
+=item getSiteReplicas($se_name)
+
+Return the replicas (LFNs) of a storage element.
 
 =item getBlocksFromLFNs(@lfn)
 
@@ -463,6 +467,23 @@ sub getLFNsFromBlocks
                 (select id from t_dps_block where " .
                  filter_or_like( $self, undef, \%p, 'name', @_ ) . ')';
   my $r = select_single( $self, $sql, %p );
+  return $r;
+}
+
+#-------------------------------------------------------------------------------
+sub getSiteReplicas
+{
+  my $self = shift;
+  my %p = ( ':se_name' => @_ );
+  my $sql = "select distinct f.logical_name from t_dps_file f
+              join t_dps_block b               on b.id = f.inblock
+              left join t_dps_block_replica br on br.block = b.id and br.node_files = b.files
+              left join t_xfer_replica xr      on xr.fileid = f.id
+              join t_adm_node n                on n.id = br.node or n.id = xr.node
+             where n.se_name = :se_name
+             order by 1";
+
+  my $r = select_single ( $self, $sql, %p );
   return $r;
 }
 
