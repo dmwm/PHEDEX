@@ -5,8 +5,6 @@ package PHEDEX::Web::Config;
 use warnings;
 use strict;
 
-use PHEDEX::Core::DB;
-
 sub read
 {
     my $self = shift;
