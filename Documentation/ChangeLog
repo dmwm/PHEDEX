@@ -8,7 +8,7 @@ Changes for Site Agents / Tools
    - TMDBInject: Fix problem where some character data was injected as
      type NCHAR, resulting in extremely slow injections
    - InspectPhedexLog: extended date regexp, minor changes in output
-     (per site rates, better fromatting)
+     (per site rates, better formatting)
    - BlockConsistency: Fix forced expiry which prevented tests from
      being performed
    - BlockDownloadVerify-report.pl: provide sensible default for age,
@@ -22,6 +22,9 @@ T0 / CAF
    - Special code for supporting the CAF transfers added:
      Utilities/stagercp, Utilities/wrapper_rfcp,
      PHEDEX::Transfer::Stager
+   - BlockDBSPopulate added: New agent that migrates blocks to a
+     target DBS (usually local) once the block is completely
+     transferred to node (SE).
 
 Et Cetera
    - Toolkit/DBS/DBSInvalidateFile: Added option to change the status
