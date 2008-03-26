@@ -96,9 +96,11 @@ sub createAgents
     my %a = @_;
     $a{ME} = $agent;
     $a{NODAEMON} = 1;
+    $a{DBH_ID_MODULE} = $self->{ME};
     my $opts = $Agent->OPTIONS;
     $opts->{DROPDIR} = '${PHEDEX_STATE}/' . $agent;
     $opts->{LOGFILE} = '${PHEDEX_LOGS}/'  . $agent;
+    $opts->{SHARED_DBH} = 1 unless exists($opts->{SHARED_DBH});
 
     my $env = $Config->{ENVIRONMENTS}{$Agent->ENVIRON};
     foreach ( keys %{$opts} )
@@ -221,9 +223,15 @@ sub _make_stats
         $totalOffCPU += $offCPU;
         $max = $a[-1];
         $median = $a[int($count/2-0.9)];
+        my $waittime = $self->{AGENTS}{$agent}->{WAITTIME} || 0;
         if ( !defined($median) ) { print "median not defined for $agent\n"; }
         if ( !defined($max   ) ) { print "max    not defined for $agent\n"; }
         $summary .= sprintf(" offCPU(median=%.2f max=%.2f)",$median,$max);
+        if ( $waittime && $median )
+        {
+          my $delay = $median / $waittime;
+          $summary .= sprintf(" delay_factor=%.2f",$delay);
+        }
         if ( $self->{STATISTICS_DETAIL} > 1 )
         {
           $summary .= ' offCPU_details=(' . join(',',map { $_=int(1000*$_)/1000 } @a) . ')';
