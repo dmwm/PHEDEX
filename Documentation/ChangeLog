@@ -1,3 +1,54 @@
+* Changes in PhEDEx 3.0.0.pre6
+
+Changes for All Agents
+   - new Agent infrastructure based on the Perl Object Environment 
+     (http://poe.perl.org/). This introduces a new dependency and a new
+     RPM is provided to satisfy it. Installation should proceed normally.
+   - not all agents are using the POE framework yet, there is a
+     POEAgent.pm for those that do. POEAgent.pm should be a drop-in
+     replacement for Agent.pm for all agents, this simply hasn't been
+     tested everywhere yet.
+   - running multiple agents in a single process is now possible with no
+     changes to the agent beyond using the POE framework. Agents in the 
+     same process can share a database connection or not, configurable on 
+     a per-agent basis. Configuration-file syntax is compatible with 
+     existing syntax, only the semantics change. We are testing this at 
+     CERN, documentation will follow.
+
+Changes for Site Agents
+   - new FTS backend. This is a significant re-write of the original. The
+     SRM backend is unchanged. The new agent is in 
+     Toolkit/Transfer/FileDownload2, this is a temporary measure until it 
+     is fully tested. It has the following features:
+    - per-link monitoring of transfers, with statistics and an 'isBusy'
+      function calculated per link. This makes it practical to once again
+      run only one FileDownload agent per site, instead of one per link.
+    - asynchronous file-based monitoring, not synchronous job-based. FTS
+      servers are monitored at a fixed rate, independant of the number of
+      jobs submitted, so the FTS server will never be overloaded.
+    - per-file and per-job callbacks allow the FTS backend to react to 
+      state changes as soon as they become known, not only after job 
+      completion.
+    - number of jobs is no longer an inflexible limit. The process uses 
+      the actual link-state to determine if it is safe to submit more
+      transfers.
+    - eliminates use of transfer-wrapper and ftscp scripts, which will
+      greatly reduce the number of processes running on a busy vobox.
+    - uses the POEAgent infrastructure.
+
+Unfinished features
+   - FTS backend
+    - the FTS backend does not support SRM yet.
+    - nor does it remember jobs in the queue across stop/restarts
+    - some effort is doubtless needed for optimisation
+   - SRM backend
+    - need confirmation that we haven't broken anything.
+   - Multiple agents per process
+    - agent-reporting in the Component::Status page is not yet perfect.
+    - better monitoring is needed to make sure that one agent does not 
+      starve another for CPU (POE is cooperative multi-tasking, not 
+      pre-emptive)
+
 * Changes in PhEDEx 2.6.3
 
 Bug Fixes For Central Agents

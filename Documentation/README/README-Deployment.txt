@@ -76,7 +76,7 @@ Software installation is done through the CMS aptinstaller program.
 
 First set a variable for the version of PhEDEx you are going to install:
 
-  version=2_5_4_2
+  version=3_0_0_pre6
 
 Next set a variable for your architecture. If you are on a 32-bit, RHEL-3 derivate:
 
