@@ -6,7 +6,7 @@
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
 # XML support added by Artem Trunov
-# Version info: $Id: InspectPhedexLog,v 1.22 2008/02/15 10:31:56 trunov Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.23 2008/03/11 09:59:11 dfeichti Exp $:
 ###############################################################################
 
 use strict;
@@ -151,9 +151,9 @@ if ($#logfiles==-1) {
 }
 
 
-my $datestart;
-my $dateend;
-#my $date_old=0;
+my $datestart=1e100; # first recorded transfer date of all scanned log files
+my $dateend; # last recorded transfer date of all scanned log files
+
 my %errinfo;
 my %dberrinfo;
 my ($date,$task,$from,$stat,$size,$txfer,$tdone,$ttransfer,$fname,$reason,$bsize,$size_sum)=(0,0,0,0,0,0,0,0,0,0,0,0);
@@ -161,9 +161,12 @@ my ($bunchsize,$bunchfiles,$txfer_old,$tdone_old,$closedbunch)=(0,0,0,0,0);
 my $line;
 my $statstr;
 
-my $epdate;
-
+my $localdatestart;
+my $localdateend;
 foreach my $log (@logfiles) {
+   $localdatestart=undef;
+   $localdateend=undef;
+
    open(LOG,"<$log") or die "Error: Could not open logfile $log";
    my ($MbperS,$MBperS);
    while($line=<LOG>) {
@@ -187,9 +190,8 @@ foreach my $log (@logfiles) {
 	   die "Error: Parsing problem with line:\n$line";
        }
 
-       $epdate=DateToUnixEpochSeconds($date);
-
-       unless ($datestart) { $datestart = $epdate };
+       $localdateend=DateToUnixEpochSeconds($date);
+       unless ($localdatestart) { $localdatestart = $localdateend; };
 
        $closedbunch=0;
        if($stat == 0) {   # successful transfer
@@ -214,7 +216,7 @@ foreach my $log (@logfiles) {
 		   $attempts{"$from"}{"exp"}{"0"}++;
 	       }
 	   }
-	   
+
              # the following is needed because transfer time applies not to a single file but to the bunch
 	     #if( ! defined $txfer_old || $txfer_old == 0  || $txfer == $txfer_old) {     # try to identify bunches
 	       # all files in a bunch seem to have the same start time (xfer) and almost the same tdone
@@ -295,7 +297,7 @@ foreach my $log (@logfiles) {
 	     }
 	     $errinfo{$from}{$reason}{num}++;
 	     push @{$errinfo{$from}{$reason}{tasks}},$task;
-	     push @{$errinfo{$from}{$reason}{time}},$epdate if $flag_errhisto;
+	     push @{$errinfo{$from}{$reason}{time}},$localdateend if $flag_errhisto;
 
          }
 
@@ -319,9 +321,11 @@ foreach my $log (@logfiles) {
 
    close LOG;
 
+   $datestart = $localdatestart if ($localdatestart && $localdatestart < $datestart);
+   $dateend = $localdateend if ($localdateend && $localdateend > $dateend);
+
 } #foreach log
 
-$dateend = $epdate;
 
 open XML, ">$logx" or die "Cannot open $logx";
 print XML "<InspectPhedexLog start=\"",strftime("%Y-%m-%d %H:%M:%S",localtime($datestart)),"\" end=\"",strftime("%Y-%m-%d %H:%M:%S",localtime($dateend)), "\">\n";
