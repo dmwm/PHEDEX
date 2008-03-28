@@ -41,6 +41,7 @@ our %params =
 	  CHECK_INTERVAL => 3 * 86400,	# Age to start checking...
 	  LAST_CHECKED => 0,		# Internal lower bound
 	  USE_SRM => 0,			# Use SRM instead of direct?
+	  ME => 'BlockDownloadVerifyInjector',
 	);
     
 

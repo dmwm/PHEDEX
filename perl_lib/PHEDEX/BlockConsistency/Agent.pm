@@ -42,6 +42,7 @@ our %params =
 	  STORAGEMAP => undef,		# Storage path mapping rules
 	  USE_SRM => 'n',		# Use SRM or native technology?
 	  RFIO_USES_RFDIR => 0,		# Use rfdir instead of nsls?
+	  ME => 'BlockDownloadVerify',  # Name for the record...
 	);
 
 sub daemon
