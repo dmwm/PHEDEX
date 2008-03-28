@@ -20,8 +20,7 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'template::SQL';
-use PHEDEX::Core::Logging;
+use base 'PHEDEX::Core::POEAgent', 'template::SQL', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
 
 our %params =
@@ -30,7 +29,8 @@ our %params =
     	  DBCONFIG => undef,		# Database configuration file
 	  WAITTIME => 6 + rand(3),	# Agent cycle time
 	  MYNEWPARAM => 'my value',
-	  VERBOSE    => $ENV{PHEDEX_VERBOSE},
+	  VERBOSE    => $ENV{PHEDEX_VERBOSE} || 0,
+	  ME	     => 'template',
 	);
 
 our @array_params = qw / MYARRAY /;

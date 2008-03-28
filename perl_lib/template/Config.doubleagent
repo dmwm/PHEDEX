@@ -43,12 +43,15 @@ PHEDEX_DEBUGGER="perl -MPHEDEX::Debug -d"
 
 ### AGENT LABEL=fast-agent PROGRAM=template::Agent DEFAULT=off
  WAITTIME 3
+ ME template-fast-agent
 
 ### AGENT LABEL=medium-agent PROGRAM=template::Agent DEFAULT=off
  WAITTIME 7
+ ME template-medium-agent
 
 ### AGENT LABEL=slow-agent PROGRAM=template::Agent DEFAULT=off
  WAITTIME 15
+ ME template-slow-agent
 
 ### AGENT LABEL=blockverify PROGRAM=PHEDEX::BlockConsistency::Agent DEFAULT=off
   -db          ${PHEDEX_DBPARAM}

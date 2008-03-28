@@ -27,6 +27,7 @@ use PHEDEX::Core::Timing;
 our %params =
 	(
 	  MYNODE	=> undef,		# my TMDB nodename
+	  ME		=> 'AgentFactory',
 	  WAITTIME	=> 6 + rand(3),		# This agent cycle time
 	  VERBOSE	=> $ENV{PHEDEX_VERBOSE},
 	  AGENTS	=> undef,		# Which agents am I to start?
@@ -94,9 +95,7 @@ sub createAgents
       $Modules{$module}++;
     }
     my %a = @_;
-    $a{ME} = $agent;
     $a{NODAEMON} = 1;
-    $a{DBH_ID_MODULE} = $self->{ME};
     my $opts = $Agent->OPTIONS;
     $opts->{DROPDIR} = '${PHEDEX_STATE}/' . $agent;
     $opts->{LOGFILE} = '${PHEDEX_LOGS}/'  . $agent;

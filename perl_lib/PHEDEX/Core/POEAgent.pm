@@ -104,12 +104,7 @@ sub new
     my $self  = $class->SUPER::new(@_);
 
     my %args = (@_);
-    my $me = $args{ME};
-    if ( !defined($me) )
-    {
-      $me = $0; $me =~ s|.*/||;
-      $args{ME} = $me;
-    }
+    my $me = $self->AgentType($args{ME});
 
 #   Retrieve the agent environment, if I can.
     my ($config,$cfg,$label,$key,$val);
@@ -1126,7 +1121,7 @@ sub updateAgentStatus
   return if ($self->{DBH_AGENT_UPDATE}{$self->{MYNODE}} || 0) > $now - 5*60;
 
   # Obtain my node id
-  my $me = $self->{ME} || $0; $me =~ s|.*/||;
+  my $me = $self->{ME};
   ($self->{ID_MYNODE}) = &dbexec($dbh, qq{
 	select id from t_adm_node where name = :node},
 	":node" => $self->{MYNODE})->fetchrow();
@@ -1568,6 +1563,20 @@ sub _default
 
   (...end of dump)
 EOF
+}
+
+sub AgentType
+{
+  my ($self,$agent_type) = @_;
+
+  if ( !defined($agent_type) )
+  {
+    $agent_type = (caller(1))[0];
+    $agent_type =~ s%^PHEDEX::%%;
+    $agent_type =~ s%::Agent%%;
+    $agent_type =~ s%::%%g;
+  }
+  return $self->{ME} = $agent_type;
 }
 
 1;
