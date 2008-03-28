@@ -104,9 +104,10 @@ die "Insufficient parameters, use -h for help.\n"
     if (!$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG}
 	|| !$args{BACKEND_TYPE});
 
-#$args{NODAEMON}=1;
 my $agent = new FileDownload (%args, BACKEND_ARGS => [ @ARGV ]);
 POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;
 
 ######################################################################
 # Routines specific to this agent.

@@ -53,13 +53,16 @@ if (@ARGV || !$args{NODES} || !$args{DROPDIR} || !$args{DBCONFIG}
     die "Insufficient parameters, use -h for help.\n";
 }
 
-(new FileRemove (%args))->process();
+my $agent = FileRemove->new(%args,@ARGV);
+POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;
 
 ################################################
 package FileRemove;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
 use File::Path;
 use Data::Dumper;
 

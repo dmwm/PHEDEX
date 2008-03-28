@@ -20,8 +20,7 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 
 use strict;
 use warnings;
-use base 'PHEDEX::BlockAllocator::SQL', 'PHEDEX::BlockLatency::SQL';
-use PHEDEX::Core::Logging;
+use base 'PHEDEX::BlockAllocator::SQL', 'PHEDEX::BlockLatency::SQL', 'PHEDEX::Core::Logging';
 
 our %params = (
 	      );

@@ -58,7 +58,7 @@ sub process
 sub runSQL {
     my ( $self, $dbh ) = @_;
 
-    &logmsg( "Running SQL from $self->{SCRIPT}.sql" );
+    $self->Logmsg( "Running SQL from $self->{SCRIPT}.sql" );
     eval {
         open ( SQL, "$self->{SCRIPT}.sql" );
         while (<SQL>) {
@@ -67,7 +67,7 @@ sub runSQL {
         $dbh->commit();
         close( SQL );
     };
-    do { chomp ($@); &alert ("Problem running SQL from $self->{SCRIPT}.sql stage: $@");
+    do { chomp ($@); $self->Alert ("Problem running SQL from $self->{SCRIPT}.sql stage: $@");
          eval { $dbh->rollback() } if $dbh; } if $@;
 }
 

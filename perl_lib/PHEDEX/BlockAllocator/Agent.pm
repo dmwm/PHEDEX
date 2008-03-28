@@ -20,8 +20,7 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'PHEDEX::BlockAllocator::Core';
-use PHEDEX::Core::Logging;
+use base 'PHEDEX::Core::POEAgent', 'PHEDEX::BlockAllocator::Core', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
 
 our %params =
@@ -85,7 +84,7 @@ sub idle
 	$self->Logmsg('nothing to do');
     }
 };
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
          eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database

@@ -20,7 +20,7 @@ L<PHEDEX::BlockConsistency::SQL|PHEDEX::BlockConsistency::SQL>.
 =cut
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockConsistency::SQL', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::POEAgent', 'PHEDEX::BlockConsistency::SQL', 'PHEDEX::Core::Logging';
 
 use File::Path;
 use File::Basename;
@@ -170,7 +170,7 @@ sub doDBSCheck
   do
   {
     chomp ($@);
-    &alert ("database error: $@");
+    $self->Alert ("database error: $@");
     eval { $dbh->rollback() } if $dbh;
     return 0;
   } if $@;
@@ -275,7 +275,7 @@ sub doNSCheck
   do
   {
     chomp ($@);
-    &alert ("database error: $@");
+    $self->Alert ("database error: $@");
     eval { $dbh->rollback() } if $dbh;
     return 0;
   } if $@;
@@ -316,7 +316,7 @@ sub processDrop
 
     if ( $bad )
     {
-      &alert ("corrupt packet in $drop");
+      $self->Alert ("corrupt packet in $drop");
       return;
     }
 
@@ -345,7 +345,7 @@ sub processDrop
 
   if ( $bad )
   {
-    &alert ("corrupt packet in $drop for request $request->{ID}");
+    $self->Alert ("corrupt packet in $drop for request $request->{ID}");
 
     $self->markBad ($drop);
     $self->setRequestState($request,'Rejected');
@@ -474,8 +474,8 @@ sub startOne
 
 # Create a pending drop in my inbox
   my $drop = "$$self{DROPDIR}/inbox/" . $self->dropBoxName($request);
-  do { &alert ("$drop already exists"); return 0; } if -d $drop;
-  do { &alert ("failed to submit $$request{ID}"); &rmtree ($drop); return 0; }
+  do { $self->Alert ("$drop already exists"); return 0; } if -d $drop;
+  do { $self->Alert ("failed to submit $$request{ID}"); &rmtree ($drop); return 0; }
 	if (! &mkpath ($drop)
 	  || ! &output ("$drop/packet", Dumper ($request))
 	  || ! &touch ("$drop/go.pending"));
@@ -516,7 +516,7 @@ sub idle
     }
     $dbh->commit();
   };
-  do { chomp ($@); &alert ("database error: $@");
+  do { chomp ($@); $self->Alert ("database error: $@");
   eval { $dbh->rollback() } if $dbh } if $@;
 
   # Wait for all jobs to finish

@@ -42,14 +42,19 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
     die "Insufficient parameters, use -h for help.\n";
 }
 
-(new DropTMDBPublisher (%args))->process();
+my $agent = DropTMDBPublisher->new(%args,@ARGV);
+POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;
 
 ######################################################################
 # Routines specific to this agent.
-package DropTMDBPublisher; use strict; use warnings; use base 'PHEDEX::Core::Agent';
+package DropTMDBPublisher;
+use strict;
+use warnings;
+use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
 use File::Path;
 use PHEDEX::Core::Command;
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 
 sub new
@@ -83,13 +88,13 @@ sub processDrop
     if (-f "$dropdir/PhEDEx-Nodes.txt")
     {
         @nodes = split(/\s+/, &input ("$dropdir/PhEDEx-Nodes.txt") || '');
-        do { &alert("$drop: PhEDEx-Nodes.txt contained no nodes");
+        do { $self->Alert("$drop: PhEDEx-Nodes.txt contained no nodes");
 	     $self->markBad ($drop); return }
             if ! @nodes;
     }
     else
     {
-        do { &alert("$drop: no PhEDEx-Nodes.txt and no -node argument");
+        do { $self->Alert("$drop: no PhEDEx-Nodes.txt and no -node argument");
 	     $self->markBad ($drop); return }
             if ! $$self{MYNODE};
 	push(@nodes, $$self{MYNODE});
@@ -97,7 +102,7 @@ sub processDrop
 
     # Locate file description XML file.
     my $filedata = (<$dropdir/*.xml>)[0];
-    do { &alert("$drop: no catalogue"); $self->markBad ($drop); return }
+    do { $self->Alert("$drop: no catalogue"); $self->markBad ($drop); return }
         if ! $filedata;
 
     # Load and parse additional options.
@@ -124,7 +129,7 @@ sub processDrop
 	}
 	else
 	{
-	    &alert("$drop: unrecognised option '$opt'");
+	    $self->Alert("$drop: unrecognised option '$opt'");
 	    $self->markBad ($drop);
 	    return;
 	}
@@ -142,12 +147,12 @@ sub processDrop
 
     if (my $rc = &runcmd (@cmd))
     {
-	 &alert ("exit code @{[&runerror($rc)]} from @cmd");
+	 $self->Alert ("exit code @{[&runerror($rc)]} from @cmd");
          $self->markBad ($drop);
 	 return;
     }
 
     # Success, relay onwards
     $self->relayDrop ($drop);
-    &logmsg("stats: $drop @{[&formatElapsedTime($$self{STARTTIME})]} success");
+    $self->Logmsg("stats: $drop @{[&formatElapsedTime($$self{STARTTIME})]} success");
 }

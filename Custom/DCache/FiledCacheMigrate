@@ -37,13 +37,18 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{NODES})
     die "Insufficient parameters, use -h for help.\n";
 }
 
-(new FileDCacheMigrate (%args))->process();
+my $agent = FileDCacheMigrate->new(%args,@ARGV);
+POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;
 
 ######################################################################
 # Routines for this agent.
-package FileDCacheMigrate; use strict; use warnings; use base 'PHEDEX::Core::Agent';
+package FileDCacheMigrate;
+use strict;
+use warnings;
+use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Command;
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::DB;
@@ -138,7 +143,7 @@ sub idle
 	    $dbh->commit ();
 
 	    # Log delay data.
-    	    &logmsg ("xstats: to_node=$dest time="
+    	    $self->Logmsg ("xstats: to_node=$dest time="
 		     . sprintf('%.1fs', $now - $available)
 		     . " size=$size lfn=$lfn pfn=$pfn");
 
@@ -146,7 +151,7 @@ sub idle
 	    last if $now - $start > 10*60;
 	}
     };
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database

@@ -20,7 +20,7 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockDLSUpdate::SQL', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::POEAgent', 'PHEDEX::BlockDLSUpdate::SQL', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
 use PHEDEX::BlockConsistency::Core;
 use DB_File;
@@ -128,7 +128,7 @@ sub idle
       }
       else
       {
-	&alert ("dls contact $block->{DLS_NAME} not understood");
+	$self->Alert ("dls contact $block->{DLS_NAME} not understood");
 	next;
       }
 
@@ -148,7 +148,7 @@ sub idle
 	          @cmd);
     }
   };
-  do { chomp ($@); &alert ("database error: $@");
+  do { chomp ($@); $self->Alert ("database error: $@");
     eval { $dbh->rollback() } if $dbh } if $@;
 
   # Disconnect from the database
@@ -176,7 +176,7 @@ sub registered
     }
     else
     {
-	&logmsg("Successfully issued $block->{COMMAND}"
+	$self->Logmsg("Successfully issued $block->{COMMAND}"
 		. " on block $block->{BLOCK_NAME} for $block->{NODE_NAME}");
 	unlink ($job->{LOGFILE});
 	$$state = &mytimeofday();

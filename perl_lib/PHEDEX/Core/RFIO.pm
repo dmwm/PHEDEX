@@ -8,7 +8,7 @@ PHEDEX::Core::RFIO - a drop-in replacement for Toolkit/UtilsRFIO
 
 use strict;
 use warnings;
-use base 'Exporter';
+use base 'Exporter', 'PHEDEX::Core::Logging';
 our @EXPORT = qw(rfstat rfstatmode rfstatsize rfmkpath rflist
 		 rfsubdirs rffiles rfcp rfrm rfrmall rfcpmany);
 use PHEDEX::Core::Command;
@@ -117,7 +117,7 @@ sub rfrmall
         {
             print "removing $dir/$file\n";
             last if &rfrm ("$dir/$file");
-            &alert ("failed to remove $dir/$file (attempt $attempts), trying again in 10s");
+            print(PHEDEX::Core::Logging::Hdr,"alert: failed to remove $dir/$file (attempt $attempts), trying again in 10s");
             sleep (10);
         }
     }

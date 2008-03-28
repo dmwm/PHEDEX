@@ -46,14 +46,17 @@ if (@ARGV || !$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG}
     die "Insufficient parameters, use -h for help.\n";
 }
 
-(new FilePFNExport (%args))->process();
+my $agent = FilePFNExport->new(%args,@ARGV);
+POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;
 
 ######################################################################
 # Routines specific to this agent.
 package FilePFNExport;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Timing;

@@ -54,13 +54,18 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{NODES})
     die "Insufficient parameters, use -h for help.\n";
 }
 
-(new FileMSSMigrate (%args))->process();
+my $agent = FileMSSMigrate->new(%args,@ARGV);
+POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;
 
 ######################################################################
 # Routines for this agent.
-package FileMSSMigrate; use strict; use warnings; use base 'PHEDEX::Core::Agent';
+package FileMSSMigrate;
+use strict;
+use warnings;
+use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Command;
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::DB;
@@ -151,16 +156,16 @@ sub idle
 	    order by xt.time_assign asc, xt.rank asc}, %myargs);
 	while (my ($task, $dest, $size, $lfn, $pfn, $available) = $q->fetchrow())
 	{
-	    &logmsg("Checking pfn $pfn");
+	    $self->Logmsg("Checking pfn $pfn");
 	    
 	    my $status = &checkFileInMSS($pfn);
 	    
 	    if ($status == 0) {
-		&logmsg ("Not yet migrated: $pfn"); next;
+		$self->Logmsg ("Not yet migrated: $pfn"); next;
 	    }
 	    elsif ($status == -1) {
-		&logmsg ("File reported lost: $pfn"); 
-		&markForRetransfer($lfn) if ($args{RETRANSFERLOST}); 
+		$self->Logmsg ("File reported lost: $pfn"); 
+		$self->markForRetransfer($lfn) if ($args{RETRANSFERLOST}); 
 		next;
 	    }
 	    
@@ -170,7 +175,7 @@ sub idle
 	    $dbh->commit ();
 
 	    # Log delay data.
-    	    &logmsg ("xstats: to_node=$dest time="
+    	    $self->Logmsg ("xstats: to_node=$dest time="
 		     . sprintf('%.1fs', $now - $available)
 		     . " size=$size lfn=$lfn pfn=$pfn");
 
@@ -178,7 +183,7 @@ sub idle
 	    last if $now - $start > 10*60;
 	}
     };
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database
@@ -186,8 +191,8 @@ sub idle
 }
 
 sub markForRetransfer {
-    my $lfn = shift @_;
-    &logmsg ("Marking for retransfer: $lfn");
+    my ($self,$lfn) = @_;
+    $self->Logmsg ("Marking for retransfer: $lfn");
 }
 
 sub loadcheckroutine {
@@ -200,11 +205,11 @@ sub loadcheckroutine {
         require $$self{CHECKROUTINE};
     }
     elsif ($$self{MSSBACKEND} eq 'srm'){
-	&logmsg("Loading SRM backend routine");
+	$self->Logmsg("Loading SRM backend routine");
 	*checkFileInMSS = \&checkFileInMSS_SRM;
     }
     elsif ($$self{MSSBACKEND} eq 'castor'){
-	&logmsg("Loading Castor backend routine");
+	$self->Logmsg("Loading Castor backend routine");
 	*checkFileInMSS = \&checkFileInMSS_castor;
     }
     elsif ($$self{MSSBACKEND} eq 'dcache') {
@@ -213,7 +218,7 @@ sub loadcheckroutine {
         eval $subr;
     }
     elsif ($$self{MSSBACKEND} eq 'fake')  {
-        &logmsg("Loading fake backend routine");
+        $self->Logmsg("Loading fake backend routine");
         *checkFileInMSS = \&checkFileInMSS_fake;
     }
     elsif ($$self{MSSBACKEND}) {
@@ -221,7 +226,7 @@ sub loadcheckroutine {
     }
     else {
 	#This is not required at this point, but..
-	&logmsg("Loading fake backend routine afterall");
+	$self->Logmsg("Loading fake backend routine afterall");
         *checkFileInMSS = \&checkFileInMSS_fake;
     }
 

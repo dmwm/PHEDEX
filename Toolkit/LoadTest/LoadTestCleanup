@@ -28,14 +28,17 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG})
     die "Insufficient parameters, use -h for help.\n";
 }
 
-(new LoadTestCleanup (%args))->process();
+my $agent = LoadTestCleanup->new(%args,@ARGV);
+POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;
 
 ######################################################################
 # Routines for this agent.
 package LoadTestCleanup;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 
@@ -90,13 +93,13 @@ sub idle
               delete from t_dps_block where id = :block
               }, ':block' => $id);
     
-	    &logmsg("removing $name : $nfiles files");
+	    $self->Logmsg("removing $name : $nfiles files");
 	}
 	
     	$dbh->commit();
 
     };
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database

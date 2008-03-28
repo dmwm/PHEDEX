@@ -18,7 +18,7 @@ See the wiki, where the documentation is maintained.
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
 
 use File::Path;
 use Data::Dumper;
@@ -204,7 +204,7 @@ sub idle
     $dbh->commit();
   };
   do { chomp ($@);
-      &alert ("database error: $@");
+      $self->Alert ("database error: $@");
        eval { $dbh->rollback() } if $dbh
      } if $@;
 
@@ -235,8 +235,8 @@ sub startOne
 
 # Create a pending drop in the required location
   my $drop = $self->{DROPBOX} . '/' . $self->dropBoxName($request);
-  do { &alert ("$drop already exists"); return 0; } if -d $drop;
-  do { &alert ("failed to submit $$request{ID}"); &rmtree ($drop); return 0; }
+  do { $self->Alert ("$drop already exists"); return 0; } if -d $drop;
+  do { $self->Alert ("failed to submit $$request{ID}"); &rmtree ($drop); return 0; }
         if (! &mkpath ($drop)
           || ! &output ("$drop/packet", Dumper ($request))
           || ! &touch ("$drop/go.pending"));

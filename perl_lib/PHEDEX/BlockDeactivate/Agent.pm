@@ -20,7 +20,7 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'PHEDEX::BlockDeactivate::SQL';
+use base 'PHEDEX::Core::POEAgent', 'PHEDEX::BlockDeactivate::SQL', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing qw / mytimeofday /;
 
 our %params =

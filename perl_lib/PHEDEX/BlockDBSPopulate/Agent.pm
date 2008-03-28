@@ -20,7 +20,7 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockDBSPopulate::SQL';
+use base 'PHEDEX::Core::POEAgent', 'PHEDEX::BlockDBSPopulate::SQL', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
 use PHEDEX::BlockConsistency::Core;
 use DB_File;
@@ -134,7 +134,7 @@ sub idle
 	          @cmd);
     }
   };
-  do { chomp ($@); &alert ("database error: $@");
+  do { chomp ($@); $self->Alert ("database error: $@");
     eval { $dbh->rollback() } if $dbh } if $@;
 
   # Disconnect from the database
@@ -161,7 +161,7 @@ sub registered
 
     if ($job->{STATUS_CODE} == 0)
     {
-        &logmsg("Successfully issued $block->{COMMAND}"
+        $self->Logmsg("Successfully issued $block->{COMMAND}"
                 . " on block $block->{BLOCK_NAME} for $block->{NODE_NAME}");
         unlink ($job->{LOGFILE});
         if ( $block->{COMMAND} eq 'migrateBlock' ) { $state->{$cachekey} = &mytimeofday(); }

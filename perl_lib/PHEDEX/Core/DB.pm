@@ -99,7 +99,7 @@ sub connectToDatabase
 	|| (! eval { $dbh->do("select sysdate from dual") } || $@))
   {
     $self->{DBH_LOGGING} = 1 if $ENV{PHEDEX_LOG_DB_CONNECTIONS};
-    &logmsg ("(re)connecting to database") if $self->{DBH_LOGGING};
+    $self->Logmsg ("(re)connecting to database") if $self->{DBH_LOGGING};
 
     # Clear previous connection.
     eval { &disconnectFromDatabase ($self, $self->{DBH}, 1) } if $self->{DBH};
@@ -192,7 +192,7 @@ sub disconnectFromDatabase
   # Actually disconnect if required.
   if ((exists $self->{DBH_CACHE} && ! $self->{DBH_CACHE}) || $force)
   {
-    &logmsg ("disconnected from database") if $self->{DBH_LOGGING};
+    $self->Logmsg ("disconnected from database") if $self->{DBH_LOGGING};
     eval { $dbh->disconnect() } if $dbh;
     undef $dbh;
     undef $self->{DBH};
@@ -252,7 +252,7 @@ sub dbbindexec
     my $sql = $stmt->{Statement};
     $sql =~ s/\s+/ /g; $sql =~ s/^\s+//; $sql =~ s/\s+$//;
     my $bound = join (", ", map { "($_, " . (defined $params{$_} ? $params{$_} : "undef") . ")" } sort keys %params);
-      &logmsg ("executing statement `$sql' [$bound]");
+      print PHEDEX::Core::Logging::Hdr,"executing statement `$sql' [$bound]\n";
   }
 
   my $isarray = 0;

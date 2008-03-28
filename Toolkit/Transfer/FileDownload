@@ -100,14 +100,14 @@ die "Insufficient parameters, use -h for help.\n"
     if (!$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG}
 	|| !$args{BACKEND_TYPE});
 
-(new FileDownload (%args, BACKEND_ARGS => [ @ARGV ]))->process();
+my $agent = FileDownload->new(%args, BACKEND_ARGS => [ @ARGV ]);
 
 ######################################################################
 # Routines specific to this agent.
 package FileDownload;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
 use List::Util qw(min max sum);
 use File::Path qw(mkpath rmtree);
 use Data::Dumper;

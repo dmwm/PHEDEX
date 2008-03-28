@@ -8,12 +8,11 @@ PHEDEX::Core::Agent - Agent daemon base class
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::JobManager';
+use base 'PHEDEX::Core::JobManager', 'PHEDEX::Core::Logging';
 use POSIX;
 use File::Path;
 use File::Basename;
 use PHEDEX::Core::Command;
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::RFIO;
 use PHEDEX::Core::DB;
@@ -424,9 +423,9 @@ sub checkWorkers
 	    $self->{WORKERS}[$i] = $new;
 
 	    if (! $old) {
-		&logmsg ("worker $i ($new) started");
+		$self->Logmsg ("worker $i ($new) started");
 	    } else {
-	        &logmsg ("worker $i ($old) stopped, restarted as $new");
+	        $self->Logmsg ("worker $i ($old) stopped, restarted as $new");
 	    }
 	}
     }
@@ -455,7 +454,7 @@ sub stopWorkers
     {
 	my $pid = waitpid (-1, 0);
 	@workers = grep ($pid ne $_, @workers);
-	&logmsg ("child process $pid exited, @{[scalar @workers]} workers remain") if $pid > 0;
+	$self->Logmsg ("child process $pid exited, @{[scalar @workers]} workers remain") if $pid > 0;
     }
     unlink (@stopflags);
 }
@@ -522,7 +521,7 @@ sub readInbox
     # Scan the inbox.  If this fails, file an alert but keep going,
     # the problem might be transient (just sleep for a while).
     my @files = ();
-    &alert("cannot list inbox: $!")
+    $self->Alert("cannot list inbox: $!")
 	if (! &getdir($self->{INBOX}, \@files));
 
     # Check for junk
@@ -531,7 +530,7 @@ sub readInbox
 	# Make sure we like it.
 	if (! -d "$self->{INBOX}/$f")
 	{
-	    &alert("junk ignored in inbox: $f") if ! exists $self->{JUNK}{$f};
+	    $self->Alert("junk ignored in inbox: $f") if ! exists $self->{JUNK}{$f};
 	    $self->{JUNK}{$f} = 1;
         }
 	else
@@ -553,7 +552,7 @@ sub readPending
     # Scan the work directory.  If this fails, file an alert but keep
     # going, the problem might be transient.
     my @files = ();
-    &alert("cannot list workdir: $!")
+    $self->Alert("cannot list workdir: $!")
 	if (! getdir($self->{WORKDIR}, \@files));
 
     return @files;
@@ -568,7 +567,7 @@ sub readOutbox
     # Scan the outbox directory.  If this fails, file an alert but keep
     # going, the problem might be transient.
     my @files = ();
-    &alert("cannot list outdir: $!")
+    $self->Alert("cannot list outdir: $!")
 	if (! getdir ($self->{OUTDIR}, \@files));
 
     return @files;
@@ -579,7 +578,7 @@ sub renameDrop
 {
     my ($self, $drop, $newname) = @_;
     &mv ("$self->{WORKDIR}/$drop", "$self->{WORKDIR}/$newname")
-        || do { &alert ("can't rename $drop to $newname"); return 0; };
+        || do { $self->Alert ("can't rename $drop to $newname"); return 0; };
     return 1;
 }
 
@@ -588,7 +587,7 @@ sub scpBridgeFailed
 {
     my ($msg, $remote) = @_;
     # &runcmd ("ssh", $host, "rm -fr $remote");
-    &alert ($msg);
+    $self->Alert ($msg);
     return 0;
 }
 
@@ -613,7 +612,7 @@ sub rfioBridgeFailed
 {
     my ($msg, $remote) = @_;
     &rfrmall ($remote) if $remote;
-    &alert ($msg);
+    $self->Alert ($msg);
     return 0;
 }
 
@@ -621,7 +620,7 @@ sub rfioBridgeDrop
 {
     my ($source, $target) = @_;
     my @files = <$source/*>;
-    do { &alert ("empty $source"); return 0; } if ! scalar @files;
+    do { $self->Alert ("empty $source"); return 0; } if ! scalar @files;
 
     return &rfioBridgeFailed ("failed to create $target")
         if ! &rfmkpath ($target);
@@ -675,7 +674,7 @@ sub relayDrop
 	-d "$self->{NEXTDIR}[0]/inbox"
 	    || mkdir "$self->{NEXTDIR}[0]/inbox"
 	    || -d "$self->{NEXTDIR}[0]/inbox"
-	    || return &alert("cannot create $self->{NEXTDIR}[0]/inbox: $!");
+	    || return $self->Alert("cannot create $self->{NEXTDIR}[0]/inbox: $!");
 
 	# Make sure the destination doesn't exist yet.  If it does but
 	# looks like a failed copy, nuke it; otherwise complain and give up.
@@ -684,13 +683,13 @@ sub relayDrop
 	    && ! -f "$self->{NEXTDIR}[0]/inbox/$drop/go") {
 	    &rmtree ("$self->{NEXTDIR}[0]/inbox/$drop")
         } elsif (-d "$self->{NEXTDIR}[0]/inbox/$drop") {
-	    return &alert("$self->{NEXTDIR}[0]/inbox/$drop already exists!");
+	    return $self->Alert("$self->{NEXTDIR}[0]/inbox/$drop already exists!");
 	}
 
 	&mv ("$self->{OUTDIR}/$drop", "$self->{NEXTDIR}[0]/inbox/$drop")
-	    || return &alert("failed to copy $drop to $self->{NEXTDIR}[0]/$drop: $!");
+	    || return $self->Alert("failed to copy $drop to $self->{NEXTDIR}[0]/$drop: $!");
 	&touch ("$self->{NEXTDIR}[0]/inbox/$drop/go")
-	    || &alert ("failed to make $self->{NEXTDIR}[0]/inbox/$drop go");
+	    || $self->Alert ("failed to make $self->{NEXTDIR}[0]/inbox/$drop go");
     }
     else
     {
@@ -708,7 +707,7 @@ sub relayDrop
 	    -d "$dir/inbox"
 	        || mkdir "$dir/inbox"
 	        || -d "$dir/inbox"
-	        || return &alert("cannot create $dir/inbox: $!");
+	        || return $self->Alert("cannot create $dir/inbox: $!");
 
 	    # Make sure the destination doesn't exist yet.  If it does but
 	    # looks like a failed copy, nuke it; otherwise complain and give up.
@@ -717,12 +716,12 @@ sub relayDrop
 	        && ! -f "$dir/inbox/$drop/go") {
 	        &rmtree ("$dir/inbox/$drop")
             } elsif (-d "$dir/inbox/$drop") {
-	        return &alert("$dir/inbox/$drop already exists!");
+	        return $self->Alert("$dir/inbox/$drop already exists!");
 	    }
 
 	    # Copy to the next stage, preserving everything
 	    my $status = &runcmd  ("cp", "-Rp", "$self->{OUTDIR}/$drop", "$dir/inbox/$drop");
-	    return &alert ("can't copy $drop to $dir/inbox: $status") if $status;
+	    return $self->Alert ("can't copy $drop to $dir/inbox: $status") if $status;
 
 	    # Mark it almost ready to go
 	    &touch("$dir/inbox/$drop/go-pending");
@@ -754,20 +753,20 @@ sub inspectDrop
 
     if (! -d "$self->{WORKDIR}/$drop")
     {
-	&alert("$drop is not a pending task");
+	$self->Alert("$drop is not a pending task");
 	return 0;
     }
 
     if (-f "$self->{WORKDIR}/$drop/bad")
     {
-	&alert("$drop marked bad, skipping") if ! exists $self->{BAD}{$drop};
+	$self->Alert("$drop marked bad, skipping") if ! exists $self->{BAD}{$drop};
 	$self->{BAD}{$drop} = 1;
 	return 0;
     }
 
     if (! -f "$self->{WORKDIR}/$drop/go")
     {
-	&alert("$drop is incomplete!");
+	$self->Alert("$drop is incomplete!");
 	return 0;
     }
 
@@ -785,7 +784,7 @@ sub markBad
 {
     my ($self, $drop) = @_;
     &touch("$self->{WORKDIR}/$drop/bad");
-    &logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} failed");
+    $self->Logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} failed");
 }
 
 =head2 processDrop
@@ -826,7 +825,7 @@ sub process
       if (! &mv ("$self->{INBOX}/$drop", "$self->{WORKDIR}/$drop"))
       {
 	# Warn and ignore it, it will be returned again next time around
-	&alert("failed to move job '$drop' to pending queue: $!");
+	$self->Alert("failed to move job '$drop' to pending queue: $!");
       }
     }
 
@@ -1288,7 +1287,7 @@ sub checkAgentMessages
     # Act on the final state.
     if ($action eq 'STOP')
     {
-      &logmsg ("agent stopped via control message at $time");
+      $self->Logmsg ("agent stopped via control message at $time");
       $self->doStop ();
       exit(0); # Still running?
     }
@@ -1296,7 +1295,7 @@ sub checkAgentMessages
     {
       # The message doesn't actually specify for how long, take
       # a reasonable nap to avoid filling the log files.
-      &logmsg ("agent suspended via control message at $time");
+      $self->Logmsg ("agent suspended via control message at $time");
       $self->nap (90);
       next;
     }

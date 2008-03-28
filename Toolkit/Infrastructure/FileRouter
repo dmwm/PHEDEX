@@ -35,14 +35,17 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
     die "Insufficient parameters, use -h for help.\n";
 }
 
-(new FileRouter (%args))->process();
+my $agent = FileRouter->new(%args,@ARGV);
+POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;
 
 ######################################################################
 # Routines for this agent.
 package FileRouter;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
 use List::Util qw(max);
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;

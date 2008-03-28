@@ -178,7 +178,7 @@ sub checkJobs
 	    }
 	    else
 	    {
-		&alert("Job $$job{PID} not responding to requests to quit");
+		$self->Alert("Job $$job{PID} not responding to requests to quit");
 	    }
 
 	    push(@pending, $job);

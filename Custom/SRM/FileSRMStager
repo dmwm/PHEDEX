@@ -44,13 +44,18 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG}
     die "Insufficient parameters, use -h for help.\n";
 }
 
-(new FileSRMStager (%args))->process();
+my $agent = FileSRMStager->new(%args,@ARGV);
+POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;
 
 ######################################################################
 # Routines for this agent.
-package FileSRMStager; use strict; use warnings; use base 'PHEDEX::Core::Agent';
+package FileSRMStager;
+use strict;
+use warnings;
+use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Command;
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::DB;
@@ -183,7 +188,7 @@ sub getStagerFiles
 	my %pfn2f = map { ($$_{PFN} => $_) } @slice;
 	my @args = map { "-M $$_{PFN}" } @slice;
         open (QRY, "$pfx srm-get-metadata -retry_num=1 @args |")
-            or do { &alert ("srm-get-metadata: cannot execute: $!"); return undef };
+            or do { $self->Alert ("srm-get-metadata: cannot execute: $!"); return undef };
 
         my $pfn = undef;
         while (<QRY>)
@@ -202,7 +207,7 @@ sub getStagerFiles
             }
 
             next if ! /\W+(\w+)\s:(\S+)$/;
-            do { &alert ("srm-get-metadata output unrecognised for file: $pfn"); next }
+            do { $self->Alert ("srm-get-metadata output unrecognised for file: $pfn"); next }
                 if ! exists $pfn2f{$pfn};
             $pfn2f{$pfn}{$1} = $2;
             $$self{STAGE_CACHE}{$pfn} = { TIME => time(), VALUE => 'STAGEIN' }
@@ -243,7 +248,7 @@ sub idle
 	my $rc;
 	if ($$self{PROTECT_CMD} && ($rc = &runcmd(@{$$self{PROTECT_CMD}})))
 	{
-	  &alert("storage system overloaded, backing off"
+	  $self->Alert("storage system overloaded, backing off"
 		 . " (exit code @{[&runerror($rc)]})");
 	  return;
 	}
@@ -316,14 +321,14 @@ sub idle
 	{
 	    my @slice = splice (@requests, 0, $$self{MAXFILES});
 	    my $rc = &runcmd ("srmstage", (map { ($$_{PFN}) } @slice));
-	    &alert ("srmstage failed: @{[&runerror($rc)]}") if ($rc);
+	    $self->Alert ("srmstage failed: @{[&runerror($rc)]}") if ($rc);
 
 	    # Mark these files as pending now
 	    map { $$_{STATUS} = "STAGEIN" } @slice;
 	}
 
 	$timing{REQUESTS} = &mytimeofday();
-	&logmsg ("timing:"
+	$self->Logmsg ("timing:"
 		 . " nreq=$nreq"
 		 . " purge=@{[sprintf '%.1f', $timing{PURGE} - $timing{START}]}"
 		 . " status=@{[sprintf '%.1f', $timing{STATUS} - $timing{PURGE}]}"
@@ -331,7 +336,7 @@ sub idle
 		 . " requests=@{[sprintf '%.1f', $timing{REQUESTS} - $timing{DATABASE}]}"
 		 . " all=@{[sprintf '%.1f', $timing{REQUESTS} - $timing{START}]}");
     };
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database

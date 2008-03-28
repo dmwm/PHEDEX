@@ -81,12 +81,12 @@ sub process
     my $self = shift;
     
     # To start the test we prepare the TMDB
-    &logmsg( "Running test at $self->{TEST}, workdir is $self->{WORKDIR}" );
+    $self->Logmsg( "Running test at $self->{TEST}, workdir is $self->{WORKDIR}" );
     $self->runSQL( "prep" );
 
     # Here we run the test and the agent startup concurrently. 
     my $mgr = new PHEDEX::Core::JobManager (NJOBS => 2);
-    &logmsg( "Starting job queue" );
+    $self->Logmsg( "Starting job queue" );
     $mgr->addJob( sub { $self->collectResult($mgr,"$self->{WORKDIR}/logs/master",@_) },
 		  { },
 		  "sh","-c",
@@ -113,7 +113,7 @@ sub collectResult
     my ($self, $mgr, $output, $job) = @_;
 
     if ($job->{STATUS}) {
-        &logmsg( "Job running @{$job->{CMD}} has had a problem: $job->{STATUS}" );
+        $self->Logmsg( "Job running @{$job->{CMD}} has had a problem: $job->{STATUS}" );
     } else {
         open (IN, "< $output") or die "$output: cannot open: $!\n";
         while(<IN>) {
@@ -131,7 +131,7 @@ sub runSQL {
 sub stopAgents {
     my $self = shift;
 
-    &logmsg( "Stopping agents" );
+    $self->Logmsg( "Stopping agents" );
     system( "$self->{SCRIPTS}/Master -config $self->{ENV},$self->{TEST}/Config stop all");
 
     sleep( 5 );
