@@ -215,6 +215,9 @@ create table t_dps_subscription
 create index ix_dps_block_dataset
   on t_dps_block (dataset);
 
+create index ix_dps_block_name
+  on t_dps_block (name);
+
 --
 create index ix_dps_block_replica_node
   on t_dps_block_replica (node);
