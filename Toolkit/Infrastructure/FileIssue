@@ -27,9 +27,11 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
 
 ######################################################################
 # Routines for this agent.
-package FileIssue; use strict; use warnings; use base 'PHEDEX::Core::Agent';
+package FileIssue;
+use strict;
+use warnings;
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use List::Util qw(max);
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
@@ -65,7 +67,7 @@ sub idle
 	# Route files.
 	$self->confirm($dbh);
     };
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database
@@ -184,14 +186,14 @@ sub confirm
         &dbbindexec($istmt, %iargs) if %iargs;
         $dbh->commit();
 
-	&logmsg ("issued $done transfers to the destinations"
+	$self->Logmsg ("issued $done transfers to the destinations"
 		 . " @{[sort keys %did]}") if $done;
 	$alldone += $done;
 
 	$self->maybeStop();
     }
 
-    &logmsg ("no transfer tasks to issue") if ! $alldone;
+    $self->Logmsg ("no transfer tasks to issue") if ! $alldone;
 }
 
 # Expand transfer task information and insert into the database.
@@ -251,13 +253,13 @@ sub catalogue
 	    # Check the pattern is valid.  If not, abort.
             my $pathrx = eval { qr/$path/ };
 	    if ($@) {
-		&alert("invalid path pattern for node=$node:  $@");
+		$self->Alert("invalid path pattern for node=$node:  $@");
 		return $$cats{$node} = {};
 	    }
 
             my $destrx = defined $dest ? eval { qr/$dest/ } : undef;
 	    if ($@) {
-		&alert("invalid dest pattern for node=$node:  $@");
+		$self->Alert("invalid dest pattern for node=$node:  $@");
 		return $$cats{$node} = {};
 	    }
 

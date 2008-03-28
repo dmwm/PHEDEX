@@ -27,9 +27,11 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
 
 ######################################################################
 # Routines for this agent.
-package FilePump; use strict; use warnings; use base 'PHEDEX::Core::Agent';
+package FilePump;
+use strict;
+use warnings;
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use List::Util qw(max);
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 
@@ -71,7 +73,7 @@ sub idle
 	# Update stats if necessary.
 	$self->stats($dbh);
     };
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database
@@ -274,7 +276,7 @@ sub receive
 	}
 
         # Log the outcome.
-	&logmsg($msg
+	$self->Logmsg($msg
 		. " task=$$task{TASK}"
 		. " file=$$task{FILEID}"
 		. " from=$$task{FROM_NODE_NAME}"
@@ -380,7 +382,7 @@ sub receive
     $dbh->commit();
 
     # Tell summary of what happened.
-    &logmsg("$n transfer tasks received, $ngood successful,"
+    $self->Logmsg("$n transfer tasks received, $ngood successful,"
 	    . " $nbad failed, @{[$n - $ngood - $nbad]} other")
 	if $n;
 }

@@ -15,7 +15,6 @@ use File::Basename;
 use Time::HiRes qw / time /;
 use POE;
 use PHEDEX::Core::Command;
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::RFIO;
 use PHEDEX::Core::DB;

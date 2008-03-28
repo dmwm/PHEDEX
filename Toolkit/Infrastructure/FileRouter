@@ -39,9 +39,11 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
 
 ######################################################################
 # Routines for this agent.
-package FileRouter; use strict; use warnings; use base 'PHEDEX::Core::Agent';
+package FileRouter;
+use strict;
+use warnings;
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use List::Util qw(max);
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 
@@ -104,7 +106,7 @@ sub idle
 	# Perhaps update statistics.
 	$self->stats($dbh);
     };
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database and reset flush marker
@@ -266,7 +268,7 @@ sub flush
     $dbh->commit();
 
     # Log flush statistics
-    &logmsg('executed flush:  '.join(', ', map { $$_[1] + 0 .' '.$$_[0] } @stats));
+    $self->Logmsg('executed flush:  '.join(', ', map { $$_[1] + 0 .' '.$$_[0] } @stats));
 
     # Schedule the next flush
     $$self{NEXT_SLOW_FLUSH} = $now + $$self{FLUSH_PERIOD};
@@ -343,7 +345,7 @@ sub route
     my $active_node_list = join ' ', sort @node_names{@active_nodes};
     $self->prepare ($dbh, $_) for (@active_nodes);
     $self->routeFiles ($dbh, $links, @active_nodes)
-	|| &logmsg ("no files to route to $active_node_list");
+	|| $self->Logmsg ("no files to route to $active_node_list");
 }
 
 # Run the routing algorithm for one node.
@@ -450,7 +452,7 @@ sub prepare
 			":now" => $now);
 	}
 	my $nblocks = scalar @activated_blocks;
-	&logmsg("activated $nblocks block destinations for node=$node") if $nblocks > 0;
+	$self->Logmsg("activated $nblocks block destinations for node=$node") if $nblocks > 0;
 	    
 	# Now commit second phase.
 	$dbh->commit();
@@ -757,7 +759,7 @@ sub routeFiles
 
 	my %node_names = reverse %{$$self{NODES_ID}};
 	my $destnode_list = join ' ', sort @node_names{keys %destnodes};
-	&logmsg("routed files:  $existing existed, $updated updated, $inserted new,"
+	$self->Logmsg("routed files:  $existing existed, $updated updated, $inserted new,"
 		. " $nvalid valid, $discarded discarded of $nhops paths"
 		. " computed for $nreqs requests for the destinations"
 		. " $destnode_list")
@@ -951,7 +953,7 @@ sub routeFile
 	    for keys %{$$request{REPLICAS}};
 	($best, $bestcost) = $self->bestRoute ($probecosts, $request);
 	my $prettycost = int($bestcost);
-	&logmsg("probed file $$request{FILEID} to destination $dest: "
+	$self->Logmsg("probed file $$request{FILEID} to destination $dest: "
 		. ($bestcost < 3*86400
 		   ? "new cost $prettycost from $$best{$dest}{SRC_NODE}"
 		   : "did not improve the matters, cost is $prettycost"));
@@ -1032,7 +1034,7 @@ sub stats
 	    ":now" => $now);
 
     $dbh->commit();
-    &logmsg("updated statistics");
+    $self->Logmsg("updated statistics");
 }
 
 # Mark the failure of an unroutable file

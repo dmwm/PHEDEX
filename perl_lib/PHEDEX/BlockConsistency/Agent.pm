@@ -20,14 +20,13 @@ L<PHEDEX::BlockConsistency::SQL|PHEDEX::BlockConsistency::SQL>.
 =cut
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockConsistency::SQL';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockConsistency::SQL', 'PHEDEX::Core::Logging';
 
 use File::Path;
 use File::Basename;
 use Cwd;
 use Data::Dumper;
 use PHEDEX::Core::Command;
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::DB;

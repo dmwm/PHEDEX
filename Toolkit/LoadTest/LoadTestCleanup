@@ -32,8 +32,10 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG})
 
 ######################################################################
 # Routines for this agent.
-package LoadTestCleanup; use strict; use warnings; use base 'PHEDEX::Core::Agent';
-use PHEDEX::Core::Logging;
+package LoadTestCleanup;
+use strict;
+use warnings;
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 

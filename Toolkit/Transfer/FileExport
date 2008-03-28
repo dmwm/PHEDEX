@@ -50,10 +50,12 @@ if (@ARGV || !$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG}
 
 ######################################################################
 # Routines specific to this agent.
-package FilePFNExport; use strict; use warnings; use base 'PHEDEX::Core::Agent';
+package FilePFNExport;
+use strict;
+use warnings;
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Catalogue;
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 
@@ -162,7 +164,7 @@ sub idle
 			    $rules = &storageRules($$self{STORAGEMAP}, $kind);
 			};
 			do { chomp ($@); $valid = 0;
-			     &alert ("error parsing storagemap $$self{STORAGEMAP}: $@");
+			     $self->Alert ("error parsing storagemap $$self{STORAGEMAP}: $@");
 			     last;
 			 } if $@;
 
@@ -205,19 +207,19 @@ sub idle
 
 	if ($changed && $valid)
 	{
-	    &logmsg ("trivial file catalogue rules published");
+	    $self->Logmsg ("trivial file catalogue rules published");
 	}
 	elsif ($changed && !$valid)
 	{
-	    &logmsg ("trivial file catalogue rules removed");
+	    $self->Logmsg ("trivial file catalogue rules removed");
 	}
 	elsif ($liveness)
 	{
-	    &logmsg ("refreshed export liveness (no local changes to publish)");
+	    $self->Logmsg ("refreshed export liveness (no local changes to publish)");
 	}
     };
 
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
     
     # Disconnect from the database

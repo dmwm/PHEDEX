@@ -31,8 +31,10 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{MYNODE})
 
 ######################################################################
 # Routines for this agent.
-package InvariantMonitor; use strict; use warnings; use base 'PHEDEX::Core::Agent';
-use PHEDEX::Core::Logging;
+package InvariantMonitor;
+use strict;
+use warnings;
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 
@@ -77,7 +79,7 @@ sub idle
 	});
 	my ($broken_count) = $q->fetchrow();
 	if ($broken_count != 0) {
-	    &logmsg ("$broken_count broken paths.");
+	    $self->Logmsg ("$broken_count broken paths.");
 	}
 
 	# II:  Unfinished blocks
@@ -91,7 +93,7 @@ sub idle
 	 });
 	my ($not_done_count) = $q->fetchrow();
 	if ($not_done_count != 0) {
-	    &logmsg("$not_done_count blocks marked done with files still to transfer");
+	    $self->Logmsg("$not_done_count blocks marked done with files still to transfer");
 	}
 
 	# III:  Activate (transfer) blocks not active
@@ -107,7 +109,7 @@ sub idle
 	
 	my ($bad_active_count) = $q->fetchrow();
 	if ($bad_active_count != 0) {
-	    &logmsg("$bad_active_count files not active from an active block");
+	    $self->Logmsg("$bad_active_count files not active from an active block");
 	}
 
 	# IV:  Deactivated (collapsed) blocks have active files
@@ -121,7 +123,7 @@ sub idle
 	
 	my ($bad_inactive_count) = $q->fetchrow();
 	if ($bad_inactive_count != 0) {
-	    &logmsg("$bad_inactive_count files active from inactive blocks");
+	    $self->Logmsg("$bad_inactive_count files active from inactive blocks");
 	}
 
         # V:  Activate (expanded) blocks have no active files
@@ -135,12 +137,12 @@ sub idle
 	
 	my ($bad_active_exp_count) = $q->fetchrow();
 	if ($bad_active_exp_count != 0) {
-	    &logmsg("$bad_active_exp_count active blocks with no active files");
+	    $self->Logmsg("$bad_active_exp_count active blocks with no active files");
 	}
 
 
     };
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
     
     # Disconnect from the database

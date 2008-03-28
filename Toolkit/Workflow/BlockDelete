@@ -32,8 +32,10 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG})
 
 ######################################################################
 # Routines for this agent.
-package BlockDelete; use strict; use warnings; use base 'PHEDEX::Core::Agent';
-use PHEDEX::Core::Logging;
+package BlockDelete;
+use strict;
+use warnings;
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 
@@ -107,7 +109,7 @@ sub idle
 	 }, ':now' => $now);
 
 	while (my ($node, $block) = $q_move->fetchrow()) {
-	    &logmsg("triggered deletion of $block at $node due to a move");
+	    $self->Logmsg("triggered deletion of $block at $node due to a move");
 	}
 
 	# Issue file deletion requests for block replicas scheduled
@@ -121,7 +123,7 @@ sub idle
 	      left join t_xfer_delete xd
 	        on xd.fileid = f.id and xd.node = bd.node
 	    where xd.fileid is null and bd.time_complete is null)});
-	&logmsg ("$nrow file deletions scheduled") if $nrow > 0;
+	$self->Logmsg ("$nrow file deletions scheduled") if $nrow > 0;
 
         # Mark the block deletion request completed if it has file
         # deletion requests and they are all completed.
@@ -150,12 +152,12 @@ sub idle
 	 }, ':now' => $now);
 
 	while (my ($node, $block) = $q_done->fetchrow()) {
-	    &logmsg("deletion of $block at $node finished");
+	    $self->Logmsg("deletion of $block at $node finished");
 	}
 
     	$dbh->commit();
     };
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database

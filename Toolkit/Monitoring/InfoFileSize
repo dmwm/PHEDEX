@@ -29,8 +29,10 @@ if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{MYNODE})
 
 ######################################################################
 # Routines for this agent.
-package InfoFileSize; use strict; use warnings; use base 'PHEDEX::Core::Agent';
-use PHEDEX::Core::Logging;
+package InfoFileSize;
+use strict;
+use warnings;
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 
@@ -88,7 +90,7 @@ sub idle
 
 	$dbh->commit();
     };
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database

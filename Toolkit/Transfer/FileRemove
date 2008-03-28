@@ -56,12 +56,14 @@ if (@ARGV || !$args{NODES} || !$args{DROPDIR} || !$args{DBCONFIG}
 (new FileRemove (%args))->process();
 
 ################################################
-package FileRemove; use strict; use warnings; use base 'PHEDEX::Core::Agent';
+package FileRemove;
+use strict;
+use warnings;
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use File::Path;
 use Data::Dumper;
 
 use PHEDEX::Core::Command;
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::DB;
@@ -160,7 +162,7 @@ sub deleteOneFile
 	return 1;
     };
 
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh;
 	 $status = 0 } if $@;
     
@@ -179,7 +181,7 @@ sub deleteJob
     }
     else
     {
-	&logmsg("deleted file $$file{PFN} at node $$file{NODE}");
+	$self->Logmsg("deleted file $$file{PFN} at node $$file{NODE}");
 	unlink ($$job{LOGFILE});
     }
 }
@@ -199,7 +201,7 @@ sub processDrop
     my $file = do { no strict "vars"; eval &input ("$dropdir/packet") };
     if ($@ || !$file || !$$file{FILEID} || !$$file{LFN} || !$$file{PFN} || !$$file{TIME_START})
     {
-	&alert ("corrupt packet in $drop");
+	$self->Alert ("corrupt packet in $drop");
 	$self->markBad ($drop);
 	return;
     }
@@ -213,7 +215,7 @@ sub processDrop
 
     # Log transfer delay stats
     my $dtransfer = &mytimeofday() - $$file{TIME_START};
-    &logmsg ("xstats: $$file{NODE} " . sprintf('%.2fs', $dtransfer)
+    $self->Logmsg ("xstats: $$file{NODE} " . sprintf('%.2fs', $dtransfer)
 	     . " $$file{LFN} => $$file{PFN}");
 
     # OK, got far enough to nuke and log it
@@ -252,7 +254,7 @@ sub filesToDelete
 	    		   "local", $$self{STORAGEMAP});
     while (my ($lfn, $pfn) = each %$pfns)
     {
-	do { &alert ("no pfn for $lfn"); next } if ! $pfn;
+	do { $self->Alert ("no pfn for $lfn"); next } if ! $pfn;
 	push (@result, { LFN => $lfn, PFN => $pfn, FILEID => $files{$lfn},
 			 NODEID => $$self{NODES_ID}{$node}, NODE => $node,
 			 TIME_START => &mytimeofday() });
@@ -272,8 +274,8 @@ sub startOne
 
     # Create a pending drop in my inbox
     my $drop = "$$self{DROPDIR}/inbox/$$file{FILEID}";
-    do { &alert ("$drop already exists"); return 0; } if -d $drop;
-    do { &alert ("failed to submit $$file{FILEID}"); &rmtree ($drop); return 0; }
+    do { $self->Alert ("$drop already exists"); return 0; } if -d $drop;
+    do { $self->Alert ("failed to submit $$file{FILEID}"); &rmtree ($drop); return 0; }
 	if (! &mkpath ($drop)
 	    || ! &output ("$drop/packet", Dumper ($file))
 	    || ! &touch ("$drop/go.pending"));
@@ -312,7 +314,7 @@ sub idle
 	    $dbh->commit();
 	}
     };
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
 
     # Wait for all jobs to finish

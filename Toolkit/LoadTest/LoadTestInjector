@@ -34,8 +34,10 @@ if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG})
 
 ######################################################################
 # Routines for this agent.
-package LoadTestInjector; use strict; use warnings; use base 'PHEDEX::Core::Agent';
-use PHEDEX::Core::Logging;
+package LoadTestInjector;
+use strict;
+use warnings;
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 
@@ -60,7 +62,7 @@ sub idle
 {
     my ($self, @pending) = @_;
     
-    &logmsg("starting injections");
+    $self->Logmsg("starting injections");
 
     eval {
 	$self->connectAgent();
@@ -97,7 +99,7 @@ sub idle
 	    
 	    my $size = $self->averageFileSize($$params{SRC_DATASET});
 	    unless ($size) {
-		&alert("dataset=$$params{SRC_DATASET} has no files");
+		$self->Alert("dataset=$$params{SRC_DATASET} has no files");
 		next;
 	    }
 	    
@@ -116,8 +118,8 @@ sub idle
 				':dest_dataset' => $$params{DEST_DATASET},
 				':dest_node' => $$params{DEST_NODE}
 				);
-		    $$self{DBH}->commit();
-		    &logmsg("skipped injections to dataset $$params{DEST_DATASET_NAME} at $$params{DEST_NODE_NAME}:  ",
+		    $self->{DBH}->commit();
+		    $self->Logmsg("skipped injections to dataset $$params{DEST_DATASET_NAME} at $$params{DEST_NODE_NAME}:  ",
 			    "throttle node $$params{THROTTLE_NODE_NAME} has enough to do with $t_files files");
 		    next;
 		}
@@ -140,7 +142,7 @@ sub idle
 				);
 		    
 		    $$self{DBH}->commit();
-		    &logmsg("injected $n_inject files to dataset ",
+		    $self->Logmsg("injected $n_inject files to dataset ",
 			    "$$params{DEST_DATASET_NAME} at $$params{DEST_NODE_NAME}");
 		    $total_inject += $n_inject;
 		} else {
@@ -150,15 +152,15 @@ sub idle
 		}
 	    };
 	    if ($@) {
-		&alert($@);
+		$self->Alert($@);
 		$$self{DBH}->rollback();
 	    }
 	}
 	
-	&logmsg("finished injections:  $total_inject files injected");
+	$self->Logmsg("finished injections:  $total_inject files injected");
 		
     };
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $$self{DBH}->rollback() } if $$self{DBH} } if $@;
 
     # Disconnect from the database
@@ -489,7 +491,7 @@ sub getSourceLFNs
 	push @$lfns, $lfn;
     }
 	 
-    &alert("source dataset=$$params{SRC_DATASET} has no files at node=$$params{DEST_NODE}") unless @$lfns;
+    $self->Alert("source dataset=$$params{SRC_DATASET} has no files at node=$$params{DEST_NODE}") unless @$lfns;
     return $lfns;
 }
 

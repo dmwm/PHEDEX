@@ -104,12 +104,14 @@ die "Insufficient parameters, use -h for help.\n"
 
 ######################################################################
 # Routines specific to this agent.
-package FileDownload; use strict; use warnings; use base 'PHEDEX::Core::Agent';
+package FileDownload;
+use strict;
+use warnings;
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use List::Util qw(min max sum);
 use File::Path qw(mkpath rmtree);
 use Data::Dumper;
 use PHEDEX::Core::Command;
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 use POSIX;
@@ -180,17 +182,17 @@ sub stop
     # Wait for utility processes to finish.
     if (@{$$self{JOBS}})
     {
-        &logmsg ("waiting pending jobs to finish...");
+        $self->Logmsg ("waiting pending jobs to finish...");
         while (@{$$self{JOBS}})
         {
             $self->pumpJobs();
 	    select(undef, undef, undef, .1);
         }
-        &logmsg ("all pending jobs finished, ready to exit");
+        $self->Logmsg ("all pending jobs finished, ready to exit");
     }
     else
     {
-        &logmsg ("no pending jobs, ready to exit");
+        $self->Logmsg ("no pending jobs, ready to exit");
     }
 
     # Clear to exit.
@@ -269,7 +271,7 @@ sub taskDone
 	$$log =~ s/\s+/ /gs
     }
 
-    &logmsg("xstats:"
+    $self->Logmsg("xstats:"
 	    . " task=$$task{TASKID}"
 	    . " file=$$task{FILEID}"
 	    . " from=$$task{FROM_NODE}"
@@ -364,10 +366,10 @@ sub purgeLostTransfers
     my @lostdb = grep(! $indb{$_}, keys %inlocal);
     my @lostlocal = grep(! $inlocal{$_}, keys %indb);
 
-    &alert("resetting database tasks lost locally: @{[sort @lostlocal]}"
+    $self->Alert("resetting database tasks lost locally: @{[sort @lostlocal]}"
 	   . " (locally known: @{[sort keys %inlocal]})")
 	if @lostlocal;
-    &alert("resetting local tasks lost in database: @{[sort @lostdb]}"
+    $self->Alert("resetting local tasks lost in database: @{[sort @lostdb]}"
 	   . " (database known: @{[sort keys %indb]})")
 	if @lostdb;
 
@@ -410,7 +412,7 @@ sub fetchNewTasks
 	next if ! exists $$tasks{$$row{TASKID}};
 	my $existing = $$tasks{$$row{TASKID}};
 	next if $$existing{TIME_EXPIRE} >= $$row{TIME_EXPIRE};
-	&logmsg("task $$existing{TASKID} expire time extended from "
+	$self->Logmsg("task $$existing{TASKID} expire time extended from "
 		. join(" to ",
 		       map { strftime('%Y-%m-%d %H:%M:%S', gmtime($_)) }
 		       $$existing{TIME_EXPIRE}, $$row{TIME_EXPIRE}))
@@ -462,7 +464,7 @@ sub fetchNewTasks
 	my $linkkey = "$$row{FROM_NODE} -> $$row{TO_NODE}";
 	if (($pending{$linkkey} || 0) >= 1000)
 	{
-            &logmsg("link $linkkey already has $pending{$linkkey} pending"
+            $self->Logmsg("link $linkkey already has $pending{$linkkey} pending"
 		    . " tasks, not fetching more from the database")
 		if ! $busy{$linkkey} && $$self{VERBOSE};
 	    $busy{$linkkey} = 1;
@@ -502,7 +504,7 @@ sub updateTaskStatus
     {
 	next if ! exists $$tasks{$task}{REPORT_CODE};
 
-        &logmsg("uploading status of task $task") if $$self{VERBOSE};
+        $self->Logmsg("uploading status of task $task") if $$self{VERBOSE};
 
 	my $arg = 1;
 	push(@{$dargs{$arg++}}, $$tasks{$task}{TASKID});
@@ -681,7 +683,7 @@ sub check
     # If we are done with the copy job, nuke it.
     if ($done)
     {
-	&logmsg("copy job $jobname completed") if $$self{VERBOSE};
+	$self->Logmsg("copy job $jobname completed") if $$self{VERBOSE};
 	&mv($jobpath, "$$self{ARCHIVEDIR}/$jobname");
 	delete $$jobs{$jobname};
     }
@@ -729,7 +731,7 @@ sub fill
 	my $prettyhours = sprintf "%0.1fh ", ($now - $$t{TIME_ASSIGN})/3600;
 	if ($now >= $$t{TIME_EXPIRE})
 	{
-	    &logmsg("PhEDEx transfer task $$t{TASKID} has expired after $prettyhours, discarding");
+	    $self->Logmsg("PhEDEx transfer task $$t{TASKID} has expired after $prettyhours, discarding");
 	    unlink("$$self{TASKDIR}/$$t{TASKID}");
 	    delete $$tasks{$$t{TASKID}};
 	}
@@ -752,7 +754,7 @@ sub fill
 
     # Another quick exit if we have nothing to do.
     return if ! $nlinks;
-    &logmsg("balancing transfers on $nlinks links")
+    $self->Logmsg("balancing transfers on $nlinks links")
         if $$self{VERBOSE};
 
     # Determine link probability from recent usage.
@@ -782,7 +784,7 @@ sub fill
 	    # Pass links with too many errors.
 	    if (($$entry{ERRORS} || 0) > 100)
 	    {
-		&logmsg("too many ($$entry{ERRORS}) recent errors on"
+		$self->Logmsg("too many ($$entry{ERRORS}) recent errors on"
 			. " link $from -> to, not allocating transfers")
 		    if $$self{VERBOSE};
 		delete $todo{$to}{$from};
@@ -820,7 +822,7 @@ sub fill
 	    my $high = $low + $stats{$to}{$from}{W}/$W;
 	    push(@P, { LOW => $low, HIGH => $high, TO => $to, FROM => $from });
 
-            &logmsg("link parameters for $from -> $to:"
+            $self->Logmsg("link parameters for $from -> $to:"
 		    . sprintf(' P=[%0.3f, %0.3f),', $P[$#P]{LOW}, $P[$#P]{HIGH})
 		    . sprintf(' W=%0.3f,', $stats{$to}{$from}{W})
 		    . " USED=@{[$stats{$to}{$from}{USED} || 0]},"
@@ -861,7 +863,7 @@ sub fill
 	my $dir = "$$self{WORKDIR}/$jobname";
 	&mkpath($dir);
 
-	&logmsg("copy job $jobname assigned to link $from -> $to with "
+	$self->Logmsg("copy job $jobname assigned to link $from -> $to with "
 		. sprintf('p=%0.3f and W=%0.3f and ', $p, $stats{$to}{$from}{W})
 		. scalar(@{$todo{$to}{$from}})
 		. " transfer tasks in queue")
@@ -872,7 +874,7 @@ sub fill
 	# share from P.  We have to recalculate P then also.
 	if (! @{$todo{$to}{$from}} && ! $$self{BACKEND}->isBusy($jobs, $tasks))
 	{
-            &logmsg("transfers on link $from -> $to exhausted,"
+            $self->Logmsg("transfers on link $from -> $to exhausted,"
 		    . " recalculating link probabilities")
 	        if $$self{VERBOSE};
 
@@ -885,7 +887,7 @@ sub fill
 		$P[$i]{LOW} = ($i ? $P[$i-1]{HIGH} : 0);
 		$P[$i]{HIGH} = $P[$i]{LOW} + $stats{$to}{$from}{W}/$W;
 
-                &logmsg("new link parameters for $from -> $to:"
+                $self->Logmsg("new link parameters for $from -> $to:"
 		        . sprintf(' P=[%0.3f, %0.3f),',$P[$i]{LOW},$P[$i]{HIGH})
 		        . sprintf(' W=%0.3f,', $stats{$to}{$from}{W})
 			. " USED=@{[$stats{$to}{$from}{USED} || 0]},"
@@ -907,13 +909,13 @@ sub fill
     if (! $nlinks && $$self{NEXT_SYNC} > $now)
     {
 	$$self{NEXT_SYNC} = $now-1;
-	&logmsg("ran out of tasks, scheduling immediate synchronisation")
+	$self->Logmsg("ran out of tasks, scheduling immediate synchronisation")
 	    if $$self{VERBOSE};
     }
     elsif ($exhausted && $$self{NEXT_SYNC} - $now > 300)
     {
 	$$self{NEXT_SYNC} = $now + 300;
-	&logmsg("ran out of tasks on $exhausted links, scheduling"
+	$self->Logmsg("ran out of tasks on $exhausted links, scheduling"
 		. " next synchronisation in five minutes")
 	    if $$self{VERBOSE};
     }
@@ -945,7 +947,7 @@ sub idle
 	    my $info = &evalinfo("$$self{TASKDIR}/$_");
 	    if (! $info || $@)
 	    {
-		&alert("garbage collecting corrupted transfer task $_ ($info, $@)");
+		$self->Alert("garbage collecting corrupted transfer task $_ ($info, $@)");
 		unlink("$$self{TASKDIR}/$_");
 		$$self{NEXT_PURGE} = 0;
 		next;
@@ -959,7 +961,7 @@ sub idle
 	    my $info = &evalinfo("$$self{WORKDIR}/$_/info");
 	    if (! $info || $@)
 	    {
-		&alert("garbage collecting corrupted copy job $_");
+		$self->Alert("garbage collecting corrupted copy job $_");
 		&rmtree("$$self{WORKDIR}/$_");
 		$$self{NEXT_PURGE} = 0;
 		next;
@@ -1036,7 +1038,7 @@ sub idle
 	    && ($$self{BACKEND}->isBusy(\%jobs, \%tasks)
 		|| $now - $$self{LAST_WORK} > 4*3600))
 	{
-	    &logmsg("disconnecting from database");
+	    $self->Logmsg("disconnecting from database");
 	    $self->disconnectAgent(1);
 	}
 
@@ -1050,7 +1052,7 @@ sub idle
 	    $$self{NEXT_CLEAR} = $now + 3600;
 	}
     };
-    do { chomp ($@); &alert ($@); $$self{NEXT_PURGE} = 0;
+    do { chomp ($@); $self->Alert ($@); $$self{NEXT_PURGE} = 0;
 	 eval { $$self{DBH}->rollback() } if $$self{DBH}; } if $@;
 
     # Clear zombie detached processes in the backend.

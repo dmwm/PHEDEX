@@ -31,8 +31,10 @@ if (!$args{DROPDIR} || !$args{DBCONFIG} || !$args{MYNODE})
 
 ######################################################################
 # Routines for this agent.
-package PerfMonitor; use strict; use warnings; use base 'PHEDEX::Core::Agent';
-use PHEDEX::Core::Logging;
+package PerfMonitor;
+use strict;
+use warnings;
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 
@@ -377,7 +379,7 @@ sub idle
 	$dbh->commit();
 	$$self{NEXT_COMPACT} = $timebin + 2*86400; # Every two days
     };
-    do { chomp ($@); &alert ("database error: $@");
+    do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
 
     # Disconnect from the database

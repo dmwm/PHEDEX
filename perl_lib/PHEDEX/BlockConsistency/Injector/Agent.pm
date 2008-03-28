@@ -18,12 +18,11 @@ See the wiki, where the documentation is maintained.
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 
 use File::Path;
 use Data::Dumper;
 use PHEDEX::Core::Command;
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::DB;

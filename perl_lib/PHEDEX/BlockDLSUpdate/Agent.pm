@@ -20,7 +20,7 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockDLSUpdate::SQL';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockDLSUpdate::SQL', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
 use PHEDEX::BlockConsistency::Core;
 use DB_File;
