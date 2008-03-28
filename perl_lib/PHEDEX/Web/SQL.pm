@@ -18,7 +18,7 @@ pending...
 
 =over
 
-=item getTransferStatus($self)
+=item getLinkTasks($self)
 
 returns a reference to an array of hashes with the following keys:
 TIME_UPDATE, DEST_NODE, SRC_NODE, STATE, PRIORITY, FILES, BYTES.
@@ -80,12 +80,10 @@ sub AUTOLOAD
 }
 
 
-sub getTransferStatus
+sub getLinkTasks
 {
     my ($self, %h) = @_;
     my ($sql,$q,@r);
-    
-    %h = @_;
     
     $sql = qq{
     select
@@ -155,10 +153,6 @@ sub getBlockReplicas
 	   and n.se_name is not null
        };
 
-    # XXX Temp limit
-    $sql .= " and rownum < :limit";
-    $p{':limit'} = $h{limit} || 1000;
-
     if (exists $h{complete}) {
 	if ($h{complete} eq 'n') {
 	    $sql .= qq{ and (br.node_files != b.files or b.is_open = 'y') };
@@ -194,5 +188,27 @@ sub getBlockReplicas
 
     return \@r;
 }
+
+sub getCatalogue {
+   my ($self, %h) = @_;
+   my ($sql,$q,%p,@r);
+
+   return [] unless $h{node};
+
+   $sql = qq{
+        select c.*
+         from t_xfer_catalogue c
+	 join t_adm_node n on n.id = c.node
+        where n.name = :node
+        order by c.rule_index asc
+    };
+
+   $p{':node'} = $h{node};
+
+    $q = execute_sql( $self, $sql, %p );
+    while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
+   
+   return \@r;
+ }
 
 1;
