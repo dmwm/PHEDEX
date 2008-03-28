@@ -13,9 +13,9 @@ Checks configuration, parses URL path for parameters, makes API call
 use warnings;
 use strict;
 
-use CGI qw(:standard Vars);
+use CGI qw(header path_info self_url param Vars);
 
-use CMSWebTools::SecurityModule::Oracle;
+#use CMSWebTools::SecurityModule::Oracle;
 use PHEDEX::Web::Config;
 use PHEDEX::Web::Core;
 use PHEDEX::Core::Timing;
@@ -29,37 +29,46 @@ my $config_file = $ENV{PHEDEX_SERVER_CONFIG} ||
 my $dev_name = $ENV{PHEDEX_DEV_NAME};
 
 my $config = PHEDEX::Web::Config->read($config_file, $dev_name);
-#eval "use CGI::Carp qw(fatalsToBrowser)";
-my $secmod_config = $$config{SECMOD_CONFIG};
-if (!$secmod_config) {
-    die "ERROR:  SecurityModule config file not set in $config_file";
-}
-my $secmod = new CMSWebTools::SecurityModule::Oracle({CONFIG => $secmod_config});
+# eval "use CGI::Carp qw(fatalsToBrowser)"; # XXX turn off when in production!
+
+# my $secmod_config = $$config{SECMOD_CONFIG};
+# if (!$secmod_config) {
+#     die "ERROR:  SecurityModule config file not set in $config_file";
+# }
+#my $secmod = new CMSWebTools::SecurityModule::Oracle({CONFIG => $secmod_config});
 
 # Set debug mode
 $TESTING = $$config{TESTING_MODE} ? 1 : 0;
 $TESTING_MAIL = $$config{TESTING_MAIL} || undef;
 
-# Interpret the trailing path suffix: /DB/API?QUERY
-my $path = path_info() || "/prod";
+# Interpret the trailing path suffix: /FORMAT/DB/API?QUERY
+my $path = path_info() || "xml/prod";
 
-my ($db, $call) = ("prod", undef);
-$db = $1 if ($path =~ m!\G/([^/]+)!g);
-$call = $1 if ($path =~ m!\G/([^/]+)!g);
+my ($format, $db, $call) = ("xml", "prod", undef);
+$format = $1 if ($path =~ m!\G/([^/]+)!g);
+$db =     $1 if ($path =~ m!\G/([^/]+)!g);
+$call =   $1 if ($path =~ m!\G/([^/]+)!g);
+
+unless ($format && $db && $call) {
+    print header(-type => 'text/xml');
+    print "<error>URL format not recognized.  Should be .*/datasvc/FORMAT/DB/API?QUERY</error>";
+    return;
+}
 
 my $core = new PHEDEX::Web::Core(DBCONFIG => $config->{INSTANCES}->{$db}->{DBCONFIG},
 				 INSTANCE => $db,
-				 REQUEST_URL => self_url());
+				 REQUEST_URL => self_url(),
+				 DEBUG => $TESTING
+				 );
 
-my $type = 'text/xml';
-if (param("format")) {
-    if    (param("format") eq 'xml') { $type = 'text/xml'; }
-    elsif (param("format") eq 'json') { $type = 'text/javascript'; }
-    else {
-	print header();
-	$core->error("Unknown format");
-	return;
-    }
+my $type;
+if    ($format eq 'xml')  { $type = 'text/xml'; }
+elsif ($format eq 'json') { $type = 'text/javascript'; }
+elsif ($format eq 'perl') { $type = 'text/plain'; }
+else {
+    print header(-type => 'text/xml');
+    print "<error>Unsupported format '$format'</error>";
+    return;
 }
 
 my $http_now = &formatTime(&mytimeofday(), 'http');
@@ -73,14 +82,19 @@ foreach my $key (keys %args) {
     $args{$key} = \@vals if ($#vals > 0);
 }
 
-$args{format} = $type;  # Add the format
+$args{format} = $format;
 
-print header(-type => $type,
-	     -Cache_Control => 'max-age=300',
-	     -Date => $http_now,
-	     -Last_Modified => $http_now,
-	     -Expires => '+300s',
-	     );
+my %cache_headers;
+unless (param('nocache')) {
+    my $duration = $core->getCacheDuration($call) || 300;
+    %cache_headers = (-Cache_Control => "max-age=$duration",
+		      -Date => $http_now,
+		      -Last_Modified => $http_now,
+		      -Expires => "+${duration}s");
+    warn "cache duration for '$call' is $duration seconds\n" if $TESTING;
+}
+
+print header(-type => $type, %cache_headers );
 $core->call($call, %args);
 print "\n";
 
