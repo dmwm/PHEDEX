@@ -29,4 +29,7 @@ use PHEDEX::BlockActivate::Agent;
              "node=s"      => \$args{MYNODE},
 	     "help|h"      => sub { &usage() });
 
-(new PHEDEX::BlockActivate::Agent (%args,@ARGV))->process();
+my $agent = PHEDEX::BlockActivate::Agent->new(%args,@ARGV);
+POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;

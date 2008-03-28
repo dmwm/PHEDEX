@@ -28,4 +28,7 @@ use PHEDEX::BlockAllocator::Agent;
              "once"        => \$args{ONCE},
 	     "help|h"      => sub { &usage() });
 
-(new PHEDEX::BlockAllocator::Agent (%args,@ARGV))->process();
+my $agent = PHEDEX::BlockAllocator::Agent->new(%args,@ARGV);
+POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;

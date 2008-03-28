@@ -22,4 +22,7 @@ use PHEDEX::BlockMonitor::Agent;
              "node=s"      => \$args{MYNODE},
 	     "help|h"      => sub { &usage() });
 
-(new PHEDEX::BlockMonitor::Agent (%args,@ARGV))->process();
+my $agent = PHEDEX::BlockMonitor::Agent->new(%args,@ARGV);
+POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;
