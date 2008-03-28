@@ -109,9 +109,9 @@ sub getNodes
     my ($sql,$q,%p,@r);
 
     $sql = qq{
-        select n.name node_name,
-	       n.id node_id,
-	       n.se_name se_name,
+        select n.name,
+	       n.id,
+	       n.se_name se,
 	       n.kind, n.technology
           from t_adm_node n
        };

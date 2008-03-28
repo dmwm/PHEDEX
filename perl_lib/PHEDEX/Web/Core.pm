@@ -182,9 +182,9 @@ sub blockReplicas
 	}
 	
 	# <replica> element
-	push @{ $blocks->{ $id }->{replica} }, { id => $row->{node_id},
-						 name => $row->{node_name},
-						 storage_element => $row->{se_name},
+	push @{ $blocks->{ $id }->{replica} }, { node_id => $row->{node_id},
+						 node => $row->{node_name},
+						 se => $row->{se_name},
 						 files => $row->{replica_files},
 						 bytes => $row->{replica_bytes},
 						 time_create => $row->{replica_create},
