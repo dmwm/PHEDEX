@@ -35,7 +35,7 @@ exit 0;
 package InfoStatesClean;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 

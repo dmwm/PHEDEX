@@ -2,7 +2,7 @@ package PHEDEX::Core::Agent;
 
 =head1 NAME
 
-PHEDEX::Core::Agent - Agent daemon base class
+PHEDEX::Core::Agent - POE-based Agent daemon base class
 
 =cut
 
@@ -12,6 +12,8 @@ use base 'PHEDEX::Core::JobManager', 'PHEDEX::Core::Logging';
 use POSIX;
 use File::Path;
 use File::Basename;
+use Time::HiRes qw / time /;
+use POE;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::RFIO;
@@ -61,6 +63,7 @@ our %params =
 	(
 	  ME		=> undef,
 	  DBH		=> undef,
+	  SHARED_DBH	=> 0,
 	  DBCONFIG	=> undef,
 	  DROPDIR	=> undef,
 	  NEXTDIR	=> undef,
@@ -84,8 +87,8 @@ our %params =
 	  LABEL		=> $ENV{PHEDEX_AGENT_LABEL},
 	  ENVIRONMENT	=> undef,
 	  AGENT		=> undef,
-	  DEBUG         => $ENV{PHEDEX_DEBUG},
- 	  VERBOSE       => $ENV{PHEDEX_VERBOSE}
+	  DEBUG         => $ENV{PHEDEX_DEBUG} || 0,
+ 	  VERBOSE       => $ENV{PHEDEX_VERBOSE} || 0,
 	);
 
 our @array_params = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
@@ -101,9 +104,7 @@ sub new
     my $self  = $class->SUPER::new(@_);
 
     my %args = (@_);
-    my $me = $0; $me =~ s|.*/||;
-
-    $args{ME} = $me;
+    my $me = $self->AgentType($args{ME});
 
 #   Retrieve the agent environment, if I can.
     my ($config,$cfg,$label,$key,$val);
@@ -204,8 +205,26 @@ sub new
     }
 
     bless $self, $class;
-    # Daemonise, write pid file and redirect output.
+    # If required, daemonise, write pid file and redirect output.
     $self->daemon($me);
+
+#   Start a POE session for myself
+    POE::Session->create
+      (
+        object_states =>
+        [
+          $self =>
+          {
+            _process	=> '_process',
+            _maybeStop	=> '_maybeStop',
+
+            _start   => '_start',
+            _stop    => '_stop',
+            _default => '_default',
+          },
+        ],
+      );
+
     return $self;
 }
 
@@ -226,6 +245,7 @@ sub daemon
     my $pid;
 
     return if $self->{NODAEMON};
+    $me = $self->{ME} unless $me;
     # Open the pid file.
     open(PIDFILE, "> $self->{PIDFILE}")
 	|| die "$me: fatal error: cannot write to $self->{PIDFILE}: $!\n";
@@ -233,6 +253,7 @@ sub daemon
     # Fork once to go to background
     die "failed to fork into background: $!\n"
 	if ! defined ($pid = fork());
+    close STDERR if $pid; # Hack to suppress misleading POE kernel warning
     exit(0) if $pid;
 
     # Make a new session
@@ -242,6 +263,7 @@ sub daemon
     # Fork another time to avoid reacquiring a controlling terminal
     die "failed to fork into background: $!\n"
 	if ! defined ($pid = fork());
+    close STDERR if $pid; # Hack to suppress misleading POE kernel warning
     exit(0) if $pid;
 
     # Clear umask
@@ -349,7 +371,7 @@ sub isInvalid
   {
    next if defined $self->{$_};
     $errors++;
-    warn "Required parameter \"$_\" not defined!\n";
+    $self->Warn("Required parameter \"$_\" not defined!\n");
   }
 
 # Some parameters must be writeable directories
@@ -360,9 +382,9 @@ sub isInvalid
 
 #   If the directory doesn't exist, attempt to create it...
     eval { mkpath $_ } unless -e;
-    fatal("PERL_FATAL: $key directory $_ does not exist")   unless -e;
-    fatal("PERL_FATAL: $key exists but is not a directory") unless -d;
-    fatal("PERL_FATAL: $key directory $_ is not writeable") unless -w;
+    $self->Fatal("PERL_FATAL: $key directory $_ does not exist")   unless -e;
+    $self->Fatal("PERL_FATAL: $key exists but is not a directory") unless -d;
+    $self->Fatal("PERL_FATAL: $key directory $_ is not writeable") unless -w;
   }
 
 # Some parameters must be writeable files if they exist, or the parent
@@ -375,8 +397,8 @@ sub isInvalid
       if ( -e $_ )
       {
 #       If it exists, it better be a writeable file
-        fatal("PERL_FATAL: $key exists but is not a file") unless -f;
-        fatal("PERL_FATAL: $key file $_ is not writeable") unless -w;
+        $self->Fatal("PERL_FATAL: $key exists but is not a file") unless -f;
+        $self->Fatal("PERL_FATAL: $key file $_ is not writeable") unless -w;
       }
       else
       {
@@ -387,9 +409,9 @@ sub isInvalid
           $_ = dirname($_);
           eval { mkpath $_ } unless -e;
         }
-        fatal("PERL_FATAL: $key directory $_ does not exist")   unless -e;
-        fatal("PERL_FATAL: $key exists but is not a directory") unless -d;
-        fatal("PERL_FATAL: $key directory $_ is not writeable") unless -w;
+        $self->Fatal("PERL_FATAL: $key directory $_ does not exist")   unless -e;
+        $self->Fatal("PERL_FATAL: $key exists but is not a directory") unless -d;
+        $self->Fatal("PERL_FATAL: $key directory $_ is not writeable") unless -w;
       }
     }
   }
@@ -397,7 +419,7 @@ sub isInvalid
   if ( !defined($self->{LOGFILE}) && !$self->{NODAEMON} )
   {
 #   LOGFILE not defined is fatal unless NODAEMON is set!
-    fatal("PERL_FATAL: LOGFILE not set but process will run as a daemon");
+    $self->Fatal("PERL_FATAL: LOGFILE not set but process will run as a daemon");
   }
 
   return $errors;
@@ -448,7 +470,7 @@ sub stopWorkers
     my @workers = @{$self->{WORKERS}};
     my @stopflags = map { "$self->{DROPDIR}/worker-$_/stop" }
     			0 .. ($self->{NWORKERS}-1);
-    &note ("stopping worker threads");
+    $self->Note ("stopping worker threads");
     &touch (@stopflags);
     while (scalar @workers)
     {
@@ -479,7 +501,7 @@ sub maybeStop
     # Check for the stop flag file.  If it exists, quit: remove the
     # pidfile and the stop flag and exit.
     return if ! -f $self->{STOPFLAG};
-    &note("exiting from stop flag");
+    $self->Note("exiting from stop flag");
     $self->doStop();
 }
 
@@ -521,7 +543,7 @@ sub readInbox
     # Scan the inbox.  If this fails, file an alert but keep going,
     # the problem might be transient (just sleep for a while).
     my @files = ();
-    $self->Alert("cannot list inbox: $!")
+    $self->Alert("cannot list inbox(".$self->{INBOX}."): $!")
 	if (! &getdir($self->{INBOX}, \@files));
 
     # Check for junk
@@ -552,7 +574,7 @@ sub readPending
     # Scan the work directory.  If this fails, file an alert but keep
     # going, the problem might be transient.
     my @files = ();
-    $self->Alert("cannot list workdir: $!")
+    $self->Alert("cannot list workdir(".$self->{WORKDIR}."): $!")
 	if (! getdir($self->{WORKDIR}, \@files));
 
     return @files;
@@ -567,7 +589,7 @@ sub readOutbox
     # Scan the outbox directory.  If this fails, file an alert but keep
     # going, the problem might be transient.
     my @files = ();
-    $self->Alert("cannot list outdir: $!")
+    $self->Alert("cannot list outdir(".$self->{OUTDIR}."): $!")
 	if (! getdir ($self->{OUTDIR}, \@files));
 
     return @files;
@@ -585,7 +607,7 @@ sub renameDrop
 # Utility to undo from failed scp bridge operation
 sub scpBridgeFailed
 {
-    my ($msg, $remote) = @_;
+    my ($self,$msg, $remote) = @_;
     # &runcmd ("ssh", $host, "rm -fr $remote");
     $self->Alert ($msg);
     return 0;
@@ -593,15 +615,15 @@ sub scpBridgeFailed
 
 sub scpBridgeDrop
 {
-    my ($source, $target) = @_;
+    my ($self,$source, $target) = @_;
 
-    return &scpBridgeFailed ("failed to chmod $source", $target)
+    return $self->scpBridgeFailed ("failed to chmod $source", $target)
         if ! chmod(0775, "$source");
 
-    return &scpBridgeFailed ("failed to copy $source", $target)
+    return $self->scpBridgeFailed ("failed to copy $source", $target)
         if &runcmd ("scp", "-rp", "$source", "$target");
 
-    return &scpBridgeFailed ("failed to copy /dev/null to $target/go", $target)
+    return $self->scpBridgeFailed ("failed to copy /dev/null to $target/go", $target)
         if &runcmd ("scp", "/dev/null", "$target/go"); # FIXME: go-pending?
 
     return 1;
@@ -610,7 +632,7 @@ sub scpBridgeDrop
 # Utility to undo from failed rfio bridge operation
 sub rfioBridgeFailed
 {
-    my ($msg, $remote) = @_;
+    my ($self,$msg, $remote) = @_;
     &rfrmall ($remote) if $remote;
     $self->Alert ($msg);
     return 0;
@@ -618,20 +640,20 @@ sub rfioBridgeFailed
 
 sub rfioBridgeDrop
 {
-    my ($source, $target) = @_;
+    my ($self,$source, $target) = @_;
     my @files = <$source/*>;
     do { $self->Alert ("empty $source"); return 0; } if ! scalar @files;
 
-    return &rfioBridgeFailed ("failed to create $target")
+    return $self->rfioBridgeFailed ("failed to create $target")
         if ! &rfmkpath ($target);
 
     foreach my $file (@files)
     {
-        return &rfioBridgeFailed ("failed to copy $file to $target", $target)
+        return $self->rfioBridgeFailed ("failed to copy $file to $target", $target)
             if ! &rfcp ("$source/$file", "$target/$file");
     }
 
-    return &rfioBridgeFailed ("failed to copy /dev/null to $target", $target)
+    return $self->rfioBridgeFailed ("failed to copy /dev/null to $target", $target)
         if ! &rfcp ("/dev/null", "$target/go");  # FIXME: go-pending?
 
     return 1;
@@ -696,10 +718,10 @@ sub relayDrop
         foreach my $dir (@{$self->{NEXTDIR}})
         {
 	    if ($dir =~ /^scp:/) {
-		&scpBridgeDrop ("$self->{OUTDIR}/$drop", "$dir/inbox/$drop");
+		$self->scpBridgeDrop ("$self->{OUTDIR}/$drop", "$dir/inbox/$drop");
 		next;
 	    } elsif ($dir =~ /^rfio:/) {
-		&rfioBridgeDrop ("$self->{OUTDIR}/$drop", "$dir/inbox/$drop");
+		$self->rfioBridgeDrop ("$self->{OUTDIR}/$drop", "$dir/inbox/$drop");
 		next;
 	    }
 
@@ -796,11 +818,9 @@ I have no idea what you would want to do with this either...
 sub processDrop
 {}
 
-# Manage work queue.  If there are previously pending work, finish
-# it, otherwise look for and process new inbox drops.
-sub process
+# Introduced for POE-based agents to allow process to become a true loop
+sub preprocess
 {
-
   my $self = shift;
 
   # Initialise subclass.
@@ -811,61 +831,64 @@ sub process
 
   # Restore signals.  Oracle apparently is in habit of blocking them.
   $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = sub { $self->doStop() };
+}
 
+# Manage work queue.  If there are previously pending work, finish
+# it, otherwise look for and process new inbox drops.
+sub process
+{
+  my $self = shift;
   # Work.
-  while (1)
+  my $drop;
+
+  # Check for new inputs.  Move inputs to pending work queue.
+  $self->maybeStop();
+  foreach $drop ($self->readInbox ())
   {
-    my $drop;
-
-    # Check for new inputs.  Move inputs to pending work queue.
     $self->maybeStop();
-    foreach $drop ($self->readInbox ())
+    if (! &mv ("$self->{INBOX}/$drop", "$self->{WORKDIR}/$drop"))
     {
-      $self->maybeStop();
-      if (! &mv ("$self->{INBOX}/$drop", "$self->{WORKDIR}/$drop"))
-      {
-	# Warn and ignore it, it will be returned again next time around
-	$self->Alert("failed to move job '$drop' to pending queue: $!");
-      }
-    }
-
-    # Check for pending work to do.
-    $self->maybeStop();
-    my @pending = $self->readPending ();
-    my $npending = scalar (@pending);
-    foreach $drop (@pending)
-    {
-      $self->maybeStop();
-      $self->processDrop ($drop, --$npending);
-    }
-
-    # Check for drops waiting for transfer to the next agent.
-    $self->maybeStop();
-    foreach $drop ($self->readOutbox())
-    {
-      $self->maybeStop();
-      $self->relayDrop ($drop);
-    }
-
-    # Wait a little while.
-    $self->maybeStop();
-    &dbgmsg("starting idle()") if $self->{DEBUG};
-    my $t1 = &mytimeofday();
-    $self->idle (@pending);
-    my $t2 = &mytimeofday();
-    &dbgmsg(sprintf("cycle time %.6f s", $t2-$t1)) if $self->{DEBUG};
-    if ($self->{AUTO_NAP}) {
-	&dbgmsg("sleeping for $self->{WAITTIME} s") if $self->{DEBUG};
-	$self->nap ($self->{WAITTIME});
+#     Warn and ignore it, it will be returned again next time around
+      $self->Alert("failed to move job '$drop' to pending queue: $!");
     }
   }
+
+  # Check for pending work to do.
+  $self->maybeStop();
+  my @pending = $self->readPending ();
+  my $npending = scalar (@pending);
+  foreach $drop (@pending)
+  {
+    $self->maybeStop();
+    $self->processDrop ($drop, --$npending);
+  }
+
+  # Check for drops waiting for transfer to the next agent.
+  $self->maybeStop();
+  foreach $drop ($self->readOutbox())
+  {
+    $self->maybeStop();
+    $self->relayDrop ($drop);
+  }
+
+  # Wait a little while.
+  $self->maybeStop();
+  $self->Dbgmsg("starting idle()") if $self->{VERBOSE};
+  my $t1 = &mytimeofday();
+  $self->idle (@pending);
+  my $t2 = &mytimeofday();
+  $self->Dbgmsg(sprintf("cycle time %.6f s", $t2-$t1)) if $self->{VERBOSE};
+#  if ($self->{AUTO_NAP}) {
+#$self->Dbgmsg("sleeping for $self->{WAITTIME} s") if $self->{VERBOSE};
+#$self->nap ($self->{WAITTIME});
+#  }
 }
 
 # Wait between scans
 sub idle
 {
     my $self = shift;
-    $self->nap ($self->{WAITTIME});
+#   $self->nap ($self->{WAITTIME});
 }
 
 # Sleep for a time, checking stop flag every once in a while.
@@ -880,8 +903,30 @@ sub nap
 sub connectAgent
 {
     my ($self, $identify) = @_;
+    my $dbh;
 
-    my $dbh = &connectToDatabase($self);
+#    if ( $self->{SHARED_DBH} )
+#    {
+#      $self->Logmsg("Looking for a DBH to share") if $self->{DEBUG};
+#      if ( exists($Agent::Registry{DBH}) )
+#      {
+#        $self->{DBH} = $dbh = $Agent::Registry{DBH};
+#        $self->Logmsg("using shared DBH=$dbh") if $self->{DEBUG};
+#      }
+#      else
+#      {
+#        $self->Logmsg("Creating new DBH") if $self->{DEBUG};
+#        $Agent::Registry{DBH} = $dbh = &connectToDatabase($self) unless $dbh;
+#        $self->Logmsg("Sharing DBH=$dbh") if $self->{DEBUG};
+#      }
+#    }
+#    else
+#    {
+#$self->{DEBUG}++;
+      $dbh = &connectToDatabase($self);
+#$self->{DEBUG}--;
+#     $self->Logmsg("Using private DBH=$dbh") if $self->{DEBUG};
+#    }
 
     $self->checkNodes();
 
@@ -903,6 +948,7 @@ sub connectAgent
 sub disconnectAgent
 {
     my ($self, $force) = @_;
+    return if ($self->{SHARED_DBH});
     &disconnectFromDatabase($self, $self->{DBH}, $force);
 }
 
@@ -915,14 +961,14 @@ sub checkNodes
         select count(*) from t_adm_node where name like :pat});
 
     &dbbindexec($q, ':pat' => $self->{MYNODE});
-    fatal "'$self->{MYNODE}' does not match any node known to TMDB, check -node argument\n"
+    $self->Fatal("'$self->{MYNODE}' does not match any node known to TMDB, check -node argument\n")
 	if ($self->{MYNODE} && ! $q->fetchrow());
 
     my %params = (NODES => '-nodes', ACCEPT_NODES => '-accept', IGNORE_NODES => '-ignore');
     while (my ($param, $arg) = each %params) {
 	foreach my $pat (@{$self->{$param}}) {
 	    &dbbindexec($q, ':pat' => $pat);
-	    fatal "'$pat' does not match any node known to TMDB, check $arg argument\n"
+	    $self->Fatal("'$pat' does not match any node known to TMDB, check $arg argument\n")
 		unless $q->fetchrow();
 	}
     }
@@ -1075,11 +1121,11 @@ sub updateAgentStatus
   return if ($self->{DBH_AGENT_UPDATE}{$self->{MYNODE}} || 0) > $now - 5*60;
 
   # Obtain my node id
-  my $me = $self->{ME} || $0; $me =~ s|.*/||;
+  my $me = $self->{ME};
   ($self->{ID_MYNODE}) = &dbexec($dbh, qq{
 	select id from t_adm_node where name = :node},
 	":node" => $self->{MYNODE})->fetchrow();
-  fatal "node $self->{MYNODE} not known to the database\n"
+  $self->Fatal("node $self->{MYNODE} not known to the database\n")
         if ! defined $self->{ID_MYNODE};
 
   # Check whether agent and agent status rows exist already.
@@ -1117,8 +1163,8 @@ sub updateAgentStatus
   {
     if ( $label ne $self->{LABEL} )
     {
-      print "Using agent label \"",$self->{LABEL},
-	    "\" instead of derived label \"$label\"\n";
+#      print "Using agent label \"",$self->{LABEL},
+#	    "\" instead of derived label \"$label\"\n";
       $label = $self->{LABEL};
     }
   }
@@ -1372,7 +1418,7 @@ sub myNodeFilter
   }
 
   unless (@filter) {
-      fatal "myNodeFilter() matched no nodes";
+      $self->Fatal("myNodeFilter() matched no nodes");
   }
 
   my $filter =  "(" . join(" or ", @filter) . ")";
@@ -1441,5 +1487,96 @@ sub otherNodeFilter
   return ("", ());
 }
 
+sub _start
+{
+  my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
+  $self->Logmsg("starting (session ",$session->ID,")");
+  $self->preprocess( $kernel, $session );
+  if ( $self->can('_poe_init') )
+  {
+    $kernel->state('_poe_init',$self);
+    $kernel->yield('_poe_init');
+  }
+  $kernel->yield('_process');
+  $kernel->yield('_maybeStop');
+  $self->Logmsg("has successfully initialised");
+}
+
+sub _process
+{
+  my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+  my ($start,$t,$t1);
+  print $self->Hdr,"starting '_process'\n" if $self->{VERBOSE};
+
+  if ( exists($self->{stats}{process}) )
+  {
+    $t = time;
+    if ( defined($t1 = $self->{stats}{process}{_offCPU}) )
+    {
+      push @{$self->{stats}{process}{offCPU}}, $t - $t1;
+      undef $self->{stats}{process}{_offCPU};
+    }
+    $self->{stats}{process}{count}++;
+    $start = time;
+  }
+
+  $self->process();
+
+  if ( exists($self->{stats}{process}) )
+  {
+    $t = time;
+    push @{$self->{stats}{process}{onCPU}}, $t - $start;
+    $self->{stats}{process}{_offCPU} = $t;
+  }
+
+  print $self->Hdr,"ending '_process'\n" if $self->{VERBOSE};
+  $kernel->delay_set('_process',$self->{WAITTIME});
+}
+
+sub _maybeStop
+{
+  my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+
+  print $self->Hdr,"starting '_maybeStop'\n" if $self->{VERBOSE} >= 3;
+  $self->{stats}{maybeStop}++ if exists $self->{stats}{maybeStop};;
+
+  $self->maybeStop();
+  print $self->Hdr,"ending '_maybeStop'\n" if $self->{VERBOSE} >= 3;
+  $kernel->delay_set('_maybeStop', 1);
+}
+
+sub _stop
+{
+  my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
+  print $self->Hdr, "ending, for lack of work...\n";
+}
+
+sub _default
+{
+  my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+  my $ref = ref($self);
+  die <<EOF;
+
+  Default handler for class $ref:
+  The default handler caught an unhandled "$_[ARG0]" event.
+  The $_[ARG0] event was given these parameters: @{$_[ARG1]}
+
+  (...end of dump)
+EOF
+}
+
+sub AgentType
+{
+  my ($self,$agent_type) = @_;
+
+  if ( !defined($agent_type) )
+  {
+    $agent_type = (caller(1))[0];
+    $agent_type =~ s%^PHEDEX::%%;
+    $agent_type =~ s%::Agent%%;
+    $agent_type =~ s%::%%g;
+  }
+  return $self->{ME} = $agent_type;
+}
 
 1;

@@ -33,7 +33,7 @@ exit 0;
 package FileIssue;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use List::Util qw(max);
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Timing;

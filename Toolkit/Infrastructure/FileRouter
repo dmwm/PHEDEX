@@ -45,7 +45,7 @@ exit 0;
 package FileRouter;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use List::Util qw(max);
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
@@ -465,7 +465,7 @@ sub prepare
 	my ($nblocks) = &dbexec($dbh, qq{
 	    select count(*) from t_dps_block_dest where destination = :node and state = 0
 	    }, ":node" => $node)->fetchrow();
-	&warn("through-traffic limit reached for node=$node.  no new block destinations activated out of $nblocks")
+	$self->Warn("through-traffic limit reached for node=$node.  no new block destinations activated out of $nblocks")
 	    if $nblocks;
     }
     
@@ -1070,7 +1070,7 @@ sub warn_route_failures
     
     foreach my $dest (sort keys %{$$self{NEW_ROUTE_FAILURE}}) {
 	foreach my $reason (keys %{$$self{ROUTE_FAILURES}{$dest}}) {
-	    &warn("failed to route ",
+	    $self->Warn("failed to route ",
 		    scalar keys %{$$self{ROUTE_FAILURES}{$dest}{$reason}},
 		    " files to node=$dest:  $reason");
 	}

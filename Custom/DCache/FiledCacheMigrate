@@ -47,7 +47,7 @@ exit 0;
 package FileDCacheMigrate;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Catalogue;
@@ -130,10 +130,10 @@ sub idle
 
 	    # Check if the file has been migrated.  If not, skip it.
 	    open (DCACHE, "$path/.(use)(1)($filename)")
-		or do { &warn ("no migration info for $pfn: $!"); next };
+		or do { $self->Warn ("no migration info for $pfn: $!"); next };
 	    my $status = <DCACHE>;
 	    close (DCACHE)
-		or do { &warn ("no migration info for $pfn: $?"); next };
+		or do { $self->Warn ("no migration info for $pfn: $?"); next };
 
 	    next if !$status;
 

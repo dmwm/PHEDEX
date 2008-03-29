@@ -101,13 +101,16 @@ die "Insufficient parameters, use -h for help.\n"
 	|| !$args{BACKEND_TYPE});
 
 my $agent = FileDownload->new(%args, BACKEND_ARGS => [ @ARGV ]);
+POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;
 
 ######################################################################
 # Routines specific to this agent.
 package FileDownload;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use List::Util qw(min max sum);
 use File::Path qw(mkpath rmtree);
 use Data::Dumper;

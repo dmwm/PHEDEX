@@ -20,7 +20,7 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use POE;
 use PHEDEX::Core::Timing;
 
@@ -149,6 +149,10 @@ sub isInvalid
 
   return $errors;
 }
+
+sub readInbox   { return (); }
+sub readOutbox  { return (); }
+sub readPending { return (); }
 
 sub stop
 {

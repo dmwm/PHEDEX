@@ -62,7 +62,7 @@ exit 0;
 package FileRemove;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use File::Path;
 use Data::Dumper;
 
@@ -139,7 +139,7 @@ sub deleteOneFile
 	    ->fetchrow();
 	if ($npending)
 	{
-	    &warn ("not removing $$file{LFN}, $npending pending transfers");
+	    $self->Warn ("not removing $$file{LFN}, $npending pending transfers");
 	    return 0;
 	}
 	
@@ -179,7 +179,7 @@ sub deleteJob
     my ($self, $file, $job) = @_;
     if ($$job{STATUS})
     {
-	&warn("failed to delete file $$file{PFN} at node "
+	$self->Warn("failed to delete file $$file{PFN} at node "
 	      ."$$file{NODE}, log in $$job{LOGFILE}");
     }
     else
@@ -284,7 +284,7 @@ sub startOne
 	    || ! &touch ("$drop/go.pending"));
 
     # OK, kick it go
-    &warn ("failed to mark $$file{FILEID} ready to go")
+    $self->Warn ("failed to mark $$file{FILEID} ready to go")
 	if ! &mv ("$drop/go.pending", "$drop/go");
 
     return 1;

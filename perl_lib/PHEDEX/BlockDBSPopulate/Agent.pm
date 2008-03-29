@@ -20,7 +20,7 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'PHEDEX::BlockDBSPopulate::SQL', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockDBSPopulate::SQL', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
 use PHEDEX::BlockConsistency::Core;
 use DB_File;
@@ -170,7 +170,7 @@ sub registered
     }
     else
     {
-	&warn("failed to $block->{COMMAND} block $block->{BLOCK_NAME} for"
+	$self->Warn("failed to $block->{COMMAND} block $block->{BLOCK_NAME} for"
 	      . " $block->{NODE_NAME}, log in $job->{LOGFILE}");
     }
 }

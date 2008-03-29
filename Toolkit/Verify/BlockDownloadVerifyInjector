@@ -39,5 +39,7 @@ use PHEDEX::BlockConsistency::Injector::Agent;
 	    );
 
 foreach ( keys %args ) { delete $args{$_} unless defined $args{$_}; }
-my $agent = new PHEDEX::BlockConsistency::Injector::Agent(%args, @ARGV);
-$agent->process();
+my $agent = PHEDEX::BlockConsistency::Injector::Agent->new(%args, @ARGV);
+POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;

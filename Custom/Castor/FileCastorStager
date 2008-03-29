@@ -61,7 +61,7 @@ exit 0;
 package FileCastorStager;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Catalogue;
@@ -229,7 +229,7 @@ sub buildStatus
     # Mark in unknown state all files without clear status.
     foreach my $file (values %$files)
     {
-	do { &warn ("unknown wanted file $$file{LFN}"); next }
+	do { $self->Warn ("unknown wanted file $$file{LFN}"); next }
 	    if ! $$file{PFN};
 	$$file{STATUS} ||= "UNKNOWN";
     }

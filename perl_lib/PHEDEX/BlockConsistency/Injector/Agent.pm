@@ -18,7 +18,7 @@ See the wiki, where the documentation is maintained.
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 
 use File::Path;
 use Data::Dumper;
@@ -243,7 +243,7 @@ sub startOne
 
 # OK, kick it go
   return 1 if &mv ("$drop/go.pending", "$drop/go");
-  &warn ("failed to mark $$request{ID} ready to go");
+  $self->Warn ("failed to mark $$request{ID} ready to go");
   return 0;
 }
 

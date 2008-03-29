@@ -47,7 +47,7 @@ exit 0;
 package FileSRMMigrate;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Catalogue;
@@ -128,14 +128,14 @@ sub idle
  	    # Check if the file has been migrated.  If not, skip it.
 	    my $migrated = 0;
 	    open (SRM, "srm-get-metadata -retry_num=1 $pfn |")
-		or do { &warn ("no metadata for $pfn: $!"); next };
+		or do { $self->Warn ("no metadata for $pfn: $!"); next };
             while(<SRM>) {
                 if (/isPermanent :true/) {
                     $migrated = 1;
                 }
             }
 	    close (SRM)
-		or do { &warn ("no migration info for $pfn: $?"); next };
+		or do { $self->Warn ("no migration info for $pfn: $?"); next };
 	    next if !$migrated;
 
 	    # Migrated, mark transfer completed

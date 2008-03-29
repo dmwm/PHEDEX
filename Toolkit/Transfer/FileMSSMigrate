@@ -64,7 +64,7 @@ exit 0;
 package FileMSSMigrate;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Catalogue;
@@ -245,10 +245,10 @@ sub checkFileInMSS_castor {
     my $pfn = shift @_;
     my $migrated = 0;
     open (NSLS, "nsls -l $pfn |")
-	or do { &warn ("cannot nsls $pfn: $!"); return 0 };
+	or do { warn ("cannot nsls $pfn: $!"); return 0 };
     my $status = <NSLS>;
     close (NSLS)
-	or do { &warn ("cannot nsls $pfn: $?"); return 0 };
+	or do { warn ("cannot nsls $pfn: $?"); return 0 };
 
     $migrated = 1 if ($status =~ /^m/);
     return $migrated;
@@ -262,7 +262,7 @@ sub checkFileInMSS_SRM {
 
     my $migrated = 0;
             open (SRM, "srm-get-metadata -retry_num=1 $pfn |")
-                or do { &warn ("no metadata for $pfn: $!"); return 0 };
+                or do { warn ("no metadata for $pfn: $!"); return 0 };
 
     while(<SRM>) {
 	if (/isPermanent :true/) {
@@ -271,7 +271,7 @@ sub checkFileInMSS_SRM {
     }
 
     close (SRM)
-	or do { &warn ("no migration info for $pfn: $?"); return 0 };
+	or do { warn ("no migration info for $pfn: $?"); return 0 };
 
     return $migrated
 }
@@ -292,12 +292,12 @@ sub checkFileInMSS {
 
     # Check if the file has been migrated.  If not, skip it.
     open (DCACHE, "$path/.(use)(1)($filename)")
-	or do { &warn ("no migration info for $pfn: $!"); return 0 };
+	or do { warn ("no migration info for $pfn: $!"); return 0 };
     
     my $status = <DCACHE>;
     
     close (DCACHE)
-	or do { &warn ("no migration info for $pfn: $?"); return 0 };
+	or do { warn ("no migration info for $pfn: $?"); return 0 };
     
     return $status?1:0 ;
 	

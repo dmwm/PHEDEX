@@ -21,7 +21,7 @@ fatal() calls exit(1) after it prints a message to the log.
 use strict;
 use warnings;
 use base 'Exporter';
-our @EXPORT = qw( Hdr logmsg alert      dbgmsg fatal note);
+our @EXPORT = qw( Hdr ); # logmsg alert      dbgmsg fatal note);
 use POSIX;
 
 ## Produce an alert message
@@ -60,23 +60,46 @@ use POSIX;
 #    print STDERR "$date: ${me}\[$$]: note: ", @_, "\n";
 #}
 
-# Produce an alert message
+# As a demonstration, prepare to throw out UDP messages if required...
+BEGIN
+{
+  if ( defined($ENV{PHEDEX_UDP_PORT}) )
+  {
+    eval("use IO::Socket::INET");
+    if ( $@ ) { undef $ENV{PHEDEX_UDP_PORT}; }
+  };
+}
+
 sub Logmsg
 {   
   my $self = shift;
   print $self->Hdr, @_,"\n";
 }
 
+sub Notify
+{
+  my $self = shift;
+  my $port = $ENV{PHEDEX_UDP_PORT};
+  return unless defined $port;
+
+  my $socket = IO::Socket::INET->new( Proto => 'udp' );
+  my $server = pack_sockaddr_in( $port, inet_aton("127.0.0.1") );
+  my $message = join('',$self->Hdr,@_,"\n");
+  send( $socket, $message, 0, $server );
+}
+
 sub Alert
 {   
   my $self = shift;
   $self->Logmsg ("alert: ", @_);
+  $self->Notify ("alert: ", @_);
 }
 
 sub Warn
 {   
   my $self = shift;
   $self->Logmsg ("warning: ", @_);
+  $self->Notify ("warning: ", @_);
 }   
 
 sub Dbgmsg
@@ -89,6 +112,7 @@ sub Fatal
 {
   my $self = shift;
   $self->Logmsg ("fatal: ", @_);
+  $self->Notify ("fatal: ", @_);
   exit(1);
 }
 

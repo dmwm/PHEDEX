@@ -56,7 +56,7 @@ exit 0;
 package FilePFNExport;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Timing;
@@ -76,7 +76,9 @@ sub new
 	  	  STORAGEMAP => undef,		# Storage path mapping rules
 		  LAST_LIVE => 0,		# Last time we indicated liveness
 	  	  LAST_UPDATE => -1, 		# Timestamp of file catalogue file
-		  PROTOCOLS => undef);		# Protocols to accept
+		  PROTOCOLS => undef,		# Protocols to accept
+		  ME	=> 'FileExport',
+		);
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
@@ -90,7 +92,7 @@ sub checkCatalogueChange
     my $now = &mytimeofday ();
 
     # If we don't find a catalogue, warn.
-    &warn ("trivial catalogue $$self{STORAGEMAP} has vanished") if (!$exists);
+    $self->Warn ("trivial catalogue $$self{STORAGEMAP} has vanished") if (!$exists);
 
     # Unchanged if this is no different from our last check
     my $stamp = (stat(_))[9] if $exists;

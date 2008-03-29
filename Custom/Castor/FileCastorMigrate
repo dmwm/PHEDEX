@@ -47,7 +47,7 @@ exit 0;
 package FileCastorMigrate;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Catalogue;
@@ -127,10 +127,10 @@ sub idle
 	{
 	    # Check if the file has been migrated.  If not, skip it.
 	    open (NSLS, "nsls -l $pfn |")
-		or do { &warn ("cannot nsls $pfn: $!"); next };
+		or do { $self->Warn ("cannot nsls $pfn: $!"); next };
 	    my $status = <NSLS>;
 	    close (NSLS)
-		or do { &warn ("cannot nsls $pfn: $?"); next };
+		or do { $self->Warn ("cannot nsls $pfn: $?"); next };
 
 	    next if $status !~ /^m/;
 

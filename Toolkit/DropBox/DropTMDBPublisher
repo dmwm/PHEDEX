@@ -52,7 +52,7 @@ exit 0;
 package DropTMDBPublisher;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::POEAgent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use File::Path;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
