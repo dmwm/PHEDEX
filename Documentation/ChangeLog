@@ -1,3 +1,13 @@
+* Changes in PhEDEx 3.0.0.pre11
+
+Changes for All Agents
+   - minor typos/bugfixes w.r.t. 3.0.0.pre7 corrected.
+   - other agents which had not yet been 'consolidated' have been split out
+     into separate modules, so at least the basic consolidation is done. This
+     is to allow the possibility to run them all as multiple-agents per
+     process, rather than having some still requiring their own process just
+     because we hadn't split out the modules
+
 * Changes in PhEDEx 3.0.0.pre7
 
 Changes for All Agents
