@@ -372,7 +372,7 @@ sub debug
 {
   my $self = shift;
   $self->{USE_DEBUGGER}=1;
-  $self->start();
+  $self->start(@_);
 }
 
 sub start
