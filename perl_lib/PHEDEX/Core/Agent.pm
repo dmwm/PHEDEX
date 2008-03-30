@@ -206,7 +206,7 @@ sub new
 
     bless $self, $class;
     # If required, daemonise, write pid file and redirect output.
-    $self->daemon($me);
+    $self->daemon();
 
 #   Start a POE session for myself
     POE::Session->create

@@ -31,4 +31,7 @@ use PHEDEX::BlockDBSPopulate::Agent;
 	     "dummy"	      => \$args{DUMMY},	
 	     "help|h"      => sub { &usage() });
 
-(new PHEDEX::BlockDBSPopulate::Agent (%args,@ARGV))->process();
+my $agent = PHEDEX::BlockDBSPopulate::Agent->new(%args,@ARGV);
+POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;
