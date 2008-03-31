@@ -28,11 +28,13 @@ our %params =
 	(
 	  MYNODE	=> undef,		# my TMDB nodename
 	  ME		=> 'AgentFactory',
-	  WAITTIME	=> 6 + rand(3),		# This agent cycle time
-	  VERBOSE	=> $ENV{PHEDEX_VERBOSE},
+	  WAITTIME	=> 3600 + rand(3),	# This agent cycle time
+	  VERBOSE	=> $ENV{PHEDEX_VERBOSE} || 0,
+	  DEBUG		=> $ENV{PHEDEX_DEBUG} || 0,
 	  AGENTS	=> undef,		# Which agents am I to start?
 	  CONFIG	=> $ENV{PHEDEX_CONFIG_FILE},
 	  NODAEMON	=> 1,			# Don't daemonise by default!
+	  REALLY_NODAEMON=> 0,			# Do daemonise eventually!
 	  STATISTICS_INTERVAL	=> 3600,	# reporting frequency
 	  STATISTICS_DETAIL	=>    1,	# reporting level: 0, 1, or 2
 	);
@@ -126,7 +128,7 @@ sub really_daemon
 # it has started all the agents, then it should do it's stuff. I should clean
 # this up if I can.
   my $self = shift;
-  $self->{NODAEMON}=0;
+  $self->{NODAEMON} = $self->{REALLY_NODAEMON} || 0;
   $self->SUPER::daemon( $self->{ME} );
   $self->Logmsg('I have successfully become a daemon');
   $self->Logmsg('I am running these agents: ',join(', ',sort keys %{$self->{AGENTS}}));
