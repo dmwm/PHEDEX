@@ -8,7 +8,7 @@ PHEDEX_NODE=TX_${PHEDEX_SITE}_Buffer;
 PHEDEX_CONTEXT=Mgmt;
 
 ### ENVIRON common
-PHEDEX_BASE=/afs/cern.ch/user/w/wildish/public/COMP/PHEDEX_CVS;
+PHEDEX_BASE=/afs/cern.ch/user/w/wildish/public/COMP/PHEDEX_3_0_0_pre7;
 PHEDEX_INSTANCE=Testbed;
 PHEDEX_VERSION=2_6_2
 PHEDEX_OS_VERSION=slc4_ia32_gcc345;
@@ -26,8 +26,11 @@ PHEDEX_SCRIPTS=${PHEDEX_BASE};
 PERL5LIB=/afs/cern.ch/user/w/wildish/public/perl:${PHEDEX_BASE}/perl_lib
 
 PHEDEX_LOGS=/tmp/wildish/logs
+PHEDEX_STATE=/tmp/wildish/state
 
-export PHEDEX_VERBOSE=0
+export PHEDEX_VERBOSE=1
+export PHEDEX_DEBUG=1
+export PHEDEX_NOTIFICATION_PORT=12345
 PHEDEX_DEBUGGER="perl -MPHEDEX::Debug -d"
 
 ### AGENT LABEL=master-agent PROGRAM=Utilities/AgentFactory.pl
@@ -44,6 +47,8 @@ PHEDEX_DEBUGGER="perl -MPHEDEX::Debug -d"
 ### AGENT LABEL=fast-agent PROGRAM=template::Agent DEFAULT=off
  WAITTIME 3
  ME template-fast-agent
+ NOTIFICATION_HOST pctony.cern.ch
+ NOTIFICATION_PORT 1234
 
 ### AGENT LABEL=medium-agent PROGRAM=template::Agent DEFAULT=off
  WAITTIME 7

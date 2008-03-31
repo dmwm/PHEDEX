@@ -117,6 +117,7 @@ Pick up work from the database and start site specific scripts if necessary
 sub idle
 {
   my $self = shift;
+  $self->Notify("entering idle\n");
   print $self->Hdr,"entering idle\n" if $self->{VERBOSE};
   $self->SUPER::idle(@_);
   print $self->Hdr,"exiting idle\n" if $self->{VERBOSE};
