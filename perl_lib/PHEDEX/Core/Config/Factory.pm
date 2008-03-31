@@ -98,6 +98,7 @@ sub createAgents
     }
     my %a = @_;
     $a{NODAEMON} = 1;
+    $a{LABEL} = $agent;
     my $opts = $Agent->OPTIONS;
     $opts->{DROPDIR} = '${PHEDEX_STATE}/' . $agent;
     $opts->{LOGFILE} = '${PHEDEX_LOGS}/'  . $agent;
@@ -177,16 +178,8 @@ sub _poe_init
 sub _make_stats
 {
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
+  my ($delay,$totalWall,$totalOnCPU,$totalOffCPU);
 
-#  if ( ! defined($self->{stats}{START}) )
-#  {
-#    $self->Logmsg('STATISTICS: Reporting every ',$self->{STATISTICS_INTERVAL},' seconds, detail=',$self->{STATISTICS_DETAIL});
-#    $self->{stats}{START} = time;
-#    $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
-#    return;
-#  }
-
-  my ($totalWall,$totalOnCPU,$totalOffCPU);
   $totalWall = $totalOnCPU = $totalOffCPU = 0;
   foreach my $agent ( sort keys %{$self->{AGENTS}} )
   {
@@ -201,6 +194,7 @@ sub _make_stats
 
     my ($onCPU,$offCPU);
     $onCPU = $offCPU = 0;
+    $delay = 0;
     if ( exists($h->{process}) )
     {
       my $count = $h->{process}{count} || 0;
@@ -234,7 +228,7 @@ sub _make_stats
         $summary .= sprintf(" offCPU(median=%.2f max=%.2f)",$median,$max);
         if ( $waittime && $median )
         {
-          my $delay = $median / $waittime;
+          $delay = $median / $waittime;
           $summary .= sprintf(" delay_factor=%.2f",$delay);
         }
         if ( $self->{STATISTICS_DETAIL} > 1 )
@@ -246,6 +240,7 @@ sub _make_stats
       $self->{AGENTS}{$agent}{stats}{process} = undef;
     }
     $self->Logmsg($summary) if $self->{STATISTICS_DETAIL};
+    $self->Notify($summary,"\n") if $delay > 1.25;
   }
 
   $totalWall = time - $self->{stats}{START};
