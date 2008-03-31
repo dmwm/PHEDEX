@@ -875,11 +875,11 @@ sub process
 
   # Wait a little while.
   $self->maybeStop();
-  $self->Dbgmsg("starting idle()") if $self->{VERBOSE};
+  $self->Dbgmsg("starting idle()") if $self->{DEBUG};
   my $t1 = &mytimeofday();
   $self->idle (@pending);
   my $t2 = &mytimeofday();
-  $self->Dbgmsg(sprintf("cycle time %.6f s", $t2-$t1)) if $self->{VERBOSE};
+  $self->Dbgmsg(sprintf("cycle time %.6f s", $t2-$t1)) if $self->{DEBUG};
 #  if ($self->{AUTO_NAP}) {
 #$self->Dbgmsg("sleeping for $self->{WAITTIME} s") if $self->{VERBOSE};
 #$self->nap ($self->{WAITTIME});
