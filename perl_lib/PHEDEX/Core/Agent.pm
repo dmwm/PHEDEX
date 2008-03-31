@@ -89,6 +89,8 @@ our %params =
 	  AGENT		=> undef,
 	  DEBUG         => $ENV{PHEDEX_DEBUG} || 0,
  	  VERBOSE       => $ENV{PHEDEX_VERBOSE} || 0,
+	  NOTIFICATION_HOST	=> undef,
+	  NOTIFICATION_PORT	=> undef,
 	);
 
 our @array_params = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;

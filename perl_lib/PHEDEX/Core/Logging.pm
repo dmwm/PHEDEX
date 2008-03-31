@@ -60,13 +60,13 @@ use POSIX;
 #    print STDERR "$date: ${me}\[$$]: note: ", @_, "\n";
 #}
 
-# As a demonstration, prepare to throw out UDP messages if required...
+# As a demonstration, prepare to throw out UDP messages if required.
 BEGIN
 {
-  if ( defined($ENV{PHEDEX_UDP_PORT}) )
+  if ( defined($ENV{PHEDEX_NOTIFICATION_PORT}) )
   {
-    eval("use IO::Socket::INET");
-    if ( $@ ) { undef $ENV{PHEDEX_UDP_PORT}; }
+    eval("use IO::Socket");
+    if ( $@ ) { undef $ENV{PHEDEX_NOTIFICATION_PORT}; }
   };
 }
 
@@ -79,27 +79,29 @@ sub Logmsg
 sub Notify
 {
   my $self = shift;
-  my $port = $ENV{PHEDEX_UDP_PORT};
+  my $port = $self->{NOTIFICATION_PORT} || $ENV{PHEDEX_NOTIFICATION_PORT};
   return unless defined $port;
+  my $server = $self->{NOTIFICATION_HOST} || $ENV{PHEDEX_NOTIFICATION_HOST} || '127.0.0.1';
 
-  my $socket = IO::Socket::INET->new( Proto => 'udp' );
-  my $server = pack_sockaddr_in( $port, inet_aton("127.0.0.1") );
-  my $message = join('',$self->Hdr,@_,"\n");
-  send( $socket, $message, 0, $server );
+  my $message = join('',$self->Hdr,@_);
+  my $socket = IO::Socket::INET->new( Proto	=> 'udp',
+				      PeerPort	=> $port,
+				      PeerAddr	=> $server );
+  $socket->send( $message );
 }
 
 sub Alert
 {   
   my $self = shift;
   $self->Logmsg ("alert: ", @_);
-  $self->Notify ("alert: ", @_);
+  $self->Notify ("alert: ", @_,"\n");
 }
 
 sub Warn
 {   
   my $self = shift;
   $self->Logmsg ("warning: ", @_);
-  $self->Notify ("warning: ", @_);
+  $self->Notify ("warning: ", @_,"\n");
 }   
 
 sub Dbgmsg
@@ -112,7 +114,7 @@ sub Fatal
 {
   my $self = shift;
   $self->Logmsg ("fatal: ", @_);
-  $self->Notify ("fatal: ", @_);
+  $self->Notify ("fatal: ", @_,"\n");
   exit(1);
 }
 
