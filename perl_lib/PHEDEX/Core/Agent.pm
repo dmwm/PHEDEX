@@ -104,14 +104,15 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self  = $class->SUPER::new(@_);
+    my %p = %params;
 
     my %args = (@_);
     my $me = $self->AgentType($args{ME});
 
 #   Retrieve the agent environment, if I can.
     my ($config,$cfg,$label,$key,$val);
-    $config = $args{CONFIG_FILE} || $params{CONFIG_FILE};
-    $label  = $args{LABEL}       || $params{LABEL};
+    $config = $args{CONFIG_FILE} || $p{CONFIG_FILE};
+    $label  = $args{LABEL}       || $p{LABEL};
     if ( $config && $label )
     {
       $cfg = PHEDEX::Core::Config->new();
@@ -133,7 +134,7 @@ sub new
 #       Historical, mapping command-line option to agent-internal representation
         $k = 'DBCONFIG' if $k eq 'DB';
         $v = $self->{ENVIRONMENT}->getExpandedString($v);
-        $params{$k} = $v;
+        $p{$k} = $v;
       }
 
 #     Some parameters are derived from the environment
@@ -142,13 +143,13 @@ sub new
         foreach ( qw / DROPDIR LOGFILE PIDFILE / )
         {
           my $k = $self->{AGENT}->$_();
-          $params{$_} = $self->{ENVIRONMENT}->getExpandedString($k);
+          $p{$_} = $self->{ENVIRONMENT}->getExpandedString($k);
         }
       }
     }
 
 #   Now set the %args hash, from environment or params if not the command-line
-    foreach $key ( keys %params )
+    foreach $key ( keys %p )
     {
       next if defined $args{$key};
       if ( $self->{ENVIRONMENT} )
@@ -160,7 +161,7 @@ sub new
           next;
         }
       }
-      $args{$key} = $params{$key};
+      $args{$key} = $p{$key};
     }
 
 
