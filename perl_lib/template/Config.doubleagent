@@ -30,15 +30,17 @@ PHEDEX_STATE=/tmp/wildish/state
 
 export PHEDEX_VERBOSE=1
 export PHEDEX_DEBUG=1
-export PHEDEX_NOTIFICATION_PORT=12345
+export PHEDEX_NOTIFICATION_PORT=2222
 PHEDEX_DEBUGGER="perl -MPHEDEX::Debug -d"
 
 ### AGENT LABEL=master-agent PROGRAM=Utilities/AgentFactory.pl
  -db     ${PHEDEX_DBPARAM}
  -node   ${PHEDEX_NODE}
  -config ${PHEDEX_CONFIG_FILE}
-  STATISTICS_INTERVAL 3600
+  STATISTICS_INTERVAL 300
   STATISTICS_DETAIL 1
+  NOTIFICATION_HOST pctony.cern.ch
+  NOTIFICATION_PORT 1234
  -agent  fast-agent
  -agent  medium-agent
  -agent  slow-agent
@@ -47,8 +49,6 @@ PHEDEX_DEBUGGER="perl -MPHEDEX::Debug -d"
 ### AGENT LABEL=fast-agent PROGRAM=template::Agent DEFAULT=off
  WAITTIME 3
  ME template-fast-agent
- NOTIFICATION_HOST pctony.cern.ch
- NOTIFICATION_PORT 1234
 
 ### AGENT LABEL=medium-agent PROGRAM=template::Agent DEFAULT=off
  WAITTIME 7
