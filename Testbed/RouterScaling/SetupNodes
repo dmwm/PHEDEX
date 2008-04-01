@@ -16,9 +16,9 @@ BEGIN { use strict; use warnings; $^W=1;
 
 my %args;
 use Getopt::Long;
-use UtilsHelp;
-use UtilsDB;
-use UtilsTiming;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::DB;
+use PHEDEX::Core::Timing;
 &GetOptions ("db=s"        => \$args{DBCONFIG},
     	     "help|h"      => sub { &usage() });
 

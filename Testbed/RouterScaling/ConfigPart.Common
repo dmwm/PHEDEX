@@ -6,10 +6,9 @@
 [ -z "$PHEDEX_LABEL" ] && { echo '$PHEDEX_LABEL not set' 1>&2; exit 1; };
 
 PHEDEX_CONFIG=${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling;
-# PHEDEX_DBPARAM=${PHEDEX_BASE}/SITECONF/CERN/PhEDEx/DBParam:$PHEDEX_INSTANCE/$PHEDEX_LABEL;
-PHEDEX_DBPARAM=${PHEDEX_BASE}/SITECONF/CERN/PhEDEx/DBParam.lat:Validation;
-PHEDEX_STATE=${PHEDEX_BASE}/state;
-PHEDEX_LOGS=${PHEDEX_BASE}/logs;
+PHEDEX_DBPARAM=${PHEDEX_BASE}/DBParam:Testbed2;
+PHEDEX_STATE=${PHEDEX_BASE}/${PHEDEX_SITE}/state;
+PHEDEX_LOGS=${PHEDEX_BASE}/${PHEDEX_SITE}/logs;
 
 PHEDEX_SCRIPTS=${PHEDEX_BASE}/PHEDEX;
 
@@ -22,6 +21,9 @@ export X509_USER_PROXY;
 
 # Source PhEDEx environment
 source ${PHEDEX_BASE}/sw/slc4_ia32_gcc345/cms/PHEDEX/PHEDEX_${PHEDEX_VERSION}/etc/profile.d/env.sh;
+
+# central tns file
+TNS_ADMIN=/afs/cern.ch/project/oracle/admin
 
 ### ENVIRON debug
 export PHEDEX_LOG_SQL=1;

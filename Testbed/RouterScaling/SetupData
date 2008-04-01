@@ -11,16 +11,11 @@
 ##H      blocks:   amount of blocks you wish to make known to the DB
 ##H      count:    amount of files you wish to make known to the DB
 
-BEGIN { use strict; use warnings; $^W=1;
-	my $me = $0; $me =~ s|.*/||;
-	our $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-	unshift(@INC, "$home/../../Toolkit/Common"); }
-
 my %args;
 use Getopt::Long;
-use UtilsHelp;
-use UtilsDB;
-use UtilsTiming;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::DB;
+use PHEDEX::Core::Timing;
 &GetOptions ("db=s"        => \$args{DBCONFIG},
 	     "datasets=i"  => \$args{DATASETS},
 	     "blocks=i"    => \$args{BLOCKS},

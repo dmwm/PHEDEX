@@ -1,0 +1,36 @@
+# A configuration for a site
+
+### ENVIRON common
+
+PHEDEX_BASE=/data/phedex/rick;
+PHEDEX_INSTANCE=Testbed2;
+
+# Have set in your environment beforehand
+# PHEDEX_NODE=@NODE@;
+
+PHEDEX_LABEL=$PHEDEX_NODE
+PHEDEX_SITE=$PHEDEX_NODE
+PHEDEX_VERSION=3_0_0_pre12
+X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
+
+### IMPORT ConfigPart.Common
+
+# Only one FileExport, in ConfigPart.Export
+
+### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload
+ -verbose
+ -db              ${PHEDEX_DBPARAM}
+ -nodes           ${PHEDEX_NODE}
+ -backend         Null
+
+### AGENT LABEL=remove PROGRAM=Toolkit/Transfer/FileRemove
+ -db              ${PHEDEX_DBPARAM}
+ -nodes           ${PHEDEX_NODE}
+ -delete          /bin/true
+ -storagemap      ${PHEDEX_MAP}
+ -protocol        'direct'
+
+### AGENT LABEL=blockverify PROGRAM=Toolkit/Verify/BlockDownloadVerify
+  -db          ${PHEDEX_DBPARAM}
+  -nodes       ${PHEDEX_NODE}
+  -storagemap  ${PHEDEX_MAP}
