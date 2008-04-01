@@ -81,13 +81,12 @@ create table t_adm_my_node
    constraint fk_adm_my_node_node
      foreign key (node) references t_adm_node (id)
      on delete cascade);
-);
 
 ----------------------------------------------------------------------
 -- Create indices
 
-create index ix_adm_identity_sitedb_id
-  on t_adm_identity (sitedb_id);
+create index ix_adm_identity_secmod_id
+  on t_adm_identity (secmod_id);
 
 create index ix_adm_identity_dn
   on t_adm_identity (dn);
