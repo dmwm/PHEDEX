@@ -42,14 +42,14 @@ our %params =
 	  Q_INTERFACE		=> undef, # A transfer queue interface object
 	  Q_INTERVAL		=> 60,	  # Queue polling interval
 	  J_INTERVAL		=>  5,	  # Job polling interval
-	  POLL_QUEUE		=>  1,	  # Poll the queue or not?
+	  POLL_QUEUE		=>  0,	  # Poll the queue or not?
 	  ME			=> 'QMon',# Arbitrary name for this object
 	  STATISTICS_INTERVAL	=> 60,	  # Interval for reporting statistics
 	  JOB_POSTBACK		=> undef, # Callback for job state changes
 	  FILE_POSTBACK		=> undef, # Callback for file state changes
 	  SANITY_INTERVAL	=> 60,	  # Interval for internal sanity-checks
-	  DEBUG			=> $ENV{PHEDEX_DEBUG},
- 	  VERBOSE		=> $ENV{PHEDEX_VERBOSE},
+	  DEBUG			=> $ENV{PHEDEX_DEBUG} || 0,
+ 	  VERBOSE		=> $ENV{PHEDEX_VERBOSE} || 0,
 	);
 our %ro_params =
 	(
