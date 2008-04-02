@@ -194,15 +194,15 @@ sub help
 {
     my ($linktext, $helpsubject, @help) = @_;
     my $id = 'help'.rand();
-    return 
-	"<a class='help' href='#' onclick='return hideshow(this,\"$id\",0)'>$linktext</a>",
-	"<div id='$id' style='display:none' class='help'>",
-	"<a href='#' class='closelink' onclick='return hideshow(this, \"$id\", 0)'>[close]</a>",
-	"<p class='title'>$helpsubject</p>",
-	"<p class='body'>",
-	@help,
-	"</p>",
-	"</div>";
+    my @ret = ("<a class='help' href='#' onclick='return hideshow(this,\"$id\",0)'>$linktext</a>",
+	       "<div id='$id' style='display:none' class='help'>",
+	       "<a href='#' class='closelink' onclick='return hideshow(this, \"$id\", 0)'>[close]</a>",
+	       "<p class='title'>$helpsubject</p>",
+	       "<p class='body'>",
+	       @help,
+	       "</p>",
+	       "</div>");
+    return wantarray ? @ret : join '', @ret;
 }
 
 
@@ -7151,9 +7151,17 @@ sub init
 {
     my $self = shift @_;
     $$self{NODE_LIST} = [ sort_name $self->node_list() ];
-    my %nodesel = defined param('node')
-	? (map { $_ => 1 } param('node'))
-	: (map { $$_{ID} => 1 } grep($$_{NAME} =~ /CERN/, @{$$self{NODE_LIST}}));
+    my %nodesel;
+    if (defined param('node')) {
+	%nodesel = (map { $_ => 1 } param('node'));
+    } else {
+	my %auth_nodes = reverse $self->fetch_nodes(web_user_auth => 'Data Manager||Site Admin', with_ids => 1);
+	if (%auth_nodes && scalar keys %auth_nodes <= 5) {
+	    %nodesel = (map { $_ => 1 } keys %auth_nodes);
+	} else {
+	    %nodesel = (map { $$_{ID} => 1 } grep($$_{NAME} =~ /CERN/, @{$$self{NODE_LIST}}));
+	}
+    }
     $$self{NODE_SHOWN} = [ grep($nodesel{$$_{ID}}, @{$$self{NODE_LIST}}) ];
     $$_{IS_SHOWN} = 1 for @{$$self{NODE_SHOWN}};
 }
@@ -7425,11 +7433,15 @@ sub file_replicas
   my ($self, @blocks) = @_;
   my ($list, %binds) =  &dbinlist('block', map { $$_{ID} } @blocks);
   my $q = &dbexec($$self{DBH}, qq{
-    select b.id block, f.id, xr.node
+    select b.id block, f.id, 
+           case when br.is_active = 'n' then br.node
+                else xr.node
+            end node
     from t_dps_block b
-      join t_xfer_file f on f.inblock = b.id
-      join t_xfer_replica xr on xr.fileid = f.id
-    where b.id in ($list)}, %binds);
+    join t_dps_block_replica br on br.block = b.id
+    join t_dps_file f on f.inblock = b.id
+    left join t_xfer_replica xr on xr.fileid = f.id
+   where b.id in ($list)}, %binds);
 
   my %byid = map { $$_{ID} => $_ } @blocks;
   while (my ($block, $file, $node) = $q->fetchrow())
@@ -7519,9 +7531,12 @@ sub fetch_data
 
   $$_{IS_SHOWN} = 1 for @{$$self{DBS_SHOWN}};
 
+  # Bail out if there is no filter
+  my ($filter) = $self->output_filter();
+  return if ! defined $filter || $filter eq '' || $filter =~ /^Enter dataset/;
+  
+
   # Now get a sorted list of the datasets we are interested in
-  my $filter = param('filter');
-  $filter = "." if ! defined $filter || $filter eq '';
   my @datasets = grep($$_{NAME} =~ /$filter/,
 		      $self->dataset_list(@{$$self{DBS_SHOWN}}));
   if ($$self{DCOLUMN}{"DBS"})
@@ -7703,13 +7718,16 @@ sub output_filter
 {
   my ($self) = @_;
   my $filter = param('filter');
+  if ($filter) { $filter =~ s/^\s+//; $filter =~ s/\s+$//; }
+
   my $filterform = "" .
     "<form style='display:inline' method='get' action='@{[$self->myurl()]}'>" .
     $self->saveform('filter') .
-    textfield(-name=>'filter', -default=>$filter, -size=>15,
-	      -title=>("Regular expression to match against the name column. "
-		       ."Only those matching the expression will be shown.")) .
+    textfield(-name=>'filter', -default=>($filter or "Enter dataset or regular expression"), -size=>60 ) .
     " <input type='submit' value='Filter' />" .
+     &help("[?]", 'Filtering',
+	   'Enter a dataset name or perl regular expression.  ',
+	   'To show all datasets, enter ".*"') .
     "</form>";
 
   return ($filter, $filterform);
