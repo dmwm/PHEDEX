@@ -1,0 +1,15 @@
+#### General configuration
+### ENVIRON common
+
+# Common part
+PHEDEX_BASE=/data/phedex/rick
+PHEDEX_INSTANCE=Testbed2;
+PHEDEX_LABEL=Central;
+PHEDEX_SITE=Central;
+PHEDEX_NODE=T1_001_Buffer;
+PHEDEX_VERSION=3_0_0_pre12
+X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
+
+### IMPORT ConfigPart.Common
+### IMPORT ConfigPart.Export
+### IMPORT ConfigPart.Management
