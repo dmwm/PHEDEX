@@ -327,6 +327,7 @@ sub startBatch
 	# something went wrong...
 	my $reason = "Could not submit to FTS\n";
 	$job->Log( $result->{ERROR} );
+	$job->RawOutput( $result->{RAW_OUTPUT} );
 	foreach my $file ( values %files ) {
             $file->Reason($reason);
             $self->mkTransferSummary($file, $job);
