@@ -68,7 +68,7 @@ sub init
 
     $self->{Q_INTERFACE} = $glite;
 
-    print "Using service ",$glite->SERVICE,"\n"; # XXX
+    print "Using service ",$glite->SERVICE,"\n" if $glite->SERVICE;
 
     my $monalisa;
     my $use_monalisa = 1;
