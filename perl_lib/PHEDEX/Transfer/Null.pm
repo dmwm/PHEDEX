@@ -20,11 +20,14 @@ sub new
     # Set my defaults where not defined by the derived class.
     $params->{PROTOCOLS}   ||= [ 'srm' ];    # Accepted protocols
     $params->{BATCH_FILES} ||= 100;          # Max number of files per batch
+    $params->{FAIL_CODE} ||= -1;             # Return code on failure (>0 for halting failure, <0 for continuing)
     $params->{FAIL_RATE} ||= 0;              # Probability of failure (0 to 1)
+    
 
     # Set argument parsing at this level.
     $options->{'batch-files=i'}      = \$params->{BATCH_FILES};
-    $options->{'fail-rate=f'} = \$params->{FAIL_RATE};
+    $options->{'fail-code=i'}        = \$params->{FAIL_CODE};
+    $options->{'fail-rate=f'}        = \$params->{FAIL_RATE};
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
@@ -42,7 +45,7 @@ sub transferBatch
     {
 	my $info;
 	if (rand() < $self->{FAIL_RATE}) {
-	    $info = { START => $now, END => $now, STATUS => 1,
+	    $info = { START => $now, END => $now, STATUS => $self->{FAIL_CODE},
 		      DETAIL => "nothing done unsuccessfully", LOG => "ERROR" };
 	} else {
 	    $info = { START => $now, END => $now, STATUS => 0,
