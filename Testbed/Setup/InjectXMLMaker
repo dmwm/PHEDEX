@@ -13,8 +13,8 @@ use Getopt::Long;
 
 my ($dataset, $blocks, $files, $xmlfile);
 my $open = 0;
-my $mean_size = 2;
-my $sdev_size = .5;
+my $mean_size = 1;
+my $sdev_size = 0;
 
 GetOptions('d|dataset=s' => \$dataset,
 	   'b|blocks=i' => \$blocks,
@@ -48,7 +48,12 @@ for my $n_block (1..$blocks) {
     for my $n_file (1..$files) {
 	my $lfn = $block;
 	$lfn =~ s/\#/-/;  $lfn .= '-'. &makeGUID();
-	my $filesize = int(gaussian_rand($mean_size, $sdev_size) *  (1024**3));
+	my $filesize;
+	if ($sdev_size == 0) {
+	    $filesize = int($mean_size * (1024**3));
+	} else {
+	    $filesize = int(gaussian_rand($mean_size, $sdev_size) *  (1024**3));
+	}
 	my $cksum = 'cksum:'. int(rand() * (10**10));
 	print XML qq{\t\t\t<file lfn="$lfn" size="$filesize" checksum="$cksum"/>\n};
     }
