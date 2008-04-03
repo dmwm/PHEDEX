@@ -17,12 +17,14 @@ sub new
     my $options = shift || {};
     my $params = shift || {};
 
-	# Set my defaults where not defined by the derived class.
-	$params->{PROTOCOLS}   ||= [ 'srm' ];    # Accepted protocols
-	$params->{BATCH_FILES} ||= 100;          # Max number of files per batch
-	
-	# Set argument parsing at this level.
-	$options->{'batch-files=i'} = \$params->{BATCH_FILES};
+    # Set my defaults where not defined by the derived class.
+    $params->{PROTOCOLS}   ||= [ 'srm' ];    # Accepted protocols
+    $params->{BATCH_FILES} ||= 100;          # Max number of files per batch
+    $params->{FAIL_RATE} ||= 0;              # Probability of failure (0 to 1)
+
+    # Set argument parsing at this level.
+    $options->{'batch-files=i'}      = \$params->{BATCH_FILES};
+    $options->{'fail-rate=f'} = \$params->{FAIL_RATE};
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
@@ -38,8 +40,14 @@ sub transferBatch
 
     foreach my $task (keys %{$job->{TASKS}})
     {
-	my $info = { START => $now, END => $now, STATUS => 0,
-		     DETAIL => "nothing done", LOG => "" };
+	my $info;
+	if (rand() < $self->{FAIL_RATE}) {
+	    $info = { START => $now, END => $now, STATUS => 1,
+		      DETAIL => "nothing done unsuccessfully", LOG => "ERROR" };
+	} else {
+	    $info = { START => $now, END => $now, STATUS => 0,
+		      DETAIL => "nothing done successfully", LOG => "OK" };
+	}
 	&output("$job->{DIR}/T${task}X", Dumper($info));
     }
 }
