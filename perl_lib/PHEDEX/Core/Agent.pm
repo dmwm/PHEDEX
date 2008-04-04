@@ -164,7 +164,6 @@ sub new
       $args{$key} = $p{$key};
     }
 
-
     while (my ($k, $v) = each %args)
     { $self->{$k} = $v unless defined $self->{$k}; }
 
@@ -1533,7 +1532,7 @@ sub _process
   }
 
   print $self->Hdr,"ending '_process'\n" if $self->{VERBOSE};
-  $kernel->delay_set('_process',$self->{WAITTIME});
+  $kernel->delay_set('_process',$self->{WAITTIME}) if $self->{WAITTIME};
 }
 
 sub _maybeStop
