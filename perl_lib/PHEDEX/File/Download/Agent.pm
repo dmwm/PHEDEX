@@ -683,7 +683,7 @@ sub fill
 	    if (($$entry{ERRORS} || 0) > 100)
 	    {
 		$self->Logmsg("too many ($$entry{ERRORS}) recent errors on"
-			. " link $from -> to, not allocating transfers")
+			. " link $from -> $to, not allocating transfers")
 		    if $$self{VERBOSE};
 		delete $todo{$to}{$from};
 		next;
