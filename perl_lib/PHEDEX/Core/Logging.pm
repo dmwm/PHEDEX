@@ -60,6 +60,9 @@ use POSIX;
 #    print STDERR "$date: ${me}\[$$]: note: ", @_, "\n";
 #}
 
+# 'new' is declared as a dummy routine, just in case it ever gets called...
+sub new {}
+
 # As a demonstration, prepare to throw out UDP messages if required.
 BEGIN
 {
