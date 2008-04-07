@@ -15,11 +15,6 @@ PHEDEX_SITE=$PHEDEX_NODE
 PHEDEX_VERSION=3_0_0_pre14
 X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
-# Overide log area for agent running on batch node
-PHEDEX_STATE=${PHEDEX_LOCAL}/state;
-PHEDEX_LOGS=${PHEDEX_LOCAL}/logs;
-
-
 ### IMPORT ConfigPart.Common
 
 # Only one FileExport, in ConfigPart.Export
