@@ -20,7 +20,7 @@ unset X509_USER_KEY X509_USER_CERT;
 export X509_USER_PROXY;
 
 # Source PhEDEx environment
-source ${PHEDEX_BASE}/sw/slc4_ia32_gcc345/cms/PHEDEX/PHEDEX_${PHEDEX_VERSION}/etc/profile.d/env.sh;
+source ${PHEDEX_BASE}/sw/slc4_ia32_gcc345/cms/PHEDEX-admin/PHEDEX_${PHEDEX_VERSION}/etc/profile.d/env.sh;
 
 # central tns file
 TNS_ADMIN=${PHEDEX_CONFIG}/tnsnames.ora
