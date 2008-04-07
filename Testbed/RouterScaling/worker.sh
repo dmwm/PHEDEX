@@ -1,14 +1,13 @@
 #!/bin/sh
 
-# Set PHEDEX_BASE to the AFS accessible PHEDEX installation
-
 TMPDIR=`pwd`;
 START=$(date +%s)
 
 # Set up local state and log directories.  $PHEDEX_NODE is the name of
 # the node for which this agent runs and is used by the download agent
 # configuration.  The $PHEDEX_LOCAL is used by the configuration too.
-export PHEDEX_NODES="$1"
+export PHEDEX_BASE="$1"
+export PHEDEX_NODES="$2"
 export PHEDEX_LOCAL=$TMPDIR;
 mkdir -p ${PHEDEX_LOCAL}/logs;
 mkdir -p ${PHEDEX_LOCAL}/state;
