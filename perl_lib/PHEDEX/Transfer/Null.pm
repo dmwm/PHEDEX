@@ -1,10 +1,11 @@
 package PHEDEX::Transfer::Null;
 use strict;
 use warnings;
-use base 'PHEDEX::Transfer::Core';
+use base 'PHEDEX::Transfer::Core', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use Data::Dumper;
+use POE;
 
 # Special back end that bypasses transfers entirely.  Good for testing.
 sub new
@@ -23,17 +24,71 @@ sub new
     $params->{FAIL_CODE}  ||= 28;             # Return code on failure (>0 for halting failure, <0 for continuing)
     $params->{FAIL_RATE}  ||= 0;              # Probability of failure (0 to 1)
     $params->{FAIL_LINKS} ||= {};            # Probability to fail per link (0 to 1)
+    $params->{FAIL_CONFIG} ||= undef;        # Config file for failure rates
 
     # Set argument parsing at this level.
     $options->{'batch-files=i'}      = \$params->{BATCH_FILES};
     $options->{'fail-code=i'}        = \$params->{FAIL_CODE};
     $options->{'fail-rate=f'}        = \$params->{FAIL_RATE};
     $options->{'fail-link=f'}        = $params->{FAIL_LINKS};
+    $options->{'fail-config=s'}      = \$params->{FAIL_CONFIG};
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
+
     bless $self, $class;
     return $self;
+}
+
+sub setup_callbacks
+{
+  my ($self,$kernel,$session) = @_; #[ OBJECT, KERNEL, SESSION ];
+
+  return unless $self->{FAIL_CONFIG};
+
+# Try to load a FileWatcher if there is an external config file
+  eval("use T0::FileWatcher");
+  if ( $@ )
+  {
+    $self->Warn("Failed to load the T0::FileWatcher module: $@\n");
+    undef $self->{FAIL_CONFIG};
+    return;
+  }
+
+  $kernel->state( '_child', $self );
+  $kernel->state( 'ReadConfig', $self );
+  my %watcher_args = (  File     => $self->{FAIL_CONFIG},
+                        Interval => 3,
+                        Object   => $self,
+                        Event    => 'ReadConfig',
+                     );
+  $self->{Watcher} = T0::FileWatcher->new( %watcher_args );
+}
+
+sub _child
+{
+# Dummy routine for unused event-handler
+  print "_child called, ignored...\n";
+}
+sub ConfigRefresh { return 3; }
+sub Config { return (shift)->{FAIL_CONFIG}; }
+
+sub ReadConfig
+{
+# (re-)read the configuration file to update dynamic parameters.
+  my $self = $_[ OBJECT ];
+  $self->Logmsg("\"",$self->{FAIL_CONFIG},"\" has changed...\n");
+
+  my $file = $self->{FAIL_CONFIG};
+  return unless $file;
+  T0::Util::ReadConfig($self,'Failure::Rates',$file);
+
+  if ( defined($self->{Watcher}) )
+  {
+    my $refresh = $self->{ConfigRefresh};
+    $self->{Watcher}->Interval( $refresh ) if $refresh;
+    $self->{Watcher}->Options( %FileWatcher::Params );
+  }
 }
 
 # No-op transfer batch operation.
