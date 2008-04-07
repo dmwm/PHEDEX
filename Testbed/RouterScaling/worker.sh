@@ -1,7 +1,8 @@
 #!/bin/sh
 
+# Set PHEDEX_BASE to the AFS accessible PHEDEX installation
+
 TMPDIR=`pwd`;
-PHEDEX=~rehn/scratch0/PhEDEx;
 START=$(date +%s)
 
 # Set up local state and log directories.  $PHEDEX_NODE is the name of
@@ -14,7 +15,7 @@ mkdir -p ${PHEDEX_LOCAL}/state;
 PHEDEX_LOGLABEL=`echo ${PHEDEX_NODES} |sed 's|%||g' |sed 's|,|+|g'`;
 
 # Now start the agents.
-${PHEDEX}/PHEDEX/Utilities/Master -config ${PHEDEX}/PHEDEX/Testbed/RouterScaling/Config start download;
+${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling/Config start download;
 
 # Wait for the agents to exit.  They can be terminated at any time via
 # the database, or by us if the job exceeds our run time (20 hours).
@@ -28,21 +29,21 @@ while true; do
   # If the agent ran too long, quit
   if [ $(expr $(date +%s) - $START) -gt 72000 ]; then
     if [ ! -f $PHEDEX_LOCAL/state/download/stop ]; then 
-      ${PHEDEX}/PHEDEX/Utilities/Master -config ${PHEDEX}/PHEDEX/Testbed/RouterScaling/Config stop download;
+      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling/Config.Site stop all;
     elif [ ! -f $PHEDEX_LOCAL/state/download/terminating ]; then
-      ${PHEDEX}/PHEDEX/Utilities/Master -config ${PHEDEX}/PHEDEX/Testbed/RouterScaling/Config terminate download;
+      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling/Config.Site terminate all;
       touch $PHEDEX_LOCAL/state/download/terminating
     else
-      ${PHEDEX}/PHEDEX/Utilities/Master -config ${PHEDEX}/PHEDEX/Testbed/RouterScaling/Config kill download;
+      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling/Config.Site kill all;
     fi
   fi
 
   # Show tail of the log on AFS
-  tail -1000 $PHEDEX_LOCAL/logs/download > $PHEDEX/logs/download-$PHEDEX_LOGLABEL.tail 2>/dev/null
+  tail -1000 $PHEDEX_LOCAL/logs/download > ${PHEDEX_BASE}/logs/download-$PHEDEX_LOGLABEL.tail 2>/dev/null
 done
 
 # Copy compressed logs to AFS.
-gzip -c --best < $PHEDEX_LOCAL/logs/download > $PHEDEX/logs/download-$PHEDEX_LOGLABEL.gz
+gzip -c --best < $PHEDEX_LOCAL/logs/download > ${PHEDEX_BASE}/logs/download-$PHEDEX_LOGLABEL.gz
 rm -fr $PHEDEX_LOCAL
 
 # Return happy and joyful!

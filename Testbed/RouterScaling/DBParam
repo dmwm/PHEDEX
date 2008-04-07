@@ -1,0 +1,9 @@
+######################################################################
+Section			Validation
+Interface		Oracle
+Database		new_cmsr_lb
+AuthDBUsername		cms_transfermgmt_test
+AuthDBPassword          XXXcensoredXXX
+ConnectionLife		86400
+LogConnection		off
+LogSQL			off

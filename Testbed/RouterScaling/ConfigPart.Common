@@ -6,7 +6,7 @@
 [ -z "$PHEDEX_LABEL" ] && { echo '$PHEDEX_LABEL not set' 1>&2; exit 1; };
 
 PHEDEX_CONFIG=${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling;
-PHEDEX_DBPARAM=${PHEDEX_BASE}/DBParam:Testbed2;
+PHEDEX_DBPARAM=${PHEDEX_BASE}/DBParam:Validation;
 PHEDEX_STATE=${PHEDEX_BASE}/${PHEDEX_SITE}/state;
 PHEDEX_LOGS=${PHEDEX_BASE}/${PHEDEX_SITE}/logs;
 
@@ -23,7 +23,10 @@ export X509_USER_PROXY;
 source ${PHEDEX_BASE}/sw/slc4_ia32_gcc345/cms/PHEDEX/PHEDEX_${PHEDEX_VERSION}/etc/profile.d/env.sh;
 
 # central tns file
-TNS_ADMIN=/afs/cern.ch/project/oracle/admin
+TNS_ADMIN=${PHEDEX_CONFIG}/tnsnames.ora
+
+# our perl_lib
+PERL5LIB=${PHEDEX_SCRIPTS}/perl_lib:$PERL5LIB
 
 ### ENVIRON debug
 export PHEDEX_LOG_SQL=1;
