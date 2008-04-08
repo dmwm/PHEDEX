@@ -74,7 +74,6 @@ sub _child
 sub ConfigRefresh { return 3; }
 sub Config { return (shift)->{FAIL_CONFIG}; }
 
-use Data::Dumper;
 sub ReadConfig
 {
 # (re-)read the configuration file to update dynamic parameters.
