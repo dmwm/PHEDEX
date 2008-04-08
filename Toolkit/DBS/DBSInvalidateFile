@@ -79,7 +79,8 @@ def main ():
   usage="""\npython DBSInvalidateFile <options>"""
   parser = OptionParser(usage=usage)
 
-  parser.add_option('-u', '--url', dest='url', default='http://cmsdbsprod.cern.ch/cms_dbs_prod_global/servlet/DBSServlet', help='DBS URL')
+#  parser.add_option('-u', '--url', dest='url', default='http://cmsdbsprod.cern.ch/cms_dbs_prod_global/servlet/DBSServlet', help='DBS URL')
+  parser.add_option('-u', '--url', dest='url', default='https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet', help='DBS URL')
   parser.add_option('-l', '--lfn', dest='lfn', default=None, help='LFN')
   parser.add_option('-s', '--lfnFileList', dest='lfnFileList', default=None, help='file with the list of LFNs')
   parser.add_option('-b', '--block', dest='block', default=None, help='Block to be deleted')
