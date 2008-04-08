@@ -63,25 +63,34 @@ sub setup_callbacks
                         Event    => 'ReadConfig',
                      );
   $self->{Watcher} = T0::FileWatcher->new( %watcher_args );
+  $kernel->yield( 'ReadConfig' );
 }
 
 sub _child
 {
 # Dummy routine for unused event-handler
-  print "_child called, ignored...\n";
+# print "_child called, ignored...\n";
 }
 sub ConfigRefresh { return 3; }
 sub Config { return (shift)->{FAIL_CONFIG}; }
 
+use Data::Dumper;
 sub ReadConfig
 {
 # (re-)read the configuration file to update dynamic parameters.
   my $self = $_[ OBJECT ];
-  $self->Logmsg("\"",$self->{FAIL_CONFIG},"\" has changed...\n");
+  $self->Logmsg("\"",$self->{FAIL_CONFIG},"\" may have changed...");
 
   my $file = $self->{FAIL_CONFIG};
   return unless $file;
   T0::Util::ReadConfig($self,'Failure::Rates',$file);
+
+  $Data::Dumper::Terse=1;
+  $Data::Dumper::Indent=0;
+  my $a = Data::Dumper->Dump([\%Failure::Rates]);
+  $a =~ s%\n%%g;
+  $a =~ s%\s\s+% %g;
+  $self->Alert("Setting new failure rates: $a");
 
   if ( defined($self->{Watcher}) )
   {
