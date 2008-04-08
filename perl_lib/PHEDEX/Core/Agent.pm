@@ -285,6 +285,7 @@ sub daemon
     open (STDERR, ">&STDOUT")
 	or die "Can't dup STDOUT: $!";
     open (STDIN, "</dev/null");
+    $|=1; # Flush output line-by-line
 }
 
 =head1 User hooks
