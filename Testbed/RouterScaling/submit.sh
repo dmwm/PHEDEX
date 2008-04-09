@@ -6,7 +6,7 @@ if [ "X$1" = 'X' ]; then
 fi
 
 nodes=$1
-cmd='bsub -q 1nd'
+cmd='bsub -q cmsphedex'
 
 for (( i=1; $i<=$nodes; i+=5 )); do
     nodelist=""
