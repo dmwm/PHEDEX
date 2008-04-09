@@ -1,22 +1,3 @@
-CMS_SITEDB =
-  (DESCRIPTION =
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr1-v.cern.ch)(PORT = 10121))
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr2-v.cern.ch)(PORT = 10121))
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr3-v.cern.ch)(PORT = 10121))
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr4-v.cern.ch)(PORT = 10121))
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr5-v.cern.ch)(PORT = 10121))
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr6-v.cern.ch)(PORT = 10121))
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr7-v.cern.ch)(PORT = 10121))
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr8-v.cern.ch)(PORT = 10121))
-    (ENABLE=BROKEN)
-    (LOAD_BALANCE = yes)
-    (CONNECT_DATA =
-      (SERVER = DEDICATED)
-      (SERVICE_NAME = cmsr_lb.cern.ch)
-       (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
-    )
-  )
-
 devdb =
   (DESCRIPTION=
    (ADDRESS=(PROTOCOL=TCP) (HOST=oradev.cern.ch) (PORT=10521))
@@ -227,7 +208,7 @@ CMS_ORCOFF_INT =
        (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
      )
    )
-
+# END INT9R ###########################################
 cms_sstracker =
    (DESCRIPTION =
      (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr1-v.cern.ch)(PORT = 10121))
@@ -246,56 +227,20 @@ cms_sstracker =
        (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
      )
    )
-
-CMS_RCMS_SSH =
-    (DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=localhost)(PORT=10121))
-    (CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=cms_rcms.cern.ch)))
-
-# DBS part  ###########################################
-CMS_DBS_MCPROD_GLOBAL =
+cms_orcon_prod =
   (DESCRIPTION =
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr1-v.cern.ch)(PORT = 10121))
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr2-v.cern.ch)(PORT = 10121))
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr3-v.cern.ch)(PORT = 10121))
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr4-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsonr1-v)(PORT =10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsonr2-v)(PORT =10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsonr3-v)(PORT =10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsonr4-v)(PORT =10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsonr5-v)(PORT =10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsonr6-v)(PORT =10121))
     (ENABLE=BROKEN)
     (LOAD_BALANCE = yes)
     (CONNECT_DATA =
       (SERVER = DEDICATED)
-      (SERVICE_NAME = cms_dbs_mcprod_global.cern.ch)
-       (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
+      (SERVICE_NAME = cms_orcon_lb.cern.ch)
+      (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY= 15))
     )
   )
-
-CMS_DBS_MCPROD_LOCAL =
-  (DESCRIPTION =
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr1-v.cern.ch)(PORT = 10121))
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr2-v.cern.ch)(PORT = 10121))
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr3-v.cern.ch)(PORT = 10121))
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr4-v.cern.ch)(PORT = 10121))
-    (ENABLE=BROKEN)
-    (LOAD_BALANCE = yes)
-    (CONNECT_DATA =
-      (SERVER = DEDICATED)
-      (SERVICE_NAME = cms_dbs_mcprod_local.cern.ch)
-       (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
-    )
-  )
-
-CMS_DBS =
-  (DESCRIPTION =
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr1-v.cern.ch)(PORT = 10121))
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr2-v.cern.ch)(PORT = 10121))
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr3-v.cern.ch)(PORT = 10121))
-    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr4-v.cern.ch)(PORT = 10121))
-    (ENABLE=BROKEN)
-    (LOAD_BALANCE = yes)
-    (CONNECT_DATA =
-      (SERVER = DEDICATED)
-      (SERVICE_NAME = cms_dbs.cern.ch)
-       (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
-    )
-  )
-
-# END INT9R ###########################################
 
