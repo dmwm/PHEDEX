@@ -19,20 +19,8 @@ X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
 # Only one FileExport, in ConfigPart.Export
 
-### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload
+### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload2
  -verbose
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE}
  -backend         Null
-
-### AGENT LABEL=remove PROGRAM=Toolkit/Transfer/FileRemove
- -db              ${PHEDEX_DBPARAM}
- -nodes           ${PHEDEX_NODE}
- -delete          /bin/true
- -storagemap      ${PHEDEX_MAP}
- -protocol        'direct'
-
-### AGENT LABEL=blockverify PROGRAM=Toolkit/Verify/BlockDownloadVerify
-  -db          ${PHEDEX_DBPARAM}
-  -nodes       ${PHEDEX_NODE}
-  -storagemap  ${PHEDEX_MAP}
