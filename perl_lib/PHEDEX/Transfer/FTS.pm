@@ -28,7 +28,7 @@ sub new
     $params->{BATCH_FILES}    ||= 30;    # Max number of files per batch
     $params->{FTS_LINK_PEND}  ||= 5;     # Submit to FTS until this number of files per link are "Pending"
     $params->{FTS_MAX_ACTIVE} ||= 300;   # Submit to FTS until these number of files are "Active"
-    $params->{FTS_POLL_QUEUE} ||= 1;     # Whether to poll all vs. our jobs
+    $params->{FTS_POLL_QUEUE} ||= 0;     # Whether to poll all vs. our jobs
     $params->{FTS_Q_INTERVAL} ||= 30;    # Interval for polling queue for new jobs
     $params->{FTS_J_INTERVAL} ||= 5;     # Interval for polling individual jobs
 
