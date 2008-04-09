@@ -169,11 +169,11 @@ sub new
 
 #   Before basic validation, we need to derive a few other parameters.
     $self->{DROPDIR} .= '/' unless $self->{DROPDIR} =~ m%\/$%;
-    $self->{INBOX}    = $self->{DROPDIR} . 'inbox'  unless $self->{INBOX};
-    $self->{OUTDIR}   = $self->{DROPDIR} . 'outbox' unless $self->{OUTDIR};
-    $self->{PIDFILE}  = $self->{DROPDIR} . 'pid'    unless $self->{PIDFILE};
-    $self->{STOPFLAG} = $self->{DROPDIR} . 'stop'   unless $self->{STOPFLAG};
-    $self->{WORKDIR}  = $self->{DROPDIR} . 'work'   unless $self->{WORKDIR};
+    $self->{INBOX}    = $self->{DROPDIR} . 'inbox'; # unless $self->{INBOX};
+    $self->{OUTDIR}   = $self->{DROPDIR} . 'outbox';# unless $self->{OUTDIR};
+    $self->{PIDFILE}  = $self->{DROPDIR} . 'pid';   # unless $self->{PIDFILE};
+    $self->{STOPFLAG} = $self->{DROPDIR} . 'stop';  # unless $self->{STOPFLAG};
+    $self->{WORKDIR}  = $self->{DROPDIR} . 'work';  # unless $self->{WORKDIR};
 #   Basic validation: Explicitly call the base method to validate only the
 #   core agent. This will be called again in the 'process' method, on the
 #   derived agent. No harm in that!
