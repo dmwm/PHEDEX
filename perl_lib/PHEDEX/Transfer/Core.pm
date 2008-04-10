@@ -22,7 +22,8 @@ sub new
     $params->{BATCH_FILES} ||= 1;            # Max number of files per batch
 	
     # Set argument parsing at this level.
-    $options->{'protocols=s'} = sub { $params->{PROTOCOLS} = [ split(/,/, $_[1]) ]};
+    $$options{'protocols=s'} = sub { $$params{PROTOCOLS} = [ split(/,/, $_[1]) ]};
+    $$options{'jobs=i'} = \$$params{NJOBS};
 
     # Parse additional options
     local @ARGV = @{$master->{BACKEND_ARGS}};
