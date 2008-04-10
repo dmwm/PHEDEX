@@ -37,6 +37,7 @@ sub new
     $options->{'link-pending-files=i'} = \$params->{FTS_LINK_PEND};
     $options->{'max-active-files=i'}   = \$params->{FTS_MAX_ACTIVE};
     $options->{'service=s'} = \$params->{FTS_SERVICE};
+    $options->{'myproxy=s'} = \$params->{FTS_MYPROXY};
     $options->{'mapfile=s'} = \$params->{FTS_MAPFILE};
     $options->{'q_interval=i'} = \$params->{FTS_Q_INTERVAL};
     $options->{'j_interval=i'} = \$params->{FTS_J_INTERVAL};
@@ -66,9 +67,12 @@ sub init
 	 ME      => 'GLite',
 	 );
 
+    $glite->MYPROXY($self->{FTS_MYPROXY}) if $self->{FTS_MYPROXY};
+
     $self->{Q_INTERFACE} = $glite;
 
     print "Using service ",$glite->SERVICE,"\n" if $glite->SERVICE;
+    print "Using myproxy ",$glite->MYPROXY,"\n" if $glite->MYPROXY;
 
     my $monalisa;
     my $use_monalisa = 1;

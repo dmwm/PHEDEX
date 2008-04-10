@@ -23,6 +23,7 @@ use base 'PHEDEX::Core::Logging';
 our %params =
 	(
 	  SERVICE	=> undef,	# Transfer service URL
+	  MYPROXY	=> undef,	# Transfer service URL
 	  CHANNEL	=> undef,	# Channel name to match
 	  USERDN	=> undef,	# Restrict to specific user DN
 	  VONAME	=> undef,	# Restrict to specific VO
@@ -90,7 +91,7 @@ STATE, and (FTS) SERVICE names.
 In the event of an error the hash contains a single key, 'ERROR', with the
 value being the text of the error message. Not very sophisticated but good
 enough for now. Clients need only detect that the 'ERROR' key is present to
-know something went wrong, or assume all is well if it isn't there.
+know something went wrong, or assume all is well if it isn''t there.
 
 This function is not used by the backend in normal operation, but is useful in
 passive monitoring mode.
@@ -153,7 +154,7 @@ is not guaranteed.
 
 The ETC key can be ignored for now. It should be set to zero. Eventually this
 will be used as a means of estimating the time of completion of a given job,
-which will affect it's priority for monitoring.
+which will affect its priority for monitoring.
 
 =back
 
@@ -266,8 +267,10 @@ sub Submit
     return \%result;
   };
 
-  my $cmd = "glite-transfer-submit -s " . $job->Service .
-				 ' -f ' . $job->Copyjob;
+  my $cmd = "glite-transfer-submit". 
+      ' -s ' . $job->Service .
+      ((defined $self->MYPROXY)?' -m '.$self->MYPROXY:"") .
+      ' -f ' . $job->Copyjob;
 # print $self->Hdr,"Execute: $cmd\n";
   open GLITE, "$cmd 2>&1 |" or die "$cmd: $!\n";
   while ( <GLITE> )
