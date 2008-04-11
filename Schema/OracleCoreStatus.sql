@@ -161,7 +161,7 @@ create table t_status_block_path
    time_request		integer		not null, -- min (oldest) request time of routed
    --
    constraint pk_status_block_path
-     primary key (destination, src_node, block),
+     primary key (destination, src_node, block, priority, is_valid),
    --
    constraint fk_status_block_path_dest
      foreign key (destination) references t_adm_node (id)
