@@ -141,7 +141,7 @@ sub flush
 		       end) delete_path
 		from t_xfer_path ixp
 		left join t_xfer_request xq
-		     on xq.fileid = ixp.fileid
+		     on xq.fileid = ixp.fileid and xq.destination = ixp.destination
 	       group by ixp.fileid, ixp.src_node, ixp.destination
 	      ) where delete_path != 0 -- any path segment invalid, delete
 	    ) }, ":now" => $now, ":now" => $now);
