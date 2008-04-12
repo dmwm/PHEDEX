@@ -46,7 +46,7 @@ eval
     # Create nodes and links
     my $index = "001";
     my (@allnodes, @allnames, %connections);
-    foreach my $kind (keys %nodes)
+    foreach my $kind (sort keys %nodes)
     {
         for (my $i = 1; $i <= $nodes{$kind}; ++$i, ++$index)
         {
@@ -54,9 +54,9 @@ eval
         }
     }
 
-    # Create Tier-1 Buffer/MSS nodes
+    # Create Tier-(0|1) Buffer/MSS nodes
     print "Creating nodes:";
-    foreach my $node (grep(/^T1/, @allnodes))
+    foreach my $node ( grep(/^T0|^T1/, @allnodes) )
     {
 	my $buffer = "${node}_Buffer";
 	my $mss = "${node}_MSS";
@@ -78,7 +78,7 @@ eval
 
 	$connections{$buffer} = [
 	    "$mss:L/1",
-	    (map { "${_}_Buffer:R/2" } grep(/^T1/ && $_ gt $node, @allnodes)),
+	    (map { "${_}_Buffer:R/2" } grep(/^T0|^T1/ && $_ gt $node, @allnodes)),
 	    map { "${_}_Disk:R/3" } grep(/^T2/, @allnodes) ];
 	push(@allnames, $buffer, $mss);
     }
