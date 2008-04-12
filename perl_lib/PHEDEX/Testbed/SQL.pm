@@ -38,11 +38,9 @@ sub AUTOLOAD
 }
 
 #-------------------------------------------------------------------------------
-
 sub insertSubscription
 {
-    my $self = shift;
-    my %h = @_;
+    my ($self,$h) = @_;
 
     my $sql = qq{ 
 	insert into t_dps_subscription
@@ -50,41 +48,42 @@ sub insertSubscription
 	 priority, is_move, is_transient, time_create)
     };
 
-    if ($h{DATASET}) {
+    if ($h->{DATASET}) {
 	$sql .= qq{ select ds.id, NULL, :node, :priority, :is_move, :is_transient, :time_create 
 		      from t_dps_dataset ds where ds.name = :dataset };
-    } elsif ($h{BLOCK}) {
+    } elsif ($h->{BLOCK}) {
 	$sql .= qq{ select NULL, b.id, :node, :priority, :is_move, :is_transient, :time_create 
 			from t_dps_block b where b.name = :block };
     } else {
 	die "DATASET or BLOCK required\n";
     }
 
-    my %p = map { ':' . lc $_ => $h{$_} } keys %h;
+    my %p = map { ':' . lc $_ => $h->{$_} } keys %{$h};
 
-    my ($sth, $n) = execute_sql( $self, $sql, %p );
+    my ($sth, $n);
+    eval {
+      ($sth, $n) = execute_sql( $self, $sql, %p );
+    };
+    $self->Fatal($@) if $@;
 
     return $n;
 }
 
-
-
 sub insertBlockDeletion
 {
-    my $self = shift;
-    my %h = @_;
+    my ($self,$h) = @_;
 
     my $sql = qq{ 
 	insert into t_dps_block_delete
         (block, dataset, node, time_request) 
     };
 
-    if ($h{DATASET}) {
+    if ($h->{DATASET}) {
 	$sql .= qq{ select b.id, b.dataset, :node, :time_request
 		      from t_dps_block b
 		      join t_dps_dataset ds on ds.id = b.dataset
 		      where ds.name = :dataset };
-    } elsif ($h{BLOCK}) {
+    } elsif ($h->{BLOCK}) {
 	$sql .= qq{ select b.id, b.dataset, :node, :time_request
 		      from t_dps_block b
 		     where b.name = :block };
@@ -92,13 +91,15 @@ sub insertBlockDeletion
 	die "DATASET or BLOCK required\n";
     }
 
-    my %p = map { ':' . lc $_ => $h{$_} } keys %h;
+    my %p = map { ':' . lc $_ => $h->{$_} } keys %{$h};
 
-    my ($sth, $n) = execute_sql( $self, $sql, %p );
+    my ($sth, $n);
+    eval {
+      ($sth, $n) = execute_sql( $self, $sql, %p );
+    };
+    $self->Fatal($@) if $@;
 
     return $n;
 }
-
-
 
 1;
