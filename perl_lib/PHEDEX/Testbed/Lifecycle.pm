@@ -3,6 +3,7 @@ package PHEDEX::Testbed::Lifecycle;
 use strict;
 use warnings;
 use base 'PHEDEX::Testbed::Agent', 'PHEDEX::Core::Logging';
+use Time::HiRes;
 use POE;
 
 use Carp;
@@ -21,6 +22,7 @@ our %params =
 	  T1Replicas		=> 0,
 	  T2Replicas		=> 0,
 	  StatsFrequency	=> 60,
+	  Incarnation		=> 1,
 	);
 
 sub new
@@ -29,7 +31,6 @@ sub new
   my $class = ref($proto) || $proto;
   my $self  = $class->SUPER::new(%params,@_);
   bless $self, $class;
-  $self->ReadConfig();
   return $self;
 }
 
@@ -49,28 +50,23 @@ sub AUTOLOAD
 }
 
 #-------------------------------------------------------------------------------
-# This is the state-machinery.
+# This sets up the basic state-machinery.
 sub _poe_init
 {
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
 
   $kernel->alias_set( $self->{ME} );
 
-# Declare the injection and other states. Set it to fire up after giving
-# time for other things to initialise and settle down
-  $kernel->state(     'injection', $self);
-  $kernel->state('t1subscription', $self);
-  $kernel->state('t2subscription', $self);
-  $kernel->state(      'deletion', $self);
-
-  if ( $self->{InjectionRate} )
-  {
-    $kernel->delay_set('injection', 2 )
-  }
-  else
-  {
-    $kernel->yield('_stop');
-  }
+# Declare the injection and other states. Set the stats counter to fire, and
+# start watching my configuration file. Things don't actually get rolling until
+# the configuration file is read, so yield to that at the end.
+  $kernel->state(     'inject', $self);
+  $kernel->state('t1subscribe', $self);
+  $kernel->state('t2subscribe', $self);
+  $kernel->state(   't2delete', $self);
+  $kernel->state(  'srcdelete', $self);
+  $kernel->state(  'nextEvent', $self );
+  $kernel->state(  'lifecycle', $self );
 
   $kernel->state( 'stats', $self);
   $kernel->delay_set('stats',$self->{StatsFrequency});
@@ -92,17 +88,85 @@ sub _child {}
 
 sub Config { return (shift)->{LIFECYCLE_CONFIG}; }
 
+sub deep_copy {
+  my $this = shift;
+  if (not ref $this) {
+    $this;
+  } elsif (ref $this eq "ARRAY") {
+    [map deep_copy($_), @$this];
+  } elsif (ref $this eq "HASH") {
+    +{map { $_ => deep_copy($this->{$_}) } keys %$this};
+  } else { die "what type is $_?" }
+}
+
+sub nextEvent
+{
+  my ($self,$kernel,$payload) = @_[ OBJECT, KERNEL, ARG0 ];
+  my ($ds,$event,$delay);
+  $ds    = $payload->{dataset};
+  $event = shift(@{$payload->{events}});
+  return unless $event;
+  $delay = $ds->{$event} if exists($ds->{$event});
+  my $txt = join(', ',@{$payload->{events}});
+  if ( $delay && $self->{Jitter} ) { $delay *= ( 1 + rand($self->{Jitter}) ); }
+  if ( $delay )
+  {
+    if ( $self->{CycleSpeedup} ) { $delay /= $self->{CycleSpeedup}; }
+    $self->Dbgmsg("nextEvent: $ds->{Name}, $event $delay. $txt") if $self->{Debug};
+    $kernel->delay_set($event,$delay,$payload);
+  }
+  else
+  {
+    $self->Dbgmsg("nextEvent: $ds->{Name}, $event (now). $txt") if $self->{Debug};
+    $kernel->yield($event,$payload);
+  }
+}
+ 
 sub FileChanged
 {
   my ($self,$kernel) = @_[ OBJECT, KERNEL ];
-  $self->Logmsg("\"",$self->{LIFECYCLE_CONFIG},"\" has changed...\n");
-  my $old_rate = $self->{InjectionRate};
+  $self->Logmsg("\"",$self->{LIFECYCLE_CONFIG},"\" has changed...");
   $self->ReadConfig();
-  if ( $self->{InjectionRate} && !$old_rate )
+  eval {
+    $self->connectAgent() if !$self->{Dummy};
+  };
+  $self->Fatal($@) if $@;
+
+  if ( $self->{DoInjection} )
   {
-    $self->Logmsg("Resuming injection...");
-    $kernel->yield('injection');
+    $self->Logmsg("Beginning new cycle...");
+    my $ds;
+    foreach $ds ( @{$self->{Datasets}} )
+    {
+      next unless $ds->{InUse};
+      $self->Logmsg("Beginning lifecycle for $ds->{Name}...");
+      $kernel->yield('lifecycle',$ds);
+    }
   }
+}
+
+sub lifecycle
+{
+  my ($self,$kernel,$ds) = @_[ OBJECT, KERNEL, ARG0 ];
+  my ($event,$delay,@events);
+  push @events, @{$ds->{events}};
+  return unless $ds->{NCycles}--;
+  return unless $self->{Incarnation} == $ds->{Incarnation};
+
+  my $payload = {
+		  'dataset' => $ds,
+		  'events'  => [@events],
+		};
+  $kernel->yield('nextEvent',$payload);
+
+  $event = $events[0];
+  return unless $event;
+  $delay = $ds->{CycleTime};
+  return unless $delay;
+  if ( $self->{Jitter} ) { $delay *= ( 1 + rand($self->{Jitter}) ); }
+  if ( $self->{CycleSpeedup} ) { $delay /= $self->{CycleSpeedup}; }
+  $self->Dbgmsg("lifecycle: $delay") if $self->{Debug};
+  $kernel->delay_set('lifecycle',$delay,$ds) if $delay;
 }
 
 sub ReadConfig
@@ -113,11 +177,39 @@ sub ReadConfig
   return unless $file;
 
   T0::Util::ReadConfig($self,$hash,$file);
-  if ( $self->{InjectionRate} && $self->{InjectionRate} < 1 )
+
+# Sanitise the datasets, setting defaults etc
+  my ($ds);
+  $self->{DatasetDefaults}  = {} unless $self->{DatasetDefaults};
+  $self->{DataflowDefaults} = {} unless $self->{DataflowDefaults};
+  $self->{Incarnation}++; # This is used to allow old stuff to die out
+  foreach $ds ( @{$self->{Datasets}} )
   {
-    $self->Log("Injection rate should be >= 1, setting it to 1");
-    $self->{InjectionRate}=1;
+    $ds->{Incarnation} = $self->{Incarnation};
+    push @{$ds->{events}}, @{$self->{Dataflow}{$ds->{Dataflow}}};
+
+#   Workflow defaults fill in for undefined values
+    foreach ( keys %{$self->{DataflowDefaults}{$ds->{Dataflow}}} )
+    {
+      if ( ! defined( $ds->{$_} ) )
+      {
+        $self->Logmsg("Setting default for $ds->{Name}($_)") if $self->{Verbose};
+        $ds->{$_} = $self->{DataflowDefaults}{$ds->{Dataflow}}{$_};
+      }
+    }
+
+#   Global defaults fill in for everything else
+    foreach ( keys %{$self->{DatasetDefaults}} )
+    {
+      if ( ! defined( $ds->{$_} ) )
+      {
+        $self->Logmsg("Setting default for $ds->{Name}($_)") if $self->{Verbose};
+        $ds->{$_} = $self->{DatasetDefaults}{$_};
+      }
+    }
+
   }
+
   no strict 'refs';
   $self->Log( \%{$self->{LIFECYCLE_COMPONENT}} );
 
@@ -128,96 +220,144 @@ sub ReadConfig
   }
 }
 
-sub injection
+sub inject
 {
-  my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
-  my ($dataset,$blockid,$files);
-  $dataset = 'dataset_' . T0::Util::bin_table($PhEDEx::Lifecycle{DatasetRates});
-  $blockid = time - 1207000800;
-  $blockid = sprintf("%08x",$blockid);
+  my ( $self, $kernel, $payload ) = @_[ OBJECT, KERNEL, ARG0 ];
+  my ($ds,$events);
+  $ds     = $payload->{dataset};
+  $events = $payload->{events};
 
-  my $h;
-  $files = $self->{DatasetNFiles};
+  return unless $ds->{Incarnation} == $self->{Incarnation};
 
-# $h = $PhEDEx::Lifecycle{Files};
-# $files = T0::Util::profile_table($h->{Min},$h->{Max},$h->{Step},$h->{Table});
-  $h = {
-                BlockInjected => 1,
-                Dataset => $dataset,
-                Blocks  => $blockid,
-                Files   => $files,
-       };
-  my $block = $self->makeBlock($dataset,$blockid,$files);
-  $self->injectBlock($block);
+  my $block = $self->makeBlock($ds);
+  my $xmlfile = 'injection.xml';
+  $self->Logmsg("Inject $ds->{Name}($block->{block}) at $ds->{InjectionSite}") unless $self->{Quiet};
+  if ( ! $self->{Dummy} )
+  {
+    $self->makeXML($block,$xmlfile);
+    my $cmd = $ENV{PHEDEX_SCRIPTS} . '/Toolkit/Request/TMDBInject';
+    $cmd .= ' -db ' . $ENV{PHEDEX_DBPARAM};
+    $cmd .= ' -verbose' if $self->{Verbose};
+    $cmd .= ' -nodes ' . $ds->{InjectionSite};
+    $cmd .= ' -filedata ' . $xmlfile;
+
+    open INJECT, "$cmd 2>&1 |" or die "$cmd: $!\n";
+    while ( <INJECT> ) { $self->Logmsg($_) if $self->{Debug}; }
+    close INJECT or die "close: $cmd: $!\n";
+    die "unlink: $xmlfile: $!\n" unless unlink $xmlfile;
+  }
   $self->{NInjected}++;
-  $self->Log( $h ) if $self->{Verbose};
-  $self->Log( Injecting => $block->{block} ) unless $self->{Quiet};
-  $kernel->delay_set( 'injection', $self->{InjectionRate} ) if $self->{InjectionRate};
-  $kernel->delay_set( 't1subscription', $self->{T1SubscriptionDelay}, $block ) if $self->{T1SubscriptionDelay};
+  $self->{replicas}{$ds->{InjectionSite}}++;
+  $payload->{block} = $block;
+  $kernel->yield( 'nextEvent', $payload );
 }
 
-sub t1subscription
+sub t1subscribe
 {
-  my ( $self, $kernel, $block ) = @_[ OBJECT, KERNEL, ARG0 ];
-  my $dsts = $self->{T1SubscriptionMap}{$block->{dataset}};
+  my ( $self, $kernel, $payload ) = @_[ OBJECT, KERNEL, ARG0 ];
+  my ($ds,$events,$block);
+  $ds     = $payload->{dataset};
+  $events = $payload->{events};
+  $block  = $payload->{block};
+# $self->Logmsg("T1Subscribe $block->{block} for $ds->{Name}") unless $self->{Quiet};
+  my $dsts = $ds->{T1s};
 
   if ( ! $dsts )
   {
-    $self->Alert("No subscription map for dataset=",$block->{dataset});
-    $kernel->yield('_stop');
-    return;
+#   Take all T1 MSS nodes by default
+#DB::single=1;
+    my @t1s = grep('T1_*_MSS', keys %{$self->{NodeIDs}});
+    $dsts = \@t1s;
+    $ds->{T1s} = \@t1s;
+#   $kernel->yield('_stop',1);
+#   return;
   }
 
   foreach ( @{$dsts} )
   {
-    $self->Log( T1Subscription => { node => $_, block => $block->{block} } )
+    my $p = deep_copy($payload);
+    $p->{T1} = $_;
+    $self->Logmsg("T1Subscription  for $block->{block} to node $_")
 	 unless $self->{Quiet};
-    $self->subscribeBlock($block,$_);
+    $self->subscribeBlock($ds,$block,$_);
     $self->{replicas}{$_}++;
     $self->{T1Replicas}++;
     $self->{NSubscribed}++;
-    $kernel->delay_set( 't2subscription', $self->{T2SubscriptionDelay}, $block, $_ ) if $self->{T2SubscriptionDelay};
+    $kernel->yield( 'nextEvent', $p );
   }
 }
 
-sub t2subscription
+sub t2subscribe
 {
-  my ( $self, $kernel, $block, $t1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-  my $dsts = $self->{T2AssocMap}{$t1};
+  my ( $self, $kernel, $payload ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+  my ($ds,$events,$block,$t1);
+  $ds     = $payload->{dataset};
+  $events = $payload->{events};
+  $block  = $payload->{block};
+  $t1     = $payload->{T1};
 
+  my $dsts = $ds->{T2s};
+  if ( ! $dsts ) { $dsts = $self->{T2AssocMap}{$t1}; }
+# Not having an associated T2 is not a crime...
   return unless $dsts;
 
   foreach ( @{$dsts} )
   {
-    $self->Log( T2Subscription => { node => $_, block => $block->{block} } )
+    my $p = deep_copy($payload);
+    $p->{T2} = $_;
+    $self->Logmsg("T2Subscription for $block->{block} to node $_")
 	 unless $self->{Quiet};
-    $self->subscribeBlock($block,$_);
+    $self->subscribeBlock($ds,$block,$_);
     $self->{replicas}{$_}++;
     $self->{T2Replicas}++;
     $self->{NSubscribed}++;
-    $kernel->delay_set( 'deletion', $self->{T2DeletionDelay}, $block, $_ );
+    $kernel->yield( 'nextEvent', $p );
   }
 }
 
-sub deletion
+sub srcdelete
 {
-  my ( $self, $kernel, $block, $node ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-  $self->deleteBlock($block);
-  $self->{replicas}{$node}--;
+  my ( $self, $kernel, $payload ) = @_[ OBJECT, KERNEL, ARG0 ];
+  my ($ds,$events,$block,$src);
+$DB::single=1;
+  $ds     = $payload->{dataset};
+  $events = $payload->{events};
+  $block  = $payload->{block};
+  $src    = $ds->{InjectionSite};
+
+  $self->deleteBlock($ds,$block,$src);
+  $self->{replicas}{$src}--;
   $self->{T2Replicas}--;
   $self->{NDeleted}++;
-  $self->Log( Deleting => { node => $node, block => $block->{block} } )
+  $self->Logmsg("Deleting $block->{block} from node $src")
 	unless $self->{Quiet};
+  $kernel->yield( 'nextEvent', $payload );
+}
 
-  if ( !$self->{T2Replicas} && !$self->{InjectionRate} )
-  {
-    $kernel->yield('_stop');
-  }
+sub t2delete
+{
+  my ( $self, $kernel, $payload ) = @_[ OBJECT, KERNEL, ARG0 ];
+  my ($ds,$events,$block,$t2);
+  $ds     = $payload->{dataset};
+  $events = $payload->{events};
+  $block  = $payload->{block};
+  $t2     = $payload->{T2};
+
+  $self->deleteBlock($ds,$block,$t2);
+  $self->{replicas}{$t2}--;
+  $self->{T2Replicas}--;
+  $self->{NDeleted}++;
+  $self->Logmsg("Deleting $block->{block} from node $t2")
+	unless $self->{Quiet};
+  $kernel->yield( 'nextEvent', $payload );
 }
 
 sub _stop
 {
-  my ( $self, $kernel) = @_[ OBJECT, KERNEL ];
+  my ( $self, $kernel, $force ) = @_[ OBJECT, KERNEL, ARG0 ];
+# $kernel->delay_set('_stop',1) unless $force;
+# return unless $self->{StopOnIdle} || $force;
+
   $self->Logmsg('nothing left to do, may as well shoot myself');
   $self->{Watcher}->RemoveClient( $self->{ME} );
   $self->stats();
@@ -236,10 +376,9 @@ sub stats
                 ' T2Replicas=',$self->{T2Replicas});
 
   return unless $self->{replicas};
-$DB::single=1;
   my $txt = join(' ',
 		map { "$_=" . $self->{replicas}{$_} }
-		sort { $a <=> $b } keys %{$self->{replicas}}
+		sort keys %{$self->{replicas}}
 		);
   $self->Logmsg('NReplicas: ',$txt);
   return unless $kernel;
@@ -248,40 +387,57 @@ $DB::single=1;
 
 #-------------------------------------------------------------------------------
 # This is the bit that creates blocks and manipulates TMDB
-sub injectBlock
-{
-  my ( $self, $block ) = @_;
-  return if $self->{Dummy};
-}
-
 sub subscribeBlock
 {
-  my ( $self, $block, $node ) = @_;
+  my ( $self, $ds, $block, $node ) = @_;
   return if $self->{Dummy};
+
+  my $nodeid = $self->{NodeID}{$node};
+  my $h;
+  $h->{BLOCK}		= $block->{block};
+  $h->{node}		= $nodeid;
+  $h->{priority}	= $ds->{Priority};
+  $h->{is_move}		= $ds->{IsMove};
+  $h->{is_transient}	= $ds->{IsTransient};
+  $h->{time_create}	= $block->{created};
+  $self->insertSubscription( $h );
+  $self->{DBH}->commit;
 }
 
 sub deleteBlock
 {
-  my ( $self, $block, $node ) = @_;
+  my ( $self, $ds, $block, $node ) = @_;
   return if $self->{Dummy};
+
+  my $nodeid = $self->{NodeID}{$node};
+  my $h;
+  $h->{BLOCK}		= $block->{block};
+  $h->{node}		= $nodeid;
+  $h->{time_request}	= time;
+  $self->insertBlockDeletion( $h );
+  $self->{DBH}->commit;
 }
 
 sub makeBlock
 {
-  my ($self,$dataset,$block,$files) = @_;
-  my $h;
+  my ($self,$ds) = @_;
+  my ($h,$blockid);
 
+  my $now = time;
+  $blockid = $now - 1207000800;
+  $blockid = sprintf("%08x",$blockid);
   $h->{dbs} = $self->{DBS} || "test";
   $h->{dls} = $self->{DLS} || "lfc:unknown";
-  $h->{'dis-open'} = 'n';
-  $h->{'bis-open'} = 'n';
-  $h->{'is-transient'} = 'n';
+  $h->{created}     = $now;
+  $h->{DsetIsOpen}  = $ds->{IsOpen};
+  $h->{BlockIsOpen} = $ds->{IsOpen};
+  $h->{IsTransient} = $ds->{IsTransient};
 
-  $h->{dataset} = $dataset;
-  $h->{block} = $dataset . "#$block";
-  for my $n_file (1..$files)
+  $h->{dataset} = $ds->{Name};
+  $h->{block} = $ds->{Name} . "#$blockid";
+  for my $n_file (1..$ds->{NFiles})
   {
-    my $lfn = $dataset. "-${block}-${n_file}";
+    my $lfn = $ds->{Name}. "-${blockid}-${n_file}";
     my $filesize = int(rand() * 2 * (1024**3));
     my $cksum = 'cksum:'. int(rand() * (10**10));
     push @{$h->{files}}, { lfn => $lfn, size => $filesize, cksum => $cksum };
@@ -291,19 +447,21 @@ sub makeBlock
 
 sub makeXML
 {
-# This isn't actually used...
-  my ($self,$h) = @_;
+  my ($self,$h,$xmlfile) = @_;
 
   my ($dbs,$dls,$dataset,$block,$files,$disopen,$bisopen,$istransient);
   $dbs = $h->{dbs};
   $dls = $h->{dls};
   $dataset     = $h->{dataset};
   $block       = $h->{block};
-  $disopen     = $h->{'dis-open'};
-  $bisopen     = $h->{'bis-open'};
-  $istransient = $h->{'is-transient'};
-  my $xmlfile = $dataset;
-  $xmlfile =~ s:^/::;  $xmlfile =~ s:/:-:g; $xmlfile .= '.xml';
+  $disopen     = $h->{DsetIsOpen};
+  $bisopen     = $h->{BlockIsOpen};
+  $istransient = $h->{IsTransient};
+  if ( ! defined($xmlfile) )
+  {
+    $xmlfile = $dataset;
+    $xmlfile =~ s:^/::;  $xmlfile =~ s:/:-:g; $xmlfile .= '.xml';
+  }
 
   open XML, '>', $xmlfile or die $!;
   print XML qq{<dbs name="$dbs"  dls="$dls">\n};
