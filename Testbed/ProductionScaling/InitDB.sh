@@ -13,10 +13,10 @@ echo "Enabling Stats"
 sqlplus -S $(Utilities/OracleConnectId  -db $db) @Schema/OracleStatsEnable.sql </dev/null
 
 echo "Init Schema Data"
-sqlplus -S $(Utilities/OracleConnectId  -db $db) @Testbed/RouterScaling/SetupScaleTest.sql </dev/null
+sqlplus -S $(Utilities/OracleConnectId  -db $db) @Testbed/ProductionScaling/SetupScaleTest.sql </dev/null
 
 echo "Setup nodes"
-Testbed/RouterScaling/SetupNodes -db $db 8:T1 50:T2
+Testbed/ProductionScaling/SetupNodes -db $db 1:T0 8:T1 50:T2
 
 echo "Stats update"
 sqlplus -S $(Utilities/OracleConnectId  -db $db) @Schema/OracleStatsUpdate.sql </dev/null
