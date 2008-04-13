@@ -7,7 +7,7 @@
 [ -z "$PHEDEX_ARCH" ] && { echo '$PHEDEX_ARCH not set' 1>&2; exit 1; };
 
 PHEDEX_CONFIG=${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling;
-PHEDEX_DBPARAM=${PHEDEX_CONFIG}/DBParam:Validation;
+PHEDEX_DBPARAM=${PHEDEX_CONFIG}/DBParam:${PHEDEX_INSTANCE};
 PHEDEX_STATE=${PHEDEX_LOCAL}/state;
 PHEDEX_LOGS=${PHEDEX_LOCAL}/logs;
 
@@ -24,7 +24,7 @@ export X509_USER_PROXY;
 source ${PHEDEX_BASE}/sw/${PHEDEX_ARCH}/cms/PHEDEX-admin/PHEDEX_${PHEDEX_VERSION}/etc/profile.d/env.sh;
 
 # custom tns file
-TNS_ADMIN=${PHEDEX_CONFIG}
+export TNS_ADMIN=${PHEDEX_CONFIG}
 
 # our perl_lib
 PERL5LIB=${PHEDEX_SCRIPTS}/perl_lib:$PERL5LIB
