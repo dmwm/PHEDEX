@@ -333,7 +333,6 @@ sub srcdelete
 
   $self->deleteBlock($ds,$block,$src);
   $self->{replicas}{$src}--;
-  $self->{T2Replicas}-- if $src =~ m%^T2%;
   $self->{NDeleted}++;
   $self->Logmsg("Deleting $block->{block} from node $src")
 	unless $self->{Quiet};
