@@ -7,7 +7,7 @@
 # PHEDEX_BASE=/data/phedex/rick;
 PHEDEX_LABEL=Central;
 PHEDEX_SITE=Central;
-PHEDEX_NODE=T1_001_Buffer;
+PHEDEX_NODE=T0_001_Buffer;
 PHEDEX_VERSION=3_0_0_pre14;
 
 # To show cycle times
@@ -16,11 +16,20 @@ export PHEDEX_DEBUG=1;
 
 ### IMPORT ConfigPart.Common
 
-# One export agent for all T1s
+# Our simulation agent
+
+### AGENT LABEL=lifecycle PROGRAM=Testbed/ProductionScaling/Lifecycle.pl
+  -db           ${PHEDEX_DBPARAM}
+  -node         ${PHEDEX_NODE}
+  -config	${PHEDEX_BASE}/Testbed/ProductionScaling/Lifecycle.conf
+
+# One staging agent for all T0,T1
 
 ### AGENT LABEL=exp-stage PROGRAM=Toolkit/Transfer/FileFakeStager
  -db              ${PHEDEX_DBPARAM}
- -nodes           T1%Buffer
+ -nodes           ${PHEDEX_NODE},T1%Buffer
+
+# Workflow agents
 
 ### AGENT LABEL=mgmt-blockmon PROGRAM=Toolkit/Workflow/BlockMonitor
  -db        ${PHEDEX_DBPARAM}
@@ -56,6 +65,8 @@ export PHEDEX_DEBUG=1;
  -db        ${PHEDEX_DBPARAM}
  -- DUMMY 1
 
+# Infrastructure agents
+
 ### AGENT LABEL=mgmt-router PROGRAM=Toolkit/Infrastructure/FileRouter
  -db             ${PHEDEX_DBPARAM}
  -request-alloc  BY_AGE
@@ -69,6 +80,8 @@ export PHEDEX_DEBUG=1;
 ### AGENT LABEL=mgmt-blockverifyinjector PROGRAM=Toolkit/Verify/BlockDownloadVerifyInjector
   -db        ${PHEDEX_DBPARAM}
  
+# Monitoring agents
+
 ### AGENT LABEL=info-pm PROGRAM=Toolkit/Monitoring/PerfMonitor
  -db        ${PHEDEX_DBPARAM}
  -node      ${PHEDEX_NODE}
