@@ -68,7 +68,7 @@ sub _poe_init
   $kernel->state(  'nextEvent', $self );
   $kernel->state(  'lifecycle', $self );
 
-  $kernel->state( 'stats', $self);
+  $kernel->state( 'stats', $self );
   $kernel->delay_set('stats',$self->{StatsFrequency});
 
   $kernel->state( '_child', $self );
@@ -102,22 +102,28 @@ sub deep_copy {
 sub nextEvent
 {
   my ($self,$kernel,$payload) = @_[ OBJECT, KERNEL, ARG0 ];
-  my ($ds,$event,$delay);
+  my ($ds,$event,$delay,$block,$msg);
   $ds    = $payload->{dataset};
+  $msg = "nextEvent: $ds->{Name}:";
+  if ( $block = $payload->{block} ) { $msg .= ' ' . $block->{block}; }
   $event = shift(@{$payload->{events}});
-  return unless $event;
+  if ( !$event )
+  {
+    $self->Logmsg("$msg cycle ends") if $self->{Verbose};
+    return;
+  } 
   $delay = $ds->{$event} if exists($ds->{$event});
   my $txt = join(', ',@{$payload->{events}});
   if ( $delay && $self->{Jitter} ) { $delay *= ( 1 + rand($self->{Jitter}) ); }
   if ( $delay )
   {
     if ( $self->{CycleSpeedup} ) { $delay /= $self->{CycleSpeedup}; }
-    $self->Dbgmsg("nextEvent: $ds->{Name}, $event $delay. $txt") if $self->{Debug};
+    $self->Dbgmsg("$msg $event $delay. $txt") if $self->{Debug};
     $kernel->delay_set($event,$delay,$payload);
   }
   else
   {
-    $self->Dbgmsg("nextEvent: $ds->{Name}, $event (now). $txt") if $self->{Debug};
+    $self->Dbgmsg("$msg $event (now). $txt") if $self->{Debug};
     $kernel->yield($event,$payload);
   }
 }
@@ -140,7 +146,7 @@ sub FileChanged
     {
       next unless $ds->{InUse};
       $self->Logmsg("Beginning lifecycle for $ds->{Name}...");
-      $kernel->yield('lifecycle',$ds);
+      $kernel->delay_set('lifecycle',0.01,$ds);
     }
   }
 }
@@ -216,7 +222,7 @@ sub ReadConfig
   if ( defined($self->{Watcher}) )
   {
     $self->{Watcher}->Interval($self->ConfigRefresh);
-    $self->{Watcher}->Options( %FileWatcher::Params);
+#   $self->{Watcher}->Options( %FileWatcher::Params);
   }
 }
 
@@ -265,14 +271,12 @@ sub t1subscribe
   if ( ! $dsts )
   {
 #   Take all T1 MSS nodes by default
-#DB::single=1;
     my @t1s = grep('T1_*_MSS', keys %{$self->{NodeIDs}});
     $dsts = \@t1s;
     $ds->{T1s} = \@t1s;
-#   $kernel->yield('_stop',1);
-#   return;
   }
 
+  my $delay = 0.1;
   foreach ( @{$dsts} )
   {
     my $p = deep_copy($payload);
@@ -283,7 +287,8 @@ sub t1subscribe
     $self->{replicas}{$_}++;
     $self->{T1Replicas}++;
     $self->{NSubscribed}++;
-    $kernel->yield( 'nextEvent', $p );
+    $kernel->delay_set( 'nextEvent', $delay, $p );
+    $delay += 0.1;
   }
 }
 
@@ -301,6 +306,7 @@ sub t2subscribe
 # Not having an associated T2 is not a crime...
   return unless $dsts;
 
+  my $delay = 0.1;
   foreach ( @{$dsts} )
   {
     my $p = deep_copy($payload);
@@ -311,7 +317,8 @@ sub t2subscribe
     $self->{replicas}{$_}++;
     $self->{T2Replicas}++;
     $self->{NSubscribed}++;
-    $kernel->yield( 'nextEvent', $p );
+    $kernel->delay_set( 'nextEvent', $delay, $p );
+    $delay += 0.1;
   }
 }
 
@@ -319,7 +326,6 @@ sub srcdelete
 {
   my ( $self, $kernel, $payload ) = @_[ OBJECT, KERNEL, ARG0 ];
   my ($ds,$events,$block,$src);
-$DB::single=1;
   $ds     = $payload->{dataset};
   $events = $payload->{events};
   $block  = $payload->{block};
@@ -327,7 +333,7 @@ $DB::single=1;
 
   $self->deleteBlock($ds,$block,$src);
   $self->{replicas}{$src}--;
-  $self->{T2Replicas}--;
+  $self->{T2Replicas}-- if $src =~ m%^T2%;
   $self->{NDeleted}++;
   $self->Logmsg("Deleting $block->{block} from node $src")
 	unless $self->{Quiet};
@@ -479,7 +485,7 @@ sub makeXML
   print XML qq{</dbs>\n};
   close XML;
 
-  $self->Logmsg("Wrote injection file to $xmlfile");
+  $self->Logmsg("Wrote injection file to $xmlfile") if $self->{Debug};
 }
 
 1;
