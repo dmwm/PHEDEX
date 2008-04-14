@@ -1,0 +1,76 @@
+# Validation cluster(s)
+
+NEW_CMSR_NOLB =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac601-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac602-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac603-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac611-v.cern.ch)(PORT = 10121))
+    (ENABLE=BROKEN)
+    (LOAD_BALANCE = no)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = cmsr_nolb.cern.ch)
+      (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
+    )
+  )
+
+NEW_CMSR_LB =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac601-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac602-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac603-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = itrac611-v.cern.ch)(PORT = 10121))
+    (ENABLE=BROKEN)
+    (LOAD_BALANCE = yes)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = cmsr_lb.cern.ch)
+      (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
+    )
+  )
+
+TEST2_NOLB =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = test21-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = test22-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = test23-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = test24-v.cern.ch)(PORT = 10121))
+    (ENABLE=BROKEN)
+    (LOAD_BALANCE = no)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = test2_nolb.cern.ch)
+      (FAILOVER_MODE=(TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
+    )
+  ) 
+
+TEST2_NOLB2 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = test21-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = test22-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = test23-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = test24-v.cern.ch)(PORT = 10121))
+    (ENABLE=BROKEN)
+    (LOAD_BALANCE = no)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = test2_nolb2.cern.ch)
+      (FAILOVER_MODE=(TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
+    )
+  )
+
+TEST2_LB =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = test21-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = test22-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = test23-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = test24-v.cern.ch)(PORT = 10121))
+    (ENABLE=BROKEN)
+    (LOAD_BALANCE = yes)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = test2_lb.cern.ch)
+      (FAILOVER_MODE=(TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
+    )
+  )
