@@ -21,7 +21,7 @@ export PHEDEX_DEBUG=1;
 ### AGENT LABEL=lifecycle PROGRAM=Testbed/ProductionScaling/Lifecycle.pl
   -db           ${PHEDEX_DBPARAM}
   -node         ${PHEDEX_NODE}
-  -config	${PHEDEX_BASE}/Testbed/ProductionScaling/Lifecycle.conf
+  -config	${PHEDEX_BASE}/PHEDEX/Testbed/ProductionScaling/Lifecycle.conf
 
 # T0 PFN export
 
