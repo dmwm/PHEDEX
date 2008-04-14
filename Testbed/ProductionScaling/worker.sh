@@ -17,7 +17,7 @@ PHEDEX_LOGLABEL=`echo ${PHEDEX_NODE} |sed 's|%||g' |sed 's|,|+|g'`;
 echo "INFO:  Starting agents..."
 (
   unset WORKDIR # workaround an environment bug in 3_0_0_pre14...
-  ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling/Config.Site start;
+  ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/ProductionScaling/Config.Site start;
 )
 
 # Wait for the agents to exit.  They can be terminated at any time via
@@ -33,12 +33,12 @@ while true; do
   if [ $(expr $(date +%s) - $START) -gt $RUNTIME ]; then
     echo "INFO:  Stopping agents after $RUNTIME seconds of running"
     if [ ! -f ${PHEDEX_LOCAL}/state/download/stop ]; then 
-      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling/Config.Site stop;
+      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/ProductionScaling/Config.Site stop;
     elif [ ! -f ${PHEDEX_LOCAL}/state/download/terminating ]; then
-      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling/Config.Site terminate;
+      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/ProductionScaling/Config.Site terminate;
       touch ${PHEDEX_LOCAL}/state/download/terminating
     else
-      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling/Config.Site kill;
+      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/ProductionScaling/Config.Site kill;
     fi
   fi
 

@@ -10,6 +10,6 @@ cmd='bsub -q cmsphedex'
 
 for (( i=1; $i<=$nodes; i+=1 )); do
     nodelist="%$(printf '%03d' $i)%"
-    (set -x; $cmd $PHEDEX_BASE/PHEDEX/Testbed/RouterScaling/worker.sh $PHEDEX_BASE "$nodelist")
+    (set -x; $cmd $PHEDEX_BASE/PHEDEX/Testbed/ProductionScaling/worker.sh $PHEDEX_BASE "$nodelist")
 done
 
