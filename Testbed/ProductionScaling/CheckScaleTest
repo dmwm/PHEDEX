@@ -26,7 +26,7 @@ my $dbh = &connectToDatabase (\%args, 0);
 
 my $start = &mytimeofday();
 
-print "min\treps\ttasks\treqs\tpaths\n";
+print "min\treps\ttasks\tdel\treqs\tpaths\n";
 
 while( 1 )
 {
@@ -36,6 +36,8 @@ while( 1 )
     my $q = &dbexec ($dbh, qq{ select count(*) from t_xfer_replica});
     while (my @row = $q->fetchrow_array()) { print "$row[0]\t"; }
     $q = &dbexec ($dbh, qq{ select count(*) from t_xfer_task});
+    while (my @row = $q->fetchrow_array()) { print "$row[0]\t"; }
+    $q = &dbexec ($dbh, qq{ select count(*) from t_xfer_delete});
     while (my @row = $q->fetchrow_array()) { print "$row[0]\t"; }
     $q = &dbexec ($dbh, qq{ select count(*) from t_xfer_request});
     while (my @row = $q->fetchrow_array()) { print "$row[0]\t"; }
