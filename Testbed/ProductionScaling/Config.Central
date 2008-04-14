@@ -23,6 +23,14 @@ export PHEDEX_DEBUG=1;
   -node         ${PHEDEX_NODE}
   -config	${PHEDEX_BASE}/Testbed/ProductionScaling/Lifecycle.conf
 
+# T0 PFN export
+
+### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FileExport
+ -db              ${PHEDEX_DBPARAM}
+ -nodes           ${PHEDEX_NODE}
+ -storagemap      ${PHEDEX_MAP}
+ -protocols       srm
+
 # One staging agent for all T0,T1
 
 ### AGENT LABEL=exp-stage PROGRAM=Toolkit/Transfer/FileFakeStager
