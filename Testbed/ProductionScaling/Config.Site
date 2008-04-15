@@ -5,28 +5,26 @@
 # Set this outside config
 # PHEDEX_BASE=/data/phedex/rick;
 
-# Set this outside config
+# Set this outside config, should be a number e.g. 001
 # PHEDEX_NODE=@NODE@;
 
-PHEDEX_LABEL=$PHEDEX_NODE
 PHEDEX_SITE=$PHEDEX_NODE
+PHEDEX_LABEL=$PHEDEX_NODE
 PHEDEX_VERSION=3_0_0_pre14
 X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
 ### IMPORT ConfigPart.Common
 
-# Only one FileExport, in ConfigPart.Export
-
 ### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FileExport
  -db              ${PHEDEX_DBPARAM}
- -nodes           ${PHEDEX_NODE}
+ -nodes           %${PHEDEX_NODE}%
  -storagemap      ${PHEDEX_MAP}
  -protocols       srm
 
 ### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload
  -verbose
  -db              ${PHEDEX_DBPARAM}
- -nodes           ${PHEDEX_NODE}
+ -nodes           %${PHEDEX_NODE}%
  -backend         Null
  -jobs            30
  -batch-files     100
@@ -34,12 +32,12 @@ X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
 ### AGENT LABEL=remove PROGRAM=Toolkit/Transfer/FileRemove
  -db              ${PHEDEX_DBPARAM}
- -nodes           ${PHEDEX_NODE}
+ -nodes           %${PHEDEX_NODE}%
  -delete          /bin/true
  -storagemap      ${PHEDEX_MAP}
  -protocol        'direct'
 
 ### AGENT LABEL=blockverify PROGRAM=Toolkit/Verify/BlockDownloadVerify
   -db          ${PHEDEX_DBPARAM}
-  -nodes       ${PHEDEX_NODE}
+  -nodes       %${PHEDEX_NODE}%
   -storagemap  ${PHEDEX_MAP}
