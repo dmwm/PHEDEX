@@ -73,11 +73,6 @@ sub deleteSubscription
 {
     my ($self,$h) = @_;
 
-    $self->Logmsg("in deleteSubscription"); # for block $h->{BLOCK}");
-    $self->Log( $h );
-#   return;
-
-$DB::single=1;
     my $sql = qq{ 
 	delete from t_dps_subscription
     };
