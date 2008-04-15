@@ -11,13 +11,18 @@ export PHEDEX_BASE="$1"
 export PHEDEX_NODE="$2"
 export PHEDEX_ARCH=slc4_amd64_gcc345;
 export PHEDEX_LOCAL=$TMPDIR;
+CONFIG=${PHEDEX_BASE}/PHEDEX/Testbed/ProductionScaling
 PHEDEX_LOGLABEL=`echo ${PHEDEX_NODE} |sed 's|%||g' |sed 's|,|+|g'`;
+
+mkdir -p ${PHEDEX_BASE}/failconf;
+export PHEDEX_FAIL_CONF=${PHEDEX_BASE}/failconf/${PHEDEX_LOGLABEL}-fail.conf
+[ ! -f $PHEDEX_FAIL_CONF ] && ${CONFIG}/LinkFailureRates.conf $PHEDEX_FAIL_CONF
 
 # Now start the agents.
 echo "INFO:  Starting agents..."
 (
   unset WORKDIR # workaround an environment bug in 3_0_0_pre14...
-  ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/ProductionScaling/Config.Site start;
+  ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${CONFIG}/Config.Site start;
 )
 
 # Wait for the agents to exit.  They can be terminated at any time via
@@ -33,12 +38,12 @@ while true; do
   if [ $(expr $(date +%s) - $START) -gt $RUNTIME ]; then
     echo "INFO:  Stopping agents after $RUNTIME seconds of running"
     if [ ! -f ${PHEDEX_LOCAL}/state/download/stop ]; then 
-      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/ProductionScaling/Config.Site stop;
+      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${CONFIG}/Config.Site stop;
     elif [ ! -f ${PHEDEX_LOCAL}/state/download/terminating ]; then
-      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/ProductionScaling/Config.Site terminate;
+      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${CONFIG}/Config.Site terminate;
       touch ${PHEDEX_LOCAL}/state/download/terminating
     else
-      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/ProductionScaling/Config.Site kill;
+      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${CONFIG}/Config.Site kill;
     fi
   fi
 
