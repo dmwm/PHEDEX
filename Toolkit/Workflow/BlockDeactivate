@@ -14,6 +14,7 @@
 ##H -node      the node where this agent runs
 ##H -db        database connection configuration parameter file
 ##H -log       where to redirect logging information
+##H -age       age in seconds of idle blocks to collapse, default 3 days
 
 ######################################################################
 my %args;
@@ -27,6 +28,7 @@ use PHEDEX::BlockDeactivate::Agent;
              "label=s"     => \$args{LABEL},
              "node=s"      => \$args{MYNODE},
              "once"        => \$args{ONCE},
+             "age"         => \$args{HOLDOFF},
 	     "help|h"      => sub { &usage() });
 
 my $agent = PHEDEX::BlockDeactivate::Agent->new(%args,@ARGV);
