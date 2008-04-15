@@ -26,6 +26,7 @@ export TNS_ADMIN=${PHEDEX_CONFIG}
 
 # our perl_lib
 PERL5LIB=${PHEDEX_SCRIPTS}/perl_lib:$PERL5LIB
+PERL5LIB=/afs/cern.ch/user/w/wildish/public/COMP/T0_CVS/perl_lib:$PERL5LIB
 
 ### ENVIRON debug
 export PHEDEX_LOG_SQL=1;
