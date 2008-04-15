@@ -69,6 +69,41 @@ sub insertSubscription
     return $n;
 }
 
+sub deleteSubscription
+{
+    my ($self,$h) = @_;
+
+    $self->Logmsg("in deleteSubscription"); # for block $h->{BLOCK}");
+    $self->Log( $h );
+#   return;
+
+$DB::single=1;
+    my $sql = qq{ 
+	delete from t_dps_subscription
+    };
+
+    if ($h->{DATASET}) {
+        $self->Fatal("Have not written sql for deleting dataset subscription yet...");
+#	$sql .= qq{ select ds.id, NULL, :node, :priority, :is_move, :is_transient, :time_create 
+#		      from t_dps_dataset ds where ds.name = :dataset };
+    } elsif ($h->{BLOCK}) {
+	$sql .= qq{ where destination = :node and block =
+		 ( select id from t_dps_block where name = :block ) };
+    } else {
+	die "DATASET or BLOCK required\n";
+    }
+
+    my %p = map { ':' . lc $_ => $h->{$_} } keys %{$h};
+
+    my ($sth, $n);
+    eval {
+      ($sth, $n) = execute_sql( $self, $sql, %p );
+    };
+    $self->Fatal($@) if $@;
+
+    return $n;
+}
+
 sub insertBlockDeletion
 {
     my ($self,$h) = @_;

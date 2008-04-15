@@ -23,6 +23,10 @@ our %params =
 	  T2Replicas		=> 0,
 	  StatsFrequency	=> 60,
 	  Incarnation		=> 1,
+	  Jitter		=> 0,
+	  CycleSpeedup		=> 1,
+	  InjectionsPerBlock	=> 1,
+	  GarbageCycle		=> 7200,
 	);
 
 sub new
@@ -50,9 +54,9 @@ sub AUTOLOAD
 }
 
 #-------------------------------------------------------------------------------
-# This sets up the basic state-machinery.
 sub _poe_init
 {
+# This sets up the basic state-machinery.
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
 
   $kernel->alias_set( $self->{ME} );
@@ -70,6 +74,9 @@ sub _poe_init
 
   $kernel->state( 'stats', $self );
   $kernel->delay_set('stats',$self->{StatsFrequency});
+
+  $kernel->state( 'garbage', $self );
+  $kernel->delay_set('garbage', $self->{GarbageCycle}) if $self->{GarbageCycle};
 
   $kernel->state( '_child', $self );
   $kernel->state(  '_stop', $self );
@@ -110,6 +117,7 @@ sub nextEvent
   if ( !$event )
   {
     $self->Logmsg("$msg cycle ends") if $self->{Verbose};
+    $self->{_states}{cycle_end}{$block->{blockid}} = time;
     return;
   } 
   $delay = $ds->{$event} if exists($ds->{$event});
@@ -123,7 +131,7 @@ sub nextEvent
   }
   else
   {
-    $self->Dbgmsg("$msg $event (now). $txt") if $self->{Debug};
+    $self->Dbgmsg("$msg $event (now) $txt") if $self->{Debug};
     $kernel->yield($event,$payload);
   }
 }
@@ -144,6 +152,9 @@ sub FileChanged
     my $ds;
     foreach $ds ( @{$self->{Datasets}} )
     {
+      if ( $ds->{Name} !~ m%^/% ) { $ds->{Name} = '/' . $ds->{Name}; }
+      $ds->{InjectionsPerBlock} = $self->{InjectionsPerBlock}
+		unless $ds->{InjectionsPerBlock};
       next unless $ds->{InUse};
       $self->Logmsg("Beginning lifecycle for $ds->{Name}...");
       $kernel->delay_set('lifecycle',0.01,$ds);
@@ -156,7 +167,12 @@ sub lifecycle
   my ($self,$kernel,$ds) = @_[ OBJECT, KERNEL, ARG0 ];
   my ($event,$delay,@events);
   push @events, @{$ds->{events}};
-  return unless $ds->{NCycles}--;
+  if ( !$ds->{NCycles} )
+  {
+    $self->Logmsg("Maximum number of cycles executed, stopping...");
+    return;
+  }
+  $ds->{NCycles}-- if $ds->{NCycles} > 0;
   return unless $self->{Incarnation} == $ds->{Incarnation};
 
   my $payload = {
@@ -236,28 +252,42 @@ sub inject
   return unless $ds->{Incarnation} == $self->{Incarnation};
 
   my $block = $self->makeBlock($ds);
-  my $xmlfile = 'injection.xml';
-  $self->Logmsg("Inject $ds->{Name}($block->{block}) at $ds->{InjectionSite}") unless $self->{Quiet};
-  if ( ! $self->{Dummy} )
-  {
-    $self->makeXML($block,$xmlfile);
-#   my $cmd = $ENV{PHEDEX_SCRIPTS} . '/Toolkit/Request/TMDBInject';
-#   $cmd .= ' -db ' . $ENV{PHEDEX_DBPARAM};
-    my $cmd = '/build/wildish/phedex/Validation/PHEDEX/Toolkit/Request/TMDBInject';
-    $cmd .= ' -db /build/wildish/phedex/Validation/PHEDEX/Testbed/ProductionScaling/DBParam:Validation';
-    $cmd .= ' -verbose' if $self->{Verbose};
-    $cmd .= ' -nodes ' . $ds->{InjectionSite};
-    $cmd .= ' -filedata ' . $xmlfile;
+  $self->doInject($ds,$block);
 
-    open INJECT, "$cmd 2>&1 |" or die "$cmd: $!\n";
-    while ( <INJECT> ) { $self->Logmsg($_) if $self->{Debug}; }
-    close INJECT or die "close: $cmd: $!\n";
-    die "unlink: $xmlfile: $!\n" unless unlink $xmlfile;
-  }
   $self->{NInjected}++;
   $self->{replicas}{$ds->{InjectionSite}}++;
   $payload->{block} = $block;
   $kernel->yield( 'nextEvent', $payload );
+}
+
+sub doInject
+{
+  my ($self,$ds,$block,$xmlfile) = @_;
+
+  $xmlfile = 'injection.xml' unless $xmlfile;
+  my $n = scalar @{$block->{files}};
+  $self->Logmsg("Inject $ds->{Name}($block->{block}, $n files) at $ds->{InjectionSite}") unless $self->{Quiet};
+  return if $self->{Dummy};
+  $self->makeXML($block,$xmlfile);
+
+  my ($scripts,$dbparam,$env);
+  $env = $self->{ENVIRONMENT};
+  $scripts = $env->getExpandedParameter('PHEDEX_SCRIPTS') ||
+		$ENV{PHEDEX_SCRIPTS};
+  $dbparam = $env->getExpandedParameter('PHEDEX_DBPARAM') ||
+		$ENV{PHEDEX_DBPARAM};
+  $self->Fatal('Cannot determine PHEDEX_SCRIPTS') unless $scripts;
+  $self->Fatal('Cannot determine PHEDEX_DBPARAM') unless $dbparam;
+  
+  my $cmd = $scripts . '/Toolkit/Request/TMDBInject -db ' . $dbparam;
+  $cmd .= ' -verbose' if $self->{Verbose};
+  $cmd .= ' -nodes ' . $ds->{InjectionSite};
+  $cmd .= ' -filedata ' . $xmlfile;
+
+  open INJECT, "$cmd 2>&1 |" or $self->Fatal("$cmd: $!");
+  while ( <INJECT> ) { $self->Logmsg($_) if $self->{Debug}; }
+  close INJECT or $self->Fatal("close: $cmd: $!");
+# $self->Fatal("unlink: $xmlfile: $!") unless unlink $xmlfile;
 }
 
 sub t1subscribe
@@ -283,8 +313,6 @@ sub t1subscribe
   {
     my $p = deep_copy($payload);
     $p->{T1} = $_;
-    $self->Logmsg("T1Subscription  for $block->{block} to node $_")
-	 unless $self->{Quiet};
     $self->subscribeBlock($ds,$block,$_);
     $self->{replicas}{$_}++;
     $self->{T1Replicas}++;
@@ -313,8 +341,6 @@ sub t2subscribe
   {
     my $p = deep_copy($payload);
     $p->{T2} = $_;
-    $self->Logmsg("T2Subscription for $block->{block} to node $_")
-	 unless $self->{Quiet};
     $self->subscribeBlock($ds,$block,$_);
     $self->{replicas}{$_}++;
     $self->{T2Replicas}++;
@@ -369,7 +395,12 @@ sub _stop
   $self->{Watcher}->RemoveClient( $self->{ME} );
   $self->stats();
   $kernel->delay('stats');
-  $self->Logmsg('stopping now...');
+  if ( $self->{Debug} )
+  {
+    $self->Logmsg('Dumping final state to stdout or to logger');
+    $self->Log( $self );
+  }
+  $self->Logmsg('stopping now.');
   $self->doStop();
 }
 
@@ -392,6 +423,23 @@ sub stats
   $kernel->delay_set('stats',$self->{StatsFrequency});
 }
 
+sub garbage
+{
+  my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+  my ($now,$blockid);
+  $now = time;
+  foreach $blockid ( keys %{$self->{_states}{cycle_end}} )
+  {
+    if ( $now - $self->{_states}{cycle_end}{$blockid} > $self->{GarbageCycle} )
+    {
+      $self->Logmsg("garbage-collecting block $blockid") if $self->{Debug};
+      delete $self->{_states}{cycle_end}{$blockid};
+      delete $self->{_states}{$blockid};
+    }
+  }
+  $kernel->delay_set('garbage',$self->{GarbageCycle});
+}
+
 #-------------------------------------------------------------------------------
 # This is the bit that creates blocks and manipulates TMDB
 sub subscribeBlock
@@ -400,6 +448,9 @@ sub subscribeBlock
   return if $self->{Dummy};
 
   my $nodeid = $self->{NodeID}{$node};
+  return if $self->{_states}{$block->{blockid}}{subscribed}{$nodeid}++;
+  $self->Logmsg("Subscription  for $block->{block} to node $_") unless $self->{Quiet};
+
   my $h;
   $h->{BLOCK}		= $block->{block};
   $h->{node}		= $nodeid;
@@ -407,7 +458,22 @@ sub subscribeBlock
   $h->{is_move}		= $ds->{IsMove};
   $h->{is_transient}	= $ds->{IsTransient};
   $h->{time_create}	= $block->{created};
+
   $self->insertSubscription( $h );
+  $self->{DBH}->commit;
+}
+
+sub unsubscribeBlock
+{
+  my ( $self, $block ) = @_;
+  return if $self->{Dummy};
+
+  my $nodeid = $block->{node};
+  return if $self->{_states}{$block->{blockid}}{unsubscribed}{$nodeid}++;
+  my $h;
+  $h->{BLOCK}		= $block->{BLOCK};
+  $h->{node}		= $block->{node};
+  $self->deleteSubscription( $h );
   $self->{DBH}->commit;
 }
 
@@ -416,11 +482,16 @@ sub deleteBlock
   my ( $self, $ds, $block, $node ) = @_;
   return if $self->{Dummy};
 
+$DB::single=1;
   my $nodeid = $self->{NodeID}{$node};
+  return if $self->{_states}{$block->{blockid}}{deleted}{$nodeid}++;
   my $h;
   $h->{BLOCK}		= $block->{block};
+  $h->{blockid}		= $block->{blockid};
   $h->{node}		= $nodeid;
+  $self->unsubscribeBlock( $h );
   $h->{time_request}	= time;
+  delete $h->{blockid};
   $self->insertBlockDeletion( $h );
   $self->{DBH}->commit;
 }
@@ -428,31 +499,53 @@ sub deleteBlock
 sub makeBlock
 {
   my ($self,$ds) = @_;
-  my ($h,$blockid);
+  my ($h,$blockid,$now);
 
-  my $now = time;
-  $blockid = $now - 1207000800;
-  $blockid = sprintf("%08x",$blockid);
-  $h->{dbs} = $self->{DBS} || "test";
-  $h->{dls} = $self->{DLS} || "lfc:unknown";
-  $h->{created}     = $now;
-  $h->{DsetIsOpen}  = $ds->{IsOpen};
-  $h->{BlockIsOpen} = $ds->{IsOpen};
-  $h->{IsTransient} = $ds->{IsTransient};
+# do I need a new block, or can I re-use the one I have?
+  if ( $h = $ds->{_block} )
+  {
+    $h->{_injections_left}--;
+    if ( $h->{_injections_left} <= 0 )
+    {
+#     Block has been used enough. Close it, and start a new one.
+      $h->{BlockIsOpen} = 'n';
+      $self->doInject($ds,$h);
+      undef $h;
+    }
+    else
+    {
+      $blockid = $h->{blockid};
+    }
+  }
 
-  $h->{dataset} = $ds->{Name};
-  $h->{block} = $ds->{Name} . "#$blockid";
-  for my $n_file (1..$ds->{NFiles})
+  $now = time;
+  if ( !$blockid )
+  {
+    $h->{blockid} = $blockid = sprintf("%08x",$now - 1207000800);
+    $h->{dbs}     = $self->{DBS} || "test";
+    $h->{dls}     = $self->{DLS} || "lfc:unknown";
+    $h->{created}     = $now;
+    $h->{DsetIsOpen}  = $ds->{IsOpen};
+    $h->{BlockIsOpen} = $ds->{IsOpen};
+    $h->{IsTransient} = $ds->{IsTransient};
+    $h->{_injections_left} = $ds->{InjectionsPerBlock};
+    $h->{dataset} = $ds->{Name};
+    $h->{block} = $ds->{Name} . "#$blockid";
+  }
+
+  my $n = 0;
+  $n = scalar @{$h->{files}} if $h->{files};
+  for my $n_file (($n+1)..($n+$ds->{NFiles}))
   {
     my $lfn = $ds->{Name}. "-${blockid}-${n_file}";
     my $filesize;
-#   $filesize = int(rand() * 2 * (1024**3));
     my $mean = $ds->{FileSizeMean} || 2.0;
     my $sdev = $ds->{FileSizeStdDev} || 0.2;
     $filesize = int(gaussian_rand($mean, $sdev) *  (1024**3)); #
     my $cksum = 'cksum:'. int(rand() * (10**10));
     push @{$h->{files}}, { lfn => $lfn, size => $filesize, cksum => $cksum };
   };
+  $ds->{_block} = $h;
   return $h;
 }
 
@@ -474,15 +567,15 @@ sub makeXML
     $xmlfile =~ s:^/::;  $xmlfile =~ s:/:-:g; $xmlfile .= '.xml';
   }
 
-  open XML, '>', $xmlfile or die $!;
+  open XML, '>', $xmlfile or $self-Fatal("open: $xmlfile: $!");
   print XML qq{<dbs name="$dbs"  dls="$dls">\n};
   print XML qq{\t<dataset name="$dataset" is-open="$disopen" is-transient="$istransient">\n};
   print XML qq{\t\t<block name="$block" is-open="$bisopen">\n};
   for my $file ( @{$h->{files}} )
   {
-    my $lfn = $file->{lfn} || die "lfn not defined\n";
-    my $size = $file->{size} || die "filesize not defined\n";
-    my $cksum = $file->{cksum} || die "cksum not defined\n";
+    my $lfn = $file->{lfn} || $self->Fatal("lfn not defined");
+    my $size = $file->{size} || $self->Fatal("filesize not defined");
+    my $cksum = $file->{cksum} || $self->Fatal("cksum not defined");
     print XML qq{\t\t\t<file lfn="$lfn" size="$size" checksum="$cksum"/>\n};
   }
   print XML qq{\t\t</block>\n};
