@@ -23,13 +23,14 @@ X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
  -storagemap      ${PHEDEX_MAP}
  -protocols       srm
 
-### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload2
+### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload
  -verbose
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE}
  -backend         Null
  -jobs            30
  -batch-files     100
+ -fail-config     ${PHEDEX_FAIL_CONF}
 
 ### AGENT LABEL=remove PROGRAM=Toolkit/Transfer/FileRemove
  -db              ${PHEDEX_DBPARAM}
