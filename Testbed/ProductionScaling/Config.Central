@@ -50,12 +50,11 @@ export PHEDEX_DEBUG=1;
 ### AGENT LABEL=mgmt-blockactiv PROGRAM=Toolkit/Workflow/BlockActivate
  -db        ${PHEDEX_DBPARAM}
  -node      ${PHEDEX_NODE}
- -- HOLDOFF 3600
 
 ### AGENT LABEL=mgmt-blockdeact PROGRAM=Toolkit/Workflow/BlockDeactivate
  -db        ${PHEDEX_DBPARAM}
  -node      ${PHEDEX_NODE}
- -- HOLDOFF 3600
+ -age       3600
 
 ### AGENT LABEL=mgmt-loadinject PROGRAM=Toolkit/LoadTest/LoadTestInjector
  -db        ${PHEDEX_DBPARAM}
