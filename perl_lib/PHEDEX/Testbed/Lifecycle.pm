@@ -567,7 +567,7 @@ sub makeXML
     $xmlfile =~ s:^/::;  $xmlfile =~ s:/:-:g; $xmlfile .= '.xml';
   }
 
-  open XML, '>', $xmlfile or $self-Fatal("open: $xmlfile: $!");
+  open XML, '>', $xmlfile or $self->Fatal("open: $xmlfile: $!");
   print XML qq{<dbs name="$dbs"  dls="$dls">\n};
   print XML qq{\t<dataset name="$dataset" is-open="$disopen" is-transient="$istransient">\n};
   print XML qq{\t\t<block name="$block" is-open="$bisopen">\n};
