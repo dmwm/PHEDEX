@@ -241,8 +241,10 @@ sub inject
   if ( ! $self->{Dummy} )
   {
     $self->makeXML($block,$xmlfile);
-    my $cmd = $ENV{PHEDEX_SCRIPTS} . '/Toolkit/Request/TMDBInject';
-    $cmd .= ' -db ' . $ENV{PHEDEX_DBPARAM};
+#   my $cmd = $ENV{PHEDEX_SCRIPTS} . '/Toolkit/Request/TMDBInject';
+#   $cmd .= ' -db ' . $ENV{PHEDEX_DBPARAM};
+    my $cmd = '/build/wildish/phedex/Validation/PHEDEX/Toolkit/Request/TMDBInject';
+    $cmd .= ' -db /build/wildish/phedex/Validation/PHEDEX/Testbed/ProductionScaling/DBParam:Validation';
     $cmd .= ' -verbose' if $self->{Verbose};
     $cmd .= ' -nodes ' . $ds->{InjectionSite};
     $cmd .= ' -filedata ' . $xmlfile;
@@ -443,7 +445,11 @@ sub makeBlock
   for my $n_file (1..$ds->{NFiles})
   {
     my $lfn = $ds->{Name}. "-${blockid}-${n_file}";
-    my $filesize = int(rand() * 2 * (1024**3));
+    my $filesize;
+#   $filesize = int(rand() * 2 * (1024**3));
+    my $mean = $ds->{FileSizeMean} || 2.0;
+    my $sdev = $ds->{FileSizeStdDev} || 0.2;
+    $filesize = int(gaussian_rand($mean, $sdev) *  (1024**3)); #
     my $cksum = 'cksum:'. int(rand() * (10**10));
     push @{$h->{files}}, { lfn => $lfn, size => $filesize, cksum => $cksum };
   };
@@ -485,6 +491,29 @@ sub makeXML
   close XML;
 
   $self->Logmsg("Wrote injection file to $xmlfile") if $self->{Debug};
+}
+
+sub gaussian_rand {
+    my ($mean, $sdev) = @_;
+    $mean ||= 0;  $sdev ||= 1;
+    my ($u1, $u2);  # uniformly distributed random numbers
+    my $w;          # variance, then a weight
+    my ($g1, $g2);  # gaussian-distributed numbers
+
+    do {
+        $u1 = 2 * rand() - 1;
+        $u2 = 2 * rand() - 1;
+        $w = $u1*$u1 + $u2*$u2;
+    } while ( $w >= 1 );
+
+    $w = sqrt( (-2 * log($w))  / $w );
+    $g2 = $u1 * $w;
+    $g1 = $u2 * $w;
+
+    $g1 = $g1 * $sdev + $mean;
+    $g2 = $g2 * $sdev + $mean;
+    # return both if wanted, else just one
+    return wantarray ? ($g1, $g2) : $g1;
 }
 
 1;
