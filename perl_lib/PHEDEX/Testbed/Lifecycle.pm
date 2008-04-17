@@ -313,7 +313,7 @@ sub t1subscribe
   {
     my $p = deep_copy($payload);
     $p->{T1} = $_;
-    $self->subscribeBlock($ds,$block,$_);
+    next if $self->subscribeBlock($ds,$block,$_);
     $self->{replicas}{$_}++;
     $self->{T1Replicas}++;
     $self->{NSubscribed}++;
@@ -341,7 +341,7 @@ sub t2subscribe
   {
     my $p = deep_copy($payload);
     $p->{T2} = $_;
-    $self->subscribeBlock($ds,$block,$_);
+    next if $self->subscribeBlock($ds,$block,$_);
     $self->{replicas}{$_}++;
     $self->{T2Replicas}++;
     $self->{NSubscribed}++;
@@ -448,7 +448,7 @@ sub subscribeBlock
   return if $self->{Dummy};
 
   my $nodeid = $self->{NodeID}{$node};
-  return if $self->{_states}{$block->{blockid}}{subscribed}{$nodeid}++;
+  return 1 if $self->{_states}{$block->{blockid}}{subscribed}{$nodeid}++;
   $self->Logmsg("Subscription  for $block->{block} to node $_") unless $self->{Quiet};
 
   my $h;
@@ -461,6 +461,7 @@ sub subscribeBlock
 
   $self->insertSubscription( $h );
   $self->{DBH}->commit;
+  return 0;
 }
 
 sub unsubscribeBlock
