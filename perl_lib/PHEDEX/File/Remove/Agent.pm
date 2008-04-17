@@ -179,10 +179,9 @@ sub filesToDelete
     my $q = &dbexec($dbh,qq{
 	select xd.fileid, xf.logical_name
 	from t_xfer_delete xd
-	left join t_xfer_file xf
-	   on xd.fileid = xf.id
+	join t_xfer_file xf
+	on xd.fileid = xf.id
 	where xd.time_complete is null and xd.node = :node
-	and xf.logical_name is not null
 	order by xd.time_request asc},
         ":node" => $$self{NODES_ID}{$node});
     while (my ($id, $lfn) = $q->fetchrow())
@@ -190,6 +189,7 @@ sub filesToDelete
 	$files{$lfn} = $id;
 	last if scalar keys %files >= $limit;
     }
+    $q->finish();  # free resources in case we didn't use all results
 
     # Now get PFNs for all those files.
     my $pfns = &pfnLookup ([ keys %files ], $$self{PROTOCOL},
