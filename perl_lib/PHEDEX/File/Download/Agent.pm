@@ -378,6 +378,7 @@ sub fetchNewTasks
 	return if ! &output("$$self{TASKDIR}/$$row{TASKID}", Dumper($row));
 	$$tasks{$$row{TASKID}} = $row;
     }
+    $q->finish(); # In case we left before going through all the results
 }
 
 # Upload final task status to the database.
