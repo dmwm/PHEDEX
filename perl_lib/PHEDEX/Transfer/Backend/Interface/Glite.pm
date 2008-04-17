@@ -23,7 +23,8 @@ use base 'PHEDEX::Core::Logging';
 our %params =
 	(
 	  SERVICE	=> undef,	# Transfer service URL
-	  MYPROXY	=> undef,	# Transfer service URL
+	  MYPROXY	=> undef,
+	  SPACETOKEN	=> undef,
 	  CHANNEL	=> undef,	# Channel name to match
 	  USERDN	=> undef,	# Restrict to specific user DN
 	  VONAME	=> undef,	# Restrict to specific VO
@@ -269,7 +270,8 @@ sub Submit
 
   my $cmd = "glite-transfer-submit". 
       ' -s ' . $job->Service .
-      ((defined $self->MYPROXY)?' -m '.$self->MYPROXY:"") .
+      ((defined $self->MYPROXY)    ? ' -m '.$self->MYPROXY    : "") .
+      ((defined $self->SPACETOKEN) ? ' -t '.$self->SPACETOKEN : "") .
       ' -f ' . $job->Copyjob;
 # print $self->Hdr,"Execute: $cmd\n";
   open GLITE, "$cmd 2>&1 |" or die "$cmd: $!\n";
