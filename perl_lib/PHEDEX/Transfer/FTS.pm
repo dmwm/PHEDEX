@@ -38,6 +38,7 @@ sub new
     $options->{'max-active-files=i'}   = \$params->{FTS_MAX_ACTIVE};
     $options->{'service=s'} = \$params->{FTS_SERVICE};
     $options->{'myproxy=s'} = \$params->{FTS_MYPROXY};
+    $options->{'spacetoken=s'} = \$params->{FTS_SPACETOKEN};
     $options->{'mapfile=s'} = \$params->{FTS_MAPFILE};
     $options->{'q_interval=i'} = \$params->{FTS_Q_INTERVAL};
     $options->{'j_interval=i'} = \$params->{FTS_J_INTERVAL};
@@ -68,11 +69,13 @@ sub init
 	 );
 
     $glite->MYPROXY($self->{FTS_MYPROXY}) if $self->{FTS_MYPROXY};
+    $glite->SPACETOKEN($self->{FTS_SPACETOKEN}) if $self->{FTS_SPACETOKEN};
 
     $self->{Q_INTERFACE} = $glite;
 
-    print "Using service ",$glite->SERVICE,"\n" if $glite->SERVICE;
-    print "Using myproxy ",$glite->MYPROXY,"\n" if $glite->MYPROXY;
+    print "Using service ",$glite->SERVICE,"\n"        if $glite->SERVICE;
+    print "Using myproxy ",$glite->MYPROXY,"\n"        if $glite->MYPROXY;
+    print "Using space-token ",$glite->SPACETOKEN,"\n" if $glite->SPACETOKEN;
 
     my $monalisa;
     my $use_monalisa = 1;
