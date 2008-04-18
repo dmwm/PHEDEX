@@ -1,8 +1,13 @@
 package PHEDEX::Transfer::FTS; use base 'PHEDEX::Transfer::Core';
+
 use strict;
 use warnings;
+
 use Getopt::Long;
 use POSIX;
+use Data::Dumper;
+
+
 use PHEDEX::Transfer::Backend::Job;
 use PHEDEX::Transfer::Backend::File;
 use PHEDEX::Transfer::Backend::Monitor;
@@ -12,7 +17,6 @@ use PHEDEX::Core::Timing;
 use PHEDEX::Monalisa;
 use POE;
 
-# Command back end defaulting to srmcp and supporting batch transfers.
 sub new
 {
     my $proto = shift;
@@ -24,37 +28,40 @@ sub new
     my $params = shift || {};
 
     # Set my defaults where not defined by the derived class.
-    $params->{PROTOCOLS} ||= [ 'srm' ];  # Accepted protocols
-    $params->{BATCH_FILES}    ||= 30;    # Max number of files per batch
-    $params->{FTS_LINK_PEND}  ||= 5;     # Submit to FTS until this number of files per link are "Pending"
-    $params->{FTS_MAX_ACTIVE} ||= 300;   # Submit to FTS until these number of files are "Active"
-    $params->{FTS_POLL_QUEUE} ||= 0;     # Whether to poll all vs. our jobs
-    $params->{FTS_Q_INTERVAL} ||= 30;    # Interval for polling queue for new jobs
-    $params->{FTS_J_INTERVAL} ||= 5;     # Interval for polling individual jobs
+    $params->{PROTOCOLS}           ||= [ 'srm' ];  # Accepted protocols
+    $params->{BATCH_FILES}         ||= 30;         # Max number of files per job
+    $params->{FTS_LINK_PEND}       ||= 5;          # Submit to FTS until this number of files per link are "pending"
+    $params->{FTS_MAX_ACTIVE}      ||= 300;        # Submit to FTS until these number of files are "active"
+    $params->{FTS_DEFAULT_LINK_ACTIVE} ||= undef;  # Optional default per-link limits to number of active files
+    $params->{FTS_LINK_ACTIVE}     ||= {};         # Optional per-link limits to number of active files
+    $params->{FTS_POLL_QUEUE}      ||= 0;          # Whether to poll all vs. our jobs
+    $params->{FTS_Q_INTERVAL}      ||= 30;         # Interval for polling queue for new jobs
+    $params->{FTS_J_INTERVAL}      ||= 5;          # Interval for polling individual jobs
 
     # Set argument parsing at this level.
-    $options->{'batch-files=i'} = \$params->{BATCH_FILES};
+    $options->{'batch-files=i'}        = \$params->{BATCH_FILES};
     $options->{'link-pending-files=i'} = \$params->{FTS_LINK_PEND};
     $options->{'max-active-files=i'}   = \$params->{FTS_MAX_ACTIVE};
-    $options->{'service=s'} = \$params->{FTS_SERVICE};
-    $options->{'myproxy=s'} = \$params->{FTS_MYPROXY};
-    $options->{'spacetoken=s'} = \$params->{FTS_SPACETOKEN};
-    $options->{'mapfile=s'} = \$params->{FTS_MAPFILE};
-    $options->{'q_interval=i'} = \$params->{FTS_Q_INTERVAL};
-    $options->{'j_interval=i'} = \$params->{FTS_J_INTERVAL};
-    $options->{'poll_queue=i'} = \$params->{FTS_POLL_QUEUE};
-    $options->{'monalisa_host=s'} = \$params->{FTS_MONALISA_HOST};
-    $options->{'monalisa_port=i'} = \$params->{FTS_MONALISA_PORT};
-    $options->{'monalisa_cluster=s'} = \$params->{FTS_MONALISA_CLUSTER};
-    $options->{'monalisa_node=s'} = \$params->{FTS_MONALISA_NODE};
+    $options->{'default-link-active-files=i'} = \$params->{FTS_DEFAULT_LINK_ACTIVE};
+    $options->{'link-active-files=i'}  =  $params->{FTS_LINK_ACTIVE};
+    $options->{'service=s'}            = \$params->{FTS_SERVICE};
+    $options->{'myproxy=s'}            = \$params->{FTS_MYPROXY};
+    $options->{'spacetoken=s'}         = \$params->{FTS_SPACETOKEN};
+    $options->{'mapfile=s'}            = \$params->{FTS_MAPFILE};
+    $options->{'q_interval=i'}         = \$params->{FTS_Q_INTERVAL};
+    $options->{'j_interval=i'}         = \$params->{FTS_J_INTERVAL};
+    $options->{'poll_queue=i'}         = \$params->{FTS_POLL_QUEUE};
+    $options->{'monalisa_host=s'}      = \$params->{FTS_MONALISA_HOST};
+    $options->{'monalisa_port=i'}      = \$params->{FTS_MONALISA_PORT};
+    $options->{'monalisa_cluster=s'}   = \$params->{FTS_MONALISA_CLUSTER};
+    $options->{'monalisa_node=s'}      = \$params->{FTS_MONALISA_NODE};
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
     bless $self, $class;
 
     $self->init();
-    use Data::Dumper;
-    print 'FTS $self:  ', Dumper($self), "\n" if $self->{DEBUG};
+    $self->Dbgmsg('FTS $self:  ', Dumper($self)) if $self->{DEBUG};
     return $self;
 }
 
@@ -72,10 +79,6 @@ sub init
     $glite->SPACETOKEN($self->{FTS_SPACETOKEN}) if $self->{FTS_SPACETOKEN};
 
     $self->{Q_INTERFACE} = $glite;
-
-    print "Using service ",$glite->SERVICE,"\n"        if $glite->SERVICE;
-    print "Using myproxy ",$glite->MYPROXY,"\n"        if $glite->MYPROXY;
-    print "Using space-token ",$glite->SPACETOKEN,"\n" if $glite->SPACETOKEN;
 
     my $monalisa;
     my $use_monalisa = 1;
@@ -110,6 +113,26 @@ sub init
     $self->{FTS_Q_MONITOR} = $q_mon;
 
     $self->parseFTSmap() if ($self->{FTS_MAPFILE});
+
+    # We don't really want to have a maximum limit to the number of
+    # jobs we will submit to FTS, but we need to have something to
+    # prevent uncontrolled submissions at startup or after all
+    # transfers are drained.  Therefore we limit to a maximum number
+    # of jobs equal to twice the maximum number of active files
+    # divided by the files per batch.  This generous amount of jobs
+    # gives us a reasonable limit without too much worry of hitting a
+    # job limit in a prolonged period of high work.
+    my $max_jobs1 = POSIX::ceil( ($self->{FTS_MAX_ACTIVE} * 2) / $self->{BATCH_FILES} );
+
+    # Another limit to the number of jobs is the "live" file, which
+    # must be touched for every job within 5 minutes or FileDownload
+    # will throw the job away.  Because we poll jobs at a fixed rate,
+    # we must limit the number of jobs to keep this file from getting
+    # to old.  By default this limits us to 60 jobs.
+    my $max_jobs2 = 5*60 / $self->{FTS_J_INTERVAL};
+    
+    # Our actual job limit is the lower of our options
+    $self->{NJOBS} = $max_jobs1 > $max_jobs2 ? $max_jobs2 : $max_jobs1;
 }
 
 # FTS map parsing
@@ -126,7 +149,7 @@ sub parseFTSmap {
     my $map = {};
 
     if (!open MAP, "$mapfile") {	
-	print "FTSmap: Could not open ftsmap file $mapfile\n";
+	$self->Alert("FTSmap: Could not open ftsmap file $mapfile");
 	return 1;
     }
 
@@ -135,7 +158,7 @@ sub parseFTSmap {
 	s|^\s+||; 
 	next if /^\#/;
 	unless ( /^SRM.Endpoint=\"(.+)\"\s+FTS.Endpoint=\"(.+)\"/ ) {
-	    print "FTSmap: Can not parse ftsmap line:\n$_\n";
+	    $self->Alert("FTSmap: Can not parse ftsmap line: '$_'");
 	    next;
 	}
 
@@ -143,7 +166,7 @@ sub parseFTSmap {
     }
 
     unless (defined $map->{DEFAULT}) {
-	print "FTSmap: Default FTS endpoit is not defined in the ftsmap file $mapfile\n";
+	$self->Alert("FTSmap: Default FTS endpoit is not defined in the ftsmap file $mapfile");
 	return 1;
     }
 
@@ -161,17 +184,17 @@ sub getFTSService {
     my ($endpoint) = ( $to_pfn =~ /(srm.+)\?SFN=/ );
 
     unless ($endpoint) {
-	print" FTSmap: Could not get the end point from to_pfn $to_pfn\n";
+	$self->Alert("FTSmap: Could not get the end point from to_pfn $to_pfn");
     }
 
     if ( exists $self->{FTS_MAP} ) {
 	my $map = $self->{FTS_MAP};
 
 	$service = $map->{ (grep { $_ eq $endpoint } keys %$map)[0] || "DEFAULT" };
-	print "FTSmap: Could not get FTS service endpoint from ftsmap file for file, even default\n" unless $service;
+	$self->Alert("FTSmap: Could not get FTS service endpoint from ftsmap file for $endpoint") unless $service;
     }
 
-    #fall back to command line option
+    # fall back to command line option
     $service ||= $self->{FTS_SERVICE};
 
     return $service;
@@ -180,25 +203,24 @@ sub getFTSService {
 # If $to and $from are not given, then the question is:
 # "Are you too busy to take ANY transfers?"
 # If they are provided, then the question is:
-# "Are you too busy to take transfers on linke $from -> $to?"
+# "Are you too busy to take transfers on link $from -> $to?"
 sub isBusy
 {
     my ($self, $jobs, $tasks, $to, $from)  = @_;
-    my ($stats, $busy,$valid,%h,$n,$t);
-    $busy = $valid = $t = $n = 0;
+    my ($stats, $busy,$valid);
+    $busy = $valid = 0;
     my $t_valid = 10*60;  # Time until monitoring is considered valid
 
-    # We don't really want to have a maximum limit to the number of
-    # jobs we will submit to FTS, but we need to have something to
-    # prevent uncontrolled submissions at startup or after all
-    # transfers are drained.  Therefore we limit to a maximum number
-    # of jobs equal to twice the maximum number of active files
-    # divided by the files per batch.  This generous amount of jobs
-    # gives us a reasonable limit without too much worry of hitting a
-    # job limit in a prolonged period of high work.
-    my $max_jobs = POSIX::ceil( ($self->{FTS_MAX_ACTIVE} * 2) / $self->{BATCH_FILES} );
-    if (scalar(keys %$jobs) >= $max_jobs) {
-	&logmsg("FTS is busy:  maximum number of jobs ($max_jobs) reached") 
+    # FTS states to consider as "pending"
+    my @pending_states = ('Ready', 'Pending', 'undefined');
+
+    # FTS states to consider as "active".  This includes the pending
+    # states, because we expect they will become active at some point.
+    my @active_states = ('Active', @pending_states);
+
+    # Check if our global job limit is reached
+    if (scalar(keys %$jobs) >= $self->{NJOBS}) {
+	$self->Logmsg("FTS is busy:  maximum number of jobs ($self->{NJOBS}) reached") 
 	    if $self->{VERBOSE};
 	return 1;
     }
@@ -209,60 +231,86 @@ sub isBusy
 	# their state is resolved.
 	$stats = $self->{FTS_Q_MONITOR}->{LINKSTATS};
 
+	my %state_counts;
 	foreach my $file (keys %$stats) {
 	    if (exists $stats->{$file}{$from}{$to}) {
-		$h{ $stats->{$file}{$from}{$to} }++;
+		$state_counts{ $stats->{$file}{$from}{$to} }++;
 	    }
 	}
-	print "Transfer::FTS::isBusy Link Stats $from->$to\n",
-	Dumper(\%h), "\n" if $self->{DEBUG};
-
-	# Count files in the Ready, Pending or undefined state
-	foreach ( qw / Ready Pending undefined / )
-	{
-	    if ( defined($h{$_}) ) { $n += $h{$_}; }
-	}
-	# Compare to our limit
-	if ( $n >= $self->{FTS_LINK_PEND} ) { 
-	    $busy = 1; 
-	    &logmsg("FTS is busy for link $from->$to:  $n pending\n") if $self->{VERBOSE};
+	
+	$self->Dbgmsg("Transfer::FTS::isBusy Link Stats $from->$to\n",
+		      Dumper(\%state_counts)) if $self->{DEBUG};
+	
+	if ($self->{FTS_LINK_ACTIVE}->{$from} || $self->{FTS_DEFAULT_LINK_ACTIVE}) {
+	    # Count files in the Active state
+	    my $n_active = 0;
+	    foreach ( @active_states )
+	    {
+		if ( defined($state_counts{$_}) ) { $n_active += $state_counts{$_}; }
+	    }
+	    
+	    # Compare to our limit
+	    my $limit;
+	    $limit = $self->{FTS_DEFAULT_LINK_ACTIVE} if $self->{FTS_DEFAULT_LINK_ACTIVE};
+	    $limit = $self->{FTS_LINK_ACTIVE}->{$from} if $self->{FTS_LINK_ACTIVE}->{$from};
+	    
+	    if ( $n_active >= $limit ) { 
+		$busy = 1; 
+		$self->Logmsg("FTS is busy for link $from->$to with $n_active active files\n") if $self->{VERBOSE};
+	    }
+	} else {
+	    # Count files in the Ready, Pending or undefined state
+	    my $n_pend = 0;
+	    foreach ( @pending_states )
+	    {
+		if ( defined($state_counts{$_}) ) { $n_pend += $state_counts{$_}; }
+	    }
+	
+	    # Compare to our limit
+	    if ( $n_pend >= $self->{FTS_LINK_PEND} ) { 
+		$busy = 1; 
+		$self->Logmsg("FTS is busy for link $from->$to with $n_pend pending files\n") if $self->{VERBOSE};
+	    }
 	}
       
 	# The state data is only considered valid after a certain amount of time
-	if ( exists($stats->{START}) ) { $t = time - $stats->{START}; }
-	if ( $t > $t_valid ) { $valid = 1; }
+	my $dt;
+	if ( exists($stats->{START}) ) { $dt = time - $stats->{START}; }
+	if ( $dt > $t_valid ) { $valid = 1; }
 
-	&dbgmsg("Transfer::FTS::isBusy for link $from->$to: busy=$busy valid=$valid") if $self->{DEBUG};
+	$self->Dbgmsg("Transfer::FTS::isBusy for link $from->$to: busy=$busy valid=$valid") if $self->{DEBUG};
     } else {
 	# Check total transfer busy status based on maximum number of
 	# "active" files.  This is the maximum amount of parallel
-	# transfer we will allow.  Assume undefined is active until
-	# the state is resolved
+	# transfer we will allow.
 	$stats = $self->{FTS_Q_MONITOR}->WorkStats();
+	my %state_counts;
 	if ( $stats &&
 	     exists $stats->{FILES} &&
 	     exists $stats->{FILES}{STATES} )
 	{
 	    # Count the number of all file states
-	    foreach ( values %{$stats->{FILES}{STATES}} ) { $h{$_}++; }
+	    foreach ( values %{$stats->{FILES}{STATES}} ) { $state_counts{$_}++; }
 	}
       
 	# Count files in the Active state
-	foreach ( qw / Active undefined / )
+	my $n_active = 0;
+	foreach ( @active_states )
 	{
-	    if ( defined($h{$_}) ) { $n += $h{$_}; }
+	    if ( defined($state_counts{$_}) ) { $n_active += $state_counts{$_}; }
 	}
 	# If there are FTS_MAX_ACTIVE files in the Active || undefined state
-	if ( $n >= $self->{FTS_MAX_ACTIVE} ) { 
+	if ( $n_active >= $self->{FTS_MAX_ACTIVE} ) { 
 	    $busy = 1;
-	    &logmsg("FTS is busy:  maximum active files ($self->{FTS_MAX_ACTIVE}) reached") if $self->{VERBOSE};
+	    $self->Logmsg("FTS is busy:  maximum active files ($self->{FTS_MAX_ACTIVE}) reached") if $self->{VERBOSE};
 	}
 	
 	# The state data is only considered valid after a certain amount of time
-	if ( exists($stats->{START}) ) { $t = time - $stats->{START}; }
-	if ( $t > $t_valid ) { $valid = 1; }
+	my $dt;
+	if ( exists($stats->{START}) ) { $dt = time - $stats->{START}; }
+	if ( $dt > $t_valid ) { $valid = 1; }
 	 
-	&dbgmsg("Transfer::FTS::isBusy in total $from->$to: busy=$busy valid=$valid") if $self->{DEBUG};
+	$self->Dbgmsg("Transfer::FTS::isBusy in total $from->$to: busy=$busy valid=$valid") if $self->{DEBUG};
     }
 
     return $busy && $valid ? 1 : 0;
@@ -301,24 +349,22 @@ sub startBatch
     my %args = (
 		COPYJOB=>"$dir/copyjob",
 		WORKDIR=>$dir,
-		FILES=>\%files,
-#		SERVICE=>$service,
+		FILES=>\%files
 		);
     
     my $job = PHEDEX::Transfer::Backend::Job->new(%args);
 
-    #this writes out a copyjob file
+    # this writes out a copyjob file
     $job->Prepare();
 
 
-    #now get FTS service for the job
-    #we take a first file in the job and determine
-    #the FTS endpoint based on this (using ftsmap file, if given)
+    # now get FTS service for the job
+    # we take a first file in the job and determine
+    # the FTS endpoint based on this (using ftsmap file, if given)
     my $service = $self->getFTSService( $batch[0]->{FROM_PFN} );
 
     unless ($service) {
 	my $reason = "Cannot identify FTS service endpoint based on a sample source PFN $batch[0]->{FROM_PFN}";
-	print $reason, "\n";
 	$job->Log("$reason\nSee download agent log file details, grep for\ FTSmap to see problems with FTS map file");
 	foreach my $file ( values %files ) {
 	    $file->Reason($reason);
@@ -340,7 +386,6 @@ sub startBatch
             $self->mkTransferSummary($file, $job);
         }
 
-#	$self->mkTranserSummary();
 	return;
     }
 
@@ -374,10 +419,9 @@ sub setup_callbacks
 sub job_state_change
 {
     my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-#    print "Job-state callback", Dumper $arg0, "\n", Dumper $arg1, "\n";
 
     my $job = $arg1->[0];
-    print "Job-state callback ID ",$job->ID,", STATE ",$job->State,"\n";
+    $self->Dbgmsg("Job-state callback ID ",$job->ID,", STATE ",$job->State) if $self->{DEBUG};
 
     if ($job->ExitStates->{$job->State}) {
     }else{
@@ -388,13 +432,13 @@ sub job_state_change
 sub file_state_change
 {
   my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-#  print "File-state callback", Dumper $arg0, "\n", Dumper $arg1, "\n"; 
 
   my $file = $arg1->[0];
   my $job  = $arg1->[1];
 
-  print "File-state callback TASKID ",$file->TaskID," JOBID ",$job->ID," STATE ",$file->State,' ',$file->Destination,"\n";
-
+  $self->Dbgmsg("File-state callback TASKID ",$file->TaskID," JOBID ",$job->ID,
+	  " STATE ",$file->State,' ',$file->Destination) if $self->{DEBUG};
+  
   if ($file->ExitStates->{$file->State}) {
       $self->mkTransferSummary($file,$job);
   }
@@ -405,9 +449,9 @@ sub mkTransferSummary {
     my $file = shift;
     my $job = shift;
 
-    #by now we report 0 for 'Finished' and 1 for Failed or Canceled
-    #where would we do intelligent error processing 
-    #and report differrent erorr codes for different errors?
+    # by now we report 0 for 'Finished' and 1 for Failed or Canceled
+    # where would we do intelligent error processing 
+    # and report differrent erorr codes for different errors?
     my $status = $file->ExitStates->{$file->State};
 
     $status = ($status == 1)?0:1;
@@ -424,10 +468,10 @@ sub mkTransferSummary {
 		   DURATION=>$file->Duration || 0
 		   };
     
-    #make a done file
+    # make a 'done' file
     &output($job->Workdir."/T".$file->{TASKID}."X", Dumper $summary);
 
-    print "mkTransferSummary done for task: ",$job->Workdir,' ',$file->TaskID,"\n";
+    $self->Dbgmsg("mkTransferSummary done for task: ",$job->Workdir,' ',$file->TaskID) if $self->{DEBUG};
 }
 
 1;
