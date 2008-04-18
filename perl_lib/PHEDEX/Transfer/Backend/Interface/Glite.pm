@@ -24,7 +24,8 @@ our %params =
 	(
 	  SERVICE	=> undef,	# Transfer service URL
 	  MYPROXY	=> undef,
-	  SPACETOKEN	=> undef,
+	  PASSWORD      => undef,
+	  SPACETOKEN	=> undef,       
 	  CHANNEL	=> undef,	# Channel name to match
 	  USERDN	=> undef,	# Restrict to specific user DN
 	  VONAME	=> undef,	# Restrict to specific VO
@@ -308,10 +309,15 @@ sub Submit
   my $cmd = "glite-transfer-submit". 
       ' -s ' . $job->Service .
       ((defined $self->MYPROXY)    ? ' -m '.$self->MYPROXY    : "") .
+      ((defined $self->PASSWORD)   ? ' -p '.$self->PASSWORD   : "") .
       ((defined $self->SPACETOKEN) ? ' -t '.$self->SPACETOKEN : "") .
       ' -f ' . $job->Copyjob;
-# print $self->Hdr,"Execute: $cmd\n";
-  open GLITE, "$cmd 2>&1 |" or die "$cmd: $!\n";
+
+  my $logsafe_cmd = $cmd;
+  $logsafe_cmd =~ s/ -p [\S]+/ -p _censored_/;
+  push @raw, $logsafe_cmd, "\n";
+
+  open GLITE, "$cmd 2>&1 |" or die "$logsafe_cmd: $!\n";
   while ( <GLITE> )
   {
     push @raw, $_;
@@ -322,7 +328,7 @@ sub Submit
   $result{RAW_OUTPUT} = \@raw;
   close GLITE or do
   {
-      print "close: $cmd: $!\n";
+      print "close: $logsafe_cmd: $!\n";
       $result{ERROR} = 'close Submit: id=' . ( $id || 'undefined' ) . $!;
       return \%result;
   };
