@@ -408,7 +408,7 @@ sub startBatch
 	$files{$task->{TO_PFN}} = PHEDEX::Transfer::Backend::File->new(%args);
     }
  
-$DB::single=1;
+#$DB::single=1;
     my $avg_priority = int( $sum_priority / $n_files );
     $avg_priority = $self->{PRIORITY_MAP}{$avg_priority} || $avg_priority;
     my %args = (
@@ -443,7 +443,7 @@ $DB::single=1;
     $job->Service($service);
 
     my $result = $self->{Q_INTERFACE}->Submit($job);
-    $job->Log( $result->{INFO} ) if exists $result->{INFO};
+    $job->Log( $result->{INFO} ) if $result->{INFO};
 
     if ( exists $result->{ERROR} ) { 
 	# something went wrong...
