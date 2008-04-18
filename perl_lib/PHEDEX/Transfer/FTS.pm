@@ -345,11 +345,15 @@ sub startBatch
 		    );
 	$files{$task->{TO_PFN}} = PHEDEX::Transfer::Backend::File->new(%args);
     }
-    
+ 
+$DB::single=1;
     my %args = (
-		COPYJOB=>"$dir/copyjob",
-		WORKDIR=>$dir,
-		FILES=>\%files
+		COPYJOB  => "$dir/copyjob",
+		WORKDIR  => $dir,
+		FILES    => \%files,
+		VERBOSE	 => 1,
+		PRIORITY => $task->{PRIORITY},
+#		SERVICE => $service,
 		);
     
     my $job = PHEDEX::Transfer::Backend::Job->new(%args);
@@ -375,6 +379,7 @@ sub startBatch
     $job->Service($service);
 
     my $result = $self->{Q_INTERFACE}->Submit($job);
+    $job->Log( $result->{INFO} ) if exists $result->{INFO};
 
     if ( exists $result->{ERROR} ) { 
 	# something went wrong...
@@ -385,7 +390,6 @@ sub startBatch
             $file->Reason($reason);
             $self->mkTransferSummary($file, $job);
         }
-
 	return;
     }
 
@@ -419,6 +423,11 @@ sub setup_callbacks
 sub job_state_change
 {
     my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+
+#   I get into this routine every time a job is monitored. Because I don't
+#   want verbose monitoring forever, I turn it off here. So the first
+#   monitoring call will have been verbose, the rest will not
+    $job->VERBOSE(0);
 
     my $job = $arg1->[0];
     $self->Dbgmsg("Job-state callback ID ",$job->ID,", STATE ",$job->State) if $self->{DEBUG};
