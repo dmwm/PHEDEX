@@ -48,6 +48,7 @@ sub new
     $options->{'myproxy=s'}            = \$params->{FTS_MYPROXY};
     $options->{'passfile=s'}           = \$params->{FTS_PASSFILE};
     $options->{'spacetoken=s'}         = \$params->{FTS_SPACETOKEN};
+    $options->{'priority=s'}           = \$params->{FTS_PRIORITY};
     $options->{'mapfile=s'}            = \$params->{FTS_MAPFILE};
     $options->{'q_interval=i'}         = \$params->{FTS_Q_INTERVAL};
     $options->{'j_interval=i'}         = \$params->{FTS_J_INTERVAL};
@@ -156,6 +157,22 @@ sub init
     
     # Our actual job limit is the lower of our options
     $self->{NJOBS} = $max_jobs1 > $max_jobs2 ? $max_jobs2 : $max_jobs1;
+
+    # How do we handle task-priorities?
+    # If priorities have been specified on the command-line, they should
+    # have the syntax 'm1=p1,m2=p2,m3=p3', where p<n> is the task priority
+    # from TMDB and m<n> is the priority to map it to. For all p<n> that do
+    # not get overridden on the command-line, the priority is taken as given.
+    $self->{PRIORITY_MAP} = {};
+    if ( $self->{FTS_PRIORITY} )
+    {
+      foreach ( split(',',$self->{FTS_PRIORITY}) )
+      {
+        $self->Fatal("Corrupt Priority specification \"$_\"")
+		unless m%^(.*)=(.*)$%;
+        $self->{PRIORITY_MAP}{$1} = $2;
+      }
+    }
 }
 
 # FTS map parsing
@@ -380,13 +397,16 @@ sub startBatch
 	$files{$task->{TO_PFN}} = PHEDEX::Transfer::Backend::File->new(%args);
     }
  
+$DB::single=1;
     my $avg_priority = int( $sum_priority / $n_files );
+    $avg_priority = $self->{PRIORITY_MAP}{$avg_priority} || $avg_priority;
     my %args = (
 		COPYJOB  => "$dir/copyjob",
 		WORKDIR  => $dir,
 		FILES    => \%files,
 		VERBOSE	 => 1,
-		PRIORITY => $avg_priority
+		PRIORITY => $avg_priority,
+#		SERVICE => $service,
 		);
     
     my $job = PHEDEX::Transfer::Backend::Job->new(%args);
