@@ -163,7 +163,18 @@ sub init
     # have the syntax 'm1=p1,m2=p2,m3=p3', where p<n> is the task priority
     # from TMDB and m<n> is the priority to map it to. For all p<n> that do
     # not get overridden on the command-line, the priority is taken as given.
-    $self->{PRIORITY_MAP} = {};
+    #
+    # PhEDEx task priorities are 0-5, high to low. FTS is 1-5, low to high.
+    # Map PhEDEx to the mid-range so we have some margin to play with.
+    $self->{PRIORITY_MAP} =
+	{
+	  0 => 4,
+	  1 => 4,
+	  2 => 3,
+	  3 => 3,
+	  4 => 2,
+	  5 => 2,
+	};
     if ( $self->{FTS_PRIORITY} )
     {
       foreach ( split(',',$self->{FTS_PRIORITY}) )
