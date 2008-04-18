@@ -27,8 +27,8 @@ our %params =
 	(
 	  ID		=> undef,	# Determined when the job is submitted
 	  SERVICE       => undef,       # FTS endpoint - backend specific!
-	  TIMEOUT	=>    0,	# Timeout for total job transfer
-	  PRIORITY	=>    1,	# Priority for total job transfer
+	  TIMEOUT	=>     0,	# Timeout for total job transfer
+	  PRIORITY	=>     3,	# Priority for total job transfer
 	  JOB_POSTBACK	=> undef,	# Callback per job state-change
 	  FILE_POSTBACK	=> undef,	# Callback per file state-change
 	  FILES		=> undef,	# A PHEDEX::Transfer::Backend::File array
@@ -37,6 +37,7 @@ our %params =
 	  LOG           => undef,	# Internal log
 	  RAW_OUTPUT	=> undef,       # Raw output of status command
 	  SUMMARY	=> '',		# Summary of job-status so far
+	  VERBOSE	=>     0,		# Verbosity for Transfer::Backend::Interface commands
 	);
 
 # These are not allowed to be set by the Autoloader...
