@@ -241,6 +241,27 @@ sub Files
   }
 }
 
+=head2 Dump
+
+Write a Data::Dumper dump of the job to an external file. Assumes WORKDIR
+has been set, and is not protected against any of a number of things that
+might possibly go wrong. Used to maintain job-definition across restarts
+of the agent.
+
+=cut
+
+use Data::Dumper;
+sub Dump
+{
+  my $self = shift;
+  my ($file);
+  $file = $self->{WORKDIR} . '/job-' . $self->{ID} . '.dump';
+
+  open DUMP, "> $file" or $self->Fatal("Cannot open $file for dump of job");
+  print DUMP Dumper($self);
+  close DUMP;
+}
+
 =head2 Prepare
 
 Write a copyjob file for the job, in the way that FTS expects (i.e. one 
