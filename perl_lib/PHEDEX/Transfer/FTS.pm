@@ -46,6 +46,7 @@ sub new
     $options->{'link-active-files=i'}  =  $params->{FTS_LINK_ACTIVE};
     $options->{'service=s'}            = \$params->{FTS_SERVICE};
     $options->{'myproxy=s'}            = \$params->{FTS_MYPROXY};
+    $options->{'passfile=s'}           = \$params->{FTS_PASSFILE};
     $options->{'spacetoken=s'}         = \$params->{FTS_SPACETOKEN};
     $options->{'mapfile=s'}            = \$params->{FTS_MAPFILE};
     $options->{'q_interval=i'}         = \$params->{FTS_Q_INTERVAL};
@@ -77,6 +78,28 @@ sub init
 
     $glite->MYPROXY($self->{FTS_MYPROXY}) if $self->{FTS_MYPROXY};
     $glite->SPACETOKEN($self->{FTS_SPACETOKEN}) if $self->{FTS_SPACETOKEN};
+
+    if ($self->{FTS_PASSFILE}) {
+	my $passfile = $self->{FTS_PASSFILE};
+	my $ok = 1;
+	if (! -f $passfile) {
+	    $self->Alert("FTS passfile '$passfile' does not exist");
+	    $ok = 0;
+	} elsif (! -r $passfile) {
+	    $self->Alert("FTS passfile '$passfile' is not readable");
+	    $ok = 0;
+	} elsif ( (stat($passfile))[2] != 0100600) {
+	    $self->Warn("FTS passfile '$passfile' has vulnerable file access permissions, ",
+			"please restrict with 'chmod 600 $passfile'");
+	}
+
+	if ($ok) {
+	    open PASSFILE, "< $passfile" or die $!;
+	    my $pass = <PASSFILE>; chomp $pass;
+	    close PASSFILE;
+	    $glite->PASSWORD($pass);
+	}
+    }
 
     $self->{Q_INTERFACE} = $glite;
 
@@ -328,11 +351,22 @@ sub startBatch
     &touch("$dir/live");
     $jobs->{$jobname} = $info;
 
-    #create the copyjob file via Job->Prepare method
+    # create the copyjob file via Job->Prepare method
     my %files = ();
 
+    # Create a job from a group of files.
+    # Because the FTS priorities are per job and the PhEDEx priorities
+    # are per file (task), we take an average of the priorities of the
+    # tasks in order to map that onto an FTS priority.  This should be
+    # reasonable most of the time because we ought to get tasks in
+    # batches of mostly the same priority.
+    my $n_files = 0;
+    my $sum_priority = 0;
     foreach my $taskid ( keys %{$info->{TASKS}} ) {
 	my $task = $tasks->{$taskid};
+
+	$n_files++;
+	$sum_priority += $task->{PRIORITY};
 
 	my %args = (
 		    SOURCE=>$task->{FROM_PFN},
@@ -346,14 +380,13 @@ sub startBatch
 	$files{$task->{TO_PFN}} = PHEDEX::Transfer::Backend::File->new(%args);
     }
  
-$DB::single=1;
+    my $avg_priority = int( $sum_priority / $n_files );
     my %args = (
 		COPYJOB  => "$dir/copyjob",
 		WORKDIR  => $dir,
 		FILES    => \%files,
 		VERBOSE	 => 1,
-		PRIORITY => $task->{PRIORITY},
-#		SERVICE => $service,
+		PRIORITY => $avg_priority
 		);
     
     my $job = PHEDEX::Transfer::Backend::Job->new(%args);
@@ -423,13 +456,13 @@ sub setup_callbacks
 sub job_state_change
 {
     my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+    my $job = $arg1->[0];
 
-#   I get into this routine every time a job is monitored. Because I don't
-#   want verbose monitoring forever, I turn it off here. So the first
-#   monitoring call will have been verbose, the rest will not
+    # I get into this routine every time a job is monitored. Because I don't
+    # want verbose monitoring forever, I turn it off here. So the first
+    # monitoring call will have been verbose, the rest will not
     $job->VERBOSE(0);
 
-    my $job = $arg1->[0];
     $self->Dbgmsg("Job-state callback ID ",$job->ID,", STATE ",$job->State) if $self->{DEBUG};
 
     if ($job->ExitStates->{$job->State}) {
