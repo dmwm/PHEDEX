@@ -325,7 +325,7 @@ sub isBusy
 	}
       
 	# The state data is only considered valid after a certain amount of time
-	my $dt;
+	my $dt = 0;
 	if ( exists($stats->{START}) ) { $dt = time - $stats->{START}; }
 	if ( $dt > $t_valid ) { $valid = 1; }
 
@@ -357,7 +357,7 @@ sub isBusy
 	}
 	
 	# The state data is only considered valid after a certain amount of time
-	my $dt;
+	my $dt = 0;
 	if ( exists($stats->{START}) ) { $dt = time - $stats->{START}; }
 	if ( $dt > $t_valid ) { $valid = 1; }
 	 
