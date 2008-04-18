@@ -28,7 +28,7 @@ use PHEDEX::BlockDeactivate::Agent;
              "label=s"     => \$args{LABEL},
              "node=s"      => \$args{MYNODE},
              "once"        => \$args{ONCE},
-             "age"         => \$args{HOLDOFF},
+             "age=i"         => \$args{HOLDOFF},
 	     "help|h"      => sub { &usage() });
 
 my $agent = PHEDEX::BlockDeactivate::Agent->new(%args,@ARGV);
