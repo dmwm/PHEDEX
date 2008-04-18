@@ -31,6 +31,7 @@ our %params =
 	  SSITE		=> undef,	# Specify source site name
 	  DSITE		=> undef,	# Specify destination site name
 	  ME		=> 'Glite',	# Arbitrary name for this object
+	  PRIORITY	=> 3,		# Default piority configured in FTS channels
 	);
 
 our %states =
@@ -167,7 +168,9 @@ sub ListJob
   my ($cmd,$state,%result,$dst,@raw);
   my ($key,$value);
 
-  $cmd = "glite-transfer-status -l -s " . $job->Service . ' ' . $job->ID;
+  $cmd = 'glite-transfer-status -l ';
+  $cmd .= ' --verbose' if $job->VERBOSE;
+  $cmd .= ' -s ' . $job->Service . ' ' . $job->ID;
   open GLITE, "$cmd 2>&1 |" or do
   {
       print "$cmd: $!\n";
@@ -248,6 +251,40 @@ sub StatePriority
   die "Unknown state \"$state\" encountered in ",__PACKAGE__,"\n";
 }
 
+=head2 SetPriority
+
+Take a PHEDEX::Transfer::Backend::Job object reference as input, and, if
+the job is specified to run at a different priority to the glite default,
+set the priority accordingly in FTS.
+
+=cut
+
+sub SetPriority
+{
+  my ($self,$job) = @_;
+  my ($priority,@raw,%result);
+$DB::single=1;
+  return unless $priority = $job->Priority;
+  return if $priority == $self->{PRIORITY}; # Save an interaction with the server
+
+  my $cmd = "glite-transfer-setpriority";
+  if ( $job->Service ) { $cmd .= ' -s ' . $job->Service; }
+  $cmd .= ' ' . $job->ID . ' ' . $priority;
+  print $self->Hdr,"Execute: $cmd\n";
+  open GLITE, "$cmd 2>&1 |" or die "$cmd: $!\n";
+  while ( <GLITE> )
+  {
+    push @raw, $_;
+  }
+  close GLITE or do
+  {
+      print "close: $cmd: $!\n";
+      $result{ERROR} = 'close SetPriority: id=' . $job->ID . ' ' . $!;
+  };
+  $result{RAW_OUTPUT} = \@raw;
+  return \%result;
+}
+
 =head2 Submit
 
 Take a PHEDEX::Transfer::Backend::Job object reference as input, submit the
@@ -291,6 +328,10 @@ sub Submit
   };
   print $self->Hdr,"Job $id submitted...\n";
   $result{ID} = $id;
+  $job->ID($id);
+
+  $result{INFO} = $self->SetPriority($job);
+
   return \%result;
 }
 
