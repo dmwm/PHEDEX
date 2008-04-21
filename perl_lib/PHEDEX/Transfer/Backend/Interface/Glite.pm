@@ -168,6 +168,7 @@ sub ListJob
   my ($self,$job) = @_;
   my ($cmd,$state,%result,$dst,@raw);
   my ($key,$value);
+  my (@h,$h,$preamble);
 
   $cmd = 'glite-transfer-status -l ';
 # $cmd .= ' --verbose' if $job->VERBOSE;
@@ -178,15 +179,39 @@ sub ListJob
       $result{ERROR} = 'ListJob: ' . $job->ID . ': ' . $!;
       return \%result;
   };
-  $state = <GLITE>;
-  chomp $state if (defined $state);
-  $result{JOB_STATE} = $state || 'undefined';
-
-  my (@h,$h);
-
-  while ( <GLITE> )
+  @raw = <GLITE>;
+  $result{RAW_OUTPUT} = [@raw];
+  close GLITE or do
   {
-    push @raw, $_;
+      print "close: $cmd: $!\n";
+      $result{ERROR} = 'close ListJob: ' . $job->ID . ':' . $!;
+      return \%result;
+  };
+
+  $preamble=1;
+  while ( $_ = shift @raw )
+  {
+    print "raw: $_";
+    if ( $preamble )
+    {
+      if ( m%^\s*([A-Z,a-z]+)\s*$% ) # non-verbose case
+      {
+        $state = $1;
+        $preamble = 0;
+      }
+      if ( m%^\s*Status:\s+([A-Z,a-z]+)\s*$% ) # verbose case
+      {
+        $state = $1;
+        $preamble = 0;
+      }
+      if ( m%^\s+Source:\s+(.*)\s*$% )
+      {
+        unshift @raw, $_;
+        $preamble = 0;
+      }
+      next;
+    }
+
     if ( m%^\s+Source:\s+(.*)\s*$% )
     {
 #     A 'Source' line is the first in a group for a single src->dst transfer
@@ -195,13 +220,9 @@ sub ListJob
     }
     if ( m%^\s+(\S+):\s+(.*)\s*$% ) { $h->{uc $1} = $2; }
   }
-  $result{RAW_OUTPUT} = \@raw;
-  close GLITE or do
-  {
-      print "close: $cmd: $!\n";
-      $result{ERROR} = 'close ListJob: ' . $job->ID . ':' . $!;
-      return \%result;
-  };
+
+  chomp $state if (defined $state);
+  $result{JOB_STATE} = $state || 'undefined';
 
   push @h, $h if $h;
   foreach $h ( @h )
