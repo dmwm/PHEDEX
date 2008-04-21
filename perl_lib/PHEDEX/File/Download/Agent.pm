@@ -657,6 +657,7 @@ sub fill
         if $$self{VERBOSE};
 
     # Determine link probability from recent usage.
+    my $goodlinks = 0;
     foreach my $slot (@{$$self{STATS}})
     {
 	foreach my $to (keys %{$$slot{LINKS}})
@@ -669,11 +670,17 @@ sub fill
 		$stats{$to}{$from}{DONE} += ($$s{DONE} || 0);
 		$stats{$to}{$from}{USED} += ($$s{USED} || 0);
 		$stats{$to}{$from}{ERRORS} += ($$s{ERRORS} || 0);
+
+		# Count the "good" links: if something was accomplished and there weren't 100 errors
+		if ($stats{$to}{$from}{DONE} && $stats{$to}{$from}{ERRORS} < 100) {
+		    $goodlinks++;
+		}
 	    }
 	}
     }
 
     my ($W, $wmin) = (0, 0.02 * $nlinks);
+    my $skippedlinks = 0;
     foreach my $to (keys %todo)
     {
 	foreach my $from (keys %{$todo{$to}})
@@ -683,10 +690,21 @@ sub fill
 	    # Pass links with too many errors.
 	    if (($$entry{ERRORS} || 0) > 100)
 	    {
-		$self->Logmsg("too many ($$entry{ERRORS}) recent errors on"
-			. " link $from -> $to, not allocating transfers")
+		$self->Logmsg("too many ($$entry{ERRORS}) recent errors on ",
+			      "link $from -> $to, not allocating transfers")
 		    if $$self{VERBOSE};
 		delete $todo{$to}{$from};
+		$skippedlinks++;
+		next;
+	    }
+
+	    # Pass links which are busy
+	    if ( $$self{BACKEND}->isBusy ($jobs, $tasks, $to, $from) ) {
+		$self->Logmsg("link $from -> $to is busy at the moment, ",
+			      "not allocating transfers")
+		    if $$self{VERBOSE};
+		delete $todo{$to}{$from};
+		$skippedlinks++;
 		next;
 	    }
 
@@ -711,6 +729,18 @@ sub fill
 	}
     }
 
+    # If we have nothing to do because all the links were skipped,
+    # check if there were any recent transfers on good links, and
+    # sync faster if there was
+    if ($skippedlinks == $nlinks && $goodlinks 
+	&& $$self{NEXT_SYNC} - $now > 300 ) {
+	$$self{NEXT_SYNC} = $now + 300;
+	$self->Logmsg("all links were skipped, scheduling ",
+		      "next synchronisation in five minutes")
+	    if $$self{VERBOSE};
+	return;
+    }
+
     my @P;
     foreach my $to (sort keys %todo)
     {
@@ -730,6 +760,7 @@ sub fill
                 if $$self{VERBOSE};
 	}
     }
+
 
     # For each available job slot, determine which link should have
     # the transfers based on the probability function calculated from
@@ -761,25 +792,29 @@ sub fill
 	my $jobname = "job.$$self{BOOTTIME}.$id";
 	my $dir = "$$self{WORKDIR}/$jobname";
 	&mkpath($dir);
-
+	
+	$$self{BACKEND}->startBatch ($jobs, $tasks, $dir, $jobname, $todo{$to}{$from});
 	$self->Logmsg("copy job $jobname assigned to link $from -> $to with "
-		. sprintf('p=%0.3f and W=%0.3f and ', $p, $stats{$to}{$from}{W})
-		. scalar(@{$todo{$to}{$from}})
-		. " transfer tasks in queue")
+		      . sprintf('p=%0.3f and W=%0.3f and ', $p, $stats{$to}{$from}{W})
+		      . scalar(@{$todo{$to}{$from}})
+		      . " transfer tasks in queue")
 	    if $$self{VERBOSE};
 
-	unless ( $$self{BACKEND}->isBusy ($jobs, $tasks, $to, $from) ) {
-	    $$self{BACKEND}->startBatch ($jobs, $tasks, $dir, $jobname, $todo{$to}{$from});
-	}
-	
-	# If we exhausted the files on this link, remove the link's
-	# share from P.  We have to recalculate P then also.
-	if (! @{$todo{$to}{$from}} && ! $$self{BACKEND}->isBusy($jobs, $tasks))
-	{
-            $self->Logmsg("transfers on link $from -> $to exhausted,"
-		    . " recalculating link probabilities")
-	        if $$self{VERBOSE};
+	my $linkbusy = $$self{BACKEND}->isBusy($jobs, $tasks, $to, $from);
+	my $linkexhausted = @{$todo{$to}{$from}} ? 0 : 1;
 
+	# If we exhausted the files on this link or the link is busy, remove the link's
+	# share from P.  We have to recalculate P then also.
+	if ( ($linkexhausted || $linkbusy) && ! $$self{BACKEND}->isBusy($jobs, $tasks))
+	{
+            $self->Logmsg("transfers on link $from -> $to exhausted, ",
+			  "recalculating link probabilities")
+	        if $linkexhausted && $$self{VERBOSE};
+
+            $self->Logmsg("link $from -> $to is busy, ",
+			  "recalculating link probabilities")
+	        if $linkbusy && $$self{VERBOSE};
+	    
 	    splice(@P, $i, 1);
 	    $W -= $stats{$to}{$from}{W};
 	    for ($i = 0; $i <= $#P; ++$i)
@@ -798,8 +833,10 @@ sub fill
                     if $$self{VERBOSE};
 	    }
 
-	    --$nlinks;
-	    ++$exhausted;
+	    if ($linkexhausted) {
+		--$nlinks;
+		++$exhausted;
+	    }
         }
     }
 
