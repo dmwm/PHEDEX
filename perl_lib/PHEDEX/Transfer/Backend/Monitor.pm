@@ -511,6 +511,7 @@ sub QueueJob
   foreach ( values %{$job->Files} )
   {
     $self->WorkStats('FILES', $_->Destination, $_->State);
+    $self->LinkStats($_->Destination, $_->FromNode, $_->ToNode, $_->State);
   }
   $job->Priority($priority);
   $self->{QUEUE}->enqueue( $priority, $job );
