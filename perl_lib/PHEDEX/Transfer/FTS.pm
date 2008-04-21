@@ -258,9 +258,8 @@ sub getFTSService {
 sub isBusy
 {
     my ($self, $jobs, $tasks, $to, $from)  = @_;
-    my ($stats, $busy,$valid);
-    $busy = $valid = 0;
-    my $t_valid = 10*60;  # Time until monitoring is considered valid
+    my ($stats, $busy);
+    $busy = 0;
 
     # FTS states to consider as "pending"
     my @pending_states = ('Ready', 'Pending', 'undefined');
@@ -324,12 +323,7 @@ sub isBusy
 	    }
 	}
       
-	# The state data is only considered valid after a certain amount of time
-	my $dt = 0;
-	if ( exists($stats->{START}) ) { $dt = time - $stats->{START}; }
-	if ( $dt > $t_valid ) { $valid = 1; }
-
-	$self->Dbgmsg("Transfer::FTS::isBusy for link $from->$to: busy=$busy valid=$valid") if $self->{DEBUG};
+	$self->Dbgmsg("Transfer::FTS::isBusy for link $from->$to: busy=$busy") if $self->{DEBUG};
     } else {
 	# Check total transfer busy status based on maximum number of
 	# "active" files.  This is the maximum amount of parallel
@@ -355,16 +349,11 @@ sub isBusy
 	    $busy = 1;
 	    $self->Logmsg("FTS is busy:  maximum active files ($self->{FTS_MAX_ACTIVE}) reached") if $self->{VERBOSE};
 	}
-	
-	# The state data is only considered valid after a certain amount of time
-	my $dt = 0;
-	if ( exists($stats->{START}) ) { $dt = time - $stats->{START}; }
-	if ( $dt > $t_valid ) { $valid = 1; }
 	 
-	$self->Dbgmsg("Transfer::FTS::isBusy in total $from->$to: busy=$busy valid=$valid") if $self->{DEBUG};
+	$self->Dbgmsg("Transfer::FTS::isBusy in total busy=$busy") if $self->{DEBUG};
     }
 
-    return $busy && $valid ? 1 : 0;
+    return $busy;
 }
 
 
