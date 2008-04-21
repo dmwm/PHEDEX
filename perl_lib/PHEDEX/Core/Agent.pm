@@ -876,7 +876,7 @@ sub process
 
   # Wait a little while.
   $self->maybeStop();
-  $self->Dbgmsg("starting idle()") if $self->{DEBUG};
+# $self->Dbgmsg("starting idle()") if $self->{DEBUG};
   my $t1 = &mytimeofday();
   $self->idle (@pending);
   my $t2 = &mytimeofday();
