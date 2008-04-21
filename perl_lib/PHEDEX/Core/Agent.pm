@@ -1509,7 +1509,7 @@ sub _process
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
   my ($start,$t,$t1);
-  print $self->Hdr,"starting '_process'\n" if $self->{VERBOSE};
+  print $self->Dbgmsg("starting '_process'") if $self->{DEBUG};
 
   if ( exists($self->{stats}{process}) )
   {
@@ -1532,7 +1532,7 @@ sub _process
     $self->{stats}{process}{_offCPU} = $t;
   }
 
-  print $self->Hdr,"ending '_process'\n" if $self->{VERBOSE};
+  print $self->Dbgmsg("ending '_process'") if $self->{DEBUG};
   $kernel->delay_set('_process',$self->{WAITTIME}) if $self->{WAITTIME};
 }
 
@@ -1540,11 +1540,11 @@ sub _maybeStop
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
 
-  print $self->Hdr,"starting '_maybeStop'\n" if $self->{VERBOSE} >= 3;
+  print $self->Dbgmsg("starting '_maybeStop'") if $self->{DEBUG};
   $self->{stats}{maybeStop}++ if exists $self->{stats}{maybeStop};;
 
   $self->maybeStop();
-  print $self->Hdr,"ending '_maybeStop'\n" if $self->{VERBOSE} >= 3;
+  print $self->Dbgmsg("ending '_maybeStop'") if $self->{DEBUG};
   $kernel->delay_set('_maybeStop', 1);
 }
 
