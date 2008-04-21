@@ -37,6 +37,8 @@ sub new
 
     # Remember various useful details.
     $self->{MASTER} = $master;  # My owner
+    $self->{VERBOSE} = $master->{VERBOSE} || 0;
+    $self->{DEBUG} = $master->{DEBUG} || 0;
     $self->{BOOTTIME} = time(); # "Boot" time for this agent
     $self->{BATCHID} = 0;       # Running batch counter
 
