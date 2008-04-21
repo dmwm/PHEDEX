@@ -170,8 +170,9 @@ sub ListJob
   my ($key,$value);
   my (@h,$h,$preamble);
 
+$DB::single=1;
   $cmd = 'glite-transfer-status -l ';
-# $cmd .= ' --verbose' if $job->VERBOSE;
+  $cmd .= ' --verbose' if $job->VERBOSE;
   $cmd .= ' -s ' . $job->Service . ' ' . $job->ID;
   open GLITE, "$cmd 2>&1 |" or do
   {
@@ -191,7 +192,6 @@ sub ListJob
   $preamble=1;
   while ( $_ = shift @raw )
   {
-    print "raw: $_";
     if ( $preamble )
     {
       if ( m%^\s*([A-Z,a-z]+)\s*$% ) # non-verbose case
@@ -202,13 +202,13 @@ sub ListJob
       if ( m%^\s*Status:\s+([A-Z,a-z]+)\s*$% ) # verbose case
       {
         $state = $1;
-        $preamble = 0;
       }
       if ( m%^\s+Source:\s+(.*)\s*$% )
       {
         unshift @raw, $_;
         $preamble = 0;
       }
+      push @{$result{INFO}}, $_ if $preamble;
       next;
     }
 
@@ -336,7 +336,7 @@ sub Submit
 
   my $logsafe_cmd = $cmd;
   $logsafe_cmd =~ s/ -p [\S]+/ -p _censored_/;
-  push @raw, $logsafe_cmd . "\n";
+  push @{$result{INFO}}, $logsafe_cmd . "\n";
 
   open GLITE, "$cmd 2>&1 |" or die "$logsafe_cmd: $!\n";
   while ( <GLITE> )
@@ -357,7 +357,7 @@ sub Submit
   $result{ID} = $id;
   $job->ID($id);
 
-  $result{INFO} = $self->SetPriority($job);
+  push @{$result{INFO}}, $self->SetPriority($job);
 
   return \%result;
 }

@@ -257,6 +257,7 @@ sub poll_job
 
   $job->State($state->{JOB_STATE});
   $job->RawOutput(@{$state->{RAW_OUTPUT}});
+  foreach ( @{$state->{INFO}} ) { chomp; $job->Log($_) };
 
   my $files = $job->Files;
   foreach ( keys %{$state->{FILES}} )

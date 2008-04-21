@@ -138,25 +138,13 @@ sub init
 
     $self->parseFTSmap() if ($self->{FTS_MAPFILE});
 
-    # We don't really want to have a maximum limit to the number of
-    # jobs we will submit to FTS, but we need to have something to
-    # prevent uncontrolled submissions at startup or after all
-    # transfers are drained.  Therefore we limit to a maximum number
-    # of jobs equal to twice the maximum number of active files
-    # divided by the files per batch.  This generous amount of jobs
-    # gives us a reasonable limit without too much worry of hitting a
-    # job limit in a prolonged period of high work.
-    my $max_jobs1 = POSIX::ceil( ($self->{FTS_MAX_ACTIVE} * 2) / $self->{BATCH_FILES} );
-
-    # Another limit to the number of jobs is the "live" file, which
+    # A limit to the number of jobs is the "live" file, which
     # must be touched for every job within 5 minutes or FileDownload
     # will throw the job away.  Because we poll jobs at a fixed rate,
     # we must limit the number of jobs to keep this file from getting
-    # to old.  By default this limits us to 60 jobs.
-    my $max_jobs2 = 5*60 / $self->{FTS_J_INTERVAL};
-    
-    # Our actual job limit is the lower of our options
-    $self->{NJOBS} = $max_jobs1 > $max_jobs2 ? $max_jobs2 : $max_jobs1;
+    # to old.  By default this limits us to 60 jobs.  TODO: Find a way
+    # around this limit
+    $self->{NJOBS} = 5*60 / $self->{FTS_J_INTERVAL};
 
     # How do we handle task-priorities?
     # If priorities have been specified on the command-line, they should
@@ -397,7 +385,6 @@ sub startBatch
 	$files{$task->{TO_PFN}} = PHEDEX::Transfer::Backend::File->new(%args);
     }
  
-#$DB::single=1;
     my $avg_priority = int( $sum_priority / $n_files );
     $avg_priority = $self->{PRIORITY_MAP}{$avg_priority} || $avg_priority;
     my %args = (
@@ -413,7 +400,6 @@ sub startBatch
 
     # this writes out a copyjob file
     $job->Prepare();
-
 
     # now get FTS service for the job
     # we take a first file in the job and determine
@@ -431,8 +417,9 @@ sub startBatch
 
     $job->Service($service);
 
+$DB::single=1;
     my $result = $self->{Q_INTERFACE}->Submit($job);
-    $job->Log( $result->{INFO} ) if $result->{INFO};
+    $job->Log( @{$result->{INFO}} ) if $result->{INFO};
 
     if ( exists $result->{ERROR} ) { 
 	# something went wrong...
@@ -449,6 +436,12 @@ sub startBatch
     my $id = $result->{ID};
 
     $job->ID($id);
+
+    # Save this job for retrieval if the agent is restarted
+    my $jobsave = $job->WORKDIR . '/job.dmp';
+    open JOB, ">$jobsave" or $self->Fatal("$jobsave: $!");
+    print JOB Dumper($job);
+    close JOB;
 
     #register this job with queue monitor.
     $self->{FTS_Q_MONITOR}->QueueJob($job);
