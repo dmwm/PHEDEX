@@ -1540,11 +1540,11 @@ sub _maybeStop
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
 
-  print $self->Dbgmsg("starting '_maybeStop'") if $self->{DEBUG};
+  print $self->Dbgmsg("starting '_maybeStop'") if $self->{VERBOSE} >= 3;
   $self->{stats}{maybeStop}++ if exists $self->{stats}{maybeStop};;
 
   $self->maybeStop();
-  print $self->Dbgmsg("ending '_maybeStop'") if $self->{DEBUG};
+  print $self->Dbgmsg("ending '_maybeStop'") if $self->{VERBOSE} >= 3;
   $kernel->delay_set('_maybeStop', 1);
 }
 
