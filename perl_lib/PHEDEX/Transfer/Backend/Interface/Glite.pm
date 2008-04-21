@@ -336,7 +336,7 @@ sub Submit
 
   my $logsafe_cmd = $cmd;
   $logsafe_cmd =~ s/ -p [\S]+/ -p _censored_/;
-  push @raw, $logsafe_cmd, "\n";
+  push @raw, $logsafe_cmd . "\n";
 
   open GLITE, "$cmd 2>&1 |" or die "$logsafe_cmd: $!\n";
   while ( <GLITE> )
