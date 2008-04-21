@@ -1,7 +1,7 @@
 package PHEDEX::Transfer::Core;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::JobManager';
+use base 'PHEDEX::Core::JobManager', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Command;
 use Getopt::Long;
 use Data::Dumper;
