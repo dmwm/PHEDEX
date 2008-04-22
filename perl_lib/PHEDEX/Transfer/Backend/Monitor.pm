@@ -90,6 +90,7 @@ sub new
 	      report_job	=> 'report_job',
 	      report_statistics	=> 'report_statistics',
 	      cleanup_stats    	=> 'cleanup_stats',
+	      forget_job    	=> 'forget_job',
 	      shoot_myself	=> 'shoot_myself',
 	      sanity_check	=> 'sanity_check',
 
@@ -407,6 +408,13 @@ sub report_job
 
 # Now I should take detailed action on any errors...
   $kernel->yield('cleanup_stats',$job);
+  $kernel->delay_set('forget_job',900,$job);
+}
+
+sub forget_job
+{
+  my ( $self, $kernel, $job ) = @_[ OBJECT, KERNEL, ARG0 ];
+  delete $self->{JOBS}{$job->ID};
 }
 
 sub cleanup_stats
@@ -420,8 +428,6 @@ sub cleanup_stats
     delete $self->{WORKSTATS}{FILES}{STATES}{$_->Destination};
     delete $self->{LINKSTATS}{$_->Destination};
   }
-
-  delete $self->{JOBS}{$job->ID};
 }
 
 sub report_statistics
@@ -503,10 +509,18 @@ sub LinkStats
     return $self->{LINKSTATS}{$file}{$from}{$to};
 }
 
+sub isKnown
+{
+  my ( $self, $job ) = @_;
+  return 0 unless defined $self->{JOBS}{$job->{ID}};
+  return 1;
+}
+
 sub QueueJob
 {
   my ( $self, $job, $priority ) = @_;
 
+  return if $self->isKnown($job);
   $priority = 1 unless $priority;
   $self->WorkStats('JOBS', $job->ID, $job->State);
   foreach ( values %{$job->Files} )

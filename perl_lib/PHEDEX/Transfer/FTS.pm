@@ -417,7 +417,6 @@ sub startBatch
 
     $job->Service($service);
 
-$DB::single=1;
     my $result = $self->{Q_INTERFACE}->Submit($job);
     $job->Log( @{$result->{INFO}} ) if $result->{INFO};
 
@@ -449,6 +448,23 @@ $DB::single=1;
 
 sub check 
 {
+  my ($self, $jobname, $job, $tasks) = @_;
+  my ($file,$dir,$j,$f);
+
+  $dir = $job->{$jobname}->{DIR};
+  $file = $dir . '/job.dmp';
+  return unless -f $file;
+  $j = eval { do $file; };
+  die $@ if $@; # So uncool!
+
+# Is this job currently being monitored?
+  return if $self->{FTS_Q_MONITOR}->isKnown( $j );
+
+# $j->JOB_POSTBACK( $self->{FTS_Q_MONITOR}->JOB_POSTBACK );
+# $j->FILE_POSTBACK( $self->{FTS_Q_MONITOR}->FILE_POSTBACK );
+  $self->{FTS_Q_MONITOR}->QueueJob( $j );
+  $self->Logmsg($j->ID,' added to monitoring');
+  &touch($dir . '/live')
 }
 
 sub setup_callbacks
@@ -474,6 +490,11 @@ sub job_state_change
     # I get into this routine every time a job is monitored. Because I don't
     # want verbose monitoring forever, I turn it off here. So the first
     # monitoring call will have been verbose, the rest will not
+    if ( ref($job) !~ m%PHEDEX::Transfer::Backend::Job% )
+    {
+$DB::single=1;
+      print "I have a wrong job-type here!\n";
+    }
     $job->VERBOSE(0);
 
     $self->Dbgmsg("Job-state callback ID ",$job->ID,", STATE ",$job->State) if $self->{DEBUG};
