@@ -1,3 +1,16 @@
+* Changes in PhEDEx 3.0.0
+
+  This release is a mandatory upgrade. The main changes with respect to the
+  pre-release series are a number of minor fixes and enhancements.
+
+* Changes in the FTS backend
+   - option to specify the maximum number of active files per link
+   - options to pass the name of a myproxy server, an FTS password file,
+     or an SRM spacetoken, to the FTS server.
+   - job-state is saved and recovered across agent restarts
+   - improvements to the logging, making more relevant information available.
+   - verified that the SRM backend was not broken by these changes
+
 * Changes in PhEDEx 3.0.0.pre13
 
    - Fixed a bug with the wrong version of FTS.pm in pre12.
