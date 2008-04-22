@@ -170,7 +170,6 @@ sub ListJob
   my ($key,$value);
   my (@h,$h,$preamble);
 
-$DB::single=1;
   $cmd = 'glite-transfer-status -l ';
   $cmd .= ' --verbose' if $job->VERBOSE;
   $cmd .= ' -s ' . $job->Service . ' ' . $job->ID;
@@ -285,7 +284,6 @@ sub SetPriority
 {
   my ($self,$job) = @_;
   my ($priority,@raw,%result);
-#$DB::single=1;
   return unless $priority = $job->Priority;
   return if $priority == $self->{PRIORITY}; # Save an interaction with the server
 
