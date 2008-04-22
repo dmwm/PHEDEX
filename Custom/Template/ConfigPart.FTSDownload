@@ -16,23 +16,36 @@ export GLITE_SD_PLUGIN;
 TIER0_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s CERN-PROD);
 TIER1_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s ${TIER1_FTS_SERVICE});
 
-### AGENT LABEL=download-fts-cern PROGRAM=Toolkit/Transfer/FileDownload ENVIRON=glite DEFAULT=off
+### AGENT LABEL=download-t1 PROGRAM=Toolkit/Transfer/FileDownload ENVIRON=glite
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE}
- -accept          '%CERN%'
+ -ignore          T1_CERN_MSS
+ -accept          'T1%'
  -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
- -validate        ${PHEDEX_CONFIG}/FileDownloadVerify,${PHEDEX_BASE}/PHEDEX/Utilities/GetLocalPath,${PHEDEX_MAP},'posix'
- -backend         SRM
- -command         ${PHEDEX_SCRIPTS}/Utilities/ftscp,-passfile=${PHEDEX_CONFIG}/ftspass,-server=${TIER0_FTS_SERVER}
+ -validate        ${PHEDEX_CONFIG}/FileDownloadVerify,-d,${PHEDEX_BASE}/PHEDEX/Utilities/GetLocalPath,${PHEDEX_MAP},'rfio'
+ -verbose
+ -backend         FTS
+ -service         ${TIER0_FTS_SERVER}
+ -ftspass         /data/DBAccessInfo/ftspass
+ -protocols       'srmv2','srm'
+ -batch-files           2
+ -max-active-files      100
+ -link-pending-files    4
 
-### AGENT LABEL=download-fts-rest PROGRAM=Toolkit/Transfer/FileDownload ENVIRON=glite DEFAULT=off
+### AGENT LABEL=download-t2 PROGRAM=Toolkit/Transfer/FileDownload ENVIRON=glite
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE}
- -ignore          '%CERN%'
+ -ignore          'T2_CH_CAF'
+ -accept          'T2%'
  -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
- -validate        ${PHEDEX_CONFIG}/FileDownloadVerify,${PHEDEX_BASE}/PHEDEX/Utilities/GetLocalPath,${PHEDEX_MAP},'posix'
- -backend         SRM
- -command         ${PHEDEX_SCRIPTS}/Utilities/ftscp,-passfile=${PHEDEX_CONFIG}/ftspass,-server=${TIER1_FTS_SERVER}
+ -validate        ${PHEDEX_CONFIG}/FileDownloadVerify,-d,${PHEDEX_BASE}/PHEDEX/Utilities/GetLocalPath,${PHEDEX_MAP},'rfio'
+ -verbose
+ -backend         FTS
+ -service         ${TIER2_FTS_SERVER}
+ -protocols       'srmv2','srm'
+ -batch-files           5
+ -max-active-files      100
+ -link-pending-files    5
 
 ### AGENT LABEL=download-remove PROGRAM=Toolkit/Transfer/FileRemove ENVIRON=glite
  -db              ${PHEDEX_DBPARAM}
