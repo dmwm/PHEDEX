@@ -17,6 +17,27 @@ use PHEDEX::Core::Net;
 use DBI;
 use Cwd;
 
+# Errors for which the database handle is invalid and a reconnection
+# should occur
+our @ORA_INVALID_ERRORS = ( '03113',  # End-of-file on communication channel
+			    '03114',  # not connected to Oracle
+			    '03135',  # Connection lost contact
+			    '01031',  # insufficient privileges
+			    '01012',  # not logged on
+			    '01003',  # no statement parsed
+			    '12545',  # target host or object does not exist
+			    '17008'   # closed connection
+			    );
+my $joined = join "|", @ORA_INVALID_ERRORS;
+our $ORA_INVALID_REGEX = qr/ORA-(?:$joined):/;
+
+# Errors for which the problem was serious and we should just die
+our @ORA_EXIT_ERRORS = ( '01017',  # Invalid username or password
+			 '28001'   # The password has expired 
+			 );
+$joined = join "|", @ORA_EXIT_ERRORS;
+our $ORA_EXIT_REGEX = qr/ORA-(?:$joined):/;
+
 # Parse database connection arguments.
 sub parseDatabaseInfo
 {
@@ -228,8 +249,9 @@ sub dbprep
 
   # Handle disconnected oracle handle, flag the handle bad
   $dbh->{private_phedex_invalid} = 1
-      if ($@ =~ /ORA-(?:03114|03135|01031|01012):/
-	    || $@ =~ /TNS:listener/);
+      if ($@ =~ /$ORA_INVALID_REGEX/ || $@ =~ /TNS:listener/);
+
+  &PHEDEX::Core::Logging::Fatal(undef, $@) if $@ =~ /$ORA_EXIT_REGEX/;
   die $@;
 }
 
@@ -282,7 +304,8 @@ sub dbbindexec
 
   # Flag handle bad on disconnected oracle handle
   $stmt->{Database}{private_phedex_invalid} = 1
-      if ($@ =~ /ORA-(?:03114|03135|01031):/
-	    || $@ =~ /TNS:listener/);
+      if ($@ =~ /$ORA_INVALID_REGEX/ || $@ =~ /TNS:listener/);
+
+  &PHEDEX::Core::Logging::Fatal(undef, $@) if $@ =~ /$ORA_EXIT_REGEX/;
   die $@;
 }
