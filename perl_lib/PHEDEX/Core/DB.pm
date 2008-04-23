@@ -120,7 +120,7 @@ sub connectToDatabase
 	|| (! eval { $dbh->do("select sysdate from dual") } || $@))
   {
     $self->{DBH_LOGGING} = 1 if $ENV{PHEDEX_LOG_DB_CONNECTIONS};
-    $self->Logmsg ("(re)connecting to database") if $self->{DBH_LOGGING};
+    &PHEDEX::Core::Logging ($self, "(re)connecting to database") if $self->{DBH_LOGGING};
 
     # Clear previous connection.
     eval { &disconnectFromDatabase ($self, $self->{DBH}, 1) } if $self->{DBH};
@@ -135,11 +135,11 @@ sub connectToDatabase
     $self->{DBH_ID} = "$self->{DBH_ID_MODULE}\@$self->{DBH_ID_HOST}$self->{DBH_ID_LABEL}";
     if ( $self->{SHARED_DBH} )
     {
-      $self->Logmsg("Looking for a DBH to share") if $self->{DEBUG};
+      &PHEDEX::Core::Logging::Logmsg($self, "Looking for a DBH to share") if $self->{DEBUG};
       if ( exists($Agent::Registry{DBH}) )
       {
         $self->{DBH} = $dbh = $Agent::Registry{DBH};
-        $self->Logmsg("using shared DBH=$dbh") if $self->{DEBUG};
+        &PHEDEX::Core::Logging::Logmsg($self, "using shared DBH=$dbh") if $self->{DEBUG};
       }
       else
       {
@@ -155,7 +155,7 @@ sub connectToDatabase
     }
     else
     {
-        $self->Logmsg("Creating new private DBH") if $self->{DEBUG};
+        &PHEDEX::Core::Logging::Logmsg ($self, "Creating new private DBH") if $self->{DEBUG};
         $self->{DBH} = $dbh =
             DBI->connect ("DBI:$self->{DBH_DBITYPE}:$self->{DBH_DBNAME}",
 	    		 $self->{DBH_DBUSER}, $self->{DBH_DBPASS},
@@ -213,7 +213,7 @@ sub disconnectFromDatabase
   # Actually disconnect if required.
   if ((exists $self->{DBH_CACHE} && ! $self->{DBH_CACHE}) || $force)
   {
-    $self->Logmsg ("disconnected from database") if $self->{DBH_LOGGING};
+    &PHEDEX::Core::Logging::Logmsg ($self, "disconnected from database") if $self->{DBH_LOGGING};
     eval { $dbh->disconnect() } if $dbh;
     undef $dbh;
     undef $self->{DBH};
