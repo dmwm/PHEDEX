@@ -196,6 +196,7 @@ sub parseFTSmap {
 	chomp; 
 	s|^\s+||; 
 	next if /^\#/;
+	next if /^\s*$/;
 	unless ( /^SRM.Endpoint=\"(.+)\"\s+FTS.Endpoint=\"(.+)\"/ ) {
 	    $self->Alert("FTSmap: Can not parse ftsmap line: '$_'");
 	    next;
