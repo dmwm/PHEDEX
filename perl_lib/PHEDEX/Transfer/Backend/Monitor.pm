@@ -321,6 +321,7 @@ sub poll_job
   $self->{JOB_POSTBACK}->($job) if $self->{JOB_POSTBACK};
   if ( $job->ExitStates->{$state->{JOB_STATE}} )
   {
+    push @{$self->{EXITED_JOBS}}, $job->ID;
     $kernel->yield('report_job',$job);
   }
   else
@@ -343,10 +344,17 @@ sub sanity_check
   my $sanity_timeout = $self->{J_INTERVAL}*10;
 
 # Check consistency of queue and internal memory
-  my @qjobs = map { $_->[2] } $self->{QUEUE}->peek_items( sub{1} );
-  my @mjobs = keys %{$self->{WORKSTATS}{JOBS}{STATES}};
   my %h;
+
+  my @mjobs = keys %{$self->{WORKSTATS}{JOBS}{STATES}};
   foreach ( @mjobs ) { $h{$_}++; }
+
+  my @qjobs = map { $_->[2] } $self->{QUEUE}->peek_items( sub{1} );
+  if ( $self->{EXITED_JOBS} )
+  {
+    push @qjobs, @{$self->{EXITED_JOBS}};
+    undef $self->{EXITED_JOBS};
+  }
   foreach ( @qjobs )
   {
     my $id = $_->ID;
