@@ -18,6 +18,9 @@ $f = substr($f, 0, 10);
 # Randomly lower/uppercase characters
 $f =~ s/(\w)/a($1)/ge;
 
+# Switch hyphens to underscore
+$f =~ s/-/_/g;
+
 # Replace at least three characters with digits, but not
 # in the beginning of the string.
 while ($c < 2)
