@@ -26,4 +26,7 @@ use PHEDEX::BlockDLSUpdate::Agent;
 	     "log=s"       => \$args{LOGFILE},
 	     "help|h"      => sub { &usage() });
 
-(new PHEDEX::BlockDLSUpdate::Agent (%args,@ARGV))->process();
+my $agent = PHEDEX::BlockDLSUpdate::Agent->new(%args,@ARGV);
+POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;
