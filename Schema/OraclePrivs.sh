@@ -2,7 +2,7 @@
 
 ##H Reapply reader/writer account privileges to all PhEDEx tables.
 ##H
-##H Usage: OraclePrivs.sh MASTER/PASS@DB READER WRITER
+##H Usage: OraclePrivs.sh MASTER/PASS@DB READER WRITER ROLE
 ##H
 ##H MASTER should be the master account name (cms_transfermgmt),
 ##H and PASS it's password.  The first argument will be passed
@@ -13,27 +13,31 @@
 ##H
 ##H Issues "grant" statements for all tables as appropriate.  Run
 ##H this script after defining new tables to update privileges.
+##H
+##H ROLE is optional; if it is given then only the specified has the
+##H privileges updated
 
-if [ $# -ne 3 ]; then
+if [ $# -lt 3 ]; then
    grep "^##H" < $0 | sed 's/^\#\#\H\( \|$\)//'
    exit 1
 fi
 
-connect="$1" reader="$2" writer="$3"
+connect="$1" reader="$2" writer="$3" myrole="$4"
 
-# Update privileges for all roles and tables.  Note that some tables
-# have restricted access: t_node_neighbour and t_subscription can be
-# modified only by the admin account, most t_info_* tables can only
-# be updated by the central agents at CERN (as a precaution to avoid
-# sites accidentally overloading the database by running agents they
-# should not be running).
-#
+selectrole="select granted_role from user_role_privs"
+if [ -n "$myrole" ]; then
+  myrole=$(echo $myrole | tr '[:lower:]' '[:upper:]')
+  selectrole="$selectrole where granted_role='$myrole'"
+  echo "Updating privileges for $myrole"
+fi
+
+# Update privileges for all roles and tables.
 # The assumption here is that nobody except few selected admins have
 # access privileges to the admin account, and all sites use roles to
 # gain modification access to tables; the reader account has read-only
 # access to all the tables.
 for role in \
-  $((echo "select granted_role from user_role_privs;") |
+  $((echo "$selectrole;") |
     sqlplus -S "$connect" | awk '/PHEDEX/ { print $1 } {}'); do
   echo; echo; echo "-- role $role"
   echo "set feedback off;"
