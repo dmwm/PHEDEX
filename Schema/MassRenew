@@ -48,7 +48,7 @@ unless ($cmd && grep $cmd eq $_, qw(list output email)) {
 }
 
 unless ($src_dir && $instance 
-	&& grep $instance eq $_, qw(Production Dev Debug) ) {
+	&& grep $instance eq $_, qw(Prod Dev Debug) ) {
     die "Insuficient parameters, use -h for help\n";
 }
 
@@ -139,7 +139,7 @@ foreach my $site (sort keys %sites) {
 	next;
     } elsif ($cmd eq 'output' || $cmd eq 'email') {
 	print "Making $role for $site";
-	print ($cmd eq 'email' ? "and sending to $email...\n" : "...\n");
+	print ($cmd eq 'email' ? " and sending to $email...\n" : "...\n");
 	my $cmd1 = "Schema/OracleInitRole.sh DBParam:$instance $key_dir/$email $site";
 	my $output = "Output/${role}:$email";
 	my $cmd2 = "/usr/sbin/sendmail -t < $output";
