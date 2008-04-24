@@ -61,7 +61,7 @@ role_name_lc="$(echo $role_name | tr '[:upper:]' '[:lower:]')"
 
 ora_master="$($home/Utilities/OracleConnectId -db $dbparam:$section/Admin)"
 ora_reader="$($home/Utilities/OracleConnectId -db $dbparam:$section/Reader)"
-ora_writer="$($home/Utilities/OracleConnectId -db $dbparam:$section/CERN)"
+ora_writer="$($home/Utilities/OracleConnectId -db $dbparam:$section/Writer)"
 case $ora_master in */*@* ) ;; * )
   echo "$dbparam:$section/Admin: database contact not defined" 1>&2; exit 1;;
 esac
@@ -74,10 +74,12 @@ esac
 
 $home/Schema/OracleNewRole.sh "$ora_master" "$role_name" "$role_passwd"
 
-mkdir -p Details
 $home/Schema/OraclePrivs.sh "$ora_master" \
   "$(echo $ora_reader | sed 's|/.*||')" \
-  "$(echo $ora_writer | sed 's|/.*||')"
+  "$(echo $ora_writer | sed 's|/.*||')" \
+  "$role_name_lc";
+
+mkdir -p Details
 (echo "Section            $section/$sitename_uc"
  echo "Interface          Oracle"
  echo "Database           $(echo $ora_writer | sed 's|.*@||')"
@@ -105,7 +107,7 @@ mkdir -p Output
  echo "as your example.  Please keep this information secure: do not store it";
  echo "in CVS or anywhere someone else might be able to read it.  Should you";
  echo "accidentally make the information public, please contact PhEDEx admins";
- echo "as soon as you can at cms-phedex-developers@cern.ch.  Thank you.";
+ echo "as soon as you can at cms-phedex-admins@cern.ch.  Thank you.";
  echo;
  echo "You can copy and paste the section between '====' lines in shell on a";
  echo "computer which has access to your private certificate part, typically";
@@ -118,5 +120,5 @@ mkdir -p Output
  echo;
  echo "Yours truly,";
  echo "  PhEDEx administrators";
- echo "  (cms-phedex-developers@cern.ch)") \
+ echo "  (cms-phedex-admins@cern.ch)") \
   > "Output/${role_name_lc}:${role_email}"
