@@ -109,7 +109,7 @@ sub ListQueue
   $cmd = "glite-transfer-list -s " . $self->{SERVICE};
   open GLITE, "$cmd 2>&1 |" or do
   {
-      print "$cmd: $!\n";
+      print $self->Hdr,"$cmd: $!\n";
       $result{ERROR} = 'ListQueue: ' . $self->{SERVICE} . ': ' . $!;
       return \%result;
   };
@@ -121,7 +121,7 @@ sub ListQueue
   }
   close GLITE or do
   {
-      print "close: $cmd: $!\n";
+      print $self->Hdr,"close: $cmd: $!\n";
       $result{ERROR} = 'close ListQueue: ' . $self->{SERVICE} . ': ' . $!;
   };
   $result{RAW_OUTPUT} = \@raw;
@@ -175,7 +175,7 @@ sub ListJob
   $cmd .= ' -s ' . $job->Service . ' ' . $job->ID;
   open GLITE, "$cmd 2>&1 |" or do
   {
-      print "$cmd: $!\n";
+      print $self->Hdr,"$cmd: $!\n";
       $result{ERROR} = 'ListJob: ' . $job->ID . ': ' . $!;
       return \%result;
   };
@@ -183,7 +183,7 @@ sub ListJob
   $result{RAW_OUTPUT} = [@raw];
   close GLITE or do
   {
-      print "close: $cmd: $!\n";
+      print $self->Hdr,"close: $cmd: $!\n";
       $result{ERROR} = 'close ListJob: ' . $job->ID . ':' . $!;
       return \%result;
   };
@@ -298,7 +298,7 @@ sub SetPriority
   }
   close GLITE or do
   {
-      print "close: $cmd: $!\n";
+      print $self->Hdr,"close: $cmd: $!\n";
       $result{ERROR} = 'close SetPriority: id=' . $job->ID . ' ' . $!;
   };
   $result{RAW_OUTPUT} = \@raw;
@@ -347,7 +347,7 @@ sub Submit
   $result{RAW_OUTPUT} = \@raw;
   close GLITE or do
   {
-      print "close: $logsafe_cmd: $!\n";
+      print $self->Hdr,"close: $logsafe_cmd: $!\n";
       $result{ERROR} = 'close Submit: id=' . ( $id || 'undefined' ) . $!;
       return \%result;
   };
