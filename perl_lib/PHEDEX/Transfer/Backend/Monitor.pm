@@ -352,7 +352,10 @@ sub sanity_check
   my @qjobs = map { $_->[2] } $self->{QUEUE}->peek_items( sub{1} );
   if ( $self->{EXITED_JOBS} )
   {
-    push @qjobs, @{$self->{EXITED_JOBS}};
+    foreach ( @{$self->{EXITED_JOBS}} )
+    {
+      delete $h{$_} if exists $h{$_};
+    }
     undef $self->{EXITED_JOBS};
   }
   foreach ( @qjobs )
