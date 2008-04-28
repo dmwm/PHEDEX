@@ -536,7 +536,9 @@ sub mkTransferSummary {
     
     my $log = join("", $file->Log,
 		   "-" x 10 . " RAWOUTPUT " . "-" x 10 . "\n",
-		   $job->RawOutput);
+		   $job->RawOutput,
+		   "-" x 10 . " JOB-LOG " . "-" x 10 . "\n",
+		   $job->Log);
 
     my $summary = {START=>$file->Start,
 		   END=>&mytimeofday(), 
