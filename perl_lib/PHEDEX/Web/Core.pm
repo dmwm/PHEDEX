@@ -2,6 +2,58 @@
 
 package PHEDEX::Web::Core;
 
+=pod
+=head1 NAME
+
+PHEDEX::Web::Core - fetch, format, and return PhEDEx data
+
+=head1 DESCRIPTION
+
+This is the core module of the PhEDEx Data Service, a framework to
+serve PhEDEx data in multiple formats for machine consumption.
+
+=head2 URL Format
+
+Calls to the PhEDEx data service should be made using the following URL format:
+
+C<http://host.cern.ch/phedex/datasvc/FORMAT/INSTANCE/CALL?OPTIONS>
+
+ FORMAT    the desired output format (e.g. xml, json, or perl)
+ INSTANCE  the PhEDEx database instance from which to fetch the data
+           (e.g. prod, debug, dev)
+ CALL      the API call to make (see below)
+ OPTIONS   the options to the CALL, in standard query string format
+
+=head2 Output
+
+Each response will have the following data in its "top level"
+attributes.  With the XML format, these attributes appear in the
+top-level "phedex" element.
+
+ request_timestamp  unix timestamp, time of request
+ request_date       human-readable time of request
+ request_call       name of API call
+ instance           PhEDEx DB instance
+ call_time          time it took to serve call
+ request_url        the full URL of the request
+
+=head2 Errors
+
+Currently all errors are returned in XML format, with a single <error>
+element containing a text description of what went wrong.  For example:
+
+C<http://host.cern.ch/phedex/datasvc/xml/prod/foobar>
+
+   <error>
+   API call 'foobar' is not defined.  Check the URL
+   </error>
+
+
+=head1 Calls
+
+=cut
+
+
 use warnings;
 use strict;
 
@@ -163,6 +215,55 @@ sub linkTasks
     return { linkTasks => { status => $r } };
 }
 
+=pod
+
+=head2 blockReplicas
+
+Return block replicas with the following structure:
+
+  <block>
+     <replica/>
+     <replica/>
+      ...
+  </block>
+   ...
+
+where <block> represents a block of files and <replica> represents a
+copy of that block at some node.
+
+=head3 options
+
+ block          block name, with '*' wildcards, can be multiple
+ node           node name, can be multiple
+ se             storage element name, can be multiple
+ updated_since  unix timestamp, only return replicas updated since this
+                time
+ create_since   unix timestamp, only return replicas created since this
+                time
+ complete       y or n, whether or not to require complete or incomplete
+                blocks. Default is to return either
+
+=head3 <block> attributes
+
+ name     block name
+ id       PhEDEx block id
+ files    files in block
+ bytes    bytes in block
+ is_open  y or n, if block is open
+
+=head3 <replica> attributes
+
+ node         PhEDEx node name
+ node_id      PhEDEx node id
+ se           storage element name
+ files        files at node
+ bytes        bytes of block replica at node
+ complete     y or n, if complete
+ time_create  unix timestamp of creation
+ time_update  unix timestamp of last update
+
+=cut
+
 sub blockReplicas
 {
     my ($self, %h) = @_;
@@ -200,10 +301,67 @@ sub blockReplicas
     return { block => [values %$blocks] };
 }
 
+=pod
+
+=head2 fileReplicas
+
+Return file replicas with the following structure:
+
+  <block>
+     <file>
+       <replica/>
+       <replica/>
+       ...
+     </file>
+     ...
+  </block>
+   ...
+
+where <block> represents a block of files, <file> represents a file
+and <replica> represents a copy of that file at some node.
+
+=head3 options
+
+ block          block name, with '*' wildcards, can be multiple.  required.
+ node           node name, can be multiple
+ se             storage element name, can be multiple
+ updated_since  unix timestamp, only return replicas updated since this
+                time
+ create_since   unix timestamp, only return replicas created since this
+                time
+ complete       y or n, whether or not to require complete or incomplete
+                blocks. Default is to return either
+
+=head3 <block> attributes
+
+ name     block name
+ id       PhEDEx block id
+ files    files in block
+ bytes    bytes in block
+ is_open  y or n, if block is open
+
+=head3 <file> attributes
+
+ name         logical file name
+ id           PhEDEx file id
+ bytes        bytes in the file
+ checksum     checksum of the file
+ origin_node  node name of the place of origin for this file
+ time_create  time that this file was born in PhEDEx
+
+=head3 <replica> attributes
+ node         PhEDEx node name
+ node_id      PhEDEx node id
+ se           storage element name
+ time_create  unix timestamp
+
+=cut
 
 sub fileReplicas
 {
     my ($self, %h) = @_;
+
+    &checkRequired(\%h, 'block');
 
     my $r = $self->getData('fileReplicas', %h);
 
@@ -250,7 +408,25 @@ sub fileReplicas
     return { block => [values %$blocks] };
 }
 
+=pod
 
+=head2 nodes
+
+A simple dump of PhEDEx nodes.
+
+=head3 options
+
+ noempty  filter out nodes which do not host any data
+
+=head3 <node> attributes
+
+ name        PhEDEx node name
+ se          storage element
+ kind        node type, e.g. 'Disk' or 'MSS'
+ technology  node technology, e.g. 'Castor'
+ id          node id
+
+=cut
 
 sub nodes
 {
@@ -259,11 +435,28 @@ sub nodes
     return { node => $r };
 }
 
+=pod
+
+=head2 tfc
+
+Show the TFC published to TMDB for a given node
+
+=head3 options
+
+  node  PhEDEx node name. Required
+
+=head3 <lfn-to-pfn> or <pfn-to-lfn> attributes
+
+See TFC documentation.
+
+=cut
+
 sub tfc
 {
     my ($self, %h) = @_;
+    &checkRequired(\%h, 'node');
     my $r = $self->getData('tfc', %h);
-    return { 'storage-mapping' => { array=> $r}  };
+    return { 'storage-mapping' => { array => $r }  };
 }
 
 # Cache controls
@@ -325,5 +518,18 @@ sub getCacheDuration
     return $min;
 }
 
+
+# just dies if the required args are not provided
+sub checkRequired
+{
+    my ($provided, @required) = @_;
+    foreach my $arg (@required) {
+	if (!exists $provided->{$arg} ||
+	    !defined $provided->{$arg} ||
+	    $provided->{$arg} eq '') {
+	    die "Argument '$arg' is required\n";
+	}
+    }
+}
 
 1;
