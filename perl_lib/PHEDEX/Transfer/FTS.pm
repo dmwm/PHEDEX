@@ -399,6 +399,7 @@ sub startBatch
 		);
     
     my $job = PHEDEX::Transfer::Backend::Job->new(%args);
+    $job->Log('backend: ' . ref($self));
 
     # this writes out a copyjob file
     $job->Prepare();
