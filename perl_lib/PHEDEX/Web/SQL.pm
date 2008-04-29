@@ -258,14 +258,18 @@ sub getFileReplicas
     return \@r;
 }
 
-sub getCatalogue {
+sub getTFC {
    my ($self, %h) = @_;
    my ($sql,$q,%p,@r);
 
    return [] unless $h{node};
 
    $sql = qq{
-        select c.*
+        select c.rule_type element_name,
+	       c.protocol,
+	       c.destination_match "destination-match",
+               c.path_match "path-match",
+               c.result_expr "result"
          from t_xfer_catalogue c
 	 join t_adm_node n on n.id = c.node
         where n.name = :node

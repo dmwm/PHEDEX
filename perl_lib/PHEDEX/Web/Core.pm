@@ -32,7 +32,7 @@ our $call_data = {
     blockReplicas   => [ qw( blockReplicas ) ],
     fileReplicas    => [ qw( fileReplicas ) ],
     nodes           => [ qw( nodes ) ],
-    catalogue       => [ qw( catalog ) ]
+    tfc             => [ qw( tfc ) ]
 };
 
 # Data source parameters
@@ -41,11 +41,11 @@ our $data_sources = {
 			 DURATION => 10*60 },
     blockReplicas   => { DATASOURCE => \&PHEDEX::Web::SQL::getBlockReplicas,
 			 DURATION => 5*60 },
-    fileReplicas   => { DATASOURCE => \&PHEDEX::Web::SQL::getFileReplicas,
+    fileReplicas    => { DATASOURCE => \&PHEDEX::Web::SQL::getFileReplicas,
 			 DURATION => 5*60 },
     nodes           => { DATASOURCE => \&PHEDEX::Web::SQL::getNodes,
 			 DURATION => 60*60 },
-    catalog         => { DATASOURCE => \&PHEDEX::Web::SQL::getCatalog,
+    tfc             => { DATASOURCE => \&PHEDEX::Web::SQL::getTFC,
 			 DURATION => 15*60 }
 };
 
@@ -259,11 +259,11 @@ sub nodes
     return { node => $r };
 }
 
-sub catalogue
+sub tfc
 {
     my ($self, %h) = @_;
-    my $r = $self->getData('catalogue', %h);
-    return { catalog => $r };
+    my $r = $self->getData('tfc', %h);
+    return { 'storage-mapping' => { array=> $r}  };
 }
 
 # Cache controls

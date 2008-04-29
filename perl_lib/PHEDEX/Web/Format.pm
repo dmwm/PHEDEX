@@ -84,7 +84,9 @@ sub xml_element
 	# Avoiding HTML::Entities::encode_entities is about 30% more efficient for a large object.
 	# But better safe than sorry.
         # print $file "<$name", join('', map { " $_='$obj->{$_}'" } @$attr);
-        print $file "<$name", join('', map { (" $_='",encode_entities($obj->{$_} || ''),"'") } @$attr);
+        print $file "<$name", join('', map { (" $_='", 
+					      (defined $obj->{$_} ? encode_entities($obj->{$_}) : ''),
+					      "'") } @$attr);
         if ($no_children && !$text) {
             print $file "/>"; return;
         } else {
@@ -101,7 +103,12 @@ sub xml_element
             foreach my $element (@{ $obj->{$child} }) {
                 die "Array of '$child' elements contained a non-hash"
                     unless ref $element eq 'HASH';
-                xml_element($file, $child, $element);
+		my $element_name = $child;
+		if (defined $element->{element_name}) {
+		    $element_name = $element->{element_name};
+		    delete $element->{element_name};
+		}
+                xml_element($file, $element_name, $element);
             }
         } elsif ($type eq 'HASH') {
             xml_element($file, $child, $obj->{$child});
