@@ -4092,7 +4092,7 @@ sub output
 #       "<br/>",
       "<label>Priority:</label>", popup_menu(-name=>'priority', 
 					     -values=>[0, 1, 2], 
-					     -default=>1,
+					     -default=>2,
 					     -labels=>{ 0 => 'High',
 							1 => 'Normal',
 							2 => 'Low' },
@@ -9325,25 +9325,25 @@ sub output
   &dump_var($$self{CONTENT}, 'DBI::VERSION', $DBI::VERSION);
   &dump_var($$self{CONTENT}, 'DBD::Oracle::VERSION', $DBD::Oracle::VERSION);
   &dump_var($$self{CONTENT}, '@INC', [@INC]);
-  &dump_var($$self{CONTENT}, 'TESTING_MAIL', $TESTING_MAIL);
-  &dump_var($$self{CONTENT}, 'SESSION', $$self{SESSION} ? 'Session OK' : 'NO SESSION');
-  &dump_var($$self{CONTENT}, 'SESSIONID', $$self{SESSIONID});
-  if ($$self{SESSION} && param('data')) {
-      $$self{SESSION}->param('data', param('data'));
-      print {$$self{CONTENT}} "<p>Saved data</p>";
-  } else {
-      print {$$self{CONTENT}} "<form action='#' method='post'>",
-      textfield(-name=>'data'),
-      submit(),
-      "</form>";
-  }
+#   &dump_var($$self{CONTENT}, 'TESTING_MAIL', $TESTING_MAIL);
+#   &dump_var($$self{CONTENT}, 'SESSION', $$self{SESSION} ? 'Session OK' : 'NO SESSION');
+#   &dump_var($$self{CONTENT}, 'SESSIONID', $$self{SESSIONID});
+#   if ($$self{SESSION} && param('data')) {
+#       $$self{SESSION}->param('data', param('data'));
+#       print {$$self{CONTENT}} "<p>Saved data</p>";
+#   } else {
+#       print {$$self{CONTENT}} "<form action='#' method='post'>",
+#       textfield(-name=>'data'),
+#       submit(),
+#       "</form>";
+#   }
   
-  my $data = $$self{SESSION}->param('data');
-  if ($data) {
-      print {$$self{CONTENT}} "<p>Your saved data is $data</p>";
-  } else {
-      print {$$self{CONTENT}} "<p>No session data.</p>";
-  }
+#   my $data = $$self{SESSION}->param('data');
+#   if ($data) {
+#       print {$$self{CONTENT}} "<p>Your saved data is $data</p>";
+#   } else {
+#       print {$$self{CONTENT}} "<p>No session data.</p>";
+#   }
 
   #&dump_var($$self{CONTENT}, 'Config', $$self{CONFIG});
   #&dump_var($$self{CONTENT}, 'Env', {%ENV});
@@ -9364,23 +9364,23 @@ sub output
 
   &dump_var($$self{CONTENT}, 'resolved', $resolved);
 
-#   &dump_var($$self{CONTENT}, 'SecMod CertAuth', $$self{SECMOD}->isCertAuthenticated());
-#   &dump_var($$self{CONTENT}, 'SecMod PassAuth', $$self{SECMOD}->isPasswdAuthenticated());
-#   &dump_var($$self{CONTENT}, 'SecMod Forename', $$self{SECMOD}->getForename());
-#   &dump_var($$self{CONTENT}, 'SecMod Surname', $$self{SECMOD}->getSurname());
-#   &dump_var($$self{CONTENT}, 'SecMod Username', $$self{SECMOD}->getUsername());
-#   &dump_var($$self{CONTENT}, 'SecMod DN', $$self{SECMOD}->getDN());
-#   &dump_var($$self{CONTENT}, 'SecMod CERT', $$self{SECMOD}->getCert());
+  &dump_var($$self{CONTENT}, 'SecMod CertAuth', $$self{SECMOD}->isCertAuthenticated());
+  &dump_var($$self{CONTENT}, 'SecMod PassAuth', $$self{SECMOD}->isPasswdAuthenticated());
+  &dump_var($$self{CONTENT}, 'SecMod Forename', $$self{SECMOD}->getForename());
+  &dump_var($$self{CONTENT}, 'SecMod Surname', $$self{SECMOD}->getSurname());
+  &dump_var($$self{CONTENT}, 'SecMod Username', $$self{SECMOD}->getUsername());
+  &dump_var($$self{CONTENT}, 'SecMod DN', $$self{SECMOD}->getDN());
+  &dump_var($$self{CONTENT}, 'SecMod CERT', $$self{SECMOD}->getCert());
 
-#   &dump_var($$self{CONTENT}, 'SecMod Roles', $$self{SECMOD}->getRoles());
+  &dump_var($$self{CONTENT}, 'SecMod Roles', $$self{SECMOD}->getRoles());
 
-#   &dump_var($$self{CONTENT}, 'authorized nodes', [ $self->fetch_nodes(web_user_auth=>'Site Admin||Data Manager') ]);
+  &dump_var($$self{CONTENT}, 'authorized nodes', [ $self->fetch_nodes(web_user_auth=>'Site Admin||Data Manager') ]);
 
-#   &dump_var($$self{CONTENT}, 'SecMod Node Map', {$$self{SECMOD}->getPhedexNodeToSiteMap()});
+  &dump_var($$self{CONTENT}, 'SecMod Node Map', {$$self{SECMOD}->getPhedexNodeToSiteMap()});
   
-#   &dump_var($$self{CONTENT}, 'SecMod CERN Site Admins', [$$self{SECMOD}->getUsersWithRoleForSite('Site Admin', 'CERN')]);
+  &dump_var($$self{CONTENT}, 'SecMod CERN Site Admins', [$$self{SECMOD}->getUsersWithRoleForSite('Site Admin', 'CERN')]);
 
-#   &dump_var($$self{CONTENT}, 'SecMod Global Admins', [$$self{SECMOD}->getUsersWithRoleForGroup('Global Admin', 'phedex')]);
+  &dump_var($$self{CONTENT}, 'SecMod Global Admins', [$$self{SECMOD}->getUsersWithRoleForGroup('Global Admin', 'phedex')]);
 
 
 }
