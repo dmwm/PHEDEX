@@ -9,6 +9,7 @@ use PHEDEX::Core::Timing;
 use PHEDEX::Core::SQL;
 use PHEDEX::Web::SQL;
 use PHEDEX::Web::Format;
+use HTML::Entities; # for encoding XML
 
 # If you're thinking of these, I've already tried them and decided against.
 #use Cache::FileCache;
@@ -29,6 +30,7 @@ our (%params);
 our $call_data = {
     linkTasks       => [ qw( linkTasks ) ],
     blockReplicas   => [ qw( blockReplicas ) ],
+    fileReplicas    => [ qw( fileReplicas ) ],
     nodes           => [ qw( nodes ) ],
     catalogue       => [ qw( catalog ) ]
 };
@@ -38,6 +40,8 @@ our $data_sources = {
     linkTasks       => { DATASOURCE => \&PHEDEX::Web::SQL::getLinkTasks,
 			 DURATION => 10*60 },
     blockReplicas   => { DATASOURCE => \&PHEDEX::Web::SQL::getBlockReplicas,
+			 DURATION => 5*60 },
+    fileReplicas   => { DATASOURCE => \&PHEDEX::Web::SQL::getFileReplicas,
 			 DURATION => 5*60 },
     nodes           => { DATASOURCE => \&PHEDEX::Web::SQL::getNodes,
 			 DURATION => 60*60 },
@@ -195,6 +199,58 @@ sub blockReplicas
 
     return { block => [values %$blocks] };
 }
+
+
+sub fileReplicas
+{
+    my ($self, %h) = @_;
+
+    my $r = $self->getData('fileReplicas', %h);
+
+    my $blocks = {};
+    my $files = {};
+    my $replicas = {};
+    foreach my $row (@$r) {
+	my $block_id = $row->{block_id};
+	my $node_id = $row->{node_id};
+	my $file_id = $row->{file_id};
+
+	# <block> element
+	if (!exists $blocks->{ $block_id }) {
+	    $blocks->{ $block_id } = { id => $block_id,
+				       name => $row->{block_name},
+				       files => $row->{block_files},
+				       bytes => $row->{block_bytes},
+				       is_open => $row->{is_open},
+				       file => []
+				   };
+	}
+
+	# <file> element
+	if (!exists $files->{ $file_id }) {
+	    $files->{ $file_id } = { id => $row->{file_id},
+				     name => $row->{logical_name},
+				     bytes => $row->{filesize},
+				     checksum => $row->{checksum},
+				     time_create => $row->{time_create},
+				     origin_node => $row->{origin_node},
+				     replica => []
+				 };
+	    push @{ $blocks->{ $block_id }->{file} }, $files->{ $file_id };
+	}
+	
+	# <replica> element
+	push @{ $files->{ $file_id }->{replica} }, { node_id => $row->{node_id},
+						     node => $row->{node_name},
+						     se => $row->{se_name},
+						     time_create => $row->{replica_create}
+						 };
+    }
+    
+    return { block => [values %$blocks] };
+}
+
+
 
 sub nodes
 {

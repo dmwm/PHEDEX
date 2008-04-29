@@ -116,6 +116,10 @@ sub getNodes
           from t_adm_node n
        };
 
+    if ( $h{noempty} ) {
+	$sql .= qq{ where exists (select 1 from t_dps_block_replica br where br.node = n.id and node_files != 0) };
+    }
+
     $q = execute_sql( $self, $sql, %p );
     while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
 
@@ -149,9 +153,74 @@ sub getBlockReplicas
 	  join t_dps_block b on b.id = br.block
 	  join t_dps_dataset ds on ds.id = b.dataset
 	  join t_adm_node n on n.id = br.node
-	 where br.dest_files = b.files
-	   and n.se_name is not null
+	 where br.node_files != 0
        };
+
+    if (exists $h{complete}) {
+	if ($h{complete} eq 'n') {
+	    $sql .= qq{ and (br.node_files != b.files or b.is_open = 'y') };
+	} elsif ($h{complete} eq 'y') {
+	    $sql .= qq{ and br.node_files = b.files and b.is_open = 'n' };
+	}
+    }
+
+    if (exists $h{node}) {
+	$sql .= ' and ('. filter_or_eq($self, undef, \%p, 'n.name', $h{node}) . ')';
+    }
+
+    if (exists $h{se}) {
+	$sql .= ' and ('. filter_or_eq($self, undef, \%p, 'n.se_name', $h{se}) . ')';
+    }
+
+     if (exists $h{block}) {
+	 $sql .= ' and ('. filter_or_like($self, undef, \%p, 'b.name', $h{block}) . ')';
+     }
+
+    if (exists $h{create_since}) {
+	$sql .= ' and br.time_create >= :create_since';
+	$p{':create_since'} = $h{create_since};
+    }
+
+    if (exists $h{update_since}) {
+	$sql .= ' and br.time_update >= :update_since';
+	$p{':update_since'} = $h{update_since};
+    }
+
+    $q = execute_sql( $self, $sql, %p );
+    while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
+
+    return \@r;
+}
+
+sub getFileReplicas
+{
+    my ($self, %h) = @_;
+    my ($sql,$q,%p,@r);
+    
+    $sql = qq{
+    select b.id block_id,
+           b.files block_files,
+           b.bytes block_bytes,
+           b.is_open,
+           n.id node_id,
+           n.name node_name,
+           n.se_name se_name,
+           f.id file_id,
+           f.logical_name,
+           f.filesize,
+           f.checksum,
+           f.time_create,
+           ns.name origin_node,
+           xr.time_create replica_create
+    from t_dps_block b
+    join t_dps_block_replica br on br.block = b.id
+    join t_adm_node n on n.id = br.node
+    join t_dps_file f on f.inblock = b.id
+    join t_adm_node ns on ns.id = f.node
+    left join t_xfer_replica xr on xr.node = br.node and xr.fileid = f.id
+    where br.node_files != 0 
+      and (br.is_active = 'n' or (br.is_active = 'y' and xr.node is not null))
+    };
 
     if (exists $h{complete}) {
 	if ($h{complete} eq 'n') {
