@@ -55,6 +55,14 @@ unless ($format && $db && $call) {
     return;
 }
 
+# Print documentation
+if ($format eq 'doc') {
+    chdir '/tmp';
+    print header();
+    print `perldoc -m PHEDEX::Web::Core | pod2html -css http://cern.ch/wildish/PHEDEX/phedex_pod.css`;
+    return;
+}
+
 my $core = new PHEDEX::Web::Core(DBCONFIG => $config->{INSTANCES}->{$db}->{DBCONFIG},
 				 INSTANCE => $db,
 				 REQUEST_URL => self_url(),
