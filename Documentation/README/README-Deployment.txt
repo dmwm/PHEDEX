@@ -140,7 +140,7 @@ your environment.  You will invoke the scripts from your site "Config"
 as will be explained below.  If you used the commands above, use the
 following command, but substitute "slc4_ia32_gcc345" if applicable:
 
-  source $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_3_0_0/etc/profile.d/env.sh
+  source $sw/slc3_ia32_gcc323/cms/PHEDEX/PHEDEX_3_0_2/etc/profile.d/env.sh
 
 You should verify the following environment variables are set correctly:
 
