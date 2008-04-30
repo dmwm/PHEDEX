@@ -1,3 +1,13 @@
+* Changes in PhEDEx 3.0.1
+
+ This is a minor upgrade over 3.0.0. No significant changes in functionality
+ have been made, some small bugs have been fixed.
+
+* Changes in the FTS backend
+  - spurious warnings about orphans have been supressed
+  - logging information sent to TMDB has been improved. This is necessary
+    for the logmining to be able to produce sensible results.
+
 * Changes in PhEDEx 3.0.0
 
   This release is a mandatory upgrade. The main changes with respect to the
