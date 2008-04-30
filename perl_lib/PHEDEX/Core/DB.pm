@@ -120,7 +120,7 @@ sub connectToDatabase
 	|| (! eval { $dbh->do("select sysdate from dual") } || $@))
   {
     $self->{DBH_LOGGING} = 1 if $ENV{PHEDEX_LOG_DB_CONNECTIONS};
-    &PHEDEX::Core::Logging ($self, "(re)connecting to database") if $self->{DBH_LOGGING};
+    &PHEDEX::Core::Logging::Logmsg ($self, "(re)connecting to database") if $self->{DBH_LOGGING};
 
     # Clear previous connection.
     eval { &disconnectFromDatabase ($self, $self->{DBH}, 1) } if $self->{DBH};
