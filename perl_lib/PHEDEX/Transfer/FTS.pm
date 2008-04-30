@@ -422,6 +422,16 @@ sub startBatch
 
     my $result = $self->{Q_INTERFACE}->Submit($job);
     $job->Log( @{$result->{INFO}} ) if $result->{INFO};
+    if ( $result->{SETPRIORITY} )
+    {
+      $job->Log("SETPRIORITY: CMD: "   . $result->{SETPRIORITY}{CMD});
+      $job->Log("SETPRIORITY: ERROR: " . $result->{SETPRIORITY}{ERROR})
+        if $result->{SETPRIORITY}{ERROR};
+      $job->Log(
+                 map { "SETPRIORITY: RAW: $_" }
+                 @{$result->{SETPRIORITY}{RAW_OUTPUT}}
+               );
+    }
 
     if ( exists $result->{ERROR} ) { 
 	# something went wrong...

@@ -285,12 +285,13 @@ sub SetPriority
   my ($self,$job) = @_;
   my ($priority,@raw,%result);
   return unless $priority = $job->Priority;
-  return if $priority == $self->{PRIORITY}; # Save an interaction with the server
+  return \%result if $priority == $self->{PRIORITY}; # Save an interaction with the server
 
   my $cmd = "glite-transfer-setpriority";
   if ( $job->Service ) { $cmd .= ' -s ' . $job->Service; }
   $cmd .= ' ' . $job->ID . ' ' . $priority;
   print $self->Hdr,"Execute: $cmd\n";
+  $result{CMD} = $cmd;
   open GLITE, "$cmd 2>&1 |" or die "$cmd: $!\n";
   while ( <GLITE> )
   {
@@ -355,7 +356,7 @@ sub Submit
   $result{ID} = $id;
   $job->ID($id);
 
-  push @{$result{INFO}}, $self->SetPriority($job);
+  $result{SETPRIORITY} = $self->SetPriority($job);
 
   return \%result;
 }
