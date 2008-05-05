@@ -414,48 +414,45 @@ sub arrayref_expand
 }
 
 #-------------------------------------------------------------------------------
-sub filter_and_like
+sub build_filter
 {
-  my ($self,$s,$p,$k,@v) = @_;
+  my ($self,$join,$wild,$s,$p,$k,@v) = @_;
   @v = glob_to_sql_like arrayref_expand @v;
   my $kbind = $k;  $kbind =~ s/\./_/;
   my $i = 1;
-  $$s .= join(' and ', map { $p->{':' . $kbind . $i} = $_; # bind parameters
-			     "$k like :$kbind" . $i++      # sql statement
-			   } @v
+  my $op = '=';
+  $$s .= join(" $join ", map { $op = ($_ =~ s/^!//) ? '!=' : '=';            # operator
+			       if ($wild || (!defined $wild && $_ =~ /%/)) { # wildcards?
+				   $op =~ s/!/not /; $op =~ s/=/like/; 
+			       } 
+			       $p->{':' . $kbind . $i} = $_;                 # bind parameters
+			       "$k $op :$kbind" . $i++                       # sql statement
+			      } @v
 	   );
   return %{$p} if wantarray;
   return $$s;
+}
+
+
+#-------------------------------------------------------------------------------
+sub filter_and_like
+{
+  my ($self,$s,$p,$k,@v) = @_;
+  return build_filter('and', 1, $s, $p, $k, @v);
 }
 
 #-------------------------------------------------------------------------------
 sub filter_or_like
 {
   my ($self,$s,$p,$k,@v) = @_;
-  @v = glob_to_sql_like arrayref_expand @v;
-  my $kbind = $k;  $kbind =~ s/\./_/;
-  my $i = 1;
-  $$s .= join(' or ', map { $p->{':' . $kbind . $i} = $_; # bind parameters
-			    "$k like :$kbind" . $i++      # sql statement
-			   } @v
-	   );
-  return %{$p} if wantarray;
-  return $$s;
+  return build_filter($self, 'or', 1, $s, $p, $k, @v);
 }
 
 #-------------------------------------------------------------------------------
 sub filter_or_eq
 {
   my ($self,$s,$p,$k,@v) = @_;
-  @v = arrayref_expand(@v);
-  my $kbind = $k;  $kbind =~ s/\./_/;
-  my $i = 1;
-  $$s .= join(' or ', map { $p->{':' . $kbind . $i} = $_; # bind parameters
-			    "$k = :$kbind" . $i++      # sql statement
-			   } @v
-	   );
-  return %{$p} if wantarray;
-  return $$s;
+  return build_filter($self, 'or', 0, $s, $p, $k, @v);  @v = arrayref_expand(@v);
 }
 
 #-------------------------------------------------------------------------------
