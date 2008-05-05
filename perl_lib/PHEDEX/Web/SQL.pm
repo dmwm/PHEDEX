@@ -114,10 +114,15 @@ sub getNodes
 	       n.se_name se,
 	       n.kind, n.technology
           from t_adm_node n
+          where 1=1
        };
 
+    if (exists $h{node}) {
+	$sql .= ' and ('. filter_or_like($self, undef, \%p, 'n.name', $h{node}) . ')';
+    }
+
     if ( $h{noempty} ) {
-	$sql .= qq{ where exists (select 1 from t_dps_block_replica br where br.node = n.id and node_files != 0) };
+	$sql .= qq{ and  exists (select 1 from t_dps_block_replica br where br.node = n.id and node_files != 0) };
     }
 
     $q = execute_sql( $self, $sql, %p );
