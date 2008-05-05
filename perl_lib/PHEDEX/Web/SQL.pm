@@ -118,11 +118,11 @@ sub getNodes
        };
 
     if (exists $h{node}) {
-	$sql .= ' and ('. filter_or_like($self, undef, \%p, 'n.name', $h{node}) . ')';
+	$sql .= ' and ('. build_filter($self, 'or', undef, undef, \%p, 'n.name', $h{node}) . ')';
     }
 
     if ( $h{noempty} ) {
-	$sql .= qq{ and  exists (select 1 from t_dps_block_replica br where br.node = n.id and node_files != 0) };
+	$sql .= qq{ and exists (select 1 from t_dps_block_replica br where br.node = n.id and node_files != 0) };
     }
 
     $q = execute_sql( $self, $sql, %p );
@@ -170,15 +170,15 @@ sub getBlockReplicas
     }
 
     if (exists $h{node}) {
-	$sql .= ' and ('. filter_or_eq($self, undef, \%p, 'n.name', $h{node}) . ')';
+	$sql .= ' and ('. build_filter($self, 'or', undef, undef, \%p, 'n.name', $h{node}) . ')';
     }
 
     if (exists $h{se}) {
-	$sql .= ' and ('. filter_or_eq($self, undef, \%p, 'n.se_name', $h{se}) . ')';
+	$sql .= ' and ('. build_filter($self, 'or', undef, undef, \%p, 'n.se_name', $h{se}) . ')';
     }
 
      if (exists $h{block}) {
-	 $sql .= ' and ('. filter_or_like($self, undef, \%p, 'b.name', $h{block}) . ')';
+	 $sql .= ' and ('. build_filter($self, 'or', undef, undef, \%p, 'b.name', $h{block}) . ')';
      }
 
     if (exists $h{create_since}) {
@@ -236,15 +236,15 @@ sub getFileReplicas
     }
 
     if (exists $h{node}) {
-	$sql .= ' and ('. filter_or_eq($self, undef, \%p, 'n.name', $h{node}) . ')';
+	$sql .= ' and ('. build_filter($self, 'or', undef, undef, \%p, 'n.name', $h{node}) . ')';
     }
 
     if (exists $h{se}) {
-	$sql .= ' and ('. filter_or_eq($self, undef, \%p, 'n.se_name', $h{se}) . ')';
+	$sql .= ' and ('. build_filter($self, 'or', undef, undef, \%p, 'n.se_name', $h{se}) . ')';
     }
 
      if (exists $h{block}) {
-	 $sql .= ' and ('. filter_or_like($self, undef, \%p, 'b.name', $h{block}) . ')';
+	 $sql .= ' and ('. build_filter($self, 'or', undef, undef, \%p, 'b.name', $h{block}) . ')';
      }
 
     if (exists $h{create_since}) {
