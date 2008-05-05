@@ -416,6 +416,7 @@ A simple dump of PhEDEx nodes.
 
 =head3 options
 
+ node     PhEDex node name
  noempty  filter out nodes which do not host any data
 
 =head3 <node> attributes
@@ -519,14 +520,16 @@ sub getCacheDuration
 }
 
 
-# just dies if the required args are not provided
+# just dies if the required args are not provided or if they are unbounded
 sub checkRequired
 {
     my ($provided, @required) = @_;
     foreach my $arg (@required) {
 	if (!exists $provided->{$arg} ||
 	    !defined $provided->{$arg} ||
-	    $provided->{$arg} eq '') {
+	    $provided->{$arg} eq '' ||
+	    $provided->{$arg} =~ /^\*+$/
+	    ) {
 	    die "Argument '$arg' is required\n";
 	}
     }
