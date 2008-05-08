@@ -79,7 +79,6 @@ sub AUTOLOAD
   $self->$parent(@_);
 }
 
-
 sub getLinkTasks
 {
     my ($self, %h) = @_;
@@ -117,9 +116,9 @@ sub getNodes
           where 1=1
        };
 
-    if (exists $h{node}) {
-	$sql .= ' and ('. build_filter($self, 'or', undef, undef, \%p, 'n.name', $h{node}) . ')';
-    }
+    my $filters = '';
+    build_multi_filters($self, \$filters, \%p, \%h,  node  => 'n.name');
+    $sql .= " and ($filters)" if $filters;
 
     if ( $h{noempty} ) {
 	$sql .= qq{ and exists (select 1 from t_dps_block_replica br where br.node = n.id and node_files != 0) };
@@ -169,17 +168,11 @@ sub getBlockReplicas
 	}
     }
 
-    if (exists $h{node}) {
-	$sql .= ' and ('. build_filter($self, 'or', undef, undef, \%p, 'n.name', $h{node}) . ')';
-    }
-
-    if (exists $h{se}) {
-	$sql .= ' and ('. build_filter($self, 'or', undef, undef, \%p, 'n.se_name', $h{se}) . ')';
-    }
-
-     if (exists $h{block}) {
-	 $sql .= ' and ('. build_filter($self, 'or', undef, undef, \%p, 'b.name', $h{block}) . ')';
-     }
+    my $filters = '';
+    build_multi_filters($self, \$filters, \%p, \%h, ( node  => 'n.name',
+						      se    => 'n.se_name',
+						      block => 'b.name' ));
+    $sql .= " and ($filters)" if $filters;
 
     if (exists $h{create_since}) {
 	$sql .= ' and br.time_create >= :create_since';
@@ -204,27 +197,28 @@ sub getFileReplicas
     
     $sql = qq{
     select b.id block_id,
+           b.name block_name,
            b.files block_files,
            b.bytes block_bytes,
            b.is_open,
-           n.id node_id,
-           n.name node_name,
-           n.se_name se_name,
            f.id file_id,
            f.logical_name,
            f.filesize,
            f.checksum,
            f.time_create,
            ns.name origin_node,
+           n.id node_id,
+           n.name node_name,
+           n.se_name se_name,
            xr.time_create replica_create
     from t_dps_block b
-    join t_dps_block_replica br on br.block = b.id
-    join t_adm_node n on n.id = br.node
     join t_dps_file f on f.inblock = b.id
     join t_adm_node ns on ns.id = f.node
+    join t_dps_block_replica br on br.block = b.id
     left join t_xfer_replica xr on xr.node = br.node and xr.fileid = f.id
+    left join t_adm_node n on ((br.is_active = 'y' and n.id = xr.node) 
+                            or (br.is_active = 'n' and n.id = br.node))
     where br.node_files != 0 
-      and (br.is_active = 'n' or (br.is_active = 'y' and xr.node is not null))
     };
 
     if (exists $h{complete}) {
@@ -235,17 +229,25 @@ sub getFileReplicas
 	}
     }
 
-    if (exists $h{node}) {
-	$sql .= ' and ('. build_filter($self, 'or', undef, undef, \%p, 'n.name', $h{node}) . ')';
+    if (exists $h{dist_complete}) {
+	if ($h{dist_complete} eq 'n') {
+	    $sql .= qq{ and (b.is_open = 'y' or
+			     not exists (select 1 from t_dps_block_replica br2
+                                          where br2.block = b.id 
+                                            and br2.node_files = b.files)) };
+	} elsif ($h{dist_complete} eq 'y') {
+	    $sql .= qq{ and b.is_open = 'n' 
+			and exists (select 1 from t_dps_block_replica br2
+                                     where br2.block = b.id 
+                                       and br2.node_files = b.files) };
+	}
     }
 
-    if (exists $h{se}) {
-	$sql .= ' and ('. build_filter($self, 'or', undef, undef, \%p, 'n.se_name', $h{se}) . ')';
-    }
-
-     if (exists $h{block}) {
-	 $sql .= ' and ('. build_filter($self, 'or', undef, undef, \%p, 'b.name', $h{block}) . ')';
-     }
+    my $filters = '';
+    build_multi_filters($self, \$filters, \%p, \%h, ( node  => 'n.name',
+						      se    => 'n.se_name',
+						      block => 'b.name' ));
+    $sql .= " and ($filters)" if $filters;
 
     if (exists $h{create_since}) {
 	$sql .= ' and br.time_create >= :create_since';
@@ -262,6 +264,8 @@ sub getFileReplicas
 
     return \@r;
 }
+
+
 
 sub getTFC {
    my ($self, %h) = @_;
@@ -288,5 +292,9 @@ sub getTFC {
    
    return \@r;
  }
+
+
+
+
 
 1;
