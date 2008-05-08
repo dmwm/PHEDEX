@@ -24,6 +24,42 @@ use base 'Exporter';
 our @EXPORT = qw( Hdr ); # logmsg alert      dbgmsg fatal note);
 use POSIX;
 
+## Produce an alert message
+#sub logmsg
+#{
+#    my $date = strftime ("%Y-%m-%d %H:%M:%S", gmtime);
+#    my $me = $0; $me =~ s|.*/||;
+#    warn         "$date: ${me}\[$$]: ", @_, "\n";
+#}
+#
+#sub alert
+#{
+#    &logmsg ("alert: ", @_);
+#}
+#
+##sub warn
+##{
+##    &logmsg ("warning: ", @_);
+##}
+#
+#sub dbgmsg
+#{
+#    &logmsg ("debug: ", @_);
+#}
+#
+#sub fatal
+#{
+#    &logmsg ("fatal: ", @_);
+#    exit(1);
+#}
+#
+#sub note
+#{
+#    my $date = strftime ("%Y-%m-%d %H:%M:%S", gmtime);
+#    my $me = $0; $me =~ s|.*/||;
+#    print STDERR "$date: ${me}\[$$]: note: ", @_, "\n";
+#}
+
 # 'new' is declared as a dummy routine, just in case it ever gets called...
 sub new {}
 
@@ -40,7 +76,7 @@ BEGIN
 sub Logmsg
 {   
   my $self = shift;
-  print PHEDEX::Core::Logging::Hdr($self,@_,"\n");
+  print $self->Hdr, @_,"\n";
 }
 
 sub Notify
@@ -60,35 +96,35 @@ sub Notify
 sub Alert
 {   
   my $self = shift;
-  PHEDEX::Core::Logging::Logmsg ($self,"alert: ", @_);
-  PHEDEX::Core::Logging::Notify ($self,"alert: ", @_,"\n");
+  $self->Logmsg ("alert: ", @_);
+  $self->Notify ("alert: ", @_,"\n");
 }
 
 sub Warn
 {   
   my $self = shift;
-  PHEDEX::Core::Logging::Logmsg ($self,"warning: ", @_);
-  PHEDEX::Core::Logging::Notify ($self,"warning: ", @_,"\n");
+  $self->Logmsg ("warning: ", @_);
+  $self->Notify ("warning: ", @_,"\n");
 }   
 
 sub Dbgmsg
 {
   my $self = shift;
-  PHEDEX::Core::Logging::Logmsg ($self,"debug: ", @_);
+  $self->Logmsg ("debug: ", @_);
 }
 
 sub Fatal
 {
   my $self = shift;
-  PHEDEX::Core::Logging::Logmsg ($self,"fatal: ", @_);
-  PHEDEX::Core::Logging::Notify ($self,"fatal: ", @_,"\n");
+  $self->Logmsg ("fatal: ", @_);
+  $self->Notify ("fatal: ", @_,"\n");
   exit(1);
 }
 
 sub Note
 {
   my $self = shift;
-  print PHEDEX::Core::Logging::Hdr( $self," note: ", @_, "\n" );
+  print $self->Hdr," note: ", @_, "\n";
 }
 
 sub Hdr
