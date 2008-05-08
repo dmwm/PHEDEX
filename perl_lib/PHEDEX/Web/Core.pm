@@ -57,9 +57,16 @@ C<http://host.cern.ch/phedex/datasvc/xml/prod/foobar>
 use warnings;
 use strict;
 
+use base 'PHEDEX::Web::SQL';
+
 use PHEDEX::Core::Timing;
+
+# TODO: When call-specific SQL is removed from PHEDEX::Web::SQL and
+# something more modular is used, stop using these libraries and just
+# use our base SQL class, PHEDEX::Web::SQL
 use PHEDEX::Core::SQL;
 use PHEDEX::Web::SQL;
+
 use PHEDEX::Web::Format;
 use HTML::Entities; # for encoding XML
 
@@ -114,9 +121,11 @@ sub new
 
     $self->{REQUEST_TIME} ||= &mytimeofday();
 
+    bless $self, $class;
+
     # Set up database connection
     my $t1 = &mytimeofday();
-    &PHEDEX::Core::SQL::connectToDatabase($self, 0);
+    $self->connectToDatabase(0);
     my $t2 = &mytimeofday();
     warn "db connection time ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
 
@@ -124,8 +133,6 @@ sub new
 
 #    $self->{CACHE} = new Cache::FileCache({cache_root => '/tmp/phedex-cache'});
 #    $self->{CACHE} = new Cache::MemoryCache;
-    
-    bless $self, $class;
 
     # on initialization fill the caches
 #    foreach my $call (grep $cacheable{$_} > 0, keys %cacheable) {
@@ -165,6 +172,7 @@ sub call
 	return;
     } else {
 	my $t1 = &mytimeofday();
+	&process_args(\%args);
 	my $obj;
 	eval {
 	    $obj = &{"PHEDEX::Web::Core::$call"}($self, %args, nocache=>1);
@@ -194,6 +202,28 @@ sub call
 	$t2 = &mytimeofday();
 	warn "api call '$call' delivered in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
     }
+}
+
+# process arguments used for common features
+sub process_args
+{
+    my $h = shift;
+
+    # multiply occuring option operators go to OPERATORS
+    if (exists $h->{op}) {
+	my %ops;
+	my @ops = arrayref_expand($h->{op});
+	delete $h->{op};
+
+	foreach my $pair (@ops) {
+	    my ($name, $value) = split /:/, $pair;
+	    next unless defined $name && defined $value && $value =~ /^(and|or)$/;
+	    $ops{$name} = $value;
+	}
+	
+	$h->{OPERATORS} = \%ops;
+    }
+    
 }
 
 sub error
@@ -229,7 +259,8 @@ Return block replicas with the following structure:
    ...
 
 where <block> represents a block of files and <replica> represents a
-copy of that block at some node.
+copy of that block at some node.  An empty response means that no
+block replicas exist for the given options.
 
 =head3 options
 
@@ -318,7 +349,12 @@ Return file replicas with the following structure:
    ...
 
 where <block> represents a block of files, <file> represents a file
-and <replica> represents a copy of that file at some node.
+and <replica> represents a copy of that file at some node.  <block>
+and <file> will always be present if any file replicas match the given
+options.  <file> elements with no <replica> children represent files
+which are part of the block, butno file replicas match
+the given options.  An empty response means no file replicas matched
+the given options.
 
 =head3 options
 
@@ -329,8 +365,13 @@ and <replica> represents a copy of that file at some node.
                 time
  create_since   unix timestamp, only return replicas created since this
                 time
- complete       y or n, whether or not to require complete or incomplete
-                blocks. Default is to return either
+ complete       y or n. if y, return only file replicas from complete block
+                replicas.  if n only return file replicas from incomplete block
+                replicas.  default is to return either.
+ dist_complete  y or n.  if y, return only file replicas from blocks
+                which have a complete block replica at some node.  if n, only return
+                file replicas from blocks which do not have a complete block replica
+                at some node.  default is to return either.
 
 =head3 <block> attributes
 
@@ -398,6 +439,7 @@ sub fileReplicas
 	}
 	
 	# <replica> element
+	next unless defined $row->{node_id};
 	push @{ $files->{ $file_id }->{replica} }, { node_id => $row->{node_id},
 						     node => $row->{node_name},
 						     se => $row->{se_name},
