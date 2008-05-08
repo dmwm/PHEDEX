@@ -63,7 +63,8 @@ if ($format eq 'doc') {
     return;
 }
 
-my $core = new PHEDEX::Web::Core(DBCONFIG => $config->{INSTANCES}->{$db}->{DBCONFIG},
+my $core = new PHEDEX::Web::Core(VERSION => $config->{VERSION},
+				 DBCONFIG => $config->{INSTANCES}->{$db}->{DBCONFIG},
 				 INSTANCE => $db,
 				 REQUEST_URL => self_url(),
 				 DEBUG => $TESTING
