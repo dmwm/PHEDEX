@@ -414,23 +414,95 @@ sub arrayref_expand
 }
 
 #-------------------------------------------------------------------------------
+# builts a filter with bind parameters for a single column
+#
+# parameters:
+#   $operator   'and' or 'or'.  default is 'or' if undefined
+#   $wild       if true, always use wildcards in the filter
+#   $sql        the sql string to append the filter to
+#   $binds      a hash ref of bind parameters
+#   $column     the name of the column to filter on
+#   @values     the values to filter for
+#
+# returns:  the bind parameter hash if an array is wanted
+#           otherwise the modified $sql
+#
+# by default, each value is filtered by the '=' operator, unless $wild
+# is specified, or the value contains a wildcard, in which case the
+# 'like' operator will be used
+#
+# all '*' characters in @values are changed to the sql wildcard '%'
+#
+# @values can contain arrayrefs, in which case they will be expanded
+# into the list
+# 
+# if a @values element begins with the '!' character, then the
+# operator will be negated
 sub build_filter
 {
-  my ($self,$join,$wild,$s,$p,$k,@v) = @_;
-  @v = glob_to_sql_like arrayref_expand @v;
-  my $kbind = $k;  $kbind =~ s/\./_/;
+  my ($self,$operator,$wild,$sql,$binds,$column,@values) = @_;
+  @values = glob_to_sql_like arrayref_expand @values;
+  my $bname = $column;  $bname =~ s/\./_/; # name of bind parameter
   my $i = 1;
   my $op = '=';
-  $$s .= join(" $join ", map { $op = ($_ =~ s/^!//) ? '!=' : '=';            # operator
-			       if ($wild || (!defined $wild && $_ =~ /%/)) { # wildcards?
-				   $op =~ s/!/not /; $op =~ s/=/like/; 
-			       } 
-			       $p->{':' . $kbind . $i} = $_;                 # bind parameters
-			       "$k $op :$kbind" . $i++                       # sql statement
-			      } @v
+  $$sql .= join(" $operator ", map { $op = ($_ =~ s/^!//) ? '!=' : '=';            # negate operator?
+				     if ($wild || (!defined $wild && $_ =~ /%/)) { # wildcards?
+					 $op =~ s/!/not /; $op =~ s/=/like/; 
+				     } 
+				     $binds->{':' . $bname . $i} = $_;             # set bind parameters
+				     "$column $op :$bname" . $i++                  # set sql statement
+				     } @values
 	   );
-  return %{$p} if wantarray;
-  return $$s;
+  return %{$binds} if wantarray;
+  return $$sql;
+}
+
+#-------------------------------------------------------------------------------
+# builds a filter with bind parameters for multiple filter/column
+# pairs which have multiple values for the filter
+#
+# parameters:
+#   $sql      scalar reference to the sql to append the filter to
+#   $binds    hash reference to the bind_var => value hash
+#   $filters  hash reference to the filter_name => value_array hash
+#   %sql_map  hash of filter_name => column_name
+#
+# returns:  if an array is wanted, then the array of individual filter sqls is returned
+#           else an 'and' joined filter of filters is returned
+#           if no filter could be made, returns undef
+#
+# looks for the $filters->{OPERATORS} hashref to determine whether to
+# make the given filter_name an 'and' filter or an 'or' filter.
+# Default is an 'or' filter.
+#
+# example:  &build_multi_filters ( $self, "select 1 from dual d where 1=1 and ",
+#				  {}, { foo => [1, 2, 3], bar => "xyz" },
+#                                 foo => d.foo, bar => d.bar );
+#
+# turns $sql to 
+#
+# select 1 from dual d where 1=1 and (( d.foo = :foo_1 or d.foo = :foo_2 or d.foo = foo_3)
+#                                and ( d.bar = :bar_1 ))
+# and $p becomes { ':foo_1' => 1, ':foo_2' => 2, 'foo_3' => 3, 'bar_1' => xyz }
+sub build_multi_filters
+{
+    my ($self, $sql, $binds, $filters, %sql_map) = @_;
+    $sql ||= "";
+
+    my @filter_set;
+    while (my ($filter, $column) = each %sql_map) {
+	if (exists $filters->{$filter}) {
+	    my $values = $filters->{$filter};
+	    my $operator = $filters->{OPERATORS}->{$filter} || 'or';
+	    push @filter_set, '('. build_filter($self, $operator, undef, undef, $binds, $column, $values) . ')';
+	}
+    }
+    if (@filter_set) {
+	$$sql .= join ' and ', @filter_set;
+	return wantarray ? @filter_set : $sql;
+    } else {
+	return undef;
+    }
 }
 
 
