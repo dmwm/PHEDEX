@@ -48,6 +48,22 @@ C<http://host.cern.ch/phedex/datasvc/xml/prod/foobar>
    API call 'foobar' is not defined.  Check the URL
    </error>
 
+=head2 Multi-Value filters
+
+Filters with multiple values follow some common rules for all calls,
+unless otherwise specified:
+
+ * by default the multiple-value filters form an "or" statement
+ * by specifying another option, 'op=name:and', the filters will form an "and" statement
+ * filter values beginning with '!' look for negated matches
+ * filter values may contain the wildcard character '*'
+
+examples:
+
+ ...?node=A&node=B&node=C
+    node matches A, B, or C; but not D, E, or F
+ ...?node=foo*&op=node:and&node=!foobar
+    node matches 'foobaz', 'foochump', but not 'foobar'
 
 =head1 Calls
 
@@ -78,7 +94,8 @@ use HTML::Entities; # for encoding XML
 
 our (%params);
 
-%params = ( DBCONFIG => undef,
+%params = ( VERSION => undef,
+            DBCONFIG => undef,
 	    INSTANCE => undef,
 	    REQUEST_URL => undef,
 	    REQUEST_TIME => undef,
@@ -186,6 +203,7 @@ sub call
 
 	# wrap the object in a phedexData element
 	$obj->{instance} = $self->{INSTANCE};
+	$obj->{request_version} = $self->{VERSION};
 	$obj->{request_url} = $self->{REQUEST_URL};
 	$obj->{request_call} = $call;
 	$obj->{request_timestamp} = $self->{REQUEST_TIME};
@@ -264,15 +282,17 @@ block replicas exist for the given options.
 
 =head3 options
 
- block          block name, with '*' wildcards, can be multiple
- node           node name, can be multiple
- se             storage element name, can be multiple
+ block          block name, can be multiple (*)
+ node           node name, can be multiple (*)
+ se             storage element name, can be multiple (*)
  updated_since  unix timestamp, only return replicas updated since this
                 time
  create_since   unix timestamp, only return replicas created since this
                 time
  complete       y or n, whether or not to require complete or incomplete
                 blocks. Default is to return either
+
+ (*) See the rules of multi-value filters above
 
 =head3 <block> attributes
 
@@ -358,9 +378,9 @@ the given options.
 
 =head3 options
 
- block          block name, with '*' wildcards, can be multiple.  required.
- node           node name, can be multiple
- se             storage element name, can be multiple
+ block          block name, with '*' wildcards, can be multiple (*).  required.
+ node           node name, can be multiple (*)
+ se             storage element name, can be multiple (*)
  updated_since  unix timestamp, only return replicas updated since this
                 time
  create_since   unix timestamp, only return replicas created since this
@@ -369,9 +389,12 @@ the given options.
                 replicas.  if n only return file replicas from incomplete block
                 replicas.  default is to return either.
  dist_complete  y or n.  if y, return only file replicas from blocks
-                which have a complete block replica at some node.  if n, only return
-                file replicas from blocks which do not have a complete block replica
-                at some node.  default is to return either.
+                where all file replicas are available at some node. if
+                n, return only file replicas from blocks which have
+                file replicas not available at any node.  default is
+                to return either.
+
+ (*) See the rules of multi-value filters above
 
 =head3 <block> attributes
 
@@ -458,8 +481,10 @@ A simple dump of PhEDEx nodes.
 
 =head3 options
 
- node     PhEDex node name
+ node     PhEDex node names to filter on, can be multiple (*)
  noempty  filter out nodes which do not host any data
+
+ (*) See the rules of multi-value filters above
 
 =head3 <node> attributes
 
