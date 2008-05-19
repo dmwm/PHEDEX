@@ -189,6 +189,7 @@ sub ListJob
   };
 
   $preamble=1;
+  my $last_key;
   while ( $_ = shift @raw )
   {
     if ( $preamble )
@@ -217,7 +218,15 @@ sub ListJob
       push @h, $h if $h;
       undef $h;
     }
-    if ( m%^\s+(\S+):\s+(.*)\s*$% ) { $h->{uc $1} = $2; }
+    if ( m%^\s+(\S+):\s+(.*)\s*$% )
+    {
+      $last_key = uc $1;
+      $h->{$last_key} = $2;
+    }
+    elsif ( m%\S% )
+    {
+      $h->{$last_key} .= ' ' . $2;
+    }
   }
 
   chomp $state if (defined $state);
@@ -285,7 +294,7 @@ sub SetPriority
   my ($self,$job) = @_;
   my ($priority,@raw,%result);
   return unless $priority = $job->Priority;
-  return \%result if $priority == $self->{PRIORITY}; # Save an interaction with the server
+  return if $priority == $self->{PRIORITY}; # Save an interaction with the server
 
   my $cmd = "glite-transfer-setpriority";
   if ( $job->Service ) { $cmd .= ' -s ' . $job->Service; }
