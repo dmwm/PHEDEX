@@ -40,7 +40,7 @@ BEGIN
 sub Logmsg
 {   
   my $self = shift;
-  print PHEDEX::Core::Logging::Hdr($self,@_,"\n");
+  print PHEDEX::Core::Logging::Hdr($self),@_,"\n";
 }
 
 sub Notify
@@ -88,7 +88,7 @@ sub Fatal
 sub Note
 {
   my $self = shift;
-  print PHEDEX::Core::Logging::Hdr( $self," note: ", @_, "\n" );
+  print PHEDEX::Core::Logging::Hdr($self)," note: ", @_, "\n";
 }
 
 sub Hdr
