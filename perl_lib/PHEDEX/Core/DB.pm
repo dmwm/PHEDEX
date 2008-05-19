@@ -143,7 +143,7 @@ sub connectToDatabase
       }
       else
       {
-        $self->Logmsg("Creating new shared DBH") if $self->{DEBUG};
+        &PHEDEX::Core::Logging::Logmsg($self,"Creating new shared DBH") if $self->{DEBUG};
         $self->{DBH} = $dbh = $Agent::Registry{DBH} =
             DBI->connect ("DBI:$self->{DBH_DBITYPE}:$self->{DBH_DBNAME}",
 	    		 $self->{DBH_DBUSER}, $self->{DBH_DBPASS},
