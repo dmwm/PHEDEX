@@ -6,7 +6,7 @@
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
 # XML support added by Artem Trunov
-# Version info: $Id: InspectPhedexLog,v 1.26 2008/04/10 17:03:38 trunov Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.27 2008/04/29 11:23:18 trunov Exp $:
 ###############################################################################
 
 use strict;
@@ -27,7 +27,7 @@ my $flag_errhisto=0;
 my $flag_multiFailures=0;
 my $flag_nodberrors=0;
 
-my $errmsglen=200; # length of error messages to use (error will be cut)
+my $errmsglen=350; # length of error messages to use (error will be cut)
 my $multiFilePrintThresh=2;
 
 sub usage {
@@ -265,16 +265,29 @@ foreach my $log (@logfiles) {
 	     if(! $flag_rawErrors) {
 	       my $tmp;
 	       # First some general substitution patterns to remove IDs, etc.
-	       $detail = substr($detail,0,$errmsglen) . "...(error cut)" if length($detail) > $errmsglen;
 	       $detail =~ s/\sid=[\d-]+\s/id=\[id\] /;
 	       $detail =~ s/\sauthRequestID \d+\s/authRequestID \[id\] /;
 	       $detail =~ s/RequestFileStatus#[\d-]+/RequestFileStatus#\[number\]/g;
 	       $detail =~ s/srm:\/\/[^\s]+/\[srm-URL\]/;
 	       $detail =~ s/at\s+\w{3}\s+\w{3}\s+\d+\s+\d+:\d+:\d+\s+[A-Z]+\s+\d+/at \[date\]/g;
+	       $detail =~ s/request \[-?\d+\]/request [reqid]/;
+               $detail =~ s/pnfsPath=\/.*(\s|\b)/pnfsPath=path/;
+	       $detail =~ s/\{uoid=.*\}/\{uoid=stuff\}/;
+	       $detail =~ s/prm_size \d+/prm_size [size]/;
+	       $detail =~ s/msg=path \/\S+\s/msg=path [path] /;
+	       $detail =~ s/550 550 \/\S+\s/550 550 [path] /;
 
-	       if( $detail=~/^\s*$/) {$reason = "-"}
-	       elsif( (($reason) = $detail =~ m/.*(DESTINATION error during FINALIZATION phase: \[GENERAL_FAILURE\] failed to complete PrepareToPut request.*)/) ) { $reason =~ s/request \[(-|\d)+\]/request [reqid]/ }
+	       $detail = substr($detail,0,$errmsglen) . "...(error cut)" if length($detail) > $errmsglen;
+	
+               if( $detail=~/^\s*$/) {$reason = "-"}
+	       elsif( (($reason) = $detail =~ m/.*(DESTINATION error during FINALIZATION phase: \[GENERAL_FAILURE\] failed to complete PrepareToPut request).*/) ) { }
 	       elsif( (($reason) = $detail =~ m/.*(the server sent an error response: 425 425 Can\'t open data connection).*/)) {}
+	       elsif( $detail =~ m/.* the server sent an error response: 451 451 .*/) {
+		   $reason = $detail;
+		   $reason =~ s/\'\[\>(PoolManager).*\]\'/\'\[$1 stuff]\'/;
+		   $reason =~ s/\'\[\>(SrmSpaceManager).*\]\'/\'[$1 stuff]\'/;
+		   $reason =~ s/(No write pools configured for )<.*/[$1dcache stuff]/;
+	       }
 	       elsif( (($reason) = $detail =~ m/.*(the gridFTP transfer timed out).*/) ) {}
 	       elsif( (($reason) = $detail =~ m/.*(Failed SRM get on httpg:.*)/) ) {}
 	       elsif( (($reason) = $detail =~ m/.*(Failed on SRM put.*)/) )
@@ -461,6 +474,24 @@ if($flag_showErrors) {
 
     }
 
+    print XML "<TransferErrors>\n";
+    # makes reason hash
+    my %reasons = ();
+    foreach my $from (keys %errinfo) {
+	foreach $reason (keys %{$errinfo{$from}}) {
+	    $reasons{$reason} += $errinfo{$from}{$reason}{num};
+#	    print "Added $errinfo{$from}{$reason} from $from for $reason\n";
+	}
+    }
+
+    #print errors by their number
+    foreach my $reason ( reverse sort {$reasons{$a} <=> $reasons{$b} } keys %reasons ){
+        my $r = HTML::Entities::encode($reason);
+	print XML "<error n=\"$reasons{$reason}\">$r</error>\n";
+    }
+
+    print XML "</TransferErrors>\n";
+
     print "\n\nExpired tasks\n";
     print "==================\n";
     print "Total: ", scalar @expiredinfo, "\n";
@@ -476,7 +507,8 @@ if($flag_showErrors) {
 	foreach $reason (sort { $errinfo{$from}{$b}{num} <=> $errinfo{$from}{$a}{num} } keys %{$errinfo{$from}}) {
 	    printf("   %4d   $reason\n",$errinfo{$from}{$reason}{num});
 	    print "             task IDs: ", join(",",@{$errinfo{$from}{$reason}{tasks}}) . "\n\n" if $flag_verbose;
-	    print XML "<reason n=\"$errinfo{$from}{$reason}{num}\">\n$reason\n<\/reason>\n";
+	    my $r = HTML::Entities::encode($reason);
+	    print XML "<reason n=\"$errinfo{$from}{$reason}{num}\">\n$r\n<\/reason>\n";
 	    if($flag_errhisto) {
 		my $h=simpleHisto(\@{$errinfo{$from}{$reason}{"time"}},10);
 		print "      simple histogram:\n";
