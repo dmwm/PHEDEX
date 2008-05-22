@@ -77,7 +77,7 @@ def removeDBSlocation(rblock, rse_name):
 #//
 def addDBSlocation(ablock, ase_name):
   print "Adding location %s for block %s" % (ase_name,ablock)
-  dbsapi.addReplicaToBlock(ase_name,ablock)
+  dbsapi.addReplicaToBlock(ablock,ase_name)
 
 if (not remove and block != None):
   addDBSlocation(block,se_name)
