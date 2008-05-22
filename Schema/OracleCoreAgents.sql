@@ -108,5 +108,14 @@ create index ix_agent_message_agent
 create index ix_agent_status_agent
   on t_agent_status (agent);
 
+create index ix_agent_status_time_update
+  on t_agent_status (time_update);
+
 create index ix_agent_version_agent
   on t_agent_version (agent);
+
+create index ix_agent_version_time_update
+  on t_agent_version (time_update);
+
+create index ix_agent_log_time_update
+  on t_agent_log (time_update);
