@@ -1,9 +1,13 @@
-package ErrorClassify;
+package PHEDEX::Error::Classify;
+
 require Exporter;
 @ISA = qw(Exporter);
 @EXPORT = qw(ErrorClassify DateToUnixEpochSeconds);
-use strict;
 
+use POSIX qw(strftime);
+
+use strict;
+use warnings;
 
 # classifies errors, mostly by substitution of non-generic parts
 # arguments:
