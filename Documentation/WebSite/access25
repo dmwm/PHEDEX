@@ -6727,41 +6727,93 @@ sub new
 
 sub output
 {
-  my ($self) = @_;
-
-  $self->deletion_queue();
-}
-
-sub deletion_queue
-{
     my $self = shift @_;
 
+    my $nodefilter  = param('node') ||'Enter a node name';
+    my $blockfilter = param('blockfilter') || '.*';
+    my $state    = param('state') || 'any';
+
     print { $$self{CONTENT} }
-    "<h1>Deletion Queue</h1>",
-    "<p>This table contains the blocks which are queued for deletion.</p>";
-    
-    my $sql = qq{ select n.name node, ds.name dataset, b.name block, del.time_request, del.time_complete
+    "<p class='blocktext'>",
+    "This page shows the blocks which are queued for deletions.  The record of ",
+    "completed block deletions is removed after three days.</p>",
+    "<form class='nice' method='get' action='#'>",
+    "<label class='inline'>Show deletions at  </label>",
+    textfield(-name=>'node', -default=>$nodefilter, -size=>15, -class=>'labeled'),
+    "<label class='inline'> with state </label>",
+    popup_menu(-name=>'state', -values=>['any', 'pending', 'complete'],
+	       -default=>$state, -class=>'labeled'),
+    "<label class='inline'> filter blocks </label>",
+    textfield(-name=>'blockfilter', -default=>$blockfilter, -size=>15, -class=>'labeled'),
+    " ", submit(-name=>'Update'),
+    "</form><br clear='all'>";
+
+    my @where = ('1=1');
+    my %binds;
+    my %all_nodes = $self->fetch_nodes(with_ids=>1);
+    my @select_nodes = grep /$nodefilter/, keys %all_nodes;
+
+    if (! @select_nodes ) {
+	print { $$self{CONTENT} } $self->note('No nodes match the given filter');
+	return;
+    }
+
+    if (scalar @select_nodes < scalar keys %all_nodes) {
+	my $list;
+	($list, %binds) = &dbinlist('node', map { $all_nodes{$_} } @select_nodes);
+	push @where,"n.id in ($list)";
+    }
+
+    my $where = join ' and ', @where;
+
+    my $sql = qq{ select n.name node, b.name block, b.files, b.bytes, del.time_request, del.time_complete
 		      from t_dps_block_delete del
 		      join t_dps_block b on b.id = del.block
-		      join t_dps_dataset ds on ds.id = del.dataset
 		      join t_adm_node n on n.id = del.node
+		      where $where
 		      order by del.time_complete desc, del.time_request desc };
     
-    my $q = &dbexec($$self{DBH}, $sql);
+
+    my $q = &dbexec($$self{DBH}, $sql, %binds);
     
     my $dbtable = new Web25::DBTable;
     $dbtable->set_filehandle($$self{CONTENT});
     $dbtable->set_tableclass('data');
     $dbtable->set_stripeclass('stripe');
-    $dbtable->set_tablehead({ DATASET => 'Dataset',
-			      BLOCK => 'Block',
-			      NODE => 'Node',
-			      TIME_REQUEST => 'Requested',
-			      TIME_COMPLETE => 'Completed' });
-    $dbtable->set_dataformats({ TIME_REQUEST  => sub { &formatTime($_[0], 'stamp') },
-				TIME_COMPLETE => sub { $_[0] ? &formatTime($_[0], 'stamp') : 'Pending' } });
+
+    $dbtable->set_tablehead({ 
+	NODE => 'Node',
+	BLOCK => 'Block',
+	FILES => 'Files',
+	BYTES => 'Size',
+	TIME_REQUEST => 'Requested',
+	TIME_COMPLETE => 'Completed' });
+
+    $dbtable->set_dataformats({ 
+	BYTES => sub { &format_size($_[0]) },
+	TIME_REQUEST  => sub { &formatTime($_[0], 'stamp') },
+	TIME_COMPLETE => sub { $_[0] ? &formatTime($_[0], 'stamp') : 'Pending' } });
+
+    $dbtable->set_filters({
+	'BLOCK' => sub { $_[0] =~ /$blockfilter/ ? 1 : 0 },
+	'TIME_COMPLETE' => sub { return 1 if $state eq 'any';
+				 return 1 if $state eq 'pending' && !defined $_[0];
+				 return 1 if $state eq 'complete'&& defined $_[0];
+				 return 0;
+			     }
+    });
     
-    $dbtable->output($q);
+    $dbtable->set_statcols({
+	'FILES' => 'SUM',
+	'BYTES' => 'SUM'
+	});
+
+    my $nrows = $dbtable->output($q);
+
+    if ($nrows == 0) {
+	$self->note("No results available.");
+    }
+    
 }
 
 1;
@@ -8242,6 +8294,41 @@ sub output_page
        'PCT_BYTES' => sub { ($_[1]->{NODE_BYTES} || 0) / ($_[1]->{DEST_BYTES} || -1); }
        );
   
+  # Filters
+  my $itemfilter = param('filter') || '.*';
+  my $priofilter = param('priority') || 'any';
+  my $suspfilter = param('suspended') || 'any';
+
+  my $filterform = join('', "<p><i>Subscription data filters</i></p>",
+			"<div class='nice'>",
+			"<label>Data items: </label>",
+			textfield(-name=>'filter', -default=>$itemfilter, -size=>30, -class=>'labeled'), "<br>",
+			"<label>Priority: </label>",
+			popup_menu(-name=>'priority', -values=>['any', 'high', 'normal', 'low'],
+				   -default=>$priofilter, -class=>'labeled'), "<br/>",
+			"<label>Active/Suspended: </label>",
+			popup_menu(-name=>'suspended', -values=>['any', 'active', 'suspended'],
+				   -default=>$suspfilter, -class=>'labeled'), "<br/>",
+			"</div>"
+			);
+
+
+  my $filter = 
+  { 
+      ITEM_NAME => sub { $_[0] =~ /$itemfilter/ ? 1 : 0 },
+      PRIORITY => sub { ( $priofilter eq 'any'
+			  || ($priofilter eq 'high'   && $_[0] == 0)
+			  || ($priofilter eq 'normal' && $_[0] == 1)
+			  || ($priofilter eq 'low'    && $_[0] >= 2)) ? 1 : 0 },
+			  TIME_SUSPEND_UNTIL => sub { return 1 if $suspfilter eq 'any';
+						      return 1 if $suspfilter eq 'active' && !defined $_[0];
+						      return 1 if $suspfilter eq 'suspended' && defined $_[0];
+						      return 0;
+						  }
+
+
+  };
+
   if (!@admin_auth) {
       delete $pseudo{SELECT};
       delete $df->{SELECT};
@@ -8257,7 +8344,9 @@ sub output_page
   $dbtable->set_stripeclass('stripe');
   $dbtable->set_dataformats($df);
   $dbtable->set_cellformats($cf);
+  $dbtable->set_filters($filter);
   $dbtable->add_pseudocolumn($_, $pseudo{$_}) foreach (keys %pseudo);
+
   my @querycols;
   foreach (@cols) {
       my $default = $_ =~ /PCT_FILES|ITEM_OPEN|TIME_COMPLETE|TIME_DONE/ ? 0 : 1;
@@ -8276,7 +8365,10 @@ sub output_page
       my $target = $self->myurl();
       print { $$self{CONTENT} }
       "<form id='subsform' method='post' action='$target'>",
+      # Save view parameters
       $self->saveform(),
+      "<input type='hidden' name='priority' value='$priofilter'/>",
+      "<input type='hidden' name='suspended' value='$suspfilter'/>",
       "<p>\n",
       "<label>Actions:</label>\n",
       "<select class='labeled' name='subsaction'>\n";
@@ -8311,7 +8403,7 @@ sub output_page
   my $form = "";
 
   # Save everything except what this form controls
-  $form = $self->saveform(qw(node));
+  $form = $self->saveform(qw(node filter));
   $optspane->add_hidden($form);
 
   $form = $dbtable->columns_form();
@@ -8320,6 +8412,9 @@ sub output_page
   # Node Selection tab
   $form = $self->node_form();
   $optspane->add_tab('Nodes Shown', $form);
+
+  # Data filters tab
+  $optspane->add_tab('Filters', $filterform);
 
   print { $$self{OPTIONS} } $optspane->output();
 
