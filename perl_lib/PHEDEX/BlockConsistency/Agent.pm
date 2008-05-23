@@ -322,7 +322,8 @@ sub processDrop
 
 #   Inject this test
     my $test = $self->get_TDVS_Tests($request->{TEST})->{ID};
-    my $use_srm = $request->{USE_SRM} || 0;
+    my $use_srm = 0;
+    if ( $request->{USE_SRM} eq 'y' ) { $use_srm = 1; }
     my $id = $self->{bcc}->InjectTest(
 				node		=> $request->{NODE},
 				test		=> $test,

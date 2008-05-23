@@ -38,6 +38,7 @@ use PHEDEX::BlockConsistency::Agent;
 	     "use_rfdir"    => \$args{RFIO_USES_RFDIR},
 	    );
 
+$args{USE_SRM} = 'y' if defined($args{USE_SRM});
 foreach ( keys %args ) { delete $args{$_} unless defined $args{$_}; }
 my $agent = PHEDEX::BlockConsistency::Agent->new(%args, @ARGV);
 POE::Kernel->run();
