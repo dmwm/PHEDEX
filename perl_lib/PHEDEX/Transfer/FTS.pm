@@ -351,7 +351,24 @@ sub startBatch
 {
     my ($self, $jobs, $tasks, $dir, $jobname, $list) = @_;
 
-    my @batch = splice(@$list, 0, $self->{BATCH_FILES});
+    # Peek at the first task to determine the link we are filling
+    # WARNING: This makes an assumption about how FileDownload will
+    #          give tasks to the backend!
+    my ($from, $to) = ($list->[0]->{FROM_NODE}, $list->[0]->{TO_NODE});
+
+
+    # Determine the size of a job. The order of preference is:
+    #  1. -link-active-files limit, 2. -default-link-active-files 3. -batch-files
+    my $job_size;
+    if ( $self->{FTS_LINK_ACTIVE}->{$from} ) {
+	$job_size = $self->{FTS_LINK_ACTIVE}->{$from};
+    } elsif ( $self->{FTS_DEFAULT_LINK_ACTIVE} ) {
+	$job_size = $self->{FTS_DEFAULT_LINK_ACTIVE};
+    } else {
+	$job_size = $self->{BATCH_FILES};
+    }
+	
+    my @batch = splice(@$list, 0, $job_size);
     my $info = { ID => $jobname, DIR => $dir,
                  TASKS => { map { $_->{TASKID} => 1 } @batch } };
     &output("$dir/info", Dumper($info));
