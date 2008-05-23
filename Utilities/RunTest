@@ -52,7 +52,7 @@ if (@ARGV || !$args{DBCONFIG} ||
 ######################################################################
 package Tool; use strict; use warnings; use base 'Exporter';
 # Define any more 'use's here.
-use PHEDEX::Core::Logging;
+use base 'PHEDEX::Core::Logging';
 use PHEDEX::Core::JobManager;
 use POSIX;
 use File::Basename;
@@ -137,4 +137,4 @@ sub stopAgents {
     sleep( 5 );
 }
 
-
+1;

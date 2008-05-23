@@ -30,7 +30,7 @@ if (@ARGV || !$args{DBCONFIG} || !$args{SCRIPT})
 package Tool; use strict; use warnings; use base 'Exporter';
 # Define any more 'use's here.
 use PHEDEX::Core::DB;
-use PHEDEX::Core::Logging;
+use base 'PHEDEX::Core::Logging';
 
 sub new
 {
@@ -71,3 +71,4 @@ sub runSQL {
          eval { $dbh->rollback() } if $dbh; } if $@;
 }
 
+1;
