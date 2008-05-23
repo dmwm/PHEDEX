@@ -8,10 +8,9 @@ PHEDEX::Core::DB
 
 use strict;
 use warnings;
-use base 'Exporter';
+use base 'Exporter', 'PHEDEX::Core::Logging';
 our @EXPORT = qw(parseDatabaseInfo connectToDatabase disconnectFromDatabase
 		 dbsql dbexec dbprep dbbindexec);
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Net;
 use DBI;

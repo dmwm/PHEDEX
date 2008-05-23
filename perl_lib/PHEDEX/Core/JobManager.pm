@@ -8,9 +8,8 @@ PHEDEX::Core::JobManager - a drop-in replacement for Toolkit/UtilsJobManager
 
 use strict;
 use warnings;
-use base 'Exporter';
+use base 'Exporter', 'PHEDEX::Core::Logging';
 use POSIX;
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Command;
 use IO::Pipe;
 use Fcntl;
