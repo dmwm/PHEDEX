@@ -1,3 +1,27 @@
+* Changes in PhEDEx 3.0.3
+
+ This is another minor upgrade over 3.0.2. No significant changes in
+ functionality, but a number of small bugs have been fixed. This affects
+ in particular the logging information available and the functionality of
+ some of the utilities.
+
+Changes for all Agents
+ - PHEDEX::Core::Logging fixed to support procedural calls everywhere,
+   so non-agent scripts are no longer broken (TMDBInject et.al)
+ - PHEDEX::Core::DB fixed to use procedural access to Logging.pm, for the
+   same reason
+ - PHEDEX::Core::Agent fixed to suppress spurious '1' printed at the begining
+   of the line when PHEDEX_DEBUG is set
+ - BlockDownloadVerify, a bug in the 'use_srm' option has been fixed
+
+Changes in the FTS backend
+ - Further minor improvements in logging information
+
+Changes in other tools
+ - InspectPhedexLog error-patterns improved
+ - new tools, Utilities/ErrorQuery and Utilities/ErrorSiteQuery. See the
+   built-in help for details
+
 * Changes in PhEDEx 3.0.2
 
  This is a minor upgrade over 3.0.0. No significant changes in functionality
