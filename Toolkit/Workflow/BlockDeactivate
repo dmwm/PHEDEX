@@ -28,9 +28,10 @@ use PHEDEX::BlockDeactivate::Agent;
              "label=s"     => \$args{LABEL},
              "node=s"      => \$args{MYNODE},
              "once"        => \$args{ONCE},
-             "age=i"         => \$args{HOLDOFF},
+             "age=i"       => \$args{HOLDOFF},
 	     "help|h"      => sub { &usage() });
 
+foreach ( keys %args ) { delete $args{$_} unless defined $args{$_}; }
 my $agent = PHEDEX::BlockDeactivate::Agent->new(%args,@ARGV);
 POE::Kernel->run();
 print "POE kernel has ended, now I shoot myself\n";
