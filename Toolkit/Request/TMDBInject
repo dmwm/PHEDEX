@@ -197,7 +197,7 @@ if ($args{SES})
 	if (scalar @match > 1)
 	{
 	    my @notape = grep($$_{KIND} ne 'MSS'
-			      && $$_{NAME} ne 'T0_CERN_Export', @match);
+			      && $$_{NAME} !~ /^T0/, @match);
 	    @match = @notape if @notape;
 	}
 
