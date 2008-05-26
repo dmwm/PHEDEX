@@ -285,7 +285,7 @@ block replicas exist for the given options.
  block          block name, can be multiple (*)
  node           node name, can be multiple (*)
  se             storage element name, can be multiple (*)
- updated_since  unix timestamp, only return replicas updated since this
+ update_since  unix timestamp, only return replicas updated since this
                 time
  create_since   unix timestamp, only return replicas created since this
                 time
@@ -381,7 +381,7 @@ the given options.
  block          block name, with '*' wildcards, can be multiple (*).  required.
  node           node name, can be multiple (*)
  se             storage element name, can be multiple (*)
- updated_since  unix timestamp, only return replicas updated since this
+ update_since  unix timestamp, only return replicas updated since this
                 time
  create_since   unix timestamp, only return replicas created since this
                 time
