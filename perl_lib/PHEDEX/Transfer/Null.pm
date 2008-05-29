@@ -30,7 +30,7 @@ sub new
     $options->{'batch-files=i'}      = \$params->{BATCH_FILES};
     $options->{'fail-code=i'}        = \$params->{FAIL_CODE};
     $options->{'fail-rate=f'}        = \$params->{FAIL_RATE};
-    $options->{'fail-link=f'}        = $params->{FAIL_LINKS};
+    $options->{'fail-link=f'}        = \$params->{FAIL_LINKS};
     $options->{'fail-config=s'}      = \$params->{FAIL_CONFIG};
 
     # Initialise myself
