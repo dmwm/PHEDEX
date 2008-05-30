@@ -183,7 +183,7 @@ sub ListJob
   $result{RAW_OUTPUT} = [@raw];
   close GLITE or do
   {
-      print $self->Hdr,"close: $cmd: $!\n";
+      print $self->Hdr,"close: $cmd: $!\n@raw";
       $result{ERROR} = 'close ListJob: ' . $job->ID . ':' . $!;
       return \%result;
   };
@@ -225,7 +225,7 @@ sub ListJob
     }
     elsif ( m%\S% )
     {
-      $h->{$last_key} .= ' ' . $2;
+      $h->{$last_key} .= ' ' . $_;
     }
   }
 
