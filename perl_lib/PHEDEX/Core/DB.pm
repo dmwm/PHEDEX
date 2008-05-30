@@ -112,7 +112,7 @@ sub connectToDatabase
   # Use cached connection if it's still alive and the handle
   # isn't too old, otherwise create new one.
   my $dbh = $self->{DBH};
-  if (! $self->connectionValid() )
+  if (! &connectionValid( $self ) )
   {
     $self->{DBH_LOGGING} = 1 if $ENV{PHEDEX_LOG_DB_CONNECTIONS};
     &PHEDEX::Core::Logging::Logmsg ($self, "(re)connecting to database") if $self->{DBH_LOGGING};
