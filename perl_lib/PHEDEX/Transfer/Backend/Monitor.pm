@@ -247,7 +247,7 @@ sub poll_job
   $state = $self->{Q_INTERFACE}->ListJob($job);
 
   if (exists $state->{ERROR}) {
-      print $self->Hdr,"ListJob for $job->ID returned error: $state->{ERROR}\n";
+      print $self->Hdr,"ListJob for ",$job->ID," returned error: $state->{ERROR}\n";
 #     Put this job back in the queue before I forget about it completely!
       $self->{QUEUE}->enqueue( $priority, $job );
       goto PJDONE;
