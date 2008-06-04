@@ -123,7 +123,7 @@ sub getTransferRequests
 
     my $sql = qq{
 	select r.id, rt.name type, r.created_by creator_id, r.time_create, rdbs.name dbs,
-               rx.priority, rx.is_move, rx.is_static, rx.is_distributed, rx.data,
+               rx.priority, rx.is_move, rx.is_transient, rx.is_static, rx.is_distributed, rx.data,
 	       n.name node, n.id node_id,
                rn.point, rd.decision, rd.decided_by, rd.time_decided
 	  from t_req_request r
@@ -149,7 +149,7 @@ sub getTransferRequests
 	if (!exists $requests->{$id}) {
 	    $requests->{$id} = { map { $_ => $row->{$_} } 
 				 qw(ID TYPE CREATOR_ID TIME_CREATE DBS
-				    PRIORITY IS_MOVE IS_STATIC IS_DISTRIBUTED
+				    PRIORITY IS_MOVE IS_TRANSIENT IS_STATIC IS_DISTRIBUTED
 				    DATA) };
 	    $requests->{$id}->{NODES} = {};
 	}
@@ -276,22 +276,73 @@ sub addRequestData
     my $type;
     $type = 'DATASET' if $h{DATASET};
     $type = 'BLOCK'   if $h{BLOCK};
-    return undef unless $type;
+    return undef unless $type && $request;
 
-    $self->Logmsg("Adding $type $h{$type} to request $request")
+    my $type_lc = lc $type;
+    my $sql = qq{ insert into t_req_${type_lc}
+		  (request, name, ${type_lc}_id)
+                  select :request, name, id
+                  from t_dps_${type_lc}
+                  where id = :id };
+
+    my ($sth, $n);
+    ($sth, $n) = execute_sql( $self, $sql, ':request' => $request, ':id' => $h{$type} );
+
+    return $n;
 }
 
 
 #
 sub createSubscription
 {
-    my ($self, %h);
+    my ($self, %h) = @_;;
+
     my $type;
-    $type = 'DATASET' if $h{DATASET};
-    $type = 'BLOCK'   if $h{BLOCK};
-    return undef unless $type && $h{NODE} && $h{REQUEST};
-   
-    $self->Logmsg("Adding subscription $type $h{$type}, node $h{NODE}, request $h{REQUEST}");
+    $type = 'DATASET' if defined $h{DATASET};
+    $type = 'BLOCK'   if defined $h{BLOCK};
+    if (!defined $type || (defined $h{DATASET} && defined $h{BLOCK})) {
+	$self->Alert("cannot create subscriptioin:  DATASET or BLOCK must be defined");
+	return undef;
+    }
+
+    my @required = qw(DESTINATION PRIORITY IS_MOVE IS_TRANSIENT TIME_CREATE);
+    foreach (@required) {
+	if (!exists $h{$_} || !defined $h{$_}) {
+	    $self->Alert("cannot create subscription:  $_ not defined");
+	    return undef;
+	}
+    }
+
+    foreach ( qw(IS_MOVE IS_TRANSIENT) ) {
+	next unless  $h{$_} =~ /^[0-9]$/;
+	$h{$_} = ( $h{$_} ? 'y' : 'n' );
+    }
+
+    my $sql = qq{ 
+	insert into t_dps_subscription
+        (dataset, block, destination,
+	 priority, is_move, is_transient, time_create)
+    };
+
+    if ($h{$type} !~ /^[0-9]+$/) { # if not an ID, then lookup IDs from the name
+	if ($type eq 'DATASET') {
+	    $sql .= qq{ select ds.id, NULL, :destination, :priority, :is_move, :is_transient, :time_create 
+			  from t_dps_dataset ds where ds.name = :dataset };
+	} elsif ($type eq 'BLOCK') {
+	    $sql .= qq{ select NULL, b.id, :destination, :priority, :is_move, :is_transient, :time_create 
+			  from t_dps_block b where b.name = :block };
+	}
+    } else { # else we write exactly what we have
+	$sql .= qq{ values (:dataset, :block, :destination, :priority, :is_move, :is_transient, :time_create) };
+    }
+
+    my %p = map { ':' . lc $_ => $h{$_} } @required, qw(DATASET BLOCK);
+
+    my ($sth, $n);
+    eval { ($sth, $n) = execute_sql( $self, $sql, %p ); };
+    die $@ if $@ && !($h{IGNORE_DUPLICATES} && $@ =~ /ORA-00001/);
+
+    return $n;
 }
 
 
