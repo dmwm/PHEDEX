@@ -136,8 +136,7 @@ sub idle
 						DEST_ONLY => 1
 						);
     
-    # Expand each request into subscriptions, check the expanded items
-    # against later deletion requests, and create the subscriptions
+    # Expand each request into subscriptions
     foreach my $xreq ( values %$xfer_reqs ) {
 	$stats{request}++;
 	my $dest_nodes = [ keys %{ $xreq->{NODES} } ];
@@ -147,31 +146,18 @@ sub idle
 					       DATASETS => $datasets,
 					       BLOCKS => $blocks );
 
-	my $del_reqs  = $self->getDeleteRequests( APPROVED => 1,
-						  RETRANSFER => 0,
-						  AFTER => $xreq->{TIME_CREATE},
-						  NODES => $dest_nodes );
 	
 	# Find all the data we need to skip
 	my ($ex_ds, $ex_b) = $self->getExistingRequestData( $xreq->{ID} );
 	my $skip = { DATASET => { map { $_ => 1 } @$ex_ds },
 		     BLOCK   => { map { $_ => 1 } @$ex_b } };
 
-	foreach my $dreq ( values %$del_reqs ) {
-	    my ($del_ds, $del_b) = $self->getExistingRequestData( $dreq->{ID} );
-	    map { $skip->{DATASET}->{$_} = 1 } @$del_ds;
-	    map { $skip->{BLOCK}->{$_}   = 1 } @$del_b;
-	}
-	
 	foreach my $subn ( @$subscribe ) {
 	    my ($type, $node, $id) = @$subn;
 	    next if exists $skip->{$type}->{$id};
 
-	
-	    $self->Logmsg("Adding request data $type $id to request $xreq->{ID}");
+	    $self->Logmsg("adding subscription ",lc $type, "=$id for node=$node from request=$xreq->{ID}");
 	    my $n_data = $self->addRequestData( $xreq->{ID}, $type => $id );
-
-	    $self->Logmsg("Adding subscription $type $id for node $node");
 	    my $n_subs = $self->createSubscription( $type => $id,
 						    DESTINATION => $node, 
 						    PRIORITY => $xreq->{PRIORITY},
@@ -185,13 +171,17 @@ sub idle
 	    
 	}
 	$self->execute_commit();
+	delete $xfer_reqs->{ $xreq->{ID} }; # free some memory
+	$self->maybeStop();
     }
   };
   do { chomp ($@); $self->Alert ("database error: $@");
        eval { $dbh->rollback() } if $dbh; } if $@;
 
   $self->Logmsg("evaluated $stats{request} requests: ",
-		"subscribed $stats{dataset} datasets and $stats{block} blocks");
+		($stats{dataset} || $stats{block} ? 
+		 "subscribed $stats{dataset} datasets and $stats{block} blocks"
+		 : "nothing to do"));
       # Disconnect from the database
     $self->disconnectAgent();
 }
@@ -212,39 +202,20 @@ sub expandRequest
 	push @block_patterns, $pat if $level eq 'BLOCK';
     }
 
-    my $sql;
     my (@datasets, @blocks);
     if (@dataset_patterns && $opts{DATASETS_TO_BLOCKS} ) {
-	$sql = qq{ select b.id
-		       from t_dps_dataset ds
-		        join t_dps_block b on b.dataset = ds.id
-		       where ds.name like :dataset };
-
-	foreach (@dataset_patterns) {
-	    my $b = select_single ($self->{DBH}, $sql, ':dataset' => $_);
-	    push @blocks, @$b;
-	}
+	my $b = $self->getBlockIDsFromDatasetWildcard(@dataset_patterns);
+	push @blocks, @$b;
     } elsif (@dataset_patterns) {
-	$sql = qq{ select ds.id
-			  from t_dps_dataset ds
-			  where ds.name like :dataset };
-
-	foreach (@dataset_patterns) {
-	    my $ds = select_single ($self->{DBH}, $sql, ':dataset' => $_);
-	    push @datasets, @$ds;
-	}
+	my $ds = $self->getDatasetIDsFromDatasetWildcard(@dataset_patterns);
+	push @datasets, @$ds;
     }
 
-    # expand block patterns into blocks
-    $sql = qq{ select b.id
-                 from t_dps_block b
-	        where b.name like :block };
-
-    foreach (@block_patterns) {
-	my $b = select_single ($self->{DBH}, $sql, ':block' => $_);
+    if (@block_patterns) {
+	my $b = $self->getBlockIDsFromBlockWildcard(@block_patterns);
 	push @blocks, @$b;
     }
-
+    
     return (\@datasets, \@blocks);
 
 }
@@ -323,19 +294,5 @@ sub isInvalid
 
   return $errors;
 }
-
-# log statistics (usually for row counts or number of items changed
-# Input:  $title : a name for these statistics
-#         @stats : an array of arrayrefs containing [ $label, $data ]
-# The output format will be:
-# "$title:  $n1 $l1, $n2 $l2, $n3 $l3
-# for example:
-# "things done:  25 emails replied, 5 emails sent, 12 bugs fixed"
-sub printStats
-{
-    my ($self, $title, @stats) = @_;
-    $self->Logmsg("$title:  ".join(', ', map { $_->[1] + 0 .' '.$_->[0] } @stats));
-}
-
 
 1;
