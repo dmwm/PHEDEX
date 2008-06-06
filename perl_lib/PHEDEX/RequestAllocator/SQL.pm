@@ -252,8 +252,6 @@ sub getExistingRequestData
 {
     my ($self, $id) = @_;
 
-    
-
     my $datasets = select_single ( $self->{DBH},
 				   qq{ select rds.dataset_id from t_req_dataset rds
 					   where rds.dataset_id is not null
@@ -305,7 +303,7 @@ sub createSubscription
 	return undef;
     }
 
-    my @required = qw(DESTINATION PRIORITY IS_MOVE IS_TRANSIENT TIME_CREATE);
+    my @required = qw(REQUEST DESTINATION PRIORITY IS_MOVE IS_TRANSIENT TIME_CREATE);
     foreach (@required) {
 	if (!exists $h{$_} || !defined $h{$_}) {
 	    $self->Alert("cannot create subscription:  $_ not defined");
@@ -320,20 +318,20 @@ sub createSubscription
 
     my $sql = qq{ 
 	insert into t_dps_subscription
-        (dataset, block, destination,
+        (request, dataset, block, destination,
 	 priority, is_move, is_transient, time_create)
     };
 
     if ($h{$type} !~ /^[0-9]+$/) { # if not an ID, then lookup IDs from the name
 	if ($type eq 'DATASET') {
-	    $sql .= qq{ select ds.id, NULL, :destination, :priority, :is_move, :is_transient, :time_create 
+	    $sql .= qq{ select :request, ds.id, NULL, :destination, :priority, :is_move, :is_transient, :time_create 
 			  from t_dps_dataset ds where ds.name = :dataset };
 	} elsif ($type eq 'BLOCK') {
-	    $sql .= qq{ select NULL, b.id, :destination, :priority, :is_move, :is_transient, :time_create 
+	    $sql .= qq{ select :request, NULL, b.id, :destination, :priority, :is_move, :is_transient, :time_create 
 			  from t_dps_block b where b.name = :block };
 	}
     } else { # else we write exactly what we have
-	$sql .= qq{ values (:dataset, :block, :destination, :priority, :is_move, :is_transient, :time_create) };
+	$sql .= qq{ values (:request, :dataset, :block, :destination, :priority, :is_move, :is_transient, :time_create) };
     }
 
     my %p = map { ':' . lc $_ => $h{$_} } @required, qw(DATASET BLOCK);
