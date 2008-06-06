@@ -149,7 +149,8 @@ create table t_dps_block_activate
 
 
 create table t_dps_block_delete
-  (block		integer		not null,
+  (request              integer,
+   block		integer		not null,
    dataset		integer		not null,
    node			integer		not null,
    time_request		float		not null,
@@ -157,6 +158,10 @@ create table t_dps_block_delete
    --
    constraint pk_dps_block_delete
      primary key (block, node),
+   --
+   constraint fk_dps_block_delete_request
+     foreign key (request) references t_req_request (id)
+ 	on delete set null,
    --
    constraint fk_dps_block_delete_block
      foreign key (block) references t_dps_block (id)
@@ -172,7 +177,8 @@ create table t_dps_block_delete
 
 
 create table t_dps_subscription
-  (dataset		integer,
+  (request              integer,
+   dataset		integer,
    block		integer,
    destination		integer		not null,
    priority		integer		not null,
@@ -186,6 +192,10 @@ create table t_dps_subscription
    --
    constraint uq_dps_subscription
      unique (dataset, block, destination),
+   --
+   constraint fk_dps_subscription_request
+     foreign key (request) references t_req_request (id)
+ 	on delete set null,
    --
    constraint fk_dps_subscription_dataset
      foreign key (dataset) references t_dps_dataset (id)
@@ -234,6 +244,9 @@ create index ix_dps_block_activate_b
   on t_dps_block_activate (block);
 
 --
+create index ix_dps_block_delete_req
+  on t_dps_block_delete (request);
+
 create index ix_dps_block_delete_ds
   on t_dps_block_delete (dataset);
 
@@ -241,6 +254,9 @@ create index ix_dps_block_delete_node
   on t_dps_block_delete (node);
 
 --
+create index ix_dps_subscription_req
+  on t_dps_subscription (request);
+
 create index ix_dps_subscription_dataset
   on t_dps_subscription (dataset);
 
