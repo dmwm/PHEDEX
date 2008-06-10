@@ -946,6 +946,7 @@ sub resolve_data
 	$has{$level} = 1;
     }
 
+    # TODO:  fetchin all data is expensive:  takes 10 seconds
     my $all_datasets = &dbexec($dbh, qq{
 	   select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset,
                   nvl(sum(b.files),0) files, nvl(sum(b.bytes),0) bytes
@@ -1019,6 +1020,7 @@ sub resolve_data
 	    }
 	}
     }
+
 
     my $lastid = -1;
     foreach my $level (qw(DATASET BLOCK)) {
@@ -3317,9 +3319,17 @@ sub printRequest
     # Nodes
     my $nodes = {}; # point => [ array of node objects ]
     my $admin = 0;
+    my $reEval = 0;
     foreach my $node (sort keys %{$$data{NODES}}) {
 	my $o = $$data{NODES}{$node};
 	$admin = 1 if (!$$o{DECISION} && grep($$o{NODE} eq $_, @auth_nodes));
+	$reEval = ( $$o{DECISION} &&
+		    $$o{DECISION} eq 'y' &&
+		    $$o{POINT} eq 'Destination Node' &&
+		    $$data{TYPE} eq 'xfer' &&
+		    $$data{XFER_DATA}{IS_STATIC} eq 'n' &&
+		    $$data{XFER_DATA}{DATA} =~ /\*/ ? 1 : 0);
+	$admin = 1 if ($reEval && grep($$o{NODE} eq $_, @auth_nodes));
 	$$nodes{ $$o{POINT} } ||= [];
 	push @{ $$nodes{$$o{POINT}} }, $o;
     }
@@ -3330,8 +3340,10 @@ sub printRequest
 	print { $$self{CONTENT} }
 	"<label>${point}s:</label>", "<div class='labeled'>";
 	foreach my $o (@{$$nodes{$point}}) {
+	    my $node_admin = ($admin && grep($$o{NODE} eq $_, @auth_nodes) ? 1 : 0);
 	    my $decision_text = '';
-	    if (!$$o{DECISION} && $admin && grep($$o{NODE} eq $_, @auth_nodes)) {
+
+	    if (!$$o{DECISION} && $node_admin) {
 		my @controls;
 		my %labels = ('approve' => 'approve', 'disapprove' => 'disapprove', 'null' => 'do nothing');
 		foreach my $action (qw(approve disapprove null)) {
@@ -3344,7 +3356,13 @@ sub printRequest
 		$decision_text = "<span class='warn'>pending approval</span>";
 	    } else {
 		my $decider_ref = "nodedec$rid-".$$o{NODE_ID};
-		
+		my @controls;
+		if ($reEval && $$o{DECISION} eq 'y') {
+		    # user can disapprove after the fact if the request is a re-evaluate candidate
+		    push @controls, "<input name='admin-$$o{NODE}' value='stopeval' type='checkbox'/> stop evaluating"
+			if $reEval;
+		}
+
 		$decision_text = 
 		    join('', ($$o{DECISION} eq 'y' ? "<span class='good'>approved</span> by " 
 			      : "<span class='bad'>disapproved</span> by "),
@@ -3353,8 +3371,12 @@ sub printRequest
 			 ( $$o{COMMENTS} ? " (comments)" : ''),
 			 "</a></span>",
 			 ' at ', &formatTime($$o{TIME_DECIDED}, 'stamp'),
+			 # Request change controls
+			 ( $node_admin && @controls ? 
+			    ("  :  ", @controls)
+			   : ''),
 			 "<div id='$decider_ref' class='hideaway' style='display:none;'>",
-			 #Creation comments
+			 # Creation comments
 			 ( $$o{COMMENTS} ? 
 			   "<label>Comments:</label><div class='labeled comment'>$$o{COMMENTS}</div><br/>" : ''),
 			 $self->formatClientData($$o{DECIDER_DATA}),
@@ -3382,7 +3404,15 @@ sub printRequest
     "<div id='details$rid' class='hideaway' style='display:none;'>";
     $self->printRequestSpecific($data);
     print { $$self{CONTENT} } "</div>";
-   
+
+    # Request infomation link, if anything has been approved yet
+    if ( $$data{REQUEST_STATE} =~ /approved/i ) {
+	print { $$self{CONTENT} }
+	"<label>Link:</label>", "<span class='labeled'>",
+	$self->getRequestSpecificLink($data),
+	"</span><br/>";
+    }
+
     print { $$self{CONTENT} } "</div>";
 }
 
@@ -3428,7 +3458,7 @@ sub printRequestSpecific
 	my %priority_names = (0 => 'High', 1 => 'Normal', 2 => 'Low');
 	print { $$self{CONTENT} }
 	"<label>$labels{PRIORITY}:</label><span class='labeled'>$priority_names{$$spec{PRIORITY}}</span><br/>";
-	foreach my $key (qw(IS_MOVE)) { # TODO:  omitted keys have no function yet...
+	foreach my $key (qw(IS_MOVE IS_STATIC)) { # TODO:  omitted keys have no function yet...
 	    print { $$self{CONTENT} }
 	    "<label>$labels{$key}:</label><span class='labeled'>", &yesno($$spec{$key}), "</span><br/>";
 	}
@@ -3451,6 +3481,25 @@ sub printRequestSpecific
     }
 }
 
+
+sub getRequestSpecificLink
+{
+    my ($self, $data) = @_;
+    if ($$data{TYPE} eq 'xfer') {
+	my @nodes = map { $$_{NODE_ID} } grep $$_{POINT} eq 'Destination Node', values %{$$data{NODES}};
+	my $url = $self->myurl(page =>'Data::Subscriptions',
+			       reqfilter => $$data{ID},
+			       node => \@nodes);
+	return ("<a href='$url'>Subscriptions Page</a>");
+    } elsif ($$data{TYPE} eq 'delete') {
+	my $url = $self->myurl(page =>'Activity::Deletions',
+			       reqfilter => $$data{ID},
+			       node => '.*');
+	return ("<a href='$url'>Deletions Page</a>");
+    } else {
+	return ("N/A");
+    }
+}
 
 
 1;
@@ -3927,7 +3976,7 @@ sub create_check_options
   my $opts = {};
 
   if ($type eq 'xfer') {
-      foreach ('is_move') {
+      foreach ('is_move', 'is_static') {
 	  if (!param($_) && param($_) !~ /^[yn]$/) {
 	      $self->alert("Option '$_' missing or illegal value");
 	      $$bad = 0;
@@ -4040,9 +4089,9 @@ sub output
   "/Primary/Processed/Tier#Block<br/>(Use * as wildcard)</span><br/>",
   &help("More Help", "Data Item List", 
 	"A whitespace separated list of the datasets or blocks you are ",
-	"requesting.  Glob-style wildcards may be used, but the dataset ",
-	"path separators are required.  E.g. to subscribe to all ",
-	"datasets you would have to write '/*/*/*', not '*'."), 
+	"requesting.  The wildcard '*' may be used, but the dataset ",
+	"path separators '/' are required.  E.g. to subscribe to all ",
+	"'Higgs' datasets you would have to write '/Higgs/*/*', not '/Higgs*'."), 
   "</label>\n",
   textarea(-name=>'data', -value=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), 
   "<br/>",
@@ -4067,7 +4116,7 @@ sub output
   if ($type eq 'xfer') {
       print { $$self{CONTENT} }
       "<label>Transfer Type:</label>", popup_menu(-name=>'is_move', 
-						  -values=>['y', 'n'],
+						  -values=>['n', 'y'],
 						  -default=>'n',
 						  -labels=>{'n' => 'Replica', 'y' => 'Move'},
 						  -class=>'labeled'),
@@ -4076,22 +4125,23 @@ sub output
 	    "replicates the data then deletes the data at the source.  Note that ",
 	    "moves are only used for moving data from T2s to T1s."),
       "<br/>",
-      # XXX TODO:  Hidden feature, reveal when PhEDEx has some behavior to back it up!
-      hidden('is_transient', 'n'),
-#       "<label>Subscription Type:</label>", popup_menu(-name=>'is_transient', 
-# 						      -values=>['y', 'n'],
-# 						      -default=>'n',
-# 						      -labels=>{'n' => 'Open', 'y' => 'Closed' },
-# 						      -class=>'labeled'), 
-#       &help("What's this?", "Subscription Type", 
-# 	    "An <b>open</b> subscription downloads blocks/files added to open ",
-# 	    "datasets/blocks as they become available, until the dataset/block is ",
-# 	    "closed.  A <b>closed</b> subscription will only transfer the blocks/files ",
-# 	    "available at the time the subscription is made.  In a sense an open ",
-# 	    "subscription is a true \"subscription\" and a closed subscription is a snapshot."),
-#       "<br/>",
+      hidden('is_static', 'n'),
+       "<label>Subscription Type:</label>", popup_menu(-name=>'is_static', 
+ 						      -values=>['n', 'y'],
+ 						      -default=>'n',
+ 						      -labels=>{'n' => 'Growing', 'y' => 'Static' },
+ 						      -class=>'labeled'), 
+       &help("What's this?", "Subscription Type", 
+	     "A <b>growing</b> subscription downloads blocks/files added to open ",
+	     "datasets/blocks as they become available, until the dataset/block is ",
+	     "closed.  Also, wildcard patterns will be re-evaluated to match new ",
+	     "datasets/blocks which become available.  A <b>static</b> subscription ",
+	     "will expand datasets into block subscriptions, and no open blocks will ",
+	     "be subscribed.  Wildcard patterns will not be re-evaluated. ",
+	     "A static subscription is a snapshot of data available now"),
+      "<br/>",
       "<label>Priority:</label>", popup_menu(-name=>'priority', 
-					     -values=>[0, 1, 2], 
+					     -values=>[2, 1, 0], 
 					     -default=>2,
 					     -labels=>{ 0 => 'High',
 							1 => 'Normal',
@@ -4404,7 +4454,7 @@ sub checkXferRequestData
 	$$self{SESSION}->param('type', 'xfer');
 	$$self{SESSION}->param('type_params', { 'is_move' => $params{is_move},
 						'is_transient' => 'n', # XXX hardcoded
-						'is_static' => 'n', # XXX hardcoded
+						'is_static' => $params{is_static},
 						'is_distributed' => 'n', # XXX hardcoded
 						'priority' => $params{priority},
 						'data' => join(' ', @{$params{data}})
@@ -4753,7 +4803,7 @@ sub output
 	    return;
 	}
 	my $action = param($key);
-	unless (grep $action eq $_, qw(approve disapprove null)) {
+	unless (grep $action eq $_, qw(approve disapprove null stopeval)) {
 	    $self->alert("Invalid action '$action' for node '$node'");
 	    return;
 	}
@@ -4784,7 +4834,7 @@ sub output
 	if (!exists $$data{NODES}{$node}) {
 	    $self->alert("Node $node isn't part of request \#$rid");
 	    return;
-	} elsif (defined $$data{NODES}{$node}{DECISION}) {
+	} elsif (defined $$data{NODES}{$node}{DECISION} && $node_actions{$node} ne 'stopeval') {
 	    $self->alert("Request \#$rid has already been adminned for ${node}!");
 	    return;
 	}
@@ -4810,6 +4860,10 @@ sub output
 	    $ok &&= $self->approve($data, $node_obj, $now);
 	    $ok &&= $self->markRequestDone($rid, $node_id, 'y', $client_id, $now, $comments_id);
 	    push @results, "Approved request \#$rid for $node";
+	} elsif ($action eq 'stopeval') {
+	    $ok &&= $self->markRequestUndone($rid, $node_id);
+	    $ok &&= $self->markRequestDone($rid, $node_id, 'n', $client_id, $now, $comments_id);
+	    push @results, "Disapproved request \#$rid for $node to stop request re-evaluation";
 	}
     }
 
@@ -4886,7 +4940,7 @@ sub subscribe
     my ($sth, $rv) = &dbexec($$self{DBH}, 
      qq[ merge into t_dps_subscription s
          using
-         (select :destination destination, rdata.dataset, rdata.block, rx.priority, rx.is_move, rx.is_transient
+         (select r.id, :destination destination, rdata.dataset, rdata.block, rx.priority, rx.is_move, rx.is_transient
 	    from t_req_request r
             join t_req_xfer rx on rx.request = r.id
             join ( select rds.request, rds.dataset_id dataset, NULL block
@@ -4902,12 +4956,13 @@ sub subscribe
          on (r.destination = s.destination
              and (r.dataset = s.dataset or r.block = s.block))
          when matched then
-           update set s.is_move = r.is_move,
+           update set s.request = r.id,
+                      s.is_move = r.is_move,
                       s.priority = r.priority,
                       s.is_transient = r.is_transient
          when not matched then
-           insert (dataset, block, destination, priority, is_move, is_transient, time_create)
-           values (r.dataset, r.block, r.destination, r.priority, r.is_move, r.is_transient, :time_create) ],
+           insert (request, dataset, block, destination, priority, is_move, is_transient, time_create)
+           values (r.id, r.dataset, r.block, r.destination, r.priority, r.is_move, r.is_transient, :time_create) ],
 			     ':request' => $rid, ':destination' => $node_id, ':time_create' => $time);
 
     return 1;
@@ -4987,7 +5042,7 @@ sub delete
     my ($sth, $rv) = &dbexec($$self{DBH}, 
      qq[ merge into t_dps_block_delete bd
          using
-         (select rdata.dataset, rdata.block, :node node 
+         (select r.id, rdata.dataset, rdata.block, :node node 
 	    from t_req_request r
             join ( select rds.request, b.dataset, b.id block
                      from t_req_dataset rds
@@ -5005,12 +5060,13 @@ sub delete
              and r.dataset = bd.dataset
              and r.block = bd.block)
          when matched then
-           update set time_request = :time_request,
+           update set request = r.id,
+                      time_request = :time_request,
                       time_complete = NULL
             where time_complete is not null
          when not matched then
-           insert (block, dataset, node, time_request)
-           values (r.block, r.dataset, r.node, :time_request) ],
+           insert (request, block, dataset, node, time_request)
+           values (r.id, r.block, r.dataset, r.node, :time_request) ],
 	  ':request' => $rid, ':node' => $node_id, ':time_request' => $time);
 
 }
@@ -5029,6 +5085,16 @@ sub markRequestDone
     return $rv ? 1 : 0;
 }
 
+sub markRequestUndone
+{
+    my ($self, $rid, $node_id) = @_;
+
+    my ($sth, $rv) = &dbexec($$self{DBH}, qq{ 
+	delete from t_req_decision where request = :rid and node = :node },
+	':rid' => $rid, ':node' => $node_id);
+    
+    return $rv ? 1 : 0;
+}
 
 
 sub send_request_update_email
@@ -5043,7 +5109,7 @@ sub send_request_update_email
 	my $action = $$node_actions{$node};
 	if ($action eq 'null') {
 	    next;
-	} elsif ($action eq 'disapprove') {
+	} elsif ($action eq 'disapprove' || $action eq 'stopeval') {
 	    $action_desc .= "$node => Disapproved";
 	} elsif ($action eq 'approve') {
 	    $action_desc .= "$node => Approved";
@@ -6729,6 +6795,7 @@ sub output
 {
     my $self = shift @_;
 
+    my @reqfilter  = grep(/^\d+$/, split(/\s*,*\s+/, param('reqfilter')));
     my $nodefilter  = param('node') ||'Enter a node name';
     my $blockfilter = param('blockfilter') || '.*';
     my $state    = param('state') || 'any';
@@ -6738,7 +6805,9 @@ sub output
     "This page shows the blocks which are queued for deletions.  The record of ",
     "completed block deletions is removed after three days.</p>",
     "<form class='nice' method='get' action='#'>",
-    "<label class='inline'>Show deletions at  </label>",
+    "<label class='inline'>Show deletions from requests </label>",
+    textfield(-name=>'reqfilter', -size=>15, -class=>'labeled'),
+    "<label class='inline'> at node </label>",
     textfield(-name=>'node', -default=>$nodefilter, -size=>15, -class=>'labeled'),
     "<label class='inline'> with state </label>",
     popup_menu(-name=>'state', -values=>['any', 'pending', 'complete'],
@@ -6754,7 +6823,7 @@ sub output
     my @select_nodes = grep /$nodefilter/, keys %all_nodes;
 
     if (! @select_nodes ) {
-	print { $$self{CONTENT} } $self->note('No nodes match the given filter');
+	$self->note('No nodes match the given filter');
 	return;
     }
 
@@ -6764,9 +6833,15 @@ sub output
 	push @where,"n.id in ($list)";
     }
 
+    if (@reqfilter) {
+	my ($l, %b) = &dbinlist('request', @reqfilter);
+	push @where, "del.request in ($l)";
+	$binds{$_} = $b{$_} for keys %b;
+    }
+
     my $where = join ' and ', @where;
 
-    my $sql = qq{ select n.name node, b.name block, b.files, b.bytes, del.time_request, del.time_complete
+    my $sql = qq{ select del.request, n.name node, b.name block, b.files, b.bytes, del.time_request, del.time_complete
 		      from t_dps_block_delete del
 		      join t_dps_block b on b.id = del.block
 		      join t_adm_node n on n.id = del.node
@@ -6782,6 +6857,7 @@ sub output
     $dbtable->set_stripeclass('stripe');
 
     $dbtable->set_tablehead({ 
+	REQUEST => 'Request',
 	NODE => 'Node',
 	BLOCK => 'Block',
 	FILES => 'Files',
@@ -6789,7 +6865,9 @@ sub output
 	TIME_REQUEST => 'Requested',
 	TIME_COMPLETE => 'Completed' });
 
+    my $reqpage = $self->myurl(page => 'Request::View');
     $dbtable->set_dataformats({ 
+	REQUEST => sub { return defined $_[0] ? "<a href='${reqpage}?request=$_[0]'>$_[0]</a>" : 'unknown'; },
 	BYTES => sub { &format_size($_[0]) },
 	TIME_REQUEST  => sub { &formatTime($_[0], 'stamp') },
 	TIME_COMPLETE => sub { $_[0] ? &formatTime($_[0], 'stamp') : 'Pending' } });
@@ -8229,12 +8307,13 @@ sub output_page
 
   my $q =$self->data_subscriptions();
   
-  my @cols = qw(SELECT ITEM_LEVEL ITEM_NAME NODE_NAME PRIORITY PCT_FILES PCT_BYTES
+  my @cols = qw(SELECT REQUEST ITEM_LEVEL ITEM_NAME NODE_NAME PRIORITY PCT_FILES PCT_BYTES
 		IS_MOVE TIME_SUSPEND_UNTIL ITEM_OPEN
 		TIME_CREATE TIME_COMPLETE TIME_DONE TIME_CLEAR
 		);
   my $th =
   { SELECT => 'Select',
+    REQUEST => 'Request',
     ITEM_LEVEL => 'Data Level',
     ITEM_NAME => 'Data Item',
     NODE_NAME => 'Node',
@@ -8252,8 +8331,10 @@ sub output_page
   
   # Special data fromats
   my $now = time();
+  my $reqpage = $self->myurl(page => "Request::View");
   my $df = 
   { 
+      REQUEST => sub { return defined $_[0] ? "<a href='${reqpage}?request=$_[0]'>$_[0]</a>" : 'unknown'; },
       PRIORITY => sub { if ($_[0] == 0) { return 'High'; }
 			if ($_[0] == 1) { return 'Normal'; }
 			if ($_[0] == 2) { return 'Low'; } },
@@ -8295,12 +8376,15 @@ sub output_page
        );
   
   # Filters
+  my @reqfilter  = grep(/^\d+$/, split(/\s*,*\s+/, param('reqfilter')));
   my $itemfilter = param('filter') || '.*';
   my $priofilter = param('priority') || 'any';
   my $suspfilter = param('suspended') || 'any';
 
   my $filterform = join('', "<p><i>Subscription data filters</i></p>",
 			"<div class='nice'>",
+			"<label>Requests: </label>",
+			textfield(-name=>'reqfilter', -default=>'', -size=>30, -class=>'labeled'), "<br>",
 			"<label>Data items: </label>",
 			textfield(-name=>'filter', -default=>$itemfilter, -size=>30, -class=>'labeled'), "<br>",
 			"<label>Priority: </label>",
@@ -8315,6 +8399,9 @@ sub output_page
 
   my $filter = 
   { 
+      REQUEST => sub { return 1 if !@reqfilter;
+		       return 0 if @reqfilter && !defined $_[0];
+		       return 1 if grep $_[0] == $_, @reqfilter; },
       ITEM_NAME => sub { $_[0] =~ /$itemfilter/ ? 1 : 0 },
       PRIORITY => sub { ( $priofilter eq 'any'
 			  || ($priofilter eq 'high'   && $_[0] == 0)
@@ -8500,7 +8587,8 @@ sub data_subscriptions
   my ($node_list, %node_binds) = &dbinlist('node', @node_ids );
 
   my $q = &dbexec($$self{DBH}, qq{
-       select NVL2(s.block, 'BLOCK', 'DATASET') item_level,
+       select s.request,
+              NVL2(s.block, 'BLOCK', 'DATASET') item_level,
 	      NVL2(s.block, s.block, s.dataset) item_id,
 	      NVL2(s.block, b.name, ds.name) item_name,
 	      NVL2(s.block, b.is_open, ds.is_open) item_open,
