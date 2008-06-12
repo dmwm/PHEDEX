@@ -67,14 +67,18 @@ sub AUTOLOAD
 }
 
 #-------------------------------------------------------------------------------
-
 # Fetch basic transfer request information
 # Options:
-#   APPROVED : if true, only return approved nodes
-#   NODES : an arrayref of nodes.  Only return transfers affecting those nodes
-#   AFTER : only return requests created after this timestamp
-#   WILDCARDS : if true, only return requests with wildcards in them
-#   STATIC   : if true, only return static requets, if false only return expanding requests
+#   APPROVED    : if true, return approved; if false, return disapproved; if null, return either;
+#   PENDING     : if true, return pending nodes; if false, return decided; if null, return either;
+#   DEST_ONLY   : if true, return only destination nodes; if false or null, return either;
+#   SRC_ONLY    : if true, return only source nodes; if false or null, return either;
+#   STATIC      : if true, only return static requets, if false only return expanding requests
+#   MOVE        : if true, return move requests; if false, return copy requests; if null return either;
+#   DISTRIBUTED : if true, return dist. reqs; if false, return non-dist.; if null, return either;
+#   WILDCARDS   : if true, only return requests with wildcards in them
+#   AFTER       : only return requests created after this timestamp
+#   NODES       : an arrayref of nodes.  Only return transfers affecting those nodes
 sub getTransferRequests
 {
     my ($self, %h) = @_;
@@ -165,13 +169,17 @@ sub getTransferRequests
     return $requests;
 }
 
-# fetch basic deletion request information
+
+
+#-------------------------------------------------------------------------------
+# Fetch basic deletion request information
 # Options:
-#   APPROVED : if true, only return approved nodes
-#   NODES : an arrayref of nodes.  Only return deletions affecting those nodes
-#   AFTER : only return requests created after this timestamp
-#   WILDCARDS : if true, only return requests with wildcards in them
+#   APPROVED    : if true, return approved; if false, return disapproved; if null, return either;
+#   PENDING     : if true, return pending nodes; if false, return decided; if null, return either;
 #   RETRANSFER : if true, only return retransfer deletions, if false only return permenant deletions
+#   WILDCARDS : if true, only return requests with wildcards in them
+#   AFTER : only return requests created after this timestamp
+#   NODES : an arrayref of nodes.  Only return deletions affecting those nodes
 sub getDeleteRequests
 {
     my ($self, %h) = @_;
@@ -248,9 +256,15 @@ sub getDeleteRequests
     return $requests;
 }
 
+
+
+#-------------------------------------------------------------------------------
+# Returns arrayrefs of datasets and blocks attached to this request
+# Options:
+#   EXPAND_DATASETS : if true, expands datasets into block ids and returns them in the block array
 sub getExistingRequestData
 {
-    my ($self, $id) = @_;
+    my ($self, $id, %h) = @_;
 
     my $datasets = select_single ( $self->{DBH},
 				   qq{ select rds.dataset_id from t_req_dataset rds
@@ -260,14 +274,27 @@ sub getExistingRequestData
 
     my $blocks = select_single ( $self->{DBH},
 				 qq{ select rb.block_id from t_req_block rb
-					 where rb.block_id is not null
-                                           and rb.request = :id },
+			 	      where rb.block_id is not null
+                                        and rb.request = :id },
 				 ':id' => $id );
 
+    if ($h{EXPAND_DATASETS}) {
+	my $ds_blocks = select_single ( $self->{DBH},
+					qq{ select b.id
+                                              from t_req_dataset rds
+                                              join t_dps_block b on b.dataset = rds.dataset_id
+                                             where rds.dataset_id is not null
+					       and rds.request = :id } );
+	push @$blocks, @{$ds_blocks};
+    }
+    
     return $datasets, $blocks;
 }
 
-#
+
+
+#-------------------------------------------------------------------------------
+# Adds a dataset or block to a request
 sub addRequestData
 {
     my ($self, $request, %h) = @_;
@@ -290,7 +317,20 @@ sub addRequestData
 }
 
 
-#
+
+#-------------------------------------------------------------------------------
+# Creates a new subscription for a dataset or block
+# Required:
+#  DATASET or BLOCK : the name or ID of a dataset or block
+#  REQUEST : request ID this is associated with
+#  DESTINATION : the destination node ID
+#  PRIORITY : priority
+#  IS_MOVE : if this is a move subscription
+#  IS_TRANSIENT : if this is a transient subscription
+#  TIME_CREATE : the creation time
+# TODO: Check that block subscriptions are not created where a dataset
+#       subscription exists?  BlockAllocator takes care of this, but it may be 
+#       unneccessary strain on that agent.
 sub createSubscription
 {
     my ($self, %h) = @_;;
@@ -342,6 +382,7 @@ sub createSubscription
 
     return $n;
 }
+
 
 
 1;
