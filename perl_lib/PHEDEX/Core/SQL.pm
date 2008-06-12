@@ -755,4 +755,21 @@ sub getBlockIDsFromBlockWildcard
     return $r;
 }
 
+#-------------------------------------------------------------------------------
+sub getBlockIDsFromDatasetIDs
+{
+    my ($self, @dataset_ids) = @_;
+    return [] unless @dataset_ids;
+
+    my %p;
+    my $sql = qq{ select b.id
+		    from t_dps_block b 
+		   where } . filter_or_eq( $self, undef, \%p, 'b.dataset', @dataset_ids );
+
+    my $r = select_single( $self, $sql, %p );
+
+    return $r;
+}
+
+
 1;
