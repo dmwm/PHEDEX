@@ -13,9 +13,10 @@ use strict;
 ##H   Usage:
 ##H
 ##H   BlockConsistencyCheck -db DBCONFIG -buffer BUFFER -tfc TFC
-##H                        [-dataset DATASET] [-block BLOCK] [-verbose]
+##H                        [-dataset DATASET] [-block BLOCK] [-lfnlist LFNLIST]
 ##H                        [-tfcprotocol TFCPROTOCOL]
 ##H                        [-mssprotocol MSSPROTOCOL]
+##H                        [-verbose]
 ##H 
 ##H   DBCONFIG is the usual PhEDEx DB contact file.
 ##H
@@ -28,12 +29,19 @@ use strict;
 ##H   wildcard, or by repeating the --buffer option, or any combination of
 ##H   the three.
 ##H
-##H   One of DATASET or BLOCK is obligatory. These also support multiple
+##H   One of DATASET, BLOCK, or LFNLIST is obligatory. These also support multiple
 ##H   values as comma-separated lists, or using the '%' wildcard, or by
 ##H   repeating the option.
 ##H 
-##H   You can give both the DATASET and BLOCK options, in which case the
-##H   script will take both into account.
+##H   LFNLIST is a file containing full LFNs as found in your storage
+##H   element, one lfn per line. Anything before the '/store/' part is
+##H   ignored, anything after it is taken to be the full LFN.
+##H   If LFNLIST is given as '-', the script will read from stdin.
+##H   Gzipped (*.gz) or bzipped (*.bz2) files can be read directly,
+##H   allowing for compact filelists.
+##H
+##H   You can use the DATASET, BLOCK, and LFNLIST options together, in
+##H   which case the script will take both into account.
 ##H
 ##H   TFCPROTOCOL is the protocol by which LFNs are converted to PFNs. By
 ##H   default, 'direct' is used, and the namespace-check is then done using
@@ -155,22 +163,24 @@ if( !$DBCONFIG ||
 }
 
 #-------------------------------------------------------------------------------
-if ( $lfnlist =~ m%.gz$% )
-{ open LFN, "cat $lfnlist | gzip -d - |" or die "open: $lfnlist: $!\n"; }
-elsif ( $lfnlist =~ m%.bz2$% )
-{ open LFN, "cat $lfnlist | bzip2 -d - |" or die "open: $lfnlist: $!\n"; }
-elsif ( $lfnlist =~ m%^-$% )
-{ *LFN = *STDIN; }
-else
-{ open LFN, "<$lfnlist" or die "open: $lfnlist: $!\n"; }
-
-while ( <LFN> )
-{
-  chomp;
-  $debug && print "Read: $_\n";;
-  s%^.*/store%/store%;
-  s%\s.*$%%;
-  push @LFN, $_;
+if ($lfnlist) {
+    if ( $lfnlist =~ m%.gz$% )
+    { open LFN, "cat $lfnlist | gzip -d - |" or die "open: $lfnlist: $!\n"; }
+    elsif ( $lfnlist =~ m%.bz2$% )
+    { open LFN, "cat $lfnlist | bzip2 -d - |" or die "open: $lfnlist: $!\n"; }
+    elsif ( $lfnlist =~ m%^-$% )
+    { *LFN = *STDIN; }
+    else
+    { open LFN, "<$lfnlist" or die "open: $lfnlist: $!\n"; }
+    
+    while ( <LFN> )
+    {
+	chomp;
+	$debug && print "Read: $_\n";;
+	s%^.*/store%/store%;
+	s%\s.*$%%;
+	push @LFN, $_;
+    }
 }
 
 #-------------------------------------------------------------------------------
