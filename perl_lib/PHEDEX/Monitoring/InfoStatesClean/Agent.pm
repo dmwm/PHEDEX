@@ -38,11 +38,6 @@ sub idle
 		":old" => &mytimeofday() - 30*86400);
 	$dbh->commit();
 
-	# Delete requests for file and block deletion after 3 days
-	&dbexec($dbh,qq{delete from t_xfer_delete where time_complete < :old}, %old);
-	&dbexec($dbh,qq{delete from t_dps_block_delete where time_complete < :old}, %old);
-	$dbh->commit();
-
 	# Keep 100 most recent errors for every link
 	&dbexec($dbh, qq{
 	   delete from t_xfer_error xe where rowid not in
