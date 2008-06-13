@@ -108,6 +108,15 @@ sub idle
           when matched then update set bd.time_complete = :now
       }, ':now' => $now);
 
+	# Remove file deletion requests for completed block deletions
+	($stmt, $nrow) = &dbexec ($dbh, qq{
+	    delete from t_xfer_delete xd
+             where exists ( select 1 from t_dps_block_delete bd
+                              join t_xfer_file xf on xf.inblock = bd.block
+                             where xd.node = bd.node and xd.fileid = xf.id
+			    and bd.time_complete is not null )
+	 });
+
 	# Log what we just finished deleting
 	my $q_done = &dbexec($dbh, qq{
 	    select n.name, b.name
@@ -120,6 +129,17 @@ sub idle
 	while (my ($node, $block) = $q_done->fetchrow()) {
 	    $self->Logmsg("deletion of $block at $node finished");
 	}
+
+	# Clean up
+	# Delete requests for file and block deletion after 3 days
+	$old = $now - 3*24*3600;
+	&dbexec($dbh,qq{delete from t_xfer_delete where time_complete < :old}, ':old' => $old);
+	&dbexec($dbh,qq{delete from t_dps_block_delete where time_complete < :old}, ':old' => $old);
+	# Delete requests for block deletion from empty blocks
+	&dbexec($dbh,qq{delete from t_dps_block_delete bd
+                         where exists
+                           (select 1 from t_dps_block b
+			     where b.files = 0 and b.id = bd.block) });
 
     	$dbh->commit();
     };
