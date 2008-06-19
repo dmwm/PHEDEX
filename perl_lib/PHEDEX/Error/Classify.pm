@@ -39,6 +39,8 @@ sub ErrorClassify {
   $detail =~ s/srm:\/\/[^\s]+/\[srm-URL\]/g;
   $detail =~ s/at\s+\w{3}\s+\w{3}\s+\d+\s+\d+:\d+:\d+\s+[A-Z]+\s+\d+/at \[date\]/g;
   $detail =~ s/jobId = [-\d]+\s/jobId = \[ID] /;
+  $detail =~ s/\s+request\s+\[\d+\]/ request [ID]/g;
+  $detail =~ s/\s+id\s+:?\s*\d+/ id [ID] /g;
 
   if ( (($reason) = $detail =~ m/.*(Failed DESTINATION error during FINALIZATION phase: \[GENERAL_FAILURE\] failed to complete PrepareToPut request.*)/) ) {
     $reason =~ s/request \[(-|\d)+\]/request [reqid]/;
