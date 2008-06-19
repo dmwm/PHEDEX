@@ -4,6 +4,7 @@ our $TESTING = 0;
 our $TESTING_MAIL = undef;
 
 use CMSWebTools::SecurityModule::Oracle;
+use PHEDEX::Core::SQL;
 
 ######################################################################
 package Web25::Common; use strict; use warnings; use base "Exporter";
@@ -11,7 +12,6 @@ use CGI qw(:standard unescape);
 use Net::hostent;
 require Socket;
 use POSIX qw(strftime mktime);
-use Text::Glob 'glob_to_regex';
 BEGIN { my $__scriptdir = $ENV{SCRIPT_FILENAME} || "./"; $__scriptdir =~ s,[^/]+$,,; unshift(@INC, $__scriptdir . "/cgi-bin"); };
 use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
 
@@ -940,88 +940,141 @@ sub resolve_data
 	$$all{$level} = [];
     }
 
-    my %has;
+    # We assume the user is giving us wildcard searches
+    # So first we turn the wildcard searches into compiled regexps and
+    # SQL like patterns
+    my %has = ( DATASET => 0, BLOCK => 0);
+    my %userglob_re;
+    my %userglob_like = ( DATASET => [], BLOCK => [] );
     foreach my $userglob (@userdata) {
 	my $level = ($userglob =~ m/\#/ ? 'BLOCK' : 'DATASET');
-	$has{$level} = 1;
+	$has{$level}++;
+
+	my $re = $userglob;
+	$re =~ s:\*+:[^/\#]+:g;            # simple glob to regex, only * is supported
+	$userglob_re{$userglob} = qr($re); # compile regexp
+
+	my $like = $userglob;
+	$like =~ s:\*+:%:g;                # glob to sql like, only * is supported
+	push @{$userglob_like{$level}}, $like;
     }
 
-    # TODO:  fetchin all data is expensive:  takes 10 seconds
-    my $all_datasets = &dbexec($dbh, qq{
+    # Now we look for matching data in TMDB using the SQL like patterns
+    # We order by ID so we can check for redundant DBS items later
+    use Time::HiRes;
+    my ($t1, $t2);
+    $t1 = Time::HiRes::time();
+    my $all_items = {};
+    if ($has{DATASET}) {
+	my %binds;
+	my $lookup = $userglob_like{DATASET};
+
+	my $sql =  qq{
 	   select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset,
                   nvl(sum(b.files),0) files, nvl(sum(b.bytes),0) bytes
 	     from t_dps_dataset ds
    	     join t_dps_dbs dbs on dbs.id = ds.dbs
              left join t_dps_block b on b.dataset = ds.id
-            group by dbs.id, dbs.name, ds.id, ds.name
-	})->fetchall_hashref('DATASET_ID') if $has{DATASET};
+	 }
+	. 'where ('.&PHEDEX::Core::SQL::filter_or_like($dbh, undef, \%binds, 'ds.name', @$lookup).')'
+        . qq{ group by dbs.id, dbs.name, ds.id, ds.name
+	      order by ds.id };
+	
+	$all_items->{DATASET} = &dbexec($dbh, $sql, %binds)->fetchall_arrayref({});
+    }
     
-    my $all_blocks = &dbexec($dbh, qq{
-	  select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset,
+    if ($has{BLOCK}) {
+	my %binds;
+	my $lookup = $userglob_like{BLOCK};
+
+	my $sql =
+	    qq{
+		select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset,
 	         b.id block_id, b.name block, b.files, b.bytes
 	    from t_dps_block b
 	    join t_dps_dataset ds on b.dataset = ds.id
 	    join t_dps_dbs dbs on ds.dbs = dbs.id
-	})->fetchall_hashref('BLOCK_ID') if $has{BLOCK};
+	}.'where ('.&PHEDEX::Core::SQL::filter_or_like($dbh, undef, \%binds, 'b.name', @$lookup).')'
+	 .qq{ order by b.id };
 
-    my $undef_id = 0;
-    foreach my $userglob (@userdata) {
-	$$resolved{$userglob} = [];
-	my $level = ($userglob =~ m/\#/ ? 'BLOCK' : 'DATASET');
+	$all_items->{BLOCK} = &dbexec($dbh, $sql, %binds)->fetchall_arrayref({});
+    }
+    $t2 = Time::HiRes::time();
+    warn sprintf("fetching all data:  %.4f\n", $t2-$t1);
+    warn "fetched ", scalar @{$all_items->{BLOCK}}, " blocks for ", scalar @{$userglob_like{BLOCK}}, "items\n";
 
-	# Search the DPS for the user's glob
-	my $resultset;
-	if ($level eq 'DATASET') { 
-	    $resultset = $all_datasets; 
-	} else {
-	    $resultset = $all_blocks; 
-	}
+    # Now we go through all the data we just found and use the regexps patterns we made to find
+    # What data matched what user request.
+    # We need to do this because we want to be able to tell the user which of their strings did
+    # not match anything
 
-	my $pattern = glob_to_regex($userglob);
+    $t1 = Time::HiRes::time();
+    foreach my $level (keys %$all_items) {
+	warn "resolving ${level}s\n";
+	my $resultset = $$all_items{$level};
 	my $lastid = -1;
-	foreach my $id (sort keys %{$resultset}) {
-	    my $row = $$resultset{$id};
+#	my ($tt1, $tt2);
+#	$tt1 = Time::HiRes::time();
+	foreach my $row (@$resultset) {
+	    my $id = $$row{$level.'_ID'};
 	    my $name = $$row{$level};
-	    next unless $name =~ $pattern;
 
-	    # Redundancy checking
+	    # DBS redundancy checking
 	    if ($id == $lastid) {
 		$$dbsdupes{$level}{$id} = 1;
 	    }
 	    $lastid = $id;
-	    push @{$$all{$level}}, $id;
 
-	    #my $replicas = 'blah';
-	    my $replicas = &fetch_replicas($dbh, $$row{DATASET_ID}, $$row{BLOCK_ID});
-	    push @{$$resolved{$userglob}},  { DBS => $$row{DBS},
-					      LEVEL => $level,
-					      DATASET => $$row{DATASET},
-					      BLOCK   => $$row{BLOCK},
-					      FILES   => $$row{FILES},
-					      BYTES   => $$row{BYTES},
-					      REPLICAS => $replicas,
-					      DPS_ISKNOWN => 'y',
-					      DBS_ISKNOWN => 'y', # XXX This is assuming DPS and DBS are in sync
-					      ID => $id };
+	    # Search the TMDB for the user's glob
+	    foreach my $userglob (@userdata) {
+		my $globlevel = ($userglob =~ m/\#/ ? 'BLOCK' : 'DATASET');
+		next unless $level eq $globlevel;
+		next unless $name =~ $userglob_re{$userglob};
+
+		push @{$$all{$level}}, $id;
+
+		$$resolved{$userglob} ||= [];
+		push @{$$resolved{$userglob}},  { DBS => $$row{DBS},
+						  LEVEL => $level,
+						  DATASET => $$row{DATASET},
+						  BLOCK   => $$row{BLOCK},
+						  FILES   => $$row{FILES},
+						  BYTES   => $$row{BYTES},
+						  REPLICAS => [],
+						  DPS_ISKNOWN => 'y',
+						  DBS_ISKNOWN => 'y', # XXX This is assuming DPS and DBS are in sync
+						  ID => $id };
+	    }
+#	    $tt2 = Time::HiRes::time();
+#	    warn sprintf("tried to match $level $id:  %.4f\n", $tt2-$tt1);
 	}
-	
-	# User's glob not found in DPS, check their DBS
+    }
+
+    # Lookup in DBS items not found in TMDB
+    # TODO: Put some limit on this.  We are able to look up 1000's of
+    # items from TMDB, but getting data from DBS is slower and the
+    # user will not know why their search failed
+    my $undef_id = 0;
+    foreach my $userglob (@userdata) {
 	if ($userdbs && ! @{$$resolved{$userglob}}) {
 	    my @dbsdata = dbs_lookup($userdbs, $userglob);
+	    my $globlevel = ($userglob =~ m/\#/ ? 'BLOCK' : 'DATASET');
 	    foreach my $name (@dbsdata) {
 		$undef_id++;
 		push @{$$resolved{$userglob}}, { DBS => $userdbs,
-						 LEVEL => $level,
-						 DATASET => ($level eq 'DATASET' ? $name : undef),
-						 BLOCK   => ($level eq 'BLOCK' ? $name : undef),
+						 LEVEL => $globlevel,
+						 DATASET => ($globlevel eq 'DATASET' ? $name : undef),
+						 BLOCK   => ($globlevel eq 'BLOCK' ? $name : undef),
 						 DPS_ISKNOWN => 'n',
 						 DBS_ISKNOWN => 'y',
 						 ID => 'undef'.$undef_id };
 	    }
 	}
     }
+    $t2 = Time::HiRes::time();
+    warn sprintf("resolving all data:  %.4f\n", $t2-$t1);
 
-
+    # Look for data which the user has requested in duplicate
     my $lastid = -1;
     foreach my $level (qw(DATASET BLOCK)) {
 	foreach my $id (sort @{$$all{$level}}) {
@@ -1032,6 +1085,30 @@ sub resolve_data
 	}
     }
 
+    # Attach replicas to resolved data.  We use the IDs from the data
+    # we successfully looked up in TMDB to do this efficiently
+    $t1 = Time::HiRes::time();
+    my $all_replicas = {};
+    foreach my $level (qw(DATASET BLOCK)) {
+	my @ids = @{$$all{$level}};
+	while ( my @batch = splice @ids, 0, 1000 ) { # query groups of 1000 items
+	    my $replicas = &fetch_replicas($dbh, $level, @batch);
+	    foreach my $rep (@$replicas) {
+		$all_replicas->{$level}->{ $rep->{ $level.'_ID' } } ||= [];
+		push @{ $all_replicas->{$level}->{ $rep->{ $level.'_ID' } } }, $rep;
+	    }
+	}
+    }
+
+    foreach my $userglob (@userdata) {
+	foreach my $item (grep $_->{DPS_ISKNOWN} eq 'y', @{$$resolved{$userglob}}) {
+	    $item->{REPLICAS} = $all_replicas->{$item->{LEVEL}}->{$item->{ID}};
+	}
+    }
+    $t2 = Time::HiRes::time();
+    warn sprintf("attatching replicas:  %.4f\n", $t2-$t1);
+    
+    # Return our results
     if (wantarray) {
 	return ($resolved, $userdupes, $dbsdupes);
     } else {
@@ -1041,18 +1118,19 @@ sub resolve_data
 
 sub fetch_replicas
 {
-    my ($dbh, $dataset_id, $block_id) = @_;
-    return undef unless ($dbh && $dataset_id);
+    my ($dbh, $level, @items) = @_;
+    return undef unless ($dbh && $level && @items);
 
     my $block_select = '';
     my $block_group_by = '';
-    my $block_where = '';
-    my %binds = (':dataset' => $dataset_id);
-    if ($block_id) {
+    my %binds;
+    my $where;
+    if ($level eq 'DATASET') {
+	$where = '('.&PHEDEX::Core::SQL::filter_or_eq($dbh, undef, \%binds, 'ds.id', @items).')';
+    } elsif ($level eq 'BLOCK') {
 	$block_select = 'b.id block_id, ';
 	$block_group_by = ', b.id';
-	$block_where = 'and b.id = :block';
-	$binds{':block'} = $block_id;
+	$where = '('.&PHEDEX::Core::SQL::filter_or_eq($dbh, undef, \%binds, 'b.id', @items).')';
     }
 
     my $q = &dbexec($dbh, qq{
@@ -1068,8 +1146,7 @@ sub fetch_replicas
     left join t_dps_subscription s on s.destination = br.node
                                   and (s.dataset = ds.id or s.block = b.id)
         where (br.node_files != 0 or br.dest_files != 0)
-          and ds.id = :dataset
-	  $block_where
+          and $where
         group by n.id, n.name, ds.id, s.destination, s.dataset $block_group_by }, %binds);
 
     my $replicas = [];
@@ -2388,10 +2465,14 @@ sub generate
       require CGI::Cookie;
       my $session_name = 'PhEDEx';
       CGI::Session->name($session_name);
-      my $session = new CGI::Session("driver:File", undef, {Directory=>'/tmp/cgi-sessions'});
+      my $session_dir = $$self{CONFIG}{SESSION_DIR} || '/tmp/cgi-sessions';
+      my $sid = cookie($session_name) || undef;
+      warn "sid is ", ($sid ? $sid : 'undefined'), "\n";
+      my $session = new CGI::Session("driver:File", $sid, {Directory=>$session_dir});
+      $session->expire("+24h");
       $$self{SESSION} = $session;
       $$self{SESSIONID} = $session->id();
-      my $cookie = new CGI::Cookie(-name=>$session_name, -value=>$session->id());
+      my $cookie = new CGI::Cookie(-name=>$session_name, -value=>$$self{SESSIONID});
       push @cookies, $cookie;
   }
 
@@ -2504,7 +2585,8 @@ sub generate
   }
 
   print header(-type => 'text/html', -cookie=>\@cookies), $result;
-  
+
+  if ($$index{SESSION}) { $$self{SESSION}->flush(); }
 }
 
 
@@ -3229,7 +3311,8 @@ sub writeRequest
     
     # Delete the session
     $$self{SESSION}->delete();
-    
+    $$self{SESSION}->flush();
+
     return $rid;
 }
 
@@ -3779,7 +3862,6 @@ our @EXPORT = qw(get_request_nodes
 		 create_check_data
 		 create_check_nodes
 		 create_check_options
-		 create_check_bad
 );
 
 sub get_request_nodes
@@ -3977,24 +4059,26 @@ sub create_check_options
 
   if ($type eq 'xfer') {
       foreach ('is_move', 'is_static') {
-	  if (!param($_) && param($_) !~ /^[yn]$/) {
+	  if (!param($_) || param($_) !~ /^[yn]$/) {
 	      $self->alert("Option '$_' missing or illegal value");
-	      $$bad = 0;
+	      $$bad = 1;
 	      return ();
 	  }
       }
   
-      if (!param('priority') && param('priority') !~ /^[012]$/) {
+      if (!param('priority') || param('priority') !~ /^[012]$/) {
 	  $self->alert("Option 'priority' missing or illegal value");
-	  $$bad = 0;
+	  $$bad = 1;
 	  return ();
       }
-      return ( 'is_move' => param('is_move'), 'priority' => param('priority') );
+      return ( 'is_move' => param('is_move'),
+	       'is_static' => param('is_static'),
+	       'priority' => param('priority') );
   } elsif ($type eq 'delete') {
       foreach ('rm_subscriptions') {
-	  if (!param($_) && param($_) !~ /^[yn]$/) {
+	  if (!param($_) || param($_) !~ /^[yn]$/) {
 	      $self->alert("Option '$_' missing or illegal value");
-	      $$bad = 0;
+	      $$bad = 1;
 	      return ();
 	  }
       }
@@ -4004,13 +4088,6 @@ sub create_check_options
       $$bad = 1;
       return ();
   }
-}
-
-sub create_check_bad
-{
-  my ($self, $bad) = @_;
-  print { $$self{CONTENT} } "<p>Please resubmit the form with corrected information.</p>\n" if $bad;
-  return $bad;
 }
 
 1;
@@ -4041,6 +4118,9 @@ sub output
 {
   my ($self) = @_;
   my $bad = 0;
+
+  print { $$self{CONTENT} }   "<p>Session:  $$self{SESSIONID}</p>"; # XXX test
+
   &create_check_identity($self, \$bad);
   return if $bad;
 
@@ -4125,8 +4205,7 @@ sub output
 	    "replicates the data then deletes the data at the source.  Note that ",
 	    "moves are only used for moving data from T2s to T1s."),
       "<br/>",
-      hidden('is_static', 'n'),
-       "<label>Subscription Type:</label>", popup_menu(-name=>'is_static', 
+      "<label>Subscription Type:</label>", popup_menu(-name=>'is_static', 
  						      -values=>['n', 'y'],
  						      -default=>'n',
  						      -labels=>{'n' => 'Growing', 'y' => 'Static' },
@@ -4197,6 +4276,8 @@ sub output
 
   my $bad = 0;
   my %params;
+
+  print { $$self{CONTENT} }   "<p>Session:  $$self{SESSIONID}</p>"; # XXX test
 
   &create_check_identity($self, \$bad);
   &create_check_access($self, \$bad);
@@ -4294,6 +4375,7 @@ sub getRequestOptions
     if ($params{type} eq 'xfer') {
 	my %prio = ('0' => 'High', '1' => 'Normal', '2' => 'Low');
 	return ("<label>Is Move?:</label><span class='labeled'>", &yesno($params{is_move}), "</span><br/>",
+		"<label>Is Static?:</label><span class='labeled'>", &yesno($params{is_static}), "</span><br/>",
 		"<label>Priority:</label><span class='labeled'>", $prio{$params{priority}}, "</span><br/>");
     } elsif ($params{type} eq 'delete') {
 	return ("<label>Remove Subscriptions?:</label><span class='labeled'>", &yesno($params{rm_subscriptions}),
@@ -4390,6 +4472,7 @@ sub checkXferRequestData
 	    foreach my $res (@{$$resolved{$userglob}}) {
 		my @comments;
 		my $warn = 0;
+		my $row_problem = 0;
 
 		if ($$res{FILES} == 0) {
 		    my $item_level = ucfirst lc $$res{LEVEL};
@@ -4398,7 +4481,7 @@ sub checkXferRequestData
 		}
 		if ($$res{DBS} ne $params{dbs})  { 
 		    push @comments, "Known to PhEDEx in another DBS ($$res{DBS})";
-		    $warn = 1; $problems = 1; 
+		    $warn = 1; $row_problem = 1;
 		}
 		if ($$userdupes{$$res{LEVEL}}{$$res{ID}}) { 
 		    push @comments, "User duplicated requests";
@@ -4430,7 +4513,7 @@ sub checkXferRequestData
 		    }
 		    if ($bad_t1_move) {
 			push @comments, "Cannot move data subscribed to a T1";
-			$problems = 1;
+			$row_problem = 1;
 		    }
 		}
 		
@@ -4440,16 +4523,19 @@ sub checkXferRequestData
 		$$res{COMMENT} = join('<br/>', @comments);
 		$$res{COMMENT} ||= 'None';
 		$$res{WARN} = $warn;
-		$$res{PROBLEM} = $problems;
+		$$res{PROBLEM} = $row_problem;
 		
 		if ($$res{DPS_ISKNOWN} eq 'n' || $$res{DBS_ISKNOWN} eq 'n') { $problems = 1; }
 		$table->row($res);
+		$problems ||= $row_problem;
 	    }
 	}
     }
     $table->finish();
 
     unless ($problems) {
+	warn "writing session parameters for session $$self{SESSIONID}\n"; # XXX test
+	warn "the real session ID is ", $$self{SESSION}->id(), "\n";
 	# Save the previous state
 	$$self{SESSION}->param('type', 'xfer');
 	$$self{SESSION}->param('type_params', { 'is_move' => $params{is_move},
@@ -4607,7 +4693,7 @@ sub send_request_create_email
     my %node_sites = $$self{SECMOD}->getPhedexNodeToSiteMap();
     my (%sites);  # for unique list
     foreach my $node (keys %{$$data{NODES}}) {
-	$sites{ $node_sites{ $node } } = 1;
+	$sites{ $node_sites{ $node } } = 1 if exists $node_sites{ $node };
     }
 
     # Get the list of Global admins
@@ -4659,6 +4745,8 @@ sub send_request_create_email
     my $files = $$data{REQUEST_FILES};
     my $bytes = &format_size($$data{REQUEST_BYTES});
     
+    my $comments = $$data{COMMENTS} || '';
+
     my $message =<<ENDEMAIL;
 Greetings PhEDEx Data Managers,
 
@@ -4689,15 +4777,18 @@ ENDEMAIL
     }
 
     foreach my $point (sort keys %$nodes_by_point) {
-	$message .= "   ${point}s:\n".
-	    join('', map( { "     $_ (Site: $node_sites{$_})\n" } sort @{$$nodes_by_point{ $point }}));
+	$message .= "   ${point}s:\n";
+	foreach my $node (sort @{$$nodes_by_point{ $point }}) {
+	    my $site = $node_sites{$node} || 'unknown';
+	    $message .= "     $node (Site:  $site)\n"
+	}
     }
 
     $message .=<<ENDEMAIL;
    Size:
      $files files, $bytes
    Comments:
-     "$$data{COMMENTS}"
+     "$comments"
 
 $special_message
  
@@ -5117,11 +5208,13 @@ sub send_request_update_email
 	$action_desc .= "\n";
     }
 
-    # Get a list of the sites involved in this request
-    my @nodes = sort keys %{$$data{NODES}};
+    # A list of nodes that have been acted on
+    my @action_nodes = sort grep($$node_actions{$_} ne 'null', keys %$node_actions);
+
+    # Get a list of the sites involved in this request update
     my %node_sites = $$self{SECMOD}->getPhedexNodeToSiteMap();
     my %sites;  # for unique list
-    foreach my $node (@nodes) {
+    foreach my $node (@action_nodes) {
 	$sites{ $node_sites{$node} } = 1 if exists $node_sites{$node};
     }
     
@@ -5987,7 +6080,7 @@ sub myurl
 sub output
 {
   my ($self) = @_;
-  $$self{PLOT_SCRIPT} = "$$self{CONFIG}{SERVICE_PATH}/cgi-bin/phedex-cgi.sh";
+  $$self{GRAPHTOOL} = "$$self{CONFIG}{GRAPHTOOL_URL}";
 
   my $page = param("page");
   my $period = param("period");
@@ -6155,8 +6248,7 @@ sub imgsrc
   my $from_node = ($args{src_filter} ? $args{src_filter} : '.*');
   my $to_node = ($args{dest_filter} ? $args{dest_filter} : '.*');
 
-  my %graphargs = ('graph' => $graph,
-		   'from_node' => $from_node,
+  my %graphargs = ('from_node' => $from_node,
 		   'to_node' => $to_node,
 		   'no_mss' => $args{no_mss},
 		   'conn' => $args{conn},
@@ -6165,7 +6257,7 @@ sub imgsrc
 		   'starttime' => $args{starttime}, 
 		   'endtime' => $args{endtime});
 
-  my $imgsrc = $$self{PLOT_SCRIPT}.'?'. &urlencode(%graphargs);
+  my $imgsrc = $$self{GRAPHTOOL}."/${graph}?". &urlencode(%graphargs);
   return $imgsrc;
 }
 
@@ -6208,8 +6300,7 @@ sub imgsrc
   my $from_node = ($args{src_filter} ? $args{src_filter} : '.*');
   my $to_node = ($args{dest_filter} ? $args{dest_filter} : '.*');
 
-  my %graphargs = ('graph' => $graph,
-		   'from_node' => $from_node,
+  my %graphargs = ('from_node' => $from_node,
 		   'to_node' => $to_node,
 		   'no_mss' => $args{no_mss},
 		   'conn' => $args{conn},
@@ -6228,7 +6319,7 @@ sub imgsrc
       delete $graphargs{to_node};
   }
 
-  my $imgsrc = $$self{PLOT_SCRIPT}.'?'. &urlencode(%graphargs);
+  my $imgsrc = $$self{GRAPHTOOL}."/${graph}?". &urlencode(%graphargs);
   return $imgsrc;
 }
 
@@ -6249,7 +6340,7 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(@_);
-  $$self{DEFAULT_GRAPH} = [ 'quality_all' ];
+  $$self{DEFAULT_GRAPH} = 'quality_all';
   $$self{GRAPH_ORDER} = [ 'quality_all', 'quality_try', 'quality_done', 'quality_fail' ];
   $$self{GRAPHS} = { 'quality_all' => "Quality Map",
 		     'quality_try' => "Attempts",
@@ -6266,8 +6357,7 @@ sub imgsrc
   my $from_node = ($args{src_filter} ? $args{src_filter} : '.*');
   my $to_node = ($args{dest_filter} ? $args{dest_filter} : '.*');
 
-  my %graphargs = ('graph' => $graph,
-		   'to_node' => $to_node,
+  my %graphargs = ('to_node' => $to_node,
 		   'from_node' => $from_node,
 		   'no_mss' => $args{no_mss},
 		   'conn' => $args{conn},
@@ -6276,7 +6366,7 @@ sub imgsrc
 		   'starttime' => $args{starttime}, 
 		   'endtime' => $args{endtime});
 
-  my $imgsrc = $$self{PLOT_SCRIPT}.'?'. &urlencode(%graphargs);
+  my $imgsrc = $$self{GRAPHTOOL}."/${graph}?". &urlencode(%graphargs);
   return $imgsrc;
 }
 
@@ -9498,72 +9588,76 @@ sub output
 {
   my ($self) = @_;
 
-  
-
-  &dump_var($$self{CONTENT}, 'TESTING', $TESTING);
-  return if (!$TESTING);  # For security
-  &dump_var($$self{CONTENT}, '$PERL_VERSION', sprintf("v%vd", $^V));
-  &dump_var($$self{CONTENT}, 'CGI::VERSION', $CGI::VERSION);
-  &dump_var($$self{CONTENT}, 'CGI::Session::VERSION', $CGI::Session::VERSION);
-  &dump_var($$self{CONTENT}, 'DBI::VERSION', $DBI::VERSION);
-  &dump_var($$self{CONTENT}, 'DBD::Oracle::VERSION', $DBD::Oracle::VERSION);
-  &dump_var($$self{CONTENT}, '@INC', [@INC]);
+#   &dump_var($$self{CONTENT}, 'TESTING', $TESTING);
+#   return if (!$TESTING);  # For security
+#   &dump_var($$self{CONTENT}, '$PERL_VERSION', sprintf("v%vd", $^V));
+#   &dump_var($$self{CONTENT}, 'CGI::VERSION', $CGI::VERSION);
+#   &dump_var($$self{CONTENT}, 'CGI::Session::VERSION', $CGI::Session::VERSION);
+#   &dump_var($$self{CONTENT}, 'DBI::VERSION', $DBI::VERSION);
+#   &dump_var($$self{CONTENT}, 'DBD::Oracle::VERSION', $DBD::Oracle::VERSION);
+#   &dump_var($$self{CONTENT}, '@INC', [@INC]);
 #   &dump_var($$self{CONTENT}, 'TESTING_MAIL', $TESTING_MAIL);
-#   &dump_var($$self{CONTENT}, 'SESSION', $$self{SESSION} ? 'Session OK' : 'NO SESSION');
-#   &dump_var($$self{CONTENT}, 'SESSIONID', $$self{SESSIONID});
-#   if ($$self{SESSION} && param('data')) {
-#       $$self{SESSION}->param('data', param('data'));
-#       print {$$self{CONTENT}} "<p>Saved data</p>";
-#   } else {
-#       print {$$self{CONTENT}} "<form action='#' method='post'>",
-#       textfield(-name=>'data'),
-#       submit(),
-#       "</form>";
-#   }
+  &dump_var($$self{CONTENT}, 'SESSION', $$self{SESSION} ? 'Session OK' : 'NO SESSION');
+  &dump_var($$self{CONTENT}, 'SESSIONID', $$self{SESSIONID});
+  print { $$self{CONTENT} } "<pre>", $$self{SESSION}->dump(), "</pre>";
+
+  if ($$self{SESSION} && param('data')) {
+      $$self{SESSION}->param('data', param('data'));
+      print {$$self{CONTENT}} "<p>Saved data</p>";
+  } else {
+      print {$$self{CONTENT}} "<form action='#' method='post'>",
+      textfield(-name=>'data'),
+      submit(),
+      "</form>";
+  }
   
-#   my $data = $$self{SESSION}->param('data');
-#   if ($data) {
-#       print {$$self{CONTENT}} "<p>Your saved data is $data</p>";
-#   } else {
-#       print {$$self{CONTENT}} "<p>No session data.</p>";
-#   }
+  my $data = $$self{SESSION}->param('data');
+  if ($data) {
+      print {$$self{CONTENT}} "<p>Your saved data is $data</p>";
+  } else {
+      print {$$self{CONTENT}} "<p>No session data.</p>";
+  }
 
   #&dump_var($$self{CONTENT}, 'Config', $$self{CONFIG});
   #&dump_var($$self{CONTENT}, 'Env', {%ENV});
-  print {$$self{CONTENT}} 
-  "<p>Full URL current  ",     $self->myurl('fullurl'=>1),"</p>",
-  "<p>Full URL security on  ", $self->myurl('fullurl'=>1, 'secure'=>1),"</p>",
-  "<p>Full URL security off  ",$self->myurl('fullurl'=>1, 'secure'=>0),"</p>",
-  "<p>Normal URL current ", $self->myurl(),"</p>",
-  "<p>Normal URL security on  ", $self->myurl('secure'=>1),"</p>",
-  "<p>Normal URL security off ", $self->myurl('secure'=>0),"</p>";
+
+#   &dump_var($$self{CONTENT}, 'ENV{ORACLE_HOME}', $ENV{ORACLE_HOME});
+#   &dump_var($$self{CONTENT}, 'ENV{TNS_ADMIN}', $ENV{TNS_ADMIN});
+
+#   print {$$self{CONTENT}} 
+#   "<p>Full URL current  ",     $self->myurl('fullurl'=>1),"</p>",
+#   "<p>Full URL security on  ", $self->myurl('fullurl'=>1, 'secure'=>1),"</p>",
+#   "<p>Full URL security off  ",$self->myurl('fullurl'=>1, 'secure'=>0),"</p>",
+#   "<p>Normal URL current ", $self->myurl(),"</p>",
+#   "<p>Normal URL security on  ", $self->myurl('secure'=>1),"</p>",
+#   "<p>Normal URL security off ", $self->myurl('secure'=>0),"</p>";
   
-  &dump_var($$self{CONTENT}, 'ENV{HTTPS}', $ENV{HTTPS});
-  &dump_var($$self{CONTENT}, 'ENV{HTTP_HTTPS}', $ENV{HTTP_HTTPS});
-  my $replicas = &fetch_replicas($$self{DBH}, 1212);
-  &dump_var($$self{CONTENT}, 'replicas', $replicas);
+#   &dump_var($$self{CONTENT}, 'ENV{HTTPS}', $ENV{HTTPS});
+#   &dump_var($$self{CONTENT}, 'ENV{HTTP_HTTPS}', $ENV{HTTP_HTTPS});
+#   my $replicas = &fetch_replicas($$self{DBH}, 1212);
+#   &dump_var($$self{CONTENT}, 'replicas', $replicas);
 
-  my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, 'test', '/Simon/Simon/*-1');
+#   my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, 'test', '/Simon/Simon/*-1');
 
-  &dump_var($$self{CONTENT}, 'resolved', $resolved);
+#   &dump_var($$self{CONTENT}, 'resolved', $resolved);
 
-  &dump_var($$self{CONTENT}, 'SecMod CertAuth', $$self{SECMOD}->isCertAuthenticated());
-  &dump_var($$self{CONTENT}, 'SecMod PassAuth', $$self{SECMOD}->isPasswdAuthenticated());
-  &dump_var($$self{CONTENT}, 'SecMod Forename', $$self{SECMOD}->getForename());
-  &dump_var($$self{CONTENT}, 'SecMod Surname', $$self{SECMOD}->getSurname());
-  &dump_var($$self{CONTENT}, 'SecMod Username', $$self{SECMOD}->getUsername());
-  &dump_var($$self{CONTENT}, 'SecMod DN', $$self{SECMOD}->getDN());
-  &dump_var($$self{CONTENT}, 'SecMod CERT', $$self{SECMOD}->getCert());
+#   &dump_var($$self{CONTENT}, 'SecMod CertAuth', $$self{SECMOD}->isCertAuthenticated());
+#   &dump_var($$self{CONTENT}, 'SecMod PassAuth', $$self{SECMOD}->isPasswdAuthenticated());
+#   &dump_var($$self{CONTENT}, 'SecMod Forename', $$self{SECMOD}->getForename());
+#   &dump_var($$self{CONTENT}, 'SecMod Surname', $$self{SECMOD}->getSurname());
+#   &dump_var($$self{CONTENT}, 'SecMod Username', $$self{SECMOD}->getUsername());
+#   &dump_var($$self{CONTENT}, 'SecMod DN', $$self{SECMOD}->getDN());
+#   &dump_var($$self{CONTENT}, 'SecMod CERT', $$self{SECMOD}->getCert());
 
-  &dump_var($$self{CONTENT}, 'SecMod Roles', $$self{SECMOD}->getRoles());
+#   &dump_var($$self{CONTENT}, 'SecMod Roles', $$self{SECMOD}->getRoles());
 
-  &dump_var($$self{CONTENT}, 'authorized nodes', [ $self->fetch_nodes(web_user_auth=>'Site Admin||Data Manager') ]);
+#   &dump_var($$self{CONTENT}, 'authorized nodes', [ $self->fetch_nodes(web_user_auth=>'Site Admin||Data Manager') ]);
 
-  &dump_var($$self{CONTENT}, 'SecMod Node Map', {$$self{SECMOD}->getPhedexNodeToSiteMap()});
+#   &dump_var($$self{CONTENT}, 'SecMod Node Map', {$$self{SECMOD}->getPhedexNodeToSiteMap()});
   
-  &dump_var($$self{CONTENT}, 'SecMod CERN Site Admins', [$$self{SECMOD}->getUsersWithRoleForSite('Site Admin', 'CERN')]);
+#   &dump_var($$self{CONTENT}, 'SecMod CERN Site Admins', [$$self{SECMOD}->getUsersWithRoleForSite('Site Admin', 'CERN')]);
 
-  &dump_var($$self{CONTENT}, 'SecMod Global Admins', [$$self{SECMOD}->getUsersWithRoleForGroup('Global Admin', 'phedex')]);
+#   &dump_var($$self{CONTENT}, 'SecMod Global Admins', [$$self{SECMOD}->getUsersWithRoleForGroup('Global Admin', 'phedex')]);
 
 
 }
