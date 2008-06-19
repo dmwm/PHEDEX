@@ -6,7 +6,7 @@
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
 # XML support added by Artem Trunov
-# Version info: $Id: InspectPhedexLog,v 1.27 2008/04/29 11:23:18 trunov Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.28 2008/05/20 13:14:20 trunov Exp $:
 ###############################################################################
 
 use strict;
@@ -15,6 +15,8 @@ use Data::Dumper;
 use Time::Local;
 use POSIX;
 use HTML::Entities;
+
+use PHEDEX::Error::Report;
 
 my $flag_showErrors=0;
 my $flag_rawErrors=0;
@@ -160,7 +162,7 @@ my $dateend; # last recorded transfer date of all scanned log files
 my %errinfo;
 my %dberrinfo;
 my @expiredinfo;
-my ($date,$task,$from,$stat,$size,$txfer,$tdone,$ttransfer,$fname,$reason,$bsize,$size_sum)=(0,0,0,0,0,0,0,0,0,0,0,0);
+my ($date,$task,$from,$to,$stat,$size,$txfer,$tdone,$ttransfer,$fname,$reason,$bsize,$size_sum)=(0,0,0,0,0,0,0,0,0,0,0,0);
 my ($bunchsize,$bunchfiles,$txfer_old,$tdone_old,$closedbunch)=(0,0,0,0,0);
 my $line;
 my $statstr;
@@ -205,8 +207,8 @@ foreach my $log (@logfiles) {
 
        next unless ($line =~ /xstats:.*report-code=.*/);
 
-       ($date,$task,$from,$stat,$size,$txfer,$tdone,$fname) = $line =~
-	   m/(\d+-\d+-\d+\s+\d+:\d+:\d+):.*task=([^\s]+).*from=([^\s]+).*report-code=([\d-]+).*size=([^\s]+).*t-xfer=([^\s]+).*t-done=([^\s]+).*lfn=([^\s]+)/;
+       ($date,$task,$from,$to,$stat,$size,$txfer,$tdone,$fname) = $line =~
+	   m/(\d+-\d+-\d+\s+\d+:\d+:\d+):.*task=([^\s]+).*from=([^\s]+).*to=([^\s]+).*report-code=([\d-]+).*size=([^\s]+).*t-xfer=([^\s]+).*t-done=([^\s]+).*lfn=([^\s]+)/;
        # report-code=0 means a successful transfer
        if(! $fname) {
 	   warn "Error: Parsing problem with line:\n$line";
@@ -374,12 +376,21 @@ foreach my $log (@logfiles) {
 } #foreach log
 
 
-open XML, ">$logx" or die "Cannot open $logx";
-print XML "<InspectPhedexLog start=\"",strftime("%Y-%m-%d %H:%M:%S",localtime($datestart)),"\" end=\"",strftime("%Y-%m-%d %H:%M:%S",localtime($dateend)), "\">\n";
+#Now we process and report
+#for XMLout we need to pass data structure $errinfo{from}{to}{reason}{num, time=>[]}
+#but here $errinfo is missing {to}, since it's always your local site!
+#so we need to make a trick, insert $to values. 
+#$to value comes from the last record in the log file
+if (exists $option{"f"} ) {
+    my %errinfo2 = ();
+while ( my ($k, $v) = each %errinfo ) {
+    $errinfo2{$k} = {$to => $v}
+}
+&XMLout(\%errinfo2, $logx, GETERRORORIGIN=>1);
+}
+
 
 if ($flag_multiFailures) {
-    print XML "<MultiFailures n_distinct=\"",scalar keys(%failedfile),"\">\n";
-    
     my %total;
     foreach my $fname (keys %failedfile) {
 	foreach my $from (keys %{$failedfile{$fname}}) {
@@ -399,28 +410,21 @@ if ($flag_multiFailures) {
 	next if $multiFilePrintThresh > $t->{"err"}+$t->{"exp"};
 	
 	printf(" %3d [%3d,%3d,%3d] $fname\n",$t->{"err"}, $t->{"canc"}, $t->{"exp"}, $->{"lost"});
-	print XML "<file err_real=\"$t->{err}\" canc=\"$t->{canc}\" exp=\"$t->{exp}\" lost=\"$t->{lost}\" lfn=\"$fname\">";
 	
 	if($flag_verbose) {
 	    foreach my $from (keys %{$f}) {
 		my $ff = $f->{$from};
 		print "        from $from\n";
 		print "        pfn=$ff->{frompfn}\n";
-		print XML "\n<site name=\"$from\" pfn=\"$ff->{frompfn}\">\n";
 		foreach $reason (sort { $ff->{"reason"}{$b} <=> $ff->{"reason"}{$a} } keys %{$ff->{"reason"}} ) {
 		    my $ffr = $ff->{"reason"}{$reason};
 		    printf("        %4d   $reason\n",$ffr);
-		    print XML "<reason n=\"$ffr\">\n$reason\n</reason>\n";
 		}
-		print XML "</site>\n";
 	    }
 	}
 	print "\n";
-	print XML "</file>\n";
     }
 
-    print XML "</MultiFailures>\n";
-        
     print "\nNumber of distinct files that failed: " . keys(%failedfile) . "\n";
     print "--------------------------------------------------------\n";
     
@@ -428,12 +432,9 @@ if ($flag_multiFailures) {
     print "--------------------------------------------------------\n";
     print "   Attempts     real errors     [incl. expired/cancl]\n\n";
     
-    print XML "<Histo>\n";
-    
     # to fix for real/exp! 
     foreach my $from (sort {$a cmp $b} keys %attempts) {
 	print "   $from:\n";
-	print XML "<site name=\"$from\">\n";
 	
 	$attempts{$from}{"toterr"}{"0"}=$sitestat{$from}{"OK"};
 	
@@ -441,12 +442,8 @@ if ($flag_multiFailures) {
 	    my $af = $attempts{$from};
 	    printf("    %3d  %4d   [%4d]\n",$n,
 		   $af->{"toterr"}{$n} - $af->{"exp"}{$n},$af->{"toterr"}{$n});
-	    print XML sprintf("<data attempts=\"%d\" real_err=\"%d\"  total_err=\"%d\"/>\n",$n,$af->{"toterr"}{$n}-$af->{"exp"}{$n},$af->{"toterr"}{$n});
 	}
-	print XML "</site>\n";
     }
-    print XML "</Histo>\n";
-    
 }
 
 if($flag_showErrors) {
@@ -454,27 +451,18 @@ if($flag_showErrors) {
     print "ERROR ANALYSIS\n";
     print "==============\n";
     
-    print XML "<ErrorAnalysis>\n";
-
     unless ($flag_nodberrors) {
 
 	print "\n\nData base Errors\n";
 	print "==================\n";
-	print XML "<DataBaseErrors>\n";
 	
 	foreach my $err (keys %dberrinfo) {
 	    printf("   %3d  $err\n",$dberrinfo{$err}{num});
 	    my $h=simpleHisto(\@{$dberrinfo{$err}{"date"}},10);
 	    printTimeHisto($h);
-	    $err = HTML::Entities::encode($err);
-	    print XML "<error n=\"$dberrinfo{$err}{num}\">\n$err\n</error>\n";
 	}
-	
-	print XML "</DataBaseErrors>\n";
-
     }
 
-    print XML "<TransferErrors>\n";
     # makes reason hash
     my %reasons = ();
     foreach my $from (keys %errinfo) {
@@ -484,14 +472,6 @@ if($flag_showErrors) {
 	}
     }
 
-    #print errors by their number
-    foreach my $reason ( reverse sort {$reasons{$a} <=> $reasons{$b} } keys %reasons ){
-        my $r = HTML::Entities::encode($reason);
-	print XML "<error n=\"$reasons{$reason}\">$r</error>\n";
-    }
-
-    print XML "</TransferErrors>\n";
-
     print "\n\nExpired tasks\n";
     print "==================\n";
     print "Total: ", scalar @expiredinfo, "\n";
@@ -500,34 +480,25 @@ if($flag_showErrors) {
 
     print "\n\nError message statistics per site:\n";
     print "===================================\n";
-    print XML "<ErrorPerSite>\n";
     foreach $from (keys %errinfo) {
 	print "\n *** ERRORS from $from:***\n";
-	print XML "<site name=\"$from\">\n";
 	foreach $reason (sort { $errinfo{$from}{$b}{num} <=> $errinfo{$from}{$a}{num} } keys %{$errinfo{$from}}) {
 	    printf("   %4d   $reason\n",$errinfo{$from}{$reason}{num});
 	    print "             task IDs: ", join(",",@{$errinfo{$from}{$reason}{tasks}}) . "\n\n" if $flag_verbose;
-	    my $r = HTML::Entities::encode($reason);
-	    print XML "<reason n=\"$errinfo{$from}{$reason}{num}\">\n$r\n<\/reason>\n";
 	    if($flag_errhisto) {
 		my $h=simpleHisto(\@{$errinfo{$from}{$reason}{"time"}},10);
 		print "      simple histogram:\n";
 		printTimeHisto($h);
 	    }
 	}
-	print XML "</site>\n";
     }
-    print XML "</ErrorPerSite>\n";
-    print XML "</ErrorAnalysis>\n";    
 }
 
 print "\nSITE STATISTICS:\n";
 print "==================\n";
-print XML "<SiteStat>\n";
 
 if ($dateend ==0) {
     print "   No transfer entries found ($datestart, $dateend)\n";
-    print XML '</InspectPhedexLog>', "\n"; close XML;
     exit 0;
 }
 
@@ -535,7 +506,8 @@ printf("                         first entry: %s      last entry: %s\n",
        strftime("%Y-%m-%d %H:%M:%S",localtime($datestart)),
        strftime("%Y-%m-%d %H:%M:%S",localtime($dateend)));
 
-my $deltat=$dateend-$datestart;
+my $deltat=$dateend-$datestart; 
+$deltat ||= 1; #to prevent 0 delta in later division
 
 my ($MbperS,$MBperS);
 my $totalsize=0;
@@ -557,31 +529,23 @@ foreach my $site (sort {$a cmp $b} keys %sitestat) {
     #. "   Exp/Cancl: " . $sitestat{$site}{"EXP"} . ")";
     printf("%20s (OK: %3d  Err: %3d  Exp: %3d  Canc: %3d  Lost: %3d)",$site,$ok,$err,$exp,$canc,$lost);
     
-    print XML qq{<site name="$site" ok="$ok" err="$err" exp="$exp" canc="$canc" lost="$lost"};
-    
     if (($ok + $err) > 0) {
 	my $succ = $ok/($ok + $err)*100;
 	printf("   succ.: %.1f %%", $succ);
-	print XML sprintf(" succ_percent=\"%.1f\"", $succ);
     }
     
     $sitestat{$site}{"size"}=0 if ! exists $sitestat{$site}{"size"};
     my $size = $ss->{"size"};
     $totalsize+=$size;
     printf("   total: %6.1f GB  (%4.1f MB/s)",$size/1e9,$size/1e6/$deltat);
-    print XML sprintf(" stotal_gb=\"%.1f\"",$size/1024/1024/1024);
     
     if ( exists $ss->{"ttransfer"} && $ss->{"ttransfer"}>0) {
 	$MbperS=$size*8/$ss->{"ttransfer"}/1e6;
 	$MBperS=$ss->{"size"}/1024/1024/$ss->{"ttransfer"};
 	printf("   avg. rate: %.1f MB/s = %.1f Mb/s",$MBperS,$MbperS) if $flag_bunchDetect;
-	print XML sprintf("avg_rate_mbyte_s=\"%.1f\" avg_rate_mbit_s=\"%.1f\"",$MBperS,$MbperS) if $flag_bunchDetect;
     }
     print "\n";
-    print XML "/>\n";
 }
-
-print XML "</SiteStat>\n";
 
 # Calculate total throughput from first to last used log entry
 if($deltat>0) {
@@ -597,13 +561,7 @@ if($deltat>0) {
     printf("total transferred: %.1f GB  in %.1f hours\n",$totalsize/(1024*1024*1024),
 	   $deltat/3600);
     printf("avg. total rate: %.1f MB/s = %.1f Mb/s  = %.1f GB/day\n",$MBperS,$MbperS,$GBperDay);
-    
-    print XML '<Total ', sprintf("volume_gb=\"%.1f\" time_h=\"%.1f\" ",$totalsize/(1024*1024*1024),$deltat/3600);
-    print XML sprintf("agv_total_rate_mbyte_s=\"%.1f\" agv_total_rate_mbit_s=\"%.1f\" agv_total_rate_gb_day=\"%.1f\" />\n",$MBperS,$MbperS,$GBperDay);
 }
-
-print XML '</InspectPhedexLog>',"\n";
-close XML;
 
 # simple 1D histo
 sub simpleHisto {
