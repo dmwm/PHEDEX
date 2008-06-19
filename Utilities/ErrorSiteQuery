@@ -6,7 +6,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: ErrorSiteQuery.pl,v 1.2 2008/05/05 14:15:30 phedex Exp $:
+# Version info: $Id: ErrorSiteQuery,v 1.1 2008/05/21 09:11:15 dfeichti Exp $:
 ###############################################################################
 
 use Getopt::Long;
@@ -15,6 +15,7 @@ use PHEDEX::Core::Help;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::Timing;
 use PHEDEX::Error::Classify;
+use PHEDEX::Error::Report;
 
 use strict;
 #use re 'debug';
@@ -88,9 +89,10 @@ sub usage {
       -m, --maxresults  number :  specifies maximal number of records to retrieve
       --src  expr              :  match on source site name
       --dst  expr              :  match on destination site name
-
+      
     Output options:
       -d, --debug              :  debug output (can be used multiple times: -d -d)
+      -f filename              :  produces output in XML format into specified file
 
 Examples:
    ErrorSiteQuery --db /home/phedex/DBParam.MYSITE:Debug/MYSITE --src "%CSCS%" -m 500 -s "-12 hours"
@@ -105,6 +107,7 @@ my $max_log_length = 100_000;
 my $search_xferlog=0;
 my $dst_site=undef;
 my $src_site=undef;
+my $xmloutfile=undef;
 
 
 my %args;
@@ -115,6 +118,7 @@ GetOptions (
             "src=s" => \$src_site,
 	    "s=s" => \$starttime,
 	    "maxresults|m=i", \$max_results,
+	    "f=s", \$xmloutfile,
 	    "help|h"      => sub { usage(); exit 0; }
 	   );
 
@@ -175,6 +179,7 @@ while (my $row = $sth->fetchrow_hashref()) {
   #print "DEBUG: $row->{TIME_DONE}       " .localtime($row->{TIME_DONE})." \n";
   my $reason=ErrorClassify($row->{LOG_DETAIL},$errmsglen);
   $errinfo{$row->{FROM_NODE}}{$row->{TO_NODE}}{$reason}{num}++;
+  push @{$errinfo{$row->{FROM_NODE}}{$row->{TO_NODE}}{$reason}{time}}, $row->{TIME_DONE};
 }
 
 disconnectFromDatabase($conn, $dbh, 1);
@@ -189,3 +194,5 @@ foreach my $from (sort {$a <=> $b} keys %errinfo) {
     }
   }
 }
+
+&XMLout(\%errinfo, $xmloutfile, GETERRORORIGIN=>1) if ($xmloutfile);
