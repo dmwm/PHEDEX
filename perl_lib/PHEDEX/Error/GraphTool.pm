@@ -4,6 +4,7 @@ package PHEDEX::Error::GraphTool;
 ## Brian Bockelman's GraphTool python library
 ## http://t2.unl.edu/documentation/using-graphtool
 
+use strict;
 use POSIX;
 use Data::Dumper;
 
@@ -180,7 +181,7 @@ sub pythData{
 
     my $scounter = 0 ;
     my $dataline = "";
-    foreach $s (keys %$data) {
+    foreach my $s (keys %$data) {
 	if ($data->{$s} !~ /HASH/) {
 	    #this is a plain hash, not hash of hashes, pass as such
 	    $dataline = join " , ", map { /\w+/?"\'$_\'":"$_".":". $data->{$_} } keys %$data ;
@@ -208,6 +209,7 @@ sub pythEpilog{
     my $filename = shift;
     my $function = (caller(1))[3]; ($function) = ($function =~ m/(\w+)$/);
 
+    my $pyth = "";
     $pyth .= <<HERE;
 filename = '$filename'
 file = open( filename, 'w' )
@@ -229,21 +231,23 @@ sub execPyth{
 }
 
 
+#TO DO: need to align bins to an hour!
+
+#ser is {label=>string, data=>[time,time,...]}, 
 sub HistoForGraphTool {
     my $starttime = shift;
     my $endtime = shift;
     my $span = shift;
     my $ser = shift;
-    #ser is {label=>string, data=>[time,time,...]}, 
 
-    my $nbins = ceil(($end_time - $begin_time)/$span);
+    my $nbins = ceil(($endtime - $starttime)/$span);
 
     #initialize return hash
     #data = {label=>{time=>num, ... }, ...}
 
     my %data = ();
 
-    print "making histo: $starttime, $endtime, $span, diff=",$endtime-$starttime,"bins=",floor(($endtime-$starttime)/$span) ,"\n";
+#    print "making histo: $starttime, $endtime, $span, diff=",$endtime-$starttime,"bins=",floor(($endtime-$starttime)/$span) ,"\n";
 
     # foreach data serie, 
     foreach my $s (@$ser) {
@@ -258,7 +262,7 @@ sub HistoForGraphTool {
 	$data{$s->{label}} = $data_i;
     }
     
-    print "DATA "; print Dumper \%data;
+#    print "DATA "; print Dumper \%data;
 
     return \%data;
 }
