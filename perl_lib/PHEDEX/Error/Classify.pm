@@ -17,8 +17,13 @@ sub ErrorClassify {
   my $detail=shift;
   my $errmsglen=shift;
 
-  $detail = substr($detail,0,$errmsglen) . "...(error cut)"
-    if defined $errmsglen && length($detail) > $errmsglen;
+  $errmsglen=200 if $errmsglen<1;
+
+
+  return "[undefined error message]" if ! defined $detail;
+
+  my $firstcut=$errmsglen+80;
+  $detail = substr($detail,0,$firstcut) if length($detail) > $firstcut;
 
   if ( $detail=~/^\s*$/) {
     return "-";
@@ -31,8 +36,9 @@ sub ErrorClassify {
   $detail =~ s/\sid=[\d-]+\s/id=\[id\] /;
   $detail =~ s/\sauthRequestID \d+\s/authRequestID \[id\] /;
   $detail =~ s/RequestFileStatus#[\d-]+/RequestFileStatus#\[number\]/g;
-  $detail =~ s/srm:\/\/[^\s]+/\[srm-URL\]/;
+  $detail =~ s/srm:\/\/[^\s]+/\[srm-URL\]/g;
   $detail =~ s/at\s+\w{3}\s+\w{3}\s+\d+\s+\d+:\d+:\d+\s+[A-Z]+\s+\d+/at \[date\]/g;
+  $detail =~ s/jobId = [-\d]+\s/jobId = \[ID] /;
 
   if ( (($reason) = $detail =~ m/.*(Failed DESTINATION error during FINALIZATION phase: \[GENERAL_FAILURE\] failed to complete PrepareToPut request.*)/) ) {
     $reason =~ s/request \[(-|\d)+\]/request [reqid]/;
@@ -57,6 +63,9 @@ sub ErrorClassify {
   } else {
     $reason = $detail;
   }
+
+  $reason = substr($reason,0,$errmsglen) . "...[error cut]"
+    if length($reason) > $errmsglen;
 
   return $reason;
 }
