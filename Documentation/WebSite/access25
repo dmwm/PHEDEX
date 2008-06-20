@@ -2,6 +2,7 @@
 
 our $TESTING = 0;
 our $TESTING_MAIL = undef;
+our $DBS_LOOKUP = undef;
 
 use CMSWebTools::SecurityModule::Oracle;
 use PHEDEX::Core::SQL;
@@ -889,7 +890,6 @@ sub dbs_lookup
 	}
     }
         
-    # TODO:  set this up in the apache config
     if ($dbs =~ /^https/) {
 	# remove secure connection
 	$dbs =~ s/^https/http/;
@@ -897,12 +897,11 @@ sub dbs_lookup
 	$dbs =~ s/_writer//;
     }
 
-    my $dbscmdsetup = 
-	"source /opt/aptinstaller/slc4_ia32_gcc345/cms/dbs-client/DBS_1_0_5/etc/profile.d/init.sh;";
-    my $dbslookup = '/opt/aptinstaller/slc4_ia32_gcc345/cms/PHEDEX/PHEDEX_2_5_3_3/Toolkit/DBS/DBSLookup';
-    my $dbscmd = "$dbscmdsetup $dbslookup -u '$dbs' -d '$pattern'";
+    my $dbslookup = $DBS_LOOKUP || '/bin/false';
+    my $dbscmd = "$dbslookup -u '$dbs' -d '$pattern'";
     my $dbsresults = `$dbscmd`;
-    
+    warn "DBSLookup results:  ", $dbsresults, "\n" if $TESTING;
+
     my @paths;
     if ($dbsresults) {
 	foreach (split "\n", $dbsresults) {
@@ -929,7 +928,7 @@ sub dbs_lookup
 #   DBS_ISKNOWN = 'y' or 'n'
 sub resolve_data
 {
-    my ($dbh, $userdbs, @userdata) = @_;
+    my ($dbh, $userdbs, $static, @userdata) = @_;
 
     my $resolved = {};
     my $userdupes = {};
@@ -947,12 +946,15 @@ sub resolve_data
     my %userglob_re;
     my %userglob_like = ( DATASET => [], BLOCK => [] );
     foreach my $userglob (@userdata) {
+	$$resolved{$userglob} ||= [];
+
 	my $level = ($userglob =~ m/\#/ ? 'BLOCK' : 'DATASET');
 	$has{$level}++;
 
 	my $re = $userglob;
-	$re =~ s:\*+:[^/\#]+:g;            # simple glob to regex, only * is supported
-	$userglob_re{$userglob} = qr($re); # compile regexp
+	$re =~ s:\*+:[^/\#]+:g;                              # simple glob to regex, only * is supported
+	$re .= '#[^/\#]+' if $static && $level eq 'DATASET'; # turn dataset match into block match if static
+	$userglob_re{$userglob} = qr($re);                   # compile regexp
 
 	my $like = $userglob;
 	$like =~ s:\*+:%:g;                # glob to sql like, only * is supported
@@ -961,13 +963,10 @@ sub resolve_data
 
     # Now we look for matching data in TMDB using the SQL like patterns
     # We order by ID so we can check for redundant DBS items later
-    use Time::HiRes;
-    my ($t1, $t2);
-    $t1 = Time::HiRes::time();
     my $all_items = {};
-    if ($has{DATASET}) {
+    if ($has{DATASET} && !$static) {
 	my %binds;
-	my $lookup = $userglob_like{DATASET};
+	my $ds_lookup = $userglob_like{DATASET};
 
 	my $sql =  qq{
 	   select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset,
@@ -976,45 +975,52 @@ sub resolve_data
    	     join t_dps_dbs dbs on dbs.id = ds.dbs
              left join t_dps_block b on b.dataset = ds.id
 	 }
-	. 'where ('.&PHEDEX::Core::SQL::filter_or_like($dbh, undef, \%binds, 'ds.name', @$lookup).')'
+	. 'where ('.&PHEDEX::Core::SQL::filter_or_like($dbh, undef, \%binds, 'ds.name', @$ds_lookup).')'
         . qq{ group by dbs.id, dbs.name, ds.id, ds.name
 	      order by ds.id };
 	
 	$all_items->{DATASET} = &dbexec($dbh, $sql, %binds)->fetchall_arrayref({});
     }
     
-    if ($has{BLOCK}) {
+    if ($has{BLOCK} || ($has{DATASET} && $static)) {
 	my %binds;
-	my $lookup = $userglob_like{BLOCK};
+	my $b_lookup = $userglob_like{BLOCK};
+	my $ds_lookup = $userglob_like{DATASET};
 
-	my $sql =
-	    qq{
-		select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset,
-	         b.id block_id, b.name block, b.files, b.bytes
-	    from t_dps_block b
-	    join t_dps_dataset ds on b.dataset = ds.id
-	    join t_dps_dbs dbs on ds.dbs = dbs.id
-	}.'where ('.&PHEDEX::Core::SQL::filter_or_like($dbh, undef, \%binds, 'b.name', @$lookup).')'
-	 .qq{ order by b.id };
+	my $sql = qq{
+	   select dbs.id dbs_id, dbs.name dbs, ds.id dataset_id, ds.name dataset,
+	          b.id block_id, b.name block, b.files, b.bytes
+	     from t_dps_block b
+	     join t_dps_dataset ds on b.dataset = ds.id
+	     join t_dps_dbs dbs on ds.dbs = dbs.id
+            where
+	};
+
+	my @filters;
+	if ($has{BLOCK}) {
+	    push @filters,
+	    '('.&PHEDEX::Core::SQL::filter_or_like($dbh, undef, \%binds, 'b.name', @$b_lookup).')';
+	}
+	if ($has{DATASET} && $static) {
+	    push @filters,
+	    '('.&PHEDEX::Core::SQL::filter_or_like($dbh, undef, \%binds, 'ds.name', @$ds_lookup).')';
+	}
+
+	$sql .= join ' or ', @filters;
+	$sql .= " and b.is_open = 'n'";
+	$sql .= ' order by b.id';
 
 	$all_items->{BLOCK} = &dbexec($dbh, $sql, %binds)->fetchall_arrayref({});
     }
-    $t2 = Time::HiRes::time();
-    warn sprintf("fetching all data:  %.4f\n", $t2-$t1);
-    warn "fetched ", scalar @{$all_items->{BLOCK}}, " blocks for ", scalar @{$userglob_like{BLOCK}}, "items\n";
 
-    # Now we go through all the data we just found and use the regexps patterns we made to find
-    # What data matched what user request.
-    # We need to do this because we want to be able to tell the user which of their strings did
-    # not match anything
+    # Now we go through all the data we just found and use the regexps
+    # patterns we made to find what data matched what user request.
+    # We need to do this because we want to be able to tell the user
+    # which of their strings did not match anything
 
-    $t1 = Time::HiRes::time();
     foreach my $level (keys %$all_items) {
-	warn "resolving ${level}s\n";
 	my $resultset = $$all_items{$level};
 	my $lastid = -1;
-#	my ($tt1, $tt2);
-#	$tt1 = Time::HiRes::time();
 	foreach my $row (@$resultset) {
 	    my $id = $$row{$level.'_ID'};
 	    my $name = $$row{$level};
@@ -1028,12 +1034,11 @@ sub resolve_data
 	    # Search the TMDB for the user's glob
 	    foreach my $userglob (@userdata) {
 		my $globlevel = ($userglob =~ m/\#/ ? 'BLOCK' : 'DATASET');
-		next unless $level eq $globlevel;
+		next if (!$static && $level ne $globlevel);
 		next unless $name =~ $userglob_re{$userglob};
 
 		push @{$$all{$level}}, $id;
 
-		$$resolved{$userglob} ||= [];
 		push @{$$resolved{$userglob}},  { DBS => $$row{DBS},
 						  LEVEL => $level,
 						  DATASET => $$row{DATASET},
@@ -1045,15 +1050,13 @@ sub resolve_data
 						  DBS_ISKNOWN => 'y', # XXX This is assuming DPS and DBS are in sync
 						  ID => $id };
 	    }
-#	    $tt2 = Time::HiRes::time();
-#	    warn sprintf("tried to match $level $id:  %.4f\n", $tt2-$tt1);
 	}
     }
 
-    # Lookup in DBS items not found in TMDB
-    # TODO: Put some limit on this.  We are able to look up 1000's of
-    # items from TMDB, but getting data from DBS is slower and the
-    # user will not know why their search failed
+    # Lookup in DBS items not found in TMDB. TODO: Put some limit on
+    # this.  We are able to look up 1000's of items from TMDB, but
+    # getting data from DBS is slower and the user will not know why
+    # their search failed
     my $undef_id = 0;
     foreach my $userglob (@userdata) {
 	if ($userdbs && ! @{$$resolved{$userglob}}) {
@@ -1071,8 +1074,6 @@ sub resolve_data
 	    }
 	}
     }
-    $t2 = Time::HiRes::time();
-    warn sprintf("resolving all data:  %.4f\n", $t2-$t1);
 
     # Look for data which the user has requested in duplicate
     my $lastid = -1;
@@ -1087,7 +1088,6 @@ sub resolve_data
 
     # Attach replicas to resolved data.  We use the IDs from the data
     # we successfully looked up in TMDB to do this efficiently
-    $t1 = Time::HiRes::time();
     my $all_replicas = {};
     foreach my $level (qw(DATASET BLOCK)) {
 	my @ids = @{$$all{$level}};
@@ -1105,8 +1105,6 @@ sub resolve_data
 	    $item->{REPLICAS} = $all_replicas->{$item->{LEVEL}}->{$item->{ID}};
 	}
     }
-    $t2 = Time::HiRes::time();
-    warn sprintf("attatching replicas:  %.4f\n", $t2-$t1);
     
     # Return our results
     if (wantarray) {
@@ -1116,6 +1114,8 @@ sub resolve_data
     }
 }
 
+# returns all subscriptions matching the given datasets or blocks and
+# their completion status
 sub fetch_replicas
 {
     my ($dbh, $level, @items) = @_;
@@ -2467,7 +2467,6 @@ sub generate
       CGI::Session->name($session_name);
       my $session_dir = $$self{CONFIG}{SESSION_DIR} || '/tmp/cgi-sessions';
       my $sid = cookie($session_name) || undef;
-      warn "sid is ", ($sid ? $sid : 'undefined'), "\n";
       my $session = new CGI::Session("driver:File", $sid, {Directory=>$session_dir});
       $session->expire("+24h");
       $$self{SESSION} = $session;
@@ -4119,8 +4118,6 @@ sub output
   my ($self) = @_;
   my $bad = 0;
 
-  print { $$self{CONTENT} }   "<p>Session:  $$self{SESSIONID}</p>"; # XXX test
-
   &create_check_identity($self, \$bad);
   return if $bad;
 
@@ -4277,8 +4274,6 @@ sub output
   my $bad = 0;
   my %params;
 
-  print { $$self{CONTENT} }   "<p>Session:  $$self{SESSIONID}</p>"; # XXX test
-
   &create_check_identity($self, \$bad);
   &create_check_access($self, \$bad);
   if (!param('go_ahead')) {
@@ -4411,7 +4406,10 @@ sub checkXferRequestData
 {
     my ($self, %params) = @_;
 
-    my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, $params{dbs}, @{$params{data}});
+    my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, 
+							  $params{dbs}, 
+							  $params{is_static} eq 'y' ? 1 : 0,
+							  @{$params{data}});
 
     print { $$self{CONTENT} } "<h1>Data Item Lookup</h1>",
     "<p>The following table summarizes an attempt to look for your requested data items in PhEDEx.</p>";
@@ -4534,8 +4532,6 @@ sub checkXferRequestData
     $table->finish();
 
     unless ($problems) {
-	warn "writing session parameters for session $$self{SESSIONID}\n"; # XXX test
-	warn "the real session ID is ", $$self{SESSION}->id(), "\n";
 	# Save the previous state
 	$$self{SESSION}->param('type', 'xfer');
 	$$self{SESSION}->param('type_params', { 'is_move' => $params{is_move},
@@ -4560,7 +4556,7 @@ sub checkDeleteRequestData
 {
     my ($self, %params) = @_;
 
-    my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, $params{dbs}, @{$params{data}});
+    my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, $params{dbs}, 0, @{$params{data}});
 
     my $del_queue = &dbexec($$self{DBH}, 
 			qq{select n.id node_id, n.name node,
@@ -8466,7 +8462,7 @@ sub output_page
        );
   
   # Filters
-  my @reqfilter  = grep(/^\d+$/, split(/\s*,*\s+/, param('reqfilter')));
+  my @reqfilter  = grep(/^\d+$/, split(/\s*,*\s+/, param('reqfilter') || ''));
   my $itemfilter = param('filter') || '.*';
   my $priofilter = param('priority') || 'any';
   my $suspfilter = param('suspended') || 'any';
@@ -9684,6 +9680,9 @@ sub runme
   # Set debug mode
   $TESTING = $$config{TESTING_MODE} ? 1 : 0;
   $TESTING_MAIL = $$config{TESTING_MAIL} || undef;
+  
+  # Set DBSLookup path
+  $DBS_LOOKUP = $$config{DBS_LOOKUP} || undef;
 
   # Interpret the trailing path suffix: /DB/PAGE?QUERY
   my $path = path_info() || "/prod";
