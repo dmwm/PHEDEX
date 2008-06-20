@@ -6,7 +6,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: ErrorSiteQuery,v 1.1 2008/05/21 09:11:15 dfeichti Exp $:
+# Version info: $Id: ErrorSiteQuery,v 1.2 2008/06/19 16:07:15 trunov Exp $:
 ###############################################################################
 
 use Getopt::Long;
@@ -173,6 +173,9 @@ my %errinfo;
 my $nrows=0;
 my  $nprimaryrows=0;
 
+my $starttime = 2_000_000_000;
+my $endtime = 0;
+
 while (my $row = $sth->fetchrow_hashref()) {
   $nprimaryrows++;
 
@@ -180,6 +183,8 @@ while (my $row = $sth->fetchrow_hashref()) {
   my $reason=ErrorClassify($row->{LOG_DETAIL},$errmsglen);
   $errinfo{$row->{FROM_NODE}}{$row->{TO_NODE}}{$reason}{num}++;
   push @{$errinfo{$row->{FROM_NODE}}{$row->{TO_NODE}}{$reason}{time}}, $row->{TIME_DONE};
+  $starttime = $row->{TIME_DONE} if ($row->{TIME_DONE} < $starttime);
+  $endtime = $row->{TIME_DONE} if ($row->{TIME_DONE} > $endtime);  
 }
 
 disconnectFromDatabase($conn, $dbh, 1);
@@ -195,4 +200,7 @@ foreach my $from (sort {$a <=> $b} keys %errinfo) {
   }
 }
 
-&XMLout(\%errinfo, $xmloutfile, GETERRORORIGIN=>1) if ($xmloutfile);
+&XMLout(\%errinfo, $xmloutfile, 
+	STARTTIME=>$starttime, ENDTIME=>$endtime, 
+	STARTLOCALTIME=>scalar localtime($starttime), ENDLOCALTIME=>scalar localtime($endtime), 
+	GETERRORORIGIN=>1) if ($xmloutfile);
