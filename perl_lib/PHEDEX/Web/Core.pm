@@ -83,6 +83,9 @@ use PHEDEX::Core::Timing;
 use PHEDEX::Core::SQL;
 use PHEDEX::Web::SQL;
 
+# TODO:  when call-specific packages are used, this goes with the one for lfnToPFN
+use PHEDEX::Core::Catalogue;
+
 use PHEDEX::Web::Format;
 use HTML::Entities; # for encoding XML
 
@@ -122,7 +125,8 @@ our $data_sources = {
     nodes           => { DATASOURCE => \&PHEDEX::Web::SQL::getNodes,
 			 DURATION => 60*60 },
     tfc             => { DATASOURCE => \&PHEDEX::Web::SQL::getTFC,
-			 DURATION => 15*60 }
+			 DURATION => 15*60 },
+    lfn2pfn        => { DURATION => 15*60 }
 };
 
 sub new
@@ -285,7 +289,7 @@ block replicas exist for the given options.
  block          block name, can be multiple (*)
  node           node name, can be multiple (*)
  se             storage element name, can be multiple (*)
- updated_since  unix timestamp, only return replicas updated since this
+ update_since  unix timestamp, only return replicas updated since this
                 time
  create_since   unix timestamp, only return replicas created since this
                 time
@@ -381,7 +385,7 @@ the given options.
  block          block name, with '*' wildcards, can be multiple (*).  required.
  node           node name, can be multiple (*)
  se             storage element name, can be multiple (*)
- updated_since  unix timestamp, only return replicas updated since this
+ update_since  unix timestamp, only return replicas updated since this
                 time
  create_since   unix timestamp, only return replicas created since this
                 time
@@ -527,6 +531,64 @@ sub tfc
     return { 'storage-mapping' => { array => $r }  };
 }
 
+=pod
+
+=head2 lfn2pfn
+
+Translate LFNs to PFNs using the TFC published to TMDB.
+
+=head3 options
+
+ node          PhEDex node names, can be multiple (*), required
+ lfn           Logical file name, can be multiple (*), required
+ protocol      Transfer protocol, required
+ destination   Destination node
+ 
+ (*) See the rules of multi-value filters above
+
+=head3 <mapping> attributes
+
+ lfn          Logical file name
+ pfn          Physical file name
+ node         Node name
+ protocol     Transfer protocol
+ destination  Destination node
+
+=cut
+
+sub lfn2pfn
+{
+    my ($self, %h) = @_;
+    &checkRequired(\%h, 'node', 'lfn', 'protocol');
+
+    # TODO:  cache nodemap and TFC
+    my $nodemap = { reverse %{$self->getNodeMap()} }; # node map name => id
+
+    my $catcache = {};
+    my $mapping = [];
+
+    foreach my $node (&PHEDEX::Core::SQL::arrayref_expand($h{node})) {
+	my $node_id = $nodemap->{$node};
+	if (!$node_id) {
+	    die "unknown node '$node'\n";
+	}
+
+	my $cat = &dbStorageRules($self->{DBH}, $catcache, $node_id);
+	if (!$cat) {
+	    die "could not retrieve catalogue for node $h{node}\n";
+	}
+
+	my @args = ($cat, $h{protocol}, $h{destination}, 'pre');
+	push @$mapping, 
+	map { { node => $node, protocol => $h{protocol}, destination => $h{destination},
+		lfn => $_, pfn => &applyStorageRules(@args, $_) } }
+	&PHEDEX::Core::SQL::arrayref_expand($h{lfn});                 # from either an array of lfns or one
+	    
+    }
+    return { mapping => $mapping };
+}
+
+
 # Cache controls
 
 sub refreshCache
@@ -597,7 +659,9 @@ sub checkRequired
 	    $provided->{$arg} eq '' ||
 	    $provided->{$arg} =~ /^\*+$/
 	    ) {
-	    die "Argument '$arg' is required\n";
+	    die "The arguments ", 
+	    join(', ', map { "'$_'" } @required) ,
+	    " are required\n";
 	}
     }
 }

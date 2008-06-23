@@ -50,7 +50,7 @@ sub Notify
   return unless defined $port;
   my $server = $self->{NOTIFICATION_HOST} || $ENV{PHEDEX_NOTIFICATION_HOST} || '127.0.0.1';
 
-  my $message = join('',$self->Hdr,@_);
+  my $message = join('',PHEDEX::Core::Logging::Hdr($self),@_);
   my $socket = IO::Socket::INET->new( Proto	=> 'udp',
 				      PeerPort	=> $port,
 				      PeerAddr	=> $server );

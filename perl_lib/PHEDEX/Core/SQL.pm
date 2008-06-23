@@ -510,7 +510,7 @@ sub build_multi_filters
 sub filter_and_like
 {
   my ($self,$s,$p,$k,@v) = @_;
-  return build_filter('and', 1, $s, $p, $k, @v);
+  return build_filter($self, 'and', 1, $s, $p, $k, @v);
 }
 
 #-------------------------------------------------------------------------------
@@ -707,37 +707,81 @@ sub getDBSFromBlockIDs
 }
 
 #-------------------------------------------------------------------------------
-#sub setBlockInactive
-#{
-#  my $self = shift;
-#  my ($sql,%h,%p,$id,$now,$db,$nb);
-#  %h = @_;
-#  $id = $h{ID};
-#  $now = $h{NOW} || mytimeofday();
-#
-#  $sql = qq{ update t_dps_block set is_open = 'n', time_update = :now
-#                where id = :block };
-#  %p = ( ID     => $id,
-#         NOW    => $now );
-#  ($db,$nb) = execute_sql ($self, $sql, %p );
-#  return $nb;
-#}
-#
-##-------------------------------------------------------------------------------
-#sub setBlockActive
-#{
-#  my $self = shift;
-#  my ($sql,%h,%p,$id,$now,$db,$nb);
-#  %h = @_;
-#  $id = $h{ID};
-#  $now = $h{NOW} || mytimeofday();
-#
-#  $sql = qq{ update t_dps_block set is_open = 'y', time_update = :now
-#                where id = :block };
-#  %p = ( ID     => $id,
-#         NOW    => $now );
-#  ($db,$nb) = execute_sql ($self, $sql, %p );
-#  return $nb;
-#}
+sub getBlockIDsFromDatasetWildcard
+{
+    my ($self, @dataset_patterns) = @_;
+    return [] unless @dataset_patterns;
+
+    my %p;
+    my $sql = qq{ select b.id
+		    from t_dps_dataset ds
+		    join t_dps_block b on b.dataset = ds.id
+		   where } . filter_or_like( $self, undef, \%p, 'ds.name', @dataset_patterns );
+
+    my $r = select_single( $self, $sql, %p );
+
+    return $r;
+}
+
+#-------------------------------------------------------------------------------
+sub getDatasetIDsFromDatasetWildcard
+{
+    my ($self, @dataset_patterns) = @_;
+    return [] unless @dataset_patterns;
+
+    my %p;
+    my $sql = qq{ select ds.id
+		    from t_dps_dataset ds
+		   where } . filter_or_like( $self, undef, \%p, 'ds.name', @dataset_patterns );
+
+    my $r = select_single( $self, $sql, %p );
+
+    return $r;
+}
+
+#-------------------------------------------------------------------------------
+sub getBlockIDsFromBlockWildcard
+{
+    my ($self, @block_patterns) = @_;
+    return [] unless @block_patterns;
+
+    my %p;
+    my $sql = qq{ select b.id
+		    from t_dps_block b 
+		   where } . filter_or_like( $self, undef, \%p, 'b.name', @block_patterns );
+
+    my $r = select_single( $self, $sql, %p );
+
+    return $r;
+}
+
+#-------------------------------------------------------------------------------
+sub getBlockIDsFromDatasetIDs
+{
+    my ($self, @dataset_ids) = @_;
+    return [] unless @dataset_ids;
+
+    my %p;
+    my $sql = qq{ select b.id
+		    from t_dps_block b 
+		   where } . filter_or_eq( $self, undef, \%p, 'b.dataset', @dataset_ids );
+
+    my $r = select_single( $self, $sql, %p );
+
+    return $r;
+}
+
+#-------------------------------------------------------------------------------
+sub getNodeMap
+{
+    my ($self, %h) = @_;
+    my $sql = qq{ select id, name from t_adm_node };
+    my $map = {};
+    my $q = execute_sql($self, $sql);
+    while (my ($id, $name) = $q->fetchrow()) {
+	$map->{$id} = $name;
+    }
+    return $map;
+}
 
 1;

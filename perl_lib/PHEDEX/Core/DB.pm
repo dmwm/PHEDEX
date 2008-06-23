@@ -8,10 +8,9 @@ PHEDEX::Core::DB
 
 use strict;
 use warnings;
-use base 'Exporter';
-our @EXPORT = qw(parseDatabaseInfo connectToDatabase disconnectFromDatabase
+use base 'Exporter', 'PHEDEX::Core::Logging';
+our @EXPORT = qw(parseDatabaseInfo connectToDatabase disconnectFromDatabase connectionValid
 		 dbsql dbexec dbprep dbbindexec);
-use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Net;
 use DBI;
@@ -113,11 +112,7 @@ sub connectToDatabase
   # Use cached connection if it's still alive and the handle
   # isn't too old, otherwise create new one.
   my $dbh = $self->{DBH};
-  if (! $self->{DBH}
-	|| $self->{DBH}{private_phedex_invalid}
-	|| time() - $self->{DBH_AGE} > $self->{DBH_LIFE}
-	|| (! eval { $self->{DBH}->ping() } || $@)
-	|| (! eval { $dbh->do("select sysdate from dual") } || $@))
+  if (! &connectionValid( $self ) )
   {
     $self->{DBH_LOGGING} = 1 if $ENV{PHEDEX_LOG_DB_CONNECTIONS};
     &PHEDEX::Core::Logging::Logmsg ($self, "(re)connecting to database") if $self->{DBH_LOGGING};
@@ -220,6 +215,23 @@ sub disconnectFromDatabase
     undef $self->{DBH_AGE};
   }
 }
+
+# Check whether the connection is valid by a variety of methods
+sub connectionValid
+{
+    my ($self) = @_;
+                                                                         # Bad things:
+    if (! $self->{DBH}                                                   #   no database handle
+	|| $self->{DBH}{private_phedex_invalid}                          #   handle marked invalid elsewhere
+	|| time() - $self->{DBH_AGE} > $self->{DBH_LIFE}                 #   connection too old
+	|| (! eval { $self->{DBH}->ping() } || $@)                       #   DBI ping fails
+	|| (! eval { $self->{DBH}->do("select sysdate from dual") } || $@)) {    #   basic query fails
+	return 0;
+    }
+
+    return 1;
+}
+
 
 ######################################################################
 # Tidy up SQL statement
