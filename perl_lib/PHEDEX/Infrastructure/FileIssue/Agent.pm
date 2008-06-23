@@ -177,8 +177,14 @@ sub makeTransferTask
     my ($from_name, $to_name) = @$task{"FROM_NODE_NAME", "TO_NODE_NAME"};
     my @from_protos = split(/\s+/, $$task{FROM_PROTOS} || '');
     my @to_protos   = split(/\s+/, $$task{TO_PROTOS} || '');
-    my $from_cat    = $self->catalogue($dbh, $cats, $from);
-    my $to_cat      = $self->catalogue($dbh, $cats, $to);
+
+    eval
+    {
+	my $from_cat    = &dbStorageRules($dbh, $cats, $from);
+	my $to_cat      = &dbStorageRules($dbh, $cats, $to);
+    };
+    do { chomp ($@); $self->Alert ("catalogue error: $@"); return; } if $@;
+
     my $protocol    = undef;
 
     # Find matching protocol.
@@ -204,48 +210,6 @@ sub makeTransferTask
     $$task{TO_PFN}   = &applyStorageRules($to_cat, $protocol, $to_name, 'pre', $$task{LOGICAL_NAME});
 }
 
-# Build and cache storage mapping catalogue for a node.
-sub catalogue
-{
-    my ($self, $dbh, $cats, $node) = @_;
 
-    # If we haven't yet built the catalogue, fetch from the database.
-    if (! exists $$cats{$node})
-    {
-        $$cats{$node} = {};
-
-        my $q = &dbexec($dbh, qq{
-	    select protocol, chain, destination_match, path_match, result_expr
-	    from t_xfer_catalogue
-	    where node = :node and rule_type = 'lfn-to-pfn'
-	    order by rule_index asc},
-	    ":node" => $node);
-
-        while (my ($proto, $chain, $dest, $path, $result) = $q->fetchrow())
-        {
-	    # Check the pattern is valid.  If not, abort.
-            my $pathrx = eval { qr/$path/ };
-	    if ($@) {
-		$self->Alert("invalid path pattern for node=$node:  $@");
-		return $$cats{$node} = {};
-	    }
-
-            my $destrx = defined $dest ? eval { qr/$dest/ } : undef;
-	    if ($@) {
-		$self->Alert("invalid dest pattern for node=$node:  $@");
-		return $$cats{$node} = {};
-	    }
-
-	    # Add the rule to our list.
-	    push(@{$$cats{$node}{$proto}}, {
-		    (defined $chain ? ('chain' => $chain) : ()),
-		    (defined $dest ? ('destination-match' => $destrx) : ()),
-		    'path-match' => $pathrx,
-		    'result' => eval "sub { \$_[0] =~ s!\$_[1]!$result! }" });
-        }
-    }
-
-    return $$cats{$node};
-}
 
 1;

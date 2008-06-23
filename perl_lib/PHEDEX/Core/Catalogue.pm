@@ -9,8 +9,9 @@ PHEDEX::Core::Catalogue - a drop-in replacement for Toolkit/UtilsCatalogue
 use strict;
 use warnings;
 use base 'Exporter';
-our @EXPORT = qw(pfnLookup lfnLookup storageRules applyStorageRules);
+our @EXPORT = qw(pfnLookup lfnLookup storageRules dbStorageRules applyStorageRules);
 use XML::Parser;
+use PHEDEX::Core::DB;
 
 # Cache of already parsed storage rules.  Keyed by rule type, then by
 # file name, and stores as value the file time stamp and parsed result.
@@ -172,5 +173,52 @@ sub applyStorageRules
 
     return undef;
 }
+
+
+# Fetch TFC rules for the given node and cache it to the given
+# hashref.  Cache expiration to be handled outside this function.
+sub dbStorageRules
+{
+    my ($dbh, $cats, $node) = @_;
+
+    # If we haven't yet built the catalogue, fetch from the database.
+    if (! exists $$cats{$node})
+    {
+        $$cats{$node} = {};
+
+        my $q = &dbexec($dbh, qq{
+	    select protocol, chain, destination_match, path_match, result_expr
+	    from t_xfer_catalogue
+	    where node = :node and rule_type = 'lfn-to-pfn'
+	    order by rule_index asc},
+	    ":node" => $node);
+
+        while (my ($proto, $chain, $dest, $path, $result) = $q->fetchrow())
+        {
+	    # Check the pattern is valid.  If not, abort.
+            my $pathrx = eval { qr/$path/ };
+	    if ($@) {
+		$$cats{$node} = {};
+		die "invalid path pattern for node=$node:  $@\n";
+	    }
+
+            my $destrx = defined $dest ? eval { qr/$dest/ } : undef;
+	    if ($@) {
+		$$cats{$node} = {};
+		die "invalid dest pattern for node=$node:  $@\n";
+	    }
+
+	    # Add the rule to our list.
+	    push(@{$$cats{$node}{$proto}}, {
+		    (defined $chain ? ('chain' => $chain) : ()),
+		    (defined $dest ? ('destination-match' => $destrx) : ()),
+		    'path-match' => $pathrx,
+		    'result' => eval "sub { \$_[0] =~ s!\$_[1]!$result! }" });
+        }
+    }
+
+    return $$cats{$node};
+}
+
 
 1;
