@@ -659,7 +659,9 @@ sub checkRequired
 	    $provided->{$arg} eq '' ||
 	    $provided->{$arg} =~ /^\*+$/
 	    ) {
-	    die "Argument '$arg' is required\n";
+	    die "The arguments ", 
+	    join(', ', map { "'$_'" } @required) ,
+	    " are required\n";
 	}
     }
 }
