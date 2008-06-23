@@ -771,5 +771,17 @@ sub getBlockIDsFromDatasetIDs
     return $r;
 }
 
+#-------------------------------------------------------------------------------
+sub getNodeMap
+{
+    my ($self, %h) = @_;
+    my $sql = qq{ select id, name from t_adm_node };
+    my $map = {};
+    my $q = execute_sql($self, $sql);
+    while (my ($id, $name) = $q->fetchrow()) {
+	$map->{$id} = $name;
+    }
+    return $map;
+}
 
 1;
