@@ -178,10 +178,11 @@ sub makeTransferTask
     my @from_protos = split(/\s+/, $$task{FROM_PROTOS} || '');
     my @to_protos   = split(/\s+/, $$task{TO_PROTOS} || '');
 
+    my ($from_cat, $to_cat);
     eval
     {
-	my $from_cat    = &dbStorageRules($dbh, $cats, $from);
-	my $to_cat      = &dbStorageRules($dbh, $cats, $to);
+	$from_cat    = &dbStorageRules($dbh, $cats, $from);
+	$to_cat      = &dbStorageRules($dbh, $cats, $to);
     };
     do { chomp ($@); $self->Alert ("catalogue error: $@"); return; } if $@;
 
