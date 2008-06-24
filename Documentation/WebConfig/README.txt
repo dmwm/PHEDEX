@@ -144,3 +144,9 @@ also installs all required dependencies, including Apache 2.2.x, if it
 is not already available the software area.
 
 [FIXME:  describe how to install and run from the RPMs]
+[  Basic instructions:
+   1.  Install the RPMs for PHEDEX-web and PHEDEX-graphtool, as well as WEBTOOLS
+   2.  Copy the startup.sh script from PHEDEX-web to apache2-conf/startup.d
+   3.  Copy the phedexweb-httpd.conf to apache2-conf/apps.d
+   4.  Start apache.  (./apache2-conf/bin/httpd -k start)
+]
