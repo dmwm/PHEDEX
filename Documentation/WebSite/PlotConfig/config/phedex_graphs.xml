@@ -1,0 +1,14 @@
+<graphtool-config>
+
+  <import file="$GRAPHTOOL_CONFIG_ROOT/phedex_queries.xml" />
+  <import file="$GRAPHTOOL_CONFIG_ROOT/data_queries.xml" />
+
+  <import module="graphtool.graphs.graph">Grapher</import>
+  <import module="phedexgraphs.graphs.phedex_graph">*</import>
+  <import module="graphtool.graphs.common_graphs">HorizontalBarGraph,QualityBarGraph</import>
+
+  <class type="Grapher" name="phedex_grapher">
+    <queryobj> PhedexQueries </queryobj>
+  </class>
+
+</graphtool-config>

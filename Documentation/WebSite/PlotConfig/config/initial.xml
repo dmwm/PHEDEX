@@ -1,0 +1,5 @@
+<graphtool-config>
+
+  <import module="graphtool.tools.file_config">FileConfig</import>
+
+</graphtool-config>
