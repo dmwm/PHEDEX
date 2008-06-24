@@ -41,11 +41,12 @@ It is no doubt possible to make it work under other configurations,
 only we have not tested any.  In theory mod_perl could be avoided, but
 it is essential for a pleasant user experience.
 
-At CERN the site is visible via proxy-only server cmsdoc.cern.ch,
-which hands the actual requests to a back end server.  We describe
-the configurations for both.
+The site is accessed via a proxy-only server set up by configured by
+the CMS WEBTOOLS group, which hands the actual requests to a back end
+server.  We describe the configurations for both.
 
-The front-end server runs Apache 2.2.x on a Solaris system.  For the
+The front-end server runs Apache 2.2.x on a Linux system which is
+built, packaged, and configured by the CMS WEBTOOLS group.  For the
 insecure part, it just does the normal proxy for the service URL using
 "RewriteRule ... [P,L]" rules.  The secure part does SSL negotiation
 with optional client verification, matching the user's certificate
@@ -63,22 +64,20 @@ and the SSL session re-negotiation, it is mandatory to use Apache 2.2
 at least for the secure part of the web.  To our knowledge there is
 no way to get Apache 2.0.x to work reliably.
 
-The back end server is a Scientific Linux 4 system running the system
-Apache 2.0.52.  The system mod_perl however is not usable, it is an
-odd RedHat hybrid of mod_perl versions 1 and 2.  We installed mod_perl
-2.0.2 into /opt/mod_perl2.  In addition we installed the mod_php from
-the system distribution, with PHP support for GD, TrueType and MySQL.
-The system firewall was configured to restrict connections to the web
-server port (80) to be from the proxy server only.  The back end
-server is not enabled to listen for secure connections.
-
-The PhEDEx web service administrators have no access to the front end
-server.  For the back end server they are given sudo access to manage
-the Apache /etc/httpd/conf.d configuration file for PhEDEx, to restart
-the server using /etc/rc.d/init.d/httpd, and to watch the server logs
-in /var/log/httpd.
+The back end server runs on the same architecture as the front end.
+The system mod_perl however is not usable, it is an odd RedHat hybrid
+of mod_perl versions 1 and 2.  Instead, mod_perl was packaged into a
+CMS-style RPM for deployment using the usual methods.  The backend
+Apache is configured to use a high port number (default 7102) and
+accept only connections from the front end server.  For even more
+security the system firewall should be configured to only accept
+connections from the front end server.
 
 * Front end server configuration
+
+(Note: This topic is now under the responsibility of the CMS WEBTOOLS
+group.  This section is kept to describe the previous configuration,
+in case it is useful information.)
 
 The front end needs the following proxy redirect rule, assuming the
 back end server is cmslcgco03 and expects the same URL structure as
@@ -132,287 +131,16 @@ Make sure httpd is automatically started on system startup.
 
 ** System setup
 
-This sub-section needs to be done by the system administrator.  Nearly
-all the rest can be done by the PhEDEx web service administrator.
-
-Install Scientific Linux 4 with httpd RPMs (Apache 2.0.52).  You need
-also the development bits; mod_deflate is included in the httpd RPM.
-Install the PHP RPMs: php, php-pear, php-gd, php-mysql (4.3.9).
-
-Next download and install mod_perl 2.x into a location of your choice.
-If you are installing as root, you can install from CPAN, otherwise
-build it into some non-root location.  Installation with CPAN would go
-as follows:
-
-  $ perl -MCPAN -e shell
-  cpan> install mod_perl2
-  cpan> quit
-
-Install other basic perl modules if not already available on the
-system.  Most of these should be present or at least available as
-system RPMs, but if not you can install them from CPAN:
-
-  $ perl -MCPAN -e shell
-  cpan> install Apache-DBI
-  cpan> install CGI
-  cpan> install CGI::Untaint
-  cpan> quit
-
-Give sudo access to the administrators.  They need to at least edit
-the service configuration files under /etc/httpd/conf.d, manage the
-server using /etc/rc.d/init.d/httpd, and to see the logs in
-/var/log/httpd.
-
 Change the firewall to accept connections only from the proxy server.
 This is a highly recommended additional security measure.  Doing so
 prevents anyone from even attempting to spoof the HTTPS parameters
 passed by the front end server to the back end in extra headers.
 
-** Configure CMS web service directories
+** Instal PhEDEx website RPMs
 
-We will assume that the PhEDEx web services are installed into /data,
-each service into its own subdirectory.  The service operators should
-have full write access to this directory.
+The PhEDEx website RPM contains a default configuration which can be
+run with few changes after installation.  Installing the website RPM
+also installs all required dependencies, including Apache 2.2.x, if it
+is not already available the software area.
 
-  cd /data
-  mkdir Tools PHEDEX HEARTBEAT
-  cd PHEDEX
-  mkdir DBAccessInfo V2.3-Production V2.3-Test V2.3-Old
-
-** Install CMS basic web service kit
-
-  cd /data/Tools
-  wget http://cmsdoc.cern.ch/cms/cpt/Software/download/cms.phedex/aptinstaller.sh
-  chmod +x aptinstaller.sh
-
-  ./aptinstaller.sh -path $PWD -arch slc4_ia32_gcc345 -repository cms.phedex setup
-  eval `./aptinstaller.sh -path $PWD config -sh`
-  apt-get update
-  apt-get install cms+PHEDEX-server+1.0
-
-** Install PhEDEx and heart beat web services
-
-  cd /data/PHEDEX
-  export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/CMSSW
-  cvs co -d V2.3-Production -r WebSite PHEDEX
-  cvs co -d V2.3-Test PHEDEX
-  cvs co -d V2.3-Old -r PHEDEX_2_3_12 PHEDEX
-
-  cd /data
-  cvs co HEARTBEAT
-  cvs co -D2006/05/06 DBS/Servers
-
-** Configure automatic updates
-
-Add the following cron jobs; the "update-cvsshot" script is available
-in CMSToolBox/CommonScripts/Snapshot/bin in the CMSToolBox CVS
-repository.
-
-  */11 * * * * (echo "PhEDEx CVS update $(date)"; CVS_PASSFILE=/data/.cvspass
-    /afs/cern.ch/user/l/lat/dev/CommonScripts/Snapshot/bin/update-cvsshot
-    /data/PHEDEX/V2.3-Test) >> /data/cvs-update-phedex-test.txt 2>&1
-  */13 * * * * (echo "PhEDEx CVS update $(date)"; CVS_PASSFILE=/data/.cvspass
-    /afs/cern.ch/user/l/lat/dev/CommonScripts/Snapshot/bin/update-cvsshot
-     -rWebSite /data/PHEDEX/V2.3-Production) >> /data/cvs-update-phedex-prod.txt 2>&1
-  */10 * * * * (echo "Heartbeat CVS update $(date)"; CVS_PASSFILE=/data/.cvspass
-    /afs/cern.ch/user/l/lat/dev/CommonScripts/Snapshot/bin/update-cvsshot
-    /data/HEARTBEAT) >> /data/cvs-update-heartbeat.txt 2>&1
-
-** Configure PhEDEx web service and database access
-
-Create the following configuration files in /data/PHEDEX/DBAccessInfo.
-The files need to be owned by the service administrator, group apache
-(or whatever group the httpd runs under), and have mode 0640.
-
-*IMPORTANT*: These files contain passwords and must be kept secure!
-
- phedex_prod.conf:
-   server-root:		http://cmsdoc.cern.ch
-   ssl-server-root:	https://cmsdoc.cern.ch:8443
-   service-path:	/cms/aprom/phedex
-
-   instance:					\
-    id            = prod			\
-    title         = Production			\
-    database-name = cms_transfermgmt		\
-    user-name	  = cms_transfermgmt_reader	\
-    password	  = <password>			\
-    version	  = V2.3
- 
-   instance:					\
-    id            = sc				\
-    title         = SC4				\
-    database-name = cms_transfermgmt_sc		\
-    user-name     = cms_transfermgmt_sc_reader	\
-    password      = <password>			\
-    version       = V2.3
- 
-   instance:					\
-    id            = test			\
-    title         = Dev				\
-    database-name = cms_transfermgmt_test	\
-    user-name     = cms_transfermgmt_test_reader \
-    password      = <password>			\
-    version       = V2.3
-
-   instance:					\
-    id            = tbedi			\
-    title         = Testbed			\
-    database-name = cms_transfermgmt_test	\
-    user-name     = cms_transfermgmt_testbed	\
-    password      = <password>			\
-    version       = V2.3
-
-   instance:					\
-    id	          = tbed			\
-    title	  = Validation			\
-    database-name = int2r_nolb			\
-    user-name     = cms_transfermgmt_testbed	\
-    password      = <password>			\
-    version       = V2.3
-
- phedex_test.conf:
-   server-root:		http://cmsdoc.cern.ch
-   ssl-server-root:	https://cmsdoc.cern.ch:8443
-   service-path:	/cms/test/aprom/phedex
-
-   instance:					\
-    id            = prod			\
-    title         = Production			\
-    database-name = cms_transfermgmt		\
-    user-name	  = cms_transfermgmt_reader	\
-    password	  = <password>			\
-    version	  = V2.3
- 
-   instance:					\
-    id            = sc				\
-    title         = SC4				\
-    database-name = cms_transfermgmt_sc		\
-    user-name     = cms_transfermgmt_sc_reader	\
-    password      = <password>			\
-    version       = V2.3
- 
-   instance:					\
-    id            = test			\
-    title         = Dev				\
-    database-name = cms_transfermgmt_test	\
-    user-name     = cms_transfermgmt_test_reader \
-    password      = <password>			\
-    version       = V2.3
-
-   instance:					\
-    id            = tbedi			\
-    title         = Testbed			\
-    database-name = cms_transfermgmt_test	\
-    user-name     = cms_transfermgmt_testbed	\
-    password      = <password>			\
-    version       = V2.3
-
-   instance:					\
-    id	          = tbed			\
-    title	  = Validation			\
-    database-name = int2r_nolb			\
-    user-name     = cms_transfermgmt_testbed	\
-    password      = <password>			\
-    version       = V2.3
-
-For DBS, you will need to create /data/DBSAccessInfo/DBParam.  It
-has a sequence of entries as follows, for each DBS instance.
-
-  Section         MCLocal_3/Writer
-  Interface       Oracle
-  Database        cms_dbs_mcprod_local
-  AuthDBUsername  cms_dbs_mcprod_local_3_writer
-  AuthDBPassword  <password>
-
-** Configure Apache
-
-Make sure Apache is configured to run enough concurrent children.  The
-default pre-fork web service settings should be suitable.  We use the
-values shown below.  This change needs to be made by the system
-administrator.
-
-  <IfModule prefork.c>
-  StartServers         8
-  MinSpareServers      5
-  MaxSpareServers      20
-  ServerLimit          256
-  MaxClients           256
-  MaxRequestsPerChild  4000
-  </IfModule>
-
-Change the web server logs to include the upstream client host as
-shown below.  This change must be made by the system administrator.
-
-  LogFormat "%h %{X-Forwarded-For}i %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" combined
-  LogFormat "%h %{X-Forwarded-For}i %l %u %t \"%r\" %>s %b" common
-  LogFormat "%{Referer}i -> %U" referer
-  LogFormat "%{User-agent}i" agent
-  CustomLog logs/access_log combined
-
-Also make sure mod_deflate is loaded, it may be commented out.
-
-Change /etc/rc.d/init.d/httpd to source the software environment for
-the web server.  This change must be done by the system administrator.
-
-    # Add below:
-    #   if [ -f /etc/sysconfig/httpd ]; then
-    #     . /etc/sysconfig/httpd
-    #   fi
-    . /data/PHEDEX/V2.3-Production/Documentation/WebConfig/httpd-env.sh
-
-Create a "cms.conf" in /etc/httpd/conf.d.  This must be done by the
-system administrator.
-
-  cat > /etc/httpd/conf.d/cms.conf <<EOF
-  include /data/PHEDEX/V2.3-Production/Documentation/WebConfig/mod-perl.conf
-  include /data/PHEDEX/V2.3-Production/Documentation/WebConfig/dbs.conf
-  include /data/PHEDEX/V2.3-Production/Documentation/WebConfig/heartbeat.conf
-  include /data/PHEDEX/V2.3-Production/Documentation/WebConfig/phedex.conf
-  EOF
-
-Edit the configuration files to set the correct paths.  These can now
-be done by the PhEDEx service administrator.
-
-  - In httpd-env.sh:
-    - Edit the path to where you installed the software.
-
-  - In mod-perl.conf:
-     - Check that LoadModule points to the right module
-     - Check PerlSwitches if you installed in custom location
-     - Check the path to PerlRequire if you use different paths
-
-  - In mod-perl-preload.pm:
-     - Nothing to do really, verify that all these modules are available
-
- - In dbs.conf and heartbeat.conf:
-     - Adjust Alias for service URL
-     - Adjust the Directory and Location paths
-     - In dbs.conf set DBS_DBPARAM path to the DBParam file
-
- - In phedex.conf:
-    - Check the RewriteRules to match your directories.  There are
-      common rules for both production and test service, then separate
-      rules for each.
-    - Update the DirectoryMatch for /data/PHEDEX to accept connections
-      only from your front end server.  This is second line protection
-      against spoofing bad HTTPS headers to the service.
-    - Update PHEDEX_SERVICE_CONFIG in the first two (Production, Test)
-      DirectoryMatch rules.  You shouldn't need to change any other
-      options.
-
-** (Re)start apache
-
-First test your configuration:
-
-  sudo /etc/rc.d/init.d/httpd configtest
-
-If everything seems fine, restart apache:
-
-  sudo /etc/rc.d/init.d/httpd graceful
-
-Check the logs for accesses and errors while you access the pages:
-
-  sudo tail -f /var/log/httpd/{access,error}_log
-
-Verify that httpd is started on system start-up (/etc/rc.d).
+[FIXME:  describe how to install and run from the RPMs]
