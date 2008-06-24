@@ -65,11 +65,11 @@ sub confirm
     # or specific combinations we always handle automatically.
     my $q = &dbexec($dbh, qq{
 	select
-          xp.fileid, f.logical_name,
+          xp.fileid, f.inblock block_id, f.logical_name,
           xp.from_node, ns.name from_node_name, ns.kind from_kind,
           xr.id replica, xp.to_node, nd.name to_node_name,
 	  xso.protocols from_protos, xsi.protocols to_protos,
-          xp.priority, xp.is_local, xp.time_expire
+          xp.priority, xp.is_local, xp.time_request, xp.time_expire
         from t_xfer_path xp
           join t_xfer_replica xr
             on xr.fileid = xp.fileid
@@ -114,8 +114,7 @@ sub confirm
 	       or (ns.kind = 'Buffer' and nd.kind = 'MSS'
        	           and xsi.from_node is not null)
 	       or (xso.from_node is not null
-       	           and xsi.from_node is not null))
-	 /* order by priority asc, time_expire asc */ },
+       	           and xsi.from_node is not null)) },
 	":recent" => $now - 5400);
 
     while (! $finished)
@@ -135,8 +134,16 @@ sub confirm
 	    insert into t_xfer_task (id, fileid, from_replica, priority, rank,
 	      from_node, to_node, from_pfn, to_pfn, time_expire, time_assign)
 	    values (seq_xfer_task.nextval, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
+
+	# Determine rank.  This statement centrally determines the
+	# order transfers.  Here we order transfers by:
+	#   priority:      lower number is higher priority
+	#   time_request:  older requests have priority.  this is important for T0->T1
+	#   block_id:      we want to optimize for block completion
+	#   TODO:  different ranking based on link?  (e.g.:  T1s different than T2s)
         foreach my $task (sort { $$a{PRIORITY} <=> $$b{PRIORITY}
-		                 || $$a{LOGICAL_NAME} cmp $$b{LOGICAL_NAME} }
+				 || $$a{TIME_REQUEST} <=> $$b{TIME_REQUEST}
+		                 || $$a{BLOCK_ID} <=> $$b{BLOCK_ID} }
 		          @tasks)
         {
 	    my $n = 1;
