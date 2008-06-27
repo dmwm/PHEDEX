@@ -2,16 +2,10 @@
 #
 # cmsweb_phedex : starts / stops PhEDEx mod_perl based backend services
 
-if [ -z ${PHEDEX_WEB_HOME} ]; then
-   echo $"The PHEDEX_WEB_HOME environment is not set"
-   exit 1
-fi
-cd ${PHEDEX_WEB_HOME}
-
 RETVAL=$?
 
-pid=`ps -p $(cat ./apache2-conf/logs/httpd.pid 2>/dev/null) -o pid= 2> /dev/null`
-cmd="./apache2-conf/bin/httpd -k "
+pid=`ps -p $(cat @APACHE2_CONF_ROOT@/logs/httpd.pid 2>/dev/null) -o pid= 2> /dev/null`
+cmd="@APACHE2_CONF_ROOT@/bin/httpd -k "
 name="PhEDEx web services"
 
 case "$1" in
