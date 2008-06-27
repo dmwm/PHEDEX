@@ -9,16 +9,17 @@ RETVAL=$?
 # Setup environment
 PHEDEX_WEB_ROOT=@PHEDEX_ROOT@
 source $PHEDEX_WEB_ROOT/etc/profile.d/init.sh
-export GRAPHTOOL_CONFIG_ROOT=$PHEDEX_WEB_ROOT/Documentation/WebSite/PlotConfig
+export GRAPHTOOL_PHEDEX_ROOT=$PHEDEX_WEB_ROOT/Documentation/WebSite/PlotConfig
+export GRAPHTOOL_CONFIG_ROOT=$GRAPHTOOL_PHEDEX_ROOT/config
 export PHEDEX_DBPARAM=$PHEDEX_WEB_ROOT/Documentation/WebConfig/DBParam
 
 # Path hacks
 export PYTHONPATH=$PYTHONPATH:$PY2_PIL_ROOT/lib/python2.4/site-packages/PIL:$WEBTOOLS_ROOT/lib/python2.4/site-packages/Tools/GraphTool/src
-export PYTHONPATH=$GRAPHTOOL_CONFIG_ROOT/src:$PYTHONPATH
+export PYTHONPATH=$GRAPHTOOL_PHEDEX_ROOT/src:$PYTHONPATH
 
 pidfile=$APACHE2_CONF_ROOT/log/phedex-graphs.pid
 pid=`ps -p $(cat $pidfile 2>/dev/null) -o pid= 2> /dev/null`
-cmd="python $GRAPHTOOL_CONFIG_ROOT/tools/phedex-web-daemon.py --pidfile $pidfile"
+cmd="python $GRAPHTOOL_PHEDEX_ROOT/tools/phedex-web-daemon.py --pidfile $pidfile"
 name="PhEDEx graph service"
 
 case "$1" in
