@@ -20,7 +20,7 @@ References:
 __author__ = "Chad J. Schroeder"
 __copyright__ = "Copyright (C) 2005 Chad J. Schroeder"
 
-__revision__ = "$Id$"
+__revision__ = "$Id: phedex-web-daemon.py,v 1.1 2008/06/24 11:03:20 egeland Exp $"
 __version__ = "0.2"
 
 # Standard Python modules.
@@ -182,8 +182,14 @@ def createDaemon():
 
 if __name__ == "__main__":
    from graphtool.base.xml_config import XmlConfig
+   from optparse import OptionParser
    import cherrypy
 
+   parser = OptionParser();
+   parser.addOption("-p", "--pidfile", dest="pidfile",
+                    help="process ID file", metavar="PIDFILE")
+   (opts, args) = parser.parse_args()
+   
    retCode = createDaemon()
 
    # The code, as is, will create a new file in the root directory, when
@@ -206,8 +212,8 @@ if __name__ == "__main__":
    """ % (retCode, os.getpid(), os.getppid(), os.getpgrp(), os.getsid(0),
    os.getuid(), os.geteuid(), os.getgid(), os.getegid())
 
-   open("createDaemon.log", "w").write(procParams + "\n")
-   open("phedex-graphs.pid", "w").write("%s\n" % os.getpid())
+#   open("createDaemon.log", "w").write(procParams + "\n")
+   open(opts.pidfile, "w").write("%s\n" % os.getpid())
 
    xc = XmlConfig( file='$GRAPHTOOL_CONFIG_ROOT/website_prod.xml' )
    cherrypy.server.quickstart()
