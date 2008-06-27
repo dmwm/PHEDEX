@@ -20,7 +20,7 @@ References:
 __author__ = "Chad J. Schroeder"
 __copyright__ = "Copyright (C) 2005 Chad J. Schroeder"
 
-__revision__ = "$Id: phedex-web-daemon.py,v 1.1 2008/06/24 11:03:20 egeland Exp $"
+__revision__ = "$Id: phedex-web-daemon.py,v 1.2 2008/06/27 12:45:00 egeland Exp $"
 __version__ = "0.2"
 
 # Standard Python modules.
@@ -185,9 +185,9 @@ if __name__ == "__main__":
    from optparse import OptionParser
    import cherrypy
 
-   parser = OptionParser();
-   parser.addOption("-p", "--pidfile", dest="pidfile",
-                    help="process ID file", metavar="PIDFILE")
+   parser = OptionParser()
+   parser.add_option("-p", "--pidfile", dest="pidfile",
+                     help="process ID file", metavar="PIDFILE")
    (opts, args) = parser.parse_args()
    
    retCode = createDaemon()
