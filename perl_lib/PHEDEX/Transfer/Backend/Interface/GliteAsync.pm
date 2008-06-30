@@ -475,17 +475,19 @@ sub _child_stderr {
 sub _child_done {
   my ( $self, $args ) = @_[ 0 , 1 ];
   my $wheel = $self->{caller}{wheels}{$args->{wheel}};
+
+# Some monitoring...
+  my $duration = time - $wheel->{start};
+# print "GliteAsync: debug: $wheel->{parse} cmd took $duration seconds\n";
+
   my $postback = $wheel->{postback};
   my $result = Parse( $self->{caller}, $wheel );
+  $result->{DURATION} = $duration;
   if ( defined($wheel->{postback}) )
   {
     $wheel->{postback}->( $result, $wheel );
     return;
   }
-
-# Some monitoring...
-  my $wtime = time - $wheel->{start};
-  print "$wheel->{parse} cmd took $wtime seconds\n";
 
   $result = $wheel->{result} unless defined($result);
   if ( $result && defined($wheel->{arg}) )

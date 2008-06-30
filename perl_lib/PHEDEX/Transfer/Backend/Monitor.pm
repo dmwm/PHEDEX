@@ -207,6 +207,10 @@ sub poll_queue_postback
 
   my ($id,$result,$priority);
   $result = $arg1->[0];
+
+  if ( $self->{DEBUG} )
+  { $self->Logmsg('ListQueue took ',$result->{DURATION},' seconds'); }
+
   if ( $result->{ERROR} )
   {
     print $self->Hdr,"ListQueue error: ",join("\n",@{$result->{ERROR}}),"\n";
@@ -277,6 +281,9 @@ sub poll_job_postback
   my ($result,$priority,$id,$job,$summary);
   $result = $arg1->[0];
   $job = $arg1->[1]->{arg};
+
+  if ( $self->{DEBUG} )
+  { $self->Logmsg('ListJob took ',$result->{DURATION},' seconds'); }
 
 # Arbitrary value, fixed, for now.
   $priority = 30;

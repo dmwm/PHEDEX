@@ -488,10 +488,12 @@ sub job_submitted
 {
   my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
 
-#$DB::single=1;
+$DB::single=1;
 #  $self->FinishedDoingSomething();
-  my $job = $arg1->[1]->{arg};
-  my $result = $arg1->[1]->{result};
+  my $job    = $arg1->[1]->{arg};
+  my $result = $arg1->[0];
+  if ( $self->{DEBUG} )
+  { $self->Logmsg('Submit took ',$result->{DURATION},' seconds'); }
 
 #  $job->Log( @{$result->{INFO}} ) if $result->{INFO};
 #  if ( $result->{SETPRIORITY} )
