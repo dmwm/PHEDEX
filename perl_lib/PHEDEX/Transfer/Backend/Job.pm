@@ -167,7 +167,12 @@ details for debugging purposes.
 sub RawOutput
 {
   my $self = shift;
-  $self->{RAW_OUTPUT} = [ @_ ] if @_;
+  foreach ( @_ )
+  {
+    chomp;
+    push @{$self->{RAW_OUTPUT}}, $_ . "\n";
+  }
+#  $self->{RAW_OUTPUT} = [ @_ ] if @_;
 
   return @{$self->{RAW_OUTPUT}} if wantarray;
   return join('',@{$self->{RAW_OUTPUT}});

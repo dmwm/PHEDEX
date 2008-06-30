@@ -297,14 +297,17 @@ sub poll_job_postback
       goto PJDONE;
   }
 
-  $job->VERBOSE(0);
+  if ( $job->VERBOSE )
+  {
+    foreach ( @{$result->{INFO}} ) { chomp; $job->Log($_) };
+    $job->VERBOSE(0);
+  };
 
   $self->{LAST_SUCCESSFULL_POLL} = time;
   print $self->Hdr,"JOBID ",$job->ID," STATE $result->{JOB_STATE}\n";
 
   $job->State($result->{JOB_STATE});
   $job->RawOutput(@{$result->{RAW_OUTPUT}});
-  foreach ( @{$result->{INFO}} ) { chomp; $job->Log($_) };
 
   my $files = $job->Files;
   foreach ( keys %{$result->{FILES}} )
