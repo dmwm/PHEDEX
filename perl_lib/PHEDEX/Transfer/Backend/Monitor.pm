@@ -41,6 +41,7 @@ our %params =
 	(
 	  Q_INTERFACE		=> undef, # A transfer queue interface object
 	  Q_INTERVAL		=> 60,	  # Queue polling interval
+	  Q_TIMEOUT		=> 60,	  # Timeout for Q_INTERFACE commands
 	  J_INTERVAL		=>  5,	  # Job polling interval
 	  POLL_QUEUE		=>  0,	  # Poll the queue or not?
 	  ME			=> 'QMon',# Arbitrary name for this object
@@ -56,6 +57,7 @@ our %ro_params =
 	  QUEUE	=> undef,	# A POE::Queue of transfer jobs...
 	  WORKSTATS	=> {},	# Statistics on the job or file states
 	  LINKSTATS     => {},  # Statistics on the link TODO:  combine with WORKSTATS
+	  JOBS		=> {},  # A hash of Job-IDs.
 	  APMON => undef,	# A PHEDEX::Monalisa object, if I want it!
 	  LAST_SUCCESSFULL_POLL => time,	# When I last got a job status
 	);
@@ -85,18 +87,23 @@ sub new
 	  [
 	    $self =>
 	    {
-	      poll_queue	=> 'poll_queue',
-	      poll_job		=> 'poll_job',
-	      report_job	=> 'report_job',
-	      report_statistics	=> 'report_statistics',
-	      cleanup_stats    	=> 'cleanup_stats',
-	      forget_job    	=> 'forget_job',
-	      shoot_myself	=> 'shoot_myself',
-	      sanity_check	=> 'sanity_check',
+	      poll_queue		=> 'poll_queue',
+	      poll_queue_postback	=> 'poll_queue_postback',
+	      poll_job			=> 'poll_job',
+	      poll_job_postback		=> 'poll_job_postback',
+	      timeout_TERM		=> 'timeout_TERM',
+	      timeout_KILL		=> 'timeout_KILL',
+	      report_job		=> 'report_job',
+	      report_statistics		=> 'report_statistics',
+	      cleanup_stats    		=> 'cleanup_stats',
+	      forget_job    		=> 'forget_job',
+	      shoot_myself		=> 'shoot_myself',
+	      sanity_check		=> 'sanity_check',
 
 	      _default	 => '_default',
 	      _stop	 => '_stop',
 	      _start	 => '_start',
+	      _child	 => '_child',
             },
           ],
 	);
@@ -159,6 +166,12 @@ sub _start
   print $self->Hdr,"is starting (session ",$session->ID,")\n";
 
   $self->{SESSION_ID} = $session->ID;
+  $kernel->alias_set($self->{ME});
+
+  my $poll_queue_postback  = $session->postback( 'poll_queue_postback'  );
+  $self->{POLL_QUEUE_POSTBACK} = $poll_queue_postback;
+  my $poll_job_postback  = $session->postback( 'poll_job_postback'  );
+  $self->{POLL_JOB_POSTBACK} = $poll_job_postback;
   $kernel->yield('poll_queue')
 	if $self->{Q_INTERFACE}->can('ListQueue')
 	&& $self->{POLL_QUEUE};
@@ -167,6 +180,8 @@ sub _start
   $kernel->yield('report_statistics') if $self->{STATISTICS_INTERVAL};
   $kernel->yield('sanity_check');
 }
+
+sub _child {}
 
 sub shoot_myself
 {
@@ -180,21 +195,27 @@ sub shoot_myself
 sub poll_queue
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
-  my ($id,$list,$priority);
 
   return unless $self->{POLL_QUEUE};
-  print $self->Hdr,"poll_queue...\n";
+  my $w = $self->{Q_INTERFACE}->Run('ListQueue',$self->{POLL_QUEUE_POSTBACK});
+  $kernel->delay_set('timeout_TERM', $self->{Q_TIMEOUT}, $w );
+}
 
-  $list = $self->{Q_INTERFACE}->ListQueue;
-  if ( $list->{ERROR} )
+sub poll_queue_postback
+{
+  my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+
+  my ($id,$result,$priority);
+  $result = $arg1->[0];
+  if ( $result->{ERROR} )
   {
-    warn "Monitor: Error from ListQueue: ",$list->{ERROR},"\n";
+    print $self->Hdr,"ListQueue error: ",join("\n",@{$result->{ERROR}}),"\n";
     goto PQDONE;
   }
   else
   { $self->{LAST_SUCCESSFULL_POLL} = time; }
 
-  foreach my $h ( values %$list )
+  foreach my $h ( values %{$result->{JOBS}} )
   {
     my $job;
     if ( ! exists($self->{JOBS}{$h->{ID}}) )
@@ -205,6 +226,7 @@ sub poll_queue
 			 STATE		=> $h->{STATE},
 			 SERVICE        => $h->{SERVICE},
 			 TIMESTAMP	=> time,
+			 VERBOSE	=> 1,
 			);
     }
     else { $job = $self->{JOBS}{$h->{ID}}; }
@@ -225,7 +247,7 @@ sub poll_queue
       $job->Priority($priority);
       $self->{QUEUE}->enqueue( $priority, $job );
       $self->{JOBS}{$h->{ID}} = $job;
-      print $self->Hdr,"Queued $h->{ID} at priority $priority (",$h->{STATUS},")\n" if $self->{VERBOSE};
+      print $self->Hdr,"Queued $h->{ID} at priority $priority (",$h->{STATE},")\n" if $self->{VERBOSE};
     }
   }
 PQDONE:
@@ -235,35 +257,52 @@ PQDONE:
 sub poll_job
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
-  my ($state,$priority,$id,$job,$summary);
+  my ($priority,$id,$job);
 
   ($priority,$id,$job) = $self->{QUEUE}->dequeue_next;
   if ( ! $id )
   {
     $self->{LAST_SUCCESSFUL_POLL} = time;
-    goto PJDONE;
+    $kernel->delay_set('poll_job', $self->{J_INTERVAL});
+    return;
   }
 
-  $state = $self->{Q_INTERFACE}->ListJob($job);
+  my $w = $self->{Q_INTERFACE}->Run('ListJob',$self->{POLL_JOB_POSTBACK},$job);
+  $kernel->delay_set('timeout_TERM', $self->{Q_TIMEOUT}, $w );
+}
 
-  if (exists $state->{ERROR}) {
-      print $self->Hdr,"ListJob for ",$job->ID," returned error: $state->{ERROR}\n";
+sub poll_job_postback
+{
+  my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+  my ($result,$priority,$id,$job,$summary);
+  $result = $arg1->[0];
+  $job = $arg1->[1]->{arg};
+
+# Arbitrary value, fixed, for now.
+  $priority = 30;
+
+  if (exists $result->{ERROR}) {
+      print $self->Hdr,"ListJob for ",$job->ID," returned error: ",
+			join("\n",@{$result->{ERROR}}),"\n";
 #     Put this job back in the queue before I forget about it completely!
+      $priority = $job->Priority();
       $self->{QUEUE}->enqueue( $priority, $job );
       goto PJDONE;
   }
 
-  $self->{LAST_SUCCESSFULL_POLL} = time;
-  print $self->Hdr,"JOBID ",$job->ID," STATE $state->{JOB_STATE}\n";
+  $job->VERBOSE(0);
 
-  $job->State($state->{JOB_STATE});
-  $job->RawOutput(@{$state->{RAW_OUTPUT}});
-  foreach ( @{$state->{INFO}} ) { chomp; $job->Log($_) };
+  $self->{LAST_SUCCESSFULL_POLL} = time;
+  print $self->Hdr,"JOBID ",$job->ID," STATE $result->{JOB_STATE}\n";
+
+  $job->State($result->{JOB_STATE});
+  $job->RawOutput(@{$result->{RAW_OUTPUT}});
+  foreach ( @{$result->{INFO}} ) { chomp; $job->Log($_) };
 
   my $files = $job->Files;
-  foreach ( keys %{$state->{FILES}} )
+  foreach ( keys %{$result->{FILES}} )
   {
-    my $s = $state->{FILES}{$_};
+    my $s = $result->{FILES}{$_};
     my $f = $files->{$s->{DESTINATION}};
     if ( ! $f )
     {
@@ -300,11 +339,11 @@ sub poll_job
   }
 
   $summary = join(' ',
-		   "ETC=" . $state->{ETC},
-		   'JOB_STATE=' . $state->{JOB_STATE},
+		   "ETC=" . $result->{ETC},
+		   'JOB_STATE=' . $result->{JOB_STATE},
 		   'FILE_STATES:',
-              	   map { $_.'='.$state->{FILE_STATES}{$_} }
-               	         sort keys %{$state->{FILE_STATES}}
+              	   map { $_.'='.$result->{FILE_STATES}{$_} }
+               	         sort keys %{$result->{FILE_STATES}}
                  );
   if ( $job->Summary ne $summary )
   {
@@ -313,29 +352,64 @@ sub poll_job
   }
 
 # Paranoia!
-  if ( ! exists $job->ExitStates->{$state->{JOB_STATE}} )
-  { die "Unknown job-state: " . $state->{JOB_STATE}."\n"; }
+  if ( ! exists $job->ExitStates->{$result->{JOB_STATE}} )
+  { die "Unknown job-state: " . $result->{JOB_STATE}."\n"; }
 
-  $job->State($state->{JOB_STATE});
+  $job->State($result->{JOB_STATE});
   $self->WorkStats('JOBS', $job->ID, $job->State);
   $self->{JOB_POSTBACK}->($job) if $self->{JOB_POSTBACK};
-  if ( $job->ExitStates->{$state->{JOB_STATE}} )
+  if ( $job->ExitStates->{$result->{JOB_STATE}} )
   {
     push @{$self->{EXITED_JOBS}}, $job->ID;
     $kernel->yield('report_job',$job);
   }
   else
   {
-    $state->{ETC} = 100 if $state->{ETC} < 1;
-    $priority = $state->{ETC};
-    $priority = int($priority/60);
-    $priority = 30 if $priority < 30;
+# Leave priority fixed for now.
+#   $result->{ETC} = 100 if $result->{ETC} < 1;
+#   $priority = $result->{ETC};
+#   $priority = int($priority/60);
+#   $priority = 30 if $priority < 30;
     $job->Priority($priority);
     $self->{QUEUE}->enqueue( $priority, $job );
   }
 
 PJDONE:
   $kernel->delay_set('poll_job', $self->{J_INTERVAL});
+}
+
+sub timeout_TERM
+{
+  my ( $self, $kernel, $wheelid ) = @_[ OBJECT, KERNEL, ARG0 ];
+  my ($wheel,$cmd,$id);
+  $wheel = $self->{Q_INTERFACE}{_child}->wheel($wheelid);
+  $cmd = $self->{Q_INTERFACE}{wheels}{$wheelid}{cmd};
+  if ( defined($id=$self->{Q_INTERFACE}{wheels}{$wheelid}{arg}{ID}) )
+  { $cmd .= ' ' . $id; }
+  if ( $wheel )
+  {
+    print $self->Hdr,"TERMinating wheel $wheelid, ($cmd) after $self->{Q_TIMEOUT} seconds\n";
+    $kernel->delay_set('timeout_KILL',10,$wheelid);
+    $self->{Q_INTERFACE}->{wheels}->{$wheelid}->{RAW_OUTPUT} = [];
+    push @{$self->{Q_INTERFACE}->{wheels}->{$wheelid}->{ERROR}}, 'TERMinated by ' . $self->ME;
+    $wheel->kill;
+  }
+}
+
+sub timeout_KILL
+{
+  my ( $self, $kernel, $wheelid ) = @_[ OBJECT, KERNEL, ARG0 ];
+  my ($wheel,$cmd,$id);
+  $wheel = $self->{Q_INTERFACE}->{_child}->wheel($wheelid);
+  $cmd = $self->{Q_INTERFACE}{wheels}{$wheelid}{cmd};
+  if ( defined($id=$self->{Q_INTERFACE}{wheels}{$wheelid}{arg}{ID}) )
+  { $cmd .= ' ' . $id; }
+  if ( $wheel )
+  {
+    print $self->Hdr,"KILLing wheel $wheelid, ($cmd)\n";
+    push @{$self->{Q_INTERFACE}->{wheels}->{$wheelid}->{ERROR}}, 'KILLed by ' . $self->ME;
+    $wheel->kill(9);
+  }
 }
 
 sub sanity_check
@@ -542,6 +616,7 @@ sub QueueJob
   $job->Priority($priority);
   $self->{QUEUE}->enqueue( $priority, $job );
   $self->{JOBS}{$job->{ID}} = $job;
+  my $w = $self->{Q_INTERFACE}->Run('SetPriority',undef,$job);
 }
 
 1;

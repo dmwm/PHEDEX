@@ -94,6 +94,7 @@ sub new
 	      check_file_queue	=> 'check_file_queue',
 	      check_job_queue	=> 'check_job_queue',
 	      submit_job	=> 'submit_job',
+	      job_submitted	=> 'job_submitted',
 	      file_state	=> 'file_state',
 	      job_state		=> 'job_state',
 	      shoot_myself	=> 'shoot_myself',
@@ -159,6 +160,7 @@ sub _start
   print $self->Hdr,"is starting (session ",$session->ID,")\n";
   $kernel->yield('check_job_queue');
   $kernel->yield('check_file_queue') if $self->{FILE_POLL_INTERVAL};
+  $self->{JOB_SUBMITTED_POSTBACK} = $session->postback( 'job_submitted'  );
 }
 
 sub select_for_retry
@@ -273,12 +275,21 @@ sub submit_job
   $job->Service( $self->{SERVICE} );
   $job->Files( @{$files} );
   $job->Prepare;
-  my $result = $self->{Q_INTERFACE}->Submit( $job );
+  $self->{Q_INTERFACE}->Run( 'Submit', $self->{JOB_SUBMITTED_POSTBACK}, $job );
+}
+
+sub job_submitted
+{
+  my ($self,$kernel,$session,$arg0,$arg1) = @_[OBJECT,KERNEL,SESSION,ARG0,ARG1];
+  my $job = $arg1->[1]->{arg};
+  my $result = $arg1->[1]->{result};
+
   if ( $result->{ERROR} )
   {
     $self->Warn($result->{ERROR});
     $job->Log($result->{ERROR});
-    $job->Log("RAW_OUTPUT:\n",@{$result->{RAW_OUTPUT}});
+#   $job->Log("RAW_OUTPUT:\n",@{$result->{RAW_OUTPUT}});
+    $job->RawOutput( @{$result->{RAW_OUTPUT}} );
     $job->ID( $job->ID || 'undefined_at_' . time );
     $kernel->yield('job_state',[ $job ]);
     return;
@@ -390,7 +401,8 @@ sub file_state
   my $exit_states = $file->ExitStates || \%PHEDEX::Transfer::Backend::File::exit_states;
   if ( $exit_states->{$file->State} == 2 )
   {
-    if ( $file->RETRY )
+$DB::single=1;
+    if ( $file->Retry )
     {
       print $self->Hdr,"Requeue ",$file->Source,"\n";
       $file->RetryMaxAge($self->{RETRY_MAX_AGE});
@@ -404,12 +416,12 @@ sub file_state
   }
 
 # This is to trap a bizarre error seen once, but that shouldn't happen...
-  defined $file or $DB::single=1;
-  defined $file->State or $DB::single=1;
-  my $a = $file->ExitStates; defined $a or $DB::single=1;
-  my $aa = $a->{$file->State}; defined $aa or $DB::single=1;
-
+# defined $file or $DB::single=1;
   return unless defined($file->State);
+# defined $file->State or $DB::single=1;
+# my $a = $file->ExitStates; defined $a or $DB::single=1;
+# my $aa = $a->{$file->State}; defined $aa or $DB::single=1;
+
   if ( $exit_states->{$file->State} == 1 ||
      ( $exit_states->{$file->State} == 2 && !$file->Retry ) )
   {

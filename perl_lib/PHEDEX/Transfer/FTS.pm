@@ -11,7 +11,7 @@ use Data::Dumper;
 use PHEDEX::Transfer::Backend::Job;
 use PHEDEX::Transfer::Backend::File;
 use PHEDEX::Transfer::Backend::Monitor;
-use PHEDEX::Transfer::Backend::Interface::Glite;
+use PHEDEX::Transfer::Backend::Interface::GliteAsync;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Monalisa;
@@ -71,7 +71,7 @@ sub init
 {
     my ($self) = @_;
 
-    my $glite = PHEDEX::Transfer::Backend::Interface::Glite->new
+    my $glite = PHEDEX::Transfer::Backend::Interface::GliteAsync->new
 	(
 	 SERVICE => $self->{FTS_SERVICE},
 	 ME      => 'GLite',
@@ -437,43 +437,10 @@ sub startBatch
 
     $job->Service($service);
 
-    my $result = $self->{Q_INTERFACE}->Submit($job);
-    $job->Log( @{$result->{INFO}} ) if $result->{INFO};
-    if ( $result->{SETPRIORITY} )
-    {
-      $job->Log("SETPRIORITY: CMD: "   . $result->{SETPRIORITY}{CMD});
-      $job->Log("SETPRIORITY: ERROR: " . $result->{SETPRIORITY}{ERROR})
-        if $result->{SETPRIORITY}{ERROR};
-      $job->Log(
-                 map { "SETPRIORITY: RAW: $_" }
-                 @{$result->{SETPRIORITY}{RAW_OUTPUT}}
-               );
-    }
-
-    if ( exists $result->{ERROR} ) { 
-	# something went wrong...
-	my $reason = "Could not submit to FTS\n";
-	$job->Log( $result->{ERROR} );
-	$job->RawOutput( @{$result->{RAW_OUTPUT}} );
-	foreach my $file ( values %files ) {
-            $file->Reason($reason);
-            $self->mkTransferSummary($file, $job);
-        }
-	return;
-    }
-
-    my $id = $result->{ID};
-
-    $job->ID($id);
-
-    # Save this job for retrieval if the agent is restarted
-    my $jobsave = $job->WORKDIR . '/job.dmp';
-    open JOB, ">$jobsave" or $self->Fatal("$jobsave: $!");
-    print JOB Dumper($job);
-    close JOB;
-
-    #register this job with queue monitor.
-    $self->{FTS_Q_MONITOR}->QueueJob($job);
+#   $self->StartedDoingSomething();
+#   $self->{Q_INTERFACE}->Submit($job);
+#$DB::single=1;
+    $self->{Q_INTERFACE}->Run('Submit',$self->{JOB_SUBMITTED_POSTBACK},$job);
 }
 
 sub check 
@@ -501,6 +468,11 @@ sub setup_callbacks
 {
   my ($self,$kernel,$session) = @_; #[ OBJECT, KERNEL, SESSION ];
 
+# First the submission-callback
+  $kernel->state('job_submitted',$self);
+  $self->{JOB_SUBMITTED_POSTBACK} = $session->postback( 'job_submitted'  );
+
+# Now the monitoring callbacks
   if ( $self->{FTS_Q_MONITOR} )
   {
     $kernel->state('job_state_change',$self);
@@ -510,6 +482,58 @@ sub setup_callbacks
     $self->{FTS_Q_MONITOR}->JOB_POSTBACK ( $job_postback );
     $self->{FTS_Q_MONITOR}->FILE_POSTBACK( $file_postback );
   }
+}
+
+sub job_submitted
+{
+  my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+
+#$DB::single=1;
+#  $self->FinishedDoingSomething();
+  my $job = $arg1->[1]->{arg};
+  my $result = $arg1->[1]->{result};
+
+#  $job->Log( @{$result->{INFO}} ) if $result->{INFO};
+#  if ( $result->{SETPRIORITY} )
+#  {
+#    $job->Log("SETPRIORITY: CMD: "   . $result->{SETPRIORITY}{CMD});
+#    $job->Log("SETPRIORITY: ERROR: " . $result->{SETPRIORITY}{ERROR})
+#    if $result->{SETPRIORITY}{ERROR};
+#    $job->Log(
+#               map { "SETPRIORITY: RAW: $_" }
+#               @{$result->{SETPRIORITY}{RAW_OUTPUT}}
+#             );
+#  }
+
+  if ( exists $result->{ERROR} ) { 
+    # something went wrong...
+    my $reason = "Could not submit to FTS\n";
+    $job->Log( $result->{ERROR} );
+    $job->RawOutput( @{$result->{RAW_OUTPUT}} );
+    foreach my $file ( values %{$job->FILES} ) {
+      $file->Reason($reason);
+      $self->mkTransferSummary($file, $job);
+    }
+    return;
+  }
+
+#  my $id = $result->{ID};
+#  $id = $result->{RAW_OUTPUT}->[0];
+#
+#  if ( !defined($id) )
+#  {
+#    $DB::single=1;
+#  }
+#  $job->ID($id);
+
+  # Save this job for retrieval if the agent is restarted
+  my $jobsave = $job->WORKDIR . '/job.dmp';
+  open JOB, ">$jobsave" or $self->Fatal("$jobsave: $!");
+  print JOB Dumper($job);
+  close JOB;
+
+  #register this job with queue monitor.
+  $self->{FTS_Q_MONITOR}->QueueJob($job);
 }
 
 sub job_state_change
@@ -522,7 +546,6 @@ sub job_state_change
     # monitoring call will have been verbose, the rest will not
     if ( ref($job) !~ m%PHEDEX::Transfer::Backend::Job% )
     {
-$DB::single=1;
       print "I have a wrong job-type here!\n";
     }
     $job->VERBOSE(0);
