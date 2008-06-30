@@ -106,6 +106,7 @@ sub ListQueue
   my $self = shift;
   my ($cmd,$job,$state,%result,@raw);
 
+  $result{JOBS} = {};
   $cmd = "glite-transfer-list -s " . $self->{SERVICE};
   open GLITE, "$cmd 2>&1 |" or do
   {
@@ -117,7 +118,7 @@ sub ListQueue
   {
     push @raw, $_;
     m%^([0-9,a-f,-]+)\s+(\S+)$% or next;
-    $result{$1} = { ID => $1, STATE => $2, SERVICE => $self->{SERVICE} };
+    $result{JOBS}{$1} = { ID => $1, STATE => $2, SERVICE => $self->{SERVICE} };
   }
   close GLITE or do
   {
