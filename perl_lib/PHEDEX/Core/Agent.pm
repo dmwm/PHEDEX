@@ -1504,7 +1504,7 @@ sub _process_start
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
   my ($t,$t1);
-  $self->Dbgmsg("starting '_process_start'") if $self->{DEBUG};
+# $self->Dbgmsg("starting '_process_start'") if $self->{DEBUG};
 
   if ( exists($self->{stats}{process}) )
   {
@@ -1537,7 +1537,7 @@ sub _process_start
 
   $self->process();
 
-  $self->Dbgmsg("ending '_process_start'") if $self->{DEBUG};
+# $self->Dbgmsg("ending '_process_start'") if $self->{DEBUG};
   $kernel->yield('_process_stop');
 }
 
@@ -1553,7 +1553,7 @@ sub _process_stop
     return;
   }
 
-  $self->Dbgmsg("starting '_process_stop'") if $self->{DEBUG};
+# $self->Dbgmsg("starting '_process_stop'") if $self->{DEBUG};
   if ( exists($self->{stats}{process}) )
   {
     $t = time;
@@ -1562,7 +1562,7 @@ sub _process_stop
   }
 
   $self->{_DONTSTOPME} = 0;
-  $self->Dbgmsg("ending '_process_stop'") if $self->{DEBUG};
+# $self->Dbgmsg("ending '_process_stop'") if $self->{DEBUG};
   $kernel->delay_set('_process_start',$self->{WAITTIME}) if $self->{WAITTIME};
 }
 
