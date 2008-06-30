@@ -91,6 +91,8 @@ our %params =
  	  VERBOSE       => $ENV{PHEDEX_VERBOSE} || 0,
 	  NOTIFICATION_HOST	=> undef,
 	  NOTIFICATION_PORT	=> undef,
+	  _DOINGSOMETHING	=> 0,
+	  _DONTSTOPME		=> 0,
 	);
 
 our @array_params = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
@@ -217,7 +219,8 @@ sub new
         [
           $self =>
           {
-            _process	=> '_process',
+            _process_start	=> '_process_start',
+            _process_stop	=> '_process_stop',
             _maybeStop	=> '_maybeStop',
 
             _start   => '_start',
@@ -876,23 +879,15 @@ sub process
 
   # Wait a little while.
   $self->maybeStop();
-# $self->Dbgmsg("starting idle()") if $self->{DEBUG};
   my $t1 = &mytimeofday();
   $self->idle (@pending);
   my $t2 = &mytimeofday();
   $self->Dbgmsg(sprintf("cycle time %.6f s", $t2-$t1)) if $self->{DEBUG};
-#  if ($self->{AUTO_NAP}) {
-#$self->Dbgmsg("sleeping for $self->{WAITTIME} s") if $self->{VERBOSE};
-#$self->nap ($self->{WAITTIME});
-#  }
 }
 
-# Wait between scans
-sub idle
-{
-    my $self = shift;
-#   $self->nap ($self->{WAITTIME});
-}
+# Agents should override this to do their work. It's an unfortunate name
+# now, the work is done in the 'idle' routine :-(
+sub idle { }
 
 # Sleep for a time, checking stop flag every once in a while.
 sub nap
@@ -1500,16 +1495,16 @@ sub _start
     $kernel->state('_poe_init',$self);
     $kernel->yield('_poe_init');
   }
-  $kernel->yield('_process');
+  $kernel->yield('_process_start');
   $kernel->yield('_maybeStop');
   $self->Logmsg("has successfully initialised");
 }
 
-sub _process
+sub _process_start
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
-  my ($start,$t,$t1);
-  $self->Dbgmsg("starting '_process'") if $self->{DEBUG};
+  my ($t,$t1);
+  $self->Dbgmsg("starting '_process_start'") if $self->{DEBUG};
 
   if ( exists($self->{stats}{process}) )
   {
@@ -1520,31 +1515,70 @@ sub _process
       undef $self->{stats}{process}{_offCPU};
     }
     $self->{stats}{process}{count}++;
-    $start = time;
+    $self->{_start} = time;
   }
+
+# There are two paranoid sentinels to prevent being stopped in the middle
+# of a processing loop. Agents can play with this as they wish if they are
+# willing to allow themselves to be stopped in the middle of a cycle.
+#
+# The first, _DOINGSOMETHING, should only be set if you are using POE events
+# inside your processing loop and want to wait for some sequence of them
+# before declaring your cycle to be finished. Increment it or decrement it,
+# the cycle will not be declared over until it reaches zero.
+# _DOINGSOMETHING should not be set here, it's enough to let the derived
+# agents increment it if they need to. Use the StartedDoingSomething() and
+# FinishedDoingSomething() methods to manipulate this value.
+#
+# The second, _DONTSTOPME, tells the maybeStop event loop not to allow the
+# agent to exit. Set this if you have critical ongoing events, such as
+# waiting for a subprocess to finish.
+  $self->{_DONTSTOPME} = 1;
 
   $self->process();
 
+  $self->Dbgmsg("ending '_process_start'") if $self->{DEBUG};
+  $kernel->yield('_process_stop');
+}
+
+sub _process_stop
+{
+  my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+  my $t;
+
+  if ( $self->{_DOINGSOMETHING} )
+  {
+    $self->Dbgmsg("waiting for something: ",$self->{_DOINGSOMETHING}) if $self->{DEBUG};
+    $kernel->delay_set('_process_stop',1);
+    return;
+  }
+
+  $self->Dbgmsg("starting '_process_stop'") if $self->{DEBUG};
   if ( exists($self->{stats}{process}) )
   {
     $t = time;
-    push @{$self->{stats}{process}{onCPU}}, $t - $start;
+    push @{$self->{stats}{process}{onCPU}}, $t - $self->{_start};
     $self->{stats}{process}{_offCPU} = $t;
   }
 
-  $self->Dbgmsg("ending '_process'") if $self->{DEBUG};
-  $kernel->delay_set('_process',$self->{WAITTIME}) if $self->{WAITTIME};
+  $self->{_DONTSTOPME} = 0;
+  $self->Dbgmsg("ending '_process_stop'") if $self->{DEBUG};
+  $kernel->delay_set('_process_start',$self->{WAITTIME}) if $self->{WAITTIME};
 }
 
 sub _maybeStop
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
 
-  $self->Dbgmsg("starting '_maybeStop'") if $self->{VERBOSE} >= 3;
-  $self->{stats}{maybeStop}++ if exists $self->{stats}{maybeStop};;
+  my $DontStopMe = $self->{_DONTSTOPME} || 0;
+  if ( !$DontStopMe )
+  {
+    $self->Dbgmsg("starting '_maybeStop'") if $self->{VERBOSE} >= 3;
+    $self->{stats}{maybeStop}++ if exists $self->{stats}{maybeStop};;
 
-  $self->maybeStop();
-  $self->Dbgmsg("ending '_maybeStop'") if $self->{VERBOSE} >= 3;
+    $self->maybeStop();
+    $self->Dbgmsg("ending '_maybeStop'") if $self->{VERBOSE} >= 3;
+  }
   $kernel->delay_set('_maybeStop', 1);
 }
 
@@ -1580,6 +1614,27 @@ sub AgentType
     $agent_type =~ s%::%%g;
   }
   return $self->{ME} = $agent_type;
+}
+
+sub StartedDoingSomething
+{
+  my ($self,$num) = @_;
+  $num = 1 unless defined $num;
+  $self->{_DOINGSOMETHING} += $num;
+  return $self->{_DOINGSOMETHING};
+}
+
+sub FinishedDoingSomething
+{
+  my ($self,$num) = @_; 
+  $num = 1 unless defined $num;
+  $self->{_DOINGSOMETHING} -= $num;
+  if ( $self->{_DOINGSOMETHING} < 0 )
+  {
+    $self->Logmsg("FinishedDoingSomething too many times: ",$self->{_DOINGSOMETHING}) if $self->{DEBUG};
+    $self->{_DOINGSOMETHING} = 0;
+  }
+  return $self->{_DOINGSOMETHING};
 }
 
 1;
