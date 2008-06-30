@@ -208,7 +208,7 @@ sub poll_queue_postback
   my ($id,$result,$priority);
   $result = $arg1->[0];
 
-  if ( $self->{DEBUG} )
+  if ( $self->{DEBUG} && $result->{DURATION} > 8 )
   { $self->Logmsg('ListQueue took ',$result->{DURATION},' seconds'); }
 
   if ( $result->{ERROR} )
@@ -282,7 +282,7 @@ sub poll_job_postback
   $result = $arg1->[0];
   $job = $arg1->[1]->{arg};
 
-  if ( $self->{DEBUG} )
+  if ( $self->{DEBUG} && $result->{DURATION} > 8 )
   { $self->Logmsg('ListJob took ',$result->{DURATION},' seconds'); }
 
 # Arbitrary value, fixed, for now.
