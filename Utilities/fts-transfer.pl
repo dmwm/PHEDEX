@@ -63,7 +63,7 @@ use POE;
 use PHEDEX::Core::Help;
 use PHEDEX::Transfer::Backend::Monitor;
 use PHEDEX::Transfer::Backend::Manager;
-use PHEDEX::Transfer::Backend::Interface::Glite;
+use PHEDEX::Transfer::Backend::Interface::GliteAsync;
 use PHEDEX::Monalisa;
 
 my ($service,$q_interval,$j_interval,$help,$verbose,$copyjob);
@@ -94,10 +94,11 @@ GetOptions(	"service=s"		=> \$service,
 		"monalisa=s"		=> \$monalisa,
 	  );
 
-my $glite = PHEDEX::Transfer::Backend::Interface::Glite->new
+my $glite = PHEDEX::Transfer::Backend::Interface::GliteAsync->new
 		(
 		  SERVICE => $service,
 		  ME      => '::GLite',
+		  VERBOSE => $verbose,
 		);
 print "Using service ",$glite->SERVICE,"\n";
 
