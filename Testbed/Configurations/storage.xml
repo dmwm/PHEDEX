@@ -1,0 +1,11 @@
+<storage-mapping>
+  <lfn-to-pfn protocol="direct" destination-match=".*"
+    path-match="(.*)" result="/data/test/$1"/>
+  <lfn-to-pfn protocol="srm" destination-match=".*" chain="direct"
+    path-match="(.*)" result="file:///$1"/>
+
+  <pfn-to-lfn protocol="direct" destination-match=".*"
+    path-match="/data/test/*(/.*)" result="$1"/>
+  <pfn-to-lfn protocol="srm" destination-match=".*" chain="direct"
+    path-match="file:/+(/.*)" result="$1"/>
+</storage-mapping>

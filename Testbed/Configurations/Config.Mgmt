@@ -1,0 +1,84 @@
+#### General configuration
+### ENVIRON common
+
+# Common part : Central agents run for T0_CH_CERN_Export
+PHEDEX_LABEL=T0_CH_CERN;
+PHEDEX_SITE=T0_CH_CERN;
+PHEDEX_NODE=${PHEDEX_SITE}_Export;
+PHEDEX_CONTEXT=Mgmt;
+X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
+
+# FTS specific part
+PHEDEX_GLITE_ENV=/afs/cern.ch/project/gd/LCG-share/3.0.0/etc/profile.d/grid_env.sh;
+GLITE_SD_PLUGIN=bdii;
+
+### IMPORT ConfigPart.Common
+
+# Workflow Agents
+
+### AGENT LABEL=mgmt-blockmon PROGRAM=Toolkit/Workflow/BlockMonitor
+ -db        ${PHEDEX_DBPARAM}
+ -node      ${PHEDEX_NODE}
+
+### AGENT LABEL=mgmt-blockalloc PROGRAM=Toolkit/Workflow/BlockAllocator
+ -db        ${PHEDEX_DBPARAM}
+ -node      ${PHEDEX_NODE}
+
+### AGENT LABEL=mgmt-blockactiv PROGRAM=Toolkit/Workflow/BlockActivate
+ -db        ${PHEDEX_DBPARAM}
+ -node      ${PHEDEX_NODE}
+
+### AGENT LABEL=mgmt-blockdeact PROGRAM=Toolkit/Workflow/BlockDeactivate
+ -db        ${PHEDEX_DBPARAM}
+ -node      ${PHEDEX_NODE}
+
+### AGENT LABEL=mgmt-blockdelete PROGRAM=Toolkit/Workflow/BlockDelete
+ -db        ${PHEDEX_DBPARAM}
+ -node      ${PHEDEX_NODE}
+
+### AGENT LABEL=mgmt-blockdls PROGRAM=Toolkit/Workflow/BlockDLSUpdate
+ -db        ${PHEDEX_DBPARAM}
+ -- DUMMY 0
+
+### AGENT LABEL=mgmt-blockverifyinjector PROGRAM=Toolkit/Verify/BlockDownloadVerifyInjector
+  -db        ${PHEDEX_DBPARAM}
+
+# Infrastructure agents
+
+### AGENT LABEL=mgmt-router PROGRAM=Toolkit/Infrastructure/FileRouter
+ -db             ${PHEDEX_DBPARAM}
+ -request-alloc  BY_AGE
+
+### AGENT LABEL=mgmt-pump PROGRAM=Toolkit/Infrastructure/FilePump
+ -db        ${PHEDEX_DBPARAM}
+
+### AGENT LABEL=mgmt-issue PROGRAM=Toolkit/Infrastructure/FileIssue
+ -db        ${PHEDEX_DBPARAM}
+
+# LoadTest agents
+
+### AGENT LABEL=mgmt-loadinject PROGRAM=Toolkit/LoadTest/LoadTestInjector
+ -db        ${PHEDEX_DBPARAM}
+ -node      ${PHEDEX_NODE}
+
+### AGENT LABEL=mgmt-loadclean PROGRAM=Toolkit/LoadTest/LoadTestCleanup
+ -db        ${PHEDEX_DBPARAM}
+ -node      ${PHEDEX_NODE}
+
+# Misc Agents
+
+### AGENT LABEL=info-pm PROGRAM=Toolkit/Monitoring/PerfMonitor
+ -db        ${PHEDEX_DBPARAM}
+ -node      ${PHEDEX_NODE}
+
+### AGENT LABEL=info-invariant PROGRAM=Toolkit/Monitoring/InvariantMonitor
+ -db        ${PHEDEX_DBPARAM}
+ -node      ${PHEDEX_NODE}
+
+### AGENT LABEL=info-tc PROGRAM=Toolkit/Monitoring/InfoStatesClean
+ -db        ${PHEDEX_DBPARAM}
+ -node      ${PHEDEX_NODE}
+
+### AGENT LABEL=info-fs PROGRAM=Toolkit/Monitoring/InfoFileSize
+ -db        ${PHEDEX_DBPARAM}
+ -node      ${PHEDEX_NODE}
