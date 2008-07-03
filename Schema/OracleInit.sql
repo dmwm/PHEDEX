@@ -24,16 +24,16 @@ prompt Loading files
 prompt Loading transfers
 @@OracleCoreTransfer.sql
 
+prompt
+prompt Loading request management
+@@OracleCoreReq.sql
+
 prompt Loading transfer triggers
 @@OracleCoreTriggers.sql
 
 prompt
 prompt Loading status
 @@OracleCoreStatus.sql
-
-prompt
-prompt Loading request management
-@@OracleCoreReq.sql
 
 prompt
 prompt Loading loadtest

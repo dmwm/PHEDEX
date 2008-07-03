@@ -225,6 +225,77 @@ create table t_req_delete
    constraint ck_req_delete_retransfer
      check (rm_subscriptions in ('y', 'n')));
 
+create table t_dps_block_delete
+  (request              integer,
+   block		integer		not null,
+   dataset		integer		not null,
+   node			integer		not null,
+   time_request		float		not null,
+   time_complete	float,
+   --
+   constraint pk_dps_block_delete
+     primary key (block, node),
+   --
+   constraint fk_dps_block_delete_request
+     foreign key (request) references t_req_request (id)
+ 	on delete set null,
+   --
+   constraint fk_dps_block_delete_block
+     foreign key (block) references t_dps_block (id)
+     on delete cascade,
+   --
+   constraint fk_dps_block_delete_dataset
+     foreign key (dataset) references t_dps_dataset (id)
+     on delete cascade,
+   --
+   constraint fk_dps_block_delete_node
+     foreign key (node) references t_adm_node (id)
+     on delete cascade);
+
+create table t_dps_subscription
+  (request              integer,
+   dataset		integer,
+   block		integer,
+   destination		integer		not null,
+   priority		integer		not null,
+   is_move		char (1)	not null,
+   is_transient		char (1)	not null,
+   time_create		float		not null,
+   time_complete	float,
+   time_clear		float,
+   time_done		float,
+   time_suspend_until	float,
+   --
+   constraint uq_dps_subscription
+     unique (dataset, block, destination),
+   --
+   constraint fk_dps_subscription_request
+     foreign key (request) references t_req_request (id)
+ 	on delete set null,
+   --
+   constraint fk_dps_subscription_dataset
+     foreign key (dataset) references t_dps_dataset (id)
+ 	on delete cascade,
+   --
+   constraint fk_dps_subscription_block
+     foreign key (block) references t_dps_block (id)
+	on delete cascade,
+   --
+   constraint fk_dps_subscription_dest
+     foreign key (destination) references t_adm_node (id)
+	on delete cascade,
+   --
+   constraint ck_dps_subscription_ref
+     check (not (block is null and dataset is null)
+            and not (block is not null and dataset is not null)),
+   --
+   constraint ck_dps_subscription_move
+     check (is_move in ('y', 'n')),
+   --
+   constraint ck_dps_subscription_transient
+     check (is_transient in ('y', 'n')));
+
+
 
 ----------------------------------------------------------------------
 -- Create extra foreign keys
@@ -275,3 +346,24 @@ create index ix_req_comments_request
   on t_req_comments (request);
 create index ix_req_comments_by
   on t_req_comments (comments_by);
+--
+create index ix_dps_block_delete_req
+  on t_dps_block_delete (request);
+
+create index ix_dps_block_delete_ds
+  on t_dps_block_delete (dataset);
+
+create index ix_dps_block_delete_node
+  on t_dps_block_delete (node);
+--
+create index ix_dps_subscription_req
+  on t_dps_subscription (request);
+
+create index ix_dps_subscription_dataset
+  on t_dps_subscription (dataset);
+
+create index ix_dps_subscription_block
+  on t_dps_subscription (block);
+
+create index ix_dps_subscription_dest
+  on t_dps_subscription (destination);
