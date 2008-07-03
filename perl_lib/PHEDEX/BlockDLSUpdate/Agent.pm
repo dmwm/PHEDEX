@@ -88,17 +88,9 @@ sub idle
     foreach my $block (@$deleted, @$completed)
     {
       # If we've updated already, skip this
-      my $cachekey = "$block->{COMMAND} $block->{DBS_NAME} $block->{BLOCK_NAME} $block->{NODE_NAME}";
-      next if exists $state{$cachekey} && $state{$cachekey} > 0;
+      my $cachekey = "$block->{DBS_NAME} $block->{BLOCK_NAME} $block->{NODE_NAME}";
+      next if exists $state{$cachekey} && $state{$cachekey} =~ /$block->{COMMAND}/;
       $state{$cachekey} = -1;
-
-      # If it is a deletion command, remove addition command from cache
-      if ( $block->{COMMAND} eq 'dls-delete')
-      {
-	my $addkey = $cachekey;
-	$addkey =~ s/dls-delete/dls-add/;
-	delete $state{$addkey} if exists $state{$addkey};
-      }
 
       # Queue the block for consistency-checking. Ignore return values
       if ( $block->{COMMAND} eq 'dls-add' )
@@ -179,7 +171,7 @@ sub registered
 	$self->Logmsg("Successfully issued $block->{COMMAND}"
 		. " on block $block->{BLOCK_NAME} for $block->{NODE_NAME}");
 	unlink ($job->{LOGFILE});
-	$$state = &mytimeofday();
+	$$state = $block->{COMMAND}.':'.&mytimeofday();
     }
 }
 
