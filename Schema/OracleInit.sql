@@ -44,5 +44,9 @@ prompt Loading block verification
 @@OracleCoreVerify.sql
 
 prompt
+prompt Loading helper functions
+@@OracleCoreFunctions.sql
+
+prompt
 prompt PhEDEx schema loaded
 prompt
