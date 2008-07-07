@@ -12,7 +12,7 @@ X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 PHEDEX_GLITE_ENV=/afs/cern.ch/project/gd/LCG-share/3.0.0/etc/profile.d/grid_env.sh;
 GLITE_SD_PLUGIN=bdii;
 
-### IMPORT ConfigPart.Testbed
+### IMPORT ConfigPart.Common
 
 ### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FileExport
  -db          ${PHEDEX_DBPARAM}
@@ -21,11 +21,11 @@ GLITE_SD_PLUGIN=bdii;
  -protocols   'srm','direct'
 
 ### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload
- -verbose
  -db              ${PHEDEX_DBPARAM}
- -accept	  '%'
+ -accept	  'TX_Test%'
  -nodes           ${PHEDEX_NODE}
  -backend         Null
+ -protocols       'srm','direct'
 
 ### AGENT LABEL=remove PROGRAM=Toolkit/Transfer/FileRemove
  -db              ${PHEDEX_DBPARAM}
