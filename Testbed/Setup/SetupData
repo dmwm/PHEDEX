@@ -3,8 +3,8 @@
 ##H Seed test database (set up with separate SQL) with a number of
 ##H files and create subscriptions to those files.
 ##H
-##H Use: $0 -db <DBCONFIG> -datasets N_DS -blocks N_BLOCKS -files N_FILES 
-##H                        [-label LABEL] [-open-blocks] [-rotate-priority] [-no-subscribe]
+##H Use: SetupData -db <DBCONFIG> -datasets N_DS -blocks N_BLOCKS -files N_FILES 
+##H               [-label LABEL] [-open-blocks] [-rotate-priority] [-no-subscribe]
 ##H
 ##H Parameters:
 ##H      db:               path to DB Config file
@@ -16,16 +16,12 @@
 ##H      rotate-priority:  create subscriptions at all priority levels
 ##H      no-subscribe:     don't automatically create subscriptions for the generated data
 
-BEGIN { use strict; use warnings; $^W=1;
-	my $me = $0; $me =~ s|.*/||;
-	our $home = $0; $home =~ s|/[^/]+$||; $home ||= ".";
-	unshift(@INC, "$home/../../Toolkit/Common"); }
-
 my %args;
 use Getopt::Long;
-use UtilsHelp;
-use UtilsDB;
-use UtilsTiming;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::DB;
+use PHEDEX::Core::Timing;
+
 &GetOptions ("db=s"        => \$args{DBCONFIG},
 	     "datasets=i"  => \$args{DATASETS},
 	     "blocks=i"    => \$args{BLOCKS},
