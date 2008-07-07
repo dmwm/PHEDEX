@@ -10,6 +10,7 @@
 use warnings;
 use strict;
 use Getopt::Long;
+use PHEDEX::Core::Help;
 
 my ($dataset, $blocks, $files, $xmlfile);
 my $open = 0;
@@ -22,8 +23,8 @@ GetOptions('d|dataset=s' => \$dataset,
 	   'O|output=s' => \$xmlfile,
 	   'o|open-blocks' => \$open,
 	   's|mean-size=f' => \$mean_size,
-	   'S|sdev-size=f' => \$sdev_size
-	   );
+	   'S|sdev-size=f' => \$sdev_size,
+	   "help|h"      => sub { &usage() });
 
 unless ($dataset && $blocks && $files) {
     die "missing parameters\n";
