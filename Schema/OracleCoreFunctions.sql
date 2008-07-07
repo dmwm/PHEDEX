@@ -1,5 +1,9 @@
 -- A few time functions to make the operators life a little easier
 
+-- Turn off variable substitution so that :00 isn't treated like a
+-- bind variable!
+set scan off;
+
 -- returns a human-readable date if given a unix timestamp
 create or replace function gmtime(unixtimestamp in integer) return varchar is
  result varchar(19);
@@ -17,4 +21,3 @@ begin
 return(result);
 end now;
 /
-
