@@ -1,3 +1,43 @@
+* Changes in PhEDEx 3.0.4
+
+Changes for Site Agents
+ - FTS backend now calls glite* commands asynchronously to prevent
+   failed commands from blocking the agent
+ - FileDownload: Faster reconnection attempt when an error has made
+   the database handle invalid
+
+New Central Agent:  RequestAllocator
+ - This agent expands requests for data with wildcards (only '*' is
+   supported) into more subscriptions.  This means that one can make a
+   request for /A/*/* and get all of primary dataset 'A' forever, or
+   until the request re-evaluation is cancelled.
+
+Changes for Central Agents
+ - FileIssue: Improve block completion by explicitly ordering tasks by
+   block.  Centrally, tasks are now ordered by priority, request
+   creation (newer first), then block id (~newer first)
+ - BlockDeactivate:  fix default HOLDOFF time
+ - BlockDBSPopulate:  bugfix to correctly fetch deleted blocks
+ - BlockDLSUpdate: prevent cached records of deletions from preventing
+   DLS update in the case of a retransfer followed by another deletion
+ - BlockDelete: allow immediate re-deletions by removing file deletion
+   requests for completed block deletions
+
+Changes for Utilities
+ - TMDBInject: change hardcoded T0_CERN* protection to T0_CH_CERN for
+   new naming convention
+ - BlockConsistencyCheck: make -lfnlist optional, document -lfnlist
+ - ErrorSiteQuery, InspectPhedexLogs:  can now produce XML output
+ - fts-transfer.pl:  Now uses asynchronous glite* commands
+ - ErrorQuery:  add new patterns
+
+ Schema Changes
+ - Add foreign key to source request to subscriptions and block
+   deletions
+ - In tnsnames.ora, synchronize cms_transfermgmt* accounts with
+   official CERN tnsnames.ora
+ - Fix bugs in schema deployment script
+
 * Changes in PhEDEx 3.0.3
 
  This is another minor upgrade over 3.0.2. No significant changes in
