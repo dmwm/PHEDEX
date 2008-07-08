@@ -1,12 +1,15 @@
 The current list of main contributors to PhEDEx are:
-  Lassi Tuura
-  Jens Rehn
   Ricky Egeland
-  Daniele Bonacorsi
-  Simon Metson
+  Tony Wildish
+  Artem Trunov
+  Derek Feichtinger
 
 In the past several more have contributed, including at least:
+  Jens Rehn
+  Lassi Tuura
   Tim Barrass
+  Simon Metson
+  Daniele Bonacorsi
   Jose Hernandez
   Yujun Wu
   Igor Semeniouk
