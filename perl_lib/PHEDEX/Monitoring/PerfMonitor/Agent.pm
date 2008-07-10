@@ -78,18 +78,15 @@ sub idle
 	    group by :now, br.node},
 	    ":now" => $now);
 
-	# Summarise replica states (FIXME: merge this stats with
-        # t_dps_block_replica which lacks 'state' to avoid excessive
-	# table scanning just for stats).
+	# Summarise nod replicas
 	&dbexec($dbh, qq{delete from t_status_replica});
 	&dbexec($dbh, qq{
 	    insert into t_status_replica
 	    (time_update, node, state, files, bytes)
-	    select :now, xr.node, xr.state,
-	           count (xr.fileid), nvl (sum (f.filesize), 0)
-	    from t_xfer_replica xr
-	      join t_xfer_file f on f.id = xr.fileid
-	    group by :now, xr.node, xr.state},
+	    select :now, br.node, 0,
+	           nvl(sum (br.node_files), 0), nvl(sum (br.node_bytes), 0)
+	    from t_dps_block_replica br
+	    group by br.node },
 	    ":now" => $now);
 
 	# PART II
