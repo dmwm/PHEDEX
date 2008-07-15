@@ -15,7 +15,7 @@ use strict;
 
 use CGI qw(header path_info self_url param Vars);
 
-#use CMSWebTools::SecurityModule::Oracle;
+use CMSWebTools::SecurityModule::Oracle;
 use PHEDEX::Web::Config;
 use PHEDEX::Web::Core;
 use PHEDEX::Core::Timing;
@@ -29,13 +29,7 @@ my $config_file = $ENV{PHEDEX_SERVER_CONFIG} ||
 my $dev_name = $ENV{PHEDEX_DEV_NAME};
 
 my $config = PHEDEX::Web::Config->read($config_file, $dev_name);
-# eval "use CGI::Carp qw(fatalsToBrowser)"; # XXX turn off when in production!
-
-# my $secmod_config = $$config{SECMOD_CONFIG};
-# if (!$secmod_config) {
-#     die "ERROR:  SecurityModule config file not set in $config_file";
-# }
-#my $secmod = new CMSWebTools::SecurityModule::Oracle({CONFIG => $secmod_config});
+eval "use CGI::Carp qw(fatalsToBrowser)"; # XXX turn off when in production!
 
 # Set debug mode
 $TESTING = $$config{TESTING_MODE} ? 1 : 0;
@@ -102,9 +96,40 @@ unless (param('nocache')) {
 		      -Expires => "+${duration}s");
     warn "cache duration for '$call' is $duration seconds\n" if $TESTING;
 }
-
 print header(-type => $type, %cache_headers );
-$core->call($call, %args);
-print "\n";
 
+# Access-control via the security module. Start by being fully paranoid,
+# until we get a better idea how to do this stuff. So, require that the
+# security module be configured, wether needed or not. For POSTs, exlicitly
+# limit to Global Admins while working on the code. Later, relax to allow
+# the roles in TMDB to limit access.
+my ($secmod,$secmod__config);
+$secmod_config = $config->{SECMOD_CONFIG};
+if (!$secmod_config) {
+  $core->error("ERROR:  SecurityModule config file not set in $config_file");
+  return;
+}
+$secmod = new CMSWebTools::SecurityModule::Oracle({CONFIG => $secmod_config});
+if ( ! $secmod->init() )
+{
+  $core->error("Cannot initialise security module: " . $secmod->getErrMsg());
+  return;
+}
+$core->{SECMOD} = $secmod;
+
+if ( $ENV{REQUEST_METHOD} eq 'POST' )
+{
+  $secmod->reqAuthnCert();
+  my $allowed = 0;
+  my $roles = $secmod->getRoles();
+  foreach( @{$roles->{'Global Admin'}} )
+  { if ( m%^phedex$% ) { $allowed = 1; } }
+  if ( !$allowed )
+  {
+    $core->error("You are not allowed to POST to this server.");
+    return;
+  }
+}
+
+$core->call($call, %args);
 exit(0);
