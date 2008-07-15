@@ -102,7 +102,8 @@ our (%params);
 	    INSTANCE => undef,
 	    REQUEST_URL => undef,
 	    REQUEST_TIME => undef,
-	    DEBUG => 0
+	    SECMOD => undef,
+	    DEBUG => 0,
 	    );
 
 # A map of API calls to data sources
@@ -111,7 +112,10 @@ our $call_data = {
     blockReplicas   => [ qw( blockReplicas ) ],
     fileReplicas    => [ qw( fileReplicas ) ],
     nodes           => [ qw( nodes ) ],
-    tfc             => [ qw( tfc ) ]
+    tfc             => [ qw( tfc ) ],
+    getAuth         => [ qw( getAuth ) ],
+    checkAuth       => [ qw( checkAuth ) ],
+    inject          => [ qw( inject ) ],
 };
 
 # Data source parameters
@@ -126,6 +130,12 @@ our $data_sources = {
 			 DURATION => 60*60 },
     tfc             => { DATASOURCE => \&PHEDEX::Web::SQL::getTFC,
 			 DURATION => 15*60 },
+    getAuth         => { DATASOURCE => \&PHEDEX::Web::Core::getAuth,
+			 DURATION => 15*60 * 0 +1 },
+    checkAuth       => { DATASOURCE => \&PHEDEX::Web::Core::checkAuth,
+			 DURATION => 15*60 * 0 +1 },
+    inject          => { DATASOURCE => \&PHEDEX::Web::Core::inject,
+			 DURATION => 0 },
     lfn2pfn        => { DURATION => 15*60 }
 };
 
@@ -664,6 +674,113 @@ sub checkRequired
 	    " are required\n";
 	}
     }
+}
+
+sub fetch_nodes
+{
+    my ($self, %args) = @_;
+
+    my @auth_nodes;
+    if (exists $args{web_user_auth} && $args{web_user_auth}) {
+	my $roles = $self->{SECMOD}->getRoles();
+	my @to_check = split /\|\|/, $args{web_user_auth};
+	my $roles_ok = 0;
+	foreach my $role (@to_check) {
+	    if (grep $role eq $_, keys %{$roles}) {
+		$roles_ok = 1;
+	    }
+	}
+
+	my $global_admin = (exists $$roles{'Global Admin'} &&
+			    grep $_ eq 'phedex', @{$$roles{'Global Admin'}}) || 0;
+
+	# Special "global admin" role only if explicitly specified
+	$global_admin = 1 if (grep($_ eq 'PADA Admin', @to_check) &&
+			      exists $$roles{'PADA Admin'} &&
+			      grep($_ eq 'phedex', @{$$roles{'PADA Admin'}}));
+
+	return unless ($roles && ($roles_ok || $global_admin));
+	
+	# If the user is not a global admin, make a list of sites and
+	# nodes they are authorized for.  If they are a global admin
+	# we continue below where all nodes will be returned.
+	if (!$global_admin) {
+	    my %node_map = $$self{SECMOD}->getPhedexNodeToSiteMap();
+	    my %auth_sites;
+	    foreach my $role (@to_check) {
+		if (exists $$roles{$role}) {
+		    foreach my $site (@{$$roles{$role}}) {
+			$auth_sites{$site} = 1;
+		    }
+		}
+	    }
+	    foreach my $node (keys %node_map) {
+		foreach my $site (keys %auth_sites) {
+		    push @auth_nodes, $node if $node_map{$node} eq $site;
+		}
+	    }
+	}
+    }
+
+    my $sql = qq{select name, id from t_adm_node where name not like 'X%'};
+    my $q = &dbexec($$self{DBH}, $sql);
+    
+    my %nodes;
+    while (my ($node, $node_id) = $q->fetchrow()) {
+	# Filter by auth_nodes if there are any
+	if (!@auth_nodes || grep $node eq $_, @auth_nodes) {
+	    $nodes{$node} = $node_id;
+	}
+    }
+    if (exists $args{with_ids} && $args{with_ids}) {
+	return \%nodes;
+    } else {
+	return keys %nodes;
+    }
+}
+
+# Checks that the user is authenticated by a certificate, and returns a
+# list of PhEDEx nodes for the roles that user has access to. Returns an
+# error if the user is not authenticated.
+sub checkAuth
+{
+  my $self = shift;
+  $self->{SECMOD}->reqAuthnCert();
+  return $self->getAuth();
+}
+
+sub getAuth
+{
+  my $self = shift;
+  my ($secmod,$auth);
+
+  $secmod = $self->{SECMOD};
+  $auth = {
+            STATE  => $secmod->getAuthnState(),
+            ROLES  => $secmod->getRoles(),
+            DN     => $secmod->getDN(),
+          };
+  $auth->{NODES} = $self->fetch_nodes(%{$auth}, with_ids => 1 );
+
+# If I want to be able to return data as XML, seems I need to change
+# the way roles are stored. I leave it alone for now.
+# foreach my $role ( keys %{$auth->{ROLES}} )
+# {
+#   my $h;
+#   foreach ( @{$auth->{ROLES}->{$role}} ) { $h->{$_} = 1;
+#   }
+#   delete $auth->{ROLES}->{$role};
+#   $role =~ s% %_%g;
+#   $auth->{ROLES}->{$role} = $h;
+# }
+  return { auth => $auth };
+}
+
+sub inject
+{
+  my ($self,%args) = @_;
+  $self->{SECMOD}->reqAuthnCert();
+  return { data => $args{data} };
 }
 
 1;
