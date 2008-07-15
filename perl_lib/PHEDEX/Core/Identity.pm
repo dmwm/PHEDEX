@@ -91,36 +91,32 @@ sub fetchAndSyncIdentity
 {
     my ($self, %h) = @_;
 
-    foreach my $required (qw (AUTH_METHOD NAME EMAIL) ) {
-	unless ($h{$required}) {
-	    $self->Error("fetchIdentity required parameter $required was not defined");
-	    return undef;
-	}
+    unless ($h{AUTH_METHOD}) {
+	die "fetchAndSyncIdentity requires AUTH_METHOD";
     }
+    
 
     my @to_sync;
     if ($h{AUTH_METHOD} eq 'CERTIFICATE') {
-	unless ($h{DN} && $h{CERTIFICATE}) {
-	    $self->Error("fetchIdentity requires DN and CERTIFICATE when AUTH_METHOD is CERTIFICATE");
-	    return undef;
-	}
 	@to_sync = qw(SECMOD_ID NAME EMAIL DN CERTIFICATE);	
     } elsif ($h{AUTH_METHOD} eq 'PASSWORD') {
-	unless ($h{USERNAME}) {
-	    $self->Error("fetchIdentity requires USERNAME when AUTH_METHOD is PASSWORD");
-	    return undef;
-	}
 	@to_sync = qw(SECMOD_ID NAME EMAIL USERNAME);
     } else { 
-	$self->Error("fetchIdentity AUTH_METHOD $h{AUTH_METHOD} is not supported");
-	return undef;
+	die "fetchAndSyncIdentity AUTH_METHOD $h{AUTH_METHOD} is not supported";
+    }
+
+    foreach my $param (@to_sync) {
+	unless ($h{$param}) {
+	    die "fetchAndSyncIdentity requires $param to be defined ",
+	    "when AUTH_METHOD is $h{AUTH_METHOD}";
+	}
     }
 
     my $id = { map { $_ => $h{$_} } @to_sync };
     my $now = time();
 
     # Look up a logged identity by either the SecurityModule ID, DN, or username
-    my $q = &dbexec($$self{DBH},
+    my $q = &execute_sql( $self, 
 		    qq{ select id, secmod_id, name, email, dn, certificate, username
 		          from t_adm_identity where secmod_id = :secmod_id
 			                         or dn = :dn
@@ -152,19 +148,37 @@ sub fetchAndSyncIdentity
 	$binds{':TIME_UPDATE'} = $now;
 	$binds{':ID'} = $$logged_id{ID};
 
-	&dbexec($$self{DBH}, $sql, %binds);
-	return $self->fetchIdentity(%h);
+	&execute_sql($self, $sql, %binds);
+	return &fetchAndSyncIdentity($self, %h);
     } else {
 	# If it is not logged, log it then return it by recursing
 	my $sql = qq{ insert into t_adm_identity };
 	$sql .= '('.join(', ', "ID", @to_sync, "TIME_UPDATE").') ';
-	$sql .= 'values ('.join(', ', "seq_adm_identity.nextval", map { ":$_" } (@to_sync,'TIME_UPDATE')).')';
+	$sql .= 'values ('.join(', ', 
+				"seq_adm_identity.nextval", 
+				map { ":$_" } (@to_sync,'TIME_UPDATE')).')';
 	my %binds = map { (":$_" => $$id{$_}) } @to_sync;
 	$binds{':TIME_UPDATE'} = $now;
 
-	&dbexec($$self{DBH}, $sql, %binds);
-	return $self->fetchIdentity(%h);
+	&execute_sql($self, $sql, %binds);
+	return &fetchAndSyncIdentity($self, %h);
     }
+}
+
+=pod
+
+=item getIdentity ($self, $identity_id)
+
+Returns a hash of identiry information given an identity_id
+
+=cut
+
+sub getIdentity
+{
+    my ($self, $identity) = @_;
+    my $sql =   qq{ select id, secmod_id, name, email, dn, certificate, username
+			from t_adm_identity where id = :id };
+    return &execute_sql($self, $sql, ':id' => $identity)->fetchrow_hashref();
 }
 
 =pod
@@ -201,13 +215,13 @@ sub makeObjWithAttrs
     . join(", ", "$sname.nextval", map { ":attr_$_" } @objfields)
     . ")\n returning id into :id";
   my $id = undef;
-  &dbexec($self->{DBH}, $objsql, ":id" => \$id, %objattrs);
+  &execute_sql($self, $objsql, ":id" => \$id, %objattrs);
 
   $tname .= "_attr"; $sname .= "_attr";
   while (@attrs)
   {
     my ($name, $value) = splice(@attrs, 0, 2);
-    &dbexec($self->{DBH}, qq{
+    &execute_sql($self, qq{
       insert into $tname (id, $link, name, value)
       values ($sname.nextval, :Id, :name, :value)},
       ":id" => $id, ":name" => $name, ":value" => $value);
@@ -218,12 +232,10 @@ sub makeObjWithAttrs
 
 =pod
 
-=item logClientInfo ($self, %attr)
+=item logClientInfo ($self, $identity_id, %attr)
 
-Logs arbitrary data about a client.
-
-%attr can have any data (ultimately stored as strings), but
-REMOTE_HOST and USER_AGENT are required.
+Logs arbitrary data about a client.  (e.g., a user using a web
+browser)
 
 Returns the client id for the data stored.
 
@@ -231,64 +243,41 @@ Returns the client id for the data stored.
 
 sub logClientInfo
 {
-    my ($self, %h) = @_;
-
-    foreach my $required ( qw(IDENTITY REMOTE_HOST USER_AGENT) ) {
-	unless ($h{$required}) {
-	    $self->Error("logClientInfo required parameter $required was not defined");
-	    return undef;
-	}
-    }
-    my $identity = $h{IDENTITY};
-    delete $h{IDENTITY};
+    my ($self, $identity_id, %attr) = @_;
 
     my $cid = &makeObjWithAttrs
-	($$self{DBH}, "adm_contact", "contact", {}, %h);
+	($self->{DBH}, "adm_contact", "contact", {}, %attr);
     
     my $client = &makeObjWithAttrs
-	($$self{DBH}, "adm_client", undef,
-	 { "identity" => $identity, "contact" => $cid });
+	($self->{DBH}, "adm_client", undef,
+	 { "identity" => $identity_id, "contact" => $cid });
     
     return $client;
 }
 
 =pod
 
-=item getClientData ($self, $clientid)
+=item getClientInfo ($self, $clientid)
 
 Returns a hash of information about a client given a client id.
 
 =cut
 
-sub getClientData 
+sub getClientInfo
 {
     my ($self, $clientid) = @_;
-    my $contactsql = qq{ select name, value 
-                             from t_adm_contact_attr con_attr 
-                             join t_adm_contact con on con.id = con_attr.contact
-                             join t_adm_client cli on cli.contact = con.id
-			     where cli.id = :id order by con_attr.id};
-    my $identsql  = qq{ select ident.name, ident.email, ident.dn, ident.certificate
-                            from t_adm_identity ident
-                            join t_adm_client cli on cli.identity = ident.id
-			    where cli.id = :id order by ident.id};
-    
-    
-    my %types = ('CONTACT_ATTR'  => $contactsql, 
-		 'IDENTITY' => $identsql);
+    my $sql = qq{ select cli.identity, name, value 
+                    from t_adm_contact_attr con_attr 
+                    join t_adm_contact con on con.id = con_attr.contact
+                    join t_adm_client cli on cli.contact = con.id
+		   where cli.id = :id order by con_attr.id};
     
     my $result = {};
     
-    while (my ($type, $sql) = each %types) {
-	my $q = &dbexec($$self{DBH}, $sql, ':id' => $clientid);
-	if ($type eq 'CONTACT_ATTR') {
-	    $result->{$type} = {};
-	    while (my ($name, $value) = $q->fetchrow_array()) {
-		$result->{$type}->{$name} = $value;
-	    }
-	} elsif ($type eq 'IDENTITY') {
-	    $result->{$type} = $q->fetchrow_hashref();
-	}
+    my $q = &execute_sql($self, $sql, ':id' => $clientid);
+    while (my ($identity_id, $name, $value) = $q->fetchrow_array()) {
+	$result->{IDENTITY} = $identity_id;
+	$result->{$name} = $value;
     }
     return $result;
 }
