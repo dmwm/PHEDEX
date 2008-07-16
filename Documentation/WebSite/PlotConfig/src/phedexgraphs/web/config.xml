@@ -1,7 +1,0 @@
-<graphtool-config>
-  <import module="phedexgraphs.web"> TfcMapperPhedex </import>
-  <import file="$CONFIG_ROOT/DBParam.xml" />
-  <class name="mapper" type="TfcMapperPhedex">
-    <attribute name="connection_manager"> PhedexConnMan </attribute>
-  </class>
-</graphtool-config>
