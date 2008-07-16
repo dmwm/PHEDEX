@@ -103,7 +103,7 @@ print header(-type => $type, %cache_headers );
 # security module be configured, wether needed or not. For POSTs, exlicitly
 # limit to Global Admins while working on the code. Later, relax to allow
 # the roles in TMDB to limit access.
-my ($secmod,$secmod__config);
+my ($secmod,$secmod_config);
 $secmod_config = $config->{SECMOD_CONFIG};
 if (!$secmod_config) {
   $core->error("ERROR:  SecurityModule config file not set in $config_file");
