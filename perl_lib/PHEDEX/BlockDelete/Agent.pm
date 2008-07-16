@@ -132,7 +132,7 @@ sub idle
 
 	# Clean up
 	# Delete requests for file and block deletion after 3 days
-	$old = $now - 3*24*3600;
+	my $old = $now - 3*24*3600;
 	&dbexec($dbh,qq{delete from t_xfer_delete where time_complete < :old}, ':old' => $old);
 	&dbexec($dbh,qq{delete from t_dps_block_delete where time_complete < :old}, ':old' => $old);
 	# Delete requests for block deletion from empty blocks
