@@ -812,7 +812,7 @@ sub inject
 {
   my ($self,%args) = @_;
   $self->{SECMOD}->reqAuthnCert();
-  return { data => $args{data} };
+  return { data => $args{data}, node => $args{node} };
 }
 
 =pod
