@@ -8,7 +8,7 @@ my ($url,$response,$help,$verbose,$quiet,$action,$Action,$h);
 my ($instance,$format,$call,$args,$method,$test_cert);
 my ($proxy,$debug,$cert_file,$key_file,$ca_file,$ca_dir,$nocert);
 
-$url = 'https://cmswttest.cern.ch:8443/phedex/datasvc/';
+$url = 'https://cmswttest.cern.ch:8443/phedex/datasvc';
 $instance = 'prod';
 $format   = 'perl';
 $call     = 'getAuth';
@@ -67,6 +67,9 @@ sub usage
 		is 'perl', anything else cannot easily be validated or used.
 
  --debug, --verbose, and --help are obvious
+
+ Multiple commands can be given in a single call, the arguments for each
+command are kept separate by the '--' pseudo-option.
 
 EOF
 
@@ -127,6 +130,10 @@ while ( $Action = shift )
 {
   next if $Action =~ m%^-+$%;
   $action = lc($Action);
+  if ( $action !~ m%^[a-z]+$% )
+  {
+    die "invalid syntax, use \"$0 --help\" for help\n";
+  }
   if ( $action eq $Action )
   {
     my @a = split('',$action);
@@ -151,10 +158,10 @@ while ( $Action = shift )
   {
     $cli->ParseResponse($response);
     print Data::Dumper->Dump([ $cli->{RESPONSE} ],[ 'Response' ]) if $verbose;
-    die "response is in valid\n" unless $cli->ResponseIsValid();
+    die "response is invalid\n" unless $cli->ResponseIsValid();
     push @responses,$cli->{RESPONSE};
   }
-  else { die "Woops, Failure! :-(\n"; }
+  else { die "exiting after failure\n"; }
 }
 
 exit 0;
