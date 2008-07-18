@@ -116,6 +116,7 @@ our $call_data = {
     getAuth         => [ qw( getAuth ) ],
     checkAuth       => [ qw( checkAuth ) ],
     inject          => [ qw( inject ) ],
+    bounce          => [ qw( bounce ) ],
 };
 
 # Data source parameters
@@ -135,6 +136,8 @@ our $data_sources = {
     checkAuth       => { DATASOURCE => \&PHEDEX::Web::Core::checkAuth,
 			 DURATION => 15*60 * 0 +1 },
     inject          => { DATASOURCE => \&PHEDEX::Web::Core::inject,
+			 DURATION => 0 },
+    bounce          => { DATASOURCE => \&PHEDEX::Web::Core::bounce,
 			 DURATION => 0 },
     lfn2pfn        => { DURATION => 15*60 }
 };
@@ -676,6 +679,7 @@ sub checkRequired
     }
 }
 
+# Fetch the list of nodes this user is authenticated to act on
 sub fetch_nodes
 {
     my ($self, %args) = @_;
@@ -739,6 +743,15 @@ sub fetch_nodes
     }
 }
 
+=pod
+
+=head2 checkAuth
+
+enforce that the user is authenticated by a certificate. Returns the same
+output as C<< getAuth >>
+
+=cut
+
 # Checks that the user is authenticated by a certificate, and returns a
 # list of PhEDEx nodes for the roles that user has access to. Returns an
 # error if the user is not authenticated.
@@ -748,6 +761,16 @@ sub checkAuth
   $self->{SECMOD}->reqAuthnCert();
   return $self->getAuth();
 }
+
+=pod
+
+=head2 getAuth
+
+Return a has of the users' authentication state. The hash contains keys for
+the STATE (cert|passwd|failed), the DN, the ROLES (from sitedb) and the
+NODES (from TMDB) that the user is allowed to operate on.
+
+=cut
 
 sub getAuth
 {
@@ -776,11 +799,35 @@ sub getAuth
   return { auth => $auth };
 }
 
+=pod
+
+=head2 inject
+
+Return the 'data' element of the OPTIONS as a hash. Eventually, should
+do something useful with them instead.
+
+=cut
+
 sub inject
 {
   my ($self,%args) = @_;
   $self->{SECMOD}->reqAuthnCert();
   return { data => $args{data} };
+}
+
+=pod
+
+=head2 bounce
+
+Return the URL OPTIONS as a hash, so you can see what the server has done
+to your request.
+
+=cut
+
+sub bounce
+{
+  my ($self,%args) = @_;
+  return { args => \%args };
 }
 
 1;
