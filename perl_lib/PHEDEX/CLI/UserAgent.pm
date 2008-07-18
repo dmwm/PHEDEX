@@ -146,7 +146,17 @@ sub response_ok
 {
   my ($self,$response) = @_;
 
-  return 1 if ( $response->is_success );
+  if ( $response->is_success )
+  {
+    $_ = $response->content();
+    s%\n%%g;
+    if ( m%^<error>(.*)</error>$% )
+    {
+      print "Error from ",$response->request()->url(),"\n$1\n";
+      return 0;
+    }
+    return 1;
+  }
 
   if ( $self->{PARANOID} )
   {

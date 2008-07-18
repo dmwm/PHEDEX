@@ -93,6 +93,7 @@ sub ResponseIsValid
   my $self = shift;
   my $response = $self->{RESPONSE};
 
+  print $self->Dump() if $self->{DEBUG};
 # Check that the user certificate was accepted, that they have valid roles
 # for PhEDEx, and that they have a set of nodes they can act on
   die "Certificate not accepted\n"    unless $response->{STATE} eq 'cert';

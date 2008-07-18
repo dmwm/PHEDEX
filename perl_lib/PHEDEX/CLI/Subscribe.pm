@@ -1,4 +1,4 @@
-package PHEDEX::CLI::Inject;
+package PHEDEX::CLI::Subscribe;
 use Getopt::Long;
 use Data::Dumper;
 use strict;
@@ -20,7 +20,7 @@ sub new
 	       'verbose!'	=> \$params{VERBOSE},
 	       'debug!'		=> \$params{DEBUG},
 	       "datafile=s@"	=> \$params{DATAFILE},
-	       "node=s"		=> \$params{NODE},
+	       "node=s@"	=> \$params{NODE},
 	     );
   GetOptions(%options);
   my $self = \%params;
@@ -49,14 +49,15 @@ sub Help
   die <<EOF;
 
  This command accepts one or more XML datafiles for uploading to a dataservice,
-and uses the dataservice to inject them into PhEDEx at a given node.
+and uses the dataservice to subscribe them to one or more PhEDEx nodes.
 
  Options:
  --datafile <filename>	name of an xml file. May be repeated, in which case the
 			file contents are concatenated. The xml format is
 			specified on the PhEDEx twiki on the 'Machine
 			Controlled Subscriptions' project page
- --node <nodename>	name of the node this data is to be injected at.
+ --node <nodename>	name of the node this data is to be subscribed to. May
+			be repeated to subscribe to multiple nodes.
 
  ...and of course, this module takes the standard options:
  --help, --(no)debug, --(no)verbose
@@ -83,13 +84,14 @@ sub Payload
   return $self->{PAYLOAD} = $payload;
 }
 
-sub Call { return 'inject'; }
+sub Call { return 'subscribe'; }
 
 sub ParseResponse
 {
   my ($self,$response) = @_;
   no strict;
-  my $content = eval($response->content());
+
+  my $content = eval($response->content()) || undef;
   $content = $content->{phedex} || {};
   foreach ( keys %{$self->{PAYLOAD}} )
   { $self->{RESPONSE}{$_} = $content->{$_}; }
@@ -103,13 +105,19 @@ sub ResponseIsValid
   my $payload  = $self->{PAYLOAD};
   my $response = $self->{RESPONSE};
   print $self->Dump() if $self->{DEBUG};
-  foreach ( keys %{$payload} )
+  if ( $payload->{data} ne $response->{data} )
   {
-    if ( $payload->{$_} ne $response->{$_} )
-    {
-      print __PACKAGE__," wrong $_ returned\n";
-      return 0;
-    }
+    print __PACKAGE__," wrong data returned\n" if $self->{VERBOSE};
+    return 0;
+  }
+
+  my %h;
+  foreach ( @{$payload->{node}} ) { $h{$_}++; }
+  foreach ( @{$response->{node}} ) { delete $h{$_}; }
+  if ( $_ = join(', ',sort keys %h) )
+  {
+    print __PACKAGE__," missing nodes: $_\n" if $self->{VERBOSE};
+    return 0;
   }
   print __PACKAGE__," response is valid\n" if $self->{VERBOSE};
   return 1;

@@ -98,12 +98,12 @@ sub ResponseIsValid
   my $self = shift;
   my $payload  = $self->{PAYLOAD};
   my $response = $self->{RESPONSE};
+  print $self->Dump() if $self->{DEBUG};
   foreach ( keys %{$payload} )
   {
     if ( $payload->{$_} ne $response->{$_} )
     {
-      print __PACKAGE__," response is invalid\n" if $self->{VERBOSE};
-      print $self->Dump() if $self->{DEBUG};
+      print __PACKAGE__," wrong $_ returned\n";
       return 0;
     }
   }
