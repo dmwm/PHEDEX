@@ -1,0 +1,160 @@
+#!/usr/bin/perl
+
+use strict;
+use PHEDEX::CLI::UserAgent;
+use Getopt::Long;
+use Data::Dumper;
+my ($url,$response,$help,$verbose,$quiet,$action,$Action,$h);
+my ($instance,$format,$call,$args,$method,$test_cert);
+my ($proxy,$debug,$cert_file,$key_file,$ca_file,$ca_dir,$nocert);
+
+$url = 'https://cmswttest.cern.ch:8443/phedex/datasvc/';
+$instance = 'prod';
+$format   = 'perl';
+$call     = 'getAuth';
+$method   = 'post';
+$help = $verbose = $debug = $quiet = $nocert = $test_cert = 0;
+
+Getopt::Long::Configure( 'pass_through' );
+GetOptions
+	(
+	 'help'		=> \$help,
+	 'verbose!'	=> \$verbose,
+	 'quiet!'	=> \$quiet,
+	 'debug!'	=> \$debug,
+	 'proxy=s'	=> \$proxy,
+	 'cert_file=s'	=> \$cert_file,
+	 'key_file=s'	=> \$key_file,
+	 'ca_file=s'	=> \$ca_file,
+	 'ca_dir=s'	=> \$ca_dir,
+	 'url=s'	=> \$url,
+	 'nocert'	=> \$nocert,
+	 'testcert'	=> \$test_cert,
+
+	 'instance=s'	=> \$instance,
+	 'format=s'	=> \$format,
+#	 'call=s'	=> \$call,
+#	 'args=s'	=> \$args,
+	 'method=s'	=> \$method,
+	) if ( $ARGV[0] =~ m%^-% );
+
+sub usage
+{
+  print <<EOF;
+
+  Usage: $0 [--proxy=s] [--cert_file=s] [--key_file=s]
+	    [--method=s] [--url=s]
+	    [--instance=s] [--format=s]
+	    [--debug] [--verbose]
+	    command <command-options> --
+	    command <command-options> --
+
+ where
+ --proxy, --cert_file, and --key_file are used to define your certificate.
+ if none of these options are specified, your usercert.pem and userkey.pem
+ in ~/.globus are assumed. If you specify any of them then you must specify
+ all that are needed, the defaults are only taken if none are set.
+
+ If you don't want to use a certificate at all, use --nocert, and you had
+ better specify a --url that doesn't connect to https as well.
+
+ --method	'post' or 'get'. Don't set this unless you know why.
+ --url		is the URL of the PhEDEx dataservice instance. The default is
+		$url
+
+ --instance	name of PhEDEx instance to use: 'prod', 'dev', 'test'...
+ --format	format for returned data: 'perl', 'xml', 'json'. The default
+		is 'perl', anything else cannot easily be validated or used.
+
+ --debug, --verbose, and --help are obvious
+
+EOF
+
+  my %commands;
+  foreach ( @INC )
+  {
+    foreach ( <$_/PHEDEX/CLI/*pm> )
+    {
+      m%^.*/PHEDEX/CLI/(.*).pm$%;
+      $commands{lc $1}++;
+    }
+  }
+
+  foreach ( qw / Template UserAgent / )
+  { delete $commands{lc $_} if exists $commands{lc $_}; }
+
+  print " Known commands in this installation are:\n",
+	' ',join(' ',sort keys %commands),"\n\n",
+	" use \"$0 <command> -help\" for details of a particular command\n\n";
+  exit 0;
+}
+
+$help && usage;
+
+if ( !( $cert_file || $key_file || $proxy || $ca_file || $ca_dir ||
+	$ENV{HTTPS_PROXY} || $ENV{HTTPS_CERT_FILE} || $ENV{HTTPS_KEY_FILE} ||
+	$ENV{HTTPS_CA_FILE} || $ENV{HTTPS_CA_DIR} ) )
+{
+  $cert_file = $ENV{HOME} . '/.globus/usercert.pem';
+  $key_file  = $ENV{HOME} . '/.globus/userkey.pem';
+}
+my $pua = new PHEDEX::CLI::UserAgent
+	(
+	  DEBUG	 	=> $debug,
+	  CERT_FILE	=> $cert_file,
+	  KEY_FILE	=> $key_file,
+	  PROXY	 	=> $proxy,
+	  CA_FILE	=> $ca_file,
+	  CA_DIR	=> $ca_dir,
+	  URL		=> $url,
+	  FORMAT	=> $format,
+	  INSTANCE	=> $instance,
+#	  CALL		=> $call,
+	  NOCERT	=> $nocert,
+	);
+
+$pua->PARANOID(0);
+$pua->VERBOSE($verbose);
+print $pua->Dump() if $debug;
+if ( $test_cert )
+{
+  $pua->VERBOSE(1);
+  $pua->test_certificate();
+}
+
+my (%Modules,@responses);
+while ( $Action = shift )
+{
+  next if $Action =~ m%^-+$%;
+  $action = lc($Action);
+  if ( $action eq $Action )
+  {
+    my @a = split('',$action);
+    $a[0] = uc $a[0];
+    $Action = join('',@a);
+  }
+  my $module = "PHEDEX::CLI::$Action";
+  if ( ! exists $Modules{$Action} )
+  {
+    eval("use $module");
+    do { chomp ($@); die "Failed to load module $module: $@\n" } if $@;
+    $Modules{$Action}++;
+  }
+  my $cli = $module->new();
+  print "created new $module object\n";
+  print $cli->Dump() if $debug;
+  $pua->CALL($cli->Call());
+  $response = $pua->$method($pua->target,$cli->Payload());
+
+  print "Response: ",$response->content if $debug;
+  if ( $pua->response_ok($response) )
+  {
+    $cli->ParseResponse($response);
+    print Data::Dumper->Dump([ $cli->{RESPONSE} ],[ 'Response' ]) if $verbose;
+    die "response is in valid\n" unless $cli->ResponseIsValid();
+    push @responses,$cli->{RESPONSE};
+  }
+  else { die "Woops, Failure! :-(\n"; }
+}
+
+exit 0;
