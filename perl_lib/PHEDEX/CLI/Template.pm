@@ -87,6 +87,7 @@ sub ParseResponse
   $content = $content->{phedex}{args} || {};
   foreach ( keys %{$self->{PAYLOAD}} )
   { $self->{RESPONSE}{$_} = $content->{$_}; }
+  print $self->Dump() if $self->{DEBUG};
 }
 
 sub ResponseIsValid

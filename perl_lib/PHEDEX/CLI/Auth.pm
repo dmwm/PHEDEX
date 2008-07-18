@@ -46,7 +46,12 @@ sub Help
   print "\n Usage for ",__PACKAGE__,"\n";
   die <<EOF;
 
- Help description goes here...
+ This module checks that you are authorised to use the PhEDEx dataservice.
+By default, it checks that you have a PhEDEx role and that there are at least
+some nodes you are allowed to operate on. If you use the "--nodes <s>" option,
+you can explicitly check that a given node is in the list, the module will
+terminate with an error otherwise. "--node" can be repeated, to check for a
+set of nodes.
 
  ...and of course, this module takes the standard options:
  --help, --(no)debug, --(no)verbose
@@ -80,6 +85,7 @@ sub ParseResponse
     foreach ( @{$content->{ROLES}{$role}} ) 
     { push @{$self->{RESPONSE}{ROLES}},$role if m%^phedex$%; }
   }
+  print $self->Dump() if $self->{DEBUG};
 }
 
 sub ResponseIsValid
@@ -98,7 +104,6 @@ sub ResponseIsValid
   {
     foreach ( @{$self->{NODES}} )
     {
-      print $self->Dump() if $self->{DEBUG};
       die "Required node \"$_\" not found in authorised list\n" unless
 	$response->{NODES}{$_};
     }

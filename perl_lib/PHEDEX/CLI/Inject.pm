@@ -80,7 +80,7 @@ sub Payload
     close DATA;
   }
   print __PACKAGE__," created payload\n" if $self->{VERBOSE};
-  return $payload;
+  return $self->{PAYLOAD} = $payload;
 }
 
 sub Call { return 'bounce'; }
@@ -93,6 +93,7 @@ sub ParseResponse
   $content = $content->{phedex}{args} || {};
   foreach ( keys %{$self->{PAYLOAD}} )
   { $self->{RESPONSE}{$_} = $content->{$_}; }
+  print $self->Dump() if $self->{DEBUG};
 }
 
 sub ResponseIsValid
@@ -106,7 +107,6 @@ sub ResponseIsValid
     if ( $payload->{$_} ne $response->{$_} )
     {
       print __PACKAGE__," response is invalid\n" if $self->{VERBOSE};
-      print $self->Dump() if $self->{DEBUG};
       return 0;
     }
   }
