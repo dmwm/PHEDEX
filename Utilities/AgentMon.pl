@@ -1,5 +1,8 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl
+
+use warnings;
 use strict;
+
 use Getopt::Long;
 use Data::Dumper;
 use PHEDEX::Monalisa;
