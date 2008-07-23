@@ -234,6 +234,7 @@ use strict;
 use warnings;
 
 use PHEDEX::Core::DB;
+use base 'PHEDEX::Core::Logging';
 use Carp;
 use POSIX;
 
@@ -654,7 +655,6 @@ sub getDatasetsFromWildCard
 sub getBuffersFromWildCard
 { 
   my $self = shift;
-#die "Tony has to fix this\n";
   my ($sql,$r,%p,$node,%result);
 
    $sql = qq {select id, name, technology from t_adm_node
@@ -671,7 +671,21 @@ sub getBuffersFromWildCard
 #-------------------------------------------------------------------------------
 sub getBlockReplicasFromWildCard
 {
-  my ($self,$block,@nodes) = @_;
+  my $self = shift;
+  my ($h,$block,@nodes,$complete);
+  $h = shift;
+  if ( ref($h) eq 'HASH' )
+  {
+    @nodes = $h->{NODES};
+    $block = $h->{BLOCK};
+    $complete = $h->{COMPLETE_BLOCKS};
+  }
+  else
+  {
+    $self->Logmsg('getBlockReplicasFromWildCard: use of positional interface is deprecated, please use the named-argument interface instead');
+    $block = $h;
+    @nodes = @_;
+  }
   my $sql = qq {select block, name, files from
                 t_dps_block_replica br join t_dps_block b on br.block = b.id
                 where name like :name };
@@ -679,6 +693,10 @@ sub getBlockReplicasFromWildCard
   if ( @nodes )
   {
     $sql .= ' and (' .  filter_or_eq( $self, undef, \%p, 'node', @nodes ) . ')';
+  }
+  if ( $complete )
+  {
+    $sql .= " and br.node_files = b.files and b.is_open = 'n'";
   }
 
   my $r = select_hash( $self, $sql, 'BLOCK', %p );
