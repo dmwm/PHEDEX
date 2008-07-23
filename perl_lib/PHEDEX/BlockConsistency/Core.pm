@@ -42,6 +42,8 @@ our (%h,%check,%params);
 		BUFFER		=> undef,
 		CHECK		=> \%check,
 		AUTOBLOCK	=> 0,
+		VERBOSE		=> 0,
+		DEBUG		=> 0,
 	  );
 
 sub new
@@ -83,17 +85,17 @@ sub AUTOLOAD
 
 sub InjectTest
 {
-  my ($self,%h,@fields,$sql,$id,%p,$q,$r);
+  my ($self,%h,@fields,$sql,$id,%p,$q,$r,$force);
 
   $self = shift;
   %h = @_;
   map { $h{lc($_)} = delete $h{$_} } keys %h;
   @fields = qw / block node test n_files time_expire priority use_srm /;
-
   foreach ( @fields )
   {
     defined($h{$_}) or die "'$_' missing in " . __PACKAGE__ . "::InjectTest!\n";
   }
+  $force = delete $h{force} || 0;
 
 # If a named test was given, get the test-id instead
   if ( $h{test} !~ m%^[0-9]+$% )
@@ -101,7 +103,9 @@ sub InjectTest
     $h{test} = get_TDVS_Tests( $self, $h{test} )->{ID};
   }
 
-  $r = getQueued ($self,
+  if ( !$force )
+  {
+    $r = getQueued ($self,
 			 block		=> $h{block},
 			 test		=> $h{test},
 			 node		=> $h{node},
@@ -109,10 +113,11 @@ sub InjectTest
 			 time_expire	=> time - 10 * 86400
 			);
 
-  if ( scalar(@{$r}) )
-  {
-#  Silently report (one of) the test(s) that already exists...
-    return $r->[0]->{ID};
+    if ( scalar(@{$r}) )
+    {
+#     report (one of) the test(s) that already exists...
+      return { ID => $r->[0]->{ID}, INJECTED => 0 };
+    }
   }
 
   $sql = 'insert into t_dvs_block (id,' . join(',', @fields) . ') ' .
@@ -141,7 +146,7 @@ sub InjectTest
   %p = ( ':request' => $id, ':block' => $h{block}, ':time' => time() );
   $q = execute_sql( $self, $sql, %p );
 
-  return $id;
+  return { ID => $id, INJECTED => 1 };
 }
 
 #-------------------------------------------------------------------------------
