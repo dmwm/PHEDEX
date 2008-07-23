@@ -20,6 +20,9 @@ use strict;
 ##H   --listonly          List the blocks, buffers, and tests matching
 ##H                       the input arguments.
 ##H
+##H   --force             Force the test(s) to be injected, even if they represent
+##H                       duplicates of existing tests.
+##H
 ##H  Wildcards are accepted where they are sensible, defaults are provided
 ##H  where they make sense too.
 ##H 
@@ -33,20 +36,20 @@ use PHEDEX::BlockConsistency::Core;
 
 my ($dbh,$conn,$dbconfig);
 my (@nodes,$nodes,$node,@blocks,$blocks,$block,@tests,$tests,$test);
-my ($help,$verbose,$debug,$listonly,$count,$id);
+my ($help,$verbose,$debug,$listonly,$force,$count,$id,$complete);
 my ($bcc,$n_files,$time_expire,$priority,$use_srm);
 my ($debug_me);
 
 $debug_me = 1;
-$verbose = $debug = $listonly = 0;
-
+$verbose = $debug = $listonly = $force = $complete = 0;
 $n_files = $use_srm = 0;
 $priority = 16384;
 $time_expire = 10 * 86400;
-GetOptions(	"db=s"		=> \$dbconfig,
+GetOptions(	"dbconfig=s"	=> \$dbconfig,
 		"node=s"	=> \@nodes,
 		"block=s"	=> \@blocks,
 		"test=s"	=> \@tests,
+		"incomplete"	=> \$complete,
 
 		"n_files=i"	=> \$n_files,
 		"expire=i"	=> \$time_expire,
@@ -56,6 +59,7 @@ GetOptions(	"db=s"		=> \$dbconfig,
 		"debug+"	=> \$debug,
 		"verbose+"	=> \$verbose,
 		"listonly"	=> \$listonly,
+		"force"		=> \$force,
 
 		"help|h"	=> sub { &usage() }
           );
@@ -66,6 +70,7 @@ $dbconfig or die "'--dbconfig' argument is mandatory\n";
 @blocks   or die "'--block' argument is mandatory\n";
 @tests    or die "'--test' argument is mandatory\n";
 $use_srm = $use_srm ? 'y' : 'n';
+$complete = $complete ? 0 : 1; # Yes, binary negation of $complete!
 
 if ( $n_files )
 {
@@ -76,11 +81,17 @@ $conn = { DBCONFIG => $dbconfig };
 $dbh = &connectToDatabase ( $conn );
 
 #-------------------------------------------------------------------------------
-$bcc = PHEDEX::BlockConsistency::Core->new( DBH => $dbh );
+$bcc = PHEDEX::BlockConsistency::Core->new(
+					    DBH     => $dbh,
+					    VERBOSE => $verbose,
+					    DEBUG   => $debug,
+					  );
 $nodes = $bcc->getBuffersFromWildCard(@nodes);
 my @n = keys %{$nodes};
 $blocks  = $bcc->expandBlockListOnNodes( blocks => \@blocks,
-					 nodes  => \@n );
+					 nodes  => \@n,
+					 complete_blocks => $complete,
+				       );
 $tests   = $bcc->expandTestList(@tests);
 
 if ( $listonly || $verbose > 1 )
@@ -110,18 +121,26 @@ $|=1;
 foreach $block ( keys %{$blocks} )
 {
   my $n = $n_files || $blocks->{$block}{FILES};
+  my $r;
   foreach $test ( keys %{$tests} )
   {
-    $id = $bcc->InjectTest( node	=> $node,
-			    test	=> $test,
-			    block	=> $block,
-			    n_files	=> $n,
-			    time_expire	=> time + $time_expire,
-			    priority	=> $priority,
-			    use_srm	=> $use_srm,
-		          );
-    defined $id or die "InjectTest failed miserably :-(\n";
-    $verbose && print "Request=$id Node=$nodes->{$node}->{NAME} test=\'$tests->{$test}->{NAME}\' block='$blocks->{$block}->{NAME}'\n";
+    $r = $bcc->InjectTest( node		=> $node,
+			   test		=> $test,
+			   block	=> $block,
+			   n_files	=> $n,
+			   time_expire	=> time + $time_expire,
+			   priority	=> $priority,
+			   use_srm	=> $use_srm,
+			   force	=> $force,
+		         );
+    defined $r or die "InjectTest failed miserably :-(\n";
+    $id = $r->{ID};
+    if ( $verbose )
+    {
+      print "Request=$id Node=$nodes->{$node}->{NAME} test=\'$tests->{$test}->{NAME}\' block='$blocks->{$block}->{NAME}'";
+      if ( !$r->{INJECTED} ) { print ' : Request reused'; }
+      print "\n";
+    }
   }
   $count--;
   $verbose || print "Insertions remaining: $count \r";
