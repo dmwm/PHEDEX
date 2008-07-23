@@ -114,16 +114,20 @@ sub doDBSCheck
   my $r = $self->getDBSFromBlockIDs($request->{BLOCK});
   my $dbsurl = $r->[0] or die "Cannot get DBS url?\n";
   my $blockname = $self->getBlocksFromIDs($request->{BLOCK})->[0];
-  open DBS, "$dbs --url $dbsurl --block $blockname |" or die "$dbs: $!\n";
-  my %dbs;
-  while ( <DBS> )
+# open DBS, "$dbs --url $dbsurl --block $blockname |" or die "$dbs: $!\n";
+  open DBS, "$dbs --url $dbsurl --block $blockname |" or do
   {
-    if ( m%^LFN=(\S+)$% )
-    {
-      $dbs{$1}++;
-    }
-  }
-  close DBS or die "$dbs: $!\n";
+    $self->Alert("$dbs: $!\n");
+    return 0;
+  };
+  my %dbs;
+  while ( <DBS> ) { if ( m%^LFN=(\S+)$% ) { $dbs{$1}++; } }
+# close DBS or die "$dbs: $!\n";
+  close DBS or do
+  {
+    $self->Alert("$dbs: $!\n");
+    return 0;
+  };
 
   eval
   {
