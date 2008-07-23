@@ -3,7 +3,7 @@ use strict;
 
 ##H
 ##H  Find orphan files in storage w.r.t. TMDB or DBS.
-##H  If -injected option it will compare with all the files injected into TMDB
+##H  If -injected option is given it will compare with all the files injected into TMDB
 ##H  If not, it will compare the lfnlist only with the replicas of the SE_NAME   
 ##H
 ##H   Usage:
