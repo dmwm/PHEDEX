@@ -17,6 +17,7 @@ use strict;
 ##H                        [-tfcprotocol TFCPROTOCOL]
 ##H                        [-mssprotocol MSSPROTOCOL]
 ##H                        [-verbose]
+##H                        [-dumpstats DUMPFILE]
 ##H 
 ##H   DBCONFIG is the usual PhEDEx DB contact file.
 ##H
@@ -52,6 +53,14 @@ use strict;
 ##H   MSSPROTOCOL is the protocol by which your SE should be accessed.
 ##H   Normally this should be deducible from your entry in TMDB, so you
 ##H   shouldn't need to worry about it.
+##H
+##H   The dumpstats option will perform all the TMDB magic, then instead of
+##H   analysing the results and printing the summary, it will dump them to the
+##H   named DUMPFILE as a Perl Data::Dumper structure, and exit. This can then
+##H   be eval'ed in another program for independant analysis. The data-format
+##H   is not standardised, and is subject to change without warning, so do not
+##H   rely on it for major work without negotiating with the PhEDEx developers
+##H   beforehand.
 ##H
 ##H   EXAMPLES:
 ##H
@@ -107,7 +116,6 @@ $destination = 'any';
 $callouton   = '';
 %calloutonAllowed = ( failure => 1, success => 1, all => 1);
 
-#$tfc='/afs/cern.ch/user/w/wildish/public/COMP/SITECONF/CERN/PhEDEx/storage.xml';
 GetOptions("db=s"           => \$DBCONFIG,
            "block=s@"       => \@BLOCK,
            "dataset=s@"     => \@DATASET,
