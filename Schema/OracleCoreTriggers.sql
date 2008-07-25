@@ -1,3 +1,5 @@
+set scan off;
+
 create or replace trigger tr_dps_file_block
   after insert or update or delete on t_dps_file for each row declare
     unixtime integer
