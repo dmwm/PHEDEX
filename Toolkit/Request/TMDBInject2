@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+
+use PHEDEX::Core::DB;
+use PHEDEX::Core::Inject;
+use PHEDEX::Core::XML;
+use PHEDEX::Core::Timing;
+
+use Getopt::Long;
+use Data::Dumper;
+
+my %args;
+my $verbose = 1;
+my $strict = 1;
+my $src_node = 1;
+
+&GetOptions ("db=s" => \$args{DBCONFIG},
+	     "strict=i" => \$strict );
+
+print "Args:\n", Dumper(\%args), "\n";
+
+# Check arguments.
+if (!$args{DBCONFIG})
+{
+  die "Insufficient parameters, use -h for help.\n";
+}
+
+my $file = shift @ARGV;
+die "no file\n" unless $file;
+
+# Parse file
+print "Parsing $file\n";
+my $data = &PHEDEX::Core::XML::parseData(FILE => $file);
+
+# Connect to database
+print "Connecting to $args{DBCONFIG}\n";
+my $self = { DBCONFIG => $args{DBCONFIG} };
+bless $self;
+my $dbh = &connectToDatabase ($self);
+
+&PHEDEX::Core::Inject::injectData ($self, $data, $src_node,
+				   VERBOSE => $verbose,
+				   STRICT => $strict);
+
+print "Done.\n";
+
+&PHEDEX::Core::Inject::execute_commit($self);
+
+&disconnectFromDatabase($self);
+
+exit;
