@@ -97,13 +97,13 @@ sub doDBSCheck
   my $dbh = undef;
   my @nodes = ();
 
-  print scalar localtime, ": doDBSCheck: starting\n";
+  $self->Logmsg("doDBSCheck: starting");
   my $dropdir = "$$self{WORKDIR}/$drop";
 
   $self->{bcc}->Checks($request->{TEST}) or
     die "Test $request->{TEST} not known to ",ref($self),"!\n";
 
-  print scalar localtime, ": doDBSCheck: Request ",$request->{ID},"\n";
+  $self->Logmsg("doDBSCheck: Request ",$request->{ID});
   $n_files = $request->{N_FILES};
   my $t = time;
 
@@ -190,7 +190,7 @@ sub doNSCheck
   my $dbh = undef;
   my @nodes = ();
 
-  print scalar localtime, ": doNSCheck: starting\n";
+  $self->Logmsg("doNSCheck: starting");
   my $dropdir = "$$self{WORKDIR}/$drop";
 
   $self->{bcc}->Checks($request->{TEST}) or
@@ -214,7 +214,7 @@ sub doNSCheck
     $ns->technology( $technology );
   }
 
-  print scalar localtime, ": doNSCheck: Request ",$request->{ID},"\n";
+  $self->Logmsg("doNSCheck: Request ",$request->{ID});
   $n_files = $request->{N_FILES};
   my $t = time;
   foreach my $r ( @{$request->{LFNs}} )
@@ -236,7 +236,7 @@ sub doNSCheck
     last unless --$n_files;
     if ( time - $t > 60 )
     {
-      print scalar localtime,": $n_files files remaining\n";
+      $self->Logmsg("$n_files files remaining");
       $t = time;
     }
   }
@@ -364,7 +364,7 @@ sub processDrop
     $self->relayDrop ($drop);
     $self->setRequestState($request,'Expired');
     $self->{DBH}->commit();
-    print scalar localtime, ": processDrop: return after Expiring $request->{ID}\n";
+    $self->Logmsg("processDrop: return after Expiring $request->{ID}");
     return;
   }
 
@@ -391,7 +391,7 @@ sub processDrop
     $self->markBad($drop);
     $self->setRequestState($request,'Rejected');
     $self->{DBH}->commit();
-    print scalar localtime, ": processDrop: return after Rejecting $request->{ID}\n";
+    $self->Logmsg("processDrop: return after Rejecting $request->{ID}");
     return;
   }
 
@@ -408,7 +408,7 @@ sub requestQueue
   my ($self, $limit, $mfilter, $mfilter_args, $ofilter, $ofilter_args) = @_;
   my (@requests,$sql,%p,$q,$q1,$n,$i);
 
-  print scalar localtime, ": requestQueue: starting\n";
+  $self->Logmsg("requestQueue: starting");
   my $now = &mytimeofday();
 
 # Find all the files that we are expected to work on
@@ -451,7 +451,7 @@ sub requestQueue
     last if ++$i >= $limit;
   }
 
-  print scalar localtime,": Got ",scalar @requests," requests, for $n files in total\n";
+  $self->Logmsg("Got ",scalar @requests," requests, for $n files in total");
   return @requests;
 }
 
@@ -587,7 +587,7 @@ print "Hmm, I have to connect...? (Request=$request->{ID}, state=$state)\n";
     $disconnect=1;
   }
 
-  print scalar localtime,": Request=$request->{ID}, state=$state\n";
+  $self->Logmsg("Request=$request->{ID}, state=$state");
 
   $sql = qq{
 	update t_status_block_verify sbv 

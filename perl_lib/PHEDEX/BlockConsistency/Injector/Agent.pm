@@ -94,7 +94,7 @@ sub stuckOnWan
   my (@requests,$sql,%p,$q);
   my ($now,$t,$interval);
 
-  print scalar localtime, ": find candidates stuckOnWan: starting\n";
+  $self->Logmsg("find candidates stuckOnWan: starting");
   $now = &mytimeofday();
 
 # Blocks stuck over a link for longer than $interval, but not if already seen
@@ -115,7 +115,7 @@ sub stuckOnWan
        };
   $t = time();
   $interval = $t - $self->{CHECK_INTERVAL};
-  print 'Search between ', (scalar localtime $interval), ' and ', (scalar localtime $self->{LAST_CHECKED}), "\n";
+  $self->Logmsg('Search between ', (scalar localtime $interval), ' and ', (scalar localtime $self->{LAST_CHECKED}));
   %p = ( ":interval"     => $interval,
 	 ":last_checked" => $self->{LAST_CHECKED},
 	 %{$filter_args}
@@ -125,7 +125,7 @@ sub stuckOnWan
   while ( my $h = $q->fetchrow_hashref() ) { push @requests, $h; }
 
   $self->{LAST_CHECKED} = $t;
-  print scalar localtime,": Found ",scalar @requests," requests in total\n";
+  $self->Logmsg("Found ",scalar @requests," requests in total");
   return @requests;
 }
 
@@ -200,7 +200,7 @@ sub idle
         PHEDEX::BlockConsistency::Core::InjectTest( $self, %p );
       }
     }
-    print scalar localtime, ": Started $counter requests\n";
+    $self->Logmsg("Started $counter requests");
     $dbh->commit();
   };
   do { chomp ($@);
