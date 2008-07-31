@@ -19,7 +19,7 @@ use PHEDEX::Core::Config;
 ##H
 
 my ($pid,$env,$cluster,$node,$cfg,$agent,$host,$site);
-my (@agents,$rss,$vsize,$cpu,%g);
+my (@agents,$rss,$vsize,$cpu,%g,$pagesize);
 my ($detail,%pids,$interval,$help,$verbose,$quiet);
 my ($apmon_args,$prefix,$state,$config,@configs);
 
@@ -70,6 +70,12 @@ my $apmon = PHEDEX::Monalisa->new (
 #
 $prefix .= '_' unless $prefix =~ m%_$%;
 
+open CONF, "getconf PAGESIZE|" or die "getconf PAGESIZE: $!\n";
+$pagesize = <CONF>;
+close CONF;
+chomp $pagesize;
+$pagesize or die "Cannot determine memory pagesize!\n";
+
 if ( $state )
 {
   my $STATE;
@@ -114,8 +120,8 @@ foreach $config ( @configs, @ARGV )
     $_ = <PROC>;
     close PROC or die "Error closing /proc/$pid/statm: $!\n";
     my @a = split(' ',$_);
-    $h{VSize} = $a[0] / 1024; # in MB
-    $h{RSS}   = $a[1] / 1024;
+    $h{VSize} = $a[0] * $pagesize / 1024 / 1024; # in MB
+    $h{RSS}   = $a[1] * $pagesize / 1024 / 1024;
 
     open PROC, "</proc/$pid/stat" or do { warn "/proc/$pid: $!\n"; next; };
     $_ = <PROC>;
