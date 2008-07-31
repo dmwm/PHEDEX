@@ -17,7 +17,7 @@ use PHEDEX::Core::Help;
 ##H appropriate.
 ##H
 
-my ($rss,$vsize,$cpu,%g,%cmds,%procs,@users);
+my ($rss,$vsize,$cpu,%g,%cmds,%procs,%bad,@users);
 my ($detail,%pids,$interval,$help,$verbose,$quiet,$log);
 my (%thresh,$VSize,$RSS,$Utime,$Stime,$pagesize);
 
@@ -76,6 +76,9 @@ if ( $log )
 		Utime	=> $Utime,
 		Stime	=> $Stime,
 	  );
+print scalar localtime,": ($$) Thresholds are: ",
+	map { "$_=$thresh{$_} " } sort keys %thresh;
+print "\n";
 
 open CONF, "getconf PAGESIZE|" or die "getconf PAGESIZE: $!\n";
 $pagesize = <CONF>;
@@ -109,9 +112,8 @@ foreach ( @ps )
     next unless $_;
     chomp $_;
     $_ = join(' ',split('\c@',$_));
-    $cmds{$pid} = $_;
+    $cmds{$pid} = "user=$user pid=$pid, cmd=$_";
     close CMD;
-    print "Adding user=$user pid=$pid, cmd=$_\n";
   }
 }
 
@@ -145,6 +147,7 @@ foreach my $pid ( sort { $a <=> $b } keys %procs )
   }
   if ( @l )
   {
+    if ( !$bad{$pid}++ ) { print scalar localtime,": Reporting $cmds{$pid}\n"; }
     print scalar localtime,": PID=$pid exceeded=>(",join(',',@l),') ',
 	join(' ',map { "$_=$h{$_}" } sort keys %h),
 	"\n";
