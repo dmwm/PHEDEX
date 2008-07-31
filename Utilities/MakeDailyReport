@@ -37,6 +37,21 @@ if (@ARGV || !$args{DBCONFIG})
     die "Insufficient parameters, use -h for help.\n";
 }
 
+        my ($from, $to, $bin, $width,
+	    $xfiles, $xbytes, $pfiles, $pbytes,
+       	    $tfiles, $ffiles) = @a;
+use constant FROM	  => 0;
+use constant TO 	  => 1;
+use constant BIN	  => 2;
+use constant WIDTH	  => 3;
+use constant XFER_FILES   => 4;
+use constant XFER_BYTES   => 5;
+use constant PEND_FILES   => 6;
+use constant PEND_BYTES   => 7;
+use constant SUCC_START   => 8;
+use constant SUCC_ERROR   => 9;
+use constant SUCC_SUCCESS => XFER_FILES;
+
 my $dbh = &connectToDatabase (\%args);
 
 print "PhEDEx status report for $args{DBSECTION} ($args{DBH_DBUSER}\@$args{DBH_DBNAME})\n",
@@ -133,7 +148,7 @@ print "# Recent transfer status\n",
 
 foreach my $prevdays (1, 7, 14, 30, 90, 365)
 {
-    my ($timelow, $timemax, $timespan, %perf, %success);
+    my ($timelow, $timemax, $timespan, %perf, @perf, %success);
     my $now = $args{UPTO} || &mytimeofday();
     my $lowlimit = (int($now/86400)-$prevdays)*86400;
     $now = $lowlimit + $prevdays*86400;
@@ -160,30 +175,35 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
           and f.name not like '%MSS'
         group by f.name, t.name, trunc(he.timebin/3600)*3600, 3600},
         ":limit" => $lowlimit, ":upto" => $now);
-
-    while (my ($from, $to, $bin, $width,
-	       $xfiles, $xbytes, $pfiles, $pbytes,
-       	       $tfiles, $ffiles) = $qperf->fetchrow())
+    while ( my @a = $qperf->fetchrow() )
     {
+        my $bin = $a[BIN];
 	if (! defined $timemax || $bin > $timemax)
 	{
             $timemax = $bin;
-	    $timespan = $width;
+	    $timespan = $a[WIDTH];
 	}
 	if (! defined $timelow || $bin < $timelow)
 	{
             $timelow = $bin;
 	}
+#       Saving an array instead of a hashref saves a bit of memory because of the keys, even
+#       though duplicate keys are shared, so it doesn't save a great deal. But more later...
+        push @perf, "@a";
+    }
 
-	push(@{$perf{$to}{$from}}, {
-	  BIN => $bin,
-	  XFER_FILES => $xfiles,
-	  XFER_BYTES => $xbytes,
-	  PEND_FILES => $pfiles,
-	  PEND_BYTES => $pbytes,
-	  SUCC_START => $tfiles,
-	  SUCC_ERROR => $ffiles,
-	  SUCC_SUCCESS => $xfiles });
+    while ( $_ = shift @perf )
+    {
+      my @a = split(' ',$_);
+      my ($to,$from) = @a[TO,FROM];
+#     Shrink the TO and FROM fields, but do not eliminate them or later splits will fail!
+#     This saves about 10% of the memory over and above the other hacks
+      $a[TO] = $a[FROM] = '.';
+#     This is the big memory-saver. All those numbers represented as a string take up about
+#     a third of the space they do as internally-represented integers.
+#     The flip-side of this is that you waste a lot of CPU splitting the string and joining
+#     the array when you want to read or store the values. You can't win them all!
+      push @{$perf{$to}{$from}}, join(' ',@a);;
     }
 
     # Make sure the time bounds are defined in case the period was empty
@@ -235,19 +255,23 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 
 	# Bin quality hourly and calculate statistics
         my %hourly = ();
+
         foreach my $array (@$link)
         {
-            foreach my $v (@$array)
+            foreach my $vs (@$array)
 	    {
-	        my $hour = $$v{BIN};
-	        $hourly{$hour} ||= { START => 0, SUCCESS => 0, ERROR => 0, RATIO => undef };
-	        $hourly{$hour}{START} += $$v{SUCC_START};
-	        $hourly{$hour}{ERROR} += $$v{SUCC_ERROR};
-	        $hourly{$hour}{SUCCESS} += $$v{SUCC_SUCCESS};
+#		Need to recover the array from the string by splitting it
+		my @v = split(' ',$vs);
+#		Positional notation using named constants. Handle with care!
+	        my $hour = $v[BIN];
+	        $hourly{$hour}{XFER_SUCCESS} ||= { START => 0, SUCCESS => 0, ERROR => 0, RATIO => undef };
+	        $hourly{$hour}{START} += $v[SUCC_START];
+	        $hourly{$hour}{ERROR} += $v[SUCC_ERROR];
+	        $hourly{$hour}{SUCCESS} += $v[SUCC_SUCCESS];
 
-	        $stats{XFER_SUCCESS}{START} += $$v{SUCC_START};
-	        $stats{XFER_SUCCESS}{ERROR} += $$v{SUCC_ERROR};
-	        $stats{XFER_SUCCESS}{SUCCESS} += $$v{SUCC_SUCCESS};
+	        $stats{XFER_SUCCESS}{START} += $v[SUCC_START];
+	        $stats{XFER_SUCCESS}{ERROR} += $v[SUCC_ERROR];
+	        $stats{XFER_SUCCESS}{SUCCESS} += $v[SUCC_SUCCESS];
 	    }
         }
 
@@ -261,7 +285,6 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 		$$v{RATIO} = undef;
 	    }
 	}
-
 
 	my $succ_min = reduce { $$a{RATIO} < $$b{RATIO} ? $a : $b }
 		       grep(defined $$_{RATIO}, values %hourly);
@@ -279,16 +302,17 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
         $hourly{$_} = 0 for keys %hourly;
         foreach my $array (@$link)
         {
-            foreach my $v (@$array)
+            foreach my $vs (@$array)
 	    {
-		next if ! $$v{XFER_FILES};
+		my @v = split(' ',$vs);
+		next if ! $v[XFER_FILES];
 
-	        my $hour = $$v{BIN};
+	        my $hour = $v[BIN];
 	        $hourly{$hour} ||= 0;
-		$hourly{$hour} += $$v{XFER_BYTES};
+		$hourly{$hour} += $v[XFER_BYTES];
 
-		$stats{XFER_GB_TOT} += $$v{XFER_BYTES} / (1024**3);
-		$stats{XFER_F_TOT} += $$v{XFER_FILES};
+		$stats{XFER_GB_TOT} += $v[XFER_BYTES] / (1024**3);
+		$stats{XFER_F_TOT} += $v[XFER_FILES];
 	    }
 	}
 
@@ -310,11 +334,12 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
         %hourly = ();
         foreach my $array (@$link)
         {
-            foreach my $v (@$array)
+            foreach my $vs (@$array)
 	    {
-	        $hourly{$$v{BIN}} ||= { BIN => $$v{BIN}, FILES => 0, BYTES => 0 };
-		$hourly{$$v{BIN}}{FILES} += $$v{PEND_FILES};
-		$hourly{$$v{BIN}}{BYTES} += $$v{PEND_BYTES};
+		my @v = split(' ',$vs);
+	        $hourly{$v[BIN]} ||= { BIN => $v[BIN], FILES => 0, BYTES => 0 };
+		$hourly{$v[BIN]}{FILES} += $v[PEND_FILES];
+		$hourly{$v[BIN]}{BYTES} += $v[PEND_BYTES];
 	    }
 	}
 
@@ -415,7 +440,6 @@ while (my ($to, $id, $lfn) = $qtrdups->fetchrow ())
 print "(Nothing to report)\n" if ! $errors;
 
 print "\n\n";
-
 ######################################################################
 &disconnectFromDatabase(\%args, $dbh, 1);
 exit 0;
