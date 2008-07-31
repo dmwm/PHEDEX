@@ -6,13 +6,12 @@ use strict;
 use Getopt::Long;
 use Data::Dumper;
 use Sys::Hostname;
+use POSIX;
 use PHEDEX::Core::Help;
-use PHEDEX::Core::Config;
 
 ##H
-##H  This script is for monitoring CPU and memory use by agents. See the wiki
-##H page at https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjAgentMonitoring
-##H for details and instructions.
+##H  This script is for monitoring CPU and memory use by any process belonging
+##H to a given user or set of users. Ask Tony for details...
 ##H
 ##H  Comments, feedback, and bug-reports welcomed, via Savannah whenever
 ##H appropriate.
@@ -50,8 +49,25 @@ die "Need one of VSize, RSS, Utime, Stime\n"
 
 if ( $log )
 {
+  print "I am forking into the background, writihg to $log. Byee!\n";
+
+# Cribbed from PHEDEX::Core::Agent::daemon
+  my $pid;
+  die "failed to fork into background: $!\n" if ! defined ($pid = fork());
+  close STDERR if $pid;
+  exit(0) if $pid;
+
+  die "failed to set session id: $!\n"       if ! defined setsid();
+  die "failed to fork into background: $!\n" if ! defined ($pid = fork());
+  close STDERR if $pid;
+  exit(0) if $pid;
+
   open STDOUT, ">$log" or die "open: $log: $!\n";
   chmod 0600, $log or die "chmod: $!\n";
+  open (STDERR, ">&STDOUT") or die "Can't dup STDOUT: $!";
+  open (STDIN, "</dev/null");
+
+  $|=1;
 }
 
 %thresh = (
@@ -90,6 +106,7 @@ foreach ( @ps )
       next;
     };
     $_ = <CMD>;
+    next unless $_;
     chomp $_;
     $_ = join(' ',split('\c@',$_));
     $cmds{$pid} = $_;
