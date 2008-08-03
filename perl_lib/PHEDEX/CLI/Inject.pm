@@ -1,4 +1,5 @@
 package PHEDEX::CLI::Inject;
+use PHEDEX::Core::XML;
 use Getopt::Long;
 use Data::Dumper;
 use strict;
@@ -76,9 +77,14 @@ sub Payload
   foreach ( @{$self->{DATAFILE}} )
   {
     open DATA, "<$_" or die "open: $_ $!\n";
-    $payload->{'data'} .= join('',<DATA>);
+    $payload->{data} .= join('',<DATA>);
     close DATA;
+    $payload->{data} =~ s%</data>\n<data>%%;
   }
+
+  $payload->{nodeid} = $payload->{result} = undef;
+$DB::single=1;
+  my $result = PHEDEX::Core::XML::parseDataNew( XML => $payload->{data} );
   print __PACKAGE__," created payload\n" if $self->{VERBOSE};
   return $self->{PAYLOAD} = $payload;
 }
@@ -103,9 +109,10 @@ sub ResponseIsValid
   my $payload  = $self->{PAYLOAD};
   my $response = $self->{RESPONSE};
   print $self->Dump() if $self->{DEBUG};
+$DB::single=1;
   foreach ( keys %{$payload} )
   {
-    if ( $payload->{$_} ne $response->{$_} )
+    if ( defined($payload->{$_}) && $payload->{$_} ne $response->{$_} )
     {
       print __PACKAGE__," wrong $_ returned\n";
       return 0;

@@ -101,7 +101,7 @@ sub ResponseIsValid
   print $self->Dump() if $self->{DEBUG};
   foreach ( keys %{$payload} )
   {
-    if ( $payload->{$_} ne $response->{$_} )
+    if ( defined($payload->{$_}) && $payload->{$_} ne $response->{$_} )
     {
       print __PACKAGE__," wrong $_ returned\n";
       return 0;

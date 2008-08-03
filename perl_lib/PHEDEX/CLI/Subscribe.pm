@@ -77,9 +77,10 @@ sub Payload
   foreach ( @{$self->{DATAFILE}} )
   {
     open DATA, "<$_" or die "open: $_ $!\n";
-    $payload->{'data'} .= join('',<DATA>);
+    $payload->{data} .= join('',<DATA>);
     close DATA;
   }
+
   print __PACKAGE__," created payload\n" if $self->{VERBOSE};
   return $self->{PAYLOAD} = $payload;
 }
