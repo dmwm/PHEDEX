@@ -808,11 +808,24 @@ do something useful with them instead.
 
 =cut
 
+use PHEDEX::Core::XML;
+use PHEDEX::Core::Inject;
 sub inject
 {
   my ($self,%args) = @_;
   $self->{SECMOD}->reqAuthnCert();
-  return { data => $args{data}, node => $args{node} };
+  my $auth = $self->getAuth();
+  my $node = $args{node};
+  die("Missing nodename for injection") unless $node;
+  my $nodeid = $auth->{auth}->{NODES}->{$node} || 0;
+  die("You are not authorised to inject data to node $node") unless $nodeid;
+  my $result = PHEDEX::Core::XML::parseDataNew( XML => $args{data} );
+
+  my $stats = PHEDEX::Core::Inject::injectData ($self, $result, $nodeid,
+				    VERBOSE => 1,
+				    STRICT => 1);
+
+  return { data => $args{data}, node => $args{node}, nodeid => $nodeid, result => $stats };
 }
 
 =pod
