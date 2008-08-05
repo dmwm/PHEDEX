@@ -163,7 +163,7 @@ sub new
     my $t2 = &mytimeofday();
     warn "db connection time ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
 
-    $self->{DBH}->{FetchHashKeyName} = 'NAME_lc';
+#    $self->{DBH}->{FetchHashKeyName} = 'NAME_lc';
 
 #    $self->{CACHE} = new Cache::FileCache({cache_root => '/tmp/phedex-cache'});
 #    $self->{CACHE} = new Cache::MemoryCache;
@@ -825,7 +825,7 @@ sub inject
   $verbose = $args{verbose} || 1;
   $strict  = $args{strict}  || 1;
 
-  $self->DBH->{FetchHashKeyName} = 'NAME_uc';
+#  $self->DBH->{FetchHashKeyName} = 'NAME_uc';
   eval
   {
     $stats = PHEDEX::Core::Inject::injectData ($self, $result, $nodeid,
