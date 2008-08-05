@@ -1,5 +1,4 @@
 package PHEDEX::CLI::Inject;
-use PHEDEX::Core::XML;
 use Getopt::Long;
 use Data::Dumper;
 use strict;
@@ -13,6 +12,7 @@ sub new
   %params = (
 	      VERBOSE	=> 0,
 	      DEBUG	=> 0,
+	      STRICT	=> 1,
 	      DATAFILE	=> undef,
 	      NODE	=> undef,
 	    );
@@ -20,6 +20,7 @@ sub new
                'help'		=> \$help,
 	       'verbose!'	=> \$params{VERBOSE},
 	       'debug!'		=> \$params{DEBUG},
+	       'strict!'	=> \$params{STRICT},
 	       "datafile=s@"	=> \$params{DATAFILE},
 	       "node=s"		=> \$params{NODE},
 	     );
@@ -73,7 +74,8 @@ sub Payload
   die __PACKAGE__," no datafiles given\n" unless $self->{DATAFILE};
   die __PACKAGE__," no node given\n" unless $self->{NODE};
 
-  $payload->{node} = $self->{NODE};
+  $payload->{node}   = $self->{NODE};
+  $payload->{strict} = $self->{STRICT};
   foreach ( @{$self->{DATAFILE}} )
   {
     open DATA, "<$_" or die "open: $_ $!\n";
@@ -83,7 +85,6 @@ sub Payload
   }
 
   foreach ( qw / nodeid result stats / ) { $payload->{$_} = undef; }
-  my $result = PHEDEX::Core::XML::parseDataNew( XML => $payload->{data} );
   print __PACKAGE__," created payload\n" if $self->{VERBOSE};
   return $self->{PAYLOAD} = $payload;
 }
@@ -116,7 +117,8 @@ sub ResponseIsValid
   my $response = $self->{RESPONSE};
   return 0 if $response->{ERROR};
   print $self->Dump() if $self->{DEBUG};
-  foreach ( keys %{$payload} )
+# foreach ( keys %{$payload} )
+  foreach ( qw / data node / ) 
   {
     if ( defined($payload->{$_}) && $payload->{$_} ne $response->{$_} )
     {
