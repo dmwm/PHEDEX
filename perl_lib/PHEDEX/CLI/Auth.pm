@@ -73,17 +73,23 @@ sub ParseResponse
 {
 # assume the response is in Perl Data::Dumper format!
   my ($self,$response) = @_;
-
   no strict;
-  my $content = eval($response->content());
-  $content = $content->{phedex}{auth} || {};
-  foreach ( qw / STATE DN NODES / )
-  { $self->{RESPONSE}{$_} = $content->{$_}; }
-  @{$self->{RESPONSE}{ROLES}} = ();
-  foreach my $role ( keys %{$content->{ROLES}} )
+
+  my $content = $response->content();
+  if ( $content =~ m%<error>(.*)</error>$%s ) { $self->{RESPONSE}{ERROR} = $1; }
+  else
   {
-    foreach ( @{$content->{ROLES}{$role}} ) 
-    { push @{$self->{RESPONSE}{ROLES}},$role if m%^phedex$%; }
+    $content =~ s%^[^\$]*\$VAR1%\$VAR1%s;
+    $content = eval($content);
+    $content = $content->{phedex}{auth} || {};
+    foreach ( qw / STATE DN NODES / )
+    { $self->{RESPONSE}{$_} = $content->{$_}; }
+    @{$self->{RESPONSE}{ROLES}} = ();
+    foreach my $role ( keys %{$content->{ROLES}} )
+    {
+      foreach ( @{$content->{ROLES}{$role}} ) 
+      { push @{$self->{RESPONSE}{ROLES}},$role if m%^phedex$%; }
+    }
   }
   print $self->Dump() if $self->{DEBUG};
 }
@@ -92,7 +98,7 @@ sub ResponseIsValid
 {
   my $self = shift;
   my $response = $self->{RESPONSE};
-
+  return 0 if $response->{ERROR};
   print $self->Dump() if $self->{DEBUG};
 # Check that the user certificate was accepted, that they have valid roles
 # for PhEDEx, and that they have a set of nodes they can act on
@@ -114,5 +120,17 @@ sub ResponseIsValid
 }
 
 sub Dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
+
+sub Summary
+{
+  my $self = shift;
+  if ( $self->{RESPONSE}{ERROR} )
+  {
+    print __PACKAGE__ . "->Summary", $self->{RESPONSE}{ERROR};
+    return;
+  }
+  return unless $self->{RESPONSE};
+# print Data::Dumper->Dump([ $self->{RESPONSE} ],[ __PACKAGE__ . '->Summary' ]);
+}
 
 1;

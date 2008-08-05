@@ -82,8 +82,7 @@ sub Payload
     $payload->{data} =~ s%</data>\n<data>%%;
   }
 
-  $payload->{nodeid} = $payload->{result} = undef;
-$DB::single=1;
+  foreach ( qw / nodeid result stats / ) { $payload->{$_} = undef; }
   my $result = PHEDEX::Core::XML::parseDataNew( XML => $payload->{data} );
   print __PACKAGE__," created payload\n" if $self->{VERBOSE};
   return $self->{PAYLOAD} = $payload;
@@ -95,10 +94,17 @@ sub ParseResponse
 {
   my ($self,$response) = @_;
   no strict;
-  my $content = eval($response->content());
-  $content = $content->{phedex} || {};
-  foreach ( keys %{$self->{PAYLOAD}} )
-  { $self->{RESPONSE}{$_} = $content->{$_}; }
+
+  my $content = $response->content();
+  if ( $content =~ m%<error>(.*)</error>$%s ) { $self->{RESPONSE}{ERROR} = $1; }
+  else
+  {
+    $content =~ s%^[^\$]*\$VAR1%\$VAR1%s;
+    $content = eval($content);
+    $content = $content->{phedex} || {};
+    foreach ( keys %{$self->{PAYLOAD}} )
+    { $self->{RESPONSE}{$_} = $content->{$_}; }
+  }
   print $self->Dump() if $self->{DEBUG};
 }
 
@@ -108,8 +114,8 @@ sub ResponseIsValid
   my $self = shift;
   my $payload  = $self->{PAYLOAD};
   my $response = $self->{RESPONSE};
+  return 0 if $response->{ERROR};
   print $self->Dump() if $self->{DEBUG};
-$DB::single=1;
   foreach ( keys %{$payload} )
   {
     if ( defined($payload->{$_}) && $payload->{$_} ne $response->{$_} )
@@ -123,5 +129,18 @@ $DB::single=1;
 }
 
 sub Dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
+
+sub Summary
+{
+  my $self = shift;
+
+  if ( $self->{RESPONSE}{ERROR} )
+  {
+    print __PACKAGE__ . "->Summary", $self->{RESPONSE}{ERROR};
+    return;
+  }
+  return unless $self->{RESPONSE}{stats};
+  print Data::Dumper->Dump([ $self->{RESPONSE}{stats} ],[ __PACKAGE__ . '->Summary' ]);
+}
 
 1;
