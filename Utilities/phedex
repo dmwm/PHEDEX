@@ -5,18 +5,24 @@ use PHEDEX::CLI::UserAgent;
 use Getopt::Long;
 use Data::Dumper;
 my ($url,$response,$help,$verbose,$quiet,$action,$Action,$h);
-my ($instance,$format,$call,$args,$method,$test_cert);
+my ($instance,$format,$call,$args,$method,$test_cert,$ref,$timeout);
 my ($proxy,$debug,$cert_file,$key_file,$ca_file,$ca_dir,$nocert);
 
 $url = 'https://cmswttest.cern.ch:8443/phedex/datasvc';
-$instance = 'prod';
+$instance = 'tbedi';
 $format   = 'perl';
 $call     = 'getAuth';
 $method   = 'post';
-$help = $verbose = $debug = $quiet = $nocert = $test_cert = 0;
+$help = $verbose = $debug = $quiet = $nocert = $test_cert = $timeout = 0;
 
 Getopt::Long::Configure( 'pass_through' );
-GetOptions
+$ref = separateArgs();
+if ( $ref )
+{
+  @ARGV = @{$ref};
+#  print "GLOBAL ARGS: @ARGV\n";
+
+  GetOptions
 	(
 	 'help'		=> \$help,
 	 'verbose!'	=> \$verbose,
@@ -30,13 +36,15 @@ GetOptions
 	 'url=s'	=> \$url,
 	 'nocert'	=> \$nocert,
 	 'testcert'	=> \$test_cert,
+	 'timeout=i'	=> \$timeout,
 
 	 'instance=s'	=> \$instance,
 	 'format=s'	=> \$format,
 #	 'call=s'	=> \$call,
 #	 'args=s'	=> \$args,
 	 'method=s'	=> \$method,
-	) if ( $ARGV[0] =~ m%^-% );
+	);
+}
 
 sub usage
 {
@@ -62,7 +70,8 @@ sub usage
  --url		is the URL of the PhEDEx dataservice instance. The default is
 		$url
 
- --instance	name of PhEDEx instance to use: 'prod', 'dev', 'test'...
+ --instance	name of PhEDEx instance to use: 'prod', 'dev', 'test' etc.
+		The default is '$instance'.
  --format	format for returned data: 'perl', 'xml', 'json'. The default
 		is 'perl', anything else cannot easily be validated or used.
 
@@ -116,6 +125,7 @@ my $pua = new PHEDEX::CLI::UserAgent
 	  NOCERT	=> $nocert,
 	);
 
+$pua->timeout($timeout) if $timeout;
 $pua->PARANOID(0);
 $pua->VERBOSE($verbose);
 print $pua->Dump() if $debug;
@@ -126,8 +136,12 @@ if ( $test_cert )
 }
 
 my (%Modules,@responses);
-while ( $Action = shift )
+while ( $ref = separateArgs() )
 {
+  @ARGV = @{$ref};
+#  print "SUB ARGS: @ARGV\n"; next;
+  $Action = shift;
+
   next if $Action =~ m%^-+$%;
   $action = lc($Action);
   if ( $action !~ m%^[a-z]+$% )
@@ -157,11 +171,76 @@ while ( $Action = shift )
   if ( $pua->response_ok($response) )
   {
     $cli->ParseResponse($response);
-    print Data::Dumper->Dump([ $cli->{RESPONSE} ],[ 'Response' ]) if $verbose;
+    print Data::Dumper->Dump([ $cli->{RESPONSE} ],[ 'Response' ]) if $cli->{VERBOSE};
+    $cli->Summary;
     die "response is invalid\n" unless $cli->ResponseIsValid();
     push @responses,$cli->{RESPONSE};
   }
-  else { die "exiting after failure\n"; }
+  else
+  {
+    print Data::Dumper->Dump([ $pua, $cli, $response ],[ 'UserAgent', 'CLI', 'Response' ]);
+    die "exiting after failure\n";
+  }
+}
+
+sub separateArgs()
+{
+  my @argv;
+  my $global = 0;
+
+# static variables!
+  our @ARGV_orig;
+  our $notFirst;
+
+  if ( !$notFirst )
+  {
+#   first call: set global arguments array and 'global' flag
+    @ARGV_orig = @ARGV;
+    $notFirst = $global = 1;
+  }
+
+# The easy way out if there are no arguments
+  return undef unless @ARGV_orig;
+
+# Remove any '--' arguments, unless they're the first on the command line, in
+# which case they signify no global arguments.
+  $_ = shift @ARGV_orig;
+  while ( m%^--$% )
+  {
+    return undef if $global;
+    $_ = shift @ARGV_orig;
+  }
+
+# $_ holds the first argument. If it doesn't start with '-', then either
+# return undef (if we're processing global arguments) or push it onto the
+# argument list if we're processing non-global arguments
+  if ( ! m%^-% )
+  {
+    if ( $global )
+    {
+      push @ARGV_orig, $_;
+      return undef;
+    }
+    push @argv, $_;
+  }
+  else
+  { unshift @ARGV_orig, $_; }
+
+# Loop over remaining arguments. Require (-x,y) pairs. Terminate on other
+# conditions, taking care to leave the remaining argument stack in good order
+  while ( $_ = shift @ARGV_orig )
+  {
+    last if m%^--$%;
+    if ( ! m%^-% )
+    {
+      unshift @ARGV_orig, $_;
+      last;
+    }
+    push @argv, $_;
+    push @argv, shift @ARGV_orig;
+  }
+
+  return \@argv;
 }
 
 exit 0;
