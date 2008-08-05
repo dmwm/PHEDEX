@@ -803,8 +803,8 @@ sub getAuth
 
 =head2 inject
 
-Return the 'data' element of the OPTIONS as a hash. Eventually, should
-do something useful with them instead.
+Inject data into TMDB, returning the statistics on how many files, blocks, and datasets
+were injected etc.
 
 =cut
 
@@ -813,19 +813,36 @@ use PHEDEX::Core::Inject;
 sub inject
 {
   my ($self,%args) = @_;
+  my ($auth,$node,$nodeid,$result,$stats,$verbose,$strict);
   $self->{SECMOD}->reqAuthnCert();
-  my $auth = $self->getAuth();
-  my $node = $args{node};
+  $auth = $self->getAuth();
+  $node = $args{node};
   die("Missing nodename for injection") unless $node;
-  my $nodeid = $auth->{auth}->{NODES}->{$node} || 0;
+  $nodeid = $auth->{auth}->{NODES}->{$node} || 0;
   die("You are not authorised to inject data to node $node") unless $nodeid;
-  my $result = PHEDEX::Core::XML::parseDataNew( XML => $args{data} );
+  $result = PHEDEX::Core::XML::parseDataNew( XML => $args{data} );
 
-  my $stats = PHEDEX::Core::Inject::injectData ($self, $result, $nodeid,
-				    VERBOSE => 1,
-				    STRICT => 1);
+  $verbose = $args{verbose} || 1;
+  $strict  = $args{strict}  || 1;
 
-  return { data => $args{data}, node => $args{node}, nodeid => $nodeid, result => $stats };
+  $self->DBH->{FetchHashKeyName} = 'NAME_uc';
+  eval
+  {
+    $stats = PHEDEX::Core::Inject::injectData ($self, $result, $nodeid,
+				    		VERBOSE => $verbose,
+				    		STRICT  => $strict);
+  };
+  if ( $@ )
+  {
+    $self->DBH->rollback; # Processes seem to hang without this!
+    die $@;
+  }
+  $self->DBH->commit() if $stats;
+
+  return { data   => $args{data},
+	   node   => $args{node},
+	   nodeid => $nodeid,
+	   stats  => $stats };
 }
 
 =pod
