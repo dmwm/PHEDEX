@@ -35,7 +35,7 @@ sub parseDataNew
 	    if ! defined $$dbsattrs{'name'} || $$dbsattrs{'name'} eq '';
 	    my $dbsname = $$dbsattrs{'name'};
 	    $result->{DBS}->{$dbsname} = { NAME => $dbsname,
-				           DLS  => $$dbsattrs{'dls'} };
+				           DLS  => $$dbsattrs{'dls'} || 'unknown' };
 
 	    while (my ($dsattrs, @dscontent) = next_element(\@dbscontent, 'dataset'))
 	    {
@@ -83,8 +83,11 @@ sub parseDataNew
 		        $result->{DBS}->{$dbsname}
 		        ->{DATASETS}->{$dsname}
 		        ->{BLOCKS}->{$bname}
-		        ->{FILES}->{$fname} = { NAME => $fattrs->{'name'},
-					        BYTES => $fattrs->{'bytes'},
+		        ->{FILES}->{$fname} = {
+#						NAME => $fattrs->{'name'},
+					        LOGICAL_NAME => $fattrs->{'name'},
+#					        BYTES => $fattrs->{'bytes'},
+					        SIZE => $fattrs->{'bytes'},
 					        CHECKSUM => $fattrs->{'checksum'} };
 		    } # /files
 	        } # /blocks
