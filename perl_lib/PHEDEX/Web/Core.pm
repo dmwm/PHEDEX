@@ -822,8 +822,8 @@ sub inject
   die("You are not authorised to inject data to node $node") unless $nodeid;
   $result = PHEDEX::Core::XML::parseDataNew( XML => $args{data} );
 
-  $verbose = $args{verbose} || 1;
-  $strict  = $args{strict}  || 1;
+  $verbose = defined $args{verbose} ? $args{verbose} : 0;
+  $strict  = defined $args{strict}  ? $args{strict}  : 1;
 
 #  $self->DBH->{FetchHashKeyName} = 'NAME_uc';
   eval
