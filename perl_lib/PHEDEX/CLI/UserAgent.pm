@@ -152,18 +152,12 @@ sub response_ok
     s%\n%%g;
     if ( m%^<error>(.*)</error>$% )
     {
-      print "Error from ",$response->request()->url(),"\n$1\n";
-      return 0;
+      print "Error from ",$response->request()->url(),"\n$1\n" if $self->{DEBUG};
+      return 0 if $self->{PARANOID};
     }
     return 1;
   }
 
-  if ( $self->{PARANOID} )
-  {
-    print $self->Hdr,"Something went wrong\n";
-    print Dumper($self,$response);
-    die "Shooting myself...\n";
-  }
   return 0;
 }
 
