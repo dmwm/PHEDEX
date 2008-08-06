@@ -11,8 +11,10 @@ use warnings;
 use strict;
 use Getopt::Long qw( :config no_ignore_case );;
 use PHEDEX::Core::Help;
+use PHEDEX::Core::XML;
 
 my ($dataset, $blocks, $files, $xmlfile);
+my $dbs  = "test";
 my $open = 0;
 my $mean_size = 1;
 my $sdev_size = 0;
@@ -35,69 +37,17 @@ unless ($xmlfile) {
     $xmlfile =~ s:^/::;  $xmlfile =~ s:/:-:g; $xmlfile .= '.xml';
 }
 
-my $dbs = "test";
-my $dls = "lfc:unknown";
-
-$open = $open ? 'y' : 'n';
-
+#my $dls = "lfc:unknown";
+my @xml = PHEDEX::Core::XML::makeData(
+			dbs	=> $dbs,
+			open	=> $open,
+			dataset	=> $dataset,
+			blocks	=> $blocks,
+			files	=> $files,
+			mean_size	=> $mean_size,
+			sdev_size	=> $sdev_size,
+		  );
 open XML, '>', $xmlfile or die $!;
-print XML qq{<data>\n};
-print XML qq{  <dbs name="$dbs">\n};
-print XML qq{    <dataset name="$dataset" is-open="y">\n};
-for my $n_block (1..$blocks) {
-    my $block = $dataset . "#" . &makeGUID();
-    print XML qq{      <block name="$block" is-open="$open">\n};
-    for my $n_file (1..$files) {
-	my $lfn = $block;
-	$lfn =~ s/\#/-/;  $lfn .= '-'. &makeGUID();
-	my $filesize;
-	if ($sdev_size == 0) {
-	    $filesize = int($mean_size * (1024**3));
-	} else {
-	    $filesize = int(gaussian_rand($mean_size, $sdev_size) *  (1024**3));
-	}
-	my $cksum = 'cksum:'. int(rand() * (10**10));
-	print XML qq{        <file name="$lfn" bytes="$filesize" checksum="$cksum"/>\n};
-    }
-    print XML qq{      </block>\n};
-}
-print XML qq{    </dataset>\n};
-print XML qq{  </dbs>\n};
-print XML qq{</data>\n};
-
+print XML @xml;
 close XML;
-
 print "Wrote injection file to $xmlfile\n";
-
-sub makeGUID
-{
-    my $size = shift || 8;
-    my @chars = ( "A" .. "Z", "a" .. "z", 0 .. 9);
-    return join("", @chars[ map { rand @chars } ( 1 .. $size )]);
-}
-
-# From the perl cookbook
-# http://www.unix.org.ua/orelly/perl/cookbook/ch02_11.htm
-
-sub gaussian_rand {
-    my ($mean, $sdev) = @_;
-    $mean ||= 0;  $sdev ||= 1;
-    my ($u1, $u2);  # uniformly distributed random numbers
-    my $w;          # variance, then a weight
-    my ($g1, $g2);  # gaussian-distributed numbers
-
-    do {
-        $u1 = 2 * rand() - 1;
-        $u2 = 2 * rand() - 1;
-        $w = $u1*$u1 + $u2*$u2;
-    } while ( $w >= 1 );
-
-    $w = sqrt( (-2 * log($w))  / $w );
-    $g2 = $u1 * $w;
-    $g1 = $u2 * $w;
-
-    $g1 = $g1 * $sdev + $mean;
-    $g2 = $g2 * $sdev + $mean;
-    # return both if wanted, else just one
-    return wantarray ? ($g1, $g2) : $g1;
-}
