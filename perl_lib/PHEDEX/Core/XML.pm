@@ -2,10 +2,12 @@ package PHEDEX::Core::XML;
 
 use warnings;
 use strict;
+use vars qw ($VERSION);
+$VERSION = "2.0";
 
 use XML::Parser;
 
-sub parseDataNew
+sub parseData
 {
     my %h = @_;
 
@@ -24,10 +26,27 @@ sub parseDataNew
 	die "parseData requires either FILE or XML to parse\n";
     }
 
+    my $version = 0;
+# Can use this hack to get to older versions if we want to. We don't...
+#    if ( $info->[0] eq 'data' ) { $version = $info->[1][0]{version} || 0; }
+#    if ( $version < $VERSION )
+#    {
+#      my $parseData = "PHEDEX::Core::XML::parseData_$version";
+#      no strict 'refs';
+#      return $parseData->(%h);
+#    }
+    $version = $info->[1][0]{version};
+    if ( ! $version || $version != $VERSION )
+    {
+      $version = '(undefined)' unless defined $version;
+      my $m = " Require XML version=$VERSION, but version=$version";
+      $m .= ' in ' . $h{FILE} if $h{FILE};
+      die __PACKAGE__ . $m . "\n";
+    }
+
     my $result = {};
     while (my ($dataattrs, @datacontent) = next_element($info, 'data'))
     {
-	
 	print "Processing data\n" if $verbose;
         while (my ($dbsattrs, @dbscontent) = next_element(\@datacontent, 'dbs'))
         {
@@ -97,7 +116,7 @@ sub parseDataNew
     return $result;
 }
 
-sub parseData
+sub parseData_0
 {
     my %h = @_;
 
@@ -200,4 +219,80 @@ sub next_element
     return @$val;
 }
 
+sub makeData
+{
+  my %h = @_;
+  my ($dbs,$open,$dataset,$blocks,$files,$mean_size,$sdev_size);
+  my (@xml);
+
+  $dbs = $h{dbs} || "test";
+# $dls = $h{dls} || "lfc:unknown";
+  $open      = $h{open} || 'n';
+  $dataset   = $h{dataset};
+  $blocks    = $h{blocks} || 1;
+  $files     = $h{files}  || 1;
+  $mean_size = $h{mean_size} || 1;
+  $sdev_size = $h{sdev_size} || 0;
+  $open = lc $open;
+  if ( $open !~ m%^[y,n]$% ) { $open = $open ? 'y' : 'n'; }
+
+  push @xml, qq{<data version="$PHEDEX::Core::XML::VERSION">\n};
+  push @xml, qq{  <dbs name="$dbs">\n};
+  push @xml, qq{    <dataset name="$dataset" is-open="y">\n};
+  for my $n_block (1..$blocks) {
+    my $block = $dataset . "#" . &makeGUID();
+    push @xml, qq{      <block name="$block" is-open="$open">\n};
+    for my $n_file (1..$files) {
+	my $lfn = $block;
+	$lfn =~ s/\#/-/;  $lfn .= '-'. &makeGUID();
+	my $filesize;
+	if ($sdev_size == 0) {
+	    $filesize = int($mean_size * (1024**3));
+	} else {
+	    $filesize = int(gaussian_rand($mean_size, $sdev_size) *  (1024**3));
+	}
+	my $cksum = 'cksum:'. int(rand() * (10**10));
+	push @xml, qq{        <file name="$lfn" bytes="$filesize" checksum="$cksum"/>\n};
+    }
+    push @xml, qq{      </block>\n};
+  }
+  push @xml, qq{    </dataset>\n};
+  push @xml, qq{  </dbs>\n};
+  push @xml, qq{</data>\n};
+
+  return @xml;
+}
+
+sub makeGUID
+{
+    my $size = shift || 8;
+    my @chars = ( "A" .. "Z", "a" .. "z", 0 .. 9);
+    return join("", @chars[ map { rand @chars } ( 1 .. $size )]);
+}
+
+# From the perl cookbook
+# http://www.unix.org.ua/orelly/perl/cookbook/ch02_11.htm
+
+sub gaussian_rand {
+    my ($mean, $sdev) = @_;
+    $mean ||= 0;  $sdev ||= 1;
+    my ($u1, $u2);  # uniformly distributed random numbers
+    my $w;          # variance, then a weight
+    my ($g1, $g2);  # gaussian-distributed numbers
+
+    do {
+        $u1 = 2 * rand() - 1;
+        $u2 = 2 * rand() - 1;
+        $w = $u1*$u1 + $u2*$u2;
+    } while ( $w >= 1 );
+
+    $w = sqrt( (-2 * log($w))  / $w );
+    $g2 = $u1 * $w;
+    $g1 = $u2 * $w;
+
+    $g1 = $g1 * $sdev + $mean;
+    $g2 = $g2 * $sdev + $mean;
+    # return both if wanted, else just one
+    return wantarray ? ($g1, $g2) : $g1;
+}
 1;
