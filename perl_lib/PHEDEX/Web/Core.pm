@@ -207,8 +207,10 @@ sub call
     } else {
 	my $t1 = &mytimeofday();
 	&process_args(\%args);
-	my $obj;
+	my ($obj,$stdout);
+
 	eval {
+ 	    open (local *STDOUT,'>',\$stdout); # capture STDOUT of $call
 	    $obj = &{"PHEDEX::Web::Core::$call"}($self, %args, nocache=>1);
 	};
 	if ($@) {
@@ -219,6 +221,7 @@ sub call
 	warn "api call '$call' complete in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
 
 	# wrap the object in a phedexData element
+	$obj->{stdout} = $stdout;
 	$obj->{instance} = $self->{INSTANCE};
 	$obj->{request_version} = $self->{VERSION};
 	$obj->{request_url} = $self->{REQUEST_URL};
