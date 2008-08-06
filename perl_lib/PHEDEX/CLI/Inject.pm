@@ -60,8 +60,11 @@ and uses the dataservice to inject them into PhEDEx at a given node.
 			Controlled Subscriptions' project page
  --node <nodename>	name of the node this data is to be injected at.
 
+ --(no)strict		is passed to the server for the injection call.
+
  ...and of course, this module takes the standard options:
  --help, --(no)debug, --(no)verbose
+ --verbose		is also passed to the server for the injection call.
 
 EOF
 }
@@ -74,8 +77,7 @@ sub Payload
   die __PACKAGE__," no datafiles given\n" unless $self->{DATAFILE};
   die __PACKAGE__," no node given\n" unless $self->{NODE};
 
-  $payload->{node}   = $self->{NODE};
-  $payload->{strict} = $self->{STRICT};
+  foreach ( qw / NODE STRICT VERBOSE / ) { $payload->{lc $_} = $self->{$_}; }
   foreach ( @{$self->{DATAFILE}} )
   {
     open DATA, "<$_" or die "open: $_ $!\n";
@@ -103,7 +105,7 @@ sub ParseResponse
     $content =~ s%^[^\$]*\$VAR1%\$VAR1%s;
     $content = eval($content);
     $content = $content->{phedex} || {};
-    foreach ( keys %{$self->{PAYLOAD}} )
+    foreach ( keys %{$self->{PAYLOAD}}, stdout )
     { $self->{RESPONSE}{$_} = $content->{$_}; }
   }
   print $self->Dump() if $self->{DEBUG};
@@ -116,8 +118,7 @@ sub ResponseIsValid
   my $payload  = $self->{PAYLOAD};
   my $response = $self->{RESPONSE};
   return 0 if $response->{ERROR};
-  print $self->Dump() if $self->{DEBUG};
-# foreach ( keys %{$payload} )
+
   foreach ( qw / data node / ) 
   {
     if ( defined($payload->{$_}) && $payload->{$_} ne $response->{$_} )
@@ -142,7 +143,10 @@ sub Summary
     return;
   }
   return unless $self->{RESPONSE}{stats};
-  print Data::Dumper->Dump([ $self->{RESPONSE}{stats} ],[ __PACKAGE__ . '->Summary' ]);
+  print Data::Dumper->Dump([ $self->{RESPONSE}{stats},
+			     $self->{RESPONSE}{stdout} ],
+			   [ __PACKAGE__ . '->Summary',
+			     __PACKAGE__ . '->ServerSTDOUT' ]);
 }
 
 1;
