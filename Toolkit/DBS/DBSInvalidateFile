@@ -61,11 +61,27 @@ def updateBlockStatus(url,lblock,valid):
   
   fileBlock = {}
 
+  allowedRetriveValue = [#'all',
+                   'retrive_invalid_files',
+                   #'retrive_status',
+                   #'retrive_type',
+                   #'retrive_block',
+                   #'retrive_date',
+                   #'retrive_person',
+                   #'retrive_parent',
+                   #'retrive_child',
+                   #'retrive_algo',
+                   #'retrive_tier',
+                   #'retrive_lumi',
+                   #'retrive_run',
+                   #'retrive_branch',
+                   ]
+
 #Get LFN list
   if (lblock != None):
     blockList=lblock.split(',')
     for block in blockList:
-      fileBlock[block]=dbsapi.listFiles(blockName=block)
+      fileBlock[block]=dbsapi.listFiles(blockName=block,retriveList=allowedRetriveValue)
 #Change file status
     for files in fileBlock.itervalues():
       for file in files:
@@ -79,17 +95,16 @@ def main ():
   usage="""\npython DBSInvalidateFile <options>"""
   parser = OptionParser(usage=usage)
 
-#  parser.add_option('-u', '--url', dest='url', default='http://cmsdbsprod.cern.ch/cms_dbs_prod_global/servlet/DBSServlet', help='DBS URL')
   parser.add_option('-u', '--url', dest='url', default='https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet', help='DBS URL')
   parser.add_option('-l', '--lfn', dest='lfn', default=None, help='LFN')
   parser.add_option('-s', '--lfnFileList', dest='lfnFileList', default=None, help='file with the list of LFNs')
-  parser.add_option('-b', '--block', dest='block', default=None, help='Block to be deleted')
+  parser.add_option('-b', '--block', dest='block', default=None, help='Block to be invalidated')
   parser.add_option('-v', '--valid', action="store_true", default=False,dest='valid', help='Validate status instead of invalidate')
 
   (opts, args) = parser.parse_args()
 
   if opts.url == None:
-    print "--DBSURL option not provided."
+    print "--url option not provided."
     print "Using %s"%opts.url
 
   if opts.lfn == None and opts.lfnFileList == None and opts.block == None:
