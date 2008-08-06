@@ -74,7 +74,7 @@ sub idle
     # Connect to database
     $dbh = $self->connectAgent();
     my @nodes = $self->expandNodes();
-    my @nodefilter = $self->myNodeFilter ("br.node");
+    my @nodefilter = $self->myNodeFilter ("n.id");
     unless (@nodes) { die("Cannot find nodes in database for '@{$$self{NODES}}'") };
 
     # Get order list of blocks we have.  This is always everything,
@@ -88,7 +88,7 @@ sub idle
     # Get the ID for DBS test-requests from the t_dvs_test table.
     my $test = PHEDEX::BlockConsistency::SQL::get_TDVS_Tests($self,'dbs')->{ID};
 
-    foreach my $block (@$completed, @$deleted)
+    foreach my $block (@$deleted,@$completed)
     {
       # If we've updated already, skip this
       my $cachekey = "$block->{DBS_NAME} $self->{TARGET_DBS} $block->{DATASET_NAME} $block->{BLOCK_NAME} $block->{NODE_NAME}";
@@ -116,7 +116,7 @@ sub idle
 
       if ( $block->{COMMAND} eq 'migrateBlock' )
       {
-        @cmd = ($self->{MIGR_COMMAND}, "-s", $block->{DBS_NAME}, "-t", $self->{TARGET_DBS}, "-d", $block->{DATASET_NAME}, "-b", $block->{BLOCK_NAME});
+        @cmd = ($self->{MIGR_COMMAND}, "-s", $block->{DBS_NAME}, "-t", $self->{TARGET_DBS}, "-d", $block->{DATASET_NAME}, "-b", $block->{BLOCK_NAME}, "-a", $block->{SE_NAME}, "-c");
       }
       elsif ( $block->{COMMAND} eq 'deleteBlock' )
       {
@@ -130,8 +130,9 @@ sub idle
         else                  { unshift @cmd,'/bin/true'; }
       }
       $self->addJob(sub { $self->registered ($block, \%state, $cachekey, @_) },
-	          { TIMEOUT => 30, LOGFILE => $log },
+	          { TIMEOUT => 600, LOGFILE => $log },
 	          @cmd);
+      
     }
   };
   do { chomp ($@); $self->Alert ("database error: $@");
@@ -149,9 +150,6 @@ sub idle
 
   # untie
   untie %state;
-
-  # Have a little nap
-  $self->nap ($self->{WAITTIME});
 }
 
 # Handle finished jobs.
