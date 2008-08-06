@@ -112,7 +112,7 @@ sub ResponseIsValid
   my $payload  = $self->{PAYLOAD};
   my $response = $self->{RESPONSE};
   return 0 if $response->{ERROR};
-  print $self->Dump() if $self->{DEBUG};
+
   if ( $payload->{data} ne $response->{data} )
   {
     print __PACKAGE__," wrong data returned\n" if $self->{VERBOSE};

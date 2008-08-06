@@ -106,7 +106,7 @@ sub ResponseIsValid
   my $payload  = $self->{PAYLOAD};
   my $response = $self->{RESPONSE};
   return 0 if $response->{ERROR};
-  print $self->Dump() if $self->{DEBUG};
+
   foreach ( keys %{$payload} )
   {
     if ( defined($payload->{$_}) && $payload->{$_} ne $response->{$_} )
