@@ -1,19 +1,21 @@
 #!/usr/bin/env perl
 
 use strict;
-use PHEDEX::CLI::UserAgent;
+use PHEDEX::CLI::FakeAgent;
+#use PHEDEX::CLI::UserAgent;
 use Getopt::Long;
 use Data::Dumper;
-my ($url,$response,$help,$verbose,$quiet,$action,$Action,$h);
-my ($instance,$format,$call,$args,$method,$test_cert,$ref,$timeout);
-my ($proxy,$debug,$cert_file,$key_file,$ca_file,$ca_dir,$nocert);
+my ($url,$response,$help,$verbose,$quiet,$action,$Action,$fakeagent,$service);
+my ($instance,$format,$call,$args,$method,$test_cert,$ref,$timeout,$paranoid);
+my ($proxy,$debug,$cert_file,$key_file,$ca_file,$ca_dir,$nocert,$h,@env);
 
 $url = 'https://cmswttest.cern.ch:8443/phedex/datasvc';
 $instance = 'tbedi';
 $format   = 'perl';
 $call     = 'getAuth';
 $method   = 'post';
-$help = $verbose = $debug = $quiet = $nocert = $test_cert = $timeout = 0;
+$help = $verbose = $debug = $quiet = 0;
+$nocert = $test_cert = $timeout = $paranoid = $fakeagent = 0;
 
 Getopt::Long::Configure( 'pass_through' );
 $ref = separateArgs();
@@ -37,13 +39,23 @@ if ( $ref )
 	 'nocert'	=> \$nocert,
 	 'testcert'	=> \$test_cert,
 	 'timeout=i'	=> \$timeout,
+	 'paranoid!'	=> \$paranoid,
+	 'fakeagent!'	=> \$fakeagent,
 
 	 'instance=s'	=> \$instance,
 	 'format=s'	=> \$format,
 #	 'call=s'	=> \$call,
 #	 'args=s'	=> \$args,
 	 'method=s'	=> \$method,
+	 'service=s'	=> \$service,
+	 'env=s@'	=> \@env,
 	);
+
+  foreach ( @env )
+  {
+    m%^([^=]*)=(.*)$% or next;
+    $ENV{$1} = $2;
+  }
 }
 
 sub usage
@@ -53,7 +65,8 @@ sub usage
   Usage: $0 [--proxy=s] [--cert_file=s] [--key_file=s]
 	    [--method=s] [--url=s]
 	    [--instance=s] [--format=s]
-	    [--debug] [--verbose]
+	    [--timeout=i] [--paranoid]
+	    [--debug] [--verbose] [--]
 	    command <command-options> --
 	    command <command-options> --
 
@@ -74,11 +87,23 @@ sub usage
 		The default is '$instance'.
  --format	format for returned data: 'perl', 'xml', 'json'. The default
 		is 'perl', anything else cannot easily be validated or used.
+  --timeout	is the time to wait for a server response. The default is
+		probably 30 seconds, set in PHEDEX::CLI::UserAgent
+  --paranoid	consider an XML-formatted 'error' message to be fatal, and
+		dump lots of useful debugging info.
 
  --debug, --verbose, and --help are obvious
 
  Multiple commands can be given in a single call, the arguments for each
-command are kept separate by the '--' pseudo-option.
+command are kept separate by the '--' pseudo-option. If you specify global
+options, you must also use '--' to denote their end, before starting the
+subcommand arguments.
+
+E.g.
+
+$0 inject --node T1_XY_Buffer --verbose --help
+$0 --verbose -- inject --node T1_XY_Buffer
+$0 --verbose -- inject --node T1_XY_Buffer -- inject --node T2_PQ_Buffer
 
 EOF
 
@@ -92,7 +117,7 @@ EOF
     }
   }
 
-  foreach ( qw / Template UserAgent / )
+  foreach ( qw / Template UserAgent FakeAgent / )
   { delete $commands{lc $_} if exists $commands{lc $_}; }
 
   print " Known commands in this installation are:\n",
@@ -110,7 +135,11 @@ if ( !( $cert_file || $key_file || $proxy || $ca_file || $ca_dir ||
   $cert_file = $ENV{HOME} . '/.globus/usercert.pem';
   $key_file  = $ENV{HOME} . '/.globus/userkey.pem';
 }
-my $pua = new PHEDEX::CLI::UserAgent
+
+my $module = 'PHEDEX::CLI::UserAgent';
+$module = 'PHEDEX::CLI::FakeAgent' if $fakeagent;
+
+my $pua = ($module)->new
 	(
 	  DEBUG	 	=> $debug,
 	  CERT_FILE	=> $cert_file,
@@ -123,10 +152,12 @@ my $pua = new PHEDEX::CLI::UserAgent
 	  INSTANCE	=> $instance,
 #	  CALL		=> $call,
 	  NOCERT	=> $nocert,
+
+	  SERVICE	=> $service,
 	);
 
 $pua->timeout($timeout) if $timeout;
-$pua->PARANOID(0);
+$pua->PARANOID($paranoid);
 $pua->VERBOSE($verbose);
 print $pua->Dump() if $debug;
 if ( $test_cert )
@@ -139,7 +170,6 @@ my (%Modules,@responses);
 while ( $ref = separateArgs() )
 {
   @ARGV = @{$ref};
-#  print "SUB ARGS: @ARGV\n"; next;
   $Action = shift;
 
   next if $Action =~ m%^-+$%;
@@ -171,7 +201,7 @@ while ( $ref = separateArgs() )
   if ( $pua->response_ok($response) )
   {
     $cli->ParseResponse($response);
-    print Data::Dumper->Dump([ $cli->{RESPONSE} ],[ 'Response' ]) if $cli->{VERBOSE};
+    print Data::Dumper->Dump([ $cli->{RESPONSE} ],[ 'Response' ]) if $cli->{DEBUG};
     $cli->Summary;
     die "response is invalid\n" unless $cli->ResponseIsValid();
     push @responses,$cli->{RESPONSE};
@@ -202,7 +232,10 @@ sub separateArgs()
 # The easy way out if there are no arguments
   return undef unless @ARGV_orig;
 
-# Remove any '--' arguments, unless they're the first on the command line, in
+# If we're looking for global arguments, first argument better start with '-'
+  return undef if ( $global && $ARGV_orig[0] !~ m%^-% );
+
+# Remove leading '--' arguments, unless this is the first call, in
 # which case they signify no global arguments.
   $_ = shift @ARGV_orig;
   while ( m%^--$% )
@@ -210,34 +243,13 @@ sub separateArgs()
     return undef if $global;
     $_ = shift @ARGV_orig;
   }
+  unshift @ARGV_orig, $_; # put back last argument for next step...
 
-# $_ holds the first argument. If it doesn't start with '-', then either
-# return undef (if we're processing global arguments) or push it onto the
-# argument list if we're processing non-global arguments
-  if ( ! m%^-% )
-  {
-    if ( $global )
-    {
-      push @ARGV_orig, $_;
-      return undef;
-    }
-    push @argv, $_;
-  }
-  else
-  { unshift @ARGV_orig, $_; }
-
-# Loop over remaining arguments. Require (-x,y) pairs. Terminate on other
-# conditions, taking care to leave the remaining argument stack in good order
+# Loop over remaining arguments. Terminate on '--' or when no arguments left
   while ( $_ = shift @ARGV_orig )
   {
     last if m%^--$%;
-    if ( ! m%^-% )
-    {
-      unshift @ARGV_orig, $_;
-      last;
-    }
     push @argv, $_;
-    push @argv, shift @ARGV_orig;
   }
 
   return \@argv;
