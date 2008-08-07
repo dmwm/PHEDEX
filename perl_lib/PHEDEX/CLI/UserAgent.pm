@@ -166,7 +166,13 @@ sub Dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
 sub target
 {
   my $self = shift;
-  return join('/',$self->{URL},$self->{FORMAT},$self->{INSTANCE},$self->{CALL});
+  return $self->{URL} . $self->path_info();
+}
+
+sub path_info
+{
+  my $self = shift;
+  return '/' . join('/',$self->{FORMAT},$self->{INSTANCE},$self->{CALL});
 }
 
 1;

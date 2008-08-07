@@ -59,7 +59,6 @@ and uses the dataservice to inject them into PhEDEx at a given node.
 			specified on the PhEDEx twiki on the 'Machine
 			Controlled Subscriptions' project page
  --node <nodename>	name of the node this data is to be injected at.
-
  --(no)strict		is passed to the server for the injection call.
 
  ...and of course, this module takes the standard options:

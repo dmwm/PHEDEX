@@ -130,7 +130,10 @@ sub Summary
     return;
   }
   return unless $self->{RESPONSE};
-# print Data::Dumper->Dump([ $self->{RESPONSE} ],[ __PACKAGE__ . '->Summary' ]);
+  print Data::Dumper->Dump([ $self->{RESPONSE}{NODES},
+			     $self->{RESPONSE}{ROLES} ],
+			   [ __PACKAGE__ . '->Nodes',
+			     __PACKAGE__ . '->Roles' ]);
 }
 
 1;
