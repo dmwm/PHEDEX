@@ -3,7 +3,6 @@ package PHEDEX::RequestAllocator::SQL;
 =head1 NAME
 
 PHEDEX::RequestAllocator::SQL - encapsulated SQL for evaluating requests
-Checking agent.
 
 =head1 SYNOPSIS
 
@@ -18,14 +17,6 @@ pending...
 =head1 METHODS
 
 =over
-
-=item method1($args)
-
-=back
-
-=head1 SEE ALSO...
-
-L<PHEDEX::Core::SQL|PHEDEX::Core::SQL>,
 
 =cut
 
@@ -66,19 +57,26 @@ sub AUTOLOAD
   $self->$parent(@_);
 }
 
-#-------------------------------------------------------------------------------
-# Fetch basic transfer request information
-# Options:
-#   APPROVED    : if true, return approved; if false, return disapproved; if null, return either;
-#   PENDING     : if true, return pending nodes; if false, return decided; if null, return either;
-#   DEST_ONLY   : if true, return only destination nodes; if false or null, return either;
-#   SRC_ONLY    : if true, return only source nodes; if false or null, return either;
-#   STATIC      : if true, only return static requets, if false only return expanding requests
-#   MOVE        : if true, return move requests; if false, return copy requests; if null return either;
-#   DISTRIBUTED : if true, return dist. reqs; if false, return non-dist.; if null, return either;
-#   WILDCARDS   : if true, only return requests with wildcards in them
-#   AFTER       : only return requests created after this timestamp
-#   NODES       : an arrayref of nodes.  Only return transfers affecting those nodes
+=pod
+
+=item getTransferRequests($self, %args)
+
+Fetch basic transfer request information.  TODO:  Document output format!
+
+ Options:
+  APPROVED    : if true, return approved; if false, return disapproved; if null, return either;
+  PENDING     : if true, return pending nodes; if false, return decided; if null, return either;
+  DEST_ONLY   : if true, return only destination nodes; if false or null, return either;
+  SRC_ONLY    : if true, return only source nodes; if false or null, return either;
+  STATIC      : if true, only return static requets, if false only return expanding requests
+  MOVE        : if true, return move requests; if false, return copy requests; if null return either;
+  DISTRIBUTED : if true, return dist. reqs; if false, return non-dist.; if null, return either;
+  WILDCARDS   : if true, only return requests with wildcards in them
+  AFTER       : only return requests created after this timestamp
+  NODES       : an arrayref of nodes.  Only return transfers affecting those nodes
+
+=cut
+
 sub getTransferRequests
 {
     my ($self, %h) = @_;
@@ -169,17 +167,22 @@ sub getTransferRequests
     return $requests;
 }
 
+=pod
 
+=item getDeleteRequests($self, %h)
 
-#-------------------------------------------------------------------------------
-# Fetch basic deletion request information
-# Options:
-#   APPROVED    : if true, return approved; if false, return disapproved; if null, return either;
-#   PENDING     : if true, return pending nodes; if false, return decided; if null, return either;
-#   RETRANSFER : if true, only return retransfer deletions, if false only return permenant deletions
-#   WILDCARDS : if true, only return requests with wildcards in them
-#   AFTER : only return requests created after this timestamp
-#   NODES : an arrayref of nodes.  Only return deletions affecting those nodes
+Fetch basic deletion request information.
+
+ Options:
+  APPROVED    : if true, return approved; if false, return disapproved; if null, return either;
+  PENDING     : if true, return pending nodes; if false, return decided; if null, return either;
+  RETRANSFER  : if true, only return retransfer deletions, if false only return permenant deletions
+  WILDCARDS   : if true, only return requests with wildcards in them
+  AFTER       : only return requests created after this timestamp
+  NODES       : an arrayref of nodes.  Only return deletions affecting those nodes
+
+=cut
+
 sub getDeleteRequests
 {
     my ($self, %h) = @_;
@@ -256,27 +259,32 @@ sub getDeleteRequests
     return $requests;
 }
 
+=pod
 
+=item getExistingRequestData($self, $request, %args)
 
-#-------------------------------------------------------------------------------
-# Returns arrayrefs of datasets and blocks attached to this request
-# Options:
-#   EXPAND_DATASETS : if true, expands datasets into block ids and returns them in the block array
+Returns arrayrefs of datasets and blocks (ids) attached to this request.
+
+ Options:
+   EXPAND_DATASETS : if true, expands datasets into block ids and returns them in the block array
+
+=cut
+
 sub getExistingRequestData
 {
-    my ($self, $id, %h) = @_;
+    my ($self, $request, %h) = @_;
 
     my $datasets = select_single ( $self->{DBH},
 				   qq{ select rds.dataset_id from t_req_dataset rds
 					   where rds.dataset_id is not null
                                              and rds.request = :id },
-				   ':id' => $id );
+				   ':id' => $request );
 
     my $blocks = select_single ( $self->{DBH},
 				 qq{ select rb.block_id from t_req_block rb
 			 	      where rb.block_id is not null
                                         and rb.request = :id },
-				 ':id' => $id );
+				 ':id' => $request );
 
     if ($h{EXPAND_DATASETS}) {
 	my $ds_blocks = select_single ( $self->{DBH},
@@ -291,10 +299,14 @@ sub getExistingRequestData
     return $datasets, $blocks;
 }
 
+=pod
 
+=item addRequestData($self, $request, %args)
 
-#-------------------------------------------------------------------------------
-# Adds a dataset or block to a request
+Adds a dataset or block to a request.
+
+=cut
+
 sub addRequestData
 {
     my ($self, $request, %h) = @_;
@@ -316,21 +328,27 @@ sub addRequestData
     return $n;
 }
 
+=pod
 
+=item createSubscription($self, %args)
 
-#-------------------------------------------------------------------------------
-# Creates a new subscription for a dataset or block
-# Required:
-#  DATASET or BLOCK : the name or ID of a dataset or block
-#  REQUEST : request ID this is associated with
-#  DESTINATION : the destination node ID
-#  PRIORITY : priority
-#  IS_MOVE : if this is a move subscription
-#  IS_TRANSIENT : if this is a transient subscription
-#  TIME_CREATE : the creation time
-# TODO: Check that block subscriptions are not created where a dataset
-#       subscription exists?  BlockAllocator takes care of this, but it may be 
-#       unneccessary strain on that agent.
+Creates a new subscription for a dataset or block.
+
+Required:
+ DATASET or BLOCK : the name or ID of a dataset or block
+ REQUEST : request ID this is associated with
+ DESTINATION : the destination node ID
+ PRIORITY : priority
+ IS_MOVE : if this is a move subscription
+ IS_TRANSIENT : if this is a transient subscription
+ TIME_CREATE : the creation time
+
+TODO: Check that block subscriptions are not created where a dataset
+      subscription exists?  BlockAllocator takes care of this, but it may be 
+      unneccessary strain on that agent.
+
+=cut
+
 sub createSubscription
 {
     my ($self, %h) = @_;;
@@ -383,6 +401,308 @@ sub createSubscription
     return $n;
 }
 
+=pod
 
+=item createRequest($self, $data, $nodes, %args)
+
+Creates a new request, returns the newly created request id.
+
+TODO:  document format for $data and $nodes hash.
+
+=cut
+
+sub createRequest
+{
+    my ($self, $data, $nodes, %h) = @_;
+
+    foreach my $req (qw(CLIENT_ID TYPE TYPE_ATTR)) {
+	die "createRequest:  required parameter $req is not defined\n"
+	    unless exists $h{$req} && defined $h{$req};
+    }
+
+    my $type = $h{TYPE};
+    my $type_attr = $h{TYPE_ATTR};
+    my $client = $h{CLIENT_ID};
+    my $now = $h{NOW} || &mytimeofday();
+    my @ids;
+
+    foreach my $dbs (values %{$data->{DBS}}) {
+	# Write the request
+	my $rid;
+	execute_sql($self,
+		    qq[	insert into t_req_request (id, type, created_by, time_create)
+			values (seq_req_request.nextval, (select id from t_req_type where name = :type),
+				:client, :now )
+			returning id into :id ],
+		    ':id' => \$rid, ':type' => $type, ':client' => $client, ':now' => $now);
+
+	# Write the (resolved) dbs/datasets/blocks to the DB
+	execute_sql($self, 
+		    qq[ insert into t_req_dbs (request, name, dbs_id)
+			select :rid, name, id from t_dps_dbs where name = :dbs_name ],
+		    ':rid' => $rid, ':dbs_name' => $dbs->{NAME});
+    
+	foreach my $ds (values %{$dbs->{DATASETS}}) {
+	    # peek at the number of blocks
+	    my $n_blocks = scalar keys %{$ds->{BLOCKS}};
+	    my @rv;
+	    if ($n_blocks == 0) { # make dataset level request
+		@rv = execute_sql($self,
+				  qq[ insert into t_req_dataset (request, name, dataset_id)
+				      select :rid, name, id from t_dps_dataset where name = :dataset_name ],
+				  ':rid'          => $rid,
+				  ':dataset_name' => $ds->{NAME}
+			      );
+		die "createRequest:  dataset $ds->{NAME} does not exist\n" unless $rv[1] > 0;
+	    } else { # make block level request
+		foreach my $b (values %{$ds->{BLOCKS}}) {
+		    @rv = execute_sql($self,
+				      qq[ insert into t_req_block ( request, name, block_id )
+					  select :rid, name, id from t_dps_block where name = :block_name ],
+				      ':rid' => $rid,
+				      ':block_name' => $b->{NAME}
+				      );
+		    die "createRequest:  block $b->{NAME} does not exist\n" unless $rv[1] > 0;
+		} # /block
+	    } # /block-level case
+	} # /dataset
+
+
+	# Write the nodes involved
+	my $i_node = &dbprep($self->{DBH},
+			     qq[ insert into t_req_node (request, node, point)
+				 values (:rid, :node, :point) ]);
+	foreach my $pair (@$nodes) {
+	    my ($endpoint, $node_id) = @$pair;
+	    &dbbindexec($i_node,
+			':rid' => $rid,
+			':node' => $node_id,
+			':point' => $endpoint);
+	}
+
+	# Write the request type parameters
+	my $table = 't_req_'. $type;
+	my @columns = ('request', sort keys %$type_attr);
+	my $sql = "insert into $table (" . join(', ', @columns) . ")" .
+	    " values (" . join(', ', map { ":$_" } @columns) . ")";
+	my %binds = ( ':request' => $rid );
+	$binds{":$_"} = $type_attr->{$_} foreach keys %$type_attr;
+	execute_sql($self, $sql, %binds);
+	
+	# Write the comment
+	if ($h{COMMENTS}) {
+	    my $comments_id = $self->writeRequestComments($rid, $client, $h{COMMENTS}, $now);
+	    execute_sql($self, qq[ update t_req_request set comments = :comments_id where id = :rid ],
+			':rid' => $rid, ':comments_id' => $comments_id);
+	}
+	push @ids, $rid;
+    } # /dbs
+
+    return @ids;
+}
+
+=pod
+
+=item writeRequestComments($self, $request, $client, $comments, $time)
+
+Writes a comment to the database, returning the comment id.
+
+=cut
+
+sub writeRequestComments
+{
+    my ($self, $rid, $client, $comments, $time) = @_;
+    return undef unless ($rid && $client && $comments && $time);
+
+    my $comments_id;
+    execute_sql($self,
+		qq[ insert into t_req_comments (id, request, comments_by, comments, time_comments)
+		    values (seq_req_comments.nextval, :rid, :client, :comments, :time_comments)
+		    returning id into :comments_id],
+		':rid' => $rid, ':client' => $client, ':comments' => $comments, ':time_comments' => $time,
+		':comments_id' => \$comments_id);
+
+    return $comments_id;
+}
+
+=pod
+
+=item addSubscriptionForRequest($self, $request, $node, $time)
+
+Subscribe request data to $node for $request.  This DML ignores
+duplicates but updates the parameters if there are duplicates.
+
+=cut
+
+sub addSubscriptionsForRequest
+{
+    my ($self, $rid, $node_id, $time) = @_;
+
+    my ($sth, $rv) = &dbexec($$self{DBH}, 
+     qq[ merge into t_dps_subscription s
+         using
+         (select r.id, :destination destination, rdata.dataset, rdata.block, rx.priority, rx.is_move, rx.is_transient
+	    from t_req_request r
+            join t_req_xfer rx on rx.request = r.id
+            join ( select rds.request, rds.dataset_id dataset, NULL block
+                     from t_req_dataset rds
+                    where rds.dataset_id is not null
+                    union
+                   select rb.request, NULL dataset, rb.block_id block
+                     from t_req_block rb
+                    where rb.block_id is not null
+                 ) rdata on rdata.request = r.id 
+           where r.id = :request
+         ) r
+         on (r.destination = s.destination
+             and (r.dataset = s.dataset or r.block = s.block))
+         when matched then
+           update set s.request = r.id,
+                      s.is_move = r.is_move,
+                      s.priority = r.priority,
+                      s.is_transient = r.is_transient
+         when not matched then
+           insert (request, dataset, block, destination, priority, is_move, is_transient, time_create)
+           values (r.id, r.dataset, r.block, r.destination, r.priority, r.is_move, r.is_transient, :time_create) ],
+			     ':request' => $rid, ':destination' => $node_id, ':time_create' => $time);
+
+    return 1;
+}
+
+=pod
+
+=item addDeletionsForRequest($self, $request, $node, $time)
+
+Mark all blocks in the $request at $node for deletion.
+
+=cut
+
+sub addDeletionsForRequest
+{
+    my ($self, $rid, $node_id, $time) = @_;
+
+    my ($sth, $rv) = &dbexec($$self{DBH}, 
+     qq[ merge into t_dps_block_delete bd
+         using
+         (select r.id, rdata.dataset, rdata.block, :node node 
+	    from t_req_request r
+            join ( select rds.request, b.dataset, b.id block
+                     from t_req_dataset rds
+                     join t_dps_block b on b.dataset = rds.dataset_id
+                    where rds.dataset_id is not null
+                    union
+                   select rb.request, b.dataset, b.id block
+                     from t_req_block rb
+                     join t_dps_block b on b.id = rb.block_id
+                    where rb.block_id is not null 
+                 ) rdata on rdata.request = r.id
+           where r.id = :request
+         ) r
+         on (r.node = bd.node
+             and r.dataset = bd.dataset
+             and r.block = bd.block)
+         when matched then
+           update set request = r.id,
+                      time_request = :time_request,
+                      time_complete = NULL
+            where time_complete is not null
+         when not matched then
+           insert (request, block, dataset, node, time_request)
+           values (r.id, r.block, r.dataset, r.node, :time_request) ],
+	  ':request' => $rid, ':node' => $node_id, ':time_request' => $time);
+
+}
+
+=pod
+
+=item updateMoveSubscriptionsForRequest($self, $request, $node, $time)
+
+Update the source subscriptions of a move.
+
+NOTE: This query's "exists" clause contains a statement which checks
+every possible block in the request for a match in the subscriptions
+table of the given node this is probably quite expensive for large
+requests...
+
+=cut
+
+sub updateMoveSubscriptionsForRequest
+{
+    my ($self, $rid, $node_id, $time) = @_;
+    
+    my ($sth, $rv) = &dbexec($$self{DBH},
+    qq[ update t_dps_subscription s
+           set s.time_clear = :time_clear
+         where s.destination = :destination
+           and exists
+               (select 1
+ 	          from t_req_request r
+                  join ( select rds.request, b.dataset, b.id block
+                           from t_req_dataset rds
+                           join t_dps_block b on b.dataset = rds.dataset_id
+                           where rds.dataset_id is not null
+                           union
+                           select rb.request, b.dataset, b.id block
+                             from t_req_block rb
+                             join t_dps_block b on b.id = rb.block_id 
+                            where rb.block_id is not null
+                        ) rdata on rdata.request = r.id
+                  where r.id = :request 
+                    and (rdata.dataset = s.dataset or rdata.block = s.block)
+               ) ],
+	  ':request' => $rid, ':destination' => $node_id, ':time_clear' => $time);
+
+    return 1;
+}
+
+=pod
+
+=item setRequestDecision($self, $request, $node, $decision, $client, $time, $comment)
+
+Sets the decision (y or n) of $node (made by $client) for $request.
+
+=cut
+
+sub setRequestDecision
+{
+    my ($self, $rid, $node_id, $decision, $client_id, $time, $comments_id) = @_;
+
+    my ($sth, $rv) = &dbexec($$self{DBH}, qq{ 
+	insert into t_req_decision (request, node, decision, decided_by, time_decided, comments)
+	    values (:rid, :node, :decision, :decided_by, :time_decided, :comments) },
+	    ':rid' => $rid, ':node' => $node_id, ':decision' => $decision, ':decided_by' => $client_id,
+	    ':time_decided' => $time, ':comments' => $comments_id);
+    
+    return $rv ? 1 : 0;
+}
+
+=pod
+
+=item unsetRequestDecision($self, $request, $node)
+
+Clears the decision of $node for $request.
+
+=cut
+
+sub unsetRequestDecision
+{
+    my ($self, $rid, $node_id) = @_;
+
+    my ($sth, $rv) = &dbexec($$self{DBH}, qq{ 
+	delete from t_req_decision where request = :rid and node = :node },
+	':rid' => $rid, ':node' => $node_id);
+    
+    return $rv ? 1 : 0;
+}
+
+=pod
+
+=back
+
+=head1 SEE ALSO...
+
+L<PHEDEX::Core::SQL|PHEDEX::Core::SQL>,
+
+=cut
 
 1;
