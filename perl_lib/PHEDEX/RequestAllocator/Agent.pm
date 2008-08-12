@@ -142,22 +142,32 @@ sub idle
 	my $dest_nodes = [ keys %{ $xreq->{NODES} } ];
 	my ($datasets, $blocks) = $self->expandRequest( $xreq->{DATA} );
 
-	my $subscribe = $self->distributeData( NODES => $dest_nodes,
-					       DATASETS => $datasets,
-					       BLOCKS => $blocks );
-
-	
 	# Find all the data we need to skip
 	my ($ex_ds, $ex_b) = $self->getExistingRequestData( $xreq->{ID} );
 	my $skip = { DATASET => { map { $_ => 1 } @$ex_ds },
 		     BLOCK   => { map { $_ => 1 } @$ex_b } };
 
+	foreach my $items ( [ 'DATASET', $datasets ], [ 'BLOCK', $blocks ] ) {
+	    my ($type, $ids) = @$items;
+	    for my $i (0..scalar @$ids-1) {          # for all items
+		my $id = $ids->[$i];                 # define id
+		if (exists $skip->{$type}->{$id}) {  # skip if exists
+		    splice(@$ids, $i, 1) ;           # (remove from list)  
+		} else {                             # otherwise add to req data table
+		    $self->addRequestData( $xreq->{ID}, $type => $id );
+		}
+	    }
+	}
+	# everything left in $datasets, $blocks is new data items
+	# distribute these among the nodes
+	my $subscribe = $self->distributeData( NODES => $dest_nodes,
+					       DATASETS => $datasets,
+					       BLOCKS => $blocks );
+
 	foreach my $subn ( @$subscribe ) {
 	    my ($type, $node, $id) = @$subn;
-	    next if exists $skip->{$type}->{$id};
 
 	    $self->Logmsg("adding subscription ",lc $type, "=$id for node=$node from request=$xreq->{ID}");
-	    my $n_data = $self->addRequestData( $xreq->{ID}, $type => $id );
 	    my $n_subs = $self->createSubscription( $type => $id,
 						    DESTINATION => $node, 
 						    PRIORITY => $xreq->{PRIORITY},
