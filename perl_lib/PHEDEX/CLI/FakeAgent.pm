@@ -17,6 +17,9 @@ pending...
 
 =cut
 
+# TODO: set only the direct or proxy variables as required, pass proxy
+# configuration to dataservice security module
+
 use strict;
 use warnings;
 use base 'PHEDEX::CLI::UserAgent', 'PHEDEX::Core::Logging';
@@ -106,25 +109,6 @@ sub init
   }
 }
 
-#sub response_ok
-#{
-#  my ($self,$response) = @_;
-#
-#  if ( $response->is_success )
-#  {
-#    $_ = $response->content();
-#    s%\n%%g;
-#    if ( m%^<error>(.*)</error>$% )
-#    {
-#      print "Error from ",$response->request()->url(),"\n$1\n" if $self->{DEBUG};
-#      return 0 if $self->{PARANOID};
-#    }
-#    return 1;
-#  }
-#
-#  return 0;
-#}
-
 sub Dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
 
 sub target
@@ -154,7 +138,18 @@ sub _action
   if ( !$self->{NOCERT} )
   {
     $ENV{SSL_CLIENT_VERIFY} = $ENV{HTTP_SSL_CLIENT_VERIFY} = 'SUCCESS';
-    defined($ENV{SSL_CLIENT_S_DN}) or die "SSL_CLIENT_S_DN environment variable not set\n";
+    defined($ENV{SSL_CLIENT_S_DN}) or
+    do
+    {
+      open SSL, "openssl x509 -in $self->{CERT_FILE} -subject -noout |" or
+	die "SSL_CLIENT_S_DN environment variable not set and cannot read certificate to set it\n";
+        while ( <SSL> )
+        {
+          m%^subject=\s+(.*)$% or next;
+          $ENV{SSL_CLIENT_S_DN} = $1;
+        }
+        close SSL; # Who cares about return codes...?
+    } or die "SSL_CLIENT_S_DN environment variable not set\n";
     $ENV{HTTP_SSL_CLIENT_S_DN} = $ENV{SSL_CLIENT_S_DN};
   }
   $service_name = $self->{SERVICE};

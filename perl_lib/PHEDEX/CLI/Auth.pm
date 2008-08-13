@@ -2,6 +2,7 @@ package PHEDEX::CLI::Auth;
 use Getopt::Long;
 use Data::Dumper;
 use strict;
+use warnings;
 
 sub new
 {
@@ -13,12 +14,14 @@ sub new
 	      VERBOSE	=> 0,
 	      DEBUG	=> 0,
 	      NODES	=> undef,
+	      REQUIRE_CERT => 0,
 	    );
   %options = (
                'help'		=> \$help,
 	       'verbose!'	=> \$params{VERBOSE},
-	       'debug!'		=> \$params{DEBUG},
+	       'debug'		=> \$params{DEBUG},
 	       'node=s@'	=> \$params{NODES},
+	       'require_cert'	=> \$params{REQUIRE_CERT},
 	     );
   GetOptions(%options);
   my $self = \%params;
@@ -62,12 +65,12 @@ EOF
 sub Payload
 {
   my $self = shift;
-  my $payload = { };
+  my $payload = { require_cert => $self->{REQUIRE_CERT} };
   print __PACKAGE__," created payload\n" if $self->{VERBOSE};
   return $self->{PAYLOAD} = $payload;
 }
 
-sub Call { return 'checkAuth'; }
+sub Call { return 'Auth'; }
 
 sub ParseResponse
 {
@@ -81,7 +84,7 @@ sub ParseResponse
   {
     $content =~ s%^[^\$]*\$VAR1%\$VAR1%s;
     $content = eval($content);
-    $content = $content->{phedex}{auth} || {};
+    $content = $content->{phedex}{Auth} || {};
     foreach ( qw / STATE DN NODES / )
     { $self->{RESPONSE}{$_} = $content->{$_}; }
     @{$self->{RESPONSE}{ROLES}} = ();

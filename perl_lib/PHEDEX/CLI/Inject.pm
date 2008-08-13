@@ -2,6 +2,7 @@ package PHEDEX::CLI::Inject;
 use Getopt::Long;
 use Data::Dumper;
 use strict;
+use warnings;
 
 sub new
 {
@@ -19,7 +20,7 @@ sub new
   %options = (
                'help'		=> \$help,
 	       'verbose!'	=> \$params{VERBOSE},
-	       'debug!'		=> \$params{DEBUG},
+	       'debug'		=> \$params{DEBUG},
 	       'strict!'	=> \$params{STRICT},
 	       "datafile=s@"	=> \$params{DATAFILE},
 	       "node=s"		=> \$params{NODE},
@@ -90,7 +91,7 @@ sub Payload
   return $self->{PAYLOAD} = $payload;
 }
 
-sub Call { return 'inject'; }
+sub Call { return 'Inject'; }
 
 sub ParseResponse
 {
@@ -103,8 +104,8 @@ sub ParseResponse
   {
     $content =~ s%^[^\$]*\$VAR1%\$VAR1%s;
     $content = eval($content);
-    $content = $content->{phedex} || {};
-    foreach ( keys %{$self->{PAYLOAD}}, stdout )
+    $content = $content->{phedex}{Inject} || {};
+    foreach ( keys %{$self->{PAYLOAD}}, 'stdout' )
     { $self->{RESPONSE}{$_} = $content->{$_}; }
   }
   print $self->Dump() if $self->{DEBUG};

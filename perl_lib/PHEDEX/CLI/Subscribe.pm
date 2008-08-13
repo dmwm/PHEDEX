@@ -2,6 +2,7 @@ package PHEDEX::CLI::Subscribe;
 use Getopt::Long;
 use Data::Dumper;
 use strict;
+use warnings;
 
 sub new
 {
@@ -18,7 +19,7 @@ sub new
   %options = (
                'help'		=> \$help,
 	       'verbose!'	=> \$params{VERBOSE},
-	       'debug!'		=> \$params{DEBUG},
+	       'debug'		=> \$params{DEBUG},
 	       "datafile=s@"	=> \$params{DATAFILE},
 	       "node=s@"	=> \$params{NODE},
 	     );
@@ -85,7 +86,7 @@ sub Payload
   return $self->{PAYLOAD} = $payload;
 }
 
-sub Call { return 'subscribe'; }
+sub Call { return 'Subscribe'; }
 
 sub ParseResponse
 {
@@ -98,7 +99,7 @@ sub ParseResponse
   {
     $content =~ s%^[^\$]*\$VAR1%\$VAR1%s;
     $content = eval($content);
-    $content = $content->{phedex} || {};
+    $content = $content->{phedex}{Subscribe} || {};
     foreach ( keys %{$self->{PAYLOAD}} )
     { $self->{RESPONSE}{$_} = $content->{$_}; }
   }

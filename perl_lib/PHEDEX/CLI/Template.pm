@@ -7,6 +7,7 @@ package PHEDEX::CLI::Template;
 use Getopt::Long;
 use Data::Dumper;
 use strict;
+use warnings;
 
 sub new
 {
@@ -21,7 +22,7 @@ sub new
   %options = (
 	       'help'		=> \$help,
 	       'verbose!'	=> \$params{VERBOSE},
-	       'debug!'		=> \$params{DEBUG},
+	       'debug'		=> \$params{DEBUG},
 	     );
   GetOptions(%options);
   my $self = \%params;
@@ -76,7 +77,7 @@ sub Call
 # function to call. Ideally, this should be the same as the name of this
 # package, but may not always be. As here, using the 'bounce' call will
 # simply return the parameters the user sent, which is fine for debugging
-  return 'bounce';
+  return 'Template';
 }
 
 sub ParseResponse
@@ -90,7 +91,7 @@ sub ParseResponse
   {
     $content =~ s%^[^\$]*\$VAR1%\$VAR1%s;
     $content = eval($content);
-    $content = $content->{phedex} || {};
+    $content = $content->{phedex}{Template} || {};
     foreach ( keys %{$self->{PAYLOAD}} )
     { $self->{RESPONSE}{$_} = $content->{$_}; }
   }
@@ -119,11 +120,8 @@ sub ResponseIsValid
   return 1;
 }
 
-sub Dump
-{
 # For debugging purposes only
-  return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]);
-}
+sub Dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
 
 sub Summary
 {
