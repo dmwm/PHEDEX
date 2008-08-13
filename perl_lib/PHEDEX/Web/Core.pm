@@ -398,12 +398,12 @@ sub refreshCache
 {
     my ($self, $call) = @_;
 die "are you sure you want to be here?\n"; 
-    foreach my $name (@{ $call_data->{$call} }) {
-	my $datasource = $data_sources->{$name}->{DATASOURCE};
-	my $duration   = $data_sources->{$name}->{DURATION};
-	my $data = &{$datasource}($self);
-	$self->{CACHE}->set( $name, $data, $duration.' s' );
-    }
+#    foreach my $name (@{ $call_data->{$call} }) {
+#	my $datasource = $data_sources->{$name}->{DATASOURCE};
+#	my $duration   = $data_sources->{$name}->{DURATION};
+#	my $data = &{$datasource}($self);
+#	$self->{CACHE}->set( $name, $data, $duration.' s' );
+#    }
 }
 
 sub getData
@@ -427,29 +427,29 @@ sub getData_thisIsObsolete
     my ($self, $name, %h) = @_;
 die "are you sure you want to be here?\n"; 
 
-    my $datasource = $data_sources->{$name}->{DATASOURCE};
-    my $duration   = $data_sources->{$name}->{DURATION};
-
-    my $t1 = &mytimeofday();
-
-    my $from_cache;
-    my $data;
-    $data = $self->{CACHE}->get( $name ) unless $h{nocache};
-    if (!defined $data) {
-	$data = &{$datasource}($self, %h);
-	$self->{CACHE}->set( $name, $data, $duration.' s') unless $h{nocache};
-	$from_cache = 0;
-    } else {
-	$from_cache = 1;
-    }
-
-    my $t2 = &mytimeofday();
-
-    warn "got '$name' from ",
-    ($from_cache ? 'cache' : 'DB'),
-    " in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
-
-    return wantarray ? ($data, $from_cache) : $data;
+#    my $datasource = $data_sources->{$name}->{DATASOURCE};
+#    my $duration   = $data_sources->{$name}->{DURATION};
+#
+#    my $t1 = &mytimeofday();
+#
+#    my $from_cache;
+#    my $data;
+#    $data = $self->{CACHE}->get( $name ) unless $h{nocache};
+#    if (!defined $data) {
+#	$data = &{$datasource}($self, %h);
+#	$self->{CACHE}->set( $name, $data, $duration.' s') unless $h{nocache};
+#	$from_cache = 0;
+#    } else {
+#	$from_cache = 1;
+#    }
+#
+#    my $t2 = &mytimeofday();
+#
+#    warn "got '$name' from ",
+#    ($from_cache ? 'cache' : 'DB'),
+#    " in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
+#
+#    return wantarray ? ($data, $from_cache) : $data;
 }
 
 
@@ -460,11 +460,12 @@ sub getCacheDuration
 {
     my ($self, $call) = @_;
     my $min;
-    foreach my $name (@{ $call_data->{$call} }) {
-	my $duration   = $data_sources->{$name}->{DURATION};
-	$min ||= $duration;
-	$min = $duration if $duration < $min;
-    }
+# This needs some consideration...
+#    foreach my $name (@{ $call_data->{$call} }) {
+#	my $duration   = $data_sources->{$name}->{DURATION};
+#	$min ||= $duration;
+#	$min = $duration if $duration < $min;
+#    }
     return $min;
 }
 

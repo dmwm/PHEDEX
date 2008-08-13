@@ -102,6 +102,7 @@ sub new
 
   my %cache_headers;
   unless (param('nocache')) {
+# getCacheDuration needs re-implementing.
       my $duration = $core->getCacheDuration($call) || 300;
       %cache_headers = (-Cache_Control => "max-age=$duration",
 		        -Date => $http_now,
