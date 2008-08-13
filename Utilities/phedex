@@ -1,19 +1,21 @@
 #!/usr/bin/env perl
 
 use strict;
-use PHEDEX::CLI::FakeAgent;
-#use PHEDEX::CLI::UserAgent;
+use PHEDEX::CLI::FakeAgent; # get PHEDEX::CLI::UserAgent for free...
+use PHEDEX::Core::Loader;
 use Getopt::Long;
 use Data::Dumper;
 my ($url,$response,$help,$verbose,$quiet,$action,$Action,$fakeagent,$service);
 my ($instance,$format,$call,$args,$method,$test_cert,$ref,$timeout,$paranoid);
 my ($proxy,$debug,$cert_file,$key_file,$ca_file,$ca_dir,$nocert,$h,@env);
+my ($default_service);
 
 $url = 'https://cmswttest.cern.ch:8443/phedex/datasvc';
 $instance = 'tbedi';
 $format   = 'perl';
 $call     = 'getAuth';
 $method   = 'post';
+$default_service = 'PHEDEX::Web::DataService';
 $help = $verbose = $debug = $quiet = 0;
 $nocert = $test_cert = $timeout = $paranoid = $fakeagent = 0;
 
@@ -44,8 +46,6 @@ if ( $ref )
 
 	 'instance=s'	=> \$instance,
 	 'format=s'	=> \$format,
-#	 'call=s'	=> \$call,
-#	 'args=s'	=> \$args,
 	 'method=s'	=> \$method,
 	 'service=s'	=> \$service,
 	 'env=s@'	=> \@env,
@@ -58,6 +58,7 @@ if ( $ref )
   }
 }
 
+my $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::CLI' );
 sub usage
 {
   print <<EOF;
@@ -66,6 +67,7 @@ sub usage
 	    [--method=s] [--url=s]
 	    [--instance=s] [--format=s]
 	    [--timeout=i] [--paranoid]
+	    [--fakeagent] [--service=s]
 	    [--debug] [--verbose] [--]
 	    command <command-options> --
 	    command <command-options> --
@@ -87,10 +89,17 @@ sub usage
 		The default is '$instance'.
  --format	format for returned data: 'perl', 'xml', 'json'. The default
 		is 'perl', anything else cannot easily be validated or used.
-  --timeout	is the time to wait for a server response. The default is
+ --timeout	is the time to wait for a server response. The default is
 		probably 30 seconds, set in PHEDEX::CLI::UserAgent
-  --paranoid	consider an XML-formatted 'error' message to be fatal, and
+ --paranoid	consider an XML-formatted 'error' message to be fatal, and
 		dump lots of useful debugging info.
+
+ --fakeagent	run interactively, with a fake useragent that sets up the
+		environment and calls the dataservice directly.
+ --service	name of Perl module to load to instantiate the data service.
+		If --service is given, --fakeagent is assumed. If --fakeagent
+		is given and --service is not specified, the default data
+		service ($default_service) is assumed.
 
  --debug, --verbose, and --help are obvious
 
@@ -107,21 +116,10 @@ $0 --verbose -- inject --node T1_XY_Buffer -- inject --node T2_PQ_Buffer
 
 EOF
 
-  my %commands;
-  foreach ( @INC )
-  {
-    foreach ( <$_/PHEDEX/CLI/*pm> )
-    {
-      m%^.*/PHEDEX/CLI/(.*).pm$%;
-      $commands{lc $1}++;
-    }
-  }
-
-  foreach ( qw / Template UserAgent FakeAgent / )
-  { delete $commands{lc $_} if exists $commands{lc $_}; }
+  my $commands = $loader->KnownCommands();
 
   print " Known commands in this installation are:\n",
-	' ',join(' ',sort keys %commands),"\n\n",
+	' ',join(' ',sort values %{$commands}),"\n\n",
 	" use \"$0 <command> -help\" for details of a particular command\n\n";
   exit 0;
 }
@@ -136,8 +134,13 @@ if ( !( $cert_file || $key_file || $proxy || $ca_file || $ca_dir ||
   $key_file  = $ENV{HOME} . '/.globus/userkey.pem';
 }
 
+$fakeagent = 1 if $service;
 my $module = 'PHEDEX::CLI::UserAgent';
-$module = 'PHEDEX::CLI::FakeAgent' if $fakeagent;
+if ( $fakeagent )
+{
+  $service = $default_service unless $service;
+  $module = 'PHEDEX::CLI::FakeAgent';
+}
 
 my $pua = ($module)->new
 	(
@@ -150,7 +153,6 @@ my $pua = ($module)->new
 	  URL		=> $url,
 	  FORMAT	=> $format,
 	  INSTANCE	=> $instance,
-#	  CALL		=> $call,
 	  NOCERT	=> $nocert,
 
 	  SERVICE	=> $service,
@@ -166,7 +168,7 @@ if ( $test_cert )
   $pua->test_certificate();
 }
 
-my (%Modules,@responses);
+my (@responses);
 while ( $ref = separateArgs() )
 {
   @ARGV = @{$ref};
@@ -174,23 +176,9 @@ while ( $ref = separateArgs() )
 
   next if $Action =~ m%^-+$%;
   $action = lc($Action);
-  if ( $action !~ m%^[a-z]+$% )
-  {
-    die "invalid syntax, use \"$0 --help\" for help\n";
-  }
-  if ( $action eq $Action )
-  {
-    my @a = split('',$action);
-    $a[0] = uc $a[0];
-    $Action = join('',@a);
-  }
-  my $module = "PHEDEX::CLI::$Action";
-  if ( ! exists $Modules{$Action} )
-  {
-    eval("use $module");
-    do { chomp ($@); die "Failed to load module $module: $@\n" } if $@;
-    $Modules{$Action}++;
-  }
+  if ( $action !~ m%^[a-z][a-z,0-9]+$% )
+  { die "invalid syntax, use \"$0 --help\" for help\n"; }
+  my $module = $loader->Load($Action);
   my $cli = $module->new();
   print "created new $module object\n";
   print $cli->Dump() if $debug;
