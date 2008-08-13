@@ -60,6 +60,24 @@ sub read
 	    $$info{RANK} = $instance_rank++;
 	    $$config{INSTANCES}{$$info{ID}} = $info;
 	}
+	elsif ($line =~ /^cache_config:\s+([\S\s]+)$/)
+	{
+	    my $rest = $1;
+	    my $info = {};
+	    while ($rest =~ /\G([-a-z]+)\s*=\s*(\S+)\s*/g)
+	    {
+		my $name = uc($1);
+		my $value = $2;
+		$name =~ s/-/_/g;
+		$$info{$name} = $value;
+	    }
+
+	    my @required = qw(MODULE STRATEGY);
+	    my @missing = map { s/_/-/g; lc; } grep(! exists $$info{$_}, @required);
+	    die "$config_file: instance is missing parameters '@missing'\n" if @missing;
+	 
+	    $$config{CACHE_CONFIG} = $info;
+	}
 	else
 	{
 	    die "$config_file: unexpected parameters '$line'\n";

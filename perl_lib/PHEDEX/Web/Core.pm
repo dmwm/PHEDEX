@@ -1,5 +1,3 @@
-#!/usr/bin/env perl
-
 package PHEDEX::Web::Core;
 
 =pod
@@ -69,34 +67,24 @@ examples:
 
 =cut
 
-
 use warnings;
 use strict;
 
 use base 'PHEDEX::Web::SQL';
-
+use PHEDEX::Web::Util;
+use PHEDEX::Web::Cache;
+use PHEDEX::Core::Loader;
 use PHEDEX::Core::Timing;
+use PHEDEX::Web::Format;
+use HTML::Entities; # for encoding XML
 
 # TODO: When call-specific SQL is removed from PHEDEX::Web::SQL and
 # something more modular is used, stop using these libraries and just
 # use our base SQL class, PHEDEX::Web::SQL
 use PHEDEX::Core::SQL;
-use PHEDEX::Web::SQL;
-
-# TODO:  when call-specific packages are used, this goes with the one for lfnToPFN
-use PHEDEX::Core::Catalogue;
-
-use PHEDEX::Web::Format;
-use HTML::Entities; # for encoding XML
-
-# If you're thinking of these, I've already tried them and decided against.
-#use Cache::FileCache;
-#use Cache::MemoryCache;
-#use XML::XML2JSON;
-#use XML::Writer;
+#use PHEDEX::Web::SQL; # already used as a base class above...
 
 our (%params);
-
 %params = ( VERSION => undef,
             DBCONFIG => undef,
 	    INSTANCE => undef,
@@ -104,43 +92,14 @@ our (%params);
 	    REQUEST_TIME => undef,
 	    SECMOD => undef,
 	    DEBUG => 0,
+	    CACHE_CONFIG => undef,
 	    );
 
 # A map of API calls to data sources
-our $call_data = {
-    linkTasks       => [ qw( linkTasks ) ],
-    blockReplicas   => [ qw( blockReplicas ) ],
-    fileReplicas    => [ qw( fileReplicas ) ],
-    nodes           => [ qw( nodes ) ],
-    tfc             => [ qw( tfc ) ],
-    getAuth         => [ qw( getAuth ) ],
-    checkAuth       => [ qw( checkAuth ) ],
-    inject          => [ qw( inject ) ],
-    bounce          => [ qw( bounce ) ],
-};
+our $call_data = { };
 
 # Data source parameters
-our $data_sources = {
-    linkTasks       => { DATASOURCE => \&PHEDEX::Web::SQL::getLinkTasks,
-			 DURATION => 10*60 },
-    blockReplicas   => { DATASOURCE => \&PHEDEX::Web::SQL::getBlockReplicas,
-			 DURATION => 5*60 },
-    fileReplicas    => { DATASOURCE => \&PHEDEX::Web::SQL::getFileReplicas,
-			 DURATION => 5*60 },
-    nodes           => { DATASOURCE => \&PHEDEX::Web::SQL::getNodes,
-			 DURATION => 60*60 },
-    tfc             => { DATASOURCE => \&PHEDEX::Web::SQL::getTFC,
-			 DURATION => 15*60 },
-    getAuth         => { DATASOURCE => \&PHEDEX::Web::Core::getAuth,
-			 DURATION => 15*60 * 0 +1 },
-    checkAuth       => { DATASOURCE => \&PHEDEX::Web::Core::checkAuth,
-			 DURATION => 15*60 * 0 +1 },
-    inject          => { DATASOURCE => \&PHEDEX::Web::Core::inject,
-			 DURATION => 0 },
-    bounce          => { DATASOURCE => \&PHEDEX::Web::Core::bounce,
-			 DURATION => 0 },
-    lfn2pfn        => { DURATION => 15*60 }
-};
+our $data_sources = { };
 
 sub new
 {
@@ -163,15 +122,7 @@ sub new
     my $t2 = &mytimeofday();
     warn "db connection time ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
 
-#    $self->{DBH}->{FetchHashKeyName} = 'NAME_lc';
-
-#    $self->{CACHE} = new Cache::FileCache({cache_root => '/tmp/phedex-cache'});
-#    $self->{CACHE} = new Cache::MemoryCache;
-
-    # on initialization fill the caches
-#    foreach my $call (grep $cacheable{$_} > 0, keys %cacheable) {
-#	$self->refreshCache($call);
-#    }
+    $self->{CACHE} = PHEDEX::Web::Cache->new( %{$self->{CACHE_CONFIG}} );
 
     return $self;
 }
@@ -198,90 +149,63 @@ sub call
 {
     my ($self, $call, %args) = @_;
     no strict 'refs';
+    my ($obj,$stdout);
     if (!$call) {
 	$self->error("No API call provided.  Check the URL");
 	return;
-    } elsif (!exists ${"PHEDEX::Web::Core::"}{$call}) {
-	$self->error("API call '$call' is not defined.  Check the URL");
-	return;
+    }
+
+    my ($t1,$t2,$loader,$module);
+    $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Web::API' );
+    $module = $loader->Load($call);
+
+    $t1 = &mytimeofday();
+    &process_args(\%args);
+
+    $obj = $self->getData($call, %args);
+    if ( ! $obj )
+    {
+      eval {
+        open (local *STDOUT,'>',\$stdout); # capture STDOUT of $call
+$DB::single=1;
+        $obj = $module->invoke($self, %args);
+	$obj = { $call => $obj };
+      };
+      if ($@) {
+          $self->error("Error when making call '$call':  $@");
+          return;
+      }
+      $t2 = &mytimeofday();
+      warn "api call '$call' complete in ", sprintf('%.6f s',$t2-$t1), "\n" if $self->{DEBUG};
+      my $duration = 0;
+      $duration = $module->duration() if $module->can('duration');
+      $self->{CACHE}->set( $call, \%args, $obj, $duration ); # unless $args{nocache};
+    }
+
+#   wrap the object in a phedexData element
+    $obj->{stdout} = $stdout;
+    $obj->{instance} = $self->{INSTANCE};
+    $obj->{request_version} = $self->{VERSION};
+    $obj->{request_url} = $self->{REQUEST_URL};
+    $obj->{request_call} = $call;
+    $obj->{request_timestamp} = $self->{REQUEST_TIME};
+    $obj->{request_date} = &formatTime($self->{REQUEST_TIME}, 'stamp');
+    $obj->{call_time} = sprintf('%.5f', $t2 - $t1);
+    $obj = { phedex => $obj };
+
+    $t1 = &mytimeofday();
+    if (grep $_ eq $args{format}, qw( xml json perl )) {
+        &PHEDEX::Web::Format::output(*STDOUT, $args{format}, $obj);
     } else {
-	my $t1 = &mytimeofday();
-	&process_args(\%args);
-	my ($obj,$stdout);
-
-	eval {
- 	    open (local *STDOUT,'>',\$stdout); # capture STDOUT of $call
-	    $obj = &{"PHEDEX::Web::Core::$call"}($self, %args, nocache=>1);
-	};
-	if ($@) {
-	    $self->error("Error when making call '$call':  $@");
-	    return;
-	}
-	my $t2 = &mytimeofday();
-	warn "api call '$call' complete in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
-
-	# wrap the object in a phedexData element
-	$obj->{stdout} = $stdout;
-	$obj->{instance} = $self->{INSTANCE};
-	$obj->{request_version} = $self->{VERSION};
-	$obj->{request_url} = $self->{REQUEST_URL};
-	$obj->{request_call} = $call;
-	$obj->{request_timestamp} = $self->{REQUEST_TIME};
-	$obj->{request_date} = &formatTime($self->{REQUEST_TIME}, 'stamp');
-	$obj->{call_time} = sprintf('%.5f', $t2 - $t1);
-	$obj = { phedex => $obj };
-
-	$t1 = &mytimeofday();
-	if (grep $_ eq $args{format}, qw( xml json perl )) {
-	    &PHEDEX::Web::Format::output(*STDOUT, $args{format}, $obj);
-	} else {
-	    $self->error("return format requested is unknown or undefined");
-	}
-	$t2 = &mytimeofday();
-	warn "api call '$call' delivered in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
+        $self->error("return format requested is unknown or undefined");
     }
+    $t2 = &mytimeofday();
+    warn "api call '$call' delivered in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
+
+    return $obj;
 }
-
-# process arguments used for common features
-sub process_args
-{
-    my $h = shift;
-
-    # multiply occuring option operators go to OPERATORS
-    if (exists $h->{op}) {
-	my %ops;
-	my @ops = arrayref_expand($h->{op});
-	delete $h->{op};
-
-	foreach my $pair (@ops) {
-	    my ($name, $value) = split /:/, $pair;
-	    next unless defined $name && defined $value && $value =~ /^(and|or)$/;
-	    $ops{$name} = $value;
-	}
-	
-	$h->{OPERATORS} = \%ops;
-    }
-    
-}
-
-sub error
-{
-    my $self = shift;
-    my $msg = shift || "no message";
-    chomp $msg;
-    print "<error>\n", encode_entities($msg),"\n</error>";
-}
-
 
 # API Calls 
-
-sub linkTasks
-{
-    my ($self, %h) = @_;
-    
-    my $r = $self->getData('linkTasks', %h);
-    return { linkTasks => { status => $r } };
-}
 
 =pod
 
@@ -334,43 +258,6 @@ block replicas exist for the given options.
  time_update  unix timestamp of last update
 
 =cut
-
-sub blockReplicas
-{
-    my ($self, %h) = @_;
-
-    my $r = $self->getData('blockReplicas', %h);
-
-    # Format into block->replica heirarchy
-    my $blocks = {};
-    foreach my $row (@$r) {
-	my $id = $row->{block_id};
-	
-	# <block> element
-	if (!exists $blocks->{ $id }) {
-	    $blocks->{ $id } = { id => $id,
-				 name => $row->{block_name},
-				 files => $row->{block_files},
-				 bytes => $row->{block_bytes},
-				 is_open => $row->{is_open},
-				 replica => []
-				 };
-	}
-	
-	# <replica> element
-	push @{ $blocks->{ $id }->{replica} }, { node_id => $row->{node_id},
-						 node => $row->{node_name},
-						 se => $row->{se_name},
-						 files => $row->{replica_files},
-						 bytes => $row->{replica_bytes},
-						 time_create => $row->{replica_create},
-						 time_update => $row->{replica_update},
-						 complete => $row->{replica_complete}
-					     };
-    }
-
-    return { block => [values %$blocks] };
-}
 
 =pod
 
@@ -441,58 +328,6 @@ the given options.
 
 =cut
 
-sub fileReplicas
-{
-    my ($self, %h) = @_;
-
-    &checkRequired(\%h, 'block');
-
-    my $r = $self->getData('fileReplicas', %h);
-
-    my $blocks = {};
-    my $files = {};
-    my $replicas = {};
-    foreach my $row (@$r) {
-	my $block_id = $row->{block_id};
-	my $node_id = $row->{node_id};
-	my $file_id = $row->{file_id};
-
-	# <block> element
-	if (!exists $blocks->{ $block_id }) {
-	    $blocks->{ $block_id } = { id => $block_id,
-				       name => $row->{block_name},
-				       files => $row->{block_files},
-				       bytes => $row->{block_bytes},
-				       is_open => $row->{is_open},
-				       file => []
-				   };
-	}
-
-	# <file> element
-	if (!exists $files->{ $file_id }) {
-	    $files->{ $file_id } = { id => $row->{file_id},
-				     name => $row->{logical_name},
-				     bytes => $row->{filesize},
-				     checksum => $row->{checksum},
-				     time_create => $row->{time_create},
-				     origin_node => $row->{origin_node},
-				     replica => []
-				 };
-	    push @{ $blocks->{ $block_id }->{file} }, $files->{ $file_id };
-	}
-	
-	# <replica> element
-	next unless defined $row->{node_id};
-	push @{ $files->{ $file_id }->{replica} }, { node_id => $row->{node_id},
-						     node => $row->{node_name},
-						     se => $row->{se_name},
-						     time_create => $row->{replica_create}
-						 };
-    }
-    
-    return { block => [values %$blocks] };
-}
-
 =pod
 
 =head2 nodes
@@ -516,13 +351,6 @@ A simple dump of PhEDEx nodes.
 
 =cut
 
-sub nodes
-{
-    my ($self, %h) = @_;
-    my $r = $self->getData('nodes', %h);
-    return { node => $r };
-}
-
 =pod
 
 =head2 tfc
@@ -538,14 +366,6 @@ Show the TFC published to TMDB for a given node
 See TFC documentation.
 
 =cut
-
-sub tfc
-{
-    my ($self, %h) = @_;
-    &checkRequired(\%h, 'node');
-    my $r = $self->getData('tfc', %h);
-    return { 'storage-mapping' => { array => $r }  };
-}
 
 =pod
 
@@ -572,45 +392,12 @@ Translate LFNs to PFNs using the TFC published to TMDB.
 
 =cut
 
-sub lfn2pfn
-{
-    my ($self, %h) = @_;
-    &checkRequired(\%h, 'node', 'lfn', 'protocol');
-
-    # TODO:  cache nodemap and TFC
-    my $nodemap = { reverse %{$self->getNodeMap()} }; # node map name => id
-
-    my $catcache = {};
-    my $mapping = [];
-
-    foreach my $node (&PHEDEX::Core::SQL::arrayref_expand($h{node})) {
-	my $node_id = $nodemap->{$node};
-	if (!$node_id) {
-	    die "unknown node '$node'\n";
-	}
-
-	my $cat = &dbStorageRules($self->{DBH}, $catcache, $node_id);
-	if (!$cat) {
-	    die "could not retrieve catalogue for node $h{node}\n";
-	}
-
-	my @args = ($cat, $h{protocol}, $h{destination}, 'pre');
-	push @$mapping, 
-	map { { node => $node, protocol => $h{protocol}, destination => $h{destination},
-		lfn => $_, pfn => &applyStorageRules(@args, $_) } }
-	&PHEDEX::Core::SQL::arrayref_expand($h{lfn});                 # from either an array of lfns or one
-	    
-    }
-    return { mapping => $mapping };
-}
-
-
 # Cache controls
 
 sub refreshCache
 {
     my ($self, $call) = @_;
-    
+die "are you sure you want to be here?\n"; 
     foreach my $name (@{ $call_data->{$call} }) {
 	my $datasource = $data_sources->{$name}->{DATASOURCE};
 	my $duration   = $data_sources->{$name}->{DURATION};
@@ -622,6 +409,23 @@ sub refreshCache
 sub getData
 {
     my ($self, $name, %h) = @_;
+    my ($t1,$t2,$data);
+
+    return undef unless exists $data_sources->{$name};
+
+    $t1 = &mytimeofday();
+    $data = $self->{CACHE}->get( $name, \%h );
+    return undef unless $data;
+    $t2 = &mytimeofday();
+    warn "got '$name' from cache in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
+
+    return $data;
+}
+
+sub getData_thisIsObsolete
+{
+    my ($self, $name, %h) = @_;
+die "are you sure you want to be here?\n"; 
 
     my $datasource = $data_sources->{$name}->{DATASOURCE};
     my $duration   = $data_sources->{$name}->{DURATION};
@@ -665,87 +469,6 @@ sub getCacheDuration
 }
 
 
-# just dies if the required args are not provided or if they are unbounded
-sub checkRequired
-{
-    my ($provided, @required) = @_;
-    foreach my $arg (@required) {
-	if (!exists $provided->{$arg} ||
-	    !defined $provided->{$arg} ||
-	    $provided->{$arg} eq '' ||
-	    $provided->{$arg} =~ /^\*+$/
-	    ) {
-	    die "The arguments ", 
-	    join(', ', map { "'$_'" } @required) ,
-	    " are required\n";
-	}
-    }
-}
-
-# Fetch the list of nodes this user is authenticated to act on
-sub fetch_nodes
-{
-    my ($self, %args) = @_;
-
-    my @auth_nodes;
-    if (exists $args{web_user_auth} && $args{web_user_auth}) {
-	my $roles = $self->{SECMOD}->getRoles();
-	my @to_check = split /\|\|/, $args{web_user_auth};
-	my $roles_ok = 0;
-	foreach my $role (@to_check) {
-	    if (grep $role eq $_, keys %{$roles}) {
-		$roles_ok = 1;
-	    }
-	}
-
-	my $global_admin = (exists $$roles{'Global Admin'} &&
-			    grep $_ eq 'phedex', @{$$roles{'Global Admin'}}) || 0;
-
-	# Special "global admin" role only if explicitly specified
-	$global_admin = 1 if (grep($_ eq 'PADA Admin', @to_check) &&
-			      exists $$roles{'PADA Admin'} &&
-			      grep($_ eq 'phedex', @{$$roles{'PADA Admin'}}));
-
-	return unless ($roles && ($roles_ok || $global_admin));
-	
-	# If the user is not a global admin, make a list of sites and
-	# nodes they are authorized for.  If they are a global admin
-	# we continue below where all nodes will be returned.
-	if (!$global_admin) {
-	    my %node_map = $$self{SECMOD}->getPhedexNodeToSiteMap();
-	    my %auth_sites;
-	    foreach my $role (@to_check) {
-		if (exists $$roles{$role}) {
-		    foreach my $site (@{$$roles{$role}}) {
-			$auth_sites{$site} = 1;
-		    }
-		}
-	    }
-	    foreach my $node (keys %node_map) {
-		foreach my $site (keys %auth_sites) {
-		    push @auth_nodes, $node if $node_map{$node} eq $site;
-		}
-	    }
-	}
-    }
-
-    my $sql = qq{select name, id from t_adm_node where name not like 'X%'};
-    my $q = &dbexec($$self{DBH}, $sql);
-    
-    my %nodes;
-    while (my ($node, $node_id) = $q->fetchrow()) {
-	# Filter by auth_nodes if there are any
-	if (!@auth_nodes || grep $node eq $_, @auth_nodes) {
-	    $nodes{$node} = $node_id;
-	}
-    }
-    if (exists $args{with_ids} && $args{with_ids}) {
-	return \%nodes;
-    } else {
-	return keys %nodes;
-    }
-}
-
 =pod
 
 =head2 checkAuth
@@ -755,14 +478,13 @@ output as C<< getAuth >>
 
 =cut
 
-# Checks that the user is authenticated by a certificate, and returns a
-# list of PhEDEx nodes for the roles that user has access to. Returns an
-# error if the user is not authenticated.
 sub checkAuth
 {
-  my $self = shift;
-  $self->{SECMOD}->reqAuthnCert();
-  return $self->getAuth();
+  my ($self,%args) = @_;
+  die "bad call to checkAuth\n" unless $self->{SECMOD};
+  my $secmod = $self->{SECMOD};
+  $secmod->reqAuthnCert();
+  return getAuth();
 }
 
 =pod
@@ -786,20 +508,9 @@ sub getAuth
             ROLES  => $secmod->getRoles(),
             DN     => $secmod->getDN(),
           };
-  $auth->{NODES} = $self->fetch_nodes(%{$auth}, with_ids => 1 );
+  $auth->{NODES} = $self->fetch_nodes(%{$auth}, with_ids => 1);
 
-# If I want to be able to return data as XML, seems I need to change
-# the way roles are stored. I leave it alone for now.
-# foreach my $role ( keys %{$auth->{ROLES}} )
-# {
-#   my $h;
-#   foreach ( @{$auth->{ROLES}->{$role}} ) { $h->{$_} = 1;
-#   }
-#   delete $auth->{ROLES}->{$role};
-#   $role =~ s% %_%g;
-#   $auth->{ROLES}->{$role} = $h;
-# }
-  return { auth => $auth };
+  return $auth;
 }
 
 =pod
@@ -811,43 +522,6 @@ were injected etc.
 
 =cut
 
-use PHEDEX::Core::XML;
-use PHEDEX::Core::Inject;
-sub inject
-{
-  my ($self,%args) = @_;
-  my ($auth,$node,$nodeid,$result,$stats,$verbose,$strict);
-  $self->{SECMOD}->reqAuthnCert();
-  $auth = $self->getAuth();
-  $node = $args{node};
-  die("Missing nodename for injection") unless $node;
-  $nodeid = $auth->{auth}->{NODES}->{$node} || 0;
-  die("You are not authorised to inject data to node $node") unless $nodeid;
-  $result = PHEDEX::Core::XML::parseDataNew( XML => $args{data} );
-
-  $verbose = defined $args{verbose} ? $args{verbose} : 0;
-  $strict  = defined $args{strict}  ? $args{strict}  : 1;
-
-#  $self->DBH->{FetchHashKeyName} = 'NAME_uc';
-  eval
-  {
-    $stats = PHEDEX::Core::Inject::injectData ($self, $result, $nodeid,
-				    		VERBOSE => $verbose,
-				    		STRICT  => $strict);
-  };
-  if ( $@ )
-  {
-    $self->DBH->rollback; # Processes seem to hang without this!
-    die $@;
-  }
-  $self->DBH->commit() if $stats;
-
-  return { data   => $args{data},
-	   node   => $args{node},
-	   nodeid => $nodeid,
-	   stats  => $stats };
-}
-
 =pod
 
 =head2 bounce
@@ -856,11 +530,5 @@ Return the URL OPTIONS as a hash, so you can see what the server has done
 to your request.
 
 =cut
-
-sub bounce
-{
-  my ($self,%args) = @_;
-  return { args => \%args };
-}
 
 1;
