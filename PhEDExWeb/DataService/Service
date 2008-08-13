@@ -6,130 +6,15 @@ Service - Main program of the PhEDEx data service
 
 =head1 DESCRIPTION
 
-Checks configuration, parses URL path for parameters, makes API call
+Checks configuration, parses URL path for parameters, makes API call, all
+done via the DataService module.
 
 =cut
 
 use warnings;
 use strict;
 
-use CGI qw(header path_info self_url param Vars);
-
-use CMSWebTools::SecurityModule::Oracle;
-use PHEDEX::Web::Config;
-use PHEDEX::Web::Core;
-use PHEDEX::Core::Timing;
-
-our ($TESTING, $TESTING_MAIL);
-
-# Read PhEDEx web server configuration
-my $config_file = $ENV{PHEDEX_SERVER_CONFIG} ||
-    die "ERROR:  Web page config file not set";
-
-my $dev_name = $ENV{PHEDEX_DEV_NAME};
-
-my $config = PHEDEX::Web::Config->read($config_file, $dev_name);
-eval "use CGI::Carp qw(fatalsToBrowser)"; # XXX turn off when in production!
-
-# Set debug mode
-$TESTING = $$config{TESTING_MODE} ? 1 : 0;
-$TESTING_MAIL = $$config{TESTING_MAIL} || undef;
-
-# Interpret the trailing path suffix: /FORMAT/DB/API?QUERY
-my $path = path_info() || "xml/prod";
-
-my ($format, $db, $call) = ("xml", "prod", undef);
-$format = $1 if ($path =~ m!\G/([^/]+)!g);
-$db =     $1 if ($path =~ m!\G/([^/]+)!g);
-$call =   $1 if ($path =~ m!\G/([^/]+)!g);
-
-unless ($format && $db && $call) {
-    print header(-type => 'text/xml');
-    print "<error>URL format not recognized.  Should be .*/datasvc/FORMAT/DB/API?QUERY</error>";
-    return;
-}
-
-# Print documentation
-if ($format eq 'doc') {
-    chdir '/tmp';
-    print header();
-    print `perldoc -m PHEDEX::Web::Core | pod2html -css http://cern.ch/wildish/PHEDEX/phedex_pod.css`;
-    return;
-}
-
-my $core = new PHEDEX::Web::Core(VERSION => $config->{VERSION},
-				 DBCONFIG => $config->{INSTANCES}->{$db}->{DBCONFIG},
-				 INSTANCE => $db,
-				 REQUEST_URL => self_url(),
-				 DEBUG => $TESTING
-				 );
-
-my $type;
-if    ($format eq 'xml')  { $type = 'text/xml'; }
-elsif ($format eq 'json') { $type = 'text/javascript'; }
-elsif ($format eq 'perl') { $type = 'text/plain'; }
-else {
-    print header(-type => 'text/xml');
-    print "<error>Unsupported format '$format'</error>";
-    return;
-}
-
-my $http_now = &formatTime(&mytimeofday(), 'http');
-
-# Get the query string variables
-my %args = Vars();
-
-# Reformat multiple value variables into name => [ values ]
-foreach my $key (keys %args) {
-    my @vals = split("\0", $args{$key});
-    $args{$key} = \@vals if ($#vals > 0);
-}
-
-$args{format} = $format;
-
-my %cache_headers;
-unless (param('nocache')) {
-    my $duration = $core->getCacheDuration($call) || 300;
-    %cache_headers = (-Cache_Control => "max-age=$duration",
-		      -Date => $http_now,
-		      -Last_Modified => $http_now,
-		      -Expires => "+${duration}s");
-    warn "cache duration for '$call' is $duration seconds\n" if $TESTING;
-}
-print header(-type => $type, %cache_headers );
-
-# Access-control via the security module. Start by being fully paranoid,
-# until we get a better idea how to do this stuff. So, require that the
-# security module be configured, wether needed or not. For POSTs, exlicitly
-# limit to Global Admins while working on the code. Later, relax to allow
-# the roles in TMDB to limit access.
-my ($secmod,$secmod_config);
-$secmod_config = $config->{SECMOD_CONFIG};
-if (!$secmod_config) {
-  $core->error("ERROR:  SecurityModule config file not set in $config_file");
-  return;
-}
-$secmod = new CMSWebTools::SecurityModule::Oracle({CONFIG => $secmod_config});
-if ( ! $secmod->init() )
-{
-  $core->error("Cannot initialise security module: " . $secmod->getErrMsg());
-  return;
-}
-$core->{SECMOD} = $secmod;
-
-if ( $ENV{REQUEST_METHOD} eq 'POST' )
-{
-  $secmod->reqAuthnCert();
-  my $allowed = 0;
-  my $roles = $secmod->getRoles();
-  foreach( @{$roles->{'Global Admin'}} )
-  { if ( m%^phedex$% ) { $allowed = 1; } }
-  if ( !$allowed )
-  {
-    $core->error("You are not allowed to POST to this server.");
-    return;
-  }
-}
-
-$core->call($call, %args);
-exit(0);
+use PHEDEX::Web::DataService;
+my $service = PHEDEX::Web::DataService->new();
+$service->init_security();
+$service->invoke();
