@@ -954,10 +954,10 @@ sub resolve_data
 	my $re = $userglob;
 	$re =~ s:\*+:[^/\#]+:g;                              # simple glob to regex, only * is supported
 	$re .= '#[^/\#]+' if $static && $level eq 'DATASET'; # turn dataset match into block match if static
-	$userglob_re{$userglob} = qr($re);                   # compile regexp
+	$userglob_re{$userglob} = qr(^$re$);                 # compile regexp
 
 	my $like = $userglob;
-	$like =~ s:\*+:%:g;                # glob to sql like, only * is supported
+	$like =~ s:\*+:%:g;                                  # glob to sql like, only * is supported
 	push @{$userglob_like{$level}}, $like;
     }
 
@@ -4058,14 +4058,14 @@ sub create_check_options
 
   if ($type eq 'xfer') {
       foreach ('is_move', 'is_static') {
-	  if (!param($_) || param($_) !~ /^[yn]$/) {
+	  if (!defined param($_) || param($_) !~ /^[yn]$/) {
 	      $self->alert("Option '$_' missing or illegal value");
 	      $$bad = 1;
 	      return ();
 	  }
       }
   
-      if (!param('priority') || param('priority') !~ /^[012]$/) {
+      if (!defined param('priority') || param('priority') !~ /^[012]$/) {
 	  $self->alert("Option 'priority' missing or illegal value");
 	  $$bad = 1;
 	  return ();
@@ -4075,7 +4075,7 @@ sub create_check_options
 	       'priority' => param('priority') );
   } elsif ($type eq 'delete') {
       foreach ('rm_subscriptions') {
-	  if (!param($_) || param($_) !~ /^[yn]$/) {
+	  if (!defined param($_) || param($_) !~ /^[yn]$/) {
 	      $self->alert("Option '$_' missing or illegal value");
 	      $$bad = 1;
 	      return ();
