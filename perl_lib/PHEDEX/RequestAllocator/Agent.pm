@@ -149,14 +149,16 @@ sub idle
 
 	foreach my $items ( [ 'DATASET', $datasets ], [ 'BLOCK', $blocks ] ) {
 	    my ($type, $ids) = @$items;
-	    for my $i (0..scalar @$ids-1) {          # for all items
-		my $id = $ids->[$i];                 # define id
+	    my @new;
+	    while (my $id = shift @$ids) {
 		if (exists $skip->{$type}->{$id}) {  # skip if exists
-		    splice(@$ids, $i, 1) ;           # (remove from list)  
+		    # do nothing
 		} else {                             # otherwise add to req data table
 		    $self->addRequestData( $xreq->{ID}, $type => $id );
+		    push @new, $id;
 		}
 	    }
+	    @$ids = @new;
 	}
 	# everything left in $datasets, $blocks is new data items
 	# distribute these among the nodes
