@@ -124,7 +124,7 @@ sub getTransferRequests
     $where = 'where '.join(' and ', @where) if @where;
 
     my $sql = qq{
-	select r.id, rt.name type, r.created_by creator_id, r.time_create, rdbs.name dbs,
+	select r.id, rt.name type, r.created_by creator_id, r.time_create, rdbs.dbs_id, rdbs.name dbs,
                rx.priority, rx.is_move, rx.is_transient, rx.is_static, rx.is_distributed, rx.data,
 	       n.name node, n.id node_id,
                rn.point, rd.decision, rd.decided_by, rd.time_decided
@@ -150,7 +150,7 @@ sub getTransferRequests
 	my $id = $row->{ID};
 	if (!exists $requests->{$id}) {
 	    $requests->{$id} = { map { $_ => $row->{$_} } 
-				 qw(ID TYPE CREATOR_ID TIME_CREATE DBS
+				 qw(ID TYPE CREATOR_ID TIME_CREATE DBS_ID DBS
 				    PRIORITY IS_MOVE IS_TRANSIENT IS_STATIC IS_DISTRIBUTED
 				    DATA) };
 	    $requests->{$id}->{NODES} = {};
@@ -217,7 +217,7 @@ sub getDeleteRequests
     $where = 'where '.join(' and ', @where) if @where;
 
     my $sql = qq{
-	select r.id, rt.name type, r.created_by creator_id, r.time_create, rdbs.name dbs,
+	select r.id, rt.name type, r.created_by creator_id, r.time_create, rdbs.dbs_id, rdbs.name dbs,
                rx.rm_subscriptions, rx.data,
 	       n.name node, n.id node_id,
                rn.point, rd.decision, rd.decided_by, rd.time_decided
@@ -243,7 +243,7 @@ sub getDeleteRequests
 	my $id = $row->{ID};
 	if (!exists $requests->{$id}) {
 	    $requests->{$id} = { map { $_ => $row->{$_} } 
-				 qw(ID TYPE CREATOR_ID TIME_CREATE DBS
+				 qw(ID TYPE CREATOR_ID TIME_CREATE DBS_ID DBS
 				    RM_SUBSCRIPTIONS DATA) };
 	    $requests->{$id}->{NODES} = {};
 	}
