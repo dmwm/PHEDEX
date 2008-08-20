@@ -727,7 +727,7 @@ sub getDBSFromBlockIDs
 #-------------------------------------------------------------------------------
 sub getBlockIDsFromDatasetWildcard
 {
-    my ($self, @dataset_patterns) = @_;
+    my ($self, $dbs, @dataset_patterns) = @_;
     return [] unless @dataset_patterns;
 
     my %p;
@@ -735,6 +735,11 @@ sub getBlockIDsFromDatasetWildcard
 		    from t_dps_dataset ds
 		    join t_dps_block b on b.dataset = ds.id
 		   where } . filter_or_like( $self, undef, \%p, 'ds.name', @dataset_patterns );
+
+    if ($dbs) {
+	$sql .= ' and ds.dbs = :dbs';
+	$p{':dbs'} = $dbs;
+    }
 
     my $r = select_single( $self, $sql, %p );
 
@@ -744,13 +749,18 @@ sub getBlockIDsFromDatasetWildcard
 #-------------------------------------------------------------------------------
 sub getDatasetIDsFromDatasetWildcard
 {
-    my ($self, @dataset_patterns) = @_;
+    my ($self, $dbs, @dataset_patterns) = @_;
     return [] unless @dataset_patterns;
 
     my %p;
     my $sql = qq{ select ds.id
 		    from t_dps_dataset ds
 		   where } . filter_or_like( $self, undef, \%p, 'ds.name', @dataset_patterns );
+
+    if ($dbs) {
+	$sql .= ' and ds.dbs = :dbs';
+	$p{':dbs'} = $dbs;
+    }
 
     my $r = select_single( $self, $sql, %p );
 
@@ -760,13 +770,19 @@ sub getDatasetIDsFromDatasetWildcard
 #-------------------------------------------------------------------------------
 sub getBlockIDsFromBlockWildcard
 {
-    my ($self, @block_patterns) = @_;
+    my ($self, $dbs, @block_patterns) = @_;
     return [] unless @block_patterns;
 
     my %p;
     my $sql = qq{ select b.id
-		    from t_dps_block b 
+		    from t_dps_block b
+		    join t_dps_dataset ds on ds.id = b.dataset
 		   where } . filter_or_like( $self, undef, \%p, 'b.name', @block_patterns );
+
+    if ($dbs) {
+	$sql .= ' and ds.dbs = :dbs';
+	$p{':dbs'} = $dbs;
+    }
 
     my $r = select_single( $self, $sql, %p );
 
