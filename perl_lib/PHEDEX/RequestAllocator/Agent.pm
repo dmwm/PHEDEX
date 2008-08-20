@@ -138,9 +138,14 @@ sub idle
     
     # Expand each request into subscriptions
     foreach my $xreq ( values %$xfer_reqs ) {
+	if (! $xreq->{DBS_ID} ) {
+	    $self->Dbgmsg("skipping request $xreq->{ID}:  null DBS id") if $self->{DEBUG};
+	    next;
+	}
+
 	$stats{request}++;
 	my $dest_nodes = [ keys %{ $xreq->{NODES} } ];
-	my ($datasets, $blocks) = $self->expandRequest( $xreq->{DATA} );
+	my ($datasets, $blocks) = $self->expandRequest( $xreq->{DBS_ID}, $xreq->{DATA} );
 
 	# Find all the data we need to skip
 	my ($ex_ds, $ex_b) = $self->getExistingRequestData( $xreq->{ID} );
@@ -153,7 +158,9 @@ sub idle
 	    while (my $id = shift @$ids) {
 		if (exists $skip->{$type}->{$id}) {  # skip if exists
 		    # do nothing
+		    $self->Dbgmsg("skipping existing $type $id for request $xreq->{ID}") if $self->{DEBUG};
 		} else {                             # otherwise add to req data table
+		    $self->Dbgmsg("adding new $type $id for request $xreq->{ID}") if $self->{DEBUG};
 		    $self->addRequestData( $xreq->{ID}, $type => $id );
 		    push @new, $id;
 		}
@@ -201,7 +208,7 @@ sub idle
 # Expands a request (user field of data items) into arrays of IDs
 sub expandRequest
 {
-    my ($self, $data, %opts) = @_;
+    my ($self, $dbs, $data, %opts) = @_;
     
     my %data = &parseUserData($data);
     my @dataset_patterns;
@@ -216,15 +223,15 @@ sub expandRequest
 
     my (@datasets, @blocks);
     if (@dataset_patterns && $opts{DATASETS_TO_BLOCKS} ) {
-	my $b = $self->getBlockIDsFromDatasetWildcard(@dataset_patterns);
+	my $b = $self->getBlockIDsFromDatasetWildcard($dbs, @dataset_patterns);
 	push @blocks, @$b;
     } elsif (@dataset_patterns) {
-	my $ds = $self->getDatasetIDsFromDatasetWildcard(@dataset_patterns);
+	my $ds = $self->getDatasetIDsFromDatasetWildcard($dbs, @dataset_patterns);
 	push @datasets, @$ds;
     }
 
     if (@block_patterns) {
-	my $b = $self->getBlockIDsFromBlockWildcard(@block_patterns);
+	my $b = $self->getBlockIDsFromBlockWildcard($dbs, @block_patterns);
 	push @blocks, @$b;
     }
     
