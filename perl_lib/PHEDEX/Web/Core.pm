@@ -169,7 +169,7 @@ sub call
         open (local *STDOUT,'>',\$stdout); # capture STDOUT of $call
 $DB::single=1;
         $obj = $module->invoke($self, %args);
-	$obj = { $call => $obj };
+#	$obj = { $call => $obj };
       };
       if ($@) {
           $self->error("Error when making call '$call':  $@");
