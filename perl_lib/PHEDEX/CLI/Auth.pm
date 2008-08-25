@@ -84,7 +84,9 @@ sub ParseResponse
   {
     $content =~ s%^[^\$]*\$VAR1%\$VAR1%s;
     $content = eval($content);
-    $content = $content->{phedex}{Auth} || {};
+    $content = $content->{phedex}{Auth} ||
+               $content->{phedex} ||
+               {};
     foreach ( qw / STATE DN NODES / )
     { $self->{RESPONSE}{$_} = $content->{$_}; }
     @{$self->{RESPONSE}{ROLES}} = ();
