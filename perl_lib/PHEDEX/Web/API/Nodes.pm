@@ -36,7 +36,7 @@ sub invoke { return nodes(@_); }
 sub nodes
 {
     my ($self,$core,%h) = @_;
-    return { Nodes => PHEDEX::Web::SQL::getNodes($core,%h) };
+    return { node => PHEDEX::Web::SQL::getNodes($core,%h) };
 }
 
 1;

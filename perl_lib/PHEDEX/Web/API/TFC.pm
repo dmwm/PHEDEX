@@ -31,7 +31,7 @@ sub tfc
     my ($self,$core,%h) = @_;
     checkRequired(\%h, 'node');
     my $r = PHEDEX::Web::SQL::getTFC($core, %h);
-    return { array => $r };
+    return { 'storage-mapping' => { array => $r } };
 }
 
 1;

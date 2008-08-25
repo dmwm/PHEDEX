@@ -17,7 +17,7 @@ sub linktasks
     my ($self,$core,%h) = @_;
     
     my $r = PHEDEX::Web::SQL::getLinkTasks($core, %h);
-    return { status => $r };
+    return { linkTasks => { status => $r } };
 }
 
 1;

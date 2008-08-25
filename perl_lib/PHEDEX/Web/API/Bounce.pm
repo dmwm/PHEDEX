@@ -16,7 +16,7 @@ sub invoke { return bounce(@_); }
 sub bounce
 {
   my ($self,$core,%args) = @_;
-  return \%args;
+  return { Bounce => \%args };
 }
 
 1;

@@ -49,10 +49,13 @@ sub inject
   $core->DBH->commit() if $stats;
 
   return {
-	   data   => $args{data},
-	   node   => $args{node},
-	   nodeid => $nodeid,
-	   stats  => $stats
+	   Inject =>
+	   {
+	     data   => $args{data},
+	     node   => $args{node},
+	     nodeid => $nodeid,
+	     stats  => $stats
+	   }
 	 };
 }
 
