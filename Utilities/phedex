@@ -116,7 +116,7 @@ $0 --verbose -- inject --node T1_XY_Buffer -- inject --node T2_PQ_Buffer
 
 EOF
 
-  my $commands = $loader->KnownCommands();
+  my $commands = $loader->Commands();
 
   print " Known commands in this installation are:\n",
 	' ',join(' ',sort values %{$commands}),"\n\n",
