@@ -24,6 +24,8 @@ use strict;
 use warnings;
 use base 'PHEDEX::Core::SQL';
 
+use PHEDEX::Core::Timing;
+
 use Carp;
 
 our @EXPORT = qw( );
@@ -74,6 +76,7 @@ Fetch basic transfer request information.  TODO:  Document output format!
   WILDCARDS   : if true, only return requests with wildcards in them
   AFTER       : only return requests created after this timestamp
   NODES       : an arrayref of nodes.  Only return transfers affecting those nodes
+  REQUESTS    : an arrayref of request ids.  
 
 =cut
 
@@ -119,6 +122,11 @@ sub getTransferRequests
 	my $dummy = '';
 	push @where, '('. &filter_or_eq($self, \$dummy, \%p, 'rn.node', @{$h{NODES}}).')';
     }
+    if (defined $h{REQUESTS}) {
+	my $dummy = '';
+	push @where, '('. &filter_or_eq($self, \$dummy, \%p, 'r.id', @{$h{REQUESTS}}).')';
+    }
+
 
     my $where = '';
     $where = 'where '.join(' and ', @where) if @where;
@@ -180,6 +188,7 @@ Fetch basic deletion request information.
   WILDCARDS   : if true, only return requests with wildcards in them
   AFTER       : only return requests created after this timestamp
   NODES       : an arrayref of nodes.  Only return deletions affecting those nodes
+  REQUESTS    : an arrayref of request ids.  
 
 =cut
 
@@ -211,6 +220,10 @@ sub getDeleteRequests
     if (defined $h{NODES}) {
 	my $dummy = '';
 	push @where, '('. &filter_or_eq($self, \$dummy, \%p, 'rn.node', @{$h{NODES}}).')';
+    }
+    if (defined $h{REQUESTS}) {
+	my $dummy = '';
+	push @where, '('. &filter_or_eq($self, \$dummy, \%p, 'r.id', @{$h{REQUESTS}}).')';
     }
 
     my $where = '';
@@ -401,105 +414,6 @@ sub createSubscription
     return $n;
 }
 
-=pod
-
-=item createRequest($self, $data, $nodes, %args)
-
-Creates a new request, returns the newly created request id.
-
-TODO:  document format for $data and $nodes hash.
-
-=cut
-
-sub createRequest
-{
-    my ($self, $data, $nodes, %h) = @_;
-
-    foreach my $req (qw(CLIENT_ID TYPE TYPE_ATTR)) {
-	die "createRequest:  required parameter $req is not defined\n"
-	    unless exists $h{$req} && defined $h{$req};
-    }
-
-    my $type = $h{TYPE};
-    my $type_attr = $h{TYPE_ATTR};
-    my $client = $h{CLIENT_ID};
-    my $now = $h{NOW} || &mytimeofday();
-    my @ids;
-
-    foreach my $dbs (values %{$data->{DBS}}) {
-	# Write the request
-	my $rid;
-	execute_sql($self,
-		    qq[	insert into t_req_request (id, type, created_by, time_create)
-			values (seq_req_request.nextval, (select id from t_req_type where name = :type),
-				:client, :now )
-			returning id into :id ],
-		    ':id' => \$rid, ':type' => $type, ':client' => $client, ':now' => $now);
-
-	# Write the (resolved) dbs/datasets/blocks to the DB
-	execute_sql($self, 
-		    qq[ insert into t_req_dbs (request, name, dbs_id)
-			select :rid, name, id from t_dps_dbs where name = :dbs_name ],
-		    ':rid' => $rid, ':dbs_name' => $dbs->{NAME});
-    
-	foreach my $ds (values %{$dbs->{DATASETS}}) {
-	    # peek at the number of blocks
-	    my $n_blocks = scalar keys %{$ds->{BLOCKS}};
-	    my @rv;
-	    if ($n_blocks == 0) { # make dataset level request
-		@rv = execute_sql($self,
-				  qq[ insert into t_req_dataset (request, name, dataset_id)
-				      select :rid, name, id from t_dps_dataset where name = :dataset_name ],
-				  ':rid'          => $rid,
-				  ':dataset_name' => $ds->{NAME}
-			      );
-		die "createRequest:  dataset $ds->{NAME} does not exist\n" unless $rv[1] > 0;
-	    } else { # make block level request
-		foreach my $b (values %{$ds->{BLOCKS}}) {
-		    @rv = execute_sql($self,
-				      qq[ insert into t_req_block ( request, name, block_id )
-					  select :rid, name, id from t_dps_block where name = :block_name ],
-				      ':rid' => $rid,
-				      ':block_name' => $b->{NAME}
-				      );
-		    die "createRequest:  block $b->{NAME} does not exist\n" unless $rv[1] > 0;
-		} # /block
-	    } # /block-level case
-	} # /dataset
-
-
-	# Write the nodes involved
-	my $i_node = &dbprep($self->{DBH},
-			     qq[ insert into t_req_node (request, node, point)
-				 values (:rid, :node, :point) ]);
-	foreach my $pair (@$nodes) {
-	    my ($endpoint, $node_id) = @$pair;
-	    &dbbindexec($i_node,
-			':rid' => $rid,
-			':node' => $node_id,
-			':point' => $endpoint);
-	}
-
-	# Write the request type parameters
-	my $table = 't_req_'. $type;
-	my @columns = ('request', sort keys %$type_attr);
-	my $sql = "insert into $table (" . join(', ', @columns) . ")" .
-	    " values (" . join(', ', map { ":$_" } @columns) . ")";
-	my %binds = ( ':request' => $rid );
-	$binds{":$_"} = $type_attr->{$_} foreach keys %$type_attr;
-	execute_sql($self, $sql, %binds);
-	
-	# Write the comment
-	if ($h{COMMENTS}) {
-	    my $comments_id = $self->writeRequestComments($rid, $client, $h{COMMENTS}, $now);
-	    execute_sql($self, qq[ update t_req_request set comments = :comments_id where id = :rid ],
-			':rid' => $rid, ':comments_id' => $comments_id);
-	}
-	push @ids, $rid;
-    } # /dbs
-
-    return @ids;
-}
 
 =pod
 
