@@ -704,6 +704,19 @@ sub getBlockReplicasFromWildCard
 }
 
 #-------------------------------------------------------------------------------
+sub getDbsFromName
+{
+    my ($self, $dbs_name) = @_;
+    my %p;
+    my $sql = "select * from t_dps_dbs where name = :dbs_name";
+    $p{':dbs_name'} = $dbs_name;
+
+    my $q = execute_sql( $self, $sql, %p );
+    return $q->fetchrow_hashref();
+}
+
+
+#-------------------------------------------------------------------------------
 sub getDBSFromBlockIDs
 {
   my $self = shift;
