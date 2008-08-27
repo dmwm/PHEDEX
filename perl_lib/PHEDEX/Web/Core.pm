@@ -63,8 +63,6 @@ examples:
  ...?node=foo*&op=node:and&node=!foobar
     node matches 'foobaz', 'foochump', but not 'foobar'
 
-=head1 Calls
-
 =cut
 
 use warnings;
@@ -167,7 +165,6 @@ sub call
     {
       eval {
         open (local *STDOUT,'>',\$stdout); # capture STDOUT of $call
-$DB::single=1;
         $obj = $module->invoke($self, %args);
 #	$obj = { $call => $obj };
       };
@@ -204,193 +201,6 @@ $DB::single=1;
 
     return $obj;
 }
-
-# API Calls 
-
-=pod
-
-=head2 blockReplicas
-
-Return block replicas with the following structure:
-
-  <block>
-     <replica/>
-     <replica/>
-      ...
-  </block>
-   ...
-
-where <block> represents a block of files and <replica> represents a
-copy of that block at some node.  An empty response means that no
-block replicas exist for the given options.
-
-=head3 options
-
- block          block name, can be multiple (*)
- node           node name, can be multiple (*)
- se             storage element name, can be multiple (*)
- update_since  unix timestamp, only return replicas updated since this
-                time
- create_since   unix timestamp, only return replicas created since this
-                time
- complete       y or n, whether or not to require complete or incomplete
-                blocks. Default is to return either
-
- (*) See the rules of multi-value filters above
-
-=head3 <block> attributes
-
- name     block name
- id       PhEDEx block id
- files    files in block
- bytes    bytes in block
- is_open  y or n, if block is open
-
-=head3 <replica> attributes
-
- node         PhEDEx node name
- node_id      PhEDEx node id
- se           storage element name
- files        files at node
- bytes        bytes of block replica at node
- complete     y or n, if complete
- time_create  unix timestamp of creation
- time_update  unix timestamp of last update
-
-=cut
-
-=pod
-
-=head2 fileReplicas
-
-Return file replicas with the following structure:
-
-  <block>
-     <file>
-       <replica/>
-       <replica/>
-       ...
-     </file>
-     ...
-  </block>
-   ...
-
-where <block> represents a block of files, <file> represents a file
-and <replica> represents a copy of that file at some node.  <block>
-and <file> will always be present if any file replicas match the given
-options.  <file> elements with no <replica> children represent files
-which are part of the block, butno file replicas match
-the given options.  An empty response means no file replicas matched
-the given options.
-
-=head3 options
-
- block          block name, with '*' wildcards, can be multiple (*).  required.
- node           node name, can be multiple (*)
- se             storage element name, can be multiple (*)
- update_since  unix timestamp, only return replicas updated since this
-                time
- create_since   unix timestamp, only return replicas created since this
-                time
- complete       y or n. if y, return only file replicas from complete block
-                replicas.  if n only return file replicas from incomplete block
-                replicas.  default is to return either.
- dist_complete  y or n.  if y, return only file replicas from blocks
-                where all file replicas are available at some node. if
-                n, return only file replicas from blocks which have
-                file replicas not available at any node.  default is
-                to return either.
-
- (*) See the rules of multi-value filters above
-
-=head3 <block> attributes
-
- name     block name
- id       PhEDEx block id
- files    files in block
- bytes    bytes in block
- is_open  y or n, if block is open
-
-=head3 <file> attributes
-
- name         logical file name
- id           PhEDEx file id
- bytes        bytes in the file
- checksum     checksum of the file
- origin_node  node name of the place of origin for this file
- time_create  time that this file was born in PhEDEx
-
-=head3 <replica> attributes
- node         PhEDEx node name
- node_id      PhEDEx node id
- se           storage element name
- time_create  unix timestamp
-
-=cut
-
-=pod
-
-=head2 nodes
-
-A simple dump of PhEDEx nodes.
-
-=head3 options
-
- node     PhEDex node names to filter on, can be multiple (*)
- noempty  filter out nodes which do not host any data
-
- (*) See the rules of multi-value filters above
-
-=head3 <node> attributes
-
- name        PhEDEx node name
- se          storage element
- kind        node type, e.g. 'Disk' or 'MSS'
- technology  node technology, e.g. 'Castor'
- id          node id
-
-=cut
-
-=pod
-
-=head2 tfc
-
-Show the TFC published to TMDB for a given node
-
-=head3 options
-
-  node  PhEDEx node name. Required
-
-=head3 <lfn-to-pfn> or <pfn-to-lfn> attributes
-
-See TFC documentation.
-
-=cut
-
-=pod
-
-=head2 lfn2pfn
-
-Translate LFNs to PFNs using the TFC published to TMDB.
-
-=head3 options
-
- node          PhEDex node names, can be multiple (*), required
- lfn           Logical file name, can be multiple (*), required
- protocol      Transfer protocol, required
- destination   Destination node
- 
- (*) See the rules of multi-value filters above
-
-=head3 <mapping> attributes
-
- lfn          Logical file name
- pfn          Physical file name
- node         Node name
- protocol     Transfer protocol
- destination  Destination node
-
-=cut
 
 # Cache controls
 
@@ -469,16 +279,6 @@ sub getCacheDuration
     return $min;
 }
 
-
-=pod
-
-=head2 checkAuth
-
-enforce that the user is authenticated by a certificate. Returns the same
-output as C<< getAuth >>
-
-=cut
-
 sub checkAuth
 {
   my ($self,%args) = @_;
@@ -487,16 +287,6 @@ sub checkAuth
   $secmod->reqAuthnCert();
   return getAuth();
 }
-
-=pod
-
-=head2 getAuth
-
-Return a has of the users' authentication state. The hash contains keys for
-the STATE (cert|passwd|failed), the DN, the ROLES (from sitedb) and the
-NODES (from TMDB) that the user is allowed to operate on.
-
-=cut
 
 sub getAuth
 {
@@ -513,23 +303,5 @@ sub getAuth
 
   return $auth;
 }
-
-=pod
-
-=head2 inject
-
-Inject data into TMDB, returning the statistics on how many files, blocks, and datasets
-were injected etc.
-
-=cut
-
-=pod
-
-=head2 bounce
-
-Return the URL OPTIONS as a hash, so you can see what the server has done
-to your request.
-
-=cut
 
 1;
