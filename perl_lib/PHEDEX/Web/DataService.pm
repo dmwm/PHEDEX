@@ -19,6 +19,7 @@ use CMSWebTools::SecurityModule::Oracle;
 use PHEDEX::Web::Config;
 use PHEDEX::Web::Core;
 use PHEDEX::Core::Timing;
+use PHEDEX::Core::Loader;
 
 our ($TESTING, $TESTING_MAIL);
 
@@ -55,17 +56,60 @@ sub new
   $db =     $1 if ($path =~ m!\G/([^/]+)!g);
   $call =   $1 if ($path =~ m!\G/([^/]+)!g);
 
-  unless ($format && $db && $call) {
-      print header(-type => 'text/xml');
-      print "<error>URL format not recognized.  Should be .*/datasvc/FORMAT/DB/API?QUERY</error>";
-      return;
-  }
-
 # Print documentation
   if ($format eq 'doc') {
       chdir '/tmp';
       print header();
-      print `perldoc -m PHEDEX::Web::Core | pod2html -css http://cern.ch/wildish/PHEDEX/phedex_pod.css`;
+      my ($module,$module_name,$loader,@lines,$line);
+      $call = $db unless $call;
+      $loader = PHEDEX::Core::Loader->new ( NAMESPACE => 'PHEDEX::Web::API' );
+      $module_name = $loader->ModuleName($call);
+      $module = $module_name || 'PHEDEX::Web::Core';
+
+# This bit is ugly. I want to add a section for the commands known in this installation,
+# but that can only be done dynamically. So I have to capture the output of the pod2html
+# command and print it, but intercept it and add extra stuff at the appropriate point.
+# I also need to check that I am setting the correct relative link for the modules.
+      @lines = `perldoc -m $module |
+                pod2html --header -css http://cern.ch/wildish/PHEDEX/phedex_pod.css`;
+
+      my ($commands,$prefix,$count);
+      $count = 0;
+      foreach $line ( @lines )
+      {
+        if ( $line =~ m%^<table% )
+        {
+          $count++;
+          if ( $count != 2 ) { print $line; next; }
+          print "
+<h1><a name='See Also'>See Also</a></h1>
+Documentation for the commands known in this installation<br>
+<br>
+<table>
+ <tr> <td> Command </td> <td> Module </td> </tr>
+";
+          $commands = $loader->Commands();
+          $prefix = '';
+          $prefix = 'doc/' unless $db;
+          foreach ( sort keys %{$commands} )
+          {
+            $module = $loader->ModuleName($_);
+            print "
+<tr>
+ <td><strong>$_</strong></td>
+ <td><a href='$prefix$_'>$module</a></td>
+</tr>
+";
+          }
+          print "
+</table>
+<br>
+and <a href='.'>PHEDEX::Web::Core</a> for the core module documentation<br>
+<br>
+";
+        }
+        print $line;
+      }
       return;
   }
 
