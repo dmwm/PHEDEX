@@ -4,9 +4,12 @@ use strict;
 use PHEDEX::Web::Util;
 
 =pod
+
 =head1 NAME
 
-PHEDEX::Web::API::BlockReplicas
+PHEDEX::Web::API::BlockReplicas - list block replicas in PhEDEx
+
+=head1 SYNOPSIS
 
 =head2 blockReplicas
 
@@ -35,7 +38,7 @@ block replicas exist for the given options.
  complete       y or n, whether or not to require complete or incomplete
                 blocks. Default is to return either
 
- (*) See the rules of multi-value filters above
+ (*) See the rules of multi-value filters in the Core module
 
 =head3 <block> attributes
 

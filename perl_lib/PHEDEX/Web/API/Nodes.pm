@@ -4,11 +4,10 @@ use strict;
 use PHEDEX::Web::Util;
 
 =pod
+
 =head1 NAME
 
-PHEDEX::Web::API::Nodes - fetch, format, and return PhEDEx data
-
-=head1 DESCRIPTION
+PHEDEX::Web::API::Nodes - return the set of nodes known to PhEDEx
 
 =head2 nodes
 
@@ -19,7 +18,7 @@ A simple dump of PhEDEx nodes.
  node     PhEDex node names to filter on, can be multiple (*)
  noempty  filter out nodes which do not host any data
 
- (*) See the rules of multi-value filters above
+ (*) See the rules of multi-value filters in the Core module
 
 =head3 <node> attributes
 

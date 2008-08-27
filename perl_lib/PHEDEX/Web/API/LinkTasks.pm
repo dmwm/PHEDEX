@@ -4,9 +4,10 @@ use strict;
 use PHEDEX::Web::Util;
 
 =pod
+
 =head1 NAME
 
-PHEDEX::Web::API::LinkTasks
+PHEDEX::Web::API::LinkTasks - return the set of link tasks
 
 =cut
 

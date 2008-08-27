@@ -4,11 +4,12 @@ use strict;
 use PHEDEX::Web::Util;
 
 =pod
+
 =head1 NAME
 
 PHEDEX::Web::API::Auth - check or enforce authentication
 
-=head2 auth
+=head1 SYNOPSIS
 
 Return a hash of the users' authentication state. The hash contains keys for
 the STATE (cert|passwd|failed), the DN, the ROLES (from sitedb) and the

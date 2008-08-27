@@ -4,11 +4,10 @@ use strict;
 use PHEDEX::Web::Util;
 
 =pod
+
 =head1 NAME
 
-PHEDEX::Web::API::TFC
-
-=head1 DESCRIPTION
+PHEDEX::Web::API::TFC - return the TFC of a site
 
 =head2 tfc
 

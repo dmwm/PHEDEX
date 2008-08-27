@@ -4,13 +4,10 @@ use strict;
 use PHEDEX::Web::Util;
 
 =pod
+
 =head1 NAME
 
-PHEDEX::Web::API::FileReplicas
-
-=cut
-
-=pod
+PHEDEX::Web::API::FileReplicas - return file-replicas known to PhEDEx
 
 =head2 fileReplicas
 
@@ -52,7 +49,7 @@ the given options.
                 file replicas not available at any node.  default is
                 to return either.
 
- (*) See the rules of multi-value filters above
+ (*) See the rules of multi-value filters in the Core module
 
 =head3 <block> attributes
 
@@ -72,6 +69,7 @@ the given options.
  time_create  time that this file was born in PhEDEx
 
 =head3 <replica> attributes
+
  node         PhEDEx node name
  node_id      PhEDEx node id
  se           storage element name

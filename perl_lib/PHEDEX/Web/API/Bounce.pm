@@ -4,10 +4,15 @@ use strict;
 use PHEDEX::Web::Util;
 
 =pod
+
 =head1 NAME
 
-PHEDEX::Web::API::Bounce - Return the URL OPTIONS as a hash, so you can
-see what the server has done to your request. Useful only for debugging.
+PHEDEX::Web::API::Bounce - simple debugging call
+
+=head2 bounce
+
+Return the URL OPTIONS as a hash, so you can see what the server has done
+to your request. Useful only for debugging.
 
 =cut
 

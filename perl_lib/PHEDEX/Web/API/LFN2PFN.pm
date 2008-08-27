@@ -5,13 +5,10 @@ use PHEDEX::Web::Util;
 use PHEDEX::Core::Catalogue;
 
 =pod
+
 =head1 NAME
 
-PHEDEX::Web::API::LFN2PFN
-
-=cut
-
-=pod
+PHEDEX::Web::API::LFN2PFN - LFN to PFN translation 
 
 =head2 lfn2pfn
 
@@ -24,7 +21,7 @@ Translate LFNs to PFNs using the TFC published to TMDB.
  protocol      Transfer protocol, required
  destination   Destination node
  
- (*) See the rules of multi-value filters above
+ (*) See the rules of multi-value filters in the Core module
 
 =head3 <mapping> attributes
 
