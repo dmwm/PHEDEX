@@ -68,7 +68,7 @@ If the option EXPAND_DATASETS is true, datasets returned as a list of blocks.
 
 =cut
 
-sub expandRequest
+sub expandDataClob
 {
     my ($self, $dbs, $data, %opts) = @_;
     
@@ -236,13 +236,13 @@ sub createRequest
 	# Make a data clob for storage
 	$type_attr->{DATA} = join("\n", @datasets, @blocks);
 
-	# TODO: improve efficiency by rewriting expandRequest to take
+	# TODO: improve efficiency by rewriting expandDataClob to take
 	#       already parsed data patterns instead of a clob?
 	my (%uniq_ds, %uniq_b);
 	my (@null);
 	foreach my $item (@datasets, @blocks) {
-	    my ($ds_ids, $b_ids) = &expandRequest($self, $db_dbs->{ID}, $item,
-						  EXPAND_DATASETS => $expand_datasets );
+	    my ($ds_ids, $b_ids) = &expandDataClob($self, $db_dbs->{ID}, $item,
+						   EXPAND_DATASETS => $expand_datasets );
 	    if ( @$ds_ids || @$b_ids ) {
 		# item exists in TMDB, remember the IDs
 		$uniq_ds{$_} = 1 foreach @$ds_ids;
@@ -260,11 +260,51 @@ sub createRequest
 	    die "request matched no data in TMDB\n";
 	}
 
+	# Request policy details here:
+	#  * Moves may only be done to a T1 MSS node
+	#  * Moves can not be done when data is subscribed at a T1
+	my @node_pairs;
+	my %nodemap = reverse %{ &getNodeMap($self) };
+	if ($type eq 'delete') {
+	    # deletion requests do not define endpoints
+	    @node_pairs = map { [ undef, $nodemap{$_} ] } @$nodes;
+	} elsif ($type eq 'xfer') { # user specifies destinations
+	    @node_pairs = map { [ 'd', $nodemap{$_} ] } @$nodes;
+	    # already subscribed nodes for the data specify sources for move requests
+	    if ($type_attr->{IS_MOVE} eq 'y') {
+		if (grep $_ !~ /^T1_.*_MSS$/, @$nodes) {
+		    die "cannot request move:  moves to non-T1 destinations are not allowed\n";
+		}
+
+		my $src_sql = qq{ select distinct n.name
+                                   from t_adm_node n
+                                   join t_dps_subscription s on s.destination = n.id
+                                   join t_dps_block sb on sb.dataset = s.dataset or sb.id = s.block
+                                  where sb.id in ( 
+                                          select b.id 
+                                            from t_req_dataset rds
+                                            join t_dps_block b on b.dataset = rds.dataset_id
+                                           where rds.request = :rid
+                                           union
+                                          select block_id from t_req_block
+					   where request = :rid
+				        ) 
+			      };
+						  
+		my @other_subs = @{ &select_single($self, $src_sql, ':rid' => $rid) };
+		if (grep /^T1/, @other_subs) {
+		    # TODO:  when custodial flag is here, it should determine this restriction
+		    die "cannot request move:  moves of data is subscribed to a T1 are not allowed\n";
+		}
+		push @node_pairs, map { [ 's', $nodemap{$_} ] } @other_subs;
+	    }
+	}
+
 	# Write the nodes involved
 	my $i_node = &dbprep($self->{DBH},
 			     qq[ insert into t_req_node (request, node, point)
 				 values (:rid, :node, :point) ]);
-	foreach my $pair (@$nodes) {
+	foreach my $pair (@node_pairs) {
 	    my ($endpoint, $node_id) = @$pair;
 	    &dbbindexec($i_node,
 			':rid' => $rid,
