@@ -113,7 +113,7 @@ sub idle
 
 	$stats{request}++;
 	my $dest_nodes = [ keys %{ $xreq->{NODES} } ];
-	my ($datasets, $blocks) = $self->expandRequest( $xreq->{DBS_ID}, $xreq->{DATA} );
+	my ($datasets, $blocks) = $self->expandDataClob( $xreq->{DBS_ID}, $xreq->{DATA} );
 
 	# Find all the data we need to skip
 	my ($ex_ds, $ex_b) = $self->getExistingRequestData( $xreq->{ID} );
