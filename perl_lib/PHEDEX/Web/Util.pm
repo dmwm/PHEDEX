@@ -18,21 +18,6 @@ use HTML::Entities; # for encoding XML
 our @ISA = qw(Exporter);
 our @EXPORT = qw ( process_args checkRequired error fetch_nodes );
 
-#sub register
-#{
-#  my ($call,$h,@sources) = @_;
-#  $_ = $call;
-#  if ( m%::% )
-#  {
-#    s%^.*::%%;
-#    $call = lc $_;
-#  }
-#  map { $PHEDEX::Web::Core::data_sources->{$call}{$_} = $h->{$_} } keys %{$h};
-#  push @sources, $call unless @sources;
-#  $PHEDEX::Web::Core::call_data->{$call} = [ @sources ];
-#  return $call;
-#}
-
 # process arguments used for common features
 sub process_args
 {
