@@ -291,10 +291,126 @@ sub getTFC {
     while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
    
    return \@r;
- }
+}
+
+sub SiteDataInfo
+{
+  my ($self,$core,%args) = @_;
+
+  my $dbg = $core->{DEBUG};
+  my $asearchcli = $args{ASEARCHCLI};
+
+  my $dbh = $core->{DBH};
+  $dbh->{LongTruncOk} = 1;
+
+# get site id and name based on name pattern
+  my $sql=qq(select id,name from t_adm_node where name like :sitename);
+  my $sth = dbprep($dbh, $sql);
+  my @handlearr=($sth,
+	   ':sitename' => $args{SITENAME});
+  dbbindexec(@handlearr);
+
+  my $row = $sth->fetchrow_hashref() or die "Error: Could not resolve sitename '$args{SITENAME}'\n";
+
+  my $nodeid = $row->{ID};
+  my $fullsitename = $row->{NAME};
+
+  print "(DBG) Site ID: $nodeid   Name: $fullsitename\n" if $dbg;
+
+  my $sqlrowlimit=" and rownum <= $args{NUMLIMIT}" if $args{NUMLIMIT} >0;
+# show all accepted requests for a node, including dataset name, where the dataset still is on the node
+  $sql = qq(select distinct r.id, r.created_by, r.time_create,r.comments, rds.dataset_id, rds.name  from t_req_request r join t_req_type rt on rt.id = r.type join t_req_node rn on rn.request = r.id left join t_req_decision rd on rd.request = r.id and rd.node = rn.node join t_req_dataset rds on rds.request = r.id where rn.node = :nodeid and rt.name = 'xfer' and rd.decision = 'y' and dataset_id in (select distinct b.dataset  from t_dps_block b join t_dps_block_replica br on b.id = br.block join t_dps_dataset d on d.id = b.dataset where node = :nodeid)  $sqlrowlimit order by r.time_create desc);
+
+  $sth = dbprep($dbh, $sql);
+  @handlearr=($sth,':nodeid' => $nodeid);
+  dbbindexec(@handlearr);
 
 
+# prepare query to get comment texts
+  $sql = qq(select comments from T_REQ_COMMENTS where id = :commentid);
+  my $sth_com = dbprep($dbh, $sql);
 
+# prepare query to get dataset stats
+  $sql = qq(select name,files,bytes from t_dps_block where dataset = :datasetid);
+  my $sth_stats = dbprep($dbh,$sql);
 
+  my %dataset;
+  my %requestor;
+# we arrange everything in a hash sorted by dataset id and then request id
+  while (my $row = $sth->fetchrow_hashref()) {
+    #print Dumper($row) . "\n";
+    $dataset{$row->{DATASET_ID}}{requestids}{$row->{ID}} = { requestorid => $row->{CREATED_BY},
+					       commentid => $row->{COMMENTS},
+					       time  => $row->{TIME_CREATE} };
+
+    @handlearr=($sth_com,':commentid' => $row->{COMMENTS});
+    dbbindexec(@handlearr);
+    my $row_com = $sth_com->fetchrow_hashref();
+    $dataset{$row->{DATASET_ID}}{requestids}{$row->{ID}}{comment} = $row_com->{COMMENTS};
+  
+    $dataset{$row->{DATASET_ID}}{name} = $row->{NAME};
+    $requestor{$row->{CREATED_BY}}=undef;
+
+    if($args{STATS}) {
+      @handlearr=($sth_stats,':datasetid' => $row->{DATASET_ID});
+      dbbindexec(@handlearr);
+      $dataset{$row->{DATASET_ID}}{bytes}=0;
+      $dataset{$row->{DATASET_ID}}{blocks}=0;
+      $dataset{$row->{DATASET_ID}}{files}=0;
+      while (my $row_stats = $sth_stats->fetchrow_hashref()) { # loop over blocks
+        $dataset{$row->{DATASET_ID}}{bytes} += $row_stats->{BYTES};
+        $dataset{$row->{DATASET_ID}}{blocks}++;
+        $dataset{$row->{DATASET_ID}}{files} += $row_stats->{FILES};
+      }
+    }
+
+    # for later getting a sensible order we use the latest order for this set
+    $dataset{$row->{DATASET_ID}}{order} = 0 unless defined($dataset{$row->{DATASET_ID}}{order});
+    $dataset{$row->{DATASET_ID}}{order} = $row->{TIME_CREATE}
+      if $row->{TIME_CREATE} > $dataset{$row->{DATASET_ID}}{order};
+  }
+
+# map all requestors to names
+  $sql = qq(select ident.name from t_adm_identity ident join t_adm_client cli on cli.identity = ident.id where cli.id = :requestorid);
+  $sth = dbprep($dbh, $sql);
+  foreach my $r (keys %requestor) {
+    @handlearr=($sth,':requestorid' => $r);
+    dbbindexec(@handlearr);
+    my $row = $sth->fetchrow_hashref();
+    $requestor{$r}=$row->{NAME};
+  }
+
+  foreach my $dsid(keys %dataset) {
+    foreach my $reqid (keys %{$dataset{$dsid}{requestids}}) {
+        $dataset{$dsid}{requestids}{$reqid}{requestor}=
+	    $requestor{ $dataset{$dsid}{requestids}{$reqid}{requestorid} };
+    }
+  }
+
+  if ($args{LOCATION}) {
+    foreach my $dsid(keys %dataset) {
+      my @location;
+      my @output=`$asearchcli --xml --dbsInst=cms_dbs_prod_global --limit=-1 --input="find site where dataset = $dataset{$dsid}{name}"`;
+      my $se;
+      while (my $line = shift @output) {
+        if ( (($se) = $line =~ m/<sename>(.*)<\/sename>/) ) {
+	  push @location,$se;
+        }
+      }
+      my $nreplica=$#location + 1;
+      $dataset{$dsid}{replica_num}=$nreplica;
+      $dataset{$dsid}{replica_loc}=join(",", sort {$a cmp $b } @location);  #unelegant, but currently for xml output
+    }
+  }
+
+  return {
+	   SiteDataInfo =>
+  	   {
+		%args,
+		requestor => \%requestor,
+		dataset   => \%dataset,
+	   }
+	 };
+}
 
 1;
