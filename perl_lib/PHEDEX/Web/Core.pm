@@ -165,7 +165,8 @@ sub call
     {
       eval {
         open (local *STDOUT,'>',\$stdout); # capture STDOUT of $call
-        $obj = $module->invoke($self, %args);
+        my $invoke = $module . '::invoke';
+        $obj = $invoke->($self, %args);
 #	$obj = { $call => $obj };
       };
       if ($@) {
