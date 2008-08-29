@@ -1,7 +1,6 @@
 package PHEDEX::Web::API::BlockReplicas;
 use warnings;
 use strict;
-use PHEDEX::Web::Util;
 
 =pod
 
@@ -65,7 +64,7 @@ sub duration { return 5 * 60; }
 sub invoke { return blockReplicas(@_); }
 sub blockReplicas
 {
-    my ($self,$core,%h) = @_;
+    my ($core,%h) = @_;
 
     foreach ( qw / BLOCK NODE SE CREATE_SINCE UPDATE_SINCE COMPLETE / )
     {

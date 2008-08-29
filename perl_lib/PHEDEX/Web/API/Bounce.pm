@@ -1,7 +1,6 @@
 package PHEDEX::Web::API::Bounce;
 use warnings;
 use strict;
-use PHEDEX::Web::Util;
 
 =pod
 
@@ -20,7 +19,7 @@ sub duration { return 0; }
 sub invoke { return bounce(@_); }
 sub bounce
 {
-  my ($self,$core,%args) = @_;
+  my ($core,%args) = @_;
   return { Bounce => \%args };
 }
 

@@ -1,7 +1,6 @@
 package PHEDEX::Web::API::Nodes;
 use warnings;
 use strict;
-use PHEDEX::Web::Util;
 
 =pod
 
@@ -34,7 +33,7 @@ sub duration{ return 60 * 60; }
 sub invoke { return nodes(@_); }
 sub nodes
 {
-    my ($self,$core,%h) = @_;
+    my ($core,%h) = @_;
     return { node => PHEDEX::Web::SQL::getNodes($core,%h) };
 }
 

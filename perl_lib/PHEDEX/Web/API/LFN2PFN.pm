@@ -37,7 +37,7 @@ sub duration{ return 15 * 60; }
 sub invoke { return lfn2pfn(@_); }
 sub lfn2pfn
 {
-    my ($self,$core,%h) = @_;
+    my ($core,%h) = @_;
     &checkRequired(\%h, 'node', 'lfn', 'protocol');
 
     # TODO:  cache nodemap and TFC

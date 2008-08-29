@@ -1,7 +1,6 @@
 package PHEDEX::Web::API::Auth;
 use warnings;
 use strict;
-use PHEDEX::Web::Util;
 
 =pod
 
@@ -23,7 +22,7 @@ the call will die unless the user is authenticated with a certificate.
 sub invoke { return auth(@_); }
 sub auth
 {
-  my ($self,$core,%args) = @_;
+  my ($core,%args) = @_;
 
   $core->{SECMOD}->reqAuthnCert() if $args{require_cert};
   return $core->getAuth();

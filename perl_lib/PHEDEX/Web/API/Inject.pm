@@ -46,7 +46,7 @@ not give an error, but all the stats values will be zero.
 sub invoke { return inject(@_); }
 sub inject
 {
-  my ($self,$core,%args) = @_;
+  my ($core,%args) = @_;
   &checkRequired(\%args, 'node');
 
   my ($auth,$node,$nodeid,$result,$stats,$verbose,$strict);

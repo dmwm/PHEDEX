@@ -81,7 +81,7 @@ sub duration{ return 5 * 60; }
 sub invoke { return fileReplicas(@_); }
 sub fileReplicas
 {
-    my ($self,$core,%h) = @_;
+    my ($core,%h) = @_;
 
     &checkRequired(\%h, 'block');
 
