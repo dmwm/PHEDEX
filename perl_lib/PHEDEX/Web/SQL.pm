@@ -295,7 +295,7 @@ sub getTFC {
 
 sub SiteDataInfo
 {
-  my ($self,$core,%args) = @_;
+  my ($core,%args) = @_;
 
   my $dbg = $core->{DEBUG};
   my $asearchcli = $args{ASEARCHCLI};
