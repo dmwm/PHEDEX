@@ -89,6 +89,7 @@ sub subscriptions
 	    ) reps
 	    on reps.destination = s.destination
 	   and (reps.dataset = s.dataset or reps.block = s.block)
+         where ds.id is not null
        }, () );
 
     # Fetch all subscription data
