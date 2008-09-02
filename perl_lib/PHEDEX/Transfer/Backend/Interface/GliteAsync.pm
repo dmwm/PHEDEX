@@ -36,6 +36,8 @@ our %params =
 	  DSITE		=> undef,	# Specify destination site name
 	  ME		=> 'Glite',	# Arbitrary name for this object
 	  PRIORITY	=> 3,		# Default piority configured in FTS channels
+	  DEBUG		=> 0,
+	  VERBOSE	=> 0,
 	);
 
 our %states =
@@ -79,7 +81,7 @@ sub new
   $self->{CHILD_EVENTS} = \%events;
   $self->{_child} = POE::Component::Child->new(
          events => \%events,
-         debug => $self->{DEBUG},
+         debug => $self->{DEBUG} > 1 ? 1 : 0,
         );
   $self->{_child}{caller} = $self;
 
@@ -111,7 +113,7 @@ sub Parse
   return $result;
 }
 
-=head2 ListQueue
+=head2 ParseListQueue
 
 returns a hashref with information about all the jobs currently in the transfer
 queue for the given FTS service (i.e. the one that the Glite object knows
@@ -165,6 +167,9 @@ sub Run
 # Stub for now until I know how to sidestep unnecessary commands
   $cmd = '/bin/true' unless $cmd;
 
+  my $logsafe_cmd = $cmd;
+  $logsafe_cmd =~ s/ -p [\S]+/ -p _censored_/;
+  $self->Logmsg("Run: $logsafe_cmd") if $self->{VERBOSE};
   my $wheel = $self->{_child}->run($cmd);
 
   $self->{wheels}{$wheel}{parse}    = $str;
@@ -172,8 +177,6 @@ sub Run
   $self->{wheels}{$wheel}{arg}      = $arg;
   $self->{wheels}{$wheel}{cmd}      = $str;
   $self->{wheels}{$wheel}{start}    = time;
-  my $logsafe_cmd = $cmd;
-  $logsafe_cmd =~ s/ -p [\S]+/ -p _censored_/;
   push @{$self->{wheels}{$wheel}{result}{INFO}}, $logsafe_cmd . "\n";
   return $wheel;
 }
@@ -222,7 +225,7 @@ sub Command
   return undef;
 }
 
-=head2 ListJob
+=head2 ParseListJob
 
 Takes a single argument, a reference to a PHEDEX::Transfer::Backend::Job
 object. Then issues glite-transfer-status for that job and picks through the
@@ -446,10 +449,10 @@ die "Shouldn't be here!\n";
   close GLITE or do
   {
       print $self->Hdr,"close: $logsafe_cmd: $!\n";
-      push @{$result{ERROR}}, 'close Submit: id=' . ( $id || 'undefined' ) . $!;
+      push @{$result{ERROR}}, 'close Submit: JOBID=' . ( $id || 'undefined' ) . $!;
       return \%result;
   };
-  print $self->Hdr,"Job $id submitted...\n";
+  print $self->Hdr,"JOBID=$id submitted...\n";
   $result{ID} = $id;
   $job->ID($id);
 
@@ -478,7 +481,7 @@ sub _child_done {
 
 # Some monitoring...
   my $duration = time - $wheel->{start};
-# print "GliteAsync: debug: $wheel->{parse} cmd took $duration seconds\n";
+  $self->{caller}->Logmsg("$wheel->{parse} cmd took $duration seconds") if $self->{caller}{VERBOSE};
 
   my $postback = $wheel->{postback};
   my $result = Parse( $self->{caller}, $wheel );
@@ -507,6 +510,9 @@ sub _child_done {
       }
     }
   }
+
+# cleanup...
+  delete $self->{caller}{wheels}{$args->{wheel}};
 }
 
 sub _child_died {
