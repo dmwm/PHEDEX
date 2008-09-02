@@ -304,7 +304,7 @@ sub poll_job_postback
   };
 
   $self->{LAST_SUCCESSFULL_POLL} = time;
-  print $self->Hdr,"JOBID ",$job->ID," STATE $result->{JOB_STATE}\n";
+  print $self->Hdr,"JOBID=",$job->ID," STATE=$result->{JOB_STATE}\n";
 
   $job->State($result->{JOB_STATE});
   $job->RawOutput(@{$result->{RAW_OUTPUT}});
@@ -357,7 +357,7 @@ sub poll_job_postback
                  );
   if ( $job->Summary ne $summary )
   {
-    print $self->Hdr,$job->ID,": $summary\n" if $self->{VERBOSE};
+    print $self->Hdr,' JOBID=',$job->ID," $summary\n" if $self->{VERBOSE};
     $job->Summary($summary);
   }
 
@@ -516,7 +516,7 @@ sub cleanup_stats
 {
   my ( $self, $kernel, $job ) = @_[ OBJECT, KERNEL, ARG0 ];
   my $jobid = $job->ID;
-  $self->Logmsg("Cleaning up stats for job $jobid...") if $self->{VERBOSE};
+  $self->Logmsg("Cleaning up stats for JOBID=$jobid...") if $self->{VERBOSE};
   delete $self->{WORKSTATS}{JOBS}{STATES}{$job->ID};
   foreach ( values %{$job->Files} )
   {
