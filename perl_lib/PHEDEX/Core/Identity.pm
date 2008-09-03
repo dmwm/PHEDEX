@@ -95,7 +95,6 @@ sub fetchAndSyncIdentity
 	die "fetchAndSyncIdentity requires AUTH_METHOD";
     }
     
-
     my @to_sync;
     if ($h{AUTH_METHOD} eq 'CERTIFICATE') {
 	@to_sync = qw(SECMOD_ID NAME EMAIL DN CERTIFICATE);	
@@ -167,19 +166,49 @@ sub fetchAndSyncIdentity
 
 =pod
 
-=item getIdentity ($self, $identity_id)
+=item getIdentityFromDB ($self, $identity_id)
 
-Returns a hash of identiry information given an identity_id
+Returns a hash of identity information from TMDB given an identity_id
 
 =cut
 
-sub getIdentity
+sub getIdentityFromDB
 {
     my ($self, $identity) = @_;
     my $sql =   qq{ select id, secmod_id, name, email, dn, certificate, username
 			from t_adm_identity where id = :id };
     return &execute_sql($self, $sql, ':id' => $identity)->fetchrow_hashref();
 }
+
+=pod
+
+=item getIdentityFromSecMod ($self, $secmod)
+
+Returns a hash of identity information from the given security module.
+
+=cut
+
+sub getIdentityFromSecMod
+{
+    my ($self, $secmod) = @_;
+    
+    return undef unless $secmod->isAuthenticated();
+
+    my $id = {};
+    $id->{SECMOD_ID} = $secmod->getID();
+    $id->{NAME} = $secmod->getForename() .' '. $secmod->getSurname();
+    $id->{EMAIL} = $secmod->getEmail();
+
+    if ($secmod->isCertAuthenticated()) {
+	$id->{DN} = $secmod->getDN();
+	$id->{CERTIFICATE} = $secmod->getCert();
+    } elsif ($secmod->isPasswdAuthenticated()) {
+	$id->{USERNAME} = $secmod->getUsername();
+    }
+
+    return $id;
+}
+
 
 =pod
 
