@@ -234,6 +234,7 @@ use strict;
 use warnings;
 
 use PHEDEX::Core::DB;
+use PHEDEX::Core::Util qw( arrayref_expand );
 use base 'PHEDEX::Core::Logging';
 use Carp;
 use POSIX;
@@ -398,20 +399,6 @@ sub escape_sql_like
 sub glob_to_sql_like
 {
     return map { $_ =~ tr/*?/%_/; $_; } @_;
-}
-
-#-------------------------------------------------------------------------------
-# Takes an array and expands all arrayrefs in the array and expands them
-# TODO:  does this belong in a more general "Utilities" package?
-sub arrayref_expand
-{
-    my @out;
-    foreach (@_) {
-	if    (!ref $_)           { push @out, $_; }
-	elsif (ref $_ eq 'ARRAY') { push @out, @$_; } 
-	else { next; }
-    }
-    return @out;
 }
 
 #-------------------------------------------------------------------------------
