@@ -53,12 +53,18 @@ sub Help
 and uses the dataservice to subscribe them to one or more PhEDEx nodes.
 
  Options:
- --datafile <filename>	name of an xml file. May be repeated, in which case the
+ --datafile <filename>  name of an xml file. May be repeated, in which case the
 			file contents are concatenated. The xml format is
 			specified on the PhEDEx twiki on the 'Machine
 			Controlled Subscriptions' project page
  --node <nodename>	name of the node this data is to be subscribed to. May
 			be repeated to subscribe to multiple nodes.
+ --block-level          subscribe to data at the block level.  The default is
+                        to subscribe at the dataset level.
+ --move                 make the subscription a move, default is a replica
+ --priority <priority>  subscription priority, default is low
+ --static               make the subscription static, default is a growing
+                        subscription
 
  ...and of course, this module takes the standard options:
  --help, --(no)debug, --(no)verbose
