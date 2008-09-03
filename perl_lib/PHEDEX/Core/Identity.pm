@@ -31,6 +31,8 @@ use strict;
 use warnings;
 use base 'PHEDEX::Core::SQL';
 
+use PHEDEX::Core::Timing;
+
 use Carp;
 
 our @EXPORT = qw( );
@@ -112,7 +114,7 @@ sub fetchAndSyncIdentity
     }
 
     my $id = { map { $_ => $h{$_} } @to_sync };
-    my $now = time();
+    my $now = &mytimeofday();
 
     # Look up a logged identity by either the SecurityModule ID, DN, or username
     my $q = &execute_sql( $self, 
