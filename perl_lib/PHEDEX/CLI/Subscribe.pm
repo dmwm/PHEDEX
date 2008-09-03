@@ -15,6 +15,10 @@ sub new
 	      DEBUG	=> 0,
 	      DATAFILE	=> undef,
 	      NODE	=> undef,
+	      BLOCKLEVEL => 0,
+	      PRIORITY  => 'high',
+	      IS_STATIC => 0,
+	      IS_MOVE   => 0
 	    );
   %options = (
                'help'		=> \$help,
@@ -22,6 +26,10 @@ sub new
 	       'debug'		=> \$params{DEBUG},
 	       "datafile=s@"	=> \$params{DATAFILE},
 	       "node=s@"	=> \$params{NODE},
+ 	       "block-level"    => \$params{BLOCKLEVEL},
+	       "priority=s"     => \$params{PRIORITY},
+	       "static"         => \$params{IS_STATIC},
+	       "move"           => \$params{IS_MOVE},
 	     );
   GetOptions(%options);
   my $self = \%params;
@@ -80,7 +88,12 @@ sub Payload
   die __PACKAGE__," no datafiles given\n" unless $self->{DATAFILE};
   die __PACKAGE__," no node given\n" unless $self->{NODE};
 
-  $payload->{node} = $self->{NODE};
+  $payload->{node}      = $self->{NODE};
+  $payload->{priority}  = $self->{PRIORITY};
+  $payload->{level}     = $self->{BLOCKLEVEL} ? 'block' : 'dataset';
+  $payload->{move}   = $self->{IS_MOVE} ? 'y' : 'n';
+  $payload->{static} = $self->{IS_STATIC} ? 'y' : 'n';
+
   foreach ( @{$self->{DATAFILE}} )
   {
     open DATA, "<$_" or die "open: $_ $!\n";
