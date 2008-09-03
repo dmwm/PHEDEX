@@ -330,7 +330,7 @@ sub createRequest
 	push @ids, $rid;
     } # /dbs
 
-    return wantarray ? @ids : $ids[0];
+    return @ids;
 }
 
 =pod
