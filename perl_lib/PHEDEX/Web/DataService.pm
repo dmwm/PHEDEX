@@ -178,14 +178,12 @@ sub init_security
   my ($secmod,$secmod_config);
   $secmod_config = $self->{CONFIG}->{SECMOD_CONFIG};
   if (!$secmod_config) {
-    $core->error("ERROR:  SecurityModule config file not set in $self->{CONFIG_FILE}");
-    return;
+		die("ERROR:  SecurityModule config file not set in $self->{CONFIG_FILE}");
   }
   $secmod = new CMSWebTools::SecurityModule::Oracle({CONFIG => $secmod_config});
   if ( ! $secmod->init() )
   {
-    $core->error("Cannot initialise security module: " . $secmod->getErrMsg());
-    return;
+		die("Cannot initialise security module: " . $secmod->getErrMsg());
   }
   $core->{SECMOD} = $secmod;
 
@@ -202,6 +200,8 @@ sub init_security
       return;
     }
   }
+  
+  return 1;
 }
 
 sub invoke
