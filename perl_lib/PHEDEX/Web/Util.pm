@@ -66,6 +66,9 @@ sub checkRequired
 }
 
 # Fetch the list of nodes this user is authenticated to act on
+# TODO: Get authorized actions from a configuration file instead of
+#   hard-coded here.  It is expected that new roles will be created with
+#   different prviileges, and we will need to quickly adapt to that
 sub fetch_nodes
 {
     my ($self, %args) = @_;
