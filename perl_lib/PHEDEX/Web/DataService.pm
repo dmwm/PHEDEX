@@ -13,7 +13,7 @@ Checks configuration, parses URL path for parameters, makes API call
 use warnings;
 use strict;
 
-use CGI qw(header path_info self_url param Vars);
+use CGI qw(header path_info self_url param Vars remote_host user_agent);
 
 use CMSWebTools::SecurityModule::Oracle;
 use PHEDEX::Web::Config;
@@ -117,6 +117,8 @@ and <a href='.'>PHEDEX::Web::Core</a> for the core module documentation<br>
 				   DBCONFIG => $config->{INSTANCES}->{$db}->{DBCONFIG},
 				   INSTANCE => $db,
 				   REQUEST_URL => self_url(),
+				   REMOTE_HOST => remote_host(), # TODO:  does this work in reverse proxy?
+				   USER_AGENT => user_agent(),
 				   DEBUG => $TESTING,
 				   CACHE_CONFIG => $config->{CACHE_CONFIG} || {},
 				   );
@@ -168,7 +170,7 @@ sub init_security
   my $self = shift;
 # Access-control via the security module. Start by being fully paranoid,
 # until we get a better idea how to do this stuff. So, require that the
-# security module be configured wether used or not. For POSTs, exlicitly
+# security module be configured wether used or not. For POSTs, explicitly
 # limit to Global Admins while working on the code. Later, relax to allow
 # the roles in TMDB to limit access.
   my $core = $self->{CORE};

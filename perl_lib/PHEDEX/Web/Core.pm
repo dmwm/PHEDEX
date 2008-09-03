@@ -87,6 +87,8 @@ our (%params);
             DBCONFIG => undef,
 	    INSTANCE => undef,
 	    REQUEST_URL => undef,
+            REMOTE_HOST => undef,
+            USER_AGENT => undef,
 	    REQUEST_TIME => undef,
 	    SECMOD => undef,
 	    DEBUG => 0,
