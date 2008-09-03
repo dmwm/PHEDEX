@@ -141,16 +141,28 @@ sub _action
     defined($ENV{SSL_CLIENT_S_DN}) or
     do
     {
-      open SSL, "openssl x509 -in $self->{CERT_FILE} -subject -noout |" or
+      open SSL, "openssl x509 -in $self->{CERT_FILE} -subject |" or
 	die "SSL_CLIENT_S_DN environment variable not set and cannot read certificate to set it\n";
+      my $in_cert_body = 0;
+      my @cert_lines;
+      $ENV{SSL_CLIENT_CERT} = "";
         while ( <SSL> )
         {
-          m%^subject=\s+(.*)$% or next;
-          $ENV{SSL_CLIENT_S_DN} = $1;
+	    if (m%^subject=\s+(.*)$%) {
+		$ENV{SSL_CLIENT_S_DN} = $1;
+	    }
+	    if (/BEGIN CERTIFICATE/) { $in_cert_body = 1; }
+	    if ($in_cert_body) {
+		chomp;
+		push @cert_lines, $_;
+	    }
+	    if (/END CERTIFICATE/) { $in_cert_body = 0; }
         }
         close SSL; # Who cares about return codes...?
+      $ENV{SSL_CLIENT_CERT} = join(' ', @cert_lines);
     } or die "SSL_CLIENT_S_DN environment variable not set\n";
     $ENV{HTTP_SSL_CLIENT_S_DN} = $ENV{SSL_CLIENT_S_DN};
+    $ENV{HTTP_SSL_CLIENT_CERT} = $ENV{SSL_CLIENT_CERT};
   }
   $service_name = $self->{SERVICE};
   open (local *STDOUT,'>',\(my $stdout)); # capture STDOUT of $call
