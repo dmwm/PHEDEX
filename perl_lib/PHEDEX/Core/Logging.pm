@@ -236,7 +236,7 @@ sub logger_stat
 	foreach $appender (@{$logger->{'appender_names'}})
 	{
 		print "Appender: ", $appender, "\n";
-		print Dumper($Log::Log4perl::Logger::APPENDER_BY_NAME{$appender});
+		print Dumper(${Log::Log4perl::Logger::APPENDER_BY_NAME}{$appender});
 	}
 }
 
