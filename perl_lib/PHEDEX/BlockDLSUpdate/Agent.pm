@@ -132,8 +132,8 @@ sub idle
 
       if ( defined $self->{DUMMY} )
       {
-        if ( $self->{DUMMY} ) { unshift @cmd,'/bin/false'; }
-        else                  { unshift @cmd,'/bin/true'; }
+        if ( $self->{DUMMY} ) { unshift @cmd,'/bin/true'; }
+        else                  { unshift @cmd,'/bin/false'; }
       }
       $self->addJob(sub { $self->registered ($block, \$state{$cachekey}, @_) },
 	          { TIMEOUT => 30, LOGFILE => $log },
