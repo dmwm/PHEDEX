@@ -359,10 +359,10 @@ sub Submit
   close GLITE or do
   {
       print $self->Hdr,"close: $logsafe_cmd: $!\n";
-      $result{ERROR} = 'close Submit: JOBID=' . ( $id || 'undefined' ) . $!;
+      $result{ERROR} = 'close Submit: id=' . ( $id || 'undefined' ) . $!;
       return \%result;
   };
-  print $self->Hdr,"JOBID=$id submitted...\n";
+  print $self->Hdr,"Job $id submitted...\n";
   $result{ID} = $id;
   $job->ID($id);
 

@@ -460,11 +460,7 @@ sub check
 # $j->JOB_POSTBACK( $self->{FTS_Q_MONITOR}->JOB_POSTBACK );
 # $j->FILE_POSTBACK( $self->{FTS_Q_MONITOR}->FILE_POSTBACK );
   $self->{FTS_Q_MONITOR}->QueueJob( $j );
-  $self->Logmsg('JOBID=',$j->ID,' added to monitoring');
-  foreach ( values %{$j->FILES} )
-  {
-    $self->Logmsg('JOBID=',$j->ID,' TASKID=',$_->TASKID,' DESTINATION=',$_->DESTINATION," added to monitoring\n");
-  }
+  $self->Logmsg($j->ID,' added to monitoring');
   &touch($dir . '/live')
 }
 
@@ -492,6 +488,7 @@ sub job_submitted
 {
   my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
 
+$DB::single=1;
 #  $self->FinishedDoingSomething();
   my $job    = $arg1->[1]->{arg};
   my $result = $arg1->[0];
@@ -513,7 +510,7 @@ sub job_submitted
   if ( exists $result->{ERROR} ) { 
     # something went wrong...
     my $reason = "Could not submit to FTS\n";
-    $job->Log( @{$result->{ERROR}} );
+    $job->Log( $result->{ERROR} );
     $job->RawOutput( @{$result->{RAW_OUTPUT}} );
     foreach my $file ( values %{$job->FILES} ) {
       $file->Reason($reason);
@@ -531,7 +528,6 @@ sub job_submitted
 #  }
 #  $job->ID($id);
 
-  $self->Logmsg('JOBID=',$job->ID," submitted\n");
   # Save this job for retrieval if the agent is restarted
   my $jobsave = $job->WORKDIR . '/job.dmp';
   open JOB, ">$jobsave" or $self->Fatal("$jobsave: $!");
@@ -547,16 +543,16 @@ sub job_state_change
     my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
     my $job = $arg1->[0];
 
-#   A paranoid but harmless check that I have the right sort of entity!
-    if ( ref($job) !~ m%PHEDEX::Transfer::Backend::Job% )
-    { print "I have a wrong job-type here!\n"; }
-
     # I get into this routine every time a job is monitored. Because I don't
     # want verbose monitoring forever, I turn it off here. So the first
     # monitoring call will have been verbose, the rest will not
+    if ( ref($job) !~ m%PHEDEX::Transfer::Backend::Job% )
+    {
+      print "I have a wrong job-type here!\n";
+    }
     $job->VERBOSE(0);
 
-    $self->Dbgmsg("Job-state callback JOBID=",$job->ID,", STATE=",$job->State) if $self->{DEBUG};
+    $self->Dbgmsg("Job-state callback ID ",$job->ID,", STATE ",$job->State) if $self->{DEBUG};
 
     if ($job->ExitStates->{$job->State}) {
     }else{
@@ -571,8 +567,8 @@ sub file_state_change
   my $file = $arg1->[0];
   my $job  = $arg1->[1];
 
-  $self->Dbgmsg("File-state callback TASKID=",$file->TaskID," JOBID=",$job->ID,
-	  " STATE=",$file->State,' DEST=',$file->Destination) if $self->{DEBUG};
+  $self->Dbgmsg("File-state callback TASKID ",$file->TaskID," JOBID ",$job->ID,
+	  " STATE ",$file->State,' ',$file->Destination) if $self->{DEBUG};
   
   if ($file->ExitStates->{$file->State}) {
       $self->mkTransferSummary($file,$job);
@@ -608,7 +604,7 @@ sub mkTransferSummary {
     # make a 'done' file
     &output($job->Workdir."/T".$file->{TASKID}."X", Dumper $summary);
 
-    $self->Dbgmsg("mkTransferSummary done for task=',$file->TaskID,' workdir=",$job->Workdir) if $self->{DEBUG};
+    $self->Dbgmsg("mkTransferSummary done for task: ",$job->Workdir,' ',$file->TaskID) if $self->{DEBUG};
 }
 
 1;
