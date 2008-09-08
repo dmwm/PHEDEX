@@ -1,3 +1,42 @@
+* Changes in PhEDEx 3.0.5
+
+Changes For All Agents
+ - Logging is now done using the Log4Perl module.  A default
+   configuration file is used which makes this change transparent.  By
+   defining a new $PHEDEX_LOG4PERL_CONFIG variable one can override
+   this default file and change the logging format or define new log
+   files.  Changes in logging can dynamically take effect by sending
+   HUP to the agent process, or by restarting the agents.  See
+   perl_lib/PHEDEX/Core/phedex_logger.conf for more details and
+   guidelines.
+
+Bug Fixes For Central Agents
+ - RequestAllocator: duplicate key error fixed
+ - BlockAllocator: Oracle bug workaround; now correctly deletes
+   block-level subscriptions when a dataset-level subscription is
+   made
+ - BlockDownloadVerifyInjector: historic use of wrong date-formats now
+   corrected
+ - BlockDBSPopulate: fix for DBS not updating on deletion and
+   increased DBS migration timeout
+ - PerfMonitor: correctly report "Resident Data" for plots
+
+Changes for Tools
+ - Toolkit/DBS/DBSInvalidateFile: added block invalidation
+ - Toolkit/DBS/DBSMigrateDataset: check if block is already migrated;
+   clean up SEs
+ - Utilities/BlockConsistencyCheck: fixed documentation
+ - Utilities/BlockDownloadVerify-injector.pl: add --incomplete option
+   to allow taking all blocks, default is now to take only completed
+   blocks. Add --force option to allow injecting duplicate test-requests
+ - Utilities/MakeDailyReport: improve memory usage
+ - Utilities/StorageConsistencyCheck: fixed documentation
+
+New Tools
+ - Utilities/ProcMon.pl: watch all processes belonging to a given
+   user for activity above threshold. Use for spotting runaway
+   cronjobs or shells belonging to a given user
+
 * Changes in PhEDEx 3.0.4
 
 Changes for Site Agents
