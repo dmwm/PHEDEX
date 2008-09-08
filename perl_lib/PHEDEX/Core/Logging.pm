@@ -1,8 +1,5 @@
 package PHEDEX::Core::Logging;
 
-# This is a replacement of PHEDEX::Core::Logging, using Log4perl
-# The original code is kept in the comment -- will be removed later
-
 =head1 NAME
 
 PHEDEX::Core::Logging - a drop-in replacement for Toolkit/UtilsLogging
@@ -38,6 +35,8 @@ our @EXPORT = qw( Hdr new Logmsg Notify Alert Warn Dbgmsg Fatal Note get_log_lev
 use POSIX;
 use File::Basename;
 
+our $shared_me = ''; # for log4perl subroutine, set by me()
+
 # 'new' is declared as a dummy routine, just in case it ever gets called...
 sub new {}
 
@@ -52,6 +51,18 @@ BEGIN
   };
 
   # initiailze PhEDEx logger
+
+  # Add a pattern spec %N = agent name
+  Log::Log4perl::Layout::PatternLayout::add_global_cspec('N', sub { $shared_me });
+
+  # Increment caller depth to indicate we are using a wrapper class
+  # Fixes %F, %C, %L and the like
+  ${Log::Log4perl::caller_depth} = 1;
+
+  # We use GMTIME in PhEDEx
+  ${Log::Log4perl::DateFormat::GMTIME} = 1;
+
+  # Now check for a custom configuration file
   if ( defined($ENV{PHEDEX_LOG4PERL_CONFIG}) )
   {
     $config_file = $ENV{PHEDEX_LOG4PERL_CONFIG};
@@ -72,27 +83,21 @@ BEGIN
     }
 
     Log::Log4perl->init_and_watch($config_file, 'HUP');
-  };
+  }
 }
-
-# sub Logmsg
-# {   
-#   my $self = shift;
-#   print PHEDEX::Core::Logging::Hdr($self),@_,"\n";
-# }
 
 # Logmsg(msg) -- log as INFO
 sub Logmsg
 {
-  my $self = shift;
+  my $self = shift; me($self);
   my $logger = get_logger("PhEDEx");
-  $logger->info(PHEDEX::Core::Logging::Hdr($self),@_);
+  $logger->info(@_);
 }
 
 # Notify(msg) -- log through socket to remote -- not using Log4perl
 sub Notify
 {
-  my $self = shift;
+  my $self = shift; me($self);
   my $port = $self->{NOTIFICATION_PORT} || $ENV{PHEDEX_NOTIFICATION_PORT};
   return unless defined $port;
   my $server = $self->{NOTIFICATION_HOST} || $ENV{PHEDEX_NOTIFICATION_HOST} || '127.0.0.1';
@@ -104,89 +109,66 @@ sub Notify
   $socket->send( $message );
 }
 
-# sub Alert
-# {   
-#   my $self = shift;
-#   PHEDEX::Core::Logging::Logmsg ($self,"alert: ", @_);
-#   PHEDEX::Core::Logging::Notify ($self,"alert: ", @_,"\n");
-# }
-
 # Alert(msg) -- log as ERROR
 sub Alert
 {
-  my $self = shift;
+  my $self = shift; me($self);
   my $logger = get_logger("PhEDEx");
-  $logger->error(PHEDEX::Core::Logging::Hdr($self), "alert: ",@_);
+  $logger->error("alert: ",@_);
 }
-
-# sub Warn
-# {   
-#   my $self = shift;
-#   PHEDEX::Core::Logging::Logmsg ($self,"warning: ", @_);
-#   PHEDEX::Core::Logging::Notify ($self,"warning: ", @_,"\n");
-# }   
 
 # Warn(msg) -- log as WARN
 sub Warn
 {
-  my $self = shift;
+  my $self = shift; me($self);
   my $logger = get_logger("PhEDEx");
-  $logger->warn(PHEDEX::Core::Logging::Hdr($self), "warning: ", @_);
+  $logger->warn("warning: ", @_);
 }
-
-# sub Dbgmsg
-# {
-#   my $self = shift;
-#   PHEDEX::Core::Logging::Logmsg ($self,"debug: ", @_);
-# }
 
 # Dbgmsg(msg) -- log as DEBUG
 sub Dbgmsg
 {
-  my $self = shift;
+  my $self = shift; me($self);
   my $logger = get_logger("PhEDEx");
-  $logger->debug(PHEDEX::Core::Logging::Hdr($self), "debug: ", @_);
+  $logger->debug("debug: ", @_);
 }
-
-# sub Fatal
-# {
-#   my $self = shift;
-#   PHEDEX::Core::Logging::Logmsg ($self,"fatal: ", @_);
-#   PHEDEX::Core::Logging::Notify ($self,"fatal: ", @_,"\n");
-#   exit(1);
-# }
 
 # fatal(msg) -- log as FATAL and exit
 sub Fatal
 {
-  my $self = shift;
+  my $self = shift; me($self);
   my $logger = get_logger("PhEDEx");
-  $logger->fatal(PHEDEX::Core::Logging::Hdr($self), "fatal: ", @_);
+  $logger->fatal("fatal: ", @_);
   exit(1);
 }
-
-# sub Note
-# {
-#   my $self = shift;
-#   print PHEDEX::Core::Logging::Hdr($self)," note: ", @_, "\n";
-# }
 
 # Note(msg) -- log as INFO
 sub Note
 {
-  my $self = shift;
+  my $self = shift; me($self);
   my $logger = get_logger("PhEDEx");
-  $logger->info(PHEDEX::Core::Logging::Hdr($self), "note: ", @_);
+  $logger->info("note: ", @_);
+}
+
+# Attempts to get a short package name
+# Agents set this in their $self
+# For standalone scripts, we just use the last part of $0
+# This also sets the $shared_me which can be used in %N of log4perl
+sub me
+{
+  my $self = shift;
+  my $me;
+  if ( $self ) { $me  = $self->{ME} };
+  if ( !$me ) { $me = $0; $me =~ s|.*/||; }
+  $PHEDEX::Core::Logging::shared_me = $me;
+  return $me;
 }
 
 # Hdr() -- make up header
 sub Hdr
 { 
   my $self = shift;
-  my $me;
-  if ( $self ) { $me  = $self->{ME} };
-  if ( !$me ) { $me = $0; $me =~ s|.*/||; }
-  # my $date = strftime ("%Y-%m-%d %H:%M:%S ", gmtime);
+  my $me = me($self);
   my $date = strftime ("%Y-%m-%d %H:%M:%S", gmtime);
   return "$date: $me\[$$]: ";
 }
@@ -196,9 +178,9 @@ sub get_log_level
 {
   my $logger = get_logger("PhEDEx");
 
-  if ( $logger->level == $DEBUG ) { return "DEBUG" }
-  elsif ( $logger->level == $INFO ) { return "INFO" }
-  elsif ( $logger->level == $WARN ) { return "WARN" }
+  if    ( $logger->level == $DEBUG ) { return "DEBUG" }
+  elsif ( $logger->level == $INFO )  { return "INFO" }
+  elsif ( $logger->level == $WARN )  { return "WARN" }
   elsif ( $logger->level == $ERROR ) { return "ERROR" }
   elsif ( $logger->level == $FATAL ) { return "FATAL" }
   return "UNKNOWN";
