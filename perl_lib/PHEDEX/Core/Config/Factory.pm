@@ -244,9 +244,12 @@ sub _make_stats
   }
 
   $totalWall = time - $self->{stats}{START};
-  my $busy= 100*$totalOnCPU/$totalWall;
-  my $summary=sprintf('TotalCPU=%.2f busy=%.2f%%',$totalOnCPU,$busy);
-  $self->Logmsg($summary);
+  if ( $totalWall )
+  {
+    my $busy= 100*$totalOnCPU/$totalWall;
+    my $summary=sprintf('TotalCPU=%.2f busy=%.2f%%',$totalOnCPU,$busy);
+    $self->Logmsg($summary);
+  }
   $self->{stats}{START} = time;
   $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
 }
