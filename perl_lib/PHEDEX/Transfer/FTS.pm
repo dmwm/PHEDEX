@@ -64,7 +64,13 @@ sub new
     bless $self, $class;
 
     $self->init();
-    $self->Dbgmsg('FTS $self:  ', Dumper($self)) if $self->{DEBUG};
+    if ( $self->{DEBUG} )
+    {
+      my $dump = Dumper($self);
+      my $password = $self->{FTS_Q_MONITOR}{Q_INTERFACE}{PASSWORD};
+      $dump =~ s%$password%_censored_%g if $password;
+      $self->Dbgmsg('FTS $self:  ', $dump) if $self->{DEBUG};
+    }
     return $self;
 }
 
@@ -468,7 +474,6 @@ sub check
 
 # Is this job currently being monitored?
   return if $self->{FTS_Q_MONITOR}->isKnown( $j );
-$DB::single=1;
 
 # $j->JOB_POSTBACK( $self->{FTS_Q_MONITOR}->JOB_POSTBACK );
 # $j->FILE_POSTBACK( $self->{FTS_Q_MONITOR}->FILE_POSTBACK );
@@ -534,7 +539,6 @@ sub job_submitted
   close JOB;
 
   #register this job with queue monitor.
-$DB::single=1;
   $self->{FTS_Q_MONITOR}->QueueJob($job);
 }
 
