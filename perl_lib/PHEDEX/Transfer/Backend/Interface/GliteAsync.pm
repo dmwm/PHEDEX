@@ -36,6 +36,7 @@ our %params =
 	  DSITE		=> undef,	# Specify destination site name
 	  ME		=> 'Glite',	# Arbitrary name for this object
 	  PRIORITY	=> 3,		# Default piority configured in FTS channels
+	  OPTIONS	=> {},
 	  DEBUG		=> 0,
 	  VERBOSE	=> 0,
 	);
@@ -184,16 +185,20 @@ sub Run
 sub Command
 {
   my ($self,$str,$arg) = @_;
-  my $cmd;
+  my ($cmd,$opts);
+  $opts = " $self->{OPTIONS}{$str}" || '';
 
   if ( $str eq 'ListQueue' )
-  { return "glite-transfer-list -s " . $self->{SERVICE}; }
+  {
+    return "glite-transfer-list -s $self->{SERVICE}" . $opts;
+  }
 
   if ( $str eq 'ListJob' )
   {
     $cmd = 'glite-transfer-status -l ';
     $cmd .= ' --verbose' if $arg->VERBOSE;
     $cmd .= ' -s ' . $arg->Service . ' ' . $arg->ID;
+    $cmd .= $opts;
     return $cmd;
   }
 
@@ -208,6 +213,7 @@ sub Command
     $cmd = 'glite-transfer-setpriority';
     if ( $arg->Service ) { $cmd .= ' -s ' . $arg->Service; }
     $cmd .= ' ' . $arg->ID . ' ' . $priority;
+    $cmd .= $opts;
     return $cmd;
   }
 
@@ -219,6 +225,7 @@ sub Command
       ((defined $self->PASSWORD)   ? ' -p '.$self->PASSWORD   : "") .
       ((defined $self->SPACETOKEN) ? ' -t '.$self->SPACETOKEN : "") .
       ' -f ' . $arg->Copyjob;
+      $cmd .= $opts;
       return $cmd;
   }
 
