@@ -7,7 +7,6 @@ use Getopt::Long;
 use POSIX;
 use Data::Dumper;
 
-
 use PHEDEX::Transfer::Backend::Job;
 use PHEDEX::Transfer::Backend::File;
 use PHEDEX::Transfer::Backend::Monitor;
@@ -37,6 +36,7 @@ sub new
     $params->{FTS_POLL_QUEUE}      ||= 0;          # Whether to poll all vs. our jobs
     $params->{FTS_Q_INTERVAL}      ||= 30;         # Interval for polling queue for new jobs
     $params->{FTS_J_INTERVAL}      ||= 5;          # Interval for polling individual jobs
+    $params->{FTS_GLITE_OPTIONS}   ||= {};	   # Specific options for glite commands
 
     # Set argument parsing at this level.
     $options->{'batch-files=i'}        = \$params->{BATCH_FILES};
@@ -57,6 +57,7 @@ sub new
     $options->{'monalisa_port=i'}      = \$params->{FTS_MONALISA_PORT};
     $options->{'monalisa_cluster=s'}   = \$params->{FTS_MONALISA_CLUSTER};
     $options->{'monalisa_node=s'}      = \$params->{FTS_MONALISA_NODE};
+    $options->{'glite-options=s'}      =  $params->{FTS_GLITE_OPTIONS};
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
@@ -74,6 +75,7 @@ sub init
     my $glite = PHEDEX::Transfer::Backend::Interface::GliteAsync->new
 	(
 	 SERVICE => $self->{FTS_SERVICE},
+	 OPTIONS => $self->{FTS_GLITE_OPTIONS},
 	 ME      => 'GLite',
 	 );
 
@@ -269,7 +271,7 @@ sub isBusy
 	# Check per-link busy status based on a maximum number of
 	# "pending" files per link.  Treat undefined as pending until
 	# their state is resolved.
-	$stats = $self->{FTS_Q_MONITOR}->{LINKSTATS};
+	$stats = $self->{FTS_Q_MONITOR}->LinkStats;
 
 	my %state_counts;
 	foreach my $file (keys %$stats) {
@@ -279,7 +281,8 @@ sub isBusy
 	}
 	
 	$self->Dbgmsg("Transfer::FTS::isBusy Link Stats $from->$to\n",
-		      Dumper(\%state_counts)) if $self->{DEBUG};
+		      Data::Dumper->Dump( [\%state_counts], [ qw / state_counts / ] ) )
+		      if $self->{DEBUG};
 	
 	if ($self->{FTS_LINK_ACTIVE}->{$from} || $self->{FTS_DEFAULT_LINK_ACTIVE}) {
 	    # Count files in the Active state
@@ -401,7 +404,19 @@ sub startBatch
 		    WORKDIR=>$dir,
 		    START=>&mytimeofday(),
 		    );
-	$files{$task->{TO_PFN}} = PHEDEX::Transfer::Backend::File->new(%args);
+	my $f = PHEDEX::Transfer::Backend::File->new(%args);
+        $self->{FTS_Q_MONITOR}->LinkStats(
+					   $f->Destination,
+					   $f->FromNode,
+					   $f->ToNode,
+					   $f->State
+					 );
+        $self->{FTS_Q_MONITOR}->WorkStats(
+					   'FILES',
+					   $f->Destination,
+					   $f->State
+					  );
+	$files{$task->{TO_PFN}} = $f;
     }
  
     my $avg_priority = int( $sum_priority / $n_files );
@@ -437,9 +452,6 @@ sub startBatch
 
     $job->Service($service);
 
-#   $self->StartedDoingSomething();
-#   $self->{Q_INTERFACE}->Submit($job);
-#$DB::single=1;
     $self->{Q_INTERFACE}->Run('Submit',$self->{JOB_SUBMITTED_POSTBACK},$job);
 }
 
@@ -456,6 +468,7 @@ sub check
 
 # Is this job currently being monitored?
   return if $self->{FTS_Q_MONITOR}->isKnown( $j );
+$DB::single=1;
 
 # $j->JOB_POSTBACK( $self->{FTS_Q_MONITOR}->JOB_POSTBACK );
 # $j->FILE_POSTBACK( $self->{FTS_Q_MONITOR}->FILE_POSTBACK );
@@ -496,19 +509,10 @@ sub job_submitted
   my $job    = $arg1->[1]->{arg};
   my $result = $arg1->[0];
   if ( $self->{DEBUG} && $result->{DURATION} > 8 )
-  { $self->Logmsg('Submit took ',$result->{DURATION},' seconds'); }
-
-#  $job->Log( @{$result->{INFO}} ) if $result->{INFO};
-#  if ( $result->{SETPRIORITY} )
-#  {
-#    $job->Log("SETPRIORITY: CMD: "   . $result->{SETPRIORITY}{CMD});
-#    $job->Log("SETPRIORITY: ERROR: " . $result->{SETPRIORITY}{ERROR})
-#    if $result->{SETPRIORITY}{ERROR};
-#    $job->Log(
-#               map { "SETPRIORITY: RAW: $_" }
-#               @{$result->{SETPRIORITY}{RAW_OUTPUT}}
-#             );
-#  }
+  {
+    my $id = $job->{ID} || 'unknown';
+    $self->Logmsg('Submit took ',$result->{DURATION},' seconds for JOBID=',$id);
+  }
 
   if ( exists $result->{ERROR} ) { 
     # something went wrong...
@@ -522,16 +526,7 @@ sub job_submitted
     return;
   }
 
-#  my $id = $result->{ID};
-#  $id = $result->{RAW_OUTPUT}->[0];
-#
-#  if ( !defined($id) )
-#  {
-#    $DB::single=1;
-#  }
-#  $job->ID($id);
-
-  $self->Logmsg('JOBID=',$job->ID," submitted\n");
+  $self->Logmsg('JOBID=',$job->ID,' submitted');
   # Save this job for retrieval if the agent is restarted
   my $jobsave = $job->WORKDIR . '/job.dmp';
   open JOB, ">$jobsave" or $self->Fatal("$jobsave: $!");
@@ -539,6 +534,7 @@ sub job_submitted
   close JOB;
 
   #register this job with queue monitor.
+$DB::single=1;
   $self->{FTS_Q_MONITOR}->QueueJob($job);
 }
 
@@ -608,7 +604,7 @@ sub mkTransferSummary {
     # make a 'done' file
     &output($job->Workdir."/T".$file->{TASKID}."X", Dumper $summary);
 
-    $self->Dbgmsg("mkTransferSummary done for task=',$file->TaskID,' workdir=",$job->Workdir) if $self->{DEBUG};
+    $self->Dbgmsg('mkTransferSummary done for task=',$file->TaskID,' workdir=',$job->Workdir) if $self->{DEBUG};
 }
 
 1;
