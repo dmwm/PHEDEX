@@ -286,10 +286,21 @@ sub isBusy
 	    }
 	}
 	
-	$self->Dbgmsg("Transfer::FTS::isBusy Link Stats $from->$to\n",
-		      Data::Dumper->Dump( [\%state_counts], [ qw / state_counts / ] ) )
+	my $dump = Data::Dumper->Dump( [\%state_counts], [ qw / state_counts / ] );
+        $dump =~ s%\n%%g;
+        $dump =~ s%\s\s+% %g;
+        $dump =~ s%\$% %g;
+	$self->Dbgmsg("Transfer::FTS::isBusy Link Stats $from->$to $dump\n")
 		      if $self->{DEBUG};
-	
+#if ( scalar keys %state_counts == 1 && defined $state_counts{undefined} && $state_counts{undefined} == 10 )
+#{
+#  $DB::single=1;
+#  my $dump = Data::Dumper->Dump( [\$stats], [ qw / stats / ] );
+#  $dump =~ s%\s\s+% %g;
+#  $dump =~ s%\$% %g;
+#  print "stats-dump: $dump\n";
+#}
+
 	if ($self->{FTS_LINK_ACTIVE}->{$from} || $self->{FTS_DEFAULT_LINK_ACTIVE}) {
 	    # Count files in the Active state
 	    my $n_active = 0;
@@ -609,6 +620,9 @@ sub mkTransferSummary {
     &output($job->Workdir."/T".$file->{TASKID}."X", Dumper $summary);
 
     $self->Dbgmsg('mkTransferSummary done for task=',$file->TaskID,' workdir=',$job->Workdir) if $self->{DEBUG};
+
+#   Make sure I have forgotten about this job...?
+#   $self->{FTS_Q_MONITOR}->cleanup_job_stats($job);
 }
 
 1;
