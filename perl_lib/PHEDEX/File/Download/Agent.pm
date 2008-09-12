@@ -263,23 +263,25 @@ sub purgeLostTransfers
     my @lostdb = grep(! $indb{$_}, keys %inlocal);
     my @lostlocal = grep(! $inlocal{$_}, keys %indb);
 
-    $self->Alert("resetting database tasks lost locally: @{[sort @lostlocal]}"
-	   . " (locally known: @{[sort keys %inlocal]})")
-	if @lostlocal;
+
+    if ( @lostlocal )
+    {
+      $self->Alert("resetting database tasks lost locally: @{[sort @lostlocal]}"
+	   . " (locally known: @{[sort keys %inlocal]})");
+      # Mark locally unknown tasks as lost in database.
+      my @now = (&mytimeofday()) x scalar @lostlocal;
+      my $qlost = &dbprep($$self{DBH}, qq{
+        insert into t_xfer_task_done
+          (task, report_code, xfer_code, time_xfer, time_update)
+	  values (?, -2, -2, -1, ?)});
+      &dbbindexec($qlost, 1 => \@lostlocal, 2 => \@now);
+      $$self{DBH}->commit();
+    }
+
+    # Remove locally known tasks forgotten by database.
     $self->Alert("resetting local tasks lost in database: @{[sort @lostdb]}"
 	   . " (database known: @{[sort keys %indb]})")
 	if @lostdb;
-
-    # Mark locally unknown tasks as lost in database.
-    my @now = (&mytimeofday()) x scalar @lostlocal;
-    my $qlost = &dbprep($$self{DBH}, qq{
-      insert into t_xfer_task_done
-        (task, report_code, xfer_code, time_xfer, time_update)
-	values (?, -2, -2, -1, ?)});
-    &dbbindexec($qlost, 1 => \@lostlocal, 2 => \@now);
-    $$self{DBH}->commit();
-
-    # Remove locally known tasks forgotten by database.
     foreach (@lostdb)
     {
 	delete $$tasks{$_};
@@ -309,7 +311,7 @@ sub fetchNewTasks
 	next if ! exists $$tasks{$$row{TASKID}};
 	my $existing = $$tasks{$$row{TASKID}};
 	next if $$existing{TIME_EXPIRE} >= $$row{TIME_EXPIRE};
-	$self->Logmsg("task $$existing{TASKID} expire time extended from "
+	$self->Logmsg("task=$$existing{TASKID} expire time extended from "
 		. join(" to ",
 		       map { strftime('%Y-%m-%d %H:%M:%S', gmtime($_)) }
 		       $$existing{TIME_EXPIRE}, $$row{TIME_EXPIRE}))
@@ -402,7 +404,7 @@ sub updateTaskStatus
     {
 	next if ! exists $$tasks{$task}{REPORT_CODE};
 
-        $self->Logmsg("uploading status of task $task") if $$self{VERBOSE};
+        $self->Logmsg("uploading status of task=$task") if $$self{VERBOSE};
 
 	my $arg = 1;
 	push(@{$dargs{$arg++}}, $$tasks{$task}{TASKID});
@@ -999,10 +1001,10 @@ sub idle
 }
 
 sub _poe_init
-{   
+{
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
   if ( $self->{BACKEND}->can('setup_callbacks') )
   { $self->{BACKEND}->setup_callbacks($kernel,$session) }
-}   
-    
+}
+
 1;
