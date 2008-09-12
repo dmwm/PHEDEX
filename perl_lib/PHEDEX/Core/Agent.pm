@@ -19,7 +19,7 @@ use PHEDEX::Core::Timing;
 use PHEDEX::Core::RFIO;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::Config;                                                       
-
+use PHEDEX::Monitoring::Process;                                                       
 # %params, %args, config-files...?
 # Precedence is: command-line(%args), config-files, %params(default)
 # but %params is the definitive source of the list of legal keys, so all keys
@@ -93,6 +93,8 @@ our %params =
 	  NOTIFICATION_PORT	=> undef,
 	  _DOINGSOMETHING	=> 0,
 	  _DONTSTOPME		=> 0,
+	  STATISTICS_INTERVAL	=> 3600,	# reporting frequency
+	  STATISTICS_DETAIL	=>    1,	# reporting level: 0, 1, or 2
 	);
 
 our @array_params = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
@@ -221,7 +223,8 @@ sub new
           {
             _process_start	=> '_process_start',
             _process_stop	=> '_process_stop',
-            _maybeStop	=> '_maybeStop',
+            _maybeStop		=> '_maybeStop',
+	    _make_stats		=> '_make_stats',
 
             _start   => '_start',
             _stop    => '_stop',
@@ -230,6 +233,8 @@ sub new
         ],
       );
 
+#   Finally, start some self-monitoring...
+    $self->{pmon} = PHEDEX::Monitoring::Process->new();
     return $self;
 }
 
@@ -879,10 +884,14 @@ sub process
 
   # Wait a little while.
   $self->maybeStop();
-  my $t1 = &mytimeofday();
+  my $pmon = $self->{pmon};
+  $pmon->State('idle','start');
+# my $t1 = &mytimeofday();
   $self->idle (@pending);
-  my $t2 = &mytimeofday();
-  $self->Dbgmsg(sprintf("cycle time %.6f s", $t2-$t1)) if $self->{DEBUG};
+# my $t2 = &mytimeofday();
+  $pmon->State('idle','stop');
+  print $self->Hdr,$pmon->FormatStates,"\n" if $self->{DEBUG};
+# $self->Dbgmsg(sprintf("cycle time %.6f s", $t2-$t1)) if $self->{DEBUG};
 }
 
 # Agents should override this to do their work. It's an unfortunate name
@@ -1497,6 +1506,13 @@ sub _start
   }
   $kernel->yield('_process_start');
   $kernel->yield('_maybeStop');
+
+  $self->Logmsg('STATISTICS: Reporting every ',$self->{STATISTICS_INTERVAL},' seconds, detail=',$self->{STATISTICS_DETAIL});
+  $self->{stats}{START} = time;
+# $self->{stats}{maybeStop} = 0;
+# $self->{stats}{process} = {};
+  $kernel->yield('_make_stats');
+
   $self->Logmsg("has successfully initialised");
 }
 
@@ -1574,7 +1590,7 @@ sub _maybeStop
   if ( !$DontStopMe )
   {
     $self->Dbgmsg("starting '_maybeStop'") if $self->{VERBOSE} >= 3;
-    $self->{stats}{maybeStop}++ if exists $self->{stats}{maybeStop};;
+    $self->{stats}{maybeStop}++ if exists $self->{stats}{maybeStop};
 
     $self->maybeStop();
     $self->Dbgmsg("ending '_maybeStop'") if $self->{VERBOSE} >= 3;
@@ -1586,6 +1602,92 @@ sub _stop
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
   print $self->Hdr, "ending, for lack of work...\n";
+}
+
+sub _make_stats
+{
+  my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+  my ($delay,$totalWall,$totalOnCPU,$totalOffCPU,$summary);
+  my ($pmon,$h,$onCPU,$offCPU,$count);
+
+  $totalWall = $totalOnCPU = $totalOffCPU = 0;
+  $pmon = $self->{pmon};
+  $summary = '';
+  $h = $self->{stats};
+  if ( exists($h->{maybeStop}) )
+  {
+    $summary .= ' maybeStop=' . $h->{maybeStop};
+    $self->{stats}{maybeStop}=0;
+  }
+
+  $onCPU = $offCPU = 0;
+  $delay = 0;
+  if ( exists($h->{process}) )
+  {
+    $count = $h->{process}{count} || 0;
+    $summary .= sprintf(" process_count=%d",$count);
+    my (@a,$max,$median);
+    if ( $h->{process}{onCPU} )
+    {
+      @a = sort { $a <=> $b } @{$h->{process}{onCPU}};
+      foreach ( @a ) { $onCPU += $_; }
+      $totalOnCPU += $onCPU;
+      $max = $a[-1];
+      $median = $a[int($count/2)];
+      $summary .= sprintf(" onCPU(wall=%.2f median=%.2f max=%.2f)",$onCPU,$median,$max);
+      if ( $self->{STATISTICS_DETAIL} > 1 )
+      {
+        $summary .= ' onCPU_details=(' . join(',',map { $_=int(1000*$_)/1000 } @a) . ')';
+      }
+    }
+
+    if ( $h->{process}{offCPU} )
+    {
+      @a = sort { $a <=> $b } @{$h->{process}{offCPU}};
+      foreach ( @a ) { $offCPU += $_; }
+      $totalOffCPU += $offCPU;
+      $max = $a[-1];
+      $median = $a[int($count/2-0.9)];
+      my $waittime = $self->{WAITTIME} || 0;
+      if ( !defined($median) ) { print "median not defined\n"; }
+      if ( !defined($max   ) ) { print "max    not defined\n"; }
+      $summary .= sprintf(" offCPU(median=%.2f max=%.2f)",$median,$max);
+      if ( $waittime && $median )
+      {
+        $delay = $median / $waittime;
+        $summary .= sprintf(" delay_factor=%.2f",$delay);
+      }
+      if ( $self->{STATISTICS_DETAIL} > 1 )
+      {
+        $summary .= ' offCPU_details=(' . join(',',map { $_=int(1000*$_)/1000 } @a) . ')';
+      }
+    }
+
+    $self->{stats}{process} = undef;
+  }
+
+  if ( $summary )
+  {
+    $summary = 'AGENT_STATISTICS' . $summary;
+    $self->Logmsg($summary) if $self->{STATISTICS_DETAIL};
+    $self->Notify($summary,"\n") if $delay > 1.25;
+  }
+
+  my $now = time;
+  $totalWall = $now - $self->{stats}{START};
+  my $busy= 100*$totalOnCPU/$totalWall;
+  $summary = 'AGENT_STATISTICS';
+  $summary=sprintf('TotalCPU=%.2f busy=%.2f%%',$totalOnCPU,$busy);
+  $self->Logmsg($summary) if $totalOnCPU;
+  $self->{stats}{START} = $now;
+
+  $summary = 'AGENT_STATISTICS ';
+  $summary .= $pmon->FormatStats($pmon->ReadProcessStats);
+# $summary .= ' ' . $pmon->FormatStates;
+  $self->Logmsg($summary);
+
+
+  $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
 }
 
 sub _default
