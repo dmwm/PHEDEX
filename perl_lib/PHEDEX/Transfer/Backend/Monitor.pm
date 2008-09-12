@@ -41,7 +41,7 @@ our %params =
 	(
 	  Q_INTERFACE		=> undef, # A transfer queue interface object
 	  Q_INTERVAL		=> 60,	  # Queue polling interval
-	  Q_TIMEOUT		=> 60,	  # Timeout for Q_INTERFACE commands
+	  Q_TIMEOUT		=> 600,	  # Timeout for Q_INTERFACE commands
 	  J_INTERVAL		=>  5,	  # Job polling interval
 	  POLL_QUEUE		=>  0,	  # Poll the queue or not?
 	  ME			=> 'QMon',# Arbitrary name for this object
@@ -78,7 +78,7 @@ sub new
       } keys %ro_params;
 
   $self->{QUEUE} = POE::Queue::Array->new();
-  $self->{JOBS} = {};
+# $self->{JOBS} = {};
   bless $self, $class;
 
   POE::Session->create
@@ -95,7 +95,8 @@ sub new
 	      timeout_KILL		=> 'timeout_KILL',
 	      report_job		=> 'report_job',
 	      report_statistics		=> 'report_statistics',
-	      cleanup_stats    		=> 'cleanup_stats',
+#	      cleanup_job_stats 	=> 'cleanup_job_stats',
+#	      cleanup_file_stats 	=> 'cleanup_file_stats',
 	      forget_job    		=> 'forget_job',
 	      shoot_myself		=> 'shoot_myself',
 	      sanity_check		=> 'sanity_check',
@@ -178,7 +179,7 @@ sub _start
   $kernel->delay_set('poll_job',$self->{J_INTERVAL})
 	if $self->{Q_INTERFACE}->can('ListJob');
   $kernel->yield('report_statistics') if $self->{STATISTICS_INTERVAL};
-  $kernel->yield('sanity_check');
+# $kernel->yield('sanity_check');
 }
 
 sub _child {}
@@ -197,6 +198,8 @@ sub poll_queue
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
 
   return unless $self->{POLL_QUEUE};
+  $self->Logmsg('Why am I in poll_queue?') if $self->{DEBUG};
+die "I do not want to be here...";
   my $w = $self->{Q_INTERFACE}->Run('ListQueue',$self->{POLL_QUEUE_POSTBACK});
   $kernel->delay_set('timeout_TERM', $self->{Q_TIMEOUT}, $w );
 }
@@ -249,6 +252,7 @@ sub poll_queue_postback
     {
 #     Queue this job for monitoring...
       $job->Priority($priority);
+      $self->Logmsg('requeue(1) JOBID=',$job->ID) if $self->{DEBUG};
       $self->{QUEUE}->enqueue( $priority, $job );
       $self->{JOBS}{$h->{ID}} = $job;
       print $self->Hdr,"Queued $h->{ID} at priority $priority (",$h->{STATE},")\n" if $self->{VERBOSE};
@@ -271,6 +275,7 @@ sub poll_job
     return;
   }
 
+  $self->Logmsg('dequeue JOBID=',$job->ID) if $self->{DEBUG};
   my $w = $self->{Q_INTERFACE}->Run('ListJob',$self->{POLL_JOB_POSTBACK},$job);
   $kernel->delay_set('timeout_TERM', $self->{Q_TIMEOUT}, $w );
 }
@@ -293,6 +298,7 @@ sub poll_job_postback
 			join("\n",@{$result->{ERROR}}),"\n";
 #     Put this job back in the queue before I forget about it completely!
       $priority = $job->Priority();
+      $self->Logmsg('requeue(2) JOBID=',$job->ID) if $self->{DEBUG};
       $self->{QUEUE}->enqueue( $priority, $job );
       goto PJDONE;
   }
@@ -381,6 +387,7 @@ sub poll_job_postback
 #   $priority = int($priority/60);
 #   $priority = 30 if $priority < 30;
     $job->Priority($priority);
+    $self->Logmsg('requeue(3) JOBID=',$job->ID) if $self->{DEBUG};
     $self->{QUEUE}->enqueue( $priority, $job );
   }
 
@@ -434,6 +441,14 @@ sub sanity_check
   foreach ( @mjobs ) { $h{$_}++; }
 
   my @qjobs = map { $_->[2] } $self->{QUEUE}->peek_items( sub{1} );
+  if ( $self->{DEBUG} )
+  {
+    $self->Logmsg('SANITY: in-memory jobs = ',join(' ',sort @mjobs));
+    $self->Logmsg('SANITY: queued jobs    = ',join(' ',sort map { $_->ID } @qjobs));
+    $self->Logmsg('SANITY: exited jobs    = ',join(' ',sort @{$self->{EXITED_JOBS}}))
+	if $self->{EXITED_JOBS};
+  }
+
   if ( $self->{EXITED_JOBS} )
   {
     foreach ( @{$self->{EXITED_JOBS}} )
@@ -450,6 +465,7 @@ sub sanity_check
   foreach ( keys %h )
   {
     $self->Warn("Orphaned job ID=$_");
+    print Data::Dumper->Dump( [ $self->{QUEUE} ], [ qw / POE::Queue::Array / ] );
 #   delete $self->{WORKSTATS}{JOBS}{STATES}{$_};
     my $job = $self->{JOBS}{$_};
     if ( $job )
@@ -502,7 +518,7 @@ sub report_job
   }
 
 # Now I should take detailed action on any errors...
-  $kernel->yield('cleanup_stats',$job);
+  $self->cleanup_job_stats($job);
   $kernel->delay_set('forget_job',900,$job);
 }
 
@@ -512,17 +528,26 @@ sub forget_job
   delete $self->{JOBS}{$job->ID};
 }
 
-sub cleanup_stats
+sub cleanup_job_stats
 {
-  my ( $self, $kernel, $job ) = @_[ OBJECT, KERNEL, ARG0 ];
+  my ( $self, $job ) = @_;
   my $jobid = $job->ID;
   $self->Logmsg("Cleaning up stats for JOBID=$jobid...") if $self->{VERBOSE};
   delete $self->{WORKSTATS}{JOBS}{STATES}{$job->ID};
   foreach ( values %{$job->Files} )
   {
-    delete $self->{WORKSTATS}{FILES}{STATES}{$_->Destination};
-    delete $self->{LINKSTATS}{$_->Destination};
+    $self->cleanup_file_stats($_);
+#   delete $self->{WORKSTATS}{FILES}{STATES}{$_->Destination};
+#   delete $self->{LINKSTATS}{$_->Destination};
   }
+}
+
+sub cleanup_file_stats
+{
+  my ( $self, $file ) = @_;
+  $self->Logmsg("Cleaning up stats for file destination=",$file->Destination) if $self->{VERBOSE};
+  delete $self->{WORKSTATS}{FILES}{STATES}{$file->Destination};
+  delete $self->{LINKSTATS}{$file->Destination};
 }
 
 sub report_statistics
@@ -589,17 +614,19 @@ sub WorkStats
   }
   elsif ( defined($class) && defined($key) )
   {
+    $self->Logmsg("WorkStats: class=$class key=$key value=$val") if $self->{DEBUG};
     $self->{WORKSTATS}{$class}{STATES}{$key} = $val;
     return $self->{WORKSTATS}{$class};
   }
   return $self->{WORKSTATS};
 }
 
-
 sub LinkStats
 {
     my ($self,$file,$from,$to,$state) = @_;
-    return undef unless defined $file && defined $from && defined $to;
+    return $self->{LINKSTATS} unless defined $file &&
+				     defined $from &&
+				     defined $to;
     $self->{LINKSTATS}{$file}{$from}{$to} = $state;
     return $self->{LINKSTATS}{$file}{$from}{$to};
 }
@@ -617,6 +644,8 @@ sub QueueJob
 
   return if $self->isKnown($job);
   $priority = 1 unless $priority;
+  $self->Logmsg('Queueing JOBID=',$job->ID,' at priority',$priority);
+
   $self->WorkStats('JOBS', $job->ID, $job->State);
   foreach ( values %{$job->Files} )
   {
@@ -624,6 +653,7 @@ sub QueueJob
     $self->LinkStats($_->Destination, $_->FromNode, $_->ToNode, $_->State);
   }
   $job->Priority($priority);
+  $self->Logmsg('enqueue JOBID=',$job->ID) if $self->{DEBUG};
   $self->{QUEUE}->enqueue( $priority, $job );
   $self->{JOBS}{$job->{ID}} = $job;
   my $w = $self->{Q_INTERFACE}->Run('SetPriority',undef,$job);
