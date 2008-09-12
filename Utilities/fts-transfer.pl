@@ -54,7 +54,8 @@ use strict;
 ##H   based on the destination URL.
 ##H
 ##H --help		=> this!
-##H --verbose		=> ...does nothing at the moment...
+##H --verbose		=> passed to the Glite component...
+##H --debug		=> passed to the Glite component...
 ##H
 
 # Use this for heavy debugging of POE session problems!
@@ -68,7 +69,7 @@ use PHEDEX::Transfer::Backend::Manager;
 use PHEDEX::Transfer::Backend::Interface::GliteAsync;
 use PHEDEX::Monalisa;
 
-my ($service,$q_interval,$j_interval,$help,$verbose,$copyjob);
+my ($service,$q_interval,$j_interval,$help,$verbose,$debug,$copyjob);
 my ($files_per_job,$flush_interval,$poll_interval,$poll_queue,$max_jobs);
 my ($file_trace_dir,$job_trace_dir,$monalisa);
 $service = 'https://prod-fts-ws.cern.ch:8443/glite-data-transfer-fts/services/FileTransfer';
@@ -79,7 +80,7 @@ $flush_interval = 600;
 $poll_interval  =  60;
 $max_jobs       =  10;
 
-$verbose = 0;
+$verbose = $debug = 0;
 
 GetOptions(	"service=s"		=> \$service,
 		"q_interval=i"		=> \$q_interval,
@@ -92,7 +93,8 @@ GetOptions(	"service=s"		=> \$service,
 		"job_trace_dir=s"	=> \$job_trace_dir,
 		"file_trace_dir=s"	=> \$file_trace_dir,
 		"help"			=> \&usage,
-		"verbose"		=> \$verbose,
+		"verbose+"		=> \$verbose,
+		"debug+"		=> \$debug,
 		"monalisa=s"		=> \$monalisa,
 	  );
 
@@ -101,6 +103,7 @@ my $glite = PHEDEX::Transfer::Backend::Interface::GliteAsync->new
 		  SERVICE => $service,
 		  ME      => '::GLite',
 		  VERBOSE => $verbose,
+		  DEBUG   => $debug,
 		);
 print "Using service ",$glite->SERVICE,"\n";
 
