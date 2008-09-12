@@ -186,7 +186,8 @@ sub Command
 {
   my ($self,$str,$arg) = @_;
   my ($cmd,$opts);
-  $opts = " $self->{OPTIONS}{$str}" || '';
+  $opts = '';
+  $opts = " $self->{OPTIONS}{$str}" if $self->{OPTIONS}{$str};
 
   if ( $str eq 'ListQueue' )
   {
