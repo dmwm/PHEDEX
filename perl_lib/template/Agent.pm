@@ -22,6 +22,7 @@ use strict;
 use warnings;
 use base 'PHEDEX::Core::Agent', 'template::SQL', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
+use PHEDEX::Monitoring::Process;
 
 our %params =
 	(
@@ -42,6 +43,8 @@ sub new
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(%params,@_);
   bless $self, $class;
+
+  $self->{PMON} = PHEDEX::Monitoring::Process->new();
   return $self;
 }
 
@@ -118,8 +121,12 @@ sub idle
 {
   my $self = shift;
   $self->Notify("entering idle\n");
+  my $pmon = $self->{PMON};
+  $pmon->State('idle','start');
+  sleep(1);
   print $self->Hdr,"entering idle\n" if $self->{VERBOSE};
   $self->SUPER::idle(@_);
+  $pmon->State('idle','stop');
   print $self->Hdr,"exiting idle\n" if $self->{VERBOSE};
 }
 
