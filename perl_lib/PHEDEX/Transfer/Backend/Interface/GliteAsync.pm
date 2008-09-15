@@ -173,6 +173,8 @@ sub Run
   $self->Logmsg("Run: $logsafe_cmd") if $self->{VERBOSE};
   my $wheel = $self->{_child}->run($cmd);
 
+  $self->Fatal("Cannot fork $logsafe_cmd!") unless $wheel;
+
   $self->{wheels}{$wheel}{parse}    = $str;
   $self->{wheels}{$wheel}{postback} = $postback;
   $self->{wheels}{$wheel}{arg}      = $arg;
