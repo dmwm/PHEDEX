@@ -157,13 +157,21 @@ sub ParseSubmit
     m%^([0-9,a-f,-]+)$% or next;
     $job->ID( $1 );
   }
+  if ( !defined($job->ID) )
+  {
+    my $dump = Data::Dumper->Dump( [\$job, \$result], [ qw / job result / ] );
+    $dump =~ s%\n%%g;
+    $dump =~ s%\s\s+% %g;
+    $dump =~ s%\$% %g;
+    push @{$result->{ERROR}}, 'JOBID=undefined, cannot monitor this job: ' . $dump;
+  }
   return $result;
 }
 
 sub Run
 {
   my ($self,$str,$postback,$arg) = @_;
-  my $cmd   = $self->Command($str,$arg);
+  my $cmd  = $self->Command($str,$arg);
 
 # Stub for now until I know how to sidestep unnecessary commands
   $cmd = '/bin/true' unless $cmd;
@@ -207,7 +215,6 @@ sub Command
 
   if ( $str eq 'SetPriority' )
   {
-
     my $priority = $arg->Priority;
     return undef unless $priority;
 #   Save an interaction with the server ?
