@@ -64,55 +64,35 @@ sub Payload
 
 sub Call { return 'Bounce'; }
 
-sub ParseResponse
-{
-  my ($self,$response) = @_;
-  no strict;
-
-  my $content = $response->content();
-  if ( $content =~ m%<error>(.*)</error>$%s ) { $self->{RESPONSE}{ERROR} = $1; }
-  else
-  {
-    $content =~ s%^[^\$]*\$VAR1%\$VAR1%s;
-    $content = eval($content);
-    $content = $content->{phedex}{Bounce} || {};
-    foreach ( keys %{$self->{PAYLOAD}} )
-    { $self->{RESPONSE}{$_} = $content->{$_}; }
-  }
-  print $self->Dump() if $self->{DEBUG};
-}
-
 sub ResponseIsValid
 {
-  my $self = shift;
-  my $payload  = $self->{PAYLOAD};
-  my $response = $self->{RESPONSE};
-  return 0 if $response->{ERROR};
+    my ($self, $obj)  = @_;
+    my $payload  = $self->{PAYLOAD};
 
-  foreach ( keys %{$payload} )
-  {
-    if ( defined($payload->{$_}) && $payload->{$_} ne $response->{$_} )
+    # get the arg hash
+    my $args = $obj->{phedex}{Bounce} || {};
+
+    foreach ( keys %{$payload} )
     {
-      print __PACKAGE__," wrong $_ returned\n";
-      return 0;
+	if ( defined($payload->{$_}) && $payload->{$_} ne $args->{$_} )
+	{
+	    print __PACKAGE__," wrong $_ returned\n";
+	    return 0;
+	}
     }
-  }
-  print __PACKAGE__," response is valid\n" if $self->{VERBOSE};
-  return 1;
+    print __PACKAGE__," response is valid\n" if $self->{VERBOSE};
+    return 1;
 }
 
 sub Dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
 
-sub Summary
+sub Report
 {
-  my $self = shift;
-  if ( $self->{RESPONSE}{ERROR} )
-  {
-    print __PACKAGE__ . "->Summary", $self->{RESPONSE}{ERROR};
-    return;
-  }
-  return unless $self->{RESPONSE};
-  print Data::Dumper->Dump([ $self->{RESPONSE} ],[ __PACKAGE__ . '->Summary' ]);
+    my ($self, $obj) = @_;
+
+    # get the arg hash
+    my $args = $obj->{phedex}{Bounce} || {};
+    print "$_\t:\t$args->{$_}\n" foreach (keys %$args);
 }
 
 1;
