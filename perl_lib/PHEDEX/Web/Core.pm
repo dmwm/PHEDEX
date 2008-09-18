@@ -37,8 +37,12 @@ top-level "phedex" element.
 
 =head2 Errors
 
-Currently all errors are returned in XML format, with a single <error>
-element containing a text description of what went wrong.  For example:
+When possible, errors are returned in the format requested by the
+user.  However, if the user's format could not be determined by the
+datasvc, the error will be returned as XML.
+
+Errors contain one element, <error>, which contains a text message of
+the problem.
 
 C<http://host.cern.ch/phedex/datasvc/xml/prod/foobar>
 
@@ -158,7 +162,6 @@ sub call
     }
     delete $args{format};
 
-    my ($obj,$stdout);
     if (!$call) {
 	&PHEDEX::Web::Format::error(*STDOUT, $format, "No API call provided.  Check the URL");
 	return;
@@ -171,7 +174,8 @@ sub call
     $t1 = &mytimeofday();
     &process_args(\%args);
 
-    $obj = $self->getData($call, %args);
+    my $obj = $self->getData($call, %args);
+    my $stdout = '';
     if ( ! $obj )
     {
       eval {
