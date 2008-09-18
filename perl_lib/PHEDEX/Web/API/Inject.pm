@@ -72,17 +72,19 @@ sub inject
     $core->DBH->rollback; # Processes seem to hang without this!
     die $@;
   }
-  $core->DBH->commit() if $stats;
 
-  return {
-	   Inject =>
-	   {
-	     data   => $args{data},
-	     node   => $args{node},
-	     nodeid => $nodeid,
-	     stats  => $stats
-	   }
-	 };
+  # determine if we commit
+  my $commit = 0;
+  if (%$stats) {
+      $commit = 1;
+  } else {
+      die "no injection was done\n";
+      $core->DBH->rollback();
+  }
+  $commit = 0 if $args{dummy};
+  $commit ? $core->DBH->commit() : $core->DBH->rollback();
+
+  return { inject => { stats => $stats } };
 }
 
 1;

@@ -47,8 +47,8 @@ not give an error, but all the stats values will be zero.
 
 =cut
 
-sub invoke { return inject(@_); }
-sub inject
+sub invoke { return subscribe(@_); }
+sub subscribe
 {
     my ($core, %args) = @_;
     &checkRequired(\%args, qw(data node));
@@ -142,21 +142,21 @@ sub inject
 	$core->DBH->rollback(); # Processes seem to hang without this!
 	die $@;
     }
+
+    # determine if we commit
+    my $commit = 0;
     if (%$requests) {
-	$core->DBH->commit();
+	$commit = 1;
     } else {
+	die "no requests were created\n";
 	$core->DBH->rollback();
-	die "no requests were created";
     }
+    $commit = 0 if $args{dummy};
+    $commit ? $core->DBH->commit() : $core->DBH->rollback();
     
-    return {
-	Subscribe =>
-	{
-	    data   => $args{data},
-	    node   => $args{node},
-	    requests  => $requests,
-	}
-    };
+    # for output, we return a list of the generated request IDs
+    my @req_ids = map { { id => $_ } } keys %$requests;
+    return { request_created  => \@req_ids };
 }
 
 1;
