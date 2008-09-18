@@ -149,9 +149,18 @@ sub call
 {
     my ($self, $call, %args) = @_;
     no strict 'refs';
+
+    # check the format argument then remove it
+    my $format = $args{format};
+    if (!grep $_ eq $format, qw( xml json perl )) {
+        &PHEDEX::Web::Format::error(*STDOUT, 'xml', "Return format requested is unknown or undefined");
+	return;
+    }
+    delete $args{format};
+
     my ($obj,$stdout);
     if (!$call) {
-	$self->error("No API call provided.  Check the URL");
+	&PHEDEX::Web::Format::error(*STDOUT, $format, "No API call provided.  Check the URL");
 	return;
     }
 
@@ -172,8 +181,8 @@ sub call
 #	$obj = { $call => $obj };
       };
       if ($@) {
-          $self->error("Error when making call '$call':  $@");
-          return;
+          &PHEDEX::Web::Format::error(*STDOUT, $format, "Error when making call '$call':  $@");
+	  return;
       }
       $t2 = &mytimeofday();
       warn "api call '$call' complete in ", sprintf('%.6f s',$t2-$t1), "\n" if $self->{DEBUG};
@@ -182,8 +191,8 @@ sub call
       $self->{CACHE}->set( $call, \%args, $obj, $duration ); # unless $args{nocache};
     }
 
-#   wrap the object in a phedexData element
-    $obj->{stdout} = $stdout;
+#   wrap the object in a 'phedex' element with useful metadata
+    $obj->{stdout}->{'$t'} = $stdout if $stdout;
     $obj->{instance} = $self->{INSTANCE};
     $obj->{request_version} = $self->{VERSION};
     $obj->{request_url} = $self->{REQUEST_URL};
@@ -194,11 +203,7 @@ sub call
     $obj = { phedex => $obj };
 
     $t1 = &mytimeofday();
-    if (grep $_ eq $args{format}, qw( xml json perl )) {
-        &PHEDEX::Web::Format::output(*STDOUT, $args{format}, $obj);
-    } else {
-        $self->error("return format requested is unknown or undefined");
-    }
+    &PHEDEX::Web::Format::output(*STDOUT, $format, $obj);
     $t2 = &mytimeofday();
     warn "api call '$call' delivered in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
 

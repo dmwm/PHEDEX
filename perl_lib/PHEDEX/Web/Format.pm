@@ -35,20 +35,36 @@ sub output
     $format ||= 'xml';
 
     my ($attr, $children) = gather($obj);
-    die "root hash of _output can only have 1 child\n" if scalar @$children > 1;
+    die "root hash of output can only have 1 child\n" if scalar @$children > 1;
     my $root = $children->[0];
 
     if ( $format eq 'xml' ) {
+	# special exception for the 'error' object
+	# allow it to have a simple structure but be formatted as
+	# <error>text</error>
+	if (exists $obj->{error} && ! ref $obj->{error}) {
+	    $obj = { error => { '$t' => $obj->{error} } }
+	}
 	my $version  = '1.0';
 	my $encoding = 'ISO-8859-1';
-	print $file "<?xml version='$version' encoding='$encoding'?>";
+	print { $file } "<?xml version='$version' encoding='$encoding'?>";
 	xml_element($file, $root, $obj, 1);
     } elsif ( $format eq 'json' ) {
 	# json_object($file, $root, $obj->{ $root });
-	print encode_json($obj);
+	print { $file } encode_json($obj);
     } elsif ( $format eq 'perl' ) {
-	print Dumper($obj);
+	print { $file } Dumper($obj);
     }
+}
+
+sub error
+{
+    my ($file, $format, $message) = @_;
+    $format ||= "xml";
+    $message ||= "no message";
+    chomp $message;
+
+    &PHEDEX::Web::Format::output($file, $format, { error => $message });
 }
 
 sub gather

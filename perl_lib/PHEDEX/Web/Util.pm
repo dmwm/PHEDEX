@@ -41,14 +41,6 @@ sub process_args
     
 }
 
-sub error
-{
-    my $self = shift;
-    my $msg = shift || "no message";
-    chomp $msg;
-    print "<error>\n", encode_entities($msg),"\n</error>";
-}
-
 # just dies if the required args are not provided or if they are unbounded
 sub checkRequired
 {
