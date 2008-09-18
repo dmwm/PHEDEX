@@ -134,6 +134,7 @@ sub get
 sub _action
 {
   my ($self,$url,$args) = @_;
+
   my ($service,$service_name,$obj,$h,$content,$r);
   if ( !$self->{NOCERT} )
   {
@@ -165,7 +166,7 @@ sub _action
     $ENV{HTTP_SSL_CLIENT_CERT} = $ENV{SSL_CLIENT_CERT};
   }
   
-  my $stdout;
+  my $stdout = '';
   eval {
       $service_name = $self->{SERVICE};
       open (local *STDOUT,'>',\$stdout); # capture STDOUT of $call
@@ -174,6 +175,8 @@ sub _action
       $service = $service_name->new();
       $service->init_security();
       $service->{ARGS}{$_} = $args->{$_} for keys %{$args};
+      print "FakeAgent _action PATH_INFO:$ENV{PATH_INFO}\n" if $self->{DEBUG};
+#      print "FakeAgent _action ARGS:\n",Dumper($service->{ARGS}), "\n" if $self->{DEBUG};
       $service->invoke();
       $service->{CORE}->{DBH}->disconnect(); # get rid of annoying warning
   };
