@@ -16,7 +16,7 @@ sub new
 	      DATAFILE	=> undef,
 	      NODE	=> undef,
 	      BLOCKLEVEL => 0,
-	      PRIORITY  => 'high',
+	      PRIORITY  => 'low',
 	      IS_STATIC => 0,
 	      IS_MOVE   => 0
 	    );
@@ -91,8 +91,8 @@ sub Payload
   $payload->{node}      = $self->{NODE};
   $payload->{priority}  = $self->{PRIORITY};
   $payload->{level}     = $self->{BLOCKLEVEL} ? 'block' : 'dataset';
-  $payload->{move}   = $self->{IS_MOVE} ? 'y' : 'n';
-  $payload->{static} = $self->{IS_STATIC} ? 'y' : 'n';
+  $payload->{move}      = $self->{IS_MOVE} ? 'y' : 'n';
+  $payload->{static}    = $self->{IS_STATIC} ? 'y' : 'n';
 
   foreach ( @{$self->{DATAFILE}} )
   {
@@ -102,67 +102,12 @@ sub Payload
   }
 
   print __PACKAGE__," created payload\n" if $self->{VERBOSE};
+
   return $self->{PAYLOAD} = $payload;
 }
 
 sub Call { return 'Subscribe'; }
 
-sub ParseResponse
-{
-  my ($self,$response) = @_;
-  no strict;
-
-  my $content = $response->content();
-  if ( $content =~ m%<error>(.*)</error>$%s ) { $self->{RESPONSE}{ERROR} = $1; }
-  else
-  {
-    $content =~ s%^[^\$]*\$VAR1%\$VAR1%s;
-    $content = eval($content);
-    $content = $content->{phedex}{Subscribe} || {};
-    foreach ( keys %{$self->{PAYLOAD}} )
-    { $self->{RESPONSE}{$_} = $content->{$_}; }
-  }
-  print $self->Dump() if $self->{DEBUG};
-}
-
-sub ResponseIsValid
-{
-# assume the response is in Perl Data::Dumper format!
-  my $self = shift;
-  my $payload  = $self->{PAYLOAD};
-  my $response = $self->{RESPONSE};
-  return 0 if $response->{ERROR};
-
-  if ( $payload->{data} ne $response->{data} )
-  {
-    print __PACKAGE__," wrong data returned\n" if $self->{VERBOSE};
-    return 0;
-  }
-
-  my %h;
-  foreach ( @{$payload->{node}} ) { $h{$_}++; }
-  foreach ( @{$response->{node}} ) { delete $h{$_}; }
-  if ( $_ = join(', ',sort keys %h) )
-  {
-    print __PACKAGE__," missing nodes: $_\n" if $self->{VERBOSE};
-    return 0;
-  }
-  print __PACKAGE__," response is valid\n" if $self->{VERBOSE};
-  return 1;
-}
-
 sub Dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
-
-sub Summary
-{
-  my $self = shift;
-  if ( $self->{RESPONSE}{ERROR} )
-  {
-    print __PACKAGE__ . "->Summary", $self->{RESPONSE}{ERROR};
-    return;
-  }
-  return unless $self->{RESPONSE};
-# print Data::Dumper->Dump([ $self->{RESPONSE} ],[ __PACKAGE__ . '->Summary' ]);
-}
 
 1;

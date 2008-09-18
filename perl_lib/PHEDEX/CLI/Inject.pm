@@ -93,60 +93,29 @@ sub Payload
 
 sub Call { return 'Inject'; }
 
-sub ParseResponse
-{
-  my ($self,$response) = @_;
-  no strict;
-
-  my $content = $response->content();
-  if ( $content =~ m%<error>(.*)</error>$%s ) { $self->{RESPONSE}{ERROR} = $1; }
-  else
-  {
-    $content =~ s%^[^\$]*\$VAR1%\$VAR1%s;
-    $content = eval($content);
-    $content = $content->{phedex}{Inject} || {};
-    foreach ( keys %{$self->{PAYLOAD}}, 'stdout' )
-    { $self->{RESPONSE}{$_} = $content->{$_}; }
-  }
-  print $self->Dump() if $self->{DEBUG};
-}
-
 sub ResponseIsValid
 {
 # assume the response is in Perl Data::Dumper format!
-  my $self = shift;
+  my ($self, $obj) = @_;
   my $payload  = $self->{PAYLOAD};
-  my $response = $self->{RESPONSE};
-  return 0 if $response->{ERROR};
 
-  foreach ( qw / data node / ) 
-  {
-    if ( defined($payload->{$_}) && $payload->{$_} ne $response->{$_} )
-    {
-      print __PACKAGE__," wrong $_ returned\n";
-      return 0;
-    }
-  }
+  my $stats = $obj->{phedex}{stats};
+  if ( !defined $stats || ref($stats) ne 'HASH' ) { return 0; }
+
   print __PACKAGE__," response is valid\n" if $self->{VERBOSE};
   return 1;
 }
 
 sub Dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
 
-sub Summary
+sub Report
 {
-  my $self = shift;
+  my ($self, $obj) = @_;
 
-  if ( $self->{RESPONSE}{ERROR} )
-  {
-    print __PACKAGE__ . "->Summary", $self->{RESPONSE}{ERROR};
-    return;
-  }
-  return unless $self->{RESPONSE}{stats};
-  print Data::Dumper->Dump([ $self->{RESPONSE}{stats},
-			     $self->{RESPONSE}{stdout} ],
-			   [ __PACKAGE__ . '->Summary',
-			     __PACKAGE__ . '->ServerSTDOUT' ]);
+  my $stats = $obj->{phedex}{stats};
+  # TODO, print something useful
+  print "OK\n";
+
 }
 
 1;

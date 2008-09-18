@@ -72,73 +72,7 @@ sub Payload
 
 sub Call { return 'Auth'; }
 
-sub ParseResponse
-{
-# assume the response is in Perl Data::Dumper format!
-  my ($self,$response) = @_;
-  no strict;
-
-  my $content = $response->content();
-  if ( $content =~ m%<error>(.*)</error>$%s ) { $self->{RESPONSE}{ERROR} = $1; }
-  else
-  {
-    $content =~ s%^[^\$]*\$VAR1%\$VAR1%s;
-    $content = eval($content);
-    $content = $content->{phedex}{Auth} ||
-               $content->{phedex} ||
-               {};
-    foreach ( qw / STATE DN NODES / )
-    { $self->{RESPONSE}{$_} = $content->{$_}; }
-    @{$self->{RESPONSE}{ROLES}} = ();
-    foreach my $role ( keys %{$content->{ROLES}} )
-    {
-      foreach ( @{$content->{ROLES}{$role}} ) 
-      { push @{$self->{RESPONSE}{ROLES}},$role if m%^phedex$%; }
-    }
-  }
-  print $self->Dump() if $self->{DEBUG};
-}
-
-sub ResponseIsValid
-{
-  my $self = shift;
-  my $response = $self->{RESPONSE};
-  return 0 if $response->{ERROR};
-
-# Check that the user certificate was accepted, that they have valid roles
-# for PhEDEx, and that they have a set of nodes they can act on
-  die "Certificate not accepted\n"    unless $response->{STATE} eq 'cert';
-  die "You have no valid roles\n"     unless scalar @{$response->{ROLES}};
-  die "You have no nodes to act on\n" unless scalar keys %{$response->{NODES}};
-
-# Check the list of nodes for validity
-  if ( $self->{NODES} )
-  {
-    foreach ( @{$self->{NODES}} )
-    {
-      die "Required node \"$_\" not found in authorised list\n" unless
-	$response->{NODES}{$_};
-    }
-  }
-  print __PACKAGE__," response is valid\n" if $self->{VERBOSE};
-  return 1;
-}
-
 sub Dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
 
-sub Summary
-{
-  my $self = shift;
-  if ( $self->{RESPONSE}{ERROR} )
-  {
-    print __PACKAGE__ . "->Summary", $self->{RESPONSE}{ERROR};
-    return;
-  }
-  return unless $self->{RESPONSE};
-  print Data::Dumper->Dump([ $self->{RESPONSE}{NODES},
-			     $self->{RESPONSE}{ROLES} ],
-			   [ __PACKAGE__ . '->Nodes',
-			     __PACKAGE__ . '->Roles' ]);
-}
 
 1;

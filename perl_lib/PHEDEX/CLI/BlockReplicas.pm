@@ -91,49 +91,6 @@ sub Payload
 
 sub Call { return 'BlockReplicas'; }
 
-sub ParseResponse
-{
-  my ($self,$response) = @_;
-  no strict;
-
-  my $content = $response->content();
-  if ( $content =~ m%<error>(.*)</error>$%s ) { $self->{RESPONSE}{ERROR} = $1; }
-  else
-  {
-    $content =~ s%^[^\$]*\$VAR1%\$VAR1%s;
-    $content = eval($content);
-    $content = $content->{phedex}{BlockReplicas} || 
-               $content->{phedex} ||
-               {};
-    $self->{RESPONSE} = $content;
-  }
-  print $self->Dump() if $self->{DEBUG};
-}
-
-sub ResponseIsValid
-{
-  my $self = shift;
-  my $payload  = $self->{PAYLOAD};
-  my $response = $self->{RESPONSE};
-  return 0 if $response->{ERROR};
-  return 0 unless defined( @{$response->{block}} );
-
-  print __PACKAGE__," response is valid\n" if $self->{VERBOSE};
-  return 1;
-}
-
 sub Dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
-
-sub Summary
-{
-  my $self = shift;
-  if ( $self->{RESPONSE}{ERROR} )
-  {
-    print __PACKAGE__ . "->Summary", $self->{RESPONSE}{ERROR};
-    return;
-  }
-  return unless $self->{RESPONSE};
-  print Data::Dumper->Dump([ $self->{RESPONSE} ],[ __PACKAGE__ . '->Summary' ]);
-}
 
 1;

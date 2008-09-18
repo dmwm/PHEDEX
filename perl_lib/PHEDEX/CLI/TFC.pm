@@ -67,53 +67,6 @@ sub Payload
 
 sub Call { return 'TFC'; }
 
-sub ParseResponse
-{
-  my ($self,$response) = @_;
-  no strict;
-
-  my $content = $response->content();
-  if ( $content =~ m%<error>(.*)</error>$%s ) { $self->{RESPONSE}{ERROR} = $1; }
-  else
-  {
-    $content =~ s%^[^\$]*\$VAR1%\$VAR1%s;
-    $content = eval($content);
-    $self->{RESPONSE} = $content->{phedex}{TFC} ||
-                        $content->{phedex}{'storage-mapping'} ||
-                        $content->{phedex} ||
-                        {};
-  }
-  print $self->Dump() if $self->{DEBUG};
-}
-
-sub ResponseIsValid
-{
-  my $self = shift;
-  my $payload  = $self->{PAYLOAD};
-  my $response = $self->{RESPONSE};
-  return 0 if $response->{ERROR};
-
-  if ( ref $self->{RESPONSE}{array} ne 'ARRAY' )
-  {
-    print __PACKAGE__," response{array} is not an array\n";
-    return 0;
-  }
-  print __PACKAGE__," response is valid\n" if $self->{VERBOSE};
-  return 1;
-}
-
 sub Dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
-
-sub Summary
-{
-  my $self = shift;
-  return unless $self->{RESPONSE};
-  if ( $self->{RESPONSE}{ERROR} )
-  {
-    print __PACKAGE__ . "->Summary", $self->{RESPONSE}{ERROR};
-    return;
-  }
-  print Data::Dumper->Dump([ $self->{RESPONSE} ],[ __PACKAGE__ . '->Summary' ]);
-}
 
 1;

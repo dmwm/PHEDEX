@@ -66,66 +66,35 @@ sub Payload
 
 sub Call { return 'Nodes'; }
 
-sub ParseResponse
-{
-  my ($self,$response) = @_;
-  no strict;
-
-  my $content = $response->content();
-  if ( $content =~ m%<error>(.*)</error>$%s ) { $self->{RESPONSE}{ERROR} = $1; }
-  else
-  {
-    $content =~ s%^[^\$]*\$VAR1%\$VAR1%s;
-    $content = eval($content);
-    $content = $content->{phedex} || {};
-    foreach ( keys %{$self->{PAYLOAD}} )
-    { $self->{RESPONSE}{$_} = $content->{$_}; }
-    foreach ( @{$content->{node}} )
-    {
-      $self->{RESPONSE}{Nodes}{delete $_->{NAME}} = $_;
-    }
-  }
-  print $self->Dump() if $self->{DEBUG};
-}
-
 sub ResponseIsValid
 {
-  my $self = shift;
+  my ($self, $obj) = @_;
   my $payload  = $self->{PAYLOAD};
-  my $response = $self->{RESPONSE};
-  return 0 if $response->{ERROR};
 
-  foreach ( keys %{$payload} )
-  {
-    if ( defined($payload->{$_}) && $payload->{$_} ne $response->{$_} )
-    {
-      print __PACKAGE__," wrong $_ returned\n";
+  my $nodes = $obj->{phedex}{node};
+  if (ref $nodes ne 'ARRAY' || !@$nodes) {
       return 0;
-    }
   }
+
   print __PACKAGE__," response is valid\n" if $self->{VERBOSE};
   return 1;
 }
 
-sub Dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]);
-}
+sub Dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
 
-sub Summary
+sub Report
 {
-  my $self = shift;
-  if ( $self->{RESPONSE}{ERROR} )
-  {
-    print __PACKAGE__ . "->Summary", $self->{RESPONSE}{ERROR};
-    return;
-  }
-  return unless $self->{RESPONSE};
+  my ($self, $obj) = @_;
+
+  my $nodes = $obj->{phedex}{node};
+
+  my @head = qw( NAME SE KIND TECHNOLOGY );
 
   my $first = 0;
-  foreach my $n ( sort keys %{$self->{RESPONSE}{Nodes}} )
+  foreach my $n ( sort { $a->{NAME} cmp $b->{NAME} } @$nodes)
   {
-    my $h = $self->{RESPONSE}{Nodes}{$n};
-    $first++, print "NAME, ", join(', ', sort keys %{$h} ),"\n" unless $first;
-    print $n,', ', join(', ', map {$h->{$_}||'(undef)'} sort keys %{$h}), "\n";
+    $first++, print join(', ', @head),"\n" unless $first;
+    print join(', ', map {$n->{$_}||'(undef)'} @head), "\n";
   }
 }
 

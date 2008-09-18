@@ -80,59 +80,26 @@ sub Call
   return 'Template';
 }
 
-sub ParseResponse
-{
-  my ($self,$response) = @_;
-  no strict;
-
-  my $content = $response->content();
-  if ( $content =~ m%<error>(.*)</error>$%s ) { $self->{RESPONSE}{ERROR} = $1; }
-  else
-  {
-    $content =~ s%^[^\$]*\$VAR1%\$VAR1%s;
-    $content = eval($content);
-    $content = $content->{phedex}{Template} || {};
-    foreach ( keys %{$self->{PAYLOAD}} )
-    { $self->{RESPONSE}{$_} = $content->{$_}; }
-  }
-  print $self->Dump() if $self->{DEBUG};
-}
-
 sub ResponseIsValid
 {
 # This function checks that the response from the server is OK. Returns true
-# if so, false otherwise. This example is not a rigorous validation, and
-# assumes the response is in Perl Data::Dumper format!
-  my $self = shift;
+# if so, false otherwise.  Obviously this depends highly on what the
+# object format is
+  my ($self, $obj) = @_;
   my $payload  = $self->{PAYLOAD};
-  my $response = $self->{RESPONSE};
-  return 0 if $response->{ERROR};
-
-  foreach ( keys %{$payload} )
-  {
-    if ( defined($payload->{$_}) && $payload->{$_} ne $response->{$_} )
-    {
-      print __PACKAGE__," wrong $_ returned\n";
-      return 0;
-    }
-  }
-  print __PACKAGE__," response is valid\n" if $self->{VERBOSE};
+  # validate $obj here
   return 1;
 }
 
 # For debugging purposes only
 sub Dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
 
-sub Summary
+sub Report
 {
-  my $self = shift;
-  if ( $self->{RESPONSE}{ERROR} )
-  {
-    print __PACKAGE__ . "->Summary", $self->{RESPONSE}{ERROR};
-    return;
-  }
-  return unless $self->{RESPONSE};
-# print Data::Dumper->Dump([ $self->{RESPONSE} ],[ __PACKAGE__ . '->Summary' ]);
+# Print a human-readable output of the returned data object.
+# Obviously this depends highly on what the object format is
+  my ($self, $obj) = @_;
+  # print $obj here
 }
 
 1;
