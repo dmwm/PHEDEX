@@ -56,6 +56,7 @@ sub inject
     $args{priority} ||= 'low';
     $args{move} ||= 'n';
     $args{static} ||= 'n';
+    $args{level} ||= 'DATASET'; $args{level} = uc $args{level};
 
     # check values of options
     my %priomap = ('high' => 0, 'normal' => 1, 'low' => 2);
@@ -65,6 +66,10 @@ sub inject
 
     foreach (qw(move static)) {
 	die "'$_' must be 'y' or 'n'" unless $args{$_} =~ /^[yn]$/;
+    }
+
+    unless (grep $args{level} eq $_, qw(DATASET BLOCK)) {
+	die "'level' must be either 'dataset' or 'block'";
     }
 
     # check authentication
@@ -99,7 +104,7 @@ sub inject
 
 	my @req_ids = &PHEDEX::RequestAllocator::Core::createRequest ($core, $data, $nodes,
 								      TYPE => 'xfer',
-								      LEVEL => $args{level} || 'DATASET',
+								      LEVEL => $args{level},
 								      TYPE_ATTR => { PRIORITY => $args{priority},
 										     IS_MOVE => $args{move},
 										     IS_STATIC => $args{static},
@@ -134,10 +139,15 @@ sub inject
     };
     if ( $@ )
     {
-	$core->DBH->rollback; # Processes seem to hang without this!
+	$core->DBH->rollback(); # Processes seem to hang without this!
 	die $@;
     }
-    $core->DBH->commit() if %$requests;
+    if (%$requests) {
+	$core->DBH->commit();
+    } else {
+	$core->DBH->rollback();
+	die "no requests were created";
+    }
     
     return {
 	Subscribe =>
