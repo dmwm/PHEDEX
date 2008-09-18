@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 
 use strict;
+$|++;
 use PHEDEX::CLI::FakeAgent; # get PHEDEX::CLI::UserAgent for free...
 use PHEDEX::Core::Loader;
 use PHEDEX::Web::Format;
@@ -88,13 +89,13 @@ sub usage
 
  --instance	name of PhEDEx instance to use: 'prod', 'dev', 'test' etc.
 		The default is '$instance'.
- --format	format for returned data: 'perl', 'xml', 'json'. The default
-		is 'perl', anything else cannot easily be validated or used.
+ --format	format for returned data: 'perl', 'xml', 'json' or 'report'. The 
+                default is 'xml'.  Not all commands support the
+                'report' format, check the command documentation.
  --timeout	is the time to wait for a server response. The default is
 		probably 30 seconds, set in PHEDEX::CLI::UserAgent
  --paranoid	consider an XML-formatted 'error' message to be fatal, and
 		dump lots of useful debugging info.
-
  --fakeagent	run interactively, with a fake useragent that sets up the
 		environment and calls the dataservice directly.
  --service	name of Perl module to load to instantiate the data service.
@@ -162,7 +163,6 @@ my $pua = ($module)->new
 $pua->timeout($timeout) if $timeout;
 $pua->PARANOID($paranoid);
 $pua->VERBOSE($verbose);
-print $pua->Dump() if $debug;
 if ( $test_cert )
 {
   $pua->VERBOSE(1);
@@ -176,14 +176,28 @@ while ( $ref = separateArgs() )
   $Action = shift;
 
   next if $Action =~ m%^-+$%;
+  print "ARGV to '$Action':  ", join(' ', @ARGV), "\n" if $debug;
+
   $action = lc($Action);
   if ( $action !~ m%^[a-z][a-z,0-9]+$% )
-  { die "invalid syntax, use \"$0 --help\" for help\n"; }
+  { die "invalid syntax, use '$0 --help' for help\n"; }
+
+  my $commands = $loader->Commands();
+  if (! grep($action eq lc $_, values %$commands) ) {
+      die "command '$action' is not known, use '$0 --help' for help\n";
+  }
+
   my $module = $loader->Load($Action);
   my $cli = $module->new();
   print "created new $module object\n" if $debug;
   print $cli->Dump() if $debug;
+  
+  # Check if the CLI can make a report
+  if ($format eq 'report' && ! $cli->can('Report')) {
+      die "ERROR:  the 'report' format is unavailable for '$Action'\n";
+  }
   $pua->CALL($cli->Call());
+  print $pua->Dump() if $debug;
   $response = $pua->$method($pua->target,$cli->Payload());
 
   print "Response: ",$response->content() if $debug;
