@@ -3,6 +3,7 @@
 use strict;
 use PHEDEX::CLI::FakeAgent; # get PHEDEX::CLI::UserAgent for free...
 use PHEDEX::Core::Loader;
+use PHEDEX::Web::Format;
 use Getopt::Long;
 use Data::Dumper;
 my ($url,$response,$help,$verbose,$quiet,$action,$Action,$fakeagent,$service);
@@ -12,7 +13,7 @@ my ($default_service);
 
 $url = 'https://cmswttest.cern.ch:8443/phedex/datasvc';
 $instance = 'tbedi';
-$format   = 'perl';
+$format   = 'xml';
 $call     = 'getAuth';
 $method   = 'post';
 $default_service = 'PHEDEX::Web::DataService';
@@ -151,7 +152,7 @@ my $pua = ($module)->new
 	  CA_FILE	=> $ca_file,
 	  CA_DIR	=> $ca_dir,
 	  URL		=> $url,
-	  FORMAT	=> $format,
+	  FORMAT	=> 'perl',
 	  INSTANCE	=> $instance,
 	  NOCERT	=> $nocert,
 
@@ -180,19 +181,41 @@ while ( $ref = separateArgs() )
   { die "invalid syntax, use \"$0 --help\" for help\n"; }
   my $module = $loader->Load($Action);
   my $cli = $module->new();
-  print "created new $module object\n";
+  print "created new $module object\n" if $debug;
   print $cli->Dump() if $debug;
   $pua->CALL($cli->Call());
   $response = $pua->$method($pua->target,$cli->Payload());
 
-  print "Response: ",$response->content if $debug;
+  print "Response: ",$response->content() if $debug;
   if ( $pua->response_ok($response) )
   {
-    $cli->ParseResponse($response);
-    print Data::Dumper->Dump([ $cli->{RESPONSE} ],[ 'Response' ]) if $cli->{DEBUG};
-    $cli->Summary;
-    die "response is invalid\n" unless $cli->ResponseIsValid();
-    push @responses,$cli->{RESPONSE};
+    my $content = $response->content();
+    
+    # Make sure the response was a perl object.  If it isn't, then
+    # reformat it into an error object
+    $content =~ s%^[^\$]*\$VAR1%\$VAR1%s; # get rid of stuff before $VAR1
+      no strict 'vars';
+    my $obj = eval($content);
+    if ($@) {
+      $obj = { 'error' => "Server responded with non-perl data:\n$content"};
+    }
+
+    # If the user just wants the data, return data in their requested format
+    if ($format ne 'report') {
+      &PHEDEX::Web::Format::output(*STDOUT, $format, $obj);
+      print "\n";
+    } else {
+      # The user wants a human readable report, call CLI backend methods to make a report
+      if (exists $obj->{error}) {
+	die "Error from server: ",$obj->{error}, "\n";
+      }
+
+      if ($cli->ResponseIsValid($obj)) {
+	$cli->Report($obj);
+      } else {
+	die "ERROR:  Response from server is not valid, cannot print report\n";	
+      }
+    }
   }
   else
   {
