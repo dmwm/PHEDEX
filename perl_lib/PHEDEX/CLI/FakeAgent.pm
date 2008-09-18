@@ -134,7 +134,7 @@ sub get
 sub _action
 {
   my ($self,$url,$args) = @_;
-  my ($service,$service_name,$obj,$h,$r);
+  my ($service,$service_name,$obj,$h,$content,$r);
   if ( !$self->{NOCERT} )
   {
     $ENV{SSL_CLIENT_VERIFY} = $ENV{HTTP_SSL_CLIENT_VERIFY} = 'SUCCESS';
@@ -164,29 +164,35 @@ sub _action
     $ENV{HTTP_SSL_CLIENT_S_DN} = $ENV{SSL_CLIENT_S_DN};
     $ENV{HTTP_SSL_CLIENT_CERT} = $ENV{SSL_CLIENT_CERT};
   }
-  $service_name = $self->{SERVICE};
-  open (local *STDOUT,'>',\(my $stdout)); # capture STDOUT of $call
-  eval("use $service_name");
-  die $@ if $@;
-  $service = $service_name->new();
-  $h = HTTP::Headers->new();
-  foreach ( split("\r\n", $stdout) )
-  {
-    m%^([^:]*):\s+(.+)\s*$% or next; # die "Dunno what to do about \"$_\"\n";
-    $h->header( "$1" => $2 );
+  
+  my $stdout;
+  eval {
+      $service_name = $self->{SERVICE};
+      open (local *STDOUT,'>',\$stdout); # capture STDOUT of $call
+      eval("use $service_name");
+      die $@ if $@;
+      $service = $service_name->new();
+      $service->init_security();
+      $service->{ARGS}{$_} = $args->{$_} for keys %{$args};
+      $service->invoke();
+      $service->{CORE}->{DBH}->disconnect(); # get rid of annoying warning
+  };
+  if ($@) {
+      print STDERR Data::Dumper->Dump( [ $self, $service ], [ __PACKAGE__, $service_name ] );
+      $r = HTTP::Response->new( 500, 'Fake internal server error', HTTP::Headers->new(),
+				"Internal server error:\n$stdout");
+  } else {
+      $h = HTTP::Headers->new();
+      foreach ( split("\r\n", $stdout) )
+      {
+	  if (m%^([^:]*):\s+(.+)\s*$%) {
+	      $h->header( "$1" => $2 );
+	  } else {
+	      $content .= $_;
+	  }
+      }
+      $r = HTTP::Response->new( 200, 'Fake successfull return', $h, $content );
   }
-
-# open (local *STDOUT,'>','/dev/null'); # capture STDOUT of $call
-  $service->init_security();
-
-  $service->{ARGS}{$_} = $args->{$_} for keys %{$args};
-  $obj = $service->invoke();
-  if ( $@ )
-  {
-    print STDERR Data::Dumper->Dump( [ $self, $service ], [ __PACKAGE__, $service_name ] );
-    die $@;
-  }
-  $r = HTTP::Response->new( 200, 'Fake successfull return', $h, Dump($obj) );
   return $r;
 }
 
