@@ -172,6 +172,9 @@ sub _action
       open (local *STDOUT,'>',\$stdout); # capture STDOUT of $call
       eval("use $service_name");
       die $@ if $@;
+
+#     Allow re-use of the FakeAgent in the same process
+      CGI::_reset_globals();
       $service = $service_name->new();
       $service->init_security();
       $service->{ARGS}{$_} = $args->{$_} for keys %{$args};
