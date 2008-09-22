@@ -123,6 +123,8 @@ EOF
   print " Known commands in this installation are:\n",
 	' ',join(' ',sort values %{$commands}),"\n\n",
 	" use \"$0 <command> -help\" for details of a particular command\n\n";
+
+  print " For more information about the data-service, visit $url/doc\n\n";
   exit 0;
 }
 
