@@ -15,6 +15,7 @@ sub new
 	      DEBUG	=> 0,
 	      NODES	=> undef,
 	      REQUIRE_CERT => 0,
+	      ABILITY => undef
 	    );
   %options = (
                'help'		=> \$help,
@@ -22,6 +23,7 @@ sub new
 	       'debug'		=> \$params{DEBUG},
 	       'node=s@'	=> \$params{NODES},
 	       'require_cert'	=> \$params{REQUIRE_CERT},
+	       'ability'	=> \$params{ABILITY},
 	     );
   GetOptions(%options);
   my $self = \%params;
@@ -49,12 +51,11 @@ sub Help
   print "\n Usage for ",__PACKAGE__,"\n";
   die <<EOF;
 
- This module checks that you are authorised to use the PhEDEx dataservice.
-By default, it checks that you have a PhEDEx role and that there are at least
-some nodes you are allowed to operate on. If you use the "--nodes <s>" option,
-you can explicitly check that a given node is in the list, the module will
-terminate with an error otherwise. "--node" can be repeated, to check for a
-set of nodes.
+ This module checks that your authorization with the PhEDEx Data
+ Service.  Returns a list of roles that you have from SiteDB.  If
+ '-ability <s>' is provided, returns a list of nodes for which you
+ have that ability.  If -requre_cert is provided, returns an error if
+ you are not authenticated by certificate.
 
  ...and of course, this module takes the standard options:
  --help, --(no)debug, --(no)verbose
@@ -65,7 +66,9 @@ EOF
 sub Payload
 {
   my $self = shift;
-  my $payload = { require_cert => $self->{REQUIRE_CERT} };
+  my $payload = { require_cert => $self->{REQUIRE_CERT} ,
+		  ability => $self->{ABILITY}
+	      };
   print __PACKAGE__," created payload\n" if $self->{VERBOSE};
   return $self->{PAYLOAD} = $payload;
 }
