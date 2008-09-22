@@ -179,6 +179,7 @@ sub _action
       $service->init_security();
       $service->{ARGS}{$_} = $args->{$_} for keys %{$args};
       print "FakeAgent _action PATH_INFO:$ENV{PATH_INFO}\n" if $self->{DEBUG};
+      print "FakeAgent CONFIG:\n", Dumper($service->{CONFIG}), "\n" if $self->{DEBUG};
 #      print "FakeAgent _action ARGS:\n",Dumper($service->{ARGS}), "\n" if $self->{DEBUG};
       $service->invoke();
       $service->{CORE}->{DBH}->disconnect(); # get rid of annoying warning
@@ -186,7 +187,7 @@ sub _action
   if ($@) {
       print STDERR Data::Dumper->Dump( [ $self, $service ], [ __PACKAGE__, $service_name ] );
       $r = HTTP::Response->new( 500, 'Fake internal server error', HTTP::Headers->new(),
-				"Internal server error:\n$stdout");
+				"Internal server error: $@\nstdout:\n$stdout");
   } else {
       $h = HTTP::Headers->new();
       foreach ( split("\r\n", $stdout) )
