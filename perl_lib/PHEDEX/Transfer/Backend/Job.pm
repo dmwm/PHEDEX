@@ -65,6 +65,7 @@ our %exit_states =
 	  Canceled		=> 1,
 	  undefined		=> 0,
 	  lost			=> 1,
+	  abandoned		=> 1,
 	);
 
 sub new
@@ -87,6 +88,7 @@ sub new
   $self->{ME} = $self->{ID}; # in case it's already set...
   bless $self, $class;
   $self->Log(time,'created...');
+  $self->Timestamp(time);
   return $self;
 }
 

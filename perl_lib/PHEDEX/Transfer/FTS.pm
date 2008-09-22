@@ -37,6 +37,7 @@ sub new
     $params->{FTS_Q_INTERVAL}      ||= 30;         # Interval for polling queue for new jobs
     $params->{FTS_J_INTERVAL}      ||= 5;          # Interval for polling individual jobs
     $params->{FTS_GLITE_OPTIONS}   ||= {};	   # Specific options for glite commands
+    $params->{FTS_JOB_AWOL}        ||= 0;          # Timeout for successful monitoring of a job
 
     # Set argument parsing at this level.
     $options->{'batch-files=i'}        = \$params->{BATCH_FILES};
@@ -58,6 +59,7 @@ sub new
     $options->{'monalisa_cluster=s'}   = \$params->{FTS_MONALISA_CLUSTER};
     $options->{'monalisa_node=s'}      = \$params->{FTS_MONALISA_NODE};
     $options->{'glite-options=s'}      =  $params->{FTS_GLITE_OPTIONS};
+    $options->{'job-awol=i'}           = \$params->{FTS_JOB_AWOL};
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
@@ -292,14 +294,6 @@ sub isBusy
         $dump =~ s%\$% %g;
 	$self->Dbgmsg("Transfer::FTS::isBusy Link Stats $from->$to $dump\n")
 		      if $self->{DEBUG};
-#if ( scalar keys %state_counts == 1 && defined $state_counts{undefined} && $state_counts{undefined} == 10 )
-#{
-#  $DB::single=1;
-#  my $dump = Data::Dumper->Dump( [\$stats], [ qw / stats / ] );
-#  $dump =~ s%\s\s+% %g;
-#  $dump =~ s%\$% %g;
-#  print "stats-dump: $dump\n";
-#}
 
 	if ($self->{FTS_LINK_ACTIVE}->{$from} || $self->{FTS_DEFAULT_LINK_ACTIVE}) {
 	    # Count files in the Active state
@@ -444,9 +438,9 @@ sub startBatch
 		FILES    => \%files,
 		VERBOSE	 => 1,
 		PRIORITY => $avg_priority,
-#		SERVICE => $service,
+#		SERVICE  => $service,
+		TIMEOUT  => $self->{FTS_JOB_AWOL},
 		);
-    
     my $job = PHEDEX::Transfer::Backend::Job->new(%args);
     $job->Log('backend: ' . ref($self));
 
