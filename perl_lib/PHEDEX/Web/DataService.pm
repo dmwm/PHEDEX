@@ -72,6 +72,7 @@ sub new
 				   USER_AGENT => user_agent(),
 				   DEBUG => $TESTING,
 				   CACHE_CONFIG => $config->{CACHE_CONFIG} || {},
+				   AUTHZ => $config->{AUTHZ}
 				   );
 
   my $type;
@@ -118,11 +119,7 @@ sub new
 sub init_security
 {
   my $self = shift;
-  # Access-control via the security module. Start by being fully paranoid,
-  # until we get a better idea how to do this stuff. So, require that the
-  # security module be configured wether used or not. For POSTs, explicitly
-  # limit to Global Admins while working on the code. Later, relax to allow
-  # the roles in TMDB to limit access.
+
   my $core = $self->{CORE};
 
   my ($secmod,$secmod_config);
@@ -136,20 +133,6 @@ sub init_security
 		die("Cannot initialise security module: " . $secmod->getErrMsg());
   }
   $core->{SECMOD} = $secmod;
-
-  if ( $ENV{REQUEST_METHOD} eq 'POST' )
-  {
-    $secmod->reqAuthnCert();
-    my $allowed = 0;
-    my $roles = $secmod->getRoles();
-    foreach( @{$roles->{'Global Admin'}} )
-    { if ( m%^phedex$% ) { $allowed = 1; } }
-    if ( !$allowed )
-    {
-      &xml_error("You are not allowed to POST to this server.");
-      return;
-    }
-  }
 
   return 1;
 }

@@ -97,6 +97,7 @@ our (%params);
 	    SECMOD => undef,
 	    DEBUG => 0,
 	    CACHE_CONFIG => undef,
+            AUTHZ => undef
 	    );
 
 # A map of API calls to data sources
@@ -302,18 +303,18 @@ sub checkAuth
 
 sub getAuth
 {
-  my $self = shift;
-  my ($secmod,$auth);
+    my ($self, $ability) = @_;
+    my ($secmod,$auth);
 
-  $secmod = $self->{SECMOD};
-  $auth = {
-            STATE  => $secmod->getAuthnState(),
-            ROLES  => $secmod->getRoles(),
-            DN     => $secmod->getDN(),
-          };
-  $auth->{NODES} = $self->fetch_nodes(%{$auth}, with_ids => 1);
+    $secmod = $self->{SECMOD};
+    $auth = {
+	STATE  => $secmod->getAuthnState(),
+	ROLES  => $secmod->getRoles(),
+	DN     => $secmod->getDN(),
+    };
+    $auth->{NODES} = $self->auth_nodes($self->{AUTHZ}, $ability, with_ids => 1) if $ability;
 
-  return $auth;
+    return $auth;
 }
 
 1;

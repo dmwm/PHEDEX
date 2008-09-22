@@ -17,7 +17,7 @@ use PHEDEX::Web::Format;
 use HTML::Entities; # for encoding XML
 
 our @ISA = qw(Exporter);
-our @EXPORT = qw ( process_args checkRequired error fetch_nodes );
+our @EXPORT = qw ( process_args checkRequired error auth_nodes );
 
 # process arguments used for common features
 sub process_args
@@ -58,63 +58,72 @@ sub checkRequired
     }
 }
 
-# Fetch the list of nodes this user is authenticated to act on
-# TODO: Get authorized actions from a configuration file instead of
-#   hard-coded here.  It is expected that new roles will be created with
-#   different prviileges, and we will need to quickly adapt to that
-sub fetch_nodes
+# Fetch the list of nodes this user is authenticated to act on.  This
+# is based on the configuration file and the SecurityModule roles
+# See PHEDEX::Web::Config for a description of the AUTHZ hash
+sub auth_nodes
 {
-    my ($self, %args) = @_;
+    my ($self, $authz, $ability, %args) = @_;
 
-    my @auth_nodes;
-    if (exists $args{web_user_auth} && $args{web_user_auth}) {
-	my $roles = $self->{SECMOD}->getRoles();
-	my @to_check = split /\|\|/, $args{web_user_auth};
-	my $roles_ok = 0;
-	foreach my $role (@to_check) {
-	    if (grep $role eq $_, keys %{$roles}) {
-		$roles_ok = 1;
-	    }
+    return unless $authz && $ability;
+
+    # Check that we know about the ability
+    my @abilities;
+    foreach my $a (keys %$authz) {
+	if ($a eq '*' || $a eq $ability) {
+	    push @abilities, @{$authz->{$a}};
 	}
-
-	my $global_admin = (exists $$roles{'Global Admin'} &&
-			    grep $_ eq 'phedex', @{$$roles{'Global Admin'}}) || 0;
-
-	# Special "global admin" role only if explicitly specified
-	$global_admin = 1 if (grep($_ eq 'PADA Admin', @to_check) &&
-			      exists $$roles{'PADA Admin'} &&
-			      grep($_ eq 'phedex', @{$$roles{'PADA Admin'}}));
-
-	return unless ($roles && ($roles_ok || $global_admin));
+    }
+    return unless @abilities; # quick exit if the ability is unknown
+   
+    # Check the roles and authorization for matches to the configuration
+    my $roles = $self->{SECMOD}->getRoles();
+    my $authn = $self->{SECMOD}->getAuthnState();
+    my $global_scope = 0; # if true, then the user has global scope power for this ability
+    my @auth_sites;       # a list of sites that the user has site scope power for this ability
+    my @auth_nodes;       # a list of node regexps for which the user has node scope power for this ability
+    foreach my $a (@abilities) {
+	# Check authentication
+	next unless  ( ($a->{AUTHN} eq '*' && ($authn eq 'cert' || $authn eq 'passwd') ) ||
+		       ($a->{AUTHN} eq 'passwd' && ($authn eq 'cert' || $authn eq 'passwd') ) ||
+		       ($a->{AUTHN} eq 'cert' && $authn eq 'cert') );
 	
-	# If the user is not a global admin, make a list of sites and
-	# nodes they are authorized for.  If they are a global admin
-	# we continue below where all nodes will be returned.
-	if (!$global_admin) {
-	    my %node_map = $$self{SECMOD}->getPhedexNodeToSiteMap();
-	    my %auth_sites;
-	    foreach my $role (@to_check) {
-		if (exists $$roles{$role}) {
-		    foreach my $site (@{$$roles{$role}}) {
-			$auth_sites{$site} = 1;
-		    }
-		}
-	    }
-	    foreach my $node (keys %node_map) {
-		foreach my $site (keys %auth_sites) {
-		    push @auth_nodes, $node if $node_map{$node} eq $site;
-		}
+	my $anygroup = $a->{GROUP} eq '*' ? 1 : 0;
+	if ($a->{SCOPE} eq '*' &&
+	    exists $roles->{ $a->{ROLE} } &&
+	    ($anygroup || grep $_ eq $a->{GROUP}, @{$roles->{ $a->{ROLE} }}) ) {
+	    $global_scope = 1;
+	} elsif ($a->{SCOPE} eq 'site' &&
+		 exists $roles->{ $a->{ROLE} }) {
+	    push @auth_sites, @{ $roles->{ $a->{ROLE} } };
+	} elsif (exists $roles->{ $a->{ROLE} } &&
+		 ($anygroup || grep $_ eq $a->{GROUP}, @{$roles->{ $a->{ROLE} }}) ) {
+	    push @auth_nodes, qr/$a->{SCOPE}/;
+	}
+    }
+    return unless $global_scope || @auth_sites || @auth_nodes; # quick exit if user has no auth
+
+    # If the user doesn't have a global scope role but has a site
+    # scope role, then build a list of nodes to check for based on the
+    # site->node mapping in the SecurityModule
+    if (!$global_scope && @auth_sites) {
+	my %node_map = $$self{SECMOD}->getPhedexNodeToSiteMap();
+	foreach my $node (keys %node_map) {
+	    foreach my $site (@auth_sites) {
+		push @auth_nodes, qr/^$node$/ if $node_map{$node} eq $site;
 	    }
 	}
     }
 
+    # Get a list of nodes from the DB. 'X' nodes are obsolete nodes
+    # hidden from all users
     my $sql = qq{select name, id from t_adm_node where name not like 'X%'};
     my $q = &PHEDEX::Core::DB::dbexec($$self{DBH}, $sql);
     
     my %nodes;
     while (my ($node, $node_id) = $q->fetchrow()) {
 	# Filter by auth_nodes if there are any
-	if (!@auth_nodes || grep $node eq $_, @auth_nodes) {
+	if ($global_scope || grep $node =~ $_, @auth_nodes) {
 	    $nodes{$node} = $node_id;
 	}
     }

@@ -32,6 +32,31 @@ sub read
 	{
 	    next;
 	}
+# authorization configuration (AUTHZ)
+# auth:  $phedex_ability:$phedex_scope:$authn_level:$cms_role:$cms_group
+#   $phedex_ability: an ability to do something in PhEDEx, '*' can be used to represent any ability
+#   $phedex_scope: the scope of the ability, '*' is for any node, 'site' is for site nodes, otherwise a node regexp
+#   $authn_level: the authorization level required.  '*' for any
+#                 authorization, otherwise 'cert' for certificate access or 'passwd' for
+#                 password access
+#   $cms_role: a CMS role associated to the ability
+#   $cms_group: a CMS group associated to the ability, or 'site' for site based permissionsor ,'*' for any group
+	elsif ($line =~ /^auth:\s+(.+)\s*$/)
+	{
+	    my $value = $1;
+	    my ($ability, $scope, $authn, $role, $group) = split /:/, $value;
+	    unless ($ability && $scope && $authn && $role && $group
+		    && grep($_ eq $authn, qw( * cert pass ))
+		    ) {
+		die "$config_file:  auth missing parameters for '$value'\n";
+	    }
+	    $$config{AUTH}{$ability} ||= [];
+	    push @{$$config{AUTHZ}{$ability}}, { ABILITY => $ability,
+						 SCOPE   => $scope,
+						 AUTHN   => $authn,
+						 ROLE    => $role,
+						 GROUP   => $group };
+	}
 	elsif ($line =~ /^([-a-zA-Z0-9]+):\s+(\S+)$/)
 	{
 	    my $name = uc $1;
