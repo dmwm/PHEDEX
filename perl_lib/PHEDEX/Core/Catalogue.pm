@@ -30,15 +30,15 @@ my %cache;
 # but the value will be undef if no PFN could be constructed.
 sub pfnLookup
 {
-    my ($input, $proto, $dest, $mapping) = @_;
+    my ($input, $proto, $dest, $mapping, $custodial) = @_;
     my @args = (&storageRules ($mapping, 'lfn-to-pfn'), $proto, $dest, 'pre');
     if (ref $input)
     {
-	return { map { $_ => &applyStorageRules(@args, $_) } @$input };
+	return { map { $_ => &applyStorageRules(@args, $_, $custodial) } @$input };
     }
     else
     {
-	return &applyStorageRules(@args, $input);
+	return &applyStorageRules(@args, $input, $custodial);
     }
 }
 
@@ -46,15 +46,15 @@ sub pfnLookup
 # pfnLookup, but simply works the other way around.
 sub lfnLookup
 {
-    my ($input, $proto, $dest, $mapping) = @_;
+    my ($input, $proto, $dest, $mapping, $custodial) = @_;
     my @args = (&storageRules ($mapping, 'pfn-to-lfn'), $proto, $dest, 'post');
     if (ref $input)
     {
-	return { map { $_ => &applyStorageRules(@args, $_) } @$input };
+	return { map { $_ => &applyStorageRules(@args, $_, $custodial) } @$input };
     }
     else
     {
-	return &applyStorageRules(@args, $input);
+	return &applyStorageRules(@args, $input, $custodial);
     }
 }
 
@@ -140,18 +140,41 @@ sub storageRules
 }
 
 # Apply storage mapping rules to a file name.  See "storageRules" for details.
+#
+# new optional parameters: $custodial and $space_token
+#
+# if $custodial is not defined, it is assumed to be 'n'.
+# if "is-custodial" is not defined in the rule, it is assumed to be 'n'.
+# $custodial has to match "is-custodial"
+#
+# if the end result of applying current rule produces a defined
+# space-toke, return it; otherwise, return the value passed-in
+# through the argument $space_token
+#
+# applyStorageRules() returns ($space_token, $name)
 sub applyStorageRules
 {
-    my ($rules, $proto, $dest, $chain, $givenname) = @_;
+    my ($rules, $proto, $dest, $chain, $givenname, $custodial, $space_token) = @_;
+
+    # if omitted, $custodial is default to "n"
+    if (! defined $custodial)
+    {
+        $custodial = "n";
+    }
+
     foreach my $rule (@{$$rules{$proto}})
     {
 	my $name = $givenname;
+
+	# take care of custodial flag
+        my $r_custodial = $$rule{'is-custodial'}?$$rule{'is-custodial'}:"n";
+	next if ($custodial ne $r_custodial);
 
 	next if (defined $$rule{'destination-match'}
 		 && $dest !~ m!$$rule{'destination-match'}!);
 
 	if (exists $$rule{'chain'} && $chain eq 'pre') {
-	    $name = &applyStorageRules($rules, $$rule{'chain'}, $dest, $chain, $name);
+	    ($space_token, $name) = &applyStorageRules($rules, $$rule{'chain'}, $dest, $chain, $name, $custodial, $space_token);
 	}
 
 	if ($name =~ m!$$rule{'path-match'}!)
@@ -164,9 +187,13 @@ sub applyStorageRules
 	    {
 		eval "\$name =~ s!\$\$rule{'path-match'}!$$rule{'result'}!";
 	    }
-	    $name = &applyStorageRules($rules, $$rule{'chain'}, $dest, $chain, $name)
+            if ($$rule{'space-token'})
+            {
+                $space_token = $$rule{'space-token'};
+            }
+	    ($space_token, $name) = &applyStorageRules($rules, $$rule{'chain'}, $dest, $chain, $name, $custodial, $space_token)
 		if (exists $$rule{'chain'} && $chain eq 'post');
-	    return $name;
+	    return ($space_token, $name);
 	}
 	
     }
