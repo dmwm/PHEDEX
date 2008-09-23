@@ -384,10 +384,20 @@ sub startBatch
 	
     my @batch = splice(@$list, 0, $job_size);
     my $info = { ID => $jobname, DIR => $dir,
-                 TASKS => { map { $_->{TASKID} => 1 } @batch } };
+                 TASKS => { map { $_->{TASKID} => 1 } @batch },
+		 FROM => $from, TO => $to };
     &output("$dir/info", Dumper($info));
     &touch("$dir/live");
     $jobs->{$jobname} = $info;
+
+#   Clean up before transfer, then call transferBatch
+    $self->clean($info,$tasks); # ???
+}
+
+sub transferBatch
+{
+    my ($self,$info,$tasks) = @_;
+    my $dir = $info->{DIR};
 
     # create the copyjob file via Job->Prepare method
     my %files = ();
@@ -400,8 +410,10 @@ sub startBatch
     # batches of mostly the same priority.
     my $n_files = 0;
     my $sum_priority = 0;
+    my $from_pfn;
     foreach my $taskid ( keys %{$info->{TASKS}} ) {
 	my $task = $tasks->{$taskid};
+	$from_pfn = $task->{FROM_PFN} unless $from_pfn;
 
 	$n_files++;
 	$sum_priority += $task->{PRIORITY};
@@ -450,10 +462,10 @@ sub startBatch
     # now get FTS service for the job
     # we take a first file in the job and determine
     # the FTS endpoint based on this (using ftsmap file, if given)
-    my $service = $self->getFTSService( $batch[0]->{FROM_PFN} );
+    my $service = $self->getFTSService( $from_pfn );
 
     unless ($service) {
-	my $reason = "Cannot identify FTS service endpoint based on a sample source PFN $batch[0]->{FROM_PFN}";
+	my $reason = "Cannot identify FTS service endpoint based on a sample source PFN $from_pfn";
 	$job->Log("$reason\nSee download agent log file details, grep for\ FTSmap to see problems with FTS map file");
 	foreach my $file ( values %files ) {
 	    $file->Reason($reason);
