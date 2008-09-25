@@ -99,7 +99,7 @@ sub ResponseIsValid
   my ($self, $obj) = @_;
   my $payload  = $self->{PAYLOAD};
 
-  my $stats = $obj->{phedex}{stats};
+  my $stats = $obj->{phedex}{inject}{stats};
   if ( !defined $stats || ref($stats) ne 'HASH' ) { return 0; }
 
   print __PACKAGE__," response is valid\n" if $self->{VERBOSE};
@@ -112,9 +112,10 @@ sub Report
 {
   my ($self, $obj) = @_;
 
-  my $stats = $obj->{phedex}{stats};
-  # TODO, print something useful
-  print "OK\n";
+  my $stats = $obj->{phedex}{injected}{stats};
+  foreach my $stat (sort keys %$stats) {
+      print "$stat\t:\t$stats->{$stat}\n";
+  }
 
 }
 
