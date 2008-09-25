@@ -23,7 +23,7 @@ sub new
 	       'debug'		=> \$params{DEBUG},
 	       'node=s@'	=> \$params{NODES},
 	       'require_cert'	=> \$params{REQUIRE_CERT},
-	       'ability'	=> \$params{ABILITY},
+	       'ability=s'	=> \$params{ABILITY},
 	     );
   GetOptions(%options);
   my $self = \%params;
