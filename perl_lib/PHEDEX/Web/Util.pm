@@ -65,7 +65,7 @@ sub auth_nodes
 {
     my ($self, $authz, $ability, %args) = @_;
 
-    return unless $authz && $ability;
+    return unless $authz;
 
     # Check that we know about the ability
     my @abilities;
