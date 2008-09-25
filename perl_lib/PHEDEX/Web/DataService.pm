@@ -15,7 +15,6 @@ use strict;
 
 use CGI qw(header path_info self_url param Vars remote_host user_agent);
 
-use CMSWebTools::SecurityModule::Oracle;
 use PHEDEX::Web::Config;
 use PHEDEX::Web::Core;
 use PHEDEX::Core::Timing;
@@ -43,11 +42,20 @@ sub new
   my $config = PHEDEX::Web::Config->read($config_file, $dev_name);
   $self->{CONFIG} = $config;
   $self->{CONFIG_FILE} = $config_file;
-#  eval "use CGI::Carp qw(fatalsToBrowser)"; # XXX turn off when in production!
 
   # Set debug mode
   $TESTING = $$config{TESTING_MODE} ? 1 : 0;
   $TESTING_MAIL = $$config{TESTING_MAIL} || undef;
+
+  eval "use CGI::Carp qw(fatalsToBrowser)" if $TESTING;
+
+  bless $self, $class;
+  return $self;
+}
+
+sub invoke
+{
+  my $self = shift;
 
   # Interpret the trailing path suffix: /FORMAT/DB/API?QUERY
   my $path = path_info() || "xml/prod";
@@ -57,23 +65,12 @@ sub new
   $db =     $1 if ($path =~ m!\G/([^/]+)!g);
   $call =   $1 if ($path =~ m!\G/([^/]+)!g);
 
-  # Print documentation
+  # Print documentation and exit if we have the "doc" path
   if ($format eq 'doc') {
       &print_doc($call ? $call : $db, # the API to document
 		 $db ? 'doc/' : '');  # a prefix for URLs
       return;
   }
-
-  my $core = new PHEDEX::Web::Core(VERSION => $config->{VERSION},
-				   DBCONFIG => $config->{INSTANCES}->{$db}->{DBCONFIG},
-				   INSTANCE => $db,
-				   REQUEST_URL => self_url(),
-				   REMOTE_HOST => remote_host(), # TODO:  does this work in reverse proxy?
-				   USER_AGENT => user_agent(),
-				   DEBUG => $TESTING,
-				   CACHE_CONFIG => $config->{CACHE_CONFIG} || {},
-				   AUTHZ => $config->{AUTHZ}
-				   );
 
   my $type;
   if    ($format eq 'xml')  { $type = 'text/xml'; }
@@ -95,7 +92,29 @@ sub new
       $args{$key} = \@vals if ($#vals > 0);
   }
 
-  $args{format} = $format;
+  # create the core
+  my $config = $self->{CONFIG};
+  my $core;
+  
+  eval {
+      $core = new PHEDEX::Web::Core(CALL => $call,
+				    VERSION => $config->{VERSION},
+				    DBCONFIG => $config->{INSTANCES}->{$db}->{DBCONFIG},
+				    INSTANCE => $db,
+				    REQUEST_URL => self_url(),
+				    REMOTE_HOST => remote_host(), # TODO:  does this work in reverse proxy?
+				    USER_AGENT => user_agent(),
+				    DEBUG => $TESTING,
+				    CONFIG_FILE => $self->{CONFIG_FILE},
+				    CACHE_CONFIG => $config->{CACHE_CONFIG} || {},
+				    SECMOD_CONFIG => $config->{SECMOD_CONFIG},
+				    AUTHZ => $config->{AUTHZ}
+				    );
+  };
+  if ($@) {
+      &xml_error("failed to initialize data service API '$call'");
+      return;
+  }
 
   my %cache_headers;
   unless (param('nocache')) {
@@ -109,38 +128,7 @@ sub new
   }
 
   print header(-type => $type, %cache_headers );
-  $self->{CORE} = $core;
-  $self->{CALL} = $call;
-  $self->{ARGS} = \%args;
-  bless $self, $class;
-  return $self;
-}
-
-sub init_security
-{
-  my $self = shift;
-
-  my $core = $self->{CORE};
-
-  my ($secmod,$secmod_config);
-  $secmod_config = $self->{CONFIG}->{SECMOD_CONFIG};
-  if (!$secmod_config) {
-		die("ERROR:  SecurityModule config file not set in $self->{CONFIG_FILE}");
-  }
-  $secmod = new CMSWebTools::SecurityModule::Oracle({CONFIG => $secmod_config});
-  if ( ! $secmod->init() )
-  {
-		die("Cannot initialise security module: " . $secmod->getErrMsg());
-  }
-  $core->{SECMOD} = $secmod;
-
-  return 1;
-}
-
-sub invoke
-{
-  my $self = shift;
-  return $self->{CORE}->call($self->{CALL}, %{$self->{ARGS}});
+  return $core->call($call, $format, %args);
 }
 
 # For printing errors before we know what the error format should be
