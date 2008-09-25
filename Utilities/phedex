@@ -12,7 +12,7 @@ my ($instance,$format,$call,$args,$method,$test_cert,$ref,$timeout,$paranoid);
 my ($proxy,$debug,$cert_file,$key_file,$ca_file,$ca_dir,$nocert,$h,@env);
 my ($default_service);
 
-$url = 'https://cmswttest.cern.ch:8443/phedex/datasvc';
+$url = 'https://cmsweb.cern.ch/phedex/datasvc';
 $instance = 'tbedi';
 $format   = 'xml';
 $call     = 'getAuth';
