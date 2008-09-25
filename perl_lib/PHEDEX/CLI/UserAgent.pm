@@ -36,7 +36,7 @@ our %params =
 	  CA_DIR	=> undef,
 	  NOCERT	=> undef,
 	  PROXY		=> undef,
-	  TIMEOUT	=> 30,
+	  TIMEOUT	=> 5*60,
 
 	  VERBOSE	=> $ENV{PHEDEX_VERBOSE} || 0,
 	  DEBUG		=> $ENV{PHEDEX_DEBUG}   || 0,
