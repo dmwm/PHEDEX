@@ -43,6 +43,8 @@ not give an error, but all the stats values will be zero.
 
 =cut
 
+sub duration  { return 0; }
+sub need_auth { return 1; }
 sub invoke { return inject(@_); }
 sub inject
 {
@@ -51,7 +53,7 @@ sub inject
 
   my ($auth,$node,$nodeid,$result,$stats,$verbose,$strict);
   $core->{SECMOD}->reqAuthnCert();
-  $auth = $core->getAuth();
+  $auth = $core->getAuth('datasvc_inject');
   $node = $args{node};
 
   $nodeid = $auth->{NODES}->{$node} || 0;
@@ -69,7 +71,7 @@ sub inject
   };
   if ( $@ )
   {
-    $core->DBH->rollback; # Processes seem to hang without this!
+    $core->{DBH}->rollback(); # Processes seem to hang without this!
     die $@;
   }
 
@@ -79,12 +81,12 @@ sub inject
       $commit = 1;
   } else {
       die "no injection was done\n";
-      $core->DBH->rollback();
+      $core->{DBH}->rollback();
   }
   $commit = 0 if $args{dummy};
-  $commit ? $core->DBH->commit() : $core->DBH->rollback();
+  $commit ? $core->{DBH}->commit() : $core->{DBH}->rollback();
 
-  return { inject => { stats => $stats } };
+  return { injected => { stats => $stats } };
 }
 
 1;

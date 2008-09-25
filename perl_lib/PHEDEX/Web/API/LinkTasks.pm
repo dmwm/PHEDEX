@@ -1,6 +1,7 @@
 package PHEDEX::Web::API::LinkTasks;
 use warnings;
 use strict;
+use PHEDEX::Web::SQL;
 
 =pod
 

@@ -2,6 +2,7 @@ package PHEDEX::Web::API::FileReplicas;
 use warnings;
 use strict;
 use PHEDEX::Web::Util;
+use PHEDEX::Web::SQL;
 
 =pod
 

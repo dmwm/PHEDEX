@@ -52,6 +52,7 @@ Returns the following structure
 
 =cut
 
+sub need_auth { return 1; }
 sub invoke { return auth(@_); }
 sub auth
 {

@@ -1,6 +1,7 @@
 package PHEDEX::Web::API::BlockReplicas;
 use warnings;
 use strict;
+use PHEDEX::Web::SQL;
 
 =pod
 
@@ -75,7 +76,7 @@ sub blockReplicas
     # Format into block->replica heirarchy
     my $blocks = {};
     foreach my $row (@$r) {
-	my $id = $row->{block_id};
+	my $id = $row->{BLOCK_ID};
 	
 	# <block> element
 	if (!exists $blocks->{ $id }) {

@@ -3,6 +3,7 @@ use warnings;
 use strict;
 use PHEDEX::Web::Util;
 use PHEDEX::Core::Catalogue;
+use PHEDEX::Core::SQL;
 
 =pod
 
@@ -41,7 +42,7 @@ sub lfn2pfn
     &checkRequired(\%h, 'node', 'lfn', 'protocol');
 
     # TODO:  cache nodemap and TFC
-    my $nodemap = { reverse %{$core->getNodeMap()} }; # node map name => id
+    my $nodemap = { reverse %{&PHEDEX::Core::SQL::getNodeMap($core)} }; # node map name => id
 
     my $catcache = {};
     my $mapping = [];

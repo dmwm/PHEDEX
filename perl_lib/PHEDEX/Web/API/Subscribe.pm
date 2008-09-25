@@ -47,6 +47,8 @@ not give an error, but all the stats values will be zero.
 
 =cut
 
+sub duration { return 0; }
+sub need_auth { return 1; }
 sub invoke { return subscribe(@_); }
 sub subscribe
 {
@@ -74,7 +76,7 @@ sub subscribe
 
     # check authentication
     $core->{SECMOD}->reqAuthnCert();
-    my $auth = $core->getAuth();
+    my $auth = $core->getAuth('datasvc_subscribe');
     if (! $auth->{STATE} eq 'cert' ) {
 	die("Certificate authentication failed\n");
     }
@@ -139,7 +141,7 @@ sub subscribe
     };
     if ( $@ )
     {
-	$core->DBH->rollback(); # Processes seem to hang without this!
+	$core->{DBH}->rollback(); # Processes seem to hang without this!
 	die $@;
     }
 
@@ -149,10 +151,10 @@ sub subscribe
 	$commit = 1;
     } else {
 	die "no requests were created\n";
-	$core->DBH->rollback();
+	$core->{DBH}->rollback();
     }
     $commit = 0 if $args{dummy};
-    $commit ? $core->DBH->commit() : $core->DBH->rollback();
+    $commit ? $core->{DBH}->commit() : $core->{DBH}->rollback();
     
     # for output, we return a list of the generated request IDs
     my @req_ids = map { { id => $_ } } keys %$requests;
