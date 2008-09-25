@@ -72,22 +72,18 @@ examples:
 use warnings;
 use strict;
 
-use base 'PHEDEX::Web::SQL';
-use PHEDEX::Web::Util;
-use PHEDEX::Web::Cache;
+use base 'PHEDEX::Core::DB';
 use PHEDEX::Core::Loader;
 use PHEDEX::Core::Timing;
+use CMSWebTools::SecurityModule::Oracle;
+use PHEDEX::Web::Util;
+use PHEDEX::Web::Cache;
 use PHEDEX::Web::Format;
 use HTML::Entities; # for encoding XML
 
-# TODO: When call-specific SQL is removed from PHEDEX::Web::SQL and
-# something more modular is used, stop using these libraries and just
-# use our base SQL class, PHEDEX::Web::SQL
-use PHEDEX::Core::SQL;
-#use PHEDEX::Web::SQL; # already used as a base class above...
-
 our (%params);
-%params = ( VERSION => undef,
+%params = ( CALL => undef,
+            VERSION => undef,
             DBCONFIG => undef,
 	    INSTANCE => undef,
 	    REQUEST_URL => undef,
@@ -96,8 +92,10 @@ our (%params);
 	    REQUEST_TIME => undef,
 	    SECMOD => undef,
 	    DEBUG => 0,
+	    CONFIG_FILE => undef,
 	    CACHE_CONFIG => undef,
-            AUTHZ => undef
+	    SECMOD_CONFIG => undef,
+	    AUTHZ => undef
 	    );
 
 # A map of API calls to data sources
@@ -127,6 +125,11 @@ sub new
     my $t2 = &mytimeofday();
     warn "db connection time ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
 
+    # Load the API component
+    my $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Web::API' );
+    my $module = $loader->Load($self->{CALL});
+    $self->{API} = $module;
+
     $self->{CACHE} = PHEDEX::Web::Cache->new( %{$self->{CACHE_CONFIG}} );
 
     return $self;
@@ -152,25 +155,21 @@ sub DESTROY
 
 sub call
 {
-    my ($self, $call, %args) = @_;
+    my ($self, $call, $format, %args) = @_;
     no strict 'refs';
 
     # check the format argument then remove it
-    my $format = $args{format};
     if (!grep $_ eq $format, qw( xml json perl )) {
         &PHEDEX::Web::Format::error(*STDOUT, 'xml', "Return format requested is unknown or undefined");
 	return;
     }
-    delete $args{format};
 
     if (!$call) {
 	&PHEDEX::Web::Format::error(*STDOUT, $format, "No API call provided.  Check the URL");
 	return;
     }
 
-    my ($t1,$t2,$loader,$module);
-    $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Web::API' );
-    $module = $loader->Load($call);
+    my ($t1,$t2);
 
     $t1 = &mytimeofday();
     &process_args(\%args);
@@ -179,11 +178,20 @@ sub call
     my $stdout = '';
     if ( ! $obj )
     {
+      my $api = $self->{API};
       eval {
-        open (local *STDOUT,'>',\$stdout); # capture STDOUT of $call
-        my $invoke = $module . '::invoke';
+	# determine whether we need authorization
+	my $need_auth = $api->need_auth() if $api->can('need_auth');
+	if ($need_auth) {
+	    $self->initSecurity();
+	}
+
+	# capture STDOUT of $call
+        open (local *STDOUT,'>',\$stdout);
+        my $invoke = $api . '::invoke';
+
+	# make the call
         $obj = $invoke->($self, %args);
-#	$obj = { $call => $obj };
       };
       if ($@) {
           &PHEDEX::Web::Format::error(*STDOUT, $format, "Error when making call '$call':  $@");
@@ -191,12 +199,11 @@ sub call
       }
       $t2 = &mytimeofday();
       warn "api call '$call' complete in ", sprintf('%.6f s',$t2-$t1), "\n" if $self->{DEBUG};
-      my $duration = 0;
-      $duration = $module->duration() if $module->can('duration');
+      my $duration = $self->getCacheDuration() || 0;
       $self->{CACHE}->set( $call, \%args, $obj, $duration ); # unless $args{nocache};
     }
 
-#   wrap the object in a 'phedex' element with useful metadata
+    # wrap the object in a 'phedex' element with useful metadata
     $obj->{stdout}->{'$t'} = $stdout if $stdout;
     $obj->{instance} = $self->{INSTANCE};
     $obj->{request_version} = $self->{VERSION};
@@ -216,19 +223,6 @@ sub call
 }
 
 # Cache controls
-
-sub refreshCache
-{
-    my ($self, $call) = @_;
-die "are you sure you want to be here?\n"; 
-#    foreach my $name (@{ $call_data->{$call} }) {
-#	my $datasource = $data_sources->{$name}->{DATASOURCE};
-#	my $duration   = $data_sources->{$name}->{DURATION};
-#	my $data = &{$datasource}($self);
-#	$self->{CACHE}->set( $name, $data, $duration.' s' );
-#    }
-}
-
 sub getData
 {
     my ($self, $name, %h) = @_;
@@ -245,52 +239,37 @@ sub getData
     return $data;
 }
 
-sub getData_thisIsObsolete
-{
-    my ($self, $name, %h) = @_;
-die "are you sure you want to be here?\n"; 
-
-#    my $datasource = $data_sources->{$name}->{DATASOURCE};
-#    my $duration   = $data_sources->{$name}->{DURATION};
-#
-#    my $t1 = &mytimeofday();
-#
-#    my $from_cache;
-#    my $data;
-#    $data = $self->{CACHE}->get( $name ) unless $h{nocache};
-#    if (!defined $data) {
-#	$data = &{$datasource}($self, %h);
-#	$self->{CACHE}->set( $name, $data, $duration.' s') unless $h{nocache};
-#	$from_cache = 0;
-#    } else {
-#	$from_cache = 1;
-#    }
-#
-#    my $t2 = &mytimeofday();
-#
-#    warn "got '$name' from ",
-#    ($from_cache ? 'cache' : 'DB'),
-#    " in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
-#
-#    return wantarray ? ($data, $from_cache) : $data;
-}
 
 
-# Returns the cache duration for a API call.  If there are multiple
-# data sources in an API call then the one with the lowest duration is
-# returned
+# Returns the cache duration for a API call.
 sub getCacheDuration
 {
-    my ($self, $call) = @_;
-    my $min;
-# This needs some consideration...
-#    foreach my $name (@{ $call_data->{$call} }) {
-#	my $duration   = $data_sources->{$name}->{DURATION};
-#	$min ||= $duration;
-#	$min = $duration if $duration < $min;
-#    }
-    return $min;
+    my ($self) = @_;
+    my $duration = 0;
+    my $api = $self->{API};
+    $duration = $api->duration() if $api->can('duration');
+    return $duration;
 }
+
+sub initSecurity
+{
+  my $self = shift;
+
+  my ($secmod,$secmod_config);
+  $secmod_config = $self->{SECMOD_CONFIG};
+  if (!$secmod_config) {
+      die("SecurityModule config file not set in $self->{CONFIG_FILE}");
+  }
+  $secmod = new CMSWebTools::SecurityModule::Oracle({CONFIG => $secmod_config});
+  if ( ! $secmod->init() )
+  {
+      die("cannot initialise security module: " . $secmod->getErrMsg());
+  }
+  $self->{SECMOD} = $secmod;
+
+  return 1;
+}
+
 
 sub checkAuth
 {
@@ -298,7 +277,7 @@ sub checkAuth
   die "bad call to checkAuth\n" unless $self->{SECMOD};
   my $secmod = $self->{SECMOD};
   $secmod->reqAuthnCert();
-  return getAuth();
+  return $self->getAuth(%args);
 }
 
 sub getAuth
@@ -312,7 +291,7 @@ sub getAuth
 	ROLES  => $secmod->getRoles(),
 	DN     => $secmod->getDN(),
     };
-    $auth->{NODES} = $self->auth_nodes($self->{AUTHZ}, $ability, with_ids => 1) if $ability;
+    $auth->{NODES} = $self->auth_nodes($self->{AUTHZ}, $ability, with_ids => 1);
 
     return $auth;
 }
