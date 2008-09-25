@@ -15,6 +15,6 @@ use warnings;
 use strict;
 
 use PHEDEX::Web::DataService;
+
 my $service = PHEDEX::Web::DataService->new();
-$service->init_security();
 $service->invoke();
