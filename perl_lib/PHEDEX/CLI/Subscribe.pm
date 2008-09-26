@@ -30,6 +30,7 @@ sub new
 	       "priority=s"     => \$params{PRIORITY},
 	       "static"         => \$params{IS_STATIC},
 	       "move"           => \$params{IS_MOVE},
+ 	       "comments=s"     => \$params{COMMENTS}
 	     );
   GetOptions(%options);
   my $self = \%params;
@@ -93,6 +94,7 @@ sub Payload
   $payload->{level}     = $self->{BLOCKLEVEL} ? 'block' : 'dataset';
   $payload->{move}      = $self->{IS_MOVE} ? 'y' : 'n';
   $payload->{static}    = $self->{IS_STATIC} ? 'y' : 'n';
+  $payload->{comments}  = $self->{COMMENTS};
 
   foreach ( @{$self->{DATAFILE}} )
   {

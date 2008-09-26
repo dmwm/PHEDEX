@@ -112,7 +112,7 @@ sub subscribe
 										     IS_STATIC => $args{static},
 										     IS_TRANSIENT => 'n',
 										     IS_DISTRIBUTED => 'n' },
-								      COMMENTS => $args{COMMENTS},
+								      COMMENTS => $args{comments},
 								      CLIENT_ID => $client_id,
 								      NOW => $now
 								      );
