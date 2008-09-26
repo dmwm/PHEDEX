@@ -8,9 +8,12 @@ use PHEDEX::Web::Format;
 use Getopt::Long;
 use Data::Dumper;
 my ($url,$response,$help,$verbose,$quiet,$action,$Action,$fakeagent,$service);
-my ($instance,$format,$call,$args,$method,$test_cert,$ref,$timeout,$paranoid);
+my ($instance,$format,$call,$method,$test_cert,$ref,$timeout,$paranoid);
 my ($proxy,$debug,$cert_file,$key_file,$ca_file,$ca_dir,$nocert,$h,@env);
 my ($default_service);
+
+my $me = $0;
+$me =~ s:.*/::;
 
 $url = 'https://cmsweb.cern.ch/phedex/datasvc';
 $instance = 'tbedi';
@@ -21,16 +24,13 @@ $default_service = 'PHEDEX::Web::DataService';
 $help = $verbose = $debug = $quiet = 0;
 $nocert = $test_cert = $timeout = $paranoid = $fakeagent = 0;
 
-Getopt::Long::Configure( 'pass_through' );
-$ref = separateArgs();
-if ( $ref )
-{
-  @ARGV = @{$ref};
-#  print "GLOBAL ARGS: @ARGV\n";
-
-  GetOptions
-	(
-	 'help'		=> \$help,
+my $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::CLI' );
+my @commands = map { lc $_ } values %{ $loader->Commands() };
+my @args = separateArgs(@commands);
+my $global_args = shift @args; # global options come first
+@ARGV = @{ $global_args };
+GetOptions
+    ( 	 'help'		=> \$help,
 	 'verbose!'	=> \$verbose,
 	 'quiet!'	=> \$quiet,
 	 'debug!'	=> \$debug,
@@ -53,26 +53,26 @@ if ( $ref )
 	 'env=s@'	=> \@env,
 	);
 
-  foreach ( @env )
-  {
+print "global ARGV:  ", join(' ', @$global_args), "\n" if $debug;
+
+foreach ( @env )
+{
     m%^([^=]*)=(.*)$% or next;
     $ENV{$1} = $2;
-  }
 }
 
-my $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::CLI' );
 sub usage
 {
   print <<EOF;
 
-  Usage: $0 [--proxy=s] [--cert_file=s] [--key_file=s]
+  Usage: $me [--proxy=s] [--cert_file=s] [--key_file=s]
 	    [--method=s] [--url=s]
 	    [--instance=s] [--format=s]
 	    [--timeout=i] [--paranoid]
 	    [--fakeagent] [--service=s]
-	    [--debug] [--verbose] [--]
-	    command <command-options> --
-	    command <command-options> --
+	    [--debug] [--verbose]
+	    command <command-options>
+	    command <command-options>
 
  where
  --proxy, --cert_file, and --key_file are used to define your certificate.
@@ -93,7 +93,7 @@ sub usage
                 default is 'xml'.  Not all commands support the
                 'report' format, check the command documentation.
  --timeout	is the time to wait for a server response. The default is
-		probably 30 seconds, set in PHEDEX::CLI::UserAgent
+		5 minutes, set in PHEDEX::CLI::UserAgent
  --paranoid	consider an XML-formatted 'error' message to be fatal, and
 		dump lots of useful debugging info.
  --fakeagent	run interactively, with a fake useragent that sets up the
@@ -105,24 +105,20 @@ sub usage
 
  --debug, --verbose, and --help are obvious
 
- Multiple commands can be given in a single call, the arguments for each
-command are kept separate by the '--' pseudo-option. If you specify global
-options, you must also use '--' to denote their end, before starting the
-subcommand arguments.
+ Multiple commands can also be given in a single call.  This results
+ in multiple requests to the server, and they are fully independant.
 
 E.g.
 
-$0 inject --node T1_XY_Buffer --verbose --help
-$0 --verbose -- inject --node T1_XY_Buffer
-$0 --verbose -- inject --node T1_XY_Buffer -- inject --node T2_PQ_Buffer
+$me inject --node T1_XY_Buffer --verbose --help
+$me --verbose inject --node T1_XY_Buffer
+$me --verbose inject --node T1_XY_Buffer inject --node T2_PQ_Buffer
 
 EOF
 
-  my $commands = $loader->Commands();
-
   print " Known commands in this installation are:\n",
-	' ',join(' ',sort values %{$commands}),"\n\n",
-	" use \"$0 <command> -help\" for details of a particular command\n\n";
+	' ',join(' ',@commands),"\n\n",
+	" use \"$me <command> -help\" for details of a particular command\n\n";
 
   print " For more information about the data-service, visit $url/doc\n\n";
   exit 0;
@@ -172,31 +168,26 @@ if ( $test_cert )
 }
 
 my (@responses);
-while ( $ref = separateArgs() )
+foreach my $arglist (@args)
 {
-  @ARGV = @{$ref};
-  $Action = shift;
+  my $command = shift @$arglist; # first item is the command name
+  @ARGV = @$arglist;             # the rest are the arguments
 
-  next if $Action =~ m%^-+$%;
-  print "ARGV to '$Action':  ", join(' ', @ARGV), "\n" if $debug;
-
-  $action = lc($Action);
-  if ( $action !~ m%^[a-z][a-z,0-9]+$% )
-  { die "invalid syntax, use '$0 --help' for help\n"; }
+  print "ARGV to '$command':  ", join(' ', @ARGV), "\n" if $debug;
 
   my $commands = $loader->Commands();
-  if (! grep($action eq lc $_, values %$commands) ) {
-      die "command '$action' is not known, use '$0 --help' for help\n";
+  if (! grep($command eq lc $_, values %$commands) ) {
+      die "command '$command' is not known, use '$me --help' for help\n";
   }
 
-  my $module = $loader->Load($Action);
+  my $module = $loader->Load($command);
   my $cli = $module->new();
   print "created new $module object\n" if $debug;
   print $cli->Dump() if $debug;
   
   # Check if the CLI can make a report
   if ($format eq 'report' && ! $cli->can('Report')) {
-      die "ERROR:  the 'report' format is unavailable for '$Action'\n";
+      die "ERROR:  the 'report' format is unavailable for '$command'\n";
   }
   $pua->CALL($cli->Call());
   print $pua->Dump() if $debug;
@@ -240,46 +231,25 @@ while ( $ref = separateArgs() )
   }
 }
 
+# return array of arrayrefs [ ['arg1', 'arg2'], ['command1', 'arg1', 'arg2' ], ...]
+# first list is the global arguments
+# the following lists contain the command name and that command's arguments
 sub separateArgs()
 {
-  my @argv;
-  my $global = 0;
+    my @commands = @_;
+    my @args;
+    my $scope_argv = [];
+    push @args, $scope_argv;
+    foreach my $arg (@ARGV) {
+	if (grep ($arg eq $_, @commands)) {
+	    # start a new scope
+	    $scope_argv = [];
+	    push @args, $scope_argv;
+	}
+	push @$scope_argv, $arg;
+    }
 
-# static variables!
-  our @ARGV_orig;
-  our $notFirst;
-
-  if ( !$notFirst )
-  {
-#   first call: set global arguments array and 'global' flag
-    @ARGV_orig = @ARGV;
-    $notFirst = $global = 1;
-  }
-
-# The easy way out if there are no arguments
-  return undef unless @ARGV_orig;
-
-# If we're looking for global arguments, first argument better start with '-'
-  return undef if ( $global && $ARGV_orig[0] !~ m%^-% );
-
-# Remove leading '--' arguments, unless this is the first call, in
-# which case they signify no global arguments.
-  $_ = shift @ARGV_orig;
-  while ( m%^--$% )
-  {
-    return undef if $global;
-    $_ = shift @ARGV_orig;
-  }
-  unshift @ARGV_orig, $_; # put back last argument for next step...
-
-# Loop over remaining arguments. Terminate on '--' or when no arguments left
-  while ( $_ = shift @ARGV_orig )
-  {
-    last if m%^--$%;
-    push @argv, $_;
-  }
-
-  return \@argv;
+    return @args;
 }
 
 exit 0;
