@@ -156,8 +156,14 @@ sub applyStorageRules
 {
     my ($rules, $proto, $dest, $chain, $givenname, $custodial, $space_token) = @_;
 
+    # Bail out if $givenname is undef
+    if (! defined ($givenname))
+    {
+        return undef;
+    }
+
     # if omitted, $custodial is default to "n"
-    if (! defined $custodial)
+    if (! defined ($custodial))
     {
         $custodial = "n";
     }
@@ -172,10 +178,12 @@ sub applyStorageRules
 
 	next if (defined $$rule{'destination-match'}
 		 && $dest !~ m!$$rule{'destination-match'}!);
-
 	if (exists $$rule{'chain'} && $chain eq 'pre') {
 	    ($space_token, $name) = &applyStorageRules($rules, $$rule{'chain'}, $dest, $chain, $name, $custodial, $space_token);
 	}
+
+        # It's a failure if the name is undef
+        next if (!defined ($name));
 
 	if ($name =~ m!$$rule{'path-match'}!)
 	{
