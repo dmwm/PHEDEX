@@ -94,6 +94,7 @@ sub xml_element
     my ($file, $name, $obj, $is_root) = @_;
     my ($attr, $children, $text) = gather($obj);
 
+    $name = lc $name;
     my $no_children;
     unless ($is_root) {
         $no_children = scalar @$children == 0 ? 1 : 0;
@@ -101,8 +102,8 @@ sub xml_element
 	# But better safe than sorry.
         # print $file "<$name", join('', map { " $_='$obj->{$_}'" } @$attr);
         print $file "<$name", join('', map { (lc " $_='", 
-					      (defined $obj->{$_} ? encode_entities($obj->{$_}) : ''),
-					      "'") } @$attr);
+						   (defined $obj->{$_} ? encode_entities($obj->{$_}) : ''),
+						   "'") } @$attr);
         if ($no_children && !$text) {
             print $file "/>"; return;
         } else {
@@ -120,9 +121,9 @@ sub xml_element
                 die "Array of '$child' elements contained a non-hash"
                     unless ref $element eq 'HASH';
 		my $element_name = $child;
-		if (defined $element->{element_name}) {
-		    $element_name = $element->{element_name};
-		    delete $element->{element_name};
+		if (defined $element->{ELEMENT_NAME}) {
+		    $element_name = $element->{ELEMENT_NAME};
+		    delete $element->{ELEMENT_NAME};
 		}
                 xml_element($file, $element_name, $element);
             }
