@@ -121,7 +121,7 @@ sub fileReplicas
 	}
 	
 	# <replica> element
-	next unless defined $row->{node_id};
+	next unless defined $row->{NODE_ID};
 	push @{ $files->{ $file_id }->{replica} }, { node_id => $row->{NODE_ID},
 						     node => $row->{NODE_NAME},
 						     se => $row->{SE_NAME},
