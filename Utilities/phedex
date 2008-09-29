@@ -4,7 +4,6 @@ use strict;
 $|++;
 use PHEDEX::CLI::FakeAgent; # get PHEDEX::CLI::UserAgent for free...
 use PHEDEX::Core::Loader;
-use PHEDEX::Web::Format;
 use Getopt::Long;
 use Data::Dumper;
 my ($url,$response,$help,$verbose,$quiet,$action,$Action,$fakeagent,$service);
@@ -156,7 +155,7 @@ my $pua = ($module)->new
 	  CA_FILE	=> $ca_file,
 	  CA_DIR	=> $ca_dir,
 	  URL		=> $url,
-	  FORMAT	=> 'perl',
+	  FORMAT	=> ($format eq 'report' ? 'perl' : $format),
 	  INSTANCE	=> $instance,
 	  NOCERT	=> $nocert,
 
@@ -203,20 +202,19 @@ foreach my $arglist (@args)
   {
     my $content = $response->content();
     
-    # Make sure the response was a perl object.  If it isn't, then
-    # reformat it into an error object
-    $content =~ s%^[^\$]*\$VAR1%\$VAR1%s; # get rid of stuff before $VAR1
-      no strict 'vars';
-    my $obj = eval($content);
-    if ($@) {
-      $obj = { 'error' => "Server responded with non-perl data:\n$content"};
-    }
-
-    # If the user just wants the data, return data in their requested format
+    # If the user just wants the data, return what we got from the data service
     if ($format ne 'report') {
-      &PHEDEX::Web::Format::output(*STDOUT, $format, $obj);
-      print "\n";
+	print $content, "\n";
     } else {
+	# Make sure the response was a perl object.  If it isn't, then
+	# reformat it into an error object
+	$content =~ s%^[^\$]*\$VAR1%\$VAR1%s; # get rid of stuff before $VAR1
+	no strict 'vars';
+	my $obj = eval($content);
+	if ($@) {
+	    $obj = { 'error' => "Server responded with non-perl data:\n$content"};
+	}
+
       # The user wants a human readable report, call CLI backend methods to make a report
       if (exists $obj->{error}) {
 	die "Error from server: ",$obj->{error}, "\n";
