@@ -81,6 +81,11 @@ sub invoke
       return;
   }
 
+  if (!$call) {
+      &xml_error("API call was not defined.  Correct URL format is /FORMAT/INSTANCE/CALL?OPTIONS");
+      return;
+  }
+
   my $http_now = &formatTime(&mytimeofday(), 'http');
 
   # Get the query string variables
@@ -119,7 +124,8 @@ sub invoke
   my %cache_headers;
   unless (param('nocache')) {
       # getCacheDuration needs re-implementing.
-      my $duration = $core->getCacheDuration($call) || 300;
+      my $duration = $core->getCacheDuration();
+      $duration = 300 if !defined $duration;
       %cache_headers = (-Cache_Control => "max-age=$duration",
 		        -Date => $http_now,
 		        -Last_Modified => $http_now,
@@ -128,7 +134,7 @@ sub invoke
   }
 
   print header(-type => $type, %cache_headers );
-  return $core->call($call, $format, %args);
+  return $core->call($format, %args);
 }
 
 # For printing errors before we know what the error format should be
