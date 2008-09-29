@@ -70,7 +70,7 @@ sub auth_nodes
     # Check that we know about the ability
     my @abilities;
     foreach my $a (keys %$authz) {
-	if ($a eq '*' || $a eq $ability) {
+	if ($a eq '*' || (defined $ability && $a eq $ability)) {
 	    push @abilities, @{$authz->{$a}};
 	}
     }
