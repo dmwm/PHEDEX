@@ -112,9 +112,9 @@ before starting the subcommand arguments.
 
 E.g.
 
-$0 inject --node T1_XY_Buffer --verbose --help
-$0 --verbose -- inject --node T1_XY_Buffer
-$0 --verbose -- inject --node T1_XY_Buffer -- inject --node T2_PQ_Buffer
+$me inject --node T1_XY_Buffer --verbose --help
+$me --verbose -- inject --node T1_XY_Buffer
+$me --verbose -- inject --node T1_XY_Buffer -- inject --node T2_PQ_Buffer
 
  Multiple commands in a single execution still results in multiple
  requests to the server, and they are fully independent.
