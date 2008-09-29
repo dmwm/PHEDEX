@@ -7,7 +7,7 @@ use PHEDEX::Core::Loader;
 use Getopt::Long;
 use Data::Dumper;
 my ($url,$response,$help,$verbose,$quiet,$action,$Action,$fakeagent,$service);
-my ($instance,$format,$call,$method,$test_cert,$ref,$timeout,$paranoid);
+my ($instance,$format,$method,$test_cert,$ref,$timeout,$paranoid);
 my ($proxy,$debug,$cert_file,$key_file,$ca_file,$ca_dir,$nocert,$h,@env);
 my ($default_service);
 
@@ -17,7 +17,6 @@ $me =~ s:.*/::;
 $url = 'http://cmsweb.cern.ch/phedex/datasvc';
 $instance = 'tbedi';
 $format   = 'xml';
-$call     = 'getAuth';
 $method   = 'post';
 $default_service = 'PHEDEX::Web::DataService';
 $help = $verbose = $debug = $quiet = 0;
@@ -25,9 +24,8 @@ $nocert = $test_cert = $timeout = $paranoid = $fakeagent = 0;
 
 my $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::CLI' );
 my @commands = map { lc $_ } values %{ $loader->Commands() };
-my @args = separateArgs(@commands);
-my $global_args = shift @args; # global options come first
-@ARGV = @{ $global_args };
+
+Getopt::Long::Configure('require_order');
 GetOptions
     ( 	 'help'		=> \$help,
 	 'verbose!'	=> \$verbose,
@@ -51,8 +49,6 @@ GetOptions
 	 'service=s'	=> \$service,
 	 'env=s@'	=> \@env,
 	);
-
-print "global ARGV:  ", join(' ', @$global_args), "\n" if $debug;
 
 foreach ( @env )
 {
@@ -172,11 +168,9 @@ if ( $test_cert )
 }
 
 my (@responses);
-foreach my $arglist (@args)
+while (@ARGV)
 {
-  my $command = shift @$arglist; # first item is the command name
-  @ARGV = @$arglist;             # the rest are the arguments
-
+  my $command = shift @ARGV;
   print "ARGV to '$command':  ", join(' ', @ARGV), "\n" if $debug;
 
   my $commands = $loader->Commands();
@@ -232,39 +226,6 @@ foreach my $arglist (@args)
     print Data::Dumper->Dump([ $pua, $cli, $response ],[ 'UserAgent', 'CLI', 'Response' ]);
     die "exiting after failure\n";
   }
-}
-
-# parses ARGV, delimiting commands by '--'
-# return array of arrayrefs [ ['arg1', 'arg2'], ['command1', 'arg1', 'arg2' ], ...]
-# first list is the global arguments
-# the following lists contain the command name and that command's arguments
-sub separateArgs()
-{
-    my @commands = @_;
-    my @args;
-    my $scope_argv = [];
-    push @args, $scope_argv;
-    foreach my $arg (@ARGV) {
-	if ($arg eq '--') {
-	    # start a new scope
-	    $scope_argv = [];
-	    push @args, $scope_argv;
-	    next;
-	}
-	push @$scope_argv, $arg;
-    }
-
-    # check commands
-    my $is_first = 1;
-    foreach my $scope_argv (@args) {
-	if ($is_first) { $is_first = 0; next; }
-	my $cmd = $scope_argv->[0];
-	unless (grep $cmd eq $_, @commands) {
-	    die "command '$cmd' is not a known command, use -h for help\n";
-	}
-    }
-
-    return @args;
 }
 
 exit 0;
