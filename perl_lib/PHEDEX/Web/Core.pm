@@ -155,7 +155,7 @@ sub DESTROY
 
 sub call
 {
-    my ($self, $call, $format, %args) = @_;
+    my ($self, $format, %args) = @_;
     no strict 'refs';
 
     # check the format argument then remove it
@@ -164,17 +164,12 @@ sub call
 	return;
     }
 
-    if (!$call) {
-	&PHEDEX::Web::Format::error(*STDOUT, $format, "No API call provided.  Check the URL");
-	return;
-    }
-
     my ($t1,$t2);
 
     $t1 = &mytimeofday();
     &process_args(\%args);
 
-    my $obj = $self->getData($call, %args);
+    my $obj = $self->getData($self->{CALL}, %args);
     my $stdout = '';
     if ( ! $obj )
     {
@@ -186,7 +181,7 @@ sub call
 	    $self->initSecurity();
 	}
 
-	# capture STDOUT of $call
+	# capture STDOUT of $self->{CALL}
         open (local *STDOUT,'>',\$stdout);
         my $invoke = $api . '::invoke';
 
@@ -194,13 +189,13 @@ sub call
         $obj = $invoke->($self, %args);
       };
       if ($@) {
-          &PHEDEX::Web::Format::error(*STDOUT, $format, "Error when making call '$call':  $@");
+          &PHEDEX::Web::Format::error(*STDOUT, $format, "Error when making call '$self->{CALL}':  $@");
 	  return;
       }
       $t2 = &mytimeofday();
-      warn "api call '$call' complete in ", sprintf('%.6f s',$t2-$t1), "\n" if $self->{DEBUG};
+      warn "api call '$self->{CALL}' complete in ", sprintf('%.6f s',$t2-$t1), "\n" if $self->{DEBUG};
       my $duration = $self->getCacheDuration() || 0;
-      $self->{CACHE}->set( $call, \%args, $obj, $duration ); # unless $args{nocache};
+      $self->{CACHE}->set( $self->{CALL}, \%args, $obj, $duration ); # unless $args{nocache};
     }
 
     # wrap the object in a 'phedex' element with useful metadata
@@ -208,7 +203,7 @@ sub call
     $obj->{instance} = $self->{INSTANCE};
     $obj->{request_version} = $self->{VERSION};
     $obj->{request_url} = $self->{REQUEST_URL};
-    $obj->{request_call} = $call;
+    $obj->{request_call} = $self->{CALL};
     $obj->{request_timestamp} = $self->{REQUEST_TIME};
     $obj->{request_date} = &formatTime($self->{REQUEST_TIME}, 'stamp');
     $obj->{call_time} = sprintf('%.5f', $t2 - $t1);
@@ -217,7 +212,7 @@ sub call
     $t1 = &mytimeofday();
     &PHEDEX::Web::Format::output(*STDOUT, $format, $obj);
     $t2 = &mytimeofday();
-    warn "api call '$call' delivered in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
+    warn "api call '$self->{CALL}' delivered in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
 
     return $obj;
 }
