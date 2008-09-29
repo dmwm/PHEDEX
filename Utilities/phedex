@@ -15,7 +15,7 @@ my ($default_service);
 my $me = $0;
 $me =~ s:.*/::;
 
-$url = 'https://cmsweb.cern.ch/phedex/datasvc';
+$url = 'http://cmsweb.cern.ch/phedex/datasvc';
 $instance = 'tbedi';
 $format   = 'xml';
 $call     = 'getAuth';
@@ -105,14 +105,19 @@ sub usage
 
  --debug, --verbose, and --help are obvious
 
- Multiple commands can also be given in a single call.  This results
- in multiple requests to the server, and they are fully independant.
+ Multiple commands can be given in a single call, the arguments for
+each command are kept separate by the '--' pseudo-option. If you
+specify global options, you must also use '--' to denote their end,
+before starting the subcommand arguments.
 
 E.g.
 
-$me inject --node T1_XY_Buffer --verbose --help
-$me --verbose inject --node T1_XY_Buffer
-$me --verbose inject --node T1_XY_Buffer inject --node T2_PQ_Buffer
+$0 inject --node T1_XY_Buffer --verbose --help
+$0 --verbose -- inject --node T1_XY_Buffer
+$0 --verbose -- inject --node T1_XY_Buffer -- inject --node T2_PQ_Buffer
+
+ Multiple commands in a single execution still results in multiple
+ requests to the server, and they are fully independent.
 
 EOF
 
@@ -231,6 +236,7 @@ foreach my $arglist (@args)
   }
 }
 
+# parses ARGV, delimiting commands by '--'
 # return array of arrayrefs [ ['arg1', 'arg2'], ['command1', 'arg1', 'arg2' ], ...]
 # first list is the global arguments
 # the following lists contain the command name and that command's arguments
@@ -241,12 +247,23 @@ sub separateArgs()
     my $scope_argv = [];
     push @args, $scope_argv;
     foreach my $arg (@ARGV) {
-	if (grep ($arg eq $_, @commands)) {
+	if ($arg eq '--') {
 	    # start a new scope
 	    $scope_argv = [];
 	    push @args, $scope_argv;
+	    next;
 	}
 	push @$scope_argv, $arg;
+    }
+
+    # check commands
+    my $is_first = 1;
+    foreach my $scope_argv (@args) {
+	if ($is_first) { $is_first = 0; next; }
+	my $cmd = $scope_argv->[0];
+	unless (grep $cmd eq $_, @commands) {
+	    die "command '$cmd' is not a known command, use -h for help\n";
+	}
     }
 
     return @args;
