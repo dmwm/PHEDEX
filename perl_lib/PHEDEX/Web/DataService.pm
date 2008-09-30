@@ -117,7 +117,7 @@ sub invoke
 				    );
   };
   if ($@) {
-      &xml_error("failed to initialize data service API '$call'");
+      &xml_error("failed to initialize data service API '$call':  $@");
       return;
   }
 
@@ -161,7 +161,7 @@ sub print_doc
     # command and print it, but intercept it and add extra stuff at the appropriate point.
     # I also need to check that I am setting the correct relative link for the modules.
     @lines = `perldoc -m $module |
-                pod2html --header -css http://cern.ch/wildish/PHEDEX/phedex_pod.css`;
+                pod2html --header -css /phedex/datasvc/static/phedex_pod.css`;
 
     my ($commands,$count);
     $count = 0;
