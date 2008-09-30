@@ -57,7 +57,12 @@ EOF
 sub Payload
 {
   my $self = shift;
-  my %payload = @ARGV;
+  my @args;
+  while (my $arg = shift @ARGV) {
+      last if $arg eq '--';
+      push @args, $arg;
+  }
+  my %payload = @args;
   print __PACKAGE__," created payload\n" if $self->{VERBOSE};
   return $self->{PAYLOAD} = \%payload;
 }
