@@ -189,6 +189,7 @@ sub Run
   $self->{wheels}{$wheel}{cmd}      = $str;
   $self->{wheels}{$wheel}{start}    = time;
   push @{$self->{wheels}{$wheel}{result}{INFO}}, $logsafe_cmd . "\n";
+  $self->Logmsg("GLite:: wheel=$wheel, cmd=$logsafe_cmd") if $self->{DEBUG};
   return $wheel;
 }
 
@@ -398,6 +399,7 @@ set the priority accordingly in FTS.
 
 sub SetPriority
 {
+die "Shouldn't be here!\n";
   my ($self,$job) = @_;
   my ($priority,@raw,%result);
   return unless $priority = $job->Priority;
@@ -495,6 +497,7 @@ sub _child_stderr {
 sub _child_done {
   my ( $self, $args ) = @_[ 0 , 1 ];
   my $wheel = $self->{caller}{wheels}{$args->{wheel}};
+# $self->{caller}->Logmsg("GLite:: wheel=",$args->{wheel}," is done") if $self->{DEBUG};
 
 # Some monitoring...
   my $duration = time - $wheel->{start};
@@ -502,39 +505,45 @@ sub _child_done {
 
   my $postback = $wheel->{postback};
   my $result = Parse( $self->{caller}, $wheel );
-  $result->{DURATION} = $duration;
   if ( defined($wheel->{postback}) )
   {
+    $result->{DURATION} = $duration;
     $wheel->{postback}->( $result, $wheel );
-    return;
   }
-
-  $result = $wheel->{result} unless defined($result);
-  if ( $result && defined($wheel->{arg}) )
+  else
   {
-    my ($job,$str,$k);
-    $job = $wheel->{arg};
-    $str = uc $wheel->{parse};
-    foreach $k ( keys %{$result} )
+    $result = $wheel->{result} unless defined($result);
+    $result->{DURATION} = $duration;
+    if ( $result && defined($wheel->{arg}) )
     {
-      if ( ref($result->{$k}) eq 'ARRAY' )
+      my ($job,$str,$k);
+      $job = $wheel->{arg};
+      $str = uc $wheel->{parse};
+      foreach $k ( keys %{$result} )
       {
-        $job->Log(map { "$str: $k: $_" } @{$result->{$k}});
-      }
-      else
-      {
-        $job->Log("$str: $k: $result->{$k}");
+        if ( ref($result->{$k}) eq 'ARRAY' )
+        {
+          $job->Log(map { "$str: $k: $_" } @{$result->{$k}});
+        }
+        else
+        {
+          $job->Log("$str: $k: $result->{$k}");
+        }
       }
     }
   }
 
 # cleanup...
+#  print "GLite:: Deleting wheel=",$args->{wheel}," leaving ",
+#	scalar keys %{$self->{caller}{wheels}}," wheels in existance (ids: ",
+#	join(' ',sort { $a <=> $b } keys %{$self->{caller}{wheels}}), ")\n";
   delete $self->{caller}{wheels}{$args->{wheel}};
 }
 
 sub _child_died {
   my ( $self, $args ) = @_[ 0 , 1 ];
   my $wheel = $self->{caller}{wheels}{$args->{wheel}};
+# $self->{caller}->Logmsg("GLite:: wheel=",$args->{wheel}," has died") if $self->{DEBUG};
   $args->{out} ||= '';
   chomp $args->{out};
   my $text = 'child_died: [' . $args->{rc} . '] ' . $args->{out};
