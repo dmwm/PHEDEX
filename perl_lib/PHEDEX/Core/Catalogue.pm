@@ -173,8 +173,10 @@ sub applyStorageRules
 	my $name = $givenname;
 
 	# take care of custodial flag
-        my $r_custodial = $$rule{'is-custodial'}?$$rule{'is-custodial'}:"n";
-	next if ($custodial ne $r_custodial);
+        #
+        # if is-custodial is undefined, it matches any $custodial value
+        # if is-custodial is defined, it has to match $custodial
+        next if ($$rule{'is-custodial'} && ($$rule{'is-custodial'} ne $custodial));
 
 	next if (defined $$rule{'destination-match'}
 		 && $dest !~ m!$$rule{'destination-match'}!);
@@ -222,13 +224,13 @@ sub dbStorageRules
         $$cats{$node} = {};
 
         my $q = &dbexec($dbh, qq{
-	    select protocol, chain, destination_match, path_match, result_expr
+	    select protocol, chain, destination_match, path_match, result_expr, custodial, space_token
 	    from t_xfer_catalogue
 	    where node = :node and rule_type = 'lfn-to-pfn'
 	    order by rule_index asc},
 	    ":node" => $node);
 
-        while (my ($proto, $chain, $dest, $path, $result) = $q->fetchrow())
+        while (my ($proto, $chain, $dest, $path, $result, $custodial, $space_token) = $q->fetchrow())
         {
 	    # Check the pattern is valid.  If not, abort.
             my $pathrx = eval { qr/$path/ };
@@ -247,6 +249,8 @@ sub dbStorageRules
 	    push(@{$$cats{$node}{$proto}}, {
 		    (defined $chain ? ('chain' => $chain) : ()),
 		    (defined $dest ? ('destination-match' => $destrx) : ()),
+                    (defined $custodial ? ('is-custodial' => $custodial) : ()),
+                    (defined $space_token ? ('space-token' => $space_token) : ()),
 		    'path-match' => $pathrx,
 		    'result' => eval "sub { \$_[0] =~ s!\$_[1]!$result! }" });
         }
