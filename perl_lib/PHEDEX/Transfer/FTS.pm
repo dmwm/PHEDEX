@@ -73,6 +73,11 @@ sub new
       $dump =~ s%$password%_censored_%g if $password;
       $self->Dbgmsg('FTS $self:  ', $dump) if $self->{DEBUG};
     }
+
+#   Enhanced debugging!
+    PHEDEX::Monitoring::Process::MonitorSize('FTS',\$self);
+    PHEDEX::Monitoring::Process::MonitorSize('QMon',\$self->{FTS_Q_MONITOR});
+    PHEDEX::Monitoring::Process::MonitorSize('GLite',\$self->{FTS_Q_MONITOR}{Q_INTERFACE});
     return $self;
 }
 
