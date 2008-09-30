@@ -1683,10 +1683,16 @@ sub _make_stats
 
   $summary = 'AGENT_STATISTICS ';
   $summary .= $pmon->FormatStats($pmon->ReadProcessStats);
-# $summary .= ' ' . $pmon->FormatStates;
+
+# If the user explicitly loaded the Devel::Size module, report the size of this agent
+  my $size;
+  if ( $size = PHEDEX::Monitoring::Process::total_size($self) )
+  { $summary .= " Sizeof($self->{ME})=$size"; }
+  if ( $size = PHEDEX::Monitoring::Process::TotalSizes() )
+  { $summary .= " $size"; }
+  $summary .= "\n";
+
   $self->Logmsg($summary);
-
-
   $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
 }
 
