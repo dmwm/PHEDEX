@@ -37,13 +37,14 @@ PHEDEX_DEBUGGER="perl -MPHEDEX::Debug -d"
  -db     ${PHEDEX_DBPARAM}
  -node   ${PHEDEX_NODE}
  -config ${PHEDEX_CONFIG_FILE}
-  STATISTICS_INTERVAL 300
+  STATISTICS_INTERVAL 60
   STATISTICS_DETAIL 1
   NOTIFICATION_HOST pctony.cern.ch
   NOTIFICATION_PORT 1234
  -agent  fast-agent
  -agent  medium-agent
  -agent  slow-agent
+ --memuse
 # -agent  blockverify
 
 ### AGENT LABEL=fast-agent PROGRAM=template::Agent DEFAULT=off
