@@ -389,96 +389,96 @@ sub StatePriority
   die "Unknown state \"$state\" encountered in ",__PACKAGE__,"\n";
 }
 
-=head2 SetPriority
-
-Take a PHEDEX::Transfer::Backend::Job object reference as input, and, if
-the job is specified to run at a different priority to the glite default,
-set the priority accordingly in FTS.
-
-=cut
-
-sub SetPriority
-{
-die "Shouldn't be here!\n";
-  my ($self,$job) = @_;
-  my ($priority,@raw,%result);
-  return unless $priority = $job->Priority;
-  return if $priority == $self->{PRIORITY}; # Save an interaction with the server
-
-  my $cmd = "glite-transfer-setpriority";
-  if ( $job->Service ) { $cmd .= ' -s ' . $job->Service; }
-  $cmd .= ' ' . $job->ID . ' ' . $priority;
-  print $self->Hdr,"Execute: $cmd\n";
-  $result{CMD} = $cmd;
-  open GLITE, "$cmd 2>&1 |" or die "$cmd: $!\n";
-  while ( <GLITE> )
-  {
-    push @raw, $_;
-  }
-  close GLITE or do
-  {
-      print $self->Hdr,"close: $cmd: $!\n";
-      push @{$result{ERROR}}, 'close SetPriority: id=' . $job->ID . ' ' . $!;
-  };
-  $result{RAW_OUTPUT} = \@raw;
-  return \%result;
-}
-
-=head2 Submit
-
-Take a PHEDEX::Transfer::Backend::Job object reference as input, submit the
-job, and return a hashref with the resulting job ID. Returns a hashref keyed
-on 'ERROR' if something goes wrong. The ID returned in the result is then used
-when polling for the status of this job.
-
-=cut
-
-sub Submit
-{
-die "Shouldn't be here!\n";
-  my ($self,$job) = @_;
-  my (%result,@raw,$id);
-
-  defined $job->COPYJOB or do
-  {
-    push @{$result{ERROR}}, 'Submit: No copyjob given for job ' . $job->ID;
-    return \%result;
-  };
-
-  my $cmd = "glite-transfer-submit". 
-      ' -s ' . $job->Service .
-      ((defined $self->MYPROXY)    ? ' -m '.$self->MYPROXY    : "") .
-      ((defined $self->PASSWORD)   ? ' -p '.$self->PASSWORD   : "") .
-      ((defined $self->SPACETOKEN) ? ' -t '.$self->SPACETOKEN : "") .
-      ' -f ' . $job->Copyjob;
-
-  my $logsafe_cmd = $cmd;
-  $logsafe_cmd =~ s/ -p [\S]+/ -p _censored_/;
-  push @{$result{INFO}}, $logsafe_cmd . "\n";
-
-  open GLITE, "$cmd 2>&1 |" or die "$logsafe_cmd: $!\n";
-  while ( <GLITE> )
-  {
-    push @raw, $_;
-    chomp;
-    m%^([0-9,a-f,-]+)\s*$% or next;
-    $id = $_ unless $id;
-  }
-  $result{RAW_OUTPUT} = \@raw;
-  close GLITE or do
-  {
-      print $self->Hdr,"close: $logsafe_cmd: $!\n";
-      push @{$result{ERROR}}, 'close Submit: JOBID=' . ( $id || 'undefined' ) . $!;
-      return \%result;
-  };
-  print $self->Hdr,"JOBID=$id submitted...\n";
-  $result{ID} = $id;
-  $job->ID($id);
-
-  $result{SETPRIORITY} = $self->SetPriority($job);
-
-  return \%result;
-}
+#=head2 SetPriority
+#
+#Take a PHEDEX::Transfer::Backend::Job object reference as input, and, if
+#the job is specified to run at a different priority to the glite default,
+#set the priority accordingly in FTS.
+#
+#=cut
+#
+#sub SetPriority
+#{
+#die "Shouldn't be here!\n";
+#  my ($self,$job) = @_;
+#  my ($priority,@raw,%result);
+#  return unless $priority = $job->Priority;
+#  return if $priority == $self->{PRIORITY}; # Save an interaction with the server
+#
+#  my $cmd = "glite-transfer-setpriority";
+#  if ( $job->Service ) { $cmd .= ' -s ' . $job->Service; }
+#  $cmd .= ' ' . $job->ID . ' ' . $priority;
+#  print $self->Hdr,"Execute: $cmd\n";
+#  $result{CMD} = $cmd;
+#  open GLITE, "$cmd 2>&1 |" or die "$cmd: $!\n";
+#  while ( <GLITE> )
+#  {
+#    push @raw, $_;
+#  }
+#  close GLITE or do
+#  {
+#      print $self->Hdr,"close: $cmd: $!\n";
+#      push @{$result{ERROR}}, 'close SetPriority: id=' . $job->ID . ' ' . $!;
+#  };
+#  $result{RAW_OUTPUT} = \@raw;
+#  return \%result;
+#}
+#
+#=head2 Submit
+#
+#Take a PHEDEX::Transfer::Backend::Job object reference as input, submit the
+#job, and return a hashref with the resulting job ID. Returns a hashref keyed
+#on 'ERROR' if something goes wrong. The ID returned in the result is then used
+#when polling for the status of this job.
+#
+#=cut
+#
+#sub Submit
+#{
+#die "Shouldn't be here!\n";
+#  my ($self,$job) = @_;
+#  my (%result,@raw,$id);
+#
+#  defined $job->COPYJOB or do
+#  {
+#    push @{$result{ERROR}}, 'Submit: No copyjob given for job ' . $job->ID;
+#    return \%result;
+#  };
+#
+#  my $cmd = "glite-transfer-submit". 
+#      ' -s ' . $job->Service .
+#      ((defined $self->MYPROXY)    ? ' -m '.$self->MYPROXY    : "") .
+#      ((defined $self->PASSWORD)   ? ' -p '.$self->PASSWORD   : "") .
+#      ((defined $self->SPACETOKEN) ? ' -t '.$self->SPACETOKEN : "") .
+#      ' -f ' . $job->Copyjob;
+#
+#  my $logsafe_cmd = $cmd;
+#  $logsafe_cmd =~ s/ -p [\S]+/ -p _censored_/;
+#  push @{$result{INFO}}, $logsafe_cmd . "\n";
+#
+#  open GLITE, "$cmd 2>&1 |" or die "$logsafe_cmd: $!\n";
+#  while ( <GLITE> )
+#  {
+#    push @raw, $_;
+#    chomp;
+#    m%^([0-9,a-f,-]+)\s*$% or next;
+#    $id = $_ unless $id;
+#  }
+#  $result{RAW_OUTPUT} = \@raw;
+#  close GLITE or do
+#  {
+#      print $self->Hdr,"close: $logsafe_cmd: $!\n";
+#      push @{$result{ERROR}}, 'close Submit: JOBID=' . ( $id || 'undefined' ) . $!;
+#      return \%result;
+#  };
+#  print $self->Hdr,"JOBID=$id submitted...\n";
+#  $result{ID} = $id;
+#  $job->ID($id);
+#
+#  $result{SETPRIORITY} = $self->SetPriority($job);
+#
+#  return \%result;
+#}
 
 # methods for the POE::Component::Child object
 sub _child_stdout {
