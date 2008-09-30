@@ -417,6 +417,7 @@ sub timeout_TERM
 {
   my ( $self, $kernel, $wheelid ) = @_[ OBJECT, KERNEL, ARG0 ];
   my ($wheel,$cmd,$id);
+  return unless defined($self->{Q_INTERFACE}{wheels}{$wheelid});
   $wheel = $self->{Q_INTERFACE}{_child}->wheel($wheelid);
   $cmd = $self->{Q_INTERFACE}{wheels}{$wheelid}{cmd};
   if ( defined($id=$self->{Q_INTERFACE}{wheels}{$wheelid}{arg}{ID}) )
@@ -425,7 +426,7 @@ sub timeout_TERM
   {
     print $self->Hdr,"TERMinating wheel $wheelid, ($cmd) after $self->{Q_TIMEOUT} seconds\n";
     $kernel->delay_set('timeout_KILL',10,$wheelid);
-    $self->{Q_INTERFACE}->{wheels}->{$wheelid}->{RAW_OUTPUT} = [];
+#   $self->{Q_INTERFACE}->{wheels}->{$wheelid}->{RAW_OUTPUT} = [];
     push @{$self->{Q_INTERFACE}->{wheels}->{$wheelid}->{ERROR}}, 'TERMinated by ' . $self->ME;
     $wheel->kill;
   }
@@ -435,6 +436,7 @@ sub timeout_KILL
 {
   my ( $self, $kernel, $wheelid ) = @_[ OBJECT, KERNEL, ARG0 ];
   my ($wheel,$cmd,$id);
+  return unless defined($self->{Q_INTERFACE}{wheels}{$wheelid});
   $wheel = $self->{Q_INTERFACE}->{_child}->wheel($wheelid);
   $cmd = $self->{Q_INTERFACE}{wheels}{$wheelid}{cmd};
   if ( defined($id=$self->{Q_INTERFACE}{wheels}{$wheelid}{arg}{ID}) )
