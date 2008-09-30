@@ -141,4 +141,31 @@ sub FormatStates
   return $l;
 }
 
+sub MonitorSize
+{
+  my ($name,$ref) = @_;
+# Check the Devel::Size module is loaded!
+  return unless exists $INC{'Devel/Size.pm'};
+  if ( $ref ) { $PHEDEX::Monitoring::Process::_sizes{$name} = $ref; }
+  else        { delete $PHEDEX::Monitoring::Process::_sizes{$name}; }
+}
+
+sub TotalSizes
+{
+  my $str;
+  return unless defined(%PHEDEX::Monitoring::Process::_sizes);
+  $str = join(' ',
+         map { "Sizeof($_)=" . total_size($PHEDEX::Monitoring::Process::_sizes{$_}) }
+         sort keys %PHEDEX::Monitoring::Process::_sizes );
+  return $str;
+}
+
+sub total_size
+{
+  my $item = shift;
+# Check the Devel::Size module is loaded!
+  return undef unless exists $INC{'Devel/Size.pm'};
+  return Devel::Size::total_size($item);
+}
+
 1;
