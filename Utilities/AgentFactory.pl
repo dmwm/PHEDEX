@@ -23,6 +23,7 @@ use PHEDEX::Core::Config::Factory;
              "node=s"    => \$args{MYNODE},
 	     "help|h"    => sub { &usage() },
 	     "agent=s@"  => sub { push(@{$args{AGENTS}}, split(/,/, $_[1])) },
+	     "memuse"	 => sub { eval "use Devel::Size"; },
 	     );
 
 $Factory = PHEDEX::Core::Config::Factory->new( %args, @ARGV );
