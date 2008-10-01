@@ -2981,11 +2981,16 @@ our $INDEX = { LIST => 1, ORDER => 5, TITLE => "Support Tracker",
 	       LINK_TITLE => "Support Tracker" };
 1;
 
-
 package Web25::Info::Developers; use strict; use warnings; use base "Exporter";
 our $INDEX = { LIST => 1, ORDER => 6, TITLE => "Developers",
 	       LINK => "developers.html",
 	       LINK_TITLE => "Developer info" };
+1;
+
+package Web25::Info::Datasvc; use strict; use warnings; use base "Exporter";
+our $INDEX = { LIST => 1, ORDER =>7, TITLE => "Data Service",
+	       LINK => "http://cmsweb.cern.ch/phedex/datasvc/doc",
+	       LINK_TITLE => "Data Service" };
 1;
 
 ######################################################################
