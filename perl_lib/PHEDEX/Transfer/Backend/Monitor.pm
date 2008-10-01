@@ -41,7 +41,7 @@ our %params =
 	(
 	  Q_INTERFACE		=> undef, # A transfer queue interface object
 	  Q_INTERVAL		=> 60,	  # Queue polling interval
-	  Q_TIMEOUT		=> 600,	  # Timeout for Q_INTERFACE commands
+	  Q_TIMEOUT		=> 60,	  # Timeout for Q_INTERFACE commands
 	  J_INTERVAL		=>  5,	  # Job polling interval
 	  POLL_QUEUE		=>  0,	  # Poll the queue or not?
 	  ME			=> 'QMon',# Arbitrary name for this object
@@ -78,7 +78,6 @@ sub new
       } keys %ro_params;
 
   $self->{QUEUE} = POE::Queue::Array->new();
-# $self->{JOBS} = {};
   bless $self, $class;
 
   POE::Session->create
@@ -95,11 +94,8 @@ sub new
 	      timeout_KILL		=> 'timeout_KILL',
 	      report_job		=> 'report_job',
 	      report_statistics		=> 'report_statistics',
-#	      cleanup_job_stats 	=> 'cleanup_job_stats',
-#	      cleanup_file_stats 	=> 'cleanup_file_stats',
 	      forget_job    		=> 'forget_job',
 	      shoot_myself		=> 'shoot_myself',
-	      sanity_check		=> 'sanity_check',
 
 	      _default	 => '_default',
 	      _stop	 => '_stop',
@@ -179,7 +175,6 @@ sub _start
   $kernel->delay_set('poll_job',$self->{J_INTERVAL})
 	if $self->{Q_INTERFACE}->can('ListJob');
   $kernel->yield('report_statistics') if $self->{STATISTICS_INTERVAL};
-# $kernel->yield('sanity_check');
 }
 
 sub _child {}
@@ -449,71 +444,6 @@ sub timeout_KILL
   }
 }
 
-sub sanity_check
-{
-  my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
-  my $sanity_timeout = $self->{J_INTERVAL}*10;
-
-# Check consistency of queue and internal memory
-  my %h;
-
-  my @mjobs = keys %{$self->{WORKSTATS}{JOBS}{STATES}};
-  foreach ( @mjobs ) { $h{$_}++; }
-
-  my @qjobs = map { $_->[2] } $self->{QUEUE}->peek_items( sub{1} );
-  if ( $self->{DEBUG} )
-  {
-    $self->Logmsg('SANITY: in-memory jobs = ',join(' ',sort @mjobs));
-    $self->Logmsg('SANITY: queued jobs    = ',join(' ',sort map { $_->ID } @qjobs));
-    $self->Logmsg('SANITY: exited jobs    = ',join(' ',sort @{$self->{EXITED_JOBS}}))
-	if $self->{EXITED_JOBS};
-  }
-
-  if ( $self->{EXITED_JOBS} )
-  {
-    foreach ( @{$self->{EXITED_JOBS}} )
-    {
-      delete $h{$_} if exists $h{$_};
-    }
-    undef $self->{EXITED_JOBS};
-  }
-  foreach ( @qjobs )
-  {
-    my $id = $_->ID;
-    delete $h{$id} if exists $h{$id};
-  }
-  foreach ( keys %h )
-  {
-    $self->Warn("Orphaned job ID=$_");
-    print Data::Dumper->Dump( [ $self->{QUEUE} ], [ qw / POE::Queue::Array / ] );
-#   delete $self->{WORKSTATS}{JOBS}{STATES}{$_};
-    my $job = $self->{JOBS}{$_};
-    if ( $job )
-    {
-      $job->State('lost');
-      foreach ( values %{$job->Files} )
-      {
-        $self->Warn("Orphaned file: jobID=",$job->ID," TaskID=",($_->TaskID or '')," Destination=",$_->Destination);
-        $_->State('lost');
-      }
-      $kernel->yield('report_job',$job);
-    }
-  }
-
-  if ( @qjobs && defined($self->{LAST_SUCCESSFULL_POLL}) )
-  {
-    my $last_poll = time-$self->{LAST_SUCCESSFULL_POLL};
-    if ( $last_poll > $sanity_timeout )
-    {
-      print $self->Hdr,"No successfull queue- or job-poll in ",
-            time-$self->{LAST_SUCCESSFULL_POLL},
-            " seconds\n";
-    }
-  }
-
-  $kernel->delay_set('sanity_check', $self->{SANITY_INTERVAL});
-}
-
 sub report_job
 {
   my ( $self, $kernel, $job ) = @_[ OBJECT, KERNEL, ARG0 ];
@@ -557,8 +487,6 @@ sub cleanup_job_stats
   foreach ( values %{$job->Files} )
   {
     $self->cleanup_file_stats($_);
-#   delete $self->{WORKSTATS}{FILES}{STATES}{$_->Destination};
-#   delete $self->{LINKSTATS}{$_->Destination};
   }
 }
 
