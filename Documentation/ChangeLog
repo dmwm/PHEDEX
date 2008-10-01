@@ -1,3 +1,38 @@
+* Changes in PhEDEx 3.0.6
+
+Changes For All Agents
+ - process statistics now included in all agents, allows to spot memory leaks
+   etc. Interval for reporting statistics controlled by STATISTICS_INTERVAL,
+   detail of statistics controlled by STATISTICS_DETAIL. Look for
+   AGENT_STATISTICS in your logfiles.
+
+Changes for Site Agents
+ - FileDownload agent bugfixes...
+  - for 'agent lost the transfer'. The short story is that switching to
+    anynchronous glite-* commands was not fully debugged in 3.0.4, and now
+    it is. Hopefully.
+  - debug printout of the agent-dump at the beginning of the job did not
+    censor the FTS password (which had been read from disk by the time the
+    dump was made). Now it is properly censored. General advice, don't give
+    your logfiles to anyone you don't trust!
+  - pre-delete hook now restored, as it was in the 2.x series of PhEDEx.
+  - submission errors are now correctly reported, instead of being mangled.
+  - debug printout streamlined to make future problem-solving a little easier
+  - new backend option, '--job-awol', takes an integer number of seconds. If
+    the monitoring is unable to determine the status of a job after this length
+    of time, the job is abandoned. This is _not_ a timeout on the glite-status
+    command, it's a total time period for which successful monitoring of a
+    given job has failed, however often that may be. Set to zero (inactive) by
+    default, it should be set high (3600?) to start with if you want to get
+    experience with it.
+  - per-glite-command options can now be passed in the configuration file. Eg:
+    -glite-options Submit='options to glite-submit'.
+
+Changes for Tools
+ - Utilities/phedex packaged for the first time, along with the PHEDEX::CLI
+   modules it relies on. This is the PhEDEx command-line tool, not yet
+   intended for general use, but we need to learn how to package it.
+
 * Changes in PhEDEx 3.0.5
 
 Changes For All Agents
