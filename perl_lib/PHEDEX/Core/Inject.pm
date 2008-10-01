@@ -242,11 +242,11 @@ sub injectData
     # inject everything we need to
     my %stats;
     print "inserting data.\n" if $verbose;
-    $stats{'new_datasets'} = &bulkCreateDatasets($self, $new_datasets, TIME_CREATE => $now);
-    $stats{'new_blocks'} = &bulkCreateBlocks($self, $new_blocks, TIME_CREATE => $now);
-    $stats{'new_files'} = &bulkCreateFiles($self, $new_files, TIME_CREATE => $now, NO_ID => 1);
-    $stats{'closed_datasets'} = &bulkCloseDatasets($self, $close_datasets, TIME_UPDATE => $now);
-    $stats{'closed_blocks'} = &bulkCloseBlocks($self, $close_blocks, TIME_UPDATE => $now);
+    $stats{'new datasets'} = &bulkCreateDatasets($self, $new_datasets, TIME_CREATE => $now);
+    $stats{'new blocks'} = &bulkCreateBlocks($self, $new_blocks, TIME_CREATE => $now);
+    $stats{'new files'} = &bulkCreateFiles($self, $new_files, TIME_CREATE => $now, NO_ID => 1);
+    $stats{'closed datasets'} = &bulkCloseDatasets($self, $close_datasets, TIME_UPDATE => $now);
+    $stats{'closed blocks'} = &bulkCloseBlocks($self, $close_blocks, TIME_UPDATE => $now);
 
     return \%stats;
 }

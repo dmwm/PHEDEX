@@ -49,7 +49,7 @@ die "Need one of VSize, RSS, Utime, Stime\n"
 
 if ( $log )
 {
-  print "I am forking into the background, writing to $log. Byee!\n";
+  print "I am forking into the background, writihg to $log. Byee!\n";
 
 # Cribbed from PHEDEX::Core::Agent::daemon
   my $pid;
@@ -149,7 +149,7 @@ foreach my $pid ( sort { $a <=> $b } keys %procs )
   {
     if ( !$bad{$pid}++ ) { print scalar localtime,": Reporting $cmds{$pid}\n"; }
     print scalar localtime,": PID=$pid exceeded=>(",join(',',@l),') ',
-	join(' ',map { "$_=" . int($h{$_}*100)/100 } sort keys %h),
+	join(' ',map { "$_=$h{$_}" } sort keys %h),
 	"\n";
   }
 }

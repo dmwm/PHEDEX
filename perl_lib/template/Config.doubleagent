@@ -8,7 +8,7 @@ PHEDEX_NODE=TX_${PHEDEX_SITE}_Buffer;
 PHEDEX_CONTEXT=Mgmt;
 
 ### ENVIRON common
-PHEDEX_BASE=/afs/cern.ch/user/w/wildish/public/COMP/PHEDEX_CVS;
+PHEDEX_BASE=/afs/cern.ch/user/w/wildish/public/COMP/PHEDEX_3_0_0_pre7;
 PHEDEX_INSTANCE=Testbed;
 PHEDEX_VERSION=2_6_2
 PHEDEX_OS_VERSION=slc4_ia32_gcc345;
@@ -37,14 +37,13 @@ PHEDEX_DEBUGGER="perl -MPHEDEX::Debug -d"
  -db     ${PHEDEX_DBPARAM}
  -node   ${PHEDEX_NODE}
  -config ${PHEDEX_CONFIG_FILE}
-  STATISTICS_INTERVAL 60
+  STATISTICS_INTERVAL 300
   STATISTICS_DETAIL 1
   NOTIFICATION_HOST pctony.cern.ch
   NOTIFICATION_PORT 1234
  -agent  fast-agent
  -agent  medium-agent
  -agent  slow-agent
- --memuse
 # -agent  blockverify
 
 ### AGENT LABEL=fast-agent PROGRAM=template::Agent DEFAULT=off

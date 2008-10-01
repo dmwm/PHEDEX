@@ -6,7 +6,7 @@
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
 # XML support added by Artem Trunov
-# Version info: $Id: InspectPhedexLog,v 1.31 2008/07/21 14:35:21 egeland Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.30 2008/06/20 12:27:09 trunov Exp $:
 ###############################################################################
 
 use strict;
@@ -270,7 +270,7 @@ foreach my $log (@logfiles) {
 	       $detail =~ s/\sid=[\d-]+\s/id=\[id\] /;
 	       $detail =~ s/\sauthRequestID \d+\s/authRequestID \[id\] /;
 	       $detail =~ s/RequestFileStatus#[\d-]+/RequestFileStatus#\[number\]/g;
-	       $detail =~ s/srm:\/\/[^\s]+/\[srm-URL\]/g;
+	       $detail =~ s/srm:\/\/[^\s]+/\[srm-URL\]/;
 	       $detail =~ s/at\s+\w{3}\s+\w{3}\s+\d+\s+\d+:\d+:\d+\s+[A-Z]+\s+\d+/at \[date\]/g;
 	       $detail =~ s/request \[-?\d+\]/request [reqid]/;
                $detail =~ s/pnfsPath=\/.*(\s|\b)/pnfsPath=path/;

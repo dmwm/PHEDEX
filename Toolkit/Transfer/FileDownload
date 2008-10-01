@@ -87,11 +87,11 @@ use Getopt::Long;
 use PHEDEX::File::Download::Agent;
 use PHEDEX::Core::Help;
 
+
 &GetOptions ("state=s"     => \$args{DROPDIR},
 	     "log=s"       => \$args{LOGFILE},
              "db=s"        => \$args{DBCONFIG},
 	     "verbose"     => \$args{VERBOSE},
-	     "nodaemon"    => \$args{NODAEMON},
              "nodes=s"     => sub { push(@{$args{NODES}},
 					 split(/,/, $_[1])) },
 
@@ -108,7 +108,6 @@ use PHEDEX::Core::Help;
              "backend=s"   => sub { $args{BACKEND_TYPE} = $_[1]; die "!FINISH"; },
 
 	     "help|h"      => sub { &usage() },
-
             );
 
 die "Insufficient parameters, use -h for help.\n"
