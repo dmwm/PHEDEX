@@ -2176,12 +2176,6 @@ sub new
   return $self;
 }
 
-sub initSecurityModule
-{
-    my ($self, $secmod_config) = @_;
-    $$self{SECMOD} = new CMSWebTools::SecurityModule::Oracle({CONFIG => $secmod_config});
-}
-
 sub toc
 {
   my ($self) = @_;
@@ -9589,13 +9583,13 @@ sub output
 {
   my ($self) = @_;
 
-#   &dump_var($$self{CONTENT}, 'TESTING', $TESTING);
-#   return if (!$TESTING);  # For security
-#   &dump_var($$self{CONTENT}, '$PERL_VERSION', sprintf("v%vd", $^V));
-#   &dump_var($$self{CONTENT}, 'CGI::VERSION', $CGI::VERSION);
-#   &dump_var($$self{CONTENT}, 'CGI::Session::VERSION', $CGI::Session::VERSION);
-#   &dump_var($$self{CONTENT}, 'DBI::VERSION', $DBI::VERSION);
-#   &dump_var($$self{CONTENT}, 'DBD::Oracle::VERSION', $DBD::Oracle::VERSION);
+   &dump_var($$self{CONTENT}, 'TESTING', $TESTING);
+   return if (!$TESTING);  # For security
+   &dump_var($$self{CONTENT}, '$PERL_VERSION', sprintf("v%vd", $^V));
+   &dump_var($$self{CONTENT}, 'CGI::VERSION', $CGI::VERSION);
+   &dump_var($$self{CONTENT}, 'CGI::Session::VERSION', $CGI::Session::VERSION);
+   &dump_var($$self{CONTENT}, 'DBI::VERSION', $DBI::VERSION);
+   &dump_var($$self{CONTENT}, 'DBD::Oracle::VERSION', $DBD::Oracle::VERSION);
 #   &dump_var($$self{CONTENT}, '@INC', [@INC]);
 #   &dump_var($$self{CONTENT}, 'TESTING_MAIL', $TESTING_MAIL);
   &dump_var($$self{CONTENT}, 'SESSION', $$self{SESSION} ? 'Session OK' : 'NO SESSION');
@@ -9620,18 +9614,26 @@ sub output
   }
 
   #&dump_var($$self{CONTENT}, 'Config', $$self{CONFIG});
-  #&dump_var($$self{CONTENT}, 'Env', {%ENV});
+#  &dump_var($$self{CONTENT}, 'Env', {%ENV});
 
 #   &dump_var($$self{CONTENT}, 'ENV{ORACLE_HOME}', $ENV{ORACLE_HOME});
 #   &dump_var($$self{CONTENT}, 'ENV{TNS_ADMIN}', $ENV{TNS_ADMIN});
 
-#   print {$$self{CONTENT}} 
-#   "<p>Full URL current  ",     $self->myurl('fullurl'=>1),"</p>",
-#   "<p>Full URL security on  ", $self->myurl('fullurl'=>1, 'secure'=>1),"</p>",
-#   "<p>Full URL security off  ",$self->myurl('fullurl'=>1, 'secure'=>0),"</p>",
-#   "<p>Normal URL current ", $self->myurl(),"</p>",
-#   "<p>Normal URL security on  ", $self->myurl('secure'=>1),"</p>",
-#   "<p>Normal URL security off ", $self->myurl('secure'=>0),"</p>";
+  my $cgi = new CGI;
+  print {$$self{CONTENT}} 
+  "<p>absolute URL current  ",     $self->myurl('fullurl'=>1),"</p>",
+  "<p>absolute URL security on  ", $self->myurl('fullurl'=>1, 'secure'=>1),"</p>",
+  "<p>absolute URL security off  ",$self->myurl('fullurl'=>1, 'secure'=>0),"</p>",
+  "<p>relative URL current ", $self->myurl(),"</p>",
+  "<p>relative URL security on  ", $self->myurl('secure'=>1),"</p>",
+  "<p>relative URL security off ", $self->myurl('secure'=>0),"</p>",
+  "<p>CGI absolute URL current ",  $cgi->url(-full=>1), "</p>",
+  "<p>CGI relative URL current ",  $cgi->url(-relative=>1, -path=>1), "</p>",
+  "<p>CGI Normal URL security on ",  $cgi->url(-relative=>1, -secure=>1, -path=>1), "</p>",
+  "<p>CGI Normal URL security off ",  $cgi->url(-relative=>1, -secure=>0, -path=>1), "</p>",
+  "<p>CGI -rewrite ", $cgi->url(-rewrite=>1), "</p>"
+  ;
+  
   
 #   &dump_var($$self{CONTENT}, 'ENV{HTTPS}', $ENV{HTTPS});
 #   &dump_var($$self{CONTENT}, 'ENV{HTTP_HTTPS}', $ENV{HTTP_HTTPS});
@@ -9677,10 +9679,6 @@ sub runme
   # Read PhEDEx web server configuration
   my $config = &read_config();
   #eval "use CGI::Carp qw(fatalsToBrowser)";
-  my $secmod_config = $$config{SECMOD_CONFIG};
-  if (!$secmod_config) {
-      die "ERROR:  SecurityModule config file not set";
-  }
 
   # Set debug mode
   $TESTING = $$config{TESTING_MODE} ? 1 : 0;
@@ -9714,7 +9712,28 @@ sub runme
   
   # Initialize the SecurityModule
   unless ($cgipage =~ /^XML/) {
-      $page->initSecurityModule($secmod_config);
+      my %args;
+      if ($$config{SECMOD_CONFIG}) {
+	  # If a config file is given, we use that
+	  $args{CONFIG} = $$config{SECMOD_CONFIG};
+      } else {
+	  # Otherwise we check for a "SecurityModule" section in DBParam, and use the defaults
+	  my $dbparam;
+	  eval {
+	      $dbparam = &parseDatabaseInfo($$config{DBPARAM}, 'SecurityModule');
+	  };
+	  if ($@ || !$dbparam) {
+	      die "no way to initialize SecurityModule:  either configure secmod-config ",
+	      "or provide SecurityModule section in the DBParam file",
+	      ($@ ? ": parse error: $@" : ""), "\n";
+	  }
+	  $args{DBNAME} = $$dbparam{DBH_DBNAME};
+	  $args{DBUSER} = $$dbparam{DBH_DBUSER};
+	  $args{DBPASS} = $$dbparam{DBH_DBPASS};
+	  $args{LOGLEVEL} = ($$config{SECMOD_LOGLEVEL} || 3);
+	  $args{REVPROXY} = $$config{SECMOD_REVPROXY} if $$config{SECMOD_REVPROXY};
+      }
+      $$page{SECMOD} = new CMSWebTools::SecurityModule::Oracle({%args});
   }
 
   # Generate the page
