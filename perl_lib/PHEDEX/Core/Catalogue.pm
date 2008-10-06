@@ -34,7 +34,7 @@ sub pfnLookup
     my @args = (&storageRules ($mapping, 'lfn-to-pfn'), $proto, $dest, 'pre');
     if (ref $input)
     {
-	return { map { $_ => &applyStorageRules(@args, $_, $custodial) } @$input };
+	return { map { $_ => [&applyStorageRules(@args, $_, $custodial)] } @$input };
     }
     else
     {
@@ -50,7 +50,7 @@ sub lfnLookup
     my @args = (&storageRules ($mapping, 'pfn-to-lfn'), $proto, $dest, 'post');
     if (ref $input)
     {
-	return { map { $_ => &applyStorageRules(@args, $_, $custodial) } @$input };
+	return { map { $_ => [&applyStorageRules(@args, $_, $custodial)] } @$input };
     }
     else
     {
