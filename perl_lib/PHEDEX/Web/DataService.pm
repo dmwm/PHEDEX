@@ -111,6 +111,7 @@ sub invoke
 				    USER_AGENT => user_agent(),
 				    DEBUG => $TESTING,
 				    CONFIG_FILE => $self->{CONFIG_FILE},
+				    CONFIG => $self->{CONFIG},
 				    CACHE_CONFIG => $config->{CACHE_CONFIG} || {},
 				    SECMOD_CONFIG => $config->{SECMOD_CONFIG},
 				    AUTHZ => $config->{AUTHZ}

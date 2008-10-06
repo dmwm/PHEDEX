@@ -93,6 +93,7 @@ our (%params);
 	    SECMOD => undef,
 	    DEBUG => 0,
 	    CONFIG_FILE => undef,
+            CONFIG => undef,
 	    CACHE_CONFIG => undef,
 	    SECMOD_CONFIG => undef,
 	    AUTHZ => undef
@@ -257,9 +258,11 @@ sub initSecurity
   } else {
       # Otherwise we check for a "SecurityModule" section in DBParam, and use the defaults
       my $config = $self->{CONFIG};
-      my $dbparam = { DBPARAM => $config->{DBPARAM} };
+      my $dbparam = { DBCONFIG => $config->{DBPARAM},
+		      DBSECTION => 'SecurityModule' };
+      bless $dbparam;
       eval {
-	  &parseDatabaseInfo($dbparam, 'SecurityModule');
+	  &parseDatabaseInfo($dbparam);
       };
       if ($@ || !$dbparam) {
 	  die "no way to initialize SecurityModule:  either configure secmod-config ",
@@ -273,7 +276,6 @@ sub initSecurity
       $args{REVPROXY} = $config->{SECMOD_REVPROXY} if $config->{SECMOD_REVPROXY};
   }
   my $secmod = new CMSWebTools::SecurityModule::Oracle({%args});
-
   if ( ! $secmod->init() )
   {
       die("cannot initialise security module: " . $secmod->getErrMsg());
