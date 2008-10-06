@@ -50,7 +50,7 @@ sub read
 		    ) {
 		die "$config_file:  auth missing parameters for '$value'\n";
 	    }
-	    $$config{AUTH}{$ability} ||= [];
+	    $$config{AUTHZ}{$ability} ||= [];
 	    push @{$$config{AUTHZ}{$ability}}, { ABILITY => $ability,
 						 SCOPE   => $scope,
 						 AUTHN   => $authn,
