@@ -250,12 +250,30 @@ sub initSecurity
 {
   my $self = shift;
 
-  my ($secmod,$secmod_config);
-  $secmod_config = $self->{SECMOD_CONFIG};
-  if (!$secmod_config) {
-      die("SecurityModule config file not set in $self->{CONFIG_FILE}");
+  my %args;
+  if ($self->{SECMOD_CONFIG}) {
+      # If a config file is given, we use that
+      $args{CONFIG} = $self->{SECMOD_CONFIG};
+  } else {
+      # Otherwise we check for a "SecurityModule" section in DBParam, and use the defaults
+      my $config = $self->{CONFIG};
+      my $dbparam = { DBPARAM => $config->{DBPARAM} };
+      eval {
+	  &parseDatabaseInfo($dbparam, 'SecurityModule');
+      };
+      if ($@ || !$dbparam) {
+	  die "no way to initialize SecurityModule:  either configure secmod-config ",
+	  "or provide SecurityModule section in the DBParam file",
+	  ($@ ? ": parse error: $@" : ""), "\n";
+      }
+      $args{DBNAME} = $dbparam->{DBH_DBNAME};
+      $args{DBUSER} = $dbparam->{DBH_DBUSER};
+      $args{DBPASS} = $dbparam->{DBH_DBPASS};
+      $args{LOGLEVEL} = ($config->{SECMOD_LOGLEVEL} || 3);
+      $args{REVPROXY} = $config->{SECMOD_REVPROXY} if $config->{SECMOD_REVPROXY};
   }
-  $secmod = new CMSWebTools::SecurityModule::Oracle({CONFIG => $secmod_config});
+  my $secmod = new CMSWebTools::SecurityModule::Oracle({%args});
+
   if ( ! $secmod->init() )
   {
       die("cannot initialise security module: " . $secmod->getErrMsg());
