@@ -194,8 +194,11 @@ sub filesToDelete
     # Now get PFNs for all those files.
     my $pfns = &pfnLookup ([ keys %files ], $$self{PROTOCOL},
 	    		   "local", $$self{STORAGEMAP});
-    while (my ($lfn, $pfn) = each %$pfns)
+    while (my ($lfn, $pfn2) = each %$pfns)
     {
+        my $pfn = $pfn2->[1];
+        # HOW DO I PASS SPACE-TOKEN?
+        my $space_token = $pfn2->[0];
 	do { $self->Alert ("no pfn for $lfn"); next } if ! $pfn;
 	push (@result, { LFN => $lfn, PFN => $pfn, FILEID => $files{$lfn},
 			 NODEID => $$self{NODES_ID}{$node}, NODE => $node,
