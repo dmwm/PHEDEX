@@ -17,6 +17,8 @@ create table t_xfer_catalogue
    result_expr		varchar (1000)	not null,
    chain		varchar (20),
    destination_match	varchar (40),
+   custodial            char (1),
+   space_token          varchar (64),
    --
    constraint pk_xfer_catalogue
      primary key (node, rule_index),
