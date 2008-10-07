@@ -4,8 +4,8 @@
 
 RETVAL=$?
 
-pid=`ps -p $(cat @APACHE2_CONF_ROOT@/logs/httpd.pid 2>/dev/null) -o pid= 2> /dev/null`
-cmd="@APACHE2_CONF_ROOT@/bin/httpd -k "
+pid=`ps -p $(cat @SERVER_ROOT@/logs/httpd.pid 2>/dev/null) -o pid= 2> /dev/null`
+cmd="@SERVER_ROOT@/bin/httpd -k "
 name="PhEDEx web services"
 
 case "$1" in
