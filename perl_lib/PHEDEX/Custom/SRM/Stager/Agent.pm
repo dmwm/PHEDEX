@@ -85,8 +85,11 @@ sub getNodeFiles
     {
         my $now = time();
         my $pfns = &pfnLookup (\@lfns, "direct", "local", $$self{STORAGEMAP});
-	while (my ($lfn, $pfn) = each %$pfns)
+	while (my ($lfn, $pfn2) = each %$pfns)
         {
+            my $pfn = $pfn2->[1];
+            # HOW DO I PASS SPACE-TOKEN?
+            my $space_token =  $pfn2->[0];
 	    $$self{PFN_CACHE}{$lfn} = { TIME => $now, VALUE => $pfn }; 
 	    $files{$lfn}{PFN} = $pfn if defined $pfn;
         }
