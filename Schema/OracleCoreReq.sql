@@ -28,6 +28,7 @@ create table t_req_request
   (id			integer		not null,
    type			integer		not null,
    created_by		integer		not null,  -- who created the request
+   user_group		integer			,  -- for what group
    time_create		float		not null,
    comments		integer			,
    --
@@ -35,7 +36,10 @@ create table t_req_request
      primary key (id),
    --
    constraint fk_req_request_created_by
-     foreign key (created_by) references t_adm_client (id)
+     foreign key (created_by) references t_adm_client (id),
+   constraint fk_req_request_group
+     foreign key (user_group) references t_adm_group (id)
+     on delete set null
    /* comments fk created below */
 );
 
@@ -178,6 +182,7 @@ create table t_req_comments
  *      is_move:   'y' for move, 'n' for replication
  *      is_static: 'y' for fixed data size, 'n' for growing data subscription
  *      is_distributed:  'y' for distribution among nodes, 'n' for all data to all nodes
+ *      is_custodial:  'y' for custodial data, 'n' for not
  *      data:  text of user's actual request (unresolved globs)
  */
 create table t_req_xfer
@@ -187,6 +192,7 @@ create table t_req_xfer
    is_static		char(1)		not null,
    is_transient		char(1)		not null,
    is_distributed	char(1)		not null,
+   is_custodial		char(1)		not null,
    data			clob			,
    --
    constraint pk_req_xfer
@@ -203,7 +209,10 @@ create table t_req_xfer
    constraint ck_req_xfer_transient
      check (is_transient in ('y', 'n')),
    constraint ck_req_xfer_distributed
-     check (is_distributed in ('y', 'n')));
+     check (is_distributed in ('y', 'n')),
+   constraint ck_req_xfer_custodial
+     check (is_custodial in ('y', 'n')));
+
 
 /* Delete request info.  type 'delete' 
  *   parameters:
@@ -260,6 +269,8 @@ create table t_dps_subscription
    priority		integer		not null,
    is_move		char (1)	not null,
    is_transient		char (1)	not null,
+   is_custodial		char (1)	not null,
+   user_group		integer,
    time_create		float		not null,
    time_complete	float,
    time_clear		float,
@@ -285,6 +296,10 @@ create table t_dps_subscription
      foreign key (destination) references t_adm_node (id)
 	on delete cascade,
    --
+   constraint fk_dps_subscription_group
+     foreign key (user_group) references t_adm_group (id)
+     on delete set null,
+   --
    constraint ck_dps_subscription_ref
      check (not (block is null and dataset is null)
             and not (block is not null and dataset is not null)),
@@ -293,8 +308,10 @@ create table t_dps_subscription
      check (is_move in ('y', 'n')),
    --
    constraint ck_dps_subscription_transient
-     check (is_transient in ('y', 'n')));
-
+     check (is_transient in ('y', 'n')),
+   --
+   constraint ck_dps_subscription_custodial
+     check (is_custodial in ('y', 'n')));
 
 
 ----------------------------------------------------------------------
@@ -311,42 +328,52 @@ alter table t_req_decision add constraint fk_req_decision_comments
 ----------------------------------------------------------------------
 -- Create indices
 
+-- t_req_request
 create index ix_req_request_by
   on t_req_request (created_by);
---
+
+create index ix_req_request_group
+  on t_req_request (user_group);
+-- t_req_dbs
 create index ix_req_dbs_name
   on t_req_dbs (name);
+
 create index ix_req_dbs_dbs
   on t_req_dbs (dbs_id);
---
+-- t_req_dataset
 create index ix_req_dataset_name
   on t_req_dataset (name);
+
 create index ix_req_dataset_dataset
   on t_req_dataset (dataset_id);
---
+-- t_req_block
 create index ix_req_block_name
   on t_req_block (name);
+
 create index ix_req_block_block
   on t_req_block (block_id);
---
+-- t_req_file
 create index ix_req_file_name
   on t_req_file (name);
+
 create index ix_req_file_file
   on t_req_file (file_id);
---
+-- t_req_node
 create index ix_req_node_node
   on t_req_node (node);
---
+-- t_req_decision
 create index ix_req_decision_node
   on t_req_decision (node);
+
 create index ix_req_decision_by
   on t_req_decision (decided_by);
---
+-- t_req_comments
 create index ix_req_comments_request
   on t_req_comments (request);
+
 create index ix_req_comments_by
   on t_req_comments (comments_by);
---
+-- t_dps_block_delete
 create index ix_dps_block_delete_req
   on t_dps_block_delete (request);
 
@@ -355,7 +382,7 @@ create index ix_dps_block_delete_ds
 
 create index ix_dps_block_delete_node
   on t_dps_block_delete (node);
---
+-- t_dps_block_delete
 create index ix_dps_subscription_req
   on t_dps_subscription (request);
 
@@ -367,3 +394,6 @@ create index ix_dps_subscription_block
 
 create index ix_dps_subscription_dest
   on t_dps_subscription (destination);
+
+create index ix_dps_subscription_group
+  on t_dps_subscription (user_group);

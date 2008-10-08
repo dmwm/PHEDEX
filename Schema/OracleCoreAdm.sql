@@ -2,6 +2,7 @@
 -- Create tables
 
 create sequence seq_adm_identity;
+create sequence seq_adm_group;
 create sequence seq_adm_client;
 create sequence seq_adm_contact;
 create sequence seq_adm_contact_attr;
@@ -24,6 +25,18 @@ create table t_adm_identity
    constraint pk_adm_identity
      primary key (id)
 );
+
+/* Groups are also synced from SiteDB via the Security Module */
+create table t_adm_group
+ (id			integer		not null, -- ID for PhEDEx use
+  name			varchar(100)	not null, -- Group name
+  --
+  constraint pk_adm_group
+    primary key (id),
+  --
+  constraint uq_adm_group_name
+    unique (name)
+ );
 
 /* A logged access from the web page */
 create table t_adm_contact

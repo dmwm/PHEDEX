@@ -17,8 +17,8 @@ create table t_xfer_catalogue
    result_expr		varchar (1000)	not null,
    chain		varchar (20),
    destination_match	varchar (40),
-   custodial            char (1),
-   space_token          varchar (64),
+   is_custodial		char (1),
+   space_token		varchar (64),
    --
    constraint pk_xfer_catalogue
      primary key (node, rule_index),
@@ -28,7 +28,10 @@ create table t_xfer_catalogue
      on delete cascade,
    --
    constraint ck_xfer_catalogue_type
-     check (rule_type in ('lfn-to-pfn', 'pfn-to-lfn')));
+     check (rule_type in ('lfn-to-pfn', 'pfn-to-lfn')),
+   --
+   constraint ck_xfer_catalogue_custodial
+     check (is_custodial in ('y', 'n')));
 
 create table t_xfer_source
   (from_node		integer		not null,
@@ -228,7 +231,7 @@ create table t_xfer_task
   (id			integer		not null, -- xfer id
    fileid		integer		not null, -- xref t_xfer_file
    from_replica		integer		not null, -- xref t_xfer_replica
-   priority		integer		not null, -- see at the top
+   priority		integer		not null, -- (described above)
    rank			integer		not null, -- current order rank
    from_node		integer		not null, -- node transfer is from
    to_node		integer		not null, -- node transfer is to
