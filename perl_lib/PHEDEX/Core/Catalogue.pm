@@ -224,7 +224,7 @@ sub dbStorageRules
         $$cats{$node} = {};
 
         my $q = &dbexec($dbh, qq{
-	    select protocol, chain, destination_match, path_match, result_expr, custodial, space_token
+	    select protocol, chain, destination_match, path_match, result_expr, is_custodial, space_token
 	    from t_xfer_catalogue
 	    where node = :node and rule_type = 'lfn-to-pfn'
 	    order by rule_index asc},

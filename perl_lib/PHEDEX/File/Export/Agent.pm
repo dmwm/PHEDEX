@@ -87,7 +87,7 @@ sub idle
 		insert into t_xfer_catalogue
 		(node, rule_index, rule_type, protocol, chain,
 		 destination_match, path_match, result_expr,
-                 custodial, space_token)
+                 is_custodial, space_token)
 		values (:node, :rule_index, :type, :protocol, :chain,
 			:destination, :path, :result,
                         :custodial, :space_token)});
