@@ -183,7 +183,8 @@ sub getLFNInfo
     elsif ($level eq 'lfn:')   { $where = "f.logical_name"; }
     else { die "Unknown level '$level' to getLFNInfo\n"; }
 
-    if ( $item =~ m|%| ) { $where .= " like :item"; }
+    if ( $item =~ m|%| ) { escapeSQLLike ($item);
+			   $where .= " like :item escape'\\' "; }
     else                 { $where .= " = :item"; }
     
     my $q = &dbexec($dbh, qq{
@@ -207,7 +208,8 @@ sub getBlockInfo
 	die "Bulk deletion by LFN is not supported, see -h for help\n";
     } else { die "Unknown level '$level' to getBlockInfo\n"; }
 
-    if ( $item =~ m|%| ) { $where .= " like :item"; }
+    if ( $item =~ m|%| ) { escapeSQLLike ($item);
+			   $where .= " like :item escape'\\' "; }
     else                 { $where .= " = :item"; }
     
     my $q = &dbexec($dbh, qq{
@@ -641,4 +643,9 @@ sub printStats
 	if defined $$stats{DEL_BLOCKS};
     printf($fmt, "deleted empty datasets", $$stats{DEL_DATASETS})
 	if defined $$stats{DEL_DATASETS};
+}
+
+sub escapeSQLLike
+{
+    return map { $_ =~ s%_%\\_%g; $_; } @_;
 }
