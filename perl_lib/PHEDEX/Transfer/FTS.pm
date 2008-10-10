@@ -403,7 +403,41 @@ sub startBatch
     &touch("$dir/live");
     $jobs->{$jobname} = $info;
 
-    # Schedule pre-deletion before we transfer the batch
+    # Update monitor statistics so that isBusy() can work properly in
+    # the next call, which will occur before the next call of
+    # transferBatch()
+    # FIXME: This is really bad form.  We need to clean up the
+    # interactions between the FileDownload agent and the Monitor.  We
+    # ought to be able to just build and submit the job and be done
+    # with it.
+    foreach my $taskid ( keys %{$info->{TASKS}} ) {
+	my $task = $tasks->{$taskid};
+	my %args = (
+		    SOURCE=>$task->{FROM_PFN},
+		    DESTINATION=>$task->{TO_PFN},
+		    FROM_NODE=>$task->{FROM_NODE},
+		    TO_NODE=>$task->{TO_NODE},
+		    TASKID=>$taskid,
+		    WORKDIR=>$dir,
+		    START=>&mytimeofday(),
+		    );
+	my $f = PHEDEX::Transfer::Backend::File->new(%args);
+        $self->{FTS_Q_MONITOR}->LinkStats(
+					   $f->Destination,
+					   $f->FromNode,
+					   $f->ToNode,
+					   $f->State
+					 );
+        $self->{FTS_Q_MONITOR}->WorkStats(
+					   'FILES',
+					   $f->Destination,
+					   $f->State
+					  );
+    }
+
+    # Schedule pre-deletion before we transfer the batch.  clean() in
+    # turn calls transferBatch() after all the deletion commands have
+    # completed
     $self->clean($info,$tasks);
 }
 
