@@ -267,7 +267,7 @@ sub isBusy
     $busy = 0;
 
     # FTS states to consider as "pending"
-    my @pending_states = ('Ready', 'Pending', 'undefined');
+    my @pending_states = ('Ready', 'Pending', 'Submitted', 'undefined');
 
     # FTS states to consider as "active".  This includes the pending
     # states, because we expect they will become active at some point.
@@ -292,13 +292,11 @@ sub isBusy
 		$state_counts{ $stats->{$file}{$from}{$to} }++;
 	    }
 	}
-	
-	my $dump = Data::Dumper->Dump( [\%state_counts], [ qw / state_counts / ] );
-        $dump =~ s%\n%%g;
-        $dump =~ s%\s\s+% %g;
-        $dump =~ s%\$% %g;
-	$self->Dbgmsg("Transfer::FTS::isBusy Link Stats $from->$to $dump\n")
-		      if $self->{DEBUG};
+
+	$self->Dbgmsg("Transfer::FTS::isBusy Link Stats $from->$to: ",
+		      join(' ', map { "$_=$state_counts{$_}" } sort keys %state_counts))
+	    if $self->{DEBUG};
+    
 
 	if ($self->{FTS_LINK_ACTIVE}->{$from} || $self->{FTS_DEFAULT_LINK_ACTIVE}) {
 	    # Count files in the Active state
@@ -346,14 +344,19 @@ sub isBusy
 	    # Count the number of all file states
 	    foreach ( values %{$stats->{FILES}{STATES}} ) { $state_counts{$_}++; }
 	}
-      
-	# Count files in the Active state
+
+	$self->Dbgmsg("Transfer::FTS::isBusy Work Stats: ",
+		      join(' ', map { "$_=$state_counts{$_}" } sort keys %state_counts))
+	    if $self->{DEBUG};
+
+	# Count files in the active states
 	my $n_active = 0;
 	foreach ( @active_states )
 	{
 	    if ( defined($state_counts{$_}) ) { $n_active += $state_counts{$_}; }
 	}
-	# If there are FTS_MAX_ACTIVE files in the Active || undefined state
+
+	# Compare to our limit
 	if ( $n_active >= $self->{FTS_MAX_ACTIVE} ) { 
 	    $busy = 1;
 	    $self->Logmsg("FTS is busy:  maximum active files ($self->{FTS_MAX_ACTIVE}) reached") if $self->{VERBOSE};
@@ -386,7 +389,12 @@ sub startBatch
     } else {
 	$job_size = $self->{BATCH_FILES};
     }
-	
+
+    # Set the job size to FTS_MAX_ACTIVE files if it is more limiting
+    if ($self->{FTS_MAX_ACTIVE} && $self->{FTS_MAX_ACTIVE} < $job_size) {
+	$job_size = $self->{FTS_MAX_ACTIVE};
+    }
+
     my @batch = splice(@$list, 0, $job_size);
     my $info = { ID => $jobname, DIR => $dir,
                  TASKS => { map { $_->{TASKID} => 1 } @batch },
@@ -395,8 +403,8 @@ sub startBatch
     &touch("$dir/live");
     $jobs->{$jobname} = $info;
 
-#   Clean up before transfer, then call transferBatch
-    $self->clean($info,$tasks); # ???
+    # Schedule pre-deletion before we transfer the batch
+    $self->clean($info,$tasks);
 }
 
 sub transferBatch
