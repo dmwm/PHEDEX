@@ -294,9 +294,9 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 		       grep(defined $$_{RATIO}, values %hourly);
 	my $succ_max = reduce { $$a{RATIO} > $$b{RATIO} ? $a : $b }
 		       grep(defined $$_{RATIO}, values %hourly);
-        $stats{XFER_SUCC_HRMIN} = &naformat($$succ_min{RATIO}, "%d%%", 100);
-        $stats{XFER_SUCC_HRMAX} = &naformat($$succ_max{RATIO}, "%d%%", 100);
-        $stats{XFER_SUCC_TOT} = &naformat($stats{XFER_SUCCESS}{RATIO}, "%d%%", 100);
+        $stats{XFER_SUCC_HRMIN} = &naformat($$succ_min{RATIO}, "%.0f%%", 100);
+        $stats{XFER_SUCC_HRMAX} = &naformat($$succ_max{RATIO}, "%.0f%%", 100);
+        $stats{XFER_SUCC_TOT} = &naformat($stats{XFER_SUCCESS}{RATIO}, "%.0f%%", 100);
 
 	# Bin transfers hourly and calculate statistics.  The binning is
 	# seeded from success statistics so we correctly report the hours
