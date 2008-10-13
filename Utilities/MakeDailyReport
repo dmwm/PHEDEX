@@ -277,9 +277,13 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 
 	foreach my $v ($stats{XFER_SUCCESS}, values %hourly)
 	{
-	    if ($$v{START}) {
-		$$v{RATIO} = $$v{SUCCESS} / $$v{START};
-	    } elsif ($$v{SUCCESS} || $$v{ERROR}) {
+#	    if ($$v{START}) {
+#		$$v{RATIO} = $$v{SUCCESS} / $$v{START};
+	    # Note:  START = try_bytes is not a simultaneous event with SUCCESS and ERROR
+	    # try_bytes is the number of transfers started in that time period
+	    # done_bytes and error_bytes is the number of successful / unsuccessful transfers in that period
+	    # they do not represent the same file transfers.  one should not use them together to compute RATIO
+	    if ($$v{SUCCESS} || $$v{ERROR}) {
 		$$v{RATIO} = $$v{SUCCESS} / ($$v{SUCCESS} + $$v{ERROR});
 	    } else {
 		$$v{RATIO} = undef;
