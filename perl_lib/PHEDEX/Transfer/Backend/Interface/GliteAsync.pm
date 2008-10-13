@@ -39,6 +39,7 @@ our %params =
 	  OPTIONS	=> {},
 	  DEBUG		=> 0,
 	  VERBOSE	=> 0,
+	  POCO_DEBUG	=> $ENV{POCO_DEBUG} || 0, # Specially for PoCo::Child
 	);
 
 our %states =
@@ -80,9 +81,10 @@ sub new
   $self->{DEBUGGING} = $PHEDEX::Debug::Paranoid || 0;
 
   $self->{CHILD_EVENTS} = \%events;
+  my $pocodebug = $self->{POCO_DEBUG} || 0;
   $self->{_child} = POE::Component::Child->new(
          events => \%events,
-         debug => $self->{DEBUG} > 1 ? 1 : 0,
+         debug => $pocodebug,
         );
   $self->{_child}{caller} = $self;
 
