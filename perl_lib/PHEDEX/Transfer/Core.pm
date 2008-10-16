@@ -18,7 +18,7 @@ sub new
 
     # Set my defaults where not defined by the derived class.
     $params->{PROTOCOLS}   ||= undef;        # Transfer command
-    $params->{NJOBS}       ||= 1;            # Max number of parallel transfers
+    $params->{NJOBS}       ||= 0;            # Max number of parallel transfers.  0 for infinite.
     $params->{BATCH_FILES} ||= 1;            # Max number of files per batch
 	
     # Set argument parsing at this level.

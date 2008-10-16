@@ -29,6 +29,7 @@ sub new
     # Set my defaults where not defined by the derived class.
     $params->{PROTOCOLS}           ||= [ 'srm' ];  # Accepted protocols
     $params->{BATCH_FILES}         ||= 30;         # Max number of files per job
+    $params->{NJOBS}               ||= 0;          # Max number of jobs.  0 for infinite.
     $params->{FTS_LINK_PEND}       ||= 5;          # Submit to FTS until this number of files per link are "pending"
     $params->{FTS_MAX_ACTIVE}      ||= 300;        # Submit to FTS until these number of files are "active"
     $params->{FTS_DEFAULT_LINK_ACTIVE} ||= undef;  # Optional default per-link limits to number of active files
@@ -37,10 +38,11 @@ sub new
     $params->{FTS_Q_INTERVAL}      ||= 30;         # Interval for polling queue for new jobs
     $params->{FTS_J_INTERVAL}      ||= 5;          # Interval for polling individual jobs
     $params->{FTS_GLITE_OPTIONS}   ||= {};	   # Specific options for glite commands
-    $params->{FTS_JOB_AWOL}        ||= 0;          # Timeout for successful monitoring of a job
+    $params->{FTS_JOB_AWOL}        ||= 0;          # Timeout for successful monitoring of a job.  0 for infinite.
 
     # Set argument parsing at this level.
     $options->{'batch-files=i'}        = \$params->{BATCH_FILES};
+    $options->{'jobs=i'}               = \$params->{NJOBS};
     $options->{'link-pending-files=i'} = \$params->{FTS_LINK_PEND};
     $options->{'max-active-files=i'}   = \$params->{FTS_MAX_ACTIVE};
     $options->{'default-link-active-files=i'} = \$params->{FTS_DEFAULT_LINK_ACTIVE};
@@ -154,14 +156,6 @@ sub init
 
     $self->parseFTSmap() if ($self->{FTS_MAPFILE});
 
-    # A limit to the number of jobs is the "live" file, which
-    # must be touched for every job within 5 minutes or FileDownload
-    # will throw the job away.  Because we poll jobs at a fixed rate,
-    # we must limit the number of jobs to keep this file from getting
-    # to old.  By default this limits us to 60 jobs.  TODO: Find a way
-    # around this limit
-    $self->{NJOBS} = 5*60 / $self->{FTS_J_INTERVAL};
-
     # How do we handle task-priorities?
     # If priorities have been specified on the command-line, they should
     # have the syntax 'm1=p1,m2=p2,m3=p3', where p<n> is the task priority
@@ -274,7 +268,7 @@ sub isBusy
     my @active_states = ('Active', @pending_states);
 
     # Check if our global job limit is reached
-    if (scalar(keys %$jobs) >= $self->{NJOBS}) {
+    if ($self->{NJOBS} && scalar(keys %$jobs) >= $self->{NJOBS}) {
 	$self->Logmsg("FTS is busy:  maximum number of jobs ($self->{NJOBS}) reached") 
 	    if $self->{VERBOSE};
 	return 1;
@@ -525,6 +519,7 @@ sub transferBatch
     $self->{Q_INTERFACE}->Run('Submit',$self->{JOB_SUBMITTED_POSTBACK},$job);
 }
 
+# check jobs.  we also use this call to re-queue saved jobs
 sub check 
 {
   my ($self, $jobname, $job, $tasks) = @_;
@@ -532,22 +527,30 @@ sub check
 
   $dir = $job->{$jobname}->{DIR};
   $file = $dir . '/job.dmp';
-  return unless -f $file;
+  return unless -f $file; # If the file doesn't exist, the job hasn't been submitted yet!
+
+  # Get job information
   $j = eval { do $file; };
   die $@ if $@; # So uncool!
 
-# Is this job currently being monitored?
-  return if $self->{FTS_Q_MONITOR}->isKnown( $j );
-
-# $j->JOB_POSTBACK( $self->{FTS_Q_MONITOR}->JOB_POSTBACK );
-# $j->FILE_POSTBACK( $self->{FTS_Q_MONITOR}->FILE_POSTBACK );
-  $self->{FTS_Q_MONITOR}->QueueJob( $j );
-  $self->Logmsg('JOBID=',$j->ID,' added to monitoring');
-  foreach ( values %{$j->FILES} )
-  {
-    $self->Logmsg('JOBID=',$j->ID,' TASKID=',$_->TASKID,' DESTINATION=',$_->DESTINATION," added to monitoring\n");
+  # If we don't know about this job, add it to the monitoring
+  if (!$self->{FTS_Q_MONITOR}->isKnown( $j )) {
+      # $j->JOB_POSTBACK( $self->{FTS_Q_MONITOR}->JOB_POSTBACK );
+      # $j->FILE_POSTBACK( $self->{FTS_Q_MONITOR}->FILE_POSTBACK );
+      $self->{FTS_Q_MONITOR}->QueueJob( $j );
+      $self->Logmsg('JOBID=',$j->ID,' added to monitoring');
+      foreach ( values %{$j->FILES} ) {
+	  $self->Logmsg('JOBID=',$j->ID,' TASKID=',$_->TASKID,' DESTINATION=',$_->DESTINATION," added to monitoring\n");
+      }
   }
-  &touch($dir . '/live')
+
+  # Report the job as live.  From the point of view of the
+  # FileDownload agent, jobs will never die.  We trust our job monitor
+  # to clean up stuck jobs properly.  The user can configure this with
+  # the --job-awol option
+  if ($self->{FTS_Q_MONITOR}->isKnown( $j )) {
+      &touch($dir . '/live');
+  }
 }
 
 sub setup_callbacks
