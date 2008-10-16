@@ -107,6 +107,7 @@ sub clean
     {
 	# First time around, start deletion commands for all files,
 	# but only if we have a deletion command in the first place.
+	$self->{MASTER}->{pmon}->State('pre-delete','start');
 	foreach $task (keys %{$job->{TASKS}})
 	{
 	    next if $tasks->{$task}{DONE_CLEAN};
@@ -122,6 +123,7 @@ sub clean
     }
 
     # Move to next stage when we've done everything
+    $self->{MASTER}->{pmon}->State('pre-delete','stop');
     $self->transferBatch ($job, $tasks)
         if ! grep (! $tasks->{$_}{DONE_CLEAN}, keys %{$job->{TASKS}});
 }
