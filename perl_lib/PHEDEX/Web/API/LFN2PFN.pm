@@ -4,6 +4,7 @@ use strict;
 use PHEDEX::Web::Util;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::SQL;
+use PHEDEX::Web::SQL;
 
 =pod
 
@@ -18,11 +19,12 @@ Translate LFNs to PFNs using the TFC published to TMDB.
 =head3 options
 
  node          PhEDex node names, can be multiple (*), required
- lfn           Logical file name, can be multiple (*), required
+ lfn           Logical file name, can be multiple (+), required
  protocol      Transfer protocol, required
  destination   Destination node
  
  (*) See the rules of multi-value filters in the Core module
+ (+) Does not need to be registered LFNs
 
 =head3 <mapping> attributes
 
@@ -42,25 +44,20 @@ sub lfn2pfn
     &checkRequired(\%h, 'node', 'lfn', 'protocol');
 
     # TODO:  cache nodemap and TFC
-    my $nodemap = { reverse %{&PHEDEX::Core::SQL::getNodeMap($core)} }; # node map name => id
+    my $nodes = &PHEDEX::Web::SQL::getNodes($core, $h{node});
 
     my $catcache = {};
     my $mapping = [];
 
-    foreach my $node (&PHEDEX::Core::SQL::arrayref_expand($h{node})) {
-	my $node_id = $nodemap->{$node};
-	if (!$node_id) {
-	    die "unknown node '$node'\n";
-	}
-
-	my $cat = &dbStorageRules($core->{DBH}, $catcache, $node_id);
+    foreach my $node (@$nodes) {
+	my $cat = &dbStorageRules($core->{DBH}, $catcache, $node->{ID});
 	if (!$cat) {
-	    die "could not retrieve catalogue for node $h{node}\n";
+	    die "could not retrieve catalogue for node $node->{NAME}\n";
 	}
 
 	my @args = ($cat, $h{protocol}, $h{destination}, 'pre');
 	push @$mapping, 
-	map { { node => $node, protocol => $h{protocol}, destination => $h{destination},
+	map { { node => $node->{NAME}, protocol => $h{protocol}, destination => $h{destination},
 		lfn => $_, pfn => &applyStorageRules(@args, $_) } }
 	&PHEDEX::Core::SQL::arrayref_expand($h{lfn});                 # from either an array of lfns or one
 	    
