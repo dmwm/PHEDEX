@@ -1,3 +1,28 @@
+* Changes in PhEDEx 3.0.7
+
+Changes for Site Agents
+ - FileDownload FTS backend:
+   - Fix 3.0.6 bug which allowed unrestrained submission of transfer jobs
+   - Count "Submitted" state against pending and active totals
+   - Mark all jobs as active as long as the monitor knows about them.  
+     This effectively makes "agent lost the transfer" errors
+     impossible.
+   - Allow -jobs to be set, if the user wants to limit the number of jobs
+     directly.  the default is 0 for infinite.
+   - Fix logged FTS password bug
+ - BlockDownloadVerify:  reduce cycle time to 30 seconds
+
+Changes for Tools
+ - InspectPhedexLog: allow in-line repetition for srm regexp
+ - FileDeleteTMDB: escape underscore characters when using wildcards in 
+   LFN/Block name
+ - MakeDailyReport: avoid using separate events to compute ratios in the
+   transfer quality columns
+
+Deployment Changes
+ - Fix Oracle libs installation problem on athlon architectures
+ - Explicitely set execution bit where needed
+
 * Changes in PhEDEx 3.0.6
 
 Changes For All Agents
