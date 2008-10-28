@@ -86,11 +86,9 @@ sub idle
 	    my $stmt = &dbprep ($dbh, qq{
 		insert into t_xfer_catalogue
 		(node, rule_index, rule_type, protocol, chain,
-		 destination_match, path_match, result_expr,
-                 is_custodial, space_token)
+		 destination_match, path_match, result_expr)
 		values (:node, :rule_index, :type, :protocol, :chain,
-			:destination, :path, :result,
-                        :custodial, :space_token)});
+			:destination, :path, :result)});
 
 	    foreach my $node (@nodes)
 	    {
@@ -132,9 +130,7 @@ sub idle
 					    ":chain" => $$rule{'chain'},
 					    ":destination" => $$rule{'destination-match'},
 					    ":path" => $$rule{'path-match'},
-					    ":result" => $$rule{'result'},
-                                            ":custodial" => $$rule{'is-custodial'},
-                                            ":space_token" => $$rule{'space-token'});
+					    ":result" => $$rule{'result'});
 			    }
 			}
 		    }

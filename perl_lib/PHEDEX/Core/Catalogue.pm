@@ -30,15 +30,15 @@ my %cache;
 # but the value will be undef if no PFN could be constructed.
 sub pfnLookup
 {
-    my ($input, $proto, $dest, $mapping, $custodial) = @_;
+    my ($input, $proto, $dest, $mapping) = @_;
     my @args = (&storageRules ($mapping, 'lfn-to-pfn'), $proto, $dest, 'pre');
     if (ref $input)
     {
-	return { map { $_ => [&applyStorageRules(@args, $_, $custodial)] } @$input };
+	return { map { $_ => &applyStorageRules(@args, $_) } @$input };
     }
     else
     {
-	return &applyStorageRules(@args, $input, $custodial);
+	return &applyStorageRules(@args, $input);
     }
 }
 
@@ -46,15 +46,15 @@ sub pfnLookup
 # pfnLookup, but simply works the other way around.
 sub lfnLookup
 {
-    my ($input, $proto, $dest, $mapping, $custodial) = @_;
+    my ($input, $proto, $dest, $mapping) = @_;
     my @args = (&storageRules ($mapping, 'pfn-to-lfn'), $proto, $dest, 'post');
     if (ref $input)
     {
-	return { map { $_ => [&applyStorageRules(@args, $_, $custodial)] } @$input };
+	return { map { $_ => &applyStorageRules(@args, $_) } @$input };
     }
     else
     {
-	return &applyStorageRules(@args, $input, $custodial);
+	return &applyStorageRules(@args, $input);
     }
 }
 
@@ -140,52 +140,19 @@ sub storageRules
 }
 
 # Apply storage mapping rules to a file name.  See "storageRules" for details.
-#
-# new optional parameters: $custodial and $space_token
-#
-# if $custodial is not defined, it is assumed to be 'n'.
-# if "is-custodial" is not defined in the rule, it is assumed to be 'n'.
-# $custodial has to match "is-custodial"
-#
-# if the end result of applying current rule produces a defined
-# space-toke, return it; otherwise, return the value passed-in
-# through the argument $space_token
-#
-# applyStorageRules() returns ($space_token, $name)
 sub applyStorageRules
 {
-    my ($rules, $proto, $dest, $chain, $givenname, $custodial, $space_token) = @_;
-
-    # Bail out if $givenname is undef
-    if (! defined ($givenname))
-    {
-        return undef;
-    }
-
-    # if omitted, $custodial is default to "n"
-    if (! defined ($custodial))
-    {
-        $custodial = "n";
-    }
-
+    my ($rules, $proto, $dest, $chain, $givenname) = @_;
     foreach my $rule (@{$$rules{$proto}})
     {
 	my $name = $givenname;
 
-	# take care of custodial flag
-        #
-        # if is-custodial is undefined, it matches any $custodial value
-        # if is-custodial is defined, it has to match $custodial
-        next if ($$rule{'is-custodial'} && ($$rule{'is-custodial'} ne $custodial));
-
 	next if (defined $$rule{'destination-match'}
 		 && $dest !~ m!$$rule{'destination-match'}!);
-	if (exists $$rule{'chain'} && $chain eq 'pre') {
-	    ($space_token, $name) = &applyStorageRules($rules, $$rule{'chain'}, $dest, $chain, $name, $custodial, $space_token);
-	}
 
-        # It's a failure if the name is undef
-        next if (!defined ($name));
+	if (exists $$rule{'chain'} && $chain eq 'pre') {
+	    $name = &applyStorageRules($rules, $$rule{'chain'}, $dest, $chain, $name);
+	}
 
 	if ($name =~ m!$$rule{'path-match'}!)
 	{
@@ -197,13 +164,9 @@ sub applyStorageRules
 	    {
 		eval "\$name =~ s!\$\$rule{'path-match'}!$$rule{'result'}!";
 	    }
-            if ($$rule{'space-token'})
-            {
-                $space_token = $$rule{'space-token'};
-            }
-	    ($space_token, $name) = &applyStorageRules($rules, $$rule{'chain'}, $dest, $chain, $name, $custodial, $space_token)
+	    $name = &applyStorageRules($rules, $$rule{'chain'}, $dest, $chain, $name)
 		if (exists $$rule{'chain'} && $chain eq 'post');
-	    return ($space_token, $name);
+	    return $name;
 	}
 	
     }
@@ -224,13 +187,13 @@ sub dbStorageRules
         $$cats{$node} = {};
 
         my $q = &dbexec($dbh, qq{
-	    select protocol, chain, destination_match, path_match, result_expr, is_custodial, space_token
+	    select protocol, chain, destination_match, path_match, result_expr
 	    from t_xfer_catalogue
 	    where node = :node and rule_type = 'lfn-to-pfn'
 	    order by rule_index asc},
 	    ":node" => $node);
 
-        while (my ($proto, $chain, $dest, $path, $result, $custodial, $space_token) = $q->fetchrow())
+        while (my ($proto, $chain, $dest, $path, $result) = $q->fetchrow())
         {
 	    # Check the pattern is valid.  If not, abort.
             my $pathrx = eval { qr/$path/ };
@@ -249,8 +212,6 @@ sub dbStorageRules
 	    push(@{$$cats{$node}{$proto}}, {
 		    (defined $chain ? ('chain' => $chain) : ()),
 		    (defined $dest ? ('destination-match' => $destrx) : ()),
-                    (defined $custodial ? ('is-custodial' => $custodial) : ()),
-                    (defined $space_token ? ('space-token' => $space_token) : ()),
 		    'path-match' => $pathrx,
 		    'result' => eval "sub { \$_[0] =~ s!\$_[1]!$result! }" });
         }

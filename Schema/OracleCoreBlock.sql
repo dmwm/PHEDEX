@@ -75,14 +75,11 @@ create table t_dps_block
 create table t_dps_block_replica
   (block		integer		not null,
    node			integer		not null,
-   user_group		integer			,
    is_active		char (1)	not null,
    src_files		integer		not null,
    src_bytes		integer		not null,
    dest_files		integer		not null,
    dest_bytes		integer		not null,
-   cust_files		integer		not null,
-   cust_bytes		integer		not null,
    node_files		integer		not null,
    node_bytes		integer		not null,
    xfer_files		integer		not null,
@@ -101,10 +98,6 @@ create table t_dps_block_replica
      foreign key (node) references t_adm_node (id)
      on delete cascade,
    --
-   constraint fk_dps_block_replica_group
-     foreign key (user_group) references t_adm_group (id)
-     on delete set null,
-   --
    constraint ck_dps_block_replica_active
      check (is_active in ('y', 'n')));
 
@@ -122,7 +115,6 @@ create table t_dps_block_dest
    dataset		integer		not null,
    destination		integer		not null,
    priority		integer		not null,
-   is_custodial		char (1)	not null,
    state		integer		not null,
    time_subscription	float		not null,
    time_create		float		not null,
@@ -143,10 +135,7 @@ create table t_dps_block_dest
    --
    constraint fk_dps_block_dest_node
      foreign key (destination) references t_adm_node (id)
-     on delete cascade,
-   --
-   constraint ck_dps_block_dest_custodial
-     check (is_custodial in ('y', 'n')));
+     on delete cascade);
 
 
 create table t_dps_block_activate
@@ -162,24 +151,23 @@ create table t_dps_block_activate
 ----------------------------------------------------------------------
 -- Create indices
 
--- t_dps_block_dataset
 create index ix_dps_block_dataset
   on t_dps_block (dataset);
 
 create index ix_dps_block_name
   on t_dps_block (name);
--- t_dps_block_replica
+
+--
 create index ix_dps_block_replica_node
   on t_dps_block_replica (node);
 
-create index ix_dps_block_replica_group
-  on t_dps_block_replica (user_group);
--- t_dps_block_dest
+--
 create index ix_dps_block_dest_dataset
   on t_dps_block_dest (dataset);
 
 create index ix_dps_block_dest_dest
   on t_dps_block_dest (destination);
--- t_dps_block_activate
+
+--
 create index ix_dps_block_activate_b
   on t_dps_block_activate (block);
