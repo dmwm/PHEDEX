@@ -37,7 +37,7 @@ use PHEDEX::Namespace;
 
 our %params =
 	(
-	  WAITTIME => 900 + rand(15),	# Agent activity cycle
+	  WAITTIME => 30 + rand(15),	# Agent activity cycle
 	  PROTOCOL => 'direct',         # File access protocol
 	  STORAGEMAP => undef,		# Storage path mapping rules
 	  USE_SRM => 'n',		# Use SRM or native technology?
