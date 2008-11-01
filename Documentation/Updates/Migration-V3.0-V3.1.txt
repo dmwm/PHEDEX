@@ -1,0 +1,254 @@
+** Migration procedure applied to Prod instance **
+
+# Before you begin, make sure the web pages and data service are down
+# so that no one tries to make updates in the middle of the upgrade.
+
+# Source environment
+source ../sw/slc*/cms/PHEDEX/PHEDEX_*/etc/profile.d/env.sh
+
+# Set authentication for DB access
+export PHEDEX_DB='../SITECONF/CERN/PhEDEx/DBParam:Dev/Admin';
+export PHEDEX_DB_R='../SITECONF/CERN/PhEDEx/DBParam:Dev/Reader';
+export PHEDEX_DB_W='../SITECONF/CERN/PhEDEx/DBParam:Dev/CERN';
+
+# tell all agents to go away
+sqlplus -S $(Schema/OracleConnectId  -db ${PHEDEX_DB})
+insert into t_agent_message
+select n.id, a.id, 'GOAWAY', now()
+  from t_adm_node n cross join t_agent a;
+
+# wait 1 hour for all agents to get the message (go to lunch?)
+
+# Save all old tables to xt
+sqlplus -S $(Schema/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleSave.sql </dev/null
+
+# Load the new schema
+sqlplus -S $(Schema/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleReset.sql </dev/null
+sqlplus -S $(Schema/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleInit.sql </dev/null
+sqlplus -S $(Schema/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleStatsEnable.sql </dev/null
+
+# Connect to DB using SQLPlus
+sqlplus $(Schema/OracleConnectId  -db ${PHEDEX_DB})
+
+-- the basics: nodes, datasets, blocks, files
+insert into t_adm_node select * from xt_adm_node;
+insert into t_dps_dbs select * from xt_dps_dbs;
+insert into t_dps_dataset select * from xt_dps_dataset;
+insert into t_dps_block select * from xt_dps_block;
+insert into t_dps_file select * from xt_dps_file;
+insert into t_xfer_file select * from xt_xfer_file;
+
+-- make the agents go away again
+insert into t_agent select * from xt_agent;
+insert into t_agent_message select * from xt_agent_message;
+
+-- Crate partitions per node
+begin
+  for o in (select id, name from t_adm_node) loop
+    execute immediate 'alter table t_xfer_replica add partition node_' || lower(o.name) || ' values (' || o.id || ')';
+    execute immediate 'alter table t_xfer_request add partition dest_' || lower(o.name) || ' values (' || o.id || ')';
+    execute immediate 'alter table t_xfer_task    add partition to_'   || lower(o.name) || ' values (' || o.id || ')';
+  end loop;
+end;
+/
+
+-- replicas
+insert into t_xfer_replica select * from xt_xfer_replica;
+
+insert into t_dps_block_replica 
+(block, node, is_active, src_files, src_bytes, dest_files, dest_bytes, 
+ node_files, node_bytes, xfer_files, xfer_bytes, 
+ is_custodial, user_group, 
+ time_create, time_update)
+select br.block, br.node, br.is_active, br.src_files, br.src_bytes, br.dest_files, br.dest_bytes, 
+ br.node_files, br.node_bytes, br.xfer_files, br.xfer_bytes,
+ case when (n.name like 'T0%' or n.name like 'T1%') 
+           and br.dest_files != 0 
+      then 'y' 
+      else 'n'
+      end is_custodial,
+ NULL user_group, 
+ br.time_create, br.time_update
+from xt_block_replica br
+join xt_adm_node n on n.id = br.node;
+
+-- links
+insert into t_adm_link select * from xt_adm_link;
+insert into t_adm_link_param select * from xt_adm_link_param;
+
+-- identities
+insert into t_adm_identity select * from xt_adm_identity;
+insert into t_adm_contact select * from xt_adm_contact;
+insert into t_adm_contact_attr select * from xt_adm_contact_attr;
+insert into t_adm_client select * from xt_adm_client;
+
+-- requests
+insert into t_req_comments select * from xt_req_comments;
+-- (filled at creation) insert into t_req_type select * from xt_req_type;
+
+-- all old requests have an undefined group
+insert into t_req_request 
+(id, type, created_by, user_group, time_create, comments)
+select id, type, created_by, NULL, time_create, comments from xt_req_request;
+
+insert into t_req_dbs select * from xt_req_dbs;
+insert into t_req_dataset select * from xt_req_dataset;
+insert into t_req_block select * from xt_req_block;
+insert into t_req_file select * from xt_req_file;
+insert into t_req_node select * from xt_req_node;
+insert into t_req_decision select * from xt_req_decision;
+
+-- all old requests listed as not custodial
+-- can't use T0, T1 rule because request may contain nodes from multiple tiers
+insert into t_req_xfer 
+(request, priority, is_move, is_static, is_transient, is_distributed, is_custodial, data)
+select request, priority, is_move, is_static, is_transient, is_distributed, 'n', data from xt_req_xfer;
+
+insert into t_req_delete select * from xt_req_delete;
+
+-- "desired state" tables
+insert into t_dps_block_delete select * from xt_dps_block_delete;
+
+insert into t_dps_subscription 
+(request, dataset, block, destination, priority, is_move, is_transient, is_custodial, user_group,
+ time_create, time_complete, time_clear, time_done, time_suspend_until)
+select s.request, s.dataset, s.block, s.destination, s.priority, s.is_move, s.is_transient, 
+  case when (n.name like 'T0%' or n.name like 'T1%') 
+       then 'y'
+       else 'n'
+       end is_custodial, 
+ NULL user_group,
+ s.time_create, s.time_complete, s.time_clear, s.time_done, s.time_suspend_until
+from xt_dps_subscription s join xt_adm_node n on n.id = s.destination;
+
+-- agents (just let this be regenerated by new connections)
+-- insert into t_agent select * from xt_agent;
+-- insert into t_agent_log select * from xt_agent_log;
+-- insert into t_agent_status select * from xt_agent_status;
+-- insert into t_agent_message select * from xt_agent_message;
+-- insert into t_agent_version select * from xt_agent_version;
+
+-- verify
+-- (filled at creation) insert into t_dvs_status select * from xt_dvs_status;
+-- (filled at creation) insert into t_dvs_test select * from xt_dvs_test;
+insert into t_dvs_block select * from xt_dvs_block;
+insert into t_dvs_file select * from xt_dvs_file;
+insert into t_dvs_file_result select * from xt_dvs_file_result;
+insert into t_status_block_verify select * from xt_status_block_verify;
+
+-- status
+-- we'll just let the agents rebuild these
+-- insert into t_status_block_dest select * from xt_status_block_dest;
+-- insert into t_status_file select * from xt_status_file;
+-- insert into t_status_file_size_histogram select * from xt_status_file_size_histogram;
+-- insert into t_status_file_size_overview select * from xt_status_file_size_overview;
+-- insert into t_status_path select * from xt_status_path;
+-- insert into t_status_replica select * from xt_status_replica;
+-- insert into t_status_request select * from xt_status_request;
+-- insert into t_status_task select * from xt_status_task;
+
+-- history
+insert /*+ append */ into t_history_link_events
+select * from xt_history_link_events;
+
+insert /*+ append */ into t_history_link_stats
+select * from xt_history_link_stats;
+
+-- need to use our historical custodial assumption here
+-- first we just set the custodial values to 0
+insert /*+ append */ into t_history_dest
+(timebin, timewidth, node,
+ dest_files, dest_bytes,
+ cust_dest_files, cust_dest_bytes,
+ src_files, src_bytes,
+ node_files, node_bytes,
+ cust_node_files, cust_node_bytes,
+ request_files, request_bytes,
+ idle_files, idle_bytes)
+select h.timebin, h.timewidth, h.node,
+ h.dest_files, h.dest_bytes,
+ 0 cust_dest_files, 0 cust_dest_bytes,
+ h.src_files, h.src_bytes,
+ h.node_files, h.node_bytes,
+ 0 cust_node_files, 0 cust_node_bytes,
+ h.request_files, h.request_bytes,
+ h.idle_files, h.idle_bytes
+from xt_history_dest h join xt_adm_node n on n.id = h.destination;
+
+-- next we update them based on the node
+update t_history_dest
+   set cust_dest_files = dest_files,
+       cust_dest_bytes = dest_bytes,
+       cust_node_files = node_files,
+       cust_node_bytes = node_bytes
+ where destination in 
+   (select id from t_adm_node 
+     where name like 'T0%' or name like 'T2%');
+
+-- logs
+insert into t_log_block_latency 
+(time_update, destination, block, files, bytes, priority, is_custodial,
+ time_subscription, block_create, first_request, first_replica, last_replica,
+ last_suspend, suspend_time, latency)
+select l.time_update, l.destination, l.block, l.files, l.bytes, l.priority, 'n' is_custodial,
+       l.time_subscription, l.block_create, l.first_request, l.first_replica, l.last_replica,
+       l.last_suspend, l.suspend_time, l.latency
+  from xt_log_block_latency l;
+
+update t_log_block_latency
+   set is_custodial = 'y'
+ where destination in 
+   (select id from t_adm_node 
+     where name like 'T0%' or name like 'T2%');
+
+-- xfer tables (we will just regenerate these on restart)
+
+
+-- set sequence position
+set serveroutput on;
+
+Declare
+  increment number;
+  dummy number;
+Begin
+    FOR o IN
+      (SELECT sequence_name FROM user_sequences
+         WHERE sequence_name LIKE 'SEQ%' and last_number=1)
+   LOOP
+      select last_number-1 into increment from user_sequences where sequence_name='X'||o.sequence_name;
+      dbms_output.put_line('Incrementing '|| o.sequence_name ||' by ' || increment);
+      execute immediate 'alter sequence ' || o.sequence_name || ' increment by ' || increment;
+      execute immediate 'select ' || o.sequence_name || '.nextval from dual' into dummy;
+      execute immediate 'alter sequence ' || o.sequence_name || ' increment by 1';
+   END LOOP;
+End;
+/
+
+commit;
+
+-- re-enable all triggers
+begin
+  for o in (select trigger_name from user_triggers) loop
+    execute immediate 'alter trigger ' || o.trigger_name || ' enable';
+  end loop;
+end;
+/
+
+exit;
+
+# !!! done with sqlplus !!!
+
+# Update statistics
+sqlplus -S $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @$PHEDEX/Schema/OracleStatsUpdate.sql </dev/null
+
+# Create synonmys
+
+
+# Create privileges
+$PHEDEX/Schema/OraclePrivs.sh $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 'cms_transfermgmt_reader' 'cms_transfermgmt_writer'
+
+# let the agents come back
+sqlplus -S $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
+delete from t_agent_message;
+delete from t_agent;
+exit;
