@@ -31,7 +31,8 @@ create table t_xfer_catalogue
      check (rule_type in ('lfn-to-pfn', 'pfn-to-lfn')),
    --
    constraint ck_xfer_catalogue_custodial
-     check (is_custodial in ('y', 'n')));
+     check (is_custodial in ('y', 'n'))
+  );
 
 create table t_xfer_source
   (from_node		integer		not null,
@@ -48,7 +49,8 @@ create table t_xfer_source
    --
    constraint fk_xfer_source_to
      foreign key (to_node) references t_adm_node (id)
-     on delete cascade);
+     on delete cascade
+  );
 
 create table t_xfer_sink
   (from_node		integer		not null,
@@ -65,7 +67,8 @@ create table t_xfer_sink
    --
    constraint fk_xfer_sink_to
      foreign key (to_node) references t_adm_node (id)
-     on delete cascade);
+     on delete cascade
+  );
 
 create table t_xfer_delete
   (fileid		integer		not null,  -- for which file
@@ -82,8 +85,9 @@ create table t_xfer_delete
    --
    constraint fk_xfer_delete_node
      foreign key (node) references t_adm_node (id)
-     on delete cascade)
- enable row movement;
+     on delete cascade
+  )
+  enable row movement;
 
 /* priority in t_dps_block_dest, t_xfer_request, t_xfer_path
  *   0 = "now", 1 = "as soon as you can", 2 = "whenever you can"
@@ -116,8 +120,8 @@ create table t_xfer_replica
      foreign key (node) references t_adm_node (id),
    --
    constraint fk_xfer_replica_fileid
-     foreign key (fileid) references t_xfer_file (id))
-  --
+     foreign key (fileid) references t_xfer_file (id)
+  )
   partition by list (node)
     (partition node_dummy values (-1))
   enable row movement;
@@ -132,6 +136,7 @@ create table t_xfer_request
    inblock		integer		not null,
    destination		integer		not null,
    priority		integer		not null,
+   is_custodial		char (1)	not null,
    state		integer		not null,
    attempt		integer		not null,
    time_create		float		not null,
@@ -150,8 +155,11 @@ create table t_xfer_request
    --
    constraint fk_xfer_request_dest
      foreign key (destination) references t_adm_node (id)
-     on delete cascade)
-  --
+     on delete cascade,
+   --
+   constraint ck_xfer_request_custodial
+     check (is_custodial in ('y', 'n'))
+  )
   partition by list (destination)
     (partition dest_dummy values (-1))
   enable row movement;
@@ -197,8 +205,8 @@ create table t_xfer_path
    --
    constraint fk_xfer_path_to
      foreign key (to_node) references t_adm_node (id)
-     on delete cascade)
-  --
+     on delete cascade
+  )
   enable row movement;
 
 create table t_xfer_exclude
@@ -220,8 +228,8 @@ create table t_xfer_exclude
    --
    constraint fk_xfer_exclude_fileid
      foreign key (fileid) references t_xfer_file (id)
-     on delete cascade)
-  --
+     on delete cascade
+  )
   enable row movement;
 
 
@@ -232,6 +240,7 @@ create table t_xfer_task
    fileid		integer		not null, -- xref t_xfer_file
    from_replica		integer		not null, -- xref t_xfer_replica
    priority		integer		not null, -- (described above)
+   is_custodial		char (1)	not null, -- custodial copy
    rank			integer		not null, -- current order rank
    from_node		integer		not null, -- node transfer is from
    to_node		integer		not null, -- node transfer is to
@@ -259,8 +268,11 @@ create table t_xfer_task
    --
    constraint fk_xfer_task_to
      foreign key (to_node) references t_adm_node (id)
-     on delete cascade)
+     on delete cascade,
   --
+   constraint ck_xfer_task_custodial
+     check (is_custodial in ('y', 'n'))
+  )
   partition by list (to_node)
     (partition to_dummy values (-1))
   enable row movement;
@@ -274,8 +286,8 @@ create table t_xfer_task_export
    --
    constraint fk_xfer_task_export_task
      foreign key (task) references t_xfer_task (id)
-     on delete cascade)
-  --
+     on delete cascade
+  )
   enable row movement;
 
 create table t_xfer_task_inxfer
@@ -287,8 +299,8 @@ create table t_xfer_task_inxfer
    --
    constraint fk_xfer_task_inxfer_task
      foreign key (task) references t_xfer_task (id)
-     on delete cascade)
-  --
+     on delete cascade
+  )
   enable row movement;
 
 create table t_xfer_task_done
@@ -303,8 +315,8 @@ create table t_xfer_task_done
    --
    constraint fk_xfer_task_done_task
      foreign key (task) references t_xfer_task (id)
-     on delete cascade)
-  --
+     on delete cascade
+  )
   enable row movement;
 
 create table t_xfer_task_harvest
@@ -315,8 +327,8 @@ create table t_xfer_task_harvest
    --
    constraint fk_xfer_task_harvest_task
      foreign key (task) references t_xfer_task (id)
-     on delete cascade)
-  --
+     on delete cascade
+  )
   enable row movement;
 
 create table t_xfer_error
@@ -324,6 +336,7 @@ create table t_xfer_error
    from_node		integer		not null, -- node transfer is from
    fileid		integer		not null, -- xref t_xfer_file
    priority		integer		not null, -- see at the top
+   is_custodial		char (1)	not null, -- custodial copy
    time_assign		float		not null, -- time created
    time_expire		float		not null, -- time will expire
    time_export		float		not null, -- time exported
@@ -348,8 +361,11 @@ create table t_xfer_error
    --
    constraint fk_xfer_export_to
      foreign key (to_node) references t_adm_node (id)
-     on delete cascade)
-  --
+     on delete cascade,
+   --
+   constraint ck_xfer_error_custodial
+     check (is_custodial in ('y', 'n'))
+  )
   enable row movement;
 
 ----------------------------------------------------------------------

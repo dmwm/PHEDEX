@@ -40,7 +40,8 @@ create table t_history_link_events
      foreign key (from_node) references t_adm_node (id),
    --
    constraint fk_history_link_events_to
-     foreign key (to_node) references t_adm_node (id));
+     foreign key (to_node) references t_adm_node (id)
+  );
 
 
 /* FIXME: Consider using compressed table here, see
@@ -87,20 +88,25 @@ create table t_history_link_stats
      foreign key (from_node) references t_adm_node (id),
    --
    constraint fk_history_link_stats_to
-     foreign key (to_node) references t_adm_node (id));
+     foreign key (to_node) references t_adm_node (id)
+  );
 
 /* See comments above for t_history_link_*. */
 create table t_history_dest
   (timebin		float		not null,
    timewidth		float		not null,
    node			integer		not null,
-   dest_files		integer, -- t_dps_block_dest -> files
+   dest_files		integer, -- t_status_block_dest
    dest_bytes		integer,
-   src_files		integer, -- t_dps_file.node
+   cust_dest_files	integer, -- t_status_block_dest
+   cust_dest_bytes	integer,
+   src_files		integer, -- t_status_file
    src_bytes		integer,
-   node_files		integer, -- t_xfer_replica
+   node_files		integer, -- t_status_replica
    node_bytes		integer,
-   request_files	integer, -- t_xfer_request
+   cust_node_files	integer, -- t_status_replica
+   cust_node_bytes	integer,
+   request_files	integer, -- t_status_request
    request_bytes	integer,
    idle_files		integer,
    idle_bytes		integer,
@@ -109,13 +115,15 @@ create table t_history_dest
      primary key (timebin, node),
    --
    constraint fk_history_dest_node
-     foreign key (node) references t_adm_node (id));
+     foreign key (node) references t_adm_node (id)
+  );
 
-/* Statistics for block destinations. */
+/* Statistics for block destinations, from t_dps_block_dest */
 create table t_status_block_dest
   (time_update		float		not null,
    destination		integer		not null,
-   state		integer		not null, -- see t_dps_block_request
+   is_custodial		char (1)	not null,
+   state		integer		not null,
    files		integer		not null,
    bytes		integer		not null,
    --
@@ -124,7 +132,93 @@ create table t_status_block_dest
    --
    constraint fk_status_block_dest_node
      foreign key (destination) references t_adm_node (id)
-     on delete cascade);
+     on delete cascade,
+   --
+   constraint ck_status_block_dest_cust
+     check (is_custodial in ('y', 'n'))
+  );
+
+/* Statistics for file origins. */
+create table t_status_file
+  (time_update		float		not null,
+   node			integer		not null,
+   files		integer		not null,
+   bytes		integer		not null,
+   --
+   constraint pk_status_file
+     primary key (node),
+   --
+   constraint fk_status_file_node
+     foreign key (node) references t_adm_node (id)
+     on delete cascade
+  );
+
+/* Statistics for replicas. */
+create table t_status_replica
+  (time_update		float		not null,
+   node			integer		not null,
+   is_custodial		char (1)	not null,
+   state		integer		not null,
+   files		integer		not null,
+   bytes		integer		not null,
+   --
+   constraint pk_status_replica
+     primary key (node, state),
+   --
+   constraint fk_status_replica_node
+     foreign key (node) references t_adm_node (id)
+     on delete cascade,
+   --
+   constraint ck_status_replica_cust
+     check (is_custodial in ('y', 'n'))
+  );
+
+/* Statistics for transfer requests. 
+ * t_status_request.state:
+ *   same as t_xfer_request, see OracleCoreTransfers
+ */
+ create table t_status_request
+  (time_update		float		not null,
+   destination		integer		not null,
+   priority		integer		not null,
+   is_custodial		char (1)	not null,
+   state		integer		not null,
+   files		integer		not null,
+   bytes		integer		not null,
+   --
+   constraint pk_status_request
+     primary key (destination, state),
+   --
+   constraint fk_status_request_dest
+     foreign key (destination) references t_adm_node (id)
+     on delete cascade,
+   --
+   constraint ck_status_request_cust
+     check (is_custodial in ('y', 'n'))
+  );
+
+/* Statistics for groups */
+ create table t_status_group
+  (time_update		float		not null,
+   destination		integer		not null,
+   user_group		integer,
+   dest_files		integer		not null, -- approved files for this group
+   dest_bytes		integer		not null,
+   node_files		integer		not null, -- acheived files for this group
+   node_bytes		integer		not null,
+   --
+   constraint pk_status_group
+     primary key (destination),
+   --
+   constraint fk_status_group_dest
+     foreign key (destination) references t_adm_node (id)
+     on delete cascade,
+   --
+   constraint fk_status_group_group
+     foreign key (user_group) references t_adm_group (id)
+     on delete set null
+  );
+
 
 /* A prediction of when a block will arrive at a node */
 create table t_status_block_arrive
@@ -145,7 +239,8 @@ create table t_status_block_arrive
      on delete cascade,
     constraint fk_status_block_arrive_block
      foreign key (block) references t_dps_block (id)
-     on delete cascade);
+     on delete cascade
+  );
 
 /* Statistics for blocks being routed . */
 create table t_status_block_path
@@ -171,54 +266,8 @@ create table t_status_block_path
      on delete cascade,
     constraint fk_status_block_path_block
      foreign key (block) references t_dps_block (id)
-     on delete cascade);
-
-/* Statistics for file origins. */
-create table t_status_file
-  (time_update		float		not null,
-   node			integer		not null,
-   files		integer		not null,
-   bytes		integer		not null,
-   --
-   constraint pk_status_file
-     primary key (node),
-   --
-   constraint fk_status_file_node
-     foreign key (node) references t_adm_node (id)
-     on delete cascade);
-
-/* Statistics for replicas. */
-create table t_status_replica
-  (time_update		float		not null,
-   node			integer		not null,
-   state		integer		not null,
-   files		integer		not null,
-   bytes		integer		not null,
-   --
-   constraint pk_status_replica
-     primary key (node, state),
-   --
-   constraint fk_status_replica_node
-     foreign key (node) references t_adm_node (id)
-     on delete cascade);
-
-/* Statistics for transfer requests. 
- * t_status_request.state:
- *   same as t_xfer_request, see OracleCoreTransfers
- */
- create table t_status_request
-  (time_update		float		not null,
-   destination		integer		not null,
-   state		integer		not null,
-   files		integer		not null,
-   bytes		integer		not null,
-   --
-   constraint pk_status_request
-     primary key (destination, state),
-   --
-   constraint fk_status_request_dest
-     foreign key (destination) references t_adm_node (id)
-     on delete cascade);
+     on delete cascade
+  );
 
 /* Statistics for transfer paths.
  * t_status_path.priority:
@@ -242,7 +291,8 @@ create table t_status_path
    --
    constraint fk_status_path_to
      foreign key (to_node) references t_adm_node (id)
-     on delete cascade);
+     on delete cascade
+  );
 
 /* Statistics for transfer tasks.
  *
@@ -260,6 +310,7 @@ create table t_status_task
    from_node		integer		not null,
    to_node		integer		not null,
    priority		integer		not null,
+   is_custodial		char (1)	not null,
    state		integer		not null,
    files		integer		not null,
    bytes		integer		not null,
@@ -273,7 +324,12 @@ create table t_status_task
    --
    constraint fk_status_task_to
      foreign key (to_node) references t_adm_node (id)
-     on delete cascade);
+     on delete cascade,
+   --
+   constraint ck_status_task_cust
+     check (is_custodial in ('y', 'n'))
+  );
+
 
 /* File size statistics (histogram + overview). */
 create table t_status_file_size_overview
@@ -283,14 +339,16 @@ create table t_status_file_size_overview
    sz_min		integer		not null,
    sz_max		integer		not null,
    sz_mean		integer		not null,
-   sz_median		integer		not null);
+   sz_median		integer		not null
+  );
 
 create table t_status_file_size_histogram
   (time_update		float		not null,
    bin_low		integer		not null,
    bin_width		integer		not null,
    n_total		integer		not null,
-   sz_total		integer		not null);
+   sz_total		integer		not null
+  );
 
 /* Log for block completion time . */
 create table t_log_block_latency
@@ -300,6 +358,7 @@ create table t_log_block_latency
    files		integer		not null, -- number of files
    bytes		integer		not null, -- block size in bytes
    priority		integer		not null, -- t_dps_block_dest priority
+   is_custodial		char (1)	not null, -- t_dps_block_dest custodial
    time_subscription	float		not null, -- time block was subscribed
    block_create		float		not null, -- time the block was created
    first_request	float			, -- time block was first routed (t_xfer_request appeared)
@@ -311,9 +370,14 @@ create table t_log_block_latency
    --
    constraint fk_status_block_latency_dest
      foreign key (destination) references t_adm_node (id),
+   --
    constraint fk_status_block_latency_block
      foreign key (block) references t_dps_block (id)
-     on delete set null);
+     on delete set null,
+   --
+   constraint ck_status_block_latency_cust
+     check (is_custodial in ('y', 'n'))
+  );
 
 /* Log for user actions - lifecycle of data at a node
    actions:  0 - request data
@@ -344,8 +408,9 @@ create table t_log_user_action
      foreign key (block) references t_dps_block (id),
    --
    constraint ck_status_user_action_ref
-     check (not (block is null and dataset is null)
-            and not (block is not null and dataset is not null)));
+     check (not     (block is null and dataset is null)
+            and not (block is not null and dataset is not null))
+  );
   
   
    
@@ -358,26 +423,21 @@ create index ix_history_link_events_from
 
 create index ix_history_link_events_to
   on t_history_link_events (to_node);
-
 --
 create index ix_history_link_stats_from
   on t_history_link_stats (from_node);
 
 create index ix_history_link_stats_to
   on t_history_link_stats (to_node);
-
 --
 create index ix_history_dest_node
   on t_history_dest (node);
-
 --
 create index ix_status_task_to
   on t_status_task (to_node);
-
 --
 create index ix_status_path_to
   on t_status_path (to_node);
-
 --
 create index ix_log_user_action_identity
   on t_log_user_action (identity);
@@ -390,7 +450,6 @@ create index ix_log_user_action_dataset
 
 create index ix_log_user_action_block
   on t_log_user_action (block);
-
 --
 create index ix_status_block_path_src
   on t_status_block_path (src_node);

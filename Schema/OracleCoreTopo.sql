@@ -26,7 +26,7 @@ create table t_adm_node
      check (kind in ('Buffer', 'MSS', 'Disk')),
    --
    constraint ck_adm_node_technology
-     check (technology in ('dCache', 'Castor', 'DPM', 'Disk', 'Other')));
+     check (technology in ('dCache', 'Castor', 'DPM', 'Disk', 'StoRM', 'BeStMan', 'Other')));
 
 
 create table t_adm_link

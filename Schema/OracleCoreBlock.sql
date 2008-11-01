@@ -75,18 +75,17 @@ create table t_dps_block
 create table t_dps_block_replica
   (block		integer		not null,
    node			integer		not null,
-   user_group		integer			,
    is_active		char (1)	not null,
    src_files		integer		not null,
    src_bytes		integer		not null,
    dest_files		integer		not null,
    dest_bytes		integer		not null,
-   cust_files		integer		not null,
-   cust_bytes		integer		not null,
    node_files		integer		not null,
    node_bytes		integer		not null,
    xfer_files		integer		not null,
    xfer_bytes		integer		not null,
+   is_custodial		char (1)	not null, -- applies to dest_files, node_files
+   user_group		integer			, -- applies to dest_files, node_files
    time_create		float		not null,
    time_update		float		not null,
    --
@@ -100,6 +99,9 @@ create table t_dps_block_replica
    constraint fk_dps_block_replica_node
      foreign key (node) references t_adm_node (id)
      on delete cascade,
+   --
+   constraint ck_dps_block_replica_cust
+     check (is_custodial in ('y', 'n')),
    --
    constraint fk_dps_block_replica_group
      foreign key (user_group) references t_adm_group (id)
