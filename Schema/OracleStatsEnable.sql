@@ -4,6 +4,8 @@
 -- http://www.idevelopment.info/data/Oracle/DBA_tips/Oracle8i_New_Features/ORA8i_15.shtml
 
 set serveroutput on size 100000
+set def OFF
+-- set def OFF then to '&' to avoid misleading SP2-0317 error.
 set def &
 DECLARE
    -- c integer := dbms_sql.open_cursor;

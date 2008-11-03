@@ -2,7 +2,11 @@
 -- Drop all schema objects.
 
 set serveroutput on size 100000
+
+
 BEGIN
+   execute immediate 'purge recyclebin';
+
    -- Tables
    FOR o IN (SELECT table_name name FROM user_tables WHERE table_name like 'T_%') LOOP
       dbms_output.put_line ('Dropping table ' || o.name || ' with dependencies');
@@ -15,6 +19,8 @@ BEGIN
       execute immediate 'drop sequence ' || o.name;
    END LOOP;
 
+   execute immediate 'purge recyclebin';
+
    -- Triggers
    FOR o IN (SELECT trigger_name name FROM user_triggers) LOOP
       dbms_output.put_line ('Dropping trigger ' || o.name);
@@ -26,5 +32,7 @@ BEGIN
       dbms_output.put_line ('Dropping synonym ' || o.name);
       execute immediate 'drop synonym ' || o.name;
    END LOOP;
+
+   execute immediate 'purge recyclebin';
 END;
 /

@@ -12,7 +12,7 @@ export PHEDEX_DB_R='../SITECONF/CERN/PhEDEx/DBParam:Dev/Reader';
 export PHEDEX_DB_W='../SITECONF/CERN/PhEDEx/DBParam:Dev/CERN';
 
 # tell all agents to go away
-sqlplus -S $(Schema/OracleConnectId  -db ${PHEDEX_DB})
+sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB})
 insert into t_agent_message
 select n.id, a.id, 'GOAWAY', now()
   from t_adm_node n cross join t_agent a;
@@ -20,15 +20,15 @@ select n.id, a.id, 'GOAWAY', now()
 # wait 1 hour for all agents to get the message (go to lunch?)
 
 # Save all old tables to xt
-sqlplus -S $(Schema/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleSave.sql </dev/null
+sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleSave.sql </dev/null
 
 # Load the new schema
-sqlplus -S $(Schema/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleReset.sql </dev/null
-sqlplus -S $(Schema/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleInit.sql </dev/null
-sqlplus -S $(Schema/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleStatsEnable.sql </dev/null
+sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleReset.sql </dev/null
+sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleInit.sql </dev/null
+sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleStatsEnable.sql </dev/null
 
 # Connect to DB using SQLPlus
-sqlplus $(Schema/OracleConnectId  -db ${PHEDEX_DB})
+sqlplus $(Utilities/OracleConnectId  -db ${PHEDEX_DB})
 
 -- the basics: nodes, datasets, blocks, files
 insert into t_adm_node select * from xt_adm_node;
@@ -69,7 +69,7 @@ select br.block, br.node, br.is_active, br.src_files, br.src_bytes, br.dest_file
       end is_custodial,
  NULL user_group, 
  br.time_create, br.time_update
-from xt_block_replica br
+from xt_dps_block_replica br
 join xt_adm_node n on n.id = br.node;
 
 -- links
@@ -173,7 +173,7 @@ select h.timebin, h.timewidth, h.node,
  0 cust_node_files, 0 cust_node_bytes,
  h.request_files, h.request_bytes,
  h.idle_files, h.idle_bytes
-from xt_history_dest h join xt_adm_node n on n.id = h.destination;
+from xt_history_dest h join xt_adm_node n on n.id = h.node;
 
 -- next we update them based on the node
 update t_history_dest
@@ -181,7 +181,7 @@ update t_history_dest
        cust_dest_bytes = dest_bytes,
        cust_node_files = node_files,
        cust_node_bytes = node_bytes
- where destination in 
+ where node in 
    (select id from t_adm_node 
      where name like 'T0%' or name like 'T2%');
 
@@ -215,9 +215,15 @@ Begin
       (SELECT sequence_name FROM user_sequences
          WHERE sequence_name LIKE 'SEQ%' and last_number=1)
    LOOP
-      select last_number-1 into increment from user_sequences where sequence_name='X'||o.sequence_name;
-      dbms_output.put_line('Incrementing '|| o.sequence_name ||' by ' || increment);
-      execute immediate 'alter sequence ' || o.sequence_name || ' increment by ' || increment;
+--    Verify that the 'X'||o.sequence_name sequence exists before attempting to use it.
+      FOR i IN (select null FROM user_sequences WHERE sequence_name LIKE 'X'||o.sequence_name)
+      LOOP
+          select last_number-1 into increment from user_sequences where sequence_name='X'||o.sequence_name;
+          dbms_output.put_line('Incrementing '|| o.sequence_name ||' by ' || increment);
+          IF ( increment > 0 ) THEN
+              execute immediate 'alter sequence ' || o.sequence_name || ' increment by ' || increment;
+          END IF;
+      END LOOP;
       execute immediate 'select ' || o.sequence_name || '.nextval from dual' into dummy;
       execute immediate 'alter sequence ' || o.sequence_name || ' increment by 1';
    END LOOP;
