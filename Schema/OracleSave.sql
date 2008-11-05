@@ -6,12 +6,25 @@
 set serveroutput on size 100000
 BEGIN
    --------------------
+   -- X-Tables
+--
+-- Do we drop all the X% tables first, just for fun?
+--
+--   FOR o IN
+--     (SELECT table_name name FROM user_tables
+--      WHERE table_name LIKE 'X%')
+--   LOOP
+--      dbms_output.put_line ('Dropping table ' || o.name);
+--      execute immediate 'drop table ' || o.name;
+--   END LOOP;
+
    -- Tables
    FOR o IN
      (SELECT table_name name FROM user_tables
       WHERE table_name NOT LIKE 'X%')
    LOOP
       dbms_output.put_line ('Renaming table ' || o.name);
+--      execute immediate 'drop table X' || o.name;
       execute immediate
           'rename ' || o.name
 	  || ' to X' || substr (o.name, 1, 29);
