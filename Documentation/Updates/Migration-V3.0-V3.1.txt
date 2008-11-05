@@ -83,6 +83,9 @@ insert into t_adm_contact_attr select * from xt_adm_contact_attr;
 insert into t_adm_client select * from xt_adm_client;
 
 -- requests
+-- need to disable, then re-enable, the foreign key.
+alter table t_req_comments disable constraint fk_req_comments_request;
+
 insert into t_req_comments select * from xt_req_comments;
 -- (filled at creation) insert into t_req_type select * from xt_req_type;
 
@@ -90,6 +93,8 @@ insert into t_req_comments select * from xt_req_comments;
 insert into t_req_request 
 (id, type, created_by, user_group, time_create, comments)
 select id, type, created_by, NULL, time_create, comments from xt_req_request;
+
+alter table t_req_comments modify constraint fk_req_comments_request enable validate;
 
 insert into t_req_dbs select * from xt_req_dbs;
 insert into t_req_dataset select * from xt_req_dataset;
