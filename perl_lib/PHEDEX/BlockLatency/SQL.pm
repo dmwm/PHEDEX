@@ -112,7 +112,7 @@ sub mergeLogBlockLatency
 	merge into t_log_block_latency l
 	using
 	  (select bd.destination, b.id block, b.files, b.bytes, b.time_create block_create, bd.priority,
-	          bd.time_subscription, bd.time_create, bd.time_complete time_done,
+	          bd.is_custodial, bd.time_subscription, bd.time_create, bd.time_complete time_done,
 	          nvl2(bd.time_suspend_until, :now, NULL) this_suspend
 	     from t_dps_block_dest bd
 	     join t_dps_block b on b.id = bd.block
@@ -130,9 +130,9 @@ sub mergeLogBlockLatency
 	             l.time_update = :now
 	when not matched then
           insert (l.time_update, l.destination, l.block, l.files, l.bytes, l.block_create,
-		  l.priority, l.time_subscription, l.last_suspend, l.suspend_time)
+		  l.priority, l.is_custodial, l.time_subscription, l.last_suspend, l.suspend_time)
           values (:now, d.destination, d.block, d.files, d.bytes, d.block_create,
-		  d.priority, d.time_subscription, d.this_suspend, 0)
+		  d.priority, d.is_custodial, d.time_subscription, d.this_suspend, 0)
     };
 
     ($q, $n) = execute_sql( $self, $sql, %p );

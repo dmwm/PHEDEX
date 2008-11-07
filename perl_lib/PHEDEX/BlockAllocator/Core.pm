@@ -303,7 +303,9 @@ sub allocate
     my $q_subsNoBlock = $self->execute_sql( qq{
 	    select s.destination destination, n.name destination_name,
                    sb.id block, sb.name block_name,
-	           sb.dataset, s.priority, 0 state, s.time_create time_subscription
+	           sb.dataset, s.priority, 0 state,
+		   s.time_create time_subscription,
+		   s.is_custodial
               from t_dps_subscription s
 	      join t_dps_block sb on sb.id = s.block or sb.dataset = s.dataset
 	      join t_adm_node n on n.id = s.destination
@@ -362,13 +364,19 @@ sub allocateBlockDestinations
     my ($self, $blocks) = @_;
     my $i = &dbprep($self->{DBH}, qq{
 	insert into t_dps_block_dest
-	(block, dataset, destination, priority, state, time_subscription, time_create)
-        values (?, ?, ?, ?, ?, ?, ?) });
+	(block, dataset, destination, priority, state, time_subscription, time_create, is_custodial)
+        values (?, ?, ?, ?, ?, ?, ?, ?) });
 
     my %iargs;
     foreach my $b (@$blocks) {
 	my $n = 1;
-	foreach my $key (qw(BLOCK DATASET DESTINATION PRIORITY STATE TIME_SUBSCRIPTION TIME_CREATE)) {
+	foreach my $key (qw(BLOCK DATASET DESTINATION PRIORITY STATE TIME_SUBSCRIPTION TIME_CREATE IS_CUSTODIAL)) {
+# Sanity check
+	    defined($b->{$key}) or $self->Alert(
+			"allocateBlockDestinations: missing key $key in ",
+			join(', ', sort( map { "$_=$b->{$_}" } keys %{$b} ) )
+					      );
+
 	    push(@{$iargs{$n++}}, $b->{$key});
 	}	
     }
