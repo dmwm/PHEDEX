@@ -395,11 +395,11 @@ sub updateTaskStatus
 	values (?, ?, ?, ?, ?)});
     my $estmt = &dbprep($$self{DBH}, qq{
 	insert into t_xfer_error
-	(to_node, from_node, fileid, priority,
+	(to_node, from_node, fileid, priority, is_custodial,
 	 time_assign, time_expire, time_export, time_inxfer, time_xfer,
          time_done, report_code, xfer_code, from_pfn, to_pfn,
 	 log_xfer, log_detail, log_validate)
-	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
+	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
     foreach my $task (keys %$tasks)
     {
 	next if ! exists $$tasks{$task}{REPORT_CODE};
@@ -420,6 +420,7 @@ sub updateTaskStatus
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{FROM_NODE_ID});
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{FILEID});
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{PRIORITY});
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{IS_CUSTODIAL});
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_ASSIGN});
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_EXPIRE});
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_EXPORT});
