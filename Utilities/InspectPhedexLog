@@ -6,7 +6,7 @@
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
 # XML support added by Artem Trunov
-# Version info: $Id: InspectPhedexLog,v 1.31 2008/07/21 14:35:21 egeland Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.32 2008/09/25 12:25:01 dfeichti Exp $:
 ###############################################################################
 
 use strict;
@@ -31,6 +31,8 @@ my $flag_nodberrors=0;
 
 my $errmsglen=350; # length of error messages to use (error will be cut)
 my $multiFilePrintThresh=2;
+
+
 
 sub usage {
 print <<"EOF";
@@ -126,6 +128,7 @@ my ($sdstart,$sdend) = ("","");
 
 if (defined $option{"s"}) {
    $dstart=DateToUnixEpochSeconds($option{"s"});
+   $dend = time(); # By VMB
    die "Error: Could not parse starting date: $option{s}\n" if (!$dstart);
    $flag_checkdate_start=1;
 }
@@ -386,9 +389,12 @@ if (exists $option{"f"} ) {
 while ( my ($k, $v) = each %errinfo ) {
     $errinfo2{$k} = {$to => $v}
 }
-&XMLout(\%errinfo2, $logx, 
+
+# VMB: added GIVENENDTIME GIVENSTARTTIME
+&XMLout(\%errinfo2,\%sitestat,$logx, 
 	STARTTIME=>$datestart, ENDTIME=>$dateend,
 	STARTLOCALTIME=>scalar localtime($datestart), ENDLOCALTIME=>scalar localtime($dateend),
+	GIVENSTARTTIME=>scalar localtime($dstart),    GIVENENDTIME=>scalar localtime($dend), # VMB added
 	GETERRORORIGIN=>1);
 }
 
@@ -501,7 +507,8 @@ print "\nSITE STATISTICS:\n";
 print "==================\n";
 
 if ($dateend ==0) {
-    print "   No transfer entries found ($datestart, $dateend)\n";
+#    print "   No transfer entries found ($datestart, $dateend)\n";
+    print "   No transfer entries found ($sdstart, $sdend)\n";
     exit 0;
 }
 

@@ -6,7 +6,7 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
-# Version info: $Id: ErrorSiteQuery,v 1.2 2008/06/19 16:07:15 trunov Exp $:
+# Version info: $Id: ErrorSiteQuery,v 1.3 2008/06/20 12:27:09 trunov Exp $:
 ###############################################################################
 
 use Getopt::Long;
@@ -139,6 +139,7 @@ $dbh->{LongReadLen} = $max_log_length;
 $dbh->{LongTruncOk} = 1;
 
 my $t_start=DateToUnixEpochSeconds($starttime);
+my $t_end = time();
 
 my $resparams="";
 $resparams.=",log_xfer " if $search_xferlog;
@@ -200,7 +201,10 @@ foreach my $from (sort {$a <=> $b} keys %errinfo) {
   }
 }
 
-&XMLout(\%errinfo, $xmloutfile, 
+my %a;
+
+&XMLout(\%errinfo, \%a, $xmloutfile, 
 	STARTTIME=>$starttime, ENDTIME=>$endtime, 
 	STARTLOCALTIME=>scalar localtime($starttime), ENDLOCALTIME=>scalar localtime($endtime), 
+	GIVENSTARTTIME=>scalar localtime($t_start), GIVENENDTIME=>scalar localtime($t_end),
 	GETERRORORIGIN=>1) if ($xmloutfile);

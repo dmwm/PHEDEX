@@ -16,15 +16,20 @@ use PHEDEX::Error::ErrorOrigin;
 
 sub XMLout() {
     my $errinfo = shift;
+    my $sitestat = shift;
     my $fname = shift;
     my %options = @_;
 
     #check if we got a filehandle?
     open OUT, ">".$fname or die "can not open $fname for writing: $!\n";
     
+
+
     print OUT "<ErrorPerSite";
     
-    foreach my $time (qw(STARTTIME ENDTIME STARTLOCALTIME ENDLOCALTIME)) {
+#    foreach my $time (qw(STARTTIME ENDTIME STARTLOCALTIME ENDLOCALTIME)) {
+# VMB: added GIVENENDTIME GIVENSTARTTIME
+    foreach my $time (qw(STARTTIME ENDTIME STARTLOCALTIME ENDLOCALTIME GIVENSTARTTIME GIVENENDTIME)) {
 	print OUT " ", lc($time), "=\"",$options{$time},"\"" if exists $options{$time};
     }
 
@@ -53,8 +58,27 @@ sub XMLout() {
 	}
 	print OUT "</fromsite>\n";
     }
+
+    print OUT "<SiteStat>\n";
+    
+    foreach my $site ( keys %$sitestat ) {
+	print OUT "    <fromsite name=\"".$site."\" ";
+	foreach my $siteInfo (keys %{$sitestat->{$site}}) {
+	    my $a = {%{$sitestat->{$site}}}->{$siteInfo};
+	    print OUT $siteInfo."=\"".{%{$sitestat->{$site}}}->{$siteInfo}."\" ";
+	}
+	print OUT "> </fromsite>\n";
+    }
+    print OUT "</SiteStat>\n";
     
     print OUT "</ErrorPerSite>";
+
+
+    
+
+    
+
+
 }
 
 1;
