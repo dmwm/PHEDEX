@@ -69,7 +69,7 @@ sub stats
     # Insert new ones.
     &dbexec($dbh, qq{
 	insert into t_status_task
-	(time_update, from_node, to_node, priority, state, files, bytes)
+	(time_update, from_node, to_node, priority, state, files, bytes, is_custodial)
 	select :now, xt.from_node, xt.to_node, xt.priority,
 	       (case
 		  when xtd.task is not null then 3
@@ -77,13 +77,13 @@ sub stats
 		  when xte.task is not null then 1
 		  else 0
 		end) state,
-	       count(xt.fileid), sum(f.filesize)
+	       count(xt.fileid), sum(f.filesize), xt.is_custodial
 	from t_xfer_task xt
 	  join t_xfer_file f on f.id = xt.fileid
 	  left join t_xfer_task_export xte on xte.task = xt.id
 	  left join t_xfer_task_inxfer xti on xti.task = xt.id
 	  left join t_xfer_task_done   xtd on xtd.task = xt.id
-        group by :now, xt.from_node, xt.to_node, xt.priority,
+        group by :now, xt.from_node, xt.to_node, xt.priority, xt.is_custodial
 	       (case
 		  when xtd.task is not null then 3
 		  when xti.task is not null then 2
