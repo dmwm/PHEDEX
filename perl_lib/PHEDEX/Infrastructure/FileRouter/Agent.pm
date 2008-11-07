@@ -396,12 +396,12 @@ sub prepare
 	my $i = &dbprep($dbh, qq{
 	    insert into t_xfer_request
 		(fileid, inblock, destination, priority, state,
-		 attempt, time_create, time_expire)
+		 attempt, time_create, time_expire, is_custodial)
 		select
 		id, :block inblock, :node destination, :priority priority,
-		0 state, 1 attempt, :now, :now + dbms_random.value(7,10)*3600
-		from t_xfer_file
-		where inblock = :block});
+		0 state, 1 attempt, :now, :now + dbms_random.value(7,10)*3600, bd.is_custodial
+		from t_xfer_file, t_dps_block_dest bd
+		where inblock = :block and inblock = bd.block and bd.destination = :node});
 		    
 	foreach my $b (@activated_blocks)
 	{
@@ -973,11 +973,11 @@ sub stats
     &dbexec($dbh, qq{delete from t_status_request});
     &dbexec($dbh, qq{
 	insert into t_status_request
-	(time_update, destination, state, files, bytes)
+	(time_update, destination, state, files, bytes, is_custodial)
 	select :now, xq.destination, xq.state,
-	       count(xq.fileid), nvl(sum(f.filesize),0)
+	       count(xq.fileid), nvl(sum(f.filesize),0), xq.is_custodial
 	from t_xfer_request xq join t_xfer_file f on f.id = xq.fileid
-	group by :now, xq.destination, xq.state},
+	group by :now, xq.destination, xq.state, xq.is_custodial},
 	":now" => $now);
 
     &dbexec($dbh, qq{delete from t_status_block_path});
