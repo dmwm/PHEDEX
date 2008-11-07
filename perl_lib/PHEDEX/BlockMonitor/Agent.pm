@@ -269,8 +269,11 @@ sub idle
 		}
 
 		$self->Logmsg ("creating block $b->{BLOCK} at node $b->{NODE}");
-		$self->createBlockAtNode( NOW => $now, %{$b} )
-		    unless $self->{DUMMY};
+
+#		If $self->{DUMMY} is defined, createBlockAtNode will take no
+#		action. If $self->{VERBOSE} is also defined, it will print what
+#		it would have done.
+		$self->createBlockAtNode( NOW => $now, %{$b} );
 	    }
 
 	    # Commit and iterate

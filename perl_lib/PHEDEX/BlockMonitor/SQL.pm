@@ -95,7 +95,8 @@ sub getDestFilesNBytes
 
   $sql = qq{ select b.id block, s.destination node,
 		    b.files dest_files,
-		    b.bytes dest_bytes
+		    b.bytes dest_bytes,
+		    user_group, is_custodial
       		from t_dps_subscription s
       		join t_dps_block b on b.dataset = s.dataset or b.id = s.block
 	    };
@@ -220,24 +221,56 @@ sub createBlockAtNode
   my ($self,%h) = @_;
   my ($sql,%p);
 
-  my @b = qw(now block node dest_files dest_bytes src_files src_bytes node_files node_bytes xfer_files xfer_bytes);
+  my @b = qw(now block node dest_files dest_bytes src_files src_bytes node_files node_bytes xfer_files xfer_bytes user_group is_custodial);
   $sql = qq{ insert into t_dps_block_replica
         (time_create, time_update,
          block, node, is_active,
          dest_files, dest_bytes,
          src_files,  src_bytes,
          node_files, node_bytes,
-         xfer_files, xfer_bytes)
+         xfer_files, xfer_bytes,
+	 user_group, is_custodial)
          values (:now, :now,
                 :block, :node, 'y',
                 :dest_files, :dest_bytes,
                 :src_files,  :src_bytes,
                 :node_files, :node_bytes,
-                :xfer_files, :xfer_bytes) };
+                :xfer_files, :xfer_bytes,
+		:user_group, :is_custodial) };
   $h{NOW} = mytimeofday() unless $h{NOW};
+
+# Sanity check:
+  if ( !exists($h{IS_CUSTODIAL}) )
+  {
+    my $custody='n';
+    if ( $h{DEST_FILES} )
+    {
+      my $map = $self->getNodeMap();
+      my $name = $map->{$h{NODE}};
+      if ( $name =~ m%^T0% or $name =~ m%^T1% )
+      {
+        $custody = 'y';
+      }
+    }
+    $self->Alert("createBlockAtNode: Assigning is_custodial=$custody for block=$h{BLOCK}");
+    $h{IS_CUSTODIAL} = $custody;
+  }
   foreach ( @b ) { $p{ ':' . $_ } = $h{uc($_)}; }
 
-  return if exists $self->{DUMMY} && $self->{DUMMY};
+  my @m;
+  foreach ( @b ) { push @m,$_ unless ( exists($h{uc($_)}) ); }
+  if ( @m )
+  {
+    $self->Alert('createBlockAtNode: missing keys ',join(' ,',sort @m),
+	' in block ',join(', ', map { "$_=$p{$_}" } sort keys %p) );
+  }
+
+  if ( $self->{VERBOSE} )
+  {
+    $self->Logmsg(' createBlockAtNode: ',
+		join(', ', map { "$_=$p{$_}" } sort keys %p) );
+  }
+  return if ( exists $self->{DUMMY} && $self->{DUMMY} );
   execute_sql( $self, $sql, %p );
 }
 
