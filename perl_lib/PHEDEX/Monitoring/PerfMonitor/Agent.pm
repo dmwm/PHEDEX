@@ -58,12 +58,12 @@ sub idle
 	&dbexec($dbh, qq{delete from t_status_block_dest});
 	&dbexec($dbh, qq{
 	    insert into t_status_block_dest
-	    (time_update, destination, state, files, bytes)
+	    (time_update, destination, state, files, bytes, is_custodial)
 	    select :now, bd.destination, bd.state,
-	           count(f.id), nvl(sum(f.filesize),0)
+	           count(f.id), nvl(sum(f.filesize),0), bd.is_custodial
 	    from t_dps_block_dest bd
 	      join t_dps_file f on f.inblock = bd.block
-	    group by :now, bd.destination, bd.state},
+	    group by :now, bd.destination, bd.state, bd.is_custodial},
 	    ":now" => $now);
 
 	# Summarise file origins.
@@ -82,11 +82,11 @@ sub idle
 	&dbexec($dbh, qq{delete from t_status_replica});
 	&dbexec($dbh, qq{
 	    insert into t_status_replica
-	    (time_update, node, state, files, bytes)
+	    (time_update, node, state, files, bytes, is_custodial)
 	    select :now, br.node, 0,
-	           nvl(sum (br.node_files), 0), nvl(sum (br.node_bytes), 0)
+	           nvl(sum (br.node_files), 0), nvl(sum (br.node_bytes), 0), br.is_custodial
 	    from t_dps_block_replica br
-	    group by br.node },
+	    group by br.node, br.is_custodial },
 	    ":now" => $now);
 
 	# PART II
