@@ -78,7 +78,7 @@ sub idle
 	    group by :now, br.node},
 	    ":now" => $now);
 
-	# Summarise nod replicas
+	# Summarise node replicas
 	&dbexec($dbh, qq{delete from t_status_replica});
 	&dbexec($dbh, qq{
 	    insert into t_status_replica
@@ -87,6 +87,19 @@ sub idle
 	           nvl(sum (br.node_files), 0), nvl(sum (br.node_bytes), 0), br.is_custodial
 	    from t_dps_block_replica br
 	    group by br.node, br.is_custodial },
+	    ":now" => $now);
+
+	# Sumarize groups
+	&dbexec($dbh, qq{delete from t_status_group});
+	&dbexec($dbh, qq{
+	    insert into t_status_group
+	    (time_update, node, user_group,
+	     dest_files, dest_bytes, node_files, node_bytes)
+	    select :now, br.node, br.user_group,
+                   nvl(sum (br.dest_files), 0), nvl(sum (br.dest_bytes), 0),
+                   nvl(sum (br.node_files), 0), nvl(sum (br.node_bytes), 0)
+	    from t_dps_block_replica br
+	    group by br.node, br.user_group },
 	    ":now" => $now);
 
 	# PART II
