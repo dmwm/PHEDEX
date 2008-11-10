@@ -200,18 +200,18 @@ create table t_status_replica
 /* Statistics for groups */
  create table t_status_group
   (time_update		float		not null,
-   destination		integer		not null,
+   node			integer		not null,
    user_group		integer,
    dest_files		integer		not null, -- approved files for this group
    dest_bytes		integer		not null,
    node_files		integer		not null, -- acheived files for this group
    node_bytes		integer		not null,
    --
-   constraint pk_status_group
-     primary key (destination),
+   constraint uk_status_group
+     unique (node, user_group),
    --
-   constraint fk_status_group_dest
-     foreign key (destination) references t_adm_node (id)
+   constraint fk_status_group_node
+     foreign key (node) references t_adm_node (id)
      on delete cascade,
    --
    constraint fk_status_group_group
@@ -438,6 +438,9 @@ create index ix_status_task_to
 --
 create index ix_status_path_to
   on t_status_path (to_node);
+--
+create index ix_status_group_group
+  on t_status_group (user_group);
 --
 create index ix_log_user_action_identity
   on t_log_user_action (identity);
