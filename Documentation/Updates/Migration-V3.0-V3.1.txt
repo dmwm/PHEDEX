@@ -258,6 +258,14 @@ sqlplus -S $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @$PHEDEX/Schem
 # Create privileges
 $PHEDEX/Schema/OraclePrivs.sh $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 'cms_transfermgmt_reader' 'cms_transfermgmt_writer'
 
+# For the **Prod instance ONLY**, grant the DBS select access to the block replica view
+sqlplus -S $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
+grant select on v_dbs_block_replica to cms_dbs_int_global with grant option;
+grant select on v_dbs_block_replica to cms_dbs_int_global_reader;
+grant select on v_dbs_block_replica to cms_dbs_int_global_writer;
+grant select on v_dbs_block_replica to cms_dbs_int_global_admin;
+exit;
+
 # let the agents come back
 sqlplus -S $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
 delete from t_agent_message;
