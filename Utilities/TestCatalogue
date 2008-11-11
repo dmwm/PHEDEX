@@ -21,6 +21,7 @@ Getopt::Long::Configure qw(default no_ignore_case);
 &GetOptions ('c=s'        => \$args{CATALOGUE},
              'p=s'        => \$args{PROTOCOL},
              'd=s'        => \$args{DESTINATION},
+             'C=s'        => \$args{CUSTODIAL},
              'L'          => sub { $args{MODE} = $_[0] },
              'P'          => sub { $args{MODE} = $_[0] },
 	     'help|h'      => sub { &usage() });
@@ -32,6 +33,7 @@ if (!$args{CATALOGUE} || !$args{PROTOCOL} || !$args{MODE})
 }
 
 $args{DESTINATION} ||= "any";
+$args{CUSTODIAL} ||= "n";
 
 # Output preamble
 die "$args{CATALOGUE}: cannot read\n" if ! -r $args{CATALOGUE};
@@ -42,24 +44,28 @@ foreach my $file (@ARGV)
 {
     if ($args{MODE} eq 'P')
     {
-	my $lfn = &lfnLookup($file, $args{PROTOCOL}, $args{DESTINATION}, $args{CATALOGUE});
+	my ($token,$lfn,$pfn);
+	($token,$lfn) = &lfnLookup($file, $args{PROTOCOL}, $args{DESTINATION}, $args{CATALOGUE}, $args{CUSTODIAL});
 	print "PFN: $file\n";
 	print "LFN: $lfn\n";
+	print "TKN: $token\n";
 
-	my $pfn = &pfnLookup($lfn, $args{PROTOCOL}, $args{DESTINATION}, $args{CATALOGUE});
+	($token,$pfn) = &pfnLookup($lfn, $args{PROTOCOL}, $args{DESTINATION}, $args{CATALOGUE}, $args{CUSTODIAL});
 	print "Re-PFN: $pfn";
-	print " *** ERROR: result different from $file" if $pfn ne $file;
+	print " *** ERROR: result different from $file ($pfn)" if $pfn ne $file;
 	print "\n\n\n";
     }
     else
     {
-	my $pfn = &pfnLookup($file, $args{PROTOCOL}, $args{DESTINATION}, $args{CATALOGUE});
+	my ($token,$lfn,$pfn);
+	($token,$pfn) = &pfnLookup($file, $args{PROTOCOL}, $args{DESTINATION}, $args{CATALOGUE}, $args{CUSTODIAL});
 	print "LFN: $file\n";
 	print "PFN: $pfn\n";
+	print "TKN: $token\n";
 
-	my $lfn = &lfnLookup($pfn, $args{PROTOCOL}, $args{DESTINATION}, $args{CATALOGUE});
+	($token,$lfn) = &lfnLookup($pfn, $args{PROTOCOL}, $args{DESTINATION}, $args{CATALOGUE}, $args{CUSTODIAL});
 	print "Re-LFN: $lfn";
-	print " *** ERROR: result different from $file" if $lfn ne $file;
+	print " *** ERROR: result different from $file ($lfn)" if $lfn ne $file;
 	print "\n\n\n";
     }
 }
