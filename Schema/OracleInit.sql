@@ -48,5 +48,9 @@ prompt Loading helper functions
 @@OracleCoreFunctions.sql
 
 prompt
+prompt Loading vies
+@@OracleCoreViews.sql
+
+prompt
 prompt PhEDEx schema loaded
 prompt

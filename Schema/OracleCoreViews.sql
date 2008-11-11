@@ -19,10 +19,3 @@ select distinct b.name block_name,
    and n.se_name is not null
    and dbs.name = 'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet'
 ;
-
-/* Grant necessary permissions to DBS accounts 
-   TODO:  handle in OraclePrivs.sh ? */
--- grant select on v_dbs_block_replica to cms_dbs_prod_local_05 with grant option;
--- grant select on v_dbs_block_replica to cms_dbs_prod_local_05_reader;
--- grant select on v_dbs_block_replica to cms_dbs_prod_local_05_writer;
--- grant select on v_dbs_block_replica to cms_dbs_prod_local_05_admin;
