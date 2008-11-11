@@ -111,6 +111,12 @@ sub idle
 	    next;
 	}
 
+#	Sanity check on custodiality
+	if (! $xreq->{IS_CUSTODIAL} ) {
+	    $self->Dbgmsg("skipping request $xreq->{ID}:  null IS_CUSTODIAL") if $self->{DEBUG};
+	    next;
+	}
+
 	$stats{request}++;
 	my $dest_nodes = [ keys %{ $xreq->{NODES} } ];
 	my ($datasets, $blocks) = $self->expandDataClob( $xreq->{DBS_ID}, $xreq->{DATA} );
@@ -119,7 +125,6 @@ sub idle
 	my ($ex_ds, $ex_b) = $self->getExistingRequestData( $xreq->{ID} );
 	my $skip = { DATASET => { map { $_ => 1 } @$ex_ds },
 		     BLOCK   => { map { $_ => 1 } @$ex_b } };
-
 	foreach my $items ( [ 'DATASET', $datasets ], [ 'BLOCK', $blocks ] ) {
 	    my ($type, $ids) = @$items;
 	    my @new;
@@ -150,6 +155,8 @@ sub idle
 						    PRIORITY => $xreq->{PRIORITY},
 						    IS_MOVE => $xreq->{IS_MOVE},
 						    IS_TRANSIENT => $xreq->{IS_TRANSIENT},
+						    IS_CUSTODIAL => $xreq->{IS_CUSTODIAL},
+						    USER_GROUP => $xreq->{USER_GROUP},
 						    TIME_CREATE => $now,
 						    IGNORE_DUPLICATES => 1,
 						    REQUEST => $xreq->{ID}

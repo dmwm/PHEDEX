@@ -135,7 +135,8 @@ sub getTransferRequests
 	select r.id, rt.name type, r.created_by creator_id, r.time_create, rdbs.dbs_id, rdbs.name dbs,
                rx.priority, rx.is_move, rx.is_transient, rx.is_static, rx.is_distributed, rx.data,
 	       n.name node, n.id node_id,
-               rn.point, rd.decision, rd.decided_by, rd.time_decided
+               rn.point, rd.decision, rd.decided_by, rd.time_decided,
+	       r.user_group, rx.is_custodial
 	  from t_req_request r
           join t_req_type rt on rt.id = r.type
           join t_req_dbs rdbs on rdbs.request = r.id
@@ -146,7 +147,7 @@ sub getTransferRequests
         $where 
       order by r.id
  };
-    
+ 
     $self->{DBH}->{LongReadLen} = 10_000;
     $self->{DBH}->{LongTruncOk} = 1;
     
@@ -159,7 +160,8 @@ sub getTransferRequests
 	if (!exists $requests->{$id}) {
 	    $requests->{$id} = { map { $_ => $row->{$_} } 
 				 qw(ID TYPE CREATOR_ID TIME_CREATE DBS_ID DBS
-				    PRIORITY IS_MOVE IS_TRANSIENT IS_STATIC IS_DISTRIBUTED
+				    PRIORITY IS_MOVE IS_TRANSIENT IS_STATIC
+				    IS_DISTRIBUTED IS_CUSTODIAL USER_GROUP
 				    DATA) };
 	    $requests->{$id}->{NODES} = {};
 	}
@@ -374,7 +376,7 @@ sub createSubscription
 	return undef;
     }
 
-    my @required = qw(REQUEST DESTINATION PRIORITY IS_MOVE IS_TRANSIENT TIME_CREATE);
+    my @required = qw(REQUEST DESTINATION PRIORITY IS_MOVE IS_TRANSIENT TIME_CREATE IS_CUSTODIAL);
     foreach (@required) {
 	if (!exists $h{$_} || !defined $h{$_}) {
 	    $self->Alert("cannot create subscription:  $_ not defined");
@@ -382,7 +384,13 @@ sub createSubscription
 	}
     }
 
-    foreach ( qw(IS_MOVE IS_TRANSIENT) ) {
+#   Special case for USER_GROUP, which must exist but may be NULL
+    if (!exists $h{USER_GROUP}) {
+	$self->Alert("cannot create subscription:  USER_GROUP not defined");
+	return undef;
+    }
+
+    foreach ( qw(IS_MOVE IS_TRANSIENT IS_CUSTODIAL) ) {
 	next unless  $h{$_} =~ /^[0-9]$/;
 	$h{$_} = ( $h{$_} ? 'y' : 'n' );
     }
@@ -390,22 +398,27 @@ sub createSubscription
     my $sql = qq{ 
 	insert into t_dps_subscription
         (request, dataset, block, destination,
-	 priority, is_move, is_transient, time_create)
+	 priority, is_move, is_transient, time_create,
+	 is_custodial, user_group)
     };
 
     if ($h{$type} !~ /^[0-9]+$/) { # if not an ID, then lookup IDs from the name
 	if ($type eq 'DATASET') {
-	    $sql .= qq{ select :request, ds.id, NULL, :destination, :priority, :is_move, :is_transient, :time_create 
-			  from t_dps_dataset ds where ds.name = :dataset };
+            $h{USER_GROUP} = 'NULL' unless $h{USER_GROUP};
+	    $sql .= qq{ select :request, ds.id, NULL, :destination, :priority, :is_move, :is_transient, :time_create } .
+			", '$h{IS_CUSTODIAL}', $h{USER_GROUP} " . 
+			qq{ from t_dps_dataset ds where ds.name = :dataset };
 	} elsif ($type eq 'BLOCK') {
-	    $sql .= qq{ select :request, NULL, b.id, :destination, :priority, :is_move, :is_transient, :time_create 
-			  from t_dps_block b where b.name = :block };
+            $h{USER_GROUP} = 'NULL' unless $h{USER_GROUP};
+	    $sql .= qq{ select :request, NULL, b.id, :destination, :priority, :is_move, :is_transient, :time_create } .
+			", '$h{IS_CUSTODIAL}', $h{USER_GROUP} " . 
+			qq{ from t_dps_block b where b.name = :block };
 	}
     } else { # else we write exactly what we have
-	$sql .= qq{ values (:request, :dataset, :block, :destination, :priority, :is_move, :is_transient, :time_create) };
+	$sql .= qq{ values (:request, :dataset, :block, :destination, :priority, :is_move, :is_transient, :time_create, :is_custodial, :user_group) };
     }
 
-    my %p = map { ':' . lc $_ => $h{$_} } @required, qw(DATASET BLOCK);
+    my %p = map { ':' . lc $_ => $h{$_} } @required, qw(DATASET BLOCK USER_GROUP);
 
     my ($sth, $n);
     eval { ($sth, $n) = execute_sql( $self, $sql, %p ); };
