@@ -313,13 +313,32 @@ sub createRequest
 	}
 
 	# Write the request type parameters
-	my $table = 't_req_'. $type;
-	my @columns = ('request', sort keys %$type_attr);
-	my $sql = "insert into $table (" . join(', ', @columns) . ")" .
-	    " values (" . join(', ', map { ":$_" } @columns) . ")";
-	my %binds = ( ':request' => $rid );
-	$binds{":$_"} = $type_attr->{$_} foreach keys %$type_attr;
-	execute_sql($self, $sql, %binds);
+	if ($type eq 'xfer') {
+	    my $sql = qq{ insert into t_req_xfer
+			  (request, priority, is_custodial, is_move, is_static,
+			   is_transient, is_distributed, user_group, data)
+			  values
+			  (:request, :priority, :is_custodial, :is_move, :is_static,
+			   :is_transient, :is_distributed, :user_group, :data) };
+	    my %binds;
+	    $binds{lc ":$_"} = $type_attr->{$_} foreach keys %$type_attr;
+	    if (defined($type_attr->{USER_GROUP}) {
+		my %groupmap = reverse %{ &getGroupMap($self) };
+		my $group_id = $groupmap->{ $type_attr->{USER_GROUP} };
+		$binds{':user_group'} = $group_id;
+	    } else { 
+		$binds{':user_group'} = undef; 
+	    }
+	    execute_sql($self, $sql, %binds);
+	} elsif ($type eq 'delete') {
+	    my $sql = qq{ insert into t_req_delete
+			  (request, rm_subscriptions, data)
+			  values
+			  (:request, :rm_subscriptions, :data) };
+	    my %binds;
+	    $binds{lc ":$_"} = $type_attr->{$_} foreach keys %$type_attr;
+	    execute_sql($self, $sql, %binds);
+	}
 	
 	# Write the comment
 	if ($h{COMMENTS}) {
