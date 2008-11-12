@@ -69,7 +69,12 @@ sub confirm
           xp.from_node, ns.name from_node_name, ns.kind from_kind,
           xr.id replica, xp.to_node, nd.name to_node_name,
 	  xso.protocols from_protos, xsi.protocols to_protos,
-          xp.priority, xp.is_local, xp.time_request, xp.time_expire
+          xp.priority, xp.is_local, xp.time_request, xp.time_expire,
+          (case
+            when xp.to_node = xp.destination
+              or al.is_custodial = 1 then xrq.is_custodial
+            else 'n'
+          end) is_custodial
         from t_xfer_path xp
           join t_xfer_replica xr
             on xr.fileid = xp.fileid
@@ -105,6 +110,12 @@ sub confirm
 	    on xd.fileid = f.id
             and xd.node = ns.id
             and xd.time_complete is null
+          join t_xfer_request xrq
+            on xp.fileid = xrq.fileid
+            and xp.destination = xrq.destination
+          left join t_adm_link al
+            on al.to_node = xp.destination
+            and al.from_node = xp.to_node
         where xp.is_valid = 1
           and xdr.id is null
           and xe.fileid is null
@@ -132,8 +143,8 @@ sub confirm
         my ($done, %did, %iargs) = 0;
         my $istmt = &dbprep($dbh, qq{
 	    insert into t_xfer_task (id, fileid, from_replica, priority, rank,
-	      from_node, to_node, from_pfn, to_pfn, time_expire, time_assign)
-	    values (seq_xfer_task.nextval, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
+	      from_node, to_node, from_pfn, to_pfn, time_expire, time_assign, is_custodial)
+	    values (seq_xfer_task.nextval, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
 
 	# Determine rank.  This statement centrally determines the
 	# order transfers.  Here we order transfers by:
@@ -159,6 +170,7 @@ sub confirm
 	    push(@{$iargs{$n++}}, $$task{TO_PFN});
 	    push(@{$iargs{$n++}}, $$task{TIME_EXPIRE});
 	    push(@{$iargs{$n++}}, $now);
+	    push(@{$iargs{$n++}}, $$task{IS_CUSTODIAL});
 	    $did{$$task{TO_NODE_NAME}} = 1;
 	    $done++;
         }
