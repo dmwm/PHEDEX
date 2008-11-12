@@ -42,7 +42,7 @@ insert into t_xfer_file select * from xt_xfer_file;
 insert into t_agent select * from xt_agent;
 insert into t_agent_message select * from xt_agent_message;
 
--- Crate partitions per node
+-- Create partitions per node
 begin
   for o in (select id, name from t_adm_node) loop
     execute immediate 'alter table t_xfer_replica add partition node_' || lower(o.name) || ' values (' || o.id || ')';
@@ -89,10 +89,7 @@ alter table t_req_comments disable constraint fk_req_comments_request;
 insert into t_req_comments select * from xt_req_comments;
 -- (filled at creation) insert into t_req_type select * from xt_req_type;
 
--- all old requests have an undefined group
-insert into t_req_request 
-(id, type, created_by, user_group, time_create, comments)
-select id, type, created_by, NULL, time_create, comments from xt_req_request;
+insert into t_req_request select * from xt_req_request;
 
 alter table t_req_comments modify constraint fk_req_comments_request enable validate;
 
@@ -104,10 +101,11 @@ insert into t_req_node select * from xt_req_node;
 insert into t_req_decision select * from xt_req_decision;
 
 -- all old requests listed as not custodial
+-- all old requests have an undefined group
 -- can't use T0, T1 rule because request may contain nodes from multiple tiers
 insert into t_req_xfer 
-(request, priority, is_move, is_static, is_transient, is_distributed, is_custodial, data)
-select request, priority, is_move, is_static, is_transient, is_distributed, 'n', data from xt_req_xfer;
+(request, priority, is_move, is_static, is_transient, is_distributed, is_custodial, user_group, data)
+select request, priority, is_move, is_static, is_transient, is_distributed, 'n', NULL, data from xt_req_xfer;
 
 insert into t_req_delete select * from xt_req_delete;
 
