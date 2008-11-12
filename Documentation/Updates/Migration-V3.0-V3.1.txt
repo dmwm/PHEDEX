@@ -186,7 +186,7 @@ update t_history_dest
        cust_node_bytes = node_bytes
  where node in 
    (select id from t_adm_node 
-     where name like 'T0%' or name like 'T2%');
+     where name like 'T0%' or name like 'T1%');
 
 -- logs
 insert into t_log_block_latency 
@@ -202,7 +202,7 @@ update t_log_block_latency
    set is_custodial = 'y'
  where destination in 
    (select id from t_adm_node 
-     where name like 'T0%' or name like 'T2%');
+     where name like 'T0%' or name like 'T1%');
 
 -- xfer tables (we will just regenerate these on restart)
 
@@ -251,7 +251,8 @@ exit;
 sqlplus -S $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @$PHEDEX/Schema/OracleStatsUpdate.sql </dev/null
 
 # Create synonmys
-
+$PHEDEX/Schema/OracleSyns.sh 'cms_transfermgmt' $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_R})
+$PHEDEX/Schema/OracleSyns.sh 'cms_transfermgmt' $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_W})
 
 # Create privileges
 $PHEDEX/Schema/OraclePrivs.sh $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 'cms_transfermgmt_reader' 'cms_transfermgmt_writer'
