@@ -818,4 +818,18 @@ sub getNodeMap
     return $map;
 }
 
+#-------------------------------------------------------------------------------
+sub getGroupMap
+{
+    my ($self, %h) = @_;
+    my $sql = qq{ select id, name from t_adm_group };
+    my $map = {};
+    my $q = execute_sql($self, $sql);
+    while (my ($id, $name) = $q->fetchrow()) {
+	$map->{$id} = $name;
+    }
+    return $map;
+}
+
+
 1;
