@@ -244,8 +244,6 @@ create table t_xfer_task
    rank			integer		not null, -- current order rank
    from_node		integer		not null, -- node transfer is from
    to_node		integer		not null, -- node transfer is to
-   from_pfn		varchar (1000)	not null, -- source pfn
-   to_pfn		varchar (1000)	not null, -- destination pfn
    time_expire		float		not null, -- time when expires
    time_assign		float		not null, -- time created
    --
@@ -292,6 +290,9 @@ create table t_xfer_task_export
 
 create table t_xfer_task_inxfer
   (task			integer		not null,
+   from_pfn		varchar (1000)	not null, -- source pfn
+   to_pfn		varchar (1000)	not null, -- destination pfn
+   space_token		varchar (1000)		, -- destination space token
    time_update		float		not null,
    --
    constraint pk_xfer_task_inxfer
@@ -347,6 +348,7 @@ create table t_xfer_error
    xfer_code		integer		not null, -- transfer report code
    from_pfn		varchar (1000)	not null, -- source pfn
    to_pfn		varchar (1000)	not null, -- destination pfn
+   space_token		varchar (1000)		, -- destination space token
    log_xfer		clob,
    log_detail		clob,
    log_validate		clob,
