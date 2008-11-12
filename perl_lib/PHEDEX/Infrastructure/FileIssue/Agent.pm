@@ -63,6 +63,13 @@ sub confirm
     # destinations include those where there is a live download
     # agent at the destination and an export agent at the source,
     # or specific combinations we always handle automatically.
+    #
+    # We also distinguish between a custodial task and a non-custodial
+    # one.  Tasks may be custodial if the request is for custodial
+    # storage and:
+    #   1. The path hop is to the destination
+    #   2. The path hop is to a local Buffer node of the destination
+    # Otherwise the task is not custodial
     my $q = &dbexec($dbh, qq{
 	select
           xp.fileid, f.inblock block_id, f.logical_name,
@@ -70,11 +77,12 @@ sub confirm
           xr.id replica, xp.to_node, nd.name to_node_name,
 	  xso.protocols from_protos, xsi.protocols to_protos,
           xp.priority, xp.is_local, xp.time_request, xp.time_expire,
-          (case
+          (case                 
             when xp.to_node = xp.destination
-              or al.is_custodial = 1 then xrq.is_custodial
-            else 'n'
-          end) is_custodial
+              or (al.is_local = 'y' and nd.kind = 'Buffer')
+            then xrq.is_custodial
+            else 'n' end
+          ) is_custodial
         from t_xfer_path xp
           join t_xfer_replica xr
             on xr.fileid = xp.fileid
@@ -113,9 +121,9 @@ sub confirm
           join t_xfer_request xrq
             on xp.fileid = xrq.fileid
             and xp.destination = xrq.destination
-          left join t_adm_link al
-            on al.to_node = xp.destination
-            and al.from_node = xp.to_node
+          left join t_adm_link l
+            on l.to_node = xp.destination
+            and l.from_node = xp.to_node
         where xp.is_valid = 1
           and xdr.id is null
           and xe.fileid is null
