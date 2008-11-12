@@ -143,7 +143,7 @@ sub confirm
         while (my $task = $q->fetchrow_hashref())
         {
 	    $$task{PRIORITY} = 2*$$task{PRIORITY} + (1-$$task{IS_LOCAL});
-	    $self->makeTransferTask($dbh, $task, $cats);
+	    next if (!$self->makeTransferTask($dbh, $task, $cats));
 	    push(@tasks, $task);
 	    do { $finished = 0; last } if scalar @tasks >= 10_000;
         }
@@ -151,8 +151,8 @@ sub confirm
         my ($done, %did, %iargs) = 0;
         my $istmt = &dbprep($dbh, qq{
 	    insert into t_xfer_task (id, fileid, from_replica, priority, rank,
-	      from_node, to_node, from_pfn, to_pfn, time_expire, time_assign, is_custodial)
-	    values (seq_xfer_task.nextval, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
+	      from_node, to_node, time_expire, time_assign, is_custodial)
+	    values (seq_xfer_task.nextval, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
 
 	# Determine rank.  This statement centrally determines the
 	# order transfers.  Here we order transfers by:
@@ -166,16 +166,12 @@ sub confirm
 		          @tasks)
         {
 	    my $n = 1;
-	    next if ! $$task{FROM_PFN};
-	    next if ! $$task{TO_PFN};
 	    push(@{$iargs{$n++}}, $$task{FILEID});
 	    push(@{$iargs{$n++}}, $$task{REPLICA});
 	    push(@{$iargs{$n++}}, $$task{PRIORITY});
 	    push(@{$iargs{$n++}}, $rank++);
 	    push(@{$iargs{$n++}}, $$task{FROM_NODE});
 	    push(@{$iargs{$n++}}, $$task{TO_NODE});
-	    push(@{$iargs{$n++}}, $$task{FROM_PFN});
-	    push(@{$iargs{$n++}}, $$task{TO_PFN});
 	    push(@{$iargs{$n++}}, $$task{TIME_EXPIRE});
 	    push(@{$iargs{$n++}}, $now);
 	    push(@{$iargs{$n++}}, $$task{IS_CUSTODIAL});
@@ -227,17 +223,16 @@ sub makeTransferTask
     $protocol = 'srm' if ! $protocol && $$task{FROM_KIND} eq 'MSS';
     
     # Check that we have prerequisite information to expand the file names.
-    return if (! $from_cat
+    return 0 if (! $from_cat
 	       || ! $to_cat
 	       || ! $protocol
 	       || ! $$from_cat{$protocol}
 	       || ! $$to_cat{$protocol});
+    return 1;
 
-    # Try to expand the file name. Follow destination-match instead of remote-match
-    $$task{FROM_PFN} = &applyStorageRules($from_cat, $protocol, $to_name, 'pre', $$task{LOGICAL_NAME});
-    $$task{TO_PFN}   = &applyStorageRules($to_cat, $protocol, $to_name, 'pre', $$task{LOGICAL_NAME});
+# Try to expand the file name. Follow destination-match instead of remote-match
+#   $$task{FROM_PFN} = &applyStorageRules($from_cat, $protocol, $to_name, 'pre', $$task{LOGICAL_NAME});
+#   $$task{TO_PFN}   = &applyStorageRules($to_cat, $protocol, $to_name, 'pre', $$task{LOGICAL_NAME});
 }
-
-
 
 1;
