@@ -136,7 +136,7 @@ sub getTransferRequests
                rx.priority, rx.is_move, rx.is_transient, rx.is_static, rx.is_distributed, rx.data,
 	       n.name node, n.id node_id,
                rn.point, rd.decision, rd.decided_by, rd.time_decided,
-	       r.user_group, rx.is_custodial
+	       rx.user_group, rx.is_custodial
 	  from t_req_request r
           join t_req_type rt on rt.id = r.type
           join t_req_dbs rdbs on rdbs.request = r.id
