@@ -191,15 +191,23 @@ sub idle
 	&dbexec($dbh, qq{
 	    merge into t_history_dest h using
 	      (select :timebin timebin, :timewidth timewidth, destination,
-	              sum(files) files, sum(bytes) bytes
+	              sum(files) files, sum(bytes) bytes,
+	              sum(case is_custodial
+	                  when 'y' then files
+	                  else 0 end) cust_dest_files,
+	              sum(case is_custodial
+	                  when 'y' then bytes
+	                  else 0 end) cust_dest_bytes
 	       from t_status_block_dest
 	       group by :timebin, :timewidth, destination) v
 	    on (h.timebin = v.timebin and h.node = v.destination)
 	    when matched then
-	      update set h.dest_files = v.files, h.dest_bytes = v.bytes
+	      update set h.dest_files = v.files, h.dest_bytes = v.bytes,
+	                 h.cust_dest_files = v.cust_dest_files,
+	                 h.cust_dest_bytes = v.cust_dest_bytes
 	    when not matched then
-	      insert (h.timebin, h.timewidth, h.node, h.dest_files, h.dest_bytes)
-	      values (v.timebin, v.timewidth, v.destination, v.files, v.bytes)},
+	      insert (h.timebin, h.timewidth, h.node, h.dest_files, h.dest_bytes, h.cust_dest_files, h.cust_dest_bytes)
+	      values (v.timebin, v.timewidth, v.destination, v.files, v.bytes, v.cust_dest_files, v.cust_dest_bytes)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
 	&dbexec($dbh, qq{
@@ -217,16 +225,24 @@ sub idle
 	&dbexec($dbh, qq{
 	    merge into t_history_dest h using
 	      (select :timebin timebin, :timewidth timewidth, node,
-	              sum(files) files, sum(bytes) bytes
+	              sum(files) files, sum(bytes) bytes,
+	              sum(case is_custodial
+	                  when 'y' then files
+	                  else 0 end) cust_node_files,
+	              sum(case is_custodial
+	                  when 'y' then bytes
+	                  else 0 end) cust_node_bytes
 	       from t_status_replica
 	       group by :timebin, :timewidth, node) v
 	    on (h.timebin = v.timebin and h.node = v.node)
 	    when matched then
 	      update set
-	        h.node_files = v.files, h.node_bytes = v.bytes
+	        h.node_files = v.files, h.node_bytes = v.bytes,
+	        h.cust_node_files = v.cust_node_files,
+	        h.cust_node_bytes = v.cust_node_bytes
 	    when not matched then
-	      insert (h.timebin, h.timewidth, h.node, h.node_files, h.node_bytes)
-	      values (v.timebin, v.timewidth, v.node, v.files, v.bytes)},
+	      insert (h.timebin, h.timewidth, h.node, h.node_files, h.node_bytes, h.cust_node_files, h.cust_node_bytes)
+	      values (v.timebin, v.timewidth, v.node, v.files, v.bytes, v.cust_node_files, v.cust_node_bytes)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
 	&dbexec($dbh, qq{
