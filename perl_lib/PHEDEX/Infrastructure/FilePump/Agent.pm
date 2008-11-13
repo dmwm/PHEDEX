@@ -83,7 +83,7 @@ sub stats
 	  left join t_xfer_task_export xte on xte.task = xt.id
 	  left join t_xfer_task_inxfer xti on xti.task = xt.id
 	  left join t_xfer_task_done   xtd on xtd.task = xt.id
-        group by :now, xt.from_node, xt.to_node, xt.priority, xt.is_custodial
+        group by :now, xt.from_node, xt.to_node, xt.priority, xt.is_custodial,
 	       (case
 		  when xtd.task is not null then 3
 		  when xti.task is not null then 2
