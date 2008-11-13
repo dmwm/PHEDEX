@@ -187,8 +187,8 @@ sub receive
     my $q = &dbexec($dbh, qq{
 	select
 	    xth.task, xt.fileid, xtd.report_code, xtd.xfer_code,
-	    xt.from_node, ns.name from_node_name, xt.from_pfn,
-	    xt.to_node, nd.name to_node_name, xt.to_pfn,
+	    xt.from_node, ns.name from_node_name, xti.from_pfn,
+	    xt.to_node, nd.name to_node_name, xti.to_pfn,
 	    xt.priority, f.filesize, f.logical_name,
 	    xr.id dest_replica,
 	    xt.time_assign time_assign,
@@ -196,7 +196,8 @@ sub receive
 	    xte.time_update time_export,
 	    xti.time_update time_inxfer,
 	    xtd.time_xfer   time_xfer,
-	    xtd.time_update time_done
+	    xtd.time_update time_done,
+	    xti.space_token
 	from t_xfer_task_harvest xth
 	  join t_xfer_task xt on xt.id = xth.task
 	  join t_xfer_file f on f.id = xt.fileid
@@ -211,6 +212,7 @@ sub receive
     {
 	$n++;
 
+	$task->{SPACE_TOKEN} ||= '';
 	# First update the statistics.  Create a time bin for the
 	# period when the transfer ended if one doesn't exist, then
 	# update the statistics according to result.
@@ -267,7 +269,8 @@ sub receive
 		. " t-harvest=$now"
 		. " lfn=$$task{LOGICAL_NAME}"
 		. " from_pfn=$$task{FROM_PFN}"
-		. " to_pfn=$$task{TO_PFN}");
+		. " to_pfn=$$task{TO_PFN}"
+		. " space_token=$$task{SPACE_TOKEN}");
     }
 
     # Update link history.
