@@ -77,9 +77,9 @@ sub confirm
           xr.id replica, xp.to_node, nd.name to_node_name,
 	  xso.protocols from_protos, xsi.protocols to_protos,
           xp.priority, xp.is_local, xp.time_request, xp.time_expire,
-          (case                 
+          (case
             when xp.to_node = xp.destination
-              or (al.is_local = 'y' and nd.kind = 'Buffer')
+              or (xp.is_local = 'y' and nd.kind = 'Buffer')
             then xrq.is_custodial
             else 'n' end
           ) is_custodial
