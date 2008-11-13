@@ -163,7 +163,7 @@ create table t_status_replica
    bytes		integer		not null,
    --
    constraint pk_status_replica
-     primary key (node, state),
+     primary key (node, is_custodial, state),
    --
    constraint fk_status_replica_node
      foreign key (node) references t_adm_node (id)
@@ -187,7 +187,7 @@ create table t_status_replica
    bytes		integer		not null,
    --
    constraint pk_status_request
-     primary key (destination, state),
+     primary key (destination, priority, is_custodial, state),
    --
    constraint fk_status_request_dest
      foreign key (destination) references t_adm_node (id)
