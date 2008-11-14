@@ -61,7 +61,7 @@ eval
     # Get list of test nodes
     my @nodes = @{&dbexec($dbh, qq{
 		      select id, name from t_adm_node
-		      where name like 'TX%'})
+		      where name like 'TX_Test%'})
                   ->fetchall_arrayref({})};
 
     # Prepare file and block injections into TMDB
@@ -142,7 +142,7 @@ eval
 		    (dataset, destination, priority, is_move, is_transient, time_create)
 		    select ds.id, n.id, :priority, 'n', 'n', :time_create 
                       from t_dps_dataset ds cross join t_adm_node n
-		    where n.name like 'TX%' and ds.name like '/$label1/$label2/%'},
+		    where n.name like 'TX_Test%' and ds.name like '/$label1/$label2/%'},
 		    ":priority" => $prio,
 		    ":time_create" => $now
 		    );
