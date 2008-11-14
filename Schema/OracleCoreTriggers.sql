@@ -37,10 +37,10 @@ create or replace trigger tr_xfer_file_insert
       := 86400 * (sysdate - to_date('01/01/1970 00:00:00', 'DD/MM/YYYY HH24:MI:SS'));
   begin
     insert into t_xfer_request
-      (fileid, inblock, destination, priority,
+      (fileid, inblock, destination, priority, is_custodial,
        state, attempt, time_create, time_expire)
       select :new.id, :new.inblock, bd.destination, bd.priority,
-             0 state, 1 attempt, unixtime, unixtime + 8*3600
+             bd.is_custodial, 0 state, 1 attempt, unixtime, unixtime + 8*3600
       from t_dps_block_dest bd where bd.block = :new.inblock and bd.state = 1;
   end;
 /
