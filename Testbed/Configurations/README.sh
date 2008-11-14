@@ -117,7 +117,7 @@ for ((i=1;i<=4;i+=1)); do
 	 echo "(select id from t_dps_dataset where name = '$dataset'), ";
 	 echo "NULL, ";
 	 echo "(select id from t_adm_node where name = '$dest'), ";
-	 echo "2, 'n', 'n', now(), NULL, NULL, NULL, NULL );"
+	 echo "2, 'n', 'n', 'n', NULL, now(), NULL, NULL, NULL, NULL );"
 	 echo;
 	 echo "commit;";
 	 echo;
