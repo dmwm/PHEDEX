@@ -4781,7 +4781,7 @@ sub send_request_create_email
     my $bytes = &format_size($$data{REQUEST_BYTES});
     
     my $comments = $$data{COMMENTS} || '';
-
+	
     my $message =<<ENDEMAIL;
 Greetings PhEDEx Data Managers,
 
@@ -4790,10 +4790,22 @@ You may wish to take note of the following new request:
 * Requestor:
    Name: $name
    E-mail: $email
-   Authentication $auth
+   Authentication: $auth
    Host: $$data{CREATOR_DATA}{CONTACT_ATTR}{'Remote host'}
    Agent: $$data{CREATOR_DATA}{CONTACT_ATTR}{'User agent'}
 
+ENDEMAIL
+
+    if ($$data{TYPE} eq 'xfer') {
+	my $group_name = $$data{XFER_DATA}{USER_GROUP} || 'undefined';
+	$message .=<<ENDEMAIL;
+* Group:
+   $group_name
+
+ENDEMAIL
+}
+
+    $message .=<<ENDEMAIL;
 * Request:
    Type:
      $request_type
@@ -4803,6 +4815,7 @@ You may wish to take note of the following new request:
      $$data{DBS}
    Data:
 ENDEMAIL
+
     $message .= join('', map( { "     $_\n" } @datalist));
 
     my $nodes_by_point = {};
@@ -4855,10 +4868,16 @@ sub get_special_request_message
     my $msg = '';
     if ($$data{TYPE} eq 'xfer') {
 	if ($$data{XFER_DATA}{IS_MOVE} eq 'y') {
-	    $msg = 'Note:  This is a request for a data MOVE. '.
-		   'The Data Managers and Site Admins of the source sites have also been notified.  '.
-		   'Data Managers of the source sites with subscriptions  must approve the move before '.
-		   'data will be deleted from their node.';
+	    $msg .= "Note:  This is a request for a data MOVE. ".
+		"The Data Managers and Site Admins of the source sites have also been notified.  ".
+		"Data Managers of the source sites with subscriptions  must approve the move before ".
+		"data will be deleted from their node.\n";
+	}
+	if ($$data{XFER_DATA}{IS_CUSTODIAL} eq 'y') {
+	    $msg .= "Note: This is a request for CUSTODIAL STORAGE of ".
+		"data.  Please ensure your site is prepared to receive and ".
+		"reliably store this data permanently (e.g. on tape) ".
+		"before accepting this transfer request.\n";
 	}
     }
     return $msg;
