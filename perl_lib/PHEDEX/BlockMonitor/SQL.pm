@@ -262,7 +262,8 @@ sub createBlockAtNode
   if ( @m )
   {
     $self->Alert('createBlockAtNode: missing keys ',join(' ,',sort @m),
-	' in block ',join(', ', map { "$_=$p{$_}" } sort keys %p) );
+	' in block ',join(', ', map { defined($p{$_}) ? "$_=$p{$_}" : "$_=" }
+			   sort keys %p) );
   }
 
   if ( $self->{VERBOSE} )
