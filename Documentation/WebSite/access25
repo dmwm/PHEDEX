@@ -16,14 +16,14 @@ use POSIX qw(strftime mktime);
 BEGIN { my $__scriptdir = $ENV{SCRIPT_FILENAME} || "./"; $__scriptdir =~ s,[^/]+$,,; unshift(@INC, $__scriptdir . "/cgi-bin"); };
 use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
 
-
 our @EXPORT = qw(urlencode dblink toclink pagelink
 		 alert warning breakAtSlash note help
 		 age format_num format_percent format_size format_timespan shorten
 		 badcolor warncolor pendcolor goodcolor altcolor
 		 dbexec dbprep dbbindexec dbinlist makeObjWithAttrs
 		 timeSeries formatTime timegm sizeValue
-		 auth_help_msg auth_help_warning auth_help_popup fetch_nodes fetch_dbses fetch_identity
+		 auth_help_msg auth_help_warning auth_help_popup
+		 fetch_nodes fetch_groups fetch_dbses fetch_identity
                  send_email dn_to_human_name
 		 yesno striplabels
 		 dump_params dump_var
@@ -448,8 +448,8 @@ sub auth_help_warning
 # which all authorized nodes among those roles will be returned.
 # (e.g. web_user_auth => 'Data Manager||Site Admin')
 #
-# The role 'Global Admin' need not be specified in web_user_auth.  If
-# the user is a Global Admin then all nodes are always returned.
+# The role 'Admin' need not be specified in web_user_auth.  If
+# the user is a Admin then all nodes are always returned.
 #
 # Otherwise it returns from t_adm_node table, which contains all nodes.
 # The default behavior is to return an array of all nodes from t_adm_node.
@@ -468,8 +468,8 @@ sub fetch_nodes
 	    }
 	}
 
-	my $global_admin = (exists $$roles{'Global Admin'} &&
-			    grep $_ eq 'phedex', @{$$roles{'Global Admin'}}) || 0;
+	my $global_admin = (exists $$roles{'Admin'} &&
+			    grep $_ eq 'phedex', @{$$roles{'Admin'}}) || 0;
 
 	# Special "global admin" role only if explicitly specified
 	$global_admin = 1 if (grep($_ eq 'PADA Admin', @to_check) &&
@@ -517,6 +517,24 @@ sub fetch_nodes
 }
 
 
+# Returns a list of groups.
+# If argument 'with_ids' is true, then return a hash of name => id
+# else return an array of DBS names
+sub fetch_groups
+{
+    my ($self, %args) = @_;
+    my %groups;
+    my $q = &dbexec($$self{DBH}, qq{select name, id from t_adm_group});
+    while (my ($group, $group_id) = $q->fetchrow()) {
+	$groups{$group} = $group_id;
+    }
+    
+    if (exists $args{with_ids} && $args{with_ids}) {
+	return %groups;
+    } else {
+	return keys %groups;
+    }
+}
 
 # Returns a list of DBSes.
 # If argument 'with_ids' is true, then return a hash of name => id
@@ -1138,7 +1156,8 @@ sub fetch_replicas
 	       nvl2(s.destination, 1, 0) is_subscribed,
 	       nvl2(s.destination, nvl2(s.dataset, 'DATASET', 'BLOCK'), NULL) subs_level,
                $block_select
-               nvl(sum(br.node_files),0) files, nvl(sum(br.node_bytes),0) bytes
+               nvl(sum(br.node_files),0) files, nvl(sum(br.node_bytes),0) bytes,
+	       sign(sum(decode(br.is_custodial, 'y', 1, 0))) is_custodial
          from t_dps_dataset ds
          join t_dps_block b on b.dataset = ds.id
          join t_dps_block_replica br on br.block = b.id
@@ -2995,6 +3014,10 @@ use CGI qw(:standard);
 use POSIX qw(strftime);
 import Web25::Common;
 
+use PHEDEX::Core::Identity;
+use PHEDEX::RequestAllocator::Core;
+use PHEDEX::RequestAllocator::SQL;
+
 our @reqstates = (
   { STATE => 0, RANK => 0, LABEL => "Pending approval" },
   { STATE => 2, RANK => 3, LABEL => "Partially refused" },
@@ -3011,7 +3034,6 @@ our %reqactionnames = ( subscribe => 'Transfer Approved',
 			delete => 'Deletion Approved',
 			nodelete => 'Deletion Refused' );
 
-
 sub new
 {
   my $proto = shift;
@@ -3026,74 +3048,31 @@ sub logClientInfo
 {
     my ($self, $user_email) = @_;
 
-    # Is there a case for logging anonymous access?
-    # If so we will want to change this function...
-    if (!$$self{SECMOD}->isAuthenticated()) { return undef; }
-
-    my $identity = $self->fetch_identity();
-
-    my %attr = ( "Remote host" => $ENV{HTTP_X_FORWARDED_FOR},
-		 "User agent" => user_agent() );
-    $attr{'User E-mail'} = $user_email if $user_email && $user_email ne $$identity{EMAIL};
-
-    my $cid = &makeObjWithAttrs
-	($$self{DBH}, "adm_contact", "contact", {},
-	 %attr);
-    
-    my $client = &makeObjWithAttrs
-	($$self{DBH}, "adm_client", undef,
-	 { "identity" => $$identity{ID}, "contact" => $cid });
-    
-    return $client;
-}
-
-sub writeRequestComments
-{
-    my ($self, $rid, $client, $comments, $time) = @_;
-    return undef unless ($rid && $client && $comments && $time);
-
-    my $comments_id;
-    &dbexec($$self{DBH},
-	    qq[ insert into t_req_comments (id, request, comments_by, comments, time_comments)
-		values (seq_req_comments.nextval, :rid, :client, :comments, :time_comments)
-		returning id into :comments_id],
-	    ':rid' => $rid, ':client' => $client, ':comments' => $comments, ':time_comments' => $time,
-	    ':comments_id' => \$comments_id);
-
-    return $comments_id;
+    my $auth = $self->{SECMOD}->getAuthnState();
+    $auth = $auth eq 'cert' ? 'CERTIFICATE' : 
+	$auth eq 'passwd' ? 'PASSWORD' : die "not authenticated in logClientInfo";
+        
+    # Write information about the Client
+    my $id_params = &PHEDEX::Core::Identity::getIdentityFromSecMod( $self, $self->{SECMOD} );
+    my $identity = &PHEDEX::Core::Identity::fetchAndSyncIdentity( $self,
+								  AUTH_METHOD => $auth,
+								  %$id_params );
+    my %client_attr;
+    $client_attr{"Remote host"} = $ENV{HTTP_X_FORWARDED_FOR};
+    $client_attr{"User agent"} = user_agent();
+    $client_attr{'User email'} = $user_email if $user_email && $user_email ne $$identity{EMAIL};
+    my $client_id = &PHEDEX::Core::Identity::logClientInfo($self,
+							   $identity->{ID},
+							   %client_attr);
+    return $client_id;
 }
 
 sub getClientData 
 {
     my ($self, $clientid) = @_;
-    my $contactsql = qq{ select name, value 
-                             from t_adm_contact_attr con_attr 
-                             join t_adm_contact con on con.id = con_attr.contact
-                             join t_adm_client cli on cli.contact = con.id
-			     where cli.id = :id order by con_attr.id};
-    my $identsql  = qq{ select ident.name, ident.email, ident.dn, ident.certificate
-                            from t_adm_identity ident
-                            join t_adm_client cli on cli.identity = ident.id
-			    where cli.id = :id order by ident.id};
-    
-    
-    my %types = ('CONTACT_ATTR'  => $contactsql, 
-		 'IDENTITY' => $identsql);
-    
-    my $result = {};
-    
-    while (my ($type, $sql) = each %types) {
-	my $q = &dbexec($$self{DBH}, $sql, ':id' => $clientid);
-	if ($type eq 'CONTACT_ATTR') {
-	    $result->{$type} = {};
-	    while (my ($name, $value) = $q->fetchrow_array()) {
-		$result->{$type}->{$name} = $value;
-	    }
-	} elsif ($type eq 'IDENTITY') {
-	    $result->{$type} = $q->fetchrow_hashref();
-	}
-    }
-    return $result;
+    my $clientinfo = &PHEDEX::Core::Identity::getClientInfo($self, $clientid);
+    my $identity = &PHEDEX::Core::Identity::getIdentityFromDB($self, $clientinfo->{IDENTITY});
+    return { CONTACT_ATTR => $clientinfo, IDENTITY => $identity };
 }
 
 sub formatClientData
@@ -3103,23 +3082,21 @@ sub formatClientData
     
     my %nice_names = ('NAME' => 'Name',
 		      'DN' => 'Distinguished name',
+		      'USERNAME' => 'User name',
 		      'EMAIL' => 'E-mail');
-    foreach my $name (sort keys %{$data->{IDENTITY}}) {
-	if ($name ne 'CERTIFICATE') {
-	    push @html, "<label>$nice_names{$name}:</label><span class='labeled'>", 
+    if ( $data->{IDENTITY}->{CERTIFICATE} ) {
+	push @html, "<label>Certificate:</label>",
+	"<div class='labeled' style='height:100px;overflow:scroll;'><pre>", 
+	$data->{IDENTITY}->{CERTIFICATE},
+	"</pre></div><br/>";
+    }
+    foreach my $name (qw(NAME DN USERNAME EMAIL)) {
+	push @html, "<label>$nice_names{$name}:</label><span class='labeled'>", 
 	    ($data->{IDENTITY}->{$name} or 'Unknown'), "</span><br/>";
-	} else {
-	    push @html, "<label>Certificate:</label>";
-	    if ($data->{IDENTITY}->{$name}) {
-		push @html, 
-		"<div class='labeled' style='height:100px;overflow:scroll;'><pre>", 
-		$data->{IDENTITY}->{$name},
-		"</pre></div><br/>";
-	    } else { push @html, "<div class='labeled'>Unavailable</div><br/>"; }
-	}
     }
     
     foreach my $name (sort keys %{$data->{CONTACT_ATTR}}) {
+	next if $name eq 'IDENTITY';
 	push @html, "<label>$name:</label><span class='labeled'>", 
 	($data->{CONTACT_ATTR}->{$name} or 'Unknown'), "</span><br/>";
     }
@@ -3137,7 +3114,8 @@ sub getRequestData
 
     my $data = {};
     $data = &dbexec($$self{DBH}, qq{
-	select r.id, rt.name type, r.created_by creator_id, r.time_create, rdbs.name dbs, rc.comments
+	select r.id, rt.name type, r.created_by creator_id, r.time_create, rdbs.name dbs, 
+	       rc.comments
 	  from t_req_request r
           join t_req_type rt on rt.id = r.type
           join t_req_dbs rdbs on rdbs.request = r.id
@@ -3176,11 +3154,22 @@ sub getRequestData
     $$data{REQUEST_STATE} = $state;
     $$data{REQUEST_NEEDS_ADMIN} = $n_pend;
     
-    my $req_type_data_table = "t_req_$$data{TYPE}";
-    my $req_type_data_key = uc("$$data{TYPE}_DATA");
-    $$data{$req_type_data_key} = &dbexec($$self{DBH}, qq{
-	select * from $req_type_data_table where request = :request 
-	}, ':request' => $rid)->fetchrow_hashref();
+    if ($$data{TYPE} eq 'xfer') {
+	$$data{XFER_DATA} = &dbexec($$self{DBH}, qq{
+	    select rx.priority, rx.is_custodial, rx.is_move, rx.is_static,
+	           rx.is_transient, rx.is_distributed, 
+	           g.id user_group_id, g.name user_group, rx.data
+	      from t_req_xfer rx
+	      join t_adm_group g on g.id = rx.user_group
+	     where rx.request = :request
+	 }, ':request' => $rid)->fetchrow_hashref();
+    } elsif ($$data{TYPE} eq 'delete') {
+	$$data{DELETE_DATA} = &dbexec($$self{DBH}, qq{
+	    select rd.rm_subscriptions, rd.data
+	      from t_req_delete rd
+	     where rd.request = :request
+	 }, ':request' => $rid)->fetchrow_hashref();9
+    }
 				
     $$data{DATA} = &dbexec($$self{DBH}, qq{
 	select 'DATASET' lvl, rds.name, ds.id, nvl(sum(b.files),0) files, nvl(sum(b.bytes),0) bytes
@@ -3225,93 +3214,52 @@ sub writeRequest
 	}
 	$params{$_} = $$self{SESSION}->param($_);
     }
+    my %type_params = %{$params{type_params}}; # copy
+    foreach (keys %type_params) {
+	$type_params{uc $_} = $type_params{$_};
+	delete $type_params{$_};
+    }
+#    &dump_var( $$self{CONTENT}, 'params', \%params ); # XXX temp
+#    &dump_var( $$self{CONTENT}, 'type_params', \%type_params);
 
     my $now = time();
+    my $client_id = $self->logClientInfo($params{user_email});
     
-    # Write information about the Client
-    my $client = $self->logClientInfo($params{user_email});
-    
-    # Write the request
-    my $rid;
-    &dbexec($$self{DBH},
-	    qq[	insert into t_req_request (id, type, created_by, time_create)
-		values (seq_req_request.nextval, (select id from t_req_type where name = :type),
-			:client, :now )
-		returning id into :id ],
-	    ':id' => \$rid, ':type' => $params{type}, ':client' => $client, ':now' => $now);
-
-    # Write the (resolved) dbs/datasets/blocks to the DB
-    &dbexec($$self{DBH}, qq[ insert into t_req_dbs (request, name, dbs_id)
-			     select :rid, name, id from t_dps_dbs where name = :dbs_name ],
-	    ':rid' => $rid, ':dbs_name' => $params{dbs});
-
-
-    my @rv;
+    # Collect dataset and block IDs from resolved data items
+    my (@ds_ids, @b_ids);
     foreach my $userglob (keys %{$params{data}}) {
 	foreach my $item (@{ $params{data}->{$userglob} }) {
 	    if ($$item{LEVEL} eq 'DATASET') {
-		@rv = &dbexec($$self{DBH}, 
-			      qq[ insert into t_req_dataset (request, name, dataset_id)
-				  select :rid, name, id from t_dps_dataset where name = :dataset_name ],
-			      ':rid'          => $rid,
-			      ':dataset_name' => $$item{ITEM}
-			      );
+		push @ds_ids, $$item{ID};
 	    } elsif ($$item{LEVEL} eq 'BLOCK') {
-		@rv = &dbexec($$self{DBH},
-			      qq[ insert into t_req_block ( request, name, block_id )
-				  select :rid, name, id from t_dps_block where name = :block_name ],
-			      ':rid' => $rid,
-			      ':block_name' => $$item{ITEM}
-			      );
-	    }
-	    unless ($rv[1] > 0) {
-		$$self{DBH}->rollback();
-		$self->alert("Request creation failed");
-		return;
+		push @b_ids, $$item{ID};
 	    }
 	}
     }
 
-    # Write the nodes involved
-    my %all_nodes = $self->fetch_nodes(with_ids=>1);
-    my $i_node = &dbprep($$self{DBH},
-			 qq[ insert into t_req_node (request, node, point)
-                             values (:rid, :node, :point) ]);
-    foreach my $point ( keys %{$params{nodes}} ) {
-	my $p = undef;
-	if ($point eq 'src')     { $p = 's'; }
-	elsif ($point eq 'dest') { $p = 'd'; }
-	foreach my $node ( @{$params{nodes}->{$point}} ) {
-	    &dbbindexec($i_node,
-			':rid' => $rid,
-			':node' => $all_nodes{$node},
-			':point' => $p);
-	}
+    # Change node names to node IDs XXX fix earlier?
+    my %nodes = $self->fetch_nodes(with_ids => 1);
+    foreach my $pair (@{$params{nodes}}) {
+	$pair->[1] = $nodes{ $pair->[1] };
     }
 
-    # Write the request type parameters
-    my $table = 't_req_'. $params{type};
-    my @columns = ('request', sort keys %{ $params{type_params} });
-    my $sql = "insert into $table (" . join(', ', @columns) . ")" .
-	" values (" . join(', ', map { ":$_" } @columns) . ")";
-    my %binds = ( ':request' => $rid );
-    $binds{":$_"} = $params{type_params}->{$_} foreach keys %{$params{type_params}};
-    &dbexec($$self{DBH}, $sql, %binds);
-    
-    # Write the comment
-    if ($params{comments}) {
-	my $comments_id = $self->writeRequestComments($rid, $client, $params{comments}, $now);
-	&dbexec($$self{DBH}, qq[ update t_req_request set comments = :comments_id where id = :rid ],
-		':rid' => $rid, ':comments_id' => $comments_id);
-    }
+    # DBS info XXX fix earlier?
+    my %dbses = $self->fetch_dbses(with_ids => 1);
+    my $dbs_id = $dbses{$params{dbs}};
 
-    $$self{DBH}->commit();
-    
-    # Delete the session
-    $$self{SESSION}->delete();
-    $$self{SESSION}->flush();
+    # create the request
+    my $req_id = &PHEDEX::RequestAllocator::Core::createRequest($self, \@ds_ids, \@b_ids,
+								$params{nodes},
+								TYPE => $params{type},
+								%type_params,
+								DBS_NAME => $params{dbs},
+								DBS_ID => $dbs_id,
+								COMMENTS => $params{comments},
+								CLIENT_ID => $client_id,
+								NOW => $now
+								);
 
-    return $rid;
+    return $req_id;
 }
 
 
@@ -3337,7 +3285,8 @@ sub getRequestTypeSummary
 	my $kind = $$data{XFER_DATA}{IS_MOVE} eq 'y' ? 'Move' : 'Replication';
 	my %priority_names = (0 => 'High', 1 => 'Normal', 2 => 'Low');
 	my $priority = $priority_names{ $$data{XFER_DATA}{PRIORITY} };
-	return "$priority Priority $kind";
+	my $custodial = $$data{XFER_DATA}{IS_CUSTODIAL} eq 'y' ? ' Custodial ' : ' ';
+	return "$priority Priority$custodial$kind";
     } elsif ($$data{TYPE} eq 'delete') {
 	return $$data{DELETE_DATA}{RM_SUBSCRIPTIONS} eq 'y' ? 'Deletion' : 'Retransfer';
     } else {
@@ -3374,10 +3323,20 @@ sub printRequest
 
     print { $$self{CONTENT} }
     $self->formatClientData($$data{CREATOR_DATA}),
-    "</div></div><br/>",
+    "</div></div><br/>";
+
     # Request state
+    print { $$self{CONTENT} }
     "<label>State:</label>", "<span class='labeled'>", 
     $$data{REQUEST_STATE}, "</span><br/>";
+
+    # Group for transfer requests.  This is transfer-request specific,
+    # but it needs more prominence than the hideaway box below
+    if ($$data{TYPE} eq 'xfer') {
+	print { $$self{CONTENT} }
+	"<label>Group:</label>", "<span class='labeled'>", 
+	($$data{XFER_DATA}{USER_GROUP} || 'undefined'), "</span><br/>";
+    }
 
     # Data hideaway box
     my $data_label;
@@ -3531,6 +3490,7 @@ sub printRequestSpecific
     if ($$data{TYPE} eq 'xfer') {
 	my $spec = $$data{XFER_DATA};
 	my %labels = ( PRIORITY => 'Priority',
+		       IS_CUSTODIAL => 'Custodial',
 		       IS_MOVE => 'Move',
 		       IS_STATIC => 'Static',
 		       IS_TRANSIENT => 'Transient',
@@ -3539,7 +3499,7 @@ sub printRequestSpecific
 	my %priority_names = (0 => 'High', 1 => 'Normal', 2 => 'Low');
 	print { $$self{CONTENT} }
 	"<label>$labels{PRIORITY}:</label><span class='labeled'>$priority_names{$$spec{PRIORITY}}</span><br/>";
-	foreach my $key (qw(IS_MOVE IS_STATIC)) { # TODO:  omitted keys have no function yet...
+	foreach my $key (qw(IS_CUSTODIAL IS_MOVE IS_STATIC)) { # TODO:  omitted keys have no function yet...
 	    print { $$self{CONTENT} }
 	    "<label>$labels{$key}:</label><span class='labeled'>", &yesno($$spec{$key}), "</span><br/>";
 	}
@@ -3762,12 +3722,12 @@ sub output
 
     my @auth_nodes;
     if ($$self{SECMOD}->isCertAuthenticated() &&
-	    ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+	    ($$self{SECMOD}->hasRole('Admin', 'phedex') ||
 	     $$self{SECMOD}->hasRole('Data Manager'))) {
 	@auth_nodes = sort $self->fetch_nodes(web_user_auth => 'Data Manager');	
     } elsif (!$$self{SECMOD}->isAuthenticated() ||
 	     $$self{SECMOD}->isPasswdAuthenticated()) {
-	$self->auth_help_popup('approve requests' => ['cert', 'Data Manager', 'Global Admin']);
+	$self->auth_help_popup('approve requests' => ['cert', 'Data Manager', 'Admin']);
     }
 
     my @where;
@@ -4055,8 +4015,11 @@ sub create_check_options
 
   my $opts = {};
 
+  my %groups = $self->fetch_groups(with_ids=>1);
+  my @possible_groups = ('undefined', keys %groups);
+
   if ($type eq 'xfer') {
-      foreach ('is_move', 'is_static') {
+      foreach ('is_move', 'is_static', 'is_custodial') {
 	  if (!defined param($_) || param($_) !~ /^[yn]$/) {
 	      $self->alert("Option '$_' missing or illegal value");
 	      $$bad = 1;
@@ -4069,9 +4032,19 @@ sub create_check_options
 	  $$bad = 1;
 	  return ();
       }
+      
+      if (!defined param('group') || ! grep $_ eq param('group'), @possible_groups) {
+	  $self->alert("Option 'group' is missing or illegal value");
+	  $$bad = 1;
+	  return ();
+      }
+
       return ( 'is_move' => param('is_move'),
 	       'is_static' => param('is_static'),
-	       'priority' => param('priority') );
+	       'priority' => param('priority'),
+	       'is_custodial' => param('is_custodial'),
+	       'user_group' => param('group')
+	       );
   } elsif ($type eq 'delete') {
       foreach ('rm_subscriptions') {
 	  if (!defined param($_) || param($_) !~ /^[yn]$/) {
@@ -4146,6 +4119,7 @@ sub output
   my @dbsnames = $self->fetch_dbses();
   my $defaultdbs = $$self{CONFIG}{DEFAULT_DBS} || 'blank';
   my @nodes = $self->get_request_nodes();
+  my @groups = sort $self->fetch_groups();
 
   my $dbs_selection =  popup_menu(-name=>'dbs', 
 				  -values=>[ map { &escapeHTML($_) } @dbsnames ],
@@ -4224,6 +4198,22 @@ sub output
 					     -class=>'labeled'),
       &help("What's this?", "Priority",
 	    "Priority is used to determine which data items get priority when resources are limited."),
+      "<br/>",
+      "<label>Custodial:</label>", popup_menu(-name=>'is_custodial', 
+					     -values=>['n', 'y'], 
+					     -default=>'n',
+					     -labels=>{ 'n' => 'Non-custodial',
+							'y' => 'Custodial' },
+					     -class=>'labeled'),
+      &help("What's this?", "Custodial",
+	    "Whether or not the target node(s) have a custodial responsibility for the data in this request."),
+      "<br/>",
+      "<label>Group:</label>", popup_menu(-name=>'group', 
+					  -values=>['undefined', @groups],
+					  -default=>'undefined',
+					  -class=>'labeled'),
+      &help("What's this?", "Group",
+	    "The group which is requesting this data.  Used for accounting purposes.  This can be left undefined."),
       "<br/>";
   } elsif ($type eq 'delete') {
       print { $$self{CONTENT} }
@@ -4304,6 +4294,7 @@ sub output
 
   if (param('go_ahead') && param('go_ahead') eq 'y') {
       my $rid = $self->writeRequest();
+      $self->{DBH}->commit();
       my $ok = $self->send_request_create_email($rid);
 
       print { $$self{ CONTENT } }
@@ -4314,7 +4305,7 @@ sub output
       # Print request (user may be able to approve it immediately)
       my @auth_nodes;
       if ($$self{SECMOD}->isCertAuthenticated() &&
-	    ($$self{SECMOD}->hasRole('Global Admin', 'phedex') || $$self{SECMOD}->hasRole('Data Manager'))) {
+	    ($$self{SECMOD}->hasRole('Admin', 'phedex') || $$self{SECMOD}->hasRole('Data Manager'))) {
 	  @auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager'); 
       }
       $self->printRequest($rid, @auth_nodes);
@@ -4370,7 +4361,10 @@ sub getRequestOptions
 	my %prio = ('0' => 'High', '1' => 'Normal', '2' => 'Low');
 	return ("<label>Is Move?:</label><span class='labeled'>", &yesno($params{is_move}), "</span><br/>",
 		"<label>Is Static?:</label><span class='labeled'>", &yesno($params{is_static}), "</span><br/>",
-		"<label>Priority:</label><span class='labeled'>", $prio{$params{priority}}, "</span><br/>");
+		"<label>Priority:</label><span class='labeled'>", $prio{$params{priority}}, "</span><br/>",
+		"<label>Custodial:</label><span class='labeled'>", &yesno($params{is_custodial}), "</span><br/>",
+		"<label>Group:</label><span class='labeled'>", $params{user_group}, "</span><br/>",
+		);
     } elsif ($params{type} eq 'delete') {
 	return ("<label>Remove Subscriptions?:</label><span class='labeled'>", &yesno($params{rm_subscriptions}),
 		"</span><br/>");
@@ -4381,21 +4375,43 @@ sub checkRequestOptions
 {
     my ($self, %params) = @_;
     if ($params{type} eq 'xfer') {
-	# Warnings
+	# Request-blocking warnings
 	if ($params{is_move} eq 'y' && grep($_ !~ /^T1_\w*_MSS$/, @{$params{nodes}})) {
 	    $self->alert("You have requested a move to an unsupported destination (e.g. not a Mass Storage System ",
 			 "at a T1 centre).  Please change the destination, or choose to trigger a replication ",
 			 "instead of a move");
 	    return 0;
-	} elsif ($params{is_move} eq 'y' && grep(/^T1_\w*_MSS$/, @{$params{nodes}})) {
-	    $self->note("You have chosen to move data to ", join(', ', @{$params{nodes}}),
+	} elsif ($params{is_custodial} eq 'y' && grep($_ !~ /^T1_\w*_MSS$/, @{$params{nodes}})) {
+	    $self->note("You have chosen to make a custodial data transfer to an unsupported destination.  ",
+			"Custodial data may only be subscribed to a Mass Storage System at a T1 center.  ",
+			"Please change the destination, or choose to make a non-custodial copy instead.");
+	    return 0;
+	} 
+
+	# Extra-confirmation nagging warnings
+	my $print_confirm = 0;
+	if ($params{is_move} eq 'y' && grep(/^T1_\w*_MSS$/, @{$params{nodes}})) {
+	    $self->warning("You have chosen to <b>move data</b> to ", join(', ', @{$params{nodes}}),
 			". Source sites with subscriptions will be sent a ",
 			"notification to confirm the deletion of this data ",
 			"upon successful replication to the destination ",
-			"nodes.  Please confirm that this is what you ",
-			"want to do by checking the box.<br/><br/>",
-			hidden('extra_confirm', 1),
-			checkbox(-name=>'extra_confirm_value', -value=>'y', -label=>'Yes, I understand'));
+			"nodes.");
+	    $print_confirm = 1;
+	} 
+	if ($params{is_custodial} eq 'y') {
+	    $self->warning("You have chosen to make a <b>custodial data ",
+			"subscription</b> to ", join(', ', @{$params{nodes}}), ". ",
+			"Make sure that these are the nodes which you want to give ",
+			"custodial responsibility for this data.  Once the ",
+			" subscription is made, the custodial property can not be ",
+			" changed!");
+	    $print_confirm = 1;
+	}
+
+	if ($print_confirm) {
+	    $self->note("Please check the box to confirm that you understand the above warnings.<br/><br/>",
+			   hidden('extra_confirm', 1),
+			   checkbox(-name=>'extra_confirm_value', -value=>'y', -label=>'Yes, I understand'));
 	}
     }
     return 1;
@@ -4416,10 +4432,10 @@ sub checkXferRequestData
     # Pull all subscriptions into a hash organized by node for subscription duplication checking
     my $subscriptions = {};
     my $q = &dbexec($$self{DBH}, qq{ select NVL2(s.block, 'BLOCK', 'DATASET') lvl,
-				     NVL2(s.block, s.block, s.dataset) id,
-				     n.name node
-					 from t_dps_subscription s
-					 join t_adm_node n on s.destination = n.id });
+				            NVL2(s.block, s.block, s.dataset) id,
+				            n.name node, s.is_custodial
+				     from t_dps_subscription s
+				     join t_adm_node n on s.destination = n.id });
   
     while (my ($level, $id, $node) = $q->fetchrow_array()) {
 	$$subscriptions{$node}{$level}{$id} = 1;
@@ -4500,20 +4516,30 @@ sub checkXferRequestData
 		    }
 		}
 		
-		if ($params{is_move} eq 'y') {
+		# Check replicas if a move or custodial request was made
+		if ($params{is_move} eq 'y' || $params{is_custodial} eq 'y') {
 		    my $bad_t1_move = 0;
+		    my @custodial;
 		    foreach my $replica (@{$$res{REPLICAS}}) {
-			if ($$replica{NODE_NAME} =~ /^T1/ && $$replica{IS_SUBSCRIBED}) {
+			if ($params{is_move} eq 'y' && $$replica{NODE_NAME} =~ /^T1/ && $$replica{IS_SUBSCRIBED}) {
 			    $bad_t1_move = 1;
+			} elsif ($params{is_move} eq 'y' && $$replica{IS_SUBSCRIBED}) {
+			    $subscribed_sources{$$replica{NODE_NAME}} = $$replica{NODE_ID};
 			}
-			$subscribed_sources{$$replica{NODE_NAME}} = 1 if $$replica{IS_SUBSCRIBED};
+			if ($params{is_custodial} eq 'y' && $$replica{IS_CUSTODIAL}) {
+			    push @custodial, $$replica{NODE_NAME};
+			}
 		    }
 		    if ($bad_t1_move) {
 			push @comments, "Cannot move data subscribed to a T1";
 			$row_problem = 1;
 		    }
+		    if (@custodial) {
+			push @comments, "Data already custodial for ", join(', ', @custodial);
+			$warn = 1;
+		    }
 		}
-		
+
 		$$res{SOURCES} = join(', ', sort map { "$$_{NODE_NAME} ($$_{FILES} files)" } @{$$res{REPLICAS}});
 		$$res{SOURCES} ||= 'None found';
 		$$res{ITEM} = $$res{$$res{LEVEL}}; # Name of dataset or block, depending on which it is for
@@ -4538,13 +4564,17 @@ sub checkXferRequestData
 						'is_static' => $params{is_static},
 						'is_distributed' => 'n', # XXX hardcoded
 						'priority' => $params{priority},
+						'is_custodial' => $params{is_custodial},
+						'user_group' => $params{user_group},
 						'data' => join(' ', @{$params{data}})
 						});
 	$$self{SESSION}->param('comments', $params{comments});
 	$$self{SESSION}->param('dbs', $params{dbs});
 	$$self{SESSION}->param('user_email', $params{email});
-	$$self{SESSION}->param('nodes', { 'dest' => $params{nodes},
-					  'src' => [sort keys %subscribed_sources] });
+	my @node_pairs;
+	push @node_pairs, ['d', $_ ] foreach @{$params{nodes}};
+	push @node_pairs, ['s', $_ ] foreach values %subscribed_sources;
+	$$self{SESSION}->param('nodes', \@node_pairs);
 	$$self{SESSION}->param('data', $resolved);
     }
  
@@ -4634,9 +4664,18 @@ sub checkDeleteRequestData
 		    if (!$replica || $$replica{FILES} == 0) {
 			push @comments, "$node has nothing to delete";
 			$warn = 1;
-		    } elsif ($$replica{SUBS_LEVEL} eq 'DATASET' && $$res{LEVEL} eq 'BLOCK'
-			     && $params{rm_subscriptions} eq 'y') {
-			push @comments, "You will remove a dataset-level subscription from $node if you delete this block";
+		    } 
+		    if ($$replica{SUBS_LEVEL} eq 'DATASET' && $$res{LEVEL} eq 'BLOCK'
+			&& $params{rm_subscriptions} eq 'y') {
+			push @comments, "You will remove a ".
+			    "dataset-level subscription from $node if you ".
+			    "delete this block.";
+			$warn = 1;
+		    } 
+		    if ($$replica{IS_CUSTODIAL}) {
+			push @comments, "You are requesting to delete ".
+			    "a custodial copy of the data.  This must be ".
+			    "approved by a global administrator.";
 			$warn = 1;
 		    }
 
@@ -4671,7 +4710,8 @@ sub checkDeleteRequestData
 	$$self{SESSION}->param('comments', $params{comments});
 	$$self{SESSION}->param('dbs', $params{dbs});
 	$$self{SESSION}->param('user_email', $params{email});
-	$$self{SESSION}->param('nodes', { 'null' => $params{nodes} });
+	my @node_pairs = map { [ undef, $_ ] } @{$params{nodes}};
+	$$self{SESSION}->param('nodes', \@node_pairs);
 	$$self{SESSION}->param('data', $resolved);
     }
 
@@ -4692,7 +4732,7 @@ sub send_request_create_email
     }
 
     # Get the list of Global admins
-    my @global_admins = $$self{SECMOD}->getUsersWithRoleForGroup('Global Admin', 'phedex');
+    my @global_admins = $$self{SECMOD}->getUsersWithRoleForGroup('Admin', 'phedex');
 
     # Get the list of Data Managers affected by this request
     my @data_managers;
@@ -4716,7 +4756,7 @@ sub send_request_create_email
 
     # Send an email to the requestor, the global admins, the data managers, and the site admins
     my $name = $$data{CREATOR_DATA}{IDENTITY}{NAME};
-    my $email = $$data{CREATOR_DATA}{CONTACT_ATTR}{'User E-mail'} ||
+    my $email = $$data{CREATOR_DATA}{CONTACT_ATTR}{'User email'} ||
 	$$data{CREATOR_DATA}{IDENTITY}{EMAIL};
     my $auth = "";
     if (exists $$data{CREATOR_DATA}{IDENTITY}{DN}) {
@@ -4873,7 +4913,7 @@ sub output
 
     # Check authentication and authorization
     unless ($$self{SECMOD}->isCertAuthenticated() &&
-	    ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+	    ($$self{SECMOD}->hasRole('Admin', 'phedex') ||
 	     $$self{SECMOD}->hasRole('Data Manager'))) {
 	$self->alert("This form may only be accessed by Data Managers with certificate authentication.");
 	return;
@@ -4927,7 +4967,8 @@ sub output
     }
 
     my $client_id = $self->logClientInfo();
-    my $comments_id = $self->writeRequestComments($rid, $client_id, $comments, $now) if $comments;
+    my $comments_id = &PHEDEX::RequestAllocator::SQL::writeRequestComments($self, $rid, $client_id, $comments, $now)
+	if $comments;
 
     my $ok = 1;
     my @results;
@@ -5022,11 +5063,14 @@ sub subscribe
 {
     my ($self, $rid, $node_id, $time) = @_;
 
-    # Subscribe data to destination.  This DML ignores duplicates but updates the parameters if there are duplicates
+    # Subscribe data to destination.  This DML ignores duplicates but
+    # updates the parameters if there are duplicates, except for
+    # is_custodial.
     my ($sth, $rv) = &dbexec($$self{DBH}, 
      qq[ merge into t_dps_subscription s
          using
-         (select r.id, :destination destination, rdata.dataset, rdata.block, rx.priority, rx.is_move, rx.is_transient
+         (select r.id, :destination destination, rdata.dataset, rdata.block,
+                 rx.priority, rx.is_move, rx.is_transient, rx.is_custodial, rx.user_group
 	    from t_req_request r
             join t_req_xfer rx on rx.request = r.id
             join ( select rds.request, rds.dataset_id dataset, NULL block
@@ -5045,10 +5089,13 @@ sub subscribe
            update set s.request = r.id,
                       s.is_move = r.is_move,
                       s.priority = r.priority,
-                      s.is_transient = r.is_transient
+                      s.is_transient = r.is_transient,
+	              s.user_group = r.user_group
          when not matched then
-           insert (request, dataset, block, destination, priority, is_move, is_transient, time_create)
-           values (r.id, r.dataset, r.block, r.destination, r.priority, r.is_move, r.is_transient, :time_create) ],
+           insert (request, dataset, block, destination, 
+		   priority, is_move, is_transient, is_custodial, user_group, time_create)
+           values (r.id, r.dataset, r.block, r.destination, 
+		   r.priority, r.is_move, r.is_transient, r.is_custodial, r.user_group, :time_create) ],
 			     ':request' => $rid, ':destination' => $node_id, ':time_create' => $time);
 
     return 1;
@@ -5079,7 +5126,7 @@ sub updateMoveSource
                              join t_dps_block b on b.id = rb.block_id 
                             where rb.block_id is not null
                         ) rdata on rdata.request = r.id
-                  where r.id = :request 
+                  where r.id = :request
                     and (rdata.dataset = s.dataset or rdata.block = s.block)
                ) ],
 	  ':request' => $rid, ':destination' => $node_id, ':time_clear' => $time);
@@ -8352,14 +8399,14 @@ sub output_page
   my ($self) = @_;
 
   if (!$$self{SECMOD}->isAuthenticated() &&
-      !($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+      !($$self{SECMOD}->hasRole('Admin', 'phedex') ||
 	$$self{SECMOD}->hasRole('Data Manager') ||
 	$$self{SECMOD}->hasRole('Site Admin') ||
 	$$self{SECMOD}->hasRole('PADA Admin'))) {
       $self->auth_help_popup('suspend/unsuspend subscriptions'
-		       => ['anyauth', 'Data Manager', 'Site Admin', 'PADA Admin', 'Global Admin'],
+		       => ['anyauth', 'Data Manager', 'Site Admin', 'PADA Admin', 'Admin'],
 		       'change priorities of subscriptions'
-		       => ['cert', 'Data Manager', 'Global Admin']);
+		       => ['cert', 'Data Manager', 'Admin']);
       }
 
   my %admin_opts = ('suspend' => 'Suspend subscriptions',
@@ -8371,7 +8418,7 @@ sub output_page
 		    'priority' => ['priorityhi', 'prioritymd', 'prioritylo']);
   my @admin_auth;
   if ($$self{SECMOD}->isAuthenticated() &&
-      ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+      ($$self{SECMOD}->hasRole('Admin', 'phedex') ||
       $$self{SECMOD}->hasRole('Data Manager') ||
       $$self{SECMOD}->hasRole('Site Admin') ||
       $$self{SECMOD}->hasRole('PADA Admin'))) {
@@ -8379,7 +8426,7 @@ sub output_page
   }
 
   if ($$self{SECMOD}->isCertAuthenticated() &&
-      ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+      ($$self{SECMOD}->hasRole('Admin', 'phedex') ||
       $$self{SECMOD}->hasRole('Data Manager'))) {
       push @admin_auth, 'priority';
   }
@@ -8392,7 +8439,8 @@ sub output_page
 
   my $q =$self->data_subscriptions();
   
-  my @cols = qw(SELECT REQUEST ITEM_LEVEL ITEM_NAME NODE_NAME PRIORITY PCT_FILES PCT_BYTES
+  my @cols = qw(SELECT REQUEST ITEM_LEVEL ITEM_NAME NODE_NAME PRIORITY IS_CUSTODIAL USER_GROUP
+		NODE_FILES NODE_BYTES PCT_FILES PCT_BYTES
 		IS_MOVE TIME_SUSPEND_UNTIL ITEM_OPEN
 		TIME_CREATE TIME_COMPLETE TIME_DONE TIME_CLEAR
 		);
@@ -8403,6 +8451,10 @@ sub output_page
     ITEM_NAME => 'Data Item',
     NODE_NAME => 'Node',
     PRIORITY => 'Priority',
+    IS_CUSTODIAL => 'Custodial',
+    USER_GROUP => 'Group',
+    NODE_FILES => 'Node Files',
+    NODE_BYTES => 'Node Bytes',
     PCT_FILES => '% Files',
     PCT_BYTES => '% Bytes',
     IS_MOVE => 'Replica/Move',
@@ -8423,6 +8475,7 @@ sub output_page
       PRIORITY => sub { if ($_[0] == 0) { return 'High'; }
 			if ($_[0] == 1) { return 'Normal'; }
 			if ($_[0] == 2) { return 'Low'; } },
+      IS_CUSTODIAL => \&yesno,
       IS_MOVE => sub { return $_[0] eq 'y' ? 'Move' : 'Replica'; },
       TIME_SUSPEND_UNTIL => sub { 
 	  my $susp_time = $_[0];
@@ -8440,6 +8493,8 @@ sub output_page
 	  elsif ($clear_time == 9_999_999_999)            { return 'Pending approval'; }
 	  else { return &formatTime($clear_time, 'stamp') }
       },
+      NODE_FILES => \&format_num,
+      NODE_BYTES => sub { &format_size($_[0]) },
       PCT_FILES => \&format_percent,
       PCT_BYTES => \&format_percent
   };
@@ -8461,10 +8516,14 @@ sub output_page
        );
   
   # Filters
-  my @reqfilter  = grep(/^\d+$/, split(/\s*,*\s+/, param('reqfilter') || ''));
-  my $itemfilter = param('filter') || '.*';
-  my $priofilter = param('priority') || 'any';
-  my $suspfilter = param('suspended') || 'any';
+  my @reqfilter   = grep(/^\d+$/, split(/\s*,*\s+/, param('reqfilter') || ''));
+  my $itemfilter  = param('filter') || '.*';
+  my $priofilter  = param('priority') || 'any';
+  my $suspfilter  = param('suspended') || 'any';
+  my $custfilter  = param('custodial') || 'any';
+  my $groupfilter = param('group') || 'any';
+
+  my @groups = ('any', 'undefined', sort $self->fetch_groups());
 
   my $filterform = join('', "<p><i>Subscription data filters</i></p>",
 			"<div class='nice'>",
@@ -8478,6 +8537,17 @@ sub output_page
 			"<label>Active/Suspended: </label>",
 			popup_menu(-name=>'suspended', -values=>['any', 'active', 'suspended'],
 				   -default=>$suspfilter, -class=>'labeled'), "<br/>",
+			"<label>Custodial: </label>",
+			popup_menu(-name=>'custodial', 
+				   -values=>['any', 'y', 'n'],
+				   -labels=>{ 'any' => 'any',
+					      'y' => 'custodial',
+					      'n' => 'non-custodial' },
+				   -default=>$custfilter, -class=>'labeled'), "<br/>",
+			"<label>Group: </label>",
+			popup_menu(-name=>'group', -values=>\@groups,
+				   -default=>$groupfilter, -class=>'labeled'), "<br/>",
+
 			"</div>"
 			);
 
@@ -8492,13 +8562,20 @@ sub output_page
 			  || ($priofilter eq 'high'   && $_[0] == 0)
 			  || ($priofilter eq 'normal' && $_[0] == 1)
 			  || ($priofilter eq 'low'    && $_[0] >= 2)) ? 1 : 0 },
-			  TIME_SUSPEND_UNTIL => sub { return 1 if $suspfilter eq 'any';
-						      return 1 if $suspfilter eq 'active' && !defined $_[0];
-						      return 1 if $suspfilter eq 'suspended' && defined $_[0];
-						      return 0;
-						  }
-
-
+      TIME_SUSPEND_UNTIL => sub { return 1 if $suspfilter eq 'any';
+				  return 1 if $suspfilter eq 'active' && !defined $_[0];
+				  return 1 if $suspfilter eq 'suspended' && defined $_[0];
+				  return 0;
+			      },
+      IS_CUSTODIAL => sub { return 1 if $custfilter eq 'any';
+			    return 1 if $custfilter eq $_[0];
+			    return 0;
+			},
+      USER_GROUP => sub { return 1 if $groupfilter eq 'any';
+			  return 1 if defined $_[0] && $groupfilter eq $_[0];
+			  return 1 if !defined $_[0] && $groupfilter eq 'undefined';
+			  return 0;
+		      }
   };
 
   if (!@admin_auth) {
@@ -8681,6 +8758,7 @@ sub data_subscriptions
 	      n.id node_id, n.name node_name,
 	      s.destination subs_destination, s.dataset subs_dataset, s.block subs_block,
 	      s.priority, s.is_move, s.is_transient,
+              s.is_custodial, g.name user_group,
 	      s.time_suspend_until, s.time_create,
 	      s.time_clear, s.time_complete, s.time_done,
 	      reps.exist_files, reps.node_files, reps.dest_files,
@@ -8689,6 +8767,7 @@ sub data_subscriptions
 	    join t_adm_node n on n.id = s.destination
 	    left join t_dps_block b on b.id = s.block
 	    left join t_dps_dataset ds on ds.id = s.dataset or ds.id = b.dataset
+	    left join t_adm_group g on g.id = s.user_group
 	    join
 	    (select s2.destination, s2.dataset, s2.block,
 		    sum(b2.files) exist_files, sum(b2.bytes) exist_bytes,
@@ -8738,12 +8817,12 @@ sub output_page
   my ($self) = @_;
 
   if (!$$self{SECMOD}->isAuthenticated() &&
-      !($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+      !($$self{SECMOD}->hasRole('Admin', 'phedex') ||
 	$$self{SECMOD}->hasRole('Data Manager') ||
 	$$self{SECMOD}->hasRole('Site Admin') ||
 	$$self{SECMOD}->hasRole('PADA Admin'))) {
       $self->auth_help_popup('manage LoadTest injections'
-			     => ['cert', 'Data Manager', 'Site Admin', 'PADA Admin', 'Global Admin']);
+			     => ['cert', 'Data Manager', 'Site Admin', 'PADA Admin', 'Admin']);
   }
   
   my %admin_opts = ('rate'       => 'set rate (MB/s)',
@@ -8755,7 +8834,7 @@ sub output_page
 	    
   my $admin_ok = 0;
   if ($$self{SECMOD}->isCertAuthenticated() &&
-      ($$self{SECMOD}->hasRole('Global Admin', 'phedex') ||
+      ($$self{SECMOD}->hasRole('Admin', 'phedex') ||
        $$self{SECMOD}->hasRole('Data Manager') ||
        $$self{SECMOD}->hasRole('Site Admin') ||
        $$self{SECMOD}->hasRole('PADA Admin'))) {
@@ -9559,6 +9638,62 @@ sub output
 1;
 
 ######################################################################
+package Web25::Reports::SiteData;
+use strict; use warnings;
+use base "Web25::Page";
+import Web25::Common;
+use CGI qw(:standard);
+
+our $INDEX = { LIST => 1, ORDER => 4, TITLE => "Site Data",
+	       LINK_TITLE => "Site storage allocation" };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+# WORKHERE
+sub output
+{
+    my ($self) = @_;
+    
+
+    my %nodes = $self->fetch_nodes(with_ids => 1);
+    my $node = param('node') || 'T0_CH_CERN_MSS';
+    my $viewurl = '#';
+
+    print { $$self{CONTENT} }
+    "<form class='nice' method='get' action='$viewurl'>",
+    "<label class='inline'>View node: </label>",
+    popup_menu(-name=>'node',
+	       -values=>[sort keys %nodes], -default=>$node,
+	       -class=>'labeled'),
+    submit(-value=>'Submit', -class=>'labeled'), "</form><br clear='all'/>";
+
+    my $node_id = $nodes{$node};
+
+    my %data;
+
+    print { $$self{CONTENT} }
+    "<h2>$node Site Data</h2>",
+    "<table>",
+    "<tr><th>Quantity</th><th>Subscribed</th><th>Resident</th><th>Missing</th></tr>",
+    "<tr><td>Custodial Data</td><td>",&format_size(100),"</td></tr>",
+    "<tr><td>Non-Custodial Data</td><td>",&format_size(100),"</td></tr>",
+    "<tr><td>GroupA</td><td>",&format_size(100),"</td></tr>",
+    "<tr><td>GroupB</td><td>",&format_size(100),"</td></tr>",
+    "<tr><td>Total</td><td>",&format_size(100),"</td></tr>",
+    "</table>";
+
+}
+
+1;
+
+######################################################################
 package Web25::Test::Test;
 use strict; use warnings;
 use base "Web25::Page";
@@ -9660,7 +9795,7 @@ sub output
   
 #   &dump_var($$self{CONTENT}, 'SecMod CERN Site Admins', [$$self{SECMOD}->getUsersWithRoleForSite('Site Admin', 'CERN')]);
 
-#   &dump_var($$self{CONTENT}, 'SecMod Global Admins', [$$self{SECMOD}->getUsersWithRoleForGroup('Global Admin', 'phedex')]);
+#   &dump_var($$self{CONTENT}, 'SecMod Admins', [$$self{SECMOD}->getUsersWithRoleForGroup('Admin', 'phedex')]);
 
 
 }
