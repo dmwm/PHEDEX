@@ -4,7 +4,7 @@
 ##H files and create subscriptions to those files.
 ##H
 ##H Use: SetupData -db <DBCONFIG> -datasets N_DS -blocks N_BLOCKS -files N_FILES 
-##H               [-label LABEL] [-open-blocks] [-rotate-priority] [-no-subscribe]
+##H               [-label LABEL] [-open-blocks] [-rotate-priority] [-no-subscribe] [-custodial]
 ##H
 ##H Parameters:
 ##H      db:               path to DB Config file
@@ -15,6 +15,7 @@
 ##H      open-blocks:      do not close blocks (default is to close blocks)
 ##H      rotate-priority:  create subscriptions at all priority levels
 ##H      no-subscribe:     don't automatically create subscriptions for the generated data
+##H      custodial:        data is custodial
 
 my %args;
 use Getopt::Long;
@@ -30,6 +31,7 @@ use PHEDEX::Core::Timing;
 	     "open-blocks" => \$args{OPEN_BLOCKS},
 	     "rotate-priority" => \$args{ROTATE_PRIORITY},
 	     "no-subscribe"   => \$args{NOSUBSCRIBE},
+	     "custodial"   => \$custodial,
 	     "nodes=s"     => sub { push @{$args{NODES}},
 				    split m|,|, $_[1] },
     	     "help|h"      => sub { &usage() });
@@ -43,6 +45,8 @@ if (! $args{DBCONFIG} || ! $args{DATASETS} || ! $args{BLOCKS} || ! $args{FILES})
     die "Insufficient parameters, use -h for help.\n";
 }
 
+if ( $custodial ) { $custodial = 'y'; }
+else              { $custodial = 'n'; }
 my $files = $args{FILES};
 my $blocks = $args{BLOCKS};
 my $datasets = $args{DATASETS};
@@ -139,8 +143,8 @@ eval
 	    my $label2 = $rotate_priority ? $priorities{$prio} : $label;
 	    &dbexec($dbh, qq{
 		insert into t_dps_subscription
-		    (dataset, destination, priority, is_move, is_transient, time_create)
-		    select ds.id, n.id, :priority, 'n', 'n', :time_create 
+		    (dataset, destination, priority, is_move, is_transient, time_create, is_custodial)
+		    select ds.id, n.id, :priority, 'n', 'n', :time_create, '$custodial' 
                       from t_dps_dataset ds cross join t_adm_node n
 		    where n.name like 'TX_Test%' and ds.name like '/$label1/$label2/%'},
 		    ":priority" => $prio,
