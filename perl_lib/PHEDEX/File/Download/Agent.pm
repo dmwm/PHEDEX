@@ -329,8 +329,8 @@ sub fetchNewTasks
 
     # Fetch new tasks.
     my $i = &dbprep($$self{DBH}, qq{
-	insert into t_xfer_task_inxfer (task, time_update)
-	values (:task, :now)});
+	insert into t_xfer_task_inxfer (task, time_update, from_pfn, to_pfn)
+	values (:task, :now, :from_pfn, :to_pfn)});
 
     my $q = &dbexec($$self{DBH}, qq{
 	select
@@ -371,7 +371,9 @@ sub fetchNewTasks
 	}
 
 	# Mark used in database.
-	&dbbindexec($i, ":task" => $$row{TASKID}, ":now" => $now);
+	&dbbindexec($i, ":task" => $$row{TASKID}, ":now" => $now,
+			":from_pfn" => $$row{FROM_PFN},
+			":to_pfn" => $$row{TO_PFN} );
 	$$row{TIME_INXFER} = $now;
         ($pending{$linkkey} ||= 0)++;
 	
