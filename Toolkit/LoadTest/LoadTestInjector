@@ -26,7 +26,7 @@ use PHEDEX::LoadTest::Injector::Agent;
              "once"        => \$args{ONCE},
 	     "help|h"      => sub { &usage() });
 
-if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG})
+if (!$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
