@@ -8,14 +8,13 @@ BEGIN
    --------------------
    -- X-Tables
 --
--- Do we drop all the X% tables first, just for fun?
---
+-- Drop all the X% tables first, just for fun?
 --   FOR o IN
 --     (SELECT table_name name FROM user_tables
 --      WHERE table_name LIKE 'X%')
 --   LOOP
 --      dbms_output.put_line ('Dropping table ' || o.name);
---      execute immediate 'drop table ' || o.name;
+--      execute immediate 'drop table ' || o.name || ' cascade constraints';
 --   END LOOP;
 
    -- Tables
@@ -32,6 +31,15 @@ BEGIN
 
    --------------------
    -- Sequences
+-- Drop X% sequences too
+--   FOR o IN
+--     (SELECT sequence_name name FROM user_sequences
+--      WHERE sequence_name LIKE 'X%')
+--   LOOP
+--      dbms_output.put_line ('Dropping sequence ' || o.name);
+--      execute immediate 'drop sequence ' || o.name;
+--   END LOOP;
+
    FOR o IN
      (SELECT sequence_name name FROM user_sequences
       WHERE sequence_name NOT LIKE 'X%')
