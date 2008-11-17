@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use base 'PHEDEX::Core::JobManager', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Command;
+use PHEDEX::Core::Catalogue;
 use Getopt::Long;
 use Data::Dumper;
 
@@ -20,7 +21,8 @@ sub new
     $params->{PROTOCOLS}   ||= undef;        # Transfer command
     $params->{NJOBS}       ||= 0;            # Max number of parallel transfers.  0 for infinite.
     $params->{BATCH_FILES} ||= 1;            # Max number of files per batch
-	
+    $params->{CATALOGUES} = {};
+
     # Set argument parsing at this level.
     $$options{'protocols=s'} = sub { $$params{PROTOCOLS} = [ split(/,/, $_[1]) ]};
     $$options{'jobs=i'} = \$$params{NJOBS};
@@ -126,6 +128,56 @@ sub clean
     $self->{MASTER}->{pmon}->State('pre-delete','stop');
     $self->transferBatch ($job, $tasks)
         if ! grep (! $tasks->{$_}{DONE_CLEAN}, keys %{$job->{TASKS}});
+}
+
+sub makeTransferTask
+{
+    my ($self, $task) = @_;
+    my ($from, $to) = @$task{"FROM_NODE_ID", "TO_NODE_ID"};
+    my ($from_name, $to_name) = @$task{"FROM_NODE", "TO_NODE"};
+    my @from_protos = split(/\s+/, $$task{FROM_PROTOS} || '');
+    my @to_protos   = split(/\s+/, $$task{TO_PROTOS} || '');
+    my $cats = $self->{CATALOGUES};
+
+    my ($from_cat, $to_cat);
+    eval
+    {
+        $from_cat    = &dbStorageRules($self->{MASTER}->{DBH}, $cats, $from);
+        $to_cat      = &dbStorageRules($self->{MASTER}->{DBH}, $cats, $to);
+    };
+    do { chomp ($@); $self->Alert ("catalogue error: $@"); return; } if $@;
+#$DB::single=1;
+#   Pick out the set of allowed protocols for this agent.
+    my @protocols = $self->protocols();
+    foreach ( @protocols )
+    {
+      push @to_protos,   $_ if exists $to_cat->{$_};
+      push @from_protos, $_ if exists $from_cat->{$_};
+    }
+    my $protocol    = undef;
+
+    # Find matching protocol.
+    foreach my $p (@to_protos)
+    {
+        next if ! grep($_ eq $p, @from_protos);
+        $protocol = $p;
+        last;
+    }
+
+    # If this is MSS->Buffer transition, pretend we have a protocol.
+    $protocol = 'srm' if ! $protocol && $$task{FROM_KIND} eq 'MSS';
+    
+    # Check that we have prerequisite information to expand the file names.
+    return if (! $from_cat
+               || ! $to_cat
+               || ! $protocol
+               || ! $$from_cat{$protocol}
+               || ! $$to_cat{$protocol});
+
+    # Try to expand the file name. Follow destination-match instead of remote-match
+# FIXME Need to add custodiality!
+    $task->{FROM_PFN} = &applyStorageRules($from_cat, $protocol, $to_name, 'pre', $task->{LOGICAL_NAME});
+    $task->{TO_PFN}   = &applyStorageRules($to_cat,   $protocol, $to_name, 'pre', $task->{LOGICAL_NAME});
 }
 
 1;
