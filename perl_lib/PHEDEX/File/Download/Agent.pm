@@ -338,7 +338,7 @@ sub fetchNewTasks
 	    f.logical_name, f.filesize, f.checksum,
 	    xt.from_node from_node_id, ns.name from_node,
 	    xt.to_node to_node_id, nd.name to_node,
-	    xt.from_pfn, xt.to_pfn,
+	    xti.from_pfn, xti.to_pfn,
 	    xt.time_assign, xt.time_expire,
 	    xte.time_update time_export
 	from t_xfer_task xt
@@ -371,6 +371,10 @@ sub fetchNewTasks
 	}
 
 	# Mark used in database.
+#	$self->Logmsg('(B)t_xfer_task_inxfer: task & pfns from ' . join(', ', map { "$_=$row->{$_}" } sort keys %{$row} ) );
+#$DB::single=1;
+	$self->{BACKEND}->makeTransferTask($row);
+#	$self->Logmsg('(A)t_xfer_task_inxfer: task & pfns from ' . join(', ', map { "$_=$row->{$_}" } sort keys %{$row} ) );
 	&dbbindexec($i, ":task" => $$row{TASKID}, ":now" => $now,
 			":from_pfn" => $$row{FROM_PFN},
 			":to_pfn" => $$row{TO_PFN} );
