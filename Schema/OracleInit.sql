@@ -1,7 +1,7 @@
 -- Load new tables
-set echo off feedback off sqlprompt '' def &
-set def OFF
 -- set def OFF then to '&' to avoid misleading SP2-0317 error.
+set def OFF
+set echo off feedback off sqlprompt '' def &
 prompt
 prompt Loading PhEDEx schema to &_user@&_connect_identifier
 
