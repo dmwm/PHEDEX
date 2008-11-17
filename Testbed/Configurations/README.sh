@@ -72,7 +72,7 @@ for ((i=1;i<=4;i+=1)); do
 done
 
 # Inject source dataset for LoadTest, 1000 files
-echo "insert into t_dps_dbs values (1, 'test', 'unknown', now());" | $PHEDEX_SQLPLUS < /dev/null
+echo "insert into t_dps_dbs values (1, 'test', 'unknown', now());" | $PHEDEX_SQLPLUS
 PHEDEX/Testbed/Setup/SetupData -db $PHEDEX_DBPARAM -label LoadTestSource -datasets 1 -blocks 100 -files 10
 
 # Insert LoadTest destination datasets.  These are the datasets which
