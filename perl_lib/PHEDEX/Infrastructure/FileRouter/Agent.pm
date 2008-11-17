@@ -973,11 +973,12 @@ sub stats
     &dbexec($dbh, qq{delete from t_status_request});
     &dbexec($dbh, qq{
 	insert into t_status_request
-	(time_update, destination, state, files, bytes, is_custodial)
+	(time_update, destination, state, files, bytes, is_custodial, priority)
 	select :now, xq.destination, xq.state,
-	       count(xq.fileid), nvl(sum(f.filesize),0), xq.is_custodial
+	       count(xq.fileid), nvl(sum(f.filesize),0), xq.is_custodial,
+		xq.priority
 	from t_xfer_request xq join t_xfer_file f on f.id = xq.fileid
-	group by :now, xq.destination, xq.state, xq.is_custodial},
+	group by :now, xq.destination, xq.state, xq.is_custodial, xq.priority},
 	":now" => $now);
 
     &dbexec($dbh, qq{delete from t_status_block_path});
