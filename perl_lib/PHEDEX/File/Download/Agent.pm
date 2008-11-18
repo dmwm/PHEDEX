@@ -371,10 +371,7 @@ sub fetchNewTasks
 	}
 
 	# Mark used in database.
-#	$self->Logmsg('(B)t_xfer_task_inxfer: task & pfns from ' . join(', ', map { "$_=$row->{$_}" } sort keys %{$row} ) );
-#$DB::single=1;
 	$self->{BACKEND}->makeTransferTask($row);
-#	$self->Logmsg('(A)t_xfer_task_inxfer: task & pfns from ' . join(', ', map { "$_=$row->{$_}" } sort keys %{$row} ) );
 	&dbbindexec($i, ":task" => $$row{TASKID}, ":now" => $now,
 			":from_pfn" => $$row{FROM_PFN},
 			":to_pfn" => $$row{TO_PFN} );
