@@ -269,7 +269,9 @@ sub createBlockAtNode
   if ( $self->{VERBOSE} )
   {
     $self->Logmsg(' createBlockAtNode: ',
-		join(', ', map { "$_=$p{$_}" } sort keys %p) );
+		join(', ',
+		  map { "$_=" . ( defined($p{$_}) ? $p{$_} : 'undef' ) }
+		    sort keys %p) );
   }
   return if ( exists $self->{DUMMY} && $self->{DUMMY} );
   execute_sql( $self, $sql, %p );
