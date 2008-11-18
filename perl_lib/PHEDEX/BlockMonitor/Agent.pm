@@ -90,6 +90,24 @@ sub limitCheck
 	if $b->{XFER_BYTES} > $ref->{BYTES};
 }
 
+sub custodialCheck
+{
+    my ($self, $reason, $b) = @_;
+
+    # Custodial flag.  Only data with a subscription can be custodial.
+    # If the block has a subscription and IS_CUSTODIAL is not defined,
+    # then raise an alert
+    if ( !exists($b->{IS_CUSTODIAL}) || !defined($b->{IS_CUSTODIAL}) )
+    {
+	if ($b->{DEST_FILES}) {
+	    $self->Alert("$reason $b->{BLOCK} IS_CUSTODIAL not defined but has destined files! ",
+			 "(DEST_FILES=$b->{DEST_FILES)");
+	} else {
+	    $b->{IS_CUSTODIAL} = 'n';
+	}
+    }
+}
+
 # Update statistics.
 sub idle
 {
@@ -129,6 +147,7 @@ sub idle
 	    {
 		$replicas{$row->{BLOCK}}{$row->{NODE}} = $row;
 		$self->limitCheck ("existing block", $row);
+		$self->custodialCheck ("existing block", $row);
 	    }
 
 	    # Get file counts in currently active files: those destined at
@@ -146,8 +165,8 @@ sub idle
 	    # This avoids a single very expensive query -- the turnaround
 	    # from several queries is much lower.  Still, we don't want this
 	    # executed too often.
-	    $qactive = $self->getDestFilesNBytes( $h );
 
+	    $qactive = $self->getDestFilesNBytes( $h );
 	    while ( $q = shift @{$qactive} )
 	    {
 		map { $active{$q->{BLOCK}}{$q->{NODE}}{$_} = $q->{$_} } keys %{$q};
@@ -185,6 +204,8 @@ sub idle
 		} else {
 		    $b->{EMPTY_SOURCE} = 0;
 		}
+
+		$self->custodialCheck ("active block", $b); # sets IS_CUSTODIAL if no subscription
 	    }
 
 	    # Compare differences I: start from previous replicas.
@@ -217,21 +238,26 @@ sub idle
 		    next;
 		}
 
-		# Update statistics for active blocks
-		my $new = $active{$b->{BLOCK}}{$b->{NODE}};
-		if ($b->{DEST_FILES} != $new->{DEST_FILES}
-		    || $b->{DEST_BYTES} != $new->{DEST_BYTES}
-		    || $b->{SRC_FILES}  != $new->{SRC_FILES}
-		    || $b->{SRC_BYTES}  != $new->{SRC_BYTES}
-		    || $b->{NODE_FILES} != $new->{NODE_FILES}
-		    || $b->{NODE_BYTES} != $new->{NODE_BYTES}
-		    || $b->{XFER_FILES} != $new->{XFER_FILES}
-		    || $b->{XFER_BYTES} != $new->{XFER_BYTES})
-		{
-		    $self->limitCheck ("updated block", $new, $b);
-		    $self->Logmsg ("updating block $b->{BLOCK} at node $b->{NODE}");
-		    $self->updateBlockAtNode( NOW => $now, %{$new} )
-			unless $self->{DUMMY};
+		{ 
+		    no warnings 'uninitialized'; # USER_GROUP can be undef
+		    # Update statistics for active blocks
+		    my $new = $active{$b->{BLOCK}}{$b->{NODE}};
+		    if (      $b->{DEST_FILES}   != $new->{DEST_FILES}
+			   || $b->{DEST_BYTES}   != $new->{DEST_BYTES}
+			   || $b->{SRC_FILES}    != $new->{SRC_FILES}
+			   || $b->{SRC_BYTES}    != $new->{SRC_BYTES}
+			   || $b->{NODE_FILES}   != $new->{NODE_FILES}
+			   || $b->{NODE_BYTES}   != $new->{NODE_BYTES}
+			   || $b->{XFER_FILES}   != $new->{XFER_FILES}
+			   || $b->{XFER_BYTES}   != $new->{XFER_BYTES}
+			   || $b->{IS_CUSTODIAL} ne $new->{IS_CUSTODIAL}
+			   || $b->{USER_GROUP}   != $new->{USER_GROUP})
+		    {
+			$self->limitCheck ("updated block", $new, $b);
+			$self->Logmsg ("updating block $b->{BLOCK} at node $b->{NODE}");
+			$self->updateBlockAtNode( NOW => $now, %{$new} )
+			    unless $self->{DUMMY};
+		    }
 		}
 	    }
 
