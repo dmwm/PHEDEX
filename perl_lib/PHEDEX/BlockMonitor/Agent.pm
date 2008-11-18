@@ -97,11 +97,10 @@ sub custodialCheck
     # Custodial flag.  Only data with a subscription can be custodial.
     # If the block has a subscription and IS_CUSTODIAL is not defined,
     # then raise an alert
-    if ( !exists($b->{IS_CUSTODIAL}) || !defined($b->{IS_CUSTODIAL}) )
-    {
+    if ( !exists($b->{IS_CUSTODIAL}) || !defined($b->{IS_CUSTODIAL}) ) {
 	if ($b->{DEST_FILES}) {
-	    $self->Alert("$reason $b->{BLOCK} IS_CUSTODIAL not defined but has destined files! ",
-			 "(DEST_FILES=$b->{DEST_FILES)");
+	    $self->Alert("$reason $b->{BLOCK} IS_CUSTODIAL not defined but has destined files! "
+			 . "($b->{DEST_FILES} files)");
 	} else {
 	    $b->{IS_CUSTODIAL} = 'n';
 	}
