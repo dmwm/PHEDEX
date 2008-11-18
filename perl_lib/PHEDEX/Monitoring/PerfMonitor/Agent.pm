@@ -90,6 +90,9 @@ sub idle
 	    ":now" => $now);
 
 	# Sumarize groups
+	# We only count data with a subscription to the node
+	# (dest_files not null), because that is the only data which
+	# could be allocated to a group
 	&dbexec($dbh, qq{delete from t_status_group});
 	&dbexec($dbh, qq{
 	    insert into t_status_group
@@ -99,6 +102,7 @@ sub idle
                    nvl(sum (br.dest_files), 0), nvl(sum (br.dest_bytes), 0),
                    nvl(sum (br.node_files), 0), nvl(sum (br.node_bytes), 0)
 	    from t_dps_block_replica br
+	    where br.dest_files is not null and br.dest_files != 0
 	    group by br.node, br.user_group },
 	    ":now" => $now);
 
