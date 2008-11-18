@@ -67,7 +67,8 @@ sub getExistingReplicaInfo
            	br.dest_files, br.dest_bytes,
            	br.src_files, br.src_bytes,
            	br.node_files, br.node_bytes,
-           	br.xfer_files, br.xfer_bytes
+           	br.xfer_files, br.xfer_bytes,
+	        br.is_custodial, br.user_group
       	      from t_dps_block_replica br
               join t_dps_block b on b.id = br.block };
   if ( exists $h{MIN_BLOCK} && exists $h{MAX_BLOCK} )
@@ -200,13 +201,17 @@ sub updateBlockAtNode
   my ($self,%h) = @_;
   my ($sql,%p);
 
-  my @b = qw(now block node dest_files dest_bytes src_files src_bytes node_files node_bytes xfer_files xfer_bytes);
+  my @b = qw(now block node 
+	     dest_files dest_bytes src_files src_bytes 
+	     node_files node_bytes xfer_files xfer_bytes
+	     is_custodial user_group);
   $sql = qq{ update t_dps_block_replica
             set time_update = :now, is_active = 'y',
                 dest_files = :dest_files, dest_bytes = :dest_bytes,
                 src_files  = :src_files,  src_bytes  = :src_bytes,
                 node_files = :node_files, node_bytes = :node_bytes,
                 xfer_files = :xfer_files, xfer_bytes = :xfer_bytes
+		is_custodial = :is_custodial, user_group = :user_group
             where block = :block and node = :node };
   $h{NOW} = mytimeofday() unless $h{NOW};
   foreach ( @b ) { $p{ ':' . $_ } = $h{uc($_)}; }
@@ -221,7 +226,10 @@ sub createBlockAtNode
   my ($self,%h) = @_;
   my ($sql,%p);
 
-  my @b = qw(now block node dest_files dest_bytes src_files src_bytes node_files node_bytes xfer_files xfer_bytes user_group is_custodial);
+  my @b = qw(now block node 
+	     dest_files dest_bytes src_files src_bytes
+	     node_files node_bytes xfer_files xfer_bytes
+	     user_group is_custodial);
   $sql = qq{ insert into t_dps_block_replica
         (time_create, time_update,
          block, node, is_active,
@@ -239,22 +247,6 @@ sub createBlockAtNode
 		:user_group, :is_custodial) };
   $h{NOW} = mytimeofday() unless $h{NOW};
 
-# Sanity check:
-  if ( !exists($h{IS_CUSTODIAL}) )
-  {
-    my $custody='n';
-    if ( $h{DEST_FILES} )
-    {
-      my $map = $self->getNodeMap();
-      my $name = $map->{$h{NODE}};
-      if ( $name =~ m%^T0% or $name =~ m%^T1% )
-      {
-        $custody = 'y';
-      }
-    }
-    $self->Alert("createBlockAtNode: Assigning is_custodial=$custody for block=$h{BLOCK}");
-    $h{IS_CUSTODIAL} = $custody;
-  }
   foreach ( @b ) { $p{ ':' . $_ } = $h{uc($_)}; }
 
   my @m;
