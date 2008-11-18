@@ -146,7 +146,6 @@ sub makeTransferTask
         $to_cat      = &dbStorageRules($self->{MASTER}->{DBH}, $cats, $to);
     };
     do { chomp ($@); $self->Alert ("catalogue error: $@"); return; } if $@;
-#$DB::single=1;
 #   Pick out the set of allowed protocols for this agent.
     my @protocols = $self->protocols();
     foreach ( @protocols )
@@ -176,8 +175,8 @@ sub makeTransferTask
 
     # Try to expand the file name. Follow destination-match instead of remote-match
 # FIXME Need to add custodiality!
-    $task->{FROM_PFN} = &applyStorageRules($from_cat, $protocol, $to_name, 'pre', $task->{LOGICAL_NAME});
-    $task->{TO_PFN}   = &applyStorageRules($to_cat,   $protocol, $to_name, 'pre', $task->{LOGICAL_NAME});
+    $task->{FROM_PFN} = &applyStorageRules($from_cat, $protocol, $to_name, 'pre', $task->{LOGICAL_NAME}, $task->{IS_CUSTODIAL});
+    $task->{TO_PFN}   = &applyStorageRules($to_cat,   $protocol, $to_name, 'pre', $task->{LOGICAL_NAME}, $task->{IS_CUSTODIAL});
 }
 
 1;
