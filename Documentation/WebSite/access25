@@ -195,9 +195,9 @@ sub help
 {
     my ($linktext, $helpsubject, @help) = @_;
     my $id = 'help'.rand();
-    my @ret = ("<a class='help' href='#' onclick='return hideshow(this,\"$id\",0)'>$linktext</a>",
+    my @ret = ("<a class='help' href='#' onclick='return hideshow(\"$id\")'>$linktext</a>",
 	       "<div id='$id' style='display:none' class='help'>",
-	       "<a href='#' class='closelink' onclick='return hideshow(this, \"$id\", 0)'>[close]</a>",
+	       "<a href='#' class='closelink' onclick='return hideshow(\"$id\")'>[close]</a>",
 	       "<p class='title'>$helpsubject</p>",
 	       "<p class='body'>",
 	       @help,
@@ -230,6 +230,11 @@ sub format_size {
   my ($bytes, $nodash, $precision, $minscale) = @_;
   return undef if (!defined $bytes && $nodash);
 
+  my $onescale = 0;
+  if (defined $minscale && $minscale =~ /^=/) {
+      $minscale =~ s/=//; $onescale = 1;
+  }
+
   my @bounds = ([ 2**10, 'k' ], [ 2**20, 'M' ], [ 2**30, 'G' ],
 		[ 2**40, 'T' ], [ 2**50, 'P' ], [ 2**60, 'E' ]);
   my ($val, $unit, $minus) = ($bytes, '', $bytes < 0 ? "-" : "");
@@ -238,7 +243,10 @@ sub format_size {
   {
     $val = $bytes / $bounds[0][0];
     $unit = $bounds[0][1];
-    undef $minscale if (defined $minscale && $minscale eq $unit);
+    if (defined $minscale && $minscale eq $unit) {
+	undef $minscale;
+	last if $onescale;
+    }
     shift (@bounds);
   }
 
@@ -1977,7 +1985,7 @@ sub output
     }
 
     $html .= "<div id='optsfoot'>\n";
-    $html .= "<input type='submit' value='Cancel' onclick='return hideshow(this,\"opts\",0)'/>&nbsp;\n";
+    $html .= "<input type='submit' value='Cancel' onclick='return hideshow(\"opts\")'/>&nbsp;\n";
     $html .= "<input type='submit' value='Apply' />\n";
     $html .= "</div>\n";
 
@@ -1990,7 +1998,7 @@ sub output
 sub link
 {
     my ($self, $linkname) = @_;
-    "<a href='#' onclick='return hideshow(this,\"opts\",0)'>$linkname</a><br/>\n";
+    "<a href='#' onclick='return hideshow(\"opts\")'>$linkname</a><br/>\n";
 }
 
 
@@ -2022,20 +2030,32 @@ our $TEMPLATE_DEFAULT = <<'END_OF_TEMPLATE';
   <script type="text/javascript" src="@ROOTURL@stripe.js"></script>
   <script type="text/javascript" src="@ROOTURL@nifty.js"></script>
   <script type="text/javascript"><!--
-    function hideshow(link,item,hide) {
+    function hideshow(item, show) {
       var obj = document.getElementById(item);
-      if (obj.style.display == '')
+      if (obj == undefined) { return false; }
+      if (obj.style.display == '' || show == 0)
       {
         obj.style.display = 'none';
-	if (hide) link.style.display = '';
       }
-      else
+      else if (obj.style.display != '' || show == 1)
       {
         obj.style.display = '';
-	if (hide) link.style.display = 'none';
       }
       return false;
     }
+
+function hideshowdropdown(dropdown) {
+    var myindex  = dropdown.selectedIndex;
+    var selvalue = dropdown.options[myindex].value;
+    for (i in dropdown.options) {
+	var op = dropdown.options[i].value;
+	if (op != selvalue) {
+	    hideshow(op, 0);
+	} else {
+	    hideshow(op, 1);
+	}
+    }
+}
 
 function shortlong(link,item,width) {
     var obj = document.getElementById(item);
@@ -2421,7 +2441,7 @@ sub generate
       ("<div class='dbopt'>\n" .
        "<label>DB Instance:</label><strong>$$config{INSTANCES}{$db}{TITLE}</strong>&nbsp;" .
        "<a href='@{[$self->myurl('page'=>'DB')]}'" .
-       " onclick='return hideshow(this,\"dbopts\",0)'>&#187;&#187;</a>\n" .
+       " onclick='return hideshow(\"dbopts\")'>&#187;&#187;</a>\n" .
        "  <div id='dbopts' style='display:none'>\n" .
        "   <a class='closelink' href='#' onclick='return hideshow(this,\"dbopts\",0)'>[close]</a>\n" .
        join ("",
@@ -3308,7 +3328,7 @@ sub printRequest
     "<h1>Request $rid : ", $self->getRequestTitle($data), "</h1>",
     # Requestor hideaway box
     "<label>Requestor:</label>", "<div class='labeled'>",
-    "<a href='#' onclick='return hideshow(this, \"creator$rid\", 0)'>",
+    "<a href='#' onclick='return hideshow(\"creator$rid\")'>",
     ($$data{CREATOR_DATA}{IDENTITY}{NAME} or 'Unknown'), 
     ( $$data{COMMENTS} ? " (comments)" : ''), "</a>",
     " at ", &formatTime($$data{TIME_CREATE}, 'stamp'), "<br/>",
@@ -3348,7 +3368,7 @@ sub printRequest
 
     print { $$self{CONTENT} }
     "<label>Data:</label>", "<div class='labeled'>",
-    "<a href='#' onclick='return hideshow(this, \"data$rid\", 0)'>",
+    "<a href='#' onclick='return hideshow(\"data$rid\")'>",
     $data_label, "</a><br/>",
     # Data details (hidden at first)
     "<div id='data$rid' class='hideaway' style='display:none;'>",
@@ -3406,7 +3426,7 @@ sub printRequest
 		$decision_text = 
 		    join('', ($$o{DECISION} eq 'y' ? "<span class='good'>approved</span> by " 
 			      : "<span class='bad'>disapproved</span> by "),
-			 "<a href='#' onclick='return hideshow(this, \"$decider_ref\", 0)'>",
+			 "<a href='#' onclick='return hideshow(\"$decider_ref\")'>",
 			 $$o{DECIDER_DATA}{IDENTITY}{NAME},
 			 ( $$o{COMMENTS} ? " (comments)" : ''),
 			 "</a></span>",
@@ -3439,7 +3459,7 @@ sub printRequest
     # Request-specific data
     print { $$self{CONTENT} }
     "<label>Details:</label>", "<span class='labeled'>",
-    "<a href='#' onclick='return hideshow(this, \"details$rid\", 0)'>",
+    "<a href='#' onclick='return hideshow(\"details$rid\")'>",
     $self->getRequestTypeSummary($data), "</a></span><br/>",
     "<div id='details$rid' class='hideaway' style='display:none;'>";
     $self->printRequestSpecific($data);
@@ -7100,12 +7120,14 @@ sub output
   }
 
   my $state_join = '';
+  my $state_cols = 'NULL from_pfn, NULL to_pfn,';
   my $state_where = '';
   if    ($state eq 'exported')     { 
       $state_join = 'join t_xfer_task_export ts on ts.task = xt.id'; 
       $state_where = 'and xt.id not in ( select task from t_xfer_task_inxfer )';
-  } elsif ($state eq 'transferring') { 
+  } elsif ($state eq 'transferring') {
       $state_join = 'join t_xfer_task_inxfer ts on ts.task = xt.id'; 
+      $state_cols = 'ts.from_pfn, ts.to_pfn,';
       $state_where = 'and xt.id not in ( select task from t_xfer_task_done )';
   } elsif ($state eq 'transferred')  { 
       $state_join = 'join t_xfer_task_done ts on ts.task = xt.id'; }
@@ -7116,7 +7138,8 @@ sub output
   }
      
   my $sql = qq{
-    select f.id, f.logical_name, f.filesize, xt.from_pfn, xt.to_pfn,
+    select f.id, f.logical_name, f.filesize,
+           $state_cols
 	   xt.time_assign, err.cnt num_errors
       from t_xfer_task xt
       $state_join
@@ -8432,9 +8455,11 @@ sub output_page
 		    'unsuspend' => 'Unsuspend subscriptions',
 		    'priorityhi' => 'Make high priority',
 		    'prioritymd' => 'Make normal priority',
-		    'prioritylo' => 'Make low priority');
+		    'prioritylo' => 'Make low priority',
+		    'groupchange' => 'Change group'
+		    );
   my %admin_grps = ('suspend' => ['suspend', 'unsuspend'],
-		    'priority' => ['priorityhi', 'prioritymd', 'prioritylo']);
+		    'priority' => ['priorityhi', 'prioritymd', 'prioritylo', 'groupchange']);
   my @admin_auth;
   if ($$self{SECMOD}->isAuthenticated() &&
       ($$self{SECMOD}->hasRole('Admin', 'phedex') ||
@@ -8542,7 +8567,7 @@ sub output_page
   my $custfilter  = param('custodial') || 'any';
   my $groupfilter = param('group') || 'any';
 
-  my @groups = ('any', 'undefined', sort $self->fetch_groups());
+  my @groups = ('undefined', sort $self->fetch_groups());
 
   my $filterform = join('', "<p><i>Subscription data filters</i></p>",
 			"<div class='nice'>",
@@ -8564,7 +8589,7 @@ sub output_page
 					      'n' => 'non-custodial' },
 				   -default=>$custfilter, -class=>'labeled'), "<br/>",
 			"<label>Group: </label>",
-			popup_menu(-name=>'group', -values=>\@groups,
+			popup_menu(-name=>'group', -values=>['any', @groups],
 				   -default=>$groupfilter, -class=>'labeled'), "<br/>",
 
 			"</div>"
@@ -8639,7 +8664,7 @@ sub output_page
       "<input type='hidden' name='suspended' value='$suspfilter'/>",
       "<p>\n",
       "<label>Actions:</label>\n",
-      "<select class='labeled' name='subsaction'>\n";
+      "<select class='labeled' name='subsaction' onchange='return hideshowdropdown(this)'>\n";
       foreach my $auth (@admin_auth) {
 	  foreach my $opt (@{$admin_grps{$auth}}) {
 	      print { $$self{CONTENT} } 
@@ -8648,8 +8673,11 @@ sub output_page
       }
       print { $$self{CONTENT} }
       "</select>\n",
+      popup_menu(-name=>'groupchange', -values=>\@groups, -id=>'groupchange', -style=>'display:none'),
       "<input type='submit' value='Update'/>\n",
-      "</p>\n";
+      "</p>\n"
+      ;
+      
 
   }
 
@@ -8698,28 +8726,33 @@ sub update_subscriptions
     
     my %all_nodes = reverse $self->fetch_nodes(with_ids => 1); # just a hash of id => name
 
-    my $upd_suspend = qq[ update t_dps_subscription set time_suspend_until = :val
+    my %groups = $self->fetch_groups(with_ids=>1);
+    my $group_name = param('groupchange');
+    my $group_id = $group_name eq 'undefined' ? undef : $groups{$group_name};
+
+    my $update_sql = qq[ update t_dps_subscription set _VAR_ = :val
 			  where _ITEM_ = :id and destination = :dest ];
-    my $upd_priority = qq[ update t_dps_subscription set priority = :val
-			   where _ITEM_ = :id and destination = :dest];
 
     my $action_list = 
     {
 	suspend => { desc => ' suspended',
-		     sql  => $upd_suspend,
+		     var  => 'time_suspend',
 		     val  => 9_999_999_999 },
     	unsuspend => { desc => ' unsuspended',
-		       sql  => $upd_suspend,
+		       var => 'time_suspend',
 		       val  => undef },
 	priorityhi => { desc => ' set to high priority',
-			sql => $upd_priority,
+			var => 'priority',
 			val => 0 },
 	prioritymd => { desc => ' set to medium priority',
-			sql => $upd_priority,
+			var => 'priority',
 			val => 1 },
 	prioritylo => { desc => ' set to low priority',
-			sql => $upd_priority,
-			val => 2 }
+			var => 'priority',
+			val => 2 },
+	groupchange => { desc => " assigned to group $group_name",
+			 var => 'user_group',
+			 val => $group_id }
     };
 
     # Execute the update
@@ -8731,7 +8764,8 @@ sub update_subscriptions
     foreach (param('s_id')) {
 	my ($level, $id, $destination) = split /:/;
 	if (grep $destination == $_, values %auth_nodes) { # Check permission
-	    my $sql = $$action{sql};
+	    my $sql = $update_sql;
+	    $sql =~ s/_VAR_/$$action{var}/;
 	    $sql =~ s/_ITEM_/$level/;
 
 	    my @rv = &dbexec($$self{DBH}, $sql, 
@@ -9657,13 +9691,13 @@ sub output
 1;
 
 ######################################################################
-package Web25::Reports::SiteData;
+package Web25::Reports::SiteUsage;
 use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
 use CGI qw(:standard);
 
-our $INDEX = { LIST => 1, ORDER => 4, TITLE => "Site Data",
+our $INDEX = { LIST => 1, ORDER => 4, TITLE => "Site Usage",
 	       LINK_TITLE => "Site storage allocation" };
 
 sub new
@@ -9675,12 +9709,10 @@ sub new
   return $self;
 }
 
-# WORKHERE
 sub output
 {
     my ($self) = @_;
     
-
     my %nodes = $self->fetch_nodes(with_ids => 1);
     my $node = param('node') || 'T0_CH_CERN_MSS';
     my $viewurl = '#';
@@ -9689,28 +9721,172 @@ sub output
     "<form class='nice' method='get' action='$viewurl'>",
     "<label class='inline'>View node: </label>",
     popup_menu(-name=>'node',
-	       -values=>[sort keys %nodes], -default=>$node,
+	       -values=>[sort keys %nodes],
+	       -default=>$node,
+	       -onchange=>'submit()',
 	       -class=>'labeled'),
     submit(-value=>'Submit', -class=>'labeled'), "</form><br clear='all'/>";
 
     my $node_id = $nodes{$node};
 
-    my %data;
+    # Group Data
+    my $q_grp = &dbexec($$self{DBH}, qq{
+	select nvl(g.name, 'undefined') user_group,  n.name node, 
+	       s.dest_files, s.dest_bytes, s.node_files, s.node_bytes
+	  from t_status_group s
+	  left join t_adm_group g on g.id = s.user_group
+	  join t_adm_node n on n.id = s.node
+	 where n.name = :node
+	 order by g.name }, ':node' => $node);
 
-    print { $$self{CONTENT} }
-    "<h2>$node Site Data</h2>",
-    "<table>",
-    "<tr><th>Quantity</th><th>Subscribed</th><th>Resident</th><th>Missing</th></tr>",
-    "<tr><td>Custodial Data</td><td>",&format_size(100),"</td></tr>",
-    "<tr><td>Non-Custodial Data</td><td>",&format_size(100),"</td></tr>",
-    "<tr><td>GroupA</td><td>",&format_size(100),"</td></tr>",
-    "<tr><td>GroupB</td><td>",&format_size(100),"</td></tr>",
-    "<tr><td>Total</td><td>",&format_size(100),"</td></tr>",
-    "</table>";
+    print { $$self{CONTENT} } "<h2>$node Group Usage</h2>";
+
+    my $table = new Web25::TableSpool;
+    $table->set_filehandle( $$self{CONTENT} );
+    $table->set_tableclass('data');
+    $table->set_stripeclass('stripe');
+    $table->set_tablecols([qw(USER_GROUP DEST_BYTES NODE_BYTES)]);
+    $table->set_tablehead({USER_GROUP => 'Group', 
+			   DEST_BYTES => 'Subscribed',
+			   NODE_BYTES => 'Resident'});
+    $table->set_dataformats({ DEST_BYTES => sub { &format_size($_[0], 1, 2) },
+			      NODE_BYTES => sub { &format_size($_[0], 1, 2) } } );			
+    $table->set_statcols({DEST_BYTES => 'SUM', NODE_BYTES => 'SUM'});
+    $table->start();
+    $table->head();
+    while (my $row = $q_grp->fetchrow_hashref()) {
+	$table->row($row);
+    }
+    $table->finish();
+
+    # Custodial Data    
+    my $cust = &dbexec($$self{DBH},
+		       qq{ select br.is_custodial, sum(br.dest_files) dest_files, sum(br.dest_bytes) dest_bytes,
+			          sum(br.node_files) node_files, sum(br.node_bytes) node_bytes
+			     from t_dps_block_replica br
+			     join t_adm_node n on br.node = n.id
+			    where n.name = :node
+			      and br.dest_files is not null and br.dest_files != 0
+			    group by br.is_custodial }, ':node' => $node)->fetchall_hashref([qw(IS_CUSTODIAL)]);
+
+    print { $$self{CONTENT} } "<h2>$node Custodial Data</h2>";
+
+    my $table = new Web25::TableSpool;
+    $table->set_filehandle( $$self{CONTENT} );
+    $table->set_tableclass('data');
+    $table->set_stripeclass('stripe');
+    $table->set_tablecols([qw(IS_CUSTODIAL DEST_BYTES NODE_BYTES)]);
+    $table->set_tablehead({IS_CUSTODIAL => 'Custodial', 
+			   DEST_BYTES => 'Subscribed',
+			   NODE_BYTES => 'Resident'});
+    $table->set_dataformats({ 
+	IS_CUSTODIAL => sub { $_[0] eq 'y' ? 'Custodial' : 'Non-Custodial' },
+	DEST_BYTES => sub { &format_size($_[0], 1, 2) },
+	NODE_BYTES => sub { &format_size($_[0], 1, 2) } } );			
+    $table->set_statcols({DEST_BYTES => 'SUM', NODE_BYTES => 'SUM'});
+    $table->start();
+    $table->head();
+    foreach my $c (qw(y n)) {
+	next unless exists $cust->{$c};
+	$table->row( $cust->{$c} );
+    }
+    $table->finish();
+
+    # Non-subscribed data
+    my $nosub = &dbexec($$self{DBH},
+		       qq{ select sum(br.src_files) src_files, sum(br.src_bytes) src_bytes,
+			          sum(decode(br.src_files,0,br.node_files,0)) nosub_files, 
+			          sum(decode(br.src_bytes,0,br.node_files,0)) nosub_bytes
+			     from t_dps_block_replica br
+			     join t_adm_node n on br.node = n.id
+			    where n.name = :node
+			      and br.dest_files = 0
+			  }, ':node' => $node)->fetchrow_hashref();
+
+    print { $$self{CONTENT} } "<h2>$node Non-subscribed Data</h2>";
+
+    my $table = new Web25::TableSpool;
+    $table->set_filehandle( $$self{CONTENT} );
+    $table->set_tableclass('data');
+    $table->set_stripeclass('stripe');
+    $table->set_tablecols([qw(SRC_BYTES NOSUB_BYTES)]);
+    $table->set_tablehead({SRC_BYTES => 'Source',
+			   NOSUB_BYTES => 'Non-subscribed'});
+    $table->set_dataformats({ 
+	SRC_BYTES   => sub { &format_size($_[0], 1, 2) },
+	NOSUB_BYTES => sub { &format_size($_[0], 1, 2) } } );			
+    $table->start();
+    $table->head();
+    $table->row( $nosub );
+    $table->finish();
+    
+    
+
 
 }
 
 1;
+
+######################################################################
+package Web25::Reports::GroupUsage;
+use strict; use warnings;
+use base "Web25::Page";
+import Web25::Common;
+use CGI qw(:standard);
+
+our $INDEX = { LIST => 1, ORDER => 5, TITLE => "Group Usage",
+	       LINK_TITLE => "Group storage allocation" };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+sub output
+{
+    my ($self) = @_;
+    
+    my $groups = &dbexec($$self{DBH}, qq{
+	select nvl(g.name, 'undefined') user_group,  n.name node,
+               s.dest_files, s.dest_bytes, s.node_files, s.node_bytes
+	  from t_status_group s
+	  left join t_adm_group g on g.id = s.user_group
+	  join t_adm_node n on n.id = s.node
+      })->fetchall_hashref([qw(USER_GROUP NODE)]);
+    
+    print { $$self{CONTENT} } "<h2>Group Usage</h2>";
+
+    foreach my $group (sort keys %{$groups}) {
+	print { $$self{CONTENT} } "<h3>$group</h3>";
+
+	my $table = new Web25::TableSpool;
+	$table->set_filehandle( $$self{CONTENT} );
+	$table->set_tableclass('data');
+	$table->set_stripeclass('stripe');
+	$table->set_tablecols([qw(NODE DEST_BYTES NODE_BYTES)]);
+	$table->set_tablehead({USER_GROUP => 'Group',
+			       NODE => 'Node',
+			       DEST_BYTES => 'Subscribed',
+			       NODE_BYTES => 'Resident'});
+	$table->set_dataformats({ DEST_BYTES => sub { &format_size($_[0], 1, 2) },
+				  NODE_BYTES => sub { &format_size($_[0], 1, 2) } } );			
+	$table->set_statcols({DEST_BYTES => 'SUM', NODE_BYTES => 'SUM'});
+	$table->start();
+	$table->head();
+	foreach my $row (sort { $a->{NODE} cmp $b->{NODE} }
+			 values %{$groups->{$group}}) {
+	    $table->row($row);
+	}
+	$table->finish();
+    }
+}
+
+1;
+
 
 ######################################################################
 package Web25::Test::Test;
