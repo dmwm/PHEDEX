@@ -87,6 +87,11 @@ sub subscribe
     # ok, now try to make the request and subscribe it
     my $now = &mytimeofday();
     my $data = PHEDEX::Core::XML::parseData( XML => $args{data} );
+    # only one DBS allowed for the moment...  (FIXME??)
+    die "multiple DBSes in data XML.  Only data from one DBS may be subscribed at a time\n"
+	if scalar values %{$data->{DBS}} > 1;
+    ($data) = values %{$data->{DBS}};
+    $data->{FORMAT} = 'tree';
 
     my $requests;
     eval
@@ -99,23 +104,23 @@ sub subscribe
 							       $identity->{ID},
 							       "Remote host" => $core->{REMOTE_HOST},
 							       "User agent"  => $core->{USER_AGENT} );
+   
+	my @valid_args = &PHEDEX::RequestAllocator::Core::validateRequest($core, $data, $nodes,
+									  TYPE => 'xfer',
+									  LEVEL => $args{level},
+									  PRIORITY => $args{priority},
+									  IS_MOVE => $args{move},
+									  IS_STATIC => $args{static},
+									  IS_CUSTODIAL => $args{custodial},
+									  USER_GROUP => $args{group},
+									  IS_TRANSIENT => 'n',
+									  IS_DISTRIBUTED => 'n',
+									  COMMENTS => $args{comments},
+									  CLIENT_ID => $client_id,
+									  NOW => $now
+									  );
 
-	my @args = &PHEDEX::RequestAllocator::Core::validateRequest ($core, $data, $nodes,
-								     TYPE => 'xfer',
-								     LEVEL => $args{level},
-								     TYPE_ATTR => { PRIORITY => $args{priority},
-										    IS_MOVE => $args{move},
-										    IS_STATIC => $args{static},
-										    IS_CUSTODIAL => $args{custodial},
-										    USER_GROUP => $args{group},
-										    IS_TRANSIENT => 'n',
-										    IS_DISTRIBUTED => 'n' },
-								     COMMENTS => $args{comments},
-								     CLIENT_ID => $client_id,
-								     NOW => $now
-								     );
-
-	my $rid = &PHEDEX::RequestAllocator::Core::createRequest(@args);
+	my $rid = &PHEDEX::RequestAllocator::Core::createRequest($core, @valid_args);
 	$requests = &PHEDEX::RequestAllocator::Core::getTransferRequests($core, REQUESTS => [$rid]);
 	unless ($args{request_only} eq 'y') {
 	    foreach my $request (values %$requests) {
