@@ -30,20 +30,14 @@ Subscribe data
  priority       subscription priority, either 'high', 'normal', or 'low'. Default is 'low'
  move           'y' or 'n', for 'move' or 'replica' subscription.  Default is 'n' (replica)
  static         'y' or 'n', for 'static' or 'growing' subscription.  Default is 'n' (static)
+ custodial      'y' or 'n', whether the subscriptions are custodial.  Default is 'n' (non-custodial)
+ group          group the request is for.  Default is undefined.
+ request_only   'y' or 'n', if 'y' then create the request but do not approve.  Default is 'n'.
 
 =head3 return value
 
-returns a hash with keys for the data, the node, the node-id, and the injection
-statistics. The statistics is also a hash, with keys for:
-
- new datasets		number of new datasets created
- new blocks		number of new blocks created
- new files		number of new files created
- closed datasets	number of closed datasets injected
- closed blocks		number of closed blocks injected
-
-If 'nostrict' is specified, attempting to re-insert already-inserted data will
-not give an error, but all the stats values will be zero.
+If successful returns a 'request_created' element with one attribute,
+'id', which is the request ID.
 
 =cut
 
@@ -58,6 +52,8 @@ sub subscribe
     $args{priority} ||= 'low';
     $args{move} ||= 'n';
     $args{static} ||= 'n';
+    $args{custodial} ||= 'n';
+    $args{request_only} ||= 'n';
     $args{level} ||= 'DATASET'; $args{level} = uc $args{level};
 
     # check values of options
@@ -66,7 +62,7 @@ sub subscribe
 	unless exists $priomap{$args{priority}};
     $args{priority} = $priomap{$args{priority}}; # translate into numerical value
 
-    foreach (qw(move static)) {
+    foreach (qw(move static custodial request_only)) {
 	die "'$_' must be 'y' or 'n'" unless $args{$_} =~ /^[yn]$/;
     }
 
@@ -104,37 +100,42 @@ sub subscribe
 							       "Remote host" => $core->{REMOTE_HOST},
 							       "User agent"  => $core->{USER_AGENT} );
 
-	my @req_ids = &PHEDEX::RequestAllocator::Core::createRequest ($core, $data, $nodes,
-								      TYPE => 'xfer',
-								      LEVEL => $args{level},
-								      TYPE_ATTR => { PRIORITY => $args{priority},
-										     IS_MOVE => $args{move},
-										     IS_STATIC => $args{static},
-										     IS_TRANSIENT => 'n',
-										     IS_DISTRIBUTED => 'n' },
-								      COMMENTS => $args{comments},
-								      CLIENT_ID => $client_id,
-								      NOW => $now
-								      );
+	my @args = &PHEDEX::RequestAllocator::Core::validateRequest ($core, $data, $nodes,
+								     TYPE => 'xfer',
+								     LEVEL => $args{level},
+								     TYPE_ATTR => { PRIORITY => $args{priority},
+										    IS_MOVE => $args{move},
+										    IS_STATIC => $args{static},
+										    IS_CUSTODIAL => $args{custodial},
+										    USER_GROUP => $args{group},
+										    IS_TRANSIENT => 'n',
+										    IS_DISTRIBUTED => 'n' },
+								     COMMENTS => $args{comments},
+								     CLIENT_ID => $client_id,
+								     NOW => $now
+								     );
 
-	$requests = &PHEDEX::RequestAllocator::Core::getTransferRequests($core, REQUESTS => \@req_ids);
-	foreach my $request (values %$requests) {
-	    my $rid = $request->{ID};
-	    foreach my $node (values %{$request->{NODES}}) {
-		# Check if user is authorized for this node
-		if (! $auth->{NODES}->{ $node->{NODE} }) {
-		    die "You are not authorised to subscribe data to node $node->{NODE}\n";
-		}
-		# Set the decision
-		&PHEDEX::RequestAllocator::Core::setRequestDecision($core, $rid, 
-								    $node->{NODE_ID}, 'y', $client_id, $now);
-		
-		# Add the subscriptions (or update the move source)
-		if ($node->{POINT} eq 'd') {
-		    &PHEDEX::RequestAllocator::Core::addSubscriptionsForRequest($core, $rid, $node->{NODE_ID}, $now);
-		} elsif ($node->{POINT} eq 's') {
-		    &PHEDEX::RequestAllocator::Core::updateMoveSubscriptionsForRequest($core, $rid, 
-										       $node->{NODE_ID}, $now);
+	my $rid = &PHEDEX::RequestAllocator::Core::createRequest(@args);
+	$requests = &PHEDEX::RequestAllocator::Core::getTransferRequests($core, REQUESTS => [$rid]);
+	unless ($args{request_only} eq 'y') {
+	    foreach my $request (values %$requests) {
+		$rid = $request->{ID};
+		foreach my $node (values %{$request->{NODES}}) {
+		    # Check if user is authorized for this node
+		    if (! $auth->{NODES}->{ $node->{NODE} }) {
+			die "You are not authorised to subscribe data to node $node->{NODE}\n";
+		    }
+		    # Set the decision
+		    &PHEDEX::RequestAllocator::Core::setRequestDecision($core, $rid, 
+									$node->{NODE_ID}, 'y', $client_id, $now);
+		    
+		    # Add the subscriptions (or update the move source)
+		    if ($node->{POINT} eq 'd') {
+			&PHEDEX::RequestAllocator::Core::addSubscriptionsForRequest($core, $rid, $node->{NODE_ID}, $now);
+		    } elsif ($node->{POINT} eq 's') {
+			&PHEDEX::RequestAllocator::Core::updateMoveSubscriptionsForRequest($core, $rid, 
+											   $node->{NODE_ID}, $now);
+		    }
 		}
 	    }
 	}
