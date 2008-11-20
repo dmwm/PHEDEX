@@ -334,7 +334,7 @@ sub fetchNewTasks
 
     my $q = &dbexec($$self{DBH}, qq{
 	select
-	    xt.id taskid, xt.fileid, xt.rank, xt.priority,
+	    xt.id taskid, xt.fileid, xt.rank, xt.priority, xt.is_custodial,
 	    f.logical_name, f.filesize, f.checksum,
 	    xt.from_node from_node_id, ns.name from_node,
 	    xt.to_node to_node_id, nd.name to_node,
