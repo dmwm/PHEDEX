@@ -18,7 +18,10 @@ sub new
 	      BLOCKLEVEL => 0,
 	      PRIORITY  => 'low',
 	      IS_STATIC => 0,
-	      IS_MOVE   => 0
+	      IS_MOVE   => 0,
+	      IS_CUSTODIAL => 0,
+	      USER_GROUP => undef,
+	      REQUEST_ONLY => 0
 	    );
   %options = (
                'help'		=> \$help,
@@ -30,6 +33,9 @@ sub new
 	       "priority=s"     => \$params{PRIORITY},
 	       "static"         => \$params{IS_STATIC},
 	       "move"           => \$params{IS_MOVE},
+ 	       "custodial"      => \$params{IS_CUSTODIAL},
+	       "group=s"        => \$params{USER_GROUP},
+ 	       "request-only"   => \$params{REQUEST_ONLY},
  	       "comments=s"     => \$params{COMMENTS}
 	     );
   GetOptions(%options);
@@ -74,6 +80,10 @@ and uses the dataservice to subscribe them to one or more PhEDEx nodes.
  --priority <priority>  subscription priority, default is low
  --static               make the subscription static, default is a growing
                         subscription
+ --custodial            make the subscription custodial, default is non-custodial
+ --group                make this subscription for the specified group, default is
+                        undefined
+ --request-only         make a request for transfer only, do not approve
 
  ...and of course, this module takes the standard options:
  --help, --(no)debug, --(no)verbose
@@ -94,6 +104,9 @@ sub Payload
   $payload->{level}     = $self->{BLOCKLEVEL} ? 'block' : 'dataset';
   $payload->{move}      = $self->{IS_MOVE} ? 'y' : 'n';
   $payload->{static}    = $self->{IS_STATIC} ? 'y' : 'n';
+  $payload->{custodial} = $self->{IS_CUSTODIAL} ? 'y' : 'n';
+  $payload->{group}     = $self->{USER_GROUP};
+  $payload->{request_only} = $self->{REQUEST_ONLY} ? 'y' : 'n';
   $payload->{comments}  = $self->{COMMENTS};
 
   foreach ( @{$self->{DATAFILE}} )
