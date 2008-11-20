@@ -163,14 +163,14 @@ sub validateRequest
     my ($self, $data, $nodes, %h) = @_;
 
     # check parameters
-    foreach my $req (qw(CLIENT_ID TYPE FORMAT)) {
+    foreach my $req (qw(CLIENT_ID TYPE)) {
 	die "required parameter $req is not defined\n"
 	    unless exists $h{$req} && defined $h{$req};
     }
 
     my @typereq;
     if ( $h{TYPE} eq 'xfer' ) { 
-	@typereq = qw( PRIORITY IS_MOVE IS_STATIC IS_TRANSIENT IS_DISTRIBUTED ); 
+	@typereq = qw( PRIORITY IS_MOVE IS_STATIC IS_TRANSIENT IS_DISTRIBUTED IS_CUSTODIAL); 
     } elsif ( $h{TYPE} eq 'delete' ) {
 	@typereq = qw( RM_SUBSCRIPTIONS );
     } else {
@@ -202,7 +202,7 @@ sub validateRequest
 
 	# find datasets/and blocks
 	my (@datasets, @blocks);
-	foreach my $ds (values %{$dbs->{DATASETS}}) {
+	foreach my $ds (values %{$data->{DATASETS}}) {
 	    # peek at the number of blocks
 	    my $n_blocks = scalar keys %{$ds->{BLOCKS}};
 	    my @rv;
@@ -336,7 +336,7 @@ sub createRequest
 
     # Write the request
     my $rid;
-    execute_sql($self,
+    &execute_sql($self,
 		qq[insert into t_req_request (id, type, created_by, time_create)
 		   values (seq_req_request.nextval, (select id from t_req_type where name = :type),
 			   :client, :now )
@@ -388,7 +388,7 @@ sub createRequest
 	} else { 
 	    $binds{':user_group'} = undef; 
 	}
-	execute_sql($self, $sql, %binds);
+	&execute_sql($self, $sql, %binds);
     } elsif ($type eq 'delete') {
 	my $sql = qq{ insert into t_req_delete
 			  (request, rm_subscriptions, data)
@@ -397,13 +397,13 @@ sub createRequest
 	my %binds;
 	$binds{':request'} = $rid;
 	$binds{lc ":$_"} = $h{$_} foreach qw(RM_SUBSCRIPTIONS DATA);
-	execute_sql($self, $sql, %binds);
+	&execute_sql($self, $sql, %binds);
     }
     
     # Write the comment
     if ($h{COMMENTS}) {
 	my $comments_id = &writeRequestComments($self, $rid, $h{CLIENT_ID}, $h{COMMENTS}, $now);
-	execute_sql($self, qq[ update t_req_request set comments = :comments_id where id = :rid ],
+	&execute_sql($self, qq[ update t_req_request set comments = :comments_id where id = :rid ],
 		    ':rid' => $rid, ':comments_id' => $comments_id);
     }
 
