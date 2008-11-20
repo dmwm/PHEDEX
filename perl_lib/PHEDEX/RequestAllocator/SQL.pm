@@ -468,7 +468,8 @@ sub addSubscriptionsForRequest
     my ($sth, $rv) = &dbexec($$self{DBH}, 
      qq[ merge into t_dps_subscription s
          using
-         (select r.id, :destination destination, rdata.dataset, rdata.block, rx.priority, rx.is_move, rx.is_transient
+         (select r.id, :destination destination, rdata.dataset, rdata.block, 
+                 rx.priority, rx.is_custodial, rx.is_move, rx.is_transient, rx.user_group
 	    from t_req_request r
             join t_req_xfer rx on rx.request = r.id
             join ( select rds.request, rds.dataset_id dataset, NULL block
@@ -487,10 +488,13 @@ sub addSubscriptionsForRequest
            update set s.request = r.id,
                       s.is_move = r.is_move,
                       s.priority = r.priority,
-                      s.is_transient = r.is_transient
+                      s.is_transient = r.is_transient,
+	              s.user_group = r.user_group
          when not matched then
-           insert (request, dataset, block, destination, priority, is_move, is_transient, time_create)
-           values (r.id, r.dataset, r.block, r.destination, r.priority, r.is_move, r.is_transient, :time_create) ],
+           insert (request, dataset, block, destination,
+		   priority, is_move, is_transient, is_custodial, user_group, time_create)
+           values (r.id, r.dataset, r.block, r.destination,
+		   r.priority, r.is_move, r.is_transient, r.is_custodial, r.user_group, :time_create) ],
 			     ':request' => $rid, ':destination' => $node_id, ':time_create' => $time);
 
     return 1;
