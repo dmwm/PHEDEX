@@ -210,7 +210,7 @@ sub updateBlockAtNode
                 dest_files = :dest_files, dest_bytes = :dest_bytes,
                 src_files  = :src_files,  src_bytes  = :src_bytes,
                 node_files = :node_files, node_bytes = :node_bytes,
-                xfer_files = :xfer_files, xfer_bytes = :xfer_bytes
+                xfer_files = :xfer_files, xfer_bytes = :xfer_bytes,
 		is_custodial = :is_custodial, user_group = :user_group
             where block = :block and node = :node };
   $h{NOW} = mytimeofday() unless $h{NOW};
@@ -249,8 +249,9 @@ sub createBlockAtNode
 
   foreach ( @b ) { $p{ ':' . $_ } = $h{uc($_)}; }
 
+# Sanity-check: look for missing keys. If user_group is missing, that's OK
   my @m;
-  foreach ( @b ) { push @m,$_ unless ( exists($h{uc($_)}) ); }
+  foreach ( @b ) { push @m,$_ unless ( exists($h{uc($_)}) || $_ eq 'user_group' ); }
   if ( @m )
   {
     $self->Alert('createBlockAtNode: missing keys ',join(' ,',sort @m),
@@ -260,7 +261,7 @@ sub createBlockAtNode
 
   if ( $self->{VERBOSE} )
   {
-    $self->Logmsg(' createBlockAtNode: ',
+    $self->Logmsg('createBlockAtNode: ',
 		join(', ',
 		  map { "$_=" . ( defined($p{$_}) ? $p{$_} : 'undef' ) }
 		    sort keys %p) );
