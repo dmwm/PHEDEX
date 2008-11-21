@@ -197,7 +197,6 @@ sub ReadConfig
   my $file = shift || $self->{LIFECYCLE_CONFIG};
   my $hash = $self->{LIFECYCLE_COMPONENT};
   return unless $file;
-
   T0::Util::ReadConfig($self,$hash,$file);
 
 # Sanitise the datasets, setting defaults etc
@@ -272,10 +271,13 @@ sub doInject
 
   my ($scripts,$dbparam,$env);
   $env = $self->{ENVIRONMENT};
-  $scripts = $env->getExpandedParameter('PHEDEX_SCRIPTS') ||
-		$ENV{PHEDEX_SCRIPTS};
-  $dbparam = $env->getExpandedParameter('PHEDEX_DBPARAM') ||
-		$ENV{PHEDEX_DBPARAM};
+  if ( ref($env) =~ m%^PHEDEX::.*Environment$% )
+  {
+    $scripts = $env->getExpandedParameter('PHEDEX_SCRIPTS');
+    $dbparam = $env->getExpandedParameter('PHEDEX_DBPARAM');
+  }
+  $scripts ||= $ENV{PHEDEX_SCRIPTS};
+  $dbparam ||= $ENV{PHEDEX_DBPARAM};
   $self->Fatal('Cannot determine PHEDEX_SCRIPTS') unless $scripts;
   $self->Fatal('Cannot determine PHEDEX_DBPARAM') unless $dbparam;
   
@@ -449,7 +451,7 @@ sub subscribeBlock
 
   my $nodeid = $self->{NodeID}{$node};
   return 1 if $self->{_states}{$block->{blockid}}{subscribed}{$nodeid}++;
-  $self->Logmsg("Subscription  for $block->{block} to node $_") unless $self->{Quiet};
+  $self->Logmsg("Subscription for $block->{block} to node $_") unless $self->{Quiet};
 
   my $h;
   $h->{BLOCK}		= $block->{block};
@@ -457,6 +459,7 @@ sub subscribeBlock
   $h->{priority}	= $ds->{Priority};
   $h->{is_move}		= $ds->{IsMove};
   $h->{is_transient}	= $ds->{IsTransient};
+  $h->{is_custodial}	= $ds->{IsCustodial};
   $h->{time_create}	= $block->{created};
 
   $self->insertSubscription( $h );
