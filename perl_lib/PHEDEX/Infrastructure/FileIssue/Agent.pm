@@ -79,7 +79,7 @@ sub confirm
           xp.priority, xp.is_local, xp.time_request, xp.time_expire,
           (case
             when xp.to_node = xp.destination
-              or (xp.is_local = 'y' and nd.kind = 'Buffer')
+              or (xp.is_local = 1 and nd.kind = 'Buffer')
             then xrq.is_custodial
             else 'n' end
           ) is_custodial
