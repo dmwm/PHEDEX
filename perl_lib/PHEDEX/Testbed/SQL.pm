@@ -44,15 +44,15 @@ sub insertSubscription
 
     my $sql = qq{ 
 	insert into t_dps_subscription
-        (dataset, block, destination,
+        (dataset, block, destination, is_custodial,
 	 priority, is_move, is_transient, time_create)
     };
 
     if ($h->{DATASET}) {
-	$sql .= qq{ select ds.id, NULL, :node, :priority, :is_move, :is_transient, :time_create 
+	$sql .= qq{ select ds.id, NULL, :node, :is_custodial, :priority, :is_move, :is_transient, :time_create 
 		      from t_dps_dataset ds where ds.name = :dataset };
     } elsif ($h->{BLOCK}) {
-	$sql .= qq{ select NULL, b.id, :node, :priority, :is_move, :is_transient, :time_create 
+	$sql .= qq{ select NULL, b.id, :node, :is_custodial, :priority, :is_move, :is_transient, :time_create 
 			from t_dps_block b where b.name = :block };
     } else {
 	die "DATASET or BLOCK required\n";
