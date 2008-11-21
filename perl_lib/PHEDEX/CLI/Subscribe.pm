@@ -84,6 +84,7 @@ and uses the dataservice to subscribe them to one or more PhEDEx nodes.
  --group                make this subscription for the specified group, default is
                         undefined
  --request-only         make a request for transfer only, do not approve
+ --comments             comments on this request/subscription
 
  ...and of course, this module takes the standard options:
  --help, --(no)debug, --(no)verbose
