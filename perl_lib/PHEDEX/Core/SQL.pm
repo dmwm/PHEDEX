@@ -426,6 +426,8 @@ sub glob_to_sql_like
 # 
 # if a @values element begins with the '!' character, then the
 # operator will be negated
+# if a @values element eq 'NULL', then the filter will be "is null"
+# if a @values element eq '!NULL', then the filter will be "is not null"
 sub build_filter
 {
   my ($self,$operator,$wild,$sql,$binds,$column,@values) = @_;
@@ -433,12 +435,18 @@ sub build_filter
   my $bname = $column;  $bname =~ s/\./_/; # name of bind parameter
   my $i = 1;
   my $op = '=';
-  $$sql .= join(" $operator ", map { $op = ($_ =~ s/^!//) ? '!=' : '=';            # negate operator?
-				     if ($wild || (!defined $wild && $_ =~ /%/)) { # wildcards?
+  my $negate = 0;
+  $$sql .= join(" $operator ", map { $negate = ($_ =~ s/^!//);
+                                     if ($_ ne 'NULL') {
+                                       $op = $negate ? '!=' : '=';                 # negate operator?
+				       if ($wild || (!defined $wild && $_ =~ /%/)) { # wildcards?
 					 $op =~ s/!/not /; $op =~ s/=/like/; 
-				     } 
-				     $binds->{':' . $bname . $i} = $_;             # set bind parameters
-				     "$column $op :$bname" . $i++                  # set sql statement
+				       } 
+				       $binds->{':' . $bname . $i} = $_;             # set bind parameters
+				       "$column $op :$bname" . $i++                  # set sql statement
+				       } else {
+					   $column.($negate ? ' is not null' : ' is null');
+				       }
 				     } @values
 	   );
   return %{$binds} if wantarray;
