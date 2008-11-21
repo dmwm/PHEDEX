@@ -59,6 +59,7 @@ unless otherwise specified:
  * by specifying another option, 'op=name:and', the filters will form an "and" statement
  * filter values beginning with '!' look for negated matches
  * filter values may contain the wildcard character '*'
+ * filter values with the value 'NULL' will match NULL (undefined) results
 
 examples:
 
