@@ -102,6 +102,7 @@ sub getLinkTasks
     return \@r;
 }
 
+# FIXME:  %h keys should be uppercase
 sub getNodes
 {
     my ($self, %h) = @_;
@@ -130,6 +131,7 @@ sub getNodes
     return \@r;
 }
 
+# FIXME:  %h keys should be uppercase
 sub getBlockReplicas
 {
     my ($self, %h) = @_;
@@ -152,11 +154,14 @@ sub getBlockReplicas
                          br.node_files = b.files
                     then 'y'
                     else 'n'
-               end replica_complete
+               end replica_complete,
+	       br.is_custodial,
+	       g.name user_group
           from t_dps_block_replica br
 	  join t_dps_block b on b.id = br.block
 	  join t_dps_dataset ds on ds.id = b.dataset
 	  join t_adm_node n on n.id = br.node
+     left join t_adm_group g on g.id = br.user_group
 	 where br.node_files != 0
        };
 
@@ -168,10 +173,19 @@ sub getBlockReplicas
 	}
     }
 
+    if (exists $h{custodial}) {
+	if ($h{custodial} eq 'n') {
+	    $sql .= qq{ and br.is_custodial = 'n' };
+	} elsif ($h{custodial} eq 'y') {
+	    $sql .= qq{ and br.is_custodial = 'y' };
+	}
+    }
+
     my $filters = '';
     build_multi_filters($self, \$filters, \%p, \%h, ( node  => 'n.name',
 						      se    => 'n.se_name',
-						      block => 'b.name' ));
+						      block => 'b.name',
+						      group => 'g.name' ));
     $sql .= " and ($filters)" if $filters;
 
     if (exists $h{create_since}) {
@@ -210,11 +224,14 @@ sub getFileReplicas
            n.id node_id,
            n.name node_name,
            n.se_name se_name,
-           xr.time_create replica_create
+           xr.time_create replica_create,
+           br.is_custodial,
+           g.name user_group
     from t_dps_block b
     join t_dps_file f on f.inblock = b.id
     join t_adm_node ns on ns.id = f.node
     join t_dps_block_replica br on br.block = b.id
+    left join t_adm_group g on g.id = br.user_group
     left join t_xfer_replica xr on xr.node = br.node and xr.fileid = f.id
     left join t_adm_node n on ((br.is_active = 'y' and n.id = xr.node) 
                             or (br.is_active = 'n' and n.id = br.node))
@@ -243,10 +260,19 @@ sub getFileReplicas
 	}
     }
 
+    if (exists $h{custodial}) {
+	if ($h{custodial} eq 'n') {
+	    $sql .= qq{ and br.is_custodial = 'n' };
+	} elsif ($h{custodial} eq 'y') {
+	    $sql .= qq{ and br.is_custodial = 'y' };
+	}
+    }
+
     my $filters = '';
     build_multi_filters($self, \$filters, \%p, \%h, ( node  => 'n.name',
 						      se    => 'n.se_name',
-						      block => 'b.name' ));
+						      block => 'b.name',
+						      group => 'g.name' ));
     $sql .= " and ($filters)" if $filters;
 
     if (exists $h{create_since}) {
@@ -278,7 +304,10 @@ sub getTFC {
 	       c.protocol,
 	       c.destination_match "destination-match",
                c.path_match "path-match",
-               c.result_expr "result"
+               c.result_expr "result",
+	       c.chain,
+	       c.is_custodial,
+	       c.space_token
          from t_xfer_catalogue c
 	 join t_adm_node n on n.id = c.node
         where n.name = :node

@@ -37,7 +37,7 @@ the given options.
  block          block name, with '*' wildcards, can be multiple (*).  required.
  node           node name, can be multiple (*)
  se             storage element name, can be multiple (*)
- update_since  unix timestamp, only return replicas updated since this
+ update_since   unix timestamp, only return replicas updated since this
                 time
  create_since   unix timestamp, only return replicas created since this
                 time
@@ -49,6 +49,9 @@ the given options.
                 n, return only file replicas from blocks which have
                 file replicas not available at any node.  default is
                 to return either.
+ custodial      y or n.  filter for custodial responsibility.  default is
+                to return either.
+ group          group name.  default is to return replicas for any group.
 
  (*) See the rules of multi-value filters in the Core module
 
@@ -75,6 +78,8 @@ the given options.
  node_id      PhEDEx node id
  se           storage element name
  time_create  unix timestamp
+ custodial    y or n, if custodial
+ group        group the replica is allocated for, can be undefined
 
 =cut
 
@@ -125,7 +130,9 @@ sub fileReplicas
 	push @{ $files->{ $file_id }->{replica} }, { node_id => $row->{NODE_ID},
 						     node => $row->{NODE_NAME},
 						     se => $row->{SE_NAME},
-						     time_create => $row->{REPLICA_CREATE}
+						     time_create => $row->{REPLICA_CREATE},
+						     custodial => $row->{IS_CUSTODIAL},
+						     group => $row->{USER_GROUP}
 						 };
     }
     

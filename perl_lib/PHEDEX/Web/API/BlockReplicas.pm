@@ -37,6 +37,10 @@ block replicas exist for the given options.
                 time
  complete       y or n, whether or not to require complete or incomplete
                 blocks. Default is to return either
+ custodial      y or n.  filter for custodial responsibility.  default is
+                to return either.
+ group          group name.  default is to return replicas for any group.
+
 
  (*) See the rules of multi-value filters in the Core module
 
@@ -58,6 +62,8 @@ block replicas exist for the given options.
  complete     y or n, if complete
  time_create  unix timestamp of creation
  time_update  unix timestamp of last update
+ custodial    y or n, if custodial
+ group        group the replica is allocated for, can be undefined
 
 =cut
 
@@ -97,7 +103,9 @@ sub blockReplicas
 						 bytes => $row->{REPLICA_BYTES},
 						 time_create => $row->{REPLICA_CREATE},
 						 time_update => $row->{REPLICA_UPDATE},
-						 complete => $row->{REPLICA_COMPLETE}
+						 complete => $row->{REPLICA_COMPLETE},
+						 custodial => $row->{IS_CUSTODIAL},
+						 group => $row->{USER_GROUP}
 					     };
     }
 
