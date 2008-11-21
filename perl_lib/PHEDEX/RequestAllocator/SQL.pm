@@ -502,6 +502,42 @@ sub addSubscriptionsForRequest
 
 =pod
 
+=item deleteSubscriptionsForRequest($self, $request, $node, $time)
+
+Delete all subscriptions that match the request data for $request at $node.
+
+=cut
+
+sub deleteSubscriptionsForRequest
+{
+    my ($self, $rid, $node_id, $time) = @_;
+
+    my ($sth, $rv) = &dbexec($$self{DBH},
+    qq[ delete from t_dps_subscription s
+         where s.destination = :destination
+           and exists
+               (select 1
+ 	          from t_req_request r
+                  join ( select rds.request, rds.dataset_id dataset, b.id block
+                           from t_req_dataset rds
+                           left join t_dps_block b on b.dataset = rds.dataset_id
+                           where rds.dataset_id is not null
+                           union
+                           select rb.request, b.dataset, b.id block
+                             from t_req_block rb
+                             join t_dps_block b on b.id = rb.block_id 
+                            where rb.block_id is not null
+                        ) rdata on rdata.request = r.id
+                  where r.id = :request 
+                    and (rdata.dataset = s.dataset or rdata.block = s.block)
+               ) ],
+	  ':request' => $rid, ':destination' => $node_id);
+
+    return 1;
+}
+
+=pod
+
 =item addDeletionsForRequest($self, $request, $node, $time)
 
 Mark all blocks in the $request at $node for deletion.
@@ -542,6 +578,7 @@ sub addDeletionsForRequest
            values (r.id, r.block, r.dataset, r.node, :time_request) ],
 	  ':request' => $rid, ':node' => $node_id, ':time_request' => $time);
 
+    return 1;
 }
 
 =pod
