@@ -51,7 +51,7 @@ use PHEDEX::File::MSSMigrate::Agent;
 	     "help|h"      => sub { &usage() },
 );
 
-if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{NODES})
+if (!$args{DROPDIR} || !$args{DBCONFIG} || !$args{NODES})
 {
     die "Insufficient parameters, use -h for help.\n";
 }

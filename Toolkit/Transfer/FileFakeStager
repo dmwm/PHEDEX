@@ -25,7 +25,7 @@ use PHEDEX::File::FakeStager::Agent;
 	     "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
 	     "help|h"      => sub { &usage() });
 
-if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{NODES})
+if (!$args{DROPDIR} || !$args{DBCONFIG} || !$args{NODES})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
