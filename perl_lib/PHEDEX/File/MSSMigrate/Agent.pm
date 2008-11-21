@@ -83,7 +83,8 @@ sub idle
 	my $q = &dbexec($dbh, qq{
 	    select
 	      xt.id, n.name, f.filesize, f.logical_name,
-	      xt.to_pfn, xt.time_assign
+	      xt.time_assign, xt.is_custodial,
+	      xt.from_node, xt.to_node
 	    from t_xfer_task xt
 	      join t_xfer_file f on f.id = xt.fileid
 	      join t_adm_node n on n.id = xt.to_node
@@ -91,8 +92,13 @@ sub idle
 	      and not exists
 	        (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)
 	    order by xt.time_assign asc, xt.rank asc}, %myargs);
-	while (my ($task, $dest, $size, $lfn, $pfn, $available) = $q->fetchrow())
+	while (my ($task, $dest, $size, $lfn, $available, $is_custodial,
+		   $from_node, $to_node) = $q->fetchrow())
 	{
+$DB::single=1;
+# @{$self->{PROTOCOLS}};
+            my ($proto, $mapping);
+	    my $pfn = pfnLookup($lfn, $proto, $dest, $mapping, $is_custodial);
 	    $self->Logmsg("Checking pfn $pfn");
 	    
 	    my $status = &checkFileInMSS($pfn);
@@ -242,3 +248,4 @@ sub checkFileInMSS {
 	
 }
 
+1;
