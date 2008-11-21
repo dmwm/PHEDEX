@@ -3180,7 +3180,7 @@ sub getRequestData
 	           rx.is_transient, rx.is_distributed, 
 	           g.id user_group_id, g.name user_group, rx.data
 	      from t_req_xfer rx
-	      join t_adm_group g on g.id = rx.user_group
+	      left join t_adm_group g on g.id = rx.user_group
 	     where rx.request = :request
 	 }, ':request' => $rid)->fetchrow_hashref();
     } elsif ($$data{TYPE} eq 'delete') {
@@ -3188,7 +3188,7 @@ sub getRequestData
 	    select rd.rm_subscriptions, rd.data
 	      from t_req_delete rd
 	     where rd.request = :request
-	 }, ':request' => $rid)->fetchrow_hashref();9
+	 }, ':request' => $rid)->fetchrow_hashref();
     }
 				
     $$data{DATA} = &dbexec($$self{DBH}, qq{
@@ -5102,40 +5102,7 @@ sub subscribe
 {
     my ($self, $rid, $node_id, $time) = @_;
 
-    # Subscribe data to destination.  This DML ignores duplicates but
-    # updates the parameters if there are duplicates, except for
-    # is_custodial.
-    my ($sth, $rv) = &dbexec($$self{DBH}, 
-     qq[ merge into t_dps_subscription s
-         using
-         (select r.id, :destination destination, rdata.dataset, rdata.block,
-                 rx.priority, rx.is_move, rx.is_transient, rx.is_custodial, rx.user_group
-	    from t_req_request r
-            join t_req_xfer rx on rx.request = r.id
-            join ( select rds.request, rds.dataset_id dataset, NULL block
-                     from t_req_dataset rds
-                    where rds.dataset_id is not null
-                    union
-                   select rb.request, NULL dataset, rb.block_id block
-                     from t_req_block rb
-                    where rb.block_id is not null
-                 ) rdata on rdata.request = r.id 
-           where r.id = :request
-         ) r
-         on (r.destination = s.destination
-             and (r.dataset = s.dataset or r.block = s.block))
-         when matched then
-           update set s.request = r.id,
-                      s.is_move = r.is_move,
-                      s.priority = r.priority,
-                      s.is_transient = r.is_transient,
-	              s.user_group = r.user_group
-         when not matched then
-           insert (request, dataset, block, destination, 
-		   priority, is_move, is_transient, is_custodial, user_group, time_create)
-           values (r.id, r.dataset, r.block, r.destination, 
-		   r.priority, r.is_move, r.is_transient, r.is_custodial, r.user_group, :time_create) ],
-			     ':request' => $rid, ':destination' => $node_id, ':time_create' => $time);
+    &PHEDEX::RequestAllocator::Core::addSubscriptionsForRequest($self, $rid, $node_id, $time);
 
     return 1;
 }
@@ -5144,31 +5111,7 @@ sub updateMoveSource
 {
     my ($self, $rid, $node_id, $time) = @_;
     
-    # Update the source subscriptions of a move
-    # This query's "exists" clause contains a statement which checks every possible block
-    # in the request for a match in the subscriptions table of the given node
-    # this is probably quite expensive for large requests...
-    my ($sth, $rv) = &dbexec($$self{DBH},
-    qq[ update t_dps_subscription s
-           set s.time_clear = :time_clear
-         where s.destination = :destination
-           and exists
-               (select 1
- 	          from t_req_request r
-                  join ( select rds.request, b.dataset, b.id block
-                           from t_req_dataset rds
-                           join t_dps_block b on b.dataset = rds.dataset_id
-                           where rds.dataset_id is not null
-                           union
-                           select rb.request, b.dataset, b.id block
-                             from t_req_block rb
-                             join t_dps_block b on b.id = rb.block_id 
-                            where rb.block_id is not null
-                        ) rdata on rdata.request = r.id
-                  where r.id = :request
-                    and (rdata.dataset = s.dataset or rdata.block = s.block)
-               ) ],
-	  ':request' => $rid, ':destination' => $node_id, ':time_clear' => $time);
+    &PHEDEX::RequestAllocator::Core::updateMoveSubscriptionsForRequest($self, $rid, $node_id, $time);
 
     return 1;
 }
@@ -5177,30 +5120,7 @@ sub unsubscribe
 {
     my ($self, $rid, $node_id, $time) = @_;
 
-    # Delete all subscriptions that match the request data
-    # This query's "exists" clause contains a statement which checks every possible block
-    # in the request for a match in the subscriptions table of the given node
-    # this is probably quite expensive for large requests...
-    my ($sth, $rv) = &dbexec($$self{DBH},
-    qq[ delete from t_dps_subscription s
-         where s.destination = :destination
-           and exists
-               (select 1
- 	          from t_req_request r
-                  join ( select rds.request, rds.dataset_id dataset, b.id block
-                           from t_req_dataset rds
-                           left join t_dps_block b on b.dataset = rds.dataset_id
-                           where rds.dataset_id is not null
-                           union
-                           select rb.request, b.dataset, b.id block
-                             from t_req_block rb
-                             join t_dps_block b on b.id = rb.block_id 
-                            where rb.block_id is not null
-                        ) rdata on rdata.request = r.id
-                  where r.id = :request 
-                    and (rdata.dataset = s.dataset or rdata.block = s.block)
-               ) ],
-	  ':request' => $rid, ':destination' => $node_id);
+    &PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($self, $rid, $node_id, $time);
 
     return 1;
 }
@@ -5210,37 +5130,9 @@ sub delete
 {
     my ($self, $rid, $node_id, $time) = @_;
 
-    # Mark all blocks in the request data for deletion
-    my ($sth, $rv) = &dbexec($$self{DBH}, 
-     qq[ merge into t_dps_block_delete bd
-         using
-         (select r.id, rdata.dataset, rdata.block, :node node 
-	    from t_req_request r
-            join ( select rds.request, b.dataset, b.id block
-                     from t_req_dataset rds
-                     join t_dps_block b on b.dataset = rds.dataset_id
-                    where rds.dataset_id is not null
-                    union
-                   select rb.request, b.dataset, b.id block
-                     from t_req_block rb
-                     join t_dps_block b on b.id = rb.block_id
-                    where rb.block_id is not null 
-                 ) rdata on rdata.request = r.id
-           where r.id = :request
-         ) r
-         on (r.node = bd.node
-             and r.dataset = bd.dataset
-             and r.block = bd.block)
-         when matched then
-           update set request = r.id,
-                      time_request = :time_request,
-                      time_complete = NULL
-            where time_complete is not null
-         when not matched then
-           insert (request, block, dataset, node, time_request)
-           values (r.id, r.block, r.dataset, r.node, :time_request) ],
-	  ':request' => $rid, ':node' => $node_id, ':time_request' => $time);
+    &PHEDEX::RequestAllocator::Core::addDeletionsForRequest($self, $rid, $node_id, $time);
 
+    return 1;
 }
 
 
@@ -5248,24 +5140,19 @@ sub markRequestDone
 {
     my ($self, $rid, $node_id, $decision, $client_id, $time, $comments_id) = @_;
 
-    my ($sth, $rv) = &dbexec($$self{DBH}, qq{ 
-	insert into t_req_decision (request, node, decision, decided_by, time_decided, comments)
-	    values (:rid, :node, :decision, :decided_by, :time_decided, :comments) },
-	    ':rid' => $rid, ':node' => $node_id, ':decision' => $decision, ':decided_by' => $client_id,
-	    ':time_decided' => $time, ':comments' => $comments_id);
+    my $rv = &PHEDEX::RequestAllocator::Core::setRequestDecision($self, $rid, $node_id, $decision,
+								 $client_id, $time, $comments_id);
     
-    return $rv ? 1 : 0;
+    return $rv;
 }
 
 sub markRequestUndone
 {
     my ($self, $rid, $node_id) = @_;
 
-    my ($sth, $rv) = &dbexec($$self{DBH}, qq{ 
-	delete from t_req_decision where request = :rid and node = :node },
-	':rid' => $rid, ':node' => $node_id);
-    
-    return $rv ? 1 : 0;
+    my $rv = &PHEDEX::RequestAllocator::Core::unsetRequestDecision($self, $rid, $node_id);
+
+    return $rv;
 }
 
 
@@ -9771,7 +9658,7 @@ sub output
 
     print { $$self{CONTENT} } "<h2>$node Custodial Data</h2>";
 
-    my $table = new Web25::TableSpool;
+    $table = new Web25::TableSpool;
     $table->set_filehandle( $$self{CONTENT} );
     $table->set_tableclass('data');
     $table->set_stripeclass('stripe');
@@ -9805,7 +9692,7 @@ sub output
 
     print { $$self{CONTENT} } "<h2>$node Non-subscribed Data</h2>";
 
-    my $table = new Web25::TableSpool;
+    $table = new Web25::TableSpool;
     $table->set_filehandle( $$self{CONTENT} );
     $table->set_tableclass('data');
     $table->set_stripeclass('stripe');
