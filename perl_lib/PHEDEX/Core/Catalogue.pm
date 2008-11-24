@@ -12,6 +12,7 @@ use base 'Exporter';
 our @EXPORT = qw(pfnLookup lfnLookup storageRules dbStorageRules applyStorageRules);
 use XML::Parser;
 use PHEDEX::Core::DB;
+use PHEDEX::Core::Timing;
 
 # Cache of already parsed storage rules.  Keyed by rule type, then by
 # file name, and stores as value the file time stamp and parsed result.
@@ -213,24 +214,31 @@ sub applyStorageRules
 
 
 # Fetch TFC rules for the given node and cache it to the given
-# hashref.  Cache expiration to be handled outside this function.
+# hashref.  Database is checked for newer rules and an update will be
+# done if newer rules are found
 sub dbStorageRules
 {
     my ($dbh, $cats, $node) = @_;
 
+    # check if cached rules are old
+    my $changed = 0;
+    if (exists $$cats{$node}) {
+	$changed = &checkRulesChange($dbh, $node, $$cats{$node}{TIME_UPDATE});
+    }
+    
     # If we haven't yet built the catalogue, fetch from the database.
-    if (! exists $$cats{$node})
+    if (! exists $$cats{$node} || $changed)
     {
         $$cats{$node} = {};
 
         my $q = &dbexec($dbh, qq{
-	    select protocol, chain, destination_match, path_match, result_expr, is_custodial, space_token
+	    select protocol, chain, destination_match, path_match, result_expr, is_custodial, space_token, time_update
 	    from t_xfer_catalogue
 	    where node = :node and rule_type = 'lfn-to-pfn'
 	    order by rule_index asc},
 	    ":node" => $node);
 
-        while (my ($proto, $chain, $dest, $path, $result, $custodial, $space_token) = $q->fetchrow())
+        while (my ($proto, $chain, $dest, $path, $result, $custodial, $space_token, $time_update) = $q->fetchrow())
         {
 	    # Check the pattern is valid.  If not, abort.
             my $pathrx = eval { qr/$path/ };
@@ -246,6 +254,7 @@ sub dbStorageRules
 	    }
 
 	    # Add the rule to our list.
+	    $$cats{$node}{TIME_UPDATE} = $time_update;
 	    push(@{$$cats{$node}{$proto}}, {
 		    (defined $chain ? ('chain' => $chain) : ()),
 		    (defined $dest ? ('destination-match' => $destrx) : ()),
@@ -259,5 +268,60 @@ sub dbStorageRules
     return $$cats{$node};
 }
 
+sub deleteRules
+{
+    my ($dbh, $node_id) = @_;
+    &dbexec($dbh, qq{
+	delete from t_xfer_catalogue where node = :node},
+	    ":node" => $node_id);
+}
+
+sub insertRules
+{
+    my ($dbh, $node_id, $rules, %h) = @_;
+    $h{TIME_UPDATE} ||= &mytimeofday(); # default time is now
+    
+    # Statement to upload rules.
+    my $stmt = &dbprep ($dbh, qq{
+	insert into t_xfer_catalogue
+	(node, rule_index, rule_type, protocol, chain,
+	 destination_match, path_match, result_expr,
+	 is_custodial, space_token, time_update)
+	values (:node, :rule_index, :type, :protocol, :chain,
+	        :destination, :path, :result,
+		:custodial, :space_token, :time_update)});
+
+    my $index = 0;
+    while (my ($proto, $ruleset) = each %$rules)
+    {
+	foreach my $rule (@$ruleset)
+	{
+	    &dbbindexec($stmt,
+			":node" => $node_id,
+			":rule_index" => $index++,
+			":type" => $kind,
+			":protocol" => $proto,
+			":chain" => $$rule{'chain'},
+			":destination" => $$rule{'destination-match'},
+			":path" => $$rule{'path-match'},
+			":result" => $$rule{'result'},
+			":custodial" => $$rule{'is-custodial'},
+			":space_token" => $$rule{'space-token'},
+			":time_update" => $h{TIME_UPDATE});
+	}
+    }
+}
+
+sub checkRulesChange
+{
+    my ($dbh, $node_id, $check_time) = @_;
+    $check_time ||= &mytimeofday();
+    my ($newrules) = &dbexec($dbh, qq{ 
+	select 1 from t_xfer_catalogue
+	 where node = :node and time_update > :check_time
+	   and rownum = 1 },
+        ':node' => $node_id, ':check_time' => $check_time)->fetchrow();
+    return $newrules ? 1 : 0;
+}
 
 1;
