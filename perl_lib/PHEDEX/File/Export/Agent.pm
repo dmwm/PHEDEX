@@ -108,6 +108,7 @@ sub idle
 
 			&PHEDEX::Core::Catalogue::insertRules($self, 
 							      $$self{NODES_ID}{$node}, 
+							      $kind,
 							      $rules,
 							      TIME_UPDATE => $changed);
 		    }
