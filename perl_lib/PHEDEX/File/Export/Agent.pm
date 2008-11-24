@@ -45,7 +45,7 @@ sub checkCatalogueChange
 
     # By default changed
     $$self{LAST_UPDATE} = $stamp if defined $stamp;
-    return 1;
+    return $stamp;
 }
 
 sub checkLivenessUpdate
@@ -82,16 +82,6 @@ sub idle
 	    @nodes = $self->expandNodes();
 	    my ($filter, %filter_args) = $self->otherNodeFilter("xs.to_node");
 
-	    # Statement to upload rules.
-	    my $stmt = &dbprep ($dbh, qq{
-		insert into t_xfer_catalogue
-		(node, rule_index, rule_type, protocol, chain,
-		 destination_match, path_match, result_expr,
-                 is_custodial, space_token)
-		values (:node, :rule_index, :type, :protocol, :chain,
-			:destination, :path, :result,
-                        :custodial, :space_token)});
-
 	    foreach my $node (@nodes)
 	    {
 		# Upload new catalogue if it changed and
@@ -99,13 +89,9 @@ sub idle
 		if ($changed)
 		{
 		    # Delete old catalogue for this node.
-		    &dbexec($dbh, qq{
-			delete from t_xfer_catalogue where node = :node},
-			":node" => $$self{NODES_ID}{$node});
+		    &PHEDEX::Core::Catalogue::deleteRules($self, $$self{NODES_ID}{$node});
 
-		    # Upload current catalogue rules.
-		    my $index = 0;
-		    
+		    # Upload current catalogue rules.		    
 		    foreach my $kind (qw(lfn-to-pfn pfn-to-lfn))
 		    {
 			next if !$valid;
@@ -120,23 +106,10 @@ sub idle
 			     last;
 			 } if $@;
 
-			while (my ($proto, $ruleset) = each %$rules)
-			{
-			    foreach my $rule (@$ruleset)
-			    {
-				&dbbindexec($stmt,
-					    ":node" => $$self{NODES_ID}{$node},
-					    ":rule_index" => $index++,
-					    ":type" => $kind,
-					    ":protocol" => $proto,
-					    ":chain" => $$rule{'chain'},
-					    ":destination" => $$rule{'destination-match'},
-					    ":path" => $$rule{'path-match'},
-					    ":result" => $$rule{'result'},
-                                            ":custodial" => $$rule{'is-custodial'},
-                                            ":space_token" => $$rule{'space-token'});
-			    }
-			}
+			&PHEDEX::Core::Catalogue::insertRules($self, 
+							      $$self{NODES_ID}{$node}, 
+							      $rules,
+							      TIME_UPDATE => $changed);
 		    }
 		}
 
