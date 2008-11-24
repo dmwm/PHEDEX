@@ -278,7 +278,7 @@ sub deleteRules
 
 sub insertRules
 {
-    my ($dbh, $node_id, $rules, %h) = @_;
+    my ($dbh, $node_id, $kind, $rules, %h) = @_;
     $h{TIME_UPDATE} ||= &mytimeofday(); # default time is now
     
     # Statement to upload rules.
