@@ -128,7 +128,7 @@ create table t_status_block_dest
    bytes		integer		not null,
    --
    constraint pk_status_block_dest
-     primary key (destination, state),
+     primary key (destination, is_custodial, state),
    --
    constraint fk_status_block_dest_node
      foreign key (destination) references t_adm_node (id)
@@ -316,7 +316,7 @@ create table t_status_task
    bytes		integer		not null,
    --
    constraint pk_status_task
-     primary key (from_node, to_node, priority, state),
+     primary key (from_node, to_node, priority, is_custodial, state),
    --
    constraint fk_status_task_from
      foreign key (from_node) references t_adm_node (id)
