@@ -19,6 +19,7 @@ create table t_xfer_catalogue
    destination_match	varchar (40),
    is_custodial		char (1),
    space_token		varchar (64),
+   time_update		float		not null,
    --
    constraint pk_xfer_catalogue
      primary key (node, rule_index),
