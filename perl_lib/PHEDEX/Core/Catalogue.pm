@@ -278,7 +278,7 @@ sub deleteRules
 
 sub insertRules
 {
-    my ($dbh, $node_id, $kind, $rules, %h) = @_;
+    my ($dbh, $node_id, $kind, $index, $rules, %h) = @_;
     $h{TIME_UPDATE} ||= &mytimeofday(); # default time is now
     
     # Statement to upload rules.
@@ -291,7 +291,7 @@ sub insertRules
 	        :destination, :path, :result,
 		:custodial, :space_token, :time_update)});
 
-    my $index = 0;
+#   my $index = 0;
     while (my ($proto, $ruleset) = each %$rules)
     {
 	foreach my $rule (@$ruleset)
@@ -310,6 +310,7 @@ sub insertRules
 			":time_update" => $h{TIME_UPDATE});
 	}
     }
+    return $index;
 }
 
 sub checkRulesChange

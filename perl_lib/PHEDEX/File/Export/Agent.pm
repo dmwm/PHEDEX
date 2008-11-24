@@ -89,9 +89,10 @@ sub idle
 		if ($changed)
 		{
 		    # Delete old catalogue for this node.
-		    &PHEDEX::Core::Catalogue::deleteRules($self, $$self{NODES_ID}{$node});
+		    &PHEDEX::Core::Catalogue::deleteRules($self->{DBH}, $$self{NODES_ID}{$node});
 
 		    # Upload current catalogue rules.		    
+		    my $index = 0;
 		    foreach my $kind (qw(lfn-to-pfn pfn-to-lfn))
 		    {
 			next if !$valid;
@@ -106,9 +107,10 @@ sub idle
 			     last;
 			 } if $@;
 
-			&PHEDEX::Core::Catalogue::insertRules($self, 
+			$index = &PHEDEX::Core::Catalogue::insertRules($self->{DBH}, 
 							      $$self{NODES_ID}{$node}, 
 							      $kind,
+							      $index,
 							      $rules,
 							      TIME_UPDATE => $changed);
 		    }
