@@ -140,10 +140,18 @@ sub confirm
     {
 	$finished = 1;
         my @tasks;
+	my %errors;
         while (my $task = $q->fetchrow_hashref())
         {
 	    $$task{PRIORITY} = 2*$$task{PRIORITY} + (1-$$task{IS_LOCAL});
-	    next if (!$self->makeTransferTask($dbh, $task, $cats));
+	    eval { $self->makeTransferTask($dbh, $task, $cats); };
+	    if ($@) {
+		chomp $@;
+		$errors{$@} ||= 0;
+		$errors{$@}++;
+		next;
+	    }
+
 	    push(@tasks, $task);
 	    do { $finished = 0; last } if scalar @tasks >= 10_000;
         }
@@ -182,6 +190,12 @@ sub confirm
         &dbbindexec($istmt, %iargs) if %iargs;
         $dbh->commit();
 
+	# report error summary
+	foreach my $err (keys %errors) {
+	    $self->Alert ("'$err' occurred for $errors{$err} tasks" );
+	    delete $errors{$err};
+	}
+
 	$self->Logmsg ("issued $done transfers to the destinations"
 		 . " @{[sort keys %did]}") if $done;
 	$alldone += $done;
@@ -202,12 +216,8 @@ sub makeTransferTask
     my @to_protos   = split(/\s+/, $$task{TO_PROTOS} || '');
 
     my ($from_cat, $to_cat);
-    eval
-    {
-	$from_cat    = &dbStorageRules($dbh, $cats, $from);
-	$to_cat      = &dbStorageRules($dbh, $cats, $to);
-    };
-    do { chomp ($@); $self->Alert ("catalogue error: $@"); return; } if $@;
+    $from_cat    = &dbStorageRules($dbh, $cats, $from);
+    $to_cat      = &dbStorageRules($dbh, $cats, $to);
 
     my $protocol    = undef;
 
@@ -222,12 +232,14 @@ sub makeTransferTask
     # If this is MSS->Buffer transition, pretend we have a protocol.
     $protocol = 'srm' if ! $protocol && $$task{FROM_KIND} eq 'MSS';
     
-    # Check that we have prerequisite information to expand the file names.
-    return 0 if (! $from_cat
-	       || ! $to_cat
-	       || ! $protocol
-	       || ! $$from_cat{$protocol}
-	       || ! $$to_cat{$protocol});
+    # Check that we have prerequisite information to expand the file names
+    die "no catalog for from=$from_name\n" unless $from_cat;
+    die "no catalog for to=$to_name\n" unless $to_cat;
+    die "no protocol match for link ${from_name}->${to_name}\n" unless $protocol;
+    die "no TFC rules for matching protocol '$protocol' for from=$from_name\n" unless $$from_cat{$protocol};
+    die "no TFC rules for matching protocol '$protocol' for to=$to_name\n" unless $$to_cat{$protocol};
+    
+    # If we made it through the above, we should be ok
     return 1;
 
 # Try to expand the file name. Follow destination-match instead of remote-match
