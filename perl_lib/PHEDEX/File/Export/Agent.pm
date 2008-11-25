@@ -89,10 +89,10 @@ sub idle
 		if ($changed)
 		{
 		    # Delete old catalogue for this node.
-		    &PHEDEX::Core::Catalogue::deleteRules($self->{DBH}, $$self{NODES_ID}{$node});
+		    &PHEDEX::Core::Catalogue::deleteCatalogue($self->{DBH}, $$self{NODES_ID}{$node});
 
 		    # Upload current catalogue rules.		    
-		    my $index = 0;
+		    my @tfc;
 		    foreach my $kind (qw(lfn-to-pfn pfn-to-lfn))
 		    {
 			next if !$valid;
@@ -107,13 +107,30 @@ sub idle
 			     last;
 			 } if $@;
 
-			$index = &PHEDEX::Core::Catalogue::insertRules($self->{DBH}, 
-							      $$self{NODES_ID}{$node}, 
-							      $kind,
-							      $index,
-							      $rules,
-							      TIME_UPDATE => $changed);
+			# Add rules to full TFC array
+			while (my ($proto, $ruleset) = each %$rules)
+			{
+			    foreach my $rule (@$ruleset)
+			    {
+				push @tfc, {
+				    "RULE_TYPE" => $kind,
+				    "PROTOCOL" => $proto,
+				    "CHAIN" => $$rule{'chain'},
+				    "DESTINATION_MATCH" => $$rule{'destination-match'},
+				    "PATH_MATCH" => $$rule{'path-match'},
+				    "RESULT_EXPR" => $$rule{'result'},
+				    "IS_CUSTODIAL" => $$rule{'is-custodial'},
+				    "SPACE_TOKEN" => $$rule{'space-token'}
+				}
+			    }
+			}
 		    }
+		    
+		    # Insert TFC to database
+		    &PHEDEX::Core::Catalogue::insertCatalogue($self->{DBH}, 
+							      $$self{NODES_ID}{$node}, 
+							      \@tfc,
+							      TIME_UPDATE => $changed);   
 		}
 
 		# Remove source status on links we manage.
