@@ -5,6 +5,7 @@ use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use List::Util qw(min max sum);
 use File::Path qw(mkpath rmtree);
 use Data::Dumper;
+use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
@@ -332,7 +333,7 @@ sub fetchNewTasks
 	insert into t_xfer_task_inxfer (task, time_update, from_pfn, to_pfn)
 	values (:task, :now, :from_pfn, :to_pfn)});
 
-    my $q = &dbexec($$self{DBH}, qq{
+     my $q = &dbexec($$self{DBH}, qq{
 	select
 	    xt.id taskid, xt.fileid, xt.rank, xt.priority, xt.is_custodial,
 	    f.logical_name, f.filesize, f.checksum,
@@ -371,7 +372,27 @@ sub fetchNewTasks
 	}
 
 	# Mark used in database.
-	$self->{BACKEND}->makeTransferTask($row);
+$DB::single=1;
+	my $h = makeTransferTask($row);
+#	A strict sanity check, should not be needed but who knows...
+	foreach ( qw / FROM_PFN TO_PFN FROM_NODE TO_NODE / )
+	{
+	  if ( !defined($h->{$_}) )
+	  {
+	    $self->Fatal('No $_ in task: ',join(', ',map { "$_=$row->{$_}" } sort keys %{$row}));
+	  }
+	}
+        map { $row->{$_} = $h->{$_} } keys %{$h};
+#	if ( !defined($row->{FROM_PFN}) )
+#	{
+#	  $self->Alert('No FROM_PFN: ',join(', ',map { "$_=$row->{$_}" } sort keys %{$row}));
+#	  next;
+#	}
+#	if ( !defined($row->{TO_PFN}) )
+#	{
+#	  $self->Alert('No TO_PFN: ',join(', ',map { "$_=$row->{$_}" } sort keys %{$row}));
+#	  next;
+#	}
 	&dbbindexec($i, ":task" => $$row{TASKID}, ":now" => $now,
 			":from_pfn" => $$row{FROM_PFN},
 			":to_pfn" => $$row{TO_PFN} );
