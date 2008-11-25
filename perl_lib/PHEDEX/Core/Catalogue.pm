@@ -223,7 +223,7 @@ sub dbStorageRules
     # check if cached rules are old
     my $changed = 0;
     if (exists $$cats{$node}) {
-	$changed = &checkRulesChange($dbh, $node, $$cats{$node}{TIME_UPDATE});
+	$changed = &checkDBCatalogueChange($dbh, $node, $$cats{$node}{TIME_UPDATE});
     }
     
     # If we haven't yet built the catalogue, fetch from the database.
@@ -268,7 +268,8 @@ sub dbStorageRules
     return $$cats{$node};
 }
 
-sub deleteRules
+# delete a catalogue from the database for $node_id
+sub deleteCatalogue
 {
     my ($dbh, $node_id) = @_;
     &dbexec($dbh, qq{
@@ -276,9 +277,10 @@ sub deleteRules
 	    ":node" => $node_id);
 }
 
-sub insertRules
+# insert an array of storage rules ($tfc) for a node ($node_id) into the database
+sub insertCatalogue
 {
-    my ($dbh, $node_id, $kind, $index, $rules, %h) = @_;
+    my ($dbh, $node_id, $tfc, %h) = @_;
     $h{TIME_UPDATE} ||= &mytimeofday(); # default time is now
     
     # Statement to upload rules.
@@ -287,33 +289,31 @@ sub insertRules
 	(node, rule_index, rule_type, protocol, chain,
 	 destination_match, path_match, result_expr,
 	 is_custodial, space_token, time_update)
-	values (:node, :rule_index, :type, :protocol, :chain,
-	        :destination, :path, :result,
-		:custodial, :space_token, :time_update)});
+	values (:node, :rule_index, :rule_type, :protocol, :chain,
+	        :destination_match, :path_match, :result_expr,
+		:is_custodial, :space_token, :time_update)});
 
-#   my $index = 0;
-    while (my ($proto, $ruleset) = each %$rules)
+    my $index = 0;
+    foreach my $rule (@$tfc)
     {
-	foreach my $rule (@$ruleset)
-	{
-	    &dbbindexec($stmt,
-			":node" => $node_id,
-			":rule_index" => $index++,
-			":type" => $kind,
-			":protocol" => $proto,
-			":chain" => $$rule{'chain'},
-			":destination" => $$rule{'destination-match'},
-			":path" => $$rule{'path-match'},
-			":result" => $$rule{'result'},
-			":custodial" => $$rule{'is-custodial'},
-			":space_token" => $$rule{'space-token'},
-			":time_update" => $h{TIME_UPDATE});
-	}
+	&dbbindexec($stmt,
+		    ":node" => $node_id,
+		    ":rule_index" => $index++,
+		    ":rule_type" => $rule->{RULE_TYPE},
+		    ":protocol" => $rule->{PROTOCOL},
+		    ":chain" => $rule->{CHAIN},
+		    ":destination_match" => $rule->{DESTINATION_MATCH},
+		    ":path_match" => $rule->{PATH_MATCH},
+		    ":result_expr" => $rule->{RESULT_EXPR},
+		    ":is_custodial" => $rule->{IS_CUSTODIAL},
+		    ":space_token" => $rule->{SPACE_TOKEN},
+		    ":time_update" => $h{TIME_UPDATE});
     }
+
     return $index;
 }
 
-sub checkRulesChange
+sub checkDBCatalogueChange
 {
     my ($dbh, $node_id, $check_time) = @_;
     $check_time ||= &mytimeofday();
