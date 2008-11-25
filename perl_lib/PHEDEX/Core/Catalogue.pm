@@ -2,21 +2,76 @@ package PHEDEX::Core::Catalogue;
 
 =head1 NAME
 
-PHEDEX::Core::Catalogue - a drop-in replacement for Toolkit/UtilsCatalogue
+PHEDEX::Core::Catalogue
 
 =cut
 
 use strict;
 use warnings;
 use base 'Exporter';
-our @EXPORT = qw(pfnLookup lfnLookup storageRules dbStorageRules applyStorageRules);
+our @EXPORT = qw(pfnLookup lfnLookup storageRules dbStorageRules applyStorageRules makeTransferTask);
 use XML::Parser;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::Timing;
+use PHEDEX::Core::SQL;
 
 # Cache of already parsed storage rules.  Keyed by rule type, then by
 # file name, and stores as value the file time stamp and parsed result.
 my %cache;
+
+# Calculate source and destination PFNs for a transfer task.
+sub makeTransferTask
+{
+    my ($self, $dbh, $task, $cats) = @_;
+    my ($from, $to) = @$task{"FROM_NODE_ID", "TO_NODE_ID"};
+    my (@from_protos,@to_protos);
+
+    if ( ref($task->{FROM_PROTOS}) eq 'ARRAY' )
+         { @from_protos = @{$task->{FROM_PROTOS}}; }
+    else { @from_protos = split(/\s+/, $$task{FROM_PROTOS} || ''); }
+    if ( ref($task->{TO_PROTOS}) eq 'ARRAY' )
+         { @to_protos = @{$task->{TO_PROTOS}}; }
+    else { @to_protos = split(/\s+/, $$task{TO_PROTOS} || ''); }
+
+#   my ($from_name, $to_name) = @$task{"FROM_NODE_NAME", "TO_NODE_NAME"};
+    my ($from_name, $to_name, $node_map);
+    $node_map = PHEDEX::Core::SQL::getNodeMap($dbh); # I could/should cache this...
+    $from_name = $node_map->{$from};
+    $to_name = $node_map->{$to};
+
+    my ($from_cat, $to_cat);
+    $from_cat    = &dbStorageRules($dbh, $cats, $from);
+    $to_cat      = &dbStorageRules($dbh, $cats, $to);
+
+    my $protocol    = undef;
+
+    # Find matching protocol.
+    foreach my $p (@to_protos)
+    {
+        next if ! grep($_ eq $p, @from_protos);
+        $protocol = $p;
+        last;
+    }
+
+    # If this is MSS->Buffer transition, pretend we have a protocol.
+    $protocol = 'srm' if ! $protocol && $$task{FROM_KIND} eq 'MSS';
+
+    # Check that we have prerequisite information to expand the file names
+    die "no catalog for from=$from_name\n" unless $from_cat;
+    die "no catalog for to=$to_name\n" unless $to_cat;
+    die "no protocol match for link ${from_name}->${to_name}\n" unless $protocol;
+    die "no TFC rules for matching protocol '$protocol' for from=$from_name\n" unless $$from_cat{$protocol};
+    die "no TFC rules for matching protocol '$protocol' for to=$to_name\n" unless $$to_cat{$protocol};
+
+    # If we made it through the above, we should be ok
+    # Expand the file name. Follow destination-match instead of remote-match
+   my $from_pfn = &applyStorageRules($from_cat, $protocol, $to_name, 'pre', $$task{LOGICAL_NAME});
+   my $to_pfn   = &applyStorageRules($to_cat, $protocol, $to_name, 'pre', $$task{LOGICAL_NAME});
+  return {
+	   FROM_PFN => $from_pfn, FROM_NODE => $from_name,
+	   TO_PFN   => $to_pfn,   TO_NODE   => $to_name,
+	 };
+}
 
 # Map a LFN to a PFN using a storage mapping catalogue.  The first
 # argument is either a single scalar LFN, or a reference to an array
