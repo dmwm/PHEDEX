@@ -48,6 +48,7 @@ use PHEDEX::File::MSSMigrate::Agent;
 	     "mssbackend=s" => \$args{MSSBACKEND},
 	     "checkroutine=s" => \$args{CHECKROUTINE},
 	     "retransferlost!" => \$args{RETRANSFERLOST},
+	     "nodaemon"    => \$args{NODAEMON},
 	     "help|h"      => sub { &usage() },
 );
 
