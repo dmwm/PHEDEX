@@ -19,7 +19,9 @@ sub new
 		  CHECKROUTINE => '',           # check file in MSS routine
 		  RETRANSFERLOST => '',         # whether to mark lost files for re-xfer 
 		  WAITTIME => 150 + rand(50),	# Agent activity cycle
-	  	  ME => "FileDownload");	# Identity for activity logs
+	  	  ME => "FileDownload",		# Identity for activity logs
+		  CATALOGUE => {},		# TFC cache
+		 );
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
 
@@ -65,13 +67,45 @@ sub idle
 	        (select 1 from t_xfer_task_export xte where xte.task = xt.id)},
 	    ":now" => $start, %myargs);
 
-	&dbexec($dbh, qq{
-	    insert into t_xfer_task_inxfer (task, time_update)
-	    select xt.id, :now from t_xfer_task xt
+#	&dbexec($dbh, qq{
+#	    insert into t_xfer_task_inxfer (task, time_update)
+#	    select xt.id, :now from t_xfer_task xt
+#	    where $mynode
+#	      and not exists
+#	        (select 1 from t_xfer_task_inxfer xti where xti.task = xt.id)},
+#	    ":now" => $start, %myargs);
+	my $q1 = &dbexec($dbh, qq{
+	    select xt.id, xt.from_node, xt.to_node, logical_name
+	     from t_xfer_task xt join t_dps_file f on xt.fileid = f.id
 	    where $mynode
 	      and not exists
 	        (select 1 from t_xfer_task_inxfer xti where xti.task = xt.id)},
-	    ":now" => $start, %myargs);
+		%myargs );
+	while (my $task = $q1->fetchrow_hashref())
+        {
+	  $self->Logmsg('untested code ahead: ',join(', ', map { "$_=$task->{$_}" } sort keys %{$task}));
+	  my $h = $self->makeTransferTask
+		(
+			$self->{DBH},
+			{
+			  FROM_NODE_ID	=> $task->{FROM_NODE},
+			  TO_NODE_ID	=> $task->{TO_NODE},
+			  FROM_PROTOS	=> $self->{PROTOCOLS},
+			  TO_PROTOS	=> $self->{PROTOCOLS},
+			  LOGICAL_NAME	=> $task->{LOGICAL_NAME},
+			},
+			$self->{CATALOGUE},
+		);
+	  $self->Logmsg('untested code: makeTransfer ',join(', ', map { "$_=$h->{$_} "} sort keys %{$h}));
+	  &dbexec($dbh, qq{
+	    insert into t_xfer_task_inxfer (task, time_update, from_pfn, to_pfn)
+	    values (:task, :time_update, :from_pfn, :to_pfn) },
+	    ":task"	   => $task->{ID},
+	    ":time_update" => $start,
+	    ":from_pfn"    => $h->{FROM_PFN},
+	    ":to_pfn"      => $h->{TO_PFN},
+	    );
+	}
 
 	$dbh->commit();
 
@@ -80,25 +114,60 @@ sub idle
 	    insert into t_xfer_task_done
 	    (task, report_code, xfer_code, time_xfer, time_update)
 	    values (:task, 0, 0, :now, :now)});
+# I used to do this...
+#	my $q = &dbexec($dbh, qq{
+#	    select
+#	      xt.id, n.name, f.filesize, f.logical_name,
+#	      xt.time_assign, xt.is_custodial,
+#	      xt.from_node, xt.to_node
+#	    from t_xfer_task xt
+#	      join t_xfer_file f on f.id = xt.fileid
+#	      join t_adm_node n on n.id = xt.to_node
+#	    where $mynode
+#	      and not exists
+#	        (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)
+#	    order by xt.time_assign asc, xt.rank asc}, %myargs);
+# but nos I avoid the join on t_adm_node...
 	my $q = &dbexec($dbh, qq{
 	    select
-	      xt.id, n.name, f.filesize, f.logical_name,
+	      xt.id, f.filesize, f.logical_name,
 	      xt.time_assign, xt.is_custodial,
 	      xt.from_node, xt.to_node
 	    from t_xfer_task xt
 	      join t_xfer_file f on f.id = xt.fileid
-	      join t_adm_node n on n.id = xt.to_node
 	    where $mynode
 	      and not exists
 	        (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)
 	    order by xt.time_assign asc, xt.rank asc}, %myargs);
-	while (my ($task, $dest, $size, $lfn, $available, $is_custodial,
+# ...and don't put $dest into the array-read here...
+#	while (my ($task, $dest, $size, $lfn, $available, $is_custodial,
+#		   $from_node, $to_node) = $q->fetchrow())
+# ...because I get it for free later.
+	while (my ($task, $size, $lfn, $available, $is_custodial,
 		   $from_node, $to_node) = $q->fetchrow())
 	{
-$DB::single=1;
-# @{$self->{PROTOCOLS}};
-            my ($proto, $mapping);
-	    my $pfn = pfnLookup($lfn, $proto, $dest, $mapping, $is_custodial);
+	    my $h = $self->makeTransferTask
+		(
+			$self->{DBH},
+			{
+			  FROM_NODE_ID	=> $from_node,
+			  TO_NODE_ID	=> $to_node,
+			  FROM_PROTOS	=> $self->{PROTOCOLS},
+			  TO_PROTOS	=> $self->{PROTOCOLS},
+			  LOGICAL_NAME	=> $lfn,
+			},
+			$self->{CATALOGUE},
+		);
+#	    A strict sanity check, should not be needed but who knows...
+            foreach ( qw / FROM_PFN TO_PFN FROM_NODE TO_NODE / )
+            {
+              if ( !defined($h->{$_}) )
+              {
+                $self->Fatal('No $_ in task: ',join(', ',map { "$_=$h->{$_}" } sort keys %{$h}));
+              }
+            }
+	    my $dest = $h->{TO_NODE};
+            my $pfn= $h->{TO_PFN};
 	    $self->Logmsg("Checking pfn $pfn");
 	    
 	    my $status = &checkFileInMSS($pfn);
