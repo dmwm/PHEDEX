@@ -53,7 +53,8 @@ sub new
 		  DBH_LAST_USE => 0,		# Last use of the database
 
 		  BATCH_ID => 0,		# Number of batches created
-		  BOOTTIME => time());		# Time this agent started
+		  BOOTTIME => time(),		# Time this agent started
+		);
     my %args = (@_);
     $$self{$_} = $args{$_} || $params{$_} for keys %params;
     eval ("use PHEDEX::Transfer::$args{BACKEND_TYPE}");
@@ -373,7 +374,13 @@ sub fetchNewTasks
 
 	# Mark used in database.
 $DB::single=1;
-	my $h = makeTransferTask($row);
+        $row->{FROM_PROTOS} = $row->{TO_PROTOS} = $self->{BACKEND}->{PROTOCOLS};
+	my $h = makeTransferTask(
+				  $self,
+				  $self->{DBH},
+				  $row,
+				  $self->{BACKEND}->{CATALOGUES}
+				);
 #	A strict sanity check, should not be needed but who knows...
 	foreach ( qw / FROM_PFN TO_PFN FROM_NODE TO_NODE / )
 	{
