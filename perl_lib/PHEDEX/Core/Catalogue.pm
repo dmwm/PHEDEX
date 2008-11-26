@@ -22,9 +22,14 @@ my %cache;
 # Calculate source and destination PFNs for a transfer task.
 sub makeTransferTask
 {
-    my ($self, $dbh, $task, $cats) = @_;
+    my ($self, $task, $cats) = @_;
     my ($from, $to) = @$task{"FROM_NODE_ID", "TO_NODE_ID"};
     my (@from_protos,@to_protos);
+
+#   This twisted logic lets me call this function with an object or a plain
+#   DBH handle.
+    my $dbh = $self;
+    if ( grep( $_ eq 'DBH',  keys %{$self} ) ) { $dbh = $self->{DBH}; }
 
     if ( ref($task->{FROM_PROTOS}) eq 'ARRAY' )
          { @from_protos = @{$task->{FROM_PROTOS}}; }
