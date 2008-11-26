@@ -150,7 +150,7 @@ sub confirm
 	      $task->{TO_PROTOS} .= ' srm' unless $task->{TO_PROTOS} =~ m%srm%;
 	    }
 	    $$task{PRIORITY} = 2*$$task{PRIORITY} + (1-$$task{IS_LOCAL});
-	    eval { $self->makeTransferTask($dbh, $task, $cats); };
+	    eval { $self->makeTransferTask($task, $cats); };
 	    if ($@) {
 		chomp $@;
 		$errors{$@} ||= 0;
@@ -210,47 +210,6 @@ sub confirm
     }
 
     $self->Logmsg ("no transfer tasks to issue") if ! $alldone;
-}
-
-# Expand transfer task information and insert into the database.
-sub makeTransferTask
-{
-    my ($self, $dbh, $task, $cats) = @_;
-    my ($from, $to) = @$task{"FROM_NODE", "TO_NODE"};
-    my ($from_name, $to_name) = @$task{"FROM_NODE_NAME", "TO_NODE_NAME"};
-    my @from_protos = split(/\s+/, $$task{FROM_PROTOS} || '');
-    my @to_protos   = split(/\s+/, $$task{TO_PROTOS} || '');
-
-    my ($from_cat, $to_cat);
-    $from_cat    = &dbStorageRules($dbh, $cats, $from);
-    $to_cat      = &dbStorageRules($dbh, $cats, $to);
-
-    my $protocol    = undef;
-
-    # Find matching protocol.
-    foreach my $p (@to_protos)
-    {
-	next if ! grep($_ eq $p, @from_protos);
-	$protocol = $p;
-	last;
-    }
-
-    # If this is MSS->Buffer transition, pretend we have a protocol.
-    $protocol = 'srm' if ! $protocol && $$task{FROM_KIND} eq 'MSS';
-    
-    # Check that we have prerequisite information to expand the file names
-    die "no catalog for from=$from_name\n" unless $from_cat;
-    die "no catalog for to=$to_name\n" unless $to_cat;
-    die "no protocol match for link ${from_name}->${to_name}\n" unless $protocol;
-    die "no TFC rules for matching protocol '$protocol' for from=$from_name\n" unless $$from_cat{$protocol};
-    die "no TFC rules for matching protocol '$protocol' for to=$to_name\n" unless $$to_cat{$protocol};
-    
-    # If we made it through the above, we should be ok
-    return 1;
-
-# Try to expand the file name. Follow destination-match instead of remote-match
-#   $$task{FROM_PFN} = &applyStorageRules($from_cat, $protocol, $to_name, 'pre', $$task{LOGICAL_NAME});
-#   $$task{TO_PFN}   = &applyStorageRules($to_cat, $protocol, $to_name, 'pre', $$task{LOGICAL_NAME});
 }
 
 1;
