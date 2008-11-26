@@ -143,6 +143,12 @@ sub confirm
 	my %errors;
         while (my $task = $q->fetchrow_hashref())
         {
+	    if ( $task->{FROM_KIND} eq 'MSS' )
+	    {
+#	      Fake a protocol if we are not likely to find a match
+	      $task->{FROM_PROTOS} .= ' srm' unless $task->{FROM_PROTOS} =~ m%srm%;
+	      $task->{TO_PROTOS} .= ' srm' unless $task->{TO_PROTOS} =~ m%srm%;
+	    }
 	    $$task{PRIORITY} = 2*$$task{PRIORITY} + (1-$$task{IS_LOCAL});
 	    eval { $self->makeTransferTask($dbh, $task, $cats); };
 	    if ($@) {
