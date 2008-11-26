@@ -33,9 +33,8 @@ sub makeTransferTask
          { @to_protos = @{$task->{TO_PROTOS}}; }
     else { @to_protos = split(/\s+/, $$task{TO_PROTOS} || ''); }
 
-#   my ($from_name, $to_name) = @$task{"FROM_NODE_NAME", "TO_NODE_NAME"};
     my ($from_name, $to_name, $node_map);
-    $node_map = PHEDEX::Core::SQL::getNodeMap($dbh); # I could/should cache this...
+    $node_map = PHEDEX::Core::SQL::getNodeMap($self,$from,$to);
     $from_name = $node_map->{$from};
     $to_name = $node_map->{$to};
 
@@ -53,8 +52,9 @@ sub makeTransferTask
         last;
     }
 
-    # If this is MSS->Buffer transition, pretend we have a protocol.
-    $protocol = 'srm' if ! $protocol && $$task{FROM_KIND} eq 'MSS';
+#   This has been moved up to the FileIssue agent
+#    # If this is MSS->Buffer transition, pretend we have a protocol.
+#    $protocol = 'srm' if ! $protocol && $$task{FROM_KIND} eq 'MSS';
 
     # Check that we have prerequisite information to expand the file names
     die "no catalog for from=$from_name\n" unless $from_cat;
