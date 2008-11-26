@@ -150,6 +150,10 @@ sub confirm
 	      $task->{TO_PROTOS} .= ' srm' unless $task->{TO_PROTOS} =~ m%srm%;
 	    }
 	    $$task{PRIORITY} = 2*$$task{PRIORITY} + (1-$$task{IS_LOCAL});
+
+#	    makeTransferTask is expecting *_NODE_ID...
+	    $task->{FROM_NODE_ID} = $task->{FROM_NODE};
+	    $task->{TO_NODE_ID}   = $task->{TO_NODE};
 	    eval { $self->makeTransferTask($task, $cats); };
 	    if ($@) {
 		chomp $@;
