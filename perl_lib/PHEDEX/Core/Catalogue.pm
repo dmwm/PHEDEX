@@ -70,11 +70,32 @@ sub makeTransferTask
 
     # If we made it through the above, we should be ok
     # Expand the file name. Follow destination-match instead of remote-match
-   my $from_pfn = &applyStorageRules($from_cat, $protocol, $to_name, 'pre', $$task{LOGICAL_NAME});
-   my $to_pfn   = &applyStorageRules($to_cat, $protocol, $to_name, 'pre', $$task{LOGICAL_NAME});
+   my ($from_token,$from_pfn,$to_token,$to_pfn);
+   ($from_token,$from_pfn) = &applyStorageRules
+				(
+				  $from_cat,
+				  $protocol,
+				  $to_name,
+				  'pre',
+				  $task->{LOGICAL_NAME},
+				  $task->{IS_CUSTODIAL}
+				);
+   ($to_token,$to_pfn) = &applyStorageRules
+				(
+				  $to_cat,
+				  $protocol,
+				  $to_name,
+			 	  'pre',
+			 	  $task->{LOGICAL_NAME},
+			 	  $task->{IS_CUSTODIAL}
+				);
   return {
-	   FROM_PFN => $from_pfn, FROM_NODE => $from_name,
-	   TO_PFN   => $to_pfn,   TO_NODE   => $to_name,
+	   FROM_PFN	=> $from_pfn,
+	   FROM_NODE	=> $from_name,
+	   FROM_TOKEN	=> $from_token,
+	   TO_PFN	=> $to_pfn,
+	   TO_NODE	=> $to_name,
+	   TO_TOKEN	=> $to_token,
 	 };
 }
 
