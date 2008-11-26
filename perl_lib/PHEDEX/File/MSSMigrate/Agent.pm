@@ -83,10 +83,9 @@ sub idle
 		%myargs );
 	while (my $task = $q1->fetchrow_hashref())
         {
-	  $self->Logmsg('untested code ahead: ',join(', ', map { "$_=$task->{$_}" } sort keys %{$task}));
+#	  $self->Logmsg('untested code ahead: ',join(', ', map { "$_=$task->{$_}" } sort keys %{$task}));
 	  my $h = $self->makeTransferTask
 		(
-			$self->{DBH},
 			{
 			  FROM_NODE_ID	=> $task->{FROM_NODE},
 			  TO_NODE_ID	=> $task->{TO_NODE},
@@ -96,7 +95,7 @@ sub idle
 			},
 			$self->{CATALOGUE},
 		);
-	  $self->Logmsg('untested code: makeTransfer ',join(', ', map { "$_=$h->{$_} "} sort keys %{$h}));
+#	  $self->Logmsg('untested code: makeTransfer ',join(', ', map { "$_=$h->{$_} "} sort keys %{$h}));
 	  &dbexec($dbh, qq{
 	    insert into t_xfer_task_inxfer (task, time_update, from_pfn, to_pfn)
 	    values (:task, :time_update, :from_pfn, :to_pfn) },
@@ -148,7 +147,6 @@ sub idle
 	{
 	    my $h = $self->makeTransferTask
 		(
-			$self->{DBH},
 			{
 			  FROM_NODE_ID	=> $from_node,
 			  TO_NODE_ID	=> $to_node,

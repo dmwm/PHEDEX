@@ -373,11 +373,9 @@ sub fetchNewTasks
 	}
 
 	# Mark used in database.
-$DB::single=1;
         $row->{FROM_PROTOS} = $row->{TO_PROTOS} = $self->{BACKEND}->{PROTOCOLS};
 	my $h = makeTransferTask(
 				  $self,
-				  $self->{DBH},
 				  $row,
 				  $self->{BACKEND}->{CATALOGUES}
 				);
@@ -390,16 +388,6 @@ $DB::single=1;
 	  }
 	}
         map { $row->{$_} = $h->{$_} } keys %{$h};
-#	if ( !defined($row->{FROM_PFN}) )
-#	{
-#	  $self->Alert('No FROM_PFN: ',join(', ',map { "$_=$row->{$_}" } sort keys %{$row}));
-#	  next;
-#	}
-#	if ( !defined($row->{TO_PFN}) )
-#	{
-#	  $self->Alert('No TO_PFN: ',join(', ',map { "$_=$row->{$_}" } sort keys %{$row}));
-#	  next;
-#	}
 	&dbbindexec($i, ":task" => $$row{TASKID}, ":now" => $now,
 			":from_pfn" => $$row{FROM_PFN},
 			":to_pfn" => $$row{TO_PFN} );
