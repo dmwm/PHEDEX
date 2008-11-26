@@ -27,6 +27,7 @@ send SIG-HUP to the agent.
 
 # Log4perl stuff
 use Log::Log4perl qw(get_logger :levels);
+use Sys::Hostname;
 
 use strict;
 use warnings;
@@ -94,19 +95,27 @@ sub Logmsg
   $logger->info(@_);
 }
 
-# Notify(msg) -- log through socket to remote -- not using Log4perl
+# Notify(msg) -- log through udp socket to remote -- not using Log4perl
+# This is a quick'n'dirty debugging aid, get all the alerts and fatals in
+# one place.
 sub Notify
 {
   my $self = shift; me($self);
   my $port = $self->{NOTIFICATION_PORT} || $ENV{PHEDEX_NOTIFICATION_PORT};
   return unless defined $port;
-  my $server = $self->{NOTIFICATION_HOST} || $ENV{PHEDEX_NOTIFICATION_HOST} || '127.0.0.1';
+  my $server = $self->{NOTIFICATION_HOST} || $ENV{PHEDEX_NOTIFICATION_HOST} || hostname;
 
   my $message = join('',PHEDEX::Core::Logging::Hdr($self),@_);
-  my $socket = IO::Socket::INET->new( Proto	=> 'udp',
-				      PeerPort	=> $port,
-				      PeerAddr	=> $server );
-  $socket->send( $message );
+  chomp $message;
+  $message .= "\n";
+  eval
+  {
+    eval("use IO::Socket");
+    my $socket = IO::Socket::INET->new( Proto		=> 'udp',
+				        PeerPort	=> $port,
+				        PeerAddr	=> $server );
+    $socket->send( $message );
+  };
 }
 
 # Alert(msg) -- log as ERROR
@@ -115,6 +124,7 @@ sub Alert
   my $self = shift; me($self);
   my $logger = get_logger("PhEDEx");
   $logger->error("alert: ",@_);
+  $self->Notify(@_);
 }
 
 # Warn(msg) -- log as WARN
@@ -139,6 +149,7 @@ sub Fatal
   my $self = shift; me($self);
   my $logger = get_logger("PhEDEx");
   $logger->fatal("fatal: ", @_);
+  $self->Notify(@_);
   exit(1);
 }
 

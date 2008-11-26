@@ -513,6 +513,7 @@ sub maybeStop
     # pidfile and the stop flag and exit.
     return if ! -f $self->{STOPFLAG};
     $self->Note("exiting from stop flag");
+    $self->Notify("exiting from stop flag");
     $self->doStop();
 }
 
@@ -1670,7 +1671,7 @@ sub _make_stats
   {
     $summary = 'AGENT_STATISTICS' . $summary;
     $self->Logmsg($summary) if $self->{STATISTICS_DETAIL};
-    $self->Notify($summary,"\n") if $delay > 1.25;
+    $self->Notify($summary);# ,"\n") if $delay > 1.25;
   }
 
   my $now = time;
@@ -1678,7 +1679,7 @@ sub _make_stats
   my $busy= 100*$totalOnCPU/$totalWall;
   $summary = 'AGENT_STATISTICS';
   $summary=sprintf('TotalCPU=%.2f busy=%.2f%%',$totalOnCPU,$busy);
-  $self->Logmsg($summary) if $totalOnCPU;
+  ($self->Logmsg($summary),$self->Notify($summary)) if $totalOnCPU;
   $self->{stats}{START} = $now;
 
   $summary = 'AGENT_STATISTICS ';
@@ -1693,6 +1694,7 @@ sub _make_stats
   $summary .= "\n";
 
   $self->Logmsg($summary);
+  $self->Notify($summary);
   $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
 }
 
