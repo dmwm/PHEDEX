@@ -13,7 +13,6 @@ our @EXPORT = qw( );
 our %params =
 	(
 	  ME			=> 'Lifecycle',
-#	  NOFILESYSTEM		=> 1,
 	  LIFECYCLE_CONFIG	=> undef,
 	  LIFECYCLE_COMPONENT	=> 'PhEDEx::Lifecycle',
 	  NInjected		=> 0,
@@ -486,7 +485,6 @@ sub deleteBlock
   my ( $self, $ds, $block, $node ) = @_;
   return if $self->{Dummy};
 
-$DB::single=1;
   my $nodeid = $self->{NodeID}{$node};
   return if $self->{_states}{$block->{blockid}}{deleted}{$nodeid}++;
   my $h;
