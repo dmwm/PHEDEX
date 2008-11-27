@@ -429,10 +429,7 @@ sub startBatch
 					  );
     }
 
-    # Schedule pre-deletion before we transfer the batch.  clean() in
-    # turn calls transferBatch() after all the deletion commands have
-    # completed
-    $self->clean($info,$tasks);
+    $self->transferBatch($info,$tasks);
 }
 
 sub transferBatch
