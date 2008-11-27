@@ -22,8 +22,8 @@ sub new
 	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
 	  	  ACCEPT_NODES => [],		# TMDB nodes to accept
 
-		  VALIDATE_COMMAND => undef,	# Post-download test command
-		  DELETE_COMMAND => undef,	# Delete bad files command
+		  VALIDATE_COMMAND => undef,	# pre/post download validation command
+		  DELETE_COMMAND => undef,	# pre/post download deletion command
 		  TIMEOUT => 600,		# Maximum execution time
 		  NJOBS => 10,			# Max number of utility processes
 		  WAITTIME => 15,		# Nap length between cycles
@@ -39,7 +39,8 @@ sub new
 		  FIRST_ACTION => undef,	# Time of first action
 		  ACTIONS => [],		# Future actions
 
-		  TASKDIR => "$$self{DROPDIR}/tasks", # Tasks to do
+		  PREPAREDIR => "$$self{DROPDIR}/prepare", # Tasks being prepared
+		  TASKDIR => "$$self{DROPDIR}/tasks",      # Tasks to do
 		  ARCHIVEDIR => "$$self{DROPDIR}/archive", # Jobs done
 		  STATS => [],			# Historical stats.
 
@@ -61,6 +62,8 @@ sub new
     do { chomp ($@); die "Failed to load backend: $@\n" } if $@;
     $self->{BACKEND} = eval("new PHEDEX::Transfer::$args{BACKEND_TYPE}(\$self)");
     do { chomp ($@); die "Failed to create backend: $@\n" } if $@;
+    -d $$self{PREPAREDIR} || mkdir($$self{PREPAREDIR}) || -d $$self{PREPAREDIR}
+        || die "$$self{PREPAREDIR}: cannot create: $!\n";
     -d $$self{TASKDIR} || mkdir($$self{TASKDIR}) || -d $$self{TASKDIR}
         || die "$$self{TASKDIR}: cannot create: $!\n";
     -d $$self{ARCHIVEDIR} || mkdir($$self{ARCHIVEDIR}) || -d $$self{ARCHIVEDIR}
@@ -190,7 +193,7 @@ sub taskDone
 	    . " detail=($detail)"
 	    . " validate=($validate)"
 	    . " job-log=@{[$$task{JOBLOG} || '(no job)']}") 
-	unless ($$task{REPORT_CODE} == -1);
+	unless ($$task{REPORT_CODE} == -1); # unless expired
 
     # Indicate success.
     return 1;
@@ -489,6 +492,103 @@ sub doSync
     $$self{DBH}->commit();
 }
 
+# Prepare tasks for transfer
+sub prepare
+{
+    my ($self, $tasks) = @_;
+
+    my $now = &mytimeofday();
+
+    # Perhaps stop.
+    $self->maybeStop();
+
+    # Iterate through all the tasks and add jobs for pre-validation
+    # and pre-deletion if necessary
+    my $n_tasks = 0;
+    my $n_prepared = 0;
+    foreach my $task (values %$tasks)
+    {
+	$n_tasks++;
+	next if $$task{PREPARED};
+
+	# Pre-validation
+	my $fvstatus = "$$self{PREPAREDIR}/T${task}V";
+	my $fvlog    = "$$self{PREPAREDIR}/T${task}L";
+	my $vstatus;
+
+	if (-s $fvstatus && (! ($vstatus = &evalinfo($fvstatus)) || $@))
+	{
+	    $vstatus = { START => $now, END => $now, STATUS => -3,
+		         LOG => "agent lost the file pre-validation result" };
+	    return if ! &output($fvstatus, Dumper($vstatus));
+	}
+
+	if ($$self{VALIDATE_COMMAND} && ! $vstatus) 
+	{
+	    return if ! &output($fvstatus, "");
+	    $self->addJob(sub {
+		&output($fvstatus, Dumper ({
+		    START => $now, END => &mytimeofday(),
+		    STATUS => $_[0]{STATUS}, LOG => &input($fvlog) }));
+	    },
+	    { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $fvlog },
+	    @{$$self{VALIDATE_COMMAND}}, "pre",
+	    @$task{qw(TO_PFN FILESIZE CHECKSUM)});
+	} elsif ( $vstatus ) {
+	    # if the pre-validation returned success, this file is already there.  mark success
+	    if ($$vstatus{STATUS} == 0) 
+	    {
+		$$task{REPORT_CODE} = 0;
+		$$task{XFER_CODE} = -2;
+		$$task{LOG_DETAIL} = 'file validated before transfer attempt';
+		$$task{LOG_XFER} = 'no transfer was attempted';
+		$$task{LOG_VALIDATE} = $$vstatus{LOG};
+		$$task{TIME_UPDATE} = $$vstatus{END};
+		$$task{TIME_XFER} = -1;
+		return if ! $self->taskDone($task);
+	    } 
+	    # if the pre-validation returned 1, the transfer is vetoed, throw this task away
+	    elsif ($$vstatus{STATUS} == 1) 
+	    {
+		$$task{REPORT_CODE} = -2;
+		$$task{XFER_CODE} = -2;
+		$$task{LOG_DETAIL} = 'file pre-validation vetoed the transfer';
+		$$task{LOG_XFER} = 'no transfer was attempted';
+		$$task{LOG_VALIDATE} = $$vstatus{LOG};
+		$$task{TIME_UPDATE} = $$vstatus{END};
+		$$task{TIME_XFER} = -1;
+		return if ! $self->taskDone($task);
+	    }
+	    # FIXME:  archive prevalidation state/log?
+	    unlink $fvstatus;
+	    unlink $fvlog;
+	    $$task{PREVALIDATE_DONE} = 1;
+	    $$task{PREVALIDATE_STATUS} = $$vstatus{STATUS};
+	}
+
+	# Pre-deletion
+	if ($$task{PREVALIDATE_DONE} && 
+	    ! $$task{PREDELETE_DONE} && $$self{DELETE_COMMAND}) {
+	    $self->addJob (
+               sub { $$task{PREDELETE_DONE} = 1;
+                     $$task{PREDELETE_STATUS} = $_[0]{STATUS}; },
+		{ TIMEOUT => $self->{TIMEOUT}, LOGPREFIX => 1 },
+		@{$self->{DELETE_COMMAND}}, "pre",
+	        @$task{ qw(TO_PFN) });
+	}
+
+	# Are we prepared?
+	if ( ($$task{PREVALIDATE_DONE} || !$$self{VALIDATE_COMMAND}) &&
+	     ($$task{PREDELETE_DONE}   || !$$self{DELETE_COMMAND}) ) {
+	    $$task{PREPARED} = 1;
+	    $n_prepared++;
+	}
+    }
+    
+    $self->Logmsg("$n_prepared of $n_tasks tasks prepared for transfer") 
+	if $$self{VERBOSE} && $n_tasks;
+}
+
 # Check how a copy job is doing.
 sub check
 {
@@ -643,6 +743,8 @@ sub fill
     {
 	my $to = $$t{TO_NODE};
 	my $from = $$t{FROM_NODE};
+
+	next if ! $$t{PREPARED};
 	next if exists $$t{REPORT_CODE};
 	next if grep (exists $$_{TASKS}{$$t{TASKID}}, values %$jobs);
 
@@ -938,6 +1040,9 @@ sub idle
 	    $$self{NEXT_PURGE} = $now + 3600;
 	    $$self{DBH_LAST_USE} = $now;
 	}
+
+	# Preform pre-transfer preparation on the tasks
+	$self->prepare(\%tasks);
 
 	# Rescan jobs for completed tasks and fill the backend a few
         # times each.  In between each round flush validation and
