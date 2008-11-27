@@ -52,7 +52,7 @@ sub checkLivenessUpdate
 {
     my ($self) = @_;
     my $now = &mytimeofday ();
-    return 0 if $now - $$self{LAST_LIVE} < 5400;
+    return 0 if $now - $$self{LAST_LIVE} < 3600;
     $$self{LAST_LIVE} = $now;
     return 1;
 }
