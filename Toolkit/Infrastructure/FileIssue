@@ -20,7 +20,7 @@ use PHEDEX::Infrastructure::FileIssue::Agent;
              "db=s"        => \$args{DBCONFIG},
 	     "help|h"      => sub { &usage() });
 
-if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG})
+if (!$args{DROPDIR} || !$args{DBCONFIG})
 {
     die "Insufficient parameters, use -h for help.\n";
 }
