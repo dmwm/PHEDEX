@@ -232,11 +232,12 @@ sub Command
 
   if ( $str eq 'Submit' )
   {
+     my $spacetoken = $arg->{SPACETOKEN} || $self->SPACETOKEN;
      $cmd = "glite-transfer-submit". 
       ' -s ' . $arg->Service .
-      ((defined $self->MYPROXY)    ? ' -m '.$self->MYPROXY    : "") .
-      ((defined $self->PASSWORD)   ? ' -p '.$self->PASSWORD   : "") .
-      ((defined $self->SPACETOKEN) ? ' -t '.$self->SPACETOKEN : "") .
+      ((defined $self->MYPROXY)    ? ' -m ' . $self->MYPROXY    : "") .
+      ((defined $self->PASSWORD)   ? ' -p ' . $self->PASSWORD   : "") .
+      ((defined $spacetoken)       ? ' -t ' . $spacetoken : "") .
       ' -f ' . $arg->Copyjob;
       $cmd .= $opts;
       return $cmd;

@@ -32,6 +32,7 @@ our %params =
 	  JOB_POSTBACK	=> undef,	# Callback per job state-change
 	  FILE_POSTBACK	=> undef,	# Callback per file state-change
 	  FILES		=> undef,	# A PHEDEX::Transfer::Backend::File array
+	  SPACETOKEN	=> undef,	# A space-token for this job
 	  COPYJOB	=> undef,	# Name of copyjob file
 	  WORKDIR	=> undef,	# Working directory for this job
 	  LOG           => undef,	# Internal log

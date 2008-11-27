@@ -449,9 +449,11 @@ sub transferBatch
     my $n_files = 0;
     my $sum_priority = 0;
     my $from_pfn;
+    my $spacetoken;
     foreach my $taskid ( keys %{$info->{TASKS}} ) {
 	my $task = $tasks->{$taskid};
 	$from_pfn = $task->{FROM_PFN} unless $from_pfn;
+	$spacetoken = $task->{TO_TOKEN} unless $spacetoken;
 
 	$n_files++;
 	$sum_priority += $task->{PRIORITY};
@@ -482,14 +484,15 @@ sub transferBatch
  
     my $avg_priority = int( $sum_priority / $n_files );
     $avg_priority = $self->{PRIORITY_MAP}{$avg_priority} || $avg_priority;
+$DB::single=1;
     my %args = (
-		COPYJOB  => "$dir/copyjob",
-		WORKDIR  => $dir,
-		FILES    => \%files,
-		VERBOSE	 => 1,
-		PRIORITY => $avg_priority,
-#		SERVICE  => $service,
-		TIMEOUT  => $self->{FTS_JOB_AWOL},
+		COPYJOB	   => "$dir/copyjob",
+		WORKDIR	   => $dir,
+		FILES	   => \%files,
+		VERBOSE	   => 1,
+		PRIORITY   => $avg_priority,
+		TIMEOUT	   => $self->{FTS_JOB_AWOL},
+		SPACETOKEN => $spacetoken,
 		);
     my $job = PHEDEX::Transfer::Backend::Job->new(%args);
     $job->Log('backend: ' . ref($self));
