@@ -26,6 +26,7 @@ sub makeTransferTask
     my ($from, $to) = @$task{"FROM_NODE_ID", "TO_NODE_ID"};
     my (@from_protos,@to_protos);
 
+#    my $task_str = join(', ', map { "$_=$task->{$_}" } sort keys %{$task});
 #   This twisted logic lets me call this function with an object or a plain
 #   DBH handle.
     my $dbh = $self;
@@ -46,6 +47,11 @@ sub makeTransferTask
     my ($from_cat, $to_cat);
     $from_cat    = &dbStorageRules($dbh, $cats, $from);
     $to_cat      = &dbStorageRules($dbh, $cats, $to);
+#    if ( !$from_cat || !$to_cat )
+#    {
+#      $self->Notify("makeTransferTask catalogue problem: $task_str");
+#      $self->Logmsg("makeTransferTask catalogue problem: $task_str");
+#    }
 
     my $protocol    = undef;
 
@@ -62,11 +68,20 @@ sub makeTransferTask
 #    $protocol = 'srm' if ! $protocol && $$task{FROM_KIND} eq 'MSS';
 
     # Check that we have prerequisite information to expand the file names
-    die "no catalog for from=$from_name\n" unless $from_cat;
-    die "no catalog for to=$to_name\n" unless $to_cat;
-    die "no protocol match for link ${from_name}->${to_name}\n" unless $protocol;
-    die "no TFC rules for matching protocol '$protocol' for from=$from_name\n" unless $$from_cat{$protocol};
-    die "no TFC rules for matching protocol '$protocol' for to=$to_name\n" unless $$to_cat{$protocol};
+    my $error = '';
+    $error = "no catalog for from=$from_name\n" unless $from_cat;
+    $error = "no catalog for to=$to_name\n" unless $to_cat;
+    $error = "no protocol match for link ${from_name}->${to_name}\n" unless $protocol;
+    $error = "no TFC rules for matching protocol '$protocol' for from=$from_name\n" unless $$from_cat{$protocol};
+    $error = "no TFC rules for matching protocol '$protocol' for to=$to_name\n" unless $$to_cat{$protocol};
+    if ( $error )
+    {
+#      $self->Notify("makeTransferTask protocol problem: $task_str");
+#      $self->Logmsg("makeTransferTask protocol problem: $task_str");
+      $self->Notify("makeTransferTask problem: $error");
+      $self->Logmsg("makeTransferTask problem: $error");
+      die $error;
+    }
 
     # If we made it through the above, we should be ok
     # Expand the file name. Follow destination-match instead of remote-match
