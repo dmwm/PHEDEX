@@ -86,48 +86,14 @@ sub startBatch
 {
     my ($self, $jobs, $tasks, $dir, $jobname, $list) = @_;
     my @batch = splice(@$list, 0, $self->{BATCH_FILES});
-    my $info = { ID => $jobname, DIR => $dir,
+    my $job = { ID => $jobname, DIR => $dir,
 	         TASKS => { map { $_->{TASKID} => 1 } @batch } };
-    &output("$dir/info", Dumper($info));
+    &output("$dir/info", Dumper($job));
     &touch("$dir/live");
-    $jobs->{$jobname} = $info;
-    $self->clean($info, $tasks);
+    $jobs->{$jobname} = $job;
+    $self->transferBatch ($job, $tasks);
 }
 
-# Remove destination PFNs before transferring.  Many transfer tools
-# refuse to a transfer a file over an existing one, so we do force
-# remove of the destination if the user gave a delete command.
-sub clean
-{
-    my ($self, $job, $tasks, $task, $status) = @_;
-    if ($status)
-    {
-	# Reap finished jobs
-	$tasks->{$task}{DONE_CLEAN} = 1;
-    }
-    else
-    {
-	# First time around, start deletion commands for all files,
-	# but only if we have a deletion command in the first place.
-	$self->{MASTER}->{pmon}->State('pre-delete','start');
-	foreach $task (keys %{$job->{TASKS}})
-	{
-	    next if $tasks->{$task}{DONE_CLEAN};
-	    do { $tasks->{$task}{DONE_CLEAN} = 1; next }
-	        if ! $self->{MASTER}{DELETE_COMMAND};
 
-	    $self->{MASTER}->addJob (
-		sub { $self->clean ($job, $tasks, $task, @_) },
-		{ TIMEOUT => $self->{MASTER}{TIMEOUT}, LOGPREFIX => 1 },
-		@{$self->{MASTER}{DELETE_COMMAND}}, "pre",
-		$tasks->{$task}{TO_PFN});
-	}
-    }
-
-    # Move to next stage when we've done everything
-    $self->{MASTER}->{pmon}->State('pre-delete','stop');
-    $self->transferBatch ($job, $tasks)
-        if ! grep (! $tasks->{$_}{DONE_CLEAN}, keys %{$job->{TASKS}});
-}
 
 1;
