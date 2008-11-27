@@ -528,6 +528,7 @@ sub prepare
 	if ($$self{VALIDATE_COMMAND} && ! $vstatus) 
 	{
 	    return if ! &output($fvstatus, "");
+	    $$taskinfo{PREVALIDATE_DONE} = 0;
 	    $self->addJob(sub {
 		&output($fvstatus, Dumper ({
 		    START => $now, END => &mytimeofday(),
@@ -569,8 +570,10 @@ sub prepare
 	}
 
 	# Pre-deletion
-	if ($$taskinfo{PREVALIDATE_DONE} && 
-	    ! $$taskinfo{PREDELETE_DONE} && $$self{DELETE_COMMAND}) {
+	if ($$self{DELETE_COMMAND} &&
+	    (!$$self{VALIDATE_COMMAND} || $$taskinfo{PREVALIDATE_DONE}) && 
+	    !exists $$taskinfo{PREDELETE_DONE} ) {
+	    $$taskinfo{PREDELETE_DONE} = 0;
 	    $self->addJob (
                sub { $$taskinfo{PREDELETE_DONE} = 1;
                      $$taskinfo{PREDELETE_STATUS} = $_[0]{STATUS}; },
@@ -1045,6 +1048,11 @@ sub idle
 
 	# Preform pre-transfer preparation on the tasks
 	$self->prepare(\%tasks);
+	while (@{$$self{JOBS}})
+	{
+	    $self->pumpJobs();
+	    select(undef, undef, undef, .1);
+	}
 
 	# Rescan jobs for completed tasks and fill the backend a few
         # times each.  In between each round flush validation and
