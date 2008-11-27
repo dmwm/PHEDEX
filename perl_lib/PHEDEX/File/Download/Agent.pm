@@ -506,10 +506,12 @@ sub prepare
     # and pre-deletion if necessary
     my $n_tasks = 0;
     my $n_prepared = 0;
-    foreach my $task (values %$tasks)
+    foreach my $task (keys %$tasks)
     {
 	$n_tasks++;
-	next if $$task{PREPARED};
+	my $taskinfo = $$tasks{$task};
+
+	next if $$taskinfo{PREPARED};
 
 	# Pre-validation
 	my $fvstatus = "$$self{PREPAREDIR}/T${task}V";
@@ -533,54 +535,54 @@ sub prepare
 	    },
 	    { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $fvlog },
 	    @{$$self{VALIDATE_COMMAND}}, "pre",
-	    @$task{qw(TO_PFN FILESIZE CHECKSUM)});
+	    @$taskinfo{qw(TO_PFN FILESIZE CHECKSUM)});
 	} elsif ( $vstatus ) {
 	    # if the pre-validation returned success, this file is already there.  mark success
 	    if ($$vstatus{STATUS} == 0) 
 	    {
-		$$task{REPORT_CODE} = 0;
-		$$task{XFER_CODE} = -2;
-		$$task{LOG_DETAIL} = 'file validated before transfer attempt';
-		$$task{LOG_XFER} = 'no transfer was attempted';
-		$$task{LOG_VALIDATE} = $$vstatus{LOG};
-		$$task{TIME_UPDATE} = $$vstatus{END};
-		$$task{TIME_XFER} = -1;
-		return if ! $self->taskDone($task);
+		$$taskinfo{REPORT_CODE} = 0;
+		$$taskinfo{XFER_CODE} = -2;
+		$$taskinfo{LOG_DETAIL} = 'file validated before transfer attempt';
+		$$taskinfo{LOG_XFER} = 'no transfer was attempted';
+		$$taskinfo{LOG_VALIDATE} = $$vstatus{LOG};
+		$$taskinfo{TIME_UPDATE} = $$vstatus{END};
+		$$taskinfo{TIME_XFER} = -1;
+		return if ! $self->taskDone($taskinfo);
 	    } 
 	    # if the pre-validation returned 1, the transfer is vetoed, throw this task away
 	    elsif ($$vstatus{STATUS} == 1) 
 	    {
-		$$task{REPORT_CODE} = -2;
-		$$task{XFER_CODE} = -2;
-		$$task{LOG_DETAIL} = 'file pre-validation vetoed the transfer';
-		$$task{LOG_XFER} = 'no transfer was attempted';
-		$$task{LOG_VALIDATE} = $$vstatus{LOG};
-		$$task{TIME_UPDATE} = $$vstatus{END};
-		$$task{TIME_XFER} = -1;
-		return if ! $self->taskDone($task);
+		$$taskinfo{REPORT_CODE} = -2;
+		$$taskinfo{XFER_CODE} = -2;
+		$$taskinfo{LOG_DETAIL} = 'file pre-validation vetoed the transfer';
+		$$taskinfo{LOG_XFER} = 'no transfer was attempted';
+		$$taskinfo{LOG_VALIDATE} = $$vstatus{LOG};
+		$$taskinfo{TIME_UPDATE} = $$vstatus{END};
+		$$taskinfo{TIME_XFER} = -1;
+		return if ! $self->taskDone($taskinfo);
 	    }
 	    # FIXME:  archive prevalidation state/log?
 	    unlink $fvstatus;
 	    unlink $fvlog;
-	    $$task{PREVALIDATE_DONE} = 1;
-	    $$task{PREVALIDATE_STATUS} = $$vstatus{STATUS};
+	    $$taskinfo{PREVALIDATE_DONE} = 1;
+	    $$taskinfo{PREVALIDATE_STATUS} = $$vstatus{STATUS};
 	}
 
 	# Pre-deletion
-	if ($$task{PREVALIDATE_DONE} && 
-	    ! $$task{PREDELETE_DONE} && $$self{DELETE_COMMAND}) {
+	if ($$taskinfo{PREVALIDATE_DONE} && 
+	    ! $$taskinfo{PREDELETE_DONE} && $$self{DELETE_COMMAND}) {
 	    $self->addJob (
-               sub { $$task{PREDELETE_DONE} = 1;
-                     $$task{PREDELETE_STATUS} = $_[0]{STATUS}; },
+               sub { $$taskinfo{PREDELETE_DONE} = 1;
+                     $$taskinfo{PREDELETE_STATUS} = $_[0]{STATUS}; },
 		{ TIMEOUT => $self->{TIMEOUT}, LOGPREFIX => 1 },
 		@{$self->{DELETE_COMMAND}}, "pre",
-	        @$task{ qw(TO_PFN) });
+	        @$taskinfo{ qw(TO_PFN) });
 	}
 
 	# Are we prepared?
-	if ( ($$task{PREVALIDATE_DONE} || !$$self{VALIDATE_COMMAND}) &&
-	     ($$task{PREDELETE_DONE}   || !$$self{DELETE_COMMAND}) ) {
-	    $$task{PREPARED} = 1;
+	if ( ($$taskinfo{PREVALIDATE_DONE} || !$$self{VALIDATE_COMMAND}) &&
+	     ($$taskinfo{PREDELETE_DONE}   || !$$self{DELETE_COMMAND}) ) {
+	    $$taskinfo{PREPARED} = 1;
 	    $n_prepared++;
 	}
     }
