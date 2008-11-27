@@ -143,11 +143,29 @@ sub confirm
 	my %errors;
         while (my $task = $q->fetchrow_hashref())
         {
+#	    my $task_str=join(', ', map { "$_=$task->{$_}" } sort keys %{$task});
+#	    foreach ( keys %{$task} )
+#	    {
+#	      if ( !defined($task->{$_}) )
+#	      {
+#		$self->Notify("$_ not defined in $task_str");
+#		$DB::single=1;
+#	      }
+#	    }
+#	    foreach ( qw / TO_PROTOS FROM_PROTOS / )
+#	    {
+#	      if ( !$task->{$_} )
+#	      {
+#		$self->Notify("$_ not set in $task_str");
+#                $DB::single=1;
+#              }
+#            }
+
 	    if ( $task->{FROM_KIND} eq 'MSS' )
 	    {
 #	      Fake a protocol if we are not likely to find a match
-	      $task->{FROM_PROTOS} .= ' srm' unless $task->{FROM_PROTOS} =~ m%srm%;
-	      $task->{TO_PROTOS} .= ' srm' unless $task->{TO_PROTOS} =~ m%srm%;
+	      $task->{FROM_PROTOS} .= ' srm' unless ($task->{FROM_PROTOS} =~ m%srm%);
+	      $task->{TO_PROTOS}   .= ' srm' unless ($task->{TO_PROTOS}   =~ m%srm%);
 	    }
 	    $$task{PRIORITY} = 2*$$task{PRIORITY} + (1-$$task{IS_LOCAL});
 
