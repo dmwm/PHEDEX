@@ -198,7 +198,7 @@ sub parseFTSmap {
     my $map = {};
 
     if (!open MAP, "$mapfile") {	
-	$self->Alert("FTSmap: Could not open ftsmap file $mapfile");
+	$self->Fatal("FTSmap: Could not open ftsmap file $mapfile");
 	return 1;
     }
 
