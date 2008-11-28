@@ -36,7 +36,8 @@ our %params =
 	  DSITE		=> undef,	# Specify destination site name
 	  ME		=> 'Glite',	# Arbitrary name for this object
 	  PRIORITY	=> 3,		# Default piority configured in FTS channels
-	  OPTIONS	=> {},
+	  OPTIONS	=> {},		# Per-command specific options
+	  WRAPPER	=> $ENV{PHEDEX_GLITE_WRAPPER} || '', # Command-wrapper
 	  DEBUG		=> 0,
 	  VERBOSE	=> 0,
 	  POCO_DEBUG	=> $ENV{POCO_DEBUG} || 0, # Specially for PoCo::Child
@@ -199,17 +200,20 @@ sub Command
 {
   my ($self,$str,$arg) = @_;
   my ($cmd,$opts);
+  $cmd = '';
+  $cmd = "$self->{WRAPPER} " if $self->{WRAPPER};
   $opts = '';
   $opts = " $self->{OPTIONS}{$str}" if $self->{OPTIONS}{$str};
 
   if ( $str eq 'ListQueue' )
   {
-    return "glite-transfer-list -s $self->{SERVICE}" . $opts;
+    $cmd .= "glite-transfer-list -s $self->{SERVICE}" . $opts;
+    return $cmd;
   }
 
   if ( $str eq 'ListJob' )
   {
-    $cmd = 'glite-transfer-status -l ';
+    $cmd .= 'glite-transfer-status -l ';
     $cmd .= ' --verbose' if $arg->VERBOSE;
     $cmd .= ' -s ' . $arg->Service . ' ' . $arg->ID;
     $cmd .= $opts;
@@ -223,7 +227,7 @@ sub Command
 #   Save an interaction with the server ?
     return undef if $priority == $self->{PRIORITY};
 
-    $cmd = 'glite-transfer-setpriority';
+    $cmd .= 'glite-transfer-setpriority';
     if ( $arg->Service ) { $cmd .= ' -s ' . $arg->Service; }
     $cmd .= ' ' . $arg->ID . ' ' . $priority;
     $cmd .= $opts;
@@ -233,7 +237,7 @@ sub Command
   if ( $str eq 'Submit' )
   {
      my $spacetoken = $arg->{SPACETOKEN} || $self->SPACETOKEN;
-     $cmd = "glite-transfer-submit". 
+     $cmd .= "glite-transfer-submit". 
       ' -s ' . $arg->Service .
       ((defined $self->MYPROXY)    ? ' -m ' . $self->MYPROXY    : "") .
       ((defined $self->PASSWORD)   ? ' -p ' . $self->PASSWORD   : "") .
