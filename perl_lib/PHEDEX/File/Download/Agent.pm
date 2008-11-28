@@ -68,6 +68,7 @@ sub new
         || die "$$self{TASKDIR}: cannot create: $!\n";
     -d $$self{ARCHIVEDIR} || mkdir($$self{ARCHIVEDIR}) || -d $$self{ARCHIVEDIR}
         || die "$$self{ARCHIVEDIR}: cannot create: $!\n";
+
     bless $self, $class;
     return $self;
 }
@@ -376,7 +377,9 @@ sub fetchNewTasks
 	}
 
 	# Mark used in database.
-        $row->{FROM_PROTOS} = $row->{TO_PROTOS} = $self->{BACKEND}->{PROTOCOLS};
+
+        $row->{FROM_PROTOS} = [@{$self->{BACKEND}{PROTOCOLS}}];
+        $row->{TO_PROTOS}   = [@{$self->{BACKEND}{PROTOCOLS}}];
 	my $h = makeTransferTask(
 				  $self,
 				  $row,
