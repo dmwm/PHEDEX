@@ -39,7 +39,15 @@ use File::Basename;
 our $shared_me = ''; # for log4perl subroutine, set by me()
 
 # 'new' is declared as a dummy routine, just in case it ever gets called...
-sub new {}
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my %h = @_;
+  my $self = \%h;
+  bless $self, $class;
+  return $self;
+}
 
 my $config_file;
 BEGIN
