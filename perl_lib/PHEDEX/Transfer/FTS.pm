@@ -484,7 +484,7 @@ sub transferBatch
  
     my $avg_priority = int( $sum_priority / $n_files );
     $avg_priority = $self->{PRIORITY_MAP}{$avg_priority} || $avg_priority;
-$DB::single=1;
+
     my %args = (
 		COPYJOB	   => "$dir/copyjob",
 		WORKDIR	   => $dir,
