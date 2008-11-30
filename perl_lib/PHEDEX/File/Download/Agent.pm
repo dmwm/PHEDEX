@@ -507,11 +507,8 @@ sub prepare
 
     # Iterate through all the tasks and add jobs for pre-validation
     # and pre-deletion if necessary
-    my $n_tasks = 0;
-    my $n_prepared = 0;
     foreach my $task (keys %$tasks)
     {
-	$n_tasks++;
 	my $taskinfo = $$tasks{$task};
 
 	next if $$taskinfo{PREPARED};
@@ -520,6 +517,7 @@ sub prepare
 	my $fvstatus = "$$self{PREPAREDIR}/T${task}V";
 	my $fvlog    = "$$self{PREPAREDIR}/T${task}L";
 	my $vstatus;
+	my $done = 0;
 
 	if (-s $fvstatus && (! ($vstatus = &evalinfo($fvstatus)) || $@))
 	{
@@ -528,7 +526,7 @@ sub prepare
 	    return if ! &output($fvstatus, Dumper($vstatus));
 	}
 
-	if ($$self{VALIDATE_COMMAND} && ! $vstatus) 
+	if ($$self{VALIDATE_COMMAND} && !exists $$taskinfo{PREVALIDATE_DONE}) 
 	{
 	    return if ! &output($fvstatus, "");
 	    $$taskinfo{PREVALIDATE_DONE} = 0;
@@ -551,7 +549,7 @@ sub prepare
 		$$taskinfo{LOG_VALIDATE} = $$vstatus{LOG};
 		$$taskinfo{TIME_UPDATE} = $$vstatus{END};
 		$$taskinfo{TIME_XFER} = -1;
-		return if ! $self->taskDone($taskinfo);
+		$done = 1;
 	    } 
 	    # if the pre-validation returned 1, the transfer is vetoed, throw this task away
 	    elsif ($$vstatus{STATUS} == 1) 
@@ -563,7 +561,7 @@ sub prepare
 		$$taskinfo{LOG_VALIDATE} = $$vstatus{LOG};
 		$$taskinfo{TIME_UPDATE} = $$vstatus{END};
 		$$taskinfo{TIME_XFER} = -1;
-		return if ! $self->taskDone($taskinfo);
+		$done = 1;
 	    }
 	    # FIXME:  archive prevalidation state/log?
 	    unlink $fvstatus;
@@ -573,13 +571,14 @@ sub prepare
 	}
 
 	# Pre-deletion
-	if ($$self{DELETE_COMMAND} &&
-	    (!$$self{VALIDATE_COMMAND} || $$taskinfo{PREVALIDATE_DONE}) && 
-	    !exists $$taskinfo{PREDELETE_DONE} ) {
+	if ($$self{DELETE_COMMAND} 
+	    && ($$self{VALIDATE_COMMAND} && $$taskinfo{PREVALIDATE_DONE} && $$taskinfo{PREVALIDATE_STATUS} > 1)
+	    && !exists $$taskinfo{PREDELETE_DONE} ) {
 	    $$taskinfo{PREDELETE_DONE} = 0;
 	    $self->addJob (
                sub { $$taskinfo{PREDELETE_DONE} = 1;
-                     $$taskinfo{PREDELETE_STATUS} = $_[0]{STATUS}; },
+                     $$taskinfo{PREDELETE_STATUS} = $_[0]{STATUS}; 
+		 },
 		{ TIMEOUT => $self->{TIMEOUT}, LOGPREFIX => 1 },
 		@{$self->{DELETE_COMMAND}}, "pre",
 	        @$taskinfo{ qw(TO_PFN) });
@@ -589,12 +588,27 @@ sub prepare
 	if ( ($$taskinfo{PREVALIDATE_DONE} || !$$self{VALIDATE_COMMAND}) &&
 	     ($$taskinfo{PREDELETE_DONE}   || !$$self{DELETE_COMMAND}) ) {
 	    $$taskinfo{PREPARED} = 1;
-	    $n_prepared++;
+	} else {
+	    $$taskinfo{PREPARED} = 0;
+	}
+
+	if ($done) {
+	    $$taskinfo{PREPARED} = 1;
+	    return if ! $self->taskDone($taskinfo);
+	    delete $$tasks{$task};
+	} else {
+	    return if ! $self->saveTask($taskinfo);
 	}
     }
+
+    # Figure out how much work we have left to do
+    my $n_tasks = scalar keys %$tasks;
+    my $n_prepared = scalar grep($$_{PREPARED} == 1, values %$tasks);
     
     $self->Logmsg("$n_prepared of $n_tasks tasks prepared for transfer") 
 	if $$self{VERBOSE} && $n_tasks;
+
+    return $n_prepared == $n_tasks ? 0 : 1;
 }
 
 # Check how a copy job is doing.
@@ -1050,9 +1064,10 @@ sub idle
 	}
 
 	# Preform pre-transfer preparation on the tasks
-	$self->prepare(\%tasks);
-	while (@{$$self{JOBS}})
+	while ( $self->prepare(\%tasks) )
 	{
+	    my $njobs = scalar @{$$self{JOBS}};
+	    $self->Alert("pumping $njobs jobs for preparation\n"); # XXX debug
 	    $self->pumpJobs();
 	    select(undef, undef, undef, .1);
 	}
