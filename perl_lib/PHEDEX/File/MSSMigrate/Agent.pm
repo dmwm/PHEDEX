@@ -75,7 +75,7 @@ sub idle
 #	        (select 1 from t_xfer_task_inxfer xti where xti.task = xt.id)},
 #	    ":now" => $start, %myargs);
 	my $q1 = &dbexec($dbh, qq{
-	    select xt.id, xt.from_node, xt.to_node, logical_name
+	    select xt.id, xt.from_node, xt.to_node, logical_name, is_custodial
 	     from t_xfer_task xt join t_dps_file f on xt.fileid = f.id
 	    where $mynode
 	      and not exists
@@ -92,6 +92,7 @@ sub idle
 			  FROM_PROTOS	=> $self->{PROTOCOLS},
 			  TO_PROTOS	=> $self->{PROTOCOLS},
 			  LOGICAL_NAME	=> $task->{LOGICAL_NAME},
+			  IS_CUSTODIAL	=> $task->{IS_CUSTODIAL},
 			},
 			$self->{CATALOGUE},
 		);
@@ -153,6 +154,7 @@ sub idle
 			  FROM_PROTOS	=> $self->{PROTOCOLS},
 			  TO_PROTOS	=> $self->{PROTOCOLS},
 			  LOGICAL_NAME	=> $lfn,
+			  IS_CUSTODIAL	=> $is_custodial,
 			},
 			$self->{CATALOGUE},
 		);
