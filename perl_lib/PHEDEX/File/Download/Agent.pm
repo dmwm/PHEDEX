@@ -24,6 +24,10 @@ sub new
 
 		  VALIDATE_COMMAND => undef,	# pre/post download validation command
 		  DELETE_COMMAND => undef,	# pre/post download deletion command
+		  PREVALIDATE => 1,             # flag to prevalidate files with VALIDATE_COMMAND
+		  PREDELETE => 1,               # flag to predelete files with DELETE_COMMAND
+		  PREPARE_JOBS => 200,          # max number of jobs to start for preparation tasks
+
 		  TIMEOUT => 600,		# Maximum execution time
 		  NJOBS => 10,			# Max number of utility processes
 		  WAITTIME => 15,		# Nap length between cycles
@@ -501,6 +505,7 @@ sub prepare
     my ($self, $tasks) = @_;
 
     my $now = &mytimeofday();
+    my $n_add = 0;
 
     # Perhaps stop.
     $self->maybeStop();
@@ -512,6 +517,10 @@ sub prepare
 	my $taskinfo = $$tasks{$task};
 
 	next if $$taskinfo{PREPARED};
+	last if $n_add >= $$self{PREPARE_JOBS};
+
+	my $do_preval = ($$self{VALIDATE_COMMAND} && $$self{PREVALIDATE}) ? 1 : 0;
+	my $do_predel = ($$self{DELETE_COMMAND} && $$self{PREDELETE}) ? 1 : 0;
 
 	# Pre-validation
 	my $fvstatus = "$$self{PREPAREDIR}/T${task}V";
@@ -526,10 +535,11 @@ sub prepare
 	    return if ! &output($fvstatus, Dumper($vstatus));
 	}
 
-	if ($$self{VALIDATE_COMMAND} && !exists $$taskinfo{PREVALIDATE_DONE}) 
+	if ($do_preval && !exists $$taskinfo{PREVALIDATE_DONE}) 
 	{
 	    return if ! &output($fvstatus, "");
 	    $$taskinfo{PREVALIDATE_DONE} = 0;
+	    $n_add++;
 	    $self->addJob(sub {
 		&output($fvstatus, Dumper ({
 		    START => $now, END => &mytimeofday(),
@@ -571,10 +581,11 @@ sub prepare
 	}
 
 	# Pre-deletion
-	if ($$self{DELETE_COMMAND} 
-	    && ($$self{VALIDATE_COMMAND} && $$taskinfo{PREVALIDATE_DONE} && $$taskinfo{PREVALIDATE_STATUS} > 1)
+	if ($do_predel
+	    && ($do_preval && $$taskinfo{PREVALIDATE_DONE} && $$taskinfo{PREVALIDATE_STATUS} > 1)
 	    && !exists $$taskinfo{PREDELETE_DONE} ) {
 	    $$taskinfo{PREDELETE_DONE} = 0;
+	    $n_add++;
 	    $self->addJob (
                sub { $$taskinfo{PREDELETE_DONE} = 1;
                      $$taskinfo{PREDELETE_STATUS} = $_[0]{STATUS}; 
@@ -585,8 +596,8 @@ sub prepare
 	}
 
 	# Are we prepared?
-	if ( ($$taskinfo{PREVALIDATE_DONE} || !$$self{VALIDATE_COMMAND}) &&
-	     ($$taskinfo{PREDELETE_DONE}   || !$$self{DELETE_COMMAND}) ) {
+	if ( (!$do_preval || $$taskinfo{PREVALIDATE_DONE}) &&
+	     (!$do_predel || $$taskinfo{PREDELETE_DONE}) ) {
 	    $$taskinfo{PREPARED} = 1;
 	} else {
 	    $$taskinfo{PREPARED} = 0;
@@ -603,12 +614,13 @@ sub prepare
 
     # Figure out how much work we have left to do
     my $n_tasks = scalar keys %$tasks;
-    my $n_prepared = scalar grep($$_{PREPARED} == 1, values %$tasks);
+    my $n_prepared = scalar grep(exists $$_{PREPARED} && $$_{PREPARED} == 1, values %$tasks);
     
-    $self->Logmsg("$n_prepared of $n_tasks tasks prepared for transfer") 
+    $self->Logmsg("started $n_add prepare jobs:  $n_prepared of $n_tasks tasks prepared for transfer") 
 	if $$self{VERBOSE} && $n_tasks;
 
-    return $n_prepared == $n_tasks ? 0 : 1;
+    # return true if all tasks are prepared
+    return ($n_prepared == $n_tasks) ? 0 : 1;
 }
 
 # Check how a copy job is doing.
@@ -1063,14 +1075,15 @@ sub idle
 	    $$self{DBH_LAST_USE} = $now;
 	}
 
-	# Preform pre-transfer preparation on the tasks
-	while ( $self->prepare(\%tasks) )
+	# prepare some tasks
+	$self->prepare(\%tasks);
+	while (@{$$self{JOBS}})
 	{
-	    my $njobs = scalar @{$$self{JOBS}};
-	    $self->Alert("pumping $njobs jobs for preparation\n"); # XXX debug
 	    $self->pumpJobs();
 	    select(undef, undef, undef, .1);
 	}
+	# check prepared tasks (and start to prepare some more)
+	$self->prepare(\%tasks);
 
 	# Rescan jobs for completed tasks and fill the backend a few
         # times each.  In between each round flush validation and
