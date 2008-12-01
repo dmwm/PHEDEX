@@ -31,6 +31,7 @@ sub new
 sub output
 {
     my ($file, $format, $obj) = @_;
+
     die "object must be a hashref" unless ref($obj) eq 'HASH';
     $format ||= 'xml';
 
@@ -39,7 +40,8 @@ sub output
     my $root = $children->[0];
 
     if ( $format eq 'xml' ) {
-	# special exception for the 'error' object
+	lc_keys($obj); # force keys to be lowercase
+    	# special exception for the 'error' object
 	# allow it to have a simple structure but be formatted as
 	# <error>text</error>
 	if (exists $obj->{error} && ! ref $obj->{error}) {
@@ -50,9 +52,13 @@ sub output
 	print { $file } "<?xml version='$version' encoding='$encoding'?>";
 	xml_element($file, $root, $obj, 1);
     } elsif ( $format eq 'json' ) {
-	# json_object($file, $root, $obj->{ $root });
+	lc_keys($obj); # force keys to be lowercase
 	print { $file } encode_json($obj);
     } elsif ( $format eq 'perl' ) {
+	# FIXME: this shouldn't be necessary.  Ensure all APIs return
+	# uppercase key data structures by default then remove this
+	# step
+	uc_keys($obj); # force keys to be uppercase
 	print { $file } Dumper($obj);
     }
 }
@@ -63,7 +69,7 @@ sub error
     $format ||= "xml";
     $message ||= "no message";
     chomp $message;
-
+    
     &PHEDEX::Web::Format::output($file, $format, { error => $message });
 }
 
@@ -101,9 +107,9 @@ sub xml_element
 	# Avoiding HTML::Entities::encode_entities is about 30% more efficient for a large object.
 	# But better safe than sorry.
         # print $file "<$name", join('', map { " $_='$obj->{$_}'" } @$attr);
-        print $file "<$name", join('', map { (lc " $_='", 
-						   (defined $obj->{$_} ? encode_entities($obj->{$_}) : ''),
-						   "'") } @$attr);
+        print $file "<$name", join('', map { (" $_='", 
+					      (defined $obj->{$_} ? encode_entities($obj->{$_}) : ''),
+					      "'") } @$attr);
         if ($no_children && !$text) {
             print $file "/>"; return;
         } else {
@@ -121,9 +127,9 @@ sub xml_element
                 die "Array of '$child' elements contained a non-hash"
                     unless ref $element eq 'HASH';
 		my $element_name = $child;
-		if (defined $element->{ELEMENT_NAME}) {
-		    $element_name = $element->{ELEMENT_NAME};
-		    delete $element->{ELEMENT_NAME};
+		if (defined $element->{element_name}) {
+		    $element_name = $element->{element_name};
+		    delete $element->{element_name};
 		}
                 xml_element($file, $element_name, $element);
             }
@@ -166,6 +172,40 @@ sub json_object
 	}
 	print $file "]";
     }
+}
+
+# lowercase all hash keys
+sub lc_keys
+{
+    my $o = shift;
+    
+    if (ref $o eq 'HASH') {
+	foreach my $k (keys %$o) {
+	    lc_keys($o->{$k}) if ref $o->{$k}; # recurce if ref
+	    $o->{lc $k} = delete $o->{$k};
+	}
+    } elsif (ref $o eq 'ARRAY') {
+	foreach my $e (@$o) { lc_keys($e); }   # recurse if array
+    }
+    return $o;
+}
+
+# uppercase all hash keys
+# FIXME: same as above... how do I get a subref of a builtin and the
+# function I'm in to reduce the duplicate?
+sub uc_keys
+{
+    my $o = shift;
+    
+    if (ref $o eq 'HASH') {
+	foreach my $k (keys %$o) {
+	    uc_keys($o->{$k}) if ref $o->{$k}; # recurce if ref
+	    $o->{uc $k} = delete $o->{$k};
+	}
+    } elsif (ref $o eq 'ARRAY') {
+	foreach my $e (@$o) { uc_keys($e); }   # recurse if array
+    }
+    return $o;
 }
 
 1;
