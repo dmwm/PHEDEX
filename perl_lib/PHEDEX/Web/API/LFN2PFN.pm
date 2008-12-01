@@ -31,9 +31,11 @@ Translate LFNs to PFNs using the TFC published to TMDB.
 
  lfn          Logical file name
  pfn          Physical file name
+ space_token  space token
  node         Node name
  protocol     Transfer protocol
  destination  Destination node
+ custodial    y or n, whether the dest is custodial
 
 =cut
 
@@ -70,7 +72,7 @@ sub lfn2pfn
 			      custodial => $h{custodial},
 			      lfn => $lfn,
 			      pfn => $pfn,
-			      'space-token' => $spt };
+			      space_token => $spt };
 	}
     }
     return { mapping => $mapping };
