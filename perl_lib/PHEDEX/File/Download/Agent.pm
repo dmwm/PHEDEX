@@ -31,7 +31,6 @@ sub new
 		  TIMEOUT => 600,		# Maximum execution time
 		  NJOBS => 10,			# Max number of utility processes
 		  WAITTIME => 15,		# Nap length between cycles
-		  VERBOSE => 0,			# Verbosity
 
 		  BACKEND_TYPE => undef,	# Backend type
 		  BACKEND_ARGS => undef,	# Options to the backend
