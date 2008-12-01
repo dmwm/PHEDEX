@@ -75,7 +75,7 @@ sub ResponseIsValid
     my $payload  = $self->{PAYLOAD};
 
     # get the arg hash
-    my $args = $obj->{phedex}{Bounce} || {};
+    my $args = $obj->{PHEDEX}{BOUNCE} || {};
 
     foreach ( keys %{$payload} )
     {
@@ -96,7 +96,7 @@ sub Report
     my ($self, $obj) = @_;
 
     # get the arg hash
-    my $args = $obj->{phedex}{Bounce} || {};
+    my $args = $obj->{PHEDEX}{BOUNCE} || {};
     print "$_\t:\t$args->{$_}\n" foreach (keys %$args);
 }
 

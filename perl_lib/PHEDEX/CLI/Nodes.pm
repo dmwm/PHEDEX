@@ -71,7 +71,7 @@ sub ResponseIsValid
   my ($self, $obj) = @_;
   my $payload  = $self->{PAYLOAD};
 
-  my $nodes = $obj->{phedex}{node};
+  my $nodes = $obj->{PHEDEX}{NODE};
   if (ref $nodes ne 'ARRAY' || !@$nodes) {
       return 0;
   }
@@ -86,7 +86,7 @@ sub Report
 {
   my ($self, $obj) = @_;
 
-  my $nodes = $obj->{phedex}{node};
+  my $nodes = $obj->{PHEDEX}{NODE};
 
   my @head = qw( NAME SE KIND TECHNOLOGY );
 

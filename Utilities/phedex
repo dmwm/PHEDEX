@@ -206,12 +206,12 @@ while (@ARGV)
 	no strict 'vars';
 	my $obj = eval($content);
 	if ($@) {
-	    $obj = { 'error' => "Server responded with non-perl data:\n$content"};
+	    $obj = { 'ERROR' => "Server responded with non-perl data:\n$content"};
 	}
 
       # The user wants a human readable report, call CLI backend methods to make a report
-      if (exists $obj->{error}) {
-	die "Error from server: ",$obj->{error}, "\n";
+      if (exists $obj->{ERROR}) {
+	die "Error from server: ",$obj->{ERROR}, "\n";
       }
 
       if ($cli->ResponseIsValid($obj)) {

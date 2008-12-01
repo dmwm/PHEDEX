@@ -83,7 +83,7 @@ sub ResponseIsValid
   my ($self, $obj) = @_;
   my $payload  = $self->{PAYLOAD};
 
-  my $mapping = $obj->{phedex}{mapping};
+  my $mapping = $obj->{PHEDEX}{MAPPING};
   return 0 unless ref($mapping) eq 'ARRAY';
 
   print __PACKAGE__," response is valid\n" if $self->{VERBOSE};
@@ -96,10 +96,10 @@ sub Report
 {
   my ($self, $obj) = @_;
 
-  my $mapping = $obj->{phedex}{mapping};
+  my $mapping = $obj->{PHEDEX}{MAPPING};
 
   foreach my $m (@$mapping) {
-      print "$m->{lfn} $m->{pfn}\n";
+      print "$m->{LFN} $m->{PFN} $m->{SPACE_TOKEN}\n";
   }
 
 }
