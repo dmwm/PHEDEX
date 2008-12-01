@@ -486,7 +486,11 @@ sub pickNewLFN
 	    '/LoadTest07_' . $src_id . '_' . &makeGUID() . '_' . $$block{BLOCK_NUMBER};
     } else {
 	# A much simpler conversion for the future...
-	$$lfn{LFN} .= join(".", ".LTgenerated", $$params{DEST_NODE_NAME}, &makeGUID());
+	$$lfn{LFN} .= join(".", ".LTgenerated",
+			   $$params{DEST_NODE_NAME},
+			   &makeGUID(),
+			   $$params{DEST_DATASET_NAME}
+			   );
     }
 
     # Associate new block and source
