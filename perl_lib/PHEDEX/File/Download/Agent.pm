@@ -561,8 +561,10 @@ sub prepare
 		$$taskinfo{TIME_XFER} = -1;
 		$done = 1;
 	    } 
-	    # if the pre-validation returned 1, the transfer is vetoed, throw this task away
-	    elsif ($$vstatus{STATUS} == 1) 
+	    # if the pre-validation returned 86, the transfer is vetoed, throw this task away
+	    # see http://www.urbandictionary.com/define.php?term=eighty-six
+	    # or google "eighty-sixed"
+	    elsif ($$vstatus{STATUS} == 86) 
 	    {
 		$$taskinfo{REPORT_CODE} = -2;
 		$$taskinfo{XFER_CODE} = -2;
@@ -580,9 +582,12 @@ sub prepare
 	    $$taskinfo{PREVALIDATE_STATUS} = $$vstatus{STATUS};
 	}
 
-	# Pre-deletion
+	# Pre-deletion (only if pre-validation is completed and unsuccessful)
 	if ($do_predel
-	    && ($do_preval && $$taskinfo{PREVALIDATE_DONE} && $$taskinfo{PREVALIDATE_STATUS} > 1)
+	    && ($do_preval 
+		&& $$taskinfo{PREVALIDATE_DONE} 
+		&& $$taskinfo{PREVALIDATE_STATUS} != 0
+		&& $$taskinfo{PREVALIDATE_STATUS} != 86)
 	    && !exists $$taskinfo{PREDELETE_DONE} ) {
 	    $$taskinfo{PREDELETE_DONE} = 0;
 	    $n_add++;
