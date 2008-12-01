@@ -79,7 +79,7 @@ sub confirm
           xp.priority, xp.is_local, xp.time_request, xp.time_expire,
           (case
             when xp.to_node = xp.destination
-              or (xp.is_local = 1 and nd.kind = 'Buffer')
+              or (l.is_local = 'y' and nd.kind = 'Buffer')
             then xrq.is_custodial
             else 'n' end
           ) is_custodial
@@ -103,9 +103,6 @@ sub confirm
             and xt.to_node = xp.to_node
           join t_xfer_file f
             on f.id = xp.fileid
-	  left join t_adm_link_param p
-	    on p.from_node = xp.from_node
-	    and p.to_node = xp.to_node
 	  left join t_xfer_source xso
 	    on xso.from_node = ns.id
 	    and xso.to_node = nd.id
@@ -136,6 +133,7 @@ sub confirm
        	           and xsi.from_node is not null)) },
 	":recent" => $now - 5400);
 
+$DB::single=1;
     while (! $finished)
     {
 	$finished = 1;
@@ -143,24 +141,6 @@ sub confirm
 	my %errors;
         while (my $task = $q->fetchrow_hashref())
         {
-#	    my $task_str=join(', ', map { "$_=$task->{$_}" } sort keys %{$task});
-#	    foreach ( keys %{$task} )
-#	    {
-#	      if ( !defined($task->{$_}) )
-#	      {
-#		$self->Notify("$_ not defined in $task_str");
-#		$DB::single=1;
-#	      }
-#	    }
-#	    foreach ( qw / TO_PROTOS FROM_PROTOS / )
-#	    {
-#	      if ( !$task->{$_} )
-#	      {
-#		$self->Notify("$_ not set in $task_str");
-#                $DB::single=1;
-#              }
-#            }
-
 	    if ( $task->{FROM_KIND} eq 'MSS' )
 	    {
 #	      Fake a protocol if we are not likely to find a match
