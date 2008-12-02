@@ -74,8 +74,13 @@ VOName:         cms
   {
     print "Finished\n";
   }
-  for ( my ($s,$d) = each %{$files} )
+  my $first=1;
+  my ($s,$d);
+  foreach $s ( keys %{$files} )
   {
+    $d = $files->{$s};
+    print "\n" unless $first;
+    $first=0;
     print
 "  Source:       $s
   Destination:  $d
@@ -83,10 +88,9 @@ VOName:         cms
   Retries:      0
   Reason:       error during  phase: [] 
   Duration:     0
-
 ";
   }
-  unlink "$cache/$id";
+# unlink "$cache/$id";
 }
 
 if ( $cmd eq 'glite-transfer-setpriority' )
@@ -104,7 +108,8 @@ if ( $cmd eq 'glite-transfer-submit' )
 			rand() * $i,
 			rand() * $i,
 			rand() * $i,
-			rand() * $i, rand() * $i * $i);
+			$$,time);
+#			rand() * $i, rand() * $i * $i);
   $me->Notify("JobID=$id for $cmd @args\n");
   my $copyjob = $args[-1];
   symlink $copyjob, "$cache/$id";
