@@ -521,6 +521,29 @@ sub prepare
 	my $do_preval = ($$self{VALIDATE_COMMAND} && $$self{PREVALIDATE}) ? 1 : 0;
 	my $do_predel = ($$self{DELETE_COMMAND} && $$self{PREDELETE}) ? 1 : 0;
 
+	# Note on order: pre-validation is done before pre-deletion,
+	# but we queue the pre-deletion tasks first in order to get
+	# more tasks in the PREPARED state
+
+	# Pre-deletion (only if pre-validation is completed and unsuccessful)
+	if ($do_predel && !$$taskinfo{PREDELETE_DONE}
+	    && (!$do_preval || ($do_preval 
+				&& $$taskinfo{PREVALIDATE_DONE} 
+				&& $$taskinfo{PREVALIDATE_STATUS} != 0
+				&& $$taskinfo{PREVALIDATE_STATUS} != 86))
+	    ) {
+	    $$taskinfo{PREDELETE_DONE} = 0;
+	    $n_add++;
+	    $self->addJob (
+               sub { $$taskinfo{PREDELETE_DONE} = 1;
+                     $$taskinfo{PREDELETE_STATUS} = $_[0]{STATUS};
+		     return if ! $self->saveTask($taskinfo);
+		 },
+		{ TIMEOUT => $self->{TIMEOUT}, LOGPREFIX => 1 },
+		@{$self->{DELETE_COMMAND}}, "pre",
+	        @$taskinfo{ qw(TO_PFN) });
+	}
+
 	# Pre-validation
 	my $fvstatus = "$$self{PREPAREDIR}/T${task}V";
 	my $fvlog    = "$$self{PREPAREDIR}/T${task}L";
@@ -534,7 +557,7 @@ sub prepare
 	    return if ! &output($fvstatus, Dumper($vstatus));
 	}
 
-	if ($do_preval && !exists $$taskinfo{PREVALIDATE_DONE}) 
+	if ($do_preval && !$vstatus) 
 	{
 	    return if ! &output($fvstatus, "");
 	    $$taskinfo{PREVALIDATE_DONE} = 0;
@@ -579,24 +602,6 @@ sub prepare
 	    unlink $fvlog;
 	    $$taskinfo{PREVALIDATE_DONE} = 1;
 	    $$taskinfo{PREVALIDATE_STATUS} = $$vstatus{STATUS};
-	}
-
-	# Pre-deletion (only if pre-validation is completed and unsuccessful)
-	if ($do_predel
-	    && ($do_preval 
-		&& $$taskinfo{PREVALIDATE_DONE} 
-		&& $$taskinfo{PREVALIDATE_STATUS} != 0
-		&& $$taskinfo{PREVALIDATE_STATUS} != 86)
-	    && !exists $$taskinfo{PREDELETE_DONE} ) {
-	    $$taskinfo{PREDELETE_DONE} = 0;
-	    $n_add++;
-	    $self->addJob (
-               sub { $$taskinfo{PREDELETE_DONE} = 1;
-                     $$taskinfo{PREDELETE_STATUS} = $_[0]{STATUS}; 
-		 },
-		{ TIMEOUT => $self->{TIMEOUT}, LOGPREFIX => 1 },
-		@{$self->{DELETE_COMMAND}}, "pre",
-	        @$taskinfo{ qw(TO_PFN) });
 	}
 
 	# Are we prepared?
@@ -1086,8 +1091,6 @@ sub idle
 	    $self->pumpJobs();
 	    select(undef, undef, undef, .1);
 	}
-	# check prepared tasks (and start to prepare some more)
-	$self->prepare(\%tasks);
 
 	# Rescan jobs for completed tasks and fill the backend a few
         # times each.  In between each round flush validation and
