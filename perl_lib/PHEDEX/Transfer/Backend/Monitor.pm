@@ -475,15 +475,15 @@ sub report_job
 sub forget_job
 {
   my ( $self, $kernel, $job ) = @_[ OBJECT, KERNEL, ARG0 ];
-  delete $self->{JOBS}{$job->ID};
+  delete $self->{JOBS}{$job->ID} if $job->ID;
 }
 
 sub cleanup_job_stats
 {
   my ( $self, $job ) = @_;
-  my $jobid = $job->ID;
+  my $jobid = $job->ID || 'unknown-job';
   $self->Logmsg("Cleaning up stats for JOBID=$jobid...") if $self->{VERBOSE};
-  delete $self->{WORKSTATS}{JOBS}{STATES}{$job->ID};
+  delete $self->{WORKSTATS}{JOBS}{STATES}{$jobid};
   foreach ( values %{$job->Files} )
   {
     $self->cleanup_file_stats($_);
