@@ -678,7 +678,7 @@ sub mkTransferSummary {
     $self->Dbgmsg('mkTransferSummary done for task=',$file->TaskID,' workdir=',$job->Workdir) if $self->{DEBUG};
 
 #   Make sure I have forgotten about this job...?
-#   $self->{FTS_Q_MONITOR}->cleanup_job_stats($job);
+    $self->{FTS_Q_MONITOR}->cleanup_job_stats($job);
 }
 
 1;
