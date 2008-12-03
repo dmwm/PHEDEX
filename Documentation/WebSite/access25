@@ -8623,10 +8623,10 @@ sub update_subscriptions
     my $action_list = 
     {
 	suspend => { desc => ' suspended',
-		     var  => 'time_suspend',
+		     var  => 'time_suspend_until',
 		     val  => 9_999_999_999 },
     	unsuspend => { desc => ' unsuspended',
-		       var => 'time_suspend',
+		       var => 'time_suspend_until',
 		       val  => undef },
 	priorityhi => { desc => ' set to high priority',
 			var => 'priority',
