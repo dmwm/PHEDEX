@@ -233,6 +233,9 @@ Begin
 End;
 /
 
+-- misc tables
+insert into t_loadtest_param select * from xt_loadtest_param;
+
 commit;
 
 -- re-enable all triggers
