@@ -149,6 +149,7 @@ sub getItemList
     my $results = {};
     foreach my $f (@$fileref) {
 	my $userstring = $f;
+	$f =~ s/^\s*(\S+)\s*$/$1/; # remove whitespace
 	$f =~ s/^([^:]+:)//;
 	my $item = $1;
 	unless ($item && grep $item eq $_, qw(dataset: block: lfn:))
