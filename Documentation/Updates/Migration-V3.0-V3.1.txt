@@ -3,8 +3,11 @@
 # Before you begin, make sure the web pages and data service are down
 # so that no one tries to make updates in the middle of the upgrade.
 
+# cd to a directory where the PHEDEX directory exists and there is an
+# RPM installation
+
 # Source environment
-source ../sw/slc*/cms/PHEDEX/PHEDEX_*/etc/profile.d/env.sh
+source sw/slc*/cms/PHEDEX-admin/PHEDEX_*/etc/profile.d/env.sh
 
 # Set authentication for DB access
 export PHEDEX_DB='../SITECONF/CERN/PhEDEx/DBParam:Dev/Admin';
@@ -20,15 +23,15 @@ select n.id, a.id, 'GOAWAY', now()
 # wait 1 hour for all agents to get the message (go to lunch?)
 
 # Save all old tables to xt
-sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleSave.sql </dev/null
+sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @PHEDEX/Schema/OracleSave.sql </dev/null
 
 # Load the new schema
-sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleReset.sql </dev/null
-sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleInit.sql </dev/null
-sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB}) @Schema/OracleStatsEnable.sql </dev/null
+sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @PHEDEX/Schema/OracleReset.sql </dev/null
+sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @PHEDEX/Schema/OracleInit.sql </dev/null
+sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @PHEDEX/Schema/OracleStatsEnable.sql </dev/null
 
 # Connect to DB using SQLPlus
-sqlplus $(Utilities/OracleConnectId  -db ${PHEDEX_DB})
+sqlplus $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
 
 -- the basics: nodes, datasets, blocks, files
 insert into t_adm_node select * from xt_adm_node;
@@ -251,17 +254,17 @@ exit;
 # !!! done with sqlplus !!!
 
 # Update statistics
-sqlplus -S $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @$PHEDEX/Schema/OracleStatsUpdate.sql </dev/null
+sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @PHEDEX/Schema/OracleStatsUpdate.sql </dev/null
 
 # Create synonmys
-$PHEDEX/Schema/OracleSyns.sh 'cms_transfermgmt' $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_R})
-$PHEDEX/Schema/OracleSyns.sh 'cms_transfermgmt' $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_W})
+PHEDEX/Schema/OracleSyns.sh 'cms_transfermgmt' $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_R})
+PHEDEX/Schema/OracleSyns.sh 'cms_transfermgmt' $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_W})
 
 # Create privileges
-$PHEDEX/Schema/OraclePrivs.sh $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 'cms_transfermgmt_reader' 'cms_transfermgmt_writer'
+PHEDEX/Schema/OraclePrivs.sh $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 'cms_transfermgmt_reader' 'cms_transfermgmt_writer'
 
 # For the **Prod instance ONLY**, grant the DBS select access to the block replica view
-sqlplus -S $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
+sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
 grant select on v_dbs_block_replica to cms_dbs_int_global with grant option;
 grant select on v_dbs_block_replica to cms_dbs_int_global_reader;
 grant select on v_dbs_block_replica to cms_dbs_int_global_writer;
@@ -269,7 +272,7 @@ grant select on v_dbs_block_replica to cms_dbs_int_global_admin;
 exit;
 
 # let the agents come back
-sqlplus -S $($PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
+sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
 delete from t_agent_message;
 delete from t_agent;
 exit;
