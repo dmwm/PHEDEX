@@ -49,6 +49,7 @@ use PHEDEX::File::MSSMigrate::Agent;
 	     "checkroutine=s" => \$args{CHECKROUTINE},
 	     "retransferlost!" => \$args{RETRANSFERLOST},
 	     "nodaemon"    => \$args{NODAEMON},
+	     "auto-migrate-noncust"    => \$args{AUTOMIGRATENONCUST},
 	     "help|h"      => sub { &usage() },
 );
 

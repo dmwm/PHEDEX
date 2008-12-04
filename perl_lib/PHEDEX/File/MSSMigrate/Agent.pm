@@ -18,6 +18,7 @@ sub new
 		  MSSBACKEND => 'fake',         # MSS backend
 		  CHECKROUTINE => '',           # check file in MSS routine
 		  RETRANSFERLOST => '',         # whether to mark lost files for re-xfer 
+		  AUTOMIGRATENONCUST => 0,	# Automatically mark non-custodial data as migrated?
 		  WAITTIME => 150 + rand(50),	# Agent activity cycle
 	  	  ME => "FileDownload",		# Identity for activity logs
 		  CATALOGUE => {},		# TFC cache
@@ -67,13 +68,6 @@ sub idle
 	        (select 1 from t_xfer_task_export xte where xte.task = xt.id)},
 	    ":now" => $start, %myargs);
 
-#	&dbexec($dbh, qq{
-#	    insert into t_xfer_task_inxfer (task, time_update)
-#	    select xt.id, :now from t_xfer_task xt
-#	    where $mynode
-#	      and not exists
-#	        (select 1 from t_xfer_task_inxfer xti where xti.task = xt.id)},
-#	    ":now" => $start, %myargs);
 	my $q1 = &dbexec($dbh, qq{
 	    select xt.id, xt.from_node, xt.to_node, logical_name, is_custodial
 	     from t_xfer_task xt join t_dps_file f on xt.fileid = f.id
@@ -83,7 +77,6 @@ sub idle
 		%myargs );
 	while (my $task = $q1->fetchrow_hashref())
         {
-#	  $self->Logmsg('untested code ahead: ',join(', ', map { "$_=$task->{$_}" } sort keys %{$task}));
 	  my $h = $self->makeTransferTask
 		(
 			{
@@ -96,7 +89,6 @@ sub idle
 			},
 			$self->{CATALOGUE},
 		);
-#	  $self->Logmsg('untested code: makeTransfer ',join(', ', map { "$_=$h->{$_} "} sort keys %{$h}));
 	  &dbexec($dbh, qq{
 	    insert into t_xfer_task_inxfer (task, time_update, from_pfn, to_pfn, space_token)
 	    values (:task, :time_update, :from_pfn, :to_pfn, :space_token) },
@@ -115,20 +107,6 @@ sub idle
 	    insert into t_xfer_task_done
 	    (task, report_code, xfer_code, time_xfer, time_update)
 	    values (:task, 0, 0, :now, :now)});
-# I used to do this...
-#	my $q = &dbexec($dbh, qq{
-#	    select
-#	      xt.id, n.name, f.filesize, f.logical_name,
-#	      xt.time_assign, xt.is_custodial,
-#	      xt.from_node, xt.to_node
-#	    from t_xfer_task xt
-#	      join t_xfer_file f on f.id = xt.fileid
-#	      join t_adm_node n on n.id = xt.to_node
-#	    where $mynode
-#	      and not exists
-#	        (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)
-#	    order by xt.time_assign asc, xt.rank asc}, %myargs);
-# but nos I avoid the join on t_adm_node...
 	my $q = &dbexec($dbh, qq{
 	    select
 	      xt.id, f.filesize, f.logical_name,
@@ -140,13 +118,10 @@ sub idle
 	      and not exists
 	        (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)
 	    order by xt.time_assign asc, xt.rank asc}, %myargs);
-# ...and don't put $dest into the array-read here...
-#	while (my ($task, $dest, $size, $lfn, $available, $is_custodial,
-#		   $from_node, $to_node) = $q->fetchrow())
-# ...because I get it for free later.
 	while (my ($task, $size, $lfn, $available, $is_custodial,
 		   $from_node, $to_node) = $q->fetchrow())
 	{
+	    my ($status,$pfn,$dest);
 	    my $h = $self->makeTransferTask
 		(
 			{
@@ -167,12 +142,22 @@ sub idle
                 $self->Fatal('No $_ in task: ',join(', ',map { "$_=$h->{$_}" } sort keys %{$h}));
               }
             }
-	    my $dest = $h->{TO_NODE};
-            my $pfn= $h->{TO_PFN};
-	    $self->Logmsg("Checking pfn $pfn");
-	    
-	    my $status = &checkFileInMSS($pfn);
-	    
+	    $dest = $h->{TO_NODE};
+            $pfn= $h->{TO_PFN};
+	    if ( $is_custodial eq 'y' || !$self->{AUTOMIGRATENONCUST} )
+	    {
+	      $self->Logmsg("Checking pfn $pfn");
+
+	      my $is_custodial_numeric = 1;
+	      if ( $is_custodial eq 'n' ) { $is_custodial_numeric = 0; }
+	      $status = &checkFileInMSS($pfn,$is_custodial_numeric);
+	    }
+	    else
+	    {
+	      $status = 1; # non-custodial transfers not checked by request
+	      $self->Logmsg("Auto-migrating non-custodial $lfn");
+	    }
+
 	    if ($status == 0) {
 		$self->Logmsg ("Not yet migrated: $pfn"); next;
 	    }
@@ -188,7 +173,7 @@ sub idle
 	    $dbh->commit ();
 
 	    # Log delay data.
-    	    $self->Logmsg ("xstats: to_node=$dest time="
+	    $self->Logmsg ("xstats: to_node=$dest time="
 		     . sprintf('%.1fs', $now - $available)
 		     . " size=$size lfn=$lfn pfn=$pfn");
 
@@ -255,7 +240,11 @@ sub checkFileInMSS_fake {
 
 # Castor Migration routine
 sub checkFileInMSS_castor {
-    my $pfn = shift @_;
+    my $pfn = shift;
+    my $is_custodial = shift;
+
+# Assume non-custodial files don't go to tape?
+    if ( ! $is_custodial ) { return 1; }
     my $migrated = 0;
     open (NSLS, "nsls -l $pfn |")
 	or do { warn ("cannot nsls $pfn: $!"); return 0 };
@@ -271,7 +260,8 @@ sub checkFileInMSS_castor {
 # SRM migration routine, as in original FileSRMMigrate
 # This is not a proper way to check for migration
 sub checkFileInMSS_SRM {
-    my $pfn = shift @_;
+    my $pfn = shift;
+    my $is_custodial = shift;
 
     my $migrated = 0;
             open (SRM, "srm-get-metadata -retry_num=1 $pfn |")
@@ -300,8 +290,16 @@ sub checkFileInMSS_SRM {
 __DATA__
     print "Loading default checkFileInMSS...\n";
 sub checkFileInMSS {
-    my $pfn = shift @_;
+    my $pfn = shift;
+    my $is_custodial = shift; # 0 for non-custodial data, 1 for custodial...
     
+#   Something different about non-custodial files?
+    if ( ! $is_custodial )
+    {
+#     then deal with them here...
+#     return 1; # to ignore non-custodial files.
+    }
+
 # Get the path and the filename
     my ($path, $filename) = ($pfn =~ m!(.*)/(.*)!);
 
