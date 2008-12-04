@@ -7007,14 +7007,14 @@ sub output
   }
 
   my $state_join = '';
-  my $state_cols = 'NULL from_pfn, NULL to_pfn,';
+  my $state_cols = 'NULL from_pfn, NULL to_pfn, NULL space_token,';
   my $state_where = '';
   if    ($state eq 'exported')     { 
       $state_join = 'join t_xfer_task_export ts on ts.task = xt.id'; 
       $state_where = 'and xt.id not in ( select task from t_xfer_task_inxfer )';
   } elsif ($state eq 'transferring') {
       $state_join = 'join t_xfer_task_inxfer ts on ts.task = xt.id'; 
-      $state_cols = 'ts.from_pfn, ts.to_pfn,';
+      $state_cols = 'ts.from_pfn, ts.to_pfn, ts.space_token,';
       $state_where = 'and xt.id not in ( select task from t_xfer_task_done )';
   } elsif ($state eq 'transferred')  { 
       $state_join = 'join t_xfer_task_done ts on ts.task = xt.id'; }
@@ -7055,7 +7055,7 @@ sub output
     "<ol align='left'>\n";
   while (my $row = $query->fetchrow_arrayref)
   {
-    my ($fileid, $lfn, $size, $from_pfn, $to_pfn, $assigned, $nerrors) = @$row;
+    my ($fileid, $lfn, $size, $from_pfn, $to_pfn, $space_token, $assigned, $nerrors) = @$row;
     my $errorurl = $self->myurl('page' => 'Activity::ErrorInfo',
 				'tofilter' => $to_node,
 				'fromfilter' => $from_node,
@@ -7065,6 +7065,7 @@ sub output
     "<b>size</b>=$size<br />",
     ($from_pfn ? "<b>from_pfn</b>=@{[&escapeHTML($from_pfn)]}<br />" : ""),
     ($to_pfn ? "<b>to_pfn</b>=@{[&escapeHTML($to_pfn)]}<br />" : ""),
+    ($space_token ? "<b>to_pfn</b>=@{[&escapeHTML($space_token)]}<br />" : ""),
     ($nerrors ? "<span class='alarm'><b>errors</b>=$nerrors</span> <a href='$errorurl'>(View)</a><br />"  : ""),
     ($assigned ? "<b>time_assign</b>=@{[strftime('%Y-%m-%d %H:%M:%S', gmtime($assigned))]} UTC<br />" : ""),
     "<br /></li>\n";
@@ -7206,7 +7207,7 @@ sub output
 
     my $sql = qq{ select ns.name from_node, nd.name to_node,
 		         time_assign, time_expire, time_export, time_inxfer, time_xfer, time_done,
-		         report_code, xfer_code, from_pfn, to_pfn,
+		         report_code, xfer_code, from_pfn, to_pfn, space_token,
 		         log_xfer, log_detail, log_validate
 		    from t_xfer_error xe
                     join t_adm_node nd on nd.id = xe.to_node
@@ -7281,6 +7282,7 @@ sub output
 	     (++$tn % 2 == 0 ? "<br/>" : '');
 	}
 
+	$$error{SPACE_TOKEN} ||= '(none)';
 	print { $$self{CONTENT} }
 	"<hr/>",
 	"<label>Report Code:</label><span class='labeled halfwidefield'>$$error{REPORT_CODE}</span>",
@@ -7288,6 +7290,7 @@ sub output
 	"<hr/>",
 	"<label>To PFN:</label><span class='labeled'>$$error{TO_PFN}</span><br/>",
 	"<label>From PFN:</label><span class='labeled'>$$error{FROM_PFN}</span><br/>",
+	"<label>Space Token:</label><span class='labeled'>$$error{SPACE_TOKEN}</span><br/>",
 	"<hr/>";
 
 	foreach my $log (qw(LOG_XFER LOG_DETAIL LOG_VALIDATE)) {
