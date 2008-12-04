@@ -8,6 +8,7 @@
 ##H -agent :  Filter on agent name
 ##H -label :  Filter on agent label
 ##H   -pid :  Filter on process ID
+##H  -plog :  Filter on process log
 ##H
 ##H Filters use SQL wildcard characters '%' and '_'
 
@@ -24,6 +25,7 @@ my %args;
 	     "agent=s"         => \$args{AGENT},
              "label=s"         => \$args{LABEL},
 	     "pid=s"           => \$args{PID},
+	     "plog=s"          => \$args{PLOG},
 	     "help|h"          => sub { &usage() });
 
 # Check arguments.
@@ -82,6 +84,12 @@ if ($args{PID}) {
     push @where, 'process_id = :pid';
     $binds{':pid'} = $args{PID};
 }
+
+if ($args{PLOG}) {
+    push @where, 'log_process like :plog';
+    $binds{':plog'} = $args{PLOG};
+}
+
 
 if (@where) { $sql .= join(' and ', '', @where); }
 
