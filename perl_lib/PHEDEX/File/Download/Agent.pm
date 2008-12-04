@@ -338,8 +338,8 @@ sub fetchNewTasks
 
     # Fetch new tasks.
     my $i = &dbprep($$self{DBH}, qq{
-	insert into t_xfer_task_inxfer (task, time_update, from_pfn, to_pfn)
-	values (:task, :now, :from_pfn, :to_pfn)});
+	insert into t_xfer_task_inxfer (task, time_update, from_pfn, to_pfn, space_token)
+	values (:task, :now, :from_pfn, :to_pfn, :space_token)});
 
      my $q = &dbexec($$self{DBH}, qq{
 	select
@@ -388,18 +388,21 @@ sub fetchNewTasks
 				  $row,
 				  $self->{BACKEND}->{CATALOGUES}
 				);
-#	A strict sanity check, should not be needed but who knows...
+#	A sanity check, should not be needed but who knows...
 	foreach ( qw / FROM_PFN TO_PFN FROM_NODE TO_NODE / )
 	{
 	  if ( !defined($h->{$_}) )
 	  {
-	    $self->Fatal('No $_ in task: ',join(', ',map { "$_=$row->{$_}" } sort keys %{$row}));
+	    $self->Alert('No $_ in task: ',join(', ',map { "$_=$row->{$_}" } sort keys %{$row}));
 	  }
 	}
         map { $row->{$_} = $h->{$_} } keys %{$h};
+	$row->{SPACE_TOKEN} = $h->{TO_TOKEN};
 	&dbbindexec($i, ":task" => $$row{TASKID}, ":now" => $now,
 			":from_pfn" => $$row{FROM_PFN},
-			":to_pfn" => $$row{TO_PFN} );
+			":to_pfn" => $$row{TO_PFN},
+		        ":space_token" => $$row{SPACE_TOKEN}
+		    );
 	$$row{TIME_INXFER} = $now;
         ($pending{$linkkey} ||= 0)++;
 	
@@ -425,7 +428,7 @@ sub updateTaskStatus
 	insert into t_xfer_error
 	(to_node, from_node, fileid, priority, is_custodial,
 	 time_assign, time_expire, time_export, time_inxfer, time_xfer,
-         time_done, report_code, xfer_code, from_pfn, to_pfn,
+         time_done, report_code, xfer_code, from_pfn, to_pfn, space_token,
 	 log_xfer, log_detail, log_validate)
 	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
     foreach my $task (keys %$tasks)
@@ -459,6 +462,7 @@ sub updateTaskStatus
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{XFER_CODE});
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{FROM_PFN});
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{TO_PFN});
+	    push(@{$eargs{$arg++}}, $$tasks{$task}{SPACE_TOKEN});
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_XFER});
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_DETAIL});
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_VALIDATE});

@@ -98,12 +98,13 @@ sub idle
 		);
 #	  $self->Logmsg('untested code: makeTransfer ',join(', ', map { "$_=$h->{$_} "} sort keys %{$h}));
 	  &dbexec($dbh, qq{
-	    insert into t_xfer_task_inxfer (task, time_update, from_pfn, to_pfn)
-	    values (:task, :time_update, :from_pfn, :to_pfn) },
+	    insert into t_xfer_task_inxfer (task, time_update, from_pfn, to_pfn, space_token)
+	    values (:task, :time_update, :from_pfn, :to_pfn, :space_token) },
 	    ":task"	   => $task->{ID},
 	    ":time_update" => $start,
 	    ":from_pfn"    => $h->{FROM_PFN},
 	    ":to_pfn"      => $h->{TO_PFN},
+	    ":space_token" => $h->{TO_TOKEN}
 	    );
 	}
 
