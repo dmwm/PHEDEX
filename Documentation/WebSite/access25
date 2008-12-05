@@ -5294,8 +5294,8 @@ sub output
   }
 
   my @infrastructure = grep exists $agents{$_}, qw(FileRouter FileIssue FilePump);
-  my @workflow = grep exists $agents{$_}, qw(BlockAllocator BlockMonitor BlockDelete
-					     BlockActivate BlockDeactivate BlockDLSUpdate);
+  my @workflow = grep exists $agents{$_}, qw(RequestAllocator BlockAllocator BlockMonitor BlockDelete
+					     BlockActivate BlockDeactivate);
   my @support = grep exists $agents{$_}, qw(BlockDownloadVerifyInjector InfoFileSize InfoStatesClean
 					    InvariantMonitor PerfMonitor LoadTestInjector LoadTestCleanup);
   my @site = grep exists $agents{$_}, qw(FileDownload FileExport FileStager FileRemove BlockDownloadVerify);
