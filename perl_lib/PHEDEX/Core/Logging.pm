@@ -101,6 +101,16 @@ sub Logmsg
   my $self = shift; me($self);
   my $logger = get_logger("PhEDEx");
   $logger->info(@_);
+  if ( $self )
+  {
+#   This is cheating a bit...
+    $ENV{PHEDEX_NOTIFICATION_PORT} = $self->{NOTIFICATION_PORT};
+    $ENV{PHEDEX_NOTIFICATION_HOST} = $self->{NOTIFICATION_HOST};
+  }
+  else
+  {
+    PHEDEX::Core::Logging::Notify(undef,@_);
+  }
 }
 
 # Notify(msg) -- log through udp socket to remote -- not using Log4perl
@@ -109,9 +119,16 @@ sub Logmsg
 sub Notify
 {
   my $self = shift; me($self);
-  my $port = $self->{NOTIFICATION_PORT} || $ENV{PHEDEX_NOTIFICATION_PORT};
+  my ($port,$server);
+  if ( ref($self) eq 'HASH' || ref($self) =~ m%^PHEDEX::% )
+  {
+    $port = $self->{NOTIFICATION_PORT};
+    $server = $self->{NOTIFICATION_HOST};
+  }
+  $port = $ENV{PHEDEX_NOTIFICATION_PORT} unless $port;
   return unless defined $port;
-  my $server = $self->{NOTIFICATION_HOST} || $ENV{PHEDEX_NOTIFICATION_HOST} || hostname;
+  $server ||= $ENV{PHEDEX_NOTIFICATION_HOST};
+  $server ||= hostname;
 
   my $message = join('',PHEDEX::Core::Logging::Hdr($self),@_);
   chomp $message;
@@ -132,7 +149,7 @@ sub Alert
   my $self = shift; me($self);
   my $logger = get_logger("PhEDEx");
   $logger->error("alert: ",@_);
-  $self->Notify(@_);
+  PHEDEX::Core::Logging::Notify($self,@_);
 }
 
 # Warn(msg) -- log as WARN
@@ -157,7 +174,7 @@ sub Fatal
   my $self = shift; me($self);
   my $logger = get_logger("PhEDEx");
   $logger->fatal("fatal: ", @_);
-  $self->Notify(@_);
+  PHEDEX::Core::Logging::Notify($self,@_);
   exit(1);
 }
 
