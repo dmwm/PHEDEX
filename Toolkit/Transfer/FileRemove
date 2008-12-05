@@ -43,13 +43,11 @@ use PHEDEX::File::Remove::Agent;
 	     "db=s"        => \$args{DBCONFIG},
              "nodes=s"     => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
              "delete=s"    => sub { push(@{$args{CMD_RM}}, split(/,/, $_[1])) },
-	     "storagemap=s"=> \$args{STORAGEMAP},
 	     "protocol=s"  => \$args{PROTOCOL},
 	     "limit=i"     => \$args{LIMIT},
 	     "help|h"	   => sub { &usage() });
 
-if (@ARGV || !$args{NODES} || !$args{DROPDIR} || !$args{DBCONFIG}
-    || !$args{CMD_RM} || !$args{STORAGEMAP})
+if (!$args{NODES} || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{CMD_RM} )
 {
     die "Insufficient parameters, use -h for help.\n";
 }

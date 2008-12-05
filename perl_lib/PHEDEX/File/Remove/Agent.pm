@@ -11,25 +11,41 @@ use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::RFIO;
 
-sub new
-{
-    my $proto = shift;
-    my $class = ref($proto) || $proto;
-    my $self = $class->SUPER::new(@_);
-    my %params = (DBCONFIG => undef,		# Database configuration file
+our    %params = (DBCONFIG => undef,		# Database configuration file
 	  	  NODES    => undef,		# Node names to run this agent for
 		  WAITTIME => 60 + rand(15),	# Agent activity cycle
 		  DELETING => undef,		# Are we deleting files now?
 		  CMD_RM   => undef,            # cmd to remove physical files
 		  PROTOCOL => 'direct',         # File access protocol
-	  	  STORAGEMAP => undef,		# Storage path mapping rules
+		  CATALOGUE => {},		# TFC from TMDB
 		  LIMIT => 100                  # Max number of files per cycle
 		  );
+
+our @array_params = qw / CMD_RM /;
+
+sub new
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = $class->SUPER::new(@_);
     
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
     bless $self, $class;
     return $self;
+}
+
+sub init
+{
+  my $self = shift;
+  $self->SUPER::init(@_);
+
+# Now my own specific values...
+  $self->SUPER::init
+        (
+          ARRAYS => [ @array_params ],
+          HASHES => [ ],
+        );
 }
 
 # Delete a file.  We do one step at a time; if the step fails, we just
@@ -112,7 +128,6 @@ sub deleteOneFile
     return $status;
 }
 
-
 sub deleteJob
 {
     my ($self, $file, $job) = @_;
@@ -127,7 +142,6 @@ sub deleteJob
 	unlink ($$job{LOGFILE});
     }
 }
-
 
 sub processDrop
 {
@@ -192,8 +206,23 @@ sub filesToDelete
     $q->finish();  # free resources in case we didn't use all results
 
     # Now get PFNs for all those files.
-    my $pfns = &pfnLookup ([ keys %files ], $$self{PROTOCOL},
-	    		   "local", $$self{STORAGEMAP});
+    my $cat = dbStorageRules($self->{DBH},
+			     $self->{CATALOGUE},
+			     $self->{NODES_ID}{$node});
+    my $pfns;
+    foreach ( keys %files )
+    {
+      $pfns->{$_} = [applyStorageRules
+                      (
+                        $cat,
+                        $self->{PROTOCOL},
+                        $self->{NODES_ID}{$node},
+                        'pre',
+                        $_,
+                        'n', # $IS_CUSTODIAL
+                      )];
+    }
+
     while (my ($lfn, $pfn2) = each %$pfns)
     {
         my $pfn = $pfn2->[1];
