@@ -133,7 +133,6 @@ sub confirm
        	           and xsi.from_node is not null)) },
 	":recent" => $now - 5400);
 
-$DB::single=1;
     while (! $finished)
     {
 	$finished = 1;
