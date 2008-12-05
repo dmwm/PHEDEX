@@ -48,6 +48,10 @@ my $sql = qq{
         s.process_id,
         s.time_update status_update,
         l.time_update log_update,
+        v.filename,
+        v.release,
+        v.revision,
+        v.tag,
         l.reason log_reason,
         l.message log_process,
         rank() over (partition by s.host_name, a.name, s.label
@@ -58,6 +62,10 @@ my $sql = qq{
       join t_agent_log l 
         on l.host_name = s.host_name
        and l.process_id = s.process_id
+ left join t_agent_version v
+        on v.agent = a.id
+       and v.node = n.id
+       and v.filename = a.name
   order by n.name, a.name, s.label, s.process_id
     ) where rn = 1
 };
@@ -103,7 +111,8 @@ while (my $agent = $q->fetchrow_hashref()) {
 	foreach (qw(STATUS_UPDATE LOG_UPDATE));
 
     print '=' x 80, "\n";
-    foreach (qw(NODE_NAME AGENT_NAME AGENT_LABEL HOST_NAME PROCESS_ID STATUS_UPDATE LOG_UPDATE LAST_UPDATE)) {
+    foreach (qw(NODE_NAME AGENT_NAME AGENT_LABEL HOST_NAME PROCESS_ID 
+		RELEASE STATUS_UPDATE LOG_UPDATE LAST_UPDATE)) {
 	printf("%15s:  %s\n", lc $_, $agent->{$_});
     }
     print '- ' x 40, "\n";
