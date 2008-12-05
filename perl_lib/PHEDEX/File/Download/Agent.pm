@@ -363,6 +363,8 @@ sub fetchNewTasks
 	   and $dest $src
 	order by time_assign asc, rank asc},
         ":limit" => $now + 3600, %dest_args, %src_args);
+
+    my %errors;
     while (my $row = $q->fetchrow_hashref())
     {
 	# If we have just too much work, leave.
@@ -383,11 +385,17 @@ sub fetchNewTasks
 
         $row->{FROM_PROTOS} = [@{$self->{BACKEND}{PROTOCOLS}}];
         $row->{TO_PROTOS}   = [@{$self->{BACKEND}{PROTOCOLS}}];
-	my $h = makeTransferTask(
-				  $self,
-				  $row,
-				  $self->{BACKEND}->{CATALOGUES}
-				);
+	my $h;
+	eval {
+	    $h = makeTransferTask($self, $row, $self->{BACKEND}->{CATALOGUES} );
+	};
+	if ($@) {
+	    chomp $@;
+	    $errors{$@} ||= 0;
+	    $errors{$@}++;
+	    next;
+	}
+
 #	A sanity check, should not be needed but who knows...
 	foreach ( qw / FROM_PFN TO_PFN FROM_NODE TO_NODE / )
 	{
@@ -411,6 +419,13 @@ sub fetchNewTasks
 	return if ! &output("$$self{TASKDIR}/$$row{TASKID}", Dumper($row));
 	$$tasks{$$row{TASKID}} = $row;
     }
+    
+    # report error summary
+    foreach my $err (keys %errors) {
+	$self->Alert ("'$err' occurred for $errors{$err} tasks" );
+	delete $errors{$err};
+    }
+
     $q->finish(); # In case we left before going through all the results
 }
 

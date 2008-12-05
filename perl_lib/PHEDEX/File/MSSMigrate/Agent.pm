@@ -75,20 +75,32 @@ sub idle
 	      and not exists
 	        (select 1 from t_xfer_task_inxfer xti where xti.task = xt.id)},
 		%myargs );
+
+	my %errors;
 	while (my $task = $q1->fetchrow_hashref())
         {
-	  my $h = $self->makeTransferTask
-		(
-			{
-			  FROM_NODE_ID	=> $task->{FROM_NODE},
-			  TO_NODE_ID	=> $task->{TO_NODE},
-			  FROM_PROTOS	=> $self->{PROTOCOLS},
-			  TO_PROTOS	=> $self->{PROTOCOLS},
-			  LOGICAL_NAME	=> $task->{LOGICAL_NAME},
-			  IS_CUSTODIAL	=> $task->{IS_CUSTODIAL},
-			},
-			$self->{CATALOGUE},
-		);
+	    my $h;
+	    eval {
+		$h = $self->makeTransferTask
+		    (
+		     {
+			 FROM_NODE_ID	=> $task->{FROM_NODE},
+			 TO_NODE_ID	=> $task->{TO_NODE},
+			 FROM_PROTOS	=> $self->{PROTOCOLS},
+			 TO_PROTOS	=> $self->{PROTOCOLS},
+			 LOGICAL_NAME	=> $task->{LOGICAL_NAME},
+			 IS_CUSTODIAL	=> $task->{IS_CUSTODIAL},
+		     },
+		     $self->{CATALOGUE},
+		     );
+	    };
+	    if ($@) {
+		chomp $@;
+		$errors{$@} ||= 0;
+		$errors{$@}++;
+		next;
+	    }
+
 	  &dbexec($dbh, qq{
 	    insert into t_xfer_task_inxfer (task, time_update, from_pfn, to_pfn, space_token)
 	    values (:task, :time_update, :from_pfn, :to_pfn, :space_token) },
@@ -99,8 +111,13 @@ sub idle
 	    ":space_token" => $h->{TO_TOKEN}
 	    );
 	}
-
 	$dbh->commit();
+
+	# report error summary
+	foreach my $err (keys %errors) {
+	    $self->Alert ("'$err' occurred for $errors{$err} tasks" );
+	    delete $errors{$err};
+	}
 
 	# Pick up work and process it.
         my $done = &dbprep ($dbh, qq{
