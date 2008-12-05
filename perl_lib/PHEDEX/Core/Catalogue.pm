@@ -87,6 +87,17 @@ sub makeTransferTask
 			 	  $task->{LOGICAL_NAME},
 			 	  $task->{IS_CUSTODIAL}
 				);
+
+    # Finally, die if we just couldn't get the PFN
+    # FIXME: when people see this error, they're probably going to
+    # want to know for which LFN it was for.  Unfortunately we need to
+    # protect the logs from flooding so we have to leave that out.  We
+    # should find a way to give them some clue...
+    die ("could not determine source PFN from TFC: ", 
+	 "from=$from_name protocol=$protocol custodial=$task->{IS_CUSTODIAL}\n") unless $from_pfn;
+    die ("could not determine destination PFN from TFC: ", 
+	 "to=$from_name protocol=$protocol custodial=$task->{IS_CUSTODIAL}\n") unless $to_pfn;
+
   return {
 	   FROM_PFN	=> $from_pfn,
 	   FROM_NODE	=> $from_name,
