@@ -127,10 +127,10 @@ sub transfer
     &dbexec($dbh, qq{
 	insert all
 	  into t_xfer_task_export (task, time_update) values (id, :now)
-	  into t_xfer_task_inxfer (task, time_update, from_pfn, to_pfn) values (id, :now, '(fake)', '(fake)')
-	  into t_xfer_task_done   (task, report_code, xfer_code,
-				   time_xfer, time_update)
-			          values (id, 0, 0, :now, :now)
+	  into t_xfer_task_inxfer (task, time_update, from_pfn, to_pfn, space_token)
+                           values (id, :now, '(fake)', '(fake)', '(fake)')
+	  into t_xfer_task_done   (task, report_code, xfer_code, time_xfer, time_update)
+			   values (id, 0, 0, :now, :now)
 	select xt.id from t_xfer_task xt
 	  join t_adm_node ns on ns.id = xt.from_node and ns.kind = 'MSS'
 	  join t_adm_node nd on nd.id = xt.to_node and nd.kind = 'Buffer'
