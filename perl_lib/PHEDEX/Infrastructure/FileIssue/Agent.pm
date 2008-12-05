@@ -144,8 +144,8 @@ $DB::single=1;
 	    if ( $task->{FROM_KIND} eq 'MSS' )
 	    {
 #	      Fake a protocol if we are not likely to find a match
-	      $task->{FROM_PROTOS} .= ' srm' unless ($task->{FROM_PROTOS} =~ m%srm%);
-	      $task->{TO_PROTOS}   .= ' srm' unless ($task->{TO_PROTOS}   =~ m%srm%);
+	      $task->{FROM_PROTOS} .= ' srm' if (! $task->{FROM_PROTOS} || !$task->{FROM_PROTOS} =~ m%srm%);
+	      $task->{TO_PROTOS}   .= ' srm' if (! $task->{TO_PROTOS}   || !$task->{TO_PROTOS}   =~ m%srm%);
 	    }
 	    $$task{PRIORITY} = 2*$$task{PRIORITY} + (1-$$task{IS_LOCAL});
 
