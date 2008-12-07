@@ -3,10 +3,10 @@
 ##H Parallel reliable file download agent.
 ##H
 ##H This agent monitors TMDB for files assigned to the agent, and
-##H manages their download.  A separate backend (Globus, SRM, ...)
+##H manages their download.  A separate backend (FTS, SRM, ...)
 ##H handles the actual transfer steps.  A configurable number of
 ##H files is always kept in transfer, using subprocesses to manage
-##H transfers and other tasks as appropriate.  The again maintains
+##H transfers and other tasks as appropriate.  The agent maintains
 ##H a local pool of transfer work and uploads file transfer report
 ##H to the database every once in a while.
 ##H
@@ -28,6 +28,8 @@
 ##H      -db FILE[:SECTION] [-log OUT] [-verbose]
 ##H      [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]
 ##H      [-validate CMD[,ARG...]] [-delete CMD[,ARG...]]
+##H      [-no-pre-validate] [-no-pre-delete]
+##H      [-util-jobs N] [-util-timeout N] [-prepare-jobs N]
 ##H      -backend TYPE [OPTIONS]
 ##H
 ##H -state       agent state directory
@@ -38,8 +40,16 @@
 ##H
 ##H -ignore      comma-separated list of nodes to ignore transfers from
 ##H -accept      comma-separated list of nodes to accept transfers from
-##H -validate    command to verify file transfer success
-##H -delete      command to delete file on failure
+##H -validate    command to verify file transfer success (pre/post transfer)
+##H -delete      command to delete file on failure (pre/post transfer)
+##H -no-pre-validate   turn off pre-transfer validation check
+##H -no-pre-delete     turn off pre-transfer deletion
+##H -util-jobs         number of utility (-validate, -delete) jobs to execute
+##H                    in parallel (default 10)
+##H -util-timeout      timeout for utility (-validate, -delete) jobs in
+##H                    seconds (default 600)
+##H -prepare-jobs      number of jobs to queue for preparation
+##H                    (pre-validation, pre-deletion) tasks per cycle (default 200)
 ##H
 ##H -backend     the transfer backend to use: Globus, SRM, FTS, DCCP; all
 ##H               options that follow are passed to the backend as such
@@ -109,6 +119,11 @@ use PHEDEX::Core::Help;
 					 split(/,/, $_[1])) },
              "delete=s"    => sub { push(@{$args{DELETE_COMMAND}},
 					 split(/,/, $_[1])) },
+	     "!pre-validate" => \$args{PREVALIDATE},
+	     "!pre-delete"   => \$args{PREDELETE},
+	     "util-jobs=i"   => \$args{NJOBS},
+	     "util-timeout=i" => \$args{TIMEOUT},
+	     "prepare-jobs=i" => \$args{PREPARE_JOBS},
 
              "backend=s"   => sub { $args{BACKEND_TYPE} = $_[1]; die "!FINISH"; },
 
