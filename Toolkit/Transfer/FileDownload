@@ -91,7 +91,6 @@
 ##H -default-link-active-files   number of per-link active files allowed for all links
 ##H -myproxy     myproxy server specification
 ##H -passfile    FTS password file
-##H -spacetoken  a single SRM spacetoken to use with all transfers
 ##H -j_interval  interval for polling the FTS queue for job status. Not normally
 ##H              needed
 ##H -priority    priority mapping from PhEDEx to FTS states. Not for normal use
