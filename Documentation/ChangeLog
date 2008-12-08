@@ -1,3 +1,69 @@
+* Changes in PhEDEx 3_1_0_pre2
+
+ This is a major upgrade over the 3.0.x series of PhEDEx, and is a
+mandatory upgrade. There is a new schema which implements custodiality and
+user-group management. Old agents and tools are not necessarily backwards
+compatible, some agents have new or deprecated options so your
+configurations need updating. T1s need to consider their TFCs carefully in
+order to implement correct handling of custodial data.
+
+Changes for All Agents
+ - allow easier debugging by optionally sending all error messages and 
+   alerts to a UDP port, specified by PHEDEX_NOTIFICATION_HOST and 
+   PHEDEX_NOTOFICATION_PORT in the environment. Alternatively, can specify
+   NOTIFICATION_PHOST and NOTIFICATION_PORT per-agent. You will need a
+   udp-client to listen for the messages, we do not yet provide one in
+   PhEDEx.
+
+Changes for Central Agents
+ - FileIssue no longer issues the PFN for source and destination of 
+   transfers. These are instead calculated in the download agents 
+   themselves, and FIleIssue simply checks if the transfer is possible. 
+
+Changes for Site Agents
+ - FileMSSMigrate now takes an optional --auto-migrate-noncust argument,  
+   which takes no value. The default is false, specifying this argument
+   causes the agent to assume that all non-custodial data is 'migrated'
+   automatically, and to flag it as such.
+   Also the checkFileInMSS function signature has changed to
+   checkFileInMSS($pfn,$is_custodial), i.e. there is an extra argument to
+   denote custodiality (values 1 or 0).
+ - FileRemove no longer takes '-storagemap', instead it gets its catalogue
+   from TMDB. This is to ensure consistency across all agents, so they are
+   all using the same version of a sites catalogue.                    
+   Note that FileRemove is agnostic to custodiality. This is probably not
+   a problem.
+ - FileDownload now supports pre-validation of transfers, using the same 
+   validation script for pre- and post-transfer validation. The 
+   pre-validation case is distinguished by the 'pre' string passed as the 
+   transfer status. Several new arguments are added to allow control of 
+   the behaviour:
+	-no-pre-validate	disable pre-validation
+	-no-pre-delete		disable pre-deletion
+	-util-jobs=i		max number of jobs to run in parallel
+	-util-timeout=i		timeout per job
+	-prepare-jobs=i		number of jobs to queue for preparation
+   FileDownload also calculates the PFNs for source and destination, 
+   instead of taking them as input. This allows rapid response to changes
+   of a sites TFC, and allows immediate termination of data-transfer from
+   a site by removing its TFC from TMDB. Equivalently, stopping your 
+   export agent will soon mark the TFC as stale, and transfers will halt.
+  - FTS backend no longer takes a global spacetoken option. It is expected 
+    that spacetokens are retrieved and used from the TFC only.
+    Failure to open an FTS mapfile is now a fatal error.
+
+Changes for Tools
+ - new Utilities/ShowAgents, show the status of agents at sites
+ - FileDeleteTMDB: remove whitespace around searches
+ - InspectPhedexLog: bugfixes for XML format and start/end time 
+   calculations
+ - TestCatalogue: Add -C option for custodiality (y|n). This is needed for 
+   the round-trip PFN->LFN->PFN lookup, since you lose knowledge of 
+   custodiality on the PFN->LFN lookup.
+ - phedex: correct case-setting for keys in different formats, friendlier
+   error-messages unless -debug is set.
+   - phedex subscribe: add -custodial, -group, and -request-only options
+
 * Changes in PhEDEx 3.0.7
 
 Changes for Site Agents
