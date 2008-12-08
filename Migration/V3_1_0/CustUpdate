@@ -1,0 +1,97 @@
+#!/usr/bin/env perl
+
+##H Update the custodial flag of existing subscriptions
+##H To be used for the 3.0 to 3.1 migration
+##H
+##H Usage:  $0 -db DBPARAM -f CUSTODIAL_FILE
+
+# Process command line arguments.
+my %args;
+use Getopt::Long;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::DB;
+use PHEDEX::Core::Timing;
+&GetOptions ("db=s"            => \$args{DBCONFIG},
+	     "custodial-file|f=s"        => \$args{CUSTODIAL_FILE},
+	     "execute"                   => \$args{EXECUTE},
+	     "help|h"          => sub { &usage() });
+
+# Check arguments.
+if (!$args{DBCONFIG} || !$args{CUSTODIAL_FILE})
+{
+  die "Insufficient parameters.\n";
+  &usage();
+}
+
+my $self = { DBCONFIG => $args{DBCONFIG} };
+my $dbh = &connectToDatabase ($self);
+my $now = &mytimeofday();
+
+my $all_subs = &dbexec($dbh, qq{
+       select s.request,
+              NVL2(s.block, 'BLOCK', 'DATASET') item_level,
+	      NVL2(s.block, s.block, s.dataset) item_id,
+	      NVL2(s.block, b.name, ds.name) item_name,
+	      NVL2(s.block, b.is_open, ds.is_open) item_open,
+	      ds.id dataset_id, ds.name dataset_name,
+	      n.id node_id, n.name node_name,
+	      s.destination subs_destination, s.dataset subs_dataset, s.block subs_block,
+	      s.priority, s.is_move, s.is_transient,
+	      s.time_suspend_until, s.time_create,
+	      s.time_clear, s.time_complete, s.time_done
+	    from t_dps_subscription s
+	    join t_adm_node n on n.id = s.destination
+	    left join t_dps_block b on b.id = s.block
+	    left join t_dps_dataset ds on ds.id = s.dataset or ds.id = b.dataset
+	})->fetchall_hashref([qw(ITEM_NAME NODE_NAME)]);
+
+my $update_ds = &dbprep($dbh, qq{
+  update t_dps_subscription set is_custodial = 'y'
+   where node = :node and dataset = :dataset
+});
+
+my $update_b = &dbprep($dbh, qq{
+  update t_dps_subscription set is_custodial = 'y'
+   where node = :node and block = :block
+});
+
+open FILE, "< $args{CUSTODIAL_FILE}" or die $!;
+while (<FILE>) {
+    chomp;
+    next if /^\s*\#/;   # comments
+    s/\s*(\S+)\s*/$1/;  # whitespace
+    next unless $_;     # blank
+    my ($node, $data) = split '\s*,\s*', $_;
+    unless ($node && $data) {
+	print "error:  bad line format at line $.:  '$_', skipping\n";
+	next;
+    }
+    
+    if  (!exists $all_subs->{$data}->{$node}) {
+	my @sub_nodes = keys %{$all_subs->{$data}};
+	if (!@sub_nodes) {
+	    print "error:  no subscriptions found for data=$data at line $., skipping\n";
+	} else {
+	    print "error:  no existing subscription for custodial node=$node data=$data at ",
+	    "line $. (subscriptions at ", join(', ', @sub_nodes), "), skipping\n";
+	}
+	next;
+    }
+    my $s = $all_subs->{$data}->{$node};
+
+    print "setting custodial:  node=$node data=$data for line $.\n";
+    if ($args{EXECUTE}) {
+	my ($sth, $rv);
+	if ($s->{ITEM_LEVEL} eq 'DATASET') {
+	    ($sth, $rv) = &dbbindexec($dbh, $update_ds, ':node' => $s->{NODE_ID}, ':dataset' => $s->{ITEM_ID});
+	} else {
+	    ($sth, $rv) = &dbbindexec($dbh, $update_b, ':node' => $s->{NODE_ID}, ':block' => $s->{ITEM_ID});
+	}
+	if (! $rv == 1) {
+	    print "error:  expected to update one row, updated $rv rows\n";
+	}
+    }
+}
+close FILE;
+
+&disconnectFromDatabase($self, $dbh, 1);
