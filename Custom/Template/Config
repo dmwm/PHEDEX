@@ -11,11 +11,13 @@
 # 			site's name and can be found in the first line of the	    #
 #			authentication info you received			    #
 #										    #
-# PHEDEX_SITE:		Your site name as in $PHEDEX_BASE/SITECONF		    #
+# PHEDEX_SITE:		Your CMS site name as in $PHEDEX_BASE/SITECONF		    #
 #										    #
-# PHEDEX_NODE:		Name of your Buffer node; The name for your MSS node        #
-#                       (if any) will be derived automatically. Naming convention   #
-#			T<x>_<Site name>[_Buffer]			            #
+# PHEDEX_NODE:		Name of your Buffer node; For T2s and T3s this is           #
+#                       equivilent to $PHEDEX_SITE.  For T1s there can be multiple  #
+#                       nodes to represent buffer and mass storage areas.  The      #
+#                       usual convention is ${PHEDEX_SITE}_Buffer and               #
+#                       ${PHEDEX_SITE}_MSS                                          #
 #										    #
 # PHEDEX_VERSION:	The PhEDEx version you are running			    #
 #                                                                                   #
@@ -40,9 +42,9 @@
 PHEDEX_BASE=/home/phedex;
 PHEDEX_INSTANCE=Dev;
 PHEDEX_LABEL=ATLANTIS;
-PHEDEX_SITE=Atlantis;
-PHEDEX_NODE=TX_${PHEDEX_SITE}_Buffer;
-PHEDEX_VERSION=2_5_1;
+PHEDEX_SITE=T2_CX_Atlantis;
+PHEDEX_NODE=$PHEDEX_SITE
+PHEDEX_VERSION=3_1_0
 PHEDEX_OS_VERSION=slc4_ia32_gcc345;
 PHEDEX_X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
@@ -56,14 +58,13 @@ TIER1_FTS_SERVICE=Atlantis-FTS;
 # Load the sub-configuration files #
 ####################################
 
-# The following 5 files steer, which PhEDEx services will be
+# The following 4 files steer, which PhEDEx services will be
 # running at your site. They are all active by default and
 # can be deactivated by adding another '#' sign. We distinguish
 # between the following services:
 # 
 # Common:   Loads PhEDEx environemt.
 # Export:   Needed for exporting files to other sites.
-# Inject:   Allows to inject locally produced files into PhEDEx.
 # MSS:      Needed for storage systems with tape backend
 # Download: Download agents to perform file replication.
 #
@@ -72,7 +73,6 @@ TIER1_FTS_SERVICE=Atlantis-FTS;
 
 ### IMPORT ConfigPart.Common
 ### IMPORT ConfigPart.Export
-### IMPORT ConfigPart.Inject
 
 # Download and MSS agents default to 'off'; either start explicitly or
 # remove 'DEFAULT=off' from the ConfigPart file listed below.
