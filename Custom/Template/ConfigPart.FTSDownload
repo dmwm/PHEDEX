@@ -50,6 +50,5 @@ TIER1_FTS_SERVER=$(glite-sd-query -e -t org.glite.FileTransfer -s ${TIER1_FTS_SE
 ### AGENT LABEL=download-remove PROGRAM=Toolkit/Transfer/FileRemove ENVIRON=glite
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE}
- -storagemap      ${PHEDEX_CONFIG}/storage.xml
  -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
  -protocol        'srm'
