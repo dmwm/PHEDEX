@@ -143,7 +143,9 @@ sub confirm
 	    if ( $task->{FROM_KIND} eq 'MSS' )
 	    {
 		# Do nothing.  MSS->Buffer 'transfers' are completely faked.
-	    } else {
+	    } 
+	    else 
+	    {
 		# Check that we can make a task.  If we can't do it
 		# now the download agent isn't likely to be able to
 		# either.
@@ -158,6 +160,8 @@ sub confirm
 		}
 	    }
 
+	    # Reinterpret priority.  This makes local transfers a
+	    # higher priority than WAN transfers	   
 	    $$task{PRIORITY} = 2*$$task{PRIORITY} + (1-$$task{IS_LOCAL});
 
 	    push(@tasks, $task);
