@@ -5,4 +5,4 @@
  -nodes       ${PHEDEX_NODE}
  -ignore      ${PHEDEX_MSS}
  -storagemap  ${PHEDEX_MAP}
- -protocols   'srm'
+ -protocols   'srmv2,srm'
