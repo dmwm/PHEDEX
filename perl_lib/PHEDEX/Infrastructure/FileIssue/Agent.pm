@@ -142,22 +142,23 @@ sub confirm
         {
 	    if ( $task->{FROM_KIND} eq 'MSS' )
 	    {
-#	      Fake a protocol if we are not likely to find a match
-	      $task->{FROM_PROTOS} .= ' srm' if (! $task->{FROM_PROTOS} || !$task->{FROM_PROTOS} =~ m%srm%);
-	      $task->{TO_PROTOS}   .= ' srm' if (! $task->{TO_PROTOS}   || !$task->{TO_PROTOS}   =~ m%srm%);
+		# Do nothing.  MSS->Buffer 'transfers' are completely faked.
+	    } else {
+		# Check that we can make a task.  If we can't do it
+		# now the download agent isn't likely to be able to
+		# either.
+		$task->{FROM_NODE_ID} = $task->{FROM_NODE};
+		$task->{TO_NODE_ID}   = $task->{TO_NODE};
+		eval { $self->makeTransferTask($task, $cats); };
+		if ($@) {
+		    chomp $@;
+		    $errors{$@} ||= 0;
+		    $errors{$@}++;
+		    next;
+		}
 	    }
-	    $$task{PRIORITY} = 2*$$task{PRIORITY} + (1-$$task{IS_LOCAL});
 
-#	    makeTransferTask is expecting *_NODE_ID...
-	    $task->{FROM_NODE_ID} = $task->{FROM_NODE};
-	    $task->{TO_NODE_ID}   = $task->{TO_NODE};
-	    eval { $self->makeTransferTask($task, $cats); };
-	    if ($@) {
-		chomp $@;
-		$errors{$@} ||= 0;
-		$errors{$@}++;
-		next;
-	    }
+	    $$task{PRIORITY} = 2*$$task{PRIORITY} + (1-$$task{IS_LOCAL});
 
 	    push(@tasks, $task);
 	    do { $finished = 0; last } if scalar @tasks >= 10_000;
