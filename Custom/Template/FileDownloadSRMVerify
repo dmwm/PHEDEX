@@ -4,7 +4,8 @@ set -o nounset
 ##H Usage: FileDownloadVerify [-c] [-d] [-f] STATUS PFN SIZE CHECKSUM
 ##H
 ##H arguments automatically provided by calling agent:
-##H    STATUS:        exit code of the transfer process
+##H    STATUS:        exit code of the transfer process 
+##H                   (or "pre" for pre-transfer valiation check)
 ##H    PFN:           PFN of transfered file to verify
 ##H    SIZE:          reference size of transfered file
 ##H    CHECKSUM:      reference chskum of transfered file
@@ -74,6 +75,21 @@ validity=0
 
 # If status was claimed ok, accept it
 #[ X"$status" = X0 ] && exit 0
+
+# If status is "pre" then we are doing a pre-transfer validation Here
+# we just return 1 (failure) and bypass this feature.  If we actually
+# want to do pre-transfer valiation, the exit codes have the following
+# meaning: 
+# 0 : Success.  File exists and is valid.  No transfer should
+#     be attempted and the task should be marked successful.
+# 86: Veto. Storage area not prepared to receive this transfer.  
+#     Transfer will not be attempted and the task is marked as a 
+#     failure.
+# other non-zero: Failure.  The file sould be transferred and 
+#                 validated afterwards.
+if [ X"$status" = "Xpre" ]; then
+  exit 1
+fi
 
 # Check file size and mark file invalid on mismatch.
 if [ $validity = 0 ]; then
