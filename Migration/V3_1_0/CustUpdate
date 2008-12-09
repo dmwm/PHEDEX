@@ -47,13 +47,15 @@ my $all_subs = &dbexec($dbh, qq{
 
 my $update_ds = &dbprep($dbh, qq{
   update t_dps_subscription set is_custodial = 'y'
-   where node = :node and dataset = :dataset
+   where destination = :node and dataset = :dataset
 });
 
 my $update_b = &dbprep($dbh, qq{
   update t_dps_subscription set is_custodial = 'y'
-   where node = :node and block = :block
+   where destination = :node and block = :block
 });
+
+my $n_cust=0;
 
 open FILE, "< $args{CUSTODIAL_FILE}" or die $!;
 while (<FILE>) {
@@ -81,17 +83,22 @@ while (<FILE>) {
 
     print "setting custodial:  node=$node data=$data for line $.\n";
     if ($args{EXECUTE}) {
-	my ($sth, $rv);
+	my ($rv);
 	if ($s->{ITEM_LEVEL} eq 'DATASET') {
-	    ($sth, $rv) = &dbbindexec($dbh, $update_ds, ':node' => $s->{NODE_ID}, ':dataset' => $s->{ITEM_ID});
+	    ($rv) = &dbbindexec($update_ds, ':node' => $s->{NODE_ID}, ':dataset' => $s->{ITEM_ID});
 	} else {
-	    ($sth, $rv) = &dbbindexec($dbh, $update_b, ':node' => $s->{NODE_ID}, ':block' => $s->{ITEM_ID});
+	    ($rv) = &dbbindexec($update_b, ':node' => $s->{NODE_ID}, ':block' => $s->{ITEM_ID});
 	}
 	if (! $rv == 1) {
 	    print "error:  expected to update one row, updated $rv rows\n";
+	} else {
+	    $n_cust++;
 	}
     }
+    $dbh->commit();
 }
 close FILE;
 
 &disconnectFromDatabase($self, $dbh, 1);
+
+print "All done: set $n_cust subscriptions to custodial\n";
