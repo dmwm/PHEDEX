@@ -1,19 +1,143 @@
-<storage-mapping>
-  <lfn-to-pfn protocol="direct" destination-match=".*"
-    path-match="/+LoadTest/(.*)" result="/castor/cern.ch/cms/phedex_loadtest/$1"/>
-  <lfn-to-pfn protocol="direct" destination-match=".*"
-    path-match="/+(.*)" result="/castor/cern.ch/cms/$1"/>
-  <lfn-to-pfn protocol="srm" destination-match=".*" chain="direct"
-    path-match="(.*)" result="srm://castorgrid.cern.ch:8443/srm/managerv1?SFN=$1"/>
-  <lfn-to-pfn protocol="gsiftp" destination-match=".*" chain="direct"
-    path-match="(.*)" result="gsiftp://srm.cern.ch/$1"/>
+<!--
+  The Trivial File Catalog (TFC) is responsible for mapping logical
+  file names (LFNs) to your storage and back again.  For a given
+  protocol (e.g. direct, srmv2) LFNs are transformed into physical
+  file names (PFNs) which represent a path to a storage area, and the
+  space token, which is used by SRM to assign files to storage pools.
+  Conversely, one must define rules to transform PFNs back into LFNs.
+  A full round-trip of LFN->PFN->LFN and PFN->LFN->PFN should be
+  possible from the rules you define here for any valid LFN and PFN.
 
-  <pfn-to-lfn protocol="direct" destination-match=".*"
-    path-match="/+castor/cern.ch/cms/phedex_loadtest/(.*)" result="/LoadTest/$1"/>
-  <pfn-to-lfn protocol="direct" destination-match=".*"
-    path-match="/+castor/cern\.ch/cms/(.*)" result="/$1"/>
-  <pfn-to-lfn protocol="srm" destination-match=".*" chain="direct"
-    path-match=".*\?SFN=(.*)" result="$1"/>
-  <pfn-to-lfn protocol="gsiftp" destination-match=".*" chain="direct"
-    path-match="[a-z]+://[-a-z0-9:.]+/(.*)" result="$1"/>
+  The TFC uses a series of rules of two types: lfn-to-pfn and
+  pfn-to-lfn.  For each type several input parameters are checked
+  against the rule definitions and the first rule to match all of the
+  conditions is used.  Rules may be "chained" to one another, which
+  means that a matching rule will send its output to another protocol
+  for further evaluation.  This feature allows one to simplify the TFC
+  for the various protocols, as for most of them you will use the same
+  conventions but with slightly different prefixes for the PFN used by
+  that protocol.
+
+  It is extremely important that your TFC be correct and working
+  before you use it with PhEDEx tools.  After changing your TFC, be
+  sure to test it for LFNs and PFNs which you expected to change and
+  verify that you get the correct results.  The
+  Utilities/TestCatalogue script is provided for this purpose.
+
+  The input parameters which are used to match rules are:
+
+  protocol (required):
+    the access protocol being used for the transformation,
+    e.g. 'direct' for POSIX-like access or 'srmv2' for the
+    SRM protocol version 2.x.
+  
+  path-match (required):
+    the input string which represents the LFN (in lfn-to-pfn rules) or
+    the PFN (in pfn-to-lfn) rules.  path-match is in the form of a
+    perl regular expression.  Captured matches (in parentheses) are
+    sent to $1, $2, etc. in 'result', following the conventions of the
+    perl s/// operator.  A matching rule will transform $input via
+    $input =~ s/$path-match/$result/
+
+  destination-match (optional):
+    regular expression to match the destination node name of the
+    transfer task.  If undefined, then all destinations match.
+
+  is-custodial (optional):
+    whether or not the file should be treated as custodial data,
+    either 'y' or 'n'.  If undefined, then both custodial and
+    non-custodial files match.
+
+  The ouptut parameters from matched rules are:
+
+  result (required):
+    the resulting LFN or PFN for the rule.  A matching rule will
+    transform $input via $input =~ s/$path-match/$result/
+
+  space-token (optional):
+    the SRM space token to use for a matching rule.  If undefined, the
+    result has an undefined space token.  Note that for chained rules
+    the space token is "sticky", that is if rule 1 defines a space
+    token and is chained to rule 2, which does not define one, then
+    the final space token is the one defined in rule 1.
+
+  chain (optional):
+    another protocol name (also defined in the same TFC) to which the
+    output of the current rule should be sent to.  If chain is not
+    defined, then the given rule defines the final result.
+
+  The following TFC is for example only.  Every site can have a
+  different storage layout and you should customize your TFC
+  accordingly.
+
+-->
+
+<storage-mapping>
+  <!-- Specific for LoadTest07  -->
+  <lfn-to-pfn protocol="direct"
+    path-match=".*/LoadTest07_.*_CERN_(.*)_.*_.*"
+    result="/castor/cern.ch/cms/store/PhEDEx_LoadTest07_4/LoadTest07_CERN_$1"/>
+  <lfn-to-pfn protocol="direct"
+    path-match=".*/CCRC08LoadTest/(.*)/.*"
+    result="/castor/cern.ch/cms/store/PhEDEx_LoadTest07_4/LoadTest07_CERN_$1"/>
+  <lfn-to-pfn protocol="direct"
+    path-match=".*/LoadTest07Source/T._CERN_(.*)"
+    result="/castor/cern.ch/cms/store/PhEDEx_LoadTest07_4/LoadTest07_CERN_$1"/>
+
+  <!-- Default rules -->
+  <lfn-to-pfn protocol="direct"
+    path-match="/+(.*)" is-custodial="n"
+    result="/castor/cern.ch/cms/$1"
+    space-token="CMS_NONCUSTODIAL"/>
+  <lfn-to-pfn protocol="direct"
+    path-match="/+(.*)" is-custodial="y"
+    result="/castor/cern.ch/cms/$1"
+    space-token="CMS_CUSTODIAL"/>
+  <lfn-to-pfn protocol="stageout" chain="direct"
+    path-match="(.*)"
+    result="$1"/>
+  <lfn-to-pfn protocol="rfio" chain="direct"
+    path-match="(.*)"
+    result="rfio:$1"/>
+  <lfn-to-pfn protocol="srm" chain="direct"
+    path-match="(.*)"
+    result="srm://srm-cms.cern.ch:8443/srm/managerv2?SFN=$1"/>
+  <lfn-to-pfn protocol="srmv2" chain="direct"
+    path-match="(.*)"
+    result="srm://srm-cms.cern.ch:8443/srm/managerv2?SFN=$1"/>
+
+  <pfn-to-lfn protocol="direct"
+    path-match="/+castor/cern\.ch/cms/(.*)"
+    result="/$1"/>
+  <pfn-to-lfn protocol="rfio" chain="direct"
+    path-match="^rfio:/+(.*)"
+    result="/$1"/>
+  <pfn-to-lfn protocol="srm" chain="direct"
+    path-match=".*\?SFN=(.*)"
+    result="$1"/>
+  <pfn-to-lfn protocol="srmv2" chain="direct"
+    path-match=".*\?SFN=(.*)"
+    result="$1"/>
 </storage-mapping>
+
+<!-- Results from this TFC
+
+lfn-to-pfn of /store/foo, protocol=srmv2, custodial=y
+LFN: /store/foo
+PFN: srm://srm-cms.cern.ch:8443/srm/managerv2?SFN=/castor/cern.ch/cms/store/foo
+TKN: CMS_CUSTODIAL
+Re-LFN: /store/foo
+
+lfn-to-pfn of /store/foo, protocol=srmv2, custodial=n
+LFN: /store/foo
+PFN: srm://srm-cms.cern.ch:8443/srm/managerv2?SFN=/castor/cern.ch/cms/store/foo
+TKN: CMS_NONCUSTODIAL
+Re-LFN: /store/foo
+
+pfn-to-lfn of srm://srm-cms.cern.ch:8443/srm/managerv2?SFN=/castor/cern.ch/cms/store/foo, protocol=srmv2
+PFN: srm://srm-cms.cern.ch:8443/srm/managerv2?SFN=/castor/cern.ch/cms/store/foo
+LFN: /store/foo
+TKN:
+Re-PFN: srm://srm-cms.cern.ch:8443/srm/managerv2?SFN=/castor/cern.ch/cms/store/foo
+
+-->
