@@ -212,7 +212,10 @@ sub receive
     {
 	$n++;
 
-	$task->{SPACE_TOKEN} ||= '';
+	$task->{FROM_PFN} ||= ''; # null when task is expired
+	$task->{TO_PFN} ||= '';   # null when task is expired
+	$task->{SPACE_TOKEN} ||= ''; # often null
+
 	# First update the statistics.  Create a time bin for the
 	# period when the transfer ended if one doesn't exist, then
 	# update the statistics according to result.
