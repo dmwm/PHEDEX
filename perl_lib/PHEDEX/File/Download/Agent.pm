@@ -581,6 +581,8 @@ sub prepare
 	    return if ! &output($fvstatus, "");
 	    $$taskinfo{PREVALIDATE_DONE} = 0;
 	    $n_add++;
+	    my $is_custodial_numeric = 1;
+            if ( $taskinfo->{IS_CUSTODIAL} eq 'n' ) { $is_custodial_numeric = 0; }
 	    $self->addJob(sub {
 		&output($fvstatus, Dumper ({
 		    START => $now, END => &mytimeofday(),
@@ -588,7 +590,7 @@ sub prepare
 	    },
 	    { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $fvlog },
 	    @{$$self{VALIDATE_COMMAND}}, "pre",
-	    @$taskinfo{qw(TO_PFN FILESIZE CHECKSUM)});
+	    @$taskinfo{qw(TO_PFN FILESIZE CHECKSUM)}, $is_custodial_numeric);
 	} elsif ( $vstatus ) {
 	    # if the pre-validation returned success, this file is already there.  mark success
 	    if ($$vstatus{STATUS} == 0) 
