@@ -10,9 +10,10 @@
 source sw/slc*/cms/PHEDEX-admin/PHEDEX_*/etc/profile.d/env.sh
 
 # Set authentication for DB access
-export PHEDEX_DB='../SITECONF/CERN/PhEDEx/DBParam:Dev/Admin';
-export PHEDEX_DB_R='../SITECONF/CERN/PhEDEx/DBParam:Dev/Reader';
-export PHEDEX_DB_W='../SITECONF/CERN/PhEDEx/DBParam:Dev/CERN';
+export PHEDEX_INSTANCE=Dev;
+export PHEDEX_DB='../SITECONF/CERN/PhEDEx/DBParam:${PHEDEX_INSTANCE}/Admin';
+export PHEDEX_DB_R='../SITECONF/CERN/PhEDEx/DBParam:${PHEDEX_INSTANCE}/Reader';
+export PHEDEX_DB_W='../SITECONF/CERN/PhEDEx/DBParam:${PHEDEX_INSTANCE}/CERN';
 
 # tell all agents to go away
 sqlplus -S $(Utilities/OracleConnectId  -db ${PHEDEX_DB})
@@ -65,12 +66,7 @@ insert into t_dps_block_replica
  time_create, time_update)
 select br.block, br.node, br.is_active, br.src_files, br.src_bytes, br.dest_files, br.dest_bytes, 
  br.node_files, br.node_bytes, br.xfer_files, br.xfer_bytes,
- case when (n.name like 'T0%' or n.name like 'T1%') 
-           and br.dest_files != 0 
-      then 'y' 
-      else 'n'
-      end is_custodial,
- NULL user_group, 
+ 'n' is_custodial, NULL user_group, 
  br.time_create, br.time_update
 from xt_dps_block_replica br
 join xt_adm_node n on n.id = br.node;
@@ -105,7 +101,6 @@ insert into t_req_decision select * from xt_req_decision;
 
 -- all old requests listed as not custodial
 -- all old requests have an undefined group
--- can't use T0, T1 rule because request may contain nodes from multiple tiers
 insert into t_req_xfer 
 (request, priority, is_move, is_static, is_transient, is_distributed, is_custodial, user_group, data)
 select request, priority, is_move, is_static, is_transient, is_distributed, 'n', NULL, data from xt_req_xfer;
@@ -116,14 +111,11 @@ insert into t_req_delete select * from xt_req_delete;
 insert into t_dps_block_delete select * from xt_dps_block_delete;
 
 insert into t_dps_subscription 
-(request, dataset, block, destination, priority, is_move, is_transient, is_custodial, user_group,
+(request, dataset, block, destination, priority, is_move, is_transient,
+ is_custodial, user_group,
  time_create, time_complete, time_clear, time_done, time_suspend_until)
 select s.request, s.dataset, s.block, s.destination, s.priority, s.is_move, s.is_transient, 
-  case when (n.name like 'T0%' or n.name like 'T1%') 
-       then 'y'
-       else 'n'
-       end is_custodial, 
- NULL user_group,
+ 'n' is_custodial,  NULL user_group,
  s.time_create, s.time_complete, s.time_clear, s.time_done, s.time_suspend_until
 from xt_dps_subscription s join xt_adm_node n on n.id = s.destination;
 
@@ -253,6 +245,11 @@ exit;
 
 # !!! done with sqlplus !!!
 
+# PROD INSTANCE ONLY: update custodial flag for existing custodial subscriptions
+PHEDEX/Migration/V3_1_0/CustUpdate -db ${PHEDEX_DB} -f custodial_file.txt > custodial_update_results.txt
+less -S custodial_update_results.txt
+PHEDEX/Migration/V3_1_0/CustUpdate -db ${PHEDEX_DB} -f custodial_file.txt -execute > custodial_update_results.txt
+
 # Update statistics
 sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @PHEDEX/Schema/OracleStatsUpdate.sql </dev/null
 
@@ -263,7 +260,7 @@ PHEDEX/Schema/OracleSyns.sh 'cms_transfermgmt' $(PHEDEX/Utilities/OracleConnectI
 # Create privileges
 PHEDEX/Schema/OraclePrivs.sh $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 'cms_transfermgmt_reader' 'cms_transfermgmt_writer'
 
-# For the **Prod instance ONLY**, grant the DBS select access to the block replica view
+# PROD INSTANCE ONLY: grant the DBS select access to the block replica view
 sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
 grant select on v_dbs_block_replica to cms_dbs_int_global with grant option;
 grant select on v_dbs_block_replica to cms_dbs_int_global_reader;
