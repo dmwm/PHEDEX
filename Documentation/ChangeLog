@@ -1,3 +1,19 @@
+* Changes in PhEDEx 3_1_1
+
+Bugfixes for Site Agents
+ - FileDownload 'execute_array failed' error when uploading the error
+   report fixed.  This prevented all agents from uploading error
+   reports and would result in even successful transfer tasks to be
+   thrown away.
+ - FileRemove documentation corrected, -storagemap is no longer a
+   valid option
+ - Custom migration agents (FileCastorMigrate, FiledCacheMigrate,
+   FileSRMMigrate) removed, as they are obsolete in favor of
+   FileMSSMigrate.
+
+Bugfixes for All Agents
+ - 'uninitialized value ... Logging.pm line 107' warning fixed
+
 * Changes in PhEDEx 3_1_0
 
  This is a major upgrade over the 3.0.x series of PhEDEx, and is a
