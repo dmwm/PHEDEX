@@ -101,7 +101,7 @@ sub Logmsg
   my $self = shift; me($self);
   my $logger = get_logger("PhEDEx");
   $logger->info(@_);
-  if ( $self )
+  if ( $self && $self->{NOTIFICATION_PORT} && $self->{NOTIFICATION_HOST})
   {
 #   This is cheating a bit...
     $ENV{PHEDEX_NOTIFICATION_PORT} = $self->{NOTIFICATION_PORT};
