@@ -21,13 +21,11 @@
 ##H Usage:
 ##H   FileRemove
 ##H      -state DIRECTORY -nodes NAME -db FILE[:SECTION] [-log OUT]
-##H      -storagemap FILE [-protocol NAME] -delete COMMAND[,ARG...]
-##H      [-limit N]
+##H      [-protocol NAME] -delete COMMAND[,ARG...] [-limit N]
 ##H
 ##H -state         agent state directory.
 ##H -nodes         nodes to run and clean files for.
 ##H -db            database connection configuration parameter file.
-##H -storagemap    storage mapping catalogue.
 ##H -protocol      protocol to use with storage map, by default "direct".
 ##H -delete        command to remove physical copy (typically FileDownloadDelete).
 ##H -limit         limit on the number of files to delete per minute, default 100
