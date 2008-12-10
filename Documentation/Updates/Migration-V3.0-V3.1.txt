@@ -11,9 +11,9 @@ source sw/slc*/cms/PHEDEX-admin/PHEDEX_*/etc/profile.d/env.sh
 
 # Set authentication for DB access
 export PHEDEX_INSTANCE=Dev;
-export PHEDEX_DB='./DBParam:${PHEDEX_INSTANCE}/Admin';
-export PHEDEX_DB_R='./DBParam:${PHEDEX_INSTANCE}/Reader';
-export PHEDEX_DB_W='./DBParam:${PHEDEX_INSTANCE}/CERN';
+export PHEDEX_DB="./DBParam:${PHEDEX_INSTANCE}/Admin";
+export PHEDEX_DB_R="./DBParam:${PHEDEX_INSTANCE}/Reader";
+export PHEDEX_DB_W="./DBParam:${PHEDEX_INSTANCE}/CERN";
 
 # tell all agents to go away
 sqlplus $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
@@ -35,6 +35,14 @@ sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @PHEDEX/Schema/
 
 # Connect to DB using SQLPlus
 sqlplus $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
+
+-- Disable all triggers
+begin
+  for o in (select trigger_name from user_triggers) loop
+    execute immediate 'alter trigger ' || o.trigger_name || ' disable';
+  end loop;
+end;
+/
 
 -- the basics: nodes, datasets, blocks, files
 insert into t_adm_node select * from xt_adm_node;
@@ -129,6 +137,8 @@ select s.request, s.dataset, s.block, s.destination, s.priority, s.is_move, s.is
  'n' is_custodial,  NULL user_group,
  s.time_create, s.time_complete, s.time_clear, s.time_done, s.time_suspend_until
 from xt_dps_subscription s join xt_adm_node n on n.id = s.destination;
+
+insert into t_dps_block_dest select * from xt_dps_block_dest;
 
 commit;
 
@@ -281,7 +291,7 @@ PHEDEX/Schema/OracleSyns.sh 'cms_transfermgmt' $(PHEDEX/Utilities/OracleConnectI
 PHEDEX/Schema/OraclePrivs.sh $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 'cms_transfermgmt_reader' 'cms_transfermgmt_writer'
 
 # PROD INSTANCE ONLY: grant the DBS select access to the block replica view
-sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
+sqlplus $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
 grant select on v_dbs_block_replica to cms_dbs_int_global with grant option;
 grant select on v_dbs_block_replica to cms_dbs_int_global_reader;
 grant select on v_dbs_block_replica to cms_dbs_int_global_writer;
@@ -289,11 +299,11 @@ grant select on v_dbs_block_replica to cms_dbs_int_global_admin;
 exit;
 
 # PROD INSTANCE ONLY:  create groups
-sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ./DBParam:SiteDB)
+sqlplus $(PHEDEX/Utilities/OracleConnectId  -db ./DBParam:SiteDB)
 grant select on user_group to cms_transfermgmt;
 exit
 
-sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
+sqlplus $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
 insert into t_adm_group
 select seq_adm_group.nextval, name
   from cms_sitedb.user_group
@@ -301,7 +311,7 @@ select seq_adm_group.nextval, name
 exit
 
 # let the agents come back
-sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
+sqlplus $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
 delete from t_agent_message;
 delete from t_agent;
 commit;
