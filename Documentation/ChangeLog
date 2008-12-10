@@ -1,4 +1,4 @@
-* Changes in PhEDEx 3_1_0_pre2
+* Changes in PhEDEx 3_1_0
 
  This is a major upgrade over the 3.0.x series of PhEDEx, and is a
 mandatory upgrade. There is a new schema which implements custodiality and
@@ -48,6 +48,8 @@ Changes for Site Agents
    of a sites TFC, and allows immediate termination of data-transfer from
    a site by removing its TFC from TMDB. Equivalently, stopping your 
    export agent will soon mark the TFC as stale, and transfers will halt.
+   FileDownload also passes a custodiality flag to the pre-validate script,
+   which now takes to_pfn, filesize, checksum, and is_custodial (0|1).
   - FTS backend no longer takes a global spacetoken option. It is expected 
     that spacetokens are retrieved and used from the TFC only.
     Failure to open an FTS mapfile is now a fatal error.
