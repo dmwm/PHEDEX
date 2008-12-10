@@ -445,7 +445,7 @@ sub updateTaskStatus
 	 time_assign, time_expire, time_export, time_inxfer, time_xfer,
          time_done, report_code, xfer_code, from_pfn, to_pfn, space_token,
 	 log_xfer, log_detail, log_validate)
-	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
+	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
     foreach my $task (keys %$tasks)
     {
 	next if ! exists $$tasks{$task}{REPORT_CODE};
