@@ -5,6 +5,7 @@ use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use List::Util qw(max);
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
+use PHEDEX::Error::Constants;
 
 use constant TERABYTE => 1024**4;
 use constant GIGABYTE => 1024**3;
@@ -212,7 +213,7 @@ sub flush
 	  (select id from t_xfer_task where :now >= time_expire) xt
 	on (xtd.task = xt.id) when not matched then
 	  insert (task, report_code, xfer_code, time_xfer, time_update)
-	  values (xt.id, -1, -1, -1, :now)},
+	  values (xt.id, CONST_RC_EXPIRED, CONST_XC_NOXFER, -1, :now)},
 	":now" => $now);
     push @stats, ['tasks expired', $rows];
 

@@ -1,14 +1,18 @@
 package PHEDEX::File::Download::Agent;
+
 use strict;
 use warnings;
+
 use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
-use List::Util qw(min max sum);
-use File::Path qw(mkpath rmtree);
-use Data::Dumper;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
+use PHEDEX::Error::Constants;
+
+use List::Util qw(min max sum);
+use File::Path qw(mkpath rmtree);
+use Data::Dumper;
 use POSIX;
 use POE;
 
@@ -197,7 +201,7 @@ sub taskDone
 	    . " detail=($detail)"
 	    . " validate=($validate)"
 	    . " job-log=@{[$$task{JOBLOG} || '(no job)']}") 
-	unless ($$task{REPORT_CODE} == -1); # unless expired
+	unless ($$task{REPORT_CODE} == CONST_RC_EXPIRED); # unless expired
 
     # Indicate success.
     return 1;
@@ -282,7 +286,7 @@ sub purgeLostTransfers
       my $qlost = &dbprep($$self{DBH}, qq{
         insert into t_xfer_task_done
           (task, report_code, xfer_code, time_xfer, time_update)
-	  values (?, -2, -2, -1, ?)});
+	  values (?, CONST_RC_LOST_TASK, CONST_XC_NOXFER, -1, ?)});
       &dbbindexec($qlost, 1 => \@lostlocal, 2 => \@now);
       $$self{DBH}->commit();
     }
@@ -571,7 +575,7 @@ sub prepare
 
 	if (-s $fvstatus && (! ($vstatus = &evalinfo($fvstatus)) || $@))
 	{
-	    $vstatus = { START => $now, END => $now, STATUS => -3,
+	    $vstatus = { START => $now, END => $now, STATUS => CONST_RC_LOST_FILE,
 		         LOG => "agent lost the file pre-validation result" };
 	    return if ! &output($fvstatus, Dumper($vstatus));
 	}
@@ -596,7 +600,7 @@ sub prepare
 	    if ($$vstatus{STATUS} == 0) 
 	    {
 		$$taskinfo{REPORT_CODE} = 0;
-		$$taskinfo{XFER_CODE} = -2;
+		$$taskinfo{XFER_CODE} = CONST_XC_NOXFER;
 		$$taskinfo{LOG_DETAIL} = 'file validated before transfer attempt';
 		$$taskinfo{LOG_XFER} = 'no transfer was attempted';
 		$$taskinfo{LOG_VALIDATE} = $$vstatus{LOG};
@@ -609,8 +613,8 @@ sub prepare
 	    # or google "eighty-sixed"
 	    elsif ($$vstatus{STATUS} == 86) 
 	    {
-		$$taskinfo{REPORT_CODE} = -2;
-		$$taskinfo{XFER_CODE} = -2;
+		$$taskinfo{REPORT_CODE} = CONST_RC_VETO;
+		$$taskinfo{XFER_CODE} = CONST_XC_NOXFER;
 		$$taskinfo{LOG_DETAIL} = 'file pre-validation vetoed the transfer';
 		$$taskinfo{LOG_XFER} = 'no transfer was attempted';
 		$$taskinfo{LOG_VALIDATE} = $$vstatus{LOG};
@@ -690,14 +694,14 @@ sub check
 	if ((! -f $fxstatus && ! $live)
 	    || (-f _ && (! ($xstatus = &evalinfo($fxstatus)) || $@)))
 	{
-	    $xstatus = { START => $now, END => $now, STATUS => -3,
+	    $xstatus = { START => $now, END => $now, STATUS => CONST_XC_LOST_FILE,
 		         DETAIL => "agent lost the transfer", LOG => "" };
 	    return if ! &output($fxstatus, Dumper($xstatus));
 	}
 
 	if (-s $fvstatus && (! ($vstatus = &evalinfo($fvstatus)) || $@))
 	{
-	    $vstatus = { START => $now, END => $now, STATUS => -3,
+	    $vstatus = { START => $now, END => $now, STATUS => CONST_RC_LOST_FILE,
 		         LOG => "agent lost the file validation result" };
 	    return if ! &output($fvstatus, Dumper($vstatus));
 	}
@@ -824,8 +828,8 @@ sub fill
 	elsif ($now >= $$t{TIME_EXPIRE} - 1200)
 	{
 	    $self->Logmsg("PhEDEx transfer task $$t{TASKID} was nearly expired after $prettyhours, discarding");
-	    $$t{XFER_CODE} = -1;
-	    $$t{REPORT_CODE} = -1;
+	    $$t{XFER_CODE}   = CONST_XC_NOXFER;
+	    $$t{REPORT_CODE} = CONST_RC_EXPIRED;
 	    $$t{LOG_DETAIL} = "transfer expired in the PhEDEx download agent queue after $prettyhours";
 	    $$t{LOG_XFER} = "no transfer was attempted";
 	    $$t{LOG_VALIDATE} = "no validation was attempted";

@@ -5,6 +5,7 @@ use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use List::Util qw(max);
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
+use PHEDEX::Error::Constants;
 
 sub new
 {
@@ -221,7 +222,7 @@ sub receive
 	# update the statistics according to result.
 	my %stats = (TIME_EXPORT => "avail", TIME_XFER => "try",
 		     TIME_DONE => ($$task{REPORT_CODE} == 0 ? "done"
-				  : $$task{REPORT_CODE} == -1 ? "expire"
+				  : $$task{REPORT_CODE} == CONST_RC_EXPIRE ? "expire"
 				  : "fail"));
 	while (my ($t, $stat) = each %stats)
 	{
