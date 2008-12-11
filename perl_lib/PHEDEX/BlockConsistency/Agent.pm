@@ -94,16 +94,15 @@ sub doDBSCheck
 {
   my ($self, $drop, $request) = @_;
   my ($n_files,$n_tested,$n_ok);
-  my $dbh = undef;
   my @nodes = ();
 
-  $self->Logmsg("doDBSCheck: starting");
+  $self->Logmsg("doDBSCheck: starting") if ( $self->{DEBUG} );
   my $dropdir = "$$self{WORKDIR}/$drop";
 
   $self->{bcc}->Checks($request->{TEST}) or
     die "Test $request->{TEST} not known to ",ref($self),"!\n";
 
-  $self->Logmsg("doDBSCheck: Request ",$request->{ID});
+  $self->Logmsg("doDBSCheck: Request ",$request->{ID}) if ( $self->{DEBUG} );
   $n_files = $request->{N_FILES};
   my $t = time;
 
@@ -114,7 +113,7 @@ sub doDBSCheck
   my $r = $self->getDBSFromBlockIDs($request->{BLOCK});
   my $dbsurl = $r->[0] or die "Cannot get DBS url?\n";
   my $blockname = $self->getBlocksFromIDs($request->{BLOCK})->[0];
-# open DBS, "$dbs --url $dbsurl --block $blockname |" or die "$dbs: $!\n";
+
   open DBS, "$dbs --url $dbsurl --block $blockname |" or do
   {
     $self->Alert("$dbs: $!\n");
@@ -122,7 +121,6 @@ sub doDBSCheck
   };
   my %dbs;
   while ( <DBS> ) { if ( m%^LFN=(\S+)$% ) { $dbs{$1}++; } }
-# close DBS or die "$dbs: $!\n";
   close DBS or do
   {
     $self->Alert("$dbs: $!\n");
@@ -131,8 +129,6 @@ sub doDBSCheck
 
   eval
   {
-    $dbh = $self->connectAgent();
-    @nodes = $self->expandNodes();
     $n_tested = $n_ok = 0;
     $n_files = $request->{N_FILES};
     foreach my $r ( @{$request->{LFNs}} )
@@ -168,14 +164,14 @@ sub doDBSCheck
     {
       print "Hmm, what state should I set here? I have (n_files,n_ok,n_tested) = ($n_files,$n_ok,$n_tested) for request $request->{ID}\n";
     }
-    $dbh->commit();
+    $self->{DBH}->commit();
   };
 
   do
   {
     chomp ($@);
     $self->Alert ("database error: $@");
-    eval { $dbh->rollback() } if $dbh;
+    eval { $self->{DBH}->rollback() };
     return 0;
   } if $@;
  
@@ -187,10 +183,9 @@ sub doNSCheck
 {
   my ($self, $drop, $request) = @_;
   my ($n_files,$n_tested,$n_ok);
-  my $dbh = undef;
   my @nodes = ();
 
-  $self->Logmsg("doNSCheck: starting");
+  $self->Logmsg("doNSCheck: starting") if ( $self->{DEBUG} );
   my $dropdir = "$$self{WORKDIR}/$drop";
 
   $self->{bcc}->Checks($request->{TEST}) or
@@ -210,11 +205,14 @@ sub doNSCheck
   }
   else
   {
+    $self->connectAgent();
+    $self->expandNodes();
+    $self->{bcc}->DBH( $self->{DBH} );
     my $technology = $self->{bcc}->Buffers(@{$self->{NODES}});
     $ns->technology( $technology );
   }
 
-  $self->Logmsg("doNSCheck: Request ",$request->{ID});
+  $self->Logmsg("doNSCheck: Request ",$request->{ID}) if ( $self->{DEBUG} );
   $n_files = $request->{N_FILES};
   my $t = time;
   foreach my $r ( @{$request->{LFNs}} )
@@ -236,15 +234,13 @@ sub doNSCheck
     last unless --$n_files;
     if ( time - $t > 60 )
     {
-      $self->Logmsg("$n_files files remaining");
+      $self->Logmsg("$n_files files remaining") if ( $self->{DEBUG} );
       $t = time;
     }
   }
 
   eval
   {
-    $dbh = $self->connectAgent();
-    @nodes = $self->expandNodes();
     $n_tested = $n_ok = 0;
     $n_files = $request->{N_FILES};
     foreach my $r ( @{$request->{LFNs}} )
@@ -273,14 +269,14 @@ sub doNSCheck
     {
       print "Hmm, what state should I set here? I have (n_files,n_ok,n_tested) = ($n_files,$n_ok,$n_tested) for request $request->{ID}\n";
     }
-    $dbh->commit();
+    $self->{DBH}->commit();
   };
 
   do
   {
     chomp ($@);
     $self->Alert ("database error: $@");
-    eval { $dbh->rollback() } if $dbh;
+    eval { $self->{DBH}->rollback() };
     return 0;
   } if $@;
  
@@ -298,13 +294,6 @@ sub processDrop
   delete $$self{BAD}{$drop};
   &timeStart($$self{STARTTIME});
 
-  if ( ! defined $self->{DBH} )
-  {
-    $self->connectAgent();
-    $self->expandNodes();
-    $self->{bcc}->DBH( $self->{DBH} );
-  }
-
 # Read back file information
   $dropdir = "$$self{WORKDIR}/$drop";
   $request = do { no strict "vars"; eval &input ("$dropdir/packet") };
@@ -314,7 +303,6 @@ sub processDrop
   if ( $request->{INJECT_ONLY} )
   {
 #   This is an injection-drop.
-
     foreach ( qw/ BLOCK N_FILES PRIORITY TEST TIME_EXPIRE NODE / )
     { $bad = 1 unless defined $request->{$_}; }
 
@@ -408,7 +396,7 @@ sub requestQueue
   my ($self, $limit, $mfilter, $mfilter_args, $ofilter, $ofilter_args) = @_;
   my (@requests,$sql,%p,$q,$q1,$n,$i);
 
-  $self->Logmsg("requestQueue: starting");
+  $self->Logmsg("requestQueue: starting") if ( $self->{DEBUG} );
   my $now = &mytimeofday();
 
 # Find all the files that we are expected to work on
@@ -451,7 +439,7 @@ sub requestQueue
     last if ++$i >= $limit;
   }
 
-  $self->Logmsg("Got ",scalar @requests," requests, for $n files in total");
+  $self->Logmsg("Got ",scalar @requests," requests, for $n files in total") if ( $n );
   return @requests;
 }
 
@@ -495,12 +483,11 @@ sub startOne
 sub idle
 {
   my ($self, @pending) = @_;
-  my $dbh = undef;
   my @nodes = ();
 
   eval
   {
-    $dbh = $self->connectAgent();
+    $self->connectAgent();
     @nodes = $self->expandNodes();
     @nodes or die "No node found? Typo perhaps?\n";
     my ($mfilter, %mfilter_args) =    $self->myNodeFilter ("b.node");
@@ -519,17 +506,13 @@ sub idle
         $self->setRequestState($request,'Error');
       }
     }
-    $dbh->commit();
+    $self->{DBH}->commit();
   };
-  do { chomp ($@); $self->Alert ("database error: $@");
-  eval { $dbh->rollback() } if $dbh } if $@;
-
-  # Wait for all jobs to finish
-  while (@{$$self{JOBS}})
-  {
-    $self->pumpJobs();
-    select (undef, undef, undef, 0.1);
-  }
+  do {
+       chomp ($@);
+       $self->Alert ("database error: $@");
+       $self->{DBH}->rollback();
+  } if $@;
 
   # Disconnect from the database
   $self->disconnectAgent();
@@ -577,15 +560,8 @@ sub setRequestState
 # Change the state of a request in the database
   my ($self, $request, $state) = @_;
   my ($sql,%p,$q);
-  my ($disconnect, $dbh, @nodes);
+  my (@nodes);
   return unless defined $request->{ID};
-  if ( ! defined ($dbh = $self->{DBH} ) )
-  {
-print "Hmm, I have to connect...? (Request=$request->{ID}, state=$state)\n";
-    $dbh = $self->connectAgent();
-    @nodes = $self->expandNodes();
-    $disconnect=1;
-  }
 
   $self->Logmsg("Request=$request->{ID}, state=$state");
 
@@ -600,13 +576,7 @@ print "Hmm, I have to connect...? (Request=$request->{ID}, state=$state)\n";
          ':state' => $state,
          ':time'  => time()
        );
-  $q = &dbexec($dbh,$sql,%p);
-  if ( $disconnect )
-  {
-#   commit and disconnect, since I was disconnected when I was called...
-    $dbh->commit();
-    $self->disconnectAgent();
-  }
+  $q = &dbexec($self->{DBH},$sql,%p);
 }
 
 sub isInvalid
