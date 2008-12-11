@@ -1,6 +1,4 @@
-SRM.Endpoint="srm://srm.cern.ch:8443/srm/managerv1" FTS.Endpoint="https://fts-t2-service.cern.ch:8443/glite-data-transfer-fts/services/FileTransfer"
 SRM.Endpoint="srm://srm-cms.cern.ch:8443/srm/managerv2" FTS.Endpoint="https://fts-t2-service.cern.ch:8443/glite-data-transfer-fts/services/FileTransfer"
-SRM.Endpoint="srm://srm-cms-pps.cern.ch:8443/srm/managerv2" FTS.Endpoint="https://fts-t2-service.cern.ch:8443/glite-data-transfer-fts/services/FileTransfer"
 SRM.Endpoint="srm://srm.grid.sinica.edu.tw:8443/srm/managerv1" FTS.Endpoint="https://w-fts.grid.sinica.edu.tw:8443/glite-data-transfer-fts/services/FileTransfer"
 SRM.Endpoint="srm://srm2.grid.sinica.edu.tw:8443/srm/managerv2" FTS.Endpoint="https://w-fts.grid.sinica.edu.tw:8443/glite-data-transfer-fts/services/FileTransfer"
 SRM.Endpoint="srm://ralsrme.rl.ac.uk:8443/srm/managerv1" FTS.Endpoint="https://lcgfts.gridpp.rl.ac.uk:8443/glite-data-transfer-fts/services/FileTransfer"
@@ -15,7 +13,7 @@ SRM.Endpoint="srm://ccsrm.in2p3.fr:8443/srm/managerv2" FTS.Endpoint="https://ccl
 SRM.Endpoint="srm://castorsrm.cr.cnaf.infn.it:8443/srm/managerv1" FTS.Endpoint="https://fts.cr.cnaf.infn.it:8443/glite-data-transfer-fts/services/FileTransfer"
 SRM.Endpoint="srm://srm-v2-cms.cr.cnaf.infn.it:8443/srm/managerv2" FTS.Endpoint="https://fts.cr.cnaf.infn.it:8443/glite-data-transfer-fts/services/FileTransfer"
 SRM.Endpoint="srm://storm-fe-cms.cr.cnaf.infn.it:8444/srm/managerv2" FTS.Endpoint="https://fts.cr.cnaf.infn.it:8443/glite-data-transfer-fts/services/FileTransfer"
-SRM.Endpoint="srm://cmssrm.fnal.gov:8443/srm/managerv1" FTS.Endpoint="https://cmsstor20.fnal.gov:8443/glite-data-transfer-fts/services/FileTransfer"
-SRM.Endpoint="srm://cmssrm.fnal.gov:8443/srm/managerv2" FTS.Endpoint="https://cmsstor20.fnal.gov:8443/glite-data-transfer-fts/services/FileTransfer"
-SRM.Endpoint="DEFAULT" FTS.Endpoint="https://cmsstor20.fnal.gov:8443/glite-data-transfer-fts/services/FileTransfer"
+SRM.Endpoint="srm://cmssrm.fnal.gov:8443/srm/managerv1" FTS.Endpoint="https://cmsfts1.fnal.gov:8443/glite-data-transfer-fts/services/FileTransfer"
+SRM.Endpoint="srm://cmssrm.fnal.gov:8443/srm/managerv2" FTS.Endpoint="https://cmsfts1.fnal.gov:8443/glite-data-transfer-fts/services/FileTransfer"
+SRM.Endpoint="DEFAULT" FTS.Endpoint="https://cmsfts1.fnal.gov:8443/glite-data-transfer-fts/services/FileTransfer"
 # This mapfile is valid for OSG T2s, replace DEFAULT FTS.Endpoint with the FTS endpoint at your associated T1
