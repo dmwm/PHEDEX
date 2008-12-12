@@ -87,7 +87,7 @@ use PHEDEX::Core::Catalogue;
 use PHEDEX::BlockConsistency::SQL;
 use PHEDEX::Namespace;
 
-my ($dbh,$not_on_tape_time);
+my ($dbh);
 my ($verbose,$debug,$terse);
 my (%h,$conn,$dumpstats,$readstats,$msscache,%msscache);
 my ($DBCONFIG,%check,@check,$autoBlock);
@@ -96,10 +96,8 @@ my (@dataset,@block,@lfn,@buffer,@bufferIDs);
 my ($callout,$callouton,%calloutonAllowed);
 my ($data,$lfn,$lfnlist,$wide);
 my ($tfcprotocol,$mssprotocol,$destination,$tfc,$ns);
-my ($SQL);
+my ($SQL,$incomplete_blocks);
 my $debug_me = 1;
-
-$not_on_tape_time = 12; # in hour(s)
 
 %check = (
 		'size'		=> 1,
@@ -115,6 +113,7 @@ $mssprotocol = '';
 $destination = 'any';
 $callouton   = '';
 %calloutonAllowed = ( failure => 1, success => 1, all => 1);
+$incomplete_blocks = 0;
 
 GetOptions("db=s"           => \$DBCONFIG,
            "block=s@"       => \@BLOCK,
@@ -140,7 +139,7 @@ GetOptions("db=s"           => \$DBCONFIG,
            "callout=s"      => \$callout,
            "callouton=s"    => \$callouton,
 
-           "migrationdelay" => \$not_on_tape_time,
+           "incomplete-blocks" => \$incomplete_blocks,
 
            "help|h"         => sub { &usage() }
 	  );
@@ -271,6 +270,7 @@ $ns->technology( (keys %t)[0] ) unless $mssprotocol;
 
 # Expand the BLOCK argument...
 push @block, split m|[,\s*]|, "@BLOCK";
+$DB::single=1;
 if ( @block )
 {
 # Find those I want and mark them, then GC the rest...
@@ -278,9 +278,16 @@ if ( @block )
   foreach my $block ( @block )
   {
     $debug && print "Getting blocks with names like '$block'\n";
-    my $tmp = $SQL->getBlocksOnBufferFromWildCard ($block,@bufferIDs);
-    map { $g{$_}++ } @$tmp;
-    map { $h{Blocks}{$_} = {} } @$tmp;
+    my $complete_blocks = $incomplete_blocks ? 0 : 1;
+    my $tmp = $SQL->getBlockReplicasFromWildCard(
+                                           {
+                                             BLOCK => $block,
+                                             NODES => \@bufferIDs,
+                                             COMPLETE_BLOCKS => $complete_blocks,
+                                           }
+					  );
+    map { $g{$_->{NAME}}++ } values %{$tmp};
+    map { $h{Blocks}{$_->{NAME}} = {} } values %{$tmp};
   }
   foreach my $block ( keys %{$h{Blocks}} )
   {
