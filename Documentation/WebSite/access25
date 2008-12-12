@@ -4593,7 +4593,7 @@ sub checkXferRequestData
 	$$self{SESSION}->param('user_email', $params{email});
 	my @node_pairs;
 	push @node_pairs, ['d', $_ ] foreach @{$params{nodes}};
-	push @node_pairs, ['s', $_ ] foreach values %subscribed_sources;
+	push @node_pairs, ['s', $_ ] foreach keys %subscribed_sources;
 	$$self{SESSION}->param('nodes', \@node_pairs);
 	$$self{SESSION}->param('data', $resolved);
     }
@@ -8336,9 +8336,9 @@ sub output_page
 	$$self{SECMOD}->hasRole('Site Admin') ||
 	$$self{SECMOD}->hasRole('PADA Admin'))) {
       $self->auth_help_popup('suspend/unsuspend subscriptions'
-		       => ['anyauth', 'Data Manager', 'Site Admin', 'PADA Admin', 'Admin'],
-		       'change priorities of subscriptions'
-		       => ['cert', 'Data Manager', 'Admin']);
+			     => ['anyauth', 'Data Manager', 'Site Admin', 'PADA Admin', 'Admin'],
+			     'change priorities of subscriptions and manage groups'
+			     => ['cert', 'Data Manager', 'Admin']);
       }
 
   my %admin_opts = ('suspend' => 'Suspend subscriptions',
@@ -9805,33 +9805,33 @@ sub output
 
    &dump_var($$self{CONTENT}, 'TESTING', $TESTING);
    return if (!$TESTING);  # For security
-   &dump_var($$self{CONTENT}, '$PERL_VERSION', sprintf("v%vd", $^V));
-   &dump_var($$self{CONTENT}, 'CGI::VERSION', $CGI::VERSION);
-   &dump_var($$self{CONTENT}, 'CGI::Session::VERSION', $CGI::Session::VERSION);
-   &dump_var($$self{CONTENT}, 'DBI::VERSION', $DBI::VERSION);
-   &dump_var($$self{CONTENT}, 'DBD::Oracle::VERSION', $DBD::Oracle::VERSION);
+#   &dump_var($$self{CONTENT}, '$PERL_VERSION', sprintf("v%vd", $^V));
+#   &dump_var($$self{CONTENT}, 'CGI::VERSION', $CGI::VERSION);
+#   &dump_var($$self{CONTENT}, 'CGI::Session::VERSION', $CGI::Session::VERSION);
+#   &dump_var($$self{CONTENT}, 'DBI::VERSION', $DBI::VERSION);
+#   &dump_var($$self{CONTENT}, 'DBD::Oracle::VERSION', $DBD::Oracle::VERSION);
 #   &dump_var($$self{CONTENT}, '@INC', [@INC]);
 #   &dump_var($$self{CONTENT}, 'TESTING_MAIL', $TESTING_MAIL);
-  &dump_var($$self{CONTENT}, 'SESSION', $$self{SESSION} ? 'Session OK' : 'NO SESSION');
-  &dump_var($$self{CONTENT}, 'SESSIONID', $$self{SESSIONID});
-  print { $$self{CONTENT} } "<pre>", $$self{SESSION}->dump(), "</pre>";
+#   &dump_var($$self{CONTENT}, 'SESSION', $$self{SESSION} ? 'Session OK' : 'NO SESSION');
+#   &dump_var($$self{CONTENT}, 'SESSIONID', $$self{SESSIONID});
+#   print { $$self{CONTENT} } "<pre>", $$self{SESSION}->dump(), "</pre>";
 
-  if ($$self{SESSION} && param('data')) {
-      $$self{SESSION}->param('data', param('data'));
-      print {$$self{CONTENT}} "<p>Saved data</p>";
-  } else {
-      print {$$self{CONTENT}} "<form action='#' method='post'>",
-      textfield(-name=>'data'),
-      submit(),
-      "</form>";
-  }
+#   if ($$self{SESSION} && param('data')) {
+#       $$self{SESSION}->param('data', param('data'));
+#       print {$$self{CONTENT}} "<p>Saved data</p>";
+#   } else {
+#       print {$$self{CONTENT}} "<form action='#' method='post'>",
+#       textfield(-name=>'data'),
+#       submit(),
+#       "</form>";
+#   }
   
-  my $data = $$self{SESSION}->param('data');
-  if ($data) {
-      print {$$self{CONTENT}} "<p>Your saved data is $data</p>";
-  } else {
-      print {$$self{CONTENT}} "<p>No session data.</p>";
-  }
+#   my $data = $$self{SESSION}->param('data');
+#   if ($data) {
+#       print {$$self{CONTENT}} "<p>Your saved data is $data</p>";
+#   } else {
+#       print {$$self{CONTENT}} "<p>No session data.</p>";
+#   }
 
   #&dump_var($$self{CONTENT}, 'Config', $$self{CONFIG});
 #  &dump_var($$self{CONTENT}, 'Env', {%ENV});
@@ -9839,20 +9839,20 @@ sub output
 #   &dump_var($$self{CONTENT}, 'ENV{ORACLE_HOME}', $ENV{ORACLE_HOME});
 #   &dump_var($$self{CONTENT}, 'ENV{TNS_ADMIN}', $ENV{TNS_ADMIN});
 
-  my $cgi = new CGI;
-  print {$$self{CONTENT}} 
-  "<p>absolute URL current  ",     $self->myurl('fullurl'=>1),"</p>",
-  "<p>absolute URL security on  ", $self->myurl('fullurl'=>1, 'secure'=>1),"</p>",
-  "<p>absolute URL security off  ",$self->myurl('fullurl'=>1, 'secure'=>0),"</p>",
-  "<p>relative URL current ", $self->myurl(),"</p>",
-  "<p>relative URL security on  ", $self->myurl('secure'=>1),"</p>",
-  "<p>relative URL security off ", $self->myurl('secure'=>0),"</p>",
-  "<p>CGI absolute URL current ",  $cgi->url(-full=>1), "</p>",
-  "<p>CGI relative URL current ",  $cgi->url(-relative=>1, -path=>1), "</p>",
-  "<p>CGI Normal URL security on ",  $cgi->url(-relative=>1, -secure=>1, -path=>1), "</p>",
-  "<p>CGI Normal URL security off ",  $cgi->url(-relative=>1, -secure=>0, -path=>1), "</p>",
-  "<p>CGI -rewrite ", $cgi->url(-rewrite=>1), "</p>"
-  ;
+#   my $cgi = new CGI;
+#   print {$$self{CONTENT}} 
+#   "<p>absolute URL current  ",     $self->myurl('fullurl'=>1),"</p>",
+#   "<p>absolute URL security on  ", $self->myurl('fullurl'=>1, 'secure'=>1),"</p>",
+#   "<p>absolute URL security off  ",$self->myurl('fullurl'=>1, 'secure'=>0),"</p>",
+#   "<p>relative URL current ", $self->myurl(),"</p>",
+#   "<p>relative URL security on  ", $self->myurl('secure'=>1),"</p>",
+#   "<p>relative URL security off ", $self->myurl('secure'=>0),"</p>",
+#   "<p>CGI absolute URL current ",  $cgi->url(-full=>1), "</p>",
+#   "<p>CGI relative URL current ",  $cgi->url(-relative=>1, -path=>1), "</p>",
+#   "<p>CGI Normal URL security on ",  $cgi->url(-relative=>1, -secure=>1, -path=>1), "</p>",
+#   "<p>CGI Normal URL security off ",  $cgi->url(-relative=>1, -secure=>0, -path=>1), "</p>",
+#   "<p>CGI -rewrite ", $cgi->url(-rewrite=>1), "</p>"
+#   ;
   
   
 #   &dump_var($$self{CONTENT}, 'ENV{HTTPS}', $ENV{HTTPS});
@@ -9860,9 +9860,11 @@ sub output
 #   my $replicas = &fetch_replicas($$self{DBH}, 1212);
 #   &dump_var($$self{CONTENT}, 'replicas', $replicas);
 
-#   my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, 'test', '/Simon/Simon/*-1');
+   my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, 
+							 $$self{CONFIG}{DEFAULT_DBS}, 0,
+							 '/TkAlCosmics4T/Summer08_COSMMC_21X_V1_v1/RECO');
 
-#   &dump_var($$self{CONTENT}, 'resolved', $resolved);
+   &dump_var($$self{CONTENT}, 'resolved', $resolved);
 
 #   &dump_var($$self{CONTENT}, 'SecMod CertAuth', $$self{SECMOD}->isCertAuthenticated());
 #   &dump_var($$self{CONTENT}, 'SecMod PassAuth', $$self{SECMOD}->isPasswdAuthenticated());
