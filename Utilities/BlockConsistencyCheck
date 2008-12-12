@@ -96,7 +96,7 @@ my (@dataset,@block,@lfn,@buffer,@bufferIDs);
 my ($callout,$callouton,%calloutonAllowed);
 my ($data,$lfn,$lfnlist,$wide);
 my ($tfcprotocol,$mssprotocol,$destination,$tfc,$ns);
-my ($SQL,$incomplete_blocks);
+my ($SQL,$incomplete_blocks,$preload);
 my $debug_me = 1;
 
 %check = (
@@ -140,11 +140,15 @@ GetOptions("db=s"           => \$DBCONFIG,
            "callouton=s"    => \$callouton,
 
            "incomplete-blocks" => \$incomplete_blocks,
+	   "preload=s"	    => \$preload,
 
            "help|h"         => sub { &usage() }
 	  );
 
-$ns = PHEDEX::Namespace->new( verbose => $verbose, debug => $debug );
+$ns = PHEDEX::Namespace->new(	VERBOSE	=> $verbose,
+				DEBUG	=> $debug,
+				PRELOAD	=> $preload,
+			    );
 $mssprotocol = 'srm' if $tfcprotocol eq 'srm';
 $ns->protocol( $mssprotocol ) if $mssprotocol;
 

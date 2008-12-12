@@ -125,6 +125,7 @@ our (%params,%ro_params);
                 MSSPROTOCOL     => '',
                 DESTINATION     => 'any',
 		RFIO_USES_RFDIR => 0,
+		PRELOAD		=> undef,
 	  	DEBUG           => $ENV{PHEDEX_DEBUG} || 0,
  	  	VERBOSE         => $ENV{PHEDEX_VERBOSE} || 0,
 	  );
@@ -403,6 +404,7 @@ sub dcapstat
   my $self = shift;
   my ($pfn,$r,$cmd);
   $cmd = 'ls -ls';
+  if ( $self->{PRELOAD} ) { $cmd = "LD_PRELOAD=$self->{PRELOAD} $cmd"; }
 
   $self->_stat($cmd,@_);
   foreach my $pfn ( @_ )

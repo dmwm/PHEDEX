@@ -42,6 +42,7 @@ our %params =
 	  STORAGEMAP => undef,		# Storage path mapping rules
 	  USE_SRM => 'n',		# Use SRM or native technology?
 	  RFIO_USES_RFDIR => 0,		# Use rfdir instead of nsls?
+	  PRELOAD => undef,		# Library to preload for dCache?
 	  ME => 'BlockDownloadVerify',  # Name for the record...
 	);
 
@@ -196,6 +197,7 @@ sub doNSCheck
 			DBH		=> $self->{DBH},
 			STORAGEMAP	=> $self->{STORAGEMAP},
 			RFIO_USES_RFDIR	=> $self->{RFIO_USES_RFDIR},
+			PRELOAD		=> $self->{PRELOAD},
 		);
 
   if ( $request->{USE_SRM} eq 'y' )
