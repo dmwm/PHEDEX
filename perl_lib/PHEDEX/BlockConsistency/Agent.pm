@@ -576,7 +576,13 @@ sub setRequestState
          ':state' => $state,
          ':time'  => time()
        );
-  $q = &dbexec($self->{DBH},$sql,%p);
+  while ( 1 )
+  {
+    eval { $q = &dbexec($self->{DBH},$sql,%p); };
+    last unless $@;
+    die $@ if ( $@ !~ m%ORA-25408% );
+    sleep 63; # wait a bit and retry...
+  }
 }
 
 sub isInvalid
