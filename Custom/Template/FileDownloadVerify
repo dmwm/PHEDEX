@@ -15,6 +15,7 @@
 ##H    PFN:           PFN of transfered file to verify
 ##H    SIZE:          reference size of transfered file
 ##H    CHECKSUM:      reference chskum of transfered file
+##H    IS_CUSTODIAL:  whether the transfer was for custodial storage (0 or 1)
 ##H
 ##H Verifies that the PFN has been successfully transferred.  The exit
 ##H code from the transfer program (STATUS) is ignored since the value

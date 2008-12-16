@@ -9,6 +9,7 @@ set -o nounset
 ##H    PFN:           PFN of transfered file to verify
 ##H    SIZE:          reference size of transfered file
 ##H    CHECKSUM:      reference chskum of transfered file
+##H    IS_CUSTODIAL:  whether the transfer was for custodial storage (0 or 1)
 ##H
 ##H Verifies that the PFN has been successfully transferred.  The exit
 ##H code from the transfer program (STATUS) is ignored since the value
@@ -20,8 +21,6 @@ set -o nounset
 ##H been made; this is meaningful only for transfer tests.  And as a
 ##H special goodie hack, with "-f" the return value is forced to be
 ##H zero (success) -- after all normal checks have been made.
-##H 8 Feb 2008 - modified to make option -d compatible with srmv2
-##H 11 Feb 2008 - modified to make option -c compatible with srmv2
 
 getsize () {
   local path=$1
