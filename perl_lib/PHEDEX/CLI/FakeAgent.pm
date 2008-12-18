@@ -28,6 +28,7 @@ use Data::Dumper;
 use Getopt::Long;
 use Sys::Hostname;
 use Socket;
+use CGI;
 
 our @env_keys = ( qw / PROXY DEBUG CERT_FILE KEY_FILE CA_FILE CA_DIR / );
 our %env_keys = map { $_ => 1 } @env_keys;
@@ -131,6 +132,41 @@ sub get
   return (shift)->_action(@_);
 }
 
+sub _prepare_request
+{
+# Cribbed almost entirely from LWP::UserAgent::prepare_request and friends...
+  require HTTP::Request::Common;
+  my ($self, $url, $args ) = @_;
+  my ($request,$new_request);
+
+  if ( $ENV{REQUEST_METHOD} eq 'POST' )
+  {
+    $request = HTTP::Request::Common::POST( $url, $args );
+    $self->_request_sanity_check($request);
+    $new_request = $self->prepare_request($request);
+    $ENV{CONTENT_LENGTH} = $request->{_headers}{'content-length'};
+    $ENV{CONTENT_TYPE} = $request->{_headers}{'content-type'};
+    $ENV{QUERY_STRING} = $request->{_content};
+
+#   Fool CGI.pm into reading from our fake content instead of from a
+#   filehandle or socket.
+    *CGI::read_from_client = sub {
+      my ($self,$query_string,$content_length,$offset) = @_;
+      ${$query_string} = $request->{_content};
+    };
+  }
+  if ( $ENV{REQUEST_METHOD} eq 'GET' )
+  {
+    $request = HTTP::Request::Common::GET( $url, $args );
+    $ENV{QUERY_STRING} = join('&', map {"$_=$args->{$_}"} keys %{$args});
+    $self->_request_sanity_check($request);
+    $new_request = $self->prepare_request($request);
+    $request->{_uri} .= '?' . $ENV{QUERY_STRING};
+  }
+
+  return $new_request;
+}
+
 sub _action
 {
   my ($self,$url,$args) = @_;
@@ -176,13 +212,13 @@ sub _action
 #     Allow re-use of the FakeAgent in the same process
       CGI::_reset_globals();
       $service = $service_name->new();
-      $service->init_security();
       $service->{ARGS}{$_} = $args->{$_} for keys %{$args};
       print "FakeAgent _action PATH_INFO:$ENV{PATH_INFO}\n" if $self->{DEBUG};
       print "FakeAgent CONFIG:\n", Dumper($service->{CONFIG}), "\n" if $self->{DEBUG};
 #      print "FakeAgent _action ARGS:\n",Dumper($service->{ARGS}), "\n" if $self->{DEBUG};
+      my $request = $self->_prepare_request( $url, $args );
       $service->invoke();
-      $service->{CORE}->{DBH}->disconnect(); # get rid of annoying warning
+      $service->{CORE}->{DBH}->disconnect() if $service->{CORE}->{DBH}; # get rid of annoying warning
   };
   if ($@) {
       print STDERR Data::Dumper->Dump( [ $self, $service ], [ __PACKAGE__, $service_name ] );
