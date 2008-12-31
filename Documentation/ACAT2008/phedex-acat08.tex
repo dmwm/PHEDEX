@@ -59,112 +59,125 @@ new tools that are now available.}
 
 \section{Introduction}
 
-In order to meet the data distribution requirements of the CMS
-experiment at the LHC, the Physics Experiment Data Export (PhEDEx)
-project was designed to facilitate and manage global data transfers
-over the grid.  Since its conception in 2004, it evolved considerably
-until version 2.5 was released in early 2007 and has been shown to be
-a robust, reliable, and scalable system which has guided XXX of
-transfers and over XXX PB of data.  PhEDEx provides a simple mechanism
+In order to meet the data distribution requirements
+\cite{cms-comp-proposal, cms-comp-tdr, cms-comp-model} of the CMS
+\cite{cms-proposal} experiment at the LHC, the Physics Experiment Data
+Export (PhEDEx) \cite{phedex-chep06, phedex-chep07} project was
+designed to facilitate and manage global data transfers over the grid.
+Since its conception in 2004, it evolved considerably until version
+2.5 was released in early 2007 and has been shown to be a robust,
+reliable, and scalable system which has guided over 62 million
+transfers and over 67 PB of data.  PhEDEx provides a simple mechanism
 to request the transfer of thousands of files at a time, which then
 sets into motion an array of special-purpose software ``agents''
-progressing the transfer state machine to the desired end.
-Reliability is ensured by independently verifying each file transfer
-when it lands at the destination, robustness is achieved by
-intelligently backing off when large numbers of failures are
-encountered.  Through numerous challenges and daily use for months,
-the transfer management layer of PhEDEx is not in question.
+progressing the transfer state machine to the desired end --- files on
+disk at the destination.  Reliability is ensured by independently
+verifying each file transfer when it lands at the destination,
+robustness is achieved by intelligently backing off when large numbers
+of failures are encountered.  Through numerous challenges and daily
+use for months, the transfer management layer of PhEDEx is not in
+question.
 
 More recent developments have focused on improving the ease of
-development, the ease of use and integration of PhEDEx with newer grid
-tools such as FTS and SRMv2 as well as with other CMS data management
-components.  These developments did not require extensive redesign of
-the business logic of core PhEDEx components such as the file router
-and the site download agents.  PhEDEx has adopted the Perl Object
-Environment (POE) as its scheduling and event manager for the agents.
-The agents have been modularized into separate libraries for SQL and
-business logic, for greater reusability of SQL and simplified
+development, the ease of use, and integration of PhEDEx with grid
+infrastructure such as FTS and SRMv2 as well as with other CMS data
+management components.  These developments did not require extensive
+redesign of the business logic of core PhEDEx components such as the
+file router and the site download agents.  PhEDEx has adopted the Perl
+Object Environment (POE) as its scheduling and event manager for the
+agents.  The agents have been modularized into separate libraries for
+SQL and business logic, for greater reusability of SQL and simplified
 debugging.  For integration with FTS, a new transfer backend was
-developed which did not interfere with existing backends.  For
-integration with other data management components, a web data service
-for providing XML or JSON via HTTP requests was developed using Apache
-and mod\_perl.  Finally, a framework was developed for performing
-consistency checks to compare database and disk consistency in a
-controlled fashion.  These recent developments are the focus of this
-paper, following a brief overview of the project.
+developed.  For integration with other data management components, a
+web data service for providing XML or JSON via HTTP requests was
+developed using Apache and mod\_perl.  Finally, a framework was
+developed for performing consistency checks to compare database and
+disk consistency in a controlled fashion.  These recent developments
+are the focus of this paper, following a brief overview of the
+project.
 
 \section{Overview of CMS Computing and PhEDEx}
 
 CMS uses the combined resources of over 60 data centers around the
 world providing over 5 PB of storage space.  They are divided into
 four tiers defined by their service requirements to the experiment.
-At the host of the experiment, CERN, the tier 0 is the birthplace of
+At the host of the experiment, CERN, the Tier 0 is the origin of
 experiment raw data and the products of first processing.  The role of
 PhEDEx in the Tier 0 is to replicate these irreplaceable data to the
 various tier 1 centers before the buffers at the Tier 0 become full.
-CMS must reliably export data at a rate of 625 MB/s to the tier 1
+CMS must reliably export data at an average rate of 625 MB/s to the tier 1
 centers in order to keep up with data production.  The tier 1 centers
 have a custodial responsibility for safekeeping the Tier 0 data as
-well as the requirement to process it in order to provide more useful
+well as performing processing in order to provide more useful
 data products for analysis at the Tier 2 centers.  The tier 2 centers,
-of which there are over 50, are dedicated to two tasks: receiving data
-for analysis by physicists and producing monte carlo data for upload
-to their regional tier 1.  Finally there are the tier 3 centers which
-are smaller sites that typically are only interested in receiving data
-for analysis and have no specific storage responsibilities within CMS.
+of which there are over 50, are dedicated to two purposes: to serve as
+analysis centers for physicists and producing monte carlo data.
+Analysis products must be transferred to the tier 2 from the tier 1
+and tier 2 produced monte carlo data must be transferred to the tier 1
+for custodial storage.  Finally there are the tier 3 centers which are
+smaller sites that typically are only interested in receiving data for
+analysis and have no specific storage or processing responsibilities within CMS.
 
 PhEDEx manages transfers using a high-availability Oracle database
 cluster hosted at CERN as a ``blackboard'' for the system state.  This
-transfer management database (TMDB) has been carefully designed to
-minimize locking contention and cache coherency issues by using an row
+database is known as the Transfer Management Data Base, or TMDB.
+Software daemon processes or ``agents'' connect directly to the
+database to query for the current state and perform the actions
+necessary to bring the system to the desired state, which is then
+written back to TMDB.  Central agents running at CERN perform most of
+the intelligence of data routing and transfer task creation.  The
+download agents running at the site receive these tasks and initiate
+the data transfers using a technology-specific backend interacting
+with the grid middleware.  After a transfer attempt, the file is
+verified using a site-specific script, and it is the result of that
+verification which is used to indicate success or failure of the
+transfer, not any specific return code or message from the grid tools.
+PhEDEx is a level-triggered as opposed to an edge-triggered system in
+that it builds large work queues which are largely unaffected by state
+changes in the steps preceding until the next work cycle.  This allows
+the system to have self-healing properties and avoid widespread damage
+from isolated errors or transient bugs in a work cycle.  The TMDB has
+been carefully designed to minimize locking contention between the
+several agents and cache coherency issues by using an row
 ``ownership'' model where only one piece of software at a time is
-expected to act on those rows.  Software daemon processes or
-``agents'' connect directly to the database to query for the current
-state and perform the actions necessary to bring the system to the
-desired state, which is then written back to TMDB.  Central agents
-running at CERN perform most of the intelligence of data routing and
-transfer task creation.  The download agents run at the site receive
-these tasks and initiate the data transfers using a
-technology-specific backend interacting with the grid middleware.
-After a transfer attempt, the file is verified using a site-specific
-script, and it is the result of that verification which is used to
-indicate success or failure of the transfer, not any specific return
-code or message from the grid tools.  PhEDEx is a level-triggered as
-opposed to an edge-triggered system in that it builds large work
-queues which are largely unaffected by state changes in the steps
-preceding until the next work cycle.  This allows the system to have
-self-healing properties and avoid widespread damage from isolated
-errors or transient bugs in a work cycle.
+expected to act on a given set of rows.
+
+\begin{figure}[htp] 
+\centering
+\setlength\fboxsep{0pt} 
+\setlength\fboxrule{0.5pt} 
+\fbox{\includegraphics[width=.8\textwidth]{workflow.pdf}}
+\caption{PhEDEx transfer workflow, the relationship between agents and the schema}
+\label{fig:workflow}
+\end{figure}
 
 Users of PhEDEx interact with the system via a web interface which
 provides administration functions as well as monitoring information.
 Users are typically CMS operations staff or site administrators,
-although some physicists interact with the system to subscribe data
-toward their assigned tier 2 center.  Users make transfer requests via
-a simple web form where they indicate the destination nodes and the
+although some physicists interact with the system to subscribe data to
+their assigned tier 2 center.  Users make transfer requests via a
+simple web form where they indicate the destination nodes and the
 datasets they wish to transfer.  Data managers assigned to each site
 receive a notification email and make the decision whether to approve
 or refuse the request.  Approved requests become subscriptions, which
 are then handled by the workflow, routing, and finally the site
 download agents to result in files on the disk at the desired node.
-The latency between request approval and the first file on disk
-depends on the current transfer queue to the sites involved, but a
-typical latency is XXX minutes.  Requests for deletion of data at the
-node are handled in a similar manner, although the workflow is more
-straightforward as it only involves work for a single node.
+Requests for deletion of data at the node are handled in a similar
+manner, although the workflow is more straightforward as it only
+involves work for a single node.
 
 Monitoring information is available from the website which represents
 a recent, but not current state of TMDB.  Load on the database is
 reduced by summarizing monitoring information into special purpose
 status tables at regular intervals.  By building monitoring tools
-based on these tables instead of those with the current state, the
-user experience is improved.  Historical information is regularly
-aggregated from these status tables into variable-width bins of data
-on transfer volume, transfer state counts, and number of failures.
-The monitoring itself introduces little load on the system and the
-time to access is a function of the time span the user is interested
-in and is not affected by the current load of the transfer system
-itself.
+based on these tables instead of those with the current state,
+response times are reduced and the user experience is improved.
+Historical information is regularly aggregated from these status
+tables into variable-width bins of data on transfer volume, transfer
+state counts, and number of failures.  The monitoring itself
+introduces little load on the system and the time to access is a
+function of the time span the user is interested in and is not
+affected by the current load of the transfer system itself.
 
 \section{Performance and Release Preparation}
 
@@ -177,24 +190,35 @@ database and core components to the maximum level possible, and a
 components of the system in a more realistic workflow.
 
 The router scaling test starts from an initial state of 100,000 files
-evenly distributed across 8 tier 1 and 50 tier 2 nodes.  Each node is
-then subscribed to all the available data, making the final state 5.8
-million replicas.  The central agents ran on a dedicated box we have
-direct access to, so we could monitor the progress of the test.  The
-site agents were run as batch jobs to the computing cluster with each
-download agent running for up to five nodes simultaneously.  No actual
-file transfers were performed, instead a successful transfer was
-immediately reported at the point where the transfer would be
-initiated.  The test ran for a total of 10 hours and achieved a
-replica creation rate of nearly 1 million files per hour for the first
-6 hours.  The last 4 hours were limited by the test configuration of
-the tier 1 nodes which prevented them from transferring between them
-in parallel.  If corrected, it is expected that the tier 1 nodes would
-transfer at the same rate as the tier 2 nodes, and the 4 hour tail
-would be eliminated.  The fictional replication rate achieved in this
-setup far exceeds the requirements of CMS, and proved that our
-transfer system will be limited by bandwidth and site storage issues,
-not the transfer system itself.
+evenly distributed across 8 tier 1 and 50 tier 2 nodes, for a total of
+66 nodes (tier 1 sites are represented as two nodes, a ``Buffer'' for
+outgoing/incoming transfers and the ``MSS'' (Mass Storage System)
+which represents tape storage).  Each node is then subscribed to all
+the available data, making the final state 6.6 million replicas.  The
+central agents ran on a dedicated box we have direct access to, so we
+could monitor the progress of the test.  The site agents were run as
+batch jobs to the computing cluster with each download agent running
+for up to five nodes simultaneously.  No actual file transfers were
+performed, instead a successful transfer was immediately reported at
+the point where the transfer would be initiated.  The test ran for a
+total of 10 hours and achieved a replica creation rate of nearly 1
+million files per hour for the first 6 hours.  The last 4 hours were
+limited by the test configuration of the tier 1 nodes which prevented
+them from transferring between them in parallel.  If corrected, it is
+expected that the tier 1 nodes would transfer at the same rate as the
+tier 2 nodes, and the 4 hour tail would be eliminated.  The fictional
+replication rate achieved in this setup far exceeds the requirements
+of CMS, and proved that our transfer system will be limited by
+bandwidth and site storage issues, not the transfer system itself.
+
+\begin{figure}[htp] 
+\centering
+\setlength\fboxsep{0pt} 
+\setlength\fboxrule{0.5pt} 
+\fbox{\includegraphics[width=.8\textwidth]{phedex-scaling08-success.png}}
+\caption{PhEDEx 3.0 scaling test results --- number of successful transfers per hour}
+\label{fig:scaling08}
+\end{figure} 
 
 The lifecycle test is another no-transfer test that exercises more of
 the PhEDEx code base than the router scaling test and is designed to
@@ -240,18 +264,33 @@ man-hours for system recovery.
 \section{CCRC'08 Achievements}
 
 PhEDEx 3.0 was released as a mandatory upgrade less than two weeks
-before the WLCG CCRC'08 phase 2, the most significant computing
+before the WLCG CCRC'08 phase 2 \cite{ccrc08}, the most significant computing
 challenge CMS had participated in up to that point.  During CCRC'08,
 PhEDEx managed the successful transfer of an average of 120 TB per day
 for 29 days over hundreds of site links, for a total of over 3.6 PB of
 data transferred.  44\% of these transfers were on the production
 instance, composed of monte-carlo data and with tier 1 tape systems in
-use.  The remaining 56\% was on our ``debug'' LoadTest instance, which
+use.  The remaining 56\% was on our ``debug'' LoadTest instance \cite{ddt-final}, which
 creates new transfers from small source samples and does not involve
 tape systems or permanent data storage.
 
-(something about CCRC'08 achievements wrt 2008/09 targets) (thanking
-*Ops, Site Admins job well done during the challenge)
+CCRC'08 was designed to stress the grid systems at a significant
+fraction of expected start-up levels.  CMS set transfer targets for
+each of the tier 1 sites from the Tier 0 and among its regional tier 2
+sites.  Nearly all of the transfer targets were met and the transfer
+infrastructure was considered ready for the expected start up volumes
+of fall 2008.
+
+\begin{figure}[htp] 
+\centering
+\setlength\fboxsep{0pt} 
+\setlength\fboxrule{0.5pt} 
+\fbox{\includegraphics[width=.8\textwidth]{phedex-daily-volume.png}}
+\caption{Daily transfer volume using PhEDEx since its creation.
+Highlighted are the various data challenges, the most recent being
+CCRC'08/phase 2 which acheived rates of 120 TB/day.}
+\label{fig:daily-volume}
+\end{figure}
 
 \section{Data Service}
 
@@ -264,32 +303,30 @@ URL.  The three data formats are automatically generated from perl
 objects returned by the web API backend modules.  Only authorized
 users registered in CMS SiteDB with the appropriate role/group for the
 specific action are allowed.  This web service was implemented in
-Apache/mod\_perl and is deployed on a 3 node cluster running in reverse
-proxy mode with a secure frontend for grid certificate authentication.
+Apache/mod\_perl and is deployed on a 3 node cluster running in a
+reverse proxy configuration with a secure frontend for grid
+certificate authentication.
 
-Currently, the data service provides APIs for data location, LFN to
-PFN translations, data injection, and subscribing data.  These
-functions are being integrated with CMS production systems in order to
-easily automate workflows which require data transfers.  Extending the
-data service is as simple as adding a new perl module to the
-appropriate namespace, enabling rapid prototyping and deployment.  A
-command-line interface is also provided to interact with the data
-service for both read and write operations.  Soon after the release of
-the data service industrious site administrators in the CMS community
-began developing custom applications which make use of it for their
-monitoring.  We hope to see this trend continue.  Finally, the data
-service is planned to become the primary data source of a future
-AJAX-based website.
+Currently, the data service provides APIs for data location, file name
+translations, data injection, and subscribing data.  These functions
+are being integrated with CMS production systems in order to easily
+automate workflows which require data transfers.  Extending the data
+service is as simple as adding a new perl module to the appropriate
+namespace, enabling rapid prototyping and deployment.  A command-line
+interface is also provided to interact with the data service for both
+read and write operations.  Soon after the release of the data service
+industrious site administrators in the CMS community began developing
+custom applications which make use of it for their monitoring.  We
+hope to see this trend continue.  Finally, the data service is planned
+to become the primary data source of a future AJAX-based website.
 
 \section{Use of POE}
 
-%NOTE [see http://poe.perl.org/poedown/poe-whitepaper-a4.pdf for a good overview of POE.]
-
-POE is the 'Perl Object Environment', a framework for creating
+POE \cite{poe} is the 'Perl Object Environment', a framework for creating
 event-driven cooperative multitasking programs in Perl. POE threads,
 or 'sessions', communicate via event-messages with arbitrarily
-customisable payloads. POE itself is 10 years old now, and still under
-active development. It provides several components at all levels of
+customisable payloads. POE is 10 years old and under active
+development. It provides several components at all levels of
 abstraction that make the construction of complex programs very easy.
 
 Cooperative multitasking in the same process makes the interfaces
@@ -304,18 +341,10 @@ other hand, a single component locking up can block the entire
 process, so care must be taken to ensure this does not happen. It is
 intrisically easier to prevent intra-component lockup than
 inter-component race conditions, and POE has good support for handling
-this problem.
-
-Database-oriented tasks such as those embodied in PhEDEx are well
-suited to this type of programming, as transaction-oriented code can
-be embodied in single event-handlers, running without interruption
-from other threads. Adapting the PhEDEx agent core to POE was
-straightforward, taking only a few hours for the first port. POE has
-well-defined APIs for calling into or out of the POE framework, which
-makes it simple to interface existing components from other
-environments; the POE framework does not creep into code that doesn't
-need it. In fact only 11 out of 129 PhEDEx Perl modules are directly
-POE-aware.
+this problem.  Database-oriented tasks such as those embodied in
+PhEDEx are well suited to this type of programming, as
+transaction-oriented code can be embodied in single event-handlers,
+running without interruption from other threads.
 
 Use of POE makes it possible to run multiple PhEDEx agents in one
 process, something that was not possible before. Agents which would in
@@ -325,49 +354,16 @@ connection. This lowers load and connectivity on the database, and
 avoids wasted context switches and excessive process load on the
 VOBOX.
 
-[check consistency with Ricky's stuff, see if this adds anything...]
-
-POE was also used extensively for the 'lifecycle agent' developed for
-the validation runs. This agent allows us to emulate data transfers of
-various types, such as RAW or RECOnstructed data from the Tier-0 to
-the Tier-1s, AOD data from Tier-0 to Tier-1s and then on to Tier-2s
-for analysis, or monte-carlo data from the Tier-2s back to their
-parent Tier-1s. The actual flow topology and characteristics (\# files,
-data-block size, rate of production of data etc) are flexible and can
-be dynamically defined per dataflow.
-
-By injecting, subscribing, and deleting blocks of data in TMDB,
-according to these data-transfer lifecycles, we can emulate
-arbitrarily complex topologies matching or exceeding what we have in
-CMS today. We can test the database performance using the actual
-PhEDEx agents run today but at scales beyond those we need now, by an
-order of magnitude or more.  Using a special fake-transfer module in
-the download agents we can also emulate the effect of arbitrary
-per-link failures, to increase the reality of the emulation.
-
-By running the lifecycle agent in 'accelerated' mode we can emulate
-activity at up to 100 times real-speed, which makes the testing period
-rather shorter than it would otherwise be. This corresponds to giving
-the database one years-worth of data-taking interaction in a single
-day. Since these tests require scheduled time on dedicated hardware,
-and the close cooperation of IT-department DB administrators, such
-acceleration is useful. Such accelerated tests are not quite as
-realistic, since latencies, timeouts, and caches in various parts of
-the system cannot all be similarly accelerated, but in many ways they
-are even harsher. They can certainly give confidence that the database
-schema and hardware can handle the volume and rate of data expected in
-the coming year or two.
-
 \section{The FTS backend}
 
 The core data-movement engines of PhEDEx are the 'backend' modules to
 the FileDownload agent. One of these is the FTS backend, which is
-responsible for submitting transfer jobs to the grid FTS services,
-monitoring the transfers, and acting on the success or failure of the
-individual transfers. A significant feature of PhEDEx 3.0 and it's
-further development through 2008 has been the redesign of the FTS
-backend to achieve better throughput and reporting with lower load on
-both the PhEDEx service and the FTS service.
+responsible for submitting transfer jobs to the grid File Transfer
+Service (FTS) \cite{fts}, monitoring the transfers, and acting on the
+success or failure of the individual transfers. A significant feature
+of PhEDEx 3.0 and its further development through 2008 has been the
+redesign of the FTS backend to achieve better throughput and reporting
+with lower load on both the PhEDEx service and the FTS service.
 
 Before PhEDEx 3.0, the FTS backend would prepare a transfer-job to
 submit to the FTS service, submit it, and wait for the job to complete
@@ -387,7 +383,7 @@ independent, they could also place an unreasonable burden on the FTS
 service, polling at a rate which was directly proportional to the
 number of submitted transfer jobs.
 
-Sites often also configured one FileDownload agent per transfer link,
+Sites often configured one FileDownload agent per transfer link,
 instead of allowing one agent to handle many links. This meant that
 sites were running many more FileDownload agents than necessary, which
 translates into many unnecessary connections to the central PhEDEx
@@ -398,6 +394,13 @@ preparing to submit transfer jobs.
 For PhEDEx 3.0 the FTS backend was refactored significantly. FTS
 transfers are now performed by three interacting components, the
 re-modelled FTS backend, the Queue Monitor, and the Glite interface.
+
+\begin{figure}[htp] 
+\centering
+\includegraphics[width=.8\textwidth]{fts-combined.pdf}
+\caption{FTS backend in PhEDEx, before and after PhEDEx 3.0}
+\label{fig:fts}
+\end{figure} 
 
 The FTS backend itself takes care of parceling the file-queue into
 discrete chunks that are submitted as FTS transfer jobs, and of
@@ -443,15 +446,6 @@ POE::Component::Child) to execute the commands asynchronously, passing
 the results back using the POE postback mechanism. This was necessary
 to prevent problems with the glite commands blocking the entire
 transfer agent.
-
-Only the Queue Monitor runs its own POE session, as it has it's own
-state and timing to consider. The FTS component runs inside the POE
-session of the FileDownload agent, and is only POE-aware to the extent
-of providing definitions of postback-functions for the Queue Monitor
-and Glite components to call. The Glite component does not have a POE
-session either, but uses POE components to perform its task in a way
-that cannot block the rest of the activity in the agent. This is a
-good example of how POE can be used in various ways to achieve a goal.
 
 \section{The Consistency Tools Project}
 
@@ -546,10 +540,24 @@ agent-based verification and associated command-line tools provide a
 sound basis for such further development with little or no risk of
 impacting more important parts of the system.
 
-\begin{thebibliography}{99}
-\bibitem{...} 
-....
+\section{Conclusion}
 
-\end{thebibliography}
+PhEDEx has a long history of transfer management for CMS, and has
+reliably managed the transfer of petabytes of data.  In simulation it
+has proven its capability for the task well beyond the requirements.
+In practice it has reliably met the needs of daily grid computing
+activity and the benchmarks of data challenges.  The transfer system
+is stable over long time scales, and has sustained transfer rates at
+near the expected \emph{burst levels} of running at LHC start-up for
+\emph{months}.  Most of the remaining problems with large scale data
+transfers fall below the layer which PhEDEx occupies --- site storage
+systems and grid transfer tools.  Further development of PhEDEx is
+focused on providing more information for detecting and addressing
+problems early, as well as improving integration with other components
+and ease of use.  The PhEDEx software platform is ready to meet the
+challenges of the LHC data-taking era.
+
+\bibliographystyle{unsrt}
+\bibliography{phedex-acat08}
 
 \end{document}
