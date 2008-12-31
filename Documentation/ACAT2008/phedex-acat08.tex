@@ -33,14 +33,14 @@ framework. We are able to evolve the implementation to match changes
 in the requirements of the experiment, without changing the
 fundamental design. Two major new features have recently been added to
 the PhEDEx system; an extensible data service and an improved transfer
-back-end module. The extensible data service provides machine-readable
+backend module. The extensible data service provides machine-readable
 data over HTTP as the primary means of integration with other CMS
 services. An authenticated command line interface is also provided,
 making it possible to provide new utilities quickly with minimal
-development effort. The new transfer back-end module now integrates
+development effort. The new transfer backend module now integrates
 closely with FTS, the glite provided transfer tool, to provide
 accurate status information while keeping as much data in flight as
-possible. The new transfer back-end is transfer technology
+possible. The new transfer backend is transfer technology
 independent, and we expect to be able to support new transfer tools as
 they become available. We describe the CMS PhEDEx system that is in
 place for CMS ``first data taking'' in 2008, provide details on the
@@ -82,7 +82,7 @@ redesign of the business logic of core PhEDEx components such as the
 file router and the site download agents.  PhEDEx has adopted the Perl
 Object Environment (POE) as its scheduling and event manager for the
 agents.  The agents have been modularized into separate libraries for
-SQL and business logic, for greater reusability of SQL and simplified
+SQL and business logic, for greater re-usability of SQL and simplified
 debugging.  For integration with FTS, a new transfer backend was
 developed.  For integration with other data management components, a
 web data service for providing XML or JSON via HTTP requests was
@@ -90,7 +90,7 @@ developed using Apache and mod\_perl.  Finally, a framework was
 developed for performing consistency checks to compare database and
 disk consistency in a controlled fashion.  These recent developments
 are the focus of this paper, following an overview of the
-project and performance acheivements.
+project and performance achievements.
 
 \section{Overview of CMS Computing and PhEDEx}
 
@@ -284,7 +284,7 @@ of fall 2008.
 \fbox{\includegraphics[width=.8\textwidth]{phedex-daily-volume.png}}
 \caption{Daily transfer volume using PhEDEx since its creation.
 Highlighted are the various data challenges, the most recent being
-CCRC'08/phase 2 which acheived rates of 120 TB/day.}
+CCRC'08/phase 2 which achieved rates of 120 TB/day.}
 \label{fig:daily-volume}
 \end{figure}
 
@@ -300,7 +300,7 @@ objects returned by the web API backend modules.  Only authorized
 users registered in CMS SiteDB with the appropriate role/group for the
 specific action are allowed.  This web service was implemented in
 Apache/mod\_perl and is deployed on a 3 node cluster running in a
-reverse proxy configuration with a secure frontend for grid
+reverse proxy configuration with a secure front-end for grid
 certificate authentication.
 
 Currently, the data service provides APIs for data location, file name
@@ -321,7 +321,7 @@ to become the primary data source of a future AJAX-based website.
 POE \cite{poe} is the 'Perl Object Environment', a framework for creating
 event-driven cooperative multitasking programs in Perl. POE threads,
 or 'sessions', communicate via event-messages with arbitrarily
-customisable payloads. POE is 10 years old and under active
+customizable payloads. POE is 10 years old and under active
 development. It provides several components at all levels of
 abstraction that make the construction of complex programs very easy.
 
@@ -335,7 +335,7 @@ directly dropped into the program. The traditional problems of race
 conditions in multi-threaded environments simply do not occur. On the
 other hand, a single component locking up can block the entire
 process, so care must be taken to ensure this does not happen. It is
-intrisically easier to prevent intra-component lockup than
+intrinsically easier to prevent intra-component lockup than
 inter-component race conditions, and POE has good support for handling
 this problem.  Database-oriented tasks such as those embodied in
 PhEDEx are well suited to this type of programming, as
@@ -368,7 +368,7 @@ the job ended would that subprocess be harvested by the FTS backend to
 get the results. A single stuck file would therefore cause knowledge
 of the state of all the files in the job to be delayed, with the
 consequence that available transfer slots might be left idle
-unwittingly. In order to promote efficient use of the netowrk, sites
+unwittingly. In order to promote efficient use of the network, sites
 often configured their FileDownload agents to transfer only one file
 per FTS transfer job. This meant that an excessive number of
 transfer jobs were submitted to the FTS service, and that large
@@ -384,12 +384,12 @@ agent to handle many links. This meant that sites were running many
 more FileDownload agents than necessary, which translated into many
 unnecessary connections to the central PhEDEx database. It also meant
 that the FileDownload agent was deprived of the opportunity to
-optimise throughput by choosing among links when preparing to submit
+optimize throughput by choosing among links when preparing to submit
 transfer jobs.
 
 For PhEDEx 3.0 the FTS backend was refactored significantly. FTS
 transfers are now performed by three interacting components, the
-remodelled FTS backend, the Queue Monitor, and the Glite interface.
+remodeled FTS backend, the Queue Monitor, and the Glite interface.
 
 \begin{figure}[htp] 
 \centering
@@ -416,14 +416,14 @@ interval between checks, so places a constant load on the FTS service
 regardless of the number of jobs submitted. The POE 'postback'
 mechanism (essentially asynchronous callbacks) allows the monitor to
 notify the FTS backend of the change of state of each file in a
-transfer job independantly, so the FTS backend can act on completed
+transfer job independently, so the FTS backend can act on completed
 file transfers (successful or otherwise) while the rest of the files
 in a transfer job are still in transit.
 
 The Queue Monitor also maintains details of file state and link state
 for all the files and transfer links it is monitoring. This
 information is used by the FTS backend to throttle transfers and to
-select among links. The information is updated perodically, as each
+select among links. The information is updated periodically, as each
 job is monitored, so is not real time, but it does not need to be. The
 fact that file-state information is available while the transfer job
 is still executing is enough to make the system adequately performant,
@@ -490,7 +490,7 @@ will have a degree of confidence associated with it, which decays with
 time. Instead of aiming for the impossible goal of being certain about
 the state of all data, the tools provide the means to test the state
 of data at a rate which does not impact the Storage Element, and which
-can be prioritised to accomodate the most important data first. Rather
+can be prioritized to accommodate the most important data first. Rather
 than attempt to resolve every possible problem, these tools
 specifically target the needs to reduce the time operators spend in
 tackling the more frequent problems.
@@ -498,7 +498,7 @@ tackling the more frequent problems.
 A single BlockConsistency agent is run at each site, configured to
 have direct local access to the Storage Element. Remote access via SRM
 is supported, but is too slow to be of much practical use. The agent
-processes a prioritised queue of requests for a set of PhEDEx nodes
+processes a prioritized queue of requests for a set of PhEDEx nodes
 that it supports (e.g the Buffer and MSS nodes of a given site) and
 stores the results back in TMDB. The results are available through the
 web or by use of a command-line reporting tool. Requests which are
@@ -530,7 +530,7 @@ response to problems detected in other areas of the CMS workflow. For
 example, a user's analysis job running at a site may encounter errors,
 which could lead to the automatic verification of the data the user
 was accessing. Another possibility is to monitor the access to data,
-by users or other swcheduled activity, and to pre-emptively verify the
+by users or other scheduled activity, and to pre-emptively verify the
 state of associated data, in different data tiers perhaps. The
 agent-based verification and associated command-line tools provide a
 sound basis for such further development with little or no risk of
