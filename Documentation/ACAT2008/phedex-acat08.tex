@@ -8,10 +8,6 @@
 
 \ShortTitle{Data transfer infrastructure for CMS data taking}
 
-%\author{\speaker{Ricky Egeland}\\
-%        University of Minnesota, Twin Cities\\
-%        E-mail: \email{Ricky.Egeland@cern.ch}}
-
 \author{
   \speaker{Ricky Egeland},$^a$ Tony Wildish,$^{b}$ and Simon Metson$^{c}$\\ 
   \llap{$^a$}University of Minnesota, Twin Cities\\ 
@@ -24,7 +20,7 @@
 responsible for facilitating large-scale data transfers across the
 grid ensuring transfer reliability, enforcing data placement policy,
 and accurately reporting results and performance statistics. The
-system has evolved considerably since it's creation in 2004, and has
+system has evolved considerably since its creation in 2004, and has
 been used daily by CMS since then. Currently CMS tracks over 2 PB of
 data in PhEDEx, and it has been tested well beyond the requirements of
 CMS. Over the past year PhEDEx has evolved considerably, making use of
@@ -93,8 +89,8 @@ web data service for providing XML or JSON via HTTP requests was
 developed using Apache and mod\_perl.  Finally, a framework was
 developed for performing consistency checks to compare database and
 disk consistency in a controlled fashion.  These recent developments
-are the focus of this paper, following a brief overview of the
-project.
+are the focus of this paper, following an overview of the
+project and performance acheivements.
 
 \section{Overview of CMS Computing and PhEDEx}
 
@@ -195,7 +191,7 @@ evenly distributed across 8 tier 1 and 50 tier 2 nodes, for a total of
 outgoing/incoming transfers and the ``MSS'' (Mass Storage System)
 which represents tape storage).  Each node is then subscribed to all
 the available data, making the final state 6.6 million replicas.  The
-central agents ran on a dedicated box we have direct access to, so we
+central agents ran on a dedicated box we had direct access to, so we
 could monitor the progress of the test.  The site agents were run as
 batch jobs to the computing cluster with each download agent running
 for up to five nodes simultaneously.  No actual file transfers were
@@ -209,7 +205,7 @@ expected that the tier 1 nodes would transfer at the same rate as the
 tier 2 nodes, and the 4 hour tail would be eliminated.  The fictional
 replication rate achieved in this setup far exceeds the requirements
 of CMS, and proved that our transfer system will be limited by
-bandwidth and site storage issues, not the transfer system itself.
+bandwidth and site storage issues, not the transfer management system..
 
 \begin{figure}[htp] 
 \centering
@@ -351,12 +347,11 @@ process, something that was not possible before. Agents which would in
 the past have contended for resources on the database can now be
 managed as cooperative threads, even sharing a database
 connection. This lowers load and connectivity on the database, and
-avoids wasted context switches and excessive process load on the
-VOBOX.
+avoids wasted context switches and excessive process load.
 
 \section{The FTS backend}
 
-The core data-movement engines of PhEDEx are the 'backend' modules to
+The core data-movement engines of PhEDEx are the ``backend'' modules to
 the FileDownload agent. One of these is the FTS backend, which is
 responsible for submitting transfer jobs to the grid File Transfer
 Service (FTS) \cite{fts}, monitoring the transfers, and acting on the
@@ -365,35 +360,36 @@ of PhEDEx 3.0 and its further development through 2008 has been the
 redesign of the FTS backend to achieve better throughput and reporting
 with lower load on both the PhEDEx service and the FTS service.
 
-Before PhEDEx 3.0, the FTS backend would prepare a transfer-job to
-submit to the FTS service, submit it, and wait for the job to complete
+Before PhEDEx 3.0, the FTS backend would prepare a transfer job to
+submit to the FTS service, submit it, and then wait for the job to complete
 before examining and acting on the results. A separate subprocess
-would monitor each transfer-job, one subprocess per job, and only when
+would monitor each transfer job, one subprocess per job, and only when
 the job ended would that subprocess be harvested by the FTS backend to
 get the results. A single stuck file would therefore cause knowledge
 of the state of all the files in the job to be delayed, with the
-consequence that available transfer-slots might be left idle
+consequence that available transfer slots might be left idle
 unwittingly. In order to promote efficient use of the netowrk, sites
 often configured their FileDownload agents to transfer only one file
-per FTS transfer-job. This meant that an excessive number of
-transfer-jobs were submitted to the FTS service, and that large
-numbers of transfer-monitoring processes could place a heavy load on
-the PhEDEx VOBOX. Since the transfer-monitoring processes were
+per FTS transfer job. This meant that an excessive number of
+transfer jobs were submitted to the FTS service, and that large
+numbers of transfer monitoring processes could place a heavy load on
+the machine. Since the transfer monitoring processes were
 independent, they could also place an unreasonable burden on the FTS
-service, polling at a rate which was directly proportional to the
+service, polling it at a rate which was directly proportional to the
 number of submitted transfer jobs.
 
-Sites often configured one FileDownload agent per transfer link,
-instead of allowing one agent to handle many links. This meant that
-sites were running many more FileDownload agents than necessary, which
-translates into many unnecessary connections to the central PhEDEx
-database. It also meant that the FileDownload agent was deprived of
-the opportunity to optimise throughput by choosing among links when
-preparing to submit transfer jobs.
+In order to fine-tune bandwidth used per link, sites often configured
+one FileDownload agent per transfer link, instead of allowing one
+agent to handle many links. This meant that sites were running many
+more FileDownload agents than necessary, which translated into many
+unnecessary connections to the central PhEDEx database. It also meant
+that the FileDownload agent was deprived of the opportunity to
+optimise throughput by choosing among links when preparing to submit
+transfer jobs.
 
 For PhEDEx 3.0 the FTS backend was refactored significantly. FTS
 transfers are now performed by three interacting components, the
-re-modelled FTS backend, the Queue Monitor, and the Glite interface.
+remodelled FTS backend, the Queue Monitor, and the Glite interface.
 
 \begin{figure}[htp] 
 \centering
@@ -402,7 +398,7 @@ re-modelled FTS backend, the Queue Monitor, and the Glite interface.
 \label{fig:fts}
 \end{figure} 
 
-The FTS backend itself takes care of parceling the file-queue into
+The FTS backend itself takes care of parceling the file queue into
 discrete chunks that are submitted as FTS transfer jobs, and of
 harvesting the results and uploading the status to the PhEDEx
 database. It uses the Glite component to perform the actual
@@ -412,7 +408,7 @@ jobs that are submitted. It simply notifies the Queue Monitor that a
 job has been submitted, and lets the Queue Monitor take care of it
 from then on.
 
-The Queue Monitor maintains a list of transfer-jobs that it knows
+The Queue Monitor maintains a list of transfer jobs that it knows
 about and periodically checks the status of jobs. It uses the Glite
 component to execute the monitoring command and return the result. The
 Queue Monitor checks jobs in a round-robin manner with a fixed
@@ -421,22 +417,22 @@ regardless of the number of jobs submitted. The POE 'postback'
 mechanism (essentially asynchronous callbacks) allows the monitor to
 notify the FTS backend of the change of state of each file in a
 transfer job independantly, so the FTS backend can act on completed
-file-transfers (successful or otherwise) while the rest of the files
+file transfers (successful or otherwise) while the rest of the files
 in a transfer job are still in transit.
 
-The Queue Monitor also maintains details of file-state and link-state
-for all the files and transfer-links it is monitoring. This
+The Queue Monitor also maintains details of file state and link state
+for all the files and transfer links it is monitoring. This
 information is used by the FTS backend to throttle transfers and to
 select among links. The information is updated perodically, as each
-job is monitored, so is not real-time, but it does not need to be. The
-fact that file-state information is available while the transfer-job
+job is monitored, so is not real time, but it does not need to be. The
+fact that file-state information is available while the transfer job
 is still executing is enough to make the system adequately performant,
-as fewer transfer-jobs need to be submitted so the interval for
+as fewer transfer jobs need to be submitted so the interval for
 monitoring a single job is fairly short.
 
 The Glite component is responsible for constructing the commands for
 submitting, monitoring, and changing the priority of FTS
-transfer-jobs. It executes the commands and parses the output,
+transfer jobs. It executes the commands and parses the output,
 returning the result to the calling component as a Perl hash. This
 encapsulates the interaction with the FTS service completely, nothing
 else in the system need know any of the details of the command
@@ -466,7 +462,7 @@ be. The consistency tools aim to bridge that gap.
 The PhEDEx Consistency tools are a set of command-line tools and
 agents for verifying the consistency of data at a site. They provide a
 number of lightweight checks for consistency in a controlled
-manner. 'Lightweight' means they provide 'namespace' checks to verify
+manner. ``Lightweight'' means they provide namespace checks to verify
 that all files of a block or dataset are in the same state, that files
 known to PhEDEx are known to DBS and to the underlying Storage
 Element, that file sizes are consistent with that recorded in PhEDEx,
@@ -479,7 +475,7 @@ scripts. Interactive tools are provided, but are not recommended for
 testing large volumes of data.
 
 The tools do not verify checksums of files, because that would be too
-resource-intensive. Checksumming all the files on a T1 would be a
+resource-intensive. Checksumming all the files at a tier 1 center would be a
 major undertaking, even if only those on disk were considered. The
 bandwidth and CPU required to checksum even a modest fraction of the
 files in a reasonable timescale would be prohibitive. If checksumming
@@ -488,7 +484,7 @@ all the files available, then the information becomes stale. There is
 no guarantee that the files that were verified a week ago have not
 been lost in the meantime.
 
-In fact this principle pervades the Consistency tools design. Any
+In fact this principle pervades the consistency tools design. Any
 information about consistency between a database and a storage system
 will have a degree of confidence associated with it, which decays with
 time. Instead of aiming for the impossible goal of being certain about
@@ -513,11 +509,11 @@ A single central agent, the BlockDownloadVerifyInjector agent, looks
 regularly for blocks that are not being transferred in a timely
 manner. These can be blocks that are delayed in transfer on the WAN or
 on the LAN (between Buffer and MSS nodes). For blocks that are delayed
-on the WAN, a test-request is scheduled for the source data, checking
+on the WAN, a test request is scheduled for the source data, checking
 the filesizes. This should alert operators to transfers which are
 failing repeatedly because of files that are the wrong size or, more
 commonly, do not exist at the source for whatever reason. For overdue
-LAN transfers, tape-migration is checked at the destination, to see if
+LAN transfers, tape migration is checked at the destination, to see if
 there are any problems there.
 
 The BlockDownloadVerifyInjector agent also performs various
@@ -535,7 +531,7 @@ example, a user's analysis job running at a site may encounter errors,
 which could lead to the automatic verification of the data the user
 was accessing. Another possibility is to monitor the access to data,
 by users or other swcheduled activity, and to pre-emptively verify the
-state of associated data, in different data-tiers perhaps. The
+state of associated data, in different data tiers perhaps. The
 agent-based verification and associated command-line tools provide a
 sound basis for such further development with little or no risk of
 impacting more important parts of the system.
@@ -550,12 +546,12 @@ activity and the benchmarks of data challenges.  The transfer system
 is stable over long time scales, and has sustained transfer rates at
 near the expected \emph{burst levels} of running at LHC start-up for
 \emph{months}.  Most of the remaining problems with large scale data
-transfers fall below the layer which PhEDEx occupies --- site storage
-systems and grid transfer tools.  Further development of PhEDEx is
-focused on providing more information for detecting and addressing
-problems early, as well as improving integration with other components
-and ease of use.  The PhEDEx software platform is ready to meet the
-challenges of the LHC data-taking era.
+transfers fall below the layer which PhEDEx occupies, meaning site
+storage systems and grid transfer tools.  Further development of
+PhEDEx is focused on providing more information for detecting and
+addressing problems early, as well as improving integration with other
+components and ease of use.  The PhEDEx software platform is ready to
+meet the challenges of the LHC data-taking era.
 
 \bibliographystyle{unsrt}
 \bibliography{phedex-acat08}
