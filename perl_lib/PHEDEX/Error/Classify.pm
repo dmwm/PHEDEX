@@ -33,6 +33,7 @@ sub ErrorClassify {
   my $reason;
 
   # First some general substitution patterns to remove IDs, etc.
+  $detail =~ s/\s+$//;
   $detail =~ s/\sid=[\d-]+\s/id=\[id\] /;
   $detail =~ s/\sauthRequestID \d+\s/authRequestID \[id\] /;
   $detail =~ s/RequestFileStatus#[\d-]+/RequestFileStatus#\[number\]/g;
