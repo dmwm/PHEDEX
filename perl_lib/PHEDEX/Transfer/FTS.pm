@@ -104,7 +104,7 @@ sub init
 	} elsif (! -r $passfile) {
 	    $self->Alert("FTS passfile '$passfile' is not readable");
 	    $ok = 0;
-	} elsif ( (stat($passfile))[2] != 0100600 ||
+	} elsif ( (stat($passfile))[2] != 0100600 &&
                   (stat($passfile))[2] != 0100400 ) {
 	    $self->Warn("FTS passfile '$passfile' has vulnerable file access permissions, ",
 			"please restrict with 'chmod 600 $passfile'");
