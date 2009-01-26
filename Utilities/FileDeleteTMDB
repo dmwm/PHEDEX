@@ -3,7 +3,7 @@
 ##H Delete files from TMDB
 ##H
 ##H Usage:
-##H   FileDeleteTMDB -db DBCONFIG -list FILES -node NODENAME [ -bulk ] [ -keepempty CONTAINERS ]
+##H   FileDeleteTMDB -db DBCONFIG -list FILES (-node NODENAME | -invalidate) [ -bulk ] [ -keepempty CONTAINERS ]
 ##H
 ##H Examples:
 ##H
@@ -20,8 +20,7 @@
 ##H                dataset:<DATASET> for all files in a dataset
 ##H
 ##H   NODENAMES  is a comma separated list of nodes for which you wish to delete
-##H              files. Keyword 'all' will delete the file completely.
-##H              Wildcard '%' is supported too.
+##H              files.  Wildcard '%' is supported too.
 ##H              
 ##H   CONTAINERS  a comma separated list of containers to keep even if they are empty.
 ##H               'dataset' and 'block' are supported.  This is useful to maintain 
@@ -29,13 +28,17 @@
 ##H               Note that '-keepempty block' is incompatible with '-bulk'
 ##H
 ##H   SWITCHES
+##H   -invalidate   removes replicas from all nodes and then removes the LFNs
+##H                 from TMDB completely
 ##H         -bulk   bulk deletion for blocks and datasets.  This is a faster
 ##H                 method of deletion if the number of files is huge, but
 ##H                 to use this method you may only specify 'dataset:' or
-##H                 'block:' identifiers in -list and you must be deleting
-##H                 the information completely (-node all)
+##H                 'block:' identifiers in -list and you must be invalidating
+##H                 the files (-invalidate)
 ##H            -h   invoke this help text
 
+use warnings;
+use strict;
 $|++;
 
 # Process command line arguments.
@@ -48,11 +51,12 @@ my %args;
 &GetOptions ("db=s"        => \$args{DBCONFIG},
 	     "list=s"      => \$args{LIST},
 	     "nodes=s"     => \$args{NODES},
+	     "invalidate"  => \$args{INVALIDATE},
 	     "bulk"        => \$args{BULK},
 	     "keepempty=s" => \$args{KEEP},
              "help|h"      => sub { &usage() });
 # Check arguments.
-if (!$args{DBCONFIG} || !$args{LIST} || !$args{NODES})
+if (!$args{DBCONFIG} || !$args{LIST} || ! ($args{NODES} || $args{INVALIDATE}))
 {
     die "Insufficient parameters, use -h for help.\n";
 }
@@ -67,25 +71,49 @@ if ($args{KEEP}) {
 my $self = { DBCONFIG => $args{DBCONFIG} };
 our $dbh = &connectToDatabase ($self);
 my $now = &mytimeofday();
-my $nodes = [ split m|,\s*|, $args{NODES} ];
+my $nodes = $args{NODES} ? [ split m|,\s*|, $args{NODES} ] : [];
 my $list = [ split m|,\s*|, $args{LIST} ];
 our $keep = { map { $_ => 1 } split(m|,\s*|, $args{KEEP}) } if $args{KEEP};
+our $do_bulk = $args{BULK} ? 1 : 0;
+our $do_invalidate = $args{INVALIDATE} ? 1 : 0;
 my $tables = &setTableList ($nodes);
 
-if ($$keep{block} && $args{BULK}) {
-    die "Empty blocks cannot be kept when using bulk deletion mode.\n";
+if ($$keep{block} && $do_bulk) {
+    die "ERROR: Empty blocks cannot be kept when using bulk deletion mode.\n";
+}
+
+if ($do_bulk && !$do_invalidate) {
+    die "ERROR: Bulk deletion only works when invalidating files\n";
+}
+
+if (@$nodes && $do_invalidate) {
+    die "ERROR: deletion of files at nodes (replicas) and file invalidation are ",
+    "mutually exclusive.  Please choose only one of the options -node ",
+    "or -invalidate\n";
 }
 
 # Get a list of LFNs from the input provided by the user
 # finally delete the LFNs
+my $containers = &getItemList( $list, 'containers' );
 my $stats;
-if (! $args{BULK} ) {
+if (! $do_bulk ) {
     my $lfns = &getItemList ( $list, 'files' );
-    $stats = &deleteLFNs ( $lfns, $dbh, $nodes, $tables );
+    $stats = &deleteLFNs ( $lfns, $dbh, $nodes, $tables ) if %$lfns;
 } else {
     my $blocks = &getItemList ( $list, 'blocks' );
-    $stats = &bulkDelete ( $blocks, $dbh );
+    $stats = &bulkDelete ( $blocks, $dbh ) if %$blocks;
 }
+
+# check for empty containers, which are not caught above
+my ($con_ds, $con_b) = ([], []);
+foreach my $con ( values %$containers ) {
+    push @$con_ds, $$con{DATASET} if $$con{DATASET};
+    push @$con_b,  $$con{BLOCK}   if $$con{BLOCK};
+}
+my ($del_ds, $del_b) = &deleteEmptyContainers( $con_ds, $con_b );
+$$stats{DEL_DATASETS} += $del_ds;
+$$stats{DEL_BLOCKS} += $del_b;
+
 $dbh->commit();
 &disconnectFromDatabase($self, $dbh, 1);
 
@@ -97,14 +125,13 @@ exit 0;
 
 
 
-# Define the tables to delete based on whether all files
-# or just the files at a site will be deleted
+# Define the tables to delete based on whether files are being
+# invalidated or not
 sub setTableList
 {
-    my ( $nodes ) = @_;
     my @tables = ();
-    
-    if ( $$nodes[0] eq 'all')
+
+    if ( $do_invalidate )
     {
 	@tables = ('t_xfer_task',
 		   't_xfer_replica',
@@ -143,10 +170,10 @@ sub getItemList
     }
     else
     {
-	$fileref = $files;
+	$fileref = [ @$files ]; # copy
     }
 
-    my $results = {};
+    my $results = {}; # unique results
     foreach my $f (@$fileref) {
 	my $userstring = $f;
 	$f =~ s/^\s*(\S+)\s*$/$1/; # remove whitespace
@@ -154,25 +181,26 @@ sub getItemList
 	my $item = $1;
 	unless ($item && grep $item eq $_, qw(dataset: block: lfn:))
 	{
-	    print "Unknown protocol '$item' for file $f\n";
-	    print "Please use one of the following protocols for each file:\n";
+	    print "Unknown data type '$item' for item $f\n";
+	    print "Please use one of the following data types for each item:\n";
 	    print "lfn: for LFNs\n";
 	    print "block: for whole blocks\n";
 	    print "dataset: for whole datasets\n";
 	    next;
 	}
 	my $inforef = {};
-	if ($wants eq 'files')     { $inforef = &getLFNInfo ($item, $f); }
+	if    ($wants eq 'files')  { $inforef = &getLFNInfo  ($item, $f); }
 	elsif ($wants eq 'blocks') { $inforef = &getBlockInfo($item, $f); }
+	elsif ($wants eq 'containers') { $inforef = &getContainerInfo($item, $f) }
 	else { die "unknown return format $wants\n"; }
-	
+
 	unless (keys %$inforef) {
-	    print "$userstring was not found in TMDB, skipping\n";
+	    print "$wants for $userstring were not found in TMDB, skipping deletion of $wants\n";
 	    next;
 	}
 	map { $$results{$_} = $$inforef{$_} } keys %$inforef;
     }
-    return $results;
+    return ($results);
 }
 
 sub getLFNInfo
@@ -217,13 +245,37 @@ sub getBlockInfo
 	select ds.name dataset, b.name block, b.id
 	    from t_dps_dataset ds
 	    join t_dps_block b on b.dataset = ds.id
-	    join t_dps_file f on f.inblock = b.id
 	    where $where},
 		    ":item" => $item);
     my $blocks = $q->fetchall_hashref('BLOCK');
     return $blocks;
 }
 
+sub getContainerInfo
+{
+    my ( $level, $item ) = @_;
+    my $where;
+    if    ($level eq 'dataset:')  { $where = "ds.name"; }
+    elsif ($level eq 'block:') { $where = "b.name"; }
+    elsif ($level eq 'lfn:')   { $where = "f.logical_name"; }
+    else { die "Unknown level '$level' to getContainerInfo\n"; }
+
+    if ( $item =~ m|%| ) { escapeSQLLike ($item);
+			   $where .= " like :item escape'\\' "; }
+    else                 { $where .= " = :item"; }
+    
+    my $q = &dbexec($dbh, qq{
+	select rownum, dataset, block from (
+	select distinct ds.name dataset, b.name block
+	    from t_dps_dataset ds
+	    left join t_dps_block b on b.dataset = ds.id
+	    left join t_dps_file f on f.inblock = b.id
+	    where $where
+	)},
+		    ":item" => $item);
+    my $conts = $q->fetchall_hashref('ROWNUM');
+    return $conts;
+}
 
 # Deletes LFNs from TMDB
 sub deleteLFNs
@@ -234,7 +286,7 @@ sub deleteLFNs
 				DEL_DATASETS => 0, DEL_BLOCKS => 0 };
 
     my $nodes = &getNodeID ($nodenames);
-    my $do_all = grep($_ eq 'all', keys %$nodes) ? 1 : 0;
+    $$nodes{'all'} = undef if $do_invalidate; # fake node name 'all' when invalidating files
 
     my (%datasets, %blocks);
     my $wait_cache = {};  # Cache of LFNs we are going to wait and try again later
@@ -262,9 +314,9 @@ sub deleteLFNs
 
 	    # Lock and Delete
 	    &lockFileTables ($tables, $$lfninfo{ID});
-	    if ( $do_all ) { &deleteAllTMDBEntries ($$lfninfo{ID}, $$lfninfo{LFN}, $tables) }
-	    else           { &deleteSiteTMDBEntries ($$lfninfo{ID}, $$lfninfo{LFN},
-						     $$nodes{$nodename}, $nodename, $tables) }
+	    if ( $do_invalidate ) { &deleteAllTMDBEntries ($$lfninfo{ID}, $$lfninfo{LFN}, $tables) }
+	    else                  { &deleteSiteTMDBEntries ($$lfninfo{ID}, $$lfninfo{LFN},
+					 	            $$nodes{$nodename}, $nodename, $tables) }
 
 	    $$stats{DEL_DB}{$nodename} += 1;
 	    $$stats{DEL_DB_SUM} += 1;
@@ -282,8 +334,8 @@ sub deleteLFNs
 	}
     }
 
-    if ( $do_all ) {
-	# Delete empty datasets and blocks if we are deleting "all"
+    if ( $do_invalidate ) {
+	# Delete empty datasets and blocks if we are invalidating files
 	($$stats{DEL_DATASETS}, $$stats{DEL_BLOCKS}) = &deleteEmptyContainers ( [keys %datasets], [keys %blocks] );
 
 	# Expand blocks we have deleted from in order to update the statistics
@@ -318,11 +370,7 @@ sub bulkDelete
     my ( $blocks, $dbh ) = @_;
     my $n_blocks = scalar keys %$blocks;
     
-    if (! $n_blocks) {
-	print "Nothing to do.\n";
-	return;
-    }
-
+    return unless $n_blocks;
    
     my $stats =  { DEL_DB_SUM => 0, DEL_DATASETS => 0, DEL_BLOCKS => 0 };
 
@@ -392,7 +440,7 @@ sub checkFileExistence
     # this case and cache the LFN to attempt to delete later
     if ( $nodename ne 'all' )
     {
-	$q = &dbexec($dbh, qq{
+	my $q = &dbexec($dbh, qq{
 	    select b.files, br.node_files from t_dps_block_replica br left join t_dps_block b
 		on br.block = b.id where node = :node and block in
 		(select inblock from t_dps_file where logical_name = :lfn)},
@@ -403,9 +451,9 @@ sub checkFileExistence
 	    select count(*) from t_xfer_replica where
 		fileid = :lfn and node = :node},
 		     ":lfn" => $$lfninfo{ID}, ":node" => $node);
-	( $exists_xfer_rep ) = $q->fetchrow();
+	my ( $exists_xfer_rep ) = $q->fetchrow();
 	
-	if ( !$node_files || (!$exists_xfer_rep && ($block_files != $node_files)) )
+	if ( !$node_files && !$exists_xfer_rep )
 	{
 	    return 0; # return false, since file is not at node
 	}
@@ -441,7 +489,6 @@ sub getNodeID
 			    ":nodename" => $nodename);
 	}
 	map {$$node{$$_[0]} = $$_[1]} @{$q->fetchall_arrayref()};
-	$$node{$nodename} = undef if ( $nodename eq 'all' ); # no ID in case of all
     }
     return $node;
 }
@@ -499,7 +546,7 @@ sub expandBlock
     my $now = &mytimeofday ();
     my $end = $now + 3600*24*5;
     
-    $q = &dbexec($dbh, qq{
+    my $q = &dbexec($dbh, qq{
 	insert into t_dps_block_activate (block, time_request, time_until)
 	    select id, :time_request, :time_until from t_dps_block b
 	    where name  = :block
@@ -620,13 +667,12 @@ sub deleteEmptyContainers
 sub printStats
 {
     my ($stats) = @_;
-    return unless $stats;
 
     print "\nSUMMARY\n";
 
     # Ugly hack to get final node names and eliminate double names
     my %nodenames = ();
-    map {$nodenames{$_} = 0} ( map { keys %{ $$stats{$_} } } (keys %$stats) );
+    map {$nodenames{$_} = 0} ( map { keys %{ $$stats{$_} } } qw(SKIPPED DEL_DB) );
 
     my $fmt = "%-50s %s\n";
     foreach my $node (keys %nodenames )
@@ -636,14 +682,10 @@ sub printStats
 	printf($fmt, "deleted files at node $node", $$stats{DEL_DB}{$node})
 	    if defined $$stats{DEL_DB}{$node};
     }
-    printf($fmt, "total files processed", $$stats{LFNS_PROCESSED})
-	if defined $$stats{LFNS_PROCESSED};
-    printf($fmt, "total files deleted", $$stats{DEL_DB_SUM})
-	if defined $$stats{DEL_DB_SUM};
-    printf($fmt, "deleted empty blocks", $$stats{DEL_BLOCKS})
-	if defined $$stats{DEL_BLOCKS};
-    printf($fmt, "deleted empty datasets", $$stats{DEL_DATASETS})
-	if defined $$stats{DEL_DATASETS};
+    printf($fmt, "total files processed", ($$stats{LFNS_PROCESSED} || 0));
+    printf($fmt, "total files deleted", ($$stats{DEL_DB_SUM} || 0));
+    printf($fmt, "deleted empty blocks", ($$stats{DEL_BLOCKS} || 0));
+    printf($fmt, "deleted empty datasets", ($$stats{DEL_DATASETS} || 0));
 }
 
 sub escapeSQLLike
