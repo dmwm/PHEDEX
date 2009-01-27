@@ -45,6 +45,7 @@ use strict;
 use warnings;
 use base 'PHEDEX::Core::SQL';
 use Carp;
+use POSIX;
 
 our @EXPORT = qw( );
 our (%params);
@@ -440,6 +441,143 @@ sub SiteDataInfo
 		dataset   => \%dataset,
 	   }
 	 };
+}
+
+# get info from t_history_link_stats table
+sub getLinkStat
+{
+    my ($core, %h) = @_;
+    my $sql;
+
+    # if summary is defined, show average and/or sum
+    # otherwise, show individual timebin
+    if (exists $h{summary})
+    {
+        $sql = qq {
+        select
+            'n/a' as timebin,
+            n1.name as from_node,
+            n2.name as to_node,
+            avg(priority) as priority,
+            sum(pend_files) as pend_files,
+            sum(pend_bytes) as pend_bytes,
+            sum(wait_files) as wait_files,
+            sum(wait_bytes) as wait_bytes,
+            sum(cool_files) as cool_files,
+            sum(cool_bytes) as cool_bytes,
+            sum(ready_files) as ready_files,
+            sum(ready_bytes) as ready_bytes,
+            sum(xfer_files) as xfer_files,
+            sum(xfer_bytes) as xfer_bytes,
+            sum(confirm_files) as confirm_files,
+            sum(confirm_bytes) as confirm_bytes,
+            avg(confirm_weight) as confirm_weight,
+            avg(param_rate) as param_rate,
+            avg(param_latency) as param_latency
+        from
+            t_history_link_stats,
+            t_adm_node n1,
+            t_adm_node n2
+        where
+            from_node = n1.id and
+            to_node = n2.id };
+    }
+    else
+    {
+        $sql = qq {
+        select
+            timebin,
+            n1.name as from_node,
+            n2.name as to_node,
+            priority,
+            pend_files,
+            pend_bytes,
+            wait_files,
+            wait_bytes,
+            cool_files,
+            cool_bytes,
+            ready_files,
+            ready_bytes,
+            xfer_files,
+            xfer_bytes,
+            confirm_files,
+            confirm_bytes,
+            confirm_weight,
+            param_rate,
+            param_latency
+        from
+            t_history_link_stats,
+            t_adm_node n1,
+            t_adm_node n2
+        where
+            from_node = n1.id and
+            to_node = n2.id };
+    }
+
+
+    my $where_stmt = "";
+    my %param;
+    my @r;
+
+    if ($h{from_node})
+    {
+        $where_stmt .= qq { and\n            n1.name = :from_node};
+        $param{':from_node'} = $h{from_node};
+    }
+
+    if ($h{to_node})
+    {
+        $where_stmt .= qq { and\n            n2.name = :to_node};
+        $param{':to_Node'} = $h{to_node};
+    }
+
+    if ($h{since})
+    {
+        $where_stmt .= qq { and\n            timebin >= :since};
+        $param{':since'} = PHEDEX::Core::Util::str2time($core, $h{since});
+    }
+
+    if ($h{before})
+    {
+        $where_stmt .= qq { and\n            timebin < :before};
+        $param{':before'} = PHEDEX::Core::Util::str2time($core, $h{before});
+    }
+
+    # now take care of the where clause
+
+    if ($where_stmt)
+    {
+        $sql .= $where_stmt;
+    }
+    else
+    {
+        # limit the number of record to 1000
+        $sql .= qq { and\n            rownum <= 1000};
+    }
+
+    if (exists $h{summary})
+    {
+        $sql .= qq {\ngroup by n1.name, n2.name };
+    }
+    else
+    {
+        $sql .= qq {\norder by timebin desc};
+    }
+
+    # now execute the query
+    my $q = execute_sql( $core, $sql, %param );
+    while ( $_ = $q->fetchrow_hashref() )
+    {
+        # format the time stamp
+        if ($_->{'TIMEBIN'} != "n/a")
+        {
+            $_->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $_->{'TIMEBIN'}));
+        }
+        push @r, $_;
+    }
+
+    # return $sql, %param;
+    return \@r;
 }
 
 1;
