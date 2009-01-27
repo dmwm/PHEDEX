@@ -5,9 +5,12 @@
 #
 # Author: Derek Feichtinger <derek.feichtinger@psi.ch>
 #
+# initial CVS checkin by metson
 # XML support added by Artem Trunov
-# Version info: $Id: InspectPhedexLog,v 1.33 2008/11/07 12:48:51 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.34 2009/01/27 08:57:22 dfeichti Exp $:
 ###############################################################################
+
+#TODO: Make InspectPhedexLogs use the PHEDEX::Error::Classify library
 
 use strict;
 use Getopt::Std;
@@ -70,8 +73,9 @@ usage: InspectPhedexLog [options] logfile1 [logfile2 ...]
    summary statistics for all download sources.
 
    Running with the -e option is probably the most useful mode to identify general site problems
-   The -m option is useful to look into reasons of data set "tailing", but it is less useful to
-   look at the LoadTest transfers for reasons of the changing target file name mapping.
+   The -m option is useful to look into reasons of data set "tailing", it will find file which
+   repeatedl failed to transfer. But it is less useful to investigate LoadTest transfers, since
+   their names are changed artifically upon every transfer job.
 
 EOF
 
@@ -148,9 +152,8 @@ die "Error: Error message cutoff (option -c) must be > 1 (now: $errmsglen)\n" if
 
 my @logfiles=@ARGV;
 
-my %sitestat;
-my %failedfile; # repeatedly failing files
-my %expiredfile; # repeatedly failing files
+my %sitestat; # hash structure for collecting site statistics
+my %failedfile; # for counting repeatedly failing files
 my %attempts; # histogram of required attempts until successful 
 
 if ($#logfiles==-1) {
@@ -159,19 +162,19 @@ if ($#logfiles==-1) {
 }
 
 
-my $datestart=1e100; # first recorded transfer date of all scanned log files
-my $dateend; # last recorded transfer date of all scanned log files
+my $datestart=1e100; # first recorded transfer date over all scanned log files
+my $dateend; # last recorded transfer date over all scanned log files
+my $localdatestart;  # date of earliest transfer line taken into account in a logfile
+my $localdateend;    # date of last transfer line taken into account in a logfile
 
-my %errinfo;
-my %dberrinfo;
-my @expiredinfo;
+my %errinfo; # hash for collecting error strings per site
+my %dberrinfo; # hash for collecting data base error statistics
+my @expiredinfo; # array collecting task IDs of expired tasks
 my ($date,$task,$from,$to,$stat,$size,$txfer,$tdone,$ttransfer,$fname,$reason,$bsize,$size_sum)=(0,0,0,0,0,0,0,0,0,0,0,0);
 my ($bunchsize,$bunchfiles,$txfer_old,$tdone_old,$closedbunch)=(0,0,0,0,0);
+
 my $line;
 my $statstr;
-
-my $localdatestart;
-my $localdateend;
 
 foreach my $log (@logfiles) {
    $localdatestart=undef;
@@ -180,8 +183,7 @@ foreach my $log (@logfiles) {
    open(LOG,"<$log") or die "Error: Could not open logfile $log";
    my ($MbperS,$MBperS);
    while($line=<LOG>) {
-       next unless ($line =~ /(^[\d\:\-\s]+): FileDownload/);
-#       print "got date $1\n"; die;
+       next unless ($line =~ /^(\d+-\d+-\d+\s+\d+:\d+:\d+): FileDownload/);
        next if ($flag_checkdate_start && ($1 lt $sdstart) );
        next if ($flag_checkdate_end && ($1 gt $sdend) );
 
@@ -197,17 +199,12 @@ foreach my $log (@logfiles) {
        }
        
 # also want to handle expired tasks?!
+# Sample: 2008-04-10 13:45:20: FileDownload[28038]: PhEDEx transfer task $$t{TASKID} was nearly expired | has expired	   
        if ($line =~ / (\d+) (was nearly expired|has expired)/ ) {
 	   push @expiredinfo, $1;
-# 2008-04-10 13:45:20: FileDownload[28038]: PhEDEx transfer task $$t{TASKID} was nearly expired | has expired	   
 	   next;
        }
        
-#       next unless ($line =~ /(^[\d\:\-\s]+): .* xstats:.*report-code=.*/);
-##       print "got date $1\n"; die;
-#       next if ($flag_checkdate_start && ($1 le $sdstart) );
-#       next if ($flag_checkdate_end && ($1 ge $sdend) );
-
        next unless ($line =~ /xstats:.*report-code=.*/);
 
        ($date,$task,$from,$to,$stat,$size,$txfer,$tdone,$fname) = $line =~
@@ -217,10 +214,6 @@ foreach my $log (@logfiles) {
 	   warn "Error: Parsing problem with line:\n$line";
 	   next;
        }
-
-#       $localdateend=DateToUnixEpochSeconds($date);
-#       unless ($localdatestart) { $localdatestart = $localdateend; };
-
 
        $closedbunch=0;
        if($stat == 0) {   # successful transfer
@@ -333,10 +326,14 @@ foreach my $log (@logfiles) {
 	     } elsif ( $reason =~ /^\s*Canceled/ ) {
 		 $sitestat{"$from"}{"CANC"}++;
 		 $statstr="CANC";
+                 # TODO: cancelled transfers are not accounted for correctly yet for the
+                 #       multiple transfer failures mode
 		 $failedfile{"$fname"}{$from}{"canc"}++ if $flag_multiFailures;
 	     } elsif ( $reason =~ /agent lost/ ) {
 		 $sitestat{"$from"}{"LOST"}++;
 		 $statstr="LOST";
+                 # TODO: lost transfers are not accounted for correctly yet for the
+                 #       multiple transfer failures mode
 		 $failedfile{"$fname"}{$from}{"lost"}++ if $flag_multiFailures;
 	     } else {
 		 $failedfile{"$fname"}{$from}{"err"}++ if $flag_multiFailures;
@@ -434,7 +431,7 @@ if ($flag_multiFailures) {
 	print "\n";
     }
 
-    print "\nNumber of distinct files that failed: " . keys(%failedfile) . "\n";
+    print "\nNumber of distinct files that failed to transfer: " . keys(%failedfile) . "\n";
     print "--------------------------------------------------------\n";
     
     print "\nHistogram of failed attempts per file until successful transfer:\n";
@@ -665,11 +662,11 @@ sub DateToUnixEpochSeconds {
     if( (($Y,$M,$D,$h,$m,$s) = $date =~ m/\s*(\d+)-(\d+)-(\d+)\s*(\d+)?:?(\d+)?:?(\d+)?/) ) {
 	die "strange month number in date ($M)? Date was: $date\n"if $M < 0 or $M >12;
 	$unixs=strftime("%s",$s, $m, $h, $D, $M-1, $Y-1900, -1, -1, -1);
-    } elsif( (($D) = $date =~ m/\s*-\s*(\d+)\s*day/) ) {
+    } elsif( (($D) = $date =~ m/^\s*-\s*(\d+)\s*days?$/) ) {
 	$unixs = time() - 24*3600*$D;
-    } elsif( (($h) = $date =~ m/\s*-\s*(\d+)\s*hour/) ) {
+    } elsif( (($h) = $date =~ m/^\s*-\s*(\d+)\s*hours?$/) ) {
 	$unixs = time() - 3600*$h;
-    } elsif( (($m) = $date =~ m/\s*-\s*(\d+)\s*min/) ) {
+    } elsif( (($m) = $date =~ m/^\s*-\s*(\d+)\s*mins?$/) ) {
 	$unixs = time() - 60*$m;
     } elsif( $date =~ /^\s*now\s*$/) {
 	$unixs = time();
@@ -677,7 +674,7 @@ sub DateToUnixEpochSeconds {
 	$unixs = time() - 24*3600;
     } else {
 	warn "Error: Unknown date format: $date\n";
-        $unixs = "UNKNOWN_DATE";
+        #$unixs = "UNKNOWN_DATE";
     }
     return $unixs;
 }
