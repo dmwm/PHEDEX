@@ -9,10 +9,11 @@ PHEDEX::Core::Util - basic utility functions that may be useful in any module
 
 use warnings;
 use strict;
+use Data::Dumper;
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw (); # export nothing by default
-our @EXPORT_OK = qw( arrayref_expand );
+our @EXPORT_OK = qw( arrayref_expand str_hash );
 
 #-------------------------------------------------------------------------------
 # Takes an array and expands all arrayrefs in the array
@@ -25,6 +26,17 @@ sub arrayref_expand
 	else { next; }
     }
     return @out;
+}
+
+sub str_hash
+{
+# returns an inline data-dumper dump of its arguments
+  $Data::Dumper::Terse=1;
+  $Data::Dumper::Indent=0;
+  my $a = Data::Dumper->Dump([\@_]);
+  $a =~ s%\n%%g;
+  $a =~ s%\s\s+% %g;
+  return $a;
 }
 
 # str2time -- convert string to timestamp
