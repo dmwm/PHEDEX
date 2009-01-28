@@ -76,7 +76,7 @@ Fetch basic transfer request information.  TODO:  Document output format!
   WILDCARDS   : if true, only return requests with wildcards in them
   AFTER       : only return requests created after this timestamp
   NODES       : an arrayref of nodes.  Only return transfers affecting those nodes
-  REQUESTS    : an arrayref of request ids.  
+  REQUESTS    : an arrayref of request ids.
 
 =cut
 
@@ -144,28 +144,28 @@ sub getTransferRequests
           join t_req_node rn on rn.request = r.id
           join t_adm_node n on n.id = rn.node
      left join t_req_decision rd on rd.request = rn.request and rd.node = rn.node
-        $where 
+        $where
       order by r.id
  };
- 
+
     $self->{DBH}->{LongReadLen} = 10_000;
     $self->{DBH}->{LongTruncOk} = 1;
-    
+
     my $q = &dbexec($self->{DBH}, $sql, %p);
-    
+
     my $requests = {};
     while (my $row = $q->fetchrow_hashref()) {
 	# request data
 	my $id = $row->{ID};
 	if (!exists $requests->{$id}) {
-	    $requests->{$id} = { map { $_ => $row->{$_} } 
+	    $requests->{$id} = { map { $_ => $row->{$_} }
 				 qw(ID TYPE CREATOR_ID TIME_CREATE DBS_ID DBS
 				    PRIORITY IS_MOVE IS_TRANSIENT IS_STATIC
 				    IS_DISTRIBUTED IS_CUSTODIAL USER_GROUP
 				    DATA) };
 	    $requests->{$id}->{NODES} = {};
 	}
-	
+
 	# nodes of the request
 	my $node = $row->{NODE_ID};
 	if ($node) {
@@ -173,7 +173,7 @@ sub getTransferRequests
 						   qw(NODE NODE_ID POINT DECISION DECIDED_BY TIME_DECIDED) };
 	}
     }
-    
+
     return $requests;
 }
 
@@ -190,7 +190,7 @@ Fetch basic deletion request information.
   WILDCARDS   : if true, only return requests with wildcards in them
   AFTER       : only return requests created after this timestamp
   NODES       : an arrayref of nodes.  Only return deletions affecting those nodes
-  REQUESTS    : an arrayref of request ids.  
+  REQUESTS    : an arrayref of request ids.
 
 =cut
 
@@ -243,26 +243,26 @@ sub getDeleteRequests
           join t_req_node rn on rn.request = r.id
           join t_adm_node n on n.id = rn.node
      left join t_req_decision rd on rd.request = rn.request and rd.node = rn.node
-        $where 
+        $where
       order by r.id
  };
-    
+
     $self->{DBH}->{LongReadLen} = 10_000;
     $self->{DBH}->{LongTruncOk} = 1;
-    
+
     my $q = &dbexec($self->{DBH}, $sql, %p);
-    
+
     my $requests = {};
     while (my $row = $q->fetchrow_hashref()) {
 	# request data
 	my $id = $row->{ID};
 	if (!exists $requests->{$id}) {
-	    $requests->{$id} = { map { $_ => $row->{$_} } 
+	    $requests->{$id} = { map { $_ => $row->{$_} }
 				 qw(ID TYPE CREATOR_ID TIME_CREATE DBS_ID DBS
 				    RM_SUBSCRIPTIONS DATA) };
 	    $requests->{$id}->{NODES} = {};
 	}
-	
+
 	# nodes of the request
 	my $node = $row->{NODE_ID};
 	if ($node) {
@@ -270,7 +270,7 @@ sub getDeleteRequests
 						   qw(NODE NODE_ID POINT DECISION DECIDED_BY TIME_DECIDED) };
 	}
     }
-    
+
     return $requests;
 }
 
@@ -310,7 +310,7 @@ sub getExistingRequestData
 					       and rds.request = :id } );
 	push @$blocks, @{$ds_blocks};
     }
-    
+
     return $datasets, $blocks;
 }
 
@@ -359,7 +359,7 @@ Required:
  TIME_CREATE : the creation time
 
 TODO: Check that block subscriptions are not created where a dataset
-      subscription exists?  BlockAllocator takes care of this, but it may be 
+      subscription exists?  BlockAllocator takes care of this, but it may be
       unneccessary strain on that agent.
 
 =cut
@@ -395,7 +395,7 @@ sub createSubscription
 	$h{$_} = ( $h{$_} ? 'y' : 'n' );
     }
 
-    my $sql = qq{ 
+    my $sql = qq{
 	insert into t_dps_subscription
         (request, dataset, block, destination,
 	 priority, is_move, is_transient, time_create,
@@ -406,12 +406,12 @@ sub createSubscription
 	if ($type eq 'DATASET') {
             $h{USER_GROUP} = 'NULL' unless $h{USER_GROUP};
 	    $sql .= qq{ select :request, ds.id, NULL, :destination, :priority, :is_move, :is_transient, :time_create } .
-			", '$h{IS_CUSTODIAL}', $h{USER_GROUP} " . 
+			", '$h{IS_CUSTODIAL}', $h{USER_GROUP} " .
 			qq{ from t_dps_dataset ds where ds.name = :dataset };
 	} elsif ($type eq 'BLOCK') {
             $h{USER_GROUP} = 'NULL' unless $h{USER_GROUP};
 	    $sql .= qq{ select :request, NULL, b.id, :destination, :priority, :is_move, :is_transient, :time_create } .
-			", '$h{IS_CUSTODIAL}', $h{USER_GROUP} " . 
+			", '$h{IS_CUSTODIAL}', $h{USER_GROUP} " .
 			qq{ from t_dps_block b where b.name = :block };
 	}
     } else { # else we write exactly what we have
@@ -465,10 +465,10 @@ sub addSubscriptionsForRequest
 {
     my ($self, $rid, $node_id, $time) = @_;
 
-    my ($sth, $rv) = &dbexec($$self{DBH}, 
+    my ($sth, $rv) = &dbexec($$self{DBH},
      qq[ merge into t_dps_subscription s
          using
-         (select r.id, :destination destination, rdata.dataset, rdata.block, 
+         (select r.id, :destination destination, rdata.dataset, rdata.block,
                  rx.priority, rx.is_custodial, rx.is_move, rx.is_transient, rx.user_group
 	    from t_req_request r
             join t_req_xfer rx on rx.request = r.id
@@ -479,7 +479,7 @@ sub addSubscriptionsForRequest
                    select rb.request, NULL dataset, rb.block_id block
                      from t_req_block rb
                     where rb.block_id is not null
-                 ) rdata on rdata.request = r.id 
+                 ) rdata on rdata.request = r.id
            where r.id = :request
          ) r
          on (r.destination = s.destination
@@ -525,10 +525,10 @@ sub deleteSubscriptionsForRequest
                            union
                            select rb.request, b.dataset, b.id block
                              from t_req_block rb
-                             join t_dps_block b on b.id = rb.block_id 
+                             join t_dps_block b on b.id = rb.block_id
                             where rb.block_id is not null
                         ) rdata on rdata.request = r.id
-                  where r.id = :request 
+                  where r.id = :request
                     and (rdata.dataset = s.dataset or rdata.block = s.block)
                ) ],
 	  ':request' => $rid, ':destination' => $node_id);
@@ -548,10 +548,10 @@ sub addDeletionsForRequest
 {
     my ($self, $rid, $node_id, $time) = @_;
 
-    my ($sth, $rv) = &dbexec($$self{DBH}, 
+    my ($sth, $rv) = &dbexec($$self{DBH},
      qq[ merge into t_dps_block_delete bd
          using
-         (select r.id, rdata.dataset, rdata.block, :node node 
+         (select r.id, rdata.dataset, rdata.block, :node node
 	    from t_req_request r
             join ( select rds.request, b.dataset, b.id block
                      from t_req_dataset rds
@@ -561,7 +561,7 @@ sub addDeletionsForRequest
                    select rb.request, b.dataset, b.id block
                      from t_req_block rb
                      join t_dps_block b on b.id = rb.block_id
-                    where rb.block_id is not null 
+                    where rb.block_id is not null
                  ) rdata on rdata.request = r.id
            where r.id = :request
          ) r
@@ -583,44 +583,72 @@ sub addDeletionsForRequest
 
 =pod
 
-=item updateMoveSubscriptionsForRequest($self, $request, $node, $time)
+=item updateMoveSubscriptionsForRequest($self, $request, $time)
 
-Update the source subscriptions of a move.
-
-NOTE: This query's "exists" clause contains a statement which checks
-every possible block in the request for a match in the subscriptions
-table of the given node this is probably quite expensive for large
-requests...
+Update the source subscriptions of a move request.
 
 =cut
 
 sub updateMoveSubscriptionsForRequest
 {
-    my ($self, $rid, $node_id, $time) = @_;
-    
-    my ($sth, $rv) = &dbexec($$self{DBH},
-    qq[ update t_dps_subscription s
-           set s.time_clear = :time_clear
-         where s.destination = :destination
-           and exists
-               (select 1
- 	          from t_req_request r
-                  join ( select rds.request, b.dataset, b.id block
-                           from t_req_dataset rds
-                           join t_dps_block b on b.dataset = rds.dataset_id
-                           where rds.dataset_id is not null
-                           union
-                           select rb.request, b.dataset, b.id block
-                             from t_req_block rb
-                             join t_dps_block b on b.id = rb.block_id 
-                            where rb.block_id is not null
-                        ) rdata on rdata.request = r.id
-                  where r.id = :request 
-                    and (rdata.dataset = s.dataset or rdata.block = s.block)
-               ) ],
-	  ':request' => $rid, ':destination' => $node_id, ':time_clear' => $time);
+    my ($self, $rid, $time) = @_;
 
-    return 1;
+    my $q_src = &dbexec($$self{DBH}, qq{
+  select distinct s.destination, s.dataset, s.block,
+         decode(rdec.decision,
+                'y', :now,
+                'n', NULL,
+                 9999999999) time_clear
+    from t_req_request r
+    join (
+          select rds.request, b.dataset, b.id block
+            from t_req_dataset rds
+            join t_dps_block b on b.dataset = rds.dataset_id
+           where rds.dataset_id is not null
+           union
+          select rb.request, b.dataset, b.id block
+            from t_req_block rb
+            join t_dps_block b on b.id = rb.block_id
+           where rb.block_id is not null
+         ) rdata 
+      on rdata.request = r.id
+    join t_req_node rn
+      on rn.request = r.id
+    join t_dps_subscription s
+      on s.destination = rn.node
+     and (s.dataset = rdata.dataset or s.block = rdata.block)
+    left join t_req_decision rdec
+      on rdec.request = rn.request and rdec.node = rn.node
+   where r.id = :request and rn.point = 's'
+}, ':request' => $rid, ':now' => $time);
+
+    my $upd_ds = &dbprep($$self{DBH}, qq{
+	update t_dps_subscription set time_clear = :time_clear
+	    where destination = :destination and dataset = :dataset });
+
+    my $upd_b = &dbprep($$self{DBH}, qq{
+	update t_dps_subscription set time_clear = :time_clear
+	    where destination = :destination and block = :block });
+
+    my $src_subscriptions = $q_src->fetchall_arrayref({});
+    my $updated = 0;
+    foreach my $s ( @$src_subscriptions ) {
+	my ($sth, $rv);
+	if (!defined $s->{BLOCK}) {
+	    ($sth, $rv) = &dbbindexec($upd_ds, 
+				      ':time_clear' => $s->{TIME_CLEAR},
+				      ':destination' => $s->{DESTINATION},
+				      ':dataset' => $s->{DATASET});
+	} else {
+	    ($sth, $rv) = &dbbindexec($upd_b,
+				      ':time_clear' => $s->{TIME_CLEAR},
+				      ':destination' => $s->{DESTINATION},
+				      ':block' => $s->{BLOCK});
+	}
+	$updated += $rv;
+    }
+
+    return $updated;
 }
 
 =pod
@@ -635,12 +663,12 @@ sub setRequestDecision
 {
     my ($self, $rid, $node_id, $decision, $client_id, $time, $comments_id) = @_;
 
-    my ($sth, $rv) = &dbexec($$self{DBH}, qq{ 
+    my ($sth, $rv) = &dbexec($$self{DBH}, qq{
 	insert into t_req_decision (request, node, decision, decided_by, time_decided, comments)
 	    values (:rid, :node, :decision, :decided_by, :time_decided, :comments) },
 	    ':rid' => $rid, ':node' => $node_id, ':decision' => $decision, ':decided_by' => $client_id,
 	    ':time_decided' => $time, ':comments' => $comments_id);
-    
+
     return $rv ? 1 : 0;
 }
 
@@ -656,10 +684,10 @@ sub unsetRequestDecision
 {
     my ($self, $rid, $node_id) = @_;
 
-    my ($sth, $rv) = &dbexec($$self{DBH}, qq{ 
+    my ($sth, $rv) = &dbexec($$self{DBH}, qq{
 	delete from t_req_decision where request = :rid and node = :node },
 	':rid' => $rid, ':node' => $node_id);
-    
+
     return $rv ? 1 : 0;
 }
 
