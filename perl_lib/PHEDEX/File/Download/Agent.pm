@@ -559,7 +559,7 @@ sub prepare
 	    $n_add++;
 	    $self->addJob (
                sub { $$taskinfo{PREDELETE_DONE} = 1;
-                     $$taskinfo{PREDELETE_STATUS} = $_[0]{STATUS};
+                     $$taskinfo{PREDELETE_STATUS} = $_[0]{STATUS_CODE};
 		     return if ! $self->saveTask($taskinfo);
 		 },
 		{ TIMEOUT => $self->{TIMEOUT}, LOGPREFIX => 1 },
@@ -590,7 +590,7 @@ sub prepare
 	    $self->addJob(sub {
 		&output($fvstatus, Dumper ({
 		    START => $now, END => &mytimeofday(),
-		    STATUS => $_[0]{STATUS}, LOG => &input($fvlog) }));
+		    STATUS => $_[0]{STATUS_CODE}, LOG => &input($fvlog) }));
 	    },
 	    { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $fvlog },
 	    @{$$self{VALIDATE_COMMAND}}, "pre",
@@ -715,7 +715,7 @@ sub check
 		$self->addJob(sub {
 		        &output($fvstatus, Dumper ({
 		            START => $now, END => &mytimeofday(),
-		            STATUS => $_[0]{STATUS}, LOG => &input($fvlog) }));
+		            STATUS => $_[0]{STATUS_CODE}, LOG => &input($fvlog) }));
 		        $$jobinfo{RECHECK} = 1; },
 	            { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $fvlog },
 	            @{$$self{VALIDATE_COMMAND}}, $$xstatus{STATUS},
