@@ -13,7 +13,7 @@ use Data::Dumper;
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw (); # export nothing by default
-our @EXPORT_OK = qw( arrayref_expand str_hash );
+our @EXPORT_OK = qw( arrayref_expand str_hash str2time deep_copy );
 
 #-------------------------------------------------------------------------------
 # Takes an array and expands all arrayrefs in the array
@@ -97,6 +97,18 @@ sub str2time
         $t[6] = 0;
     }
     return POSIX::mktime($t[6], $t[5], $t[4], $t[2], $t[1]-1, $t[0]-1900);
+}
+
+sub deep_copy {
+# As the name implies, make a deep-copy of the input and return the result
+  my $this = shift;
+  if (not ref $this) {
+    $this;
+  } elsif (ref $this eq "ARRAY") {
+    [map deep_copy($_), @$this];
+  } elsif (ref $this eq "HASH") {
+    +{map { $_ => deep_copy($this->{$_}) } keys %$this};
+  } else { die "what type is $_?" }
 }
 
 1;
