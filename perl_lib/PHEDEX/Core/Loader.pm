@@ -20,12 +20,17 @@ sub new
 
   if ( !defined($self->{REJECT}) )
   {
-    foreach ( qw / Template UserAgent FakeAgent / )
-    { push @{$self->{REJECT}}, $_; }
+    $self->{REJECT} = [ qw / Template UserAgent FakeAgent / ];
   }
   bless $self, $class;
   $self->Commands();
   return $self;
+}
+
+sub Delete
+{
+  my ($self,$Action) = @_;
+  delete $self->Commands()->{lc $Action};
 }
 
 sub ModuleName
@@ -40,6 +45,7 @@ sub Load
 {
   my ($self,$Action) = @_;
   my $module = $self->ModuleName($Action);
+  die __PACKAGE__,": no module found for action \"$Action\"\n" unless $module;
   eval("use $module");
   do { chomp ($@); die "Failed to load module $module: $@\n" } if $@;
   return $module;
@@ -47,7 +53,7 @@ sub Load
 
 sub Commands
 {
-  my ($self,%h) = @_;
+  my $self = shift;
   return $self->{COMMANDS} if $self->{COMMANDS};
 
   my ($command,%commands,$namespace);
@@ -76,7 +82,6 @@ sub Commands
       }
     }
   }
-
 
   foreach ( @{$self->{REJECT}} )
   { $_ = lc $_; delete $commands{$_} if exists $commands{$_}; }
