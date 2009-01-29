@@ -1,10 +1,7 @@
 package PHEDEX::Web::API::LinkStat;
-#use warning;
+# use warning;
 use strict;
 use PHEDEX::Web::SQL;
-use PHEDEX::Core::SQL;
-use PHEDEX::Core::Util;
-use POSIX;
 use Data::Dumper;
 
 sub duration { return 60 * 60; }
