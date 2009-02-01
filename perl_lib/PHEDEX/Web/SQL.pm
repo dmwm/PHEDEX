@@ -46,6 +46,7 @@ use warnings;
 use base 'PHEDEX::Core::SQL';
 use Carp;
 use POSIX;
+use Data::Dumper;
 
 our @EXPORT = qw( );
 our (%params);
@@ -579,5 +580,105 @@ sub getLinkStat
     # return $sql, %param;
     return \@r;
 }
+
+# get Agent information
+sub getAgent
+{
+    my ($core, %h) = @_;
+    my $sql = qq {
+        select
+            n.name as node_name,
+            a.name as agent_name,
+            s.label,
+            n.se_name as se_name,
+            s.host_name as host_name,
+            s.directory_path,
+            v.release,
+            v.revision,
+            v.tag,
+            s.process_id,
+            s.time_update
+        from
+            t_agent_status s,
+            t_agent a,
+            t_adm_node n,
+           (select distinct
+                node,
+                agent,
+                release,
+                revision,
+                tag
+             from
+                t_agent_version) v
+        where
+            s.node = n.id and
+            s.agent = a.id and
+            s.node = v.node and
+            s.agent = v.agent};
+
+    # specific node?
+    if ($h{node})
+    {
+        $sql .= qq { and\n           n.name = '$h{node}'};
+    }
+
+    # specific SE?
+    if ($h{se})
+    {
+        $sql .= qq { and\n            n.se_name = '$h{se}'};
+    }
+
+    # specific agent?
+    if ($h{agent})
+    {
+        $sql .= qq { and\n            a.name = '$h{agent}'};
+    }
+
+    $sql .= qq {
+        order by n.name, a.name
+    };
+
+    my @r;
+    my $q = execute_sql($core, $sql);
+    my %node;
+    while ( $_ = $q->fetchrow_hashref())
+    {
+        if ($node{$_ -> {'NODE_NAME'}})
+        {
+            push @{$node{$_ -> {'NODE_NAME'}}->{agent}},{
+                    agent_name => $_ -> {'AGENT_NAME'},
+                    label => $_ -> {'LABEL'},
+                    release =>  $_ -> {'RELEASE'},
+                    revision => $_ -> {'REVISION'},
+                    tag => $_ -> {'TAG'},
+                    time_update => $_ -> {'TIME_UPDATE'},
+                    directory_path => $_ -> {'DIRECTORY_PATH'}};
+        }
+        else
+        {
+            $node{$_ -> {'NODE_NAME'}} = {
+                node_name => $_ -> {'NODE_NAME'},
+                host_name => $_ -> {'HOST_NAME'},
+                se_name => $_ -> {'SE_NAME'},
+                agent => [{
+                    agent_name => $_ -> {'AGENT_NAME'},
+                    label => $_ -> {'LABEL'},
+                    release =>  $_ -> {'RELEASE'},
+                    revision => $_ -> {'REVISION'},
+                    tag => $_ -> {'TAG'},
+                    time_update => $_ -> {'TIME_UPDATE'},
+                    directory_path => $_ -> {'DIRECTORY_PATH'}}]
+             };
+        }
+    }
+
+    while (my ($key, $value) = each(%node))
+    {
+        push @r, $value;
+    }
+
+    return \@r;
+}
+
 
 1;
