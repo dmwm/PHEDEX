@@ -12,7 +12,7 @@ sub agent
     my ($core, %h) = @_;
 
     my $r = PHEDEX::Web::SQL::getAgent($core, %h);
-    return { Node => $r };
+    return { node => $r };
 }
 
 1;
