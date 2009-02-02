@@ -12,7 +12,7 @@ sub linkstat
     my ($core, %h) = @_;
 
     my $r = PHEDEX::Web::SQL::getLinkStat($core, %h);
-    return { linkStat => { status => $r } };
+    return { linkStat => $r };
 }
 
 1;
