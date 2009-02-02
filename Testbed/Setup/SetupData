@@ -65,7 +65,7 @@ eval
     # Get list of test nodes
     my @nodes = @{&dbexec($dbh, qq{
 		      select id, name from t_adm_node
-		      where name like 'TX_Test%'})
+		      where name like 'TX_Test%_Buffer'})
                   ->fetchall_arrayref({})};
 
     # Prepare file and block injections into TMDB
