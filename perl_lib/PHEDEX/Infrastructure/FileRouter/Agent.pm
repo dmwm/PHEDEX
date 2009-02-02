@@ -213,7 +213,7 @@ sub flush
 	  (select id from t_xfer_task where :now >= time_expire) xt
 	on (xtd.task = xt.id) when not matched then
 	  insert (task, report_code, xfer_code, time_xfer, time_update)
-	  values (xt.id, CONST_RC_EXPIRED, CONST_XC_NOXFER, -1, :now)},
+	  values (xt.id, @{[ PHEDEX_RC_EXPIRED ]}, @{[ PHEDEX_XC_NOXFER ]}, -1, :now)},
 	":now" => $now);
     push @stats, ['tasks expired', $rows];
 

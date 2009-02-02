@@ -222,7 +222,7 @@ sub receive
 	# update the statistics according to result.
 	my %stats = (TIME_EXPORT => "avail", TIME_XFER => "try",
 		     TIME_DONE => ($$task{REPORT_CODE} == 0 ? "done"
-				  : $$task{REPORT_CODE} == CONST_RC_EXPIRE ? "expire"
+				  : $$task{REPORT_CODE} == PHEDEX_RC_EXPIRED ? "expire"
 				  : "fail"));
 	while (my ($t, $stat) = each %stats)
 	{
