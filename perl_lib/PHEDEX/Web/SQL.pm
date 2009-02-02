@@ -270,6 +270,11 @@ sub getFileReplicas
 	}
     }
 
+    # handle lfn
+    if (exists $h{lfn}) {
+        $sql .= qq { and f.logical_name = '$h{lfn}' };
+    }
+
     my $filters = '';
     build_multi_filters($self, \$filters, \%p, \%h, ( node  => 'n.name',
 						      se    => 'n.se_name',
@@ -673,6 +678,89 @@ sub getAgent
     }
 
     while (my ($key, $value) = each(%node))
+    {
+        push @r, $value;
+    }
+
+    return \@r;
+}
+
+my %state_name = (
+    0 => 'assigned',
+    1 => 'exported',
+    2 => 'transferring',
+    3 => 'transferred'
+    );
+
+sub getQueueStats
+{
+    my ($core, %h) = @_;
+    my $sql = qq {
+        select
+            time_update,
+            ns.name from_node,
+            nd.name to_node,
+            xs.from_node from_id,
+            xs.to_node to_id,
+            state,
+            priority,
+            files,
+            bytes
+        from
+            t_status_task xs,
+            t_adm_node ns,
+            t_adm_node nd
+        where
+            ns.id = xs.from_node and
+            nd.id = xs.to_node};
+
+    if ($h{FROM_NODE})
+    {
+        $sql .= qq { and\n            ns.name = '$h{FROM_NODE}'};
+    }
+
+    if ($h{TO_NODE})
+    {
+        $sql .= qq { and\n            nd.name = '$h{TO_NODE}'};
+    }
+            
+    $sql .= qq {\n        order by nd.name, ns.name, state};
+
+    my @r;
+    my $q = execute_sql($core, $sql);
+    my %link;
+    while ( $_ = $q->fetchrow_hashref())
+    {
+        $_ -> {'STATE'} = $state_name{$_ -> {'STATE'}};
+        if ($link{$_ -> {'FROM_NODE'} . "=" . $_ -> {'TO_NODE'}})
+        {
+            push @{$link{$_ -> {'FROM_NODE'} . "=" . $_ -> {'TO_NODE'}}->{queue}}, {
+                    state => $_ -> {'STATE'},
+                    priority => $_ -> {'PRIORITY'},
+                    files => $_ -> {'FILES'},
+                    bytes => $_ -> {'BYTES'},
+                    time_update => $_ -> {'TIME_UPDATE'}
+            };
+        }
+        else
+        {
+            $link{$_ -> {'FROM_NODE'} . "=" . $_ -> {'TO_NODE'}} = {
+                from_node => $_ -> {'FROM_NODE'},
+                to_node => $_ -> {'TO_NODE'},
+                from_id => $_ -> {'FROM_ID'},
+                to_id => $_ -> {'TO_ID'},
+                queue => [{
+                    state => $_ -> {'STATE'},
+                    priority => $_ -> {'PRIORITY'},
+                    files => $_ -> {'FILES'},
+                    bytes => $_ -> {'BYTES'},
+                    time_update => $_ -> {'TIME_UPDATE'}
+                }]
+            };
+        }
+    }
+
+    while (my ($key, $value) = each(%link))
     {
         push @r, $value;
     }
