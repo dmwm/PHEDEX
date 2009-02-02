@@ -587,7 +587,7 @@ sub getLinkStat
 }
 
 # get Agent information
-sub getAgent
+sub getAgents
 {
     my ($core, %h) = @_;
     my $sql = qq {
