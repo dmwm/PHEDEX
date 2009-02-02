@@ -9,10 +9,14 @@
 ##H Usage:
 ##H   BlockDBSPopulate -state DIRECTORY -db FILE[:SECTION]
 ##H
-##H -state     agent state directory
-##H -db        database connection configuration parameter file
-##H -log       where to redirect logging information
-
+##H -state         agent state directory
+##H -db            database connection configuration parameter file
+##H -log           where to redirect logging information
+##H -target_dbs    which DBS to migrate to
+##H -migr_command  command to migrate a block in DBS
+##H -del_command   command to delete a block in DBS
+##H -timeout       timeout for commands in seconds, default is 600
+##H -dummy         do not actually execute commands.  for debugging.
 
 ######################################################################
 my %args;
@@ -28,6 +32,7 @@ use PHEDEX::BlockDBSPopulate::Agent;
 	     "target_dbs=s"   => \$args{TARGET_DBS},
              "migr_command=s" => \$args{MIGR_COMMAND},
              "del_command=s"  => \$args{DEL_COMMAND},
+	     "timeout=i"      => \$args{TIMEOUT},
 	     "dummy"	      => \$args{DUMMY},	
 	     "help|h"      => sub { &usage() });
 

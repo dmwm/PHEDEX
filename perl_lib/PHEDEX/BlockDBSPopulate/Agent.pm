@@ -32,6 +32,7 @@ our %params =
 	  NODES => undef,  	        # Nodes this agent runs for, default all
           MIGR_COMMAND => undef,	# Migrate command
 	  DEL_COMMAND => undef,		# DBS Invalidate command
+	  TIMEOUT => 600,               # Timeout for commands
           TARGET_DBS => undef,          # Target DBS
 	  DUMMY => 0			# Test purpose
 	);
@@ -129,7 +130,7 @@ sub idle
         else                  { unshift @cmd,'/bin/true'; }
       }
       $self->addJob(sub { $self->registered ($block, \%state, $cachekey, @_) },
-	          { TIMEOUT => 30, LOGFILE => $log },
+	          { TIMEOUT => $self->{TIMEOUT}, LOGFILE => $log },
 	          @cmd);
     }
   };
