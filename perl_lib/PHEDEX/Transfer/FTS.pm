@@ -229,13 +229,13 @@ sub getFTSService {
 
     my $service;
 
-    my ($endpoint) = ( $to_pfn =~ /(srm.+)\?SFN=/ );
-
-    unless ($endpoint) {
-	$self->Alert("FTSmap: Could not get the end point from to_pfn $to_pfn");
-    }
-
     if ( exists $self->{FTS_MAP} ) {
+	my ($endpoint) = ( $to_pfn =~ /(srm.+)\?SFN=/ );
+	
+	unless ($endpoint) {
+	    $self->Alert("FTSmap: Could not get the end point from to_pfn $to_pfn");
+	}
+
 	my $map = $self->{FTS_MAP};
 
 	$service = $map->{ (grep { $_ eq $endpoint } keys %$map)[0] || "DEFAULT" };
