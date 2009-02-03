@@ -50,9 +50,14 @@ sub _init
 sub _init_commands
 {
   my $self = shift;
+
   foreach ( keys %{$self->{LOADER}->Commands} )
   {
-    $self->{COMMANDS}->{$_} = $self->{LOADER}->Load($_)->new(); 
+    $self->{COMMANDS}{$_} = $self->{LOADER}->Load($_)->new(); 
+    foreach my $k ( keys %{$self->{COMMANDS}{$_}{MAP}} )
+    {
+      $self->{MAP}{$k} = $_;
+    }
   }
   foreach ( keys %{$self->{COMMANDS}} )
   {
@@ -69,6 +74,15 @@ sub AUTOLOAD
   $attr =~ s/.*:://;
   return if $attr =~ /^[A-Z]+$/;  # skip DESTROY and all-cap methods
 
+# First, see if this command is mapped into another command.
+  if ( exists($self->{MAP}{$attr}) )
+  {
+    my $map = $self->{MAP}{$attr};
+    my $r = $self->$map(@_);
+    return unless ref($r);
+    return $r->{$attr};
+  }
+
 # If this is a command that I must run, or a method I must execute, do so,
 # and cache the results. I don't care if the cache exists because a null
 # cache is provided if no proper cache is found.
@@ -84,7 +98,7 @@ sub AUTOLOAD
     { $result = $self->{COMMANDS}{$attr}->execute($self,@_); }
     else
     { $result = $self->Command($attr,@_); }
-    $self->{CACHE}->store($attr,\@_,$result);
+    $self->{CACHE}->store($attr,\@_,$result) if $result;
     return $result;
   }
 
@@ -95,7 +109,6 @@ sub AUTOLOAD
     return $self->{$attr};
   }
 
-$DB::single=1;
 # Otherwise, give up and spit the dummy
   die "\"$attr\" not known to ",__PACKAGE__,"\n";
 }

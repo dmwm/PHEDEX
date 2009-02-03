@@ -1,12 +1,6 @@
 package PHEDEX::Namespace::castor::Cache;
-
-=head1 NAME
-
-PHEDEX::Namespace::castor::Cache - implement caching of results in the
-namespace framework for castor-access
-
-=cut
-
+# Implement caching of results in the namespace framework for castor-access
+# It just records all results in a hash, and never expires them.
 use strict;
 use warnings;
 use PHEDEX::Core::Util ( qw / deep_copy / );
@@ -33,9 +27,16 @@ sub new
 sub store
 {
   my ($self,$attr,$args,$result) = @_;
+# $attr is the method that was requested. 'size', 'checksum_type' etc...
+# $args is the file (or files) that the attribute was requested for
+
+# $flatargs takes account of the case where $args is an array. In practise
+# this is unlikely to happen, I'm not even sure if it makes sense if it does
   my $flatargs;
   if ( ref($args) eq 'ARRAY' ) { $flatargs = join(' ',@{$args}); }
   else { $flatargs = $args };
+
+# use 'deep_copy' from the Util package to make sure we have immutable results
   return $self->{cache}{$flatargs}{$attr} = deep_copy($result);
 }
 

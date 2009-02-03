@@ -8,6 +8,7 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my %h = @_;
+# $self is an empty hashref because there is no external command to call
   my $self = {};
   bless($self, $class);
   map { $self->{$_} = $h{$_} } keys %h;
@@ -18,7 +19,7 @@ sub execute
 {
 # Deletes an array of files. Returns the difference between the number of
 # files to be deleted and the number actually deleted. I.e. returns 0 for
-# success
+# success, regardless of the number of files it is given
   my ($self,$ns,@files) = @_;
   return 0 unless @files;
   return scalar @files - unlink @files;
@@ -26,9 +27,12 @@ sub execute
 
 sub Help
 {
-  return "delete (unlink) a set of files. Returns the number of files\n" .
-         "\t_not_ deleted. This allows you to call it with an empty list\n" .
-	 "\tand still make sense of the return value\n";
+# returns, does not print, the help message for this module.
+  return <<EOH;
+delete (unlink) a set of files. Returns the number of files _not_
+deleted. This allows you to call it with an empty list and still make sense
+of the return value
+EOH
 }
 
 1;

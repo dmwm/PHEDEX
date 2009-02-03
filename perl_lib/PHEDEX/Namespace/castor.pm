@@ -23,17 +23,16 @@ sub new
 
 # Params and options are module-specific
   %params = (
-		VERBOSE	=> 0,
-		DEBUG	=> 0,
-		CACHE	=> undef,
-		NOCACHE	=> 0,
+		VERBOSE	 => 0,
+		DEBUG	 => 0,
+		CACHE	 => undef,
+		NOCACHE	 => 0,
             );
   %options = (
 		'help'		=> \$help,
 		'verbose!'	=> \$params{VERBOSE},
 		'debug+'	=> \$params{DEBUG},
 		'nocache'	=> \$params{NOCACHE},
-		'commands=s'	=> $params{COMMANDS},
              );
   GetOptions(%options);
   my $self = \%params;
@@ -56,7 +55,7 @@ sub Help
  This module takes the standard options:
  --help, --debug, --(no)verbose
 
-  Commands known to this module:
+ Commands known to this module:
 EOF
 
   $self->SUPER::_help();

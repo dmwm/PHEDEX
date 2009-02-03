@@ -5,6 +5,7 @@ use warnings;
 use Time::Local;
 use base 'PHEDEX::Namespace::castor::Common';
 
+our @fields = qw / access uid gid size mtime /;
 sub new
 {
   my $proto = shift;
@@ -16,6 +17,7 @@ sub new
 	     };
   bless($self, $class);
   map { $self->{$_} = $h{$_} } keys %h;
+  map { $self->{MAP}{$_}++ } @fields;
   return $self;
 }
 
@@ -34,7 +36,7 @@ sub parse_stat
     chomp;
     m%^(\S+)\s+\d+\s+(\S+)\s+\S+\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)$%
 	or next;
-    $x->{perm} = $1;
+    $x->{access} = $1;
     ($x->{uid},$x->{gid}) = (getpwnam($2))[2,3];
     $x->{size} = $3;
 
@@ -54,10 +56,9 @@ sub parse_stat
   return $result;
 }
 
-our @fields = qw / access uid gid size mtime /;
 sub Help
 {
-  return "Return (" . join(',',@fields) . ") for a file\n";
+  return "Return (" . join(',',@fields) . ")\n";
 }
 
 1;

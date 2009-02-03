@@ -3,12 +3,16 @@ package PHEDEX::Namespace::posix::stat;
 use strict;
 use warnings;
 
-our @fields = qw / perm uid gid size mtime /;
+# @fields defines the actual set of attributes to be returned
+our @fields = qw / access uid gid size mtime /;
 sub new
 {
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my %h = @_;
+# This shows the use of an external command to stat the file. It would be
+# possible to do this with Perl inbuilt 'stat' function, of course, but this
+# is just an example.
   my $self = {
 	       cmd	=> 'stat',
 	       opts	=> ['--format=%A:%u:%g:%s:%Y'],
@@ -21,8 +25,13 @@ sub new
 sub parse_stat
 {
 # Parse the stat output. Assumes the %A:%u:%g:%s:%Y format was used. Returns
-# a hashref with all the fields parsed
+# a hashref with all the fields parsed. Note that the format of the command
+# and the order of the fields in @fields are tightly coupled.
   my ($self,$ns,$r) = @_;
+
+# return an empty hashref instead of undef if nothing is found, so it can
+# still be dereferenced safely.
+  $r = {};
   foreach ( @{$r->{STDOUT}} )
   {
     chomp;
@@ -37,7 +46,8 @@ sub parse_stat
 
 sub Help
 {
-  return "Return (" . join(',',@fields) . ") for a file\n";
+# returns, does not print, the help message for this module.
+  return "Return (" . join(',',@fields) . ")\n";
 }
 
 1;

@@ -25,12 +25,12 @@ sub parse_class
 # Parse the class output. Each file is cached as it is seen. Returns the last
 # file cached, which is only useful in NOCACHE mode!
   my ($self,$ns,$r,$dir) = @_;
-  my $result;
+  my $result = {};
   foreach ( @{$r->{STDOUT}} )
   {
     my ($x,$file);
     chomp;
-    m%^(\d+)\s+(\S+)$% or next;
+    m%^\s*(\d+)\s+(\S+)$% or next;
     $x->{class} = $1;
     $file = $2;
 
@@ -42,7 +42,7 @@ sub parse_class
 
 sub Help
 {
-  return "Return the file-class for a file\n";
+  return "Return the file-class\n";
 }
 
 1;
