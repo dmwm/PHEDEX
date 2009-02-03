@@ -6,15 +6,13 @@ use base 'PHEDEX::Namespace::castor::Common';
 
 sub new
 {
-  my $proto = shift;
+  my ($proto,$h) = @_;
   my $class = ref($proto) || $proto;
-  my %h = @_;
   my $self = {
 	       cmd	=> 'nsls',
 	       opts	=> ['--class']
 	     };
   bless($self, $class);
-  map { $self->{$_} = $h{$_} } keys %h;
   return $self;
 }
 

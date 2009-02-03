@@ -7,15 +7,13 @@ use base 'PHEDEX::Namespace::castor::Common';
 our @fields = qw / tape_name checksum_type checksum_value is_migrated /;
 sub new
 {
-  my $proto = shift;
+  my ($proto,$h) = @_;
   my $class = ref($proto) || $proto;
-  my %h = @_;
   my $self = {
 	       cmd	=> 'nsls',
 	       opts	=> ['-T','--checksum']
 	     };
   bless($self, $class);
-  map { $self->{$_} = $h{$_} } keys %h;
   map { $self->{MAP}{$_}++ } @fields;
   return $self;
 }

@@ -8,15 +8,13 @@ use base 'PHEDEX::Namespace::castor::Common';
 our @fields = qw / access uid gid size mtime /;
 sub new
 {
-  my $proto = shift;
+  my ($proto,$h) = @_;
   my $class = ref($proto) || $proto;
-  my %h = @_;
   my $self = {
 	       cmd	=> 'nsls',
 	       opts	=> ['-l']
 	     };
   bless($self, $class);
-  map { $self->{$_} = $h{$_} } keys %h;
   map { $self->{MAP}{$_}++ } @fields;
   return $self;
 }
