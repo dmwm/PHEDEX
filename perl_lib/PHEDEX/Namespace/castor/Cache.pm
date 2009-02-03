@@ -62,7 +62,7 @@ sub DESTROY
   return unless $self->{VERBOSE};
   my ($hit,$calls,$pct,$entries);
   $hit   = $self->{stats}{hit} || 0;
-  $calls = $self->{stats}{miss} || 0 + $hit;
+  $calls = ($self->{stats}{miss} || 0) + $hit;
   $pct   = ( $calls ? int(100*$hit/($calls)) : 0 );
   $entries = scalar keys %{$self->{cache}};
   print "Cache statistics: $hit hits, $calls calls ($pct%), $entries entries\n";
