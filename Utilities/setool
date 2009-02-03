@@ -53,23 +53,24 @@ GetOptions(
 
 $interface = shift;
 die "SE-interface protocol (--interface) must be specified\n" unless $interface;
-die "--pfnlist must be specified\n" unless $pfnlist;
 $module = $loader->Load($interface);
 $ns = $module->new();
-if ( $pfnlist =~ m%.gz$% )
-{ open PFN, "cat $pfnlist | gzip -d - |" or die "open: $pfnlist: $!\n"; }
-elsif ( $pfnlist =~ m%.bz2$% )
-{ open PFN, "cat $pfnlist | bzip2 -d - |" or die "open: $pfnlist: $!\n"; }
-elsif ( $pfnlist =~ m%^-$% )
-{ *PFN = *STDIN; }
-else
-{ open PFN, "<$pfnlist" or die "open: $pfnlist: $!\n"; }
-
-while ( <PFN> )
+if ( $pfnlist )
 {
+  if ( $pfnlist =~ m%.gz$% )
+  { open PFN, "cat $pfnlist | gzip -d - |" or die "open: $pfnlist: $!\n"; }
+  elsif ( $pfnlist =~ m%.bz2$% )
+  { open PFN, "cat $pfnlist | bzip2 -d - |" or die "open: $pfnlist: $!\n"; }
+  elsif ( $pfnlist =~ m%^-$% )
+  { *PFN = *STDIN; }
+  else
+  { open PFN, "<$pfnlist" or die "open: $pfnlist: $!\n"; }
+  while ( <PFN> )
+  {
     chomp;
     $debug && print "Read: $_\n";;
     push @pfn, $_;
+  }
 }
 
 while ( $command = shift @ARGV )
