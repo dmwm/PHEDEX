@@ -65,6 +65,12 @@ sub Help
  This module takes the standard options:
  --help, --debug, --(no)verbose
 
+ as well as these:
+ --nocache to disable the caching mechanism
+ --stage_host, --stage_svcclass, and --rfio_use_castor_v2 to specify their
+ counterparts in the environment. The defaults for these are taken from the
+ environment
+
  Commands known to this module:
 EOF
 
