@@ -27,24 +27,28 @@ sub new
 		DEBUG	 => 0,
 		CACHE	 => undef,
 		NOCACHE	 => 0,
-#		STAGE_HOST	   => 'stagecms',
-#		STAGE_SVCCLASS	   => undef,
-#		RFIO_USE_CASTOR_V2 => 'YES',
+		STAGE_HOST	   => $ENV{STAGE_HOST},
+		STAGE_SVCCLASS	   => $ENV{STAGE_SVCCLASS},
+		RFIO_USE_CASTOR_V2 => $ENV{RFIO_USE_CASTOR_V2},
             );
   %options = (
 		'help'		=> \$help,
 		'verbose!'	=> \$params{VERBOSE},
 		'debug+'	=> \$params{DEBUG},
 		'nocache'	=> \$params{NOCACHE},
-#		'stage_host'	=> \$params{STAGE_HOST},
-#		'stage_svcclass'=> \$params{STAGE_SVCCLASS},
-#		'rfio_use_castor_v2' => \$params{RFIO_USE_CASTOR_V2},
+		'stage_host=s'	=> \$params{STAGE_HOST},
+		'stage_svcclass=s'	=> \$params{STAGE_SVCCLASS},
+		'rfio_use_castor_v2=s'	=> \$params{RFIO_USE_CASTOR_V2},
              );
   GetOptions(%options);
   my $self = \%params;
   bless($self, $class);
   $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   map { $self->{$_} = $h{$_} } keys %h;
+  $self->{ENV} = join(' ',
+			map { "$_=" . ( $self->{$_} || '' ) }
+			( qw / STAGE_HOST STAGE_SVCCLASS RFIO_USE_CASTOR_V2 / )
+		     );
 
   $self->SUPER::_init_commands;
   print Dumper($self) if $self->{DEBUG};
