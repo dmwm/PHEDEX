@@ -17,7 +17,7 @@ sub usage
 
   Usage:
 
-  setool --pfnlist PFNLIST INTERFACE {--verbose} {--debug} [COMMAND]
+  setool --pfnlist PFNLIST INTERFACE {OPTIONS} [COMMAND]
  
   PFNLIST is a file containing full PFNs as found in your storage
   element, one pfn per line.
@@ -27,14 +27,17 @@ sub usage
 
   INTERFACE is the protocol for accessing the SE.
 
+  OPTIONS are --verbose, --debug, --help, and anything else that the
+  interface might support. Use --help per interface to find out more.
+
   COMMAND is an operation against the SE that the INTERFACE supports,
-  such as 'stat', 'is_migrated' etc
+  such as 'stat', 'is_migrated' etc. The --help option for the interface
+  will list them.
 
   Known interface protocols in this installation are:
 EOF
 
   print " '",join("', '",sort keys %{$loader->Commands}),"'\n\n";
-  print "  Use 'setool INTERFACE -h' for details of each interface\n";
   exit 0;
 }
 
@@ -50,6 +53,7 @@ GetOptions(
 
 $interface = shift;
 die "SE-interface protocol (--interface) must be specified\n" unless $interface;
+die "--pfnlist must be specified\n" unless $pfnlist;
 $module = $loader->Load($interface);
 $ns = $module->new();
 if ( $pfnlist =~ m%.gz$% )
