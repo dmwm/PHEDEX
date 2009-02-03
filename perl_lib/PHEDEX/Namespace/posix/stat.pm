@@ -7,9 +7,8 @@ use warnings;
 our @fields = qw / access uid gid size mtime /;
 sub new
 {
-  my $proto = shift;
+  my ($proto,$h) = @_;
   my $class = ref($proto) || $proto;
-  my %h = @_;
 # This shows the use of an external command to stat the file. It would be
 # possible to do this with Perl inbuilt 'stat' function, of course, but this
 # is just an example.
@@ -18,7 +17,7 @@ sub new
 	       opts	=> ['--format=%A:%u:%g:%s:%Y'],
              };
   bless($self, $class);
-  map { $self->{$_} = $h{$_} } keys %h;
+  map { $self->{$_} = $h->{$_} } keys %{$h};
   return $self;
 }
 

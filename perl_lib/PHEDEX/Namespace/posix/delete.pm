@@ -5,13 +5,12 @@ use warnings;
 
 sub new
 {
-  my $proto = shift;
+  my ($proto,$h) = @_;
   my $class = ref($proto) || $proto;
-  my %h = @_;
 # $self is an empty hashref because there is no external command to call
   my $self = {};
   bless($self, $class);
-  map { $self->{$_} = $h{$_} } keys %h;
+  map { $self->{$_} = $h->{$_} } keys %{$h};
   return $self;
 }
 
