@@ -53,7 +53,7 @@ sub _init_commands
 
   foreach ( keys %{$self->{LOADER}->Commands} )
   {
-    $self->{COMMANDS}{$_} = $self->{LOADER}->Load($_)->new(); 
+    $self->{COMMANDS}{$_} = $self->{LOADER}->Load($_)->new($self); 
     foreach my $k ( keys %{$self->{COMMANDS}{$_}{MAP}} )
     {
       $self->{MAP}{$k} = $_;
@@ -116,11 +116,13 @@ sub AUTOLOAD
 sub Command
 {
   my ($self,$call,$file) = @_;
-  my ($h,$r,$parse,@opts);
+  my ($h,$r,$parse,@opts,$env,$cmd);
   return unless $h = $self->{COMMANDS}{$call};
   @opts = ( @{$h->{opts}}, $file );
-  print "Prepare to execute $h->{cmd} @opts\n" if $self->{VERBOSE};
-  open CMD, "$h->{cmd} @opts |" or die "$h->{cmd} @opts: $!\n";
+  $env = $self->{ENV} || '';
+  $cmd = "$env $h->{cmd} @opts";
+  print "Prepare to execute $cmd\n" if $self->{VERBOSE};
+  open CMD, "$cmd |" or die "$cmd: $!\n";
   @{$r->{STDOUT}} = <CMD>;
   close CMD or return;
   $parse = $h->{parse} || 'parse_' . $call;
