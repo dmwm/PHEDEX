@@ -2,117 +2,66 @@ package PHEDEX::Namespace::rfio;
 
 =head1 NAME
 
-PHEDEX::Namespace::rfio - implement namespace functions for direct (posix) protocol
-
-=head1 SYNOPSIS
-
-The following commands are implemeted:
-
-=over
-
-=item size of a file
-
-=item delete a file
-
-=item check if a file is migrated to tape
-
-=back
-
-Not implemeted due to protocol limitation:
-
-=over
-
-=item bring online
-
-=item check if a file is cached on disk
-
-=item verify a file: check size, optionally checksum - N/A
-
-=back
+PHEDEX::Namespace::rfio - implement namespace framework for rfio protocol
 
 =cut
 
-#use strict;
+use strict;
 use warnings;
+no strict 'refs';
+use base 'PHEDEX::Namespace::Common';
+use PHEDEX::Core::Loader;
 use Data::Dumper;
-
-#Parent Class
-use base PHEDEX::Namespace::Namespace; 
-
-
-#NS functions implemented,
-# how many we can run in parallel etc
-#put own command like this. For unknow command
-#the default number is used
-my %commands = (
-		stat=>{cmd=>"nsls",opts=>["-l"],n=>1},
-		delete=>{cmd=>"nsrm",opts=>[],n=>1},
-		default=>{proto=>"direct",n=>8},
-);
+use Getopt::Long;
 
 sub new
 {
-    my $class  = shift;
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my %h = @_;
+  my ($help,%params,%options);
 
-    my $self = { };
-    bless($self, $class);
-    $self->_init(@_, COMMANDS=>\%commands); #values from the base class
-    
-    print Dumper($self);
-    return $self;
+# Params and options are module-specific
+  %params = (
+		VERBOSE	 => 0,
+		DEBUG	 => 0,
+		CACHE	 => undef,
+		NOCACHE	 => 0,
+		RFIO_USE_CASTOR_V2 => 'YES',
+            );
+  %options = (
+		'help'		=> \$help,
+		'verbose!'	=> \$params{VERBOSE},
+		'debug+'	=> \$params{DEBUG},
+		'nocache'	=> \$params{NOCACHE},
+		'rfio_use_castor_v2' => \$params{RFIO_USE_CASTOR_V2},
+             );
+  GetOptions(%options);
+  my $self = \%params;
+  bless($self, $class);
+  $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
+  map { $self->{$_} = $h{$_} } keys %h;
+
+  $self->SUPER::_init_commands;
+  print Dumper($self) if $self->{DEBUG};
+  $self->Help if $help;
+  return $self;
 }
 
+sub Help
+{
+  my $self = shift;
+  print "\n Usage for ",__PACKAGE__,"\n";
+  print <<EOF;
 
-#for srm we can check size, if file is on disk. But not if file is migrated
-sub canChecks {
-    my $checkref = shift;
-    my @yes = ();
+ This module takes the standard options:
+ --help, --debug, --(no)verbose
 
-    foreach (@$checkref) {
-        if (($_ eq 'Size') or ($_ eq 'Migr')) {
-            push @yes, $_;
-        }
-        elsif (($_ eq 'OnDisk')) {
-            print "Attribute $_ is not supported by $self->{protocol}\n";
-        }
-        else {
-            print "Unknown Attribute $_\n";
-        }
-    }
+ Commands known to this module:
+EOF
 
-    return @yes;
+  $self->SUPER::_help();
+  exit 0;
 }
-
-sub parseRawStat {
-    my $self = shift;
-    my $cmdref = shift;
-    my $rawref = shift;
-    my $lfnsref = shift;
-
-    my @raw = @$rawref;
-
-    print "rfio::parseRaw - ",scalar @raw, " lines\n";
-
-    my %r = ();
-    my $pfn;
-    my $lfn;
-
-    foreach (@raw) {
-	print "Parsing: $_";
-	chomp;
-	my @s = split /\s+/, $_;
-	print "Parsing: split 4, -1 = $s[4] $s[-1]\n";
-	if ($s[-1] =~ m|^/| && $s[4] =~ /\d+/ && $s[0] =~ /^[-dm]/) {
-	    ($lfn) = $self->pfn2lfn($cmdref, $lfn); 
-	    $r{$lfn}{Size} = $s[4];
-	    $r{$lfn}{Migrated} = ( substr($s[0], 0, 1) eq 'm' ? 1 : 0 );
-	}
-	else { print "Parsing: Can not parse $_!\n" }	
-    }
-    
-    print "rfio::parseRaw - got ", scalar keys %r, " pfns\n";
-    return %r;   
-}
-
 
 1;
