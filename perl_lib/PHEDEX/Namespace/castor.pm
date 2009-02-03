@@ -27,12 +27,18 @@ sub new
 		DEBUG	 => 0,
 		CACHE	 => undef,
 		NOCACHE	 => 0,
+#		STAGE_HOST	   => 'stagecms',
+#		STAGE_SVCCLASS	   => undef,
+#		RFIO_USE_CASTOR_V2 => 'YES',
             );
   %options = (
 		'help'		=> \$help,
 		'verbose!'	=> \$params{VERBOSE},
 		'debug+'	=> \$params{DEBUG},
 		'nocache'	=> \$params{NOCACHE},
+#		'stage_host'	=> \$params{STAGE_HOST},
+#		'stage_svcclass'=> \$params{STAGE_SVCCLASS},
+#		'rfio_use_castor_v2' => \$params{RFIO_USE_CASTOR_V2},
              );
   GetOptions(%options);
   my $self = \%params;
