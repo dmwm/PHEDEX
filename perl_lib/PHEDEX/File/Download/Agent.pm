@@ -552,8 +552,8 @@ sub prepare
 	if ($do_predel && !$$taskinfo{PREDELETE_DONE}
 	    && (!$do_preval || ($do_preval 
 				&& $$taskinfo{PREVALIDATE_DONE} 
-				&& $$taskinfo{PREVALIDATE_STATUS} != 0
-				&& $$taskinfo{PREVALIDATE_STATUS} != 86))
+				&& $$taskinfo{PREVALIDATE_STATUS} != PHEDEX_VC_SUCCESS
+				&& $$taskinfo{PREVALIDATE_STATUS} != PHEDEX_VC_VETO))
 	    ) {
 	    $$taskinfo{PREDELETE_DONE} = 0;
 	    $n_add++;
@@ -575,7 +575,7 @@ sub prepare
 
 	if (-s $fvstatus && (! ($vstatus = &evalinfo($fvstatus)) || $@))
 	{
-	    $vstatus = { START => $now, END => $now, STATUS => PHEDEX_RC_LOST_FILE,
+	    $vstatus = { START => $now, END => $now, STATUS => PHEDEX_VC_LOST_FILE,
 		         LOG => "agent lost the file pre-validation result" };
 	    return if ! &output($fvstatus, Dumper($vstatus));
 	}
@@ -597,9 +597,9 @@ sub prepare
 	    @$taskinfo{qw(TO_PFN FILESIZE CHECKSUM)}, $is_custodial_numeric);
 	} elsif ( $vstatus ) {
 	    # if the pre-validation returned success, this file is already there.  mark success
-	    if ($$vstatus{STATUS} == 0) 
+	    if ($$vstatus{STATUS} == PHEDEX_VC_SUCCESS) 
 	    {
-		$$taskinfo{REPORT_CODE} = 0;
+		$$taskinfo{REPORT_CODE} = PHEDEX_RC_SUCCESS;
 		$$taskinfo{XFER_CODE} = PHEDEX_XC_NOXFER;
 		$$taskinfo{LOG_DETAIL} = 'file validated before transfer attempt';
 		$$taskinfo{LOG_XFER} = 'no transfer was attempted';
@@ -611,9 +611,9 @@ sub prepare
 	    # if the pre-validation returned 86, the transfer is vetoed, throw this task away
 	    # see http://www.urbandictionary.com/define.php?term=eighty-six
 	    # or google "eighty-sixed"
-	    elsif ($$vstatus{STATUS} == 86) 
+	    elsif ($$vstatus{STATUS} == PHEDEX_VC_VETO) 
 	    {
-		$$taskinfo{REPORT_CODE} = PHEDEX_RC_VETO;
+		$$taskinfo{REPORT_CODE} = PHEDEX_VC_VETO;
 		$$taskinfo{XFER_CODE} = PHEDEX_XC_NOXFER;
 		$$taskinfo{LOG_DETAIL} = 'file pre-validation vetoed the transfer';
 		$$taskinfo{LOG_XFER} = 'no transfer was attempted';
@@ -701,7 +701,7 @@ sub check
 
 	if (-s $fvstatus && (! ($vstatus = &evalinfo($fvstatus)) || $@))
 	{
-	    $vstatus = { START => $now, END => $now, STATUS => PHEDEX_RC_LOST_FILE,
+	    $vstatus = { START => $now, END => $now, STATUS => PHEDEX_VC_LOST_FILE,
 		         LOG => "agent lost the file validation result" };
 	    return if ! &output($fvstatus, Dumper($vstatus));
 	}
@@ -746,6 +746,8 @@ sub check
 	    #  - validation: successful/terminated/timed out/error + detail + log
 	    #      where detail specifies specific error (size mismatch, etc.)
 	    #  - transfer: successful/terminated/timed out/error + detail + log
+	    
+	    # string STATUS usually means the child process was terminated/killed
 	    $$taskinfo{REPORT_CODE} =
 		($$vstatus{STATUS} =~ /^-?\d+$/ ? $$vstatus{STATUS}
 		 : 128 + ($$vstatus{STATUS} =~ /(\d+)/)[0]);
