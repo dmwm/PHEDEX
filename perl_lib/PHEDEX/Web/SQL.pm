@@ -592,16 +592,16 @@ sub getAgents
     my ($core, %h) = @_;
     my $sql = qq {
         select
-            n.name as node_name,
-            a.name as agent_name,
+            n.name as node,
+            a.name as name,
             s.label,
-            n.se_name as se_name,
-            s.host_name as host_name,
-            s.directory_path,
-            v.release,
-            v.revision,
-            v.tag,
-            s.process_id,
+            n.se_name as se,
+            s.host_name as host,
+            s.directory_path as state_dir,
+            v.release as version,
+            v.revision as cvs_version,
+            v.tag as cvs_tag,
+            s.process_id as pid,
             s.time_update
         from
             t_agent_status s,
@@ -648,31 +648,31 @@ sub getAgents
     my %node;
     while ( $_ = $q->fetchrow_hashref())
     {
-        if ($node{$_ -> {'NODE_NAME'}})
+        if ($node{$_ -> {'NODE'}})
         {
-            push @{$node{$_ -> {'NODE_NAME'}}->{agent}},{
-                    agent_name => $_ -> {'AGENT_NAME'},
+            push @{$node{$_ -> {'NODE'}}->{agent}},{
+                    name => $_ -> {'NAME'},
                     label => $_ -> {'LABEL'},
-                    release =>  $_ -> {'RELEASE'},
-                    revision => $_ -> {'REVISION'},
-                    tag => $_ -> {'TAG'},
+                    version =>  $_ -> {'VERSION'},
+                    cvs_version => $_ -> {'CVS_VERSION'},
+                    cvs_tag => $_ -> {'CVS_TAG'},
                     time_update => $_ -> {'TIME_UPDATE'},
-                    directory_path => $_ -> {'DIRECTORY_PATH'}};
+                    state_dir => $_ -> {'STATE_DIR'}};
         }
         else
         {
-            $node{$_ -> {'NODE_NAME'}} = {
-                node_name => $_ -> {'NODE_NAME'},
-                host_name => $_ -> {'HOST_NAME'},
-                se_name => $_ -> {'SE_NAME'},
+            $node{$_ -> {'NODE'}} = {
+                node => $_ -> {'NODE'},
+                host => $_ -> {'HOST'},
+                se => $_ -> {'SE'},
                 agent => [{
-                    agent_name => $_ -> {'AGENT_NAME'},
+                    name => $_ -> {'NAME'},
                     label => $_ -> {'LABEL'},
-                    release =>  $_ -> {'RELEASE'},
-                    revision => $_ -> {'REVISION'},
-                    tag => $_ -> {'TAG'},
+                    version =>  $_ -> {'VERSION'},
+                    cvs_version => $_ -> {'CVS_VERSION'},
+                    cvs_tag => $_ -> {'CVS_TAG'},
                     time_update => $_ -> {'TIME_UPDATE'},
-                    directory_path => $_ -> {'DIRECTORY_PATH'}}]
+                    state_dir => $_ -> {'STATE_DIR'}}]
              };
         }
     }
