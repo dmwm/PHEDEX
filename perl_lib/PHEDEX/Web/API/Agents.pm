@@ -65,6 +65,12 @@ sub agent
 {
     my ($core, %h) = @_;
 
+    # convert parameter keys to upper case
+    foreach ( qw / node se agent / )
+    {
+      $h{uc $_} = delete $h{$_} if $h{$_};
+    }
+
     my $r = PHEDEX::Web::SQL::getAgents($core, %h);
     return { node => $r };
 }
