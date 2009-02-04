@@ -7,7 +7,7 @@ use base 'Exporter';
 our @EXPORT = qw( PHEDEX_RC_SUCCESS   PHEDEX_XC_SUCCESS   PHEDEX_VC_SUCCESS
 		  PHEDEX_RC_EXPIRED   PHEDEX_XC_EXPIRED   PHEDEX_RC_LOST_TASK PHEDEX_XC_NOXFER 
                   PHEDEX_RC_LOST_FILE PHEDEX_XC_LOST_FILE PHEDEX_VC_LOST_FILE
-		  PHEDEX_VC_VETO );
+		  PHEDEX_VC_VETO      PHEDEX_RC_VETO);
 
 # Error code definitions for PhEDEx errors
 # RC : report code, reported to the phedex database
@@ -26,7 +26,8 @@ use constant {
     PHEDEX_RC_LOST_FILE => -3,  # a critical state file was lost
     PHEDEX_XC_LOST_FILE => -3,  # a critical state file was lost
     PHEDEX_VC_LOST_FILE => -3,  # a critical state file was lost
-    PHEDEX_VC_VETO      => 86   # the transfer task was vetoed
+    PHEDEX_VC_VETO      => 86,  # the transfer task was vetoed
+    PHEDEX_RC_VETO      => -86  # the transfer task was vetoed
 };
 
 1;
