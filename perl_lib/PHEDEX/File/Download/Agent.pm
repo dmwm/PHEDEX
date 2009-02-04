@@ -559,7 +559,7 @@ sub prepare
 	    $n_add++;
 	    $self->addJob (
                sub { $$taskinfo{PREDELETE_DONE} = 1;
-                     $$taskinfo{PREDELETE_STATUS} = $_[0]{STATUS_CODE};
+                     $$taskinfo{PREDELETE_STATUS} = $_[0]{STATUS};
 		     return if ! $self->saveTask($taskinfo);
 		 },
 		{ TIMEOUT => $self->{TIMEOUT}, LOGPREFIX => 1 },
@@ -590,14 +590,19 @@ sub prepare
 	    $self->addJob(sub {
 		&output($fvstatus, Dumper ({
 		    START => $now, END => &mytimeofday(),
-		    STATUS => $_[0]{STATUS_CODE}, LOG => &input($fvlog) }));
+		    STATUS => $_[0]{STATUS}, LOG => &input($fvlog) }));
 	    },
 	    { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $fvlog },
 	    @{$$self{VALIDATE_COMMAND}}, "pre",
 	    @$taskinfo{qw(TO_PFN FILESIZE CHECKSUM)}, $is_custodial_numeric);
 	} elsif ( $vstatus ) {
+	    # string STATUS (e.g. 'signal 1') means the child process
+	    # was terminated/killed
+	    my $statcode = ($$vstatus{STATUS} =~ /^-?\d+$/ ? $$vstatus{STATUS}
+			    : 128 + ($$vstatus{STATUS} =~ /(\d+)/)[0]);
+
 	    # if the pre-validation returned success, this file is already there.  mark success
-	    if ($$vstatus{STATUS} == PHEDEX_VC_SUCCESS) 
+	    if ($statcode == PHEDEX_VC_SUCCESS) 
 	    {
 		$$taskinfo{REPORT_CODE} = PHEDEX_RC_SUCCESS;
 		$$taskinfo{XFER_CODE} = PHEDEX_XC_NOXFER;
@@ -608,12 +613,17 @@ sub prepare
 		$$taskinfo{TIME_XFER} = -1;
 		$done = 1;
 	    } 
-	    # if the pre-validation returned 86, the transfer is vetoed, throw this task away
+	    # if the pre-validation returned 86 (PHEDEX_VC_VETO), the
+	    # transfer is vetoed, throw this task away.
 	    # see http://www.urbandictionary.com/define.php?term=eighty-six
-	    # or google "eighty-sixed"
-	    elsif ($$vstatus{STATUS} == PHEDEX_VC_VETO) 
+	    # or google "eighty-sixed".
+	    # We set the REPORT_CODE to -86 (PHEDEX_RC_VETO) so that
+	    # the error is counted as a "PhEDEx error", not a transfer
+	    # error, so it will not count against the link in the
+	    # backoff algorithms.
+	    elsif ($statcode == PHEDEX_VC_VETO)
 	    {
-		$$taskinfo{REPORT_CODE} = PHEDEX_VC_VETO;
+		$$taskinfo{REPORT_CODE} = PHEDEX_RC_VETO;
 		$$taskinfo{XFER_CODE} = PHEDEX_XC_NOXFER;
 		$$taskinfo{LOG_DETAIL} = 'file pre-validation vetoed the transfer';
 		$$taskinfo{LOG_XFER} = 'no transfer was attempted';
@@ -715,7 +725,7 @@ sub check
 		$self->addJob(sub {
 		        &output($fvstatus, Dumper ({
 		            START => $now, END => &mytimeofday(),
-		            STATUS => $_[0]{STATUS_CODE}, LOG => &input($fvlog) }));
+		            STATUS => $_[0]{STATUS}, LOG => &input($fvlog) }));
 		        $$jobinfo{RECHECK} = 1; },
 	            { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $fvlog },
 	            @{$$self{VALIDATE_COMMAND}}, $$xstatus{STATUS},
@@ -747,7 +757,8 @@ sub check
 	    #      where detail specifies specific error (size mismatch, etc.)
 	    #  - transfer: successful/terminated/timed out/error + detail + log
 	    
-	    # string STATUS usually means the child process was terminated/killed
+	    # string STATUS (e.g. 'signal 1') means the child process
+	    # was terminated/killed
 	    $$taskinfo{REPORT_CODE} =
 		($$vstatus{STATUS} =~ /^-?\d+$/ ? $$vstatus{STATUS}
 		 : 128 + ($$vstatus{STATUS} =~ /(\d+)/)[0]);
