@@ -42,6 +42,7 @@ sub new
   $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   map { $self->{$_} = $h{$_} } keys %h;
 
+  $self->{ENV} = "RFIO_USE_CASTOR_V2=" . ($self->{RFIO_USE_CASTOR_V2} || '');
   $self->SUPER::_init_commands;
   print Dumper($self) if $self->{DEBUG};
   $self->Help if $help;
@@ -61,7 +62,6 @@ sub Help
 EOF
 
   $self->SUPER::_help();
-  exit 0;
 }
 
 1;

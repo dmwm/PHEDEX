@@ -4,21 +4,21 @@ use strict;
 use warnings;
 use Time::Local;
 
+our @fields = qw / access uid gid size mtime /;
 sub new
 {
-  my $proto = shift;
+  my ($proto,$h) = @_;
   my $class = ref($proto) || $proto;
-  my %h = @_;
   my $self = {
 	       cmd	=> 'rfstat',
 	       opts	=> [],
              };
   bless($self, $class);
-  map { $self->{$_} = $h{$_} } keys %h;
+  $self->{ENV} = $h->{ENV} || '';
   return $self;
 }
 
-sub parse_stat
+sub parse
 {
 # Parse the stat output. Returns a hashref with all the fields parsed
   my ($self,$ns,$r,$file) = @_;
@@ -43,11 +43,10 @@ sub parse_stat
   }
   return $r;
 }
-our @fields = qw / access uid gid size mtime /;
 
 sub Help
 {
-  return "Return (" . join(',',@fields) . ")\n";
+  print 'Return (',join(',',@fields),")\n";
 }
 
 1;

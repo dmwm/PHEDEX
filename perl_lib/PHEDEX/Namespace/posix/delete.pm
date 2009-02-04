@@ -10,7 +10,7 @@ sub new
 # $self is an empty hashref because there is no external command to call
   my $self = {};
   bless($self, $class);
-  map { $self->{$_} = $h->{$_} } keys %{$h};
+  $self->{ENV} = $h->{ENV} || '';
   return $self;
 }
 
@@ -27,7 +27,7 @@ sub execute
 sub Help
 {
 # returns, does not print, the help message for this module.
-  return <<EOH;
+  print <<EOH;
 delete (unlink) a set of files. Returns the number of files _not_
 deleted. This allows you to call it with an empty list and still make sense
 of the return value

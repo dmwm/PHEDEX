@@ -27,13 +27,13 @@ sub new
              );
   GetOptions(%options);
   my $self = \%params;
-  map { $self->{$_} = $h{$_} } keys %h;
   bless($self, $class);
+  $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
+  map { $self->{$_} = $h{$_} } keys %h;
 
 # This is where the interface-specific modules are loaded. The modules are
 # passed a reference to this object when they are loaded/created, so they
 # can pick out the parameters you define above.
-  $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   $self->SUPER::_init_commands;
   $self->Help if $help;
   return $self;
@@ -54,7 +54,6 @@ sub Help
 EOF
 
   $self->SUPER::_help();
-  exit 0;
 }
 
 1;

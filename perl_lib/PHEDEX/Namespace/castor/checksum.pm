@@ -14,13 +14,14 @@ sub new
 	       opts	=> ['-T','--checksum']
 	     };
   bless($self, $class);
+  $self->{ENV} = $h->{ENV} || '';
   map { $self->{MAP}{$_}++ } @fields;
   return $self;
 }
 
 sub execute { (shift)->SUPER::execute(@_,'checksum'); }
 
-sub parse_checksum
+sub parse
 {
 # Parse the checksum output. Each file is cached as it is seen. Returns the last
 # file cached, which is only useful in NOCACHE mode!
@@ -52,7 +53,7 @@ sub parse_checksum
 
 sub Help
 {
-  return 'Return (',join(',',@fields),")\n";
+  print 'Return (',join(',',@fields),")\n";
 }
 
 1;

@@ -13,12 +13,13 @@ sub new
 	       opts	=> ['--class']
 	     };
   bless($self, $class);
+  $self->{ENV} = $h->{ENV} || '';
   return $self;
 }
 
 sub execute { (shift)->SUPER::execute(@_,'class'); }
 
-sub parse_class
+sub parse
 {
 # Parse the class output. Each file is cached as it is seen. Returns the last
 # file cached, which is only useful in NOCACHE mode!
@@ -40,7 +41,7 @@ sub parse_class
 
 sub Help
 {
-  return "Return the file-class\n";
+  print "Return the file-class\n";
 }
 
 1;

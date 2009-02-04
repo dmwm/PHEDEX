@@ -116,7 +116,7 @@ sub AUTOLOAD
 sub Command
 {
   my ($self,$call,$file) = @_;
-  my ($h,$r,$parse,@opts,$env,$cmd);
+  my ($h,$r,@opts,$env,$cmd);
   return unless $h = $self->{COMMANDS}{$call};
   @opts = ( @{$h->{opts}}, $file );
   $env = $self->{ENV} || '';
@@ -125,10 +125,9 @@ sub Command
   open CMD, "$cmd |" or die "$cmd: $!\n";
   @{$r->{STDOUT}} = <CMD>;
   close CMD or return;
-  $parse = $h->{parse} || 'parse_' . $call;
-  if ( $self->{COMMANDS}{$call}->can($parse) )
+  if ( $self->{COMMANDS}{$call}->can('parse') )
   {
-    $r = $self->{COMMANDS}{$call}->$parse($self,$r,$file)
+    $r = $self->{COMMANDS}{$call}->parse($self,$r,$file)
   }
   return $r;
 }
@@ -140,9 +139,11 @@ sub _help
   {
     if ( $self->{COMMANDS}{$_}->can('Help') )
     {
-      print "$_: ",$self->{COMMANDS}{$_}->Help();
+      print "$_: ";
+      $self->{COMMANDS}{$_}->Help();
     }
   }
+  exit 0;
 }
 
 1;

@@ -75,7 +75,6 @@ sub Help
 EOF
 
   $self->SUPER::_help();
-  exit 0;
 }
 
 1;

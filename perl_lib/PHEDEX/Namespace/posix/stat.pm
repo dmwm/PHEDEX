@@ -17,11 +17,11 @@ sub new
 	       opts	=> ['--format=%A:%u:%g:%s:%Y'],
              };
   bless($self, $class);
-  map { $self->{$_} = $h->{$_} } keys %{$h};
+  $self->{ENV} = $h->{ENV} || '';
   return $self;
 }
 
-sub parse_stat
+sub parse
 {
 # Parse the stat output. Assumes the %A:%u:%g:%s:%Y format was used. Returns
 # a hashref with all the fields parsed. Note that the format of the command
@@ -45,8 +45,7 @@ sub parse_stat
 
 sub Help
 {
-# returns, does not print, the help message for this module.
-  return "Return (" . join(',',@fields) . ")\n";
+  print 'Return (',join(',',@fields),")\n";
 }
 
 1;
