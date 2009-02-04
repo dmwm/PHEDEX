@@ -622,21 +622,21 @@ sub getAgents
             s.agent = v.agent};
 
     # specific node?
-    if ($h{node})
+    if ($h{NODE})
     {
-        $sql .= qq { and\n           n.name = '$h{node}'};
+        $sql .= qq { and\n           n.name = '$h{NODE}'};
     }
 
     # specific SE?
-    if ($h{se})
+    if ($h{SE})
     {
-        $sql .= qq { and\n            n.se_name = '$h{se}'};
+        $sql .= qq { and\n            n.se_name = '$h{SE}'};
     }
 
     # specific agent?
-    if ($h{agent})
+    if ($h{AGENT})
     {
-        $sql .= qq { and\n            a.name = '$h{agent}'};
+        $sql .= qq { and\n            a.name = '$h{AGENT}'};
     }
 
     $sql .= qq {
@@ -698,10 +698,10 @@ sub getQueueStats
     my $sql = qq {
         select
             time_update,
-            ns.name from_node,
-            nd.name to_node,
-            xs.from_node from_id,
-            xs.to_node to_id,
+            ns.name as "from",
+            nd.name as "to",
+            xs.from_node as from_id,
+            xs.to_node as to_id,
             state,
             priority,
             files,
@@ -714,14 +714,14 @@ sub getQueueStats
             ns.id = xs.from_node and
             nd.id = xs.to_node};
 
-    if ($h{FROM_NODE})
+    if ($h{FROM})
     {
-        $sql .= qq { and\n            ns.name = '$h{FROM_NODE}'};
+        $sql .= qq { and\n            ns.name = '$h{FROM}'};
     }
 
-    if ($h{TO_NODE})
+    if ($h{TO})
     {
-        $sql .= qq { and\n            nd.name = '$h{TO_NODE}'};
+        $sql .= qq { and\n            nd.name = '$h{TO}'};
     }
             
     $sql .= qq {\n        order by nd.name, ns.name, state};
@@ -732,9 +732,9 @@ sub getQueueStats
     while ( $_ = $q->fetchrow_hashref())
     {
         $_ -> {'STATE'} = $state_name{$_ -> {'STATE'}};
-        if ($link{$_ -> {'FROM_NODE'} . "=" . $_ -> {'TO_NODE'}})
+        if ($link{$_ -> {'FROM'} . "=" . $_ -> {'TO'}})
         {
-            push @{$link{$_ -> {'FROM_NODE'} . "=" . $_ -> {'TO_NODE'}}->{queue}}, {
+            push @{$link{$_ -> {'FROM'} . "=" . $_ -> {'TO'}}->{queue}}, {
                     state => $_ -> {'STATE'},
                     priority => $_ -> {'PRIORITY'},
                     files => $_ -> {'FILES'},
@@ -744,9 +744,9 @@ sub getQueueStats
         }
         else
         {
-            $link{$_ -> {'FROM_NODE'} . "=" . $_ -> {'TO_NODE'}} = {
-                from_node => $_ -> {'FROM_NODE'},
-                to_node => $_ -> {'TO_NODE'},
+            $link{$_ -> {'FROM'} . "=" . $_ -> {'TO'}} = {
+                from => $_ -> {'FROM'},
+                to => $_ -> {'TO'},
                 from_id => $_ -> {'FROM_ID'},
                 to_id => $_ -> {'TO_ID'},
                 queue => [{
