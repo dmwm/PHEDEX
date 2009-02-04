@@ -826,6 +826,7 @@ sub fill
 	    $self->Logmsg("PhEDEx transfer task $$t{TASKID} has expired after $prettyhours, discarding");
 	    unlink("$$self{TASKDIR}/$$t{TASKID}");
 	    delete $$tasks{$$t{TASKID}};
+	    next;
 	}
 	elsif ($now >= $$t{TIME_EXPIRE} - 1200)
 	{
@@ -838,6 +839,7 @@ sub fill
 	    $$t{TIME_UPDATE} = $now;
 	    $$t{TIME_XFER} = -1;
 	    return if ! $self->taskDone($t);
+	    next;
 	}
 
 	# Consider this task.
