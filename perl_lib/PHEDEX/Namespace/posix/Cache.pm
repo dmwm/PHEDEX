@@ -1,16 +1,7 @@
 package PHEDEX::Namespace::posix::Cache;
-
-=head1 NAME
-
-PHEDEX::Namespace::posix::Cache - implement caching of results in the
-namespace framework for the direct (posix) protocol
-
-=cut
-
 use strict;
 use warnings;
 use PHEDEX::Core::Util ( qw / deep_copy / );
-use Getopt::Long;
 
 sub new
 {

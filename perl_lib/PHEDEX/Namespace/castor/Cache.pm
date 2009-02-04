@@ -4,7 +4,6 @@ package PHEDEX::Namespace::castor::Cache;
 use strict;
 use warnings;
 use PHEDEX::Core::Util ( qw / deep_copy / );
-use Getopt::Long;
 
 sub new
 {
