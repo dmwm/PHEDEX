@@ -40,6 +40,10 @@ optional inputs: (as filters) node, se, agent
  name             agent name
  node             node name
  host             host name
+ agent            list of the agents on this node
+
+=head3 <agent> elements:
+
  label            label
  state_dir        directory path ot the states
  version          cvs release
