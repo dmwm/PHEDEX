@@ -692,7 +692,7 @@ my %state_name = (
     3 => 'transferred'
     );
 
-sub getQueueStats
+sub getTransferQueueStats
 {
     my ($core, %h) = @_;
     my $sql = qq {
@@ -734,7 +734,7 @@ sub getQueueStats
         $_ -> {'STATE'} = $state_name{$_ -> {'STATE'}};
         if ($link{$_ -> {'FROM'} . "=" . $_ -> {'TO'}})
         {
-            push @{$link{$_ -> {'FROM'} . "=" . $_ -> {'TO'}}->{queue}}, {
+            push @{$link{$_ -> {'FROM'} . "=" . $_ -> {'TO'}}->{transfer_queue}}, {
                     state => $_ -> {'STATE'},
                     priority => $_ -> {'PRIORITY'},
                     files => $_ -> {'FILES'},
@@ -749,7 +749,7 @@ sub getQueueStats
                 to => $_ -> {'TO'},
                 from_id => $_ -> {'FROM_ID'},
                 to_id => $_ -> {'TO_ID'},
-                queue => [{
+                transfer_queue => [{
                     state => $_ -> {'STATE'},
                     priority => $_ -> {'PRIORITY'},
                     files => $_ -> {'FILES'},
