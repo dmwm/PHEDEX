@@ -114,6 +114,23 @@ sub evalinfo
     return eval (&input($file) || '');
 }
 
+# turn a JobManager job STATUS into a number
+# in case of a job being hangup/terminated/killed, STATUS is, e.g.  "signal 1"
+sub numeric_statcode
+{
+    my ($statcode) = @_;
+    return undef unless defined $statcode;
+    return ($statcode =~ /^-?\d+$/ ? $statcode : 128 + ($statcode =~ /(\d+)/)[0]);
+}
+
+# turn a 'y' or 'n' value into a boolean number
+sub boolean_yesno
+{
+    my ($yn) = @_;
+    return undef if !defined $yn || $yn !~ /^[yn]$/;
+    return ($yn eq 'y' ? 1 : 0);
+}
+
 # Reconnect the agent to the database.  If the database connection
 # has been shut, create a new connection.  Update agent status.  Set
 # $$self{DBH} to database handle and $$self{NODES_ID} to hash of the
@@ -454,8 +471,6 @@ sub updateTaskStatus
     {
 	next if ! exists $$tasks{$task}{REPORT_CODE};
 
-        $self->Logmsg("uploading status of task=$task") if $$self{VERBOSE};
-
 	my $arg = 1;
 	push(@{$dargs{$arg++}}, $$tasks{$task}{TASKID});
 	push(@{$dargs{$arg++}}, $$tasks{$task}{REPORT_CODE});
@@ -487,13 +502,16 @@ sub updateTaskStatus
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_VALIDATE});
 	}
 
-        unlink("$$self{TASKDIR}/$task");
-        delete $$tasks{$task};
 	if ((++$rows % 100) == 0)
 	{
 	    &dbbindexec($dstmt, %dargs);
 	    &dbbindexec($estmt, %eargs) if %eargs;
 	    $$self{DBH}->commit();
+	    foreach my $t (@{$dargs{1}}) {
+		$self->Logmsg("uploaded status of task=$t") if $$self{VERBOSE};
+		unlink("$$self{TASKDIR}/$t");
+		delete $$tasks{$t};
+	    }
 	    %dargs = ();
 	    %eargs = ();
 	}
@@ -504,6 +522,11 @@ sub updateTaskStatus
 	&dbbindexec($dstmt, %dargs);
 	&dbbindexec($estmt, %eargs) if %eargs;
         $$self{DBH}->commit();
+	foreach my $t (@{$dargs{1}}) {
+	    $self->Logmsg("uploaded status of task=$t") if $$self{VERBOSE};
+	    unlink("$$self{TASKDIR}/$t");
+	    delete $$tasks{$t};
+	}
     }
 }
 
@@ -585,8 +608,6 @@ sub prepare
 	    return if ! &output($fvstatus, "");
 	    $$taskinfo{PREVALIDATE_DONE} = 0;
 	    $n_add++;
-	    my $is_custodial_numeric = 1;
-            if ( $taskinfo->{IS_CUSTODIAL} eq 'n' ) { $is_custodial_numeric = 0; }
 	    $self->addJob(sub {
 		&output($fvstatus, Dumper ({
 		    START => $now, END => &mytimeofday(),
@@ -594,12 +615,9 @@ sub prepare
 	    },
 	    { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $fvlog },
 	    @{$$self{VALIDATE_COMMAND}}, "pre",
-	    @$taskinfo{qw(TO_PFN FILESIZE CHECKSUM)}, $is_custodial_numeric);
+	    @$taskinfo{qw(TO_PFN FILESIZE CHECKSUM)}, &boolean_yesno($taskinfo->{IS_CUSTODIAL}));
 	} elsif ( $vstatus ) {
-	    # string STATUS (e.g. 'signal 1') means the child process
-	    # was terminated/killed
-	    my $statcode = ($$vstatus{STATUS} =~ /^-?\d+$/ ? $$vstatus{STATUS}
-			    : 128 + ($$vstatus{STATUS} =~ /(\d+)/)[0]);
+	    my $statcode = &numeric_statcode($$vstatus{STATUS});
 
 	    # if the pre-validation returned success, this file is already there.  mark success
 	    if ($statcode == PHEDEX_VC_SUCCESS) 
@@ -636,7 +654,7 @@ sub prepare
 	    unlink $fvstatus;
 	    unlink $fvlog;
 	    $$taskinfo{PREVALIDATE_DONE} = 1;
-	    $$taskinfo{PREVALIDATE_STATUS} = $$vstatus{STATUS};
+	    $$taskinfo{PREVALIDATE_STATUS} = $statcode;
 	}
 
 	# Are we prepared?
@@ -729,7 +747,7 @@ sub check
 		        $$jobinfo{RECHECK} = 1; },
 	            { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $fvlog },
 	            @{$$self{VALIDATE_COMMAND}}, $$xstatus{STATUS},
-	            @$taskinfo{qw(TO_PFN FILESIZE CHECKSUM)});
+	            @$taskinfo{qw(TO_PFN FILESIZE CHECKSUM)}, &boolean_yesno($taskinfo->{IS_CUSTODIAL}));
 	    }
 	    else
 	    {
@@ -759,12 +777,8 @@ sub check
 	    
 	    # string STATUS (e.g. 'signal 1') means the child process
 	    # was terminated/killed
-	    $$taskinfo{REPORT_CODE} =
-		($$vstatus{STATUS} =~ /^-?\d+$/ ? $$vstatus{STATUS}
-		 : 128 + ($$vstatus{STATUS} =~ /(\d+)/)[0]);
-	    $$taskinfo{XFER_CODE} =
-		($$xstatus{STATUS} =~ /^-?\d+$/ ? $$xstatus{STATUS}
-		 : 128 + ($$xstatus{STATUS} =~ /(\d+)/)[0]);
+	    $$taskinfo{REPORT_CODE} = &numeric_statcode($$vstatus{STATUS});
+	    $$taskinfo{XFER_CODE} = &numeric_statcode($$xstatus{STATUS});
 	    $$taskinfo{LOG_DETAIL} = $$xstatus{DETAIL};
 	    $$taskinfo{LOG_XFER} = $$xstatus{LOG};
 	    $$taskinfo{LOG_VALIDATE} = $$vstatus{LOG};
