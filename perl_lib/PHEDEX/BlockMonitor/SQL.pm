@@ -196,6 +196,26 @@ sub removeBlockAtNode
 }
 
 #-------------------------------------------------------------------------------
+sub updateBlockFlags
+{
+  my ($self,%h) = @_;
+  my ($sql,%p);
+
+  my @b = qw(now block node 
+	     is_custodial user_group);
+  $sql = qq{ update t_dps_block_replica
+            set time_update = :now, 
+		is_custodial = :is_custodial, user_group = :user_group
+            where block = :block and node = :node };
+  $h{NOW} = mytimeofday() unless $h{NOW};
+  foreach ( @b ) { $p{ ':' . $_ } = $h{uc($_)}; }
+
+  return if exists $self->{DUMMY} && $self->{DUMMY};
+  execute_sql( $self, $sql, %p );
+}
+
+
+#-------------------------------------------------------------------------------
 sub updateBlockAtNode
 {
   my ($self,%h) = @_;
@@ -203,15 +223,13 @@ sub updateBlockAtNode
 
   my @b = qw(now block node 
 	     dest_files dest_bytes src_files src_bytes 
-	     node_files node_bytes xfer_files xfer_bytes
-	     is_custodial user_group);
+	     node_files node_bytes xfer_files xfer_bytes);
   $sql = qq{ update t_dps_block_replica
             set time_update = :now, is_active = 'y',
                 dest_files = :dest_files, dest_bytes = :dest_bytes,
                 src_files  = :src_files,  src_bytes  = :src_bytes,
                 node_files = :node_files, node_bytes = :node_bytes,
-                xfer_files = :xfer_files, xfer_bytes = :xfer_bytes,
-		is_custodial = :is_custodial, user_group = :user_group
+                xfer_files = :xfer_files, xfer_bytes = :xfer_bytes
             where block = :block and node = :node };
   $h{NOW} = mytimeofday() unless $h{NOW};
   foreach ( @b ) { $p{ ':' . $_ } = $h{uc($_)}; }
@@ -259,7 +277,7 @@ sub createBlockAtNode
 			   sort keys %p) );
   }
 
-  if ( $self->{VERBOSE} )
+  if ( $self->{DEBUG} )
   {
     $self->Logmsg('createBlockAtNode: ',
 		join(', ',
