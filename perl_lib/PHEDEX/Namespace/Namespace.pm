@@ -1,5 +1,9 @@
 package PHEDEX::Namespace::Namespace;
 
+#
+# NOTE: This module will become obsolete when the new Namespace framework
+# goes live in production. For now, it is still needed.
+#
 =head1 NAME
 
 PHEDEX::Namespace - implement namespace (size, migration...) checks on SEs
