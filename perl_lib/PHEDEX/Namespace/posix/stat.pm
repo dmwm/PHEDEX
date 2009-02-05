@@ -18,6 +18,7 @@ sub new
              };
   bless($self, $class);
   $self->{ENV} = $h->{ENV} || '';
+  map { $self->{MAP}{$_}++ } @fields;
   return $self;
 }
 
