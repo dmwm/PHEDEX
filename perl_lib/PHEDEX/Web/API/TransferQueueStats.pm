@@ -13,7 +13,7 @@ PHEDEX::Web::API::TransferQueueStats - show transfer state details
 return transfer state details in the following structure
 
   <link>
-     <queue/>
+     <transfer_queue/>
      ...
   </link>
   ...
@@ -26,7 +26,7 @@ return transfer state details in the following structure
 =head3 output:
 
   <link>
-    <queue/>
+    <transfer_queue/>
     ...
   </link>
   ...
@@ -39,7 +39,7 @@ return transfer state details in the following structure
  to_id              id of the to node
  queue              queues associated with this link
 
-=head3 <queue> elements:
+=head3 <transfer_queue> elements:
 
  priority           transfer priority
  files              number of files in transfer
