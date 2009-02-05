@@ -210,6 +210,8 @@ sub idle
 	    # Compare differences I: start from previous replicas.
 	    foreach my $b (map { values %$_ } values %replicas)
 	    {
+		my $new = $active{$b->{BLOCK}}{$b->{NODE}};
+
 		# Check consistency of inactive blocks before ignoring
 		# them: they can't be open or have active replicas or
 		# transfers.  Count block active if it has active
@@ -217,13 +219,23 @@ sub idle
 		# not make a block active.
 		if ($$b{IS_ACTIVE} ne 'y')
 		{
+		    my $skip = 1;
 		    $self->Alert ("$b->{BLOCK} at $b->{NODE} inactive but open")
 			if $b->{IS_OPEN} eq 'y';
 		    $self->Alert ("$b->{BLOCK} at $b->{NODE} inactive but active")
-			if (exists $active{$b->{BLOCK}}{$b->{NODE}}
-			    && ($active{$b->{BLOCK}}{$b->{NODE}}{NODE_FILES}
-				|| $active{$b->{BLOCK}}{$b->{NODE}}{XFER_FILES}));
-		    next;
+			if ($new && ($new->{NODE_FILES} || $new->{XFER_FILES}));
+		    
+		    # Even inactive blocks could have their custodial
+		    # or user_group state changed
+		    {
+			no warnings 'uninitialized';
+			if (    $b->{IS_CUSTODIAL} ne $new->{IS_CUSTODIAL}
+				|| $b->{USER_GROUP}   != $new->{USER_GROUP} ) {
+			    $skip = 0;
+			}
+		    }
+
+		    next if $skip;
 		}
 
 		# Remove obsolete replicas.  This inludes replicas for
@@ -240,7 +252,6 @@ sub idle
 		{ 
 		    no warnings 'uninitialized'; # USER_GROUP can be undef
 		    # Update statistics for active blocks
-		    my $new = $active{$b->{BLOCK}}{$b->{NODE}};
 		    if (      $b->{DEST_FILES}   != $new->{DEST_FILES}
 			   || $b->{DEST_BYTES}   != $new->{DEST_BYTES}
 			   || $b->{SRC_FILES}    != $new->{SRC_FILES}
