@@ -212,6 +212,18 @@ sub idle
 	    {
 		my $new = $active{$b->{BLOCK}}{$b->{NODE}};
 
+		# First check the block flags (custodial, group),
+		# which can be changed even for inactive blocks
+		{
+		    no warnings 'uninitialized';
+		    if (    $b->{IS_CUSTODIAL} ne $new->{IS_CUSTODIAL}
+			    || $b->{USER_GROUP}   != $new->{USER_GROUP} ) {
+			$self->Logmsg ("updating flags for block $b->{BLOCK} at node $b->{NODE}");
+			$self->updateBlockFlags( NOW => $now, %{$new} )
+			    unless $self->{DUMMY};
+		    }
+		}
+
 		# Check consistency of inactive blocks before ignoring
 		# them: they can't be open or have active replicas or
 		# transfers.  Count block active if it has active
@@ -219,23 +231,11 @@ sub idle
 		# not make a block active.
 		if ($$b{IS_ACTIVE} ne 'y')
 		{
-		    my $skip = 1;
 		    $self->Alert ("$b->{BLOCK} at $b->{NODE} inactive but open")
 			if $b->{IS_OPEN} eq 'y';
 		    $self->Alert ("$b->{BLOCK} at $b->{NODE} inactive but active")
 			if ($new && ($new->{NODE_FILES} || $new->{XFER_FILES}));
-		    
-		    # Even inactive blocks could have their custodial
-		    # or user_group state changed
-		    {
-			no warnings 'uninitialized';
-			if (    $b->{IS_CUSTODIAL} ne $new->{IS_CUSTODIAL}
-				|| $b->{USER_GROUP}   != $new->{USER_GROUP} ) {
-			    $skip = 0;
-			}
-		    }
-
-		    next if $skip;
+		    next;
 		}
 
 		# Remove obsolete replicas.  This inludes replicas for
@@ -259,12 +259,10 @@ sub idle
 			   || $b->{NODE_FILES}   != $new->{NODE_FILES}
 			   || $b->{NODE_BYTES}   != $new->{NODE_BYTES}
 			   || $b->{XFER_FILES}   != $new->{XFER_FILES}
-			   || $b->{XFER_BYTES}   != $new->{XFER_BYTES}
-			   || $b->{IS_CUSTODIAL} ne $new->{IS_CUSTODIAL}
-			   || $b->{USER_GROUP}   != $new->{USER_GROUP})
+			   || $b->{XFER_BYTES}   != $new->{XFER_BYTES} )
 		    {
 			$self->limitCheck ("updated block", $new, $b);
-			$self->Logmsg ("updating block $b->{BLOCK} at node $b->{NODE}");
+			$self->Logmsg ("updating stats for block $b->{BLOCK} at node $b->{NODE}");
 			$self->updateBlockAtNode( NOW => $now, %{$new} )
 			    unless $self->{DUMMY};
 		    }
