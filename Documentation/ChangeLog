@@ -14,10 +14,10 @@ Bugfixes for Site Agents:
      the transfer backend
    - custodial flag now sent to post-validation as well as
      pre
-   - early expired tasks are now logged in the log files,
-     but not in the database error tables.  This will prevent the
-     database error tables (visible from the web page) to be filled with
-     expiration errors for a link
+   - expired tasks are now logged in the log files, but not in the
+     database error tables.  This will prevent the database error
+     tables (visible from the web page) to be filled with expiration
+     errors for a link
  - BlockDownloadVerify: 
    - add a -preload argument, the value of which
      will set the LD_PRELOAD environment variable for dCache
