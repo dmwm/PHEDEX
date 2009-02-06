@@ -217,8 +217,7 @@ sub taskDone
 	    . " to-pfn=$$task{TO_PFN}"
 	    . " detail=($detail)"
 	    . " validate=($validate)"
-	    . " job-log=@{[$$task{JOBLOG} || '(no job)']}") 
-	unless ($$task{REPORT_CODE} == PHEDEX_RC_EXPIRED); # unless expired
+	    . " job-log=@{[$$task{JOBLOG} || '(no job)']}");
 
     # Indicate success.
     return 1;
@@ -478,7 +477,9 @@ sub updateTaskStatus
 	push(@{$dargs{$arg++}}, $$tasks{$task}{TIME_XFER});
 	push(@{$dargs{$arg++}}, $$tasks{$task}{TIME_UPDATE});
 
-	if ($$tasks{$task}{REPORT_CODE} != 0)
+	# Log errors.  We ignore expired tasks
+	if ($$tasks{$task}{REPORT_CODE} != 0 &&
+	    $$tasks{$task}{REPORT_CODE} != PHEDEX_RC_EXPIRED)
 	{
 	    my $arg = 1;
 	    push(@{$eargs{$arg++}}, $$tasks{$task}{TO_NODE_ID});
@@ -668,7 +669,6 @@ sub prepare
 	if ($done) {
 	    $$taskinfo{PREPARED} = 1;
 	    return if ! $self->taskDone($taskinfo);
-	    delete $$tasks{$task};
 	} else {
 	    return if ! $self->saveTask($taskinfo);
 	}
