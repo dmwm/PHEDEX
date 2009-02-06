@@ -1,4 +1,49 @@
-* Changes in PhEDEx 3_1_1
+* Changes in PhEDEx 3.1.2
+
+Bugfixes for Site Agents:
+ - FileDownload: 
+   - pre-validate false-positive bug fixed.  A pre-validation script
+     which was killed by a signal (either from an external command or a
+     hangup signal due to the job timing out) would incorrectly be
+     evaluated as a success, resulting in inconsitencies.
+   - return codes fixed.  3.1.1 overloaded report-code=-2
+     xfer-code=-2, which could mean either a vetoed transfer or a lost
+     task.  Now vetoed transfers are -86,-2 and lost tasks are -2,-2
+     as always.
+   - fix a bug where expired tasks would still be sent to
+     the transfer backend
+   - custodial flag now sent to post-validation as well as
+     pre
+   - early expired tasks are now logged in the log files,
+     but not in the database error tables.  This will prevent the
+     database error tables (visible from the web page) to be filled with
+     expiration errors for a link
+ - BlockDownloadVerify: 
+   - add a -preload argument, the value of which
+     will set the LD_PRELOAD environment variable for dCache
+     interactions.
+   - protect against crashes due to transient database problems
+
+Bugfixes for Central Agents:
+ - fix bug where changes to group would not be updated for inactive
+   blocks
+ - BlockDBSPopulate: configurable timeout for commands
+
+Changes for Tools:
+ - InspectPhedexLog: fix for bug #37073: trailing whitespace removed
+   from classification
+ - FileDeleteTMDB: 
+   - redefine file invalidation syntax from "-nodes all" to an
+     explicit -invalidate option
+   - error check arguments relating to -invalidate and -bulk
+   - separately look up containers in order to allow deletion of empty
+     datasets/blocks
+ - BlockConsistencyCheck:
+   - -preload argument, as in BlockDownloadVerify
+   - -incomplete-blocks option, otherwise default to check only
+      completed blocks
+
+* Changes in PhEDEx 3.1.1
 
 Bugfixes for Site Agents
  - FileDownload 'execute_array failed' error when uploading the error
@@ -14,7 +59,7 @@ Bugfixes for Site Agents
 Bugfixes for All Agents
  - 'uninitialized value ... Logging.pm line 107' warning fixed
 
-* Changes in PhEDEx 3_1_0
+* Changes in PhEDEx 3.1.0
 
  This is a major upgrade over the 3.0.x series of PhEDEx, and is a
 mandatory upgrade. There is a new schema which implements custodiality and
