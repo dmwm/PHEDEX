@@ -93,7 +93,7 @@ sub AUTOLOAD
   if ( exists($self->{COMMANDS}{$attr}) )
   {
     my $result = $self->{CACHE}->fetch($attr,\@_);
-    return $result if $result;
+    return $result if defined $result;
     if ( $self->{COMMANDS}{$attr}->can('execute') )
     { $result = $self->{COMMANDS}{$attr}->execute($self,@_); }
     else
