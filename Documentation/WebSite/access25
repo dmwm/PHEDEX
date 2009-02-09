@@ -5326,10 +5326,9 @@ sub new
 sub output
 {
   my ($self) = @_;
-  my %offline_thresholds = ( 'FileDownload' => 60*30,
+  my %offline_thresholds = ( 'FileDownload' => 60*45,
 			     'FileExport'   => 60*90,
 			     'InfoFileSize' => 60*30,
-			     'BlockDLSUpdate' => 60*60,
 			     'LoadTestInjector' => 60*20,
 			     'LoadTestCleanup' => 60*60,
 			     'BlockDownloadVerifyInjector' => 60*60,
