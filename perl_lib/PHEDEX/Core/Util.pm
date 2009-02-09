@@ -52,12 +52,11 @@ sub str_hash
 #    last_180days
 sub str2time
 {
-    my $core = shift @_;
     my $str = shift @_;
 
     if ($str =~ m!(^\d*$)!)	# UNIX time
     {
-        return $str =~ m!(^\d*$)!;
+        return $str;
     }
     elsif ($str eq "now")
     {
