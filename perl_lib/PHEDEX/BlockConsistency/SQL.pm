@@ -153,7 +153,9 @@ sub getTMDBFileStats
                 where logical_name like :filename };
   my %p = ( ':filename' => $l );
   my $r = select_hash( $self, $sql, 'LOGICAL_NAME', %p );
+  return undef unless exists($r->{$l});
   my $s;
+
   $s->{SIZE} = $r->{$l}->{FILESIZE};
   foreach ( split( '[,;#$%/\s]+', $r->{$l}->{CHECKSUM} ) )
   {
