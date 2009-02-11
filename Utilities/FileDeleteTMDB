@@ -265,15 +265,16 @@ sub getContainerInfo
     else                 { $where .= " = :item"; }
     
     my $q = &dbexec($dbh, qq{
-	select rownum, dataset, block from (
-	select distinct ds.name dataset, b.name block
+	select distinct 
+            ds.id || ':' || b.id id, 
+	    ds.name dataset, b.name block
 	    from t_dps_dataset ds
 	    left join t_dps_block b on b.dataset = ds.id
 	    left join t_dps_file f on f.inblock = b.id
 	    where $where
-	)},
+	},
 		    ":item" => $item);
-    my $conts = $q->fetchall_hashref('ROWNUM');
+    my $conts = $q->fetchall_hashref('ID');
     return $conts;
 }
 
