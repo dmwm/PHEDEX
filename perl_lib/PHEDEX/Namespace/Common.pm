@@ -121,7 +121,7 @@ sub Command
   @opts = ( @{$h->{opts}}, $file );
   $env = $self->{ENV} || '';
   $cmd = "$env $h->{cmd} @opts";
-  print "Prepare to execute $cmd\n" if $self->{VERBOSE};
+  print "Prepare to execute $cmd\n" if $self->{DEBUG};
   open CMD, "$cmd |" or die "$cmd: $!\n";
   @{$r->{STDOUT}} = <CMD>;
   close CMD or return;

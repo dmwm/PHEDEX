@@ -26,7 +26,6 @@ sub execute
 
 sub Help
 {
-# returns, does not print, the help message for this module.
   print <<EOH;
 delete (unlink) a set of files. Returns the number of files _not_
 deleted. This allows you to call it with an empty list and still make sense
