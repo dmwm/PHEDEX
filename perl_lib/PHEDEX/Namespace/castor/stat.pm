@@ -27,7 +27,7 @@ sub parse
 # Parse the stat output. Each file is cached as it is seen. Returns the last
 # file cached, which is only useful in NOCACHE mode!
   my ($self,$ns,$r,$dir) = @_;
-  my $result;
+  my $result = {};
   
   foreach ( @{$r->{STDOUT}} )
   {

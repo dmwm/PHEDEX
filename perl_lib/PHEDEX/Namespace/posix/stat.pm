@@ -31,7 +31,7 @@ sub parse
 
 # return an empty hashref instead of undef if nothing is found, so it can
 # still be dereferenced safely.
-  $r = {};
+  $r = {} unless defined $r;
   foreach ( @{$r->{STDOUT}} )
   {
     chomp;
