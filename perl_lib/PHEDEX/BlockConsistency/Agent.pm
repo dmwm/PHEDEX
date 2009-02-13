@@ -200,16 +200,13 @@ sub doNSCheck
 			PRELOAD		=> $self->{PRELOAD},
 		);
 
-  if ( $request->{USE_SRM} eq 'y' )
+  if ( $self->{USE_SRM} eq 'y' or $request->{USE_SRM} eq 'y' )
   {
-    $ns->protocol( 'srm' );
-    $ns->TFCPROTOCOL( 'srm' );
+    $ns->protocol( 'srmv2' );
+    $ns->TFCPROTOCOL( 'srmv2' );
   }
   else
   {
-    $self->connectAgent();
-    $self->expandNodes();
-    $self->{bcc}->DBH( $self->{DBH} );
     my $technology = $self->{bcc}->Buffers(@{$self->{NODES}});
     $ns->technology( $technology );
   }
@@ -301,6 +298,14 @@ sub processDrop
   $request = do { no strict "vars"; eval &input ("$dropdir/packet") };
   $bad = 0;
   $bad = 1 if ($@ || !$request );
+
+  eval { $self->connectAgent(); };
+  do {
+       chomp ($@);
+       $self->Alert ("database error: $@");
+       return;
+  } if $@;
+  $self->{bcc}->DBH( $self->{DBH} );
 
   if ( $request->{INJECT_ONLY} )
   {
