@@ -106,10 +106,11 @@ use File::Basename;
 use base 'Exporter';
 our @EXPORT = ();
 
-our %pmap = ( rfio => 'rf',
-	      srm  => 'srm',
-	      disk => 'unix',
-	      dcap => 'dcap',
+our %pmap = ( rfio  => 'rf',
+	      srm   => 'srm',
+	      srmv2 => 'srmv2',
+	      disk  => 'unix',
+	      dcap  => 'dcap',
 	    );
 our %tmap = ( Castor => 'rfio',
 	      dCache => 'dcap',
@@ -189,8 +190,8 @@ sub protocol
     $self->{prefix}   = $pmap{$protocol};
     $self->{protocol} = $protocol;
     print "Using TFC protocol $protocol\n";
-    if ( $protocol eq 'srm' )
-    {
+#    if ( $protocol eq 'srm' )
+#    {
 #      open VPI, "voms-proxy-info -timeleft 2>/dev/null |" or die "voms-proxy-info: $!\n";
 #      while ( <VPI> )
 #      {
@@ -203,7 +204,7 @@ sub protocol
 #      close VPI; # or die "close voms-proxy-info: $!\n";
 #      die "no valid proxy? Giving up...\n" unless 
 #	( defined($self->{PROXY}) and $self->{PROXY} > 0 );
-    }
+#    }
   }
 
   return $self->{protocol};
@@ -331,6 +332,31 @@ sub rfstat
       $stat{$pfn}{Size} = $2;
       my $m = $1;
       $stat{$pfn}{Migrated} = ( $m eq 'm' ? 1 : 0 );
+    }
+  }
+
+  map { $r->{$_} = $stat{$_} } @_;
+  return $r;
+}
+
+#-----------------------
+# SRMV2
+sub srmv2stat
+{
+  my $self = shift;
+  my ($pfn,$r,$cmd);
+  $cmd = 'srmls -l';
+
+  $self->_stat($cmd,@_);
+  foreach my $pfn ( @_ )
+  {
+    next if exists $stat{$pfn}{Size};
+    if ( $self->{VERBOSE} >= 3 ) { print "$cmd $pfn...\n"; }
+    foreach ( split("\n", $stat{$pfn}{RAW}) )
+    {
+      chomp;
+      if ( m%^\s+(\d+)\s+\S+% ) { $stat{$pfn}{Size} = $1; }
+      if ( m%^\s+isCached\s*:\s*(true|false)% ) { $stat{$pfn}{OnDisk} = ($1 eq 'true')?1:0; }
     }
   }
 
