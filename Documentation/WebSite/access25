@@ -980,7 +980,7 @@ sub resolve_data
 	my $re = $userglob;
 	$re =~ s:\*+:[^/\#]+:g;                              # simple glob to regex, only * is supported
 	$re .= '#[^/\#]+' if $static && $level eq 'DATASET'; # turn dataset match into block match if static
-	$userglob_re{$userglob} = qr(^$re$);                 # compile regexp
+	$userglob_re{$userglob} = qr/^$re$/;                 # compile regexp
 
 	my $like = $userglob;
 	$like =~ s:\*+:%:g;                                  # glob to sql like, only * is supported
@@ -1112,9 +1112,10 @@ sub resolve_data
 	}
     }
 
-    # Attach replicas to resolved data.  We use the IDs from the data
+    # Attach replicas and subscriptions to resolved data.  We use the IDs from the data
     # we successfully looked up in TMDB to do this efficiently
     my $all_replicas = {};
+    my $all_subscriptions = {};
     foreach my $level (qw(DATASET BLOCK)) {
 	my @ids = @{$$all{$level}};
 	while ( my @batch = splice @ids, 0, 1000 ) { # query groups of 1000 items
@@ -1123,12 +1124,18 @@ sub resolve_data
 		$all_replicas->{$level}->{ $rep->{ $level.'_ID' } } ||= [];
 		push @{ $all_replicas->{$level}->{ $rep->{ $level.'_ID' } } }, $rep;
 	    }
+	    my $subscriptions = &fetch_subscriptions($dbh, $level, @batch);
+	    foreach my $subsc (@$subscriptions) {
+		$all_subscriptions->{$level}->{ $subsc->{ $level.'_ID' } } ||= [];
+		push @{ $all_subscriptions->{$level}->{ $subsc->{ $level.'_ID' } } }, $subsc;
+	    }
 	}
     }
 
     foreach my $userglob (@userdata) {
 	foreach my $item (grep $_->{DPS_ISKNOWN} eq 'y', @{$$resolved{$userglob}}) {
 	    $item->{REPLICAS} = $all_replicas->{$item->{LEVEL}}->{$item->{ID}};
+	    $item->{SUBSCRIPTIONS} = $all_subscriptions->{$item->{LEVEL}}->{$item->{ID}};
 	}
     }
     
@@ -1161,8 +1168,6 @@ sub fetch_replicas
 
     my $q = &dbexec($dbh, qq{
 	select n.id node_id, n.name node_name, ds.id dataset_id,
-	       nvl2(s.destination, 1, 0) is_subscribed,
-	       nvl2(s.destination, nvl2(s.dataset, 'DATASET', 'BLOCK'), NULL) subs_level,
                $block_select
                nvl(sum(br.node_files),0) files, nvl(sum(br.node_bytes),0) bytes,
 	       sign(sum(decode(br.is_custodial, 'y', 1, 0))) is_custodial
@@ -1170,23 +1175,39 @@ sub fetch_replicas
          join t_dps_block b on b.dataset = ds.id
          join t_dps_block_replica br on br.block = b.id
          join t_adm_node n on n.id = br.node
-    left join t_dps_subscription s on s.destination = br.node
-                                  and (s.dataset = ds.id or s.block = b.id)
-        where (br.node_files != 0 or br.dest_files != 0)
+        where (br.node_files != 0)
           and $where
-        group by n.id, n.name, ds.id, s.destination, s.dataset $block_group_by }, %binds);
+	  group by n.id, n.name, ds.id $block_group_by }, %binds);
 
-    my $replicas = [];
-    while (my @row = $q->fetchrow_array()) {
-	my %hash;
-	my $names = $q->{NAME_uc};
-	$hash{ $$names[$_] } = $row[$_] for (0..scalar @$names - 1);
-	push @$replicas, \%hash;
-    }
-
-    return $replicas;
+    return $q->fetchall_arrayref({});
 }
 
+sub fetch_subscriptions
+{
+    my ($dbh, $level, @items) = @_;
+    return undef unless ($dbh && $level && @items);
+
+    my %binds;
+    my $where;
+    if ($level eq 'DATASET') {
+	$where = '('.&PHEDEX::Core::SQL::filter_or_eq($dbh, undef, \%binds, 'sb.dataset', @items).')';
+    } elsif ($level eq 'BLOCK') {
+	$where = '('.&PHEDEX::Core::SQL::filter_or_eq($dbh, undef, \%binds, 'sb.id', @items).')';
+    }
+
+    my $q = &dbexec($dbh, qq{
+	select NVL2(s.block, 'BLOCK', 'DATASET') subs_lvl,
+	       NVL2(s.block, s.block, s.dataset) subs_item_id,
+	       sb.dataset dataset_id, sb.id block_id,
+	       n.id node_id, n.name node_name,
+	       s.is_move, s.is_custodial
+	  from t_dps_subscription s
+          join t_dps_block sb on sb.id = s.block or sb.dataset = s.dataset
+          join t_adm_node n on s.destination = n.id 
+	 where $where }, %binds);
+
+    return $q->fetchall_arrayref({});
+}
 
 # Given a list of dataset IDs and/or block IDs, calculate the number of files and bytes total
 sub calculate_size
@@ -2492,19 +2513,35 @@ sub generate
   }
 
   # Prepare our cookies
+  # The first cookie, 'PhEDEx', contains a session id and the server
+  # name (so the frontend redirects to the same backend for the
+  # session)
+  # The second cookie comes from the security module
   my @cookies;
+  my $session_name = 'PhEDEx';
   if ($$index{SESSION}) {
       require CGI::Session;
-      require CGI::Cookie;
-      my $session_name = 'PhEDEx';
       CGI::Session->name($session_name);
       my $session_dir = $$self{CONFIG}{SESSION_DIR} || '/tmp/cgi-sessions';
-      my $sid = cookie($session_name) || undef;
-      my $session = new CGI::Session("driver:File", $sid, {Directory=>$session_dir});
-      $session->expire("+24h");
+      my %cookie_params = cookie($session_name);
+      my $session = new CGI::Session("driver:File", $cookie_params{SESSIONID}, {Directory=>$session_dir});
+      $session->expire("+24h"); # expire time is 24 hours
       $$self{SESSION} = $session;
       $$self{SESSIONID} = $session->id();
-      my $cookie = new CGI::Cookie(-name=>$session_name, -value=>$$self{SESSIONID});
+      my $cookie = cookie(-name=>$session_name,
+			  -value=>{ SESSIONID => $$self{SESSIONID},
+# cookie redirection disabled until the security of this method is reviewed
+#				    SERVER    => server_name() 
+				    },
+			  -secure=>1, -httponly=>1,
+			  -expires=>'');
+      push @cookies, $cookie;
+  } else {
+      # remove the cookie if this page does not use sessions
+      my $cookie = cookie(-name=>$session_name,
+			  -value=>'',
+			  -secure=>1, -httponly=>1,
+			  -expires=>"-1y");
       push @cookies, $cookie;
   }
 
@@ -2512,8 +2549,6 @@ sub generate
       push @cookies, $cookie;
   }
   
-
-
   # Execute the desired page.  We save old STDOUT to print to it
   # later, then redirect the page routine's output to CONTENT.
   my ($output, $options, $head) = ("", "", "");
@@ -2575,9 +2610,7 @@ sub generate
     my $message = $@;
     $message = &escapeHTML($message);
 
-    my $feedbackurl =
-      "mailto:$$self{CONFIG}{FEEDBACK_MAIL}?subject="
-      . "PhEDEx%20web%20server%20trouble";
+    my $feedbackurl = $$self{CONFIG}{BUG_SUBMIT_URL};
 
     if ($message =~ /ORA-00942/) # table or view doesn't exist
     {
@@ -2593,7 +2626,7 @@ sub generate
         "<center><div class='alert'>\n",
         " <p>Apologies, looks like we have an internal server error,",
         " details of which below.  If the problem persists, please",
-        " <a href='$feedbackurl'>notify the administrators</a>.</p>\n",
+        " <a href='$feedbackurl'>submit a bug report</a>.</p>\n",
         " <p><i>$message</i></p>\n",
         "</div></center>\n";
     }
@@ -4330,10 +4363,12 @@ sub output
       }
       $self->printRequest($rid, @auth_nodes);
 
+      # remove the session data
+      $$self{SESSION}->clear();
       return;
   }
 
-  # Clear any previous request
+  # Clear any previous request session
   $$self{SESSION}->clear();
 
   my $node_label;
@@ -4449,18 +4484,6 @@ sub checkXferRequestData
     print { $$self{CONTENT} } "<h1>Data Item Lookup</h1>",
     "<p>The following table summarizes an attempt to look for your requested data items in PhEDEx.</p>";
   
-    # Pull all subscriptions into a hash organized by node for subscription duplication checking
-    my $subscriptions = {};
-    my $q = &dbexec($$self{DBH}, qq{ select NVL2(s.block, 'BLOCK', 'DATASET') lvl,
-				            NVL2(s.block, s.block, s.dataset) id,
-				            n.name node, s.is_custodial
-				     from t_dps_subscription s
-				     join t_adm_node n on s.destination = n.id });
-  
-    while (my ($level, $id, $node) = $q->fetchrow_array()) {
-	$$subscriptions{$node}{$level}{$id} = 1;
-    }
-
     my $table = new Web25::TableSpool;
     $table->set_filehandle( $$self{CONTENT} );
     $table->set_tableclass('data');
@@ -4526,41 +4549,63 @@ sub checkXferRequestData
 		}
 		if ($$res{LEVEL} eq 'BLOCK' && $params{is_move} eq 'y') {
 		    push @comments, "Move request includes block-level data.  Only moves of datasets are supported";
-		    $warn = 1;
+		    $warn = 1; $row_problem = 1;
+		}
+
+		my $src_info = {};
+		foreach my $replica (@{$$res{REPLICAS}}) {
+		    $$src_info{ $$replica{NODE_NAME} }{ NODE_NAME } = $$replica{NODE_NAME} ;
+		    $$src_info{ $$replica{NODE_NAME} }{ FILES } = $$replica{FILES};
+		}
+		foreach my $subsc (@{$$res{SUBSCRIPTIONS}}) {
+		    $$src_info{ $$subsc{NODE_NAME } }{ NODE_NAME } = $$subsc{NODE_NAME};
+		    $$src_info{ $$subsc{NODE_NAME } }{ SUBSCRIBED } = 1;
+		    $$src_info{ $$subsc{NODE_NAME } }{ IS_CUSTODIAL } = $$subsc{IS_CUSTODIAL};
+		    $$src_info{ $$subsc{NODE_NAME } }{ IS_MOVE } = $$subsc{IS_MOVE};
 		}
 
 		foreach my $node (@{$params{nodes}}) {
-		    if ($$subscriptions{$node}{$$res{LEVEL}}{$$res{ID}}) {
+		    if (exists $$src_info{$node} && $$src_info{$node}{SUBSCRIBED}) {
 			push @comments, "Already subscribed to $node";
 			$warn = 1;
 		    }
 		}
 		
-		# Check replicas if a move or custodial request was made
-		if ($params{is_move} eq 'y' || $params{is_custodial} eq 'y') {
-		    my $bad_t1_move = 0;
-		    my @custodial;
-		    foreach my $replica (@{$$res{REPLICAS}}) {
-			if ($params{is_move} eq 'y' && $$replica{NODE_NAME} =~ /^T1/ && $$replica{IS_SUBSCRIBED}) {
-			    $bad_t1_move = 1;
-			} elsif ($params{is_move} eq 'y' && $$replica{IS_SUBSCRIBED}) {
-			    $subscribed_sources{$$replica{NODE_NAME}} = $$replica{NODE_ID};
-			}
-			if ($params{is_custodial} eq 'y' && $$replica{IS_CUSTODIAL}) {
-			    push @custodial, $$replica{NODE_NAME};
+		# Check subscriptions if a move or custodial request was made
+		if ($params{is_move} eq 'y') {
+		    my @subsc_t1s;
+		    foreach my $s (grep $$_{SUBSCRIBED}, values %$src_info) {
+			if ($$s{NODE_NAME} =~ /^T1/ && !grep $_ eq $$s{NODE_NAME}, @{$params{nodes}}) {
+			    # A T1 is already subscribed that is not in this request
+			    push @subsc_t1s, $s;
+			} elsif ($$s{NODE_NAME} =~ /^T1/) {
+			    # T1 overlapping request, do nothing
+			} else {
+			    # add to list of subscribed sources
+			    $subscribed_sources{ $$s{NODE_NAME} } = 1;
 			}
 		    }
-		    if ($bad_t1_move) {
-			push @comments, "Cannot move data subscribed to a T1";
+		    if (@subsc_t1s) {
+			push @comments, "Cannot move data subscribed to another T1";
 			$row_problem = 1;
 		    }
+		}
+
+		if ($params{is_custodial} eq 'y') {
+		    my @custodial = grep ($$_{IS_CUSTODIAL} eq 'y', values %$src_info);
 		    if (@custodial) {
-			push @comments, "Data already custodial for ", join(', ', @custodial);
+			push @comments, "Data already custodial for ". 
+			    join(', ', sort map { $$_{NODE_NAME} } @custodial);
 			$warn = 1;
 		    }
 		}
 
-		$$res{SOURCES} = join(', ', sort map { "$$_{NODE_NAME} ($$_{FILES} files)" } @{$$res{REPLICAS}});
+		# prepare a list of source nodes with helpful information
+		foreach my $info (sort { $$a{NODE_NAME} cmp $$b{NODE_NAME} } values %$src_info) {
+		    $$res{SOURCES} .= join(' ', $$info{NODE_NAME}, ':',
+					   ($$info{FILES} || 0), "files,",
+					   ($$info{SUBSCRIBED} ? "subscribed" : "not subscribed"), "<br/>");
+		}
 		$$res{SOURCES} ||= 'None found';
 		$$res{ITEM} = $$res{$$res{LEVEL}}; # Name of dataset or block, depending on which it is for
 		$$res{COMMENT} = join('<br/>', @comments);
@@ -4593,7 +4638,7 @@ sub checkXferRequestData
 	$$self{SESSION}->param('user_email', $params{email});
 	my @node_pairs;
 	push @node_pairs, ['d', $_ ] foreach @{$params{nodes}};
-	push @node_pairs, ['s', $_ ] foreach values %subscribed_sources;
+	push @node_pairs, ['s', $_ ] foreach keys %subscribed_sources;
 	$$self{SESSION}->param('nodes', \@node_pairs);
 	$$self{SESSION}->param('data', $resolved);
     }
@@ -4679,34 +4724,57 @@ sub checkDeleteRequestData
 		    push @comments, "Data item known to PhEDEx in multiple DBSes";
 		    $warn = 1; 
 		}
+
+		my $src_info = {};
+		foreach my $replica (@{$$res{REPLICAS}}) {
+		    $$src_info{ $$replica{NODE_NAME} }{ NODE_NAME } = $$replica{NODE_NAME} ;
+		    $$src_info{ $$replica{NODE_NAME} }{ FILES } = $$replica{FILES};
+		}
+		foreach my $subsc (@{$$res{SUBSCRIPTIONS}}) {
+		    $$src_info{ $$subsc{NODE_NAME } }{ NODE_NAME } = $$subsc{NODE_NAME};
+		    $$src_info{ $$subsc{NODE_NAME } }{ SUBSCRIBED } = 1;
+		    $$src_info{ $$subsc{NODE_NAME } }{ IS_CUSTODIAL } = $$subsc{IS_CUSTODIAL};
+		    $$src_info{ $$subsc{NODE_NAME } }{ IS_MOVE } = $$subsc{IS_MOVE};
+		}
+
 		foreach my $node (@{$params{nodes}}) {
-		    my ($replica) = grep($node eq $$_{NODE_NAME}, @{$$res{REPLICAS}});
-		    if (!$replica || $$replica{FILES} == 0) {
+		    next unless exists $$src_info{$node};
+		    if (!$$src_info{$node}{FILES}) 
+		    {
 			push @comments, "$node has nothing to delete";
 			$warn = 1;
 		    } 
-		    if ($$replica{SUBS_LEVEL} eq 'DATASET' && $$res{LEVEL} eq 'BLOCK'
-			&& $params{rm_subscriptions} eq 'y') {
+		    if ($$res{LEVEL} eq 'BLOCK'	&& $params{rm_subscriptions} eq 'y' && 
+			grep($$_{SUBS_LVL} eq 'DATASET' && 
+			     $$_{NODE_NAME} eq $node, @{$$res{SUBSCRIPTIONS}}) ) 
+		    {
 			push @comments, "You will remove a ".
 			    "dataset-level subscription from $node if you ".
 			    "delete this block.";
 			$warn = 1;
 		    } 
-		    if ($$replica{IS_CUSTODIAL}) {
+		    if ($$src_info{$node}{SUBSCRIBED} && $$src_info{$node}{IS_CUSTODIAL} eq 'y') 
+		    {
 			push @comments, "You are requesting to delete ".
 			    "a custodial copy of the data.  This must be ".
 			    "approved by a global administrator.";
 			$warn = 1;
 		    }
 
-		    if ($$res{LEVEL} eq 'DATASET' && exists $$del_queue{$node}{ $$res{ID} }) {
+		    if ($$res{LEVEL} eq 'DATASET' && exists $$del_queue{$node}{ $$res{ID} }) 
+		    {
 			my $n_blocks = scalar keys %{$$del_queue{$node}{ $$res{ID} }};
 			push @comments, "$node already has $n_blocks blocks from this dataset queued for deletion";
 			$warn = 1;
 		    }
 		}
 
-		$$res{SOURCES} = join(', ', sort map { "$$_{NODE_NAME} ($$_{FILES} files)" } @{$$res{REPLICAS}});
+		# prepare a list of source nodes with helpful information
+		foreach my $info (sort { $$a{NODE_NAME} cmp $$b{NODE_NAME} } values %$src_info) {
+		    $$res{SOURCES} .= join(' ', $$info{NODE_NAME}, ':',
+					   ($$info{FILES} || 0), "files,",
+					   ($$info{SUBSCRIBED} ? "subscribed" : "not subscribed"), "<br/>");
+		}
 		$$res{SOURCES} ||= 'None found';
 		$$res{ITEM} = $$res{$$res{LEVEL}}; # Name of dataset or block, depending on which it is for
 		$$res{COMMENT} = join('<br/>', @comments);
@@ -5061,7 +5129,7 @@ sub disapprove
     my ($self, $data, $node_obj, $time) = @_;
 
     if ($$data{TYPE} eq 'xfer' && $$data{XFER_DATA}{IS_MOVE} eq 'y' && $$node_obj{POINT} eq 'Source Node') {
-	$self->updateMoveSource($$data{ID}, $$node_obj{NODE_ID}, undef);
+	$self->updateMoveSource($$data{ID}, $time);
     }
 
     return 1;
@@ -5074,19 +5142,9 @@ sub approve
     if ($$data{TYPE} eq 'xfer') {
 	if ($$node_obj{POINT} eq 'Destination Node') {
 	    $self->subscribe($$data{ID}, $$node_obj{NODE_ID}, $time);
-	    if ($$data{XFER_DATA}{IS_MOVE} eq 'y') {
-		foreach my $src_obj (grep($$_{POINT} eq 'Source Node', values %{$$data{NODES}})) {
-		    my $time_clear;
-		    if (!defined $$src_obj{DECISION}) { $time_clear = 9999999999; }
-		    elsif ($$src_obj{DECISION} eq 'y') { $time_clear = $time; }
-		    else { next; }
-		    $self->updateMoveSource($$data{ID}, $$src_obj{NODE_ID}, $time_clear);
-		}
-	    }
-	} elsif ($$node_obj{POINT} eq 'Source Node' && $$data{XFER_DATA}{IS_MOVE} eq 'y'
-		 && grep(($$_{POINT} eq 'Destination Node' && $$_{DECISION} && $$_{DECISION} eq 'y'),
-			 values %{$$data{NODES}})) {
-	    $self->updateMoveSource($$data{ID}, $$node_obj{NODE_ID}, $time);
+	}
+	if ($$data{XFER_DATA}{IS_MOVE} eq 'y') {
+	    $self->updateMoveSource($$data{ID}, $time);
 	}
     } elsif ($$data{TYPE} eq 'delete') {
 	if ($$data{DELETE_DATA}{RM_SUBSCRIPTIONS} eq 'y') {
@@ -5268,10 +5326,9 @@ sub new
 sub output
 {
   my ($self) = @_;
-  my %offline_thresholds = ( 'FileDownload' => 60*30,
+  my %offline_thresholds = ( 'FileDownload' => 60*45,
 			     'FileExport'   => 60*90,
 			     'InfoFileSize' => 60*30,
-			     'BlockDLSUpdate' => 60*60,
 			     'LoadTestInjector' => 60*20,
 			     'LoadTestCleanup' => 60*60,
 			     'BlockDownloadVerifyInjector' => 60*60,
@@ -5294,8 +5351,8 @@ sub output
   }
 
   my @infrastructure = grep exists $agents{$_}, qw(FileRouter FileIssue FilePump);
-  my @workflow = grep exists $agents{$_}, qw(BlockAllocator BlockMonitor BlockDelete
-					     BlockActivate BlockDeactivate BlockDLSUpdate);
+  my @workflow = grep exists $agents{$_}, qw(RequestAllocator BlockAllocator BlockMonitor BlockDelete
+					     BlockActivate BlockDeactivate);
   my @support = grep exists $agents{$_}, qw(BlockDownloadVerifyInjector InfoFileSize InfoStatesClean
 					    InvariantMonitor PerfMonitor LoadTestInjector LoadTestCleanup);
   my @site = grep exists $agents{$_}, qw(FileDownload FileExport FileStager FileRemove BlockDownloadVerify);
@@ -7007,14 +7064,14 @@ sub output
   }
 
   my $state_join = '';
-  my $state_cols = 'NULL from_pfn, NULL to_pfn,';
+  my $state_cols = 'NULL from_pfn, NULL to_pfn, NULL space_token,';
   my $state_where = '';
   if    ($state eq 'exported')     { 
       $state_join = 'join t_xfer_task_export ts on ts.task = xt.id'; 
       $state_where = 'and xt.id not in ( select task from t_xfer_task_inxfer )';
   } elsif ($state eq 'transferring') {
       $state_join = 'join t_xfer_task_inxfer ts on ts.task = xt.id'; 
-      $state_cols = 'ts.from_pfn, ts.to_pfn,';
+      $state_cols = 'ts.from_pfn, ts.to_pfn, ts.space_token,';
       $state_where = 'and xt.id not in ( select task from t_xfer_task_done )';
   } elsif ($state eq 'transferred')  { 
       $state_join = 'join t_xfer_task_done ts on ts.task = xt.id'; }
@@ -7055,7 +7112,7 @@ sub output
     "<ol align='left'>\n";
   while (my $row = $query->fetchrow_arrayref)
   {
-    my ($fileid, $lfn, $size, $from_pfn, $to_pfn, $assigned, $nerrors) = @$row;
+    my ($fileid, $lfn, $size, $from_pfn, $to_pfn, $space_token, $assigned, $nerrors) = @$row;
     my $errorurl = $self->myurl('page' => 'Activity::ErrorInfo',
 				'tofilter' => $to_node,
 				'fromfilter' => $from_node,
@@ -7065,6 +7122,7 @@ sub output
     "<b>size</b>=$size<br />",
     ($from_pfn ? "<b>from_pfn</b>=@{[&escapeHTML($from_pfn)]}<br />" : ""),
     ($to_pfn ? "<b>to_pfn</b>=@{[&escapeHTML($to_pfn)]}<br />" : ""),
+    ($space_token ? "<b>to_pfn</b>=@{[&escapeHTML($space_token)]}<br />" : ""),
     ($nerrors ? "<span class='alarm'><b>errors</b>=$nerrors</span> <a href='$errorurl'>(View)</a><br />"  : ""),
     ($assigned ? "<b>time_assign</b>=@{[strftime('%Y-%m-%d %H:%M:%S', gmtime($assigned))]} UTC<br />" : ""),
     "<br /></li>\n";
@@ -7206,7 +7264,7 @@ sub output
 
     my $sql = qq{ select ns.name from_node, nd.name to_node,
 		         time_assign, time_expire, time_export, time_inxfer, time_xfer, time_done,
-		         report_code, xfer_code, from_pfn, to_pfn,
+		         report_code, xfer_code, from_pfn, to_pfn, space_token,
 		         log_xfer, log_detail, log_validate
 		    from t_xfer_error xe
                     join t_adm_node nd on nd.id = xe.to_node
@@ -7281,6 +7339,7 @@ sub output
 	     (++$tn % 2 == 0 ? "<br/>" : '');
 	}
 
+	$$error{SPACE_TOKEN} ||= '(none)';
 	print { $$self{CONTENT} }
 	"<hr/>",
 	"<label>Report Code:</label><span class='labeled halfwidefield'>$$error{REPORT_CODE}</span>",
@@ -7288,6 +7347,7 @@ sub output
 	"<hr/>",
 	"<label>To PFN:</label><span class='labeled'>$$error{TO_PFN}</span><br/>",
 	"<label>From PFN:</label><span class='labeled'>$$error{FROM_PFN}</span><br/>",
+	"<label>Space Token:</label><span class='labeled'>$$error{SPACE_TOKEN}</span><br/>",
 	"<hr/>";
 
 	foreach my $log (qw(LOG_XFER LOG_DETAIL LOG_VALIDATE)) {
@@ -8333,9 +8393,9 @@ sub output_page
 	$$self{SECMOD}->hasRole('Site Admin') ||
 	$$self{SECMOD}->hasRole('PADA Admin'))) {
       $self->auth_help_popup('suspend/unsuspend subscriptions'
-		       => ['anyauth', 'Data Manager', 'Site Admin', 'PADA Admin', 'Admin'],
-		       'change priorities of subscriptions'
-		       => ['cert', 'Data Manager', 'Admin']);
+			     => ['anyauth', 'Data Manager', 'Site Admin', 'PADA Admin', 'Admin'],
+			     'change priorities of subscriptions and manage groups'
+			     => ['cert', 'Data Manager', 'Admin']);
       }
 
   my %admin_opts = ('suspend' => 'Suspend subscriptions',
@@ -8623,10 +8683,10 @@ sub update_subscriptions
     my $action_list = 
     {
 	suspend => { desc => ' suspended',
-		     var  => 'time_suspend',
+		     var  => 'time_suspend_until',
 		     val  => 9_999_999_999 },
     	unsuspend => { desc => ' unsuspended',
-		       var => 'time_suspend',
+		       var => 'time_suspend_until',
 		       val  => undef },
 	priorityhi => { desc => ' set to high priority',
 			var => 'priority',
@@ -9802,64 +9862,60 @@ sub output
 
    &dump_var($$self{CONTENT}, 'TESTING', $TESTING);
    return if (!$TESTING);  # For security
-   &dump_var($$self{CONTENT}, '$PERL_VERSION', sprintf("v%vd", $^V));
-   &dump_var($$self{CONTENT}, 'CGI::VERSION', $CGI::VERSION);
-   &dump_var($$self{CONTENT}, 'CGI::Session::VERSION', $CGI::Session::VERSION);
-   &dump_var($$self{CONTENT}, 'DBI::VERSION', $DBI::VERSION);
-   &dump_var($$self{CONTENT}, 'DBD::Oracle::VERSION', $DBD::Oracle::VERSION);
+#   die "Testing error handling\n";
+#   &dump_var($$self{CONTENT}, '$PERL_VERSION', sprintf("v%vd", $^V));
+#   &dump_var($$self{CONTENT}, 'CGI::VERSION', $CGI::VERSION);
+#   &dump_var($$self{CONTENT}, 'CGI::Session::VERSION', $CGI::Session::VERSION);
+#   &dump_var($$self{CONTENT}, 'DBI::VERSION', $DBI::VERSION);
+#   &dump_var($$self{CONTENT}, 'DBD::Oracle::VERSION', $DBD::Oracle::VERSION);
 #   &dump_var($$self{CONTENT}, '@INC', [@INC]);
 #   &dump_var($$self{CONTENT}, 'TESTING_MAIL', $TESTING_MAIL);
-  &dump_var($$self{CONTENT}, 'SESSION', $$self{SESSION} ? 'Session OK' : 'NO SESSION');
-  &dump_var($$self{CONTENT}, 'SESSIONID', $$self{SESSIONID});
-  print { $$self{CONTENT} } "<pre>", $$self{SESSION}->dump(), "</pre>";
+#   &dump_var($$self{CONTENT}, 'SESSION', $$self{SESSION} ? 'Session OK' : 'NO SESSION');
+#   &dump_var($$self{CONTENT}, 'SESSIONID', $$self{SESSIONID});
+#   print { $$self{CONTENT} } "<pre>", $$self{SESSION}->dump(), "</pre>";
 
-  if ($$self{SESSION} && param('data')) {
-      $$self{SESSION}->param('data', param('data'));
-      print {$$self{CONTENT}} "<p>Saved data</p>";
-  } else {
-      print {$$self{CONTENT}} "<form action='#' method='post'>",
-      textfield(-name=>'data'),
-      submit(),
-      "</form>";
-  }
+#   if ($$self{SESSION} && param('data')) {
+#       $$self{SESSION}->param('data', param('data'));
+#       print {$$self{CONTENT}} "<p>Saved data</p>";
+#   } else {
+#       print {$$self{CONTENT}} "<form action='#' method='post'>",
+#       textfield(-name=>'data'),
+#       submit(),
+#       "</form>";
+#   }
   
-  my $data = $$self{SESSION}->param('data');
-  if ($data) {
-      print {$$self{CONTENT}} "<p>Your saved data is $data</p>";
-  } else {
-      print {$$self{CONTENT}} "<p>No session data.</p>";
-  }
+#   my $data = $$self{SESSION}->param('data');
+#   if ($data) {
+#       print {$$self{CONTENT}} "<p>Your saved data is $data</p>";
+#   } else {
+#       print {$$self{CONTENT}} "<p>No session data.</p>";
+#   }
 
-  #&dump_var($$self{CONTENT}, 'Config', $$self{CONFIG});
+#  &dump_var($$self{CONTENT}, 'Config', $$self{CONFIG});
 #  &dump_var($$self{CONTENT}, 'Env', {%ENV});
 
 #   &dump_var($$self{CONTENT}, 'ENV{ORACLE_HOME}', $ENV{ORACLE_HOME});
 #   &dump_var($$self{CONTENT}, 'ENV{TNS_ADMIN}', $ENV{TNS_ADMIN});
 
-  my $cgi = new CGI;
-  print {$$self{CONTENT}} 
-  "<p>absolute URL current  ",     $self->myurl('fullurl'=>1),"</p>",
-  "<p>absolute URL security on  ", $self->myurl('fullurl'=>1, 'secure'=>1),"</p>",
-  "<p>absolute URL security off  ",$self->myurl('fullurl'=>1, 'secure'=>0),"</p>",
-  "<p>relative URL current ", $self->myurl(),"</p>",
-  "<p>relative URL security on  ", $self->myurl('secure'=>1),"</p>",
-  "<p>relative URL security off ", $self->myurl('secure'=>0),"</p>",
-  "<p>CGI absolute URL current ",  $cgi->url(-full=>1), "</p>",
-  "<p>CGI relative URL current ",  $cgi->url(-relative=>1, -path=>1), "</p>",
-  "<p>CGI Normal URL security on ",  $cgi->url(-relative=>1, -secure=>1, -path=>1), "</p>",
-  "<p>CGI Normal URL security off ",  $cgi->url(-relative=>1, -secure=>0, -path=>1), "</p>",
-  "<p>CGI -rewrite ", $cgi->url(-rewrite=>1), "</p>"
-  ;
-  
+#   my $cgi = new CGI;
+#   print {$$self{CONTENT}} 
+#   "<p>absolute URL current  ",     $self->myurl('fullurl'=>1),"</p>",
+#   "<p>absolute URL security on  ", $self->myurl('fullurl'=>1, 'secure'=>1),"</p>",
+#   "<p>absolute URL security off  ",$self->myurl('fullurl'=>1, 'secure'=>0),"</p>",
+#   "<p>relative URL current ", $self->myurl(),"</p>",
+#   "<p>relative URL security on  ", $self->myurl('secure'=>1),"</p>",
+#   "<p>relative URL security off ", $self->myurl('secure'=>0),"</p>",
+#   "<p>CGI absolute URL current ",  $cgi->url(-full=>1), "</p>",
+#   "<p>CGI relative URL current ",  $cgi->url(-relative=>1, -path=>1), "</p>",
+#   "<p>CGI Normal URL security on ",  $cgi->url(-relative=>1, -secure=>1, -path=>1), "</p>",
+#   "<p>CGI Normal URL security off ",  $cgi->url(-relative=>1, -secure=>0, -path=>1), "</p>",
+#   "<p>CGI -rewrite ", $cgi->url(-rewrite=>1), "</p>"
+#   ;
   
 #   &dump_var($$self{CONTENT}, 'ENV{HTTPS}', $ENV{HTTPS});
 #   &dump_var($$self{CONTENT}, 'ENV{HTTP_HTTPS}', $ENV{HTTP_HTTPS});
 #   my $replicas = &fetch_replicas($$self{DBH}, 1212);
 #   &dump_var($$self{CONTENT}, 'replicas', $replicas);
-
-#   my ($resolved, $userdupes, $dbsdupes) = &resolve_data($$self{DBH}, 'test', '/Simon/Simon/*-1');
-
-#   &dump_var($$self{CONTENT}, 'resolved', $resolved);
 
 #   &dump_var($$self{CONTENT}, 'SecMod CertAuth', $$self{SECMOD}->isCertAuthenticated());
 #   &dump_var($$self{CONTENT}, 'SecMod PassAuth', $$self{SECMOD}->isPasswdAuthenticated());
@@ -9870,15 +9926,10 @@ sub output
 #   &dump_var($$self{CONTENT}, 'SecMod CERT', $$self{SECMOD}->getCert());
 
 #   &dump_var($$self{CONTENT}, 'SecMod Roles', $$self{SECMOD}->getRoles());
-
 #   &dump_var($$self{CONTENT}, 'authorized nodes', [ $self->fetch_nodes(web_user_auth=>'Site Admin||Data Manager') ]);
-
 #   &dump_var($$self{CONTENT}, 'SecMod Node Map', {$$self{SECMOD}->getPhedexNodeToSiteMap()});
-  
 #   &dump_var($$self{CONTENT}, 'SecMod CERN Site Admins', [$$self{SECMOD}->getUsersWithRoleForSite('Site Admin', 'CERN')]);
-
 #   &dump_var($$self{CONTENT}, 'SecMod Admins', [$$self{SECMOD}->getUsersWithRoleForGroup('Admin', 'phedex')]);
-
 
 }
 
