@@ -449,242 +449,6 @@ sub SiteDataInfo
 	 };
 }
 
-# get info from t_history_link_stats table
-sub getLinkStat
-{
-    my ($core, %h) = @_;
-    my $sql;
-
-    # if summary is defined, show average and/or sum
-    # otherwise, show individual timebin
-    if (exists $h{summary})
-    {
-        $sql = qq {
-        select
-            'n/a' as timebin,
-            n1.name as from_node,
-            n2.name as to_node,
-            avg(priority) as priority,
-            sum(pend_files) as pend_files,
-            sum(pend_bytes) as pend_bytes,
-            sum(wait_files) as wait_files,
-            sum(wait_bytes) as wait_bytes,
-            sum(cool_files) as cool_files,
-            sum(cool_bytes) as cool_bytes,
-            sum(ready_files) as ready_files,
-            sum(ready_bytes) as ready_bytes,
-            sum(xfer_files) as xfer_files,
-            sum(xfer_bytes) as xfer_bytes,
-            sum(confirm_files) as confirm_files,
-            sum(confirm_bytes) as confirm_bytes,
-            avg(confirm_weight) as confirm_weight,
-            avg(param_rate) as param_rate,
-            avg(param_latency) as param_latency
-        from
-            t_history_link_stats,
-            t_adm_node n1,
-            t_adm_node n2
-        where
-            from_node = n1.id and
-            to_node = n2.id };
-    }
-    else
-    {
-        $sql = qq {
-        select
-            timebin,
-            n1.name as from_node,
-            n2.name as to_node,
-            priority,
-            pend_files,
-            pend_bytes,
-            wait_files,
-            wait_bytes,
-            cool_files,
-            cool_bytes,
-            ready_files,
-            ready_bytes,
-            xfer_files,
-            xfer_bytes,
-            confirm_files,
-            confirm_bytes,
-            confirm_weight,
-            param_rate,
-            param_latency
-        from
-            t_history_link_stats,
-            t_adm_node n1,
-            t_adm_node n2
-        where
-            from_node = n1.id and
-            to_node = n2.id };
-    }
-
-
-    my $where_stmt = "";
-    my %param;
-    my @r;
-
-    if ($h{from_node})
-    {
-        $where_stmt .= qq { and\n            n1.name = :from_node};
-        $param{':from_node'} = $h{from_node};
-    }
-
-    if ($h{to_node})
-    {
-        $where_stmt .= qq { and\n            n2.name = :to_node};
-        $param{':to_Node'} = $h{to_node};
-    }
-
-    if ($h{since})
-    {
-        $where_stmt .= qq { and\n            timebin >= :since};
-        $param{':since'} = PHEDEX::Core::Util::str2time($core, $h{since});
-    }
-
-    if ($h{before})
-    {
-        $where_stmt .= qq { and\n            timebin < :before};
-        $param{':before'} = PHEDEX::Core::Util::str2time($core, $h{before});
-    }
-
-    # now take care of the where clause
-
-    if ($where_stmt)
-    {
-        $sql .= $where_stmt;
-    }
-    else
-    {
-        # limit the number of record to 1000
-        $sql .= qq { and\n            rownum <= 1000};
-    }
-
-    if (exists $h{summary})
-    {
-        $sql .= qq {\ngroup by n1.name, n2.name };
-    }
-    else
-    {
-        $sql .= qq {\norder by timebin desc};
-    }
-
-    # now execute the query
-    my $q = execute_sql( $core, $sql, %param );
-    while ( $_ = $q->fetchrow_hashref() )
-    {
-        # format the time stamp
-        if ($_->{'TIMEBIN'} != "n/a")
-        {
-            $_->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $_->{'TIMEBIN'}));
-        }
-        push @r, $_;
-    }
-
-    # return $sql, %param;
-    return \@r;
-}
-
-# get Agent information
-sub getAgents
-{
-    my ($core, %h) = @_;
-    my $sql = qq {
-        select
-            n.name as node,
-            a.name as name,
-            s.label,
-            n.se_name as se,
-            s.host_name as host,
-            s.directory_path as state_dir,
-            v.release as version,
-            v.revision as cvs_version,
-            v.tag as cvs_tag,
-            s.process_id as pid,
-            s.time_update
-        from
-            t_agent_status s,
-            t_agent a,
-            t_adm_node n,
-           (select distinct
-                node,
-                agent,
-                release,
-                revision,
-                tag
-             from
-                t_agent_version) v
-        where
-            s.node = n.id and
-            s.agent = a.id and
-            s.node = v.node and
-            s.agent = v.agent};
-
-    # specific node?
-    if ($h{NODE})
-    {
-        $sql .= qq { and\n           n.name = '$h{NODE}'};
-    }
-
-    # specific SE?
-    if ($h{SE})
-    {
-        $sql .= qq { and\n            n.se_name = '$h{SE}'};
-    }
-
-    # specific agent?
-    if ($h{AGENT})
-    {
-        $sql .= qq { and\n            a.name = '$h{AGENT}'};
-    }
-
-    $sql .= qq {
-        order by n.name, a.name
-    };
-
-    my @r;
-    my $q = execute_sql($core, $sql);
-    my %node;
-    while ( $_ = $q->fetchrow_hashref())
-    {
-        if ($node{$_ -> {'NODE'}})
-        {
-            push @{$node{$_ -> {'NODE'}}->{agent}},{
-                    name => $_ -> {'NAME'},
-                    label => $_ -> {'LABEL'},
-                    version =>  $_ -> {'VERSION'},
-                    cvs_version => $_ -> {'CVS_VERSION'},
-                    cvs_tag => $_ -> {'CVS_TAG'},
-                    time_update => $_ -> {'TIME_UPDATE'},
-                    state_dir => $_ -> {'STATE_DIR'}};
-        }
-        else
-        {
-            $node{$_ -> {'NODE'}} = {
-                node => $_ -> {'NODE'},
-                host => $_ -> {'HOST'},
-                se => $_ -> {'SE'},
-                agent => [{
-                    name => $_ -> {'NAME'},
-                    label => $_ -> {'LABEL'},
-                    version =>  $_ -> {'VERSION'},
-                    cvs_version => $_ -> {'CVS_VERSION'},
-                    cvs_tag => $_ -> {'CVS_TAG'},
-                    time_update => $_ -> {'TIME_UPDATE'},
-                    state_dir => $_ -> {'STATE_DIR'}}]
-             };
-        }
-    }
-
-    while (my ($key, $value) = each(%node))
-    {
-        push @r, $value;
-    }
-
-    return \@r;
-}
-
 my %state_name = (
     0 => 'assigned',
     1 => 'exported',
@@ -768,5 +532,89 @@ sub getTransferQueueStats
     return \@r;
 }
 
+sub getTransferHistory
+{
+    my ($core, %h) = @_;
+    my $sql = qq {
+    select
+        :timebin as timebin,
+        :timewidth as timewidth,
+        n1.name as from_node,
+        n2.name as to_node,
+        nvl(sum(done_files), 0) as done_files,
+        nvl(sum(done_bytes), 0) as done_bytes,
+        nvl(sum(fail_files), 0) as fail_files,
+        nvl(sum(fail_bytes), 0) as fail_bytes,
+        nvl(sum(expire_files), 0) as expire_files,
+        nvl(sum(expire_bytes), 0) as expire_bytes,
+        cast((nvl(sum(done_bytes), 0) / :timewidth) as number(20, 2)) as rate
+    from
+        t_history_link_events,
+        t_adm_node n1,
+        t_adm_node n2
+    where
+        from_node = n1.id and
+        to_node = n2.id };
+
+    my $where_stmt = "";
+    my %param;
+    my @r;
+
+    $param{':timebin'} = $h{timebin};
+    $param{':timewidth'} = $h{timewidth};
+
+    if ($h{from_node})
+    {
+        $where_stmt .= qq { and\n            n1.name = :from_node};
+        $param{':from_node'} = $h{from_node};
+    }
+
+    if ($h{to_node})
+    {
+        $where_stmt .= qq { and\n            n2.name = :to_node};
+        $param{':to_Node'} = $h{to_node};
+    }
+
+    if ($h{timebin})
+    {
+        $where_stmt .= qq { and\n            timebin <= :timebin};
+        $param{':timebin'} = PHEDEX::Core::Util::str2time($h{timebin});
+
+        if ($h{timewidth})
+        {
+            $where_stmt .= qq { and\n            timebin > :after};
+            $param{':after'} = $param{':timebin'} - $h{timewidth};
+        }
+    }
+
+    # now take care of the where clause
+
+    if ($where_stmt)
+    {
+        $sql .= $where_stmt;
+    }
+    else
+    {
+        # limit the number of record to 1000
+        $sql .= qq { and\n            rownum <= 1000};
+    }
+
+    $sql .= qq {\ngroup by n1.name, n2.name };
+
+    # now execute the query
+    my $q = PHEDEX::Core::SQL::execute_sql( $core, $sql, %param );
+    while ( $_ = $q->fetchrow_hashref() )
+    {
+        # format the time stamp
+        if ($_->{'TIMEBIN'})
+        {
+            $_->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $_->{'TIMEBIN'}));
+        }
+        push @r, $_;
+    }
+
+    # return $sql, %param;
+    return \@r;
+}
 
 1;
