@@ -534,20 +534,23 @@ sub getTransferQueueStats
 
 sub getTransferHistory
 {
+    # optional inputs are:
+    #     strattime, endtime, binwidth, from_node and to_node
+
     my ($core, %h) = @_;
     my $sql = qq {
     select
-        :timebin as timebin,
-        :timewidth as timewidth,
         n1.name as from_node,
         n2.name as to_node,
+        :binwidth as binwidth,
+        trunc(timebin / :binwidth) * :binwidth as timebin,
         nvl(sum(done_files), 0) as done_files,
         nvl(sum(done_bytes), 0) as done_bytes,
         nvl(sum(fail_files), 0) as fail_files,
         nvl(sum(fail_bytes), 0) as fail_bytes,
         nvl(sum(expire_files), 0) as expire_files,
         nvl(sum(expire_bytes), 0) as expire_bytes,
-        cast((nvl(sum(done_bytes), 0) / :timewidth) as number(20, 2)) as rate
+        cast((nvl(sum(done_bytes), 0) / :binwidth) as number(20, 2)) as rate
     from
         t_history_link_events,
         t_adm_node n1,
@@ -560,8 +563,35 @@ sub getTransferHistory
     my %param;
     my @r;
 
-    $param{':timebin'} = $h{timebin};
-    $param{':timewidth'} = $h{timewidth};
+    # default endtime is now
+    if (exists $h{endtime})
+    {
+        $param{':endtime'} = PHEDEX::Core::Util::str2time($h{endtime});
+    }
+    else
+    {
+        $param{':endtime'} = time();
+    }
+
+    # default binwidth is 1 hour
+    if (exists $h{binwidth})
+    {
+        $param{':binwidth'} = $h{binwidth};
+    }
+    else
+    {
+        $param{':binwidth'} = 3600;
+    }
+
+    # default start time is 1 hour before
+    if (exists $h{starttime})
+    {
+        $param{':starttime'} = PHEDEX::Core::Util::str2time($h{starttime});
+    }
+    else
+    {
+        $param{':starttime'} = $param{':endtime'} - $param{':binwidth'};
+    }
 
     if ($h{from_node})
     {
@@ -575,38 +605,23 @@ sub getTransferHistory
         $param{':to_Node'} = $h{to_node};
     }
 
-    if ($h{timebin})
-    {
-        $where_stmt .= qq { and\n            timebin <= :timebin};
-        $param{':timebin'} = PHEDEX::Core::Util::str2time($h{timebin});
-
-        if ($h{timewidth})
-        {
-            $where_stmt .= qq { and\n            timebin > :after};
-            $param{':after'} = $param{':timebin'} - $h{timewidth};
-        }
-    }
+    # These is always start time
+    $where_stmt .= qq { and\n        timebin >= :starttime};
+    $where_stmt .= qq { and\n        timebin < :endtime};
 
     # now take care of the where clause
 
-    if ($where_stmt)
-    {
-        $sql .= $where_stmt;
-    }
-    else
-    {
-        # limit the number of record to 1000
-        $sql .= qq { and\n            rownum <= 1000};
-    }
+    $sql .= $where_stmt;
 
-    $sql .= qq {\ngroup by n1.name, n2.name };
+    $sql .= qq {\ngroup by trunc(timebin / :binwidth) * :binwidth, n1.name, n2.name };
+    $sql .= qq {\norder by 1 asc, 2, 3};
 
     # now execute the query
     my $q = PHEDEX::Core::SQL::execute_sql( $core, $sql, %param );
     while ( $_ = $q->fetchrow_hashref() )
     {
         # format the time stamp
-        if ($_->{'TIMEBIN'})
+        if ($_->{'TIMEBIN'} and exists $h{ctime})
         {
             $_->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $_->{'TIMEBIN'}));
         }
