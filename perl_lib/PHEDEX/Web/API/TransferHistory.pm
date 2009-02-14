@@ -23,35 +23,57 @@ Return
 
   from_node       name of the from node
   to_node         name of the to_node
-  timebin         end point of the time window
-  timewidth       length of the window before timebin in seconds
+  starttime       start time
+  endtime         end time
+  binwidth        width of each timebin in seconds
+  (ctime)         set output of time in YYYY-MM-DD hh:mm:ss format
+                  otherwise, output of time is in UNIX time format
 
-  default values: timebin = now, timewidth = 3600
+  default values:
+  endtime = now
+  binwidth = 3600
+  starttime = endtime - binwidth
+
+=head4 format of time
+
+  starttime and endtime could in one of the following format
+  [1] <UNIX time>            (integer)
+  [2] "YYYY-MM-DD"           (assuming 00:00:00)
+  [3] "YYYY-MM-DD hh:mm:ss"
 
 =head3 output
 
- <link/>
- ......
+  <link/>
+  ......
 
 =head3 <link> elements:
 
-  from_node
-  to_node
-  done_files
-  done_bytes
-  fail_files
-  fail_bytes
-  expire_files
-  expire_bytes
-  rate
-  quality
+  from_node       name of the source node
+  to_node         name of the destination
+  timebin         the end point of each timebin, aligned with binwidth
+  binwidth        width of each timebin (from the input)
+  done_files      number of files in successful transfers
+  done_bytes      number of bytes in successful transfers
+  fail_files      number of files in failed transfers
+  fail_bytes      number of bytes in failed transfers
+  expire_files    number of files expired in this timebin, binwidth
+  expire_bytes    number of bytes expired in this timebin, binwidth
+  rate            sum(done_bytes)/binwidth
+  quality         (defined below)
+
+=head3 relation with time
+
+  starttime <= timebin < endtime
+  number of bins = (endtime - starttime)/binwidth
 
 =head3 definition of quality
 
   $q = done_files / (done_files + fail_files)
-  quality = 3 if $q > .66
-  quality = 2 if .66 >= $q > .33
-  quality = 1 if .33 >= $q > 0
+
+  quality = undef if (done_files + fail_files) == 0
+  quality = 3     if $q > .66
+  quality = 2     if .66 >= $q > .33
+  quality = 1     if .33 >= $q > 0
   quality = 0, otherwise 
 
 =cut 
@@ -60,24 +82,13 @@ use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
 use Data::Dumper;
 
-sub duration { return 60 * 60; }
+# sub duration { return 60 * 60; }
+sub duration { return 1; }
 sub invoke { return transferhistory(@_); }
 
 sub transferhistory
 {
     my ($core, %h) = @_;
-
-    if (! exists $h{timebin})
-    {
-        # now
-        $h{timebin} = time();
-    }
-
-    if (! exists $h{timewidth})
-    {
-        # one hour
-        $h{timewidth} = 3600;
-    }
 
     my $r = PHEDEX::Web::SQL::getTransferHistory($core, %h);
 
@@ -94,9 +105,9 @@ sub Quality
   my $h = shift;
   my $sum = $h->{DONE_FILES} + $h->{FAIL_FILES};
 
-  if ($sum == 0)
+  if ($sum == 0)    # no transfer at all
   {
-      return 0;
+      return undef;
   }
 
   my $x = $h->{DONE_FILES} / $sum;
