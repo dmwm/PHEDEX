@@ -75,9 +75,9 @@ if ( $pfnlist )
 
 while ( $command = shift @ARGV )
 {
-  foreach ( @pfn )
+  foreach my $f ( @pfn )
   {
-    $result = $ns->$command($_);
-    print "$_ $command = ",str_hash($result),"\n";
+    $result = $ns->$command($f);
+    print "$f $command = ",str_hash($result),"\n";
   }
 }
