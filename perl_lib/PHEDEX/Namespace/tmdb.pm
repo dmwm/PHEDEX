@@ -71,8 +71,8 @@ sub Help
  --help, --(no)debug, --(no)verbose
 
  and also:
- --dbconfig contact information for TMDB. Can be omitted if the application provides
- a valid DBH instead (--dbh).
+ --dbconfig contact information for TMDB. Can be omitted if the application
+ provides a valid DBH instead (--dbh).
  --node (repeatable) wild-card node(s) to search.
 
  Commands known to this module:
