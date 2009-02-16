@@ -27,7 +27,7 @@ sub parse
 # Parse the stat output. Assumes the %A:%u:%g:%s:%Y format was used. Returns
 # a hashref with all the fields parsed. Note that the format of the command
 # and the order of the fields in @fields are tightly coupled.
-  my ($self,$ns,$r) = @_;
+  my ($self,$ns,$r,$file) = @_;
 
 # return an empty hashref instead of undef if nothing is found, so it can
 # still be dereferenced safely.

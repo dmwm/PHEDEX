@@ -20,7 +20,7 @@ sub execute { die "Not yet implemented...\n"; (shift)->SUPER::execute(@_,'stat')
 
 sub parse
 {
-  my ($self,$ns,$r) = @_;
+  my ($self,$ns,$r,$file) = @_;
 
   $r = {};
   foreach ( @{$r->{STDOUT}} )
