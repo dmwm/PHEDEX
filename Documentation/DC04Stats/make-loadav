@@ -1,7 +1,0 @@
-ssh cmsdc04@lxgate04.cern.ch \
-    env MR_SERVER_URL=http://ccs003d:12510 perl /data/scripts/T0/TMDB/lemon-query.pl \
-        --nodes lxgate04 --metrics 20002 --period 14 --end -1 |
-  grep 20002 | tail +2 | awk '{print $3, $4}' |
-  while read time avg; do
-    echo "$(date -r $time +'%Y-%m-%d %H:%M:%S')\t$avg"
-  done > loadavg-`date +%Y%m%d%H%M`.txt
