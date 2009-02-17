@@ -68,7 +68,8 @@ sub invoke
   # Print documentation and exit if we have the "doc" path
   if ($format eq 'doc') {
       &print_doc($call ? $call : $db, # the API to document
-		 $db ? 'doc/' : '');  # a prefix for URLs
+#		 $db ? 'doc/' : '');  # a prefix for URLs
+                 );
       return;
   }
 
