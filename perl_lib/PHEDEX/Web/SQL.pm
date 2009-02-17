@@ -449,6 +449,105 @@ sub SiteDataInfo
 	 };
 }
 
+# get Agent information
+sub getAgents
+{
+    my ($core, %h) = @_;
+    my $sql = qq {
+        select
+            n.name as node,
+            a.name as name,
+            s.label,
+            n.se_name as se,
+            s.host_name as host,
+            s.directory_path as state_dir,
+            v.release as version,
+            v.revision as cvs_version,
+            v.tag as cvs_tag,
+            s.process_id as pid,
+            s.time_update
+        from
+            t_agent_status s,
+            t_agent a,
+            t_adm_node n,
+           (select distinct
+                node,
+                agent,
+                release,
+                revision,
+                tag
+             from
+                t_agent_version) v
+        where
+            s.node = n.id and
+            s.agent = a.id and
+            s.node = v.node and
+            s.agent = v.agent};
+
+    # specific node?
+    if ($h{NODE})
+    {
+        $sql .= qq { and\n           n.name = '$h{NODE}'};
+    }
+
+    # specific SE?
+    if ($h{SE})
+    {
+        $sql .= qq { and\n            n.se_name = '$h{SE}'};
+    }
+
+    # specific agent?
+    if ($h{AGENT})
+    {
+        $sql .= qq { and\n            a.name = '$h{AGENT}'};
+    }
+
+    $sql .= qq {
+        order by n.name, a.name
+    };
+
+    my @r;
+    my $q = execute_sql($core, $sql);
+    my %node;
+    while ( $_ = $q->fetchrow_hashref())
+    {
+        if ($node{$_ -> {'NODE'}})
+        {
+            push @{$node{$_ -> {'NODE'}}->{agent}},{
+                    name => $_ -> {'NAME'},
+                    label => $_ -> {'LABEL'},
+                    version =>  $_ -> {'VERSION'},
+                    cvs_version => $_ -> {'CVS_VERSION'},
+                    cvs_tag => $_ -> {'CVS_TAG'},
+                    time_update => $_ -> {'TIME_UPDATE'},
+                    state_dir => $_ -> {'STATE_DIR'}};
+        }
+        else
+        {
+            $node{$_ -> {'NODE'}} = {
+                node => $_ -> {'NODE'},
+                host => $_ -> {'HOST'},
+                se => $_ -> {'SE'},
+                agent => [{
+                    name => $_ -> {'NAME'},
+                    label => $_ -> {'LABEL'},
+                    version =>  $_ -> {'VERSION'},
+                    cvs_version => $_ -> {'CVS_VERSION'},
+                    cvs_tag => $_ -> {'CVS_TAG'},
+                    time_update => $_ -> {'TIME_UPDATE'},
+                    state_dir => $_ -> {'STATE_DIR'}}]
+             };
+        }
+    }
+
+    while (my ($key, $value) = each(%node))
+    {
+        push @r, $value;
+    }
+
+    return \@r;
+}
+
 my %state_name = (
     0 => 'assigned',
     1 => 'exported',
