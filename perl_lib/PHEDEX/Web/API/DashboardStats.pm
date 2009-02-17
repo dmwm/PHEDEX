@@ -1,64 +1,116 @@
 package PHEDEX::Web::API::DashboardStats;
-use PHEDEX::Web::SQL;
-use warnings;
+# use warning;
 use strict;
 
 =pod
 
 =head1 NAME
 
-PHEDEX::Web::API::DashboardStats - simple debugging call
+PHEDEX::Web::API::DashboardStats - show quality of the links
 
-=head2 DashboardStats
+ Same as PHEDEX::Web::API::TransferHistory, except the quality is
+ returned in 4 predefined values
 
-Return the link-history tables, as used in the rate plots. 
+=head2 dashboardstats
 
-=cut
+Return
 
-sub duration { return 0; }
-sub invoke { return DashboardStats(@_); }
-sub DashboardStats
+ <link/>
+ <link/>
+ ...
+
+=head3 options
+
+ required inputs: none (default to be the last hour)
+ optional inputs: from_node, to_node, timebin, timewidth
+
+  from_node       name of the from node
+  to_node         name of the to_node
+  starttime       start time
+  endtime         end time
+  binwidth        width of each timebin in seconds
+  (ctime)         set output of time in YYYY-MM-DD hh:mm:ss format
+                  otherwise, output of time is in UNIX time format
+
+  default values:
+  endtime = now
+  binwidth = 3600
+  starttime = endtime - binwidth
+
+=head4 format of time
+
+  starttime and endtime could in one of the following format
+  [1] <UNIX time>            (integer)
+  [2] "YYYY-MM-DD"           (assuming 00:00:00)
+  [3] "YYYY-MM-DD hh:mm:ss"
+
+=head3 output
+
+  <link/>
+  ......
+
+=head3 <link> elements:
+
+  from_node       name of the source node
+  to_node         name of the destination
+  timebin         the end point of each timebin, aligned with binwidth
+  binwidth        width of each timebin (from the input)
+  done_files      number of files in successful transfers
+  done_bytes      number of bytes in successful transfers
+  fail_files      number of files in failed transfers
+  fail_bytes      number of bytes in failed transfers
+  expire_files    number of files expired in this timebin, binwidth
+  expire_bytes    number of bytes expired in this timebin, binwidth
+  rate            sum(done_bytes)/binwidth
+  quality         (defined below)
+
+=head3 relation with time
+
+  starttime <= timebin < endtime
+  number of bins = (endtime - starttime)/binwidth
+
+=head3 definition of quality
+
+  $q = done_files / (done_files + fail_files)
+
+  quality = undef if (done_files + fail_files) == 0
+  quality = 3     if $q > .66
+  quality = 2     if .66 >= $q > .33
+  quality = 1     if .33 >= $q > 0
+  quality = 0,    otherwise 
+
+=cut 
+
+use PHEDEX::Web::SQL;
+use PHEDEX::Core::Util;
+use Data::Dumper;
+
+sub duration { return 60 * 60; }
+sub invoke { return transferhistory(@_); }
+
+sub transferhistory
 {
-  my ($core,%args) = @_;
-  my ($stats,$linkHistory,$span,$key,$row);
+    my ($core, %h) = @_;
 
-$DB::single=1;
-  $linkHistory = PHEDEX::Web::SQL::getLinkHistory($core,%args);
-  $span = $args{SPAN};
-  $stats->{Totals} = $linkHistory->{T}{1};
-  foreach my $key ( keys %{$linkHistory->{N}} )
-  {
-    foreach $row ( $linkHistory->{N}{$key} )
+    my $r = PHEDEX::Web::SQL::getTransferHistory($core, %h);
+
+    foreach (@$r)
     {
-      next unless $row->{FROM_NODE};
-      $row->{QUALITY} = Quality($row);
-      push @{$stats->{Link}},$row;
-      foreach ( qw / DONE_BYTES DONE_FILES FAIL_FILES EXPIRE_FILES / )
-      {
-        $stats->{To}{  $row->{TO_NODE}  }{$_} += $row->{$_};
-        $stats->{From}{$row->{FROM_NODE}}{$_} += $row->{$_};
-      }
+        $_ -> {'QUALITY'} = &Quality ($_);
     }
-  }
 
-  foreach ( keys %{$stats->{To}} )
-  {
-    $stats->{To}{$_}{QUALITY} = Quality($stats->{To}{$_});
-    $stats->{To}{$_}{RATE} = $stats->{To}{$_}{DONE_BYTES}/$span;
-  }
-  foreach ( keys %{$stats->{From}} )
-  {
-    $stats->{From}{$_}{QUALITY} = Quality($stats->{From}{$_});
-    $stats->{From}{$_}{RATE} = $stats->{From}{$_}{DONE_BYTES}/$span;
-  }
-
-  return { DashboardStats => $stats };
+    return { link => $r };
 }
 
 sub Quality
 {
   my $h = shift;
-  my $sum = $h->{DONE_FILES} + $h->{FAIL_FILES} + $h->{EXPIRE_FILES};
+  my $sum = $h->{DONE_FILES} + $h->{FAIL_FILES};
+
+  if ($sum == 0)    # no transfer at all
+  {
+      return undef;
+  }
 
   my $x = $h->{DONE_FILES} / $sum;
   return 3 if $x > 0.66;
