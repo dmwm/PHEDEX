@@ -59,22 +59,12 @@ Return
   expire_files    number of files expired in this timebin, binwidth
   expire_bytes    number of bytes expired in this timebin, binwidth
   rate            sum(done_bytes)/binwidth
-  quality         (defined below)
+  quality         done_files / (done_files + fail_files)
 
 =head3 relation with time
 
   starttime <= timebin < endtime
   number of bins = (endtime - starttime)/binwidth
-
-=head3 definition of quality
-
-  $q = done_files / (done_files + fail_files)
-
-  quality = undef if (done_files + fail_files) == 0
-  quality = 3     if $q > .66
-  quality = 2     if .66 >= $q > .33
-  quality = 1     if .33 >= $q > 0
-  quality = 0, otherwise 
 
 =cut 
 
@@ -82,8 +72,7 @@ use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
 use Data::Dumper;
 
-# sub duration { return 60 * 60; }
-sub duration { return 1; }
+sub duration { return 60 * 60; }
 sub invoke { return transferhistory(@_); }
 
 sub transferhistory
@@ -110,11 +99,7 @@ sub Quality
       return undef;
   }
 
-  my $x = $h->{DONE_FILES} / $sum;
-  return 3 if $x > 0.66;
-  return 2 if $x > 0.33;
-  return 1 if $x > 0;
-  return 0;
+  return $h->{DONE_FILES} / $sum;
 }
 
 1;
