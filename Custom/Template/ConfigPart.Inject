@@ -1,0 +1,4 @@
+# Drop box agent to inject files into PhEDEx.
+### AGENT LABEL=drop-publish PROGRAM=Toolkit/DropBox/DropTMDBPublisher
+ -db          ${PHEDEX_DBPARAM}
+ -node        ${PHEDEX_NODE}
