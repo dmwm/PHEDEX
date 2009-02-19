@@ -11,7 +11,7 @@ PHEDEX_WEB_ROOT=@PHEDEX_ROOT@
 source $PHEDEX_WEB_ROOT/etc/profile.d/init.sh
 export GRAPHTOOL_PHEDEX_ROOT=$PHEDEX_WEB_ROOT/Documentation/WebSite/PlotConfig
 export GRAPHTOOL_CONFIG_ROOT=$GRAPHTOOL_PHEDEX_ROOT/config
-export PHEDEX_DBPARAM=$PHEDEX_WEB_ROOT/Documentation/WebConfig/DBParam
+export PHEDEX_DBPARAM=@PHEDEX_DBPARAM@
 
 # Path hacks
 export PYTHONPATH=$PYTHONPATH:$PY2_PIL_ROOT/lib/python2.4/site-packages/PIL:$WEBTOOLS_ROOT/lib/python2.4/site-packages/Tools/GraphTool/src
