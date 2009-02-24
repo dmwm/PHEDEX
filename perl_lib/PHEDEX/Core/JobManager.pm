@@ -2,7 +2,7 @@ package PHEDEX::Core::JobManager;
 
 =head1 NAME
 
-PHEDEX::Core::JobManager - a drop-in replacement for Toolkit/UtilsJobManager
+PHEDEX::Core::JobManager - a POE-based job-manager for external commands
 
 =cut
 
@@ -10,12 +10,22 @@ use strict;
 use warnings;
 use base 'Exporter', 'PHEDEX::Core::Logging';
 use POSIX;
+use POE;
+use POE::Queue::Array;
+use POE::Component::Child;
 use PHEDEX::Core::Command;
-use IO::Pipe;
-use Fcntl;
+use PHEDEX::Core::Util ( qw / str_hash / );
 
 ######################################################################
 # JOB MANAGEMENT TOOLS
+
+our %events = (
+  stdout => \&_child_stdout,
+  stderr => \&_child_stderr,
+  error  => \&_child_error,
+  done   => \&_child_done,
+  died   => \&_child_died,
+);
 
 sub new
 {
@@ -23,8 +33,227 @@ sub new
     my $class = ref($proto) || $proto;
     my %args = (@_);
     my $self = { NJOBS => $args{NJOBS} || 1, JOBS => [], DJOBS => [] };
+    $self->{POCO_DEBUG} = $ENV{POCO_DEBUG} || 0; # Specially for PoCo::Child
+    $self->{VERBOSE} = $args{VERBOSE} || 1;
+    $self->{DEBUG}   = $args{DEBUG}   || 1;
+
+#   A queue to hold the jobs we will run
+    $self->{QUEUE} = POE::Queue::Array->new();
     bless $self, $class;
+
+#   Start a POE session for myself
+    POE::Session->create
+      (
+        object_states =>
+        [
+          $self =>
+          {
+	    job_queued		=> 'job_queued',
+	    timeout		=> 'timeout',
+	    queue_drained	=> 'queue_drained',
+	    maybe_clear_alarms	=> 'maybe_clear_alarms',
+	    heartbeat		=> 'heartbeat',
+
+            _start	=> '_jm_start',
+            _stop	=> '_jm_stop',
+            _default	=> '_jm_default',
+          },
+        ],
+      );
+
+#   And now a child-manager
+    $self->{_child} = POE::Component::Child->new(
+           events => \%events,
+           debug => $self->{POCO_DEBUG},
+          );
+    $self->{_child}{caller} = $self;
+
+#   Hold the output of the children...
+    $self->{wheels} = {};
+
     return $self;
+}
+
+sub _jm_start
+{
+  my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
+  $self->Logmsg("starting (session ",$session->ID,")");
+  $self->{JOB_MANAGER_SESSION_ID} = $session->ID;
+  $kernel->delay_set('heartbeat',60);
+}
+
+sub _jm_stop
+{
+  my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
+  print $self->Hdr, "ending, for lack of work...\n";
+}
+
+sub _jm_default
+{
+  my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+  my $ref = ref($self);
+  die <<EOF;
+
+  Default handler for class $ref:
+  The default handler caught an unhandled "$_[ARG0]" event.
+  The $_[ARG0] event was given these parameters: @{$_[ARG1]}
+
+  (...end of dump)
+EOF
+}
+
+sub heartbeat
+{
+  my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+  $kernel->delay_set('heartbeat',60);
+}
+
+sub job_queued
+{
+  my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+  if ( scalar(keys %{$self->{wheels}}) >= $self->{NJOBS} )
+  {
+    $kernel->delay_set('job_queued',0.3);
+    return;
+  }
+  my ($priority,$id,$job) = $self->{QUEUE}->dequeue_next();
+  if ( !$job )
+  {
+    $kernel->delay_set('job_queued',0.1);
+    return;
+  }
+  my $wheel = $self->{_child}->run(@{$job->{CMD}});
+  my $pkg = 'POE::Component::Child';
+  $job->{PID} = $self->{_child}{$pkg}{wheels}{$wheel}{ref}->PID;
+  $self->{wheels}{$wheel} = $job;
+  $self->{wheels}{$wheel}{start} = time;
+  if ( $job->{TIMEOUT} )
+  {
+    $kernel->delay_set('timeout',$job->{TIMEOUT},$wheel);
+    $self->{wheels}{$wheel}{signals} = [ qw / 1 15 9 / ];
+  }
+  $job->{CMDNAME} = $job->{CMD}[0];
+  $job->{CMDNAME} =~ s|.*/||;
+
+  if (exists $job->{LOGFILE})
+  {
+    $job->{LOGPREFIX} = 1;
+    open($job->{LOGFH}, '>>', $job->{LOGFILE})
+	or die "Couldn't open log file $job->{LOGFILE}: $!";
+    my $logfh = \*{$job->{LOGFH}};
+    my $oldfh = select($logfh); local $| = 1; select($oldfh);
+    print $logfh
+	(strftime ("%Y-%m-%d %H:%M:%S", gmtime),
+         " $job->{CMDNAME}($job->{PID}): Executing: @{$job->{CMD}}\n");
+  } 
+  else
+  {
+    open($job->{LOGFH}, '>&', \*STDOUT);
+  }
+}
+
+sub _child_stdout {
+  my ( $self, $args ) = @_[ 0 , 1 ];
+  my $wheel = $self->{caller}{wheels}{$args->{wheel}};
+  $self->{caller}->Logmsg("STDOUT: $args->{out}\n") if $self->{caller}{DEBUG};
+  push @{$wheel->{result}->{RAW_OUTPUT}}, $args->{out};
+
+  my $logfhtmp = \*{$wheel->{LOGFH}};
+  my $date = strftime ("%Y-%m-%d %H:%M:%S", gmtime);
+
+  if ($wheel->{LOGPREFIX})
+  {
+    print $logfhtmp "$date $wheel->{CMDNAME}($wheel->{PID}): ";
+  }
+  print $logfhtmp $args->{out},"\n";
+}
+
+sub _child_stderr {
+  my ( $self, $args ) = @_[ 0 , 1 ];
+  my $wheel = $self->{caller}{wheels}{$args->{wheel}};
+  $self->{caller}->Logmsg("STDERR: $args->{out}\n") if $self->{caller}{DEBUG};
+  chomp $args->{out};
+  push @{$wheel->{result}->{ERROR}}, $args->{out};
+}
+
+sub _child_done {
+  my ( $self, $args ) = @_[ 0 , 1 ];
+  my $wheel = $self->{caller}{wheels}{$args->{wheel}};
+  $self->{caller}{JOBS}--;
+
+# FIXME This could be cleaner...?
+  $wheel->{STATUS_CODE} = $args->{rc};
+  $wheel->{RC}  = $args->{rc} >> 8;
+  $wheel->{SIG} = $args->{rc} & 127;
+  $wheel->{STATUS} = &runerror ($args->{rc});
+
+  if (exists $wheel->{LOGFILE})
+  {
+    my $logfh = \*{$wheel->{LOGFH}};
+    print $logfh (strftime ("%Y-%m-%d %H:%M:%S", gmtime),
+      " $wheel->{CMDNAME}($wheel->{PID}): Job exited with status code",
+      " $wheel->{STATUS} ($wheel->{STATUS_CODE})\n");
+  }
+
+  if ( $self->{caller}{DEBUG} )
+  {
+    print "PID=$wheel->{PID} RC=$wheel->{RC} SIGNAL=$wheel->{SIG} CMD=\"@{$wheel->{CMD}}\"\n";
+  }
+
+# Some monitoring...
+  my $duration = time - $wheel->{start};
+  $self->{caller}->Logmsg("$wheel->{CMD}[0] took $duration seconds") if $self->{caller}{VERBOSE};
+
+  my $result;
+  if ( defined($wheel->{ACTION}) )
+  {
+    $wheel->{DURATION} = $duration;
+    $wheel->{ACTION}->( $wheel );
+  }
+  else
+  {
+    $result = $wheel->{result} unless defined($result);
+    $result->{DURATION} = $duration;
+    if ( $result && defined($wheel->{arg}) )
+    {
+      my ($job,$str,$k);
+      $job = $wheel->{arg};
+      $str = uc $wheel->{parse};
+      foreach $k ( keys %{$result} )
+      {
+        if ( ref($result->{$k}) eq 'ARRAY' )
+        {
+          $job->Log(map { "$str: $k: $_" } @{$result->{$k}});
+        }
+        else
+        {
+          $job->Log("$str: $k: $result->{$k}");
+        }
+      }
+    }
+  }
+
+# cleanup...
+  delete $self->{caller}{wheels}{$args->{wheel}};
+  POE::Kernel->post( $self->{caller}{JOB_MANAGER_SESSION_ID}, 'maybe_clear_alarms' );
+}
+
+sub _child_died {
+  my ( $self, $args ) = @_[ 0 , 1 ];
+  my $wheel = $self->{caller}{wheels}{$args->{wheel}};
+  $args->{out} ||= '';
+  chomp $args->{out};
+  my $text = 'child_died: [' . $args->{rc} . '] ' . $args->{out};
+  push @{$wheel->{result}->{ERROR}}, $text;
+  _child_done( $self, $args );
+}
+
+sub _child_error {
+  my ( $self, $args ) = @_[ 0 , 1 ];
+  my $wheel = $self->{caller}{wheels}{$args->{wheel}};
+  chomp $args->{error};
+  my $text = 'child_error: [' . $args->{err} . '] ' . $args->{error};
+  push @{$wheel->{result}->{ERROR}}, $text;
 }
 
 # Add a new command to the job list.  The command will only be started
@@ -34,267 +263,94 @@ sub new
 # be invoked on the next "pumpJobs".
 sub addJob
 {
-    my ($self, $action, $jobargs, @cmd) = @_;
-    my $job = { PID => 0, ACTION => $action, CMD => [ @cmd ], %{$jobargs || {}} };
-    my $jobs = $$self{JOBS};
-    my $djobs = $$self{DJOBS};
-    
-    push (@$djobs, $job) if $$job{DETACHED};
-    push (@$jobs, $job) if ! $$job{DETACHED};
-    
-    $self->startJob($job)
-	if ($$job{DETACHED}
-	    || (scalar @cmd
-		&& scalar (grep ($$_{PID} > 0 && ! $$_{DETACHED}, @$jobs))
-		   < $$self{NJOBS}));
+  my ($self, $action, $jobargs, @cmd) = @_;
+  my $job = { PID => 0, ACTION => $action, CMD => [ @cmd ], %{$jobargs || {}} };
+  $self->{QUEUE}->enqueue(1,$job);
+  $self->{JOBS}++;
+  POE::Kernel->post($self->{JOB_MANAGER_SESSION_ID}, 'job_queued');
 }
 
-# Actually fork and execute a subcommand.  Updates the job object to
-# have the process id of the subprocess.  Internal helper routine.
-sub startJob
+sub timeout
 {
-    my ($self, $job) = @_;
-    my $pid = undef;
-
-    $$job{PIPE} = new IO::Pipe if ! $$job{DETACHED};
-    
-    while (1)
-    {
-        last if defined ($pid = fork ());
-        print STDERR "cannot fork: $!; trying again in 5 seconds\n";
-        sleep (5);
-    }
-
-    if ($pid)
-    {
-	# Parent, record this child process
-	if (! $$job{DETACHED})
-	{
-	    $$job{PIPE}->reader();
-	    fcntl(\*{$$job{PIPE}}, F_SETFL, O_NONBLOCK);
-	}
-	$$job{PID} = $pid;
-	$$job{STARTED} = time();
-	$$job{BEGINLINE} = 1;
-	# open log file for that child
-	$$job{CMDNAME} = $$job{CMD}[0];
-	$$job{CMDNAME} =~ s|.*/||;
-
-	if (exists $$job{LOGFILE})
-	{
-	    $$job{LOGPREFIX} = 1;
-	    open($$job{LOGFH}, '>>', $$job{LOGFILE})
-		or die "Couldn't open log file $$job{LOGFILE}: $!";
-	    my $logfh = \*{$$job{LOGFH}};
-	    my $oldfh = select($logfh); local $| = 1; select($oldfh);
-	    print $logfh
-		(strftime ("%Y-%m-%d %H:%M:%S", gmtime),
-	         " $$job{CMDNAME}($$job{PID}): Executing: @{$$job{CMD}}\n");
-	} 
-	else
-	{
-	    open($$job{LOGFH}, '>&', \*STDOUT);
-	}
-    }
-    else
-    {
-	# Child, execute the requested program
-	setpgrp(0,$$);
-	if (! $$job{DETACHED})
-	{
-	    $$job{PIPE}->writer();
-	    # Redirect STDOUT and STDERR of requested program to a pipe
-	    open(STDOUT, '>>&', $$job{PIPE});
-	    open(STDERR, '>>&', $$job{PIPE});
-	}
-	do {
-	   print STDERR "Cannot start @{$$job{CMD}}: $!\n";
-	   exit(255);
-	} if ! exec { $$job{CMD}[0] } @{$$job{CMD}};
-    }
+  my ( $self, $kernel, $wheelID ) = @_[ OBJECT, KERNEL, ARG0 ];
+  my $job = $self->{wheels}{$wheelID};
+  return unless defined $job;
+  my $signal = shift @{$job->{signals}};
+  return unless $signal;
+  my $wheel = $self->{_child}->wheel($wheelID);
+  $wheel->kill( $signal );
+  my $timeout = $job->{TIMEOUT_GRACE} || 3;
+  print "Sending signal $signal to wheel $wheelID\n" if $self->{VERBOSE};
+  $kernel->delay_set( 'timeout', $timeout, $wheelID );
 }
 
-# Find out which subprocesses have finished and collect them to a list
-# returned to the caller.  Finished jobs are removed from JOBS list.
-# Internal helper routine.
-sub checkJobs
-{
-    my ($self) = @_;
-    my @pending = ();
-    my @finished = ();
-    my $now = time();
-
-    foreach my $job (@{$$self{JOBS}})
-    {
-	if (! scalar @{$$job{CMD}})
-	{
-	    # Delayed action callback, no job associated with this one
-	    push (@finished, $job);
-	}
-	elsif ($$job{PID} > 0 && waitpid ($$job{PID}, WNOHANG) > 0)
-	{
-	    # Command finished executing, save exit code and mark finished.
-	    # Read the piped log info a last time.
-	    # Finally close the file handles.
-	    $$job{STATUS_CODE} = $?;
-	    $$job{STATUS} = &runerror ($?);
-	    readPipe($job);
-	    $$job{PIPE}->close();
-
-	    if (exists $$job{LOGFILE})
-	    {
-	        my $logfh = \*{$$job{LOGFH}};
-	        print $logfh
-		    (strftime ("%Y-%m-%d %H:%M:%S", gmtime),
-	             " $$job{CMDNAME}($$job{PID}): Job exited with status code",
-		     " $$job{STATUS} ($$job{STATUS_CODE})\n");
-	    }
-	    close($$job{LOGFH});
-	    push (@finished, $job);
-	}
-	elsif ($$job{PID} > 0
-	       && $$job{TIMEOUT}
-	       && ($now - $$job{STARTED}) > $$job{TIMEOUT})
-	{
-	    # Command has taken too long to execute, so we need to stop it and its
-	    # children. Normally it would be polite to SIGINT the parent process first
-	    # and let it INT its children. However, this is something of a hack
-	    # because some transfer tools are badly behaved (their children ignore 
-	    # their elders). So- instead we just address the whole process group.
-	    my %signals = ( 0 => [1,-$$job{PID}],
-			    1 => [15,-$$job{PID}],
-			    15 => [9,-$$job{PID}],
-			    9 => [9,-$$job{PID}] );
-
-	    # Now set signal if not set, send the signal, increase the timeout to give
-	    # the parent time to react, and move to next signal
-	    $$job{SIGNAL} ||= 0;
-	    kill(@{$signals{$$job{SIGNAL}}});
-	    $$job{TIMEOUT} += ($$job{TIMEOUT_GRACE} || 15);
-	    if ($$job{SIGNAL} != 9) 
-	    {
-		$$job{SIGNAL} = $signals{$$job{SIGNAL}}[0];
-	    }
-	    else
-	    {
-		$self->Alert("Job $$job{PID} not responding to requests to quit");
-	    }
-
-	    push(@pending, $job);
-	}
-	elsif ($$job{PID} > 0)
-	{
-	    readPipe($job);
-	    push(@pending, $job);
-	}
-	else
-	{
-	    # Still pending
-	    push(@pending, $job);
-	}
-    }
-
-    $$self{JOBS} = \@pending;
-    return @finished;
-}
-
-# Read log information from pipe and store it in logfile
-sub readPipe
-{   
-    my ($job) = @_;
-    
-    # Max amount of bytes to read per read attempt
-    my $maxbytes = 4096;
-
-    # Helper variables
-    my $pipefhtmp = \*{$$job{PIPE}};
-    my $logfhtmp = \*{$$job{LOGFH}};
-    my $pipestring = undef;
-    my $date = strftime ("%Y-%m-%d %H:%M:%S", gmtime);
-    my $bytesread = 0;
-    while (1)
-    {
-	# Read pipe output and insert our header at each line break
-	$bytesread = sysread($pipefhtmp, $pipestring, $maxbytes);
-	last if (!defined $bytesread);
-	do { print $logfhtmp ("\n") if ! $$job{BEGINLINE}; last }
-	    if ! $bytesread;
-
-	my $line = undef;
-	my @lines = split(/\n/, $pipestring, -1);
-	while (@lines)
-	{
-	    $line = shift (@lines);
-	    if ($$job{BEGINLINE} && ($line ne "" || @lines))
-	    {
-	        print $logfhtmp ("$date $$job{CMDNAME}($$job{PID}): ")
-		    if $$job{LOGPREFIX};
-		$$job{BEGINLINE} = 0;
-	    }
-	    print $logfhtmp ($line);
-	    if (@lines)
-	    {
-		print $logfhtmp ("\n");
-		$$job{BEGINLINE} = 1;
-	    }
-	}
-    }
-}
-
-# Send a signal to all generated process groups?
+# Terminate the children (yikes!)
 sub killAllJobs
 {
-    my ($self) = @_;
-    while (@{$$self{JOBS}})
-    {
-	# While there are jobs to run, mark them timed out,
-	# then wait job processing to terminate all those.
-	my $now = time();
-	foreach (@{$$self{JOBS}})
-	{
-	    next if ! $$_{STARTED} || $$_{KILLING};
-	    $$_{TIMEOUT} = $now - $$_{STARTED} - 1;
-	    $$_{TIMEOUT_GRACE} = 30;
-	    $$_{KILLING} = 1;
-	}
-	$self->pumpJobs();
-	select (undef, undef, undef, 0.1);
-    }
+  my $self = shift;
+
+  foreach my $wheelID ( keys %{$self->{wheels}} )
+  {
+    POE::Kernel->post($self->{JOB_MANAGER_SESSION_ID}, 'timeout', $wheelID);
+  }
 }
 
-# Invoke actions on completed subprocesses and start new jobs if there
-# are free slots.  Invoke this every once in a while to keep processes
-# going.
 sub pumpJobs
 {
-    my ($self) = @_;
-    
-    # Invoke actions on completed jobs
-    foreach my $job ($self->checkJobs())
-    {
-	&{$$job{ACTION}} ($job);
-    }
-    
-    # Check detached jobs and prevent Zombies
-    my @left = ();
-    foreach my $djob (@{$$self{DJOBS}})
-    {
-	push (@left, $djob) if
-	    waitpid ($$djob{PID}, WNOHANG) == 0;
-    }
-    $$self{DJOBS} = \@left;
+  print <<EOD;
+'pumpJobs' is obsolete, and can seriously damage your POE-health.
+EOD
+}
 
-    # Start new jobs if possible
-    my $jobs = $$self{JOBS};
-    my $running = grep ($$_{PID} > 0, @$jobs);
-    foreach my $job (@$jobs)
-    {
-	next if ! @{$$job{CMD}};
-	next if $$job{PID} > 0;
-	last if $running >= $$self{NJOBS};
-	$self->startJob ($job);
-	$running++;
-    }
+sub whenQueueDrained
+{
+  my ($self,$callback) = @_;
+  $callback = sub {} unless $callback;
+  push @{$self->{QUEUE_DRAINED_CALLBACKS}}, $callback;
+  if ( ! $self->{_DOINGSOMETHING}++ )
+  {
+#   Kick off the queue_drained loop if it isn't already running
+    POE::Kernel->post( $self->{JOB_MANAGER_SESSION_ID}, 'queue_drained' );
+  }
+}
+ 
+sub queue_drained
+{
+  my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
+  if ( $self->jobsRemaining() )
+  {
+    $kernel->delay_set('queue_drained',9.1);
+    return;
+  }
+
+# use pop instead of shift to get the callbacks in the order they were
+# added to the queue, just in case that matters
+  while ( my $callback = pop @{$self->{QUEUE_DRAINED_CALLBACKS}} )
+  {
+    &$callback() if $callback;
+    $self->{_DOINGSOMETHING}--;
+  }
+}
+
+sub jobsRemaining()
+{
+  my $self = shift;
+  return scalar(keys %{$self->{wheels}}) + $self->{QUEUE}->get_item_count();
+}
+ 
+sub maybe_clear_alarms
+{
+# After a child is complted, if there are no other jobs running or queued,
+# I clear all timers. This makes sure the session can quite early. Otherwise,
+# it will wait for the timeouts to fire, even for tasks that have finished.
+  my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
+  return if $self->jobsRemaining();
+  my @removed_alarms = $kernel->alarm_remove_all();
+#  foreach my $alarm (@removed_alarms) {
+#    my ($name, $time, $param) = @$alarm;
+#    print "Cleared alarm: alarm=@{$alarm}, time=$time, param=$param\n";
+#  }
+    $kernel->post( 'queue_drained' );
 }
 
 1;

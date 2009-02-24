@@ -46,7 +46,7 @@ sub transferBatch
 		          keys %{$job->{TASKS}}));
 
     # Fork off the transfer wrapper
-    $self->addJob(undef, { DETACHED => 1 },
+    $self->{JOBMANAGER}->addJob(undef, { DETACHED => 1 },
 		  $self->{WRAPPER}, $job->{DIR}, $self->{TIMEOUT},
 		  @{$self->{COMMAND}}, "-copyjobfile=$spec", "-report=$report");
 }

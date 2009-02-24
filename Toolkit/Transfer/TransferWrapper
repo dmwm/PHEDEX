@@ -19,6 +19,7 @@ use PHEDEX::Core::JobManager;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use Data::Dumper;
+use POE;
 
 # Handle arguments.
 my $copyjob = shift(@ARGV);
@@ -58,12 +59,21 @@ $jobs->addJob (sub { $jobstatus = $_[0] },
 # Wait for the job to exit.  Indicate liveness.
 $SIG{INT} = $SIG{TERM} = sub { $signalled = shift; $jobs->killAllJobs() };
 my $n = 0;
-while (@{$$jobs{JOBS}})
-{
-    &touch("$copyjob/live") if ! ($n++ % 60);
-    $jobs->pumpJobs();
-    sleep (1);
-}
+
+# Replace the following code with a call to POE to enable the JobManager to do
+# its thing. Provide the 1-minute 'touch' in a POE session
+POE::Session->create(
+           inline_states => {
+             _start => sub { $_[KERNEL]->yield("next") },
+             next   => sub {
+               return if defined $jobstatus;
+	       &touch("$copyjob/live") if ! ($n++ % 60);
+               $_[KERNEL]->delay(next => 1);
+             },
+           },
+         );
+
+POE::Kernel->run();
 
 # Job status should now be set.
 die "$0: job status lost!\n" if ! $jobstatus;

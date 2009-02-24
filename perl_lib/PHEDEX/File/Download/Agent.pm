@@ -33,7 +33,7 @@ sub new
 		  PREPARE_JOBS => 200,          # max number of jobs to start for preparation tasks
 
 		  TIMEOUT => 600,		# Maximum execution time
-		  NJOBS => 10,			# Max number of utility processes
+		  NJOBS => 10,                  # Max number of utility processes
 		  WAITTIME => 15,		# Nap length between cycles
 
 		  BACKEND_TYPE => undef,	# Backend type
@@ -65,6 +65,7 @@ sub new
 		);
     my %args = (@_);
     $$self{$_} = $args{$_} || $params{$_} for keys %params;
+    $self->JobManager(); # Create JobManager now because NJOBS not known before
     eval ("use PHEDEX::Transfer::$args{BACKEND_TYPE}");
     do { chomp ($@); die "Failed to load backend: $@\n" } if $@;
     $self->{BACKEND} = eval("new PHEDEX::Transfer::$args{BACKEND_TYPE}(\$self)");
@@ -88,23 +89,26 @@ sub stop
 {
     my ($self) = @_;
 
-    # Wait for utility processes to finish.
-    if (@{$$self{JOBS}})
-    {
-        $self->Logmsg ("waiting pending jobs to finish...");
-        while (@{$$self{JOBS}})
-        {
-            $self->pumpJobs();
-	    select(undef, undef, undef, .1);
-        }
-        $self->Logmsg ("all pending jobs finished, ready to exit");
-    }
-    else
-    {
-        $self->Logmsg ("no pending jobs, ready to exit");
-    }
-
-    # Clear to exit.
+# In a POE-world, the POE::Component::Child session of the JobManager will keep the
+# agent from exiting until the jobs are done. That should be enough. If it isn't, add
+# a call to $self->whenQueueDrained();
+#    # Wait for utility processes to finish.
+#    if (@{$$self{JOBS}})
+#    {
+#        $self->Logmsg ("waiting pending jobs to finish...");
+#        while (@{$$self{JOBS}})
+#        {
+#            $self->pumpJobs();
+#	    select(undef, undef, undef, .1);
+#        }
+#        $self->Logmsg ("all pending jobs finished, ready to exit");
+#    }
+#    else
+#    {
+#        $self->Logmsg ("no pending jobs, ready to exit");
+#    }
+#
+#    # Clear to exit.
 }
 
 sub evalinfo
@@ -581,7 +585,7 @@ sub prepare
 	    ) {
 	    $$taskinfo{PREDELETE_DONE} = 0;
 	    $n_add++;
-	    $self->addJob (
+	    $self->{JOBMANAGER}->addJob (
                sub { $$taskinfo{PREDELETE_DONE} = 1;
                      $$taskinfo{PREDELETE_STATUS} = $_[0]{STATUS};
 		     return if ! $self->saveTask($taskinfo);
@@ -609,7 +613,7 @@ sub prepare
 	    return if ! &output($fvstatus, "");
 	    $$taskinfo{PREVALIDATE_DONE} = 0;
 	    $n_add++;
-	    $self->addJob(sub {
+	    $self->{JOBMANAGER}->addJob(sub {
 		&output($fvstatus, Dumper ({
 		    START => $now, END => &mytimeofday(),
 		    STATUS => $_[0]{STATUS}, LOG => &input($fvlog) }));
@@ -740,7 +744,7 @@ sub check
 	    if ($$self{VALIDATE_COMMAND})
 	    {
 		return if ! &output($fvstatus, "");
-		$self->addJob(sub {
+		$self->{JOBMANAGER}->addJob(sub {
 		        &output($fvstatus, Dumper ({
 		            START => $now, END => &mytimeofday(),
 		            STATUS => $_[0]{STATUS}, LOG => &input($fvlog) }));
@@ -766,7 +770,7 @@ sub check
 	    # If the transfer failed, issue clean-up action without
 	    # waiting it to return -- just go ahead with harvesting.
 	    # The caller will in any case wait before proceeding.
-	    $self->addJob(sub {}, { TIMEOUT => $$self{TIMEOUT} },
+	    $self->{JOBMANAGER}->addJob(sub {}, { TIMEOUT => $$self{TIMEOUT} },
 		@{$$self{DELETE_COMMAND}}, "post", $$taskinfo{TO_PFN})
 		if $$vstatus{STATUS} && $$self{DELETE_COMMAND};
 
@@ -1140,41 +1144,64 @@ sub idle
 
 	# prepare some tasks
 	$self->prepare(\%tasks);
-	while (@{$$self{JOBS}})
-	{
-	    $self->pumpJobs();
-	    select(undef, undef, undef, .1);
-	}
+#	while (@{$$self{JOBS}})
+#	{
+#	    $self->pumpJobs();
+#	    select(undef, undef, undef, .1);
+#	}
+        $self->{JOBMANAGER}->whenQueueDrained( sub { $self->idle_RescanCompletedJobs(\%jobs,\%tasks,\@pending); } );
+    };
+    do { chomp ($@); $self->Alert ($@); $$self{NEXT_PURGE} = 0;
+	 eval { $$self{DBH}->rollback() } if $$self{DBH}; } if $@;
+}
 
+sub idle_RescanCompletedJobs
+{
+  my ($self,$jobs,$tasks,$pending) = @_;
+
+    eval
+    {
 	# Rescan jobs for completed tasks and fill the backend a few
         # times each.  In between each round flush validation and
 	# file removal processes to finalise job completion.  Fill
 	# once more at the end in case @check is empty.
-	my @check = grep (exists $jobs{$_}, @pending);
+	my @check = grep (exists $jobs->{$_}, @{$pending});
 	for (my $i = 0; @check && $i < 5; ++$i)
 	{
-	    $self->check($_, \%jobs, \%tasks) for @check;
-            $self->fill(\%jobs, \%tasks);
+	    $self->check($_, $jobs, $tasks) for @check;
+            $self->fill($jobs, $tasks);
 
-	    while (@{$$self{JOBS}})
-	    {
-	        $self->pumpJobs();
-	        select(undef, undef, undef, .1);
-	    }
+#	    while (@{$$self{JOBS}})
+#	    {
+#	        $self->pumpJobs();
+#	        select(undef, undef, undef, .1);
+#	    }
 
-	    @check = grep (exists $jobs{$_} && $jobs{$_}{RECHECK}, @pending);
-    	    delete $$_{RECHECK} for values %jobs;
+	    @check = grep (exists $jobs->{$_} && $jobs->{$_}{RECHECK}, @{$pending});
+    	    delete $$_{RECHECK} for values %${jobs};
         }
 
-        $self->fill(\%jobs, \%tasks);
-	while (@{$$self{JOBS}})
-	{
-	    $self->pumpJobs();
-	    select(undef, undef, undef, .1);
-	}
+        $self->fill($jobs, $tasks);
+#	while (@{$$self{JOBS}})
+#	{
+#	    $self->pumpJobs();
+#	    select(undef, undef, undef, .1);
+#	}
+        $self->{JOBMANAGER}->whenQueueDrained( sub { $self->idle_CreateNewStatsPeriod($jobs,$tasks); } );
+    };
+    do { chomp ($@); $self->Alert ($@); $$self{NEXT_PURGE} = 0;
+	 eval { $$self{DBH}->rollback() } if $$self{DBH}; } if $@;
+}
+
+sub idle_CreateNewStatsPeriod
+{
+  my ($self,$jobs,$tasks) = @_;
+    eval
+    {
+	my $now = &mytimeofday();
 
 	# Create new time period with current statistics.
-        $self->statsNewPeriod(\%jobs, \%tasks);
+        $self->statsNewPeriod($jobs, $tasks);
 
 	# Reconnect if we are due a database sync, but use a database
 	# connection opportunistically if we happen to have one.
@@ -1187,14 +1214,14 @@ sub idle
 	    && ($report_sync || ! $recent_sync))
 	{
 	    $self->reconnect() if ! $self->connectionValid() || $need_advert;
-	    $self->doSync(\%jobs, \%tasks);
+	    $self->doSync($jobs, $tasks);
 	    $$self{LAST_SYNC} = $now;
 	    $$self{NEXT_SYNC} = $now + 1800;
 	    $$self{DBH_LAST_USE} = $now if $need_sync;
 	}
 
 	# Remember current time if we are seeing work.
-	$$self{LAST_WORK} = $now if %tasks;
+	$$self{LAST_WORK} = $now if %{$tasks};
 
 	# Detach from the database if the connection wasn't used
 	# recently (at least one minute) and if it looks the agent
@@ -1203,7 +1230,7 @@ sub idle
 	if (defined $$self{DBH}
 	    && $$self{NEXT_SYNC} - $now > 600
 	    && $now - $$self{DBH_LAST_USE} > 60
-	    && ($$self{BACKEND}->isBusy(\%jobs, \%tasks)
+	    && ($$self{BACKEND}->isBusy($jobs, $tasks)
 		|| $now - $$self{LAST_WORK} > 4*3600))
 	{
 	    $self->Logmsg("disconnecting from database");
@@ -1223,8 +1250,8 @@ sub idle
     do { chomp ($@); $self->Alert ($@); $$self{NEXT_PURGE} = 0;
 	 eval { $$self{DBH}->rollback() } if $$self{DBH}; } if $@;
 
-    # Clear zombie detached processes in the backend.
-    $$self{BACKEND}->pumpJobs();
+#    # Clear zombie detached processes in the backend.
+#    $$self{BACKEND}->pumpJobs();
 }
 
 sub _poe_init

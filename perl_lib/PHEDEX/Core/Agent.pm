@@ -8,7 +8,7 @@ PHEDEX::Core::Agent - POE-based Agent daemon base class
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::JobManager', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Logging';
 use POSIX;
 use File::Path;
 use File::Basename;
@@ -16,10 +16,12 @@ use Time::HiRes qw / time /;
 use POE;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
-use PHEDEX::Core::RFIO;
+#use PHEDEX::Core::RFIO;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::Config;                                                       
-use PHEDEX::Monitoring::Process;                                                       
+#use PHEDEX::Core::JobManager;
+use PHEDEX::Monitoring::Process;
+
 # %params, %args, config-files...?
 # Precedence is: command-line(%args), config-files, %params(default)
 # but %params is the definitive source of the list of legal keys, so all keys
@@ -63,7 +65,7 @@ our %params =
 	(
 	  ME		=> undef,
 	  DBH		=> undef,
-	  SHARED_DBH	=> 0,
+	  SHARED_DBH	=> 1,
 	  DBCONFIG	=> undef,
 	  DROPDIR	=> undef,
 	  NEXTDIR	=> undef,
@@ -221,6 +223,7 @@ sub new
         [
           $self =>
           {
+            _preprocess		=> '_preprocess',
             _process_start	=> '_process_start',
             _process_stop	=> '_process_stop',
             _maybeStop		=> '_maybeStop',
@@ -233,8 +236,16 @@ sub new
         ],
       );
 
+#   Create a JobManager if one is needed
+    $self->JobManager();
+
 #   Finally, start some self-monitoring...
     $self->{pmon} = PHEDEX::Monitoring::Process->new();
+
+    # Initialise subclass.
+    $self->init();
+    # Validate the object!
+    die "Agent ",$self->{ME}," failed validation\n" if $self->isInvalid();
     return $self;
 }
 
@@ -436,72 +447,72 @@ sub isInvalid
   return $errors;
 }
 
-sub initWorkers
-{
-    my $self = shift;
-    return if ! $self->{NWORKERS};
-    $self->{WORKERS} = [ (0) x $self->{NWORKERS} ];
-    $self->checkWorkers();
-}
-
-# Ensure workers are running, if not, restart them
-sub checkWorkers
-{
-    my $self = shift;
-    my $nworkers = scalar @{$self->{WORKERS}};
-    for (my $i = 0; $i < $nworkers; ++$i)
-    {
-	if (! $self->{WORKERS}[$i] || waitpid($self->{WORKERS}[$i], WNOHANG) > 0) {
-	    my ($old, $new) = ($self->{WORKERS}[$i], $self->startWorker ($i));
-	    $self->{WORKERS}[$i] = $new;
-
-	    if (! $old) {
-		$self->Logmsg ("worker $i ($new) started");
-	    } else {
-	        $self->Logmsg ("worker $i ($old) stopped, restarted as $new");
-	    }
-	}
-    }
-}
-
-# Start a worker
-sub startWorker
-{
-    my $self = shift;
-    die "derived class asked for workers, but didn't override startWorker!\n";
-}
-
-# Stop workers
-sub stopWorkers
-{
-    my $self = shift;
-    return if ! $self->{NWORKERS};
-
-    # Make workers quit
-    my @workers = @{$self->{WORKERS}};
-    my @stopflags = map { "$self->{DROPDIR}/worker-$_/stop" }
-    			0 .. ($self->{NWORKERS}-1);
-    $self->Note ("stopping worker threads");
-    &touch (@stopflags);
-    while (scalar @workers)
-    {
-	my $pid = waitpid (-1, 0);
-	@workers = grep ($pid ne $_, @workers);
-	$self->Logmsg ("child process $pid exited, @{[scalar @workers]} workers remain") if $pid > 0;
-    }
-    unlink (@stopflags);
-}
-
+#sub initWorkers
+#{
+#    my $self = shift;
+#    return if ! $self->{NWORKERS};
+#    $self->{WORKERS} = [ (0) x $self->{NWORKERS} ];
+#    $self->checkWorkers();
+#}
+#
+## Ensure workers are running, if not, restart them
+#sub checkWorkers
+#{
+#    my $self = shift;
+#    my $nworkers = scalar @{$self->{WORKERS}};
+#    for (my $i = 0; $i < $nworkers; ++$i)
+#    {
+#	if (! $self->{WORKERS}[$i] || waitpid($self->{WORKERS}[$i], WNOHANG) > 0) {
+#	    my ($old, $new) = ($self->{WORKERS}[$i], $self->startWorker ($i));
+#	    $self->{WORKERS}[$i] = $new;
+#
+#	    if (! $old) {
+#		$self->Logmsg ("worker $i ($new) started");
+#	    } else {
+#	        $self->Logmsg ("worker $i ($old) stopped, restarted as $new");
+#	    }
+#	}
+#    }
+#}
+#
+## Start a worker
+#sub startWorker
+#{
+#    my $self = shift;
+#    die "derived class asked for workers, but didn't override startWorker!\n";
+#}
+#
+## Stop workers
+#sub stopWorkers
+#{
+#    my $self = shift;
+#    return if ! $self->{NWORKERS};
+#
+#    # Make workers quit
+#    my @workers = @{$self->{WORKERS}};
+#    my @stopflags = map { "$self->{DROPDIR}/worker-$_/stop" }
+#    			0 .. ($self->{NWORKERS}-1);
+#    $self->Note ("stopping worker threads");
+#    &touch (@stopflags);
+#    while (scalar @workers)
+#    {
+#	my $pid = waitpid (-1, 0);
+#	@workers = grep ($pid ne $_, @workers);
+#	$self->Logmsg ("child process $pid exited, @{[scalar @workers]} workers remain") if $pid > 0;
+#    }
+#    unlink (@stopflags);
+#}
+#
 # Pick least-loaded worker
-sub pickWorker
-{
-    my ($self) = @_;
-    my $nworkers = scalar @{$self->{WORKERS}};
-    my $basedir = $self->{DROPDIR};
-    return (sort { $a->[1] <=> $b->[1] }
-    	    map { [ $_, scalar @{[<$basedir/worker-$_/{inbox,work}/*>]} ] }
-	    0 .. $nworkers-1) [0]->[0];
-}
+#sub pickWorker
+#{
+#    my ($self) = @_;
+#    my $nworkers = scalar @{$self->{WORKERS}};
+#    my $basedir = $self->{DROPDIR};
+#    return (sort { $a->[1] <=> $b->[1] }
+#    	    map { [ $_, scalar @{[<$basedir/worker-$_/{inbox,work}/*>]} ] }
+#	    0 .. $nworkers-1) [0]->[0];
+#}
 
 # Check if the agent should stop.  If the stop flag is set, cleans up
 # and quits.  Otherwise returns.
@@ -531,8 +542,8 @@ sub doStop
     unlink($self->{STOPFLAG});
 
     # Stop the rest
-    $self->killAllJobs() if @{$self->{JOBS}};
-    $self->stopWorkers() if $self->{NWORKERS};
+    $self->{jobmanager}->killAllJobs() if exists $self->{jobmanager};
+#   $self->stopWorkers() if $self->{NWORKERS};
     $self->stop();
     exit (0);
 }
@@ -833,13 +844,13 @@ sub processDrop
 # Introduced for POE-based agents to allow process to become a true loop
 sub preprocess
 {
-  my $self = shift;
+  my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
 
-  # Initialise subclass.
-  $self->init();
-  # Validate the object!
-  die "Agent ",$self->{ME}," failed validation\n" if $self->isInvalid();
-  $self->initWorkers();
+# # Initialise subclass.
+# $self->init();
+# # Validate the object!
+# die "Agent ",$self->{ME}," failed validation\n" if $self->isInvalid();
+# $self->initWorkers();
 
   # Restore signals.  Oracle apparently is in habit of blocking them.
   $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = sub { $self->doStop() };
@@ -913,36 +924,14 @@ sub connectAgent
     my ($self, $identify) = @_;
     my $dbh;
 
-#    if ( $self->{SHARED_DBH} )
-#    {
-#      $self->Logmsg("Looking for a DBH to share") if $self->{DEBUG};
-#      if ( exists($Agent::Registry{DBH}) )
-#      {
-#        $self->{DBH} = $dbh = $Agent::Registry{DBH};
-#        $self->Logmsg("using shared DBH=$dbh") if $self->{DEBUG};
-#      }
-#      else
-#      {
-#        $self->Logmsg("Creating new DBH") if $self->{DEBUG};
-#        $Agent::Registry{DBH} = $dbh = &connectToDatabase($self) unless $dbh;
-#        $self->Logmsg("Sharing DBH=$dbh") if $self->{DEBUG};
-#      }
-#    }
-#    else
-#    {
-#$self->{DEBUG}++;
-      $dbh = &connectToDatabase($self);
-#$self->{DEBUG}--;
-#     $self->Logmsg("Using private DBH=$dbh") if $self->{DEBUG};
-#    }
-
-    $self->checkNodes();
+    $dbh = &connectToDatabase($self);
 
     # Make myself known if I have a name.  If this fails, the database
     # is probably so wedged that we can't do anything useful, so bail
     # out.  The caller is in charge of committing or rolling back on
     # any errors raised.
     if ($self->{MYNODE}) {
+	$self->checkNodes();
 	$self->updateAgentStatus();
 	$self->identifyAgent();
 	$self->checkAgentMessages();
@@ -1499,7 +1488,9 @@ sub _start
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
   $self->Logmsg("starting (session ",$session->ID,")");
-  $self->preprocess( $kernel, $session );
+  $self->{SESSION_ID} = $session->ID;
+# $kernel->post($self->{SESSION_ID},'_preprocess') if $self->can('preprocess');
+  $kernel->yield('_preprocess'); # if $self->can('preprocess');
   if ( $self->can('_poe_init') )
   {
     $kernel->state('_poe_init',$self);
@@ -1515,6 +1506,12 @@ sub _start
   $kernel->yield('_make_stats');
 
   $self->Logmsg("has successfully initialised");
+}
+
+sub _preprocess
+{
+  my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+  $self->preprocess() if $self->can('prepocess');
 }
 
 sub _process_start
@@ -1745,6 +1742,39 @@ sub FinishedDoingSomething
     $self->{_DOINGSOMETHING} = 0;
   }
   return $self->{_DOINGSOMETHING};
+}
+
+sub JobManager
+{
+# If the agent needs a JobManager (because NJOBS is positive), load the
+# JobManager module and create one. Otherwise, load a dummy module that keeps
+# client code simlhple by not having to check for the existance of the
+# JobManager
+  my $self = shift;
+
+  my $module;
+  if ( exists($self->{NJOBS}) )
+  {
+    $module = 'PHEDEX::Core::JobManager';
+    eval("use $module");
+    die "Failed to load $module: $@\n" if $@;
+  }
+  else
+  {
+    $module = 'PHEDEX::Namespace::Null::Cache';
+    eval("
+		package PHEDEX::Namespace::Null::Cache;
+		sub new { return bless {}, 'PHEDEX::Namespace::Null::Cache'; }
+		sub AUTOLOAD { };
+         ");
+     die "Cannot load null jobmanager: $@\n" if $@;
+  }
+
+  $self->{JOBMANAGER} = $module->new(
+					NJOBS	=> $self->{NJOBS},
+					VERBOSE	=> $self->{VERBOSE},
+					DEBUG	=> $self->{DEBUG},
+						     );
 }
 
 1;

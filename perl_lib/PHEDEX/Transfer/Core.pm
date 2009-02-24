@@ -1,7 +1,8 @@
 package PHEDEX::Transfer::Core;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::JobManager', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Logging';
+use PHEDEX::Core::JobManager;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Catalogue;
 use Getopt::Long;
@@ -37,6 +38,12 @@ sub new
     $self->{$_} = $params->{$_} for keys %$params;
     bless $self, $class;
 
+#   Create a JobManager
+    $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
+						NJOBS	=> $self->{NJOBS},
+						VERBOSE	=> $self->{VERBOSE},
+						DEBUG	=> $self->{DEBUG},
+							);
     # Remember various useful details.
     $self->{MASTER} = $master;  # My owner
     $self->{VERBOSE} = $master->{VERBOSE} || 0;
