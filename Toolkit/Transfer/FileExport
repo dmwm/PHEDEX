@@ -42,7 +42,7 @@ use PHEDEX::File::Export::Agent;
 	     "help|h"      => sub { &usage() });
 
 
-if (@ARGV || !$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG}
+if (!$args{DROPDIR} || !$args{NODES} || !$args{DBCONFIG}
     || !$args{STORAGEMAP} || !$args{PROTOCOLS})
 {
     die "Insufficient parameters, use -h for help.\n";

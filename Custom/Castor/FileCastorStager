@@ -47,7 +47,7 @@ use PHEDEX::Custom::Castor::Stager::Agent;
 			     		 split(/,/, $_[1])) },
 	     "help|h"      => sub { &usage() });
 
-if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG}
+if (!$args{DROPDIR} || !$args{DBCONFIG}
     || !$args{NODES} || !$args{STORAGEMAP})
 {
     die "Insufficient parameters, use -h for help.\n";
