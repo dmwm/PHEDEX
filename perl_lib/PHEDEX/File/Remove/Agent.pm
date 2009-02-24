@@ -18,7 +18,8 @@ our    %params = (DBCONFIG => undef,		# Database configuration file
 		  CMD_RM   => undef,            # cmd to remove physical files
 		  PROTOCOL => 'direct',         # File access protocol
 		  CATALOGUE => {},		# TFC from TMDB
-		  LIMIT => 100                  # Max number of files per cycle
+		  LIMIT => 100,                 # Max number of files per cycle
+		  NJOBS	=> 1,			# Max parallel delete jobs
 		  );
 
 our @array_params = qw / CMD_RM /;
@@ -105,7 +106,7 @@ sub deleteOneFile
 	    
 	# Issue file removal from disk now.
 	my $log = "$$self{DROPDIR}/@{[time()]}.$$file{NODEID}.$$file{FILEID}.log";
-	$self->addJob( sub { $self->deleteJob ($file, @_) },
+	$self->{JOBMANAGER}->addJob( sub { $self->deleteJob ($file, @_) },
 		      { TIMEOUT => 30, LOGFILE => $log, DB => $dbh },
 		      (@{$$self{CMD_RM}}, 'post', $$file{PFN}) );
 
@@ -206,6 +207,7 @@ sub filesToDelete
     $q->finish();  # free resources in case we didn't use all results
 
     # Now get PFNs for all those files.
+$DB::single=1;
     my $cat = dbStorageRules($self->{DBH},
 			     $self->{CATALOGUE},
 			     $self->{NODES_ID}{$node});
@@ -291,16 +293,16 @@ sub idle
     do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
 
-    # Wait for all jobs to finish
-    while (@{$$self{JOBS}})
-    {
-        $self->pumpJobs();
-        select (undef, undef, undef, 0.1);
-    }
+#    # Wait for all jobs to finish
+#    while (@{$$self{JOBS}})
+#    {
+#        $self->pumpJobs();
+#        select (undef, undef, undef, 0.1);
+#    }
 
 
     # Disconnect from the database
-    $self->disconnectAgent();
+    $self->{JOBMANAGER}->whenQueueDrained( sub { $self->disconnectAgent(); } );
 }
 
 1;

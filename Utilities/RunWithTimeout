@@ -11,6 +11,7 @@
 
 use PHEDEX::Core::Help;
 use PHEDEX::Core::JobManager;
+use POE;
 &usage if scalar @ARGV < 2;
 
 my $timeout = shift(@ARGV);
@@ -31,4 +32,4 @@ $job->addJob (sub { my $job = shift;
 
 # Wait for the job to exit.  Note that there's no need to exit here,
 # the job handler callback takes care of it.
-while (1) { $job->pumpJobs (); select (undef, undef, undef, .1); }
+POE::Kernel->run();

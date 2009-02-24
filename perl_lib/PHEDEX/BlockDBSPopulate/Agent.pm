@@ -34,7 +34,8 @@ our %params =
 	  DEL_COMMAND => undef,		# DBS Invalidate command
 	  TIMEOUT => 600,               # Timeout for commands
           TARGET_DBS => undef,          # Target DBS
-	  DUMMY => 0			# Test purpose
+	  DUMMY => 0,			# Test purpose
+	  NJOBS	=> 1,			# Number of jobs to run in parallel
 	);
 sub new
 {
@@ -129,7 +130,7 @@ sub idle
         if ( $self->{DUMMY} ) { unshift @cmd,'/bin/false'; }
         else                  { unshift @cmd,'/bin/true'; }
       }
-      $self->addJob(sub { $self->registered ($block, \%state, $cachekey, @_) },
+      $self->{JOBMANAGER}->addJob(sub { $self->registered ($block, \%state, $cachekey, @_) },
 	          { TIMEOUT => $self->{TIMEOUT}, LOGFILE => $log },
 	          @cmd);
     }
@@ -141,14 +142,15 @@ sub idle
   &disconnectFromDatabase ($self, $dbh, 1);
 
   # Wait for all jobs to finish
-  while (@{$self->{JOBS}})
-  {
-      $self->pumpJobs();
-      select (undef, undef, undef, 0.1);
-  }
-
-  # untie
-  untie %state;
+#  while (@{$self->{JOBS}})
+#  {
+#      $self->pumpJobs();
+#      select (undef, undef, undef, 0.1);
+#  }
+#
+#  # untie
+#  untie %state;
+  $self->{JOBMANAGER}->whenQueueDrained( sub { untie %state; } );
 
   # Have a little nap
   $self->nap ($self->{WAITTIME});
