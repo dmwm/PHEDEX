@@ -195,7 +195,15 @@ while (@ARGV)
   if ( $pua->response_ok($response) )
   {
     my $content = $response->content();
-    
+ 
+    my $report_module = $module . '::Report';
+    eval(" use $report_module");
+    if ( ! $@ )
+    {
+      $report_module->new( $content );
+      next;
+    }
+
     # If the user just wants the data, return what we got from the data service
     if ($format ne 'report') {
 	print $content, "\n";
