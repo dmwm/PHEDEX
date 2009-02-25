@@ -121,7 +121,6 @@ sub poll_queue
 
   foreach $job ( @jobs )
   {
-    $DB::single=1;
     $priority = $self->{Q_MANAGER}->StatePriority($jobs->{STATE});
     if ( ! $priority )
     {
