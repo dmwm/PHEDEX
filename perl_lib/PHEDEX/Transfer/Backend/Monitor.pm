@@ -287,7 +287,6 @@ sub poll_job_postback
 
 # Arbitrary value, fixed, for now.
   $priority = 30;
-
   if (exists $result->{ERROR}) {
       print $self->Hdr,"ListJob for ",$job->ID," returned error: ",
 			join("\n",@{$result->{ERROR}}),"\n";
@@ -601,6 +600,7 @@ sub QueueJob
     $self->LinkStats($_->Destination, $_->FromNode, $_->ToNode, $_->State);
   }
   $job->Priority($priority);
+  $job->Timestamp(time);
   $self->Logmsg('enqueue JOBID=',$job->ID) if $self->{DEBUG};
   $self->{QUEUE}->enqueue( $priority, $job );
   $self->{JOBS}{$job->{ID}} = $job;
