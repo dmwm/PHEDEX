@@ -482,7 +482,6 @@ sub transferBatch
  
     my $avg_priority = int( $sum_priority / $n_files );
     $avg_priority = $self->{PRIORITY_MAP}{$avg_priority} || $avg_priority;
-
     my %args = (
 		COPYJOB	   => "$dir/copyjob",
 		WORKDIR	   => $dir,
@@ -529,12 +528,19 @@ sub check
 
   # Get job information
   $j = eval { do $file; };
-  die $@ if $@; # So uncool!
+# die $@ if $@; # So uncool!
+  if ($@)
+  {
+    $self->Alert("garbage collecting corrupted transfer job in $file");
+    unlink($file); # FIXME: is this good enough? Should flag the task as lost?
+    return;
+  }
 
   # If we don't know about this job, add it to the monitoring
   if (!$self->{FTS_Q_MONITOR}->isKnown( $j )) {
       # $j->JOB_POSTBACK( $self->{FTS_Q_MONITOR}->JOB_POSTBACK );
       # $j->FILE_POSTBACK( $self->{FTS_Q_MONITOR}->FILE_POSTBACK );
+      $j->{TIMEOUT} = $self->{FTS_JOB_AWOL};
       $self->{FTS_Q_MONITOR}->QueueJob( $j );
       $self->Logmsg('JOBID=',$j->ID,' added to monitoring');
       foreach ( values %{$j->FILES} ) {
