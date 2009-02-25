@@ -433,7 +433,12 @@ change the timestamp, use the C<< State >> method, and change the state.
 
 =cut
 
-sub Timestamp { return (shift)->{TIMESTAMP}; }
+sub Timestamp
+{
+  my $self = shift;
+  $self->{TIMESTAMP} = shift if @_;
+  return $self->{TIMESTAMP};
+}
 
 =head2 Tempdir
 
