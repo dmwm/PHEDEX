@@ -56,7 +56,6 @@ optional inputs: (as filters) node, se, agent
 
 
 use PHEDEX::Web::SQL;
-use Data::Dumper;
 
 sub duration { return 60 * 60; }
 sub invoke { return agent(@_); }
