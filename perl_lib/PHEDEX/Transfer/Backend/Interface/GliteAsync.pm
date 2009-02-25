@@ -268,10 +268,10 @@ reference to an array of lines. This is needed for debugging purposes.
 
 The FILES key contains a subkey for each file in the job, keyed by destination
 PFN. The function explicitly checks that it has keys for the DESTINATION,
-DURATION, REASON, RETRIES, SOURCE and STATE of each file, or it dies, assuming
-that something serious has gone wrong. This may not be correct behaviour. So,
-the status of a particular destination PFN will be returned as C<<
-$result->{FILES}{$destinationPFN}{STATE} >>.
+DURATION, REASON, RETRIES, SOURCE and STATE of each file, or it throws an
+error, assuming that something serious has gone wrong. This may not be correct
+behaviour. So, the status of a particular destination PFN will be returned as
+C<< $result->{FILES}{$destination}{PFN}{STATE} >>.
 
 The FILES_STATE key contains a hash of { STATE => state-count }, i.e. the
 number of times a given file-state is encountered. Only states which are
@@ -354,9 +354,14 @@ sub ParseListJob
 #  Be paranoid about the fields I read!
     foreach ( qw / DESTINATION DURATION REASON RETRIES SOURCE STATE / )
     {
-      die "No \"$_\" key! : ", map { "$_=$h->{$_} " } sort keys %{$h}
-        unless defined($h->{$_});
+      next if defined($h->{$_});
+      my $error_msg = "No \"$_\" key! : " .
+		join(', ',
+			map { "$_=$h->{$_} " } sort keys %{$h}
+		    );
+      push @{$result->{ERROR}}, $error_msg;
     }
+    return $result if $result->{ERROR};
     $result->{FILES}{$h->{DESTINATION}} = $h;
   }
 
