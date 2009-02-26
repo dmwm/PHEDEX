@@ -513,7 +513,8 @@ sub transferBatch
 
     $job->Service($service);
 
-    $self->{Q_INTERFACE}->Run('Submit',$self->{JOB_SUBMITTED_POSTBACK},$job);
+    my $w = $self->{Q_INTERFACE}->Run('Submit',$self->{JOB_SUBMITTED_POSTBACK},$job);
+    POE::Kernel->post($self->{SESSION_ID},'timeout_backend_command',$w);
 }
 
 # check jobs.  we also use this call to re-queue saved jobs
@@ -561,6 +562,7 @@ sub setup_callbacks
 {
   my ($self,$kernel,$session) = @_; #[ OBJECT, KERNEL, SESSION ];
 
+  $self->{SESSION_ID} = $session->ID;
 # First the submission-callback
   $kernel->state('job_submitted',$self);
   $self->{JOB_SUBMITTED_POSTBACK} = $session->postback( 'job_submitted'  );
