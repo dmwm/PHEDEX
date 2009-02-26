@@ -1259,6 +1259,50 @@ sub _poe_init
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
   if ( $self->{BACKEND}->can('setup_callbacks') )
   { $self->{BACKEND}->setup_callbacks($kernel,$session) }
+  $kernel->state('timeout_backend_command',$self);
+  $kernel->state('timeout_TERM',$self);
+  $kernel->state('timeout_KILL',$self);
+}
+
+sub timeout_TERM
+{ 
+  my ( $self, $kernel, $wheelid ) = @_[ OBJECT, KERNEL, ARG0 ];
+  my ($wheel,$cmd,$id);
+  return unless defined($self->{BACKEND}{Q_INTERFACE}{wheels}{$wheelid});
+  $wheel = $self->{BACKEND}{Q_INTERFACE}{_child}->wheel($wheelid);
+  $cmd = $self->{BACKEND}{Q_INTERFACE}{wheels}{$wheelid}{cmd};
+  if ( defined($id=$self->{BACKEND}{Q_INTERFACE}{wheels}{$wheelid}{arg}{ID}) )
+  { $cmd .= ' ' . $id; }
+  if ( $wheel )
+  {
+    print $self->Hdr,"TERMinating wheel $wheelid, ($cmd)\n";
+    $kernel->delay_set('timeout_KILL',10,$wheelid);
+    push @{$self->{BACKEND}{Q_INTERFACE}->{wheels}->{$wheelid}->{ERROR}}, 'TERMinated by sig-TERM';
+    $wheel->kill;
+  }
+}
+
+sub timeout_KILL
+{
+  my ( $self, $kernel, $wheelid ) = @_[ OBJECT, KERNEL, ARG0 ];
+  my ($wheel,$cmd,$id);
+  return unless defined($self->{BACKEND}{Q_INTERFACE}{wheels}{$wheelid});
+  $wheel = $self->{BACKEND}{Q_INTERFACE}->{_child}->wheel($wheelid);
+  $cmd = $self->{BACKEND}{Q_INTERFACE}{wheels}{$wheelid}{cmd};
+  if ( defined($id=$self->{BACKEND}{Q_INTERFACE}{wheels}{$wheelid}{arg}{ID}) )
+  { $cmd .= ' ' . $id; }
+  if ( $wheel )
+  {
+    print $self->Hdr,"KILLing wheel $wheelid, ($cmd)\n";
+    push @{$self->{BACKEND}{Q_INTERFACE}->{wheels}->{$wheelid}->{ERROR}}, 'KILLed by sig-KILL';
+    $wheel->kill(9);
+  }
+}
+
+sub timeout_backend_command
+{
+  my ($self,$kernel,$wheel) = @_[ OBJECT, KERNEL, ARG0 ];
+  $kernel->delay_set('timeout_TERM',$self->{TIMEOUT},$wheel);
 }
 
 1;
