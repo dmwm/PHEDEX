@@ -47,6 +47,7 @@ use base 'PHEDEX::Core::SQL';
 use Carp;
 use POSIX;
 use Data::Dumper;
+use PHEDEX::Core::Identity;
 
 our @EXPORT = qw( );
 our (%params);
@@ -728,6 +729,289 @@ sub getTransferHistory
     }
 
     # return $sql, %param;
+    return \@r;
+}
+
+sub getClientData 
+{
+    my ($self, $clientid) = @_;
+    my $clientinfo = &PHEDEX::Core::Identity::getClientInfo($self, $clientid);
+    my $identity = &PHEDEX::Core::Identity::getIdentityFromDB($self, $clientinfo->{IDENTITY});
+    return {
+        NAME => $identity->{NAME},
+        ID => $identity->{ID},
+        DN => $identity->{DN},
+        USERNAME => $identity->{USERNAME},
+        EMAIL => $identity->{EMAIL},
+        HOST => $clientinfo->{"Remote host"},
+        AGENT => $clientinfo->{"User agent"}
+    };
+}
+
+#
+# Optional parameters
+#
+#   REQ_NUM: request number
+# DEST_NODE: name of the destination node
+#     GROUP: group name
+#     LIMIT: maximal number of records
+#
+sub getRequestData
+{
+    my ($self, %h) = @_;
+
+    # save LongReadLen & LongTruncOk
+    my $LongReadLen = $$self{DBH}->{LongReadLen};
+    my $LongTruncOk = $$self{DBH}->{LongTruncOk};
+
+    $$self{DBH}->{LongReadLen} = 10_000;
+    $$self{DBH}->{LongTruncOk} = 1;
+
+    my @r;
+    my $data = {};
+    my $sql = qq {
+        select
+            r.id,
+            rt.name type,
+            r.created_by creator_id,
+            r.time_create,
+            rdbs.name dbs, 
+            rdbs.dbs_id dbs_id, 
+	    rc.comments,};
+
+    if ($h{TYPE} eq 'xfer')
+    {
+        $sql .= qq {
+            rx.priority priority,
+            rx.is_custodial custodial,
+            rx.is_move move,
+            rx.is_static static,
+	    rx.is_transient transient,
+            rx.is_distributed distributed, 
+            g.name "group",
+            rx.data user_text};
+    }
+    else
+    {
+        $sql .= qq {
+            rd.rm_subscriptions,
+            rd.data user_text};
+    }
+
+    $sql .= qq {
+        from
+            t_req_request r
+        join t_req_type rt on rt.id = r.type
+        join t_req_dbs rdbs on rdbs.request = r.id
+        left join t_req_comments rc on rc.id = r.comments};
+
+    if ($h{TYPE} eq 'xfer')
+    {
+        $sql .= qq {
+        join t_req_xfer rx on rx.request = r.id
+        left join t_adm_group g on g.id = rx.user_group
+        where
+            rt.name = 'xfer'};
+    }
+    else
+    {
+        $sql .= qq {
+        join t_req_delete rd on rd.request = r.id
+        where
+            rt.name = 'delete'};
+    }
+
+    if (exists $h{REQ_NUM})
+    {
+        $sql .= qq {\n            and r.id = $h{REQ_NUM}};
+    }
+
+    if ($h{TYPE} eq 'xfer' && exists $h{GROUP})
+    {
+        $sql .= qq {\n            and g.name = '$h{GROUP}'};
+    }
+
+    if (exists $h{LIMIT})
+    {
+        $sql .= qq {\n            and rownum <= $h{LIMIT}};
+    }
+
+    if (exists $h{SINCE})
+    {
+        my $t = PHEDEX::Core::Util::str2time($h{SINCE});
+        $sql .= qq {\n            and r.time_create >= $t};
+    }
+
+    if (exists $h{DEST_NODE})
+    {
+        $sql .= qq {
+            and r.id in (
+                select
+                    rn.request
+                from
+                    t_req_node rn,
+                    t_adm_node an
+                where
+                    rn.node = an.id
+                    and an.name = '$h{DEST_NODE}')};
+    }
+
+    # order by
+
+    $sql .= qq {\n        order by r.time_create};
+
+    my $node_sql = qq {
+	select
+            n.name,
+            n.id,
+            n.se_name se,
+            rd.decision,
+            rd.decided_by,
+            rd.time_decided,
+            rc.comments
+        from
+            t_req_node rn
+        join t_adm_node n on n.id = rn.node
+        left join t_req_decision rd on rd.request = rn.request and rd.node = rn.node
+        left join t_req_comments rc on rc.id = rd.comments
+        where rn.request = :request and
+            rn.point = :point };
+
+    # same as $node_sql except no point distinction
+    my $node_sql2 = qq {
+	select
+            n.name,
+            n.id,
+            n.se_name se,
+            rd.decision,
+            rd.decided_by,
+            rd.time_decided,
+            rc.comments
+        from
+            t_req_node rn
+        join t_adm_node n on n.id = rn.node
+        left join t_req_decision rd on rd.request = rn.request and rd.node = rn.node
+        left join t_req_comments rc on rc.id = rd.comments
+        where rn.request = :request};
+
+    my $xfer_sql = qq {
+	select
+            rx.priority,
+            rx.is_custodial,
+            rx.is_move,
+            rx.is_static,
+	    rx.is_transient,
+            rx.is_distributed, 
+	    g.id user_group_id,
+            g.name user_group,
+            rx.data
+	from
+            t_req_xfer rx
+	left join t_adm_group g on g.id = rx.user_group
+	where rx.request = :request };
+
+    my $delete_sql = qq {
+	select
+            rd.rm_subscriptions,
+            rd.data
+	from
+            t_req_delete rd
+	where rd.request = :request };
+
+    my $dataset_sql = qq {
+	select
+            rds.name,
+            ds.id,
+            nvl(sum(b.files),0) files,
+            nvl(sum(b.bytes),0) bytes
+	from
+            t_req_dataset rds
+        left join t_dps_dataset ds on ds.id = rds.dataset_id
+        left join t_dps_block b on b.dataset = ds.id
+        where rds.request = :request
+        group by rds.name, ds.id };
+
+    my $block_sql = qq {
+        select
+            rb.name,
+            b.id,
+            b.files,
+            b.bytes
+        from
+            t_req_block rb
+        left join t_dps_block b on b.id = rb.block_id
+        where rb.request = :request };
+
+    my $file_sql = qq {
+        select
+            rf.name,
+            f.id,
+            1 files,
+            f.filesize bytes
+        from
+            t_req_file rf
+            left join t_dps_file f on f.id = rf.file_id
+        where rf.request = :request };
+
+    my $q = &execute_sql($$self{DBH}, $sql);
+
+    while ($data = $q ->fetchrow_hashref())
+    {
+        $$data{REQUESTED_BY} = &getClientData($self, $$data{CREATOR_ID});
+        delete $$data{CREATOR_ID};
+
+        $$data{DATA}{DBS}{NAME} = $$data{DBS};
+        $$data{DATA}{DBS}{ID} = $$data{DBS_ID};
+        delete $$data{DBS};
+        delete $$data{DBS_ID};
+
+        if ($h{TYPE} eq 'xfer')
+        {
+            $$data{DESTINATIONS} = &execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 'd')->fetchall_arrayref({});
+            $$data{SOURCES} = &execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 's')->fetchall_arrayref({});
+
+            foreach my $node (@{$$data{SOURCES}}, @{$$data{DESTINATIONS}})
+            {
+	        $$node{APPROVED_BY} = &getClientData($self, $$node{DECIDED_BY}) if $$node{DECIDED_BY};
+                delete $$node{DECIDED_BY};
+            }
+        }
+        else
+        {
+            $$data{NODES} = &execute_sql($$self{DBH}, $node_sql2, ':request' => $$data{ID})->fetchall_arrayref({});
+            foreach my $node (@{$$data{NODES}})
+            {
+	        $$node{APPROVED_BY} = &getClientData($self, $$node{DECIDED_BY}) if $$node{DECIDED_BY};
+                delete $$node{DECIDED_BY};
+            }
+        }
+
+        $$data{DATA}{USERTEXT} = $$data{USER_TEXT};
+        delete $$data{USER_TEXT};
+    
+        $$data{DATA}{DBS}{DATASET} = &execute_sql($$self{DBH}, $dataset_sql, ':request' => $$data{ID})->fetchall_arrayref({});
+        $$data{DATA}{DBS}{BLOCK} = &execute_sql($$self{DBH}, $block_sql, ':request' => $$data{ID})->fetchall_arrayref({});
+        $$data{DATA}{DBS}{FILE} = &execute_sql($$self{DBH}, $file_sql, ':request' => $$data{ID})->fetchall_arrayref({});
+
+        my ($total_files, $total_bytes) = (0, 0);
+
+        foreach my $item (@{$$data{DATA}{DBS}{BLOCK}},@{$$data{DATA}{DBS}{DATASET}}, @{$$data{DATA}{DBS}{FILE}})
+        {
+            $total_files += $item->{FILES} || 0;
+            $total_bytes += $item->{BYTES} || 0;
+        }
+        $$data{REQUEST_BYTES} = $total_bytes;
+
+        push @r, $data;
+    }
+
+    # restore LongReadLen & LongTruncOk
+    my $LongReadLen = $$self{DBH}->{LongReadLen};
+    my $LongTruncOk = $$self{DBH}->{LongTruncOk};
+
+    $$self{DBH}->{LongReadLen} = $LongReadLen;
+    $$self{DBH}->{LongTruncOk} = $LongTruncOk;
+
     return \@r;
 }
 
