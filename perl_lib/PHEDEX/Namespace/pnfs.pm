@@ -19,7 +19,7 @@ sub new
                 DEBUG    => 0,
                 CACHE    => undef,
                 NOCACHE  => 0,
-                INPUT_FILE => '/build/ratnik/devel/phedex/tests/bla',
+                INPUT_FILE => undef,
             );
   %options = (
                 'help'          => \$help,
