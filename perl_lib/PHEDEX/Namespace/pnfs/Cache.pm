@@ -21,11 +21,10 @@ sub new
                  stats   => {},
               );
   my $self = \%params;
-  #  Pre-populate cache from the input file , at first attempt to fetch:
-  my $dumpfile = $h->{INPUT_FILE};
-  print "Populating cache from ". $dumpfile. "\n" if $self->{VERBOSE};
-  if (open(DUMP, "<$dumpfile")) {
-    # fill the hash for the stat  command
+  if  ($h->{INPUT_FILE}) {
+    my $dumpfile = $h->{INPUT_FILE};
+    print "Populating cache from ". $dumpfile. "\n" if $self->{VERBOSE};
+    open(DUMP, "<$dumpfile") or die  "Could not open file ".$dumpfile. " for reading";
     my $file;
     my $stat;
     my ($access, $uid, $gid, $size, $mtime);
@@ -42,8 +41,6 @@ sub new
       $hash{mtime}=$mtime;
       $self->{cache}{$file}{'stat'} = \%hash;
     }
-  } else {
-    print "Could not open file ".$dumpfile. " for reading\n";
   }
   bless($self, $class);
   return $self;
