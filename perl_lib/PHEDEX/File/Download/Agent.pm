@@ -89,26 +89,9 @@ sub stop
 {
     my ($self) = @_;
 
-# In a POE-world, the POE::Component::Child session of the JobManager will keep the
-# agent from exiting until the jobs are done. That should be enough. If it isn't, add
-# a call to $self->whenQueueDrained();
-#    # Wait for utility processes to finish.
-#    if (@{$$self{JOBS}})
-#    {
-#        $self->Logmsg ("waiting pending jobs to finish...");
-#        while (@{$$self{JOBS}})
-#        {
-#            $self->pumpJobs();
-#	    select(undef, undef, undef, .1);
-#        }
-#        $self->Logmsg ("all pending jobs finished, ready to exit");
-#    }
-#    else
-#    {
-#        $self->Logmsg ("no pending jobs, ready to exit");
-#    }
-#
-#    # Clear to exit.
+# In a POE-world, the POE::Component::Child session of the JobManager will keep
+# the agent from exiting until the jobs are done. That should be enough. If it
+# isn't, add a call to $self->whenQueueDrained();
 }
 
 sub evalinfo
@@ -1144,11 +1127,6 @@ sub idle
 
 	# prepare some tasks
 	$self->prepare(\%tasks);
-#	while (@{$$self{JOBS}})
-#	{
-#	    $self->pumpJobs();
-#	    select(undef, undef, undef, .1);
-#	}
         $self->{JOBMANAGER}->whenQueueDrained( sub { $self->idle_RescanCompletedJobs(\%jobs,\%tasks,\@pending); } );
     };
     do { chomp ($@); $self->Alert ($@); $$self{NEXT_PURGE} = 0;
@@ -1159,6 +1137,9 @@ sub idle_RescanCompletedJobs
 {
   my ($self,$jobs,$tasks,$pending) = @_;
 
+# FIXME The logic here may be inadequate now. Instead of looping a bit and
+# refilling the backends, it essentially just does one pass. Would be good
+# to make this into a proper flow of POE-events.
     eval
     {
 	# Rescan jobs for completed tasks and fill the backend a few
