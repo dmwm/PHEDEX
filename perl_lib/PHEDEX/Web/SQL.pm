@@ -118,6 +118,7 @@ sub getNodes
 	       n.kind, n.technology
           from t_adm_node n
           where 1=1
+               and not n.name like 'X%' 
        };
 
     my $filters = '';
@@ -166,6 +167,7 @@ sub getBlockReplicas
 	  join t_adm_node n on n.id = br.node
      left join t_adm_group g on g.id = br.user_group
 	 where br.node_files != 0
+               and not n.name like 'X%' 
        };
 
     if (exists $h{complete}) {
@@ -239,6 +241,8 @@ sub getFileReplicas
     left join t_adm_node n on ((br.is_active = 'y' and n.id = xr.node) 
                             or (br.is_active = 'n' and n.id = br.node))
     where br.node_files != 0 
+            and not ns.name like 'X%'
+            and not n.name like 'X%' 
     };
 
     if (exists $h{complete}) {
@@ -341,7 +345,7 @@ sub SiteDataInfo
   $dbh->{LongTruncOk} = 1;
 
 # get site id and name based on name pattern
-  my $sql=qq(select id,name from t_adm_node where name like :sitename);
+  my $sql=qq(select id,name from t_adm_node where name like :sitename and not name like 'X%' );
   my $sth = dbprep($dbh, $sql);
   my @handlearr=($sth,
 	   ':sitename' => $args{SITENAME});
@@ -483,7 +487,8 @@ sub getAgents
             s.node = n.id and
             s.agent = a.id and
             s.node = v.node and
-            s.agent = v.agent};
+            s.agent = v.agent and
+            not n.name like 'X%' };
 
     # specific node?
     if ($h{NODE})
@@ -576,7 +581,9 @@ sub getTransferQueueStats
             t_adm_node nd
         where
             ns.id = xs.from_node and
-            nd.id = xs.to_node};
+            nd.id = xs.to_node and
+            not ns.name like 'X%' and
+            not nd.name like 'X%' };
 
     if ($h{FROM})
     {
@@ -657,7 +664,9 @@ sub getTransferHistory
         t_adm_node n2
     where
         from_node = n1.id and
-        to_node = n2.id };
+        to_node = n2.id and
+        not n1.name like 'X%' and
+        not n2.name like 'X%' };
 
     my $where_stmt = "";
     my %param;
@@ -875,7 +884,8 @@ sub getRequestData
         left join t_req_decision rd on rd.request = rn.request and rd.node = rn.node
         left join t_req_comments rc on rc.id = rd.comments
         where rn.request = :request and
-            rn.point = :point };
+            rn.point = :point and
+            not n.name like 'X%' };
 
     # same as $node_sql except no point distinction
     my $node_sql2 = qq {
@@ -892,7 +902,8 @@ sub getRequestData
         join t_adm_node n on n.id = rn.node
         left join t_req_decision rd on rd.request = rn.request and rd.node = rn.node
         left join t_req_comments rc on rc.id = rd.comments
-        where rn.request = :request};
+        where rn.request = :request and
+            not n.name like 'X%' };
 
     my $xfer_sql = qq {
 	select
