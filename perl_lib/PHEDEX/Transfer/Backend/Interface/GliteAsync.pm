@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use base 'PHEDEX::Transfer::Backend::Interface::Glite', 'PHEDEX::Core::Logging';
 use POE;
-use POE::Component::Child;
+#use POE::Component::Child;
 
 our %params =
 	(
@@ -61,13 +61,13 @@ our %weights =
 	  Waiting =>  1 + 0 * 900,
 	);
 
-our %events = (
-  stdout => \&_child_stdout,
-  stderr => \&_child_stderr,
-  error  => \&_child_error,
-  done   => \&_child_done,
-  died   => \&_child_died,
-);
+#our %events = (
+#  stdout => \&_child_stdout,
+#  stderr => \&_child_stderr,
+#  error  => \&_child_error,
+#  done   => \&_child_done,
+#  died   => \&_child_died,
+#);
 
 sub new
 {
@@ -81,13 +81,13 @@ sub new
       } keys %params;
   $self->{DEBUGGING} = $PHEDEX::Debug::Paranoid || 0;
 
-  $self->{CHILD_EVENTS} = \%events;
-  my $pocodebug = $self->{POCO_DEBUG} || 0;
-  $self->{_child} = POE::Component::Child->new(
-         events => \%events,
-         debug => $pocodebug,
-        );
-  $self->{_child}{caller} = $self;
+#  $self->{CHILD_EVENTS} = \%events;
+#  my $pocodebug = $self->{POCO_DEBUG} || 0;
+#  $self->{_child} = POE::Component::Child->new(
+#         events => \%events,
+#         debug => $pocodebug,
+#        );
+#  $self->{_child}{caller} = $self;
 
   bless $self, $class;
   return $self;
@@ -106,15 +106,6 @@ sub AUTOLOAD
   return unless $attr =~ /[^A-Z]/;  # skip DESTROY and all-cap methods
   my $parent = "SUPER::" . $attr;
   $self->$parent(@_);
-}
-
-sub Parse
-{
-  my ($self,$wheel) = @_;
-  my ($parse,$result);
-  $parse = 'Parse' . $wheel->{parse};
-  if ( $self->can($parse) ) { return $self->$parse($wheel); }
-  return $result;
 }
 
 =head2 ParseListQueue
@@ -169,32 +160,6 @@ sub ParseSubmit
     push @{$result->{ERROR}}, 'JOBID=undefined, cannot monitor this job: ' . $dump;
   }
   return $result;
-}
-
-sub Run
-{
-  my ($self,$str,$postback,$arg) = @_;
-  my $cmd  = $self->Command($str,$arg);
-
-# Stub for now until I know how to sidestep unnecessary commands
-  $cmd = '/bin/true' unless $cmd;
-
-  my $logsafe_cmd = $cmd;
-  $logsafe_cmd =~ s/ -p [\S]+/ -p _censored_/;
-  $self->Logmsg("Run: $logsafe_cmd") if $self->{VERBOSE};
-  if ( $str eq 'Submit' ) { $arg->Log("$str: $logsafe_cmd"); }
-  my $wheel = $self->{_child}->run($cmd);
-
-  $self->Fatal("Cannot fork $logsafe_cmd!") unless $wheel;
-
-  $self->{wheels}{$wheel}{parse}    = $str;
-  $self->{wheels}{$wheel}{postback} = $postback;
-  $self->{wheels}{$wheel}{arg}      = $arg;
-  $self->{wheels}{$wheel}{cmd}      = $str;
-  $self->{wheels}{$wheel}{start}    = time;
-  push @{$self->{wheels}{$wheel}{result}{INFO}}, $logsafe_cmd . "\n";
-  $self->Logmsg("GLite:: wheel=$wheel, cmd=$logsafe_cmd") if $self->{DEBUG};
-  return $wheel;
 }
 
 sub Command
@@ -400,86 +365,6 @@ sub StatePriority
   return $states{$state} if defined($states{$state});
   return $states{Default} if !$self->{DEBUGGING};
   die "Unknown state \"$state\" encountered in ",__PACKAGE__,"\n";
-}
-
-# methods for the POE::Component::Child object
-sub _child_stdout {
-  my ( $self, $args ) = @_[ 0 , 1 ];
-  my $wheel = $self->{caller}{wheels}{$args->{wheel}};
-  push @{$wheel->{result}->{RAW_OUTPUT}}, $args->{out};
-}
-
-sub _child_stderr {
-  my ( $self, $args ) = @_[ 0 , 1 ];
-  my $wheel = $self->{caller}{wheels}{$args->{wheel}};
-  chomp $args->{out};
-  push @{$wheel->{result}->{ERROR}}, $args->{out};
-}
-
-sub _child_done {
-  my ( $self, $args ) = @_[ 0 , 1 ];
-  my $wheel = $self->{caller}{wheels}{$args->{wheel}};
-# $self->{caller}->Logmsg("GLite:: wheel=",$args->{wheel}," is done") if $self->{DEBUG};
-
-# Some monitoring...
-  my $duration = time - $wheel->{start};
-  $self->{caller}->Logmsg("$wheel->{parse} cmd took $duration seconds") if $self->{caller}{VERBOSE};
-
-  my $postback = $wheel->{postback};
-  my $result = Parse( $self->{caller}, $wheel );
-  if ( defined($wheel->{postback}) )
-  {
-    $result->{DURATION} = $duration;
-    $wheel->{postback}->( $result, $wheel );
-  }
-  else
-  {
-    $result = $wheel->{result} unless defined($result);
-    $result->{DURATION} = $duration;
-    if ( $result && defined($wheel->{arg}) )
-    {
-      my ($job,$str,$k);
-      $job = $wheel->{arg};
-      $str = uc $wheel->{parse};
-      foreach $k ( keys %{$result} )
-      {
-        if ( ref($result->{$k}) eq 'ARRAY' )
-        {
-          $job->Log(map { "$str: $k: $_" } @{$result->{$k}});
-        }
-        else
-        {
-          $job->Log("$str: $k: $result->{$k}");
-        }
-      }
-    }
-  }
-
-#  print "GLite:: Deleting wheel=",$args->{wheel}," leaving ",
-#	scalar keys %{$self->{caller}{wheels}}," wheels in existance (ids: ",
-#	join(' ',sort { $a <=> $b } keys %{$self->{caller}{wheels}}), ")\n";
-
-# cleanup...
-  delete $self->{caller}{wheels}{$args->{wheel}};
-}
-
-sub _child_died {
-  my ( $self, $args ) = @_[ 0 , 1 ];
-  my $wheel = $self->{caller}{wheels}{$args->{wheel}};
-# $self->{caller}->Logmsg("GLite:: wheel=",$args->{wheel}," has died") if $self->{DEBUG};
-  $args->{out} ||= '';
-  chomp $args->{out};
-  my $text = 'child_died: [' . $args->{rc} . '] ' . $args->{out};
-  push @{$wheel->{result}->{ERROR}}, $text;
-  _child_done( $self, $args );
-}
-
-sub _child_error {
-  my ( $self, $args ) = @_[ 0 , 1 ];
-  my $wheel = $self->{caller}{wheels}{$args->{wheel}};
-  chomp $args->{error};
-  my $text = 'child_error: [' . $args->{err} . '] ' . $args->{error};
-  push @{$wheel->{result}->{ERROR}}, $text;
 }
 
 1;

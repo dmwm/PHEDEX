@@ -151,6 +151,7 @@ sub init
 	 );
 
     $self->{FTS_Q_MONITOR} = $q_mon;
+    $q_mon->{JOBMANAGER} = $self->{MASTER}->{JOBMANAGER};
 
     $self->parseFTSmap() if ($self->{FTS_MAPFILE});
 
@@ -512,9 +513,12 @@ sub transferBatch
     }
 
     $job->Service($service);
-
-    my $w = $self->{Q_INTERFACE}->Run('Submit',$self->{JOB_SUBMITTED_POSTBACK},$job);
-    POE::Kernel->post($self->{SESSION_ID},'timeout_backend_command',$w);
+    $self->{MASTER}->{JOBMANAGER}->addJob(
+			     $self->{JOB_SUBMITTED_POSTBACK},
+			     { arg => $job,
+			       TIMEOUT => $self->{FTS_Q_MONITOR}->{Q_TIMEOUT} },
+			     $self->{Q_INTERFACE}->Command('Submit',$job)
+			   );
 }
 
 # check jobs.  we also use this call to re-queue saved jobs
@@ -583,13 +587,14 @@ sub job_submitted
 {
   my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
 
-#  $self->FinishedDoingSomething();
-  my $job    = $arg1->[1]->{arg};
-  my $result = $arg1->[0];
-  if ( $self->{DEBUG} && $result->{DURATION} > 8 )
+  my $wheel = $arg1->[0];
+  my $result = $self->{Q_INTERFACE}->ParseSubmit( $wheel );
+  my $job = $wheel->{arg};
+  
+  if ( $self->{DEBUG} && $wheel->{DURATION} > 8 )
   {
     my $id = $job->{ID} || 'unknown';
-    $self->Logmsg('Submit took ',$result->{DURATION},' seconds for JOBID=',$id);
+    $self->Logmsg('Submit took ',$wheel->{DURATION},' seconds for JOBID=',$id);
   }
 
   if ( exists $result->{ERROR} ) { 

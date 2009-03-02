@@ -195,16 +195,22 @@ sub poll_queue
   return unless $self->{POLL_QUEUE};
   $self->Logmsg('Why am I in poll_queue?') if $self->{DEBUG};
 die "I do not want to be here...";
-  my $w = $self->{Q_INTERFACE}->Run('ListQueue',$self->{POLL_QUEUE_POSTBACK});
-  $kernel->delay_set('timeout_TERM', $self->{Q_TIMEOUT}, $w );
+# my $w = $self->{Q_INTERFACE}->Run('ListQueue',$self->{POLL_QUEUE_POSTBACK});
+  $self->{JOBMANAGER}->addJob(
+                             $self->{POLL_QUEUE_POSTBACK},
+                             { TIMEOUT => $self->{Q_TIMEOUT} },
+                             $self->{Q_INTERFACE}->Command('ListQueue')
+                           );
+# $kernel->delay_set('timeout_TERM', $self->{Q_TIMEOUT}, $w );
 }
 
 sub poll_queue_postback
 {
   my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-
-  my ($id,$result,$priority);
-  $result = $arg1->[0];
+  my ($id,$result,$priority,$wheel);
+die "This code has not been tested...";
+  $wheel = $arg1->[0];
+  $result = $self->{Q_INTERFACE}->ParseListQueue( $wheel );
 
   if ( $self->{DEBUG} && $result->{DURATION} > 8 )
   { $self->Logmsg('ListQueue took ',$result->{DURATION},' seconds'); }
@@ -271,19 +277,27 @@ sub poll_job
   }
 
   $self->Logmsg('dequeue JOBID=',$job->ID) if $self->{DEBUG};
-  my $w = $self->{Q_INTERFACE}->Run('ListJob',$self->{POLL_JOB_POSTBACK},$job);
-  $kernel->delay_set('timeout_TERM', $self->{Q_TIMEOUT}, $w );
+#  my $w = $self->{Q_INTERFACE}->Run('ListJob',$self->{POLL_JOB_POSTBACK},$job);
+#  $kernel->delay_set('timeout_TERM', $self->{Q_TIMEOUT}, $w );
+  $self->{JOBMANAGER}->addJob(
+                             $self->{POLL_JOB_POSTBACK},
+                             { arg => $job, TIMEOUT => $self->{Q_TIMEOUT} },
+                             $self->{Q_INTERFACE}->Command('ListJob',$job)
+                           );
+
 }
 
 sub poll_job_postback
 {
   my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-  my ($result,$priority,$id,$job,$summary);
-  $result = $arg1->[0];
-  $job = $arg1->[1]->{arg};
+  my ($result,$priority,$id,$job,$summary,$wheel);
 
-  if ( $self->{DEBUG} && $result->{DURATION} > 8 )
-  { $self->Logmsg('ListJob took ',$result->{DURATION},' seconds'); }
+  $wheel = $arg1->[0];
+  $result = $self->{Q_INTERFACE}->ParseListJob( $wheel );
+  $job = $wheel->{arg};
+
+  if ( $self->{DEBUG} && $wheel->{DURATION} > 8 )
+  { $self->Logmsg('ListJob took ',$wheel->{DURATION},' seconds'); }
 
 # Arbitrary value, fixed, for now.
   $priority = 30;
@@ -591,7 +605,7 @@ sub QueueJob
 
   return if $self->isKnown($job);
   $priority = 1 unless $priority;
-  $self->Logmsg('Queueing JOBID=',$job->ID,' at priority',$priority);
+  $self->Logmsg('Queueing JOBID=',$job->ID,' at priority ',$priority);
 
   $self->WorkStats('JOBS', $job->ID, $job->State);
   foreach ( values %{$job->Files} )
@@ -604,7 +618,11 @@ sub QueueJob
   $self->Logmsg('enqueue JOBID=',$job->ID) if $self->{DEBUG};
   $self->{QUEUE}->enqueue( $priority, $job );
   $self->{JOBS}{$job->{ID}} = $job;
-  my $w = $self->{Q_INTERFACE}->Run('SetPriority',undef,$job);
+  $self->{JOBMANAGER}->addJob(
+                             undef,
+                             { arg => $job, TIMEOUT => $self->{Q_TIMEOUT} },
+                             $self->{Q_INTERFACE}->Command('SetPriority',$job)
+                           );
 }
 
 1;
