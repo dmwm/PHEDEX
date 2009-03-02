@@ -85,6 +85,7 @@ sub _jm_start
 sub _jm_stop
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
+$DB::single=1;
   print $self->Hdr, "ending, for lack of work...\n";
 }
 
@@ -319,7 +320,7 @@ sub queue_drained
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
   if ( $self->jobsRemaining() )
   {
-    $kernel->delay_set('queue_drained',9.1);
+    $kernel->delay_set('queue_drained',0.1);
     return;
   }
 
@@ -340,12 +341,12 @@ sub jobsRemaining()
  
 sub maybe_clear_alarms
 {
-# After a child is complted, if there are no other jobs running or queued,
-# I clear all timers. This makes sure the session can quite early. Otherwise,
+# After a child is completed, if there are no other jobs running or queued,
+# I clear all timers. This makes sure the session can quit early. Otherwise,
 # it will wait for the timeouts to fire, even for tasks that have finished.
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
   return if $self->jobsRemaining();
-  my @removed_alarms = $kernel->alarm_remove_all();
+#  my @removed_alarms = $kernel->alarm_remove_all();
 #  foreach my $alarm (@removed_alarms) {
 #    my ($name, $time, $param) = @$alarm;
 #    print "Cleared alarm: alarm=@{$alarm}, time=$time, param=$param\n";
