@@ -24,8 +24,8 @@ Return
  required inputs: none (default to be the last hour)
  optional inputs: from_node, to_node, timebin, timewidth
 
-  from_node       name of the from node
-  to_node         name of the to_node
+  from_node       name of the from node, could be multiple
+  to_node         name of the to_node, could be multiple
   starttime       start time
   endtime         end time
   binwidth        width of each timebin in seconds
@@ -91,6 +91,12 @@ sub invoke { return transferhistory(@_); }
 sub transferhistory
 {
     my ($core, %h) = @_;
+
+    # convert parameter keys to upper case
+    foreach ( qw / from_node to_node starttime endtime binwidth / )
+    {
+        $h{uc $_} = delete $h{$_} if $h{$_};
+    }
 
     my $r = PHEDEX::Web::SQL::getTransferHistory($core, %h);
 
