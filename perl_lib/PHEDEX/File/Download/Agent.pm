@@ -3,7 +3,7 @@ package PHEDEX::File::Download::Agent;
 use strict;
 use warnings;
 
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging', 'PHEDEX::Core::JobManager';
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
@@ -11,7 +11,7 @@ use PHEDEX::Core::DB;
 use PHEDEX::Error::Constants;
 
 use List::Util qw(min max sum);
-use File::Path qw(mkpath rmtree);
+use File::Path qw(rmtree);
 use Data::Dumper;
 use POSIX;
 use POE;
@@ -90,7 +90,7 @@ sub _poe_init
   $self->init();
 
   my @poe_subs = qw( advertise_self verify_tasks manage_archives purge_lost_tasks
-		     init_tasks fill_backend maybe_disconnect
+		     fill_backend maybe_disconnect
 		     sync_tasks report_tasks update_tasks fetch_tasks
 		     start_task finish_task
 		     prevalidate_task prevalidate_done
@@ -111,7 +111,7 @@ sub _poe_init
 #     ]
 #   );
 
-#  $session->option(trace => 1);
+  $session->option(trace => 1);
 
   if ( $self->{BACKEND}->can('setup_callbacks') )
   { $self->{BACKEND}->setup_callbacks($kernel,$session) }
@@ -120,7 +120,6 @@ sub _poe_init
   $kernel->yield('verify_tasks');
   $kernel->yield('manage_archives');
   $kernel->yield('purge_lost_tasks');
-#  $kernel->yield('init_tasks');
   $kernel->yield('fill_backend');
   $kernel->yield('sync_tasks');
   $kernel->yield('maybe_disconnect');
@@ -377,9 +376,6 @@ eval
 	# if things go badly wrong here, we'll clean it up in purge.
 	return if ! &output("$$self{TASKDIR}/$$row{TASKID}", Dumper($row));
 	$$tasks{$$row{TASKID}} = $row;
-
-	# start the task workflow
-	$kernel->yield('start_task', $row->{TASKID});
     }
     
     # report error summary
@@ -549,16 +545,6 @@ eval
 
     $$self{DBH_LAST_USE} = $now;
 }; $self->clean_death();
-}
-
-# called once at agent start up to get existing saved tasks moving
-sub init_tasks
-{
-    my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
-
-    foreach my $task (values %{$self->{TASKS}}) {
-	$kernel->yield('start_task', $task->{TASKID});
-    }
 }
 
 # XXX notes about fill(), check(), frontend/backend interaction
@@ -771,11 +757,12 @@ sub fill_backend
 	my ($jobid, $jobdir, $jobtasks) = $$self{BACKEND}->startBatch ($todo{$to}{$from});
 
 	if ($jobid) {
-	    foreach my $taskid ( @{$jobtasks} ) {
-		$tasks->{$taskid}->{JOBID} = $jobid;
-		$tasks->{$taskid}->{JOBDIR} = $jobdir;
-		$tasks->{$taskid}->{STARTED} = $now;
-		$kernel->yield('start_task', $taskid);
+	    foreach my $task ( values %$jobtasks ) {
+		$task->{JOBID} = $jobid;
+		$task->{JOBDIR} = $jobdir;
+		$task->{STARTED} = $now;
+		$self->saveTask($task);
+		$kernel->yield('start_task', $task->{TASKID});
 	    }
 
 	    $self->Logmsg("copy job $jobid assigned to link $from -> $to with "
@@ -859,7 +846,7 @@ sub prevalidate_task
     my ( $self, $kernel, $taskid, $workflow ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
 
     my $task = $self->{TASKS}->{$taskid};
-    my $jobpath = $self->{TASKS}->{$taskid}->{JOBDIR};
+    my $jobpath = $task->{JOBDIR};
     my $log = "$jobpath/T${taskid}-prevalidate-log";
 
     $self->addJob( sub { my $jobargs = shift; $kernel->yield('prevalidate_done', $taskid, $workflow, $jobargs) },
@@ -1352,7 +1339,7 @@ sub clean_death
     return unless $err;
     chomp ($err); 
     $self->Alert($err);
-    eval { $$self{DBH}->rollback() } if $$self{DBH}; }
+    eval { $$self{DBH}->rollback() } if $$self{DBH};
 }
 
 #
