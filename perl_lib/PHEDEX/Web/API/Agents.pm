@@ -23,9 +23,9 @@ Return agent information in the following structure:
 required inputs:  none
 optional inputs: (as filters) node, se, agent
 
- node             node name
- se               storage element name
- agent            agent name
+ node             node name, could be multiple
+ se               storage element name, could be multiple
+ agent            agent name, could be multiple
 
 =head3 output
 
@@ -58,9 +58,9 @@ optional inputs: (as filters) node, se, agent
 use PHEDEX::Web::SQL;
 
 sub duration { return 60 * 60; }
-sub invoke { return agent(@_); }
+sub invoke { return agents(@_); }
 
-sub agent
+sub agents
 {
     my ($core, %h) = @_;
 
