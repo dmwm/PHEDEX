@@ -776,8 +776,6 @@ sub getRequestData
             rx.is_custodial custodial,
             rx.is_move move,
             rx.is_static static,
-	    rx.is_transient transient,
-            rx.is_distributed distributed, 
             g.name "group",
             rx.data user_text};
     }
@@ -886,22 +884,6 @@ sub getRequestData
         where rn.request = :request and
             not n.name like 'X%' };
 
-    my $xfer_sql = qq {
-	select
-            rx.priority,
-            rx.is_custodial,
-            rx.is_move,
-            rx.is_static,
-	    rx.is_transient,
-            rx.is_distributed, 
-	    g.id user_group_id,
-            g.name user_group,
-            rx.data
-	from
-            t_req_xfer rx
-	left join t_adm_group g on g.id = rx.user_group
-	where rx.request = :request };
-
     my $delete_sql = qq {
 	select
             rd.rm_subscriptions,
@@ -933,17 +915,6 @@ sub getRequestData
             t_req_block rb
         left join t_dps_block b on b.id = rb.block_id
         where rb.request = :request };
-
-    my $file_sql = qq {
-        select
-            rf.name,
-            f.id,
-            1 files,
-            f.filesize bytes
-        from
-            t_req_file rf
-            left join t_dps_file f on f.id = rf.file_id
-        where rf.request = :request };
 
     my $q = &execute_sql($$self{DBH}, $sql);
 
@@ -983,11 +954,10 @@ sub getRequestData
     
         $$data{DATA}{DBS}{DATASET} = &execute_sql($$self{DBH}, $dataset_sql, ':request' => $$data{ID})->fetchall_arrayref({});
         $$data{DATA}{DBS}{BLOCK} = &execute_sql($$self{DBH}, $block_sql, ':request' => $$data{ID})->fetchall_arrayref({});
-        $$data{DATA}{DBS}{FILE} = &execute_sql($$self{DBH}, $file_sql, ':request' => $$data{ID})->fetchall_arrayref({});
 
         my ($total_files, $total_bytes) = (0, 0);
 
-        foreach my $item (@{$$data{DATA}{DBS}{BLOCK}},@{$$data{DATA}{DBS}{DATASET}}, @{$$data{DATA}{DBS}{FILE}})
+        foreach my $item (@{$$data{DATA}{DBS}{BLOCK}},@{$$data{DATA}{DBS}{DATASET}})
         {
             $total_files += $item->{FILES} || 0;
             $total_bytes += $item->{BYTES} || 0;
