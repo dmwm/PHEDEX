@@ -6,6 +6,7 @@ use PHEDEX::Core::JobManager;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Catalogue;
 use Getopt::Long;
+use File::Path qw(mkpath);
 use Data::Dumper;
 
 sub new
@@ -50,6 +51,7 @@ sub new
     $self->{DEBUG} = $master->{DEBUG} || 0;
     $self->{BOOTTIME} = time(); # "Boot" time for this agent
     $self->{BATCHID} = 0;       # Running batch counter
+    $self->{WORKDIR} = $master->{WORKDIR}; # Where job state/logs are saved
 
     # Locate the transfer wrapper script.
     $self->{WRAPPER} = $INC{"PHEDEX/Transfer/Core.pm"};
@@ -77,8 +79,8 @@ sub stop
 # the back end can run concurrently.
 sub isBusy
 {
-    my ($self, $jobs, $tasks) = @_;
-    return scalar(keys %$jobs) >= $self->{NJOBS};
+    my ($self, $to_node, $from_node) = @_;
+    return $self->{JOBMANAGER}->jobsRemaining() >= $self->{NJOBS};
 }
 
 # Return the list of protocols supported by this backend.
