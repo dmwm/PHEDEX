@@ -8,7 +8,7 @@ use strict;
 
 PHEDEX::Web::API::TransferRequests -- get information regarding transfer requests
 
-=head2 transferrequest
+=head2 transferrequests
 
 Return transfer request information in the following structure:
 
