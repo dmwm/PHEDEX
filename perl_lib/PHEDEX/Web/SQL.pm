@@ -490,22 +490,30 @@ sub getAgents
             s.agent = v.agent and
             not n.name like 'X%' };
 
+    my (%p, $filters);
+
     # specific node?
     if ($h{NODE})
     {
-        $sql .= qq { and\n           n.name = '$h{NODE}'};
+        $filters = '';
+        build_multi_filters($core, \$filters, \%p, \%h,  NODE => 'n.name');
+        $sql .= " and ($filters)" if $filters;
     }
 
     # specific SE?
     if ($h{SE})
     {
-        $sql .= qq { and\n            n.se_name = '$h{SE}'};
+        $filters = '';
+        build_multi_filters($core, \$filters, \%p, \%h,  SE => 'n.se_name');
+        $sql .= " and ($filters)" if $filters;
     }
 
     # specific agent?
     if ($h{AGENT})
     {
-        $sql .= qq { and\n            a.name = '$h{AGENT}'};
+        $filters = '';
+        build_multi_filters($core, \$filters, \%p, \%h,  AGENT => 'a.name');
+        $sql .= " and ($filters)" if $filters;
     }
 
     $sql .= qq {
@@ -513,7 +521,7 @@ sub getAgents
     };
 
     my @r;
-    my $q = execute_sql($core, $sql);
+    my $q = execute_sql($core, $sql, %p);
     my %node;
     while ( $_ = $q->fetchrow_hashref())
     {
