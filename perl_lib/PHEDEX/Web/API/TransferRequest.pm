@@ -29,7 +29,6 @@ Return transfer request information in the following structure:
         <dbs>
           <dataset/> ...
           <block/> ...
-          <file/> ...
         </dbs>
     </data>
   </request> 
@@ -64,7 +63,6 @@ optional inputs: (as filters) req_num, dest_node, group
         <dbs>
           <dataset/> ...
           <block/> ...
-          <file/> ...
         </dbs>
     </data>
   </request> 
@@ -75,10 +73,8 @@ optional inputs: (as filters) req_num, dest_node, group
  group            group name
  priority         transfer priority
  custodial        is custodial?
- move             is move?
  static           is static?
- transient        is transient?
- distributed      is distributed?
+ move             is move?
  <request_by>     person who requested
  comments         comments
  type             request type, always 'xfer' here
@@ -115,13 +111,6 @@ the actual text strings of data the user requested
  name             block name
  id               block id
  files            number of files
- bytes            number of bytes
-
-=head3 file attributes
-
- name             file name
- id               file id
- files            always 1
  bytes            number of bytes
 
 =head3 <requested_by>/<approved_by> attributes
