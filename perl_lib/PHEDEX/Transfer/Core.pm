@@ -38,7 +38,7 @@ sub new
     $self->{$_} = $params->{$_} for keys %$params;
     bless $self, $class;
 
-#   Create a JobManager
+    # Create a JobManager
     $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
 						NJOBS	=> $self->{NJOBS},
 						VERBOSE	=> $self->{VERBOSE},
@@ -91,16 +91,21 @@ sub protocols
 # Start off a copy job.  Nips off "BATCH_FILES" tasks to go ahead.
 sub startBatch
 {
-    my ($self, $jobs, $tasks, $dir, $jobname, $list) = @_;
+    my ($self, $list) = @_;
+
     my @batch = splice(@$list, 0, $self->{BATCH_FILES});
-    my $job = { ID => $jobname, DIR => $dir,
-	         TASKS => { map { $_->{TASKID} => 1 } @batch } };
-    &output("$dir/info", Dumper($job));
-    &touch("$dir/live");
-    $jobs->{$jobname} = $job;
-    $self->transferBatch ($job, $tasks);
+    return undef if !@batch;
+
+    my $id = $$self{BATCH_ID}++;
+    my $jobid = "job.$$self{BOOTTIME}.$id";
+    my $jobdir = "$$self{WORKDIR}/$jobid";
+    &mkpath($jobdir);
+    my $jobinfo = { ID => $jobid, DIR => $jobdir,
+		    TASKS => { map { $_->{TASKID} => $_ } @batch } };
+    &output("$jobdir/info", Dumper($jobinfo));
+    $self->{JOBS}->{$jobid} = $jobinfo;
+
+    return ($jobid, $jobdir, $jobinfo->{TASKS});
 }
-
-
 
 1;
