@@ -23,6 +23,8 @@ return transfer state details in the following structure
  required inputs:   none
  optional inputs:   from, to
 
+ from               name of the from (source) node, could be multiple
+ to                 name of the to (destination) node, could be multiple
 =head3 output:
 
   <link>
@@ -33,8 +35,8 @@ return transfer state details in the following structure
 
 =head3 <link> elements:
 
- from               name of the from node
- to                 name of the to node
+ from               name of the from (source) node
+ to                 name of the to (destination) node
  from_id            id of the from node
  to_id              id of the to node
  queue              queues associated with this link
