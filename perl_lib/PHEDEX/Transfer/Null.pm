@@ -100,18 +100,21 @@ sub ReadConfig
 }
 
 # No-op transfer batch operation.
-sub transferBatch
+sub start_transfer_job
 {
-    my ($self, $job, $tasks) = @_;
+    my ( $self, $kernel, $jobid ) = @_[ OBJECT, KERNEL, ARG0 ];
+
+    my $job = $self->{JOBS}->{$jobid};
     my $now = &mytimeofday();
 
-    foreach my $task (keys %{$job->{TASKS}})
+    foreach my $taskid (keys %{$job->{TASKS}})
     {
+	my $task = $job->{TASKS}->{$taskid};
 	my $info;
 	my $fail_rate;
-	if (exists $tasks->{$task}{FROM_NODE} &&
-	    exists $self->{FAIL_LINKS}->{ $tasks->{$task}{FROM_NODE} } ) {
-	    $fail_rate = $self->{FAIL_LINKS}->{ $tasks->{$task}{FROM_NODE} };
+	if (exists $task->{FROM_NODE} &&
+	    exists $self->{FAIL_LINKS}->{ $task->{FROM_NODE} } ) {
+	    $fail_rate = $self->{FAIL_LINKS}->{ $task->{FROM_NODE} };
 	}
 	$fail_rate ||= $self->{FAIL_RATE};
 	$fail_rate ||= 0;
@@ -123,7 +126,8 @@ sub transferBatch
 	    $info = { START => $now, END => $now, STATUS => 0,
 		      DETAIL => "nothing done successfully", LOG => "OK" };
 	}
-	&output("$job->{DIR}/T${task}X", Dumper($info));
+	&output("$job->{DIR}/T${taskid}X", Dumper($info));
+	$kernel->yield('transfer_done', $taskid, $info);
     }
 }
 
