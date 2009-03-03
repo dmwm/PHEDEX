@@ -490,31 +490,13 @@ sub getAgents
             s.agent = v.agent and
             not n.name like 'X%' };
 
-    my (%p, $filters);
-
-    # specific node?
-    if ($h{NODE})
-    {
-        $filters = '';
-        build_multi_filters($core, \$filters, \%p, \%h,  NODE => 'n.name');
-        $sql .= " and ($filters)" if $filters;
-    }
-
-    # specific SE?
-    if ($h{SE})
-    {
-        $filters = '';
-        build_multi_filters($core, \$filters, \%p, \%h,  SE => 'n.se_name');
-        $sql .= " and ($filters)" if $filters;
-    }
-
-    # specific agent?
-    if ($h{AGENT})
-    {
-        $filters = '';
-        build_multi_filters($core, \$filters, \%p, \%h,  AGENT => 'a.name');
-        $sql .= " and ($filters)" if $filters;
-    }
+    my %p;
+    my $filters = '';
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        NODE => 'n.name',
+        SE   => 'n.se_name',
+        AGENT => 'a.name'));
+    $sql .= " and ($filters) " if $filters;
 
     $sql .= qq {
         order by n.name, a.name
@@ -593,20 +575,17 @@ sub getTransferQueueStats
             not ns.name like 'X%' and
             not nd.name like 'X%' };
 
-    if ($h{FROM})
-    {
-        $sql .= qq { and\n            ns.name = '$h{FROM}'};
-    }
+    my (@r, %p, $filters);
 
-    if ($h{TO})
-    {
-        $sql .= qq { and\n            nd.name = '$h{TO}'};
-    }
-            
+    $filters = '';
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        FROM => 'ns.name',
+        TO   => 'nd.name'));
+    $sql .= " and ($filters) " if $filters;
+
     $sql .= qq {\n        order by nd.name, ns.name, state};
 
-    my @r;
-    my $q = execute_sql($core, $sql);
+    my $q = execute_sql($core, $sql, %p);
     my %link;
     while ( $_ = $q->fetchrow_hashref())
     {
@@ -657,15 +636,15 @@ sub getTransferHistory
     select
         n1.name as from_node,
         n2.name as to_node,
-        :binwidth as binwidth,
-        trunc(timebin / :binwidth) * :binwidth as timebin,
+        :BINWIDTH as binwidth,
+        trunc(timebin / :BINWIDTH) * :BINWIDTH as timebin,
         nvl(sum(done_files), 0) as done_files,
         nvl(sum(done_bytes), 0) as done_bytes,
         nvl(sum(fail_files), 0) as fail_files,
         nvl(sum(fail_bytes), 0) as fail_bytes,
         nvl(sum(expire_files), 0) as expire_files,
         nvl(sum(expire_bytes), 0) as expire_bytes,
-        cast((nvl(sum(done_bytes), 0) / :binwidth) as number(20, 2)) as rate
+        cast((nvl(sum(done_bytes), 0) / :BINWIDTH) as number(20, 2)) as rate
     from
         t_history_link_events,
         t_adm_node n1,
@@ -681,56 +660,50 @@ sub getTransferHistory
     my @r;
 
     # default endtime is now
-    if (exists $h{endtime})
+    if (exists $h{ENDTIME})
     {
-        $param{':endtime'} = PHEDEX::Core::Util::str2time($h{endtime});
+        $param{':ENDTIME'} = PHEDEX::Core::Util::str2time($h{ENDTIME});
     }
     else
     {
-        $param{':endtime'} = time();
+        $param{':ENDTIME'} = time();
     }
 
-    # default binwidth is 1 hour
-    if (exists $h{binwidth})
+    # default BINWIDTH is 1 hour
+    if (exists $h{BINWIDTH})
     {
-        $param{':binwidth'} = $h{binwidth};
+        $param{':BINWIDTH'} = $h{BINWIDTH};
     }
     else
     {
-        $param{':binwidth'} = 3600;
+        $param{':BINWIDTH'} = 3600;
     }
 
     # default start time is 1 hour before
-    if (exists $h{starttime})
+    if (exists $h{STARTTIME})
     {
-        $param{':starttime'} = PHEDEX::Core::Util::str2time($h{starttime});
+        $param{':STARTTIME'} = PHEDEX::Core::Util::str2time($h{STARTTIME});
     }
     else
     {
-        $param{':starttime'} = $param{':endtime'} - $param{':binwidth'};
+        $param{':STARTTIME'} = $param{':ENDTIME'} - $param{':BINWIDTH'};
     }
 
-    if ($h{from_node})
-    {
-        $where_stmt .= qq { and\n            n1.name = :from_node};
-        $param{':from_node'} = $h{from_node};
-    }
-
-    if ($h{to_node})
-    {
-        $where_stmt .= qq { and\n            n2.name = :to_node};
-        $param{':to_Node'} = $h{to_node};
-    }
+    my $filters = '';
+    build_multi_filters($core, \$filters, \%param, \%h, (
+        FROM_NODE => 'n1.name',
+        TO_NODE   => 'n2.name'));
+    $sql .= " and ($filters) " if $filters;
 
     # These is always start time
-    $where_stmt .= qq { and\n        timebin >= :starttime};
-    $where_stmt .= qq { and\n        timebin < :endtime};
+    $where_stmt .= qq { and\n        timebin >= :STARTTIME};
+    $where_stmt .= qq { and\n        timebin < :ENDTIME};
 
     # now take care of the where clause
 
     $sql .= $where_stmt;
 
-    $sql .= qq {\ngroup by trunc(timebin / :binwidth) * :binwidth, n1.name, n2.name };
+    $sql .= qq {\ngroup by trunc(timebin / :BINWIDTH) * :BINWIDTH, n1.name, n2.name };
     $sql .= qq {\norder by 1 asc, 2, 3};
 
     # now execute the query
@@ -738,7 +711,7 @@ sub getTransferHistory
     while ( $_ = $q->fetchrow_hashref() )
     {
         # format the time stamp
-        if ($_->{'TIMEBIN'} and exists $h{ctime})
+        if ($_->{'TIMEBIN'} and exists $h{CTIME})
         {
             $_->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $_->{'TIMEBIN'}));
         }
