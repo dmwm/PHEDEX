@@ -15,6 +15,7 @@ use File::Path qw(mkpath rmtree);
 use Data::Dumper;
 use POSIX;
 use POE;
+$|++;
 
 sub new
 {
@@ -33,7 +34,7 @@ sub new
 		  PREPARE_JOBS => 200,          # max number of jobs to start for preparation tasks
 
 		  TIMEOUT => 600,		# Maximum execution time
-		  NJOBS => 10,                  # Max number of utility processes
+		  NJOBS => 10,			# Max number of utility processes
 		  WAITTIME => 15,		# Nap length between cycles
 
 		  BACKEND_TYPE => undef,	# Backend type
@@ -46,7 +47,7 @@ sub new
 		  FIRST_ACTION => undef,	# Time of first action
 		  ACTIONS => [],		# Future actions
 
-		  PREPAREDIR => "$$self{DROPDIR}/prepare", # Tasks being prepared
+		  TASKS => {},                  # Tasks in memory
 		  TASKDIR => "$$self{DROPDIR}/tasks",      # Tasks to do
 		  ARCHIVEDIR => "$$self{DROPDIR}/archive", # Jobs done
 		  STATS => [],			# Historical stats.
@@ -65,13 +66,10 @@ sub new
 		);
     my %args = (@_);
     $$self{$_} = $args{$_} || $params{$_} for keys %params;
-    $self->JobManager(); # Create JobManager now because NJOBS not known before
     eval ("use PHEDEX::Transfer::$args{BACKEND_TYPE}");
     do { chomp ($@); die "Failed to load backend: $@\n" } if $@;
     $self->{BACKEND} = eval("new PHEDEX::Transfer::$args{BACKEND_TYPE}(\$self)");
     do { chomp ($@); die "Failed to create backend: $@\n" } if $@;
-    -d $$self{PREPAREDIR} || mkdir($$self{PREPAREDIR}) || -d $$self{PREPAREDIR}
-        || die "$$self{PREPAREDIR}: cannot create: $!\n";
     -d $$self{TASKDIR} || mkdir($$self{TASKDIR}) || -d $$self{TASKDIR}
         || die "$$self{TASKDIR}: cannot create: $!\n";
     -d $$self{ARCHIVEDIR} || mkdir($$self{ARCHIVEDIR}) || -d $$self{ARCHIVEDIR}
@@ -81,267 +79,222 @@ sub new
     return $self;
 }
 
-# If stopped, tell backend to stop, then wait for all the pending
-# utility jobs to complete.  All backends just abandon the jobs, and
-# we try to pick up on the transfer again if the agent is restarted.
-# Utility jobs usually run quickly so we let them run to completion.
-sub stop
-{
-    my ($self) = @_;
+#
+# POE events
+#
 
-# In a POE-world, the POE::Component::Child session of the JobManager will keep
-# the agent from exiting until the jobs are done. That should be enough. If it
-# isn't, add a call to $self->whenQueueDrained();
+sub _poe_init
+{
+  my ($self, $kernel, $session) = @_[ OBJECT, KERNEL, SESSION ];
+
+  $self->init();
+
+  my @poe_subs = qw( advertise_self verify_tasks manage_archives purge_lost_tasks
+		     init_tasks fill_backend maybe_disconnect
+		     sync_tasks report_tasks update_tasks fetch_tasks
+		     start_task finish_task
+		     prevalidate_task prevalidate_done
+		     predelete_task predelete_done
+		     transfer_task transfer_done
+		     postvalidate_task postvalidate_done
+		     postdelete_task postdelete_done );
+		     
+  my @backend_required = qw( start_transfer_job );
+
+  $kernel->state($_, $self) foreach @poe_subs;
+  $kernel->state($_, $self->{BACKEND}) foreach @backend_required;
+
+#   $session->create( 
+#     object_states => [
+#       $self => \@poe_subs,
+#       $self->{BACKEND} => \@backend_required
+#     ]
+#   );
+
+#  $session->option(trace => 1);
+
+  if ( $self->{BACKEND}->can('setup_callbacks') )
+  { $self->{BACKEND}->setup_callbacks($kernel,$session) }
+
+  $kernel->yield('advertise_self');
+  $kernel->yield('verify_tasks');
+  $kernel->yield('manage_archives');
+  $kernel->yield('purge_lost_tasks');
+#  $kernel->yield('init_tasks');
+  $kernel->yield('fill_backend');
+  $kernel->yield('sync_tasks');
+  $kernel->yield('maybe_disconnect');
+
+  # XXX TODO Backend Timeouts... would like to move these to the backend,
+  # or JobManager
+  $kernel->state('timeout_backend_command',$self);
+  $kernel->state('timeout_TERM',$self);
+  $kernel->state('timeout_KILL',$self);
 }
 
-sub evalinfo
+# XXX TODO:  Find a more beutiful way to protect DB-interacting code from transient failures.
+
+# advertise agent existence to the database
+sub advertise_self
 {
-    my ($file) = @_;
-    no strict 'vars';
-    return eval (&input($file) || '');
+  my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+  $self->delay_max($kernel, 'advertise_self', 2400);
+  eval {
+      $self->reconnect();
+  };
+  $self->clean_death();
 }
 
-# turn a JobManager job STATUS into a number
-# in case of a job being hangup/terminated/killed, STATUS is, e.g.  "signal 1"
-sub numeric_statcode
-{
-    my ($statcode) = @_;
-    return undef unless defined $statcode;
-    return ($statcode =~ /^-?\d+$/ ? $statcode : 128 + ($statcode =~ /(\d+)/)[0]);
-}
+# disconnect if we have nothing to do that requires the database
+sub maybe_disconnect
+{ 
+    my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+    $self->delay_max($kernel, 'maybe_disconnect', 15);
 
-# turn a 'y' or 'n' value into a boolean number
-sub boolean_yesno
+eval
 {
-    my ($yn) = @_;
-    return undef if !defined $yn || $yn !~ /^[yn]$/;
-    return ($yn eq 'y' ? 1 : 0);
-}
-
-# Reconnect the agent to the database.  If the database connection
-# has been shut, create a new connection.  Update agent status.  Set
-# $$self{DBH} to database handle and $$self{NODES_ID} to hash of the
-# (node name, id) pairs.
-sub reconnect
-{
-    my ($self) = @_;
+    # Detach from the database if the connection wasn't used
+    # recently (at least one minute) and if it looks the agent
+    # has enough work for some time and next synchronisation
+    # is not imminent.
+    # XXX TODO: also consider the existing transfer queue: only
+    # disconnect if we have a lot of work
     my $now = &mytimeofday();
-    
-    # Now connect.
-    my $dbh = $self->connectAgent();
-    my @nodes = $self->expandNodes();
-    unless (@nodes) { die("Cannot find nodes in database for '@{$$self{NODES}}'") };
-    
-    # Indicate to file router which links are "live."
-    my ($dest, %dest_args) = $self->myNodeFilter ("l.to_node");
-    my ($src, %src_args) = $self->otherNodeFilter ("l.from_node");
-    my @protos = $$self{BACKEND}->protocols();
-
-    &dbexec($dbh, qq{
-	delete from t_xfer_sink l where $dest $src},
-	%dest_args, %src_args);
-    &dbexec($dbh, qq{
-	insert into t_xfer_sink (from_node, to_node, protocols, time_update)
-	select l.from_node, l.to_node, :protos, :now from t_adm_link l
-	where $dest $src},
-	":protos" => "@protos", ":now" => $now, %dest_args, %src_args);
-
-    $$self{DBH_LAST_USE} = $now;
-    $$self{LAST_CONNECT} = $now;
+    if (defined $$self{DBH}
+	&& $self->next_event_time('sync_tasks') - $now > 600
+	&& $now - $$self{DBH_LAST_USE} > 60
+	&& $now - $$self{LAST_WORK} > 4*3600)
+    {
+	$self->Logmsg("disconnecting from database");
+	$self->disconnectAgent(1);
+    }
+}; $self->clean_death();
 }
 
-######################################################################
-# Mark a task completed.  Brings the next synchronisation into next
-# fifteen minutes, and updates statistics for the current period.
-sub taskDone
+# sync local task cache with database
+sub sync_tasks
 {
-    my ($self, $task) = @_;
+  my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
+  $self->delay_max($kernel, 'sync_tasks', 1800);
 
-    # Save it.
-    return 0 if ! $self->saveTask($task);
-
-    # If next synchronisation is too far away, pull it forward.
-    my $now = &mytimeofday();
-    my $sync = $now + 900;
-    $$self{NEXT_SYNC} = $sync if $sync < $$self{NEXT_SYNC};
-    $$self{LAST_COMPLETED} = $now;
-
-    # Update statistics for the current period.
-    my ($from, $to, $code) = @$task{"FROM_NODE", "TO_NODE", "REPORT_CODE"};
-    my $s = $$self{STATS_CURRENT}{LINKS}{$to}{$from}
-        ||= { DONE => 0, USED => 0, ERRORS => 0 };
-    $$s{ERRORS}++ if $code > 0;
-    $$s{DONE}++ if $code == 0;
-
-    # Report but simplify download detail/validate logs.
-    my $detail = $$task{LOG_DETAIL} || '';
-    my $validate = $$task{LOG_VALIDATE} || '';
-    foreach my $log (\$detail, \$validate)
-    {
-	$$log =~ s/^[-\d: ]*//gm;
-	$$log =~ s/^[A-Za-z]+(\[\d+\]|\(\d+\)): //gm;
-	$$log =~ s/\n+/ ~~ /gs;
-	$$log =~ s/\s+/ /gs;
-    }
-
-    $self->Logmsg("xstats:"
-	    . " task=$$task{TASKID}"
-	    . " file=$$task{FILEID}"
-	    . " from=$$task{FROM_NODE}"
-	    . " to=$$task{TO_NODE}"
-	    . " priority=$$task{PRIORITY}"
-	    . " report-code=$$task{REPORT_CODE}"
-	    . " xfer-code=$$task{XFER_CODE}"
-	    . " size=$$task{FILESIZE}"
-	    . " t-expire=$$task{TIME_EXPIRE}"
-	    . " t-assign=$$task{TIME_ASSIGN}"
-	    . " t-export=$$task{TIME_EXPORT}"
-	    . " t-inxfer=$$task{TIME_INXFER}"
-	    . " t-xfer=$$task{TIME_XFER}"
-	    . " t-done=$$task{TIME_UPDATE}"
-	    . " lfn=$$task{LOGICAL_NAME}"
-	    . " from-pfn=$$task{FROM_PFN}"
-	    . " to-pfn=$$task{TO_PFN}"
-	    . " detail=($detail)"
-	    . " validate=($validate)"
-	    . " job-log=@{[$$task{JOBLOG} || '(no job)']}");
-
-    # Indicate success.
-    return 1;
+  $self->reconnect() unless $self->connectionValid();
+  $kernel->call($session, 'report_tasks');
+  $kernel->call($session, 'update_tasks');
+  $kernel->call($session, 'fetch_tasks') if ! -f "$$self{DROPDIR}/drain";
 }
 
-# Save a task after change of status.
-sub saveTask
+# Upload final task status to the database.
+sub report_tasks
 {
-    my ($self, $task) = @_;
-    return &output("$$self{TASKDIR}/$$task{TASKID}", Dumper($task));
-}
+   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
 
-######################################################################
-# Start a new statistics period.  If we have more than the desired
-# amount of statistics periods, remove old ones.
-sub statsNewPeriod
+eval 
 {
-    my ($self, $jobs, $tasks) = @_;
-    my $now = &mytimeofday();
+   my $tasks = $self->{TASKS};
 
-    # Prune recent history.
-    $$self{STATS} = [ grep($now - $$_{TIME} <= 3600, @{$$self{STATS}}) ];
+   my $rows = 0;
+   my (%dargs, %eargs);
+   my $dstmt = &dbprep($$self{DBH}, qq{
+	insert into t_xfer_task_done
+	(task, report_code, xfer_code, time_xfer, time_update)
+	values (?, ?, ?, ?, ?)});
+   my $estmt = &dbprep($$self{DBH}, qq{
+	insert into t_xfer_error
+	(to_node, from_node, fileid, priority, is_custodial,
+	 time_assign, time_expire, time_export, time_inxfer, time_xfer,
+         time_done, report_code, xfer_code, from_pfn, to_pfn, space_token,
+	 log_xfer, log_detail, log_validate)
+	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
 
-    # Add new period.
-    my $current = $$self{STATS_CURRENT} = { TIME => $now, LINKS => {} };
-    push(@{$$self{STATS}}, $current);
+   foreach my $task (keys %$tasks) {
+       next if ! exists $$tasks{$task}{FINISHED};
 
-    # Add statistics on transfer slots used.
-    foreach my $t (values %$tasks)
-    {
-	# Skip if the transfer task was completed or hasn't started.
-	next if defined $$t{REPORT_CODE};
-	next if ! grep(exists $$_{TASKS}{$$t{TASKID}}, values %$jobs);
+       my $arg = 1;
+       push(@{$dargs{$arg++}}, $$tasks{$task}{TASKID});
+       push(@{$dargs{$arg++}}, $$tasks{$task}{REPORT_CODE});
+       push(@{$dargs{$arg++}}, $$tasks{$task}{XFER_CODE});
+       push(@{$dargs{$arg++}}, $$tasks{$task}{TIME_XFER});
+       push(@{$dargs{$arg++}}, $$tasks{$task}{TIME_UPDATE});
 
-	# It's using up a transfer slot, add to time slot link stats.
-	my ($from, $to) = @$t{"FROM_NODE", "TO_NODE"};
-	$$current{LINKS}{$to}{$from} ||= { DONE => 0, USED => 0, ERRORS => 0 };
-	$$current{LINKS}{$to}{$from}{USED}++;
-    }
-}
-
-######################################################################
-# Compare local transfer pool with database and reset everything one
-# or the other doesn't know about.  We assume this is the only agent
-# managing transfers for the links it's given.  If database has a
-# locally unknown transfer, we mark the database one lost.  If we
-# have a local transfer unknown to the database, we trash the local.
-sub purgeLostTransfers
-{
-    my ($self, $jobs, $tasks) = @_;
-    my (%inlocal, %indb) = ();
-
-    # Get the local transfer pool.  All we need is the task ids.
-    $inlocal{$_} = 1 for keys %$tasks;
-
-    # Get the database transfer pool.  Again, just task ids.
-    my ($dest, %dest_args) = $self->myNodeFilter ("xt.to_node");
-    my ($src, %src_args) = $self->otherNodeFilter ("xt.from_node");
-    my $qpending = &dbexec($$self{DBH}, qq{
-      select xti.task
-      from t_xfer_task_inxfer xti
-        join t_xfer_task xt on xt.id = xti.task
-        left join t_xfer_task_done xtd on xtd.task = xti.task
-      where xtd.task is null and $dest $src},
-      %dest_args, %src_args);
-    while (my ($taskid) =  $qpending->fetchrow())
-    {
-	$indb{$taskid} = 1;
-    }
-
-    # Calculate differences.
-    my @lostdb = grep(! $indb{$_}, keys %inlocal);
-    my @lostlocal = grep(! $inlocal{$_}, keys %indb);
-
-
-    if ( @lostlocal )
-    {
-      $self->Alert("resetting database tasks lost locally: @{[sort @lostlocal]}"
-	   . " (locally known: @{[sort keys %inlocal]})");
-      # Mark locally unknown tasks as lost in database.
-      my @now = (&mytimeofday()) x scalar @lostlocal;
-      my $qlost = &dbprep($$self{DBH}, qq{
-        insert into t_xfer_task_done
-          (task, report_code, xfer_code, time_xfer, time_update)
-	  values (?, @{[ PHEDEX_RC_LOST_TASK ]}, @{[ PHEDEX_XC_NOXFER ]}, -1, ?)});
-      &dbbindexec($qlost, 1 => \@lostlocal, 2 => \@now);
-      $$self{DBH}->commit();
-    }
-
-    # Remove locally known tasks forgotten by database.
-    $self->Alert("resetting local tasks lost in database: @{[sort @lostdb]}"
-	   . " (database known: @{[sort keys %indb]})")
-	if @lostdb;
-    foreach (@lostdb)
-    {
-	delete $$tasks{$_};
-	unlink("$$self{TASKDIR}/$_");
-    }
+       # Log errors.  We ignore expired tasks
+       if ($$tasks{$task}{REPORT_CODE} != 0 &&
+	   $$tasks{$task}{REPORT_CODE} != PHEDEX_RC_EXPIRED)
+       {
+	   my $arg = 1;
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{TO_NODE_ID});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{FROM_NODE_ID});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{FILEID});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{PRIORITY});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{IS_CUSTODIAL});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_ASSIGN});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_EXPIRE});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_EXPORT});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_INXFER});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_XFER});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_UPDATE});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{REPORT_CODE});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{XFER_CODE});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{FROM_PFN});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{TO_PFN});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{SPACE_TOKEN});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_XFER});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_DETAIL});
+	   push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_VALIDATE});
+       }
+       
+       if ((++$rows % 100) == 0)
+       {
+	   &dbbindexec($dstmt, %dargs);
+	   &dbbindexec($estmt, %eargs) if %eargs;
+	   $$self{DBH}->commit();
+	   foreach my $t (@{$dargs{1}}) {
+	       $self->Logmsg("uploaded status of task=$t") if $$self{VERBOSE};
+	       unlink("$$self{TASKDIR}/$t");
+	       delete $$tasks{$t};
+	   }
+	   %dargs = ();
+	   %eargs = ();
+       }
+   }
+   
+   if (%dargs)
+   {
+       &dbbindexec($dstmt, %dargs);
+       &dbbindexec($estmt, %eargs) if %eargs;
+       $$self{DBH}->commit();
+       foreach my $t (@{$dargs{1}}) {
+	   $self->Logmsg("uploaded status of task=$t") if $$self{VERBOSE};
+	   unlink("$$self{TASKDIR}/$t");
+	   delete $$tasks{$t};
+       }
+   }
+}; $self->clean_death();
 }
 
 # Fetch new tasks from the database.
-sub fetchNewTasks
+sub fetch_tasks
 {
-    my ($self, $jobs, $tasks) = @_;
-    my ($dest, %dest_args) = $self->myNodeFilter ("xt.to_node");
-    my ($src, %src_args) = $self->otherNodeFilter ("xt.from_node");
-    my $now = &mytimeofday();
-    my (%pending, %busy);
+   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
 
-    # Propagate extended expire time to local task copies.
-    my $qupdate = &dbexec($$self{DBH}, qq{
-	select xt.id taskid, xt.time_expire
-	from t_xfer_task xt
-	  join t_xfer_task_inxfer xti on xti.task = xt.id
-	  left join t_xfer_task_done xtd on xtd.task = xt.id
-	where xtd.task is null and $dest $src},
-        %dest_args, %src_args);
-    while (my $row = $qupdate->fetchrow_hashref())
-    {
-	next if ! exists $$tasks{$$row{TASKID}};
-	my $existing = $$tasks{$$row{TASKID}};
-	next if $$existing{TIME_EXPIRE} >= $$row{TIME_EXPIRE};
-	$self->Logmsg("task=$$existing{TASKID} expire time extended from "
-		. join(" to ",
-		       map { strftime('%Y-%m-%d %H:%M:%S', gmtime($_)) }
-		       $$existing{TIME_EXPIRE}, $$row{TIME_EXPIRE}))
-	    if $$self{VERBOSE};
-	$$existing{TIME_EXPIRE} = $$row{TIME_EXPIRE};
-	&output("$$self{TASKDIR}/$$existing{TASKID}", Dumper($existing));
-    }
+eval 
+{
+   my $tasks = $self->{TASKS};
+   my ($dest, %dest_args) = $self->myNodeFilter ("xt.to_node");
+   my ($src, %src_args) = $self->otherNodeFilter ("xt.from_node");
+   my $now = &mytimeofday();
+   my (%pending, %busy);
 
-    # If we have just too much work, leave.
-    return if scalar keys %$tasks >= 5_000;
+   # If we have just too much work, leave.
+   my $maxtasks = 5_000;
+   my $localtasks = scalar keys %$tasks;
+   if ($localtasks >= $maxtasks) {
+       $self->Logmsg('over $maxtasks pending tasks ($localtasks), not fetching more') if $self->{VERBOSE};
+       return;
+   }
 
     # Find out how many we have pending per link so we can throttle.
     ($pending{"$$_{FROM_NODE} -> $$_{TO_NODE}"} ||= 0)++
-	for grep(! exists $$_{REPORT_CODE}, values %$tasks);
+	for grep(! exists $$_{FINISHED}, values %$tasks);
 
     # Fetch new tasks.
     my $i = &dbprep($$self{DBH}, qq{
@@ -389,7 +342,6 @@ sub fetchNewTasks
 	}
 
 	# Mark used in database.
-
         $row->{FROM_PROTOS} = [@{$self->{BACKEND}{PROTOCOLS}}];
         $row->{TO_PROTOS}   = [@{$self->{BACKEND}{PROTOCOLS}}];
 	my $h;
@@ -425,6 +377,9 @@ sub fetchNewTasks
 	# if things go badly wrong here, we'll clean it up in purge.
 	return if ! &output("$$self{TASKDIR}/$$row{TASKID}", Dumper($row));
 	$$tasks{$$row{TASKID}} = $row;
+
+	# start the task workflow
+	$kernel->yield('start_task', $row->{TASKID});
     }
     
     # report error summary
@@ -434,362 +389,201 @@ sub fetchNewTasks
     }
 
     $q->finish(); # In case we left before going through all the results
+   $self->{DBH}->commit();
+}; $self->clean_death();
 }
 
-# Upload final task status to the database.
-sub updateTaskStatus
+# update expire time changes to tasks
+# XXX TODO update priority
+sub update_tasks
 {
-    my ($self, $tasks) = @_;
-    my $rows = 0;
-    my (%dargs, %eargs);
-    my $dstmt = &dbprep($$self{DBH}, qq{
-	insert into t_xfer_task_done
-	(task, report_code, xfer_code, time_xfer, time_update)
-	values (?, ?, ?, ?, ?)});
-    my $estmt = &dbprep($$self{DBH}, qq{
-	insert into t_xfer_error
-	(to_node, from_node, fileid, priority, is_custodial,
-	 time_assign, time_expire, time_export, time_inxfer, time_xfer,
-         time_done, report_code, xfer_code, from_pfn, to_pfn, space_token,
-	 log_xfer, log_detail, log_validate)
-	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
-    foreach my $task (keys %$tasks)
+   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+
+eval
+{
+   my $tasks = $self->{TASKS};
+
+    # Propagate extended expire time to local task copies.
+    my ($dest, %dest_args) = $self->myNodeFilter ("xt.to_node");
+    my ($src, %src_args) = $self->otherNodeFilter ("xt.from_node");
+
+    my $qupdate = &dbexec($$self{DBH}, qq{
+	select xt.id taskid, xt.time_expire
+	from t_xfer_task xt
+	  join t_xfer_task_inxfer xti on xti.task = xt.id
+	  left join t_xfer_task_done xtd on xtd.task = xt.id
+	where xtd.task is null and $dest $src},
+        %dest_args, %src_args);
+
+    while (my $row = $qupdate->fetchrow_hashref())
     {
-	next if ! exists $$tasks{$task}{REPORT_CODE};
-
-	my $arg = 1;
-	push(@{$dargs{$arg++}}, $$tasks{$task}{TASKID});
-	push(@{$dargs{$arg++}}, $$tasks{$task}{REPORT_CODE});
-	push(@{$dargs{$arg++}}, $$tasks{$task}{XFER_CODE});
-	push(@{$dargs{$arg++}}, $$tasks{$task}{TIME_XFER});
-	push(@{$dargs{$arg++}}, $$tasks{$task}{TIME_UPDATE});
-
-	# Log errors.  We ignore expired tasks
-	if ($$tasks{$task}{REPORT_CODE} != 0 &&
-	    $$tasks{$task}{REPORT_CODE} != PHEDEX_RC_EXPIRED)
-	{
-	    my $arg = 1;
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{TO_NODE_ID});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{FROM_NODE_ID});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{FILEID});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{PRIORITY});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{IS_CUSTODIAL});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_ASSIGN});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_EXPIRE});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_EXPORT});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_INXFER});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_XFER});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{TIME_UPDATE});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{REPORT_CODE});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{XFER_CODE});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{FROM_PFN});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{TO_PFN});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{SPACE_TOKEN});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_XFER});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_DETAIL});
-	    push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_VALIDATE});
-	}
-
-	if ((++$rows % 100) == 0)
-	{
-	    &dbbindexec($dstmt, %dargs);
-	    &dbbindexec($estmt, %eargs) if %eargs;
-	    $$self{DBH}->commit();
-	    foreach my $t (@{$dargs{1}}) {
-		$self->Logmsg("uploaded status of task=$t") if $$self{VERBOSE};
-		unlink("$$self{TASKDIR}/$t");
-		delete $$tasks{$t};
-	    }
-	    %dargs = ();
-	    %eargs = ();
-	}
+	next if ! exists $$tasks{$$row{TASKID}};
+	my $existing = $$tasks{$$row{TASKID}};
+	next if $$existing{TIME_EXPIRE} >= $$row{TIME_EXPIRE};
+	$self->Logmsg("task=$$existing{TASKID} expire time extended from "
+		. join(" to ",
+		       map { strftime('%Y-%m-%d %H:%M:%S', gmtime($_)) }
+		       $$existing{TIME_EXPIRE}, $$row{TIME_EXPIRE}))
+	    if $$self{VERBOSE};
+	$$existing{TIME_EXPIRE} = $$row{TIME_EXPIRE};
+	&output("$$self{TASKDIR}/$$existing{TASKID}", Dumper($existing));
     }
-
-    if (%dargs)
-    {
-	&dbbindexec($dstmt, %dargs);
-	&dbbindexec($estmt, %eargs) if %eargs;
-        $$self{DBH}->commit();
-	foreach my $t (@{$dargs{1}}) {
-	    $self->Logmsg("uploaded status of task=$t") if $$self{VERBOSE};
-	    unlink("$$self{TASKDIR}/$t");
-	    delete $$tasks{$t};
-	}
-    }
+}; $self->clean_death();
 }
 
-# Push status of completed to the database and pull more tasks.
-sub doSync
+# Read in and verify all transfer tasks.
+sub verify_tasks
 {
-    my ($self, $jobs, $tasks) = @_;
-
-    # Upload status for completed tasks.
-    $self->updateTaskStatus($tasks);
-
-    # Fetch new tasks where necessary.
-    $self->fetchNewTasks($jobs, $tasks)
-	if ! -f "$$self{DROPDIR}/drain";
-    $$self{DBH}->commit();
-}
-
-# Prepare tasks for transfer
-sub prepare
-{
-    my ($self, $tasks) = @_;
+    my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+    $self->delay_max($kernel, 'verify_tasks', 15);
 
     my $now = &mytimeofday();
-    my $n_add = 0;
 
-    # Perhaps stop.
-    $self->maybeStop();
+    my @tasks;
+    return if ! &getdir($$self{TASKDIR}, \@tasks);
 
-    # Iterate through all the tasks and add jobs for pre-validation
-    # and pre-deletion if necessary
-    foreach my $task (keys %$tasks)
+    my $do_purge = 0;
+    foreach my $taskid (@tasks)
     {
-	my $taskinfo = $$tasks{$task};
-
-	next if $$taskinfo{PREPARED};
-	last if $n_add >= $$self{PREPARE_JOBS};
-
-	my $do_preval = ($$self{VALIDATE_COMMAND} && $$self{PREVALIDATE}) ? 1 : 0;
-	my $do_predel = ($$self{DELETE_COMMAND} && $$self{PREDELETE}) ? 1 : 0;
-
-	# Note on order: pre-validation is done before pre-deletion,
-	# but we queue the pre-deletion tasks first in order to get
-	# more tasks in the PREPARED state
-
-	# Pre-deletion (only if pre-validation is completed and unsuccessful)
-	if ($do_predel && !$$taskinfo{PREDELETE_DONE}
-	    && (!$do_preval || ($do_preval 
-				&& $$taskinfo{PREVALIDATE_DONE} 
-				&& $$taskinfo{PREVALIDATE_STATUS} != PHEDEX_VC_SUCCESS
-				&& $$taskinfo{PREVALIDATE_STATUS} != PHEDEX_VC_VETO))
-	    ) {
-	    $$taskinfo{PREDELETE_DONE} = 0;
-	    $n_add++;
-	    $self->{JOBMANAGER}->addJob (
-               sub { $$taskinfo{PREDELETE_DONE} = 1;
-                     $$taskinfo{PREDELETE_STATUS} = $_[0]{STATUS};
-		     return if ! $self->saveTask($taskinfo);
-		 },
-		{ TIMEOUT => $self->{TIMEOUT}, LOGPREFIX => 1 },
-		@{$self->{DELETE_COMMAND}}, "pre",
-	        @$taskinfo{ qw(TO_PFN) });
-	}
-
-	# Pre-validation
-	my $fvstatus = "$$self{PREPAREDIR}/T${task}V";
-	my $fvlog    = "$$self{PREPAREDIR}/T${task}L";
-	my $vstatus;
-	my $done = 0;
-
-	if (-s $fvstatus && (! ($vstatus = &evalinfo($fvstatus)) || $@))
+	my $info = &evalinfo("$$self{TASKDIR}/$taskid");
+	if (! $info || $@)
 	{
-	    $vstatus = { START => $now, END => $now, STATUS => PHEDEX_VC_LOST_FILE,
-		         LOG => "agent lost the file pre-validation result" };
-	    return if ! &output($fvstatus, Dumper($vstatus));
+	    $self->Alert("garbage collecting corrupted transfer task $taskid ($info, $@)");
+	    unlink("$$self{TASKDIR}/$taskid");
+	    $do_purge = 1;
+	    next;
 	}
-
-	if ($do_preval && !$vstatus) 
-	{
-	    return if ! &output($fvstatus, "");
-	    $$taskinfo{PREVALIDATE_DONE} = 0;
-	    $n_add++;
-	    $self->{JOBMANAGER}->addJob(sub {
-		&output($fvstatus, Dumper ({
-		    START => $now, END => &mytimeofday(),
-		    STATUS => $_[0]{STATUS}, LOG => &input($fvlog) }));
-	    },
-	    { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $fvlog },
-	    @{$$self{VALIDATE_COMMAND}}, "pre",
-	    @$taskinfo{qw(TO_PFN FILESIZE CHECKSUM)}, &boolean_yesno($taskinfo->{IS_CUSTODIAL}));
-	} elsif ( $vstatus ) {
-	    my $statcode = &numeric_statcode($$vstatus{STATUS});
-
-	    # if the pre-validation returned success, this file is already there.  mark success
-	    if ($statcode == PHEDEX_VC_SUCCESS) 
-	    {
-		$$taskinfo{REPORT_CODE} = PHEDEX_RC_SUCCESS;
-		$$taskinfo{XFER_CODE} = PHEDEX_XC_NOXFER;
-		$$taskinfo{LOG_DETAIL} = 'file validated before transfer attempt';
-		$$taskinfo{LOG_XFER} = 'no transfer was attempted';
-		$$taskinfo{LOG_VALIDATE} = $$vstatus{LOG};
-		$$taskinfo{TIME_UPDATE} = $$vstatus{END};
-		$$taskinfo{TIME_XFER} = -1;
-		$done = 1;
-	    } 
-	    # if the pre-validation returned 86 (PHEDEX_VC_VETO), the
-	    # transfer is vetoed, throw this task away.
-	    # see http://www.urbandictionary.com/define.php?term=eighty-six
-	    # or google "eighty-sixed".
-	    # We set the REPORT_CODE to -86 (PHEDEX_RC_VETO) so that
-	    # the error is counted as a "PhEDEx error", not a transfer
-	    # error, so it will not count against the link in the
-	    # backoff algorithms.
-	    elsif ($statcode == PHEDEX_VC_VETO)
-	    {
-		$$taskinfo{REPORT_CODE} = PHEDEX_RC_VETO;
-		$$taskinfo{XFER_CODE} = PHEDEX_XC_NOXFER;
-		$$taskinfo{LOG_DETAIL} = 'file pre-validation vetoed the transfer';
-		$$taskinfo{LOG_XFER} = 'no transfer was attempted';
-		$$taskinfo{LOG_VALIDATE} = $$vstatus{LOG};
-		$$taskinfo{TIME_UPDATE} = $$vstatus{END};
-		$$taskinfo{TIME_XFER} = -1;
-		$done = 1;
-	    }
-	    # FIXME:  archive prevalidation state/log?
-	    unlink $fvstatus;
-	    unlink $fvlog;
-	    $$taskinfo{PREVALIDATE_DONE} = 1;
-	    $$taskinfo{PREVALIDATE_STATUS} = $statcode;
-	}
-
-	# Are we prepared?
-	if ( (!$do_preval || $$taskinfo{PREVALIDATE_DONE}) &&
-	     (!$do_predel || $$taskinfo{PREDELETE_DONE}) ) {
-	    $$taskinfo{PREPARED} = 1;
-	} else {
-	    $$taskinfo{PREPARED} = 0;
-	}
-
-	if ($done) {
-	    $$taskinfo{PREPARED} = 1;
-	    return if ! $self->taskDone($taskinfo);
-	} else {
-	    return if ! $self->saveTask($taskinfo);
-	}
+	$self->{TASKS}->{$taskid} = $info;
+	my $expired = $self->check_task_expire($taskid);
+        $kernel->yield('finish_task', $taskid) if $expired;
     }
 
-    # Figure out how much work we have left to do
-    my $n_tasks = scalar keys %$tasks;
-    my $n_prepared = scalar grep(exists $$_{PREPARED} && $$_{PREPARED} == 1, values %$tasks);
-    
-    $self->Logmsg("started $n_add prepare jobs:  $n_prepared of $n_tasks tasks prepared for transfer") 
-	if $$self{VERBOSE} && $n_tasks;
+    # Create new time period with current statistics.
+    $self->statsNewPeriod();
 
-    # return true if all tasks are prepared
-    return ($n_prepared == $n_tasks) ? 0 : 1;
+    $self->delay_max($kernel, 'purge_lost_tasks', 0) if $do_purge;
+
+    # Remember current time if we are seeing work.
+    $$self{LAST_WORK} = $now if %{$self->{TASKS}};
 }
 
-# Check how a copy job is doing.
-sub check
+# manage the state archives
+sub manage_archives
 {
-    my ($self, $jobname, $jobs, $tasks) = @_;
+   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+   $self->delay_max($kernel, 'manage_archives', 3600);
 
-    # Perhaps stop.
-    $self->maybeStop();
+   my $archivedir = $$self{ARCHIVEDIR};
+   my @old = <$archivedir/*>;
+   my $now = &mytimeofday();
+   &rmtree($_) for (scalar @old > 500 ? @old 
+		    : grep((stat($_))[9] < $now - 86400, @old));
+}
 
-    # First ask backend to have a look.
-    $$self{BACKEND}->check($jobname, $jobs, $tasks);
+# Kill ghost transfers in the database and locally.
+sub purge_lost_tasks
+{
+    my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+    $self->delay_max($kernel, 'purge_lost_tasks', 3600);
 
-    # Prepare some useful shortcuts.  "$live" indicates whether the
-    # job is still live.  If not, below we will force tasks complete.
+eval
+{
+    my $tasks = $self->{TASKS};
     my $now = &mytimeofday();
-    my $jobpath = "$$self{WORKDIR}/$jobname";
-    my $jobinfo = $$jobs{$jobname};
 
-    my $live = ($now - ((stat("$jobpath/live"))[9] || 0) > 600 ? 0 : 1);
-    my $done = 1;
+    # XXX TODO: protect against DB errors
+    $self->reconnect() if ! $self->connectionValid();
 
-    # Check all the tasks in the job.
-    foreach my $task (keys %{$$jobinfo{TASKS}})
+    # Compare local transfer pool with database and reset everything one
+    # or the other doesn't know about.  We assume this is the only agent
+    # managing transfers for the links it's given.  If database has a
+    # locally unknown transfer, we mark the database one lost.  If we
+    # have a local transfer unknown to the database, we trash the local.
+    my (%inlocal, %indb) = ();
+
+    # Get the local transfer pool.  All we need is the task ids.
+    $inlocal{$_} = 1 for keys %$tasks;
+
+    # Get the database transfer pool.  Again, just task ids.
+    my ($dest, %dest_args) = $self->myNodeFilter ("xt.to_node");
+    my ($src, %src_args) = $self->otherNodeFilter ("xt.from_node");
+    my $qpending = &dbexec($$self{DBH}, qq{
+      select xti.task
+      from t_xfer_task_inxfer xti
+        join t_xfer_task xt on xt.id = xti.task
+        left join t_xfer_task_done xtd on xtd.task = xti.task
+      where xtd.task is null and $dest $src},
+      %dest_args, %src_args);
+    while (my ($taskid) =  $qpending->fetchrow())
     {
-	# Prepare useful shortcuts.
-	my $fxstatus = "$jobpath/T${task}X";
-	my $fvstatus = "$jobpath/T${task}V";
-	my $fvlog    = "$jobpath/T${task}L";
-	my $taskinfo = $$tasks{$task};
-
-	# If we lost this task, ignore the entry.
-	next if ! $taskinfo;
-
-	# Find task details.  Ignore lost tasks.
-	my ($xstatus, $vstatus);
-	if ((! -f $fxstatus && ! $live)
-	    || (-f _ && (! ($xstatus = &evalinfo($fxstatus)) || $@)))
-	{
-	    $xstatus = { START => $now, END => $now, STATUS => PHEDEX_XC_LOST_FILE,
-		         DETAIL => "agent lost the transfer", LOG => "" };
-	    return if ! &output($fxstatus, Dumper($xstatus));
-	}
-
-	if (-s $fvstatus && (! ($vstatus = &evalinfo($fvstatus)) || $@))
-	{
-	    $vstatus = { START => $now, END => $now, STATUS => PHEDEX_VC_LOST_FILE,
-		         LOG => "agent lost the file validation result" };
-	    return if ! &output($fvstatus, Dumper($vstatus));
-	}
-
-	# Start verifying if transfer completed.
-	if ($xstatus && ! $vstatus)
-	{
-	    if ($$self{VALIDATE_COMMAND})
-	    {
-		return if ! &output($fvstatus, "");
-		$self->{JOBMANAGER}->addJob(sub {
-		        &output($fvstatus, Dumper ({
-		            START => $now, END => &mytimeofday(),
-		            STATUS => $_[0]{STATUS}, LOG => &input($fvlog) }));
-		        $$jobinfo{RECHECK} = 1; },
-	            { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $fvlog },
-	            @{$$self{VALIDATE_COMMAND}}, $$xstatus{STATUS},
-	            @$taskinfo{qw(TO_PFN FILESIZE CHECKSUM)}, &boolean_yesno($taskinfo->{IS_CUSTODIAL}));
-	    }
-	    else
-	    {
-	        &output($fvstatus, Dumper({
-		    START => $now, END => &mytimeofday(),
-		    STATUS => $$xstatus{STATUS},
-		    LOG => "validation bypassed" }));
-		$$jobinfo{RECHECK} = 1;
-	    }
-	    $done = 0;
-	}
-
-        # Update task status for fully verified tasks.
-	elsif ($vstatus && ! exists $$taskinfo{REPORT_CODE})
-	{
-	    # If the transfer failed, issue clean-up action without
-	    # waiting it to return -- just go ahead with harvesting.
-	    # The caller will in any case wait before proceeding.
-	    $self->{JOBMANAGER}->addJob(sub {}, { TIMEOUT => $$self{TIMEOUT} },
-		@{$$self{DELETE_COMMAND}}, "post", $$taskinfo{TO_PFN})
-		if $$vstatus{STATUS} && $$self{DELETE_COMMAND};
-
-	    # FIXME: More elaborate transfer code reporting?
-	    #  - validation: successful/terminated/timed out/error + detail + log
-	    #      where detail specifies specific error (size mismatch, etc.)
-	    #  - transfer: successful/terminated/timed out/error + detail + log
-	    
-	    # string STATUS (e.g. 'signal 1') means the child process
-	    # was terminated/killed
-	    $$taskinfo{REPORT_CODE} = &numeric_statcode($$vstatus{STATUS});
-	    $$taskinfo{XFER_CODE} = &numeric_statcode($$xstatus{STATUS});
-	    $$taskinfo{LOG_DETAIL} = $$xstatus{DETAIL};
-	    $$taskinfo{LOG_XFER} = $$xstatus{LOG};
-	    $$taskinfo{LOG_VALIDATE} = $$vstatus{LOG};
-	    $$taskinfo{TIME_UPDATE} = $$vstatus{END};
-	    $$taskinfo{TIME_XFER} = $$xstatus{START};
-	    $$taskinfo{JOBLOG} = "$$self{ARCHIVEDIR}/$jobname";
-	    return if ! $self->taskDone($taskinfo);
-	}
-
-	# Otherwise we are still not done with this job.
-	else
-	{
-	    $done = 0;
-	}
+	$indb{$taskid} = 1;
     }
 
-    # If we are done with the copy job, nuke it.
-    if ($done)
+    # Calculate differences.
+    my @lostdb = grep(! $indb{$_}, keys %inlocal);
+    my @lostlocal = grep(! $inlocal{$_}, keys %indb);
+
+    if ( @lostlocal )
     {
-	$self->Logmsg("copy job $jobname completed") if $$self{VERBOSE};
-	&mv($jobpath, "$$self{ARCHIVEDIR}/$jobname");
-	delete $$jobs{$jobname};
+      $self->Alert("resetting database tasks lost locally: @{[sort @lostlocal]}"
+	   . " (locally known: @{[sort keys %inlocal]})");
+      # Mark locally unknown tasks as lost in database.
+      my @now = (&mytimeofday()) x scalar @lostlocal;
+      my $qlost = &dbprep($$self{DBH}, qq{
+        insert into t_xfer_task_done
+          (task, report_code, xfer_code, time_xfer, time_update)
+	  values (?, @{[ PHEDEX_RC_LOST_TASK ]}, @{[ PHEDEX_XC_NOXFER ]}, -1, ?)});
+      &dbbindexec($qlost, 1 => \@lostlocal, 2 => \@now);
+      $$self{DBH}->commit();
+    }
+
+    # Remove locally known tasks forgotten by database.
+    $self->Alert("resetting local tasks lost in database: @{[sort @lostdb]}"
+	   . " (database known: @{[sort keys %indb]})")
+	if @lostdb;
+    foreach (@lostdb)
+    {
+	delete $$tasks{$_};
+	unlink("$$self{TASKDIR}/$_");
+    }
+
+    $$self{DBH_LAST_USE} = $now;
+}; $self->clean_death();
+}
+
+# called once at agent start up to get existing saved tasks moving
+sub init_tasks
+{
+    my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+
+    foreach my $task (values %{$self->{TASKS}}) {
+	$kernel->yield('start_task', $task->{TASKID});
     }
 }
+
+# XXX notes about fill(), check(), frontend/backend interaction
+#
+# - fill() fills the transfer backend until it is full as before
+# - startBatch($tasks) returns undef if backend is full for that link
+#   else returns the job name.  fill() ends when it has tried to
+#   submit transfers for every link.
+# - fill() is triggered every 15 seconds (previous idle() time)
+# - startBatch($tasks) is the only backend function the frontend uses
+# - startBatch triggers 'select_task' for each task that it accepts.  this sets $task{STARTED}.
+# - the backend then waits for each task in its job to receive the
+#   "transfer_task" event.  when this is done, it will actually submit
+#   the transfer job
+# - the backend checks the status of each file.  when it finds that a file transfer is finished,
+#   it triggers "transfer_task_done", control is back in the frontend for that task
+# - the frontend is to know nothing about active transfer jobs, etc.
+#   all of this is pushed to the backend.
+# - the backend knows nothing about the workflow of tasks.  all it
+#   knows are "select_task", "transfer_task" and "transfer_task_done"
+# - selected tasks are not to be expired
+# - lost tasks...  must be cleaned up by the backend.
+# - upon restart, the backend will trigger "transfer_task_done" for
+#   each of its existing tasks, or try to resume the transfer
+
 
 # Fill the backend with as many transfers as it can take.
 # 
@@ -810,49 +604,27 @@ sub check
 # more files, but sharing the avaiable backend job slots fairly.  The
 # weighting by consumsed transfer slots is a key factor as it permits
 # the agent to detect which links benefit from being given more files.
-sub fill
+sub fill_backend
 {
-    my ($self, $jobs, $tasks) = @_;
+    my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+    $self->delay_max($kernel, 'fill_backend', 15);
+
+    my $tasks = $self->{TASKS};
+    
     my (%stats, %todo, %sorted);
     my $now = &mytimeofday();
     my $nlinks = 0;
 
     # If the backend is busy, avoid doing heavy lifting.
-    return if $$self{BACKEND}->isBusy($jobs, $tasks);
+    return if $$self{BACKEND}->isBusy();
 
     # Determine links with pending transfers.
     foreach my $t (values %$tasks)
     {
+	next if $t->{STARTED};
+
 	my $to = $$t{TO_NODE};
 	my $from = $$t{FROM_NODE};
-
-	next if ! $$t{PREPARED};
-	next if exists $$t{REPORT_CODE};
-	next if grep (exists $$_{TASKS}{$$t{TASKID}}, values %$jobs);
-
-	# If the task is too near expiration, just mark it failed.
-        # If it has already expired, just remove it.
-	my $prettyhours = sprintf "%0.1fh ", ($now - $$t{TIME_ASSIGN})/3600;
-	if ($now >= $$t{TIME_EXPIRE})
-	{
-	    $self->Logmsg("PhEDEx transfer task $$t{TASKID} has expired after $prettyhours, discarding");
-	    unlink("$$self{TASKDIR}/$$t{TASKID}");
-	    delete $$tasks{$$t{TASKID}};
-	    next;
-	}
-	elsif ($now >= $$t{TIME_EXPIRE} - 1200)
-	{
-	    $self->Logmsg("PhEDEx transfer task $$t{TASKID} was nearly expired after $prettyhours, discarding");
-	    $$t{XFER_CODE}   = PHEDEX_XC_NOXFER;
-	    $$t{REPORT_CODE} = PHEDEX_RC_EXPIRED;
-	    $$t{LOG_DETAIL} = "transfer expired in the PhEDEx download agent queue after $prettyhours";
-	    $$t{LOG_XFER} = "no transfer was attempted";
-	    $$t{LOG_VALIDATE} = "no validation was attempted";
-	    $$t{TIME_UPDATE} = $now;
-	    $$t{TIME_XFER} = -1;
-	    return if ! $self->taskDone($t);
-	    next;
-	}
 
 	# Consider this task.
 	$nlinks++ if ! exists $todo{$to}{$from};
@@ -907,7 +679,7 @@ sub fill
 	    }
 
 	    # Pass links which are busy
-	    if ( $$self{BACKEND}->isBusy ($jobs, $tasks, $to, $from) ) {
+	    if ( $$self{BACKEND}->isBusy ($to, $from) ) {
 		$self->Logmsg("link $from -> $to is busy at the moment, ",
 			      "not allocating transfers")
 		    if $$self{VERBOSE};
@@ -975,7 +747,7 @@ sub fill
     # the link statistics.  Then fill the job slot from the transfers
     # tasks on that link, in the order of task priority.
     my $exhausted = 0;
-    while (! $$self{BACKEND}->isBusy($jobs, $tasks) && @P)
+    while (! $$self{BACKEND}->isBusy() && @P)
     {
 	$self->maybeStop();
 
@@ -996,24 +768,29 @@ sub fill
 	}
 
 	# Send files to transfer.
-	my $id = $$self{BATCH_ID}++;
-	my $jobname = "job.$$self{BOOTTIME}.$id";
-	my $dir = "$$self{WORKDIR}/$jobname";
-	&mkpath($dir);
-	
-	$$self{BACKEND}->startBatch ($jobs, $tasks, $dir, $jobname, $todo{$to}{$from});
-	$self->Logmsg("copy job $jobname assigned to link $from -> $to with "
-		      . sprintf('p=%0.3f and W=%0.3f and ', $p, $stats{$to}{$from}{W})
-		      . scalar(@{$todo{$to}{$from}})
-		      . " transfer tasks in queue")
-	    if $$self{VERBOSE};
+	my ($jobid, $jobdir, $jobtasks) = $$self{BACKEND}->startBatch ($todo{$to}{$from});
 
-	my $linkbusy = $$self{BACKEND}->isBusy($jobs, $tasks, $to, $from);
+	if ($jobid) {
+	    foreach my $taskid ( @{$jobtasks} ) {
+		$tasks->{$taskid}->{JOBID} = $jobid;
+		$tasks->{$taskid}->{JOBDIR} = $jobdir;
+		$tasks->{$taskid}->{STARTED} = $now;
+		$kernel->yield('start_task', $taskid);
+	    }
+
+	    $self->Logmsg("copy job $jobid assigned to link $from -> $to with "
+			  . sprintf('p=%0.3f and W=%0.3f and ', $p, $stats{$to}{$from}{W})
+			  . scalar(@{$todo{$to}{$from}})
+			  . " transfer tasks in queue")
+		if $$self{VERBOSE};
+	}
+
+	my $linkbusy = $$self{BACKEND}->isBusy($to, $from);
 	my $linkexhausted = @{$todo{$to}{$from}} ? 0 : 1;
 
 	# If we exhausted the files on this link or the link is busy, remove the link's
 	# share from P.  We have to recalculate P then also.
-	if ( ($linkexhausted || $linkbusy) && ! $$self{BACKEND}->isBusy($jobs, $tasks))
+	if ( ($linkexhausted || $linkbusy) && ! $$self{BACKEND}->isBusy())
 	{
             $self->Logmsg("transfers on link $from -> $to exhausted, ",
 			  "recalculating link probabilities")
@@ -1053,197 +830,535 @@ sub fill
     # tasks on all links, synchronise immediately.  This applies only
     # on transition from having tasks to not having them (only), so we
     # are not forcing continuous unnecessary reconnects.
-    if (! $nlinks && $$self{NEXT_SYNC} > $now)
+    if (! $nlinks )
     {
-	$$self{NEXT_SYNC} = $now-1;
+	$self->delay_max($kernel, 'sync_tasks', 0);
 	$self->Logmsg("ran out of tasks, scheduling immediate synchronisation")
 	    if $$self{VERBOSE};
     }
-    elsif ($exhausted && $$self{NEXT_SYNC} - $now > 300)
+    elsif ($exhausted && $self->next_event_time('sync_tasks') - $now > 300)
     {
-	$$self{NEXT_SYNC} = $now + 300;
+	$self->delay_max($kernel, 'sync_tasks', 300);
 	$self->Logmsg("ran out of tasks on $exhausted links, scheduling"
 		. " next synchronisation in five minutes")
 	    if $$self{VERBOSE};
     }
 }
 
+# start the transfer workflow for a task
+sub start_task
+{
+    my ( $self, $kernel, $taskid ) = @_[ OBJECT, KERNEL, ARG0 ];
+    my @workflow = $self->get_workflow();
+    my $next_call = shift @workflow;
+    $kernel->yield( $next_call, $taskid, \@workflow );
+}
+
+sub prevalidate_task
+{
+    my ( $self, $kernel, $taskid, $workflow ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+
+    my $task = $self->{TASKS}->{$taskid};
+    my $jobpath = $self->{TASKS}->{$taskid}->{JOBDIR};
+    my $log = "$jobpath/T${taskid}-prevalidate-log";
+
+    $self->addJob( sub { my $jobargs = shift; $kernel->yield('prevalidate_done', $taskid, $workflow, $jobargs) },
+		   { TIMEOUT => $$self{TIMEOUT}, 
+		     LOGFILE => $log },
+		   @{$$self{VALIDATE_COMMAND}}, "pre",
+		   @$task{qw(TO_PFN FILESIZE CHECKSUM)}, &boolean_yesno($task->{IS_CUSTODIAL}));
+}
+
+sub prevalidate_done
+{
+    my ( $self, $kernel, $taskid, $workflow, $jobargs ) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2 ];
+    
+    my $task = $self->{TASKS}->{$taskid};
+    my $statcode = &numeric_statcode($jobargs->{STATUS});
+    my $log = &input($jobargs->{LOGFILE});
+    my $time_end = &mytimeofday();
+
+    $task->{PREVALIDATE_CODE} = $statcode;
+    
+    my $done = 0;
+
+    # if the pre-validation returned success, this file is already there.  mark success
+    if ($statcode == PHEDEX_VC_SUCCESS) 
+    {
+	$$task{REPORT_CODE} = PHEDEX_RC_SUCCESS;
+	$$task{XFER_CODE} = PHEDEX_XC_NOXFER;
+	$$task{LOG_DETAIL} = 'file validated before transfer attempt';
+	$$task{LOG_XFER} = 'no transfer was attempted';
+	$$task{LOG_VALIDATE} = $log;
+	$$task{TIME_UPDATE} = $time_end;
+	$$task{TIME_XFER} = -1;
+	$done = 1;
+    } 
+    # if the pre-validation returned 86 (PHEDEX_VC_VETO), the
+    # transfer is vetoed, throw this task away.
+    # see http://www.urbandictionary.com/define.php?term=eighty-six
+    # or google "eighty-sixed".
+    # We set the REPORT_CODE to -86 (PHEDEX_RC_VETO) so that
+    # the error is counted as a "PhEDEx error", not a transfer
+    # error, so it will not count against the link in the
+    # backoff algorithms.
+    elsif ($statcode == PHEDEX_VC_VETO)
+    {
+	$$task{REPORT_CODE} = PHEDEX_RC_VETO;
+	$$task{XFER_CODE} = PHEDEX_XC_NOXFER;
+	$$task{LOG_DETAIL} = 'file pre-validation vetoed the transfer';
+	$$task{LOG_XFER} = 'no transfer was attempted';
+	$$task{LOG_VALIDATE} = $log;
+	$$task{TIME_UPDATE} = $time_end;
+	$$task{TIME_XFER} = -1;
+	$done = 1;
+    }
+    $self->saveTask( $self->{TASKS}->{$taskid} );
+
+    my $next_call = shift @$workflow;
+    $done ? $kernel->yield('finish_task', $taskid, $workflow) 
+	  : $kernel->yield($next_call, $taskid, $workflow);
+}
+
+sub predelete_task
+{
+    my ( $self, $kernel, $taskid, $workflow ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+
+    my $task = $self->{TASKS}->{$taskid};
+    my $jobpath = $task->{JOBDIR};
+    my $log = "jobpath/T${taskid}-predelete-log";
+    
+    $self->addJob( sub { my $jobargs = shift; $kernel->yield('predelete_done', $taskid, $workflow, $jobargs) },
+		   { TIMEOUT => $self->{TIMEOUT}, LOGFILE => $log },
+		   @{$self->{DELETE_COMMAND}}, "pre",
+		   @$task{ qw(TO_PFN) });
+}
+
+sub predelete_done
+{
+    my ( $self, $kernel, $taskid, $workflow, $jobargs ) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2 ];
+
+    my $task = $self->{TASKS}->{$taskid};
+    $task->{PREDELETE_CODE} = &numeric_statcode($jobargs->{STATUS});
+    $self->saveTask( $self->{TASKS}->{$taskid} );
+    my $next_call = shift @$workflow;
+    $kernel->yield($next_call, $taskid, $workflow);
+}
+
+# starts a transfer job if all the tasks are ready
+sub transfer_task
+{
+    my ( $self, $kernel, $taskid, $workflow ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+    
+    my $task = $self->{TASKS}->{$taskid};
+    $task->{READY} = &mytimeofday();
+    my $jobid = $task->{JOBID};
+
+    my $n_batch = scalar grep($_->{JOBID} eq $jobid, values %{$self->{TASKS}});
+    my $n_ready = scalar grep($_->{JOBID} eq $jobid 
+			      && exists $_->{READY} && $_->{READY}, values %{$self->{TASKS}});
+    
+    if ($n_batch == $n_ready) {
+	$kernel->yield('start_transfer_job', $jobid);
+    }
+}
+
+sub transfer_done
+{
+    my ( $self, $kernel, $taskid, $xferinfo ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+
+    my $taskinfo = $self->{TASKS}->{$taskid};
+
+    # copy results into the task
+    $$taskinfo{XFER_CODE}  = &numeric_statcode($xferinfo->{STATUS});
+    $$taskinfo{LOG_DETAIL} = $xferinfo->{DETAIL};
+    $$taskinfo{LOG_XFER}   = $xferinfo->{LOG};
+    $$taskinfo{TIME_XFER}  = $xferinfo->{START};
+    $self->saveTask($taskinfo);
+
+    # find the call in the workflow after 'transfer_task'
+    my @workflow = $self->get_workflow();
+    my $i = 0; $i++ while ($workflow[$i] ne 'transfer_task');
+    my $next_call = splice @workflow, 0, $i+1;
+    $kernel->yield($next_call, $taskid, \@workflow);
+}
+
+sub postvalidate_task
+{
+    my ( $self, $kernel, $taskid, $workflow ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+
+    my $task = $self->{TASKS}->{$taskid};
+    my $jobpath = $task->{JOBDIR};
+    my $log = "$jobpath/T${taskid}-postvalidate-log";
+
+    $self->addJob( sub { my $jobargs = shift; $kernel->yield('postvalidate_done', $taskid, $workflow, $jobargs) },
+		   { TIMEOUT => $$self{TIMEOUT}, 
+		     LOGFILE => $log },
+		   @{$$self{VALIDATE_COMMAND}}, "pre",
+		   @$task{qw(TO_PFN FILESIZE CHECKSUM)}, &boolean_yesno($task->{IS_CUSTODIAL}));
+}
+
+sub postvalidate_done
+{
+    my ( $self, $kernel, $taskid, $workflow, $jobargs ) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2 ];
+    
+    my $task = $self->{TASKS}->{$taskid};
+    my $statcode = &numeric_statcode($$jobargs{STATUS});
+    my $done = $statcode == PHEDEX_VC_SUCCESS ? 1 : 0;
+
+    # FIXME: More elaborate transfer code reporting?
+    #  - validation: successful/terminated/timed out/error + detail + log
+    #      where detail specifies specific error (size mismatch, etc.)
+    #  - transfer: successful/terminated/timed out/error + detail + log
+	    
+    # string STATUS (e.g. 'signal 1') means the child process
+    # was terminated/killed
+    $$task{POSTVALIDATE_CODE} = $statcode;
+    $$task{LOG_VALIDATE} = $$jobargs{LOG};
+    $$task{TIME_UPDATE} = &mytimeofday();
+    $self->saveTask( $task );
+
+    my $next_call = shift @$workflow;
+    $done ? $kernel->yield('finish_task', $taskid, $workflow) 
+	  : $kernel->yield($next_call, $taskid, $workflow);
+}
+
+sub postdelete_task
+{
+    my ( $self, $kernel, $taskid, $workflow ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+
+    my $task = $self->{TASKS}->{$taskid};
+    my $jobpath = $task->{JOBDIR};
+    my $log = "$jobpath/T${taskid}-postdelete-log";
+
+    $self->addJob( sub { my $jobargs = shift; $kernel->yield('postdelete_done', $taskid, $workflow, $jobargs) },
+		   { TIMEOUT => $self->{TIMEOUT}, LOGFILE => $log },
+		   @{$self->{DELETE_COMMAND}}, "post",
+		   @$task{ qw(TO_PFN) });
+}
+
+sub postdelete_done
+{
+    my ( $self, $kernel, $taskid, $workflow, $jobargs ) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2 ];
+
+    my $task = $self->{TASKS}->{$taskid};
+    $task->{POSTDELETE_CODE} = &numeric_statcode($jobargs->{STATUS});
+    $self->saveTask( $task );
+    my $next_call = shift @$workflow;
+    $kernel->yield($next_call, $taskid, $workflow);
+}
+
+# Mark a task completed.  Brings the next synchronisation into next
+# fifteen minutes, and updates statistics for the current period.
+sub finish_task
+{
+    my ( $self, $kernel, $taskid, $workflow ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+
+    my $task = $self->{TASKS}->{$taskid};
+    my $now = &mytimeofday();
+
+    # Set report code if it wasn't already set, in order of preference
+    $$task{REPORT_CODE} = $$task{POSTVALIDATE_CODE} unless exists $$task{REPORT_CODE};
+    $$task{REPORT_CODE} = $$task{XFER_CODE}         unless exists $$task{REPORT_CODE};
+    $$task{REPORT_CODE} = $$task{PREVALIDATE_CODE}  unless exists $$task{REPORT_CODE};
+    $$task{JOBLOG} = "$$self{ARCHIVEDIR}/$$task{JOBID}";
+    $$task{FINISHED} = $now;
+
+    # Save it
+    return 0 if ! $self->saveTask($task);
+
+    # If next synchronisation is too far away, pull it forward.
+    $self->delay_max($kernel, 'sync_tasks', 900);
+
+    $$self{LAST_COMPLETED} = $now;
+
+    # Update statistics for the current period.
+    my ($from, $to, $code) = @$task{"FROM_NODE", "TO_NODE", "REPORT_CODE"};
+    my $s = $$self{STATS_CURRENT}{LINKS}{$to}{$from}
+        ||= { DONE => 0, USED => 0, ERRORS => 0 };
+    $$s{ERRORS}++ if $code > 0;
+    $$s{DONE}++ if $code == 0;
+
+    # Report but simplify download detail/validate logs.
+    my $detail = $$task{LOG_DETAIL} || '';
+    my $validate = $$task{LOG_VALIDATE} || '';
+    foreach my $log (\$detail, \$validate)
+    {
+	$$log =~ s/^[-\d: ]*//gm;
+	$$log =~ s/^[A-Za-z]+(\[\d+\]|\(\d+\)): //gm;
+	$$log =~ s/\n+/ ~~ /gs;
+	$$log =~ s/\s+/ /gs;
+    }
+
+    $self->Logmsg("xstats:"
+	    . " task=$$task{TASKID}"
+	    . " file=$$task{FILEID}"
+	    . " from=$$task{FROM_NODE}"
+	    . " to=$$task{TO_NODE}"
+	    . " priority=$$task{PRIORITY}"
+	    . " report-code=$$task{REPORT_CODE}"
+	    . " xfer-code=$$task{XFER_CODE}"
+	    . " size=$$task{FILESIZE}"
+	    . " t-expire=$$task{TIME_EXPIRE}"
+	    . " t-assign=$$task{TIME_ASSIGN}"
+	    . " t-export=$$task{TIME_EXPORT}"
+	    . " t-inxfer=$$task{TIME_INXFER}"
+	    . " t-xfer=$$task{TIME_XFER}"
+	    . " t-done=$$task{TIME_UPDATE}"
+	    . " lfn=$$task{LOGICAL_NAME}"
+	    . " from-pfn=$$task{FROM_PFN}"
+	    . " to-pfn=$$task{TO_PFN}"
+	    . " detail=($detail)"
+	    . " validate=($validate)"
+	    . " job-log=@{[$$task{JOBLOG} || '(no job)']}");
+
+    # Indicate success.
+    return 1;
+}
+
+#
+# Utility functions (non-POE events)
+#
+
+# schedule $event to occur AT MOST $maxdelta seconds into the future.
+# if the event is already scheduled to arrive before that time,
+# nothing is done.  returns the timestamp of the next event
+sub delay_max
+{
+    my ($self, $kernel, $event, $maxdelta) = @_;
+    my $now = &mytimeofday();
+    my $id = $self->{ALARMS}->{$event}->{ID};
+    my $next = $kernel->alarm_adjust($id, 0);
+    if (!$next) {
+	$next = $now + $maxdelta;
+	$id = $kernel->alarm_set($event, $next);
+    } elsif ($next - $now > $maxdelta) {
+	$next = $kernel->alarm_adjust($id, $maxdelta);
+    }
+    $self->{ALARMS}->{$event} = { ID => $id, NEXT => $next };
+    return $next;
+}
+
+# return the timestamp of the next scheduled $event (must be set using delay_max())
+# returns undef if there is no event scheduled.
+sub next_event_time
+{
+    my ($self, $event) = @_;
+    return $self->{ALARMS}->{$event}->{NEXT};
+}
+
+sub get_workflow
+{
+    my $self = shift;
+
+    my $do_preval = ($$self{VALIDATE_COMMAND} && $$self{PREVALIDATE}) ? 1 : 0;
+    my $do_predel = ($$self{DELETE_COMMAND} && $$self{PREDELETE}) ? 1 : 0;
+    my $do_postval = $$self{VALIDATE_COMMAND} ? 1 : 0;
+    my $do_postdel = $$self{DELETE_COMMAND} ? 1 : 0;
+
+    my @workflow;
+    push @workflow, 'prevalidate_task' if $do_preval;
+    push @workflow, 'predelete_task' if $do_predel;
+    push @workflow, 'transfer_task';
+    push @workflow, 'postvalidate_task' if $do_postval;
+    push @workflow, 'postdelete_task' if $do_postdel;
+    push @workflow, 'finish_task';
+
+    return @workflow;
+}
+
+# If stopped, tell backend to stop, then wait for all the pending
+# utility jobs to complete.  All backends just abandon the jobs, and
+# we try to pick up on the transfer again if the agent is restarted.
+# Utility jobs usually run quickly so we let them run to completion.
+sub stop
+{
+    my ($self) = @_;
+    return;
+    # XXX TODO handle stopping
+
+    # Wait for utility processes to finish.
+    if (@{$$self{JOBS}})
+    {
+        $self->Logmsg ("waiting pending jobs to finish...");
+        while (@{$$self{JOBS}})
+        {
+            $self->pumpJobs();
+	    select(undef, undef, undef, .1);
+        }
+        $self->Logmsg ("all pending jobs finished, ready to exit");
+    }
+    else
+    {
+        $self->Logmsg ("no pending jobs, ready to exit");
+    }
+
+    # Clear to exit.
+}
+
+sub evalinfo
+{
+    my ($file) = @_;
+    no strict 'vars';
+    return eval (&input($file) || '');
+}
+
+# turn a JobManager job STATUS into a number
+# in case of a job being hangup/terminated/killed, STATUS is, e.g.  "signal 1"
+sub numeric_statcode
+{
+    my ($statcode) = @_;
+    return undef unless defined $statcode;
+    return ($statcode =~ /^-?\d+$/ ? $statcode : 128 + ($statcode =~ /(\d+)/)[0]);
+}
+
+# turn a 'y' or 'n' value into a boolean number
+sub boolean_yesno
+{
+    my ($yn) = @_;
+    return undef if !defined $yn || $yn !~ /^[yn]$/;
+    return ($yn eq 'y' ? 1 : 0);
+}
+
+# Reconnect the agent to the database.  If the database connection
+# has been shut, create a new connection.  Update agent status.  Set
+# $$self{DBH} to database handle and $$self{NODES_ID} to hash of the
+# (node name, id) pairs.
+sub reconnect
+{
+    my ($self) = @_;
+
+eval 
+{
+    my $now = &mytimeofday();
+    
+    # Now connect.
+    my $dbh = $self->connectAgent();
+    my @nodes = $self->expandNodes();
+    unless (@nodes) { die("Cannot find nodes in database for '@{$$self{NODES}}'") };
+    
+    # Indicate to file router which links are "live."
+    my ($dest, %dest_args) = $self->myNodeFilter ("l.to_node");
+    my ($src, %src_args) = $self->otherNodeFilter ("l.from_node");
+    my @protos = $$self{BACKEND}->protocols();
+
+    &dbexec($dbh, qq{
+	delete from t_xfer_sink l where $dest $src},
+	%dest_args, %src_args);
+    &dbexec($dbh, qq{
+	insert into t_xfer_sink (from_node, to_node, protocols, time_update)
+	select l.from_node, l.to_node, :protos, :now from t_adm_link l
+	where $dest $src},
+	":protos" => "@protos", ":now" => $now, %dest_args, %src_args);
+    $dbh->commit();
+
+    $$self{DBH_LAST_USE} = $now;
+    $$self{LAST_CONNECT} = $now;
+}; $self->clean_death();
+}
+
+
+# Save a task after change of status.
+sub saveTask
+{
+    my ($self, $task) = @_;
+    return &output("$$self{TASKDIR}/$$task{TASKID}", Dumper($task));
+}
+
+# Start a new statistics period.  If we have more than the desired
+# amount of statistics periods, remove old ones.
+sub statsNewPeriod
+{
+    my ($self) = @_;
+    my $tasks = $self->{TASKS};
+    my $now = &mytimeofday();
+
+    # Prune recent history.
+    $$self{STATS} = [ grep($now - $$_{TIME} <= 3600, @{$$self{STATS}}) ];
+
+    # Add new period.
+    my $current = $$self{STATS_CURRENT} = { TIME => $now, LINKS => {} };
+    push(@{$$self{STATS}}, $current);
+
+    # Add statistics on transfer slots used.
+    foreach my $t (values %$tasks)
+    {
+	# Skip if the transfer task was completed or hasn't started.
+	next if defined $$t{FINISHED} || !defined $$t{STARTED};
+
+	# It's using up a transfer slot, add to time slot link stats.
+	my ($from, $to) = @$t{"FROM_NODE", "TO_NODE"};
+	$$current{LINKS}{$to}{$from} ||= { DONE => 0, USED => 0, ERRORS => 0 };
+	$$current{LINKS}{$to}{$from}{USED}++;
+    }
+}
+
+# check if a task is expired
+sub check_task_expire
+{
+    my ( $self, $taskid ) = @_;
+
+    my $t = $self->{TASKS}->{$taskid};
+    my $now = &mytimeofday();
+
+    next if $$t{STARTED}; # do not expire tasks which have started
+
+    # If the task is too near expiration, just mark it failed.
+    # If it has already expired, just remove it.
+    my $prettyhours = sprintf "%0.1fh ", ($now - $$t{TIME_ASSIGN})/3600;
+    if ($now >= $$t{TIME_EXPIRE})
+    {
+	$self->Logmsg("PhEDEx transfer task $$t{TASKID} has expired after $prettyhours, discarding");
+	unlink("$$self{TASKDIR}/$$t{TASKID}");
+	delete $self->{TASKS}->{$$t{TASKID}};
+    }
+    elsif ($now >= $$t{TIME_EXPIRE} - 1200)
+    {
+	$self->Logmsg("PhEDEx transfer task $$t{TASKID} was nearly expired after $prettyhours, discarding");
+	$$t{XFER_CODE}   = PHEDEX_XC_NOXFER;
+	$$t{REPORT_CODE} = PHEDEX_RC_EXPIRED;
+	$$t{LOG_DETAIL} = "transfer expired in the PhEDEx download agent queue after $prettyhours";
+	$$t{LOG_XFER} = "no transfer was attempted";
+	$$t{LOG_VALIDATE} = "no validation was attempted";
+	$$t{TIME_UPDATE} = $now;
+	$$t{TIME_XFER} = -1;
+	return 1;
+    }
+    return 0;
+}
+
 # Initialise agent.
 sub init
 {
     my ($self) = @_;
-    $self->statsNewPeriod({}, {});
+    # XXX needed for anything?
 }
 
-# Run agent main loop.
 sub idle
 {
-    my ($self, @pending) = @_;
-
-    eval
-    {
-	my (%tasks, %jobs);
-	my $now = &mytimeofday();
-
-	# Read in and verify all transfer tasks.
-	my @tasknames;
-	return if ! &getdir($$self{TASKDIR}, \@tasknames);
-
-	foreach (@tasknames)
-	{
-	    my $info = &evalinfo("$$self{TASKDIR}/$_");
-	    if (! $info || $@)
-	    {
-		$self->Alert("garbage collecting corrupted transfer task $_ ($info, $@)");
-		unlink("$$self{TASKDIR}/$_");
-		$$self{NEXT_PURGE} = 0;
-		next;
-	    }
-	    $tasks{$_} = $info;
-	}
-
-	# Read in and verify all copy jobs.
-	foreach (@pending)
-	{
-	    my $info = &evalinfo("$$self{WORKDIR}/$_/info");
-	    if (! $info || $@)
-	    {
-		$self->Alert("garbage collecting corrupted copy job $_");
-		&rmtree("$$self{WORKDIR}/$_");
-		$$self{NEXT_PURGE} = 0;
-		next;
-	    }
-	    $jobs{$_} = $info;
-	}
-
-	# Kill ghost transfers in the database and locally.
-	if ($$self{NEXT_PURGE} <= $now)
-	{
-	    $self->reconnect() if ! $self->connectionValid();
-	    $self->purgeLostTransfers(\%jobs, \%tasks);
-	    $$self{NEXT_PURGE} = $now + 3600;
-	    $$self{DBH_LAST_USE} = $now;
-	}
-
-	# prepare some tasks
-	$self->prepare(\%tasks);
-        $self->{JOBMANAGER}->whenQueueDrained( sub { $self->idle_RescanCompletedJobs(\%jobs,\%tasks,\@pending); } );
-    };
-    do { chomp ($@); $self->Alert ($@); $$self{NEXT_PURGE} = 0;
-	 eval { $$self{DBH}->rollback() } if $$self{DBH}; } if $@;
+    my ($self) = @_;
+    my $now = &mytimeofday();
+#     $self->Dbgmsg(join ("", 
+# 			"idle() debug:  now=$now\n",
+# 			"ALARMS:\n", Dumper($self->{ALARMS}), "\n"
+# 			)
+# 		  );
 }
 
-sub idle_RescanCompletedJobs
+sub clean_death
 {
-  my ($self,$jobs,$tasks,$pending) = @_;
-
-# FIXME The logic here may be inadequate now. Instead of looping a bit and
-# refilling the backends, it essentially just does one pass. Would be good
-# to make this into a proper flow of POE-events.
-    eval
-    {
-	# Rescan jobs for completed tasks and fill the backend a few
-        # times each.  In between each round flush validation and
-	# file removal processes to finalise job completion.  Fill
-	# once more at the end in case @check is empty.
-	my @check = grep (exists $jobs->{$_}, @{$pending});
-	for (my $i = 0; @check && $i < 5; ++$i)
-	{
-	    $self->check($_, $jobs, $tasks) for @check;
-            $self->fill($jobs, $tasks);
-
-#	    while (@{$$self{JOBS}})
-#	    {
-#	        $self->pumpJobs();
-#	        select(undef, undef, undef, .1);
-#	    }
-
-	    @check = grep (exists $jobs->{$_} && $jobs->{$_}{RECHECK}, @{$pending});
-    	    delete $$_{RECHECK} for values %${jobs};
-        }
-
-        $self->fill($jobs, $tasks);
-#	while (@{$$self{JOBS}})
-#	{
-#	    $self->pumpJobs();
-#	    select(undef, undef, undef, .1);
-#	}
-        $self->{JOBMANAGER}->whenQueueDrained( sub { $self->idle_CreateNewStatsPeriod($jobs,$tasks); } );
-    };
-    do { chomp ($@); $self->Alert ($@); $$self{NEXT_PURGE} = 0;
-	 eval { $$self{DBH}->rollback() } if $$self{DBH}; } if $@;
+    my ($self, $err) = @_;
+    $err ||= $@;
+    return unless $err;
+    chomp ($err); 
+    $self->Alert($err);
+    eval { $$self{DBH}->rollback() } if $$self{DBH}; }
 }
 
-sub idle_CreateNewStatsPeriod
-{
-  my ($self,$jobs,$tasks) = @_;
-    eval
-    {
-	my $now = &mytimeofday();
-
-	# Create new time period with current statistics.
-        $self->statsNewPeriod($jobs, $tasks);
-
-	# Reconnect if we are due a database sync, but use a database
-	# connection opportunistically if we happen to have one.
-	$now = &mytimeofday();
-	my $need_sync = ($$self{NEXT_SYNC} <= $now ? 1 : 0);
-	my $need_advert = ($$self{LAST_CONNECT} <= $now - 2400 ? 1 : 0);
-	my $report_sync = ($$self{LAST_COMPLETED} > $$self{LAST_SYNC} ? 1 : 0);
-	my $recent_sync = ($$self{LAST_SYNC} >= $now - 120 ? 1 : 0);
-	if (($need_sync || $need_advert || $$self{DBH})
-	    && ($report_sync || ! $recent_sync))
-	{
-	    $self->reconnect() if ! $self->connectionValid() || $need_advert;
-	    $self->doSync($jobs, $tasks);
-	    $$self{LAST_SYNC} = $now;
-	    $$self{NEXT_SYNC} = $now + 1800;
-	    $$self{DBH_LAST_USE} = $now if $need_sync;
-	}
-
-	# Remember current time if we are seeing work.
-	$$self{LAST_WORK} = $now if %{$tasks};
-
-	# Detach from the database if the connection wasn't used
-	# recently (at least one minute) and if it looks the agent
-	# has enough work for some time and next synchronisation
-	# is not imminent.
-	if (defined $$self{DBH}
-	    && $$self{NEXT_SYNC} - $now > 600
-	    && $now - $$self{DBH_LAST_USE} > 60
-	    && ($$self{BACKEND}->isBusy($jobs, $tasks)
-		|| $now - $$self{LAST_WORK} > 4*3600))
-	{
-	    $self->Logmsg("disconnecting from database");
-	    $self->disconnectAgent(1);
-	}
-
-	# Purge info about old jobs.
-	if ($$self{NEXT_CLEAR} <= $now)
-	{
-	    my $archivedir = $$self{ARCHIVEDIR};
-	    my @old = <$archivedir/*>;
-	    &rmtree($_) for (scalar @old > 500 ? @old 
-			     : grep((stat($_))[9] < $now - 86400, @old));
-	    $$self{NEXT_CLEAR} = $now + 3600;
-	}
-    };
-    do { chomp ($@); $self->Alert ($@); $$self{NEXT_PURGE} = 0;
-	 eval { $$self{DBH}->rollback() } if $$self{DBH}; } if $@;
-
-#    # Clear zombie detached processes in the backend.
-#    $$self{BACKEND}->pumpJobs();
-}
-
-sub _poe_init
-{
-  my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
-  if ( $self->{BACKEND}->can('setup_callbacks') )
-  { $self->{BACKEND}->setup_callbacks($kernel,$session) }
-  $kernel->state('timeout_backend_command',$self);
-  $kernel->state('timeout_TERM',$self);
-  $kernel->state('timeout_KILL',$self);
-}
+#
+# XXX TODO: the following three events should be moved to the backend
+# code or to JobManager
+#
 
 sub timeout_TERM
 { 
@@ -1285,5 +1400,6 @@ sub timeout_backend_command
   my ($self,$kernel,$wheel) = @_[ OBJECT, KERNEL, ARG0 ];
   $kernel->delay_set('timeout_TERM',$self->{TIMEOUT},$wheel);
 }
+
 
 1;
