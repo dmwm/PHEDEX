@@ -77,8 +77,8 @@ optional inputs: (as filters) req_num, dest_node, group
  move             is move?
  <request_by>     person who requested
  comments         comments
- type             request type, always 'xfer' here
- request_bytes    total requested bytes
+ files            total requested files
+ bytes            total requested bytes
 
 =head3 node attributes
 
