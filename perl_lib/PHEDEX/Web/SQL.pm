@@ -766,7 +766,6 @@ sub getRequestData
     my $sql = qq {
         select
             r.id,
-            rt.name type,
             r.created_by creator_id,
             r.time_create,
             rdbs.name dbs, 
@@ -966,7 +965,8 @@ sub getRequestData
             $total_files += $item->{FILES} || 0;
             $total_bytes += $item->{BYTES} || 0;
         }
-        $$data{REQUEST_BYTES} = $total_bytes;
+        $$data{BYTES} = $total_bytes;
+        $$data{FILES} = $total_files;
 
         push @r, $data;
     }
