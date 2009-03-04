@@ -70,8 +70,8 @@ optional inputs: (as filters) req_num, dest_node, group
  rm_subscription  remove subscription?
  <request_by>     person who requested
  comments         comments
- type             request type, always 'delete' here
- request_bytes    total requested bytes
+ files            total requested files
+ bytes            total requested bytes
 
 =head3 node attributes
 
