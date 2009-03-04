@@ -3,7 +3,7 @@ package PHEDEX::File::Download::Agent;
 use strict;
 use warnings;
 
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging', 'PHEDEX::Core::JobManager';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
@@ -66,6 +66,10 @@ sub new
 		);
     my %args = (@_);
     $$self{$_} = $args{$_} || $params{$_} for keys %params;
+
+    # Create JobManager now because NJOBS not known before
+    $self->JobManager(); 
+
     eval ("use PHEDEX::Transfer::$args{BACKEND_TYPE}");
     do { chomp ($@); die "Failed to load backend: $@\n" } if $@;
     $self->{BACKEND} = eval("new PHEDEX::Transfer::$args{BACKEND_TYPE}(\$self)");
@@ -843,23 +847,24 @@ sub start_task
 
 sub prevalidate_task
 {
-    my ( $self, $kernel, $taskid, $workflow ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+    my ( $self, $session, $taskid, $workflow ) = @_[ OBJECT, SESSION, ARG0, ARG1 ];
 
     my $task = $self->{TASKS}->{$taskid};
     my $jobpath = $task->{JOBDIR};
     my $log = "$jobpath/T${taskid}-prevalidate-log";
 
-    $self->addJob( sub { my $jobargs = shift; $kernel->yield('prevalidate_done', $taskid, $workflow, $jobargs) },
-		   { TIMEOUT => $$self{TIMEOUT}, 
-		     LOGFILE => $log },
+    $self->{JOBMANAGER}->addJob( $session->postback('prevalidate_done', $taskid, $workflow),
+		   { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $log },
 		   @{$$self{VALIDATE_COMMAND}}, "pre",
 		   @$task{qw(TO_PFN FILESIZE CHECKSUM)}, &boolean_yesno($task->{IS_CUSTODIAL}));
 }
 
 sub prevalidate_done
 {
-    my ( $self, $kernel, $taskid, $workflow, $jobargs ) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2 ];
-    
+    my ( $self, $kernel, $context, $args) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+    my ($taskid, $workflow) = @$context;
+    my ($jobargs) = @$args;
+
     my $task = $self->{TASKS}->{$taskid};
     my $statcode = &numeric_statcode($jobargs->{STATUS});
     my $log = &input($jobargs->{LOGFILE});
@@ -909,21 +914,23 @@ sub prevalidate_done
 
 sub predelete_task
 {
-    my ( $self, $kernel, $taskid, $workflow ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+    my ( $self, $session, $taskid, $workflow ) = @_[ OBJECT, SESSION, ARG0, ARG1 ];
 
     my $task = $self->{TASKS}->{$taskid};
     my $jobpath = $task->{JOBDIR};
-    my $log = "jobpath/T${taskid}-predelete-log";
+    my $log = "$jobpath/T${taskid}-predelete-log";
     
-    $self->addJob( sub { my $jobargs = shift; $kernel->yield('predelete_done', $taskid, $workflow, $jobargs) },
-		   { TIMEOUT => $self->{TIMEOUT}, LOGFILE => $log },
+    $self->{JOBMANAGER}->addJob( $session->postback('predelete_done', $taskid, $workflow),
+    { TIMEOUT => $self->{TIMEOUT}, LOGFILE => $log },
 		   @{$self->{DELETE_COMMAND}}, "pre",
 		   @$task{ qw(TO_PFN) });
 }
 
 sub predelete_done
 {
-    my ( $self, $kernel, $taskid, $workflow, $jobargs ) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2 ];
+    my ( $self, $kernel, $context, $args ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+    my ($taskid, $workflow) = @$context;
+    my ($jobargs) = @$args;
 
     my $task = $self->{TASKS}->{$taskid};
     $task->{PREDELETE_CODE} = &numeric_statcode($jobargs->{STATUS});
@@ -966,31 +973,34 @@ sub transfer_done
     # find the call in the workflow after 'transfer_task'
     my @workflow = $self->get_workflow();
     my $i = 0; $i++ while ($workflow[$i] ne 'transfer_task');
-    my $next_call = splice @workflow, 0, $i+1;
+    my $next_call = splice @workflow, 0, $i+2;
     $kernel->yield($next_call, $taskid, \@workflow);
 }
 
 sub postvalidate_task
 {
-    my ( $self, $kernel, $taskid, $workflow ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+    my ( $self, $session, $taskid, $workflow ) = @_[ OBJECT, SESSION, ARG0, ARG1 ];
 
     my $task = $self->{TASKS}->{$taskid};
     my $jobpath = $task->{JOBDIR};
     my $log = "$jobpath/T${taskid}-postvalidate-log";
 
-    $self->addJob( sub { my $jobargs = shift; $kernel->yield('postvalidate_done', $taskid, $workflow, $jobargs) },
+    $self->{JOBMANAGER}->addJob( $session->postback('postvalidate_done', $taskid, $workflow),
 		   { TIMEOUT => $$self{TIMEOUT}, 
 		     LOGFILE => $log },
-		   @{$$self{VALIDATE_COMMAND}}, "pre",
+		   @{$$self{VALIDATE_COMMAND}}, $task->{XFER_CODE},
 		   @$task{qw(TO_PFN FILESIZE CHECKSUM)}, &boolean_yesno($task->{IS_CUSTODIAL}));
 }
 
 sub postvalidate_done
 {
-    my ( $self, $kernel, $taskid, $workflow, $jobargs ) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2 ];
-    
+    my ( $self, $kernel, $context, $args ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+    my ($taskid, $workflow) = @$context;
+    my ($jobargs) = @$args;
+
     my $task = $self->{TASKS}->{$taskid};
     my $statcode = &numeric_statcode($$jobargs{STATUS});
+    my $log = &input($jobargs->{LOGFILE});
     my $done = $statcode == PHEDEX_VC_SUCCESS ? 1 : 0;
 
     # FIXME: More elaborate transfer code reporting?
@@ -1001,7 +1011,7 @@ sub postvalidate_done
     # string STATUS (e.g. 'signal 1') means the child process
     # was terminated/killed
     $$task{POSTVALIDATE_CODE} = $statcode;
-    $$task{LOG_VALIDATE} = $$jobargs{LOG};
+    $$task{LOG_VALIDATE} = $log;
     $$task{TIME_UPDATE} = &mytimeofday();
     $self->saveTask( $task );
 
@@ -1012,13 +1022,13 @@ sub postvalidate_done
 
 sub postdelete_task
 {
-    my ( $self, $kernel, $taskid, $workflow ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+    my ( $self, $session, $taskid, $workflow ) = @_[ OBJECT, SESSION, ARG0, ARG1 ];
 
     my $task = $self->{TASKS}->{$taskid};
     my $jobpath = $task->{JOBDIR};
     my $log = "$jobpath/T${taskid}-postdelete-log";
 
-    $self->addJob( sub { my $jobargs = shift; $kernel->yield('postdelete_done', $taskid, $workflow, $jobargs) },
+    $self->{JOBMANAGER}->addJob( $session->postback('postdelete_done', $taskid, $workflow),
 		   { TIMEOUT => $self->{TIMEOUT}, LOGFILE => $log },
 		   @{$self->{DELETE_COMMAND}}, "post",
 		   @$task{ qw(TO_PFN) });
@@ -1026,7 +1036,9 @@ sub postdelete_task
 
 sub postdelete_done
 {
-    my ( $self, $kernel, $taskid, $workflow, $jobargs ) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2 ];
+    my ( $self, $kernel, $context, $args ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+    my ($taskid, $workflow) = @$context;
+    my ($jobargs) = @$args;
 
     my $task = $self->{TASKS}->{$taskid};
     $task->{POSTDELETE_CODE} = &numeric_statcode($jobargs->{STATUS});
@@ -1120,7 +1132,7 @@ sub delay_max
 	$next = $now + $maxdelta;
 	$id = $kernel->alarm_set($event, $next);
     } elsif ($next - $now > $maxdelta) {
-	$next = $kernel->alarm_adjust($id, $maxdelta);
+	$next = $kernel->alarm_adjust($id, $now - $next + $maxdelta);
     }
     $self->{ALARMS}->{$event} = { ID => $id, NEXT => $next };
     return $next;
@@ -1288,7 +1300,7 @@ sub check_task_expire
     my $t = $self->{TASKS}->{$taskid};
     my $now = &mytimeofday();
 
-    next if $$t{STARTED}; # do not expire tasks which have started
+    return 0 if $$t{STARTED}; # do not expire tasks which have started
 
     # If the task is too near expiration, just mark it failed.
     # If it has already expired, just remove it.
