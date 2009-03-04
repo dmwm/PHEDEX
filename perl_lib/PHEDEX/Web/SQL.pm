@@ -461,6 +461,7 @@ sub getAgents
     my $sql = qq {
         select
             n.name as node,
+            n.id as id,
             a.name as name,
             s.label,
             n.se_name as se,
@@ -516,7 +517,8 @@ sub getAgents
                     cvs_version => $_ -> {'CVS_VERSION'},
                     cvs_tag => $_ -> {'CVS_TAG'},
                     time_update => $_ -> {'TIME_UPDATE'},
-                    state_dir => $_ -> {'STATE_DIR'}};
+                    state_dir => $_ -> {'STATE_DIR'},
+                    pid => $_ -> {'PID'}};
         }
         else
         {
@@ -524,6 +526,7 @@ sub getAgents
                 node => $_ -> {'NODE'},
                 host => $_ -> {'HOST'},
                 se => $_ -> {'SE'},
+                id => $_ -> {'ID'},
                 agent => [{
                     name => $_ -> {'NAME'},
                     label => $_ -> {'LABEL'},
@@ -531,7 +534,8 @@ sub getAgents
                     cvs_version => $_ -> {'CVS_VERSION'},
                     cvs_tag => $_ -> {'CVS_TAG'},
                     time_update => $_ -> {'TIME_UPDATE'},
-                    state_dir => $_ -> {'STATE_DIR'}}]
+                    state_dir => $_ -> {'STATE_DIR'},
+                    pid => $_ -> {'PID'}}]
              };
         }
     }
