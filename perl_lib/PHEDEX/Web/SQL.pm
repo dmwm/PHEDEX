@@ -598,7 +598,8 @@ sub getTransferQueueStats
         {
             push @{$link{$_ -> {'FROM'} . "=" . $_ -> {'TO'}}->{transfer_queue}}, {
                     state => $_ -> {'STATE'},
-                    priority => $_ -> {'PRIORITY'},
+                    is_local => ($_-> {'PRIORITY'}%2 == 0? 'y': 'n'),
+                    priority => PHEDEX::Core::Util::priority($_ -> {'PRIORITY'}, 1),
                     files => $_ -> {'FILES'},
                     bytes => $_ -> {'BYTES'},
                     time_update => $_ -> {'TIME_UPDATE'}
@@ -613,7 +614,8 @@ sub getTransferQueueStats
                 to_id => $_ -> {'TO_ID'},
                 transfer_queue => [{
                     state => $_ -> {'STATE'},
-                    priority => $_ -> {'PRIORITY'},
+                    is_local => ($_-> {'PRIORITY'}%2 == 0? 'y': 'n'),
+                    priority => PHEDEX::Core::Util::priority($_ -> {'PRIORITY'}, 1),
                     files => $_ -> {'FILES'},
                     bytes => $_ -> {'BYTES'},
                     time_update => $_ -> {'TIME_UPDATE'}
@@ -933,6 +935,8 @@ sub getRequestData
 
         if ($h{TYPE} eq 'xfer')
         {
+            # take care of priority
+            $$data{PRIORITY} = PHEDEX::Core::Util::priority($$data{PRIORITY});
             $$data{DESTINATIONS} = &execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 'd')->fetchall_arrayref({});
             $$data{SOURCES} = &execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 's')->fetchall_arrayref({});
 
