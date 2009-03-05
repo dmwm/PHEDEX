@@ -110,4 +110,29 @@ sub deep_copy {
   } else { die "what type is $_?" }
 }
 
+# name of the priority
+my %priority_names = (
+    0 => 'high',
+    1 => 'normal',
+    2 => 'low' );
+
+# when $local_remote is false, $priority is interepreted as-is
+#
+# when $local_remote is true, the even numbers are for local and
+# the odd numbers are for remote; the priority is "decoded" as follows
+#
+# $priority = ($priority - ($priority % 2))/2;
+# 
+sub priority
+{
+    my ($priority, $local_remote) = @_;
+
+    if ($local_remote)
+    {
+        $priority = ($priority - ($priority % 2))/2;
+    }
+
+    return $priority_names{$priority};
+}
+
 1;
