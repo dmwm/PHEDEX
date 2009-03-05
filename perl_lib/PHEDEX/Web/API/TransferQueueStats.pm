@@ -25,6 +25,7 @@ return transfer state details in the following structure
 
  from               name of the from (source) node, could be multiple
  to                 name of the to (destination) node, could be multiple
+
 =head3 output:
 
   <link>
