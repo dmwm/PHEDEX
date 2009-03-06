@@ -30,34 +30,22 @@ sub new
 		  DELETE_COMMAND => undef,	# pre/post download deletion command
 		  PREVALIDATE => 1,             # flag to prevalidate files with VALIDATE_COMMAND
 		  PREDELETE => 1,               # flag to predelete files with DELETE_COMMAND
-		  PREPARE_JOBS => 200,          # max number of jobs to start for preparation tasks
 
 		  TIMEOUT => 600,		# Maximum execution time
 		  NJOBS => 10,			# Max number of utility processes
-		  WAITTIME => 15,		# Nap length between cycles
+		  WAITTIME => 3600,		# Nap length between idle() cycles
 
 		  BACKEND_TYPE => undef,	# Backend type
 		  BACKEND_ARGS => undef,	# Options to the backend
-
-		  NODE => {},			# Node bandwidth parameters
-		  LINKS => {},			# Per-link transfer parameters
-		  FILES => {},			# Files to transfer
-
-		  FIRST_ACTION => undef,	# Time of first action
-		  ACTIONS => [],		# Future actions
 
 		  TASKS => {},                  # Tasks in memory
 		  TASKDIR => "$$self{DROPDIR}/tasks",      # Tasks to do
 		  ARCHIVEDIR => "$$self{DROPDIR}/archive", # Jobs done
 		  STATS => [],			# Historical stats.
 
-		  LAST_SYNC => 0,		# Last time to synchronise
 		  LAST_CONNECT => 0,		# Last time connected and made known
 		  LAST_WORK => time(),		# Last time we saw work
 		  LAST_COMPLETED => 0,		# Last completed a task
-		  NEXT_CLEAR => time(),		# Next time to clear job archive
-		  NEXT_SYNC => 0,		# Next time to synchronise
-		  NEXT_PURGE => 0,		# Next time to purge bad data
 		  DBH_LAST_USE => 0,		# Last use of the database
 
 		  BATCH_ID => 0,		# Number of batches created
@@ -67,7 +55,7 @@ sub new
     $$self{$_} = $args{$_} || $params{$_} for keys %params;
 
     # Create JobManager now because NJOBS not known before
-    $self->JobManager(); 
+    $self->JobManager();
 
     eval ("use PHEDEX::Transfer::$args{BACKEND_TYPE}");
     do { chomp ($@); die "Failed to load backend: $@\n" } if $@;
@@ -86,9 +74,11 @@ sub new
 # POE events
 #
 
+# Initialize all POE events this object handles
 sub _poe_init
 {
   my ($self, $kernel, $session) = @_[ OBJECT, KERNEL, SESSION ];
+  $session->option(trace => 1);  $|++; # XXX Debugging
 
   $self->init();
 
@@ -101,12 +91,10 @@ sub _poe_init
 		     transfer_task transfer_done
 		     postvalidate_task postvalidate_done
 		     postdelete_task postdelete_done );
-		     
+
   $kernel->state($_, $self) foreach @poe_subs;
 
   $self->{BACKEND}->_poe_init($kernel, $session);
-
-  $session->option(trace => 1);  $|++;
 
   # Get periodic events going
   $kernel->yield('advertise_self');
@@ -132,7 +120,7 @@ sub advertise_self
 
 # disconnect if we have nothing to do that requires the database
 sub maybe_disconnect
-{ 
+{
     my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
     $self->delay_max($kernel, 'maybe_disconnect', 15);
 
@@ -173,7 +161,7 @@ sub report_tasks
 {
    my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
 
-eval 
+eval
 {
    my $tasks = $self->{TASKS};
 
@@ -226,7 +214,7 @@ eval
 	   push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_DETAIL});
 	   push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_VALIDATE});
        }
-       
+
        if ((++$rows % 100) == 0)
        {
 	   &dbbindexec($dstmt, %dargs);
@@ -241,7 +229,7 @@ eval
 	   %eargs = ();
        }
    }
-   
+
    if (%dargs)
    {
        &dbbindexec($dstmt, %dargs);
@@ -261,7 +249,7 @@ sub fetch_tasks
 {
    my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
 
-eval 
+eval
 {
    my $tasks = $self->{TASKS};
    my ($dest, %dest_args) = $self->myNodeFilter ("xt.to_node");
@@ -357,13 +345,13 @@ eval
 		    );
 	$$row{TIME_INXFER} = $now;
         ($pending{$linkkey} ||= 0)++;
-	
+
 	# Generate a local task descriptor.  It doesn't really matter
 	# if things go badly wrong here, we'll clean it up in purge.
 	return if ! &output("$$self{TASKDIR}/$$row{TASKID}", Dumper($row));
 	$$tasks{$$row{TASKID}} = $row;
     }
-    
+
     # report error summary
     foreach my $err (keys %errors) {
 	$self->Alert ("'$err' occurred for $errors{$err} tasks" );
@@ -449,7 +437,6 @@ sub verify_tasks
     $$self{LAST_WORK} = $now if %{$self->{TASKS}};
 }
 
-
 # Kill ghost transfers in the database and locally.
 sub purge_lost_tasks
 {
@@ -521,7 +508,7 @@ eval
 }
 
 # Fill the backend with as many transfers as it can take.
-# 
+#
 # The files are assigned to the link on a fair share basis.  Here the
 # fairness means that we try to keep every link with transfers to its
 # maximum capacity while spreading the number of available "transfer
@@ -539,16 +526,13 @@ eval
 # more files, but sharing the avaiable backend job slots fairly.  The
 # weighting by consumsed transfer slots is a key factor as it permits
 # the agent to detect which links benefit from being given more files.
-
-
-# XXX TODO unroll loop or not?  queue ordering... latency...
 sub fill_backend
 {
     my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
     $self->delay_max($kernel, 'fill_backend', 15);
 
     my $tasks = $self->{TASKS};
-    
+
     my (%stats, %todo);
     my $now = &mytimeofday();
     my $nlinks = 0;
@@ -705,7 +689,6 @@ sub fill_backend
 	foreach my $task ( values %$jobtasks ) {
 	    $task->{JOBID} = $jobid;
 	    $task->{JOBDIR} = $jobdir;
-	    $task->{STARTED} = $now;
 	    $self->saveTask($task);
 	    $kernel->yield('start_task', $task->{TASKID});
 	}
@@ -747,20 +730,20 @@ sub fill_backend
 sub start_task
 {
     my ( $self, $kernel, $taskid ) = @_[ OBJECT, KERNEL, ARG0 ];
-    my @workflow = $self->get_workflow();
-    my $next_call = shift @workflow;
-    $kernel->yield( $next_call, $taskid, \@workflow );
+    my $task = $self->{TASKS}->{$taskid};
+    $task->{STARTED} = &mytimeofday();
+    $kernel->yield( $self->next_subtask(), $taskid );
 }
 
 sub prevalidate_task
 {
-    my ( $self, $session, $taskid, $workflow ) = @_[ OBJECT, SESSION, ARG0, ARG1 ];
+    my ( $self, $session, $taskid ) = @_[ OBJECT, SESSION, ARG0 ];
 
     my $task = $self->{TASKS}->{$taskid};
     my $jobpath = $task->{JOBDIR};
     my $log = "$jobpath/T${taskid}-prevalidate-log";
 
-    $self->{JOBMANAGER}->addJob( $session->postback('prevalidate_done', $taskid, $workflow),
+    $self->{JOBMANAGER}->addJob( $session->postback('prevalidate_done', $taskid),
 				 { PRIORITY => 4, TIMEOUT => $$self{TIMEOUT}, LOGFILE => $log },
 				 @{$$self{VALIDATE_COMMAND}}, "pre",
 				 @$task{qw(TO_PFN FILESIZE CHECKSUM)}, &boolean_yesno($task->{IS_CUSTODIAL}));
@@ -769,7 +752,7 @@ sub prevalidate_task
 sub prevalidate_done
 {
     my ( $self, $kernel, $context, $args) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-    my ($taskid, $workflow) = @$context;
+    my ($taskid) = @$context;
     my ($jobargs) = @$args;
 
     my $task = $self->{TASKS}->{$taskid};
@@ -778,11 +761,11 @@ sub prevalidate_done
     my $time_end = &mytimeofday();
 
     $task->{PREVALIDATE_CODE} = $statcode;
-    
+
     my $done = 0;
 
     # if the pre-validation returned success, this file is already there.  mark success
-    if ($statcode == PHEDEX_VC_SUCCESS) 
+    if ($statcode == PHEDEX_VC_SUCCESS)
     {
 	$$task{REPORT_CODE} = PHEDEX_RC_SUCCESS;
 	$$task{XFER_CODE} = PHEDEX_XC_NOXFER;
@@ -792,7 +775,7 @@ sub prevalidate_done
 	$$task{TIME_UPDATE} = $time_end;
 	$$task{TIME_XFER} = -1;
 	$done = 1;
-    } 
+    }
     # if the pre-validation returned 86 (PHEDEX_VC_VETO), the
     # transfer is vetoed, throw this task away.
     # see http://www.urbandictionary.com/define.php?term=eighty-six
@@ -814,20 +797,19 @@ sub prevalidate_done
     }
     $self->saveTask( $self->{TASKS}->{$taskid} );
 
-    my $next_call = shift @$workflow;
-    $done ? $kernel->yield('finish_task', $taskid, $workflow) 
-	  : $kernel->yield($next_call, $taskid, $workflow);
+    $done ? $kernel->yield('finish_task', $taskid)
+	  : $kernel->yield($self->next_subtask(), $taskid);
 }
 
 sub predelete_task
 {
-    my ( $self, $session, $taskid, $workflow ) = @_[ OBJECT, SESSION, ARG0, ARG1 ];
+    my ( $self, $session, $taskid ) = @_[ OBJECT, SESSION, ARG0 ];
 
     my $task = $self->{TASKS}->{$taskid};
     my $jobpath = $task->{JOBDIR};
     my $log = "$jobpath/T${taskid}-predelete-log";
-    
-    $self->{JOBMANAGER}->addJob( $session->postback('predelete_done', $taskid, $workflow),
+
+    $self->{JOBMANAGER}->addJob( $session->postback('predelete_done', $taskid ),
 				 { PRIORITY => 3, TIMEOUT => $self->{TIMEOUT}, LOGFILE => $log },
 				 @{$self->{DELETE_COMMAND}}, "pre",
 				 @$task{ qw(TO_PFN) });
@@ -836,22 +818,21 @@ sub predelete_task
 sub predelete_done
 {
     my ( $self, $kernel, $context, $args ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-    my ($taskid, $workflow) = @$context;
+    my ($taskid) = @$context;
     my ($jobargs) = @$args;
 
     my $task = $self->{TASKS}->{$taskid};
     $task->{PREDELETE_CODE} = &numeric_statcode($jobargs->{STATUS});
     $self->saveTask( $self->{TASKS}->{$taskid} );
-    my $next_call = shift @$workflow;
-    $kernel->yield($next_call, $taskid, $workflow);
+    $kernel->yield($self->next_subtask(), $taskid);
 }
 
 # Marks a task as ready to transfer.  The transfer will begin when the
 # backend detects that all tasks in a job are ready.
 sub transfer_task
 {
-    my ( $self, $kernel, $taskid, $workflow ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-    
+    my ( $self, $kernel, $taskid) = @_[ OBJECT, KERNEL, ARG0 ];
+
     my $task = $self->{TASKS}->{$taskid};
     $task->{READY} = &mytimeofday();
     $self->saveTask($task);
@@ -873,22 +854,18 @@ sub transfer_done
     # save the transfer info
     &output("$task->{JOBDIR}/T${taskid}-xferinfo", Dumper($xferinfo));
 
-    # find the call in the workflow after 'transfer_task'
-    my @workflow = $self->get_workflow();
-    my $i = 0; $i++ while ($workflow[$i] ne 'transfer_task');
-    my $next_call = splice @workflow, 0, $i+2;
-    $kernel->yield($next_call, $taskid, \@workflow);
+    $kernel->yield($self->next_subtask(), $taskid);
 }
 
 sub postvalidate_task
 {
-    my ( $self, $session, $taskid, $workflow ) = @_[ OBJECT, SESSION, ARG0, ARG1 ];
+    my ( $self, $session, $taskid ) = @_[ OBJECT, SESSION, ARG0 ];
 
     my $task = $self->{TASKS}->{$taskid};
     my $jobpath = $task->{JOBDIR};
     my $log = "$jobpath/T${taskid}-postvalidate-log";
 
-    $self->{JOBMANAGER}->addJob( $session->postback('postvalidate_done', $taskid, $workflow),
+    $self->{JOBMANAGER}->addJob( $session->postback('postvalidate_done', $taskid),
 				 { PRIORITY => 2, TIMEOUT => $$self{TIMEOUT}, LOGFILE => $log },
 				 @{$$self{VALIDATE_COMMAND}}, $task->{XFER_CODE},
 				 @$task{qw(TO_PFN FILESIZE CHECKSUM)}, &boolean_yesno($task->{IS_CUSTODIAL}));
@@ -897,7 +874,7 @@ sub postvalidate_task
 sub postvalidate_done
 {
     my ( $self, $kernel, $context, $args ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-    my ($taskid, $workflow) = @$context;
+    my ($taskid) = @$context;
     my ($jobargs) = @$args;
 
     my $task = $self->{TASKS}->{$taskid};
@@ -909,7 +886,7 @@ sub postvalidate_done
     #  - validation: successful/terminated/timed out/error + detail + log
     #      where detail specifies specific error (size mismatch, etc.)
     #  - transfer: successful/terminated/timed out/error + detail + log
-	    
+
     # string STATUS (e.g. 'signal 1') means the child process
     # was terminated/killed
     $$task{POSTVALIDATE_CODE} = $statcode;
@@ -918,20 +895,19 @@ sub postvalidate_done
     $$task{TIME_UPDATE}  = &mytimeofday();
     $self->saveTask( $task );
 
-    my $next_call = shift @$workflow;
-    $done ? $kernel->yield('finish_task', $taskid, $workflow) 
-	  : $kernel->yield($next_call, $taskid, $workflow);
+    $done ? $kernel->yield('finish_task', $taskid)
+	  : $kernel->yield($self->next_subtask(), $taskid);
 }
 
 sub postdelete_task
 {
-    my ( $self, $session, $taskid, $workflow ) = @_[ OBJECT, SESSION, ARG0, ARG1 ];
+    my ( $self, $session, $taskid ) = @_[ OBJECT, SESSION, ARG0 ];
 
     my $task = $self->{TASKS}->{$taskid};
     my $jobpath = $task->{JOBDIR};
     my $log = "$jobpath/T${taskid}-postdelete-log";
 
-    $self->{JOBMANAGER}->addJob( $session->postback('postdelete_done', $taskid, $workflow),
+    $self->{JOBMANAGER}->addJob( $session->postback('postdelete_done', $taskid),
 				 { PRIORITY => 1, TIMEOUT => $self->{TIMEOUT}, LOGFILE => $log },
 				 @{$self->{DELETE_COMMAND}}, "post",
 				 @$task{ qw(TO_PFN) });
@@ -940,21 +916,20 @@ sub postdelete_task
 sub postdelete_done
 {
     my ( $self, $kernel, $context, $args ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-    my ($taskid, $workflow) = @$context;
+    my ($taskid) = @$context;
     my ($jobargs) = @$args;
 
     my $task = $self->{TASKS}->{$taskid};
     $task->{POSTDELETE_CODE} = &numeric_statcode($jobargs->{STATUS});
     $self->saveTask( $task );
-    my $next_call = shift @$workflow;
-    $kernel->yield($next_call, $taskid, $workflow);
+    $kernel->yield($self->next_subtask(), $taskid);
 }
 
 # Mark a task completed.  Brings the next synchronisation into next
 # fifteen minutes, and updates statistics for the current period.
 sub finish_task
 {
-    my ( $self, $kernel, $taskid, $workflow ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+    my ( $self, $kernel, $taskid ) = @_[ OBJECT, KERNEL, ARG0 ];
 
     my $task = $self->{TASKS}->{$taskid};
     my $now = &mytimeofday();
@@ -1022,6 +997,47 @@ sub finish_task
 # Utility functions (non-POE events)
 #
 
+# Initialise agent.
+sub init
+{
+    my ($self) = @_;
+
+    my $do_preval = ($$self{VALIDATE_COMMAND} && $$self{PREVALIDATE}) ? 1 : 0;
+    my $do_predel = ($$self{DELETE_COMMAND} && $$self{PREDELETE}) ? 1 : 0;
+    my $do_postval = $$self{VALIDATE_COMMAND} ? 1 : 0;
+    my $do_postdel = $$self{DELETE_COMMAND} ? 1 : 0;
+
+    # Define the task workflow
+    my @workflow;
+    push @workflow, 'start_task';
+    push @workflow, 'prevalidate_task', 'prevalidate_done'   if $do_preval;
+    push @workflow, 'predelete_task', 'predelete_done'       if $do_predel;
+    push @workflow, 'transfer_task', 'transfer_done';
+    push @workflow, 'postvalidate_task', 'postvalidate_done' if $do_postval;
+    push @workflow, 'postdelete_task', 'postdelete_done'     if $do_postdel;
+    push @workflow, 'finish_task';
+
+    for(my $i=0; $i < $#workflow; $i++) {
+	my $subtask = $workflow[$i];
+	$self->{WORKFLOW}->{$subtask}->{ORDER} = $i;
+	$self->{WORKFLOW}->{$subtask}->{NEXT}  = $i+1 <= $#workflow ? $workflow[$i+1] : undef;
+	$self->{WORKFLOW}->{$subtask}->{PREV}  = $i-1 >= $#workflow ? $workflow[$i-1] : undef;
+    }
+}
+
+# Returns the next subtask based on the task workflow.  If the current
+# subtask is not passed, then it is looked up based on the context of
+# the calling subroutine.
+sub next_subtask
+{
+    my ($self, $current) = @_;
+    $current ||= (caller(1))[3];
+    $current =~ s/.*::([^:]+)$/$1/ if defined $current;
+    return undef if !defined $current;
+    return defined $self->{WORKFLOW}->{$current}->{NEXT} ?
+	$self->{WORKFLOW}->{$current}->{NEXT} : undef;
+}
+
 # schedule $event to occur AT MOST $maxdelta seconds into the future.
 # if the event is already scheduled to arrive before that time,
 # nothing is done.  returns the timestamp of the next event
@@ -1047,26 +1063,6 @@ sub next_event_time
 {
     my ($self, $event) = @_;
     return $self->{ALARMS}->{$event}->{NEXT};
-}
-
-sub get_workflow
-{
-    my $self = shift;
-
-    my $do_preval = ($$self{VALIDATE_COMMAND} && $$self{PREVALIDATE}) ? 1 : 0;
-    my $do_predel = ($$self{DELETE_COMMAND} && $$self{PREDELETE}) ? 1 : 0;
-    my $do_postval = $$self{VALIDATE_COMMAND} ? 1 : 0;
-    my $do_postdel = $$self{DELETE_COMMAND} ? 1 : 0;
-
-    my @workflow;
-    push @workflow, 'prevalidate_task' if $do_preval;
-    push @workflow, 'predelete_task' if $do_predel;
-    push @workflow, 'transfer_task';
-    push @workflow, 'postvalidate_task' if $do_postval;
-    push @workflow, 'postdelete_task' if $do_postdel;
-    push @workflow, 'finish_task';
-
-    return @workflow;
 }
 
 # If stopped, tell backend to stop, then wait for all the pending
@@ -1114,15 +1110,15 @@ sub reconnect
 {
     my ($self) = @_;
 
-eval 
+eval
 {
     my $now = &mytimeofday();
-    
+
     # Now connect.
     my $dbh = $self->connectAgent();
     my @nodes = $self->expandNodes();
     unless (@nodes) { die("Cannot find nodes in database for '@{$$self{NODES}}'") };
-    
+
     # Indicate to file router which links are "live."
     my ($dest, %dest_args) = $self->myNodeFilter ("l.to_node");
     my ($src, %src_args) = $self->otherNodeFilter ("l.from_node");
@@ -1142,7 +1138,6 @@ eval
     $$self{LAST_CONNECT} = $now;
 }; $self->clean_death();
 }
-
 
 # Save a task after change of status.
 sub saveTask
@@ -1213,19 +1208,14 @@ sub check_task_expire
     return 0;
 }
 
-# Initialise agent.
-sub init
-{
-    my ($self) = @_;
-    # XXX needed for anything?
-}
-
+# For use after eval { } protected DB-interaction code.  Logs the
+# error and rolls back any transaction.
 sub clean_death
 {
     my ($self, $err) = @_;
     $err ||= $@;
     return unless $err;
-    chomp ($err); 
+    chomp ($err);
     $self->Alert($err);
     eval { $$self{DBH}->rollback() } if $$self{DBH};
 }
