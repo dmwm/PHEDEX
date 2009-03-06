@@ -69,6 +69,7 @@ sub invoke
   if ($format eq 'doc') {
       &print_doc($call ? $call : $db, # the API to document
 #		 $db ? 'doc/' : '');  # a prefix for URLs
+                 ($path eq "/doc")? 'doc/' : ''
                  );
       return;
   }
