@@ -34,7 +34,7 @@ the given options.
 
 =head3 options
 
- block          block name, with '*' wildcards, can be multiple (*).  required.
+ block          block name, with '*' wildcards, can be multiple (*).  required when no lfn is specified.
  node           node name, can be multiple (*)
  se             storage element name, can be multiple (*)
  update_since   unix timestamp, only return replicas updated since this
@@ -52,6 +52,7 @@ the given options.
  custodial      y or n.  filter for custodial responsibility.  default is
                 to return either.
  group          group name.  default is to return replicas for any group.
+ lfn            logical file name
 
  (*) See the rules of multi-value filters in the Core module
 
