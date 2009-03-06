@@ -267,7 +267,9 @@ sub addJob
 {
   my ($self, $action, $jobargs, @cmd) = @_;
   my $job = { PID => 0, ACTION => $action, CMD => [ @cmd ], %{$jobargs || {}} };
-  $self->{QUEUE}->enqueue(1,$job);
+  $job->{PRIORITY} = POSIX::DBL_MAX   # default ideally the lowest possible.
+      unless exists $job->{PRIORITY};
+  $self->{QUEUE}->enqueue($job->{PRIORITY} ,$job);
   $self->{JOBS}++;
   POE::Kernel->post($self->{JOB_MANAGER_SESSION_ID}, 'job_queued');
 }
