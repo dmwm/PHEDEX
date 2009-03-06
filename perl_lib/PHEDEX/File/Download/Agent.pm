@@ -650,13 +650,14 @@ sub fill_backend
     # If we have nothing to do because all the links were skipped,
     # check if there were any recent transfers on good links, and
     # sync faster if there was
-    if ($skippedlinks == $nlinks && $goodlinks 
-	&& $self->next_event_time('sync_tasks') - $now > 300) {
-	$self->delay_max($kernel, 'sync_tasks', 300);
-	$self->Logmsg("all links were skipped, scheduling ",
-		      "next synchronisation in five minutes")
-	    if $$self{VERBOSE};
-	return;
+    if ($skippedlinks == $nlinks) {
+	if ($goodlinks && $self->next_event_time('sync_tasks') - $now > 300) {
+	    $self->delay_max($kernel, 'sync_tasks', 300);
+	    $self->Logmsg("all links were skipped, scheduling ",
+			  "next synchronisation in five minutes")
+		if $$self{VERBOSE};
+	}
+	return; # Nothing to do.
     }
 
     my @P;
@@ -760,9 +761,9 @@ sub prevalidate_task
     my $log = "$jobpath/T${taskid}-prevalidate-log";
 
     $self->{JOBMANAGER}->addJob( $session->postback('prevalidate_done', $taskid, $workflow),
-		   { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $log },
-		   @{$$self{VALIDATE_COMMAND}}, "pre",
-		   @$task{qw(TO_PFN FILESIZE CHECKSUM)}, &boolean_yesno($task->{IS_CUSTODIAL}));
+				 { PRIORITY => 4, TIMEOUT => $$self{TIMEOUT}, LOGFILE => $log },
+				 @{$$self{VALIDATE_COMMAND}}, "pre",
+				 @$task{qw(TO_PFN FILESIZE CHECKSUM)}, &boolean_yesno($task->{IS_CUSTODIAL}));
 }
 
 sub prevalidate_done
@@ -827,9 +828,9 @@ sub predelete_task
     my $log = "$jobpath/T${taskid}-predelete-log";
     
     $self->{JOBMANAGER}->addJob( $session->postback('predelete_done', $taskid, $workflow),
-    { TIMEOUT => $self->{TIMEOUT}, LOGFILE => $log },
-		   @{$self->{DELETE_COMMAND}}, "pre",
-		   @$task{ qw(TO_PFN) });
+				 { PRIORITY => 3, TIMEOUT => $self->{TIMEOUT}, LOGFILE => $log },
+				 @{$self->{DELETE_COMMAND}}, "pre",
+				 @$task{ qw(TO_PFN) });
 }
 
 sub predelete_done
@@ -888,10 +889,9 @@ sub postvalidate_task
     my $log = "$jobpath/T${taskid}-postvalidate-log";
 
     $self->{JOBMANAGER}->addJob( $session->postback('postvalidate_done', $taskid, $workflow),
-		   { TIMEOUT => $$self{TIMEOUT}, 
-		     LOGFILE => $log },
-		   @{$$self{VALIDATE_COMMAND}}, $task->{XFER_CODE},
-		   @$task{qw(TO_PFN FILESIZE CHECKSUM)}, &boolean_yesno($task->{IS_CUSTODIAL}));
+				 { PRIORITY => 2, TIMEOUT => $$self{TIMEOUT}, LOGFILE => $log },
+				 @{$$self{VALIDATE_COMMAND}}, $task->{XFER_CODE},
+				 @$task{qw(TO_PFN FILESIZE CHECKSUM)}, &boolean_yesno($task->{IS_CUSTODIAL}));
 }
 
 sub postvalidate_done
@@ -932,9 +932,9 @@ sub postdelete_task
     my $log = "$jobpath/T${taskid}-postdelete-log";
 
     $self->{JOBMANAGER}->addJob( $session->postback('postdelete_done', $taskid, $workflow),
-		   { TIMEOUT => $self->{TIMEOUT}, LOGFILE => $log },
-		   @{$self->{DELETE_COMMAND}}, "post",
-		   @$task{ qw(TO_PFN) });
+				 { PRIORITY => 1, TIMEOUT => $self->{TIMEOUT}, LOGFILE => $log },
+				 @{$self->{DELETE_COMMAND}}, "post",
+				 @$task{ qw(TO_PFN) });
 }
 
 sub postdelete_done
