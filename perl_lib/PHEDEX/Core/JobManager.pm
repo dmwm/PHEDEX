@@ -32,10 +32,11 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my %args = (@_);
-    my $self = { NJOBS => $args{NJOBS} || 1, JOBS => [], DJOBS => [] };
+    my $self = { NJOBS => $args{NJOBS} || 1, JOBS => 0, KEEPALIVE => 1 };
     $self->{POCO_DEBUG} = $ENV{POCO_DEBUG} || 0; # Specially for PoCo::Child
-    $self->{VERBOSE} = $args{VERBOSE} || 1;
-    $self->{DEBUG}   = $args{DEBUG}   || 1;
+    $self->{VERBOSE}    = $args{VERBOSE} || 1;
+    $self->{DEBUG}      = $args{DEBUG}   || 1;
+    $self->{KEEPALIVE}  = $args{KEEPALIVE} if defined $args{KEEPALIVE};
 
 #   A queue to hold the jobs we will run
     $self->{QUEUE} = POE::Queue::Array->new();
@@ -79,13 +80,12 @@ sub _jm_start
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
   $self->Logmsg("starting (session ",$session->ID,")");
   $self->{JOB_MANAGER_SESSION_ID} = $session->ID;
-  $kernel->delay_set('heartbeat',60);
+  $kernel->delay_set('heartbeat',60) if $self->{KEEPALIVE};
 }
 
 sub _jm_stop
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
-$DB::single=1;
   print $self->Hdr, "ending, for lack of work...\n";
 }
 
@@ -130,7 +130,8 @@ sub job_queued
   $self->{wheels}{$wheel}{start} = time;
   if ( $job->{TIMEOUT} )
   {
-    $kernel->delay_set('timeout',$job->{TIMEOUT},$wheel);
+    my $timer_id = $kernel->delay_set('timeout',$job->{TIMEOUT},$wheel);
+    $self->{wheels}{$wheel}{timer_id} = $timer_id;
     $self->{wheels}{$wheel}{signals} = [ qw / 1 15 9 / ];
   }
   $job->{CMDNAME} = $job->{CMD}[0];
@@ -236,7 +237,7 @@ sub _child_done {
 
 # cleanup...
   delete $self->{caller}{wheels}{$args->{wheel}};
-  POE::Kernel->post( $self->{caller}{JOB_MANAGER_SESSION_ID}, 'maybe_clear_alarms' );
+  POE::Kernel->post( $self->{caller}{JOB_MANAGER_SESSION_ID}, 'maybe_clear_alarms', $wheel->{timer_id} );
 }
 
 sub _child_died {
@@ -344,7 +345,10 @@ sub maybe_clear_alarms
 # After a child is completed, if there are no other jobs running or queued,
 # I clear all timers. This makes sure the session can quit early. Otherwise,
 # it will wait for the timeouts to fire, even for tasks that have finished.
-  my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
+  my ($self,$kernel,$session,$timer_id) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
+
+  $kernel->alarm_remove($timer_id) if $timer_id;
+
   return if $self->jobsRemaining();
 #  my @removed_alarms = $kernel->alarm_remove_all();
 #  foreach my $alarm (@removed_alarms) {
