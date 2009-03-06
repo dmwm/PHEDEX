@@ -110,6 +110,7 @@ sub start_transfer_job
     foreach my $taskid (keys %{$job->{TASKS}})
     {
 	my $task = $job->{TASKS}->{$taskid};
+
 	my $info;
 	my $fail_rate;
 	if (exists $task->{FROM_NODE} &&
@@ -126,7 +127,6 @@ sub start_transfer_job
 	    $info = { START => $now, END => $now, STATUS => 0,
 		      DETAIL => "nothing done successfully", LOG => "OK" };
 	}
-	&output("$job->{DIR}/T${taskid}X", Dumper($info));
 	$kernel->yield('transfer_done', $taskid, $info);
     }
 }
