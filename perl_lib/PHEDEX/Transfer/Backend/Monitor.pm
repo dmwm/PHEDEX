@@ -90,8 +90,6 @@ sub new
 	      poll_queue_postback	=> 'poll_queue_postback',
 	      poll_job			=> 'poll_job',
 	      poll_job_postback		=> 'poll_job_postback',
-	      timeout_TERM		=> 'timeout_TERM',
-	      timeout_KILL		=> 'timeout_KILL',
 	      report_job		=> 'report_job',
 	      report_statistics		=> 'report_statistics',
 	      forget_job    		=> 'forget_job',
@@ -195,13 +193,11 @@ sub poll_queue
   return unless $self->{POLL_QUEUE};
   $self->Logmsg('Why am I in poll_queue?') if $self->{DEBUG};
 die "I do not want to be here...";
-# my $w = $self->{Q_INTERFACE}->Run('ListQueue',$self->{POLL_QUEUE_POSTBACK});
   $self->{JOBMANAGER}->addJob(
                              $self->{POLL_QUEUE_POSTBACK},
                              { TIMEOUT => $self->{Q_TIMEOUT} },
                              $self->{Q_INTERFACE}->Command('ListQueue')
                            );
-# $kernel->delay_set('timeout_TERM', $self->{Q_TIMEOUT}, $w );
 }
 
 sub poll_queue_postback
@@ -277,8 +273,6 @@ sub poll_job
   }
 
   $self->Logmsg('dequeue JOBID=',$job->ID) if $self->{DEBUG};
-#  my $w = $self->{Q_INTERFACE}->Run('ListJob',$self->{POLL_JOB_POSTBACK},$job);
-#  $kernel->delay_set('timeout_TERM', $self->{Q_TIMEOUT}, $w );
   $self->{JOBMANAGER}->addJob(
                              $self->{POLL_JOB_POSTBACK},
                              { arg => $job, TIMEOUT => $self->{Q_TIMEOUT} },
@@ -419,42 +413,6 @@ sub poll_job_postback
 
 PJDONE:
   $kernel->delay_set('poll_job', $self->{J_INTERVAL});
-}
-
-sub timeout_TERM
-{
-  my ( $self, $kernel, $wheelid ) = @_[ OBJECT, KERNEL, ARG0 ];
-  my ($wheel,$cmd,$id);
-  return unless defined($self->{Q_INTERFACE}{wheels}{$wheelid});
-  $wheel = $self->{Q_INTERFACE}{_child}->wheel($wheelid);
-  $cmd = $self->{Q_INTERFACE}{wheels}{$wheelid}{cmd};
-  if ( defined($id=$self->{Q_INTERFACE}{wheels}{$wheelid}{arg}{ID}) )
-  { $cmd .= ' ' . $id; }
-  if ( $wheel )
-  {
-    print $self->Hdr,"TERMinating wheel $wheelid, ($cmd) after $self->{Q_TIMEOUT} seconds\n";
-    $kernel->delay_set('timeout_KILL',10,$wheelid);
-#   $self->{Q_INTERFACE}->{wheels}->{$wheelid}->{RAW_OUTPUT} = [];
-    push @{$self->{Q_INTERFACE}->{wheels}->{$wheelid}->{ERROR}}, 'TERMinated by ' . $self->ME;
-    $wheel->kill;
-  }
-}
-
-sub timeout_KILL
-{
-  my ( $self, $kernel, $wheelid ) = @_[ OBJECT, KERNEL, ARG0 ];
-  my ($wheel,$cmd,$id);
-  return unless defined($self->{Q_INTERFACE}{wheels}{$wheelid});
-  $wheel = $self->{Q_INTERFACE}->{_child}->wheel($wheelid);
-  $cmd = $self->{Q_INTERFACE}{wheels}{$wheelid}{cmd};
-  if ( defined($id=$self->{Q_INTERFACE}{wheels}{$wheelid}{arg}{ID}) )
-  { $cmd .= ' ' . $id; }
-  if ( $wheel )
-  {
-    print $self->Hdr,"KILLing wheel $wheelid, ($cmd)\n";
-    push @{$self->{Q_INTERFACE}->{wheels}->{$wheelid}->{ERROR}}, 'KILLed by ' . $self->ME;
-    $wheel->kill(9);
-  }
 }
 
 sub report_job
