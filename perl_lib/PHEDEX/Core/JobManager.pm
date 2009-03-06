@@ -14,6 +14,7 @@ use POE;
 use POE::Queue::Array;
 use POE::Component::Child;
 use PHEDEX::Core::Command;
+use PHEDEX::Core::Timing;
 use PHEDEX::Core::Util ( qw / str_hash / );
 
 ######################################################################
@@ -127,7 +128,7 @@ sub job_queued
   my $pkg = 'POE::Component::Child';
   $job->{PID} = $self->{_child}{$pkg}{wheels}{$wheel}{ref}->PID;
   $self->{wheels}{$wheel} = $job;
-  $self->{wheels}{$wheel}{start} = time;
+  $self->{wheels}{$wheel}{start} = &mytimeofday();
   if ( $job->{TIMEOUT} )
   {
     my $timer_id = $kernel->delay_set('timeout',$job->{TIMEOUT},$wheel);
@@ -189,12 +190,15 @@ sub _child_done {
   $wheel->{SIG} = $args->{rc} & 127;
   $wheel->{STATUS} = &runerror ($args->{rc});
 
+  my $duration = &mytimeofday() - $wheel->{start};
+
   if (exists $wheel->{LOGFILE})
   {
     my $logfh = \*{$wheel->{LOGFH}};
     print $logfh (strftime ("%Y-%m-%d %H:%M:%S", gmtime),
       " $wheel->{CMDNAME}($wheel->{PID}): Job exited with status code",
-      " $wheel->{STATUS} ($wheel->{STATUS_CODE})\n");
+      " $wheel->{STATUS} ($wheel->{STATUS_CODE})",
+      sprintf(" after %.3f seconds", $duration), "\n" );
   }
 
   if ( $self->{caller}{DEBUG} )
@@ -203,8 +207,7 @@ sub _child_done {
   }
 
 # Some monitoring...
-  my $duration = time - $wheel->{start};
-  $self->{caller}->Logmsg("$wheel->{CMD}[0] took $duration seconds") if $self->{caller}{VERBOSE};
+  $self->{caller}->Logmsg(sprintf("$wheel->{CMD}[0] took %.3f seconds", $duration)) if $self->{caller}{DEBUG};
 
   my $result;
   if ( defined($wheel->{ACTION}) )
