@@ -15,7 +15,6 @@ use File::Path qw(rmtree);
 use Data::Dumper;
 use POSIX;
 use POE;
-$|++;
 
 sub new
 {
@@ -93,7 +92,7 @@ sub _poe_init
 
   $self->init();
 
-  my @poe_subs = qw( advertise_self verify_tasks manage_archives purge_lost_tasks
+  my @poe_subs = qw( advertise_self verify_tasks purge_lost_tasks
 		     fill_backend maybe_disconnect
 		     sync_tasks report_tasks update_tasks fetch_tasks
 		     start_task finish_task
@@ -103,36 +102,19 @@ sub _poe_init
 		     postvalidate_task postvalidate_done
 		     postdelete_task postdelete_done );
 		     
-  my @backend_required = qw( start_transfer_job );
-
   $kernel->state($_, $self) foreach @poe_subs;
-  $kernel->state($_, $self->{BACKEND}) foreach @backend_required;
 
-#   $session->create( 
-#     object_states => [
-#       $self => \@poe_subs,
-#       $self->{BACKEND} => \@backend_required
-#     ]
-#   );
+  $self->{BACKEND}->_poe_init($kernel, $session);
 
-  $session->option(trace => 1);
+  $session->option(trace => 1);  $|++;
 
-  if ( $self->{BACKEND}->can('setup_callbacks') )
-  { $self->{BACKEND}->setup_callbacks($kernel,$session) }
-
+  # Get periodic events going
   $kernel->yield('advertise_self');
   $kernel->yield('verify_tasks');
-  $kernel->yield('manage_archives');
   $kernel->yield('purge_lost_tasks');
   $kernel->yield('fill_backend');
   $kernel->yield('sync_tasks');
   $kernel->yield('maybe_disconnect');
-
-  # XXX TODO Backend Timeouts... would like to move these to the backend,
-  # or JobManager
-  $kernel->state('timeout_backend_command',$self);
-  $kernel->state('timeout_TERM',$self);
-  $kernel->state('timeout_KILL',$self);
 }
 
 # XXX TODO:  Find a more beutiful way to protect DB-interacting code from transient failures.
@@ -394,7 +376,7 @@ eval
 }
 
 # update expire time changes to tasks
-# XXX TODO update priority
+# XXX TODO update task priority
 sub update_tasks
 {
    my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
@@ -453,7 +435,7 @@ sub verify_tasks
 	    $do_purge = 1;
 	    next;
 	}
-	$self->{TASKS}->{$taskid} = $info;
+	$self->{TASKS}->{$taskid} ||= $info;
 	my $expired = $self->check_task_expire($taskid);
         $kernel->yield('finish_task', $taskid) if $expired;
     }
@@ -467,18 +449,6 @@ sub verify_tasks
     $$self{LAST_WORK} = $now if %{$self->{TASKS}};
 }
 
-# manage the state archives
-sub manage_archives
-{
-   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
-   $self->delay_max($kernel, 'manage_archives', 3600);
-
-   my $archivedir = $$self{ARCHIVEDIR};
-   my @old = <$archivedir/*>;
-   my $now = &mytimeofday();
-   &rmtree($_) for (scalar @old > 500 ? @old 
-		    : grep((stat($_))[9] < $now - 86400, @old));
-}
 
 # Kill ghost transfers in the database and locally.
 sub purge_lost_tasks
@@ -491,7 +461,6 @@ eval
     my $tasks = $self->{TASKS};
     my $now = &mytimeofday();
 
-    # XXX TODO: protect against DB errors
     $self->reconnect() if ! $self->connectionValid();
 
     # Compare local transfer pool with database and reset everything one
@@ -551,30 +520,6 @@ eval
 }; $self->clean_death();
 }
 
-# XXX notes about fill(), check(), frontend/backend interaction
-#
-# - fill() fills the transfer backend until it is full as before
-# - startBatch($tasks) returns undef if backend is full for that link
-#   else returns the job name.  fill() ends when it has tried to
-#   submit transfers for every link.
-# - fill() is triggered every 15 seconds (previous idle() time)
-# - startBatch($tasks) is the only backend function the frontend uses
-# - startBatch triggers 'select_task' for each task that it accepts.  this sets $task{STARTED}.
-# - the backend then waits for each task in its job to receive the
-#   "transfer_task" event.  when this is done, it will actually submit
-#   the transfer job
-# - the backend checks the status of each file.  when it finds that a file transfer is finished,
-#   it triggers "transfer_task_done", control is back in the frontend for that task
-# - the frontend is to know nothing about active transfer jobs, etc.
-#   all of this is pushed to the backend.
-# - the backend knows nothing about the workflow of tasks.  all it
-#   knows are "select_task", "transfer_task" and "transfer_task_done"
-# - selected tasks are not to be expired
-# - lost tasks...  must be cleaned up by the backend.
-# - upon restart, the backend will trigger "transfer_task_done" for
-#   each of its existing tasks, or try to resume the transfer
-
-
 # Fill the backend with as many transfers as it can take.
 # 
 # The files are assigned to the link on a fair share basis.  Here the
@@ -594,14 +539,17 @@ eval
 # more files, but sharing the avaiable backend job slots fairly.  The
 # weighting by consumsed transfer slots is a key factor as it permits
 # the agent to detect which links benefit from being given more files.
+
+
+# XXX TODO unroll loop or not?  queue ordering... latency...
 sub fill_backend
 {
-    my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+    my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
     $self->delay_max($kernel, 'fill_backend', 15);
 
     my $tasks = $self->{TASKS};
     
-    my (%stats, %todo, %sorted);
+    my (%stats, %todo);
     my $now = &mytimeofday();
     my $nlinks = 0;
 
@@ -703,8 +651,8 @@ sub fill_backend
     # check if there were any recent transfers on good links, and
     # sync faster if there was
     if ($skippedlinks == $nlinks && $goodlinks 
-	&& $$self{NEXT_SYNC} - $now > 300 ) {
-	$$self{NEXT_SYNC} = $now + 300;
+	&& $self->next_event_time('sync_tasks') - $now > 300) {
+	$self->delay_max($kernel, 'sync_tasks', 300);
 	$self->Logmsg("all links were skipped, scheduling ",
 		      "next synchronisation in five minutes")
 	    if $$self{VERBOSE};
@@ -731,106 +679,64 @@ sub fill_backend
 	}
     }
 
-
     # For each available job slot, determine which link should have
     # the transfers based on the probability function calculated from
     # the link statistics.  Then fill the job slot from the transfers
     # tasks on that link, in the order of task priority.
-    my $exhausted = 0;
-    while (! $$self{BACKEND}->isBusy() && @P)
-    {
-	$self->maybeStop();
 
-	# Select a link that merits to get the files.
-	my ($i, $p) = (0, rand());
-	$i++ while ($i < $#P && $p >= $P[$i]{HIGH});
-	my $to = $P[$i]{TO};
-	my $from = $P[$i]{FROM};
+    # Select a link that merits to get the files.
+    my ($i, $p) = (0, rand());
+    $i++ while ($i < $#P && $p >= $P[$i]{HIGH});
+    my $to = $P[$i]{TO};
+    my $from = $P[$i]{FROM};
 
-	# Get a sorted list of files for this link.
-	if (! $sorted{$to}{$from})
-	{
-	    $todo{$to}{$from} =
-	        [ sort { $$a{TIME_ASSIGN} <=> $$b{TIME_ASSIGN}
-		         || $$a{RANK} <=> $$b{RANK} }
-	          @{$todo{$to}{$from}} ];
-	    $sorted{$to}{$from} = 1;
+    # Sort the tasks according to priority.  Older tasks first, lower
+    # rank first.
+    $todo{$to}{$from} =
+	[ sort { $$a{TIME_ASSIGN} <=> $$b{TIME_ASSIGN}
+		 || $$a{RANK} <=> $$b{RANK} }
+	  @{$todo{$to}{$from}} ];
+
+    # Send files to transfer.
+    my ($jobid, $jobdir, $jobtasks) = $kernel->call($session, 'start_batch', $todo{$to}{$from});
+
+    if ($jobid) {
+	foreach my $task ( values %$jobtasks ) {
+	    $task->{JOBID} = $jobid;
+	    $task->{JOBDIR} = $jobdir;
+	    $task->{STARTED} = $now;
+	    $self->saveTask($task);
+	    $kernel->yield('start_task', $task->{TASKID});
 	}
 
-	# Send files to transfer.
-	my ($jobid, $jobdir, $jobtasks) = $$self{BACKEND}->startBatch ($todo{$to}{$from});
-
-	if ($jobid) {
-	    foreach my $task ( values %$jobtasks ) {
-		$task->{JOBID} = $jobid;
-		$task->{JOBDIR} = $jobdir;
-		$task->{STARTED} = $now;
-		$self->saveTask($task);
-		$kernel->yield('start_task', $task->{TASKID});
-	    }
-
-	    $self->Logmsg("copy job $jobid assigned to link $from -> $to with "
-			  . sprintf('p=%0.3f and W=%0.3f and ', $p, $stats{$to}{$from}{W})
-			  . scalar(@{$todo{$to}{$from}})
-			  . " transfer tasks in queue")
-		if $$self{VERBOSE};
-	}
-
-	my $linkbusy = $$self{BACKEND}->isBusy($to, $from);
-	my $linkexhausted = @{$todo{$to}{$from}} ? 0 : 1;
-
-	# If we exhausted the files on this link or the link is busy, remove the link's
-	# share from P.  We have to recalculate P then also.
-	if ( ($linkexhausted || $linkbusy) && ! $$self{BACKEND}->isBusy())
-	{
-            $self->Logmsg("transfers on link $from -> $to exhausted, ",
-			  "recalculating link probabilities")
-	        if $linkexhausted && $$self{VERBOSE};
-
-            $self->Logmsg("link $from -> $to is busy, ",
-			  "recalculating link probabilities")
-	        if $linkbusy && $$self{VERBOSE};
-	    
-	    splice(@P, $i, 1);
-	    $W -= $stats{$to}{$from}{W};
-	    for ($i = 0; $i <= $#P; ++$i)
-	    {
-                my $to = $P[$i]{TO};
-                my $from = $P[$i]{FROM};
-		$P[$i]{LOW} = ($i ? $P[$i-1]{HIGH} : 0);
-		$P[$i]{HIGH} = $P[$i]{LOW} + $stats{$to}{$from}{W}/$W;
-
-                $self->Logmsg("new link parameters for $from -> $to:"
-		        . sprintf(' P=[%0.3f, %0.3f),',$P[$i]{LOW},$P[$i]{HIGH})
-		        . sprintf(' W=%0.3f,', $stats{$to}{$from}{W})
-			. " USED=@{[$stats{$to}{$from}{USED} || 0]},"
-			. " DONE=@{[$stats{$to}{$from}{DONE} || 0]},"
-			. " ERRORS=@{[$stats{$to}{$from}{ERRORS} || 0]}")
-                    if $$self{VERBOSE};
-	    }
-
-	    if ($linkexhausted) {
-		--$nlinks;
-		++$exhausted;
-	    }
-        }
+	$self->Logmsg("copy job $jobid assigned to link $from -> $to with "
+		      . scalar(keys %$jobtasks) . " tasks and "
+		      . sprintf('p=%0.3f and W=%0.3f and ', $p, $stats{$to}{$from}{W})
+		      . scalar(@{$todo{$to}{$from}})
+		      . " tasks in queue")
+	    if $$self{VERBOSE};
     }
+
+    my $linkexhausted = @{$todo{$to}{$from}} ? 0 : 1;
+
+    # Fill again as soon as possible
+    $kernel->yield('fill_backend');
 
     # If we exhausted all transfer tasks on a link, make sure the next
     # synchronisation will occur relatively soon.  If we exhausted
     # tasks on all links, synchronise immediately.  This applies only
     # on transition from having tasks to not having them (only), so we
     # are not forcing continuous unnecessary reconnects.
-    if (! $nlinks )
+    if ( $nlinks - $linkexhausted == 0)
     {
 	$self->delay_max($kernel, 'sync_tasks', 0);
 	$self->Logmsg("ran out of tasks, scheduling immediate synchronisation")
 	    if $$self{VERBOSE};
     }
-    elsif ($exhausted && $self->next_event_time('sync_tasks') - $now > 300)
+    elsif ($linkexhausted && $self->next_event_time('sync_tasks') - $now > 300)
     {
 	$self->delay_max($kernel, 'sync_tasks', 300);
-	$self->Logmsg("ran out of tasks on $exhausted links, scheduling"
+	$self->Logmsg("ran out of tasks on link $from -> $to, scheduling"
 		. " next synchronisation in five minutes")
 	    if $$self{VERBOSE};
     }
@@ -939,36 +845,32 @@ sub predelete_done
     $kernel->yield($next_call, $taskid, $workflow);
 }
 
-# starts a transfer job if all the tasks are ready
+# Marks a task as ready to transfer.  The transfer will begin when the
+# backend detects that all tasks in a job are ready.
 sub transfer_task
 {
     my ( $self, $kernel, $taskid, $workflow ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
     
     my $task = $self->{TASKS}->{$taskid};
     $task->{READY} = &mytimeofday();
-    my $jobid = $task->{JOBID};
-
-    my $n_batch = scalar grep($_->{JOBID} eq $jobid, values %{$self->{TASKS}});
-    my $n_ready = scalar grep($_->{JOBID} eq $jobid 
-			      && exists $_->{READY} && $_->{READY}, values %{$self->{TASKS}});
-    
-    if ($n_batch == $n_ready) {
-	$kernel->yield('start_transfer_job', $jobid);
-    }
+    $self->saveTask($task);
 }
 
 sub transfer_done
 {
     my ( $self, $kernel, $taskid, $xferinfo ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
 
-    my $taskinfo = $self->{TASKS}->{$taskid};
+    my $task = $self->{TASKS}->{$taskid};
 
     # copy results into the task
-    $$taskinfo{XFER_CODE}  = &numeric_statcode($xferinfo->{STATUS});
-    $$taskinfo{LOG_DETAIL} = $xferinfo->{DETAIL};
-    $$taskinfo{LOG_XFER}   = $xferinfo->{LOG};
-    $$taskinfo{TIME_XFER}  = $xferinfo->{START};
-    $self->saveTask($taskinfo);
+    $$task{XFER_CODE}  = &numeric_statcode($xferinfo->{STATUS});
+    $$task{LOG_DETAIL} = $xferinfo->{DETAIL} || '';
+    $$task{LOG_XFER}   = $xferinfo->{LOG}    || '';
+    $$task{TIME_XFER}  = $xferinfo->{START}  || -1;
+    $self->saveTask($task);
+
+    # save the transfer info
+    &output("$task->{JOBDIR}/T${taskid}-xferinfo", Dumper($xferinfo));
 
     # find the call in the workflow after 'transfer_task'
     my @workflow = $self->get_workflow();
@@ -1011,8 +913,9 @@ sub postvalidate_done
     # string STATUS (e.g. 'signal 1') means the child process
     # was terminated/killed
     $$task{POSTVALIDATE_CODE} = $statcode;
-    $$task{LOG_VALIDATE} = $log;
-    $$task{TIME_UPDATE} = &mytimeofday();
+    $$task{REPORT_CODE}  = $statcode;
+    $$task{LOG_VALIDATE} = $log || '';
+    $$task{TIME_UPDATE}  = &mytimeofday();
     $self->saveTask( $task );
 
     my $next_call = shift @$workflow;
@@ -1174,23 +1077,7 @@ sub stop
 {
     my ($self) = @_;
     return;
-    # XXX TODO handle stopping
-
-    # Wait for utility processes to finish.
-    if (@{$$self{JOBS}})
-    {
-        $self->Logmsg ("waiting pending jobs to finish...");
-        while (@{$$self{JOBS}})
-        {
-            $self->pumpJobs();
-	    select(undef, undef, undef, .1);
-        }
-        $self->Logmsg ("all pending jobs finished, ready to exit");
-    }
-    else
-    {
-        $self->Logmsg ("no pending jobs, ready to exit");
-    }
+    # XXX TODO handle stops / restarts
 
     # Clear to exit.
 }
@@ -1333,17 +1220,6 @@ sub init
     # XXX needed for anything?
 }
 
-sub idle
-{
-    my ($self) = @_;
-    my $now = &mytimeofday();
-#     $self->Dbgmsg(join ("", 
-# 			"idle() debug:  now=$now\n",
-# 			"ALARMS:\n", Dumper($self->{ALARMS}), "\n"
-# 			)
-# 		  );
-}
-
 sub clean_death
 {
     my ($self, $err) = @_;
@@ -1353,52 +1229,5 @@ sub clean_death
     $self->Alert($err);
     eval { $$self{DBH}->rollback() } if $$self{DBH};
 }
-
-#
-# XXX TODO: the following three events should be moved to the backend
-# code or to JobManager
-#
-
-sub timeout_TERM
-{ 
-  my ( $self, $kernel, $wheelid ) = @_[ OBJECT, KERNEL, ARG0 ];
-  my ($wheel,$cmd,$id);
-  return unless defined($self->{BACKEND}{Q_INTERFACE}{wheels}{$wheelid});
-  $wheel = $self->{BACKEND}{Q_INTERFACE}{_child}->wheel($wheelid);
-  $cmd = $self->{BACKEND}{Q_INTERFACE}{wheels}{$wheelid}{cmd};
-  if ( defined($id=$self->{BACKEND}{Q_INTERFACE}{wheels}{$wheelid}{arg}{ID}) )
-  { $cmd .= ' ' . $id; }
-  if ( $wheel )
-  {
-    print $self->Hdr,"TERMinating wheel $wheelid, ($cmd)\n";
-    $kernel->delay_set('timeout_KILL',10,$wheelid);
-    push @{$self->{BACKEND}{Q_INTERFACE}->{wheels}->{$wheelid}->{ERROR}}, 'TERMinated by sig-TERM';
-    $wheel->kill;
-  }
-}
-
-sub timeout_KILL
-{
-  my ( $self, $kernel, $wheelid ) = @_[ OBJECT, KERNEL, ARG0 ];
-  my ($wheel,$cmd,$id);
-  return unless defined($self->{BACKEND}{Q_INTERFACE}{wheels}{$wheelid});
-  $wheel = $self->{BACKEND}{Q_INTERFACE}->{_child}->wheel($wheelid);
-  $cmd = $self->{BACKEND}{Q_INTERFACE}{wheels}{$wheelid}{cmd};
-  if ( defined($id=$self->{BACKEND}{Q_INTERFACE}{wheels}{$wheelid}{arg}{ID}) )
-  { $cmd .= ' ' . $id; }
-  if ( $wheel )
-  {
-    print $self->Hdr,"KILLing wheel $wheelid, ($cmd)\n";
-    push @{$self->{BACKEND}{Q_INTERFACE}->{wheels}->{$wheelid}->{ERROR}}, 'KILLed by sig-KILL';
-    $wheel->kill(9);
-  }
-}
-
-sub timeout_backend_command
-{
-  my ($self,$kernel,$wheel) = @_[ OBJECT, KERNEL, ARG0 ];
-  $kernel->delay_set('timeout_TERM',$self->{TIMEOUT},$wheel);
-}
-
 
 1;
