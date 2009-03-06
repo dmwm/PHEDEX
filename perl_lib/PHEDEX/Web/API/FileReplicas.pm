@@ -89,7 +89,10 @@ sub fileReplicas
 {
     my ($core,%h) = @_;
 
-    &checkRequired(\%h, 'block');
+    if (!defined($h{lfn}))
+    {
+        &checkRequired(\%h, 'block');
+    }
 
     my $r = PHEDEX::Web::SQL::getFileReplicas($core, %h);
 
