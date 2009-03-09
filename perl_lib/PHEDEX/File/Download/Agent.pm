@@ -11,7 +11,6 @@ use PHEDEX::Core::DB;
 use PHEDEX::Error::Constants;
 
 use List::Util qw(min max sum);
-use File::Path qw(rmtree);
 use Data::Dumper;
 use POSIX;
 use POE;
@@ -1072,17 +1071,11 @@ sub next_event_time
 sub stop
 {
     my ($self) = @_;
+
     return;
     # XXX TODO handle stops / restarts
 
     # Clear to exit.
-}
-
-sub evalinfo
-{
-    my ($file) = @_;
-    no strict 'vars';
-    return eval (&input($file) || '');
 }
 
 # turn a JobManager job STATUS into a number

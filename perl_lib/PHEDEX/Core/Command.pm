@@ -9,7 +9,7 @@ PHEDEX::Core::Command - a drop-in replacement for Toolkit/UtilsCommand
 use strict;
 use warnings;
 use base 'Exporter';
-our @EXPORT = qw(getdir runcmd runerror touch mv cksum output input);
+our @EXPORT = qw(getdir runcmd runerror touch mv cksum output input evalinfo);
 
 # Get directory contents
 sub getdir
@@ -129,6 +129,14 @@ sub input
 	    && ($content = join("", <FILE>))
 	    && close (FILE))
         ? $content : undef;
+}
+
+# Read a Data::Dumper file and return the result
+sub evalinfo
+{
+    my ($file) = @_;
+    no strict 'vars';
+    return eval (&input($file) || '');
 }
 
 # Diff two files
