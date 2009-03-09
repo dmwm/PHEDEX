@@ -8,7 +8,7 @@ use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Timing;
 use POE;
 use Getopt::Long;
-use File::Path qw(mkpath);
+use File::Path qw(mkpath rmtree);
 use Data::Dumper;
 
 sub new
@@ -57,12 +57,6 @@ sub new
     $self->{BATCHID} = 0;       # Running batch counter
     $self->{WORKDIR} = $master->{WORKDIR}; # Where job state/logs are saved
     $self->{ARCHIVEDIR} = $master->{ARCHIVEDIR}; # Where job state/logs are archived when finished
-
-    # Locate the transfer wrapper script.
-    $self->{WRAPPER} = $INC{"PHEDEX/Transfer/Core.pm"};
-    $self->{WRAPPER} =~ s|/PHEDEX/Transfer/Core\.pm$|/../Toolkit/Transfer/TransferWrapper|;
-    -x "$self->{WRAPPER}"
-        || die "Failed to locate transfer wrapper, tried $$self{WRAPPER}\n";
 
     return $self;
 }
