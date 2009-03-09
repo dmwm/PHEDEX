@@ -231,6 +231,7 @@ sub new
 
             _start   => '_start',
             _stop    => '_stop',
+	    _child   => '_child',
             _default => '_default',
           },
         ],
@@ -1694,6 +1695,9 @@ sub _make_stats
   $self->Notify($summary);
   $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
 }
+
+# Dummy handler in case it's needed. Let's _default catch the real errors
+sub _child {}
 
 sub _default
 {
