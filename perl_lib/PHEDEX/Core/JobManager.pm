@@ -58,6 +58,7 @@ sub new
 
             _start	=> '_jm_start',
             _stop	=> '_jm_stop',
+	    _child	=> '_jm_child',
             _default	=> '_jm_default',
           },
         ],
@@ -89,6 +90,8 @@ sub _jm_stop
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
   print $self->Hdr, "ending, for lack of work...\n";
 }
+
+sub _jm_child {} # Dummy event-handler, to silence warnings
 
 sub _jm_default
 {
