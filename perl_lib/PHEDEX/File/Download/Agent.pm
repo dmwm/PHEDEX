@@ -254,7 +254,7 @@ eval
    my ($dest, %dest_args) = $self->myNodeFilter ("xt.to_node");
    my ($src, %src_args) = $self->otherNodeFilter ("xt.from_node");
    my $now = &mytimeofday();
-   my (%pending, %busy);
+   my (%pending, %busy, %fetched);
 
    # If we have just too much work, leave.
    my $maxtasks = 5_000;
@@ -344,6 +344,7 @@ eval
 		    );
 	$$row{TIME_INXFER} = $now;
         ($pending{$linkkey} ||= 0)++;
+        ($fetched{$linkkey} ||= 0)++;
 
 	# Generate a local task descriptor.  It doesn't really matter
 	# if things go badly wrong here, we'll clean it up in purge.
@@ -356,6 +357,13 @@ eval
 	$self->Alert ("'$err' occurred for $errors{$err} tasks" );
 	delete $errors{$err};
     }
+
+   # report fetched summary
+   if ($self->{VERBOSE}) {
+       foreach my $linkkey (sort keys %fetched) {
+	   $self->Logmsg("fetched $fetched{$linkkey} new tasks for link $linkkey");
+       }
+   }
 
     $q->finish(); # In case we left before going through all the results
    $self->{DBH}->commit();
@@ -731,6 +739,7 @@ sub start_task
     my ( $self, $kernel, $taskid ) = @_[ OBJECT, KERNEL, ARG0 ];
     my $task = $self->{TASKS}->{$taskid};
     $task->{STARTED} = &mytimeofday();
+    $self->saveTask($task);
     $kernel->yield( $self->next_subtask(), $taskid );
 }
 
