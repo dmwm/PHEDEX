@@ -190,11 +190,9 @@ sub expandBlockListOnNodes
   foreach $block ( @{$h{blocks}} )
   {
     my $tmp = getBlockReplicasFromWildCard( $self,
-					   {
 					     BLOCK => $block,
 					     NODES => @{$h{nodes}},
 					     COMPLETE_BLOCKS => $h{complete_blocks},
-					   }
 					 );
     map { $result{$_} = $tmp->{$_} } keys %$tmp;
   }

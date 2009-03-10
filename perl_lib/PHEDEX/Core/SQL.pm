@@ -205,7 +205,7 @@ Useful for iterating over all blocks in order to save memory.
 
 Return the dataset names of all datasets with names LIKE C<$dataset>
 
-=item getBlockReplicasFromWildCard($block,@nodes)
+=item getBlockReplicasFromWildCard(BLOCK => $block, NODEX => \@nodes, COMPLETE_BLOCKS => (1|0) )
 
 Return a ref to a hash of block NAME and number of FILES from
 t_dps_block_replica, keyed by block-ID, where the block name is LIKE C<$block>
@@ -666,30 +666,17 @@ sub getBuffersFromWildCard
 #-------------------------------------------------------------------------------
 sub getBlockReplicasFromWildCard
 {
-  my $self = shift;
-  my ($h,$block,@nodes,$complete);
-  $h = shift;
-  if ( ref($h) eq 'HASH' )
-  {
-    @nodes = $h->{NODES};
-    $block = $h->{BLOCK};
-    $complete = $h->{COMPLETE_BLOCKS};
-  }
-  else
-  {
-    $self->Logmsg('getBlockReplicasFromWildCard: use of positional interface is deprecated, please use the named-argument interface instead');
-    $block = $h;
-    @nodes = @_;
-  }
+  my ($self,%h) = @_;
+  my @nodes = $h{NODES};
   my $sql = qq {select block, name, files from
                 t_dps_block_replica br join t_dps_block b on br.block = b.id
                 where name like :name };
-  my %p = ( ':name' => $block );
+  my %p = ( ':name' => $h{BLOCK} );
   if ( @nodes )
   {
     $sql .= ' and (' .  filter_or_eq( $self, undef, \%p, 'node', @nodes ) . ')';
   }
-  if ( $complete )
+  if ( $h{COMPLETE_BLOCKS} )
   {
     $sql .= " and br.node_files = b.files and b.is_open = 'n'";
   }

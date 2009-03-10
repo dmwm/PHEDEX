@@ -284,11 +284,9 @@ if ( @block )
     $debug && print "Getting blocks with names like '$block'\n";
     my $complete_blocks = $incomplete_blocks ? 0 : 1;
     my $tmp = $SQL->getBlockReplicasFromWildCard(
-                                           {
                                              BLOCK => $block,
                                              NODES => \@bufferIDs,
                                              COMPLETE_BLOCKS => $complete_blocks,
-                                           }
 					  );
     map { $g{$_->{NAME}}++ } values %{$tmp};
     map { $h{Blocks}{$_->{NAME}} = {} } values %{$tmp};
