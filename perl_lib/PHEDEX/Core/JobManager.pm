@@ -88,7 +88,7 @@ sub _jm_start
 sub _jm_stop
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
-  print $self->Hdr, "ending, for lack of work...\n";
+  $self->Logmsg("stopping (session ",$session->ID,")");
 }
 
 sub _jm_child {} # Dummy event-handler, to silence warnings
@@ -202,6 +202,7 @@ sub _child_done {
       " $wheel->{CMDNAME}($wheel->{PID}): Job exited with status code",
       " $wheel->{STATUS} ($wheel->{STATUS_CODE})",
       sprintf(" after %.3f seconds", $duration), "\n" );
+    close $logfh;
   }
 
   if ( $self->{caller}{DEBUG} )
