@@ -2,6 +2,8 @@ package PHEDEX::Transfer::Command;
 use strict;
 use warnings;
 use base 'PHEDEX::Transfer::Core';
+use PHEDEX::Transfer::Wrapper;
+use POE;
 use Getopt::Long;
 
 # General transfer back end for making file copies with a simple
@@ -33,18 +35,38 @@ sub new
     return $self;
 }
 
-# Transfer batch of files.  Forks off the transfer wrapper for each
-# file in the copy job (= one source, destination file pair).
-sub transferBatch
+sub setup_callbacks
 {
-    my ($self, $job, $tasks) = @_;
-    foreach (keys %{$job->{TASKS}})
+    my ($self, $kernel, $session) = @_;
+    $kernel->state('wrapper_task_done', $self);
+}
+
+sub start_transfer_job
+{
+    my ( $self, $kernel, $session, $jobid ) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
+
+    my $job = $self->{JOBS}->{$jobid};
+
+    foreach my $task (values %{$job->{TASKS}})
     {
-        $self->{JOBMANAGER}->addJob(undef, { DETACHED => 1 },
-		      $self->{WRAPPER}, $job->{DIR}, $self->{TIMEOUT},
-		      @{$self->{COMMAND}}, $tasks->{$_}{FROM_PFN},
-		      $tasks->{$_}{TO_PFN});
+	my $postback = $session->postback('wrapper_task_done', $task->{TASKID});
+	my $wrapper = new PHEDEX::Transfer::Wrapper ( CMD => [ @{$self->{COMMAND}}, 
+							       $task->{FROM_PFN},
+							       $task->{TO_PFN} ],
+						      TIMEOUT => $self->{TIMEOUT},
+						      WORKDIR => $job->{DIR},
+						      TASK_DONE_CALLBACK => $postback
+						      );
     }
+}
+
+sub wrapper_task_done
+{
+    my ($self, $kernel, $context, $args) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+    my ($taskid) = @$context;
+    my ($xferinfo) = @$args;
+    $kernel->yield('transfer_done', $taskid, $xferinfo);
+
 }
 
 1;

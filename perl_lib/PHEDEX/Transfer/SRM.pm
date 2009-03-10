@@ -32,23 +32,29 @@ sub new
 }
 
 # Transfer a batch of files.
-sub transferBatch
+sub start_transfer_job
 {
-    my ($self, $job, $tasks) = @_;
+    my ( $self, $kernel, $session, $jobid ) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
+
+    my $job = $self->{JOBS}->{$jobid};
 
     # Prepare copyjob and report names.
     my $spec = "$job->{DIR}/copyjob";
     my $report = "$job->{DIR}/srm-report";
 
     # Now generate copyjob
-    &output ($spec, join ("", map { "$tasks->{$_}{FROM_PFN} ".
-		                    "$tasks->{$_}{TO_PFN}\n" }
-		          keys %{$job->{TASKS}}));
+    &output ($spec, join ("", map { "$_->{FROM_PFN} ".
+		                    "$_->{TO_PFN}\n" }
+		          values %{$job->{TASKS}}));
 
-    # Fork off the transfer wrapper
-    $self->{JOBMANAGER}->addJob(undef, { DETACHED => 1 },
-		  $self->{WRAPPER}, $job->{DIR}, $self->{TIMEOUT},
-		  @{$self->{COMMAND}}, "-copyjobfile=$spec", "-report=$report");
+    my $postback = $session->postback('wrapper_task_done', $task->{TASKID});
+    my $wrapper = new PHEDEX::Transfer::Wrapper ( CMD => [ @{$self->{COMMAND}}, 
+							   "-copyjobfile=$spec",
+							   "-report=$report" ],
+						  TIMEOUT => $self->{TIMEOUT},
+						  WORKDIR => $job->{DIR},
+						  TASK_DONE_CALLBACK => $postback
+						  );
 }
 
 1;

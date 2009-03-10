@@ -15,6 +15,9 @@ package PHEDEX::Transfer::Wrapper;
 ##H
 ##H COMMAND and ARGS are the command to execute.
 
+use warnings;
+use strict;
+
 use PHEDEX::Core::JobManager;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
@@ -32,6 +35,7 @@ sub new
 		WORKDIR => undef,
 		TIMEOUT	=> undef,
 		CMD	=> undef,
+		TASK_DONE_CALLBACK => undef
 	       );
   map { $self->{$_} = $h{$_} || $params{$_} } keys %params;
   foreach ( keys %params )
@@ -89,6 +93,7 @@ sub jobFinished
   $self->{JOBSTATUS} = shift;
 # Job status should now be set.
   die "$0: job status lost!\n" if ! $self->{JOBSTATUS};
+  my $start = $self->{START};
   my $end = &mytimeofday();
 
 # If we have a SRM transfer report, read that in now.
@@ -104,29 +109,27 @@ sub jobFinished
       }
 
       # Read in tasks and correlate with report.
-      foreach my $task (%{$self->{COPYINFO}{TASKS}})
+      foreach my $task (values %{$self->{COPYINFO}{TASKS}})
       {
-	  my $file = "$self->{WORKDIR}/../../tasks/$task";
-	  my $info = do { no strict "vars"; eval (&input($file) || '') };
-	  next if ! $info;
+	  next if ! $task;
 
-	  my ($from, $to) = @$info{"FROM_PFN", "TO_PFN"};
-	  $taskstatus{$task} = $reported{$from}{$to};
+	  my ($from, $to) = @$task{"FROM_PFN", "TO_PFN"};
+	  $taskstatus{$task->{TASKID}} = $reported{$from}{$to};
       }
   }
 
   # Build per-task status update and write them out.
   my $log = &input("$self->{WORKDIR}/log");
-  foreach my $task (keys %{$self->{COPYINFO}{TASKS}})
+  foreach my $taskid (keys %{$self->{COPYINFO}{TASKS}})
   {
       my $status = { START => $start, END => $end,
 	             STATUS => $self->{JOBSTATUS}{STATUS},
 		     DETAIL => "", LOG => $log };
 
-      if ($taskstatus{$task})
+      if ($taskstatus{$taskid})
       {
 	  # We have a report entry, use that.
-	  ($$status{STATUS}, $$status{DETAIL}) = @{$taskstatus{$task}};
+	  ($$status{STATUS}, $$status{DETAIL}) = @{$taskstatus{$taskid}};
       }
       elsif (defined $self->{SIGNALLED})
       {
@@ -142,8 +145,7 @@ sub jobFinished
 			     . " seconds with signal $self->{JOBSTATUS}{SIGNAL}";
       }
 
-      &output("$self->{WORKDIR}/T${task}X", Dumper($status))
-          or die "$self->{WORKDIR}/T${task}X: $!\n";
+      $self->{TASK_DONE_CALLBACK}($status);
   }
 
   # Generate some useful flags.
