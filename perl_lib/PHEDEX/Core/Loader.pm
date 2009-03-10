@@ -20,7 +20,10 @@ sub new
 
   if ( !defined($self->{REJECT}) )
   {
-    $self->{REJECT} = [ qw / Template UserAgent FakeAgent / ];
+    no strict 'refs';
+    my @reject = @{$self->{NAMESPACE} . '::_loader_reject'};
+    @reject = ( qw / Template UserAgent FakeAgent / ) unless @reject;
+    $self->{REJECT} = \@reject;
   }
   bless $self, $class;
   $self->Commands();
