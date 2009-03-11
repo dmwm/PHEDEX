@@ -30,10 +30,10 @@ use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::DB;
-use DBI;
-use PHEDEX::Core::RFIO;
 use PHEDEX::BlockConsistency::Core;
 use PHEDEX::Namespace;
+use POE;
+use POE::Queue::Array;
 
 our %params =
 	(
@@ -46,31 +46,13 @@ our %params =
 	  ME => 'BlockDownloadVerify',  # Name for the record...
 	);
 
-sub daemon
-{
-  my $self = shift;
-  if ( defined($main::Interactive) && $main::Interactive )
-  {
-    print "Stub the daemon() call\n";
-
-#   Can't do this, because daemon is called from the base class, before
-#   the rest of me is initialised. Hence the messing around...
-#   $self->{WAITTIME} = 2;
-    my $x = ref $self;
-    no strict 'refs';
-    ${$x . '::params'}{WAITTIME} = 2;
-    return;
-  }
-
-  $self->SUPER::daemon(@_);
-}
-
 sub new
 {
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self  = $class->SUPER::new(%params,@_);
   $self->{bcc} = PHEDEX::BlockConsistency::Core->new();
+  $self->{QUEUE} = POE::Queue::Array->new();
   bless $self, $class;
 
   return $self;
@@ -93,13 +75,11 @@ sub AUTOLOAD
 
 sub doDBSCheck
 {
-  my ($self, $drop, $request) = @_;
+  my ($self, $request) = @_;
   my ($n_files,$n_tested,$n_ok);
   my @nodes = ();
 
   $self->Logmsg("doDBSCheck: starting") if ( $self->{DEBUG} );
-  my $dropdir = "$$self{WORKDIR}/$drop";
-
   $self->{bcc}->Checks($request->{TEST}) or
     die "Test $request->{TEST} not known to ",ref($self),"!\n";
 
@@ -158,8 +138,6 @@ sub doDBSCheck
     elsif ( $n_tested == $n_files && $n_ok != $n_files )
     {
       $self->setRequestState($request,'Fail');
-      &touch ("$dropdir/done");
-      $self->relayDrop ($drop);
     }
     else
     {
@@ -182,12 +160,11 @@ sub doDBSCheck
 
 sub doNSCheck
 {
-  my ($self, $drop, $request) = @_;
+  my ($self, $request) = @_;
   my ($n_files,$n_tested,$n_ok);
   my @nodes = ();
 
   $self->Logmsg("doNSCheck: starting") if ( $self->{DEBUG} );
-  my $dropdir = "$$self{WORKDIR}/$drop";
 
   $self->{bcc}->Checks($request->{TEST}) or
     die "Test $request->{TEST} not known to ",ref($self),"!\n";
@@ -261,8 +238,6 @@ sub doNSCheck
     elsif ( $n_tested == $n_files && $n_ok != $n_files )
     {
       $self->setRequestState($request,'Fail');
-      &touch ("$dropdir/done");
-      $self->relayDrop ($drop);
     }
     else
     {
@@ -283,21 +258,28 @@ sub doNSCheck
   return $status;
 }
 
-sub processDrop
+sub _poe_init
 {
-  my ($self, $drop) = @_;
-  my ($dropdir,$request,$bad,$r);
+  my ($self,$kernel) = @_[ OBJECT, KERNEL ];
+  $kernel->state('do_tests',$self);
+  $kernel->state('get_work',$self);
+  $kernel->yield('do_tests');
+}
+
+sub do_tests
+{
+  my ($self, $kernel) = @_[ OBJECT, KERNEL ];
+  my ($request,$r,$id,$priority);
+
+  ($priority,$id,$request) = $self->{QUEUE}->dequeue_next();
+  if ( ! $request )
+  {
+    $kernel->yield('get_work');
+    return;
+  }
 
 # Sanity checking
-  return if (! $self->inspectDrop ($drop));
-  delete $$self{BAD}{$drop};
   &timeStart($$self{STARTTIME});
-
-# Read back file information
-  $dropdir = "$$self{WORKDIR}/$drop";
-  $request = do { no strict "vars"; eval &input ("$dropdir/packet") };
-  $bad = 0;
-  $bad = 1 if ($@ || !$request );
 
   eval { $self->connectAgent(); };
   do {
@@ -307,60 +289,11 @@ sub processDrop
   } if $@;
   $self->{bcc}->DBH( $self->{DBH} );
 
-  if ( $request->{INJECT_ONLY} )
-  {
-#   This is an injection-drop.
-    foreach ( qw/ BLOCK N_FILES PRIORITY TEST TIME_EXPIRE NODE / )
-    { $bad = 1 unless defined $request->{$_}; }
-
-    if ( $bad )
-    {
-      $self->Alert ("corrupt packet in $drop");
-      return;
-    }
-
-#   Inject this test
-    my $test = $self->get_TDVS_Tests($request->{TEST})->{ID};
-    my $use_srm = 0;
-    if ( $request->{USE_SRM} eq 'y' ) { $use_srm = 1; }
-    my $id = $self->{bcc}->InjectTest(
-				node		=> $request->{NODE},
-				test		=> $test,
-				block		=> $request->{BLOCK},
-				n_files		=> $request->{N_FILES},
-				time_expire	=> $request->{TIME_EXPIRE},
-				priority	=> $request->{PRIORITY},
-				use_srm		=> $use_srm,
-			     );
-    print "Inject request=$id for ",
-	join(', ',map{"$_=>$request->{$_}"} sort keys %{$request}),"\n";
-    &touch ("$dropdir/done");
-    $self->relayDrop ($drop);
-    return;
-  }
-
-# This is a normal drop
-  foreach ( qw/ BLOCK N_FILES PRIORITY TEST TIME_EXPIRE LFNs ID / )
-  { $bad = 1 unless defined $request->{$_}; }
-
-  if ( $bad )
-  {
-    $self->Alert ("corrupt packet in $drop for request $request->{ID}");
-
-    $self->markBad ($drop);
-    $self->setRequestState($request,'Rejected');
-    $self->{DBH}->commit();
-    return;
-  }
-
   if ( $request->{TIME_EXPIRE} <= time() )
   {
-    &touch ("$dropdir/done");
-    $self->relayDrop ($drop);
     $self->setRequestState($request,'Expired');
     $self->{DBH}->commit();
     $self->Logmsg("processDrop: return after Expiring $request->{ID}");
-    return;
   }
 
   if ( $request->{TEST} eq 'size' ||
@@ -368,33 +301,21 @@ sub processDrop
   {
     $self->setRequestState($request,'Active');
     $self->{DBH}->commit();
-    my $result = $self->doNSCheck ($drop, $request);
-    return if ! $result;
+    my $result = $self->doNSCheck ($request);
   }
   elsif ( $request->{TEST} eq 'dbs' )
   {
     $self->setRequestState($request,'Active');
     $self->{DBH}->commit();
-    my $result = $self->doDBSCheck ($drop, $request);
-    return if ! $result;
+    my $result = $self->doDBSCheck ($request);
   }
-# elsif ( $request->{TEST} eq 'cksum' )
-# {
-# }
   else
   {
-    $self->markBad($drop);
     $self->setRequestState($request,'Rejected');
     $self->{DBH}->commit();
     $self->Logmsg("processDrop: return after Rejecting $request->{ID}");
-    return;
   }
-
-# Mark drop done so it will be nuked
-  &touch ("$dropdir/done");
-
-# OK, got far enough to nuke and log it
-  $self->relayDrop ($drop);
+  $kernel->yield('do_tests');
 }
 
 # Get a list of pending requests
@@ -433,11 +354,9 @@ sub requestQueue
   {
     %p = ( ':request' => $h->{ID} );
     $q1 = &dbexec($self->{DBH},$sql,%p);
-#   $h->{LFNs} = [];
     my %f;
     while ( my $g = $q1->fetchrow_hashref() )
     {
-#     push @{$h->{LFNs}}, $g;
       $f{$g->{FILEID}} = $g unless exists( $f{$g->{FILEID}} );
     }
     @{$h->{LFNs}} = values %f;
@@ -450,46 +369,10 @@ sub requestQueue
   return @requests;
 }
 
-sub dropBoxName
-{
-# Derive a dropbox name for a request. Required to be alphabetically
-# sorted to the same order that the requests should be processed in.
-  my ($self,$request) = @_;
-  my $b = sprintf("%08x_%08x_%010d",
-                   $request->{PRIORITY},
-                   $request->{TIME_EXPIRE},
-                   $request->{ID}
-                 );
-  return $b;
-}
-
-# Create a drop for processing a request.  We create a drop for ourselves,
-# i.e. in our own inbox, and then process the file in "processDrop".
-# This way we have a permanent record of where we are with deleting
-# the file, in case we have to give up some operation for temporary
-# failures.
-sub startOne
-{
-  my ($self, $request) = @_;
-
-# Create a pending drop in my inbox
-  my $drop = "$$self{DROPDIR}/inbox/" . $self->dropBoxName($request);
-  do { $self->Alert ("$drop already exists"); return 0; } if -d $drop;
-  do { $self->Alert ("failed to submit $$request{ID}"); &rmtree ($drop); return 0; }
-	if (! &mkpath ($drop)
-	  || ! &output ("$drop/packet", Dumper ($request))
-	  || ! &touch ("$drop/go.pending"));
-
-# OK, kick it go
-  return 1 if &mv ("$drop/go.pending", "$drop/go");
-  $self->Warn ("failed to mark $$request{ID} ready to go");
-  return 0;
-}
-
 # Pick up work from the database.
-sub idle
+sub get_work
 {
-  my ($self, @pending) = @_;
+  my ($self, $kernel) = @_[ OBJECT, KERNEL ];
   my @nodes = ();
 
   eval
@@ -501,28 +384,29 @@ sub idle
     my ($ofilter, %ofilter_args) = $self->otherNodeFilter ("b.node");
 
 #   Get a list of requests to process
-    foreach my $request ($self->requestQueue(50, \$mfilter, \%mfilter_args,
+    foreach my $request ($self->requestQueue(10, \$mfilter, \%mfilter_args,
 						 \$ofilter, \%ofilter_args))
     {
-      if ( $self->startOne ($request) )
-      {
-        $self->setRequestState($request,'Queued');
-      }
-      else
-      {
-        $self->setRequestState($request,'Error');
-      }
+      $self->{QUEUE}->enqueue($request->{PRIORITY},$request);
+#     $self->setRequestState($request,'Queued');
     }
     $self->{DBH}->commit();
+    if ( $self->{QUEUE}->get_item_count() ) { $kernel->yield('do_tests'); }
+    else
+    {
+      $kernel->delay_set('get_work',$self->{WAITTIME});
+      # Disconnect from the database
+      $self->disconnectAgent();
+    }
+    return;
   };
   do {
-       chomp ($@);
-       $self->Alert ("database error: $@");
-       $self->{DBH}->rollback();
+     chomp ($@);
+     $self->Alert ("database error: $@");
+     $self->{DBH}->rollback();
   } if $@;
 
-  # Disconnect from the database
-  $self->disconnectAgent();
+  return;
 }
 
 sub setFileState
@@ -597,7 +481,7 @@ sub isInvalid
   my $self = shift;
   my $errors = $self->SUPER::isInvalid
 		(
-		  REQUIRED => [ qw / DROPDIR NODES DBCONFIG STORAGEMAP / ],
+		  REQUIRED => [ qw / NODES DBCONFIG / ],
 		);
   return $errors;
 }
