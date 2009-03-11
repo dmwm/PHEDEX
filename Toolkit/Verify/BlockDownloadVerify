@@ -27,7 +27,8 @@ use PHEDEX::BlockConsistency::Agent;
 	     "log=s"        => \$args{LOGFILE},
 	     "db=s"         => \$args{DBCONFIG},
 	     "label=s"      => \$args{LABEL},
-	      "storagemap=s"=> \$args{STORAGEMAP},
+	     "storagemap=s" => \$args{STORAGEMAP},
+	     "namespace=s"  => \$args{NAMESPACE},
 
              "nodes=s"      => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
              "ignore=s"     => sub { push(@{$args{IGNORE_NODES}}, split(/,/, $_[1])) },
