@@ -105,6 +105,7 @@ use PHEDEX::Core::Catalogue;
 use File::Basename;
 use base 'Exporter';
 our @EXPORT = ();
+our @_loader_reject = ( qw / common namespace agent core / );
 
 our %pmap = ( rfio  => 'rf',
 	      srm   => 'srm',
