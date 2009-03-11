@@ -28,22 +28,24 @@ use Cwd;
 use Data::Dumper;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
-use PHEDEX::Core::Catalogue;
+use PHEDEX::Core::Catalogue ( qw / storageRules dbStorageRules applyStorageRules / );
 use PHEDEX::Core::DB;
 use PHEDEX::BlockConsistency::Core;
 use PHEDEX::Namespace;
+use PHEDEX::Core::Loader;
 use POE;
 use POE::Queue::Array;
 
 our %params =
 	(
-	  WAITTIME => 30 + rand(15),	# Agent activity cycle
-	  PROTOCOL => 'direct',         # File access protocol
-	  STORAGEMAP => undef,		# Storage path mapping rules
-	  USE_SRM => 'n',		# Use SRM or native technology?
-	  RFIO_USES_RFDIR => 0,		# Use rfdir instead of nsls?
-	  PRELOAD => undef,		# Library to preload for dCache?
-	  ME => 'BlockDownloadVerify',  # Name for the record...
+	  WAITTIME	=> 300 + rand(15),	# Agent activity cycle
+	  PROTOCOL	=> 'direct',		# File access protocol
+	  STORAGEMAP	=> undef,		# Storage path mapping rules
+	  USE_SRM	=> 'n',			# Use SRM or native technology?
+	  RFIO_USES_RFDIR => 0,			# Use rfdir instead of nsls?
+	  PRELOAD	=> undef,		# Library to preload for dCache?
+	  ME => 'BlockDownloadVerify',		# Name for the record...
+	  NAMESPACE	=> undef,
 	);
 
 sub new
@@ -162,6 +164,7 @@ sub doNSCheck
 {
   my ($self, $request) = @_;
   my ($n_files,$n_tested,$n_ok);
+  my ($ns,$loader,$cmd,$mapping);
   my @nodes = ();
 
   $self->Logmsg("doNSCheck: starting") if ( $self->{DEBUG} );
@@ -169,23 +172,45 @@ sub doNSCheck
   $self->{bcc}->Checks($request->{TEST}) or
     die "Test $request->{TEST} not known to ",ref($self),"!\n";
 
-  my $ns = PHEDEX::Namespace->new
+  if ( $self->{NAMESPACE} )
+  {
+    $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace' );
+    $ns = $loader->Load($self->{NAMESPACE})->new();
+    if ( $request->{TEST} eq 'size' )      { $cmd = 'size'; }
+    if ( $request->{TEST} eq 'migration' ) { $cmd = 'is_migrated'; }
+    if ( $self->{STORAGEMAP} )
+    {
+      $mapping = storageRules( $self->{STORAGEMAP}, 'lfn-to-pfn' );
+    }
+    else
+    {
+      my $cats;
+      my $nodeID = $self->{NODES_ID}{$self->{NODES}[0]};
+      $mapping = dbStorageRules( $self->{DBH}, $cats, $nodeID );
+    }
+  }
+  else
+  {
+    $ns = PHEDEX::Namespace->new
 		(
 			DBH		=> $self->{DBH},
 			STORAGEMAP	=> $self->{STORAGEMAP},
 			RFIO_USES_RFDIR	=> $self->{RFIO_USES_RFDIR},
 			PRELOAD		=> $self->{PRELOAD},
 		);
+    if ( $request->{TEST} eq 'size' )      { $cmd = 'statsize'; }
+    if ( $request->{TEST} eq 'migration' ) { $cmd = 'statmode'; }
 
-  if ( $self->{USE_SRM} eq 'y' or $request->{USE_SRM} eq 'y' )
-  {
-    $ns->protocol( 'srmv2' );
-    $ns->TFCPROTOCOL( 'srmv2' );
-  }
-  else
-  {
-    my $technology = $self->{bcc}->Buffers(@{$self->{NODES}});
-    $ns->technology( $technology );
+    if ( $self->{USE_SRM} eq 'y' or $request->{USE_SRM} eq 'y' )
+    {
+      $ns->protocol( 'srmv2' );
+      $ns->TFCPROTOCOL( 'srmv2' );
+    }
+    else
+    {
+      my $technology = $self->{bcc}->Buffers(@{$self->{NODES}});
+      $ns->technology( $technology );
+    }
   }
 
   $self->Logmsg("doNSCheck: Request ",$request->{ID}) if ( $self->{DEBUG} );
@@ -193,16 +218,28 @@ sub doNSCheck
   my $t = time;
   foreach my $r ( @{$request->{LFNs}} )
   {
-    my $pfn = $ns->lfn2pfn($r->{LOGICAL_NAME});
+    no strict 'refs';
+    my $pfn;
+    if ( $ns->can('lfn2pfn') )
+    {
+      $pfn = $ns->lfn2pfn($r->{LOGICAL_NAME});
+    }
+    else
+    {
+      my $tfcprotocol = 'direct';
+      my $node = $self->{NODES}[0];
+      my $lfn = $r->{LOGICAL_NAME};
+      $pfn = &applyStorageRules($mapping,$tfcprotocol,$node,'pre',$lfn,'n');
+    }
     if ( $request->{TEST} eq 'size' )
     {
-      my $size = $ns->statsize($pfn);
+      my $size = $ns->$cmd($pfn);
       if ( defined($size) && $size == $r->{FILESIZE} ) { $r->{STATUS} = 'OK'; }
       else { $r->{STATUS} = 'Error'; }
     }
     elsif ( $request->{TEST} eq 'migration' )
     {
-      my $mode = $ns->statmode($pfn);
+      my $mode = $ns->$cmd($pfn);
       if ( defined($mode) && $mode ) { $r->{STATUS} = 'OK'; }
       else { $r->{STATUS} = 'Error'; }
     }
