@@ -30,6 +30,7 @@ our (%h,%check,%params);
 %check = (
 		'SIZE'		=> 0,
  		'MIGRATION'	=> 0,
+ 		'IS_MIGRATED'	=> 0,
  		'CKSUM'		=> 0,
  		'DBS'		=> 0,
 	 );
