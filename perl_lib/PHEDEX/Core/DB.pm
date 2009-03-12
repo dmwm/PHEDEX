@@ -219,7 +219,8 @@ sub disconnectFromDatabase
 sub connectionValid
 {
     my ($self) = @_;
-    my $dbh = exists $self->{DBH} ? $self->{DBH} : $self; # dbh is either the argument or a key in the argument
+    return 0 if !$self;
+    my $dbh = $self->isa('DBI::db') ? $self : $self->{DBH}; # dbh is either the arg or the DBH of the arg
 
                                                                          # Bad things:
     if (! $dbh                                                           #   no database handle
