@@ -43,7 +43,6 @@ sub parseDatabaseInfo
     my ($self) = @_;
 
     $self->{DBH_LIFE} = 86400;
-    $self->{DBH_AGE} = 0;
     if ($self->{DBCONFIG} =~ /(.*):(.*)/)
     {
 	$self->{DBCONFIG} = $1;
@@ -112,7 +111,7 @@ sub connectToDatabase
   # Use cached connection if it's still alive and the handle
   # isn't too old, otherwise create new one.
   my $dbh = $self->{DBH};
-  if (! &connectionValid( $self ) )
+  if (! &connectionValid( $dbh ) )
   {
     $self->{DBH_LOGGING} = 1 if $ENV{PHEDEX_LOG_DB_CONNECTIONS};
     &PHEDEX::Core::Logging::Logmsg ($self, "(re)connecting to database") if $self->{DBH_LOGGING};
@@ -131,7 +130,7 @@ sub connectToDatabase
     if ( $self->{SHARED_DBH} )
     {
       &PHEDEX::Core::Logging::Logmsg($self, "Looking for a DBH to share") if $self->{DEBUG};
-      if ( exists($Agent::Registry{DBH}) )
+      if ( exists($Agent::Registry{DBH}) && &connectionValid($Agent::Registry{DBH}))
       {
         $self->{DBH} = $dbh = $Agent::Registry{DBH};
         &PHEDEX::Core::Logging::Logmsg($self, "using shared DBH=$dbh") if $self->{DEBUG};
@@ -180,11 +179,12 @@ sub connectToDatabase
     $dbh->{FetchHashKeyName} = "NAME_uc";
     $dbh->{LongReadLen} = 4096;
     $dbh->{RowCacheSize} = 10000;
-    $self->{DBH_AGE} = time();
-    $self->{DBH} = $dbh;
     $dbh->{private_phedex_invalid} = 0;
     $dbh->{private_phedex_prefix} = $self->{DBH_SCHEMA_PREFIX};
     $dbh->{private_phedex_newconn} = 1;
+    $dbh->{private_phedex_age} = time();
+    $dbh->{private_phedex_life} = $self->{DBH_LIFE};
+    $self->{DBH} = $dbh;
   }
 
   # Reset statement cache
@@ -212,7 +212,6 @@ sub disconnectFromDatabase
     eval { $dbh->disconnect() } if $dbh;
     undef $dbh;
     undef $self->{DBH};
-    undef $self->{DBH_AGE};
   }
 }
 
@@ -220,12 +219,14 @@ sub disconnectFromDatabase
 sub connectionValid
 {
     my ($self) = @_;
+    my $dbh = exists $self->{DBH} ? $self->{DBH} : $self; # dbh is either the argument or a key in the argument
+
                                                                          # Bad things:
-    if (! $self->{DBH}                                                   #   no database handle
-	|| $self->{DBH}{private_phedex_invalid}                          #   handle marked invalid elsewhere
-	|| time() - $self->{DBH_AGE} > $self->{DBH_LIFE}                 #   connection too old
-	|| (! eval { $self->{DBH}->ping() } || $@)                       #   DBI ping fails
-	|| (! eval { $self->{DBH}->do("select sysdate from dual") } || $@)) {    #   basic query fails
+    if (! $dbh                                                           #   no database handle
+	|| $dbh->{private_phedex_invalid}                                #   handle marked invalid elsewhere
+	|| time() - $dbh->{private_phedex_age} > $dbh->{private_phedex_life} #   connection too old
+	|| (! eval { $dbh->ping() } || $@)                               #   DBI ping fails
+	|| (! eval { $dbh->do("select sysdate from dual") } || $@)) {    #   basic query fails
 	return 0;
     }
 
