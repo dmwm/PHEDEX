@@ -327,7 +327,7 @@ sub do_tests
   {
     $self->setRequestState($request,'Expired');
     $self->{DBH}->commit();
-    $self->Logmsg("processDrop: return after Expiring $request->{ID}");
+    $self->Logmsg("do_tests: return after Expiring $request->{ID}");
   }
 
   if ( $request->{TEST} eq 'size' ||
@@ -348,7 +348,7 @@ sub do_tests
   {
     $self->setRequestState($request,'Rejected');
     $self->{DBH}->commit();
-    $self->Logmsg("processDrop: return after Rejecting $request->{ID}");
+    $self->Logmsg("do_tests: return after Rejecting $request->{ID}");
   }
   $self->{pmon}->State('do_tests','stop');
   $kernel->yield('do_tests');
