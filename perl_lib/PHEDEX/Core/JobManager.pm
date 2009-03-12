@@ -35,8 +35,8 @@ sub new
     my %args = (@_);
     my $self = { NJOBS => $args{NJOBS} || 1, JOBS => 0, KEEPALIVE => 1 };
     $self->{POCO_DEBUG} = $ENV{POCO_DEBUG} || 0; # Specially for PoCo::Child
-    $self->{VERBOSE}    = $args{VERBOSE} || 1;
-    $self->{DEBUG}      = $args{DEBUG}   || 1;
+    $self->{VERBOSE}    = $args{VERBOSE} || 0;
+    $self->{DEBUG}      = $args{DEBUG}   || 0;
     $self->{KEEPALIVE}  = $args{KEEPALIVE} if defined $args{KEEPALIVE};
 
 #   A queue to hold the jobs we will run
