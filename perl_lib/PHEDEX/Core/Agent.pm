@@ -65,7 +65,7 @@ our %params =
 	(
 	  ME		=> undef,
 	  DBH		=> undef,
-	  SHARED_DBH	=> 1,
+	  SHARED_DBH	=> 0,
 	  DBCONFIG	=> undef,
 	  DROPDIR	=> undef,
 	  NEXTDIR	=> undef,
