@@ -172,22 +172,23 @@ sub doNSCheck
   $self->{bcc}->Checks($request->{TEST}) or
     die "Test $request->{TEST} not known to ",ref($self),"!\n";
 
+  if ( $self->{STORAGEMAP} )
+  {
+    $mapping = storageRules( $self->{STORAGEMAP}, 'lfn-to-pfn' );
+  }
+  else
+  {
+    my $cats;
+    my $nodeID = $self->{NODES_ID}{$self->{NODES}[0]};
+    $mapping = dbStorageRules( $self->{DBH}, $cats, $nodeID );
+  }
+
   if ( $self->{NAMESPACE} )
   {
     $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace' );
     $ns = $loader->Load($self->{NAMESPACE})->new();
     if ( $request->{TEST} eq 'size' )      { $cmd = 'size'; }
     if ( $request->{TEST} eq 'migration' ) { $cmd = 'is_migrated'; }
-    if ( $self->{STORAGEMAP} )
-    {
-      $mapping = storageRules( $self->{STORAGEMAP}, 'lfn-to-pfn' );
-    }
-    else
-    {
-      my $cats;
-      my $nodeID = $self->{NODES_ID}{$self->{NODES}[0]};
-      $mapping = dbStorageRules( $self->{DBH}, $cats, $nodeID );
-    }
   }
   else
   {
@@ -198,8 +199,9 @@ sub doNSCheck
 			RFIO_USES_RFDIR	=> $self->{RFIO_USES_RFDIR},
 			PRELOAD		=> $self->{PRELOAD},
 		);
-    if ( $request->{TEST} eq 'size' )      { $cmd = 'statsize'; }
-    if ( $request->{TEST} eq 'migration' ) { $cmd = 'statmode'; }
+    if ( $request->{TEST} eq 'size' )        { $cmd = 'statsize'; }
+    if ( $request->{TEST} eq 'migration' )   { $cmd = 'statmode'; }
+    if ( $request->{TEST} eq 'is_migrated' ) { $cmd = 'statmode'; }
 
     if ( $self->{USE_SRM} eq 'y' or $request->{USE_SRM} eq 'y' )
     {
@@ -220,24 +222,18 @@ sub doNSCheck
   {
     no strict 'refs';
     my $pfn;
-    if ( $ns->can('lfn2pfn') )
-    {
-      $pfn = $ns->lfn2pfn($r->{LOGICAL_NAME});
-    }
-    else
-    {
-      my $tfcprotocol = 'direct';
-      my $node = $self->{NODES}[0];
-      my $lfn = $r->{LOGICAL_NAME};
-      $pfn = &applyStorageRules($mapping,$tfcprotocol,$node,'pre',$lfn,'n');
-    }
+    my $tfcprotocol = 'direct';
+    my $node = $self->{NODES}[0];
+    my $lfn = $r->{LOGICAL_NAME};
+    $pfn = &applyStorageRules($mapping,$tfcprotocol,$node,'pre',$lfn,'n');
     if ( $request->{TEST} eq 'size' )
     {
       my $size = $ns->$cmd($pfn);
       if ( defined($size) && $size == $r->{FILESIZE} ) { $r->{STATUS} = 'OK'; }
       else { $r->{STATUS} = 'Error'; }
     }
-    elsif ( $request->{TEST} eq 'migration' )
+    elsif ( $request->{TEST} eq 'migration' ||
+	    $request->{TEST} eq 'is_migrated' )
     {
       my $mode = $ns->$cmd($pfn);
       if ( defined($mode) && $mode ) { $r->{STATUS} = 'OK'; }
@@ -315,6 +311,7 @@ sub do_tests
     return;
   }
 
+  $self->{pmon}->State('do_tests','start');
 # Sanity checking
   &timeStart($$self{STARTTIME});
 
@@ -334,7 +331,8 @@ sub do_tests
   }
 
   if ( $request->{TEST} eq 'size' ||
-       $request->{TEST} eq 'migration' )
+       $request->{TEST} eq 'migration' ||
+       $request->{TEST} eq 'is_migrated' )
   {
     $self->setRequestState($request,'Active');
     $self->{DBH}->commit();
@@ -352,6 +350,7 @@ sub do_tests
     $self->{DBH}->commit();
     $self->Logmsg("processDrop: return after Rejecting $request->{ID}");
   }
+  $self->{pmon}->State('do_tests','stop');
   $kernel->yield('do_tests');
 }
 
@@ -412,6 +411,7 @@ sub get_work
   my ($self, $kernel) = @_[ OBJECT, KERNEL ];
   my @nodes = ();
 
+  $self->{pmon}->State('get_work','start');
   eval
   {
     $self->connectAgent();
@@ -435,13 +435,13 @@ sub get_work
       # Disconnect from the database
       $self->disconnectAgent();
     }
-    return;
   };
   do {
      chomp ($@);
      $self->Alert ("database error: $@");
      $self->{DBH}->rollback();
   } if $@;
+  $self->{pmon}->State('get_work','stop');
 
   return;
 }
