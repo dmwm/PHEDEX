@@ -18,16 +18,15 @@ sub new
     my $options = shift || {};
     my $params = shift || {};
 
-	# Set my defaults where not defined by the derived class.
-	$params->{COMMAND}     ||= undef;        # Transfer command
-	$params->{NJOBS}       ||= 1;            # Max number of parallel transfers
-	$params->{BATCH_FILES} ||= 1;            # Max number of files per batch
-	$params->{TIMEOUT}     ||= 3600;         # Maximum execution time
+    # Set my defaults where not defined by the derived class.
+    $params->{COMMAND}     ||= undef;        # Transfer command
+    $params->{NJOBS}       ||= 1;            # Max number of parallel transfers
+    $params->{BATCH_FILES} ||= 1;            # Max number of files per batch
+    $params->{TIMEOUT}     ||= 3600;         # Maximum execution time
 	
-	# Set argument parsing at this level.
-	$options->{'command=s'} = sub { $params->{COMMAND} = [ split(/,/, $_[1]) ] };
-	$options->{'jobs=i'}    = \$params->{NJOBS};
-	$options->{'timeout=i'} = \$params->{TIMEOUT};
+    # Set argument parsing at this level.
+    $options->{'command=s'} = sub { $params->{COMMAND} = [ split(/,/, $_[1]) ] };
+    $options->{'timeout=i'} = \$params->{TIMEOUT};
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
@@ -49,7 +48,7 @@ sub start_transfer_job
 
     foreach my $task (values %{$job->{TASKS}})
     {
-	my $postback = $session->postback('wrapper_task_done', $task->{TASKID});
+	my $postback = $session->postback('wrapper_task_done');
 	my $wrapper = new PHEDEX::Transfer::Wrapper ( CMD => [ @{$self->{COMMAND}}, 
 							       $task->{FROM_PFN},
 							       $task->{TO_PFN} ],
@@ -58,13 +57,13 @@ sub start_transfer_job
 						      TASK_DONE_CALLBACK => $postback
 						      );
     }
+    $job->{STARTED} = &mytimeofday();
 }
 
 sub wrapper_task_done
 {
     my ($self, $kernel, $context, $args) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-    my ($taskid) = @$context;
-    my ($xferinfo) = @$args;
+    my ($taskid, $xferinfo) = @$args;
     $kernel->yield('transfer_done', $taskid, $xferinfo);
 
 }

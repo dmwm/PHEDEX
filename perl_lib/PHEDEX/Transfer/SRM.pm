@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use base 'PHEDEX::Transfer::Command';
 use PHEDEX::Core::Command;
+use POE;
 use Getopt::Long;
 
 # Command back end defaulting to srmcp and supporting batch transfers.
@@ -16,15 +17,12 @@ sub new
     my $options = shift || {};
     my $params = shift || {};
 
-	# Set my defaults where not defined by the derived class.
-	$params->{PROTOCOLS}   ||= [ 'srm' ];    # Accepted protocols
-	$params->{COMMAND}     ||= [ 'srmcp' ];  # Transfer command
-	$params->{BATCH_FILES} ||= 10;           # Max number of files per batch
-	$params->{NJOBS}       ||= 30;           # Max number of parallel transfers
+    # Set my defaults where not defined by the derived class.
+    $params->{PROTOCOLS}   ||= [ 'srmv2', 'srm' ];  # Accepted protocols
+    $params->{COMMAND}     ||= [ 'srmcp' ];  # Transfer command
+    $params->{BATCH_FILES} ||= 10;           # Max number of files per batch
+    $params->{NJOBS}       ||= 30;           # Max number of parallel commands
 	
-	# Set argument parsing at this level.
-	$options->{'batch-files=i'} = \$params->{BATCH_FILES};
-
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
     bless $self, $class;
@@ -47,7 +45,7 @@ sub start_transfer_job
 		                    "$_->{TO_PFN}\n" }
 		          values %{$job->{TASKS}}));
 
-    my $postback = $session->postback('wrapper_task_done', $task->{TASKID});
+    my $postback = $session->postback('wrapper_task_done');
     my $wrapper = new PHEDEX::Transfer::Wrapper ( CMD => [ @{$self->{COMMAND}}, 
 							   "-copyjobfile=$spec",
 							   "-report=$report" ],
@@ -55,6 +53,7 @@ sub start_transfer_job
 						  WORKDIR => $job->{DIR},
 						  TASK_DONE_CALLBACK => $postback
 						  );
+    $job->{STARTED} = &mytimeofday();
 }
 
 1;
